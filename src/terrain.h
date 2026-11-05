@@ -27,12 +27,15 @@ public:
     std::vector<float> dirt;   // disturbed-soil blend 0..1
     GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
     uint32_t body = 0xffffffffu;
+    uint32_t rev = 0;          // bumped on every remesh (grass / cache invalidation)
   };
 
   void generate(const TemplateInfo& t);
   float height(float x, float z) const;
   float baseHeight(float x, float z) const;
   vec3 normal(float x, float z) const;
+  float dirtAt(float x, float z) const;      // disturbed-soil blend at a point (0 off-tile)
+  const Tile* tileAt(int tx, int tz) const { auto it = tiles.find(key(tx, tz)); return it == tiles.end() ? nullptr : &it->second; }
   bool raycast(vec3 o, vec3 d, float maxT, vec3& hit) const;
   bool inBuildArea(float x, float z) const { return std::fabs(x) <= buildHalf && std::fabs(z) <= buildHalf; }
   void draw(GLuint prog) const;
@@ -54,7 +57,7 @@ public:
   void applyDeltas(const std::map<int, std::vector<float>>& d);
   std::map<int, Tile> tiles;
   std::vector<uint8_t> holeMask;   // base-vertex collision holes under active tiles
-  uint32_t revision = 0;
+  uint32_t revision = 0, tileRev = 0, generation = 0;
 
   int n = 256; float size = 800, buildHalf = 300, waterLevel = -1000;
   std::vector<float> h;

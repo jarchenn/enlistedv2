@@ -1,0 +1,102 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  fixture: two farmhouse copies (one at 37 deg), rotated MG casemate, municipal building placed
+PASS  farmhouse has stable panel floor-00/west/bay-03
+PASS  F5 into Explore for the range
+PASS  intact wall stops a ray (hit at 1.00 m)
+PASS  masonry bay damaged (not open) after one centred HE hit
+PASS  masonry bay breached after second hit
+PASS  neighbouring panels stay up (1 breached)
+PASS  the other farmhouse copy is untouched (no shared prefab damage)
+PASS  a ray now passes through the visual opening
+PASS  a further shot through the opening resolves against the rebuilt collision
+PASS  farmhouse_2story pass 1 step 4 walk a real capsule through the breach: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 7 kitchen window next to the breach: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 8 aim at 'kitchen_casement' shows prompt
+PASS  farmhouse_2story pass 1 step 8 'kitchen_casement' is now open
+PASS  farmhouse_2story pass 1 step 12 front staircase after the breach: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 16 goto: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 17 rear staircase after the breach: floor height 0.301 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 20 aim at 'rear_door' shows prompt
+PASS  farmhouse_2story pass 1 step 20 'rear_door' is now open
+PASS  debug crater across a tile edge activates both tiles (4)
+PASS  crater surface matches collision (max |render - physics ray| 0.001 m)
+PASS  no gap between chunks at the tile edge (max step 0.0002 m)
+PASS  debug crater depth 0.69 m (preset 0.70)
+PASS  HE beside the rear threshold cratered the yard (0.36 m) but not the protected step (0.003 m)
+PASS  second HE in the same depression deepens it 0.39 -> 0.78 m (cap 1.6)
+PASS  overlapping craters still match collision (|diff| 0.000)
+PASS  crouched chest visible on flat ground, hidden by the crater rim from the low observation point (head still visible: 0.7 m debug crater is shallower than a crouch)
+PASS  farmhouse_2story pass 2 step 2 feet on deformed ground (feet -0.460, ground -0.471, grounded 1)
+PASS  farmhouse_2story pass 2 step 6 aim at 'rear_door' shows prompt
+PASS  farmhouse_2story pass 2 step 6 'rear_door' is now open
+PASS  farmhouse_2story pass 2 step 7 enter over the protected threshold after shelling: floor height 0.300 m (expected 0.30)
+PASS  player settles on the crater floor (feet -0.839, ground -0.843)
+PASS  casemate rear bay found
+PASS  reinforced bunker wall survives the first HE hit (state 0)
+PASS  casemate bay floor-00/rear/bay-01 opened by 4 deliberate HE hits
+PASS  a ray passes the breached bunker wall
+PASS  _mg_casemate pass 3 step 3 walk into the casemate through the breach: floor height 0.200 m (expected 0.20)
+PASS  municipal floor-00/west/bay-01 breached (2 hits)
+PASS  municipal floor-03/west/bay-01 breached (2 hits)
+PASS  municipal floor-03/front/bay-02 breached (2 hits)
+PASS  municipal_building pass 4 step 2 aim at 'front_door' shows prompt
+PASS  municipal_building pass 4 step 2 'front_door' is now open
+PASS  municipal_building pass 4 step 3 enter ground-floor hall: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 4 step 7 into the corridor: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 4 step 9 core A: floor 0 up to half landing: floor height 1.950 m (expected 1.95)
+PASS  municipal_building pass 4 step 13 core A reaches floor 1: floor height 3.600 m (expected 3.60)
+PASS  municipal_building pass 4 step 15 core A: floor 1 up to half landing: floor height 5.250 m (expected 5.25)
+PASS  municipal_building pass 4 step 17 core A reaches floor 2: floor height 6.900 m (expected 6.90)
+PASS  municipal_building pass 4 step 19 core A: floor 2 up to half landing: floor height 8.549 m (expected 8.55)
+PASS  municipal_building pass 4 step 21 core A reaches floor 3: floor height 10.20 m (expected 10.2)
+PASS  municipal_building pass 4 step 23 core A: floor 3 up to half landing: floor height 11.84 m (expected 11.8)
+PASS  municipal_building pass 4 step 25 core A reaches floor 4: floor height 13.49 m (expected 13.5)
+PASS  municipal_building pass 4 step 26 top-floor corridor window: floor height 13.49 m (expected 13.5)
+PASS  municipal_building pass 4 step 27 aim at 'r4_0_casement' shows prompt
+PASS  municipal_building pass 4 step 27 'r4_0_casement' is now open
+PASS  municipal_building pass 4 step 31 core B: floor 4 down to half landing: floor height 11.84 m (expected 11.8)
+PASS  municipal_building pass 4 step 33 core B reaches floor 3: floor height 10.20 m (expected 10.2)
+PASS  municipal_building pass 4 step 35 core B: floor 3 down to half landing: floor height 8.549 m (expected 8.55)
+PASS  municipal_building pass 4 step 37 core B reaches floor 2: floor height 6.900 m (expected 6.90)
+PASS  municipal_building pass 4 step 39 core B: floor 2 down to half landing: floor height 5.250 m (expected 5.25)
+PASS  municipal_building pass 4 step 41 core B reaches floor 1: floor height 3.600 m (expected 3.60)
+PASS  municipal_building pass 4 step 43 core B: floor 1 down to half landing: floor height 1.950 m (expected 1.95)
+PASS  municipal_building pass 4 step 45 core B reaches floor 0: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 4 step 49 goto: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 4 step 50 aim at 'rear_door' shows prompt
+PASS  municipal_building pass 4 step 50 'rear_door' is now open
+PASS  Command Shelter @17 deg: off-centre hits open floor-00/rear/bay-01 (concrete, 4 hits), ray passes, neighbours intact
+PASS  Field Shelter @58 deg: off-centre hits open floor-00/front/bay-01 (timber, 1 hits), ray passes, neighbours intact
+PASS  Machine-Gun Casemate @99 deg: off-centre hits open floor-00/rear/bay-01 (concrete, 4 hits), ray passes, neighbours intact
+PASS  Observation Post @140 deg: off-centre hits open floor-00/east/bay-01 (concrete, 4 hits), ray passes, neighbours intact
+PASS  Two-Story Farmhouse @181 deg: off-centre hits open floor-00/east/bay-02 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Two-Story Farmhouse @181 deg: off-centre hits open floor-01/east/bay-02 (masonry, 1 hits), ray passes, neighbours intact
+PASS  Single-Story Stone Cottage @222 deg: off-centre hits open floor-00/east/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Municipal Building @263 deg: off-centre hits open floor-00/east/bay-02 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Municipal Building @263 deg: off-centre hits open floor-04/rear/bay-02 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Stone Warehouse @304 deg: off-centre hits open floor-00/east/bay-02 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Stone Warehouse @304 deg: off-centre hits open floor-02/east/bay-02 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Village Inn @345 deg: off-centre hits open floor-00/east/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Village Inn @345 deg: off-centre hits open floor-03/east/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Village Schoolhouse @26 deg: off-centre hits open floor-00/east/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Village Schoolhouse @26 deg: off-centre hits open floor-02/rear/bay-03 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Carpenter's Workshop @67 deg: off-centre hits open floor-00/front/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Roadside Office @108 deg: off-centre hits open floor-00/east/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Stone Dairy Outbuilding @149 deg: off-centre hits open floor-00/rear/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  Small Storehouse @190 deg: off-centre hits open floor-00/rear/bay-01 (masonry, 2 hits), ray passes, neighbours intact
+PASS  returning to Creative restores every wall and the ground
+PASS  crater removed from the canonical height after reset
+PASS  F5 again
+PASS  applied damage survives the return to Creative
+PASS  only the damaged copy carries panel state in the map
+PASS  undo restores the wall, its collision and the ground together
+PASS  redo re-applies it
+PASS  map with applied damage saved
+PASS  reloading twice keeps the same crater depth (0.398, 0.398, applied 0.398)
+PASS  breached panel restored from the saved map
+PASS  pre-update example map opens
+PASS  pre-update map: building present, all panels intact
+
+97 passed, 0 failed

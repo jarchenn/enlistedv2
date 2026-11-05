@@ -38,6 +38,7 @@ private:
   void pakUpdate(App& app, float dt);
   void weaponsUpdate(App& app, float dt);
   void captureUpdate(App& app, float dt);
+  void grassUpdate(App& app, float dt);
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);
   json summary = json::object();
 };

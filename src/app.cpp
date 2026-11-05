@@ -354,6 +354,9 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-reopen") { runSelf = true; ++k; }
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
+    else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
+    else if (a == "--selftest-grass") runSelf = true;
+    else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else openPath = a;
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
@@ -465,6 +468,8 @@ int App::run(int argc, char** argv) {
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    updateGrass(v.camPos);
+    R.grass = &grass;
     R.render(v, terrain, op, gl, ghosts, ov);
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
     ImGui::Render();
@@ -488,4 +493,22 @@ int App::run(int argc, char** argv) {
   Physics::shutdown();
   glfwDestroyWindow(win); glfwTerminate();
   return code;
+}
+
+// ============================================================ grass
+std::vector<GrassFootprint> App::grassFootprints() const {
+  // every placed structure clears grass inside its geometric bounds (+ margin: steps, thresholds, berms);
+  // field guns and crates sit in the grass and are not excluded.
+  std::vector<GrassFootprint> fp;
+  for (auto& i : doc.instances) {
+    const AssetDef* a = assetFor(i);
+    if (!a || a->station.kind.size() || !a->crate.empty()) continue;
+    fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z)});
+  }
+  return fp;
+}
+
+void App::updateGrass(vec3 cam) {
+  uint32_t seed = doc.seed * 2654435761u + (uint32_t)doc.templateVersion * 40503u + (uint32_t)std::hash<std::string>{}(doc.templateId);
+  grass.update(terrain, seed, grassFootprints(), cam, grassBudgetMs);
 }

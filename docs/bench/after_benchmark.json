@@ -1,0 +1,40 @@
+{
+  "asset_pool": 14,
+  "flyover": {
+    "avg_ms": 11.16459689703809,
+    "draws": 4337,
+    "frames": 709,
+    "last_gpu_ms": 9.47584,
+    "last_render_cpu_ms": 14.1794,
+    "max_ms": 282.0344000000001,
+    "p50_ms": 13.336299999999968,
+    "p95_ms": 19.10280000000064,
+    "p99_ms": 26.981699999999886,
+    "tris": 1182972,
+    "working_set_mb": 328.83203125
+  },
+  "flyover_mid": {
+    "cam_y": 20.0002384185791,
+    "draws": 4369,
+    "gpu_ms": 1.599488,
+    "grass_blades": 135899,
+    "grass_chunks": 351,
+    "grass_chunks_drawn": 60,
+    "tris": 2109172
+  },
+  "gl_renderer": "NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2",
+  "interior_walk": {
+    "avg_ms": 17.788450343811384,
+    "frames": 2036,
+    "max_ms": 203.69340000000236,
+    "p50_ms": 20.55379999999829,
+    "p95_ms": 26.35590000000043,
+    "p99_ms": 28.6401000000005,
+    "working_set_mb": 320.83984375
+  },
+  "resolution": [
+    1920,
+    1080
+  ],
+  "structures": 30
+}

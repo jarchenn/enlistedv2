@@ -341,6 +341,8 @@ void App::drawWeaponUI() {
     ImGui::Checkbox("Strict 6 June 1944 preset (hides later-war M1C)", &strictDDay);
     ImGui::Checkbox("Range presentation: show every trajectory", &fx.rangeMode);
     ImGui::Checkbox("Reduced motion (keeps aim displacement)", &reducedMotion);
+    { int q = (int)grass.quality; const char* names[] = {"Off", "Low", "Medium", "High"};
+      if (ImGui::Combo("Grass", &q, names, 4)) grass.quality = (GrassQuality)q; }
     ImGui::Separator();
     for (size_t k = 0; k < weaponDefs.size(); ++k) {
       auto& w = *weaponDefs[k];

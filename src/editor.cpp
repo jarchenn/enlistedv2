@@ -261,6 +261,11 @@ void App::drawCreativeUI() {
       ImGui::MenuItem("Asset browser", nullptr, &showBrowser);
       ImGui::MenuItem("Grid overlay", "H", &gridOverlay);
       ImGui::MenuItem("Performance stats", "F3", &showStats);
+      if (ImGui::BeginMenu("Grass")) {
+        for (int q = 0; q < 4; ++q) if (ImGui::MenuItem(grassPreset((GrassQuality)q).name, nullptr, (int)grass.quality == q)) grass.quality = (GrassQuality)q;
+        ImGui::Separator(); ImGui::MenuItem("Wind", nullptr, &grass.wind);
+        ImGui::EndMenu();
+      }
       ImGui::EndMenu();
     }
     if (ImGui::MenuItem("Explore  (F5)")) enterExplore();
@@ -437,6 +442,7 @@ void App::drawCreativeUI() {
     ImGui::Text("render cpu %.2f ms gpu %.2f ms", R.stats.cpuMs, R.stats.gpuMs);
     ImGui::Text("draws %d  tris %d", R.stats.draws, R.stats.tris);
     ImGui::Text("instances %zu  bodies %d", doc.instances.size(), Physics::bodyCount());
+    ImGui::Text("grass %s: %zu blades drawn, %d chunks", grassPreset(grass.quality).name, grass.lastDrawnBlades, grass.chunkCount());
     ImGui::End();
   }
 

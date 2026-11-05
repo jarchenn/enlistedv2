@@ -1,0 +1,144 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  range: farmhouse target wall at 40 m, mixed crate, PaK crate, M2HB on tripod
+PASS  F5
+PASS  m1_garand starts 8 + 72 (table 8 + 72)
+PASS  kar98k starts 5 + 55 (table 5 + 55)
+PASS  mp40 starts 32 + 160 (table 32 + 160)
+PASS  m1_thompson starts 20 + 80 (table 20 + 80)
+PASS  m1c_garand starts 8 + 72 (table 8 + 72)
+PASS  kar98k_zf39 starts 5 + 55 (table 5 + 55)
+PASS  mg42 starts 50 + 200 (table 50 + 200)
+PASS  M2HB emplacement starts 110 + 110 = 220
+PASS  reserve held as real containers (MP 40 5 mags, Thompson 4 mags, MG 42 4 belts)
+PASS  ADS: rear aperture and front post on the aim axis (0.0 px, 0.0 px from centre)
+PASS  ADS narrows the field of view
+PASS  40 m shot lands 0.02 m from the point under the sights (impact feedback visible)
+PASS  8 rounds fired: clip ejects with a ping, 0 + 72 left
+PASS  crate refills reserve only: Garand 0 + 80, still empty until R (M1 Garand reserve +8 rounds (1 x 30-06_clip), now 80 reserve, total 80/80. Loaded still 0: press R to reload.)
+PASS  full reserve leaves the crate stock untouched (M2HB belts already full (110/110).  M1 Garand already at its allowance (80/80). Crate untouched.)
+PASS  .50 links stay at the crate for the M2HB: a rifle cannot claim them
+PASS  PaK crate rejects the rifle feed type: M1 Garand: this crate holds no 30-06_clip (wrong feed type).
+PASS  R loads a fresh en-bloc clip: 8 + 72
+PASS  partial reload ejects the 5-round clip and keeps it in reserve (8 + 69, total 77 after 3 shots)
+PASS  switching mid-reload cancels it without moving rounds (7 loaded)
+PASS  Kar98k: no second shot before the bolt is worked (0.85 s)
+PASS  Kar98k: no second shot before the bolt is worked (0.85 s)
+PASS  Kar98k: no second shot before the bolt is worked (0.85 s)
+PASS  Kar98k: no second shot before the bolt is worked (0.85 s)
+PASS  Kar98k: no second shot before the bolt is worked (0.85 s)
+PASS  Kar98k: no second shot before the bolt is worked (0.85 s)
+PASS  Kar98k fires again only after each bolt cycle (2 shots in 2 s)
+PASS  partial Kar98k reload tops off single rounds
+PASS  partial Kar98k reload tops off single rounds
+PASS  partial Kar98k reload tops off single rounds
+PASS  partial Kar98k reload tops off single rounds
+PASS  partial Kar98k reload tops off single rounds
+PASS  topped off to 5 one round at a time (3 -> 5), rounds conserved
+PASS  empty Kar98k reload strips a 5-round clip
+PASS  empty Kar98k reload strips a 5-round clip
+PASS  empty Kar98k reload strips a 5-round clip
+PASS  empty Kar98k reload strips a 5-round clip
+PASS  empty Kar98k reload strips a 5-round clip
+PASS  clip stripped into the magazine: 5 loaded
+PASS  distinct cyclic rates: MP 40 9/s, M1 Thompson 11/s
+PASS  partial Thompson magazine goes back to the pouch with its rounds
+PASS  bipod-supported burst climbs far less (3.96 vs 7.01 deg)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change in progress (top cover open)
+PASS  belt change complete: 50 + 150
+PASS  one belt segment from the crate: MG 42 reserve 150 -> 200, rifle clips unchanged (MG 42 (light, bipod) reserve +50 rounds (1 x 792_belt50), now 200 reserve, total 250/250. Loaded still 50: press R to reload.)
+PASS  M1C: 2.5x scope through the projection (fov 28.7)
+PASS  M1C scope is offset left of the receiver (clip path clear)
+PASS  Kar98k ZF39: 4x, irons not offered (scope blocks the sight line)
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  ZF39 rifle reloads one cartridge at a time
+PASS  single round loaded: 5
+PASS  strict 6 June 1944 preset hides the later-war M1C
+PASS  0.5 s burst: 5 rounds at 60 fps, 5 at 10 fps (no multiplied rounds)
+PASS  crew the M2HB from its spade grips
+PASS  M2HB fired out its 110-round increment
+PASS  fresh belt at the gun: 110 + 0
+PASS  .50 belt from the crate goes to the M2HB reserve only (M2HB belts +110 (now 110/110). Crate 50bmg_belt: 5 left. Reload with R at the gun.)
+PASS  return to Creative resets weapons, the M2HB and crate stock (test consumption not persisted)
+
+139 passed, 0 failed

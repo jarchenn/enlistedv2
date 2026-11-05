@@ -327,9 +327,13 @@ std::string App::crateTransaction(uint64_t crateId) {
     return name + " +" + std::to_string(n * unit) + " (now " + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + "). Crate " + ammo + ": " + (unlimited ? std::string("unlimited") : std::to_string(stock[ammo]) + " left") + ". Reload with R at the gun.";
   }
   // 2) personal weapon reserve (weapons.cpp)
+  int before = 0; for (auto& [id, ws] : wstate) before += ws.reserveRounds();
   std::string personal = resupplyPersonal(crateId);
-  if (!personal.empty()) return personal;
-  return msg.empty() ? "Nothing here fits your weapon or a gun in reach." : msg;
+  int after = 0; for (auto& [id, ws] : wstate) after += ws.reserveRounds();
+  if (after > before) return personal;                       // personal resupply happened
+  // nothing moved: the emplacement reason (out of reach, empty, full) leads, the personal refusal follows
+  if (!msg.empty()) return personal.empty() ? msg : msg + "  " + personal;
+  return personal.empty() ? "Nothing here fits your weapon or a gun in reach." : personal;
 }
 
 void App::drawCombatUI() {

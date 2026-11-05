@@ -22,6 +22,7 @@ void SelfTest::captureUpdate(App& app, float) {
     PK = app.placeInstance(app.lib.find("gun_pak40"), vec3(8, 0, 58), 200.0f);
     app.syncRuntime();
     app.hideEditorOverlays = true;
+    app.grassBudgetMs = -1;   // grass fully built before each shot
     auto W = [&](uint64_t id, vec3 l) { Instance* i = app.doc.find(id); return i->pos + yawQuat(i->yaw) * l; };
     cams = {
       {"farmhouse_table", W(FH, vec3(-1.9f, 1.75f, 2.4f)), W(FH, vec3(-3.4f, 0.85f, 0.3f))},

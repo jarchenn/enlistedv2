@@ -1,0 +1,26 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  farmhouse_2story pass 1 step 4 aim at 'front_door' shows prompt
+PASS  farmhouse_2story pass 1 step 4 'front_door' is now open
+PASS  farmhouse_2story pass 1 step 5 stand in the door's swing: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 6 aim at 'front_door' shows prompt
+PASS  farmhouse_2story pass 1 step 6 'front_door' is now open
+PASS  farmhouse_2story pass 1 step 7 enter hall: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 10 kitchen window: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 13 aim at 'kitchen_casement' shows prompt
+PASS  farmhouse_2story pass 1 step 13 'kitchen_casement' is now open
+PASS  farmhouse_2story pass 1 step 14 aim at 'kitchen_shutters' shows prompt
+PASS  farmhouse_2story pass 1 step 14 'kitchen_shutters' is now open
+PASS  farmhouse_2story pass 1 step 25 front staircase reaches upper floor: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 29 east bedroom window: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 30 aim at 'bedroom_e_front_casement' shows prompt
+PASS  farmhouse_2story pass 1 step 30 'bedroom_e_front_casement' is now open
+PASS  farmhouse_2story pass 1 step 34 rear stair head: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 35 rear service staircase reaches ground floor: floor height 0.303 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 38 aim at 'rear_door' shows prompt
+PASS  farmhouse_2story pass 1 step 38 'rear_door' is now open
+PASS  farmhouse_2story pass 1 step 40 aim at 'rear_door' shows prompt
+PASS  farmhouse_2story pass 1 step 40 'rear_door' is now closed
+
+21 passed, 0 failed

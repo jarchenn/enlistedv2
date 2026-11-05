@@ -1,0 +1,217 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  Blank Slate template is available
+PASS  new Blank Slate map starts with zero placed structures
+PASS  F5 with no start marker enters Explore at the view centre
+PASS  farmhouse asset definition loaded
+PASS  farmhouse placed on Blank Slate grass at yaw 37
+PASS  build-area corner accepts a structure (Valid placement.)
+PASS  overlapping placement is rejected with a reason: "Overlaps Two-Story Farmhouse #1."
+PASS  start marker outside the front door is valid
+PASS  F5 enters Explore at the marker
+PASS  camera is at eye level (1.62 m)
+PASS  farmhouse_2story pass 1 step 4 aim at 'front_door' shows prompt
+PASS  farmhouse_2story pass 1 step 4 'front_door' is now open
+PASS  farmhouse_2story pass 1 step 5 stand in the door's swing: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 6 aim at 'front_door' shows prompt
+PASS  farmhouse_2story pass 1 step 6 'front_door' is now open
+PASS  farmhouse_2story pass 1 step 7 enter hall: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 10 kitchen window: floor height 0.300 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 13 aim at 'kitchen_casement' shows prompt
+PASS  farmhouse_2story pass 1 step 13 'kitchen_casement' is now open
+PASS  farmhouse_2story pass 1 step 14 aim at 'kitchen_shutters' shows prompt
+PASS  farmhouse_2story pass 1 step 14 'kitchen_shutters' is now open
+PASS  farmhouse_2story pass 1 step 25 front staircase reaches upper floor: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 29 east bedroom window: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 30 aim at 'bedroom_e_front_casement' shows prompt
+PASS  farmhouse_2story pass 1 step 30 'bedroom_e_front_casement' is now open
+PASS  farmhouse_2story pass 1 step 34 rear stair head: floor height 3.300 m (expected 3.30)
+PASS  farmhouse_2story pass 1 step 35 rear service staircase reaches ground floor: floor height 0.303 m (expected 0.30)
+PASS  farmhouse_2story pass 1 step 38 aim at 'rear_door' shows prompt
+PASS  farmhouse_2story pass 1 step 38 'rear_door' is now open
+PASS  farmhouse_2story pass 1 step 40 aim at 'rear_door' shows prompt
+PASS  farmhouse_2story pass 1 step 40 'rear_door' is now closed
+PASS  Esc/Return to Creative restores the editor
+PASS  moved position is valid
+PASS  map saved to selftest_regression.nmap.json
+PASS  atomic save left no temp file
+PASS  Command Shelter placed at yaw 184
+PASS  F5 at Command Shelter
+PASS  _command_shelter pass 1 step 3 aim at 'entrance_door' shows prompt
+PASS  _command_shelter pass 1 step 3 'entrance_door' is now open
+PASS  _command_shelter pass 1 step 5 gas lock: floor height 0.200 m (expected 0.20)
+PASS  _command_shelter pass 1 step 6 aim at 'gaslock_door' shows prompt
+PASS  _command_shelter pass 1 step 6 'gaslock_door' is now open
+PASS  _command_shelter pass 1 step 8 through the gas-tight door: floor height 0.200 m (expected 0.20)
+PASS  _command_shelter pass 1 step 9 at the loophole: floor height 0.200 m (expected 0.20)
+PASS  _command_shelter pass 1 step 10 aim at 'loophole_flap' shows prompt
+PASS  _command_shelter pass 1 step 10 'loophole_flap' is now open
+PASS  Field Shelter placed at yaw 245
+PASS  F5 at Field Shelter
+PASS  _field_shelter pass 1 step 2 aim at 'shelter_door' shows prompt
+PASS  _field_shelter pass 1 step 2 'shelter_door' is now open
+PASS  _field_shelter pass 1 step 3 enter shelter: floor height 0.150 m (expected 0.15)
+PASS  _field_shelter pass 1 step 4 at the aperture: floor height 0.150 m (expected 0.15)
+PASS  _field_shelter pass 1 step 5 aim at 'firing_shutter' shows prompt
+PASS  _field_shelter pass 1 step 5 'firing_shutter' is now open
+PASS  Machine-Gun Casemate placed at yaw 306
+PASS  F5 at Machine-Gun Casemate
+PASS  _mg_casemate pass 1 step 3 aim at 'casemate_door' shows prompt
+PASS  _mg_casemate pass 1 step 3 'casemate_door' is now open
+PASS  _mg_casemate pass 1 step 4 enter casemate: floor height 0.200 m (expected 0.20)
+PASS  _mg_casemate pass 1 step 5 at the embrasure: floor height 0.200 m (expected 0.20)
+PASS  _mg_casemate pass 1 step 6 aim at 'embrasure_shutter' shows prompt
+PASS  _mg_casemate pass 1 step 6 'embrasure_shutter' is now open
+PASS  Observation Post placed at yaw 7
+PASS  F5 at Observation Post
+PASS  _observation_post pass 1 step 2 aim at 'op_door' shows prompt
+PASS  _observation_post pass 1 step 2 'op_door' is now open
+PASS  _observation_post pass 1 step 3 enter observation post: floor height 0.200 m (expected 0.20)
+PASS  _observation_post pass 1 step 4 at the slit: floor height 0.200 m (expected 0.20)
+PASS  _observation_post pass 1 step 7 aim at 'viewing_flap' shows prompt
+PASS  _observation_post pass 1 step 7 'viewing_flap' is now open
+PASS  _observation_post pass 1 step 10 aim at 'viewing_flap' shows prompt
+PASS  _observation_post pass 1 step 10 'viewing_flap' is now closed
+PASS  Single-Story Stone Cottage placed at yaw 13
+PASS  F5 at Single-Story Stone Cottage
+PASS  stone_cottage pass 1 step 2 aim at 'front_door' shows prompt
+PASS  stone_cottage pass 1 step 2 'front_door' is now open
+PASS  stone_cottage pass 1 step 3 enter cottage: floor height 0.300 m (expected 0.30)
+PASS  stone_cottage pass 1 step 4 living-room window: floor height 0.300 m (expected 0.30)
+PASS  stone_cottage pass 1 step 5 aim at 'living_casement' shows prompt
+PASS  stone_cottage pass 1 step 5 'living_casement' is now open
+PASS  stone_cottage pass 1 step 6 aim at 'living_casement' shows prompt
+PASS  stone_cottage pass 1 step 6 'living_casement' is now closed
+PASS  stone_cottage pass 1 step 9 bedroom doorway: floor height 0.300 m (expected 0.30)
+PASS  stone_cottage pass 1 step 11 bedroom window: floor height 0.300 m (expected 0.30)
+PASS  stone_cottage pass 1 step 12 aim at 'bedroom_casement' shows prompt
+PASS  stone_cottage pass 1 step 12 'bedroom_casement' is now open
+PASS  stone_cottage pass 1 step 13 aim at 'bedroom_shutters' shows prompt
+PASS  stone_cottage pass 1 step 13 'bedroom_shutters' is now open
+PASS  Municipal Building placed at yaw 74
+PASS  F5 at Municipal Building
+PASS  municipal_building pass 1 step 2 aim at 'front_door' shows prompt
+PASS  municipal_building pass 1 step 2 'front_door' is now open
+PASS  municipal_building pass 1 step 3 enter ground-floor hall: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 1 step 7 into the corridor: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 1 step 9 core A: floor 0 up to half landing: floor height 1.950 m (expected 1.95)
+PASS  municipal_building pass 1 step 13 core A reaches floor 1: floor height 3.600 m (expected 3.60)
+PASS  municipal_building pass 1 step 15 core A: floor 1 up to half landing: floor height 5.250 m (expected 5.25)
+PASS  municipal_building pass 1 step 17 core A reaches floor 2: floor height 6.900 m (expected 6.90)
+PASS  municipal_building pass 1 step 19 core A: floor 2 up to half landing: floor height 8.549 m (expected 8.55)
+PASS  municipal_building pass 1 step 21 core A reaches floor 3: floor height 10.20 m (expected 10.2)
+PASS  municipal_building pass 1 step 23 core A: floor 3 up to half landing: floor height 11.84 m (expected 11.8)
+PASS  municipal_building pass 1 step 25 core A reaches floor 4: floor height 13.49 m (expected 13.5)
+PASS  municipal_building pass 1 step 26 top-floor corridor window: floor height 13.49 m (expected 13.5)
+PASS  municipal_building pass 1 step 27 aim at 'r4_0_casement' shows prompt
+PASS  municipal_building pass 1 step 27 'r4_0_casement' is now open
+PASS  municipal_building pass 1 step 31 core B: floor 4 down to half landing: floor height 11.84 m (expected 11.8)
+PASS  municipal_building pass 1 step 33 core B reaches floor 3: floor height 10.20 m (expected 10.2)
+PASS  municipal_building pass 1 step 35 core B: floor 3 down to half landing: floor height 8.549 m (expected 8.55)
+PASS  municipal_building pass 1 step 37 core B reaches floor 2: floor height 6.900 m (expected 6.90)
+PASS  municipal_building pass 1 step 39 core B: floor 2 down to half landing: floor height 5.250 m (expected 5.25)
+PASS  municipal_building pass 1 step 41 core B reaches floor 1: floor height 3.600 m (expected 3.60)
+PASS  municipal_building pass 1 step 43 core B: floor 1 down to half landing: floor height 1.950 m (expected 1.95)
+PASS  municipal_building pass 1 step 45 core B reaches floor 0: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 1 step 49 goto: floor height 0.300 m (expected 0.30)
+PASS  municipal_building pass 1 step 50 aim at 'rear_door' shows prompt
+PASS  municipal_building pass 1 step 50 'rear_door' is now open
+PASS  Stone Warehouse placed at yaw 135
+PASS  F5 at Stone Warehouse
+PASS  stone_warehouse pass 1 step 2 aim at 'front_door' shows prompt
+PASS  stone_warehouse pass 1 step 2 'front_door' is now open
+PASS  stone_warehouse pass 1 step 3 enter ground-floor hall: floor height 0.300 m (expected 0.30)
+PASS  stone_warehouse pass 1 step 7 into the corridor: floor height 0.300 m (expected 0.30)
+PASS  stone_warehouse pass 1 step 9 core A: floor 0 up to half landing: floor height 2.200 m (expected 2.20)
+PASS  stone_warehouse pass 1 step 13 core A reaches floor 1: floor height 4.100 m (expected 4.10)
+PASS  stone_warehouse pass 1 step 15 core A: floor 1 up to half landing: floor height 6.000 m (expected 6.00)
+PASS  stone_warehouse pass 1 step 17 core A reaches floor 2: floor height 7.900 m (expected 7.90)
+PASS  stone_warehouse pass 1 step 18 top-floor corridor window: floor height 7.900 m (expected 7.90)
+PASS  stone_warehouse pass 1 step 19 aim at 'r2_0_casement' shows prompt
+PASS  stone_warehouse pass 1 step 19 'r2_0_casement' is now open
+PASS  stone_warehouse pass 1 step 23 core B: floor 2 down to half landing: floor height 6.000 m (expected 6.00)
+PASS  stone_warehouse pass 1 step 25 core B reaches floor 1: floor height 4.100 m (expected 4.10)
+PASS  stone_warehouse pass 1 step 27 core B: floor 1 down to half landing: floor height 2.200 m (expected 2.20)
+PASS  stone_warehouse pass 1 step 29 core B reaches floor 0: floor height 0.300 m (expected 0.30)
+PASS  stone_warehouse pass 1 step 33 goto: floor height 0.300 m (expected 0.30)
+PASS  stone_warehouse pass 1 step 34 aim at 'rear_door' shows prompt
+PASS  stone_warehouse pass 1 step 34 'rear_door' is now open
+PASS  Village Inn placed at yaw 196
+PASS  F5 at Village Inn
+PASS  village_inn pass 1 step 2 aim at 'front_door' shows prompt
+PASS  village_inn pass 1 step 2 'front_door' is now open
+PASS  village_inn pass 1 step 3 enter ground-floor hall: floor height 0.300 m (expected 0.30)
+PASS  village_inn pass 1 step 7 into the corridor: floor height 0.300 m (expected 0.30)
+PASS  village_inn pass 1 step 9 core A: floor 0 up to half landing: floor height 1.900 m (expected 1.90)
+PASS  village_inn pass 1 step 13 core A reaches floor 1: floor height 3.500 m (expected 3.50)
+PASS  village_inn pass 1 step 15 core A: floor 1 up to half landing: floor height 5.100 m (expected 5.10)
+PASS  village_inn pass 1 step 17 core A reaches floor 2: floor height 6.700 m (expected 6.70)
+PASS  village_inn pass 1 step 19 core A: floor 2 up to half landing: floor height 8.299 m (expected 8.30)
+PASS  village_inn pass 1 step 21 core A reaches floor 3: floor height 9.900 m (expected 9.90)
+PASS  village_inn pass 1 step 22 top-floor corridor window: floor height 9.900 m (expected 9.90)
+PASS  village_inn pass 1 step 23 aim at 'r3_0_casement' shows prompt
+PASS  village_inn pass 1 step 23 'r3_0_casement' is now open
+PASS  village_inn pass 1 step 27 core B: floor 3 down to half landing: floor height 8.299 m (expected 8.30)
+PASS  village_inn pass 1 step 29 core B reaches floor 2: floor height 6.700 m (expected 6.70)
+PASS  village_inn pass 1 step 31 core B: floor 2 down to half landing: floor height 5.100 m (expected 5.10)
+PASS  village_inn pass 1 step 33 core B reaches floor 1: floor height 3.500 m (expected 3.50)
+PASS  village_inn pass 1 step 35 core B: floor 1 down to half landing: floor height 1.900 m (expected 1.90)
+PASS  village_inn pass 1 step 37 core B reaches floor 0: floor height 0.300 m (expected 0.30)
+PASS  village_inn pass 1 step 38 goto: floor height 0.300 m (expected 0.30)
+PASS  village_inn pass 1 step 39 aim at 'rear_door' shows prompt
+PASS  village_inn pass 1 step 39 'rear_door' is now open
+PASS  Village Schoolhouse placed at yaw 257
+PASS  F5 at Village Schoolhouse
+PASS  village_schoolhouse pass 1 step 2 aim at 'front_door' shows prompt
+PASS  village_schoolhouse pass 1 step 2 'front_door' is now open
+PASS  village_schoolhouse pass 1 step 3 enter ground-floor hall: floor height 0.300 m (expected 0.30)
+PASS  village_schoolhouse pass 1 step 7 into the corridor: floor height 0.300 m (expected 0.30)
+PASS  village_schoolhouse pass 1 step 9 core A: floor 0 up to half landing: floor height 2.000 m (expected 2.00)
+PASS  village_schoolhouse pass 1 step 13 core A reaches floor 1: floor height 3.700 m (expected 3.70)
+PASS  village_schoolhouse pass 1 step 15 core A: floor 1 up to half landing: floor height 5.400 m (expected 5.40)
+PASS  village_schoolhouse pass 1 step 17 core A reaches floor 2: floor height 7.100 m (expected 7.10)
+PASS  village_schoolhouse pass 1 step 18 top-floor corridor window: floor height 7.100 m (expected 7.10)
+PASS  village_schoolhouse pass 1 step 19 aim at 'r2_0_casement' shows prompt
+PASS  village_schoolhouse pass 1 step 19 'r2_0_casement' is now open
+PASS  village_schoolhouse pass 1 step 23 core B: floor 2 down to half landing: floor height 5.400 m (expected 5.40)
+PASS  village_schoolhouse pass 1 step 25 core B reaches floor 1: floor height 3.700 m (expected 3.70)
+PASS  village_schoolhouse pass 1 step 27 core B: floor 1 down to half landing: floor height 2.000 m (expected 2.00)
+PASS  village_schoolhouse pass 1 step 29 core B reaches floor 0: floor height 0.300 m (expected 0.30)
+PASS  village_schoolhouse pass 1 step 33 goto: floor height 0.300 m (expected 0.30)
+PASS  village_schoolhouse pass 1 step 34 aim at 'rear_door' shows prompt
+PASS  village_schoolhouse pass 1 step 34 'rear_door' is now open
+PASS  Carpenter's Workshop placed at yaw 318
+PASS  F5 at Carpenter's Workshop
+PASS  carpenter_workshop pass 1 step 2 aim at 'cart_doors' shows prompt
+PASS  carpenter_workshop pass 1 step 2 'cart_doors' is now open
+PASS  carpenter_workshop pass 1 step 3 enter workshop: floor height 0.150 m (expected 0.15)
+PASS  carpenter_workshop pass 1 step 4 front window: floor height 0.150 m (expected 0.15)
+PASS  carpenter_workshop pass 1 step 5 aim at 'front_casement' shows prompt
+PASS  carpenter_workshop pass 1 step 5 'front_casement' is now open
+PASS  Roadside Office placed at yaw 19
+PASS  F5 at Roadside Office
+PASS  roadside_office pass 1 step 2 aim at 'office_door' shows prompt
+PASS  roadside_office pass 1 step 2 'office_door' is now open
+PASS  roadside_office pass 1 step 3 enter office: floor height 0.200 m (expected 0.20)
+PASS  roadside_office pass 1 step 4 office window: floor height 0.200 m (expected 0.20)
+PASS  roadside_office pass 1 step 5 aim at 'office_front_casement' shows prompt
+PASS  roadside_office pass 1 step 5 'office_front_casement' is now open
+PASS  Stone Dairy Outbuilding placed at yaw 80
+PASS  F5 at Stone Dairy Outbuilding
+PASS  stone_dairy pass 1 step 2 aim at 'dairy_door' shows prompt
+PASS  stone_dairy pass 1 step 2 'dairy_door' is now open
+PASS  stone_dairy pass 1 step 3 enter dairy: floor height 0.150 m (expected 0.15)
+PASS  stone_dairy pass 1 step 4 dairy window: floor height 0.150 m (expected 0.15)
+PASS  stone_dairy pass 1 step 5 aim at 'dairy_front_casement' shows prompt
+PASS  stone_dairy pass 1 step 5 'dairy_front_casement' is now open
+PASS  Small Storehouse placed at yaw 141
+PASS  F5 at Small Storehouse
+PASS  storehouse pass 1 step 2 aim at 'store_doors' shows prompt
+PASS  storehouse pass 1 step 2 'store_doors' is now open
+PASS  storehouse pass 1 step 3 enter storehouse: floor height 0.150 m (expected 0.15)
+PASS  storehouse pass 1 step 4 gable window: floor height 0.150 m (expected 0.15)
+PASS  storehouse pass 1 step 5 aim at 'gable_casement' shows prompt
+PASS  storehouse pass 1 step 5 'gable_casement' is now open
+
+212 passed, 0 failed

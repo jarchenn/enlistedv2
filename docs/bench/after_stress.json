@@ -1,0 +1,61 @@
+{
+  "gl_renderer": "NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2",
+  "grass_flyover_high": {
+    "avg_ms": 2.6796063139931743,
+    "blades_drawn_avg": 180218.14166666666,
+    "frames": 586,
+    "gpu_ms_last": 1.179648,
+    "grass_bytes": 21971984,
+    "grass_peak_build_ms": 2.8372,
+    "grass_tufts_resident": 343311,
+    "max_ms": 4.887099999999922,
+    "p50_ms": 2.5680000000001257,
+    "p95_ms": 3.7610999999997397,
+    "p99_ms": 4.420599999999997,
+    "working_set_mb": 306.578125
+  },
+  "grass_flyover_medium": {
+    "avg_ms": 1.9801872013651889,
+    "blades_drawn_avg": 50911.75,
+    "frames": 586,
+    "gpu_ms_last": 0.761312,
+    "grass_bytes": 12337936,
+    "grass_peak_build_ms": 2.764,
+    "grass_tufts_resident": 192779,
+    "max_ms": 3.801400000000399,
+    "p50_ms": 1.8919999999997827,
+    "p95_ms": 2.8714000000000794,
+    "p99_ms": 3.5610000000003694,
+    "working_set_mb": 298.9921875
+  },
+  "grass_flyover_off": {
+    "avg_ms": 1.8401832764505113,
+    "frames": 586,
+    "gpu_ms_last": 0.571008,
+    "max_ms": 3.9434000000000413,
+    "p50_ms": 1.7571999999999033,
+    "p95_ms": 2.798000000000078,
+    "p99_ms": 3.473400000000071,
+    "working_set_mb": 278.50390625
+  },
+  "peak_working_set_mb": 329.0078125,
+  "repeated_impacts": {
+    "avg_ms": 2.7142991543340353,
+    "deformation_tiles": 3,
+    "frames": 946,
+    "grass_peak_rebuild_ms": 2.7825,
+    "impact_resolve_avg_ms": 0.3338125,
+    "impact_resolve_max_ms": 0.4981,
+    "impacts": 40,
+    "max_ms": 176.69599999999974,
+    "p50_ms": 2.460899999999988,
+    "p95_ms": 3.578499999999707,
+    "p99_ms": 4.15599999999916,
+    "working_set_mb": 300.328125
+  },
+  "resolution": [
+    1920,
+    1080
+  ],
+  "structures": 6
+}

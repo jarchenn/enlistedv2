@@ -44,6 +44,7 @@ static float vnoise(float x, float y, uint32_t s) {
 void Terrain::generate(const TemplateInfo& t) {
   destroy();
   clearTiles();
+  ++generation;
   size = t.size; buildHalf = t.buildHalf; waterLevel = t.waterLevel;
   h.assign(n * n, 0.0f);
   float cell = size / (n - 1);
@@ -124,6 +125,21 @@ float Terrain::height(float x, float z) const {
   return baseHeight(x, z);
 }
 
+float Terrain::dirtAt(float x, float z) const {
+  if (tiles.empty()) return 0;
+  float ts = tileSize();
+  int tx = (int)std::floor((x + size * 0.5f) / ts), tz = (int)std::floor((z + size * 0.5f) / ts);
+  const Tile* t = tileAt(tx, tz);
+  if (!t) return 0;
+  vec2 o = tileOrigin(tx, tz);
+  float fs = fineSpacing();
+  float fx = std::clamp((x - o.x) / fs, 0.0f, kFine - 0.0001f), fz = std::clamp((z - o.y) / fs, 0.0f, kFine - 0.0001f);
+  int xi = (int)fx, zi = (int)fz; float u = fx - xi, v = fz - zi;
+  const auto& D = t->dirt;
+  float a = D[zi * kFineN + xi], b = D[zi * kFineN + xi + 1], c = D[(zi + 1) * kFineN + xi], d = D[(zi + 1) * kFineN + xi + 1];
+  return glm::mix(glm::mix(a, b, u), glm::mix(c, d, u), v);
+}
+
 vec3 Terrain::normal(float x, float z) const {
   float e = tiles.empty() ? size / (n - 1) : fineSpacing();
   return glm::normalize(vec3(height(x - e, z) - height(x + e, z), 2 * e, height(x, z - e) - height(x, z + e)));
@@ -149,7 +165,9 @@ bool Terrain::raycast(vec3 o, vec3 d, float maxT, vec3& hit) const {
 }
 
 void Terrain::setMask(int tx, int tz, uint8_t v) {
-  if (maskTex) glTextureSubImage2D(maskTex, 0, tx, tz, 1, 1, GL_RED, GL_UNSIGNED_BYTE, &v);
+  // GL_R8 is normalised: write 255 so the shader test (> 0.5) sees an active tile
+  uint8_t texel = v ? 255 : 0;
+  if (maskTex) { glPixelStorei(GL_UNPACK_ALIGNMENT, 1); glTextureSubImage2D(maskTex, 0, tx, tz, 1, 1, GL_RED, GL_UNSIGNED_BYTE, &texel); }
   // base-vertex collision holes: the interior vertices of the tile remove every base quad it covers
   for (int j = tz * kTileCells + 1; j < (tz + 1) * kTileCells; ++j)
     for (int i = tx * kTileCells + 1; i < (tx + 1) * kTileCells; ++i) holeMask[(size_t)j * n + i] = v;
@@ -212,6 +230,7 @@ std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<f
 }
 
 void Terrain::rebuildMesh(Tile& t) {
+  t.rev = ++tileRev;
   struct TV { vec3 p, n; float dirt; };
   std::vector<TV> v(kFineN * kFineN);
   vec2 o = tileOrigin(t.tx, t.tz);

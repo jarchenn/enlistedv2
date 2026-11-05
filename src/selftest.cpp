@@ -115,7 +115,7 @@ void SelfTest::finish(App& app) {
   f << "GL: " << (const char*)glGetString(GL_RENDERER) << " | " << (const char*)glGetString(GL_VERSION) << "\n\n";
   for (auto& r : results) f << r << "\n";
   f << "\n" << (results.size() - failures) << " passed, " << failures << " failed\n";
-  if (bench) { std::ofstream b(outDir() / "benchmark.json"); b << benchOut.dump(2); }
+  if (bench) { std::ofstream b(outDir() / (reportName.size() ? "benchmark_" + reportName + ".json" : std::string("benchmark.json"))); b << benchOut.dump(2); }
   logf("[selftest] done: %d failures", failures);
   exitCode = failures ? 1 : 0;
   done = true;
@@ -142,6 +142,8 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-pak") { go(600); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-weapons") { go(700); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--capture-materials") { go(800); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-grass") { go(900); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-stress") { go(950); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }
     const TemplateInfo* t = app.findTemplate("blank_slate");
@@ -331,9 +333,14 @@ void SelfTest::update(App& app, float dt) {
     const TemplateInfo* t = app.findTemplate("blank_slate");
     app.newMap(*t, "Benchmark settlement");
     int placed = 0;
+    // the legacy scene uses only the 14 enterable structures (ordnance and crates added later are excluded,
+    // so the asset mix and the numbers stay comparable with docs/baseline/benchmark.json)
+    std::vector<const AssetDef*> legacy;
+    for (auto& a : app.lib.assets) if (a->station.kind.empty() && !(a->crate.is_object() && !a->crate.empty())) legacy.push_back(a.get());
+    benchOut["asset_pool"] = legacy.size();
     for (int gz = 0; gz < 6 && placed < 30; ++gz)
       for (int gx = 0; gx < 6 && placed < 30; ++gx) {
-        const AssetDef* a = app.lib.assets[(gx + gz) % app.lib.assets.size()].get();
+        const AssetDef* a = legacy[(gx + gz) % legacy.size()];
         if (app.placeInstance(a, vec3(-90 + gx * 30.0f, 0, -90 + gz * 30.0f), (gx * 37 + gz * 53) % 360)) ++placed;
       }
     benchOut["structures"] = placed;
@@ -348,6 +355,7 @@ void SelfTest::update(App& app, float dt) {
     lastT = nowT;
     float u = std::min(1.0f, (float)stageTime / 12.0f);
     float a = u * 6.2831853f;
+    { static bool mid = false; if (!mid && u > 0.5f) { mid = true; shotQueue.push_back("bench_flyover_mid"); benchOut["flyover_mid"] = {{"draws", app.R.stats.draws}, {"tris", app.R.stats.tris}, {"gpu_ms", app.R.stats.gpuMs}, {"grass_blades", app.grass.lastDrawnBlades}, {"grass_chunks_drawn", app.grass.lastDrawnChunks}, {"grass_chunks", app.grass.chunkCount()}, {"cam_y", app.camPos.y}}; } }
     app.camPos = vec3(std::cos(a) * 140, 45 - 25 * std::sin(u * 3.14159f), std::sin(a) * 140);
     app.camYaw = yawTo(app.camPos, vec3(0)); app.camPitch = -18;
     if (u >= 1) {

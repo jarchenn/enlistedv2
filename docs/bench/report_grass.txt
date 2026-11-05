@@ -1,0 +1,25 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  Medium preset places grass around the camera (142336 tufts, 106 chunks)
+PASS  the field gun is not an exclusion footprint; the two buildings are
+PASS  no grass inside footprints, steps or bunker berm bounds (rotated 33 degrees): 0 violations
+PASS  grass resumes within 3 m of the buildings (1945 tufts in the 1.5-3 m band)
+PASS  clearing and rebuilding reproduces bit-identical grass
+PASS  switching Low / Medium / High never re-places grass (preset only changes the drawn prefix)
+PASS  Off frees every grass chunk
+PASS  Off -> Medium restores the identical layout
+PASS  pasture at the crater site is grassed before the impact
+PASS  HE crater deforms the pasture
+PASS  the chunk under the crater is rebuilt
+PASS  a chunk 36 m away is untouched
+PASS  only chunks overlapping the changed deformation tiles rebuild (2)
+PASS  disturbed soil within 1 m of the impact has no grass (40 -> 0)
+PASS  no tuft stands on disturbed soil anywhere
+PASS  Explore reset restores identical grass
+PASS  moving a building re-masks grass and undo restores the identical layout
+PASS  the same impact on the same ground reproduces the same cratered grass
+PASS  after Apply damage to map, every reset restores the same cratered grass (crater stays bare)
+PASS  undoing Apply damage restores the original grass
+
+20 passed, 0 failed

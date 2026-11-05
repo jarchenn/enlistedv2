@@ -329,6 +329,65 @@ void main(){
 }
 )GLSL";
 
+
+// ---- instanced grass: one tapered blade per instance, alpha-tested silhouette, rooted wind bend
+static const char* kGrassVS = R"GLSL(
+layout(location=0) in vec3 aB; layout(location=1) in vec4 iP; layout(location=2) in vec4 iS;
+uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
+out vec3 vW, vAlb, vF; out vec2 vUV;
+void main(){
+  float d = length(iP.xyz - uCamPos);
+  float fade = 1.0 - smoothstep(uRadius*0.72, uRadius, d);
+  float bl = aB.z;
+  // per-blade variation inside the tuft (deterministic from the instance phase)
+  float r1 = fract(sin(iS.w*12.9898 + bl*78.233)*43758.5453), r2 = fract(sin(iS.w*39.346 + bl*11.135)*24634.6345);
+  float ang = iP.w + bl*2.39996 + r1*0.6;
+  vec3 side = vec3(cos(ang), 0.0, -sin(ang));
+  vec3 fwd = vec3(sin(ang), 0.0, cos(ang));
+  vec3 root = iP.xyz + fwd*(0.02 + 0.05*r2);
+  float h = iS.x * (0.6 + 0.45*r2) * fade;
+  float v = aB.y;
+  float w = iS.y * uWidthScale * (1.0 - v*0.55);
+  vec3 p = root + side*(aB.x*w*0.5) + vec3(0.0, v*h, 0.0);
+  float curve = 0.12 + 0.30*r1;                        // blades lean out of the tuft
+  float gust = sin(uTime*1.7 + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(uTime*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
+  vec3 bend = fwd*curve + vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.20)*uWind;
+  p += bend*(v*v)*h;            // root (v = 0) never moves
+  p.y -= (v*v)*h*dot(bend, bend)*0.35;
+  vec3 alb = unpackUnorm4x8(floatBitsToUint(iS.z)).rgb*0.5;   // meadow palette baked per tuft on the CPU
+  vAlb = alb; vW = p; vF = fwd; vUV = vec2(aB.x*0.5 + 0.5, v);
+  gl_Position = uVP*vec4(p, 1.0);
+}
+)GLSL";
+static const char* kGrassFS = R"GLSL(
+in vec3 vW, vAlb, vF; in vec2 vUV;
+out vec4 oColor;
+void main(){
+  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y;
+  if (e > 1.0 - pow(v, 1.6)) discard;                   // alpha-tested blade silhouette (pointed tip)
+  vec3 F = gl_FrontFacing ? vF : -vF;
+  vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*0.45);
+  vec3 alb = vAlb * mix(0.78, 1.15, v);
+  // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
+  float sh = 1.0;
+  if (uShadowOn == 1) {
+    vec4 lp = uLightVP*vec4(vW + vec3(0.0, 0.06, 0.0), 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
+    if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.xy, sc.z - 0.0015));
+  }
+  float sv = 1.0;
+  if (uOccOn == 1) {
+    vec4 lp = uOccVP*vec4(vW, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
+    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) sv = 1.0 - smoothstep(0.15, 0.6, (uOccTop - texture(uOcc, uv).r*uOccRange) - vW.y);
+  }
+  float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
+  vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
+  vec3 c = (alb/PI*uSunCol*ndl*sh + irr*alb) * mix(0.72, 1.0, v);
+  vec3 V = normalize(uCamPos - vW);
+  c += alb * uSunCol * 0.10 * pow(max(dot(-V, uSunDir), 0.0), 3.0) * v * sh;   // thin-leaf transmission
+  oColor = vec4(applyFog(c, vW), 1.0);
+}
+)GLSL";
+
 static const char* kFullVS = R"GLSL(
 #version 450 core
 out vec2 vUV;
@@ -464,6 +523,7 @@ bool Renderer::init(int w, int h) {
   progExpo = compile(kFullVS, kExpoFS, "expo");
   progLine = compile(kLineVS, kLineFS, "line");
   progFx = compile(kFxVS, kFxFS, "fx");
+  progGrass = compile(kGrassVS, kGrassFS, "grass");
   glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
   glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
   for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
@@ -643,6 +703,15 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   setLighting(progMain, v);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false);
+  // grass after opaque so buildings reject hidden blades early; double sided
+  if (grass && !thumbMode) {
+    glDisable(GL_CULL_FACE);
+    setLighting(progGrass, v);
+    glUniformMatrix4fv(U(progGrass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    grass->draw(progGrass, vp, v.camPos);
+    stats.draws += grass->lastDrawnChunks; stats.tris += (int)grass->lastDrawnBlades * 8;
+    glEnable(GL_CULL_FACE);
+  }
   // transparent: glass then ghosts
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glDepthMask(GL_FALSE);

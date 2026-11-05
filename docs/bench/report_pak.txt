@@ -1,0 +1,57 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  range: PaK 40, MG casemate 60 m downrange, rotated farmhouse, PaK ammunition crate placed from the catalog
+PASS  F5
+PASS  aiming at the PaK shows its crew prompt
+PASS  E opens the Aim / Move choice (consumed once)
+PASS  Aim: gunner at the ZF 3x8 eyepiece view (fov 9 deg)
+PASS  casemate survives the first real PaK hit
+PASS  PaK 40 HE opened casemate rear bay with 4 real shells (fired from the world muzzle, timed reloads)
+PASS  ammunition conserved: loaded + reserve = 6 - shots (4 fired)
+PASS  right stop: traverse 32.50 elev 0.38 (expected 32.5 / 0.0), bore 32.5 deg off the carriage centreline
+PASS  left stop: traverse -32.50 elev 0.38 (expected -32.5 / 0.0), bore 32.5 deg off the carriage centreline
+PASS  up stop: traverse 0.00 elev 22.00 (expected 0.0 / 22.0), bore 0.0 deg off the carriage centreline
+PASS  down stop: traverse 0.00 elev -5.00 (expected 0.0 / -5.0), bore 0.0 deg off the carriage centreline
+PASS  Switch position: gunner -> preparing -> handler (Move)
+PASS  handler pushes the carriage slowly (2.10 m in 3 s)
+PASS  carriage turned 90.19 deg
+PASS  no shot while moving with the trigger held
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deploying (trails spread, spades set)
+PASS  deployed; still no shot
+PASS  back in Aim with the trigger still held: no discharge (fresh press required)
+PASS  back in Aim with the trigger still held: no discharge (fresh press required)
+PASS  back in Aim with the trigger still held: no discharge (fresh press required)
+PASS  right after 90 deg reposition stop: traverse 32.50 elev 22.00 (expected 32.5 / 0.0), bore 32.5 deg off the carriage centreline
+PASS  left after 90 deg reposition stop: traverse -32.50 elev 22.00 (expected -32.5 / 0.0), bore 32.5 deg off the carriage centreline
+PASS  carriage sweep stops at the farmhouse (Blocked: blocked by a structure, 10 m from centre)
+PASS  carriage refuses to roll into a steep crater (Blocked: too steep for the wheels (crater edge?))
+PASS  deployment on the crater edge fails and stays in Move (too steep for the wheels (crater edge?))
+PASS  a real HE shell on the pasture cut a crater
+PASS  gun empty: 0 loaded, 0 reserve
+PASS  E leaves the gun at a valid dismount point
+PASS  crate refuses: moved gun is out of its service radius (PaK 40 reserve: gun is out of reach (17 m > 6 m).  Karabiner 98k: this crate holds no 792_clip (wrong feed type).)
+PASS  aiming at the crate shows the ammunition prompt
+PASS  finite crate with one shell left moves exactly one: PaK 40 reserve 1, loaded still 0 until R
+PASS  an empty crate cannot create ammunition (PaK 40 reserve: crate has no 75mm_he left.  Karabiner 98k: this crate holds no 792_clip (wrong feed type).)
+PASS  return to Creative: gun back at its authored position with 1 + 5 rounds
+PASS  crate back to its authored stock (12)
+PASS  casemate and pasture restored (playtest overlay discarded)
+PASS  moved gun was not persisted to the map
+
+52 passed, 0 failed

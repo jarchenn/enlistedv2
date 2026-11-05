@@ -124,6 +124,10 @@ public:
   void drawDamageDebug();
   // ---- combat (station.cpp / fx.cpp / weapons.cpp)
   Fx fx;
+  Grass grass;
+  double grassBudgetMs = 2.5;        // per-frame chunk build budget (< 0: build synchronously)
+  std::vector<GrassFootprint> grassFootprints() const;
+  void updateGrass(vec3 cam);
   std::vector<Projectile> projectiles;
   GpuMesh debrisMesh;
   uint64_t occupied = 0, choiceFor = 0;
