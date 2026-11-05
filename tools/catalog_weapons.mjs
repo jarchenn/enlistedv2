@@ -6,8 +6,8 @@ import { Asset } from "./kit.mjs";
 function mats(A) {
   A.mat("walnut", [0.20, 0.10, 0.05], 0.55, "wood", { grain: 2 });
   A.mat("walnut_y", [0.20, 0.10, 0.05], 0.55, "wood", { grain: 1 });
-  A.mat("parker", [0.06, 0.065, 0.06], 0.6, "metal", { metallic: 0.7 });
-  A.mat("blued", [0.035, 0.037, 0.045], 0.42, "metal", { metallic: 0.85 });
+  A.mat("parker", [0.10, 0.10, 0.095], 0.72, "metal", { metallic: 0.25 });   // parkerized: matte grey phosphate
+  A.mat("blued", [0.20, 0.21, 0.24], 0.36, "metal", { metallic: 0.85 });   // blued steel: dark but reflective
   A.mat("bakelite", [0.11, 0.055, 0.03], 0.45, "plain");
   A.mat("leather", [0.16, 0.09, 0.045], 0.7, "fabric");
   A.mat("brass", [0.62, 0.44, 0.18], 0.32, "metal", { metallic: 1.0 });

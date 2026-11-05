@@ -81,7 +81,8 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
   vec3 R = reflect(-V, N);
   vec3 Fr = F0 + (max(vec3(1.0-rough), F0)-F0)*pow(1.0-NdV, 5.0);
-  vec3 envSpec = skyColor(R) * Fr * amb * (1.0-rough*0.7) * 0.5;
+  vec3 envL = mix(uFill * 2.4 + uGroundCol * 0.25, skyColor(R) * amb, sv);
+  vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6;
   return (direct + irr*alb*kd + envSpec) * ao;
 }
 )GLSL";
@@ -108,26 +109,45 @@ void main(){
   int pat = int(vPar.x + 0.5);
   vec3 alb = vAlb; float rough = vPar.y, metal = vPar.z; int grain = int(vPar.w+0.5);
   float h = 0.0, bump = 0.0, ao = 1.0;
-  if (pat == 1) { // limestone rubble / coursed stone
+  if (pat == 1) { // coursed limestone: courses of varying height, irregular joints, pillowed faces
     vec2 uv = faceUV(vAp, vAn);
-    float rowH = 0.27 + 0.0*uv.x; float row = floor(uv.y/rowH);
-    float off = hash12(vec2(row,7.0))*0.7; float bl = 0.38 + 0.4*hash12(vec2(row,3.0));
-    float col = floor((uv.x+off)/bl); vec2 id = vec2(col,row);
-    vec2 f = vec2(fract((uv.x+off)/bl)*bl, fract(uv.y/rowH)*rowH);
-    float e = min(min(f.x, bl-f.x), min(f.y, rowH-f.y));
-    float wob = vnoise(vec3(uv*9.0, 3.0))*0.012;
-    float mortar = 1.0 - smoothstep(0.008, 0.028, e + wob);
-    float sv = 0.78 + 0.34*hash12(id) ;
-    vec3 sc = alb * sv * (0.88 + 0.2*vnoise(vec3(uv*4.0, 2.0)));
-    sc = mix(sc, sc*vec3(1.05,0.98,0.86), hash12(id+11.0));
-    sc *= 0.92 + 0.12*fbm(vec3(uv*22.0, 5.0));
-    alb = mix(sc, vec3(0.60,0.58,0.53), mortar);
-    float damp = 1.0 - smoothstep(-0.2, 0.9, vAp.y);
-    alb *= mix(1.0, 0.72, damp);
-    rough = mix(rough, 0.97, mortar);
-    h = (1.0-mortar)*(0.7 + 0.3*vnoise(vec3(uv*5.0,1.0))); bump = 0.012; ao = 1.0 - mortar*0.25;
+    float band = floor(uv.y / 0.62), fy = uv.y - band * 0.62;
+    float s1 = 0.62 * (0.36 + 0.28 * hash12(vec2(band, 17.0)));
+    float three = step(0.68, hash12(vec2(band, 29.0)));
+    float s2 = mix(0.62, s1 + (0.62 - s1) * (0.45 + 0.1 * hash12(vec2(band, 31.0))), three);
+    float cy0 = 0.0, cy1 = s1, row = band * 3.0;
+    if (fy >= s1 && fy < s2) { cy0 = s1; cy1 = s2; row += 1.0; } else if (fy >= s2) { cy0 = s2; cy1 = 0.62; row += 2.0; }
+    float rowH = cy1 - cy0;
+    float L = max(rowH * 1.15, 0.30 + 0.55 * hash12(vec2(row, 3.0)));
+    float x = uv.x + hash12(vec2(row, 7.0)) * 5.0;
+    float k = floor(x / L);
+    float jl = (hash12(vec2(k, row)) - 0.5) * 0.45 * L, jr = (hash12(vec2(k + 1.0, row)) - 0.5) * 0.45 * L;
+    float left = k * L + jl, right = (k + 1.0) * L + jr;
+    if (x < left) { right = left; k -= 1.0; left = k * L + (hash12(vec2(k, row)) - 0.5) * 0.45 * L; }
+    else if (x > right) { left = right; k += 1.0; right = (k + 1.0) * L + (hash12(vec2(k + 1.0, row)) - 0.5) * 0.45 * L; }
+    vec2 id = vec2(k, row);
+    float ex = min(x - left, right - x), ey = min(fy - cy0, cy1 - fy);
+    float e = min(ex, ey) + (vnoise(vec3(uv * 9.0, 3.0)) - 0.5) * 0.018;
+    float mortar = 1.0 - smoothstep(0.005, 0.02, e);
+    float pillow = smoothstep(0.0, 0.06, e);
+    float u = clamp((x - left) / max(right - left, 1e-3), 0.0, 1.0);
+    float tilt = (hash12(id + 3.0) - 0.5) * (u - 0.5) + (hash12(id + 9.0) - 0.5) * ((fy - cy0) / max(rowH, 1e-3) - 0.5);
+    float pit = smoothstep(0.62, 0.8, vnoise(vec3(uv * 22.0, id.x)));
+    vec3 sc = alb * (0.74 + 0.4 * hash12(id));
+    sc = mix(sc, sc * vec3(1.1, 0.98, 0.8), hash12(id + 11.0) * 0.85);          // ochre Caen limestone
+    sc = mix(sc, sc * vec3(0.84, 0.88, 0.93), step(0.86, hash12(id + 5.0)) * 0.7);   // occasional grey stone
+    sc *= 0.8 + 0.38 * fbm(vec3(uv * 0.3, 9.0));                                     // macro variation along the wall
+    sc *= 0.9 + 0.16 * fbm(vec3(uv * 16.0, 5.0));
+    sc *= 1.0 - 0.18 * pit;
+    vec3 mcol = vec3(0.50, 0.48, 0.43) * (0.85 + 0.22 * fbm(vec3(uv * 11.0, 2.0)));
+    alb = mix(sc, mcol, mortar);
+    float damp = 1.0 - smoothstep(-0.2, 1.0, vAp.y);
+    alb *= mix(1.0, 0.7, damp);
+    rough = mix(clamp(rough * (0.88 + 0.22 * hash12(id + 7.0)) - 0.1 * damp, 0.3, 1.0), 0.98, mortar);
+    h = (1.0 - mortar) * (0.55 + 0.45 * pillow) + tilt * 0.35 - pit * 0.15;
+    bump = 0.016; ao = 1.0 - mortar * 0.4;
   } else if (pat == 2 || pat == 10) { // wood planks / painted wood
-    int na = domAxis(vPn); int g = grain; if (g == na) g = (na+1)%3;
+    int na = domAxis(vPn); bool endGrain = grain == na; int g = grain; if (g == na) g = (na+1)%3;
     int ac = 3 - na - g;
     float along = vPc[g], across = vPc[ac];
     float pw = (pat == 10) ? 0.14 : 0.17;
@@ -142,12 +162,20 @@ void main(){
       wc = mix(paint, bare, wear);
       rough = mix(rough, 0.85, wear);
     }
+    if (endGrain) {   // cut end: growth rings, darker, more absorbent
+      vec2 q = vec2(vPc[(na+1)%3], vPc[(na+2)%3]) + vec2(hash12(vec2(pid, 1.0)), hash12(vec2(pid, 2.0))) * 0.3;
+      float ring = fract(length(q) * 55.0 + vnoise(vec3(q * 30.0, 1.0)) * 1.5);
+      wc = alb * (0.62 + 0.18 * smoothstep(0.3, 0.6, ring));
+      seam = 0.0; rough = min(1.0, rough + 0.15);
+    }
     alb = mix(wc, wc*0.4, seam);
     rough = clamp(rough + (gr-0.5)*0.12, 0.2, 1.0);
     h = (1.0-seam) + gr*0.1; bump = 0.0025; ao = 1.0 - seam*0.3;
   } else if (pat == 3) { // lime plaster / whitewash
     float n = fbm(vAp*1.7);
-    alb *= 0.9 + 0.12*n;
+    float trowel = vnoise(vec3(faceUV(vAp, vAn) * vec2(3.0, 9.0), 7.0));
+    alb *= 0.9 + 0.12*n + 0.05*trowel;
+    alb = mix(alb, alb*1.06, smoothstep(0.55, 0.7, fbm(vAp*0.6 + 3.0)));
     float dirt = 1.0 - smoothstep(0.0, 0.5, fract(vAp.y) * 0.0 + (vAp.y - floor(vAp.y/3.0)*3.0));
     alb *= mix(1.0, 0.86, dirt*0.0);
     h = fbm(vAp*14.0); bump = 0.0012;
@@ -192,11 +220,17 @@ void main(){
     alb *= 0.75 + 0.4*hash12(vec2(id,row));
     alb = mix(alb, vec3(0.55,0.53,0.5), mortar);
     h = 1.0-mortar; bump = 0.006;
-  } else if (pat == 11) { // concrete with board marks
-    float n = fbm(vAp*2.0);
-    float board = 1.0 - smoothstep(0.0, 0.01, abs(fract(vAp.y/0.2)-0.5)*0.2 - 0.09);
-    alb *= 0.82 + 0.25*n; alb *= 1.0 - board*0.15;
-    h = n*0.5 - board*0.5; bump = 0.004;
+  } else if (pat == 11) { // poured concrete: board formwork, aggregate, damp foot
+    float n = fbm(vAp*1.6);
+    float bj = abs(fract(vAp.y/0.22 + hash12(floor(vAp.xz*0.5))*0.0)-0.5)*0.22;
+    float board = 1.0 - smoothstep(0.004, 0.012, 0.11 - bj);
+    float grainB = vnoise(vec3(faceUV(vAp, vAn).x*2.0, vAp.y*40.0, 3.0));
+    float agg = smoothstep(0.72, 0.85, vnoise(vAp*70.0));
+    alb *= 0.8 + 0.28*n; alb *= 1.0 - board*0.12 - grainB*0.05;
+    alb = mix(alb, alb*vec3(1.15,1.12,1.05), agg*0.5);
+    float damp = 1.0 - smoothstep(-0.3, 0.9, vAp.y);
+    alb *= mix(1.0, 0.72, damp); rough = mix(rough, rough*0.8, damp);
+    h = n*0.4 - board*0.6 + agg*0.2 + grainB*0.1; bump = 0.0045;
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }

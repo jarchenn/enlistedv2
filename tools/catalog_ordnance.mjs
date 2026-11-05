@@ -6,10 +6,10 @@ import { stdMaterials } from "./parts.mjs";
 
 function gunMaterials(A) {
   stdMaterials(A);
-  A.mat("gun_paint", [0.30, 0.25, 0.13], 0.62, "metal", { metallic: 0.25 });   // dunkelgelb, worn
-  A.mat("gun_dark", [0.09, 0.09, 0.08], 0.5, "metal", { metallic: 0.6 });
+  A.mat("gun_paint", [0.34, 0.28, 0.15], 0.62, "metal", { metallic: 0.0 });   // dunkelgelb paint (dielectric)
+  A.mat("gun_dark", [0.08, 0.08, 0.075], 0.55, "metal", { metallic: 0.15 });
   A.mat("rubber", [0.02, 0.02, 0.02], 0.9, "plain");
-  A.mat("od_paint", [0.10, 0.11, 0.06], 0.6, "metal", { metallic: 0.3 });       // US olive drab
+  A.mat("od_paint", [0.13, 0.14, 0.075], 0.62, "metal", { metallic: 0.0 });       // US olive drab paint
   A.mat("stencil", [0.6, 0.58, 0.5], 0.8, "plain");
 }
 // octagonal prism along an axis ("x" or "z") — wheels, tubes

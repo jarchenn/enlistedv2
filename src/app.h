@@ -119,6 +119,7 @@ public:
   static uint8_t panelStateFor(float hp, float maxHp);
   int findPanel(const AssetDef* a, const std::string& id) const;
   bool panelDebug = false;
+  bool hideEditorOverlays = false;   // fixed-camera material captures
   Explosion lastExplosion;
   void drawDamageDebug();
   // ---- combat (station.cpp / fx.cpp / weapons.cpp)

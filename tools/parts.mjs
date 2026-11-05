@@ -25,9 +25,9 @@ export function stdMaterials(A) {
   A.mat("slate", [0.055, 0.062, 0.07], 0.55, "slate", { grain: 2 });
   A.mat("ridge_tile", [0.30, 0.12, 0.06], 0.7, "plain");
   A.mat("terracotta", [0.36, 0.14, 0.075], 0.72, "tile");
-  A.mat("iron", [0.035, 0.035, 0.035], 0.55, "metal", { metallic: 0.85 });
-  A.mat("cast_iron", [0.025, 0.025, 0.025], 0.62, "metal", { metallic: 0.75 });
-  A.mat("zinc", [0.33, 0.34, 0.35], 0.5, "metal", { metallic: 0.9 });
+  A.mat("iron", [0.05, 0.048, 0.046], 0.55, "metal", { metallic: 0.15 });   // black-painted wrought iron
+  A.mat("cast_iron", [0.055, 0.053, 0.05], 0.65, "metal", { metallic: 0.25 });
+  A.mat("zinc", [0.52, 0.53, 0.55], 0.5, "metal", { metallic: 1.0 });
   A.mat("brass", [0.62, 0.44, 0.18], 0.32, "metal", { metallic: 1.0 });
   A.mat("copper", [0.65, 0.32, 0.18], 0.38, "metal", { metallic: 1.0 });
   A.mat("glass", [0.8, 0.85, 0.82], 0.05, "glass");
@@ -41,8 +41,8 @@ export function stdMaterials(A) {
   A.mat("concrete", [0.33, 0.32, 0.29], 0.9, "concrete");
   A.mat("concrete_wash", [0.50, 0.49, 0.45], 0.92, "concrete");
   A.mat("concrete_floor", [0.24, 0.235, 0.22], 0.8, "concrete");
-  A.mat("steel_plate", [0.075, 0.085, 0.07], 0.55, "metal", { metallic: 0.55 });
-  A.mat("steel_bare", [0.30, 0.30, 0.31], 0.4, "metal", { metallic: 1.0 });
+  A.mat("steel_plate", [0.13, 0.14, 0.12], 0.6, "metal", { metallic: 0.0 });   // painted steel (field grey): dielectric paint
+  A.mat("steel_bare", [0.56, 0.57, 0.58], 0.38, "metal", { metallic: 1.0 });
   A.mat("turf", [0.085, 0.12, 0.04], 0.98, "plain");
   A.mat("earth", [0.12, 0.09, 0.06], 1.0, "plain");
   A.mat("log_x", [0.16, 0.12, 0.08], 0.9, "wood", { grain: 0 });

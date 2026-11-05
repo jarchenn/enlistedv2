@@ -353,6 +353,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--benchmark") { runSelf = true; bench = true; }
     else if (a == "--selftest-reopen") { runSelf = true; ++k; }
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
+    else if (a == "--capture-materials") { runSelf = true; ++k; }
     else openPath = a;
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
@@ -449,8 +450,8 @@ int App::run(int argc, char** argv) {
     if (mode == Mode::Creative) {
       viewM = glm::lookAt(camPos, camPos + forward(camYaw, camPitch), vec3(0, 1, 0));
       projM = glm::perspective(radians(60.0f), aspect, 0.1f, 4000.0f);
-      v.editor = true; v.grid = gridOverlay; v.autoExposure = false; v.camPos = camPos;
-      drawCreativeOverlay(ov, ghosts);
+      v.editor = !hideEditorOverlays; v.grid = gridOverlay; v.autoExposure = false; v.camPos = camPos;
+      if (!hideEditorOverlays) drawCreativeOverlay(ov, ghosts);
       audio.setListener(camPos, forward(camYaw, camPitch));
     } else {
       vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
