@@ -1,0 +1,5 @@
+build/
+/dist/
+maps/
+selftest_out/
+normandy.log

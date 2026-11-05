@@ -1,0 +1,272 @@
+// Explore mode: first-person walkthrough of the same placed instances shown in Creative.
+#include "app.h"
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <algorithm>
+
+static bool kd(GLFWwindow* w, int k) { return glfwGetKey(w, k) == GLFW_PRESS; }
+static bool kp(GLFWwindow* w, int k) {
+  static std::map<int, bool> prev;
+  bool d = kd(w, k), p = prev[k]; prev[k] = d; return d && !p;
+}
+
+vec3 App::eyePos() const {
+  auto c = Physics::character();
+  return c.pos + vec3(0, eyeHeight, 0);
+}
+
+bool App::enterExplore() {
+  if (mode == Mode::Explore) return true;
+  syncRuntime();
+  if (!doc.start.set) {
+    // No marker yet: start on the ground at the centre of the view (or under the camera), facing the same way.
+    vec3 hit;
+    vec3 fwd = forward(camYaw, camPitch);
+    if (!terrain.raycast(camPos, fwd, 400.0f, hit)) hit = camPos;
+    hit.y = terrain.height(hit.x, hit.z);
+    doc.start.set = true; doc.start.pos = hit; doc.start.yaw = camYaw; dirty = true;
+    toast("No start marker was set, so you start where the view was pointing. Press M in Creative to choose a start point.", 6);
+  }
+  vec3 p = doc.start.pos;
+  if (!startMarkerValid(p)) {
+    bool found = false;
+    for (float r = 0.5f; r <= 10.0f && !found; r += 0.5f)
+      for (int k = 0; k < 24 && !found; ++k) {
+        float a = k * 6.2831853f / 24;
+        vec3 q = p + vec3(std::cos(a) * r, 0, std::sin(a) * r);
+        float t; uint64_t ud;
+        float top = q.y + 2.5f;
+        if (Physics::castRay(vec3(q.x, top, q.z), vec3(0, -1, 0), 6.0f, t, ud)) q.y = top - t; else q.y = terrain.height(q.x, q.z);
+        if (startMarkerValid(q)) { p = q; found = true; }
+      }
+    if (!found) { toast("Start marker is obstructed and no free ground was found within 10 m. Move the marker.", 6); return false; }
+    char b[160]; std::snprintf(b, sizeof b, "Start marker was obstructed: starting %.1f m away at the nearest clear ground.", glm::length(vec2(p.x - doc.start.pos.x, p.z - doc.start.pos.z)));
+    toast(b, 6);
+  }
+  savedCam.set = true; savedCam.pos = camPos; savedCam.yaw = camYaw; savedCam.pitch = camPitch;
+  resetInteractStates();   // walkthrough is a playtest: always start from authored defaults
+  Physics::createCharacter(p);
+  exploreStartPos = p; exploreStartYaw = doc.start.yaw;
+  eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f;
+  physAccum = 0; pauseMenu = false; target = {};
+  if (looking) looking = false;
+  if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  R.resetExposure(1.2f);
+  mode = Mode::Explore;
+  return true;
+}
+
+void App::exitExplore() {
+  if (mode != Mode::Explore) return;
+  Physics::destroyCharacter();
+  resetInteractStates();   // discard temporary exploration state
+  camPos = savedCam.pos; camYaw = savedCam.yaw; camPitch = savedCam.pitch;
+  glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  mode = Mode::Creative; pauseMenu = false; target = {};
+}
+
+void App::returnToStart() {
+  Physics::setCharacterPos(exploreStartPos);
+  eyeYaw = exploreStartYaw; eyePitch = 0;
+}
+
+bool App::leafBlocked(const Instance& i, const InteractDef& d, float p) const {
+  if (!Physics::hasCharacter()) return false;
+  auto c = Physics::character();
+  float h = c.crouched ? Physics::crouchHeight() : Physics::standHeight(), r = Physics::radius();
+  vec3 a = c.pos + vec3(0, r, 0), b = c.pos + vec3(0, h - r, 0);
+  quat iq = yawQuat(i.yaw);
+  for (auto& lf : d.leaves) {
+    mat4 L = leafMatrix(i, lf, d, p);
+    quat lq = iq * glm::angleAxis(radians(lf.sign * leafAngle(d, p)), d.axis);
+    for (auto& col : lf.colliders) {
+      vec3 wc = vec3(L * vec4(col.center, 1));
+      if (segOBBDist2(a, b, wc, col.size * 0.5f, lq * col.rot) < (r + 0.015f) * (r + 0.015f)) return true;
+    }
+  }
+  return false;
+}
+
+InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
+  InteractTarget best;
+  const float reach = 2.0f;
+  float tWall = 2.5f; uint64_t ud;
+  float th;
+  if (Physics::castRay(eye, dir, 2.5f, th, ud)) tWall = th;
+  float bestT = 1e9f;
+  for (auto& i : doc.instances) {
+    auto it = rt.find(i.id); if (it == rt.end()) continue;
+    auto& r = it->second;
+    if (r.asset->interactables.empty()) continue;
+    if (glm::length(i.pos - eye) > glm::length(r.asset->bmax - r.asset->bmin) + 4) continue;
+    quat iq = yawQuat(i.yaw);
+    mat4 M = instanceMatrix(i);
+    for (size_t k = 0; k < r.asset->interactables.size(); ++k) {
+      auto& d = r.asset->interactables[k];
+      float t;
+      auto consider = [&](float tt) {
+        if (tt <= reach && tt <= tWall + 0.08f && tt < bestT) { bestT = tt; best = {true, i.id, (int)k, tt}; }
+      };
+      for (auto& lf : d.leaves) {
+        mat4 L = leafMatrix(i, lf, d, r.progress[k]);
+        quat lq = iq * glm::angleAxis(radians(lf.sign * leafAngle(d, r.progress[k])), d.axis);
+        for (auto& p : lf.parts) {
+          if (rayOBB(eye, dir, vec3(L * vec4(p.center, 1)), p.size * 0.5f + vec3(0.01f), lq * p.rot, t)) consider(t);
+        }
+      }
+      if (r.progress[k] < 0.5f || d.apAlways) {
+        vec3 c = vec3(M * vec4((d.apMin + d.apMax) * 0.5f, 1));
+        if (rayOBB(eye, dir, c, (d.apMax - d.apMin) * 0.5f, iq, t)) consider(t);
+      }
+    }
+  }
+  return best;
+}
+
+void App::toggleInteract(uint64_t id, int k) {
+  auto it = rt.find(id); if (it == rt.end()) return;
+  auto& r = it->second;
+  const Instance* inst = nullptr;
+  for (auto& i : doc.instances) if (i.id == id) inst = &i;
+  if (!inst) return;
+  auto& d = r.asset->interactables[k];
+  int& dir = r.dir[k];
+  if (dir == 0) dir = r.progress[k] > 0.5f ? -1 : 1;
+  else dir = -dir;  // reverse smoothly from the current angle
+  vec3 c = vec3(instanceMatrix(*inst) * vec4((d.apMin + d.apMax) * 0.5f, 1));
+  if (dir > 0) audio.play(d.sound + "_open", c);
+}
+
+void App::exploreStep(float dt, const ExploreInput& in) {
+  // ---- animate interactables (only those moving)
+  for (auto& i : doc.instances) {
+    auto it = rt.find(i.id); if (it == rt.end()) continue;
+    auto& r = it->second;
+    for (size_t k = 0; k < r.dir.size(); ++k) {
+      if (!r.dir[k]) continue;
+      auto& d = r.asset->interactables[k];
+      float np = std::clamp(r.progress[k] + r.dir[k] * dt / d.duration, 0.0f, 1.0f);
+      if (leafBlocked(i, d, np)) {
+        if (r.dir[k] < 0) r.dir[k] = 1;  // closing into the player: reopen smoothly
+        else r.dir[k] = 0;               // opening into the player: stop
+        continue;
+      }
+      r.progress[k] = np;
+      if (np <= 0.0f && r.dir[k] < 0) {
+        r.dir[k] = 0;
+        audio.play(d.sound + "_close", vec3(instanceMatrix(i) * vec4((d.apMin + d.apMax) * 0.5f, 1)));
+      } else if (np >= 1.0f && r.dir[k] > 0) r.dir[k] = 0;
+      updateLeafBodies(i, r, (int)k);
+    }
+  }
+  // ---- move
+  vec3 f = forward(eyeYaw, 0), rgt(std::cos(radians(eyeYaw)), 0, -std::sin(radians(eyeYaw)));
+  vec3 wish = f * in.move.y + rgt * in.move.x;
+  if (glm::length(wish) > 1) wish = glm::normalize(wish);
+  auto before = Physics::character();
+  float speed = in.crouch ? 1.2f : in.sprint ? 4.6f : 2.3f;
+  Physics::updateCharacter(dt, wish * speed, in.jump, in.crouch);
+  auto c = Physics::character();
+  float eyeTarget = c.crouched ? 1.05f : 1.62f;
+  eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * 10);
+  // ---- footsteps by surface
+  if (c.grounded) {
+    stepTimer += glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z));
+    float stride = in.sprint ? 1.1f : 0.75f;
+    if (stepTimer > stride) {
+      stepTimer = 0;
+      std::string s = "step_grass";
+      if (c.groundUser != ~0ull && c.groundUser != 0) {
+        uint64_t iid = c.groundUser >> 16;
+        for (auto& i : doc.instances) if (i.id == iid) s = (c.pos.y - i.pos.y > 0.9f) ? "step_wood" : "step_stone";
+      }
+      audio.play(s, c.pos, in.crouch ? 0.4f : 0.8f);
+    }
+  }
+  // ---- interaction
+  target = findTarget(eyePos(), forward(eyeYaw, eyePitch));
+  if (in.interact && target.valid) toggleInteract(target.inst, target.idx);
+  if (c.pos.y < -60) { returnToStart(); toast("Fell out of the world: returned to start."); }
+}
+
+void App::updateExplore(float dt) {
+  ImGuiIO& io = ImGui::GetIO();
+  if (!selftest) {
+    if (kp(win, GLFW_KEY_ESCAPE)) {
+      pauseMenu = !pauseMenu;
+      glfwSetInputMode(win, GLFW_CURSOR, pauseMenu ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+    }
+    if (kp(win, GLFW_KEY_F5)) { exitExplore(); return; }
+    if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
+  }
+  if (pauseMenu) return;
+  ExploreInput in;
+  static double lmx = -1, lmy = -1;
+  if (useScripted) {
+    in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false;
+    eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f);
+  } else {
+    double mx, my; glfwGetCursorPos(win, &mx, &my);
+    if (lmx >= 0 && !io.WantCaptureMouse) { eyeYaw = wrapDeg(eyeYaw - (float)(mx - lmx) * 0.1f); eyePitch = std::clamp(eyePitch - (float)(my - lmy) * 0.1f, -85.0f, 85.0f); }
+    lmx = mx; lmy = my;
+    if (kd(win, GLFW_KEY_W)) in.move.y += 1;
+    if (kd(win, GLFW_KEY_S)) in.move.y -= 1;
+    if (kd(win, GLFW_KEY_D)) in.move.x += 1;
+    if (kd(win, GLFW_KEY_A)) in.move.x -= 1;
+    in.sprint = kd(win, GLFW_KEY_LEFT_SHIFT);
+    in.crouch = kd(win, GLFW_KEY_LEFT_CONTROL) || kd(win, GLFW_KEY_C);
+    in.jump = kp(win, GLFW_KEY_SPACE);
+    in.interact = kp(win, GLFW_KEY_E);
+    if (kp(win, GLFW_KEY_R)) returnToStart();
+  }
+  physAccum += dt;
+  int steps = 0;
+  while (physAccum >= 1.0f / 60.0f && steps < 5) {
+    exploreStep(1.0f / 60.0f, in);
+    in.interact = false; in.jump = false;
+    physAccum -= 1.0f / 60.0f; ++steps;
+  }
+  if (steps == 5) physAccum = 0;
+  Physics::step(dt);
+}
+
+void App::drawExploreUI() {
+  ImGuiIO& io = ImGui::GetIO();
+  ImDrawList* dl = ImGui::GetForegroundDrawList();
+  ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+  if (!pauseMenu) {
+    dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
+    if (target.valid) {
+      auto it = rt.find(target.inst);
+      if (it != rt.end()) {
+        auto& d = it->second.asset->interactables[target.idx];
+        bool opening = it->second.dir[target.idx] != 0 ? it->second.dir[target.idx] < 0 : it->second.progress[target.idx] < 0.5f;
+        std::string t = std::string("E  —  ") + (opening ? "Open " : "Close ") + d.label;
+        ImVec2 ts = ImGui::CalcTextSize(t.c_str());
+        ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
+        dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
+        dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
+      }
+    }
+    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk  |  Shift sprint  |  Ctrl/C crouch  |  Space jump  |  E interact  |  R return to start  |  Esc menu");
+    if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
+  }
+  if (showStats) {
+    auto ch = Physics::character();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 280, 10), ImGuiCond_Always);
+    ImGui::Begin("##estats", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs);
+    ImGui::Text("frame %.2f ms (%.0f fps)", io.DeltaTime * 1000, io.Framerate);
+    ImGui::Text("render cpu %.2f gpu %.2f ms", R.stats.cpuMs, R.stats.gpuMs);
+    ImGui::Text("pos %.2f %.2f %.2f %s", ch.pos.x, ch.pos.y, ch.pos.z, ch.grounded ? "ground" : "air");
+    ImGui::Text("bodies %d", Physics::bodyCount());
+    ImGui::End();
+  }
+  if (pauseMenu) {
+    ImGui::SetNextWindowPos(c, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
+    if (ImGui::Button("Resume", ImVec2(240, 0))) { pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
+    if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
+    if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
+    ImGui::End();
+  }
+}

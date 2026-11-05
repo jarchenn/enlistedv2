@@ -1,0 +1,20 @@
+{
+  "id": "blank_slate",
+  "version": 1,
+  "order": 0,
+  "name": "Blank Slate",
+  "available": true,
+  "seed": 1944,
+  "description": "About 600 x 600 m of level, buildable Norman pasture. Gentle variation in grass colour and height for scale. The whole marked build area accepts structures, including its corners. Toggle the grid overlay with H.",
+  "size": 800,
+  "buildHalf": 300,
+  "camera": {
+    "pos": [
+      0,
+      38,
+      95
+    ],
+    "yaw": 0,
+    "pitch": -18
+  }
+}

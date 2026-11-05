@@ -1,0 +1,20 @@
+{
+  "id": "omaha_easy_red",
+  "version": 0,
+  "order": 1,
+  "name": "Normandy Beaches - Omaha, Easy Red",
+  "available": false,
+  "seed": 1,
+  "description": "Terrain reconstruction of the E-1 draw sector, 6 June 1944, with all wartime structures intentionally omitted. Planned; see docs/normandy-terrain.md for the research plan.",
+  "size": 800,
+  "buildHalf": 300,
+  "camera": {
+    "pos": [
+      0,
+      30,
+      120
+    ],
+    "yaw": 0,
+    "pitch": -12
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "normandy_forest",
+  "version": 0,
+  "order": 2,
+  "name": "Normandy Forest",
+  "available": false,
+  "seed": 7,
+  "description": "Fictional Norman woodland with three connected clearings (command post, overlook, fallback). Planned for a later milestone.",
+  "size": 800,
+  "buildHalf": 300,
+  "camera": {
+    "pos": [
+      0,
+      30,
+      120
+    ],
+    "yaw": 0,
+    "pitch": -12
+  }
+}

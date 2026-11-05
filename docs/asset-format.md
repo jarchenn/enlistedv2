@@ -1,0 +1,43 @@
+# Asset definition format
+
+Each `content/assets/*.json` file is one placeable asset. The editor, movement and interaction code read only this data. Adding a file adds a catalog entry, and none of the editor or movement code needs to change. `tools/build_assets.mjs` (together with `kit.mjs` and `parts.mjs`) generates these files from parametric Norman building components.
+
+Coordinates are in metres in asset space. +Y is up, the front of the building faces +Z, and the origin is the centre of the footprint at the placement height. On a slope the building is placed **plumb** at the highest sampled ground point, and the plinth acts as the foundation skirt.
+
+```jsonc
+{
+  "id": "house_farmhouse_2story", "version": 1,
+  "name": "Two-Story Farmhouse", "category": "Houses", "description": "...",
+  "floors": 2, "enterable": true,
+  "footprint": [12.2, 9.2],            // x, z extents used for placement and overlap tests
+  "plinthDepth": 1.2, "maxGrade": 1.0, // max ground fall under the footprint
+  "materials": [ { "name": "stone", "albedo": [r,g,b] /*linear*/, "roughness": 0.88, "metallic": 0,
+                   "pattern": "stone|plaster|wood|painted|slate|tile|metal|glass|fabric|brick|concrete|plain",
+                   "grain": 0|1|2 /* part-local axis for wood grain / slate courses */ } ],
+  "parts": [                           // static geometry
+    { "t": "b", "c": [x,y,z], "s": [sx,sy,sz], "r": [rx,ry,rz] /*deg, optional*/, "m": "stone",
+      "v": 0 /*invisible: collider only*/, "k": 0 /*visual only: no collision*/ },
+    { "t": "p", "axis": 0, "a": [a0,a1], "tri": [[u,v],[u,v],[u,v]], "m": "stone" }   // prism (gables)
+  ],
+  "furniture": [ { "name": "Kitchen table", "parts": [ ... ] } ],  // children of the building
+  "interactables": [ {
+    "id": "kitchen_casement", "kind": "window", "label": "window", "sound": "glass|wood|shutter|steel",
+    "axis": [0,1,0], "openAngle": 100, "duration": 0.85, "defaultOpen": false,
+    "aperture": { "min": [...], "max": [...] },   // aim volume while closed
+    "leaves": [ { "hinge": [x,y,z], "sign": 1, "parts": [ /* boxes at the CLOSED pose, asset space */ ] } ]
+  } ],
+  "walkthrough": { "start": {...}, "steps": [ /* scripted traversal run by --selftest */ ] }
+}
+```
+
+## Rules the kit follows
+
+- Walls are real two-layer solids: rubble stone on the outside and lime plaster inside. Openings are cut out of them, never painted on.
+- Each leaf moves as its own rigid body around a local hinge. The leaf's `parts` marked `"v":0` form its kinematic collider.
+- Stairs render separate treads and risers. A smooth invisible ramp runs through the tread centres, and the open side has a vertical-sided guard.
+- Furniture shows its detailed parts, but each group collides as one invisible bounding box, so the player doesn't snag on legs.
+- Every multi-floor building gets two independent stair routes.
+
+## Map file (`*.nmap.json`)
+
+`format`, `schemaVersion`, `name`, `template{id,version,seed}`, `nextId`, `instances[{id, asset{id,version}, position, yaw, overrides{interactables{<id>{startsOpen}}}}]`, `removedTemplateVegetation[]`, `exploreStart{position,yaw}`, `editorCamera`. Fields the loader doesn't recognise, at any level, are kept and written back on save.

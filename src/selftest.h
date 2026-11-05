@@ -1,0 +1,34 @@
+#pragma once
+#include "app.h"
+
+// Scripted end-to-end milestone test that drives the real editor, physics and
+// character controller (see docs/testing.md). Runs with a visible window.
+class SelfTest {
+public:
+  explicit SelfTest(bool benchmark) : bench(benchmark) {}
+  void update(App& app, float dt);  // called once per frame before mode updates
+  bool done = false;
+  int exitCode = 0;
+private:
+  bool bench;
+  int stage = 0;
+  double stageTime = 0;
+  std::vector<json> steps;
+  size_t stepIdx = 0;
+  double stepTime = 0;
+  uint64_t houseId = 0;
+  std::string curAsset = "house_farmhouse_2story";
+  size_t extraIdx = 0;
+  int pass = 0;
+  std::vector<std::string> results;
+  int failures = 0;
+  void check(bool ok, const std::string& what);
+  void beginWalkthrough(App& app);
+  bool runWalkthrough(App& app, float dt); // returns true when finished
+  vec3 toWorld(App& app, vec3 local) const;
+  float worldYaw(App& app, float localYaw) const;
+  void finish(App& app);
+  std::vector<std::string> shotQueue;
+  int benchFrames = 0; std::vector<double> frameTimes; std::string benchName;
+  json benchOut = json::object();
+};
