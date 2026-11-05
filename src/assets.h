@@ -64,7 +64,37 @@ struct InteractDef {
   vec3 apMin{0}, apMax{0}; // aim volume (asset space)
 };
 
+// A destructible wall bay. Owns both wall layers; geometry and collision per damage state.
+enum PanelState : uint8_t { PANEL_INTACT = 0, PANEL_DAMAGED = 1, PANEL_BREACHED = 2 };
+struct Panel {
+  std::string id, family;
+  float hp = 200;
+  vec3 bmin{0}, bmax{0}, normal{0, 0, 1};
+  std::vector<Part> parts[3];
+  GpuMesh mesh[3];
+  ShapePtr shape[3];
+};
+
+// Crew-served station (field gun / mounted MG): named moving parts with local pivots.
+struct StationDef {
+  std::string kind;                         // "" = not a station; "pak40", "m2hb"
+  vec3 yawPivot{0}, elevPivot{0};           // asset space, default pose
+  vec3 muzzle{0}, optic{0}, gunner{0}, handler{0};
+  float yawMin = -32.5f, yawMax = 32.5f, elevMin = -5.0f, elevMax = 22.0f;
+  float traverseRate = 14.0f, elevateRate = 8.0f, recoil = 0.6f, reloadTime = 3.5f;
+  int loaded = 1, reserve = 5; std::string ammo;
+  std::vector<Part> yawParts, elevParts, recoilParts;   // relative to their pivots
+  GpuMesh yawMesh, elevMesh, recoilMesh;
+  vec3 moveHalf{1.0f, 0.6f, 2.0f};          // carriage sweep box (half extents) for repositioning
+  float serviceRadius = 6.0f;
+};
+
 struct AssetDef {
+  StationDef station;
+  json crate;                               // ammo crate config (empty = not a crate)
+  std::vector<Panel> panels;
+  GpuMesh panelsIntact;          // all panels intact, merged (fast path for undamaged copies)
+  ShapePtr wallsIntact;          // shared compound of all intact panel shapes
   std::string id, name, category, description, file;
   int version = 1, floors = 1;
   bool enterable = false;

@@ -50,6 +50,7 @@ void App::updateLeafBodies(const Instance& i, InstanceRT& r, int k) {
 }
 void App::destroyRT(InstanceRT& r) {
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
+  Physics::remove(r.wallBody); r.wallBody = 0xffffffffu;
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
 }
@@ -60,6 +61,14 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   if (r.asset->shape) r.staticBody = Physics::addStatic(r.asset->shape, i.pos, yawQuat(i.yaw), base);
   size_t n = r.asset->interactables.size();
   r.progress.assign(n, 0); r.dir.assign(n, 0); r.leafBodies.assign(n, {});
+  r.hp.assign(r.asset->panels.size(), 0); r.state.assign(r.asset->panels.size(), PANEL_INTACT);
+  for (size_t k = 0; k < r.asset->panels.size(); ++k) {
+    auto& p = r.asset->panels[k];
+    auto ov = i.panelHp.find(p.id);
+    r.hp[k] = ov != i.panelHp.end() ? ov->second : p.hp;
+    r.state[k] = panelStateFor(r.hp[k], p.hp);
+  }
+  rebuildWalls(i, r);
   for (size_t k = 0; k < n; ++k) {
     auto& d = r.asset->interactables[k];
     r.progress[k] = authoredOpen(i, d) ? 1.0f : 0.0f;
@@ -102,6 +111,8 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     // coarse distance cull
     if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) > 1200) continue;
     op.push_back({&r.asset->opaque, M});
+    if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
+    else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({&r.asset->panels[k].mesh[r.state[k]], M});
     if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
     for (size_t k = 0; k < r.asset->interactables.size(); ++k) {
       auto& d = r.asset->interactables[k];
@@ -124,6 +135,7 @@ void App::applyTemplate(const std::string& id) {
   if (!t) t = templates.empty() ? nullptr : &templates[0];
   TemplateInfo fallback; fallback.id = "blank_slate";
   if (!t) t = &fallback;
+  removeGroundBodies();
   terrain.generate(*t);
   Physics::setTerrain(terrain.h, terrain.n, terrain.size);
 }
@@ -147,6 +159,7 @@ bool App::openMap(const fs::path& p) {
   doc = std::move(d);
   for (auto& i : doc.instances) { i.rev = ++revCounter; if (!lib.find(i.assetId)) toast("Missing asset '" + i.assetId + "' shown as placeholder; its data is preserved.", 8); }
   applyTemplate(doc.templateId);
+  resetGround();
   if (doc.camera.set) { camPos = doc.camera.pos; camYaw = doc.camera.yaw; camPitch = doc.camera.pitch; }
   bool isContent = p.string().find((contentDir()).string()) == 0;
   docPath = isContent ? fs::path() : p;  // built-in examples open as unsaved copies
@@ -167,9 +180,12 @@ bool App::saveMapTo(const fs::path& p) {
 }
 
 // ============================================================ undo
-Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected}; }
+Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas}; }
 void App::restore(const Snapshot& s) {
+  bool groundChanged = doc.terrainDeltas != s.terrain;
   doc.instances = s.inst; doc.start = s.start; doc.removedVegetation = s.removedVeg; selected = s.selected;
+  doc.terrainDeltas = s.terrain;
+  if (groundChanged) resetGround();
   for (auto& i : doc.instances) i.rev = ++revCounter;  // force collider rebuild to the restored transforms
   dirty = true;
 }
@@ -273,6 +289,8 @@ uint64_t App::pickInstance(vec3 ro, vec3 rd, float& tBest) const {
       if (!p.visible) continue;
       if (rayOBB(lo, ld, p.center, p.size * 0.5f, p.rot, t) && t < tBest) { tBest = t; best = i.id; }
     }
+    for (auto& pn : a->panels)
+      if (rayOBB(lo, ld, (pn.bmin + pn.bmax) * 0.5f, (pn.bmax - pn.bmin) * 0.5f, quat(1, 0, 0, 0), t) && t < tBest) { tBest = t; best = i.id; }
   }
   return best;
 }
@@ -290,7 +308,7 @@ bool App::startMarkerValid(vec3 pos) const { return !Physics::capsuleBlocked(pos
 // ============================================================ thumbnails & screenshots
 void App::makeThumbnails() {
   for (auto& a : lib.assets) {
-    std::vector<DrawItem> op{{&a->opaque, mat4(1)}}, gl;
+    std::vector<DrawItem> op{{&a->opaque, mat4(1)}, {&a->panelsIntact, mat4(1)}}, gl;
     if (a->glass.count) gl.push_back({&a->glass, mat4(1)});
     for (auto& d : a->interactables)
       for (auto& lf : d.leaves) {
@@ -326,6 +344,7 @@ int App::run(int argc, char** argv) {
     if (a == "--selftest") runSelf = true;
     else if (a == "--benchmark") { runSelf = true; bench = true; }
     else if (a == "--selftest-reopen") { runSelf = true; ++k; }
+    else if (a == "--selftest-damage") runSelf = true;
     else openPath = a;
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }

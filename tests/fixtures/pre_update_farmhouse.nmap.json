@@ -1,0 +1,47 @@
+{
+  "editorCamera": {
+    "pitch": -14.0,
+    "position": [
+      47.21719741821289,
+      8.922054290771484,
+      -8.452699661254883
+    ],
+    "yaw": 71.99201965332031
+  },
+  "exploreStart": {
+    "position": [
+      -40.8300666809082,
+      -0.08583730459213257,
+      35.36827087402344
+    ],
+    "yaw": 37.0
+  },
+  "format": "normandy-mapmaker-map",
+  "instances": [
+    {
+      "asset": {
+        "id": "house_farmhouse_2story",
+        "version": 1
+      },
+      "id": 1,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -46.0,
+        -0.03564786538481712,
+        31.0
+      ],
+      "yaw": 37.0
+    }
+  ],
+  "name": "Farmhouse regression",
+  "nextId": 2,
+  "removedTemplateVegetation": [],
+  "schemaVersion": 1,
+  "template": {
+    "id": "blank_slate",
+    "seed": 1944,
+    "version": 1
+  }
+}

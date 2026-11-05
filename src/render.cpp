@@ -255,17 +255,22 @@ void main(){}
 )GLSL";
 
 static const char* kTerrainVS = R"GLSL(
-layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm;
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt;
 uniform mat4 uVP;
-out vec3 vW, vN;
-void main(){ vW = aPos; vN = aNrm; gl_Position = uVP*vec4(aPos,1.0); }
+out vec3 vW, vN; out float vDirt;
+void main(){ vW = aPos; vN = aNrm; vDirt = aDirt; gl_Position = uVP*vec4(aPos,1.0); }
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
-in vec3 vW, vN;
+in vec3 vW, vN; in float vDirt;
 uniform int uGrid; uniform float uBuildHalf;
+uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize, uTerrainSize;
 out vec4 oColor;
 void main(){
   vec3 p = vW;
+  if (uDiscard == 1) {   // base mesh hidden under high-resolution deformation tiles
+    ivec2 tc = ivec2(floor((p.xz + uTerrainSize*0.5)/uTileSize));
+    if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;
+  }
   float n1 = fbm(vec3(p.xz*0.025, 1.0)), n2 = fbm(vec3(p.xz*0.18, 2.0)), n3 = vnoise(vec3(p.xz*3.1, 3.0));
   vec3 g1 = vec3(0.16,0.24,0.07), g2 = vec3(0.26,0.31,0.10), dry = vec3(0.36,0.35,0.18);
   vec3 alb = mix(g1, g2, smoothstep(0.3, 0.7, n1));
@@ -273,8 +278,11 @@ void main(){
   alb *= 0.82 + 0.3*n3;
   // clover / darker tufts
   alb *= 1.0 - 0.18*smoothstep(0.65, 0.8, vnoise(vec3(p.xz*0.9, 9.0)));
-  vec3 N = normalize(vN + vec3(n3-0.5, 0.0, vnoise(vec3(p.xz*3.1, 5.0))-0.5)*0.25);
-  vec3 c = shade(vW, N, alb, 0.95, 0.0, 1.0);
+  float dirt = clamp(vDirt, 0.0, 1.0);
+  vec3 soil = mix(vec3(0.15,0.105,0.065), vec3(0.22,0.17,0.11), vnoise(vec3(p.xz*2.3, 4.0))) * (0.8 + 0.35*n3);
+  alb = mix(alb, soil, smoothstep(0.15, 0.75, dirt + (n2-0.5)*0.35));
+  vec3 N = normalize(vN + vec3(n3-0.5, 0.0, vnoise(vec3(p.xz*3.1, 5.0))-0.5)*mix(0.25, 0.45, dirt));
+  vec3 c = shade(vW, N, alb, mix(0.95, 1.0, dirt), 0.0, 1.0 - 0.25*dirt);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf && abs(p.z) <= uBuildHalf) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
     vec2 fw = fwidth(p.xz)*1.2;
@@ -572,7 +580,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
   glUniform1f(U(progTerrain, "uBuildHalf"), t.buildHalf);
   glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
-  t.draw();
+  t.draw(progTerrain);
   // opaque
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);
@@ -685,7 +693,7 @@ GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std:
     setLighting(progTerrain, v);
     glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1i(U(progTerrain, "uGrid"), 0);
-    terr->draw();
+    terr->draw(progTerrain);
   }
   setLighting(progMain, v);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));

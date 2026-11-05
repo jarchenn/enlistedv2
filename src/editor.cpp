@@ -183,6 +183,7 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
     mat4 M = glm::translate(mat4(1), p) * glm::mat4_cast(yawQuat(placeYaw));
     vec4 tint = lastCheck.ok ? vec4(0.4f, 0.9f, 0.5f, 0.55f) : vec4(1.0f, 0.35f, 0.3f, 0.5f);
     ghosts.push_back({&placing->opaque, M, tint});
+    ghosts.push_back({&placing->panelsIntact, M, tint});
     for (auto& d : placing->interactables)
       for (auto& lf : d.leaves)
         ghosts.push_back({&lf.opaque, M * glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * (d.defaultOpen ? d.openAngle : 0)), d.axis)), tint});
@@ -252,6 +253,8 @@ void App::drawCreativeUI() {
       ImGui::Separator();
       if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, selected != 0)) duplicateSelected();
       if (ImGui::MenuItem("Delete", "Del", false, selected != 0)) deleteSelected();
+      ImGui::Separator();
+      if (ImGui::MenuItem("Clear applied damage", nullptr, false, true)) clearAppliedDamage();
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("View")) {

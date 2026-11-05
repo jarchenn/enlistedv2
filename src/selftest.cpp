@@ -97,12 +97,20 @@ bool SelfTest::runWalkthrough(App& app, float dt) {
     next(); return false;
   }
   if (s.contains("wait")) { if (stepTime > s["wait"].get<float>()) next(); return false; }
+  if (s.contains("checkGround")) {   // feet rest on the canonical ground height (walkable crater, no invisible floor)
+    if (stepTime < 0.4f) return false;
+    float gh = app.terrain.height(ch.pos.x, ch.pos.z);
+    char b[160]; std::snprintf(b, sizeof b, "%sfeet on deformed ground (feet %.3f, ground %.3f, grounded %d)", label.c_str(), ch.pos.y, gh, (int)ch.grounded);
+    check(std::fabs(ch.pos.y - gh) < 0.08f && ch.grounded, b);
+    next(); return false;
+  }
   next(); return false;
 }
 
 void SelfTest::finish(App& app) {
   std::string phase = app.docPath.empty() ? "A" : "B";
-  std::ofstream f(outDir() / ("report_" + std::string(bench ? "bench" : stage >= 100 ? "B" : "A") + ".txt"));
+  std::ofstream f(outDir() / ("report_" + (reportName.size() ? reportName : std::string(bench ? "bench" : stage >= 100 ? "B" : "A")) + ".txt"));
+  if (!summary.empty()) std::ofstream(outDir() / ("summary_" + reportName + ".json")) << summary.dump(2);
   f << "Normandy Mapmaker self-test\n";
   f << "GL: " << (const char*)glGetString(GL_RENDERER) << " | " << (const char*)glGetString(GL_VERSION) << "\n\n";
   for (auto& r : results) f << r << "\n";
@@ -120,6 +128,7 @@ void SelfTest::update(App& app, float dt) {
     return;
   }
   stageTime += dt;
+  if (stage >= 500) { damageUpdate(app, dt); return; }
   static int frame = 0; ++frame;
   static fs::path reopenPath;
   static json expected;
@@ -129,6 +138,7 @@ void SelfTest::update(App& app, float dt) {
   case 0: {
     int argc = __argc; char** argv = __argv;
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-reopen" && k + 1 < argc) reopenPath = argv[k + 1];
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-damage") { go(500); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }
     const TemplateInfo* t = app.findTemplate("blank_slate");
@@ -342,7 +352,7 @@ void SelfTest::update(App& app, float dt) {
       double sum = 0; for (double v : frameTimes) sum += v;
       PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
       benchOut["flyover"] = {{"frames", frameTimes.size()}, {"avg_ms", sum / std::max<size_t>(1, frameTimes.size())},
-        {"p95_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 95 / 100]}, {"max_ms", frameTimes.empty() ? 0 : frameTimes.back()},
+        {"p50_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() / 2]}, {"p95_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 95 / 100]}, {"p99_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 99 / 100]}, {"max_ms", frameTimes.empty() ? 0 : frameTimes.back()},
         {"last_gpu_ms", app.R.stats.gpuMs}, {"last_render_cpu_ms", app.R.stats.cpuMs}, {"draws", app.R.stats.draws}, {"tris", app.R.stats.tris},
         {"working_set_mb", pmc.WorkingSetSize / 1048576.0}};
       shotQueue.push_back("bench_settlement");
@@ -367,7 +377,7 @@ void SelfTest::update(App& app, float dt) {
       double sum = 0; for (double v : frameTimes) sum += v;
       PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
       benchOut["interior_walk"] = {{"frames", frameTimes.size()}, {"avg_ms", sum / std::max<size_t>(1, frameTimes.size())},
-        {"p95_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 95 / 100]}, {"max_ms", frameTimes.empty() ? 0 : frameTimes.back()},
+        {"p50_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() / 2]}, {"p95_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 95 / 100]}, {"p99_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 99 / 100]}, {"max_ms", frameTimes.empty() ? 0 : frameTimes.back()},
         {"working_set_mb", pmc.WorkingSetSize / 1048576.0}};
       benchOut["resolution"] = {app.R.width, app.R.height};
       benchOut["gl_renderer"] = (const char*)glGetString(GL_RENDERER);

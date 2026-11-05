@@ -12,9 +12,10 @@ struct Instance {
   float yaw = 0;                              // degrees about +Y
   std::map<std::string, bool> openDefaults;   // authored initial state overrides per interactable id
   json extra;                                 // unknown fields preserved verbatim (forward compat / missing assets)
+  std::map<std::string, float> panelHp;       // applied (persistent) wall damage by stable panel id; unknown ids kept
   uint32_t rev = 1;                           // bumps on every edit; runtime rebuilds colliders on change
   bool operator==(const Instance& o) const {
-    return id == o.id && assetId == o.assetId && pos == o.pos && yaw == o.yaw && openDefaults == o.openDefaults;
+    return id == o.id && assetId == o.assetId && pos == o.pos && yaw == o.yaw && openDefaults == o.openDefaults && panelHp == o.panelHp;
   }
 };
 
@@ -30,6 +31,8 @@ struct MapDoc {
   std::set<std::string> removedVegetation;
   StartMarker start;
   EditorCam camera;
+  std::map<int, std::vector<float>> terrainDeltas;   // applied ground damage: tile key -> per-sample metres
+  int terrainTemplateVersion = 0;
   uint64_t nextId = 1;
   json extra;
 

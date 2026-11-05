@@ -53,10 +53,11 @@ function farmhouse() {
   holesBack.push(window(A, { id: "bedroom_e_rear", ...back, c: 1.5, sill: FF + 0.9, w: 1.0, h: 1.25 }));
 
   // ---- exterior walls (front/back run the full width; gables sit between them)
-  wall(A, { ...front, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: holesFront });
-  wall(A, { ...back, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: holesBack });
-  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [] });
-  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [] });
+  const pn = (side) => ({ side, family: "masonry", bands: [[y0, FF - 0.2, 0, GF], [FF - 0.2, EAVE, 1, FF]] });
+  wall(A, { ...front, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: holesFront, panel: pn("front") });
+  wall(A, { ...back, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: holesBack, panel: pn("rear") });
+  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], panel: pn("east") });
+  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], panel: pn("west") });
   // gables
   for (const s of [-1, 1]) A.prism(0, s > 0 ? XI + 0.03 : -X, s > 0 ? X : -XI - 0.03, [[-Z, EAVE], [Z, EAVE], [0, RIDGE]], "stone");
   // dressed quoins at the four corners
@@ -273,10 +274,11 @@ function cottage() {
   hf.push(window(A, { id: "living", ...front, c: -2.2, sill: GF + 0.9, w: 1.0, h: 1.25 }));
   hf.push(window(A, { id: "bedroom", ...front, c: 2.4, sill: GF + 0.9, w: 0.9, h: 1.2, shuttersOpen: false }));
   hb.push(window(A, { id: "living_rear", ...back, c: -1.5, sill: GF + 0.9, w: 0.9, h: 1.2 }));
-  wall(A, { ...front, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: hf });
-  wall(A, { ...back, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: hb });
-  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [] });
-  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [] });
+  const pn = (side) => ({ side, family: "masonry", bands: [[y0, EAVE, 0, GF]] });
+  wall(A, { ...front, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: hf, panel: pn("front") });
+  wall(A, { ...back, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: hb, panel: pn("rear") });
+  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], panel: pn("east") });
+  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], panel: pn("west") });
   quoins(A, X, Z, y0, EAVE);
   partition(A, { axis: "z", d0: 1.2, d1: 1.35, a0: -ZI, a1: ZI, y0: GF, y1: CEIL, holes: [{ a0: -2.2, a1: -1.3, y0: GF - 1, y1: GF + 2.05 }] });
   A.box([1.18, GF + 2.05, -2.3], [1.37, GF + 2.2, -1.2], "oak_z");

@@ -17,12 +17,24 @@ json mapToJson(const MapDoc& d) {
     o["yaw"] = i.yaw;
     json ov = json::object();
     for (auto& [k, v] : i.openDefaults) ov[k] = {{"startsOpen", v}};
+    json pv = json::object();
+    for (auto& [k, v] : i.panelHp) pv[k] = {{"hp", v}};
     o["overrides"] = {{"interactables", ov}};
+    if (!pv.empty()) o["overrides"]["panels"] = pv;
     inst.push_back(o);
   }
   j["instances"] = inst;
   j["removedTemplateVegetation"] = json(std::vector<std::string>(d.removedVegetation.begin(), d.removedVegetation.end()));
   j["exploreStart"] = d.start.set ? json{{"position", tojson(d.start.pos)}, {"yaw", d.start.yaw}} : json(nullptr);
+  if (!d.terrainDeltas.empty()) {
+    json tiles = json::array();
+    for (auto& [k, v] : d.terrainDeltas) {
+      json a = json::array();
+      for (float f : v) a.push_back(std::round(f * 1000.0f) / 1000.0f);
+      tiles.push_back({{"key", k}, {"d", a}});
+    }
+    j["terrainDeltas"] = {{"templateVersion", d.terrainTemplateVersion}, {"fineN", 36}, {"tiles", tiles}};
+  }
   if (d.camera.set) j["editorCamera"] = {{"position", tojson(d.camera.pos)}, {"yaw", d.camera.yaw}, {"pitch", d.camera.pitch}};
   return j;
 }
@@ -60,6 +72,11 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
   MapDoc n;
   n.extra = j;
   for (const char* k : {"format", "schemaVersion", "name", "template", "nextId", "instances", "removedTemplateVegetation", "exploreStart", "editorCamera"}) n.extra.erase(k);
+  if (j.contains("terrainDeltas") && j["terrainDeltas"].value("templateVersion", -1) == j["template"].value("version", 1) && j["terrainDeltas"].value("fineN", 0) == 36) {
+    n.terrainTemplateVersion = j["terrainDeltas"]["templateVersion"];
+    for (auto& t : j["terrainDeltas"]["tiles"]) n.terrainDeltas[t["key"].get<int>()] = t["d"].get<std::vector<float>>();
+    n.extra.erase("terrainDeltas");
+  }   // otherwise kept verbatim in extra (deltas for another template version are preserved, not applied)
   n.name = j.value("name", "Untitled map");
   n.templateId = j["template"].value("id", "blank_slate");
   n.templateVersion = j["template"].value("version", 1);
@@ -76,6 +93,8 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
     i.yaw = o.value("yaw", 0.0f);
     if (o.contains("overrides") && o["overrides"].contains("interactables"))
       for (auto& [k, v] : o["overrides"]["interactables"].items()) i.openDefaults[k] = v.value("startsOpen", false);
+    if (o.contains("overrides") && o["overrides"].contains("panels"))
+      for (auto& [k, v] : o["overrides"]["panels"].items()) i.panelHp[k] = v.value("hp", 0.0f);
     n.nextId = std::max(n.nextId, i.id + 1);
     n.instances.push_back(i);
   }

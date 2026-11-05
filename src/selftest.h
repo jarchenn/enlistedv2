@@ -31,4 +31,9 @@ private:
   std::vector<std::string> shotQueue;
   int benchFrames = 0; std::vector<double> frameTimes; std::string benchName;
   json benchOut = json::object();
+  // destruction / ground / weapons integration tests (selftest_damage.cpp)
+  std::string reportName;
+  void damageUpdate(App& app, float dt);
+  void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);
+  json summary = json::object();
 };

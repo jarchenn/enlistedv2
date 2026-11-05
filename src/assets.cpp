@@ -290,10 +290,37 @@ bool AssetLibrary::loadOne(const fs::path& path) {
       l.opaque.upload(lo); l.glass.upload(lg);
       l.shape = Physics::buildShape(l.colliders);
     }
+  // destructible wall panels: per-state meshes and shapes, plus a merged intact mesh/compound
+  MeshData allIntact;
+  std::vector<ShapePtr> intactShapes;
+  for (auto& pj : j.value("panels", json::array())) {
+    Panel pn;
+    pn.id = pj.value("id", "");
+    pn.family = pj.value("family", "masonry");
+    pn.hp = pj.value("hp", 200.0f);
+    pn.bmin = jvec3(pj["min"]); pn.bmax = jvec3(pj["max"]); pn.normal = jvec3(pj["normal"], vec3(0, 0, 1));
+    auto& sts = pj["states"];
+    for (int s = 0; s < 3 && s < (int)sts.size(); ++s) {
+      MeshData m; std::vector<Part> c;
+      for (auto& qj : sts[s]) {
+        Part p = parsePart(qj, mats);
+        pn.parts[s].push_back(p);
+        appendPart(m, p, a->materials[p.mat], mat4(1));
+        if (s == 0) { appendPart(allIntact, p, a->materials[p.mat], mat4(1)); if (p.visible) partCorners(p, pts); }
+        if (p.collide) c.push_back(p);
+      }
+      pn.mesh[s].upload(m);
+      pn.shape[s] = Physics::buildShape(c);
+    }
+    if (pn.shape[0]) intactShapes.push_back(pn.shape[0]);
+    a->panels.push_back(std::move(pn));
+  }
+  a->panelsIntact.upload(allIntact);
+  a->wallsIntact = Physics::buildCompound(intactShapes);
   a->bmin = vec3(1e9f); a->bmax = vec3(-1e9f);
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
-  logf("asset %-28s %5zu parts %3zu interactables  %6d tris", a->id.c_str(), a->parts.size(), a->interactables.size(), (int)(op.i.size() / 3));
+  logf("asset %-28s %5zu parts %3zu interactables %3zu panels %6d tris", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), (int)((op.i.size() + allIntact.i.size()) / 3));
   assets.push_back(std::move(a));
   return true;
 }

@@ -1,0 +1,30 @@
+{
+  "flyover": {
+    "avg_ms": 3.170801833568406,
+    "draws": 4219,
+    "frames": 709,
+    "last_gpu_ms": 1.185472,
+    "last_render_cpu_ms": 3.0479,
+    "max_ms": 4.447800000000113,
+    "p50_ms": 3.1273999999998914,
+    "p95_ms": 3.8447999999999816,
+    "p99_ms": 4.258999999999791,
+    "tris": 939324,
+    "working_set_mb": 144.00390625
+  },
+  "gl_renderer": "NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2",
+  "interior_walk": {
+    "avg_ms": 4.003401571709231,
+    "frames": 2036,
+    "max_ms": 152.96810000000073,
+    "p50_ms": 3.6359000000008024,
+    "p95_ms": 4.39529999999877,
+    "p99_ms": 4.75329999999996,
+    "working_set_mb": 146.91015625
+  },
+  "resolution": [
+    1920,
+    1080
+  ],
+  "structures": 30
+}

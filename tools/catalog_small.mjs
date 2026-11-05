@@ -9,10 +9,11 @@ function shell(A, o) {
   A.box([-X - 0.05, -0.8, -Z - 0.05], [X + 0.05, y0, Z + 0.05], "stone_plinth");
   A.box([-XI, y0, -ZI], [XI, GF, ZI], o.floor || "hearthstone");
   const stone = o.stone || "stone", plaster = o.plaster || "plaster";
-  wall(A, { axis: "x", outer: Z, inner: ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: o.front || [], stone, plaster, pt });
-  wall(A, { axis: "x", outer: -Z, inner: -ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: o.back || [], stone, plaster, pt });
-  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: EAVE, holes: o.east || [], stone, plaster, pt });
-  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: EAVE, holes: o.west || [], stone, plaster, pt });
+  const pn = (side) => ({ side, family: "masonry", bands: [[y0, EAVE, 0, GF]] });
+  wall(A, { axis: "x", outer: Z, inner: ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: o.front || [], stone, plaster, pt, panel: pn("front") });
+  wall(A, { axis: "x", outer: -Z, inner: -ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: o.back || [], stone, plaster, pt, panel: pn("rear") });
+  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: EAVE, holes: o.east || [], stone, plaster, pt, panel: pn("east") });
+  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: EAVE, holes: o.west || [], stone, plaster, pt, panel: pn("west") });
   if (o.quoins !== false) quoins(A, X, Z, y0, EAVE);
   gableRoof(A, { X, Z, XI: XI + pt - 0.03, EAVE, RIDGE, gableMat: stone });
   if (o.ceil) A.box([-XI, o.ceil, -ZI], [XI, o.ceil + 0.12, ZI], o.ceilMat || "plaster");

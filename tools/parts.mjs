@@ -56,16 +56,133 @@ export function stdMaterials(A) {
   A.mat("paper", [0.68, 0.64, 0.52], 0.9, "plain");
   A.mat("blackboard", [0.04, 0.05, 0.045], 0.8, "plain");
   A.mat("sacking", [0.40, 0.32, 0.20], 0.95, "fabric");
+  A.mat("rubble_core", [0.30, 0.27, 0.215], 0.97, "stone");
+  A.mat("concrete_core", [0.27, 0.26, 0.24], 0.97, "concrete");
+  A.mat("splinter", [0.33, 0.24, 0.15], 0.9, "wood", { grain: 1 });
 }
 
 // --------------------------------------------------------------------------- walls
 // A two-layer wall: rubble stone outside, lime plaster inside, with real openings.
 // out: +1/-1 = direction of the exterior along the wall's depth axis.
-export function wall(A, { axis, outer, inner, aOut, aIn, y0, y1, holes, stone = "stone", plaster = "plaster", pt = 0.03 }) {
+// panel: optional destructible bays { side, family, bands:[[b0, b1, floorIdx, walkY]], collar, minW, maxW, core }
+//   Each bay between openings (kept clear of door/window frames by `collar`) becomes ONE logical damage panel
+//   owning both layers, with intact / damaged / breached geometry and collision. Everything else stays in the
+//   immutable core (corners, frame collars, lintels, spandrels, gables).
+export function wall(A, { axis, outer, inner, aOut, aIn, y0, y1, holes, stone = "stone", plaster = "plaster", pt = 0.03, panel = null }) {
   const out = Math.sign(outer - inner);
   const mid = inner + out * pt;
-  for (const [a0, a1, ya, yb] of cutRect(aOut[0], aOut[1], y0, y1, holes)) wbox(A, axis, a0, a1, ya, yb, mid, outer, stone);
-  for (const [a0, a1, ya, yb] of cutRect(aIn[0], aIn[1], y0, y1, holes)) wbox(A, axis, a0, a1, ya, yb, inner, mid, plaster);
+  const rects = panel ? panelRects(aIn, holes, panel) : [];
+  const coreHoles = holes.concat(rects.map((r) => ({ a0: r.a0, a1: r.a1, y0: r.b0, y1: r.b1 })));
+  for (const [a0, a1, ya, yb] of cutRect(aOut[0], aOut[1], y0, y1, coreHoles)) wbox(A, axis, a0, a1, ya, yb, mid, outer, stone);
+  for (const [a0, a1, ya, yb] of cutRect(aIn[0], aIn[1], y0, y1, coreHoles)) wbox(A, axis, a0, a1, ya, yb, inner, mid, plaster);
+  for (const r of rects) emitPanel(A, { axis, outer, inner, mid, stone, plaster, r, panel });
+}
+
+function panelRects(aIn, holes, p) {
+  const collar = p.collar ?? 0.32, minW = p.minW ?? 1.0, maxW = p.maxW ?? 2.7, out = [];
+  for (const [b0, b1, floor, walkY] of p.bands) {
+    const block = holes.filter((h) => h.y1 > b0 + 0.05 && h.y0 < b1 - 0.05).map((h) => [h.a0 - collar, h.a1 + collar]).sort((u, v) => u[0] - v[0]);
+    let a = aIn[0] + (p.edge ?? 0.05);
+    const end = aIn[1] - (p.edge ?? 0.05), spans = [];
+    for (const [h0, h1] of block) { if (h0 > a) spans.push([a, Math.min(h0, end)]); a = Math.max(a, h1); }
+    if (a < end) spans.push([a, end]);
+    for (const [s0, s1] of spans) {
+      const w = s1 - s0;
+      if (w < minW) continue;
+      const n = Math.ceil(w / maxW);
+      for (let i = 0; i < n; i++) out.push({ a0: s0 + (w * i) / n, a1: s0 + (w * (i + 1)) / n, b0, b1, floor, walkY: walkY ?? b0 });
+    }
+  }
+  // bay numbers count along the wall per floor, from the low-a end
+  const per = {};
+  for (const r of out) { per[r.floor] = (per[r.floor] || 0) + 1; r.bay = per[r.floor]; }
+  return out;
+}
+
+// deterministic per-panel random numbers (stable across generator runs)
+function rng(seedStr) {
+  let h = 2166136261;
+  for (let i = 0; i < seedStr.length; i++) { h ^= seedStr.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
+}
+
+const FAMILY = {
+  masonry: { hp: 200, core: "rubble_core" },
+  concrete: { hp: 450, core: "concrete_core" },
+  timber: { hp: 90, core: "splinter" },
+};
+
+function emitPanel(A, { axis, outer, inner, mid, stone, plaster, r, panel }) {
+  const fam = FAMILY[panel.family] || FAMILY.masonry;
+  const id = `floor-${String(r.floor).padStart(2, "0")}/${panel.side}/bay-${String(r.bay).padStart(2, "0")}`;
+  const R = rng(A.meta.id + "/" + id);
+  const out = Math.sign(outer - inner);
+  const st = [[], [], []];
+  const layer = (rects, into) => {
+    for (const [a0, a1, ya, yb] of rects) {
+      wbox(A, axis, a0, a1, ya, yb, mid, outer, stone, { into });
+      wbox(A, axis, a0, a1, ya, yb, inner, mid, plaster, { into });
+    }
+  };
+  const full = [[r.a0, r.a1, r.b0, r.b1]];
+  const w = r.a1 - r.a0, h = r.b1 - r.b0, ac = (r.a0 + r.a1) / 2;
+  // ---- intact
+  layer(full, st[0]);
+  // ---- damaged: shell crater in the exterior skin, interior intact, collision unchanged in practice
+  {
+    const sw = Math.min(1.3, w * 0.55), sh = Math.min(1.0, h * 0.32), sy = r.walkY + Math.min(1.25, h * 0.42);
+    const scar = { a0: ac - sw / 2, a1: ac + sw / 2, y0: sy - sh / 2, y1: sy + sh / 2 };
+    for (const [a0, a1, ya, yb] of cutRect(r.a0, r.a1, r.b0, r.b1, [scar])) wbox(A, axis, a0, a1, ya, yb, mid, outer, stone, { into: st[1] });
+    wbox(A, axis, scar.a0, scar.a1, scar.y0, scar.y1, mid, outer - out * 0.12, fam.core, { into: st[1] });
+    wbox(A, axis, r.a0, r.a1, r.b0, r.b1, inner, mid, plaster, { into: st[1] });
+    for (let i = 0; i < 6; i++) {   // chipped dressing around the crater
+      const a = scar.a0 + R() * sw, y = scar.y0 + R() * sh, s = 0.08 + R() * 0.12;
+      const p = axis === "x" ? [a, y, outer - out * 0.05] : [outer - out * 0.05, y, a];
+      A.obox(p, [s, s * 0.8, s], [R() * 40, R() * 90, R() * 40], fam.core, { into: st[1], k: 0 });
+    }
+  }
+  // ---- breached: irregular opening built from stacked ragged rows, exposed wall core, rubble at the foot
+  {
+    const holeW = Math.max(0.5, Math.min(w - 0.45, 1.7));
+    const top = r.walkY + Math.min(h - 0.28 - (r.walkY - r.b0), 2.3);
+    const rows = [];
+    const nRows = Math.max(3, Math.round((top - r.walkY) / 0.2));
+    const cx = ac + (R() - 0.5) * Math.min(0.2, (w - holeW) * 0.5);
+    for (let i = 0; i < nRows; i++) {
+      const t = i / nRows, ya = r.walkY + ((top - r.walkY) * i) / nRows, yb = r.walkY + ((top - r.walkY) * (i + 1)) / nRows;
+      const f = t < 0.55 ? 1 : 1 - (t - 0.55) * 1.15;
+      const half = (holeW * f) / 2;
+      const jl = (R() - 0.5) * 0.16, jr = (R() - 0.5) * 0.16;
+      rows.push({ a0: Math.max(r.a0 + 0.12, cx - half + jl), a1: Math.min(r.a1 - 0.12, cx + half + jr), y0: i === 0 ? r.b0 - 0.01 : ya, y1: yb });
+    }
+    layer(cutRect(r.a0, r.a1, r.b0, r.b1, rows), st[2]);
+    // exposed core on the fracture faces: chunks set into the cut edges (visual only)
+    for (const row of rows) for (const side of [0, 1]) {
+      const a = side ? row.a1 : row.a0, s = 0.1 + R() * 0.12;
+      const d = inner + (outer - inner) * (0.2 + R() * 0.6);
+      const p = axis === "x" ? [a + (side ? -1 : 1) * s * 0.25, (row.y0 + row.y1) / 2, d] : [d, (row.y0 + row.y1) / 2, a + (side ? -1 : 1) * s * 0.25];
+      A.obox(p, [s, (row.y1 - row.y0) * 0.9, s * 1.3], [R() * 20, R() * 60, R() * 20], fam.core, { into: st[2], k: 0 });
+    }
+    if (panel.family === "concrete") {  // bent, broken reinforcement across the opening
+      for (let a = rows[0].a0 + 0.18; a < rows[0].a1 - 0.1; a += 0.24) {
+        if (R() < 0.45) continue;
+        const len = 0.25 + R() * 0.7, d = inner + (outer - inner) * (R() < 0.5 ? 0.25 : 0.75);
+        const p = axis === "x" ? [a, top - len / 2, d] : [d, top - len / 2, a];
+        A.obox(p, [0.018, len, 0.018], [axis === "x" ? (R() - 0.5) * 30 : 0, 0, axis === "z" ? (R() - 0.5) * 30 : 0], "steel_bare", { into: st[2], k: 0 });
+      }
+    }
+    for (let i = 0; i < 7; i++) {   // rubble spill either side of the wall foot (walkable, visual only)
+      const a = cx + (R() - 0.5) * holeW * 1.3, s = 0.12 + R() * 0.2;
+      const d = (R() < 0.6 ? outer + out * (0.15 + R() * 0.7) : inner - out * (0.1 + R() * 0.5));
+      const y = (d * out > outer * out ? Math.min(0, r.walkY) : r.walkY) + s * 0.3;
+      const p = axis === "x" ? [a, y, d] : [d, y, a];
+      A.obox(p, [s * 1.4, s * 0.6, s], [R() * 25, R() * 180, R() * 25], fam.core, { into: st[2], k: 0 });
+    }
+  }
+  const mn = axis === "x" ? [r.a0, r.b0, Math.min(inner, outer)] : [Math.min(inner, outer), r.b0, r.a0];
+  const mx = axis === "x" ? [r.a1, r.b1, Math.max(inner, outer)] : [Math.max(inner, outer), r.b1, r.a1];
+  const normal = axis === "x" ? [0, 0, out] : [out, 0, 0];
+  A.panels.push({ id, family: panel.family || "masonry", hp: panel.hp ?? fam.hp, min: mn, max: mx, normal, states: st });
 }
 export function partition(A, { axis, d0, d1, a0, a1, y0, y1, holes, m = "plaster" }) {
   for (const [p0, p1, ya, yb] of cutRect(a0, a1, y0, y1, holes)) wbox(A, axis, p0, p1, ya, yb, d0, d1, m);

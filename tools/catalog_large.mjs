@@ -60,10 +60,13 @@ function largeBuilding(A, c) {
     for (const [i, x] of (c.rearWindows(f)).entries()) back.push(window(A, { id: `r${f}_${i}`, ...bk, c: x, sill: yAt(f) + win.sill, w: win.w, h: win.h, shutters }));
   }
   const wm = { stone: c.wallMat || "stone", plaster: "plaster" };
-  wall(A, { ...fr, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: front, ...wm });
-  wall(A, { ...bk, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: back, ...wm });
-  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], ...wm });
-  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], ...wm });
+  const bands = [];
+  for (let f = 0; f < n; f++) bands.push([f === 0 ? y0 : yAt(f) - 0.2, f === n - 1 ? EAVE : yAt(f + 1) - 0.2, f, yAt(f)]);
+  const pn = (side) => ({ side, family: "masonry", bands });
+  wall(A, { ...fr, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: front, ...wm, panel: pn("front") });
+  wall(A, { ...bk, aOut: [-X, X], aIn: [-XI, XI], y0, y1: EAVE, holes: back, ...wm, panel: pn("rear") });
+  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], ...wm, panel: pn("east") });
+  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - 0.03, ZI + 0.03], aIn: [-ZI, ZI], y0, y1: EAVE, holes: [], ...wm, panel: pn("west") });
   quoins(A, X, Z, y0, EAVE);
   // string courses marking each floor
   for (let f = 1; f < n; f++) {

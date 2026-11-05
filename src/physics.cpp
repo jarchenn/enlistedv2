@@ -125,17 +125,47 @@ ShapePtr Physics::buildShape(const std::vector<Part>& parts) {
   return h;
 }
 
+namespace { std::vector<float> gTerrainH; int gTerrainN = 0; }
+
+namespace { std::vector<BodyID> gTileBodies; int gTilesN = 0, gTileCells = 5; float gCell = 1, gSize = 800; }
+
+// Base ground collision is one small heightfield body per deformation tile, so a deformed tile can
+// swap its base body for a high-resolution patch without any base geometry bridging the crater.
+static BodyID makeBaseTile(int tx, int tz) {
+  const int m = gTileCells + 1;            // 6 samples: multiple of the 2-sample block size
+  std::vector<float> h((size_t)m * m);
+  for (int j = 0; j < m; ++j)
+    for (int i = 0; i < m; ++i) h[(size_t)j * m + i] = gTerrainH[(size_t)(tz * gTileCells + j) * gTerrainN + (tx * gTileCells + i)];
+  HeightFieldShapeSettings hs(h.data(), Vec3(-gSize * 0.5f + tx * gTileCells * gCell, 0, -gSize * 0.5f + tz * gTileCells * gCell), Vec3(gCell, 1, gCell), (uint32)m);
+  hs.mBlockSize = 2;
+  auto r = hs.Create();
+  if (r.HasError()) { logf("terrain tile error: %s", r.GetError().c_str()); return BodyID(); }
+  BodyCreationSettings bc(r.Get(), RVec3::sZero(), Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING);
+  bc.mUserData = 0;
+  BodyID id = W->sys->GetBodyInterface().CreateAndAddBody(bc, EActivation::DontActivate);
+  if (!id.IsInvalid()) ++W->bodies;
+  return id;
+}
+
 void Physics::setTerrain(const std::vector<float>& heights, int n, float size) {
   auto& bi = W->sys->GetBodyInterface();
-  if (!W->terrain.IsInvalid()) { bi.RemoveBody(W->terrain); bi.DestroyBody(W->terrain); --W->bodies; }
-  float cell = size / (n - 1);
-  HeightFieldShapeSettings hs(heights.data(), Vec3(-size * 0.5f, 0, -size * 0.5f), Vec3(cell, 1, cell), (uint32)n);
-  auto r = hs.Create();
-  if (r.HasError()) { logf("heightfield error: %s", r.GetError().c_str()); return; }
-  BodyCreationSettings b(r.Get(), RVec3::sZero(), Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING);
-  b.mUserData = 0;
-  W->terrain = bi.CreateAndAddBody(b, EActivation::DontActivate);
-  ++W->bodies;
+  for (auto& id : gTileBodies) if (!id.IsInvalid()) { bi.RemoveBody(id); bi.DestroyBody(id); --W->bodies; }
+  gTileBodies.clear();
+  gTerrainH = heights; gTerrainN = n; gSize = size; gCell = size / (n - 1);
+  gTilesN = (n - 1) / gTileCells;
+  gTileBodies.resize((size_t)gTilesN * gTilesN);
+  for (int tz = 0; tz < gTilesN; ++tz)
+    for (int tx = 0; tx < gTilesN; ++tx) gTileBodies[(size_t)tz * gTilesN + tx] = makeBaseTile(tx, tz);
+  W->sys->OptimizeBroadPhase();
+  W->terrain = gTileBodies.empty() ? BodyID() : gTileBodies[0];
+}
+
+void Physics::setBaseTile(int tx, int tz, bool on) {
+  if (tx < 0 || tz < 0 || tx >= gTilesN || tz >= gTilesN) return;
+  BodyID& id = gTileBodies[(size_t)tz * gTilesN + tx];
+  auto& bi = W->sys->GetBodyInterface();
+  if (!on && !id.IsInvalid()) { bi.RemoveBody(id); bi.DestroyBody(id); --W->bodies; id = BodyID(); }
+  if (on && id.IsInvalid()) id = makeBaseTile(tx, tz);
 }
 
 uint32_t Physics::addStatic(const ShapePtr& s, vec3 pos, quat rot, uint64_t ud) {
@@ -173,6 +203,83 @@ bool Physics::castRay(vec3 o, vec3 d, float maxDist, float& t, uint64_t& ud) {
   t = hit.mFraction * maxDist;
   ud = W->sys->GetBodyInterface().GetUserData(hit.mBodyID);
   return true;
+}
+
+namespace {
+class IgnoreUD final : public BodyFilter {
+public:
+  explicit IgnoreUD(uint64 u) : ud(u) {}
+  bool ShouldCollideLocked(const Body& b) const override { return b.GetUserData() != ud; }
+  uint64 ud; bool skipTerrain = false;
+};
+class IgnoreUDTerrain final : public BodyFilter {
+public:
+  explicit IgnoreUDTerrain(uint64 u, bool t) : ud(u), terr(t) {}
+  bool ShouldCollideLocked(const Body& b) const override {
+    uint64 u = b.GetUserData();
+    if (u == ud) return false;
+    if (terr && (u == 0 || (u >> 60) == 0xF)) return false;   // base terrain or terrain patch
+    return true;
+  }
+  uint64 ud; bool terr;
+};
+}
+
+bool Physics::castRayEx(vec3 o, vec3 d, float maxDist, Hit& out, uint64_t ignoreUd) {
+  vec3 dn = glm::normalize(d);
+  RRayCast ray{jr(o), jv(dn * maxDist)};
+  RayCastResult hit;
+  IgnoreUD filt(ignoreUd);
+  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, filt)) return false;
+  out.t = hit.mFraction * maxDist;
+  out.pos = o + dn * out.t;
+  BodyLockRead lock(W->sys->GetBodyLockInterface(), hit.mBodyID);
+  if (lock.Succeeded()) {
+    const Body& b = lock.GetBody();
+    out.ud = b.GetUserData();
+    out.normal = gv(b.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, ray.GetPointOnRay(hit.mFraction)));
+  }
+  return true;
+}
+
+bool Physics::boxBlocked(vec3 c, vec3 he, quat q, uint64_t ignoreUd, bool ignoreTerrain) {
+  BoxShape box(jv(glm::max(he, vec3(0.01f))), 0.0f);
+  box.SetEmbedded();
+  CollideShapeSettings cs;
+  AnyHitCollisionCollector<CollideShapeCollector> col;
+  IgnoreUDTerrain filt(ignoreUd, ignoreTerrain);
+  W->sys->GetNarrowPhaseQuery().CollideShape(&box, Vec3::sReplicate(1.0f), RMat44::sRotationTranslation(jq(q), jr(c)), cs, RVec3::sZero(), col, {}, {}, filt);
+  return col.HadHit();
+}
+
+ShapePtr Physics::buildCompound(const std::vector<ShapePtr>& shapes) {
+  StaticCompoundShapeSettings cs;
+  int n = 0; const Shape* single = nullptr;
+  for (auto& s : shapes) if (s && s->s) { cs.AddShape(Vec3::sZero(), Quat::sIdentity(), s->s.GetPtr()); single = s->s.GetPtr(); ++n; }
+  if (n == 0) return nullptr;
+  auto h = std::make_shared<ShapeHandle>();
+  if (n == 1) { h->s = single; return h; }
+  auto r = cs.Create();
+  if (r.HasError()) { logf("compound error: %s", r.GetError().c_str()); return nullptr; }
+  h->s = r.Get();
+  return h;
+}
+
+void Physics::setShape(uint32_t body, const ShapePtr& s) {
+  if (body == 0xffffffffu || !s) return;
+  W->sys->GetBodyInterface().SetShape(BodyID(body), s->s.GetPtr(), false, EActivation::DontActivate);
+}
+
+uint32_t Physics::addHeightPatch(const std::vector<float>& h, int n, vec3 origin, float spacing, uint64_t ud) {
+  HeightFieldShapeSettings hs(h.data(), jv(origin), Vec3(spacing, 1, spacing), (uint32)n);
+  hs.mBlockSize = 2;
+  auto r = hs.Create();
+  if (r.HasError()) { logf("patch heightfield error: %s", r.GetError().c_str()); return 0xffffffffu; }
+  BodyCreationSettings b(r.Get(), RVec3::sZero(), Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING);
+  b.mUserData = ud;
+  BodyID id = W->sys->GetBodyInterface().CreateAndAddBody(b, EActivation::DontActivate);
+  if (!id.IsInvalid()) ++W->bodies;
+  return id.GetIndexAndSequenceNumber();
 }
 
 bool Physics::capsuleBlocked(vec3 feet, float height, float r) {

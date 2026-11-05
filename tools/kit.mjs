@@ -11,6 +11,7 @@ export class Asset {
     this.parts = [];
     this.furniture = [];
     this.interactables = [];
+    this.panels = [];
     this._target = this.parts;
   }
   mat(name, albedo, roughness, pattern = "plain", extra = {}) {
@@ -63,7 +64,7 @@ export class Asset {
     this._furn = null;
   }
   json() {
-    return { ...this.meta, materials: this.materials, parts: this.parts, furniture: this.furniture, interactables: this.interactables, walkthrough: this.walkthrough };
+    return { ...this.meta, materials: this.materials, parts: this.parts, furniture: this.furniture, interactables: this.interactables, panels: this.panels, walkthrough: this.walkthrough };
   }
 }
 

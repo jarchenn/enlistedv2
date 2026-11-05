@@ -19,11 +19,16 @@ struct InstanceRT {
   std::vector<std::vector<uint32_t>> leafBodies; // [interactable][leaf]
   std::vector<float> progress;                    // 0 closed .. 1 open
   std::vector<int> dir;                           // -1 closing, 0 idle, +1 opening
+  uint32_t wallBody = 0xffffffffu;                // replaceable wall compound (panels)
+  std::vector<float> hp;                          // per panel, Explore session overlay
+  std::vector<uint8_t> state;                     // PanelState per panel
+  bool damaged = false;                           // any panel not intact
+  float lastRebuildMs = 0;
 };
 
 struct ExploreInput { vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0; };
 
-struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; };
+struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
 
 struct PlaceCheck { bool ok = true; std::string reason; float y = 0; };
 
@@ -100,6 +105,24 @@ public:
   mat4 leafMatrix(const Instance& i, const Leaf& l, const InteractDef& d, float p) const;
   void updateLeafBodies(const Instance& i, InstanceRT& r, int k);
   void clearRuntime();
+  // ---- destruction (damage.cpp)
+  struct Explosion { vec3 pos{0}; std::vector<std::string> hits; int breached = 0; bool crater = false; };
+  Explosion explode(vec3 p, vec3 dir, float damage, float radius, float craterScale, uint64_t ignoreUd = ~0ull);
+  void rebuildWalls(const Instance& i, InstanceRT& r);
+  void resetDamage();
+  static uint8_t panelStateFor(float hp, float maxHp);
+  int findPanel(const AssetDef* a, const std::string& id) const;
+  bool panelDebug = false;
+  Explosion lastExplosion;
+  void drawDamageDebug();
+  bool deformGround(vec3 p, float scale);   // ground.cpp
+  bool craterAt(vec3 p, float radius, float depth);
+  float groundWeight(float x, float z) const;
+  void syncGroundTiles(const std::vector<int>& keys);
+  void removeGroundBodies();
+  void resetGround();
+  void applyDamageToMap();
+  void clearAppliedDamage();
   void buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl);
   void bump(Instance& i) { i.rev = ++revCounter; dirty = true; }
 

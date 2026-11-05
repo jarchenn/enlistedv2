@@ -9,10 +9,11 @@ function concreteShell(A, { X, Z, T, GF, CEIL, ROOF, front = [], back = [], east
   A.box([-X, -0.6, -Z], [X, y0, Z], "concrete");
   A.box([-XI, y0, -ZI], [XI, GF, ZI], "concrete_floor");
   const m = { stone: "concrete", plaster: "concrete_wash", pt };
-  wall(A, { axis: "x", outer: Z, inner: ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: CEIL, holes: front, ...m });
-  wall(A, { axis: "x", outer: -Z, inner: -ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: CEIL, holes: back, ...m });
-  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: CEIL, holes: east, ...m });
-  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: CEIL, holes: west, ...m });
+  const pn = (side) => ({ side, family: "concrete", bands: [[y0, CEIL, 0, GF]], collar: 0.3, minW: 1.1 });
+  wall(A, { axis: "x", outer: Z, inner: ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: CEIL, holes: front, ...m, panel: pn("front") });
+  wall(A, { axis: "x", outer: -Z, inner: -ZI, aOut: [-X, X], aIn: [-XI, XI], y0, y1: CEIL, holes: back, ...m, panel: pn("rear") });
+  wall(A, { axis: "z", outer: X, inner: XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: CEIL, holes: east, ...m, panel: pn("east") });
+  wall(A, { axis: "z", outer: -X, inner: -XI, aOut: [-ZI - pt, ZI + pt], aIn: [-ZI, ZI], y0, y1: CEIL, holes: west, ...m, panel: pn("west") });
   A.box([-X - ov, CEIL, -Z - ov], [X + ov, ROOF, Z + ov], "concrete");
   return { XI, ZI };
 }
@@ -166,11 +167,11 @@ export function fieldShelter() {
   A.box([-X, -0.5, -Z], [X, y0, Z], "earth");
   A.box([-XI, y0, -ZI], [XI, GF, ZI], "plank_x");
   const rear = door(A, { id: "shelter_door", axis: "x", outer: -Z, inner: -ZI, c: 0, floor: GF, w: 1.0, h: 1.98, hingeSide: -1, leafMat: "plank_y", frameMat: "plank_y", thresholdMat: "plank_x", lintel: false, step: false });
-  const lw = (axis, outer, inner, aOut, aIn, holes, m) => wall(A, { axis, outer, inner, aOut, aIn, y0, y1: CEIL, holes, stone: m, plaster: m, pt: 0.02 });
-  lw("x", Z, ZI, [-X, X], [-XI, XI], [ap], "log_x");
-  lw("x", -Z, -ZI, [-X, X], [-XI, XI], [rear], "log_x");
-  lw("z", X, XI, [-ZI - 0.02, ZI + 0.02], [-ZI, ZI], [], "log_z");
-  lw("z", -X, -XI, [-ZI - 0.02, ZI + 0.02], [-ZI, ZI], [], "log_z");
+  const lw = (axis, outer, inner, aOut, aIn, holes, m, side) => wall(A, { axis, outer, inner, aOut, aIn, y0, y1: CEIL, holes, stone: m, plaster: m, pt: 0.02, panel: { side, family: "timber", bands: [[y0, CEIL, 0, GF]], collar: 0.25 } });
+  lw("x", Z, ZI, [-X, X], [-XI, XI], [ap], "log_x", "front");
+  lw("x", -Z, -ZI, [-X, X], [-XI, XI], [rear], "log_x", "rear");
+  lw("z", X, XI, [-ZI - 0.02, ZI + 0.02], [-ZI, ZI], [], "log_z", "east");
+  lw("z", -X, -XI, [-ZI - 0.02, ZI + 0.02], [-ZI, ZI], [], "log_z", "west");
   for (const x of [-XI, 0, XI - 0.18]) for (const z of [-ZI, ZI - 0.18]) if (!(x === 0 && z === -ZI)) A.box([x, GF, z], [x + 0.18, CEIL, z + 0.18], "log_z", { k: 0 });
   for (let x = -X - 0.1; x < X + 0.1; x += 0.26) A.box([x, CEIL, -Z - 0.1], [x + 0.25, CEIL + 0.26, Z + 0.1], "log_z");
   A.box([-X - 0.1, CEIL - 0.14, -0.1], [X + 0.1, CEIL, 0.1], "log_x", { k: 0 });

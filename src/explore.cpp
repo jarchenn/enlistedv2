@@ -45,6 +45,8 @@ bool App::enterExplore() {
   }
   savedCam.set = true; savedCam.pos = camPos; savedCam.yaw = camYaw; savedCam.pitch = camPitch;
   resetInteractStates();   // walkthrough is a playtest: always start from authored defaults
+  resetDamage();           // ...including walls (authored/applied damage only)
+  resetGround();           // ...and ground
   Physics::createCharacter(p);
   exploreStartPos = p; exploreStartYaw = doc.start.yaw;
   eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f;
@@ -60,6 +62,8 @@ void App::exitExplore() {
   if (mode != Mode::Explore) return;
   Physics::destroyCharacter();
   resetInteractStates();   // discard temporary exploration state
+  resetDamage();
+  resetGround();
   camPos = savedCam.pos; camYaw = savedCam.yaw; camPitch = savedCam.pitch;
   glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   mode = Mode::Creative; pauseMenu = false; target = {};
@@ -198,6 +202,7 @@ void App::updateExplore(float dt) {
     }
     if (kp(win, GLFW_KEY_F5)) { exitExplore(); return; }
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
+    if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
   }
   if (pauseMenu) return;
   ExploreInput in;
@@ -251,6 +256,7 @@ void App::drawExploreUI() {
     dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk  |  Shift sprint  |  Ctrl/C crouch  |  Space jump  |  E interact  |  R return to start  |  Esc menu");
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
+  drawDamageDebug();
   if (showStats) {
     auto ch = Physics::character();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 280, 10), ImGuiCond_Always);
@@ -267,6 +273,9 @@ void App::drawExploreUI() {
     if (ImGui::Button("Resume", ImVec2(240, 0))) { pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
     if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
     if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
+    ImGui::Separator();
+    if (ImGui::Button("Apply damage to map + return", ImVec2(240, 0))) { applyDamageToMap(); exitExplore(); }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nWeapons, ammunition, moved guns and doors are not kept.");
     ImGui::End();
   }
 }
