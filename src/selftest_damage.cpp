@@ -60,6 +60,8 @@ void SelfTest::beginCustom(App& app, const std::string& asset, uint64_t inst, co
 }
 
 void SelfTest::damageUpdate(App& app, float dt) {
+  if (stage >= 700) { weaponsUpdate(app, dt); return; }
+  if (stage >= 600) { pakUpdate(app, dt); return; }
   auto go = [&](int s) { stage = s; stageTime = 0; };
   const char* FH = "house_farmhouse_2story";
   switch (stage) {

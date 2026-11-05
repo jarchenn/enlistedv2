@@ -348,6 +348,22 @@ void main(){
   oE = mix(prev, target, k);
 }
 )GLSL";
+static const char* kFxVS = R"GLSL(
+#version 450 core
+layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol; layout(location=2) in vec2 aUV;
+uniform mat4 uVP; out vec4 vC; out vec2 vUV;
+void main(){ vC = aCol; vUV = aUV; gl_Position = uVP*vec4(aPos,1.0); }
+)GLSL";
+static const char* kFxFS = R"GLSL(
+#version 450 core
+in vec4 vC; in vec2 vUV; uniform int uAdd; out vec4 o;
+void main(){
+  float d = length(vUV*2.0-1.0);
+  float a = smoothstep(1.0, 0.15, d);
+  if (uAdd == 1) o = vec4(vC.rgb*a, 1.0);
+  else o = vec4(vC.rgb, vC.a*a*a);
+}
+)GLSL";
 static const char* kLineVS = R"GLSL(
 #version 450 core
 layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol;
@@ -413,6 +429,13 @@ bool Renderer::init(int w, int h) {
   progTone = compile(kFullVS, kToneFS, "tone");
   progExpo = compile(kFullVS, kExpoFS, "expo");
   progLine = compile(kLineVS, kLineFS, "line");
+  progFx = compile(kFxVS, kFxFS, "fx");
+  glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
+  glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
+  for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
+  glVertexArrayAttribFormat(fxVao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(FxVert, p));
+  glVertexArrayAttribFormat(fxVao, 1, 4, GL_FLOAT, GL_FALSE, offsetof(FxVert, c));
+  glVertexArrayAttribFormat(fxVao, 2, 2, GL_FLOAT, GL_FALSE, offsetof(FxVert, uv));
   glCreateVertexArrays(1, &emptyVao);
   glCreateVertexArrays(1, &lineVao); glCreateBuffers(1, &lineVbo);
   glVertexArrayVertexBuffer(lineVao, 0, lineVbo, 0, sizeof(OverlayVert));
@@ -604,6 +627,24 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     setLighting(progMain, v);
     glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     drawItems(progMain, ghosts, false);
+  }
+  // effects: smoke (alpha) then flashes / tracers / streaks (additive), depth-tested, no depth writes
+  if (!fxAlpha.empty() || !fxAdd.empty()) {
+    glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
+    glUseProgram(progFx);
+    glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glBindVertexArray(fxVao);
+    if (!fxAlpha.empty()) {
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glUniform1i(U(progFx, "uAdd"), 0);
+      glNamedBufferData(fxVbo, fxAlpha.size() * sizeof(FxVert), fxAlpha.data(), GL_STREAM_DRAW);
+      glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAlpha.size());
+    }
+    if (!fxAdd.empty()) {
+      glBlendFunc(GL_ONE, GL_ONE); glUniform1i(U(progFx, "uAdd"), 1);
+      glNamedBufferData(fxVbo, fxAdd.size() * sizeof(FxVert), fxAdd.data(), GL_STREAM_DRAW);
+      glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAdd.size());
+    }
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
   glDepthMask(GL_TRUE);
   glDisable(GL_BLEND);

@@ -47,6 +47,8 @@ bool App::enterExplore() {
   resetInteractStates();   // walkthrough is a playtest: always start from authored defaults
   resetDamage();           // ...including walls (authored/applied damage only)
   resetGround();           // ...and ground
+  resetCombat();           // guns at authored positions/ammo, crates at authored stock
+  resetWeapons();
   Physics::createCharacter(p);
   exploreStartPos = p; exploreStartYaw = doc.start.yaw;
   eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f;
@@ -61,9 +63,12 @@ bool App::enterExplore() {
 void App::exitExplore() {
   if (mode != Mode::Explore) return;
   Physics::destroyCharacter();
+  leaveStation();
   resetInteractStates();   // discard temporary exploration state
   resetDamage();
   resetGround();
+  resetCombat();
+  resetWeapons();
   camPos = savedCam.pos; camYaw = savedCam.yaw; camPitch = savedCam.pitch;
   glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   mode = Mode::Creative; pauseMenu = false; target = {};
@@ -124,6 +129,21 @@ InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
       }
     }
   }
+  for (auto& i : doc.instances) {   // guns and crates: aim at the object within reach, occlusion as for doors
+    auto it = rt.find(i.id); if (it == rt.end()) continue;
+    auto& r = it->second;
+    bool isStation = !r.asset->station.kind.empty(), isCrate = r.asset->crate.is_object() && !r.asset->crate.empty();
+    if (!isStation && !isCrate) continue;
+    if (i.id == occupied) continue;
+    mat4 M = isStation ? stationMatrix(i, r) : instanceMatrix(i);
+    vec3 c = vec3(M * vec4((r.asset->bmin + r.asset->bmax) * 0.5f, 1));
+    if (glm::length(c - eye) > 6) continue;
+    float t;
+    quat q = yawQuat(isStation ? r.st.carYaw : i.yaw);
+    if (rayOBB(eye, dir, c, (r.asset->bmax - r.asset->bmin) * 0.5f, q, t) && t <= 2.4f && t <= tWall + 0.25f && t < bestT) {
+      bestT = t; best = {true, i.id, -1, t, isStation ? 1 : 2};
+    }
+  }
   return best;
 }
 
@@ -163,13 +183,15 @@ void App::exploreStep(float dt, const ExploreInput& in) {
       updateLeafBodies(i, r, (int)k);
     }
   }
+  if (occupied) { stepStation(dt, in); }
+  else stepWeapons(dt, in);
   // ---- move
   vec3 f = forward(eyeYaw, 0), rgt(std::cos(radians(eyeYaw)), 0, -std::sin(radians(eyeYaw)));
   vec3 wish = f * in.move.y + rgt * in.move.x;
   if (glm::length(wish) > 1) wish = glm::normalize(wish);
   auto before = Physics::character();
   float speed = in.crouch ? 1.2f : in.sprint ? 4.6f : 2.3f;
-  Physics::updateCharacter(dt, wish * speed, in.jump, in.crouch);
+  if (!occupied) Physics::updateCharacter(dt, wish * speed, in.jump, in.crouch);
   auto c = Physics::character();
   float eyeTarget = c.crouched ? 1.05f : 1.62f;
   eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * 10);
@@ -189,7 +211,18 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   }
   // ---- interaction
   target = findTarget(eyePos(), forward(eyeYaw, eyePitch));
-  if (in.interact && target.valid) toggleInteract(target.inst, target.idx);
+  if (occupied) { if (in.interact) leaveStation(); }
+  else if (choiceFor) {
+    if (in.choose1) occupyStation(choiceFor, ST_GUNNER);
+    else if (in.choose2) occupyStation(choiceFor, ST_HANDLER);
+    else if (in.interact) choiceFor = 0;
+  } else if (in.interact && target.valid) {
+    if (target.kind == 1) choiceFor = target.inst;
+    else if (target.kind == 2) toast(crateTransaction(target.inst), 5);
+    else toggleInteract(target.inst, target.idx);
+  }
+  stepProjectiles(dt);
+  fx.update(dt, terrain);
   if (c.pos.y < -60) { returnToStart(); toast("Fell out of the world: returned to start."); }
 }
 
@@ -208,11 +241,16 @@ void App::updateExplore(float dt) {
   ExploreInput in;
   static double lmx = -1, lmy = -1;
   if (useScripted) {
-    in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false;
-    eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f);
+    in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false;
+    scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false;
+    if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (lmx >= 0 && !io.WantCaptureMouse) { eyeYaw = wrapDeg(eyeYaw - (float)(mx - lmx) * 0.1f); eyePitch = std::clamp(eyePitch - (float)(my - lmy) * 0.1f, -85.0f, 85.0f); }
+    if (lmx >= 0 && !io.WantCaptureMouse) {
+      StationRT* gs = station(occupied);
+      if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * 0.012f; in.dpitch = -(float)(my - lmy) * 0.012f; }   // handwheels
+      else { eyeYaw = wrapDeg(eyeYaw - (float)(mx - lmx) * 0.1f); eyePitch = std::clamp(eyePitch - (float)(my - lmy) * 0.1f, -85.0f, 85.0f); }
+    }
     lmx = mx; lmy = my;
     if (kd(win, GLFW_KEY_W)) in.move.y += 1;
     if (kd(win, GLFW_KEY_S)) in.move.y -= 1;
@@ -222,13 +260,19 @@ void App::updateExplore(float dt) {
     in.crouch = kd(win, GLFW_KEY_LEFT_CONTROL) || kd(win, GLFW_KEY_C);
     in.jump = kp(win, GLFW_KEY_SPACE);
     in.interact = kp(win, GLFW_KEY_E);
-    if (kp(win, GLFW_KEY_R)) returnToStart();
+    in.fire = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !io.WantCaptureMouse;
+    in.aim = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS && !io.WantCaptureMouse;
+    in.reload = kp(win, GLFW_KEY_R);
+    in.switchPos = kp(win, GLFW_KEY_T);
+    in.choose1 = kp(win, GLFW_KEY_1); in.choose2 = kp(win, GLFW_KEY_2);
+    in.nextWeapon = kp(win, GLFW_KEY_Q);
+    if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
   physAccum += dt;
   int steps = 0;
   while (physAccum >= 1.0f / 60.0f && steps < 5) {
     exploreStep(1.0f / 60.0f, in);
-    in.interact = false; in.jump = false;
+    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.dyaw = in.dpitch = 0;
     physAccum -= 1.0f / 60.0f; ++steps;
   }
   if (steps == 5) physAccum = 0;
@@ -244,6 +288,13 @@ void App::drawExploreUI() {
     if (target.valid) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
+        if (target.kind != 0) {
+          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : "E  -  Take ammunition (" + it->second.asset->name + ")";
+          ImVec2 ts = ImGui::CalcTextSize(t.c_str());
+          ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
+          dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
+          dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
+        } else {
         auto& d = it->second.asset->interactables[target.idx];
         bool opening = it->second.dir[target.idx] != 0 ? it->second.dir[target.idx] < 0 : it->second.progress[target.idx] < 0.5f;
         std::string t = std::string("E  —  ") + (opening ? "Open " : "Close ") + d.label;
@@ -251,9 +302,12 @@ void App::drawExploreUI() {
         ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
         dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
         dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
+        }
       }
     }
-    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk  |  Shift sprint  |  Ctrl/C crouch  |  Space jump  |  E interact  |  R return to start  |  Esc menu");
+    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
+    drawCombatUI();
+    drawWeaponUI();
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
   drawDamageDebug();

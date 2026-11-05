@@ -5,6 +5,7 @@
 #include "mapdoc.h"
 #include "physics.h"
 #include "audio.h"
+#include "combat.h"
 
 struct GLFWwindow;
 
@@ -24,15 +25,20 @@ struct InstanceRT {
   std::vector<uint8_t> state;                     // PanelState per panel
   bool damaged = false;                           // any panel not intact
   float lastRebuildMs = 0;
+  StationRT st;                                   // crew-served station overlay (if the asset is a station)
 };
 
-struct ExploreInput { vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0; };
+struct ExploreInput {
+  vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0;
+  bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false;
+};
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
 
 struct PlaceCheck { bool ok = true; std::string reason; float y = 0; };
 
-struct InteractTarget { bool valid = false; uint64_t inst = 0; int idx = -1; float t = 0; };
+struct InteractTarget { bool valid = false; uint64_t inst = 0; int idx = -1; float t = 0; int kind = 0; /*0 door/window, 1 station, 2 crate*/ };
+struct ImpactInfo { vec3 pos{0}; std::string surface; int kind = 0; float time = -10; int breached = 0; };
 
 class SelfTest;
 
@@ -115,6 +121,39 @@ public:
   bool panelDebug = false;
   Explosion lastExplosion;
   void drawDamageDebug();
+  // ---- combat (station.cpp / fx.cpp / weapons.cpp)
+  Fx fx;
+  std::vector<Projectile> projectiles;
+  GpuMesh debrisMesh;
+  uint64_t occupied = 0, choiceFor = 0;
+  std::map<uint64_t, std::map<std::string, int>> crateStock;
+  std::map<uint64_t, bool> crateUnlimited;
+  int shotsFired = 0;
+  ImpactInfo lastImpact;
+  void resetCombat();
+  void fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, bool tracer, const std::string& ammo);
+  void stepProjectiles(float dt);
+  void stepStation(float dt, const ExploreInput& in);
+  bool occupyStation(uint64_t id, int pos);
+  void leaveStation();
+  void switchStationPosition();
+  StationRT* station(uint64_t id);
+  mat4 stationMatrix(const Instance& i, const InstanceRT& r) const;
+  void stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4& yawM, mat4& elevM, mat4& recoilM) const;
+  vec3 stationMuzzle(const Instance& i, const InstanceRT& r, vec3& dir) const;
+  bool stationCamera(vec3& eye, vec3& fwd, float& fov) const;
+  bool carriageFits(const Instance& i, const InstanceRT& r, vec3& pos, float yaw, std::string& why) const;
+  std::string crateTransaction(uint64_t crateId);
+  std::string resupplyPersonal(uint64_t crateId);
+  void drawCombatUI();
+  // personal weapons (weapons.cpp)
+  void resetWeapons();
+  void stepWeapons(float dt, const ExploreInput& in);
+  void drawWeaponUI();
+  void weaponDrawItems(std::vector<DrawItem>& op);
+  bool weaponCamera(float& fov) const;
+  void buildWeaponMeshes();
+  float viewKickYaw = 0, viewKickPitch = 0;
   bool deformGround(vec3 p, float scale);   // ground.cpp
   bool craterAt(vec3 p, float radius, float depth);
   float groundWeight(float x, float z) const;

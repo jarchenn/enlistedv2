@@ -1,6 +1,7 @@
 #pragma once
 #include "assets.h"
 #include "terrain.h"
+#include "combat.h"
 
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; };
 struct OverlayVert { vec3 p; vec4 c; };
@@ -32,6 +33,7 @@ public:
   void resetExposure(float e = 1.0f);
   bool readPixels(std::vector<uint8_t>& rgba, int& w, int& h);
   FrameStats stats;
+  std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));
   int width = 0, height = 0;
 private:
@@ -39,6 +41,7 @@ private:
   void createTargets();
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass);
   void setLighting(GLuint prog, const RenderView& v);
+  GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   GLuint progMain = 0, progShadow = 0, progTerrain = 0, progSky = 0, progGlass = 0, progLine = 0, progTone = 0, progExpo = 0;
   GLuint shadowFbo = 0, shadowTex = 0, occFbo = 0, occTex = 0;
   GLuint hdrFbo = 0, hdrColor = 0, depthTex = 0, ldrFbo = 0, ldrColor = 0;

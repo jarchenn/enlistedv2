@@ -139,6 +139,8 @@ void SelfTest::update(App& app, float dt) {
     int argc = __argc; char** argv = __argv;
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-reopen" && k + 1 < argc) reopenPath = argv[k + 1];
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-damage") { go(500); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-pak") { go(600); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-weapons") { go(700); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }
     const TemplateInfo* t = app.findTemplate("blank_slate");

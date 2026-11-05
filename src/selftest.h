@@ -34,6 +34,8 @@ private:
   // destruction / ground / weapons integration tests (selftest_damage.cpp)
   std::string reportName;
   void damageUpdate(App& app, float dt);
+  void pakUpdate(App& app, float dt);
+  void weaponsUpdate(App& app, float dt);
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);
   json summary = json::object();
 };

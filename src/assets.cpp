@@ -267,11 +267,39 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     }
     a->interactables.push_back(std::move(d));
   }
+  std::vector<vec3> pts;
   if (j.contains("walkthrough")) a->walkthrough = j["walkthrough"];
+  if (j.contains("crate")) a->crate = j["crate"];
+  if (j.contains("station")) {
+    auto& sj = j["station"];
+    auto& st = a->station;
+    st.kind = sj.value("kind", "");
+    st.yawPivot = jvec3(sj["yawPivot"]); st.elevPivot = jvec3(sj["elevPivot"]);
+    st.muzzle = jvec3(sj["muzzle"]); st.optic = jvec3(sj["optic"]);
+    st.gunner = jvec3(sj["gunner"]); st.handler = jvec3(sj["handler"]);
+    if (sj.contains("traverse")) { st.yawMin = sj["traverse"][0]; st.yawMax = sj["traverse"][1]; }
+    if (sj.contains("elevation")) { st.elevMin = sj["elevation"][0]; st.elevMax = sj["elevation"][1]; }
+    st.traverseRate = sj.value("traverseRate", 14.0f); st.elevateRate = sj.value("elevateRate", 8.0f);
+    st.recoil = sj.value("recoil", 0.6f); st.reloadTime = sj.value("reloadTime", 4.0f);
+    st.loaded = sj.value("loaded", 1); st.reserve = sj.value("reserve", 5); st.ammo = sj.value("ammo", "");
+    st.moveHalf = jvec3(sj["moveHalf"], vec3(1, 0.5f, 1.6f)); st.serviceRadius = sj.value("serviceRadius", 6.0f);
+    auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
+      MeshData m;
+      for (auto& pj : sj.value(key, json::array())) {
+        Part p = parsePart(pj, mats);
+        parts.push_back(p);
+        appendPart(m, p, a->materials[p.mat], mat4(1));
+        Part q = p; q.center += pivot; partCorners(q, pts);
+      }
+      mesh.upload(m);
+    };
+    load("yawParts", st.yawParts, st.yawMesh, st.yawPivot);
+    load("elevParts", st.elevParts, st.elevMesh, st.elevPivot);
+    load("recoilParts", st.recoilParts, st.recoilMesh, st.elevPivot);
+  }
 
   // meshes
   MeshData op, gl;
-  std::vector<vec3> pts;
   std::vector<Part> col;
   for (auto& p : a->parts) {
     appendPart(isGlass(*a, p) ? gl : op, p, a->materials[p.mat], mat4(1));

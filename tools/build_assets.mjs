@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { Asset, wbox } from "./kit.mjs";
 import { workshop, dairy, storehouse, office } from "./catalog_small.mjs";
 import { schoolhouse, inn, warehouse, municipal } from "./catalog_large.mjs";
+import { pak40, m2hb, crates } from "./catalog_ordnance.mjs";
 import { mgCasemate, observationPost, fieldShelter, commandShelter } from "./catalog_bunkers.mjs";
 import { stdMaterials, wall, partition, window, door, stairs, railing, table, chair, bench, bed, armoire, dresser, chest, gableRoof, quoins } from "./parts.mjs";
 
@@ -328,7 +329,7 @@ function cottage() {
   return A;
 }
 
-const assets = [farmhouse(), cottage(), workshop(), dairy(), storehouse(), office(), mgCasemate(), observationPost(), fieldShelter(), commandShelter(), schoolhouse(), inn(), warehouse(), municipal()];
+const assets = [farmhouse(), cottage(), workshop(), dairy(), storehouse(), office(), mgCasemate(), observationPost(), fieldShelter(), commandShelter(), schoolhouse(), inn(), warehouse(), municipal(), pak40(), m2hb(), ...crates()];
 for (const A of assets) {
   const j = A.json();
   fs.writeFileSync(path.join(outAssets, j.id + ".json"), JSON.stringify(j));

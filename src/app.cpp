@@ -108,6 +108,14 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
     mat4 M = instanceMatrix(i);
+    if (!r.asset->station.kind.empty()) {   // station: base + yaw / elevation / recoil children
+      mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc);
+      op.push_back({&r.asset->opaque, b});
+      op.push_back({&r.asset->station.yawMesh, y});
+      op.push_back({&r.asset->station.elevMesh, e});
+      op.push_back({&r.asset->station.recoilMesh, rc});
+      continue;
+    }
     // coarse distance cull
     if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) > 1200) continue;
     op.push_back({&r.asset->opaque, M});
@@ -223,10 +231,10 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   }
   c.y = top;
   float grade = top - low;
-  if (grade > std::min(a->maxGrade, a->plinthDepth)) {
+  if (grade > (a->plinthDepth > 0 ? std::min(a->maxGrade, a->plinthDepth) : a->maxGrade)) {
     char buf[160];
     std::string side = lowSide; side[0] = (char)std::toupper(side[0]);
-    std::snprintf(buf, sizeof buf, "%s foundation is unsupported (ground falls %.1f m; limit %.1f m).", side.c_str(), grade, std::min(a->maxGrade, a->plinthDepth));
+    std::snprintf(buf, sizeof buf, "%s foundation is unsupported (ground falls %.1f m; limit %.1f m).", side.c_str(), grade, (a->plinthDepth > 0 ? std::min(a->maxGrade, a->plinthDepth) : a->maxGrade));
     c.ok = false; c.reason = buf; return c;
   }
   for (auto& o : doc.instances) {
@@ -344,7 +352,7 @@ int App::run(int argc, char** argv) {
     if (a == "--selftest") runSelf = true;
     else if (a == "--benchmark") { runSelf = true; bench = true; }
     else if (a == "--selftest-reopen") { runSelf = true; ++k; }
-    else if (a == "--selftest-damage") runSelf = true;
+    else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else openPath = a;
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
@@ -387,6 +395,12 @@ int App::run(int argc, char** argv) {
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
   makeThumbnails();
   {
+    Material rm{"debris", vec3(0.30f, 0.27f, 0.21f), 0.95f, 0.0f, PAT_STONE, 1};
+    Part p; p.center = vec3(0); p.size = vec3(1);
+    MeshData m; appendPart(m, p, rm, mat4(1)); debrisMesh.upload(m);
+    buildWeaponMeshes();
+  }
+  {
     const TemplateInfo* t = findTemplate("blank_slate");
     TemplateInfo fb; fb.id = "blank_slate"; fb.name = "Blank Slate";
     newMap(t ? *t : fb, "My Normandy map");
@@ -425,6 +439,10 @@ int App::run(int argc, char** argv) {
 
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
     buildDrawLists(op, gl);
+    if (mode == Mode::Explore) {
+      for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
+      weaponDrawItems(op);
+    }
     int ww, wh; glfwGetWindowSize(win, &ww, &wh);
     float aspect = fbh > 0 ? (float)fbw / fbh : 1.0f;
     RenderView v;
@@ -435,13 +453,17 @@ int App::run(int argc, char** argv) {
       drawCreativeOverlay(ov, ghosts);
       audio.setListener(camPos, forward(camYaw, camPitch));
     } else {
-      vec3 e = eyePos();
-      viewM = glm::lookAt(e, e + forward(eyeYaw, eyePitch), vec3(0, 1, 0));
-      projM = glm::perspective(radians(72.0f), aspect, 0.05f, 4000.0f);
+      vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
+      float fov = 72.0f;
+      if (!stationCamera(e, fv, fov)) weaponCamera(fov);
+      viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
+      projM = glm::perspective(radians(fov), aspect, 0.03f, 4000.0f);
       v.editor = false; v.autoExposure = true; v.camPos = e;
       audio.setListener(e, forward(eyeYaw, eyePitch));
     }
     v.view = viewM; v.proj = projM; v.dt = frameDt;
+    R.fxAlpha.clear(); R.fxAdd.clear();
+    if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
     R.render(v, terrain, op, gl, ghosts, ov);
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
     ImGui::Render();
