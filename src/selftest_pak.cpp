@@ -277,4 +277,3 @@ void SelfTest::pakUpdate(App& app, float dt) {
   if (done2) { ++cur; tcur = 0; }
 }
 
-void SelfTest::weaponsUpdate(App& app, float) { check(false, "weapons test not built yet"); finish(app); }

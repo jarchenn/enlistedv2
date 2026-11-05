@@ -8,6 +8,7 @@ public:
   explicit SelfTest(bool benchmark) : bench(benchmark) {}
   void update(App& app, float dt);  // called once per frame before mode updates
   bool done = false;
+  bool slowFrames = false;   // simulate 10 fps frames (frame-drop tests)
   int exitCode = 0;
 private:
   bool bench;

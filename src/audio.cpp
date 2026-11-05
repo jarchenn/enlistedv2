@@ -122,6 +122,25 @@ bool Audio::init() {
   { Buf b = mk(0.6f); addThud(b, 0.0f, 110, 0.7f, r); addClick(b, 0.05f, 0.06f, 1400, 0.5f, r); addClang(b, 0.12f, 900, 0.15f, 0.1f, r); normalize(b, 0.6f); p->bufs["crate"] = b; }
   { Buf b = mk(1.2f); addCreak(b, 0.0f, 1.1f, 60, 80, 0.7f, r); addThud(b, 0.0f, 70, 0.4f, r); normalize(b, 0.6f); p->bufs["gun_move"] = b; }
   { Buf b = mk(0.15f); addClick(b, 0.0f, 0.04f, 3500, 0.8f, r); normalize(b, 0.5f); p->bufs["click"] = b; }
+  // small arms: each weapon gets its own crack / body / tail so identical-calibre guns still differ
+  auto gun = [&](const char* name, float crack, float body, float tail, float len, float bright) {
+    Buf b = mk(len); addClick(b, 0.0f, 0.02f, crack, 1.0f, r); addThud(b, 0.0f, body, 0.9f, r);
+    float lp = 0; for (size_t i = 0; i < b.size(); ++i) { float t = i / (float)SR; lp += (r.n() - lp) * bright; b[i] += lp * 2.5f * std::exp(-t * tail); }
+    normalize(b); p->bufs[name] = b; };
+  gun("shot_m1_garand", 4200, 70, 6.0f, 1.2f, 0.05f);
+  gun("shot_m1c_garand", 4200, 70, 6.0f, 1.2f, 0.05f);
+  gun("shot_kar98k", 3800, 62, 5.0f, 1.4f, 0.045f);
+  gun("shot_kar98k_zf39", 3800, 62, 5.0f, 1.4f, 0.045f);
+  gun("shot_mp40", 3000, 110, 14.0f, 0.5f, 0.09f);
+  gun("shot_m1_thompson", 2400, 90, 12.0f, 0.55f, 0.07f);
+  gun("shot_mg42", 5200, 85, 16.0f, 0.4f, 0.12f);
+  gun("shot_m2hb", 3000, 45, 7.0f, 0.9f, 0.04f);
+  { Buf b = mk(0.5f); addClang(b, 0.0f, 2600, 0.6f, 0.09f, r); addClang(b, 0.18f, 2400, 0.25f, 0.06f, r); normalize(b, 0.55f); p->bufs["ping"] = b; }
+  { Buf b = mk(0.5f); addClick(b, 0.0f, 0.05f, 1600, 0.6f, r); addClick(b, 0.2f, 0.05f, 1900, 0.6f, r); normalize(b, 0.6f); p->bufs["bolt"] = b; }
+  { Buf b = mk(0.3f); addClick(b, 0.0f, 0.06f, 1200, 0.7f, r); normalize(b, 0.5f); p->bufs["mag_out"] = b; }
+  { Buf b = mk(0.3f); addClick(b, 0.0f, 0.04f, 2200, 0.8f, r); addThud(b, 0.01f, 160, 0.3f, r); normalize(b, 0.6f); p->bufs["mag_in"] = b; }
+  { Buf b = mk(0.25f); addClick(b, 0.0f, 0.03f, 2800, 0.7f, r); normalize(b, 0.5f); p->bufs["clip_in"] = b; }
+  { Buf b = mk(0.8f); addClang(b, 0.0f, 900, 0.3f, 0.08f, r); addClick(b, 0.3f, 0.05f, 1500, 0.7f, r); addClang(b, 0.55f, 1100, 0.35f, 0.08f, r); normalize(b, 0.6f); p->bufs["belt"] = b; }
   // ambience loops (started once; never restarted on mode changes)
   p->windBuf = makeWind(14.0f, r, 0.02f, 1.0f);
   p->leafBuf = makeWind(9.0f, r, 0.35f, 2.0f);

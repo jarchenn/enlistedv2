@@ -34,6 +34,7 @@ public:
   bool readPixels(std::vector<uint8_t>& rgba, int& w, int& h);
   FrameStats stats;
   std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)
+  std::vector<DrawItem> viewModel;      // first-person weapon: drawn last over a cleared depth buffer
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));
   int width = 0, height = 0;
 private:

@@ -212,6 +212,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   // ---- interaction
   target = findTarget(eyePos(), forward(eyeYaw, eyePitch));
   if (occupied) { if (in.interact) leaveStation(); }
+  else if (showLoadout) {}
   else if (choiceFor) {
     if (in.choose1) occupyStation(choiceFor, ST_GUNNER);
     else if (in.choose2) occupyStation(choiceFor, ST_HANDLER);
@@ -236,6 +237,8 @@ void App::updateExplore(float dt) {
     if (kp(win, GLFW_KEY_F5)) { exitExplore(); return; }
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
     if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
+    if (kp(win, GLFW_KEY_L) && !pauseMenu) { showLoadout = !showLoadout; glfwSetInputMode(win, GLFW_CURSOR, showLoadout ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED); }
+    if (kp(win, GLFW_KEY_V)) scopeIronsMode = !scopeIronsMode;
   }
   if (pauseMenu) return;
   ExploreInput in;
@@ -246,9 +249,10 @@ void App::updateExplore(float dt) {
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (lmx >= 0 && !io.WantCaptureMouse) {
+    if (lmx >= 0 && !io.WantCaptureMouse && !showLoadout) {
       StationRT* gs = station(occupied);
-      if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * 0.012f; in.dpitch = -(float)(my - lmy) * 0.012f; }   // handwheels
+      float hs = gs && rt[occupied].asset->station.kind == "m2hb" ? 0.08f : 0.012f;
+      if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
       else { eyeYaw = wrapDeg(eyeYaw - (float)(mx - lmx) * 0.1f); eyePitch = std::clamp(eyePitch - (float)(my - lmy) * 0.1f, -85.0f, 85.0f); }
     }
     lmx = mx; lmy = my;
@@ -270,12 +274,12 @@ void App::updateExplore(float dt) {
   }
   physAccum += dt;
   int steps = 0;
-  while (physAccum >= 1.0f / 60.0f && steps < 5) {
+  while (physAccum >= 1.0f / 60.0f && steps < 8) {
     exploreStep(1.0f / 60.0f, in);
     in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.dyaw = in.dpitch = 0;
     physAccum -= 1.0f / 60.0f; ++steps;
   }
-  if (steps == 5) physAccum = 0;
+  if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral
   Physics::step(dt);
 }
 

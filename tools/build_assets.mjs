@@ -7,6 +7,7 @@ import { Asset, wbox } from "./kit.mjs";
 import { workshop, dairy, storehouse, office } from "./catalog_small.mjs";
 import { schoolhouse, inn, warehouse, municipal } from "./catalog_large.mjs";
 import { pak40, m2hb, crates } from "./catalog_ordnance.mjs";
+import { weapons } from "./catalog_weapons.mjs";
 import { mgCasemate, observationPost, fieldShelter, commandShelter } from "./catalog_bunkers.mjs";
 import { stdMaterials, wall, partition, window, door, stairs, railing, table, chair, bench, bed, armoire, dresser, chest, gableRoof, quoins } from "./parts.mjs";
 
@@ -335,6 +336,15 @@ for (const A of assets) {
   fs.writeFileSync(path.join(outAssets, j.id + ".json"), JSON.stringify(j));
   const nParts = j.parts.length + j.furniture.reduce((s, f) => s + f.parts.length, 0);
   console.log(`${j.id}: ${nParts} parts, ${j.interactables.length} interactables, ${j.furniture.length} furniture groups`);
+}
+
+// ---- first-person weapons
+const outWeapons = path.join(root, "content", "weapons");
+fs.mkdirSync(outWeapons, { recursive: true });
+for (const w of weapons()) {
+  fs.writeFileSync(path.join(outWeapons, w.id + ".json"), JSON.stringify(w));
+  const n = Object.values(w.parts).reduce((s, p) => s + p.length, 0);
+  console.log(`weapon ${w.id}: ${n} parts`);
 }
 
 // ---- templates

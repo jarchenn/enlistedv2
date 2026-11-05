@@ -648,6 +648,13 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   }
   glDepthMask(GL_TRUE);
   glDisable(GL_BLEND);
+  if (!viewModel.empty()) {   // view model never clips into walls; lit at its world position
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_CULL_FACE);
+    setLighting(progMain, v);
+    glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    drawItems(progMain, viewModel, false);
+  }
 
   // ---- exposure
   glGenerateTextureMipmap(hdrColor);

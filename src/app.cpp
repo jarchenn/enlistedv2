@@ -418,7 +418,7 @@ int App::run(int argc, char** argv) {
     }
     double t = glfwGetTime();
     frameDt = (float)std::min(0.1, t - last); last = t; now = t;
-    if (selftest) frameDt = 1.0f / 60.0f;  // deterministic simulation for the scripted test
+    if (selftest) frameDt = selftest->slowFrames ? 0.1f : 1.0f / 60.0f;  // deterministic simulation for the scripted test
     glfwGetFramebufferSize(win, &fbw, &fbh);
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 

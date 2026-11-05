@@ -1,5 +1,30 @@
 #pragma once
-#include "common.h"
+#include "assets.h"
+
+// ---------------------------------------------------------------- personal weapons
+struct WeaponDef {
+  std::string id, name, side, action, feed, container, caliber, note, reticle;
+  int cap = 1, loaded = 1, reserve = 0, containerSize = 1, tracerEvery = 0;
+  float rpm = 60, velocity = 800, zero = 100, boltTime = 0, reloadEmpty = 2.5f, reloadPartial = 2.5f, reloadRound = 0.5f;
+  float rPitch = 1, rYaw = 0.4f, rRecover = 8, rClimb = 0, rVisual = 0.05f, rSupported = 1;
+  vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
+  bool hasScope = false, scopeIrons = false, laterWar = false;
+  float scopeMag = 1;
+  std::vector<Material> mats;
+  GpuMesh mesh[8];
+};
+struct WeaponState {
+  int loaded = 0;                 // rounds in the weapon, chamber included
+  std::vector<int> containers;    // reserve: clips / magazines / belt segments, each with its own count
+  int reserveMax = 0;
+  float cooldown = 0, bolt = 0, reload = 0, reloadTotal = 0;
+  int reloadKind = 0;             // 1 empty, 2 partial (retain), 3 single rounds
+  bool triggerReleased = true, clicked = false;
+  float recoilP = 0, recoilY = 0, kick = 0;
+  int shotIdx = 0, burst = 0, clipPings = 0;
+  uint32_t seed = 1;
+  int reserveRounds() const;
+};
 
 // ---------------------------------------------------------------- projectiles & effects (pooled)
 enum ProjKind : int { PROJ_BULLET = 0, PROJ_HE = 1 };
@@ -50,4 +75,5 @@ struct StationRT {
   bool deployed = true, armed = false, atYawStop = false, atElevStop = false, moveOk = true;
   std::string status;
   int shots = 0;
+  float cool = 0;
 };

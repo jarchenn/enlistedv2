@@ -105,6 +105,7 @@ bool App::occupyStation(uint64_t id, int pos) {
   Instance* inst = doc.find(id); StationRT* s = station(id);
   if (!inst || !s) return false;
   if (occupied && occupied != id) { toast("You are already crewing another gun."); return false; }
+  if (pos == ST_HANDLER && rt[id].asset->station.kind == "m2hb") { toast("The M2HB on its tripod is crewed from the spade grips only (Aim)."); return false; }
   auto& r = rt[id];
   vec3 anchor = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : r.asset->station.gunner, 1));
   anchor.y = terrain.height(anchor.x, anchor.z);
@@ -187,7 +188,6 @@ void App::stepProjectiles(float dt) {
             for (auto& pn : r.asset->panels) { float d = glm::length(glm::clamp(lp, pn.bmin, pn.bmax) - lp); if (d < best) { best = d; surface = pn.family; } }
           }
         } else if ((hit.ud & 0xFFFF) != 0) surface = "wood";
-        logf("[impact] %s at %.1f %.2f %.1f ud %llx kind %d", surface.c_str(), hit.pos.x, hit.pos.y, hit.pos.z, (unsigned long long)hit.ud, p.kind);
         if (p.kind == PROJ_HE) {
           auto ex = explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore);
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
@@ -235,12 +235,34 @@ void App::stepStation(float dt, const ExploreInput& in) {
     s->atElevStop = s->elevT <= d.elevMin + 1e-3f || s->elevT >= d.elevMax - 1e-3f;
     s->yaw = approach(s->yaw, s->yawT, d.traverseRate * dt);
     s->elev = approach(s->elev, s->elevT, d.elevateRate * dt);
-    if (in.reload && s->loaded == 0 && s->reserve > 0 && s->reload <= 0) { s->reload = d.reloadTime; audio.play("breech", vec3(M[3])); }
+    bool mg = d.kind == "m2hb";
+    int full = mg ? 110 : 1;
+    if (in.reload && s->loaded < full && s->reserve > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(mg ? "belt" : "breech", vec3(M[3])); }
     if (s->reload > 0) {
       s->reload -= dt;
-      if (s->reload <= 0) { s->reload = 0; s->loaded = 1; s->reserve -= 1; audio.play("breech", vec3(M[3])); }   // moves a round; never creates one
+      if (s->reload <= 0) {   // moves rounds; never creates them. A partial .50 belt goes back to the emplacement stock.
+        s->reload = 0;
+        if (mg) { s->reserve += s->loaded; s->loaded = std::min(full, s->reserve); s->reserve -= s->loaded; }
+        else { s->loaded = 1; s->reserve -= 1; }
+        audio.play(mg ? "belt" : "breech", vec3(M[3]));
+      }
     }
-    if (fireHeld && s->armed && s->deployed && s->trans <= 0) {
+    s->cool = std::max(0.0f, s->cool - dt);
+    if (mg) {
+      if (fireHeld && s->armed && s->reload <= 0 && s->cool <= 0) {
+        if (s->loaded > 0) {
+          vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
+          mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
+          fireProjectile(vec3(e * vec4(0, 0, 0, 1)), dir, 890.0f, PROJ_BULLET, 0, coreUD(inst->id), (s->shots % 5) == 0, d.ammo);
+          s->loaded -= 1; s->shots++; s->cool = 60.0f / 500.0f; s->recoilT = 0;
+          fx.flash(muzzle + dir * 0.08f, 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));
+          audio.play("shot_m2hb", muzzle, 1.0f);
+          viewKickPitch = 0.35f;   // felt through the mount, not the shoulder
+        } else if (s->armed) { audio.play("click", vec3(M[3]), 0.6f); s->armed = false; }
+      }
+      viewKickPitch *= 0.85f;
+    }
+    if (!mg && fireHeld && s->armed && s->deployed && s->trans <= 0) {
       s->armed = false;
       if (s->loaded > 0 && s->reload <= 0) {
         vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
@@ -293,15 +315,16 @@ std::string App::crateTransaction(uint64_t crateId) {
     if (!stock.count(ammo)) continue;
     std::string name = r.asset->station.kind == "pak40" ? "PaK 40 reserve" : "M2HB belts";
     if (dist > radius) { if (msg.empty()) msg = name + ": gun is out of reach (" + std::to_string((int)dist) + " m > " + std::to_string((int)radius) + " m)."; continue; }
-    int need = s->reserveMax - s->reserve;
+    int unit = r.asset->station.kind == "m2hb" ? 110 : 1;   // crate units: single 7.5 cm rounds, or 110-round .50 link increments
+    int need = (s->reserveMax - s->reserve) / unit;
     if (need <= 0) { if (msg.empty()) msg = name + " already full (" + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + ")."; continue; }
     int have = unlimited ? need : stock[ammo];
     int n = std::min(need, have);
     if (n <= 0) { msg = name + ": crate has no " + ammo + " left."; continue; }
-    s->reserve += n;
+    s->reserve += n * unit;
     if (!unlimited) stock[ammo] -= n;
     audio.play("crate", c->pos);
-    return name + " +" + std::to_string(n) + " (now " + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + "). Crate " + ammo + ": " + (unlimited ? std::string("unlimited") : std::to_string(stock[ammo]) + " left") + ". Reload with R at the gun.";
+    return name + " +" + std::to_string(n * unit) + " (now " + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + "). Crate " + ammo + ": " + (unlimited ? std::string("unlimited") : std::to_string(stock[ammo]) + " left") + ". Reload with R at the gun.";
   }
   // 2) personal weapon reserve (weapons.cpp)
   std::string personal = resupplyPersonal(crateId);
@@ -323,6 +346,7 @@ void App::drawCombatUI() {
   if (!s) return;
   auto& r = rt[occupied];
   const StationDef& d = r.asset->station;
+  if (s->pos2 == ST_GUNNER && d.kind == "m2hb") dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
   if (s->pos2 == ST_GUNNER && d.kind == "pak40") {
     // eyepiece: dark surround, ZF 3x8 style reticle (central chevron, flanking chevrons, stadia)
     float R = io.DisplaySize.y * 0.44f;

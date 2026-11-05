@@ -154,6 +154,17 @@ public:
   bool weaponCamera(float& fov) const;
   void buildWeaponMeshes();
   float viewKickYaw = 0, viewKickPitch = 0;
+  std::vector<std::unique_ptr<WeaponDef>> weaponDefs;
+  std::map<std::string, WeaponState> wstate;
+  int activeWeapon = 0;
+  float adsT = 0;
+  bool strictDDay = false, reducedMotion = false, scopeIronsMode = false, supported = false, showLoadout = false;
+  std::string weaponMsg;
+  vec3 lastShotStart{0}, lastShotDir{0}, lastShotMuzzle{0};
+  int weaponIndex(const std::string& id) const;
+  void selectWeapon(int idx);
+  mat4 viewModelMatrix(const WeaponDef& d, const WeaponState& s) const;
+  vec3 weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const;
   bool deformGround(vec3 p, float scale);   // ground.cpp
   bool craterAt(vec3 p, float radius, float depth);
   float groundWeight(float x, float z) const;
