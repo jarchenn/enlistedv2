@@ -115,6 +115,6 @@ struct StationRT {
   float trans = 0;                        // remaining transition seconds
   bool deployed = true, armed = false, atYawStop = false, atElevStop = false, moveOk = true;
   std::string status;
-  int shots = 0;
+  int shots = 0, burst = 0;               // burst: rounds since the trigger was pressed (MG 42 tail on release)
   float cool = 0;
 };

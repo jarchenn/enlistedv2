@@ -297,7 +297,13 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   bool hasBipod = d.feed == "belt" || d.rSupported < 0.999f;
   supported = hasBipod && (ch.posture == Physics::PRONE || ch.crouched) && glm::length(in.move) < 0.01f;
   s.cooldown = std::max(0.0f, s.cooldown - dt);
+  float boltPrev = s.bolt;
   s.bolt = std::max(0.0f, s.bolt - dt);
+  if (d.action == "bolt" && d.boltTime > 0 && boltPrev > s.bolt) {   // working the bolt: open, then close (bank foley; "bolt" fallback)
+    auto crossed = [&](float u) { float k = d.boltTime * (1 - u); return boltPrev > k && s.bolt <= k; };
+    if (crossed(0.25f)) audio.play("bolt", eyePos(), 0.6f);
+    if (crossed(0.7f)) audio.play("bolt_close", eyePos(), 0.6f);
+  }
   // recoil: every shot adds aim displacement and nothing pulls it back (no climb ceiling, no automatic recovery).
   // While a burst runs the displacement is held in recoilP / recoilY; once it ends it becomes the player's aim
   // (settleRecoil), so the view stays elevated where the pattern ended. The player's own mouse look is separate,
@@ -315,7 +321,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   if (in.reload && s.reload <= 0) {
     if (s.loaded >= d.cap) weaponMsg = "Already full";
     else if (s.reserveRounds() == 0) weaponMsg = "No reserve " + d.container + " - find a supply crate";
-    else if (d.feed == "single" || (d.feed == "stripper" && s.loaded > 0)) { s.reloadKind = 3; s.reload = s.reloadTotal = d.reloadRound; audio.play("bolt", eyePos(), 0.6f); }
+    else if (d.feed == "single" || (d.feed == "stripper" && s.loaded > 0)) { s.reloadKind = 3; s.reload = s.reloadTotal = d.reloadRound; audio.play(d.action == "launcher" ? "rocket_ready" : "bolt", eyePos(), 0.6f); }
     else { s.reloadKind = s.loaded == 0 ? 1 : 2; s.reload = s.reloadTotal = s.loaded == 0 ? d.reloadEmpty : d.reloadPartial; audio.play(audio.hasEvent("reload_" + d.id) ? "reload_" + d.id : d.feed == "belt" ? "belt" : d.feed == "magazine" ? "mag_out" : "bolt", eyePos(), 0.7f); }
   }
   // ---- reload progress / completion: rounds move between locations, never appear
@@ -328,13 +334,13 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         auto it = std::min_element(s.containers.begin(), s.containers.end(), [](int a, int b) { return (a == 0 ? 1 << 30 : a) < (b == 0 ? 1 << 30 : b); });
         if (it != s.containers.end() && *it > 0) { --*it; ++s.loaded; }
         s.containers.erase(std::remove(s.containers.begin(), s.containers.end(), 0), s.containers.end());
-        audio.play("clip_in", eyePos(), 0.5f);
+        audio.play(d.action == "launcher" ? "rocket_in" : "clip_in", eyePos(), 0.5f);   // the banks have no rocket-loading foley: launchers keep the procedural clicks
         if (s.loaded < d.cap && s.reserveRounds() > 0) { s.reload = s.reloadTotal = d.reloadRound; }   // keep loading singly
         else { s.reload = 0; s.reloadKind = 0; }
       } else if (d.feed == "stripper") {
         auto it = fullest(); int n = std::min(d.cap - s.loaded, *it); *it -= n; s.loaded += n;
         s.containers.erase(std::remove(s.containers.begin(), s.containers.end(), 0), s.containers.end());
-        s.reload = 0; s.reloadKind = 0; s.bolt = 0.3f; audio.play("clip_in", eyePos(), 0.7f);
+        s.reload = 0; s.reloadKind = 0; s.bolt = 0.3f; audio.play(audio.hasEvent("clip_" + d.id) ? "clip_" + d.id : "clip_in", eyePos(), 0.7f);
       } else {
         // en-bloc clip / magazine / belt: the partial one in the gun is retained in reserve, the fullest goes in
         int retained = s.loaded;

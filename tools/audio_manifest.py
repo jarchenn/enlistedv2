@@ -1,8 +1,8 @@
 """Builds content/audio/manifest.json: the selected samples of the supplied FMOD banks per game event (complete
 update A1). Deterministic: the same banks give the same manifest. Run, then extract:
 
-  python tools/audio_manifest.py <banks dir>                  -> content/audio/manifest.json
-  python tools/fsb5.py extract content/audio/manifest.json <banks dir> content/audio/samples
+  python tools/audio_manifest.py <banks dir>[;<dir2>]        -> content/audio/manifest.json
+  python tools/fsb5.py extract content/audio/manifest.json <banks dir>[;<dir2>] content/audio/samples
 
 Selection is by family name in the bank (bank + index + name recorded; names repeat, so the index is the identity),
 confirmed by the measured envelope (single shots: short, sharp onset; tails: energy after 0.3 s). These files were
@@ -21,17 +21,21 @@ cache = {}
 
 
 def bank(name):
-    if name not in cache: cache[name] = fsb5.read_bank(os.path.join(BANKS, name + '.assets.bank'))
+    if name not in cache: cache[name] = fsb5.read_bank(fsb5.find_bank(BANKS, name))
     return cache[name]
 
 
-def family(bk, fam, limit=8):
-    """samples named <fam>_<n> (n = variation number), in variation order"""
+def family(bk, fam, limit=8, unique=False):
+    """samples named <fam>_<n> (n = variation number), in variation order; unique: skip repeated names (the banks
+    store some variations twice under the same name)"""
     b, ss = bank(bk)
     pat = re.compile('^' + re.escape(fam) + r'_(\d+)$')
     hits = sorted(((int(pat.match(s['name']).group(1)), s) for s in ss if pat.match(s['name'])), key=lambda x: (x[0], x[1]['index']))
-    out = []
-    for _, s in hits[:limit]:
+    out, seen = [], set()
+    for _, s in hits:
+        if len(out) >= limit: break
+        if unique and s['name'] in seen: continue
+        seen.add(s['name'])
         st = fsb5.stats(b, s)
         out.append({'bank': bk, 'index': s['index'], 'name': s['name'], 'dur': round(st['dur'], 3), 'peak': st['peak']})
     return out
@@ -47,6 +51,7 @@ def ev(name, kind, gain, variants, status, note=''):
 
 R, MG, MT, CN, AV, FX, RF, MF = ('ww2_weapon_rifle', 'ww2_weapon_mgun', 'ww2_weapon_mgun_mounted', 'ww2_weapon_cannon',
                                  'ww2_weapon_antivehicle', 'cmn_fx_impact', 'ww2_weapon_rifle_foley', 'ww2_weapon_mgun_foley')
+AM = 'cmn_ambient'
 # ---- personal weapons: one shot sample per fired round (AUTO cadence comes from the game), a tail once on release
 ev('shot_kar98k', 'shot', 0.95, family(R, 'mauser98k_body'), 'named')
 ev('shot_kar98k_far', 'far', 0.9, family(R, 'mauser98k_e_far_body'), 'named')
@@ -101,6 +106,40 @@ ev('reload_mg42', 'foley', 0.8, family(MF, 'change_ammo_mg42'), 'named', 'belt; 
 ev('reload_m1_thompson', 'foley', 0.8, family(MF, 'change_ammo_thompson'), 'named', 'box-magazine Thompson (drum reloads not used)')
 ev('reload_fg42', 'foley', 0.8, family(MF, 'change_ammo_fg42'), 'named')
 ev('bolt', 'foley', 0.7, family(RF, 'shutter_out_rifle_bolt'), 'approx', 'generic rifle-bolt foley for bolt actions (Kar98k / ZF39)')
+
+# ---- V9 pack pass (2026-11-06, the same 12 banks re-supplied as "Bigote Sound mod V9"): every remaining slot the
+# game plays. Far layers (beyond 90 m), the tank guns, generic foley, the smoke pop and the wading steps.
+U = True
+ev('shot_m1_thompson_far', 'far', 0.9, family(MG, 'thompson_e_far_body', 8, U), 'named')
+ev('tail_m1_thompson_far', 'tail', 0.8, family(MG, 'thompson_e_far_tail', 8, U), 'named')
+ev('shot_mp40_far', 'far', 0.9, family(MG, 'mp40_e_far_body', 8, U), 'named')
+ev('tail_mp40_far', 'tail', 0.8, family(MG, 'mp40_e_far_tail', 8, U), 'named')
+ev('tail_mg42_far', 'tail', 0.85, family(MG, 'mg42_e_far_tail', 8, U), 'named')
+ev('shot_kar98k_zf39_far', 'far', 0.9, family(R, 'mauser98k_e_far_body', 8, U), 'named', 'the Kar98k\'s distant family: the scope does not change the report')
+for w in ('m1_garand', 'm1c_garand', 'm1_carbine'):
+    ev('shot_%s_far' % w, 'far', 0.85, family(R, 'shot_rifle_far', 8, U), 'approx', 'no distant recording of this rifle: the bank\'s generic distant rifle shot')
+for w in ('stg44', 'm3_grease_gun', 'fg42', 'm1918a2_bar', 'mg42', 'm2hb'):
+    ev('shot_%s_far' % w, 'far', 0.9, family(MG, 'shot_mgun_far', 16, U), 'approx', 'no distant recording of this gun: the bank\'s generic distant automatic shot')
+ev('shot_bazooka_m9_far', 'far', 1.0, family(CN, 'rocket_launcher_e_far_body', 8, U), 'approx', 'generic distant rocket-launcher shot')
+ev('pak_fire_far', 'far', 1.0, family(CN, 'cannon_e_m_far_body', 10, U), 'approx', 'generic distant medium cannon')
+# ---- tank guns (src/tank_sim.cpp plays tank_17pdr / tank_88 and the hull MG's sound)
+ev('tank_17pdr', 'shot', 1.0, family(CN, '76mm_m1_body', 8, U), 'approx', 'no 17-pounder recording: the US 76 mm M1 tank gun (the nearest Allied 76 mm tank gun) stands in')
+ev('tank_17pdr_far', 'far', 1.0, family(CN, 'cannon_e_m_far_body', 10, U), 'approx', 'generic distant medium cannon')
+ev('tank_88', 'shot', 1.0, family(CN, '88mm_flak36_e_body', 8, U), 'approx', 'KwK 36: the tank version of the 8.8 cm Flak - shares the Flak 36 family on purpose (no KwK 36 recording)')
+ev('tank_88_far', 'far', 1.0, family(CN, 'cannon_e_b_far_body', 10, U), 'approx', 'generic distant heavy cannon')
+ev('shot_mg34', 'shot', 0.95, family(MG, '7_92mm_mg34_body', 8, U), 'named', 'Tiger I hull / coaxial MG 34')
+# ---- generic foley used where a weapon has no own set (AI soldiers, the M2HB, tank MGs, single-round loading)
+ev('bolt_close', 'foley', 0.7, family(RF, 'shutter_in_rifle_bolt', 8, U), 'approx', 'generic rifle bolt closing: second half of the bolt cycle after each Kar98k / ZF39 shot')
+ev('clip_in', 'foley', 0.7, family(RF, 'shell_in_rifle_bolt', 8, U), 'approx', 'generic: one round pressed into a bolt-action magazine (ZF39 single loading, Kar98k top-off)')
+ev('belt', 'foley', 0.8, family(MF, 'belt_in_lmg4', 8, U), 'approx', 'generic LMG belt loading (M2HB, tank MGs)')
+ev('mag_out', 'foley', 0.8, family(MF, 'mag_out_smg1', 8, U), 'approx', 'generic SMG magazine out (AI reloads)')
+ev('mag_in', 'foley', 0.8, family(MF, 'mag_in_smg1', 8, U), 'approx', 'generic SMG magazine in')
+ev('reload_m1c_garand', 'foley', 0.8, family(RF, 'change_ammo_m1garand'), 'named', 'same rifle as the M1 Garand')
+ev('clip_m1c_garand', 'foley', 0.85, family(RF, 'm1garand_clip'), 'named', 'same en-bloc clip as the M1 Garand')
+ev('smoke_pop', 'blast', 0.8, family(FX, 'smoke_grenade_expl', 8, U), 'named', 'smoke grenade igniting (no blast)')
+# ---- footsteps: the banks hold only deep-water wading strides (no dry-ground surface sets)
+ev('step_water', 'step', 0.8, family(AM, 'footstep_waterdeep', 8, U), 'named', 'one wading stride each (~1.2 s plus a water tail); only used below the water level')
+
 
 man = {'note': __doc__.strip().splitlines()[0], 'redistribution': 'NOT cleared: Enlisted sound-mod banks supplied without reuse permission; samples are git-ignored (content/audio/samples) and extracted locally from the user\'s banks',
        'banks': sorted(cache.keys()), 'events': events}

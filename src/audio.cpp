@@ -156,6 +156,7 @@ bool Audio::init() {
   { Buf b = mk(0.3f); addClick(b, 0.0f, 0.06f, 1200, 0.7f, r); normalize(b, 0.5f); p->bufs["mag_out"] = b; }
   { Buf b = mk(0.3f); addClick(b, 0.0f, 0.04f, 2200, 0.8f, r); addThud(b, 0.01f, 160, 0.3f, r); normalize(b, 0.6f); p->bufs["mag_in"] = b; }
   { Buf b = mk(0.25f); addClick(b, 0.0f, 0.03f, 2800, 0.7f, r); normalize(b, 0.5f); p->bufs["clip_in"] = b; }
+  p->bufs["rocket_in"] = p->bufs["clip_in"]; p->bufs["rocket_ready"] = p->bufs["bolt"];   // launcher loading: procedural (no bank foley)
   { Buf b = mk(0.8f); addClang(b, 0.0f, 900, 0.3f, 0.08f, r); addClick(b, 0.3f, 0.05f, 1500, 0.7f, r); addClang(b, 0.55f, 1100, 0.35f, 0.08f, r); normalize(b, 0.6f); p->bufs["belt"] = b; }
   // ambience loops (started once; never restarted on mode changes)
   p->windBuf = makeWind(14.0f, r, 0.02f, 1.0f);
@@ -228,7 +229,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   if (!p) return;
   // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
   // "_suffix" (explosion_grenade -> explosion), so a missing sample never silences an event
-  const Buf* src = nullptr; std::string used; float gain = 1; bool shot = false;
+  const Buf* src = nullptr; std::string used; float gain = 1; bool shot = false, step = false;
   std::string n = name;
   for (int tries = 0; tries < 3 && !src; ++tries) {
     std::string cand = n;
@@ -237,7 +238,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
     if (e != p->events.end()) {
       auto& ev = e->second; int k = 0;
       if (ev.v.size() > 1) { k = (int)(p->pick() % (ev.v.size() - 1)); if (ev.last >= 0 && k >= ev.last) ++k; }   // never the same twice running
-      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; shot = ev.kind == "shot";
+      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; shot = ev.kind == "shot"; step = ev.kind == "step";
     } else if (auto b = p->bufs.find(n); b != p->bufs.end()) { src = &b->second; used = n; }
     else { size_t u = n.rfind('_'); if (u == std::string::npos) break; n = n.substr(0, u); }
   }
@@ -248,6 +249,11 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
     for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd) && now - c.start < 0.35) {
       ma_sound_set_fade_in_milliseconds(&c.snd, -1, 0, 40);
       ma_sound_set_stop_time_in_milliseconds(&c.snd, ma_engine_get_time_in_milliseconds(&p->engine) + 45);
+    }
+  if (step)   // long recorded strides (wading): the previous one's water tail yields to the next stride over 250 ms
+    for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd)) {
+      ma_sound_set_fade_in_milliseconds(&c.snd, -1, 0, 250);
+      ma_sound_set_stop_time_in_milliseconds(&c.snd, ma_engine_get_time_in_milliseconds(&p->engine) + 260);
     }
   Impl::Voice* v = nullptr;
   for (auto& c : p->voices) if (!c.used || ma_sound_at_end(&c.snd)) { v = &c; break; }
