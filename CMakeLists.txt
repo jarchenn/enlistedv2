@@ -71,6 +71,7 @@ target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlo
 target_compile_definitions(NormandyMapmaker PRIVATE GLM_ENABLE_EXPERIMENTAL GLFW_INCLUDE_NONE)
 include(cmake/mpai.cmake)   # multiplayer + AI sources
 include(cmake/recast.cmake) # W6: Recast/Detour navmesh + AI core
+include(cmake/w6b.cmake)    # W6b: AI tuning harness
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

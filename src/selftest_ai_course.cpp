@@ -24,6 +24,7 @@ bool aiTestArg(const std::string& a, int argc, char** argv, int& k, bool& runSel
     return true;
   }
   if (a == "--make-ai-course") { runSelf = true; runAiSelfTestArg = 6; return true; }
+  { extern bool aiHarnessArg(const std::string&, int, char**, int&, bool&); if (aiHarnessArg(a, argc, argv, k, runSelf)) return true; }   // W6b: --ai-harness (selftest_ai_harness.cpp)
   return false;
 }
 

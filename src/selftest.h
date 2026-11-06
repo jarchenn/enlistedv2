@@ -48,6 +48,7 @@ private:
   void updateSuite(App& app, float dt);
   void entitiesUpdate(App& app, float dt);  // selftest_entities.cpp (1900)     // selftest_update.cpp (1700)    // selftest_sights.cpp (1600); dt < 0 = post-render read-back
   void aiUpdate(App& app, float dt);        // selftest_ai.cpp (2000): multiplayer + AI integration
+  void aiHarnessUpdate(App& app, float dt);   // selftest_ai_harness.cpp (2900): W6b AI tuning harness (--ai-harness)
   void netUpdate(App& app, float dt);       // selftest_net.cpp (2100): LAN roles host / a / b / c / d
   void arsenalUpdate(App& app, float dt);   // selftest_arsenal.cpp (1400)
   void tanksUpdate(App& app, float dt);     // selftest_tanks.cpp (2600)
