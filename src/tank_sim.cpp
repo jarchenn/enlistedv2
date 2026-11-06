@@ -92,6 +92,7 @@ static void initFromInstance(App& app, TankSys& sys, TankRT& t, const Instance& 
   n.loaded = o.contains("loaded") ? shellFrom(o.value("loaded", "")) : shellFrom(d.startLoaded);
   n.selected = n.loaded != SHELL_NONE ? n.loaded : SHELL_AP;
   n.mgLoaded = d.mgBelt; n.mgReserve = d.mgReserve;
+  n.bowLoaded = d.bowOn ? d.bowBelt : 0; n.bowReserve = d.bowOn ? d.bowReserve : 0;
   if (n.wrecked) { n.hp = 0; n.loaded = SHELL_NONE; n.burnT = 0; }
   float y, p, r, s; sys.groundPose(app, d, n.pos, n.yaw, y, p, r, s);
   n.pos.y = y; n.pitch = p; n.roll = r;
@@ -125,6 +126,7 @@ void TankSys::sync(App& app) {
 
 void TankSys::reset(App& app) {
   occupied = 0; target = 0; fireArmed = false; zoom = false; lastHit = {};
+  resetRams(app);
   for (auto& [id, t] : tanks) {
     for (int* h : {&t.engineLoop, &t.trackLoop, &t.turretLoop}) { app.audio.loopStop(*h); *h = -1; }
     Instance* i = app.doc.find(id);
@@ -166,6 +168,7 @@ void TankSys::stepAll(App& app, float dt, const ExploreInput& in) {
     }
   }
   for (auto& [id, t] : tanks) stepOne(app, t, dt, id == occupied ? &in : nullptr);
+  stepKnocked(app, dt);
   stepMs = (glfwGetTime() - t0) * 1000.0; stepMsMax = std::max(stepMsMax, stepMs);
 }
 
@@ -193,7 +196,8 @@ bool TankSys::enter(App& app, uint64_t id) {
   // the infantry body waits inside the hull (no collision update while crewing)
   Physics::setCharacterPos(t->pos + vec3(0, 1.0f, 0));
   app.audio.play("steel_close", t->pos + vec3(0, 2.5f, 0), 0.8f);
-  app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB fire | R next shell HE/AP | Ctrl hatch / roof MG | RMB zoom | E get out", 6);
+  app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB main gun | Space " + (t->def->bowOn ? t->def->bowShort : std::string("-")) +
+            " | RMB zoom | R next shell HE/AP | Ctrl hatch (LMB roof MG, Space both MGs, RMB main gun) | E get out", 7);
   return true;
 }
 
@@ -264,6 +268,7 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   }
   bool focused = app.selftest || glfwGetWindowAttrib(app.win, GLFW_FOCUSED);
   t.throttleIn = in ? std::clamp(in->move.y, -1.0f, 1.0f) : 0.0f;
+  bool rmbFire = false;
   t.steerIn = in ? std::clamp(in->move.x, -1.0f, 1.0f) : 0.0f;
   // ---- station: Left Ctrl toggles gunner sight <-> open hatch / roof MG once per press (edge, never crouches)
   if (in) {
@@ -281,8 +286,12 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
       fireArmed = false;   // a station change needs a fresh press
     }
     ctrlPrev = ctrl;
-    // RMB click toggles the sight magnification (zooms into the current view, eased over 0.18 s); the hatch drops it
-    if (in->aim && !aimPrev && t.station == TS_GUNNER) zoom = !zoom;
+    // RMB click: in the sight it toggles the magnification (zooms into the current view, eased over 0.18 s); from the
+    // open hatch it fires the main gun (one round per click). The hatch drops the zoom.
+    if (in->aim && !aimPrev && focused) {
+      if (t.station == TS_GUNNER && t.hatchT == 0) zoom = !zoom;
+      else if (t.station == TS_HATCH && t.hatchT >= 1.0f) rmbFire = true;
+    }
     aimPrev = in->aim;
     if (t.station != TS_GUNNER) zoom = false;
     zoomT = approach(zoomT, zoom ? 1.0f : 0.0f, dt / 0.18f);
@@ -290,38 +299,20 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   t.hatchT = approach(t.hatchT, t.station == TS_HATCH ? 1.0f : 0.0f, dt / 0.8f);
   // ---- drive (hull movement in both stations: single-player crew abstraction)
   drive(app, t, dt);
-  // ---- main gun follows the desired aim only from the gunner position
-  aimGun(t, dt, in && t.station == TS_GUNNER && t.hatchT == 0);
-  // ---- roof MG follows the desired aim in hatch mode, converging on the camera's aim point
-  if (in && t.station == TS_HATCH && t.hatchT >= 1.0f) {
-    vec3 eye, fwd; float fov;
-    camera(app, eye, fwd, fov);
-    Physics::Hit ah; vec3 aimP = eye + fwd * 300.0f;
-    if (Physics::castRayEx(eye, fwd, 300.0f, ah, bodyUD(t.id))) aimP = ah.pos;
-    mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
-    vec3 piv = vec3(tu * vec4(d.mgPivot, 1));
-    vec3 l = glm::inverse(glm::mat3(tu)) * (aimP - piv);
-    float ty = degrees(std::atan2(l.x, l.z)), te = degrees(std::atan2(l.y, glm::length(vec2(l.x, l.z))));
-    ty = std::clamp(wrap180(ty), d.mgYawMin, d.mgYawMax); te = std::clamp(te, d.mgElevMin, d.mgElevMax);
-    t.mgYaw = wrap180(t.mgYaw + std::clamp(wrap180(ty - t.mgYaw), -150.0f * dt, 150.0f * dt));
-    t.mgElev = approach(t.mgElev, te, 120.0f * dt);
-  }
-  // ---- fire: LMB goes to exactly one weapon (cannon in the sight, roof MG in the hatch); a fresh press after any change
+  // ---- main gun follows the desired aim from the gunner sight, and from the open hatch (the commander lays it: RMB fires)
+  aimGun(t, dt, in && ((t.station == TS_GUNNER && t.hatchT == 0) || (t.station == TS_HATCH && t.hatchT >= 1.0f)));
+  // ---- main gun: LMB in the sight (one round per click), RMB from the hatch; a fresh press after any change
   bool fireHeld = in && in->fire && focused;
   // stale input: after a pause menu / focus loss (a gap in the fixed steps) the trigger needs a fresh press
   if (in) { if (!focused || (!app.selftest && app.now - lastStepTime > 0.25)) fireArmed = false; else if (!fireHeld) fireArmed = true; lastStepTime = app.now; }
-  if (in && fireHeld && fireArmed) {
-    if (t.station == TS_GUNNER && t.hatchT == 0) {
-      fireArmed = false;   // one round per click
-      if (t.loaded != SHELL_NONE) fireCannon(app, t);
-      else { app.audio.play("click", t.pos + vec3(0, 2, 0), 0.6f); app.toast(t.reload > 0 ? "Loading..." : "No round loaded.", 1.5); }
-    } else if (t.station == TS_HATCH && t.hatchT >= 1.0f) fireMg(app, t);
-  }
-  t.mgCool = std::max(0.0f, t.mgCool - dt);
-  if (t.mgReloadT > 0) {
-    t.mgReloadT -= dt;
-    if (t.mgReloadT <= 0) { t.mgReloadT = 0; int n = std::min(d.mgBelt - t.mgLoaded, t.mgReserve); t.mgLoaded += n; t.mgReserve -= n; app.audio.play("belt", t.pos + vec3(0, 2.8f, 0), 0.6f); }
-  }
+  auto cannon = [&]() {
+    if (t.loaded != SHELL_NONE) fireCannon(app, t);
+    else { app.audio.play("click", t.pos + vec3(0, 2, 0), 0.6f); app.toast(t.reload > 0 ? "Loading..." : "No round loaded.", 1.5); }
+  };
+  if (in && fireHeld && fireArmed && t.station == TS_GUNNER && t.hatchT == 0) { fireArmed = false; cannon(); }
+  if (in && rmbFire) cannon();
+  // ---- machine guns: roof MG (hatch: LMB or Space), bow MG (Space, any station); belts change automatically
+  stepMgs(app, t, dt, in, focused);
   // ---- HE/AP loading (toggle, then the timer); runs with or without the player inside (abstract crew loader)
   stepAmmo(app, t, dt, in && in->reload);
   // ---- exit
@@ -370,27 +361,8 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
     mat4 H = hullMatrix(probe);
     quat hq = glm::quat_cast(glm::mat3(H));
     vec3 he = d.halfSize, c = vec3(H * vec4(0, d.clearance + he.y, 0, 1));
-    if (ok && Physics::boxBlocked(c, he, hq, bodyUD(t.id), true)) {
-      ok = false;
-      // what is in the way? weak props are crushed through the shared damage paths, everything else stops the tank
-      vec3 fwd = vec3(H * vec4(0, 0, t.speed >= 0 ? 1 : -1, 0));
-      uint64_t hitUd = 0; vec3 hitP(0);
-      for (float hy : {0.6f, 1.2f, 0.3f})
-        for (float hx : {0.0f, -d.halfSize.x * 0.8f, d.halfSize.x * 0.8f}) {
-          if (hitUd) break;
-          Physics::Hit bh; vec3 o = vec3(H * vec4(hx, hy, 0, 1));
-          if (Physics::castRayEx(o, fwd, d.halfSize.z + 1.0f, bh, bodyUD(t.id)) && bh.ud != 0 && (bh.ud >> 60) != 0xF) { hitUd = bh.ud; hitP = bh.pos; }
-        }
-      Instance* bi = hitUd ? app.doc.find(hitUd >> 16) : nullptr;
-      auto br = bi ? app.rt.find(bi->id) : app.rt.end();
-      if (bi && br != app.rt.end()) {
-        const AssetDef* ba = br->second.asset;
-        if (ba->tree.on && !ba->tree.hedge && !br->second.treeFelled) { app.fellTree(*bi, br->second, hitP, fwd * 4.0f); ++t.crushes; t.speed *= 0.5f; why = "pushed over " + ba->name; }
-        else if (!ba->defense.kind.empty() && !ba->defense.blocksVehicles && ba->defense.kind != "sandbag" && !br->second.defDestroyed) { app.destroyDefense(*bi, br->second); ++t.crushes; t.speed *= 0.6f; why = "crushed " + ba->name; }
-        else why = ba->name;
-      } else if (hitUd) why = "an obstacle";
-      else why = "an obstacle";
-    }
+    // anything in the way: knocked over, crushed, pushed through or holding (tank_ram.cpp, one energy rule)
+    if (ok && Physics::boxBlocked(c, he, hq, bodyUD(t.id), true) && !ramObstacles(app, t, dt, H, c, he, hq, why)) ok = false;
     // never drive into the player (no crushing; the tank stops)
     if (ok && Physics::hasCharacter() && !occupied) {
       auto ch = Physics::character();
@@ -410,11 +382,12 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
       t.pos = np; t.pos.y = glm::mix(oldY, y, std::min(1.0f, dt * 12.0f)); t.yaw = ny;
       t.blockedBy.clear();
     } else {
-      if (t.blockedBy != why && occupied == t.id && why.rfind("pushed", 0) != 0 && why.rfind("crushed", 0) != 0) app.toast("Blocked: " + why, 2);
+      if (t.blockedBy != why && occupied == t.id && why.rfind("pushing", 0) != 0) app.toast("Blocked: " + why, 2);
       t.blockedBy = why;
-      if (why.rfind("pushed", 0) != 0 && why.rfind("crushed", 0) != 0) { t.speed = 0; t.yawRate = 0; }
+      t.speed = 0; t.yawRate = 0;
     }
   }
+  crushUnder(app, t);   // fallen poles / fences under the tracks
   // suspension kick from firing decays back (visual only)
   t.suspPitch = approach(t.suspPitch, 0.0f, 6.0f * dt);
   t.suspRoll = approach(t.suspRoll, 0.0f, 6.0f * dt);
@@ -510,9 +483,8 @@ void TankSys::fireCannon(App& app, TankRT& t) {
 void TankSys::fireMg(App& app, TankRT& t) {
   const TankDef& d = *t.def;
   if (t.mgCool > 0 || t.mgReloadT > 0) return;
-  if (t.mgLoaded <= 0) {
-    if (t.mgReserve > 0) { t.mgReloadT = d.mgReload; app.toast(d.mgName.empty() ? "Reloading MG" : "Reloading " + d.mgName.substr(0, d.mgName.find(" (")), 2); app.audio.play("belt", t.pos + vec3(0, 2.8f, 0), 0.6f); }
-    else { app.audio.play("click", t.pos + vec3(0, 2.8f, 0), 0.6f); fireArmed = false; }
+  if (t.mgLoaded <= 0) {   // belts change on their own (stepMgs); nothing left at all: dry click
+    if (t.mgReserve <= 0) { app.audio.play("click", t.pos + vec3(0, 2.8f, 0), 0.6f); t.mgCool = 0.4f; }
     return;
   }
   vec3 dir; vec3 m = mgMuzzleWorld(t, dir);
@@ -526,10 +498,116 @@ void TankSys::fireMg(App& app, TankRT& t) {
   vec3 fd = glm::normalize(dir + rgt * (rnd() * s) + u2 * (rnd() * s));
   app.fireProjectile(m, fd, d.mgVel, PROJ_BULLET, 0, bodyUD(t.id), (t.mgShots % 5) == 0, d.mgName);
   if (!app.projectiles.empty()) app.projectiles.back().mass = d.mgBulletMass;
-  --t.mgLoaded; ++t.mgShots; t.mgCool = 60.0f / d.mgRpm;
+  --t.mgLoaded; ++t.mgShots; t.mgCool += 60.0f / d.mgRpm; t.mgBurst = true;
   app.fx.flash(m + dir * 0.06f, 0.2f, 0.04f, vec4(9, 6, 2.5f, 1));
   app.audio.play(d.mgSound, m, 0.9f);
   app.viewKickPitch = 0.25f;
+}
+
+// ============================================================ bow MG (glacis ball mount)
+mat4 TankSys::bowMatrix(const TankRT& t) const {
+  const TankDef& d = *t.def;
+  return hullMatrix(t) * glm::translate(mat4(1), d.bowPivot) * glm::rotate(mat4(1), radians(t.bowYaw), vec3(0, 1, 0)) * glm::rotate(mat4(1), radians(-t.bowElev), vec3(1, 0, 0));
+}
+vec3 TankSys::bowMuzzleWorld(const TankRT& t, vec3& dir) const {
+  mat4 M = bowMatrix(t);
+  dir = glm::normalize(vec3(M * vec4(0, 0, 1, 0)));
+  return vec3(M * vec4(t.def->bowMuzzle - t.def->bowPivot, 1));
+}
+vec3 TankSys::aimPoint(App& app, const TankRT& t) const {
+  vec3 eye, fwd; float fov;
+  camera(app, eye, fwd, fov);
+  Physics::Hit ah;
+  if (Physics::castRayEx(eye, fwd, 600.0f, ah, bodyUD(t.id))) return ah.pos;
+  return eye + fwd * 400.0f;
+}
+
+void TankSys::fireBow(App& app, TankRT& t) {
+  const TankDef& d = *t.def;
+  if (t.bowCool > 0 || t.bowReloadT > 0) return;
+  if (t.bowLoaded <= 0) {
+    if (t.bowReserve <= 0) { app.audio.play("click", t.pos + vec3(0, 1.5f, 0), 0.6f); t.bowCool = 0.4f; }
+    return;
+  }
+  vec3 dir; vec3 m = bowMuzzleWorld(t, dir);
+  float s = radians(d.bowSpread);
+  uint32_t& rng = app.fx.rng;
+  auto rnd = [&]() { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return (rng % 20001u) / 10000.0f - 1.0f; };
+  vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), rgt = glm::normalize(glm::cross(dir, up)), u2 = glm::cross(rgt, dir);
+  vec3 fd = glm::normalize(dir + rgt * (rnd() * s) + u2 * (rnd() * s));
+  // the ball sits in the glacis: rounds start at the muzzle and never collide with the own hull
+  app.fireProjectile(m, fd, d.bowVel, PROJ_BULLET, 0, bodyUD(t.id), (t.bowShots % 5) == 0, d.bowName);
+  if (!app.projectiles.empty()) app.projectiles.back().mass = d.bowBulletMass;
+  --t.bowLoaded; ++t.bowShots; t.bowCool += 60.0f / d.bowRpm; t.bowBurst = true;
+  app.fx.flash(m + dir * 0.06f, 0.18f, 0.04f, vec4(9, 6, 2.5f, 1));
+  app.fx.smoke(m + dir * 0.1f, dir * 1.5f + vec3(0, 0.3f, 0), 0.05f, 1.0f, vec4(0.6f, 0.58f, 0.55f, 0.3f), 0.6f, 0.2f);
+  app.audio.play(d.bowSound, m, 0.95f);
+  if (occupied == t.id) app.viewKickPitch = std::max(app.viewKickPitch, 0.08f);
+}
+
+void TankSys::stepMgs(App& app, TankRT& t, float dt, const ExploreInput* in, bool focused) {
+  const TankDef& d = *t.def;
+  bool hatchUp = t.station == TS_HATCH && t.hatchT >= 1.0f;
+  bool space = in && in->jumpHeld && focused;
+  bool lmb = in && in->fire && focused && fireArmed;
+  if (in) {
+    vec3 aimP = aimPoint(app, t);
+    // roof MG: converges on the aim point from the open hatch
+    if (hatchUp) {
+      mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
+      vec3 piv = vec3(tu * vec4(d.mgPivot, 1));
+      vec3 l = glm::inverse(glm::mat3(tu)) * (aimP - piv);
+      float ty = degrees(std::atan2(l.x, l.z)), te = degrees(std::atan2(l.y, glm::length(vec2(l.x, l.z))));
+      ty = std::clamp(wrap180(ty), d.mgYawMin, d.mgYawMax); te = std::clamp(te, d.mgElevMin, d.mgElevMax);
+      t.mgYaw = wrap180(t.mgYaw + std::clamp(wrap180(ty - t.mgYaw), -150.0f * dt, 150.0f * dt));
+      t.mgElev = approach(t.mgElev, te, 120.0f * dt);
+    }
+    // bow MG: the hull gunner lays the ball mount on the same aim point, inside its arc
+    if (d.bowOn) {
+      mat4 H = hullMatrix(t);
+      vec3 piv = vec3(H * vec4(d.bowPivot, 1));
+      vec3 l = glm::inverse(glm::mat3(H)) * (aimP - piv);
+      float ty = degrees(std::atan2(l.x, l.z)), te = degrees(std::atan2(l.y, glm::length(vec2(l.x, l.z))));
+      ty = std::clamp(wrap180(ty), -d.bowYaw, d.bowYaw); te = std::clamp(te, d.bowElevMin, d.bowElevMax);
+      t.bowYaw = approach(t.bowYaw, ty, 90.0f * dt);
+      t.bowElev = approach(t.bowElev, te, 90.0f * dt);
+    }
+  }
+  // fire: Space works the bow MG from either station and, from the hatch, the roof MG at the same time; LMB still
+  // fires the roof MG alone from the hatch. Cooldowns carry the fractional interval (exact cyclic rate at 60 Hz).
+  bool roofOn = hatchUp && (space || lmb), bowOnNow = d.bowOn && space;
+  t.mgCool -= dt; t.bowCool -= dt;
+  if (roofOn) {
+    for (int guard = 0; t.mgCool <= 0 && t.mgReloadT <= 0 && t.mgLoaded > 0 && guard < 4; ++guard) fireMg(app, t);
+    if (t.mgLoaded <= 0 && t.mgReserve <= 0 && t.mgCool <= 0) fireMg(app, t);
+  }
+  if (bowOnNow) {
+    for (int guard = 0; t.bowCool <= 0 && t.bowReloadT <= 0 && t.bowLoaded > 0 && guard < 4; ++guard) fireBow(app, t);
+    if (t.bowLoaded <= 0 && t.bowReserve <= 0 && t.bowCool <= 0) fireBow(app, t);
+  }
+  if (!roofOn) t.mgCool = std::max(t.mgCool, 0.0f); else t.mgCool = std::max(t.mgCool, -1.0f / 60.0f);
+  if (!bowOnNow) t.bowCool = std::max(t.bowCool, 0.0f); else t.bowCool = std::max(t.bowCool, -1.0f / 60.0f);
+  // recorded tails once on release (or when the belt runs out mid-burst)
+  vec3 dmy;
+  if (t.mgBurst && (!roofOn || t.mgLoaded <= 0)) { t.mgBurst = false; if (!d.mgTail.empty()) app.audio.play(d.mgTail, mgMuzzleWorld(t, dmy), 0.85f); }
+  if (t.bowBurst && (!bowOnNow || t.bowLoaded <= 0)) { t.bowBurst = false; if (!d.bowTail.empty()) app.audio.play(d.bowTail, bowMuzzleWorld(t, dmy), 0.85f); }
+  // automatic belt change: an empty gun with rounds in reserve starts reloading at once (crew), whether or not the
+  // trigger is held, and the new belt is in when the timer runs out
+  auto belt = [&](int& loaded, int& reserve, float& timer, int beltSize, float time, const std::string& snd, const std::string& name, vec3 at) {
+    if (timer > 0) {
+      timer -= dt;
+      if (timer <= 0) {
+        timer = 0; int n = std::min(beltSize - loaded, reserve); loaded += n; reserve -= n;
+        app.audio.play("belt", at, 0.6f);
+      }
+    } else if (loaded <= 0 && reserve > 0) {
+      timer = time;
+      app.audio.play(app.audio.hasEvent(snd) ? snd : "belt", at, 0.7f);
+      if (occupied == t.id) app.toast("Reloading " + name, 1.6);
+    }
+  };
+  belt(t.mgLoaded, t.mgReserve, t.mgReloadT, d.mgBelt, d.mgReload, d.mgReloadSound, d.mgName.substr(0, d.mgName.find(" (")), t.pos + vec3(0, 2.8f, 0));
+  if (d.bowOn) belt(t.bowLoaded, t.bowReserve, t.bowReloadT, d.bowBelt, d.bowReload, d.bowReloadSound, d.bowShort, vec3(hullMatrix(t) * vec4(d.bowPivot, 1)));
 }
 
 // ============================================================ camera
@@ -620,7 +698,7 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
 
 void TankSys::destroy(App& app, TankRT& t, const std::string& why) {
   if (t.wrecked) return;   // exactly once
-  t.wrecked = true; t.hp = 0; t.reload = 0; t.loaded = SHELL_NONE; t.speed = 0; t.yawRate = 0; t.mgReloadT = 0;
+  t.wrecked = true; t.hp = 0; t.reload = 0; t.loaded = SHELL_NONE; t.speed = 0; t.yawRate = 0; t.mgReloadT = 0; t.bowReloadT = 0;
   t.burnT = 0; ++wrecksMade;
   for (int* h : {&t.engineLoop, &t.trackLoop, &t.turretLoop}) { app.audio.loopStop(*h); *h = -1; }
   vec3 c = t.pos + vec3(0, 1.8f, 0);

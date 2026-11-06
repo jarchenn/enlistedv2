@@ -10,6 +10,7 @@ namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> seq; size_t cur = 0; float tcur = 0;
 uint64_t SH = 0, TG = 0, PAK = 0, TRAP = 0, TREE = 0, HOUSE = 0, WALLT = 0;
+uint64_t HOUSE2 = 0, POLE1 = 0, POLE2 = 0, FENCE = 0, WIREF = 0, SWALL1 = 0, SWALL2 = 0;   // ramming lane
 char b_[512]; bool check_ = true; float dt_ = 1.0f / 60.0f;
 std::set<long> marks;   // one-shot time marks of the current step (robust to float accumulation of t)
 bool once(float t, float mark) { long key = std::lround(mark * 1000.0f); if (t >= mark && !marks.count(key)) { marks.insert(key); return true; } return false; }
@@ -88,6 +89,15 @@ void SelfTest::tanksUpdate(App& app, float dt) {
     HOUSE = app.placeInstance(app.lib.find("house_stone_cottage"), vec3(70, 0, -40), 0.0f);
     WALLT = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(60, 0, 250), 200.0f);
     check(SH && TG && PAK && TRAP && TREE && HOUSE && WALLT, "range: Sherman, Tiger facing it 45 m away, PaK 40, tank trap, tree, cottage, casemate 257 m downrange placed from the catalog");
+    // ramming lane (x -120 .. -160): telegraph poles, a post-and-wire fence with barbed wire behind it, two low stone walls
+    POLE1 = app.placeInstance(app.lib.find("utility_pole"), vec3(-120, 0, -20), 0.0f);
+    POLE2 = app.placeInstance(app.lib.find("utility_pole"), vec3(-130, 0, -20), 0.0f);
+    FENCE = app.placeInstance(app.lib.find("fence_post_wire"), vec3(-140, 0, -20), 0.0f);
+    WIREF = app.placeInstance(app.lib.find("wire_fence"), vec3(-140, 0, -14), 90.0f);
+    SWALL1 = app.placeInstance(app.lib.find("stone_wall_low"), vec3(-150, 0, -20), 0.0f);
+    SWALL2 = app.placeInstance(app.lib.find("stone_wall_low"), vec3(-162, 0, -20), 0.0f);
+    HOUSE2 = app.placeInstance(app.lib.find("house_stone_cottage"), vec3(-150, 0, 60), 0.0f);   // pushed through (the T7 cottage stays intact)
+    check(POLE1 && POLE2 && FENCE && WIREF && SWALL1 && SWALL2 && HOUSE2, "ramming lane: two telegraph poles, a post-and-wire fence, a barbed-wire fence, two low stone walls and a second cottage placed from the catalog");
     app.syncRuntime(); app.tanks.sync(app);
     app.camPos = vec3(-9, 4.5f, -8); app.camYaw = 225; app.camPitch = -12;
     app.doc.start = {true, vec3(-3.0f, 0, 1.0f), 90};
@@ -179,6 +189,37 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       if (t < 1.4f) return false;
       check(k.mgLoaded < m0 && k.shots == s0 && a.shotsFired > p0, "hatch mode: LMB fires the roof MG only (" + std::to_string(m0 - k.mgLoaded) + " rounds, main gun untouched)");
       return true; }});
+    // ---------------------------------------------------------------- hatch: Space works both MGs, RMB the main gun, belts change on their own
+    seq.push_back({"hatch: Space fires roof + bow MG", [this](App& a, float t) {
+      static int m0, b0, s0;
+      TankRT& k = T(a, SH);
+      if (t == 0) { m0 = k.mgLoaded; b0 = k.bowLoaded; s0 = k.shots; a.scriptedInput.jumpHeld = true; }
+      if (t < 0.8f) return false;
+      a.scriptedInput.jumpHeld = false;
+      std::snprintf(b_, sizeof b_, "open hatch: Space fires the roof MG and the bow MG together (roof %d, bow %d rounds in 0.8 s; main gun untouched)", m0 - k.mgLoaded, b0 - k.bowLoaded);
+      check(k.mgLoaded < m0 && k.bowLoaded < b0 && k.shots == s0, b_);
+      return true; }});
+    seq.push_back({"hatch: RMB fires the main gun", [this](App& a, float t) {
+      static int s0; static bool ok0;
+      TankRT& k = T(a, SH);
+      if (t == 0) { s0 = k.shots; ok0 = k.loaded != SHELL_NONE; return false; }
+      if (t < 0.1f) { a.scriptedInput.aim = true; return false; }
+      a.scriptedInput.aim = false;
+      if (t < 0.4f) return false;
+      std::snprintf(b_, sizeof b_, "open hatch: RMB fires the main gun once (shots +%d; it was loaded: %d), no sight zoom from the hatch", k.shots - s0, (int)ok0);
+      check(ok0 && k.shots == s0 + 1 && !a.tanks.zoom, b_);
+      return true; }});
+    seq.push_back({"roof MG belt changes automatically", [this](App& a, float t) {
+      static int r0; static bool started; static float tEmpty;
+      TankRT& k = T(a, SH); const TankDef& d = *k.def;
+      if (t == 0) { k.mgLoaded = 3; k.mgReloadT = 0; r0 = k.mgReserve; started = false; tEmpty = -1; a.scriptedInput.fire = true; }
+      if (k.mgLoaded == 0 && tEmpty < 0) tEmpty = t;
+      if (k.mgReloadT > 0) started = true;
+      if (t > 0.6f) a.scriptedInput.fire = false;   // released: the change still runs and finishes
+      if (t < 0.6f + d.mgReload + 0.3f) return false;
+      std::snprintf(b_, sizeof b_, "roof MG: an empty belt starts the change by itself (started %d) and the new %d-round belt is in after %.1f s (loaded %d, reserve %d -> %d)", (int)started, d.mgBelt, d.mgReload, k.mgLoaded, r0, k.mgReserve);
+      check(started && k.mgLoaded == d.mgBelt && k.mgReserve == r0 - d.mgBelt, b_);
+      return true; }});
     seq.push_back({"ctrl back", [this](App& a, float t) {
       static int h0, s0;
       if (t == 0) { h0 = a.tanks.hatchToggles; s0 = T(a, SH).shots; a.scriptedInput.crouch = true; a.scriptedInput.fire = true; }
@@ -188,6 +229,33 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       std::snprintf(b_, sizeof b_, "second Ctrl press returns to the sight; a fire button held through the switch does not fire the cannon (toggles +%d, station %d, cannon shots +%d)", a.tanks.hatchToggles - h0, T(a, SH).station, T(a, SH).shots - s0);
       check(a.tanks.hatchToggles == h0 + 1 && T(a, SH).station == TS_GUNNER && T(a, SH).shots == s0, b_);
       a.scriptedInput.fire = false;
+      return true; }});
+    // ---------------------------------------------------------------- gunner sight: Space works the bow MG (Browning M1918 type, BAR sound pack)
+    seq.push_back({"sight: Space fires the bow MG", [this](App& a, float t) {
+      static int b0, m0, s0, pc0; static std::string snd;
+      TankRT& k = T(a, SH); const TankDef& d = *k.def;
+      if (t == 0) { b0 = k.bowLoaded; m0 = k.mgLoaded; s0 = k.shots; pc0 = a.audio.playCount; snd.clear(); a.scriptedInput.jumpHeld = true; aimWorld(a, glm::normalize(yawQuat(k.yaw) * vec3(0.05f, -0.02f, 1))); }
+      if (a.audio.lastPlayed.rfind("shot_", 0) == 0) snd = a.audio.lastPlayed;
+      if (t > 0.5f && t < 0.55f) a.uiShot = outDirT() / "tanks_04b_sherman_bow_mg_ammo_strip.png";
+      if (t < 1.0f) return false;
+      a.scriptedInput.jumpHeld = false;
+      vec3 bd; vec3 bm = a.tanks.bowMuzzleWorld(k, bd);
+      vec3 hl = glm::inverse(glm::mat3(a.tanks.hullMatrix(k))) * (bm - k.pos);
+      int n = b0 - k.bowLoaded;
+      float expect = d.bowRpm / 60.0f;
+      std::snprintf(b_, sizeof b_, "gunner sight: Space fires the %s from the glacis ball mount at hull (%.2f, %.2f, %.2f): %d rounds in 1 s at %.0f rpm, sound '%s'; main gun and roof MG untouched",
+                    d.bowName.c_str(), hl.x, hl.y, hl.z, n, d.bowRpm, snd.c_str());
+      check(d.bowOn && n >= expect - 2 && n <= expect + 2 && k.shots == s0 && k.mgLoaded == m0 && snd == d.bowSound && d.bowSound == "shot_m1918a2_bar" && hl.z > 2.0f && d.bowBelt == 50, b_);
+      return true; }});
+    seq.push_back({"bow MG belt changes automatically", [this](App& a, float t) {
+      static int r0; static bool started;
+      TankRT& k = T(a, SH); const TankDef& d = *k.def;
+      if (t == 0) { k.bowLoaded = 2; k.bowReloadT = 0; r0 = k.bowReserve; started = false; a.scriptedInput.jumpHeld = true; }
+      if (k.bowReloadT > 0) started = true;
+      if (t > 0.4f) a.scriptedInput.jumpHeld = false;
+      if (t < 0.4f + d.bowReload + 0.3f) return false;
+      std::snprintf(b_, sizeof b_, "bow MG: the empty belt changes by itself (started %d) and a fresh 50-round belt is in after %.1f s (loaded %d, reserve %d -> %d)", (int)started, d.bowReload, k.bowLoaded, r0, k.bowReserve);
+      check(started && k.bowLoaded == 50 && k.bowReserve == r0 - 50, b_);
       return true; }});
     // ---------------------------------------------------------------- turret: rate limits, lag, wrap-around, stops
     seq.push_back({"traverse lag", [this](App& a, float t) {
@@ -399,16 +467,129 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       a.scriptedInput.move = vec2(0);
       check(a.rt[TREE].treeFelled && k.crushes >= 1, "a tree in the way is pushed over through the shared foliage damage path");
       return true; }});
-    seq.push_back({"house blocks", [this](App& a, float t) {
+    // ---------------------------------------------------------------- ramming: one energy rule (tank_ram.cpp)
+    // a telegraph pole at speed: knocked over at once, falls the way the tank pushes it, costs a fast tank little speed
+    seq.push_back({"ram: telegraph pole at speed", [this](App& a, float t) {
       TankRT& k = T(a, SH);
-      Instance* h = a.doc.find(HOUSE);
-      const AssetDef* ha = a.rt[HOUSE].asset;
-      if (t == 0) { place(a, SH, h->pos + vec3(0, 0, ha->bmin.z - 8), 0); a.scriptedInput.move = vec2(0, 1); }
-      if (t < 5.0f) return false;
+      static float vPrev, vBefore, vAfter, tHit; static int phase, crushed0;
+      Instance* p = a.doc.find(POLE1);
+      if (t == 0) { place(a, SH, p->pos + vec3(0, 0, -50), 0); a.scriptedInput.move = vec2(0, 1); vPrev = 0; tHit = -1; phase = 0; crushed0 = a.tanks.crushedTotal; }
+      if (tHit < 0 && a.tanks.knocked.count(POLE1)) { tHit = t; vBefore = vPrev; vAfter = k.speed; }
+      vPrev = k.speed;
+      if (tHit < 0) { if (t > 25) { check(false, "the tank never reached the telegraph pole (blocked '" + k.blockedBy + "')"); a.scriptedInput.move = vec2(0); return true; } return false; }
+      if (phase == 0 && t >= tHit + 2.5f) {
+        phase = 1;
+        mat4 M = a.instanceMatrix(*p); a.tanks.propMatrix(*p, M);
+        vec3 up = glm::normalize(vec3(M * vec4(0, 1, 0, 0)));
+        vec3 top = vec3(M * vec4(0, 7, 0, 1));
+        float loss = (vBefore - vAfter) / std::max(0.01f, vBefore);
+        std::snprintf(b_, sizeof b_, "telegraph pole hit at %.1f km/h: knocked over at once and falling the way the tank pushes it (up axis y %.2f, top %.1f m ahead of the base 2.5 s later); the tank keeps %.1f km/h (-%.1f%%)",
+                      vBefore * 3.6f, up.y, top.z - p->pos.z, vAfter * 3.6f, loss * 100);
+        bool down = a.tanks.knocked[POLE1].flat || (up.y < 0.5f && top.z > p->pos.z + 2.0f);   // lying, or already crushed flat
+        check(vBefore > 5.0f && loss > 0.0f && loss < 0.08f && down, b_);
+        summary["ram_pole_fast"] = {{"before", vBefore}, {"after", vAfter}, {"loss", loss}};
+        shotQueue.push_back("tanks_12_pole_knocked");
+      }
+      if (t < tHit + 6.0f) return false;
       a.scriptedInput.move = vec2(0);
-      int dmg = 0; for (auto st : a.rt[HOUSE].state) dmg += st != PANEL_INTACT;
-      std::snprintf(b_, sizeof b_, "masonry is not bulldozed: the cottage stops the tank (front at z %.2f, house front %.2f) undamaged (blocked by '%s')", k.pos.z + k.def->halfSize.z, h->pos.z + ha->bmin.z, k.blockedBy.c_str());
-      check(k.pos.z + k.def->halfSize.z < h->pos.z + ha->bmin.z + 1.0f && dmg == 0, b_);
+      check(a.tanks.crushedTotal > crushed0, "driving on over the fallen pole crushes it flat under the tracks (no stop: blocked '" + k.blockedBy + "')");
+      return true; }});
+    // the same pole at walking pace: a much larger share of the speed goes into it
+    seq.push_back({"ram: telegraph pole slowly", [this](App& a, float t) {
+      TankRT& k = T(a, SH);
+      static float vPrev, vBefore, vAfter, tHit;
+      Instance* p = a.doc.find(POLE2);
+      if (t == 0) { place(a, SH, p->pos + vec3(0, 0, -9), 0); a.scriptedInput.move = vec2(0, 0.25f); vPrev = 0; tHit = -1; }
+      if (tHit < 0 && a.tanks.knocked.count(POLE2)) { tHit = t; vBefore = vPrev; vAfter = k.speed; }
+      vPrev = k.speed;
+      if (tHit < 0) { if (t > 20) { check(false, "slow tank never reached the second pole"); a.scriptedInput.move = vec2(0); return true; } return false; }
+      if (t < tHit + 0.5f) return false;
+      a.scriptedInput.move = vec2(0);
+      float loss = (vBefore - vAfter) / std::max(0.01f, vBefore);
+      float fast = summary.contains("ram_pole_fast") ? summary["ram_pole_fast"].value("loss", 1.0f) : 1.0f;
+      std::snprintf(b_, sizeof b_, "the same pole at %.1f km/h takes %.0f%% of the speed (%.1f%% at speed): v' = sqrt(v^2 - 2E/M), then momentum shared with the pole", vBefore * 3.6f, loss * 100, fast * 100);
+      check(loss > 0.15f && loss > 4.0f * fast, b_);
+      summary["ram_pole_slow"] = {{"before", vBefore}, {"after", vAfter}, {"loss", loss}};
+      return true; }});
+    seq.push_back({"ram: post-and-wire fence and barbed wire", [this](App& a, float t) {
+      TankRT& k = T(a, SH);
+      Instance* f = a.doc.find(FENCE);
+      if (t == 0) { place(a, SH, f->pos + vec3(0, 0, -11), 0); a.scriptedInput.move = vec2(0, 1); }
+      if (t < 7.0f) return false;
+      a.scriptedInput.move = vec2(0);
+      Instance* w = a.doc.find(WIREF);
+      std::snprintf(b_, sizeof b_, "a post-and-wire fence and a barbed-wire fence in the way are flattened and the tank drives on (fence knocked %d, wire cut %d, tank %.1f m past the wire, blocked '%s')",
+                    (int)a.tanks.knocked.count(FENCE), (int)a.rt[WIREF].defDestroyed, k.pos.z - w->pos.z, k.blockedBy.c_str());
+      check(a.tanks.knocked.count(FENCE) && a.rt[WIREF].defDestroyed && k.pos.z > w->pos.z + 2.0f, b_);
+      return true; }});
+    // a dry-stone wall: too much for a slow tank's momentum, it gives way to sustained pushing (hold W)
+    seq.push_back({"ram: stone wall needs pushing", [this](App& a, float t) {
+      TankRT& k = T(a, SH);
+      static float tStop, tBreak, work0; static int phase;
+      Instance* s = a.doc.find(SWALL1);
+      if (t == 0) { place(a, SH, s->pos + vec3(0, 0, -8.5f), 0); a.scriptedInput.move = vec2(0, 0.35f); tStop = tBreak = -1; phase = 0; }
+      if (phase == 0 && k.blockedBy.rfind("pushing", 0) == 0) { phase = 1; tStop = t; work0 = k.ramWork; a.scriptedInput.move = vec2(0, 1); }
+      if (phase == 1 && a.tanks.knocked.count(SWALL1)) { phase = 2; tBreak = t; }
+      if (phase < 2) { if (t > 25) { check(false, "stone wall: phase " + std::to_string(phase) + ", blocked '" + k.blockedBy + "'"); a.scriptedInput.move = vec2(0); return true; } return false; }
+      if (t < tBreak + 3.0f) return false;
+      a.scriptedInput.move = vec2(0);
+      const TankDef& d = *k.def;
+      float need = a.tanks.ramProps["stone_wall_low"].breakKJ * 1000.0f;
+      float expect = (need - work0) / (d.engineKW * 1000.0f * d.pushEff);
+      std::snprintf(b_, sizeof b_, "low stone wall: the slow tank stops against it (%.0f kJ of %.0f from its momentum), holding W pushes it down in %.1f s (engine %.0f kW x %.2f: %.1f s expected), it collapses to rubble and the tank drives over (front %.1f m past it)",
+                    work0 / 1000, need / 1000, tBreak - tStop, d.engineKW, d.pushEff, expect, k.pos.z + d.halfSize.z - s->pos.z);
+      check(tStop > 0 && tBreak - tStop > 0.8f * expect && tBreak - tStop < expect + 1.0f && a.tanks.knocked[SWALL1].rubble && k.pos.z + d.halfSize.z > s->pos.z + 1.5f, b_);
+      summary["ram_wall_push_s"] = tBreak - tStop;
+      shotQueue.push_back("tanks_13_wall_rubble");
+      return true; }});
+    // the same wall hit by a heavy tank with momentum: through at once, at a cost in speed
+    seq.push_back({"ram: Tiger at speed through a stone wall", [this](App& a, float t) {
+      TankRT& g = T(a, TG);
+      static float vPrev, vBefore, vAfter, tHit; static vec3 home; static float homeYaw;
+      Instance* s = a.doc.find(SWALL2);
+      if (t == 0) { home = g.pos; homeYaw = g.yaw; place(a, TG, s->pos + vec3(0, 0, -15), 0); g.speed = 8.0f; vPrev = 8; tHit = -1; }
+      if (tHit < 0 && a.tanks.knocked.count(SWALL2)) { tHit = t; vBefore = vPrev; vAfter = g.speed; }
+      vPrev = g.speed;
+      if (tHit < 0 && t < 6) return false;
+      std::snprintf(b_, sizeof b_, "a 57 t Tiger rolling at %.1f km/h smashes the same wall without stopping (1/2 M v^2 = %.0f kJ > 600 kJ) and keeps %.1f km/h",
+                    vBefore * 3.6f, 0.5f * g.def->massKg * vBefore * vBefore / 1000, vAfter * 3.6f);
+      check(tHit > 0 && vAfter > 3.0f && vAfter < vBefore - 1.0f, b_);
+      place(a, TG, home, homeYaw);
+      return true; }});
+    seq.push_back({"house: push through the wall", [this](App& a, float t) {
+      TankRT& k = T(a, SH);
+      Instance* h = a.doc.find(HOUSE2);
+      const AssetDef* ha = a.rt[HOUSE2].asset;
+      static float tPush, tBreach; static int br0;
+      if (t == 0) { place(a, SH, h->pos + vec3(0, 0, ha->bmin.z - 8), 0); a.scriptedInput.move = vec2(0, 1); tPush = tBreach = -1; br0 = k.breaches; }
+      if (tPush < 0 && k.blockedBy.rfind("pushing", 0) == 0) tPush = t;
+      if (tBreach < 0 && k.breaches > br0) tBreach = t;
+      bool through = k.pos.z + k.def->halfSize.z > h->pos.z + ha->bmin.z + 1.5f;
+      if (!(through && tBreach > 0) && t < 30) return false;
+      a.scriptedInput.move = vec2(0);
+      int dmg = 0; for (auto st : a.rt[HOUSE2].state) dmg += st != PANEL_INTACT;
+      std::snprintf(b_, sizeof b_, "masonry holds against the tank's momentum, then gives way to sustained pushing: stopped at %.1f s, breach after %.1f s of W, %d bays damaged, front %.1f m inside the wall line (blocked '%s')",
+                    tPush, tBreach - tPush, dmg, k.pos.z + k.def->halfSize.z - (h->pos.z + ha->bmin.z), k.blockedBy.c_str());
+      check(tPush > 0 && tBreach - tPush > 1.5f && dmg > 0 && through, b_);
+      summary["ram_house_push_s"] = tBreach - tPush;
+      shotQueue.push_back("tanks_14_house_breached");
+      return true; }});
+    seq.push_back({"bunker concrete holds", [this](App& a, float t) {
+      TankRT& k = T(a, SH);
+      Instance* c = a.doc.find(WALLT);
+      const AssetDef* ca = a.rt[WALLT].asset;
+      static int br0, dmg0;
+      if (t == 0) {
+        br0 = k.breaches; dmg0 = 0; for (auto st : a.rt[WALLT].state) dmg0 += st != PANEL_INTACT;
+        vec3 front = c->pos + yawQuat(c->yaw) * vec3(0, 0, ca->bmax.z + 7.0f);
+        place(a, SH, front, wrapDeg(c->yaw + 180.0f));
+        a.scriptedInput.move = vec2(0, 1);
+      }
+      if (t < 8.0f) return false;
+      a.scriptedInput.move = vec2(0);
+      int dmg = 0; for (auto st : a.rt[WALLT].state) dmg += st != PANEL_INTACT;
+      std::snprintf(b_, sizeof b_, "a concrete casemate never gives way: 8 s of W, no breach (damaged bays %d before, %d after: the earlier zero shot), blocked by '%s'", dmg0, dmg, k.blockedBy.c_str());
+      check(k.breaches == br0 && dmg == dmg0 && !k.blockedBy.empty() && k.blockedBy.rfind("pushing", 0) != 0, b_);
       return true; }});
     seq.push_back({"crater", [this](App& a, float t) {
       TankRT& k = T(a, SH);
@@ -425,6 +606,31 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       const TankDef& d = *T(a, TG).def; const TankDef& s = *T(a, SH).def;
       check(d.accel < s.accel && d.traverseRate < s.traverseRate && d.maxFwd * d.offroadMul < s.maxFwd * s.offroadMul && d.maxFwd > s.maxFwd,
             "default gameplay profile: Sherman accelerates, traverses and runs off-road faster; the Tiger keeps its higher listed road speed");
+      return true; }});
+    // ---------------------------------------------------------------- mouse sensitivity matched to the view (explore.cpp)
+    seq.push_back({"sensitivity: same on-screen speed in every view", [this](App& a, float t) {
+      // screen distance near the crosshair per mouse count: (H / 2) / tan(fov / 2) x tan(0.1 deg x scale(fov))
+      const float H = 1080.0f;
+      auto px = [&](float fov) { return (H * 0.5f) / std::tan(radians(fov) * 0.5f) * std::tan(radians(0.1f * App::lookScaleFor(fov))); };
+      float hip = px(72.0f), worst = 0;
+      json tab = json::array();
+      auto add = [&](const std::string& what, float fov) {
+        float r = px(fov) / hip;
+        worst = std::max(worst, std::fabs(r - 1.0f));
+        tab.push_back({{"view", what}, {"fov", fov}, {"scale", App::lookScaleFor(fov)}, {"degPerCount", 0.1f * App::lookScaleFor(fov)}, {"screenRatio", r}});
+      };
+      add("hip (running around)", 72.0f);
+      for (auto& w : a.weaponDefs) {
+        if (w->action == "melee" || w->action == "thrown") continue;
+        add(w->id + " ADS", w->adsWorldFov);
+        if (w->hasScope) add(w->id + " scope " + std::to_string((int)std::lround(w->scopeMag)) + "x", 72.0f / w->scopeMag);
+      }
+      for (auto& [id, d] : a.tanks.defs) { add(id + " sight", d->fov); add(id + " sight zoom", d->fovZoom); add(id + " hatch", 70.0f); }
+      summary["sensitivity"] = tab;
+      std::snprintf(b_, sizeof b_, "mouse look scaled by tan(fov/2) / tan(36 deg) in every view: %d views (ADS, scopes, tank sights) move the image near the crosshair at the hip-fire speed (worst %.3f%%; ZF39 4x %.3f, Tiger sight %.3f / zoom %.3f, Sherman %.3f / %.3f)",
+                    (int)tab.size(), worst * 100, App::lookScaleFor(18.0f), App::lookScaleFor(a.tanks.defs["tiger_i"]->fov), App::lookScaleFor(a.tanks.defs["tiger_i"]->fovZoom),
+                    App::lookScaleFor(a.tanks.defs["sherman_firefly"]->fov), App::lookScaleFor(a.tanks.defs["sherman_firefly"]->fovZoom));
+      check(worst < 0.002f && std::fabs(App::lookScaleFor(72.0f) - 1.0f) < 1e-6f && App::lookScaleFor(10.0f) < App::lookScaleFor(24.0f), b_);
       return true; }});
     seq.push_back({"exit beside a wall", [this](App& a, float t) {
       TankRT& k = T(a, SH);
@@ -728,6 +934,18 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       std::snprintf(b_, sizeof b_, "Tiger cupola MG fires in hatch mode (%d rounds; mg yaw %.1f elev %.1f, muzzle y %.2f above hull origin, dir y %.2f, notice '%s')", m0 - g.mgLoaded, g.mgYaw, g.mgElev, mm.y - g.pos.y, md.y, a.notice.c_str());
       check(g.mgLoaded < m0, b_);
       return true; }});
+    seq.push_back({"tiger: Space fires cupola + bow MG 42", [this](App& a, float t) {
+      TankRT& g = T(a, TG);
+      static int m0, b0; static std::set<std::string> snd;
+      if (t == 0) { m0 = g.mgLoaded; b0 = g.bowLoaded; snd.clear(); a.scriptedInput.jumpHeld = true; }
+      if (a.audio.lastPlayed.rfind("shot_", 0) == 0) snd.insert(a.audio.lastPlayed);
+      if (t < 0.8f) return false;
+      a.scriptedInput.jumpHeld = false;
+      int nb = b0 - g.bowLoaded;
+      std::snprintf(b_, sizeof b_, "Tiger hatch: Space fires the cupola MG and the MG 42 type bow MG together (%d / %d rounds in 0.8 s, bow at %.0f rpm, %d-round belts, sound '%s')",
+                    m0 - g.mgLoaded, nb, g.def->bowRpm, g.def->bowBelt, snd.empty() ? "" : snd.begin()->c_str());
+      check(g.mgLoaded < m0 && nb >= 13 && nb <= 18 && g.def->bowBelt == 50 && snd.count("shot_mg42") && g.def->bowSound == "shot_mg42", b_);
+      return true; }});
     seq.push_back({"tiger out", [this](App& a, float t) {
       TankRT& g = T(a, TG);
       static float t0;
@@ -743,6 +961,8 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       TankRT& g = T(a, TG);
       g.hp = 50; g.hitsSide = 1; g.wrecked = false; g.reserveAP = 7;
       a.applyDamageToMap(); a.exitExplore();
+      bool poles = a.rt.count(POLE1) && a.rt[POLE1].staticBody != 0xffffffffu && a.tanks.knocked.empty() && a.tanks.ramWorkDone.empty();
+      check(poles, "leaving Explore puts knocked-over props back (session overlay: static bodies restored, nothing left lying)");
       Instance* i = a.doc.find(TG);
       bool kept = i->extra.contains("tank") && i->extra["tank"].value("hp", 0) == 50 && i->extra["tank"].value("reserveAP", 0) == 7;
       check(kept, "Apply session changes keeps the Tiger's damage and ammunition in the map (one undo step)");

@@ -255,7 +255,8 @@
     "belt": 100,
     "reserve": 400,
     "reload": 5.0,
-    "bulletMass": 0.046
+    "bulletMass": 0.046,
+    "reloadSound": "belt"
   },
   "mobility": {
     "maxForward": 8.9,
@@ -284,5 +285,41 @@
   "durability": {
     "frontHitsSurvived": 4,
     "sideHitsSurvived": 1
+  },
+  "bowMg": {
+    "name": "Browning M1918 type bow MG (hull ball mount, BAR sound pack)",
+    "short": "Bow .30 Browning",
+    "sound": "shot_m1918a2_bar",
+    "tail": "tail_m1918a2_bar",
+    "reloadSound": "reload_m1918a2_bar",
+    "pivot": [
+      -0.57,
+      1.39,
+      2.3
+    ],
+    "muzzle": [
+      -0.57,
+      1.39,
+      2.6
+    ],
+    "yaw": 15,
+    "elevation": [
+      -8,
+      15
+    ],
+    "rpm": 550,
+    "velocity": 860,
+    "spreadDeg": 0.3,
+    "bulletMass": 0.0097,
+    "belt": 50,
+    "reserve": 1000,
+    "reload": 3.2,
+    "note": "ball mount measured on the supplied mesh (assistant driver's side); a Browning M1918 type gun as the user asked (the registry BAR's rate, velocity and sound pack), fed 50 rounds at a time; changes automatically (crew)."
+  },
+  "ramming": {
+    "massKg": 33000,
+    "engineKW": 370,
+    "pushEfficiency": 0.55,
+    "note": "combat mass of a Sherman (Firefly ~ 34 t) and a ~ 500 hp engine; the push efficiency is game tuning"
   }
 }

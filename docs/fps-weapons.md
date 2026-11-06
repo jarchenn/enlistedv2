@@ -325,6 +325,28 @@ A second, smaller harmonic is added. Sway shares the View → Grass → Wind tog
 - **Blast occlusion:** `blastOcclusion(epicentre, target)` casts a ray. If it crosses a sandbag collider the factor is 0.1; other solid cover counts the same.
 - **Player exposure:** taken at the chest and the head (half each), within 3 × the blast radius. The player has no health model, so this is a HUD readout ("Blast exposure X (raw × m)"), camera shake and a tinnitus tone.
 
+## Mouse sensitivity
+
+Mouse look turns 0.1° per count when running around (72° vertical field of view). Every narrower view uses that rate × **tan(fov / 2) / tan(36°)** (`App::lookScaleFor`, `src/explore.cpp`). The scale applies to the field of view rendered on the previous frame, so ADS blends and the tank sights' RMB zoom change it smoothly.
+
+Why: near the crosshair, a turn of a degrees moves the image by (H / 2) · tan(a) / tan(fov / 2) pixels. Keeping that equal to the hip-fire value gives a_view ≈ a_hip · tan(fov_view / 2) / tan(36°). So the same mouse movement slides a target across the screen by the same distance with iron sights, scopes and tank sights as on foot, instead of turning the same number of degrees (which made 4× scopes and tank sights 3–8 times too fast).
+
+| View | Field of view (vertical) | Look scale | Degrees per mouse count |
+|---|---|---|---|
+| hip (running around) | 72.0° | 1.000 | 0.1000° |
+| Iron sights / ADS (bazooka_m9, fg42, kar98k, kar98k_zf39, m1918a2_bar, m1_carbine, m1_garand, m1_thompson, m1c_garand, m2hb_carry, m3_grease_gun, mg42, mp40, stg44) | 58.0° | 0.763 | 0.0763° |
+| Kar98k ZF39 scope 4× | 18.0° | 0.218 | 0.0218° |
+| M1C Garand scope 3× | 28.8° | 0.353 | 0.0353° |
+| Panzerschreck sight | 62.0° | 0.827 | 0.0827° |
+| Sherman sight | 24.0° | 0.293 | 0.0293° |
+| Sherman sight, RMB zoom | 10.0° | 0.120 | 0.0120° |
+| Sherman hatch | 70.0° | 0.964 | 0.0964° |
+| Tiger I sight | 30.0° | 0.369 | 0.0369° |
+| Tiger I sight, RMB zoom | 12.0° | 0.145 | 0.0145° |
+| Tiger I hatch | 70.0° | 0.964 | 0.0964° |
+
+The self-test (`--selftest-tanks`, "sensitivity") checks every view against the hip value, to within 0.2 %. Crew-served gun hand-wheels (PaK 40, MG emplacements) keep their mechanical rates.
+
 ## Controls added
 
 | Key | Action |
