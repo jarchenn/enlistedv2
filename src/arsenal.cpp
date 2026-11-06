@@ -36,6 +36,7 @@ void App::loadBindings() {
   binds.prone = get("prone", "Z");
   binds.crouch = get("crouch", "LEFT_CONTROL");
   binds.packUp = get("packUp", "G");
+  binds.grenade = get("grenade", "H");
 }
 
 void App::loadMoveSettings() {
@@ -165,7 +166,7 @@ void App::wreckStation(uint64_t id, const std::string& why) {
   lastWreck = {id, why, (float)now};
 }
 
-bool App::isAtGun(const AssetDef* a) const { return a && a->station.kind == "pak40"; }
+bool App::isAtGun(const AssetDef* a) const { return a && (a->station.kind == "pak40" || a->station.kind == "flak18"); }   // field guns: the one-shot direct-hit rule
 
 // ---------------------------------------------------------------- racks
 std::vector<int> App::rackArsenal(const std::string& faction) const {

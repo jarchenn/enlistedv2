@@ -67,7 +67,16 @@ Every walkthrough is a playtest. Doors and windows start in their authored state
 
 **Render quality** (shadow cascades and softness, cloud shadows, ambient occlusion, light shafts, bloom, reflections, temporal AA, haze) is under **Render quality** in the loadout panel (L). `--legacy-look` restores the previous look, and `--rq-off taa|ssr|ssao|bloom|shafts|cascade|cloudshadow|wind` turns one feature off at launch. See [docs/rendering.md](docs/rendering.md). Sight blur (ADS depth of field) has been removed.
 
-**Weapons and environment.** Five of the personal weapons (Garand / M1C, Thompson, BAR, MP 40, MG 42) use the supplied GLB models, aligned so ADS puts the real rear sight and front post on the screen centre; aimed shots leave the front sight along the sight line. The Kar98k, Carbine, Thompson, Garand, BAR (rear leaf folded, front sight only) and Panzerschreck (seen from its right side, shield to the left) have per-weapon sight calibration, and aiming in and out takes 0.25 s (`adsTime_s` in `content/settings/movement.json`). Glass breaks, shutters and doors are shot off, and rounds penetrate them with an energy budget. HE and the PaK 40 AT round dig craters by the formula in [docs/fps-weapons.md](docs/fps-weapons.md). Trees (apple, oak, poplar) sway and can be felled; the sky has procedural clouds (View → Sky). View → First person toggles the sight blur and the arms.
+**Weapons and environment.** Five of the personal weapons (Garand / M1C, Thompson, BAR, MP 40, MG 42) use the supplied GLB models, aligned so ADS puts the real rear sight and front post on the screen centre; aimed shots leave the front sight along the sight line. The Kar98k, Carbine, Thompson, Garand, BAR (rear leaf folded, front sight only) and Panzerschreck (seen from its right side, shield to the left) have per-weapon sight calibration, and aiming in and out takes 0.25 s (`adsTime_s` in `content/settings/movement.json`).
+
+**Grenades and knife.** Mk 2 / M24 grenades and a knife are in the roster: LMB throws or strikes, and **H** throws your side's grenade from any weapon.
+
+**New placeables:**
+- three barbed-wire obstacles;
+- gravel, dirt and concrete paths (length and width in the Selection panel; they join end to end);
+- an 8.8 cm Flak 18 emplacement.
+
+See [docs/entities.md](docs/entities.md). Glass breaks, shutters and doors are shot off, and rounds penetrate them with an energy budget. HE and the PaK 40 AT round dig craters by the formula in [docs/fps-weapons.md](docs/fps-weapons.md). Trees (apple, oak, poplar) sway and can be felled; the sky has procedural clouds (View → Sky). View → First person toggles the sight blur and the arms.
 
 **Range example.** Open **content/examples → Range: walls, bunker, ordnance**. It is a copy of Blank Slate with a masonry dairy, an MG casemate rotated 155°, an open grassy plot, a PaK 40, an M2HB on its tripod, and two crates.
 

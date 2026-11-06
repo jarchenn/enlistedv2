@@ -11,7 +11,7 @@
 //    draw a prefix of that list, so changing the preset never re-places grass.
 #include "terrain.h"
 
-struct GrassFootprint { vec2 pos; float yaw; vec2 bmin, bmax; };   // asset-local XZ bounds, world placement
+struct GrassFootprint { vec2 pos; float yaw; vec2 bmin, bmax; float margin = -1; };   // asset-local XZ bounds, world placement; margin < 0 = kMargin
 
 enum class GrassQuality : int { Off = 0, Low = 1, Medium = 2, High = 3 };
 struct GrassPreset { const char* name; float density, radius, lodStart; };
@@ -22,8 +22,12 @@ struct GrassInstance { vec4 posYaw; vec4 shape; };   // xyz root, yaw | height, 
 class Grass {
 public:
   static constexpr float kChunk = 12.0f;          // metres per chunk edge
-  static constexpr float kMaxDensity = 16.0f;     // tufts per square metre generated (High draws all)
-  static constexpr int kBlades = 5;               // blades per tuft
+  static constexpr float kMaxDensity = 40.0f;     // tufts per square metre generated (High draws all)
+  static constexpr int kBlades = 7;               // blades per tuft (narrow, tapered; stems use 3)
+  // species per tuft (complete update V1), chosen from correlated noise fields so patches grade into each other:
+  // 0 short base turf, 1 medium meadow grass, 2 tall meadow stems with seed heads, 3 clover / broadleaf weeds,
+  // 4 dry straw. Stored in the packed albedo's top byte (0x38 + species: never a NaN / denormal float pattern).
+  enum Species { TURF = 0, MEDIUM = 1, TALL = 2, CLOVER = 3, STRAW = 4 };
   static constexpr float kMargin = 0.45f;         // clear band around footprint bounds (thresholds, steps)
   struct Chunk {
     int cx = 0, cz = 0;

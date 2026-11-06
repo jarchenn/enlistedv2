@@ -47,7 +47,7 @@ bool App::stationCamera(vec3& eye, vec3& fwd, float& fov) const {
   const StationDef& s = r.asset->station;
   eye = vec3(e * vec4(s.optic - s.elevPivot, 1));
   fwd = glm::normalize(vec3(e * vec4(0, 0, 1, 0)));
-  fov = s.kind == "pak40" ? 9.0f : 55.0f;   // ZF 3x8: 8 deg real field fills the eyepiece circle
+  fov = s.sightFov;   // PaK 40 ZF 3x8: 8 deg real field fills the eyepiece circle (9); others from the asset
   return true;
 }
 
@@ -114,6 +114,7 @@ bool App::occupyStation(uint64_t id, int pos) {
   if (s->wrecked) { toast("The gun is destroyed."); return false; }
   if (occupied && occupied != id) { toast("You are already crewing another gun."); return false; }
   if (pos == ST_HANDLER && rt[id].asset->station.kind == "m2hb") { toast("The M2HB on its tripod is crewed from the spade grips only (Aim)."); return false; }
+  if (pos == ST_HANDLER && rt[id].asset->station.fixed) { toast(rt[id].asset->station.label + ": a dug-in emplacement - crew it from the gunner's position (Aim); it is not moved."); return false; }
   auto& r = rt[id];
   vec3 anchor = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : r.asset->station.gunner, 1));
   anchor.y = terrain.height(anchor.x, anchor.z);
@@ -203,7 +204,7 @@ void App::stepProjectiles(float dt) {
       if (impact) {
         std::string surface = "masonry";
         bool ground = hit.ud == 0 || (hit.ud >> 60) == 0xF;
-        if (ground) surface = "ground";
+        if (ground) { surface = "ground"; std::string ps = pathSurfaceAt(hit.pos); if (!ps.empty()) surface = ps; }   // gravel / dirt / concrete paths
         else if ((hit.ud & 0xFFFF) == 0xFFFF) {   // a wall body: report the struck panel's family
           uint64_t iid = hit.ud >> 16;
           for (auto& i : doc.instances) if (i.id == iid) {
@@ -220,15 +221,20 @@ void App::stepProjectiles(float dt) {
           blastAT = p.at;   // AT: concentrated wall damage, deep crater (ground.cpp)
           blastSplashGun = p.splashGun;
           auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore, WALL_ROCKET)
-                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore, WALL_HE);
+                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, p.craterScale > 0 ? p.craterScale : 1.0f, p.ignore, WALL_HE);
           blastAT = false; blastSplashGun = 40;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
-          audio.play("explosion", hit.pos, 1.0f);
+          audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, 1.0f);
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};
         } else {
           std::string surf2 = surface;
           bulletImpact(p, hit, surf2);   // glass / shutters / doors: damage, detach, maybe a penetrating continuation
-          fx.impact(hit.pos, hit.normal, surf2 == "concrete" || surf2 == "masonry" ? "stone" : surf2 == "wood_door" || surf2 == "wood_shutter" ? "wood" : surf2);
+          fx.impact(hit.pos, hit.normal, surf2 == "concrete" || surf2 == "masonry" || surf2 == "gravel" ? "stone" : surf2 == "dirt" ? "ground" : surf2 == "wood_door" || surf2 == "wood_shutter" ? "wood" : surf2);
+          {   // material impact sound at the contact
+            std::string im = surf2 == "ground" || surf2 == "dirt" || surf2 == "gravel" || surf2 == "earth" ? "dirt" : surf2 == "steel" || surf2 == "metal" ? "metal"
+                           : surf2 == "wood" || surf2 == "wood_door" || surf2 == "wood_shutter" || surf2 == "timber" ? "wood" : surf2 == "glass" ? "" : "concrete";
+            if (!im.empty() && glm::length(hit.pos - eyePos()) < 120.0f) audio.play("impact_" + im, hit.pos, 0.5f);
+          }
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), 0};
         }
         projectiles.erase(projectiles.begin() + k);
@@ -274,7 +280,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
     s->elev = approach(s->elev, s->elevT, d.elevateRate * dt);
     bool mg = d.kind == "m2hb";
     int full = mg ? 110 : 1;
-    if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(std::string("PaK 40: next round ") + (s->selAT ? "PzGr. 39 (AT)" : "Sprgr. (HE)") + " - takes effect at the next reload", 3); }
+    if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(d.label + ": next round " + (s->selAT ? d.atName : d.heName) + " - takes effect at the next reload", 3); }
     int pool = (!mg && s->selAT) ? s->reserveAT : s->reserve;
     if (in.reload && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(mg ? "belt" : "breech", vec3(M[3])); }
     if (s->reload > 0) {
@@ -309,12 +315,13 @@ void App::stepStation(float dt, const ExploreInput& in) {
       if (s->loaded > 0 && s->reload <= 0) {
         vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
         mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
-        vec3 start = vec3(e * vec4(0, 0, 0, 1));   // sweep from the trunnions along the bore: a wall at the muzzle stops the shell
-        fireProjectile(start, dir, s->loadedAT ? 790.0f : 550.0f, PROJ_HE, 120.0f, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
-        if (!projectiles.empty()) { projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; }
+        vec3 bore = d.muzzle - d.elevPivot;   // the bore axis at the trunnion plane (the Flak's bore sits above its trunnions)
+        vec3 start = vec3(e * vec4(bore.x, bore.y, 0, 1));   // sweep from there along the bore: a wall at the muzzle stops the shell
+        fireProjectile(start, dir, s->loadedAT ? d.atVelocity : d.heVelocity, PROJ_HE, d.heDamage, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
+        if (!projectiles.empty()) { projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; projectiles.back().blastR = d.heRadius; projectiles.back().craterScale = d.heCrater; }
         s->loaded -= 1; s->recoilT = 0; s->shots++;
-        fx.muzzle(muzzle, dir, 1.0f);
-        audio.play("pak_fire", muzzle, 1.0f);
+        fx.muzzle(muzzle, dir, d.muzzleScale);
+        audio.play(d.fireSound, muzzle, 1.0f);
       } else audio.play("click", vec3(M[3]), 0.6f);
     }
     vec3 a = vec3(M * vec4(d.gunner, 1)); a.y = terrain.height(a.x, a.z);
@@ -363,7 +370,7 @@ std::string App::crateTransaction(uint64_t crateId) {
       if (n > 0) { s->reserveAT += n; if (!unlimited) stock[ammoAT] -= n; atMsg = " AT +" + std::to_string(n) + " (" + std::to_string(s->reserveAT) + "/" + std::to_string(s->reserveATMax) + ")."; }
     }
     if (!stock.count(ammo)) { if (!atMsg.empty()) { audio.play("crate", c->pos); return "PaK 40" + atMsg; } continue; }
-    std::string name = r.asset->station.kind == "pak40" ? "PaK 40 reserve" : "M2HB belts";
+    std::string name = r.asset->station.kind == "m2hb" ? "M2HB belts" : r.asset->station.label + " reserve";
     if (dist > radius) { if (msg.empty()) msg = name + ": gun is out of reach (" + std::to_string((int)dist) + " m > " + std::to_string((int)radius) + " m)."; continue; }
     int unit = r.asset->station.kind == "m2hb" ? 110 : 1;   // crate units: single 7.5 cm rounds, or 110-round .50 link increments
     int need = (s->reserveMax - s->reserve) / unit;
@@ -401,7 +408,7 @@ void App::drawCombatUI() {
   auto& r = rt[occupied];
   const StationDef& d = r.asset->station;
   if (s->pos2 == ST_GUNNER && d.kind == "m2hb") dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
-  if (s->pos2 == ST_GUNNER && d.kind == "pak40") {
+  if (s->pos2 == ST_GUNNER && d.kind != "m2hb") {
     // eyepiece: dark surround, ZF 3x8 style reticle (central chevron, flanking chevrons, stadia)
     float R = io.DisplaySize.y * 0.44f;
     for (int k = 0; k < 64; ++k) {
@@ -432,7 +439,8 @@ void App::drawCombatUI() {
   // ammunition / position panel
   char b[256];
   const char* posName[] = {"", "GUNNER (Aim)", "PREPARING TO MOVE", "HANDLER (Move)", "DEPLOYING"};
-  std::string ammoName = d.kind == "pak40" ? (s->loadedAT && s->loaded ? std::string("7.5 cm AT loaded") : std::string("7.5 cm HE")) + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
+  std::string cal = d.kind == "flak18" ? "8.8 cm" : "7.5 cm";
+  std::string ammoName = d.kind != "m2hb" ? (s->loadedAT && s->loaded ? cal + " AT loaded" : cal + " HE") + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
   std::string state = s->reload > 0 ? "RELOADING " + std::to_string(s->reload).substr(0, 3) + " s" : s->loaded > 0 ? "READY" : "EMPTY - R to reload";
   std::snprintf(b, sizeof b, "%s | %s: %d loaded, %d reserve (max %d) | %s\nT switch position   E leave gun   %s", posName[s->pos2], ammoName.c_str(), s->loaded, s->reserve, s->reserveMax,
                 s->pos2 == ST_GUNNER ? state.c_str() : (s->deployed ? "deployed" : "not deployed - no firing"), s->status.c_str());

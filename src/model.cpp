@@ -1,6 +1,7 @@
 // glTF binary import (offline bake) and the runtime textured model. No third-party glTF library: the GLB
 // container is a 12-byte header, a JSON chunk and a BIN chunk, and accessors are read directly.
 #include "model.h"
+#include "simplify.h"
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <fstream>
@@ -16,6 +17,7 @@ ImportSpec importSpecFromJson(const json& j) {
   s.src = j.value("src", ""); s.dir = j.value("dir", "");
   s.rot = jvec3(j.value("rot", json()), vec3(0));
   s.realLength = j.value("realLength", 1.0f);
+  s.scale = j.value("scale", 0.0f); s.pivot = j.value("pivot", std::string("weapon"));
   s.lengthNode = j.value("lengthNode", "");
   s.offset = jvec3(j.value("offset", json()), vec3(0));
   json np = j.value("nodeParts", json::object()), hd = j.value("hide", json::array());   // keep the temporaries alive
@@ -37,6 +39,8 @@ ImportSpec importSpecFromJson(const json& j) {
     }
     s.meshEdits.push_back(m);
   }
+  s.simplify = j.value("simplify", 1.0f); s.lod1 = j.value("lod1", 0.0f);
+  if (j.contains("sections")) { s.sectionAxis = j["sections"].value("axis", 2); s.sectionCount = std::max(1, j["sections"].value("count", 1)); }
   return s;
 }
 
@@ -272,9 +276,10 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     for (auto& v : q.v) { vec3 p = R * v.pos; amin = glm::min(amin, p); amax = glm::max(amax, p); if (lengthPart) { lmin = glm::min(lmin, p); lmax = glm::max(lmax, p); } }
   }
   if (lmax.z <= lmin.z) { err = "length node '" + spec.lengthNode + "' has no extent"; return false; }
-  float S = spec.realLength / (lmax.z - lmin.z);
+  float S = spec.scale > 0 ? spec.scale : spec.realLength / (lmax.z - lmin.z);
   vec3 c = (lmin + lmax) * 0.5f;
-  vec3 T = vec3(-c.x * S, -c.y * S, -lmin.z * S) + spec.offset;
+  vec3 T = spec.pivot == "ground" ? vec3(-c.x * S, -lmin.y * S, -c.z * S) + spec.offset   // map asset: on the ground, centred
+                                  : vec3(-c.x * S, -c.y * S, -lmin.z * S) + spec.offset;
   mat4 X = glm::translate(mat4(1), T) * glm::scale(mat4(1), vec3(S)) * glm::mat4_cast(R);
   mat4 Xi = glm::inverse(X);
 
@@ -328,10 +333,11 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   // ---- merge into one vertex/index buffer (weapon space)
   std::vector<TexVertex> V; std::vector<uint32_t> I;
   json parts = json::array();
+  size_t simpBefore = 0, simpAfter = 0;
   vec3 bmin(1e9f), bmax(-1e9f);
   for (size_t p = 0; p < prims.size(); ++p) {
     auto& q = prims[p];
-    uint32_t base = (uint32_t)V.size(), first = (uint32_t)I.size();
+    uint32_t base = (uint32_t)V.size();
     vec3 pmin(1e9f), pmax(-1e9f);
     std::vector<TexVertex> qv = q.v;
     for (auto& v : qv) { v.pos = vec3(X * vec4(v.pos, 1)); v.nrm = glm::normalize(R * v.nrm); v.tan = vec4(glm::normalize(R * vec3(v.tan)), v.tan.w); }
@@ -370,22 +376,45 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
         if (moved) logf("  mesh edit on '%s': %d vertices %s (%s)", q.name.c_str(), moved, me.hide ? "hidden" : "re-posed", me.note.c_str());
       }
     }
-    for (auto& v : qv) { pmin = glm::min(pmin, v.pos); pmax = glm::max(pmax, v.pos); V.push_back(v); }
+    std::vector<uint32_t> li; li.reserve(q.i.size());
     for (size_t t = 0; t + 2 < q.i.size(); t += 3) {
       if (dropV[q.i[t]] || dropV[q.i[t + 1]] || dropV[q.i[t + 2]]) continue;
-      for (int c = 0; c < 3; ++c) I.push_back(base + q.i[t + c]);
+      for (int c = 0; c < 3; ++c) li.push_back(q.i[t + c]);
     }
+    if (spec.simplify < 0.999f && li.size() >= 3 * 64) {   // runtime budget for heavy sources (map assets)
+      size_t before = li.size() / 3;
+      simplifyMesh(qv, li, std::max<size_t>(32, (size_t)(before * spec.simplify)));
+      simpBefore += before; simpAfter += li.size() / 3;
+    }
+    for (auto& v : qv) { pmin = glm::min(pmin, v.pos); pmax = glm::max(pmax, v.pos); V.push_back(v); }
     bmin = glm::min(bmin, pmin); bmax = glm::max(bmax, pmax);
     Mat m = q.mat >= 0 && q.mat < (int)mats.size() ? mats[q.mat] : Mat{};
-    json pj = {{"name", q.name}, {"role", q.role}, {"first", first}, {"count", (uint32_t)I.size() - first},
-               {"base", {m.base.r, m.base.g, m.base.b, m.base.a}}, {"metal", m.metal}, {"rough", m.rough}, {"textured", m.alb >= 0}, {"mat", q.mat},
-               {"bmin", tojson(pmin)}, {"bmax", tojson(pmax)}};
-    if (!primAnim[p].empty()) {
-      json a = json::array();
-      for (auto& M : primAnim[p]) { json r = json::array(); for (int k = 0; k < 16; ++k) r.push_back(std::round(glm::value_ptr(M)[k] * 1e6f) / 1e6f); a.push_back(r); }
-      pj["anim"] = a;
+    int nsec = spec.sectionCount, ax = spec.sectionAxis;
+    float s0 = (amin[ax] * S + T[ax]), s1 = (amax[ax] * S + T[ax]);   // whole model's extent along the section axis
+    for (int sec = 0; sec < nsec; ++sec) {
+      uint32_t first = (uint32_t)I.size();
+      vec3 smin(1e9f), smax(-1e9f);
+      for (size_t t = 0; t + 2 < li.size(); t += 3) {
+        if (nsec > 1) {
+          float cpos = (qv[li[t]].pos[ax] + qv[li[t + 1]].pos[ax] + qv[li[t + 2]].pos[ax]) / 3;
+          int k = std::clamp((int)std::floor((cpos - s0) / std::max(1e-6f, s1 - s0) * nsec), 0, nsec - 1);
+          if (k != sec) continue;
+        }
+        for (int c = 0; c < 3; ++c) { I.push_back(base + li[t + c]); smin = glm::min(smin, qv[li[t + c]].pos); smax = glm::max(smax, qv[li[t + c]].pos); }
+      }
+      if (nsec > 1 && I.size() == first) continue;
+      if (nsec == 1) { smin = pmin; smax = pmax; }
+      json pj = {{"name", nsec > 1 ? q.name + "#" + std::to_string(sec) : q.name}, {"role", q.role}, {"first", first}, {"count", (uint32_t)I.size() - first},
+                 {"base", {m.base.r, m.base.g, m.base.b, m.base.a}}, {"metal", m.metal}, {"rough", m.rough}, {"textured", m.alb >= 0}, {"mat", q.mat},
+                 {"bmin", tojson(smin)}, {"bmax", tojson(smax)}};
+      if (nsec > 1) pj["section"] = sec;
+      if (!primAnim[p].empty()) {
+        json a = json::array();
+        for (auto& M : primAnim[p]) { json r = json::array(); for (int k = 0; k < 16; ++k) r.push_back(std::round(glm::value_ptr(M)[k] * 1e6f) / 1e6f); a.push_back(r); }
+        pj["anim"] = a;
+      }
+      parts.push_back(pj);
     }
-    parts.push_back(pj);
   }
 
   // ---- textures: one set per source material; each (image, role) is decoded, downsized and written once
@@ -409,8 +438,11 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     texBytes += fs::file_size(pth, ec); ++texFiles;
     return written[key] = file;
   };
-  for (auto& m : mats) {
+  std::set<int> usedMats; for (auto& q : prims) usedMats.insert(q.mat);   // only materials a kept part uses get textures
+  for (size_t mi = 0; mi < mats.size(); ++mi) {
+    const Mat& m = mats[mi];
     json mj = {{"name", m.name}};
+    if (!usedMats.count((int)mi)) { matsJ.push_back(mj); continue; }
     std::string fa = save(m.alb, 0), fm = save(m.mr, 1), fn = save(m.nrm, 2);
     if (!fa.empty()) mj["albedo"] = fa;
     if (!fm.empty()) mj["mr"] = fm;
@@ -434,6 +466,13 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   std::snprintf(b, sizeof b, "%s: %zu verts %zu tris %zu parts, scale %.5f, bounds (%.3f %.3f %.3f)-(%.3f %.3f %.3f), %zu materials, %d texture files %.1f MB, anim %.2f s",
                 glbPath.filename().string().c_str(), V.size(), I.size() / 3, prims.size(), S, bmin.x, bmin.y, bmin.z, bmax.x, bmax.y, bmax.z, mats.size(), texFiles, texBytes / 1048576.0, duration);
   summary = b;
+  if (simpBefore) summary += " (simplified " + std::to_string(simpBefore) + " -> " + std::to_string(simpAfter) + " tris)";
+  if (spec.lod1 > 0) {   // distance LOD: same placement, fewer triangles, small textures
+    ImportSpec l = spec; l.simplify = spec.simplify * spec.lod1; l.lod1 = 0; l.maxTex = std::min(spec.maxTex, 256); l.meshEdits = spec.meshEdits;
+    std::string e2, s2;
+    if (!bakeGlbModel(glbPath, l, outDir / "lod1", e2, s2)) { err = "lod1: " + e2; return false; }
+    summary += "; lod1 " + s2.substr(s2.find(':') + 2, s2.find(" tris") - s2.find(':') - 2) + " tris";
+  }
   return true;
 }
 
@@ -472,7 +511,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err) {
     p.first = pj.value("first", 0u); p.count = pj.value("count", 0u);
     auto& b = pj["base"]; p.base = vec4(b[0], b[1], b[2], b[3]);
     p.metal = pj.value("metal", 1.0f); p.rough = pj.value("rough", 1.0f); p.textured = pj.value("textured", false);
-    p.bmin = jvec3(pj["bmin"]); p.bmax = jvec3(pj["bmax"]);
+    p.bmin = jvec3(pj["bmin"]); p.bmax = jvec3(pj["bmax"]); p.section = pj.value("section", -1);
     p.mat = pj.value("mat", -1);
     for (auto& a : pj.value("anim", json::array())) { mat4 m; for (int k = 0; k < 16; ++k) glm::value_ptr(m)[k] = a[k].get<float>(); p.anim.push_back(m); }
     parts.push_back(std::move(p));
@@ -540,13 +579,16 @@ mat4 GpuModel::animAt(int part, float u) const {
 }
 
 bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
-  fs::path wdir = contentRoot / "weapons";
   std::map<std::string, json> done;   // output dir -> the model block that baked it
   int ok = 0, bad = 0;
   std::vector<fs::path> files;   // sorted: the directory order differs between file systems
-  for (auto& e : fs::directory_iterator(wdir)) if (e.path().extension() == ".json") files.push_back(e.path());
-  std::sort(files.begin(), files.end());
+  for (const char* sub : {"weapons", "assets"}) {   // first-person weapons, then map assets (wire, Flak, ...)
+    std::vector<fs::path> fl; std::error_code ec0;
+    for (auto& e : fs::directory_iterator(contentRoot / sub, ec0)) if (e.path().extension() == ".json") fl.push_back(e.path());
+    std::sort(fl.begin(), fl.end()); files.insert(files.end(), fl.begin(), fl.end());
+  }
   for (auto& f : files) {
+    fs::path wdir = f.parent_path();
     json j; try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
     if (!j.contains("model")) continue;
     ImportSpec s = importSpecFromJson(j["model"]);

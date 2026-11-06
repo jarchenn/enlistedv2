@@ -103,6 +103,7 @@ void App::updateCreative(float dt) {
 
   if (tool == Tool::Place && placing) {
     if (hoverValid && placing->defense.kind == "sandbag") snapDefense(placing, hp, placeYaw);   // chain sandbag runs
+    if (hoverValid && placing->path.on) snapPath(placing, hp, placeYaw);                          // paths join end to end
     if (hoverValid) lastCheck = checkPlacement(placing, hp, placeYaw, 0);
     if (lmbPress && hoverValid) {
       if (lastCheck.ok) { uint64_t id = placeInstance(placing, hp, placeYaw); if (id) selected = id; }
@@ -185,6 +186,10 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
     vec4 tint = lastCheck.ok ? vec4(0.4f, 0.9f, 0.5f, 0.55f) : vec4(1.0f, 0.35f, 0.3f, 0.5f);
     ghosts.push_back({&placing->opaque, M, tint});
     ghosts.push_back({&placing->panelsIntact, M, tint});
+    if (placing->model) {
+      for (size_t k = 0; k < placing->model->parts.size(); ++k) R.worldModels.push_back({placing->model.get(), (int)k, M});
+      ghosts.push_back({&placing->colliderGhost, M, vec4(vec3(tint), 0.22f)});
+    }
     for (auto& d : placing->interactables)
       for (auto& lf : d.leaves)
         ghosts.push_back({&lf.opaque, M * glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * (d.defaultOpen ? d.openAngle : 0)), d.axis)), tint});
@@ -379,6 +384,14 @@ void App::drawCreativeUI() {
     }
     if (editing && !ImGui::IsAnyItemActive()) editing = false;
     if (!lastCheck.ok && editing) ImGui::TextColored(ImVec4(1, 0.45f, 0.35f, 1), "%s", lastCheck.reason.c_str());
+    if (s && a->path.on) {   // path size: texture scale stays fixed, so resizing never stretches the surface
+      vec2 wl = pathSize(*s, a); float L = wl.y, W = wl.x; bool act = false, ed = false;
+      ImGui::DragFloat("Length (m)", &L, 0.1f, a->path.minL, a->path.maxL, "%.1f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
+      ImGui::DragFloat("Width (m)", &W, 0.05f, a->path.minW, a->path.maxW, "%.2f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
+      if (act) { pushUndo(); s = doc.find(selected); }
+      if (ed && s) setPathSize(*s, vec2(W, L));
+      ImGui::TextDisabled("Placing a path next to a free end continues it in line.");
+    }
     if (ImGui::Button("Duplicate (Ctrl+D)")) duplicateSelected();
     ImGui::SameLine();
     if (ImGui::Button("Delete (Del)")) { deleteSelected(); ImGui::End(); return; }

@@ -72,6 +72,7 @@ void SelfTest::beginCustom(App& app, const std::string& asset, uint64_t inst, co
 }
 
 void SelfTest::damageUpdate(App& app, float dt) {
+  if (stage >= 1900) { entitiesUpdate(app, dt); return; }
   if (stage >= 1700) { updateSuite(app, dt); return; }
   if (stage >= 1600) { sightsUpdate(app, dt); return; }
   if (stage >= 1500) { moveUpdate(app, dt); return; }

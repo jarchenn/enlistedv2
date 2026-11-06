@@ -54,6 +54,8 @@ void App::destroyRT(InstanceRT& r) {
   for (auto& m : r.pmesh) m.destroy();
   r.pmesh.clear(); r.pshape.clear(); r.wf.clear();
   Physics::remove(r.trunkBody); r.trunkBody = 0xffffffffu;
+  Physics::remove(r.playerBody); r.playerBody = 0xffffffffu;
+  r.pathMesh.destroy(); r.pathGround = ~0u;
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
 }
@@ -64,6 +66,9 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   if (r.asset->shape) r.staticBody = Physics::addStatic(r.asset->shape, i.pos, yawQuat(i.yaw), base);
   if (r.asset->tree.on) buildTreeRT(i, r);
   r.defHp = r.asset->defense.hp; r.defDestroyed = false;
+  r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0);
+  if (r.asset->defense.sections > 0) rebuildSectionBodies(i, r);
+  else if (r.asset->playerShape && r.asset->defense.traversal != "slow") r.playerBody = Physics::addPlayerOnly(r.asset->playerShape, i.pos, yawQuat(i.yaw), base);
   size_t n = r.asset->interactables.size();
   r.progress.assign(n, 0); r.dir.assign(n, 0); r.leafBodies.assign(n, {});
   r.leafSt.assign(n, {}); r.leafHits.assign(n, {});
@@ -116,6 +121,7 @@ void App::resetInteractStates() {
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear();
+  if (mode == Mode::Explore) grenadeDrawItems();
   R.wind = grass.wind ? 1.0f : 0.0f;
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
@@ -128,6 +134,14 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (r.asset->rack) { op.push_back({&r.asset->opaque, M}); rackDrawItems(i, r); continue; }
     if (!r.asset->station.kind.empty()) {   // station: base + yaw / elevation / recoil children
       mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc);
+      if (r.asset->model && !r.asset->station.modelRole.empty()) {
+        const StationDef& sd = r.asset->station; const GpuModel* gm = r.asset->model.get();
+        vec4 tint = r.st.wrecked ? vec4(0.22f, 0.2f, 0.18f, 1) : vec4(1);
+        mat4 slump = r.st.wrecked ? glm::rotate(mat4(1), radians(-14.0f), vec3(1, 0, 0)) * glm::rotate(mat4(1), radians(9.0f), vec3(0, 0, 1)) : mat4(1);
+        mat4 L[4] = {b, y * glm::translate(mat4(1), -sd.yawPivot), e * slump * glm::translate(mat4(1), -sd.elevPivot), rc * slump * glm::translate(mat4(1), -sd.elevPivot)};
+        for (size_t k = 0; k < gm->parts.size() && k < sd.modelRole.size(); ++k) R.worldModels.push_back({gm, (int)k, L[sd.modelRole[k]], tint});
+        continue;
+      }
       if (r.st.wrecked) {   // wreck: blackened, barrel slumped and slewed off its line
         vec4 burnt(0.22f, 0.2f, 0.18f, 1);
         mat4 slump = glm::rotate(mat4(1), radians(-14.0f), vec3(1, 0, 0)) * glm::rotate(mat4(1), radians(9.0f), vec3(0, 0, 1));
@@ -153,8 +167,25 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       op.push_back({&r.asset->station.recoilMesh, rc});
       continue;
     }
+    if (r.asset->path.on) {   // draped on the current ground; re-draped after any terrain change or edit
+      if (r.pathGround != groundRev || r.pathRev != i.rev) rebuildPathMesh(i, r);
+      op.push_back({&r.pathMesh, M});
+      continue;
+    }
     // coarse distance cull
-    if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) > 1200) continue;
+    float camDist = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
+    if (camDist > 1200) continue;
+    if (r.asset->model) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn
+      if (camDist > r.asset->modelCull) continue;
+      const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
+      for (size_t k = 0; k < gm->parts.size(); ++k) {
+        int s = gm->parts[k].section;
+        if (s >= 0 && s < (int)r.secCut.size() && r.secCut[s]) continue;
+        R.worldModels.push_back({gm, (int)k, M, vec4(1), r.asset->modelThinPx});
+      }
+      op.push_back({&r.asset->opaque, M});   // any visible box parts (none for the wire obstacles)
+      continue;
+    }
     if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }
     op.push_back({&r.asset->opaque, M});
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
@@ -186,6 +217,7 @@ void App::applyTemplate(const std::string& id) {
   if (!t) t = &fallback;
   removeGroundBodies();
   terrain.generate(*t);
+  ++groundRev;
   Physics::setTerrain(terrain.h, terrain.n, terrain.size);
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
@@ -206,7 +238,17 @@ bool App::openMap(const fs::path& p) {
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
   doc = std::move(d);
-  for (auto& i : doc.instances) { i.rev = ++revCounter; if (!lib.find(i.assetId)) toast("Missing asset '" + i.assetId + "' shown as placeholder; its data is preserved.", 8); }
+  int migrated = 0;
+  for (auto& i : doc.instances) {
+    i.rev = ++revCounter;
+    const AssetDef* a = lib.find(i.assetId);
+    if (!a) { toast("Missing asset '" + i.assetId + "' shown as placeholder; its data is preserved.", 8); continue; }
+    // an instance saved against an older asset version adopts the current definition (e.g. the tank trap, 1.25x
+    // larger in v2): geometry, collision and bounds come from the asset and instances carry no scale, so it is
+    // applied exactly once; position (ground pivot) and yaw are kept
+    if (i.assetVersion < a->version) { logf("map: %s #%llu asset v%d -> v%d", i.assetId.c_str(), (unsigned long long)i.id, i.assetVersion, a->version); i.assetVersion = a->version; ++migrated; }
+  }
+  if (migrated) toast(std::to_string(migrated) + " placement(s) updated to the current asset versions.", 6);
   applyTemplate(doc.templateId);
   // applied ground damage is stored against the template version it was cut into; a changed template
   // would misplace it, so it is dropped with a notice rather than misapplied
@@ -275,12 +317,14 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   for (auto& s : samples) {
     vec3 w = pos + q * s.local;
     if (!terrain.inBuildArea(w.x, w.z)) { c.ok = false; c.reason = "Outside the build area."; return c; }
+    if (a->path.on) continue;   // paths drape on any ground and may cross water's edge, other paths and footprints
     float h = terrain.height(w.x, w.z);
     if (h < terrain.waterLevel + 0.2f) { c.ok = false; c.reason = std::string("The ") + s.side + " of the footprint is in water."; return c; }
     top = std::max(top, h);
     if (h < low) { low = h; lowSide = s.side; }
   }
   c.y = top;
+  if (a->path.on) { c.y = terrain.height(pos.x, pos.z); return c; }
   float grade = top - low;
   if (!a->defense.kind.empty()) {   // defences: terrain-conforming, limited by slope (theta = acos(N . up)) instead of grade
     float sl = skipSlopeRule ? 0.0f : groundSlopeDeg(pos);
@@ -384,7 +428,10 @@ void App::makeThumbnails() {
         if (lf.glass.count) gl.push_back({&lf.glass, L});
       }
     R.foliage.clear(); if (a->tree.on) R.foliage.push_back({&a->tree, mat4(1)});
+    R.worldModels.clear();
+    if (a->model) for (size_t k = 0; k < a->model->parts.size(); ++k) R.worldModels.push_back({a->model.get(), (int)k, mat4(1)});
     a->thumbnail = R.renderThumbnail(op, gl, a->bmin, a->bmax);
+    R.worldModels.clear();
     R.foliage.clear();
   }
   for (auto& t : templates) {
@@ -422,7 +469,7 @@ void App::screenshot(const fs::path& p) {
 
 // ============================================================ main loop
 int App::run(int argc, char** argv) {
-  bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff; fs::path openPath, sheetsDir;
+  bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec;
   for (int k = 1; k < argc; ++k) {
     std::string a = argv[k];
     if (a == "--selftest") runSelf = true;
@@ -431,13 +478,14 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities") runSelf = true;
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
+    else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }
     else if (a == "--import-weapon-models" && k + 1 < argc) {
       // offline bake: <srcDir with .glb files> [content root to write into, default: the running content/]
       fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();
@@ -479,6 +527,7 @@ int App::run(int argc, char** argv) {
 
   Physics::init();
   audio.init();
+  audio.loadEvents(contentDir() / "audio");
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
   R.init(fbw, fbh);
   R.q.legacy = legacyLook;
@@ -498,6 +547,7 @@ int App::run(int argc, char** argv) {
     resetLoadout();
   }
   if (!sheetsDir.empty()) { writeWeaponSheets(sheetsDir); glfwTerminate(); return 0; }
+  if (!previewGlb.empty()) { bool ok = writeModelPreview(previewGlb, previewOut, previewSpec); glfwTerminate(); return ok ? 0 : 1; }
   {
     const TemplateInfo* t = findTemplate("blank_slate");
     TemplateInfo fb; fb.id = "blank_slate"; fb.name = "Blank Slate";
@@ -620,6 +670,7 @@ std::vector<GrassFootprint> App::grassFootprints() const {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || !a->crate.empty()) continue;
     if (a->tree.on && !a->tree.hedge) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
+    if (a->path.on) { vec2 wl = pathSize(i, a); GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, -wl * 0.5f + vec2(0.06f, 0), wl * 0.5f - vec2(0.06f, 0)}; f.margin = 0.05f; fp.push_back(f); continue; }   // the trodden surface only, verges keep their grass
     if (a->tree.on && a->tree.hedge) { vec2 h = a->footprint * 0.5f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-h.x, -h.y * 0.6f), vec2(h.x, h.y * 0.6f)}); continue; }
     fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z)});
   }

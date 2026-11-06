@@ -11,11 +11,15 @@ public:
 
   static void setTerrain(const std::vector<float>& heights, int n, float size);
   static uint32_t addStatic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);
+  static uint32_t addPlayerOnly(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);   // blocks only the player (wire)
   static uint32_t addKinematic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);
   static void setTransform(uint32_t body, vec3 pos, quat rot);
   // dynamic rigid bodies (detached shutters / doors, felled trunks)
   static uint32_t addDynamic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData, float massKg);
   static void addImpulse(uint32_t body, vec3 impulse, vec3 atPoint);
+  static void setMaterial(uint32_t body, float friction, float restitution, bool continuous);   // thrown objects: bounce, CCD
+  static void setVelocity(uint32_t body, vec3 linear, vec3 angular);
+  static void setDamping(uint32_t body, float linear, float angular);
   static void addAngularImpulse(uint32_t body, vec3 angular);
   static bool getTransform(uint32_t body, vec3& pos, quat& rot);
   static bool isActive(uint32_t body);

@@ -26,10 +26,13 @@ using namespace JPH;
 struct ShapeHandle { RefConst<Shape> s; };
 
 namespace {
-namespace Layers { constexpr ObjectLayer NON_MOVING = 0, MOVING = 1; }
+// PLAYER_ONLY: traversal volumes (barbed wire) that only the player capsule collides with. No simulated body
+// (debris, grenades, dropped leaves) touches them and every ray / projectile query skips them, so rounds and
+// thrown objects pass through the real gaps of a wire obstacle while the player cannot walk through it.
+namespace Layers { constexpr ObjectLayer NON_MOVING = 0, MOVING = 1, PLAYER_ONLY = 2; }
 class BPLayers final : public BroadPhaseLayerInterface {
 public:
-  uint GetNumBroadPhaseLayers() const override { return 2; }
+  uint GetNumBroadPhaseLayers() const override { return 3; }
   BroadPhaseLayer GetBroadPhaseLayer(ObjectLayer l) const override { return BroadPhaseLayer((uint8)l); }
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
   const char* GetBroadPhaseLayerName(BroadPhaseLayer) const override { return "layer"; }
@@ -39,8 +42,13 @@ class ObjVsBP final : public ObjectVsBroadPhaseLayerFilter {
 public: bool ShouldCollide(ObjectLayer, BroadPhaseLayer) const override { return true; }
 };
 class ObjPair final : public ObjectLayerPairFilter {
-public: bool ShouldCollide(ObjectLayer a, ObjectLayer b) const override { return a == Layers::MOVING || b == Layers::MOVING; }
+public: bool ShouldCollide(ObjectLayer a, ObjectLayer b) const override {
+  if (a == Layers::PLAYER_ONLY || b == Layers::PLAYER_ONLY) return false;
+  return a == Layers::MOVING || b == Layers::MOVING;
+}
 };
+class AllLayers final : public ObjectLayerFilter { public: bool ShouldCollide(ObjectLayer) const override { return true; } };       // the player
+class NoPlayerOnly final : public ObjectLayerFilter { public: bool ShouldCollide(ObjectLayer l) const override { return l != Layers::PLAYER_ONLY; } };   // rays
 
 struct World {
   BPLayers bp; ObjVsBP ovb; ObjPair op;
@@ -182,6 +190,30 @@ uint32_t Physics::addStatic(const ShapePtr& s, vec3 pos, quat rot, uint64_t ud) 
   if (!id.IsInvalid()) ++W->bodies;
   return id.GetIndexAndSequenceNumber();
 }
+void Physics::setMaterial(uint32_t body, float friction, float restitution, bool continuous) {
+  if (body == 0xffffffffu) return;
+  BodyID id(body); auto& bi = W->sys->GetBodyInterface();
+  bi.SetFriction(id, friction); bi.SetRestitution(id, restitution);
+  if (continuous) bi.SetMotionQuality(id, EMotionQuality::LinearCast);   // small and fast: no tunnelling through walls
+}
+void Physics::setDamping(uint32_t body, float linear, float angular) {
+  if (body == 0xffffffffu) return;
+  BodyLockWrite lock(W->sys->GetBodyLockInterface(), BodyID(body));
+  if (!lock.Succeeded() || !lock.GetBody().GetMotionProperties()) return;
+  lock.GetBody().GetMotionProperties()->SetLinearDamping(linear); lock.GetBody().GetMotionProperties()->SetAngularDamping(angular);
+}
+void Physics::setVelocity(uint32_t body, vec3 linear, vec3 angular) {
+  if (body == 0xffffffffu) return;
+  BodyID id(body); W->sys->GetBodyInterface().SetLinearAndAngularVelocity(id, jv(linear), jv(angular));
+}
+uint32_t Physics::addPlayerOnly(const ShapePtr& s, vec3 pos, quat rot, uint64_t ud) {
+  if (!s) return 0xffffffffu;
+  BodyCreationSettings b(s->s.GetPtr(), jr(pos), jq(rot), EMotionType::Static, Layers::PLAYER_ONLY);
+  b.mUserData = ud;
+  BodyID id = W->sys->GetBodyInterface().CreateAndAddBody(b, EActivation::DontActivate);
+  if (!id.IsInvalid()) ++W->bodies;
+  return id.GetIndexAndSequenceNumber();
+}
 uint32_t Physics::addKinematic(const ShapePtr& s, vec3 pos, quat rot, uint64_t ud) {
   if (!s) return 0xffffffffu;
   BodyCreationSettings b(s->s.GetPtr(), jr(pos), jq(rot), EMotionType::Kinematic, Layers::MOVING);
@@ -253,7 +285,8 @@ public:
 bool Physics::castRay(vec3 o, vec3 d, float maxDist, float& t, uint64_t& ud) {
   RRayCast ray{jr(o), jv(glm::normalize(d) * maxDist)};
   RayCastResult hit;
-  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit)) return false;
+  NoPlayerOnly nl;
+  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit, {}, nl)) return false;
   t = hit.mFraction * maxDist;
   ud = W->sys->GetBodyInterface().GetUserData(hit.mBodyID);
   return true;
@@ -264,7 +297,8 @@ bool Physics::castRayEx(vec3 o, vec3 d, float maxDist, Hit& out, uint64_t ignore
   RRayCast ray{jr(o), jv(dn * maxDist)};
   RayCastResult hit;
   IgnoreUD filt(ignoreUd);
-  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, filt)) return false;
+  NoPlayerOnly nl;
+  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit, {}, nl, filt)) return false;
   out.t = hit.mFraction * maxDist;
   out.pos = o + dn * out.t;
   BodyLockRead lock(W->sys->GetBodyLockInterface(), hit.mBodyID);
@@ -282,7 +316,8 @@ bool Physics::castRayOnly(vec3 o, vec3 d, float maxDist, uint64_t onlyUd, Hit& o
   RRayCast ray{jr(o), jv(dn * maxDist)};
   RayCastResult hit;
   OnlyUD filt(onlyUd);
-  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, filt)) return false;
+  NoPlayerOnly nl;
+  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit, {}, nl, filt)) return false;
   out.t = hit.mFraction * maxDist; out.pos = o + dn * out.t; out.ud = onlyUd;
   return true;
 }
@@ -401,7 +436,7 @@ void Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
   auto& c = W->character;
   if (!c) return;
   auto bpf = W->sys->GetDefaultBroadPhaseLayerFilter(Layers::MOVING);
-  auto olf = W->sys->GetDefaultLayerFilter(Layers::MOVING);
+  AllLayers olf;   // the capsule also meets PLAYER_ONLY traversal volumes
   BodyFilter bf; ShapeFilter sf;
   if (want != W->posture) {
     // expanding (toward standing / into prone) only when the full target body fits; SetShape also refuses
@@ -446,7 +481,7 @@ void Physics::updateCharacter(float dt, vec3 hv, bool jump, bool wantCrouch) {
   auto& c = W->character;
   if (!c) return;
   auto bpf = W->sys->GetDefaultBroadPhaseLayerFilter(Layers::MOVING);
-  auto olf = W->sys->GetDefaultLayerFilter(Layers::MOVING);
+  AllLayers olf;   // the capsule also meets PLAYER_ONLY traversal volumes
   BodyFilter bf; ShapeFilter sf;
   if (wantCrouch != W->crouched) {
     if (c->SetShape(wantCrouch ? W->crouchShape.GetPtr() : W->standShape.GetPtr(), 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp))

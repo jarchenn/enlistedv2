@@ -3,5 +3,6 @@
  "fireMode": "F",
  "prone": "Z",
  "crouch": "LEFT_CONTROL",
- "packUp": "G"
+ "packUp": "G",
+ "grenade": "H"
 }

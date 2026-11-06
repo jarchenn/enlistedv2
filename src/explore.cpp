@@ -62,6 +62,7 @@ bool App::enterExplore() {
 
 void App::exitExplore() {
   if (mode != Mode::Explore) return;
+  clearGrenades();
   Physics::destroyCharacter();
   closeRack("mode change");
   leaveStation();
@@ -201,10 +202,15 @@ bool App::tryStartVault(vec3 feet, float yawDeg) {
   if (topMax > vaultCfg.maxH) { vault.why = "too tall across its depth"; return false; }
   if (dEdge < 0) { vault.why = "obstacle deeper than " + std::to_string(vaultCfg.maxDepth).substr(0, 3) + " m (climb, not vault)"; return false; }
   float land; if (!topAt(dEdge + 0.4f, land) || top - land > vaultCfg.maxDrop || land > top - 0.25f) { vault.why = "no safe landing"; return false; }
-  // unsafe obstacles (barbed wire) are never vaulted
+  // unsafe obstacles (barbed wire) are never vaulted: no uncut wire within 1 m of the crossing (face to landing)
   for (auto& i : doc.instances) {
-    auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset->defense.unsafeVault) continue;
-    if (glm::length(vec2(i.pos.x - (feet.x + f.x * dFace), i.pos.z - (feet.z + f.z * dFace))) < 3.0f) { vault.why = "unsafe obstacle (wire)"; return false; }
+    auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset->defense.unsafeVault || it->second.defDestroyed) continue;
+    quat iq = glm::inverse(yawQuat(i.yaw));
+    for (float d = dFace; d <= dEdge + 0.5f; d += 0.1f) {
+      vec3 lp = iq * (feet + f * d - i.pos);
+      vec2 q(lp.x, lp.z), lo(it->second.asset->bmin.x, it->second.asset->bmin.z), hi(it->second.asset->bmax.x, it->second.asset->bmax.z);
+      if (glm::length(glm::clamp(q, lo, hi) - q) < 1.0f) { vault.why = "unsafe obstacle (wire)"; return false; }
+    }
   }
   float yTop = feet.y + topMax + 0.08f;   // clear the highest point of the top (coping, sandbag crown)
   vec3 P0 = feet, P1(feet.x, yTop, feet.z), P2 = feet + f * (dEdge + 0.35f), P3 = P2;
@@ -297,6 +303,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising;   // Shift while aiming holds the breath; no sprint while lowered or getting up
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
   if (rising) speed = std::min(speed, riseSpeed);   // still getting up: the lower posture's pace
+  speed *= traversalFactor(Physics::character().pos);   // inside a "slow" wire volume
   Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity;
   bool jump = in.jump && !spaceUp && !rising;
   if (!occupied) Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
@@ -325,6 +332,8 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     if (stepTimer > stride) {
       stepTimer = 0;
       std::string s = "step_grass";
+      std::string ps = pathSurfaceAt(c.pos);
+      if (ps == "gravel" || ps == "concrete") s = "step_stone";   // dirt stays the soft step
       if (c.groundUser != ~0ull && c.groundUser != 0) {
         uint64_t iid = c.groundUser >> 16;
         for (auto& i : doc.instances) if (i.id == iid) s = (c.pos.y - i.pos.y > 0.9f) ? "step_wood" : "step_stone";
@@ -373,7 +382,7 @@ void App::updateExplore(float dt) {
   if (useScripted) {
     in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false; scriptedInput.toggleAmmo = false; scriptedInput.build = false;
     scriptedInput.fireMode = scriptedInput.prone = scriptedInput.packUp = scriptedInput.rackUp = scriptedInput.rackDown = scriptedInput.rackEquip = scriptedInput.rackClose = false;
-    scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false;
+    scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false; scriptedInput.quickGrenade = false;
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
@@ -403,6 +412,7 @@ void App::updateExplore(float dt) {
     in.fireMode = kp(win, binds.fireMode);
     in.prone = kp(win, binds.prone);
     in.packUp = kp(win, binds.packUp);
+    in.quickGrenade = kp(win, binds.grenade);
     if (rackOpen) {   // the panel owns the keyboard: no movement, fire or look leaks through
       in.rackUp = kp(win, GLFW_KEY_UP) || kp(win, GLFW_KEY_W); in.rackDown = kp(win, GLFW_KEY_DOWN) || kp(win, GLFW_KEY_S); in.rackEquip = kp(win, GLFW_KEY_ENTER);
       in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = false;
@@ -421,12 +431,13 @@ void App::updateExplore(float dt) {
   int steps = 0;
   while (physAccum >= 1.0f / 60.0f && steps < 8) {
     exploreStep(1.0f / 60.0f, in);
-    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.dyaw = in.dpitch = 0;
+    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.quickGrenade = false; in.dyaw = in.dpitch = 0;
     physAccum -= 1.0f / 60.0f; ++steps;
   }
   if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral
   Physics::step(dt);
   stepDynLeaves(dt);
+  stepGrenades(dt);
 }
 
 void App::drawExploreUI() {

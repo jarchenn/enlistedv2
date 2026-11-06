@@ -44,7 +44,8 @@ private:
   void envUpdate(App& app, float dt);    // selftest_env.cpp (1200)
   void moveUpdate(App& app, float dt);      // selftest_move.cpp (1500)
   void sightsUpdate(App& app, float dt);
-  void updateSuite(App& app, float dt);     // selftest_update.cpp (1700)    // selftest_sights.cpp (1600); dt < 0 = post-render read-back
+  void updateSuite(App& app, float dt);
+  void entitiesUpdate(App& app, float dt);  // selftest_entities.cpp (1900)     // selftest_update.cpp (1700)    // selftest_sights.cpp (1600); dt < 0 = post-render read-back
   void arsenalUpdate(App& app, float dt);   // selftest_arsenal.cpp (1400)
   void villageUpdate(App& app, float dt);   // selftest_village.cpp (1300 build, 1350 benchmark)
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);

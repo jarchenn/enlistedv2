@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.013805709779262543,
+  0.04160631448030472,
+  0.4041115939617157
+ ],
+ "bmin": [
+  -0.013805693946778774,
+  -0.04160631448030472,
+  5.820766091346741e-11
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.png",
+   "name": "BayonetTex",
+   "normal": "normal_2.png"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.013805709779262543,
+    0.04160631448030472,
+    0.4041115939617157
+   ],
+   "bmin": [
+    -0.013805693946778774,
+    -0.04160631448030472,
+    5.820766091346741e-11
+   ],
+   "count": 6600,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Bayonet_LP_BayonetTex_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  -90.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "knife_bayonet.glb",
+ "textures": {},
+ "triangles": 2200,
+ "vertices": 1331
+}

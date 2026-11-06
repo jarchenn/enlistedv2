@@ -1,7 +1,10 @@
 #include "audio.h"
+#include <cstring>
 #include <miniaudio.h>
 #include <random>
 #include <cmath>
+#include <fstream>
+#include <chrono>
 
 namespace {
 constexpr int SR = 44100;
@@ -84,8 +87,12 @@ Buf makeWind(float secs, Rng& r, float bright, float gustRate) {
 struct Audio::Impl {
   ma_engine engine;
   std::map<std::string, Buf> bufs;
-  struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; };
-  Voice voices[24];
+  struct Event { std::vector<Buf> v; float gain = 1; std::string kind; int last = -1; };
+  std::map<std::string, Event> events;
+  std::mt19937 pick{20260606};
+  vec3 listener{0};
+  struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; std::string event; double start = 0; };
+  Voice voices[48];
   Buf windBuf, leafBuf;
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
 };
@@ -116,6 +123,8 @@ bool Audio::init() {
   // ordnance: PaK 40 discharge (sharp crack + low boom), HE detonation, breech, crate, carriage, dry click
   { Buf b = mk(2.4f); addClick(b, 0.0f, 0.03f, 5000, 1.0f, r); addThud(b, 0.0f, 48, 1.0f, r); addThud(b, 0.02f, 75, 0.8f, r);
     float lp = 0; for (size_t i = 0; i < b.size(); ++i) { float t = i / (float)SR; lp += (r.n() - lp) * 0.02f; b[i] += lp * 3.0f * std::exp(-t * 2.2f); } normalize(b); p->bufs["pak_fire"] = b; }
+  { Buf b = mk(3.2f); addClick(b, 0.0f, 0.04f, 3800, 1.0f, r); addThud(b, 0.0f, 34, 1.0f, r); addThud(b, 0.025f, 55, 0.9f, r); addThud(b, 0.06f, 28, 0.6f, r);
+    float lp = 0; for (size_t i = 0; i < b.size(); ++i) { float t = i / (float)SR; lp += (r.n() - lp) * 0.012f; b[i] += lp * 3.6f * std::exp(-t * 1.5f); } normalize(b); p->bufs["flak_fire"] = b; }
   { Buf b = mk(3.0f); addThud(b, 0.0f, 38, 1.0f, r); addClick(b, 0.0f, 0.05f, 2500, 0.8f, r);
     float lp = 0; for (size_t i = 0; i < b.size(); ++i) { float t = i / (float)SR; lp += (r.n() - lp) * 0.012f; b[i] += lp * 4.0f * std::exp(-t * 1.4f); } normalize(b); p->bufs["explosion"] = b; }
   { Buf b = mk(0.6f); addClang(b, 0.0f, 620, 0.5f, 0.12f, r); addClick(b, 0.08f, 0.05f, 1800, 0.7f, r); addThud(b, 0.1f, 140, 0.5f, r); normalize(b, 0.7f); p->bufs["breech"] = b; }
@@ -172,16 +181,78 @@ void Audio::shutdown() {
   delete p; p = nullptr; ok_ = false;
 }
 
+// 16-bit PCM WAV -> mono float at the engine rate (channels averaged, linear resampling)
+static bool loadWavMono(const fs::path& path, Buf& out) {
+  std::ifstream f(path, std::ios::binary); if (!f) return false;
+  std::vector<char> b((std::istreambuf_iterator<char>(f)), {});
+  if (b.size() < 44 || std::memcmp(b.data(), "RIFF", 4) || std::memcmp(b.data() + 8, "WAVE", 4)) return false;
+  int ch = 1, rate = SR, bits = 16; size_t p = 12; const int16_t* pcm = nullptr; size_t n = 0;
+  while (p + 8 <= b.size()) {
+    uint32_t sz; std::memcpy(&sz, b.data() + p + 4, 4);
+    if (!std::memcmp(b.data() + p, "fmt ", 4)) { uint16_t c, bt; uint32_t r; std::memcpy(&c, b.data() + p + 10, 2); std::memcpy(&r, b.data() + p + 12, 4); std::memcpy(&bt, b.data() + p + 22, 2); ch = c; rate = (int)r; bits = bt; }
+    if (!std::memcmp(b.data() + p, "data", 4)) { pcm = (const int16_t*)(b.data() + p + 8); n = std::min<size_t>(sz, b.size() - p - 8) / 2; }
+    p += 8 + sz + (sz & 1);
+  }
+  if (!pcm || bits != 16 || ch < 1) return false;
+  size_t frames = n / ch;
+  std::vector<float> mono(frames);
+  for (size_t i = 0; i < frames; ++i) { float s = 0; for (int c = 0; c < ch; ++c) s += pcm[i * ch + c]; mono[i] = s / (32768.0f * ch); }
+  double step = (double)rate / SR; size_t outN = (size_t)(frames / step);
+  out.resize(outN);
+  for (size_t i = 0; i < outN; ++i) { double x = i * step; size_t a = (size_t)x; double t = x - a; out[i] = (float)(mono[std::min(a, frames - 1)] * (1 - t) + mono[std::min(a + 1, frames - 1)] * t); }
+  return true;
+}
+
+int Audio::loadEvents(const fs::path& dir) {
+  if (!p) return 0;
+  json m; try { std::ifstream f(dir / "manifest.json"); m = json::parse(f); } catch (...) { logf("audio: no manifest in %s (procedural sounds only)", dir.string().c_str()); return 0; }
+  for (auto& [name, e] : m["events"].items()) {
+    Impl::Event ev; ev.gain = e.value("gain", 1.0f); ev.kind = e.value("kind", "");
+    for (auto& v : e["variants"]) {
+      std::string bank = v.value("bank", ""); for (const char* pre : {"ww2_weapon_", "ww2_", "cmn_"}) if (bank.rfind(pre, 0) == 0) { bank = bank.substr(std::strlen(pre)); break; }
+      fs::path wav = dir / "samples" / (bank + "_" + std::to_string(v.value("index", 0)) + ".wav");
+      Buf b; if (loadWavMono(wav, b) && !b.empty()) { ev.v.push_back(std::move(b)); ++samplesLoaded; } else ++samplesMissing;
+    }
+    if (!ev.v.empty()) { p->events[name] = std::move(ev); ++eventsLoaded; }
+  }
+  logf("audio: %d events from %d samples (%d missing: run tools/fsb5.py extract)", eventsLoaded, samplesLoaded, samplesMissing);
+  return eventsLoaded;
+}
+bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
+int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
+
 void Audio::play(const std::string& name, vec3 pos, float volume) {
   ++playCount; lastPlayed = name; lastPos = pos;
   if (!p) return;
-  auto it = p->bufs.find(name);
-  if (it == p->bufs.end()) return;
+  // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
+  // "_suffix" (explosion_grenade -> explosion), so a missing sample never silences an event
+  const Buf* src = nullptr; std::string used; float gain = 1; bool shot = false;
+  std::string n = name;
+  for (int tries = 0; tries < 3 && !src; ++tries) {
+    std::string cand = n;
+    if (glm::length(pos - p->listener) > 90.0f && p->events.count(n + "_far")) cand = n + "_far";
+    auto e = p->events.find(cand);
+    if (e != p->events.end()) {
+      auto& ev = e->second; int k = 0;
+      if (ev.v.size() > 1) { k = (int)(p->pick() % (ev.v.size() - 1)); if (ev.last >= 0 && k >= ev.last) ++k; }   // never the same twice running
+      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; shot = ev.kind == "shot";
+    } else if (auto b = p->bufs.find(n); b != p->bufs.end()) { src = &b->second; used = n; }
+    else { size_t u = n.rfind('_'); if (u == std::string::npos) break; n = n.substr(0, u); }
+  }
+  if (!src) return;
+  lastEvent = used; ++eventPlays[used];
+  double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (shot)   // automatic fire: the previous body of this gun yields to the new shot (no stacking / clipping)
+    for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd) && now - c.start < 0.35) {
+      ma_sound_set_fade_in_milliseconds(&c.snd, -1, 0, 40);
+      ma_sound_set_stop_time_in_milliseconds(&c.snd, ma_engine_get_time_in_milliseconds(&p->engine) + 45);
+    }
   Impl::Voice* v = nullptr;
   for (auto& c : p->voices) if (!c.used || ma_sound_at_end(&c.snd)) { v = &c; break; }
-  if (!v) return;
+  if (!v) { for (auto& c : p->voices) if (!v || c.start < v->start) v = &c; }   // all busy: steal the oldest
   if (v->used) { ma_sound_uninit(&v->snd); ma_audio_buffer_uninit(&v->buf); }
-  ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 1, it->second.size(), it->second.data(), nullptr);
+  volume *= gain;
+  ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 1, src->size(), src->data(), nullptr);
   c.sampleRate = SR;
   ma_audio_buffer_init(&c, &v->buf);
   ma_sound_init_from_data_source(&p->engine, &v->buf, 0, nullptr, &v->snd);
@@ -190,11 +261,12 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   ma_sound_set_rolloff(&v->snd, 1.2f);
   ma_sound_set_volume(&v->snd, volume);
   ma_sound_start(&v->snd);
-  v->used = true;
+  v->used = true; v->event = used; v->start = now;
 }
 
 void Audio::setListener(vec3 pos, vec3 fwd) {
   if (!p) return;
+  p->listener = pos;
   ma_engine_listener_set_position(&p->engine, 0, pos.x, pos.y, pos.z);
   ma_engine_listener_set_direction(&p->engine, 0, fwd.x, fwd.y, fwd.z);
 }

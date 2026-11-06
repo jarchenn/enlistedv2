@@ -38,6 +38,7 @@ Each milestone has its own self-test mode, and all of them drive the real system
 | M4 Eight weapon entries, container ammunition, reload and resupply | Done | `--selftest-weapons` (139 checks) |
 | M5 Materials: steel, stone, wood end grain, plaster, flooring, bunker concrete, pasture | Done | `--capture-materials` before and after at identical cameras, in `docs/materials/` |
 | M5 Instanced grass with Off/Low/Medium/High presets, LOD and exclusion masks | Done | `--selftest-grass`; `--benchmark-stress` |
+| V1 (first pass) Grass species, clustered density, near-field sward ground | Partial | `docs/ground-grass.md`; `--selftest-grass` |
 | Session overlay, plus explicit *Apply damage to map* (undoable) | Done | damage and grass suites |
 | Range example map (`content/examples/range.nmap.json`) | Done | `--build-range-map` (13 checks) |
 | One continuous recording | Done, scripted | `--record-range` (17 checks), 79 s MJPEG AVI |
@@ -100,6 +101,15 @@ Details, the acceptance checklist (PASS / FAIL / NOT TESTED), old and new values
 ## Sight calibration and the renderer pass (BSL as the visual reference)
 
 - **Sight calibration.** The FG 42 and MG 42 anchors were measured on the meshes, both bores being off-centre. The MG 42 eye relief is 0.186 m, which makes its sight picture 12 % larger. Per-weapon `ads` calibration data and debug markers are in. Hip-fire flashes, tracers and impacts use the original effects. `--selftest-sights` covers it ([fps-weapons.md#calibration](fps-weapons.md#calibration)). Sight blur is removed.
+- **Entities, complete update E1-E5:**
+  - three wire obstacles from the supplied set: simplified, with an LOD, player-only wire volumes, cut by blasts stretch by stretch;
+  - tank trap ×1.25, with v1 migration;
+  - Mk 2 and M24 grenades;
+  - gravel, dirt and concrete path entities, draped on the ground and re-draped into craters;
+  - a knife;
+  - the Flak 18 emplacement on the station framework, from the supplied model.
+
+  See [entities.md](entities.md).
 - **Sights, complete update W1.** Kar98k, M1 Carbine, Thompson, Garand, BAR and Panzerschreck anchors measured on the supplied GLB meshes. The BAR ladder leaf is folded and the Garand peep opened at bake (`model.meshEdits`). The Panzerschreck is viewed from its right side with the shield peripheral and a mild zoom. ADS is one blend of world FOV, pose and weapon FOV (`adsTime_s`, 0.25 s), with no zoom step ([fps-weapons.md#w1](fps-weapons.md#w1)).
 - **Renderer.** Two shadow cascades with soft PCF, cloud shadows, a rebalanced sun and sky, a hue-preserving tonemap, a gradient sky and self-shadowed clouds, height haze, light shafts, SSAO on indirect light only, subtle bloom, SSR on wet ground, and world-only TAA with foliage motion vectors. The weapon is drawn after it, so nothing ghosts. Each effect has a toggle, and `--legacy-look` restores the old look. All shaders are original implementations; BSL's code was not reused (licence unclear). Details, the audit and the measurements are in [rendering.md](rendering.md).
 

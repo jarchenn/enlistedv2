@@ -42,6 +42,12 @@ void App::rebuildWalls(const Instance& i, InstanceRT& r) {
 void App::resetDamage() {
   resetLeafDamage();
   resetTrees();
+  for (auto& i : doc.instances) {   // session overlays of wire and concrete paths
+    auto it = rt.find(i.id); if (it == rt.end()) continue;
+    auto& r = it->second;
+    if (!r.slabCut.empty()) { std::fill(r.slabCut.begin(), r.slabCut.end(), 0); r.pathGround = ~0u; }
+    if (r.asset->defense.sections > 0) { r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0); r.defDestroyed = false; rebuildSectionBodies(i, r); }
+  }
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
@@ -59,6 +65,7 @@ App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float cra
   blastLeaves(p, radius);   // glass within 1.6 R shatters, shutters / doors within R are blown off
   blastTrees(p, radius);    // HP_AT = 1: a shell within 1.5 m of a trunk fells it
   blastDefenses(p, dmg, radius);
+  blastPaths(p, dmg, radius);
   for (auto& i : doc.instances) {   // splash on AT guns: separately tuned, never classified as a direct hit
     auto it = rt.find(i.id); if (it == rt.end() || !isAtGun(it->second.asset) || it->second.st.wrecked) continue;
     float dist = glm::length(it->second.st.pos + vec3(0, 0.8f, 0) - p);

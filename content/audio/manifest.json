@@ -1,0 +1,2263 @@
+{
+ "note": "Builds content/audio/manifest.json: the selected samples of the supplied FMOD banks per game event (complete",
+ "redistribution": "NOT cleared: Enlisted sound-mod banks supplied without reuse permission; samples are git-ignored (content/audio/samples) and extracted locally from the user's banks",
+ "banks": [
+  "cmn_fx_impact",
+  "ww2_weapon_antivehicle",
+  "ww2_weapon_cannon",
+  "ww2_weapon_mgun",
+  "ww2_weapon_mgun_foley",
+  "ww2_weapon_mgun_mounted",
+  "ww2_weapon_rifle",
+  "ww2_weapon_rifle_foley"
+ ],
+ "events": {
+  "shot_kar98k": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 684,
+     "name": "mauser98k_body_1",
+     "dur": 4.941,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 591,
+     "name": "mauser98k_body_2",
+     "dur": 5.094,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 366,
+     "name": "mauser98k_body_3",
+     "dur": 5.201,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 273,
+     "name": "mauser98k_body_4",
+     "dur": 4.822,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 126,
+     "name": "mauser98k_body_5",
+     "dur": 4.706,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_kar98k_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 134,
+     "name": "mauser98k_e_far_body_1",
+     "dur": 1.92,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 551,
+     "name": "mauser98k_e_far_body_2",
+     "dur": 1.901,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 246,
+     "name": "mauser98k_e_far_body_3",
+     "dur": 1.882,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 150,
+     "name": "mauser98k_e_far_body_4",
+     "dur": 1.864,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 609,
+     "name": "mauser98k_e_far_body_5",
+     "dur": 1.921,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 236,
+     "name": "mauser98k_e_far_body_6",
+     "dur": 1.981,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 612,
+     "name": "mauser98k_e_far_body_7",
+     "dur": 2.042,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 746,
+     "name": "mauser98k_e_far_body_8",
+     "dur": 1.96,
+     "peak": 0.32
+    }
+   ]
+  },
+  "shot_kar98k_zf39": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "named",
+   "note": "the bank's scoped-Kar98k family",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 654,
+     "name": "kar98k_scope_body_1",
+     "dur": 4.8,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 392,
+     "name": "kar98k_scope_body_2",
+     "dur": 4.8,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 229,
+     "name": "kar98k_scope_body_3",
+     "dur": 4.81,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 501,
+     "name": "kar98k_scope_body_4",
+     "dur": 4.81,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 726,
+     "name": "kar98k_scope_body_5",
+     "dur": 4.8,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m1_garand": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "approx",
+   "note": "rifle-bank \"m1\" family (semi-automatic, no loop): taken as the M1 Garand; the name alone does not prove it",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 140,
+     "name": "m1_body_1",
+     "dur": 2.68,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 545,
+     "name": "m1_body_2",
+     "dur": 2.68,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 687,
+     "name": "m1_body_3",
+     "dur": 2.821,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 533,
+     "name": "m1_body_4",
+     "dur": 2.821,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 592,
+     "name": "m1_body_5",
+     "dur": 2.552,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m1c_garand": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "approx",
+   "note": "same rifle as the M1 Garand: shares its family on purpose",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 140,
+     "name": "m1_body_1",
+     "dur": 2.68,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 545,
+     "name": "m1_body_2",
+     "dur": 2.68,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 687,
+     "name": "m1_body_3",
+     "dur": 2.821,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 533,
+     "name": "m1_body_4",
+     "dur": 2.821,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 592,
+     "name": "m1_body_5",
+     "dur": 2.552,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m1_carbine": {
+   "kind": "shot",
+   "gain": 0.85,
+   "status": "provisional",
+   "note": "no M1 Carbine firing recording exists in the banks (only its reload foley); the automatic-bank \"m1\" family is used as a distinct placeholder - replace when a carbine recording is available",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1552,
+     "name": "m1_body_1",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 249,
+     "name": "m1_body_2",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 301,
+     "name": "m1_body_3",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 807,
+     "name": "m1_body_4",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1624,
+     "name": "m1_body_5",
+     "dur": 2.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m1_thompson": {
+   "kind": "shot",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 363,
+     "name": "thompson_body_1",
+     "dur": 1.344,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 605,
+     "name": "thompson_body_2",
+     "dur": 1.305,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1660,
+     "name": "thompson_body_3",
+     "dur": 1.43,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1659,
+     "name": "thompson_body_4",
+     "dur": 1.386,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1433,
+     "name": "thompson_body_5",
+     "dur": 1.268,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_m1_thompson": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1468,
+     "name": "thompson_tail_1",
+     "dur": 3.066,
+     "peak": 0.168
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 95,
+     "name": "thompson_tail_2",
+     "dur": 3.066,
+     "peak": 0.168
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 394,
+     "name": "thompson_tail_3",
+     "dur": 3.066,
+     "peak": 0.168
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1667,
+     "name": "thompson_tail_4",
+     "dur": 3.066,
+     "peak": 0.168
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1351,
+     "name": "thompson_tail_5",
+     "dur": 3.066,
+     "peak": 0.168
+    }
+   ]
+  },
+  "shot_mp40": {
+   "kind": "shot",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 252,
+     "name": "mp40_body_1",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1398,
+     "name": "mp40_body_2",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 439,
+     "name": "mp40_body_3",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 672,
+     "name": "mp40_body_4",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1391,
+     "name": "mp40_body_5",
+     "dur": 0.959,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_mp40": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 219,
+     "name": "mp40_tail_1",
+     "dur": 2.06,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1120,
+     "name": "mp40_tail_2",
+     "dur": 2.039,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1140,
+     "name": "mp40_tail_3",
+     "dur": 2.047,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1388,
+     "name": "mp40_tail_4",
+     "dur": 1.44,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 337,
+     "name": "mp40_tail_5",
+     "dur": 2.047,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_fg42": {
+   "kind": "shot",
+   "gain": 0.9,
+   "status": "named",
+   "note": "plain fg42 family (fg42_m2_* is another labelled variant, not used)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 418,
+     "name": "fg42_body_1",
+     "dur": 3.753,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 650,
+     "name": "fg42_body_2",
+     "dur": 3.416,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 72,
+     "name": "fg42_body_3",
+     "dur": 3.285,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 894,
+     "name": "fg42_body_4",
+     "dur": 3.532,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 477,
+     "name": "fg42_body_5",
+     "dur": 3.798,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_fg42": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 484,
+     "name": "fg42_tail_1",
+     "dur": 3.199,
+     "peak": 0.214
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 70,
+     "name": "fg42_tail_2",
+     "dur": 3.239,
+     "peak": 0.163
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1017,
+     "name": "fg42_tail_3",
+     "dur": 2.611,
+     "peak": 0.158
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1078,
+     "name": "fg42_tail_4",
+     "dur": 2.88,
+     "peak": 0.344
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1664,
+     "name": "fg42_tail_5",
+     "dur": 3.332,
+     "peak": 0.392
+    }
+   ]
+  },
+  "shot_m1918a2_bar": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "named",
+   "note": "m1918 family (BAR), not the browning_auto_5 shotgun",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 708,
+     "name": "m1918_body_1",
+     "dur": 1.384,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 836,
+     "name": "m1918_body_2",
+     "dur": 2.374,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 465,
+     "name": "m1918_body_3",
+     "dur": 2.499,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 383,
+     "name": "m1918_body_4",
+     "dur": 1.458,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1427,
+     "name": "m1918_body_5",
+     "dur": 1.373,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_m1918a2_bar": {
+   "kind": "tail",
+   "gain": 0.85,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1674,
+     "name": "m1918_tail_1",
+     "dur": 3.384,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 863,
+     "name": "m1918_tail_2",
+     "dur": 3.384,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1231,
+     "name": "m1918_tail_3",
+     "dur": 3.384,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 167,
+     "name": "m1918_tail_4",
+     "dur": 3.384,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1474,
+     "name": "m1918_tail_5",
+     "dur": 2.877,
+     "peak": 0.986
+    }
+   ]
+  },
+  "shot_mg42": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 961,
+     "name": "mg42_body_1",
+     "dur": 0.723,
+     "peak": 0.987
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1522,
+     "name": "mg42_body_1",
+     "dur": 0.723,
+     "peak": 0.987
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 610,
+     "name": "mg42_body_2",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 643,
+     "name": "mg42_body_2",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 728,
+     "name": "mg42_body_3",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1584,
+     "name": "mg42_body_3",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 393,
+     "name": "mg42_body_4",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 491,
+     "name": "mg42_body_4",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1386,
+     "name": "mg42_body_5",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1487,
+     "name": "mg42_body_5",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 121,
+     "name": "mg42_body_6",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 653,
+     "name": "mg42_body_6",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 514,
+     "name": "mg42_body_7",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1093,
+     "name": "mg42_body_7",
+     "dur": 0.723,
+     "peak": 0.99
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 360,
+     "name": "mg42_body_8",
+     "dur": 0.723,
+     "peak": 0.988
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 399,
+     "name": "mg42_body_8",
+     "dur": 0.723,
+     "peak": 0.988
+    }
+   ]
+  },
+  "tail_mg42": {
+   "kind": "tail",
+   "gain": 0.85,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 176,
+     "name": "mg42_tail_1",
+     "dur": 4.435,
+     "peak": 0.698
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1301,
+     "name": "mg42_tail_2",
+     "dur": 4.362,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1415,
+     "name": "mg42_tail_3",
+     "dur": 4.365,
+     "peak": 0.886
+    }
+   ]
+  },
+  "shot_bazooka_m9": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "labelled M1 bazooka: an approximation for the M9",
+   "variants": [
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 5,
+     "name": "m1_bazooka_body_1",
+     "dur": 4.602,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 44,
+     "name": "m1_bazooka_body_2",
+     "dur": 4.949,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 90,
+     "name": "m1_bazooka_body_3",
+     "dur": 4.745,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_panzerschreck": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 133,
+     "name": "panzerschreck_body_1",
+     "dur": 4.602,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 47,
+     "name": "panzerschreck_body_2",
+     "dur": 4.745,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 12,
+     "name": "panzerschreck_body_3",
+     "dur": 4.892,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_panzerschreck_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 38,
+     "name": "panzerschreck_e_far_body_1",
+     "dur": 2.983,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 76,
+     "name": "panzerschreck_e_far_body_2",
+     "dur": 2.656,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 109,
+     "name": "panzerschreck_e_far_body_3",
+     "dur": 2.656,
+     "peak": 0.992
+    }
+   ]
+  },
+  "shot_m2hb": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "named",
+   "note": "mounted-bank 12_7mm_m2 (12_7mm_browning50_* is a second candidate, not used)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 439,
+     "name": "12_7mm_m2_body_1",
+     "dur": 3.003,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 25,
+     "name": "12_7mm_m2_body_2",
+     "dur": 3.003,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 207,
+     "name": "12_7mm_m2_body_3",
+     "dur": 3.003,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 196,
+     "name": "12_7mm_m2_body_4",
+     "dur": 3.003,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 36,
+     "name": "12_7mm_m2_body_5",
+     "dur": 3.003,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 235,
+     "name": "12_7mm_m2_body_6",
+     "dur": 2.831,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 58,
+     "name": "12_7mm_m2_body_7",
+     "dur": 2.831,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_mounted",
+     "index": 232,
+     "name": "12_7mm_m2_body_8",
+     "dur": 2.669,
+     "peak": 1.0
+    }
+   ]
+  },
+  "pak_fire": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "no PaK 40 recording; the 7.5 cm KwK 40 (the PaK 40's tank-gun relative, same calibre and cartridge) is used instead of the 76mm_pak36 family",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 287,
+     "name": "75mm_kwk40_body_1",
+     "dur": 6.359,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 26,
+     "name": "75mm_kwk40_body_2",
+     "dur": 6.912,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 102,
+     "name": "75mm_kwk40_body_3",
+     "dur": 5.766,
+     "peak": 1.0
+    }
+   ]
+  },
+  "flak_fire": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "8.8 cm Flak 36 recordings stand in for the Flak 18",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 209,
+     "name": "88mm_flak36_e_body_1",
+     "dur": 2.88,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 83,
+     "name": "88mm_flak36_e_body_2",
+     "dur": 2.698,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 272,
+     "name": "88mm_flak36_e_body_3",
+     "dur": 3.28,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 141,
+     "name": "88mm_flak36_e_body_4",
+     "dur": 2.88,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 45,
+     "name": "88mm_flak36_e_body_5",
+     "dur": 3.098,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 197,
+     "name": "88mm_flak36_e_body_6",
+     "dur": 2.72,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 298,
+     "name": "88mm_flak36_e_body_7",
+     "dur": 2.88,
+     "peak": 0.97
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 100,
+     "name": "88mm_flak36_e_body_8",
+     "dur": 2.88,
+     "peak": 0.995
+    }
+   ]
+  },
+  "flak_fire_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "Flak 36, distant",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 301,
+     "name": "88mm_flak36_e_far_body_1",
+     "dur": 2.556,
+     "peak": 0.962
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 336,
+     "name": "88mm_flak36_e_far_body_2",
+     "dur": 2.099,
+     "peak": 0.952
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 154,
+     "name": "88mm_flak36_e_far_body_3",
+     "dur": 1.824,
+     "peak": 0.942
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 79,
+     "name": "88mm_flak36_e_far_body_4",
+     "dur": 1.913,
+     "peak": 0.958
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 213,
+     "name": "88mm_flak36_e_far_body_5",
+     "dur": 2.581,
+     "peak": 0.946
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 37,
+     "name": "88mm_flak36_e_far_body_6",
+     "dur": 1.944,
+     "peak": 0.997
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 334,
+     "name": "88mm_flak36_e_far_body_7",
+     "dur": 1.923,
+     "peak": 0.956
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 231,
+     "name": "88mm_flak36_e_far_body_8",
+     "dur": 1.575,
+     "peak": 0.996
+    }
+   ]
+  },
+  "explosion": {
+   "kind": "blast",
+   "gain": 1.0,
+   "status": "named",
+   "note": "shell / HE",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 104,
+     "name": "shell_mid_explosion_1",
+     "dur": 3.769,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 313,
+     "name": "shell_mid_explosion_2",
+     "dur": 3.737,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 367,
+     "name": "shell_mid_explosion_3",
+     "dur": 3.761,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 219,
+     "name": "shell_mid_explosion_4",
+     "dur": 5.118,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 561,
+     "name": "shell_mid_explosion_5",
+     "dur": 5.109,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 69,
+     "name": "shell_mid_explosion_6",
+     "dur": 4.585,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 197,
+     "name": "shell_mid_explosion_7",
+     "dur": 4.921,
+     "peak": 1.0
+    }
+   ]
+  },
+  "explosion_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 115,
+     "name": "shell_mid_explosion_far_01",
+     "dur": 4.0,
+     "peak": 0.912
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 16,
+     "name": "shell_mid_explosion_far_02",
+     "dur": 2.257,
+     "peak": 0.541
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 124,
+     "name": "shell_mid_explosion_far_03",
+     "dur": 3.225,
+     "peak": 0.73
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 416,
+     "name": "shell_mid_explosion_far_04",
+     "dur": 4.322,
+     "peak": 0.905
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 497,
+     "name": "shell_mid_explosion_far_05",
+     "dur": 4.875,
+     "peak": 0.928
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 481,
+     "name": "shell_mid_explosion_far_06",
+     "dur": 2.411,
+     "peak": 0.881
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 488,
+     "name": "shell_mid_explosion_far_07",
+     "dur": 4.416,
+     "peak": 0.999
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 547,
+     "name": "shell_mid_explosion_far_08",
+     "dur": 2.368,
+     "peak": 0.636
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 597,
+     "name": "shell_mid_explosion_far_09",
+     "dur": 5.891,
+     "peak": 0.912
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 281,
+     "name": "shell_mid_explosion_far_10",
+     "dur": 1.835,
+     "peak": 0.552
+    }
+   ]
+  },
+  "explosion_grenade": {
+   "kind": "blast",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 521,
+     "name": "grenade_blast_1",
+     "dur": 3.19,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 418,
+     "name": "grenade_blast_2",
+     "dur": 3.358,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 72,
+     "name": "grenade_blast_3",
+     "dur": 2.99,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 449,
+     "name": "grenade_blast_4",
+     "dur": 2.81,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 305,
+     "name": "grenade_blast_5",
+     "dur": 3.122,
+     "peak": 1.0
+    }
+   ]
+  },
+  "explosion_grenade_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 47,
+     "name": "grenade_blast_far_01",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 598,
+     "name": "grenade_blast_far_02",
+     "dur": 5.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 544,
+     "name": "grenade_blast_far_03",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 278,
+     "name": "grenade_blast_far_04",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 389,
+     "name": "grenade_blast_far_05",
+     "dur": 5.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 239,
+     "name": "grenade_blast_far_06",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 554,
+     "name": "grenade_blast_far_07",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 580,
+     "name": "grenade_blast_far_08",
+     "dur": 5.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "explosion_rocket": {
+   "kind": "blast",
+   "gain": 1.0,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 564,
+     "name": "rocket_explosion_1",
+     "dur": 4.667,
+     "peak": 0.944
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 520,
+     "name": "rocket_explosion_2",
+     "dur": 4.667,
+     "peak": 0.96
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 519,
+     "name": "rocket_explosion_3",
+     "dur": 4.667,
+     "peak": 0.978
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 442,
+     "name": "rocket_explosion_4",
+     "dur": 4.667,
+     "peak": 0.92
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 455,
+     "name": "rocket_explosion_5",
+     "dur": 4.667,
+     "peak": 1.0
+    }
+   ]
+  },
+  "explosion_big": {
+   "kind": "blast",
+   "gain": 1.0,
+   "status": "named",
+   "note": "AT shell / heavy blast",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 99,
+     "name": "shell_big_explosion_1",
+     "dur": 5.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 174,
+     "name": "shell_big_explosion_2",
+     "dur": 5.769,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 575,
+     "name": "shell_big_explosion_3",
+     "dur": 5.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 476,
+     "name": "shell_big_explosion_4",
+     "dur": 5.6,
+     "peak": 1.0
+    }
+   ]
+  },
+  "impact_concrete": {
+   "kind": "impact",
+   "gain": 0.55,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 422,
+     "name": "bullet_hit_concrete_01",
+     "dur": 2.246,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 152,
+     "name": "bullet_hit_concrete_02",
+     "dur": 1.609,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 221,
+     "name": "bullet_hit_concrete_03",
+     "dur": 1.827,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 238,
+     "name": "bullet_hit_concrete_04",
+     "dur": 2.453,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 317,
+     "name": "bullet_hit_concrete_05",
+     "dur": 2.182,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 41,
+     "name": "bullet_hit_concrete_06",
+     "dur": 2.271,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 428,
+     "name": "bullet_hit_concrete_07",
+     "dur": 1.64,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 253,
+     "name": "bullet_hit_concrete_08",
+     "dur": 1.917,
+     "peak": 1.0
+    }
+   ]
+  },
+  "impact_dirt": {
+   "kind": "impact",
+   "gain": 0.55,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 172,
+     "name": "bullet_hit_dirt_01",
+     "dur": 1.25,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 333,
+     "name": "bullet_hit_dirt_02",
+     "dur": 1.25,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 590,
+     "name": "bullet_hit_dirt_03",
+     "dur": 1.25,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 23,
+     "name": "bullet_hit_dirt_04",
+     "dur": 1.25,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 201,
+     "name": "bullet_hit_dirt_05",
+     "dur": 1.25,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 79,
+     "name": "bullet_hit_dirt_06",
+     "dur": 1.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 542,
+     "name": "bullet_hit_dirt_07",
+     "dur": 1.36,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 45,
+     "name": "bullet_hit_dirt_08",
+     "dur": 1.201,
+     "peak": 1.0
+    }
+   ]
+  },
+  "impact_metal": {
+   "kind": "impact",
+   "gain": 0.55,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 467,
+     "name": "bullet_hit_metal_01",
+     "dur": 0.75,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 145,
+     "name": "bullet_hit_metal_02",
+     "dur": 0.616,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 122,
+     "name": "bullet_hit_metal_03",
+     "dur": 0.576,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 589,
+     "name": "bullet_hit_metal_04",
+     "dur": 0.75,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 194,
+     "name": "bullet_hit_metal_05",
+     "dur": 0.875,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 100,
+     "name": "bullet_hit_metal_06",
+     "dur": 0.828,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 118,
+     "name": "bullet_hit_metal_07",
+     "dur": 0.926,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 308,
+     "name": "bullet_hit_metal_08",
+     "dur": 1.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "impact_wood": {
+   "kind": "impact",
+   "gain": 0.55,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 188,
+     "name": "bullet_hit_wood_01",
+     "dur": 1.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 168,
+     "name": "bullet_hit_wood_02",
+     "dur": 1.112,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 466,
+     "name": "bullet_hit_wood_03",
+     "dur": 1.359,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 431,
+     "name": "bullet_hit_wood_04",
+     "dur": 1.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 432,
+     "name": "bullet_hit_wood_05",
+     "dur": 1.338,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 241,
+     "name": "bullet_hit_wood_06",
+     "dur": 1.0,
+     "peak": 0.946
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 465,
+     "name": "bullet_hit_wood_07",
+     "dur": 1.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 540,
+     "name": "bullet_hit_wood_08",
+     "dur": 1.07,
+     "peak": 1.0
+    }
+   ]
+  },
+  "impact_water": {
+   "kind": "impact",
+   "gain": 0.55,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 482,
+     "name": "bullet_hit_water_01",
+     "dur": 0.871,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 319,
+     "name": "bullet_hit_water_02",
+     "dur": 1.625,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 509,
+     "name": "bullet_hit_water_03",
+     "dur": 1.375,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 443,
+     "name": "bullet_hit_water_04",
+     "dur": 1.25,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 391,
+     "name": "bullet_hit_water_05",
+     "dur": 0.875,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 489,
+     "name": "bullet_hit_water_06",
+     "dur": 1.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 0,
+     "name": "bullet_hit_water_07",
+     "dur": 1.801,
+     "peak": 0.946
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 614,
+     "name": "bullet_hit_water_08",
+     "dur": 1.691,
+     "peak": 1.0
+    }
+   ]
+  },
+  "knife_concrete": {
+   "kind": "impact",
+   "gain": 0.7,
+   "status": "named",
+   "note": "bank spelling kept: \"cocncrete\"",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 471,
+     "name": "impact_knife_cocncrete_01",
+     "dur": 0.639,
+     "peak": 0.928
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 469,
+     "name": "impact_knife_cocncrete_02",
+     "dur": 0.72,
+     "peak": 0.981
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 403,
+     "name": "impact_knife_cocncrete_03",
+     "dur": 0.718,
+     "peak": 0.916
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 89,
+     "name": "impact_knife_cocncrete_04",
+     "dur": 0.726,
+     "peak": 0.988
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 441,
+     "name": "impact_knife_cocncrete_05",
+     "dur": 0.609,
+     "peak": 0.921
+    }
+   ]
+  },
+  "knife_metal": {
+   "kind": "impact",
+   "gain": 0.7,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 299,
+     "name": "impact_knife_metal_01",
+     "dur": 0.639,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 461,
+     "name": "impact_knife_metal_02",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 531,
+     "name": "impact_knife_metal_03",
+     "dur": 0.59,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 537,
+     "name": "impact_knife_metal_04",
+     "dur": 0.636,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 10,
+     "name": "impact_knife_metal_05",
+     "dur": 0.552,
+     "peak": 1.0
+    }
+   ]
+  },
+  "knife_wood": {
+   "kind": "impact",
+   "gain": 0.7,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 381,
+     "name": "impact_knife_wood_01",
+     "dur": 0.703,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 562,
+     "name": "impact_knife_wood_02",
+     "dur": 0.6,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 227,
+     "name": "impact_knife_wood_03",
+     "dur": 0.667,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 366,
+     "name": "impact_knife_wood_04",
+     "dur": 0.533,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 8,
+     "name": "impact_knife_wood_05",
+     "dur": 0.552,
+     "peak": 1.0
+    }
+   ]
+  },
+  "knife_generic": {
+   "kind": "impact",
+   "gain": 0.7,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 169,
+     "name": "impact_knife_generic_01",
+     "dur": 0.549,
+     "peak": 0.919
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 352,
+     "name": "impact_knife_generic_02",
+     "dur": 0.568,
+     "peak": 0.908
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 356,
+     "name": "impact_knife_generic_03",
+     "dur": 0.723,
+     "peak": 0.89
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 415,
+     "name": "impact_knife_generic_04",
+     "dur": 0.667,
+     "peak": 0.992
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 316,
+     "name": "impact_knife_generic_05",
+     "dur": 0.596,
+     "peak": 0.93
+    }
+   ]
+  },
+  "reload_kar98k": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "stripper-clip reload; stages are not ordered by audition",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 328,
+     "name": "change_ammo_mauser98k_1",
+     "dur": 0.65,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 199,
+     "name": "change_ammo_mauser98k_2",
+     "dur": 0.794,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 136,
+     "name": "change_ammo_mauser98k_3",
+     "dur": 1.365,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 351,
+     "name": "change_ammo_mauser98k_6",
+     "dur": 0.7,
+     "peak": 1.0
+    }
+   ]
+  },
+  "clip_kar98k": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 128,
+     "name": "change_ammo_mauser98k_clip_1",
+     "dur": 0.551,
+     "peak": 0.909
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 312,
+     "name": "change_ammo_mauser98k_clip_2",
+     "dur": 0.472,
+     "peak": 0.78
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 547,
+     "name": "change_ammo_mauser98k_clip_3",
+     "dur": 0.472,
+     "peak": 0.849
+    }
+   ]
+  },
+  "reload_m1_garand": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 295,
+     "name": "change_ammo_m1garand_2",
+     "dur": 0.796,
+     "peak": 0.955
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 192,
+     "name": "change_ammo_m1garand_3",
+     "dur": 0.419,
+     "peak": 1.0
+    }
+   ]
+  },
+  "clip_m1_garand": {
+   "kind": "foley",
+   "gain": 0.85,
+   "status": "named",
+   "note": "en-bloc clip: played when the clip seats",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 408,
+     "name": "m1garand_clip_1",
+     "dur": 1.348,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 522,
+     "name": "m1garand_clip_2",
+     "dur": 1.388,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 231,
+     "name": "m1garand_clip_3",
+     "dur": 1.43,
+     "peak": 1.0
+    }
+   ]
+  },
+  "reload_m1_carbine": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 210,
+     "name": "change_ammo_m1carbine_2",
+     "dur": 0.62,
+     "peak": 0.898
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 75,
+     "name": "change_ammo_m1carbine_3",
+     "dur": 0.46,
+     "peak": 1.0
+    }
+   ]
+  },
+  "reload_mp40": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 190,
+     "name": "change_ammo_mp40_1",
+     "dur": 1.27,
+     "peak": 0.906
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 199,
+     "name": "change_ammo_mp40_2",
+     "dur": 0.845,
+     "peak": 0.942
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 98,
+     "name": "change_ammo_mp40_3",
+     "dur": 0.898,
+     "peak": 1.0
+    }
+   ]
+  },
+  "reload_m1918a2_bar": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 173,
+     "name": "change_ammo_m1918_1",
+     "dur": 0.365,
+     "peak": 0.491
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 220,
+     "name": "change_ammo_m1918_2",
+     "dur": 0.589,
+     "peak": 0.545
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 95,
+     "name": "change_ammo_m1918_3",
+     "dur": 0.554,
+     "peak": 0.932
+    }
+   ]
+  },
+  "reload_mg42": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "belt; stages are not ordered by audition",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 292,
+     "name": "change_ammo_mg42_1",
+     "dur": 0.933,
+     "peak": 0.118
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 1,
+     "name": "change_ammo_mg42_2",
+     "dur": 0.733,
+     "peak": 0.795
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 166,
+     "name": "change_ammo_mg42_3",
+     "dur": 1.56,
+     "peak": 0.914
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 132,
+     "name": "change_ammo_mg42_4",
+     "dur": 1.033,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 277,
+     "name": "change_ammo_mg42_5",
+     "dur": 1.082,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 161,
+     "name": "change_ammo_mg42_6",
+     "dur": 1.419,
+     "peak": 0.924
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 21,
+     "name": "change_ammo_mg42_7",
+     "dur": 1.0,
+     "peak": 0.98
+    }
+   ]
+  },
+  "reload_m1_thompson": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "box-magazine Thompson (drum reloads not used)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 136,
+     "name": "change_ammo_thompson_1",
+     "dur": 1.5,
+     "peak": 0.948
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 289,
+     "name": "change_ammo_thompson_2",
+     "dur": 0.591,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 320,
+     "name": "change_ammo_thompson_3",
+     "dur": 1.026,
+     "peak": 0.972
+    }
+   ]
+  },
+  "reload_fg42": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 265,
+     "name": "change_ammo_fg42_1",
+     "dur": 0.612,
+     "peak": 0.939
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 169,
+     "name": "change_ammo_fg42_2",
+     "dur": 0.705,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 330,
+     "name": "change_ammo_fg42_3",
+     "dur": 0.754,
+     "peak": 1.0
+    }
+   ]
+  },
+  "bolt": {
+   "kind": "foley",
+   "gain": 0.7,
+   "status": "approx",
+   "note": "generic rifle-bolt foley for bolt actions (Kar98k / ZF39)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 68,
+     "name": "shutter_out_rifle_bolt_1",
+     "dur": 0.471,
+     "peak": 0.961
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 99,
+     "name": "shutter_out_rifle_bolt_2",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 407,
+     "name": "shutter_out_rifle_bolt_3",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 103,
+     "name": "shutter_out_rifle_bolt_4",
+     "dur": 0.386,
+     "peak": 0.983
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 379,
+     "name": "shutter_out_rifle_bolt_5",
+     "dur": 0.529,
+     "peak": 1.0
+    }
+   ]
+  }
+ }
+}

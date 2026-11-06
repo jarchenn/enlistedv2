@@ -637,13 +637,14 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       for (auto& dp : a.weaponDefs) {
         const WeaponDef& d = *dp;
         static const std::set<std::string> cal = {"fg42", "mg42", "kar98k", "m1_carbine", "m1_thompson", "m1_garand", "m1918a2_bar", "panzerschreck"};
-        if (cal.count(d.id)) continue;
+        if (cal.count(d.id) || d.equipment()) continue;   // calibrated above / hand equipment (no sights; hand pose in "ads.hipOffset")
         ++n;
         bool def = d.eyeRelief == 0.21f && d.adsVmFov == 0 && d.adsPos == vec3(0) && d.adsRot == vec3(0) && d.muzzleDir == vec3(0, 0, 1);
         json j; try { j = json::parse(readTextFile(d.file)); } catch (...) {}
         if (!def || j.contains("ads") || j.contains("muzzleDir")) { ++bad; list += " " + d.id; }
       }
-      check(bad == 0 && n == (int)a.weaponDefs.size() - 8 && n >= 5, std::to_string(n) + " other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)" + (bad ? ": changed" + list : ""));
+      int equip = 0; for (auto& dp : a.weaponDefs) equip += dp->equipment();
+      check(bad == 0 && n == (int)a.weaponDefs.size() - 8 - equip && n >= 5, std::to_string(n) + " other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)" + (bad ? ": changed" + list : ""));
       return true; });
     push("reset", [this](App& a, float) {
       a.sightMarkers = false; a.vm.procedural = true;

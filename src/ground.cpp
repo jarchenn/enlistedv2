@@ -12,6 +12,7 @@ float App::groundWeight(float x, float z) const {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (a->station.kind.size()) continue;   // field guns sit on the ground, they do not protect it
+    if (a->path.on || a->defense.kind == "wire") continue;   // paths and wire lie on open ground: craters form under them
     vec2 hf = a->footprint * 0.5f;
     if (glm::length(vec2(x - i.pos.x, z - i.pos.z)) > glm::length(hf) + 2.0f) continue;
     vec3 l = glm::inverse(yawQuat(i.yaw)) * vec3(x - i.pos.x, 0, z - i.pos.z);
@@ -40,6 +41,7 @@ bool App::craterAt(vec3 p, float radius, float depth) {
   if (gh < terrain.waterLevel + 0.05f) return false;         // open water: nothing to deform
   auto touched = terrain.crater(vec3(p.x, gh, p.z), radius, depth, [this](float x, float z) { return groundWeight(x, z); });
   syncGroundTiles(touched);
+  if (!touched.empty()) ++groundRev;
   return !touched.empty();
 }
 
@@ -60,6 +62,7 @@ void App::resetGround() {
   // Explore damage is a session overlay: restore the map's authored ground (base + applied deltas).
   removeGroundBodies();
   terrain.clearTiles();
+  ++groundRev;
   if (!doc.terrainDeltas.empty()) {
     terrain.applyDeltas(doc.terrainDeltas);
     std::vector<int> keys;

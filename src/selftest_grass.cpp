@@ -173,6 +173,7 @@ void SelfTest::grassUpdate(App& app, float dt) {
       bool otherOk = app.openMap(tmp) && app.doc.terrainDeltas.empty() && app.terrain.tiles.empty();
       check(sameOk && otherOk, "applied ground damage reloads on its own template version and is dropped (with a notice) on another");
       app.hideEditorOverlays = false;
+      check(app.R.shaderErrors == 0, "all shaders compiled, terrain and grass included (" + std::to_string(app.R.shaderErrors) + " errors)");
       finish(app);
     }
     break;

@@ -42,7 +42,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         bool nrmExpected = d.id != "panzerschreck";                          // the pickup mesh ships no normal map
         if (ok) check(!texExpected || (d.model->texAlb && d.model->texMR && (d.model->texN || !nrmExpected)), d.id + (texExpected ? (nrmExpected ? ": albedo, metal-rough and normal textures bound" : ": albedo and metal-rough bound (source has no normal map)") : ": factor-only materials (source has no textures)"));
       }
-      check(models == 13, "thirteen weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck); " + std::to_string(models) + " found");
+      check(models == 16, "sixteen weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck, Mk 2, M24, knife); " + std::to_string(models) + " found");
       GpuModel g; std::string err;
       check(!g.load(contentDir() / "weapons" / "models" / "does_not_exist", err), "a missing bake fails cleanly (" + err + ") and the weapon keeps its box parts");
       int box = a.weaponIndex("kar98k");
@@ -62,6 +62,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         const WeaponDef& d = D(a); auto& s = a.wstate[d.id];
         if (a.vmScoped(d)) { check(true, d.id + ": scoped, sight picture replaced by the scope mask"); return true; }
         if (d.action == "heavy") { check(a.adsT == 0, d.id + ": carried heavy weapon has no sights (deploy it to aim)"); return true; }
+        if (d.equipment()) { check(a.adsT == 0, d.id + ": hand equipment (grenade / knife) has no sights"); return true; }
         mat4 M = a.viewModelMatrix(d, s);
         vec3 r = vec3(M * vec4(d.rear, 1)), f = vec3(M * vec4(d.front, 1));
         float aspect = 16.0f / 9.0f;

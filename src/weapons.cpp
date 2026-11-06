@@ -68,6 +68,7 @@ void App::buildWeaponMeshes() {
     for (auto& m : j.value("modes", json::array())) d->modes.push_back(m.get<std::string>());
     d->deploys = j.value("deploys", "");
     if (j.contains("rocket")) { auto& rj = j["rocket"]; d->rocketDmg = rj.value("damage", 260.0f); d->rocketR = rj.value("radius", 1.6f); d->rocketCrater = rj.value("crater", 0.6f); d->rocketSplashGun = rj.value("splashGun", 40.0f); }
+    loadEquipment(*d, j);
     if (j.contains("sockets")) { d->gripR = jvec3(j["sockets"]["rightGrip"], d->gripR); d->gripL = jvec3(j["sockets"]["leftSupport"], d->gripL); }
     if (j.contains("model") && useImportedModels) {
       std::string dirName = j["model"].value("dir", "");
@@ -121,6 +122,7 @@ void App::selectWeapon(int idx) {
   if (strictDDay && weaponDefs[idx]->laterWar) { toast(weaponDefs[idx]->name + " is hidden by the strict 6 June 1944 preset."); return; }
   WeaponState& cur = wstate[weaponDefs[activeWeapon]->id];
   if (cur.reload > 0) { cur.reload = 0; cur.reloadKind = 0; weaponMsg = "Reload interrupted (no rounds moved)"; }   // nothing is committed until a reload completes
+  if (cur.throwT >= 0 && weaponDefs[activeWeapon]->equipment()) { cur.throwT = -1; cur.struck = false; }   // wind-up cancelled: nothing thrown, nothing used
   activeWeapon = idx; adsT = 0; vm.snap = true;
   wstate[weaponDefs[idx]->id].triggerReleased = false;   // a trigger held through the swap never fires the new weapon
 }
@@ -252,6 +254,29 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     return;
   }
   bool fireHeld = in.fire && !modal && (glfwGetWindowAttrib(win, GLFW_FOCUSED) || selftest);
+  // H: throw the side's grenade from any weapon, then go back to it
+  if (quickReturnT > 0) { quickReturnT -= dt; if (quickReturnT <= 0) { int back = quickReturn; quickReturn = -1; quickReturnT = -1; if (back >= 0) selectWeapon(back); return; } }
+  if (in.quickGrenade && !modal && quickReturn < 0 && !d.grenade.on) {
+    int g = weaponIndex(d.side == "DE" ? "m24_grenade" : "mk2_grenade");
+    if (g >= 0) {
+      WeaponState& gs = wstate[weaponDefs[g]->id];
+      if (gs.loaded > 0 || !gs.containers.empty()) {
+        quickReturn = activeWeapon; selectWeapon(g);
+        if (gs.loaded == 0) { gs.containers.pop_back(); gs.loaded = 1; }
+        gs.cooldown = 0; gs.throwT = 0; gs.triggerReleased = false;
+        return;
+      } else weaponMsg = weaponDefs[g]->name + ": none left";
+    }
+  }
+  if (d.equipment()) {   // grenades and the knife: no sights, no recoil, no reload key
+    adsT = 0;
+    stepViewModel(dt, in, d, s);
+    s.cooldown = std::max(0.0f, s.cooldown - dt);
+    if (!fireHeld) s.triggerReleased = true;
+    stepEquipment(dt, in, d, s, fireHeld);
+    viewKickPitch = vm.breathPitch; viewKickYaw = vm.breathYaw;
+    return;
+  }
   float adsRate = 1.0f / std::max(0.05f, move.adsTime);   // the only writer of adsT while a weapon is out
   adsT = std::clamp(adsT + (in.aim && !modal ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
@@ -272,14 +297,17 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     s.recoilP -= s.recoilP * k; s.recoilY -= s.recoilY * k;
   }
   s.kick -= s.kick * std::min(1.0f, 14.0f * dt);
-  if (!fireHeld) { s.triggerReleased = true; s.burst = 0; }
+  if (!fireHeld) {
+    if (s.burst > 1 && d.action == "auto") audio.play("tail_" + d.id, weaponMuzzleWorld(d, s), 0.9f);   // recorded tail, once per release
+    s.triggerReleased = true; s.burst = 0;
+  }
   viewKickPitch = s.recoilP + vm.breathPitch; viewKickYaw = s.recoilY + vm.breathYaw;   // breathing moves the whole sight picture
   // ---- reload start
   if (in.reload && s.reload <= 0) {
     if (s.loaded >= d.cap) weaponMsg = "Already full";
     else if (s.reserveRounds() == 0) weaponMsg = "No reserve " + d.container + " - find a supply crate";
     else if (d.feed == "single" || (d.feed == "stripper" && s.loaded > 0)) { s.reloadKind = 3; s.reload = s.reloadTotal = d.reloadRound; audio.play("bolt", eyePos(), 0.6f); }
-    else { s.reloadKind = s.loaded == 0 ? 1 : 2; s.reload = s.reloadTotal = s.loaded == 0 ? d.reloadEmpty : d.reloadPartial; audio.play(d.feed == "belt" ? "belt" : d.feed == "magazine" ? "mag_out" : "bolt", eyePos(), 0.7f); }
+    else { s.reloadKind = s.loaded == 0 ? 1 : 2; s.reload = s.reloadTotal = s.loaded == 0 ? d.reloadEmpty : d.reloadPartial; audio.play(audio.hasEvent("reload_" + d.id) ? "reload_" + d.id : d.feed == "belt" ? "belt" : d.feed == "magazine" ? "mag_out" : "bolt", eyePos(), 0.7f); }
   }
   // ---- reload progress / completion: rounds move between locations, never appear
   if (s.reload > 0) {
@@ -305,7 +333,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         if (retained > 0) { s.containers.push_back(retained); weaponMsg = std::to_string(retained) + (d.feed == "enbloc" ? " rounds in the ejected clip kept in reserve" : " rounds in the partial " + d.container + " kept"); }
         s.loaded = n;
         s.reload = 0; s.reloadKind = 0;
-        audio.play(d.feed == "enbloc" ? "clip_in" : d.feed == "belt" ? "belt" : "mag_in", eyePos(), 0.8f);
+        audio.play(audio.hasEvent("clip_" + d.id) ? "clip_" + d.id : audio.hasEvent("reload_" + d.id) ? "reload_" + d.id : d.feed == "enbloc" ? "clip_in" : d.feed == "belt" ? "belt" : "mag_in", eyePos(), 0.8f);
       }
     }
   }
@@ -483,6 +511,52 @@ void App::drawWeaponUI() {
 
 // --weapon-sheets <dir>: orthographic side and rear views of every weapon on a centimetre grid, with the
 // configured sights (rear red, front green, muzzle blue) and IK sockets (right yellow, left cyan) marked.
+// --model-preview <glb> <outDir> [spec.json]: bake the GLB with an import spec (default: ground pivot, native scale)
+// into <outDir>/bake and render top / front / side / three-quarter views with a 10 cm grid, for inspecting supplied
+// models (which groups form complete objects, scale, axes) before writing their asset or weapon entries.
+bool App::writeModelPreview(const fs::path& glb, const fs::path& outDir, const fs::path& specJson) {
+  json sj = json::object();
+  if (!specJson.empty()) { try { sj = json::parse(readTextFile(specJson)); } catch (...) { logf("preview: bad spec %s", specJson.string().c_str()); return false; } }
+  if (!sj.contains("pivot")) sj["pivot"] = "ground";
+  if (!sj.contains("scale") && !sj.contains("realLength")) sj["scale"] = 1.0;
+  if (!sj.contains("maxTex")) sj["maxTex"] = 512;
+  ImportSpec s = importSpecFromJson(sj);
+  std::error_code ec; fs::create_directories(outDir, ec);
+  std::string err, sum;
+  if (!bakeGlbModel(glb, s, outDir / "bake", err, sum)) { logf("preview: bake failed: %s", err.c_str()); return false; }
+  logf("preview: %s", sum.c_str());
+  GpuModel gm; if (!gm.load(outDir / "bake", err)) { logf("preview: load failed: %s", err.c_str()); return false; }
+  std::vector<ModelDraw> md; for (size_t k = 0; k < gm.parts.size(); ++k) md.push_back({&gm, (int)k, mat4(1)});
+  vec3 lo = gm.bmin, hi = gm.bmax, c = (lo + hi) * 0.5f, ext = hi - lo;
+  float R0 = glm::length(ext) * 0.5f + 0.05f;
+  auto shot = [&](const char* tag, vec3 dir, vec3 up, bool persp) {
+    int W = 1600, H = 1000; float asp = (float)W / H;
+    vec3 eye = c - glm::normalize(dir) * (R0 * 3.0f);
+    mat4 view = glm::lookAt(eye, c, up);
+    mat4 proj = persp ? glm::perspective(radians(30.0f), asp, 0.01f, R0 * 10) : glm::ortho(-R0 * asp, R0 * asp, -R0, R0, 0.01f, R0 * 10);
+    std::vector<uint8_t> px; R.renderModelSheet(md, {}, view, proj, eye, W, H, px);
+    if (!persp) {   // 10 cm grid in the view plane through the centre
+      vec3 rt = glm::normalize(glm::cross(glm::normalize(dir), up)), u2 = glm::cross(rt, glm::normalize(dir));
+      for (int y = 0; y < H; ++y) for (int x = 0; x < W; ++x) {
+        float hx = (x + 0.5f) / W * 2 * R0 * asp - R0 * asp + glm::dot(c, rt), hy = (1 - (y + 0.5f) / H) * 2 * R0 - R0 + glm::dot(c, u2);
+        float px1 = 2 * R0 * asp / W;
+        bool m1 = std::fabs(hx - std::round(hx)) < px1 * 0.6f || std::fabs(hy - std::round(hy)) < px1 * 0.6f;
+        bool m01 = std::fabs(hx * 10 - std::round(hx * 10)) < px1 * 3 || std::fabs(hy * 10 - std::round(hy * 10)) < px1 * 3;
+        if (m1 || m01) { uint8_t* q = &px[((size_t)y * W + x) * 4]; float a = m1 ? 0.6f : 0.18f; for (int k = 0; k < 3; ++k) q[k] = (uint8_t)(q[k] * (1 - a)); }
+      }
+    }
+    stbi_write_png((outDir / (std::string(tag) + ".png")).string().c_str(), W, H, 4, px.data(), W * 4);
+  };
+  shot("top", vec3(0, -1, 0), vec3(0, 0, -1), false);
+  shot("front", vec3(0, 0, -1), vec3(0, 1, 0), false);
+  shot("side", vec3(1, 0, 0), vec3(0, 1, 0), false);
+  shot("persp", glm::normalize(vec3(-1, -0.7f, -1.2f)), vec3(0, 1, 0), true);
+  logf("preview: bounds (%.3f %.3f %.3f)-(%.3f %.3f %.3f), %d parts, %d tris", lo.x, lo.y, lo.z, hi.x, hi.y, hi.z, (int)gm.parts.size(), gm.tris);
+  for (auto& p : gm.parts) logf("  part %-40s tris %d  (%.3f %.3f %.3f)-(%.3f %.3f %.3f)", p.name.c_str(), (int)(p.count / 3), p.bmin.x, p.bmin.y, p.bmin.z, p.bmax.x, p.bmax.y, p.bmax.z);
+  gm.destroy();
+  return true;
+}
+
 void App::writeWeaponSheets(const fs::path& outDir) {
   std::error_code ec; fs::create_directories(outDir, ec);
   for (auto& dp : weaponDefs) {

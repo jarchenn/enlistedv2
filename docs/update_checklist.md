@@ -21,14 +21,14 @@ Sources: `Normandy_Complete_Update` (instructions 01–07, ACCEPTANCE, REFERENCE
 | G3 | Interaction reach +25 %, full-object / child-collider selection, surface distance, prompt = action | **done** |
 | G4 | Firing slits wider / taller, geometry and collision through the full depth | **done**: casemate 1.7 × 0.68 m, OP 1.5 × 0.38 m; shots from 3 weapons pass |
 | W1 | Per-weapon sights: Kar98k, Panzerschreck (right-side view), BAR (no tall rectangle), Carbine, Thompson, Garand; smooth ADS audit | **done**: anchors measured on the supplied GLBs; BAR ladder leaf folded and Garand peep opened at bake (`model.meshEdits`, no added geometry); Panzerschreck virtual view line + hip offset + world FOV 62; one ADS blend (`adsTime_s` 0.25, the 14° FOV step removed); `--selftest-sights` all ≤ 2 px ([fps-weapons.md#w1](fps-weapons.md#w1)) |
-| E1 | Three wire obstacles from the two wire GLBs | |
-| E2 | Tank trap ×1.25 (migration without double scale) | |
-| E3 | Mk 2 and M24 grenades (inventory, throw, fuse, bounce, blast) | |
-| E4 | Gravel / dirt / concrete path entities | |
-| E5 | Flak 18 emplacement; knife | |
-| A1 | Audio: FSB5 extraction (if a decoder is available), per-weapon mapping, manifest; otherwise report the dependency | |
+| E1 | Three wire obstacles from the two wire GLBs | **done**: concertina coil, post fence, knife rest from the four assemblies in the set (Helix044 is the coil mesh compressed); simplified 24-45k tris + LOD, player-only wire volumes, no vault, per-stretch blast cutting ([entities.md](entities.md#e1-wire-obstacles)) |
+| E2 | Tank trap ×1.25 (migration without double scale) | **done**: asset v2, 1.51 × 1.09 m; v1 maps adopt it once (instances carry no scale) |
+| E3 | Mk 2 and M24 grenades (inventory, throw, fuse, bounce, blast) | **done**: roster items + H quick throw, fuse from release, CCD body, one detonation through `explode()` |
+| E4 | Gravel / dirt / concrete path entities | **done**: per-instance size, draped and re-draped on craters, procedural materials, slab breaking, grass verges, surface lookup |
+| E5 | Flak 18 emplacement; knife | **done**: Flak 18 on the station framework from the supplied model (360° / -3..85°, HE / AP, fixed, AT-gun wreck rules); knife as a standalone melee item |
+| A1 | Audio: FSB5 extraction (if a decoder is available), per-weapon mapping, manifest; otherwise report the dependency | **done**: all 12 banks are PCM16 FSB5 (no decoder needed); 49 events / 265 samples, every gun its own firing family, far layers, AUTO body + tail, reload / clip foley, sized explosions, material impacts; samples git-ignored (redistribution not cleared), not auditioned by a person ([audio.md](audio.md)) |
 | T1–T10 | Tanks: import / adapt, entry / exit, gunner optics, hatch MG, driving, HE/AP state machine, damage rules above, windows / apertures, sound / exhaust, persistence | |
-| V1 | Ground and grass, walls and interiors (materials, furniture, room templates) | |
+| V1 | Ground and grass, walls and interiors (materials, furniture, room templates) | **partial**: procedural grass species / density / sward ground pass (`docs/ground-grass.md`; does not match the reference, which needs real foliage and texture assets). Tank bending, walls, interiors and furniture not started |
 | R | Regression suites, screenshots, measurements, docs, commits per workstream | |
 
 ## Damage field design (D1)

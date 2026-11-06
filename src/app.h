@@ -45,6 +45,9 @@ struct InstanceRT {
   std::vector<std::vector<float>> leafHits;       // bullet hits taken
   float treeHits = 0; bool treeFelled = false, trunkApplied = false; uint32_t trunkBody = 0xffffffffu;   // trees (foliage.cpp)
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
+  uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
+  GpuMesh pathMesh; uint32_t pathGround = ~0u, pathRev = 0; std::vector<uint8_t> slabCut;   // path entities (paths.cpp)
+  std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut
 };
 
 struct ExploreInput {
@@ -52,6 +55,7 @@ struct ExploreInput {
   bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false, toggleAmmo = false, build = false; float wheel = 0, lookYaw = 0, lookPitch = 0;
   bool fireMode = false, prone = false, packUp = false, rackUp = false, rackDown = false, rackEquip = false, rackClose = false;
   bool jumpHeld = false;   // Space held (vault)
+  bool quickGrenade = false;   // H (rebindable "grenade"): throw the side's grenade from any weapon
 };
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
@@ -193,7 +197,7 @@ public:
   static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)
   bool proneToggle = false;       // Z state: prone requested
   // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
-  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0; std::map<std::string, std::string> names; } binds;
+  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0; std::map<std::string, std::string> names; } binds;
   void loadBindings();
   std::vector<int> carried;
   bool isSmallArm(const WeaponDef& d) const;
@@ -233,6 +237,32 @@ public:
   void removeSessionPlacements();
   bool defenseBulletHit(uint64_t iid, vec3 at);
   void destroyDefense(Instance& i, InstanceRT& r);
+  // ---- path entities (paths.cpp)
+  uint32_t groundRev = 1;   // bumps whenever the terrain changes (craters, resets): paths re-drape
+  vec2 pathSize(const Instance& i, const AssetDef* a) const;   // (width, length), clamped
+  void setPathSize(Instance& i, vec2 wl);
+  void rebuildPathMesh(const Instance& i, InstanceRT& r);
+  void blastPaths(vec3 p, float dmg, float radius);
+  std::string pathSurfaceAt(vec3 w) const;   // "gravel" / "dirt" / "concrete" / ""
+  bool snapPath(const AssetDef* a, vec3& pos, float& yaw) const;
+  // ---- hand equipment (equipment.cpp): grenades, knife
+  struct LiveGrenade { uint32_t body = 0xffffffffu; float fuse = 0, age = 0; int def = 0; vec3 pos{0}, spawn{0}, v0{0}; quat rot{1, 0, 0, 0}; bool done = false; };
+  std::vector<LiveGrenade> grenades;
+  uint64_t grenadeSerial = 0;
+  int grenadesThrown = 0, grenadesExploded = 0, meleeSwings = 0, meleeHitCount = 0;
+  vec3 lastGrenadeSpawn{0}, lastGrenadeWant{0}, lastGrenadeBlast{0}, lastMeleeHit{0}; uint64_t lastMeleeUd = 0;
+  std::set<uint64_t> meleeHits;
+  int quickReturn = -1; float quickReturnT = -1;   // H quick throw: weapon to return to
+  void loadEquipment(WeaponDef& d, const json& j);
+  void throwGrenade(const WeaponDef& d, WeaponState& s);
+  void stepGrenades(float dt);
+  void clearGrenades();
+  void grenadeDrawItems();
+  void stepEquipment(float dt, const ExploreInput& in, const WeaponDef& d, WeaponState& s, bool fireHeld);
+  void meleeSweep(const WeaponDef& d);
+  mat4 equipmentPose(const WeaponDef& d, const WeaponState& s) const;
+  void rebuildSectionBodies(const Instance& i, InstanceRT& r);   // wire: colliders of the uncut sections
+  float traversalFactor(vec3 feet) const;                        // wire with traversal "slow": speed multiplier at the feet
   void blastDefenses(vec3 p, float dmg, float radius);
   float blastOcclusion(vec3 from, vec3 to) const;
   void blastPlayer(vec3 p, float dmg, float radius);
@@ -288,6 +318,7 @@ public:
   std::map<std::string, std::shared_ptr<GpuModel>> modelCache;
   bool useImportedModels = true;        // --box-weapons: draw the procedural fallback parts instead
   void writeWeaponSheets(const fs::path& outDir);
+  bool writeModelPreview(const fs::path& glb, const fs::path& outDir, const fs::path& specJson);   // --model-preview: bake + 4 views
   std::map<std::string, WeaponState> wstate;
   int activeWeapon = 0;
   float adsT = 0;

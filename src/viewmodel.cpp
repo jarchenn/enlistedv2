@@ -84,6 +84,7 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
   }
   p.z += s.kick * (reducedMotion ? 0.3f : 1.0f);   // recoil push into the shoulder
   mat4 m = rot * glm::translate(mat4(1), p) * glm::mat4_cast(Q);
+  if (d.equipment()) m = m * equipmentPose(d, s);   // wind-up / throw / swing (procedural: no animations supplied)
   // reload / switch dip
   if (s.reload > 0 && s.reloadKind != 3) {
     float u = 1 - s.reload / std::max(0.01f, s.reloadTotal);

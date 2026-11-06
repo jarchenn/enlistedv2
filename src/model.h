@@ -21,13 +21,16 @@ struct ModelPart {
   bool textured = false;
   int mat = -1;                     // index into GpuModel::mats (-1: factors only)
   vec3 bmin{0}, bmax{0};            // weapon space
+  int section = -1;                 // destruction section (ImportSpec sections), -1 = none
   std::vector<mat4> anim;           // optional: weapon-space delta per animation sample (rest = identity)
 };
 
 struct ImportSpec {
   std::string src, dir;             // source .glb file name, output folder name
   vec3 rot{0};                      // Euler degrees applied first
-  float realLength = 1;             // metres along +z after rotation
+  float realLength = 1;             // metres along +z after rotation (scale = realLength / extent)
+  float scale = 0;                  // > 0: absolute scale instead of realLength (map assets authored in metres)
+  std::string pivot = "weapon";     // "weapon": butt at z = 0, centred x / y; "ground": centred x / z, lowest point at y = 0
   std::string lengthNode;           // node whose extent defines the length ("" = all visible parts)
   vec3 offset{0};                   // added after the automatic placement (butt at z = 0, centred in x, y)
   std::map<std::string, std::string> nodeParts;   // ancestor/joint name -> role
@@ -44,6 +47,12 @@ struct ImportSpec {
   struct MeshEdit { vec3 lo{0}, hi{0}, axis{1, 0, 0}, pivot{0}, move{0}; float deg = 0; bool hide = false;
                     bool radial = false; vec2 centre{0}; float rMax = 0, scale = 1; std::string note; };
   std::vector<MeshEdit> meshEdits;
+  // Runtime budget (map assets from heavy sources): simplify keeps this fraction of each part's triangles
+  // (quadric error, src/simplify.cpp); lod1 > 0 also bakes <dir>/lod1 at simplify * lod1 with 256 px textures.
+  float simplify = 1, lod1 = 0;
+  // Destruction sections: split every part into `sectionCount` slabs along `sectionAxis` (by triangle centroid) so a
+  // blast can clear one stretch of a wire obstacle; parts are named "<name>#<k>" with "section": k.
+  int sectionAxis = 2, sectionCount = 1;
 };
 ImportSpec importSpecFromJson(const json& j);
 

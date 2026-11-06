@@ -1,4 +1,6 @@
 #include "assets.h"
+#include "model.h"
+#include <functional>
 #include "physics.h"
 #include <cstdarg>
 #include <fstream>
@@ -171,7 +173,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   p.mat = mit == mats.end() ? 0 : mit->second;
   p.visible = j.value("v", 1) != 0;
   if (j.contains("q")) p.rot = glm::normalize(quat(j["q"][3].get<float>(), j["q"][0].get<float>(), j["q"][1].get<float>(), j["q"][2].get<float>()));   // explicit quaternion (x, y, z, w)
-  p.collide = j.value("k", 1) != 0;
+  p.collide = j.value("k", 1) != 0; p.playerOnly = j.value("k", 1) == 2; p.sec = j.value("sec", -1);
   if (t == "p") {
     p.shape = Part::PRISM;
     p.axis = j.value("axis", 0);
@@ -353,6 +355,11 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     st.recoil = sj.value("recoil", 0.6f); st.reloadTime = sj.value("reloadTime", 4.0f);
     st.loaded = sj.value("loaded", 1); st.reserve = sj.value("reserve", 5); st.ammo = sj.value("ammo", ""); st.reserveAT = sj.value("reserveAT", 0); st.ammoAT = sj.value("ammoAT", "");
     st.moveHalf = jvec3(sj["moveHalf"], vec3(1, 0.5f, 1.6f)); st.serviceRadius = sj.value("serviceRadius", 6.0f);
+    st.label = sj.value("label", st.kind == "pak40" ? std::string("PaK 40") : st.kind); st.heName = sj.value("heName", st.heName); st.atName = sj.value("atName", st.atName);
+    st.sightFov = sj.value("sightFov", st.kind == "pak40" ? 9.0f : 55.0f); st.muzzleScale = sj.value("muzzleScale", 1.0f);
+    if (sj.contains("shellHE")) { auto& h = sj["shellHE"]; st.heVelocity = h.value("velocity", 550.0f); st.heDamage = h.value("damage", 120.0f); st.heRadius = h.value("radius", 2.2f); st.heCrater = h.value("crater", 1.0f); }
+    if (sj.contains("shellAT")) st.atVelocity = sj["shellAT"].value("velocity", 790.0f);
+    st.fireSound = sj.value("fireSound", std::string("pak_fire")); st.fixed = sj.value("fixed", false);
     auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
       MeshData m;
       for (auto& pj : sj.value(key, json::array())) {
@@ -370,14 +377,15 @@ bool AssetLibrary::loadOne(const fs::path& path) {
 
   // meshes
   MeshData op, gl;
-  std::vector<Part> col;
+  std::vector<Part> col, pcol;
   for (auto& p : a->parts) {
     appendPart(isGlass(*a, p) ? gl : op, p, a->materials[p.mat], mat4(1));
     if (p.visible) partCorners(p, pts);
-    if (p.collide) col.push_back(p);
+    if (p.playerOnly) pcol.push_back(p); else if (p.collide) col.push_back(p);
   }
   a->opaque.upload(op); a->glass.upload(gl);
   a->shape = Physics::buildShape(col);
+  a->playerShape = Physics::buildShape(pcol);
   for (auto& d : a->interactables)
     for (auto& l : d.leaves) {
       MeshData lo, lg;
@@ -452,17 +460,54 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     d.kind = dj.value("kind", ""); d.hp = dj.value("hp", 300.0f); d.smallArms = dj.value("smallArmsMultiplier", 1.0f);
     d.occlusion = dj.value("blastOcclusion", 1.0f); d.maxSlopeDeg = dj.value("maxSlopeDeg", 35.0f);
     d.blocksVehicles = dj.value("blocksVehicles", false); d.stopsBullets = dj.value("stopsBullets", false);
+    d.unsafeVault = dj.value("unsafeVault", false); d.traversal = dj.value("traversal", std::string("block")); d.slowFactor = dj.value("slowFactor", 0.35f);
+    d.sections = dj.value("sections", 0); d.sectionHp = dj.value("sectionHp", 60.0f);
     for (auto& s : dj.value("sockets", json::array())) d.sockets.push_back({jvec3(s["p"]), jvec3(s["t"], vec3(1, 0, 0))});
     // destroyed state: sandbags slump into a low spill (~0.25 m), the hedgehog is knocked onto its side
     MeshData bm; std::vector<Part> bc;
-    for (auto& p : a->parts) {
+    float pivotY = a->parts.empty() ? 0.43f : a->parts[0].center.y;   // the hedgehog's crossing (all beams share it)
+    if (d.kind != "wire") for (auto& p : a->parts) {
       Part q = p;
       if (d.kind == "sandbag") { q.center.y *= 0.3f; q.size.y *= 0.55f; q.center.z *= 1.35f; }
-      else { quat t = glm::angleAxis(radians(58.0f), vec3(1, 0, 0)); q.center = t * (q.center - vec3(0, 0.43f, 0)) + vec3(0, 0.4f, 0); q.rot = t * q.rot; }
+      else { quat t = glm::angleAxis(radians(58.0f), vec3(1, 0, 0)); q.center = t * (q.center - vec3(0, pivotY, 0)) + vec3(0, pivotY * 0.93f, 0); q.rot = t * q.rot; }
       if (q.visible) appendPart(bm, q, a->materials[q.mat], mat4(1));
       if (q.collide) bc.push_back(q);
     }
     a->defBrokenMesh.upload(bm); a->defBrokenShape = Physics::buildShape(bc);
+  }
+  if (j.contains("path")) {   // path entity: the catalogue mesh is a flat strip of the default size (thumbnail, ghost)
+    auto& pj = j["path"]; PathDef& p = a->path; p.on = true;
+    p.kind = pj.value("kind", "dirt"); p.width = pj.value("width", 2.5f); p.length = pj.value("length", 8.0f);
+    p.minW = pj.value("minWidth", 0.8f); p.maxW = pj.value("maxWidth", 8.0f); p.minL = pj.value("minLength", 1.0f); p.maxL = pj.value("maxLength", 60.0f);
+    p.albedo = jvec3(pj["albedo"], vec3(0.5f)); p.rough = pj.value("roughness", 0.85f); p.slab = pj.value("slab", 2.0f); p.slabHp = pj.value("slabHp", 60.0f);
+    extern void buildPathMeshData(MeshData&, const PathDef&, vec2, vec3, float, const std::function<float(float, float)>&, const std::vector<uint8_t>*);
+    MeshData pm; buildPathMeshData(pm, p, vec2(p.width, p.length), vec3(0), 0.0f, [](float, float) { return 0.0f; }, nullptr);
+    a->opaque.destroy(); a->opaque.upload(pm);
+    pts.push_back(vec3(-p.width * 0.5f, 0, -p.length * 0.5f)); pts.push_back(vec3(p.width * 0.5f, 0.05f, p.length * 0.5f));
+  }
+  if (j.contains("model")) {   // imported model (baked; a missing bake leaves the collider boxes only, logged)
+    auto& mj = j["model"];
+    a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
+    fs::path dir = contentDir() / "assets" / "models" / mj.value("dir", a->id);
+    auto gm = std::make_shared<GpuModel>(); std::string err;
+    if (gm->load(dir, err)) {
+      a->model = gm;
+      pts.push_back(gm->bmin); pts.push_back(gm->bmax);
+      auto lod = std::make_shared<GpuModel>(); std::string e2;
+      if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2)) a->modelLod = lod;
+      if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil
+        static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
+        for (auto& p : gm->parts) {
+          int role = 0;
+          for (auto& [pre, rv] : mj["stationRoles"].items()) if (p.name.rfind(pre, 0) == 0) { auto f = rn.find(rv.get<std::string>()); if (f != rn.end()) role = f->second; }
+          a->station.modelRole.push_back(role);
+        }
+      }
+    } else logf("asset %s: model %s not baked (%s)", a->id.c_str(), dir.string().c_str(), err.c_str());
+    MeshData gh;
+    Material ghostMat{"ghost"};
+    for (auto& p : a->parts) if (p.collide) { Part q = p; q.visible = true; appendPart(gh, q, ghostMat, mat4(1)); partCorners(q, pts); }
+    a->colliderGhost.upload(gh);
   }
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }

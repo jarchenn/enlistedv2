@@ -345,6 +345,67 @@ void main(){
     float damp = 1.0 - smoothstep(-0.3, 0.9, vAp.y);
     alb *= mix(1.0, 0.72, damp); rough = mix(rough, rough*0.8, damp);
     h = n*0.4 - board*0.6 + agg*0.2 + grainB*0.1; bump = 0.0045;
+  } else if (pat == 12 || pat == 13 || pat == 14) {
+    // path surfaces in path coordinates (x across, z along, metres): fixed texel density at any length / width.
+    // vPar.w = edge factor (0 at the border, 1 from 0.45 m in): soil / verge transition at the margins.
+    vec2 q = vAp.xz; float edge = clamp(vPar.w, 0.0, 1.0);
+    vec3 soil = vec3(0.17, 0.135, 0.095) * (0.8 + 0.4 * fbm(vec3(q * 0.9, 4.0)));
+    vec3 verge = vec3(0.16, 0.21, 0.09) * (0.8 + 0.4 * vnoise(vec3(q * 3.0, 8.0)));
+    if (pat == 12) {
+      // gravel: Voronoi stones 1.5-4 cm (two scales), grey / ochre / flint, soil showing between, pillowed tops
+      float best = 9.0, second = 9.0; vec2 id = vec2(0.0);
+      vec2 g = q / 0.028;
+      vec2 gi = floor(g);
+      for (int j = -1; j <= 1; ++j) for (int i = -1; i <= 1; ++i) {
+        vec2 c = gi + vec2(i, j);
+        vec2 o = c + vec2(hash12(c), hash12(c + 17.0));
+        float d = length(g - o);
+        if (d < best) { second = best; best = d; id = c; } else if (d < second) second = d;
+      }
+      float gap = second - best;                       // 0 on cell borders
+      float stone = smoothstep(0.05, 0.28, gap);
+      float tint = hash12(id + 3.0);
+      vec3 sc = tint < 0.45 ? vec3(0.40, 0.39, 0.37) : tint < 0.8 ? vec3(0.44, 0.39, 0.31) : vec3(0.27, 0.27, 0.29);
+      sc *= 0.75 + 0.45 * hash12(id + 9.0);
+      float coarse = smoothstep(0.55, 0.75, vnoise(vec3(q * 1.3, 2.0)));   // patches of coarser / thinner stone
+      vec3 between = mix(vec3(0.22, 0.2, 0.17), soil, 0.5);
+      alb = mix(between, sc, stone * (0.7 + 0.3 * coarse));
+      alb *= 0.88 + 0.22 * fbm(vec3(q * 0.35, 6.0));
+      rough = mix(0.95, 0.78 + 0.12 * hash12(id), stone);
+      h = stone * (0.6 + 0.4 * hash12(id + 5.0)) + 0.25 * coarse; bump = 0.012;
+      ao = mix(0.75, 1.0, stone);
+      alb = mix(mix(soil, verge, smoothstep(0.35, 0.0, edge) * vnoise(vec3(q * 2.0, 1.0))), alb, smoothstep(0.0, 0.55, edge + 0.25 * (vnoise(vec3(q * 4.0, 3.0)) - 0.5)));
+    } else if (pat == 13) {
+      // dirt: compacted soil, two worn wheel ruts 1.5 m apart, fine crumb, damp patches, patchy grass at the margin
+      float rutA = exp(-pow((abs(q.x) - 0.75) / 0.18, 2.0));
+      float crown = exp(-pow(q.x / 0.35, 2.0));
+      float crumb = vnoise(vec3(q * 38.0, 2.0)), clod = smoothstep(0.62, 0.8, vnoise(vec3(q * 9.0, 5.0)));
+      float damp = smoothstep(0.55, 0.78, fbm(vec3(q * 0.25, 7.0))) * (0.4 + 0.6 * rutA);
+      alb = soil * (0.82 + 0.3 * crumb) * (1.0 - 0.22 * rutA) * (1.0 + 0.1 * crown) * (0.85 + 0.3 * fbm(vec3(q * 0.18, 3.0)));
+      alb = mix(alb, alb * vec3(0.62, 0.6, 0.58), damp);
+      vec3 grassTint = mix(alb, verge, smoothstep(0.5, 0.8, vnoise(vec3(q * 1.6, 9.0))) * 0.6);
+      alb = mix(alb, grassTint, crown * 0.6);   // grass in the centre strip between the ruts
+      rough = mix(0.97, 0.8, damp);
+      h = crumb * 0.25 + clod * 0.4 - rutA * 0.6 + crown * 0.2; bump = 0.008;
+      alb = mix(mix(soil, verge, smoothstep(0.5, 0.0, edge)), alb, smoothstep(0.0, 0.7, edge + 0.35 * (vnoise(vec3(q * 3.0, 4.0)) - 0.5)));
+    } else {
+      // concrete slabs (2 m along the path): expansion seams, exposed aggregate, chipped seam edges, staining
+      float sz = q.y / 2.0; float seamD = abs(fract(sz + 0.5) - 0.5) * 2.0;
+      float seam = 1.0 - smoothstep(0.006, 0.014, seamD);
+      float slabId = floor(sz + 0.5);
+      float n = fbm(vec3(q * 0.8, slabId));
+      float agg = smoothstep(0.7, 0.86, vnoise(vec3(q * 55.0, 1.0)));
+      float chip = smoothstep(0.62, 0.8, vnoise(vec3(q * 7.0, slabId + 3.0))) * (1.0 - smoothstep(0.01, 0.06, seamD));
+      float stain = smoothstep(0.58, 0.8, fbm(vec3(q * 0.4, 11.0)));
+      alb = vec3(0.40, 0.39, 0.37) * (0.86 + 0.22 * n) * (0.92 + 0.12 * hash12(vec2(slabId, 7.0)));
+      alb = mix(alb, alb * vec3(1.12, 1.08, 1.0), agg * 0.5);
+      alb = mix(alb, alb * vec3(0.78, 0.76, 0.7), stain * 0.6);
+      alb = mix(alb, vec3(0.3, 0.28, 0.25), max(seam, chip * 0.7));
+      rough = mix(0.86, 0.95, max(seam, chip)) - 0.06 * stain;
+      h = n * 0.3 + agg * 0.15 - seam * 0.8 - chip * 0.5; bump = 0.005;
+      ao = 1.0 - 0.35 * seam;
+      alb = mix(soil, alb, smoothstep(0.0, 0.12, edge));   // a thin soil line where the slab meets the ground
+    }
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
@@ -414,10 +475,12 @@ void main(){
 static const char* kModelVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 uniform mat4 uModel, uVP;
+uniform float uThin;   // radians to widen by (thin geometry), 0 = off
 out vec3 vW, vN; out vec4 vT; out vec2 vUV;
 void main(){
   vec4 w = uModel*vec4(aPos,1.0);
   mat3 m = mat3(uModel);
+  if (uThin > 0.0) { vec3 n = m*aNrm; float l = length(n); if (l > 1e-6) w.xyz += n / l * min(length(w.xyz - uCamPos) * uThin, 0.03); }
   vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
   gl_Position = uVP*w;
 }
@@ -842,6 +905,20 @@ void main(){
   grass = mix(grass, dry, smoothstep(0.6, 0.82, nM)*0.5);
   grass *= 0.78 + 0.32*nF;
   grass *= 1.0 - 0.16*smoothstep(0.65, 0.8, vnoise(vec3(p.xz*0.9, 9.0)));   // clover / darker tufts
+  float clump = vnoise(vec3(mat2(0.8, -0.6, 0.6, 0.8)*p.xz*3.1, 19.0));
+  grass *= mix(1.0, mix(0.5, 0.85, clump), 0.5 + 0.5*(1.0 - smoothstep(25.0, 70.0, length(p - uCamPos))));                                             // shadowed sward depth between plants
+  // near-field sward texture (fades with distance so it never shimmers): blade-scale streaks, flattened grass,
+  // organic litter and exposed soil between plants - the ground reads as turf even where grass is culled
+  float dCam = length(p - uCamPos), nearK = 1.0 - smoothstep(25.0, 70.0, dCam);
+  vec2 sw = p.xz*vec2(13.0, 38.0) + vec2(vnoise(vec3(p.xz*1.3, 13.0))*6.0, 0.0);   // streaks along a meandering lay
+  vec2 rq = mat2(0.8, -0.6, 0.6, 0.8)*p.xz;                                         // rotated: no lattice alignment
+  float streak = vnoise(vec3(sw, 14.0)), litter = smoothstep(0.62, 0.8, fbm(vec3(rq*7.0, 15.0)));
+  float flat_ = smoothstep(0.6, 0.78, fbm(vec3(p.xz*0.35, 16.0)));                  // flattened, lighter patches
+  float bare = smoothstep(0.62, 0.8, fbm(vec3(rq*0.8, 17.0)));
+  grass *= mix(1.0, 0.88 + 0.24*streak, nearK);
+  grass = mix(grass, grass*vec3(1.18, 1.12, 0.95) + vec3(0.015, 0.012, 0.0), flat_*0.6);
+  grass = mix(grass, vec3(0.11, 0.085, 0.055), litter*0.25*nearK);
+  grass = mix(grass, mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF), bare*0.3);
   vec3 soil = mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF) * (0.85 + 0.3*nX);
   vec3 mud = mix(vec3(0.12,0.095,0.07), vec3(0.17,0.135,0.10), nX);
   float stone = step(0.6, vnoise(vec3(p.xz*9.0, 7.0)));
@@ -861,7 +938,8 @@ void main(){
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
-  vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, vnoise(vec3(p.xz*4.3, 5.0)) - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle));
+  vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, vnoise(vec3(p.xz*4.3, 5.0)) - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
+                     + vec3(streak - 0.5, 0.0, vnoise(vec3(sw*0.7, 18.0)) - 0.5)*0.35*nearK*(1.0 - tw)*(1.0 - puddle));   // sward relief (shading only)
   float ao = (1.0 - 0.25*dirt) * (1.0 - 0.18*rut*tw);
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf && abs(p.z) <= uBuildHalf) {
@@ -887,48 +965,62 @@ uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
 out vec3 vW, vAlb, vF; out vec2 vUV;
 out vec4 vCC, vPC;
+flat out int vSp;
 void main(){
   float d = length(iP.xyz - uCamPos);
   float fade = 1.0 - smoothstep(uRadius*0.72, uRadius, d);
   float bl = aB.z;
+  vec4 pk = unpackUnorm4x8(floatBitsToUint(iS.z));
+  int sp = clamp(int(pk.a*255.0 + 0.5) - 56, 0, 4);      // species (grass.h): 0 turf 1 medium 2 tall 3 clover 4 straw
   // per-blade variation inside the tuft (deterministic from the instance phase)
   float r1 = fract(sin(iS.w*12.9898 + bl*78.233)*43758.5453), r2 = fract(sin(iS.w*39.346 + bl*11.135)*24634.6345);
   float ang = iP.w + bl*2.39996 + r1*0.6;
   vec3 side = vec3(cos(ang), 0.0, -sin(ang));
   vec3 fwd = vec3(sin(ang), 0.0, cos(ang));
-  vec3 root = iP.xyz + fwd*(0.02 + 0.05*r2);
+  float spread = sp == 3 ? 0.05 : sp == 0 ? 0.085 : sp == 2 ? 0.04 : 0.065;
+  vec3 root = iP.xyz + fwd*(spread*(0.4 + r2));
   float h = iS.x * (0.6 + 0.45*r2) * fade;
+  if (sp == 2 && bl > 2.5) h = 0.0;                        // stems: three per clump (the rest collapse to nothing)
   float v = aB.y;
-  float w = iS.y * uWidthScale * (1.0 - v*0.55);
-  vec3 p = root + side*(aB.x*w*0.5) + vec3(0.0, v*h, 0.0);
-  float curve = 0.12 + 0.30*r1;                        // blades lean out of the tuft
+  float taper = sp == 3 ? 1.0 : (1.0 - v*0.8);
+  float w = iS.y * uWidthScale * taper;
+  if (sp == 2 && v > 0.78) w *= 2.6;                       // seed head
+  float lift = sp == 3 ? 0.35 : 1.0;                       // clover leaves lie low and spread
+  vec3 p = root + side*(aB.x*w*0.5) + vec3(0.0, v*h*lift, 0.0);
+  float curve = sp == 0 ? 0.30 + 0.35*r1 : sp == 2 ? 0.04 + 0.10*r1 : sp == 3 ? 1.6 + 0.6*r1 : sp == 4 ? 0.55 + 0.45*r1 : 0.12 + 0.30*r1;
+  float windAmp = sp == 2 ? 1.8 : sp == 0 ? 0.35 : sp == 3 ? 0.15 : 1.0;   // tall stems sway most, turf barely
+  float freq = sp == 2 ? 1.1 : 1.7;
   vec3 p0 = p;
-  float gust = sin(uTime*1.7 + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(uTime*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
-  vec3 bend = fwd*curve + vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.20)*uWind;
+  float gust = sin(uTime*freq + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(uTime*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
+  vec3 bend = fwd*curve*(sp == 3 ? 0.5 : 1.0) + vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.20)*uWind*windAmp;
   p += bend*(v*v)*h;            // root (v = 0) never moves
-  p.y -= (v*v)*h*dot(bend, bend)*0.35;
-  float gustP = sin(uPrevTime*1.7 + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(uPrevTime*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
-  vec3 bendP = fwd*curve + vec3(0.8, 0.0, 0.6)*(0.08 + gustP*0.20)*uWind;
-  vec3 pp = p0 + bendP*(v*v)*h; pp.y -= (v*v)*h*dot(bendP, bendP)*0.35;
+  p.y -= (v*v)*h*dot(bend, bend)*0.35*lift;
+  float gustP = sin(uPrevTime*freq + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(uPrevTime*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
+  vec3 bendP = fwd*curve*(sp == 3 ? 0.5 : 1.0) + vec3(0.8, 0.0, 0.6)*(0.08 + gustP*0.20)*uWind*windAmp;
+  vec3 pp = p0 + bendP*(v*v)*h; pp.y -= (v*v)*h*dot(bendP, bendP)*0.35*lift;
   vCC = uVPU*vec4(p, 1.0); vPC = uPrevVP*vec4(pp, 1.0);
-  vec3 alb = unpackUnorm4x8(floatBitsToUint(iS.z)).rgb*0.5;   // meadow palette baked per tuft on the CPU
-  vAlb = alb; vW = p; vF = fwd; vUV = vec2(aB.x*0.5 + 0.5, v);
+  vec3 alb = pk.rgb*0.5;   // meadow palette baked per tuft on the CPU (cluster colour + species tint)
+  if (sp == 2) alb = mix(alb, vec3(0.36, 0.32, 0.18), smoothstep(0.72, 0.9, v));   // straw-coloured seed heads
+  vAlb = alb; vW = p; vF = fwd; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp;
   gl_Position = uVP*vec4(p, 1.0);
 }
 )GLSL";
 static const char* kGrassFS = R"GLSL(
 in vec3 vW, vAlb, vF; in vec2 vUV;
 in vec4 vCC, vPC;
+flat in int vSp;
 layout(location=4) out vec4 oVel;
 layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 void main(){
   float e = abs(vUV.x*2.0 - 1.0), v = vUV.y;
-  if (e > 1.0 - pow(v, 1.6)) discard;                   // alpha-tested blade silhouette (pointed tip)
+  if (vSp == 3) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }   // clover / weed leaf: rounded
+  else if (vSp == 2 && v > 0.78) { float y = (v - 0.78)/0.22*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))*0.9) discard; }   // oval seed head
+  else if (e > 1.0 - pow(v, 1.3)) discard;               // narrow tapered blade, pointed tip
   vec3 F = gl_FrontFacing ? vF : -vF;
   vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*0.45);
-  vec3 alb = vAlb * mix(0.72, 1.0, v);   // darker roots, no bleached tips
+  vec3 alb = vAlb * mix(0.62, 1.12, v);   // shaded roots, sunlit (not bleached) tips
   // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
   float sh = 1.0;
   if (uShadowSoft > 0.0) sh = sunShadowT(vW + vec3(0.0, 0.04, 0.0), vec3(0.0, 1.0, 0.0), 0.6, 4) * cloudShadow(vW);
@@ -1375,7 +1467,7 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items) {
 void Renderer::drawModels(const std::vector<ModelDraw>& items) {
   GLuint p = progModel;
   glUniform1i(U(p, "uAlb"), 2); glUniform1i(U(p, "uMR"), 3); glUniform1i(U(p, "uNrm"), 4); glUniform1i(U(p, "uAO"), 5);
-  GLint lm = U(p, "uModel"), lb = U(p, "uBase"), lme = U(p, "uMetal"), lr = U(p, "uRough"), lt = U(p, "uTint");
+  GLint lm = U(p, "uModel"), lb = U(p, "uBase"), lme = U(p, "uMetal"), lr = U(p, "uRough"), lt = U(p, "uTint"), lth = U(p, "uThin");
   const GpuModel* bound = nullptr; int boundMat = -2;
   for (auto& it : items) {
     const GpuModel* m = it.model;
@@ -1393,6 +1485,7 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items) {
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
     glUniform4fv(lb, 1, glm::value_ptr(pt.base)); glUniform1f(lme, pt.metal); glUniform1f(lr, pt.rough);
     glUniform4fv(lt, 1, glm::value_ptr(it.tint));
+    glUniform1f(lth, it.thinPx * pxAngle);
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     stats.draws++; stats.tris += (int)pt.count / 3;
   }
@@ -1443,6 +1536,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   auto c0 = std::chrono::high_resolution_clock::now();
   stats.draws = 0; stats.tris = 0;
   time += v.dt;
+  pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   if (qvalid) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[qidx ^ 1], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
   glBeginQuery(GL_TIME_ELAPSED, queries[qidx]);
 

@@ -11,7 +11,7 @@ OUT = os.path.join(os.path.dirname(__file__), '..', 'content', 'assets')
 def box(c, s, m, r=None, k=1, v=1):
     p = {"t": "b", "c": [round(x, 4) for x in c], "s": [round(x, 4) for x in s], "m": m}
     if r: p["r"] = [round(x, 2) for x in r]
-    if not k: p["k"] = 0
+    if k != 1: p["k"] = k
     if not v: p["v"] = 0
     return p
 
@@ -165,17 +165,21 @@ def qfromto(u, v):
 k3 = 1 / math.sqrt(3)
 stand = qmul(qaxis([0, 1, 0], 15), qfromto([k3, k3, k3], [0, 1, 0]))
 parts = []
-L, w, t = 1.4, 0.1, 0.012
-cy = L / 2 * k3 + 0.03
+# Complete update E2: the hedgehog is 1.25x its first version in every linear dimension (beams 1.4 -> 1.75 m,
+# flanges 100 -> 125 mm, crossing 0.43 -> 0.54 m above the ground, overall ~1.1 m high). The size lives only in the
+# asset (instances have no scale of their own), so maps saved with version 1 adopt it on load with no double scaling.
+TT = 1.25
+L, w, t = 1.4 * TT, 0.1 * TT, 0.012 * TT
+cy = L / 2 * k3 + 0.03 * TT
 for i, base in enumerate([[0, 0, 0, 1], qaxis([0, 0, 1], 90), qaxis([0, 1, 0], 90)]):
     q = qmul(stand, base)
     for sz in ([L, w, t], [L, t, w]):   # angle iron: two flanges
         p_ = box([0, cy, 0], sz, "steel" if i % 2 == 0 else "rust"); p_["q"] = [round(x, 5) for x in q]; parts.append(p_)
-parts.append(box([0, cy, 0], [0.16, 0.16, 0.16], "rust"))   # gusset plate block at the crossing
-parts.append(box([0, cy, 0], [1.1, 2 * cy, 1.1], "steel", k=1, v=0))  # collision hull (stops vehicles, cover for men)
-save({"id": "def_tank_trap", "version": 1, "name": "Tank trap (Czech hedgehog)", "category": "Defences",
-      "description": "Welded steel hedgehog, three 1.4 m angle-iron beams. Immune to small arms; only HE / AT damage it.",
-      "floors": 0, "enterable": False, "footprint": [1.4, 1.4], "plinthDepth": 0, "maxGrade": 0.6,
+parts.append(box([0, cy, 0], [0.16 * TT, 0.16 * TT, 0.16 * TT], "rust"))   # gusset plate block at the crossing
+parts.append(box([0, cy, 0], [1.1 * TT, 2 * cy, 1.1 * TT], "steel", k=1, v=0))  # collision hull (stops vehicles, cover for men)
+save({"id": "def_tank_trap", "version": 2, "name": "Tank trap (Czech hedgehog)", "category": "Defences",
+      "description": "Welded steel hedgehog, three 1.75 m angle-iron beams (about 1.1 m high). Immune to small arms; only HE / AT damage it.",
+      "floors": 0, "enterable": False, "footprint": [1.75, 1.75], "plinthDepth": 0, "maxGrade": 0.6,
       "materials": [steel, rust], "parts": parts, "furniture": [], "interactables": [], "panels": [],
       "defense": {"kind": "tank_trap", "hp": 1500, "smallArmsMultiplier": 0.0, "blocksVehicles": True, "maxSlopeDeg": 35}})
 
@@ -329,3 +333,131 @@ for k in range(12):   # dry-stone boundary wall, 6 m, ~0.9 m high, irregular sto
 parts.append(box([0, 0.45, 0], [6.0, 0.9, 0.6], "field_stone", v=0))
 dressing("stone_wall_low", "Low dry-stone wall (6 m)", "Field boundary of rough local stone, ~0.9 m: waist-high cover.", parts, [stone], [6.0, 0.6])
 print("dressing ok")
+
+
+# ---------------------------------------------------------------- wire obstacles (supplied GLB, complete update E1)
+# Source: "wire_obstacle_defence_set (1).glb" (same geometry as the other supplied copy, larger textures), baked by
+#   NormandyMapmaker.exe --import-weapon-models assets_src/models content
+# The set holds four complete assemblies; three distinct ones become entities (Helix044 is the same coil mesh as
+# Helix045, only compressed, so it is not a fourth type). Each keeps only its own source group ("hide" the rest),
+# sits on the ground (pivot "ground"), is simplified to a runtime budget with a distance LOD, and is split into
+# destruction sections along its length. Colliders: solid boxes for posts / timber (rounds and grenades hit them),
+# "k": 2 player-only volumes for the wire (stops the player, ignored by rays and thrown objects).
+WIRE_SRC = "wire_obstacle_defence_set (1).glb"
+WIRE_GROUPS = ["Helix045", "Box003", "Capsule004", "Capsule003", "Helix044"]
+
+
+def wire_model(keep, dir_, simplify, sections, extra=None):
+    m = {"src": WIRE_SRC, "dir": dir_, "pivot": "ground", "scale": 1.0, "maxTex": 1024, "hide": [g for g in WIRE_GROUPS if g not in keep],
+         "simplify": simplify, "lod1": 0.3, "sections": {"axis": 2, "count": sections}, "lodDist": 30, "cullDist": 350, "thinLinesPx": 0.6}
+    if extra: m.update(extra)
+    return m
+
+
+def wire_asset(id_, name, desc, model, parts, footprint, sections, traversal="block", hp_note=""):
+    return {"id": id_, "version": 1, "name": name, "category": "Defences", "description": desc, "floors": 0, "enterable": False,
+            "footprint": footprint, "plinthDepth": 0, "maxGrade": 0.6, "noAutoPanels": True,
+            "materials": [{"name": "wire_post", "albedo": [0.3, 0.24, 0.17], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1}],
+            "parts": parts, "furniture": [], "interactables": [], "panels": [], "model": model,
+            "defense": {"kind": "wire", "hp": 200, "smallArmsMultiplier": 0.0, "unsafeVault": True, "maxSlopeDeg": 30,
+                        "traversal": traversal, "slowFactor": 0.35, "sections": sections, "sectionHp": 60}}
+
+
+def wire_volume(x0, x1, y1, z0, z1, n):
+    """player-only wire volume split into n stretches along z (matching the model's destruction sections)"""
+    out = []
+    for s in range(n):
+        a, b = z0 + (z1 - z0) * s / n, z0 + (z1 - z0) * (s + 1) / n
+        p = box([(x0 + x1) / 2, y1 / 2, (a + b) / 2], [x1 - x0, y1, b - a], "wire_post", k=2, v=0); p["sec"] = s
+        out.append(p)
+    return out
+
+
+# 1. concertina coil laid on the ground (Helix045): 3.9 m x 0.65 m, 0.86 m high
+save(wire_asset("wire_concertina", "Barbed wire: concertina coil (3.9 m)",
+                "A single concertina coil of barbed wire laid along the ground, 0.86 m high. Blocks the way on foot (cannot be vaulted); rounds pass between the loops; blasts cut it stretch by stretch.",
+                wire_model(["Helix045"], "wire_concertina", 0.05, 3), wire_volume(-0.33, 0.33, 0.86, -1.94, 1.94, 3), [0.7, 3.9], 3))
+
+
+def sec_of(z, z0, z1, n): return max(0, min(n - 1, int((z - z0) / (z1 - z0) * n)))
+
+
+# 2. barbed-wire post fence (Capsule004 + Capsule003): 4.7 m, posts 1.06 m. The source models it as two runs that
+#    do not meet; the first run's islands slide +0.33 m at bake so its strands reach the next post (no geometry added).
+FZ = 2.339
+fence_parts = []
+for x, z in ((0.038, -1.19), (-0.029, -0.06), (-0.029, 1.139), (-0.029, 2.266)):
+    p = box([x, 0.53, z], [0.08, 1.06, 0.08], "wire_post", v=0); p["sec"] = sec_of(z, -FZ, FZ, 4); fence_parts.append(p)
+fence_parts += wire_volume(-0.12, 0.12, 1.0, -FZ, FZ, 4)
+save(wire_asset("wire_fence", "Barbed wire: post fence (4.7 m)",
+                "Four timber posts carrying three strands of barbed wire, about 1 m high. Cannot be vaulted or walked through; rounds pass between the strands and hit the posts; blasts cut it stretch by stretch.",
+                wire_model(["Capsule004", "Capsule003"], "wire_fence", 0.025, 4,
+                           {"meshEdits": [{"islandsIn": [[-0.2, -0.2, -2.8], [0.2, 1.3, -0.3]], "translate": [0, 0, 0.33],
+                                           "note": "close the source gap between the two fence runs"}], "offset": [0, 0, -0.165]}),
+                fence_parts, [0.4, 4.7], 4))
+
+# 3. knife rest (Box003): two timber X-trestles joined by a ridge beam with a concertina coil inside, 2.3 m x 1.3 m x 1.2 m
+rest_parts = []
+for z, sgn in ((-1.09, 1), (-0.99, -1), (0.945, 1), (1.05, -1)):
+    p = box([0.0, 0.62, z], [1.73, 0.1, 0.1], "wire_post", r=[0, 0, sgn * 43.6], v=0); p["sec"] = 0 if z < 0 else 1; rest_parts.append(p)
+p = box([0.002, 0.72, 0.0], [0.1, 0.1, 2.27], "wire_post", v=0); rest_parts.append(p)   # ridge beam: stays with either half
+rest_parts += wire_volume(-0.6, 0.6, 1.15, -1.147, 1.147, 2)
+save(wire_asset("wire_knife_rest", "Barbed wire: knife rest (2.3 m)",
+                "Timber knife rest (cheval de frise): two X-trestles and a ridge beam wrapped in a concertina coil, 1.2 m high. Cannot be vaulted or walked through; blasts cut each half separately.",
+                wire_model(["Box003"], "wire_knife_rest", 0.05, 2), rest_parts, [1.3, 2.3], 2))
+print("wire ok")
+
+
+# ---------------------------------------------------------------- path entities (complete update E4)
+# Length / width are per placed instance (extra.path, editable in the Selection panel); these are the defaults and
+# limits. The surface is drawn procedurally in path coordinates (main shader patterns 12-14), so resizing never
+# stretches it, and draped on the ground (src/paths.cpp).
+def path_asset(id_, name, desc, kind, w, l, albedo, rough, extra=None):
+    p = {"kind": kind, "width": w, "length": l, "minWidth": 0.8, "maxWidth": 8.0, "minLength": 1.0, "maxLength": 60.0,
+         "albedo": albedo, "roughness": rough}
+    if extra: p.update(extra)
+    save({"id": id_, "version": 1, "name": name, "category": "Paths", "description": desc, "floors": 0, "enterable": False,
+          "footprint": [w, l], "plinthDepth": 0, "maxGrade": 9.0, "noAutoPanels": True, "materials": [], "parts": [],
+          "furniture": [], "interactables": [], "panels": [], "path": p})
+
+
+path_asset("path_gravel", "Gravel path", "Loose gravel over soil: mixed small stones (1.5-4 cm), soil showing between, ragged edges into the grass. Adjustable length and width; joins end to end.",
+           "gravel", 2.0, 8.0, [0.5, 0.48, 0.44], 0.85)
+path_asset("path_dirt", "Dirt track", "Compacted farm track: two worn wheel ruts, grass down the centre strip, damp patches, grass creeping in at the edges. Adjustable length and width; joins end to end.",
+           "dirt", 3.0, 10.0, [0.3, 0.25, 0.18], 0.9)
+path_asset("path_concrete", "Concrete path", "Poured concrete slabs (2 m) with expansion seams, exposed aggregate, chipped seam edges and staining. Blasts break individual slabs. Adjustable length and width; joins end to end.",
+           "concrete", 2.0, 8.0, [0.56, 0.55, 0.52], 0.88, {"slab": 2.0, "slabHp": 60})
+print("paths ok")
+
+
+# ---------------------------------------------------------------- 8.8 cm Flak 18 emplacement (complete update E5)
+# Supplied model "anti-aircraft_gun_8.8_cm_flak_18(1).glb" (153 named meshes, 7,933 tris) baked with the barrel along
+# +z (rot -90 deg about y) on a ground pivot. Its mesh families map onto the station transforms: 01 barrel (recoil),
+# 02 / 04 cradle, recuperator, equilibrators (elevation), 03 / 08 top carriage, sights, handwheels, seats, shield
+# (traverse), 05 / 06 / 07 cruciform base, outriggers, levelling jacks (fixed). Colliders are invisible boxes.
+# Pivots measured on the bake: pedestal axis (0, *, -0.495), trunnions (0, 1.66, -0.45), bore axis y 1.817,
+# muzzle z 3.354. Game tuning: 360 deg traverse, -3..+85 deg elevation, ground-target HE / AP only (no air targets,
+# no time fuzes), reload 5 s, 1.0 m recoil.
+def vb(c, s, r=None):
+    p = box(c, s, "steel", r=r, v=0); return p
+flak = {"id": "gun_flak18", "version": 1, "name": "8.8 cm Flak 18 (emplacement)", "category": "Ordnance", "faction": "DE",
+        "description": "German 8.8 cm Flak 18 on its cruciform platform, dug in as a ground-target emplacement. Crew it from the gunner's position (Aim): 360 deg traverse, -3 to +85 deg elevation, HE or AP (X). It is not moved once emplaced. Values are game tuning.",
+        "floors": 0, "enterable": False, "footprint": [5.3, 5.3], "plinthDepth": 0, "maxGrade": 0.5, "noAutoPanels": True,
+        "materials": [{"name": "steel", "albedo": [0.25, 0.26, 0.22], "roughness": 0.6, "pattern": "metal", "metallic": 0.5, "grain": 1}],
+        "parts": [vb([0, 0.28, -0.495], [0.45, 0.55, 5.2]), vb([0, 0.24, -0.495], [5.2, 0.45, 0.45]), vb([0, 0.75, -0.495], [0.8, 0.6, 0.8])],
+        "furniture": [], "interactables": [], "panels": [],
+        "model": {"src": "anti-aircraft_gun_8.8_cm_flak_18(1).glb", "dir": "flak18", "pivot": "ground", "scale": 1.0, "rot": [0, -90, 0], "maxTex": 1024,
+                  "stationRoles": {"SM_Flak18Gun_01": "recoil", "SM_Flak18Gun_02": "elevation", "SM_Flak18Gun_04": "elevation",
+                                   "SM_Flak18Gun_03": "traverse", "SM_Flak18Gun_08": "traverse",
+                                   "SM_Flak18Gun_05": "base", "SM_Flak18Gun_06": "base", "SM_Flak18Gun_07": "base"}},
+        "station": {"kind": "flak18", "label": "Flak 18", "heName": "8.8 cm Sprgr. (HE)", "atName": "8.8 cm PzGr. (AP)", "fixed": True,
+                    "yawPivot": [0, 1.0, -0.495], "elevPivot": [0, 1.66, -0.45], "muzzle": [0, 1.817, 3.354], "optic": [0.42, 1.95, 0.45],
+                    "gunner": [-1.3, 0, -1.7], "handler": [0, 0, -3.8], "traverse": [-180, 180], "elevation": [-3, 85],
+                    "traverseRate": 20, "elevateRate": 8, "recoil": 1.0, "reloadTime": 5.0, "loaded": 1, "reserve": 8, "ammo": "88mm_he",
+                    "reserveAT": 4, "ammoAT": "88mm_ap", "moveHalf": [2.6, 1.2, 2.6], "serviceRadius": 7, "sightFov": 12.0, "muzzleScale": 1.4,
+                    "fireSound": "flak_fire", "shellHE": {"velocity": 820, "damage": 150, "radius": 2.8, "crater": 1.15}, "shellAT": {"velocity": 1000},
+                    "yawParts": [vb([0, 0.4, 0], [1.6, 0.8, 1.6]), vb([0, 0.75, 0.8], [2.5, 1.45, 0.06])],
+                    "elevParts": [vb([0, 0.05, 0.25], [0.55, 0.5, 2.9])],
+                    "recoilParts": [vb([0, 0.157, 1.62], [0.26, 0.26, 4.35])]}}
+save(flak)
+print("flak ok")

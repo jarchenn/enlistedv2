@@ -139,8 +139,47 @@ bool App::defenseBulletHit(uint64_t iid, vec3 at) {
   return true;   // always stops the round
 }
 
+// Wire obstacles: the supplied model is baked in `sections` slabs along asset z (model part "section"), and the
+// collider parts carry the same "sec" index. A cut section hides its slab and drops its colliders (solid posts /
+// frame and the player-only traversal volume); the rest of the obstacle stays. All sections cut = destroyed.
+void App::rebuildSectionBodies(const Instance& i, InstanceRT& r) {
+  Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
+  Physics::remove(r.playerBody); r.playerBody = 0xffffffffu;
+  std::vector<Part> solid, player;
+  for (auto& p : r.asset->parts) {
+    if (!p.collide) continue;
+    if (p.sec >= 0 && p.sec < (int)r.secCut.size() && r.secCut[p.sec]) continue;
+    (p.playerOnly ? player : solid).push_back(p);
+  }
+  uint64_t base = i.id << 16;
+  if (!solid.empty()) r.staticBody = Physics::addStatic(Physics::buildShape(solid), i.pos, yawQuat(i.yaw), base);
+  if (!player.empty() && r.asset->defense.traversal != "slow") r.playerBody = Physics::addPlayerOnly(Physics::buildShape(player), i.pos, yawQuat(i.yaw), base);
+}
+
+float App::traversalFactor(vec3 feet) const {
+  float f = 1.0f;
+  for (auto& i : doc.instances) {
+    auto it = rt.find(i.id); if (it == rt.end()) continue;
+    const InstanceRT& r = it->second; const DefenseDef& d = r.asset->defense;
+    if (d.kind != "wire" || d.traversal != "slow" || r.defDestroyed) continue;
+    vec3 lp = glm::inverse(yawQuat(i.yaw)) * (feet - i.pos);
+    for (auto& p : r.asset->parts) {   // inside any uncut player-only volume (axis-aligned in asset space)
+      if (!p.playerOnly || (p.sec >= 0 && p.sec < (int)r.secCut.size() && r.secCut[p.sec])) continue;
+      vec3 h = p.size * 0.5f;
+      if (glm::all(glm::lessThanEqual(glm::abs(lp - p.center), h + vec3(0.1f, 0.0f, 0.1f)))) f = std::min(f, d.slowFactor);
+    }
+  }
+  return f;
+}
+
 void App::destroyDefense(Instance& i, InstanceRT& r) {
   if (r.defDestroyed) return;
+  if (r.asset->defense.kind == "wire") {   // every stretch cut
+    r.defDestroyed = true;
+    std::fill(r.secCut.begin(), r.secCut.end(), 1);
+    rebuildSectionBodies(i, r);
+    return;
+  }
   r.defDestroyed = true;
   Physics::remove(r.staticBody);
   r.staticBody = Physics::addStatic(r.asset->defBrokenShape ? r.asset->defBrokenShape : r.asset->shape, i.pos, yawQuat(i.yaw), i.id << 16);
@@ -155,6 +194,22 @@ void App::blastDefenses(vec3 p, float dmg, float radius) {
     vec3 lp = glm::inverse(yawQuat(i.yaw)) * (p - i.pos);
     float dist = glm::length(glm::clamp(lp, r.asset->bmin, r.asset->bmax) - lp);
     if (dist > radius) continue;
+    if (r.asset->defense.kind == "wire" && !r.secHp.empty()) {   // each stretch takes the blast by its own distance
+      int n = (int)r.secHp.size(); bool any = false, all = true;
+      float z0 = r.asset->bmin.z, L = std::max(1e-3f, r.asset->bmax.z - z0);
+      for (int s = 0; s < n; ++s) {
+        if (r.secCut[s]) continue;
+        vec3 lo(r.asset->bmin.x, r.asset->bmin.y, z0 + L * s / n), hi(r.asset->bmax.x, r.asset->bmax.y, z0 + L * (s + 1) / n);
+        float ds = glm::length(glm::clamp(lp, lo, hi) - lp);
+        if (ds > radius) continue;
+        r.secHp[s] -= dmg * (1.0f - ds / radius);
+        if (r.secHp[s] <= 0) { r.secCut[s] = 1; any = true; fx.impact(vec3(instanceMatrix(i) * vec4((lo + hi) * 0.5f, 1)), vec3(0, 1, 0), "metal"); }
+      }
+      for (int s = 0; s < n; ++s) if (!r.secCut[s]) all = false;
+      if (any) { rebuildSectionBodies(i, r); audio.play("ping", i.pos, 0.5f); }   // metallic snap (stand-in until the audio mapping, A1)
+      if (all) r.defDestroyed = true;
+      continue;
+    }
     r.defHp -= dmg * (1.0f - dist / radius);
     if (r.defHp <= 0) destroyDefense(i, r);
   }

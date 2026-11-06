@@ -7,7 +7,9 @@
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; };
 struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; };
-struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; };
+// thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
+// worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
+struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; };
 struct OverlayVert { vec3 p; vec4 c; };
 
 struct Overlay {
@@ -108,6 +110,7 @@ private:
   mat4 lightVP{1}, occVP{1};
   float occTop = 0, occRange = 1;
   bool thumbMode = false;
+  float pxAngle = 0.001f;   // radians per framebuffer pixel of the current main view (thin-line widening)
   float time = 0;
   int shadowSize = 4096, occSize = 2048;
 };

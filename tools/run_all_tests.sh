@@ -18,6 +18,7 @@ run arsenal  --selftest-arsenal
 run move     --selftest-move
 run sights   --selftest-sights
 run update   --selftest-update
+run entities --selftest-entities
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"
   ./NormandyMapmaker.exe --benchmark-stress >/dev/null 2>&1; echo "benchmark-stress   exit $?  -> selftest_out/benchmark_stress.json"

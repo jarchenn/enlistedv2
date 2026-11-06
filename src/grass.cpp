@@ -9,9 +9,9 @@ const GrassPreset& grassPreset(GrassQuality q) {
   // blade count starts thinning (remaining blades widen to keep coverage).
   static const GrassPreset P[4] = {
     {"Off", 0.0f, 0.0f, 0.0f},
-    {"Low", 4.0f, 38.0f, 14.0f},
-    {"Medium", 8.0f, 58.0f, 20.0f},
-    {"High", 16.0f, 85.0f, 30.0f},
+    {"Low", 8.0f, 38.0f, 14.0f},
+    {"Medium", 16.0f, 58.0f, 20.0f},
+    {"High", 40.0f, 85.0f, 30.0f},
   };
   return P[std::clamp((int)q, 0, 3)];
 }
@@ -37,6 +37,7 @@ float vn2(float x, float z, uint32_t seed) {
   auto H = [&](int a, int b) { return (float)(mix64(((uint64_t)(uint32_t)a << 32) ^ (uint32_t)b ^ ((uint64_t)seed << 17)) & 0xFFFF) / 65535.0f; };
   return glm::mix(glm::mix(H(xi, zi), H(xi + 1, zi), u), glm::mix(H(xi, zi + 1), H(xi + 1, zi + 1), u), v);
 }
+static float fpMargin(const GrassFootprint& f) { return f.margin >= 0 ? f.margin : Grass::kMargin; }
 // distance (m) from p to a footprint's bounds; negative inside
 float fpDist(const GrassFootprint& f, float x, float z) {
   float c = std::cos(radians(f.yaw)), s = std::sin(radians(f.yaw));
@@ -96,14 +97,20 @@ static float vnoise3(vec3 p) {
 }
 static float fbm3(vec3 p) { float s = 0, a = 0.5f; for (int i = 0; i < 4; ++i) { s += a * vnoise3(p); p *= 2.03f; a *= 0.5f; } return s; }
 static float smooth(float a, float b, float x) { float t = std::clamp((x - a) / (b - a), 0.0f, 1.0f); return t * t * (3 - 2 * t); }
-static float packAlbedo(float x, float z, float var) {
+static float packAlbedo(float x, float z, float var, int species = 1) {
+  // muted meadow palette by plant cluster (not per blade): broad fields, patches, then the species' own tint
   float n1 = fbm3(vec3(x * 0.025f, z * 0.025f, 1.0f)), n2 = fbm3(vec3(x * 0.18f, z * 0.18f, 2.0f));
-  vec3 g1(0.13f, 0.21f, 0.06f), g2(0.21f, 0.27f, 0.08f), dry(0.30f, 0.29f, 0.15f);
+  vec3 g1(0.12f, 0.19f, 0.055f), g2(0.19f, 0.25f, 0.075f), dry(0.30f, 0.28f, 0.15f), olive(0.20f, 0.22f, 0.09f);
   vec3 alb = glm::mix(g1, g2, smooth(0.3f, 0.7f, n1));
-  alb = glm::mix(alb, dry, smooth(0.62f, 0.8f, n2) * 0.45f + var * 0.12f);
-  alb *= 0.80f + 0.40f * var;
+  alb = glm::mix(alb, olive, smooth(0.45f, 0.7f, n2) * 0.35f);
+  alb = glm::mix(alb, dry, smooth(0.62f, 0.8f, n2) * 0.45f + var * 0.10f);
+  if (species == 0) alb *= vec3(0.92f, 1.0f, 0.9f);                       // turf: a touch deeper green
+  if (species == 2) alb = glm::mix(alb, vec3(0.27f, 0.27f, 0.13f), 0.35f); // tall stems: paler, yellowing
+  if (species == 3) alb = glm::mix(alb, vec3(0.10f, 0.17f, 0.06f), 0.55f); // clover / weeds: dark broadleaf green
+  if (species == 4) alb = glm::mix(alb, vec3(0.40f, 0.35f, 0.19f), 0.75f); // dry straw
+  alb *= 0.82f + 0.36f * var;
   auto q = [](float v) { return (uint32_t)std::clamp((int)std::lround(v * 2.0f * 255.0f), 0, 255); };
-  uint32_t u = q(alb.r) | (q(alb.g) << 8) | (q(alb.b) << 16) | (0x3Fu << 24);   // top byte fixed: never a NaN pattern
+  uint32_t u = q(alb.r) | (q(alb.g) << 8) | (q(alb.b) << 16) | ((0x38u + (uint32_t)std::clamp(species, 0, 4)) << 24);   // never a NaN pattern
   float f; std::memcpy(&f, &u, 4); return f;
 }
 
@@ -151,7 +158,7 @@ bool Grass::density(float x, float z, const Terrain& t, const std::vector<GrassF
   if (t.wearAt(x, z) > 0.62f) return false;                  // worn track / foundation soil
   for (auto& f : fp) {
     if (glm::length(vec2(x, z) - f.pos) > fpRadius(f) + kMargin + 1) continue;
-    if (fpDist(f, x, z) < kMargin) return false;              // footprints, steps, thresholds, berms
+    if (fpDist(f, x, z) < fpMargin(f)) return false;              // footprints, steps, thresholds, berms
   }
   return true;
 }
@@ -235,21 +242,35 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float d = t.dirtAt(x, z);
     if (d > 0.02f && thin < d * 5.5f) continue;
     bool skip = false;
-    for (auto& f : near) { float fd = fpDist(f, x, z) - kMargin; if (fd < 0.9f && thin > fd / 0.9f) { skip = true; break; } }
+    for (auto& f : near) { float fd = fpDist(f, x, z) - fpMargin(f); if (fd < 0.9f && thin > fd / 0.9f) { skip = true; break; } }
     if (skip) continue;
     // routes: thinned and cropped short toward the track, tall rank verges just beyond its edge
     float wear = t.wearAt(x, z);
     if (wear > 0.05f && thin < wear * 1.5f) continue;
     float verge = std::clamp(1.0f - std::fabs(wear - 0.08f) / 0.08f, 0.0f, 1.0f);
     // weeds against walls and foundations: taller, darker clumps
-    float wall = 0; for (auto& f : near) { float fd = fpDist(f, x, z) - kMargin; if (fd < 2.2f) wall = std::max(wall, 1.0f - fd / 2.2f); }
+    float wall = 0; for (auto& f : near) { float fd = fpDist(f, x, z) - fpMargin(f); if (fd < 2.2f) wall = std::max(wall, 1.0f - fd / 2.2f); }
     float y = groundH(t, x, z);
-    float hgt = (0.20f + 0.30f * r.f()) * (0.70f + 0.6f * patch);
-    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.9f * verge + 0.7f * wall * patch);
+    // species from correlated fields: tall meadow in broad patches (and on neglected verges / wall feet), clover in
+    // small clumps, straw where the sward dries out, short turf as the dense base everywhere
+    float nTall = vn2(x * 0.06f, z * 0.06f, seed_ + 21), nClo = vn2(x * 0.35f, z * 0.35f, seed_ + 31), nDry = vn2(x * 0.12f, z * 0.12f, seed_ + 41);
+    float rs = r.f(), r1 = r.f(), r2 = r.f();
+    float pTall = 0.03f + 0.45f * smooth(0.55f, 0.82f, nTall) + 0.35f * verge + 0.3f * wall;
+    float pClo = 0.10f * smooth(0.6f, 0.85f, nClo), pStraw = 0.07f * smooth(0.62f, 0.82f, nDry), pTurf = 0.5f * (1.0f - 0.6f * smooth(0.55f, 0.82f, nTall));
+    if (wear > 0.05f) { pTall *= 0.2f; pTurf = 0.8f; }   // trodden: cropped short
+    int sp = rs < pTall ? 2 : rs < pTall + pClo ? 3 : rs < pTall + pClo + pStraw ? 4 : rs < pTall + pClo + pStraw + pTurf ? 0 : 1;
+    float hgt, wid;
+    switch (sp) {
+      case 0: hgt = 0.09f + 0.10f * r1; wid = 0.016f + 0.006f * r2; break;
+      case 2: hgt = 0.55f + 0.40f * r1; wid = 0.0065f + 0.0035f * r2; break;
+      case 3: hgt = 0.05f + 0.04f * r1; wid = 0.028f + 0.012f * r2; break;
+      case 4: hgt = 0.25f + 0.25f * r1; wid = 0.012f + 0.004f * r2; break;
+      default: hgt = (0.26f + 0.28f * r1) * (0.7f + 0.6f * patch); wid = 0.018f + 0.008f * r2; break;
+    }
+    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch);
     if (verge > 0.2f || wall > 0.3f) var = std::min(1.0f, var * 0.6f);
-    float wid = 0.030f + 0.020f * r.f();
     float phase = r.f() * 6.2831853f, yaw = r.f() * 6.2831853f;
-    c.inst.push_back({vec4(x, y, z, yaw), vec4(hgt, wid, packAlbedo(x, z, var), phase)});
+    c.inst.push_back({vec4(x, y, z, yaw), vec4(hgt, wid, packAlbedo(x, z, var, sp), phase)});
     c.ymin = std::min(c.ymin, y); c.ymax = std::max(c.ymax, y + hgt);
   }
   c.count = (int)c.inst.size();

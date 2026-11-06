@@ -33,6 +33,12 @@ struct WeaponDef {
   bool sightLineOnly = false;           // JSON ads.virtualLine: rear/front are a view line beside the weapon (launcher
                                         // aimed past its shield), so aimed rounds leave the muzzle, not the "front sight"
   vec3 muzzleDir{0, 0, 1};              // bore axis at the muzzle (weapon space)
+  // hand equipment (equipment.cpp; JSON "grenade" / "melee", game tuning)
+  struct GrenadeDef { bool on = false; float fuse = 4.5f, speed = 15, lobDeg = 10, restitution = 0.3f, friction = 0.6f, mass = 0.6f,
+                      damage = 80, radius = 5, crater = 0.12f, windup = 0.32f, ready = 0.9f, volume = 0.8f,
+                      linDamp = 0.4f, rollDamp = 3.0f; } grenade;
+  struct MeleeDef { bool on = false; float reach = 1.7f, arcDeg = 40; int rays = 5; float windup = 0.12f, strike = 0.1f, cooldown = 0.6f, damage = 35; } melee;
+  bool equipment() const { return grenade.on || melee.on; }
   bool useModel() const { return model && model->vao; }
 };
 struct WeaponState {
@@ -46,6 +52,8 @@ struct WeaponState {
   float sinceShot = 99;           // s since the last shot (recoil recovers only once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
   int mode = 0;                   // index into WeaponDef::modes (AUTO first); reset with the session
+  float throwT = -1;              // grenade wind-up / knife swing progress (s), -1 = idle
+  bool struck = false;            // knife: this swing's sweep has happened
   uint32_t seed = 1;
   int reserveRounds() const;
 };

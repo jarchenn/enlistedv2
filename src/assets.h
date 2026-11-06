@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+struct GpuModel;
 
 // Surface pattern IDs understood by the main shader.
 enum Pattern : int {
@@ -22,6 +23,8 @@ struct Part {
   quat rot{1, 0, 0, 0};
   int mat = 0;
   bool visible = true, collide = true;
+  bool playerOnly = false;   // "k": 2 - traversal volume only the player meets (barbed wire), ignored by rays and bodies
+  int sec = -1;              // "sec": destruction section it belongs to (wire obstacles), -1 = always present
   // PRISM: triangle in (u,v) plane extruded along `axis` from a0..a1.
   int axis = 0; float a0 = 0, a1 = 0; vec2 tri[3]{};
 };
@@ -88,6 +91,12 @@ struct StationDef {
   GpuMesh yawMesh, elevMesh, recoilMesh;
   vec3 moveHalf{1.0f, 0.6f, 2.0f};          // carriage sweep box (half extents) for repositioning
   float serviceRadius = 6.0f;
+  // gun tuning (game values; defaults are the PaK 40's): sight field, shells, report
+  std::string label = "PaK 40", heName = "Sprgr. (HE)", atName = "PzGr. 39 (AT)";
+  float sightFov = 9.0f, heVelocity = 550, heDamage = 120, heRadius = 2.2f, heCrater = 1.0f, atVelocity = 790, muzzleScale = 1.0f;
+  std::string fireSound = "pak_fire";
+  bool fixed = false;                       // emplacement: crewed in place, never moved (no handler / Move)
+  std::vector<int> modelRole;               // per supplied-model part: 0 base, 1 traverse, 2 elevation, 3 recoil
 };
 
 // Destructible tree (Vegetation): trunk parts split at the stump cut, alpha-tested leaf cards with a sway mask.
@@ -104,17 +113,30 @@ struct TreeDef {
 };
 // Buildable defence: tank trap / sandbags (builder.cpp, ballistics.cpp).
 struct DefenseSocket { vec3 p{0}, t{1, 0, 0}; };
+// path entity (paths.cpp): length / width per instance (extra.path), draped on the terrain
+struct PathDef { bool on = false; std::string kind; float width = 2.5f, length = 8, minW = 0.8f, maxW = 8, minL = 1, maxL = 60;
+                 vec3 albedo{0.5f}; float rough = 0.85f, slab = 2.0f, slabHp = 60; };
 struct DefenseDef {
   std::string kind;                         // "" = not a defence; "tank_trap", "sandbag"
   float hp = 300, smallArms = 1, occlusion = 1, maxSlopeDeg = 35;
   bool blocksVehicles = false, stopsBullets = false;
   bool unsafeVault = false;                 // barbed wire: never vaulted, slows traversal
+  std::string traversal = "block";          // wire: "block" (player-only volume stops the player) or "slow" (no volume; speed x slowFactor inside)
+  float slowFactor = 0.35f;
+  int sections = 0; float sectionHp = 60;   // wire: blasts cut individual stretches (model sections + "sec" colliders)
   std::vector<DefenseSocket> sockets;
 };
 
 struct AssetDef {
   StationDef station;
   TreeDef tree;
+  PathDef path;
+  // imported model (JSON "model": baked from a supplied GLB by --import-weapon-models into content/assets/models/<dir>)
+  std::shared_ptr<GpuModel> model, modelLod;   // modelLod: <dir>/lod1, drawn beyond modelLodDist
+  float modelLodDist = 30, modelCull = 400;   // m
+  float modelThinPx = 0;                       // thin-line widening (wire), pixels
+  ShapePtr playerShape;                        // union of "k": 2 parts (no sections)
+  GpuMesh colliderGhost;                       // every collider as a box: placement preview of model assets
   DefenseDef defense;
   GpuMesh defBrokenMesh; ShapePtr defBrokenShape;
   bool rack = false;             // weapon rack (arsenal.cpp)
