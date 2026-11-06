@@ -92,6 +92,7 @@ void App::resetStation(const Instance& i) {
 
 void App::resetCombat() {
   projectiles.clear(); fx.clear();
+  tanks.reset(*this);   // tank_sim.cpp: authored / applied tank state
   occupied = 0; choiceFor = 0;
   crateStock.clear(); crateUnlimited.clear();
   for (auto& i : doc.instances) {
@@ -201,7 +202,27 @@ void App::stepProjectiles(float dt) {
       else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
       else if (p.tracer) fx.streak(p.p, end, 0.025f, 0.06f, vec4(9.0f, 2.2f, 0.8f, 1));
       else fx.streak(p.p, end, fx.rangeMode ? 0.012f : 0.007f, fx.rangeMode ? 0.05f : 0.025f, fx.rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1));
+      if (impact && (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && shellThroughGlass(*this, p, hit.pos, hit.ud)) continue;   // T7: thin glass breaks, the shell flies on
       if (impact) {
+        // tanks (tank_sim.cpp): the damage matrix decides; small arms ricochet, a launcher on the front armour makes a
+        // visible non-penetrating impact with no blast (no splash leak); counted hits detonate on the armour (no ground crater)
+        TankHitResult th = tanks.projectileHit(*this, p, hit.pos, hit.normal, hit.ud);
+        if (th.tank) {
+          if (!th.consumed && p.kind != PROJ_BULLET) {   // detonation on the armour: the shared blast, but no crater under the tank
+            blastAT = false; blastSplashGun = p.splashGun;
+            auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, 0.0f, p.ignore, WALL_ROCKET)
+                    : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 0.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 0.0f, p.ignore, WALL_HE);
+            blastSplashGun = 40;
+            fx.explosion(hit.pos, hit.normal, "metal", false);
+            audio.play("explosion", hit.pos, 1.0f);
+            lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), ex.breached};
+          } else {
+            if (p.kind == PROJ_BULLET) fx.impact(hit.pos, hit.normal, "metal");
+            lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), 0};
+          }
+          projectiles.erase(projectiles.begin() + k);
+          continue;
+        }
         std::string surface = "masonry";
         bool ground = hit.ud == 0 || (hit.ud >> 60) == 0xF;
         if (ground) { surface = "ground"; std::string ps = pathSurfaceAt(hit.pos); if (!ps.empty()) surface = ps; }   // gravel / dirt / concrete paths

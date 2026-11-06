@@ -1,0 +1,187 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.8595426082611084,
+  3.9308810234069824,
+  5.312089443206787
+ ],
+ "bmin": [
+  -1.8595426082611084,
+  -0.011682868003845215,
+  -3.115950107574463
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.png",
+   "name": "tracks",
+   "normal": "normal_2.png"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.png",
+   "name": "hull",
+   "normal": "normal_5.png"
+  },
+  {
+   "albedo": "albedo_6.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.png",
+   "name": "turret",
+   "normal": "normal_8.png"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.7595956325531006,
+    2.550075054168701,
+    3.141849994659424
+   ],
+   "bmin": [
+    -1.7064299583435059,
+    0.0,
+    -2.813614845275879
+   ],
+   "count": 42000,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "tiger_hull_tracks_0",
+   "role": "track",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.8595426082611084,
+    3.9308810234069824,
+    3.115950107574463
+   ],
+   "bmin": [
+    -1.8595426082611084,
+    -0.011682868003845215,
+    -3.115950107574463
+   ],
+   "count": 105156,
+   "first": 42000,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "tiger_hull_hull_0",
+   "role": "hull",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.6288104057312012,
+    1.9148447513580322,
+    3.1950864791870117
+   ],
+   "bmin": [
+    -1.5283002853393555,
+    0.5637537240982056,
+    -2.667512893676758
+   ],
+   "count": 17784,
+   "first": 147156,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "tiger_hull_turret_0",
+   "role": "hull_top",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.3489689826965332,
+    2.964296340942383,
+    1.3189082145690918
+   ],
+   "bmin": [
+    -1.2958030700683594,
+    1.8335421085357666,
+    -1.544201135635376
+   ],
+   "count": 26676,
+   "first": 164940,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "tiger_turret_turret_0",
+   "role": "turret",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7999716401100159,
+    2.4865827560424805,
+    5.312089443206787
+   ],
+   "bmin": [
+    -0.7468061447143555,
+    1.9430196285247803,
+    1.2578201293945313
+   ],
+   "count": 3198,
+   "first": 191616,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "tiger_gun",
+   "role": "gun",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 6.231900215148926,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0000039339065552,
+ "source": "pzkpfw_vi_tiger_1.glb",
+ "textures": {},
+ "triangles": 64938,
+ "vehicleOrigin": {
+  "note": "x/z centred on the hull, y = 0 at the running gear's lowest point",
+  "shift": [
+   5.960464477539063e-08,
+   1.9595991373062134,
+   -3.115950107574463
+  ]
+ },
+ "vertices": 82119
+}

@@ -270,6 +270,11 @@ void App::exploreStep(float dt, const ExploreInput& in) {
       updateLeafBodies(i, r, (int)k);
     }
   }
+  {   // tanks (tank_sim.cpp): every tank steps (crew loader, engines, wrecks); the occupied one takes all input
+    bool wasInTank = tanks.occupied != 0;
+    tanks.stepAll(*this, dt, in);
+    if (wasInTank || tanks.occupied) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }
+  }
   if (!occupied) stepBuilder(in);
   if (occupied) { stepStation(dt, in); }
   else if (build.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; stepWeapons(dt, w); }   // weapon lowered while building
@@ -346,6 +351,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   stepRack(in);
   if (in.packUp && !occupied && !rackOpen) packUpHeavy();
   if (occupied) { if (in.interact) leaveStation(); }
+  else if (!showLoadout && !rackOpen && !choiceFor && tanks.handleInteract(*this, in)) {}   // E on a tank: enter
   else if (showLoadout || rackOpen) {}
   else if (choiceFor) {
     if (in.choose1) occupyStation(choiceFor, ST_GUNNER);
@@ -445,8 +451,8 @@ void App::drawExploreUI() {
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
   if (!pauseMenu) {
-    dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
-    if (target.valid) {
+    if (!tanks.occupied) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
+    if (target.valid && !tanks.occupied && !tanks.target) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
         if (target.kind != 0) {
@@ -467,8 +473,8 @@ void App::drawExploreUI() {
       }
     }
     dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
-    drawCombatUI();
-    drawWeaponUI();
+    if (tanks.occupied) tanks.drawUI(*this);
+    else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); }
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
   drawDamageDebug();
@@ -492,7 +498,7 @@ void App::drawExploreUI() {
     if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
     ImGui::Separator();
     if (ImGui::Button("Apply session changes to map + return", ImVec2(240, 0))) { applyDamageToMap(); exitExplore(); }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nWeapons, ammunition, moved guns and doors are not kept.");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
     ImGui::End();
   }
 }

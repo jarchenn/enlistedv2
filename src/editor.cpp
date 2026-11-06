@@ -190,6 +190,7 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
       for (size_t k = 0; k < placing->model->parts.size(); ++k) R.worldModels.push_back({placing->model.get(), (int)k, M});
       ghosts.push_back({&placing->colliderGhost, M, vec4(vec3(tint), 0.22f)});
     }
+    if (isVehicleAsset(placing)) tanks.ghostItems(*this, placing, M, tint);   // tank_ui.cpp: the baked tank model as the preview
     for (auto& d : placing->interactables)
       for (auto& lf : d.leaves)
         ghosts.push_back({&lf.opaque, M * glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * (d.defaultOpen ? d.openAngle : 0)), d.axis)), tint});
@@ -407,6 +408,7 @@ void App::drawCreativeUI() {
         }
       }
     }
+    if (s && isVehicleAsset(a)) tanks.drawEditorPanel(*this, *s);   // tank_ui.cpp: spawn ammunition, turret, applied damage
     if (s && !a->furnitureNames.empty() && ImGui::CollapsingHeader("Furniture (moves with the building)")) {
       for (auto& f : a->furnitureNames) ImGui::BulletText("%s", f.c_str());
     }

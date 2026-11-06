@@ -8,6 +8,7 @@
 #include "audio.h"
 #include "combat.h"
 #include "viewmodel.h"
+#include "tank.h"
 
 struct GLFWwindow;
 
@@ -120,6 +121,9 @@ public:
   float stepTimer = 0;
   EditorCam savedCam;
   ExploreInput scriptedInput; bool useScripted = false;
+
+  // ---- tanks (tank.cpp, docs/tanks.md)
+  TankSys tanks;
 
   // ---- self test
   SelfTest* selftest = nullptr;

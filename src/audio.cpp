@@ -95,6 +95,7 @@ struct Audio::Impl {
   Voice voices[48];
   Buf windBuf, leafBuf;
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
+  Voice loops[16];
 };
 
 bool Audio::init() {
@@ -175,6 +176,7 @@ bool Audio::init() {
 void Audio::shutdown() {
   if (!p) return;
   for (auto& v : p->voices) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
+  for (auto& v : p->loops) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   ma_sound_uninit(&p->wind); ma_sound_uninit(&p->leaves);
   ma_audio_buffer_uninit(&p->windAB); ma_audio_buffer_uninit(&p->leafAB);
   ma_engine_uninit(&p->engine);
@@ -275,3 +277,37 @@ void Audio::setAmbience(float wind, float leaves) {
   ma_sound_set_volume(&p->wind, wind);
   ma_sound_set_volume(&p->leaves, leaves);
 }
+
+// ---- looping voices (tanks): one sound per handle, pitch / volume / position updated every step, never restarted
+void Audio::addSound(const std::string& name, std::vector<float> b) { if (p) p->bufs[name] = std::move(b); }
+int Audio::loopStart(const std::string& name, vec3 pos, float volume, float pitch) {
+  if (!p) return -1;
+  auto it = p->bufs.find(name);
+  if (it == p->bufs.end()) return -1;
+  for (int k = 0; k < 16; ++k) {
+    auto& v = p->loops[k];
+    if (v.used) continue;
+    ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 1, it->second.size(), it->second.data(), nullptr);
+    c.sampleRate = SR;
+    ma_audio_buffer_init(&c, &v.buf);
+    ma_sound_init_from_data_source(&p->engine, &v.buf, 0, nullptr, &v.snd);
+    ma_sound_set_looping(&v.snd, MA_TRUE);
+    ma_sound_set_min_distance(&v.snd, 3.0f); ma_sound_set_rolloff(&v.snd, 1.0f);
+    ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));
+    ma_sound_start(&v.snd);
+    v.used = true;
+    return k;
+  }
+  return -1;
+}
+void Audio::loopSet(int h, vec3 pos, float volume, float pitch) {
+  if (!p || h < 0 || h >= 16 || !p->loops[h].used) return;
+  auto& v = p->loops[h];
+  ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));
+}
+void Audio::loopStop(int h) {
+  if (!p || h < 0 || h >= 16 || !p->loops[h].used) return;
+  auto& v = p->loops[h];
+  ma_sound_stop(&v.snd); ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); v.used = false;
+}
+int Audio::loopsActive() const { int n = 0; if (p) for (auto& v : p->loops) n += v.used; return n; }

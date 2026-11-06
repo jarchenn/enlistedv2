@@ -1,0 +1,65 @@
+{
+ "id": "tank_tiger_i",
+ "version": 1,
+ "name": "Tiger I",
+ "category": "Vehicles",
+ "description": "Drivable tank (Explore: E to enter). Supplied Tiger I model; 8.8 cm KwK 36 game data. Gunner sight, cupola MG 34 (provisional model), HE/AP.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  3.69,
+  6.25
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Axis",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.0,
+    0
+   ],
+   "s": [
+    3.64,
+    1.88,
+    6.2
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.02,
+    2.27,
+    0.0
+   ],
+   "s": [
+    2.64,
+    0.86,
+    3.12
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "tiger_i"
+}

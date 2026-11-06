@@ -127,6 +127,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
     mat4 M = instanceMatrix(i);
+    if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
     if (r.asset->tree.on) {
       if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900) treeDrawItems(i, r, op);
       continue;
@@ -372,6 +373,7 @@ bool App::duplicateSelected() {
       pushUndo();
       Instance n = *doc.find(selected);  // deep copy including authored overrides
       n.id = doc.newId(); n.pos = vec3(p.x, c.y, p.z);
+      if (isVehicleAsset(a)) TankSys::stripDamage(n.extra);   // a duplicated tank is a fresh tank (spawn config only)
       bump(n);
       doc.instances.push_back(n);
       selected = n.id;
@@ -396,6 +398,7 @@ uint64_t App::pickInstance(vec3 ro, vec3 rd, float& tBest) const {
     float t;
     vec3 bc = (a->bmin + a->bmax) * 0.5f, bh = (a->bmax - a->bmin) * 0.5f;
     if (!rayOBB(lo, ld, bc, bh, quat(1, 0, 0, 0), t) || t > tBest) continue;
+    if (isVehicleAsset(a)) { tBest = t; best = i.id; continue; }   // tanks: the model bounds (collider parts are invisible)
     for (auto& p : a->parts) {
       if (!p.visible) continue;
       if (rayOBB(lo, ld, p.center, p.size * 0.5f, p.rot, t) && t < tBest) { tBest = t; best = i.id; }
@@ -469,7 +472,7 @@ void App::screenshot(const fs::path& p) {
 
 // ============================================================ main loop
 int App::run(int argc, char** argv) {
-  bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec;
+  bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec, tankPreviewDir;
   for (int k = 1; k < argc; ++k) {
     std::string a = argv[k];
     if (a == "--selftest") runSelf = true;
@@ -478,6 +481,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
+    else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities") runSelf = true;
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
@@ -486,6 +490,11 @@ int App::run(int argc, char** argv) {
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
     else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }
+    else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];   // tank.cpp: views of the baked tanks + rig sockets
+    else if (a == "--import-vehicle-models" && k + 1 < argc) {   // tanks (tank_import.cpp): <srcDir> [content root]
+      fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();
+      return importVehicleModels(src, out) ? 0 : 1;
+    }
     else if (a == "--import-weapon-models" && k + 1 < argc) {
       // offline bake: <srcDir with .glb files> [content root to write into, default: the running content/]
       fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();
@@ -548,6 +557,8 @@ int App::run(int argc, char** argv) {
   }
   if (!sheetsDir.empty()) { writeWeaponSheets(sheetsDir); glfwTerminate(); return 0; }
   if (!previewGlb.empty()) { bool ok = writeModelPreview(previewGlb, previewOut, previewSpec); glfwTerminate(); return ok ? 0 : 1; }
+  tanks.loadDefs(*this); tanks.makeThumbnails(*this);
+  if (!tankPreviewDir.empty()) { tanks.writePreview(*this, tankPreviewDir); glfwTerminate(); return 0; }
   {
     const TemplateInfo* t = findTemplate("blank_slate");
     TemplateInfo fb; fb.id = "blank_slate"; fb.name = "Blank Slate";
@@ -575,6 +586,7 @@ int App::run(int argc, char** argv) {
     if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); drawExploreUI(); }
     syncRuntime();
+    tanks.sync(*this);
 
     if (confirmQuit) { ImGui::OpenPopup("Unsaved changes"); confirmQuit = false; }
     if (ImGui::BeginPopupModal("Unsaved changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -592,7 +604,7 @@ int App::run(int argc, char** argv) {
       dynLeafDrawItems(op);
       builderGhosts(ghosts);
       for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
-      weaponDrawItems(op);
+      if (!tanks.occupied) weaponDrawItems(op);
     }
     int ww, wh; glfwGetWindowSize(win, &ww, &wh);
     // minimized windows report a 0x0 framebuffer: keep the aspect of the targets we actually render into
@@ -608,7 +620,7 @@ int App::run(int argc, char** argv) {
       float shk = reducedMotion ? 0.0f : blastShake * blastShake * 1.6f;   // concussion shake (deg)
       vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw + shk * std::sin((float)now * 41.0f), eyePitch + viewKickPitch + shk * std::sin((float)now * 53.0f + 1.3f));
       float fov = 72.0f;
-      if (!stationCamera(e, fv, fov)) weaponCamera(fov);
+      if (!tanks.camera(*this, e, fv, fov) && !stationCamera(e, fv, fov)) weaponCamera(fov);
       viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
       projM = glm::perspective(radians(fov), aspect, 0.03f, 4000.0f);
       worldFov = fov;
@@ -668,7 +680,7 @@ std::vector<GrassFootprint> App::grassFootprints() const {
   std::vector<GrassFootprint> fp;
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
-    if (!a || a->station.kind.size() || !a->crate.empty()) continue;
+    if (!a || a->station.kind.size() || !a->crate.empty() || isVehicleAsset(a)) continue;   // tanks drive away: no fixed grass hole
     if (a->tree.on && !a->tree.hedge) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
     if (a->path.on) { vec2 wl = pathSize(i, a); GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, -wl * 0.5f + vec2(0.06f, 0), wl * 0.5f - vec2(0.06f, 0)}; f.margin = 0.05f; fp.push_back(f); continue; }   // the trodden surface only, verges keep their grass
     if (a->tree.on && a->tree.hedge) { vec2 h = a->footprint * 0.5f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-h.x, -h.y * 0.6f), vec2(h.x, h.y * 0.6f)}); continue; }
@@ -684,7 +696,7 @@ void App::updateSurface() {
   auto mix = [&](uint64_t v) { sig = (sig ^ v) * 1099511628211ull; };
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
-    if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack) continue;
+    if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a)) continue;
     feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
     uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);
     mix(b[0]); mix(b[1]); mix(b[2]); mix(std::hash<std::string>{}(i.assetId));

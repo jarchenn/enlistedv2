@@ -113,6 +113,20 @@ Details, the acceptance checklist (PASS / FAIL / NOT TESTED), old and new values
 - **Sights, complete update W1.** Kar98k, M1 Carbine, Thompson, Garand, BAR and Panzerschreck anchors measured on the supplied GLB meshes. The BAR ladder leaf is folded and the Garand peep opened at bake (`model.meshEdits`). The Panzerschreck is viewed from its right side with the shield peripheral and a mild zoom. ADS is one blend of world FOV, pose and weapon FOV (`adsTime_s`, 0.25 s), with no zoom step ([fps-weapons.md#w1](fps-weapons.md#w1)).
 - **Renderer.** Two shadow cascades with soft PCF, cloud shadows, a rebalanced sun and sky, a hue-preserving tonemap, a gradient sky and self-shadowed clouds, height haze, light shafts, SSAO on indirect light only, subtle bloom, SSR on wet ground, and world-only TAA with foliage motion vectors. The weapon is drawn after it, so nothing ghosts. Each effect has a toggle, and `--legacy-look` restores the old look. All shaders are original implementations; BSL's code was not reused (licence unclear). Details, the audit and the measurements are in [rendering.md](rendering.md).
 
+## Phase 2 tanks (T1–T10)
+
+Two drivable tanks are built from the supplied GLBs ([tanks.md](tanks.md)): the **Sherman Firefly stand-in** (the mesh is an M4A3E8 "Easy Eight", labelled provisional, with 17-pounder game data) and the **Tiger I**. `--selftest-tanks` passes 106/106 checks.
+
+- **Import.** `--import-vehicle-models` bakes both models through the shared GLB bake. A vehicle post-pass re-origins them and splits parts: the Tiger gun and mantlet and the Sherman's roof M2 become separate parts, and nothing is added. Both tanks are catalog entities under **Vehicles**, with thumbnails rendered from the baked models. They are placed in Creative like any asset: the cursor shows the baked model as a green / red ghost, and the selection panel edits the spawn ammunition and turret angle and can repair applied damage.
+- **Crewing.** E (full-object, within reach) enters straight into the gunner sight. Left Ctrl toggles to an open hatch with the roof MG, once per press and never crouching. Exit goes to a validated spot (support, clearance, line of sight) and is refused while moving or when blocked.
+- **Gun and optics.** The turret and gun are rate- and acceleration-limited, with a short-way wrap-around and elevation stops. The sight follows the achieved gun line, with a separate desired-aim ring. Original reticles carry AP and HE range scales calibrated to the game's ballistics, and the 400 m zero is checked against a real impact.
+- **Driving.** A kinematic tracked chassis on terrain contacts. Tank traps, masonry and sandbags stop it; trees and light defences are crushed through the shared paths. Historical road speeds sit beside a gameplay profile in which the Sherman feels faster.
+- **Ammunition and damage.** The HE/AP late-selection state machine runs in a deterministic order, with an abstract crew loader. The user's damage matrix is implemented and tested with real projectiles: 4 front / 1 side-or-rear hits survived; cannon, AT gun and Flak count from any side; launchers only from the side or rear; small arms and splash never. Zones are taken in the struck component's frame. Wrecks happen exactly once, with bail-out.
+- **T7 apertures.** Shells and rockets break closed glass and continue to the next solid surface; open apertures are empty space. Tank AP and HE follow the canonical wall rule (AP breaches masonry in one hit, HE in two).
+- **Effects.** Synthesized temporary engine, track, turret, cannon and MG sounds, played through new looping voices. Load-dependent exhaust, track dust, damage smoke and wreck fire.
+- **Persistence.** Apply stores damage, wreck and ammunition, with undo and redo; duplicate copies no damage history; save and reopen keep the state.
+- **Limits.** No AI crews or networking; tracks and wheels are not animated; no module damage; placeholder sounds; the Tiger model is licensed CC-BY-NC-4.0.
+
 ## What's implemented
 
 - **Engine.** C++20, CMake, OpenGL 4.5 core (DSA), GLFW, GLAD, GLM, Dear ImGui, Jolt Physics (`CharacterVirtual`), nlohmann/json, miniaudio.
