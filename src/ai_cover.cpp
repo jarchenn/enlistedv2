@@ -132,7 +132,7 @@ int AiCore::pickCover(Soldier& s, vec3 goal, float maxDist, float minProgress, b
         if (o.slot < (int)minds.size() && minds[o.slot] && minds[o.slot]->cover >= 0 && minds[o.slot]->cover < (int)cover.size()) dd = std::min(dd, glm::length(cover[minds[o.slot]->cover].p - c.p));
         if (dd < spacing) sp += 1.0f - dd / spacing;
       }
-      float sc = 2.0f * prot + 1.6f * progress - 1.4f * expo - spW * sp - 0.015f * dist + (c.high ? 0.1f : 0.0f) + (c.authored ? 0.2f : 0.0f);
+      float sc = 2.0f * prot + 1.6f * progress - 1.4f * expo - spW * sp - (reactive ? tj("cover", "reactDistWeight", 0.1f) : 0.015f) * dist + (c.high ? 0.1f : 0.0f) + (c.authored ? 0.2f : 0.0f);
       cand.push_back({i, sc, prot});
     }
   }

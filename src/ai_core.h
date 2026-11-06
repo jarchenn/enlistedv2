@@ -191,8 +191,10 @@ struct AiProf {
 
 // ---------------------------------------------------------------- metrics (AI_SPEC 12.3)
 struct AiMetrics {
-  double t = 0, advT = 0, advSpeedSum = 0; long advN = 0; double nnSum = 0; long nnN = 0;
+  double t = 0, advT = 0, advSpeedSum = 0; long advN = 0; double nnSum = 0; long nnN = 0; double attackerT = 0;   // attackerT: living attacking-bot seconds
   double fireT = 0, exposedT = 0, coverNear5T = 0; int bounds = 0; double boundExposure = 0; int sidesteps = 0;
+  double exposedBy[A_COUNT] = {}; double exposedAtCover = 0;   // exposed-under-fire seconds by action (tuning)
+  int deathsBy[A_COUNT] = {}; int deathsInCover = 0, deathsInObjective = 0; std::vector<char> aliveLast;   // attacker deaths by action (tuning)
   int stuckEvents = 0, stuckOver5 = 0, stuckUnrecovered = 0, stuckResolvedBy[7]{};
   int grenadesThrown = 0, grenadesHurtTeammate = 0, rebuildReplans = 0, linkTraversals = 0, linkAborts = 0, snaps = 0, linkKinds[4]{};
   int attackerDeaths0 = -1;

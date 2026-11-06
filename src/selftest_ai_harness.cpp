@@ -202,7 +202,7 @@ int attackerDeaths(const Game& G) { int d = 0; for (auto& rs : G.match.slots) if
 // One suite on one map: per-frame sampling plus the AiMetrics of every match, summed over the matches of the run.
 struct Rec {
   std::string suite, spec, map; double simT = 0, jog = 3.1625; int matches = 0, bots = 0, attackers = 0, shortMatches = 0;
-  double advT = 0, advSpeedSum = 0, nnSum = 0, fireT = 0, exposedT = 0, coverNear5T = 0, boundExp = 0; long advN = 0, nnN = 0;
+  double advT = 0, advSpeedSum = 0, nnSum = 0, fireT = 0, exposedT = 0, coverNear5T = 0, boundExp = 0, attackerT = 0; long advN = 0, nnN = 0;
   int bounds = 0, stuck = 0, over5 = 0, unrec = 0, resolvedBy[7]{}, gren = 0, grenHurt = 0, deaths = 0, linkTrav = 0, linkAborts = 0, snaps = 0, replans = 0, linkKinds[4]{};
   int openAtEnd = 0, openOver5 = 0, abandoned = 0, rebuildTiles = 0, caps = 0; double rebuildMsMax = 0;
   json stuckList = json::array(), falls = json::array(), minutes = json::array();
@@ -244,7 +244,11 @@ struct Rec {
   }
   void endMatch(Game& G, AiCore& A, const std::string& why) {
     AiMetrics& M = A.metrics;
-    advT += M.advT; advSpeedSum += M.advSpeedSum; advN += M.advN; nnSum += M.nnSum; nnN += M.nnN; fireT += M.fireT; exposedT += M.exposedT; coverNear5T += M.coverNear5T;
+    { std::string s; for (int k = 0; k < A_COUNT; ++k) if (M.exposedBy[k] > 0) { char b[64]; std::snprintf(b, sizeof b, " %s %.0f s", aiActionName(k), M.exposedBy[k]); s += b; }
+      logf("aiharness: exposed under fire %.0f of %.0f s (set at a cover point %.0f s):%s; side-steps %d", M.exposedT, M.fireT, M.exposedAtCover, s.c_str(), M.sidesteps);
+      s.clear(); for (int k = 0; k < A_COUNT; ++k) if (M.deathsBy[k] > 0) { char b[64]; std::snprintf(b, sizeof b, " %s %d", aiActionName(k), M.deathsBy[k]); s += b; }
+      logf("aiharness: attacker deaths by action:%s; set at cover %d, inside the objective %d", s.c_str(), M.deathsInCover, M.deathsInObjective); }
+    advT += M.advT; advSpeedSum += M.advSpeedSum; advN += M.advN; nnSum += M.nnSum; nnN += M.nnN; fireT += M.fireT; exposedT += M.exposedT; coverNear5T += M.coverNear5T; attackerT += M.attackerT;
     bounds += M.bounds; boundExp += M.boundExposure; stuck += M.stuckEvents; over5 += M.stuckOver5; unrec += M.stuckUnrecovered; gren += M.grenadesThrown; grenHurt += M.grenadesHurtTeammate;
     linkTrav += M.linkTraversals; linkAborts += M.linkAborts; snaps += M.snaps; replans += M.rebuildReplans;
     for (int k = 0; k < 7; ++k) resolvedBy[k] += M.stuckResolvedBy[k];
@@ -285,6 +289,7 @@ struct Rec {
             {"stuckOver5s", over5 + openOver5}, {"stuckUnrecovered", unrec}, {"stuckOpenAtEnd", openAtEnd}, {"stuckAbandonedByDeath", abandoned}, {"stuckResolvedBy", rb},
             {"stuckWorstBots", perBot},
             {"exposedUnderFireFraction", fireT > 0 ? exposedT / fireT : 0.0}, {"underFireSeconds", fireT}, {"exposedUnderFireSeconds", exposedT},
+            {"exposedUnderFireShareOfTime", attackerT > 0 ? exposedT / attackerT : 0.0}, {"attackerBotSeconds", attackerT},
             {"boundExposureMean_s", bounds ? boundExp / bounds : 0.0}, {"bounds", bounds},
             {"nearestTeammateWhileAdvancing_m", nnN ? nnSum / nnN : 0.0}, {"advanceSpeedMean_mps", advN ? advSpeedSum / advN : 0.0}, {"advancingBotSeconds", advT}, {"jogSpeed_mps", jog},
             {"grenadesThrown", gren}, {"grenadesHurtTeammate", grenHurt},

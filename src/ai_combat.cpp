@@ -263,7 +263,8 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
         vec3 toMe = s.feet - h.pos; toMe.y = 0;
         bool bounceBack = std::fabs(h.normal.y) < 0.5f && glm::length(toMe) > 0.1f && glm::dot(glm::normalize(vec3(h.normal.x, 0, h.normal.z) + vec3(1e-4f)), glm::normalize(toMe)) > 0.4f && lenXZ(h.pos - target) > 1.0f;
         if (bounceBack || lenXZ(h.pos - s.feet) < 6.0f) { bad = true; break; }
-        ok = lenXZ(h.pos - target) < tj("grenade", "landWithin_m", 2.0f) && std::fabs(h.pos.y - target.y) < 1.8f;
+        ok = lenXZ(h.pos - target) < tj("grenade", "landWithin_m", 2.0f) && std::fabs(h.pos.y - target.y) < 1.8f && h.normal.y > 0.6f;   // lands on the ground: a wall or a window frame sends it anywhere
+        for (auto& o : G.sold) if (ok && o.alive && o.role == s.role && glm::length(o.feet - h.pos) < safe) ok = false;   // around where it really lands
         break;
       }
       p += seg; vv.y -= 9.81f * 0.04f;

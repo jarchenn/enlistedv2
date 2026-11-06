@@ -166,6 +166,10 @@ void AiCore::think(Soldier& s) {
   bool underFire = G.t - b.hurtAt < 2.0 || b.suppressed > 0.35f || G.t - m.nearMissAt < 1.5;
   bool inCover = m.cover >= 0 && m.cover < (int)cover.size() && cover[m.cover].serial == m.coverSerial && lenXZ(s.feet - m.coverPos) < 1.3f;
   if (!attacker && m.slot >= 0 && m.slot < (int)defSlots.size() && lenXZ(s.feet - defSlots[m.slot].p) < 1.3f) inCover = true;   // a defense slot is a firing position in cover
+  if (inCover && attacker && underFire) {   // flanked: a cover point that does not face the shooter is not cover
+    vec3 ff = G.t - b.hurtAt < 2.0 ? b.hurtFrom : m.nearMissFrom;
+    if (glm::length(ff) > 0.1f && !coverProtects(cover[m.cover], ff + vec3(0, 1.5f, 0))) inCover = false;
+  }
   float ammo = wd.cap > 0 ? s.ws.loaded / (float)wd.cap : 1.0f;
   bool canReload = !s.ws.containers.empty();
   bool regroup = attacker && G.t < tb.regroupUntil;
@@ -261,11 +265,12 @@ void AiCore::act(Soldier& s, float dt) {
     case A_EVADE: {
       vec3 best = s.feet; float bs = -1e9f;
       for (int k = 0; k < 10; ++k) {
-        float a = k * 0.6283f; vec3 q = s.feet + vec3(std::cos(a), 0, std::sin(a)) * (attacker ? 9.0f : 6.5f);
+        float a = k * 0.6283f; vec3 q = s.feet + vec3(std::cos(a), 0, std::sin(a)) * 9.0f;
         NavRef r; vec3 on; if (!G.nav.closest(q, 2.5f, r, on)) continue;
         float sc = glm::length(on - b.evadeFrom);
         if (!ray(b.evadeFrom + vec3(0, 0.5f, 0), on + vec3(0, 0.6f, 0) - b.evadeFrom - vec3(0, 0.5f, 0), glm::length(on - b.evadeFrom))) sc -= 4; else sc += 3;
-        if (s.role == CombatRole::Defender && ob && ob->contains(on)) sc += 8;   // defenders stay on the point
+        if (glm::length(on - b.evadeFrom) < tj("grenade", "friendlyClear_m", 11.0f)) sc -= 20;   // still inside the hurt radius
+        else if (s.role == CombatRole::Defender && ob && ob->contains(on)) sc += 8;   // defenders stay on the point once clear of it
         if (sc > bs) { bs = sc; best = on; }
       }
       requestPath(s, best, 0.8f, 9.0f); m.speed = SPD_SPRINT; b.mode = Brain::M_EVADE; b.why = "evading a grenade"; break; }
@@ -301,7 +306,12 @@ void AiCore::act(Soldier& s, float dt) {
       bool mobile = (wd.action == "auto" && wd.feed != "belt") && close;   // SMGs / BAR fire on the move at close range
       if (!mobile) m.speed = SPD_STOP;
       else m.speed = SPD_JOG;
-      m.posture = atCover ? (cover[m.cover].high ? Physics::STAND : Physics::STAND) : (wd.feed == "belt" ? Physics::CROUCH : Physics::STAND);
+      m.posture = atCover ? Physics::STAND : (wd.feed == "belt" ? Physics::CROUCH : Physics::STAND);
+      if (atCover && attacker && !cover[m.cover].high) {   // low cover: peek and fire for a burst, then duck behind it (AI_SPEC 5)
+        float ex = tj("combat", "peekExpose_s", 2.0f), du = tj("combat", "peekDuck_s", 1.5f) * (1.0f + b.suppressed);
+        float ph = (float)std::fmod(G.t - m.setAt + s.slot * 0.37, (double)(ex + du));
+        if (ph > ex) { m.posture = Physics::CROUCH; b.crouch = true; }
+      }
       if (!atCover && s.posture == Physics::PRONE) m.posture = Physics::PRONE;
       b.mode = Brain::M_ENGAGE; b.why = m.action == A_SUPPRESS ? "suppressing" : atCover ? "returning fire from cover" : "returning fire"; break; }
     case A_GRENADE:

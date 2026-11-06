@@ -1,16 +1,17 @@
 {
   "_doc": "Bot tactics tunables (AI_SPEC 4-11; src/ai_*.cpp). Difficulty presets are in difficulty.json, the regroup time and bot count in settings/rules.json, speeds in settings/movement.json (sprint / run = jog / crouch / prone) plus walk_mps here.",
-  "movement": { "walk_mps": 1.6, "separation_m": 9.0, "separationGain": 0.8, "avoidPad_m": 0.3, "sprintExposure": 0.25, "rushMin_m": 3.0, "sidestepAfter_s": 0.4 },
+  "movement": { "walk_mps": 1.6, "separation_m": 9.0, "separationGain": 1.2, "avoidPad_m": 0.3, "sprintExposure": 0.25, "rushMin_m": 3.0, "sidestepAfter_s": 0.4 },
   "pathing": { "crowdCost": 0.6, "flankOffset_m": 35, "laneHalfWidth_m": 18, "flankLaneGain": 0.7, "mainLaneGain": 0.9 },
   "perception": { "fovMoving_deg": 120, "fovAiming_deg": 90, "hearRifle_m": 250, "hearSmg_m": 120, "hearExplosion_m": 200, "footsteps_m": 15,
                   "nearMiss_m": 2.0, "memory_s": 20, "memoryDecay_s": 10, "suppressionDecay": 0.28, "vegetationFactor": 0.55 },
   "threat": { "viewRange_m": 250 },
-  "cover": { "spacing_m": 10, "spacingWeight": 2.0, "reactRadius_m": 12, "authoredMinGap_m": 3.0 },
+  "cover": { "spacing_m": 12, "spacingWeight": 3.0, "reactRadius_m": 12, "authoredMinGap_m": 3.0, "reactDistWeight": 0.12 },
   "defense": { "shiftCooldown_s": 12 },
   "commander": { "flankFraction": 0.3, "flankStandoff_m": 28 },
+  "combat": { "peekExpose_s": 2.0, "peekDuck_s": 1.5 },
   "decisions": { "inertia": 0.08 },
   "utility": { "advance": 1.0, "return fire": 1.0, "suppress": 1.0, "take cover": 1.0, "reload": 1.0, "grenade": 1.0, "clear room": 1.0, "hold": 1.0, "evade": 1.0, "overwatch": 1.0 },
-  "grenade": { "safeRadius_m": 12, "arcClearance_m": 2.0, "landWithin_m": 2.0, "reactRadius_m": 8, "friendlyClear_m": 11, "hurtThreshold_hp": 10 },
+  "grenade": { "safeRadius_m": 14, "arcClearance_m": 2.0, "landWithin_m": 2.0, "reactRadius_m": 8, "friendlyClear_m": 11, "hurtThreshold_hp": 10 },
   "stuck": { "penalty_s": 20 },
   "budget": { "raysPerFrame": 200, "pathStartsPerFrame": 4, "lodDistance_m": 300 }
 }

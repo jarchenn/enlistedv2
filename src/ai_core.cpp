@@ -533,9 +533,18 @@ void AiCore::frame() {
   // ---- metrics (AI_SPEC 12.3, attackers)
   float dt = 1.0f / 60.0f;
   metrics.t += dt;
+  if (metrics.aliveLast.size() != G.sold.size()) metrics.aliveLast.assign(G.sold.size(), 0);
   for (auto& s : G.sold) {
-    if (!s.alive || s.human || s.role != CombatRole::Attacker || s.slot >= (int)minds.size() || !minds[s.slot]) continue;
+    if (s.human || s.role != CombatRole::Attacker || s.slot >= (int)minds.size() || !minds[s.slot]) continue;
+    if (!s.alive && metrics.aliveLast[s.slot]) {   // died this step: what it was doing
+      BotMind& m = *minds[s.slot]; ++metrics.deathsBy[std::clamp(m.action, 0, A_COUNT - 1)];
+      if (m.set) ++metrics.deathsInCover;
+      if (const Objective* ob = G.match.activeObjective(); ob && ob->contains(s.feet)) ++metrics.deathsInObjective;
+    }
+    metrics.aliveLast[s.slot] = s.alive;
+    if (!s.alive) continue;
     BotMind& m = *minds[s.slot];
+    metrics.attackerT += dt;
     bool advancing = m.action == A_ADVANCE && !m.set && m.hasPath && !arrived(s) && !m.trav.on;   // AI_SPEC 12.3 "while advancing": bounding, not stopped to fire / reload
     if (advancing) {
       metrics.advT += dt; metrics.advSpeedSum += s.speed; ++metrics.advN;
@@ -552,7 +561,7 @@ void AiCore::frame() {
         auto it = coverGrid.find(((cx + dx) << 32) ^ (uint32_t)(cz + dz)); if (it == coverGrid.end()) continue;
         for (int ci : it->second) { const CoverPoint& c = cover[ci]; if (!c.serial || glm::length(c.p - s.feet) > 5) continue; vec3 td = from - c.p; td.y = 0; if (c.natural || glm::length(td) < 1 || glm::dot(glm::normalize(td), c.n) > 0.25f) { covered = true; break; } }   // craters cover all round (coverProtects)
       }
-      if (!covered) metrics.exposedT += dt; else metrics.coverNear5T += dt;
+      if (!covered) { metrics.exposedT += dt; metrics.exposedBy[std::clamp(m.action, 0, A_COUNT - 1)] += dt; if (m.set) metrics.exposedAtCover += dt; } else metrics.coverNear5T += dt;
     }
   }
   if (metrics.attackerDeaths0 < 0) { metrics.attackerDeaths0 = 0; for (auto& rs : G.match.slots) if (rs.role == CombatRole::Attacker) metrics.attackerDeaths0 += rs.deaths; }
@@ -566,8 +575,8 @@ json AiMetrics::toJson(const Game& G) const {
             {"stuckEvents", stuckEvents}, {"stuckOver5s", stuckOver5}, {"stuckUnrecovered", stuckUnrecovered},
             {"stuckPerBotPer10Min", stuckEvents / std::max(1, bots) / mins * 10.0},
             {"advanceSpeedMean_mps", advN ? advSpeedSum / advN : 0.0}, {"advancingBotSeconds", advT},
-            {"underFireSeconds", fireT}, {"exposedUnderFireFraction", fireT > 0 ? exposedT / fireT : 0.0},
-            {"boundExposureMean_s", bounds ? boundExposure / bounds : 0.0}, {"bounds", bounds}, {"sidesteps", sidesteps},
+            {"underFireSeconds", fireT}, {"exposedUnderFireFraction", fireT > 0 ? exposedT / fireT : 0.0}, {"exposedUnderFireShareOfTime", attackerT > 0 ? exposedT / attackerT : 0.0},
+            {"boundExposureMean_s", bounds ? boundExposure / bounds : 0.0}, {"bounds", bounds}, {"sidesteps", sidesteps}, {"exposedAtCover_s", exposedAtCover}, {"exposedByAction_s", [&] { json e = json::object(); for (int k = 0; k < A_COUNT; ++k) if (exposedBy[k] > 0) e[aiActionName(k)] = exposedBy[k]; return e; }()},
             {"nearestTeammateWhileAdvancing_m", nnN ? nnSum / nnN : 0.0},
             {"attackerDeathsPerMin", deaths / mins}, {"grenadesThrown", grenadesThrown}, {"grenadesHurtTeammate", grenadesHurtTeammate},
             {"rebuildReplans", rebuildReplans}, {"linkTraversals", linkTraversals}, {"linkAborts", linkAborts}, {"snaps", snaps}};
