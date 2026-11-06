@@ -1,6 +1,7 @@
 #include "app.h"
 #include "selftest.h"
 #include "mpai.h"
+#include "w3.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -234,9 +235,8 @@ void App::applyTemplate(const std::string& id) {
   TemplateInfo fallback; fallback.id = "blank_slate";
   if (!t) t = &fallback;
   removeGroundBodies();
-  terrain.generate(*t);
+  w3ApplyTerrain(*this, *t);   // map size + chunked terrain + chunk colliders (editor_nav.cpp)
   ++groundRev;
-  Physics::setTerrain(terrain.h, terrain.n, terrain.size);
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
   if (mode == Mode::Explore) exitExplore();
@@ -337,7 +337,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     vec3 w = pos + q * s.local;
     if (!terrain.inBuildArea(w.x, w.z)) { c.ok = false; c.reason = "Outside the build area."; return c; }
     if (a->path.on) continue;   // paths drape on any ground and may cross water's edge, other paths and footprints
-    float h = terrain.height(w.x, w.z);
+    float h = terrain.placementHeight(w.x, w.z, ignoreId);   // ignores the instance's own terrain cut
     if (h < terrain.waterLevel + 0.2f) { c.ok = false; c.reason = std::string("The ") + s.side + " of the footprint is in water."; return c; }
     top = std::max(top, h);
     if (h < low) { low = h; lowSide = s.side; }
@@ -523,7 +523,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
-    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities" || a == "--selftest-editor") runSelf = true;
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
@@ -656,7 +656,7 @@ int App::run(int argc, char** argv) {
     RenderView v;
     if (mode == Mode::Creative) {
       viewM = glm::lookAt(camPos, camPos + forward(camYaw, camPitch), vec3(0, 1, 0));
-      projM = glm::perspective(radians(60.0f), aspect, 0.1f, 4000.0f);
+      projM = w3EditorProjection(*this, aspect);   // 60 deg; near / far follow height and map size (editor_nav.cpp)
       v.editor = !hideEditorOverlays; v.grid = gridOverlay; v.autoExposure = false; v.camPos = camPos;
       if (!hideEditorOverlays) drawCreativeOverlay(ov, ghosts);
       audio.setListener(camPos, forward(camYaw, camPitch));
@@ -678,6 +678,7 @@ int App::run(int argc, char** argv) {
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
     updateGrass(v.camPos);
     R.grass = &grass;
     R.render(v, terrain, op, gl, ghosts, ov);

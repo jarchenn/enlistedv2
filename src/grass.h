@@ -61,7 +61,7 @@ private:
   std::map<int64_t, Chunk> chunks;
   GLuint vao = 0, bladeVbo = 0, bladeEbo = 0; int indexCount = 0;
   uint32_t seed_ = 0, frame = 0;
-  float terrainSize = 0;
+  float terrainSize = 0, terrainSizeZ = 0;
   void ensureGL();
   uint64_t signature(int cx, int cz, const Terrain& t, const std::vector<GrassFootprint>& fp) const;
   uint64_t contentSignature(int cx, int cz, const Terrain& t, const std::vector<GrassFootprint>& fp) const;

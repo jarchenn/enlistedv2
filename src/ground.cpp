@@ -3,8 +3,6 @@
 #include "app.h"
 #include <algorithm>
 
-static uint64_t tileUD(int key) { return (0xFull << 60) | (uint64_t)key; }
-
 float App::groundWeight(float x, float z) const {
   // 0 inside / right next to a placed building's footprint, ramping to 1 at 1.8 m: foundations,
   // thresholds and steps stay supported at any rotation.
@@ -13,6 +11,7 @@ float App::groundWeight(float x, float z) const {
     const AssetDef* a = assetFor(i);
     if (a->station.kind.size() || isVehicleAsset(a)) continue;   // field guns and tanks sit on the ground, they do not protect it
     if (a->path.on || a->defense.kind == "wire") continue;   // paths and wire lie on open ground: craters form under them
+    if (!a->navMeta.terrainCuts.empty()) continue;           // earthworks (trenches, ditches, foxholes) are not foundations
     vec2 hf = a->footprint * 0.5f;
     if (glm::length(vec2(x - i.pos.x, z - i.pos.z)) > glm::length(hf) + 2.0f) continue;
     vec3 l = glm::inverse(yawQuat(i.yaw)) * vec3(x - i.pos.x, 0, z - i.pos.z);
@@ -25,14 +24,8 @@ float App::groundWeight(float x, float z) const {
 }
 
 void App::syncGroundTiles(const std::vector<int>& keys) {
-  for (int k : keys) {
-    auto it = terrain.tiles.find(k); if (it == terrain.tiles.end()) continue;
-    auto& t = it->second;
-    Physics::remove(t.body);
-    vec2 o = terrain.tileOrigin(t.tx, t.tz);
-    t.body = Physics::addHeightPatch(t.h, Terrain::kFineN, vec3(o.x, 0, o.y), terrain.fineSpacing(), tileUD(k));
-    Physics::setBaseTile(t.tx, t.tz, false);
-  }
+  (void)keys;   // the terrain tracks every changed tile (Terrain::physDirty): patches + chunk holes (terrain_chunks.cpp)
+  terrainPhysicsSync(terrain);
 }
 
 bool App::craterAt(vec3 p, float radius, float depth, bool irregular) {
@@ -56,7 +49,7 @@ bool App::deformGround(vec3 p, float scale) {
 }
 
 void App::removeGroundBodies() {
-  for (auto& [k, t] : terrain.tiles) { Physics::remove(t.body); t.body = 0xffffffffu; Physics::setBaseTile(t.tx, t.tz, true); }
+  terrainPhysicsRemovePatches(terrain);
 }
 
 void App::resetGround() {
@@ -64,12 +57,8 @@ void App::resetGround() {
   removeGroundBodies();
   terrain.clearTiles();
   ++groundRev;
-  if (!doc.terrainDeltas.empty()) {
-    terrain.applyDeltas(doc.terrainDeltas);
-    std::vector<int> keys;
-    for (auto& [k, t] : terrain.tiles) keys.push_back(k);
-    syncGroundTiles(keys);
-  }
+  if (!doc.terrainDeltas.empty()) terrain.applyDeltas(doc.terrainDeltas);
+  syncGroundTiles({});   // tiles under terrain cuts are rebuilt by clearTiles even without deltas
 }
 
 void App::applyDamageToMap() {

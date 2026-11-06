@@ -140,48 +140,8 @@ ShapePtr Physics::buildShape(const std::vector<Part>& parts) {
   return h;
 }
 
-namespace { std::vector<float> gTerrainH; int gTerrainN = 0; }
-
-namespace { std::vector<BodyID> gTileBodies; int gTilesN = 0, gTileCells = 5; float gCell = 1, gSize = 800; }
-
-// Base ground collision is one small heightfield body per deformation tile, so a deformed tile can
-// swap its base body for a high-resolution patch without any base geometry bridging the crater.
-static BodyID makeBaseTile(int tx, int tz) {
-  const int m = gTileCells + 1;            // 6 samples: multiple of the 2-sample block size
-  std::vector<float> h((size_t)m * m);
-  for (int j = 0; j < m; ++j)
-    for (int i = 0; i < m; ++i) h[(size_t)j * m + i] = gTerrainH[(size_t)(tz * gTileCells + j) * gTerrainN + (tx * gTileCells + i)];
-  HeightFieldShapeSettings hs(h.data(), Vec3(-gSize * 0.5f + tx * gTileCells * gCell, 0, -gSize * 0.5f + tz * gTileCells * gCell), Vec3(gCell, 1, gCell), (uint32)m);
-  hs.mBlockSize = 2;
-  auto r = hs.Create();
-  if (r.HasError()) { logf("terrain tile error: %s", r.GetError().c_str()); return BodyID(); }
-  BodyCreationSettings bc(r.Get(), RVec3::sZero(), Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING);
-  bc.mUserData = 0;
-  BodyID id = W->sys->GetBodyInterface().CreateAndAddBody(bc, EActivation::DontActivate);
-  if (!id.IsInvalid()) ++W->bodies;
-  return id;
-}
-
-void Physics::setTerrain(const std::vector<float>& heights, int n, float size) {
-  auto& bi = W->sys->GetBodyInterface();
-  for (auto& id : gTileBodies) if (!id.IsInvalid()) { bi.RemoveBody(id); bi.DestroyBody(id); --W->bodies; }
-  gTileBodies.clear();
-  gTerrainH = heights; gTerrainN = n; gSize = size; gCell = size / (n - 1);
-  gTilesN = (n - 1) / gTileCells;
-  gTileBodies.resize((size_t)gTilesN * gTilesN);
-  for (int tz = 0; tz < gTilesN; ++tz)
-    for (int tx = 0; tx < gTilesN; ++tx) gTileBodies[(size_t)tz * gTilesN + tx] = makeBaseTile(tx, tz);
-  W->sys->OptimizeBroadPhase();
-  W->terrain = gTileBodies.empty() ? BodyID() : gTileBodies[0];
-}
-
-void Physics::setBaseTile(int tx, int tz, bool on) {
-  if (tx < 0 || tz < 0 || tx >= gTilesN || tz >= gTilesN) return;
-  BodyID& id = gTileBodies[(size_t)tz * gTilesN + tx];
-  auto& bi = W->sys->GetBodyInterface();
-  if (!on && !id.IsInvalid()) { bi.RemoveBody(id); bi.DestroyBody(id); --W->bodies; id = BodyID(); }
-  if (on && id.IsInvalid()) id = makeBaseTile(tx, tz);
-}
+// Base ground collision: one heightfield body per terrain chunk, holes under deformation tiles (terrain_chunks.cpp,
+// via addHeightPatch with cNoCollisionValue samples).
 
 uint32_t Physics::addStatic(const ShapePtr& s, vec3 pos, quat rot, uint64_t ud) {
   if (!s) return 0xffffffffu;

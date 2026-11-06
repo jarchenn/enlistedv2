@@ -1,0 +1,47 @@
+{
+  "_doc": "Creative editor and terrain tuning (SPEC 9.1-9.3). Read once at start-up by terrain_chunks.cpp and editor_nav.cpp.",
+  "mapSize": {
+    "_doc": "Buildable area per side in metres; the terrain extends `margin` beyond it. Above comfortableKm2 the New Map dialog warns ([DECISION] 3.0 km2: the 1200 x 2400 default maps are the largest comfortable size on min spec).",
+    "min": 400,
+    "max": 4000,
+    "step": 100,
+    "margin": 100,
+    "comfortableKm2": 3.0,
+    "presets": [[600, 600], [1000, 2000], [1200, 2400], [2000, 4000]]
+  },
+  "terrainStream": {
+    "_doc": "Chunk LOD distances (m, 3D distance to the chunk box) for vertex steps 1/2/4/10 cells; beyond the last, 20. Meshes farther than maxDist are evicted.",
+    "lodDist": [260, 560, 1100, 2200],
+    "maxDist": 5000,
+    "buildBudgetMs": 1.5,
+    "minBuildsPerFrame": 8,
+    "hysteresis": 0.08,
+    "skirtDepth": 2.0
+  },
+  "camera": {
+    "_doc": "Editor camera. Fly speed = clamp(heightAboveGround * speedPerMetre + speedBase, speedMin, speedMax) x the Alt+wheel multiplier (x shiftMult with Shift).",
+    "speedBase": 6.0,
+    "speedPerMetre": 0.9,
+    "speedMin": 4.0,
+    "speedMax": 900.0,
+    "shiftMult": 3.0,
+    "zoomStep": 0.18,
+    "zoomMinDist": 1.5,
+    "orbitDegPerPixel": 0.25,
+    "minClearance": 0.6,
+    "frameMargin": 1.15,
+    "flightSeconds": 0.35,
+    "homePitch": -55.0
+  },
+  "overview": {
+    "_doc": "Top-down overview map (M): heightmap texture resolution on the long side and default window fraction.",
+    "textureSize": 1024,
+    "windowFraction": 0.78
+  },
+  "dropIn": {
+    "_doc": "Drop-in explorer: the drag must move this far over the ground before it sets the facing; markers.",
+    "facingMinDrag": 0.8,
+    "markerRadius": 0.7,
+    "arrowLength": 3.0
+  }
+}

@@ -24,9 +24,13 @@ Saved maps go in `maps/` next to the executable. **File > Open** also lists the 
 
 | Action | Control |
 |---|---|
-| Look | Hold right mouse button and move the mouse |
-| Fly | WASD; Q/E to go down/up; Shift to go faster |
-| Fly speed | Mouse wheel (when nothing is being placed or dragged) |
+| Orbit | Hold the right mouse button and drag: orbits the ground point under the cursor (turns in place over the sky) |
+| Pan | Hold the middle mouse button and drag: the ground follows the cursor |
+| Zoom | Mouse wheel toward the cursor (when nothing is being placed or dragged) |
+| Fly | WASD; Q/E to go down/up; speed follows the height above ground; Shift faster; Alt+wheel sets a speed multiplier |
+| Frame | F frames the selection; Home frames the whole map |
+| Overview map | M: top-down map with objectives, spawns and the attack path; wheel zoom, drag pan, click to move the camera there |
+| Camera bookmarks | Ctrl+1-9 saves the view, 1-9 returns to it (saved with the map) |
 | Place asset | Click a thumbnail, then left-click the ground. Placement repeats until you press Esc |
 | Rotate | Mouse wheel while placing or dragging. Z/X rotate the selection. Toolbar toggles 15° snap or free rotation |
 | Select / move | Left-click a building, including through a window, then drag. One drag is one undo step |
@@ -35,8 +39,9 @@ Saved maps go in `maps/` next to the executable. **File > Open** also lists the 
 | Undo / redo | Ctrl+Z / Ctrl+Y |
 | Grid snap / grid overlay | G / H |
 | Door & window defaults | Checkboxes in the Selection panel, or the **Doors & windows** toolbar view (click labels in 3D) |
-| Exploration start | M, then click the ground (wheel sets facing). Turns red when the player capsule won't fit |
-| Explore | F5 |
+| Drop in | Drag the soldier from the toolbar onto the terrain; the drag direction sets the facing. Release to walk from there in first person; Esc returns the editor camera to where it was, P pauses. The drop point becomes the map's explore start |
+| Explore from start | F5 or the toolbar button |
+| Map size | New map (Ctrl+N): width and depth 400-4000 m in 100 m steps, presets 600x600 to 2000x4000, with a memory estimate |
 | Save / open / new | Ctrl+S / Ctrl+O / Ctrl+N |
 | Stats | F3 |
 

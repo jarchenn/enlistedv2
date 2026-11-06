@@ -9,7 +9,6 @@ public:
   static void shutdown();
   static ShapePtr buildShape(const std::vector<Part>& boxes);
 
-  static void setTerrain(const std::vector<float>& heights, int n, float size);
   static uint32_t addStatic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);
   static uint32_t addPlayerOnly(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);   // blocks only the player (wire)
   static uint32_t addKinematic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);
@@ -42,9 +41,7 @@ public:
   static int boxOverlaps(vec3 center, vec3 halfExtents, quat rot, Overlap* out, int maxOut, uint64_t ignoreUd = ~0ull, bool ignoreTerrain = true);
   static ShapePtr buildCompound(const std::vector<ShapePtr>& shapes);
   static void setShape(uint32_t body, const ShapePtr& s);
-  // dynamic terrain patches: holes in the base heightfield + per-tile high-res heightfields
-  // base ground is one collision body per deformation tile; a deformed tile swaps it for a patch
-  static void setBaseTile(int tx, int tz, bool on);
+  // terrain heightfields: base chunks and per-tile high-res patches (terrain_chunks.cpp); FLT_MAX samples are holes
   static uint32_t addHeightPatch(const std::vector<float>& h, int n, vec3 origin, float spacing, uint64_t ud);
 
   // Character controller (Explore)

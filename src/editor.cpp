@@ -1,6 +1,7 @@
 // Creative mode: flying camera, asset browser, placement, selection, transforms, undo, start marker.
 #include "app.h"
 #include "mpai.h"
+#include "w3.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -22,33 +23,9 @@ static ImTextureID tex(GLuint t) { return (ImTextureID)(intptr_t)t; }
 void App::updateCreative(float dt) {
   ImGuiIO& io = ImGui::GetIO();
   bool uiMouse = io.WantCaptureMouse && !looking, uiKey = io.WantCaptureKeyboard;
-  // ---- look (RMB held)
-  bool rmb = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-  static double lmx = 0, lmy = 0;
-  if (rmb && !looking && !uiMouse && !selftest) { looking = true; glfwGetCursorPos(win, &lmx, &lmy); glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
-  if (!rmb && looking) { looking = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL); }
-  if (looking) {
-    double mx, my; glfwGetCursorPos(win, &mx, &my);
-    camYaw -= (float)(mx - lmx) * 0.12f; camPitch -= (float)(my - lmy) * 0.12f;
-    camPitch = std::clamp(camPitch, -89.0f, 89.0f); camYaw = wrapDeg(camYaw);
-    lmx = mx; lmy = my;
-  }
-  // ---- fly
+  // ---- camera: wheel zoom, MMB pan, RMB orbit, WASD/QE fly, F / Home framing, M overview, bookmarks (editor_nav.cpp)
+  w3EditorCamera(*this, dt, uiMouse, uiKey);
   bool ctrl = keyDown(win, GLFW_KEY_LEFT_CONTROL) || keyDown(win, GLFW_KEY_RIGHT_CONTROL);
-  if (!uiKey && !ctrl && !selftest) {
-    vec3 f = forward(camYaw, camPitch), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
-    vec3 mv(0);
-    if (keyDown(win, GLFW_KEY_W)) mv += f;
-    if (keyDown(win, GLFW_KEY_S)) mv -= f;
-    if (keyDown(win, GLFW_KEY_D)) mv += r;
-    if (keyDown(win, GLFW_KEY_A)) mv -= r;
-    if (keyDown(win, GLFW_KEY_E)) mv.y += 1;
-    if (keyDown(win, GLFW_KEY_Q)) mv.y -= 1;
-    float sp = flySpeed * (keyDown(win, GLFW_KEY_LEFT_SHIFT) ? 4.0f : 1.0f);
-    if (glm::length(mv) > 0) camPos += glm::normalize(mv) * sp * dt;
-    float g = terrain.height(camPos.x, camPos.z) + 0.6f;
-    camPos.y = std::max(camPos.y, g);
-  }
   // ---- scroll: context-sensitive
   float scroll = (float)gScrollY; gScrollY = 0;
   if (uiMouse) scroll = 0;
@@ -61,11 +38,11 @@ void App::updateCreative(float dt) {
       PlaceCheck c = checkPlacement(assetFor(*sel), sel->pos, ny, sel->id);
       lastCheck = c;
       if (c.ok) { sel->yaw = ny; sel->pos.y = c.y; bump(*sel); }
-    } else flySpeed = std::clamp(flySpeed * std::pow(1.2f, scroll), 2.0f, 400.0f);
+    } else w3EditorWheel(*this, scroll);   // zoom toward the cursor (editor_nav.cpp)
   }
   // ---- shortcuts
   if (!uiKey && !selftest) {
-    if (!selftest && keyPressed(win, GLFW_KEY_F5)) { enterExplore(); return; }   // scripted runs ignore the real keyboard
+    if (!selftest && keyPressed(win, GLFW_KEY_F5)) { w3EnterExplore(*this); return; }   // scripted runs ignore the real keyboard
     if (ctrl && keyPressed(win, GLFW_KEY_Z)) { if (keyDown(win, GLFW_KEY_LEFT_SHIFT)) redo(); else undo(); }
     if (ctrl && keyPressed(win, GLFW_KEY_Y)) redo();
     if (ctrl && keyPressed(win, GLFW_KEY_S)) { if (docPath.empty()) showSaveAs = true; else saveMapTo(docPath); }
@@ -76,8 +53,6 @@ void App::updateCreative(float dt) {
     if (keyPressed(win, GLFW_KEY_ESCAPE)) { if (tool != Tool::Select) { tool = Tool::Select; placing = nullptr; } else selected = 0; }
     if (!ctrl && keyPressed(win, GLFW_KEY_G)) gridSnap = !gridSnap;
     if (!ctrl && keyPressed(win, GLFW_KEY_H)) gridOverlay = !gridOverlay;
-    if (!ctrl && keyPressed(win, GLFW_KEY_M)) { tool = Tool::Marker; placing = nullptr; }
-    if (!ctrl && keyPressed(win, GLFW_KEY_1)) { tool = Tool::Select; placing = nullptr; }
     if (keyPressed(win, GLFW_KEY_F3)) showStats = !showStats;
     // rotate selection with Z / X (15° steps when snapping; continuous when held otherwise)
     if (sel && !dragging && !ctrl) {
@@ -95,7 +70,7 @@ void App::updateCreative(float dt) {
   }
   // ---- ground under cursor
   vec3 ro, rd; cursorRay(ro, rd);
-  hoverValid = terrain.raycast(ro, rd, 3000, hoverGround);
+  hoverValid = terrain.raycast(ro, rd, 20000, hoverGround);   // large maps: placing from high above
   {   // furniture: the cursor lands on real floors and table tops, not only the ground (interior.cpp)
     const AssetDef* pa = tool == Tool::Place ? placing : nullptr; uint64_t ign = 0;
     if (!pa && selected) if (Instance* si = doc.find(selected); si && interior.isProp(assetFor(*si))) { pa = assetFor(*si); ign = selected; }
@@ -126,7 +101,7 @@ void App::updateCreative(float dt) {
   } else {
     if (lmbPress) {
       float t; uint64_t id = pickInstance(ro, rd, t);
-      vec3 gp; bool g = terrain.raycast(ro, rd, 3000, gp);
+      vec3 gp; bool g = terrain.raycast(ro, rd, 20000, gp);
       if (id && (!g || t < glm::length(gp - ro) + 0.01f)) {
         selected = id; dragPending = true;
         double mx, my; glfwGetCursorPos(win, &mx, &my); dragStartMouse = vec2(mx, my);
@@ -176,14 +151,7 @@ static void arrow(Overlay& ov, vec3 from, vec3 dir, float len, vec4 col, bool to
 }
 
 void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
-  // build area border
-  float B = terrain.buildHalf;
-  vec4 bc(0.95f, 0.85f, 0.45f, 0.8f);
-  for (int side = 0; side < 4; ++side)
-    for (float s = -B; s < B; s += 10) {
-      auto P = [&](float u) { vec3 p = side == 0 ? vec3(u, 0, -B) : side == 1 ? vec3(B, 0, u) : side == 2 ? vec3(u, 0, B) : vec3(-B, 0, u); p.y = terrain.height(p.x, p.z) + 0.15f; return p; };
-      ov.line(P(s), P(std::min(s + 10, B)), bc);
-    }
+  w3Overlay(*this, ov);   // build-area outline (follows the map size), drop-in marker (editor_nav.cpp / dropin.cpp)
   vec4 ok(0.35f, 0.95f, 0.45f, 1.0f), bad(1.0f, 0.3f, 0.25f, 1.0f), selc(1.0f, 0.65f, 0.15f, 1.0f);
   // placement preview
   if (tool == Tool::Place && placing && hoverValid) {
@@ -292,7 +260,7 @@ void App::drawCreativeUI() {
       }
       ImGui::EndMenu();
     }
-    if (ImGui::MenuItem("Explore  (F5)")) enterExplore();
+    if (ImGui::MenuItem("Explore from start  (F5)")) w3EnterExplore(*this);
     mpaiMenus(*this);   // Play (Singleplayer / Host LAN / Join LAN) and Scenario menus
     ImGui::SameLine(ImGui::GetWindowWidth() - 360);
     ImGui::TextDisabled("%s%s  |  %s", doc.name.c_str(), dirty ? " *" : "", docPath.empty() ? "unsaved" : docPath.filename().string().c_str());
@@ -307,15 +275,15 @@ void App::drawCreativeUI() {
     if (active) ImGui::PopStyleColor();
     ImGui::SameLine(); return r;
   };
-  if (toolBtn("Select (1)", tool == Tool::Select)) { tool = Tool::Select; placing = nullptr; }
-  if (toolBtn("Explore start (M)", tool == Tool::Marker)) { tool = Tool::Marker; placing = nullptr; }
+  if (toolBtn("Select (Esc)", tool == Tool::Select)) { tool = Tool::Select; placing = nullptr; }
+  w3Toolbar(*this); ImGui::SameLine();   // drop-in soldier: drag onto the terrain (dropin.cpp)
   if (toolBtn(gridSnap ? "Grid snap: on (G)" : "Grid snap: off (G)", gridSnap)) gridSnap = !gridSnap;
   if (toolBtn(rotSnap ? "Rotate: 15 deg" : "Rotate: free", rotSnap)) rotSnap = !rotSnap;
   if (toolBtn("Doors & windows", editInteract)) editInteract = !editInteract;
   if (toolBtn("Undo", false)) undo();
   if (toolBtn("Redo", false)) redo();
   ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.38f, 0.50f, 1));
-  if (ImGui::Button("Explore (F5)")) enterExplore();
+  if (ImGui::Button("Explore from start (F5)")) w3EnterExplore(*this);
   ImGui::PopStyleColor();
   ImGui::End();
 
@@ -381,7 +349,7 @@ void App::drawCreativeUI() {
     ImGui::Separator();
     float xz[2] = {s->pos.x, s->pos.z}; float yaw = s->yaw;
     bool changed = false, activated = false;
-    ImGui::DragFloat2("Position X/Z (m)", xz, 0.05f, -1000, 1000, "%.2f"); activated |= ImGui::IsItemActivated(); changed |= ImGui::IsItemEdited();
+    ImGui::DragFloat2("Position X/Z (m)", xz, 0.05f, -terrain.buildHalf, terrain.buildHalf, "%.2f"); activated |= ImGui::IsItemActivated(); changed |= ImGui::IsItemEdited();
     ImGui::DragFloat("Rotation (deg)", &yaw, 0.5f, -720, 720, "%.1f"); activated |= ImGui::IsItemActivated(); changed |= ImGui::IsItemEdited();
     ImGui::TextDisabled("Height %.2f m (follows highest ground under footprint)", s->pos.y);
     static bool editing = false;
@@ -459,7 +427,7 @@ void App::drawCreativeUI() {
   } else if (dragging) {
     ImGui::TextColored(lastCheck.ok ? ImVec4(0.5f, 1, 0.55f, 1) : ImVec4(1, 0.5f, 0.4f, 1), "Moving  |  wheel rotates  |  %s", lastCheck.reason.c_str());
   } else {
-    ImGui::TextDisabled("RMB+mouse look | WASD fly | Q/E down/up | Shift fast | wheel speed (%.0f m/s) | LMB select/drag | Z/X rotate | F5 explore", flySpeed);
+    ImGui::TextDisabled("%s", w3StatusHelp());
   }
   ImGui::End();
   if (now < noticeUntil) {  // prominent banner under the toolbar
@@ -483,37 +451,7 @@ void App::drawCreativeUI() {
   }
 
   // ---- modals
-  if (showNewMap) { ImGui::OpenPopup("New map"); showNewMap = false; }
-  ImGui::SetNextWindowSize(ImVec2(760, 0), ImGuiCond_Appearing);
-  if (ImGui::BeginPopupModal("New map", nullptr)) {
-    ImGui::InputText("Map name", nameBuf, sizeof nameBuf);
-    ImGui::Separator();
-    for (int k = 0; k < (int)templates.size(); ++k) {
-      auto& t = templates[k];
-      ImGui::PushID(k);
-      ImGui::BeginDisabled(!t.available);
-      bool sel = newTemplateIdx == k;
-      if (t.thumbnail) ImGui::Image(tex(t.thumbnail), ImVec2(160, 100), ImVec2(0, 0.8f), ImVec2(1, 0.2f));
-      else ImGui::Dummy(ImVec2(160, 100));
-      ImGui::SameLine();
-      ImGui::BeginGroup();
-      if (ImGui::Selectable(t.name.c_str(), sel, 0, ImVec2(540, 0))) newTemplateIdx = k;
-      ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 540);
-      ImGui::TextDisabled("%s", t.description.c_str());
-      if (!t.available) ImGui::TextColored(ImVec4(1, 0.7f, 0.3f, 1), "Not included in this build yet.");
-      ImGui::PopTextWrapPos();
-      ImGui::EndGroup();
-      ImGui::EndDisabled();
-      ImGui::PopID();
-    }
-    ImGui::Separator();
-    bool canCreate = newTemplateIdx < (int)templates.size() && templates[newTemplateIdx].available;
-    ImGui::BeginDisabled(!canCreate);
-    if (ImGui::Button("Create editable copy")) { newMap(templates[newTemplateIdx], nameBuf); ImGui::CloseCurrentPopup(); }
-    ImGui::EndDisabled();
-    ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
-  }
+  w3EditorUI(*this);   // New Map dialog (size, presets, estimate), overview map, drop-in drag (editor_nav.cpp)
   if (showOpen) { ImGui::OpenPopup("Open map"); showOpen = false; }
   ImGui::SetNextWindowSize(ImVec2(620, 420), ImGuiCond_Appearing);
   if (ImGui::BeginPopupModal("Open map", nullptr)) {

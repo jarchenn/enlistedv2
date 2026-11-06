@@ -1,6 +1,7 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
 #include "mpai.h"
+#include "w3.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -385,6 +386,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
 
 void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
+  if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
   if (!selftest) {
     if (rackOpen && kp(win, GLFW_KEY_ESCAPE)) closeRack("closed");
     else if (kp(win, GLFW_KEY_ESCAPE)) {
