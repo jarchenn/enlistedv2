@@ -36,7 +36,19 @@ export class Asset {
     (o.into || this._target).push(p);
     return p;
   }
-  // triangular prism: triangle in (u,v) extruded along axis (0:x → (z,y), 2:z → (x,y))
+  // rounded box from min/max corners: every edge rounded by `rad` (render and collision; src/assets.cpp appendRound).
+  // Not a damage-field bay: use it for plinths, roof slabs, hoods, piers, not for the destructible wall body.
+  rbox(min, max, rad, m, o = {}) {
+    const c = [0, 1, 2].map((i) => R3((min[i] + max[i]) / 2));
+    const s = [0, 1, 2].map((i) => R3(Math.abs(max[i] - min[i])));
+    if (s.some((x) => x < 1e-4)) return null;
+    const p = { t: "r", c, s, rad: R3(Math.min(rad, ...s.map((x) => x / 2))), m };
+    if (o.v === 0) p.v = 0;
+    if (o.k === 0) p.k = 0;
+    (o.into || this._target).push(p);
+    return p;
+  }
+  // triangular prism: triangle in (u,v) extruded along axis (0:x → (z,y), 1:y → (x,z), 2:z → (x,y))
   prism(axis, a0, a1, tri, m, o = {}) {
     const p = { t: "p", axis, a: [R3(a0), R3(a1)], tri: tri.map((q) => q.map(R3)), m };
     if (o.v === 0) p.v = 0;

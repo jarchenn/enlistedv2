@@ -110,9 +110,9 @@ ShapePtr Physics::buildShape(const std::vector<Part>& parts) {
   RefConst<Shape> single; Vec3 singlePos; Quat singleRot;
   for (auto& p : parts) {
     RefConst<Shape> s; Vec3 pos = jv(p.center); Quat rot = jq(p.rot);
-    if (p.shape == Part::BOX) {
+    if (p.shape == Part::BOX || p.shape == Part::ROUND) {   // ROUND: Jolt's convex radius rounds the box edges
       vec3 h = glm::max(p.size * 0.5f, vec3(0.005f));
-      float cr = std::min(0.02f, std::min(h.x, std::min(h.y, h.z)) * 0.5f);
+      float cr = std::min(p.shape == Part::ROUND ? std::max(0.02f, p.rad) : 0.02f, std::min(h.x, std::min(h.y, h.z)) * (p.shape == Part::ROUND ? 0.999f : 0.5f));
       s = new BoxShape(jv(h), cr);
     } else {
       Array<Vec3> pts;

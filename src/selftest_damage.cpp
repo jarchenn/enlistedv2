@@ -277,7 +277,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
     app.eyeYaw = worldYaw(app, 180);
     json st = json::array({
       json{{"look", {c.x, 1.0, -2.0}}, {"hold", 0.4}}, json{{"shot", "32_casemate_breach"}},
-      json{{"goto", {c.x, -1.2}}, {"expectY", 0.2}, {"note", "walk into the casemate through the breach"}},
+      json{{"goto", {c.x, -1.2}}, {"expectY", 0.3}, {"note", "walk into the casemate through the breach"}},
     });
     beginCustom(app, "bunker_mg_casemate", X.C, st);
     go(506);
@@ -310,6 +310,38 @@ void SelfTest::damageUpdate(App& app, float dt) {
     break;
   // ------------------------------------------------------------- every variant, rotated, off-centre impacts
   case 508: {
+    {   // ---- large casemate (docs/bunkers.md): box walls are damage bays, the rounded hood / nose / plinth are not
+      const AssetDef* la = app.lib.find("bunker_large_casemate");
+      uint64_t L = la ? app.placeInstance(la, vec3(-150, 0, -150), 60.0f) : 0;
+      app.syncRuntime();
+      check(L != 0, "large casemate placed (rotated 60 deg)");
+      if (L) {
+        int k = -1; float best = 0, embK = -1;
+        for (size_t q = 0; q < la->panels.size(); ++q) {
+          const Panel& p = la->panels[q];
+          if (p.id.find("/rear/") != std::string::npos && tangentWidth(p) > best) { best = tangentWidth(p); k = (int)q; }
+          if (p.normal.z > 0.5f && std::fabs(p.bmax.z - 3.5f) < 0.05f && p.bmin.y > 2.2f) embK = (float)q;   // embrasure wall above the slit
+        }
+        int rounds = 0; for (auto& p : la->parts) rounds += p.shape == Part::ROUND;
+        check(k >= 0 && embK >= 0 && rounds > 10, "large casemate: rear main wall bay, embrasure-wall bay above the slit, " + std::to_string(rounds) + " rounded static parts");
+        if (k >= 0) {
+          const Panel& p = la->panels[k];
+          hitPanel(app, L, p);
+          check(app.rt[L].state[k] != PANEL_BREACHED, "large casemate rear wall (1.2 m reinforced concrete) survives the first HE hit");
+          int n = 1;
+          while (app.rt[L].state[k] != PANEL_BREACHED && n < 16) { hitPanel(app, L, p); ++n; }
+          float t;
+          check(app.rt[L].state[k] == PANEL_BREACHED && rayPasses(app, L, p, t), "large casemate rear bay " + p.id + " opened by " + std::to_string(n) + " HE hits; a ray passes");
+          summary["large_casemate_hits_to_breach"] = n;
+        }
+        if (embK >= 0) {
+          const Panel& p = la->panels[(int)embK];
+          vec3 c = (p.bmin + p.bmax) * 0.5f;
+          hitAt(app, L, vec3(c.x, c.y, p.bmax.z + 0.02f), vec3(0, 0, -1), WALL_AP, 320.0f);
+          check(app.rt[L].state[(int)embK] != PANEL_INTACT, "an AT round into the embrasure wall above the slit damages it (state " + std::to_string(app.rt[L].state[(int)embK]) + ")");
+        }
+      }
+    }
     {   // ---- damage-field properties on fresh copies: corner, seam, oblique vs straight, deterministic replay
       const AssetDef* fa = app.lib.find(FH);
       uint64_t c1 = app.placeInstance(fa, vec3(-230, 0, 150), 0.0f), c2 = app.placeInstance(fa, vec3(-190, 0, 150), 0.0f);
