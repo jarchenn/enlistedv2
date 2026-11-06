@@ -189,9 +189,23 @@ Terrain::Tile* Terrain::activate(int tx, int tz) {
   return &ref;
 }
 
+// Irregular oblong crater outline, deterministic per impact point: an ellipse stretched 1.1-1.45x along a random
+// axis, times four positive low harmonics (lobes). Every direction is at least the nominal radius.
+static uint32_t cmix(uint32_t h) { h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16; return h; }
+static float crnd(uint32_t s, uint32_t a) { return (cmix(s ^ cmix(a * 0x9E3779B1u + 0x85ebca6bu)) & 0xFFFFFF) / 16777216.0f; }
+float Terrain::craterShape(vec2 c, float angle) {
+  uint32_t s = cmix((uint32_t)(int32_t)std::floor(c.x * 20.0f) * 73856093u ^ (uint32_t)(int32_t)std::floor(c.y * 20.0f) * 19349663u);
+  float stretch = 1.1f + 0.35f * crnd(s, 1), axis = 3.14159265f * crnd(s, 2);
+  float ca = std::cos(angle - axis), sa = std::sin(angle - axis);
+  float m = stretch / std::sqrt(ca * ca + stretch * stretch * sa * sa);   // ellipse radius, semi-axes stretch and 1
+  float lobes = 1.0f;
+  for (int h = 0; h < 4; ++h) lobes += 0.07f / (1.0f + 0.6f * h) * (0.5f + crnd(s, 10 + h)) * (0.5f + 0.5f * std::cos((h + 2) * angle + 6.2831853f * crnd(s, 20 + h)));
+  return m * lobes;
+}
+
 std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<float(float, float)>& weight, float maxDepth) {
   std::vector<int> touched;
-  float reach = R * 1.45f, ts = tileSize(), fs = fineSpacing();
+  float reach = R * 1.45f * 1.45f * 1.21f, ts = tileSize(), fs = fineSpacing();   // stretch and lobes reach ~1.75 R
   int tx0 = (int)std::floor((c.x - reach + size * 0.5f) / ts), tx1 = (int)std::floor((c.x + reach + size * 0.5f) / ts);
   int tz0 = (int)std::floor((c.z - reach + size * 0.5f) / ts), tz1 = (int)std::floor((c.z + reach + size * 0.5f) / ts);
   for (int tz = tz0; tz <= tz1; ++tz)
@@ -203,7 +217,10 @@ std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<f
       for (int j = 0; j < kFineN; ++j)
         for (int i = 0; i < kFineN; ++i) {
           float x = o.x + i * fs, z = o.y + j * fs;
-          float r = glm::length(vec2(x - c.x, z - c.z)) / R;
+          vec2 dd(x - c.x, z - c.z);
+          float dl = glm::length(dd);
+          if (dl > reach) continue;
+          float r = dl / (R * (dl > 1e-5f ? craterShape(vec2(c.x, c.z), std::atan2(dd.y, dd.x)) : 1.0f));
           if (r > 1.45f) continue;
           // Z_new = Z_old - D * (max(0, 1 - d^2/R^2))^p, p = 2 (no rim term: the profile is exactly the formula)
           float u = std::max(0.0f, 1 - r * r);

@@ -61,6 +61,67 @@ float removedWidth(App& app, uint64_t id, int k) {
   for (int v = 0; v < nv; ++v) for (int u = 0; u < nu; ++u) if (w.rf[v * nu + u] + w.rb[v * nu + u] > 0.02f) { lo = std::min(lo, u); hi = std::max(hi, u); }
   return hi < lo ? 0 : (hi - lo + 1) * W / nu;
 }
+// a wall bay's damage field as grids: open (through-hole) and damaged (> 2 cm removed) cells
+struct Grid { int nu = 0, nv = 0; std::vector<uint8_t> open, dmg; float maxRemoved = 0; };
+Grid gridOf(App& app, uint64_t id, int k) {
+  Grid g;
+  const Panel& p = app.rt[id].asset->panels[k];
+  auto& w = app.rt[id].wf[k];
+  if (w.rf.empty()) return g;
+  g.nu = std::max(1, (int)std::ceil(tangentWidth(p) / app.destruction.cell)); g.nv = (int)w.rf.size() / g.nu;
+  float T = std::fabs(glm::dot(p.bmax - p.bmin, glm::abs(p.normal)));
+  for (size_t i = 0; i < w.rf.size(); ++i) {
+    float rm = w.rf[i] + w.rb[i];
+    g.open.push_back(rm >= T - 1e-4f); g.dmg.push_back(rm > 0.02f); g.maxRemoved = std::max(g.maxRemoved, std::min(rm, T));
+  }
+  return g;
+}
+// solid cells left in a row / column run of at most n cells with a hole on both sides (slivers between holes)
+int sliverCells(const Grid& g, int n) {
+  int count = 0;
+  for (int axis = 0; axis < 2; ++axis) {
+    int lines = axis ? g.nu : g.nv, len = axis ? g.nv : g.nu;
+    for (int a = 0; a < lines; ++a) {
+      auto at = [&](int b) { return axis ? g.open[b * g.nu + a] : g.open[a * g.nu + b]; };
+      for (int b = 0; b < len;) {
+        if (at(b)) { ++b; continue; }
+        int e = b; while (e < len && !at(e)) ++e;
+        if (b > 0 && e < len && e - b <= n) count += e - b;
+        b = e;
+      }
+    }
+  }
+  return count;
+}
+// separate through-holes (4-connected, at least 4 cells)
+int openComponents(const Grid& g) {
+  std::vector<uint8_t> seen(g.open.size(), 0);
+  int comps = 0;
+  for (int s = 0; s < (int)g.open.size(); ++s) {
+    if (!g.open[s] || seen[s]) continue;
+    int sz = 0; std::vector<int> st{s}; seen[s] = 1;
+    while (!st.empty()) {
+      int i = st.back(); st.pop_back(); ++sz;
+      int u = i % g.nu, v = i / g.nu;
+      const int nb[4] = {u > 0 ? i - 1 : -1, u < g.nu - 1 ? i + 1 : -1, v > 0 ? i - g.nu : -1, v < g.nv - 1 ? i + g.nu : -1};
+      for (int m : nb) if (m >= 0 && g.open[m] && !seen[m]) { seen[m] = 1; st.push_back(m); }
+    }
+    if (sz >= 4) ++comps;
+  }
+  return comps;
+}
+// aspect ratio (major / minor axis, from second moments) and orientation of the damaged region
+float aspectOf(const Grid& g, float& angleDeg) {
+  double n = 0, su = 0, sv = 0, suu = 0, svv = 0, suv = 0;
+  for (int v = 0; v < g.nv; ++v) for (int u = 0; u < g.nu; ++u) if (g.dmg[v * g.nu + u]) { n += 1; su += u; sv += v; suu += (double)u * u; svv += (double)v * v; suv += (double)u * v; }
+  angleDeg = 0;
+  if (n < 8) return 1.0f;
+  double mu = su / n, mv = sv / n, a = suu / n - mu * mu, c = svv / n - mv * mv, b = suv / n - mu * mv;
+  double tr = a + c, det = a * c - b * b, disc = std::sqrt(std::max(0.0, tr * tr / 4 - det));
+  double l1 = tr / 2 + disc, l2 = std::max(1e-9, tr / 2 - disc);
+  angleDeg = (float)(0.5 * std::atan2(2 * b, a - c) * 57.29578);
+  return (float)std::sqrt(l1 / l2);
+}
 float physGround(vec3 p) { Physics::Hit h; return Physics::castRayEx(vec3(p.x, p.y + 30, p.z), vec3(0, -1, 0), 80, h) ? h.pos.y : -999; }
 }
 
@@ -310,6 +371,36 @@ void SelfTest::damageUpdate(App& app, float dt) {
     break;
   // ------------------------------------------------------------- every variant, rotated, off-centre impacts
   case 508: {
+    {   // ---- iron doors and steel shutters / flaps: no weapon breaks them
+      const AssetDef* ca = app.lib.find("bunker_mg_casemate");
+      Instance* ic = app.doc.find(X.C); InstanceRT& rc = app.rt[X.C];
+      int tested = 0, broke = 0; std::string names;
+      vec3 bc = ic->pos + yawQuat(ic->yaw) * ((ca->bmin + ca->bmax) * 0.5f);
+      for (size_t kk = 0; kk < ca->interactables.size(); ++kk) {
+        const InteractDef& d = ca->interactables[kk];
+        if (d.sound != "steel") continue;
+        names += " " + d.id;
+        for (size_t l = 0; l < d.leaves.size(); ++l) {
+          const Leaf& lf = d.leaves[l];
+          if (lf.colliders.empty()) continue;
+          vec3 c = vec3(app.leafMatrix(*ic, lf, d, rc.progress[kk]) * vec4(lf.colliders[0].center, 1));
+          vec3 out = vec3(c.x - bc.x, 0, c.z - bc.z); out = glm::length(out) > 1e-4f ? glm::normalize(out) : vec3(0, 0, 1);
+          for (int s = 0; s < 40; ++s) {   // 40 rifle rounds straight into the leaf
+            Projectile pr; pr.kind = PROJ_BULLET; pr.v = -out * 853.0f; pr.mass = 0.0097f; pr.dmg = 50; pr.p = c + out;
+            Physics::Hit h; h.pos = c; h.normal = out; h.ud = (X.C << 16) | (uint64_t)(kk + 1);
+            std::string sf; app.bulletImpact(pr, h, sf);
+          }
+          app.explode(c + out * 0.3f, -out, kHE, kHER, 0.0f, ~0ull, WALL_HE);          // AT-gun / tank HE
+          app.explode(c + out * 0.3f, -out, 320.0f, 0.9f, 0.0f, ~0ull, WALL_AP);       // AT-gun / tank AP
+          app.explode(c + out * 0.3f, -out, 320.0f, 1.3f, 0.0f, ~0ull, WALL_ROCKET);   // Panzerschreck
+          app.explode(c + out * 0.3f, vec3(0, -1, 0), 85.0f, 4.5f, 0.0f, ~0ull, WALL_GRENADE);
+          app.detachLeaf(*ic, rc, (int)kk, (int)l, -out * 500.0f, c, true);           // any other caller
+          ++tested; if (rc.leafSt[kk][l] & 2) ++broke;
+        }
+      }
+      check(tested >= 3 && broke == 0, "iron doors and steel shutters are unbreakable: " + std::to_string(tested) + " steel leaves (" + names.substr(names.empty() ? 0 : 1) + ") survive 40 rifle rounds, HE, AP, rocket and grenade blasts at 0.3 m; " + std::to_string(broke) + " broke");
+      app.resetDamage();
+    }
     {   // ---- damage-field properties on fresh copies: corner, seam, oblique vs straight, deterministic replay
       const AssetDef* fa = app.lib.find(FH);
       uint64_t c1 = app.placeInstance(fa, vec3(-230, 0, 150), 0.0f), c2 = app.placeInstance(fa, vec3(-190, 0, 150), 0.0f);
@@ -365,7 +456,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
       vec3 obl = glm::normalize(-n + t * 1.7f);   // ~60 deg from the normal
       hitAt(app, c2, fp + n * 0.01f, obl);
       float wOblique = removedWidth(app, c2, k);
-      char b[200]; std::snprintf(b, sizeof b, "an oblique (60 deg) hit gouges along the shot: %.2f m wide vs %.2f m for a straight hit of the same energy", wOblique, wStraight);
+      char b[400]; std::snprintf(b, sizeof b, "an oblique (60 deg) hit gouges along the shot: %.2f m wide vs %.2f m for a straight hit of the same energy", wOblique, wStraight);
       check(wOblique > wStraight * 1.2f, b);
       // deterministic: replaying the stored events reproduces the field cell for cell
       hitAt(app, c2, fp + n * 0.01f + t * 0.3f, -n, WALL_AP, 320.0f);
@@ -384,8 +475,80 @@ void SelfTest::damageUpdate(App& app, float dt) {
       app.resetDamage();
       hitAt(app, c2, fp + n * 0.01f, -n, WALL_HE, kHE);
       bool heOpen = app.rt[c2].state[k] == PANEL_BREACHED;
-      std::snprintf(b, sizeof b, "masonry: one AP hit breaches locally (%.2f m^2 open); one HE hit only craters, the second at the same spot breaches (canonical fortification rule)", apOpen);
-      check(apBreach && !heOpen && apOpen < 0.6f, b);
+      std::snprintf(b, sizeof b, "masonry: one AT / tank-gun AP hit blows a large breach (%.2f m^2 open; 0.29 before the bigger AP profile); one HE hit only craters, the second at the same spot breaches (canonical fortification rule)", apOpen);
+      check(apBreach && !heOpen && apOpen > 1.3f && apOpen < 4.5f, b);
+      summary["ap_breach_m2"] = apOpen;
+      // irregular damage: every impact is a random oblong (not a circle), different per impact; broken edges get
+      // 45-degree wedges instead of 4 cm stair-steps
+      app.resetDamage();
+      hitAt(app, c1, fp + n * 0.01f, -n); hitAt(app, c2, fp + n * 0.01f, -n);
+      {
+        float a1, a2; float s1 = aspectOf(gridOf(app, c1, k), a1), s2 = aspectOf(gridOf(app, c2, k), a2);
+        int ch = app.rt[c2].wf[k].chamfers;
+        std::snprintf(b, sizeof b, "HE damage is an irregular oblong, not a circle: aspect %.2f at %.0f deg and %.2f at %.0f deg on two copies; %d edge wedges smooth the break line", s1, a1, s2, a2, ch);
+        check(s1 > 1.12f && s2 > 1.12f && (std::fabs(a1 - a2) > 10.0f || std::fabs(s1 - s2) > 0.1f) && ch > 0, b);
+      }
+      // no slivers: two launcher holes side by side, cleanup off (A) vs on (B)
+      {
+        float keep = app.destruction.bridgeMax;
+        int N = (int)std::floor(keep / app.destruction.cell + 1e-3f), off = 0, on = 0, merged = 0, cases = 0;
+        for (int pass = 0; pass < 2; ++pass) {
+          app.destruction.bridgeMax = pass == 0 ? 0.0f : keep;
+          for (float sp : {0.50f, 0.55f, 0.60f, 0.65f, 0.70f, 0.75f}) {
+            app.resetDamage();
+            hitAt(app, c2, fp + n * 0.01f - t * sp * 0.5f, -n, WALL_ROCKET, 260.0f);
+            hitAt(app, c2, fp + n * 0.01f + t * sp * 0.5f, -n, WALL_ROCKET, 260.0f);
+            Grid g = gridOf(app, c2, k);
+            int s = sliverCells(g, N);
+            if (pass) { on += s; merged += openComponents(g) == 1; ++cases; } else off += s;
+          }
+        }
+        app.destruction.bridgeMax = keep;
+        std::snprintf(b, sizeof b, "no slivers between neighbouring holes: two launcher holes 0.50-0.75 m apart leave %d sliver cells without the cleanup and %d with it (strips <= %.2f m cleared; %d of %d pairs joined)", off, on, keep, merged, cases);
+        check(off > 0 && on == 0, b);
+        // holes that are genuinely apart stay apart
+        app.resetDamage();
+        hitAt(app, c2, fp + n * 0.01f + vec3(0, 0.35f, 0), -n, WALL_ROCKET, 260.0f);
+        hitAt(app, c2, fp + n * 0.01f - vec3(0, 0.75f, 0), -n, WALL_ROCKET, 260.0f);
+        int comps = openComponents(gridOf(app, c2, k));
+        check(comps == 2, "two launcher holes 1.1 m apart stay two separate holes (" + std::to_string(comps) + " holes)");
+      }
+      // grenades do structural damage where they land, with the Bazooka's stamp radius
+      {
+        app.resetDamage();
+        vec3 foot = fp; foot.y = p.bmin.y + 0.15f;
+        hitAt(app, c2, foot + n * 0.25f, vec3(0, -1, 0), WALL_GRENADE, 80.0f);
+        Grid gg = gridOf(app, c2, k); float gW = removedWidth(app, c2, k);
+        app.resetDamage();
+        hitAt(app, c2, foot + n * 0.01f, -n, WALL_ROCKET, 260.0f);
+        float rW = removedWidth(app, c2, k);
+        std::snprintf(b, sizeof b, "a grenade lying 0.25 m from the wall foot breaks the masonry: %.2f m wide, up to %.2f m deep (Bazooka at the same spot: %.2f m wide)", gW, gg.maxRemoved, rW);
+        check(gW > 0.6f * rW && gW < 1.6f * rW && gg.maxRemoved > 0.2f, b);
+        summary["grenade_wall_width_m"] = gW; summary["grenade_wall_depth_m"] = gg.maxRemoved;
+      }
+      // wooden doors break into pieces
+      {
+        app.resetDamage();
+        int kd = fa->findInteract("front_door");
+        Instance* i2 = app.doc.find(c2); InstanceRT& r2d = app.rt[c2];
+        if (kd >= 0 && i2) {
+          const InteractDef& d = fa->interactables[kd]; const Leaf& lf = d.leaves[0];
+          vec3 c = vec3(app.leafMatrix(*i2, lf, d, r2d.progress[kd]) * vec4(lf.colliders[0].center, 1));
+          vec3 bc = i2->pos + yawQuat(i2->yaw) * ((fa->bmin + fa->bmax) * 0.5f), out = vec3(c.x - bc.x, 0, c.z - bc.z);
+          out = glm::length(out) > 1e-4f ? glm::normalize(out) : vec3(0, 0, 1);
+          size_t before = app.dynLeaves.size();
+          app.explode(c + out * 0.6f, -out, kHE, kHER, 0.0f, ~0ull, WALL_HE);
+          int frags = 0; vec3 lo(1e9f), hi(-1e9f);
+          for (size_t q = before; q < app.dynLeaves.size(); ++q) {
+            auto& x = app.dynLeaves[q];
+            if (x->inst != c2 || x->k != kd) continue;
+            frags += x->fragment;
+            vec3 pp; quat qq; Physics::getTransform(x->body, pp, qq); lo = glm::min(lo, pp); hi = glm::max(hi, pp);
+          }
+          std::snprintf(b, sizeof b, "a shell at the farmhouse front door breaks it into %d pieces (own rigid bodies spread over %.2f x %.2f m), not one leaf", frags, std::max(hi.x - lo.x, hi.z - lo.z), hi.y - lo.y);
+          check((r2d.leafSt[kd][0] & 2) && frags >= 6, b);
+        } else check(false, "farmhouse front door found");
+      }
       app.resetDamage();
       app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) { return i.id == c1 || i.id == c2; }), app.doc.instances.end());
       app.syncRuntime();

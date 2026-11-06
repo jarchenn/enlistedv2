@@ -20,7 +20,7 @@ struct WallEvent { vec3 p{0}, d{0, 0, -1}; int kind = WALL_HE; float dmg = 120; 
 struct WallField {
   std::vector<float> rf, rb;   // removed depth (m) from the front (+normal) and back face, per cell
   bool active = false;         // has its own rebuilt mesh / collision
-  float openArea = 0, removedFrac = 0; int boxes = 0;
+  float openArea = 0, removedFrac = 0; int boxes = 0, chamfers = 0;
 };
 
 // Runtime (non-saved) state for one placed instance. Rebuilt whenever Instance::rev changes.
@@ -145,6 +145,7 @@ public:
     float depthStep = 0.02f;    // removed-depth quantisation for the rebuilt mesh (m)
     float breachArea = 0.04f;   // through-hole area that counts a bay as breached (m^2)
     int maxFragmentsPerHit = 8;
+    float bridgeMax = 0.18f;    // strips of wall at most this wide left between damaged areas are cleared (m)
   } destruction;
   void initWallFields(InstanceRT& r);
   int stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<std::string>* hitIds, int* newlyBreached);
@@ -161,9 +162,10 @@ public:
   Explosion lastExplosion;
   void drawDamageDebug();
   // ---- surface damage & penetration (ballistics.cpp)
-  struct DynLeaf { uint64_t inst = 0; int k = 0, l = 0; uint32_t body = 0xffffffffu; std::unique_ptr<GpuMesh> fractured; float age = 0; bool frozen = false; };
+  struct DynLeaf { uint64_t inst = 0; int k = 0, l = 0; uint32_t body = 0xffffffffu; std::unique_ptr<GpuMesh> fractured; float age = 0; bool frozen = false;
+                   ShapePtr shape; bool fragment = false; };   // fragment: one piece of a shattered door (own shape and mesh)
   std::vector<std::unique_ptr<DynLeaf>> dynLeaves;
-  size_t maxDynLeaves = 24;
+  size_t maxDynLeaves = 64;
   std::vector<Projectile> spawnedProjectiles;      // penetrating continuations, appended after the step
   struct PenetrationInfo { std::string surface; float thickness = 0, eIn = 0, eOut = 0; bool through = false; vec3 entry{0}, exit{0}; };
   PenetrationInfo lastPen;
@@ -172,6 +174,8 @@ public:
   bool locateLeaf(const Instance& i, const InstanceRT& r, int k, vec3 world, int& leaf, bool& onGlass) const;
   void breakGlass(Instance& i, InstanceRT& r, int k, int l, vec3 at);
   void detachLeaf(Instance& i, InstanceRT& r, int k, int l, vec3 impulse, vec3 at, bool fracture);
+  int shatterLeaf(Instance& i, InstanceRT& r, int k, int l, vec3 impulse, vec3 at);   // door -> plank fragments; returns pieces
+  bool leafBreakable(const InteractDef& d) const;   // false for steel doors, shutters and flaps (any weapon)
   void blastLeaves(vec3 p, float radius);
   void stepDynLeaves(float dt);
   void resetLeafDamage();

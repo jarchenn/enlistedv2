@@ -64,12 +64,40 @@ float coordOf(const Frame& f, float s) { return f.front - f.ns * s; }
 struct Profile { float r, depth, ref; };
 Profile profileFor(int kind) {
   switch (kind) {
-    case WALL_AP:      return {0.30f, 0.95f, 320.0f};   // AT shot: small, deep, perforates masonry in one hit
-    case WALL_ROCKET:  return {0.30f, 0.55f, 290.0f};   // launchers: smaller breach than an AT-gun HE shell
-    case WALL_GRENADE: return {0.22f, 0.07f, 80.0f};    // grenades: chips and cratering, no masonry breach
+    case WALL_AP:      return {0.80f, 1.60f, 320.0f};   // AT / tank-gun shot: large, deep, perforates masonry and 1 m concrete in one hit
+    case WALL_ROCKET:  return {0.30f, 0.55f, 290.0f};   // launchers: smaller breach than an AT-gun shell (0.29 m at Bazooka 260)
+    case WALL_GRENADE: return {0.29f, 0.36f, 80.0f};    // grenades: the Bazooka's stamp radius (0.29 m at 80), deep crater, holes in thin walls
     case WALL_BULLET:  return {0.035f, 0.025f, 1.0f};   // small arms: plaster / face chips only
-    default:           return {0.55f, 0.30f, 120.0f};   // HE shell: wide crater; a second hit there breaches
+    default:           return {0.60f, 0.30f, 120.0f};   // HE shell (AT gun / tank gun): wide crater; a second hit there breaches
   }
+}
+
+// smooth value noise in [0, 1), deterministic per seed: ragged but continuous break edges (no per-cell speckle)
+float vnoise(uint32_t seed, float x, float y) {
+  float fx = std::floor(x), fy = std::floor(y), tx = x - fx, ty = y - fy;
+  int ix = (int)fx, iy = (int)fy;
+  tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+  auto h = [&](int a, int b) { return rnd01(seed, (uint32_t)a, (uint32_t)b); };
+  return glm::mix(glm::mix(h(ix, iy), h(ix + 1, iy), tx), glm::mix(h(ix, iy + 1), h(ix + 1, iy + 1), tx), ty);
+}
+
+// Random oblong, lobed outline of one impact (same for every bay the impact reaches, so seams stay consistent):
+// an ellipse of random aspect 1.2-1.65 and orientation (area-preserving), with four low harmonics on its radius.
+struct Outline { float sa = 1, c = 1, s = 0; float amp[4]{}, ph[4]{}; };
+Outline outlineFor(uint32_t seed) {
+  Outline o;
+  o.sa = std::sqrt(1.2f + 0.45f * rnd01(seed, 101u, 1u));
+  float th = 3.14159265f * rnd01(seed, 103u, 2u);
+  o.c = std::cos(th); o.s = std::sin(th);
+  for (int h = 0; h < 4; ++h) { o.amp[h] = 0.075f / (1.0f + 0.6f * h) * (0.5f + rnd01(seed, 107u, (uint32_t)h)); o.ph[h] = 6.2831853f * rnd01(seed, 109u, (uint32_t)h); }
+  return o;
+}
+// normalised distance of in-plane offset g (m) from the outline centre: 1 on the outline of radius `rad`
+float outlineQ(const Outline& o, vec2 g, float rad) {
+  float eu = (g.x * o.c + g.y * o.s) / o.sa, ev = (-g.x * o.s + g.y * o.c) * o.sa;
+  float phi = std::atan2(ev, eu), m = 1.0f;
+  for (int h = 0; h < 4; ++h) m += o.amp[h] * std::cos((h + 2) * phi + o.ph[h]);
+  return std::sqrt(eu * eu + ev * ev) / (rad * m);
 }
 }
 
@@ -86,14 +114,53 @@ static WallField& fieldFor(InstanceRT& r, size_t k, const Frame& f) {
   return w;
 }
 
+// bays in the same wall slab as bay k (same normal axis, overlapping thickness)
+static std::vector<size_t> coplanarBays(const AssetDef* a, size_t k, int ank, float cell) {
+  std::vector<size_t> out;
+  const Panel& pk = a->panels[k];
+  for (size_t j = 0; j < a->panels.size(); ++j) {
+    const Panel& pj = a->panels[j];
+    if (j == k || panelFrame(pj, cell).an != ank) continue;
+    float ov = std::min(pk.bmax[ank], pj.bmax[ank]) - std::max(pk.bmin[ank], pj.bmin[ank]);
+    if (ov < 0.5f * std::min(pk.bmax[ank] - pk.bmin[ank], pj.bmax[ank] - pj.bmin[ank])) continue;   // not the same wall slab
+    out.push_back(j);
+  }
+  return out;
+}
+// Is the cell of a coplanar bay at bay-plane point (u, v) open (material gone through)? -1: no coplanar bay there
+// (an opening, the outside), 0: solid, 1: open. Used so the sliver cleanup sees across seams between bays.
+static int openInBay(const InstanceRT& r, const std::vector<size_t>& cands, float u, float v, float cell) {
+  const AssetDef* a = r.asset;
+  for (size_t j : cands) {
+    const Panel& pj = a->panels[j];
+    Frame fj = panelFrame(pj, cell);
+    if (u < pj.bmin[fj.au] || u > pj.bmax[fj.au] || v < pj.bmin[fj.av] || v > pj.bmax[fj.av]) continue;
+    if (j >= r.wf.size() || r.wf[j].rf.empty()) return 0;
+    int iu = std::clamp((int)std::floor((u - fj.u0) / fj.cu), 0, fj.nu - 1), iv = std::clamp((int)std::floor((v - fj.v0) / fj.cv), 0, fj.nv - 1);
+    int idx = iv * fj.nu + iu;
+    return r.wf[j].rf[idx] + r.wf[j].rb[idx] >= fj.T - 1e-4f ? 1 : 0;
+  }
+  return -1;
+}
+
 int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<std::string>* hitIds, int* newlyBreached) {
   const AssetDef* a = r.asset;
   const float cell = destruction.cell;
-  vec3 dn = glm::length(e.d) > 1e-5f ? glm::normalize(e.d) : vec3(0, 0, -1);
+  vec3 dn0 = glm::length(e.d) > 1e-5f ? glm::normalize(e.d) : vec3(0, 0, -1);
   Profile pr = profileFor(e.kind);
   float strength = std::sqrt(std::max(e.dmg, 1e-3f) / pr.ref);
+  const bool blast = e.kind == WALL_GRENADE;   // a charge lying on / near the surface: acts on whatever it lies against
+  const Outline ol = outlineFor(e.seed);
   int touched = 0;
   std::vector<vec3> removedAt;   // debris spawn points (asset space)
+  struct Touched { size_t k; Frame f; int iu0, iu1, iv0, iv1; bool fromFront; };
+  std::vector<Touched> bays;
+  auto debrisAt = [&](const Frame& f, int idx) {
+    if (!effects || removedAt.size() >= 64) return;
+    int iu = idx % f.nu, iv = idx / f.nu;
+    vec3 pa(0); pa[f.au] = f.u0 + (iu + 0.5f) * f.cu; pa[f.av] = f.v0 + (iv + 0.5f) * f.cv; pa[f.an] = coordOf(f, f.T * 0.5f);
+    removedAt.push_back(pa);
+  };
   for (size_t k = 0; k < a->panels.size(); ++k) {
     const Panel& pn = a->panels[k];
     Frame f = panelFrame(pn, cell);
@@ -101,19 +168,25 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     float resist = std::max(0.2f, pn.family == "concrete" ? 1.2f * pn.hp / 450.0f : pn.hp / 200.0f);
     bool timber = pn.family == "timber", masonry = pn.family == "masonry";
     vec3 n(0); n[f.an] = f.ns;
+    float dN = std::max({pn.bmin[f.an] - e.p[f.an], e.p[f.an] - pn.bmax[f.an], 0.0f});   // stand-off from the bay's slab
+    vec3 dn = dn0;
+    float standoff = 1.0f;
+    if (blast) {   // omnidirectional: the bay is struck square on from the side the charge lies on, weaker with distance
+      dn = vec3(0); dn[f.an] = e.p[f.an] >= 0.5f * (pn.bmin[f.an] + pn.bmax[f.an]) ? -1.0f : 1.0f;
+      standoff = std::clamp(1.0f - dN / 0.75f, 0.0f, 1.0f);
+    }
     float cosI = std::fabs(glm::dot(dn, n));
     float elong = std::clamp(1.0f / std::max(cosI, 0.3f), 1.0f, 2.6f);   // oblique hits gouge along the shot
-    float rad = pr.r * std::sqrt(strength) * (timber ? 1.25f : 1.0f);
-    float reach = rad * elong * 1.2f + cell;
-    // gate: the contact lies on / near this bay's face slab (within 0.2 m along its normal) and within the stamp's
-    // reach in its plane -- so a corner hit also bites the edge of the wall around the corner, but walls in other
-    // parallel planes are never touched
+    float rad = pr.r * std::sqrt(strength) * (timber ? 1.25f : 1.0f) * (blast ? 0.7f + 0.3f * standoff : 1.0f);
+    float reach = rad * elong * 2.0f + cell;   // the oblong, lobed, ragged outline reaches up to ~1.9 rad
+    // gate: the contact lies on / near this bay's face slab (within 0.2 m along its normal; a grenade 0.6 m) and
+    // within the stamp's reach in its plane -- so a corner hit also bites the edge of the wall around the corner,
+    // but walls in other parallel planes are never touched
     {
-      float dN = std::max({pn.bmin[f.an] - e.p[f.an], e.p[f.an] - pn.bmax[f.an], 0.0f});
       float du = std::max({pn.bmin[f.au] - e.p[f.au], e.p[f.au] - pn.bmax[f.au], 0.0f}), dv = std::max({pn.bmin[f.av] - e.p[f.av], e.p[f.av] - pn.bmax[f.av], 0.0f});
-      if (dN > 0.2f || std::sqrt(du * du + dv * dv) > rad * elong) continue;
+      if (dN > (blast ? 0.6f : 0.2f) || std::sqrt(du * du + dv * dv) > rad * elong * 1.3f) continue;
     }
-    float D = pr.depth * strength * (0.55f + 0.45f * cosI) / resist;
+    float D = pr.depth * strength * (0.55f + 0.45f * cosI) / resist * (blast ? 0.35f + 0.65f * standoff : 1.0f);
     bool fromFront = glm::dot(dn, n) <= 0.0f;   // travelling against the normal: struck the front face
     // tangential direction of travel in the bay's (u, v) plane
     vec2 t(dn[f.au], dn[f.av]); float tl = glm::length(t); t = tl > 1e-4f ? t / tl : vec2(1, 0);
@@ -122,7 +195,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     int iv0 = std::max(0, (int)std::floor((pv - reach - f.v0) / f.cv)), iv1 = std::min(f.nv - 1, (int)std::floor((pv + reach - f.v0) / f.cv));
     if (iu0 > iu1 || iv0 > iv1) continue;
     WallField& w = fieldFor(r, k, f);
-    // 1) raw removal per cell
+    // 1) raw removal per cell inside a random oblong, lobed outline with a ragged (smooth-noise) edge
     struct Add { int idx; float add; int64_t stone; };
     std::vector<Add> adds;
     std::unordered_map<int64_t, std::pair<float, int>> stones;
@@ -130,14 +203,22 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
       for (int iu = iu0; iu <= iu1; ++iu) {
         float cu = f.u0 + (iu + 0.5f) * f.cu, cvv = f.v0 + (iv + 0.5f) * f.cv;
         vec2 d(cu - pu, cvv - pv);
-        float along = glm::dot(d, t), perp = glm::dot(d, vec2(-t.y, t.x));
-        if (tl > 1e-4f) along /= elong;
-        if (timber) d.y /= 2.2f;   // boards split along the vertical grain
-        float q = (timber ? glm::length(d) : std::sqrt(along * along + perp * perp)) / rad;
-        q *= 0.85f + 0.3f * rnd01(e.seed, (uint32_t)iu * 7919u, (uint32_t)iv);   // bounded deterministic irregularity
+        float q;
+        if (timber) {   // boards split along the vertical grain: a tall, lobed slot
+          d.y /= 2.2f;
+          Outline og = ol; og.sa = 1.0f; og.c = 1.0f; og.s = 0.0f;
+          q = outlineQ(og, d, rad);
+        } else {
+          float along = glm::dot(d, t), perp = glm::dot(d, vec2(-t.y, t.x));
+          if (tl > 1e-4f) along /= elong;   // oblique: stretched along the shot
+          q = outlineQ(ol, along * t + perp * vec2(-t.y, t.x), rad);
+        }
+        q += 0.22f * (vnoise(e.seed, cu / 0.09f, cvv / 0.09f) - 0.5f) + 0.08f * (vnoise(e.seed ^ 0x5bd1e995u, cu / 0.035f, cvv / 0.035f) - 0.5f);
         if (q >= 1.0f) continue;
-        // brittle break: full removal over the core, a short steep shoulder (no shallow terraces around it)
+        // brittle break: full removal over the core, a short steep shoulder (no shallow terraces around it);
+        // the floor of the crater is rough, not a milled plane
         float fall = q < 0.55f ? 1.0f : std::pow(1.0f - (q - 0.55f) / 0.45f, 0.6f);
+        fall *= 0.8f + 0.2f * vnoise(e.seed ^ 0x27d4eb2fu, cu / 0.06f, cvv / 0.06f);   // only ever less than the profile
         Add ad{iv * f.nu + iu, D * fall, 0};
         if (masonry) { ad.stone = stoneId(cu, cvv); auto& s = stones[ad.stone]; s.first = std::max(s.first, ad.add); s.second += 1; }
         adds.push_back(ad);
@@ -165,15 +246,69 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
       else if (near > 0.5f * f.T) far = std::min(f.T - near, far + 0.35f * (near - 0.5f * f.T));   // spall on the far face
       if (near + far > before + 1e-5f) {
         changed = true;
-        if (effects && (near + far >= f.T) && removedAt.size() < 64) {
-          int iu = ad.idx % f.nu, iv = ad.idx / f.nu;
-          vec3 pa(0); pa[f.au] = f.u0 + (iu + 0.5f) * f.cu; pa[f.av] = f.v0 + (iv + 0.5f) * f.cv; pa[f.an] = coordOf(f, f.T * 0.5f);
-          removedAt.push_back(pa);
-        }
+        if (near + far >= f.T) debrisAt(f, ad.idx);
       }
     }
     if (!changed) continue;
-    // 4) unsupported fragments: solid cells no longer connected to the bay's edges (where it meets the rest of the
+    bays.push_back({k, f, iu0, iu1, iv0, iv1, fromFront});
+  }
+  // 4) no slivers: once every bay has its stamp, thin bridges of material left between damaged areas go. Along
+  //    each of four directions, a solid run of at most destruction.bridgeMax between two open cells is opened
+  //    (this also sees open cells in the coplanar bay across a seam); a ridge of at most that width standing
+  //    proud between two deeper craters on the struck face is broken down to the shallower side. Wider strips
+  //    are left alone, so holes that are genuinely apart stay apart.
+  const int N = (int)std::floor(destruction.bridgeMax / cell + 1e-3f);   // 0: cleanup off (A/B in the self-test)
+  for (int pass = 0, any = 1; pass < 4 && any && N >= 1; ++pass) {   // repeat while clearing exposes new bridges
+    any = 0;
+    for (auto& b : bays) {
+      const Frame& f = b.f;
+      WallField& w = r.wf[b.k];
+      const std::vector<size_t> cands = coplanarBays(a, b.k, f.an, cell);
+      auto openAt = [&](int iu, int iv) -> bool {
+        if (iu >= 0 && iv >= 0 && iu < f.nu && iv < f.nv) { int idx = iv * f.nu + iu; return w.rf[idx] + w.rb[idx] >= f.T - 1e-4f; }
+        return openInBay(r, cands, f.u0 + (iu + 0.5f) * f.cu, f.v0 + (iv + 0.5f) * f.cv, cell) == 1;
+      };
+      auto nearAt = [&](int iu, int iv) -> float {
+        if (iu < 0 || iv < 0 || iu >= f.nu || iv >= f.nv) return -1.0f;
+        int idx = iv * f.nu + iu; return b.fromFront ? w.rf[idx] : w.rb[idx];
+      };
+      const int dirs[4][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
+      std::vector<int> open, raise; std::vector<float> raiseTo;
+      int ju0 = std::max(0, b.iu0 - N), ju1 = std::min(f.nu - 1, b.iu1 + N), jv0 = std::max(0, b.iv0 - N), jv1 = std::min(f.nv - 1, b.iv1 + N);
+      for (int iv = jv0; iv <= jv1; ++iv)
+        for (int iu = ju0; iu <= ju1; ++iu) {
+          int idx = iv * f.nu + iu;
+          if (w.rf[idx] + w.rb[idx] >= f.T - 1e-4f) continue;
+          float here = b.fromFront ? w.rf[idx] : w.rb[idx], best = here;
+          bool bridge = false;
+          for (auto& dd : dirs) {
+            int lim = dd[0] && dd[1] ? std::max(1, (int)(N / 1.4142f)) : N;
+            int sp = 0, sm = 0; float mp = -1, mm = -1;
+            for (int s = 1; s <= lim; ++s) { if (!sp && openAt(iu + dd[0] * s, iv + dd[1] * s)) sp = s; mp = std::max(mp, nearAt(iu + dd[0] * s, iv + dd[1] * s)); }
+            for (int s = 1; s <= lim; ++s) { if (!sm && openAt(iu - dd[0] * s, iv - dd[1] * s)) sm = s; mm = std::max(mm, nearAt(iu - dd[0] * s, iv - dd[1] * s)); }
+            if (sp && sm && sp + sm - 1 <= lim) { bridge = true; break; }
+            float ridge = std::min(mp, mm);
+            if (ridge > here + 0.15f * f.T) best = std::max(best, ridge);
+          }
+          if (bridge) open.push_back(idx);
+          else if (best > here) { raise.push_back(idx); raiseTo.push_back(best); }
+        }
+      for (int idx : open) { w.rb[idx] = f.T - w.rf[idx]; debrisAt(f, idx); }
+      for (size_t q = 0; q < raise.size(); ++q) {
+        int idx = raise[q];
+        float& near = b.fromFront ? w.rf[idx] : w.rb[idx];
+        float& far = b.fromFront ? w.rb[idx] : w.rf[idx];
+        near = std::min(f.T - far, raiseTo[q]);
+        if (f.T - near - far < 0.28f * f.T) { far = f.T - near; open.push_back(idx); debrisAt(f, idx); }   // the thinned ridge gives way
+      }
+      if (!open.empty()) any = 1;   // only new holes can expose new bridges
+    }
+  }
+  for (auto& b : bays) {
+    const Panel& pn = a->panels[b.k];
+    const Frame& f = b.f;
+    WallField& w = r.wf[b.k];
+    // 5) unsupported fragments: solid cells no longer connected to the bay's edges (where it meets the rest of the
     //    building) fall out
     {
       std::vector<uint8_t> seen((size_t)f.nu * f.nv, 0);
@@ -187,22 +322,20 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
         for (int m : nb) if (m >= 0 && !seen[m] && solid(m)) { seen[m] = 1; st.push_back(m); }
       }
       for (int idx = 0; idx < f.nu * f.nv; ++idx)
-        if (!seen[idx] && solid(idx)) {
-          w.rb[idx] = f.T - w.rf[idx];
-          if (effects && removedAt.size() < 64) { int iu = idx % f.nu, iv = idx / f.nu; vec3 pa(0); pa[f.au] = f.u0 + (iu + 0.5f) * f.cu; pa[f.av] = f.v0 + (iv + 0.5f) * f.cv; pa[f.an] = coordOf(f, f.T * 0.5f); removedAt.push_back(pa); }
-        }
+        if (!seen[idx] && solid(idx)) { w.rb[idx] = f.T - w.rf[idx]; debrisAt(f, idx); }
     }
-    uint8_t oldState = r.state[k];
-    rebuildPanel(r, k);
+    uint8_t oldState = r.state[b.k];
+    rebuildPanel(r, b.k);
     ++touched;
     if (hitIds) hitIds->push_back(pn.id);
-    if (newlyBreached && oldState != PANEL_BREACHED && r.state[k] == PANEL_BREACHED) ++*newlyBreached;
+    if (newlyBreached && oldState != PANEL_BREACHED && r.state[b.k] == PANEL_BREACHED) ++*newlyBreached;
   }
   // a bounded handful of masonry / timber fragments thrown out of the far side and back toward the shooter
   if (effects && !removedAt.empty()) {
     const Instance* inst = doc.find(r.id);
     if (inst) {
       mat4 M = instanceMatrix(*inst);
+      vec3 dn = blast ? vec3(0, 1, 0) : dn0;
       int n = std::min<int>(destruction.maxFragmentsPerHit, (int)removedAt.size());
       for (int j = 0; j < n; ++j) {
         vec3 pa = removedAt[(size_t)(rnd01(e.seed, 31u, (uint32_t)j) * removedAt.size()) % removedAt.size()];
@@ -239,7 +372,7 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
   }
   const float qd = destruction.depthStep;
   MeshData md; std::vector<Part> boxes;
-  int open = 0; double removed = 0;
+  int open = 0, chamfers = 0; double removed = 0;
   for (int idx = 0; idx < f.nu * f.nv; ++idx) { float rm = w.rf[idx] + w.rb[idx]; removed += std::min(rm, f.T); if (rm >= f.T - 1e-4f) ++open; }
   std::vector<int> key((size_t)f.nu * f.nv);
   for (auto& L : layers) {
@@ -287,6 +420,52 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
         appendPart(md, p, a->materials[p.mat], mat4(1));
         if (p.collide) boxes.push_back(p);
       }
+    // broken edges, not stair-steps: where a cell stands back from two adjacent neighbours (and the cell between
+    // them) -- missing entirely, or broken deeper on the front or back face -- it is the inner corner of a 4 cm step.
+    // A triangular wedge over its half toward that corner, through the depth the neighbours stand proud, turns runs
+    // of steps into straight diagonal break lines on the hole outline and on the crater rim alike. Render only (at
+    // most half a cell; collision keeps the cell boxes).
+    auto K = [&](int u, int v) { return u < 0 || v < 0 || u >= f.nu || v >= f.nv ? -1 : key[v * f.nu + u]; };
+    auto A0 = [&](int kk) { return thin ? 0 : kk / 4096; };                        // front of the material (steps)
+    auto A1 = [&](int kk) { return thin ? 1 : kk % 4096; };                        // back of the material
+    for (int iv = 0; iv < f.nv; ++iv)
+      for (int iu = 0; iu < f.nu; ++iu) {
+        int idx = iv * f.nu + iu, kx = key[idx];
+        float cu = f.u0 + (iu + 0.5f) * f.cu, cvv = f.v0 + (iv + 0.5f) * f.cv;
+        if (cu < L.u0 || cu > L.u1 || cvv < L.v0 || cvv > L.v1) continue;
+        for (int face = 0; face < (kx < 0 || thin ? 1 : 2); ++face) {
+          // "proud": the neighbour has material where this cell has none on this face
+          auto proud = [&](int kn) {
+            if (kn < 0) return false;
+            if (kx < 0) return true;
+            return face == 0 ? A0(kn) < A0(kx) : A1(kn) > A1(kx);
+          };
+          int l = K(iu - 1, iv), rr = K(iu + 1, iv), dd = K(iu, iv - 1), uu = K(iu, iv + 1);
+          int su = proud(l) && !proud(rr) ? -1 : proud(rr) && !proud(l) ? 1 : 0;
+          int sv = proud(dd) && !proud(uu) ? -1 : proud(uu) && !proud(dd) ? 1 : 0;
+          if (!su || !sv) continue;
+          int ka = su < 0 ? l : rr, kb = sv < 0 ? dd : uu, kc = K(iu + su, iv + sv);
+          if (!proud(kc)) continue;
+          int a0, a1;   // depth steps of the wedge
+          if (kx < 0) { a0 = std::max({A0(ka), A0(kb), A0(kc)}); a1 = std::min({A1(ka), A1(kb), A1(kc)}); }
+          else if (face == 0) { a0 = std::max({A0(ka), A0(kb), A0(kc)}); a1 = A0(kx); }
+          else { a0 = A1(kx); a1 = std::min({A1(ka), A1(kb), A1(kc)}); }
+          if (a1 <= a0) continue;
+          float s0 = thin ? L.s0 : L.s0 + a0 * qd, s1 = thin ? L.s1 : std::min(L.s1, L.s0 + a1 * qd);
+          float ua = f.u0 + iu * f.cu, ub = ua + f.cu, va = f.v0 + iv * f.cv, vb = va + f.cv;
+          float uc = su < 0 ? ua : ub, vc = sv < 0 ? va : vb, uo = su < 0 ? ub : ua, vo = sv < 0 ? vb : va;   // corner toward the standing cells / opposite
+          Part p = *L.p;
+          p.shape = Part::PRISM; p.collide = false; p.rot = quat(1, 0, 0, 0);
+          p.axis = f.an;
+          float xa = coordOf(f, s0), xb = coordOf(f, s1);
+          p.a0 = std::min(xa, xb); p.a1 = std::max(xa, xb);
+          p.tri[0] = vec2(uc, vc); p.tri[1] = vec2(uo, vc); p.tri[2] = vec2(uc, vo);
+          p.center = vec3(0); p.center[f.an] = 0.5f * (xa + xb); p.center[f.au] = 0.5f * (ua + ub); p.center[f.av] = 0.5f * (va + vb);
+          p.size = vec3(0); p.size[f.an] = p.a1 - p.a0; p.size[f.au] = f.cu; p.size[f.av] = f.cv;
+          appendPart(md, p, a->materials[p.mat], mat4(1));
+          ++chamfers;
+        }
+      }
   }
   r.pmesh[k].upload(md);
   r.pshape[k] = boxes.empty() ? nullptr : Physics::buildShape(boxes);
@@ -294,6 +473,7 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
   w.openArea = open * f.cu * f.cv;
   w.removedFrac = (float)(removed / std::max(1.0, (double)f.nu * f.nv * f.T));
   w.boxes = (int)boxes.size();
+  w.chamfers = chamfers;
   r.state[k] = w.openArea >= destruction.breachArea ? PANEL_BREACHED : w.removedFrac > 1e-5f ? PANEL_DAMAGED : PANEL_INTACT;
   r.hp[k] = r.state[k] == PANEL_BREACHED ? 0.0f : pn.hp * (1.0f - std::min(1.0f, w.removedFrac * 2.5f));
   r.lastPanelMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();

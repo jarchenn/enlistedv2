@@ -51,7 +51,9 @@ public:
   vec2 tileOrigin(int tx, int tz) const { return vec2(-size * 0.5f + tx * tileSize(), -size * 0.5f + tz * tileSize()); }
   int key(int tx, int tz) const { return tz * tilesN() + tx; }
   Tile* activate(int tx, int tz);
-  // radial crater; weight(x,z) in [0,1] protects foundations. Returns touched tile keys.
+  // crater; weight(x,z) in [0,1] protects foundations. Returns touched tile keys. The outline is an irregular oblong
+  // (random per impact point, never narrower than `radius`, so walls are never steeper than the round profile).
+  static float craterShape(vec2 c, float angle);   // radius multiplier (>= 1) of the crater at c in direction angle
   std::vector<int> crater(vec3 c, float radius, float depth, const std::function<float(float, float)>& weight, float maxDepth = 1.6f);
   void rebuildMesh(Tile& t);
   void clearTiles();

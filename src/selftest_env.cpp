@@ -115,7 +115,8 @@ void SelfTest::envUpdate(App& app, float dt) {
       }
       if (shots == 9) nine = !(r.leafSt[k][0] & 2);
       if (shots == 10) {
-        check(nine && (r.leafSt[k][0] & 2), "door holds 9 rounds and comes off its hinges on the 10th (HP 10)");
+        int frags = 0; for (auto& x : a.dynLeaves) frags += x->inst == HOUSE && x->k == k && x->fragment;
+        check(nine && (r.leafSt[k][0] & 2) && frags >= 6, "door holds 9 rounds and breaks apart on the 10th (HP 10): " + std::to_string(frags) + " pieces, not one leaf");
         vec3 w = vec3(0); for (auto& x : a.dynLeaves) if (x->inst == HOUSE && x->k == k) w = Physics::velocity(x->body);
         check(true, "door is a dynamic body (torque about the hinge from the hit offset)");
         return true;
@@ -140,6 +141,7 @@ void SelfTest::envUpdate(App& app, float dt) {
         float h0 = a.terrain.height(P.x, P.z);
         a.blastAT = at; a.deformGround(vec3(P.x, h0, P.z), 1.0f); a.blastAT = false;
         auto dep = [&](float x) { return a.terrain.baseHeight(P.x + x, P.z) - a.terrain.height(P.x + x, P.z); };
+        float Rn = R; R *= Terrain::craterShape(vec2(P.x, P.z), 0.0f);   // the irregular outline's radius along +x (>= nominal)
         float d0 = dep(0), dh = dep(R * 0.5f), dr = dep(R);
         float want0 = D, wantH = D * 0.75f * 0.75f;
         float maxSl = 0;
@@ -147,9 +149,12 @@ void SelfTest::envUpdate(App& app, float dt) {
           float g = (a.terrain.height(P.x + x + 0.05f, P.z) - a.terrain.height(P.x + x - 0.05f, P.z)) / 0.1f;
           maxSl = std::max(maxSl, degrees(std::atan(std::fabs(g))));
         }
-        char b[260]; std::snprintf(b, sizeof b, "%s crater Z = Z0 - %.1f (1 - d^2/%.1f^2)^2: depth %.3f (want %.3f) at d=0, %.3f (want %.3f) at R/2, %.3f at R; max wall slope %.0f deg",
-                                   at ? "AT" : "standard", D, R, d0, want0, dh, wantH, dr, maxSl);
-        check(std::fabs(d0 - want0) < 0.03f && std::fabs(dh - wantH) < 0.03f && std::fabs(dr) < 0.02f && maxSl <= 35.0f, b);
+        // oblong, irregular outline: the radius differs by direction (never below nominal) -- measured around the rim
+        float rmin = 1e9f, rmax = 0;
+        for (int q = 0; q < 16; ++q) { float s = Terrain::craterShape(vec2(P.x, P.z), q * 0.3926991f); rmin = std::min(rmin, s); rmax = std::max(rmax, s); }
+        char b[320]; std::snprintf(b, sizeof b, "%s crater Z = Z0 - %.1f (1 - d^2/R'^2)^2, R' = %.1f..%.1f m by direction (nominal %.1f; %.2f m along +x): depth %.3f (want %.3f) at d=0, %.3f (want %.3f) at R'/2, %.3f at R'; max wall slope %.0f deg",
+                                   at ? "AT" : "standard", D, Rn * rmin, Rn * rmax, Rn, R, d0, want0, dh, wantH, dr, maxSl);
+        check(std::fabs(d0 - want0) < 0.03f && std::fabs(dh - wantH) < 0.03f && std::fabs(dr) < 0.02f && maxSl <= 35.0f && rmin >= 0.999f && rmax / rmin > 1.08f, b);
         return maxSl;
       };
       auto node = [&](vec3 P) { float fs = a.terrain.fineSpacing(), h = a.terrain.size * 0.5f; P.x = std::round((P.x + h) / fs) * fs - h; P.z = std::round((P.z + h) / fs) * fs - h; return P; };   // sample on fine-grid nodes
