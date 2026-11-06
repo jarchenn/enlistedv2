@@ -1,5 +1,5 @@
 // --selftest-maps (stages 4100-4199): W5 default maps (SPEC 3). For every authored template with map content
-// (content/templates/*.json with "map"; in this update only Omaha Easy Red - Mont-Castre was cancelled):
+// (content/templates/*.json with "map"; Omaha Easy Red - Mont-Castre is a terrain-only base map without "map"):
 //  * New Map "Create editable copy" loads the template: authored heightmap and water, every instance, the scenario;
 //    the copy is an unsaved creative document that saves / reopens like any map, and edits like any map;
 //  * the scenario validates with no errors; SPEC 2.1 distance bands for objectives and spawns; every spawn has its
