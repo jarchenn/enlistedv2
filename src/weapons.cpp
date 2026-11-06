@@ -439,6 +439,18 @@ void App::drawWeaponUI() {
     ImGui::Checkbox("Show arms", &vm.showArms);
     ImGui::Checkbox("Sight calibration markers (rear, front tip, muzzle, flash origin, aim)", &sightMarkers);
     ImGui::Checkbox("Clouds", &R.clouds); ImGui::SameLine(); ImGui::SetNextItemWidth(120); ImGui::SliderFloat("Cloud cover", &R.cloudCover, 0.0f, 1.0f, "%.2f");
+    if (ImGui::CollapsingHeader("Render quality (docs/rendering.md)")) {
+      auto& q = R.q;
+      ImGui::Checkbox("Legacy look (fallback)", &q.legacy);
+      ImGui::BeginDisabled(q.legacy);
+      ImGui::Checkbox("Far shadow cascade", &q.farCascade); ImGui::SameLine(); ImGui::Checkbox("Cloud shadows", &q.cloudShadows);
+      ImGui::SetNextItemWidth(160); ImGui::SliderFloat("Shadow softness", &q.shadowSoft, 0.5f, 4.0f, "%.1f texels");
+      ImGui::Checkbox("Ambient occlusion", &q.ssao); ImGui::SameLine(); ImGui::Checkbox("Light shafts", &q.shafts); ImGui::SameLine(); ImGui::Checkbox("Bloom", &q.bloom);
+      ImGui::Checkbox("Screen-space reflections", &q.ssr); ImGui::SameLine();
+      if (ImGui::Checkbox("Temporal AA", &q.taa)) R.resetTemporal();
+      ImGui::SetNextItemWidth(160); ImGui::SliderFloat("Haze density", &q.hazeDensity, 0.0f, 0.003f, "%.4f /m");
+      ImGui::EndDisabled();
+    }
     { int q = (int)grass.quality; const char* names[] = {"Off", "Low", "Medium", "High"};
       if (ImGui::Combo("Grass", &q, names, 4)) grass.quality = (GrassQuality)q; }
     ImGui::Separator();

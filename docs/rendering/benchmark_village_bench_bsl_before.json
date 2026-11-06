@@ -1,0 +1,136 @@
+{
+  "area": {
+    "camera": {
+      "fov": 60,
+      "pitch": -12.0,
+      "pos": [
+        22.0,
+        5.940798759460449,
+        26.0
+      ],
+      "yaw": 40.0
+    },
+    "draws": 1673,
+    "frame_p50_ms": 14.85289999999928,
+    "frame_p95_ms": 15.692999999998847,
+    "frames": 241,
+    "gpu_p50_ms": 11.75888,
+    "gpu_p95_ms": 13.617152,
+    "render_cpu_p50_ms": 14.5465,
+    "tris": 1631880,
+    "working_set_mb": 426.59375
+  },
+  "building": {
+    "camera": {
+      "fov": 60,
+      "pitch": 6.0,
+      "pos": [
+        -24.0,
+        1.9844063520431519,
+        4.0
+      ],
+      "yaw": 70.0
+    },
+    "draws": 1673,
+    "frame_p50_ms": 13.739300000001009,
+    "frame_p95_ms": 17.57080000000144,
+    "frames": 241,
+    "gpu_p50_ms": 10.874304,
+    "gpu_p95_ms": 14.108352,
+    "render_cpu_p50_ms": 13.3387,
+    "tris": 1564096,
+    "working_set_mb": 428.14453125
+  },
+  "foliage": {
+    "camera": {
+      "fov": 60,
+      "pitch": 6.0,
+      "pos": [
+        16.0,
+        1.9184930324554443,
+        6.0
+      ],
+      "yaw": -70.0
+    },
+    "draws": 1674,
+    "frame_p50_ms": 12.580199999998598,
+    "frame_p95_ms": 15.85139999999896,
+    "frames": 241,
+    "gpu_p50_ms": 10.175712,
+    "gpu_p95_ms": 12.499008,
+    "render_cpu_p50_ms": 12.1479,
+    "tris": 1585296,
+    "working_set_mb": 427.41015625
+  },
+  "gl_renderer": "NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2",
+  "grass": "Medium",
+  "lane_north": {
+    "camera": {
+      "fov": 60,
+      "pitch": -3.0,
+      "pos": [
+        2.0,
+        1.6949245929718018,
+        32.0
+      ],
+      "yaw": 180.0
+    },
+    "draws": 1676,
+    "frame_p50_ms": 11.829799999997448,
+    "frame_p95_ms": 13.131399999998905,
+    "frames": 241,
+    "gpu_p50_ms": 9.527008,
+    "gpu_p95_ms": 10.33536,
+    "render_cpu_p50_ms": 11.4455,
+    "tris": 1586224,
+    "working_set_mb": 428.6953125
+  },
+  "method": "wall-clock frame interval (glfwGetTime) and GL_TIME_ELAPSED query per frame; 1 s warm-up then ~4 s per camera",
+  "overview": {
+    "camera": {
+      "fov": 60,
+      "pitch": -2.0,
+      "pos": [
+        -6.0,
+        2.2154884338378906,
+        38.0
+      ],
+      "yaw": 8.0
+    },
+    "draws": 1674,
+    "frame_p50_ms": 15.515900000000471,
+    "frame_p95_ms": 34.09210000000007,
+    "frames": 241,
+    "gpu_p50_ms": 11.847008,
+    "gpu_p95_ms": 25.342688,
+    "render_cpu_p50_ms": 15.1996,
+    "tris": 1584248,
+    "working_set_mb": 447.6640625
+  },
+  "resolution": [
+    1920,
+    1080
+  ],
+  "road": {
+    "camera": {
+      "fov": 60,
+      "pitch": -4.0,
+      "pos": [
+        4.0,
+        1.6141583919525146,
+        10.0
+      ],
+      "yaw": 0.0
+    },
+    "draws": 1674,
+    "frame_p50_ms": 15.36000000000115,
+    "frame_p95_ms": 16.152499999998682,
+    "frames": 241,
+    "gpu_p50_ms": 12.205056,
+    "gpu_p95_ms": 14.429536,
+    "render_cpu_p50_ms": 15.0279,
+    "tris": 1587184,
+    "working_set_mb": 425.75390625
+  },
+  "vsync": false
+}

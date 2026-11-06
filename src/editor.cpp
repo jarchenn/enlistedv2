@@ -24,7 +24,7 @@ void App::updateCreative(float dt) {
   // ---- look (RMB held)
   bool rmb = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
   static double lmx = 0, lmy = 0;
-  if (rmb && !looking && !uiMouse) { looking = true; glfwGetCursorPos(win, &lmx, &lmy); glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
+  if (rmb && !looking && !uiMouse && !selftest) { looking = true; glfwGetCursorPos(win, &lmx, &lmy); glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
   if (!rmb && looking) { looking = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL); }
   if (looking) {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
@@ -64,7 +64,7 @@ void App::updateCreative(float dt) {
   }
   // ---- shortcuts
   if (!uiKey && !selftest) {
-    if (keyPressed(win, GLFW_KEY_F5)) { enterExplore(); return; }
+    if (!selftest && keyPressed(win, GLFW_KEY_F5)) { enterExplore(); return; }   // scripted runs ignore the real keyboard
     if (ctrl && keyPressed(win, GLFW_KEY_Z)) { if (keyDown(win, GLFW_KEY_LEFT_SHIFT)) redo(); else undo(); }
     if (ctrl && keyPressed(win, GLFW_KEY_Y)) redo();
     if (ctrl && keyPressed(win, GLFW_KEY_S)) { if (docPath.empty()) showSaveAs = true; else saveMapTo(docPath); }

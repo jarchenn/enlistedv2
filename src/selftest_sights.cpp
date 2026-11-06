@@ -373,7 +373,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       return true; });
   }
   stage = 1601;
-  if (scur >= sseq.size()) { check(app.R.shaderErrors == 0, "all shaders compiled"); finish(app); return; }
+  if (scur >= sseq.size()) { check(app.R.shaderErrors == 0, "all shaders compiled"); check(app.R.fboErrors == 0, "every framebuffer complete, including after the resizes (" + std::to_string(app.R.fboErrors) + " incomplete)"); finish(app); return; }
   if (stt == 0) { logf("[selftest] step: %s", sseq[scur].name.c_str()); probeWanted = probeReady = false; }
   bool d2 = sseq[scur].fn(app, stt);
   stt += dt;

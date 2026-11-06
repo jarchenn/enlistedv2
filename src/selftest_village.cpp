@@ -20,6 +20,7 @@ const Cam kCams[] = {
   {"foliage", vec3(16, 2.0f, 6), -70, 6},
   {"building", vec3(-24, 2.0f, 4), 70, 6},
   {"lane_north", vec3(2, 1.7f, 32), 180, -3},   // added after the baseline (hedgerows): no matching before shot
+  {"into_sun", vec3(22, 1.8f, 2), 130, 14},     // facing the sun through the tree row (light shafts, back-lit leaves); A/B via --legacy-look
 };
 std::string vTag;
 std::vector<double> vFrames, vGpu, vCpu;
@@ -103,7 +104,7 @@ void SelfTest::villageUpdate(App& app, float dt) {
     double now = glfwGetTime();
     if (stageTime > 1.0) { vFrames.push_back((now - vLast) * 1000.0); vGpu.push_back(app.R.stats.gpuMs); vCpu.push_back(app.R.stats.cpuMs); }   // 1 s warm-up (grass streaming)
     vLast = now;
-    if (stageTime > 2.4 && stageTime < 2.42) shotQueue.push_back("village_" + vTag + "_" + c.name);
+    { static int shotCam = -1; if (stageTime > 2.4 && shotCam != vCam) { shotCam = vCam; shotQueue.push_back("village_" + vTag + "_" + c.name); } }   // once per camera, whatever the frame time
     if (stageTime < 5.0) return;
     auto pct = [](std::vector<double> v, double q) { if (v.empty()) return 0.0; std::sort(v.begin(), v.end()); return v[std::min(v.size() - 1, (size_t)(v.size() * q))]; };
     PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);

@@ -425,7 +425,7 @@ void App::screenshot(const fs::path& p) {
 
 // ============================================================ main loop
 int App::run(int argc, char** argv) {
-  bool runSelf = false, bench = false; fs::path openPath, sheetsDir;
+  bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff; fs::path openPath, sheetsDir;
   for (int k = 1; k < argc; ++k) {
     std::string a = argv[k];
     if (a == "--selftest") runSelf = true;
@@ -435,6 +435,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
     else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights") runSelf = true;
+    else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
+    else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else if (a == "--box-weapons") useImportedModels = false;
@@ -482,6 +484,8 @@ int App::run(int argc, char** argv) {
   audio.init();
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
   R.init(fbw, fbh);
+  R.q.legacy = legacyLook;
+  for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; }
   templates = loadTemplates(contentDir() / "templates");
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
   makeThumbnails();
@@ -544,7 +548,8 @@ int App::run(int argc, char** argv) {
       weaponDrawItems(op);
     }
     int ww, wh; glfwGetWindowSize(win, &ww, &wh);
-    float aspect = fbh > 0 ? (float)fbw / fbh : 1.0f;
+    // minimized windows report a 0x0 framebuffer: keep the aspect of the targets we actually render into
+    float aspect = (fbw > 0 && fbh > 0) ? (float)fbw / fbh : (float)R.width / std::max(1, R.height);
     RenderView v;
     if (mode == Mode::Creative) {
       viewM = glm::lookAt(camPos, camPos + forward(camYaw, camPitch), vec3(0, 1, 0));

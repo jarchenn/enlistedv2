@@ -53,11 +53,26 @@ public:
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.62f;
+  // render quality / look (docs/rendering.md). legacy = the pre-BSL-pass look (fallback)
+  struct Quality {
+    bool legacy = false;
+    bool farCascade = true;     // second shadow cascade out to ~240 m
+    float shadowSoft = 2.2f;    // PCF radius (near texels); 0 = legacy 3x3
+    bool cloudShadows = true;
+    bool shafts = true; float shaftStrength = 0.35f;
+    float hazeDensity = 0.0010f, hazeHeight = 70.0f;   // aerial perspective (1/m at ground level, scale height m)
+    bool ssao = true; float ssaoStrength = 0.85f, ssaoRadius = 0.6f;
+    bool bloom = true; float bloomStrength = 0.045f;
+    bool ssr = true; float ssrStrength = 1.0f;
+    bool taa = true; float taaSharpen = 0.40f, taaJitter = 0.5f;
+  } q;
+  void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
   bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));
   int width = 0, height = 0;
   int shaderErrors = 0;                 // compile failures since start (self-tests require 0)
+  int fboErrors = 0;                    // incomplete framebuffers since start (self-tests require 0)
 private:
   GLuint compile(const char* vs, const char* fs, const char* name);
   void createTargets();
@@ -67,12 +82,24 @@ private:
   void drawFoliage(GLuint prog, const mat4& vp);
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items);
   GLuint progLeaf = 0, progLeafShadow = 0;
-  GLuint progModel = 0, progDof = 0;
+  GLuint progModel = 0, progDof = 0, progShaft = 0, progComposite = 0;
+  GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)
+  void worldComposite(const RenderView& v, const mat4& vp);
+  GLuint ambTex = 0, aoTex = 0, aoFbo = 0, progSsao = 0, progBloomDown = 0, progBloomUp = 0;
+  static const int kBloomLevels = 6;
+  GLuint bloomTex[kBloomLevels]{}, bloomFbo[kBloomLevels]{}; int bloomW[kBloomLevels]{}, bloomH[kBloomLevels]{};
+  void bloomPass();
+  GLuint velTex = 0, cloudShTex = 0, cloudShFbo = 0, progCloudSh = 0; vec3 cloudShBox{0, 0, 1500};
+  GLuint nrTex = 0, progTaa = 0, histTex[2]{}, taaFbo[2]{}; int histIdx = 0; bool taaValid = false;
+  mat4 prevVP{1}; vec3 prevCam{0}; vec2 jitterPx{0};
+  void taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v);
   GLuint vmDistTex = 0, dofTex = 0, dofFbo = 0;
   GLuint progGrass = 0;
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   GLuint progMain = 0, progShadow = 0, progTerrain = 0, progSky = 0, progGlass = 0, progLine = 0, progTone = 0, progExpo = 0;
   GLuint shadowFbo = 0, shadowTex = 0, occFbo = 0, occTex = 0;
+  GLuint shadowFarFbo = 0, shadowFarTex = 0; int shadowFarSize = 2048;
+  mat4 lightVPFar{1}; float nearR = 40.0f, farR = 240.0f; int frame = 0;
   GLuint hdrFbo = 0, hdrColor = 0, depthTex = 0, ldrFbo = 0, ldrColor = 0;
   GLuint expoFbo[2]{}, expoTex[2]{}; int expoIdx = 0; float expoReset = -1;
   GLuint emptyVao = 0, lineVao = 0, lineVbo = 0;

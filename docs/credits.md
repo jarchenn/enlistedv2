@@ -25,3 +25,7 @@ The expansion package (`Normandy_Claude_Expansion.zip`) states that file names a
 - The original GLB files stay in `assets_src/weapons/`, which is ignored by git and not packaged.
 
 Everything else in the game is generated procedurally from box parts: the structures, trees, shrubs, hedgerows, defences, racks, farm dressing and arms. The ground, grass and weathering are shader-generated; no external textures were downloaded.
+
+## Rendering reference
+
+BSL Shaders v10.1.8 by Capt Tatsu (https://capttatsu.com) was the visual reference for the lighting, atmosphere and post-processing pass (`docs/rendering.md`). The pack ships no licence file and no reuse terms were found, so none of its code, tables or textures are used or redistributed. The engine's shaders are original implementations, and the pack is not part of this repository.

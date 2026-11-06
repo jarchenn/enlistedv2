@@ -231,7 +231,16 @@ Measurement setup:
 
 **Contamination:** the user's own NormandyMapmaker.exe (a separate process, not started by me and not closed) was running throughout. It loaded the GPU to about 40% / about 195 W, so absolute numbers are pessimistic. Before and after ran under the same condition.
 
-PERF_TABLE
+| Camera | Frame p50 ms (before → after) | Frame p95 ms | GPU p50 ms | GPU p95 ms | Render CPU p50 ms | Draws | Triangles | Working set MB |
+|---|---|---|---|---|---|---|---|---|
+| overview | 2.10 → 4.90 | 2.61 → 6.06 | 1.27 → 3.37 | 1.77 → 4.45 | 1.87 → 4.41 | 809 → 1674 | 0.56M → 1.58M | 316 → 448 |
+| road | 2.12 → 3.75 | 2.59 → 4.26 | 1.29 → 2.53 | 1.80 → 3.06 | 1.89 → 3.34 | 809 → 1674 | 0.57M → 1.59M | 319 → 451 |
+| area | 2.10 → 4.92 | 2.61 → 5.61 | 1.28 → 4.07 | 1.78 → 4.54 | 1.88 → 4.63 | 808 → 1673 | 0.60M → 1.63M | 319 → 448 |
+| foliage | 1.96 → 4.98 | 2.49 → 5.94 | 1.15 → 4.15 | 1.65 → 4.58 | 1.73 → 4.64 | 809 → 1674 | 0.53M → 1.59M | 320 → 429 |
+| building | 2.23 → 3.45 | 2.80 → 3.88 | 1.43 → 2.33 | 1.94 → 2.79 | 2.01 → 3.08 | 808 → 1673 | 0.51M → 1.56M | 320 → 430 |
+| lane_north (after only) | n/a → 2.73 | n/a → 2.99 | n/a → 1.59 | n/a → 2.08 | n/a → 2.47 | n/a → 1676 | n/a → 1.59M | n/a → 430 |
+
+Raw data: `docs/expansion/before/benchmark_village_bench_before.json` and `docs/expansion/after/benchmark_village_bench_after.json`. The renderer pass that followed has its own table in `docs/rendering.md`.
 
 Memory is the process working set. CPU time is the renderer's submit time per frame (`render_cpu`). There is no per-system CPU profiler, and no GPU memory counter beyond the model `gpuBytes`.
 
