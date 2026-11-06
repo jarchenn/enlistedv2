@@ -7,6 +7,7 @@
 #include "physics.h"
 #include "audio.h"
 #include "combat.h"
+#include "viewmodel.h"
 
 struct GLFWwindow;
 
@@ -161,6 +162,9 @@ public:
   void buildWeaponMeshes();
   float viewKickYaw = 0, viewKickPitch = 0;
   std::vector<std::unique_ptr<WeaponDef>> weaponDefs;
+  std::map<std::string, std::shared_ptr<GpuModel>> modelCache;
+  bool useImportedModels = true;        // --box-weapons: draw the procedural fallback parts instead
+  void writeWeaponSheets(const fs::path& outDir);
   std::map<std::string, WeaponState> wstate;
   int activeWeapon = 0;
   float adsT = 0;
@@ -170,6 +174,22 @@ public:
   int weaponIndex(const std::string& id) const;
   void selectWeapon(int idx);
   mat4 viewModelMatrix(const WeaponDef& d, const WeaponState& s) const;
+  // first-person handling (viewmodel.cpp)
+  ViewModelState vm;
+  float worldFov = 72.0f;               // world projection FOV used last frame (apparent-position mapping)
+  GpuMesh armMesh[3];                   // unit boxes: US sleeve, German sleeve, skin
+  void buildArmMeshes();
+  void stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, const WeaponState& s);
+  bool vmScoped(const WeaponDef& d) const;
+  mat4 vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural = true) const;   // weapon -> view space
+  vec3 vmTarget(const WeaponDef& d) const;                                    // spring target (view space)
+  void sightLineWorld(const WeaponDef& d, const WeaponState& s, vec3& rear, vec3& front) const;
+  vec3 vmApparent(vec3 world) const;    // where a first-person point appears in the world projection
+  void armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s);
+  vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot
+  vec3 lastHandErr{0};                  // IK residual (right, left) for tests: x = right, y = left
+  vec3 lastElbowR{0}, lastElbowL{0}, lastHandR{0}, lastHandL{0}, lastShoulderR{0}, lastShoulderL{0};
+  void dofParams(float& focus, float& amount) const;
   vec3 weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const;
   bool deformGround(vec3 p, float scale);   // ground.cpp
   bool craterAt(vec3 p, float radius, float depth);

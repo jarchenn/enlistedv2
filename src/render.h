@@ -5,6 +5,7 @@
 #include "grass.h"
 
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; };
+struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; };
 struct OverlayVert { vec3 p; vec4 c; };
 
 struct Overlay {
@@ -20,6 +21,9 @@ struct RenderView {
   mat4 view, proj; vec3 camPos;
   bool editor = true, grid = false, autoExposure = false;
   float dt = 0.016f;
+  // first-person weapon: own fixed-FOV projection (identity = use proj) and the depth-of-field focus
+  mat4 vmProj{0};
+  float dofFocus = 0, dofAmount = 0;   // metres from the eye; 0..1 (ADS blend)
 };
 
 struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; };
@@ -39,6 +43,10 @@ public:
   std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)
   const Grass* grass = nullptr;         // instanced pasture grass (owned by the app)
   std::vector<DrawItem> viewModel;      // first-person weapon: drawn last over a cleared depth buffer
+  std::vector<ModelDraw> viewModelTex;  // textured (imported) parts of the first-person weapon
+  bool dofEnabled = true;
+  // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
+  bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));
   int width = 0, height = 0;
 private:
@@ -46,6 +54,9 @@ private:
   void createTargets();
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass);
   void setLighting(GLuint prog, const RenderView& v);
+  void drawModels(const std::vector<ModelDraw>& items);
+  GLuint progModel = 0, progDof = 0;
+  GLuint vmDistTex = 0, dofTex = 0, dofFbo = 0;
   GLuint progGrass = 0;
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   GLuint progMain = 0, progShadow = 0, progTerrain = 0, progSky = 0, progGlass = 0, progLine = 0, progTone = 0, progExpo = 0;

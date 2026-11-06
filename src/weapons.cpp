@@ -6,6 +6,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <numeric>
+#include <stb_image_write.h>
 
 enum WPart { WP_BODY, WP_BOLT, WP_MAG, WP_COVER, WP_CLIP, WP_BIPOD, WP_SCOPE, WP_HANDLE, WP_COUNT };
 static const char* kPartNames[WP_COUNT] = {"body", "bolt", "mag", "cover", "clip", "bipod", "scope", "handle"};
@@ -54,6 +55,28 @@ void App::buildWeaponMeshes() {
       }
       d->mesh[p].upload(m);
     }
+    d->file = f;
+    d->bulletMass = j.value("bulletMass", 10.0f);
+    if (j.contains("sockets")) { d->gripR = jvec3(j["sockets"]["rightGrip"], d->gripR); d->gripL = jvec3(j["sockets"]["leftSupport"], d->gripL); }
+    if (j.contains("model") && useImportedModels) {
+      std::string dirName = j["model"].value("dir", "");
+      auto it = modelCache.find(dirName);
+      if (it == modelCache.end()) {
+        auto gm = std::make_shared<GpuModel>();
+        std::string err;
+        if (!gm->load(dir / "models" / dirName, err)) { logf("weapon %s: model '%s' not loaded (%s); using box parts", d->id.c_str(), dirName.c_str(), err.c_str()); gm.reset(); }
+        it = modelCache.emplace(dirName, gm).first;
+      }
+      d->model = it->second;
+      if (d->model) {
+        for (size_t k = 0; k < d->model->parts.size(); ++k) {
+          const std::string& r = d->model->parts[k].role;
+          int role = WP_BODY;
+          for (int p = 0; p < WP_COUNT; ++p) if (r == kPartNames[p]) role = p;
+          d->modelParts[role].push_back((int)k);
+        }
+      }
+    }
     logf("weapon %-14s %s %s feed %-8s %d+%d", d->id.c_str(), d->action.c_str(), d->caliber.c_str(), d->feed.c_str(), d->loaded, d->reserve);
     weaponDefs.push_back(std::move(d));
   }
@@ -73,7 +96,7 @@ void App::resetWeapons() {
     wstate[d.id] = s;
   }
   if (activeWeapon >= (int)weaponDefs.size()) activeWeapon = 0;
-  adsT = 0; weaponMsg.clear();
+  adsT = 0; weaponMsg.clear(); { ViewModelState keep = vm; vm = ViewModelState{}; vm.procedural = keep.procedural; vm.showArms = keep.showArms; vm.vmFov = keep.vmFov; }
   viewKickPitch = viewKickYaw = 0;
 }
 
@@ -86,32 +109,13 @@ void App::selectWeapon(int idx) {
   if (strictDDay && weaponDefs[idx]->laterWar) { toast(weaponDefs[idx]->name + " is hidden by the strict 6 June 1944 preset."); return; }
   WeaponState& cur = wstate[weaponDefs[activeWeapon]->id];
   if (cur.reload > 0) { cur.reload = 0; cur.reloadKind = 0; weaponMsg = "Reload interrupted (no rounds moved)"; }   // nothing is committed until a reload completes
-  activeWeapon = idx; adsT = 0;
+  activeWeapon = idx; adsT = 0; vm.snap = true;
 }
 
 mat4 App::viewModelMatrix(const WeaponDef& d, const WeaponState& s) const {
-  // camera frame
   vec3 e = eyePos(), f = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
   mat4 cam = glm::inverse(glm::lookAt(e, e + f, vec3(0, 1, 0)));
-  bool scoped = d.hasScope && !(d.scopeIrons && scopeIronsMode);
-  vec3 sight = scoped ? d.scopeEye : d.rear;
-  float relief = scoped ? 0.07f : 0.21f;
-  // weapon +z -> view -z (rotate 180 about y): local (x,y,z) -> view (-x, y, -z)
-  vec3 ads(sight.x, -sight.y, sight.z - relief);
-  vec3 hip = ads + vec3(0.12f, -0.07f, 0.06f);
-  float t = adsT * adsT * (3 - 2 * adsT);
-  vec3 off = glm::mix(hip, ads, t);
-  off.z += s.kick * (reducedMotion ? 0.3f : 1.0f);   // recoil push into the shoulder
-  float bob = (1 - t) * std::sin((float)now * 1.7f) * 0.003f;
-  off.y += bob;
-  mat4 m = cam * glm::translate(mat4(1), off) * glm::mat4_cast(glm::angleAxis(3.14159265f, vec3(0, 1, 0)));
-  // reload / switch dip
-  if (s.reload > 0 && s.reloadKind != 3) {
-    float u = 1 - s.reload / std::max(0.01f, s.reloadTotal);
-    float dip = std::sin(u * 3.14159f);
-    m = m * glm::translate(mat4(1), vec3(0, -0.06f * dip, 0.25f)) * glm::mat4_cast(glm::angleAxis(radians(-22.0f * dip), vec3(0, 0, 1))) * glm::translate(mat4(1), vec3(0, 0, -0.25f));
-  }
-  return m;
+  return cam * vmLocal(d, s);   // viewmodel.cpp: ADS alignment, spring, sway, bob, kick, reload dip
 }
 
 vec3 App::weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const { return vec3(viewModelMatrix(d, s) * vec4(d.muzzle, 1)); }
@@ -126,14 +130,28 @@ bool App::weaponCamera(float& fov) const {
 }
 
 void App::weaponDrawItems(std::vector<DrawItem>& op) {
-  R.viewModel.clear();
+  R.viewModel.clear(); R.viewModelTex.clear();
   if (occupied || weaponDefs.empty() || mode != Mode::Explore) return;
   const WeaponDef& d = *weaponDefs[activeWeapon];
   const WeaponState& s = wstate[d.id];
   bool scopedView = d.hasScope && !(d.scopeIrons && scopeIronsMode) && adsT > 0.85f;
   if (scopedView) return;   // looking through the optic: the scope mask replaces the model
   mat4 M = viewModelMatrix(d, s);
-  auto add = [&](int p, const mat4& m) { if (d.mesh[p].count) R.viewModel.push_back({&d.mesh[p], m}); };
+  bool tex = d.useModel();
+  // reload progress drives an imported reload clip (Garand: clip seats, follower and operating rod cycle)
+  float animU = 1.0f;
+  if (s.reload > 0 && s.reloadKind && s.reloadTotal > 0) animU = std::clamp(1 - s.reload / s.reloadTotal, 0.0f, 1.0f);
+  auto add = [&](int p, const mat4& m) {
+    if (tex && p != WP_SCOPE) {
+      for (int k : d.modelParts[p]) {
+        const ModelPart& mp = d.model->parts[k];
+        if (p == WP_CLIP && s.loaded == 0 && s.reload <= 0) continue;   // en-bloc clip ejected
+        R.viewModelTex.push_back({d.model.get(), k, mp.anim.empty() ? m : M * d.model->animAt(k, animU)});
+      }
+      return;
+    }
+    if (d.mesh[p].count) R.viewModel.push_back({&d.mesh[p], m});
+  };
   add(WP_BODY, M); add(WP_SCOPE, M);
   // bolt: bolt actions lift and draw the handle; automatics move with each shot
   if (d.action == "bolt") {
@@ -163,12 +181,14 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     float leg = supported ? 1.0f : 0.0f;
     add(WP_BIPOD, M * glm::translate(mat4(1), vec3(0, 0.02f, 1.1f)) * glm::mat4_cast(glm::angleAxis(radians(-80.0f * leg), vec3(1, 0, 0))) * glm::translate(mat4(1), vec3(0, -0.02f, -1.1f)));
   }
-  // en-bloc / stripper clip visible while it is being loaded
-  if (s.reload > 0 && (s.reloadKind == 1 || s.reloadKind == 2) && (d.feed == "enbloc" || d.feed == "stripper")) {
+  // en-bloc / stripper clip visible while it is being loaded (imported en-bloc clip: always seated, animated)
+  if (tex && d.feed == "enbloc") add(WP_CLIP, M);
+  else if (s.reload > 0 && (s.reloadKind == 1 || s.reloadKind == 2) && (d.feed == "enbloc" || d.feed == "stripper")) {
     float u = 1 - s.reload / s.reloadTotal;
     float y = u < 0.6f ? 0.12f * (1 - u / 0.6f) : 0;
     if (u < 0.85f) add(WP_CLIP, M * glm::translate(mat4(1), vec3(0, y, 0)));
   }
+  armDrawItems(M, d, s);
   (void)op;
 }
 
@@ -204,6 +224,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   bool modal = pauseMenu || showLoadout || choiceFor;
   bool fireHeld = in.fire && !modal && (glfwGetWindowAttrib(win, GLFW_FOCUSED) || selftest);
   adsT = std::clamp(adsT + (in.aim && !modal ? 6.0f : -6.0f) * dt, 0.0f, 1.0f);
+  stepViewModel(dt, in, d, s);
   auto ch = Physics::character();
   supported = d.feed == "belt" && ch.crouched && glm::length(in.move) < 0.01f;
   s.cooldown = std::max(0.0f, s.cooldown - dt);
@@ -213,7 +234,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   s.recoilY -= s.recoilY * std::min(1.0f, d.rRecover * dt);
   s.kick -= s.kick * std::min(1.0f, 14.0f * dt);
   if (!fireHeld) { s.triggerReleased = true; s.burst = 0; }
-  viewKickPitch = s.recoilP; viewKickYaw = s.recoilY;
+  viewKickPitch = s.recoilP + vm.breathPitch; viewKickYaw = s.recoilY + vm.breathYaw;   // breathing moves the whole sight picture
   // ---- reload start
   if (in.reload && s.reload <= 0) {
     if (s.loaded >= d.cap) weaponMsg = "Already full";
@@ -261,7 +282,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       s.cooldown = 60.0f / d.rpm;
       if (d.action == "bolt") s.bolt = d.boltTime;
       vec3 eye = eyePos();
-      vec3 aimDir = forward(eyeYaw + s.recoilY, eyePitch + s.recoilP);
+      vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       float spread = radians(adsT > 0.85f ? 0.08f : (d.action == "auto" ? 1.6f : 1.0f));
       if (d.feed == "belt" && !supported) spread *= 2.5f;
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
@@ -277,14 +298,27 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (Physics::castRayEx(eye, muzzle - eye, glm::length(muzzle - eye), hb)) start = eye + glm::normalize(muzzle - eye) * std::max(0.0f, hb.t - 0.01f);
       vec3 dir = glm::normalize(P - start);
       if (glm::dot(dir, aimDir) < 0.5f) dir = aimDir;
+      // Aimed fire: the round leaves the front sight tip F along the sight line V = normalize(F - R), where R is the
+      // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
+      if (adsT > 0.85f && !vmScoped(d)) {
+        vec3 Rw, Fw; sightLineWorld(d, s, Rw, Fw);
+        vec3 V = glm::normalize(Fw - Rw);
+        vec3 vr = glm::normalize(glm::cross(V, vec3(0, 1, 0))), vu = glm::cross(vr, V);
+        V = glm::normalize(V + vr * std::cos(a) * r + vu * std::sin(a) * r);   // same dispersion draw as the hip path
+        Physics::Hit hf;
+        start = Fw;
+        if (Physics::castRayEx(eye, Fw - eye, glm::length(Fw - eye), hf)) start = eye + glm::normalize(Fw - eye) * std::max(0.0f, hf.t - 0.01f);
+        dir = V; lastSightR = Rw; lastSightF = Fw; lastSightV = glm::normalize(Fw - Rw);
+      }
       // declared zero: tilt up by the drop at the zero range
       float tz = d.zero / d.velocity, drop = 0.5f * 9.81f * tz * tz;
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
       bool tracer = d.tracerEvery > 0 && s.shotIdx % d.tracerEvery == 0;
       fireProjectile(start, dir, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
-      fx.flash(muzzle + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
-      fx.smoke(muzzle, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
+      vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
+      fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
+      fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
       audio.play("shot_" + d.id, muzzle, 1.0f);
       // recoil: profile + deterministic variation; supported MG fire is far easier to hold
       float sc = d.feed == "belt" ? (supported ? d.rSupported : 1.0f) : 1.0f;
@@ -359,5 +393,60 @@ void App::drawWeaponUI() {
       else { showLoadout = false; occupyStation(best, ST_GUNNER); }
     }
     ImGui::End();
+  }
+}
+
+// --weapon-sheets <dir>: orthographic side and rear views of every weapon on a centimetre grid, with the
+// configured sights (rear red, front green, muzzle blue) and IK sockets (right yellow, left cyan) marked.
+void App::writeWeaponSheets(const fs::path& outDir) {
+  std::error_code ec; fs::create_directories(outDir, ec);
+  for (auto& dp : weaponDefs) {
+    const WeaponDef& d = *dp;
+    std::vector<ModelDraw> md; std::vector<DrawItem> bx;
+    float L = 1.0f; vec3 bmin(-0.1f, -0.15f, 0), bmax(0.1f, 0.15f, 1.0f);
+    if (d.useModel()) {
+      for (int p = 0; p < WP_COUNT; ++p) for (int k : d.modelParts[p]) md.push_back({d.model.get(), k, mat4(1)});
+      bmin = d.model->bmin; bmax = d.model->bmax;
+    } else {
+      for (int p = 0; p < WP_COUNT; ++p) if (d.mesh[p].count) bx.push_back({&d.mesh[p], mat4(1)});
+    }
+    if (d.hasScope) bx.push_back({&d.mesh[WP_SCOPE], mat4(1)});
+    L = bmax.z;
+    struct Mark { vec3 p; uint32_t c; };
+    std::vector<Mark> marks = {{d.rear, 0xff2020ffu}, {d.front, 0xff20c020u}, {d.muzzle, 0xffff4020u}, {d.gripR, 0xff20e0ffu}, {d.gripL, 0xffffe020u}};
+    auto sheet = [&](const char* tag, int W, int H, vec3 eye, vec3 at, vec3 up, float x0, float x1, float y0, float y1, int axH, int axV, float h0, float v0, float hs = 1.0f) {
+      mat4 view = glm::lookAt(eye, at, up);
+      mat4 proj = glm::ortho(x0, x1, y0, y1, 0.01f, 10.0f);
+      std::vector<uint8_t> px;
+      R.renderModelSheet(md, bx, view, proj, eye, W, H, px);
+      float sx = W / (x1 - x0), sy = H / (y1 - y0);
+      auto put = [&](int x, int y, uint32_t c, float a) {
+        if (x < 0 || y < 0 || x >= W || y >= H) return;
+        uint8_t* q = &px[((size_t)y * W + x) * 4];
+        for (int k = 0; k < 3; ++k) q[k] = (uint8_t)(q[k] * (1 - a) + ((c >> (8 * k)) & 255) * a);
+      };
+      for (int cm = -100; cm <= 200; ++cm) {   // vertical lines: horizontal axis value h0 + cm/100
+        float v = cm / 100.0f;
+        int x = (int)std::lround((v - h0 - x0) * sx);
+        float a = cm % 10 == 0 ? 0.55f : cm % 5 == 0 ? 0.3f : 0.12f;
+        if (x >= 0 && x < W) for (int y = 0; y < H; ++y) put(x, y, 0xff000000u, a);
+        int y = (int)std::lround(H - 1 - (v - v0 - y0) * sy);
+        if (y >= 0 && y < H) for (int xx = 0; xx < W; ++xx) put(xx, y, 0xff000000u, a);
+      }
+      for (auto& m : marks) {
+        float h = m.p[axH] * hs, v = m.p[axV];
+        int cx = (int)std::lround((h - h0 - x0) * sx), cy = (int)std::lround(H - 1 - (v - v0 - y0) * sy);
+        for (int k = -9; k <= 9; ++k) { put(cx + k, cy, m.c, 1); put(cx, cy + k, m.c, 1); }
+      }
+      fs::path p = outDir / (d.id + "_" + tag + ".png");
+      stbi_write_png(p.string().c_str(), W, H, 4, px.data(), W * 4);
+    };
+    // side: camera on -x looking +x, +z to the right, +y up
+    float pad = 0.04f, cy = (bmin.y + bmax.y) * 0.5f;
+    float spanZ = L + 2 * pad, scale = 2400.0f / spanZ, halfY = 450.0f / scale;
+    sheet("side", 2400, 900, vec3(-2, cy, L * 0.5f), vec3(0, cy, L * 0.5f), vec3(0, 1, 0), -spanZ * 0.5f, spanZ * 0.5f, -halfY, halfY, 2, 1, L * 0.5f, cy);
+    // rear: camera behind the butt looking +z; screen right = -x
+    sheet("rear", 800, 800, vec3(0, cy, -2), vec3(0, cy, 0), vec3(0, 1, 0), -0.16f, 0.16f, -0.16f, 0.16f, 0, 1, 0, cy, -1.0f);
+    logf("sheet %s: bounds (%.3f %.3f %.3f)-(%.3f %.3f %.3f)", d.id.c_str(), bmin.x, bmin.y, bmin.z, bmax.x, bmax.y, bmax.z);
   }
 }

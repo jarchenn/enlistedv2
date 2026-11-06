@@ -103,7 +103,8 @@ void main(){
 static const char* kMainFS = R"GLSL(
 in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn; in vec4 vPar;
 uniform vec4 uTint; uniform float uTime;
-out vec4 oColor;
+layout(location=0) out vec4 oColor;
+layout(location=1) out float oDist;   // eye distance, only stored during the first-person pass (depth of field)
 vec2 faceUV(vec3 p, vec3 n){ vec3 a=abs(n); if (a.y>a.x && a.y>a.z) return p.xz; if (a.x>a.z) return vec2(p.z,p.y); return vec2(p.x,p.y); }
 int domAxis(vec3 n){ vec3 a=abs(n); if (a.x>=a.y && a.x>=a.z) return 0; if (a.y>=a.z) return 1; return 2; }
 void main(){
@@ -252,6 +253,7 @@ void main(){
   }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   c = applyFog(c, vW);
+  oDist = length(vW - uCamPos);
   if (uTint.a < 0.999) { c = mix(c, uTint.rgb, 0.55); oColor = vec4(c, uTint.a); return; }
   oColor = vec4(c, 1.0);
 }
@@ -278,6 +280,77 @@ void main(){
   float a = clamp(0.10 + F*0.85 + dirt*0.08, 0.0, 0.95);
   c = applyFog(c, vW);
   oColor = vec4(c / max(a, 0.05), a);
+}
+)GLSL";
+
+// ---- imported textured models (first-person weapons): metal-rough PBR with normal and AO maps
+static const char* kModelVS = R"GLSL(
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
+uniform mat4 uModel, uVP;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV;
+void main(){
+  vec4 w = uModel*vec4(aPos,1.0);
+  mat3 m = mat3(uModel);
+  vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
+  gl_Position = uVP*w;
+}
+)GLSL";
+static const char* kModelFS = R"GLSL(
+in vec3 vW, vN; in vec4 vT; in vec2 vUV;
+uniform sampler2D uAlb, uMR, uNrm, uAO;
+uniform int uHasAlb, uHasMR, uHasNrm, uHasAO, uAOinMR;
+uniform vec4 uBase, uTint; uniform float uMetal, uRough;
+layout(location=0) out vec4 oColor;
+layout(location=1) out float oDist;
+void main(){
+  vec4 base = uBase;
+  if (uHasAlb == 1) base *= texture(uAlb, vUV);
+  float rough = uRough, metal = uMetal, ao = 1.0;
+  if (uHasMR == 1) { vec4 mr = texture(uMR, vUV); rough *= mr.g; metal *= mr.b; if (uAOinMR == 1) ao = mr.r; }
+  if (uHasAO == 1) ao = texture(uAO, vUV).r;
+  vec3 N = normalize(vN);
+  if (!gl_FrontFacing) N = -N;                         // glTF models are double sided
+  if (uHasNrm == 1) {
+    vec3 T = vT.xyz - N*dot(N, vT.xyz);
+    if (dot(T, T) > 1e-12) {
+      T = normalize(T); vec3 B = cross(N, T) * (vT.w < 0.0 ? -1.0 : 1.0);
+      vec3 t = texture(uNrm, vUV).xyz*2.0 - 1.0;
+      vec3 n = T*t.x + B*t.y + N*max(t.z, 0.05);
+      if (dot(n, n) > 1e-12) N = normalize(n);
+    }
+  }
+  vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
+  c = applyFog(c, vW);
+  if (uTint.a < 0.999) c = mix(c, uTint.rgb, 0.55);
+  oColor = vec4(c, 1.0);
+  oDist = length(vW - uCamPos);
+}
+)GLSL";
+
+// ---- near-field depth of field for aiming down the sights: only first-person weapon pixels nearer than the
+// focus get a circle of confusion; scatter-as-gather so the blurred rear sight bleeds over the background.
+//   CoC(d) = amount * clamp((focus - d) / (0.6 * focus), 0, 1) * maxR      (d = eye distance, 0 = world pixel)
+static const char* kDofFS = R"GLSL(
+#version 450 core
+in vec2 vUV;
+uniform sampler2D uHdr, uDist; uniform float uFocus, uAmount, uMaxR; uniform vec2 uTexel;
+out vec4 oColor;
+float coc(vec2 uv){ float d = texture(uDist, uv).r; if (d <= 0.0) return 0.0; return uAmount*clamp((uFocus - d)/(0.6*uFocus), 0.0, 1.0)*uMaxR; }
+void main(){
+  vec3 c0 = textureLod(uHdr, vUV, 0.0).rgb;
+  float r0 = coc(vUV);
+  vec3 sum = c0; float wsum = 1.0;
+  const float GA = 2.39996323;
+  for (int i = 0; i < 24; ++i) {
+    float rr = sqrt((float(i) + 0.5)/24.0) * uMaxR;
+    vec2 o = vec2(cos(float(i)*GA), sin(float(i)*GA)) * rr;
+    vec2 uv = vUV + o*uTexel;
+    float r = coc(uv);
+    float w = smoothstep(rr - 1.0, rr + 1.0, max(r, min(r0, r + 0.5)));   // a tap contributes if its blur disc reaches here
+    sum += textureLod(uHdr, uv, 0.0).rgb * w; wsum += w;
+  }
+  vec3 c = sum/wsum;
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? c0 : c, 1.0);
 }
 )GLSL";
 
@@ -531,6 +604,8 @@ bool Renderer::init(int w, int h) {
   progLine = compile(kLineVS, kLineFS, "line");
   progFx = compile(kFxVS, kFxFS, "fx");
   progGrass = compile(kGrassVS, kGrassFS, "grass");
+  progModel = compile(kModelVS, kModelFS, "model");
+  progDof = compile(kFullVS, kDofFS, "dof");
   glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
   glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
   for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
@@ -576,7 +651,7 @@ bool Renderer::init(int w, int h) {
 }
 
 void Renderer::createTargets() {
-  if (hdrFbo) { glDeleteFramebuffers(1, &hdrFbo); glDeleteFramebuffers(1, &ldrFbo); GLuint t[3] = {hdrColor, depthTex, ldrColor}; glDeleteTextures(3, t); }
+  if (hdrFbo) { glDeleteFramebuffers(1, &hdrFbo); glDeleteFramebuffers(1, &ldrFbo); glDeleteFramebuffers(1, &dofFbo); GLuint t[5] = {hdrColor, depthTex, ldrColor, vmDistTex, dofTex}; glDeleteTextures(5, t); }
   int levels = 1 + (int)std::floor(std::log2((float)std::max(width, height)));
   glCreateTextures(GL_TEXTURE_2D, 1, &hdrColor); glTextureStorage2D(hdrColor, levels, GL_RGBA16F, width, height);
   glTextureParameteri(hdrColor, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -586,6 +661,14 @@ void Renderer::createTargets() {
   glCreateFramebuffers(1, &hdrFbo);
   glNamedFramebufferTexture(hdrFbo, GL_COLOR_ATTACHMENT0, hdrColor, 0);
   glNamedFramebufferTexture(hdrFbo, GL_DEPTH_ATTACHMENT, depthTex, 0);
+  // first-person eye distance (depth of field), written only during the weapon pass
+  glCreateTextures(GL_TEXTURE_2D, 1, &vmDistTex); glTextureStorage2D(vmDistTex, 1, GL_R16F, width, height);
+  glTextureParameteri(vmDistTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(vmDistTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTextureParameteri(vmDistTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(vmDistTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glNamedFramebufferTexture(hdrFbo, GL_COLOR_ATTACHMENT1, vmDistTex, 0);
+  glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);
+  glCreateTextures(GL_TEXTURE_2D, 1, &dofTex); glTextureStorage2D(dofTex, 1, GL_RGBA16F, width, height);
+  glCreateFramebuffers(1, &dofFbo); glNamedFramebufferTexture(dofFbo, GL_COLOR_ATTACHMENT0, dofTex, 0);
   glCreateFramebuffers(1, &ldrFbo);
   glNamedFramebufferTexture(ldrFbo, GL_COLOR_ATTACHMENT0, ldrColor, 0);
   glNamedFramebufferTexture(ldrFbo, GL_DEPTH_ATTACHMENT, depthTex, 0);
@@ -641,6 +724,59 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
     it.mesh->draw();
     stats.draws++; stats.tris += it.mesh->count / 3;
   }
+}
+
+void Renderer::drawModels(const std::vector<ModelDraw>& items) {
+  GLuint p = progModel;
+  glUniform1i(U(p, "uAlb"), 2); glUniform1i(U(p, "uMR"), 3); glUniform1i(U(p, "uNrm"), 4); glUniform1i(U(p, "uAO"), 5);
+  GLint lm = U(p, "uModel"), lb = U(p, "uBase"), lme = U(p, "uMetal"), lr = U(p, "uRough"), lt = U(p, "uTint");
+  const GpuModel* bound = nullptr;
+  for (auto& it : items) {
+    const GpuModel* m = it.model;
+    if (!m || !m->vao || it.part < 0 || it.part >= (int)m->parts.size()) continue;
+    const ModelPart& pt = m->parts[it.part];
+    if (m != bound) {
+      bound = m;
+      glBindVertexArray(m->vao);
+      glBindTextureUnit(2, m->texAlb); glBindTextureUnit(3, m->texMR); glBindTextureUnit(4, m->texN); glBindTextureUnit(5, m->texAO);
+      glUniform1i(U(p, "uHasMR"), m->texMR ? 1 : 0); glUniform1i(U(p, "uHasNrm"), m->texN ? 1 : 0);
+      glUniform1i(U(p, "uHasAO"), m->texAO ? 1 : 0); glUniform1i(U(p, "uAOinMR"), m->aoInMR ? 1 : 0);
+    }
+    glUniform1i(U(p, "uHasAlb"), (pt.textured && m->texAlb) ? 1 : 0);
+    glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
+    glUniform4fv(lb, 1, glm::value_ptr(pt.base)); glUniform1f(lme, pt.metal); glUniform1f(lr, pt.rough);
+    glUniform4fv(lt, 1, glm::value_ptr(it.tint));
+    glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
+    stats.draws++; stats.tris += (int)pt.count / 3;
+  }
+}
+
+bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba) {
+  GLuint col, dep, fbo;
+  glCreateTextures(GL_TEXTURE_2D, 1, &col); glTextureStorage2D(col, 1, GL_RGBA16F, w, h);
+  glCreateTextures(GL_TEXTURE_2D, 1, &dep); glTextureStorage2D(dep, 1, GL_DEPTH_COMPONENT32F, w, h);
+  glCreateFramebuffers(1, &fbo); glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, col, 0); glNamedFramebufferTexture(fbo, GL_DEPTH_ATTACHMENT, dep, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo); glViewport(0, 0, w, h);
+  glClearColor(0.62f, 0.64f, 0.66f, 1); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDepthMask(GL_TRUE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
+  RenderView v; v.view = view; v.proj = proj; v.camPos = camPos;
+  thumbMode = true;
+  mat4 vp = proj * view;
+  setLighting(progMain, v); glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); drawItems(progMain, boxes, false);
+  setLighting(progModel, v); glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); drawModels(items);
+  thumbMode = false;
+  std::vector<float> px((size_t)w * h * 4);
+  glGetTextureImage(col, 0, GL_RGBA, GL_FLOAT, (GLsizei)(px.size() * 4), px.data());
+  rgba.resize((size_t)w * h * 4);
+  for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x)
+    for (int c = 0; c < 4; ++c) {
+      float f = px[((size_t)(h - 1 - y) * w + x) * 4 + c];
+      if (c < 3) { f = std::clamp(f * 0.9f, 0.0f, 4.0f); f = f / (1.0f + f * 0.25f) * 1.25f; f = std::pow(std::clamp(f, 0.0f, 1.0f), 1.0f / 2.2f); } else f = 1;
+      rgba[((size_t)y * w + x) * 4 + c] = (uint8_t)std::lround(f * 255);
+    }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDeleteFramebuffers(1, &fbo); glDeleteTextures(1, &col); glDeleteTextures(1, &dep);
+  return true;
 }
 
 static mat4 stableOrtho(vec3 focus, vec3 dir, float radius, float depth, int res, mat4& viewOut) {
@@ -769,12 +905,40 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   }
   glDepthMask(GL_TRUE);
   glDisable(GL_BLEND);
-  if (!viewModel.empty()) {   // view model never clips into walls; lit at its world position
+  if (!viewModel.empty() || !viewModelTex.empty()) {
+    // First-person weapon (and arms): drawn over a cleared depth buffer so it never clips into walls, lit at its
+    // world position, with its own fixed-FOV projection so the world FOV can zoom while the weapon keeps its size.
     glClear(GL_DEPTH_BUFFER_BIT);
+    GLenum bufs[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glNamedFramebufferDrawBuffers(hdrFbo, 2, bufs);
+    float zero[4] = {0, 0, 0, 0}; glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 1, zero);
+    mat4 vvp = (v.vmProj[2][3] != 0.0f ? v.vmProj : v.proj) * v.view;
     glEnable(GL_CULL_FACE);
     setLighting(progMain, v);
-    glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
     drawItems(progMain, viewModel, false);
+    if (!viewModelTex.empty()) {
+      glDisable(GL_CULL_FACE);
+      setLighting(progModel, v);
+      glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
+      drawModels(viewModelTex);
+      glEnable(GL_CULL_FACE);
+    }
+    glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);
+    if (dofEnabled && v.dofAmount > 0.001f && v.dofFocus > 0.0f) {
+      glBindFramebuffer(GL_FRAMEBUFFER, dofFbo);
+      glDisable(GL_DEPTH_TEST);
+      glUseProgram(progDof);
+      glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, vmDistTex);
+      glUniform1i(U(progDof, "uHdr"), 0); glUniform1i(U(progDof, "uDist"), 1);
+      glUniform1f(U(progDof, "uFocus"), v.dofFocus); glUniform1f(U(progDof, "uAmount"), v.dofAmount);
+      glUniform1f(U(progDof, "uMaxR"), 6.0f * height / 1080.0f);
+      glUniform2f(U(progDof, "uTexel"), 1.0f / width, 1.0f / height);
+      glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+      glCopyImageSubData(dofTex, GL_TEXTURE_2D, 0, 0, 0, 0, hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+      glEnable(GL_DEPTH_TEST);
+      glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
+    }
   }
 
   // ---- exposure

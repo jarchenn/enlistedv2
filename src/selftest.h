@@ -40,6 +40,8 @@ private:
   void captureUpdate(App& app, float dt);
   void grassUpdate(App& app, float dt);
   void recordUpdate(App& app, float dt);
+  void fpsUpdate(App& app, float dt);    // selftest_fps.cpp (1100)
+  void envUpdate(App& app, float dt);    // selftest_env.cpp (1200)
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);
   json summary = json::object();
 };

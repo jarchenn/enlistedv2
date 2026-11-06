@@ -356,7 +356,7 @@ void App::screenshot(const fs::path& p) {
 
 // ============================================================ main loop
 int App::run(int argc, char** argv) {
-  bool runSelf = false, bench = false; fs::path openPath;
+  bool runSelf = false, bench = false; fs::path openPath, sheetsDir;
   for (int k = 1; k < argc; ++k) {
     std::string a = argv[k];
     if (a == "--selftest") runSelf = true;
@@ -365,8 +365,15 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env") runSelf = true;
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
+    else if (a == "--box-weapons") useImportedModels = false;
+    else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
+    else if (a == "--import-weapon-models" && k + 1 < argc) {
+      // offline bake: <srcDir with .glb files> [content root to write into, default: the running content/]
+      fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();
+      return importWeaponModels(src, out) ? 0 : 1;
+    }
     else openPath = a;
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
@@ -413,7 +420,9 @@ int App::run(int argc, char** argv) {
     Part p; p.center = vec3(0); p.size = vec3(1);
     MeshData m; appendPart(m, p, rm, mat4(1)); debrisMesh.upload(m);
     buildWeaponMeshes();
+    buildArmMeshes();
   }
+  if (!sheetsDir.empty()) { writeWeaponSheets(sheetsDir); glfwTerminate(); return 0; }
   {
     const TemplateInfo* t = findTemplate("blank_slate");
     TemplateInfo fb; fb.id = "blank_slate"; fb.name = "Blank Slate";
@@ -472,6 +481,9 @@ int App::run(int argc, char** argv) {
       if (!stationCamera(e, fv, fov)) weaponCamera(fov);
       viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
       projM = glm::perspective(radians(fov), aspect, 0.03f, 4000.0f);
+      worldFov = fov;
+      v.vmProj = glm::perspective(radians(vm.vmFov), aspect, 0.01f, 6.0f);
+      dofParams(v.dofFocus, v.dofAmount);
       v.editor = false; v.autoExposure = true; v.camPos = e;
       audio.setListener(e, forward(eyeYaw, eyePitch));
     }

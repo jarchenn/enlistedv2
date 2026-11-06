@@ -190,9 +190,11 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   vec3 wish = f * in.move.y + rgt * in.move.x;
   if (glm::length(wish) > 1) wish = glm::normalize(wish);
   auto before = Physics::character();
-  float speed = in.crouch ? 1.2f : in.sprint ? 4.6f : 2.3f;
+  bool sprinting = in.sprint && adsT < 0.5f;   // Shift while aiming holds the breath instead
+  float speed = in.crouch ? 1.2f : sprinting ? 4.6f : 2.3f;
   if (!occupied) Physics::updateCharacter(dt, wish * speed, in.jump, in.crouch);
   auto c = Physics::character();
+  vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
   float eyeTarget = c.crouched ? 1.05f : 1.62f;
   eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * 10);
   // ---- footsteps by surface

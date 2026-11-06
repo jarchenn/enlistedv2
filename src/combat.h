@@ -1,5 +1,6 @@
 #pragma once
 #include "assets.h"
+#include "model.h"
 
 // ---------------------------------------------------------------- personal weapons
 struct WeaponDef {
@@ -12,6 +13,13 @@ struct WeaponDef {
   float scopeMag = 1;
   std::vector<Material> mats;
   GpuMesh mesh[8];
+  // imported textured model (content/weapons/models/<dir>); the box parts above stay as the fallback
+  std::shared_ptr<GpuModel> model;
+  std::vector<int> modelParts[8];       // model part indices per WPart role
+  fs::path file;                        // source JSON (calibration panel saves back into it)
+  vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)
+  float bulletMass = 10;                // grams (penetration energy)
+  bool useModel() const { return model && model->vao; }
 };
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
