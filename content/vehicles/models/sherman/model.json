@@ -1,0 +1,354 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.5538833141326904,
+  5.338952541351318,
+  4.4483489990234375
+ ],
+ "bmin": [
+  -1.5538833141326904,
+  0.0,
+  -3.066149950027466
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "mr": "mr_1.png",
+   "name": "tank_chassis_01_skinned",
+   "normal": "normal_2.png"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.png",
+   "name": "tank_chassis_01_skinned.001",
+   "normal": "normal_2.png"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.png",
+   "name": "track_mat",
+   "normal": "normal_7.png"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.png",
+   "name": "track_mat.001",
+   "normal": "normal_7.png"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.png",
+   "name": "track_mat.002",
+   "normal": "normal_8.png"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.png",
+   "name": "material_0",
+   "normal": "normal_7.png"
+  },
+  {
+   "albedo": "albedo_10.jpg",
+   "aoInMR": true,
+   "mr": "mr_11.png",
+   "name": "tank_turret_01",
+   "normal": "normal_12.png"
+  },
+  {
+   "albedo": "albedo_13.jpg",
+   "aoInMR": true,
+   "mr": "mr_14.png",
+   "name": "tank_hull_01",
+   "normal": "normal_15.png"
+  },
+  {
+   "albedo": "albedo_16.jpg",
+   "aoInMR": true,
+   "mr": "mr_17.png",
+   "name": "tank_guns_skinned",
+   "normal": "normal_18.png"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.4138983488082886,
+    1.0369415283203125,
+    2.993189573287964
+   ],
+   "bmin": [
+    0.8489739894866943,
+    0.04073941707611084,
+    -2.6523489952087402
+   ],
+   "count": 25185,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "exportChassL1Shape_tank_chassis_01_skinned_0",
+   "role": "wheels",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.8730860352516174,
+    1.0369410514831543,
+    2.993250608444214
+   ],
+   "bmin": [
+    -1.43800950050354,
+    0.04073941707611084,
+    -2.652348041534424
+   ],
+   "count": 25185,
+   "first": 25185,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "exportChassR1Shape_tank_chassis_01_skinned.001_0",
+   "role": "wheels",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.4312636852264404,
+    1.0741069316864014,
+    2.977954626083374
+   ],
+   "bmin": [
+    0.8546316027641296,
+    0.0,
+    -2.669750690460205
+   ],
+   "count": 26790,
+   "first": 50370,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "segment_track_mat_0",
+   "role": "track",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.8787438869476318,
+    1.0741087198257446,
+    2.977930784225464
+   ],
+   "bmin": [
+    -1.4553760290145874,
+    0.0,
+    -2.669760227203369
+   ],
+   "count": 26790,
+   "first": 77160,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "segment.001_track_mat.001_0",
+   "role": "track",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.3881630897521973,
+    1.0670045614242554,
+    2.972923994064331
+   ],
+   "bmin": [
+    0.8985282778739929,
+    0.0070056915283203125,
+    -2.6706061363220215
+   ],
+   "count": 11400,
+   "first": 103950,
+   "mat": 4,
+   "metal": 1.0,
+   "name": "segment2_track_mat.002_0",
+   "role": "track",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.9218446612358093,
+    1.0670021772384644,
+    2.9729554653167725
+   ],
+   "bmin": [
+    -1.4114793539047241,
+    0.0070056915283203125,
+    -2.6706085205078125
+   ],
+   "count": 11400,
+   "first": 115350,
+   "mat": 5,
+   "metal": 1.0,
+   "name": "segment2.001_track_mat.003_0",
+   "role": "track",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.0798283815383911,
+    5.338952541351318,
+    1.2089216709136963
+   ],
+   "bmin": [
+    -1.200498104095459,
+    1.8231532573699951,
+    -1.5779749155044556
+   ],
+   "count": 22236,
+   "first": 126750,
+   "mat": 6,
+   "metal": 1.0,
+   "name": "Turret_01_tank_turret_01_0",
+   "role": "turret",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.28003060817718506,
+    3.3926005363464355,
+    0.30102062225341797
+   ],
+   "bmin": [
+    -0.2879425585269928,
+    2.9927210807800293,
+    -1.4192487001419067
+   ],
+   "count": 7434,
+   "first": 148986,
+   "mat": 6,
+   "metal": 1.0,
+   "name": "roof_m2",
+   "role": "mg",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.5538833141326904,
+    1.9710084199905396,
+    3.066149950027466
+   ],
+   "bmin": [
+    -1.5538833141326904,
+    0.2924536466598511,
+    -3.066149950027466
+   ],
+   "count": 66234,
+   "first": 156420,
+   "mat": 7,
+   "metal": 1.0,
+   "name": "Hull_tank_hull_01_0",
+   "role": "hull",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6042095422744751,
+    2.5678210258483887,
+    4.4483489990234375
+   ],
+   "bmin": [
+    -0.6287557482719421,
+    2.0509495735168457,
+    0.9736244678497314
+   ],
+   "count": 4608,
+   "first": 222654,
+   "mat": 8,
+   "metal": 1.0,
+   "name": "gun_01Shape_tank_guns_skinned_0",
+   "role": "gun",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 6.132299900054932,
+ "rot": [
+  0.0,
+  180.0,
+  0.0
+ ],
+ "scale": 1.0000033378601074,
+ "source": "tank_fury.glb",
+ "textures": {},
+ "triangles": 75754,
+ "vehicleOrigin": {
+  "note": "x/z centred on the hull, y = 0 at the running gear's lowest point",
+  "shift": [
+   0.0,
+   1.1317310333251953,
+   -3.066149950027466
+  ]
+ },
+ "vertices": 86104
+}

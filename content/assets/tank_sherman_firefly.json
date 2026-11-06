@@ -1,0 +1,65 @@
+{
+ "id": "tank_sherman_firefly",
+ "version": 1,
+ "name": "Sherman Firefly (stand-in)",
+ "category": "Vehicles",
+ "description": "Drivable tank (Explore: E to enter). Supplied M4A3E8 'Fury' model as a provisional Sherman Firefly stand-in; 17-pounder game data. Gunner sight, roof .50, HE/AP.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  3.09,
+  6.11
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Allied",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.0,
+    0
+   ],
+   "s": [
+    3.04,
+    1.92,
+    6.06
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    -0.06,
+    2.42,
+    -0.18
+   ],
+   "s": [
+    2.16,
+    1.04,
+    2.72
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "sherman_firefly"
+}

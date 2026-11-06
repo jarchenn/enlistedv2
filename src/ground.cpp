@@ -11,7 +11,7 @@ float App::groundWeight(float x, float z) const {
   float w = 1.0f;
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
-    if (a->station.kind.size()) continue;   // field guns sit on the ground, they do not protect it
+    if (a->station.kind.size() || isVehicleAsset(a)) continue;   // field guns and tanks sit on the ground, they do not protect it
     if (a->path.on || a->defense.kind == "wire") continue;   // paths and wire lie on open ground: craters form under them
     vec2 hf = a->footprint * 0.5f;
     if (glm::length(vec2(x - i.pos.x, z - i.pos.z)) > glm::length(hf) + 2.0f) continue;
@@ -78,6 +78,7 @@ void App::applyDamageToMap() {
   pushUndo();
   if (!undoStack.empty()) { auto& v = undoStack.back().inst; v.erase(std::remove_if(v.begin(), v.end(), [](const Instance& i) { return i.extra.is_object() && i.extra.value("session", false); }), v.end()); }
   int panels = 0, leaves = 0, placed = 0;
+  tanks.applyToMap(*this);   // tank damage / wreck / ammunition (tank_sim.cpp)
   for (auto& i : doc.instances) {
     bool changed = false;
     if (i.extra.is_object() && i.extra.value("session", false)) { i.extra.erase("session"); changed = true; ++placed; }

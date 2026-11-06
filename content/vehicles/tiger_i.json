@@ -1,0 +1,284 @@
+{
+  "id": "tiger_i",
+  "name": "Tiger I",
+  "faction": "Axis",
+  "identity": "Supplied pzkpfw_vi_tiger_1.glb: mid-production Tiger I (cupola, spare track links on the turret sides). The gun, sleeve and mantlet were split from the turret mesh at bake so they elevate on their own; nothing was added.",
+  "model": {
+    "src": "pzkpfw_vi_tiger_1.glb",
+    "dir": "tiger",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "realLength": 6.2319,
+    "lengthNode": "tiger_hull_hull_0",
+    "maxTex": 1024,
+    "nodeParts": {
+      "tiger_hull_tracks_0": "track",
+      "tiger_hull_hull_0": "hull",
+      "tiger_hull_turret_0": "hull_top",
+      "tiger_turret": "turret"
+    },
+    "splits": [
+      {
+        "part": "tiger_turret_turret_0",
+        "islandsIn": [
+          [
+            -1.0,
+            1.85,
+            1.15
+          ],
+          [
+            1.0,
+            2.62,
+            5.4
+          ]
+        ],
+        "name": "tiger_gun",
+        "role": "gun",
+        "note": "8.8 cm KwK 36 barrel, sleeve and mantlet islands: elevate on their own"
+      }
+    ]
+  },
+  "rig": {
+    "turretPivot": [
+      0.0,
+      1.834,
+      0.01
+    ],
+    "gunPivot": [
+      -0.02,
+      2.22,
+      1.05
+    ],
+    "muzzle": [
+      -0.02,
+      2.22,
+      5.31
+    ],
+    "optic": [
+      0.32,
+      2.3,
+      1.72
+    ],
+    "hatchEye": [
+      0.47,
+      3.55,
+      -0.4
+    ],
+    "mgPivot": [
+      0.47,
+      3.04,
+      0.02
+    ],
+    "engine": [
+      0,
+      1.4,
+      -2.3
+    ],
+    "exhausts": [
+      [
+        0.38,
+        1.75,
+        -3.1
+      ],
+      [
+        -0.38,
+        1.75,
+        -3.1
+      ]
+    ],
+    "exits": [
+      [
+        2.6,
+        0,
+        0.3
+      ],
+      [
+        -2.6,
+        0,
+        0.3
+      ],
+      [
+        2.6,
+        0,
+        -2.0
+      ],
+      [
+        -2.6,
+        0,
+        -2.0
+      ],
+      [
+        0,
+        0,
+        -4.0
+      ],
+      [
+        0,
+        0,
+        6.0
+      ],
+      [
+        2.6,
+        0,
+        2.4
+      ],
+      [
+        -2.6,
+        0,
+        2.4
+      ]
+    ]
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          1.0,
+          0
+        ],
+        "h": [
+          1.82,
+          0.94,
+          3.1
+        ]
+      }
+    ],
+    "turret": [
+      {
+        "c": [
+          0.02,
+          2.27,
+          0.0
+        ],
+        "h": [
+          1.32,
+          0.43,
+          1.56
+        ]
+      },
+      {
+        "c": [
+          0.47,
+          2.83,
+          -0.36
+        ],
+        "h": [
+          0.35,
+          0.13,
+          0.35
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        1.0,
+        0
+      ],
+      "h": [
+        1.82,
+        0.94,
+        3.1
+      ]
+    },
+    "armourTurret": {
+      "c": [
+        0.02,
+        2.4,
+        0.0
+      ],
+      "h": [
+        1.32,
+        0.56,
+        1.56
+      ]
+    },
+    "note": "simplified boxes in hull space (turret boxes at 0 deg traverse): hull, turret up to the roof plate (2.70 m), cupola. armourTurret (the zone frame) spans the turret and cupola"
+  },
+  "gun": {
+    "name": "8.8 cm KwK 36 L/56",
+    "traverseRate": 10,
+    "traverseAccel": 8,
+    "elevationRate": 4,
+    "elevationAccel": 12,
+    "elevation": [
+      -8,
+      15
+    ],
+    "recoil": 0.45,
+    "fov": 30,
+    "fovZoom": 12,
+    "zeroRange": 400,
+    "reticle": "tiger",
+    "note": "rates, limits and sight field are provisional game tuning; the Sherman's faster traverse is the requested direction"
+  },
+  "ammunition": {
+    "reloadTime": 7.0,
+    "reserveAP": 40,
+    "reserveHE": 40,
+    "startLoaded": "AP",
+    "ap": "88mm_pzgr39",
+    "he": "88mm_sprgr",
+    "velocityAP": 773,
+    "velocityHE": 820,
+    "blastHE": 160,
+    "note": "reserves and reload time are provisional game values"
+  },
+  "roofMg": {
+    "name": "MG 34 on the cupola ring (provisional: drawn with the supplied MG 42 model)",
+    "model": "mg42",
+    "modelOffset": [
+      0,
+      -0.03,
+      -0.42
+    ],
+    "sound": "shot_mg34",
+    "yaw": [
+      -180,
+      180
+    ],
+    "elevation": [
+      -10,
+      60
+    ],
+    "rpm": 900,
+    "velocity": 755,
+    "spreadDeg": 0.3,
+    "belt": 75,
+    "reserve": 300,
+    "reload": 5.0,
+    "bulletMass": 0.0128
+  },
+  "mobility": {
+    "maxForward": 11.1,
+    "maxReverse": 2.8,
+    "accel": 1.2,
+    "brake": 4.5,
+    "coast": 0.8,
+    "turnRate": 18,
+    "pivotRate": 14,
+    "maxSlopeDeg": 30,
+    "offroadMul": 0.6,
+    "halfSize": [
+      1.8,
+      0.85,
+      3.1
+    ],
+    "clearance": 0.42,
+    "trackHalfGauge": 1.3,
+    "trackHalfLength": 2.6,
+    "note": "road top speed follows the museum listing (faster than the Firefly on roads); off-road multiplier, acceleration and turning make it feel heavier (gameplay tuning)"
+  },
+  "historical": {
+    "roadSpeedKmh": 40,
+    "source": "The Tank Museum, Tiger I: 40 km/h"
+  },
+  "durability": {
+    "frontHitsSurvived": 4,
+    "sideHitsSurvived": 1
+  }
+}

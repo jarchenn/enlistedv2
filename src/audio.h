@@ -19,6 +19,12 @@ public:
   void play(const std::string& name, vec3 pos, float volume = 1.0f);
   void setListener(vec3 pos, vec3 fwd);
   void setAmbience(float wind, float leaves);
+  // looping spatialised voices (tank engines, tracks, turret motors) and runtime-registered sounds (tank.cpp)
+  void addSound(const std::string& name, std::vector<float> mono44k);
+  int loopStart(const std::string& name, vec3 pos, float volume, float pitch);   // -1: no voice / unknown sound
+  void loopSet(int handle, vec3 pos, float volume, float pitch);
+  void loopStop(int handle);
+  int loopsActive() const;
   bool ok() const { return ok_; }
   int playCount = 0;
   std::string lastPlayed; vec3 lastPos{0};

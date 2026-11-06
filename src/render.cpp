@@ -558,6 +558,7 @@ void main(){
     }
   }
   vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
+  if (uTint.a >= 0.999) c *= uTint.rgb;   // opaque tint multiplies (white = unchanged; tank wrecks are blackened)
   c = applyFog(c, vW);
   if (uTint.a < 0.999) c = mix(c, uTint.rgb, 0.55);
   oColor = vec4(c, 1.0);
