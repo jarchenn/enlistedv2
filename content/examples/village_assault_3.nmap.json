@@ -1,0 +1,1292 @@
+{
+  "editorCamera": {
+    "pitch": -18.0,
+    "position": [
+      0.0,
+      38.0,
+      95.0
+    ],
+    "yaw": 0.0
+  },
+  "exploreStart": {
+    "position": [
+      0.0,
+      -0.008651716634631157,
+      30.0
+    ],
+    "yaw": 180.0
+  },
+  "format": "normandy-mapmaker-map",
+  "instances": [
+    {
+      "asset": {
+        "id": "large_municipal_building",
+        "version": 1
+      },
+      "id": 1,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -24.0,
+        0.01951642520725727,
+        -8.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "small_storehouse",
+        "version": 1
+      },
+      "id": 2,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        10.0,
+        -0.10258147120475769,
+        -14.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "house_stone_cottage",
+        "version": 1
+      },
+      "id": 3,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.0,
+        -0.14621029794216156,
+        -46.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "house_farmhouse_2story",
+        "version": 1
+      },
+      "id": 4,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        34.0,
+        -0.11829303950071335,
+        -40.0
+      ],
+      "yaw": 200.0
+    },
+    {
+      "asset": {
+        "id": "small_stone_dairy",
+        "version": 1
+      },
+      "id": 5,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -44.0,
+        -0.032173823565244675,
+        -40.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 6,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -10.0,
+        -0.06551166623830795,
+        2.0
+      ],
+      "yaw": 350.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 7,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -4.0,
+        -0.10318110883235931,
+        -6.0
+      ],
+      "yaw": 212.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 8,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        2.0,
+        -0.11004792898893356,
+        3.0
+      ],
+      "yaw": 74.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 9,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -7.0,
+        -0.09779240936040878,
+        -16.0
+      ],
+      "yaw": 101.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 10,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        0.0,
+        -0.07648564875125885,
+        -24.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 11,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        5.0,
+        -0.10218078643083572,
+        -9.0
+      ],
+      "yaw": 185.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 12,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -13.0,
+        -0.08795276284217834,
+        -26.0
+      ],
+      "yaw": 239.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 13,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        7.0,
+        -0.10467874258756638,
+        -30.0
+      ],
+      "yaw": 259.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 2
+      },
+      "id": 14,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.0,
+        -0.07263970375061035,
+        12.0
+      ],
+      "yaw": 286.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 2
+      },
+      "id": 15,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        26.0,
+        -0.09198389202356339,
+        8.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 2
+      },
+      "id": 16,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        27.799999237060547,
+        -0.08806022256612778,
+        0.5
+      ],
+      "yaw": 50.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 2
+      },
+      "id": 17,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        29.600000381469727,
+        -0.11849629878997803,
+        -7.0
+      ],
+      "yaw": 100.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 2
+      },
+      "id": 18,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        31.399999618530273,
+        -0.10406038910150528,
+        -14.5
+      ],
+      "yaw": 150.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 2
+      },
+      "id": 19,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        33.20000076293945,
+        -0.07995922118425369,
+        -22.0
+      ],
+      "yaw": 200.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 2
+      },
+      "id": 20,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        35.0,
+        -0.10199268162250519,
+        -29.5
+      ],
+      "yaw": 250.0
+    },
+    {
+      "asset": {
+        "id": "tree_oak",
+        "version": 2
+      },
+      "id": 21,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        40.0,
+        -0.12120743840932846,
+        14.0
+      ],
+      "yaw": 30.0
+    },
+    {
+      "asset": {
+        "id": "tree_oak",
+        "version": 2
+      },
+      "id": 22,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -40.0,
+        -0.0009771586628630757,
+        10.0
+      ],
+      "yaw": 120.0
+    },
+    {
+      "asset": {
+        "id": "def_tank_trap",
+        "version": 1
+      },
+      "blocksVehicles": true,
+      "id": 23,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        30.0,
+        -0.10612636059522629,
+        14.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "def_tank_trap",
+        "version": 1
+      },
+      "blocksVehicles": true,
+      "id": 24,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        33.20000076293945,
+        -0.11959746479988098,
+        14.5
+      ],
+      "yaw": 40.0
+    },
+    {
+      "asset": {
+        "id": "def_tank_trap",
+        "version": 1
+      },
+      "blocksVehicles": true,
+      "id": 25,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        36.400001525878906,
+        -0.1256912648677826,
+        15.0
+      ],
+      "yaw": 80.0
+    },
+    {
+      "asset": {
+        "id": "def_sandbag_straight",
+        "version": 1
+      },
+      "id": 26,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        20.0,
+        -0.07148411124944687,
+        18.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "gun_m2hb_tripod",
+        "version": 1
+      },
+      "id": 27,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        16.0,
+        -0.054850831627845764,
+        16.0
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "gun_pak40",
+        "version": 1
+      },
+      "id": 28,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        8.0,
+        -0.10852422565221786,
+        -34.0
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "crate_mixed_supply",
+        "version": 1
+      },
+      "id": 29,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        13.0,
+        -0.045122548937797546,
+        17.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "rack_allied",
+        "version": 1
+      },
+      "id": 30,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -5.0,
+        -0.0003797012323047966,
+        24.0
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "crate_mixed_supply",
+        "version": 1
+      },
+      "id": 31,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -9.0,
+        0.01445289421826601,
+        25.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "rack_axis",
+        "version": 1
+      },
+      "id": 32,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        15.0,
+        -0.11261701583862305,
+        -30.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "crate_pak40_he",
+        "version": 1
+      },
+      "id": 33,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        3.0,
+        -0.09987494349479675,
+        -31.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 34,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -4.199999809265137,
+        0.009990514256060123,
+        50.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 35,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        7.199999809265137,
+        0.04313318058848381,
+        46.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 36,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -14.0,
+        -0.030770432204008102,
+        62.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 37,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -22.200000762939453,
+        -0.06681916862726212,
+        62.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 38,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -30.399999618530273,
+        -0.10907697677612305,
+        62.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 39,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        44.0,
+        -0.09943737089633942,
+        -8.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 40,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        0.009616246446967125,
+        40.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 41,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        -0.08168070018291473,
+        10.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 42,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        -0.0814628079533577,
+        -20.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 43,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        -0.17671509087085724,
+        -50.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "stone_wall_low",
+        "version": 1
+      },
+      "id": 44,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -12.0,
+        -0.03079085983335972,
+        12.0
+      ],
+      "yaw": 15.0
+    },
+    {
+      "asset": {
+        "id": "stone_wall_low",
+        "version": 1
+      },
+      "id": 45,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -36.0,
+        -0.02669082023203373,
+        -22.0
+      ],
+      "yaw": 80.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 1
+      },
+      "id": 46,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -8.0,
+        0.0009490533266216516,
+        49.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 1
+      },
+      "id": 47,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        10.0,
+        0.0519186370074749,
+        42.0
+      ],
+      "yaw": 60.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 1
+      },
+      "id": 48,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -30.0,
+        -0.10724839568138123,
+        58.0
+      ],
+      "yaw": 120.0
+    },
+    {
+      "asset": {
+        "id": "shrub_bramble",
+        "version": 1
+      },
+      "id": 49,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        8.600000381469727,
+        -0.10614372789859772,
+        -24.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "shrub_bramble",
+        "version": 1
+      },
+      "id": 50,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -15.0,
+        -0.03284396976232529,
+        10.0
+      ],
+      "yaw": 40.0
+    },
+    {
+      "asset": {
+        "id": "tree_ash",
+        "version": 2
+      },
+      "id": 51,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        22.0,
+        -0.015962637960910797,
+        30.0
+      ],
+      "yaw": 10.0
+    },
+    {
+      "asset": {
+        "id": "tree_ash",
+        "version": 2
+      },
+      "id": 52,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -28.0,
+        -0.04473109915852547,
+        30.0
+      ],
+      "yaw": 80.0
+    },
+    {
+      "asset": {
+        "id": "tree_oak",
+        "version": 2
+      },
+      "id": 53,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        52.0,
+        -0.09689225256443024,
+        -18.0
+      ],
+      "yaw": 200.0
+    }
+  ],
+  "name": "Village assault (3 points)",
+  "nextId": 54,
+  "removedTemplateVegetation": [],
+  "routes": [
+    {
+      "kind": "lane",
+      "pts": [
+        [
+          1.5,
+          70
+        ],
+        [
+          1.2,
+          34
+        ],
+        [
+          -0.8,
+          12
+        ],
+        [
+          1.8,
+          -8
+        ],
+        [
+          5.5,
+          -30
+        ],
+        [
+          4.5,
+          -72
+        ]
+      ],
+      "width": 3.4
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          -0.6,
+          6
+        ],
+        [
+          -10,
+          3.5
+        ],
+        [
+          -17,
+          1.5
+        ]
+      ],
+      "width": 1.5
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          2.6,
+          -12
+        ],
+        [
+          7,
+          -9.5
+        ]
+      ],
+      "width": 1.4
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          5,
+          -40
+        ],
+        [
+          0.5,
+          -41.5
+        ]
+      ],
+      "width": 1.3
+    },
+    {
+      "kind": "gravel",
+      "pts": [
+        [
+          5.5,
+          -30
+        ],
+        [
+          10,
+          -33
+        ],
+        [
+          14,
+          -31
+        ]
+      ],
+      "width": 4.5
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          1.2,
+          26
+        ],
+        [
+          -5,
+          26.5
+        ],
+        [
+          -9,
+          26
+        ]
+      ],
+      "width": 1.4
+    }
+  ],
+  "scenario": {
+    "devTestMap": false,
+    "nextSerial": 22,
+    "objectives": [
+      {
+        "attackYaw": 0.0,
+        "defendPoints": [],
+        "id": "obj_1",
+        "label": "Crossroads",
+        "order": 0,
+        "pos": [
+          18.0,
+          0.0,
+          14.0
+        ],
+        "radius": 12.0,
+        "routes": [],
+        "yMax": 4.0,
+        "yMin": -2.0,
+        "yaw": 0.0
+      },
+      {
+        "attackYaw": 0.0,
+        "defendPoints": [],
+        "id": "obj_8",
+        "label": "Town hall",
+        "order": 1,
+        "pos": [
+          -24.0,
+          0.0,
+          -8.0
+        ],
+        "radius": 15.0,
+        "routes": [],
+        "yMax": 4.0,
+        "yMin": -2.0,
+        "yaw": 0.0
+      },
+      {
+        "attackYaw": 0.0,
+        "defendPoints": [],
+        "id": "obj_15",
+        "label": "Cottage",
+        "order": 2,
+        "pos": [
+          -2.0,
+          0.0,
+          -46.0
+        ],
+        "radius": 13.0,
+        "routes": [],
+        "yMax": 4.0,
+        "yMin": -2.0,
+        "yaw": 0.0
+      }
+    ],
+    "rules": {
+      "attackerAI": 10,
+      "attackerRespawns": 5,
+      "attackerWave_s": 10.0,
+      "captureBase": 5.0,
+      "capturePresenceFull": 5.0,
+      "defenderSlots": 5,
+      "defenderWave_s": 8.0,
+      "defendingFaction": "Allies",
+      "fragPerLife": 2,
+      "friendlyFire": false,
+      "lanes": [
+        0.20000000298023224,
+        0.6000000238418579,
+        0.20000000298023224
+      ],
+      "minRespawnDelay_s": 3.0,
+      "smokePerLifeAttacker": 1,
+      "smokePerLifeDefender": 0
+    },
+    "spawns": [
+      {
+        "id": "spawn_2",
+        "label": "Attack 1",
+        "pos": [
+          -6.0,
+          0.0,
+          80.0
+        ],
+        "role": "attacker",
+        "stage": 0,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_3",
+        "label": "Defend 1",
+        "pos": [
+          10.0,
+          0.0,
+          -2.0
+        ],
+        "role": "defender",
+        "stage": 0,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_4",
+        "label": "Attack 1",
+        "pos": [
+          0.0,
+          0.0,
+          82.0
+        ],
+        "role": "attacker",
+        "stage": 0,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_5",
+        "label": "Defend 1",
+        "pos": [
+          14.0,
+          0.0,
+          -2.0
+        ],
+        "role": "defender",
+        "stage": 0,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_6",
+        "label": "Attack 1",
+        "pos": [
+          6.0,
+          0.0,
+          84.0
+        ],
+        "role": "attacker",
+        "stage": 0,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_7",
+        "label": "Defend 1",
+        "pos": [
+          18.0,
+          0.0,
+          -2.0
+        ],
+        "role": "defender",
+        "stage": 0,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_9",
+        "label": "Attack 2",
+        "pos": [
+          -11.0,
+          0.0,
+          45.0
+        ],
+        "role": "attacker",
+        "stage": 1,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_10",
+        "label": "Defend 2",
+        "pos": [
+          -30.0,
+          0.0,
+          -32.0
+        ],
+        "role": "defender",
+        "stage": 1,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_11",
+        "label": "Attack 2",
+        "pos": [
+          -5.0,
+          0.0,
+          47.0
+        ],
+        "role": "attacker",
+        "stage": 1,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_12",
+        "label": "Defend 2",
+        "pos": [
+          -26.0,
+          0.0,
+          -32.0
+        ],
+        "role": "defender",
+        "stage": 1,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_13",
+        "label": "Attack 2",
+        "pos": [
+          1.0,
+          0.0,
+          49.0
+        ],
+        "role": "attacker",
+        "stage": 1,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_14",
+        "label": "Defend 2",
+        "pos": [
+          -22.0,
+          0.0,
+          -32.0
+        ],
+        "role": "defender",
+        "stage": 1,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_16",
+        "label": "Attack 3",
+        "pos": [
+          -14.0,
+          0.0,
+          12.0
+        ],
+        "role": "attacker",
+        "stage": 2,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_17",
+        "label": "Defend 3",
+        "pos": [
+          -8.0,
+          0.0,
+          -72.0
+        ],
+        "role": "defender",
+        "stage": 2,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_18",
+        "label": "Attack 3",
+        "pos": [
+          -8.0,
+          0.0,
+          14.0
+        ],
+        "role": "attacker",
+        "stage": 2,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_19",
+        "label": "Defend 3",
+        "pos": [
+          -4.0,
+          0.0,
+          -72.0
+        ],
+        "role": "defender",
+        "stage": 2,
+        "yaw": 180.0
+      },
+      {
+        "id": "spawn_20",
+        "label": "Attack 3",
+        "pos": [
+          -2.0,
+          0.0,
+          16.0
+        ],
+        "role": "attacker",
+        "stage": 2,
+        "yaw": 0.0
+      },
+      {
+        "id": "spawn_21",
+        "label": "Defend 3",
+        "pos": [
+          0.0,
+          0.0,
+          -72.0
+        ],
+        "role": "defender",
+        "stage": 2,
+        "yaw": 180.0
+      }
+    ],
+    "version": 1
+  },
+  "schemaVersion": 1,
+  "template": {
+    "id": "blank_slate",
+    "seed": 1944,
+    "version": 1
+  }
+}

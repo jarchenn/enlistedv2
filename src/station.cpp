@@ -1,6 +1,7 @@
 // Crew-served stations (PaK 40, M2HB), projectiles and ammunition crates.
 // All state here is an Explore session overlay: F5 starts from authored defaults, returning discards it.
 #include "app.h"
+#include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -205,6 +206,7 @@ void App::stepProjectiles(float dt) {
           }
         }
       }
+      if (mpaiProjectile(*this, p, seg, len, impact ? hit.t : len)) { projectiles.erase(projectiles.begin() + k); continue; }   // hit a soldier
       vec3 end = impact ? hit.pos : p.p + seg;
       // visible travel feedback along the actual path
       if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
@@ -259,6 +261,7 @@ void App::stepProjectiles(float dt) {
         } else {
           std::string surf2 = surface;
           bulletImpact(p, hit, surf2);   // glass / shutters / doors: damage, detach, maybe a penetrating continuation
+          mpaiImpact(*this, p, hit.pos, hit.normal, hit.ud, hit.t, surface);   // LAN: the same impact on every client
           fx.impact(hit.pos, hit.normal, surf2 == "concrete" || surf2 == "masonry" || surf2 == "gravel" ? "stone" : surf2 == "dirt" ? "ground" : surf2 == "wood_door" || surf2 == "wood_shutter" ? "wood" : surf2);
           {   // material impact sound at the contact
             std::string im = surf2 == "ground" || surf2 == "dirt" || surf2 == "gravel" || surf2 == "earth" ? "dirt" : surf2 == "steel" || surf2 == "metal" ? "metal"

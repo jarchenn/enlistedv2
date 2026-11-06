@@ -1,5 +1,6 @@
 #include "app.h"
 #include "selftest.h"
+#include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -505,7 +506,8 @@ int App::run(int argc, char** argv) {
   bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec, tankPreviewDir;
   for (int k = 1; k < argc; ++k) {
     std::string a = argv[k];
-    if (a == "--selftest") runSelf = true;
+    if (mpaiArg(*this, argc, argv, k, runSelf)) { if (mpaiExit >= 0) return mpaiExit; continue; }   // multiplayer + AI flags (mpai.cpp)
+    else if (a == "--selftest") runSelf = true;
     else if (a == "--benchmark") { runSelf = true; bench = true; }
     else if (a == "--selftest-reopen") { runSelf = true; ++k; }
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
@@ -607,7 +609,7 @@ int App::run(int argc, char** argv) {
     }
     double t = glfwGetTime();
     frameDt = (float)std::min(0.1, t - last); last = t; now = t;
-    if (selftest) frameDt = selftest->slowFrames ? 0.1f : 1.0f / 60.0f;  // deterministic simulation for the scripted test
+    if (selftest && !selftest->realTime) frameDt = selftest->slowFrames ? 0.1f : 1.0f / 60.0f;  // deterministic simulation for the scripted test
     glfwGetFramebufferSize(win, &fbw, &fbh);
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 
@@ -615,6 +617,7 @@ int App::run(int argc, char** argv) {
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); drawExploreUI(); }
+    mpaiUI(*this);   // Play menu, scenario panel, match HUD
     syncRuntime();
     tanks.sync(*this);
 
@@ -651,6 +654,7 @@ int App::run(int argc, char** argv) {
       vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw + shk * std::sin((float)now * 41.0f), eyePitch + viewKickPitch + shk * std::sin((float)now * 53.0f + 1.3f));
       float fov = 72.0f;
       if (!tanks.camera(*this, e, fv, fov) && !stationCamera(e, fv, fov)) weaponCamera(fov);
+      mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
       viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
       projM = glm::perspective(radians(fov), aspect, 0.03f, 4000.0f);
       worldFov = fov;
@@ -659,6 +663,7 @@ int App::run(int argc, char** argv) {
       v.editor = false; v.autoExposure = true; v.camPos = e;
       audio.setListener(e, forward(eyeYaw, eyePitch));
     }
+    mpaiFrame(*this, ov);   // soldiers, grenades, scenario overlay
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);

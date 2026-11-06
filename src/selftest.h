@@ -9,6 +9,7 @@ public:
   void update(App& app, float dt);  // called once per frame before mode updates
   bool done = false;
   bool slowFrames = false;   // simulate 10 fps frames (frame-drop tests)
+  bool realTime = false;     // wall-clock frame time (LAN tests: processes must share one clock)
   int exitCode = 0;
 private:
   bool bench;
@@ -46,6 +47,8 @@ private:
   void sightsUpdate(App& app, float dt);
   void updateSuite(App& app, float dt);
   void entitiesUpdate(App& app, float dt);  // selftest_entities.cpp (1900)     // selftest_update.cpp (1700)    // selftest_sights.cpp (1600); dt < 0 = post-render read-back
+  void aiUpdate(App& app, float dt);        // selftest_ai.cpp (2000): multiplayer + AI integration
+  void netUpdate(App& app, float dt);       // selftest_net.cpp (2100): LAN roles host / a / b / c / d
   void arsenalUpdate(App& app, float dt);   // selftest_arsenal.cpp (1400)
   void tanksUpdate(App& app, float dt);     // selftest_tanks.cpp (2600)
   void villageUpdate(App& app, float dt);   // selftest_village.cpp (1300 build, 1350 benchmark)

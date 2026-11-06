@@ -36,7 +36,7 @@ struct WeaponDef {
   // hand equipment (equipment.cpp; JSON "grenade" / "melee", game tuning)
   struct GrenadeDef { bool on = false; float fuse = 4.5f, speed = 15, lobDeg = 10, restitution = 0.3f, friction = 0.6f, mass = 0.6f,
                       damage = 80, radius = 5, crater = 0.12f, windup = 0.32f, ready = 0.9f, volume = 0.8f,
-                      linDamp = 0.4f, rollDamp = 3.0f; } grenade;
+                      linDamp = 0.4f, rollDamp = 3.0f; bool smoke = false; } grenade;   // smoke: no blast, starts a smoke cloud (mpai)
   struct MeleeDef { bool on = false; float reach = 1.7f, arcDeg = 40; int rays = 5; float windup = 0.12f, strike = 0.1f, cooldown = 0.6f, damage = 35; } melee;
   bool equipment() const { return grenade.on || melee.on; }
   bool useModel() const { return model && model->vao; }
@@ -70,6 +70,7 @@ struct Projectile {
   bool atKill = false;          // a direct hit destroys an AT gun in one shot (PaK shells, rockets)
   float blastDmg = 0, blastR = 0, craterScale = 1, splashGun = 40, gravScale = 1;
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
+  int owner = -1;               // firing soldier's roster slot (multiplayer + AI); -1 = the local player
   bool tracer = false;
   std::string ammo;
 };

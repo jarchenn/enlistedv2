@@ -15,6 +15,7 @@
 // through the bullet-impact rules with a slow, heavy "projectile" (glass breaks, doors / shutters take a hit, trunks
 // and defences register), so it can never pass through anything. There is no actor health in this engine.
 #include "app.h"
+#include "mpai.h"
 #include <algorithm>
 #include <glm/gtx/quaternion.hpp>
 
@@ -28,6 +29,7 @@ void App::loadEquipment(WeaponDef& d, const json& j) {
     d.grenade.damage = gf(g, "damage", 80.0f); d.grenade.radius = gf(g, "radius", 5.0f); d.grenade.crater = gf(g, "crater", 0.12f);
     d.grenade.linDamp = gf(g, "linearDamping", 0.4f); d.grenade.rollDamp = gf(g, "rollingDamping", 3.0f);
     d.grenade.windup = gf(g, "windup", 0.32f); d.grenade.ready = gf(g, "ready", 0.9f); d.grenade.volume = gf(g, "volume", 0.8f);
+    d.grenade.smoke = g.is_object() && g.value("smoke", false);
   }
   if (j.contains("melee")) {
     const json& m = j["melee"]; d.melee.on = true;
@@ -53,6 +55,15 @@ void App::throwGrenade(const WeaponDef& d, WeaponState& s) {
   auto ch = Physics::character();
   float postureK = ch.posture == Physics::PRONE ? 0.6f : ch.crouched ? 0.85f : 1.0f;   // a lying or crouching throw is shorter
   vec3 v = dir * d.grenade.speed * postureK + vec3(ch.vel.x, 0, ch.vel.z);
+  if (spawnGrenade(weaponIndex(d.id), sp, v, -1)) { lastGrenadeSpawn = sp; lastGrenadeWant = want; audio.play("click", e, 0.6f); }
+  (void)s;
+}
+
+bool App::spawnGrenade(int def, vec3 sp, vec3 v, int owner) {
+  if (mpaiGrenadeSpawn(*this, def, sp, v, owner)) return true;   // LAN client: a throw request to the host instead
+  const WeaponDef& d = *weaponDefs[def];
+  vec3 half = d.useModel() ? glm::max((d.model->bmax - d.model->bmin) * 0.5f, vec3(0.025f)) : vec3(0.03f, 0.03f, 0.06f);
+  vec3 dir = glm::length(v) > 1e-3f ? glm::normalize(v) : vec3(0, 0, -1);
   Part p; p.center = vec3(0); p.size = half * 2.0f;
   ShapePtr shape = Physics::buildShape({p});
   quat q = glm::quatLookAt(-dir, vec3(0, 1, 0));   // model +z along the throw
@@ -61,10 +72,10 @@ void App::throwGrenade(const WeaponDef& d, WeaponState& s) {
   Physics::setMaterial(body, d.grenade.friction, d.grenade.restitution, true);
   Physics::setDamping(body, d.grenade.linDamp, d.grenade.rollDamp);   // grass / soil rolling resistance: it settles, it does not roll on
   Physics::setVelocity(body, v, glm::cross(dir, vec3(0, 1, 0)) * -9.0f);   // end over end
-  LiveGrenade g; g.body = body; g.fuse = d.grenade.fuse; g.def = weaponIndex(d.id); g.spawn = sp; g.v0 = v;
+  LiveGrenade g; g.body = body; g.fuse = d.grenade.fuse; g.def = def; g.spawn = sp; g.v0 = v; g.owner = owner; g.pos = sp;
   grenades.push_back(g);
-  ++grenadesThrown; lastGrenadeSpawn = sp; lastGrenadeWant = want;
-  audio.play("click", e, 0.6f);
+  ++grenadesThrown;
+  return true;
 }
 
 void App::stepGrenades(float dt) {
@@ -77,7 +88,9 @@ void App::stepGrenades(float dt) {
     g.done = true;   // exactly one detonation, whatever happens later this frame
     const WeaponDef& d = *weaponDefs[g.def];
     Physics::remove(g.body); g.body = 0xffffffffu;
+    if (mpaiGrenadeDetonate(*this, g.def, g.pos, g.owner, 0)) { ++grenadesExploded; lastGrenadeBlast = g.pos; continue; }   // smoke: a cloud, no blast
     explode(g.pos + vec3(0, 0.05f, 0), vec3(0, -1, 0), d.grenade.damage, d.grenade.radius, d.grenade.crater, ~0ull, WALL_GRENADE);
+    mpaiGrenadeDetonate(*this, g.def, g.pos, g.owner, 1);   // soldiers: fragmentation damage with occlusion, attributed to the thrower
     fx.explosion(g.pos, vec3(0, 1, 0), "grenade", true);
     audio.play("explosion_grenade", g.pos, d.grenade.volume);
     ++grenadesExploded; lastGrenadeBlast = g.pos;

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.03683525696396828,
+  0.03050386533141136,
+  0.14499999582767487
+ ],
+ "bmin": [
+  -0.03683525696396828,
+  -0.030503874644637108,
+  0.0
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "mr": "mr_1.png",
+   "name": "initialShadingGroup",
+   "normal": "normal_2.png"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.03683525696396828,
+    0.03050386533141136,
+    0.14499999582767487
+   ],
+   "bmin": [
+    -0.03683525696396828,
+    -0.030503874644637108,
+    0.0
+   ],
+   "count": 18546,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "SmokeGrenade(Non-UDIM).obj.cleaner.materialmerger.gles",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 0.14499999582767487,
+ "rot": [
+  90.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.0063627674244344234,
+ "source": "2k_textured_wwii_smoke_grenade.glb",
+ "textures": {},
+ "triangles": 6182,
+ "vertices": 4046
+}
