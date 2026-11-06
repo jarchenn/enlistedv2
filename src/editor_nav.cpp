@@ -24,6 +24,7 @@ const NavCamSettings& navSettings() {
       n.frameMargin = c.value("frameMargin", n.frameMargin); n.flightSeconds = c.value("flightSeconds", n.flightSeconds); n.homePitch = c.value("homePitch", n.homePitch);
     }
     if (j.contains("overview")) { n.overviewTexture = j["overview"].value("textureSize", n.overviewTexture); n.overviewFraction = j["overview"].value("windowFraction", n.overviewFraction); }
+    if (j.contains("terrainCut")) n.cutEdgePad = j["terrainCut"].value("edgePad", n.cutEdgePad);
     if (j.contains("dropIn")) {
       const json& d = j["dropIn"];
       n.facingMinDrag = d.value("facingMinDrag", n.facingMinDrag); n.markerRadius = d.value("markerRadius", n.markerRadius); n.arrowLength = d.value("arrowLength", n.arrowLength);
@@ -247,7 +248,7 @@ int navSyncCuts(App& app) {
     if (!a || a->navMeta.terrainCuts.empty()) continue;
     quat q = yawQuat(i.yaw);
     for (auto& c : a->navMeta.terrainCuts) {
-      WorldCut w; w.owner = i.id; w.topY = i.pos.y; w.floorY = i.pos.y - std::max(0.0f, c.depth); w.bank = std::max(0.0f, c.bank);
+      WorldCut w; w.owner = i.id; w.topY = i.pos.y; w.pad = navSettings().cutEdgePad < 0 ? app.terrain.fineSpacing() : navSettings().cutEdgePad; w.floorY = i.pos.y - std::max(0.0f, c.depth); w.bank = std::max(0.0f, c.bank);
       for (auto& p : c.outline) { vec3 v = q * vec3(p.x, 0, p.y); w.poly.push_back(vec2(i.pos.x + v.x, i.pos.z + v.z)); }
       cuts.push_back(std::move(w));
     }

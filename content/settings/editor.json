@@ -38,6 +38,10 @@
     "textureSize": 1024,
     "windowFraction": 0.78
   },
+  "terrainCut": {
+    "_doc": "Terrain cuts are resolved on the 0.45 m deformation-tile grid. Outlines are padded outward by edgePad metres (-1 = one grid step) so the full-depth floor reaches the outline (where revetments stand) and the grid transition lies behind it.",
+    "edgePad": -1
+  },
   "dropIn": {
     "_doc": "Drop-in explorer: the drag must move this far over the ground before it sets the facing; markers.",
     "facingMinDrag": 0.8,

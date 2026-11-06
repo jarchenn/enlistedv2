@@ -3,6 +3,9 @@
 // linearly down over `bank` metres (instance y at the outline), and the result never rises above the base ground.
 // The cut ground is the "authored base" of the deformation tiles (Tile::base): craters and their persisted deltas are
 // relative to it, so a saved map never stores the cut and reloading never cuts twice.
+// Cuts are resolved on the 0.45 m tile grid, so every outline is padded outward by `pad` (one grid step by default):
+// the full-depth floor then reaches the outline, where assets put their revetments, and the unavoidable grid
+// transition lies just outside it (behind the wall) instead of rising in a sawtooth in front of it.
 #include "terrain.h"
 #include <algorithm>
 
@@ -21,7 +24,7 @@ float insideDistance(const std::vector<vec2>& poly, vec2 p) {
 }
 float cutTarget(const WorldCut& c, vec2 p) {
   if (p.x < c.bmin.x || p.y < c.bmin.y || p.x > c.bmax.x || p.y > c.bmax.y) return 1e30f;
-  float d = insideDistance(c.poly, p);
+  float d = insideDistance(c.poly, p) + c.pad;
   if (d <= 0) return 1e30f;
   float ramp = c.bank > 1e-4f ? std::min(1.0f, d / c.bank) : 1.0f;
   return c.topY + (c.floorY - c.topY) * ramp;
@@ -67,6 +70,7 @@ int Terrain::setCuts(std::vector<WorldCut> next) {
   for (auto& c : next) {
     c.bmin = vec2(1e30f); c.bmax = vec2(-1e30f);
     for (auto& p : c.poly) { c.bmin = glm::min(c.bmin, p); c.bmax = glm::max(c.bmax, p); }
+    c.bmin -= vec2(c.pad); c.bmax += vec2(c.pad);
   }
   // regions that change: cuts that were removed, added or edited
   std::vector<std::pair<vec2, vec2>> regions;

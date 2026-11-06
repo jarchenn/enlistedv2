@@ -26,8 +26,9 @@ struct WorldCut {
   uint64_t owner = 0;                 // instance id
   std::vector<vec2> poly;             // world x/z outline
   float floorY = 0, topY = 0, bank = 0.3f;   // topY = instance y (cut height at the outline)
+  float pad = 0;                      // outline dilation (m): the tile grid's step, so the floor reaches the outline
   vec2 bmin{0}, bmax{0};
-  bool operator==(const WorldCut& o) const { return owner == o.owner && poly == o.poly && floorY == o.floorY && topY == o.topY && bank == o.bank; }
+  bool operator==(const WorldCut& o) const { return owner == o.owner && poly == o.poly && floorY == o.floorY && topY == o.topY && bank == o.bank && pad == o.pad; }
 };
 
 // Ground = coarse base heightfield + sparse high-resolution deformation tiles.

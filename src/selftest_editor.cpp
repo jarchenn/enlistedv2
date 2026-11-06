@@ -58,11 +58,12 @@ CamPose gEdCam; vec3 gDropAt{0}; float gDropYaw = 0; int gExploreFrames = 0;
 
 void SelfTest::editorUpdate(App& app, float dt) {
   auto go = [&](int s) { stage = s; stageTime = 0; };
-  reportName = "editor";
+  if (reportName.empty()) reportName = "editor";
   const TemplateInfo* blank = app.findTemplate("blank_slate");
   switch (stage) {
   case 3300: {   // ================= map sizes, old maps
     if (!blank) { check(false, "Blank Slate template present"); finish(app); return; }
+    for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--editor-shots") { reportName = "editor_shots"; gPerfFrame = 0; go(3370); return; }   // screenshots only (render A/B)
     const MapSizeRules& r = mapSizeRules();
     check(r.minSide == 400 && r.maxSide == 4000 && r.step == 100, fmt("size rules 400-4000 m in 100 m steps (got %.0f-%.0f / %.0f)", r.minSide, r.maxSide, r.step));
     vec2 c1 = r.clampSize(vec2(350, 4120)), c2 = r.clampSize(vec2(1234, 2449));
@@ -185,14 +186,18 @@ void SelfTest::editorUpdate(App& app, float dt) {
     navSyncCuts(app);
     quat q = yawQuat(30.0f);
     auto W = [&](float x, float z) { vec3 v = q * vec3(x, 0, z); return vec2(at.x + v.x, at.z + v.z); };
-    vec2 c = W(0, 0), mid = W(0, -1.0f), out = W(0, -1.35f), deep = W(4.0f, 0.4f);
-    float hc = T.height(c.x, c.y), hm = T.height(mid.x, mid.y), ho = T.height(out.x, out.y), bo = T.baseHeight(out.x, out.y);
+    vec2 c = W(0, 0), deep = W(4.0f, 0.4f);
+    float hc = T.height(c.x, c.y), pad = T.fineSpacing();
     check(std::fabs(hc - (y0 - 1.2f)) < 0.01f && std::fabs(T.height(deep.x, deep.y) - (y0 - 1.2f)) < 0.01f, fmt("cut floor is flat at instance y - depth: centre %.3f, off-centre %.3f, want %.3f", hc, T.height(deep.x, deep.y), y0 - 1.2f));
-    float wantMid = std::min(T.baseHeight(mid.x, mid.y), y0 - 1.2f * 0.5f), cm = T.cutBase(mid.x, mid.y);
-    check(std::fabs(cm - wantMid) < 1e-4f && hm <= T.baseHeight(mid.x, mid.y) + 1e-4f && hm >= y0 - 1.2f - 1e-3f, fmt("bank: halfway up the 0.4 m bank the cut is %.3f (want %.3f; drawn %.3f on the %.2f m tile grid)", cm, wantMid, hm, T.fineSpacing()));
-    vec2 out2 = W(0, -1.2f - T.fineSpacing() - 0.05f);
+    // the floor reaches the outline (revetments stand there): one grid step of padding takes the bank outward
+    vec2 edgeIn = W(0, -1.2f + 0.05f), bankP = W(0, -1.2f - pad + 0.2f);
+    float wantBank = std::min(T.baseHeight(bankP.x, bankP.y), y0 - 1.2f * 0.5f), cb = T.cutBase(bankP.x, bankP.y);
+    check(std::fabs(T.cutBase(edgeIn.x, edgeIn.y) - (y0 - 1.2f)) < 1e-4f && std::fabs(T.height(edgeIn.x, edgeIn.y) - (y0 - 1.2f)) < 0.05f,
+          fmt("floor reaches the outline: 5 cm inside the edge the ground is %.3f (floor %.3f)", T.height(edgeIn.x, edgeIn.y), y0 - 1.2f));
+    check(std::fabs(cb - wantBank) < 1e-4f, fmt("bank: halfway up the 0.4 m bank (%.2f m grid padding) the cut is %.3f (want %.3f)", pad, cb, wantBank));
+    vec2 out2 = W(0, -1.2f - 2 * pad - 0.05f);
     float ho2 = T.height(out2.x, out2.y), bo2 = T.baseHeight(out2.x, out2.y);
-    check(std::fabs(ho - bo) < 0.03f && std::fabs(ho2 - bo2) < 1e-4f, fmt("outside the outline the ground is untouched (%.4f vs base %.4f one grid step out)", ho2, bo2));
+    check(std::fabs(ho2 - bo2) < 1e-4f, fmt("two grid steps outside the outline the ground is untouched (%.4f vs base %.4f)", ho2, bo2));
     {
       float t; uint64_t ud;
       bool hit = Physics::castRay(vec3(c.x, y0 + 5, c.y), vec3(0, -1, 0), 20, t, ud);
@@ -427,6 +432,7 @@ void SelfTest::editorUpdate(App& app, float dt) {
     if (f == 81) { app.camPos = vec3(300, T.height(300, -600) + 120, -450); app.camYaw = 0; app.camPitch = -25; }
     if (f == 120) shotQueue.push_back("editor_oblique_1200x2400");
     if (f == 121) {
+      if (!app.lib.find("test_trench")) app.lib.loadAll(contentDir() / "tests" / "assets");
       if (const AssetDef* tr = app.lib.find("test_trench")) { uint64_t id = app.placeInstance(tr, vec3(30, 0, 40), 20); app.selected = 0; (void)id; }
       app.camPos = vec3(30, T.height(30, 40) + 5.5f, 49); app.camYaw = 0; app.camPitch = -32;
     }

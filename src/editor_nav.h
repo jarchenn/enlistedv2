@@ -12,6 +12,7 @@ struct NavCamSettings {
   float flightSeconds = 0.35f, homePitch = -55.0f;
   int overviewTexture = 1024; float overviewFraction = 0.78f;
   float facingMinDrag = 0.8f, markerRadius = 0.7f, arrowLength = 3.0f;
+  float cutEdgePad = -1;   // terrain-cut outline dilation (m); < 0 = one deformation-tile grid step
 };
 const NavCamSettings& navSettings();
 
