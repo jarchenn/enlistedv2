@@ -341,14 +341,16 @@ void Terrain::applyDeltas(const std::map<int, std::vector<float>>& d) {
 void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
   if (h.empty()) return;
   GLint uDis = glGetUniformLocation(prog, "uDiscard");
-  glUniform1i(glGetUniformLocation(prog, "uTileMask"), 3);
+  // units 14 / 15: 3 and 6 belong to the scene shader (uMR, uShadowFar); binding the mask / surface there made the far
+  // shadow cascade sample the surface mask on terrain (dark wedges wherever the far cascade reached)
+  glUniform1i(glGetUniformLocation(prog, "uTileMask"), 15);
   glUniform1f(glGetUniformLocation(prog, "uTileSize"), tileSize());
   glUniform2f(glGetUniformLocation(prog, "uTerrainOrg"), org.x, org.y);
   glUniform2f(glGetUniformLocation(prog, "uTerrainExt"), size, sizeZ);
   glUniform2f(glGetUniformLocation(prog, "uBuildHalf"), buildHalfX, buildHalfZ);
-  glBindTextureUnit(3, maskTex);
-  glUniform1i(glGetUniformLocation(prog, "uSurf"), 6);
-  glBindTextureUnit(6, surfTex);
+  glBindTextureUnit(15, maskTex);
+  glUniform1i(glGetUniformLocation(prog, "uSurf"), 14);
+  glBindTextureUnit(14, surfTex);
   glUniform1i(uDis, tiles.empty() ? 0 : 1);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
   stream.drawBase(*this, cam, vp);

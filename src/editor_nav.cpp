@@ -367,11 +367,13 @@ void w3Overlay(App& app, Overlay& ov) {
   float X = t.buildHalfX, Z = t.buildHalfZ;
   vec4 bc(0.95f, 0.85f, 0.45f, 0.8f);
   float step = std::max(10.0f, std::max(X, Z) / 150.0f);
+  // lifted with the camera height so the line never sinks into the ground at depth-buffer precision from far above
+  float lift = 0.15f + 0.004f * std::max(0.0f, app.camPos.y - t.height(app.camPos.x, app.camPos.z));
   auto edge = [&](vec2 a, vec2 b) {
     float L = glm::length(b - a); int nseg = std::max(1, (int)std::ceil(L / step));
     for (int k = 0; k < nseg; ++k) {
       vec2 p0 = glm::mix(a, b, (float)k / nseg), p1 = glm::mix(a, b, (float)(k + 1) / nseg);
-      ov.line(vec3(p0.x, t.height(p0.x, p0.y) + 0.15f, p0.y), vec3(p1.x, t.height(p1.x, p1.y) + 0.15f, p1.y), bc);
+      ov.line(vec3(p0.x, t.height(p0.x, p0.y) + lift, p0.y), vec3(p1.x, t.height(p1.x, p1.y) + lift, p1.y), bc);
     }
   };
   edge({-X, -Z}, {X, -Z}); edge({X, -Z}, {X, Z}); edge({X, Z}, {-X, Z}); edge({-X, Z}, {-X, -Z});
