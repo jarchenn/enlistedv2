@@ -2,7 +2,8 @@
 // Build-menu thumbnails (W2, spec 9.4). See docs/thumbnails.md.
 //  - framing: the camera frames the asset's rendered silhouette (box parts, panels, interactable leaves, imported
 //    models including thin wire, tree canopies, glass) at a 3/4 view; when that view leaves the tile too empty (thin
-//    or tall assets) the view with the largest filled share of the tile is used instead (kThumbMinFill)
+//    or tall assets) the view with the largest filled share of the tile is used instead (kThumbMinFill); a
+//    sparse silhouette that still fills under kThumbCropFill (a 10 m fence) is shown as its densest square window
 //  - look: one light rig fixed to the camera (key from upper left, no shadows, no fog), flat neutral background
 //  - cache: <exe>/cache/thumbs/<id>-<key>.png; the key hashes the asset JSON, its baked model files and
 //    kThumbVersion, so editing or re-baking an asset regenerates its tile on the next start
@@ -12,12 +13,13 @@
 class App;
 struct AssetDef;
 
-constexpr const char* kThumbVersion = "w2-thumbs-1";   // bump when the thumbnail look / framing changes
+constexpr const char* kThumbVersion = "w2-thumbs-2";   // bump when the thumbnail look / framing changes
 constexpr int kThumbSize = 256;
 constexpr float kThumbMinFill = 0.15f;                 // 3/4 view kept when it fills at least this share of the tile
+constexpr float kThumbCropFill = 0.07f;                // below this the tile is a detail crop of the silhouette (fences)
 
 struct ThumbStats { int rendered = 0, loaded = 0, searched = 0, external = 0; };   // external: vehicles (TankSys tiles)
-struct ThumbInfo { std::string key; bool cached = false; float fill = 0; float yaw = 0, pitch = 0; bool searched = false; };
+struct ThumbInfo { std::string key; bool cached = false; float fill = 0; float yaw = 0, pitch = 0; bool searched = false, cropped = false; };
 
 std::string footprintLabel(vec2 fp);              // build-menu footprint: one decimal, "0.3 × 0.3 m"
 std::string assetThumbKey(const AssetDef& a);     // 16 hex digits

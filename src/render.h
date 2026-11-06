@@ -46,7 +46,7 @@ public:
   void render(const RenderView& v, const Terrain& t, const std::vector<DrawItem>& opaque,
               const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov);
   GLuint renderThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, const Terrain* t = nullptr, const mat4* customView = nullptr);
-  GLuint renderAssetThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, float thinPx, struct ThumbInfo* info);   // thumbs.cpp (W2)
+  GLuint renderAssetThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, float thinPx, const std::function<const GpuMesh*(float)>& thinBoxes, struct ThumbInfo* info);   // thumbs.cpp (W2)
   void resetExposure(float e = 1.0f);
   std::string hdrProbe() const;   // debug: top-mip average and count of non-finite HDR pixels
   float exposure() const { float e = 0; glGetTextureImage(expoTex[expoIdx], 0, GL_RED, GL_FLOAT, sizeof e, &e); return e; }   // debug / tests (stalls)

@@ -12,6 +12,14 @@
 // The default view is yaw 37 deg, pitch 24 deg (the old normalize(0.75, 0.45, 1.0)). When its filled share of the
 // tile is below kThumbMinFill the asset is thin or tall: 8 yaws x 4 pitches (20..65 deg) are probed and the one
 // with the largest filled share (weighted down slightly for steep pitches) is used.
+//
+// Detail crop. A long, sparse asset (a 10 m fence: posts 2.5 m apart and a few wires) stays nearly empty in any
+// whole view. When the best whole view fills less than kThumbCropFill, the tile shows the densest square window of
+// the silhouette instead: windows from 1/5 of the silhouette's long side up to all of it, slid over its bounds; the
+// largest window within 80 % of the densest is kept (context over a close-up) and zoomed to 92 % of the tile. The
+// default 3/4 view's crop is used whenever it fills at least 1.25x the best whole view, otherwise the searched
+// view's crop under the same bar; with neither, the whole view stays. Thickened box wire is rebuilt at 1.5 px
+// of the zoomed tile so it does not grow with the zoom.
 #include "thumbs.h"
 #include "app.h"
 #include <stb_image.h>
@@ -135,7 +143,8 @@ GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std:
   return outTex;
 }
 
-GLuint Renderer::renderAssetThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, float thinPx, ThumbInfo* info) {
+GLuint Renderer::renderAssetThumbnail(const std::vector<DrawItem>& opaqueIn, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, float thinPx,
+                                      const std::function<const GpuMesh*(float)>& thinBoxes, ThumbInfo* info) {
   const int S = kThumbSize;
   vec3 c = (bmin + bmax) * 0.5f;
   float r = std::max(0.05f, glm::length(bmax - bmin) * 0.5f);
@@ -144,6 +153,17 @@ GLuint Renderer::renderAssetThumbnail(const std::vector<DrawItem>& opaque, const
   vec3 savedSun = sunDir; float savedPx = pxAngle;
   std::vector<ModelDraw> models = worldModels;
   for (auto& m : models) m.thinPx = thinPx;
+  // opaque items plus the tile-only thickened copy of the sub-pixel box parts at width minT (see makeAssetThumbnails)
+  std::vector<DrawItem> opaque = opaqueIn;
+  const size_t nBase = opaque.size();
+  auto setThin = [&](float minT) {
+    opaque.resize(nBase);
+    if (thinBoxes) if (const GpuMesh* m = thinBoxes(minT)) opaque.push_back({m, mat4(1)});
+  };
+  const float wideT = glm::length(bmax - bmin) / S * 1.5f;   // whole-asset framing: ~1.5 px of the framed bounds
+  setThin(wideT);
+  // metres per tile pixel at the asset centre for a (clip-zoomed) projection, n px tile
+  auto mPerPx = [&](const mat4& pr, int n) { return 2.0f * dist * std::tan(radians(kFov) * 0.5f) / std::max(1e-4f, pr[0][0] / baseProj[0][0]) / n; };
 
   auto viewFor = [&](float yawDeg, float pitchDeg, vec3& eye) {
     float y = radians(yawDeg), p = radians(pitchDeg);
@@ -215,6 +235,73 @@ GLuint Renderer::renderAssetThumbnail(const std::vector<DrawItem>& opaque, const
       }
     framed(yaw, pitch, view, proj, eye);
   }
+  // detail crop of a long, sparse silhouette (header comment)
+  struct Crop { bool ok = false; mat4 proj{1}; float fill = 0; };
+  auto crop = [&](const mat4& v, const mat4& pr, vec3 e) {
+    Crop c;
+    const int n = S;
+    pass(v, pr, e, n);
+    std::vector<float> d((size_t)n * n);
+    glGetTextureSubImage(thumbDepth, 0, 0, 0, 0, n, n, 1, GL_DEPTH_COMPONENT, GL_FLOAT, (GLsizei)(d.size() * 4), d.data());
+    const int W = n + 1;
+    std::vector<int> P((size_t)W * W, 0);   // 2D prefix sum of covered pixels
+    int bx0 = n, bx1 = -1, by0 = n, by1 = -1;
+    for (int y = 0; y < n; ++y) for (int x = 0; x < n; ++x) {
+      int on = d[(size_t)y * n + x] < 1.0f;
+      P[(size_t)(y + 1) * W + x + 1] = on + P[(size_t)y * W + x + 1] + P[(size_t)(y + 1) * W + x] - P[(size_t)y * W + x];
+      if (on) { bx0 = std::min(bx0, x); bx1 = std::max(bx1, x); by0 = std::min(by0, y); by1 = std::max(by1, y); }
+    }
+    if (bx1 < 0) return c;
+    int w = bx1 - bx0 + 1, h = by1 - by0 + 1, L = std::max(w, h);
+    if (L < 24) return c;
+    auto sum = [&](int x0, int y0, int x1, int y1) {   // covered pixels in [x0,x1) x [y0,y1), clamped to the tile
+      x0 = std::clamp(x0, 0, n); x1 = std::clamp(x1, 0, n); y0 = std::clamp(y0, 0, n); y1 = std::clamp(y1, 0, n);
+      return P[(size_t)y1 * W + x1] - P[(size_t)y0 * W + x1] - P[(size_t)y1 * W + x0] + P[(size_t)y0 * W + x0];
+    };
+    struct Win { int k = 0, x0 = 0, y0 = 0; float dens = 0; };
+    std::vector<Win> perSide;   // densest window of each side length, smallest side first
+    for (float side = std::max(12.0f, L / 5.0f); ; side *= 1.2f) {
+      int k = std::min((int)side, L);
+      Win b; b.k = k;
+      // window origins that keep the window over the silhouette bounds (centred across an axis shorter than k)
+      int xa = std::min(bx0, bx1 + 1 - k), xb = std::max(bx0, bx1 + 1 - k), ya = std::min(by0, by1 + 1 - k), yb = std::max(by0, by1 + 1 - k);
+      if (k >= w) xa = xb = (bx0 + bx1 + 1) / 2 - k / 2;
+      if (k >= h) ya = yb = (by0 + by1 + 1) / 2 - k / 2;
+      for (int y0 = ya; y0 <= yb; y0 += 2)
+        for (int x0 = xa; x0 <= xb; x0 += 2) {
+          float dn = sum(x0, y0, x0 + k, y0 + k) / float(k * k);
+          if (dn > b.dens) { b.dens = dn; b.x0 = x0; b.y0 = y0; }
+        }
+      perSide.push_back(b);
+      if (k >= L) break;
+    }
+    float top = 0; for (auto& b : perSide) top = std::max(top, b.dens);
+    Win pick; for (auto& b : perSide) if (b.dens >= 0.8f * top) pick = b;   // the largest window near the densest
+    if (pick.k <= 0 || top <= 0) return c;
+    auto ndc = [&](int px) { return px * 2.0f / n - 1.0f; };
+    c.proj = fitClip(ndc(pick.x0), ndc(pick.x0 + pick.k), ndc(pick.y0), ndc(pick.y0 + pick.k), 0.92f) * pr;
+    setThin(1.5f * mPerPx(c.proj, S));
+    pass(v, c.proj, e, kProbe);
+    c.fill = silhouette(kProbe).fill;
+    setThin(wideT);
+    c.ok = true;
+    return c;
+  };
+  bool cropped = false;
+  if (fill < kThumbCropFill && (!opaque.empty() || !models.empty() || !foliage.empty())) {
+    struct Cand { float yaw, pitch; mat4 view{1}; vec3 eye{0}; Crop c; };
+    std::vector<Cand> cands;
+    cands.push_back({37.0f, 24.0f});
+    if (searched && (yaw != 37.0f || pitch != 24.0f)) cands.push_back({yaw, pitch});
+    for (auto& k : cands) { mat4 p0; framed(k.yaw, k.pitch, k.view, p0, k.eye); k.c = crop(k.view, p0, k.eye); }
+    const Cand* best = nullptr;
+    if (cands[0].c.ok && cands[0].c.fill >= 1.25f * fill) best = &cands[0];   // the 3/4 view reads best: kept whenever it helps
+    else for (auto& k : cands) if (k.c.ok && (!best || k.c.fill > best->c.fill)) best = &k;
+    if (best && best->c.fill >= 1.25f * fill) {
+      cropped = true; yaw = best->yaw; pitch = best->pitch; view = best->view; proj = best->c.proj; eye = best->eye; fill = best->c.fill;
+    }
+  }
+  if (cropped) setThin(1.5f * mPerPx(proj, S));
   // final tile
   pass(view, proj, eye, S);
   fill = silhouette(S).fill;
@@ -237,7 +324,7 @@ GLuint Renderer::renderAssetThumbnail(const std::vector<DrawItem>& opaque, const
   glDeleteFramebuffers(1, &outFbo);
   thumbMode = false;
   sunDir = savedSun; pxAngle = savedPx;
-  if (info) { info->fill = fill; info->yaw = yaw; info->pitch = pitch; info->searched = searched; }
+  if (info) { info->fill = fill; info->yaw = yaw; info->pitch = pitch; info->searched = searched; info->cropped = cropped; }
   return outTex;
 }
 
@@ -280,7 +367,7 @@ ThumbStats makeAssetThumbnails(App& app) {
   std::error_code ec; fs::create_directories(dir, ec);
   if (gBg.empty()) {   // reference: a tile with nothing in it
     R.foliage.clear(); R.worldModels.clear();
-    GLuint t = R.renderAssetThumbnail({}, {}, vec3(-1), vec3(1), 0, nullptr);
+    GLuint t = R.renderAssetThumbnail({}, {}, vec3(-1), vec3(1), 0, {}, nullptr);
     gBg = readTile(t); glDeleteTextures(1, &t);
   }
   for (auto& a : app.lib.assets) {
@@ -303,19 +390,27 @@ ThumbStats makeAssetThumbnails(App& app) {
     if (a->model) for (size_t k = 0; k < a->model->parts.size(); ++k) R.worldModels.push_back({a->model.get(), (int)k, mat4(1)});
     // thin wire: at least 1.2 px wide in the tile (the world uses the asset's own thinLinesPx at range)
     // Box-part wire (fence strands: 8 mm on an 8 m fence = 0.26 px) gets the same: a tile-only copy of every visible
-    // box part thinner than ~1.5 px of the framed bounds, thickened to that, drawn with the normal mesh.
+    // box part thinner than minT (~1.5 px of the tile, chosen by the renderer for its framing), thickened to that and
+    // drawn with the normal mesh. Rebuilt only when minT changes.
     float thin = a->modelThinPx > 0 ? std::max(1.2f, a->modelThinPx) : 0.0f;
-    float minT = glm::length(a->bmax - a->bmin) / kThumbSize * 1.5f;
-    MeshData fat; GpuMesh fatMesh;
-    for (auto& p : a->parts) {
-      if (!p.visible || p.shape != Part::BOX || p.mat < 0 || p.mat >= (int)a->materials.size()) continue;
-      if (std::min(p.size.x, std::min(p.size.y, p.size.z)) >= minT) continue;
-      Part q = p; q.size = glm::max(q.size, vec3(minT));
-      appendPart(fat, q, a->materials[p.mat], mat4(1));
-    }
-    if (!fat.i.empty()) { fatMesh.upload(fat); op.push_back({&fatMesh, mat4(1)}); }
-    a->thumbnail = R.renderAssetThumbnail(op, gl, a->bmin, a->bmax, thin, &info);
-    if (!fat.i.empty()) fatMesh.destroy();
+    GpuMesh fatMesh; bool fatLive = false; float fatT = -1;
+    auto thinBoxes = [&](float minT) -> const GpuMesh* {
+      if (minT != fatT) {
+        if (fatLive) { fatMesh.destroy(); fatMesh = GpuMesh{}; fatLive = false; }
+        fatT = minT;
+        MeshData fat;
+        for (auto& p : a->parts) {
+          if (!p.visible || p.shape != Part::BOX || p.mat < 0 || p.mat >= (int)a->materials.size()) continue;
+          if (std::min(p.size.x, std::min(p.size.y, p.size.z)) >= minT) continue;
+          Part q = p; q.size = glm::max(q.size, vec3(minT));
+          appendPart(fat, q, a->materials[p.mat], mat4(1));
+        }
+        if (!fat.i.empty()) { fatMesh.upload(fat); fatLive = true; }
+      }
+      return fatLive ? &fatMesh : nullptr;
+    };
+    a->thumbnail = R.renderAssetThumbnail(op, gl, a->bmin, a->bmax, thin, thinBoxes, &info);
+    if (fatLive) fatMesh.destroy();
     R.worldModels.clear(); R.foliage.clear();
     ++st.rendered; st.searched += info.searched;
     for (auto& e : fs::directory_iterator(dir, ec)) {   // drop this asset's stale tiles (older keys)
