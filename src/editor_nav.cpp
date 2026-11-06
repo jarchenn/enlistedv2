@@ -536,7 +536,7 @@ static void drawOverview(App& app) {
 
 // ------------------------------------------------------------------ New Map dialog
 bool navNewMapSized(App& app, const TemplateInfo& t, const std::string& name, vec2 size) {
-  navState().pendingSize = mapSizeRules().clampSize(size);
+  navState().pendingSize = size == vec2(t.width, t.depth) ? size : mapSizeRules().clampSize(size);   // W5b: a template's own size is kept as authored
   bool ok = app.newMap(t, name);
   navState().pendingSize = vec2(0);
   // a larger map starts with the whole build area in view

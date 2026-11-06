@@ -51,7 +51,7 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   cuts.clear();
   clearTiles();
   ++generation;
-  vec2 wd = (width <= 0 && depth <= 0) ? vec2(t.width, t.depth)   // a template's own size is used as authored
+  vec2 wd = ((width <= 0 && depth <= 0) || (width == t.width && depth == t.depth)) ? vec2(t.width, t.depth)   // a template's own size is used as authored (W5b: also when passed explicitly, e.g. 850 x 1700 off the 100 m step)
                                        : mapSizeRules().clampSize(vec2(width > 0 ? width : t.width, depth > 0 ? depth : t.depth));
   margin = t.margin;
   buildHalfX = wd.x * 0.5f; buildHalfZ = wd.y * 0.5f; buildHalf = std::max(buildHalfX, buildHalfZ);
