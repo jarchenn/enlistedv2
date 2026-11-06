@@ -23,7 +23,7 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
   time = 0; step = 0; active = 0;
   if (sc.objectives.empty()) { err = "The map has no objectives (Creative > Scenario)."; return false; }
   int defSlots = std::max(rules.defenderSlots, humans);
-  if (defSlots + rules.attackerAI > ScenarioRules::kMaxCombatants) { err = "Roster exceeds 20 combatants."; return false; }
+  if (defSlots + rules.attackerAI > ScenarioRules::kMaxCombatants) { err = "Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants."; return false; }
   if (rules.attackerAI < 1) { err = "At least one attacking AI is required."; return false; }
   Faction df = rules.defendingFaction, af = otherFaction(df);
   for (int k = 0; k < defSlots; ++k) {
@@ -42,7 +42,7 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
     r.lane = k < laneOf[0] ? LANE_LEFT : k < laneOf[0] + laneOf[1] ? LANE_MAIN : LANE_RIGHT;
     slots.push_back(r);
   }
-  for (auto& o : sc.objectives) { ObjectiveRT x; x.id = o.id; x.label = o.label.empty() ? o.id : o.label; obj.push_back(x); }
+  for (auto& o : sc.objectives) { ObjectiveRT x; x.id = o.id; x.label = std::string(1, o.letter()) + " " + o.displayName(); obj.push_back(x); }
   ++rev;
   return true;
 }
@@ -133,7 +133,7 @@ void Match::update(float dt) {
     auto& o = obj[active]; const Objective& od = sc.objectives[active];
     o.A = o.D = 0;
     for (auto& s : slots) if (s.sampleAlive && od.contains(s.sampleFeet)) (s.role == CombatRole::Attacker ? o.A : o.D)++;
-    o.rate = captureRate(o.A, o.D, rules.captureBase, rules.capturePresenceFull);
+    o.rate = captureRateFor(rules, od, o.A, o.D);
     float before = o.progress;
     o.progress = std::clamp(o.progress + o.rate * dt, 0.0f, 100.0f);
     if (o.progress != before) ++rev;

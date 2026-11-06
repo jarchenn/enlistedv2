@@ -7,6 +7,7 @@
 #include "net.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
+#include "physics.h"
 #include <cmath>
 #include <algorithm>
 
@@ -61,79 +62,235 @@ void MpUi::creativeMenus(App& app) {
   }
 }
 
+// ---------------------------------------------------------------- scenario editing helpers (panel, mouse tools, tests)
+static vec3 groundAt(App& app, vec3 p) { vec3 q; if (app.terrain.raycast(vec3(p.x, p.y + 50, p.z), vec3(0, -1, 0), 200, q)) return q; return p; }
+
+uint64_t MpUi::placeRack(App& app, const SpawnMarker& m) {
+  Faction f = m.role == CombatRole::Defender ? sc.rules.defendingFaction : otherFaction(sc.rules.defendingFaction);
+  const AssetDef* a = app.lib.find(f == Faction::Allies ? "rack_allied" : "rack_axis");
+  if (!a) return 0;
+  vec3 fw = App::forward(m.yaw, 0), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
+  for (float side : {2.5f, -2.5f, 4.0f, -4.0f}) {   // beside the marker, never on it
+    vec3 p = groundAt(app, m.pos + rt * side + fw * 0.5f);
+    if (!app.checkPlacement(a, p, m.yaw + 90.0f, 0).ok) continue;
+    uint64_t saved = app.selected;
+    uint64_t id = app.placeInstance(a, p, m.yaw + 90.0f);
+    app.selected = saved;
+    if (id) return id;
+  }
+  return 0;
+}
+void MpUi::removeRack(App& app, uint64_t id) {
+  if (!id) return;
+  auto& v = app.doc.instances;
+  auto it = std::find_if(v.begin(), v.end(), [&](const Instance& i) { return i.id == id; });
+  if (it != v.end() && (it->assetId == "rack_allied" || it->assetId == "rack_axis")) { app.pushUndo(); v.erase(std::find_if(v.begin(), v.end(), [&](const Instance& i) { return i.id == id; })); app.dirty = true; }
+}
+bool MpUi::addObjectiveAt(App& app, vec3 p) {
+  Scenario& s = scenario(app);
+  if (!s.canAddObjective()) { app.toast("A map holds at most 10 objectives (A to J).", 5); return false; }
+  Objective o; o.id = s.newId("obj"); o.order = (int)s.objectives.size(); o.pos = p;
+  o.label = std::string("Objective ") + objectiveLetter(o.order);
+  o.attackYaw = s.objectives.empty() ? wrapDeg(app.camYaw) : s.objectives.back().attackYaw;
+  s.objectives.push_back(o); selObj = o.id; commit(app);
+  return true;
+}
+std::string MpUi::addSpawnAt(App& app, CombatRole role, vec3 p, int phase) {
+  Scenario& s = scenario(app);
+  if (s.objectives.empty()) { app.toast("Place an objective first: spawns belong to an objective's phase.", 5); return ""; }
+  phase = std::clamp(phase, 0, (int)s.objectives.size() - 1);
+  SpawnMarker m; m.id = s.newId("spawn"); m.role = role; m.phases = {phase}; m.pos = p;
+  vec3 to = s.objectives[phase].pos - p;   // face the objective
+  m.yaw = glm::length(vec2(to.x, to.z)) > 0.1f ? wrapDeg(degrees(std::atan2(-to.x, -to.z))) : app.camYaw;
+  m.label = std::string(role == CombatRole::Attacker ? "Attackers " : "Defenders ") + objectiveLetter(phase);
+  m.rack = placeRack(app, m);
+  s.spawns.push_back(m); selSpawn = m.id; commit(app);
+  return m.id;
+}
+bool MpUi::deleteSpawn(App& app, const std::string& id) {
+  Scenario& s = scenario(app);
+  auto it = std::find_if(s.spawns.begin(), s.spawns.end(), [&](const SpawnMarker& m) { return m.id == id; });
+  if (it == s.spawns.end()) return false;
+  uint64_t rack = it->rack; s.spawns.erase(it); removeRack(app, rack); commit(app);
+  return true;
+}
+bool MpUi::deleteObjective(App& app, const std::string& id) {
+  Scenario& s = scenario(app);
+  std::vector<uint64_t> racks;
+  if (!s.removeObjective(id, &racks)) return false;
+  for (auto r : racks) removeRack(app, r);
+  if (selObj == id) selObj.clear();
+  commit(app);
+  return true;
+}
+
+// Mouse tools and drag handles in Creative (called by the editor before its own picking; true = mouse consumed).
+bool MpUi::creativeMouse(App& app) {
+  if (!showPanel || app.mode != Mode::Creative) { tool = T_NONE; drag = D_NONE; return false; }
+  ImGuiIO& io = ImGui::GetIO();
+  bool down = glfwGetMouseButton(app.win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+  bool press = down && !lmbPrev; lmbPrev = down;
+  if (io.WantCaptureMouse && drag == D_NONE) return tool != T_NONE;
+  Scenario& s = scenario(app);
+  vec3 ro, rd; app.cursorRay(ro, rd);
+  vec3 hit; Physics::Hit h; bool ok = Physics::castRayEx(ro, rd, 3000, h) ? (hit = h.pos, true) : app.terrain.raycast(ro, rd, 3000, hit);
+  double mx, my; glfwGetCursorPos(app.win, &mx, &my); ImVec2 mouse((float)mx, (float)my);
+  Objective* so = s.find(selObj);
+  // ---- active drag
+  if (drag != D_NONE) {
+    if (!down) { drag = D_NONE; commit(app); return true; }
+    if (!ok) return true;
+    if (drag == D_OBJ && so) { vec3 d = hit - so->pos; so->pos = hit; for (auto& q : so->polygon) q += vec2(d.x, d.z); }
+    else if (drag == D_RADIUS && so) so->radius = std::clamp(glm::length(vec2(hit.x - so->pos.x, hit.z - so->pos.z)), 2.0f, 200.0f);
+    else if (drag == D_VERTEX && so && dragIndex < (int)so->polygon.size()) so->polygon[dragIndex] = vec2(hit.x, hit.z);
+    else if (drag == D_SPAWN) for (auto& m : s.spawns) if (m.id == selSpawn) {
+      vec3 d = hit - m.pos; m.pos = hit;
+      if (Instance* r = app.doc.find(m.rack)) { r->pos = groundAt(app, r->pos + d); app.bump(*r); }
+    }
+    return true;
+  }
+  // ---- armed tools
+  if (tool != T_NONE) {
+    if (!press || !ok) return true;
+    switch (tool) {
+      case T_OBJECTIVE: addObjectiveAt(app, hit); tool = T_NONE; break;
+      case T_ATK: addSpawnAt(app, CombatRole::Attacker, hit, so ? so->order : 0); tool = T_NONE; break;
+      case T_DEF: addSpawnAt(app, CombatRole::Defender, hit, so ? so->order : 0); tool = T_NONE; break;
+      case T_POLY: if (so) { if (so->shape != CaptureShape::Polygon) { so->polygon.clear(); so->shape = CaptureShape::Polygon; } so->polygon.push_back(vec2(hit.x, hit.z)); commit(app); } break;
+      case T_SLOT: if (so) { DefenseSlot d; d.pos = hit; d.yaw = wrapDeg(so->attackYaw + 180.0f); d.kind = (SlotKind)slotKind; d.priority = slotPriority; so->defenseSlots.push_back(d); commit(app); } break;
+      case T_LINK: if (so) {
+        float t; uint64_t id = app.pickInstance(ro, rd, t);
+        if (id) { auto& L = so->linkedStructures; auto it = std::find(L.begin(), L.end(), id); if (it == L.end()) L.push_back(id); else L.erase(it); commit(app); }
+      } break;
+      default: break;
+    }
+    return true;
+  }
+  // ---- handles (only on press near one; otherwise the editor picks as usual)
+  if (!press) return false;
+  auto near = [&](vec3 p, float px) { ImVec2 sp; return project(app, p, sp) && std::hypot(sp.x - mouse.x, sp.y - mouse.y) < px; };
+  if (so) {
+    if (so->shape == CaptureShape::Polygon) { for (int k = 0; k < (int)so->polygon.size(); ++k) if (near(groundAt(app, vec3(so->polygon[k].x, so->pos.y, so->polygon[k].y)), 10)) { drag = D_VERTEX; dragIndex = k; return true; } }
+    else if (near(groundAt(app, so->pos + vec3(so->radius, 0, 0)), 10)) { drag = D_RADIUS; return true; }
+  }
+  for (auto& o : s.objectives) if (near(o.pos + vec3(0, 0.5f, 0), 14)) { selObj = o.id; drag = D_OBJ; return true; }
+  for (auto& m : s.spawns) if (near(m.pos + vec3(0, 0.9f, 0), 12)) { selSpawn = m.id; drag = D_SPAWN; return true; }
+  return false;
+}
+
+static const char* kSlotLabels[(int)SlotKind::Count] = {"Position", "MG nest", "Trench bay", "Window", "Foxhole", "Bunker embrasure"};
+
 void MpUi::scenarioPanel(App& app) {
   if (!showPanel) return;
   Scenario& s = scenario(app);
-  ImGui::SetNextWindowSize(ImVec2(430, 620), ImGuiCond_FirstUseEver);
-  ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 450, 40), ImGuiCond_FirstUseEver);
-  if (!ImGui::Begin("Scenario: objectives, spawns, routes", &showPanel)) { ImGui::End(); return; }
-  // crosshair: placement targets the ground under the view centre
-  ImDrawList* fg = ImGui::GetForegroundDrawList(); ImVec2 c(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
-  fg->AddLine(ImVec2(c.x - 10, c.y), ImVec2(c.x + 10, c.y), IM_COL32(255, 230, 120, 220), 1.5f); fg->AddLine(ImVec2(c.x, c.y - 10), ImVec2(c.x, c.y + 10), IM_COL32(255, 230, 120, 220), 1.5f);
-  vec3 vc; bool vcOk = viewCentrePoint(app, vc);
-  ImGui::TextWrapped("Placement uses the point under the screen centre (crosshair). Stable ids never change when objectives are reordered.");
+  ImGui::SetNextWindowSize(ImVec2(450, 680), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 470, 40), ImGuiCond_FirstUseEver);
+  if (!ImGui::Begin("Scenario: objectives, spawns, defense", &showPanel)) { ImGui::End(); return; }
   if (!migration.empty()) for (auto& m : migration) ImGui::TextColored(ImVec4(0.9f, 0.8f, 0.5f, 1), "%s", m.c_str());
+  ImGui::TextWrapped("Click a tool, then click the ground. Drag an objective's centre or a spawn to move it; drag the ring handle "
+                     "(or polygon corners) to reshape. Drag rows to reorder. Ids stay stable when reordered.");
+  auto toolBtn = [&](const char* label, Tool t) {
+    bool on = tool == t; if (on) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.55f, 0.2f, 1));
+    if (ImGui::Button(label)) tool = on ? T_NONE : t;
+    if (on) ImGui::PopStyleColor();
+  };
+  ImGui::BeginDisabled(!s.canAddObjective()); toolBtn("Place objective", T_OBJECTIVE); ImGui::EndDisabled();
+  ImGui::SameLine(); ImGui::BeginDisabled(s.objectives.empty()); toolBtn("Attacker spawn", T_ATK); ImGui::SameLine(); toolBtn("Defender spawn", T_DEF); ImGui::EndDisabled();
+  if (!s.canAddObjective()) ImGui::TextDisabled("10 objectives placed: the maximum (A to J).");
+  if (tool != T_NONE) ImGui::TextColored(ImVec4(1, 0.85f, 0.4f, 1), "Click the ground to place (Esc or click the tool again to cancel).");
+  if (tool != T_NONE && ImGui::IsKeyPressed(ImGuiKey_Escape)) tool = T_NONE;
   bool changed = false;
-  if (ImGui::Checkbox("Developer test map (allows one objective)", &s.devTestMap)) changed = true;
-  ImGui::SeparatorText("Objectives (attack order)");
+  ImGui::SeparatorText("Objectives (attack order A -> J)");
   for (size_t k = 0; k < s.objectives.size(); ++k) {
     Objective& o = s.objectives[k];
     ImGui::PushID(o.id.c_str());
     bool sel = selObj == o.id;
-    char hdr[160]; std::snprintf(hdr, sizeof hdr, "%zu. %s  (%s)", k + 1, o.label.empty() ? "unnamed" : o.label.c_str(), o.id.c_str());
-    if (ImGui::Selectable(hdr, sel)) selObj = o.id;
+    char hdr[180]; std::snprintf(hdr, sizeof hdr, "%c  %s  (%s)", o.letter(), o.displayName().c_str(), o.id.c_str());
+    if (ImGui::Selectable(hdr, sel)) selObj = sel ? std::string() : o.id;
+    if (ImGui::BeginDragDropSource()) { ImGui::SetDragDropPayload("NMK_OBJ", &k, sizeof k); ImGui::Text("Move %c %s", o.letter(), o.displayName().c_str()); ImGui::EndDragDropSource(); }
+    if (ImGui::BeginDragDropTarget()) {
+      if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("NMK_OBJ")) { size_t from = *(const size_t*)p->Data; if (from < s.objectives.size() && s.moveTo(s.objectives[from].id, (int)k)) { commit(app); ImGui::EndDragDropTarget(); ImGui::PopID(); break; } }
+      ImGui::EndDragDropTarget();
+    }
     if (sel) {
       ImGui::Indent();
-      char lb[64]; std::snprintf(lb, sizeof lb, "%s", o.label.c_str());
-      if (ImGui::InputText("Label", lb, sizeof lb)) { o.label = lb; changed = true; }
-      if (ImGui::Button("Move earlier") && s.moveEarlier(o.id)) { changed = true; ImGui::PopID(); ImGui::Unindent(); break; }
-      ImGui::SameLine(); if (ImGui::Button("Move later") && s.moveLater(o.id)) { changed = true; ImGui::PopID(); ImGui::Unindent(); break; }
-      ImGui::SameLine(); if (ImGui::Button("Move here") && vcOk) { o.pos = vc; changed = true; }
-      if (ImGui::SliderFloat("Capture radius (m)", &o.radius, 2, 40, "%.1f")) changed = true;
-      if (ImGui::DragFloatRange2("Vertical bounds (m)", &o.yMin, &o.yMax, 0.1f, -10, 20, "below %.1f", "above %.1f")) changed = true;
+      char lb[96]; std::snprintf(lb, sizeof lb, "%s", o.label.c_str());
+      if (ImGui::InputText("Display name", lb, sizeof lb)) { o.label = lb; changed = true; }
+      if (ImGui::Button("Move earlier") && s.moveEarlier(o.id)) { changed = true; commit(app); ImGui::Unindent(); ImGui::PopID(); break; }
+      ImGui::SameLine(); if (ImGui::Button("Move later") && s.moveLater(o.id)) { changed = true; commit(app); ImGui::Unindent(); ImGui::PopID(); break; }
+      int shp = (int)o.shape;
+      if (ImGui::RadioButton("Circle", &shp, 0)) { o.shape = CaptureShape::Circle; changed = true; }
+      ImGui::SameLine(); if (ImGui::RadioButton("Polygon", &shp, 1)) { o.shape = CaptureShape::Polygon; changed = true; }
+      if (o.shape == CaptureShape::Circle) { if (ImGui::SliderFloat("Capture radius (m)", &o.radius, 2, 100, "%.1f")) changed = true; }
+      else {
+        ImGui::Text("Polygon: %zu corners", o.polygon.size()); ImGui::SameLine(); toolBtn("Add corners", T_POLY);
+        ImGui::SameLine(); if (ImGui::SmallButton("Clear")) { o.polygon.clear(); changed = true; }
+        if (o.polygon.size() < 3) ImGui::TextColored(ImVec4(1, 0.6f, 0.45f, 1), "Needs at least 3 corners.");
+      }
+      if (ImGui::SliderFloat("Capture time, 1 attacker (s)", &o.captureTime, 5, 180, "%.0f")) changed = true;
+      ImGui::TextDisabled("Faster with more attackers, up to %.0fx; any defender on the point pauses it.", s.rules.captureSpeedCap);
+      if (ImGui::DragFloatRange2("Vertical bounds (m)", &o.yMin, &o.yMax, 0.1f, -10, 30, "below %.1f", "above %.1f")) changed = true;
       if (ImGui::SliderFloat("Attack direction (deg)", &o.attackYaw, 0, 360, "%.0f")) changed = true;
       if (ImGui::Button("Aim attack arrow along view")) { o.attackYaw = wrapDeg(app.camYaw); changed = true; }
-      ImGui::Text("Approach routes (left / right are relative to the attack arrow):");
+      ImGui::Text("Linked structures: %zu", o.linkedStructures.size()); ImGui::SameLine(); toolBtn("Pick in scene", T_LINK);
+      ImGui::SameLine(); if (ImGui::SmallButton("Clear##ls")) { o.linkedStructures.clear(); changed = true; }
+      for (size_t q = 0; q < o.linkedStructures.size(); ++q) { Instance* in = app.doc.find(o.linkedStructures[q]); ImGui::BulletText("%s #%llu%s", in ? in->assetId.c_str() : "(deleted)", (unsigned long long)o.linkedStructures[q], in ? "" : " - will be ignored"); }
+      ImGui::Text("Defense slots: %zu", o.defenseSlots.size());
+      ImGui::SetNextItemWidth(130); ImGui::Combo("##kind", &slotKind, kSlotLabels, (int)SlotKind::Count); ImGui::SameLine();
+      ImGui::SetNextItemWidth(70); ImGui::SliderInt("priority", &slotPriority, 1, 5); ImGui::SameLine(); toolBtn("Add slots", T_SLOT);
+      for (size_t q = 0; q < o.defenseSlots.size(); ++q) {
+        auto& d = o.defenseSlots[q]; ImGui::PushID((int)q);
+        ImGui::BulletText("%s  p%d  facing %.0f", kSlotLabels[(int)d.kind], d.priority, d.yaw); ImGui::SameLine();
+        if (ImGui::SmallButton("x")) { o.defenseSlots.erase(o.defenseSlots.begin() + q); changed = true; ImGui::PopID(); break; }
+        ImGui::PopID();
+      }
+      ImGui::Text("Lane hints (optional; left / right relative to the attack arrow):");
       const char* ln[3] = {"Left", "Main", "Right"};
+      vec3 vc; bool vcOk = viewCentrePoint(app, vc);
       for (int L = 0; L < 3; ++L) {
         ImGui::PushID(L);
         int npts = 0; for (auto& r : o.routes) if (r.lane == L) npts += (int)r.points.size();
         ImGui::Text("  %s: %d points", ln[L], npts); ImGui::SameLine();
-        if (ImGui::SmallButton("add point") && vcOk) { bool f = false; for (auto& r : o.routes) if (r.lane == L) { r.points.push_back(vc); f = true; } if (!f) o.routes.push_back({L, {vc}}); changed = true; }
+        if (ImGui::SmallButton("add at view centre") && vcOk) { bool f = false; for (auto& r : o.routes) if (r.lane == L) { r.points.push_back(vc); f = true; } if (!f) o.routes.push_back({L, {vc}}); changed = true; }
         ImGui::SameLine(); if (ImGui::SmallButton("clear")) { o.routes.erase(std::remove_if(o.routes.begin(), o.routes.end(), [&](const ApproachRoute& r) { return r.lane == L; }), o.routes.end()); changed = true; }
         ImGui::PopID();
       }
-      ImGui::Text("Defender positions: %zu", o.defendPoints.size()); ImGui::SameLine();
-      if (ImGui::SmallButton("add here") && vcOk) { o.defendPoints.push_back(vc); changed = true; }
-      ImGui::SameLine(); if (ImGui::SmallButton("clear##dp")) { o.defendPoints.clear(); changed = true; }
-      ImGui::Text("Spawns for this stage:"); ImGui::SameLine();
-      if (ImGui::SmallButton("+ attacker here") && vcOk) { SpawnMarker m; m.id = s.newId("spawn"); m.role = CombatRole::Attacker; m.stage = o.order; m.pos = vc; m.yaw = app.camYaw; m.label = "Attackers " + std::to_string(o.order + 1); s.spawns.push_back(m); changed = true; }
-      ImGui::SameLine(); if (ImGui::SmallButton("+ defender here") && vcOk) { SpawnMarker m; m.id = s.newId("spawn"); m.role = CombatRole::Defender; m.stage = o.order; m.pos = vc; m.yaw = app.camYaw; m.label = "Defenders " + std::to_string(o.order + 1); s.spawns.push_back(m); changed = true; }
-      for (size_t m = 0; m < s.spawns.size(); ++m) {
-        auto& sp = s.spawns[m];
-        if (sp.stage != o.order) continue;
-        ImGui::PushID(sp.id.c_str());
-        ImGui::BulletText("%s %s  facing %.0f deg", sp.role == CombatRole::Attacker ? "ATK" : "DEF", sp.label.c_str(), sp.yaw);
-        ImGui::SameLine(); if (ImGui::SmallButton("delete")) { s.spawns.erase(s.spawns.begin() + m); changed = true; ImGui::PopID(); break; }
-        ImGui::PopID();
-      }
-      if (ImGui::Button("Delete objective")) {
-        int ord = o.order;
-        s.spawns.erase(std::remove_if(s.spawns.begin(), s.spawns.end(), [&](const SpawnMarker& m) { return m.stage == ord; }), s.spawns.end());
-        for (auto& m : s.spawns) if (m.stage > ord) --m.stage;
-        s.objectives.erase(s.objectives.begin() + k); selObj.clear(); changed = true; ImGui::Unindent(); ImGui::PopID(); break;
-      }
+      if (ImGui::Button("Delete objective")) { std::string id = o.id; ImGui::Unindent(); ImGui::PopID(); deleteObjective(app, id); break; }
       ImGui::Unindent();
     }
     ImGui::PopID();
   }
-  if (ImGui::Button("Add objective at crosshair") && vcOk) {
-    Objective o; o.id = s.newId("obj"); o.order = (int)s.objectives.size(); o.pos = vc; o.label = std::string("Point ") + char('A' + std::min<size_t>(25, s.objectives.size()));
-    o.attackYaw = wrapDeg(app.camYaw); s.objectives.push_back(o); selObj = o.id; changed = true;
+  ImGui::SeparatorText("Spawns (each with its team's weapons rack)");
+  for (size_t m = 0; m < s.spawns.size(); ++m) {
+    auto& sp = s.spawns[m];
+    ImGui::PushID(sp.id.c_str());
+    bool sel = selSpawn == sp.id;
+    std::string ph; for (int p : sp.phases) { if (!ph.empty()) ph += ","; ph += objectiveLetter(p); }
+    char hdr[160]; std::snprintf(hdr, sizeof hdr, "%s  %s  [%s]%s", sp.role == CombatRole::Attacker ? "ATK" : "DEF", sp.label.c_str(), ph.c_str(), sp.rack && app.doc.find(sp.rack) ? "  + rack" : "");
+    if (ImGui::Selectable(hdr, sel)) selSpawn = sel ? std::string() : sp.id;
+    if (sel) {
+      ImGui::Indent();
+      ImGui::Text("Active in phases:");
+      for (auto& o : s.objectives) {
+        ImGui::SameLine(); bool on = sp.activeIn(o.order); char b[8]; std::snprintf(b, sizeof b, "%c", o.letter());
+        if (ImGui::Checkbox(b, &on)) {
+          if (on) sp.phases.push_back(o.order); else if (sp.phases.size() > 1) sp.phases.erase(std::remove(sp.phases.begin(), sp.phases.end(), o.order), sp.phases.end());
+          std::sort(sp.phases.begin(), sp.phases.end()); changed = true;
+        }
+      }
+      if (!(sp.rack && app.doc.find(sp.rack)) && ImGui::SmallButton("Place weapons rack")) { sp.rack = placeRack(app, sp); changed = true; }
+      if (ImGui::SmallButton("Delete spawn (and its rack)")) { std::string id = sp.id; ImGui::Unindent(); ImGui::PopID(); deleteSpawn(app, id); break; }
+      ImGui::Unindent();
+    }
+    ImGui::PopID();
   }
   ImGui::SeparatorText("Validation");
+  if (ImGui::Button("Validate now")) { lastValidated = validateScenario(s, true); validatedOnce = true; }
+  ImGui::SameLine(); ImGui::TextDisabled("(also runs on save)");
   auto issues = validateScenario(s, true);
-  if (issues.empty()) ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1), "Ready to publish: %zu objectives, %zu spawn markers.", s.objectives.size(), s.spawns.size());
+  int ne = 0, nw = 0; for (auto& i : issues) (i.error ? ne : nw)++;
+  if (issues.empty()) ImGui::TextColored(ImVec4(0.6f, 0.9f, 0.6f, 1), "Ready: %zu objectives, %zu spawns.", s.objectives.size(), s.spawns.size());
+  else ImGui::Text("%d error%s (block play), %d warning%s", ne, ne == 1 ? "" : "s", nw, nw == 1 ? "" : "s");
   for (auto& i : issues) ImGui::TextColored(i.error ? ImVec4(1, 0.55f, 0.45f, 1) : ImVec4(0.95f, 0.85f, 0.5f, 1), "%s %s", i.error ? "ERROR" : "warn ", i.what.c_str());
   if (!worldIssues.empty()) { ImGui::Text("World checks (last match start / check):"); for (auto& w : worldIssues) ImGui::TextColored(ImVec4(1, 0.6f, 0.45f, 1), "%s", w.c_str()); }
   if (changed) commit(app);
@@ -144,38 +301,66 @@ void MpUi::creativeOverlay(App& app, Overlay& ov) {
   if (!showOverlay && !showPanel) return;
   Scenario& s = scenario(app);
   ImDrawList* dl = ImGui::GetBackgroundDrawList();
+  // attack path A -> B -> C ... (from the first attacker spawn group)
+  {
+    vec2 st = s.attackerStart();
+    vec3 prev = groundAt(app, vec3(st.x, 0, st.y)) + vec3(0, 1.5f, 0);
+    for (auto& o : s.objectives) { vec3 p = o.pos + vec3(0, 1.5f, 0); ov.line(prev, p, vec4(1, 0.9f, 0.4f, 0.9f), true); prev = p; }
+  }
   for (auto& o : s.objectives) {
     bool sel = o.id == selObj;
     vec4 col = sel ? vec4(1.0f, 0.85f, 0.3f, 1) : vec4(0.9f, 0.7f, 0.25f, 0.8f);
-    // exactly the authoritative capture volume: a vertical cylinder of `radius` between pos.y + yMin and pos.y + yMax
-    const int N = 48;
-    for (int k = 0; k < N; ++k) {
-      float a0 = k * 6.2831853f / N, a1 = (k + 1) * 6.2831853f / N;
-      vec3 p0 = o.pos + vec3(std::cos(a0) * o.radius, 0, std::sin(a0) * o.radius), p1 = o.pos + vec3(std::cos(a1) * o.radius, 0, std::sin(a1) * o.radius);
+    // exactly the authoritative capture volume between pos.y + yMin and pos.y + yMax
+    std::vector<vec3> ring;
+    if (o.shape == CaptureShape::Polygon && o.polygon.size() >= 3) for (auto& q : o.polygon) ring.push_back(vec3(q.x, o.pos.y, q.y));
+    else for (int k = 0; k < 48; ++k) { float a = k * 6.2831853f / 48; ring.push_back(o.pos + vec3(std::cos(a) * o.radius, 0, std::sin(a) * o.radius)); }
+    for (size_t k = 0; k < ring.size(); ++k) {
+      vec3 p0 = ring[k], p1 = ring[(k + 1) % ring.size()];
       ov.line(p0 + vec3(0, o.yMin, 0), p1 + vec3(0, o.yMin, 0), col, true); ov.line(p0 + vec3(0, o.yMax, 0), p1 + vec3(0, o.yMax, 0), col, true);
-      if (k % 6 == 0) ov.line(p0 + vec3(0, o.yMin, 0), p0 + vec3(0, o.yMax, 0), col * vec4(1, 1, 1, 0.6f), true);
+      if (k % 6 == 0 || o.shape == CaptureShape::Polygon) ov.line(p0 + vec3(0, o.yMin, 0), p0 + vec3(0, o.yMax, 0), col * vec4(1, 1, 1, 0.6f), true);
+    }
+    if (sel) {   // handles
+      ov.line(o.pos, o.pos + vec3(0, 3, 0), vec4(1, 1, 1, 1), true);
+      if (o.shape == CaptureShape::Circle) { vec3 h = groundAt(app, o.pos + vec3(o.radius, 0, 0)); ov.line(h, h + vec3(0, 2, 0), vec4(1, 1, 1, 1), true); }
+      for (auto id : o.linkedStructures) if (Instance* in = app.doc.find(id)) ov.line(o.pos + vec3(0, 2, 0), in->pos + vec3(0, 2, 0), vec4(0.5f, 1, 0.6f, 0.9f), true);
     }
     vec3 f = attackForward(o.attackYaw), r = attackRight(o.attackYaw);
-    vec3 tail = o.pos - f * (o.radius + 12) + vec3(0, 0.5f, 0), head = o.pos - f * (o.radius + 2) + vec3(0, 0.5f, 0);
+    float R = o.extent();
+    vec3 tail = o.pos - f * (R + 12) + vec3(0, 0.5f, 0), head = o.pos - f * (R + 2) + vec3(0, 0.5f, 0);
     ov.line(tail, head, vec4(1, 0.3f, 0.2f, 1), true); ov.line(head, head - f * 2.0f + r * 1.2f, vec4(1, 0.3f, 0.2f, 1), true); ov.line(head, head - f * 2.0f - r * 1.2f, vec4(1, 0.3f, 0.2f, 1), true);
     const vec4 lc[3] = {vec4(0.4f, 0.7f, 1, 1), vec4(1, 1, 1, 1), vec4(1, 0.55f, 0.85f, 1)};
     for (auto& rt : o.routes) for (size_t k = 0; k + 1 < rt.points.size(); ++k) ov.line(rt.points[k] + vec3(0, 0.3f, 0), rt.points[k + 1] + vec3(0, 0.3f, 0), lc[rt.lane], true);
     for (auto& rt : o.routes) if (!rt.points.empty()) ov.line(rt.points.back() + vec3(0, 0.3f, 0), o.pos + vec3(0, 0.3f, 0), lc[rt.lane] * vec4(1, 1, 1, 0.5f), true);
-    for (auto& dp : o.defendPoints) ov.line(dp, dp + vec3(0, 1.4f, 0), vec4(0.3f, 0.6f, 1, 1), true);
+    for (auto& d : o.defenseSlots) { vec3 fw = App::forward(d.yaw, 0); ov.line(d.pos, d.pos + vec3(0, 1.4f, 0), vec4(0.3f, 0.6f, 1, 1), true); ov.line(d.pos + vec3(0, 1.2f, 0), d.pos + vec3(0, 1.2f, 0) + fw * 1.0f, vec4(0.3f, 0.6f, 1, 1), true); }
     ImVec2 sp;
     if (project(app, o.pos + vec3(0, o.yMax + 1, 0), sp)) {
-      char b[96]; std::snprintf(b, sizeof b, "%d. %s  r %.0f m", o.order + 1, o.label.c_str(), o.radius);
+      char b[140]; std::snprintf(b, sizeof b, "%c  %s  %.0f s", o.letter(), o.displayName().c_str(), o.captureTime);
       dl->AddText(ImVec2(sp.x - 40, sp.y), IM_COL32(255, 225, 140, 255), b);
     }
   }
   for (auto& m : s.spawns) {
     vec4 col = m.role == CombatRole::Attacker ? vec4(1, 0.35f, 0.25f, 1) : vec4(0.3f, 0.6f, 1, 1);
+    if (m.id == selSpawn) col = vec4(1, 1, 1, 1);
     vec3 f = App::forward(m.yaw, 0);
     ov.line(m.pos, m.pos + vec3(0, 1.8f, 0), col, true);
     ov.line(m.pos + vec3(0, 0.1f, 0), m.pos + vec3(0, 0.1f, 0) + f * 1.2f, col, true);
     ImVec2 sp;
-    if (project(app, m.pos + vec3(0, 2.0f, 0), sp)) { char b[96]; std::snprintf(b, sizeof b, "%s %d %s", m.role == CombatRole::Attacker ? "ATK" : "DEF", m.stage + 1, m.label.c_str()); dl->AddText(sp, m.role == CombatRole::Attacker ? IM_COL32(255, 130, 110, 255) : IM_COL32(130, 170, 255, 255), b); }
+    if (project(app, m.pos + vec3(0, 2.0f, 0), sp)) {
+      std::string ph; for (int p : m.phases) ph += objectiveLetter(p);
+      char b[120]; std::snprintf(b, sizeof b, "%s %s  %s", m.role == CombatRole::Attacker ? "ATK" : "DEF", ph.c_str(), m.label.c_str());
+      dl->AddText(sp, m.role == CombatRole::Attacker ? IM_COL32(255, 130, 110, 255) : IM_COL32(130, 170, 255, 255), b);
+    }
   }
+}
+
+// Save hook: refuses a map whose scenario has spawns but no objective; otherwise reports the validation summary.
+bool MpUi::beforeSave(App& app) {
+  if (!app.doc.extra.is_object() || !app.doc.extra.contains("scenario")) return true;
+  Scenario& s = scenario(app);
+  if (s.objectives.empty() && !s.spawns.empty()) { app.toast("Not saved: the scenario has spawns but no objective. Place at least one objective (Scenario panel) or delete the spawns.", 8); return false; }
+  int ne = 0, nw = 0; for (auto& i : validateScenario(s, true)) (i.error ? ne : nw)++;
+  if (ne || nw) app.toast("Scenario check: " + std::to_string(ne) + " error(s), " + std::to_string(nw) + " warning(s) - see Scenario panel", 6);
+  return true;
 }
 
 void MpUi::setupWindow(App& app) {
@@ -188,8 +373,8 @@ void MpUi::setupWindow(App& app) {
   if (!ImGui::Begin(title, &showSetup, ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
   ImGui::Text("Map: %s   (%zu objectives)", app.doc.name.c_str(), s.objectives.size());
   int fac = (int)rules.defendingFaction;
-  ImGui::Text("Defending faction (all humans defend this milestone):");
-  ImGui::RadioButton("Allies [US] defend, Axis attack", &fac, 0); ImGui::SameLine(); ImGui::RadioButton("Axis [GER] defend, Allies attack", &fac, 1);
+  ImGui::Text("Defending side (humans join the defenders):");
+  ImGui::RadioButton("Axis [GER] defend, Allies attack", &fac, 1); ImGui::SameLine(); ImGui::RadioButton("Allies [US] defend, Axis attack", &fac, 0);
   rules.defendingFaction = (Faction)fac;
   int humans = setupMode == 1 && gNet ? gNet->humanCount() : 1;
   ImGui::SliderInt("Defender slots (humans + friendly AI)", &rules.defenderSlots, std::max(1, humans), ScenarioRules::kMaxCombatants - 1);

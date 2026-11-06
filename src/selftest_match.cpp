@@ -4,6 +4,7 @@
 // reorder / validate.
 #include "match.h"
 #include "mptest.h"
+#include "navmeta.h"
 #include <cmath>
 #include <fstream>
 
@@ -13,9 +14,10 @@ Scenario testScenario(int nObj) {
   for (int k = 0; k < nObj; ++k) {
     Objective o; o.id = s.newId("obj"); o.label = std::string("Point ") + char('A' + k); o.order = k; o.pos = vec3(0, 0, -60.0f * k); o.radius = 15;
     s.objectives.push_back(o);
-    SpawnMarker a; a.id = s.newId("spawn"); a.role = CombatRole::Attacker; a.stage = k; a.pos = o.pos + vec3(0, 0, 80); s.spawns.push_back(a);
-    SpawnMarker d; d.id = s.newId("spawn"); d.role = CombatRole::Defender; d.stage = k; d.pos = o.pos + vec3(0, 0, -20); s.spawns.push_back(d);
+    SpawnMarker a; a.id = s.newId("spawn"); a.role = CombatRole::Attacker; a.phases = {k}; a.pos = o.pos + vec3(0, 0, 80); s.spawns.push_back(a);
+    SpawnMarker d; d.id = s.newId("spawn"); d.role = CombatRole::Defender; d.phases = {k}; d.pos = o.pos + vec3(0, 0, -20); s.spawns.push_back(d);
   }
+  s.rules.captureModel = CaptureModel::Contest;   // the milestone formula cases below; v2 timed cases set Timed
   return s;
 }
 // spawn everyone that is queued (at their marker area), as the game layer would
@@ -32,6 +34,7 @@ void occupy(Match& m, int A, int D) {
     m.reportAlive(s.id, true, in ? c + vec3(1, 0, 1) : c + vec3(500, 0, 0));
   }
 }
+int errorsIn(const Scenario& s) { int e = 0; for (auto& i : validateScenario(s, true)) e += i.error; return e; }
 float timeToCapture(int A, int D, int attackers, int defenders) {
   Scenario s = testScenario(3); s.rules.attackerAI = attackers; s.rules.defenderSlots = std::max(1, defenders);
   Match m; std::string err; m.setup(s, 0, err); m.start();
@@ -114,8 +117,8 @@ int runMatchSelfTest() {
   {
     Scenario s = testScenario(3); s.rules.defenderSlots = 1; s.rules.attackerAI = 1; Match m; std::string err;
     T.check(m.setup(s, 1, err) && m.slots.size() == 2, "zero friendly AI and one enemy AI is a valid roster");
-    s.rules.defenderSlots = 5; s.rules.attackerAI = 16; s.rules = ScenarioRules::fromJson(s.rules.toJson());
-    T.check(s.rules.defenderSlots + s.rules.attackerAI <= 20, "rules clamp the roster to 20 combatants (5 + " + std::to_string(s.rules.attackerAI) + ")");
+    s.rules.defenderSlots = 5; s.rules.attackerAI = 40; s.rules = ScenarioRules::fromJson(s.rules.toJson());
+    T.check(s.rules.defenderSlots + s.rules.attackerAI == 32, "rules clamp the roster to 32 combatants (5 + " + std::to_string(s.rules.attackerAI) + ")");
   }
   // ---------------------------------------------------------------- end-of-match precedence
   {
@@ -182,10 +185,10 @@ int runMatchSelfTest() {
   {
     Scenario s = testScenario(4);
     std::string id0 = s.objectives[0].id, id1 = s.objectives[1].id;
-    int sp1 = 0; for (auto& m : s.spawns) if (m.stage == 1) ++sp1;
+    int sp1 = 0; for (auto& m : s.spawns) if (m.activeIn(1)) ++sp1;
     s.moveLater(id0);
     T.check(s.objectives[0].id == id1 && s.objectives[1].id == id0 && s.objectives[1].order == 1, "Move Later swaps the sequence and keeps stable ids");
-    int sp0now = 0; for (auto& m : s.spawns) if (m.stage == 0) ++sp0now;
+    int sp0now = 0; for (auto& m : s.spawns) if (m.activeIn(0)) ++sp0now;
     T.check(sp0now == sp1, "spawn groups follow their objective when reordered");
     json j = s.toJson();
     Scenario r = Scenario::fromJson(json::parse(j.dump()));
@@ -194,16 +197,130 @@ int runMatchSelfTest() {
     json old = {{"objectives", json::array({{{"pos", {1, 2, 3}}}})}};
     Scenario mig = Scenario::fromJson(old, &notes);
     T.check(mig.objectives.size() == 1 && mig.objectives[0].radius == 15 && mig.objectives[0].yMin == -2 && !mig.objectives[0].id.empty() && !notes.empty(), "version-0 scenario migrates with defaults (radius 15 m, bounds, id): " + (notes.empty() ? std::string() : notes[0]));
-    auto iss = validateScenario(testScenario(4), true);
-    int errs = 0; for (auto& i : iss) errs += i.error;
-    T.check(errs == 0, "a 4-point scenario with spawns per stage validates for publish");
+    T.check(errorsIn(testScenario(4)) == 0, "a 4-point scenario with spawns per phase validates (no errors)");
     Scenario bad = testScenario(2); bad.spawns.erase(bad.spawns.begin() + 1); bad.objectives[1].order = 5;
-    auto iss2 = validateScenario(bad, true);
-    std::string all; for (auto& i : iss2) if (i.error) all += i.what + " | ";
-    T.check(all.find("published maps need 3 to 5") != std::string::npos && all.find("defender spawn") != std::string::npos && all.find("contiguous") != std::string::npos, "validation reports count, missing spawn group and non-contiguous order: " + all.substr(0, 160));
-    Scenario one = testScenario(1); one.devTestMap = true;
-    int e1 = 0; for (auto& i : validateScenario(one, false)) e1 += i.error;
-    T.check(e1 == 0, "one-point developer test map is allowed");
+    std::string all; for (auto& i : validateScenario(bad, true)) if (i.error) all += i.what + " | ";
+    T.check(all.find("no defender spawn") != std::string::npos && all.find("contiguous") != std::string::npos, "validation reports a phase without defender spawn and a non-contiguous order: " + all.substr(0, 160));
+  }
+  // ---------------------------------------------------------------- v2: objective count 1..10 (SPEC 1.1, 13)
+  {
+    Scenario none = testScenario(0);
+    std::string w0; for (auto& i : validateScenario(none, true)) if (i.error) w0 += i.what;
+    T.check(w0.find("No objectives") != std::string::npos, "0 objectives is an error: " + w0.substr(0, 90));
+    Match m0; std::string e0; T.check(!m0.setup(none, 0, e0), "a 0-objective scenario cannot start a match (" + e0 + ")");
+    T.check(errorsIn(testScenario(1)) == 0, "1 objective is valid (no developer flag needed since v2)");
+    T.check(errorsIn(testScenario(10)) == 0 && testScenario(10).objectives.back().letter() == 'J', "10 objectives are valid, labelled A..J");
+    std::string w11; for (auto& i : validateScenario(testScenario(11), true)) if (i.error) w11 += i.what;
+    T.check(w11.find("at most 10") != std::string::npos && !testScenario(10).canAddObjective(), "11 objectives is an error and the editor refuses an 11th (canAddObjective false at 10)");
+    for (int n : {1, 10}) {   // play through every point in order
+      Scenario s = testScenario(n); s.rules.captureModel = CaptureModel::Timed; s.rules.attackerAI = 5; s.rules.defenderSlots = 1;
+      for (auto& o : s.objectives) o.captureTime = 6;
+      Match m; std::string err; m.setup(s, 0, err); m.start(); spawnAll(m, vec3(0, 0, 500), vec3(0, 0, -500));
+      float t = 0; int seen = 0;
+      while (m.phase == MatchPhase::Running && t < 200) { occupy(m, 3, 0); m.update(1.0f / 30.0f); t += 1.0f / 30.0f; seen = std::max(seen, m.active); }
+      char b[160]; std::snprintf(b, sizeof b, "%d-objective match plays through in order: attackers win after %.1f s (%d points, 2 s each at 3x)", n, t, n);
+      T.check(m.winner == Winner::Attackers && std::fabs(t - 2.0f * n) < 0.2f * n + 0.1f && seen == n - 1, b);
+    }
+  }
+  // ---------------------------------------------------------------- v2: timed capture (SPEC 1.1)
+  {
+    Objective o; o.captureTime = 45;
+    ScenarioRules r; r.captureModel = CaptureModel::Timed;
+    struct C { int A, D; float want; } cases[] = {{1, 0, 45}, {2, 0, 22.5f}, {3, 0, 15}, {6, 0, 15}};
+    for (auto& c : cases) {
+      float t = 100.0f / captureRateFor(r, o, c.A, c.D);
+      char b[120]; std::snprintf(b, sizeof b, "timed capture %d attacker(s): %.2f s (want %.1f s; speed-up capped at 3x)", c.A, t, c.want);
+      T.check(std::fabs(t - c.want) < 0.01f, b);
+    }
+    T.check(captureRateFor(r, o, 5, 1) == 0 && captureRateFor(r, o, 0, 0) == 0, "timed capture pauses while a defender is on the point and with nobody there");
+    Scenario s = testScenario(2); s.rules.captureModel = CaptureModel::Timed; s.rules.attackerAI = 3; s.rules.defenderSlots = 2;
+    for (auto& ob : s.objectives) ob.captureTime = 45;
+    Match m; std::string err; m.setup(s, 0, err); m.start(); spawnAll(m, vec3(0, 0, 500), vec3(0, 0, -500));
+    occupy(m, 1, 0); for (int k = 0; k < 30 * 20; ++k) m.update(1.0f / 30.0f);   // 20 s of 45 -> 44.4 %
+    float p = m.obj[0].progress;
+    occupy(m, 1, 1); for (int k = 0; k < 30 * 10; ++k) m.update(1.0f / 30.0f);
+    char b[160]; std::snprintf(b, sizeof b, "1 attacker for 20 s reaches %.1f %% (want 44.4); a defender arriving holds it at %.1f %% (no decay)", p, m.obj[0].progress);
+    T.check(std::fabs(p - 44.44f) < 0.3f && m.obj[0].progress == p, b);
+  }
+  // ---------------------------------------------------------------- v2: shapes, phases, editing helpers
+  {
+    Objective o; o.pos = vec3(0); o.shape = CaptureShape::Polygon; o.polygon = {vec2(-10, -5), vec2(10, -5), vec2(10, 5), vec2(-10, 5)};
+    T.check(o.contains(vec3(9, 0, 4)) && !o.contains(vec3(0, 0, 8)) && !o.contains(vec3(9, 6, 4)) && std::fabs(o.extent() - std::sqrt(125.0f)) < 1e-3f,
+            "polygon capture area: inside / outside / above the vertical bounds; extent covers the outline");
+    Objective c; c.pos = vec3(5, 0, 5);
+    T.check(c.radius == 25 && c.contains(vec3(5, 0, 29)) && !c.contains(vec3(5, 0, 31)), "new objectives default to a 25 m circle");
+    Scenario s = testScenario(3);
+    SpawnMarker both; both.id = s.newId("spawn"); both.role = CombatRole::Attacker; both.phases = {1, 2}; both.pos = vec3(0, 0, 300); s.spawns.push_back(both);
+    T.check(s.spawnsFor(CombatRole::Attacker, 1).size() == 2 && s.spawnsFor(CombatRole::Attacker, 2).size() == 2 && s.spawnsFor(CombatRole::Attacker, 0).size() == 1,
+            "a spawn can be active in several phases");
+    std::string idC = s.objectives[2].id;
+    s.moveTo(idC, 0);
+    const SpawnMarker* bm = nullptr; for (auto& m : s.spawns) if (m.id == both.id) bm = &m;
+    T.check(s.objectives[0].id == idC && bm && bm->phases == std::vector<int>({0, 2}), "drag reorder (C to first): the multi-phase spawn follows both of its objectives");
+    std::vector<uint64_t> racks; for (auto& m : s.spawns) m.rack = 77;
+    s.removeObjective(idC, &racks);
+    bm = nullptr; for (auto& m : s.spawns) if (m.id == both.id) bm = &m;
+    T.check(s.objectives.size() == 2 && bm && bm->phases == std::vector<int>({1}) && racks.size() == 2 && s.spawnsFor(CombatRole::Defender, 0).size() == 1,
+            "deleting an objective drops its phase from shared spawns, deletes single-phase spawns and reports their racks");
+  }
+  // ---------------------------------------------------------------- v2: placement warnings (SPEC 1.3 / 2.1)
+  {
+    Scenario s;
+    auto obj = [&](float x, float z) { Objective o; o.id = s.newId("obj"); o.order = (int)s.objectives.size(); o.pos = vec3(x, 0, z); s.objectives.push_back(o); };
+    auto sp = [&](CombatRole r, int ph, float x, float z) { SpawnMarker m; m.id = s.newId("spawn"); m.role = r; m.phases = {ph}; m.pos = vec3(x, 0, z); m.label = m.id; s.spawns.push_back(m); };
+    obj(0, 500); obj(100, 1000); obj(20, 950);          // C: 94 m from B and before it along the axis
+    sp(CombatRole::Attacker, 0, 0, 200); sp(CombatRole::Defender, 0, 0, 800);
+    sp(CombatRole::Attacker, 1, 0, 900); sp(CombatRole::Defender, 1, 100, 1050);   // atk 141 m from B; def 50 m from B, 180 m from atk
+    sp(CombatRole::Attacker, 2, 0, 600); sp(CombatRole::Defender, 2, 0, 1300);
+    std::string w; int errs = 0; for (auto& i : validateScenario(s, true)) { if (i.error) ++errs; else w += i.what + " | "; }
+    T.check(errs == 0, "placement problems are warnings, not errors");
+    T.check(w.find("from the previous one") != std::string::npos, "warns: objective closer than 150 m to the previous one");
+    T.check(w.find("Attacker spawn") != std::string::npos && w.find("at least 150 m") != std::string::npos, "warns: attacker spawn closer than 150 m to its objective");
+    T.check(w.find("Defender spawn") != std::string::npos && w.find("at least 80 m") != std::string::npos, "warns: defender spawn closer than 80 m to its objective");
+    T.check(w.find("at least 200 m") != std::string::npos, "warns: defender spawn closer than 200 m to an active attacker spawn");
+    T.check(w.find("not further along the attack axis") != std::string::npos, "warns: objective not behind its predecessor along the attack axis");
+  }
+  // ---------------------------------------------------------------- v2: the existing 5-point map loads unchanged (SPEC 1.1)
+  {
+    json f; try { f = json::parse(readTextFile(contentDir() / "tests" / "village_assault_5_v1.nmap.json")); } catch (...) {}
+    json v1 = f.is_object() ? f.value("scenario", json()) : json();
+    std::vector<std::string> notes;
+    Scenario s = Scenario::fromJson(v1, &notes);
+    bool same = v1.is_object() && s.objectives.size() == 5 && s.objectives.size() == v1["objectives"].size() && s.spawns.size() == v1["spawns"].size();
+    for (size_t k = 0; same && k < s.objectives.size(); ++k) {
+      auto& a = s.objectives[k]; auto& b = v1["objectives"][k];
+      same = a.id == b["id"].get<std::string>() && a.label == b["label"].get<std::string>() && a.radius == b["radius"].get<float>() && a.pos == jvec3(b["pos"]) && a.shape == CaptureShape::Circle;
+    }
+    for (size_t k = 0; same && k < s.spawns.size(); ++k) same = s.spawns[k].phases == std::vector<int>({v1["spawns"][k]["stage"].get<int>()}) && s.spawns[k].pos == jvec3(v1["spawns"][k]["pos"]);
+    T.check(same, "v1 village_assault_5 fixture: 5 objectives with ids, names, radii and positions kept; spawn stages become single phases");
+    T.check(s.rules.defendingFaction == Faction::Allies && s.rules.captureModel == CaptureModel::Contest && errorsIn(s) == 0,
+            "v1 map keeps its defending side (Allies) and its capture rule (contest formula), and validates");
+    Match m; std::string err;
+    T.check(m.setup(s, 1, err) && m.obj.size() == 5, "v1 5-point map starts a match");
+    Scenario r = Scenario::fromJson(s.toJson());
+    T.check(r.toJson() == s.toJson() && r.version == 2 && notes.size() >= 1, "migrated scenario saves as version 2 and reloads identically");
+  }
+  // ---------------------------------------------------------------- contract: asset nav metadata + terrain cuts (navmeta.h)
+  {
+    json a = json::parse(R"({"nav": {"effect": "area", "area": "marsh",
+      "areas": [{"outline": [[0,0],[2,0],[2,2]], "area": "trench"}],
+      "rooms": [{"id": "r1", "min": [-2,0,-2], "max": [2,2.4,2]}], "doors": [{"a": "r1", "b": "outside", "p": [0,0,2]}],
+      "entrances": [{"p": [0,0,2.2], "dir": [0,0,-1], "room": "r1"}], "corners": [{"p": [-1.8,0,-1.8], "room": "r1"}],
+      "firingPoints": [{"p": [0,1.5,-2], "yaw": 180, "kind": "embrasure"}],
+      "cover": [{"p": [3,0,0], "yaw": 90, "height": "low", "peek": ["left", "over"]}]},
+      "terrainCut": [{"outline": [[-1,-1],[1,-1],[1,1],[-1,1]], "depth": 1.8, "bank": 0.4}]})");
+    NavMeta m; parseNavMeta(a, m);
+    T.check(m.authored && m.effect == NavEffect::Area && m.area == NavArea::Marsh && m.areas.size() == 1 && m.areas[0].area == NavArea::Trench &&
+            m.rooms.size() == 1 && m.doors.size() == 1 && m.entrances.size() == 1 && m.corners.size() == 1 && m.firingPoints.size() == 1 &&
+            m.cover.size() == 1 && m.cover[0].peekLeft && m.cover[0].peekOver && !m.cover[0].peekRight && m.terrainCuts.size() == 1 && m.terrainCuts[0].depth == 1.8f,
+            "asset nav metadata parses: effect, area, sub-areas, room graph, entrances, corners, firing points, cover, terrain cut");
+    NavMeta r; parseNavMeta(navMetaToJson(m), r);
+    T.check(navMetaToJson(r) == navMetaToJson(m), "nav metadata round trip is identical");
+    NavMeta none; parseNavMeta(json::object(), none);
+    T.check(!none.authored && resolveNavEffect(none, true, vec3(0), vec3(1)) == NavEffect::Block && resolveNavEffect(none, false, vec3(0), vec3(0.8f)) == NavEffect::Carve &&
+            resolveNavEffect(none, false, vec3(0), vec3(1, 2.5f, 1)) == NavEffect::Block, "no nav block: enterable / tall assets block, low ones carve");
+    T.check(navAreaCost(NavArea::Road) == 1.0f && navAreaCost(NavArea::Trench) == 0.9f && navAreaCost(NavArea::Marsh) == 3.0f && navAreaCost(NavArea::Minefield) < 0 && navAreaCost(NavArea::Wire) < 0,
+            "AI_SPEC 3.1 area costs: road 1.0, trench 0.9, marsh 3.0, minefield and wire forbidden");
   }
   return T.finish();
 }

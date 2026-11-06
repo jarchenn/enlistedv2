@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "navmeta.h"
 struct GpuModel;
 
 // Surface pattern IDs understood by the main shader.
@@ -167,6 +168,7 @@ struct AssetDef {
   vec3 bmin{0}, bmax{0};
   GLuint thumbnail = 0;
   json walkthrough;               // scripted traversal test (asset-local)
+  NavMeta navMeta;                // "nav" + "terrainCut" (navmeta.h): navmesh effect, area, room graph, cover, cuts
   json raw;
   bool placeholder = false;
   int findInteract(const std::string& id) const;

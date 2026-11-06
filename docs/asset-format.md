@@ -31,6 +31,30 @@ Coordinates are in metres in asset space. +Y is up, the front of the building fa
 }
 ```
 
+## Navigation metadata and terrain cuts (`src/navmeta.h`)
+
+These optional top-level keys are read into `AssetDef::navMeta`. They are the contract between the structure generators, the navmesh and bot AI, and the terrain.
+
+### `"nav"`
+
+| Key | Content |
+|---|---|
+| `effect` | `"block"` (walls, bunkers, hedgerow banks), `"carve"` (obstacles bots walk around), `"area"` (sets an area type) or `"none"` (grass, small dressing). When `effect` is absent: enterable assets and anything over 1.6 m tall block, lower ones carve. |
+| `area` | `road`, `grass`, `brush`, `marsh`, `sand`, `trench`, `minefield`, `wire` or `water`. Costs follow AI_SPEC §3.1: road 1.0, grass 1.2, brush 1.6, marsh 3.0, sand 1.3, trench 0.9. Minefield and wire are forbidden. |
+| `areas` | `[{outline: [[x,z],...], area}]`: sub-areas, such as a trench floor. |
+| `rooms` | `[{id, min, max}]` |
+| `doors` | `[{a, b, p}]`. `b` may be `"outside"`. |
+| `entrances` | `[{p, dir, room}]`. `dir` points into the room. |
+| `corners` | `[{p, room}]`: clearing points. |
+| `firingPoints` | `[{p, yaw, kind: window \| embrasure \| firestep \| mg}]` |
+| `cover` | `[{p, yaw, height: low \| high, peek: [left, right, over]}]` |
+
+### `"terrainCut"`
+
+`[{outline: [[x,z],...], depth, bank}]` lowers the ground inside the outline by `depth` metres. `bank` is the width of the sloped edge. Trenches, AT ditches and foxholes use it.
+
+Positions in both keys are asset-local, like parts.
+
 ## Rules the kit follows
 
 - Walls are real two-layer solids: rubble stone on the outside and lime plaster inside. Openings are cut out of them, never painted on.

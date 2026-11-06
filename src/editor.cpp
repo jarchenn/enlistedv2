@@ -99,6 +99,7 @@ void App::updateCreative(float dt) {
   vec3 hp = hoverGround;
   if (gridSnap) { hp.x = std::round(hp.x); hp.z = std::round(hp.z); }
   if (selftest) return;  // the scripted test drives tools directly
+  if (mpaiCreativeMouse(*this)) return;   // scenario panel tools and handles (mpui.cpp)
   bool lmbPress = !uiMouse && !looking && mousePressed(win, GLFW_MOUSE_BUTTON_LEFT);
   bool lmbDown = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 

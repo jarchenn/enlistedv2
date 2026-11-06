@@ -1,5 +1,6 @@
 // Glue between the shared core and the multiplayer + AI systems (see mpai.h).
 #include "mpai.h"
+#include "gore_api.h"
 #include "mptest.h"
 #include "game.h"
 #include "mpui.h"
@@ -25,6 +26,7 @@ bool mpaiArg(App& app, int argc, char** argv, int& k, bool& runSelf) {
   if (a == "--selftest-match") { mpaiExit = runMatchSelfTest(); return true; }
   if (a == "--selftest-ai") { runSelf = true; runAiSelfTestArg = 1; return true; }
   if (a == "--benchmark-match") { runSelf = true; runAiSelfTestArg = 2; return true; }
+  if (a == "--baseline-ai") { runSelf = true; runAiSelfTestArg = 3; return true; }   // AI_SPEC 2.2 baseline
   if (a == "--selftest-net") {   // --selftest-net <host|a|b|c|d> [port]
     extern void setNetTestRole(const std::string&, int);
     std::string r = k + 1 < argc ? argv[k + 1] : "host"; int port = 27970;
@@ -60,6 +62,8 @@ void mpaiUI(App& app) {
 }
 
 void mpaiMenus(App& app) { gUi.creativeMenus(app); }
+bool mpaiCreativeMouse(App& app) { return gUi.creativeMouse(app); }
+bool mpaiBeforeSave(App& app) { return gUi.beforeSave(app); }
 
 void mpaiFrame(App& app, Overlay& ov) {
   if (app.mode == Mode::Creative) { gUi.creativeOverlay(app, ov); return; }
@@ -80,6 +84,7 @@ void mpaiEnterExplore(App& app) {
 }
 
 void mpaiExitExplore(App& app) {
+  goreReset(app);
   if (gGame && gGame->active) {
     if (gNet && gNet->role == Net::HOST && gNet->matchRunning) gNet->returnToLobby(app);
     gGame->end();
@@ -121,7 +126,7 @@ bool mpaiLocalFrozen(App& app) {
 }
 
 void mpaiIdleSmoke(App& app, float dt);
-void mpaiStep(App& app, float dt) { if (gGame && gGame->active) gGame->step(dt); else mpaiIdleSmoke(app, dt); }
+void mpaiStep(App& app, float dt) { if (gGame && gGame->active) gGame->step(dt); else mpaiIdleSmoke(app, dt); goreStep(app, dt); }
 
 bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) {
   gProjOwner = p.owner;

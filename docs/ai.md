@@ -35,27 +35,62 @@ HUD:
 
 ## Creative: Scenario panel
 
-**Creative > Scenario > Objectives and spawns panel.** Everything is placed at the ground under the screen centre, marked by a crosshair.
-- **Objectives** in attack order, each with a **stable id** that never changes:
-  - **Move earlier** / **Move later**; spawn groups follow their objective
-  - label, capture radius (default 15 m), vertical bounds
-  - an attack-direction arrow; **Aim attack arrow along view** sets it from the camera
-- **Approach routes** per objective: left / main / right waypoints. Left and right are relative to the attack arrow, never world axes or the camera.
-- **Defender positions** (optional hints) and **spawn markers** per team and stage, with facing and label.
-- **Validation:**
-  - 3-5 points for a published map; one point with "developer test map"
-  - unique, contiguous order
-  - missing attacker or defender spawns per stage
-  - spawns referring to a stage with no objective
-  - overlapping spawns, empty vertical bounds, roster over 20
-  - world checks (blocked or unwalkable spawns) reported when a match starts
-- **Overlay** (also when the panel is closed: Scenario > Show scenario overlay):
-  - the exact capture cylinder (rings at the bottom and top bounds, posts)
-  - the attack arrow
-  - the lane routes in colour, and defender hints
-  - spawn markers with facing and labels
+Open it with **Creative > Scenario > Objectives and spawns panel**.
 
-Storage: `doc.extra["scenario"]` in the normal map file, `version: 1`. Old maps load with defaults (radius 15 m, bounds -2..+4 m, lanes 20/60/20), and a migration note is shown. Match state is never written back into the map.
+**Tools** (pick a tool, then click the ground):
+- **Place objective**: 1 to 10 objectives, lettered A to J by order. The panel refuses an 11th.
+- **Attacker spawn** and **Defender spawn**: each spawn belongs to the selected objective's phase and faces it. It automatically gets its team's weapons rack (`rack_allied` / `rack_axis`) about 2.5 m to its side. The rack can be moved or deleted. Deleting the spawn also deletes its rack.
+- **Add corners**: builds a polygon capture area.
+- **Add slots**: defense slots (MG nest, trench bay, window, foxhole, bunker embrasure, position), each with a priority. A slot faces against the attack arrow.
+- **Pick in scene**: links or unlinks placed structures (bunkers, emplacements) to the objective.
+
+**Handles:**
+- Drag an objective's centre to move it, its ring handle to change the radius, or its polygon corners to reshape it.
+- Drag a spawn to move it; its rack follows.
+- Drag rows in the list to reorder objectives. Ids stay stable, and spawn phases follow their objective.
+
+**Per objective:**
+- display name
+- circle (default 25 m) or polygon
+- **capture time** (default 45 s with one attacker)
+- vertical bounds
+- attack arrow ("Aim attack arrow along view")
+- linked structures
+- defense slots
+- optional lane hints (left, main or right waypoints relative to the attack arrow)
+
+**Per spawn:**
+- the phases it is active in (it can serve several)
+- its rack: "Place weapons rack" puts back a deleted one
+
+**Validation** runs on save and from **Validate now**:
+- **Errors:** 0 objectives, more than 10, or a phase with no attacker spawn or no defender spawn. Also duplicate or non-contiguous order, empty vertical bounds, a polygon with fewer than 3 corners, a roster over 32, and a spawn in no phase or in a phase that has no objective.
+- **Warnings:**
+  - an objective less than 150 m from the previous one
+  - an attacker spawn less than 150 m from its objective
+  - a defender spawn less than 80 m from its objective, or less than 200 m from an active attacker spawn
+  - an objective that is not further along the attack axis than the one before it (axis: from the first attacker spawns toward the last objective)
+  - overlapping spawns
+- **Saving:** a map whose scenario has spawns but no objective is not saved. Any other problems are summarised in a toast.
+- **World checks** (blocked or unwalkable spawns) are reported when a match starts.
+
+**Overlay** (also shown when the panel is closed: Scenario > Show scenario overlay):
+- the attack path, from the first attacker spawns through A, B, C and on
+- the exact capture volume
+- the attack arrow
+- lane hints
+- defense slots with their facing
+- links to linked structures
+- spawn markers with their phases
+
+**Storage:** the scenario is stored as `doc.extra["scenario"]` in the normal map file, `version: 2`. Match state is never written back into the map.
+- **Version-1 maps migrate on load:**
+  - they keep their capture rule (the contest formula), their defending side and their radii
+  - labels become display names
+  - each `stage` becomes a single phase
+  - `defendPoints` become defense slots
+  - a migration note is shown
+- **Fixture:** `content/tests/village_assault_5_v1.nmap.json`.
 
 Test maps:
 - `content/examples/village_assault_3.nmap.json` (Crossroads, Town hall, Cottage)
@@ -64,23 +99,26 @@ Test maps:
 ## Match rules (`src/match.cpp`, server only)
 
 - **Roster:**
-  - defender slots (humans first, then friendly AI) plus attacking AI, at most 20; zero friendly AI is allowed
+  - defender slots (humans first, then friendly AI) plus attacking AI, at most 32; zero friendly AI is allowed
+  - default sides (v2): Allies attack, Axis defend; humans join the defenders
   - each attacking slot keeps its own **budget of 1 + respawns lives** (default 1 + 5 = 6), independent of its soldier and of objective changes
   - a life is spent only by a **successful** spawn; failed placement spends nothing and is retried
   - defenders respawn without limit
 - **Waves:**
   - attackers every 10 s, defenders every 8 s, minimum 3 s from death
   - a wave commits ("pends") every eligible dead slot, and pending slots count as not exhausted
-- **Capture** (active objective only), feet inside the cylinder and vertical bounds, sampled at the start of each step:
-  `A <= D: 0; else 5 * (A-D)/(A+D) * min(A/5, 1)` %/s. Progress never decays; a tie pauses it. 1v0 = 100 s, 3v0 = 33.3 s, 5v0 or 10v0 = 20 s, 10v5 = 60 s (data: `captureBase`, `capturePresenceFull`).
+- **Capture** (active objective only): the attacker's feet must be inside the shape and within its vertical bounds. Occupancy is sampled at the start of each step.
+  - **Timed** (the v2 default): 100 % in `captureTime` (45 s) with one attacker, faster with more attackers up to `captureSpeedCap` (3x, so 15 s). Any defender on the point pauses it ([DECISION]). Progress never decays.
+  - **Contest** (v1 maps): `A <= D: 0; else 5 * (A-D)/(A+D) * min(A/5, 1)` %/s. 1v0 = 100 s, 3v0 = 33.3 s, 5v0 or 10v0 = 20 s, 10v5 = 60 s.
+  - Rules data: `captureModel`, `captureSpeedCap`, `captureBase`, `capturePresenceFull`.
 - **Ordered objectives:**
   - Locked, Active or Captured; later points cannot be captured early; captured points stay captured
-  - advancing keeps living soldiers in place, unteleported, and keeps budgets; the next stage's spawn markers are used from the next spawn
+  - advancing keeps living soldiers in place, unteleported, and keeps budgets; the next phase's spawn markers are used from the next spawn
 - **End of match:** decided once per step. Final capture reaching 100 % in that step wins for the attackers first. Otherwise the defenders win when no attacker is alive, pending, or has lives left. Everything then freezes.
 - **Spawn safety:**
   - markers are tried in turn, with rings at 1.2 m and 2.4 m
   - a spot is accepted only if no other soldier is within 0.75 m, the standing capsule fits, and it is on the walk grid
-  - after 3 s of failures an actionable message names the stage and asks for more or moved markers
+  - after 3 s of failures an actionable message names the phase and asks for more or moved markers
 
 ## Soldiers (`src/game.cpp`, `src/character.cpp`, `src/pose.cpp`)
 

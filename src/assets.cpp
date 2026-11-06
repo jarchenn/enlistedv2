@@ -394,6 +394,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   }
   std::vector<vec3> pts;
   if (j.contains("walkthrough")) a->walkthrough = j["walkthrough"];
+  parseNavMeta(j, a->navMeta);   // navmeta.h (AI / terrain contract)
   if (j.contains("crate")) a->crate = j["crate"];
   if (j.contains("station")) {
     auto& sj = j["station"];

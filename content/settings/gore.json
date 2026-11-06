@@ -1,0 +1,11 @@
+{
+  "_doc": "Gore (SPEC 7). Contract file from W0; W7 implements. level: off | reduced | full.",
+  "level": "full",
+  "maxWorldDecals": 256,
+  "maxDecalsPerCharacter": 24,
+  "maxDroplets": 1500,
+  "mistOnlyBeyond_m": 60,
+  "decalAgeToBrown_s": 60,
+  "poolGrow_s": [10, 20],
+  "poolRadius_m": [0.6, 1.0]
+}

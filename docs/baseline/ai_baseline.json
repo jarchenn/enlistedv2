@@ -1,0 +1,17 @@
+{
+  "advanceSpeedMean_mps": 2.3398048654551493,
+  "advancingBotSeconds": 1489.4645004794002,
+  "aiVersion": "AI/LAN milestone grid AI (multiplayer-ai 5f923cd)",
+  "attackerDeathsPerMin": 6.666660308837891,
+  "attackingBots": 10,
+  "definitions": "stuck = trying to follow a path and < 0.5 m covered in 1.5 s (AI_SPEC 3.6); advancing = following a path, not holding; under fire = hurt in the last 2 s or suppression > 0.3; exposed = under fire and not settled at a chosen cover point (AI_SPEC 12.3 proxy)",
+  "exposedUnderFireFraction": 1.0,
+  "map": "village_assault_5",
+  "nearestTeammateWhileAdvancing_m": 6.643245576989827,
+  "objectivesTaken": 1,
+  "seconds": 180.0001678466797,
+  "stuckEvents": 0,
+  "stuckEventsPerBotPerMin": 0.0,
+  "stuckOver5s": 0,
+  "underFireSeconds": 74.45185685157776
+}

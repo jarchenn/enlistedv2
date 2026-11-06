@@ -1,0 +1,7 @@
+{
+  "_doc": "Per-weapon bullet damage (SPEC 6). damage(r) = lerp(near, far, smoothstep(falloffStart_m, falloffEnd_m, r)) x zone; no falloff when start == end. Contract file from W0; W1 fills 'weapons' (keyed by weapon id; data-only rows allowed for weapons without a model) and adds the STK test.",
+  "health": 100,
+  "zones": { "upperTorso": 1.0, "lowerTorso": 0.9, "limbs": 0.65, "head": "per weapon (headMult)" },
+  "helmetReducesDamage": false,
+  "weapons": {}
+}

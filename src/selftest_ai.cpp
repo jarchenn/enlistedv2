@@ -12,7 +12,7 @@
 #include <cmath>
 #include <algorithm>
 
-int runAiSelfTestArg = 0;   // 1 = --selftest-ai, 2 = --benchmark-match
+int runAiSelfTestArg = 0;   // 1 = --selftest-ai, 2 = --benchmark-match, 3 = --baseline-ai
 
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
@@ -36,10 +36,11 @@ json makeScenario(int points) {
     o.yMin = -2; o.yMax = 4;
     s.objectives.push_back(o);
     for (int m = 0; m < 3; ++m) {
-      SpawnMarker a; a.id = s.newId("spawn"); a.role = CombatRole::Attacker; a.stage = k; a.pos = ps[k].atk + vec3((m - 1) * 6.0f, 0, m * 2.0f); a.yaw = 0; a.label = "Attack " + std::to_string(k + 1); s.spawns.push_back(a);
-      SpawnMarker d; d.id = s.newId("spawn"); d.role = CombatRole::Defender; d.stage = k; d.pos = ps[k].def + vec3((m - 1) * 4.0f, 0, 0); d.yaw = 180; d.label = "Defend " + std::to_string(k + 1); s.spawns.push_back(d);
+      SpawnMarker a; a.id = s.newId("spawn"); a.role = CombatRole::Attacker; a.phases = {k}; a.pos = ps[k].atk + vec3((m - 1) * 6.0f, 0, m * 2.0f); a.yaw = 0; a.label = "Attack " + std::to_string(k + 1); s.spawns.push_back(a);
+      SpawnMarker d; d.id = s.newId("spawn"); d.role = CombatRole::Defender; d.phases = {k}; d.pos = ps[k].def + vec3((m - 1) * 4.0f, 0, 0); d.yaw = 180; d.label = "Defend " + std::to_string(k + 1); s.spawns.push_back(d);
     }
   }
+  s.rules.defendingFaction = Faction::Allies; s.rules.captureModel = CaptureModel::Contest;   // the milestone setup these tests measure
   return s.toJson();
 }
 }
@@ -82,9 +83,97 @@ void SelfTest::aiUpdate(App& app, float dt) {
     push("exit", [this](App& a, float t) { if (t < 0.2f) return false; a.exitExplore(); return true; });
     return;
   }
+  if (stage == 2000 && runAiSelfTestArg == 3) {   // --baseline-ai: AI_SPEC 2.2 baseline of the current bot AI
+    reportName = "ai_baseline";
+    seq.clear(); cur = 0; st = 0;
+    check(app.openMap(contentDir() / "examples" / "village_assault_5.nmap.json"), "open village_assault_5");
+    Scenario sc = Scenario::fromJson(app.doc.extra["scenario"]);
+    gUi.matchScenario = sc.toJson(); gUi.loaded = false;
+    if (!gGame) gGame = new Game(app);
+    gGame->pendingStart = true; app.doc.start = {true, vec3(-60, 0, -90), 180};   // the local player waits out of the way
+    check(app.enterExplore() && gGame->active, "baseline match starts (5 objectives, 10 attacking AI, 5 defenders)");
+    app.useScripted = true; app.scriptedInput = ExploreInput{};
+    stage = 2001;
+    push("baseline", [this](App& a, float t) {
+      Game& G = *gGame;
+      constexpr float kDur = 180.0f;
+      struct Acc { vec3 anchor{0}; float since = 0; bool stuck = false; float stuckFor = 0; };
+      static std::map<int, Acc> acc; static double advT = 0, advDist = 0, advSpeedSum = 0, fireT = 0, exposedT = 0, nnSum = 0; static long advN = 0, nnN = 0;
+      static int stuckEvents = 0, stuckLong = 0, deaths0 = 0; static float lastT = 0;
+      if (t == 0) { acc.clear(); advT = advDist = advSpeedSum = fireT = exposedT = nnSum = 0; advN = nnN = 0; stuckEvents = stuckLong = 0; lastT = 0; deaths0 = 0; for (auto& s : G.match.slots) if (s.role == CombatRole::Attacker) deaths0 += s.deaths; }
+      float dt = t - lastT; lastT = t;
+      a.eyeYaw = 180; a.eyePitch = -2;
+      if (dt > 0) for (auto& s : G.sold) {
+        if (!s.alive || s.localPlayer || s.role != CombatRole::Attacker) { acc.erase(s.slot); continue; }
+        Brain& b = s.br;
+        bool moving = !b.path.empty() && b.pathIdx < b.path.size() && b.mode != Brain::M_HOLD;
+        Acc& q = acc[s.slot];
+        float hs = glm::length(vec2(s.vel.x, s.vel.z));
+        if (moving) {
+          advT += dt; advSpeedSum += hs; ++advN; advDist += hs * dt;
+          float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role) nn = std::min(nn, glm::length(o.feet - s.feet));
+          if (nn < 1e8f) { nnSum += nn; ++nnN; }
+          q.since += dt;
+          if (glm::length(s.feet - q.anchor) >= 0.5f) { q.anchor = s.feet; q.since = 0; if (q.stuck && q.stuckFor > 5) ++stuckLong; q.stuck = false; q.stuckFor = 0; }
+          else if (q.since > 1.5f) { if (!q.stuck) { ++stuckEvents; q.stuck = true; } q.stuckFor += dt; }
+        } else { q.anchor = s.feet; q.since = 0; if (q.stuck && q.stuckFor > 5) ++stuckLong; q.stuck = false; q.stuckFor = 0; }
+        bool underFire = G.t - b.hurtAt < 2.0 || b.suppressed > 0.3f;
+        if (underFire) { fireT += dt; bool inCover = b.hasCover && b.mode == Brain::M_COVER && glm::length(s.feet - b.coverPos) < 1.5f; if (!inCover) exposedT += dt; }
+      }
+      if (t < kDur && G.match.phase == MatchPhase::Running) return false;
+      int deaths = -deaths0; for (auto& s : G.match.slots) if (s.role == CombatRole::Attacker) deaths += s.deaths;
+      int bots = 0; for (auto& s : G.match.slots) bots += s.role == CombatRole::Attacker;
+      float mins = std::max(t, 1.0f) / 60.0f;
+      json out = {{"map", "village_assault_5"}, {"aiVersion", "AI/LAN milestone grid AI (multiplayer-ai 5f923cd)"}, {"seconds", t}, {"attackingBots", bots},
+                  {"stuckEventsPerBotPerMin", stuckEvents / std::max(1, bots) / mins}, {"stuckEvents", stuckEvents}, {"stuckOver5s", stuckLong},
+                  {"advanceSpeedMean_mps", advN ? advSpeedSum / advN : 0.0}, {"advancingBotSeconds", advT},
+                  {"underFireSeconds", fireT}, {"exposedUnderFireFraction", fireT > 0 ? exposedT / fireT : 0.0},
+                  {"attackerDeathsPerMin", deaths / mins}, {"nearestTeammateWhileAdvancing_m", nnN ? nnSum / nnN : 0.0},
+                  {"objectivesTaken", G.match.active + (G.match.winner == Winner::Attackers ? 1 : 0)},
+                  {"definitions", "stuck = trying to follow a path and < 0.5 m covered in 1.5 s (AI_SPEC 3.6); advancing = following a path, not holding; "
+                                  "under fire = hurt in the last 2 s or suppression > 0.3; exposed = under fire and not settled at a chosen cover point (AI_SPEC 12.3 proxy)"}};
+      char b[400]; std::snprintf(b, sizeof b, "baseline %.0f s, %d attacking bots: stuck %.2f /bot/min (%d events, %d over 5 s), advance speed %.2f m/s, exposed under fire %.0f %%, attacker deaths %.1f /min, nearest teammate %.1f m",
+                                 t, bots, out["stuckEventsPerBotPerMin"].get<double>(), stuckEvents, stuckLong, out["advanceSpeedMean_mps"].get<double>(), 100 * out["exposedUnderFireFraction"].get<double>(), out["attackerDeathsPerMin"].get<double>(), out["nearestTeammateWhileAdvancing_m"].get<double>());
+      check(advT > 0, b);
+      std::ofstream(exeDir() / "selftest_out" / "ai_baseline.json") << out.dump(2);
+      return true; });
+    push("exit", [this](App& a, float t) { if (t < 0.2f) return false; a.exitExplore(); return true; });
+    return;
+  }
   if (stage == 2000) {
     reportName = "ai";
     seq.clear(); cur = 0; st = 0;
+    // ---- creative scenario tools on a real map: spawn racks, delete, save hook (SPEC 1.3)
+    {
+      check(app.openMap(contentDir() / "examples" / "village.nmap.json"), "open the shipped village (scenario tools)");
+      if (!app.doc.extra.is_object()) app.doc.extra = json::object();
+      app.doc.extra["scenario"] = Scenario().toJson(); gUi.loaded = false;
+      size_t inst0 = app.doc.instances.size();
+      check(gUi.addSpawnAt(app, CombatRole::Attacker, vec3(0, 0, 60), 0).empty(), "a spawn needs an objective first (refused on an empty scenario)");
+      bool okA = gUi.addObjectiveAt(app, vec3(18, 0, 14));
+      std::string atk = gUi.addSpawnAt(app, CombatRole::Attacker, vec3(0, 0, 70), 0);
+      std::string def = gUi.addSpawnAt(app, CombatRole::Defender, vec3(14, 0, -30), 0);
+      Scenario& sc = gUi.scenario(app);
+      const SpawnMarker *ma = nullptr, *md = nullptr; for (auto& m : sc.spawns) { if (m.id == atk) ma = &m; if (m.id == def) md = &m; }
+      Instance* ra = ma ? app.doc.find(ma->rack) : nullptr; Instance* rd = md ? app.doc.find(md->rack) : nullptr;
+      char b[240]; std::snprintf(b, sizeof b, "each spawn auto-places its team's weapons rack: attackers (Allies) %s at %.1f m, defenders (Axis) %s at %.1f m",
+                                 ra ? ra->assetId.c_str() : "none", ra && ma ? glm::length(ra->pos - ma->pos) : -1.0f, rd ? rd->assetId.c_str() : "none", rd && md ? glm::length(rd->pos - md->pos) : -1.0f);
+      check(okA && ra && rd && ra->assetId == "rack_allied" && rd->assetId == "rack_axis" && glm::length(ra->pos - ma->pos) < 5 && glm::length(rd->pos - md->pos) < 5 && app.doc.instances.size() == inst0 + 2, b);
+      check(sc.objectives.size() == 1 && sc.objectives[0].radius == 25 && sc.objectives[0].letter() == 'A' && sc.spawnsFor(CombatRole::Attacker, 0).size() == 1,
+            "placed objective A (25 m circle) with one attacker and one defender spawn in its phase");
+      uint64_t rackA = ma->rack;
+      check(gUi.deleteSpawn(app, atk) && !app.doc.find(rackA) && app.doc.instances.size() == inst0 + 1, "deleting a spawn removes its rack");
+      for (int k = 1; k < 10; ++k) gUi.addObjectiveAt(app, vec3(18, 0, 14 - 20.0f * k));
+      check(gUi.scenario(app).objectives.size() == 10 && !gUi.addObjectiveAt(app, vec3(0, 0, -300)) && gUi.scenario(app).objectives.size() == 10, "the editor refuses an 11th objective");
+      // save hook: spawns without any objective cannot be saved
+      Scenario bad; SpawnMarker m; m.id = "spawn_1"; m.pos = vec3(0, 0, 50); bad.spawns.push_back(m);
+      app.doc.extra["scenario"] = bad.toJson(); gUi.loaded = false;
+      fs::path p = userMapsDir() / "selftest_scenario_refused.nmap.json"; std::error_code ec; fs::remove(p, ec);
+      check(!app.saveMapTo(p) && !fs::exists(p), "save is refused for a scenario with spawns and 0 objectives");
+      app.doc.extra.erase("scenario"); gUi.loaded = false;
+      check(app.saveMapTo(p) && fs::exists(p), "a plain creative map without a scenario still saves");
+      fs::remove(p, ec);
+    }
     // ---- test maps (3 and 5 points) from the shipped village
     for (int pts : {5, 3}) {
       check(app.openMap(contentDir() / "examples" / "village.nmap.json"), "open the shipped village");
@@ -186,6 +275,7 @@ void SelfTest::aiUpdate(App& app, float dt) {
       char b[300]; std::snprintf(b, sizeof b, "after %.0f s more: bots fired %d rounds, %d hit soldiers, %d kills, %d frag + %d smoke thrown, %d doors opened, %d nav patches",
                                  t, G.shotsByBots, G.hitsOnSoldiers, G.kills, G.fragThrows, G.smokeThrows, G.doorOpens, G.navRebuilds);
       check(G.shotsByBots > 50 && G.hitsOnSoldiers > 0, b);
+      { extern int gGoreHitsReported; check(gGoreHitsReported == G.hitsOnSoldiers, "every bullet hit on a soldier is reported to the gore hook (" + std::to_string(gGoreHitsReported) + " FleshHit of " + std::to_string(G.hitsOnSoldiers) + " hits)"); }
       summary["combat60"] = {{"shots", G.shotsByBots}, {"hits", G.hitsOnSoldiers}, {"kills", G.kills}, {"frags", G.fragThrows}, {"smokes", G.smokeThrows}, {"doors", G.doorOpens}, {"progress0", G.match.obj[0].progress}, {"active", G.match.active}};
       // lives: every attacker spawn beyond the first per slot spent exactly one respawn
       int spawns = 0, lives = 0; for (auto& r : G.match.slots) if (r.role == CombatRole::Attacker) { spawns += r.spawns; lives += r.livesLeft; }

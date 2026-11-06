@@ -39,7 +39,8 @@ struct ObjectiveRT {
 
 struct MatchEvent { double t = 0; std::string text; };
 
-// capture rate in percentage points per second (spec formula); guards zero denominators
+// v1 contest capture rate in percentage points per second (AI/LAN milestone formula); guards zero denominators.
+// The match uses captureRateFor (scenario.h), which also covers the v2 timed model.
 float captureRate(int A, int D, float base = 5.0f, float presenceFull = 5.0f);
 
 class Match {

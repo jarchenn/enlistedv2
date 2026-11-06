@@ -60,6 +60,8 @@ struct Soldier {
   uint32_t rng = 1;
   int lifeId = 0;                            // increments per spawn (net / tests)
   double lastShot = -100;
+  double protectUntil = -1;                  // spawn protection (SPEC 2.2): Game::t until which damage is ignored (W1 sets it)
+  bool isProtected(double now) const { return alive && now < protectUntil; }
   std::map<int, WeaponState> wsBy;          // remote human: ammo per carried weapon (host)
   double netHeard = 0, lastShotReal = -100;   // host: request timing in wall-clock seconds
 };

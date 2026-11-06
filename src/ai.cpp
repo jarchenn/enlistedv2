@@ -174,7 +174,7 @@ void Game::buildDefSpots() {
       if (view == 0) continue;                                  // a spot that sees nothing of the approaches is useless
       d.cover = cov / 8.0f + (front ? 1.0f : 0.0f);
       d.view = view / 3.0f;
-      float bonus = 0; for (auto& dp : o->defendPoints) if (glm::length(dp - p) < 2.0f) bonus = 1.5f;
+      float bonus = 0; for (auto& dp : o->defenseSlots) if (glm::length(dp.pos - p) < 2.0f) bonus = 1.5f;
       d.cover += bonus;
       cand.push_back(d);
     }

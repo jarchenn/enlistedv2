@@ -1,0 +1,9 @@
+{
+  "_doc": "Match rules shared by every map (SPEC 2.2, 5.6; AI_SPEC owner decisions). Contract file from W0; W1 reads spawnProtection*, W6 reads regroupSeconds / maxBots / difficulty.",
+  "spawnProtectionSeconds": 3.0,
+  "protectionEndsOnFire": true,
+  "protectionEndsOnThrow": true,
+  "regroupSeconds": 30.0,
+  "maxBots": 32,
+  "difficulty": "regular"
+}

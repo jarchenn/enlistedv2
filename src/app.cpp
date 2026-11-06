@@ -284,6 +284,7 @@ bool App::openMap(const fs::path& p) {
   return true;
 }
 bool App::saveMapTo(const fs::path& p) {
+  if (!mpaiBeforeSave(*this)) return false;   // scenario check (mpui.cpp)
   doc.camera.set = true; doc.camera.pos = camPos; doc.camera.yaw = camYaw; doc.camera.pitch = camPitch;
   if (mode == Mode::Explore) { doc.camera.pos = savedCam.pos; doc.camera.yaw = savedCam.yaw; doc.camera.pitch = savedCam.pitch; }
   std::string err;

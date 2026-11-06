@@ -1,6 +1,6 @@
 # LAN co-op (listen server)
 
-Up to 20 combatants. Humans on several PCs defend together against the attacking AI, with the same rules as singleplayer ([ai.md](ai.md)). One PC hosts and plays; the others join over the local network. Internet matchmaking, NAT traversal, host migration and dedicated servers are **not** part of this milestone.
+Up to 32 combatants. Humans on several PCs defend together against the attacking AI, with the same rules as singleplayer ([ai.md](ai.md)). One PC hosts and plays; the others join over the local network. Internet matchmaking, NAT traversal, host migration and dedicated servers are **not** part of this milestone.
 
 ## Before you play
 
