@@ -1368,8 +1368,8 @@ void main(){ vW = aPos; vN = aNrm; vDirt = aDirt; gl_Position = uVP*vec4(aPos,1.
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
 in vec3 vW, vN; in float vDirt;
-uniform int uGrid; uniform float uBuildHalf;
-uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize, uTerrainSize;
+uniform int uGrid; uniform vec2 uBuildHalf;
+uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
@@ -1378,10 +1378,10 @@ layout(location=4) out vec4 oVel;
 void main(){
   vec3 p = vW;
   if (uDiscard == 1) {   // base mesh hidden under high-resolution deformation tiles
-    ivec2 tc = ivec2(floor((p.xz + uTerrainSize*0.5)/uTileSize));
+    ivec2 tc = ivec2(floor((p.xz - uTerrainOrg)/uTileSize));
     if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;
   }
-  vec4 S = texture(uSurf, (p.xz + uTerrainSize*0.5)/uTerrainSize);
+  vec4 S = texture(uSurf, (p.xz - uTerrainOrg)/uTerrainExt);
   float wear = S.r, wet = S.g, kind = S.b, rut = S.a;
   // four scales so nothing tiles: broad fields (80 m), patches (14 m), clumps (1 m), grit (0.2 m)
   float nB = fbm(vec3(p.xz*0.012, 1.0)), nM = fbm(vec3(p.xz*0.07, 2.0)), nF = vnoise(vec3(p.xz*0.9, 3.0)), nX = vnoise(vec3(p.xz*4.3, 4.0));
@@ -1427,7 +1427,7 @@ void main(){
                      + vec3(streak - 0.5, 0.0, vnoise(vec3(sw*0.7, 18.0)) - 0.5)*0.35*nearK*(1.0 - tw)*(1.0 - puddle));   // sward relief (shading only)
   float ao = (1.0 - 0.25*dirt) * (1.0 - 0.18*rut*tw);
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
-  if (uGrid == 1 && abs(p.x) <= uBuildHalf && abs(p.z) <= uBuildHalf) {
+  if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
     vec2 fw = fwidth(p.xz)*1.2;
     float line = 1.0 - min(smoothstep(0.0, fw.x, g.x), smoothstep(0.0, fw.y, g.y));
@@ -2140,9 +2140,8 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   setLighting(progTerrain, v);
   glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
-  glUniform1f(U(progTerrain, "uBuildHalf"), t.buildHalf);
   glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
-  t.draw(progTerrain);
+  t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
   // opaque
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);

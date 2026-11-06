@@ -25,11 +25,17 @@ float segDist(vec2 p, vec2 a, vec2 b, float& along) {
 }
 
 void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprint>& feet) {
-  const int R = kSurfRes;
-  surf.assign((size_t)R * R * 4, 0);
-  float half = size * 0.5f, texel = size / R;
-  auto idx = [&](int x, int y) { return ((size_t)y * R + x) * 4; };
-  auto toTex = [&](vec2 w) { return vec2((w.x + half) / texel, (w.y + half) / texel); };
+  // texel: 0.39 m (the pre-9.1 800 m / 2048 mask) up to kSurfMaxTexels, coarser beyond (SPEC 9.1 large maps)
+  float texel = 800.0f / kSurfRes;
+  if ((double)(size / texel) * (sizeZ / texel) > (double)kSurfMaxTexels) texel = std::sqrt(size * sizeZ / (float)kSurfMaxTexels);
+  int W = std::max(16, (int)std::ceil(size / texel - 1e-3f)), H = std::max(16, (int)std::ceil(sizeZ / texel - 1e-3f));
+  if (surfTex && (W != surfW || H != surfH)) { glDeleteTextures(1, &surfTex); surfTex = 0; }
+  surfW = W; surfH = H;
+  const int R = W, RZ = H;
+  surf.assign((size_t)W * H * 4, 0);
+  const float ox = org.x, oz = org.y;
+  auto idx = [&](int x, int y) { return ((size_t)y * W + x) * 4; };
+  auto toTex = [&](vec2 w) { return vec2((w.x - ox) / texel, (w.y - oz) / texel); };
   // ---- routes
   for (auto& r : routes) {
     float width = r.value("width", 3.0f);
@@ -41,10 +47,10 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
       vec2 a = pts[s], b = pts[s + 1];
       float reach = width * 0.5f + 2.5f;
       vec2 mn = toTex(glm::min(a, b) - vec2(reach)), mx = toTex(glm::max(a, b) + vec2(reach));
-      int x0 = std::max(0, (int)mn.x), x1 = std::min(R - 1, (int)mx.x), y0 = std::max(0, (int)mn.y), y1 = std::min(R - 1, (int)mx.y);
+      int x0 = std::max(0, (int)mn.x), x1 = std::min(R - 1, (int)mx.x), y0 = std::max(0, (int)mn.y), y1 = std::min(RZ - 1, (int)mx.y);
       for (int y = y0; y <= y1; ++y)
         for (int x = x0; x <= x1; ++x) {
-          vec2 w(-half + (x + 0.5f) * texel, -half + (y + 0.5f) * texel);
+          vec2 w(ox + (x + 0.5f) * texel, oz + (y + 0.5f) * texel);
           float along; float d = segDist(w, a, b, along);
           // irregular edges: the worn width wanders by +-35 cm along the track
           float wob = (vnoise(w.x * 0.35f, w.y * 0.35f, 77) - 0.5f) * 0.7f;
@@ -71,10 +77,10 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
     float reach = glm::length(hb) + 2.0f;
     vec2 wc = f.pos + vec2(cen.x * c + cen.y * s, -cen.x * s + cen.y * c);
     vec2 mn = toTex(wc - vec2(reach)), mx = toTex(wc + vec2(reach));
-    int x0 = std::max(0, (int)mn.x), x1 = std::min(R - 1, (int)mx.x), y0 = std::max(0, (int)mn.y), y1 = std::min(R - 1, (int)mx.y);
+    int x0 = std::max(0, (int)mn.x), x1 = std::min(R - 1, (int)mx.x), y0 = std::max(0, (int)mn.y), y1 = std::min(RZ - 1, (int)mx.y);
     for (int y = y0; y <= y1; ++y)
       for (int x = x0; x <= x1; ++x) {
-        vec2 w(-half + (x + 0.5f) * texel, -half + (y + 0.5f) * texel), d = w - f.pos;
+        vec2 w(ox + (x + 0.5f) * texel, oz + (y + 0.5f) * texel), d = w - f.pos;
         vec2 l(d.x * c - d.y * s, d.x * s + d.y * c);   // into asset space (yaw about +y)
         vec2 q = glm::abs(l - cen) - hb;
         float dist = glm::length(glm::max(q, vec2(0))) + std::min(std::max(q.x, q.y), 0.0f);
@@ -89,20 +95,20 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
   }
   if (!surfTex) {
     glCreateTextures(GL_TEXTURE_2D, 1, &surfTex);
-    glTextureStorage2D(surfTex, 1, GL_RGBA8, R, R);
+    glTextureStorage2D(surfTex, 1, GL_RGBA8, W, H);
     glTextureParameteri(surfTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(surfTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureParameteri(surfTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(surfTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   }
   glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-  glTextureSubImage2D(surfTex, 0, 0, 0, R, R, GL_RGBA, GL_UNSIGNED_BYTE, surf.data());
+  glTextureSubImage2D(surfTex, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, surf.data());
   ++surfRev;
 }
 
 float Terrain::surfSample(float x, float z, int ch) const {
   if (surf.empty()) return 0;
-  const int R = kSurfRes;
-  float u = (x + size * 0.5f) / size * R - 0.5f, v = (z + size * 0.5f) / size * R - 0.5f;
-  int ix = std::clamp((int)std::floor(u), 0, R - 2), iy = std::clamp((int)std::floor(v), 0, R - 2);
+  const int R = surfW;
+  float u = (x - org.x) / size * surfW - 0.5f, v = (z - org.y) / sizeZ * surfH - 0.5f;
+  int ix = std::clamp((int)std::floor(u), 0, surfW - 2), iy = std::clamp((int)std::floor(v), 0, surfH - 2);
   float fx = std::clamp(u - ix, 0.0f, 1.0f), fy = std::clamp(v - iy, 0.0f, 1.0f);
   auto at = [&](int a, int b) { return surf[((size_t)b * R + a) * 4 + ch] / 255.0f; };
   return (at(ix, iy) * (1 - fx) + at(ix + 1, iy) * fx) * (1 - fy) + (at(ix, iy + 1) * (1 - fx) + at(ix + 1, iy + 1) * fx) * fy;

@@ -23,6 +23,7 @@ run update   --selftest-update
 run entities --selftest-entities
 run tanks    --selftest-tanks
 run interiors --selftest-interiors   # walls, interiors and furniture (docs/interiors.md)
+run editor   --selftest-editor  # editor & terrain: map size, chunks, cuts, camera, drop-in (W3)
 run match    --selftest-match   # multiplayer + AI: headless rules suite
 run ai       --selftest-ai      # multiplayer + AI: village match integration (~4 min)
 run rules    --selftest-rules   # W1: spawn protection, movement / fall damage, damage table

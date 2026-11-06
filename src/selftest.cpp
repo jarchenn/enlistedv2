@@ -145,6 +145,7 @@ void SelfTest::update(App& app, float dt) {
   if (stage >= 2700 && stage < 2800) { rulesUpdate(app, dt); return; }   // W1 gameplay rules (selftest_rules.cpp)
   if (stage >= 3250 && stage < 3300) { visualsUpdate(app, dt); return; }   // W2 (selftest_visuals.cpp)
   if (stage >= 3800 && stage < 3900) { structuresUpdate(app, dt); return; }   // W4 structures (selftest_structures.cpp)
+  if (stage >= 3300 && stage < 3400) { editorUpdate(app, dt); return; }  // editor & terrain (selftest_editor.cpp)
   if (stage >= 500) { damageUpdate(app, dt); return; }
   static int frame = 0; ++frame;
   static fs::path reopenPath;
@@ -175,6 +176,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-interiors") { go(2800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-rules") { go(2700); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-visuals") { go(3250); return; }   // W2 (selftest_visuals.cpp)
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-editor") { go(3300); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-ai" || std::string(argv[k]) == "--benchmark-match" || std::string(argv[k]) == "--baseline-ai") { go(2000); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-net") { go(2100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(3800); return; }

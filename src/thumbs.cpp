@@ -109,7 +109,7 @@ GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std:
     setLighting(progTerrain, v);
     glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1i(U(progTerrain, "uGrid"), 0);
-    terr->draw(progTerrain);
+    terr->draw(progTerrain, vec3(glm::inverse(v.view)[3]), vp);   // W3 chunked terrain
   }
   setLighting(progMain, v);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));

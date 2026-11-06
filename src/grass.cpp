@@ -65,7 +65,7 @@ static bool sampleTouched(const Terrain& t, const Terrain::Tile& tl, int i, int 
 static float groundH(const Terrain& t, float x, float z) {
   if (t.tiles.empty()) return t.baseHeight(x, z);
   float ts = t.tileSize();
-  int tx = (int)std::floor((x + t.size * 0.5f) / ts), tz = (int)std::floor((z + t.size * 0.5f) / ts);
+  int tx = (int)std::floor((x - t.org.x) / ts), tz = (int)std::floor((z - t.org.y) / ts);
   const Terrain::Tile* tl = t.tileAt(tx, tz);
   if (!tl) return t.baseHeight(x, z);
   vec2 o = t.tileOrigin(tx, tz);
@@ -76,7 +76,7 @@ static float groundH(const Terrain& t, float x, float z) {
   return t.height(x, z);
 }
 static float groundNy(const Terrain& t, float x, float z) {
-  float e = t.tiles.empty() ? t.size / (t.n - 1) : t.fineSpacing();
+  float e = t.tiles.empty() ? t.cell() : t.fineSpacing();
   return glm::normalize(vec3(groundH(t, x - e, z) - groundH(t, x + e, z), 2 * e, groundH(t, x, z - e) - groundH(t, x, z + e))).y;
 }
 
@@ -150,7 +150,7 @@ void Grass::clear() {
 }
 
 bool Grass::density(float x, float z, const Terrain& t, const std::vector<GrassFootprint>& fp) const {
-  if (std::fabs(x) > t.size * 0.5f - 1 || std::fabs(z) > t.size * 0.5f - 1) return false;
+  if (x < t.org.x + 1 || z < t.org.y + 1 || x > t.org.x + t.size - 1 || z > t.org.y + t.sizeZ - 1) return false;
   float y = groundH(t, x, z);
   if (y < t.waterLevel + 0.12f) return false;                 // water / shoreline
   if (groundNy(t, x, z) < 0.80f) return false;                // steep banks and crater walls
@@ -168,9 +168,9 @@ uint64_t Grass::signature(int cx, int cz, const Terrain& t, const std::vector<Gr
   float ox = cx * kChunk, oz = cz * kChunk;
   // deformation tiles under (and one fine sample around) the chunk
   if (!t.tiles.empty()) {
-    float ts = t.tileSize(), half = t.size * 0.5f;
-    int tx0 = (int)std::floor((ox - 1 + half) / ts), tx1 = (int)std::floor((ox + kChunk + 1 + half) / ts);
-    int tz0 = (int)std::floor((oz - 1 + half) / ts), tz1 = (int)std::floor((oz + kChunk + 1 + half) / ts);
+    float ts = t.tileSize(), hx = -t.org.x, hz = -t.org.y;
+    int tx0 = (int)std::floor((ox - 1 + hx) / ts), tx1 = (int)std::floor((ox + kChunk + 1 + hx) / ts);
+    int tz0 = (int)std::floor((oz - 1 + hz) / ts), tz1 = (int)std::floor((oz + kChunk + 1 + hz) / ts);
     for (int tz = tz0; tz <= tz1; ++tz) for (int tx = tx0; tx <= tx1; ++tx)
       if (const Terrain::Tile* tl = t.tileAt(tx, tz)) h = hcomb(hcomb(h, (uint64_t)t.key(tx, tz)), tl->rev);
   }
@@ -194,16 +194,16 @@ uint64_t Grass::contentSignature(int cx, int cz, const Terrain& t, const std::ve
     h = hcomb(h, fbits(f.bmin.x)); h = hcomb(h, fbits(f.bmin.y)); h = hcomb(h, fbits(f.bmax.x)); h = hcomb(h, fbits(f.bmax.y));
   }
   if (!t.surf.empty()) {   // wear texels under the chunk: a route / foundation edit rebuilds only the chunks it touches
-    const int R = Terrain::kSurfRes; float half = t.size * 0.5f, tx = t.size / R;
-    int x0 = std::max(0, (int)((ox - 1 + half) / tx)), x1 = std::min(R - 1, (int)((ox + kChunk + 1 + half) / tx));
-    int y0 = std::max(0, (int)((oz - 1 + half) / tx)), y1 = std::min(R - 1, (int)((oz + kChunk + 1 + half) / tx));
+    const int R = t.surfW; float hx = -t.org.x, hz = -t.org.y, tx = t.size / t.surfW;
+    int x0 = std::max(0, (int)((ox - 1 + hx) / tx)), x1 = std::min(R - 1, (int)((ox + kChunk + 1 + hx) / tx));
+    int y0 = std::max(0, (int)((oz - 1 + hz) / tx)), y1 = std::min(t.surfH - 1, (int)((oz + kChunk + 1 + hz) / tx));
     for (int y = y0; y <= y1; ++y) for (int x = x0; x <= x1; ++x) h = hcomb(h, t.surf[((size_t)y * R + x) * 4]);
   }
   if (t.tiles.empty()) return h;
   // every fine sample that can influence a blade in this chunk (heights, normals, soil): bounds + 2 samples
-  float ts = t.tileSize(), half = t.size * 0.5f, fs = t.fineSpacing(), pad = 2 * fs;
-  int tx0 = (int)std::floor((ox - pad + half) / ts), tx1 = (int)std::floor((ox + kChunk + pad + half) / ts);
-  int tz0 = (int)std::floor((oz - pad + half) / ts), tz1 = (int)std::floor((oz + kChunk + pad + half) / ts);
+  float ts = t.tileSize(), hx = -t.org.x, hz = -t.org.y, fs = t.fineSpacing(), pad = 2 * fs;
+  int tx0 = (int)std::floor((ox - pad + hx) / ts), tx1 = (int)std::floor((ox + kChunk + pad + hx) / ts);
+  int tz0 = (int)std::floor((oz - pad + hz) / ts), tz1 = (int)std::floor((oz + kChunk + pad + hz) / ts);
   for (int tz = tz0; tz <= tz1; ++tz) for (int tx = tx0; tx <= tx1; ++tx) {
     const Terrain::Tile* tl = t.tileAt(tx, tz);
     if (!tl) continue;
@@ -282,7 +282,7 @@ void Grass::update(const Terrain& t, uint32_t seed, const std::vector<GrassFootp
   auto t0 = std::chrono::high_resolution_clock::now();
   ++frame;
   lastBuilt = 0; pending = 0;
-  if (seed != seed_ || t.size != terrainSize) { clear(); seed_ = seed; terrainSize = t.size; }
+  if (seed != seed_ || t.size != terrainSize || t.sizeZ != terrainSizeZ) { clear(); seed_ = seed; terrainSize = t.size; terrainSizeZ = t.sizeZ; }
   const GrassPreset& P = grassPreset(quality);
   if (P.radius <= 0) { clear(); lastBuildMs = 0; return; }
   ensureGL();
@@ -297,7 +297,7 @@ void Grass::update(const Terrain& t, uint32_t seed, const std::vector<GrassFootp
     vec2 cc((cx + 0.5f) * kChunk, (cz + 0.5f) * kChunk);
     float d = glm::length(cc - vec2(cam.x, cam.z));
     if (d > R) continue;
-    if (std::fabs(cc.x) > t.size * 0.5f + kChunk || std::fabs(cc.y) > t.size * 0.5f + kChunk) continue;
+    if (cc.x < t.org.x - kChunk || cc.y < t.org.y - kChunk || cc.x > t.org.x + t.size + kChunk || cc.y > t.org.y + t.sizeZ + kChunk) continue;
     uint64_t sig = signature(cx, cz, t, fp);
     auto it = chunks.find(ckey(cx, cz));
     if (it != chunks.end()) {

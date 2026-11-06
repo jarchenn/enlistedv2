@@ -6,6 +6,9 @@
   "available": false,
   "seed": 7,
   "description": "Fictional Norman woodland with three connected clearings (command post, overlook, fallback). Planned for a later milestone.",
+  "width": 1200,
+  "depth": 2400,
+  "margin": 100,
   "size": 800,
   "buildHalf": 300,
   "camera": {
