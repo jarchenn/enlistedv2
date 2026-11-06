@@ -243,7 +243,10 @@ void AiCore::act(Soldier& s, float dt) {
     float e = exposure((int)s.role, s.feet + vec3(0, 1.2f, 0));
     vec3 ahead = s.feet + glm::normalize(xz(goal - s.feet) + vec3(1e-4f)) * std::min(12.0f, lenXZ(goal - s.feet));
     e = std::max(e, exposure((int)s.role, ahead + vec3(0, 1.2f, 0)));
-    return underFire || e > 0.25f ? SPD_SPRINT : SPD_JOG;
+    if (underFire || e > tj("movement", "sprintExposure", 0.25f)) return SPD_SPRINT;
+    // a bound to the next cover is a rush once the enemy is known (AI_SPEC 6.1: short exposed dashes); transit jogs
+    if (coverValid && !m.set && !tb.known.empty() && lenXZ(m.coverPos - s.feet) > tj("movement", "rushMin_m", 3.0f)) return SPD_SPRINT;
+    return SPD_JOG;
   };
   auto boundTo = [&](vec3 goal, float maxLen) {
     // the next cover toward goal, at most maxLen away; none: straight toward the goal

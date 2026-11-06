@@ -306,7 +306,7 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
   bool fits = Physics::shapeFitsAt(post, p + vec3(0, 0.04f, 0), true);
   if (!fits && u < 0.98f) {
     // someone / something in the way: stop where the body still fits, re-plan
-    tr.on = false; ++metrics.linkAborts;
+    tr.on = false; ++metrics.linkAborts; m.linkBlockUntil = G.t + 1.0;
     m.penalties.push_back({tr.p[0], 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)});   // this bot avoids that link for a while
     if (metrics.linkAborts <= 15) logf("ai: bot %d %s link blocked at (%.1f %.1f %.1f) -> (%.1f %.1f %.1f), u %.2f", s.slot, navLinkName(tr.kind), tr.p[0].x, tr.p[0].y, tr.p[0].z, tr.end.x, tr.end.y, tr.end.z, u);
     requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true);
@@ -332,7 +332,7 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
 void AiCore::move(Soldier& s, float dt) {
   BotMind& m = mind(s);
   Brain& b = s.br;
-  if (m.trav.on) { stepTraversal(s, m, dt); return; }
+  if (m.trav.on) { bool done = stepTraversal(s, m, dt); if (!m.trav.on && !done) stuckLadder(s, m, dt, true); return; }   // an aborted link counts as no progress
   dtNavMeshQuery* q = G.nav.query();
   const dtQueryFilter* f = &G.nav.defaultFilter();
   vec3 pos = s.feet;
@@ -356,7 +356,7 @@ void AiCore::move(Soldier& s, float dt) {
     if (nc > 0) {
       vec3 c0(cv[0], cv[1], cv[2]), last(cv[(nc - 1) * 3], cv[(nc - 1) * 3 + 1], cv[(nc - 1) * 3 + 2]);
       bool offmesh = (cf[nc - 1] & DT_STRAIGHTPATH_OFFMESH_CONNECTION) != 0;
-      if (offmesh && nc == 1 && lenXZ(last - pos) < 0.6f) {
+      if (offmesh && nc == 1 && lenXZ(last - pos) < 0.6f && G.t >= m.linkBlockUntil) {
         dtPolyRef refs[2]; float sp[3], ep[3];
         if (c.moveOverOffmeshConnection(cp[nc - 1], refs, sp, ep, q)) { startTraversal(s, m, cp[nc - 1], vec3(sp[0], sp[1], sp[2]), vec3(ep[0], ep[1], ep[2])); return; }
       }
@@ -375,6 +375,26 @@ void AiCore::move(Soldier& s, float dt) {
     }
     if (glm::length(desired) > 0.1f) m.moveDir = glm::normalize(desired);
   } else if (m.wantPath || m.pendingReq) wantsMove = G.t - m.lastReplan > 1.5;   // waiting long for a route counts as stuck
+  // a soldier standing in the way (a teammate settled in cover along a wall): side-step around him before it becomes a stuck
+  if (wantsMove && glm::length(desired) > 0.5f && !(G.t < m.backUntil) && q && m.hasPath && !offMesh) {
+    vec3 fwd = glm::normalize(xz(desired)); const Soldier* blk = nullptr; float bd = 1e9f;
+    for (auto& o : G.sold) {
+      if (&o == &s || !o.alive) continue;
+      vec3 d = xz(o.feet - pos); float L = glm::length(d);
+      if (L < 1.4f && std::fabs(o.feet.y - pos.y) < 1.5f && glm::dot(d, fwd) > 0.45f * L && L < bd) { bd = L; blk = &o; }
+    }
+    if (blk && s.speed < 0.35f * std::max(1.0f, vmax)) m.blockedT += dt; else m.blockedT = std::max(0.0f, m.blockedT - dt);
+    if (blk && m.blockedT > tj("movement", "sidestepAfter_s", 0.4f)) {
+      vec3 side(-fwd.z, 0, fwd.x); if (glm::dot(side, xz(pos - blk->feet)) < 0) side = -side;   // the side away from him
+      vec3 best = pos; float bl = 0;
+      for (float sg : {1.0f, -1.0f}) {
+        vec3 tgt = pos + side * (sg * 1.4f) + fwd * 0.6f, res = tgt; dtPolyRef vis[16]; int nv = 0;
+        if (dtStatusSucceed(q->moveAlongSurface(m.corridor->getFirstPoly(), &pos.x, &tgt.x, f, &res.x, vis, &nv, 16))) { float l = lenXZ(res - pos); if (l > bl + 0.3f) { bl = l; best = res; } }
+      }
+      if (bl > 0.5f) { m.backTarget = best; m.backUntil = G.t + 0.8; m.replanAfterBack = true; ++metrics.sidesteps; }
+      m.blockedT = 0;
+    }
+  }
   // stuck recovery step 2: back off along the incoming direction
   if (G.t < m.backUntil) { vec3 d = xz(m.backTarget - pos); if (glm::length(d) > 0.2f) desired = glm::normalize(d) * vJog; wantsMove = true; }
   else if (m.replanAfterBack) { m.replanAfterBack = false; requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 8.0f, true); }
@@ -492,6 +512,11 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
     m.progT = 0; m.progAnchor = s.feet;
     if (!stuckNow) return;
     StuckEvent e; e.slot = s.slot; e.t0 = G.t - 1.5; e.pos = s.feet;
+    e.doing = s.br.why; e.goal = m.hasSubGoal ? m.subGoal : m.goal; e.next = s.feet + m.moveDir;
+    { float nn = 1e9f; vec3 ahead = s.feet + m.moveDir * 0.8f; float na = 1e9f;
+      for (auto& o : G.sold) if (&o != &s && o.alive) { nn = std::min(nn, lenXZ(o.feet - s.feet)); na = std::min(na, lenXZ(o.feet - ahead)); }
+      char b[64]; std::snprintf(b, sizeof b, " [nearest soldier %.1f m, %.1f m ahead]", nn, na); e.doing += b; }
+    if (m.hasPath) { float cv[3]; unsigned char cf; dtPolyRef cp; if (m.corridor->findCorners(cv, &cf, &cp, 1, G.nav.query(), &G.nav.defaultFilter()) > 0) e.next = vec3(cv[0], cv[1], cv[2]); }
     stuck.push_back(e); m.eventIdx = (int)stuck.size() - 1; ++metrics.stuckEvents;
     m.ladder = 1; m.ladderT = G.t; m.stuckPos = s.feet;
   }

@@ -106,7 +106,8 @@ struct AiBuilding {
 };
 
 // ---------------------------------------------------------------- per bot
-struct StuckEvent { int slot = -1; double t0 = 0, t1 = 0; vec3 pos{0}; int step = 0; bool resolved = false, open = true; std::string why; };
+struct StuckEvent { int slot = -1; double t0 = 0, t1 = 0; vec3 pos{0}; int step = 0; bool resolved = false, open = true; std::string why;
+  std::string doing; vec3 goal{0}, next{0}; };   // what the bot was doing, its goal and next path corner when it stuck (tuning)
 struct EdgePenalty { vec3 p{0}; float r = 2; double until = 0; };
 
 struct BotMind {
@@ -127,6 +128,7 @@ struct BotMind {
   float doorWait = 0;
   // stuck ladder (AI_SPEC 3.6)
   vec3 progAnchor{0}; float progT = 0; int ladder = 0; double ladderT = 0; int eventIdx = -1; vec3 stuckPos{0};
+  float blockedT = 0;   // time spent stopped by a soldier just ahead (side-step)
   vec3 backTarget{0}; double backUntil = -100; bool needNewGoal = false; vec3 subGoal{0}; bool hasSubGoal = false;
   std::vector<EdgePenalty> penalties;
   // decisions
@@ -135,6 +137,7 @@ struct BotMind {
   int cover = -1; uint32_t coverSerial = 0; vec3 coverPos{0}; bool coverHigh = false; bool set = false; double setAt = -100, peekUntil = -100;
   int slot = -1; double slotShiftAt = -100;   // defense slot index, last voluntary shift
   double boundStart = -100; vec3 boundFrom{0}; float exposedThisBound = 0; bool bounding = false;
+  double linkBlockUntil = -100;   // a link just blocked this bot: no new traversal until the penalised re-plan lands
   // perception extras
   double nearMissAt = -100; vec3 nearMissFrom{0}; double grenadeSeenAt = -100;
   // aim model (AI_SPEC 6.4)
@@ -189,7 +192,7 @@ struct AiProf {
 // ---------------------------------------------------------------- metrics (AI_SPEC 12.3)
 struct AiMetrics {
   double t = 0, advT = 0, advSpeedSum = 0; long advN = 0; double nnSum = 0; long nnN = 0;
-  double fireT = 0, exposedT = 0, coverNear5T = 0; int bounds = 0; double boundExposure = 0;
+  double fireT = 0, exposedT = 0, coverNear5T = 0; int bounds = 0; double boundExposure = 0; int sidesteps = 0;
   int stuckEvents = 0, stuckOver5 = 0, stuckUnrecovered = 0, stuckResolvedBy[7]{};
   int grenadesThrown = 0, grenadesHurtTeammate = 0, rebuildReplans = 0, linkTraversals = 0, linkAborts = 0, snaps = 0, linkKinds[4]{};
   int attackerDeaths0 = -1;

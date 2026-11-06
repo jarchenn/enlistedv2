@@ -1,11 +1,11 @@
 {
   "_doc": "Bot tactics tunables (AI_SPEC 4-11; src/ai_*.cpp). Difficulty presets are in difficulty.json, the regroup time and bot count in settings/rules.json, speeds in settings/movement.json (sprint / run = jog / crouch / prone) plus walk_mps here.",
-  "movement": { "walk_mps": 1.6, "separation_m": 6.0, "separationGain": 0.45, "avoidPad_m": 0.3 },
+  "movement": { "walk_mps": 1.6, "separation_m": 9.0, "separationGain": 0.8, "avoidPad_m": 0.3, "sprintExposure": 0.25, "rushMin_m": 3.0, "sidestepAfter_s": 0.4 },
   "pathing": { "crowdCost": 0.6, "flankOffset_m": 35, "laneHalfWidth_m": 18, "flankLaneGain": 0.7, "mainLaneGain": 0.9 },
   "perception": { "fovMoving_deg": 120, "fovAiming_deg": 90, "hearRifle_m": 250, "hearSmg_m": 120, "hearExplosion_m": 200, "footsteps_m": 15,
                   "nearMiss_m": 2.0, "memory_s": 20, "memoryDecay_s": 10, "suppressionDecay": 0.28, "vegetationFactor": 0.55 },
   "threat": { "viewRange_m": 250 },
-  "cover": { "spacing_m": 8, "reactRadius_m": 12 },
+  "cover": { "spacing_m": 10, "spacingWeight": 2.0, "reactRadius_m": 12, "authoredMinGap_m": 3.0 },
   "defense": { "shiftCooldown_s": 12 },
   "commander": { "flankFraction": 0.3, "flankStandoff_m": 28 },
   "decisions": { "inertia": 0.08 },

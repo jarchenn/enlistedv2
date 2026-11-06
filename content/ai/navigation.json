@@ -15,7 +15,8 @@
   "detailSampleDist": 6,
   "detailSampleMaxError": 1,
   "shallowWater_m": 0.9,
-  "hedgePad_m": 0.8,
+  "hedgePad_m": 0.15,
+  "footprintNull": ["bch_belgian_gate", "def_tank_trap", "bcg_abatis", "bch_log_stake_mine", "bch_log_ramp_mined", "gun_pak40"], "footprintNullPad_m": 0.2,
   "rebuildWorkers": 2,
   "links": {
     "dropMin_m": 0.5, "dropMax_m": 3.0,

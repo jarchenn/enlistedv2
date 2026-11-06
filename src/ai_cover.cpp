@@ -73,7 +73,7 @@ void AiCore::addAuthoredCover() {
       c.high = cp.high; c.peekL = cp.peekLeft; c.peekR = cp.peekRight; c.peekOver = cp.peekOver; c.authored = true;
       // authored points are placed against the face; the mesh is eroded by the agent radius: stand on the mesh, or drop it
       { NavRef r; vec3 on; if (!G.nav.closest(c.p, vec3(1.0f, 1.2f, 1.0f), r, on) || lenXZ(on - c.p) > 0.9f || std::fabs(on.y - c.p.y) > 1.0f || G.nav.isTrap(on, 0.3f)) continue; c.p = on; }
-      if (coverNear(*this, c.p, 1.0f)) continue;   // one point per spot (generated wall cover already there)
+      if (coverNear(*this, c.p, tj("cover", "authoredMinGap_m", 1.0f))) continue;   // one point per spot (generated wall cover or a neighbour already there)
       c.tx = G.nav.tileOf(c.p.x); c.tz = G.nav.tileOf(c.p.z);
       addCoverPoint(*this, c);
     }
@@ -125,14 +125,14 @@ int AiCore::pickCover(Soldier& s, vec3 goal, float maxDist, float minProgress, b
       for (int k = 1; k <= ns; ++k) expo += exposure((int)s.role, glm::mix(s.feet, c.p, k / (float)ns) + vec3(0, 1.2f, 0));
       expo = expo / ns * std::min(1.0f, dist / 15.0f);
       // spacing: teammates (and their reserved cover) within 8 m
-      float sp = 0; const float spacing = tj("cover", "spacing_m", 8.0f);
+      float sp = 0; const float spacing = tj("cover", "spacing_m", 8.0f), spW = tj("cover", "spacingWeight", 1.1f);
       for (auto& o : G.sold) {
         if (&o == &s || !o.alive || o.role != s.role) continue;
         float dd = glm::length(o.feet - c.p);
         if (o.slot < (int)minds.size() && minds[o.slot] && minds[o.slot]->cover >= 0 && minds[o.slot]->cover < (int)cover.size()) dd = std::min(dd, glm::length(cover[minds[o.slot]->cover].p - c.p));
         if (dd < spacing) sp += 1.0f - dd / spacing;
       }
-      float sc = 2.0f * prot + 1.6f * progress - 1.4f * expo - 1.1f * sp - 0.015f * dist + (c.high ? 0.1f : 0.0f) + (c.authored ? 0.2f : 0.0f);
+      float sc = 2.0f * prot + 1.6f * progress - 1.4f * expo - spW * sp - 0.015f * dist + (c.high ? 0.1f : 0.0f) + (c.authored ? 0.2f : 0.0f);
       cand.push_back({i, sc, prot});
     }
   }

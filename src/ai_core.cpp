@@ -126,7 +126,11 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     const AssetDef& a = *it->second.asset;
     if (a.defense.unsafeVault || a.navMeta.area == NavArea::Wire) return NT_WIRE;
     switch (resolveNavEffect(a.navMeta, a.enterable, a.bmin, a.bmax)) {
-      case NavEffect::None: return NT_SKIP;
+      case NavEffect::None: {   // decor; but crates, tripods and signs still stop a body: rasterise anything taller than a step that collides
+        static std::unordered_map<const AssetDef*, bool> solid;
+        auto sit = solid.find(&a);
+        if (sit == solid.end()) { bool any = false; if (a.bmax.y - a.bmin.y > G.nav.cfg.climb) for (auto& p : a.parts) if (p.collide && !p.playerOnly && p.visible) { any = true; break; } sit = solid.emplace(&a, any).first; }   // not flat sheets (sea shallows)
+        return sit->second ? NT_SOLID : NT_SKIP; }
       case NavEffect::Area: return NT_SOLID;   // trenches, shingle, fences: their own floors / walls / mounds are the ground; the area is painted on top
       case NavEffect::Carve: return NT_CARVE;
       default: return NT_SOLID;
@@ -142,7 +146,9 @@ void AiCore::begin(vec3 lo, vec3 hi) {
       const NavMeta& m = a.navMeta;
       bool wireSlow = a.defense.unsafeVault && !it->second.defDestroyed;   // every wire obstacle: its uncut stretches are forbidden ground
       bool hedge = a.tree.on && a.tree.hedge && resolveNavEffect(m, a.enterable, a.bmin, a.bmax) != NavEffect::None;   // bank + woody stems: a wall (AI_SPEC 3.1)
-      if (m.areas.empty() && m.area == NavArea::Default && !wireSlow && !hedge) continue;
+      // lattice obstacles (Belgian gates, hedgehogs, abatis): their struts rasterise as walkable ledges; the footprint is no-go
+      bool lattice = false; if (navj.contains("footprintNull")) for (auto& id : navj["footprintNull"]) if (id.is_string() && id.get<std::string>() == a.id) lattice = true;
+      if (m.areas.empty() && m.area == NavArea::Default && !wireSlow && !hedge && !lattice) continue;
       float r = glm::length(vec2(std::max(std::fabs(a.bmin.x), std::fabs(a.bmax.x)), std::max(std::fabs(a.bmin.z), std::fabs(a.bmax.z)))) + 1;
       if (in.pos.x + r < tlo.x || in.pos.x - r > thi.x || in.pos.z + r < tlo.y || in.pos.z - r > thi.y) continue;
       quat q = yawQuat(in.yaw);
@@ -168,9 +174,24 @@ void AiCore::begin(vec3 lo, vec3 hi) {
           addPoly(fp, NavArea::Wire);
         }
       }
+      if (lattice) {
+        float pd = navj.value("footprintNullPad_m", 0.2f) + G.nav.cfg.radius;   // marks land after erosion
+        std::vector<std::array<vec2, 3>> tris; triangulate({vec2(a.bmin.x - pd, a.bmin.z - pd), vec2(a.bmax.x + pd, a.bmin.z - pd), vec2(a.bmax.x + pd, a.bmax.z + pd), vec2(a.bmin.x - pd, a.bmax.z + pd)}, tris);
+        for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.nullify = true; out.marks.push_back(mk); }
+      }
       if (hedge) {
-        vec2 hf = a.footprint * 0.5f + vec2(0.1f);
-        std::vector<std::array<vec2, 3>> tris; triangulate({vec2(-hf.x, -hf.y), vec2(hf.x, -hf.y), vec2(hf.x, hf.y), vec2(-hf.x, hf.y)}, tris);
+        // the bank and the leaning stems as built (every colliding part's rotated box, up to head height), plus a pad
+        vec2 lo2(-a.footprint * 0.5f), hi2(a.footprint * 0.5f);
+        for (auto& p : a.parts) {
+          if (!p.collide || p.playerOnly) continue;
+          for (int c = 0; c < 8; ++c) {
+            vec3 l = p.center + p.rot * (vec3((c & 1) ? 0.5f : -0.5f, (c & 2) ? 0.5f : -0.5f, (c & 4) ? 0.5f : -0.5f) * p.size);
+            if (l.y > 2.0f) continue;
+            lo2 = glm::min(lo2, vec2(l.x, l.z)); hi2 = glm::max(hi2, vec2(l.x, l.z));
+          }
+        }
+        float hp = navj.value("hedgePad_m", 0.1f) + G.nav.cfg.radius; lo2 -= vec2(hp); hi2 += vec2(hp);   // marks land after erosion: add the agent radius
+        std::vector<std::array<vec2, 3>> tris; triangulate({vec2(lo2.x, lo2.y), vec2(hi2.x, lo2.y), vec2(hi2.x, hi2.y), vec2(lo2.x, hi2.y)}, tris);
         for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.nullify = true; out.marks.push_back(mk); }
       }
       if (!m.areas.empty()) { for (auto& ap : m.areas) if (ap.outline.size() >= 3) addPoly(ap.outline, ap.area); }
@@ -287,7 +308,8 @@ bool AiCore::humanSees(const Soldier& s) {
 void AiCore::logStuck(const StuckEvent& e) {
   std::ofstream f(exeDir() / "selftest_out" / "ai_stuck.log", std::ios::app);
   f << e.t0 << " " << e.t1 << " \"" << mapName << "\" " << e.pos.x << " " << e.pos.y << " " << e.pos.z << " " << e.slot << " " << e.step << " " << (e.resolved ? "yes" : "NO") << " " << e.why << "\n";
-  logf("ai: stuck bot %d at (%.1f %.1f %.1f) on %s for %.1f s: %s (ladder step %d)", e.slot, e.pos.x, e.pos.y, e.pos.z, mapName.c_str(), e.t1 - e.t0, e.resolved ? "recovered" : "UNRECOVERED", e.step);
+  logf("ai: stuck bot %d at (%.1f %.1f %.1f) on %s for %.1f s: %s (ladder step %d) | %s, goal (%.1f %.1f %.1f), next (%.1f %.1f %.1f)", e.slot, e.pos.x, e.pos.y, e.pos.z, mapName.c_str(), e.t1 - e.t0, e.resolved ? "recovered" : "UNRECOVERED", e.step,
+       e.doing.c_str(), e.goal.x, e.goal.y, e.goal.z, e.next.x, e.next.y, e.next.z);
 }
 
 // ---------------------------------------------------------------- world changes (creative live rebuild, breaches)
@@ -545,7 +567,7 @@ json AiMetrics::toJson(const Game& G) const {
             {"stuckPerBotPer10Min", stuckEvents / std::max(1, bots) / mins * 10.0},
             {"advanceSpeedMean_mps", advN ? advSpeedSum / advN : 0.0}, {"advancingBotSeconds", advT},
             {"underFireSeconds", fireT}, {"exposedUnderFireFraction", fireT > 0 ? exposedT / fireT : 0.0},
-            {"boundExposureMean_s", bounds ? boundExposure / bounds : 0.0}, {"bounds", bounds},
+            {"boundExposureMean_s", bounds ? boundExposure / bounds : 0.0}, {"bounds", bounds}, {"sidesteps", sidesteps},
             {"nearestTeammateWhileAdvancing_m", nnN ? nnSum / nnN : 0.0},
             {"attackerDeathsPerMin", deaths / mins}, {"grenadesThrown", grenadesThrown}, {"grenadesHurtTeammate", grenadesHurtTeammate},
             {"rebuildReplans", rebuildReplans}, {"linkTraversals", linkTraversals}, {"linkAborts", linkAborts}, {"snaps", snaps}};

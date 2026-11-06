@@ -162,13 +162,19 @@ bool openMapSpec(App& a, const std::string& spec, std::string& tag, std::string&
     if (O.saveMap) a.saveMapTo(userMapsDir() / ("ai_random_" + std::to_string(seed) + ".nmap.json"));
     return true;
   }
-  std::vector<fs::path> cands = {spec, spec + ".nmap.json", contentDir() / "examples" / spec, contentDir() / "examples" / (spec + ".nmap.json"), userMapsDir() / spec, userMapsDir() / (spec + ".nmap.json")};
+  std::vector<fs::path> cands = {spec, spec + ".nmap.json", contentDir() / "examples" / spec, contentDir() / "examples" / (spec + ".nmap.json"), userMapsDir() / spec, userMapsDir() / (spec + ".nmap.json"),
+                                contentDir() / "templates" / (spec + ".nmap.json")};   // default maps shipped as templates (W5: omaha_easy_red)
+  {   // short names for the default maps: the first template map whose name contains the spec ("omaha" -> omaha_easy_red)
+    std::error_code ec; std::vector<fs::path> tm;
+    for (auto& e : fs::directory_iterator(contentDir() / "templates", ec)) { std::string n = e.path().filename().string(); if (n.size() > 10 && n.substr(n.size() - 10) == ".nmap.json" && n.find(spec) != std::string::npos) tm.push_back(e.path()); }
+    std::sort(tm.begin(), tm.end()); for (auto& c : tm) cands.push_back(c);
+  }
   for (auto& c : cands) if (fs::exists(c) && fs::is_regular_file(c)) {
     std::string st = c.filename().string(); size_t d = st.find(".nmap"); tag = sanitize(d == std::string::npos ? c.stem().string() : st.substr(0, d));
     if (a.openMap(c)) return true;
     err = "could not open " + c.string(); return false;
   }
-  err = "no map called " + spec + " (village, course, random[:seed[:size]], a name in content/examples or maps/, or a path)";
+  err = "no map called " + spec + " (village, course, random[:seed[:size]], a name in content/examples, maps/ or content/templates, or a path)";
   return false;
 }
 
@@ -257,7 +263,8 @@ struct Rec {
       if (stuckList.size() < 3000)
         stuckList.push_back({{"map", map}, {"match", matches + 1}, {"slot", e.slot}, {"role", slotRole.count(e.slot) && slotRole[e.slot] == (int)CombatRole::Attacker ? "attacker" : "defender"},
                              {"t0", e.t0}, {"duration_s", dur}, {"pos", {e.pos.x, e.pos.y, e.pos.z}}, {"state", state},
-                             {"step", e.step}, {"resolvedBy", e.resolved ? kStepName[std::clamp(e.step, 0, 6)] : "-"}, {"why", e.why}});
+                             {"step", e.step}, {"resolvedBy", e.resolved ? kStepName[std::clamp(e.step, 0, 6)] : "-"}, {"why", e.why},
+                             {"doing", e.doing}, {"goal", {e.goal.x, e.goal.y, e.goal.z}}, {"next", {e.next.x, e.next.y, e.next.z}}});
     }
     for (size_t k = 0; k < fell.size(); ++k) if (!fell[k] && (int)k == G.match.active) {
       falls.push_back({{"match", matches + 1}, {"index", (int)k}, {"label", G.match.obj[k].label}, {"seconds", G.match.time - phaseStart}, {"matchTime", G.match.time}, {"outcome", "held"}, {"why", why}});
@@ -590,8 +597,10 @@ bool aiHarnessArg(const std::string& a, int argc, char** argv, int& k, bool& run
 
 bool buildLargeRandomMap(App& app, uint32_t seed, float size, int nObj, int structures, std::string& err) {
   const TemplateInfo* tpl = app.findTemplate("blank_slate");
-  if (!tpl || !app.newMap(*tpl, "AI harness random map (seed " + std::to_string(seed) + ")")) { err = "newMap(blank_slate) failed"; return false; }
-  float half = std::clamp(size * 0.5f, 120.0f, app.terrain.buildHalf - 12.0f);   // the Blank Slate build area caps the size
+  extern bool navNewMapSized(App&, const TemplateInfo&, const std::string&, vec2);   // W3 (editor_nav.cpp): 400-4000 m maps
+  std::string nm = "AI harness random map (seed " + std::to_string(seed) + ")";
+  if (!tpl || !(size + 24 > 600 ? navNewMapSized(app, *tpl, nm, vec2(size + 24)) : app.newMap(*tpl, nm))) { err = "newMap(blank_slate) failed"; return false; }
+  float half = std::clamp(size * 0.5f, 120.0f, std::min(app.terrain.buildHalfX, app.terrain.buildHalfZ) - 12.0f);   // inside the build area
   std::mt19937 rng(seed);
   std::uniform_real_distribution<float> U(-1.0f, 1.0f);
   nObj = std::clamp(nObj, 1, 10);
