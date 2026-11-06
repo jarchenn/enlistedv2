@@ -1,5 +1,6 @@
 // Creative mode: flying camera, asset browser, placement, selection, transforms, undo, start marker.
 #include "app.h"
+#include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -285,6 +286,7 @@ void App::drawCreativeUI() {
       ImGui::EndMenu();
     }
     if (ImGui::MenuItem("Explore  (F5)")) enterExplore();
+    mpaiMenus(*this);   // Play (Singleplayer / Host LAN / Join LAN) and Scenario menus
     ImGui::SameLine(ImGui::GetWindowWidth() - 360);
     ImGui::TextDisabled("%s%s  |  %s", doc.name.c_str(), dirty ? " *" : "", docPath.empty() ? "unsaved" : docPath.filename().string().c_str());
     ImGui::EndMainMenuBar();

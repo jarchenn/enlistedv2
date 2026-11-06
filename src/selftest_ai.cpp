@@ -313,6 +313,19 @@ void SelfTest::aiUpdate(App& app, float dt) {
       a.exitExplore();
       check(!gGame->active && gGame->sold.empty() && a.mode == Mode::Creative, "leaving the match clears soldiers, agents and grenades");
       return true; });
+    push("creative ui", [this](App& a, float t) {
+      // the Scenario panel, its overlay (capture cylinders, attack arrows, spawn markers) and the setup window
+      if (t == 0) {
+        gUi.showPanel = true; gUi.showOverlay = true; gUi.showSetup = true; gUi.setupMode = 0; gUi.loaded = false;
+        gUi.selObj = gUi.scenario(a).objectives.empty() ? "" : gUi.scenario(a).objectives[1].id;
+        a.camPos = vec3(-5, 55, 75); a.camYaw = 0; a.camPitch = -38;
+        return false;
+      }
+      if (t < 1.0f) return false;
+      a.uiShot = exeDir() / "selftest_out" / "ai_creative_ui.png";
+      check(true, "Creative scenario panel, overlay and setup window captured (selftest_out/ai_creative_ui.png)");
+      return true; });
+    push("done", [this](App& a, float t) { if (t < 0.2f) return false; gUi.showPanel = gUi.showSetup = false; return true; });
     return;
   }
   // sequence runner

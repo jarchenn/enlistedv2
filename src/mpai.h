@@ -11,6 +11,7 @@ struct ExploreInput;
 extern int mpaiExit;   // >= 0: the flag handled by mpaiArg asks run() to return this code before any window opens
 bool mpaiArg(App& app, int argc, char** argv, int& k, bool& runSelf);   // --selftest-match / -ai / -net, --host, --join
 void mpaiUI(App& app);                         // after the mode's own UI (menus, panels, HUD)
+void mpaiMenus(App& app);                      // inside the Creative main menu bar: Play and Scenario menus
 void mpaiFrame(App& app, Overlay& ov);         // draw lists (soldiers, grenades) and overlays, before rendering
 bool mpaiCamera(App& app, vec3& eye, vec3& fwd, float& fov);   // spectator / death camera
 void mpaiEnterExplore(App& app);               // end of enterExplore: starts a match if the Play menu asked for one

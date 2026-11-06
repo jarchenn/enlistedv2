@@ -56,7 +56,7 @@ void mpaiUI(App& app) {
     Physics::step(app.frameDt);
   }
   if (app.mode == Mode::Creative) {
-    gUi.creativeMenus(app); gUi.scenarioPanel(app); gUi.setupWindow(app); gUi.joinWindow(app);
+    gUi.scenarioPanel(app); gUi.setupWindow(app); gUi.joinWindow(app);
     return;
   }
   if (!gGame || !gGame->active) return;
@@ -70,6 +70,8 @@ void mpaiUI(App& app) {
     if (gNet && gNet->role == Net::CLIENT) gUi.showJoin = true; else { gUi.showSetup = true; gUi.setupMode = host ? 1 : 0; }
   }
 }
+
+void mpaiMenus(App& app) { gUi.creativeMenus(app); }
 
 void mpaiFrame(App& app, Overlay& ov) {
   if (app.mode == Mode::Creative) { gUi.creativeOverlay(app, ov); return; }

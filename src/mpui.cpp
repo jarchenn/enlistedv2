@@ -45,7 +45,8 @@ static bool project(App& app, vec3 p, ImVec2& s) {
 }
 
 void MpUi::creativeMenus(App& app) {
-  if (ImGui::BeginMainMenuBar()) {
+  (void)app;
+  {   // called inside the editor's main menu bar
     if (ImGui::BeginMenu("Play")) {
       if (ImGui::MenuItem("Singleplayer...")) { showSetup = true; setupMode = 0; }
       if (ImGui::MenuItem("Host LAN...")) { showSetup = true; setupMode = 1; }
@@ -57,7 +58,6 @@ void MpUi::creativeMenus(App& app) {
       ImGui::MenuItem("Show scenario overlay", nullptr, &showOverlay);
       ImGui::EndMenu();
     }
-    ImGui::EndMainMenuBar();
   }
 }
 
