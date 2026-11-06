@@ -19,7 +19,7 @@
   "forwardSpray": { "count": [20, 60], "coneDeg": [15, 25], "speed": [3, 9], "radius_mm": [0.8, 3.0], "mist_s": 0.2 },
   "splatterRay_m": 2.5,
   "droplet": { "gravity": 9.81, "airDensity": 1.2, "dragCd": 0.47, "maxLife_s": 4.0, "stainScale": 2.6, "teardropMaxAspect": 6 },
-  "spurt": { "interval_s": 0.8, "duration_s": [3, 6], "count": [10, 18], "speed": [1.5, 3.5], "coneDeg": 22, "decay": 0.78 },
+  "spurt": { "interval_s": 0.8, "duration_s": [3, 6], "count": [10, 18], "speed": [1.5, 3.5], "coneDeg": 22, "decay": 0.78, "maxPerSoldier": 2, "maxTotal": 24 },
   "drip": { "spacing_m": [0.7, 1.4], "duration_s": 25, "minSpeed": 0.6 },
   "reduced": { "dropletScale": 0.35, "worldDecalScale": 0.5, "characterDecalScale": 0.5, "poolScale": 0.6, "spurt": false, "drip": false },
   "protectedFx": true

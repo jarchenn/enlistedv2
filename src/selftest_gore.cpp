@@ -187,7 +187,8 @@ void build(App& app) {
           "rifle round exits: exit wound %.1f cm across (4-8) on the far side, %.2f m further along the path", okX ? rec.decals[exitI].radius * 200 : 0.0f, okX ? glm::dot(xp - ep, d) : 0.0f);
       chk(soak >= 1 && boneCount(tgt) == bone0 + 2 + soak, "%zu bone decals on the soldier (entry, exit and %d soak stains)", boneCount(tgt) - bone0, soak);
       chk(S.st.splats == splats0 + 1, "surface splatter: the 2.5 m ray behind the target put a splat on the wall %.1f m behind it", wallDist - (wallDist - 1.6f));
-      chk((int)S.drops.size() >= 30 && (int)S.drops.size() <= 85, "%zu droplets in flight (back-spatter 10-25 + forward spray 20-60) and %zu mist puffs", S.drops.size(), S.puffs.size());
+      int thisHit = S.st.spawned - (spawned0 - 1);
+      chk(thisHit >= 30 && thisHit <= 85, "%d droplets from this hit (back-spatter 10-25 + forward spray 20-60; %zu in flight in all, %d gore hits so far) and %zu mist puffs", thisHit, S.drops.size(), S.st.goreHits, S.puffs.size());
       out["dropletsPerRifleHit"] = S.drops.size();
       return false;
     }
@@ -431,6 +432,8 @@ void build(App& app) {
     chk(!violated && S.st.maxDrops <= (size_t)S.cfg.maxDroplets && S.st.maxWorld <= (size_t)cw && S.st.maxChar <= (size_t)cc,
         "hard caps held every frame of a %d-hit barrage: droplets peak %zu / %d (%d not spawned), world decals peak %zu / %d, per character peak %zu / %d",
         S.st.hitN - hitN0, S.st.maxDrops, S.cfg.maxDroplets, S.st.dropped, S.st.maxWorld, cw, S.st.maxChar, cc);
+    { int per = 0; std::map<int, int> c; for (auto& b : S.bleeders) per = std::max(per, ++c[b.slot]);
+      chk(S.st.maxBleeders <= S.cfg.spurtTotal && per <= S.cfg.spurtPerSoldier, "spurting wounds bounded: peak %d of %d at once, at most %d per soldier now (%d allowed)", S.st.maxBleeders, S.cfg.spurtTotal, per, S.cfg.spurtPerSoldier); }
     chk(S.st.maxDrops == (size_t)S.cfg.maxDroplets && S.st.maxWorld == (size_t)cw && S.st.maxChar == (size_t)cc, "the barrage saturated all three budgets");
     bool oldestFade = true; double lastFading = -1, firstLive = 1e18;
     for (auto& d : S.world) { if (d.fadeStart >= 0) lastFading = std::max(lastFading, d.born); else firstLive = std::min(firstLive, d.born); }
@@ -463,7 +466,7 @@ void build(App& app) {
     Game& G = *gGame; GoreState& S = goreState(); Soldier& V = G.sold[tgt];
     static size_t pi = 0; static double born = 0;
     if (t == 0) {
-      S.world.clear(); S.drops.clear();
+      S.world.clear(); S.drops.clear(); S.bleeders.clear();
       vec3 eye = camFeet + vec3(0, 1.62f, 0);
       V.hp = 50; int p0 = S.st.pools;
       shoot(a, eye, chestOf(V));
@@ -471,6 +474,7 @@ void build(App& app) {
       simulate(a, 2.0f);
       chk(!V.alive && S.st.pools == p0 + 1, "the killed soldier gets a blood pool under the corpse after %.1f s", S.cfg.poolDelay);
       pi = 0; for (size_t k = 0; k < S.world.size(); ++k) if (S.world[k].kind == GD_POOL) pi = k + 1;
+      if (!pi) { std::string ks; for (auto& d : S.world) ks += std::to_string(d.kind) + (d.fadeStart >= 0 ? "f " : " "); logf("gore test: no pool in %zu world decals (pools %d, cap %d): %s", S.world.size(), S.st.pools, goreWorldCap(), ks.c_str()); }
       if (pi) { auto& d = S.world[pi - 1]; born = d.born;
         chk(d.r1 >= 0.6f && d.r1 <= 1.0f && d.growT >= 10 && d.growT <= 20, "pool spreads to %.2f m (0.6-1.0) over %.1f s (10-20)", d.r1, d.growT); }
       lookAt(a, tgtFeet - wallDir * 3.2f + glm::normalize(glm::cross(wallDir, vec3(0, 1, 0))) * 1.0f, V.feet);

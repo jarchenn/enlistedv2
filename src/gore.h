@@ -29,7 +29,7 @@ struct GoreCfg {
   struct Spray { vec2 count, cone, speed, radiusMm; float mist; } back{{10, 25}, {30, 45}, {1, 4}, {0.5f, 1.6f}, 0.15f}, fwd{{20, 60}, {15, 25}, {3, 9}, {0.8f, 3.0f}, 0.2f};
   float splatterRay = 2.5f;
   float gravity = 9.81f, airDensity = 1.2f, dragCd = 0.47f, dropLife = 4, stainScale = 2.6f, maxAspect = 6;
-  float spurtInterval = 0.8f; vec2 spurtDur{3, 6}, spurtCount{10, 18}, spurtSpeed{1.5f, 3.5f}; float spurtCone = 22, spurtDecay = 0.78f;
+  float spurtInterval = 0.8f; vec2 spurtDur{3, 6}, spurtCount{10, 18}, spurtSpeed{1.5f, 3.5f}; float spurtCone = 22, spurtDecay = 0.78f; int spurtPerSoldier = 2, spurtTotal = 24;
   vec2 dripSpacing{0.7f, 1.4f}; float dripDuration = 25, dripMinSpeed = 0.6f;
   float redDroplets = 0.35f, redWorld = 0.5f, redChar = 0.5f, redPool = 0.6f; bool redSpurt = false, redDrip = false;
   bool protectedFx = true;
@@ -84,7 +84,7 @@ struct GoreState {
   // statistics (tests / profiling)
   struct Stats {
     int hits = 0, goreHits = 0, dustPuffs = 0, sparks = 0, deflects = 0, mistOnly = 0, ripples = 0, landed = 0, spawned = 0, dropped = 0;
-    int boneDecals = 0, worldDecals = 0, pools = 0, splats = 0, spurtPulses = 0, drips = 0, meshMisses = 0;
+    int maxBleeders = 0, boneDecals = 0, worldDecals = 0, pools = 0, splats = 0, spurtPulses = 0, drips = 0, meshMisses = 0;
     size_t maxDrops = 0, maxWorld = 0, maxChar = 0;
     double hitMs = 0; int hitN = 0; double stepMs = 0; int stepN = 0; double gpuMs = 0, cpuRenderMs = 0; int gpuN = 0;
     int netSent = 0, netReceived = 0;

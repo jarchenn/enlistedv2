@@ -279,7 +279,12 @@ void applyHit(App& app, const FleshHit& h, const GoreAttach& A) {
     if ((z == 4 || z == 5) && (full || gS.cfg.redSpurt)) {
       GoreBleeder b; b.slot = h.victimSlot; b.lifeId = s->lifeId; b.tri = A.entryTri; b.bary = A.entryBary; b.t0 = gS.t; b.next = gS.t + 0.15;
       b.until = gS.t + r.range(gS.cfg.spurtDur); b.rng = h.seed * 747796405u + 1u;
-      gS.bleeders.push_back(b);
+      // bounded: a soldier spurts from at most spurtPerSoldier wounds, the world from spurtTotal (oldest stop first)
+      int mine = 0; for (auto& o : gS.bleeders) mine += o.slot == b.slot;
+      if (mine >= gS.cfg.spurtPerSoldier) for (size_t k = 0; k < gS.bleeders.size(); ++k) if (gS.bleeders[k].slot == b.slot) { gS.bleeders.erase(gS.bleeders.begin() + k); break; }
+      while ((int)gS.bleeders.size() >= gS.cfg.spurtTotal && !gS.bleeders.empty()) gS.bleeders.erase(gS.bleeders.begin());
+      if (gS.cfg.spurtPerSoldier > 0 && gS.cfg.spurtTotal > 0) gS.bleeders.push_back(b);
+      gS.st.maxBleeders = std::max(gS.st.maxBleeders, (int)gS.bleeders.size());
     }
   }
   // spray: seeded droplets, or a mist puff only beyond mistOnlyBeyond
@@ -331,7 +336,7 @@ void GoreCfg::load(const json& j) {
   spray(j.value("backSpatter", json()), back); spray(j.value("forwardSpray", json()), fwd);
   splatterRay = j.value("splatterRay_m", splatterRay);
   if (j.contains("droplet")) { const json& d = j["droplet"]; gravity = d.value("gravity", gravity); airDensity = d.value("airDensity", airDensity); dragCd = d.value("dragCd", dragCd); dropLife = d.value("maxLife_s", dropLife); stainScale = d.value("stainScale", stainScale); maxAspect = d.value("teardropMaxAspect", maxAspect); }
-  if (j.contains("spurt")) { const json& s = j["spurt"]; spurtInterval = s.value("interval_s", spurtInterval); spurtDur = v2(s.value("duration_s", json()), spurtDur); spurtCount = v2(s.value("count", json()), spurtCount); spurtSpeed = v2(s.value("speed", json()), spurtSpeed); spurtCone = s.value("coneDeg", spurtCone); spurtDecay = s.value("decay", spurtDecay); }
+  if (j.contains("spurt")) { const json& s = j["spurt"]; spurtInterval = s.value("interval_s", spurtInterval); spurtDur = v2(s.value("duration_s", json()), spurtDur); spurtCount = v2(s.value("count", json()), spurtCount); spurtSpeed = v2(s.value("speed", json()), spurtSpeed); spurtCone = s.value("coneDeg", spurtCone); spurtDecay = s.value("decay", spurtDecay); spurtPerSoldier = s.value("maxPerSoldier", spurtPerSoldier); spurtTotal = s.value("maxTotal", spurtTotal); }
   if (j.contains("drip")) { const json& s = j["drip"]; dripSpacing = v2(s.value("spacing_m", json()), dripSpacing); dripDuration = s.value("duration_s", dripDuration); dripMinSpeed = s.value("minSpeed", dripMinSpeed); }
   if (j.contains("reduced")) { const json& s = j["reduced"]; redDroplets = s.value("dropletScale", redDroplets); redWorld = s.value("worldDecalScale", redWorld); redChar = s.value("characterDecalScale", redChar); redPool = s.value("poolScale", redPool); redSpurt = s.value("spurt", redSpurt); redDrip = s.value("drip", redDrip); }
   protectedFx = j.value("protectedFx", protectedFx);
