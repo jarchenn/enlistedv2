@@ -165,6 +165,7 @@ void AiCore::think(Soldier& s) {
   bool visible = b.target >= 0;
   bool underFire = G.t - b.hurtAt < 2.0 || b.suppressed > 0.35f || G.t - m.nearMissAt < 1.5;
   bool inCover = m.cover >= 0 && m.cover < (int)cover.size() && cover[m.cover].serial == m.coverSerial && lenXZ(s.feet - m.coverPos) < 1.3f;
+  if (!attacker && m.slot >= 0 && m.slot < (int)defSlots.size() && lenXZ(s.feet - defSlots[m.slot].p) < 1.3f) inCover = true;   // a defense slot is a firing position in cover
   float ammo = wd.cap > 0 ? s.ws.loaded / (float)wd.cap : 1.0f;
   bool canReload = !s.ws.containers.empty();
   bool regroup = attacker && G.t < tb.regroupUntil;
@@ -188,7 +189,11 @@ void AiCore::think(Soldier& s) {
     u[A_ADVANCE] = a;
   }
   if (attacker && ft && ft->overwatch && !m.bounding && !regroup) u[A_OVERWATCH] = 0.6f;
-  if (!attacker) u[A_HOLD] = 0.66f;
+  if (!attacker) {
+    u[A_HOLD] = 0.66f;
+    bool onPoint = ob && ob->contains(s.feet);
+    if (!inCover && !onPoint) { u[A_RETURN_FIRE] *= 0.45f; u[A_SUPPRESS] *= 0.45f; }   // get to the slot first, fight from it
+  }
   else if (regroup || insideObj) u[A_HOLD] = 0.8f;
   if (clearing && ft->clearStage >= 1) u[A_CLEAR] = 0.92f;   // above holding the point (consolidation includes clearing it)
   // grenades: an enemy behind cover / in a room at 8-35 m (checked about once a second)
@@ -276,6 +281,11 @@ void AiCore::act(Soldier& s, float dt) {
         if (c < 0) c = pickCover(s, s.feet, 20.0f, -1.0f, false, fireFrom);
         coverValid = c >= 0;
         if (c >= 0) { requestPath(s, cover[c].p, 0.6f, 8.0f, true); m.boundStart = G.t; m.exposedThisBound = 0; }
+      }
+      if (coverValid && !attacker && ob && !ob->contains(m.coverPos)) { releaseCover(s); coverValid = false; }   // defenders stay on the point
+      if (!coverValid && !attacker && ob) {
+        vec3 g = objectiveGoal(s); requestPath(s, g, 0.8f, 8.0f); m.speed = SPD_SPRINT; m.posture = Physics::STAND;
+        b.mode = Brain::M_RETURN; b.why = "under fire: back to the defense slot"; break;
       }
       if (coverValid) { if (!atCover) requestPath(s, m.coverPos, 0.6f, 8.0f); m.speed = SPD_SPRINT; m.posture = atCover ? lowPosture() : Physics::STAND; b.why = "taking cover (under fire)"; }
       else { m.speed = SPD_CRAWL; m.posture = Physics::PRONE; b.why = "no cover: prone"; }
