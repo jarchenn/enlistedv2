@@ -1,23 +1,114 @@
 {
   "id": "normandy_forest",
-  "version": 0,
+  "version": 1,
   "order": 2,
-  "name": "Normandy Forest",
-  "available": false,
-  "seed": 7,
-  "description": "Fictional Norman woodland with three connected clearings (command post, overlook, fallback). Planned for a later milestone.",
-  "width": 1200,
-  "depth": 2400,
+  "name": "Normandy Forest - Mont-Castre, Hill 122",
+  "available": true,
+  "seed": 1944122,
+  "description": "Terrain base for the forest of Mont-Castre and Hill 122 (90th Infantry Division, 3-12 July 1944): rolling bocage lowland with streams and a marsh, the ridge climbing about 80 m to the summit, rock escarpments, tors, an old quarry and a ravine on its flanks, a draw and a sunken lane up to the top. No structures, objectives or spawns: build your own layout. 850 x 1700 m.",
+  "width": 850,
+  "depth": 1700,
   "margin": 100,
-  "size": 800,
-  "buildHalf": 300,
   "camera": {
     "pos": [
-      0,
-      30,
-      120
+      -120.0,
+      145.7077773327229,
+      -910.0
     ],
-    "yaw": 0,
-    "pitch": -12
-  }
+    "yaw": 188.0,
+    "pitch": -14.0
+  },
+  "heightmap": {
+    "file": "normandy_forest.height.png",
+    "nx": 336,
+    "nz": 611,
+    "min": 13,
+    "max": 123,
+    "org": [
+      -525.4902,
+      -956.8627
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -100.0,
+  "map": "normandy_forest.nmap.json",
+  "playable": false,
+  "thumbnail": "normandy_forest.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -410.0,
+      69.81,
+      -90.0
+    ],
+    "yaw": -165.43,
+    "pitch": 1.61
+  },
+  "views": [
+    {
+      "name": "cliffs_west_escarpment",
+      "pos": [
+        -235.0,
+        72.47,
+        -50.0
+      ],
+      "yaw": 160.2,
+      "pitch": 6.85,
+      "gameplay": false
+    },
+    {
+      "name": "quarry",
+      "pos": [
+        150.0,
+        59.03,
+        -160.0
+      ],
+      "yaw": -172.23,
+      "pitch": -2.25,
+      "gameplay": false
+    },
+    {
+      "name": "cliffs_east_escarpment_tor",
+      "pos": [
+        250.0,
+        80.55,
+        80.0
+      ],
+      "yaw": -148.39,
+      "pitch": 4.7,
+      "gameplay": false
+    },
+    {
+      "name": "ravine",
+      "pos": [
+        -410.0,
+        69.81,
+        -90.0
+      ],
+      "yaw": -165.43,
+      "pitch": 1.61,
+      "gameplay": false
+    },
+    {
+      "name": "hills_lowland_to_ridge",
+      "pos": [
+        -60.0,
+        24.17,
+        -700.0
+      ],
+      "yaw": -175.96,
+      "pitch": 3.26,
+      "gameplay": true
+    },
+    {
+      "name": "summit_overlook",
+      "pos": [
+        60.0,
+        108.23,
+        435.0
+      ],
+      "yaw": 9.7,
+      "pitch": -5.47,
+      "gameplay": false
+    }
+  ]
 }

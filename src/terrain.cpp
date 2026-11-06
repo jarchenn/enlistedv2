@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include "w5.h"
 #include <algorithm>
 
 std::vector<TemplateInfo> loadTemplates(const fs::path& dir) {
@@ -50,7 +51,7 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   cuts.clear();
   clearTiles();
   ++generation;
-  vec2 wd = (width <= 0 && depth <= 0) ? vec2(t.width, t.depth)   // a template's own size is used as authored
+  vec2 wd = ((width <= 0 && depth <= 0) || (width == t.width && depth == t.depth)) ? vec2(t.width, t.depth)   // a template's own size is used as authored (W5b: also when passed explicitly, e.g. 850 x 1700 off the 100 m step)
                                        : mapSizeRules().clampSize(vec2(width > 0 ? width : t.width, depth > 0 ? depth : t.depth));
   margin = t.margin;
   buildHalfX = wd.x * 0.5f; buildHalfZ = wd.y * 0.5f; buildHalf = std::max(buildHalfX, buildHalfZ);
@@ -73,6 +74,7 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
       if (edge > 0) v += edge * 0.03f + 2.0f * vnoise(wx / 60.f, wz / 60.f, t.seed + 3) * std::min(1.0f, edge / 40.f);
       h[(size_t)z * nx + x] = v;
     }
+  w5TerrainBase(*this, t);   // W5: authored template heightmap + water level (w5_maps.cpp)
   chunkRev.assign((size_t)chunksX() * chunksZ(), 0);
   glCreateTextures(GL_TEXTURE_2D, 1, &maskTex);
   glTextureStorage2D(maskTex, 1, GL_R8, tilesX(), tilesZ());

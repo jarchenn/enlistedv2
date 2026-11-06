@@ -1412,9 +1412,42 @@ void main(){
   // compacted earth: trodden patches, small stones and wheel-polished strips break the track up at 0.2-2 m
   float pebble = smoothstep(0.78, 0.9, vnoise(vec3(p.xz*6.5, 11.0)));
   track = mix(track * (0.82 + 0.3*vnoise(vec3(p.xz*1.7, 12.0))), track*1.25 + vec3(0.03), pebble*0.45);
+  track = mix(track, mix(vec3(0.40,0.345,0.24), vec3(0.47,0.41,0.29), nF)*(0.9 + 0.2*nX) + vec3(0.02,0.018,0.012)*streak, 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)));   // W5: beach sand (route kind "sand", surface.cpp)
   // grass breaks up into the track along a noisy edge; ruts and damp lows turn to mud
   float tw = smoothstep(0.25, 0.75, wear + (nF - 0.5)*0.35 + (nX - 0.5)*0.15);
   vec3 alb = mix(grass, track, tw);
+  // W5b: slope material. Soil and scree from ~28 to ~42 deg, bare rock above ~45 deg (cliffs, quarry and ravine
+  // walls): grey-brown limestone and darker schist in beds, bedding lines, vertical joints, lichen on ledges.
+  // World-space 3D noise, so vertical faces are textured, not stretched. Wear / route / rut / wet still apply below.
+  float rockK = 0.0, screeK = 0.0, rCrack = 0.0; vec3 rBump = vec3(0.0);
+  float sny = normalize(vN).y + (nM - 0.5)*0.07;                       // band edges wander
+  screeK = smoothstep(0.89, 0.75, sny);
+  if (screeK > 0.001) {
+    float rBreak = fbm(vec3(p.xz*0.21, p.y*0.21 + 40.0));
+    rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16);
+    float lith = smoothstep(0.35, 0.65, fbm(vec3(p.xz*0.018, p.y*0.03 + 41.0)));              // limestone <-> schist
+    float warp = fbm(vec3(p.xz*0.06, p.y*0.02 + 42.0))*5.0;
+    float bedY = p.y*0.42 + warp;                                                              // ~2.4 m beds
+    float bedV = fract(sin(floor(bedY)*91.7)*4375.85);                                         // per-bed tone
+    float bedLine = 1.0 - smoothstep(0.0, 0.07, min(fract(bedY), 1.0 - fract(bedY)));          // bedding planes
+    float thin = smoothstep(0.82, 0.97, sin((p.y + warp*0.4)*7.5)*0.5 + 0.5);                  // fine laminae (schist)
+    float jx = (p.x*0.62 + p.z*0.78)*0.29 + (vnoise(vec3(p.xz*0.05, p.y*0.07 + 43.0)) - 0.5)*0.7;      // sub-vertical joints ~3.4 m apart
+    rCrack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.45, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)));   // some run, some stop at a bed
+    float grain = vnoise(vec3(p*3.1 + 44.0)), mott = fbm(vec3(p*0.6 + 45.0));
+    vec3 lime = mix(vec3(0.44,0.40,0.33), vec3(0.57,0.52,0.43), bedV) * (0.74 + 0.42*mott);
+    vec3 schist = mix(vec3(0.24,0.23,0.21), vec3(0.34,0.31,0.27), bedV) * (0.78 + 0.36*mott) * (1.0 - 0.25*thin*lith);
+    vec3 rock = mix(lime, schist, lith) * (0.9 + 0.2*grain);
+    rock *= 1.0 - 0.4*bedLine - 0.42*rCrack;
+    rock = mix(rock, vec3(0.30,0.22,0.15), 0.25*smoothstep(0.55, 0.8, fbm(vec3(p*0.25 + 46.0))));      // iron staining
+    float lichen = smoothstep(0.62, 0.8, vnoise(vec3(p*0.45 + 47.0))) * smoothstep(0.35, 0.65, sny + 0.25);
+    rock = mix(rock, mix(vec3(0.16,0.19,0.09), vec3(0.42,0.41,0.30), grain), lichen*0.55);             // moss / lichen
+    // scree: brown soil with loose grey stones, collecting toward the foot of the face
+    float pebs = smoothstep(0.55, 0.72, vnoise(vec3(p*4.2 + 48.0))) + 0.5*smoothstep(0.6, 0.8, vnoise(vec3(p*1.4 + 49.0)));
+    vec3 scr = mix(soil*0.95, mix(lime, schist, lith)*(0.7 + 0.25*grain), clamp(pebs, 0.0, 1.0)*0.6);
+    alb = mix(alb, scr, screeK*(1.0 - 0.6*tw));
+    alb = mix(alb, rock, rockK);
+    rBump = vec3(vnoise(vec3(p*1.7 + 50.0)) - 0.5, (bedLine - 0.5)*0.6, vnoise(vec3(p*1.7 + 51.0)) - 0.5)*1.1;
+  }
   alb = mix(alb, mud, clamp(rut*0.85 + wet*0.6, 0.0, 1.0)*tw);
   // crater and disturbed soil
   float dirt = clamp(vDirt, 0.0, 1.0);
@@ -1426,6 +1459,11 @@ void main(){
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, vnoise(vec3(p.xz*4.3, 5.0)) - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
                      + vec3(streak - 0.5, 0.0, vnoise(vec3(sw*0.7, 18.0)) - 0.5)*0.35*nearK*(1.0 - tw)*(1.0 - puddle));   // sward relief (shading only)
   float ao = (1.0 - 0.25*dirt) * (1.0 - 0.18*rut*tw);
+  if (screeK > 0.001) {   // W5b: rock relief and joint shadow (shading only)
+    N = normalize(mix(N, normalize(normalize(vN) + rBump), max(rockK, screeK*0.4)));
+    rough = mix(rough, 0.9, rockK);
+    ao *= 1.0 - 0.35*rCrack*rockK;
+  }
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;

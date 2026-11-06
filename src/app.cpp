@@ -2,6 +2,7 @@
 #include "thumbs.h"
 #include "selftest.h"
 #include "mpai.h"
+#include "w5.h"
 #include "w3.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -132,6 +133,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     mat4 M = instanceMatrix(i);
     if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
     if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
+    if (w5CullDraw(*this, i, r.asset)) continue;   // W5: small decorators beyond their draw distance (content/settings/maps.json)
     if (r.asset->tree.on) {
       if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900) treeDrawItems(i, r, op);
       continue;
@@ -248,6 +250,7 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   camPos = t.camPos; camYaw = t.camYaw; camPitch = t.camPitch;
   docPath.clear(); dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   tool = Tool::Select; placing = nullptr;
+  w5NewMapContent(*this, t);   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
   toast("New map from template: " + t.name);
   return true;
 }
@@ -464,6 +467,7 @@ void App::makeThumbnails() {
   makeAssetThumbnails(*this);   // thumbs.cpp (W2): silhouette framing, models and wire, disk cache
   for (auto& t : templates) {
     if (!t.available) continue;
+    if (w5TemplateThumbnail(t)) continue;   // W5: pre-rendered default-map preview
     terrain.generate(t);
     mat4 v = glm::lookAt(t.camPos, t.camPos + forward(t.camYaw, t.camPitch), vec3(0, 1, 0));
     t.thumbnail = R.renderThumbnail({}, {}, vec3(-1), vec3(1), &terrain, &v);
@@ -511,6 +515,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
+    else if (a == "--selftest-maps" || a == "--render-map-thumbs") runSelf = true;   // W5 default maps (selftest_maps.cpp)
     else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities" || a == "--selftest-editor") runSelf = true;
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow

@@ -1,23 +1,46 @@
 {
   "id": "omaha_easy_red",
-  "version": 0,
+  "version": 2,
   "order": 1,
   "name": "Normandy Beaches - Omaha, Easy Red",
-  "available": false,
-  "seed": 1,
-  "description": "Terrain reconstruction of the E-1 draw sector, 6 June 1944, with all wartime structures intentionally omitted. Planned; see docs/normandy-terrain.md for the research plan.",
+  "available": true,
+  "seed": 61944,
+  "description": "Easy Red and the E-1 draw, 6 June 1944: the tidal flat with its four obstacle belts, the shingle and seawall, wire, mines and the anti-tank ditch on the sand shelf, WN65 (R667 casemate) and WN64 (unfinished R612) on the bluff, the draw road through the bocage to Saint-Laurent-sur-Mer. Five objectives, Allies attack from the landing craft. 1200 x 2400 m.",
   "width": 1200,
   "depth": 2400,
   "margin": 100,
-  "size": 800,
-  "buildHalf": 300,
   "camera": {
     "pos": [
-      0,
-      30,
-      120
+      0.0,
+      95.0,
+      -1350.0
     ],
-    "yaw": 0,
-    "pitch": -12
+    "yaw": 180.0,
+    "pitch": -14.0
+  },
+  "heightmap": {
+    "file": "omaha_easy_red.height.png",
+    "nx": 451,
+    "nz": 831,
+    "min": -3,
+    "max": 53,
+    "org": [
+      -705.8824,
+      -1301.9608
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": 0.0,
+  "map": "omaha_easy_red.nmap.json",
+  "playable": true,
+  "thumbnail": "omaha_easy_red.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -345.0,
+      27.0,
+      -755.0
+    ],
+    "yaw": -125.676408221862,
+    "pitch": -8.0
   }
 }
