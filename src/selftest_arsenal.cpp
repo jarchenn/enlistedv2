@@ -224,7 +224,12 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
           if (!a.projectiles.empty() || t < 1.0f) return t > 8;
           auto& st = a.rt[gun].st;
           char nb[160]; std::snprintf(nb, sizeof nb, " impact %.1f %.1f %.1f (%.2f m from the gun)", a.lastImpact.pos.x, a.lastImpact.pos.y, a.lastImpact.pos.z, glm::length(a.lastImpact.pos - (st.pos + vec3(0, 0.8f, 0))));
-          if (nearMiss) check(!st.wrecked && st.hp < 100 && a.directHits == h0, std::string(label) + ": not a direct hit, splash only (HP " + std::to_string((int)st.hp) + "/100)" + nb);
+          if (nearMiss) {   // launchers were given a smaller blast (Panzerschreck 1.9 -> 1.3 m): a near miss this far out leaves the gun intact
+            const WeaponDef& w = *a.weaponDefs[a.weaponIndex(weapon)];
+            float dist = glm::length(a.lastImpact.pos - (st.pos + vec3(0, 0.8f, 0)));
+            bool expectSplash = dist < w.rocketR;
+            check(!st.wrecked && a.directHits == h0 && (expectSplash ? st.hp < 100 : st.hp == 100), std::string(label) + ": not a direct hit; launcher blast radius " + std::to_string(w.rocketR).substr(0, 3) + " m, so " + (expectSplash ? "splash only" : "no splash damage") + " (HP " + std::to_string((int)st.hp) + "/100)" + nb);
+          }
           else { char b[200]; std::snprintf(b, sizeof b, " (impact %.1f %.1f %.1f on %s, gun at %.1f %.1f %.1f)", a.lastImpact.pos.x, a.lastImpact.pos.y, a.lastImpact.pos.z, a.lastImpact.surface.c_str(), g.x, g.y, g.z);
             check(st.wrecked && a.stationsWrecked == w0 + 1 && a.directHits == h0 + 1, std::string(label) + ": one direct hit destroys the PaK 40" + b); }
           return true;

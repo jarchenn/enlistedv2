@@ -51,6 +51,8 @@ void App::updateLeafBodies(const Instance& i, InstanceRT& r, int k) {
 void App::destroyRT(InstanceRT& r) {
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
   Physics::remove(r.wallBody); r.wallBody = 0xffffffffu;
+  for (auto& m : r.pmesh) m.destroy();
+  r.pmesh.clear(); r.pshape.clear(); r.wf.clear();
   Physics::remove(r.trunkBody); r.trunkBody = 0xffffffffu;
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
@@ -74,12 +76,7 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
     }
   }
   r.hp.assign(r.asset->panels.size(), 0); r.state.assign(r.asset->panels.size(), PANEL_INTACT);
-  for (size_t k = 0; k < r.asset->panels.size(); ++k) {
-    auto& p = r.asset->panels[k];
-    auto ov = i.panelHp.find(p.id);
-    r.hp[k] = ov != i.panelHp.end() ? ov->second : p.hp;
-    r.state[k] = panelStateFor(r.hp[k], p.hp);
-  }
+  replayWallDamage(i, r);   // authored wall damage (events; old maps' panel HP converted)
   rebuildWalls(i, r);
   for (size_t k = 0; k < n; ++k) {
     auto& d = r.asset->interactables[k];
@@ -161,7 +158,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }
     op.push_back({&r.asset->opaque, M});
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
-    else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({&r.asset->panels[k].mesh[r.state[k]], M});
+    else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
     if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
     for (size_t k = 0; k < r.asset->interactables.size(); ++k) {
       auto& d = r.asset->interactables[k];
@@ -434,7 +431,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update") runSelf = true;
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }

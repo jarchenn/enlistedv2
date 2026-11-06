@@ -219,8 +219,8 @@ void App::stepProjectiles(float dt) {
           if (p.atKill && hitInst) { auto hr = rt.find(hitInst); if (hr != rt.end() && isAtGun(hr->second.asset) && !hr->second.st.wrecked) { wreckStation(hitInst, p.kind == PROJ_ROCKET ? "rocket direct hit" : "shell direct hit"); ++directHits; } }
           blastAT = p.at;   // AT: concentrated wall damage, deep crater (ground.cpp)
           blastSplashGun = p.splashGun;
-          auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore)
-                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore) : explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore);
+          auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore, WALL_ROCKET)
+                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore, WALL_HE);
           blastAT = false; blastSplashGun = 40;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
           audio.play("explosion", hit.pos, 1.0f);

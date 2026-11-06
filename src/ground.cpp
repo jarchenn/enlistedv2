@@ -45,7 +45,7 @@ bool App::craterAt(vec3 p, float radius, float depth) {
 
 bool App::deformGround(vec3 p, float scale) {
   // Crater displacement (guide formula):  Z_new = Z_old - D_max * (max(0, 1 - d^2 / R^2))^p,  p = 2
-  //   standard shell (7.5 cm HE): D_max 0.5 m, R 1.5 m;  AT shell (PzGr. 39): D_max 1.2 m, R 3.0 m
+  //   standard shell (7.5 cm HE): D_max 0.62 m, R 2.0 m;  AT shell (PzGr. 39): D_max 1.5 m, R 3.9 m (was 0.5 / 1.5, 1.2 / 3.0)
   // AT is the guide's deep profile scaled to stay climbable (peak wall ~32 deg); both are game tuning, not
   // measurements of wartime craters.
   if (blastAT) return craterAt(p, kATCraterR, kATCraterD);
@@ -79,10 +79,13 @@ void App::applyDamageToMap() {
     if (i.extra.is_object() && i.extra.value("session", false)) { i.extra.erase("session"); changed = true; ++placed; }
     auto it = rt.find(i.id); if (it == rt.end()) { if (changed) i.rev = ++revCounter; continue; }
     auto& r = it->second;
-    for (size_t k = 0; k < r.asset->panels.size(); ++k) {
-      auto& p = r.asset->panels[k];
-      float authored = i.panelHp.count(p.id) ? i.panelHp[p.id] : p.hp;
-      if (std::fabs(r.hp[k] - authored) > 0.01f) { i.panelHp[p.id] = r.hp[k]; changed = true; ++panels; }
+    if (!r.asset->panels.empty()) {   // wall damage is stored as its replayable events (old per-panel HP migrated)
+      std::vector<WallEvent> authored; authoredWallEvents(i, r.asset, authored);
+      if (r.wallEvents.size() != authored.size() || !i.panelHp.empty()) {
+        if (!i.extra.is_object()) i.extra = json::object();
+        i.extra["wallDamage"] = wallEventsJson(r); i.panelHp.clear();
+        changed = true; panels += (int)(r.wallEvents.size() - std::min(r.wallEvents.size(), authored.size()));
+      }
     }
     for (size_t k = 0; k < r.leafSt.size(); ++k)
       for (size_t l = 0; l < r.leafSt[k].size(); ++l) {
@@ -108,7 +111,7 @@ void App::applyDamageToMap() {
 
 void App::clearAppliedDamage() {
   pushUndo();
-  for (auto& i : doc.instances) if (!i.panelHp.empty() || !i.leafState.empty() || i.extra.contains("tree")) { i.panelHp.clear(); i.leafState.clear(); i.extra.erase("tree"); i.rev = ++revCounter; }
+  for (auto& i : doc.instances) if (!i.panelHp.empty() || !i.leafState.empty() || i.extra.contains("tree") || i.extra.contains("wallDamage")) { i.panelHp.clear(); i.leafState.clear(); i.extra.erase("tree"); i.extra.erase("wallDamage"); i.rev = ++revCounter; }
   doc.terrainDeltas.clear();
   dirty = true;
   resetGround();

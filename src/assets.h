@@ -108,6 +108,7 @@ struct DefenseDef {
   std::string kind;                         // "" = not a defence; "tank_trap", "sandbag"
   float hp = 300, smallArms = 1, occlusion = 1, maxSlopeDeg = 35;
   bool blocksVehicles = false, stopsBullets = false;
+  bool unsafeVault = false;                 // barbed wire: never vaulted, slows traversal
   std::vector<DefenseSocket> sockets;
 };
 

@@ -54,10 +54,20 @@ bool SelfTest::runWalkthrough(App& app, float dt) {
     }
     app.eyeYaw = yawTo(ch.pos, tgt); app.eyePitch = s.value("pitch", -5.0f);
     app.scriptedInput.move = vec2(0, glm::length(d) < 0.6f ? 0.5f : 1.0f);
+    app.scriptedInput.crouch = s.value("crouch", false);   // e.g. through a shell hole lower than a standing man
     if (stepTime > 25) {
       char b[200]; std::snprintf(b, sizeof b, "%s%s: could not reach target (stuck at local %.2f,%.2f,%.2f)", label.c_str(), s.value("note", std::string("goto")).c_str(),
         (glm::inverse(yawQuat(house->yaw)) * (ch.pos - house->pos)).x, ch.pos.y - house->pos.y, (glm::inverse(yawQuat(house->yaw)) * (ch.pos - house->pos)).z);
-      check(false, b); Physics::setCharacterPos(tgt + vec3(0, s.value("expectY", 0.0f), 0)); next();
+      // what is in front of the capsule: forward rays at three heights (body user data, distance)
+      std::string why;
+      for (float hy : {0.06f, 0.15f, 0.25f, 0.7f, 1.1f, 1.25f, 1.38f}) {
+        Physics::Hit fh; vec3 o = ch.pos + vec3(0, hy, 0), fd = glm::normalize(vec3(d.x, 0, d.y));
+        char w[96];
+        if (Physics::castRayEx(o, fd, 1.0f, fh)) std::snprintf(w, sizeof w, " | y+%.2f: ud %llx at %.2f m", hy, (unsigned long long)fh.ud, fh.t);
+        else std::snprintf(w, sizeof w, " | y+%.2f: clear", hy);
+        why += w;
+      }
+      check(false, b + why); Physics::setCharacterPos(tgt + vec3(0, s.value("expectY", 0.0f), 0)); next();
     }
     return false;
   }
@@ -125,7 +135,7 @@ void SelfTest::update(App& app, float dt) {
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();
-    if (stage >= 1600) sightsUpdate(app, dt);
+    if (stage >= 1600 && stage < 1700) sightsUpdate(app, dt);
     return;
   }
   stageTime += dt;
@@ -153,6 +163,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-arsenal") { go(1400); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-move") { go(1500); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-sights") { go(1600); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-update") { go(1700); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }

@@ -46,7 +46,9 @@ export function mgCasemate() {
   });
   stdMaterials(A);
   const X = 3, Z = 3, T = 1.0, GF = 0.2, CEIL = 2.4, ROOF = 3.4, XI = X - T, ZI = Z - T;
-  const emb = { a0: -0.7, a1: 0.7, y0: GF + 1.05, y1: GF + 1.5 };
+  // embrasure enlarged (complete update): 1.4 x 0.45 m -> 1.7 x 0.68 m, sill lowered for the mounted MG muzzle and
+  // top raised so a crouched (eye ~1.25 m) and a standing rifleman (ADS muzzle ~1.75 m) both shoot out over the sill
+  const emb = { a0: -0.85, a1: 0.85, y0: GF + 1.0, y1: GF + 1.68 };
   const rear = door(A, { id: "casemate_door", axis: "x", outer: -Z, inner: -ZI, c: -1.0, floor: GF, w: 1.0, h: 1.9, hingeSide: -1, steel: true, lintel: false, step: false, label: "steel door" });
   concreteShell(A, { X, Z, T, GF, CEIL, ROOF, front: [emb], back: [rear] });
   // steel embrasure shutter: two leaves on the interior face, opening inward
@@ -108,7 +110,9 @@ export function observationPost() {
   });
   stdMaterials(A);
   const X = 2.25, Z = 2.25, T = 0.8, GF = 0.2, CEIL = 2.3, ROOF = 3.1, XI = X - T, ZI = Z - T;
-  const slit = { a0: -0.6, a1: 0.6, y0: GF + 1.42, y1: GF + 1.67 };
+  // slit enlarged (complete update): 1.2 x 0.25 m -> 1.5 x 0.38 m, centred on the standing eye (1.62 m) with the ADS
+  // muzzle (~1.5-1.55 m) above the elbow ledge, cut through the full wall depth (geometry and collision)
+  const slit = { a0: -0.75, a1: 0.75, y0: GF + 1.34, y1: GF + 1.72 };
   const rear = door(A, { id: "op_door", axis: "x", outer: -Z, inner: -ZI, c: 0.6, floor: GF, w: 1.0, h: 1.9, hingeSide: 1, steel: true, lintel: false, step: false, label: "steel door" });
   concreteShell(A, { X, Z, T, GF, CEIL, ROOF, front: [slit], back: [rear] });
   A.box([slit.a0, slit.y0 - 0.12, ZI - 0.25], [slit.a1, slit.y0, ZI], "concrete");   // elbow ledge under the slit

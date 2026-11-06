@@ -207,6 +207,72 @@ int AssetDef::findInteract(const std::string& iid) const {
   return -1;
 }
 
+// Structural wall / floor slabs that were authored as plain parts (piers between openings, corners and quoins,
+// lintels, sills, upper floors) become damage-field bays, so every part of a wall takes impact-centred damage.
+// Parts sharing one face rectangle and touching along the thin axis are stacked as the layers of one bay
+// (stone + plaster skin). Furniture and foundations are left alone.
+static void extractWallPanels(AssetDef& a, std::vector<Panel>& out) {
+  auto matName = [&](const Part& p) { return p.mat >= 0 && p.mat < (int)a.materials.size() ? a.materials[p.mat].name : std::string(); };
+  auto isWallMat = [](const std::string& m) {
+    static const char* k[] = {"stone", "stone_dressed", "plaster", "plaster_smoke", "render", "concrete", "concrete_wash", "brick", "plank_y", "plank_x", "plank_z", "log_x", "log_z"};
+    for (auto* s : k) if (m == s) return true;
+    return false;
+  };
+  auto isFloorMat = [](const std::string& m) { return m == "floor_x" || m == "concrete_floor" || m == "plank_x" || m == "plank_z"; };
+  vec3 lo(1e9f), hi(-1e9f);
+  for (auto& p : a.parts) { lo = glm::min(lo, p.center - p.size * 0.5f); hi = glm::max(hi, p.center + p.size * 0.5f); }
+  vec3 mid = (lo + hi) * 0.5f;
+  struct Cand { size_t idx; int n; float u0, u1, v0, v1, d0, d1; };
+  std::vector<Cand> cands;
+  for (size_t i = 0; i < a.parts.size(); ++i) {
+    const Part& p = a.parts[i];
+    if (p.shape != Part::BOX || std::fabs(std::fabs(p.rot.w) - 1.0f) > 1e-4f || !p.collide || !p.visible) continue;
+    std::string m = matName(p);
+    int n = p.size.x <= p.size.y && p.size.x <= p.size.z ? 0 : p.size.y <= p.size.z ? 1 : 2;
+    int u = n == 1 ? 0 : (n == 2 ? 0 : 2), v = n == 1 ? 2 : 1;
+    if (p.size[n] > 1.2f || p.size[u] < 0.25f || p.size[v] < 0.25f) continue;
+    if (n == 1) { if (!isFloorMat(m) || p.center.y - p.size.y * 0.5f < 0.5f) continue; }   // upper floors only, never foundations
+    else if (!isWallMat(m)) continue;
+    cands.push_back({i, n, p.center[u] - p.size[u] * 0.5f, p.center[u] + p.size[u] * 0.5f, p.center[v] - p.size[v] * 0.5f, p.center[v] + p.size[v] * 0.5f,
+                     p.center[n] - p.size[n] * 0.5f, p.center[n] + p.size[n] * 0.5f});
+  }
+  std::vector<bool> taken(cands.size(), false), remove(a.parts.size(), false);
+  auto same = [](float x, float y) { return std::fabs(x - y) < 0.012f; };
+  for (size_t c = 0; c < cands.size(); ++c) {
+    if (taken[c]) continue;
+    std::vector<size_t> grp{c}; taken[c] = true;
+    float d0 = cands[c].d0, d1 = cands[c].d1;
+    for (bool grew = true; grew;) {   // stack layers that share the face rectangle and touch along the thin axis
+      grew = false;
+      for (size_t o = 0; o < cands.size(); ++o) {
+        if (taken[o] || cands[o].n != cands[c].n || !same(cands[o].u0, cands[c].u0) || !same(cands[o].u1, cands[c].u1) || !same(cands[o].v0, cands[c].v0) || !same(cands[o].v1, cands[c].v1)) continue;
+        if (!(same(cands[o].d1, d0) || same(cands[o].d0, d1))) continue;
+        taken[o] = true; grp.push_back(o); d0 = std::min(d0, cands[o].d0); d1 = std::max(d1, cands[o].d1); grew = true;
+      }
+    }
+    Panel pn;
+    pn.id = "auto/" + std::to_string(cands[c].idx);
+    float thick = 0; std::string fam = "masonry";
+    for (size_t g : grp) {
+      const Part& p = a.parts[cands[g].idx];
+      pn.parts[0].push_back(p); remove[cands[g].idx] = true;
+      if (p.size[cands[c].n] > thick) {
+        thick = p.size[cands[c].n]; std::string m = matName(p);
+        fam = m.rfind("concrete", 0) == 0 ? "concrete" : (m.rfind("plank", 0) == 0 || m.rfind("log", 0) == 0 || m == "floor_x") ? "timber" : "masonry";
+      }
+    }
+    pn.family = fam; pn.hp = fam == "concrete" ? 450.0f : fam == "timber" ? 90.0f : 200.0f;
+    pn.bmin = vec3(1e9f); pn.bmax = vec3(-1e9f);
+    for (auto& p : pn.parts[0]) { pn.bmin = glm::min(pn.bmin, p.center - p.size * 0.5f); pn.bmax = glm::max(pn.bmax, p.center + p.size * 0.5f); }
+    int n = cands[c].n;
+    pn.normal = vec3(0); pn.normal[n] = n == 1 ? 1.0f : ((pn.bmin[n] + pn.bmax[n]) * 0.5f >= mid[n] ? 1.0f : -1.0f);   // walls face outward
+    out.push_back(std::move(pn));
+  }
+  std::vector<Part> keep;
+  for (size_t i = 0; i < a.parts.size(); ++i) if (!remove[i]) keep.push_back(a.parts[i]);
+  a.parts.swap(keep);
+}
+
 bool AssetLibrary::loadOne(const fs::path& path) {
   json j;
   try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
@@ -237,6 +303,8 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     a->materials.push_back(m);
   }
   for (auto& pj : j.value("parts", json::array())) a->parts.push_back(parsePart(pj, mats));
+  std::vector<Panel> autoPanels;
+  if (!j.value("noAutoPanels", false)) extractWallPanels(*a, autoPanels);   // piers, corners, lintels, upper floors: destructible too
   for (auto& fj : j.value("furniture", json::array())) {
     a->furnitureNames.push_back(fj.value("name", "item"));
     for (auto& pj : fj.value("parts", json::array())) a->parts.push_back(parsePart(pj, mats));
@@ -342,6 +410,18 @@ bool AssetLibrary::loadOne(const fs::path& path) {
       pn.mesh[s].upload(m);
       pn.shape[s] = Physics::buildShape(c);
     }
+    if (pn.shape[0]) intactShapes.push_back(pn.shape[0]);
+    a->panels.push_back(std::move(pn));
+  }
+  for (auto& pn : autoPanels) {   // structural slabs converted at load (same boxes, so intact mesh / collision are unchanged)
+    MeshData m; std::vector<Part> c;
+    for (auto& p : pn.parts[0]) {
+      appendPart(m, p, a->materials[p.mat], mat4(1)); appendPart(allIntact, p, a->materials[p.mat], mat4(1));
+      if (p.visible) partCorners(p, pts);
+      if (p.collide) c.push_back(p);
+    }
+    pn.mesh[0].upload(m);
+    pn.shape[0] = Physics::buildShape(c);
     if (pn.shape[0]) intactShapes.push_back(pn.shape[0]);
     a->panels.push_back(std::move(pn));
   }

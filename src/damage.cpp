@@ -21,16 +21,21 @@ static uint64_t wallUD(uint64_t id) { return (id << 16) | 0xFFFFull; }
 void App::rebuildWalls(const Instance& i, InstanceRT& r) {
   auto t0 = std::chrono::high_resolution_clock::now();
   const AssetDef* a = r.asset;
-  r.damaged = std::any_of(r.state.begin(), r.state.end(), [](uint8_t s) { return s != PANEL_INTACT; });
+  r.damaged = false;
+  for (size_t k = 0; k < r.wf.size(); ++k) if (r.wf[k].active) r.damaged = true;
   ShapePtr s;
   if (!r.damaged) s = a->wallsIntact;   // shared across every undamaged copy
   else {
-    std::vector<ShapePtr> v;
-    for (size_t k = 0; k < a->panels.size(); ++k) v.push_back(a->panels[k].shape[r.state[k]]);
+    std::vector<ShapePtr> v;   // damaged bays use their rebuilt collision (same boxes as the mesh); others the prefab
+    for (size_t k = 0; k < a->panels.size(); ++k) {
+      const ShapePtr& ps = k < r.wf.size() && r.wf[k].active ? r.pshape[k] : a->panels[k].shape[0];
+      if (ps) v.push_back(ps);
+    }
     s = Physics::buildCompound(v);       // this copy only; prefab shapes are never mutated
   }
   if (r.wallBody == 0xffffffffu) { if (s) r.wallBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), wallUD(i.id)); }
   else if (s) Physics::setShape(r.wallBody, s);
+  else { Physics::remove(r.wallBody); r.wallBody = 0xffffffffu; }   // every bay fully destroyed
   r.lastRebuildMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
 }
 
@@ -40,20 +45,16 @@ void App::resetDamage() {
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
-    bool changed = false;
-    for (size_t k = 0; k < r.asset->panels.size(); ++k) {
-      auto& p = r.asset->panels[k];
-      auto ov = i.panelHp.find(p.id);
-      float hp = ov != i.panelHp.end() ? ov->second : p.hp;
-      uint8_t st = panelStateFor(hp, p.hp);
-      if (st != r.state[k]) changed = true;
-      r.hp[k] = hp; r.state[k] = st;
-    }
-    if (changed) rebuildWalls(i, r);
+    if (r.asset->panels.empty()) continue;
+    std::vector<WallEvent> authored; authoredWallEvents(i, r.asset, authored);
+    if (authored.size() == r.wallEvents.size() && !r.wf.empty()) continue;   // nothing from this session
+    for (auto& m : r.pmesh) m.destroy();
+    replayWallDamage(i, r);   // back to the authored state exactly (same events, same seeds)
+    rebuildWalls(i, r);
   }
 }
 
-App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float craterScale, uint64_t ignoreUd) {
+App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float craterScale, uint64_t ignoreUd, int wallKind) {
   Explosion ex; ex.pos = p;
   blastLeaves(p, radius);   // glass within 1.6 R shatters, shutters / doors within R are blown off
   blastTrees(p, radius);    // HP_AT = 1: a shell within 1.5 m of a trunk fells it
@@ -67,40 +68,20 @@ App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float cra
   }
   blastPlayer(p - (glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0)) * 0.06f, dmg, radius);   // exposure readout, sandbag occlusion x0.1
   vec3 d = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0);
-  vec3 origin = p - d * 0.06f;   // just in front of the struck surface
+  // walls: one impact-centred stamp at the true contact point, applied to every bay it overlaps (wallfield.cpp)
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
     const AssetDef* a = r.asset;
     if (a->panels.empty()) continue;
     float br = glm::length(a->bmax - a->bmin) * 0.5f;
-    if (glm::length(p - (i.pos + yawQuat(i.yaw) * ((a->bmin + a->bmax) * 0.5f))) > br + radius) continue;
+    if (glm::length(p - (i.pos + yawQuat(i.yaw) * ((a->bmin + a->bmax) * 0.5f))) > br + 1.5f) continue;
     quat q = yawQuat(i.yaw);
-    vec3 lp = glm::inverse(q) * (origin - i.pos);   // impact in the building's local frame
-    bool rebuild = false;
-    for (size_t k = 0; k < a->panels.size(); ++k) {
-      auto& pn = a->panels[k];
-      if (r.state[k] == PANEL_BREACHED) continue;
-      vec3 cp = glm::clamp(lp, pn.bmin, pn.bmax);
-      float dist = glm::length(cp - lp);
-      if (dist > radius) continue;
-      if (dist > 0.12f) {   // solid cover: something other than this copy's walls in between blocks the blast
-        vec3 wc = i.pos + q * cp;
-        Physics::Hit h;
-        float len = glm::length(wc - origin);
-        if (len > 0.05f && Physics::castRayEx(origin, wc - origin, len, h, ignoreUd) && h.t < len - 0.15f && h.ud != wallUD(i.id)) continue;
-      }
-      float dmgK = dmg * (1.0f - dist / radius);
-      r.hp[k] -= dmgK;
-      uint8_t st = panelStateFor(r.hp[k], pn.hp);
-      ex.hits.push_back(pn.id);
-      if (st != r.state[k]) {
-        rebuild = true;
-        if (st == PANEL_BREACHED) ++ex.breached;
-        r.state[k] = st;
-      }
-    }
-    if (rebuild) rebuildWalls(i, r);
+    WallEvent e;
+    e.p = glm::inverse(q) * (p - i.pos); e.d = glm::inverse(q) * d; e.kind = wallKind; e.dmg = dmg;
+    e.seed = (uint32_t)(i.id * 2654435761u) ^ (uint32_t)(r.wallEvents.size() * 40503u + 17u);   // deterministic per copy / event
+    if (r.wf.empty()) initWallFields(r);
+    if (stampWall(r, e, true, &ex.hits, &ex.breached) > 0) { r.wallEvents.push_back(e); rebuildWalls(i, r); }
   }
   if (craterScale > 0.0f) ex.crater = deformGround(p, craterScale);
   lastExplosion = ex;

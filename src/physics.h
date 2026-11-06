@@ -53,6 +53,8 @@ public:
   // not fit), turns the prone body toward bodyYawWanted only when the rotated body fits
   static void updateCharacter(float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYawWanted);
   static bool postureFits(int posture, float bodyYaw);
+  static bool shapeFitsAt(int posture, vec3 feet, bool withTerrain = true);   // posture body at an arbitrary position
+  static uint64_t shapeHitUD(int posture, vec3 feet, bool withTerrain = true);  // debug: user data of a body it overlaps (0 = none)
   static float proneHalfLength() { return 0.85f; }
   static float proneRadius() { return 0.25f; }
   static void setCharacterPos(vec3 feet);

@@ -368,8 +368,33 @@ bool Physics::postureFits(int posture, float bodyYaw) {
   // lifted 4 cm so resting on the ground (and the stair nosing under the feet) is not a collision
   RVec3 p = c->GetPosition() + Vec3(0, 0.04f, 0);
   IgnoreUDTerrain filt(~0ull, true);   // ground contact is the controller's job; walls, ceilings and props block
-  W->sys->GetNarrowPhaseQuery().CollideShape(sh, Vec3::sReplicate(1.0f), RMat44::sRotationTranslation(q, p), cs, RVec3::sZero(), col, {}, {}, filt);
+  // CollideShape takes the shape's CENTRE-OF-MASS transform: offset by the (rotated) centre of mass of the
+  // feet-origin capsule, or the test body sits 0.9 m too low (centred on the feet)
+  RMat44 xf = RMat44::sRotationTranslation(q, p).PreTranslated(sh->GetCenterOfMass());
+  W->sys->GetNarrowPhaseQuery().CollideShape(sh, Vec3::sReplicate(1.0f), xf, cs, RVec3::sZero(), col, {}, {}, filt);
   return !col.HadHit();
+}
+
+bool Physics::shapeFitsAt(int posture, vec3 feet, bool withTerrain) {
+  auto& c = W->character; if (!c) return false;
+  const Shape* sh = posture == PRONE ? W->proneShape.GetPtr() : posture == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
+  CollideShapeSettings cs; cs.mMaxSeparationDistance = 0; cs.mActiveEdgeMode = EActiveEdgeMode::CollideOnlyWithActive;
+  AnyHitCollisionCollector<CollideShapeCollector> col;
+  IgnoreUDTerrain filt(~0ull, !withTerrain);
+  W->sys->GetNarrowPhaseQuery().CollideShape(sh, Vec3::sReplicate(1.0f), RMat44::sTranslation(jr(feet) + Vec3(0, 0.03f, 0) + sh->GetCenterOfMass()), cs, RVec3::sZero(), col, {}, {}, filt);
+  return !col.HadHit();
+}
+
+uint64_t Physics::shapeHitUD(int posture, vec3 feet, bool withTerrain) {
+  auto& c = W->character; if (!c) return 0;
+  const Shape* sh = posture == PRONE ? W->proneShape.GetPtr() : posture == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
+  CollideShapeSettings cs; cs.mMaxSeparationDistance = 0; cs.mActiveEdgeMode = EActiveEdgeMode::CollideOnlyWithActive;
+  ClosestHitCollisionCollector<CollideShapeCollector> col;
+  IgnoreUDTerrain filt(~0ull, !withTerrain);
+  W->sys->GetNarrowPhaseQuery().CollideShape(sh, Vec3::sReplicate(1.0f), RMat44::sTranslation(jr(feet) + Vec3(0, 0.03f, 0) + sh->GetCenterOfMass()), cs, RVec3::sZero(), col, {}, {}, filt);
+  if (!col.HadHit()) return 0;
+  BodyLockRead lock(W->sys->GetBodyLockInterface(), col.mHit.mBodyID2);
+  return lock.Succeeded() ? lock.GetBody().GetUserData() : 1;
 }
 
 void Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawWanted) {
@@ -410,7 +435,10 @@ void Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
   c->SetLinearVelocity(nv);
   CharacterVirtual::ExtendedUpdateSettings us;
   us.mStickToFloorStepDown = Vec3(0, -0.5f, 0);
-  us.mWalkStairsStepUp = Vec3(0, W->posture == PRONE ? 0.2f : 0.35f, 0);
+  // step-up only with real ground contact: "supported" also counts steep ground, which let repeated jumps walk the
+  // character up steep faces and obstacle edges (the jump-climbing exploit)
+  bool onGround = c->GetGroundState() == CharacterBase::EGroundState::OnGround;
+  us.mWalkStairsStepUp = onGround ? Vec3(0, W->posture == PRONE ? 0.2f : 0.35f, 0) : Vec3::sZero();
   c->ExtendedUpdate(dt, gravity, us, bpf, olf, bf, sf, *W->temp);
 }
 

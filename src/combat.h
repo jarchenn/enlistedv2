@@ -39,6 +39,7 @@ struct WeaponState {
   int reloadKind = 0;             // 1 empty, 2 partial (retain), 3 single rounds
   bool triggerReleased = true, clicked = false;
   float recoilP = 0, recoilY = 0, kick = 0;
+  float sinceShot = 99;           // s since the last shot (recoil recovers only once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
   int mode = 0;                   // index into WeaponDef::modes (AUTO first); reset with the session
   uint32_t seed = 1;

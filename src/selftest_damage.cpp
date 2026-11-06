@@ -39,16 +39,28 @@ App::Explosion hitPanel(App& app, uint64_t id, const Panel& p, float along = 0, 
   return app.explode(W(app, id, fp), Wd(app, id, -p.normal), kHE, kHER, 1.0f);
 }
 // does a ray through the panel's centre pass the wall (no hit on this copy's wall body inside the wall)?
-bool rayPasses(App& app, uint64_t id, const Panel& p, float& tHit) {
-  vec3 fp = facePoint(p);
+bool rayPasses(App& app, uint64_t id, const Panel& p, float& tHit, float along = 0, float up = 0) {
+  vec3 fp = facePoint(p, along, up);
   float depth = std::fabs(glm::dot(p.bmax - p.bmin, glm::abs(p.normal)));
-  vec3 o = W(app, id, fp + p.normal * 1.0f), d = Wd(app, id, -p.normal);
+  vec3 o = W(app, id, fp + p.normal * 0.05f), d = Wd(app, id, -p.normal);   // from just outside this bay's face
   Physics::Hit h; tHit = 99;
-  if (!Physics::castRayEx(o, d, 1.0f + depth + 0.3f, h)) return true;
+  if (!Physics::castRayEx(o, d, 0.05f + depth + 0.02f, h)) return true;   // only this bay's own thickness counts
   tHit = h.t;
-  return h.ud != wallUD(id) || h.t > 1.0f + depth + 0.05f;
+  return h.ud != wallUD(id);
 }
 int breachedCount(App& app, uint64_t id) { int n = 0; for (auto s : app.rt[id].state) n += s == PANEL_BREACHED; return n; }
+// local wall-hit at an asset-space point / direction on one copy (bypasses the projectile path)
+App::Explosion hitAt(App& app, uint64_t id, vec3 lp, vec3 ld, int kind = WALL_HE, float dmg = kHE) { return app.explode(W(app, id, lp), Wd(app, id, ld), dmg, kHER, 0.0f, ~0ull, kind); }
+// extent of removed cells (any depth) of one bay along its width axis, in metres
+float removedWidth(App& app, uint64_t id, int k) {
+  const Panel& p = app.rt[id].asset->panels[k];
+  auto& w = app.rt[id].wf[k];
+  if (w.rf.empty()) return 0;
+  float W = tangentWidth(p); int nu = std::max(1, (int)std::ceil(W / app.destruction.cell)), nv = (int)w.rf.size() / nu;
+  int lo = 1 << 30, hi = -1;
+  for (int v = 0; v < nv; ++v) for (int u = 0; u < nu; ++u) if (w.rf[v * nu + u] + w.rb[v * nu + u] > 0.02f) { lo = std::min(lo, u); hi = std::max(hi, u); }
+  return hi < lo ? 0 : (hi - lo + 1) * W / nu;
+}
 float physGround(vec3 p) { Physics::Hit h; return Physics::castRayEx(vec3(p.x, p.y + 30, p.z), vec3(0, -1, 0), 80, h) ? h.pos.y : -999; }
 }
 
@@ -60,6 +72,7 @@ void SelfTest::beginCustom(App& app, const std::string& asset, uint64_t inst, co
 }
 
 void SelfTest::damageUpdate(App& app, float dt) {
+  if (stage >= 1700) { updateSuite(app, dt); return; }
   if (stage >= 1600) { sightsUpdate(app, dt); return; }
   if (stage >= 1500) { moveUpdate(app, dt); return; }
   if (stage >= 1400) { arsenalUpdate(app, dt); return; }
@@ -114,13 +127,24 @@ void SelfTest::damageUpdate(App& app, float dt) {
     bool hitThis = std::find(e3.hits.begin(), e3.hits.end(), X.pA) != e3.hits.end();
     check(!hitThis || app.rt[X.A].state[k] == PANEL_BREACHED, "a further shot through the opening resolves against the rebuilt collision");
     summary["wall_rebuild_ms_farmhouse"] = app.rt[X.A].lastRebuildMs;
+    summary["panel_rebuild_ms_farmhouse"] = app.rt[X.A].lastPanelMs;
     (void)e1; (void)e2;
+    {   // the breach is local: wall still stands a bay-width away; hitting the strip below it joins a doorway
+      float tt;
+      check(!rayPasses(app, X.A, p, tt, 0, -0.95f), "below the chest-height breach the wall still stands (a sill, not a deleted bay)");
+      hitPanel(app, X.A, p, 0, -0.85f); hitPanel(app, X.A, p, 0, -0.85f); hitPanel(app, X.A, p, 0, -0.45f);
+      bool low = rayPasses(app, X.A, p, tt, 0, -0.95f), mid = rayPasses(app, X.A, p, tt, 0, -0.45f), high = rayPasses(app, X.A, p, tt);
+      char b[200]; std::snprintf(b, sizeof b, "three more hits on and above the strip below join the holes into one doorway (rays at knee %d, hip %d, chest %d); open %.2f m^2 of %.2f",
+                                 (int)low, (int)mid, (int)high, app.rt[X.A].wf[k].openArea, tangentWidth(p) * (p.bmax.y - p.bmin.y));
+      check(low && mid && high && app.rt[X.A].wf[k].openArea < 0.8f * tangentWidth(p) * (p.bmax.y - p.bmin.y), b);
+    }
     // walk through the breach, use a window, up one stair, down the other, out the back door
     Physics::setCharacterPos(W(app, X.A, vec3(-7.8f, 0, 2.63f)) + vec3(0, 0.05f, 0));
     app.eyeYaw = worldYaw(app, -90);
     json st = json::array({
       json{{"look", {-6.0, 1.2, 2.63}}, {"hold", 0.5}}, json{{"shot", "30_breach_outside"}},
-      json{{"goto", {-6.9, 2.63}}}, json{{"goto", {-4.9, 2.63}}, {"expectY", 0.3}, {"note", "walk a real capsule through the breach"}},
+      json{{"goto", {-6.9, 2.63}}}, json{{"goto", {-4.9, 2.63}}, {"expectY", 0.3}, {"crouch", true}, {"note", "crouch through the shell breach (a real capsule, rebuilt collision)"}},
+      json{{"goto", {-4.4, 2.63}}},
       json{{"look", {-6.5, 1.2, 2.63}}, {"hold", 0.5}}, json{{"shot", "31_breach_inside"}},
       json{{"goto", {-3.0, 3.05}}, {"expectY", 0.3}, {"note", "kitchen window next to the breach"}},
       json{{"interact", "kitchen_casement"}, {"aim", {-2.75, 1.9, 4.05}}, {"expectOpen", true}},
@@ -234,11 +258,19 @@ void SelfTest::damageUpdate(App& app, float dt) {
     hitPanel(app, X.C, p);
     check(app.rt[X.C].state[k] != PANEL_BREACHED, "reinforced bunker wall survives the first HE hit (state " + std::to_string(app.rt[X.C].state[k]) + ")");
     int n = 1;
-    while (app.rt[X.C].state[k] != PANEL_BREACHED && n < 12) { hitPanel(app, X.C, p); ++n; }
+    while (app.rt[X.C].state[k] != PANEL_BREACHED && n < 16) { hitPanel(app, X.C, p); ++n; }
     check(app.rt[X.C].state[k] == PANEL_BREACHED, "casemate bay " + p.id + " opened by " + std::to_string(n) + " deliberate HE hits");
     summary["concrete_hits_to_breach"] = n;
     float t;
     check(rayPasses(app, X.C, p, t), "a ray passes the breached bunker wall");
+    {   // widen it down to the floor so a person fits: concrete takes many more hits than masonry
+      int m = 0; float tt;
+      auto fits = [&]() { for (int a = -4; a <= 4; ++a) for (int u = 0; u < 13; ++u) if (!rayPasses(app, X.C, p, tt, a * 0.1f, -0.95f + u * 0.15f)) return false; return true; };   // 0.8 x 1.85 m, rays every 10-15 cm
+      while (m < 120 && !fits()) { hitPanel(app, X.C, p, (m % 3 - 1) * 0.35f, -0.95f + ((m / 3) % 5) * 0.4f); ++m; }
+      std::string why;
+      if (m >= 120) for (int a = -4; a <= 4 && why.empty(); ++a) for (int u = 0; u < 13; ++u) if (!rayPasses(app, X.C, p, tt, a * 0.1f, -0.95f + u * 0.15f)) { why = " (first blocked ray: along " + std::to_string(a * 0.1f).substr(0, 5) + ", up " + std::to_string(-0.95f + u * 0.15f).substr(0, 5) + ", hit at " + std::to_string(tt).substr(0, 4) + " m)"; break; }
+      check(m < 120, "casemate opening widened to a walk-in breach by " + std::to_string(m) + " more hits (reinforced concrete resists far longer than masonry)" + why);
+    }
     vec3 c = (p.bmin + p.bmax) * 0.5f;
     Physics::setCharacterPos(W(app, X.C, vec3(c.x, 0, -3.6f)) + vec3(0, 0.25f, 0));
     app.eyeYaw = worldYaw(app, 180);
@@ -277,6 +309,87 @@ void SelfTest::damageUpdate(App& app, float dt) {
     break;
   // ------------------------------------------------------------- every variant, rotated, off-centre impacts
   case 508: {
+    {   // ---- damage-field properties on fresh copies: corner, seam, oblique vs straight, deterministic replay
+      const AssetDef* fa = app.lib.find(FH);
+      uint64_t c1 = app.placeInstance(fa, vec3(-230, 0, 150), 0.0f), c2 = app.placeInstance(fa, vec3(-190, 0, 150), 0.0f);
+      app.syncRuntime();
+      check(c1 && c2, "two fresh farmhouse copies for the damage-field checks");
+      if (c1 && c2) {
+      // corner: a bay with a +-z normal and one with a +-x normal whose boxes touch
+      int pz = -1, px = -1; vec3 corner(0);
+      for (size_t a = 0; a < fa->panels.size() && pz < 0; ++a) for (size_t b = 0; b < fa->panels.size(); ++b) {
+        const Panel &A = fa->panels[a], &B = fa->panels[b];
+        if (std::fabs(A.normal.z) < 0.5f || std::fabs(B.normal.x) < 0.5f || A.id.rfind("floor-00/", 0) != 0 || B.id.rfind("floor-00/", 0) != 0) continue;
+        vec3 lo = glm::max(A.bmin, B.bmin), hi = glm::min(A.bmax, B.bmax);
+        if (lo.x <= hi.x + 0.05f && lo.y <= hi.y && lo.z <= hi.z + 0.05f) { pz = (int)a; px = (int)b; corner = vec3(A.normal.z != 0 ? (B.normal.x > 0 ? B.bmax.x : B.bmin.x) : 0, 1.3f, A.normal.z > 0 ? A.bmax.z : A.bmin.z); break; }
+      }
+      if (pz >= 0) {
+        vec3 dirIn = -glm::normalize(fa->panels[pz].normal + fa->panels[px].normal);
+        hitAt(app, c1, corner - dirIn * 0.02f, dirIn); hitAt(app, c1, corner - dirIn * 0.02f, dirIn);
+        // the corner itself (pier / quoin bays converted from structural parts) breaks on both faces
+        int onZ = 0, onX = 0; float wz = 0, wx = 0;
+        for (size_t q = 0; q < fa->panels.size(); ++q) {
+          if (q >= app.rt[c1].wf.size() || !app.rt[c1].wf[q].active) continue;
+          float w = removedWidth(app, c1, (int)q);
+          if (std::fabs(fa->panels[q].normal.z) > 0.5f) { ++onZ; wz = std::max(wz, w); } else if (std::fabs(fa->panels[q].normal.x) > 0.5f) { ++onX; wx = std::max(wx, w); }
+        }
+        char b[220]; std::snprintf(b, sizeof b, "a hit on the building corner (by %s / %s) breaks both faces at the corner itself: %d front-facing and %d side-facing bays cut (up to %.2f / %.2f m)", fa->panels[pz].id.c_str(), fa->panels[px].id.c_str(), onZ, onX, wz, wx);
+        check(onZ > 0 && onX > 0 && wz > 0.15f && wx > 0.15f, b);
+      } else check(false, "corner bays found on the farmhouse");
+      // seam: two coplanar bays meeting edge to edge
+      int sa = -1, sb = -1; vec3 seam(0);
+      for (size_t a = 0; a < fa->panels.size() && sa < 0; ++a) for (size_t b = 0; b < fa->panels.size(); ++b) {
+        const Panel &A = fa->panels[a], &B = fa->panels[b];
+        if (a == b || std::fabs(A.normal.z) < 0.5f || A.normal != B.normal || std::fabs(A.bmax.x - B.bmin.x) > 0.02f || std::fabs(A.bmin.y - B.bmin.y) > 0.02f) continue;
+        if (std::fabs(A.bmax.z - B.bmax.z) > 0.02f || std::fabs(A.bmin.z - B.bmin.z) > 0.02f || A.id.rfind("floor-00/", 0) != 0) continue;   // same facade plane
+        sa = (int)a; sb = (int)b; seam = vec3(A.bmax.x, A.bmin.y + 1.3f, A.normal.z > 0 ? A.bmax.z : A.bmin.z); break;
+      }
+      if (sa >= 0) {
+        vec3 n = fa->panels[sa].normal;
+        for (int h = 0; h < 2; ++h) hitAt(app, c1, seam + n * 0.01f, -n);
+        float t;
+        Physics::Hit hh; vec3 o = W(app, c1, seam + n * 1.0f), d = Wd(app, c1, -n);
+        bool through = !Physics::castRayEx(o, d, 1.6f, hh) || hh.ud != ((c1 << 16) | 0xFFFFull);
+        (void)t;
+        char b[220]; std::snprintf(b, sizeof b, "seam hit opens both bays (%s %.2f m, %s %.2f m removed) and a ray along the seam passes: no crack or collider sliver at the joint",
+                                   fa->panels[sa].id.c_str(), removedWidth(app, c1, sa), fa->panels[sb].id.c_str(), removedWidth(app, c1, sb));
+        check(removedWidth(app, c1, sa) > 0.2f && removedWidth(app, c1, sb) > 0.2f && through, b);
+      } else check(true, "no edge-to-edge coplanar bays on this asset (openings separate them)");
+      // oblique vs straight: same bay on two copies, same energy
+      int k = pidx(fa, X.pA); const Panel& p = fa->panels[k];
+      vec3 fp = facePoint(p), n = p.normal, t = std::fabs(n.z) > 0.5f ? vec3(1, 0, 0) : vec3(0, 0, 1);
+      hitAt(app, c2, fp + n * 0.01f, -n);
+      float wStraight = removedWidth(app, c2, k);
+      app.resetDamage();
+      vec3 obl = glm::normalize(-n + t * 1.7f);   // ~60 deg from the normal
+      hitAt(app, c2, fp + n * 0.01f, obl);
+      float wOblique = removedWidth(app, c2, k);
+      char b[200]; std::snprintf(b, sizeof b, "an oblique (60 deg) hit gouges along the shot: %.2f m wide vs %.2f m for a straight hit of the same energy", wOblique, wStraight);
+      check(wOblique > wStraight * 1.2f, b);
+      // deterministic: replaying the stored events reproduces the field cell for cell
+      hitAt(app, c2, fp + n * 0.01f + t * 0.3f, -n, WALL_AP, 320.0f);
+      auto before = app.rt[c2].wf; auto events = app.rt[c2].wallEvents;
+      Instance tmp = *app.doc.find(c2); tmp.extra = json::object(); tmp.extra["wallDamage"] = app.wallEventsJson(app.rt[c2]);
+      InstanceRT r2; r2.id = c2; r2.asset = fa; r2.hp.assign(fa->panels.size(), 0); r2.state.assign(fa->panels.size(), PANEL_INTACT);
+      app.replayWallDamage(tmp, r2);
+      bool same = r2.wf.size() == before.size();
+      for (size_t q = 0; same && q < before.size(); ++q) same = r2.wf[q].rf == before[q].rf && r2.wf[q].rb == before[q].rb;
+      for (auto& m : r2.pmesh) m.destroy();
+      check(same && events.size() == 2, "replaying the " + std::to_string(events.size()) + " stored events rebuilds every cell exactly (saves / late join / undo reconstruct the same opening)");
+      // AP vs HE: one AP hit perforates masonry locally; one HE hit only craters
+      app.resetDamage();
+      hitAt(app, c2, fp + n * 0.01f, -n, WALL_AP, 320.0f);
+      float apOpen = app.rt[c2].wf[k].openArea; bool apBreach = app.rt[c2].state[k] == PANEL_BREACHED;
+      app.resetDamage();
+      hitAt(app, c2, fp + n * 0.01f, -n, WALL_HE, kHE);
+      bool heOpen = app.rt[c2].state[k] == PANEL_BREACHED;
+      std::snprintf(b, sizeof b, "masonry: one AP hit breaches locally (%.2f m^2 open); one HE hit only craters, the second at the same spot breaches (canonical fortification rule)", apOpen);
+      check(apBreach && !heOpen && apOpen < 0.6f, b);
+      app.resetDamage();
+      app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) { return i.id == c1 || i.id == c2; }), app.doc.instances.end());
+      app.syncRuntime();
+      }
+    }
     json hits = json::object();
     int idx = 0;
     for (auto& up : app.lib.assets) {
@@ -300,13 +413,17 @@ void SelfTest::damageUpdate(App& app, float dt) {
       for (int k : targets) {
         const Panel& p = a->panels[k];
         int n = 0;
-        while (app.rt[id].state[k] != PANEL_BREACHED && n < 12) { hitPanel(app, id, p, 0.35f, 0.2f); ++n; }
+        float t;
+        while (!(app.rt[id].state[k] == PANEL_BREACHED && rayPasses(app, id, p, t, 0.35f, 0.2f)) && n < 16) { hitPanel(app, id, p, 0.35f, 0.2f); ++n; }
         bool ok = app.rt[id].state[k] == PANEL_BREACHED;
         if (ok) ++broken;
-        float t;
-        bool pass3 = rayPasses(app, id, p, t);
-        check(ok && pass3 && breachedCount(app, id) == broken,
-              a->name + " @" + std::to_string((int)yaw) + " deg: off-centre hits open " + p.id + " (" + p.family + ", " + std::to_string(n) + " hits), ray passes, neighbours intact");
+        bool atImpact = rayPasses(app, id, p, t, 0.35f, 0.2f);
+        bool farSide = app.rt[id].wf[k].openArea < 0.7f * tangentWidth(p) * (p.bmax.y - p.bmin.y);   // most of the bay still stands
+        float area = tangentWidth(p) * (p.bmax.y - p.bmin.y), open = app.rt[id].wf[k].openArea;
+        int wholeGone = 0; for (auto& w : app.rt[id].wf) wholeGone += w.active && w.openArea > 0.95f * area;
+        char b[300]; std::snprintf(b, sizeof b, "%s @%d deg: off-centre hits open %s (%s, %d hits) at the impact point, not the bay centre; %.2f of %.2f m^2 open, far quarter stands, no bay deleted",
+                                   a->name.c_str(), (int)yaw, p.id.c_str(), p.family.c_str(), n, open, area);
+        check(ok && atImpact && farSide && wholeGone == 0, b);
         hits[a->id + " " + p.id] = n;
       }
     }
@@ -328,7 +445,10 @@ void SelfTest::damageUpdate(App& app, float dt) {
     app.applyDamageToMap();
     app.exitExplore();
     check(app.rt[X.A].state[k] == PANEL_BREACHED && app.terrain.tiles.size() > 0, "applied damage survives the return to Creative");
-    check(app.doc.find(X.A)->panelHp.count(X.pA) == 1 && app.doc.find(X.B)->panelHp.empty(), "only the damaged copy carries panel state in the map");
+    { auto* ia = app.doc.find(X.A); auto* ib = app.doc.find(X.B);
+      bool aHas = ia->extra.is_object() && ia->extra.contains("wallDamage") && ia->extra["wallDamage"].size() >= 2;
+      bool bHas = ib->extra.is_object() && ib->extra.contains("wallDamage");
+      check(aHas && !bHas && ia->panelHp.empty(), "only the damaged copy carries wall damage in the map (" + std::to_string(aHas ? ia->extra["wallDamage"].size() : 0) + " replayable impact events)"); }
     app.undo();
     app.syncRuntime();
     check(app.rt[X.A].state[k] == PANEL_INTACT && app.terrain.tiles.empty(), "undo restores the wall, its collision and the ground together");

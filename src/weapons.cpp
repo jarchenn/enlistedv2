@@ -249,12 +249,21 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   adsT = std::clamp(adsT + (in.aim && !modal ? 6.0f : -6.0f) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
   auto ch = Physics::character();
-  supported = d.feed == "belt" && ch.crouched && glm::length(in.move) < 0.01f;
+  // bipod deployed: a bipod weapon (belt MG, or a "supported" recoil factor) rested while prone or crouched and still.
+  // A folded bipod (standing / moving) gives no benefit.
+  bool hasBipod = d.feed == "belt" || d.rSupported < 0.999f;
+  supported = hasBipod && (ch.posture == Physics::PRONE || ch.crouched) && glm::length(in.move) < 0.01f;
   s.cooldown = std::max(0.0f, s.cooldown - dt);
   s.bolt = std::max(0.0f, s.bolt - dt);
-  // recoil recovery springs (mouse can compensate meanwhile: the player's own look is separate)
-  s.recoilP -= s.recoilP * std::min(1.0f, d.rRecover * dt);
-  s.recoilY -= s.recoilY * std::min(1.0f, d.rRecover * dt);
+  // recoil: every shot adds aim displacement and nothing pulls it back while the gun keeps firing (no climb
+  // ceiling); once firing stops it recovers smoothly (critically damped, never a snap). The player's own mouse
+  // look is separate, so pulling down compensates immediately.
+  s.sinceShot += dt;
+  float cycle = 60.0f / std::max(1.0f, d.rpm);
+  if (s.sinceShot > cycle * 1.6f + 0.06f) {
+    float k = 1.0f - std::exp(-d.rRecover * 0.55f * dt);
+    s.recoilP -= s.recoilP * k; s.recoilY -= s.recoilY * k;
+  }
   s.kick -= s.kick * std::min(1.0f, 14.0f * dt);
   if (!fireHeld) { s.triggerReleased = true; s.burst = 0; }
   viewKickPitch = s.recoilP + vm.breathPitch; viewKickYaw = s.recoilY + vm.breathYaw;   // breathing moves the whole sight picture
@@ -353,11 +362,16 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
       audio.play("shot_" + d.id, muzzle, 1.0f);
-      // recoil: profile + deterministic variation; supported MG fire is far easier to hold
-      float sc = d.feed == "belt" ? (supported ? d.rSupported : 1.0f) : 1.0f;
+      // recoil per shot = profile x posture x support (applied once per shot):
+      //   posture: standing 1.00, crouched 0.70, prone 0.20;  support: the weapon's bipod factor only while deployed
+      float post = ch.posture == Physics::PRONE ? 0.20f : ch.crouched ? 0.70f : 1.0f;
+      float sc = post * (supported ? d.rSupported : 1.0f);
       if (adsT > 0.85f) sc *= 0.85f;
-      s.recoilP = std::min(9.0f, s.recoilP + sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12)));
-      s.recoilY = std::clamp(s.recoilY + sc * d.rYaw * (wrand(s.seed) * 2 - 1), -4.0f, 4.0f);
+      lastRecoilScale = sc;
+      s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
+      s.recoilP = std::min(s.recoilP, std::max(0.0f, 86.0f - eyePitch));   // only the camera's pitch bound limits the climb
+      s.recoilY = std::clamp(s.recoilY + sc * d.rYaw * (wrand(s.seed) * 2 - 1), -6.0f, 6.0f);   // restrained horizontal wander
+      s.sinceShot = 0;
       s.kick = std::min(0.08f, s.kick + d.rVisual);
       if (d.feed == "enbloc" && s.loaded == 0) { audio.play("ping", muzzle, 0.8f); weaponMsg = "Clip ejected (ping)"; s.clipPings++; }
     }

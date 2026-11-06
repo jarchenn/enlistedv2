@@ -100,10 +100,11 @@ bool App::leafBlocked(const Instance& i, const InteractDef& d, float p) const {
 
 InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
   InteractTarget best;
-  const float reach = 2.0f;
-  float tWall = 2.5f; uint64_t ud;
+  const float reach = kInteractReach;            // doors / windows: 2.0 -> 2.5 m (+25 %)
+  float tWall = reach + 0.5f; uint64_t ud = 0;
   float th;
-  if (Physics::castRay(eye, dir, 2.5f, th, ud)) tWall = th;
+  bool rayHit = Physics::castRay(eye, dir, reach + 0.5f, th, ud);
+  if (rayHit) tWall = th;
   float bestT = 1e9f;
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
@@ -131,22 +132,36 @@ InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
       }
     }
   }
-  for (auto& i : doc.instances) {   // guns and crates: aim at the object within reach, occlusion as for doors
-    auto it = rt.find(i.id); if (it == rt.end()) continue;
-    auto& r = it->second;
-    bool isStation = !r.asset->station.kind.empty(), isCrate = r.asset->crate.is_object() && !r.asset->crate.empty(), isRack = r.asset->rack;
-    if (!isStation && !isCrate && !isRack) continue;
-    if (i.id == occupied) continue;
-    if (isStation && r.st.wrecked) continue;   // a wreck offers no interaction
-    mat4 M = isStation ? stationMatrix(i, r) : instanceMatrix(i);
-    vec3 c = vec3(M * vec4((r.asset->bmin + r.asset->bmax) * 0.5f, 1));
-    if (glm::length(c - eye) > 6) continue;
-    float t;
-    quat q = yawQuat(isStation ? r.st.carYaw : i.yaw);
-    if (rayOBB(eye, dir, c, (r.asset->bmax - r.asset->bmin) * 0.5f, q, t) && t <= 2.4f && t <= tWall + 0.25f && t < bestT) {
-      bestT = t; best = {true, i.id, -1, t, isStation ? 1 : isRack ? 3 : 2};
-    }
+  // guns, crates, racks: the whole object is selectable. A physics hit on any of its colliders (shield, wheels,
+  // trails, rack edge -- child bodies carry the owner's id in the high bits) resolves to the owner at the true
+  // surface distance; otherwise a slightly shrunk bounding box, still occluded by anything nearer.
+  const float objReach = kInteractReach + 0.5f;  // 2.4 -> 3.0 m
+  float tObj = 1e9f; uint64_t objId = 0; int objKind = 0;
+  auto kindOf = [&](const InstanceRT& r) {
+    bool isStation = !r.asset->station.kind.empty(), isCrate = r.asset->crate.is_object() && !r.asset->crate.empty();
+    return isStation ? (r.st.wrecked ? 0 : 1) : r.asset->rack ? 3 : isCrate ? 2 : 0;
+  };
+  if (rayHit && th <= objReach) {
+    uint64_t owner = ud >> 16;
+    auto it = rt.find(owner);
+    if (it != rt.end() && owner != occupied && kindOf(it->second)) { tObj = th; objId = owner; objKind = kindOf(it->second); }
   }
+  if (!objId)
+    for (auto& i : doc.instances) {
+      auto it = rt.find(i.id); if (it == rt.end()) continue;
+      auto& r = it->second;
+      int kind = kindOf(r);
+      if (!kind || i.id == occupied) continue;
+      bool isStation = kind == 1;
+      mat4 M = isStation ? stationMatrix(i, r) : instanceMatrix(i);
+      vec3 c = vec3(M * vec4((r.asset->bmin + r.asset->bmax) * 0.5f, 1));
+      vec3 half = (r.asset->bmax - r.asset->bmin) * 0.475f;   // 5 % inside the bounds: no oversized trigger
+      if (glm::length(c - eye) > objReach + glm::length(half)) continue;
+      float t;
+      quat q = yawQuat(isStation ? r.st.carYaw : i.yaw);
+      if (rayOBB(eye, dir, c, half, q, t) && t <= objReach && t <= tWall + 0.15f && t < tObj) { tObj = t; objId = i.id; objKind = kind; }
+    }
+  if (objId && tObj < bestT) best = {true, objId, -1, tObj, objKind};
   return best;
 }
 
@@ -162,6 +177,69 @@ void App::toggleInteract(uint64_t id, int k) {
   else dir = -dir;  // reverse smoothly from the current angle
   vec3 c = vec3(instanceMatrix(*inst) * vec4((d.apMin + d.apMax) * 0.5f, 1));
   if (dir > 0) audio.play(d.sound + "_open", c);
+}
+
+// Vault: obstacle face within reach at knee / waist height, a top 0.62-1.35 m above the feet, at most 1.1 m deep,
+// a supported landing no more than 2.2 m below the top. The standing body is swept along the whole path
+// (up, over, down) in 8 cm steps before committing; any blocked sample rejects the vault. Wire obstacles are never
+// vaultable (their bodies carry the unsafe flag via the defence profile).
+bool App::tryStartVault(vec3 feet, float yawDeg) {
+  vec3 f = forward(yawDeg, 0); f.y = 0; f = glm::normalize(f);
+  Physics::Hit h; float dFace = 99;
+  for (float hy : {0.35f, 0.75f}) if (Physics::castRayEx(feet + vec3(0, hy, 0), f, vaultCfg.reach + 0.3f, h) && h.t < dFace) dFace = h.t;
+  if (dFace > vaultCfg.reach + 0.3f) { vault.why = "no obstacle in reach"; return false; }
+  auto topAt = [&](float d, float& y) {
+    Physics::Hit g; vec3 o = feet + f * d + vec3(0, vaultCfg.maxH + 0.6f, 0);
+    if (!Physics::castRayEx(o, vec3(0, -1, 0), vaultCfg.maxH + 0.6f + vaultCfg.maxDrop + 0.2f, g)) return false;
+    y = g.pos.y - feet.y; return true;
+  };
+  float top = -9;
+  if (!topAt(dFace + 0.12f, top) || top < vaultCfg.minH || top > vaultCfg.maxH) { vault.why = "top " + std::to_string(top).substr(0, 4) + " m outside the vault range"; return false; }
+  // depth: walk across the top until it drops away
+  float dEdge = -1, topMax = top;
+  for (float d = dFace + 0.2f; d <= dFace + vaultCfg.maxDepth + 0.1f; d += 0.08f) { float y; if (!topAt(d, y) || y < top - 0.25f) { dEdge = d; break; } topMax = std::max(topMax, y); }
+  if (topMax > vaultCfg.maxH) { vault.why = "too tall across its depth"; return false; }
+  if (dEdge < 0) { vault.why = "obstacle deeper than " + std::to_string(vaultCfg.maxDepth).substr(0, 3) + " m (climb, not vault)"; return false; }
+  float land; if (!topAt(dEdge + 0.4f, land) || top - land > vaultCfg.maxDrop || land > top - 0.25f) { vault.why = "no safe landing"; return false; }
+  // unsafe obstacles (barbed wire) are never vaulted
+  for (auto& i : doc.instances) {
+    auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset->defense.unsafeVault) continue;
+    if (glm::length(vec2(i.pos.x - (feet.x + f.x * dFace), i.pos.z - (feet.z + f.z * dFace))) < 3.0f) { vault.why = "unsafe obstacle (wire)"; return false; }
+  }
+  float yTop = feet.y + topMax + 0.08f;   // clear the highest point of the top (coping, sandbag crown)
+  vec3 P0 = feet, P1(feet.x, yTop, feet.z), P2 = feet + f * (dEdge + 0.35f), P3 = P2;
+  P2.y = yTop; P3.y = feet.y + land;
+  const vec3 lift(0, 0.06f, 0);   // samples ride 6 cm above the surfaces they start / end on (uneven ground is not a blocker)
+  auto sweep = [&](vec3 a, vec3 b) { int n = std::max(1, (int)std::ceil(glm::length(b - a) / 0.08f)); for (int k = 1; k <= n; ++k) if (!Physics::shapeFitsAt(Physics::STAND, glm::mix(a, b, (float)k / n) + lift)) return false; return true; };   // full body incl. terrain
+  if (!sweep(P0, P1)) {
+    char b[160]; std::snprintf(b, sizeof b, "no room to rise (overhang / ceiling) [fits at start %d, no-terrain %d, at top %d, face %.2f m]", (int)Physics::shapeFitsAt(Physics::STAND, P0 + lift), (int)Physics::shapeFitsAt(Physics::STAND, P0 + lift, false), (int)Physics::shapeFitsAt(Physics::STAND, P1 + lift), dFace);
+    vault.why = b; return false;
+  }
+  if (!sweep(P1, P2)) {
+    float firstBad = -1; for (int k = 1; k <= 20; ++k) { vec3 q = glm::mix(P1, P2, k / 20.0f) + lift; if (!Physics::shapeFitsAt(Physics::STAND, q, false)) { firstBad = k / 20.0f; break; } }
+    vec3 qb = glm::mix(P1, P2, std::max(firstBad, 0.0f)) + lift;
+    char b[260]; std::snprintf(b, sizeof b, "body does not clear the top (head room / thickness) [first blocked at %.2f of the crossing, top %.2f / %.2f m, edge %.2f m, face %.2f m, hits ud %llx]", firstBad, top, topMax, dEdge, dFace, (unsigned long long)Physics::shapeHitUD(Physics::STAND, qb, false));
+    vault.why = b; return false;
+  }
+  if (!sweep(P2, P3)) { vault.why = "far side blocked"; return false; }
+  vault.pts[0] = P0; vault.pts[1] = P1; vault.pts[2] = P2; vault.pts[3] = P3;
+  float len = glm::length(P1 - P0) + glm::length(P2 - P1) + glm::length(P3 - P2);
+  vault.dur = std::clamp(len / (2.6f * vaultCfg.speed), 0.45f, 1.1f);
+  vault.t = 0; vault.active = true; vault.why = "vault"; ++vault.count;
+  return true;
+}
+
+void App::stepVault(float dt) {
+  vault.t += dt;
+  float u = std::clamp(vault.t / vault.dur, 0.0f, 1.0f);
+  // three legs weighted by length: up, across, down (eased), so the camera moves in a restrained arc
+  float l0 = glm::length(vault.pts[1] - vault.pts[0]), l1 = glm::length(vault.pts[2] - vault.pts[1]), l2 = glm::length(vault.pts[3] - vault.pts[2]), L = std::max(1e-3f, l0 + l1 + l2);
+  float s = u * u * (3 - 2 * u) * L;
+  vec3 p = s < l0 ? glm::mix(vault.pts[0], vault.pts[1], s / std::max(l0, 1e-4f)) : s < l0 + l1 ? glm::mix(vault.pts[1], vault.pts[2], (s - l0) / std::max(l1, 1e-4f)) : glm::mix(vault.pts[2], vault.pts[3], (s - l0 - l1) / std::max(l2, 1e-4f));
+  // the obstacle or the landing may change mid-vault (destroyed, someone in the way): stop where the body still fits
+  if (!Physics::shapeFitsAt(Physics::STAND, p + vec3(0, 0.06f, 0))) { vault.active = false; vault.why = "vault interrupted (path blocked)"; return; }
+  Physics::setCharacterPos(p);
+  if (u >= 1.0f) vault.active = false;
 }
 
 void App::exploreStep(float dt, const ExploreInput& in) {
@@ -209,6 +287,12 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   else postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND;
   int pose = before.posture;
   bool lowered = pose != Physics::STAND || postureWanted != Physics::STAND;
+  // ---- vault: a held Space at a taller obstacle (the press itself still jumps immediately; a vault that starts
+  // during that jump adds no second impulse). One vault per hold.
+  if (!in.jumpHeld) { vault.held = 0; vault.latch = false; }
+  else vault.held += dt;
+  if (vault.active) { stepVault(dt); return; }
+  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && tryStartVault(before.pos, eyeYaw)) { vault.latch = true; return; }
   bool rising = riseT < riseDur;
   bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising;   // Shift while aiming holds the breath; no sprint while lowered or getting up
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
@@ -308,6 +392,7 @@ void App::updateExplore(float dt) {
     in.crouch = kd(win, binds.crouch) || kd(win, GLFW_KEY_C);
     if (!glfwGetWindowAttrib(win, GLFW_FOCUSED)) { in = ExploreInput{}; }   // focus loss clears held input (crouch, fire, sprint)
     in.jump = kp(win, GLFW_KEY_SPACE);
+    in.jumpHeld = glfwGetKey(win, GLFW_KEY_SPACE) == GLFW_PRESS;
     in.interact = kp(win, GLFW_KEY_E);
     in.fire = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !io.WantCaptureMouse;
     in.aim = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS && !io.WantCaptureMouse;

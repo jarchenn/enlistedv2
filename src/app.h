@@ -14,6 +14,15 @@ struct GLFWwindow;
 enum class Mode { Creative, Explore };
 enum class Tool { Select, Place, Marker };
 
+// Impact-centred wall damage (wallfield.cpp): per bay, depth removed from the front and back face per cell.
+enum WallHitKind { WALL_HE = 0, WALL_AP = 1, WALL_ROCKET = 2, WALL_GRENADE = 3, WALL_BULLET = 4 };
+struct WallEvent { vec3 p{0}, d{0, 0, -1}; int kind = WALL_HE; float dmg = 120; uint32_t seed = 1; };   // asset-local contact, direction
+struct WallField {
+  std::vector<float> rf, rb;   // removed depth (m) from the front (+normal) and back face, per cell
+  bool active = false;         // has its own rebuilt mesh / collision
+  float openArea = 0, removedFrac = 0; int boxes = 0;
+};
+
 // Runtime (non-saved) state for one placed instance. Rebuilt whenever Instance::rev changes.
 struct InstanceRT {
   uint64_t id = 0; uint32_t rev = 0;
@@ -26,7 +35,11 @@ struct InstanceRT {
   std::vector<float> hp;                          // per panel, Explore session overlay
   std::vector<uint8_t> state;                     // PanelState per panel
   bool damaged = false;                           // any panel not intact
-  float lastRebuildMs = 0;
+  float lastRebuildMs = 0, lastPanelMs = 0;
+  std::vector<WallField> wf;                      // damage field per panel (empty = untouched)
+  std::vector<GpuMesh> pmesh;                     // rebuilt mesh per damaged panel
+  std::vector<ShapePtr> pshape;                   // rebuilt collision per damaged panel (null = nothing left)
+  std::vector<WallEvent> wallEvents;              // authored + session events, in order (replayable)
   StationRT st;                                   // crew-served station overlay (if the asset is a station)
   std::vector<std::vector<uint8_t>> leafSt;       // [interactable][leaf] LEAF_* flags (session overlay)
   std::vector<std::vector<float>> leafHits;       // bullet hits taken
@@ -38,6 +51,7 @@ struct ExploreInput {
   vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0;
   bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false, toggleAmmo = false, build = false; float wheel = 0, lookYaw = 0, lookPitch = 0;
   bool fireMode = false, prone = false, packUp = false, rackUp = false, rackDown = false, rackEquip = false, rackClose = false;
+  bool jumpHeld = false;   // Space held (vault)
 };
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
@@ -120,7 +134,20 @@ public:
   void clearRuntime();
   // ---- destruction (damage.cpp)
   struct Explosion { vec3 pos{0}; std::vector<std::string> hits; int breached = 0; bool crater = false; };
-  Explosion explode(vec3 p, vec3 dir, float damage, float radius, float craterScale, uint64_t ignoreUd = ~0ull);
+  Explosion explode(vec3 p, vec3 dir, float damage, float radius, float craterScale, uint64_t ignoreUd = ~0ull, int wallKind = WALL_HE);
+  // ---- impact-centred wall damage (wallfield.cpp)
+  struct DestructionSettings {
+    float cell = 0.04f;         // damage-field resolution (m); quality setting
+    float depthStep = 0.02f;    // removed-depth quantisation for the rebuilt mesh (m)
+    float breachArea = 0.04f;   // through-hole area that counts a bay as breached (m^2)
+    int maxFragmentsPerHit = 8;
+  } destruction;
+  void initWallFields(InstanceRT& r);
+  int stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<std::string>* hitIds, int* newlyBreached);
+  void rebuildPanel(InstanceRT& r, size_t k);
+  json wallEventsJson(const InstanceRT& r) const;
+  void authoredWallEvents(const Instance& i, const AssetDef* a, std::vector<WallEvent>& out) const;
+  void replayWallDamage(const Instance& i, InstanceRT& r);
   void rebuildWalls(const Instance& i, InstanceRT& r);
   void resetDamage();
   static uint8_t panelStateFor(float hp, float maxHp);
@@ -155,8 +182,14 @@ public:
   } move;
   // getting up: a timed, eased camera rise; until it finishes the player moves at the lower posture's speed
   float riseT = 0, riseDur = 0, riseFrom = 0, riseSpeed = 0;
+  // ---- vault (hold Space at a taller obstacle): validated, swept, no chaining (explore.cpp)
+  struct VaultSettings { float hold = 0.16f, minH = 0.62f, maxH = 1.35f, reach = 0.85f, maxDepth = 1.1f, maxDrop = 2.2f, speed = 1.0f; } vaultCfg;
+  struct VaultState { bool active = false, latch = false; float held = 0, t = 0, dur = 0; vec3 pts[4]{}; std::string why; int count = 0; } vault;
+  bool tryStartVault(vec3 feet, float yawDeg);
+  void stepVault(float dt);
   void loadMoveSettings();
   int postureWanted = 0;          // Physics::Posture requested by input (stand / crouch / prone)
+  static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)
   bool proneToggle = false;       // Z state: prone requested
   // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
   struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0; std::map<std::string, std::string> names; } binds;
@@ -260,6 +293,7 @@ public:
   bool strictDDay = false, reducedMotion = false, scopeIronsMode = false, supported = false, showLoadout = false;
   std::string weaponMsg;
   vec3 lastShotStart{0}, lastShotDir{0}, lastShotMuzzle{0};
+  float lastRecoilScale = 1;      // posture x support factor of the last shot (tests / HUD)
   int weaponIndex(const std::string& id) const;
   void selectWeapon(int idx);
   mat4 viewModelMatrix(const WeaponDef& d, const WeaponState& s) const;
@@ -289,7 +323,9 @@ public:
   bool blastAT = false;                     // the explosion being resolved is an AT shell (deep crater profile)
   float blastSplashGun = 40;                // splash damage to AT guns at the blast centre (falls off to 0 at the radius); guns have 100 HP
   int directHits = 0, splashGunHits = 0;
-  static constexpr float kStdCraterD = 0.5f, kStdCraterR = 1.5f, kATCraterD = 1.2f, kATCraterR = 3.0f, kCraterP = 2.0f;
+  // crater tuning (game values): AT-gun craters enlarged in the complete update -- standard HE 1.5 m / 0.5 m -> 2.0 / 0.62
+  // (+33 % radius, +24 % depth), AT shot 3.0 / 1.2 -> 3.9 / 1.5 (+30 %, +25 %); the depth : radius ratio (climbable walls) is kept
+  static constexpr float kStdCraterD = 0.62f, kStdCraterR = 2.0f, kATCraterD = 1.5f, kATCraterR = 3.9f, kCraterP = 2.0f;
   bool craterAt(vec3 p, float radius, float depth);
   float groundWeight(float x, float z) const;
   void syncGroundTiles(const std::vector<int>& keys);
