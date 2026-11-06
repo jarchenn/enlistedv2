@@ -4,8 +4,8 @@
 //    distance to the camera, with skirts that hide LOD seams. Meshes are built on demand within a per-frame budget
 //    (nearest / visible first) and evicted beyond maxDist; all chunks of one LOD share a pooled vertex buffer and one
 //    index buffer and are drawn with a single glMultiDrawElementsBaseVertex after frustum culling.
-//  * Physics: one Jolt heightfield body per chunk at full base resolution. Interior vertices of active deformation
-//    tiles are holes (the tile's own high-resolution patch collides there).
+//  * Physics: one Jolt heightfield body per chunk at full base resolution. A chunk holding active deformation tiles
+//    is split into one small body per undamaged tile (the damaged tiles' own high-resolution patches collide there).
 #include "common.h"
 
 class Terrain;

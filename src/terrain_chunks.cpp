@@ -303,32 +303,47 @@ void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp) {
 // ------------------------------------------------------------------ physics
 static uint64_t tilePatchUD(int key) { return (0xFull << 60) | (uint64_t)key; }
 
+// One Jolt heightfield per chunk. Jolt removes the *triangles* touching a hole vertex, which leaves one triangle at two
+// corners of every tile (its other vertices all lie on tile borders), so holes cannot cut a tile out exactly. A chunk
+// with active deformation tiles is therefore split: one small heightfield per undamaged tile (the damaged tiles have
+// their own high-resolution patches). Untouched chunks stay a single body.
 void terrainPhysicsRebuildChunk(Terrain& t, int cx, int cz) {
   int idx = cz * t.chunksX() + cx;
   if (idx < 0 || idx >= (int)t.chunkBodies.size()) return;
   uint32_t& body = t.chunkBodies[idx];
   if (body != 0xffffffffu) { Physics::remove(body); body = 0xffffffffu; }
-  const int m = Terrain::kChunkCells + 1, gx0 = cx * Terrain::kChunkCells, gz0 = cz * Terrain::kChunkCells;
+  auto sp = t.chunkSplitBodies.find(idx);
+  if (sp != t.chunkSplitBodies.end()) { for (uint32_t b : sp->second) Physics::remove(b); t.chunkSplitBodies.erase(sp); }
+  const int K = Terrain::kChunkCells / Terrain::kTileCells, gx0 = cx * Terrain::kChunkCells, gz0 = cz * Terrain::kChunkCells;
+  const int tx0 = cx * K, tz0 = cz * K, tx1 = std::min(t.tilesX(), tx0 + K), tz1 = std::min(t.tilesZ(), tz0 + K);
+  bool damaged = false;
+  for (int tz = tz0; tz < tz1 && !damaged; ++tz) for (int tx = tx0; tx < tx1; ++tx) if (t.tileAt(tx, tz)) { damaged = true; break; }
+  auto H = [&](int gx, int gz) { return gx < t.nx && gz < t.nz ? t.h[(size_t)gz * t.nx + gx] : FLT_MAX; };   // FLT_MAX = Jolt cNoCollisionValue
+  if (!damaged) {
+    const int m = Terrain::kChunkCells + 1;
+    std::vector<float> hs((size_t)m * m);
+    for (int j = 0; j < m; ++j) for (int i = 0; i < m; ++i) hs[(size_t)j * m + i] = H(gx0 + i, gz0 + j);
+    body = Physics::addHeightPatch(hs, m, vec3(t.org.x + gx0 * Terrain::kCell, 0, t.org.y + gz0 * Terrain::kCell), Terrain::kCell, 0);
+    return;
+  }
+  auto& list = t.chunkSplitBodies[idx];
+  const int m = Terrain::kTileCells + 1;   // 6 samples: a multiple of the 2-sample block size
   std::vector<float> hs((size_t)m * m);
-  bool any = false;
-  for (int j = 0; j < m; ++j)
-    for (int i = 0; i < m; ++i) {
-      int gx = gx0 + i, gz = gz0 + j;
-      float v = FLT_MAX;   // Jolt cNoCollisionValue: past the grid edge, or an interior vertex of an active tile
-      if (gx < t.nx && gz < t.nz) {
-        bool hole = gx % Terrain::kTileCells && gz % Terrain::kTileCells && t.tileAt(gx / Terrain::kTileCells, gz / Terrain::kTileCells);
-        if (!hole) { v = t.h[(size_t)gz * t.nx + gx]; any = true; }
-      }
-      hs[(size_t)j * m + i] = v;
+  for (int tz = tz0; tz < tz1; ++tz)
+    for (int tx = tx0; tx < tx1; ++tx) {
+      if (t.tileAt(tx, tz)) continue;
+      for (int j = 0; j < m; ++j) for (int i = 0; i < m; ++i) hs[(size_t)j * m + i] = H(tx * Terrain::kTileCells + i, tz * Terrain::kTileCells + j);
+      uint32_t b = Physics::addHeightPatch(hs, m, vec3(t.org.x + tx * Terrain::kTileCells * Terrain::kCell, 0, t.org.y + tz * Terrain::kTileCells * Terrain::kCell), Terrain::kCell, 0);
+      if (b != 0xffffffffu) list.push_back(b);
     }
-  if (!any) return;
-  body = Physics::addHeightPatch(hs, m, vec3(t.org.x + gx0 * Terrain::kCell, 0, t.org.y + gz0 * Terrain::kCell), Terrain::kCell, 0);
 }
 
 void terrainPhysicsBuild(Terrain& t) {
   for (uint32_t b : t.stream.deadBodies) Physics::remove(b);
   t.stream.deadBodies.clear();
   for (uint32_t b : t.chunkBodies) if (b != 0xffffffffu) Physics::remove(b);
+  for (auto& [k, v] : t.chunkSplitBodies) for (uint32_t b : v) Physics::remove(b);
+  t.chunkSplitBodies.clear();
   t.chunkBodies.assign((size_t)t.chunksX() * t.chunksZ(), 0xffffffffu);
   t.stream.physRev = t.chunkRev;
   t.physDirty.clear();

@@ -124,6 +124,7 @@ public:
   int chunksZ() const { return (nz - 2) / kChunkCells + 1; }
   mutable TerrainStream stream;
   std::vector<uint32_t> chunkBodies;
+  std::map<int, std::vector<uint32_t>> chunkSplitBodies;   // chunks with damage: one base body per undamaged tile
   std::vector<uint32_t> chunkRev;   // per chunk: bumped by baseEdited
   GLuint maskTexture() const { return maskTex; }
 private:

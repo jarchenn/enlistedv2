@@ -190,10 +190,10 @@ void SelfTest::editorUpdate(App& app, float dt) {
     float hc = T.height(c.x, c.y), pad = T.fineSpacing();
     check(std::fabs(hc - (y0 - 1.2f)) < 0.01f && std::fabs(T.height(deep.x, deep.y) - (y0 - 1.2f)) < 0.01f, fmt("cut floor is flat at instance y - depth: centre %.3f, off-centre %.3f, want %.3f", hc, T.height(deep.x, deep.y), y0 - 1.2f));
     // the floor reaches the outline (revetments stand there): one grid step of padding takes the bank outward
-    vec2 edgeIn = W(0, -1.2f + 0.05f), bankP = W(0, -1.2f - pad + 0.2f);
+    vec2 edgeIn = W(0, -1.2f + 0.05f), gridIn = W(0, -1.2f + pad + 0.05f), bankP = W(0, -1.2f - pad + 0.2f);
     float wantBank = std::min(T.baseHeight(bankP.x, bankP.y), y0 - 1.2f * 0.5f), cb = T.cutBase(bankP.x, bankP.y);
-    check(std::fabs(T.cutBase(edgeIn.x, edgeIn.y) - (y0 - 1.2f)) < 1e-4f && std::fabs(T.height(edgeIn.x, edgeIn.y) - (y0 - 1.2f)) < 0.05f,
-          fmt("floor reaches the outline: 5 cm inside the edge the ground is %.3f (floor %.3f)", T.height(edgeIn.x, edgeIn.y), y0 - 1.2f));
+    check(std::fabs(T.cutBase(edgeIn.x, edgeIn.y) - (y0 - 1.2f)) < 1e-4f && std::fabs(T.height(gridIn.x, gridIn.y) - (y0 - 1.2f)) < 0.02f,
+          fmt("floor reaches the outline: cut %.3f 5 cm inside the edge, drawn %.3f one grid step in (floor %.3f)", T.cutBase(edgeIn.x, edgeIn.y), T.height(gridIn.x, gridIn.y), y0 - 1.2f));
     check(std::fabs(cb - wantBank) < 1e-4f, fmt("bank: halfway up the 0.4 m bank (%.2f m grid padding) the cut is %.3f (want %.3f)", pad, cb, wantBank));
     vec2 out2 = W(0, -1.2f - 2 * pad - 0.05f);
     float ho2 = T.height(out2.x, out2.y), bo2 = T.baseHeight(out2.x, out2.y);

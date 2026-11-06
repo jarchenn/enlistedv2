@@ -47,7 +47,19 @@ float Terrain::placementHeight(float x, float z, uint64_t owner) const {
   bool mine = false;
   for (auto& c : cuts) if (c.owner == owner && x >= c.bmin.x && z >= c.bmin.y && x <= c.bmax.x && z <= c.bmax.y) { mine = true; break; }
   if (!mine) return hh;
-  return hh - cutBase(x, z) + cutBase(x, z, owner);   // same crater deltas, without this owner's cut
+  // the tile's own samples with this owner's cut taken out (crater deltas kept), interpolated exactly like height()
+  float ts = tileSize();
+  int tx = (int)std::floor((x - org.x) / ts), tz = (int)std::floor((z - org.y) / ts);
+  const Tile* t = tileAt(tx, tz);
+  if (!t) return cutBase(x, z, owner);
+  vec2 o = tileOrigin(tx, tz);
+  float fs = fineSpacing();
+  float fx = std::clamp((x - o.x) / fs, 0.0f, kFine - 0.0001f), fz = std::clamp((z - o.y) / fs, 0.0f, kFine - 0.0001f);
+  int xi = (int)fx, zi = (int)fz; float u = fx - xi, v = fz - zi;
+  auto S = [&](int i, int j) { size_t k = (size_t)j * kFineN + i; return t->h[k] - t->base[k] + cutBase(o.x + i * fs, o.y + j * fs, owner); };
+  float a = S(xi, zi), b = S(xi + 1, zi), c = S(xi, zi + 1), d = S(xi + 1, zi + 1);
+  if (u >= v) return a + (b - a) * u + (d - b) * v;
+  return a + (c - a) * v + (d - c) * u;
 }
 
 void Terrain::recutTile(Tile& t) {
