@@ -5,6 +5,7 @@
 import { Asset, wbox } from "./kit.mjs";
 import { stdMaterials, wall, partition, door, hinged, aabb, chair, table } from "./parts.mjs";
 import { shelfX, shelfZ, crates, bunkZ, stove, stool, lamp, crateBox } from "./furniture2.mjs";
+import { smallArmsCache, gunAmmoStack } from "./catalog_ammo.mjs";
 
 // ----------------------------------------------------------------------------- shared bunker vocabulary
 // Viewing-slit height, shared by every slit in every bunker (docs/bunkers.md#slit-height). Floor-relative, metres.
@@ -103,6 +104,97 @@ function berms(A, { X, Z, front, sideH, sideRun = 3.0, frontRun = 2.5, zr = null
   for (const s of [-1, 1]) A.prism(2, z0, z1, [[s * X, -0.3], [s * X, sideH], [s * (X + sideRun), -0.3]], "turf");
   if (front != null) A.prism(0, -X, X, [[Z, -0.3], [Z, front], [Z + frontRun, -0.3]], "turf");
 }
+// ----------------------------------------------------------------------------- W2: earth cover, sandbags, weathering
+// MP & Creative update spec 10.1: the observation post and the field shelter get the overhaul treatment while keeping
+// their earth cover. The flat hard-edged turf wedges are replaced by soft banks with a convex profile: a raw earth
+// shoulder against the wall rolling over into a long grassed slope (three grass tones, a browner bare patch here and
+// there), crest height and toe run varying smoothly along the bank and tapering at open ends; an earth-and-turf layer
+// on the roof; sandbag walls lining the entrance passage; netting over the exposed front; moss on the concrete.
+// Earth and sandbag parts collide, so rounds stop in the cover.
+function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function earthMaterials(A) {
+  if (A.materials.find((m) => m.name === "earth_raw")) return;
+  A.mat("earth_raw", [0.115, 0.088, 0.06], 1.0, "plain");     // thrown-up soil on the shoulder
+  A.mat("earth_dark", [0.09, 0.072, 0.05], 1.0, "plain");
+  A.mat("grass_a", [0.07, 0.088, 0.036], 0.98, "plain");      // grassed-over slopes
+  A.mat("grass_b", [0.082, 0.098, 0.042], 0.98, "plain");
+  A.mat("grass_c", [0.088, 0.086, 0.046], 0.98, "plain");     // browner, thin cover
+  A.mat("hessian", [0.42, 0.36, 0.24], 0.95, "fabric");       // the def_sandbag_* look
+  A.mat("hessian_dk", [0.36, 0.3, 0.2], 0.95, "fabric");
+  A.mat("moss", [0.095, 0.125, 0.05], 1.0, "plain");
+}
+const smooth = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+// Earth bank against a wall face (axis 0: wall along x at z = w; axis 2: wall along z at x = w; dir = +-1 outward),
+// from a0 to a1, in 0.35 m facets. Crest height and run follow a smooth seeded wave along the bank (+-4 % / +-7 %) and
+// ease down over ~1.2 m at open ends; the shoulder (raw earth) rolls over at 35 % of the run into the grassed slope.
+function earthBank(A, axis, a0, a1, w, dir, h, run, seed, { taper = [true, true], y0 = -0.3 } = {}) {
+  const r = rng(seed), L = Math.min(1.2, (a1 - a0) / 3);
+  const ph = [r() * 6.28, r() * 6.28, r() * 6.28], grass = ["grass_a", "grass_b", "grass_a", "grass_c"];
+  const cuts = [a0];   // 0.15 m facets on the tapering ends, 0.35 m elsewhere
+  while (cuts[cuts.length - 1] < a1 - 1e-6) {
+    const p = cuts[cuts.length - 1], inTaper = (taper[0] && p - a0 < L) || (taper[1] && a1 - p < L + 0.35);
+    cuts.push(Math.min(a1, p + (inTaper ? 0.15 : 0.35)));
+  }
+  if (a1 - cuts[cuts.length - 2] < 0.05 && cuts.length > 2) cuts.splice(cuts.length - 2, 1);
+  let bare = -1;
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const b0 = cuts[i], b1 = cuts[i + 1], mid = (b0 + b1) / 2;
+    let f = 1;
+    if (taper[0]) f = Math.min(f, 0.18 + 0.82 * smooth((mid - a0) / L));
+    if (taper[1]) f = Math.min(f, 0.18 + 0.82 * smooth((a1 - mid) / L));
+    const wave = Math.sin(mid * 1.7 + ph[0]) * 0.6 + Math.sin(mid * 3.1 + ph[1]) * 0.4;
+    const hh = y0 + (h - y0) * f * (1 + 0.02 * wave), rr = run * (0.4 + 0.6 * f) * (1 + 0.03 * Math.sin(mid * 1.3 + ph[2]));
+    const C = [w + dir * rr * 0.35, y0 + (hh - y0) * 0.8];
+    const zone = Math.floor((mid - a0) / 2.1 + seed);   // tones change every ~2 m, not per facet
+    if (bare < 0 && r() < 0.05) bare = 4; else if (bare > 0) bare--;
+    A.prism(axis, b0, b1 + 0.015, [[w, y0], [w, hh], C], zone % 3 === 1 ? "earth_dark" : "earth_raw");
+    A.prism(axis, b0, b1 + 0.015, [[w, y0], C, [w + dir * rr, y0]], bare > 0 ? "grass_c" : grass[zone % 4]);
+  }
+}
+// earth layer over a roof: a low rounded slab of earth with a grassed crown and a few raw patches
+function roofEarth(A, x0, x1, z0, z1, y, d, seed) {
+  const r = rng(seed);
+  A.rbox([x0, y, z0], [x1, y + d, z1], Math.min(0.22, d * 0.5), "earth_raw");
+  const ix = 0.35, iz = 0.35;
+  A.rbox([x0 + ix, y + d * 0.4, z0 + iz], [x1 - ix, y + d + 0.08, z1 - iz], 0.3, "grass_b");
+  for (let k = 0; k < 3; k++) {
+    const cx = x0 + ix + (x1 - x0 - 2 * ix) * (0.2 + 0.6 * r()), cz = z0 + iz + (z1 - z0 - 2 * iz) * (0.2 + 0.6 * r());
+    A.obox([cx, y + d + 0.07, cz], [0.6 + 0.5 * r(), 0.04, 0.5 + 0.4 * r()], [0, r() * 90, 0], k ? "grass_a" : "earth_raw", { k: 0 });
+  }
+}
+// sandbag wall along axis (0: along x at depth d = z; 2: along z at d = x), a0..a1, from y0 up to y0 + h: running bond,
+// slight batter, jittered bags (k 0) over one invisible collider
+function sandbagWall(A, axis, a0, a1, d, y0, h, seed, { thick = 0.32 } = {}) {
+  const r = rng(seed), BL = 0.48, BH = 0.15, courses = Math.max(1, Math.round(h / BH));
+  for (let c = 0; c < courses; c++) {
+    const off = c % 2 ? BL / 2 : 0, inset = c * 0.012, y = y0 + c * BH + BH / 2;
+    for (let a = a0 - off; a < a1 - 0.05; a += BL) {
+      const s0 = Math.max(a, a0), s1 = Math.min(a + BL, a1);
+      if (s1 - s0 < 0.12) continue;
+      const am = (s0 + s1) / 2, yaw = (r() - 0.5) * 6, roll = (r() - 0.5) * 5, m = r() < 0.4 ? "hessian_dk" : "hessian";
+      const sz = [s1 - s0 - 0.015, BH * (0.92 + 0.08 * r()), thick - 2 * inset];
+      if (axis === 0) A.obox([am, y, d], sz, [roll, yaw, 0], m, { k: 0 });
+      else A.obox([d, y, am], [sz[2], sz[1], sz[0]], [0, yaw, roll], m, { k: 0 });
+    }
+  }
+  const t = thick / 2;
+  if (axis === 0) A.box([a0, y0, d - t], [a1, y0 + courses * BH, d + t], "hessian", { v: 0 });
+  else A.box([d - t, y0, a0], [d + t, y0 + courses * BH, a1], "hessian", { v: 0 });
+}
+// moss / lichen patch on a face (thin, visual)
+function mossPatch(A, c, s, r = [0, 0, 0]) { A.obox(c, s, r, "moss", { k: 0 }); }
+
+// ----------------------------------------------------------------------------- W2: navigation annotations
+// src/navmeta.h "nav" block for the bot AI (AI_SPEC 3.1 / 5.1 / 8.1): every bunker blocks the navmesh (the interior
+// floor is walkable through its doors), with its rooms, doors, entrances (outside the door, dir pointing in), room
+// corners to clear, and firing points at slits / embrasures / gun positions. Asset-local metres; yaw in degrees about
+// +Y in the instance convention (0 = the asset front +Z, 90 = +X).
+function bunkerNav(A, { rooms, doors, entrances, corners, firing, cover = [] }) {
+  A.meta.nav = { effect: "block", rooms, doors, entrances, corners, firingPoints: firing, cover };
+}
+const roomCorners = (id, x0, x1, z0, z1, y, inset = 0.4) =>
+  [[x0 + inset, z0 + inset], [x1 - inset, z0 + inset], [x0 + inset, z1 - inset], [x1 - inset, z1 - inset]].map(([x, z]) => ({ p: [x, y, z], room: id }));
+
 // steel plate leaf builder helper: returns build fn adding plate + ribs between p0..p1
 const plate = (A, p0, p1, ribAxis, ribs = 2, handle = null) => (T) => {
   A.box(p0, p1, "steel_plate", T);
@@ -168,6 +260,16 @@ export function mgCasemate() {
   });
   A.box([-2.5, CEIL - 0.25, -0.1], [2.5, CEIL - 0.1, 0.05], "steel_plate", { k: 0 }); // ventilation duct
   lamp(A, -1.2, CEIL, 0.2); lamp(A, 1.4, CEIL, 0.2);
+  smallArmsCache(A, "Small-arms ammunition", 2.5, GF, -0.6, 90);   // W2: 7.92 mm boxes, rifle crate, bandoliers (rear-east, clear of the slits)
+  bunkerNav(A, {
+    rooms: [{ id: "fighting", min: [-XI, GF, -ZI], max: [XI, CEIL, ZI] }],
+    doors: [{ a: "fighting", b: "outside", p: [-1.6, GF, -Z + T / 2] }],
+    entrances: [{ p: [-1.6, 0.12, -Z - 0.55], dir: [0, 0, 1], room: "fighting" }],
+    corners: roomCorners("fighting", -XI, XI, -ZI, ZI, GF),
+    firing: [{ p: [0, GF, 1.5], yaw: 0, kind: "mg" }, { p: [-1.9, GF, 1.15], yaw: 0, kind: "embrasure" }, { p: [1.9, GF, 1.15], yaw: 0, kind: "embrasure" },
+             { p: [2.15, GF, 0.85], yaw: 90, kind: "embrasure" }, { p: [-2.15, GF, 0.85], yaw: -90, kind: "embrasure" }],
+    cover: [{ p: [-1.6, 0, -Z - 1.4], yaw: 180, height: "high", peek: ["left", "right"] }],
+  });
   const eye = GF + SLIT.eye;
   A.walkthrough = {
     start: { pos: [1.5, 0, -7.4], yaw: 180 },
@@ -189,16 +291,19 @@ export function mgCasemate() {
 // ----------------------------------------------------------------------------- observation post
 export function observationPost() {
   const A = new Asset({
-    id: "bunker_observation_post", version: 2, name: "Observation Post", category: "Bunkers",
-    description: "Small concrete observation post with an eye-level slit closed by a top-hung armoured flap, operated from inside. Map table, field telephone and stool.",
+    id: "bunker_observation_post", version: 3, name: "Observation Post", category: "Bunkers",
+    description: "Small board-formed concrete observation post dug into an earth mound: soft earth banks over the flanks, rear and roof, the front face exposed. An eye-level slit closed by a top-hung armoured flap, operated from inside; sandbagged entrance passage to the rear steel door, camouflage netting over the roof. Map table, field telephone, scissors periscope, small-arms ammunition.",
     floors: 1, enterable: true, footprint: [10.0, 8.9], plinthDepth: 0.6, maxGrade: 0.6,
   });
   const X = 2.25, Z = 2.25, T = 0.8, GF = 0.2, CEIL = 2.3, ROOF = 3.1, XI = X - T, ZI = Z - T;
   bunkerMaterials(A, CEIL);
+  earthMaterials(A);
   // 1.5 m wide at the shared slit height (SLIT), cut through the full wall depth (geometry and collision)
   const slitR = { a0: -0.75, a1: 0.75, y0: GF + SLIT.sill, y1: GF + SLIT.top };
   const rear = door(A, { id: "op_door", axis: "x", outer: -Z, inner: -ZI, c: 0.6, floor: GF, w: 1.0, h: 1.9, hingeSide: 1, steel: true, lintel: false, step: false, label: "steel door" });
-  concreteShell(A, { X, Z, T, GF, CEIL, ROOF, front: [slitR], back: [rear] });
+  shell(A, { X, Z, T, GF, CEIL, front: [slitR], back: [rear] });
+  footing(A, -X, X, -Z, Z, 0.2, 0.22);
+  roofSlab(A, -X, X, -Z, Z, CEIL, ROOF, [0.3, 0.3, 0.3, 0.45], 0.15);
   A.box([slitR.a0, slitR.y0 - 0.12, ZI - 0.25], [slitR.a1, slitR.y0, ZI], "concrete");   // elbow ledge under the slit
   // armoured flap on the exterior face, hinged along its top edge, lifts outward
   const fy0 = slitR.y0 - 0.06, fy1 = slitR.y1 + 0.08, fz0 = Z + 0.004, fz1 = Z + 0.045;
@@ -210,7 +315,20 @@ export function observationPost() {
       build: (T) => { plate(A, p0, p1, 0, 2)(T); for (const x of [slitR.a0 + 0.05, slitR.a1 - 0.15]) A.box([x, fy1 - 0.02, fz1], [x + 0.1, fy1 + 0.04, fz1 + 0.03], "steel_bare", T); } }],
   });
   for (const x of [slitR.a0 - 0.05, slitR.a1 - 0.05]) A.box([x, fy1 + 0.0, Z], [x + 0.1, fy1 + 0.06, Z + 0.05], "steel_bare", { k: 0 });
-  berms(A, { X, Z, front: GF + 1.0, sideH: ROOF - 0.3, sideRun: 2.7, frontRun: 2.2 });
+  // earth cover: banks over both flanks (wrapping the rear corners), the rear either side of a sandbagged entrance
+  // passage (x -0.1..1.3 clear), a low bank under the exposed front, 0.45 m of earth on the roof slab
+  const pa0 = -0.1, pa1 = 1.3, pLen = 2.0;
+  earthBank(A, 2, -Z - 0.7, Z + 0.15, X, 1, CEIL + 0.3, 2.7, 11, { taper: [false, true] });
+  earthBank(A, 2, -Z - 0.7, Z + 0.15, -X, -1, CEIL + 0.3, 2.7, 12, { taper: [false, true] });
+  earthBank(A, 0, -X - 0.6, pa0 - 0.34, -Z, -1, CEIL + 0.2, 2.1, 13, { taper: [false, true] });
+  earthBank(A, 0, pa1 + 0.34, X + 0.6, -Z, -1, CEIL + 0.2, 2.1, 14, { taper: [true, false] });
+  earthBank(A, 0, -X - 0.3, X + 0.3, Z, 1, GF + 0.95, 2.0, 15);
+  roofEarth(A, -X - 0.2, X + 0.2, -Z - 0.2, Z + 0.32, ROOF, 0.45, 16);
+  for (const x of [pa0 - 0.17, pa1 + 0.17]) sandbagWall(A, 2, -Z - pLen, -Z - 0.02, x, -0.05, 1.05, x > 0 ? 17 : 18);
+  camoNet(A, { hang: [["z+", -X - 0.3, X + 0.3, Z + 0.46, ROOF + 0.4, ROOF - 0.34], ["x+", Z - 0.6, Z + 0.46, X + 0.31, ROOF + 0.4, ROOF - 0.5], ["x-", Z - 0.6, Z + 0.46, -X - 0.31, ROOF + 0.4, ROOF - 0.5]] });
+  // weathering on the exposed concrete: moss along the slab's front lip and in the corners of the front face
+  for (const x of [-1.6, -0.5, 0.7, 1.8]) mossPatch(A, [x, ROOF - 0.07, Z + 0.456], [0.35 + 0.1 * Math.abs(x), 0.1, 0.012]);
+  for (const s of [-1, 1]) mossPatch(A, [s * (X - 0.12), 0.55, Z + 0.006], [0.2, 0.55, 0.012]);
   // interior
   A.beginFurniture("Map table");
   A.box([-XI, GF + 0.9, -0.8], [-1.0, GF + 0.95, 0.4], "plank_z");
@@ -225,6 +343,35 @@ export function observationPost() {
   A.endFurniture(false);
   shelfX(A, "Shelf", -XI, -0.6, -ZI, 1, GF, 1.7, 0.3, 3, "plank_x");
   lamp(A, 0, CEIL, -0.3);
+  // W2 dressing: small-arms ammunition under the telephone, a scissors periscope on its tripod beside the slit, a
+  // sector sketch on the east wall, binocular case and helmet on the map table, gas-mask canisters on hooks
+  smallArmsCache(A, "Small-arms ammunition", 1.15, GF, 0.35, 90, { boxes: 2, bandoliers: 2 });
+  A.beginFurniture("Scissors periscope");
+  const pc = [-0.95, GF, 1.0];
+  for (let k = 0; k < 3; k++) { const a = (k * 120 + 30) * Math.PI / 180; A.obox([pc[0] + Math.sin(a) * 0.17, GF + 0.62, pc[2] + Math.cos(a) * 0.17], [0.03, 1.28, 0.03], [Math.cos(a) * 15, 0, -Math.sin(a) * 15], "plank_y"); }
+  A.box([pc[0] - 0.05, GF + 1.24, pc[2] - 0.07], [pc[0] + 0.05, GF + 1.42, pc[2] + 0.07], "steel_plate");
+  for (const s of [-1, 1]) A.obox([pc[0] + s * 0.1, GF + 1.6, pc[2] + 0.02], [0.045, 0.42, 0.045], [0, 0, -s * 28], "steel_plate");
+  A.endFurniture();
+  A.beginFurniture("Sector sketch");
+  A.box([XI - 0.02, GF + 1.25, -1.15], [XI, GF + 1.85, -0.35], "plank_z");
+  A.box([XI - 0.025, GF + 1.3, -1.1], [XI - 0.02, GF + 1.8, -0.4], "paper");
+  A.endFurniture(false);
+  A.beginFurniture("Binocular case and helmet");
+  A.box([-1.38, GF + 0.955, 0.05], [-1.2, GF + 1.07, 0.2], "crate_olive");
+  A.obox([-1.25, GF + 1.01, -0.45], [0.26, 0.12, 0.3], [0, 20, 0], "steel_plate");
+  A.endFurniture(false);
+  A.beginFurniture("Gas-mask canisters");
+  A.box([-XI, GF + 1.62, -1.05], [-XI + 0.03, GF + 1.68, -0.6], "plank_z");
+  for (const z of [-0.95, -0.72]) A.box([-XI + 0.03, GF + 1.32, z - 0.06], [-XI + 0.13, GF + 1.6, z + 0.06], "crate_olive");
+  A.endFurniture(false);
+  bunkerNav(A, {
+    rooms: [{ id: "op", min: [-XI, GF, -ZI], max: [XI, CEIL, ZI] }],
+    doors: [{ a: "op", b: "outside", p: [0.6, GF, -Z + T / 2] }],
+    entrances: [{ p: [0.6, 0, -Z - 1.0], dir: [0, 0, 1], room: "op" }],
+    corners: roomCorners("op", -XI, XI, -ZI, ZI, GF, 0.35),
+    firing: [{ p: [0, GF, 0.75], yaw: 0, kind: "embrasure" }],
+    cover: [{ p: [0.6, 0, -Z - 1.6], yaw: 180, height: "high", peek: ["left", "right"] }],
+  });
   const eye = GF + SLIT.eye;
   A.walkthrough = {
     start: { pos: [0.6, 0, -4.2], yaw: 180 },
@@ -246,11 +393,13 @@ export function observationPost() {
 // ----------------------------------------------------------------------------- field shelter
 export function fieldShelter() {
   const A = new Asset({
-    id: "bunker_field_shelter", version: 2, name: "Field Shelter", category: "Bunkers",
-    description: "Log-built field shelter (Unterstand) under an earth cover. Plank door, a small eye-level aperture with a top-hung timber shutter, two-tier bunks, stove and bench.",
+    id: "bunker_field_shelter", version: 3, name: "Field Shelter", category: "Bunkers",
+    description: "Log-built field shelter (Unterstand) under a thick earth cover: soft banks over the walls, earth and turf on the log roof, camouflage netting. Board-formed concrete retaining walls and apron at the plank door, a small eye-level aperture with a top-hung timber shutter. Two-tier bunks, stove, bench, small-arms ammunition.",
     floors: 1, enterable: true, footprint: [9.2, 7.4], plinthDepth: 0.5, maxGrade: 0.6,
   });
   stdMaterials(A);
+  earthMaterials(A);
+  Object.assign(A.materials.find((m) => m.name === "concrete"), { albedo: [0.27, 0.26, 0.235], roughness: 0.93, pattern: "bunker", grain: 12 });   // the overhaul's board-formed concrete
   const X = 2.5, Z = 2.0, T = 0.4, GF = 0.15, CEIL = 2.3, XI = X - T, ZI = Z - T, y0 = GF - 0.02;
   const ap = { a0: 0.55, a1: 0.55 + SLIT.w, y0: GF + SLIT.sill, y1: GF + SLIT.top };   // shared slit height (SLIT)
   A.box([-X, -0.5, -Z], [X, y0, Z], "earth");
@@ -264,8 +413,26 @@ export function fieldShelter() {
   for (const x of [-XI, 0, XI - 0.18]) for (const z of [-ZI, ZI - 0.18]) if (!(x === 0 && z === -ZI)) A.box([x, GF, z], [x + 0.18, CEIL, z + 0.18], "log_z", { k: 0 });
   for (let x = -X - 0.1; x < X + 0.1; x += 0.26) A.box([x, CEIL, -Z - 0.1], [x + 0.25, CEIL + 0.26, Z + 0.1], "log_z");
   A.box([-X - 0.1, CEIL - 0.14, -0.1], [X + 0.1, CEIL, 0.1], "log_x", { k: 0 });
-  A.prism(0, -X - 0.15, X + 0.15, [[-Z - 0.3, CEIL + 0.26], [Z + 0.3, CEIL + 0.26], [0, CEIL + 0.85]], "turf");
-  berms(A, { X, Z, front: GF + 0.75, sideH: CEIL + 0.3, sideRun: 2.0, frontRun: 1.7 });
+  // earth cover: 0.5 m of earth and turf on the log roof, banks over both flanks and the rear (either side of the
+  // entrance), a low bank under the aperture; the entrance passage (x -0.65..0.65) between concrete retaining walls
+  const RL = CEIL + 0.26, pw = 0.65, pl = 1.4;
+  roofEarth(A, -X - 0.12, X + 0.12, -Z - 0.12, Z + 0.12, RL, 0.5, 21);
+  earthBank(A, 2, -Z - 0.6, Z + 0.4, X, 1, CEIL + 0.1, 2.05, 22, { taper: [false, true] });
+  earthBank(A, 2, -Z - 0.6, Z + 0.4, -X, -1, CEIL + 0.1, 2.05, 23, { taper: [false, true] });
+  earthBank(A, 0, -X - 0.5, -pw - 0.25, -Z, -1, CEIL, 1.6, 24, { taper: [false, false] });
+  earthBank(A, 0, pw + 0.25, X + 0.5, -Z, -1, CEIL, 1.6, 25, { taper: [false, false] });
+  earthBank(A, 0, -X - 0.3, X + 0.3, Z, 1, GF + 0.75, 1.7, 26);
+  for (const s of [-1, 1]) {   // retaining walls: full height at the door, stepping down outward, sandbags on top
+    const x0 = s > 0 ? pw : -pw - 0.25, x1 = x0 + 0.25;
+    A.box([x0, -0.4, -Z - 0.7], [x1, 1.25, -Z + 0.02], "concrete");
+    A.box([x0, -0.4, -Z - pl], [x1, 0.8, -Z - 0.7], "concrete");
+    sandbagWall(A, 2, -Z - 0.68, -Z + 0.02, x0 + 0.125, 1.25, 0.3, s > 0 ? 27 : 28, { thick: 0.28 });
+  }
+  A.box([-pw, -0.3, -Z - pl], [pw, 0.06, -Z + 0.02], "concrete");   // apron in front of the door (6 cm up)
+  camoNet(A, { hang: [["z+", -X - 0.12, X + 0.12, Z + 0.13, RL + 0.45, CEIL - 0.1]] });
+  // weathering: moss on the roof-log ends over the front, on the corner posts and the log courses near the ground
+  for (const x of [-2.0, -0.9, 0.3, 1.5]) mossPatch(A, [x, CEIL + 0.13, Z + 0.105], [0.45, 0.2, 0.012]);
+  for (const s of [-1, 1]) mossPatch(A, [s * (X - 0.4), GF + 1.2, Z + 0.006], [0.3, 0.4, 0.012]);
   // top-hung timber shutter inside the aperture
   const p0 = [ap.a0 - 0.06, ap.y0 - 0.06, ZI - 0.045], p1 = [ap.a1 + 0.06, ap.y1 + 0.06, ZI - 0.005];
   hinged(A, {
@@ -290,6 +457,31 @@ export function fieldShelter() {
   A.box([-1.25, GF + 0.72, 0.3], [-1.15, GF + 0.74, 0.4], "iron");
   A.box([-1.24, GF + 0.74, 0.31], [-1.16, GF + 0.86, 0.39], "glass");
   A.endFurniture(false);
+  // W2 dressing: small-arms ammunition in the front corner by the bunks, gas masks and a coat on pegs by the door,
+  // firewood by the stove, a water can, mess tins on the table
+  smallArmsCache(A, "Small-arms ammunition", 1.82, GF, 1.0, 90, { boxes: 3, bandoliers: 2 });
+  A.beginFurniture("Pegs");
+  A.box([0.62, GF + 1.6, -ZI], [1.22, GF + 1.66, -ZI + 0.03], "plank_x");
+  for (const x of [0.72, 0.92]) A.box([x - 0.06, GF + 1.3, -ZI + 0.03], [x + 0.06, GF + 1.58, -ZI + 0.13], "crate_olive");
+  A.box([1.02, GF + 0.95, -ZI + 0.03], [1.2, GF + 1.6, -ZI + 0.11], "crate_olive");
+  A.endFurniture(false);
+  A.beginFurniture("Firewood");
+  for (let k = 0; k < 6; k++) A.obox([-0.95 + (k % 3) * 0.1, GF + 0.05 + Math.floor(k / 3) * 0.09, -1.45], [0.085, 0.085, 0.3], [0, (k * 7) % 11 - 5, 0], "log_z");
+  A.endFurniture();
+  A.beginFurniture("Water can");
+  A.box([-1.98, GF, 1.25], [-1.82, GF + 0.34, 1.5], "crate_olive");
+  A.endFurniture();
+  A.beginFurniture("Mess tins");
+  for (const [x, z] of [[-1.35, 0.25], [-1.05, 0.5]]) A.box([x - 0.08, GF + 0.72, z - 0.06], [x + 0.08, GF + 0.78, z + 0.06], "steel_plate");
+  A.endFurniture(false);
+  bunkerNav(A, {
+    rooms: [{ id: "shelter", min: [-XI, GF, -ZI], max: [XI, CEIL, ZI] }],
+    doors: [{ a: "shelter", b: "outside", p: [0, GF, -Z + T / 2] }],
+    entrances: [{ p: [0, 0.06, -Z - 1.0], dir: [0, 0, 1], room: "shelter" }],
+    corners: roomCorners("shelter", -XI, XI, -ZI, ZI, GF, 0.35),
+    firing: [{ p: [(ap.a0 + ap.a1) / 2, GF, 0.9], yaw: 0, kind: "embrasure" }],
+    cover: [{ p: [0, 0.06, -Z - 1.1], yaw: 180, height: "low", peek: ["over"] }],
+  });
   const eye = GF + SLIT.eye, ac = (ap.a0 + ap.a1) / 2;
   A.walkthrough = {
     start: { pos: [0, 0, -3.8], yaw: 180 },
@@ -374,6 +566,15 @@ export function commandShelter() {
   for (const z of [-0.6, -0.1, 0.4, 0.9]) A.box([-XI + 0.03, GF + 1.35, z - 0.08], [-XI + 0.12, GF + 1.6, z + 0.08], "crate_olive");
   A.endFurniture(false);
   for (const [x, z] of [[1.0, 0.3], [-2.5, 0.0], [3.0, -1.5]]) lamp(A, x, CEIL, z);
+  smallArmsCache(A, "Small-arms ammunition", 3.2, GF, 0.02, 90);   // W2: between the bunks and the steel cabinet
+  bunkerNav(A, {
+    rooms: [{ id: "gaslock", min: [-XI, GF, -ZI], max: [-1.5, CEIL, ZI] }, { id: "maproom", min: [-1.2, GF, -ZI], max: [XI, CEIL, ZI] }],
+    doors: [{ a: "gaslock", b: "outside", p: [-2.5, GF, -Z + T / 2] }, { a: "gaslock", b: "maproom", p: [-1.35, GF, -1.2] }],
+    entrances: [{ p: [-2.5, 0.12, -Z - 0.55], dir: [0, 0, 1], room: "gaslock" }],
+    corners: [...roomCorners("gaslock", -XI, -1.5, -ZI, ZI, GF), ...roomCorners("maproom", -1.2, XI, -ZI, ZI, GF)],
+    firing: [{ p: [2.2, GF, 1.85], yaw: 0, kind: "embrasure" }, { p: [1.5, GF, -1.85], yaw: 180, kind: "embrasure" }],
+    cover: [{ p: [-2.5, 0, -Z - 1.2], yaw: 180, height: "high", peek: ["left", "right"] }],
+  });
   camoNet(A, { roof: [-X - 0.45, X + 0.45, -Z - 0.45, Z + 0.6, ROOF],
     hang: [["x+", -Z - 0.45, Z + 0.6, X + 0.45, ROOF, 0.5], ["x-", -Z - 0.45, Z + 0.6, -X - 0.45, ROOF, 0.5], ["z+", -X - 0.45, X + 0.45, Z + 0.6, ROOF + 0.02, ROOF - 0.5]] });
   const eye = GF + SLIT.eye, pz = -Z - 1.0;
@@ -479,6 +680,15 @@ export function largeBunker() {
   chair(A, "Chair", 4.4, -3.0, GF, "+z");
   shelfX(A, "Shelf", -1.1, 1.5, -4.8, 1, GF, 1.8, 0.35, 3, "plank_x", null);
   for (const [x, z, y] of [[-4.5, 1.0, HOOD], [-1.5, 1.0, HOOD], [1.0, -3.2, GF + 2.6], [5.0, -3.2, GF + 2.6]]) lamp(A, x, y, z);
+  smallArmsCache(A, "Small-arms ammunition", 5.8, GF, -4.42, 0);   // W2: crew room, along the rear wall
+  bunkerNav(A, {
+    rooms: [{ id: "crew", min: [-1.3, GF, -4.8], max: [7.8, GF + 2.6, -1.5] }, { id: "firing", min: [-6.8, GF, -0.3], max: [0.8, HOOD, 2.9] }],
+    doors: [{ a: "crew", b: "outside", p: [3.0, GF, -5.4] }, { a: "crew", b: "firing", p: [-0.25, GF, -0.9] }],
+    entrances: [{ p: [3.0, 0.18, -6.6], dir: [0, 0, 1], room: "crew" }],
+    corners: [...roomCorners("crew", -1.3, 7.8, -4.8, -1.5, GF), ...roomCorners("firing", -6.8, 0.8, -0.3, 2.9, GF)],
+    firing: [-4.6, -3.2, -1.8].map((x) => ({ p: [x, GF, 2.35], yaw: 0, kind: "embrasure" })),
+    cover: [{ p: [3.0, 0, -8.6], yaw: 180, height: "high", peek: ["left", "right"] }],
+  });
   A.walkthrough = {
     start: { pos: [6.5, 0, -11.0], yaw: 180 },
     steps: [
@@ -583,6 +793,16 @@ export function pakCasemate() {
   for (const z of [-0.45, 1.25]) A.box([-2.95, GF, z - 0.04], [-2.65, GF + 0.42, z + 0.04], "plank_y");
   A.endFurniture();
   for (const [x, z] of [[-1.5, 0.0], [1.5, -1.5]]) lamp(A, x, CEIL, z);
+  // W2: 7.5 cm shell crates, wicker carriers and loose rounds in the front-west corner, clear of the gunner (-1.05, 0)
+  // and the bench (the HE crate keeps the resupply)
+  gunAmmoStack(A, "Gun ammunition", -2.2, GF, 1.2, 0, { cal: "75", crates: 4, carriers: 2, loose: 2 });
+  bunkerNav(A, {
+    rooms: [{ id: "gunroom", min: [-XI, GF, ZBI], max: [XI, CEIL, ZFI] }],
+    doors: [{ a: "gunroom", b: "outside", p: [0, GF, (ZB + ZBI) / 2] }],
+    entrances: [{ p: [0, 0, ZB - 0.8], dir: [0, 0, 1], room: "gunroom" }],
+    corners: roomCorners("gunroom", -XI, XI, ZBI, ZFI, GF),
+    firing: [{ p: [0, GF, 0.95], yaw: 0, kind: "embrasure" }, { p: [2.3, GF, 1.4], yaw: 0, kind: "embrasure" }],
+  });
   camoNet(A, { roof: [-XO - 0.5, XO + 0.5, ZB - 0.3, ZF + 0.8, ROOF],
     hang: [["x+", ZB - 0.3, ZF + 0.8, XO + 0.5, ROOF, 0.5], ["x-", ZB - 0.3, ZF + 0.8, -XO - 0.5, ROOF, 0.5], ["z+", -XO - 0.5, XO + 0.5, ZF + 0.8, ROOF + 0.02, ROOF - 0.45]] });
   const eye = GF + SLIT.eye;

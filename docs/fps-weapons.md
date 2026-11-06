@@ -179,6 +179,33 @@ With zero corrections, R and F lie exactly on the view axis. The hip pose is com
 
 **Weapon FOV (`vmFov`) versus eye relief.** Relief scales only the rear sight (apparent size ∝ 1/relief). A narrower weapon FOV magnifies the whole drawn weapon about the screen centre while the world keeps its own FOV, so it is framing, not zoom. The Carbine and BAR need both, because their sights are millimetre-sized parts a metre from the eye.
 
+<a id="w2"></a>
+**MP & Creative update (W2): StG 44 and M3, measured the same way.** Both are now in the calibrated set (`--selftest-sights`, 10 weapons).
+
+| Weapon | Anchor | Old | Measured / new |
+|---|---|---|---|
+| StG 44 | mesh | the GLB carries a 12.8° cant about the bore (top leaning right, seen from behind) | `model.rot` [-7.3, 180, **-12.77**]: the roll is removed at bake, so the hip pose, ADS and the third-person weapon are level (`--import-weapon-models`). The supplied mesh is also yawed 1.45° about y; bore and sight line agree, so ADS absorbs it and it shows a little of the left side (charging handle). |
+| | rear | (−0.0317, 0.16, 0.5): on the canted mesh, beside the notch | (−0.0014, 0.16275, 0.466): shoulder line over the 2 mm U-notch of the tangent leaf (notch bottom y 0.16145) |
+| | front | (−0.0317, 0.1616, 0.904): 12 mm beside the post | (−0.01275, 0.1637, 0.9155): pointed post tip inside the hood (hood top y 0.1726) |
+| | muzzle, sockets | canted bake | bore (−0.01355, 0.1045, 0.94); sockets carried through the same roll (rigid transform) |
+| | `ads` | none | relief 0.18, weapon FOV 42° (the rear sight block fills the top centre) |
+| M3 | rear | (0, 0.193, 0.115): 1 mm right of and 1.7 mm below the aperture | (−0.00095, 0.19146, 0.115): centre of the visible opening of the 5.7 mm peep; the leaf is 8 mm thick, and down the 1.1° sight line the opening centre is 0.16 mm above the hole axis |
+| | front | (0, 0.1843, 0.485) | (−0.00065, 0.1843, 0.487): centre of the 2.1 mm flat blade top |
+| | `ads` | none | relief 0.12, weapon FOV 40° (the ring about 70 px across at 1080p) |
+
+**Acceptance sweep (spec 8.3).** `--selftest-sights` aims every weapon at 1920×1080, 2560×1440 and 3440×1440. The renderer size is forced for the sweep, because the OS clamps a window to the desktop's work area. Two checks:
+- **Image:** the measured front tip is within 1 px of the centre pixel and the aperture or notch within 2 px. This covers the calibrated iron sights.
+- **Analytic, every weapon including the scopes:** both anchors project within 0.5 px, and the roll of the drawn weapon is under 0.05°.
+
+The carried M2HB has no sights; it deploys. The pixel results are in `report_sights.txt` and `summary_sights.json` ("sweep").
+
+**Dev overlay.** With *Sight calibration markers* on (Loadout, L), `src/sight_overlay.cpp` adds:
+- a gapped magenta crosshair on the camera centre;
+- lines from the centre to the projected rear and front points;
+- a readout of the rear and front offsets (px), the weapon's roll (deg) and the framebuffer size. It turns red outside 1 px front, 2 px rear or 0.05° roll.
+
+It works for whichever weapon is in hand.
+
 <a id="mesh-edits"></a>
 **Bake-time mesh edits** (`model.meshEdits` in the weapon JSON, applied by `--import-weapon-models`):
 - Each edit selects the connected triangle islands of the supplied mesh that lie entirely inside `islandsIn` (weapon space, after the import transform). Islands are joined through shared triangles and coincident positions.

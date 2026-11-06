@@ -167,7 +167,46 @@ The pattern is all procedural in the shader: no textures and no extra draw calls
   - A breach in a 1.2 m wall, widened to standing height, can be walked through. `--selftest-damage` does this on a rotated MG casemate.
   - Crouching through a breach works once it is open about 1.25 m high (crouched capsule 1.2 m plus padding). `--selftest-damage` crawls through a 1.26 m breach in 1.2 m of concrete.
 
+## MP & Creative update (W2): observation post, field shelter, ammunition, nav
+
+**Observation post and field shelter (spec 10.1).** The 8471552 / 196ccaa treatment, with their earth cover kept:
+- **Earth cover.** The flat hard-edged `turf` wedges are gone. In their place:
+  - **Banks:** soft banks wrap the flanks and rear corners. Each has a raw-earth shoulder against the wall that rolls over at 35 % of the run into a long grassed slope.
+    - The grass comes in three tones, with an occasional bare patch.
+    - Crest height and run vary smoothly along the bank and ease out over about 1.2 m at open ends (0.15 m facets there, 0.35 m elsewhere).
+  - **Roof:** an earth layer with a grassed crown.
+  - **Front:** a low bank under the exposed face.
+  - All of it is in `earthBank` and `roofEarth` in `tools/catalog_bunkers.mjs`. The parts collide, so rounds stop in the cover.
+- **Materials and construction.**
+  - The observation post is board-formed bunker concrete. It gains a rounded, overhanging roof slab and a footing.
+  - The field shelter stays log-built. Its entrance gets board-formed concrete retaining walls and an apron, with sandbags on top.
+- **Entrance.** The observation post's rear door is reached down a passage lined with sandbag walls (`sandbagWall`, the `def_sandbag_*` hessian).
+- **Camouflage netting.** Festoons hang over the exposed fronts, above the slit or aperture. There are no roof sheets, because those floated over the earth.
+- **Weathering.** Moss sits along the slab or roof-log lip and in the front corners. The world shader's damp foot and run-off streaks still apply.
+- **Interiors.**
+  - Observation post: a scissors periscope on its tripod beside the slit, a sector sketch, a binocular case and helmet, and gas-mask canisters.
+  - Field shelter: pegs with gas masks and a coat, firewood by the stove, a water can and mess tins.
+
+**Ammunition (spec 10.2, `tools/catalog_ammo.mjs`).** The boxes are furniture inside each prefab, so they appear wherever the bunker is placed:
+- `gunAmmoStack` (shell crates, wicker carriers, loose rounds) is in the PaK casemate (7.5 cm, beside the gun) and the Flak 18 emplacement (8.8 cm, in the quadrant between the +x outrigger and the rear arm).
+- `smallArmsCache` (7.92 mm boxes, a rifle crate, bandoliers) is in every other bunker.
+- [DECISION] The boxes are decorative. Resupply stays on the existing crates; the PaK casemate's `crate_pak40_he` companion is the resupply.
+- `gun_flak18.json` is written by `tools/gen_env_assets.py`. `node tools/build_bunkers.mjs` merges the stack into it, so re-run it after the Python generator.
+
+**Nav annotations (`src/navmeta.h`).** Every bunker has `"nav": {"effect": "block", ...}`:
+- rooms (interior boxes) and doors (room to room or `outside`);
+- entrances outside each door, with `dir` pointing in;
+- room corners to clear;
+- firing points at every slit and embrasure (`embrasure`), plus the MG 42 mount (`mg`);
+- cover behind the blast walls.
+
+Yaw is in degrees about +Y in the instance convention: 0 is the asset front (+Z) and 90 is +X.
+
 ## Tests
+- `--selftest-visuals` checks:
+  - ammunition of the right kind in every bunker prefab and the Flak 18, and the PaK resupply crate still placed;
+  - the nav block of every bunker: effect, rooms inside the bounds, doors, entrances outside pointing in, corners and firing points inside a room;
+  - the observation post and field shelter treatment: no turf wedge, earth and grass facets, netting, sandbags, moss, bunker concrete.
 
 - `--selftest` (suite A) walks every bunker's walkthrough at a rotation: doors, flaps, slits, interiors, and the floor height at each step.
 - `--selftest-update`, crew stations:
