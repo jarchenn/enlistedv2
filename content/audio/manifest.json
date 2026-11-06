@@ -463,6 +463,178 @@
     }
    ]
   },
+  "shot_stg44": {
+   "kind": "shot",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1109,
+     "name": "stg_44_body_1",
+     "dur": 1.962,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 317,
+     "name": "stg_44_body_2",
+     "dur": 2.023,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 976,
+     "name": "stg_44_body_3",
+     "dur": 1.915,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 861,
+     "name": "stg_44_body_4",
+     "dur": 2.087,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1421,
+     "name": "stg_44_body_5",
+     "dur": 1.85,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_stg44": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 68,
+     "name": "stg_44_tail_1",
+     "dur": 4.638,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 13,
+     "name": "stg_44_tail_2",
+     "dur": 5.54,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1173,
+     "name": "stg_44_tail_3",
+     "dur": 4.62,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1647,
+     "name": "stg_44_tail_4",
+     "dur": 4.345,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 8,
+     "name": "stg_44_tail_5",
+     "dur": 4.433,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m3_grease_gun": {
+   "kind": "shot",
+   "gain": 0.9,
+   "status": "named",
+   "note": "the automatic bank's M3 family (M3 grease gun)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1484,
+     "name": "m3_body_1",
+     "dur": 0.533,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1333,
+     "name": "m3_body_2",
+     "dur": 0.557,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1085,
+     "name": "m3_body_3",
+     "dur": 0.775,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 482,
+     "name": "m3_body_4",
+     "dur": 0.651,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 447,
+     "name": "m3_body_5",
+     "dur": 0.518,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_m3_grease_gun": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 258,
+     "name": "m3_tail_1",
+     "dur": 2.289,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1052,
+     "name": "m3_tail_2",
+     "dur": 2.266,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 214,
+     "name": "m3_tail_3",
+     "dur": 2.901,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 567,
+     "name": "m3_tail_4",
+     "dur": 2.74,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1429,
+     "name": "m3_tail_5",
+     "dur": 2.605,
+     "peak": 0.96
+    }
+   ]
+  },
   "shot_fg42": {
    "kind": "shot",
    "gain": 0.9,
@@ -2069,6 +2241,64 @@
      "name": "change_ammo_mp40_3",
      "dur": 0.898,
      "peak": 1.0
+    }
+   ]
+  },
+  "reload_stg44": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 281,
+     "name": "change_ammo_stg_44_1",
+     "dur": 0.62,
+     "peak": 0.905
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 41,
+     "name": "change_ammo_stg_44_2",
+     "dur": 1.137,
+     "peak": 0.996
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 179,
+     "name": "change_ammo_stg_44_3",
+     "dur": 0.975,
+     "peak": 1.0
+    }
+   ]
+  },
+  "reload_m3_grease_gun": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 59,
+     "name": "change_ammo_m3_1",
+     "dur": 0.441,
+     "peak": 0.918
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 51,
+     "name": "change_ammo_m3_2",
+     "dur": 0.795,
+     "peak": 0.916
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 14,
+     "name": "change_ammo_m3_3",
+     "dur": 1.067,
+     "peak": 0.959
     }
    ]
   },

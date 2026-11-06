@@ -53,6 +53,10 @@
 | `tail_m1_thompson` | tail | named | mgun:1468 `thompson_tail_1`, mgun:95 `thompson_tail_2`, mgun:394 `thompson_tail_3`, mgun:1667 `thompson_tail_4` (+1) | 3.07-3.07 |  |
 | `shot_mp40` | shot | named | mgun:252 `mp40_body_1`, mgun:1398 `mp40_body_2`, mgun:439 `mp40_body_3`, mgun:672 `mp40_body_4` (+1) | 0.96-0.96 |  |
 | `tail_mp40` | tail | named | mgun:219 `mp40_tail_1`, mgun:1120 `mp40_tail_2`, mgun:1140 `mp40_tail_3`, mgun:1388 `mp40_tail_4` (+1) | 1.44-2.06 |  |
+| `shot_stg44` | shot | named | mgun:1109 `stg_44_body_1`, mgun:317 `stg_44_body_2`, mgun:976 `stg_44_body_3`, mgun:861 `stg_44_body_4` (+1) | 1.85-2.09 |  |
+| `tail_stg44` | tail | named | mgun:68 `stg_44_tail_1`, mgun:13 `stg_44_tail_2`, mgun:1173 `stg_44_tail_3`, mgun:1647 `stg_44_tail_4` (+1) | 4.35-5.54 |  |
+| `shot_m3_grease_gun` | shot | named | mgun:1484 `m3_body_1`, mgun:1333 `m3_body_2`, mgun:1085 `m3_body_3`, mgun:482 `m3_body_4` (+1) | 0.52-0.78 | the automatic bank's M3 family (M3 grease gun) |
+| `tail_m3_grease_gun` | tail | named | mgun:258 `m3_tail_1`, mgun:1052 `m3_tail_2`, mgun:214 `m3_tail_3`, mgun:567 `m3_tail_4` (+1) | 2.27-2.90 |  |
 | `shot_fg42` | shot | named | mgun:418 `fg42_body_1`, mgun:650 `fg42_body_2`, mgun:72 `fg42_body_3`, mgun:894 `fg42_body_4` (+1) | 3.28-3.80 | plain fg42 family (fg42_m2_* is another labelled variant, not used) |
 | `tail_fg42` | tail | named | mgun:484 `fg42_tail_1`, mgun:70 `fg42_tail_2`, mgun:1017 `fg42_tail_3`, mgun:1078 `fg42_tail_4` (+1) | 2.61-3.33 |  |
 | `shot_m1918a2_bar` | shot | named | mgun:708 `m1918_body_1`, mgun:836 `m1918_body_2`, mgun:465 `m1918_body_3`, mgun:383 `m1918_body_4` (+1) | 1.37-2.50 | m1918 family (BAR), not the browning_auto_5 shotgun |
@@ -87,6 +91,8 @@
 | `clip_m1_garand` | foley | named | rifle_foley:408 `m1garand_clip_1`, rifle_foley:522 `m1garand_clip_2`, rifle_foley:231 `m1garand_clip_3` | 1.35-1.43 | en-bloc clip: played when the clip seats |
 | `reload_m1_carbine` | foley | named | mgun_foley:210 `change_ammo_m1carbine_2`, mgun_foley:75 `change_ammo_m1carbine_3` | 0.46-0.62 |  |
 | `reload_mp40` | foley | named | mgun_foley:190 `change_ammo_mp40_1`, mgun_foley:199 `change_ammo_mp40_2`, mgun_foley:98 `change_ammo_mp40_3` | 0.85-1.27 |  |
+| `reload_stg44` | foley | named | mgun_foley:281 `change_ammo_stg_44_1`, mgun_foley:41 `change_ammo_stg_44_2`, mgun_foley:179 `change_ammo_stg_44_3` | 0.62-1.14 |  |
+| `reload_m3_grease_gun` | foley | named | mgun_foley:59 `change_ammo_m3_1`, mgun_foley:51 `change_ammo_m3_2`, mgun_foley:14 `change_ammo_m3_3` | 0.44-1.07 |  |
 | `reload_m1918a2_bar` | foley | named | mgun_foley:173 `change_ammo_m1918_1`, mgun_foley:220 `change_ammo_m1918_2`, mgun_foley:95 `change_ammo_m1918_3` | 0.36-0.59 |  |
 | `reload_mg42` | foley | named | mgun_foley:292 `change_ammo_mg42_1`, mgun_foley:1 `change_ammo_mg42_2`, mgun_foley:166 `change_ammo_mg42_3`, mgun_foley:132 `change_ammo_mg42_4` (+3) | 0.73-1.56 | belt; stages are not ordered by audition |
 | `reload_m1_thompson` | foley | named | mgun_foley:136 `change_ammo_thompson_1`, mgun_foley:289 `change_ammo_thompson_2`, mgun_foley:320 `change_ammo_thompson_3` | 0.59-1.50 | box-magazine Thompson (drum reloads not used) |
