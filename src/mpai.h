@@ -20,6 +20,9 @@ void mpaiInput(App& app, ExploreInput& in);    // filters local input (dead, mat
 bool mpaiLocalFrozen(App& app);                // local player dead: skip its movement this step
 void mpaiStep(App& app, float dt);             // end of the fixed explore step
 bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld);   // true: hit a soldier (consume)
+bool mpaiGrenadeSpawn(App& app, int def, vec3 pos, vec3 vel, int owner);   // true: handled (LAN client request), no local body
+// grenade fuse ran out: phase 0 before the blast (returns true when it handled it: smoke), phase 1 after explode()
+bool mpaiGrenadeDetonate(App& app, int def, vec3 pos, int owner, int phase);
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits);
 struct PhysicsHitFwd;
 void mpaiImpact(App& app, const Projectile& p, vec3 hitPos, vec3 hitNormal, uint64_t hitUd, float hitT, const std::string& surface);   // after bulletImpact (LAN replication)

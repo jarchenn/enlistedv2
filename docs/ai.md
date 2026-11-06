@@ -20,8 +20,8 @@ Plain Explore (F5) is still the empty walkthrough with no bots.
 
 | Key | In a match |
 |---|---|
-| G | throw a frag grenade (inventory: 2 per life) |
-| H | throw a smoke grenade (if your loadout has one) |
+| H | quick-throw your side's frag grenade (Mk 2 / M24; 2 per life). Or select it with Q and throw with LMB |
+| J | quick-throw a smoke grenade (if your loadout has one) |
 | F6 | AI debug overlay: role, mode and reason, target, last-known positions, route, chosen cover, lane, lives left |
 | Q | next weapon (your faction's pool) |
 | other keys | as in Explore |
@@ -130,15 +130,15 @@ Tuning data:
 - `content/ai/archetypes.json`: reaction, aim turn, dispersion, sight, FOV, aggression, bursts, grenade and smoke rules, perception rates
 - `content/ai/combat.json`: health, zones, calibers, falloff, loadouts, models, corpses
 
-## Grenades and smoke (`src/grenade.cpp`)
+## Grenades and smoke (shared core `src/equipment.cpp` + `src/grenade.cpp`)
 
-- **Server-owned** thrown grenades: gravity, bounces off the physics world (restitution 0.32), server fuse (frag 4.5 s, smoke 1.6 s).
+- Thrown grenades are the **shared grenade core** (the main session's E3 items): `mk2_grenade`, `m24_grenade`, and `smoke_grenade` from this branch. Each is a Jolt body with a fuse that starts at release (frag 4.5 s, smoke 1.6 s). Bots, LAN clients and the player release them through `App::spawnGrenade(def, pos, vel, owner)`, and the host is the authority.
 - **Inventory** (2 frag; attackers also 1 smoke; data):
   - spent **once, at release**; a throw cancelled before release spends nothing
   - a released grenade stays live if its thrower dies
   - no refill on objective change or possession transfer
 - **Frag:**
-  - walls via the shared `explode()` with `WALL_GRENADE` (material rules, so it will not demolish a bunker)
+  - walls via the shared `explode()` with `WALL_GRENADE` and the item's blast data (material rules, so it will not demolish a bunker)
   - personnel damage 160 × (1 - d/12 m)^1.6 with blast occlusion (a solid wall cuts it to about 10 %)
 - **Smoke:**
   - a cloud is `{position, start time, seed, radius, build / dense / fade}` (5 m, 2 s, 15 s, 5 s)
@@ -160,6 +160,6 @@ Tuning data:
 
 - Poses are procedural (see the asset notes). The rangers' automatic weights can crease at the shoulders up close.
 - Bots stand or crouch; they do not go prone, crew guns or use vehicles.
-- Thrown grenades use the supplied models: Mk 2 (Allied frag), M24 (Axis frag), and the supplied smoke canister for both sides (no German smoke grenade was supplied). They are baked with `--bake-mpai-models <dir>` into `content/mpai/models`. The first-person view has no throw animation yet; the grenade leaves from the eye.
+- Thrown grenades use the supplied models through the shared items: Mk 2 (Allied frag), M24 (Axis frag), and the supplied smoke canister for both sides (no German smoke grenade was supplied). First-person throws use the shared throw pose (E3).
 - No match timer (as specified). Capture and damage values are first balance values.
 - **Performance** (`--benchmark-match`; 20 combatants, three smoke clouds kept up, a wall explosion every 4 s, 1920x1080, on this PC's RTX 2080 Ti, which other processes were also using): frame **9.2 ms mean / 11.3 ms p95**, render CPU 8.3 ms, GPU 6.2 ms, match step (AI, soldiers, capture) 0.37 ms. That is within 60 FPS. It is not a furnished map, since furniture is not integrated yet, and earlier runs on a heavily shared GPU read 30-40 ms. Compare runs back to back only.

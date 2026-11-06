@@ -50,11 +50,11 @@ These are not authored or motion-captured animation. Baking real clips (for exam
 
 | Source | Use |
 |---|---|
-| `mk_2_grenade.glb` (Nila, CC-BY-4.0) | Allied frag grenade model (`content/mpai/models/mk2`). The main session's E3 also uses this source: unify at merge. |
-| `m24_stielhandgranate.glb` (Özcan Özaltın, CC-BY-4.0) | German frag grenade model (E3). |
-| `2k_textured_wwii_smoke_grenade.glb` (KimbellWhatley, CC-BY-4.0) | Smoke grenade model. |
+| `mk_2_grenade.glb` (Nila, CC-BY-4.0) | Allied frag grenade: the E3 item `mk2_grenade` (main session bake). |
+| `m24_stielhandgranate.glb` (Özcan Özaltın, CC-BY-4.0) | Axis frag grenade: the E3 item `m24_grenade`. |
+| `2k_textured_wwii_smoke_grenade.glb` (KimbellWhatley, CC-BY-4.0) | Smoke grenade item `smoke_grenade` (`content/weapons/smoke_grenade.json`, model `content/weapons/models/smoke`), used by both sides. |
 
-All three are baked by `--bake-mpai-models` (`content/mpai/grenade_models.json`) and drawn for thrown grenades: Mk 2 for the Allied side, M24 for the Axis side, and the smoke canister for both.
+All three are items of the shared grenade core (equipment.cpp): Q / LMB to throw, H quick frag, J quick smoke (in a match).
 
 ## Furniture (initial batch: inventoried, integration pending)
 

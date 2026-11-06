@@ -4,7 +4,6 @@
 #include "mpui.h"
 #include "net.h"
 #include "crumb.h"
-void mpaiGrenadeBlastScope(bool on);
 void netInterpolate(Game& g, double t);
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -27,16 +26,6 @@ bool Game::loadData(std::string& err) {
 
 bool Game::ensureModels(std::string& err) {
   if (!initSkinning(err)) { err = "skinning shader: " + err; return false; }
-  if (grenadeModels.empty()) {
-    try {
-      json cfg = json::parse(readTextFile(contentDir() / "mpai" / "grenade_models.json"));
-      for (auto& m : cfg["models"]) {
-        auto g = std::make_shared<GpuModel>(); std::string e;
-        if (g->load(contentDir() / "mpai" / "models" / m["dir"].get<std::string>(), e)) grenadeModels[m["id"].get<std::string>()] = g;
-        else logf("grenade model %s: %s", m["id"].get<std::string>().c_str(), e.c_str());
-      }
-    } catch (...) { logf("grenade models: content/mpai/grenade_models.json missing"); }
-  }
   if (!models.empty()) return true;
   json m = combat.value("models", json::object());
   for (auto& [fac, list] : m.items())
@@ -52,6 +41,27 @@ bool Game::ensureModels(std::string& err) {
 }
 
 vec3 Game::soldierFeet(int s) const { return sold[s].feet; }
+int Game::fragDef(Faction f) const { return app.weaponIndex(f == Faction::Axis ? "m24_grenade" : "mk2_grenade"); }
+int Game::smokeDef() const { return app.weaponIndex("smoke_grenade"); }
+
+void Game::localGrenadeCounts(Soldier& L, bool write) {
+  int fd = fragDef(L.faction), sd = smokeDef();
+  auto put = [&](int d, int n) { if (d < 0) return; WeaponState& s = app.wstate[app.weaponDefs[d]->id]; if (s.throwT >= 0) return; s.loaded = n > 0 ? 1 : 0; s.containers.assign(std::max(0, n - 1), 1); };
+  auto get = [&](int d) { if (d < 0) return 0; const WeaponState& s = app.wstate[app.weaponDefs[d]->id]; return s.loaded + s.reserveRounds(); };
+  if (write) { put(fd, L.frags); put(sd, L.smokes); }
+  else { L.frags = get(fd); L.smokes = get(sd); }
+}
+
+void Game::syncGrenadeView() {
+  gren.live.clear();
+  for (auto& g : app.grenades) {
+    if (g.done || g.def < 0 || g.def >= (int)app.weaponDefs.size()) continue;
+    GrenadeRT v; v.id = (uint32_t)g.body; v.def = g.def; v.kind = app.weaponDefs[g.def]->grenade.smoke ? GK_SMOKE : GK_FRAG;
+    v.owner = g.owner < 0 ? localSlot : g.owner; v.p = g.pos; v.rot = g.rot; v.fuse = g.fuse; v.age = g.age;
+    v.resting = glm::length(Physics::velocity(g.body)) < 0.4f;
+    gren.live.push_back(v);
+  }
+}
 vec3 Game::eye(const Soldier& s) const {
   if (s.localPlayer && s.alive) return app.eyePos();
   float h = s.posture == Physics::PRONE ? 0.32f : s.posture == Physics::CROUCH ? 1.05f : 1.62f;
@@ -144,7 +154,11 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
     app.resetWeapons();
     std::vector<int> pool;
     for (auto& id : lo["player"]) { int w = app.weaponIndex(id.get<std::string>()); if (w >= 0) pool.push_back(w); }
-    if (!pool.empty()) { app.carried = pool; app.selectWeapon(pool[0]); }
+    if (!pool.empty()) {
+      // the side's grenades (E3 items) and the knife travel with the firearms; counts follow the match rules
+      for (int d : {fragDef(s.faction), smokeDef(), app.weaponIndex("knife_bayonet")}) if (d >= 0) pool.push_back(d);
+      app.carried = pool; app.selectWeapon(pool[0]);
+    }
     s.weapon = app.activeWeapon;
   } else {
     // weighted pool, deterministic per slot + life
@@ -162,6 +176,7 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
     s.frags = match.rules.fragPerLife;
     s.smokes = s.role == CombatRole::Attacker ? match.rules.smokePerLifeAttacker : match.rules.smokePerLifeDefender;
   }
+  if (s.localPlayer) localGrenadeCounts(s, true);
   s.reload = 0; s.throwT = -1; s.throwReleased = false;
 }
 
@@ -402,7 +417,7 @@ void Game::throwStep(Soldier& s, float dt) {
       s.throwReleased = true;
       vec3 hand = s.localPlayer ? app.eyePos() + vec3(0, -0.1f, 0) : vec3(s.world * vec4(s.pose.joint[CJ_RHAND], 1));
       if (!s.localPlayer) { Physics::Hit h; vec3 e = eye(s); if (Physics::castRayEx(e, hand - e, glm::length(hand - e) + 1e-3f, h)) hand = e; }
-      gren.throwFrom(s.throwKind, s.slot, (int)s.role, hand, s.throwVel);
+      app.spawnGrenade(s.throwKind == GK_FRAG ? fragDef(s.faction) : smokeDef(), hand, s.throwVel, s.slot);
       app.audio.play("bolt", hand, 0.4f);
       (s.throwKind == GK_FRAG ? fragThrows : smokeThrows)++;
     } else s.throwT = -1;
@@ -436,6 +451,7 @@ void Game::clientStep(float dt) {
   }
   gren.expire(t);
   gren.particles(app.fx, t, dt);
+  if (Soldier* L = local(); L && L->alive) localGrenadeCounts(*L, false);
 }
 
 void Game::step(float dt) {
@@ -447,6 +463,7 @@ void Game::step(float dt) {
   t += dt; ++steps;
   // local player mirror
   if (Soldier* L = local(); L && L->alive) {
+    localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
     auto c = Physics::character();
     L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture;
     L->weapon = app.activeWeapon;
@@ -496,21 +513,8 @@ void Game::posesStep(float dt) {
 void Game::stepRest(float dt) {
   // grenades
   crumb("game: grenades");
-  gren.step(dt, t, [&](const GrenadeRT& g) {
-    if (g.kind == GK_FRAG) {
-      mpaiGrenadeBlastScope(true);   // personnel damage below uses the grenade profile, not the shell one
-      auto ex = app.explode(g.p, vec3(0, -1, 0), gren.tun.fragWallDmg, gren.tun.fragWallR, gren.tun.fragCrater, ~0ull, WALL_GRENADE);
-      mpaiGrenadeBlastScope(false);
-      app.fx.explosion(g.p, vec3(0, 1, 0), "ground", true);
-      app.audio.play("explosion", g.p, 0.8f);
-      explosionDamage(g.p, 0, 0, g.owner, true);
-      hearSound(g.p, -1, archetypes["perception"].value("hearBlast_m", 90.0f), g.owner, 1);
-      (void)ex;
-    } else {
-      app.audio.play("bolt", g.p, 0.3f);
-      if (gNet && gNet->role == Net::HOST && !gren.clouds.empty()) { auto& c = gren.clouds.back(); gNet->hostWorldEvent(json{{"t", "cloud"}, {"p", tojson(c.p)}, {"st", c.start}, {"seed", c.seed}, {"r", c.radius}, {"b", c.build}, {"dn", c.dense}, {"f", c.fade}}); }
-    }
-  });
+  // grenades: bodies, fuses and blasts are the shared core (App::stepGrenades); smoke clouds and the AI view here
+  syncGrenadeView();
   gren.particles(app.fx, t, dt);
   // match rules
   match.update(dt);
@@ -565,18 +569,15 @@ void Game::drawItems() {
       }
     }
   }
-  // thrown grenades: the supplied models (Mk 2 / M24 by the thrower's side, the smoke canister for smoke), tumbling in flight
-  for (auto& g : gren.live) {
-    Faction f = g.owner >= 0 && g.owner < (int)sold.size() ? sold[g.owner].faction : Faction::Allies;
-    if (g.owner < 0 && !sold.empty() && localSlot >= 0) f = sold[localSlot].faction;
-    auto it = grenadeModels.find(g.kind == GK_SMOKE ? std::string("smoke") : std::string("frag_") + factionName(f));
-    if (it == grenadeModels.end() || !it->second->vao) { app.worldBoxDraws.push_back({&app.debrisMesh, glm::translate(mat4(1), g.p) * glm::scale(mat4(1), vec3(0.06f, 0.1f, 0.06f)), vec4(0.25f, 0.27f, 0.2f, 1)}); continue; }
-    const GpuModel& gm = *it->second;
-    vec3 c = (gm.bmin + gm.bmax) * 0.5f;
-    float spin = g.resting ? 1.5707963f : g.age * 9.0f;
-    mat4 M = glm::translate(mat4(1), g.p + vec3(0, g.resting ? 0.035f : 0.0f, 0)) * glm::mat4_cast(glm::angleAxis(spin, glm::normalize(vec3(0.3f, 0.2f, 1.0f)))) * glm::translate(mat4(1), -c);
-    for (int k = 0; k < (int)gm.parts.size(); ++k) app.R.worldModels.push_back({&gm, k, M});
-  }
+  // thrown grenades: the host draws its own bodies (App::grenadeDrawItems); a LAN client draws the snapshot view
+  if (isClient)
+    for (auto& g : gren.live) {
+      if (g.def < 0 || g.def >= (int)app.weaponDefs.size() || !app.weaponDefs[g.def]->useModel()) continue;
+      const GpuModel& gm = *app.weaponDefs[g.def]->model;
+      vec3 c = (gm.bmin + gm.bmax) * 0.5f;
+      mat4 M = glm::translate(mat4(1), g.p) * glm::mat4_cast(g.rot) * glm::translate(mat4(1), -c);
+      for (int k = 0; k < (int)gm.parts.size(); ++k) app.R.worldModels.push_back({&gm, k, M});
+    }
 }
 
 bool Game::camera(vec3& e, vec3& f, float& fov) {

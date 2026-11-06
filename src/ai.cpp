@@ -250,7 +250,9 @@ bool Game::planFrag(Soldier& s, vec3& vel, vec3& target) {
   Brain& b = s.br;
   if (s.frags <= 0 || b.grenadeCD > 0 || s.throwT >= 0) return false;
   const json& gj = archetypes["grenade"];
-  float rMin = gj["fragRange_m"][0], rMax = gj["fragRange_m"][1], safe = gj.value("safeRadius_m", 7.0f), speed = gj.value("throwSpeed_mps", 14.0f), cell = gj.value("reserveCell_m", 6.0f);
+  int fd = fragDef(s.faction);
+  if (fd < 0) return false;
+  float rMin = gj["fragRange_m"][0], rMax = gj["fragRange_m"][1], safe = gj.value("safeRadius_m", 7.0f), speed = app.weaponDefs[fd]->grenade.speed, cell = gj.value("reserveCell_m", 6.0f);
   for (auto& m : b.mem) {
     if (m.heardOnly || t - m.lastSeen > 4.0) continue;
     float d = glm::length(m.lastPos - s.feet);
@@ -314,7 +316,8 @@ bool Game::planSmoke(Soldier& s, vec3& vel, vec3& target) {
   Physics::Hit h; vec3 down = screen + vec3(0, 3, 0);
   if (Physics::castRayEx(down, vec3(0, -1, 0), 10, h)) screen = h.pos;
   vec3 hand = s.feet + vec3(0, 1.7f, 0);
-  float sp = archetypes["grenade"].value("throwSpeed_mps", 17.0f);
+  if (smokeDef() < 0) return false;
+  float sp = app.weaponDefs[smokeDef()]->grenade.speed;
   if (!grenadeVelocity(hand, screen, sp, false, vel) && !grenadeVelocity(hand, screen, sp, true, vel)) return false;
   target = screen;
   smokeReserve[key] = t;

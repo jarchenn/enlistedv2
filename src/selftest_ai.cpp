@@ -217,10 +217,12 @@ void SelfTest::aiUpdate(App& app, float dt) {
       static int s0 = -1; static int before = 0; static uint32_t live0 = 0; static bool c1 = false, c2 = false;
       if (t == 0) {
         s0 = -1; for (auto& s : G.sold) if (s.alive && !s.human && s.role == CombatRole::Attacker && s.frags > 0 && s.throwT < 0) { s0 = s.slot; break; }
+        if (s0 >= 0) { G.sold[s0].reload = 0; G.sold[s0].br.grenadeCD = 99; }   // a ready soldier; its own AI does not throw meanwhile
         if (s0 < 0) { check(false, "no attacker with a grenade to test"); return true; }
         Soldier& s = G.sold[s0]; before = s.frags;
         live0 = (uint32_t)G.gren.live.size(); c1 = c2 = false;
-        G.startThrow(s, GK_FRAG, App::forward(s.yaw, 30) * 12.0f, vec3(0));
+        bool started = G.startThrow(s, GK_FRAG, App::forward(s.yaw, 30) * 12.0f, vec3(0));
+        if (!started) { check(false, "throw could not start"); return true; }
         return false;
       }
       Soldier& s = G.sold[s0];
@@ -229,16 +231,16 @@ void SelfTest::aiUpdate(App& app, float dt) {
         c2 = true;
         int s1 = -1; for (auto& o : G.sold) if (o.alive && !o.human && o.slot != s0 && o.frags > 0 && o.throwT < 0) { s1 = o.slot; break; }
         if (s1 >= 0) {
-          Soldier& o = G.sold[s1]; int f = o.frags; size_t n = G.gren.live.size();
+          Soldier& o = G.sold[s1]; o.reload = 0; o.br.grenadeCD = 99; int f = o.frags; size_t n = a.grenades.size();
           G.startThrow(o, GK_FRAG, vec3(0, 5, 5), vec3(0));
           G.killSoldier(s1, -1, vec3(0, 0, 1));
-          check(o.frags == f && G.gren.live.size() == n, "thrower killed before release: no grenade released, inventory unchanged (" + std::to_string(f) + ")");
+          check(o.frags == f && a.grenades.size() == n, "thrower killed before release: no grenade released, inventory unchanged (" + std::to_string(f) + ")");
         }
         return false;
       }
       if (t < 1.2f) return false;
       check(s.frags == before - 1, "release spends exactly one frag (" + std::to_string(before) + " -> " + std::to_string(s.frags) + ")");
-      check(G.gren.live.size() >= live0 + 1 || G.gren.detonations > 0, "the released grenade is live and server-owned");
+      check(G.gren.live.size() >= live0 + 1 || a.grenadesExploded > 0, "the released grenade is a live body of the shared grenade core (App::grenades), owned by the thrower's slot");
       // released grenade survives its thrower
       if (!G.gren.live.empty()) { uint32_t id = G.gren.live.back().id; G.killSoldier(s0, -1, vec3(0, 0, 1)); bool still = false; for (auto& g : G.gren.live) if (g.id == id) still = true; check(still, "a released grenade stays live when its thrower dies"); }
       return true; });

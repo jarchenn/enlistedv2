@@ -42,7 +42,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         bool nrmExpected = d.id != "panzerschreck";                          // the pickup mesh ships no normal map
         if (ok) check(!texExpected || (d.model->texAlb && d.model->texMR && (d.model->texN || !nrmExpected)), d.id + (texExpected ? (nrmExpected ? ": albedo, metal-rough and normal textures bound" : ": albedo and metal-rough bound (source has no normal map)") : ": factor-only materials (source has no textures)"));
       }
-      check(models == 18, "eighteen weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck, Mk 2, M24, knife, StG 44, M3); " + std::to_string(models) + " found");
+      check(models == 19, "nineteen weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck, Mk 2, M24, knife, StG 44, M3, smoke grenade); " + std::to_string(models) + " found");
       GpuModel g; std::string err;
       check(!g.load(contentDir() / "weapons" / "models" / "does_not_exist", err), "a missing bake fails cleanly (" + err + ") and the weapon keeps its box parts");
       int box = a.weaponIndex("kar98k");

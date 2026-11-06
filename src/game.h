@@ -82,7 +82,10 @@ public:
   int pendingLocal = -1;                     // LAN client: our slot while its AI soldier still lives (late join)
   json combat, archetypes;
   std::vector<std::unique_ptr<CharModel>> models; std::map<std::string, int> modelIdx;
-  std::map<std::string, std::shared_ptr<GpuModel>> grenadeModels;   // frag_Allies (Mk 2), frag_Axis (M24), smoke
+  int fragDef(Faction f) const;              // weapon-roster grenade items (E3 core): mk2_grenade / m24_grenade
+  int smokeDef() const;                      // smoke_grenade
+  void syncGrenadeView();                    // host: gren.live from App::grenades
+  void localGrenadeCounts(Soldier& L, bool write);   // local player: inventory lives in the E3 items (App::wstate)
   struct Sound { vec3 p; double t; int team; float range; int src; int kind; };   // kind 0 shot, 1 blast, 2 grenade landing
   std::vector<Sound> sounds;
   double t = 0; uint64_t steps = 0;

@@ -279,7 +279,7 @@ static std::string writeSnapshot(Game& g, int forPeer) {
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
   }
   w.u8((uint8_t)std::min<size_t>(g.gren.live.size(), 32));
-  for (size_t k = 0; k < g.gren.live.size() && k < 32; ++k) { w.u8((uint8_t)g.gren.live[k].kind); w.v3(g.gren.live[k].p); w.u8((uint8_t)(g.gren.live[k].owner < 0 ? 255 : g.gren.live[k].owner)); w.u8(g.gren.live[k].resting ? 1 : 0); w.f32(g.gren.live[k].age); }
+  for (size_t k = 0; k < g.gren.live.size() && k < 32; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u8((uint8_t)(x.owner < 0 ? 255 : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
   return w.b;
 }
 
@@ -309,7 +309,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     s.posture = (fl & 4) ? Physics::PRONE : (fl & 2) ? Physics::CROUCH : Physics::STAND;
     if (k == g.pendingLocal && own && g.localSlot != k) { g.localSlot = k; s.localPlayer = true; s.alive = false; }   // the slot is ours now
     if (s.localPlayer) {
-      if (own) { s.frags = frags; s.smokes = smokes; }
+      if (own) { s.frags = frags; s.smokes = smokes; if (s.alive) g.localGrenadeCounts(s, true); }   // the host's count is the inventory
       if (alive && (!s.alive || life != s.lifeId)) {   // (re)spawned by the host
         s.lifeId = life; s.alive = true; s.feet = feet; s.yaw = yaw;
         Physics::setCharacterPos(feet); app.eyeYaw = yaw; app.eyePitch = 0; app.R.resetTemporal();
@@ -335,7 +335,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
   }
   int ngr = r.u8();
   g.gren.live.clear();
-  for (int k = 0; k < ngr && r.ok; ++k) { GrenadeRT x; x.kind = r.u8(); x.p = r.v3(); int o = r.u8(); x.owner = o == 255 ? -1 : o; x.resting = r.u8() != 0; x.age = r.f32(); g.gren.live.push_back(x); }
+  for (int k = 0; k < ngr && r.ok; ++k) { GrenadeRT x; x.kind = r.u8(); x.def = r.u8(); x.p = r.v3(); x.rot.x = r.f32(); x.rot.y = r.f32(); x.rot.z = r.f32(); x.rot.w = r.f32(); int o = r.u8(); x.owner = o == 255 ? -1 : o; x.resting = r.u8() != 0; x.fuse = r.f32(); g.gren.live.push_back(x); }
 }
 
 // client: interpolate remote soldiers 100 ms behind the newest snapshot

@@ -83,6 +83,6 @@ Separate-PC LAN validation can only be done by the user and stays listed as outs
 | M1 scenario + match core | **done** | `--selftest-match` 43/43; Creative Scenario panel and overlay; village_assault_3 / _5 test maps |
 | M2 soldiers, nav, AI, singleplayer | **done** (procedural poses) | `--selftest-ai`: spawns, 2/6/2 lanes diverge and converge, defenders hold, combat, budgets, grenades, smoke, occlusion; attackers took 2 of 3 points in 222 s |
 | M3 LAN | **done on one PC** | `tools/run_net_test.sh` (host + 4 clients, 60 ms / 5 % loss, late join, wrong map, full lobby, host exit) all pass. Separate-PC run outstanding |
-| M4 grenades, smoke, tactics | **done** | frag / smoke core, opacity line integral, reservations, safe-throw arc checks, evade |
+| M4 grenades, smoke, tactics | **done** | on the shared E3 grenade core (owner-aware `App::spawnGrenade`, smoke item); opacity line integral, reservations, safe-throw arc checks, evade |
 | M5 weapons + characters | **partly done** | StG 44 and M3 added (first-pass sight anchors measured on the mesh; not tuned with `--selftest-sights`). Characters rigged and baked. Thompson kept as the M1, since the supplied ones are M1928s |
 | M6 furniture | **not started** | waits for the asset-GLB pipeline from the main session's E1; inventory in `docs/assets-ai-lan.md` |

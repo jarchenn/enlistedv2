@@ -1,8 +1,0 @@
-{
-  "note": "Grenade models baked from the user's GLBs with --bake-mpai-models <dir with the .glb files> (outputs content/mpai/models/<dir>). Lengths: Mk 2 ~11.4 cm with fuse, M24 36.5 cm, smoke canister ~14.5 cm (game scale values).",
-  "models": [
-    {"id": "frag_Allies", "src": "mk_2_grenade.glb", "dir": "mk2", "rot": [90, 0, 0], "realLength": 0.114, "maxTex": 256},
-    {"id": "frag_Axis", "src": "m24_stielhandgranate.glb", "dir": "m24", "rot": [0, 0, 0], "realLength": 0.365, "maxTex": 256},
-    {"id": "smoke", "src": "2k_textured_wwii_smoke_grenade.glb", "dir": "smoke", "rot": [90, 0, 0], "realLength": 0.145, "maxTex": 256}
-  ]
-}

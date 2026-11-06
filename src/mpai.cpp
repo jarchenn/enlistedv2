@@ -6,6 +6,7 @@
 #include "net.h"
 #include "app.h"
 #include "model.h"
+#include "grenade.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
@@ -22,19 +23,6 @@ bool mpaiArg(App& app, int argc, char** argv, int& k, bool& runSelf) {
   installCrashReporter();
   std::string a = argv[k];
   if (a == "--selftest-match") { mpaiExit = runMatchSelfTest(); return true; }
-  if (a == "--bake-mpai-models" && k + 1 < argc) {   // offline: grenade GLBs -> content/mpai/models/<dir>
-    fs::path src = argv[++k], root = k + 1 < argc && argv[k + 1][0] != '-' ? fs::path(argv[++k]) : contentDir();
-    json cfg = json::parse(readTextFile(root / "mpai" / "grenade_models.json"));
-    int bad = 0;
-    for (auto& m : cfg["models"]) {
-      ImportSpec s = importSpecFromJson(m);
-      std::string err, sum;
-      if (!fs::exists(src / s.src)) { logf("bake %s skipped: %s not found", s.dir.c_str(), s.src.c_str()); continue; }
-      if (bakeGlbModel(src / s.src, s, root / "mpai" / "models" / s.dir, err, sum)) logf("bake %s: %s", s.dir.c_str(), sum.c_str());
-      else { logf("bake %s FAILED: %s", s.dir.c_str(), err.c_str()); ++bad; }
-    }
-    mpaiExit = bad ? 1 : 0; return true;
-  }
   if (a == "--selftest-ai") { runSelf = true; runAiSelfTestArg = 1; return true; }
   if (a == "--benchmark-match") { runSelf = true; runAiSelfTestArg = 2; return true; }
   if (a == "--selftest-net") {   // --selftest-net <host|a|b|c|d> [port]
@@ -104,13 +92,17 @@ void mpaiInput(App& app, ExploreInput& in) {
   bool frozen = !L || !L->alive || gGame->match.phase != MatchPhase::Running;
   if (frozen) { in = ExploreInput{}; return; }
   if (app.selftest || app.pauseMenu) return;
-  bool g = edge(app.win, GLFW_KEY_G), h = edge(app.win, GLFW_KEY_H);
-  if ((g || h) && L->throwT < 0) {
-    int kind = g ? GK_FRAG : GK_SMOKE;
-    vec3 v = App::forward(app.eyeYaw, app.eyePitch + 8.0f) * 15.0f + vec3(L->vel.x, 0, L->vel.z);
-    if ((kind == GK_FRAG ? L->frags : L->smokes) <= 0) app.toast(kind == GK_FRAG ? "No frag grenades left" : "No smoke grenades", 2);
-    else if (gGame->isClient) gNet->clientThrow(kind, v);          // the host checks inventory and releases it
-    else gGame->startThrow(*L, kind, v, vec3(0));
+  // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); J quick smoke (match only)
+  if (edge(app.win, GLFW_KEY_J) && L->throwT < 0 && app.quickReturn < 0) {
+    int sd = gGame->smokeDef();
+    const WeaponDef& cur = *app.weaponDefs[app.activeWeapon];
+    if (sd < 0 || L->smokes <= 0) app.toast("No smoke grenades", 2);
+    else if (!cur.grenade.on) {
+      WeaponState& gs = app.wstate[app.weaponDefs[sd]->id];
+      app.quickReturn = app.activeWeapon; app.selectWeapon(sd);
+      if (gs.loaded == 0 && !gs.containers.empty()) { gs.containers.pop_back(); gs.loaded = 1; }
+      gs.cooldown = 0; gs.throwT = 0; gs.triggerReleased = false;
+    }
   }
   if (gGame->isClient && in.reload) gNet->clientReload();
   if (gGame->isClient && in.interact && app.target.valid && app.target.kind != 0) {   // stations / crates / racks are not replicated yet
@@ -128,7 +120,8 @@ bool mpaiLocalFrozen(App& app) {
   return !L || !L->alive;
 }
 
-void mpaiStep(App& app, float dt) { (void)app; if (gGame && gGame->active) gGame->step(dt); }
+void mpaiIdleSmoke(App& app, float dt);
+void mpaiStep(App& app, float dt) { if (gGame && gGame->active) gGame->step(dt); else mpaiIdleSmoke(app, dt); }
 
 bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) {
   gProjOwner = p.owner;
@@ -159,7 +152,46 @@ void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float cr
   if (breached > 0 || wallHits > 0) gGame->worldChanged(p - vec3(radius + 2.5f), p + vec3(radius + 2.5f));
 }
 
-void mpaiGrenadeBlastScope(bool on) { gInGrenadeBlast = on; }
+// ---------------------------------------------------------------- grenades on the shared core (equipment.cpp)
+bool mpaiGrenadeSpawn(App& app, int def, vec3 pos, vec3 vel, int owner) {
+  (void)pos;
+  if (!gGame || !gGame->active || !gGame->isClient || owner != -1) return false;
+  // a LAN client's own release becomes a request: the host checks the inventory and releases it from its soldier
+  if (gNet) gNet->clientThrow(app.weaponDefs[def]->grenade.smoke ? GK_SMOKE : GK_FRAG, vel);
+  return true;
+}
+
+static Grenades gIdleSmoke;   // smoke thrown in a plain Explore walkthrough (no match running)
+static double gIdleT = 0;
+Grenades& mpaiSmoke() { return gGame && gGame->active ? gGame->gren : gIdleSmoke; }
+
+bool mpaiGrenadeDetonate(App& app, int def, vec3 pos, int owner, int phase) {
+  bool smoke = def >= 0 && def < (int)app.weaponDefs.size() && app.weaponDefs[def]->grenade.smoke;
+  bool match = gGame && gGame->active;
+  if (phase == 0) {
+    if (smoke) {
+      Grenades& g = mpaiSmoke();
+      double t = match ? gGame->t : gIdleT;
+      g.addCloud(pos, t, (uint32_t)(pos.x * 7919.0f) ^ (uint32_t)(t * 1000.0));
+      app.audio.play("bolt", pos, 0.3f);
+      if (match && gNet && gNet->role == Net::HOST) { auto& c = g.clouds.back(); gNet->hostWorldEvent(json{{"t", "cloud"}, {"p", tojson(c.p)}, {"st", c.start}, {"seed", c.seed}, {"r", c.radius}, {"b", c.build}, {"dn", c.dense}, {"f", c.fade}}); }
+      return true;
+    }
+    gInGrenadeBlast = true; gProjOwner = owner;   // the blast's shell-style personnel damage is replaced by the frag profile
+    return false;
+  }
+  gInGrenadeBlast = false;
+  if (match && !gGame->isClient) {
+    gGame->explosionDamage(pos, 0, 0, owner < 0 ? gGame->localSlot : owner, true);
+    gGame->hearSound(pos, -1, gGame->archetypes["perception"].value("hearBlast_m", 90.0f), owner < 0 ? gGame->localSlot : owner, 1);
+  }
+  return false;
+}
+
+void mpaiIdleSmoke(App& app, float dt) {   // walkthrough smoke (no match): age, expire, particles
+  if (gGame && gGame->active) return;
+  gIdleT += dt; gIdleSmoke.expire(gIdleT); gIdleSmoke.particles(app.fx, gIdleT, dt);
+}
 
 void mpaiImpact(App& app, const Projectile& p, vec3 hitPos, vec3 hitNormal, uint64_t hitUd, float hitT, const std::string& surface) {
   (void)app;

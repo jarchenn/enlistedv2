@@ -246,7 +246,7 @@ public:
   std::string pathSurfaceAt(vec3 w) const;   // "gravel" / "dirt" / "concrete" / ""
   bool snapPath(const AssetDef* a, vec3& pos, float& yaw) const;
   // ---- hand equipment (equipment.cpp): grenades, knife
-  struct LiveGrenade { uint32_t body = 0xffffffffu; float fuse = 0, age = 0; int def = 0; vec3 pos{0}, spawn{0}, v0{0}; quat rot{1, 0, 0, 0}; bool done = false; };
+  struct LiveGrenade { uint32_t body = 0xffffffffu; float fuse = 0, age = 0; int def = 0; vec3 pos{0}, spawn{0}, v0{0}; quat rot{1, 0, 0, 0}; bool done = false; int owner = -1; };   // owner: soldier slot (mpai), -1 = local player
   std::vector<LiveGrenade> grenades;
   uint64_t grenadeSerial = 0;
   int grenadesThrown = 0, grenadesExploded = 0, meleeSwings = 0, meleeHitCount = 0;
@@ -255,6 +255,7 @@ public:
   int quickReturn = -1; float quickReturnT = -1;   // H quick throw: weapon to return to
   void loadEquipment(WeaponDef& d, const json& j);
   void throwGrenade(const WeaponDef& d, WeaponState& s);
+  bool spawnGrenade(int def, vec3 pos, vec3 vel, int owner);   // the released grenade body (player, bots, LAN requests)
   void stepGrenades(float dt);
   void clearGrenades();
   void grenadeDrawItems();

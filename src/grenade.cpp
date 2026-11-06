@@ -4,45 +4,6 @@
 #include <cmath>
 #include <algorithm>
 
-uint32_t Grenades::throwFrom(int kind, int owner, int team, vec3 p, vec3 v) {
-  GrenadeRT g; g.id = nextId++; g.kind = kind; g.owner = owner; g.team = team; g.p = p; g.v = v;
-  g.fuse = kind == GK_SMOKE ? tun.smokeFuse : tun.fragFuse;
-  live.push_back(g);
-  return g.id;
-}
-
-void Grenades::step(float dt, double now, const std::function<void(const GrenadeRT&)>& onDetonate) {
-  for (size_t k = 0; k < live.size();) {
-    GrenadeRT& g = live[k];
-    g.age += dt; g.fuse -= dt;
-    if (!g.resting) {
-      g.v.y -= 9.81f * dt;
-      vec3 seg = g.v * dt; float len = glm::length(seg);
-      Physics::Hit h;
-      if (len > 1e-5f && Physics::castRayEx(g.p, seg, len + 0.04f, h)) {
-        vec3 n = glm::length(h.normal) > 0.1f ? glm::normalize(h.normal) : vec3(0, 1, 0);
-        float vn = glm::dot(g.v, n);
-        vec3 vt = g.v - n * vn;
-        g.v = vt * (1.0f - tun.friction) - n * vn * tun.restitution;
-        g.p = h.pos + n * 0.04f;
-        ++g.bounces;
-        if (glm::length(g.v) < 0.7f && n.y > 0.6f) { g.resting = true; g.v = vec3(0); }
-      } else g.p += seg;
-      if (g.p.y < -100) g.resting = true;
-    }
-    if (g.fuse <= 0) {
-      GrenadeRT copy = g;
-      live.erase(live.begin() + k);
-      ++detonations;
-      if (copy.kind == GK_SMOKE) addCloud(copy.p, now, copy.id * 2654435761u);
-      onDetonate(copy);
-      continue;
-    }
-    ++k;
-  }
-  expire(now);
-}
-
 void Grenades::addCloud(vec3 p, double start, uint32_t seed) {
   SmokeCloud c; c.id = nextId++; c.p = p + vec3(0, 1.2f, 0); c.start = start; c.seed = seed;
   c.radius = tun.smokeRadius; c.build = tun.smokeBuild; c.dense = tun.smokeDense; c.fade = tun.smokeFade;
