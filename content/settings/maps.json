@@ -1,0 +1,15 @@
+{
+  "_doc": "W5 default maps (SPEC 3, 12). decorCull: per asset category, instances are not drawn beyond clamp(perMetre * largest bound extent, min, max) metres from the camera (editor and explore). Keeps the default maps' draw count inside the frame budget; buildings, bunkers, guns and vehicles are never culled by this rule.",
+  "decorCull": {
+    "enabled": true,
+    "categories": {
+      "Vegetation": {"perMetre": 55, "min": 90, "max": 700},
+      "Bocage": {"perMetre": 60, "min": 150, "max": 750},
+      "Beach obstacles": {"perMetre": 70, "min": 120, "max": 450},
+      "Defences": {"perMetre": 70, "min": 90, "max": 350},
+      "Dressing": {"perMetre": 60, "min": 90, "max": 450},
+      "Supply": {"perMetre": 70, "min": 50, "max": 150},
+      "Furniture": {"perMetre": 60, "min": 30, "max": 90}
+    }
+  }
+}

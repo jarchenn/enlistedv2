@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include "w5.h"
 #include <algorithm>
 
 std::vector<TemplateInfo> loadTemplates(const fs::path& dir) {
@@ -73,6 +74,7 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
       if (edge > 0) v += edge * 0.03f + 2.0f * vnoise(wx / 60.f, wz / 60.f, t.seed + 3) * std::min(1.0f, edge / 40.f);
       h[(size_t)z * nx + x] = v;
     }
+  w5TerrainBase(*this, t);   // W5: authored template heightmap + water level (w5_maps.cpp)
   chunkRev.assign((size_t)chunksX() * chunksZ(), 0);
   glCreateTextures(GL_TEXTURE_2D, 1, &maskTex);
   glTextureStorage2D(maskTex, 1, GL_R8, tilesX(), tilesZ());

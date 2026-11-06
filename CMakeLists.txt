@@ -75,6 +75,7 @@ include(cmake/w2.cmake)     # W2 visual fixes: sight overlay, thumbnails
 include(cmake/w7.cmake)     # W7 gore: wounds, spray, decals
 include(cmake/w4.cmake)     # W4 structures suite
 include(cmake/w3.cmake)     # editor & terrain (W3)
+include(cmake/w5.cmake)     # W5 default maps runtime + suite
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

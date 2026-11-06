@@ -2,6 +2,7 @@
 // Scenario panel (ordered objectives, spawn markers, approach routes, validation) with its world overlay, and the
 // in-match HUD (objective sequence bar, counts, grenades, death screen, results).
 #include "mpui.h"
+#include "w5.h"
 #include "game.h"
 #include "app.h"
 #include "net.h"
@@ -372,6 +373,7 @@ void MpUi::setupWindow(App& app) {
   const char* title = setupMode == 0 ? "Singleplayer setup" : "Host LAN: lobby";
   if (!ImGui::Begin(title, &showSetup, ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
   ImGui::Text("Map: %s   (%zu objectives)", app.doc.name.c_str(), s.objectives.size());
+  w5PlayMapPicker(app);   // W5: ready-to-play default maps (w5_maps.cpp)
   int fac = (int)rules.defendingFaction;
   ImGui::Text("Defending side (humans join the defenders):");
   ImGui::RadioButton("Axis [GER] defend, Allies attack", &fac, 1); ImGui::SameLine(); ImGui::RadioButton("Allies [US] defend, Axis attack", &fac, 0);

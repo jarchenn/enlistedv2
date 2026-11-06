@@ -1,0 +1,159 @@
+// W5 default maps runtime: authored template terrain, template map content, previews, the Play map picker and the
+// decorator distance cull (see w5.h; the content is built by tools/mapgen, documented in tools/mapgen/README.md).
+#include "w5.h"
+#include "app.h"
+#include "editor_nav.h"
+#include "mpui.h"
+#include <imgui.h>
+#include <stb_image.h>
+#include <algorithm>
+#include <map>
+
+namespace {
+struct HeightImage { int w = 0, h = 0; std::vector<uint16_t> px; bool ok = false; };
+
+const HeightImage& heightImage(const std::string& file) {
+  static std::map<std::string, HeightImage> cache;
+  auto it = cache.find(file);
+  if (it != cache.end()) return it->second;
+  HeightImage& im = cache[file];
+  fs::path p = contentDir() / "templates" / file;
+  int w = 0, h = 0, n = 0;
+  stbi_us* d = stbi_load_16(p.string().c_str(), &w, &h, &n, 1);
+  if (!d) { logf("w5: heightmap %s: %s", p.string().c_str(), stbi_failure_reason()); return im; }
+  im.w = w; im.h = h; im.px.assign(d, d + (size_t)w * h); im.ok = true;
+  stbi_image_free(d);
+  return im;
+}
+}  // namespace
+
+json w5MapSettings() {
+  static json s = [] {
+    json j = json::object();
+    try { j = json::parse(readTextFile(contentDir() / "settings" / "maps.json")); } catch (...) {}
+    return j;
+  }();
+  return s;
+}
+
+// ---------------------------------------------------------------- Terrain::generate
+void w5TerrainBase(Terrain& t, const TemplateInfo& ti) {
+  const json& r = ti.raw;
+  if (r.contains("waterLevel") && r["waterLevel"].is_number()) t.waterLevel = r["waterLevel"].get<float>();
+  if (!r.contains("heightmap") || !r["heightmap"].is_object()) return;
+  const json& hm = r["heightmap"];
+  const HeightImage& im = heightImage(hm.value("file", ""));
+  if (!im.ok) return;
+  float lo = hm.value("min", 0.0f), hi = hm.value("max", 1.0f), cell = hm.value("cell", Terrain::kCell);
+  vec2 org = t.org;
+  if (hm.contains("org") && hm["org"].is_array() && hm["org"].size() >= 2) org = vec2(hm["org"][0].get<float>(), hm["org"][1].get<float>());
+  // the image covers its own grid (org, cell); every terrain vertex samples it bilinearly, so a map opened at the
+  // template's size reads it 1:1 and other sizes still get the authored ground where they overlap it
+  auto at = [&](int i, int j) { i = std::clamp(i, 0, im.w - 1); j = std::clamp(j, 0, im.h - 1); return lo + (hi - lo) * (im.px[(size_t)j * im.w + i] / 65535.0f); };
+  for (int z = 0; z < t.nz; ++z)
+    for (int x = 0; x < t.nx; ++x) {
+      float fx = (t.org.x + x * Terrain::kCell - org.x) / cell, fz = (t.org.y + z * Terrain::kCell - org.y) / cell;
+      if (fx < -1 || fz < -1 || fx > im.w || fz > im.h) continue;
+      int xi = (int)std::floor(fx), zi = (int)std::floor(fz); float u = fx - xi, v = fz - zi;
+      float a = at(xi, zi), b = at(xi + 1, zi), c = at(xi, zi + 1), d = at(xi + 1, zi + 1);
+      t.h[(size_t)z * t.nx + x] = glm::mix(glm::mix(a, b, u), glm::mix(c, d, u), v);
+    }
+}
+
+// ---------------------------------------------------------------- App::newMap
+void w5NewMapContent(App& app, const TemplateInfo& t) {
+  std::string mf = t.raw.value("map", "");
+  if (mf.empty()) return;
+  MapDoc d; std::string err;
+  if (!loadMap(contentDir() / "templates" / mf, d, err)) { app.toast("Template content could not be loaded: " + err, 8); return; }
+  d.name = app.doc.name; d.templateId = t.id; d.templateVersion = t.version; d.seed = t.seed;
+  d.width = app.doc.width; d.depth = app.doc.depth;
+  for (auto& i : d.instances) {
+    i.rev = ++app.revCounter;
+    if (const AssetDef* a = app.lib.find(i.assetId)) i.assetVersion = std::max(i.assetVersion, a->version);
+  }
+  app.doc = std::move(d);
+  app.resetGround();
+  app.syncRuntime();
+  if (app.doc.camera.set) { app.camPos = app.doc.camera.pos; app.camYaw = app.doc.camera.yaw; app.camPitch = app.doc.camera.pitch; }
+  app.dirty = false;
+  gUi.rulesInit = false;   // the Play setup reads the new map's rule defaults
+  logf("w5: %s: %zu instances from %s", t.id.c_str(), app.doc.instances.size(), mf.c_str());
+}
+
+// ---------------------------------------------------------------- App::makeThumbnails
+bool w5TemplateThumbnail(TemplateInfo& t) {
+  std::string f = t.raw.value("thumbnail", "");
+  if (f.empty()) return false;
+  int w = 0, h = 0, n = 0;
+  stbi_uc* d = stbi_load((contentDir() / "templates" / f).string().c_str(), &w, &h, &n, 4);
+  if (!d) return false;
+  // stored top row first; the dialog samples GL-style (v up), so upload bottom row first
+  std::vector<uint8_t> flip((size_t)w * h * 4);
+  for (int y = 0; y < h; ++y) std::memcpy(&flip[(size_t)y * w * 4], d + (size_t)(h - 1 - y) * w * 4, (size_t)w * 4);
+  stbi_image_free(d);
+  GLuint tex = 0;
+  glCreateTextures(GL_TEXTURE_2D, 1, &tex);
+  glTextureStorage2D(tex, 1, GL_RGBA8, w, h);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  glTextureSubImage2D(tex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, flip.data());
+  glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  t.thumbnail = tex;
+  return true;
+}
+
+// ---------------------------------------------------------------- MpUi::setupWindow
+void w5PlayMapPicker(App& app) {
+  static int pending = -1;
+  std::vector<int> maps;
+  for (int k = 0; k < (int)app.templates.size(); ++k) {
+    const TemplateInfo& t = app.templates[k];
+    if (t.available && t.raw.value("playable", false) && t.raw.contains("map")) maps.push_back(k);
+  }
+  if (maps.empty()) return;
+  ImGui::SetNextItemWidth(330);
+  if (ImGui::BeginCombo("Default maps", "Load a ready-to-play map...")) {
+    for (int k : maps) {
+      const TemplateInfo& t = app.templates[k];
+      if (ImGui::Selectable(t.name.c_str(), app.doc.templateId == t.id)) pending = k;
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.description.c_str());
+    }
+    ImGui::EndCombo();
+  }
+  if (pending >= 0 && app.dirty && !ImGui::IsPopupOpen("Discard unsaved changes?")) ImGui::OpenPopup("Discard unsaved changes?");
+  bool go = pending >= 0 && !app.dirty;
+  if (ImGui::BeginPopupModal("Discard unsaved changes?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::Text("The open map has unsaved changes. Load the default map anyway?");
+    if (ImGui::Button("Load default map")) { go = true; ImGui::CloseCurrentPopup(); }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel")) { pending = -1; ImGui::CloseCurrentPopup(); }
+    ImGui::EndPopup();
+  }
+  if (go && pending >= 0 && pending < (int)app.templates.size()) {
+    const TemplateInfo& t = app.templates[pending];
+    pending = -1;
+    navNewMapSized(app, t, t.name, vec2(t.width, t.depth));
+  }
+}
+
+// ---------------------------------------------------------------- App::buildDrawLists
+bool w5CullDraw(const App& app, const Instance& i, const AssetDef* a) {
+  struct Rule { float perMetre = 0, minD = 0, maxD = 0; };
+  static std::map<std::string, Rule> rules = [] {
+    std::map<std::string, Rule> m;
+    json c = w5MapSettings().value("decorCull", json::object());
+    if (!c.value("enabled", true)) return m;
+    for (auto& [cat, v] : c.value("categories", json::object()).items())
+      m[cat] = Rule{v.value("perMetre", 60.0f), v.value("min", 60.0f), v.value("max", 1200.0f)};
+    return m;
+  }();
+  if (!a || rules.empty()) return false;
+  auto it = rules.find(a->category);
+  if (it == rules.end()) return false;
+  vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
+  float d2 = glm::dot(i.pos - eye, i.pos - eye);
+  vec3 ext = a->bmax - a->bmin;
+  float size = std::max({ext.x, ext.y, ext.z, 0.3f});
+  float cut = std::clamp(it->second.perMetre * size, it->second.minD, it->second.maxD);
+  return d2 > cut * cut;
+}
