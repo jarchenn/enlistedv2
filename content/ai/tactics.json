@@ -6,6 +6,7 @@
                   "nearMiss_m": 2.0, "memory_s": 20, "memoryDecay_s": 10, "suppressionDecay": 0.28, "vegetationFactor": 0.55 },
   "threat": { "viewRange_m": 250 },
   "cover": { "spacing_m": 8, "reactRadius_m": 12 },
+  "defense": { "shiftCooldown_s": 12 },
   "commander": { "flankFraction": 0.3, "flankStandoff_m": 28 },
   "decisions": { "inertia": 0.08 },
   "utility": { "advance": 1.0, "return fire": 1.0, "suppress": 1.0, "take cover": 1.0, "reload": 1.0, "grenade": 1.0, "clear room": 1.0, "hold": 1.0, "evade": 1.0, "overwatch": 1.0 },

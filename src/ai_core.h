@@ -133,7 +133,7 @@ struct BotMind {
   int action = A_ADVANCE; double actionSince = 0; std::array<float, A_COUNT> util{}; double nextThink = 0, nextFt = 0;
   int team = 0, ft = -1, ftIdx = 0; bool flanker = false; bool flankReached = false; vec3 flankPos{0};
   int cover = -1; uint32_t coverSerial = 0; vec3 coverPos{0}; bool coverHigh = false; bool set = false; double setAt = -100, peekUntil = -100;
-  int slot = -1;                       // defense slot index
+  int slot = -1; double slotShiftAt = -100;   // defense slot index, last voluntary shift
   double boundStart = -100; vec3 boundFrom{0}; float exposedThisBound = 0; bool bounding = false;
   // perception extras
   double nearMissAt = -100; vec3 nearMissFrom{0}; double grenadeSeenAt = -100;

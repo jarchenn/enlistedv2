@@ -467,14 +467,17 @@ void SelfTest::aiUpdate(App& app, float dt) {
       }
       if (t > 15) {   // defenders over a 10 s window: on the point and spread out
         std::vector<vec3> hold;
-        for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human && G.match.active == 0) { ++allSamples; if (ob->contains(s.feet)) ++inSamples; if (s.br.mode == Brain::M_HOLD) hold.push_back(s.feet); }
+        static std::map<int, std::pair<int, float>> born; if (t < 15.02f) born.clear();
+        for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human) { auto& bn = born[s.slot]; if (bn.first != s.lifeId) bn = {s.lifeId, t}; }
+        // W6: only defenders alive >= 4 s (holding, not the run-in from a respawn: the new attackers kill defenders faster)
+        for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human && G.match.active == 0 && (t < 15.1f ? s.lifeId == 1 : t - born[s.slot].second >= 4.0f)) { ++allSamples; if (ob->contains(s.feet)) ++inSamples; if (s.br.mode == Brain::M_HOLD) hold.push_back(s.feet); }
         for (size_t i = 0; i < hold.size(); ++i) for (size_t j = i + 1; j < hold.size(); ++j) minHoldPair = std::min(minHoldPair, glm::length(hold[i] - hold[j]));
       }
-      if (t < 25.0f) return false;
-      char b[200]; std::snprintf(b, sizeof b, "flanks take separate approaches: left lane reached %.1f m left of the objective line, right lane %.1f m right", -maxL, maxR);
+      if (t < 35.0f) return false;   // W6: 15-35 s window (defenders die and respawn more against the new attackers)
+      char b[1600]; std::snprintf(b, sizeof b, "flanks take separate approaches: left lane reached %.1f m left of the objective line, right lane %.1f m right", -maxL, maxR);
       check(-maxL > 6 && maxR > 6, b);
       int closer = 0, n = 0; for (auto& [slot, d] : d0) if (G.sold[slot].alive) { ++n; if (glm::length(G.sold[slot].feet - ob->pos) < d - 5) ++closer; }
-      std::snprintf(b, sizeof b, "after 25 s, %d of %d surviving first-wave attackers are >= 5 m closer to the objective", closer, n);
+      std::snprintf(b, sizeof b, "after 35 s, %d of %d surviving first-wave attackers are >= 5 m closer to the objective", closer, n);
       check(n == 0 || closer * 2 >= n, b);
       int spread = 0, inObj = 0; float minPair = 1e9f;
       std::vector<vec3> dp;
@@ -483,9 +486,14 @@ void SelfTest::aiUpdate(App& app, float dt) {
       for (size_t i = 0; i < dp.size(); ++i) for (size_t j = i + 1; j < dp.size(); ++j) minPair = std::min(minPair, glm::length(dp[i] - dp[j]));
       (void)spread;
       std::string modes; const char* mn[] = {"idle", "advance", "hold", "engage", "cover", "investigate", "evade", "return", "reload", "throw"};
-      for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human) modes += std::string(mn[s.br.mode]) + "/" + s.br.why + "; ";
-      std::snprintf(b, sizeof b, "defender bots over 15-25 s: inside the capture volume %.0f %% of samples; holding bots never closer than %.1f m (now: %d of %d inside) [%s]", 100.0 * inSamples / std::max(1, allSamples), minHoldPair, inObj, nd, modes.c_str());
-      check(inSamples * 10 >= allSamples * 6 && minHoldPair > 2.5f, b);
+      for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human) {
+        modes += std::string(mn[s.br.mode]) + "/" + s.br.why;
+        if (AiCore* A = aiCore()) { BotMind& m = A->mind(s); char d[200]; vec3 sp = m.slot >= 0 && m.slot < (int)A->defSlots.size() ? A->defSlots[m.slot].p : vec3(1e4f);
+          std::snprintf(d, sizeof d, " (slot %d %.1f m away, slot inside %d, speed %.1f, path %d pend %d fails %.0f, act %s)", m.slot, glm::length(sp - s.feet), (int)ob->contains(sp), s.speed, (int)m.hasPath, m.pendingReq, m.pathFails, aiActionName(m.action)); modes += d; }
+        modes += "; ";
+      }
+      std::snprintf(b, sizeof b, "defender bots over 15-35 s (alive >= 4 s, %d samples): inside the capture volume %.0f %% of samples; holding bots never closer than %.1f m (now: %d of %d inside) [%s]", allSamples, 100.0 * inSamples / std::max(1, allSamples), minHoldPair, inObj, nd, modes.c_str());
+      check(allSamples >= 20 && inSamples * 10 >= allSamples * 6 && minHoldPair > 2.5f, b);
       summary["defendSlots"] = aiCore() ? (int)aiCore()->defSlots.size() : 0;
       return true; });
     push("combat", [this](App& a, float t) {
@@ -562,9 +570,14 @@ void SelfTest::aiUpdate(App& app, float dt) {
       if (v2 < 0) { check(false, "need two living bots"); return true; }
       bool ff = G.match.rules.friendlyFire; G.match.rules.friendlyFire = true;
       // find a wall: cast from the street toward the town hall
-      Physics::Hit h; vec3 o(-24, 1.2f, 20);
-      bool wall = Physics::castRayEx(o, vec3(0, 0, -1), 30, h);
-      vec3 blast = h.pos + vec3(0, -0.6f, 2.5f);      // 2.5 m in front of the wall
+      // a standing building wall seen from the street (the match may have breached parts of it): several street spots
+      Physics::Hit h; bool wall = false;
+      for (float x : {-24.0f, -21.0f, -27.0f, -18.0f, -30.0f}) for (float y : {1.2f, 1.6f}) {
+        if (wall) break;
+        vec3 o(x, a.terrain.height(x, 20) + y, 20); Physics::Hit hh;
+        if (Physics::castRayEx(o, vec3(0, 0, -1), 40, hh) && hh.ud != 0 && (hh.ud >> 60) != 0xF && std::fabs(hh.normal.y) < 0.3f) { h = hh; wall = true; }
+      }
+      vec3 blast = h.pos + vec3(0, -0.6f, 2.5f); blast.y = std::max(blast.y, a.terrain.height(blast.x, blast.z) + 0.4f);   // 2.5 m in front of the wall
       vec3 behind = h.pos + vec3(0, -1.2f, -3.0f);    // inside, behind the wall
       vec3 open = blast + vec3(5.5f, -0.6f, 0);
       auto place = [&](int s, vec3 p) { Physics::Hit g; if (Physics::castRayEx(p + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) p = g.pos; G.sold[s].feet = p; Physics::setAgentPos(G.sold[s].agent, p); G.sold[s].hp = 1000; };
@@ -582,7 +595,7 @@ void SelfTest::aiUpdate(App& app, float dt) {
       G.explosionDamage(blast, 0, 0, -1, true);
       float l1 = 1000 - G.sold[v1].hp, l2 = 1000 - G.sold[v2].hp;
       G.sold[v1].hp = G.sold[v2].hp = 100; G.match.rules.friendlyFire = ff;
-      char b[200]; std::snprintf(b, sizeof b, "frag blast: %.0f HP to a soldier in the open (%.1f m), %.0f HP behind a solid wall (%.1f m)", l1, d1, l2, d2);
+      char b[400]; std::snprintf(b, sizeof b, "frag blast: %.0f HP to a soldier in the open (%.1f m), %.0f HP behind a solid wall (%.1f m) [wall %d at (%.1f %.1f %.1f) ud %llx, blast (%.1f %.1f %.1f)]", l1, d1, l2, d2, (int)wall, h.pos.x, h.pos.y, h.pos.z, (unsigned long long)h.ud, blast.x, blast.y, blast.z);
       check(wall && l1 > 40 && l2 < l1 * 0.2f, b);
       return true; });
     push("smoke", [this](App& a, float t) {

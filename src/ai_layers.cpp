@@ -258,11 +258,11 @@ void AiCore::act(Soldier& s, float dt) {
     case A_EVADE: {
       vec3 best = s.feet; float bs = -1e9f;
       for (int k = 0; k < 10; ++k) {
-        float a = k * 0.6283f; vec3 q = s.feet + vec3(std::cos(a), 0, std::sin(a)) * 9.0f;
+        float a = k * 0.6283f; vec3 q = s.feet + vec3(std::cos(a), 0, std::sin(a)) * (attacker ? 9.0f : 6.5f);
         NavRef r; vec3 on; if (!G.nav.closest(q, 2.5f, r, on)) continue;
         float sc = glm::length(on - b.evadeFrom);
         if (!ray(b.evadeFrom + vec3(0, 0.5f, 0), on + vec3(0, 0.6f, 0) - b.evadeFrom - vec3(0, 0.5f, 0), glm::length(on - b.evadeFrom))) sc -= 4; else sc += 3;
-        if (s.role == CombatRole::Defender && ob && ob->contains(on)) sc += 3;
+        if (s.role == CombatRole::Defender && ob && ob->contains(on)) sc += 8;   // defenders stay on the point
         if (sc > bs) { bs = sc; best = on; }
       }
       requestPath(s, best, 0.8f, 9.0f); m.speed = SPD_SPRINT; b.mode = Brain::M_EVADE; b.why = "evading a grenade"; break; }
@@ -274,6 +274,9 @@ void AiCore::act(Soldier& s, float dt) {
         G.app.audio.play(wd.feed == "magazine" ? "mag_out" : "bolt", s.feet + vec3(0, 1.2f, 0), 0.5f);
       }
       m.speed = atCover || !m.hasPath ? SPD_STOP : SPD_CROUCH; m.posture = Physics::CROUCH; b.crouch = true;
+      if (!attacker && m.slot >= 0 && m.slot < (int)defSlots.size() && lenXZ(s.feet - defSlots[m.slot].p) > 1.3f) {   // defenders keep running to their slot while reloading
+        requestPath(s, defSlots[m.slot].p, 0.8f, 6.0f); m.speed = underFire ? SPD_SPRINT : SPD_JOG; m.posture = Physics::STAND; b.crouch = false;
+      }
       b.mode = Brain::M_RELOAD; b.why = atCover ? "reloading in cover" : "reloading"; break;
     case A_TAKE_COVER: {
       if (!coverValid || !coverProtects(cover[m.cover], fireFrom) || m.needNewGoal) {
@@ -329,15 +332,15 @@ void AiCore::act(Soldier& s, float dt) {
         b.why = G.t < tb.regroupUntil ? "regrouping on the captured point" : "holding inside the objective";
       } else {
         goal = objectiveGoal(s);
-        if (m.slot >= 0 && G.t - b.hurtAt < 1.5) {   // hit from an uncovered side: shift slots
+        if (m.slot >= 0 && G.t - b.hurtAt < 1.5 && G.t - m.slotShiftAt > tj("defense", "shiftCooldown_s", 12.0f)) {   // hit from an uncovered side: shift slots (not more often than every 12 s)
           vec3 hd = xz(b.hurtFrom - s.feet);
-          if (glm::length(hd) > 1 && !ray(s.feet + vec3(0, 0.8f, 0), glm::normalize(hd), 1.6f)) { defSlots[m.slot].suppressedAt = G.t; m.needNewGoal = true; pickDefSlot(s); goal = objectiveGoal(s); b.why = "repositioning: flanked"; }
+          if (glm::length(hd) > 1 && !ray(s.feet + vec3(0, 0.8f, 0), glm::normalize(hd), 1.6f)) { defSlots[m.slot].suppressedAt = G.t; m.needNewGoal = true; m.slotShiftAt = G.t; pickDefSlot(s); m.needNewGoal = false; goal = objectiveGoal(s); b.why = "repositioning: flanked"; }
         }
         if (m.slot >= 0 && b.suppressed > 0.8f) { defSlots[m.slot].suppressedAt = G.t; }
         if (b.why.rfind("repositioning", 0) != 0) b.why = "holding a defense slot";
       }
       bool there = lenXZ(s.feet - goal) < 1.2f;
-      if (!there) { requestPath(s, goal, 0.8f, attacker ? 3.0f : 4.0f); m.speed = underFire ? SPD_SPRINT : SPD_JOG; m.posture = Physics::STAND; b.mode = Brain::M_RETURN; }
+      if (!there) { requestPath(s, goal, 0.8f, attacker ? 3.0f : 4.0f); m.speed = underFire || (!attacker && !tb.known.empty()) ? SPD_SPRINT : SPD_JOG; m.posture = Physics::STAND; b.mode = Brain::M_RETURN; }
       else {
         m.speed = SPD_STOP; b.mode = Brain::M_HOLD;
         int kind = !attacker && m.slot >= 0 && m.slot < (int)defSlots.size() ? defSlots[m.slot].kind : 0;
