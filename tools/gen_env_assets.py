@@ -6,6 +6,10 @@ All geometry is procedural box parts in the engine's asset format (metres, y up)
 import json, math, random, os
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'content', 'assets')
+# navigation metadata (src/navmeta.h) for these assets, kept in one table with the rest of the catalogue backfill:
+# tools/nav_backfill.json, written by tools/build_mpu_assets.mjs (W4). Written as each asset's last key.
+_NAV_PATH = os.path.join(os.path.dirname(__file__), 'nav_backfill.json')
+NAV = json.load(open(_NAV_PATH, encoding='utf-8')) if os.path.exists(_NAV_PATH) else {}
 
 
 def box(c, s, m, r=None, k=1, v=1):
@@ -17,6 +21,8 @@ def box(c, s, m, r=None, k=1, v=1):
 
 
 def save(a):
+    if a["id"] in NAV:
+        a = dict(a); a.pop("nav", None); a["nav"] = NAV[a["id"]]
     with open(os.path.join(OUT, a["id"] + ".json"), "w", encoding="utf-8", newline="") as f:
         json.dump(a, f, separators=(",", ":"))
 

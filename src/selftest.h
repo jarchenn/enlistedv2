@@ -52,6 +52,7 @@ private:
   void arsenalUpdate(App& app, float dt);   // selftest_arsenal.cpp (1400)
   void tanksUpdate(App& app, float dt);     // selftest_tanks.cpp (2600)
   void villageUpdate(App& app, float dt);   // selftest_village.cpp (1300 build, 1350 benchmark)
+  void structuresUpdate(App& app, float dt);   // selftest_structures.cpp (2800): W4 structure assets
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);
   json summary = json::object();
 };

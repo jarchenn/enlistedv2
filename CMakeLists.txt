@@ -69,6 +69,7 @@ target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${mini
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)
 target_compile_definitions(NormandyMapmaker PRIVATE GLM_ENABLE_EXPERIMENTAL GLFW_INCLUDE_NONE)
 include(cmake/mpai.cmake)   # multiplayer + AI sources
+include(cmake/w4.cmake)     # W4 structures suite
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

@@ -141,6 +141,7 @@ void SelfTest::update(App& app, float dt) {
   stageTime += dt;
   if (stage >= 2000 && stage < 2100) { aiUpdate(app, dt); return; }   // multiplayer + AI (selftest_ai.cpp)
   if (stage >= 2100 && stage < 2200) { netUpdate(app, dt); return; }  // LAN (selftest_net.cpp)
+  if (stage >= 2800 && stage < 2900) { structuresUpdate(app, dt); return; }   // W4 structures (selftest_structures.cpp)
   if (stage >= 500) { damageUpdate(app, dt); return; }
   static int frame = 0; ++frame;
   static fs::path reopenPath;
@@ -170,6 +171,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-tanks") { go(2600); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-ai" || std::string(argv[k]) == "--benchmark-match" || std::string(argv[k]) == "--baseline-ai") { go(2000); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-net") { go(2100); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(2800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }
