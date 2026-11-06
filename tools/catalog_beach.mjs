@@ -400,9 +400,9 @@ export function lcvpWrecked() {
   A.obox([-2.6, 0.12, 5.4], [2.1, 0.1, 1.95], [0, 18, 4], "lcvp_grey");
   A.obox([-2.6, 0.2, 5.4], [1.9, 0.06, 1.75], [0, 18, 4], "steel_dark", { k: 0 });
   lcvpNav(A, g, true);
-  A.meta.nav.rooms[0].min[1] = r3(g.DECK - 0.6); A.meta.nav.corners.forEach((c) => { c.p[1] = r3(g.DECK - 0.5); });
+  A.meta.nav.rooms[0].min[1] = r3(g.DECK - 0.4); A.meta.nav.corners.forEach((q) => { q.p[1] = r3(g.DECK - 0.5); });
   A.meta.nav.firingPoints = [];
-  A.meta.nav.cover = A.meta.nav.cover.slice(2);
+  A.meta.nav.cover = [cover([g.XO + 0.6, 0, 2.5], 270, "low", ["left", "right"]), cover([-g.XO - 0.6, 0, 2.5], 90, "low", ["left", "right"])];   // beside intact side bays
   setTour(A, { pos: [0.2, 0, 9.5], yaw: 0 }, [
     { goto: [0.1, 6.0], note: "to the open bow" },
     { goto: [0.1, 3.0], note: "over the sill into the burnt well" },

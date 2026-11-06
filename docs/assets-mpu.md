@@ -91,6 +91,7 @@ The Czech hedgehog is the existing `def_tank_trap`. It now has nav metadata (car
   - `bank` is the sloped band inside the outline.
   - Where pieces or cuts join, the outlines overlap by at least 0.6 m. Cuts are combined as the minimum height, so the bank of one cut never leaves a ridge inside another.
   - Trench, ditch and lane cuts run 0.8 m past their open ends for the same reason.
+  - The cut under a roofed chamber (Tobruks, dugouts) stays 0.1 m inside its walls, so the ground meets the concrete or logs outside and no gap shows under the roof edge.
   - The floors, revetments and earth fill are asset geometry. The cut only removes the ground. Until the terrain applies cuts (W3), below-grade floors sit under the ground.
   - The suite applies cuts itself through the terrain-delta path, as a stand-in.
 - **Tours.** A tour is the scripted walkthrough run by `--selftest-structures`.

@@ -445,14 +445,15 @@ function tobruk(kind) {
     crates(A, "Mortar bomb crates", [[-0.75, GF, 1.25, 0.6, 0.18, 0.28], [-0.75, GF + 0.18, 1.25, 0.6, 0.18, 0.28], [0.1, GF, 1.25, 0.6, 0.18, 0.28]], "crate_olive");
   }
   // entrance: rear door opening, then a ramped trench up to grade (wattle sides, earth fill behind)
-  const ramp0 = -Z, ramp1 = -Z - 4.4, rise = -GF;
+  const ramp0 = -Z - 0.7, ramp1 = -Z - 5.0, rise = -GF;
+  A.box([-0.5, GF - 0.2, ramp0 - 0.05], [0.5, GF, -Z], "mud");   // flat landing: the ramp starts clear of the roof edge
   const ang = (Math.atan2(rise, ramp0 - ramp1) * 180) / Math.PI, L = Math.hypot(rise, ramp0 - ramp1);
   A.obox([0, GF / 2 - 0.12, (ramp0 + ramp1) / 2], [1.0, 0.24, L + 0.1], [ang, 0, 0], "mud", { v: 0 });   // collision ramp
   for (let k = 0; k < 9; k++) { const zz = ramp0 - 0.25 - k * 0.48, yy = GF * (zz - ramp1) / (ramp0 - ramp1); A.box([-0.45, yy - 0.12, zz - 0.07], [0.45, yy + 0.04, zz + 0.07], "log_x", { k: 0 }); }
   A.obox([0, GF / 2 - 0.2, (ramp0 + ramp1) / 2], [1.0, 0.2, L + 0.1], [ang, 0, 0], "mud", { k: 0 });
   for (const s of [-1, 1]) {
-    A.box([s * 0.5 + (s > 0 ? 0 : -0.1), GF - 0.2, ramp1], [s * 0.5 + (s > 0 ? 0.1 : 0), 0.15, ramp0], "wattle");
-    A.box([s * 0.6 + (s > 0 ? 0 : -0.55), GF - 0.2, ramp1], [s * 0.6 + (s > 0 ? 0.55 : 0), 0.15, ramp0], "spoil");
+    A.box([s * 0.5 + (s > 0 ? 0 : -0.1), GF - 0.2, ramp1], [s * 0.5 + (s > 0 ? 0.1 : 0), 0.15, -Z], "wattle");
+    A.box([s * 0.6 + (s > 0 ? 0 : -0.55), GF - 0.2, ramp1], [s * 0.6 + (s > 0 ? 0.55 : 0), 0.15, -Z], "spoil");
     for (let zz = ramp1 + 0.2; zz < ramp0; zz += 0.9) A.box([s * 0.47 - 0.03, GF, zz - 0.03], [s * 0.47 + 0.03, 0.25, zz + 0.03], "picket", { k: 0 });
   }
   smallArmsCache(A, "Small-arms ammunition", pit ? 0.68 : -0.8, GF, pit ? -0.2 : 1.0, 90, { boxes: 3, bandoliers: 2 });
@@ -467,17 +468,17 @@ function tobruk(kind) {
     corners: corners("chamber", -XI, XI, -ZI, ZI, GF, 0.35),
     firingPoints: fp,
     cover: [cover([0, yAt(-4.2), -4.2], 90, "low", ["over"]), cover([0, yAt(-4.2), -4.2], 270, "low", ["over"])].concat(kind === "turret" ? [cover([0, RT, -1.05], 0, "low", ["left", "right"])] : []),
-    areas: [{ outline: rect(-0.5, ramp1, 0.5, ramp0), area: "trench" }],
-  }, [{ outline: rect(-X - 0.05, -Z - 0.05, X + 0.05, Z + 0.05), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.2, ramp1 - 0.1, 1.2, ramp0 + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
+    areas: [{ outline: rect(-0.5, ramp1, 0.5, -Z), area: "trench" }],
+  }, [{ outline: rect(-X + 0.1, -Z + 0.1, X - 0.1, Z - 0.1), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.2, ramp1 - 0.1, 1.2, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
   const eyeY = kind === "mg" ? GF + 1.02 + SLIT.eye : GF + SLIT.eye;
-  const inside = pit ? [0, -1.1] : [0.7, -1.2];
+  const inside = kind === "mg" ? [0, -1.45] : [0, -1.0];   // straight in through the door (no diagonal past the jambs)
   const steps = [
     { goto: [0, ramp1 - 0.2], note: "top of the entrance ramp" },
-    { goto: [0, -2.3] },
+    { goto: [0, -2.3] }, { goto: inside }, { wait: 0.4 },
     { goto: inside, expectY: GF, note: "down into the chamber" },
   ];
-  if (kind === "mg") steps.push({ goto: [0, -1.5] }, { goto: [0, 0.55], expectY: GF + 1.02, note: "up into the ring" }, { look: [0, eyeY, 12], hold: 0.8 }, { shot: "mpu_tobruk_mg_ring" }, { goto: [0, -1.55] }, { goto: inside, expectY: GF });
-  else if (kind === "mortar") steps.push({ goto: [-0.7, 0.3], expectY: GF }, { look: [0, eyeY, 10], hold: 0.6 }, { shot: "mpu_tobruk_mortar_pit" });
+  if (kind === "mg") steps.push({ goto: [0, 0.55], expectY: GF + 1.02, note: "up into the ring" }, { look: [0, eyeY, 12], hold: 0.8 }, { shot: "mpu_tobruk_mg_ring" }, { goto: inside }, { wait: 0.4 }, { goto: inside, expectY: GF, note: "back down from the ring" });
+  else if (kind === "mortar") steps.push({ goto: [-0.7, 0.3] }, { wait: 0.4 }, { goto: [-0.7, 0.3], expectY: GF }, { look: [0, eyeY, 10], hold: 0.6 }, { shot: "mpu_tobruk_mortar_pit" });
   else steps.push({ look: [0, -0.4, 0.9], hold: 0.6 }, { shot: "mpu_tobruk_turret_chamber" });
   steps.push({ goto: [0, -2.4] }, { goto: [0, ramp1 - 0.4], expectY: 0, note: "back up the ramp" });
   setTour(A, { pos: [0, 0, ramp1 - 2.0], yaw: 180 }, steps, { cut: true });
@@ -498,7 +499,7 @@ function trenchPiece(id, name, desc, pts, opt, footprint, tourPts) {
   const fps = [];
   pts.forEach((p, i) => { if (i < pts.length - 1 && (opt.firestep || []).includes(i)) { const q = pts[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]); for (let s = 1.0; s < L - 0.6; s += 2.0) { const ux = (q[0] - p[0]) / L, uz = (q[1] - p[1]) / L; fps.push(fire([p[0] + ux * s - uz * (TR.HW - TR.STEPW / 2), -D + TR.STEP, p[1] + uz * s + ux * (TR.HW - TR.STEPW / 2)], (Math.atan2(-uz, ux) * 180) / Math.PI, "firestep")); } } });
   setNav(A, { effect: "area", area: "trench", areas: [{ outline: r.floor, area: "trench" }], firingPoints: fps,
-    cover: pts.filter((_, i) => i > 0 && i < pts.length - 1).map((p) => cover([p[0], -D, p[1]], 0, "high", ["over"])).concat([cover([pts[0][0] * 0.5 + pts[1][0] * 0.5, -D, pts[0][1] * 0.5 + pts[1][1] * 0.5], 0, "high", ["over"])]) },
+    cover: pts.slice(0, -1).map((p, i) => { const q = pts[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / L, uz = (q[1] - p[1]) / L; return cover([(p[0] + q[0]) / 2 + uz * 0.2, -D, (p[1] + q[1]) / 2 - ux * 0.2], (Math.atan2(-uz, ux) * 180) / Math.PI, "high", ["over"]); }) },
     [{ outline: r.cut, depth: D + 0.25, bank: 0.2 }]);
   return { A, D };
 }
@@ -569,21 +570,22 @@ export function dugoutPersonnel() {
   A.box([-XI, GF - 0.02, -ZI], [XI, GF, ZI], "plank_x");
   for (const s of [-1, 1]) A.box([s > 0 ? XI : -X, GF - 0.02, -Z], [s > 0 ? X : -XI, CEIL, Z], "log_z");
   A.box([-XI, GF - 0.02, ZI], [XI, CEIL, Z], "log_x");
-  const dr = door(A, { id: "dugout_door", axis: "x", outer: -Z, inner: -ZI, c: 0, floor: GF, w: 0.9, h: 1.85, hingeSide: -1, leafMat: "plank_y", frameMat: "plank_y", thresholdMat: "plank_x", lintel: false, step: false });
+  const dr = door(A, { id: "dugout_door", axis: "x", outer: -Z, inner: -ZI, c: 0, floor: GF, w: 0.9, h: 1.95, hingeSide: -1, leafMat: "plank_y", frameMat: "plank_y", thresholdMat: "plank_x", lintel: false, step: false });
   A.box([-XI, GF - 0.02, -Z], [dr.a0, CEIL, -ZI], "log_x"); A.box([dr.a1, GF - 0.02, -Z], [XI, CEIL, -ZI], "log_x");
-  A.box([dr.a0, GF + 1.85, -Z], [dr.a1, CEIL, -ZI], "log_x");
+  A.box([dr.a0, GF + 1.95, -Z], [dr.a1, CEIL, -ZI], "log_x");
   for (const x of [-XI, -0.1, XI - 0.2]) for (const z of [-ZI, ZI - 0.2]) A.box([x, GF, z], [x + 0.2, CEIL, z + 0.2], "log_z", { k: 0 });
   A.box([-XI, CEIL - 0.2, -0.1], [XI, CEIL, 0.1], "log_x", { k: 0 });
-  for (let x = -X - 0.1; x < X + 0.1; x += 0.27) A.box([x, CEIL, -Z - 0.1], [x + 0.26, CEIL + 0.26, Z + 0.1], "log_z");
+  for (let x = -X - 0.1; x < X + 0.1; x += 0.27) A.box([x, CEIL, -Z], [x + 0.26, CEIL + 0.26, Z + 0.1], "log_z");
   for (let z = -Z; z < Z; z += 0.27) A.box([-X - 0.1, CEIL + 0.26, z], [X + 0.1, CEIL + 0.52, z + 0.26], "log_x", { k: 0 });
-  A.box([-X - 0.1, CEIL + 0.26, -Z - 0.1], [X + 0.1, CEIL + 0.52, Z + 0.1], "log_x", { v: 0 });
+  A.box([-X - 0.1, CEIL + 0.26, -Z], [X + 0.1, CEIL + 0.52, Z + 0.1], "log_x", { v: 0 });
   A.prism(0, -X - 0.8, X + 0.8, [[-Z - 0.1, -0.2], [Z + 1.6, -0.2], [0, 1.1]], "turf");   // earth mound (clear of the entrance)
   for (const s of [-1, 1]) A.prism(2, -Z - 1.0, Z + 1.0, [[s * (X + 0.6), -0.2], [s * (X + 0.6), 0.6], [s * (X + 2.4), -0.2]], "turf");
   // stepped entrance trench from the rear
-  const ramp1 = -Z - 4.6, ang = (Math.atan2(-GF, 4.6) * 180) / Math.PI, L = Math.hypot(GF, 4.6);
-  A.obox([0, GF / 2 - 0.12, (-Z + ramp1) / 2], [1.0, 0.24, L + 0.1], [ang, 0, 0], "mud", { v: 0 });
-  A.obox([0, GF / 2 - 0.2, (-Z + ramp1) / 2], [1.0, 0.2, L + 0.1], [ang, 0, 0], "mud", { k: 0 });
-  for (let k = 0; k < 9; k++) { const zz = -Z - 0.25 - k * 0.5, yy = GF * (zz - ramp1) / (-Z - ramp1); A.box([-0.45, yy - 0.12, zz - 0.07], [0.45, yy + 0.04, zz + 0.07], "log_x", { k: 0 }); }
+  const rs = -Z - 0.7, ramp1 = rs - 4.6, ang = (Math.atan2(-GF, 4.6) * 180) / Math.PI, L = Math.hypot(GF, 4.6);
+  A.box([-0.5, GF - 0.2, rs - 0.05], [0.5, GF, -Z], "mud");   // flat landing at the door
+  A.obox([0, GF / 2 - 0.12, (rs + ramp1) / 2], [1.0, 0.24, L + 0.1], [ang, 0, 0], "mud", { v: 0 });
+  A.obox([0, GF / 2 - 0.2, (rs + ramp1) / 2], [1.0, 0.2, L + 0.1], [ang, 0, 0], "mud", { k: 0 });
+  for (let k = 0; k < 9; k++) { const zz = rs - 0.25 - k * 0.5, yy = GF * (zz - ramp1) / (rs - ramp1); A.box([-0.45, yy - 0.12, zz - 0.07], [0.45, yy + 0.04, zz + 0.07], "log_x", { k: 0 }); }
   for (const s of [-1, 1]) {
     A.box([s > 0 ? 0.5 : -0.6, GF - 0.2, ramp1], [s > 0 ? 0.6 : -0.5, 0.2, -Z], "wattle");
     A.box([s > 0 ? 0.6 : -1.2, GF - 0.2, ramp1], [s > 0 ? 1.2 : -0.6, 0.2, -Z], "spoil");
@@ -597,15 +599,15 @@ export function dugoutPersonnel() {
   lamp(A, 0.0, CEIL - 0.2, -0.4);
   setNav(A, { effect: "block", rooms: [room("chamber", [-XI, GF, -ZI], [XI, CEIL, ZI])], doors: [{ a: "chamber", b: "outside", p: [0, GF, -Z + 0.2] }],
     entrances: [{ p: [0, 0, ramp1 - 0.3], dir: [0, 0, 1], room: "chamber" }], corners: corners("chamber", -XI, XI, -ZI, ZI, GF, 0.5),
-    firingPoints: [], cover: [cover([0, GF * (-4.0 - ramp1) / (-Z - ramp1), -4.0], 90, "low", ["over"]), cover([0, GF * (-4.0 - ramp1) / (-Z - ramp1), -4.0], 270, "low", ["over"])],
+    firingPoints: [], cover: [cover([0, GF * (-4.4 - ramp1) / (rs - ramp1), -4.4], 90, "low", ["over"]), cover([0, GF * (-4.4 - ramp1) / (rs - ramp1), -4.4], 270, "low", ["over"])],
     areas: [{ outline: rect(-0.5, ramp1, 0.5, -Z), area: "trench" }] },
-    [{ outline: rect(-X - 0.05, -Z - 0.05, X + 0.05, Z + 0.05), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.25, ramp1 - 0.1, 1.25, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
+    [{ outline: rect(-X + 0.1, -Z + 0.1, X - 0.1, Z - 0.1), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.25, ramp1 - 0.1, 1.25, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
   setTour(A, { pos: [0, 0, ramp1 - 2.0], yaw: 180 }, [
-    { goto: [0, ramp1 - 0.2] }, { goto: [0, -Z - 0.75], note: "down the stepped entrance" },
+    { goto: [0, ramp1 - 0.2] }, { goto: [0, -Z - 0.6], note: "down the stepped entrance" },
     { interact: "dugout_door", aim: [0.2, GF + 1.1, -ZI - 0.05], expectOpen: true },
     { goto: [0.05, -0.5], expectY: GF, note: "inside the dugout" },
     { look: [1.5, GF + 0.9, 0.2], hold: 0.6 }, { shot: "mpu_dugout_personnel" },
-    { goto: [0, -Z - 0.75] }, { goto: [0, ramp1 - 0.4], expectY: 0, note: "back out" },
+    { goto: [0, -Z - 0.6] }, { goto: [0, ramp1 - 0.4], expectY: 0, note: "back out" },
   ], { cut: true });
   return A;
 }
@@ -631,20 +633,21 @@ export function dugoutLog() {
   A.prism(0, -X, X, [[-Z, -0.3], [-Z, CEIL], [-Z - 1.6, -0.3]], "turf");
   A.prism(2, -Z, Z, [[-X, -0.3], [-X, CEIL], [-X - 1.6, -0.3]], "turf");
   // side ramp to the east doorway
-  const ang = (Math.atan2(-GF, 2.4) * 180) / Math.PI, L = Math.hypot(GF, 2.4), zc = (dr.a0 + dr.a1) / 2;
-  A.obox([X + 1.2, GF / 2 - 0.12, zc], [L + 0.1, 0.24, 1.0], [0, 0, ang], "mud", { v: 0 });
-  A.obox([X + 1.2, GF / 2 - 0.2, zc], [L + 0.1, 0.2, 1.0], [0, 0, ang], "mud", { k: 0 });
-  for (const s of [-1, 1]) A.box([X, GF - 0.2, zc + s * 0.55 - 0.05], [X + 2.4, 0.15, zc + s * 0.55 + 0.05], "wattle");
+  const ang = (Math.atan2(-GF, 2.4) * 180) / Math.PI, L = Math.hypot(GF, 2.4), zc = (dr.a0 + dr.a1) / 2, RX = X + 0.6;
+  A.box([X, GF - 0.2, zc - 0.5], [RX + 0.05, GF, zc + 0.5], "mud");   // flat landing at the door
+  A.obox([RX + 1.2, GF / 2 - 0.12, zc], [L + 0.1, 0.24, 1.0], [0, 0, ang], "mud", { v: 0 });
+  A.obox([RX + 1.2, GF / 2 - 0.2, zc], [L + 0.1, 0.2, 1.0], [0, 0, ang], "mud", { k: 0 });
+  for (const s of [-1, 1]) A.box([X, GF - 0.2, zc + s * 0.55 - 0.05], [RX + 2.4, 0.15, zc + s * 0.55 + 0.05], "wattle");
   A.beginFurniture("Bench"); A.box([-XI, GF + 0.42, -0.4], [-1.25, GF + 0.47, 1.0], "plank_z"); for (const z of [-0.3, 0.9]) A.box([-1.6, GF, z - 0.04], [-1.3, GF + 0.42, z + 0.04], "plank_y"); A.endFurniture();
   smallArmsCache(A, "Small-arms ammunition", -0.6, GF, -0.95, 0, { boxes: 3, bandoliers: 2 });
   setNav(A, { effect: "block", rooms: [room("chamber", [-XI, GF, -ZI], [XI, CEIL, ZI])], doors: [{ a: "chamber", b: "outside", p: [X - 0.2, GF, zc] }],
-    entrances: [{ p: [X + 2.7, 0, zc], dir: [-1, 0, 0], room: "chamber" }], corners: corners("chamber", -XI, XI, -ZI, ZI, GF, 0.4),
+    entrances: [{ p: [X + 3.3, 0, zc], dir: [-1, 0, 0], room: "chamber" }], corners: corners("chamber", -XI, XI, -ZI, ZI, GF, 0.4),
     firingPoints: [fire([0, GF, ZI - 0.35], 0, "embrasure")], cover: [cover([0, 0, -Z - 1.8], 0, "low", ["left", "right"]), cover([-X - 1.4, 0, 0], 90, "low", ["left", "right"])],
-    areas: [{ outline: rect(X, zc - 0.5, X + 2.4, zc + 0.5), area: "trench" }] },
-    [{ outline: rect(-X - 0.05, -Z - 0.05, X + 0.05, Z + 0.05), depth: -GF + 0.35, bank: 0.15 }, { outline: rect(X - 0.6, zc - 0.65, X + 2.5, zc + 0.65), depth: -GF + 0.3, bank: 0.2 }]);
-  setTour(A, { pos: [X + 4.2, 0, zc], yaw: 90 }, [
-    { goto: [X + 2.6, zc] }, { goto: [X - 0.4, zc], expectY: GF, note: "down the side ramp" }, { goto: [0, 0.6], expectY: GF, note: "at the slit" },
-    { look: [0, GF + SLIT.eye, 10], hold: 0.6 }, { shot: "mpu_dugout_log_slit" }, { goto: [X - 0.4, zc] }, { goto: [X + 2.9, zc], expectY: 0, note: "back out" },
+    areas: [{ outline: rect(X, zc - 0.5, X + 3.0, zc + 0.5), area: "trench" }] },
+    [{ outline: rect(-X + 0.1, -Z + 0.1, X - 0.1, Z - 0.1), depth: -GF + 0.35, bank: 0.15 }, { outline: rect(X - 0.6, zc - 0.65, X + 3.1, zc + 0.65), depth: -GF + 0.3, bank: 0.2 }]);
+  setTour(A, { pos: [X + 4.8, 0, zc], yaw: 90 }, [
+    { goto: [X + 3.2, zc] }, { goto: [X - 0.4, zc], expectY: GF, note: "down the side ramp" }, { goto: [0, 0.6], expectY: GF, note: "at the slit" },
+    { look: [0, GF + SLIT.eye, 10], hold: 0.6 }, { shot: "mpu_dugout_log_slit" }, { goto: [X - 0.4, zc] }, { goto: [X + 3.5, zc], expectY: 0, note: "back out" },
   ], { cut: true });
   return A;
 }

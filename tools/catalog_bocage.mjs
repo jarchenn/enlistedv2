@@ -150,7 +150,6 @@ export function quarryFace() {
     const ly = 3 + R() * 5;   // a ledge
     A.rbox([x + 0.2, ly - 0.4, ZF - d - 0.3], [x + 2.0, ly, ZF - d + 0.6], 0.15, "rock", { k: 1 });
   }
-  A.box([-X, -2.0, ZB + 1], [X, Hq - 1.2, ZL + 0.05], "rock_dark", { v: 0 });   // solid core under the lip
   A.box([-X, Hq - 0.4, ZL - 0.2], [X, Hq, ZF - 0.9], "bank_soil");             // turf lip
   // back slope from the lip down to grade
   const sl = Math.hypot(Hq, ZL - ZB), ang = (Math.atan2(Hq, ZL - ZB) * 180) / Math.PI;
@@ -205,7 +204,7 @@ export function abatis() {
   M(A, "burnt");
   const R = rng(7707);
   for (let k = 0; k < 4; k++) {
-    const x0 = -3.3 + k * 2.2 + (R() - 0.5) * 0.4, yaw = (R() - 0.5) * 22, r = 0.2 + R() * 0.1, Lt = 4.5 + R() * 1.5;
+    const x0 = -3.3 + k * 2.2 + (R() - 0.5) * 0.3, yaw = (R() - 0.5) * 16, r = 0.4 + R() * 0.08, Lt = 4.5 + R() * 1.5;
     const pr = (yaw * Math.PI) / 180, z0 = -3.4, x1 = x0 + Math.sin(pr) * Lt, z1 = z0 + Math.cos(pr) * Lt;
     A.obox([(x0 + x1) / 2, r, (z0 + z1) / 2], [2 * r, 2 * r, Lt], [0, yaw, 0], "bark_grey");
     A.obox([x0, r, z0 - 0.02], [2 * r * 0.95, 2 * r * 0.95, 0.05], [0, yaw, 0], "log_raw", { k: 0 });   // saw cut
@@ -219,7 +218,7 @@ export function abatis() {
   }
   M(A, "picket");
   A.box([-4.3, 0, -1.0], [4.3, 1.6, 3.6], "bark", { v: 0 }).k = 2;   // the tangle: player-only traversal volume
-  setNav(A, { effect: "block", cover: [-3.3, -1.1, 1.1, 3.3].map((x) => cover([x, 0, -3.9], 0, "low", ["over"])) });
+  setNav(A, { effect: "block", cover: [-3.3, -1.1, 1.1, 3.3].map((x) => cover([x, 0, -3.8], 0, "low", ["over"])) });
   setTour(A, { pos: [0.3, 0, -7.0], yaw: 180 }, [{ goto: [0.3, -4.3] }, { look: [0.3, 1.0, 2], hold: 0.5 }, { shot: "mpu_abatis" }]);
   return A;
 }
