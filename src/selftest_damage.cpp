@@ -401,15 +401,21 @@ void SelfTest::damageUpdate(App& app, float dt) {
     break;
   // ------------------------------------------------------------- every variant, rotated, off-centre impacts
   case 508: {
-    {   // ---- iron doors and steel shutters / flaps: no weapon breaks them
-      const AssetDef* ca = app.lib.find("bunker_mg_casemate");
-      Instance* ic = app.doc.find(X.C); InstanceRT& rc = app.rt[X.C];
+    {   // ---- iron doors and steel shutters / flaps: no weapon breaks them (every bunker asset that has steel leaves)
       int tested = 0, broke = 0; std::string names;
+      const char* steelAssets[] = {"bunker_mg_casemate", "bunker_pak_casemate", "bunker_command_shelter", "bunker_observation_post", "bunker_large_casemate"};
+      for (int ai = 0; ai < 5; ++ai) {
+      const AssetDef* ca = app.lib.find(steelAssets[ai]);
+      if (!ca) continue;
+      uint64_t sid = ai == 0 ? X.C : app.placeInstance(ca, vec3(250.0f, 0.0f, -200.0f + 45.0f * ai), 0.0f);
+      if (!sid) continue;
+      app.syncRuntime();
+      Instance* ic = app.doc.find(sid); InstanceRT& rc = app.rt[sid];
       vec3 bc = ic->pos + yawQuat(ic->yaw) * ((ca->bmin + ca->bmax) * 0.5f);
       for (size_t kk = 0; kk < ca->interactables.size(); ++kk) {
         const InteractDef& d = ca->interactables[kk];
         if (d.sound != "steel") continue;
-        names += " " + d.id;
+        names += std::string(" ") + steelAssets[ai] + ":" + d.id;
         for (size_t l = 0; l < d.leaves.size(); ++l) {
           const Leaf& lf = d.leaves[l];
           if (lf.colliders.empty()) continue;
@@ -417,7 +423,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
           vec3 out = vec3(c.x - bc.x, 0, c.z - bc.z); out = glm::length(out) > 1e-4f ? glm::normalize(out) : vec3(0, 0, 1);
           for (int s = 0; s < 40; ++s) {   // 40 rifle rounds straight into the leaf
             Projectile pr; pr.kind = PROJ_BULLET; pr.v = -out * 853.0f; pr.mass = 0.0097f; pr.dmg = 50; pr.p = c + out;
-            Physics::Hit h; h.pos = c; h.normal = out; h.ud = (X.C << 16) | (uint64_t)(kk + 1);
+            Physics::Hit h; h.pos = c; h.normal = out; h.ud = (sid << 16) | (uint64_t)(kk + 1);
             std::string sf; app.bulletImpact(pr, h, sf);
           }
           app.explode(c + out * 0.3f, -out, kHE, kHER, 0.0f, ~0ull, WALL_HE);          // AT-gun / tank HE
@@ -427,6 +433,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
           app.detachLeaf(*ic, rc, (int)kk, (int)l, -out * 500.0f, c, true);           // any other caller
           ++tested; if (rc.leafSt[kk][l] & 2) ++broke;
         }
+      }
       }
       check(tested >= 3 && broke == 0, "iron doors and steel shutters are unbreakable: " + std::to_string(tested) + " steel leaves (" + names.substr(names.empty() ? 0 : 1) + ") survive 40 rifle rounds, HE, AP, rocket and grenade blasts at 0.3 m; " + std::to_string(broke) + " broke");
       app.resetDamage();
