@@ -23,7 +23,7 @@ void TankSys::loadDefs(App& app) {
   std::error_code ec;
   if (!fs::exists(dir, ec)) return;
   for (auto& e : fs::directory_iterator(dir, ec)) {
-    if (e.path().extension() != ".json") continue;
+    if (e.path().extension() != ".json" || e.path().stem() == "ramming") continue;   // ramming.json: obstacle table (tank_ram.cpp)
     json j; try { j = json::parse(readTextFile(e.path())); } catch (std::exception& x) { logf("vehicle %s: %s", e.path().string().c_str(), x.what()); continue; }
     auto d = std::make_unique<TankDef>();
     d->raw = j; d->id = j.value("id", e.path().stem().string()); d->name = j.value("name", d->id);
@@ -74,6 +74,17 @@ void TankSys::loadDefs(App& app) {
     if (m.contains("elevation")) { d->mgElevMin = m["elevation"][0]; d->mgElevMax = m["elevation"][1]; }
     d->mgRpm = m.value("rpm", d->mgRpm); d->mgVel = m.value("velocity", d->mgVel); d->mgSpread = m.value("spreadDeg", d->mgSpread);
     d->mgBelt = m.value("belt", d->mgBelt); d->mgReserve = m.value("reserve", d->mgReserve); d->mgReload = m.value("reload", d->mgReload); d->mgBulletMass = m.value("bulletMass", d->mgBulletMass);
+    d->mgTail = m.value("tail", ""); d->mgReloadSound = m.value("reloadSound", "belt");
+    const json bw = j.value("bowMg", json::object());
+    d->bowOn = !bw.empty();
+    d->bowName = bw.value("name", ""); d->bowShort = bw.value("short", "Bow MG");
+    d->bowSound = bw.value("sound", "shot_mg42"); d->bowTail = bw.value("tail", ""); d->bowReloadSound = bw.value("reloadSound", "belt");
+    d->bowPivot = jv(bw, "pivot"); d->bowMuzzle = jv(bw, "muzzle", d->bowPivot + vec3(0, 0, 0.35f));
+    d->bowYaw = bw.value("yaw", d->bowYaw);
+    if (bw.contains("elevation")) { d->bowElevMin = bw["elevation"][0]; d->bowElevMax = bw["elevation"][1]; }
+    d->bowRpm = bw.value("rpm", d->bowRpm); d->bowVel = bw.value("velocity", d->bowVel); d->bowSpread = bw.value("spreadDeg", d->bowSpread);
+    d->bowBelt = bw.value("belt", d->bowBelt); d->bowReserve = bw.value("reserve", d->bowReserve); d->bowReload = bw.value("reload", d->bowReload);
+    d->bowBulletMass = bw.value("bulletMass", d->bowBulletMass);
     const json mo = j.value("mobility", json::object());
     d->maxFwd = mo.value("maxForward", d->maxFwd); d->maxRev = mo.value("maxReverse", d->maxRev); d->accel = mo.value("accel", d->accel);
     d->brake = mo.value("brake", d->brake); d->coast = mo.value("coast", d->coast); d->turnRate = mo.value("turnRate", d->turnRate);
@@ -83,6 +94,8 @@ void TankSys::loadDefs(App& app) {
     d->histRoadKmh = hi.value("roadSpeedKmh", 0.0f); d->histSource = hi.value("source", "");
     const json du = j.value("durability", json::object());
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
+    const json rm = j.value("ramming", json::object());
+    d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);
     logf("vehicle %s: %s, %zu model parts (hull %zu turret %zu gun %zu tracks %zu/%zu)", d->id.c_str(), d->name.c_str(), d->model ? d->model->parts.size() : 0,
          d->hullParts.size(), d->turretParts.size(), d->gunParts.size(), d->trackParts[0].size(), d->trackParts[1].size());
     std::string id = d->id;
@@ -91,6 +104,7 @@ void TankSys::loadDefs(App& app) {
   // catalog entries: placement / pick bounds from the baked model (their collider parts are invisible)
   for (auto& a : app.lib.assets) if (const TankDef* d = defFor(a.get())) { a->bmin = d->model->bmin; a->bmax = d->model->bmax; a->bmax.y = std::min(a->bmax.y, 3.6f); }
   buildTankSounds(app.audio);
+  loadRam(app);
 }
 
 const TankDef* TankSys::defFor(const AssetDef* a) const {

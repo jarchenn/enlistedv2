@@ -229,14 +229,14 @@
     "note": "reserves and reload time are provisional game values"
   },
   "roofMg": {
-    "name": "MG 34 on the cupola ring (provisional: drawn with the supplied MG 42 model)",
+    "name": "MG 34 on the cupola ring (provisional: drawn with the supplied MG 42 model, MG 42 sound pack)",
     "model": "mg42",
     "modelOffset": [
       0,
       -0.03,
       -0.42
     ],
-    "sound": "shot_mg34",
+    "sound": "shot_mg42",
     "yaw": [
       -180,
       180
@@ -251,7 +251,9 @@
     "belt": 75,
     "reserve": 300,
     "reload": 5.0,
-    "bulletMass": 0.0128
+    "bulletMass": 0.0128,
+    "tail": "tail_mg42",
+    "reloadSound": "reload_mg42"
   },
   "mobility": {
     "maxForward": 11.1,
@@ -280,5 +282,41 @@
   "durability": {
     "frontHitsSurvived": 4,
     "sideHitsSurvived": 1
+  },
+  "bowMg": {
+    "name": "MG 42 type bow MG (hull ball mount)",
+    "short": "Bow MG 42",
+    "sound": "shot_mg42",
+    "tail": "tail_mg42",
+    "reloadSound": "reload_mg42",
+    "pivot": [
+      -0.53,
+      1.58,
+      2.3
+    ],
+    "muzzle": [
+      -0.53,
+      1.58,
+      2.68
+    ],
+    "yaw": 15,
+    "elevation": [
+      -10,
+      15
+    ],
+    "rpm": 1200,
+    "velocity": 755,
+    "spreadDeg": 0.35,
+    "bulletMass": 0.0128,
+    "belt": 50,
+    "reserve": 1000,
+    "reload": 4.6,
+    "note": "ball mount measured on the supplied mesh (right of the driver, the radio operator's gun); the user asked for an MG 42 type gun with the MG 42 sound pack. 50-round belts change automatically (crew)."
+  },
+  "ramming": {
+    "massKg": 57000,
+    "engineKW": 515,
+    "pushEfficiency": 0.55,
+    "note": "combat mass and the Maybach HL 230 rating (700 PS); the push efficiency is game tuning (tracks, gearing)"
   }
 }

@@ -43,6 +43,7 @@ void App::rebuildWalls(const Instance& i, InstanceRT& r) {
 void App::resetDamage() {
   resetLeafDamage();
   resetTrees();
+  interior.reset(*this);   // furniture back to its authored state
   for (auto& i : doc.instances) {   // session overlays of wire and concrete paths
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
@@ -91,6 +92,7 @@ App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float cra
     if (r.wf.empty()) initWallFields(r);
     if (stampWall(r, e, true, &ex.hits, &ex.breached) > 0) { r.wallEvents.push_back(e); rebuildWalls(i, r); }
   }
+  interior.blast(*this, p, d, dmg, radius, wallKind);   // furniture: shielded by walls, supports re-checked after the stamp
   if (craterScale > 0.0f) ex.crater = deformGround(p, craterScale);
   mpaiExplosion(*this, p, dir, dmg, radius, craterScale, wallKind, ex.breached, ex.hits.size());   // soldiers, AI hearing, nav update, LAN
   lastExplosion = ex;

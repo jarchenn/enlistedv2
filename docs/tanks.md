@@ -84,16 +84,32 @@ Collision is one compound per tank on the instance's own static body. It holds a
 | A / D | Tracked steering: a pivot turn when stopped, a speed-dependent turn when moving |
 | Mouse | Desired aim. The turret and gun follow it at their rate limits |
 | LMB | Gunner position: fire the loaded cannon round, one round per click. Hatch position: fire the roof MG |
+| Space (hold) | Fire the bow MG (hull ball mount) from either position. From the open hatch it fires the roof MG at the same time |
 | Left Ctrl | Toggle gunner sight ↔ open hatch / roof MG, once per press. Never crouches the infantry |
 | R | Change the next / in-progress shell type HE ↔ AP (never the loaded round) |
-| RMB (click) | Toggle the sight magnification: zooms into the current view (eased over 0.18 s); click again to zoom out |
+| RMB (click) | Gunner position: toggle the sight magnification (zooms into the current view, eased over 0.18 s). Hatch position: fire the main gun, one round per click |
 
 - **Entry.** It uses the same full-object rule as guns and crates: the crosshair ray hits a tank collider within reach, which also gives line of sight. Entry is refused for a wreck or while you crew a gun.
 - **Hand-over.** Infantry movement, weapons, building and posture are skipped while you are in the tank. The infantry body waits inside the hull (its controller is not updated), and its equipment is untouched.
 - **Ctrl.** A press while entering does not count. A held Ctrl toggles once. Crouch works again only after you leave.
-- **Hatch.** Opening checks the overhead clearance first ("Hatch blocked overhead"). The camera rises over 0.8 s. The hull can be driven in both positions; this is a single-player crew abstraction. The main gun stays at its last achieved angle while the roof MG is in use, and loading continues.
+- **Hatch.** Opening checks the overhead clearance first ("Hatch blocked overhead"). The camera rises over 0.8 s. The hull can be driven in both positions; this is a single-player crew abstraction. From the hatch the commander lays the main gun: the turret follows where you look at its normal rate limits, a gun marker (triangle, "RMB" when a round is chambered) shows where it points, and RMB fires it. Loading continues in both positions.
 - **Trigger.** Any station change, pause or focus change disarms it until the button is released, so LMB can never fire both weapons or fire through a switch.
 - **Exit.** Exit points around the hull (in data) are tried in order. A point is accepted if it has ground support (a surface within 1.2 m of the terrain, normal up), a clear standing capsule, and a clear line from the hatch to the point. That last test means you are never moved through a wall. Exit is refused above 1 m/s ("Slow down to get out") or when every point is blocked, with the reason shown.
+
+## Machine guns and the ammunition strip
+
+| | Sherman stand-in | Tiger I |
+|---|---|---|
+| Bow MG (Space) | Browning M1918 type, BAR sound pack (`shot_m1918a2_bar`, tail, reload), 550 rpm, 860 m/s | MG 42 type, MG 42 sound pack (`shot_mg42`, tail, reload), 1200 rpm, 755 m/s |
+| Bow MG belt | 50 rounds, 1000 spare, 3.2 s change | 50 rounds, 1000 spare, 4.6 s change |
+| Ball mount | hull (−0.57, 1.39, 2.30), measured on the supplied mesh (assistant driver's side) | hull (−0.53, 1.58, 2.30), measured on the supplied mesh (radio operator's side) |
+| Roof MG | Browning M2 .50, 100-round belts | MG 34 on the cupola (MG 42 model and sound pack), 75-round belts |
+
+- **Bow MG aim.** The ball mount converges on what the crosshair is on (a camera ray, the own tank ignored) inside its arc: ±15° traverse, −8…−10° to +15° elevation. A small blue diamond marks where it points, in the sight and from the hatch. Rounds start at the ball muzzle and never strike the own hull.
+- **Simultaneous fire.** From the open hatch, Space works the roof MG and the bow MG together, LMB the roof MG alone, and RMB the main gun, so all three can be used at once.
+- **Automatic belt change.** Like the main gun's crew loader, an empty belt with spare rounds starts its change at once (whether or not the trigger is held) and the full belt is in when the timer runs out. With no spare rounds left the trigger only clicks. Bursts end with the bank's recorded tail.
+- **Cyclic rate.** Each gun keeps the fractional remainder of its firing interval, so the rate is exact at the 60 Hz step (1200 rpm = 20 rounds/s).
+- **Ammunition strip (bottom centre).** Main gun: AP (black, red band) and HE (olive, yellow band) shell icons with the stowed count, the next type framed, and the breech showing the chambered round or the loader's progress. Bow MG and roof MG: the belt in the gun drawn round by round (spent rounds dark), the spare count, and the belt change with its timer. Each group names its controls; the roof MG group is lit only from the hatch.
 
 ## Gunner optics (T3)
 
@@ -129,13 +145,36 @@ The tank is a **kinematic chassis with terrain contact queries**, not a Jolt veh
 | Situation | Result |
 |---|---|
 | Uphill | The attainable speed drops to zero at the slope limit (Sherman 32°, Tiger 30°); a pose steeper than limit + 4° is refused. Coasting on a slope adds a small, bounded downhill pull |
-| Tank traps (`blocksVehicles`), masonry, sandbags, doors, other tanks | Stop the tank. Masonry is never bulldozed |
-| Trees (not hedgerows) | Pushed over through the shared foliage path (`fellTree`) |
-| Light defences without `blocksVehicles`, other than sandbags (for example the coming wire obstacles) | Crushed through `destroyDefense` |
+| Telegraph poles, fences, gates, crates, racks, barbed wire, trees, wooden doors, low stone walls, masonry and timber wall bays | Give way under the energy rule below ([Ramming](#ramming)) |
+| Tank traps (`blocksVehicles`), sandbags, hedgerow banks, concrete (bunkers), iron doors, guns, other tanks | Stop the tank; they never give way |
 | The player on foot in the way | Stops the tank: no crushing, no repeated per-frame damage |
 | Road (worn route) vs off-road | Off-road speed is the road speed × `offroadMul` |
 
 **Historical road speed vs gameplay profile.** The Tank Museum lists the Firefly VC at 20 mph (about 32.2 km/h) and the Tiger I at 40 km/h. Those listings do **not** support a faster Firefly top speed. The default gameplay profile keeps those road speeds and makes the Sherman *feel* faster where the plan asks for it: better acceleration (2.6 vs 1.2 m/s²), quicker turning (34 vs 18 °/s), faster traverse, and a better off-road multiplier (0.9 vs 0.6, so 28.8 vs 24 km/h off-road). All gameplay values are labelled tuning in the JSON (`mobility.note`). Using a strict faster Sherman top speed would be a balance override, and it is not enabled.
+
+## Ramming
+
+One energy rule decides what gives way (`src/tank_ram.cpp`, values in `content/vehicles/ramming.json`).
+
+1. Every obstacle has a **break energy** E. Props have their own (telegraph pole 45 kJ, post-and-wire fence 25 kJ, field gate 30 kJ, barbed wire 40–60 kJ, crates 6 kJ, racks 12 kJ, low dry-stone wall 600 kJ). Trees scale with the trunk: 900 kJ × (r / 0.4 m)², kept between 60 kJ and 1.5 MJ. A building wall is pushed as a whole face (its piers, bays and lintels share the effort) and needs kJ per cm of its thickness: timber 4, masonry 22 (a 50 cm stone wall: 1.1 MJ), concrete never.
+2. On contact the tank brings its **kinetic energy** ½ M v² (Sherman 33 t, Tiger 57 t). While W is held the **engine** adds P = engine kW × 0.55 × throttle every second (Sherman 370 kW, so 204 kW of push; Tiger 515 kW, so 283 kW).
+3. An obstacle gives way when the energy put into it reaches E. The tank keeps **v′ = √(v² − 2E/M)**, then shares momentum with what it knocked over: **v″ = v′ · M / (M + m)**.
+4. If ½ M v² is not enough, the tank **stops against the obstacle**, and the energy already put in is kept. Holding W finishes the job, and a bar on the HUD shows "PUSHING … %".
+
+So the slowdown depends on speed, as asked. Measured in the self-test, a Sherman hitting a telegraph pole loses 3 % of its speed at 29 km/h but 43 % at 7 km/h.
+
+**Durable obstacles take longer.** A slow Sherman stops against a low stone wall and needs 2.4 s of W (2.3 s predicted from E / P). A 57 t Tiger at 24 km/h goes straight through the same wall (1.3 MJ > 600 kJ) and keeps 18 km/h. A Sherman stops against a cottage's masonry wall and breaks through after about 2.6 s of W. Concrete never gives way.
+
+| Obstacle | What happens |
+|---|---|
+| Pole, fence, gate, crate, rack | Torn from its footing and falls at once, the way the tank pushes it (a rigid body: a shove high up plus a little lift). It settles as debris, and a tank driving over it crushes it flat |
+| Low dry-stone wall | Collapses into a low heap of rubble with dust; the tank and soldiers cross it |
+| Barbed wire | Every stretch is cut (`destroyDefense`) |
+| Tree | Felled through the shared foliage path |
+| Wooden door or shutter | Smashed in (`detachLeaf`, which shatters doors into pieces). Iron doors and steel shutters hold |
+| Building wall bay (masonry, timber) | A tank-sized breach is driven through with the shared impact-centred wall damage (AT-class stamps across the hull width up to the turret roof). It is ordinary wall damage, so Apply / undo keeps it. Window and door frames that are part of the building's solid core go with the bay they sit in |
+
+Knocked-over props are a session overlay: leaving Explore puts them back. Wall breaches, felled trees and cut wire follow their usual Apply rules.
 
 ## HE / AP ammunition (T5)
 
@@ -204,6 +243,9 @@ The suite drives the real Explore loop (E prompt, Ctrl, R, LMB, W/A/S/D) and fir
 - **Catalog and bake:** both entries, thumbnails, the separate moving parts, plausible scale, bounded runtime cost.
 - **Creative:** a Tiger picked from the browser shows its model as the placement ghost, is placed through the same call as a click, and deletes cleanly.
 - **Entry and stations:** entry through the prompt into the sight; one Ctrl toggle per press, never crouching; the hatch camera; the roof MG only in hatch mode; no cannon shot through a held trigger.
+- **Machine guns:** Space fires the bow MG from the sight (rate, ball-mount position, BAR sound for the Sherman, MG 42 for the Tiger) and both MGs from the hatch; RMB fires the main gun from the hatch; both belt changes start by themselves and finish with a full 50- / 100-round belt.
+- **Ramming:** a pole at speed and at walking pace (speed lost against the formula), a fence plus barbed wire, a stone wall that needs pushing (time against E / P), a Tiger at speed through a wall, a cottage wall pushed through, and a concrete casemate that holds.
+- **Mouse sensitivity:** the look scale for every ADS, scope and tank-sight field of view.
 - **Turret and optics:** traverse rate limit, the sight on the achieved gun line, settle without overshoot, short-way wrap-around, elevation stop, bore zero against a real impact.
 - **Ammunition:** every state-machine case above.
 - **Driving:** forward, steer and reverse; refused moving exit; tank trap; tree; cottage; crater; the profile comparison; a safe exit beside a wall.
@@ -224,6 +266,7 @@ Screenshots are written to `selftest_out/tanks_*.png`.
 - **Identity:** the Sherman is a 76 mm M4A3E8 mesh standing in for a Firefly, and the Tiger's MG 34 is drawn with the MG 42 model.
 - **All sounds are synthesized placeholders.**
 - **All gun, optic, reload, ammunition and mobility values are provisional game tuning,** except the two museum road speeds.
-- **Crushing** covers trees and light defences only. Fences, gates and utility poles are static props that block the tank.
+- **Ramming** acts per prop (a whole 8 m fence or 6 m wall stretch goes at once) and per wall bay. The rubble heap has no collision. Knocked-over props are not saved by Apply. Frame pieces of a building's core can be left standing in a breach.
+- **Bow MG** fire comes from the ball mount, which is part of the hull mesh and is not drawn turning.
 - **Performance** has only an indicative measurement (the report's summary). There is no controlled CPU / GPU benchmark with several moving tanks, and the GPU is shared with other programs on the reference machine.
 - **Licence:** the Tiger model is CC-BY-NC-4.0, which is non-commercial.

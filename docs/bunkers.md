@@ -27,9 +27,15 @@ Maps and tests that call `placeInstance` directly get only the host.
 
 - **Crew position.** A gunner or handler stands on the floor under their crew position: a bunker floor if there is one, otherwise the terrain (`crewFloor` in `src/station.cpp`).
 - **MG 42 embrasure mount** (`kind: "mg42"`).
-  - A belt-fed MG station like the M2HB: 1200 rpm at 755 m/s, 50-round belts with 250 in reserve, 4.6 s reload, AUTO/SEMI.
+  - A belt-fed MG station like the M2HB: 1200 rpm at 755 m/s, a 200-round belt on the gun (the handheld MG 42 holds 50) with 250 in reserve, 4.6 s reload, AUTO/SEMI.
   - The pivot is 0.2 m behind the slit and the gunner stands at the grips. Traverse is ±55°, elevation −5/+7°; at the edges of the traverse the band of the stepped reveal limits elevation.
-  - The bore is 1.584 m and the sight line 1.62 m above the floor, inside the shared slit band.
+  - The bore is 1.584 m above the floor.
+  - **Aimed like the handheld MG 42** (`mg42MountSight` in `src/station.cpp`). The only differences are that the mount is not moved and holds 200 rounds.
+    - The eye is on the GLB's own sight line, from the rear V-notch to the front post, 77.9 mm above the bore and at the notch's 29 mm left offset. That puts it 1.662 m above the floor, inside the slit band.
+    - The handheld draws the gun with its 60° weapon FOV under a 58° world FOV, but here the gun is part of the world. So the eye sits 0.194 m behind the notch instead of the handheld's 0.186 m, which draws the notch at the same size on screen. The world FOV is the handheld's 58°, and there is no centre dot.
+    - Aimed fire leaves the front post along the sight line, tilted by the handheld's 200 m zero, and the sound is the handheld's: shot bodies, a tail on release, and the `reload_mg42` belt foley.
+    - Before this change, the eye used the asset's `optic` point. That point was built for a sight line 3.6 cm above the bore, but the GLB's notch is 7.8 cm above it, so the sights stood 4.2 cm above the eye, at a 55° FOV and with a dot. The `optic` point is now only a fallback for when the GLB is missing.
+  - `--selftest-update` ("MG 42 mount: handheld sight picture ...") checks the eye against the gun as drawn, the notch size against the handheld at full ADS, the launch line and zero, the tail and reload foley, and the 200-round belt. It also saves `update_mg42_mount_sight.png` and `update_mg42_handheld_sight.png` for comparison.
   - The gun is drawn from the user-supplied MG 42 GLB in the mount's cradle (`src/app.cpp`). The mount itself is a steel pedestal, swivel head, fork and cradle; no procedural gun geometry.
   - It resupplies from crates holding `792_belt50`.
 - **PaK casemate.**

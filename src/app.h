@@ -9,6 +9,7 @@
 #include "combat.h"
 #include "viewmodel.h"
 #include "tank.h"
+#include "interior.h"   // walls, interiors and furniture (docs/interiors.md)
 
 struct GLFWwindow;
 
@@ -61,7 +62,7 @@ struct ExploreInput {
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
 
-struct PlaceCheck { bool ok = true; std::string reason; float y = 0; };
+struct PlaceCheck { bool ok = true; std::string reason; float y = 0; bool snapXZ = false; vec2 xz{0}; };   // snapXZ: wall-hung furniture pulled flat to its wall
 
 struct InteractTarget { bool valid = false; uint64_t inst = 0; int idx = -1; float t = 0; int kind = 0; /*0 door/window, 1 station, 2 crate, 3 rack*/ };
 struct ImpactInfo { vec3 pos{0}; std::string surface; int kind = 0; float time = -10; int breached = 0; };
@@ -125,6 +126,8 @@ public:
 
   // ---- tanks (tank.cpp, docs/tanks.md)
   TankSys tanks;
+  // ---- furniture, rooms and finishes (interior.cpp, docs/interiors.md)
+  InteriorSys interior;
 
   // ---- self test
   SelfTest* selftest = nullptr;
@@ -344,6 +347,9 @@ public:
   // first-person handling (viewmodel.cpp)
   ViewModelState vm;
   float worldFov = 72.0f;               // world projection FOV used last frame (apparent-position mapping)
+  // mouse look matched to the view (explore.cpp): degrees per count x tan(fov / 2) / tan(72 / 2), so a mouse movement
+  // moves the image around the crosshair by the same number of pixels in every view (hip, ADS, scopes, tank sights)
+  static float lookScaleFor(float fovDeg);
   GpuMesh armMesh[3];                   // unit boxes: US sleeve, German sleeve, skin
   void buildArmMeshes();
   void stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, const WeaponState& s);
