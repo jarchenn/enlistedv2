@@ -59,10 +59,6 @@ struct Projectile {
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
   bool tracer = false;
   std::string ammo;
-  // visual only: offset from the true start to where the first-person muzzle is drawn (the weapon has its own
-  // projection); tracers/streaks fade it out over the first metres. Hits and obstruction use p alone.
-  vec3 visOff{0};
-  float trav = 0;               // distance flown (m)
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; };
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };

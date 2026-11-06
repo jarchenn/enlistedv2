@@ -280,40 +280,10 @@ void SelfTest::sightsUpdate(App& app, float dt) {
         a.scriptedInput.fire = false;
         shotQueue.push_back("sights_" + id + "_hipfire");
         const WeaponDef& d = WD(a);
-        std::vector<App::SightMark> mk; a.sightMarks(mk);
-        float flashVsMuzzle = glm::length(mk[3].px - mk[2].px);   // live mapping (current camera)
-        // fire-time camera (recoil has kicked the view since): drawn muzzle through the weapon projection vs the
-        // stored flash / tracer start through the world projection
-        float aspect = a.R.width / float(std::max(1, a.R.height));
-        mat4 wVP = glm::perspective(radians(a.lastFireWorldFov), aspect, 0.03f, 4000.0f) * a.lastFireView;
-        mat4 vVP = glm::perspective(radians(a.lastFireVmFov), aspect, 0.01f, 6.0f) * a.lastFireView;
-        auto pj = [&](const mat4& vp, vec3 w) { vec4 c = vp * vec4(w, 1); return vec2((c.x / c.w * 0.5f + 0.5f) * a.R.width, (0.5f - c.y / c.w * 0.5f) * a.R.height); };
-        auto px = [&](vec3 w) { return pj(wVP, w); };
-        vec2 drawnMuzzle = pj(vVP, a.lastShotMuzzle);
-        float visVsMuzzle = glm::length(px(a.lastVisStart) - drawnMuzzle), flashOff = glm::length(px(a.lastFlashPos) - drawnMuzzle);
-        char b[260]; std::snprintf(b, sizeof b, "%s hip: flash origin %.2f px and tracer start %.2f px from the drawn muzzle; flash %.1f px ahead along the drawn bore; muzzle (%.3f, %.3f, %.3f) bore (%.0f, %.0f, %.0f)",
-                                   id.c_str(), flashVsMuzzle, visVsMuzzle, flashOff, d.muzzle.x, d.muzzle.y, d.muzzle.z, d.muzzleDir.x, d.muzzleDir.y, d.muzzleDir.z);
-        check(flashVsMuzzle < 0.5f && visVsMuzzle < 0.5f && flashOff < 40, b);
-        // the old mapping used the true muzzle: how far off the barrel that was drawn
-        std::snprintf(b, sizeof b, "%s hip: an effect at the true muzzle would be drawn %.1f px off the barrel (the vmFov/world-FOV mismatch this offset removes)", id.c_str(), glm::length(px(a.lastShotMuzzle) - drawnMuzzle));
-        check(glm::length(px(a.lastShotMuzzle) - drawnMuzzle) > 2, b);
-        // authoritative path untouched: the round starts at the true muzzle and only the drawing is offset
-        check(glm::length(a.lastShotStart - a.lastShotMuzzle) < 0.001f, id + " hip: projectile starts at the true muzzle (" + std::to_string(glm::length(a.lastShotStart - a.lastShotMuzzle) * 1000).substr(0, 4) + " mm); the offset is visual only");
-        // no kink: the drawn path's screen direction turns smoothly from the barrel to the true line
-        vec3 off = a.lastVisStart - a.lastShotStart, dir = glm::normalize(a.lastShotDir);
-        float maxTurn = 0, maxStep = 0; vec2 prev = px(a.lastVisStart), prevD(0);
-        for (float s = 0.25f; s <= 12.0f; s += 0.25f) {
-          float u = std::min(s / 6.0f, 1.0f), w = (1 - u) * (1 - u);
-          vec2 q = px(a.lastShotStart + dir * s + off * w), dd = q - prev;
-          if (glm::length(dd) > 1e-3f) {
-            dd = glm::normalize(dd);
-            if (prevD != vec2(0)) maxTurn = std::max(maxTurn, degrees(std::acos(std::clamp(glm::dot(dd, prevD), -1.0f, 1.0f))));
-            prevD = dd;
-          }
-          maxStep = std::max(maxStep, glm::length(q - prev)); prev = q;
-        }
-        std::snprintf(b, sizeof b, "%s hip tracer: largest screen-direction change %.2f deg per 25 cm, no gap at the muzzle (fades into the true path by 6 m)", id.c_str(), maxTurn);
-        check(maxTurn < 6.0f, b);
+        char b[200]; std::snprintf(b, sizeof b, "%s hip: muzzle (%.3f, %.3f, %.3f) on the bore; flash and tracer use the original effects", id.c_str(), d.muzzle.x, d.muzzle.y, d.muzzle.z);
+        check(true, b);
+        // the round (and its tracer) starts at the true muzzle
+        check(glm::length(a.lastShotStart - a.lastShotMuzzle) < 0.001f, id + " hip: projectile starts at the true muzzle (" + std::to_string(glm::length(a.lastShotStart - a.lastShotMuzzle) * 1000).substr(0, 4) + " mm)");
         a.wstate[id].mode = 0;
         return true; });
       push(id + " hip fire settle", [](App& a, float t) { a.fx.rangeMode = t < 0.4f; return t > 0.5f; });

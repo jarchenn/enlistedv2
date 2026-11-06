@@ -37,9 +37,9 @@ The archive contains no licence file, and every shader carries only the header "
 3. Transparent glass and placement ghosts (attachment 0 only).
 4. **World composite** (`worldComposite`): SSAO (half res), light shafts (half res), then one composite. It applies SSR, removes the occluded share of indirect light, and adds the shafts.
 5. **TAA resolve** (`taaResolve`), world only.
-6. Effects (smoke, flashes, tracers), unjittered.
+6. Bloom chain from the world; then effects (smoke, flashes, tracers, impacts), unjittered, with their own blend state. Until the fix, the composite and TAA passes left blending off, so effects drew as opaque squares.
 7. First-person weapon and arms: depth clear, own projection, unjittered.
-8. Bloom chain → exposure → tonemap → LDR → editor overlays → blit → ImGui / HUD.
+8. Exposure → tonemap → LDR → editor overlays → blit → ImGui / HUD.
 
 ## 3. What was implemented (stage by stage, each visually checked)
 
@@ -64,7 +64,7 @@ The archive contains no licence file, and every shader carries only the header "
   - A depth-aware 4×4 upsample blur follows.
   - It subtracts `indirect·(1−ao)·0.85` using the indirect light the world shaders wrote, so sunlit faces are never darkened.
   - Grass counts 0.6 and canopies 0.5, since they're sparse occluders.
-- **Bloom.** A six-level downsample chain (first level luminance-weighted against fireflies) with a tent upsample, normalised and blended at 4.5 % (energy-preserving mix, no threshold). The muzzle flash glows softly; the sky doesn't streak.
+- **Bloom.** A six-level downsample chain (first level luminance-weighted against fireflies) with a tent upsample, normalised and blended at 4.5 % (energy-preserving mix, no threshold). It is built from the lit world *before* effects are drawn, so muzzle flashes, tracers and impact sparks keep their original look (no glow).
 - **Leaf alpha.** Distance-aware: leaves grow by `fwidth(uv)` once a card covers few pixels, so distant canopies don't break into crawling single-pixel sparkles. TAA then resolves the remaining sub-pixel coverage.
 
 **Stage 4: reflections and TAA.** These were added only after the buffers they need existed: normals, roughness, motion and history.

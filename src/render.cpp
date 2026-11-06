@@ -1608,9 +1608,13 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   // pass, so nothing here ever reads the weapon's depth
   if (!thumbMode && !q.legacy) { RenderView vj = v; vj.proj = projJ; worldComposite(vj, vp); }
   if (taaOn) taaResolve(vp, vpU, v);
+  // bloom is taken from the lit world *before* effects are drawn, so muzzle flashes, tracers and impact sparks
+  // look as they did before this pass (no glow)
+  if (!thumbMode && !q.legacy && q.bloom && q.bloomStrength > 0) bloomPass();
   // effects: smoke (alpha) then flashes / tracers / streaks (additive), depth-tested, no depth writes
   if (!fxAlpha.empty() || !fxAdd.empty()) {
     glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);   // own state: the world composite / TAA passes leave blending off
     glUseProgram(progFx);
     glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));   // after the TAA resolve: unjittered
     glBindVertexArray(fxVao);
@@ -1665,7 +1669,6 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     }
   }
 
-  if (!thumbMode && !q.legacy && q.bloom && q.bloomStrength > 0) bloomPass();
   // ---- exposure
   glGenerateTextureMipmap(hdrColor);
   int levels = (int)std::floor(std::log2((float)std::max(width, height)));

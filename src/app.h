@@ -257,8 +257,6 @@ public:
   bool strictDDay = false, reducedMotion = false, scopeIronsMode = false, supported = false, showLoadout = false;
   std::string weaponMsg;
   vec3 lastShotStart{0}, lastShotDir{0}, lastShotMuzzle{0};
-  vec3 lastFlashPos{0}, lastVisStart{0};
-  mat4 lastFireView{1}; float lastFireWorldFov = 72, lastFireVmFov = 60;   // camera the last shot was fired against   // where the last shot's flash and visible path start (world projection)
   int weaponIndex(const std::string& id) const;
   void selectWeapon(int idx);
   mat4 viewModelMatrix(const WeaponDef& d, const WeaponState& s) const;

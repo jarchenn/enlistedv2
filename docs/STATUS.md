@@ -99,7 +99,7 @@ Details, the acceptance checklist (PASS / FAIL / NOT TESTED), old and new values
 
 ## Sight calibration and the renderer pass (BSL as the visual reference)
 
-- **Sight calibration.** The FG 42 and MG 42 anchors were measured on the meshes, both bores being off-centre. The MG 42 eye relief is 0.186 m, which makes its sight picture 12 % larger. Per-weapon `ads` calibration data, debug markers, and hip-fire flash and tracer origins on the drawn muzzle are in. `--selftest-sights` covers it ([fps-weapons.md#calibration](fps-weapons.md#calibration)). Sight blur is removed.
+- **Sight calibration.** The FG 42 and MG 42 anchors were measured on the meshes, both bores being off-centre. The MG 42 eye relief is 0.186 m, which makes its sight picture 12 % larger. Per-weapon `ads` calibration data and debug markers are in. Hip-fire flashes, tracers and impacts use the original effects. `--selftest-sights` covers it ([fps-weapons.md#calibration](fps-weapons.md#calibration)). Sight blur is removed.
 - **Renderer.** Two shadow cascades with soft PCF, cloud shadows, a rebalanced sun and sky, a hue-preserving tonemap, a gradient sky and self-shadowed clouds, height haze, light shafts, SSAO on indirect light only, subtle bloom, SSR on wet ground, and world-only TAA with foliage motion vectors. The weapon is drawn after it, so nothing ghosts. Each effect has a toggle, and `--legacy-look` restores the old look. All shaders are original implementations; BSL's code was not reused (licence unclear). Details, the audit and the measurements are in [rendering.md](rendering.md).
 
 ## What's implemented

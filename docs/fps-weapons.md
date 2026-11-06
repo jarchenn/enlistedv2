@@ -131,16 +131,12 @@ With zero corrections, R and F lie exactly on the view axis. The hip pose is com
 | hand sockets R / L | x 0 | x −0.0292 (y, z unchanged) |
 | `ads.eyeRelief` | 0.21 | **0.186**: the Y appears 0.21/0.186 = 12.9 % larger |
 
-**Hip-fire flash and tracers.**
-- **Fire-time pose.** At the moment of firing, the weapon pose is captured once (`Mfire`, including sway, kick and posture). The muzzle and bore direction come from it.
-- **Correct camera.** `vmApparent()` maps a first-person point into the world projection the effects use. It now uses the camera and world FOV the weapon is posed against at fire time (`fpCamera`), not the previous frame's render camera. The flash and smoke start at `vmApparent(muzzle)` and are pushed 4 cm along the *drawn* bore direction.
-- **Tracer origin.** A hip-fired round still flies from the true muzzle; hits and the muzzle-obstruction sweep use only `p`. It also carries a visual offset `visOff = vmApparent(start) − start`. Streaks are drawn at `p + visOff·(1 − s/6 m)²`, so the tracer leaves the drawn barrel opening and joins the true path by 6 m, with no step or kink.
-- **Aimed fire.** In ADS the round starts at F on the screen centre, where both projections agree, so the offset is zero.
+**Hip-fire flash and tracers.** These use the original effects, restored at the user's request: the flash and smoke are placed at `vmApparent(muzzle) + aimDir·0.05`, and tracers and streaks are drawn along the true projectile path from the true start. The corrected `muzzle` anchors still move the flash onto the FG 42 and MG 42 barrels, because both effects start from the anchor. `muzzleDir` is parsed but currently unused.
 
 **Debug markers.** Loadout (L) → *Sight calibration markers* draws:
 - the rear anchor (cyan ring) and the front tip (green cross), both through the weapon projection
 - the muzzle (orange square)
-- the flash and tracer origin through the world projection (white dot)
+- where the flash appears through the world projection (white dot)
 - the aim point (red ring)
 
 A readout gives the pixel errors, relief and weapon FOV. Self-test screenshots also carry the markers and the centre dot.

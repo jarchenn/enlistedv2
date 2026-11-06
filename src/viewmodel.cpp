@@ -101,14 +101,12 @@ void App::sightLineWorld(const WeaponDef& d, const WeaponState& s, vec3& rear, v
 }
 
 vec3 App::vmApparent(vec3 w) const {
-  // a first-person point drawn with the weapon projection (vmFovNow) appears where the world projection puts
+  // a first-person point drawn with the fixed vmFov appears where the world projection puts
   //   x' = x * tan(worldFov / 2) / tan(vmFov / 2)   (same for y, same view depth)
-  // evaluated against the camera the weapon is posed with *now* (fire time), not last frame's render camera
-  mat4 view; float wf; fpCamera(view, wf);
-  vec4 v = view * vec4(w, 1);
-  float k = std::tan(radians(wf) * 0.5f) / std::tan(radians(vmFovNow()) * 0.5f);
+  vec4 v = viewM * vec4(w, 1);
+  float k = std::tan(radians(worldFov) * 0.5f) / std::tan(radians(vm.vmFov) * 0.5f);
   v.x *= k; v.y *= k;
-  return vec3(glm::inverse(view) * v);
+  return vec3(glm::inverse(viewM) * v);
 }
 
 bool App::sightMarks(std::vector<SightMark>& out) const {
