@@ -347,7 +347,7 @@ void SelfTest::aiUpdate(App& app, float dt) {
       vec3 blast = h.pos + vec3(0, -0.6f, 2.5f);      // 2.5 m in front of the wall
       vec3 behind = h.pos + vec3(0, -1.2f, -3.0f);    // inside, behind the wall
       vec3 open = blast + vec3(5.5f, -0.6f, 0);
-      auto place = [&](int s, vec3 p) { Physics::Hit g; if (Physics::castRayEx(p + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) p = g.pos; G.sold[s].feet = p; Physics::setAgentPos(G.sold[s].agent, p); G.sold[s].hp = 1000; };
+      auto place = [&](int s, vec3 p) { Physics::Hit g; if (Physics::castRayEx(p + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) p = g.pos; G.sold[s].feet = p; Physics::setAgentPos(G.sold[s].agent, p); G.sold[s].hp = 1000; G.sold[s].protectUntil = -1; };   // spawn protection (W1) would ignore the blast
       place(v1, open); place(v2, behind);
       float d1 = glm::length(G.chest(G.sold[v1]) - blast), d2 = glm::length(G.chest(G.sold[v2]) - blast);
       G.explosionDamage(blast, 0, 0, -1, true);
