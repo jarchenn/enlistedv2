@@ -1,0 +1,127 @@
+{
+  "editorCamera": {
+    "pitch": -18.0,
+    "position": [
+      0.0,
+      38.0,
+      95.0
+    ],
+    "yaw": 0.0
+  },
+  "exploreStart": {
+    "position": [
+      0.0,
+      -0.09143638610839844,
+      9.0
+    ],
+    "yaw": 180.0
+  },
+  "format": "normandy-mapmaker-map",
+  "instances": [
+    {
+      "asset": {
+        "id": "small_stone_dairy",
+        "version": 1
+      },
+      "id": 1,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -13.0,
+        -0.08282846212387085,
+        -32.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "bunker_mg_casemate",
+        "version": 1
+      },
+      "id": 2,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        15.0,
+        -0.10434165596961975,
+        -38.0
+      ],
+      "yaw": 155.0
+    },
+    {
+      "asset": {
+        "id": "gun_pak40",
+        "version": 1
+      },
+      "id": 3,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        0.0,
+        -0.1139756441116333,
+        0.0
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "gun_m2hb_tripod",
+        "version": 1
+      },
+      "id": 4,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -7.0,
+        -0.0829242393374443,
+        1.5
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "crate_pak40_he",
+        "version": 1
+      },
+      "id": 5,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        3.200000047683716,
+        -0.1068011075258255,
+        3.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "crate_mixed_supply",
+        "version": 1
+      },
+      "id": 6,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -4.0,
+        -0.09356416761875153,
+        5.5
+      ],
+      "yaw": 0.0
+    }
+  ],
+  "name": "Range: walls, bunker, ordnance",
+  "nextId": 7,
+  "removedTemplateVegetation": [],
+  "schemaVersion": 1,
+  "template": {
+    "id": "blank_slate",
+    "seed": 1944,
+    "version": 1
+  }
+}

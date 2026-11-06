@@ -1,6 +1,7 @@
 #pragma once
 #include "assets.h"
 #include "render.h"
+#include "recorder.h"
 #include "terrain.h"
 #include "mapdoc.h"
 #include "physics.h"
@@ -220,6 +221,7 @@ public:
   static vec3 forward(float yawDeg, float pitchDeg);
 
   void screenshot(const fs::path& p);
+  Recorder rec; std::string recCaption; int recTick = 0; std::vector<uint8_t> recPx;   // --record-range
   fs::path uiShot;   // when set, the next frame including UI is written here
 };
 

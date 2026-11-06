@@ -26,6 +26,38 @@ Further checks:
 - A placement whose asset is missing keeps its data through a save, and the previous save is kept as `.bak`.
 - A door that closes on the player reopens. A door opening into the player stops.
 
+## Destruction, field ordnance and environment update
+
+Each milestone has its own self-test mode, and all of them drive the real systems. Reports are in `docs/bench/`. Design notes are in [destruction.md](destruction.md), [weapons.md](weapons.md) and [implementation-notes.md](implementation-notes.md).
+
+| Milestone | State | Verified by |
+|---|---|---|
+| M1 Wall damage panels on all 14 assets (generator, loader, render, Jolt) | Done | `--selftest-damage` (97 checks) |
+| M2 Deformable Blank Slate ground, craters, foundation protection | Done | `--selftest-damage` |
+| M3 PaK 40 station, HE shell, ammunition crate | Done | `--selftest-pak` (52 checks, real fired shells) |
+| M4 Eight weapon entries, container ammunition, reload and resupply | Done | `--selftest-weapons` (139 checks) |
+| M5 Materials: steel, stone, wood end grain, plaster, flooring, bunker concrete, pasture | Done | `--capture-materials` before and after at identical cameras, in `docs/materials/` |
+| M5 Instanced grass with Off/Low/Medium/High presets, LOD and exclusion masks | Done | `--selftest-grass`; `--benchmark-stress` |
+| Session overlay, plus explicit *Apply damage to map* (undoable) | Done | damage and grass suites |
+| Range example map (`content/examples/range.nmap.json`) | Done | `--build-range-map` (13 checks) |
+| One continuous recording | Done, scripted | `--record-range` (17 checks), 79 s MJPEG AVI |
+
+What M5 found and fixed:
+
+- **Dark steel and paint.** Paint was authored as a metal, so the albedo went to specular and almost nothing reflected indoors. The shutter in `before_steel_shutter_indoor.png` was near black. Paint is now dielectric, and bare steels keep metallic values.
+- **Indoor specular.** Indoor environment specular reflected the occluded sky. It now falls back to a fill term under the sky-occlusion map.
+- **Stone.** It now has irregular course heights, jittered head joints, pillowed faces and a macro tone variation, instead of a regular grid.
+- **Crater bowls were drawn filled** since M2. The tile mask is a normalised `GL_R8` texture written with the value 1, so the base mesh was never hidden. Collision was always right; only the rendering was wrong. Fixed, with before and after in `docs/materials/grass_crater_*.png`.
+- **A single NaN pixel** from grazing-angle shading poisoned the auto-exposure mip average. The PaK sight view then climbed to the exposure cap and washed out. Shading output is now sanitised, and the meter ignores non-finite averages.
+
+Known limits of this update:
+
+- The recording is a **scripted** run through the same input path as the keyboard and mouse, not a hand-played session. Its MP 40 reserve is trimmed to one magazine to keep the clip short, and the video's captions say so.
+- Weapon and gun figures are game tuning. `docs/weapons.md` cites the brief's sources and ships no reference images.
+- A 0.42 m crater does not conceal a crouched head; about 0.7 m is needed.
+- The other 26 catalog assets, the disabled templates, glTF import, multiplayer and an installer are out of scope.
+- The benchmarks in this update were measured while a second copy of the game was running on the same GPU (see [benchmarks.md](benchmarks.md)).
+
 ## What's implemented
 
 - **Engine.** C++20, CMake, OpenGL 4.5 core (DSA), GLFW, GLAD, GLM, Dear ImGui, Jolt Physics (`CharacterVirtual`), nlohmann/json, miniaudio.
@@ -64,9 +96,9 @@ These items in the spec are **not** in this build, roughly in the order the spec
    - Bunkers (all 4): MG casemate with a two-leaf steel shutter, observation post with a top-hung armoured viewing flap, log field shelter with a top-hung timber shutter, command shelter with a blast-wall entrance, gas lock and gas-tight door.
    - Every one of these has a scripted walkthrough at an arbitrary rotation in `--selftest` (212/212 checks).
    - Still to do: Rubble, Ruins, Trees, Bushes, Walls and boundaries, Fieldworks, and the other two Houses variants. The bunker floors sit at grade, not dug in, because the terrain isn’t excavated yet.
-2. **Templates.** *Omaha Beach (Easy Red)* and *Normandy Forest* appear in New Map but are disabled. There is no beach research yet (see `docs/normandy-terrain.md`), and no water, vegetation, instancing or LOD.
+2. **Templates.** *Omaha Beach (Easy Red)* and *Normandy Forest* appear in New Map but are disabled. There is no beach research yet (see `docs/normandy-terrain.md`), and no water or tree vegetation. Pasture grass is instanced with LOD; see the update section above.
 3. **Edge snapping** for walls and fences (there are no wall assets yet).
 4. **glTF import.** Every asset is authored procedurally with `tools/build_assets.mjs`. No glTF importer is wired in, and there is no third-party art.
-5. **Rendering polish.** No SSAO or contact shadows, so furniture-to-floor contact is weaker than the spec asks for. No LODs, no foliage or wind, and no water. Stone uses a regular procedural coursing pattern, not photographic textures.
+5. **Rendering polish.** No SSAO or contact shadows, so furniture-to-floor contact is weaker than the spec asks for. No mesh LODs and no water. Grass has distance LOD and wind; trees and bushes don't exist yet. Stone uses a regular procedural coursing pattern, not photographic textures.
 6. **Packaging.** The release is a portable zip, not an installer. It hasn't been tried on a second, clean machine.
-7. **Recording.** There is no continuous video. The automated walkthrough plays visibly in the window, and screenshots are captured from the running app.
+7. **Recording.** `--record-range` writes one continuous scripted recording of the range example (MJPEG AVI). The original farmhouse walkthrough is still covered only by screenshots.

@@ -3,6 +3,7 @@
 #include "selftest.h"
 #include <GLFW/glfw3.h>
 #include <chrono>
+#include <fstream>
 #include <algorithm>
 #include <windows.h>
 #include <psapi.h>
@@ -163,10 +164,65 @@ void SelfTest::grassUpdate(App& app, float dt) {
             "after Apply damage to map, every reset restores the same cratered grass (crater stays bare)");
       app.undo(); app.resetGround(); syncGrass();
       check(app.grass.layoutHash() == g.H0, "undoing Apply damage restores the original grass");
+      // applied ground damage is tied to the template version it was cut into
+      app.deformGround(g.P, 1.0f); app.applyDamageToMap();
+      fs::path tmp = userMapsDir() / "grass_template_version.nmap.json";
+      app.saveMapTo(tmp);
+      bool sameOk = app.openMap(tmp) && !app.doc.terrainDeltas.empty() && !app.terrain.tiles.empty();
+      { json j; { std::ifstream in(tmp); in >> j; } j["terrainDeltas"]["templateVersion"] = 999; std::ofstream(tmp) << j.dump(2); }
+      bool otherOk = app.openMap(tmp) && app.doc.terrainDeltas.empty() && app.terrain.tiles.empty();
+      check(sameOk && otherOk, "applied ground damage reloads on its own template version and is dropped (with a notice) on another");
       app.hideEditorOverlays = false;
       finish(app);
     }
     break;
+
+
+  // ---------------------------------------------------------------- range example map (content/examples)
+  case 980: {
+    reportName = "range";
+    const TemplateInfo* t = app.findTemplate("blank_slate");
+    app.newMap(*t, "Range: walls, bunker, ordnance");
+    struct P { const char* id; vec3 pos; float yaw; const char* role; };
+    // the gun sits at the origin facing -Z (yaw 180); every target is inside its 32.5 deg traverse half-arc
+    P list[] = {
+      {"small_stone_dairy", vec3(-13, 0, -32), 0.0f, "ordinary masonry walls (200 hp panels)"},
+      {"bunker_mg_casemate", vec3(15, 0, -38), 155.0f, "reinforced concrete bunker, rotated 155 deg (450 hp panels)"},
+      {"gun_pak40", vec3(0, 0, 0), 180.0f, "PaK 40 station"},
+      {"gun_m2hb_tripod", vec3(-7, 0, 1.5f), 180.0f, "M2HB tripod station"},
+      {"crate_pak40_he", vec3(3.2f, 0, 3.0f), 90.0f, "PaK 40 HE crate inside the 6 m service radius"},
+      {"crate_mixed_supply", vec3(-4, 0, 5.5f), 0.0f, "mixed small-arms / .50 belt crate"},
+    };
+    bool all = true;
+    for (auto& e : list) {
+      uint64_t id = app.placeInstance(app.lib.find(e.id), e.pos, e.yaw);
+      check(id != 0, std::string("placed ") + e.id + ": " + e.role);
+      all = all && id;
+    }
+    // grassy plot: the open pasture between the gun line and the targets is left empty on purpose
+    vec3 g(0, 0, -16);
+    check(app.groundWeight(g.x, g.z) >= 0.999f, "grassy plot 16 m down range is open pasture (no footprint)");
+    for (int k = 0; k < 2; ++k) {
+      vec3 tp = list[k].pos;
+      float ang = degrees(std::atan2(tp.x, -tp.z));
+      check(std::fabs(ang) < 32.0f, std::string(list[k].id) + " is within the PaK traverse (" + std::to_string((int)std::round(ang)) + " deg)");
+    }
+    app.doc.start = {true, vec3(0, app.terrain.height(0, 9), 9), 180};
+    app.doc.camera = {true, vec3(26, 14, 22), 50, -22};
+    app.syncRuntime();
+    fs::path out = userMapsDir() / "range_example.nmap.json";
+    check(all && app.saveMapTo(out), "range map saved to " + out.string());
+    // reopen it the way a user would and step into Explore
+    app.newMap(*t, "scratch");
+    check(app.openMap(out) && app.doc.instances.size() == 6, "range map reopens with 6 placements");
+    bool ex = app.enterExplore();
+    check(ex && app.mode == Mode::Explore, "Explore (F5) starts at the range start marker");
+    app.updateGrass(app.eyePos());
+    check(app.grass.instanceCount() > 1000, "the grassy plot is grassed");
+    app.exitExplore();
+    finish(app);
+    break;
+  }
 
   // ---------------------------------------------------------------- stress benchmarks
   case 950: {

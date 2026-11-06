@@ -167,6 +167,16 @@ bool App::openMap(const fs::path& p) {
   doc = std::move(d);
   for (auto& i : doc.instances) { i.rev = ++revCounter; if (!lib.find(i.assetId)) toast("Missing asset '" + i.assetId + "' shown as placeholder; its data is preserved.", 8); }
   applyTemplate(doc.templateId);
+  // applied ground damage is stored against the template version it was cut into; a changed template
+  // would misplace it, so it is dropped with a notice rather than misapplied
+  if (!doc.terrainDeltas.empty()) {
+    const TemplateInfo* t = findTemplate(doc.templateId);
+    if (t && doc.terrainTemplateVersion != t->version) {
+      toast("Applied ground damage was made for template version " + std::to_string(doc.terrainTemplateVersion) +
+            " (now " + std::to_string(t->version) + "); it was not applied.", 10);
+      doc.terrainDeltas.clear();
+    }
+  }
   resetGround();
   if (doc.camera.set) { camPos = doc.camera.pos; camYaw = doc.camera.yaw; camPitch = doc.camera.pitch; }
   bool isContent = p.string().find((contentDir()).string()) == 0;
@@ -355,7 +365,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-grass") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range") runSelf = true;
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else openPath = a;
   }
@@ -472,9 +482,23 @@ int App::run(int argc, char** argv) {
     R.grass = &grass;
     R.render(v, terrain, op, gl, ghosts, ov);
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
+    if (!recCaption.empty()) {   // recording caption, over every other overlay
+      ImDrawList* dl = ImGui::GetForegroundDrawList(); ImGuiIO& io = ImGui::GetIO();
+      float fs = io.DisplaySize.y / 30.0f;
+      ImVec2 ts = ImGui::GetFont()->CalcTextSizeA(fs, 1e9f, 0, recCaption.c_str());
+      ImVec2 p(28, io.DisplaySize.y - fs * 2.6f);
+      dl->AddRectFilled(ImVec2(p.x - 12, p.y - 8), ImVec2(p.x + ts.x + 12, p.y + ts.y + 8), IM_COL32(10, 10, 8, 200), 6);
+      dl->AddText(ImGui::GetFont(), fs, p, IM_COL32(250, 240, 210, 255), recCaption.c_str());
+    }
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    if (rec.active() && (++recTick & 1)) {   // 30 fps from the fixed 60 Hz simulation, HUD included
+      recPx.resize((size_t)fbw * fbh * 4);
+      glReadBuffer(GL_BACK); glPixelStorei(GL_PACK_ALIGNMENT, 1);
+      glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, recPx.data());
+      rec.frame(recPx.data(), fbw, fbh);
+    }
     if (!uiShot.empty()) {
       std::vector<uint8_t> px((size_t)fbw * fbh * 4), fl(px.size());
       glReadBuffer(GL_BACK); glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, px.data());

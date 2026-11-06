@@ -32,6 +32,8 @@ public:
               const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov);
   GLuint renderThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, const Terrain* t = nullptr, const mat4* customView = nullptr);
   void resetExposure(float e = 1.0f);
+  std::string hdrProbe() const;   // debug: top-mip average and count of non-finite HDR pixels
+  float exposure() const { float e = 0; glGetTextureImage(expoTex[expoIdx], 0, GL_RED, GL_FLOAT, sizeof e, &e); return e; }   // debug / tests (stalls)
   bool readPixels(std::vector<uint8_t>& rgba, int& w, int& h);
   FrameStats stats;
   std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)

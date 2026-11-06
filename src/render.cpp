@@ -83,7 +83,8 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   vec3 Fr = F0 + (max(vec3(1.0-rough), F0)-F0)*pow(1.0-NdV, 5.0);
   vec3 envL = mix(uFill * 2.4 + uGroundCol * 0.25, skyColor(R) * amb, sv);
   vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6;
-  return (direct + irr*alb*kd + envSpec) * ao;
+  vec3 r = (direct + irr*alb*kd + envSpec) * ao;
+  return (any(isnan(r)) || any(isinf(r))) ? vec3(0.0) : r;   // never write a non-finite HDR value
 }
 )GLSL";
 
@@ -234,7 +235,7 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
-  vec3 N = normalize(vN);
+  vec3 N = dot(vN, vN) > 1e-12 ? normalize(vN) : vec3(0.0, 1.0, 0.0);
   if (!gl_FrontFacing) N = -N;
   if (bump > 0.0) {
     vec3 dpdx = dFdx(vW), dpdy = dFdy(vW);
@@ -243,7 +244,10 @@ void main(){
     float det = dot(dpdx, r1);
     if (abs(det) > 1e-10) {
       vec3 grad = sign(det)*(dhx*r1 + dhy*r2);
-      N = normalize(abs(det)*N - grad);
+      vec3 nb = abs(det)*N - grad;
+      // grazing slivers / helper pixels can cancel to zero: keep the geometric normal (a NaN here once
+      // poisoned the exposure meter through the HDR mip chain)
+      if (dot(nb, nb) > 1e-24) N = normalize(nb);
     }
   }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
@@ -384,7 +388,8 @@ void main(){
   vec3 c = (alb/PI*uSunCol*ndl*sh + irr*alb) * mix(0.72, 1.0, v);
   vec3 V = normalize(uCamPos - vW);
   c += alb * uSunCol * 0.10 * pow(max(dot(-V, uSunDir), 0.0), 3.0) * v * sh;   // thin-leaf transmission
-  oColor = vec4(applyFog(c, vW), 1.0);
+  c = applyFog(c, vW);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
 }
 )GLSL";
 
@@ -433,10 +438,12 @@ uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
 out float oE;
 void main(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
-  float l = max(dot(avg, vec3(0.2126,0.7152,0.0722)), 1e-4);
-  float target = clamp(0.24/l, 0.8, 2.1);
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
   if (uReset > 0.0) { oE = uReset; return; }
+  float lr = dot(avg, vec3(0.2126,0.7152,0.0722));
+  if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
+  float l = max(lr, 1e-4);
+  float target = clamp(0.24/l, 0.8, 2.1);
   float k = 1.0 - exp(-uDt*(target > prev ? 1.1 : 2.2));
   oE = mix(prev, target, k);
 }
@@ -591,6 +598,17 @@ void Renderer::resize(int w, int h) {
 }
 
 void Renderer::resetExposure(float e) { expoReset = e; }
+std::string Renderer::hdrProbe() const {
+  int levels = (int)std::floor(std::log2((float)std::max(width, height)));
+  float top[4] = {0}; glGetTextureImage(hdrColor, levels, GL_RGBA, GL_FLOAT, sizeof top, top);
+  std::vector<float> px((size_t)width * height * 4);
+  glGetTextureImage(hdrColor, 0, GL_RGBA, GL_FLOAT, (GLsizei)(px.size() * 4), px.data());
+  size_t bad = 0, firstX = 0, firstY = 0;
+  for (size_t k = 0; k < px.size(); k += 4)
+    if (!std::isfinite(px[k]) || !std::isfinite(px[k + 1]) || !std::isfinite(px[k + 2])) { if (!bad) { firstX = (k / 4) % width; firstY = (k / 4) / width; } ++bad; }
+  char b[200]; std::snprintf(b, sizeof b, "top-mip (%.3f %.3f %.3f) non-finite pixels %zu (first at %zu,%zu)", top[0], top[1], top[2], bad, firstX, firstY);
+  return b;
+}
 
 void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUseProgram(p);

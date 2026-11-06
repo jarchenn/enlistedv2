@@ -45,11 +45,21 @@ Saved maps go in `maps/` next to the executable. **File > Open** also lists the 
 | Action | Control |
 |---|---|
 | Walk | WASD; Shift to sprint; Ctrl or C to crouch; Space to jump |
-| Interact | E (aim within about 2 m; the prompt reads, e.g., `E — Open window`) |
-| Return to start | R, or from the Esc menu |
+| Interact | E (aim within about 2 m; the prompt reads, e.g., `E — Open window`). Also crews a gun, leaves it, and draws ammunition from a crate |
+| Fire / aim down sights | Left mouse / right mouse. A fresh press is needed after switching position or weapon |
+| Reload | R |
+| Next weapon / loadout panel | Q / L (the panel holds the strict 6 June 1944 preset, range presentation, reduced motion and the grass preset) |
+| Iron sights on a scoped rifle | V (M1C only) |
+| At a gun | E then 1 (Aim, gunner at the sight) or 2 (Move, handler). T switches position. As handler, WASD rolls and turns the carriage; T again deploys it |
+| Damage debug | F4 (panel outlines and states) |
+| Return to start | Backspace, or from the Esc menu |
 | Menu | Esc (Resume / Return to start / Return to Creative). F5 also returns to Creative |
 
-Every walkthrough is a playtest. Doors and windows start in their authored state each time you enter Explore, and returning to Creative throws away what you changed while exploring.
+Every walkthrough is a playtest. Doors and windows start in their authored state each time you enter Explore, and returning to Creative throws away what you changed while exploring: breached walls, craters, moved guns, spent ammunition and emptied crates all reset. To keep the damage, use **Edit → Apply damage to map** (one undo step); **Edit → Clear applied damage** removes it again.
+
+**Grass** has four presets, Off, Low, Medium (default) and High, under **View → Grass** in Creative or in the loadout panel (L) in Explore. `--grass off|low|medium|high` sets it at launch.
+
+**Range example.** Open **content/examples → Range: walls, bunker, ordnance**. It is a copy of Blank Slate with a masonry dairy, an MG casemate rotated 155°, an open grassy plot, a PaK 40, an M2HB on its tripod, and two crates.
 
 ## Build from source
 
@@ -88,6 +98,21 @@ build/NormandyMapmaker.exe --selftest-reopen build/maps/selftest_regression.nmap
 ```bash
 build/NormandyMapmaker.exe --benchmark
 ```
+
+The destruction / ordnance / environment suites and tools:
+
+| Command | What it does |
+|---|---|
+| `--selftest-damage` | Wall panels on all 14 assets and ground deformation (impacts injected through `App::explode`) |
+| `--selftest-pak` | PaK 40 with real fired shells: breach, stops, reposition, crater, crate |
+| `--selftest-weapons` | The eight weapon entries: ammunition accounting, reloads, sights, recoil, resupply |
+| `--selftest-grass` | Grass determinism, exclusion masks, rebuild on crater / reset / undo / apply |
+| `--benchmark-stress` | Dense-grass flyover (Off, High, Medium on one path) and 40 HE impacts with smoke |
+| `--build-range-map` | Regenerates `maps/range_example.nmap.json` (shipped as `content/examples/range.nmap.json`) |
+| `--record-range` | Scripted run of the range example, written to `selftest_out/range_recording.avi` (MJPEG). Add `--no-video` for checks only |
+| `--capture-materials <tag>` | Five fixed-camera material shots, `selftest_out/mat_<tag>_*.png` |
+
+`bash tools/run_all_tests.sh build` runs every functional suite and prints each tally.
 
 Reports and screenshots are written to `build/selftest_out/`. The latest results are in [docs/report_A.txt](docs/report_A.txt) (212/212 passed), [docs/report_B.txt](docs/report_B.txt) (68/68 passed) and [docs/benchmarks.md](docs/benchmarks.md). [docs/testing.md](docs/testing.md) describes what each check covers.
 

@@ -60,6 +60,7 @@ void SelfTest::beginCustom(App& app, const std::string& asset, uint64_t inst, co
 }
 
 void SelfTest::damageUpdate(App& app, float dt) {
+  if (stage >= 990) { recordUpdate(app, dt); return; }
   if (stage >= 900) { grassUpdate(app, dt); return; }
   if (stage >= 800) { captureUpdate(app, dt); return; }
   if (stage >= 700) { weaponsUpdate(app, dt); return; }

@@ -1,0 +1,20 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  opened content/examples/range.nmap.json (as an unsaved copy)
+PASS  range map has the PaK, the rotated bunker, the masonry dairy and the mixed crate
+PASS  F5 enters Explore at the range start marker
+PASS  recording to C:\Users\50bmg\AppData\Local\Temp\nmk\build\selftest_out\range_recording.avi
+PASS  gun crew prompt shown
+PASS  rotated casemate rear bay breached by 4 real PaK 40 shells
+PASS  shell cut a crater in the grassy plot
+PASS  PaK repositioned 1.83 m and redeployed
+PASS  character walked down into the crater (feet 0.32 m below the original ground)
+PASS  MP 40 empty: 0 loaded, 0 reserve; firing only clicks
+PASS  crate prompt shown
+PASS  crate resupplied the MP 40 with whole magazines (192 rounds)
+PASS  reloaded: 32 in the weapon
+PASS  after F5 return: bunker intact, pasture flat, gun at its authored position
+PASS  recording written: 2381 frames (79 s)
+
+15 passed, 0 failed
