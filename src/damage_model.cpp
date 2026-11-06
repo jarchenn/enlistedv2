@@ -151,12 +151,8 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
   float dmg = dmBaseDamage(W, range) * dmZoneMult(T, W, zone);
   bool prot = v.isProtected(g.t);
   ++g.hitsOnSoldiers;
-  // ---- hit effect: deflected puff (protected), metal spark + sound (helmet), else the flesh puff
-  if (prot) rulesDeflectPuff(app, at, normal, d);
-  else if (helmet) {
-    app.fx.impact(at, normal, "metal");
-    if (glm::length(at - app.eyePos()) < 120.0f) app.audio.play("impact_metal", at, 0.6f);
-  } else app.fx.impact(at, -d, "flesh");
+  // ---- hit effect: the visuals (deflect puff, helmet sparks, blood / dust puff) are drawn by gore (gore.cpp, W7); the helmet sound stays here
+  if (!prot && helmet && glm::length(at - app.eyePos()) < 120.0f) app.audio.play("impact_metal", at, 0.6f);
   float hpBefore = v.hp;
   g.damage(victim, dmg, shooter, d, zoneName(zone));   // protection is enforced there too (rules.cpp hook)
   // ---- gore contract (gore_api.h): every flesh hit, after damage

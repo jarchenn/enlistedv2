@@ -507,6 +507,7 @@ void App::drawWeaponUI() {
     }
     { int q = (int)grass.quality; const char* names[] = {"Off", "Low", "Medium", "High"};
       if (ImGui::Combo("Grass", &q, names, 4)) grass.quality = (GrassQuality)q; }
+    { extern void goreOptionsUI(); goreOptionsUI(); }   // W7: Gore Off / Reduced / Full
     ImGui::Separator();
     for (size_t k = 0; k < weaponDefs.size(); ++k) {
       auto& w = *weaponDefs[k];

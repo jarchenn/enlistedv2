@@ -2179,6 +2179,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     glEnable(GL_CULL_FACE);
   }
   glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);   // transparent / effects / weapon never touch attachment 2
+  if (!thumbMode) { extern void goreRenderPass(Renderer&, const RenderView&, const mat4&, unsigned); goreRenderPass(*this, v, vp, depthTex); }   // W7 gore: blood decals + droplets
   // transparent: glass then ghosts
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glDepthMask(GL_FALSE);
