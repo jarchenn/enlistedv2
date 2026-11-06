@@ -29,6 +29,7 @@ run ai       --selftest-ai      # multiplayer + AI: village match integration (~
 run rules    --selftest-rules   # W1: spawn protection, movement / fall damage, damage table
 run gore     --selftest-gore    # W7 gore: decals, droplets, budgets, Off mode, protected hits, profile
 run structures --selftest-structures   # W4 structure assets: nav, colliders, cuts, walk-throughs
+run maps     --selftest-maps    # W5 default maps: template load, scenario, SPEC 2.1 distances, asset-usage doc, views + frame time
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"

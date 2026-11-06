@@ -331,10 +331,12 @@ class MapBuilder:
         return out
 
     # ---------------------------------------------------------------- routes (surface paint) and keep-outs
-    def route(self, kind, pts, width, wet=None, keepout=True, tags=()):
+    def route(self, kind, pts, width, wet=None, strength=None, keepout=True, tags=()):
         r = {"kind": kind, "width": width, "pts": [[round(p[0], 2), round(p[1], 2)] for p in pts]}
         if wet is not None:
             r["wet"] = wet
+        if strength is not None:
+            r["strength"] = strength
         self.routes.append(r)
         if keepout:
             self.keepouts.append(("line", pts, width * 0.5 + 1.0))

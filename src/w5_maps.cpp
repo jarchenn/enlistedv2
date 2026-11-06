@@ -143,12 +143,18 @@ bool w5CullDraw(const App& app, const Instance& i, const AssetDef* a) {
     std::map<std::string, Rule> m;
     json c = w5MapSettings().value("decorCull", json::object());
     if (!c.value("enabled", true)) return m;
-    for (auto& [cat, v] : c.value("categories", json::object()).items())
-      m[cat] = Rule{v.value("perMetre", 60.0f), v.value("min", 60.0f), v.value("max", 1200.0f)};
+    json cats = c.value("categories", json::object());   // keep the object alive while iterating
+    for (auto it = cats.begin(); it != cats.end(); ++it)
+      m[it.key()] = Rule{it->value("perMetre", 60.0f), it->value("min", 60.0f), it->value("max", 1200.0f)};
+    json ids = c.value("assets", json::object());          // per-asset overrides (keyed "#<asset id>")
+    for (auto it = ids.begin(); it != ids.end(); ++it)
+      m["#" + it.key()] = Rule{it->value("perMetre", 60.0f), it->value("min", 60.0f), it->value("max", 1200.0f)};
+    logf("w5: decor cull rules for %zu categories / assets", m.size());
     return m;
   }();
   if (!a || rules.empty()) return false;
-  auto it = rules.find(a->category);
+  auto it = rules.find("#" + a->id);
+  if (it == rules.end()) it = rules.find(a->category);
   if (it == rules.end()) return false;
   vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
   float d2 = glm::dot(i.pos - eye, i.pos - eye);

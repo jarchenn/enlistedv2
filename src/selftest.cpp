@@ -146,6 +146,7 @@ void SelfTest::update(App& app, float dt) {
   if (stage >= 3250 && stage < 3300) { visualsUpdate(app, dt); return; }   // W2 (selftest_visuals.cpp)
   if (stage >= 3800 && stage < 3900) { structuresUpdate(app, dt); return; }   // W4 structures (selftest_structures.cpp)
   if (stage >= 3300 && stage < 3400) { editorUpdate(app, dt); return; }  // editor & terrain (selftest_editor.cpp)
+  if (stage >= 4100 && stage < 4200) { mapsUpdate(app, dt); return; }   // W5 default maps (selftest_maps.cpp)
   if (stage >= 500) { damageUpdate(app, dt); return; }
   static int frame = 0; ++frame;
   static fs::path reopenPath;
@@ -180,6 +181,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-ai" || std::string(argv[k]) == "--benchmark-match" || std::string(argv[k]) == "--baseline-ai") { go(2000); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-net") { go(2100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(3800); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-maps" || std::string(argv[k]) == "--render-map-thumbs") { go(4100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }

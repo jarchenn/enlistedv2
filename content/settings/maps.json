@@ -1,15 +1,60 @@
 {
-  "_doc": "W5 default maps (SPEC 3, 12). decorCull: per asset category, instances are not drawn beyond clamp(perMetre * largest bound extent, min, max) metres from the camera (editor and explore). Keeps the default maps' draw count inside the frame budget; buildings, bunkers, guns and vehicles are never culled by this rule.",
+  "_doc": "W5 default maps (SPEC 3, 12). decorCull: per asset category (\"categories\") or asset id (\"assets\", wins over its category), instances are not drawn beyond clamp(perMetre * largest bound extent, min, max) metres from the camera (editor and explore). Keeps the default maps' draw count inside the frame budget; buildings, bunkers, guns and vehicles are never culled by this rule. Tuned on Omaha (--selftest-maps): hedgerow and tree foliage is drawn in the main and all shadow passes, so its distance dominates the frame; in bocage the next hedge hides what lies beyond it.",
   "decorCull": {
     "enabled": true,
     "categories": {
-      "Vegetation": {"perMetre": 55, "min": 90, "max": 700},
-      "Bocage": {"perMetre": 60, "min": 150, "max": 750},
-      "Beach obstacles": {"perMetre": 70, "min": 120, "max": 450},
-      "Defences": {"perMetre": 70, "min": 90, "max": 350},
-      "Dressing": {"perMetre": 60, "min": 90, "max": 450},
-      "Supply": {"perMetre": 70, "min": 50, "max": 150},
-      "Furniture": {"perMetre": 60, "min": 30, "max": 90}
+      "Vegetation": {
+        "perMetre": 18,
+        "min": 55,
+        "max": 180
+      },
+      "Bocage": {
+        "perMetre": 20,
+        "min": 110,
+        "max": 200
+      },
+      "Beach obstacles": {
+        "perMetre": 60,
+        "min": 100,
+        "max": 300
+      },
+      "Defences": {
+        "perMetre": 50,
+        "min": 80,
+        "max": 220
+      },
+      "Dressing": {
+        "perMetre": 40,
+        "min": 80,
+        "max": 300
+      },
+      "Supply": {
+        "perMetre": 50,
+        "min": 40,
+        "max": 120
+      },
+      "Furniture": {
+        "perMetre": 50,
+        "min": 25,
+        "max": 70
+      }
+    },
+    "assets": {
+      "shrub_bramble": {
+        "perMetre": 60,
+        "min": 60,
+        "max": 170
+      },
+      "shrub_hazel": {
+        "perMetre": 60,
+        "min": 60,
+        "max": 170
+      },
+      "tree_apple": {
+        "perMetre": 30,
+        "min": 60,
+        "max": 170
+      }
     }
   }
 }

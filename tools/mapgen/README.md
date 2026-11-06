@@ -170,8 +170,14 @@ A template may carry these keys:
 | `thumbnailCamera` | The fixed camera that `--render-map-thumbs` renders the preview from | — |
 | `playable` | Lists the map in the Play setup's **Default maps** picker | `MpUi::setupWindow` |
 
-`content/settings/maps.json` holds `decorCull`, the per-category draw distances for small decorators. The draw
-distance is `clamp(perMetre × largest extent, min, max)`. It keeps dense default maps inside the frame budget.
+`content/settings/maps.json` holds `decorCull`: draw distances for decorators per asset category, with per-asset
+overrides under `assets`. The draw distance is `clamp(perMetre × largest extent, min, max)`. It keeps dense default
+maps inside the frame budget. Foliage (hedgerows and trees) is drawn in the main pass and every shadow pass, so its
+distance dominates the frame. In bocage the next hedge hides what lies beyond it, so short distances barely show.
+
+## Shipped maps
+
+- `maps/omaha_easy_red.py`: Normandy Beaches - Omaha, Easy Red (SPEC 3.3). It writes `content/templates/omaha_easy_red.{json,height.png,nmap.json}`; the preview `omaha_easy_red.thumb.png` comes from `--render-map-thumbs`.
 
 ## Adding a map
 

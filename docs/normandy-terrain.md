@@ -1,6 +1,6 @@
 # Normandy terrain templates: research plan
 
-**Status: not built.** The *Omaha Beach (Easy Red)* and *Normandy Forest* templates are listed in New Map, but disabled. This file is the plan the beach template must follow before any final art.
+**Status:** the Omaha template is built (MP & Creative update, W5a). It is now a full default map, structures included, per SPEC 3.3; see `tools/mapgen/maps/omaha_easy_red.py`, `tools/mapgen/README.md` and `docs/asset-usage-default-maps.md`. The forest notes below are kept for the Mont-Castre map (W5b). The original terrain-only plan follows for reference.
 
 ## Omaha Beach: Easy Red / E-1 draw (terrain only)
 
