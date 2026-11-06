@@ -141,6 +141,7 @@ void SelfTest::update(App& app, float dt) {
   stageTime += dt;
   if (stage >= 2000 && stage < 2100) { aiUpdate(app, dt); return; }   // multiplayer + AI (selftest_ai.cpp)
   if (stage >= 2100 && stage < 2200) { netUpdate(app, dt); return; }  // LAN (selftest_net.cpp)
+  if (stage >= 3800 && stage < 3900) { structuresUpdate(app, dt); return; }   // W4 structures (selftest_structures.cpp)
   if (stage >= 500) { damageUpdate(app, dt); return; }
   static int frame = 0; ++frame;
   static fs::path reopenPath;
@@ -171,6 +172,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-interiors") { go(2800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-ai" || std::string(argv[k]) == "--benchmark-match" || std::string(argv[k]) == "--baseline-ai") { go(2000); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-net") { go(2100); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(3800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }
@@ -246,7 +248,8 @@ void SelfTest::update(App& app, float dt) {
     if (!next) { finish(app); break; }
     curAsset = next->id; pass = 0;
     float yaw = wrapDeg(123.0f + 61.0f * (float)extraIdx);
-    houseId = app.placeInstance(next, vec3(-250.0f + 48.0f * (float)(extraIdx % 11), 0, -150.0f + 80.0f * (float)(extraIdx / 11)), yaw);
+    static int walked = 0; int slot = walked++;   // grid by walked assets, not library index: assets without a walkthrough don't push the grid out of the build area
+    houseId = app.placeInstance(next, vec3(-250.0f + 48.0f * (float)(slot % 11), 0, -150.0f + 80.0f * (float)(slot / 11)), yaw);
     check(houseId != 0, next->name + " placed at yaw " + std::to_string((int)yaw));
     if (!houseId) break;
     json st = next->walkthrough["start"];

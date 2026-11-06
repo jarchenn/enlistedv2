@@ -62,4 +62,4 @@
  "interactables": [],
  "panels": [],
  "vehicle": "tiger_i"
-}
+,"nav":{"effect":"none"}}
