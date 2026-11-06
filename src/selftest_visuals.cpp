@@ -64,11 +64,11 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         const ThumbInfo& ti = gThumbInfo[as->id];
         bool known = false; for (const char* k : kKnownBlank) known |= as->id == k;
         if (bg > worst) { worst = bg; worstId = as->id; }
-        summary["thumbs"]["tiles"][as->id] = {{"background", bg}, {"fill", ti.fill}, {"yaw", ti.yaw}, {"pitch", ti.pitch}, {"searched", ti.searched}};
+        summary["thumbs"]["tiles"][as->id] = {{"background", bg}, {"fill", ti.fill}, {"yaw", ti.yaw}, {"pitch", ti.pitch}, {"searched", ti.searched}, {"cropped", ti.cropped}};
         saveThumbPng(as->thumbnail, shots / ((known ? "after_" : "tile_") + as->id + ".png"));
         if (bg > 0.95f) ++bad;
         if (known || bg > 0.95f) {
-          char b[240]; std::snprintf(b, sizeof b, "%s%s: %.1f%% background, silhouette %.1f%% of the tile, view yaw %.0f pitch %.0f%s", as->id.c_str(), known ? " (was blank)" : "", bg * 100, ti.fill * 100, ti.yaw, ti.pitch, ti.searched ? " (thin / tall: view search)" : "");
+          char b[280]; std::snprintf(b, sizeof b, "%s%s: %.1f%% background, silhouette %.1f%% of the tile, view yaw %.0f pitch %.0f%s", as->id.c_str(), known ? " (was blank)" : "", bg * 100, ti.fill * 100, ti.yaw, ti.pitch, ti.cropped ? " (long / sparse: detail crop)" : ti.searched ? " (thin / tall: view search)" : "");
           check(bg <= 0.95f, b);
         }
       }
