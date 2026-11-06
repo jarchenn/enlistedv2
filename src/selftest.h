@@ -58,6 +58,7 @@ private:
   void editorUpdate(App& app, float dt);    // selftest_editor.cpp (3300): map size, chunks, cuts, camera, drop-in
   void villageUpdate(App& app, float dt);   // selftest_village.cpp (1300 build, 1350 benchmark)
   void structuresUpdate(App& app, float dt);   // selftest_structures.cpp (3800): W4 structure assets
+  void mapsUpdate(App& app, float dt);         // selftest_maps.cpp (4100): W5 default maps
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);
   json summary = json::object();
 };
