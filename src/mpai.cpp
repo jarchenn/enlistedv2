@@ -27,6 +27,7 @@ bool mpaiArg(App& app, int argc, char** argv, int& k, bool& runSelf) {
   if (a == "--selftest-ai") { runSelf = true; runAiSelfTestArg = 1; return true; }
   if (a == "--benchmark-match") { runSelf = true; runAiSelfTestArg = 2; return true; }
   if (a == "--baseline-ai") { runSelf = true; runAiSelfTestArg = 3; return true; }   // AI_SPEC 2.2 baseline
+  { extern bool aiTestArg(const std::string&, int, char**, int&, bool&); if (aiTestArg(a, argc, argv, k, runSelf)) return true; }   // W6: --selftest-ai-course, --soak-ai <min>, --make-ai-course
   if (a == "--selftest-net") {   // --selftest-net <host|a|b|c|d> [port]
     extern void setNetTestRole(const std::string&, int);
     std::string r = k + 1 < argc ? argv[k + 1] : "host"; int port = 27970;

@@ -671,3 +671,4 @@ int Physics::castRayAll(vec3 o, vec3 d, float maxDist, Hit* out, int maxHits, bo
   }
   return n;
 }
+JPH::PhysicsSystem* navPhysicsSystem() { return W ? W->sys.get() : nullptr; }   // W6 (nav_geom.cpp): read-only body / shape access for the navmesh baker
