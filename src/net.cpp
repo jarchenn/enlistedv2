@@ -399,6 +399,8 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       app.fx.flash(p + dir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       app.audio.play("shot_" + d.id, p, 1.0f);
     }
+  } else if (t == "gore") {   // W7: one replicated FleshHit; droplets are simulated here from its seed
+    if (!replay) { extern void goreNetEvent(App&, const json&); goreNetEvent(app, ev); }
   } else if (t == "log") {
     app.toast(ev.value("text", ""), 4);
   }

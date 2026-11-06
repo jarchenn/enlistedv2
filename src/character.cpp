@@ -225,6 +225,7 @@ bool CharModel::load(const fs::path& path, std::string& err) {
   glCreateVertexArrays(1, &gpu.vao); glCreateBuffers(1, &gpu.vbo); glCreateBuffers(1, &gpu.ebo); glCreateBuffers(1, &restSsbo);
   glNamedBufferStorage(gpu.vbo, tv.size() * sizeof(TexVertex), tv.data(), 0);
   glNamedBufferStorage(gpu.ebo, I.size() * 4, I.data(), 0);
+  indices = I;   // gore: wound placement on the posed mesh
   glNamedBufferStorage(restSsbo, verts.size() * sizeof(SkinVert), verts.data(), 0);
   glVertexArrayVertexBuffer(gpu.vao, 0, gpu.vbo, 0, sizeof(TexVertex));
   glVertexArrayElementBuffer(gpu.vao, gpu.ebo);
