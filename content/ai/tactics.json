@@ -10,7 +10,7 @@
   "commander": { "flankFraction": 0.3, "flankStandoff_m": 28 },
   "decisions": { "inertia": 0.08 },
   "utility": { "advance": 1.0, "return fire": 1.0, "suppress": 1.0, "take cover": 1.0, "reload": 1.0, "grenade": 1.0, "clear room": 1.0, "hold": 1.0, "evade": 1.0, "overwatch": 1.0 },
-  "grenade": { "safeRadius_m": 11, "arcClearance_m": 2.0, "landWithin_m": 2.0, "reactRadius_m": 8, "hurtThreshold_hp": 10 },
+  "grenade": { "safeRadius_m": 12, "arcClearance_m": 2.0, "landWithin_m": 2.0, "reactRadius_m": 8, "friendlyClear_m": 11, "hurtThreshold_hp": 10 },
   "stuck": { "penalty_s": 20 },
   "budget": { "raysPerFrame": 200, "pathStartsPerFrame": 4, "lodDistance_m": 300 }
 }

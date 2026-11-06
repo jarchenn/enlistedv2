@@ -84,10 +84,11 @@ void AiCore::perceive(Soldier& s) {
   // grenade danger: seen in the air / landing nearby, or heard landing close (AI_SPEC 7)
   for (auto& g : G.gren.live) {
     if (g.kind != GK_FRAG) continue;
-    if (g.owner >= 0 && g.owner < (int)G.sold.size() && G.sold[g.owner].role == s.role && g.owner != s.slot && glm::length(g.p - s.feet) > 3.0f) continue;   // ours, not at our feet
+    // ours ("frag out"): known without seeing it; keep clear of its whole hurt radius (AI_SPEC 12.3: no grenade hurts a teammate)
+    bool ours = g.owner >= 0 && g.owner < (int)G.sold.size() && G.sold[g.owner].role == s.role;
     float d = glm::length(g.p - s.feet);
-    if (d > tj("grenade", "reactRadius_m", 8.0f)) continue;
-    bool seen = glm::dot(glm::normalize(g.p - e + vec3(1e-4f)), look) > 0.3f && G.lineOfSight(e, g.p);
+    if (d > (ours ? tj("grenade", "friendlyClear_m", 11.0f) : tj("grenade", "reactRadius_m", 8.0f))) continue;
+    bool seen = ours || (glm::dot(glm::normalize(g.p - e + vec3(1e-4f)), look) > 0.3f && G.lineOfSight(e, g.p));
     if (seen || (g.resting && d < 5.0f)) { b.evadeFrom = g.p; b.evadeUntil = G.t + g.fuse + 0.5; m.grenadeSeenAt = G.t; }
   }
   // target: visible enemies; the fireteam's assignment, the objective and the current target preferred;
@@ -228,6 +229,25 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
   float safe = std::max(8.0f, tj("grenade", "safeRadius_m", 11.0f)), arcClear = tj("grenade", "arcClearance_m", 2.0f);
   for (auto& o : G.sold) if (o.alive && o.role == s.role && &o != &s && glm::length(o.feet - target) < safe) return false;   // teammates (humans too)
   if (glm::length(s.feet - target) < safe) return false;
+  // where teammates (and the thrower) will be when it goes off: bots along their planned route, humans by velocity
+  {
+    float fuse = G.app.weaponDefs[fd]->grenade.fuse + 0.5f;
+    for (auto& o : G.sold) {
+      if (!o.alive || o.role != s.role) continue;
+      if (o.human || o.slot >= (int)minds.size() || !minds[o.slot]) {
+        for (float t : {1.5f, 3.0f, fuse}) if (glm::length(o.feet + o.vel * t - target) < safe) return false;
+        continue;
+      }
+      const BotMind& om = *minds[o.slot];
+      float budget = std::max(o.speed, vSprint) * fuse, L = 0; vec3 prev = o.feet;
+      size_t k0 = 0; float bd = 1e9f; for (size_t k = 0; k < om.route.size(); ++k) { float d = lenXZ(om.route[k] - o.feet); if (d < bd) { bd = d; k0 = k; } }
+      for (size_t k = k0; k < om.route.size() && L < budget; ++k) {
+        vec3 a = prev, b = om.route[k]; float seg = lenXZ(b - a);
+        for (float u = 0; u <= 1.0f; u += 0.25f) { if (L + seg * u > budget) break; if (glm::length(glm::mix(a, b, u) - target) < safe) return false; }
+        L += seg; prev = b;
+      }
+    }
+  }
   float speed = G.app.weaponDefs[fd]->grenade.speed;
   vec3 hand = s.feet + vec3(0, 1.7f, 0);
   for (float f : {1.0f, 0.88f, 0.76f}) for (int hi = 0; hi < 2; ++hi) {
