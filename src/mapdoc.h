@@ -28,10 +28,12 @@ struct MapDoc {
   std::string templateId = "blank_slate";
   int templateVersion = 1;
   uint32_t seed = 1;
+  float width = 0, depth = 0;   // buildable area in metres (SPEC 9.1, saved as mapSize); 0 = the template's size
   std::vector<Instance> instances;
   std::set<std::string> removedVegetation;
   StartMarker start;
   EditorCam camera;
+  json cameraBookmarks = json::object();   // editor view bookmarks "1".."9" (saved under editorCamera, like the view)
   std::map<int, std::vector<float>> terrainDeltas;   // applied ground damage: tile key -> per-sample metres
   int terrainTemplateVersion = 0;
   uint64_t nextId = 1;

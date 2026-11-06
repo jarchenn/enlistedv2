@@ -30,6 +30,7 @@ struct CharModel {
   // geometry
   struct SkinVert { vec3 pos; float pad0; vec3 nrm; float pad1; vec2 uv; vec2 pad2; uint32_t j[4]; vec4 w; };
   std::vector<SkinVert> verts;
+  std::vector<uint32_t> indices;            // CPU copy of the index buffer (gore: mesh ray casts for wound decals)
   GpuModel gpu;                             // shared index buffer, textures, parts (vao/vbo hold the bind pose)
   GLuint restSsbo = 0;
   vec3 bmin{0}, bmax{0};

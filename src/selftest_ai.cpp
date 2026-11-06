@@ -580,7 +580,7 @@ void SelfTest::aiUpdate(App& app, float dt) {
       vec3 blast = h.pos + vec3(0, -0.6f, 2.5f); blast.y = std::max(blast.y, a.terrain.height(blast.x, blast.z) + 0.4f);   // 2.5 m in front of the wall
       vec3 behind = h.pos + vec3(0, -1.2f, -3.0f);    // inside, behind the wall
       vec3 open = blast + vec3(5.5f, -0.6f, 0);
-      auto place = [&](int s, vec3 p) { Physics::Hit g; if (Physics::castRayEx(p + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) p = g.pos; G.sold[s].feet = p; Physics::setAgentPos(G.sold[s].agent, p); G.sold[s].hp = 1000; };
+      auto place = [&](int s, vec3 p) { Physics::Hit g; if (Physics::castRayEx(p + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) p = g.pos; G.sold[s].feet = p; Physics::setAgentPos(G.sold[s].agent, p); G.sold[s].hp = 1000; G.sold[s].protectUntil = -1; };   // spawn protection (W1) would ignore the blast
       {   // the open victim really in the open: the free spot 5.5 m from the blast (walls get chipped by the match)
         float bo = -1; vec3 best = open;
         for (vec3 off : {vec3(5.5f, -0.6f, 0), vec3(-5.5f, -0.6f, 0), vec3(0, -0.6f, 5.5f), vec3(3.9f, -0.6f, 3.9f), vec3(-3.9f, -0.6f, 3.9f)}) {

@@ -1,7 +1,36 @@
 {
-  "_doc": "Per-weapon bullet damage (SPEC 6). damage(r) = lerp(near, far, smoothstep(falloffStart_m, falloffEnd_m, r)) x zone; no falloff when start == end. Contract file from W0; W1 fills 'weapons' (keyed by weapon id; data-only rows allowed for weapons without a model) and adds the STK test.",
+  "_doc": "Per-weapon bullet damage (SPEC 6), read by src/damage_model.cpp. damage(r) = lerp(near, far, smoothstep(falloffStart_m, falloffEnd_m, r)) x zone, r = the distance the round actually travelled; no falloff when start == end. Zones: head = the weapon's headMult, upper torso (mid-spine to neck) 1.0, lower torso (hips to mid-spine) 0.9, arms and legs 0.65. Helmets do not reduce damage (metal sound + sparks only). 'rpm' is reference only (the fire rate lives in content/weapons/<id>.json); rows use the repo's own RPMs and keep the SPEC 6.2 shots-to-kill bands (asserted by --selftest-rules). 'dataOnly' rows have no model in the repo yet (owner decision). 'note' documents rows that are not in the SPEC table.",
   "health": 100,
   "zones": { "upperTorso": 1.0, "lowerTorso": 0.9, "limbs": 0.65, "head": "per weapon (headMult)" },
+  "lowerTorsoSplit": 0.5,
+  "neckFrom": 0.9,
+  "upperThighTo": 0.5,
+  "helmetAboveHeadJoint_m": 0.12,
   "helmetReducesDamage": false,
-  "weapons": {}
+  "decisions": {
+    "_doc": "SPEC 6.2 [DECISION] defaults, one value each. kar98kLimbMult: limb multiplier of the rows that reference it (0.65 = 2 limb shots; >= 0.67 = one hit anywhere). springfieldProfile: 'brief' (one shot up close, 2 beyond ~150 m) or 'kar98k' (no falloff, 150 at any range).",
+    "kar98kLimbMult": 0.65,
+    "springfieldProfile": "brief"
+  },
+  "default": { "near": 50, "far": 35, "falloffStart_m": 50, "falloffEnd_m": 150, "headMult": 2.0, "rpm": 0, "note": "fallback for an unlisted bullet weapon" },
+  "weapons": {
+    "kar98k":        { "near": 150, "far": 150, "falloffStart_m": 0,   "falloffEnd_m": 0,   "headMult": 3.0, "rpm": 60,   "limbMult": "kar98kLimbMult", "note": "[DECISION] decisions.kar98kLimbMult: limb hits take 2 shots (150 x 0.65 = 97.5)" },
+    "kar98k_zf39":   { "near": 150, "far": 150, "falloffStart_m": 0,   "falloffEnd_m": 0,   "headMult": 3.0, "rpm": 55,   "limbMult": "kar98kLimbMult", "note": "Kar98k sniper (ZF39): same row as the Kar98k, same [DECISION] value" },
+    "m1903a4":       { "near": 150, "far": 80,  "falloffStart_m": 100, "falloffEnd_m": 150, "headMult": 3.0, "rpm": 45,   "dataOnly": true, "profileDecision": "springfieldProfile", "note": "M1903A4 Springfield. [DECISION] decisions.springfieldProfile: the brief as written (one shot up close, 2 beyond ~150 m); 'kar98k' gives it the no-falloff profile" },
+    "m1_garand":     { "near": 115, "far": 70,  "falloffStart_m": 60,  "falloffEnd_m": 100, "headMult": 2.5, "rpm": 400 },
+    "m1c_garand":    { "near": 115, "far": 70,  "falloffStart_m": 60,  "falloffEnd_m": 100, "headMult": 2.5, "rpm": 400,  "note": "not in SPEC 6.2: the sniper Garand keeps the M1 Garand row, as the Kar98k sniper keeps the Kar98k row" },
+    "g43":           { "near": 115, "far": 70,  "falloffStart_m": 60,  "falloffEnd_m": 100, "headMult": 2.5, "rpm": 220,  "dataOnly": true, "note": "Gewehr 43" },
+    "m1_carbine":    { "near": 52,  "far": 36,  "falloffStart_m": 40,  "falloffEnd_m": 100, "headMult": 2.2, "rpm": 450 },
+    "m1918a2_bar":   { "near": 55,  "far": 40,  "falloffStart_m": 50,  "falloffEnd_m": 120, "headMult": 2.2, "rpm": 550 },
+    "stg44":         { "near": 34,  "far": 26,  "falloffStart_m": 40,  "falloffEnd_m": 120, "headMult": 2.2, "rpm": 560 },
+    "m1_thompson":   { "near": 27,  "far": 22,  "falloffStart_m": 20,  "falloffEnd_m": 60,  "headMult": 2.0, "rpm": 700 },
+    "m3_grease_gun": { "near": 36,  "far": 25,  "falloffStart_m": 20,  "falloffEnd_m": 60,  "headMult": 2.0, "rpm": 450 },
+    "mp40":          { "near": 34,  "far": 22,  "falloffStart_m": 15,  "falloffEnd_m": 60,  "headMult": 2.0, "rpm": 550 },
+    "mg42":          { "near": 45,  "far": 34,  "falloffStart_m": 60,  "falloffEnd_m": 200, "headMult": 2.2, "rpm": 1200 },
+    "fg42":          { "near": 45,  "far": 34,  "falloffStart_m": 60,  "falloffEnd_m": 200, "headMult": 2.2, "rpm": 750,  "note": "not in SPEC 6.2: full-power 7.92x57 at 750 rpm slots into the MG 42 band (torso 3/3/3/3, limbs 4/4, close TTK 160 ms)" },
+    "m1919a6":       { "near": 50,  "far": 38,  "falloffStart_m": 60,  "falloffEnd_m": 200, "headMult": 2.2, "rpm": 500,  "dataOnly": true },
+    "m2hb_carry":    { "near": 120, "far": 80,  "falloffStart_m": 100, "falloffEnd_m": 200, "headMult": 2.5, "rpm": 500,  "note": "not in SPEC 6.2: .50 BMG heavy MG slots into the Springfield band (torso 1/1/1/2, limbs 2/2); its weight and deploy time are the balance" },
+    "m1911a1":       { "near": 40,  "far": 22,  "falloffStart_m": 10,  "falloffEnd_m": 35,  "headMult": 2.0, "rpm": 360,  "dataOnly": true },
+    "walther_p38":   { "near": 34,  "far": 20,  "falloffStart_m": 10,  "falloffEnd_m": 35,  "headMult": 2.0, "rpm": 360,  "dataOnly": true }
+  }
 }

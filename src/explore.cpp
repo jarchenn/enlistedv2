@@ -1,6 +1,8 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
 #include "mpai.h"
+#include "rules.h"
+#include "w3.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -327,6 +329,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   bool jump = in.jump && !spaceUp && !(rising && riseProne);   // only the prone get-up holds a jump back (a crouch -> stand rise does not)
   if (!occupied) Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
   auto c = Physics::character();
+  rulesAfterMove(*this, before, c, dt);   // W1: fall damage (match, player only)
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
   float eyeTarget = c.posture == Physics::PRONE ? move.eyeProne : c.posture == Physics::CROUCH ? move.eyeCrouch : move.eyeStand;
   // getting up takes time: prone -> stand 1.1 s, prone -> crouch 0.75 s, crouch -> stand 0.45 s (movement.json),
@@ -385,6 +388,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
 
 void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
+  if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
   if (!selftest) {
     if (rackOpen && kp(win, GLFW_KEY_ESCAPE)) closeRack("closed");
     else if (kp(win, GLFW_KEY_ESCAPE)) {

@@ -132,6 +132,7 @@ void SelfTest::finish(App& app) {
 }
 
 void SelfTest::update(App& app, float dt) {
+  { extern bool goreSelfTest(App&, float); if (goreSelfTest(app, dt)) return; }   // W7: --selftest-gore
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();
@@ -142,6 +143,10 @@ void SelfTest::update(App& app, float dt) {
   if (stage >= 2000 && stage < 2100) { aiUpdate(app, dt); return; }   // multiplayer + AI (selftest_ai.cpp)
   if (stage >= 2100 && stage < 2200) { netUpdate(app, dt); return; }  // LAN (selftest_net.cpp)
   if (stage >= 2900 && stage < 3000) { aiHarnessUpdate(app, dt); return; }   // W6b AI tuning harness (selftest_ai_harness.cpp)
+  if (stage >= 2700 && stage < 2800) { rulesUpdate(app, dt); return; }   // W1 gameplay rules (selftest_rules.cpp)
+  if (stage >= 3250 && stage < 3300) { visualsUpdate(app, dt); return; }   // W2 (selftest_visuals.cpp)
+  if (stage >= 3800 && stage < 3900) { structuresUpdate(app, dt); return; }   // W4 structures (selftest_structures.cpp)
+  if (stage >= 3300 && stage < 3400) { editorUpdate(app, dt); return; }  // editor & terrain (selftest_editor.cpp)
   if (stage >= 500) { damageUpdate(app, dt); return; }
   static int frame = 0; ++frame;
   static fs::path reopenPath;
@@ -173,6 +178,10 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-ai" || std::string(argv[k]) == "--benchmark-match" || std::string(argv[k]) == "--baseline-ai" || std::string(argv[k]) == "--selftest-ai-course" || std::string(argv[k]) == "--soak-ai" || std::string(argv[k]) == "--make-ai-course") { go(2000); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-net") { go(2100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--ai-harness") { go(2900); return; }   // W6b AI tuning harness
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-rules") { go(2700); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-visuals") { go(3250); return; }   // W2 (selftest_visuals.cpp)
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-editor") { go(3300); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(3800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }
@@ -248,7 +257,8 @@ void SelfTest::update(App& app, float dt) {
     if (!next) { finish(app); break; }
     curAsset = next->id; pass = 0;
     float yaw = wrapDeg(123.0f + 61.0f * (float)extraIdx);
-    houseId = app.placeInstance(next, vec3(-250.0f + 48.0f * (float)(extraIdx % 11), 0, -150.0f + 80.0f * (float)(extraIdx / 11)), yaw);
+    static int walked = 0; int slot = walked++;   // grid by walked assets, not library index: assets without a walkthrough don't push the grid out of the build area
+    houseId = app.placeInstance(next, vec3(-250.0f + 48.0f * (float)(slot % 11), 0, -150.0f + 80.0f * (float)(slot / 11)), yaw);
     check(houseId != 0, next->name + " placed at yaw " + std::to_string((int)yaw));
     if (!houseId) break;
     json st = next->walkthrough["start"];

@@ -18,13 +18,18 @@ run env      --selftest-env
 run arsenal  --selftest-arsenal
 run move     --selftest-move
 run sights   --selftest-sights
+run visuals  --selftest-visuals   # W2: thumbnails (blank tiles, cache), footprint labels, bunker ammo / nav / OP + shelter pass
 run update   --selftest-update
 run entities --selftest-entities
 run tanks    --selftest-tanks
 run interiors --selftest-interiors   # walls, interiors and furniture (docs/interiors.md)
+run editor   --selftest-editor  # editor & terrain: map size, chunks, cuts, camera, drop-in (W3)
 run match    --selftest-match   # multiplayer + AI: headless rules suite
 run ai       --selftest-ai      # multiplayer + AI: village match integration (~4 min)
 run aicourse --selftest-ai-course   # W6 AI: live navmesh rebuild + obstacle course (AI_SPEC 12.2 / 12.4, ~5 min)
+run rules    --selftest-rules   # W1: spawn protection, movement / fall damage, damage table
+run gore     --selftest-gore    # W7 gore: decals, droplets, budgets, Off mode, protected hits, profile
+run structures --selftest-structures   # W4 structure assets: nav, colliders, cuts, walk-throughs
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"

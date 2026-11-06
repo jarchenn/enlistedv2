@@ -7,6 +7,7 @@ json mapToJson(const MapDoc& d) {
   j["schemaVersion"] = kMapSchemaVersion;
   j["name"] = d.name;
   j["template"] = {{"id", d.templateId}, {"version", d.templateVersion}, {"seed", d.seed}};
+  if (d.width > 0 && d.depth > 0) j["mapSize"] = {{"width", d.width}, {"depth", d.depth}};
   j["nextId"] = d.nextId;
   json inst = json::array();
   for (auto& i : d.instances) {
@@ -37,6 +38,7 @@ json mapToJson(const MapDoc& d) {
     j["terrainDeltas"] = {{"templateVersion", d.terrainTemplateVersion}, {"fineN", 36}, {"tiles", tiles}};
   }
   if (d.camera.set) j["editorCamera"] = {{"position", tojson(d.camera.pos)}, {"yaw", d.camera.yaw}, {"pitch", d.camera.pitch}};
+  if (d.camera.set && d.cameraBookmarks.is_object() && !d.cameraBookmarks.empty()) j["editorCamera"]["bookmarks"] = d.cameraBookmarks;
   return j;
 }
 
@@ -72,7 +74,7 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
   if (ver > kMapSchemaVersion) { err = "Map was saved by a newer version (schema " + std::to_string(ver) + ")"; return false; }
   MapDoc n;
   n.extra = j;
-  for (const char* k : {"format", "schemaVersion", "name", "template", "nextId", "instances", "removedTemplateVegetation", "exploreStart", "editorCamera"}) n.extra.erase(k);
+  for (const char* k : {"format", "schemaVersion", "name", "template", "nextId", "instances", "removedTemplateVegetation", "exploreStart", "editorCamera", "mapSize"}) n.extra.erase(k);
   if (j.contains("terrainDeltas") && j["terrainDeltas"].value("templateVersion", -1) == j["template"].value("version", 1) && j["terrainDeltas"].value("fineN", 0) == 36) {
     n.terrainTemplateVersion = j["terrainDeltas"]["templateVersion"];
     for (auto& t : j["terrainDeltas"]["tiles"]) n.terrainDeltas[t["key"].get<int>()] = t["d"].get<std::vector<float>>();
@@ -82,6 +84,7 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
   n.templateId = j["template"].value("id", "blank_slate");
   n.templateVersion = j["template"].value("version", 1);
   n.seed = j["template"].value("seed", 1u);
+  if (j.contains("mapSize") && j["mapSize"].is_object()) { n.width = j["mapSize"].value("width", 0.0f); n.depth = j["mapSize"].value("depth", 0.0f); }   // absent: pre-9.1 map, template size
   n.nextId = j.value("nextId", 1ull);
   for (auto& o : j.value("instances", json::array())) {
     Instance i;
@@ -108,6 +111,7 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
   if (j.contains("editorCamera")) {
     n.camera.set = true; n.camera.pos = jvec3(j["editorCamera"]["position"]);
     n.camera.yaw = j["editorCamera"].value("yaw", 0.0f); n.camera.pitch = j["editorCamera"].value("pitch", -20.0f);
+    if (j["editorCamera"].contains("bookmarks") && j["editorCamera"]["bookmarks"].is_object()) n.cameraBookmarks = j["editorCamera"]["bookmarks"];
   }
   d = std::move(n);
   return true;

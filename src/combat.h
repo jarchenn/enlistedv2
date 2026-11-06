@@ -73,6 +73,7 @@ struct Projectile {
   int owner = -1;               // firing soldier's roster slot (multiplayer + AI); -1 = the local player
   bool tracer = false;
   std::string ammo;
+  float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; };
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };

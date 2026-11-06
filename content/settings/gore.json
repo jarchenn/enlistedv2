@@ -1,11 +1,26 @@
 {
-  "_doc": "Gore (SPEC 7). Contract file from W0; W7 implements. level: off | reduced | full.",
+  "_doc": "Gore (SPEC 7, workstream W7, src/gore.cpp + src/decals.cpp). level: off | reduced | full (default; the Loadout window's Gore setting overrides it per user, saved in gore_user.json next to the exe). Budgets are hard caps.",
   "level": "full",
   "maxWorldDecals": 256,
   "maxDecalsPerCharacter": 24,
   "maxDroplets": 1500,
   "mistOnlyBeyond_m": 60,
   "decalAgeToBrown_s": 60,
+  "decalFade_s": 1.5,
+  "decalDrawDistance_m": 150,
   "poolGrow_s": [10, 20],
-  "poolRadius_m": [0.6, 1.0]
+  "poolRadius_m": [0.6, 1.0],
+  "poolDelay_s": 1.2,
+  "entryWound_m": [0.02, 0.04],
+  "exitWound_m": [0.04, 0.08],
+  "soak_m": [0.07, 0.14],
+  "soakGrow_s": 25,
+  "backSpatter": { "count": [10, 25], "coneDeg": [30, 45], "speed": [1, 4], "radius_mm": [0.5, 1.6], "mist_s": 0.15 },
+  "forwardSpray": { "count": [20, 60], "coneDeg": [15, 25], "speed": [3, 9], "radius_mm": [0.8, 3.0], "mist_s": 0.2 },
+  "splatterRay_m": 2.5,
+  "droplet": { "gravity": 9.81, "airDensity": 1.2, "dragCd": 0.47, "maxLife_s": 4.0, "stainScale": 2.6, "teardropMaxAspect": 6 },
+  "spurt": { "interval_s": 0.8, "duration_s": [3, 6], "count": [10, 18], "speed": [1.5, 3.5], "coneDeg": 22, "decay": 0.78, "maxPerSoldier": 2, "maxTotal": 24 },
+  "drip": { "spacing_m": [0.7, 1.4], "duration_s": 25, "minSpeed": 0.6 },
+  "reduced": { "dropletScale": 0.35, "worldDecalScale": 0.5, "characterDecalScale": 0.5, "poolScale": 0.6, "spurt": false, "drip": false },
+  "protectedFx": true
 }

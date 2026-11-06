@@ -2,6 +2,7 @@
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
+#include "sight_overlay.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -472,6 +473,7 @@ void App::drawWeaponUI() {
     std::snprintf(cb, sizeof cb, "%s  rear %.1f px  front %.1f px from the dot  | relief %.3f m  weapon FOV %.1f", d.id.c_str(), glm::length(mk[0].px - ctr), glm::length(mk[1].px - ctr), d.eyeRelief, vmFovNow());
     dl->AddText(ImVec2(20, io.DisplaySize.y - 60), IM_COL32(255, 255, 255, 230), cb);
   }
+  drawSightOverlay(*this, dl, io.DisplaySize.x / std::max(1, R.width), io.DisplaySize.y / std::max(1, R.height));   // W2: centre, sight points, roll
   char b[256];
   std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "loading rounds" : "reloading") : s.bolt > 0 ? "working the bolt" : s.loaded == 0 ? "EMPTY - R" : "";
   int nC = (int)s.containers.size();
@@ -505,6 +507,7 @@ void App::drawWeaponUI() {
     }
     { int q = (int)grass.quality; const char* names[] = {"Off", "Low", "Medium", "High"};
       if (ImGui::Combo("Grass", &q, names, 4)) grass.quality = (GrassQuality)q; }
+    { extern void goreOptionsUI(); goreOptionsUI(); }   // W7: Gore Off / Reduced / Full
     ImGui::Separator();
     for (size_t k = 0; k < weaponDefs.size(); ++k) {
       auto& w = *weaponDefs[k];

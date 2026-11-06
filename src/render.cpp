@@ -1368,8 +1368,8 @@ void main(){ vW = aPos; vN = aNrm; vDirt = aDirt; gl_Position = uVP*vec4(aPos,1.
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
 in vec3 vW, vN; in float vDirt;
-uniform int uGrid; uniform float uBuildHalf;
-uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize, uTerrainSize;
+uniform int uGrid; uniform vec2 uBuildHalf;
+uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
@@ -1378,10 +1378,10 @@ layout(location=4) out vec4 oVel;
 void main(){
   vec3 p = vW;
   if (uDiscard == 1) {   // base mesh hidden under high-resolution deformation tiles
-    ivec2 tc = ivec2(floor((p.xz + uTerrainSize*0.5)/uTileSize));
+    ivec2 tc = ivec2(floor((p.xz - uTerrainOrg)/uTileSize));
     if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;
   }
-  vec4 S = texture(uSurf, (p.xz + uTerrainSize*0.5)/uTerrainSize);
+  vec4 S = texture(uSurf, (p.xz - uTerrainOrg)/uTerrainExt);
   float wear = S.r, wet = S.g, kind = S.b, rut = S.a;
   // four scales so nothing tiles: broad fields (80 m), patches (14 m), clumps (1 m), grit (0.2 m)
   float nB = fbm(vec3(p.xz*0.012, 1.0)), nM = fbm(vec3(p.xz*0.07, 2.0)), nF = vnoise(vec3(p.xz*0.9, 3.0)), nX = vnoise(vec3(p.xz*4.3, 4.0));
@@ -1427,7 +1427,7 @@ void main(){
                      + vec3(streak - 0.5, 0.0, vnoise(vec3(sw*0.7, 18.0)) - 0.5)*0.35*nearK*(1.0 - tw)*(1.0 - puddle));   // sward relief (shading only)
   float ao = (1.0 - 0.25*dirt) * (1.0 - 0.18*rut*tw);
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
-  if (uGrid == 1 && abs(p.x) <= uBuildHalf && abs(p.z) <= uBuildHalf) {
+  if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
     vec2 fw = fwidth(p.xz)*1.2;
     float line = 1.0 - min(smoothstep(0.0, fw.x, g.x), smoothstep(0.0, fw.y, g.y));
@@ -2140,9 +2140,8 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   setLighting(progTerrain, v);
   glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
-  glUniform1f(U(progTerrain, "uBuildHalf"), t.buildHalf);
   glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
-  t.draw(progTerrain);
+  t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
   // opaque
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);
@@ -2179,6 +2178,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     glEnable(GL_CULL_FACE);
   }
   glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);   // transparent / effects / weapon never touch attachment 2
+  if (!thumbMode) { extern void goreRenderPass(Renderer&, const RenderView&, const mat4&, unsigned); goreRenderPass(*this, v, vp, depthTex); }   // W7 gore: blood decals + droplets
   // transparent: glass then ghosts
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glDepthMask(GL_FALSE);
@@ -2440,54 +2440,4 @@ bool Renderer::readVmDist(std::vector<float>& d, int& w, int& h) {
   return true;
 }
 
-GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, const Terrain* terr, const mat4* customView) {
-  const int S = 256;
-  GLuint outTex, outFbo;
-  glCreateTextures(GL_TEXTURE_2D, 1, &outTex); glTextureStorage2D(outTex, 1, GL_RGBA8, S, S);
-  glTextureParameteri(outTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(outTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glCreateFramebuffers(1, &outFbo); glNamedFramebufferTexture(outFbo, GL_COLOR_ATTACHMENT0, outTex, 0);
-  vec3 c = (bmin + bmax) * 0.5f; float r = glm::length(bmax - bmin) * 0.5f;
-  RenderView v;
-  v.camPos = c + glm::normalize(vec3(0.75f, 0.45f, 1.0f)) * r * 2.1f;
-  v.view = customView ? *customView : glm::lookAt(v.camPos, c, vec3(0, 1, 0));
-  if (customView) v.camPos = vec3(glm::inverse(*customView)[3]);
-  v.proj = glm::perspective(radians(32.0f), 1.0f, 0.1f, 2000.0f);
-  thumbMode = true;
-  mat4 vp = v.proj * v.view;
-  glBindFramebuffer(GL_FRAMEBUFFER, thumbHdrFbo);
-  glViewport(0, 0, S, S);
-  glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
-  glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  setLighting(progSky, v);
-  glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
-  glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE);
-  glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
-  glDepthMask(GL_TRUE); glDepthFunc(GL_LESS);
-  if (terr) {
-    setLighting(progTerrain, v);
-    glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-    glUniform1i(U(progTerrain, "uGrid"), 0);
-    terr->draw(progTerrain);
-  }
-  setLighting(progMain, v);
-  glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-  drawItems(progMain, opaque, false);
-  if (!foliage.empty()) { setLighting(progLeaf, v); drawFoliage(progLeaf, vp); }
-  glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glDepthMask(GL_FALSE);
-  setLighting(progGlass, v);
-  glUniformMatrix4fv(U(progGlass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-  drawItems(progGlass, glass, false);
-  glDepthMask(GL_TRUE); glDisable(GL_BLEND);
-  glBindFramebuffer(GL_FRAMEBUFFER, outFbo);
-  glDisable(GL_DEPTH_TEST);
-  glUseProgram(progTone);
-  glBindTextureUnit(0, thumbHdr); glBindTextureUnit(1, expoTex[0]);
-  glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
-  glUniform1f(U(progTone, "uFixedExpo"), 1.1f);
-  glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
-  glEnable(GL_DEPTH_TEST);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glDeleteFramebuffers(1, &outFbo);
-  thumbMode = false;
-  return outTex;
-}
+// Renderer::renderThumbnail moved to thumbs.cpp (W2: build-menu thumbnails)

@@ -13,6 +13,7 @@
 #include "net.h"
 #include <functional>
 #include <cmath>
+static double gTestCloudStart = -1, gTestCloudDense = 0;   // host: the smoke cloud the test starts (bots may throw others)
 
 namespace {
 std::string role = "host"; int port = 27970;
@@ -24,12 +25,15 @@ uint64_t wallHash(App& app) {
   return h;
 }
 }
+uint64_t gNetGoreProbe = 0;   // W7: spray hash of the host's probe hit
 void setNetTestRole(const std::string& r, int p) { role = r; port = p; }
 json netClientStats(App& app) {
   Game* g = gGame;
   json j = {{"wallHash", std::to_string(wallHash(app))}, {"clouds", g ? (int)g->gren.clouds.size() : 0}};
-  if (g && !g->gren.clouds.empty()) { j["cloudAge"] = g->t - g->gren.clouds.back().start; j["cloudStart"] = g->gren.clouds.back().start; j["cloudDense"] = g->gren.clouds.back().dense; }
+  if (g && !g->gren.clouds.empty()) { j["cloudAge"] = g->t - g->gren.clouds.back().start; j["cloudStart"] = g->gren.clouds.back().start; j["cloudDense"] = g->gren.clouds.back().dense;
+    json all = json::array(); for (auto& c : g->gren.clouds) all.push_back({c.start, c.dense}); j["cloudList"] = all; }
   j["gameActive"] = g && g->active; j["isClient"] = g && g->isClient; j["mode"] = (int)app.mode; j["netRole"] = gNet ? (int)gNet->role : -1;
+  { extern json goreNetStats(); j["gore"] = goreNetStats(); }   // W7: gore events received from the host
   if (g) { int alive = 0; for (auto& s : g->sold) alive += s.alive; j["alive"] = alive; j["slots"] = (int)g->sold.size(); j["phase"] = (int)g->match.phase; j["active"] = g->match.active; j["progress"] = g->match.obj.empty() ? 0.0f : g->match.obj[0].progress; j["local"] = g->localSlot; j["t"] = g->t; }
   return j;
 }
@@ -65,10 +69,17 @@ void SelfTest::netUpdate(App& app, float dt) {
         if (Physics::castRayEx(o, vec3(0, 0, -1), 30, h)) a.explode(h.pos, vec3(0, 0, -1), 320, 0.9f, 1.0f, ~0ull, WALL_AP);
         check(true, "host breached the town hall wall (late joiners must see it)");
         return true; });
+      push("gore probe hit", [this](App& a, float t) {   // W7: one real flesh hit with a known seed, replicated as a "gore" event
+        extern uint64_t goreTestInjectHit(App&); extern uint64_t gNetGoreProbe;
+        if (t < 1) return false;
+        gNetGoreProbe = goreTestInjectHit(a);
+        check(gNetGoreProbe != 0, "host made a flesh hit on a bot with the probe seed (spray hash " + std::to_string(gNetGoreProbe).substr(0, 8) + ")");
+        return true; });
       push("smoke before B", [this](App& a, float t) {
         if (gNet->players.size() < 3 && t < 60) return false;   // B is connecting: start the smoke so it is live at the late join
         gGame->gren.tun.smokeDense = 60;                       // long dense phase for the test window (data, not code)
         gGame->gren.addCloud(vec3(0, 0, 40), gGame->t, 99);
+        gTestCloudStart = gGame->gren.clouds.back().start; gTestCloudDense = gGame->gren.clouds.back().dense;
         { auto& c = gGame->gren.clouds.back(); gNet->hostWorldEvent(json{{"t", "cloud"}, {"p", tojson(c.p)}, {"st", c.start}, {"seed", c.seed}, {"r", c.radius}, {"b", c.build}, {"dn", c.dense}, {"f", c.fade}}); }
         check(true, "host started a smoke cloud as B joins (A gets it live, B through the late-join state)");
         return true; });
@@ -93,12 +104,19 @@ void SelfTest::netUpdate(App& app, float dt) {
         for (auto& [peer, js] : stats) {
           std::string nm = peer == 1 ? "A" : peer == 2 ? "B" : std::to_string(peer);
           check(js.value("wallHash", "") == hw, "client " + nm + " wall damage matches the host (replayed events, hash " + hw.substr(0, 8) + ")");
-          if (js.contains("cloudStart") && !gGame->gren.clouds.empty()) {
-            // the replicated cloud carries the host's start time and durations: its age on any PC is (host time - start)
-            double hs = gGame->gren.clouds.back().start, cs = js["cloudStart"];
-            std::snprintf(b, sizeof b, "client %s smoke cloud start %.3f s (host %.3f s), dense phase %.0f s (host %.0f s), age there %.1f s", nm.c_str(), cs, hs, js.value("cloudDense", 0.0), gGame->gren.clouds.back().dense, js.value("cloudAge", 0.0));
-            check(std::fabs(cs - hs) < 1e-3 && std::fabs(js.value("cloudDense", 0.0) - gGame->gren.clouds.back().dense) < 1e-3, b);
+          if (js.contains("cloudList") && gTestCloudStart >= 0) {
+            // the replicated cloud carries the host's start time and durations: its age on any PC is (host time - start).
+            // Bots throw smoke too, so look for the host's test cloud among all the client's clouds.
+            double cs = -1, cd = 0;
+            try { for (auto& c : js["cloudList"]) if (c.is_array() && c.size() >= 2 && c[0].is_number() && std::fabs(c[0].get<double>() - gTestCloudStart) < 1e-3) { cs = c[0].get<double>(); cd = c[1].get<double>(); } } catch (const std::exception& e) { logf("net test: bad clouds report: %s", e.what()); }
+            std::snprintf(b, sizeof b, "client %s has the host's test smoke cloud: start %.3f s (host %.3f s), dense phase %.0f s (host %.0f s); %zu clouds there", nm.c_str(), cs, gTestCloudStart, cd, gTestCloudDense, js["cloudList"].size());
+            check(cs >= 0 && std::fabs(cd - gTestCloudDense) < 1e-3, b);
           } else check(false, "client " + nm + " reported no smoke cloud");
+          if (peer == 1) {   // W7: A was in the match for the probe hit (B joins later and is not sent past events)
+            extern uint64_t gNetGoreProbe; json gj = js.value("gore", json::object());
+            std::snprintf(b, sizeof b, "client %s received %d gore events; probe hit's droplets simulated from the seed: hash %s (host %s)", nm.c_str(), gj.value("received", 0), gj.value("probe", std::string("none")).substr(0, 8).c_str(), std::to_string(gNetGoreProbe).substr(0, 8).c_str());
+            check(gj.value("received", 0) >= 1 && gj.value("probe", std::string()) == std::to_string(gNetGoreProbe), b);
+          }
           int sa = js.value("alive", 0), ha = 0; for (auto& s : gGame->sold) ha += s.alive;
           check(std::abs(sa - ha) <= 2, "client " + nm + " sees " + std::to_string(sa) + " living soldiers (host " + std::to_string(ha) + ")");
         }

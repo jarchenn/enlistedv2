@@ -1,6 +1,8 @@
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "game.h"
 #include "gore_api.h"
+#include "rules.h"
+#include "damage_model.h"
 #include "app.h"
 #include "mpui.h"
 #include "net.h"
@@ -207,6 +209,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.hp = combat.value("health", 100.0f); s.killer = -1; s.posture = Physics::STAND;
         s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
         ++s.lifeId;
+        rulesOnSpawn(*this, s);   // W1: spawn protection starts (SPEC 2.2)
         if (s.localPlayer) {
           Physics::setCharacterPos(feet); app.eyeYaw = m.yaw; app.eyePitch = 0; app.exploreStartPos = feet; app.R.resetTemporal();
         } else {
@@ -298,41 +301,14 @@ bool Game::projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& 
     HitZone hz;
     if (hitTest(s, a, d, bt, hz) && hz.t < bt) { bt = hz.t; best = (int)i; bz = hz; }
   }
-  if (best < 0) return false;
-  tHit = bt;
-  // damage from caliber, zone and range
-  const json& cal = combat["caliber"];
-  std::string ammo = "default"; int weaponIdx = -1;
-  for (size_t k = 0; k < app.weaponDefs.size(); ++k) if (app.weaponDefs[k]->container == p.ammo) { ammo = app.weaponDefs[k]->caliber; weaponIdx = (int)k; break; }
-  float base = cal.contains(ammo) ? cal[ammo].get<float>() : cal.value("default", 50.0f);
-  float zm = bz.zone == 0 ? combat["zones"].value("head", 3.0f) : bz.zone == 1 ? combat["zones"].value("torso", 1.0f) : combat["zones"].value("limb", 0.55f);
-  float range = p.life * glm::length(p.v);
-  const json& fo = combat["falloff"];
-  float f0 = fo.value("start_m", 60.0f), f1 = fo.value("end_m", 250.0f), fm = fo.value("minFactor", 0.6f);
-  float fall = range <= f0 ? 1.0f : range >= f1 ? fm : 1.0f - (1.0f - fm) * (range - f0) / (f1 - f0);
-  ++hitsOnSoldiers;
-  vec3 at = a + d * bt;
-  app.fx.impact(at, -d, "flesh");
-  float hpBefore = sold[best].hp;
-  damage(best, base * zm * fall, shooter, d, bz.zone == 0 ? "head" : bz.zone == 1 ? "torso" : "limb");
-  {   // gore contract (gore_api.h): report every flesh hit, after damage
-    FleshHit fh; fh.pos = at; fh.normal = -d; fh.dir = d; fh.victimSlot = best; fh.shooterSlot = shooter; fh.weapon = weaponIdx; fh.zone = bz.zone;
-    fh.damage = hpBefore - sold[best].hp;
-    auto has = [&](const char* k) { return ammo.find(k) != std::string::npos; };
-    bool rifle = has("x57") || has("30-06") || has(".50");
-    fh.energy = rifle ? 1.0f : has("Kurz") || has("Carbine") ? 0.7f : 0.4f; fh.exits = rifle;
-    fh.deflected = sold[best].isProtected(t);
-    float bd = 1e9f; for (int j = 0; j < CJ_COUNT; ++j) { float dd = glm::length(vec3(sold[best].world * vec4(sold[best].pose.joint[j], 1)) - at); if (dd < bd) { bd = dd; fh.bone = j; } }
-    fh.seed = (uint32_t)(hitsOnSoldiers * 2654435761u) ^ (uint32_t)(best * 40503u);
-    goreFleshHit(app, fh);
-  }
-  if (shooter == localSlot) hitMarker = 0.25f;
-  return true;
+  if (best >= 0) tHit = bt;
+  return dmBulletHit(*this, p, best, bz, a, d, tHit, shooter);   // W1 damage model (damage_model.cpp): table, zones, helmet, protection, FleshHit
 }
 
 void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
+  if (rulesIgnoreDamage(*this, i)) return;   // W1: spawn-protected (bullets, blasts, falls)
   if (attacker >= 0 && attacker != i && sameTeam(attacker, i) && !match.rules.friendlyFire) return;
   s.hp -= dmg;
   s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
@@ -575,7 +551,7 @@ void Game::drawItems() {
       bool far = dist > 70;
       if (!far || (frame + s.slot) % 3 == 0 || s.ci.frameSkinned < 0) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; }
     }
-    for (int k = 0; k < (int)s.ci.view.parts.size(); ++k) app.R.worldModels.push_back({&s.ci.view, k, s.world});
+    for (int k = 0; k < (int)s.ci.view.parts.size(); ++k) app.R.worldModels.push_back({&s.ci.view, k, s.world, rulesTint(*this, s)});   // W1: protection shimmer
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
