@@ -7,6 +7,7 @@
 #include "mpui.h"
 #include "net.h"
 #include "crumb.h"
+#include "ai_hooks.h"
 void netInterpolate(Game& g, double t);
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -103,7 +104,7 @@ bool Game::begin(std::string& err) {
   for (auto& s : match.sc.spawns) grow(s.pos, 25);
   float half = app.terrain.buildHalf;
   lo = glm::max(lo, vec3(-half)); hi = glm::min(hi, vec3(half));
-  if (!isClient) nav.build(lo, hi);
+  if (!isClient) aiMatchBegin(*this, lo, hi);   // W6: navmesh bake (Recast/Detour) and AI setup
   // soldiers per roster slot
   sold.clear(); sold.resize(match.slots.size());
   auto& arr = archetypes["archetypes"];
@@ -138,6 +139,7 @@ bool Game::begin(std::string& err) {
 }
 
 void Game::end() {
+  aiMatchEnd(*this);   // W6
   for (auto& s : sold) { if (s.agent >= 0) Physics::destroyAgent(s.agent); s.agent = -1; if (s.ciReady) s.ci.destroy(); s.ciReady = false; }
   Physics::destroyAllAgents();
   sold.clear(); gren.clear(); sounds.clear();
@@ -570,6 +572,7 @@ void Game::drawItems() {
 }
 
 bool Game::camera(vec3& e, vec3& f, float& fov) {
+  if (active && aiDebugCamera(*this, e, f, fov)) return true;   // W6: AI debug follow camera
   Soldier* L = local();
   if (!active || (L && L->alive)) return false;
   if (!L) {   // LAN client waiting for its slot: watch a defender

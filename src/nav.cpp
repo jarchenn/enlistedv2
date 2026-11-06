@@ -1,202 +1,473 @@
-#include "nav.h"
-#include "physics.h"
+// Recast/Detour navigation mesh: tile pipeline, background rebuilds, commits and main-thread queries (nav.h).
+#include "nav_internal.h"
+#include <DetourNavMesh.h>
+#include <DetourNavMeshBuilder.h>
+#include <DetourNavMeshQuery.h>
+#include <DetourCommon.h>
 #include <thread>
-#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <deque>
+#include <atomic>
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <map>
 
-const int Nav::kDX[8] = {1, 0, -1, 0, 1, -1, -1, 1};
-const int Nav::kDZ[8] = {0, 1, 0, -1, 1, 1, -1, -1};
+static_assert(sizeof(dtPolyRef) == sizeof(NavRef), "build Detour with DT_POLYREF64 (cmake/recast.cmake)");
 
-static bool isTerrainUD(uint64_t u) { return u == 0 || (u >> 60) == 0xF; }
-static bool isLeafUD(uint64_t u) { if (isTerrainUD(u)) return false; uint64_t l = u & 0xFFFF; return l != 0 && l != 0xFFFF; }
+const char* navLinkName(int k) { static const char* n[] = {"drop", "mantle", "vault", "jump"}; return k >= 0 && k < LINK_KINDS ? n[k] : "?"; }
 
-void Nav::build(vec3 lo, vec3 hi, int threads) {
+void NavConfig::load(const json& j) {
+  if (!j.is_object()) return;
+  tile = j.value("tile_m", tile); cs = j.value("cell_m", cs); ch = j.value("cellHeight_m", ch);
+  radius = j.value("agentRadius_m", radius); height = j.value("agentHeight_m", height); crouchHeight = j.value("crouchHeight_m", crouchHeight);
+  climb = j.value("maxStep_m", climb); slope = j.value("maxSlope_deg", slope);
+  regionMin = j.value("regionMinSize", regionMin); regionMerge = j.value("regionMergeSize", regionMerge);
+  edgeMaxLen = j.value("edgeMaxLen_m", edgeMaxLen); edgeMaxError = j.value("edgeMaxError", edgeMaxError);
+  detailDist = j.value("detailSampleDist", detailDist); detailErr = j.value("detailSampleMaxError", detailErr);
+  shallowWater = j.value("shallowWater_m", shallowWater); workers = j.value("rebuildWorkers", workers);
+  if (j.contains("links")) {
+    const json& l = j["links"];
+    dropMin = l.value("dropMin_m", dropMin); dropMax = l.value("dropMax_m", dropMax); mantleMin = l.value("mantleMin_m", mantleMin); mantleMax = l.value("mantleMax_m", mantleMax);
+    vaultMax = l.value("vaultMaxHeight_m", vaultMax); vaultThick = l.value("vaultMaxThickness_m", vaultThick); gapMax = l.value("gapMax_m", gapMax);
+    linkSpacing = l.value("spacing_m", linkSpacing); linkBorder = l.value("probeBorder_m", linkBorder);
+    if (l.contains("cost_m")) for (int k = 0; k < LINK_KINDS; ++k) linkCost[k] = l["cost_m"].value(navLinkName(k), linkCost[k]);
+  }
+  // Detour tiles must be a whole number of cells
+  tile = std::round(tile / cs) * cs;
+}
+
+// ---------------------------------------------------------------- jobs and threads
+struct NavBuildJob {
+  int tx = 0, tz = 0; uint32_t gen = 0, idBase = 0;
+  std::shared_ptr<NavBodySet> bodies; NavAreaMarks marks; float water = -1000;
+  unsigned char* data = nullptr; int size = 0; std::vector<NavLink> links; double ms = 0; int polys = 0, tris = 0, kinds[4] = {0, 0, 0, 0};
+  ~NavBuildJob() { if (data) dtFree(data); }
+};
+
+struct NavImpl {
+  std::mutex qm; std::condition_variable cv;
+  std::deque<std::unique_ptr<NavBuildJob>> queue;
+  std::vector<std::unique_ptr<NavBuildJob>> done;
+  std::vector<std::thread> threads; bool quit = false; std::atomic<int> running{0};
+  using Key = std::pair<int, int>;
+  std::map<Key, uint32_t> genIssued, genCommitted, stamps;
+  std::map<Key, std::vector<NavLink>> tileLinks;
+  std::map<uint32_t, NavLink> linkById;
+  int tx0 = 0, tz0 = 0, tx1 = -1, tz1 = -1;
+  dtQueryFilter filter;
+  NavConfig cfg;
+};
+
+static void buildTile(const NavConfig& c, NavBuildJob& j) {
   auto t0 = std::chrono::steady_clock::now();
-  origin = vec2(std::floor(lo.x / kCell) * kCell, std::floor(lo.z / kCell) * kCell);
-  nx = std::max(1, (int)std::ceil((hi.x - origin.x) / kCell));
-  nz = std::max(1, (int)std::ceil((hi.z - origin.y) / kCell));
-  slots.assign((size_t)nx * nz * kLayers, Slot{});
-  for (auto& s : slots) std::fill(std::begin(s.link), std::end(s.link), (int8_t)-1);
-  if (threads <= 0) threads = std::max(1, (int)std::thread::hardware_concurrency() - 2);
-  auto run = [&](auto fn) {
-    std::vector<std::thread> T;
-    for (int t = 0; t < threads; ++t) T.emplace_back([&, t] { for (int cz = t; cz < nz; cz += threads) for (int cx = 0; cx < nx; ++cx) fn(cx, cz); });
-    for (auto& x : T) x.join();
-  };
-  run([&](int cx, int cz) { sampleColumn(cx, cz); });
-  // structure proximity: columns within 1 cell of anything built need ray-checked links
-  std::vector<uint8_t> st(nx * nz, 0);
-  for (int cz = 0; cz < nz; ++cz) for (int cx = 0; cx < nx; ++cx) for (int l = 0; l < kLayers; ++l) if (slots[((size_t)cz * nx + cx) * kLayers + l].flags & N_STRUCT) st[cz * nx + cx] = 1;
-  for (int cz = 0; cz < nz; ++cz) for (int cx = 0; cx < nx; ++cx) {
-    if (!st[cz * nx + cx]) continue;
-    for (int d = 0; d < 8; ++d) { int x = cx + kDX[d], z = cz + kDZ[d]; if (x < 0 || z < 0 || x >= nx || z >= nz) continue; for (int l = 0; l < kLayers; ++l) slots[((size_t)z * nx + x) * kLayers + l].flags |= N_WALL; }
+  const float T = c.tile;
+  float tminx = j.tx * T, tminz = j.tz * T;
+  rcConfig rc{};
+  rc.cs = c.cs; rc.ch = c.ch; rc.walkableSlopeAngle = c.slope;
+  rc.walkableHeight = (int)std::ceil(c.crouchHeight / c.ch);
+  rc.walkableClimb = (int)std::floor(c.climb / c.ch + 1e-3f);
+  rc.walkableRadius = (int)std::ceil(c.radius / c.cs - 1e-3f);
+  rc.maxEdgeLen = (int)(c.edgeMaxLen / c.cs); rc.maxSimplificationError = c.edgeMaxError;
+  rc.minRegionArea = (int)(c.regionMin * c.regionMin); rc.mergeRegionArea = (int)(c.regionMerge * c.regionMerge);
+  rc.maxVertsPerPoly = 6;
+  rc.tileSize = (int)std::lround(T / c.cs);
+  rc.borderSize = rc.walkableRadius + 3 + (int)std::ceil(c.linkBorder / c.cs);
+  rc.width = rc.tileSize + rc.borderSize * 2; rc.height = rc.width;
+  rc.detailSampleDist = c.detailDist < 0.9f ? 0 : c.cs * c.detailDist;
+  rc.detailSampleMaxError = c.ch * c.detailErr;
+  float pad = rc.borderSize * c.cs;
+  rc.bmin[0] = tminx - pad; rc.bmin[2] = tminz - pad; rc.bmax[0] = tminx + T + pad; rc.bmax[2] = tminz + T + pad;
+  // geometry
+  NavTris tris;
+  navTriangles(*j.bodies, vec3(rc.bmin[0], -2000, rc.bmin[2]), vec3(rc.bmax[0], 2000, rc.bmax[2]), tris);
+  int nt = (int)tris.kind.size(), nv = (int)tris.v.size() / 3;
+  j.tris = nt; for (uint8_t k : tris.kind) j.kinds[k & 3]++;
+  if (nt == 0) { j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); return; }
+  float ymin = 1e9f, ymax = -1e9f;
+  for (int k = 0; k < nv; ++k) { ymin = std::min(ymin, tris.v[k * 3 + 1]); ymax = std::max(ymax, tris.v[k * 3 + 1]); }
+  ymin = std::max(ymin, -500.0f); ymax = std::min(ymax + c.height + 1, ymin + 400.0f);   // 13-bit span heights
+  rc.bmin[1] = ymin - 1; rc.bmax[1] = ymax;
+  rcContext ctx(false);
+  rcHeightfield* hf = rcAllocHeightfield();
+  rcCompactHeightfield* chf = nullptr; rcContourSet* cset = nullptr; rcPolyMesh* pm = nullptr; rcPolyMeshDetail* dm = nullptr;
+  auto cleanup = [&] { rcFreeHeightField(hf); rcFreeCompactHeightfield(chf); rcFreeContourSet(cset); rcFreePolyMesh(pm); rcFreePolyMeshDetail(dm); };
+  if (!rcCreateHeightfield(&ctx, *hf, rc.width, rc.height, rc.bmin, rc.bmax, rc.cs, rc.ch)) { cleanup(); return; }
+  std::vector<unsigned char> ta(nt, 0);
+  rcMarkWalkableTriangles(&ctx, rc.walkableSlopeAngle, tris.v.data(), nv, tris.t.data(), nt, ta.data());
+  const uint8_t wireArea = navarea::fromNav(NavArea::Wire);
+  for (int k = 0; k < nt; ++k) {
+    if (tris.kind[k] == NT_WIRE) ta[k] = ta[k] ? wireArea : 0;      // wire: solid, its top forbidden
+    else if (tris.kind[k] == NT_CARVE) ta[k] = 0;                   // carved obstacle: walked around, never over
+    else if (ta[k]) ta[k] = navarea::fromNav(NavArea::Default);
   }
-  run([&](int cx, int cz) { linkColumn(cx, cz); });
-  usedNodes = links = doorLinks = 0;
-  for (auto& s : slots) if (s.flags & N_USED) { ++usedNodes; for (int d = 0; d < 8; ++d) if (s.link[d] >= 0) { ++links; if ((s.doorMask >> d) & 1) ++doorLinks; } }
-  buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-  logf("nav: %d x %d columns (%.0f x %.0f m), %d floors, %d links (%d door), %.0f ms", nx, nz, nx * kCell, nz * kCell, usedNodes, links, doorLinks, buildMs);
-}
-
-void Nav::sampleColumn(int cx, int cz) {
-  vec3 c(origin.x + (cx + 0.5f) * kCell, 0, origin.y + (cz + 0.5f) * kCell);
-  Physics::Hit h[24];
-  int n = Physics::castRayAll(vec3(c.x, 80.0f, c.z), vec3(0, -1, 0), 200.0f, h, 24, true);
-  Slot* col = &slots[((size_t)cz * nx + cx) * kLayers];
-  int layer = 0;
-  bool structured = false;
-  for (int k = 0; k < n; ++k) if (!isTerrainUD(h[k].ud)) structured = true;
-  float ground = n > 0 ? h[n - 1].pos.y : 0.0f;
-  // bottom-up so layer 0 is the lowest floor
-  for (int k = n - 1; k >= 0 && layer < kLayers; --k) {
-    if (h[k].normal.y < 0.70f) continue;                       // too steep to stand on (wall faces, roofs)
-    vec3 f = h[k].pos;
-    float head = 6.0f;
-    Physics::Hit up;
-    if (Physics::castRayEx(f + vec3(0, 0.05f, 0), vec3(0, 1, 0), 6.0f, up)) head = up.t + 0.05f;
-    else if (f.y > ground + 2.5f) continue;                    // open sky high above the ground: a roof or wall top (no ladders)
-    // a body whose top we stand on but that we are also inside of (overlapping parts) shows up as zero headroom
-    if (head < 1.25f) continue;
-    if (layer > 0 && f.y - col[layer - 1].y < 1.3f) {            // same floor reported twice (stacked parts): keep the higher
-      if (f.y > col[layer - 1].y) { col[layer - 1].y = f.y; col[layer - 1].head = (uint16_t)std::min(head * 100.0f, 60000.0f); }
-      continue;
+  if (!rcRasterizeTriangles(&ctx, tris.v.data(), nv, tris.t.data(), ta.data(), nt, *hf, rc.walkableClimb)) { cleanup(); return; }
+  NavColumns cols; cols.fromHeightfield(*hf);
+  rcFilterLowHangingWalkableObstacles(&ctx, rc.walkableClimb, *hf);
+  rcFilterLedgeSpans(&ctx, rc.walkableHeight, rc.walkableClimb, *hf);
+  rcFilterWalkableLowHeightSpans(&ctx, rc.walkableHeight, *hf);
+  chf = rcAllocCompactHeightfield();
+  if (!rcBuildCompactHeightfield(&ctx, rc.walkableHeight, rc.walkableClimb, *hf, *chf)) { cleanup(); return; }
+  if (!rcErodeWalkableArea(&ctx, rc.walkableRadius, *chf)) { cleanup(); return; }
+  // asset areas (marsh, road, trench, minefield, ...), then water, then crouch headroom
+  for (auto& m : j.marks.marks) {
+    if (m.poly.size() < 3) continue;
+    std::vector<float> pv; for (auto& p : m.poly) { pv.push_back(p.x); pv.push_back(0); pv.push_back(p.y); }
+    rcMarkConvexPolyArea(&ctx, pv.data(), (int)m.poly.size(), m.hmin, m.hmax, m.nullify ? RC_NULL_AREA : m.area, *chf);
+  }
+  const int standCells = (int)std::ceil(c.height / c.ch);
+  const uint8_t forbidWater = navarea::fromNav(NavArea::Minefield);   // deep water: forbidden like a minefield (never walked)
+  for (int z = 0; z < chf->height; ++z) for (int x = 0; x < chf->width; ++x) {
+    const rcCompactCell& cell = chf->cells[x + z * chf->width];
+    for (int i = (int)cell.index, ni = (int)(cell.index + cell.count); i < ni; ++i) {
+      unsigned char& a = chf->areas[i];
+      if (a == RC_NULL_AREA) continue;
+      float y = chf->bmin[1] + chf->spans[i].y * chf->ch;
+      if (y < j.water) a = (j.water - y > c.shallowWater) ? forbidWater : navarea::fromNav(NavArea::Water);
+      if (chf->spans[i].h < standCells && a < navarea::kLinkDrop && !(a & navarea::kCrouchBit)) a = (unsigned char)(a | navarea::kCrouchBit);
     }
-    Slot& s = col[layer++];
-    s.y = f.y; s.head = (uint16_t)std::min(head * 100.0f, 60000.0f);
-    s.flags = N_USED | (head < 1.85f ? N_CROUCH : 0) | (structured ? N_STRUCT : 0);
+  }
+  if (!rcBuildDistanceField(&ctx, *chf) || !rcBuildRegions(&ctx, *chf, rc.borderSize, rc.minRegionArea, rc.mergeRegionArea)) { cleanup(); return; }
+  cset = rcAllocContourSet();
+  if (!rcBuildContours(&ctx, *chf, rc.maxSimplificationError, rc.maxEdgeLen, *cset) || cset->nconts == 0) { cleanup(); j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); return; }
+  pm = rcAllocPolyMesh();
+  if (!rcBuildPolyMesh(&ctx, *cset, rc.maxVertsPerPoly, *pm)) { cleanup(); return; }
+  dm = rcAllocPolyMeshDetail();
+  if (!rcBuildPolyMeshDetail(&ctx, *pm, *chf, rc.detailSampleDist, rc.detailSampleMaxError, *dm)) { cleanup(); return; }
+  if (pm->npolys == 0) { cleanup(); return; }
+  for (int i = 0; i < pm->npolys; ++i) {
+    uint8_t a = pm->areas[i];
+    NavArea na = navarea::toNav(a);
+    pm->flags[i] = navAreaCost(na) < 0 ? NF_FORBID : (navarea::crouch(a) ? (NF_WALK | NF_CROUCH) : NF_WALK);
+  }
+  navGenerateLinks(c, cols, *pm, tminx, tminz, T, j.idBase, j.links);
+  // both ends must be on walkable, unmarked voxels of the final field (links come from the raw columns, before area
+  // marks such as hedgerow footprints, forbidden areas and erosion)
+  auto onWalk = [&](vec3 p) {
+    int cx = (int)std::floor((p.x - chf->bmin[0]) / chf->cs), cz = (int)std::floor((p.z - chf->bmin[2]) / chf->cs);
+    for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx) {
+      int x = cx + dx, z = cz + dz; if (x < 0 || z < 0 || x >= chf->width || z >= chf->height) continue;
+      const rcCompactCell& cell = chf->cells[x + z * chf->width];
+      for (int i = (int)cell.index, ni = (int)(cell.index + cell.count); i < ni; ++i) {
+        uint8_t a = chf->areas[i]; if (a == RC_NULL_AREA || navAreaCost(navarea::toNav(a)) < 0) continue;
+        if (std::fabs(chf->bmin[1] + chf->spans[i].y * chf->ch - p.y) < 0.6f) return true;
+      }
+    }
+    return false; };
+  // ...and never pass over a blocked or forbidden mark (hedgerow footprints, wire, minefields)
+  auto inTri = [](vec2 p, const std::vector<vec2>& t) {
+    auto cr = [](vec2 a, vec2 b, vec2 c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); };
+    float d1 = cr(t[0], t[1], p), d2 = cr(t[1], t[2], p), d3 = cr(t[2], t[0], p);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+  auto crossesMark = [&](const NavLink& l) {
+    for (auto& mk : j.marks.marks) {
+      if (mk.poly.size() != 3 || !(mk.nullify || navAreaCost(navarea::toNav(mk.area)) < 0)) continue;
+      for (int k = 0; k <= 20; ++k) { vec3 q = glm::mix(l.a, l.b, k / 20.0f); if (q.y >= mk.hmin && q.y <= mk.hmax && inTri(vec2(q.x, q.z), mk.poly)) return true; }
+    }
+    return false; };
+  j.links.erase(std::remove_if(j.links.begin(), j.links.end(), [&](const NavLink& l) { return !onWalk(l.a) || !onWalk(l.b) || crossesMark(l); }), j.links.end());
+  std::vector<float> lv; std::vector<float> lr; std::vector<unsigned char> ld, la; std::vector<unsigned short> lf; std::vector<unsigned int> lid;
+  for (auto& l : j.links) {
+    lv.insert(lv.end(), {l.a.x, l.a.y, l.a.z, l.b.x, l.b.y, l.b.z});
+    lr.push_back(c.radius + 0.25f); ld.push_back(l.bidir ? DT_OFFMESH_CON_BIDIR : 0);
+    la.push_back((unsigned char)(navarea::kLinkDrop + l.kind)); lf.push_back(NF_LINK); lid.push_back(l.id);
+  }
+  dtNavMeshCreateParams p{};
+  p.verts = pm->verts; p.vertCount = pm->nverts; p.polys = pm->polys; p.polyAreas = pm->areas; p.polyFlags = pm->flags; p.polyCount = pm->npolys; p.nvp = pm->nvp;
+  p.detailMeshes = dm->meshes; p.detailVerts = dm->verts; p.detailVertsCount = dm->nverts; p.detailTris = dm->tris; p.detailTriCount = dm->ntris;
+  p.offMeshConVerts = lv.data(); p.offMeshConRad = lr.data(); p.offMeshConDir = ld.data(); p.offMeshConAreas = la.data(); p.offMeshConFlags = lf.data(); p.offMeshConUserID = lid.data();
+  p.offMeshConCount = (int)j.links.size();
+  p.walkableHeight = c.crouchHeight; p.walkableRadius = c.radius; p.walkableClimb = c.climb;
+  p.tileX = j.tx; p.tileY = j.tz; p.tileLayer = 0;
+  rcVcopy(p.bmin, pm->bmin); rcVcopy(p.bmax, pm->bmax);
+  p.cs = rc.cs; p.ch = rc.ch; p.buildBvTree = true;
+  if (!dtCreateNavMeshData(&p, &j.data, &j.size)) { j.data = nullptr; j.size = 0; }
+  j.polys = pm->npolys;
+  cleanup();
+  j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+}
+
+void NavColumns::fromHeightfield(const rcHeightfield& hf) {
+  w = hf.width; h = hf.height; bx = hf.bmin[0]; by = hf.bmin[1]; bz = hf.bmin[2]; cs = hf.cs; ch = hf.ch;
+  start.assign((size_t)w * h + 1, 0); floors.clear(); floors.reserve((size_t)w * h * 2);
+  for (int i = 0; i < w * h; ++i) {
+    start[i] = (int)floors.size();
+    for (const rcSpan* s = hf.spans[i]; s; s = s->next) {
+      float top = by + s->smax * ch;
+      float nxt = s->next ? by + s->next->smin * ch : 1e9f;
+      floors.push_back({top, nxt - top, s->area != RC_NULL_AREA && s->area != navarea::fromNav(NavArea::Wire), s->area == navarea::fromNav(NavArea::Wire)});
+    }
+  }
+  start[(size_t)w * h] = (int)floors.size();
+}
+
+// ---------------------------------------------------------------- Nav
+Nav::Nav() : impl_(std::make_unique<NavImpl>()) {}
+Nav::~Nav() {
+  { std::lock_guard<std::mutex> l(impl_->qm); impl_->quit = true; impl_->queue.clear(); }
+  impl_->cv.notify_all();
+  for (auto& t : impl_->threads) t.join();
+  if (query_) dtFreeNavMeshQuery(query_);
+  if (mesh_) dtFreeNavMesh(mesh_);
+}
+
+const dtQueryFilter& Nav::defaultFilter() const { return impl_->filter; }
+
+bool Nav::busy() const { std::lock_guard<std::mutex> l(impl_->qm); return !impl_->queue.empty() || impl_->running.load() > 0 || !impl_->done.empty(); }
+
+void Nav::clear() {
+  {
+    std::unique_lock<std::mutex> l(impl_->qm);
+    impl_->queue.clear();
+    impl_->cv.wait(l, [&] { return impl_->running.load() == 0; });   // a worker may still finish one tile
+    impl_->done.clear();
+  }
+  std::unique_lock<std::shared_mutex> wl(mtx_);
+  if (query_) { dtFreeNavMeshQuery(query_); query_ = nullptr; }
+  if (mesh_) { dtFreeNavMesh(mesh_); mesh_ = nullptr; }
+  impl_->genIssued.clear(); impl_->genCommitted.clear(); impl_->stamps.clear(); impl_->tileLinks.clear(); impl_->linkById.clear();
+  usedNodes = links = tilesBuilt = rebuilds = queued = 0; for (int& k : linkCount) k = 0;
+  buildMs = lastRebuildMs = rebuildMsMax = 0; changed.clear();
+}
+
+void Nav::initMesh() {
+  mesh_ = dtAllocNavMesh();
+  dtNavMeshParams p{};
+  p.orig[0] = 0; p.orig[1] = 0; p.orig[2] = 0;
+  p.tileWidth = cfg.tile; p.tileHeight = cfg.tile;
+  int n = (impl_->tx1 - impl_->tx0 + 1) * (impl_->tz1 - impl_->tz0 + 1);
+  int pw = 1; while (pw < n + 4) pw <<= 1;
+  p.maxTiles = pw; p.maxPolys = 1 << 16;
+  mesh_->init(&p);
+  query_ = dtAllocNavMeshQuery();
+  query_->init(mesh_, 4096);
+  dtQueryFilter& f = impl_->filter;
+  f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID);
+  for (int a = 0; a < DT_MAX_AREAS; ++a) f.setAreaCost(a, 1.0f);
+  for (int k = 0; k < (int)NavArea::Count; ++k) {
+    float cst = std::max(0.1f, navAreaCost((NavArea)k));
+    f.setAreaCost(navarea::fromNav((NavArea)k), cst);
+    f.setAreaCost(navarea::fromNav((NavArea)k, true), cst * 1.6f);
+  }
+  for (int k = 0; k < LINK_KINDS; ++k) f.setAreaCost(navarea::kLinkDrop + k, 1.0f + cfg.linkCost[k]);
+}
+
+static void workerLoop(NavImpl* I) {
+  for (;;) {
+    std::unique_ptr<NavBuildJob> j;
+    {
+      std::unique_lock<std::mutex> l(I->qm);
+      I->cv.wait(l, [&] { return I->quit || !I->queue.empty(); });
+      if (I->quit) return;
+      j = std::move(I->queue.front()); I->queue.pop_front();
+      I->running++;
+    }
+    buildTile(I->cfg, *j);
+    {
+      std::lock_guard<std::mutex> l(I->qm);
+      I->done.push_back(std::move(j));
+      I->running--;
+    }
+    I->cv.notify_all();
   }
 }
 
-bool Nav::walkLine(vec3 a, vec3 b, bool allowDoors) {
-  for (float hgt : {0.45f, 1.1f}) {
-    vec3 p = a + vec3(0, hgt, 0), q = b + vec3(0, hgt, 0);
-    vec3 d = q - p; float L = glm::length(d);
-    if (L < 1e-4f) continue;
-    Physics::Hit h[4];
-    int n = Physics::castRayAll(p, d, L, h, 4, false);
-    for (int k = 0; k < n; ++k) { if (allowDoors && isLeafUD(h[k].ud)) continue; return false; }
+static uint32_t linkIdBase(const NavImpl& I, int tx, int tz) {
+  int w = I.tx1 - I.tx0 + 1;
+  uint32_t serial = (uint32_t)((tz - I.tz0) * w + (tx - I.tx0)) & 0xFFFFFu;
+  return (serial << 12) + 1;   // 0 is "no link"
+}
+
+void Nav::build(vec3 blo, vec3 bhi, int threads) {
+  clear();
+  auto t0 = std::chrono::steady_clock::now();
+  impl_->cfg = cfg;
+  lo = blo; hi = bhi;
+  impl_->tx0 = tileOf(blo.x); impl_->tx1 = tileOf(bhi.x); impl_->tz0 = tileOf(blo.z); impl_->tz1 = tileOf(bhi.z);
+  initMesh();
+  std::vector<std::unique_ptr<NavBuildJob>> jobs;
+  float pad = cfg.linkBorder + cfg.radius + 1.0f;
+  for (int tz = impl_->tz0; tz <= impl_->tz1; ++tz) for (int tx = impl_->tx0; tx <= impl_->tx1; ++tx) {
+    auto j = std::make_unique<NavBuildJob>();
+    j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
+    vec3 a(tx * cfg.tile - pad, -2000, tz * cfg.tile - pad), b((tx + 1) * cfg.tile + pad, 2000, (tz + 1) * cfg.tile + pad);
+    j->bodies = navCollectBodies(a, b, classify);
+    if (areaMarks) areaMarks(tx, tz, j->marks);
+    jobs.push_back(std::move(j));
   }
+  if (threads <= 0) threads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
+  std::atomic<size_t> next{0};
+  std::vector<std::thread> T;
+  for (int k = 0; k < threads; ++k) T.emplace_back([&] { for (size_t i; (i = next++) < jobs.size();) buildTile(cfg, *jobs[i]); });
+  for (auto& t : T) t.join();
+  int bodies = 0, tri = 0, kinds[4] = {0, 0, 0, 0}, polys = 0;
+  for (auto& j : jobs) { bodies += navBodyCount(*j->bodies); tri += j->tris; for (int k = 0; k < 4; ++k) kinds[k] += j->kinds[k]; polys += j->polys; }
+  logf("nav: input %d body refs, %d triangles (solid %d, wire %d, skip %d, carve %d), %d polygons", bodies, tri, kinds[0], kinds[1], kinds[2], kinds[3], polys);
+  for (auto& j : jobs) commit(*j);
+  changed.clear();
+  buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  // background rebuild workers (started once, kept for the session)
+  if (impl_->threads.empty()) for (int k = 0; k < std::max(1, cfg.workers); ++k) impl_->threads.emplace_back(workerLoop, impl_.get());
+  logf("nav: %d tiles (%.0f m), %d polygons, %d links (drop %d, mantle %d, vault %d, jump %d), built in %.0f ms on %d threads",
+       tilesBuilt, cfg.tile, usedNodes, links, linkCount[0], linkCount[1], linkCount[2], linkCount[3], buildMs, threads);
+}
+
+void Nav::rebuildArea(vec3 a, vec3 b) {
+  if (!mesh_) return;
+  int x0 = std::max(impl_->tx0, tileOf(a.x) - 1), x1 = std::min(impl_->tx1, tileOf(b.x) + 1);
+  int z0 = std::max(impl_->tz0, tileOf(a.z) - 1), z1 = std::min(impl_->tz1, tileOf(b.z) + 1);
+  float pad = cfg.linkBorder + cfg.radius + 1.0f;
+  for (int tz = z0; tz <= z1; ++tz) for (int tx = x0; tx <= x1; ++tx) {
+    auto j = std::make_unique<NavBuildJob>();
+    j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
+    vec3 lo2(tx * cfg.tile - pad, -2000, tz * cfg.tile - pad), hi2((tx + 1) * cfg.tile + pad, 2000, (tz + 1) * cfg.tile + pad);
+    j->bodies = navCollectBodies(lo2, hi2, classify);
+    if (areaMarks) areaMarks(tx, tz, j->marks);
+    std::lock_guard<std::mutex> l(impl_->qm);
+    // a queued (not started) job for the same tile is superseded by this newer snapshot
+    impl_->queue.erase(std::remove_if(impl_->queue.begin(), impl_->queue.end(), [&](const std::unique_ptr<NavBuildJob>& q) { return q->tx == tx && q->tz == tz; }), impl_->queue.end());
+    impl_->queue.push_back(std::move(j));
+    ++queued;
+  }
+  impl_->cv.notify_all();
+}
+
+void Nav::update() {
+  changed.clear();
+  std::vector<std::unique_ptr<NavBuildJob>> fin;
+  { std::lock_guard<std::mutex> l(impl_->qm); fin.swap(impl_->done); }
+  for (auto& j : fin) {
+    if (!mesh_) break;
+    if (j->gen <= impl_->genCommitted[{j->tx, j->tz}]) continue;   // an even newer build already landed
+    commit(*j);
+    ++rebuilds; lastRebuildMs = j->ms; rebuildMsMax = std::max(rebuildMsMax, j->ms);
+  }
+}
+
+void Nav::commit(NavBuildJob& j) {
+  NavImpl& I = *impl_;
+  auto key = std::make_pair(j.tx, j.tz);
+  {
+    std::unique_lock<std::shared_mutex> wl(mtx_);   // path workers pause between slices
+    dtTileRef old = mesh_->getTileRefAt(j.tx, j.tz, 0);
+    if (old) {
+      const dtMeshTile* t = mesh_->getTileByRef(old);
+      if (t && t->header) { usedNodes -= t->header->polyCount - t->header->offMeshConCount; --tilesBuilt; }
+      mesh_->removeTile(old, nullptr, nullptr);
+    }
+    if (j.data) {
+      dtTileRef ref = 0;
+      if (dtStatusSucceed(mesh_->addTile(j.data, j.size, DT_TILE_FREE_DATA, 0, &ref))) {
+        j.data = nullptr;   // owned by the mesh now
+        const dtMeshTile* t = mesh_->getTileByRef(ref);
+        if (t && t->header) { usedNodes += t->header->polyCount - t->header->offMeshConCount; ++tilesBuilt; }
+      }
+    }
+  }
+  for (auto& l : I.tileLinks[key]) { --links; --linkCount[l.kind]; I.linkById.erase(l.id); }
+  I.tileLinks[key] = j.links;
+  for (auto& l : j.links) { ++links; ++linkCount[l.kind]; I.linkById[l.id] = l; }
+  I.genCommitted[key] = j.gen;
+  ++I.stamps[key]; ++stamp_;
+  changed.push_back(key);
+}
+
+uint32_t Nav::tileStamp(int tx, int tz) const { auto it = impl_->stamps.find({tx, tz}); return it == impl_->stamps.end() ? 0 : it->second; }
+
+void Nav::forEachTile(const std::function<void(int, int)>& fn) const {
+  for (auto& [k, s] : impl_->stamps) fn(k.first, k.second);
+}
+
+std::vector<NavLink> Nav::linksNear(vec3 p, float r) const {
+  std::vector<NavLink> out;
+  for (int tz = tileOf(p.z - r); tz <= tileOf(p.z + r); ++tz) for (int tx = tileOf(p.x - r); tx <= tileOf(p.x + r); ++tx) {
+    auto it = impl_->tileLinks.find({tx, tz});
+    if (it == impl_->tileLinks.end()) continue;
+    for (auto& l : it->second) if (glm::length(l.a - p) < r || (l.bidir && glm::length(l.b - p) < r)) out.push_back(l);
+  }
+  return out;
+}
+
+const NavLink* Nav::linkById(uint32_t id) const { auto it = impl_->linkById.find(id); return it == impl_->linkById.end() ? nullptr : &it->second; }
+
+// ---------------------------------------------------------------- queries
+bool Nav::closest(vec3 p, vec3 ext, NavRef& ref, vec3& on, const dtQueryFilter* f) const {
+  ref = 0;
+  if (!query_) return false;
+  float c[3] = {p.x, p.y, p.z}, e[3] = {ext.x, ext.y, ext.z}, r[3];
+  dtPolyRef pr = 0;
+  if (dtStatusFailed(query_->findNearestPoly(c, e, f ? f : &impl_->filter, &pr, r)) || !pr) return false;
+  ref = pr; on = vec3(r[0], r[1], r[2]);
   return true;
 }
 
-void Nav::linkColumn(int cx, int cz) {
-  for (int l = 0; l < kLayers; ++l) {
-    Slot& s = slots[((size_t)cz * nx + cx) * kLayers + l];
-    if (!(s.flags & N_USED)) continue;
-    std::fill(std::begin(s.link), std::end(s.link), (int8_t)-1); s.doorMask = 0;
-    vec3 a(origin.x + (cx + 0.5f) * kCell, s.y, origin.y + (cz + 0.5f) * kCell);
-    for (int d = 0; d < 8; ++d) {
-      int x = cx + kDX[d], z = cz + kDZ[d];
-      if (x < 0 || z < 0 || x >= nx || z >= nz) continue;
-      int best = -1; float bdy = 1e9f;
-      for (int m = 0; m < kLayers; ++m) {
-        const Slot& t = slots[((size_t)z * nx + x) * kLayers + m];
-        if (!(t.flags & N_USED)) continue;
-        float dy = t.y - s.y;
-        if (dy > 0.45f || dy < -0.6f) continue;
-        if (std::fabs(dy) < bdy) { bdy = std::fabs(dy); best = m; }
-      }
-      if (best < 0) continue;
-      const Slot& t = slots[((size_t)z * nx + x) * kLayers + best];
-      vec3 b(origin.x + (x + 0.5f) * kCell, t.y, origin.y + (z + 0.5f) * kCell);
-      bool near = (s.flags & (N_STRUCT | N_WALL)) || (t.flags & (N_STRUCT | N_WALL));
-      if (near) {
-        if (!walkLine(a, b, true)) continue;                     // solid wall / furniture between the cells
-        if (!walkLine(a, b, false)) s.doorMask |= (uint8_t)(1 << d);   // only a door / window leaf: openable
-      }
-      s.link[d] = (int8_t)best;
-    }
-  }
-}
-
-void Nav::rebuildArea(vec3 lo, vec3 hi) {
-  if (!valid()) return;
-  int x0 = std::max(0, (int)std::floor((lo.x - origin.x) / kCell) - 1), x1 = std::min(nx - 1, (int)std::floor((hi.x - origin.x) / kCell) + 1);
-  int z0 = std::max(0, (int)std::floor((lo.z - origin.y) / kCell) - 1), z1 = std::min(nz - 1, (int)std::floor((hi.z - origin.y) / kCell) + 1);
-  if (x0 > x1 || z0 > z1) return;
-  for (int z = z0; z <= z1; ++z) for (int x = x0; x <= x1; ++x) {
-    Slot* col = &slots[((size_t)z * nx + x) * kLayers];
-    for (int l = 0; l < kLayers; ++l) { col[l] = Slot{}; std::fill(std::begin(col[l].link), std::end(col[l].link), (int8_t)-1); }
-    sampleColumn(x, z);
-    for (int l = 0; l < kLayers; ++l) if (col[l].flags & N_USED) col[l].flags |= N_WALL;
-  }
-  for (int z = std::max(0, z0 - 1); z <= std::min(nz - 1, z1 + 1); ++z) for (int x = std::max(0, x0 - 1); x <= std::min(nx - 1, x1 + 1); ++x) linkColumn(x, z);
-  ++rebuilds;
-}
-
-int Nav::neighbour(int s, int d) const {
-  const Slot& a = slots[s];
-  if (a.link[d] < 0) return -1;
-  int c = s / kLayers, cx = c % nx + kDX[d], cz = c / nx + kDZ[d];
-  return (cz * nx + cx) * kLayers + a.link[d];
-}
-
 int Nav::nearest(vec3 p, float maxDist) const {
-  if (!valid()) return -1;
-  int cx = (int)std::floor((p.x - origin.x) / kCell), cz = (int)std::floor((p.z - origin.y) / kCell);
-  int R = (int)std::ceil(maxDist / kCell);
-  int best = -1; float bd = 1e9f;
-  for (int dz = -R; dz <= R; ++dz) for (int dx = -R; dx <= R; ++dx) {
-    int x = cx + dx, z = cz + dz;
-    if (x < 0 || z < 0 || x >= nx || z >= nz) continue;
-    for (int l = 0; l < kLayers; ++l) {
-      int s = (z * nx + x) * kLayers + l;
-      if (!(slots[s].flags & N_USED)) continue;
-      bool linked = false; for (int d = 0; d < 8; ++d) if (slots[s].link[d] >= 0) linked = true;
-      if (!linked) continue;
-      vec3 q = pos(s);
-      float dy = p.y - q.y;
-      if (dy < -0.6f || dy > 2.0f) continue;                  // a floor above the feet, or far below
-      float d = glm::length(vec2(q.x - p.x, q.z - p.z)) + std::fabs(dy) * 2.0f;
-      if (d < bd) { bd = d; best = s; }
-    }
-  }
-  return bd <= maxDist + 1.0f ? best : -1;
+  NavRef r; vec3 on;
+  if (!closest(p + vec3(0, 0.3f, 0), vec3(maxDist, std::max(1.5f, maxDist), maxDist), r, on)) return -1;
+  return glm::length(vec2(on.x - p.x, on.z - p.z)) <= maxDist + 0.25f ? 0 : -1;
 }
 
-bool Nav::path(int a, int b, std::vector<int>& out, int maxExpand, float* costOut) const {
-  out.clear();
-  if (!used(a) || !used(b)) return false;
-  if (a == b) { out.push_back(a); return true; }
-  size_t N = slots.size();
-  if (gScore.size() != N) { gScore.assign(N, 0); stamp.assign(N, 0); parent.assign(N, -1); curStamp = 0; }
-  if (++curStamp == 0) { std::fill(stamp.begin(), stamp.end(), 0); curStamp = 1; }
-  vec3 goal = pos(b);
-  using QE = std::pair<float, int>;
-  std::priority_queue<QE, std::vector<QE>, std::greater<QE>> open;
-  gScore[a] = 0; stamp[a] = curStamp; parent[a] = -1;
-  open.push({glm::length(pos(a) - goal), a});
-  int expanded = 0;
-  while (!open.empty()) {
-    auto [f, s] = open.top(); open.pop();
-    if (s == b) break;
-    if (f - glm::length(pos(s) - goal) > gScore[s] + 1e-3f) continue;   // stale entry
-    if (++expanded > maxExpand) return false;
-    vec3 ps = pos(s);
-    for (int d = 0; d < 8; ++d) {
-      int t = neighbour(s, d);
-      if (t < 0) continue;
-      if (d >= 4) {   // diagonal: no corner cutting
-        int dirX = kDX[d] > 0 ? 0 : 2, dirZ = kDZ[d] > 0 ? 1 : 3;
-        if (slots[s].link[dirX] < 0 || slots[s].link[dirZ] < 0 || doorLink(s, dirX) || doorLink(s, dirZ)) continue;
-      }
-      vec3 pt = pos(t);
-      float c = glm::length(pt - ps);
-      if (slots[t].flags & N_CROUCH) c *= 1.6f;
-      if (slots[t].flags & N_WALL) c *= 1.08f;                 // hug walls slightly less
-      if (doorLink(s, d)) c += 2.0f;
-      float g = gScore[s] + c;
-      if (stamp[t] != curStamp || g < gScore[t]) {
-        stamp[t] = curStamp; gScore[t] = g; parent[t] = s;
-        open.push({g + glm::length(pt - goal), t});
-      }
+uint8_t Nav::areaAt(vec3 p, float r) const {
+  NavRef ref; vec3 on;
+  dtQueryFilter all; all.setIncludeFlags(0xffff); all.setExcludeFlags(0);
+  if (!closest(p + vec3(0, 0.3f, 0), vec3(r, 1.5f, r), ref, on, &all)) return 0;
+  unsigned char a = 0; mesh_->getPolyArea(ref, &a);
+  return a;
+}
+
+bool Nav::pathSync(vec3 a, vec3 b, std::vector<vec3>& pts, std::vector<NavRef>* polysOut, const dtQueryFilter* f, float* lenOut) const {
+  pts.clear(); if (polysOut) polysOut->clear();
+  if (!query_) return false;
+  const dtQueryFilter* fl = f ? f : &impl_->filter;
+  NavRef ra, rb; vec3 pa, pb;
+  if (!closest(a + vec3(0, 0.3f, 0), vec3(2, 2.5f, 2), ra, pa, fl) || !closest(b + vec3(0, 0.3f, 0), vec3(3, 3, 3), rb, pb, fl)) return false;
+  static thread_local std::vector<dtPolyRef> polys(4096);
+  int n = 0;
+  float sa[3] = {pa.x, pa.y, pa.z}, sb[3] = {pb.x, pb.y, pb.z};
+  dtStatus st = query_->findPath(ra, rb, sa, sb, fl, polys.data(), &n, (int)polys.size());
+  if (dtStatusFailed(st) || n == 0) return false;
+  if (polys[n - 1] != rb) return false;   // partial: goal not reached
+  std::vector<float> sp(4096 * 3); std::vector<unsigned char> sf(4096); std::vector<dtPolyRef> sr(4096); int ns = 0;
+  query_->findStraightPath(sa, sb, polys.data(), n, sp.data(), sf.data(), sr.data(), &ns, 4096, DT_STRAIGHTPATH_ALL_CROSSINGS);
+  float L = 0;
+  for (int k = 0; k < ns; ++k) { pts.push_back(vec3(sp[k * 3], sp[k * 3 + 1], sp[k * 3 + 2])); if (k) L += glm::length(pts[k] - pts[k - 1]); }
+  if (polysOut) polysOut->assign(polys.begin(), polys.begin() + n);
+  if (lenOut) *lenOut = L;
+  return !pts.empty();
+}
+
+bool Nav::raycastMesh(vec3 a, vec3 b, float& t) const {
+  t = 0;
+  NavRef ra; vec3 pa;
+  if (!closest(a + vec3(0, 0.3f, 0), vec3(1, 2, 1), ra, pa)) return false;
+  float s[3] = {pa.x, pa.y, pa.z}, e[3] = {b.x, b.y, b.z}, hn[3]; float tt = 0;
+  dtPolyRef path[64]; int np = 0;
+  if (dtStatusFailed(query_->raycast(ra, s, e, &impl_->filter, &tt, hn, path, &np, 64))) return false;
+  t = tt > 1.0f ? 1.0f : tt;
+  return true;
+}
+
+std::vector<NavEdge> Nav::tileEdges(int tx, int tz) const {
+  std::vector<NavEdge> out;
+  if (!mesh_) return out;
+  const dtMeshTile* t = mesh_->getTileAt(tx, tz, 0);
+  if (!t || !t->header) return out;
+  for (int i = 0; i < t->header->polyCount; ++i) {
+    const dtPoly& p = t->polys[i];
+    if (p.getType() == DT_POLYTYPE_OFFMESH_CONNECTION) continue;
+    if (p.flags & NF_FORBID) continue;
+    vec3 c(0); for (int k = 0; k < p.vertCount; ++k) { const float* v = &t->verts[p.verts[k] * 3]; c += vec3(v[0], v[1], v[2]); }
+    c /= (float)p.vertCount;
+    for (int k = 0; k < p.vertCount; ++k) {
+      if (p.neis[k] != 0) continue;                       // shared with a polygon or a tile portal
+      const float* va = &t->verts[p.verts[k] * 3]; const float* vb = &t->verts[p.verts[(k + 1) % p.vertCount] * 3];
+      NavEdge e; e.a = vec3(va[0], va[1], va[2]); e.b = vec3(vb[0], vb[1], vb[2]); e.area = p.getArea();
+      vec3 d = e.b - e.a; d.y = 0; if (glm::length(d) < 0.05f) continue;
+      vec3 n = glm::normalize(vec3(d.z, 0, -d.x));
+      if (glm::dot(n, (e.a + e.b) * 0.5f - c) < 0) n = -n;
+      e.n = n; out.push_back(e);
     }
   }
-  if (stamp[b] != curStamp) return false;
-  for (int s = b; s >= 0; s = parent[s]) { out.push_back(s); if (s == a) break; }
-  std::reverse(out.begin(), out.end());
-  if (costOut) *costOut = gScore[b];
-  return !out.empty() && out.front() == a;
+  return out;
 }

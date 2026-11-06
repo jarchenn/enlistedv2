@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include "physics.h"
+#include "ai_hooks.h"
 #include <cmath>
 #include <algorithm>
 
@@ -386,6 +387,7 @@ void MpUi::setupWindow(App& app) {
   ImGui::SliderInt("Smoke grenades per attacker life", &rules.smokePerLifeAttacker, 0, 3);
   ImGui::SliderInt("Smoke grenades per defender life (humans + AI)", &rules.smokePerLifeDefender, 0, 3);
   ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own side)", &rules.friendlyFire);
+  aiDifficultyCombo();   // W6: Recruit / Regular / Veteran (AI_SPEC 10)
   rules.defenderSlots = std::clamp(rules.defenderSlots, std::max(1, humans), ScenarioRules::kMaxCombatants - 1);
   rules.attackerAI = std::clamp(rules.attackerAI, 1, ScenarioRules::kMaxCombatants - rules.defenderSlots);
   int lives = 1 + rules.attackerRespawns;
@@ -537,7 +539,7 @@ void Game::drawDebug() {
                                 s.br.why.c_str(), s.br.target, s.slot, match.slots[s.slot].livesLeft);
     dl->AddText(sp, s.role == CombatRole::Attacker ? IM_COL32(255, 140, 120, 255) : IM_COL32(140, 180, 255, 255), b);
     for (auto& m : s.br.mem) if (t - m.lastSeen < 6) { ImVec2 a, c; if (project(app, s.feet + vec3(0, 1.6f, 0), a) && project(app, m.lastPos + vec3(0, 1.0f, 0), c)) dl->AddLine(a, c, m.visible ? IM_COL32(255, 60, 60, 160) : IM_COL32(255, 200, 60, 120), 1); }
-    for (size_t k = s.br.pathIdx; k + 1 < s.br.path.size(); ++k) { ImVec2 a, c; if (project(app, nav.pos(s.br.path[k]) + vec3(0, 0.2f, 0), a) && project(app, nav.pos(s.br.path[k + 1]) + vec3(0, 0.2f, 0), c)) dl->AddLine(a, c, IM_COL32(120, 255, 140, 140), 1.5f); }
     if (s.br.hasCover) { ImVec2 c; if (project(app, s.br.coverPos + vec3(0, 0.5f, 0), c)) dl->AddCircle(c, 6, IM_COL32(120, 220, 255, 200)); }
   }
+  aiDrawDebug(*this);   // W6: navmesh, links, routes, utilities, cover, threats, stuck events and the AI debug window
 }

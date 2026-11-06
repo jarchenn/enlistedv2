@@ -1,40 +1,105 @@
 #pragma once
-// Layered walk grid for bots, sampled from the live physics world (terrain, buildings, stairs, defences).
-// Each 0.5 m column holds up to kLayers floors (downward all-hit rays, then an upward headroom ray per floor). Links to
-// the 8 neighbours follow step height (+0.45 / -0.6 m) and are cleared by knee / chest rays near structures; a link
-// blocked only by a movable door leaf is kept as a DOOR link (bots open the door with the same interaction as the
-// player). Breaches and placed defences re-sample only the affected columns (rebuildArea).
+// Bot navigation (AI_SPEC 3): a tiled Recast/Detour navigation mesh baked from the live physics world (terrain tiles,
+// craters, every static structure, wall states), so it always matches what the capsules collide with.
+//   - 32 m tiles (content/ai/navigation.json), agent radius 0.35 / height 1.8 / crouch 1.2 / step 0.45 / slope 45.
+//   - Area types with costs from navmeta.h (asset "nav": effect / area / areas); minefields, wire and deep water are
+//     forbidden. Spans with less than standing headroom are crouch areas (same type, crouch flag, higher cost).
+//   - Off-mesh links generated per tile from the voxel field: drop (one way), mantle (two way), vault, jump gap.
+//   - Live rebuild: dirty tiles (+1 tile border) rebuild on a background thread; Nav::update() commits them on the
+//     main thread and reports which tiles changed, so bots crossing them re-plan.
+// Threads: the main thread owns the mesh and is its only writer. Path workers (ai_path.cpp) read it under
+// sharedLock(); commit() takes the exclusive lock for the short addTile / removeTile swap.
 #include "common.h"
+#include "navmeta.h"
+#include <memory>
+#include <shared_mutex>
+#include <functional>
+
+class dtNavMesh; class dtNavMeshQuery; class dtQueryFilter;
+using NavRef = uint64_t;                       // dtPolyRef (DT_POLYREF64)
+
+// Detour area ids (Recast area 0 is "not walkable"): 1 + NavArea, +16 when headroom is below standing height;
+// off-mesh link areas follow.
+namespace navarea {
+constexpr uint8_t kCrouchBit = 16;
+constexpr uint8_t kLinkDrop = 40, kLinkMantle = 41, kLinkVault = 42, kLinkJump = 43;
+inline uint8_t fromNav(NavArea a, bool crouch = false) { return (uint8_t)(1 + (int)a + (crouch ? kCrouchBit : 0)); }
+inline NavArea toNav(uint8_t id) { if (id >= kLinkDrop) return NavArea::Default; int b = (id & ~kCrouchBit) - 1; return b >= 0 && b < (int)NavArea::Count ? (NavArea)b : NavArea::Default; }
+inline bool crouch(uint8_t id) { return id < kLinkDrop && (id & kCrouchBit); }
+inline bool isLink(uint8_t id) { return id >= kLinkDrop && id <= kLinkJump; }
+}
+// Detour polygon flags
+enum NavFlags : uint16_t { NF_WALK = 1, NF_CROUCH = 2, NF_FORBID = 4, NF_LINK = 8 };
+enum NavLinkKind : int { LINK_DROP = 0, LINK_MANTLE, LINK_VAULT, LINK_JUMP, LINK_KINDS };
+const char* navLinkName(int k);
+
+struct NavConfig {
+  float tile = 32, cs = 0.16f, ch = 0.05f, radius = 0.3f, height = 1.8f, crouchHeight = 1.2f, climb = 0.45f, slope = 45;
+  float regionMin = 4, regionMerge = 40, edgeMaxLen = 12, edgeMaxError = 1.3f, detailDist = 6, detailErr = 1, linkBorder = 2.6f;
+  float dropMin = 0.5f, dropMax = 3.0f, mantleMin = 0.5f, mantleMax = 1.6f, vaultMax = 1.1f, vaultThick = 0.6f, gapMax = 1.5f, linkSpacing = 1.2f;
+  float shallowWater = 0.9f;                    // deeper water is forbidden; shallower counts as marsh
+  float linkCost[LINK_KINDS] = {2.0f, 4.0f, 2.5f, 3.0f};   // extra path cost (m equivalent) per traversal
+  int workers = 2;                              // background rebuild threads
+  void load(const json& j);
+};
+
+// A traversal link (debug, stuck recovery, movement): world endpoints, kind, the obstacle top for vault / mantle.
+struct NavLink { vec3 a{0}, b{0}; int kind = 0; bool bidir = true; float top = 0; uint32_t id = 0; };
+// one wall edge of the mesh (cover generation, debug)
+struct NavEdge { vec3 a{0}, b{0}; vec3 n{0}; uint8_t area = 1; };
+
+struct NavTileState;   // nav.cpp
+struct NavBuildJob;
 
 class Nav {
 public:
-  static constexpr int kLayers = 4;
-  static constexpr float kCell = 0.5f;
-  enum Flags : uint8_t { N_USED = 1, N_CROUCH = 2, N_STRUCT = 4, N_WALL = 8 };
-  enum LinkBits : int8_t { L_NONE = -1 };
-  struct Slot { float y = 0; uint16_t head = 0; uint8_t flags = 0; uint8_t doorMask = 0; int8_t link[8]; };
-  vec2 origin{0}; int nx = 0, nz = 0;
-  std::vector<Slot> slots;                          // (col * kLayers + layer)
-  double buildMs = 0; int usedNodes = 0, links = 0, doorLinks = 0, rebuilds = 0;
-  bool valid() const { return nx > 0; }
-
-  void build(vec3 lo, vec3 hi, int threads = 0);
-  void rebuildArea(vec3 lo, vec3 hi);
-  int nearest(vec3 p, float maxDist = 2.0f) const;  // closest used slot (vertical preference), -1 none
-  vec3 pos(int s) const { int c = s / kLayers; return vec3(origin.x + (c % nx + 0.5f) * kCell, slots[s].y, origin.y + (c / nx + 0.5f) * kCell); }
-  bool used(int s) const { return s >= 0 && s < (int)slots.size() && (slots[s].flags & N_USED); }
-  int neighbour(int s, int dir) const;              // linked slot in direction 0..7 or -1
-  bool doorLink(int s, int dir) const { return (slots[s].doorMask >> dir) & 1; }
-  // A*: slot path from a to b (inclusive). maxExpand bounds the work; returns false if unreachable / budget hit.
-  bool path(int a, int b, std::vector<int>& out, int maxExpand = 80000, float* cost = nullptr) const;
-  bool reachable(int a, int b, int maxExpand = 120000) const { std::vector<int> t; return path(a, b, t, maxExpand); }
-  // straight walk check between two points (knee + chest rays, leaves count as blocking unless allowDoors)
-  static bool walkLine(vec3 a, vec3 b, bool allowDoors = false);
-  int column(int s) const { return s / kLayers; }
-  static const int kDX[8], kDZ[8];
+  Nav(); ~Nav();
+  Nav(const Nav&) = delete; Nav& operator=(const Nav&) = delete;
+  NavConfig cfg;
+  // ---- lifecycle (main thread)
+  void build(vec3 lo, vec3 hi, int threads = 0);       // full bake of the tiles covering lo..hi (blocking, thread pool)
+  void rebuildArea(vec3 lo, vec3 hi);                  // mark tiles dirty (+1 tile border): background rebuild
+  void update();                                       // commit finished rebuilds; fills `changed`
+  void clear();
+  bool valid() const { return mesh_ != nullptr && tilesBuilt > 0; }
+  bool busy() const;                                   // a rebuild is queued or running
+  // ---- queries (main thread)
+  // 0 when p is within maxDist of a walkable (not forbidden) polygon, -1 otherwise (kept for game.cpp's spawn check)
+  int nearest(vec3 p, float maxDist = 2.0f) const;
+  bool closest(vec3 p, vec3 ext, NavRef& ref, vec3& onMesh, const dtQueryFilter* f = nullptr) const;
+  bool closest(vec3 p, float r, NavRef& ref, vec3& onMesh) const { return closest(p, vec3(r, std::max(r, 2.0f), r), ref, onMesh); }
+  bool pathSync(vec3 a, vec3 b, std::vector<vec3>& pts, std::vector<NavRef>* polys = nullptr, const dtQueryFilter* f = nullptr, float* lenOut = nullptr) const;   // tests / tools
+  bool raycastMesh(vec3 a, vec3 b, float& t) const;    // straight walk along the mesh surface (t = 1 clear)
+  uint8_t areaAt(vec3 p, float r = 1.0f) const;        // Detour area id under p (0 = off mesh)
+  dtNavMesh* mesh() const { return mesh_; }
+  dtNavMeshQuery* query() const { return query_; }
+  const dtQueryFilter& defaultFilter() const;
+  std::shared_mutex& sharedLock() const { return mtx_; }
+  // ---- tiles
+  int tileOf(float v) const { return (int)std::floor(v / cfg.tile); }
+  uint32_t tileStamp(int tx, int tz) const;            // bumps on every commit of that tile
+  uint32_t stamp() const { return stamp_; }            // bumps on every commit
+  std::vector<std::pair<int, int>> changed;            // tiles committed by the last update()
+  std::vector<NavLink> linksNear(vec3 p, float r) const;
+  const NavLink* linkById(uint32_t id) const;
+  std::vector<NavEdge> tileEdges(int tx, int tz) const;  // wall edges of a committed tile (cover generation)
+  void forEachTile(const std::function<void(int, int)>& fn) const;
+  vec3 lo{0}, hi{0};
+  float waterLevel = -1000;                            // terrain water: shallow = water area, deep = forbidden
+  // ---- statistics (tests / overlay)
+  double buildMs = 0, lastRebuildMs = 0, rebuildMsMax = 0; int usedNodes = 0, links = 0, tilesBuilt = 0, rebuilds = 0, queued = 0;
+  int linkCount[LINK_KINDS] = {0, 0, 0, 0};
+  std::function<int(uint64_t ud)> classify;            // body user data -> 0 solid, 1 wire, 2 skip, 3 carve (set by the AI)
+  std::function<void(int tx, int tz, struct NavAreaMarks&)> areaMarks;   // convex area volumes per tile (the AI)
 private:
-  void sampleColumn(int cx, int cz);
-  void linkColumn(int cx, int cz);
-  mutable std::vector<float> gScore; mutable std::vector<uint32_t> stamp; mutable uint32_t curStamp = 0;
-  mutable std::vector<int> parent;
+  dtNavMesh* mesh_ = nullptr; dtNavMeshQuery* query_ = nullptr;
+  mutable std::shared_mutex mtx_;
+  std::unique_ptr<struct NavImpl> impl_;
+  uint32_t stamp_ = 0;
+  void commit(NavBuildJob& j);
+  void initMesh();
 };
+
+// convex area volumes for one tile (filled on the main thread from the placed instances' nav metadata)
+struct NavAreaMark { std::vector<vec2> poly; float hmin = -1000, hmax = 1000; uint8_t area = 1; bool nullify = false; };
+struct NavAreaMarks { std::vector<NavAreaMark> marks; };

@@ -89,7 +89,7 @@ See [docs/entities.md](docs/entities.md). Glass breaks, shutters and doors are s
 
 You need CMake 3.24 or newer, Ninja, and a C++20 compiler. The reference toolchain is LLVM-MinGW clang 23 (UCRT). MSVC 2022 should also work but hasn't been tested. All dependencies are pinned and fetched by CMake:
 
-GLFW 3.4, GLAD (GL 4.5 core, pre-generated in `third_party/glad`), GLM 1.0.1, Dear ImGui 1.91.5, Jolt Physics 5.6.0, nlohmann/json 3.11.3, stb_image_write, miniaudio 0.11.21.
+GLFW 3.4, GLAD (GL 4.5 core, pre-generated in `third_party/glad`), GLM 1.0.1, Dear ImGui 1.91.5, Jolt Physics 5.6.0, nlohmann/json 3.11.3, stb_image_write, miniaudio 0.11.21, Recast & Detour 1.6.0 (zlib, bot navigation; see docs/credits.md).
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++

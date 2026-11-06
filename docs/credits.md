@@ -52,3 +52,19 @@ Everything else in the game is generated procedurally from box parts: the struct
 BSL Shaders v10.1.8 by Capt Tatsu (https://capttatsu.com) was the visual reference for the lighting, atmosphere and post-processing pass (`docs/rendering.md`). The pack ships no licence file and no reuse terms were found, so none of its code, tables or textures are used or redistributed. The engine's shaders are original implementations, and the pack is not part of this repository.
 
 Author, licence and source for the grenade, StG 44, M3 and soldier rows come from each file's own glTF `asset.extras` (Sketchfab export fields). They were read from the files, not taken from the filenames.
+
+## Libraries: navigation
+
+**Recast & Detour** ([recastnavigation](https://github.com/recastnavigation/recastnavigation), v1.6.0, commit 6dc1667) builds and queries the bots' navigation mesh (`src/nav.*`, `src/ai_path.cpp`). It is fetched at configure time by `cmake/recast.cmake` and compiled as a static library. Its licence is zlib:
+
+> Copyright (c) 2009 Mikko Mononen memon@inside.org
+>
+> This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of this software.
+>
+> Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
+>
+> 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+> 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+> 3. This notice may not be removed or altered from any source distribution.
+
+The sources are used unmodified, built with `DT_POLYREF64` and `DT_VIRTUAL_QUERYFILTER`.

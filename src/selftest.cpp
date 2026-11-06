@@ -177,7 +177,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-rules") { go(2700); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-visuals") { go(3250); return; }   // W2 (selftest_visuals.cpp)
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-editor") { go(3300); return; }
-    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-ai" || std::string(argv[k]) == "--benchmark-match" || std::string(argv[k]) == "--baseline-ai") { go(2000); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-ai" || std::string(argv[k]) == "--benchmark-match" || std::string(argv[k]) == "--baseline-ai" || std::string(argv[k]) == "--selftest-ai-course" || std::string(argv[k]) == "--soak-ai" || std::string(argv[k]) == "--make-ai-course") { go(2000); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-net") { go(2100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(3800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }

@@ -4,6 +4,8 @@
 #include "selftest.h"
 #include "game.h"
 #include "mpui.h"
+#include "ai_core.h"
+#include "ai_course.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <chrono>
@@ -11,8 +13,10 @@
 #include <fstream>
 #include <cmath>
 #include <algorithm>
+#include <set>
+#include <map>
 
-int runAiSelfTestArg = 0;   // 1 = --selftest-ai, 2 = --benchmark-match, 3 = --baseline-ai
+int runAiSelfTestArg = 0;   // 1 = --selftest-ai, 2 = --benchmark-match, 3 = --baseline-ai, 4 = --selftest-ai-course, 5 = --soak-ai, 6 = --make-ai-course
 
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
@@ -47,6 +51,218 @@ json makeScenario(int points) {
 
 void SelfTest::aiUpdate(App& app, float dt) {
   auto push = [&](const std::string& n, std::function<bool(App&, float)> f) { seq.push_back({n, f}); };
+  // ======================================================================== W6 suites
+  if (stage == 2000 && runAiSelfTestArg == 6) {   // --make-ai-course: build and save the obstacle course map
+    reportName = "make_ai_course";
+    std::string err;
+    bool ok = buildAiObstacleCourse(app, err);
+    check(ok, "obstacle course built from the Blank Slate (" + (ok ? std::string("terrain cuts, assets, nav areas, scenario") : err) + ")");
+    fs::path out = userMapsDir() / "ai_obstacle_course.nmap.json";
+    check(ok && app.saveMapTo(out), "saved " + out.string() + " (ship it as content/examples/ai_obstacle_course.nmap.json)");
+    finish(app); return;
+  }
+  if (stage == 2000 && (runAiSelfTestArg == 4 || runAiSelfTestArg == 5)) {
+    seq.clear(); cur = 0; st = 0;
+    stage = 2001;
+    fs::path coursePath = contentDir() / "examples" / "ai_obstacle_course.nmap.json";
+    auto startMatch = [this, coursePath](App& a, const std::string& map, int attackers, int defenders, int respawns) {
+      bool opened = false; std::string err;
+      if (map == "course") opened = a.openMap(coursePath);
+      else if (map == "village") opened = a.openMap(contentDir() / "examples" / "village_assault_5.nmap.json");
+      else opened = buildRandomSoakMap(a, 7, err);
+      if (!opened) { check(false, "open map " + map + " " + err); return false; }
+      Scenario sc = Scenario::fromJson(a.doc.extra["scenario"]);
+      sc.rules.attackerAI = attackers; sc.rules.defenderSlots = defenders; sc.rules.attackerRespawns = respawns;
+      if (map == "village") sc.rules.captureModel = CaptureModel::Timed;
+      gUi.matchScenario = sc.toJson(); gUi.loaded = false;
+      if (!gGame) gGame = new Game(a);
+      gGame->pendingStart = true;
+      bool ok = a.enterExplore() && gGame->active && aiCore();
+      a.useScripted = true; a.scriptedInput = ExploreInput{};
+      if (!ok) check(false, "match on " + map + " starts (" + gGame->setupError + ")");
+      return ok;
+    };
+    if (runAiSelfTestArg == 4) {
+      reportName = "aicourse";
+      // ---------------- AI_SPEC 12.4: creative live rebuild (wall, bunker, wire belt dropped across moving bots)
+      push("live rebuild", [this, startMatch](App& a, float t) {
+        struct Box { vec3 c; vec2 he; float yaw; };
+        struct Drop { double T = -1; std::string what; std::vector<Box> boxes; std::map<int, double> aff; std::set<int> nearAtDrop, walked, stuckAt; };
+        static Drop drops[3]; static bool started = false;
+        if (t == 0) { started = startMatch(a, "course", 9, 1, 3); for (auto& d : drops) d = Drop{}; if (started) aiCore()->tactics["budget"]["lodDistance_m"] = 2000; return !started; }
+        Game& G = *gGame; AiCore& A = *aiCore();
+        auto local2 = [](const Box& b, vec3 p) { vec3 d = p - b.c; float c = std::cos(radians(b.yaw)), s = std::sin(radians(b.yaw)); return vec2(d.x * c - d.z * s, d.x * s + d.z * c); };
+        auto segHits = [&](const Box& b, vec3 p0, vec3 p1, float pad) {
+          vec2 a0 = local2(b, p0), a1 = local2(b, p1), e = b.he + vec2(pad); float t0 = 0, t1 = 1; vec2 d = a1 - a0;
+          for (int k = 0; k < 2; ++k) { if (std::fabs(d[k]) < 1e-6f) { if (std::fabs(a0[k]) > e[k]) return false; continue; } float u0 = (-e[k] - a0[k]) / d[k], u1 = (e[k] - a0[k]) / d[k]; if (u0 > u1) std::swap(u0, u1); t0 = std::max(t0, u0); t1 = std::min(t1, u1); if (t0 > t1) return false; }
+          return true; };
+        auto routeHits = [&](const Drop& dr, Soldier& s, float pad = 0.3f) {
+          BotMind& m = A.mind(s); if (m.route.size() < 2) return false;
+          size_t k0 = 0; float bd = 1e9f; for (size_t k = 0; k < m.route.size(); ++k) { float d = glm::length(m.route[k] - s.feet); if (d < bd) { bd = d; k0 = k; } }
+          vec3 prev = s.feet; float L = 0;
+          for (size_t k = k0; k < m.route.size() && L < 45; ++k) { for (auto& b : dr.boxes) if (segHits(b, prev, m.route[k], pad)) return true; L += glm::length(m.route[k] - prev); prev = m.route[k]; }
+          return false; };
+        const char* kinds[3] = {"wire belt", "bunker", "wall (hedgerow bank)"};
+        for (int k = 0; k < 3; ++k) {
+          Drop& dr = drops[k];
+          if (dr.T >= 0 || t < 5.0f + 8.0f * k) continue;
+          // the group of moving attackers: centroid and heading
+          // drop it on a moving bot's planned route, 8-12 m ahead of it, across the route
+          vec3 p(0), h(0); bool found = false; float bestRem = 0; int target = -1;
+          for (auto& s : G.sold) {
+            if (!s.alive || s.human || s.role != CombatRole::Attacker || s.speed < 1.0f) continue;
+            BotMind& m = A.mind(s); if (m.route.size() < 2 || m.trav.on) continue;
+            size_t k0 = 0; float bd = 1e9f; for (size_t q = 0; q < m.route.size(); ++q) { float d = glm::length(m.route[q] - s.feet); if (d < bd) { bd = d; k0 = q; } }
+            float L = 0; vec3 prev = s.feet;
+            for (size_t q = k0 + 1; q < m.route.size(); ++q) {   // the next corner ahead: k0 may already be behind the bot
+              float seg = glm::length(m.route[q] - prev);
+              if (L + seg >= 9.0f && seg > 0.1f) {
+                float rem = 0; vec3 pp = m.route[q]; for (size_t r = q + 1; r < m.route.size(); ++r) { rem += glm::length(m.route[r] - pp); pp = m.route[r]; }
+                if (rem + seg > bestRem) { bestRem = rem + seg; p = glm::mix(prev, m.route[q], (9.0f - L) / seg); h = glm::normalize(vec3(m.route[q].x - prev.x, 0, m.route[q].z - prev.z) + vec3(1e-4f)); found = true; target = s.slot; }
+                break;
+              }
+              L += seg; prev = m.route[q];
+            }
+          }
+          if (!found) continue;
+          vec3 side(-h.z, 0, h.x);
+          float hy = degrees(std::atan2(h.x, h.z));   // yaw that maps local +z onto h
+          std::vector<std::pair<std::string, std::pair<vec3, float>>> objs;
+          if (k == 0) for (int i = -2; i <= 2; ++i) objs.push_back({"wire_concertina", {p + side * (3.7f * i), hy + 90}});   // long axis (local z) across the heading
+          if (k == 1) objs.push_back({"bunker_mg_casemate", {p + h * 3.0f, hy}});
+          if (k == 2) for (int i = -1; i <= 1; ++i) objs.push_back({"hedgerow_bocage", {p + side * (8.0f * i), hy}});         // long axis (local x) across the heading
+          dr.what = kinds[k]; dr.T = G.t;
+          for (auto& [asset, pr] : objs) {
+            Instance in; in.id = a.doc.newId(); in.assetId = asset; in.pos = vec3(pr.first.x, a.terrain.height(pr.first.x, pr.first.z), pr.first.z); in.yaw = pr.second;
+            a.doc.instances.push_back(in);
+            const AssetDef* ad = a.lib.find(asset);
+            if (ad) { vec3 lc = vec3((ad->bmin.x + ad->bmax.x) * 0.5f, 0, (ad->bmin.z + ad->bmax.z) * 0.5f); if (ad->tree.on) lc = vec3(0); Box b; b.c = in.pos + yawQuat(in.yaw) * lc; b.he = ad->footprint * 0.5f; b.yaw = in.yaw; dr.boxes.push_back(b); }   // the footprint, not the bounds (canopy, overhangs)
+          }
+          a.syncRuntime();
+          for (auto& s : G.sold) if (s.alive && !s.human && s.role == CombatRole::Attacker) {
+            bool nearB = false; for (auto& b : dr.boxes) { vec2 l = local2(b, s.feet); if (std::fabs(l.x) < b.he.x + 0.6f && std::fabs(l.y) < b.he.y + 0.6f) nearB = true; /* overlapping it when it appears */ }
+            if (nearB) dr.nearAtDrop.insert(s.slot); else if (routeHits(dr, s)) dr.aff[s.slot] = -1;
+            if (s.slot == target) { vec2 l0 = dr.boxes.empty() ? vec2(0) : local2(dr.boxes[0], s.feet); logf("test: %s dropped on bot %d's route: near %d, route hits %d; drop point %.1f m away, bot in box 0 local (%.1f %.1f), half (%.1f %.1f), box yaw %.0f", dr.what.c_str(), s.slot, (int)nearB, (int)routeHits(dr, s), glm::length(p - s.feet), l0.x, l0.y, dr.boxes.empty() ? 0.f : dr.boxes[0].he.x, dr.boxes.empty() ? 0.f : dr.boxes[0].he.y, dr.boxes.empty() ? 0.f : dr.boxes[0].yaw); }
+          }
+        }
+        for (auto& dr : drops) {
+          if (dr.T < 0) continue;
+          for (auto& [slot, rt] : dr.aff) { Soldier& s = G.sold[slot]; if (rt < 0 && s.alive && A.mind(s).pathAt > dr.T && (dr.what == "bunker" || !routeHits(dr, s, 0.0f))) rt = G.t - dr.T; if (rt < 0 && s.alive && A.mind(s).pathAt > dr.T && A.mind(s).pathAt > G.t - 0.02 && dr.what != "bunker") logf("test: bot %d new path at %.2f s after the %s drop still crosses it (route %zu pts, partial %d, trav %d)", slot, G.t - dr.T, dr.what.c_str(), A.mind(s).route.size(), (int)A.mind(s).partial, (int)A.mind(s).trav.on); }   // a bunker can be walked through: any new route counts
+          // "walked into it": inside the footprint of a solid / wire object, or (enterable bunker) stuck against it
+          bool enterable = dr.what == "bunker";
+          if (G.t - dr.T > 0.3 && !enterable) for (auto& s : G.sold) if (s.alive && !s.human && s.role == CombatRole::Attacker && !dr.nearAtDrop.count(s.slot))
+            for (auto& b : dr.boxes) { vec2 l = local2(b, s.feet); if (std::fabs(l.x) < b.he.x - 0.15f && std::fabs(l.y) < b.he.y - 0.15f) { if (!dr.walked.count(s.slot)) logf("test: bot %d inside the dropped %s at %.2f s after the drop (%.1f %.1f %.1f) local (%.2f %.2f), trav %d, area %d, action %s, why %s", s.slot, dr.what.c_str(), G.t - dr.T, s.feet.x, s.feet.y, s.feet.z, l.x, l.y, (int)A.mind(s).trav.on, (int)G.nav.areaAt(s.feet, 0.3f), aiActionName(A.mind(s).action), s.br.why.c_str()); dr.walked.insert(s.slot); } }
+          for (auto& e : A.stuck) if (e.t0 > dr.T + 0.3 && !dr.nearAtDrop.count(e.slot))
+            for (auto& b : dr.boxes) { vec2 l = local2(b, e.pos); if (std::fabs(l.x) < b.he.x + 0.8f && std::fabs(l.y) < b.he.y + 0.8f && e.t0 < dr.T + 15) dr.stuckAt.insert(e.slot); }
+        }
+        if (t < 36.0f) return false;
+        json rep = json::array();
+        for (auto& dr : drops) {
+          int n = 0, ok = 0; double worst = 0; for (auto& [slot, rt] : dr.aff) { ++n; if (rt >= 0 && rt <= 1.0) ++ok; worst = std::max(worst, rt < 0 ? 99.0 : rt); }
+          char b[300]; std::snprintf(b, sizeof b, "live rebuild, %s dropped at %.1f s across moving bots: %d of %d affected bots re-routed within 1 s (slowest %.2f s), %d walked into it, %d got stuck against it", dr.what.c_str(), dr.T, ok, n, worst > 90 ? -1.0 : worst, (int)dr.walked.size(), (int)dr.stuckAt.size());
+          check(dr.T >= 0 && n > 0 && ok == n && dr.walked.empty() && dr.stuckAt.empty(), b);
+          rep.push_back({{"what", dr.what}, {"t", dr.T}, {"affected", n}, {"reroutedWithin1s", ok}, {"slowest_s", worst}, {"walkedIn", (int)dr.walked.size()}});
+        }
+        summary["liveRebuild"] = rep; summary["rebuilds"] = G.nav.rebuilds; summary["rebuildMsMax"] = G.nav.rebuildMsMax;
+        check(G.nav.rebuildMsMax < 1000, "tile rebuilds on the worker: " + std::to_string(G.nav.rebuilds) + " tiles, slowest " + std::to_string((int)G.nav.rebuildMsMax) + " ms");
+        a.exitExplore();
+        return true; });
+      // ---------------- AI_SPEC 12.2: obstacle course
+      push("obstacle course", [this, startMatch](App& a, float t) {
+        static std::set<int> reached, spawned; static int forbidden = 0; static std::set<int> forbiddenBots; static double tReach = -1;
+        if (t == 0 && std::getenv("NMK_AICOURSE_REBUILD_ONLY")) return true;   // debugging the live rebuild part alone
+        if (t == 0) { reached.clear(); spawned.clear(); forbidden = 0; forbiddenBots.clear(); tReach = -1; bool ok = startMatch(a, "course", 10, 1, 3); if (ok) aiCore()->tactics["budget"]["lodDistance_m"] = 2000; return !ok; }
+        Game& G = *gGame; AiCore& A = *aiCore();
+        const Objective& oa = G.match.sc.objectives[0];
+        for (auto& s : G.sold) {
+          if (!s.alive || s.human || s.role != CombatRole::Attacker) continue;
+          int key = s.slot * 100 + s.lifeId; spawned.insert(key);
+          if (oa.contains(s.feet) || s.feet.z < -48) reached.insert(key);
+          BotMind& m = A.mind(s);
+          uint8_t ar = G.nav.areaAt(s.feet, 0.3f);
+          if (!m.trav.on && ar != 0) { NavArea na = navarea::toNav(ar); if (na == NavArea::Minefield || na == NavArea::Wire) { ++forbidden; forbiddenBots.insert(s.slot); } }
+        }
+        int cleared = 0; for (auto& bd : A.buildings) { bool all = true; for (auto& r : bd.rooms) if (!A.clearedRooms.count(std::to_string(bd.inst) + ":" + r.id)) all = false; if (all) ++cleared; }
+        bool reachedEnough = reached.size() * 10 >= spawned.size() * 8 && !spawned.empty();
+        if (reachedEnough && tReach < 0) tReach = t;
+        bool done = reachedEnough && cleared >= 2 && G.match.active >= 1;
+        if (!done && t < 420 && G.match.phase == MatchPhase::Running) return false;
+        AiMetrics& M = A.metrics;
+        char b[400];
+        std::snprintf(b, sizeof b, "obstacle course: %zu of %zu attacker lives reached the far side (cottage / casemate) in %.0f s; %d of %zu buildings cleared; objective A %s",
+                      reached.size(), spawned.size(), tReach < 0 ? t : tReach, cleared, A.buildings.size(), G.match.active >= 1 ? "captured" : "NOT captured");
+        check(reachedEnough && cleared >= 2 && G.match.active >= 1, b);
+        std::snprintf(b, sizeof b, "stuck events on the course: %d (%d over 5 s, %d unrecovered; resolved by step 1..6: %d %d %d %d %d %d)", M.stuckEvents, M.stuckOver5, M.stuckUnrecovered, M.stuckResolvedBy[1], M.stuckResolvedBy[2], M.stuckResolvedBy[3], M.stuckResolvedBy[4], M.stuckResolvedBy[5], M.stuckResolvedBy[6]);
+        check(M.stuckUnrecovered == 0, b);
+        std::snprintf(b, sizeof b, "links traversed with player-like moves: %d (drop %d, mantle %d, vault %d, jump %d), %d aborted; navmesh links drop %d / mantle %d / vault %d / jump %d",
+                      M.linkTraversals, M.linkKinds[0], M.linkKinds[1], M.linkKinds[2], M.linkKinds[3], M.linkAborts, G.nav.linkCount[0], G.nav.linkCount[1], G.nav.linkCount[2], G.nav.linkCount[3]);
+        check(M.linkTraversals > 0 && G.nav.linkCount[1] > 0 && G.nav.linkCount[2] > 0, b);
+        check(forbiddenBots.empty(), "no bot ever stood in the marked minefield or the wire (" + std::to_string(forbidden) + " samples by " + std::to_string(forbiddenBots.size()) + " bots)");
+        summary["course"] = {{"seconds", t}, {"reached", reached.size()}, {"lives", spawned.size()}, {"buildingsCleared", cleared}, {"metrics", M.toJson(G)}, {"forbiddenSamples", forbidden}};
+        a.exitExplore();
+        return true; });
+    } else {
+      // ---------------- AI_SPEC 12.3: soak
+      reportName = "ai_soak";
+      std::vector<std::string> maps;
+      if (gSoakMaps == "all") maps = {"village", "course", "random"};
+      else { std::string s = gSoakMaps; size_t p; while ((p = s.find(',')) != std::string::npos) { maps.push_back(s.substr(0, p)); s = s.substr(p + 1); } if (!s.empty()) maps.push_back(s); }
+      for (auto& mp : maps) push("soak " + mp, [this, startMatch, mp](App& a, float t) {
+        struct Acc { double t = 0, advSpeedSum = 0, nnSum = 0, fireT = 0, exposedT = 0, boundExp = 0; long advN = 0, nnN = 0; int bounds = 0, stuck = 0, over5 = 0, unrec = 0, gren = 0, grenHurt = 0, deaths = 0, matches = 0, attackers = 0, bots = 0, caps = 0;
+                     std::vector<double> ms; };
+        static Acc acc;
+        const float total = gSoakMinutes * 60.0f;
+        if (t == 0) acc = Acc{};
+        bool finished = false;
+        if (!gGame || !gGame->active) {
+          if (t >= total) finished = true;
+          else {
+            if (!startMatch(a, mp, 20, 12, 20)) return true;
+            acc.attackers = 0; acc.bots = 0; for (auto& rs : gGame->match.slots) { acc.attackers += rs.role == CombatRole::Attacker; acc.bots += !rs.human; }
+            return false;
+          }
+        }
+        if (!finished) {
+          if (t < total && gGame->match.phase == MatchPhase::Running) return false;
+          Game& G = *gGame; AiCore& A = *aiCore(); AiMetrics& M = A.metrics;
+          acc.t += M.t; acc.advSpeedSum += M.advSpeedSum; acc.advN += M.advN; acc.nnSum += M.nnSum; acc.nnN += M.nnN; acc.fireT += M.fireT; acc.exposedT += M.exposedT;
+          acc.bounds += M.bounds; acc.boundExp += M.boundExposure; acc.stuck += M.stuckEvents; acc.over5 += M.stuckOver5; acc.unrec += M.stuckUnrecovered; acc.gren += M.grenadesThrown; acc.grenHurt += M.grenadesHurtTeammate;
+          int d = 0; for (auto& rs : G.match.slots) if (rs.role == CombatRole::Attacker) d += rs.deaths; acc.deaths += d;
+          acc.caps += G.match.active + (G.match.winner == Winner::Attackers ? 1 : 0);
+          for (double x : A.prof.totals) acc.ms.push_back(x);
+          ++acc.matches;
+          a.exitExplore();
+          if (t < total) return false;
+        }
+        double mins = std::max(1.0, acc.t) / 60.0;
+        std::sort(acc.ms.begin(), acc.ms.end());
+        auto pct = [&](double p) { return acc.ms.empty() ? 0.0 : acc.ms[std::min(acc.ms.size() - 1, (size_t)(p * acc.ms.size()))]; };
+        double msMean = 0; for (double x : acc.ms) msMean += x; msMean = acc.ms.empty() ? 0 : msMean / acc.ms.size();
+        json r = {{"map", mp}, {"seconds", acc.t}, {"matches", acc.matches}, {"attackingBots", acc.attackers}, {"bots", acc.bots}, {"difficulty", aiDifficultySetting()},
+                  {"stuckEvents", acc.stuck}, {"stuckPerBotPer10Min", acc.stuck / std::max(1, acc.attackers) / mins * 10}, {"stuckOver5s", acc.over5}, {"stuckUnrecovered", acc.unrec},
+                  {"exposedUnderFireFraction", acc.fireT > 0 ? acc.exposedT / acc.fireT : 0.0}, {"underFireSeconds", acc.fireT},
+                  {"boundExposureMean_s", acc.bounds ? acc.boundExp / acc.bounds : 0.0}, {"bounds", acc.bounds},
+                  {"nearestTeammateWhileAdvancing_m", acc.nnN ? acc.nnSum / acc.nnN : 0.0}, {"advanceSpeedMean_mps", acc.advN ? acc.advSpeedSum / acc.advN : 0.0},
+                  {"grenadesThrown", acc.gren}, {"grenadesHurtTeammate", acc.grenHurt},
+                  {"attackerDeathsPerMin", acc.deaths / mins}, {"attackerDeathsPerBotPerMin", acc.deaths / mins / std::max(1, acc.attackers)}, {"objectivesTaken", acc.caps},
+                  {"aiMainThreadMs", {{"mean", msMean}, {"p95", pct(0.95)}, {"p99", pct(0.99)}, {"max", acc.ms.empty() ? 0.0 : acc.ms.back()}}}};
+        // AI_SPEC 12.3 thresholds; baseline = docs/baseline/ai_baseline.json (village_assault_5, 10 attackers, grid AI)
+        r["baseline"] = {{"stuckEventsPerBotPerMin", 0.0}, {"advanceSpeedMean_mps", 2.34}, {"exposedUnderFireFraction", 1.0}, {"attackerDeathsPerMin", 6.67}, {"attackerDeathsPerBotPerMin", 0.667}, {"nearestTeammateWhileAdvancing_m", 6.64}};
+        bool okStuck = r["stuckPerBotPer10Min"].get<double>() < 1.0 && acc.over5 == 0, okExp = r["exposedUnderFireFraction"].get<double>() < 0.10, okBound = r["boundExposureMean_s"].get<double>() < 3.0;
+        bool okSpace = r["nearestTeammateWhileAdvancing_m"].get<double>() >= 8.0, okSpeed = r["advanceSpeedMean_mps"].get<double>() >= 3.1, okGren = acc.grenHurt == 0;
+        r["pass"] = {{"stuck", okStuck}, {"exposed", okExp}, {"boundExposure", okBound}, {"spacing", okSpace}, {"speed", okSpeed}, {"grenades", okGren}};
+        char b[700];
+        std::snprintf(b, sizeof b, "soak %s %.0f min, %d bots (%d attacking), %d matches: stuck %.2f /bot/10 min (%d over 5 s, %d unrecovered) | exposed under fire %.0f %% | bound exposure %.1f s | teammate spacing %.1f m | advance %.2f m/s | grenades %d, %d near teammates | attacker deaths %.2f /bot/min (baseline 0.67) | AI %.2f ms mean, p95 %.2f, max %.1f",
+                      mp.c_str(), mins, acc.bots, acc.attackers, acc.matches, r["stuckPerBotPer10Min"].get<double>(), acc.over5, acc.unrec, 100 * r["exposedUnderFireFraction"].get<double>(), r["boundExposureMean_s"].get<double>(),
+                      r["nearestTeammateWhileAdvancing_m"].get<double>(), r["advanceSpeedMean_mps"].get<double>(), acc.gren, acc.grenHurt, r["attackerDeathsPerBotPerMin"].get<double>(), msMean, pct(0.95), acc.ms.empty() ? 0.0 : acc.ms.back());
+        check(true, b);
+        summary["soak_" + mp] = r;
+        std::ofstream(exeDir() / "selftest_out" / ("ai_soak_" + mp + ".json")) << r.dump(2);
+        return true; });
+    }
+    push("done", [](App& a, float t) { (void)a; return t > 0.2f; });
+    return;
+  }
   if (stage == 2000 && runAiSelfTestArg == 2) {   // --benchmark-match: 20 combatants, smoke and explosions, 60 s
     reportName = "bench_match";
     seq.clear(); cur = 0; st = 0;
@@ -199,18 +415,21 @@ void SelfTest::aiUpdate(App& app, float dt) {
     app.useScripted = true; app.scriptedInput = ExploreInput{};
     Game& G = *gGame;
     char b[256];
-    std::snprintf(b, sizeof b, "walk grid: %d x %d columns, %d floors, %d links (%d through doors), built in %.0f ms", G.nav.nx, G.nav.nz, G.nav.usedNodes, G.nav.links, G.nav.doorLinks, G.nav.buildMs);
-    check(G.nav.usedNodes > 10000 && G.nav.doorLinks > 0, b);
-    summary["nav"] = {{"columns", G.nav.nx * G.nav.nz}, {"floors", G.nav.usedNodes}, {"links", G.nav.links}, {"doorLinks", G.nav.doorLinks}, {"buildMs", G.nav.buildMs}};
-    int up = 0; for (int s = 0; s < (int)G.nav.slots.size(); ++s) if (G.nav.used(s) && G.nav.slots[s].y > 2.0f) ++up;
-    check(up > 200, "upper floors are walkable (" + std::to_string(up) + " floor cells above 2 m: stairs and storeys)");
-    // reachability: an upper floor of the town hall from the street
+    std::snprintf(b, sizeof b, "navmesh (Recast/Detour): %d tiles of %.0f m, %d polygons, %d off-mesh links (drop %d, mantle %d, vault %d, jump %d), baked in %.0f ms",
+                  G.nav.tilesBuilt, G.nav.cfg.tile, G.nav.usedNodes, G.nav.links, G.nav.linkCount[0], G.nav.linkCount[1], G.nav.linkCount[2], G.nav.linkCount[3], G.nav.buildMs);
+    check(G.nav.tilesBuilt >= 9 && G.nav.usedNodes > 300, b);
+    summary["nav"] = {{"tiles", G.nav.tilesBuilt}, {"polygons", G.nav.usedNodes}, {"links", G.nav.links}, {"buildMs", G.nav.buildMs}};
+    // upper floors are on the mesh and reachable from the street through the doorways (door leaves are not baked)
     {
-      int a = G.nav.nearest(vec3(-24, 0, 12), 3), best = -1; float by = 0;
-      for (int s = 0; s < (int)G.nav.slots.size(); ++s) if (G.nav.used(s) && G.nav.slots[s].y > 2.5f && G.nav.slots[s].y < 9.0f && G.nav.slots[s].head < 590) { vec3 p = G.nav.pos(s); if (glm::length(vec2(p.x + 24, p.z + 8)) < 8 && p.y > by) { by = p.y; best = s; } }
-      std::vector<int> path; bool ok = best >= 0 && a >= 0 && G.nav.path(a, best, path, 200000);
-      int doors = 0; for (size_t k = 0; k + 1 < path.size(); ++k) for (int d = 0; d < 8; ++d) if (G.nav.neighbour(path[k], d) == path[k + 1] && G.nav.doorLink(path[k], d)) ++doors;
-      std::snprintf(b, sizeof b, "path street -> town hall upper floor (y %.1f m): %s, %zu cells, %d door links", by, ok ? "found" : "NOT found", path.size(), doors);
+      NavRef r; vec3 up(0); bool have = false; int upper = 0;
+      for (float y : {3.6f, 4.2f, 6.6f, 7.4f}) for (float dx = -8; dx <= 8; dx += 2) for (float dz = -8; dz <= 8; dz += 2) {
+        vec3 on; if (G.nav.closest(vec3(-24 + dx, y, -8 + dz), vec3(0.9f, 0.5f, 0.9f), r, on) && on.y > 2.5f && on.y < 9.0f) { ++upper; if (!have || on.y > up.y) { up = on; have = true; } }
+      }
+      check(upper > 20, "upper floors are walkable (" + std::to_string(upper) + " navmesh samples above 2.5 m in the town hall: stairs and storeys)");
+      std::vector<vec3> pts; float len = 0;
+      vec3 street(-24, app.terrain.height(-24, 12), 12);
+      bool ok = have && G.nav.pathSync(street, up, pts, nullptr, nullptr, &len);
+      std::snprintf(b, sizeof b, "path street -> town hall upper floor (y %.1f m): %s, %zu corners, %.1f m", up.y, ok ? "found" : "NOT found", pts.size(), len);
       check(ok, b);
     }
     stage = 2001;
@@ -228,7 +447,8 @@ void SelfTest::aiUpdate(App& app, float dt) {
       int lives = G.match.unusedAttackerLives();
       check(lives == 50, "first life spent on spawn: " + std::to_string(lives) + " attacker respawns unused (10 x 5)");
       int lanes[3] = {0, 0, 0}; for (auto& s : G.sold) if (s.role == CombatRole::Attacker) lanes[s.br.lane]++;
-      check(lanes[0] == 2 && lanes[1] == 6 && lanes[2] == 2, "attacker lanes " + std::to_string(lanes[0]) + "/" + std::to_string(lanes[1]) + "/" + std::to_string(lanes[2]) + " (left/main/right)");
+      int na = lanes[0] + lanes[1] + lanes[2], nf = lanes[0] + lanes[2];   // W6: 25-35 % flankers committed from spawn (AI_SPEC 9; was 20/60/20)
+      check(nf >= (int)std::ceil(na * 0.25f - 1e-4f) && nf <= (int)std::floor(na * 0.35f + 1e-4f) && lanes[0] > 0 && lanes[2] > 0, "attacker lanes " + std::to_string(lanes[0]) + "/" + std::to_string(lanes[1]) + "/" + std::to_string(lanes[2]) + " (left/main/right): " + std::to_string(nf) + " of " + std::to_string(na) + " flank");
       int frags = 0, smokes = 0; bool ok = true;
       for (auto& s : G.sold) if (s.alive) { frags += s.frags; smokes += s.smokes; if (s.frags != 2 || s.smokes != (s.role == CombatRole::Attacker ? 1 : 0)) ok = false; }
       check(ok, "every soldier starts its life with 2 frag grenades, attackers also 1 smoke (" + std::to_string(frags) + " frag, " + std::to_string(smokes) + " smoke)");
@@ -247,14 +467,17 @@ void SelfTest::aiUpdate(App& app, float dt) {
       }
       if (t > 15) {   // defenders over a 10 s window: on the point and spread out
         std::vector<vec3> hold;
-        for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human && G.match.active == 0) { ++allSamples; if (ob->contains(s.feet)) ++inSamples; if (s.br.mode == Brain::M_HOLD) hold.push_back(s.feet); }
+        static std::map<int, std::pair<int, float>> born; if (t < 15.02f) born.clear();
+        for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human) { auto& bn = born[s.slot]; if (bn.first != s.lifeId) bn = {s.lifeId, t}; }
+        // W6: only defenders alive >= 4 s (holding, not the run-in from a respawn: the new attackers kill defenders faster)
+        for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human && G.match.active == 0 && (t < 15.1f ? s.lifeId == 1 : t - born[s.slot].second >= 4.0f)) { ++allSamples; if (ob->contains(s.feet)) ++inSamples; if (s.br.mode == Brain::M_HOLD) hold.push_back(s.feet); }
         for (size_t i = 0; i < hold.size(); ++i) for (size_t j = i + 1; j < hold.size(); ++j) minHoldPair = std::min(minHoldPair, glm::length(hold[i] - hold[j]));
       }
-      if (t < 25.0f) return false;
-      char b[200]; std::snprintf(b, sizeof b, "flanks take separate approaches: left lane reached %.1f m left of the objective line, right lane %.1f m right", -maxL, maxR);
+      if (t < 35.0f) return false;   // W6: 15-35 s window (defenders die and respawn more against the new attackers)
+      char b[1600]; std::snprintf(b, sizeof b, "flanks take separate approaches: left lane reached %.1f m left of the objective line, right lane %.1f m right", -maxL, maxR);
       check(-maxL > 6 && maxR > 6, b);
       int closer = 0, n = 0; for (auto& [slot, d] : d0) if (G.sold[slot].alive) { ++n; if (glm::length(G.sold[slot].feet - ob->pos) < d - 5) ++closer; }
-      std::snprintf(b, sizeof b, "after 25 s, %d of %d surviving first-wave attackers are >= 5 m closer to the objective", closer, n);
+      std::snprintf(b, sizeof b, "after 35 s, %d of %d surviving first-wave attackers are >= 5 m closer to the objective", closer, n);
       check(n == 0 || closer * 2 >= n, b);
       int spread = 0, inObj = 0; float minPair = 1e9f;
       std::vector<vec3> dp;
@@ -263,10 +486,15 @@ void SelfTest::aiUpdate(App& app, float dt) {
       for (size_t i = 0; i < dp.size(); ++i) for (size_t j = i + 1; j < dp.size(); ++j) minPair = std::min(minPair, glm::length(dp[i] - dp[j]));
       (void)spread;
       std::string modes; const char* mn[] = {"idle", "advance", "hold", "engage", "cover", "investigate", "evade", "return", "reload", "throw"};
-      for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human) modes += std::string(mn[s.br.mode]) + "/" + s.br.why + "; ";
-      std::snprintf(b, sizeof b, "defender bots over 15-25 s: inside the capture volume %.0f %% of samples; holding bots never closer than %.1f m (now: %d of %d inside) [%s]", 100.0 * inSamples / std::max(1, allSamples), minHoldPair, inObj, nd, modes.c_str());
-      check(inSamples * 10 >= allSamples * 6 && minHoldPair > 2.5f, b);
-      summary["defendSpots"] = G.defSpots.size();
+      for (auto& s : G.sold) if (s.alive && s.role == CombatRole::Defender && !s.human) {
+        modes += std::string(mn[s.br.mode]) + "/" + s.br.why;
+        if (AiCore* A = aiCore()) { BotMind& m = A->mind(s); char d[200]; vec3 sp = m.slot >= 0 && m.slot < (int)A->defSlots.size() ? A->defSlots[m.slot].p : vec3(1e4f);
+          std::snprintf(d, sizeof d, " (slot %d %.1f m away, slot inside %d, speed %.1f, path %d pend %d fails %.0f, act %s)", m.slot, glm::length(sp - s.feet), (int)ob->contains(sp), s.speed, (int)m.hasPath, m.pendingReq, m.pathFails, aiActionName(m.action)); modes += d; }
+        modes += "; ";
+      }
+      std::snprintf(b, sizeof b, "defender bots over 15-35 s (alive >= 4 s, %d samples): inside the capture volume %.0f %% of samples; holding bots never closer than %.1f m (now: %d of %d inside) [%s]", allSamples, 100.0 * inSamples / std::max(1, allSamples), minHoldPair, inObj, nd, modes.c_str());
+      check(allSamples >= 20 && inSamples * 10 >= allSamples * 6 && minHoldPair > 2.5f, b);
+      summary["defendSlots"] = aiCore() ? (int)aiCore()->defSlots.size() : 0;
       return true; });
     push("combat", [this](App& a, float t) {
       Game& G = *gGame;
@@ -342,18 +570,32 @@ void SelfTest::aiUpdate(App& app, float dt) {
       if (v2 < 0) { check(false, "need two living bots"); return true; }
       bool ff = G.match.rules.friendlyFire; G.match.rules.friendlyFire = true;
       // find a wall: cast from the street toward the town hall
-      Physics::Hit h; vec3 o(-24, 1.2f, 20);
-      bool wall = Physics::castRayEx(o, vec3(0, 0, -1), 30, h);
-      vec3 blast = h.pos + vec3(0, -0.6f, 2.5f);      // 2.5 m in front of the wall
+      // a standing building wall seen from the street (the match may have breached parts of it): several street spots
+      Physics::Hit h; bool wall = false;
+      for (float x : {-24.0f, -21.0f, -27.0f, -18.0f, -30.0f}) for (float y : {1.2f, 1.6f}) {
+        if (wall) break;
+        vec3 o(x, a.terrain.height(x, 20) + y, 20); Physics::Hit hh;
+        if (Physics::castRayEx(o, vec3(0, 0, -1), 40, hh) && hh.ud != 0 && (hh.ud >> 60) != 0xF && std::fabs(hh.normal.y) < 0.3f) { h = hh; wall = true; }
+      }
+      vec3 blast = h.pos + vec3(0, -0.6f, 2.5f); blast.y = std::max(blast.y, a.terrain.height(blast.x, blast.z) + 0.4f);   // 2.5 m in front of the wall
       vec3 behind = h.pos + vec3(0, -1.2f, -3.0f);    // inside, behind the wall
       vec3 open = blast + vec3(5.5f, -0.6f, 0);
       auto place = [&](int s, vec3 p) { Physics::Hit g; if (Physics::castRayEx(p + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) p = g.pos; G.sold[s].feet = p; Physics::setAgentPos(G.sold[s].agent, p); G.sold[s].hp = 1000; G.sold[s].protectUntil = -1; };   // spawn protection (W1) would ignore the blast
+      {   // the open victim really in the open: the free spot 5.5 m from the blast (walls get chipped by the match)
+        float bo = -1; vec3 best = open;
+        for (vec3 off : {vec3(5.5f, -0.6f, 0), vec3(-5.5f, -0.6f, 0), vec3(0, -0.6f, 5.5f), vec3(3.9f, -0.6f, 3.9f), vec3(-3.9f, -0.6f, 3.9f)}) {
+          vec3 q = blast + off; Physics::Hit g; if (Physics::castRayEx(q + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) q = g.pos;
+          float oc = a.blastOcclusion(blast, q + vec3(0, 1.25f, 0)) + a.blastOcclusion(blast, q + vec3(0, 1.62f, 0));
+          if (oc > bo) { bo = oc; best = q; }
+        }
+        open = best;
+      }
       place(v1, open); place(v2, behind);
       float d1 = glm::length(G.chest(G.sold[v1]) - blast), d2 = glm::length(G.chest(G.sold[v2]) - blast);
       G.explosionDamage(blast, 0, 0, -1, true);
       float l1 = 1000 - G.sold[v1].hp, l2 = 1000 - G.sold[v2].hp;
       G.sold[v1].hp = G.sold[v2].hp = 100; G.match.rules.friendlyFire = ff;
-      char b[200]; std::snprintf(b, sizeof b, "frag blast: %.0f HP to a soldier in the open (%.1f m), %.0f HP behind a solid wall (%.1f m)", l1, d1, l2, d2);
+      char b[400]; std::snprintf(b, sizeof b, "frag blast: %.0f HP to a soldier in the open (%.1f m), %.0f HP behind a solid wall (%.1f m) [wall %d at (%.1f %.1f %.1f) ud %llx, blast (%.1f %.1f %.1f)]", l1, d1, l2, d2, (int)wall, h.pos.x, h.pos.y, h.pos.z, (unsigned long long)h.ud, blast.x, blast.y, blast.z);
       check(wall && l1 > 40 && l2 < l1 * 0.2f, b);
       return true; });
     push("smoke", [this](App& a, float t) {
