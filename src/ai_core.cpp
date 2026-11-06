@@ -514,7 +514,7 @@ void AiCore::frame() {
   for (auto& s : G.sold) {
     if (!s.alive || s.human || s.role != CombatRole::Attacker || s.slot >= (int)minds.size() || !minds[s.slot]) continue;
     BotMind& m = *minds[s.slot];
-    bool advancing = m.hasPath && !arrived(s) && m.action != A_HOLD && !m.trav.on;
+    bool advancing = m.action == A_ADVANCE && !m.set && m.hasPath && !arrived(s) && !m.trav.on;   // AI_SPEC 12.3 "while advancing": bounding, not stopped to fire / reload
     if (advancing) {
       metrics.advT += dt; metrics.advSpeedSum += s.speed; ++metrics.advN;
       float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role) nn = std::min(nn, glm::length(o.feet - s.feet));
@@ -528,7 +528,7 @@ void AiCore::frame() {
       int64_t cx = (int64_t)std::floor(s.feet.x / 8), cz = (int64_t)std::floor(s.feet.z / 8);
       for (int64_t dz = -1; dz <= 1 && !covered; ++dz) for (int64_t dx = -1; dx <= 1 && !covered; ++dx) {
         auto it = coverGrid.find(((cx + dx) << 32) ^ (uint32_t)(cz + dz)); if (it == coverGrid.end()) continue;
-        for (int ci : it->second) { const CoverPoint& c = cover[ci]; if (!c.serial || glm::length(c.p - s.feet) > 5) continue; vec3 td = from - c.p; td.y = 0; if (glm::length(td) < 1 || glm::dot(glm::normalize(td), c.n) > 0.25f) { covered = true; break; } }
+        for (int ci : it->second) { const CoverPoint& c = cover[ci]; if (!c.serial || glm::length(c.p - s.feet) > 5) continue; vec3 td = from - c.p; td.y = 0; if (c.natural || glm::length(td) < 1 || glm::dot(glm::normalize(td), c.n) > 0.25f) { covered = true; break; } }   // craters cover all round (coverProtects)
       }
       if (!covered) metrics.exposedT += dt; else metrics.coverNear5T += dt;
     }
