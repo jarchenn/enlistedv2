@@ -32,7 +32,7 @@ The host keeps simulating while its pause menu is open, since clients depend on 
 - **Leaving:** a living soldier you controlled is handed to the AI in place, with nothing duplicated and nothing left orphaned. The slot becomes an AI slot again.
 - Failures are reported in the join window and never reach a fake success screen:
   - refusals (build, content, map, full) carry the host's reason
-  - "No answer from host:port" means check the address, the host's lobby and its firewall
+  - "No answer from host:port" (nothing heard for 20 s) means check the address, the host's lobby and its firewall
   - "Connection to the host was lost (no reply for 6 s)"
   - "The host ended the session"
 

@@ -20,6 +20,7 @@ namespace {
 constexpr uint32_t kMagic = 0x314B4D4Eu;   // "NMK1"
 constexpr size_t kChunk = 1000;
 constexpr double kTimeout = 6.0, kResend = 0.15;
+constexpr double kConnectTimeout = 20.0;   // first contact: the host may be busy loading a map or starting a match
 
 struct W {
   std::string b;
@@ -593,7 +594,7 @@ void Net::update(App& app, float dt) {
   } else if (role == CLIENT) {
     Peer& h = d->peers[0];
     if (!connected && d->now - d->lastHello > 0.5) { W w; d->header(w, 'H'); w.str(d->helloJson); d->sendRaw(d->hostAddr, w.b, *this); d->lastHello = d->now; }
-    if (d->now - h.heard > kTimeout) { d->endReason = connected ? "Connection to the host was lost (no reply for 6 s)." : "No answer from " + addrStr(d->hostAddr) + ". Check the address, that the host is in its lobby, and the host's firewall."; d->wantEnd = true; }
+    if (d->now - h.heard > (connected ? kTimeout : kConnectTimeout)) { d->endReason = connected ? "Connection to the host was lost (no reply for 6 s)." : "No answer from " + addrStr(d->hostAddr) + ". Check the address, that the host is in its lobby, and the host's firewall."; d->wantEnd = true; }
     if (connected && gGame && gGame->active && gGame->isClient && d->now - d->lastInput >= 1.0 / 30) {
       d->lastInput = d->now;
       if (Soldier* L = gGame->local(); L && L->alive) {
