@@ -62,4 +62,4 @@
  "interactables": [],
  "panels": [],
  "vehicle": "sherman_firefly"
-}
+,"nav":{"effect":"none"}}

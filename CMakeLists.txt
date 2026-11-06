@@ -73,6 +73,7 @@ include(cmake/mpai.cmake)   # multiplayer + AI sources
 include(cmake/w1.cmake)     # W1 gameplay rules: spawn protection, fall damage, damage model
 include(cmake/w2.cmake)     # W2 visual fixes: sight overlay, thumbnails
 include(cmake/w7.cmake)     # W7 gore: wounds, spray, decals
+include(cmake/w4.cmake)     # W4 structures suite
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)
