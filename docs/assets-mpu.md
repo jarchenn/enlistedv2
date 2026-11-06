@@ -91,9 +91,12 @@ The Czech hedgehog is the existing `def_tank_trap`. It now has nav metadata (car
   - `bank` is the sloped band inside the outline.
   - Where pieces or cuts join, the outlines overlap by at least 0.6 m. Cuts are combined as the minimum height, so the bank of one cut never leaves a ridge inside another.
   - Trench, ditch and lane cuts run 0.8 m past their open ends for the same reason.
-  - The cut under a roofed chamber (Tobruks, dugouts) stays 0.1 m inside its walls, so the ground meets the concrete or logs outside and no gap shows under the roof edge.
-  - The floors, revetments and earth fill are asset geometry. The cut only removes the ground. Until the terrain applies cuts (W3), below-grade floors sit under the ground.
-  - The suite applies cuts itself through the terrain-delta path, as a stand-in.
+  - W3 pads every outline outward by one terrain grid step (0.45 m, `content/settings/editor.json` `terrainCut.edgePad` -1) and resolves the cut on that grid, so the ground steps down anywhere up to about 0.9 m outside an outline. Every such step lies under asset geometry (constants `CUT_*` in `tools/catalog_atlantic.mjs`):
+    - **Closed walls** (Tobruk and dugout chambers): the outline lies 0.45 m (`CUT_PAD`) inside the outer wall face, so the padded floor reaches the face; a grade-level ring 0.6 m wide (`CUT_RING`), earth mounds or spoil heaps cover the step outside.
+    - **Ramps out to grade** (Tobruk, dugout and trench-entry ramps): the outline stops 0.3 m (`CUT_SETBACK`) short of the ramp top, under the ramp, and a 1.0 m apron at grade (`CUT_APRON`) covers the step beyond it. Without it, the step opens a pit in front of the ramp top that is too deep to step out of.
+    - **Sides**: trench parapet and parados slabs, ramp spoil heaps, lane banks and the AT ditch's earth (out to 1.25 m beyond the top of the face) cover it. The foxhole outline is the hole itself, with a grade-level rear lip.
+  - The floors, revetments and earth fill are asset geometry. The cut only removes the ground.
+  - The suite uses W3's cuts when W3's terrain code is in the build (`editor_nav.h`: it calls `navSyncCuts` right after placing). Without it, it writes the same padded cut through the terrain-delta path as a stand-in. Never both, or the ground would be lowered twice.
 - **Tours.** A tour is the scripted walkthrough run by `--selftest-structures`.
   - It is stored under the asset's `"tour"` key, not `"walkthrough"`, so the legacy `--selftest` phase A does not pick these assets up.
   - Its step vocabulary is the same.
@@ -162,7 +165,7 @@ Reference photos (internal only, not shipped) are in the coordinator's notes, un
 ## Limitations
 
 - **5 cm gun.** No 5 cm KwK model has been supplied, and guns come only from the user's GLBs. The R667 therefore places the procedural `gun_pak40` station as its crewable gun, with 5 cm shell crates. The mortar Tobruk has no mortar, and the LCVP gun tubs have empty pintles. The tank-turret Tobruk's turret is static dressing, not a crew station.
-- **Terrain cuts.** They are applied only by the test's stand-in until W3's terrain code lands. In Creative and Explore today, below-grade floors sit under the ground.
+- **Terrain cuts.** W3's terrain applies them. In a build without W3, they are applied only by the test's stand-in, and below-grade floors sit under the ground in Creative and Explore. The covering geometry assumes W3's pad of one grid step; a larger `edgePad` would open steps again.
 - **LCVPs on water.** The intact LCVP cannot be placed afloat: `App::checkPlacement` refuses footprints in water. Placing craft in the surf needs W3 or W5 to allow it, for example a per-asset `"allowWater"`.
 - **Marsh.** It is only a nav area (cost ×3). Explore has no slow-down for the player: the engine slows only for `wire` defences.
 - **Nav yaw.** The yaw convention above is W4's choice. `navmeta.h` does not fix one.

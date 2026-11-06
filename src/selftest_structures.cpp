@@ -9,6 +9,12 @@
 //  * "climb" probes: the character is driven at a face with jumps and vault input and must stay below it (AT ditch).
 #include "selftest.h"
 #include "physics.h"
+#if __has_include("editor_nav.h")   // W3 terrain cuts present (claude/changes): the suite uses them, not its stand-in
+#include "editor_nav.h"
+#define W4_REAL_CUTS 1
+#else
+#define W4_REAL_CUTS 0
+#endif
 
 namespace {
 std::vector<std::string> sIds;
@@ -32,9 +38,33 @@ float edgeDist(vec2 p, const std::vector<vec2>& poly) {
   }
   return d;
 }
-// Lowers the ground inside each cut outline to (instance y - depth), sloping over `bank` inside the edge. The real
-// application is W3's terrain work; this stand-in only lets the suite walk below-grade assets.
+// Terrain cuts. With W3's terrain (editor_nav.h: navSyncCuts, applied every frame by w3Frame) the suite uses the real
+// cuts and only probes them; without it, applyCuts() is a stand-in that lowers the ground inside each outline to
+// (instance y - depth), sloping over `bank` inside the edge, with W3's outline pad of one grid step, so the suite can
+// still walk below-grade assets and sees the same cut as W3 makes.
+// Never both: the stand-in's deltas would be applied on top of W3's cut base and the ground would sink twice.
 struct CutProbe { vec3 p; float want; };
+#if W4_REAL_CUTS
+std::vector<CutProbe> cutProbes(App& app, const Instance& in, const AssetDef* a) {   // deepest grid point per cut
+  std::vector<CutProbe> probes;
+  quat q = yawQuat(in.yaw);
+  float fs = app.terrain.fineSpacing();
+  for (auto& c : a->navMeta.terrainCuts) {
+    std::vector<vec2> w; vec2 lo(1e9f), hi(-1e9f);
+    for (auto& p : c.outline) { vec3 v = in.pos + q * vec3(p.x, 0, p.y); w.push_back(vec2(v.x, v.z)); lo = glm::min(lo, w.back()); hi = glm::max(hi, w.back()); }
+    CutProbe best{vec3(0), 0}; float bestD = -1;
+    for (float z = lo.y; z <= hi.y; z += fs * 0.5f)
+      for (float x = lo.x; x <= hi.x; x += fs * 0.5f) {
+        vec2 p(x, z);
+        if (!inPoly(p, w)) continue;
+        float d = edgeDist(p, w);
+        if (d > bestD) { bestD = d; best = {vec3(p.x, 0, p.y), in.pos.y - c.depth}; }
+      }
+    if (bestD > 0.05f && bestD >= c.bank) probes.push_back(best);   // padded by fs: every grid sample within fs is at full depth
+  }
+  return probes;
+}
+#else
 std::vector<CutProbe> applyCuts(App& app, const Instance& in, const AssetDef* a) {
   std::vector<CutProbe> probes;
   Terrain& T = app.terrain;
@@ -43,6 +73,8 @@ std::vector<CutProbe> applyCuts(App& app, const Instance& in, const AssetDef* a)
   for (auto& c : a->navMeta.terrainCuts) {
     std::vector<vec2> w; vec2 lo(1e9f), hi(-1e9f);
     for (auto& p : c.outline) { vec3 v = in.pos + q * vec3(p.x, 0, p.y); w.push_back(vec2(v.x, v.z)); lo = glm::min(lo, w.back()); hi = glm::max(hi, w.back()); }
+    const float pad = fs;   // W3: outlines padded outward by one fine-grid step (content/settings/editor.json edgePad -1)
+    lo -= vec2(pad); hi += vec2(pad);
     int tx0 = (int)std::floor((lo.x + T.size * 0.5f) / ts), tx1 = (int)std::floor((hi.x + T.size * 0.5f) / ts);
     int tz0 = (int)std::floor((lo.y + T.size * 0.5f) / ts), tz1 = (int)std::floor((hi.y + T.size * 0.5f) / ts);
     CutProbe best{vec3(0), 0}; float bestD = -1;
@@ -54,17 +86,19 @@ std::vector<CutProbe> applyCuts(App& app, const Instance& in, const AssetDef* a)
         for (int j = 0; j < Terrain::kFineN; ++j)
           for (int i = 0; i < Terrain::kFineN; ++i) {
             vec2 p(o.x + i * fs, o.y + j * fs);
-            if (!inPoly(p, w)) continue;
-            float d = edgeDist(p, w), k = c.bank > 1e-3f ? std::min(1.0f, d / c.bank) : 1.0f;
+            float d = (inPoly(p, w) ? 1.0f : -1.0f) * edgeDist(p, w), dp = d + pad;
+            if (dp <= 0) continue;
+            float k = c.bank > 1e-3f ? std::min(1.0f, dp / c.bank) : 1.0f;
             float& h = t->h[j * Terrain::kFineN + i];
             h = std::min(h, in.pos.y - c.depth * k);
             if (d > bestD) { bestD = d; best = {vec3(p.x, 0, p.y), in.pos.y - c.depth}; }
           }
       }
-    if (bestD > fs) probes.push_back(best);
+    if (bestD > 0.05f && bestD >= c.bank) probes.push_back(best);   // padded by fs: every grid sample within fs is at full depth
   }
   return probes;
 }
+#endif
 bool w2Owned(const std::string& id) { return id.rfind("bunker_", 0) == 0 || id == "gun_mg42_embrasure"; }
 const char* effName(NavEffect e) { static const char* n[] = {"auto", "block", "carve", "area", "none"}; return n[(int)e]; }
 float yawToCam(vec3 from, vec3 to) { vec3 d = to - from; return degrees(std::atan2(-d.x, -d.z)); }
@@ -147,9 +181,14 @@ void SelfTest::structuresUpdate(App& app, float dt) {
     if (tour.value("companions", false)) { int n = app.placeCompanions(houseId); check(n > 0, a->id + ": " + std::to_string(n) + " companion(s) placed"); }
     if (tour.value("cut", false)) {
       std::vector<CutProbe> probes;
+#if W4_REAL_CUTS
+      navSyncCuts(app);   // W3's cuts now rather than at the next frame, so the probes below see them
+      for (auto& [ci, ca] : cutList) { auto p = cutProbes(app, ci, ca); probes.insert(probes.end(), p.begin(), p.end()); }
+#else
       for (auto& [ci, ca] : cutList) { auto p = applyCuts(app, ci, ca); probes.insert(probes.end(), p.begin(), p.end()); }
       app.doc.terrainDeltas = app.terrain.deltas();
       app.resetGround();
+#endif
       bool ok = !probes.empty();
       float worst = 0;
       for (auto& p : probes) { float e = std::fabs(app.terrain.height(p.p.x, p.p.z) - p.want); worst = std::max(worst, e); ok &= e < 0.12f; }

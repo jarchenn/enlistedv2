@@ -117,6 +117,13 @@ export function tellerMine(A, c, yawDeg = 0, tiltX = 0) {
 // revetment out to the cut edge, a parapet (front, +n side when front = 1) and a parados. firestep: segment indices
 // with a 0.33 m firestep along the front. niche: [segIdx, t] ammunition niche in the rear revetment (axis-aligned
 // segments only). Returns the floor band outline (nav area) and the cut outline.
+// Terrain cuts are padded outward by one terrain grid step (0.45 m) and resolved on that grid (W3, terrain_cuts.cpp), so the
+// ground steps down up to ~0.9 m outside an outline. Where a ramp climbs out of a cut to grade, the outline stops
+// CUT_SETBACK inside the ramp top (the padded edge then lies just short of it) and a grade-level apron CUT_APRON long
+// covers the step; along the sides, spoil heaps or parapet slabs cover it.
+// Closed walls: the outline lies CUT_PAD inside the outer wall face (the padded floor reaches the face) and a ring
+// CUT_RING wide at grade, earth banks or spoil heaps cover the step outside.
+export const CUT_PAD = 0.45, CUT_SETBACK = 0.3, CUT_APRON = 1.0, CUT_RING = 0.6;
 export const TR = { D: 1.5, HW: 0.6, RV: 0.1, FILL: 0.6, STEP: 0.33, STEPW: 0.45, PAR: 0.4, PARADOS: 0.25 };
 export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cache = "Small-arms ammunition (niche)" } = {}) {
   mats(A, "wattle", "picket", "mud", "spoil");
@@ -453,9 +460,13 @@ function tobruk(kind) {
   A.obox([0, GF / 2 - 0.2, (ramp0 + ramp1) / 2], [1.0, 0.2, L + 0.1], [ang, 0, 0], "mud", { k: 0 });
   for (const s of [-1, 1]) {
     A.box([s * 0.5 + (s > 0 ? 0 : -0.1), GF - 0.2, ramp1], [s * 0.5 + (s > 0 ? 0.1 : 0), 0.15, -Z], "wattle");
-    A.box([s * 0.6 + (s > 0 ? 0 : -0.55), GF - 0.2, ramp1], [s * 0.6 + (s > 0 ? 0.55 : 0), 0.15, -Z], "spoil");
+    A.box([s * 0.6 + (s > 0 ? 0 : -1.55), GF - 0.2, ramp1], [s * 0.6 + (s > 0 ? 1.55 : 0), 0.15, -Z], "spoil");   // spoil heaps cover the cut's side transition
     for (let zz = ramp1 + 0.2; zz < ramp0; zz += 0.9) A.box([s * 0.47 - 0.03, GF, zz - 0.03], [s * 0.47 + 0.03, 0.25, zz + 0.03], "picket", { k: 0 });
   }
+  // trampled apron at grade over the cut's open end, and a ring round the front and flanks over the cut's step (CUT_RING)
+  A.box([-2.15, -0.25, ramp1 - CUT_APRON], [2.15, 0.03, ramp1], "spoil");
+  A.box([-X - CUT_RING, -0.25, Z], [X + CUT_RING, 0.03, Z + CUT_RING], "spoil");
+  for (const s of [-1, 1]) A.box([s > 0 ? X : -X - CUT_RING, -0.25, -Z - CUT_RING], [s > 0 ? X + CUT_RING : -X, 0.03, Z], "spoil");
   smallArmsCache(A, "Small-arms ammunition", pit ? 0.68 : -0.8, GF, pit ? -0.2 : 1.0, 90, { boxes: 3, bandoliers: 2 });
   if (!pit) lamp(A, 0.6, CEIL, -1.0);
   const fp = kind === "mg" ? [fire([0, GF + 1.02, 0.55], 0, "mg")] : kind === "mortar" ? [{ ...fire([0, GF, -0.6], 0, "firestep"), indirect: true }] : [];
@@ -469,7 +480,7 @@ function tobruk(kind) {
     firingPoints: fp,
     cover: [cover([0, yAt(-4.2), -4.2], 90, "low", ["over"]), cover([0, yAt(-4.2), -4.2], 270, "low", ["over"])].concat(kind === "turret" ? [cover([0, RT, -1.05], 0, "low", ["left", "right"])] : []),
     areas: [{ outline: rect(-0.5, ramp1, 0.5, -Z), area: "trench" }],
-  }, [{ outline: rect(-X + 0.1, -Z + 0.1, X - 0.1, Z - 0.1), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.2, ramp1 - 0.1, 1.2, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
+  }, [{ outline: rect(-X + CUT_PAD, -Z + CUT_PAD, X - CUT_PAD, Z - CUT_PAD), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.2, ramp1 + CUT_SETBACK, 1.2, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
   const eyeY = kind === "mg" ? GF + 1.02 + SLIT.eye : GF + SLIT.eye;
   const inside = kind === "mg" ? [0, -1.62] : [0, -1.0];   // straight in through the door (no diagonal past the jambs)
   const steps = [
@@ -545,11 +556,11 @@ export function trenchEntry() {
   for (let x = x0 + 0.3; x < x1; x += 0.45) { const y = -D * (x - x0) / (x1 - x0); A.box([x - 0.07, y - 0.1, -0.55], [x + 0.07, y + 0.04, 0.55], "log_z", { k: 0 }); }
   for (const s of [-1, 1]) {
     A.box([x0, -D - 0.2, s * (TR.HW + TR.RV / 2) - TR.RV / 2], [x1, 0.2, s * (TR.HW + TR.RV / 2) + TR.RV / 2], "wattle");
-    A.box([x0, -D - 0.25, s > 0 ? TR.HW + TR.RV : -TR.HW - TR.RV - TR.FILL], [x1 + 0.3, 0.2, s > 0 ? TR.HW + TR.RV + TR.FILL : -TR.HW - TR.RV], "spoil");
+    A.box([x0, -D - 0.25, s > 0 ? TR.HW + TR.RV : -TR.HW - TR.RV - 1.6], [x1 + 0.3, 0.2, s > 0 ? TR.HW + TR.RV + 1.6 : -TR.HW - TR.RV], "spoil");   // spoil heaps over the cut's side transition
   }
-  A.box([x0 - 0.6, -D - 0.25, -1.3], [x0, 0.0, 1.3], "spoil", { k: 0 });
+  A.box([x0 - CUT_APRON, -0.25, -2.3], [x0, 0.03, 2.3], "spoil");   // trampled apron at grade over the cut's open end
   setNav(A, { effect: "area", area: "trench", areas: [{ outline: band([[x0, 0], [3, 0]], TR.HW), area: "trench" }], firingPoints: [], cover: [cover([1.6, -D, 0], 0, "high", ["over"])] },
-    [{ outline: band([[x0 - 0.1, 0], [3.8, 0]], TR.HW + TR.RV + TR.FILL + 0.1), depth: D + 0.25, bank: 0.2 }]);
+    [{ outline: band([[x0 + CUT_SETBACK, 0], [3.8, 0]], TR.HW + TR.RV + TR.FILL + 0.1), depth: D + 0.25, bank: 0.2 }]);
   setTour(A, { pos: [-5.0, 0, 0], yaw: 270 }, [
     { goto: [-3.6, 0], note: "top of the ramp" }, { goto: [0.6, 0], expectY: -D, note: "down the ramp" }, { goto: [2.6, -0.1], expectY: -D },
     { look: [-3, 0.5, 0], hold: 0.5 }, { shot: "mpu_trench_entry" }, { goto: [0.6, 0] }, { goto: [-3.8, 0], expectY: 0, note: "back up the ramp" },
@@ -588,8 +599,9 @@ export function dugoutPersonnel() {
   for (let k = 0; k < 9; k++) { const zz = rs - 0.25 - k * 0.5, yy = GF * (zz - ramp1) / (rs - ramp1); A.box([-0.45, yy - 0.12, zz - 0.07], [0.45, yy + 0.04, zz + 0.07], "log_x", { k: 0 }); }
   for (const s of [-1, 1]) {
     A.box([s > 0 ? 0.5 : -0.6, GF - 0.2, ramp1], [s > 0 ? 0.6 : -0.5, 0.2, -Z], "wattle");
-    A.box([s > 0 ? 0.6 : -1.2, GF - 0.2, ramp1], [s > 0 ? 1.2 : -0.6, 0.2, -Z], "spoil");
+    A.box([s > 0 ? 0.6 : -2.95, GF - 0.2, ramp1], [s > 0 ? 2.95 : -0.6, 0.2, -Z], "spoil");   // spoil heaps over the cut's step
   }
+  A.box([-2.95, -0.25, ramp1 - CUT_APRON], [2.95, 0.03, ramp1], "spoil");   // trampled apron at grade over the open end
   bunkZ(A, "Bunks", 1.2, 1.95, -1.45, 0.6, GF, 2);
   bunkZ(A, "Bunks", -1.95, -1.2, -0.4, 1.45, GF, 2);
   stove(A, "Trench stove", 1.55, 1.15, GF, CEIL + 1.2);
@@ -601,7 +613,7 @@ export function dugoutPersonnel() {
     entrances: [{ p: [0, 0, ramp1 - 0.3], dir: [0, 0, 1], room: "chamber" }], corners: corners("chamber", -XI, XI, -ZI, ZI, GF, 0.5),
     firingPoints: [], cover: [cover([0, GF * (-4.4 - ramp1) / (rs - ramp1), -4.4], 90, "low", ["over"]), cover([0, GF * (-4.4 - ramp1) / (rs - ramp1), -4.4], 270, "low", ["over"])],
     areas: [{ outline: rect(-0.5, ramp1, 0.5, -Z), area: "trench" }] },
-    [{ outline: rect(-X + 0.1, -Z + 0.1, X - 0.1, Z - 0.1), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.25, ramp1 - 0.1, 1.25, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
+    [{ outline: rect(-X + CUT_PAD, -Z + CUT_PAD, X - CUT_PAD, Z - CUT_PAD), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.25, ramp1 + CUT_SETBACK, 1.25, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
   setTour(A, { pos: [0, 0, ramp1 - 2.0], yaw: 180 }, [
     { goto: [0, ramp1 - 0.2] }, { goto: [0, -Z - 0.6], note: "down the stepped entrance" },
     { interact: "dugout_door", aim: [0.2, GF + 1.1, -ZI - 0.05], expectOpen: true },
@@ -638,13 +650,16 @@ export function dugoutLog() {
   A.obox([RX + 1.2, GF / 2 - 0.12, zc], [L + 0.1, 0.24, 1.0], [0, 0, ang], "mud", { v: 0 });
   A.obox([RX + 1.2, GF / 2 - 0.2, zc], [L + 0.1, 0.2, 1.0], [0, 0, ang], "mud", { k: 0 });
   for (const s of [-1, 1]) A.box([X, GF - 0.2, zc + s * 0.55 - 0.05], [RX + 2.4, 0.15, zc + s * 0.55 + 0.05], "wattle");
+  // spoil heaps beside the ramp along the east wall and an apron at grade over the open end: they cover the cut's step
+  A.box([X, GF - 0.2, zc + 0.6], [RX + 2.4, 0.15, Z + CUT_RING], "spoil"); A.box([X, GF - 0.2, -Z - CUT_RING], [RX + 2.4, 0.15, zc - 0.6], "spoil");
+  A.box([RX + 2.4, -0.25, zc - 1.6], [RX + 2.4 + CUT_APRON, 0.03, zc + 1.6], "spoil");
   A.beginFurniture("Bench"); A.box([-XI, GF + 0.42, -0.4], [-1.25, GF + 0.47, 1.0], "plank_z"); for (const z of [-0.3, 0.9]) A.box([-1.6, GF, z - 0.04], [-1.3, GF + 0.42, z + 0.04], "plank_y"); A.endFurniture();
   smallArmsCache(A, "Small-arms ammunition", -0.6, GF, -0.95, 0, { boxes: 3, bandoliers: 2 });
   setNav(A, { effect: "block", rooms: [room("chamber", [-XI, GF, -ZI], [XI, CEIL, ZI])], doors: [{ a: "chamber", b: "outside", p: [X - 0.2, GF, zc] }],
     entrances: [{ p: [X + 3.3, 0, zc], dir: [-1, 0, 0], room: "chamber" }], corners: corners("chamber", -XI, XI, -ZI, ZI, GF, 0.4),
     firingPoints: [fire([0, GF, ZI - 0.35], 0, "embrasure")], cover: [cover([0, 0, -Z - 1.8], 0, "low", ["left", "right"]), cover([-X - 1.4, 0, 0], 90, "low", ["left", "right"])],
     areas: [{ outline: rect(X, zc - 0.5, X + 3.0, zc + 0.5), area: "trench" }] },
-    [{ outline: rect(-X + 0.1, -Z + 0.1, X - 0.1, Z - 0.1), depth: -GF + 0.35, bank: 0.15 }, { outline: rect(X - 0.6, zc - 0.65, X + 3.1, zc + 0.65), depth: -GF + 0.3, bank: 0.2 }]);
+    [{ outline: rect(-X + CUT_PAD, -Z + CUT_PAD, X - CUT_PAD, Z - CUT_PAD), depth: -GF + 0.35, bank: 0.15 }, { outline: rect(X - 0.6, zc - 0.65, RX + 2.4 - CUT_SETBACK, zc + 0.65), depth: -GF + 0.3, bank: 0.2 }]);
   setTour(A, { pos: [X + 4.8, 0, zc], yaw: 90 }, [
     { goto: [X + 3.2, zc] }, { goto: [X - 0.4, zc], expectY: GF, note: "down the side ramp" }, { goto: [0, 0.6], expectY: GF, note: "at the slit" },
     { look: [0, GF + SLIT.eye, 10], hold: 0.6 }, { shot: "mpu_dugout_log_slit" }, { goto: [X - 0.4, zc] }, { goto: [X + 3.5, zc], expectY: 0, note: "back out" },
@@ -663,10 +678,11 @@ export function foxhole() {
   A.prism(0, -X - 0.6, X + 0.6, [[Z + 0.15, -0.2], [Z + 0.15, 0.3], [Z + 1.6, -0.2]], "spoil");
   for (const s of [-1, 1]) A.prism(2, -Z - 0.2, Z + 1.2, [[s * (X + 0.15), -0.2], [s * (X + 0.15), 0.2], [s * (X + 1.1), -0.2]], "spoil");
   for (const [x, z, r] of [[-1.45, 0.1, 85], [1.45, -0.1, 95], [1.45, 0.5, 80]]) A.obox([x, 0.3, z], [0.58, 0.18, 0.32], [0, r, 0], "sacking");   // flank sandbags
+  A.box([-X - 1.0, -0.25, -Z - 1.05], [X + 1.0, 0.03, -Z - 0.15], "spoil");   // trampled rear lip at grade over the cut's step
   smallArmsCache(A, "Small-arms ammunition", -0.62, -D, 0.0, 90, { boxes: 1, crate: false, bandoliers: 2 });
   setNav(A, { effect: "area", area: "trench", areas: [{ outline: rect(-X, -Z, X, Z), area: "trench" }],
     firingPoints: [fire([0.2, -D, 0.1], 0, "firestep"), fire([0.6, -D, 0.1], 0, "firestep")], cover: [cover([0.3, -D, 0], 0, "high", ["over"])] },
-    [{ outline: rect(-X - 0.2, -Z - 0.2, X + 0.2, Z + 0.2), depth: D + 0.25, bank: 0.15 }]);
+    [{ outline: rect(-X, -Z, X, Z), depth: D + 0.25, bank: 0.15 }]);
   setTour(A, { pos: [0.3, 0, -2.4], yaw: 180 }, [
     { goto: [0.3, -0.9], note: "to the rear lip" }, { goto: [0.35, 0.05] }, { wait: 1.0 }, { goto: [0.35, 0.05], expectY: -D, note: "dropped into the foxhole" },
     { look: [0.3, -D + SLIT.eye, 8], hold: 0.6 }, { shot: "mpu_foxhole_view" },

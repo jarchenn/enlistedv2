@@ -217,12 +217,12 @@ export function atDitch() {
     const zc = s * (ZB + run / 2 + 0.2), h = D + 0.3;
     A.obox([0, -D / 2 - 0.1, zc], [2 * X, h / Math.cos((ang * Math.PI) / 180), 0.4], [s * ang, 0, 0], "spoil");
     for (let y = -D + 0.25; y < -0.1; y += 0.42) { const z = s * (ZB + (y + D) * Math.tan((ang * Math.PI) / 180) + 0.02); A.obox([0, y, z], [2 * X, 0.32, 0.32], [s * ang, 0, 0], "log_raw", { k: 0 }); }
-    A.box([-X, -D - 0.3, s > 0 ? ZT + 0.05 : -ZT - 0.7], [X, 0.0, s > 0 ? ZT + 0.7 : -ZT - 0.05], "spoil");
+    A.box([-X, -D - 0.3, s > 0 ? ZT + 0.05 : -ZT - 1.25], [X, 0.02, s > 0 ? ZT + 1.25 : -ZT - 0.05], "spoil");   // earth out past the cut's step (terrain grid)
   }
   A.prism(0, -X, X, [[-ZT - 0.6, -0.2], [-ZT - 1.8, 1.0], [-ZT - 4.2, -0.2]], "spoil");   // defender's spoil bank
   setNav(A, { effect: "carve", cover: [-4, 0, 4].map((x) => cover([x, 0, -ZT - 4.6], 0, "low", ["over"])),
     areas: [{ outline: rect(-X, -ZB, X, ZB), area: "water" }] },
-    [{ outline: rect(-X - 0.8, -ZT - 0.75, X + 0.8, ZT + 0.75), depth: D + 0.3, bank: 0.3 }]);
+    [{ outline: rect(-X - 0.8, -ZT - 0.15, X + 0.8, ZT + 0.15), depth: D + 0.3, bank: 0.3 }]);
   setTour(A, { pos: [1.0, 0, -9.5], yaw: 180 }, [
     { goto: [1.0, -ZT - 0.9], note: "edge of the ditch" }, { look: [1.0, -D, 1.0], hold: 0.5 }, { shot: "mpu_at_ditch" },
   ], { cut: true, climb: [
