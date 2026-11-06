@@ -2,7 +2,7 @@
 read directly - no FMOD runtime, no third-party decoder.
 
   python tools/fsb5.py list <bank> [prefix]            index, name, rate, channels, frames, duration, peak, rms, onset
-  python tools/fsb5.py extract <manifest.json> <banks dir> <out dir>
+  python tools/fsb5.py extract <manifest.json> <banks dir>[;<dir2>] <out dir>
         writes every manifest sample as 16-bit WAV (native rate and channels) and records its SHA-256 of the PCM
         in <out dir>/extracted.json; the runtime loads those WAVs by manifest event (src/audio.cpp)
 
@@ -46,6 +46,14 @@ def read_bank(path):
     return b, samples
 
 
+def find_bank(dirs, name):
+    """<name>.assets.bank in one of the ';'-separated dirs (the V9 pack ships its banks split across two archives)"""
+    for d in dirs.split(';'):
+        p = os.path.join(d, name + '.assets.bank')
+        if os.path.isfile(p): return p
+    raise SystemExit('bank %s not found in %s' % (name, dirs))
+
+
 def stats(b, s):
     a, e = s['bytes']; n = (e - a) // 2
     v = struct.unpack_from('<%dh' % n, b, a)
@@ -85,7 +93,7 @@ if __name__ == '__main__':
         for ev, spec in man['events'].items():
             for v in spec['variants']:
                 bank = v['bank']
-                if bank not in cache: cache[bank] = read_bank(os.path.join(bdir, bank + '.assets.bank'))
+                if bank not in cache: cache[bank] = read_bank(find_bank(bdir, bank))
                 b, ss = cache[bank]; s = ss[v['index']]
                 if s['name'] != v['name']: raise SystemExit('%s: index %d is %s, manifest says %s' % (ev, v['index'], s['name'], v['name']))
                 fn = wav_name(bank, v['index'])

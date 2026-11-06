@@ -9,6 +9,23 @@
 static uint64_t coreUD(uint64_t id) { return id << 16; }
 // belt-fed machine-gun stations (M2HB tripod, MG 42 embrasure mount): continuous fire, belt reloads, no handler role
 static bool mgKind(const std::string& k) { return k == "m2hb" || k == "mg42"; }
+// MG 42 mount with the supplied GLB in its cradle (app.cpp draws it at elevM * translate(-bore)): the gunner aims as
+// with the handheld MG 42 - the eye on the gun's own sight line (rear V-notch -> front post) behind the notch. The
+// handheld draws the gun at its weapon FOV under its ADS world FOV; here the gun is part of the world, so the eye
+// sits back by the focal-length ratio and the notch is drawn at the handheld's size (docs/bunkers.md).
+// Out, relative to elevPivot in the elevation frame: eye, front post; and the world FOV. False without the GLB.
+static bool mg42MountSight(const App& a, vec3& eye, vec3& front, float& fov) {
+  int g = a.weaponIndex("mg42");
+  if (g < 0 || !a.weaponDefs[g]->useModel()) return false;
+  const WeaponDef& w = *a.weaponDefs[g];
+  vec3 bore = w.muzzle; bore.z = 0.45f;   // as drawn (app.cpp)
+  fov = w.adsWorldFov;
+  float vmF = w.adsVmFov > 0 ? w.adsVmFov : a.vm.vmFov;
+  float relief = w.eyeRelief * std::tan(radians(vmF) * 0.5f) / std::tan(radians(fov) * 0.5f);
+  eye = w.rear - glm::normalize(w.front - w.rear) * relief - bore;
+  front = w.front - bore;
+  return true;
+}
 // standing height at a crew position: the floor under it when one is there (a bunker floor, docs/bunkers.md), else
 // the terrain
 static float crewFloor(float terrainY, vec3 a) {
@@ -55,9 +72,10 @@ bool App::stationCamera(vec3& eye, vec3& fwd, float& fov) const {
   if (r.st.pos2 != ST_GUNNER) return false;   // handler / transitions use the normal eye camera
   mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
   const StationDef& s = r.asset->station;
-  eye = vec3(e * vec4(s.optic - s.elevPivot, 1));
+  vec3 se = s.optic - s.elevPivot, sf; fov = s.sightFov;   // PaK 40 ZF 3x8: 8 deg real field fills the eyepiece circle (9); others from the asset
+  if (s.kind == "mg42") mg42MountSight(*this, se, sf, fov);   // the handheld MG 42's ADS eye and FOV
+  eye = vec3(e * vec4(se, 1));
   fwd = glm::normalize(vec3(e * vec4(0, 0, 1, 0)));
-  fov = s.sightFov;   // PaK 40 ZF 3x8: 8 deg real field fills the eyepiece circle (9); others from the asset
   return true;
 }
 
@@ -315,7 +333,8 @@ void App::stepStation(float dt, const ExploreInput& in) {
     int full = mg ? std::max(1, d.loaded) : 1;   // one belt: M2HB 110, MG 42 50
     if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(d.label + ": next round " + (s->selAT ? d.atName : d.heName) + " - takes effect at the next reload", 3); }
     int pool = (!mg && s->selAT) ? s->reserveAT : s->reserve;
-    if (in.reload && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(mg ? "belt" : "breech", vec3(M[3])); }
+    const char* loadSnd = mg42 && audio.hasEvent("reload_mg42") ? "reload_mg42" : mg ? "belt" : "breech";   // the handheld MG 42's belt foley
+    if (in.reload && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(loadSnd, vec3(M[3])); }
     if (s->reload > 0) {
       s->reload -= dt;
       if (s->reload <= 0) {   // moves rounds; never creates them. A partial .50 belt goes back to the emplacement stock.
@@ -323,7 +342,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
         if (mg) { s->reserve += s->loaded; s->loaded = std::min(full, s->reserve); s->reserve -= s->loaded; }
         else if (s->selAT && s->reserveAT > 0) { s->loaded = 1; s->reserveAT -= 1; s->loadedAT = true; }
         else { s->loaded = 1; s->reserve -= 1; s->loadedAT = false; }
-        audio.play(mg ? "belt" : "breech", vec3(M[3]));
+        audio.play(loadSnd, vec3(M[3]));
       }
     }
     s->cool = std::max(0.0f, s->cool - dt);
@@ -334,13 +353,21 @@ void App::stepStation(float dt, const ExploreInput& in) {
         if (s->loaded > 0) {
           vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
           mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
-          fireProjectile(vec3(e * vec4(0, 0, 0, 1)), dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), (s->shots % 5) == 0, d.ammo);
-          s->loaded -= 1; s->shots++; s->cool = 60.0f / (mg42 ? 1200.0f : 500.0f); s->recoilT = 0;
+          vec3 start = vec3(e * vec4(0, 0, 0, 1)), se, sf; float sfov;
+          if (mg42 && mg42MountSight(*this, se, sf, sfov)) {   // the handheld's aimed fire: from the front post along the sight line, zeroed
+            const WeaponDef& w = *weaponDefs[weaponIndex("mg42")];
+            vec3 E = vec3(e * vec4(se, 1)), F = vec3(e * vec4(sf, 1)); Physics::Hit hf;
+            start = Physics::castRayEx(E, F - E, glm::length(F - E), hf, coreUD(inst->id)) ? E + glm::normalize(F - E) * std::max(0.0f, hf.t - 0.01f) : F;
+            float tz = w.zero / w.velocity; dir = glm::normalize(glm::normalize(F - E) + vec3(0, 0.5f * 9.81f * tz * tz / w.zero, 0));
+          }
+          fireProjectile(start, dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), (s->shots % 5) == 0, d.ammo);
+          s->loaded -= 1; s->shots++; s->burst++; s->cool = 60.0f / (mg42 ? 1200.0f : 500.0f); s->recoilT = 0;
           fx.flash(muzzle + dir * 0.08f, mg42 ? 0.18f : 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));
           audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
           viewKickPitch = 0.35f;   // felt through the mount, not the shoulder
         } else if (s->armed) { audio.play("click", vec3(M[3]), 0.6f); s->armed = false; }
       }
+      if (!fireHeld) { vec3 td; if (s->burst > 1 && mg42) audio.play("tail_mg42", stationMuzzle(*inst, r, td), 0.9f); s->burst = 0; }   // recorded tail once per release, as handheld
       viewKickPitch *= 0.85f;
     }
     if (!mg && fireHeld && s->armed && s->deployed && s->trans <= 0) {
@@ -440,7 +467,9 @@ void App::drawCombatUI() {
   if (!s) return;
   auto& r = rt[occupied];
   const StationDef& d = r.asset->station;
-  if (s->pos2 == ST_GUNNER && mgKind(d.kind)) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
+  vec3 ie, ifr; float ifov;
+  bool irons = d.kind == "mg42" && mg42MountSight(*this, ie, ifr, ifov);   // aimed over the gun's own sights, as handheld: no dot
+  if (s->pos2 == ST_GUNNER && mgKind(d.kind) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
   if (s->pos2 == ST_GUNNER && !mgKind(d.kind)) {
     // eyepiece: dark surround, ZF 3x8 style reticle (central chevron, flanking chevrons, stadia)
     float R = io.DisplaySize.y * 0.44f;
@@ -473,7 +502,7 @@ void App::drawCombatUI() {
   char b[256];
   const char* posName[] = {"", "GUNNER (Aim)", "PREPARING TO MOVE", "HANDLER (Move)", "DEPLOYING"};
   std::string cal = d.kind == "flak18" ? "8.8 cm" : "7.5 cm";
-  std::string ammoName = d.kind != "m2hb" ? (s->loadedAT && s->loaded ? cal + " AT loaded" : cal + " HE") + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
+  std::string ammoName = d.kind == "mg42" ? "7.92 mm belt" : d.kind != "m2hb" ?(s->loadedAT && s->loaded ? cal + " AT loaded" : cal + " HE") + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
   std::string state = s->reload > 0 ? "RELOADING " + std::to_string(s->reload).substr(0, 3) + " s" : s->loaded > 0 ? "READY" : "EMPTY - R to reload";
   std::snprintf(b, sizeof b, "%s | %s: %d loaded, %d reserve (max %d) | %s\nT switch position   E leave gun   %s", posName[s->pos2], ammoName.c_str(), s->loaded, s->reserve, s->reserveMax,
                 s->pos2 == ST_GUNNER ? state.c_str() : (s->deployed ? "deployed" : "not deployed - no firing"), s->status.c_str());

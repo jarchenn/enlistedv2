@@ -351,6 +351,112 @@ void SelfTest::updateSuite(App& app, float dt) {
         a.leaveStation();
         return true; });
     }
+    // ---------------------------------------------------------------- MG 42 mount = the handheld MG 42, fixed, 200 rounds
+    // The mount's sight picture is the handheld's at full ADS: the eye on the GLB's own sight line (as drawn in the
+    // cradle) at the notch-to-eye distance that draws the notch at the handheld's size, the same world FOV, aimed fire
+    // from the front post along the sight line with the handheld's zero; reload and tail foley are the handheld's.
+    push("MG 42 mount: handheld sight picture, eye, zero and a 200-round belt", [this](App& a, float t) {
+      static uint64_t gid; static int ph, b0, tails0; static float sScale, sFov; static vec3 sEye, sEyeW, sFwd;
+      int wi = a.weaponIndex("mg42");
+      if (t == 0) {
+        gid = 0; ph = 0;
+        for (auto& i : a.doc.instances) if (i.assetId == "gun_mg42_embrasure") gid = i.id;
+        if (!gid || wi < 0) { check(false, "MG 42 mount and the MG 42 are present"); return true; }
+        a.resetStation(*a.doc.find(gid));
+        StationRT* s = a.station(gid);
+        check(a.rt[gid].asset->station.loaded == 200 && s->loaded == 200 && s->reserve == 250,
+              "MG 42 mount holds a 200-round belt (handheld 50): " + std::to_string(s->loaded) + " on the gun, " + std::to_string(s->reserve) + " in reserve");
+        a.scriptedInput = ExploreInput{};
+        check(!a.occupyStation(gid, ST_HANDLER) && a.occupied == 0, "MG 42 mount: Move is refused - it is not moved");
+        check(a.occupyStation(gid, ST_GUNNER), "MG 42 mount: the gunner takes the grips");
+        return false;
+      }
+      const WeaponDef& w = *a.weaponDefs[wi];
+      StationRT* s = a.station(gid);
+      if (!w.useModel()) { check(true, "MG 42 GLB not loaded: sight-picture checks skipped"); a.leaveStation(); return true; }
+      if (t < 0.6f) return false;
+      if (ph == 0) {   // the mount's view against the GLB as it is drawn
+        vec3 e, f; float fov; bool cam = a.stationCamera(e, f, fov);
+        std::vector<DrawItem> op, gl; a.buildDrawLists(op, gl);
+        mat4 G(0); for (auto& m : a.R.worldModels) if (m.model == w.model.get()) { G = m.m; break; }
+        vec3 ge = vec3(glm::inverse(G) * vec4(e, 1));   // the eye in the gun's own space
+        vec3 Rw = vec3(G * vec4(w.rear, 1)), Fw = vec3(G * vec4(w.front, 1));
+        int W = std::max(1, a.R.width), H = std::max(1, a.R.height);
+        mat4 vp = glm::perspective(radians(fov), (float)W / H, 0.03f, 4000.0f) * glm::lookAt(e, e + f, vec3(0, 1, 0));
+        auto off = [&](vec3 p) { vec4 c = vp * vec4(p, 1); return glm::length(vec2(c.x / c.w * 0.5f * W, c.y / c.w * 0.5f * H)); };
+        float dR = off(Rw), dF = off(Fw);
+        sEye = ge; sFov = fov; sEyeW = e; sFwd = f; sScale = H * 0.5f / std::tan(radians(fov) * 0.5f) / glm::length(Rw - e);
+        char b[300]; std::snprintf(b, sizeof b, "MG 42 mount view: eye on the GLB sight line (%.1f / %.1f mm off the notch line), %.1f mm above the bore; notch %.2f px and front post %.2f px off the centre; world FOV %.0f (handheld ADS %.0f)",
+                                   (ge.x - w.rear.x) * 1000, (ge.y - w.rear.y) * 1000, (ge.y - w.muzzle.y) * 1000, dR, dF, fov, w.adsWorldFov);
+        check(cam && G != mat4(0) && std::fabs(ge.x - w.rear.x) < 1e-3f && std::fabs(ge.y - w.rear.y) < 1e-3f && dR < 0.5f && dF < 0.5f && fov == w.adsWorldFov, b);
+        s->semi = false; b0 = a.shotsFired; tails0 = a.audio.eventPlays["tail_mg42"];
+        shotQueue.push_back("update_mg42_mount_sight");
+        ph = 1; return false;
+      }
+      if (ph == 1) {   // a short burst: aimed fire leaves the front post along the sight line, tilted by the handheld zero
+        a.scriptedInput.fire = t > 0.75f && t < 1.05f;   // after the screenshot frame
+        if (t >= 1.05f) {   // trigger released: the burst is over
+          if (b0 >= 0) { check(false, "MG 42 mount: no round fired"); a.scriptedInput = ExploreInput{}; a.leaveStation(); return true; }
+          ph = 2; return false;
+        }
+        if (b0 >= 0 && a.shotsFired > b0 && !a.projectiles.empty()) {   // the newest round, at most one step after launch
+          vec3 e, f; float fov; a.stationCamera(e, f, fov);
+          const Projectile& p = a.projectiles.back();
+          vec3 v = glm::normalize(p.v), rel = p.p - e;
+          float tz = w.zero / w.velocity, want = std::atan(0.5f * 9.81f * tz * tz / w.zero);
+          float ang = std::acos(std::clamp(glm::dot(v, f), -1.0f, 1.0f)), up = v.y - f.y;
+          float lineOff = glm::length(rel - v * glm::dot(rel, v));   // launched on the eye's line (from the front post)
+          char b[260]; std::snprintf(b, sizeof b, "MG 42 mount round: launched %.1f mm off the sight line, %.3f deg above it (handheld zero at %.0f m: %.3f deg)", lineOff * 1000, degrees(ang), w.zero, degrees(want));
+          check(lineOff < 0.01f && glm::length(rel) < 30 && std::fabs(ang - want) < radians(0.03f) && up > 0, b);
+          b0 = -1;   // measured
+        }
+        return false;
+      }
+      if (ph == 2) {
+        a.scriptedInput.fire = false;
+        if (t < 1.4f) return false;
+        int tails = a.audio.eventPlays["tail_mg42"] - tails0;
+        check(a.audio.eventsLoaded == 0 || tails == 1, "MG 42 mount: the handheld's recorded tail once on release (" + std::to_string(tails) + ")");
+        b0 = s->loaded + s->reserve;
+        a.scriptedInput.reload = true; ph = 3; return false;
+      }
+      if (ph == 3) {
+        a.scriptedInput.reload = false;
+        check(a.audio.eventsLoaded == 0 || a.audio.lastEvent == "reload_mg42", "MG 42 mount reload plays the handheld's belt foley (" + a.audio.lastEvent + ")");
+        ph = 4; return false;
+      }
+      if (ph == 4) {
+        if (s->reload > 0) return false;
+        check(s->loaded == 200 && s->loaded + s->reserve == b0, "MG 42 mount reload: a full 200-round belt (" + std::to_string(s->loaded) + " on the gun, " + std::to_string(s->reserve) + " in reserve, no rounds created)");
+        a.leaveStation(); a.scriptedInput = ExploreInput{};
+        a.selectWeapon(wi); a.wstate["mg42"].loaded = 50; a.wstate["mg42"].kick = 0;
+        a.vm.procedural = false; a.vm.snap = true; a.viewKickPitch = a.viewKickYaw = 0;
+        {   // outside the casemate, looking the same way as the mount (for the comparison screenshots)
+          vec3 h = glm::normalize(vec3(sFwd.x, 0, sFwd.z)); putFeet(a, sEyeW + h * 4.5f);
+          float best = -2; for (int y = 0; y < 360; ++y) { float q = glm::dot(App::forward((float)y, 0), h); if (q > best) { best = q; a.eyeYaw = (float)y; } }
+          a.eyePitch = degrees(std::asin(std::clamp(sFwd.y, -1.0f, 1.0f)));
+        }
+        ph = 5; return false;
+      }
+      a.scriptedInput.aim = true; a.adsT = 1;   // the handheld at full ADS, procedural motion off
+      if (ph == 5) { ph = 6; b0 = 0; return false; }
+      if (++b0 < 20) return false;
+      if (b0 == 20) { shotQueue.push_back("update_mg42_handheld_sight"); return false; }
+      if (b0 < 24) return false;
+      const WeaponState& ws = a.wstate["mg42"];
+      vec3 e = a.eyePos();
+      a.vm.snap = true;   // the exact ADS pose (no spring lag)
+      mat4 M = a.viewModelMatrix(w, ws);
+      vec3 he = vec3(glm::inverse(M) * vec4(e, 1));
+      float hfov = 72; a.weaponCamera(hfov);
+      float hScale = a.R.height * 0.5f / std::tan(radians(a.vmFovNow()) * 0.5f) / glm::length(vec3(M * vec4(w.rear, 1)) - e);
+      char b[320]; std::snprintf(b, sizeof b, "MG 42 mount vs handheld ADS: eye %.1f mm higher / %.1f mm sideways relative to the gun, %.1f cm further back (FOV compensation); notch drawn at %.3f x the handheld size; world FOV %.0f vs %.0f",
+                                 (sEye.y - he.y) * 1000, (sEye.x - he.x) * 1000, (he.z - sEye.z) * 100, sScale / hScale, sFov, hfov);
+      check(std::fabs(sEye.y - he.y) < 2e-3f && std::fabs(sEye.x - he.x) < 2e-3f && std::fabs(he.z - sEye.z) < 0.02f && std::fabs(sScale / hScale - 1) < 0.01f && sFov == hfov, b);
+      summary["mg42_mount_eye_above_bore_mm"] = (sEye.y - w.muzzle.y) * 1000;
+      summary["mg42_mount_notch_scale_vs_handheld"] = sScale / hScale;
+      a.scriptedInput = ExploreInput{}; a.adsT = 0; a.vm.procedural = true; a.vm.snap = true;
+      return true; });
     push("camouflage nets are visual only", [this](App& a, float) {
       int nets = 0, solid = 0;
       for (uint64_t id : {U_MG, U_CMD, U_LG, U_PAK})

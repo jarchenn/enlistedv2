@@ -88,7 +88,10 @@ void App::stepGrenades(float dt) {
     g.done = true;   // exactly one detonation, whatever happens later this frame
     const WeaponDef& d = *weaponDefs[g.def];
     Physics::remove(g.body); g.body = 0xffffffffu;
-    if (mpaiGrenadeDetonate(*this, g.def, g.pos, g.owner, 0)) { ++grenadesExploded; lastGrenadeBlast = g.pos; continue; }   // smoke: a cloud, no blast
+    if (mpaiGrenadeDetonate(*this, g.def, g.pos, g.owner, 0)) {   // smoke: a cloud, no blast - the bank's smoke-grenade pop
+      if (d.grenade.smoke && audio.hasEvent("smoke_pop")) audio.play("smoke_pop", g.pos, d.grenade.volume);
+      ++grenadesExploded; lastGrenadeBlast = g.pos; continue;
+    }
     explode(g.pos + vec3(0, 0.05f, 0), vec3(0, -1, 0), d.grenade.damage, d.grenade.radius, d.grenade.crater, ~0ull, WALL_GRENADE);
     mpaiGrenadeDetonate(*this, g.def, g.pos, g.owner, 1);   // soldiers: fragmentation damage with occlusion, attributed to the thrower
     fx.explosion(g.pos, vec3(0, 1, 0), "grenade", true);

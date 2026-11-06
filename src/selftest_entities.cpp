@@ -589,11 +589,11 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
       }
       for (const char* s : {"shot_m2hb", "pak_fire", "flak_fire", "explosion", "explosion_grenade", "explosion_rocket", "explosion_big", "impact_concrete", "impact_dirt", "impact_wood", "impact_metal", "knife_wood"})
         if (!a.audio.hasEvent(s)) missing += std::string(" ") + s;
-      // distinct guns never share one recording (M1 / M1C Garand share by design: same rifle)
+      // distinct guns never share one recording (by design: M1 / M1C Garand - same rifle; Tiger KwK 36 - the Flak 36 family)
       json m; try { m = json::parse(readTextFile(contentDir() / "audio" / "manifest.json")); } catch (...) {}
       std::map<std::string, std::string> owner;
       for (auto& [ev, e] : m["events"].items()) {
-        if (e.value("kind", "") != "shot" || ev == "shot_m1c_garand") continue;
+        if (e.value("kind", "") != "shot" || ev == "shot_m1c_garand" || ev == "tank_88") continue;
         for (auto& v : e["variants"]) { std::string key = v.value("bank", "") + "#" + std::to_string(v.value("index", 0)); if (owner.count(key) && owner[key] != ev) ++shared; owner[key] = ev; }
       }
       char b[300]; std::snprintf(b, sizeof b, "%d events / %d samples from the banks; every firearm, launcher and gun station has its own firing event (missing:%s); %d recordings shared between distinct guns",
@@ -640,6 +640,72 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
       check(far == "flak_fire_far" && near == "flak_fire" && gr == "explosion_grenade" && fb == "explosion",
             "Flak at 200 m uses its far layer (" + far + "), at 10 m the near one (" + near + "); grenade blast " + gr + "; an unknown variant falls back to " + fb);
       return true; });
+    // ---- V9 pack pass: every sound slot the game plays for the arsenal resolves to bank samples, except the slots
+    // the banks have no recording for (docs/audio.md "Gaps"), which keep their procedural sound on purpose
+    push("audio: every arsenal weapon's sound slots map to the pack", [this](App& a, float) {
+      if (a.audio.eventsLoaded == 0) { check(true, "audio: no extracted samples - slot mapping skipped"); return true; }
+      std::string miss; int slots = 0;
+      auto need = [&](const std::string& e) { ++slots; if (!a.audio.hasEvent(e)) miss += " " + e; };
+      for (auto& dp : a.weaponDefs) {
+        const WeaponDef& d = *dp;
+        if (d.equipment()) continue;
+        std::string id = d.action == "heavy" ? "m2hb" : d.id;   // the carried M2HB plays the tripod gun's events
+        need("shot_" + id); need("shot_" + id + "_far");
+        if (d.action == "auto") need("tail_" + d.id);
+        if (d.feed == "magazine" || d.feed == "enbloc" || d.feed == "stripper" || (d.feed == "belt" && d.action != "heavy")) need("reload_" + d.id);
+        if (d.feed == "belt" && d.action == "heavy") need("belt");
+        if (d.feed == "enbloc" || d.feed == "stripper") need("clip_" + d.id);
+        if (d.action == "bolt") { need("bolt"); need("bolt_close"); }
+        if (d.action == "bolt" && (d.feed == "single" || d.feed == "stripper")) need("clip_in");
+      }
+      for (const char* e : {"pak_fire", "pak_fire_far", "flak_fire", "flak_fire_far", "tank_17pdr", "tank_17pdr_far", "tank_88", "tank_88_far", "shot_mg34",
+                            "smoke_pop", "explosion_grenade", "step_water", "mag_in", "mag_out"}) need(e);
+      check(miss.empty(), "V9 pack: " + std::to_string(slots) + " sound slots of the arsenal, gun stations and tanks resolve to bank samples (missing:" + (miss.empty() ? std::string(" none") : miss) + ")");
+      // the slots without a recording stay procedural, never silent
+      std::string silent;
+      for (const char* p : {"step_grass", "step_stone", "step_wood", "rocket_in", "rocket_ready", "click", "breech", "ping"}) {
+        a.audio.play(p, a.eyePos(), 0.0f); if (a.audio.lastEvent != p) silent += std::string(" ") + p;
+      }
+      check(silent.empty(), std::string("no recording in the pack: dry-ground footsteps, rocket loading, dry fire, breech and the en-bloc ping keep their procedural sounds (unresolved:") + (silent.empty() ? " none" : silent.c_str()) + ")");
+      return true; });
+    push("audio: bolt cycle, smoke pop and wading steps", [this](App& a, float t) {
+      static int ph, bolt0, close0, smoke0, wade0, grass0; static float water0;
+      if (a.audio.eventsLoaded == 0) return true;
+      auto& in = a.scriptedInput;
+      if (t == 0) {
+        ph = 0; in = ExploreInput{};
+        if (a.mode != Mode::Explore) { a.enterExplore(); a.useScripted = true; }
+        a.selectWeapon(a.weaponIndex("kar98k")); a.wstate["kar98k"].loaded = 5;
+        bolt0 = a.audio.eventPlays["bolt"]; close0 = a.audio.eventPlays["bolt_close"];
+        return false;
+      }
+      if (ph == 0) { if (t < 0.5f) return false; in.fire = true; ph = 1; return false; }
+      if (ph == 1) {
+        in.fire = false;
+        if (t < 2.0f) return false;
+        int b = a.audio.eventPlays["bolt"] - bolt0, c = a.audio.eventPlays["bolt_close"] - close0;
+        check(b == 1 && c == 1, "Kar98k shot: the bolt is worked with the bank's foley - open " + std::to_string(b) + ", close " + std::to_string(c));
+        int gi = a.weaponIndex("smoke_grenade"); smoke0 = a.audio.eventPlays["smoke_pop"];
+        check(gi >= 0 && a.spawnGrenade(gi, a.eyePos() + vec3(std::sin(radians(a.eyeYaw)), 0, std::cos(radians(a.eyeYaw))) * -3.0f, vec3(0, 1, 0), -1), "smoke grenade released");
+        ph = 2; return false;
+      }
+      if (ph == 2) {
+        if (a.audio.eventPlays["smoke_pop"] == smoke0 && t < 12) return false;
+        check(a.audio.eventPlays["smoke_pop"] - smoke0 == 1, "smoke grenade ignites with the bank's smoke pop (" + std::to_string(a.audio.eventPlays["smoke_pop"] - smoke0) + ")");
+        water0 = a.terrain.waterLevel; a.terrain.waterLevel = Physics::character().pos.y + 0.6f;   // knee-deep water at the player
+        wade0 = a.audio.eventPlays["step_water"]; grass0 = a.audio.eventPlays["step_grass"];
+        in.move = vec2(0, 1); ph = 3; return false;
+      }
+      if (ph == 3) {
+        static float t3 = 0; if (t3 == 0) t3 = t;
+        if (t - t3 < 2.5f) return false;
+        in = ExploreInput{};
+        int w = a.audio.eventPlays["step_water"] - wade0, g = a.audio.eventPlays["step_grass"] - grass0;
+        a.terrain.waterLevel = water0; t3 = 0;
+        check(w >= 2 && g == 0, "wading: " + std::to_string(w) + " deep-water steps from the pack, " + std::to_string(g) + " dry steps while below the water level");
+        return true;
+      }
+      return false; });
     push("reset 5", [this](App& a, float) { if (a.mode == Mode::Explore) a.exitExplore(); check(a.mode == Mode::Creative, "back to Creative"); return true; });
   }
   stage = 1901;

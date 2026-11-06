@@ -506,7 +506,7 @@ export function largeBunker() {
 export function mg42Mount() {
   const A = new Asset({
     id: "gun_mg42_embrasure", version: 1, name: "MG 42 on embrasure mount", category: "Field guns",
-    description: "MG 42 on a steel pedestal (embrasure) mount, crewed standing from the grips: 55 deg either side, -5/+7 deg (the slit band limits it 0.2 m behind a 1.2 m wall), 50-round belts with 250 in reserve. Placed with the MG casemate behind its slit; stands behind any slit at the shared slit height.",
+    description: "MG 42 on a steel pedestal (embrasure) mount, crewed standing from the grips: 55 deg either side, -5/+7 deg (the slit band limits it 0.2 m behind a 1.2 m wall), a 200-round belt on the gun and 250 rounds in reserve. Aimed exactly like the handheld MG 42 (same sights, eye and zero); it is not moved. Placed with the MG casemate behind its slit; stands behind any slit at the shared slit height.",
     floors: 0, enterable: false, footprint: [0.8, 1.6], plinthDepth: 0, maxGrade: 0.4,
   });
   stdMaterials(A);
@@ -525,9 +525,9 @@ export function mg42Mount() {
   A.box([-0.035, EP[1] - 0.095, -0.14], [0.035, EP[1] - 0.07, 0.16], "steel_bare", E);   // cradle under the receiver
   const rel = (parts, p) => parts.map((q) => ({ ...q, c: [q.c[0] - p[0], q.c[1] - p[1], q.c[2] - p[2]] }));
   A.meta.station = {
-    kind: "mg42", yawPivot: YP, elevPivot: EP, muzzle: [0, EP[1], 0.77], optic: [0, EP[1] + 0.036, -0.2],
+    kind: "mg42", yawPivot: YP, elevPivot: EP, muzzle: [0, EP[1], 0.77], optic: [0, EP[1] + 0.036, -0.2],   // fallback only: with the GLB the eye is the handheld ADS eye (src/station.cpp mg42MountSight)
     gunner: [0, 0, -0.85], handler: [0, 0, -0.85], traverse: [-55, 55], elevation: [-5, 7], traverseRate: 90, elevateRate: 60,
-    recoil: 0.015, reloadTime: 4.6, loaded: 50, reserve: 250, ammo: "792_belt50", moveHalf: [0.3, 0.8, 0.3], serviceRadius: 4,
+    recoil: 0.015, reloadTime: 4.6, loaded: 200, reserve: 250, ammo: "792_belt50", moveHalf: [0.3, 0.8, 0.3], serviceRadius: 4,
     yawParts: rel(Y.into, YP), elevParts: rel(E.into, EP), recoilParts: [],
   };
   return A;

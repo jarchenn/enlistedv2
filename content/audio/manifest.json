@@ -2,6 +2,7 @@
  "note": "Builds content/audio/manifest.json: the selected samples of the supplied FMOD banks per game event (complete",
  "redistribution": "NOT cleared: Enlisted sound-mod banks supplied without reuse permission; samples are git-ignored (content/audio/samples) and extracted locally from the user's banks",
  "banks": [
+  "cmn_ambient",
   "cmn_fx_impact",
   "ww2_weapon_antivehicle",
   "ww2_weapon_cannon",
@@ -2486,6 +2487,2018 @@
      "name": "shutter_out_rifle_bolt_5",
      "dur": 0.529,
      "peak": 1.0
+    }
+   ]
+  },
+  "shot_m1_thompson_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 15,
+     "name": "thompson_e_far_body_1",
+     "dur": 1.75,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 150,
+     "name": "thompson_e_far_body_2",
+     "dur": 1.733,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 177,
+     "name": "thompson_e_far_body_3",
+     "dur": 1.716,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 571,
+     "name": "thompson_e_far_body_4",
+     "dur": 1.699,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1126,
+     "name": "thompson_e_far_body_5",
+     "dur": 1.682,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1205,
+     "name": "thompson_e_far_body_6",
+     "dur": 1.768,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1418,
+     "name": "thompson_e_far_body_7",
+     "dur": 1.786,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 338,
+     "name": "thompson_e_far_body_8",
+     "dur": 1.804,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_m1_thompson_far": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 709,
+     "name": "thompson_e_far_tail_1",
+     "dur": 4.137,
+     "peak": 0.103
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 689,
+     "name": "thompson_e_far_tail_2",
+     "dur": 4.137,
+     "peak": 0.094
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1040,
+     "name": "thompson_e_far_tail_3",
+     "dur": 4.137,
+     "peak": 0.24
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1559,
+     "name": "thompson_e_far_tail_4",
+     "dur": 3.84,
+     "peak": 0.059
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 846,
+     "name": "thompson_e_far_tail_5",
+     "dur": 3.84,
+     "peak": 0.094
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1142,
+     "name": "thompson_e_far_tail_6",
+     "dur": 3.84,
+     "peak": 0.094
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1371,
+     "name": "thompson_e_far_tail_7",
+     "dur": 4.137,
+     "peak": 0.209
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1239,
+     "name": "thompson_e_far_tail_8",
+     "dur": 4.137,
+     "peak": 0.061
+    }
+   ]
+  },
+  "shot_mp40_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1168,
+     "name": "mp40_e_far_body_1",
+     "dur": 1.315,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 174,
+     "name": "mp40_e_far_body_2",
+     "dur": 1.302,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1147,
+     "name": "mp40_e_far_body_3",
+     "dur": 1.289,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 751,
+     "name": "mp40_e_far_body_4",
+     "dur": 1.283,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 421,
+     "name": "mp40_e_far_body_5",
+     "dur": 1.277,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 358,
+     "name": "mp40_e_far_body_6",
+     "dur": 1.328,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 90,
+     "name": "mp40_e_far_body_7",
+     "dur": 1.342,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 450,
+     "name": "mp40_e_far_body_8",
+     "dur": 1.37,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_mp40_far": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 218,
+     "name": "mp40_e_far_tail_1",
+     "dur": 4.63,
+     "peak": 0.138
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 804,
+     "name": "mp40_e_far_tail_2",
+     "dur": 4.63,
+     "peak": 0.286
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1548,
+     "name": "mp40_e_far_tail_3",
+     "dur": 4.63,
+     "peak": 0.166
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1005,
+     "name": "mp40_e_far_tail_4",
+     "dur": 4.63,
+     "peak": 0.126
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 283,
+     "name": "mp40_e_far_tail_5",
+     "dur": 4.63,
+     "peak": 0.313
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 352,
+     "name": "mp40_e_far_tail_6",
+     "dur": 4.63,
+     "peak": 0.29
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 463,
+     "name": "mp40_e_far_tail_7",
+     "dur": 4.63,
+     "peak": 0.222
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 821,
+     "name": "mp40_e_far_tail_8",
+     "dur": 4.632,
+     "peak": 0.448
+    }
+   ]
+  },
+  "tail_mg42_far": {
+   "kind": "tail",
+   "gain": 0.85,
+   "status": "named",
+   "note": "",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 802,
+     "name": "mg42_e_far_tail_1",
+     "dur": 3.687,
+     "peak": 0.21
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 134,
+     "name": "mg42_e_far_tail_2",
+     "dur": 3.694,
+     "peak": 0.264
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 84,
+     "name": "mg42_e_far_tail_3",
+     "dur": 3.517,
+     "peak": 0.247
+    }
+   ]
+  },
+  "shot_kar98k_zf39_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "named",
+   "note": "the Kar98k's distant family: the scope does not change the report",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 134,
+     "name": "mauser98k_e_far_body_1",
+     "dur": 1.92,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 551,
+     "name": "mauser98k_e_far_body_2",
+     "dur": 1.901,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 246,
+     "name": "mauser98k_e_far_body_3",
+     "dur": 1.882,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 150,
+     "name": "mauser98k_e_far_body_4",
+     "dur": 1.864,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 609,
+     "name": "mauser98k_e_far_body_5",
+     "dur": 1.921,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 236,
+     "name": "mauser98k_e_far_body_6",
+     "dur": 1.981,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 612,
+     "name": "mauser98k_e_far_body_7",
+     "dur": 2.042,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 746,
+     "name": "mauser98k_e_far_body_8",
+     "dur": 1.96,
+     "peak": 0.32
+    }
+   ]
+  },
+  "shot_m1_garand_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "no distant recording of this rifle: the bank's generic distant rifle shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "shot_m1c_garand_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "no distant recording of this rifle: the bank's generic distant rifle shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "shot_m1_carbine_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "no distant recording of this rifle: the bank's generic distant rifle shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "shot_stg44_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "no distant recording of this gun: the bank's generic distant automatic shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 4,
+     "name": "shot_mgun_far_01",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 666,
+     "name": "shot_mgun_far_02",
+     "dur": 0.495,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 257,
+     "name": "shot_mgun_far_03",
+     "dur": 0.49,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 371,
+     "name": "shot_mgun_far_04",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 854,
+     "name": "shot_mgun_far_05",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 883,
+     "name": "shot_mgun_far_06",
+     "dur": 0.476,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 874,
+     "name": "shot_mgun_far_07",
+     "dur": 0.471,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1696,
+     "name": "shot_mgun_far_08",
+     "dur": 0.505,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1111,
+     "name": "shot_mgun_far_09",
+     "dur": 0.51,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 470,
+     "name": "shot_mgun_far_10",
+     "dur": 0.515,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1281,
+     "name": "shot_mgun_far_11",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1507,
+     "name": "shot_mgun_far_12",
+     "dur": 0.526,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 432,
+     "name": "shot_mgun_far_13",
+     "dur": 0.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 147,
+     "name": "shot_mgun_far_14",
+     "dur": 0.542,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 356,
+     "name": "shot_mgun_far_15",
+     "dur": 0.547,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 5,
+     "name": "shot_mgun_far_16",
+     "dur": 0.553,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m3_grease_gun_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "no distant recording of this gun: the bank's generic distant automatic shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 4,
+     "name": "shot_mgun_far_01",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 666,
+     "name": "shot_mgun_far_02",
+     "dur": 0.495,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 257,
+     "name": "shot_mgun_far_03",
+     "dur": 0.49,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 371,
+     "name": "shot_mgun_far_04",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 854,
+     "name": "shot_mgun_far_05",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 883,
+     "name": "shot_mgun_far_06",
+     "dur": 0.476,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 874,
+     "name": "shot_mgun_far_07",
+     "dur": 0.471,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1696,
+     "name": "shot_mgun_far_08",
+     "dur": 0.505,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1111,
+     "name": "shot_mgun_far_09",
+     "dur": 0.51,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 470,
+     "name": "shot_mgun_far_10",
+     "dur": 0.515,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1281,
+     "name": "shot_mgun_far_11",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1507,
+     "name": "shot_mgun_far_12",
+     "dur": 0.526,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 432,
+     "name": "shot_mgun_far_13",
+     "dur": 0.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 147,
+     "name": "shot_mgun_far_14",
+     "dur": 0.542,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 356,
+     "name": "shot_mgun_far_15",
+     "dur": 0.547,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 5,
+     "name": "shot_mgun_far_16",
+     "dur": 0.553,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_fg42_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "no distant recording of this gun: the bank's generic distant automatic shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 4,
+     "name": "shot_mgun_far_01",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 666,
+     "name": "shot_mgun_far_02",
+     "dur": 0.495,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 257,
+     "name": "shot_mgun_far_03",
+     "dur": 0.49,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 371,
+     "name": "shot_mgun_far_04",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 854,
+     "name": "shot_mgun_far_05",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 883,
+     "name": "shot_mgun_far_06",
+     "dur": 0.476,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 874,
+     "name": "shot_mgun_far_07",
+     "dur": 0.471,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1696,
+     "name": "shot_mgun_far_08",
+     "dur": 0.505,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1111,
+     "name": "shot_mgun_far_09",
+     "dur": 0.51,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 470,
+     "name": "shot_mgun_far_10",
+     "dur": 0.515,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1281,
+     "name": "shot_mgun_far_11",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1507,
+     "name": "shot_mgun_far_12",
+     "dur": 0.526,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 432,
+     "name": "shot_mgun_far_13",
+     "dur": 0.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 147,
+     "name": "shot_mgun_far_14",
+     "dur": 0.542,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 356,
+     "name": "shot_mgun_far_15",
+     "dur": 0.547,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 5,
+     "name": "shot_mgun_far_16",
+     "dur": 0.553,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m1918a2_bar_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "no distant recording of this gun: the bank's generic distant automatic shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 4,
+     "name": "shot_mgun_far_01",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 666,
+     "name": "shot_mgun_far_02",
+     "dur": 0.495,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 257,
+     "name": "shot_mgun_far_03",
+     "dur": 0.49,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 371,
+     "name": "shot_mgun_far_04",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 854,
+     "name": "shot_mgun_far_05",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 883,
+     "name": "shot_mgun_far_06",
+     "dur": 0.476,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 874,
+     "name": "shot_mgun_far_07",
+     "dur": 0.471,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1696,
+     "name": "shot_mgun_far_08",
+     "dur": 0.505,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1111,
+     "name": "shot_mgun_far_09",
+     "dur": 0.51,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 470,
+     "name": "shot_mgun_far_10",
+     "dur": 0.515,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1281,
+     "name": "shot_mgun_far_11",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1507,
+     "name": "shot_mgun_far_12",
+     "dur": 0.526,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 432,
+     "name": "shot_mgun_far_13",
+     "dur": 0.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 147,
+     "name": "shot_mgun_far_14",
+     "dur": 0.542,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 356,
+     "name": "shot_mgun_far_15",
+     "dur": 0.547,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 5,
+     "name": "shot_mgun_far_16",
+     "dur": 0.553,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_mg42_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "no distant recording of this gun: the bank's generic distant automatic shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 4,
+     "name": "shot_mgun_far_01",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 666,
+     "name": "shot_mgun_far_02",
+     "dur": 0.495,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 257,
+     "name": "shot_mgun_far_03",
+     "dur": 0.49,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 371,
+     "name": "shot_mgun_far_04",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 854,
+     "name": "shot_mgun_far_05",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 883,
+     "name": "shot_mgun_far_06",
+     "dur": 0.476,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 874,
+     "name": "shot_mgun_far_07",
+     "dur": 0.471,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1696,
+     "name": "shot_mgun_far_08",
+     "dur": 0.505,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1111,
+     "name": "shot_mgun_far_09",
+     "dur": 0.51,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 470,
+     "name": "shot_mgun_far_10",
+     "dur": 0.515,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1281,
+     "name": "shot_mgun_far_11",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1507,
+     "name": "shot_mgun_far_12",
+     "dur": 0.526,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 432,
+     "name": "shot_mgun_far_13",
+     "dur": 0.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 147,
+     "name": "shot_mgun_far_14",
+     "dur": 0.542,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 356,
+     "name": "shot_mgun_far_15",
+     "dur": 0.547,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 5,
+     "name": "shot_mgun_far_16",
+     "dur": 0.553,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_m2hb_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "no distant recording of this gun: the bank's generic distant automatic shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 4,
+     "name": "shot_mgun_far_01",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 666,
+     "name": "shot_mgun_far_02",
+     "dur": 0.495,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 257,
+     "name": "shot_mgun_far_03",
+     "dur": 0.49,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 371,
+     "name": "shot_mgun_far_04",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 854,
+     "name": "shot_mgun_far_05",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 883,
+     "name": "shot_mgun_far_06",
+     "dur": 0.476,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 874,
+     "name": "shot_mgun_far_07",
+     "dur": 0.471,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1696,
+     "name": "shot_mgun_far_08",
+     "dur": 0.505,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1111,
+     "name": "shot_mgun_far_09",
+     "dur": 0.51,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 470,
+     "name": "shot_mgun_far_10",
+     "dur": 0.515,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1281,
+     "name": "shot_mgun_far_11",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1507,
+     "name": "shot_mgun_far_12",
+     "dur": 0.526,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 432,
+     "name": "shot_mgun_far_13",
+     "dur": 0.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 147,
+     "name": "shot_mgun_far_14",
+     "dur": 0.542,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 356,
+     "name": "shot_mgun_far_15",
+     "dur": 0.547,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 5,
+     "name": "shot_mgun_far_16",
+     "dur": 0.553,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_bazooka_m9_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "generic distant rocket-launcher shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 338,
+     "name": "rocket_launcher_e_far_body_1",
+     "dur": 6.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 232,
+     "name": "rocket_launcher_e_far_body_2",
+     "dur": 6.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 101,
+     "name": "rocket_launcher_e_far_body_3",
+     "dur": 6.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "pak_fire_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "generic distant medium cannon",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 294,
+     "name": "cannon_e_m_far_body_01",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 125,
+     "name": "cannon_e_m_far_body_02",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 325,
+     "name": "cannon_e_m_far_body_03",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 296,
+     "name": "cannon_e_m_far_body_04",
+     "dur": 3.022,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 7,
+     "name": "cannon_e_m_far_body_05",
+     "dur": 2.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 77,
+     "name": "cannon_e_m_far_body_06",
+     "dur": 2.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 262,
+     "name": "cannon_e_m_far_body_07",
+     "dur": 3.67,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 17,
+     "name": "cannon_e_m_far_body_08",
+     "dur": 3.313,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 206,
+     "name": "cannon_e_m_far_body_09",
+     "dur": 3.192,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 320,
+     "name": "cannon_e_m_far_body_10",
+     "dur": 2.978,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tank_17pdr": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "no 17-pounder recording: the US 76 mm M1 tank gun (the nearest Allied 76 mm tank gun) stands in",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 348,
+     "name": "76mm_m1_body_1",
+     "dur": 3.671,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 62,
+     "name": "76mm_m1_body_2",
+     "dur": 3.746,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 82,
+     "name": "76mm_m1_body_3",
+     "dur": 3.564,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tank_17pdr_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "generic distant medium cannon",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 294,
+     "name": "cannon_e_m_far_body_01",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 125,
+     "name": "cannon_e_m_far_body_02",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 325,
+     "name": "cannon_e_m_far_body_03",
+     "dur": 4.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 296,
+     "name": "cannon_e_m_far_body_04",
+     "dur": 3.022,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 7,
+     "name": "cannon_e_m_far_body_05",
+     "dur": 2.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 77,
+     "name": "cannon_e_m_far_body_06",
+     "dur": 2.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 262,
+     "name": "cannon_e_m_far_body_07",
+     "dur": 3.67,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 17,
+     "name": "cannon_e_m_far_body_08",
+     "dur": 3.313,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 206,
+     "name": "cannon_e_m_far_body_09",
+     "dur": 3.192,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 320,
+     "name": "cannon_e_m_far_body_10",
+     "dur": 2.978,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tank_88": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "KwK 36: the tank version of the 8.8 cm Flak - shares the Flak 36 family on purpose (no KwK 36 recording)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 209,
+     "name": "88mm_flak36_e_body_1",
+     "dur": 2.88,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 83,
+     "name": "88mm_flak36_e_body_2",
+     "dur": 2.698,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 272,
+     "name": "88mm_flak36_e_body_3",
+     "dur": 3.28,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 141,
+     "name": "88mm_flak36_e_body_4",
+     "dur": 2.88,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 45,
+     "name": "88mm_flak36_e_body_5",
+     "dur": 3.098,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 197,
+     "name": "88mm_flak36_e_body_6",
+     "dur": 2.72,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 298,
+     "name": "88mm_flak36_e_body_7",
+     "dur": 2.88,
+     "peak": 0.97
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 100,
+     "name": "88mm_flak36_e_body_8",
+     "dur": 2.88,
+     "peak": 0.995
+    }
+   ]
+  },
+  "tank_88_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "generic distant heavy cannon",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 168,
+     "name": "cannon_e_b_far_body_01",
+     "dur": 3.606,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 337,
+     "name": "cannon_e_b_far_body_02",
+     "dur": 3.618,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 16,
+     "name": "cannon_e_b_far_body_03",
+     "dur": 3.551,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 58,
+     "name": "cannon_e_b_far_body_04",
+     "dur": 2.991,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 134,
+     "name": "cannon_e_b_far_body_05",
+     "dur": 3.002,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 268,
+     "name": "cannon_e_b_far_body_06",
+     "dur": 3.024,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 327,
+     "name": "cannon_e_b_far_body_07",
+     "dur": 3.175,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 222,
+     "name": "cannon_e_b_far_body_08",
+     "dur": 3.395,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 322,
+     "name": "cannon_e_b_far_body_09",
+     "dur": 3.474,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 41,
+     "name": "cannon_e_b_far_body_10",
+     "dur": 3.979,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_mg34": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "named",
+   "note": "Tiger I hull / coaxial MG 34",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 453,
+     "name": "7_92mm_mg34_body_1",
+     "dur": 1.492,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1131,
+     "name": "7_92mm_mg34_body_2",
+     "dur": 1.381,
+     "peak": 0.999
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1686,
+     "name": "7_92mm_mg34_body_3",
+     "dur": 1.463,
+     "peak": 0.999
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 347,
+     "name": "7_92mm_mg34_body_4",
+     "dur": 1.434,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1311,
+     "name": "7_92mm_mg34_body_5",
+     "dur": 1.407,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 866,
+     "name": "7_92mm_mg34_body_6",
+     "dur": 1.554,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 715,
+     "name": "7_92mm_mg34_body_7",
+     "dur": 1.587,
+     "peak": 0.999
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1392,
+     "name": "7_92mm_mg34_body_8",
+     "dur": 1.522,
+     "peak": 0.999
+    }
+   ]
+  },
+  "bolt_close": {
+   "kind": "foley",
+   "gain": 0.7,
+   "status": "approx",
+   "note": "generic rifle bolt closing: second half of the bolt cycle after each Kar98k / ZF39 shot",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 317,
+     "name": "shutter_in_rifle_bolt_1",
+     "dur": 0.3,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 86,
+     "name": "shutter_in_rifle_bolt_2",
+     "dur": 0.443,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 288,
+     "name": "shutter_in_rifle_bolt_3",
+     "dur": 0.357,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 248,
+     "name": "shutter_in_rifle_bolt_4",
+     "dur": 0.3,
+     "peak": 0.954
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 471,
+     "name": "shutter_in_rifle_bolt_5",
+     "dur": 0.267,
+     "peak": 0.985
+    }
+   ]
+  },
+  "clip_in": {
+   "kind": "foley",
+   "gain": 0.7,
+   "status": "approx",
+   "note": "generic: one round pressed into a bolt-action magazine (ZF39 single loading, Kar98k top-off)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 73,
+     "name": "shell_in_rifle_bolt_1",
+     "dur": 0.8,
+     "peak": 0.934
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 186,
+     "name": "shell_in_rifle_bolt_2",
+     "dur": 0.945,
+     "peak": 0.894
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 258,
+     "name": "shell_in_rifle_bolt_3",
+     "dur": 0.876,
+     "peak": 0.781
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 423,
+     "name": "shell_in_rifle_bolt_4",
+     "dur": 0.987,
+     "peak": 0.894
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 543,
+     "name": "shell_in_rifle_bolt_5",
+     "dur": 0.835,
+     "peak": 0.881
+    }
+   ]
+  },
+  "belt": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "generic LMG belt loading (M2HB, tank MGs)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 244,
+     "name": "belt_in_lmg4_1",
+     "dur": 0.767,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 101,
+     "name": "belt_in_lmg4_2",
+     "dur": 0.777,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 196,
+     "name": "belt_in_lmg4_3",
+     "dur": 0.714,
+     "peak": 1.0
+    }
+   ]
+  },
+  "mag_out": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "generic SMG magazine out (AI reloads)",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 135,
+     "name": "mag_out_smg1_1",
+     "dur": 0.519,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 112,
+     "name": "mag_out_smg1_2",
+     "dur": 0.425,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 328,
+     "name": "mag_out_smg1_3",
+     "dur": 0.416,
+     "peak": 1.0
+    }
+   ]
+  },
+  "mag_in": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "generic SMG magazine in",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 92,
+     "name": "mag_in_smg1_1",
+     "dur": 0.538,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 162,
+     "name": "mag_in_smg1_2",
+     "dur": 0.72,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 145,
+     "name": "mag_in_smg1_3",
+     "dur": 0.95,
+     "peak": 1.0
+    }
+   ]
+  },
+  "reload_m1c_garand": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "named",
+   "note": "same rifle as the M1 Garand",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 295,
+     "name": "change_ammo_m1garand_2",
+     "dur": 0.796,
+     "peak": 0.955
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 192,
+     "name": "change_ammo_m1garand_3",
+     "dur": 0.419,
+     "peak": 1.0
+    }
+   ]
+  },
+  "clip_m1c_garand": {
+   "kind": "foley",
+   "gain": 0.85,
+   "status": "named",
+   "note": "same en-bloc clip as the M1 Garand",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 408,
+     "name": "m1garand_clip_1",
+     "dur": 1.348,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 522,
+     "name": "m1garand_clip_2",
+     "dur": 1.388,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 231,
+     "name": "m1garand_clip_3",
+     "dur": 1.43,
+     "peak": 1.0
+    }
+   ]
+  },
+  "smoke_pop": {
+   "kind": "blast",
+   "gain": 0.8,
+   "status": "named",
+   "note": "smoke grenade igniting (no blast)",
+   "variants": [
+    {
+     "bank": "cmn_fx_impact",
+     "index": 296,
+     "name": "smoke_grenade_expl_1",
+     "dur": 1.667,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 7,
+     "name": "smoke_grenade_expl_2",
+     "dur": 1.667,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 120,
+     "name": "smoke_grenade_expl_3",
+     "dur": 1.667,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 98,
+     "name": "smoke_grenade_expl_4",
+     "dur": 1.667,
+     "peak": 1.0
+    },
+    {
+     "bank": "cmn_fx_impact",
+     "index": 609,
+     "name": "smoke_grenade_expl_5",
+     "dur": 1.667,
+     "peak": 1.0
+    }
+   ]
+  },
+  "step_water": {
+   "kind": "step",
+   "gain": 0.8,
+   "status": "named",
+   "note": "one wading stride each (~1.2 s plus a water tail); only used below the water level",
+   "variants": [
+    {
+     "bank": "cmn_ambient",
+     "index": 51,
+     "name": "footstep_waterdeep_01",
+     "dur": 3.672,
+     "peak": 0.484
+    },
+    {
+     "bank": "cmn_ambient",
+     "index": 52,
+     "name": "footstep_waterdeep_02",
+     "dur": 3.571,
+     "peak": 0.755
+    },
+    {
+     "bank": "cmn_ambient",
+     "index": 0,
+     "name": "footstep_waterdeep_03",
+     "dur": 3.4,
+     "peak": 0.491
+    },
+    {
+     "bank": "cmn_ambient",
+     "index": 87,
+     "name": "footstep_waterdeep_04",
+     "dur": 3.524,
+     "peak": 0.251
+    },
+    {
+     "bank": "cmn_ambient",
+     "index": 43,
+     "name": "footstep_waterdeep_05",
+     "dur": 3.676,
+     "peak": 0.356
+    },
+    {
+     "bank": "cmn_ambient",
+     "index": 19,
+     "name": "footstep_waterdeep_06",
+     "dur": 3.561,
+     "peak": 0.311
+    },
+    {
+     "bank": "cmn_ambient",
+     "index": 7,
+     "name": "footstep_waterdeep_07",
+     "dur": 2.672,
+     "peak": 0.422
+    },
+    {
+     "bank": "cmn_ambient",
+     "index": 15,
+     "name": "footstep_waterdeep_08",
+     "dur": 3.0,
+     "peak": 0.439
     }
    ]
   }

@@ -6,9 +6,20 @@
 - At load, the runtime downmixes each sample to mono and resamples it to the 44.1 kHz engine rate.
 
 **Pipeline.**
-- `tools/audio_manifest.py <banks>` writes `content/audio/manifest.json`, a deterministic selection by family name.
-- `tools/fsb5.py extract content/audio/manifest.json <banks> content/audio/samples` writes the WAVs and records their SHA-256 (of the PCM) in `samples/extracted.json`.
+- `tools/audio_manifest.py <banks dir>[;<dir2>]` writes `content/audio/manifest.json`, a deterministic selection by family name.
+- `tools/fsb5.py extract content/audio/manifest.json <banks dir>[;<dir2>] content/audio/samples` converts the selection to 16-bit PCM WAV and records each SHA-256 (of the PCM) in `samples/extracted.json`. Several bank folders can be given, separated by `;`.
 - `src/audio.cpp` loads the events at start-up.
+
+**Bigote Sound mod V9 (2026-11-06).**
+- The user re-supplied the pack as two zips (Part 1: 5 banks, Part 2: 7 banks). Each was extracted into its own empty folder and only read as data.
+- All 12 banks are byte-identical to the banks already mapped, so the earlier events are unchanged.
+- This pass filled every remaining slot the game plays: far layers, tank guns, generic foley, the bolt cycle, the smoke pop and wading steps.
+- To rebuild the samples from the two V9 folders:
+
+```
+python -I tools/audio_manifest.py "<part1 dir>;<part2 dir>"
+python -I tools/fsb5.py extract content/audio/manifest.json "<part1 dir>;<part2 dir>" content/audio/samples
+```
 
 **Redistribution: not cleared.** The banks are from an Enlisted sound mod, and no reuse permission was supplied.
 - `content/audio/samples/` is git-ignored and must be extracted locally from your own copy of the banks.
@@ -28,7 +39,13 @@
 
 ## Playback
 - **Variations.** Each event has several variations and never plays the same one twice running.
-- **Far layer.** Events with a `_far` layer use it beyond 90 m (Flak, Kar98k, Panzerschreck, explosions).
+- **Far layer.** Events with a `_far` layer use it beyond 90 m: every firearm, launcher, gun station and tank gun, and the explosions.
+  - Named distant recordings where the bank has them (Kar98k / ZF39, Thompson, MP 40, Panzerschreck, Flak); otherwise the bank's generic distant rifle, automatic or cannon shots.
+  - Tails have far layers for the Thompson, MP 40 and MG 42.
+- **Bolt actions.** After each Kar98k / ZF39 shot the bolt is worked: open at 25 % and close at 70 % of the bolt time (`bolt`, `bolt_close`). Single rounds load with `clip_in`; the Kar98k's stripper clip with `clip_kar98k`.
+- **MG 42 embrasure mount.** Plays the handheld MG 42's events: shot bodies, the tail once on release, the belt reload (`reload_mg42`).
+- **Smoke grenade.** Ignites with `smoke_pop` (no blast).
+- **Footsteps.** Below the water level the player wades with `step_water`: one recorded stride per step, and the previous stride's water tail fades out over 250 ms. Dry ground keeps the procedural grass / stone / wood steps, because the pack has no dry-ground footsteps.
 - **Automatic fire.**
   - One shot body plays per fired round, at the game's real cadence, and a new body of the same gun fades the previous one out in 40 ms, so bursts do not stack or clip.
   - The recorded tail plays once when the trigger is released after a burst.
@@ -98,11 +115,58 @@
 | `reload_m1_thompson` | foley | named | mgun_foley:136 `change_ammo_thompson_1`, mgun_foley:289 `change_ammo_thompson_2`, mgun_foley:320 `change_ammo_thompson_3` | 0.59-1.50 | box-magazine Thompson (drum reloads not used) |
 | `reload_fg42` | foley | named | mgun_foley:265 `change_ammo_fg42_1`, mgun_foley:169 `change_ammo_fg42_2`, mgun_foley:330 `change_ammo_fg42_3` | 0.61-0.75 |  |
 | `bolt` | foley | approx | rifle_foley:68 `shutter_out_rifle_bolt_1`, rifle_foley:99 `shutter_out_rifle_bolt_2`, rifle_foley:407 `shutter_out_rifle_bolt_3`, rifle_foley:103 `shutter_out_rifle_bolt_4` (+1) | 0.39-0.53 | generic rifle-bolt foley for bolt actions (Kar98k / ZF39) |
+| `shot_m1_thompson_far` | far | named | mgun:15 `thompson_e_far_body_1`, mgun:150 `thompson_e_far_body_2`, mgun:177 `thompson_e_far_body_3`, mgun:571 `thompson_e_far_body_4` (+4) | 1.68-1.80 |  |
+| `tail_m1_thompson_far` | tail | named | mgun:709 `thompson_e_far_tail_1`, mgun:689 `thompson_e_far_tail_2`, mgun:1040 `thompson_e_far_tail_3`, mgun:1559 `thompson_e_far_tail_4` (+4) | 3.84-4.14 |  |
+| `shot_mp40_far` | far | named | mgun:1168 `mp40_e_far_body_1`, mgun:174 `mp40_e_far_body_2`, mgun:1147 `mp40_e_far_body_3`, mgun:751 `mp40_e_far_body_4` (+4) | 1.28-1.37 |  |
+| `tail_mp40_far` | tail | named | mgun:218 `mp40_e_far_tail_1`, mgun:804 `mp40_e_far_tail_2`, mgun:1548 `mp40_e_far_tail_3`, mgun:1005 `mp40_e_far_tail_4` (+4) | 4.63-4.63 |  |
+| `tail_mg42_far` | tail | named | mgun:802 `mg42_e_far_tail_1`, mgun:134 `mg42_e_far_tail_2`, mgun:84 `mg42_e_far_tail_3` | 3.52-3.69 |  |
+| `shot_kar98k_zf39_far` | far | named | rifle:134 `mauser98k_e_far_body_1`, rifle:551 `mauser98k_e_far_body_2`, rifle:246 `mauser98k_e_far_body_3`, rifle:150 `mauser98k_e_far_body_4` (+4) | 1.86-2.04 | the Kar98k's distant family: the scope does not change the report |
+| `shot_m1_garand_far` | far | approx | rifle:314 `shot_rifle_far_01`, rifle:797 `shot_rifle_far_02`, rifle:112 `shot_rifle_far_03`, rifle:467 `shot_rifle_far_04` (+4) | 4.51-6.52 | no distant recording of this rifle: the bank's generic distant rifle shot |
+| `shot_m1c_garand_far` | far | approx | rifle:314 `shot_rifle_far_01`, rifle:797 `shot_rifle_far_02`, rifle:112 `shot_rifle_far_03`, rifle:467 `shot_rifle_far_04` (+4) | 4.51-6.52 | no distant recording of this rifle: the bank's generic distant rifle shot |
+| `shot_m1_carbine_far` | far | approx | rifle:314 `shot_rifle_far_01`, rifle:797 `shot_rifle_far_02`, rifle:112 `shot_rifle_far_03`, rifle:467 `shot_rifle_far_04` (+4) | 4.51-6.52 | no distant recording of this rifle: the bank's generic distant rifle shot |
+| `shot_stg44_far` | far | approx | mgun:4 `shot_mgun_far_01`, mgun:666 `shot_mgun_far_02`, mgun:257 `shot_mgun_far_03`, mgun:371 `shot_mgun_far_04` (+12) | 0.47-0.55 | no distant recording of this gun: the bank's generic distant automatic shot |
+| `shot_m3_grease_gun_far` | far | approx | mgun:4 `shot_mgun_far_01`, mgun:666 `shot_mgun_far_02`, mgun:257 `shot_mgun_far_03`, mgun:371 `shot_mgun_far_04` (+12) | 0.47-0.55 | no distant recording of this gun: the bank's generic distant automatic shot |
+| `shot_fg42_far` | far | approx | mgun:4 `shot_mgun_far_01`, mgun:666 `shot_mgun_far_02`, mgun:257 `shot_mgun_far_03`, mgun:371 `shot_mgun_far_04` (+12) | 0.47-0.55 | no distant recording of this gun: the bank's generic distant automatic shot |
+| `shot_m1918a2_bar_far` | far | approx | mgun:4 `shot_mgun_far_01`, mgun:666 `shot_mgun_far_02`, mgun:257 `shot_mgun_far_03`, mgun:371 `shot_mgun_far_04` (+12) | 0.47-0.55 | no distant recording of this gun: the bank's generic distant automatic shot |
+| `shot_mg42_far` | far | approx | mgun:4 `shot_mgun_far_01`, mgun:666 `shot_mgun_far_02`, mgun:257 `shot_mgun_far_03`, mgun:371 `shot_mgun_far_04` (+12) | 0.47-0.55 | no distant recording of this gun: the bank's generic distant automatic shot |
+| `shot_m2hb_far` | far | approx | mgun:4 `shot_mgun_far_01`, mgun:666 `shot_mgun_far_02`, mgun:257 `shot_mgun_far_03`, mgun:371 `shot_mgun_far_04` (+12) | 0.47-0.55 | no distant recording of this gun: the bank's generic distant automatic shot |
+| `shot_bazooka_m9_far` | far | approx | cannon:338 `rocket_launcher_e_far_body_1`, cannon:232 `rocket_launcher_e_far_body_2`, cannon:101 `rocket_launcher_e_far_body_3` | 6.00-6.00 | generic distant rocket-launcher shot |
+| `pak_fire_far` | far | approx | cannon:294 `cannon_e_m_far_body_01`, cannon:125 `cannon_e_m_far_body_02`, cannon:325 `cannon_e_m_far_body_03`, cannon:296 `cannon_e_m_far_body_04` (+6) | 2.50-4.00 | generic distant medium cannon |
+| `tank_17pdr` | shot | approx | cannon:348 `76mm_m1_body_1`, cannon:62 `76mm_m1_body_2`, cannon:82 `76mm_m1_body_3` | 3.56-3.75 | no 17-pounder recording: the US 76 mm M1 tank gun (the nearest Allied 76 mm tank gun) stands in |
+| `tank_17pdr_far` | far | approx | cannon:294 `cannon_e_m_far_body_01`, cannon:125 `cannon_e_m_far_body_02`, cannon:325 `cannon_e_m_far_body_03`, cannon:296 `cannon_e_m_far_body_04` (+6) | 2.50-4.00 | generic distant medium cannon |
+| `tank_88` | shot | approx | cannon:209 `88mm_flak36_e_body_1`, cannon:83 `88mm_flak36_e_body_2`, cannon:272 `88mm_flak36_e_body_3`, cannon:141 `88mm_flak36_e_body_4` (+4) | 2.70-3.28 | KwK 36: the tank version of the 8.8 cm Flak - shares the Flak 36 family on purpose (no KwK 36 recording) |
+| `tank_88_far` | far | approx | cannon:168 `cannon_e_b_far_body_01`, cannon:337 `cannon_e_b_far_body_02`, cannon:16 `cannon_e_b_far_body_03`, cannon:58 `cannon_e_b_far_body_04` (+6) | 2.99-3.98 | generic distant heavy cannon |
+| `shot_mg34` | shot | named | mgun:453 `7_92mm_mg34_body_1`, mgun:1131 `7_92mm_mg34_body_2`, mgun:1686 `7_92mm_mg34_body_3`, mgun:347 `7_92mm_mg34_body_4` (+4) | 1.38-1.59 | Tiger I hull / coaxial MG 34 |
+| `bolt_close` | foley | approx | rifle_foley:317 `shutter_in_rifle_bolt_1`, rifle_foley:86 `shutter_in_rifle_bolt_2`, rifle_foley:288 `shutter_in_rifle_bolt_3`, rifle_foley:248 `shutter_in_rifle_bolt_4` (+1) | 0.27-0.44 | generic rifle bolt closing: second half of the bolt cycle after each Kar98k / ZF39 shot |
+| `clip_in` | foley | approx | rifle_foley:73 `shell_in_rifle_bolt_1`, rifle_foley:186 `shell_in_rifle_bolt_2`, rifle_foley:258 `shell_in_rifle_bolt_3`, rifle_foley:423 `shell_in_rifle_bolt_4` (+1) | 0.80-0.99 | generic: one round pressed into a bolt-action magazine (ZF39 single loading, Kar98k top-off) |
+| `belt` | foley | approx | mgun_foley:244 `belt_in_lmg4_1`, mgun_foley:101 `belt_in_lmg4_2`, mgun_foley:196 `belt_in_lmg4_3` | 0.71-0.78 | generic LMG belt loading (M2HB, tank MGs) |
+| `mag_out` | foley | approx | mgun_foley:135 `mag_out_smg1_1`, mgun_foley:112 `mag_out_smg1_2`, mgun_foley:328 `mag_out_smg1_3` | 0.42-0.52 | generic SMG magazine out (AI reloads) |
+| `mag_in` | foley | approx | mgun_foley:92 `mag_in_smg1_1`, mgun_foley:162 `mag_in_smg1_2`, mgun_foley:145 `mag_in_smg1_3` | 0.54-0.95 | generic SMG magazine in |
+| `reload_m1c_garand` | foley | named | rifle_foley:295 `change_ammo_m1garand_2`, rifle_foley:192 `change_ammo_m1garand_3` | 0.42-0.80 | same rifle as the M1 Garand |
+| `clip_m1c_garand` | foley | named | rifle_foley:408 `m1garand_clip_1`, rifle_foley:522 `m1garand_clip_2`, rifle_foley:231 `m1garand_clip_3` | 1.35-1.43 | same en-bloc clip as the M1 Garand |
+| `smoke_pop` | blast | named | fx_impact:296 `smoke_grenade_expl_1`, fx_impact:7 `smoke_grenade_expl_2`, fx_impact:120 `smoke_grenade_expl_3`, fx_impact:98 `smoke_grenade_expl_4` (+1) | 1.67-1.67 | smoke grenade igniting (no blast) |
+| `step_water` | step | named | ambient:51 `footstep_waterdeep_01`, ambient:52 `footstep_waterdeep_02`, ambient:0 `footstep_waterdeep_03`, ambient:87 `footstep_waterdeep_04` (+4) | 2.67-3.68 | one wading stride each (~1.2 s plus a water tail); only used below the water level |
 
 ## Gaps reported (no recording in the supplied banks)
-- **M1 Carbine firing.** Only its reload foley exists. A distinct provisional family stands in (see the table).
-- **PaK 40.** The 7.5 cm KwK 40 stands in; the `76mm_pak36` family was not used.
-- **M9 Bazooka.** The family is labelled "m1_bazooka", an approximation.
+Checked against the full sample list of all 12 banks (V9 pass). These slots have no recording, so they keep their procedural sound or use the stand-in shown.
+
+- **Footsteps on dry ground** (grass, dirt, gravel, concrete, stone, wood). The only footsteps in the pack are deep-water wading strides (`footstep_waterdeep`), so dry surfaces stay procedural.
+- **Landing, jump, crawl / prone movement, gear rattle while moving.** None: the `cloth_*` / `rattl_*` foley is reload handling. Not played.
+- **M1 Carbine firing.** Only its reload foley exists. A distinct provisional family stands in (see the table); distant: the generic distant rifle.
+- **Distant fire of the M1 / M1C Garand, StG 44, M3, FG 42, BAR, MG 42 and M2HB.** No named far recordings; the generic distant rifle or automatic shots stand in.
+- **PaK 40.** The 7.5 cm KwK 40 stands in; the `76mm_pak36` family was not used. Distant: the generic medium cannon.
+- **M9 Bazooka.** The family is labelled "m1_bazooka", an approximation. Distant: the generic rocket launcher.
 - **Flak 18.** Flak 36 recordings stand in.
-- **Footsteps.** These banks are not a footstep library, so footsteps stay procedural.
+- **Tank guns.** No 17-pounder: the US 76 mm M1 stands in. No KwK 36: the Tiger shares the Flak 36 family. Distant: the generic medium / heavy cannon.
+- **Rocket loading** (Bazooka, Panzerschreck). No foley; the procedural clicks stay (`rocket_ready`, `rocket_in`).
+- **Gun-station loading** (PaK 40 / Flak 18 breech, ammunition crate). No breech sample (`cannon_m_mech` is a 5-6 s mechanism of unknown role, not used); the procedural `breech` / `crate` stay.
+- **M1 Garand en-bloc ping.** No labelled ping; procedural.
+- **Dry fire (empty click).** Only a Mosin dry fire exists; the procedural click stays (it is also the UI and grenade-pin click).
 - **Grenade pin, throw and knife swing.** No suitable samples; the existing click is used.
+- **Weapon switch / draw, ADS cloth, bipod deploy.** None.
+- **Tank engines, tracks, turret drive.** Not in these banks (the tank bank holds impacts only); procedural.
+
+## In the pack, but no slot in the game
+- Bullet crack / whiz (near misses), ricochets, shell casings falling by surface, tank-armour hits, flesh hits.
+- Battle ambience and weather loops.
+- The pistol bank (M1911, P38, Walther PP and others) and rifles not in the arsenal (M1903 Springfield, Gewehr 43, Lee-Enfield and others): ready to map when the weapons are added.

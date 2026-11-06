@@ -357,6 +357,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
         uint64_t iid = c.groundUser >> 16;
         for (auto& i : doc.instances) if (i.id == iid) s = (c.pos.y - i.pos.y > 0.9f) ? "step_wood" : "step_stone";
       }
+      if (c.pos.y < terrain.waterLevel - 0.05f && audio.hasEvent("step_water")) s = "step_water";   // wading: the bank's deep-water steps
       audio.play(s, c.pos, in.crouch ? 0.4f : 0.8f);
     }
   }
