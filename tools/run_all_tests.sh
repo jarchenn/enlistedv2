@@ -3,6 +3,7 @@
 # Usage: tools/run_all_tests.sh <build dir>      (benchmarks: add --bench; close other GPU apps first)
 set -u
 B="${1:?build dir}"; shift || true
+HERE="$(cd "$(dirname "$0")" && pwd)"   # resolve before cd: $0 may be relative
 cd "$B" || exit 2
 status=0
 run() { local name="$1"; shift; ./NormandyMapmaker.exe "$@" >/dev/null 2>&1; local rc=$?; printf '%-28s exit %d  ' "$name" $rc; tail -1 "selftest_out/report_$name.txt" 2>/dev/null || echo; [ $rc -eq 0 ] || status=1; }
@@ -22,7 +23,7 @@ run entities --selftest-entities
 run tanks    --selftest-tanks
 run match    --selftest-match   # multiplayer + AI: headless rules suite
 run ai       --selftest-ai      # multiplayer + AI: village match integration (~4 min)
-if [ "${1:-}" = "--net" ]; then bash "$(dirname "$0")/run_net_test.sh" "$B" || status=1; fi   # LAN: 5 processes on 127.0.0.1
+if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" || status=1; fi   # LAN: 5 processes on 127.0.0.1
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"
   ./NormandyMapmaker.exe --benchmark-stress >/dev/null 2>&1; echo "benchmark-stress   exit $?  -> selftest_out/benchmark_stress.json"
