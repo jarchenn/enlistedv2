@@ -206,7 +206,7 @@ public:
   TeamBrain teams[2];                    // index = (int)CombatRole
   std::vector<CoverPoint> cover; std::unordered_map<int64_t, std::vector<int>> coverGrid; uint32_t coverSerial = 1;
   std::vector<std::pair<int, int>> coverTodo;   // tiles waiting for cover generation
-  std::vector<DefSlot> defSlots; int defStage = -2;
+  std::vector<DefSlot> defSlots; int defStage = -2; double lastSlotRebuild = -100;
   std::vector<AiBuilding> buildings; std::set<std::string> clearedRooms;   // "instance:room" cleared this match
   PathService paths;
   AiProf prof; AiMetrics metrics;

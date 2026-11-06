@@ -162,7 +162,8 @@ int AiCore::pickCover(Soldier& s, vec3 goal, float maxDist, float minProgress, b
 
 // ---------------------------------------------------------------- defense slots
 void AiCore::buildDefSlots() {
-  defSlots.clear(); defStage = G.match.active;
+  std::vector<DefSlot> old; if (defStage == G.match.active) old = defSlots;   // same objective: keep who holds what
+  defSlots.clear(); defStage = G.match.active; lastSlotRebuild = G.t;
   const Objective* o = G.match.activeObjective();
   if (!o || !G.nav.valid()) return;
   auto add = [&](vec3 p, float yaw, int pri, int kind, const char* src) {
@@ -187,6 +188,12 @@ void AiCore::buildDefSlots() {
   // fallback ring inside the capture area
   for (int k = 0; k < 16 && defSlots.size() < 12; ++k) { float a = k * 0.3927f; float r = o->extent() * (k % 2 ? 0.45f : 0.75f); add(o->pos + vec3(std::cos(a) * r, 0, std::sin(a) * r), o->attackYaw + 180, 0, 0, "ring"); }
   for (auto& s : G.sold) if (s.slot < (int)minds.size() && minds[s.slot]) minds[s.slot]->slot = -1;
+  for (auto& o : old) {
+    if (o.heldBy < 0 || o.heldBy >= (int)G.sold.size() || !G.sold[o.heldBy].alive || o.heldBy >= (int)minds.size() || !minds[o.heldBy]) continue;
+    int best = -1; float bd = 2.5f;
+    for (size_t k = 0; k < defSlots.size(); ++k) if (defSlots[k].heldBy < 0) { float d = glm::length(defSlots[k].p - o.p); if (d < bd) { bd = d; best = (int)k; } }
+    if (best >= 0) { defSlots[best].heldBy = o.heldBy; minds[o.heldBy]->slot = best; }
+  }
   logf("ai: %zu defense slots for objective %c (%zu authored, %zu linked structures)", defSlots.size(), o->letter(), o->defenseSlots.size(), o->linkedStructures.size());
 }
 

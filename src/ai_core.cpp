@@ -344,7 +344,16 @@ void AiCore::onTilesChanged() {
     for (auto& c : cover) if (!c.authored && c.tx == t.first && c.tz == t.second) c.serial = 0;   // tombstone
     coverTodo.push_back(t);
   }
-  defStage = -2;
+  // defense slots: only when the point itself changed, at most every 10 s (wall chips from small-arms fire rebuild
+  // tiles all the time; re-assigning everyone each time makes defenders shuffle instead of holding)
+  if (const Objective* ob = G.match.activeObjective(); ob && G.t - lastSlotRebuild > 10.0) {
+    float R = ob->extent() + 4;
+    for (auto& t : ch) {
+      float T = G.nav.cfg.tile;
+      if (ob->pos.x + R < t.first * T || ob->pos.x - R > (t.first + 1) * T || ob->pos.z + R < t.second * T || ob->pos.z - R > (t.second + 1) * T) continue;
+      defStage = -2; break;
+    }
+  }
 }
 
 // ---------------------------------------------------------------- knowledge (AI_SPEC 4)
