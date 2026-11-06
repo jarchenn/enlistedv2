@@ -31,7 +31,9 @@ float BotFilter::getCost(const float* pa, const float* pb, const dtPolyRef prevR
   float base = dtQueryFilter::getCost(pa, pb, prevRef, prevTile, prevPoly, curRef, curTile, curPoly, nextRef, nextTile, nextPoly);
   if (curPoly->getType() == DT_POLYTYPE_OFFMESH_CONNECTION) {
     int k = curPoly->getArea() - navarea::kLinkDrop;
-    return base + (k >= 0 && k < 4 ? linkExtra[k] : 2.0f);
+    float c = base + (k >= 0 && k < 4 ? linkExtra[k] : 2.0f);
+    for (auto& p : penalties) if (glm::length(vec2(pa[0] - p.p.x, pa[2] - p.p.z)) < p.r && std::fabs(pa[1] - p.p.y) < 2.5f) c *= 50.0f;   // a link that blocked this bot
+    return c;
   }
   vec3 mid((pa[0] + pb[0]) * 0.5f, (pa[1] + pb[1]) * 0.5f, (pa[2] + pb[2]) * 0.5f);
   float mul = 1.0f;
@@ -256,6 +258,7 @@ void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3
   unsigned char area = 0; G.nav.mesh()->getPolyArea(offRef, &area);
   tr.kind = navarea::isLink(area) ? area - navarea::kLinkDrop : LINK_MANTLE;
   vec3 a = s.feet, b = ep;
+  { NavRef r; vec3 on; if (G.nav.closest(b + vec3(0, 0.2f, 0), vec3(0.7f, 1.0f, 0.7f), r, on)) b = on; }   // land on the mesh as it is now (links predate area marks)
   float top = l ? l->top : std::max(a.y, b.y);
   float h = std::fabs(b.y - a.y), len = lenXZ(b - a);
   switch (tr.kind) {
@@ -298,6 +301,8 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
   if (!fits && u < 0.98f) {
     // someone / something in the way: stop where the body still fits, re-plan
     tr.on = false; ++metrics.linkAborts;
+    m.penalties.push_back({tr.p[0], 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)});   // this bot avoids that link for a while
+    if (metrics.linkAborts <= 15) logf("ai: bot %d %s link blocked at (%.1f %.1f %.1f) -> (%.1f %.1f %.1f), u %.2f", s.slot, navLinkName(tr.kind), tr.p[0].x, tr.p[0].y, tr.p[0].z, tr.end.x, tr.end.y, tr.end.z, u);
     requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true);
     s.br.why = "link blocked: re-planning";
     return false;

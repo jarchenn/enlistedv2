@@ -140,7 +140,7 @@ struct BotMind {
   // aim model (AI_SPEC 6.4)
   int aimTarget = -1; float aimErr = 0, onTarget = 0; vec2 aimOff{0};
   // clearing
-  int clearSector = 0, clearCorner = 0;
+  int clearSector = 0, clearCorner = 0; vec3 clearGoal{1e9f}; double clearGoalT = 0;
   // stats
   double underFireT = 0, exposedT = 0, lastAct = 0;
 };
@@ -220,7 +220,7 @@ public:
   std::map<uint32_t, std::pair<int, vec3>> grenadeWatch;   // live grenade id -> (owner, last position)
   struct Rebuild { double at; vec3 lo, hi; };
   std::vector<Rebuild> rebuildLog;       // creative live rebuild timing (tests)
-  double lastCommitAt = -100; int committedTiles = 0;
+  double lastCommitAt = -100; int committedTiles = 0, commitLogs = 0;
   std::string mapName;
   // speeds (movement.json) and tunables
   float vSprint = 6.325f, vJog = 3.1625f, vWalk = 1.6f, vCrouch = 1.32f, vProne = 0.66f, gravity = 7.848f, jumpV = 3.757f;

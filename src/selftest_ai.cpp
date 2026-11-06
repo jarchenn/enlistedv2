@@ -87,7 +87,7 @@ void SelfTest::aiUpdate(App& app, float dt) {
       // ---------------- AI_SPEC 12.4: creative live rebuild (wall, bunker, wire belt dropped across moving bots)
       push("live rebuild", [this, startMatch](App& a, float t) {
         struct Box { vec3 c; vec2 he; float yaw; };
-        struct Drop { double T = -1; std::string what; std::vector<Box> boxes; std::map<int, double> aff; std::set<int> nearAtDrop, walked; };
+        struct Drop { double T = -1; std::string what; std::vector<Box> boxes; std::map<int, double> aff; std::set<int> nearAtDrop, walked, stuckAt; };
         static Drop drops[3]; static bool started = false;
         if (t == 0) { started = startMatch(a, "course", 9, 1, 3); for (auto& d : drops) d = Drop{}; if (started) aiCore()->tactics["budget"]["lodDistance_m"] = 2000; return !started; }
         Game& G = *gGame; AiCore& A = *aiCore();
@@ -96,52 +96,71 @@ void SelfTest::aiUpdate(App& app, float dt) {
           vec2 a0 = local2(b, p0), a1 = local2(b, p1), e = b.he + vec2(pad); float t0 = 0, t1 = 1; vec2 d = a1 - a0;
           for (int k = 0; k < 2; ++k) { if (std::fabs(d[k]) < 1e-6f) { if (std::fabs(a0[k]) > e[k]) return false; continue; } float u0 = (-e[k] - a0[k]) / d[k], u1 = (e[k] - a0[k]) / d[k]; if (u0 > u1) std::swap(u0, u1); t0 = std::max(t0, u0); t1 = std::min(t1, u1); if (t0 > t1) return false; }
           return true; };
-        auto routeHits = [&](const Drop& dr, Soldier& s) {
+        auto routeHits = [&](const Drop& dr, Soldier& s, float pad = 0.3f) {
           BotMind& m = A.mind(s); if (m.route.size() < 2) return false;
           size_t k0 = 0; float bd = 1e9f; for (size_t k = 0; k < m.route.size(); ++k) { float d = glm::length(m.route[k] - s.feet); if (d < bd) { bd = d; k0 = k; } }
           vec3 prev = s.feet; float L = 0;
-          for (size_t k = k0; k < m.route.size() && L < 45; ++k) { for (auto& b : dr.boxes) if (segHits(b, prev, m.route[k], 0.3f)) return true; L += glm::length(m.route[k] - prev); prev = m.route[k]; }
+          for (size_t k = k0; k < m.route.size() && L < 45; ++k) { for (auto& b : dr.boxes) if (segHits(b, prev, m.route[k], pad)) return true; L += glm::length(m.route[k] - prev); prev = m.route[k]; }
           return false; };
         const char* kinds[3] = {"wire belt", "bunker", "wall (hedgerow bank)"};
         for (int k = 0; k < 3; ++k) {
           Drop& dr = drops[k];
           if (dr.T >= 0 || t < 5.0f + 8.0f * k) continue;
           // the group of moving attackers: centroid and heading
-          vec3 c(0), h(0); int n = 0;
-          for (auto& s : G.sold) if (s.alive && !s.human && s.role == CombatRole::Attacker && A.mind(s).route.size() >= 2 && s.speed > 1.0f) { c += s.feet; h += glm::normalize(vec3(s.vel.x, 0, s.vel.z) + vec3(1e-4f)); ++n; }
-          if (n < 2) continue;
-          c /= (float)n; h = glm::normalize(vec3(h.x, 0, h.z) + vec3(1e-4f)); vec3 side(-h.z, 0, h.x);
-          vec3 p = c + h * 11.0f;
+          // drop it on a moving bot's planned route, 8-12 m ahead of it, across the route
+          vec3 p(0), h(0); bool found = false; float bestRem = 0; int target = -1;
+          for (auto& s : G.sold) {
+            if (!s.alive || s.human || s.role != CombatRole::Attacker || s.speed < 1.0f) continue;
+            BotMind& m = A.mind(s); if (m.route.size() < 2 || m.trav.on) continue;
+            size_t k0 = 0; float bd = 1e9f; for (size_t q = 0; q < m.route.size(); ++q) { float d = glm::length(m.route[q] - s.feet); if (d < bd) { bd = d; k0 = q; } }
+            float L = 0; vec3 prev = s.feet;
+            for (size_t q = k0 + 1; q < m.route.size(); ++q) {   // the next corner ahead: k0 may already be behind the bot
+              float seg = glm::length(m.route[q] - prev);
+              if (L + seg >= 9.0f && seg > 0.1f) {
+                float rem = 0; vec3 pp = m.route[q]; for (size_t r = q + 1; r < m.route.size(); ++r) { rem += glm::length(m.route[r] - pp); pp = m.route[r]; }
+                if (rem + seg > bestRem) { bestRem = rem + seg; p = glm::mix(prev, m.route[q], (9.0f - L) / seg); h = glm::normalize(vec3(m.route[q].x - prev.x, 0, m.route[q].z - prev.z) + vec3(1e-4f)); found = true; target = s.slot; }
+                break;
+              }
+              L += seg; prev = m.route[q];
+            }
+          }
+          if (!found) continue;
+          vec3 side(-h.z, 0, h.x);
           float hy = degrees(std::atan2(h.x, h.z));   // yaw that maps local +z onto h
           std::vector<std::pair<std::string, std::pair<vec3, float>>> objs;
           if (k == 0) for (int i = -2; i <= 2; ++i) objs.push_back({"wire_concertina", {p + side * (3.7f * i), hy + 90}});   // long axis (local z) across the heading
-          if (k == 1) objs.push_back({"bunker_mg_casemate", {p + h * 2.0f, hy}});
+          if (k == 1) objs.push_back({"bunker_mg_casemate", {p + h * 3.0f, hy}});
           if (k == 2) for (int i = -1; i <= 1; ++i) objs.push_back({"hedgerow_bocage", {p + side * (8.0f * i), hy}});         // long axis (local x) across the heading
           dr.what = kinds[k]; dr.T = G.t;
           for (auto& [asset, pr] : objs) {
             Instance in; in.id = a.doc.newId(); in.assetId = asset; in.pos = vec3(pr.first.x, a.terrain.height(pr.first.x, pr.first.z), pr.first.z); in.yaw = pr.second;
             a.doc.instances.push_back(in);
             const AssetDef* ad = a.lib.find(asset);
-            if (ad) { vec3 lc = (ad->bmin + ad->bmax) * 0.5f; Box b; b.c = in.pos + yawQuat(in.yaw) * lc; b.he = vec2(ad->bmax.x - ad->bmin.x, ad->bmax.z - ad->bmin.z) * 0.5f; b.yaw = in.yaw; dr.boxes.push_back(b); }
+            if (ad) { vec3 lc = vec3((ad->bmin.x + ad->bmax.x) * 0.5f, 0, (ad->bmin.z + ad->bmax.z) * 0.5f); if (ad->tree.on) lc = vec3(0); Box b; b.c = in.pos + yawQuat(in.yaw) * lc; b.he = ad->footprint * 0.5f; b.yaw = in.yaw; dr.boxes.push_back(b); }   // the footprint, not the bounds (canopy, overhangs)
           }
           a.syncRuntime();
           for (auto& s : G.sold) if (s.alive && !s.human && s.role == CombatRole::Attacker) {
-            bool nearB = false; for (auto& b : dr.boxes) { vec2 l = local2(b, s.feet); if (std::fabs(l.x) < b.he.x + 2.0f && std::fabs(l.y) < b.he.y + 2.0f) nearB = true; }
+            bool nearB = false; for (auto& b : dr.boxes) { vec2 l = local2(b, s.feet); if (std::fabs(l.x) < b.he.x + 0.6f && std::fabs(l.y) < b.he.y + 0.6f) nearB = true; /* overlapping it when it appears */ }
             if (nearB) dr.nearAtDrop.insert(s.slot); else if (routeHits(dr, s)) dr.aff[s.slot] = -1;
+            if (s.slot == target) { vec2 l0 = dr.boxes.empty() ? vec2(0) : local2(dr.boxes[0], s.feet); logf("test: %s dropped on bot %d's route: near %d, route hits %d; drop point %.1f m away, bot in box 0 local (%.1f %.1f), half (%.1f %.1f), box yaw %.0f", dr.what.c_str(), s.slot, (int)nearB, (int)routeHits(dr, s), glm::length(p - s.feet), l0.x, l0.y, dr.boxes.empty() ? 0.f : dr.boxes[0].he.x, dr.boxes.empty() ? 0.f : dr.boxes[0].he.y, dr.boxes.empty() ? 0.f : dr.boxes[0].yaw); }
           }
         }
         for (auto& dr : drops) {
           if (dr.T < 0) continue;
-          for (auto& [slot, rt] : dr.aff) { Soldier& s = G.sold[slot]; if (rt < 0 && s.alive && A.mind(s).pathAt > dr.T && !routeHits(dr, s)) rt = G.t - dr.T; }
-          if (G.t - dr.T > 0.3) for (auto& s : G.sold) if (s.alive && !s.human && s.role == CombatRole::Attacker && !dr.nearAtDrop.count(s.slot))
-            for (auto& b : dr.boxes) { vec2 l = local2(b, s.feet); if (std::fabs(l.x) < b.he.x - 0.15f && std::fabs(l.y) < b.he.y - 0.15f) dr.walked.insert(s.slot); }
+          for (auto& [slot, rt] : dr.aff) { Soldier& s = G.sold[slot]; if (rt < 0 && s.alive && A.mind(s).pathAt > dr.T && (dr.what == "bunker" || !routeHits(dr, s, 0.0f))) rt = G.t - dr.T; if (rt < 0 && s.alive && A.mind(s).pathAt > dr.T && A.mind(s).pathAt > G.t - 0.02 && dr.what != "bunker") logf("test: bot %d new path at %.2f s after the %s drop still crosses it (route %zu pts, partial %d, trav %d)", slot, G.t - dr.T, dr.what.c_str(), A.mind(s).route.size(), (int)A.mind(s).partial, (int)A.mind(s).trav.on); }   // a bunker can be walked through: any new route counts
+          // "walked into it": inside the footprint of a solid / wire object, or (enterable bunker) stuck against it
+          bool enterable = dr.what == "bunker";
+          if (G.t - dr.T > 0.3 && !enterable) for (auto& s : G.sold) if (s.alive && !s.human && s.role == CombatRole::Attacker && !dr.nearAtDrop.count(s.slot))
+            for (auto& b : dr.boxes) { vec2 l = local2(b, s.feet); if (std::fabs(l.x) < b.he.x - 0.15f && std::fabs(l.y) < b.he.y - 0.15f) { if (!dr.walked.count(s.slot)) logf("test: bot %d inside the dropped %s at %.2f s after the drop (%.1f %.1f %.1f) local (%.2f %.2f), trav %d, area %d, action %s, why %s", s.slot, dr.what.c_str(), G.t - dr.T, s.feet.x, s.feet.y, s.feet.z, l.x, l.y, (int)A.mind(s).trav.on, (int)G.nav.areaAt(s.feet, 0.3f), aiActionName(A.mind(s).action), s.br.why.c_str()); dr.walked.insert(s.slot); } }
+          for (auto& e : A.stuck) if (e.t0 > dr.T + 0.3 && !dr.nearAtDrop.count(e.slot))
+            for (auto& b : dr.boxes) { vec2 l = local2(b, e.pos); if (std::fabs(l.x) < b.he.x + 0.8f && std::fabs(l.y) < b.he.y + 0.8f && e.t0 < dr.T + 15) dr.stuckAt.insert(e.slot); }
         }
         if (t < 36.0f) return false;
         json rep = json::array();
         for (auto& dr : drops) {
           int n = 0, ok = 0; double worst = 0; for (auto& [slot, rt] : dr.aff) { ++n; if (rt >= 0 && rt <= 1.0) ++ok; worst = std::max(worst, rt < 0 ? 99.0 : rt); }
-          char b[300]; std::snprintf(b, sizeof b, "live rebuild, %s dropped at %.1f s across moving bots: %d of %d affected bots re-routed within 1 s (slowest %.2f s), %d walked into it", dr.what.c_str(), dr.T, ok, n, worst > 90 ? -1.0 : worst, (int)dr.walked.size());
-          check(dr.T >= 0 && n > 0 && ok == n && dr.walked.empty(), b);
+          char b[300]; std::snprintf(b, sizeof b, "live rebuild, %s dropped at %.1f s across moving bots: %d of %d affected bots re-routed within 1 s (slowest %.2f s), %d walked into it, %d got stuck against it", dr.what.c_str(), dr.T, ok, n, worst > 90 ? -1.0 : worst, (int)dr.walked.size(), (int)dr.stuckAt.size());
+          check(dr.T >= 0 && n > 0 && ok == n && dr.walked.empty() && dr.stuckAt.empty(), b);
           rep.push_back({{"what", dr.what}, {"t", dr.T}, {"affected", n}, {"reroutedWithin1s", ok}, {"slowest_s", worst}, {"walkedIn", (int)dr.walked.size()}});
         }
         summary["liveRebuild"] = rep; summary["rebuilds"] = G.nav.rebuilds; summary["rebuildMsMax"] = G.nav.rebuildMsMax;
@@ -151,6 +170,7 @@ void SelfTest::aiUpdate(App& app, float dt) {
       // ---------------- AI_SPEC 12.2: obstacle course
       push("obstacle course", [this, startMatch](App& a, float t) {
         static std::set<int> reached, spawned; static int forbidden = 0; static std::set<int> forbiddenBots; static double tReach = -1;
+        if (t == 0 && std::getenv("NMK_AICOURSE_REBUILD_ONLY")) return true;   // debugging the live rebuild part alone
         if (t == 0) { reached.clear(); spawned.clear(); forbidden = 0; forbiddenBots.clear(); tReach = -1; bool ok = startMatch(a, "course", 10, 1, 3); if (ok) aiCore()->tactics["budget"]["lodDistance_m"] = 2000; return !ok; }
         Game& G = *gGame; AiCore& A = *aiCore();
         const Objective& oa = G.match.sc.objectives[0];

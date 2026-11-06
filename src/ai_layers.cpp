@@ -21,7 +21,6 @@ void AiCore::commander(TeamBrain& tb) {
     }
     tb.stage = G.match.active;
     for (auto& s : G.sold) if (s.alive && !s.human && (int)s.role == tb.role) { BotMind& m = mind(s); releaseCover(s); m.slot = -1; m.flankReached = false; m.needNewGoal = true; m.hasSubGoal = false; }
-    for (auto& ft : tb.fts) { ft.clearBuilding = -1; ft.roomsCleared.clear(); }
   }
   (void)ob;
   // fireteams of 3-4 per lane (stable while the alive set does not change)
@@ -80,7 +79,7 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
   // room / bunker clearing (AI_SPEC 8.2)
   if (!attacker) return;
   const Objective* ob = G.match.activeObjective();
-  if (ft.clearBuilding < 0 && !regroup) {
+  if (ft.clearBuilding < 0) {
     int bestB = -1, bestR = -1; float bd = 1e9f;
     for (size_t bi = 0; bi < buildings.size(); ++bi) {
       const AiBuilding& b = buildings[bi];
@@ -91,7 +90,7 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
         std::string key = std::to_string(b.inst) + ":" + b.rooms[ri].id;
         if (ft.roomsCleared.count(key)) continue;
         bool occupied = false; for (auto* k : threats) if (b.roomAt(k->pos) == (int)ri && G.t - k->seen < 20) occupied = true;
-        bool onObjective = ob && (ob->contains(bc) || glm::length(vec2(bc.x - ob->pos.x, bc.z - ob->pos.z)) < ob->extent() + 4);
+        bool onObjective = (ob && (ob->contains(bc) || glm::length(vec2(bc.x - ob->pos.x, bc.z - ob->pos.z)) < ob->extent() + 4)) || (regroup && lenXZ(bc - tb.regroupAt) < 40);   // consolidation clears the captured strongpoint
         bool entrance = false; for (auto& e : b.entrances) if (e.room == b.rooms[ri].id) entrance = true;
         if (!entrance || !(occupied || (onObjective && d < 45))) continue;
         float sc = d - (occupied ? 30.0f : 0.0f);
@@ -191,7 +190,7 @@ void AiCore::think(Soldier& s) {
   if (attacker && ft && ft->overwatch && !m.bounding && !regroup) u[A_OVERWATCH] = 0.6f;
   if (!attacker) u[A_HOLD] = 0.66f;
   else if (regroup || insideObj) u[A_HOLD] = 0.8f;
-  if (clearing && ft->clearStage >= 1) u[A_CLEAR] = 0.84f;
+  if (clearing && ft->clearStage >= 1) u[A_CLEAR] = 0.92f;   // above holding the point (consolidation includes clearing it)
   // grenades: an enemy behind cover / in a room at 8-35 m (checked about once a second)
   if (s.frags > 0 && b.grenadeCD <= 0 && s.throwT < 0 && ((int)(G.t * 2) + s.slot) % 2 == 0) {
     vec3 vel; vec3 tgt(0); bool ok = false;
@@ -352,7 +351,9 @@ void AiCore::act(Soldier& s, float dt) {
         vec3 st = ent ? ent->p - dir * 0.9f + side * sd : s.feet;
         NavRef r; vec3 on; if (G.nav.closest(st, 1.2f, r, on)) st = on;
         requestPath(s, st, 0.5f, 5.0f);
-        if (lenXZ(s.feet - st) < 0.8f) { m.set = true; if (m.setAt < ft->clearT) m.setAt = G.t; } else m.set = false;
+        if (glm::length(st - m.clearGoal) > 0.5f) { m.clearGoal = st; m.clearGoalT = G.t; }
+        bool late = G.t - m.clearGoalT > 9.0;   // a stack point it cannot reach: stack where it stands
+        if (lenXZ(s.feet - st) < 0.8f || late) { m.set = true; if (m.setAt < ft->clearT) m.setAt = G.t; } else m.set = false;
         m.speed = lenXZ(s.feet - st) > 6 ? SPD_JOG : SPD_WALK; m.posture = Physics::CROUCH;
         b.why = "stacking at the entrance";
         if (ft->clearStage == 2 && idx == 0 && s.frags > 0 && s.throwT < 0 && b.grenadeCD <= 0 && ent) {
@@ -364,7 +365,10 @@ void AiCore::act(Soldier& s, float dt) {
         std::vector<vec3> cs; for (auto& c : bd.corners) if (c.room == room.id) cs.push_back(c.p);
         if (cs.empty()) cs.push_back((room.mn + room.mx) * 0.5f);
         vec3 tgt = cs[(idx + m.clearCorner) % cs.size()];
-        if (lenXZ(s.feet - tgt) < 0.9f) { m.set = true; if (G.t - m.setAt > 1.5) { ++m.clearCorner; m.setAt = G.t; } } else m.set = false;
+        if (glm::length(tgt - m.clearGoal) > 0.5f) { m.clearGoal = tgt; m.clearGoalT = G.t; }
+        if (lenXZ(s.feet - tgt) < 0.9f) { m.set = true; if (G.t - m.setAt > 1.5) { ++m.clearCorner; m.setAt = G.t; } }
+        else if (G.t - m.clearGoalT > 7.0) { ++m.clearCorner; m.set = true; }   // unreachable corner: the next one
+        else m.set = false;
         requestPath(s, tgt, 0.6f, 5.0f);
         m.speed = SPD_WALK; m.posture = Physics::STAND;
         b.why = bd.bunker ? "clearing the bunker" : "clearing the room";

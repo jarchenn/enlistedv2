@@ -103,7 +103,7 @@ bool buildAiObstacleCourse(App& app, std::string& err) {
   std::vector<vec2> mf = {vec2(-44, 58), vec2(-6, 58), vec2(-6, 70), vec2(-44, 70)};
   for (float x = -40; x <= -10; x += 8) { place(app, "fence_post_wire", vec3(x, 0, 71), 0); place(app, "fence_post_wire", vec3(x, 0, 57), 0); }
   // hedgerow line with gaps (bocage banks block; bots go through the gaps)
-  for (float x = -64; x <= 64; x += 8) { if (std::fabs(x + 20) < 1 || std::fabs(x - 12) < 1) continue; place(app, "hedgerow_bocage", vec3(x, 0, 0), 0); }
+  for (float x = -64; x <= 64; x += 8) { if (std::fabs(x + 24) < 1 || std::fabs(x - 16) < 1) continue; place(app, "hedgerow_bocage", vec3(x, 0, 0), 0); }
   // low walls (vault)
   for (float x = -36; x <= 36; x += 6) { if (std::fabs(x) < 1) continue; place(app, "stone_wall_low", vec3(x, 0, -28), 0); }
   // the building and the bunker on objective A

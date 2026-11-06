@@ -247,14 +247,30 @@ void AiCore::scanBuildings() {
         b.entrances.push_back({W(p), q * glm::normalize(dir), "r1"});
         b.doors.push_back({"r1", "outside", W(p)});
       }
-      for (vec2 c : {vec2(mn.x + 0.5f, mn.z + 0.5f), vec2(mx.x - 0.5f, mn.z + 0.5f), vec2(mx.x - 0.5f, mx.z - 0.5f), vec2(mn.x + 0.5f, mx.z - 0.5f)})
-        b.corners.push_back({W(vec3(c.x, a.bmin.y + 0.05f, c.y)), "r1"});
+      // corners: the extreme interior points that are really on the mesh (thick bunker walls, inner doors)
+      std::vector<vec3> inside;
+      for (float z = mn.z; z <= mx.z; z += 0.8f) for (float x = mn.x; x <= mx.x; x += 0.8f) {
+        vec3 w = W(vec3(x, a.bmin.y + 0.3f, z)); NavRef r; vec3 on;
+        if (!G.nav.closest(w, vec3(0.35f, 1.2f, 0.35f), r, on)) continue;
+        vec3 l = glm::inverse(q) * (on - in.pos);
+        if (l.x < mn.x - 0.1f || l.x > mx.x + 0.1f || l.z < mn.z - 0.1f || l.z > mx.z + 0.1f || on.y > in.pos.y + a.bmin.y + 2.5f) continue;
+        inside.push_back(on);
+      }
+      if (inside.size() < 3) { b.entrances.clear(); b.doors.clear(); }   // no walkable interior on the mesh: not clearable
+      else {
+        for (vec2 sgn : {vec2(1, 1), vec2(1, -1), vec2(-1, 1), vec2(-1, -1)}) {
+          const vec3* best = nullptr; float bs = -1e9f;
+          for (auto& p : inside) { vec3 l = glm::inverse(q) * (p - in.pos); float sc = l.x * sgn.x + l.z * sgn.y; if (sc > bs) { bs = sc; best = &p; } }
+          bool dup = false; for (auto& c : b.corners) if (glm::length(c.p - *best) < 0.8f) dup = true;
+          if (!dup) b.corners.push_back({*best, "r1"});
+        }
+      }
       for (auto& d : a.interactables) if (d.kind == "window") { vec3 p = (d.apMin + d.apMax) * 0.5f; vec3 o = p - cen; o.y = 0; float yaw = degrees(std::atan2(-o.x, -o.z)); b.firing.push_back({W(p - glm::normalize(o + vec3(1e-4f)) * 0.6f) - vec3(0, 1.0f, 0), wrapDeg(in.yaw + yaw + 180), "window"}); }
     }
     for (auto& fp : m.firingPoints) b.firing.push_back({W(fp.p), wrapDeg(in.yaw + fp.yaw), fp.kind});
     // entrances must be reachable on the mesh: snap them
     for (auto& e : b.entrances) { NavRef r; vec3 on; if (G.nav.closest(e.p, 1.5f, r, on)) e.p = on; }
-    for (auto& c : b.corners) { NavRef r; vec3 on; if (G.nav.closest(c.p, 1.2f, r, on)) c.p = on; }
+    if (!b.generated) for (auto& c : b.corners) { NavRef r; vec3 on; if (G.nav.closest(c.p, 1.2f, r, on)) c.p = on; }
     if (!b.entrances.empty() || !b.firing.empty()) buildings.push_back(b);
   }
   logf("ai: %zu buildings / bunkers with clearing annotations", buildings.size());

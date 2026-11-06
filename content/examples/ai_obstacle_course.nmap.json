@@ -1308,22 +1308,6 @@
         "interactables": {}
       },
       "position": [
-        -24.0,
-        -0.024621877819299698,
-        0.0
-      ],
-      "yaw": 0.0
-    },
-    {
-      "asset": {
-        "id": "hedgerow_bocage",
-        "version": 1
-      },
-      "id": 82,
-      "overrides": {
-        "interactables": {}
-      },
-      "position": [
         -16.0,
         -0.04993554949760437,
         0.0
@@ -1335,7 +1319,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 83,
+      "id": 82,
       "overrides": {
         "interactables": {}
       },
@@ -1351,7 +1335,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 84,
+      "id": 83,
       "overrides": {
         "interactables": {}
       },
@@ -1367,7 +1351,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 85,
+      "id": 84,
       "overrides": {
         "interactables": {}
       },
@@ -1383,23 +1367,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 86,
-      "overrides": {
-        "interactables": {}
-      },
-      "position": [
-        16.0,
-        -0.07455696165561676,
-        0.0
-      ],
-      "yaw": 0.0
-    },
-    {
-      "asset": {
-        "id": "hedgerow_bocage",
-        "version": 1
-      },
-      "id": 87,
+      "id": 85,
       "overrides": {
         "interactables": {}
       },
@@ -1415,7 +1383,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 88,
+      "id": 86,
       "overrides": {
         "interactables": {}
       },
@@ -1431,7 +1399,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 89,
+      "id": 87,
       "overrides": {
         "interactables": {}
       },
@@ -1447,7 +1415,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 90,
+      "id": 88,
       "overrides": {
         "interactables": {}
       },
@@ -1463,7 +1431,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 91,
+      "id": 89,
       "overrides": {
         "interactables": {}
       },
@@ -1479,7 +1447,7 @@
         "id": "hedgerow_bocage",
         "version": 1
       },
-      "id": 92,
+      "id": 90,
       "overrides": {
         "interactables": {}
       },
@@ -1495,7 +1463,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 93,
+      "id": 91,
       "overrides": {
         "interactables": {}
       },
@@ -1511,7 +1479,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 94,
+      "id": 92,
       "overrides": {
         "interactables": {}
       },
@@ -1527,7 +1495,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 95,
+      "id": 93,
       "overrides": {
         "interactables": {}
       },
@@ -1543,7 +1511,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 96,
+      "id": 94,
       "overrides": {
         "interactables": {}
       },
@@ -1559,7 +1527,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 97,
+      "id": 95,
       "overrides": {
         "interactables": {}
       },
@@ -1575,7 +1543,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 98,
+      "id": 96,
       "overrides": {
         "interactables": {}
       },
@@ -1591,7 +1559,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 99,
+      "id": 97,
       "overrides": {
         "interactables": {}
       },
@@ -1607,7 +1575,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 100,
+      "id": 98,
       "overrides": {
         "interactables": {}
       },
@@ -1623,7 +1591,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 101,
+      "id": 99,
       "overrides": {
         "interactables": {}
       },
@@ -1639,7 +1607,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 102,
+      "id": 100,
       "overrides": {
         "interactables": {}
       },
@@ -1655,7 +1623,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 103,
+      "id": 101,
       "overrides": {
         "interactables": {}
       },
@@ -1671,7 +1639,7 @@
         "id": "stone_wall_low",
         "version": 1
       },
-      "id": 104,
+      "id": 102,
       "overrides": {
         "interactables": {}
       },
@@ -1687,7 +1655,7 @@
         "id": "house_stone_cottage",
         "version": 1
       },
-      "id": 105,
+      "id": 103,
       "overrides": {
         "interactables": {}
       },
@@ -1703,7 +1671,7 @@
         "id": "bunker_mg_casemate",
         "version": 1
       },
-      "id": 106,
+      "id": 104,
       "overrides": {
         "interactables": {}
       },
@@ -1760,7 +1728,7 @@
       ]
     }
   ],
-  "nextId": 107,
+  "nextId": 105,
   "removedTemplateVegetation": [],
   "scenario": {
     "devTestMap": false,
@@ -1778,8 +1746,8 @@
         "id": "obj_1",
         "label": "A",
         "linkedStructures": [
-          105,
-          106
+          103,
+          104
         ],
         "order": 0,
         "pos": [

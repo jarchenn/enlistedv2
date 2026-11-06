@@ -42,7 +42,7 @@ void NavConfig::load(const json& j) {
 struct NavBuildJob {
   int tx = 0, tz = 0; uint32_t gen = 0, idBase = 0;
   std::shared_ptr<NavBodySet> bodies; NavAreaMarks marks; float water = -1000;
-  unsigned char* data = nullptr; int size = 0; std::vector<NavLink> links; double ms = 0; int polys = 0, tris = 0, kinds[4] = {0, 0, 0, 0}, walkTris = 0;
+  unsigned char* data = nullptr; int size = 0; std::vector<NavLink> links; double ms = 0; int polys = 0, tris = 0, kinds[4] = {0, 0, 0, 0};
   ~NavBuildJob() { if (data) dtFree(data); }
 };
 
@@ -84,8 +84,6 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
   navTriangles(*j.bodies, vec3(rc.bmin[0], -2000, rc.bmin[2]), vec3(rc.bmax[0], 2000, rc.bmax[2]), tris);
   int nt = (int)tris.kind.size(), nv = (int)tris.v.size() / 3;
   j.tris = nt; for (uint8_t k : tris.kind) j.kinds[k & 3]++;
-  for (int k = 0; k < nt; ++k) { const float* a = &tris.v[tris.t[k * 3] * 3]; const float* b = &tris.v[tris.t[k * 3 + 1] * 3]; const float* c = &tris.v[tris.t[k * 3 + 2] * 3];
-    float e0[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]}, e1[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]}; float ny = e0[2] * e1[0] - e0[0] * e1[2]; if (ny > 0) ++j.walkTris; }
   if (nt == 0) { j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); return; }
   float ymin = 1e9f, ymax = -1e9f;
   for (int k = 0; k < nv; ++k) { ymin = std::min(ymin, tris.v[k * 3 + 1]); ymax = std::max(ymax, tris.v[k * 3 + 1]); }
@@ -144,6 +142,20 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
     pm->flags[i] = navAreaCost(na) < 0 ? NF_FORBID : (navarea::crouch(a) ? (NF_WALK | NF_CROUCH) : NF_WALK);
   }
   navGenerateLinks(c, cols, *pm, tminx, tminz, T, j.idBase, j.links);
+  // both ends must be on walkable, unmarked voxels of the final field (links come from the raw columns, before area
+  // marks such as hedgerow footprints, forbidden areas and erosion)
+  auto onWalk = [&](vec3 p) {
+    int cx = (int)std::floor((p.x - chf->bmin[0]) / chf->cs), cz = (int)std::floor((p.z - chf->bmin[2]) / chf->cs);
+    for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx) {
+      int x = cx + dx, z = cz + dz; if (x < 0 || z < 0 || x >= chf->width || z >= chf->height) continue;
+      const rcCompactCell& cell = chf->cells[x + z * chf->width];
+      for (int i = (int)cell.index, ni = (int)(cell.index + cell.count); i < ni; ++i) {
+        uint8_t a = chf->areas[i]; if (a == RC_NULL_AREA || navAreaCost(navarea::toNav(a)) < 0) continue;
+        if (std::fabs(chf->bmin[1] + chf->spans[i].y * chf->ch - p.y) < 0.6f) return true;
+      }
+    }
+    return false; };
+  j.links.erase(std::remove_if(j.links.begin(), j.links.end(), [&](const NavLink& l) { return !onWalk(l.a) || !onWalk(l.b); }), j.links.end());
   std::vector<float> lv; std::vector<float> lr; std::vector<unsigned char> ld, la; std::vector<unsigned short> lf; std::vector<unsigned int> lid;
   for (auto& l : j.links) {
     lv.insert(lv.end(), {l.a.x, l.a.y, l.a.z, l.b.x, l.b.y, l.b.z});
@@ -278,9 +290,9 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
   std::vector<std::thread> T;
   for (int k = 0; k < threads; ++k) T.emplace_back([&] { for (size_t i; (i = next++) < jobs.size();) buildTile(cfg, *jobs[i]); });
   for (auto& t : T) t.join();
-  int bodies = 0, tri = 0, kinds[4] = {0, 0, 0, 0}, polys = 0, up = 0;
-  for (auto& j : jobs) { bodies += navBodyCount(*j->bodies); tri += j->tris; for (int k = 0; k < 4; ++k) kinds[k] += j->kinds[k]; polys += j->polys; up += j->walkTris; }
-  logf("nav: input %d body refs, %d triangles (solid %d, wire %d, skip %d, carve %d), %d polygons before commit, %d triangles face up (Recast winding)", bodies, tri, kinds[0], kinds[1], kinds[2], kinds[3], polys, up);
+  int bodies = 0, tri = 0, kinds[4] = {0, 0, 0, 0}, polys = 0;
+  for (auto& j : jobs) { bodies += navBodyCount(*j->bodies); tri += j->tris; for (int k = 0; k < 4; ++k) kinds[k] += j->kinds[k]; polys += j->polys; }
+  logf("nav: input %d body refs, %d triangles (solid %d, wire %d, skip %d, carve %d), %d polygons", bodies, tri, kinds[0], kinds[1], kinds[2], kinds[3], polys);
   for (auto& j : jobs) commit(*j);
   changed.clear();
   buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();

@@ -136,8 +136,9 @@ void AiCore::begin(vec3 lo, vec3 hi) {
       if (it == G.app.rt.end() || !it->second.asset) continue;
       const AssetDef& a = *it->second.asset;
       const NavMeta& m = a.navMeta;
-      bool wireSlow = (a.defense.unsafeVault && a.defense.traversal == "slow");
-      if (m.areas.empty() && m.area == NavArea::Default && !wireSlow) continue;
+      bool wireSlow = a.defense.unsafeVault && !it->second.defDestroyed;   // every wire obstacle: its uncut stretches are forbidden ground
+      bool hedge = a.tree.on && a.tree.hedge && resolveNavEffect(m, a.enterable, a.bmin, a.bmax) != NavEffect::None;   // bank + woody stems: a wall (AI_SPEC 3.1)
+      if (m.areas.empty() && m.area == NavArea::Default && !wireSlow && !hedge) continue;
       float r = glm::length(vec2(std::max(std::fabs(a.bmin.x), std::fabs(a.bmax.x)), std::max(std::fabs(a.bmin.z), std::fabs(a.bmax.z)))) + 1;
       if (in.pos.x + r < tlo.x || in.pos.x - r > thi.x || in.pos.z + r < tlo.y || in.pos.z - r > thi.y) continue;
       quat q = yawQuat(in.yaw);
@@ -147,12 +148,19 @@ void AiCore::begin(vec3 lo, vec3 hi) {
         std::vector<std::array<vec2, 3>> tris; triangulate(local, tris);
         for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.area = navarea::fromNav(ar); out.marks.push_back(mk); }
       };
-      if (wireSlow) {   // no traversal volume: the wire parts' footprints are forbidden
+      if (wireSlow) {   // the wire parts' footprints are forbidden (thin coils leave walkable ground between the rings)
+        const auto& cut = it->second.secCut;
         for (auto& p : a.parts) if (p.playerOnly) {
+          if (p.sec >= 0 && p.sec < (int)cut.size() && cut[p.sec]) continue;   // a stretch cut by a blast is a gap
           vec3 hs = p.size * 0.5f; std::vector<vec2> fp;
-          for (vec2 c : {vec2(-1, -1), vec2(1, -1), vec2(1, 1), vec2(-1, 1)}) { vec3 l = p.center + p.rot * vec3(c.x * (hs.x + 0.1f), 0, c.y * (hs.z + 0.1f)); fp.push_back(vec2(l.x, l.z)); }
+          for (vec2 c : {vec2(-1, -1), vec2(1, -1), vec2(1, 1), vec2(-1, 1)}) { vec3 l = p.center + p.rot * vec3(c.x * (hs.x + 0.15f), 0, c.y * (hs.z + 0.15f)); fp.push_back(vec2(l.x, l.z)); }
           addPoly(fp, NavArea::Wire);
         }
+      }
+      if (hedge) {
+        vec2 hf = a.footprint * 0.5f + vec2(0.1f);
+        std::vector<std::array<vec2, 3>> tris; triangulate({vec2(-hf.x, -hf.y), vec2(hf.x, -hf.y), vec2(hf.x, hf.y), vec2(-hf.x, hf.y)}, tris);
+        for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.nullify = true; out.marks.push_back(mk); }
       }
       if (!m.areas.empty()) { for (auto& ap : m.areas) if (ap.outline.size() >= 3) addPoly(ap.outline, ap.area); }
       else if (m.area != NavArea::Default) addPoly({vec2(a.bmin.x, a.bmin.z), vec2(a.bmax.x, a.bmin.z), vec2(a.bmax.x, a.bmax.z), vec2(a.bmin.x, a.bmax.z)}, m.area);
@@ -317,14 +325,20 @@ void AiCore::onTilesChanged() {
   lastCommitAt = G.t; committedTiles += (int)G.nav.changed.size();
   std::set<std::pair<int, int>> ch(G.nav.changed.begin(), G.nav.changed.end());
   // bots whose corridor crosses a rebuilt tile re-plan now (AI_SPEC 3.3: within 1 s)
+  int nRe = 0;
   for (auto& s : G.sold) {
     if (!s.alive || s.human || s.slot >= (int)minds.size() || !minds[s.slot]) continue;
     BotMind& m = *minds[s.slot];
     bool hit = false;
+    if (m.trav.on && ch.count({G.nav.tileOf(m.trav.end.x), G.nav.tileOf(m.trav.end.z)}) && G.nav.nearest(m.trav.end, 0.25f) < 0) {
+      m.trav.on = false; ++metrics.linkAborts;   // the landing is gone (something was built on it): stop where the body is
+      Physics::setAgentPos(s.agent, s.feet); hit = true;
+    }
     for (auto& t : m.pathTiles) if (ch.count(t)) { hit = true; break; }
     if (!hit && ch.count({G.nav.tileOf(s.feet.x), G.nav.tileOf(s.feet.z)})) hit = true;
-    if (hit && (m.hasPath || m.wantPath)) { requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 10.0f, true); ++metrics.rebuildReplans; }
+    if (hit && (m.hasPath || m.wantPath)) { requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 10.0f, true); ++metrics.rebuildReplans; ++nRe; }
   }
+  if (++commitLogs <= 20) logf("ai: %zu navmesh tiles committed at %.2f s, %d bots re-plan", ch.size(), G.t, nRe);
   // regenerate cover for those tiles; defense slots that came from cover are rebuilt
   for (auto& t : ch) {
     for (auto& c : cover) if (!c.authored && c.tx == t.first && c.tz == t.second) c.serial = 0;   // tombstone
