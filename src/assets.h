@@ -7,7 +7,10 @@ enum Pattern : int {
   PAT_PLAIN = 0, PAT_STONE = 1, PAT_WOOD = 2, PAT_PLASTER = 3, PAT_SLATE = 4, PAT_TILE = 5,
   PAT_METAL = 6, PAT_GLASS = 7, PAT_FABRIC = 8, PAT_BRICK = 9, PAT_PAINTED = 10, PAT_CONCRETE = 11,
   PAT_NET = 16,     // camouflage net with garnish (docs/bunkers.md#camouflage)
-  PAT_BUNKER = 15   // board-formed (12-14: path surfaces, src/paths.cpp) bunker concrete; grain = height of the roof lip in decimetres (run-off stains below it)
+  PAT_BUNKER = 15,  // board-formed (12-14: path surfaces, src/paths.cpp) bunker concrete; grain = height of the roof lip in decimetres (run-off stains below it)
+  // walls, interiors and furniture (docs/interiors.md)
+  PAT_LIMEWASH = 17, PAT_BRICKWORK = 18, PAT_ASHLAR = 19, PAT_INTERIOR = 20, PAT_FLOORFIN = 21, PAT_RUBBLE = 22,
+  PAT_RUG = 23, PAT_CERAMIC = 24, PAT_JOINERY = 25, PAT_PAINTWOOD = 26, PAT_PAPER = 27, PAT_TEXTILE = 28
 };
 
 struct Material {
@@ -15,7 +18,7 @@ struct Material {
   vec3 albedo{0.6f};
   float roughness = 0.8f, metallic = 0.0f;
   int pattern = PAT_PLAIN;
-  int grainAxis = 1; // part-local axis that wood grain / slate courses follow
+  int grainAxis = 1; // part-local axis that wood grain / slate courses follow; -1 = the part's longest axis (furniture)
 };
 
 // A primitive part. Boxes and triangular prisms, in a parent space.
@@ -30,6 +33,7 @@ struct Part {
   // PRISM: triangle in (u,v) plane extruded along `axis` from a0..a1.
   int axis = 0; float a0 = 0, a1 = 0; vec2 tri[3]{};
   float rad = 0;   // ROUND: edge radius
+  int grp = -1;    // "g": prop group (furniture pieces that break off together, docs/interiors.md)
 };
 
 struct Vertex {
@@ -161,6 +165,8 @@ struct AssetDef {
   std::vector<Material> materials;
   std::vector<Part> parts;       // static parts incl. furniture
   std::vector<std::string> furnitureNames;
+  size_t furnFirst = 0;           // parts[furnFirst..] are the built-in furniture groups
+  GpuMesh noFurnOpaque, noFurnGlass; ShapePtr noFurnShape;   // the building without its built-in furniture (room templates)
   std::vector<InteractDef> interactables;
   GpuMesh opaque, glass;
   ShapePtr shape;                 // static collision

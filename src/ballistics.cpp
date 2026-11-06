@@ -268,7 +268,9 @@ bool App::bulletImpact(const Projectile& p, const Physics::Hit& hit, std::string
   uint64_t iid = hit.ud >> 16;
   if (!ground && low == 0 && defenseBulletHit(iid, hit.pos)) { surface = "sandbag"; return false; }   // defences stop every round
   if (!ground && (low == 0 || low == 0xFFF1u) && treeImpact(iid, hit.pos, glm::normalize(p.v), false)) { surface = "wood"; return false; }   // trunks stop rounds
-  if (low == 0) return false;   // any other static shell stops the round
+  int propHit = (!ground && low == 0) ? interior.bulletHit(*this, iid, hit.pos, glm::normalize(p.v), surface) : 0;   // furniture (interior.cpp)
+  if (propHit == 1) return false;
+  if (low == 0 && !propHit) return false;   // any other static shell stops the round
   Instance* inst = doc.find(iid);
   auto it = rt.find(iid);
   if (!inst || it == rt.end()) return false;
@@ -277,7 +279,8 @@ bool App::bulletImpact(const Projectile& p, const Physics::Hit& hit, std::string
   float speed = glm::length(p.v);
   float mu = kMuWood;
   int k = -1, l = -1; bool onGlass = false;
-  if (low == 0xFFF0u) { surface = "wood"; }   // loose debris from a detached leaf
+  if (propHit) { mu = surface == "glass" ? kMuGlass : kMuWood; }   // furniture: wood / glass / cloth penetration
+  else if (low == 0xFFF0u) { surface = "wood"; }   // loose debris from a detached leaf
   else if (low >= 1 && low <= r.asset->interactables.size()) {
     k = (int)low - 1;
     const InteractDef& d = r.asset->interactables[k];

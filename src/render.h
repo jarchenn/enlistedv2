@@ -4,7 +4,14 @@
 #include "combat.h"
 #include "grass.h"
 
-struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; };
+// Per building copy parameters of the wall / floor finish patterns 17-22 (docs/interiors.md): no shader edits needed
+// to vary wear, palette or room finishes. Rooms and sills are in asset space.
+struct SurfaceParams {
+  vec4 inst{0, 1, 1, 0};                 // seed (0..1), wear (0..2), palette variation (0..1), room count
+  vec4 roomA[16]{}, roomB[16]{};         // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
+  vec4 sillA[12]{}, sillB[12]{}; int sills = 0;   // (centre x, sill y, centre z, half width) / (outward normal x, z, -, -)
+};
+struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; };
 struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; };
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'

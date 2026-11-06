@@ -64,7 +64,7 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
   uint64_t base = i.id << 16;
-  if (r.asset->shape) r.staticBody = Physics::addStatic(r.asset->shape, i.pos, yawQuat(i.yaw), base);
+  if (ShapePtr s = interior.staticShape(*this, i, r.asset)) r.staticBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), base);   // interiors: props, furnished copies
   if (r.asset->tree.on) buildTreeRT(i, r);
   r.defHp = r.asset->defense.hp; r.defDestroyed = false;
   r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0);
@@ -201,10 +201,13 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }
-    op.push_back({&r.asset->opaque, M});
+    if (interior.propDraw(*this, i, r, M, op, gl)) continue;   // furniture: intact / glass gone / broken (interior.cpp)
+    const SurfaceParams* surf = interior.surfaceFor(*this, i, r.asset); size_t opFirst = op.size();   // building finish parameters
+    bool noFurn = interior.hideBuiltin(i) && r.asset->noFurnOpaque.count;   // furnished by room templates
+    op.push_back({noFurn ? &r.asset->noFurnOpaque : &r.asset->opaque, M});
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
-    if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
+    if (noFurn) { if (r.asset->noFurnGlass.count) gl.push_back({&r.asset->noFurnGlass, M}); } else if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
     for (size_t k = 0; k < r.asset->interactables.size(); ++k) {
       auto& d = r.asset->interactables[k];
       for (size_t l = 0; l < d.leaves.size(); ++l) {
@@ -216,6 +219,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         if (lf.glass.count && !(st & 1)) gl.push_back({&lf.glass, L});
       }
     }
+    for (size_t k = opFirst; k < op.size(); ++k) op[k].surf = surf;
   }
 }
 
@@ -340,6 +344,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   c.y = top;
   if (a->path.on) { c.y = terrain.height(pos.x, pos.z); return c; }
   float grade = top - low;
+  if (interior.isProp(a)) return const_cast<InteriorSys&>(interior).checkPlacement(const_cast<App&>(*this), a, pos, yaw, ignoreId);   // furniture (lazy caches): floors, walls, keep-clear volumes
   if (!a->defense.kind.empty()) {   // defences: terrain-conforming, limited by slope (theta = acos(N . up)) instead of grade
     float sl = skipSlopeRule ? 0.0f : groundSlopeDeg(pos);
     if (sl > a->defense.maxSlopeDeg) { char b[96]; std::snprintf(b, sizeof b, "Too steep: %.0f deg slope (limit %.0f deg).", sl, a->defense.maxSlopeDeg); c.ok = false; c.reason = b; return c; }
@@ -357,6 +362,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     const AssetDef* b = assetFor(o);
     if (b->category == "Trees" || b->category == "Bushes") continue;
     if (a->defense.kind == "sandbag" && b->defense.kind == "sandbag") continue;   // sandbag runs chain end to end
+    if (interior.isProp(b)) continue;   // furniture is checked by its own placement rules
     if (obbOverlap2D(vec2(pos.x, pos.z), hf - vec2(0.05f), radians(yaw), vec2(o.pos.x, o.pos.z), b->footprint * 0.5f - vec2(0.05f), radians(o.yaw))) {
       c.ok = false; c.reason = "Overlaps " + b->name + " #" + std::to_string(o.id) + "."; return c;
     }
@@ -388,7 +394,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   if (!c.ok) { toast(c.reason); return 0; }
   pushUndo();
   Instance i; i.id = doc.newId(); i.assetId = a->id; i.assetVersion = a->version;
-  i.pos = vec3(pos.x, c.y, pos.z); i.yaw = wrapDeg(yaw);
+  i.pos = c.snapXZ ? vec3(c.xz.x, c.y, c.xz.y) : vec3(pos.x, c.y, pos.z); i.yaw = wrapDeg(yaw);
   if (a->defense.blocksVehicles) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["blocksVehicles"] = true; }
   bump(i);
   doc.instances.push_back(i);
@@ -515,6 +521,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
+    else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities") runSelf = true;
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
@@ -621,6 +628,7 @@ int App::run(int argc, char** argv) {
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
     syncRuntime();
     tanks.sync(*this);
+    interior.sync(*this);   // generated furniture follows / leaves with its building
 
     if (confirmQuit) { ImGui::OpenPopup("Unsaved changes"); confirmQuit = false; }
     if (ImGui::BeginPopupModal("Unsaved changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -636,6 +644,7 @@ int App::run(int argc, char** argv) {
     op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {
       dynLeafDrawItems(op);
+      interior.fragDrawItems(op);
       builderGhosts(ghosts);
       for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
       if (!tanks.occupied) weaponDrawItems(op);

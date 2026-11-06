@@ -79,6 +79,7 @@ void App::applyDamageToMap() {
   if (!undoStack.empty()) { auto& v = undoStack.back().inst; v.erase(std::remove_if(v.begin(), v.end(), [](const Instance& i) { return i.extra.is_object() && i.extra.value("session", false); }), v.end()); }
   int panels = 0, leaves = 0, placed = 0;
   tanks.applyToMap(*this);   // tank damage / wreck / ammunition (tank_sim.cpp)
+  leaves += interior.applyToMap(*this);   // broken furniture (interior.cpp)
   for (auto& i : doc.instances) {
     bool changed = false;
     if (i.extra.is_object() && i.extra.value("session", false)) { i.extra.erase("session"); changed = true; ++placed; }
@@ -117,6 +118,7 @@ void App::applyDamageToMap() {
 void App::clearAppliedDamage() {
   pushUndo();
   for (auto& i : doc.instances) if (!i.panelHp.empty() || !i.leafState.empty() || i.extra.contains("tree") || i.extra.contains("wallDamage")) { i.panelHp.clear(); i.leafState.clear(); i.extra.erase("tree"); i.extra.erase("wallDamage"); i.rev = ++revCounter; }
+  interior.clearApplied(*this);
   doc.terrainDeltas.clear();
   dirty = true;
   resetGround();

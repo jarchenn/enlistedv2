@@ -98,6 +98,12 @@ void GpuMesh::draw() const {
 }
 
 // ---------------------------------------------------------------- mesh building
+// grain axis written to the vertex: the material's, or (grain -1) the part's longest local axis, so furniture
+// grain follows legs, rails, doors and boards (docs/interiors.md)
+static float grainOf(const Part& p, const Material& mat) {
+  if (mat.grainAxis >= 0) return (float)mat.grainAxis;
+  return p.size.x >= p.size.y && p.size.x >= p.size.z ? 0.0f : p.size.y >= p.size.z ? 1.0f : 2.0f;
+}
 static void pushQuad(MeshData& m, const Part& p, const Material& mat, const mat4& xf,
                      const vec3 lp[4], vec3 ln, bool prismSpace) {
   uint32_t base = (uint32_t)m.v.size();
@@ -108,7 +114,7 @@ static void pushQuad(MeshData& m, const Part& p, const Material& mat, const mat4
     v.pos = vec3(xf * vec4(ap, 1));
     v.nrm = glm::normalize(nx * (prismSpace ? ln : p.rot * ln));
     v.albedo = mat.albedo;
-    v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, (float)mat.grainAxis);
+    v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat));
     v.pcoord = lp[k];
     v.pnrm = ln;
     m.v.push_back(v);
@@ -159,7 +165,7 @@ static void appendRound(MeshData& m, const Part& p, const Material& mat, const m
           v.pos = vec3(xf * vec4(p.center + p.rot * lp, 1));
           v.nrm = glm::normalize(nx * (p.rot * n));
           v.albedo = mat.albedo;
-          v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, (float)mat.grainAxis);
+          v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat));
           v.pcoord = lp; v.pnrm = n;
           m.v.push_back(v);
         }
@@ -214,7 +220,10 @@ static int patternFromName(const std::string& s) {
   static const std::map<std::string, int> m = {
     {"plain", PAT_PLAIN}, {"stone", PAT_STONE}, {"wood", PAT_WOOD}, {"plaster", PAT_PLASTER},
     {"slate", PAT_SLATE}, {"tile", PAT_TILE}, {"metal", PAT_METAL}, {"glass", PAT_GLASS},
-    {"fabric", PAT_FABRIC}, {"brick", PAT_BRICK}, {"painted", PAT_PAINTED}, {"concrete", PAT_CONCRETE}, {"bunker", PAT_BUNKER}, {"net", PAT_NET}};
+    {"fabric", PAT_FABRIC}, {"brick", PAT_BRICK}, {"painted", PAT_PAINTED}, {"concrete", PAT_CONCRETE}, {"bunker", PAT_BUNKER}, {"net", PAT_NET},
+    {"limewash", PAT_LIMEWASH}, {"brickwork", PAT_BRICKWORK}, {"ashlar", PAT_ASHLAR}, {"interior", PAT_INTERIOR}, {"floorfin", PAT_FLOORFIN},
+    {"rubble", PAT_RUBBLE}, {"rug", PAT_RUG}, {"ceramic", PAT_CERAMIC}, {"joinery", PAT_JOINERY}, {"paintwood", PAT_PAINTWOOD},
+    {"paper", PAT_PAPER}, {"textile", PAT_TEXTILE}};
   auto it = m.find(s); return it == m.end() ? PAT_PLAIN : it->second;
 }
 
@@ -225,7 +234,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   p.mat = mit == mats.end() ? 0 : mit->second;
   p.visible = j.value("v", 1) != 0;
   if (j.contains("q")) p.rot = glm::normalize(quat(j["q"][3].get<float>(), j["q"][0].get<float>(), j["q"][1].get<float>(), j["q"][2].get<float>()));   // explicit quaternion (x, y, z, w)
-  p.collide = j.value("k", 1) != 0; p.playerOnly = j.value("k", 1) == 2; p.sec = j.value("sec", -1);
+  p.collide = j.value("k", 1) != 0; p.playerOnly = j.value("k", 1) == 2; p.sec = j.value("sec", -1); p.grp = j.value("g", -1);
   if (t == "p") {
     p.shape = Part::PRISM;
     p.axis = j.value("axis", 0);
@@ -360,6 +369,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   for (auto& pj : j.value("parts", json::array())) a->parts.push_back(parsePart(pj, mats));
   std::vector<Panel> autoPanels;
   if (!j.value("noAutoPanels", false)) extractWallPanels(*a, autoPanels);   // piers, corners, lintels, upper floors: destructible too
+  a->furnFirst = a->parts.size();
   for (auto& fj : j.value("furniture", json::array())) {
     a->furnitureNames.push_back(fj.value("name", "item"));
     for (auto& pj : fj.value("parts", json::array())) a->parts.push_back(parsePart(pj, mats));
@@ -438,6 +448,16 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   }
   a->opaque.upload(op); a->glass.upload(gl);
   a->shape = Physics::buildShape(col);
+  if (!a->furnitureNames.empty()) {   // the same building without its built-in furniture (furnished by room templates)
+    MeshData nop, ngl; std::vector<Part> ncol;
+    for (size_t k = 0; k < a->furnFirst && k < a->parts.size(); ++k) {
+      const Part& p = a->parts[k];
+      appendPart(isGlass(*a, p) ? ngl : nop, p, a->materials[p.mat], mat4(1));
+      if (!p.playerOnly && p.collide) ncol.push_back(p);
+    }
+    a->noFurnOpaque.upload(nop); a->noFurnGlass.upload(ngl);
+    a->noFurnShape = Physics::buildShape(ncol);
+  }
   a->playerShape = Physics::buildShape(pcol);
   for (auto& d : a->interactables)
     for (auto& l : d.leaves) {

@@ -10,6 +10,13 @@ std::vector<Cam> cams;
 size_t ci = 0; int frames = 0;
 std::string tag = "now";
 uint64_t FH = 0, CM = 0, WH = 0, PK = 0;
+// interiors set: houses are furnished by the room templates (seeded by the instance id, so every run matches)
+void captureHook(App& app, uint64_t id) {
+  Instance* i = app.doc.find(id); if (!i) return;
+  if (i->assetId.rfind("house_", 0) != 0) return;
+  app.syncRuntime();
+  app.interior.furnish(app, id, 0);
+}
 }
 
 void SelfTest::captureUpdate(App& app, float) {
@@ -50,6 +57,40 @@ void SelfTest::captureUpdate(App& app, float) {
         std::string n = std::string(b.id).substr(7);   // drop "bunker_"
         for (auto& v : b.views) { keep.push_back(n + "_" + v.name); cams.push_back({keep.back().c_str(), o + v.pos, o + v.tgt}); }
         x += 50;
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "interiors") {
+      // NMK_CAPTURE_SET=interiors: walls, interiors and furniture (docs/interiors.md). The representative house is the
+      // farmhouse (exterior wall, windows, doorway, two stairs, a dirt road and pasture in front); the inn shows the
+      // rendered facade of the reference screenshot, the schoolhouse the brick, the cottage a second interior.
+      struct V { const char* name; vec3 pos, tgt; };
+      struct B { const char* id; vec3 at; std::vector<V> views; };
+      const B bs[] = {
+        {"house_farmhouse_2story", vec3(0, 0, 0), {{"ext_close", vec3(-3.0f, 1.75f, 7.6f), vec3(-3.0f, 1.7f, 4.5f)}, {"ext_street", vec3(10.5f, 1.7f, 15.0f), vec3(0.0f, 2.6f, 3.0f)},
+                                                     {"int_kitchen", vec3(-0.9f, 1.65f, 3.3f), vec3(-4.6f, 0.75f, -2.6f)}, {"furniture_close", vec3(-1.9f, 1.45f, 2.0f), vec3(-3.3f, 0.75f, 0.0f)},
+                                                     {"int_parlour", vec3(1.6f, 1.65f, 3.3f), vec3(5.0f, 0.8f, -1.0f)}, {"int_bedroom", vec3(-0.9f, 4.95f, 3.3f), vec3(-4.6f, 3.9f, -2.6f)}}},
+        {"large_village_inn", vec3(60, 0, 0), {{"render_wall", vec3(0.0f, 1.75f, 11.5f), vec3(0.0f, 2.2f, 0.0f)}}},
+        {"large_village_schoolhouse", vec3(-60, 0, 0), {{"brick_wall", vec3(4.0f, 1.75f, 13.0f), vec3(0.0f, 2.5f, 0.0f)}}},
+        {"house_stone_cottage", vec3(0, 0, -40), {{"cottage_ext", vec3(6.5f, 1.7f, 8.5f), vec3(0.0f, 1.6f, 0.0f)}, {"cottage_int", vec3(1.4f, 1.6f, 1.9f), vec3(-2.6f, 0.7f, -1.6f)}}},
+      };
+      cams.clear();
+      static std::deque<std::string> keep;
+      for (auto& b : bs) {
+        const AssetDef* a = app.lib.find(b.id);
+        if (!a) continue;
+        uint64_t id = app.placeInstance(a, b.at, 0.0f);
+        if (!id) continue;
+        if (std::string(b.id) == "house_farmhouse_2story") {   // the road in front of the representative house
+          if (const AssetDef* road = app.lib.find("path_dirt")) app.placeInstance(road, b.at + vec3(0, 0, 11.0f), 90.0f);
+        }
+        captureHook(app, id);   // interiors: furnish (no-op before the room templates existed)
+        vec3 o = app.doc.find(id)->pos;
+        for (auto& v : b.views) { keep.push_back(v.name); cams.push_back({keep.back().c_str(), o + v.pos, o + v.tgt}); }
       }
       app.syncRuntime();
       app.hideEditorOverlays = true;

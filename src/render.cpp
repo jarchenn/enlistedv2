@@ -219,6 +219,93 @@ layout(location=3) out vec4 oNR;      // world normal + roughness (screen-space 
 layout(location=4) out vec4 oVel;     // motion: static geometry leaves a = 0 (TAA reprojects it from depth)
 vec2 faceUV(vec3 p, vec3 n){ vec3 a=abs(n); if (a.y>a.x && a.y>a.z) return p.xz; if (a.x>a.z) return vec2(p.z,p.y); return vec2(p.x,p.y); }
 int domAxis(vec3 n){ vec3 a=abs(n); if (a.x>=a.y && a.x>=a.z) return 0; if (a.y>=a.z) return 1; return 2; }
+// ---- walls, interiors and furniture (docs/interiors.md): per building copy parameters (SurfaceParams)
+uniform vec4 uInst;                    // seed (0..1), wear (0..2), palette variation (0..1), room count
+uniform vec4 uRoomA[16], uRoomB[16];   // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
+uniform vec4 uSillA[12], uSillB[12];   // (centre x, sill y, centre z, half width) / (outward normal x, z, -, -)
+uniform int uSills;
+int roomAt(vec3 p){
+  int n = int(uInst.w + 0.5);
+  for (int k = 0; k < 16; ++k) {
+    if (k >= n) break;
+    vec4 a = uRoomA[k], b = uRoomB[k];
+    if (p.x >= a.x && p.x <= a.z && p.z >= a.y && p.z <= a.w && p.y >= b.x - 0.08 && p.y <= b.y) return k;
+  }
+  return -1;
+}
+// pattern 1's course / block layout (wallfield.cpp stoneId mirrors it, so breaches follow these joints)
+void stoneLayout(vec2 uv, out vec2 id, out float e, out float u, out float vr){
+  float band = floor(uv.y / 0.62), fy = uv.y - band * 0.62;
+  float s1 = 0.62 * (0.36 + 0.28 * hash12(vec2(band, 17.0)));
+  float three = step(0.68, hash12(vec2(band, 29.0)));
+  float s2 = mix(0.62, s1 + (0.62 - s1) * (0.45 + 0.1 * hash12(vec2(band, 31.0))), three);
+  float cy0 = 0.0, cy1 = s1, row = band * 3.0;
+  if (fy >= s1 && fy < s2) { cy0 = s1; cy1 = s2; row += 1.0; } else if (fy >= s2) { cy0 = s2; cy1 = 0.62; row += 2.0; }
+  float rowH = cy1 - cy0;
+  float L = max(rowH * 1.15, 0.30 + 0.55 * hash12(vec2(row, 3.0)));
+  float x = uv.x + hash12(vec2(row, 7.0)) * 5.0;
+  float k = floor(x / L);
+  float jl = (hash12(vec2(k, row)) - 0.5) * 0.45 * L, jr = (hash12(vec2(k + 1.0, row)) - 0.5) * 0.45 * L;
+  float left = k * L + jl, right = (k + 1.0) * L + jr;
+  if (x < left) { right = left; k -= 1.0; left = k * L + (hash12(vec2(k, row)) - 0.5) * 0.45 * L; }
+  else if (x > right) { left = right; k += 1.0; right = (k + 1.0) * L + (hash12(vec2(k + 1.0, row)) - 0.5) * 0.45 * L; }
+  id = vec2(k, row);
+  e = min(min(x - left, right - x), min(fy - cy0, cy1 - fy));
+  u = clamp((x - left) / max(right - left, 1e-3), 0.0, 1.0);
+  vr = clamp((fy - cy0) / max(rowH, 1e-3), 0.0, 1.0);
+}
+// sparse hairline cracks: thin ridges of a domain-warped noise, gated by a broad mask
+float hairline(vec2 uv, float density){
+  vec2 w = uv * 2.2 + vec2(fbm(vec3(uv * 1.1, 8.0)), fbm(vec3(uv * 1.1, 9.0))) * 1.6;
+  float cn = abs(vnoise(vec3(w, 3.0)) - 0.5);
+  return (1.0 - smoothstep(0.0, 0.006, cn)) * smoothstep(0.7 - 0.06 * density, 0.84 - 0.06 * density, fbm(vec3(uv * 0.55, 12.0)));
+}
+// run-off below window sills (asset space): streaks hanging from the sill ends, fading with drop
+float sillRunoff(vec3 p){
+  float r = 0.0;
+  for (int k = 0; k < 12; ++k) {
+    if (k >= uSills) break;
+    vec4 a = uSillA[k], b = uSillB[k];
+    vec2 n = b.xy, t = vec2(-n.y, n.x);
+    vec2 d = p.xz - a.xz;
+    float off = dot(d, n), along = dot(d, t), drop = a.y - p.y;
+    if (off < -0.2 || off > 0.9 || drop < 0.0 || drop > 2.4) continue;
+    float w = a.w * (1.0 + 0.12 * drop);
+    if (abs(along) > w) continue;
+    float ends = 0.45 + 0.55 * smoothstep(a.w * 0.45, a.w * 0.95, abs(along));
+    float st = smoothstep(0.35, 0.8, vnoise(vec3(along * 13.0, p.y * 0.6, float(k))));
+    r = max(r, ends * st * (1.0 - smoothstep(0.1, 2.4, drop)) * (1.0 - smoothstep(0.85, 1.0, abs(along) / w)));
+  }
+  return r;
+}
+// herringbone: blocks N x 1 (in block widths); returns block-local coords (along, across) and an id
+// (tiling: H_k = [k, k+N) x [k, k+1), V_k = [N+k, N+k+1) x [k+1-N, k+1), translated by m (N, -N); the strips
+// overlap in x - y, so the neighbouring strip is tried too -- verified exact by sampling)
+vec2 herring(vec2 p, float N, out vec3 id){
+  float m0 = floor((p.x - p.y + 1.0) / (2.0 * N));
+  for (int t = 0; t < 3; ++t) {
+    float m = m0 + (t == 1 ? -1.0 : t == 2 ? 1.0 : 0.0);
+    vec2 q = p + vec2(-m * N, m * N);
+    float k = floor(q.y);
+    if (q.x >= k && q.x < k + N) { id = vec3(k, m, 0.0); return vec2(q.x - k, q.y - k); }
+    float j = floor(q.x) - N;
+    if (q.y >= j + 1.0 - N && q.y < j + 1.0) { id = vec3(j, m, 1.0); return vec2(q.y - (j + 1.0 - N), q.x - (N + j)); }
+  }
+  id = vec3(0.0); return vec2(0.5);
+}
+// hexagonal tiles (inradius 0.5 per unit): xy offset from the tile centre, zw tile id
+vec4 hexCell(vec2 p){
+  const vec2 s = vec2(1.0, 1.7320508);
+  vec4 hc = floor(vec4(p, p - vec2(0.5, 1.0)) / s.xyxy) + 0.5;
+  vec4 h = vec4(p - hc.xy * s, p - (hc.zw + 0.5) * s);
+  return dot(h.xy, h.xy) < dot(h.zw, h.zw) ? vec4(h.xy, hc.xy) : vec4(h.zw, hc.zw + 0.5);
+}
+float hexEdge(vec2 h){ h = abs(h); return 0.5 - max(dot(h, vec2(0.5, 0.8660254)), h.x); }
+// wood grain along `along`, rings across: value 0..1
+float woodGrain(float along, float across, float seed){
+  return vnoise(vec3(along * 1.4, across * 52.0, seed)) * 0.55 + vnoise(vec3(along * 0.35, across * 150.0, seed + 3.0)) * 0.3
+       + 0.15 * smoothstep(0.3, 0.7, fract(across * 18.0 + vnoise(vec3(along * 0.8, across * 6.0, seed)) * 2.5));
+}
 void main(){
   int pat = int(vPar.x + 0.5);
   vec3 alb = vAlb; float rough = vPar.y, metal = vPar.z; int grain = int(vPar.w+0.5);
@@ -451,17 +538,369 @@ void main(){
     float garn = smoothstep(0.55, 0.8, vnoise(vec3(uv * 5.0, 2.0)));
     alb = c * (0.45 + 0.55 * max(strand, garn)) * (0.85 + 0.3 * vnoise(vec3(uv * 40.0, 1.0)));
     rough = 0.95; h = max(strand, garn); bump = 0.003; ao = 0.75 + 0.25 * h;
+  } else if (pat == 17) { // lime render over rubble (docs/interiors.md): broad drift, mineral grain, pits, hairline
+    // cracks, uneven coats; spalled patches show the rubble with a render edge; damp foot, run-off below sills
+    vec2 uv = faceUV(vAp, vAn);
+    vec3 an = normalize(vAn);
+    float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
+    float pv = uInst.z, wear = uInst.y, sd = uInst.x * 17.0;
+    float broad = fbm(vec3(uv * 0.33, sd));
+    float coat = fbm(vec3(uv * 1.3, 4.0 + sd));
+    float grn = vnoise(vec3(uv * 85.0, 1.0)) * 0.6 + vnoise(vec3(uv * 230.0, 2.0)) * 0.4;
+    float pit = smoothstep(0.72, 0.88, vnoise(vec3(uv * 38.0, 5.0)));
+    float crack = hairline(uv + sd, wear) * vert;
+    float sp = fbm(vec3(uv * 0.85, 21.0 + sd)) + 0.16 * (1.0 - smoothstep(0.0, 1.3, vAp.y)) + 0.05 * vnoise(vec3(uv * 9.0, 6.0));
+    float thr = 0.83 - 0.06 * wear;
+    float spall = smoothstep(thr, thr + 0.012, sp) * vert;
+    float rim = smoothstep(thr - 0.035, thr, sp) * (1.0 - spall) * vert;
+    vec3 lime = alb * (0.9 + 0.2 * (broad - 0.5) * (0.5 + pv)) * (0.96 + 0.06 * coat) * (0.95 + 0.07 * grn);
+    lime *= 1.0 - 0.1 * pit;
+    lime = mix(lime, lime * vec3(0.92, 0.92, 0.9), smoothstep(0.55, 0.78, coat) * 0.6);
+    vec2 id; float e, u, vr; stoneLayout(uv, id, e, u, vr);
+    float mortar = 1.0 - smoothstep(0.006, 0.026, e);
+    vec3 stoneC = vec3(0.29, 0.26, 0.205) * (0.82 + 0.3 * hash12(id)) * (0.9 + 0.15 * fbm(vec3(uv * 9.0, 2.0)));
+    stoneC = mix(stoneC, vec3(0.36, 0.34, 0.3), mortar * 0.8);
+    alb = mix(lime, stoneC, spall);
+    alb *= 1.0 - 0.16 * rim - 0.16 * crack;
+    float nn = vnoise(vAp * 1.3);
+    float damp = (1.0 - smoothstep(0.0, 0.45 + 0.5 * nn, vAp.y)) * vert;
+    alb = mix(alb, alb * vec3(0.7, 0.71, 0.64), damp * 0.85);
+    float ro = sillRunoff(vAp) * vert;
+    alb = mix(alb, alb * vec3(0.74, 0.75, 0.7), ro * (0.4 + 0.3 * wear));
+    rough = clamp(mix(rough, 0.97, spall) - 0.06 * damp, 0.4, 1.0);
+    h = (1.0 - spall) * 0.9 + rim * 0.25 + coat * 0.12 + grn * 0.06 - pit * 0.2 - crack * 0.35 + spall * (1.0 - mortar) * 0.4;
+    bump = 0.006; ao = 1.0 - 0.22 * rim - 0.25 * spall * mortar;
+  } else if (pat == 18) { // brickwork, Flemish bond (docs/interiors.md): cohesive palette, neighbouring-value lime
+    // mortar recessed, a few over-burnt headers, chipped arrises; corners continue through faceUV
+    vec2 uv = faceUV(vAp, vAn);
+    float bh = 0.075, bl = 0.235, hl = 0.115, unit = bl + hl;
+    float row = floor(uv.y / bh);
+    float xo = uv.x + mod(row, 2.0) * unit * 0.5;
+    float ui = floor(xo / unit), fu = xo - ui * unit;
+    float hdr = step(bl, fu);
+    float x0 = mix(0.0, bl, hdr), x1 = mix(bl, unit, hdr);
+    vec2 id = vec2(ui * 2.0 + hdr, row);
+    float e = min(min(fu - x0, x1 - fu), min(uv.y - row * bh, (row + 1.0) * bh - uv.y)) + (vnoise(vec3(uv * 40.0, 2.0)) - 0.5) * 0.003;
+    float aa = smoothstep(0.0012, 0.005, max(fwidth(uv.x), fwidth(uv.y)));   // brick scale under a pixel: fade to the blend
+    float mortar = (1.0 - smoothstep(0.0035, 0.0075, e)) * (1.0 - aa);
+    float pv = uInst.z, v = hash12(id + uInst.x * 31.0);
+    vec3 bc = alb * (1.0 + 0.17 * pv * (v - 0.5));
+    bc = mix(bc, bc * vec3(0.72, 0.68, 0.72), hdr * step(0.62, hash12(id + 5.0)) * 0.75);
+    bc = mix(bc, bc * vec3(1.08, 1.03, 0.92), step(0.86, hash12(id + 9.0)) * 0.5 * pv);
+    bc *= 0.9 + 0.14 * fbm(vec3(uv * 18.0, id.x));
+    bc *= 0.9 + 0.12 * fbm(vec3(uv * 0.4, 3.0 + uInst.x * 7.0));
+    vec3 mcol = mix(alb * 0.95, vec3(0.6, 0.57, 0.51), 0.55) * (0.9 + 0.1 * vnoise(vec3(uv * 60.0, 1.0)));
+    float chip = smoothstep(0.74, 0.88, vnoise(vec3(uv * 30.0, v * 7.0))) * (1.0 - smoothstep(0.0, 0.012, e));
+    alb = mix(bc, mcol, max(mortar, chip * 0.55 * (1.0 - aa)));
+    alb = mix(alb, mix(alb, mcol, 0.18), aa);
+    rough = mix(clamp(rough + (v - 0.5) * 0.1, 0.5, 1.0), 0.95, mortar);
+    h = ((1.0 - mortar) * (0.8 + 0.2 * smoothstep(0.0, 0.02, e)) - chip * 0.3) * (1.0 - aa) + 0.1 * fbm(vec3(uv * 25.0, 4.0)); bump = 0.008;
+    ao = 1.0 - mortar * 0.22;
+  } else if (pat == 19) { // dressed limestone (docs/interiors.md): pattern 1's layout, fine lime joints close in
+    // value to the stone, low block-to-block contrast, tooling striations, worn arrises
+    vec2 uv = faceUV(vAp, vAn);
+    vec2 id; float e, u, vr; stoneLayout(uv, id, e, u, vr);
+    e += (vnoise(vec3(uv * 14.0, 3.0)) - 0.5) * 0.004;
+    float joint = 1.0 - smoothstep(0.002, 0.007, e);
+    float arris = 1.0 - smoothstep(0.004, 0.022, e);
+    float pv = uInst.z;
+    vec3 sc = alb * (1.0 + 0.12 * pv * (hash12(id) - 0.5)) * (0.92 + 0.12 * fbm(vec3(uv * 0.5, 4.0)));
+    sc = mix(sc, sc * vec3(1.05, 1.0, 0.9), hash12(id + 11.0) * 0.35 * pv);
+    float tool = vnoise(vec3((uv.x + uv.y * 0.35) * 180.0, uv.y * 4.0, id.x));
+    float patina = fbm(vec3(uv * 3.0, id.y));
+    sc *= (0.94 + 0.06 * tool) * (0.9 + 0.12 * patina);
+    float chip = smoothstep(0.7, 0.86, vnoise(vec3(uv * 16.0, id.x + id.y))) * arris;
+    vec3 jc = mix(sc, vec3(0.56, 0.54, 0.48), 0.4) * 0.93;
+    alb = mix(sc, jc, max(joint, chip * 0.5));
+    alb *= 1.0 - 0.08 * arris;
+    float damp = 1.0 - smoothstep(-0.2, 0.9, vAp.y);
+    alb *= mix(1.0, 0.76, damp);
+    rough = clamp(rough + 0.05 * (tool - 0.5) + 0.06 * joint, 0.4, 1.0);
+    h = (1.0 - joint) * (0.7 + 0.3 * smoothstep(0.0, 0.03, e)) + tool * 0.05 - chip * 0.3; bump = 0.006;
+    ao = 1.0 - joint * 0.2 - arris * 0.08;
+  } else if (pat == 22) { // rubble masonry, muted (docs/interiors.md): pattern 1's layout; mortar a recessed
+    // neighbouring value (never black), cohesive palette, softer stone-to-stone alternation
+    vec2 uv = faceUV(vAp, vAn);
+    vec2 id; float e, u, vr; stoneLayout(uv, id, e, u, vr);
+    e += (vnoise(vec3(uv * 9.0, 3.0)) - 0.5) * 0.02;
+    float mortar = 1.0 - smoothstep(0.005, 0.024, e);
+    float pillow = smoothstep(0.0, 0.07, e);
+    float tilt = (hash12(id + 3.0) - 0.5) * (u - 0.5) + (hash12(id + 9.0) - 0.5) * (vr - 0.5);
+    float pit = smoothstep(0.72, 0.86, vnoise(vec3(uv * 55.0, id.x)));
+    float aa = smoothstep(0.002, 0.008, max(fwidth(uv.x), fwidth(uv.y)));
+    mortar *= 1.0 - 0.6 * aa;
+    float pv = uInst.z;
+    vec3 sc = alb * 0.84 * (1.0 + 0.24 * pv * (hash12(id + uInst.x * 13.0) - 0.5));
+    sc = mix(sc, sc * vec3(1.06, 0.99, 0.86), hash12(id + 11.0) * 0.55 * pv);
+    sc = mix(sc, sc * vec3(0.9, 0.93, 0.97), step(0.88, hash12(id + 5.0)) * 0.45);
+    sc *= 0.86 + 0.26 * fbm(vec3(uv * 0.3, 9.0 + uInst.x * 5.0));
+    sc *= 0.92 + 0.12 * fbm(vec3(uv * 16.0, 5.0));
+    sc *= 1.0 - 0.08 * pit;
+    vec3 mcol = mix(alb * 0.78, vec3(0.44, 0.42, 0.37), 0.5) * (0.88 + 0.18 * fbm(vec3(uv * 11.0, 2.0)));
+    alb = mix(sc, mcol, mortar);
+    alb *= 1.0 - 0.1 * (1.0 - pillow) * (1.0 - mortar);
+    float damp = 1.0 - smoothstep(-0.2, 1.0, vAp.y);
+    alb *= mix(1.0, 0.78, damp);
+    rough = mix(clamp(rough * (0.9 + 0.2 * hash12(id + 7.0)) - 0.08 * damp, 0.3, 1.0), 0.97, mortar);
+    h = (1.0 - mortar) * (0.5 + 0.5 * pillow) + tilt * 0.3 - pit * 0.06 + 0.12 * fbm(vec3(uv * 7.0, id.x)); bump = 0.016; ao = 1.0 - mortar * 0.3;
+  } else if (pat == 20) { // interior wall finish by room (docs/interiors.md): painted limewash, sprig or striped paper,
+    // wainscot under paper or paint, bare whitewash, smoke-darkened plaster; skirting, dado rail, seams, fading,
+    // peeling near the foot and damp; finish codes per room (SurfaceParams), material grain = code without a room
+    vec3 an = normalize(vAn);
+    float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
+    int ri = roomAt(vAp + an * 0.12);
+    vec4 rb = ri >= 0 ? uRoomB[ri] : vec4(-100.0, 100.0, float(grain % 16), 0.0);
+    int code = int(rb.z + 0.5);
+    float y = vAp.y - rb.x;
+    vec2 uv = faceUV(vAp, vAn);
+    float s = uInst.x * 13.0 + float(ri) * 1.7;
+    float wear = uInst.y, pv = uInst.z;
+    vec3 tints[5] = vec3[5](vec3(0.71, 0.68, 0.6), vec3(0.68, 0.61, 0.46), vec3(0.56, 0.61, 0.62), vec3(0.6, 0.63, 0.53), vec3(0.69, 0.58, 0.52));
+    vec3 tint = tints[int(hash12(vec2(s, 3.0)) * 4.99)];
+    float n = fbm(vec3(uv * 1.4, s));
+    float grn = vnoise(vec3(uv * 70.0, 2.0));
+    vec3 plaster = alb * (0.92 + 0.1 * n) * (0.96 + 0.05 * grn);
+    float mott = fbm(vec3(uv * 0.7, s + 3.0)), trow = vnoise(vec3(uv * vec2(2.5, 7.0), s + 5.0));
+    vec3 paint = mix(alb, tint, 0.65 * pv + 0.2) * (0.84 + 0.2 * n + 0.1 * (mott - 0.5)) * (0.96 + 0.05 * grn) * (0.97 + 0.04 * trow);
+    vec3 c = paint;
+    float hh = n * 0.3 + grn * 0.12 + trow * 0.25;
+    float aoW = 1.0;
+    if (code == 5) { c = plaster * vec3(1.02, 1.01, 0.98) * (0.9 + 0.14 * fbm(vec3(uv * 3.0, s + 2.0))); }
+    if (code == 6) { c = plaster * mix(vec3(0.62, 0.58, 0.52), vec3(0.85, 0.82, 0.76), smoothstep(0.0, 1.6, vAp.y - 1.2 + n)); }
+    if ((code == 1 || code == 2 || code == 3) && vert > 0.5) {   // wallpaper
+      vec3 ground = mix(vec3(0.74, 0.69, 0.56), tint * 1.05, 0.45 * pv + 0.15);
+      float m = 0.0;
+      if (code == 2) {
+        float x = fract(uv.x / 0.106);
+        m = clamp((smoothstep(0.0, 0.02, x) * (1.0 - smoothstep(0.36, 0.38, x))) * 0.55 + (1.0 - smoothstep(0.0, 0.012, abs(x - 0.7))) * 0.6, 0.0, 1.0);
+      } else {
+        vec2 cell = vec2(0.1325, 0.11);
+        vec2 g = uv / cell; float r = floor(g.y); g.x += mod(r, 2.0) * 0.5;
+        vec2 f = (fract(g) - 0.5) * vec2(1.2, 1.0);
+        float d = length(f - vec2(0.0, 0.08));
+        float a = atan(f.y - 0.08, f.x);
+        float pr = 0.1 + 0.035 * cos(a * 5.0);
+        float flower = 1.0 - smoothstep(pr - 0.02, pr, d);
+        float stem = (1.0 - smoothstep(0.01, 0.022, abs(f.x + 0.18 * (f.y + 0.3)))) * step(-0.36, f.y) * step(f.y, 0.0);
+        float leaf = 1.0 - smoothstep(0.03, 0.05, length((f - vec2(-0.07, -0.2)) * vec2(1.0, 2.2)));
+        m = max(flower, max(stem * 0.8, leaf * 0.7));
+      }
+      vec3 motif = ground * mix(vec3(0.62, 0.55, 0.52), vec3(0.55, 0.6, 0.58), hash12(vec2(s, 9.0)));
+      vec3 paper = mix(ground, motif, m * 0.6);
+      float fade = smoothstep(0.35, 0.8, fbm(vec3(uv * 0.22, s + 4.0)));
+      paper = mix(paper, mix(paper, vec3(dot(paper, vec3(0.333))), 0.5) * 1.08, fade * 0.5);
+      float sx = abs(fract(uv.x / 0.53 + 0.5) - 0.5) * 0.53;
+      float seam = 1.0 - smoothstep(0.0007, 0.0018, sx);
+      paper *= 1.0 - 0.18 * seam;
+      float footD = 1.0 - smoothstep(0.0, 0.7, y);
+      float peelM = fbm(vec3(uv * 1.9, s + 11.0)) + 0.22 * footD + 0.18 * seam * smoothstep(0.4, 0.7, fbm(vec3(uv.y * 3.0, uv.x * 0.5, s)));
+      float pthr = 0.86 - 0.08 * wear;
+      float peel = smoothstep(pthr, pthr + 0.01, peelM);
+      float curl = smoothstep(pthr - 0.025, pthr, peelM) * (1.0 - peel);
+      float top = code == 3 ? 1.0 : 0.0;
+      if (y > 0.98 * top) { c = mix(paper * (1.0 + 0.12 * curl), plaster * vec3(0.95, 0.94, 0.9), peel); hh = 0.4 + 0.3 * (1.0 - peel) + 0.25 * curl + seam * 0.2; aoW -= 0.2 * peel * curl; }
+    }
+    if ((code == 3 || code == 4) && vert > 0.5 && y < 1.03) {   // wainscot: vertical boards, dado rail, skirting
+      float bx = uv.x / 0.105, bi = floor(bx), fb = fract(bx);
+      float vj = 1.0 - smoothstep(0.0, 0.06, min(fb, 1.0 - fb));
+      float gr = woodGrain(y, uv.x, bi);
+      vec3 wood = vec3(0.2, 0.125, 0.07) * (0.86 + 0.25 * hash12(vec2(bi, s))) * (0.8 + 0.32 * gr);
+      if (code == 4) {
+        vec3 wp = mix(vec3(0.33, 0.37, 0.31), vec3(0.42, 0.37, 0.3), hash12(vec2(s, 5.0))) * (0.92 + 0.08 * n);
+        float thru = smoothstep(0.66 - 0.06 * wear, 0.74 - 0.06 * wear, fbm(vec3(uv * 6.0, bi)) + 0.25 * (1.0 - smoothstep(0.0, 0.25, y)));
+        wood = mix(wp, wood, thru);
+      }
+      float cap = smoothstep(0.955, 0.96, y), skirt = 1.0 - smoothstep(0.15, 0.155, y);
+      float panel = (1.0 - cap) * (1.0 - skirt);
+      c = mix(wood, wood * 0.42, vj * panel);
+      c *= 1.0 + 0.1 * cap - 0.06 * skirt;
+      float scuff = smoothstep(0.6, 0.85, vnoise(vec3(uv * vec2(4.0, 12.0), s))) * (1.0 - smoothstep(0.1, 0.5, y)) * 0.15 * wear;
+      c *= 1.0 - scuff;
+      hh = panel * (0.55 + gr * 0.1 - vj * 0.5) + cap * (0.9 + 0.1 * sin((y - 0.955) / 0.08 * 3.14)) + skirt * (0.8 - 0.2 * smoothstep(0.12, 0.15, y));
+      aoW -= 0.25 * vj * panel + 0.15 * (1.0 - smoothstep(0.0, 0.04, abs(y - 0.955))) + 0.15 * (1.0 - smoothstep(0.0, 0.03, abs(y - 0.155)));
+      rough = mix(0.55, 0.7, vj);
+    } else if (ri >= 0 && vert > 0.5 && y < 0.13 && code != 5) {   // painted skirting board on plaster / paper walls
+      c = mix(vec3(0.16, 0.12, 0.08), tint * 0.5, 0.4) * (0.9 + 0.12 * vnoise(vec3(uv * vec2(30.0, 4.0), s)));
+      hh = 0.9 - 0.3 * smoothstep(0.1, 0.13, y); rough = 0.6;
+      aoW -= 0.12 * (1.0 - smoothstep(0.0, 0.03, abs(y - 0.13)));
+    }
+    if (ri >= 0 && vert > 0.5) {   // contact shading at the floor and ceiling, damp band, restrained cracks
+      float footD = 1.0 - smoothstep(0.0, 0.32 + 0.25 * vnoise(vAp * 2.0), y);
+      c = mix(c, c * vec3(0.78, 0.76, 0.7), footD * 0.3 * wear * (code == 4 || code == 3 ? 0.4 : 1.0));
+      aoW *= 0.82 + 0.18 * smoothstep(0.0, 0.3, y);
+      aoW *= 0.88 + 0.12 * smoothstep(0.0, 0.35, rb.y - vAp.y);
+    }
+    float crack = hairline(uv + s, wear * 0.7) * vert * (y > 1.0 || code < 3 ? 1.0 : 0.0);
+    c *= 1.0 - 0.25 * crack;
+    alb = c; h = hh - crack * 0.4; bump = 0.0032; ao = clamp(aoW, 0.4, 1.0);
+  } else if (pat == 21) { // floor finish by room (docs/interiors.md): worn boards, herringbone parquet, hexagonal
+    // terracotta tomettes, stone flags, beaten earth; dirt at the room's edges, traffic polish in the middle
+    vec3 an = normalize(vAn);
+    vec2 q = vAp.xz;
+    if (an.y < -0.5 || abs(an.y) < 0.5) {   // ceiling of the room below / cut faces: plain boards along x
+      float bw = 0.16, bi = floor(q.y / bw), fb = fract(q.y / bw);
+      float seam = 1.0 - smoothstep(0.0, 0.04, min(fb, 1.0 - fb));
+      float gr = woodGrain(q.x, q.y, bi);
+      alb = vec3(0.21, 0.14, 0.085) * (0.85 + 0.25 * hash12(vec2(bi, 4.0))) * (0.8 + 0.3 * gr);
+      alb = mix(alb, alb * 0.45, seam * step(0.5, -an.y));
+      h = 1.0 - seam; bump = 0.002; ao = 1.0 - 0.25 * seam;
+    } else {
+      int ri = roomAt(vAp + vec3(0.0, 0.06, 0.0));
+      int code = ri >= 0 ? int(uRoomB[ri].w + 0.5) : grain % 16;
+      vec4 ra = ri >= 0 ? uRoomA[ri] : vec4(q - 50.0, q + 50.0);
+      float edgeD = min(min(q.x - ra.x, ra.z - q.x), min(q.y - ra.y, ra.w - q.y));
+      float edgeDirt = ri >= 0 ? (1.0 - smoothstep(0.0, 0.3 + 0.2 * vnoise(vec3(q * 3.0, 1.0)), edgeD)) : 0.0;
+      vec2 rc = (ra.xy + ra.zw) * 0.5, rh = max((ra.zw - ra.xy) * 0.5, vec2(0.6));
+      float traffic = ri >= 0 ? 1.0 - smoothstep(0.15, 0.85, length((q - rc) / rh)) : 0.3;
+      float wear = uInst.y, s = uInst.x * 11.0 + float(ri);
+      vec3 c; float hh = 0.5, r = rough, aoF = 1.0;
+      if (code == 1) {   // herringbone parquet: 7 x 35 cm oak blocks
+        vec3 bid; vec2 l = herring(q / 0.07, 5.0, bid);
+        float e = min(min(l.x, 5.0 - l.x) * 0.07, min(l.y, 1.0 - l.y) * 0.07);
+        float joint = 1.0 - smoothstep(0.0008, 0.0025, e);
+        float gr = woodGrain(l.x * 0.07, l.y * 0.07 + bid.x * 0.37, bid.x + bid.y * 7.0 + bid.z * 3.0);
+        c = vec3(0.27, 0.17, 0.09) * (0.84 + 0.3 * hash13(bid + s)) * (0.8 + 0.32 * gr);
+        c = mix(c, c * 0.5, joint);
+        hh = (1.0 - joint) * 0.8 + gr * 0.08; r = mix(0.5, 0.75, joint); aoF = 1.0 - 0.3 * joint;
+      } else if (code == 2) {   // hexagonal terracotta tomettes, 16.5 cm
+        vec4 hx = hexCell(q / 0.165);
+        float e = hexEdge(hx.xy) * 0.165;
+        float grout = 1.0 - smoothstep(0.002, 0.005, e);
+        float v = hash12(hx.zw + s);
+        c = vec3(0.36, 0.15, 0.08) * (0.82 + 0.3 * v) * (0.9 + 0.14 * fbm(vec3(q * 9.0, v * 5.0)));
+        c = mix(c, c * vec3(0.8, 0.84, 0.9), step(0.85, hash12(hx.zw + 7.0)) * 0.5);
+        float chip = smoothstep(0.72, 0.88, vnoise(vec3(q * 25.0, v * 3.0))) * (1.0 - smoothstep(0.0, 0.012, e));
+        c = mix(c, vec3(0.34, 0.31, 0.27), max(grout, chip * 0.5));
+        hh = (1.0 - grout) * (0.8 + 0.2 * smoothstep(0.0, 0.01, e)) - chip * 0.3; r = mix(0.62 - 0.12 * traffic, 0.95, grout); aoF = 1.0 - 0.3 * grout;
+      } else if (code == 3) {   // stone flags (local limestone), worn smooth
+        vec2 id; float e, u, vr; stoneLayout(q * 1.2, id, e, u, vr);
+        float joint = 1.0 - smoothstep(0.003, 0.012, e);
+        c = vec3(0.26, 0.245, 0.215) * (0.86 + 0.22 * hash12(id + s)) * (0.84 + 0.24 * fbm(vec3(q * 2.5, id.x)));
+        c *= 0.92 + 0.12 * vnoise(vec3(q * 40.0, id.y));
+        c = mix(c, c * 0.72 + vec3(0.02), joint);
+        hh = (1.0 - joint) * 0.9 + 0.1 * fbm(vec3(q * 6.0, 2.0)); r = mix(0.6 - 0.15 * traffic, 0.95, joint); aoF = 1.0 - 0.3 * joint;
+      } else if (code == 4) {   // beaten earth / lime screed (workshop, store)
+        float n1 = fbm(vec3(q * 1.5, s)), n2 = vnoise(vec3(q * 30.0, 3.0));
+        c = vec3(0.3, 0.27, 0.22) * (0.8 + 0.3 * n1) * (0.92 + 0.12 * n2);
+        hh = n1 * 0.6 + n2 * 0.2; r = 0.92;
+      } else {   // boards along x: 16 cm, staggered butt joints, nail heads, grain, gaps
+        float bw = 0.16, bi = floor(q.y / bw), fb = fract(q.y / bw);
+        float L = 1.6 + 1.2 * hash12(vec2(bi, 3.0));
+        float x = q.x + hash12(vec2(bi, 7.0)) * L, li = floor(x / L), fx = fract(x / L) * L;
+        float gap = 1.0 - smoothstep(0.0, 0.035, min(fb, 1.0 - fb));
+        float butt = 1.0 - smoothstep(0.0, 0.004, min(fx, L - fx));
+        float nail = 1.0 - smoothstep(0.004, 0.007, length(vec2(fract(q.x / 0.6 + 0.5) - 0.5, (fb - 0.5) * 0.4) * vec2(0.6, bw)));
+        float gr = woodGrain(q.x, q.y, bi * 3.0 + li);
+        c = vec3(0.24, 0.16, 0.095) * (0.82 + 0.3 * hash12(vec2(bi, li) + s)) * (0.8 + 0.32 * gr);
+        c = mix(c, c * 0.35, max(gap, butt));
+        c = mix(c, vec3(0.05), nail * 0.7);
+        hh = (1.0 - max(gap, butt)) * 0.9 + gr * 0.08; r = mix(0.62, 0.85, max(gap, butt)); aoF = 1.0 - 0.3 * max(gap, butt);
+      }
+      // traffic polish and edge dirt (restrained, scaled by the building's wear)
+      c = mix(c, c * 1.08, traffic * 0.35 * min(wear, 1.5));
+      r = clamp(r - traffic * 0.12 * wear, 0.3, 1.0);
+      vec3 dirt = vec3(0.17, 0.15, 0.12) * (0.8 + 0.3 * vnoise(vec3(q * 6.0, 2.0)));
+      c = mix(c, dirt, edgeDirt * (0.25 + 0.2 * wear));
+      aoF *= 0.85 + 0.15 * smoothstep(0.0, 0.12, edgeD);
+      alb = c; rough = mix(r, 0.95, edgeDirt * 0.5); h = hh; bump = 0.0025; ao = aoF;
+    }
+  } else if (pat == 23) { // woven rug (part-local): border bands, medallion or kilim field, weave, wear; grain packs
+    // the variant and the rug's half size: variant + 4 * (half x cm + 256 * half z cm)
+    int gv = grain % 4; int sz = grain / 4;
+    vec2 hs = max(vec2(float(sz % 256), float(sz / 256)) * 0.01, vec2(0.2));
+    vec2 p = vec2(vPc.x, vPc.z);
+    vec2 d = hs - abs(p);
+    float edge = min(d.x, d.y);
+    vec3 base = alb, acc = mix(alb * vec3(0.5, 0.62, 0.75), vec3(0.62, 0.55, 0.38), float(gv == 1));
+    vec3 c = base;
+    float b1 = step(0.05, edge) * (1.0 - step(0.09, edge)), b2 = step(0.13, edge) * (1.0 - step(0.15, edge));
+    if (gv == 1) {   // kilim stripes and lozenges
+      float st = step(0.5, fract(p.y * 3.3)) * 0.5 + 0.5 * step(0.8, fract(p.y * 9.0));
+      float lz = 1.0 - step(0.12, abs(fract(p.x * 2.4) - 0.5) + abs(fract(p.y * 3.3) - 0.5));
+      c = mix(base, acc, clamp(st * 0.5 + lz * 0.7, 0.0, 1.0));
+    } else {         // medallion field
+      vec2 r = p / max(hs - vec2(0.2), vec2(0.1));
+      float med = 1.0 - smoothstep(0.42, 0.46, abs(r.x) + abs(r.y));
+      float ring = 1.0 - smoothstep(0.0, 0.03, abs(abs(r.x) + abs(r.y) - 0.55));
+      float flor = smoothstep(0.55, 0.75, vnoise(vec3(p * 9.0, 2.0)));
+      c = mix(base, acc, max(med * 0.6, ring * 0.8)) * (0.92 + 0.12 * flor);
+    }
+    c = mix(c, acc * 0.8, max(b1, b2));
+    c = mix(c, base * 0.6, step(edge, 0.05) * step(0.02, edge));
+    float weave = vnoise(vec3(p * 260.0, 1.0)) * 0.5 + 0.5 * step(0.5, fract(p.x * 180.0 + step(0.5, fract(p.y * 180.0)) * 0.5));
+    float worn = smoothstep(0.55, 0.8, fbm(vec3(p * 2.0, 4.0))) * (1.0 - smoothstep(0.1, 0.3, edge) * 0.3) * uInst.y;
+    c = mix(c, mix(c, vec3(0.42, 0.38, 0.3), 0.45), worn * 0.6);
+    alb = c * (0.88 + 0.16 * weave); rough = 0.97; h = weave * 0.5 - worn * 0.3; bump = 0.0012;
+  } else if (pat == 24) { // glazed faience: smooth glaze, colour band (grain variant), fine crackle, chipped rims
+    float n = vnoise(vAp * 40.0);
+    vec2 uv = faceUV(vPc, vPn);
+    vec3 band = grain == 1 ? vec3(0.12, 0.2, 0.42) : grain == 2 ? vec3(0.42, 0.12, 0.08) : vec3(0.22, 0.32, 0.18);
+    float stripe = step(0.82, fract(vAp.y * 32.0 + 0.3)) * float(grain > 0);
+    float dots = (1.0 - smoothstep(0.25, 0.35, length(fract(uv * 28.0) - 0.5))) * float(grain == 3);
+    alb = mix(alb * (0.95 + 0.06 * n), band, max(stripe, dots * 0.8));
+    float cr = 1.0 - smoothstep(0.0, 0.03, abs(vnoise(vec3(uv * 26.0, 7.0)) - 0.5));
+    alb *= 1.0 - 0.06 * cr;
+    rough = 0.18 + 0.12 * n; h = n * 0.2 - cr * 0.3; bump = 0.0006;
+  } else if (pat == 25 || pat == 26) { // furniture wood / painted wood (docs/interiors.md): continuous grain along the
+    // part's own axis (grain -1 = longest axis), figure and pores, end grain, restrained dents, dirt on the feet,
+    // hand polish on tops; painted: paint over the same grain, worn through on high spots and the foot
+    int na = domAxis(vPn); bool endGrain = grain == na; int g = grain; if (g == na) g = (na + 1) % 3;
+    int ac = 3 - na - g;
+    float along = vPc[g], across = vPc[ac];
+    float seed = floor(dot(vAp - vPc, vec3(3.1, 7.7, 5.3)) * 4.0);
+    float gr = woodGrain(along, across, seed);
+    float pores = smoothstep(0.62, 0.8, vnoise(vec3(along * 9.0, across * 400.0, seed)));
+    vec3 wc = alb * (0.88 + 0.2 * hash12(vec2(seed, 1.0))) * (0.78 + 0.34 * gr) * (1.0 - 0.12 * pores);
+    float dent = smoothstep(0.75, 0.92, vnoise(vec3(vAp * 18.0 + seed))) * 0.5 * uInst.y;
+    float scratch = (1.0 - smoothstep(0.0, 0.02, abs(vnoise(vec3(along * 3.0, across * 70.0, seed + 9.0)) - 0.5))) * 0.4 * uInst.y;
+    wc *= 1.0 - 0.1 * dent - 0.08 * scratch;
+    if (endGrain) {
+      vec2 qq = vec2(vPc[(na + 1) % 3], vPc[(na + 2) % 3]) + vec2(hash12(vec2(seed, 1.0)), hash12(vec2(seed, 2.0))) * 0.3;
+      float ring = fract(length(qq) * 60.0 + vnoise(vec3(qq * 30.0, 1.0)) * 1.5);
+      wc = alb * (0.6 + 0.16 * smoothstep(0.3, 0.6, ring)); rough = min(1.0, rough + 0.15);
+    }
+    vec3 an = normalize(vAn);
+    float feet = 1.0 - smoothstep(0.0, 0.1, vAp.y);
+    float top = smoothstep(0.85, 0.95, an.y);
+    if (pat == 26) {
+      vec3 paint = mix(alb, vec3(dot(alb, vec3(0.33))), 0.1) * (0.94 + 0.06 * fbm(vPc * 3.0));
+      vec3 bare = vec3(0.3, 0.22, 0.14) * (0.8 + 0.3 * gr);
+      float thru = smoothstep(0.72 - 0.06 * uInst.y, 0.8 - 0.06 * uInst.y, fbm(vPc * 7.0 + seed) + 0.25 * feet);
+      wc = mix(paint * (1.0 - 0.06 * dent), bare, thru);
+      rough = mix(rough, 0.82, thru);
+      h = (1.0 - thru) * 0.4 + gr * 0.05 * thru - dent * 0.3;
+    } else {
+      rough = clamp(rough + (gr - 0.5) * 0.1 - top * 0.1, 0.25, 1.0);
+      h = gr * 0.25 + pores * -0.2 - dent * 0.5 - scratch * 0.3;
+    }
+    wc = mix(wc, wc * vec3(0.62, 0.6, 0.56), feet * 0.6);
+    alb = wc; bump = 0.0012;
+  } else if (pat == 27) { // paper: off-white sheets / page edges, faint printed rows, foxing
+    vec2 uv = faceUV(vPc, vPn);
+    float rows = step(0.55, fract(uv.y * 160.0)) * step(0.3, vnoise(vec3(uv * vec2(90.0, 160.0), 1.0))) * float(abs(vPn.y) > 0.5);
+    float fox = smoothstep(0.7, 0.85, vnoise(vec3(uv * 40.0, 3.0)));
+    alb *= (1.0 - 0.18 * rows) * (1.0 - 0.12 * fox) * (0.95 + 0.06 * vnoise(vec3(uv * 300.0, 2.0)));
+    rough = 0.9; h = vnoise(vec3(uv * 120.0, 5.0)); bump = 0.0004;
+  } else if (pat == 28) { // textiles (grain variant): 0 plain weave, 1 ticking stripes, 2 woven check, 3 blanket bands
+    vec2 uv = faceUV(vPc, vPn);
+    vec3 c = alb;
+    if (grain == 1) c = mix(alb, alb * vec3(0.35, 0.4, 0.55), step(0.82, fract(uv.x * 22.0)));
+    else if (grain == 2) { float a = step(0.5, fract(uv.x * 12.0)), b = step(0.5, fract(uv.y * 12.0)); c = alb * (0.62 + 0.19 * (a + b)); }
+    else if (grain == 3) c = mix(alb, alb * vec3(0.55, 0.45, 0.4), step(0.88, fract(uv.y * 4.0)));
+    float weave = vnoise(vec3(uv * 300.0, 1.0)) * 0.5 + 0.5 * step(0.5, fract(uv.x * 220.0 + step(0.5, fract(uv.y * 220.0)) * 0.5));
+    float fold = fbm(vec3(uv * 4.0, 3.0));
+    alb = c * (0.86 + 0.14 * weave) * (0.88 + 0.16 * fold); rough = 0.95; h = weave * 0.3 + fold * 0.7; bump = 0.0015;
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
-  if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11)) {
+  if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
     float vert = 1.0 - smoothstep(0.4, 0.7, abs(normalize(vN).y));
     float nn = vnoise(vAp*1.3);
     float foot = (1.0 - smoothstep(0.0, 0.45 + 0.4*nn, vAp.y)) * vert;
     alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
-    float moss = foot * smoothstep(0.5, 0.72, vnoise(vAp*2.3 + 7.0)) * (pat == 3 ? 0.5 : 1.0);
+    float moss = foot * smoothstep(0.5, 0.72, vnoise(vAp*2.3 + 7.0)) * (pat == 3 || pat == 17 ? 0.5 : 1.0);
     alb = mix(alb, vec3(0.13, 0.17, 0.07), moss*0.6);
     float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, vAp.y);
     alb *= 1.0 - 0.14*streak;
@@ -1473,10 +1912,25 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
 
 void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shadowPass) {
   GLint lm = U(p, "uModel"), lt = U(p, "uTint");
+  GLint li = shadowPass ? -1 : U(p, "uInst");
+  static const SurfaceParams kDefaultSurf;
+  const SurfaceParams* lastSurf = nullptr;
   for (auto& it : items) {
     if (!it.mesh || !it.mesh->count) continue;
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.model));
     if (!shadowPass && lt >= 0) glUniform4fv(lt, 1, glm::value_ptr(it.tint));
+    if (li >= 0) {   // building finish parameters (docs/interiors.md): uploaded only when the copy changes
+      const SurfaceParams* sp = it.surf ? it.surf : &kDefaultSurf;
+      if (sp != lastSurf) {
+        lastSurf = sp;
+        glUniform4fv(li, 1, glm::value_ptr(sp->inst));
+        int nr = std::clamp((int)(sp->inst.w + 0.5f), 0, 16);
+        if (nr) { glUniform4fv(U(p, "uRoomA"), nr, glm::value_ptr(sp->roomA[0])); glUniform4fv(U(p, "uRoomB"), nr, glm::value_ptr(sp->roomB[0])); }
+        int ns = std::clamp(sp->sills, 0, 12);
+        glUniform1i(U(p, "uSills"), ns);
+        if (ns) { glUniform4fv(U(p, "uSillA"), ns, glm::value_ptr(sp->sillA[0])); glUniform4fv(U(p, "uSillB"), ns, glm::value_ptr(sp->sillB[0])); }
+      }
+    }
     it.mesh->draw();
     stats.draws++; stats.tris += it.mesh->count / 3;
   }
