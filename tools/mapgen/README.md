@@ -178,6 +178,17 @@ distance dominates the frame. In bocage the next hedge hides what lies beyond it
 ## Shipped maps
 
 - `maps/omaha_easy_red.py`: Normandy Beaches - Omaha, Easy Red (SPEC 3.3). It writes `content/templates/omaha_easy_red.{json,height.png,nmap.json}`; the preview `omaha_easy_red.thumb.png` comes from `--render-map-thumbs`.
+- `maps/normandy_forest.py`: Normandy Forest - Mont-Castre, Hill 122, a **terrain base** (850 x 1700 m, set by the
+  one constant `SIZE`): rolling hills, the Hill 122 ridge, rock escarpments, tors, a quarry, a ravine, a draw with a
+  sunken lane, streams and a marsh. Its map file has no instances and no `scenario` key, so the user lays out
+  everything; the template is not `playable`. It defines its own stamps (`stamp_escarpment`, `stamp_tor`,
+  `stamp_quarry`, `stamp_cut`) and writes `views` (named cameras) into the template for `--selftest-maps`.
+
+A template's own `width` x `depth` is kept as authored even off the New Map dialog's 100 m size step. Steep ground
+(about 45 deg and over) renders as bare rock with a scree band from about 28 deg (terrain shader), so cliffs need no
+assets. `--selftest-maps` treats a template whose map file has no `scenario` as a terrain base: size, relief, slope
+statistics, cliffs over 60 deg, a walkable route (steps up to 45 deg) from the attackers' edge to the ridge top, NaNs,
+save and reopen, shader errors, and the `views` screenshots.
 
 ## Adding a map
 

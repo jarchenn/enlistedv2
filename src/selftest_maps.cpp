@@ -1,5 +1,6 @@
 // --selftest-maps (stages 4100-4199): W5 default maps (SPEC 3). For every authored template with map content
-// (content/templates/*.json with "map"; Omaha Easy Red - Mont-Castre is a terrain-only base map without "map"):
+// (content/templates/*.json with "map": Omaha Easy Red; Mont-Castre's map file has no "scenario", so it runs the
+// terrain-base case instead, terrainBaseChecks: size, relief, slopes, cliffs, walkable route, save / reopen, views):
 //  * New Map "Create editable copy" loads the template: authored heightmap and water, every instance, the scenario;
 //    the copy is an unsaved creative document that saves / reopens like any map, and edits like any map;
 //  * the scenario validates with no errors; SPEC 2.1 distance bands for objectives and spawns; every spawn has its
@@ -77,7 +78,75 @@ double blankFraction(const fs::path& p) {
   stbi_image_free(d);
   return tot ? (double)same / tot : 1.0;
 }
+// Views authored in the template ("views": [{name, pos, yaw, pitch, gameplay}]), e.g. the terrain base's cliff shots.
+void templateViews(const TemplateInfo& t) {
+  for (auto& v : t.raw.value("views", json::array()))
+    sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), false, v.value("gameplay", false)});
+}
 }  // namespace
+
+// W5b terrain base (Normandy Forest - Mont-Castre): size, relief and slope statistics, cliffs steeper than 60 deg, a
+// walkable route from the attackers' edge to the ridge top, no NaNs, an empty editable document that saves / reopens.
+bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj) {
+  const std::string id = t.id;
+  const Terrain& T = app.terrain;
+  check(app.doc.instances.empty() && mj.value("instances", json::array()).empty(), id + ": terrain base: no authored instances (the user places everything)");
+  check(std::fabs(app.doc.width - 850) < 1 && std::fabs(T.buildHalfZ * 2 - 1700) < 1 && std::fabs(t.width - 850) < 1 && std::fabs(t.depth - 1700) < 1,
+        fmt("%s: map size %.0f x %.0f m (half of Omaha's area, 1:2)", id.c_str(), app.doc.width, T.buildHalfZ * 2));
+  // vertices inside the build area
+  const float c = Terrain::kCell;
+  auto inB = [&](int i, int j) { float x = T.org.x + i * c, z = T.org.y + j * c; return std::fabs(x) <= T.buildHalfX && std::fabs(z) <= T.buildHalfZ; };
+  auto H = [&](int i, int j) { return T.h[(size_t)j * T.nx + i]; };
+  int nan = 0; float lo = 1e9f, hi = -1e9f, maxS = 0; long n60 = 0, n50 = 0, nAll = 0;
+  for (int j = 1; j < T.nz - 1; ++j)
+    for (int i = 1; i < T.nx - 1; ++i) {
+      if (!std::isfinite(H(i, j))) { ++nan; continue; }
+      if (!inB(i, j)) continue;
+      lo = std::min(lo, H(i, j)); hi = std::max(hi, H(i, j));
+      float gx = (H(i + 1, j) - H(i - 1, j)) / (2 * c), gz = (H(i, j + 1) - H(i, j - 1)) / (2 * c);
+      float sdeg = degrees(std::atan(std::sqrt(gx * gx + gz * gz)));
+      maxS = std::max(maxS, sdeg); n60 += sdeg > 60; n50 += sdeg > 50; ++nAll;
+    }
+  check(nan == 0, fmt("%s: heightmap has no NaN / inf heights (%d)", id.c_str(), nan));
+  check(hi - lo > 60 && hi - lo < 140, fmt("%s: height range %.1f .. %.1f m (relief %.1f m)", id.c_str(), lo, hi, hi - lo));
+  check(maxS > 60 && n60 >= 40, fmt("%s: cliffs: steepest slope %.1f deg; %ld vertices over 60 deg, %ld over 50 deg (of %ld)", id.c_str(), maxS, n60, n50, nAll));
+  // walkable route: 4-neighbour flood fill from the attackers' edge over steps no steeper than 45 deg (player limit 50)
+  std::vector<uint8_t> seen((size_t)T.nx * T.nz, 0); std::vector<int> q;
+  const float maxStep = std::tan(radians(45.0f)) * c;
+  for (int j = 0; j < T.nz; ++j) for (int i = 0; i < T.nx; ++i)
+    if (inB(i, j) && T.org.y + j * c < -T.buildHalfZ + 12) { seen[(size_t)j * T.nx + i] = 1; q.push_back(j * T.nx + i); }
+  float reachHi = -1e9f; size_t walk = 0;
+  for (size_t k = 0; k < q.size(); ++k) {
+    int i = q[k] % T.nx, j = q[k] / T.nx; reachHi = std::max(reachHi, H(i, j)); ++walk;
+    const int d[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    for (auto& e : d) {
+      int a = i + e[0], b = j + e[1];
+      if (a < 0 || b < 0 || a >= T.nx || b >= T.nz || !inB(a, b) || seen[(size_t)b * T.nx + a]) continue;
+      if (std::fabs(H(a, b) - H(i, j)) > maxStep) continue;
+      seen[(size_t)b * T.nx + a] = 1; q.push_back(b * T.nx + a);
+    }
+  }
+  float lowland = 1e9f;
+  for (int i = 0; i < T.nx; ++i) for (int j = 0; j < T.nz; ++j) if (inB(i, j) && T.org.y + j * c < -T.buildHalfZ + 300) lowland = std::min(lowland, H(i, j));
+  check(reachHi > hi - 20 && reachHi - lowland > 60, fmt("%s: walkable route from the attackers' edge to the ridge top: highest reachable ground %.1f m (%.0f m above the lowland, top %.1f m); %.0f %% of the area reachable on foot",
+                                                          id.c_str(), reachHi, reachHi - lowland, hi, 100.0 * walk / std::max<long>(1, nAll)));
+  Scenario s = Scenario::fromJson(app.doc.extra.value("scenario", json()));
+  check(s.objectives.empty() && s.spawns.empty(), id + ": no scenario: no objectives, spawns or racks");
+  // the empty creative copy saves and reopens with the authored ground
+  float h0 = T.height(120, 400), h1 = T.height(-200, -600);
+  fs::path p = userMapsDir() / ("selftest_" + id + ".nmap.json");
+  bool ok = app.saveMapTo(p) && app.openMap(p);
+  check(ok && std::fabs(app.doc.width - 850) < 1 && std::fabs(app.terrain.buildHalfZ * 2 - 1700) < 1, fmt("%s: reopened at its authored size %.0f x %.0f m", id.c_str(), app.terrain.buildHalfX * 2, app.terrain.buildHalfZ * 2));
+  check(ok && app.doc.templateId == id && std::fabs(app.terrain.height(120, 400) - h0) < 0.01f && std::fabs(app.terrain.height(-200, -600) - h1) < 0.01f,
+        fmt("%s: the editable copy saves and reopens on the authored terrain (%.2f / %.2f m)", id.c_str(), app.terrain.height(120, 400), app.terrain.height(-200, -600)));
+  check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain slope material included (%d errors)", app.R.shaderErrors));
+  sViews.clear(); templateViews(t);
+  sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
+  sVi = 0; sPerf.clear(); sViewInit = false;
+  sSum[id] = {{"heights", {lo, hi}}, {"maxSlopeDeg", maxS}, {"over60", n60}, {"over50", n50}, {"reachableTop", reachHi}, {"workingSetMB", sMemAfter}};
+  check(sViews.size() >= 4, fmt("%s: %zu screenshot views", id.c_str(), sViews.size()));
+  return true;
+}
 
 void SelfTest::mapsUpdate(App& app, float dt) {
   (void)dt;
@@ -105,7 +174,6 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     const std::string id = t.id;
     check(t.available && t.raw.contains("heightmap") && t.raw.contains("waterLevel"), id + ": template is available with an authored heightmap and water level");
     // Play / multiplayer listing (same filter as w5PlayMapPicker)
-    check(t.raw.value("playable", false), id + ": listed in Play > setup > Default maps (playable)");
     // preview thumbnail
     fs::path th = contentDir() / "templates" / t.raw.value("thumbnail", std::string("-"));
     double bl = fs::exists(th) ? blankFraction(th) : 1.0;
@@ -113,11 +181,15 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     // file content vs loaded document
     json mj; try { mj = json::parse(readTextFile(contentDir() / "templates" / t.raw.value("map", std::string()))); } catch (...) {}
     size_t fileN = mj.value("instances", json::array()).size();
+    const bool terrainBase = !mj.contains("scenario");   // W5b: a terrain-only starting map (Mont-Castre): the user authors the rest
+    if (terrainBase) check(!t.raw.value("playable", false), id + ": terrain base (no scenario): kept out of the Play > Default maps list");
+    else check(t.raw.value("playable", false), id + ": listed in Play > setup > Default maps (playable)");
     sMemBefore = wsMB();
     double t0 = now();
     navNewMapSized(app, t, "Selftest " + t.name, vec2(t.width, t.depth));   // exactly the New Map "Create editable copy" path
     sLoadS = now() - t0; sMemAfter = wsMB();
     check(app.doc.templateId == id && app.docPath.empty(), id + ": Create editable copy gives an unsaved creative document from the template");
+    if (terrainBase) { if (terrainBaseChecks(app, t, mj)) go(4102); else go(4101); break; }
     check(app.doc.instances.size() == fileN && fileN > 1000, fmt("%s: all %zu authored instances loaded (%.2f s, working set %+.0f MB)", id.c_str(), fileN, sLoadS, sMemAfter - sMemBefore));
     check(std::fabs(app.doc.width - t.width) < 1 && std::fabs(app.terrain.buildHalfZ * 2 - t.depth) < 1, fmt("%s: map size %.0f x %.0f m", id.c_str(), app.doc.width, app.terrain.buildHalfZ * 2));
     size_t missing = 0; for (auto& i : app.doc.instances) if (!app.lib.find(i.assetId)) ++missing;
@@ -191,8 +263,9 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       sViews.push_back({std::string("obj_") + o.letter() + "_eye", e, o.attackYaw, 0.0f, false, true});
     }
     sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
-    sViews.push_back({"bluff_top_to_beach", vec3(60, app.terrain.height(60, 820 - t.depth * 0.5f) + 3, 820 - t.depth * 0.5f), 0.0f, -6.0f, false});
-    sViews.push_back({"plateau_bocage", vec3(-120, app.terrain.height(-120, 1300 - t.depth * 0.5f) + 2, 1300 - t.depth * 0.5f), 200.0f, -2.0f, false});
+    templateViews(t);
+    if (id == "omaha_easy_red") sViews.push_back({"bluff_top_to_beach", vec3(60, app.terrain.height(60, 820 - t.depth * 0.5f) + 3, 820 - t.depth * 0.5f), 0.0f, -6.0f, false});
+    if (id == "omaha_easy_red") sViews.push_back({"plateau_bocage", vec3(-120, app.terrain.height(-120, 1300 - t.depth * 0.5f) + 2, 1300 - t.depth * 0.5f), 200.0f, -2.0f, false});
     sVi = 0; sPerf.clear(); sViewInit = false;
     sSum[id] = {{"instances", fileN}, {"loadSeconds", sLoadS}, {"workingSetMB", sMemAfter}, {"workingSetDeltaMB", sMemAfter - sMemBefore}, {"validatorWarnings", warns}};
     // editable like any map: move an instance (undoable), save, reopen
