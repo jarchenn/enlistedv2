@@ -3,8 +3,8 @@
 //                           is that file) from the Blank Slate: terrain cuts and banks, existing assets, nav areas
 //   --selftest-ai-course    live rebuild (AI_SPEC 12.4) + obstacle course run (selftest_ai.cpp, report "aicourse")
 //   --soak-ai <minutes> [village|course|random|all]   32-combatant soak with the AI_SPEC 12.3 metrics
-// The course uses primitives (terrain profiles) and existing assets now; W4's structures (zig-zag trench, AT ditch,
-// shingle bank, marsh patch, minefield fence, Belgian gates) replace the stand-ins when they are merged.
+// The course uses W4's structures (zig-zag trench, AT ditch, shingle bank, marsh patch, minefield fence) with their own
+// terrain cuts and nav areas; craters, the sunken lane and the ditch ramp crossing are terrain profiles.
 #include "app.h"
 #include "scenario.h"
 #include "ai_course.h"
@@ -33,30 +33,16 @@ float smooth(float e0, float e1, float x) { float t = std::clamp((x - e0) / (e1 
 // signed terrain delta of the course at x, z (metres; negative = cut)
 float courseDelta(float x, float z) {
   float d = 0;
-  // shingle bank: crest 1.3 m at z = 88, steep seaward (south) face, gentle back slope
-  {
-    float w = 1.0f - smooth(55, 62, std::fabs(x));
-    float h = z >= 88.0f ? 1.3f * (1.0f - smooth(88.0f, 88.55f, z))          // steep seaward face
-                         : 1.3f * (1.0f - std::clamp((88.0f - z) / 4.0f, 0.0f, 1.0f));   // gentle back slope
-    d += h * w;
-  }
   // craters of several sizes
   struct Cr { float x, z, r, dep; };
   static const Cr cr[] = {{-18, 48, 1.6f, 0.5f}, {-4, 52, 2.6f, 1.0f}, {12, 46, 4.0f, 1.5f}, {26, 51, 6.0f, 2.2f}, {-30, 44, 3.0f, 1.2f}, {4, 42, 1.2f, 0.4f}};
   for (auto& c : cr) { float q = ((x - c.x) * (x - c.x) + (z - c.z) * (z - c.z)) / (c.r * c.r); if (q < 1) d -= c.dep * (1 - q) * (1 - q); }
-  // anti-tank ditch: 5 m wide, 3.5 m deep, near-vertical faces; one ramp crossing at x 27..33 (20 degree slopes)
+  // the anti-tank ditch's one ramp crossing at x 27..33 (20 degree slopes, 3.5 m deep at the ditch line z = 30.5); the
+  // ditch itself is a row of W4 bch_at_ditch pieces either side of it
   {
-    float ditch = 3.5f * (1.0f - smooth(2.5f, 2.95f, std::fabs(z - 30.5f))) * (1.0f - smooth(68, 72, std::fabs(x)));
     float ramp = z >= 30.5f ? 3.5f * std::clamp((40.0f - z) / 9.5f, 0.0f, 1.0f) : 3.5f * std::clamp((z - 21.0f) / 9.5f, 0.0f, 1.0f);
     float w = smooth(24.5f, 26.5f, x) * (1.0f - smooth(33.5f, 35.5f, x));
-    d -= ditch * (1 - w) + std::min(ramp, 3.5f) * w;
-  }
-  // zig-zag trench: 1.5 m deep, 2 m floor, steep sides; centre line zig-zags +-4 m with a 16 m period
-  {
-    float ph = std::fmod(std::fabs(x + 64.0f), 16.0f) / 16.0f; float tri = ph < 0.5f ? ph * 4 - 1 : 3 - ph * 4;
-    float zc = 15.0f + 4.0f * tri;
-    float dz = std::fabs(z - zc) / 1.12f;   // the zig-zag legs run at about 27 degrees
-    d -= 1.5f * (1.0f - smooth(1.0f, 1.45f, dz)) * (1.0f - smooth(60, 63, std::fabs(x)));
+    d -= std::min(ramp, 3.5f) * w;
   }
   // sunken lane: 4 m wide, 1.2 m deep, steep banks, east-west
   d -= 1.2f * (1.0f - smooth(2.0f, 2.9f, std::fabs(z + 15.0f))) * (1.0f - smooth(70, 75, std::fabs(x)));
@@ -86,7 +72,6 @@ uint64_t place(App& app, const std::string& asset, vec3 p, float yaw) {
   return in.id;
 }
 
-json navArea(const char* area, std::vector<vec2> poly) { json o = json::array(); for (auto& p : poly) o.push_back({p.x, p.y}); return {{"area", area}, {"outline", o}}; }
 }
 
 bool buildAiObstacleCourse(App& app, std::string& err) {
@@ -100,9 +85,17 @@ bool buildAiObstacleCourse(App& app, std::string& err) {
   for (float z = 98; z <= 112; z += 5) for (float x = -40; x <= 40; x += 6.5f) place(app, "def_tank_trap", vec3(x + U(rng) * 1.5f + (std::fmod(z, 10.0f) < 1 ? 3.0f : 0.0f), 0, z + U(rng)), U(rng) * 180);
   // barbed wire belt (concertina, long axis local z) with two gaps
   for (float x = -60; x <= 60; x += 3.8f) { if (std::fabs(x + 28) < 3.5f || std::fabs(x - 18) < 3.5f) continue; place(app, "wire_concertina", vec3(x, 0, 76), 90); }
-  // marked minefield (nav area, forbidden) fenced with post-and-wire
-  std::vector<vec2> mf = {vec2(-44, 58), vec2(-6, 58), vec2(-6, 70), vec2(-44, 70)};
-  for (float x = -40; x <= -10; x += 8) { place(app, "fence_post_wire", vec3(x, 0, 71), 0); place(app, "fence_post_wire", vec3(x, 0, 57), 0); }
+  // shingle bank (W4, 12 m pieces, seaward face to +z) along z = 88
+  for (float x = -54; x <= 54; x += 12) place(app, "bch_shingle_bank", vec3(x, 0, 88), 0);
+  // marked minefield (W4 fence pieces: forbidden nav area 10 m x 10 m behind each fence) over x -44..-4, z 59..69
+  for (float x = -39; x <= -9; x += 10) place(app, "bch_minefield_fence", vec3(x, 0, 59), 0);
+  // anti-tank ditch (W4, 12 m pieces with a terrain cut, long axis local x) along z = 30.5, open only at the ramp x 24.5..35.5
+  for (float x = 17.7f; x >= -67; x -= 12) place(app, "bch_at_ditch", vec3(x, 0, 30.5f), 0);
+  for (float x = 42.3f; x <= 67; x += 12) place(app, "bch_at_ditch", vec3(x, 0, 30.5f), 0);
+  // zig-zag trench (W4 12 m bays, cut 1.75 m deep) along z = 15 across the course
+  for (float x = -60; x <= 60; x += 12) place(app, "aw_trench_zigzag", vec3(x, 0, 15), 0);
+  // marsh (W4 reed patch: shallow cut, marsh nav area)
+  place(app, "bcg_marsh_patch", vec3(-21, 0, -38.5f), 0);
   // hedgerow line with gaps (bocage banks block; bots go through the gaps)
   for (float x = -64; x <= 64; x += 8) { if (std::fabs(x + 24) < 1 || std::fabs(x - 16) < 1) continue; place(app, "hedgerow_bocage", vec3(x, 0, 0), 0); }
   // low walls (vault)
@@ -111,9 +104,7 @@ bool buildAiObstacleCourse(App& app, std::string& err) {
   place(app, "house_stone_cottage", vec3(-14, 0, -60), 0);
   place(app, "bunker_mg_casemate", vec3(16, 0, -60), 0);
   app.syncRuntime();
-  // nav areas painted on the map (marsh, minefield) until the W4 assets exist
   if (!app.doc.extra.is_object()) app.doc.extra = json::object();
-  app.doc.extra["navAreas"] = json::array({navArea("minefield", mf), navArea("marsh", {vec2(-36, -44), vec2(-6, -44), vec2(-6, -33), vec2(-36, -33)})});
   // scenario: Allies attack from the south (+z) toward the building / bunker (A), then B beyond
   Scenario sc;
   Objective a; a.id = sc.newId("obj"); a.label = "Cottage and casemate"; a.order = 0; a.pos = vec3(0, app.terrain.height(0, -60), -60); a.radius = 28; a.attackYaw = 0; a.yMin = -3; a.yMax = 5;

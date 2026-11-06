@@ -103,6 +103,9 @@ static void triangulate(const std::vector<vec2>& poly, std::vector<std::array<ve
 
 void AiCore::begin(vec3 lo, vec3 hi) {
   App& app = G.app;
+  // rectangular maps (SPEC 9.1): the caller clamps to the larger half; the navmesh stays inside the build area on each axis
+  lo.x = std::max(lo.x, -app.terrain.buildHalfX); hi.x = std::min(hi.x, app.terrain.buildHalfX);
+  lo.z = std::max(lo.z, -app.terrain.buildHalfZ); hi.z = std::min(hi.z, app.terrain.buildHalfZ);
   tactics = loadJson("ai", "tactics.json"); navj = loadJson("ai", "navigation.json"); diffj = loadJson("ai", "difficulty.json");
   rules = loadJson("settings", "rules.json");
   json mv = loadJson("settings", "movement.json");
