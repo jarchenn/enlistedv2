@@ -40,11 +40,21 @@ public:
   static uint32_t addHeightPatch(const std::vector<float>& h, int n, vec3 origin, float spacing, uint64_t ud);
 
   // Character controller (Explore)
-  struct CharState { vec3 pos; bool grounded; bool crouched; uint64_t groundUser; };
+  enum Posture : int { STAND = 0, CROUCH = 1, PRONE = 2 };
+  struct CharState { vec3 pos; bool grounded; bool crouched; uint64_t groundUser; int posture = STAND; float bodyYaw = 0; vec3 vel{0}; };
+  // player-only tuning (global rigid-body / projectile gravity is separate and unchanged)
+  struct MoveTuning { float gravity = 9.81f * 0.8f, jumpVelocity = 4.2f * 0.894427f; };
+  static MoveTuning tuning;
   static void createCharacter(vec3 feet);
   static void destroyCharacter();
   static bool hasCharacter();
   static void updateCharacter(float dt, vec3 desiredHorizVel, bool jump, bool wantCrouch);
+  // posture-aware update: tries the requested posture (stays in the current one when the target shape does
+  // not fit), turns the prone body toward bodyYawWanted only when the rotated body fits
+  static void updateCharacter(float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYawWanted);
+  static bool postureFits(int posture, float bodyYaw);
+  static float proneHalfLength() { return 0.85f; }
+  static float proneRadius() { return 0.25f; }
   static void setCharacterPos(vec3 feet);
   static CharState character();
   static float standHeight() { return 1.8f; }

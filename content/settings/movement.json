@@ -1,0 +1,13 @@
+{
+ "_note": "Explore movement tuning (player only). Old values: run 2.3 m/s, sprint 4.6 m/s, crouch 1.2 m/s, no prone, gravity 9.81 m/s^2, jump 4.2 m/s, eyes 1.62 / 1.05 m.",
+ "run_mps": 2.875,
+ "sprint_mps": 5.75,
+ "crouch_mps": 1.2,
+ "prone_mps": 0.6,
+ "gravity_mps2": 7.848,
+ "jumpVelocity_mps": 3.757,
+ "eyeStand_m": 1.62,
+ "eyeCrouch_m": 1.05,
+ "eyeProne_m": 0.32,
+ "eyeSmoothing_per_s": 10.0
+}

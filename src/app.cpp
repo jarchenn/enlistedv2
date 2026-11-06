@@ -419,7 +419,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move") runSelf = true;
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else if (a == "--box-weapons") useImportedModels = false;
@@ -477,6 +477,7 @@ int App::run(int argc, char** argv) {
     buildWeaponMeshes();
     buildArmMeshes();
     loadBindings();
+    loadMoveSettings();
     layoutRackDisplays();
     resetLoadout();
   }

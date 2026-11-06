@@ -14,6 +14,8 @@ run weapons  --selftest-weapons
 run grass    --selftest-grass
 run fps      --selftest-fps
 run env      --selftest-env
+run arsenal  --selftest-arsenal
+run move     --selftest-move
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"
   ./NormandyMapmaker.exe --benchmark-stress >/dev/null 2>&1; echo "benchmark-stress   exit $?  -> selftest_out/benchmark_stress.json"

@@ -38,6 +38,15 @@ void App::loadBindings() {
   binds.packUp = get("packUp", "G");
 }
 
+void App::loadMoveSettings() {
+  move = MoveSettings{};
+  json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "movement.json")); } catch (...) { return; }
+  move.run = j.value("run_mps", move.run); move.sprint = j.value("sprint_mps", move.sprint); move.crouch = j.value("crouch_mps", move.crouch); move.prone = j.value("prone_mps", move.prone);
+  move.gravity = j.value("gravity_mps2", move.gravity); move.jumpVelocity = j.value("jumpVelocity_mps", move.jumpVelocity);
+  move.eyeStand = j.value("eyeStand_m", move.eyeStand); move.eyeCrouch = j.value("eyeCrouch_m", move.eyeCrouch); move.eyeProne = j.value("eyeProne_m", move.eyeProne);
+  move.eyeRate = j.value("eyeSmoothing_per_s", move.eyeRate);
+}
+
 // ---------------------------------------------------------------- loadout
 bool App::isSmallArm(const WeaponDef& d) const { return d.action != "launcher" && d.action != "heavy"; }
 

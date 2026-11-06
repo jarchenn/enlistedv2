@@ -194,15 +194,30 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   // ---- move
   vec3 f = forward(eyeYaw, 0), rgt(std::cos(radians(eyeYaw)), 0, -std::sin(radians(eyeYaw)));
   vec3 wish = f * in.move.y + rgt * in.move.x;
-  if (glm::length(wish) > 1) wish = glm::normalize(wish);
+  if (glm::length(wish) > 1) wish = glm::normalize(wish);   // diagonal input never exceeds the axis speed
+  // ---- posture: Standing / Crouched / Prone, mutually exclusive, real collision shapes
+  //   Ctrl held = crouch; Z toggles prone (entering prone clears crouch intent; while prone Ctrl does not exit);
+  //   Z out of prone requests crouch if Ctrl is held, else standing; a request that does not fit stays pending
+  //   (the current posture is kept) and resolves when space frees up. Explicit Z overrides pending requests.
   auto before = Physics::character();
-  bool sprinting = in.sprint && adsT < 0.5f;   // Shift while aiming holds the breath instead
-  float speed = in.crouch ? 1.2f : sprinting ? 4.6f : 2.3f;
-  if (!occupied) Physics::updateCharacter(dt, wish * speed, in.jump, in.crouch);
+  if (in.prone) proneToggle = !(before.posture == Physics::PRONE || proneToggle);
+  if (before.posture == Physics::PRONE && !proneToggle && postureWanted == Physics::PRONE) postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND;
+  else if (proneToggle) postureWanted = Physics::PRONE;
+  else postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND;
+  int pose = before.posture;
+  bool lowered = pose != Physics::STAND || postureWanted != Physics::STAND;
+  bool sprinting = in.sprint && adsT < 0.5f && !lowered;   // Shift while aiming holds the breath; no sprint while lowered
+  float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
+  Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity;
+  if (!occupied) Physics::updateCharacter(dt, wish * speed, in.jump, postureWanted, eyeYaw);
   auto c = Physics::character();
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
-  float eyeTarget = c.crouched ? 1.05f : 1.62f;
-  eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * 10);
+  float eyeTarget = c.posture == Physics::PRONE ? move.eyeProne : c.posture == Physics::CROUCH ? move.eyeCrouch : move.eyeStand;
+  eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * move.eyeRate);
+  if (eyeHeight > eyeTarget + 0.02f) {   // never raise the camera through a ceiling while standing up
+    Physics::Hit ch; vec3 f0 = c.pos + vec3(0, eyeTarget * 0.5f, 0);
+    if (Physics::castRayEx(f0, vec3(0, 1, 0), eyeHeight - eyeTarget * 0.5f + 0.1f, ch) && ch.pos.y - 0.1f < c.pos.y + eyeHeight) eyeHeight = std::max(eyeTarget, ch.pos.y - 0.1f - c.pos.y);
+  }
   // ---- footsteps by surface
   if (c.grounded) {
     stepTimer += glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z));
@@ -274,7 +289,8 @@ void App::updateExplore(float dt) {
     if (kd(win, GLFW_KEY_D)) in.move.x += 1;
     if (kd(win, GLFW_KEY_A)) in.move.x -= 1;
     in.sprint = kd(win, GLFW_KEY_LEFT_SHIFT);
-    in.crouch = kd(win, GLFW_KEY_LEFT_CONTROL) || kd(win, GLFW_KEY_C);
+    in.crouch = kd(win, binds.crouch) || kd(win, GLFW_KEY_C);
+    if (!glfwGetWindowAttrib(win, GLFW_FOCUSED)) { in = ExploreInput{}; }   // focus loss clears held input (crouch, fire, sprint)
     in.jump = kp(win, GLFW_KEY_SPACE);
     in.interact = kp(win, GLFW_KEY_E);
     in.fire = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !io.WantCaptureMouse;

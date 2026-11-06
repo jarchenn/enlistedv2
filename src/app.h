@@ -146,6 +146,15 @@ public:
   void resetLeafDamage();
   void dynLeafDrawItems(std::vector<DrawItem>& op);
   float leafHpFor(const InteractDef& d) const;
+  // ---- movement (explore.cpp): data-driven tuning and the posture state machine
+  struct MoveSettings {
+    float run = 2.3f * 1.25f, sprint = 4.6f * 1.25f, crouch = 1.2f, prone = 0.6f;   // m/s
+    float eyeStand = 1.62f, eyeCrouch = 1.05f, eyeProne = 0.32f, eyeRate = 10.0f;    // m, 1/s (camera smoothing)
+    float gravity = 9.81f * 0.8f, jumpVelocity = 4.2f * 0.894427f;                  // m/s^2, m/s (player only)
+  } move;
+  void loadMoveSettings();
+  int postureWanted = 0;          // Physics::Posture requested by input (stand / crouch / prone)
+  bool proneToggle = false;       // Z state: prone requested
   // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
   struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0; std::map<std::string, std::string> names; } binds;
   void loadBindings();

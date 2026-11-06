@@ -49,7 +49,8 @@ struct World {
   std::unique_ptr<PhysicsSystem> sys;
   BodyID terrain;
   Ref<CharacterVirtual> character;
-  RefConst<Shape> standShape, crouchShape;
+  RefConst<Shape> standShape, crouchShape, proneShape;
+  int posture = 0; float bodyYaw = 0;
   bool crouched = false;
   int bodies = 0;
 };
@@ -78,6 +79,11 @@ bool Physics::init() {
   };
   W->standShape = mk(standHeight());
   W->crouchShape = mk(crouchHeight());
+  // prone: a body-length capsule lying along local -z behind the head (feet at the origin plane), turned with the body yaw
+  {
+    float r = proneRadius(), half = proneHalfLength() - r;
+    W->proneShape = RefConst<Shape>(RotatedTranslatedShapeSettings(Vec3(0, r, 0.55f), Quat::sRotation(Vec3::sAxisX(), JPH_PI * 0.5f), new CapsuleShape(half, r)).Create().Get());
+  }
   return true;
 }
 
@@ -224,15 +230,6 @@ void Physics::remove(uint32_t body) {
 int Physics::bodyCount() { return W->bodies; }
 void Physics::step(float dt) { W->sys->Update(dt, 1, W->temp.get(), W->jobs.get()); }
 
-bool Physics::castRay(vec3 o, vec3 d, float maxDist, float& t, uint64_t& ud) {
-  RRayCast ray{jr(o), jv(glm::normalize(d) * maxDist)};
-  RayCastResult hit;
-  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit)) return false;
-  t = hit.mFraction * maxDist;
-  ud = W->sys->GetBodyInterface().GetUserData(hit.mBodyID);
-  return true;
-}
-
 namespace {
 class IgnoreUD final : public BodyFilter {
 public:
@@ -251,6 +248,15 @@ public:
   }
   uint64 ud; bool terr;
 };
+}
+
+bool Physics::castRay(vec3 o, vec3 d, float maxDist, float& t, uint64_t& ud) {
+  RRayCast ray{jr(o), jv(glm::normalize(d) * maxDist)};
+  RayCastResult hit;
+  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit)) return false;
+  t = hit.mFraction * maxDist;
+  ud = W->sys->GetBodyInterface().GetUserData(hit.mBodyID);
+  return true;
 }
 
 bool Physics::castRayEx(vec3 o, vec3 d, float maxDist, Hit& out, uint64_t ignoreUd) {
@@ -341,7 +347,7 @@ void Physics::createCharacter(vec3 feet) {
   s->mMaxStrength = 50.0f;
   s->mEnhancedInternalEdgeRemoval = true;
   W->character = new CharacterVirtual(s, jr(feet), Quat::sIdentity(), 0, W->sys.get());
-  W->crouched = false;
+  W->crouched = false; W->posture = STAND; W->bodyYaw = 0;
 }
 void Physics::destroyCharacter() { if (W) W->character = nullptr; }
 bool Physics::hasCharacter() { return W && W->character; }
@@ -349,6 +355,63 @@ void Physics::setCharacterPos(vec3 feet) {
   if (!W->character) return;
   W->character->SetPosition(jr(feet));
   W->character->SetLinearVelocity(Vec3::sZero());
+}
+
+Physics::MoveTuning Physics::tuning;
+
+bool Physics::postureFits(int posture, float bodyYaw) {
+  auto& c = W->character; if (!c) return false;
+  const Shape* sh = posture == PRONE ? W->proneShape.GetPtr() : posture == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
+  CollideShapeSettings cs; cs.mMaxSeparationDistance = 0; cs.mActiveEdgeMode = EActiveEdgeMode::CollideOnlyWithActive;
+  AnyHitCollisionCollector<CollideShapeCollector> col;
+  Quat q = posture == PRONE ? Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(bodyYaw)) : Quat::sIdentity();
+  // lifted 4 cm so resting on the ground (and the stair nosing under the feet) is not a collision
+  RVec3 p = c->GetPosition() + Vec3(0, 0.04f, 0);
+  IgnoreUDTerrain filt(~0ull, true);   // ground contact is the controller's job; walls, ceilings and props block
+  W->sys->GetNarrowPhaseQuery().CollideShape(sh, Vec3::sReplicate(1.0f), RMat44::sRotationTranslation(q, p), cs, RVec3::sZero(), col, {}, {}, filt);
+  return !col.HadHit();
+}
+
+void Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawWanted) {
+  auto& c = W->character;
+  if (!c) return;
+  auto bpf = W->sys->GetDefaultBroadPhaseLayerFilter(Layers::MOVING);
+  auto olf = W->sys->GetDefaultLayerFilter(Layers::MOVING);
+  BodyFilter bf; ShapeFilter sf;
+  if (want != W->posture) {
+    // expanding (toward standing / into prone) only when the full target body fits; SetShape also refuses
+    // a shape that would penetrate, so the character never ends up inside geometry
+    float y = want == PRONE ? yawWanted : W->bodyYaw;
+    bool fits = postureFits(want, y);
+    if (fits) {
+      if (want == PRONE) c->SetRotation(Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(y)));
+      const Shape* sh = want == PRONE ? W->proneShape.GetPtr() : want == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
+      if (c->SetShape(sh, 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp)) {
+        W->posture = want; W->crouched = want != STAND; W->bodyYaw = y;
+        if (want != PRONE) c->SetRotation(Quat::sIdentity());
+      } else if (W->posture != PRONE) c->SetRotation(Quat::sIdentity());
+    }
+  }
+  if (W->posture == PRONE && std::fabs(wrapDeg(yawWanted - W->bodyYaw + 180.0f) - 180.0f) > 0.5f) {
+    // turning while prone sweeps a 1.7 m body: rotate only when the turned body fits (else keep the old heading)
+    if (postureFits(PRONE, yawWanted)) { W->bodyYaw = yawWanted; c->SetRotation(Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(yawWanted))); }
+  }
+  c->UpdateGroundVelocity();
+  Vec3 gravity(0, -tuning.gravity, 0);   // player-only gravity
+  Vec3 vert(0, c->GetLinearVelocity().GetY(), 0);
+  Vec3 groundV = c->GetGroundVelocity();
+  Vec3 nv;
+  if (c->GetGroundState() == CharacterBase::EGroundState::OnGround && (vert.GetY() - groundV.GetY()) < 0.1f) {
+    nv = groundV;
+    if (jump && W->posture == STAND) nv += Vec3(0, tuning.jumpVelocity, 0);
+  } else nv = vert;
+  nv += gravity * dt;
+  nv += jv(hv);
+  c->SetLinearVelocity(nv);
+  CharacterVirtual::ExtendedUpdateSettings us;
+  us.mStickToFloorStepDown = Vec3(0, -0.5f, 0);
+  us.mWalkStairsStepUp = Vec3(0, W->posture == PRONE ? 0.2f : 0.35f, 0);
+  c->ExtendedUpdate(dt, gravity, us, bpf, olf, bf, sf, *W->temp);
 }
 
 void Physics::updateCharacter(float dt, vec3 hv, bool jump, bool wantCrouch) {
@@ -387,6 +450,8 @@ Physics::CharState Physics::character() {
   s.pos = vec3((float)p.GetX(), (float)p.GetY(), (float)p.GetZ());
   s.grounded = c->GetGroundState() == CharacterBase::EGroundState::OnGround;
   s.crouched = W->crouched;
+  s.posture = W->posture; s.bodyYaw = W->bodyYaw;
+  Vec3 v = c->GetLinearVelocity(); s.vel = vec3(v.GetX(), v.GetY(), v.GetZ());
   s.groundUser = c->GetGroundBodyID().IsInvalid() ? ~0ull : W->sys->GetBodyInterface().GetUserData(c->GetGroundBodyID());
   return s;
 }
