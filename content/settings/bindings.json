@@ -4,5 +4,6 @@
  "prone": "Z",
  "crouch": "LEFT_CONTROL",
  "packUp": "G",
- "grenade": "H"
+ "grenade": "H",
+ "smokeGrenade": "J"
 }

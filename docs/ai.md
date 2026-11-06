@@ -21,7 +21,7 @@ Plain Explore (F5) is still the empty walkthrough with no bots.
 | Key | In a match |
 |---|---|
 | H | quick-throw your side's frag grenade (Mk 2 / M24; 2 per life). Or select it with Q and throw with LMB |
-| J | quick-throw a smoke grenade (if your loadout has one) |
+| J | quick-throw a smoke grenade (if your loadout has one; rebindable as "smokeGrenade" in content/settings/bindings.json) |
 | F6 | AI debug overlay: role, mode and reason, target, last-known positions, route, chosen cover, lane, lives left |
 | Q | next weapon (your faction's pool) |
 | other keys | as in Explore |

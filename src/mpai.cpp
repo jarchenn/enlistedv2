@@ -92,8 +92,8 @@ void mpaiInput(App& app, ExploreInput& in) {
   bool frozen = !L || !L->alive || gGame->match.phase != MatchPhase::Running;
   if (frozen) { in = ExploreInput{}; return; }
   if (app.selftest || app.pauseMenu) return;
-  // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); J quick smoke (match only)
-  if (edge(app.win, GLFW_KEY_J) && L->throwT < 0 && app.quickReturn < 0) {
+  // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); quick smoke on "smokeGrenade" (default J, match only)
+  if (edge(app.win, app.binds.smokeGrenade) && L->throwT < 0 && app.quickReturn < 0) {
     int sd = gGame->smokeDef();
     const WeaponDef& cur = *app.weaponDefs[app.activeWeapon];
     if (sd < 0 || L->smokes <= 0) app.toast("No smoke grenades", 2);

@@ -197,7 +197,7 @@ public:
   static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)
   bool proneToggle = false;       // Z state: prone requested
   // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
-  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0; std::map<std::string, std::string> names; } binds;
+  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0, smokeGrenade = 0; std::map<std::string, std::string> names; } binds;
   void loadBindings();
   std::vector<int> carried;
   bool isSmallArm(const WeaponDef& d) const;

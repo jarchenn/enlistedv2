@@ -37,6 +37,7 @@ void App::loadBindings() {
   binds.crouch = get("crouch", "LEFT_CONTROL");
   binds.packUp = get("packUp", "G");
   binds.grenade = get("grenade", "H");
+  binds.smokeGrenade = get("smokeGrenade", "J");   // match: quick smoke (mpai)
 }
 
 void App::loadMoveSettings() {
