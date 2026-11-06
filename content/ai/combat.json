@@ -1,0 +1,101 @@
+{
+  "note": "Game balance values for soldiers (not real-world data). Damage per hit = caliber base x zone multiplier; 100 HP per life. Loadout pools include sandbox / later-war weapons (StG 44, M3, FG 42): they are not a claim about 6 June 1944 issue.",
+  "health": 100,
+  "zones": {
+    "head": 3.0,
+    "torso": 1.0,
+    "limb": 0.55
+  },
+  "caliber": {
+    ".30-06": 75,
+    "7.92x57 mm": 75,
+    ".30 Carbine": 45,
+    ".45 ACP": 36,
+    "9x19 mm": 32,
+    "7.92x33 mm Kurz": 52,
+    ".50 BMG": 200,
+    "default": 50
+  },
+  "falloff": {
+    "start_m": 60,
+    "end_m": 250,
+    "minFactor": 0.6
+  },
+  "explosion": {
+    "personnelRadiusFactor": 3.0,
+    "scale": 1.0
+  },
+  "loadouts": {
+    "Allies": {
+      "player": [
+        "m1_garand",
+        "m1_thompson",
+        "m1_carbine",
+        "m1918a2_bar",
+        "m3_grease_gun"
+      ],
+      "ai": [
+        [
+          "m1_garand",
+          6
+        ],
+        [
+          "m1_thompson",
+          2
+        ],
+        [
+          "m1_carbine",
+          2
+        ],
+        [
+          "m1918a2_bar",
+          1
+        ],
+        [
+          "m3_grease_gun",
+          1
+        ]
+      ]
+    },
+    "Axis": {
+      "player": [
+        "kar98k",
+        "mp40",
+        "fg42",
+        "stg44"
+      ],
+      "ai": [
+        [
+          "kar98k",
+          6
+        ],
+        [
+          "mp40",
+          3
+        ],
+        [
+          "fg42",
+          1
+        ],
+        [
+          "stg44",
+          2
+        ]
+      ]
+    }
+  },
+  "models": {
+    "Allies": [
+      "allied_ranger_0",
+      "allied_ranger_2",
+      "allied_ranger_4"
+    ],
+    "Axis": [
+      "axis_grenadier"
+    ]
+  },
+  "corpses": {
+    "max": 12,
+    "seconds": 40
+  }
+}

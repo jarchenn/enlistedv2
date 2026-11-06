@@ -70,6 +70,7 @@ struct Projectile {
   bool atKill = false;          // a direct hit destroys an AT gun in one shot (PaK shells, rockets)
   float blastDmg = 0, blastR = 0, craterScale = 1, splashGun = 40, gravScale = 1;
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
+  int owner = -1;               // firing soldier's roster slot (multiplayer + AI); -1 = the local player
   bool tracer = false;
   std::string ammo;
 };

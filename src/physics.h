@@ -66,4 +66,15 @@ public:
   static float standHeight() { return 1.8f; }
   static float crouchHeight() { return 1.2f; }
   static float radius() { return 0.3f; }
+
+  // ---- agents (multiplayer + AI, physics_agents block in physics.cpp): one CharacterVirtual per bot / remote player
+  // with the player's shapes and step rules; agents and the player collide with each other.
+  static int createAgent(vec3 feet);
+  static void destroyAgent(int h);
+  static void destroyAllAgents();
+  static void updateAgent(int h, float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYaw);
+  static CharState agent(int h);
+  static void setAgentPos(int h, vec3 feet);
+  // every hit along a ray, nearest first (bodies, terrain); skipLeaves drops movable door / window leaves
+  static int castRayAll(vec3 o, vec3 dir, float maxDist, Hit* out, int maxHits, bool skipLeaves);
 };

@@ -1,6 +1,7 @@
 // Local wall damage: per-copy panel health (Explore session overlay), replaceable wall collision,
 // explosion resolution in each building's local frame.
 #include "app.h"
+#include "mpai.h"
 #include <imgui.h>
 #include <chrono>
 #include <algorithm>
@@ -91,6 +92,7 @@ App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float cra
     if (stampWall(r, e, true, &ex.hits, &ex.breached) > 0) { r.wallEvents.push_back(e); rebuildWalls(i, r); }
   }
   if (craterScale > 0.0f) ex.crater = deformGround(p, craterScale);
+  mpaiExplosion(*this, p, dir, dmg, radius, craterScale, wallKind, ex.breached, ex.hits.size());   // soldiers, AI hearing, nav update, LAN
   lastExplosion = ex;
   return ex;
 }

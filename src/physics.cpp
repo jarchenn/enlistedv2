@@ -518,3 +518,120 @@ Physics::CharState Physics::character() {
   s.groundUser = c->GetGroundBodyID().IsInvalid() ? ~0ull : W->sys->GetBodyInterface().GetUserData(c->GetGroundBodyID());
   return s;
 }
+
+// ============================================================ physics_agents (multiplayer + AI)
+namespace {
+struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false; };
+std::vector<AgentRec> gAgents;
+CharacterVsCharacterCollisionSimple gCvc;
+const CharacterVirtual* gCvcPlayer = nullptr;
+void syncCvcPlayer() {
+  // the player's character is created / destroyed by explore.cpp: keep it registered without touching that code
+  const CharacterVirtual* cur = W && W->character ? W->character.GetPtr() : nullptr;
+  if (cur == gCvcPlayer) return;
+  if (gCvcPlayer) gCvc.Remove(gCvcPlayer);
+  gCvcPlayer = cur;
+  if (cur) { gCvc.Add(W->character.GetPtr()); W->character->SetCharacterVsCharacterCollision(&gCvc); }
+}
+const Shape* agentShape(int posture) { return posture == Physics::PRONE ? W->proneShape.GetPtr() : posture == Physics::CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr(); }
+}
+
+int Physics::createAgent(vec3 feet) {
+  syncCvcPlayer();
+  Ref<CharacterVirtualSettings> s = new CharacterVirtualSettings();
+  s->mShape = W->standShape;
+  s->mMaxSlopeAngle = DegreesToRadians(50.0f);
+  s->mSupportingVolume = Plane(Vec3::sAxisY(), -radius());
+  s->mCharacterPadding = 0.02f; s->mPenetrationRecoverySpeed = 1.0f; s->mPredictiveContactDistance = 0.1f;
+  s->mMaxStrength = 50.0f; s->mEnhancedInternalEdgeRemoval = true;
+  int h = -1;
+  for (size_t k = 0; k < gAgents.size(); ++k) if (!gAgents[k].used) { h = (int)k; break; }
+  if (h < 0) { h = (int)gAgents.size(); gAgents.emplace_back(); }
+  AgentRec& a = gAgents[h];
+  a.c = new CharacterVirtual(s, jr(feet), Quat::sIdentity(), 0, W->sys.get());
+  a.c->SetCharacterVsCharacterCollision(&gCvc);
+  gCvc.Add(a.c.GetPtr());
+  a.posture = STAND; a.bodyYaw = 0; a.used = true;
+  return h;
+}
+void Physics::destroyAgent(int h) {
+  if (h < 0 || h >= (int)gAgents.size() || !gAgents[h].used) return;
+  gCvc.Remove(gAgents[h].c.GetPtr());
+  gAgents[h].c = nullptr; gAgents[h].used = false;
+}
+void Physics::destroyAllAgents() { for (int k = 0; k < (int)gAgents.size(); ++k) destroyAgent(k); }
+void Physics::setAgentPos(int h, vec3 feet) {
+  if (h < 0 || h >= (int)gAgents.size() || !gAgents[h].used) return;
+  gAgents[h].c->SetPosition(jr(feet)); gAgents[h].c->SetLinearVelocity(Vec3::sZero());
+}
+Physics::CharState Physics::agent(int h) {
+  CharState s{};
+  if (h < 0 || h >= (int)gAgents.size() || !gAgents[h].used) return s;
+  auto& c = gAgents[h].c;
+  RVec3 p = c->GetPosition();
+  s.pos = vec3((float)p.GetX(), (float)p.GetY(), (float)p.GetZ());
+  s.grounded = c->GetGroundState() == CharacterBase::EGroundState::OnGround;
+  s.posture = gAgents[h].posture; s.crouched = s.posture != STAND; s.bodyYaw = gAgents[h].bodyYaw;
+  Vec3 v = c->GetLinearVelocity(); s.vel = vec3(v.GetX(), v.GetY(), v.GetZ());
+  s.groundUser = c->GetGroundBodyID().IsInvalid() ? ~0ull : W->sys->GetBodyInterface().GetUserData(c->GetGroundBodyID());
+  return s;
+}
+void Physics::updateAgent(int h, float dt, vec3 hv, bool jump, int want, float yawWanted) {
+  if (h < 0 || h >= (int)gAgents.size() || !gAgents[h].used) return;
+  syncCvcPlayer();
+  AgentRec& a = gAgents[h];
+  auto& c = a.c;
+  auto bpf = W->sys->GetDefaultBroadPhaseLayerFilter(Layers::MOVING);
+  auto olf = W->sys->GetDefaultLayerFilter(Layers::MOVING);
+  BodyFilter bf; ShapeFilter sf;
+  if (want != a.posture) {
+    float y = want == PRONE ? yawWanted : a.bodyYaw;
+    if (want == PRONE) c->SetRotation(Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(y)));
+    if (c->SetShape(agentShape(want), 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp)) { a.posture = want; a.bodyYaw = y; if (want != PRONE) c->SetRotation(Quat::sIdentity()); }
+    else if (a.posture != PRONE) c->SetRotation(Quat::sIdentity());
+  }
+  c->UpdateGroundVelocity();
+  Vec3 gravity(0, -9.81f, 0);
+  Vec3 vert(0, c->GetLinearVelocity().GetY(), 0), groundV = c->GetGroundVelocity(), nv;
+  bool onGround = c->GetGroundState() == CharacterBase::EGroundState::OnGround;
+  if (onGround && (vert.GetY() - groundV.GetY()) < 0.1f) { nv = groundV; if (jump && a.posture == STAND) nv += Vec3(0, 4.2f * 0.894427f, 0); }
+  else nv = vert;
+  nv += gravity * dt; nv += jv(hv);
+  c->SetLinearVelocity(nv);
+  CharacterVirtual::ExtendedUpdateSettings us;
+  us.mStickToFloorStepDown = Vec3(0, -0.5f, 0);
+  us.mWalkStairsStepUp = onGround ? Vec3(0, a.posture == PRONE ? 0.2f : 0.35f, 0) : Vec3::sZero();
+  c->ExtendedUpdate(dt, gravity, us, bpf, olf, bf, sf, *W->temp);
+}
+
+namespace {
+class SkipLeaves final : public BodyFilter {
+public:
+  bool skip = false;
+  bool ShouldCollideLocked(const Body& b) const override {
+    if (!skip) return true;
+    uint64 u = b.GetUserData();
+    if (u == 0 || (u >> 60) == 0xF) return true;          // terrain
+    uint64 low = u & 0xFFFF;
+    return low == 0 || low == 0xFFFF;                     // static core / wall compound (leaves have slot + 1)
+  }
+};
+}
+int Physics::castRayAll(vec3 o, vec3 d, float maxDist, Hit* out, int maxHits, bool skipLeaves) {
+  vec3 dn = glm::normalize(d);
+  RRayCast ray{jr(o), jv(dn * maxDist)};
+  RayCastSettings rs; rs.mBackFaceModeTriangles = EBackFaceMode::IgnoreBackFaces; rs.mBackFaceModeConvex = EBackFaceMode::IgnoreBackFaces;
+  AllHitCollisionCollector<CastRayCollector> col;
+  SkipLeaves filt; filt.skip = skipLeaves;
+  W->sys->GetNarrowPhaseQuery().CastRay(ray, rs, col, {}, {}, filt);
+  col.Sort();
+  int n = 0;
+  for (auto& h : col.mHits) {
+    if (n >= maxHits) break;
+    Hit& o2 = out[n++];
+    o2.t = h.mFraction * maxDist; o2.pos = o + dn * o2.t;
+    BodyLockRead lock(W->sys->GetBodyLockInterface(), h.mBodyID);
+    if (lock.Succeeded()) { o2.ud = lock.GetBody().GetUserData(); o2.normal = gv(lock.GetBody().GetWorldSpaceSurfaceNormal(h.mSubShapeID2, ray.GetPointOnRay(h.mFraction))); }
+  }
+  return n;
+}

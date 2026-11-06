@@ -1,5 +1,6 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -57,12 +58,14 @@ bool App::enterExplore() {
   if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   R.resetExposure(1.2f);
   mode = Mode::Explore;
+  mpaiEnterExplore(*this);   // starts a match when the Play menu asked for one
   return true;
 }
 
 void App::exitExplore() {
   if (mode != Mode::Explore) return;
   clearGrenades();
+  mpaiExitExplore(*this);
   Physics::destroyCharacter();
   closeRack("mode change");
   leaveStation();
@@ -275,6 +278,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   else if (build.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; stepWeapons(dt, w); }   // weapon lowered while building
   else stepWeapons(dt, in);
   blastShake = std::max(0.0f, blastShake - dt * 1.5f);
+  if (mpaiLocalFrozen(*this)) { stepProjectiles(dt); fx.update(dt, terrain); return; }   // dead in a match: spectating
   // ---- move
   vec3 f = forward(eyeYaw, 0), rgt(std::cos(radians(eyeYaw)), 0, -std::sin(radians(eyeYaw)));
   vec3 wish = f * in.move.y + rgt * in.move.x;
@@ -427,10 +431,12 @@ void App::updateExplore(float dt) {
     in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = in.packUp = false;
     in.dyaw = in.dpitch = in.lookYaw = in.lookPitch = 0;
   }
+  mpaiInput(*this, in);   // match: dead / ended input, grenade keys
   physAccum += dt;
   int steps = 0;
   while (physAccum >= 1.0f / 60.0f && steps < 8) {
     exploreStep(1.0f / 60.0f, in);
+    mpaiStep(*this, 1.0f / 60.0f);   // match: soldiers, AI, grenades, capture
     in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.quickGrenade = false; in.dyaw = in.dpitch = 0;
     physAccum -= 1.0f / 60.0f; ++steps;
   }

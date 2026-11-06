@@ -19,6 +19,9 @@ run move     --selftest-move
 run sights   --selftest-sights
 run update   --selftest-update
 run entities --selftest-entities
+run match    --selftest-match   # multiplayer + AI: headless rules suite
+run ai       --selftest-ai      # multiplayer + AI: village match integration (~4 min)
+if [ "${1:-}" = "--net" ]; then bash "$(dirname "$0")/run_net_test.sh" "$B" || status=1; fi   # LAN: 5 processes on 127.0.0.1
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"
   ./NormandyMapmaker.exe --benchmark-stress >/dev/null 2>&1; echo "benchmark-stress   exit $?  -> selftest_out/benchmark_stress.json"
