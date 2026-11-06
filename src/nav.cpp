@@ -155,7 +155,18 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
       }
     }
     return false; };
-  j.links.erase(std::remove_if(j.links.begin(), j.links.end(), [&](const NavLink& l) { return !onWalk(l.a) || !onWalk(l.b); }), j.links.end());
+  // ...and never pass over a blocked or forbidden mark (hedgerow footprints, wire, minefields)
+  auto inTri = [](vec2 p, const std::vector<vec2>& t) {
+    auto cr = [](vec2 a, vec2 b, vec2 c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); };
+    float d1 = cr(t[0], t[1], p), d2 = cr(t[1], t[2], p), d3 = cr(t[2], t[0], p);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+  auto crossesMark = [&](const NavLink& l) {
+    for (auto& mk : j.marks.marks) {
+      if (mk.poly.size() != 3 || !(mk.nullify || navAreaCost(navarea::toNav(mk.area)) < 0)) continue;
+      for (int k = 0; k <= 20; ++k) { vec3 q = glm::mix(l.a, l.b, k / 20.0f); if (q.y >= mk.hmin && q.y <= mk.hmax && inTri(vec2(q.x, q.z), mk.poly)) return true; }
+    }
+    return false; };
+  j.links.erase(std::remove_if(j.links.begin(), j.links.end(), [&](const NavLink& l) { return !onWalk(l.a) || !onWalk(l.b) || crossesMark(l); }), j.links.end());
   std::vector<float> lv; std::vector<float> lr; std::vector<unsigned char> ld, la; std::vector<unsigned short> lf; std::vector<unsigned int> lid;
   for (auto& l : j.links) {
     lv.insert(lv.end(), {l.a.x, l.a.y, l.a.z, l.b.x, l.b.y, l.b.z});

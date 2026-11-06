@@ -267,7 +267,7 @@ void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3
       tr.dur = 0.3f + std::sqrt(2 * h / std::max(1.0f, gravity)); break;
     case LINK_VAULT: {
       float hi = std::max(top, std::max(a.y, b.y)) + 0.1f;
-      tr.p[0] = a; tr.p[1] = vec3(glm::mix(a.x, b.x, 0.3f), hi, glm::mix(a.z, b.z, 0.3f)); tr.p[2] = vec3(glm::mix(a.x, b.x, 0.7f), hi, glm::mix(a.z, b.z, 0.7f)); tr.p[3] = b; tr.np = 4;
+      tr.p[0] = a; tr.p[1] = vec3(glm::mix(a.x, b.x, 0.25f), hi, glm::mix(a.z, b.z, 0.25f)); tr.p[2] = vec3(glm::mix(a.x, b.x, 0.88f), hi, glm::mix(a.z, b.z, 0.88f)); tr.p[3] = b; tr.np = 4;   // over, then down once the body has cleared the far face
       tr.dur = std::clamp((len + 2 * (hi - a.y)) / 2.6f, 0.45f, 1.1f); break; }
     case LINK_JUMP:
       tr.p[0] = a; tr.p[1] = b; tr.np = 2;

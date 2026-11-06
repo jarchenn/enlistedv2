@@ -61,7 +61,7 @@ void probe(const NavConfig& c, const NavColumns& C, vec3 P, vec3 n, std::vector<
     int k1 = k0; float maxTop = -1e9f; while (k1 < N && R[k1].c == UP) { maxTop = std::max(maxTop, R[k1].y); ++k1; }
     float h = maxTop - ys, run = (k1 - k0) * step;
     if (k1 < N && R[k1].c == SAME && run <= c.vaultThick + step * 0.5f && h <= c.vaultMax && h > c.climb) {
-      int kl = std::min(N - 1, k1 + landCells - 1);
+      int kl = std::min(N - 1, k1 + (int)std::ceil((c.radius + 0.5f) / step));   // land clear of the far face (copings overhang)
       while (kl > k1 && R[kl].c != SAME) --kl;
       vec3 b = at(kl); b.y = R[kl].y;
       add(LINK_VAULT, b, true, maxTop);
