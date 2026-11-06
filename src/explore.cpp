@@ -462,6 +462,7 @@ void App::updateExplore(float dt) {
   if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral
   Physics::step(dt);
   stepDynLeaves(dt);
+  interior.step(*this, dt);
   stepGrenades(dt);
 }
 

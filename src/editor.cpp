@@ -96,6 +96,11 @@ void App::updateCreative(float dt) {
   // ---- ground under cursor
   vec3 ro, rd; cursorRay(ro, rd);
   hoverValid = terrain.raycast(ro, rd, 3000, hoverGround);
+  {   // furniture: the cursor lands on real floors and table tops, not only the ground (interior.cpp)
+    const AssetDef* pa = tool == Tool::Place ? placing : nullptr; uint64_t ign = 0;
+    if (!pa && selected) if (Instance* si = doc.find(selected); si && interior.isProp(assetFor(*si))) { pa = assetFor(*si); ign = selected; }
+    vec3 hp2; if (pa && interior.isProp(pa) && interior.hoverPoint(*this, ro, rd, hp2, ign)) { hoverGround = hp2; hoverValid = true; }
+  }
   vec3 hp = hoverGround;
   if (gridSnap) { hp.x = std::round(hp.x); hp.z = std::round(hp.z); }
   if (selftest) return;  // the scripted test drives tools directly
@@ -139,7 +144,7 @@ void App::updateCreative(float dt) {
         vec3 np = hoverGround + dragOffset;
         if (gridSnap) { np.x = std::round(np.x); np.z = std::round(np.z); }
         lastCheck = checkPlacement(assetFor(*s), np, s->yaw, s->id);
-        s->pos = vec3(np.x, lastCheck.ok ? lastCheck.y : s->pos.y, np.z);
+        s->pos = vec3(lastCheck.snapXZ ? lastCheck.xz.x : np.x, lastCheck.ok ? lastCheck.y : s->pos.y, lastCheck.snapXZ ? lastCheck.xz.y : np.z);
         bump(*s);
       }
     }
@@ -411,7 +416,9 @@ void App::drawCreativeUI() {
       }
     }
     if (s && isVehicleAsset(a)) tanks.drawEditorPanel(*this, *s);   // tank_ui.cpp: spawn ammunition, turret, applied damage
-    if (s && !a->furnitureNames.empty() && ImGui::CollapsingHeader("Furniture (moves with the building)")) {
+    if (s) interior.editorPanel(*this, *s);   // rooms, finishes, room templates / furniture piece info (interior.cpp)
+    s = doc.find(selected);
+    if (s && !a->furnitureNames.empty() && !interior.hideBuiltin(*s) && ImGui::CollapsingHeader("Furniture (moves with the building)")) {
       for (auto& f : a->furnitureNames) ImGui::BulletText("%s", f.c_str());
     }
     ImGui::End();

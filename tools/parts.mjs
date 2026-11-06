@@ -3,17 +3,17 @@ import { P, wbox, cutRect, swingSign } from "./kit.mjs";
 
 export function stdMaterials(A) {
   // albedo values are linear-space
-  A.mat("stone", [0.40, 0.36, 0.285], 0.88, "stone");
-  A.mat("stone_dressed", [0.52, 0.48, 0.38], 0.82, "stone");
-  A.mat("stone_plinth", [0.27, 0.255, 0.22], 0.9, "stone");
+  A.mat("stone", [0.40, 0.36, 0.285], 0.88, "rubble");   // patterns 17-22: docs/interiors.md (tools/retarget_materials.py)
+  A.mat("stone_dressed", [0.52, 0.48, 0.38], 0.82, "ashlar");
+  A.mat("stone_plinth", [0.27, 0.255, 0.22], 0.9, "rubble");
   A.mat("hearthstone", [0.22, 0.21, 0.19], 0.8, "stone");
-  A.mat("plaster", [0.64, 0.61, 0.54], 0.93, "plaster");
-  A.mat("plaster_smoke", [0.50, 0.46, 0.39], 0.93, "plaster");
+  A.mat("plaster", [0.64, 0.61, 0.54], 0.93, "interior", { grain: 0 });
+  A.mat("plaster_smoke", [0.50, 0.46, 0.39], 0.93, "interior", { grain: 6 });
   A.mat("soot", [0.025, 0.022, 0.02], 0.97, "plain");
   A.mat("oak_x", [0.15, 0.095, 0.055], 0.72, "wood", { grain: 0 });
   A.mat("oak_y", [0.15, 0.095, 0.055], 0.72, "wood", { grain: 1 });
   A.mat("oak_z", [0.15, 0.095, 0.055], 0.72, "wood", { grain: 2 });
-  A.mat("floor_x", [0.24, 0.16, 0.095], 0.62, "wood", { grain: 0 });
+  A.mat("floor_x", [0.24, 0.16, 0.095], 0.62, "floorfin", { grain: 0 });
   A.mat("tread_x", [0.20, 0.13, 0.075], 0.55, "wood", { grain: 0 });
   A.mat("cherry_x", [0.26, 0.11, 0.06], 0.55, "wood", { grain: 0 });
   A.mat("cherry_y", [0.26, 0.11, 0.06], 0.55, "wood", { grain: 1 });
@@ -24,7 +24,7 @@ export function stdMaterials(A) {
   A.mat("window_paint", [0.58, 0.56, 0.50], 0.5, "painted", { grain: 1 });
   A.mat("slate", [0.055, 0.062, 0.07], 0.55, "slate", { grain: 2 });
   A.mat("ridge_tile", [0.30, 0.12, 0.06], 0.7, "plain");
-  A.mat("terracotta", [0.36, 0.14, 0.075], 0.72, "tile");
+  A.mat("terracotta", [0.36, 0.14, 0.075], 0.72, "floorfin", { grain: 2 });
   A.mat("iron", [0.05, 0.048, 0.046], 0.55, "metal", { metallic: 0.15 });   // black-painted wrought iron
   A.mat("cast_iron", [0.055, 0.053, 0.05], 0.65, "metal", { metallic: 0.25 });
   A.mat("zinc", [0.52, 0.53, 0.55], 0.5, "metal", { metallic: 1.0 });
@@ -50,7 +50,8 @@ export function stdMaterials(A) {
   A.mat("plank_y", [0.26, 0.19, 0.12], 0.8, "wood", { grain: 1 });
   A.mat("plank_x", [0.26, 0.19, 0.12], 0.8, "wood", { grain: 0 });
   A.mat("plank_z", [0.26, 0.19, 0.12], 0.8, "wood", { grain: 2 });
-  A.mat("render", [0.58, 0.53, 0.43], 0.92, "plaster");
+  A.mat("render", [0.58, 0.53, 0.43], 0.92, "limewash");
+  A.mat("brick", [0.25, 0.13, 0.09], 0.86, "brickwork");   // the schoolhouse walls (was undefined: default grey)
   A.mat("crate_olive", [0.11, 0.12, 0.06], 0.7, "painted", { grain: 0 });
   A.mat("canvas", [0.30, 0.28, 0.20], 0.95, "fabric");
   A.mat("paper", [0.68, 0.64, 0.52], 0.9, "plain");
