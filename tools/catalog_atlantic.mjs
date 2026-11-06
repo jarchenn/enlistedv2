@@ -416,8 +416,8 @@ function tobruk(kind) {
       // ring collar and the MG rail
       for (const a of [0, 45]) A.obox([0, RT + 0.06, 0.55], [1.2, 0.12, 0.12], [0, a, 0], "concrete", { k: 0 });
       for (let k = 0; k < 8; k++) { const t = (k * Math.PI) / 4; A.obox([Math.sin(t) * 0.55, RT + 0.15, 0.55 + Math.cos(t) * 0.55], [0.44, 0.05, 0.05], [0, (k * 45) + 90, 0], "steel_dark", { k: 0 }); }
-      stairs(A, { x0: -0.42, x1: 0.42, z0: -1.25, dir: 1, y0: GF, rise: 1.02, n: 3, run: 0.9, openSide: 1, core: true });
-      A.box([-0.45, GF, -0.35], [0.45, GF + 1.02, 1.05], "concrete_wash");   // gunner's platform under the ring
+      stairs(A, { x0: -0.42, x1: 0.42, z0: -1.1, dir: 1, y0: GF, rise: 1.02, n: 4, run: 1.2, openSide: 1, core: true });   // 40 deg
+      A.box([-0.45, GF, 0.1], [0.45, GF + 1.02, 1.05], "concrete_wash");   // gunner's platform under the ring
     } else {
       // Panzerstellung turret: faceted cast body, cone mantlet and 37 mm barrel facing +Z, cupola, hatch handles
       const ty = RT, T = "turret_paint";
@@ -471,7 +471,7 @@ function tobruk(kind) {
     areas: [{ outline: rect(-0.5, ramp1, 0.5, -Z), area: "trench" }],
   }, [{ outline: rect(-X + 0.1, -Z + 0.1, X - 0.1, Z - 0.1), depth: -GF + 0.4, bank: 0.15 }, { outline: rect(-1.2, ramp1 - 0.1, 1.2, -Z + 0.6), depth: -GF + 0.3, bank: 0.2 }]);
   const eyeY = kind === "mg" ? GF + 1.02 + SLIT.eye : GF + SLIT.eye;
-  const inside = kind === "mg" ? [0, -1.45] : [0, -1.0];   // straight in through the door (no diagonal past the jambs)
+  const inside = kind === "mg" ? [0, -1.62] : [0, -1.0];   // straight in through the door (no diagonal past the jambs)
   const steps = [
     { goto: [0, ramp1 - 0.2], note: "top of the entrance ramp" },
     { goto: [0, -2.3] }, { goto: inside }, { wait: 0.4 },

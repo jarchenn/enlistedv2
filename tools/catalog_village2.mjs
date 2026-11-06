@@ -119,7 +119,7 @@ export function normanFarmhouse() {
   A.box([1.75, GF + 0.76, 0.3], [2.0, GF + 0.92, 0.5], "crate_olive");
   A.endFurniture(false);
   // cellier
-  barrel(A, "Cider barrel", 3.5, -2.2, GF); barrel(A, "Cider barrel", 4.25, -2.2, GF);
+  barrel(A, "Cider barrel", 3.7, -2.55, GF); barrel(A, "Cider barrel", 4.45, -2.55, GF);
   shelfZ(A, "Shelves", -2.5, 0.5, XI, -1, GF, 1.8, 0.4, 4, "plank_z", null);
   sacks(A, "Sacks", [[3.6, GF, 1.8, 10], [3.3, GF + 0.28, 1.7, -8]]);
   A.beginFurniture("Butter churn"); A.box([5.6, GF, 0.6], [5.95, GF + 0.85, 0.95], "oak_y"); A.box([5.74, GF + 0.85, 0.74], [5.8, GF + 1.25, 0.8], "oak_y"); A.endFurniture();
@@ -139,8 +139,8 @@ export function normanFarmhouse() {
     { goto: [0.2, 2.0], expectY: GF, note: "into the salle" },
     { goto: [-0.6, -1.7] }, { goto: [-3.2, -1.7], expectY: GF, note: "through to the kitchen" },
     { goto: [-4.4, -1.2] }, { look: [-6.9, 1.0, 0], hold: 0.6 }, { shot: "mpu_farmhouse_kitchen" },
-    { goto: [-3.2, -1.7] }, { goto: [-0.6, -1.7] }, { goto: [2.0, -1.7] }, { goto: [4.2, -1.0], expectY: GF, note: "into the cellier" },
-    { goto: [2.0, -1.7] }, { goto: [0.2, 2.0] }, { goto: [0.2, 4.8], note: "leave by the salle door" },
+    { goto: [-3.2, -1.7] }, { goto: [-0.6, -1.7] }, { goto: [2.0, -1.7] }, { goto: [3.6, -1.7] }, { goto: [4.2, -1.0], expectY: GF, note: "into the cellier" },
+    { goto: [3.6, -1.7] }, { goto: [2.0, -1.7] }, { goto: [0.2, 2.0] }, { goto: [0.2, 4.8], note: "leave by the salle door" },
   ]);
   return A;
 }
@@ -165,7 +165,8 @@ export function stoneBarn() {
   A.box([-XI, GF - 0.02, -ZI], [XI, GF, ZI], "earth");
   quoins(A, X, Z, GF - 0.02, EAVE);
   gableRoof(A, { X, Z, XI: XI + PT - 0.03, EAVE, RIDGE, ov: 0.45 });
-  for (const x of [-4.5, 0, 4.5]) { A.box([x - 0.12, EAVE - 0.3, -ZI], [x + 0.12, EAVE - 0.02, ZI], "oak_z"); A.obox([x, (EAVE + RIDGE) / 2 - 0.3, 0], [0.16, (RIDGE - EAVE) * 0.95, 0.16], [0, 0, 0], "oak_y", { k: 0 }); }
+  // tie beams and king posts; none over the loft (it would sit at head height)
+  for (const x of [-4.5, 0]) { A.box([x - 0.12, EAVE - 0.3, -ZI], [x + 0.12, EAVE - 0.02, ZI], "oak_z"); A.obox([x, (EAVE + RIDGE) / 2 - 0.3, 0], [0.16, (RIDGE - EAVE) * 0.95, 0.16], [0, 0, 0], "oak_y", { k: 0 }); }
   // loft: x 3.0 .. XI at LOFT, on beams and two posts, a railing along its open edge
   A.box([3.0, LOFT - 0.2, -ZI], [XI, LOFT, ZI], "floor_x");
   for (let z = -ZI + 0.4; z < ZI; z += 1.1) A.box([3.0, LOFT - 0.42, z - 0.08], [XI, LOFT - 0.2, z + 0.08], "oak_x", { k: 0 });
@@ -314,7 +315,7 @@ export function church() {
     { look: [-11.2, BF - 6, -40], hold: 0.8 }, { shot: "mpu_church_belfry_view" },
     { goto: [-9.3, -2.0] }, { goto: [-9.3, 2.0], expectY: GF + 7.8, note: "down" }, { goto: [-13.1, 2.0] }, { goto: [-13.1, -2.08], expectY: GF + 5.2 },
     { goto: [-9.3, -2.08] }, { goto: [-9.3, 2.0], expectY: GF + 2.6 }, { goto: [-13.1, 2.0] }, { goto: [-13.1, -2.08], expectY: GF, note: "back at the tower base" },
-    { goto: [-11.2, -0.2] }, { goto: [-7.6, 0], note: "through the tower arch" }, { goto: [-2.6, 0.0], expectY: GF, note: "nave" },
+    { goto: [-11.2, -2.08] }, { goto: [-11.2, -0.2] }, { goto: [-7.6, 0], note: "through the tower arch" }, { goto: [-2.6, 0.0], expectY: GF, note: "nave" },
     { look: [9.5, 1.5, 0], hold: 0.6 }, { shot: "mpu_church_nave" },
     { goto: [5.6, 0.0] }, { goto: [8.2, 0.0], expectY: GF + 0.15, note: "choir" },
   ]);
