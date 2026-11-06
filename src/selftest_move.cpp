@@ -28,10 +28,10 @@ void SelfTest::moveUpdate(App& app, float dt) {
     mseq.clear(); mcur = 0; mt = 0;
     push("settings", [this](App& a, float) {
       auto& m = a.move;
-      char b[360]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.4f m/s (2.875 x1.1), sprint %.3f (5.75 x1.1), crouch %.2f (1.2 x1.1), prone %.2f (0.6 x1.1), player gravity %.3f m/s^2 (old 9.81, x0.8), jump %.3f m/s (old 4.2 x sqrt 0.8), buffer %.2f s, coyote %.2f s",
+      char b[360]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.4f m/s (2.875 x1.1), sprint %.3f (5.75 x1.1), crouch %.2f (1.2 x1.1), prone %.2f (0.6 x1.1), player gravity %.3f m/s^2 (SPEC 4: 7.848 x2.1333), jump %.3f m/s (SPEC 4: 3.757 x1.6), buffer %.2f s, coyote %.2f s",
                     m.run, m.sprint, m.crouch, m.prone, m.gravity, m.jumpVelocity, m.jumpBuffer, m.coyote);
       check(std::fabs(m.run - 3.1625f) < 1e-3f && std::fabs(m.sprint - 6.325f) < 1e-3f && std::fabs(m.crouch - 1.32f) < 1e-3f && std::fabs(m.prone - 0.66f) < 1e-3f &&
-            std::fabs(m.gravity - 7.848f) < 1e-3f && std::fabs(m.jumpVelocity - 3.757f) < 2e-3f && m.jumpBuffer >= 0.1f && m.jumpBuffer <= 0.2f && m.coyote >= 0.08f && m.coyote <= 0.15f, b);
+            std::fabs(m.gravity - 16.7424f) < 1e-3f && std::fabs(m.jumpVelocity - 6.0112f) < 2e-3f && m.jumpBuffer >= 0.1f && m.jumpBuffer <= 0.2f && m.coyote >= 0.08f && m.coyote <= 0.15f, b);
       summary["movement"] = {{"run", m.run}, {"sprint", m.sprint}, {"crouch", m.crouch}, {"prone", m.prone}, {"gravity", m.gravity}, {"jump", m.jumpVelocity}};
       return true; });
     auto speedTest = [this](const char* name, vec2 mv, bool sprint, int pose, float want, bool slow) {
@@ -67,7 +67,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
       if (c.pos.y - y0 > 0.02f) { air = true; tAir += 1.0f / 60.0f; }
       if (t < 2.9f) return false;
       float want = a.move.jumpVelocity * a.move.jumpVelocity / (2 * a.move.gravity), wantT = 2 * a.move.jumpVelocity / a.move.gravity;
-      char b[200]; std::snprintf(b, sizeof b, "jump apex %.3f m (old 0.899 m; v^2/2g = %.3f), airtime %.2f s (2v/g = %.2f)", apex, want, tAir, wantT);
+      char b[200]; std::snprintf(b, sizeof b, "jump apex %.3f m (was 0.899 m, SPEC 4 x1.2; v^2/2g = %.3f), airtime %.2f s (2v/g = %.2f)", apex, want, tAir, wantT);
       check(std::fabs(apex - want) < 0.05f && std::fabs(tAir - wantT) < 0.08f, b);
       // a falling rigid body still uses the world gravity
       Part p; p.size = vec3(0.3f); uint32_t body = Physics::addDynamic(Physics::buildShape({p}), vec3(20, 30, 20), quat(1, 0, 0, 0), 0xEEEFull << 16, 5);
