@@ -117,6 +117,7 @@ public:
   vec3 exploreStartPos{0}; float exploreStartYaw = 0;
   InteractTarget target;
   float physAccum = 0;
+  ExploreInput edgeCarry;   // edge presses from a frame that ran no fixed step, applied on the next one (explore.cpp)
   float stepTimer = 0;
   EditorCam savedCam;
   ExploreInput scriptedInput; bool useScripted = false;
@@ -183,14 +184,15 @@ public:
   float leafHpFor(const InteractDef& d) const;
   // ---- movement (explore.cpp): data-driven tuning and the posture state machine
   struct MoveSettings {
-    float run = 2.3f * 1.25f, sprint = 4.6f * 1.25f, crouch = 1.2f, prone = 0.6f;   // m/s
+    float run = 2.3f * 1.25f * 1.1f, sprint = 4.6f * 1.25f * 1.1f, crouch = 1.2f * 1.1f, prone = 0.6f * 1.1f;   // m/s
     float eyeStand = 1.62f, eyeCrouch = 1.05f, eyeProne = 0.32f, eyeRate = 10.0f;    // m, 1/s (camera smoothing)
     float gravity = 9.81f * 0.8f, jumpVelocity = 4.2f * 0.894427f;                  // m/s^2, m/s (player only)
-    float proneToStand = 1.1f, proneToCrouch = 0.75f, crouchToStand = 0.45f;        // s, getting up (eye rise; lower speed, no sprint / jump)
+    float jumpBuffer = 0.15f, coyote = 0.12f;                                         // s: early press kept / late press after leaving ground
+    float proneToStand = 1.1f, proneToCrouch = 0.75f, crouchToStand = 0.45f;        // s, getting up (eye rise; lower speed, no sprint; no jump from prone)
     float adsTime = 0.25f;                                                            // s, hip <-> ADS (world FOV, pose, weapon FOV share it)
   } move;
   // getting up: a timed, eased camera rise; until it finishes the player moves at the lower posture's speed
-  float riseT = 0, riseDur = 0, riseFrom = 0, riseSpeed = 0;
+  float riseT = 0, riseDur = 0, riseFrom = 0, riseSpeed = 0; bool riseProne = false;   // riseProne: getting up from prone (blocks jump)
   // ---- vault (hold Space at a taller obstacle): validated, swept, no chaining (explore.cpp)
   struct VaultSettings { float hold = 0.16f, minH = 0.62f, maxH = 1.35f, reach = 0.85f, maxDepth = 1.1f, maxDrop = 2.2f, speed = 1.0f; } vaultCfg;
   struct VaultState { bool active = false, latch = false; float held = 0, t = 0, dur = 0; vec3 pts[4]{}; std::string why; int count = 0; } vault;
@@ -313,6 +315,7 @@ public:
   // personal weapons (weapons.cpp)
   void resetWeapons();
   void stepWeapons(float dt, const ExploreInput& in);
+  void settleRecoil(WeaponState& s);   // fold a finished burst's recoil into the aim (no automatic return)
   void drawWeaponUI();
   void weaponDrawItems(std::vector<DrawItem>& op);
   bool weaponCamera(float& fov) const;

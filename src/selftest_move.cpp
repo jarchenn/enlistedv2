@@ -1,6 +1,8 @@
 // --selftest-move: run / sprint / crouch / prone speeds and distances, diagonal normalisation, frame-rate
 // independence, player-only gravity and jump, the posture state machine (Ctrl hold, Z toggle, Ctrl+Z,
-// blocked stand / prone exit, prone turning clearance), camera heights, no sprint while lowered.
+// blocked stand / prone exit, prone turning clearance), camera heights, no sprint while lowered, jump
+// reliability (press on a frame with no fixed step, buffered press before landing, coyote time off an edge, no
+// double jump, jump right after releasing crouch, every press jumps on a slope).
 #include "selftest.h"
 #include <GLFW/glfw3.h>
 #include <functional>
@@ -26,9 +28,10 @@ void SelfTest::moveUpdate(App& app, float dt) {
     mseq.clear(); mcur = 0; mt = 0;
     push("settings", [this](App& a, float) {
       auto& m = a.move;
-      char b[300]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.3f m/s (old 2.3, x1.25), sprint %.2f (old 4.6), crouch %.2f, prone %.2f, player gravity %.3f m/s^2 (old 9.81, x0.8), jump %.3f m/s (old 4.2 x sqrt 0.8)",
-                    m.run, m.sprint, m.crouch, m.prone, m.gravity, m.jumpVelocity);
-      check(std::fabs(m.run - 2.875f) < 1e-3f && std::fabs(m.sprint - 5.75f) < 1e-3f && std::fabs(m.gravity - 7.848f) < 1e-3f && std::fabs(m.jumpVelocity - 3.757f) < 2e-3f, b);
+      char b[360]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.4f m/s (2.875 x1.1), sprint %.3f (5.75 x1.1), crouch %.2f (1.2 x1.1), prone %.2f (0.6 x1.1), player gravity %.3f m/s^2 (old 9.81, x0.8), jump %.3f m/s (old 4.2 x sqrt 0.8), buffer %.2f s, coyote %.2f s",
+                    m.run, m.sprint, m.crouch, m.prone, m.gravity, m.jumpVelocity, m.jumpBuffer, m.coyote);
+      check(std::fabs(m.run - 3.1625f) < 1e-3f && std::fabs(m.sprint - 6.325f) < 1e-3f && std::fabs(m.crouch - 1.32f) < 1e-3f && std::fabs(m.prone - 0.66f) < 1e-3f &&
+            std::fabs(m.gravity - 7.848f) < 1e-3f && std::fabs(m.jumpVelocity - 3.757f) < 2e-3f && m.jumpBuffer >= 0.1f && m.jumpBuffer <= 0.2f && m.coyote >= 0.08f && m.coyote <= 0.15f, b);
       summary["movement"] = {{"run", m.run}, {"sprint", m.sprint}, {"crouch", m.crouch}, {"prone", m.prone}, {"gravity", m.gravity}, {"jump", m.jumpVelocity}};
       return true; });
     auto speedTest = [this](const char* name, vec2 mv, bool sprint, int pose, float want, bool slow) {
@@ -48,12 +51,12 @@ void SelfTest::moveUpdate(App& app, float dt) {
         check(std::fabs(v - want) / want < 0.03f, b);
         return true; };
     };
-    push("run", speedTest("run", vec2(0, 1), false, Physics::STAND, 2.875f, false));
-    push("run diagonal", speedTest("diagonal W+D (normalised)", vec2(1, 1), false, Physics::STAND, 2.875f, false));
-    push("run 10fps", speedTest("run", vec2(0, 1), false, Physics::STAND, 2.875f, true));
-    push("sprint", speedTest("sprint", vec2(0, 1), true, Physics::STAND, 5.75f, false));
-    push("crouch", speedTest("crouch (sprint held: ignored)", vec2(0, 1), true, Physics::CROUCH, 1.2f, false));
-    push("prone", speedTest("prone (sprint held: ignored)", vec2(0, 1), true, Physics::PRONE, 0.6f, false));
+    push("run", speedTest("run", vec2(0, 1), false, Physics::STAND, 3.1625f, false));
+    push("run diagonal", speedTest("diagonal W+D (normalised)", vec2(1, 1), false, Physics::STAND, 3.1625f, false));
+    push("run 10fps", speedTest("run", vec2(0, 1), false, Physics::STAND, 3.1625f, true));
+    push("sprint", speedTest("sprint", vec2(0, 1), true, Physics::STAND, 6.325f, false));
+    push("crouch", speedTest("crouch (sprint held: ignored)", vec2(0, 1), true, Physics::CROUCH, 1.32f, false));
+    push("prone", speedTest("prone (sprint held: ignored)", vec2(0, 1), true, Physics::PRONE, 0.66f, false));
     push("gravity + jump", [this](App& a, float t) {
       static float y0, apex, tAir; static bool air;
       if (t == 0) { put(a, vec3(20, 0, 0)); a.scriptedInput = ExploreInput{}; apex = -1; air = false; tAir = 0; return false; }
@@ -75,6 +78,108 @@ void SelfTest::moveUpdate(App& app, float dt) {
       Physics::remove(body);
       check(std::fabs(v.y + 9.81f * 0.5f) < 0.3f, "rigid bodies (shells, doors, trunks) keep 9.81 m/s^2: v_y " + std::to_string(v.y).substr(0, 5) + " after 0.5 s");
       return true; });
+    // ---- jump reliability: every press on the ground jumps
+    push("jump: press on a frame with no fixed step", [this](App& a, float t) {
+      // a 240 Hz frame banks 1/240 s, less than one 1/60 s step: the press used to be consumed by that frame and lost
+      static int ph, j0; static float y0, apex;
+      if (t == 0) { ph = 0; apex = 0; put(a, vec3(20, 0, 10)); a.scriptedInput = ExploreInput{}; return false; }
+      auto c = Physics::character();
+      if (ph == 0 && t > 0.6f) {
+        y0 = c.pos.y; j0 = Physics::jumpCount();
+        a.physAccum = 0; a.scriptedInput.jump = true; a.updateExplore(1.0f / 240.0f);
+        check(Physics::jumpCount() == j0 && a.edgeCarry.jump, "a Space press on a frame that runs no fixed step is carried, not dropped");
+        ph = 1; return false;
+      }
+      if (ph == 1) {
+        apex = std::max(apex, c.pos.y - y0);
+        if (t < 1.9f) return false;
+        char b[200]; std::snprintf(b, sizeof b, "...and jumps on the next step (%d impulse, apex %.2f m)", Physics::jumpCount() - j0, apex);
+        check(Physics::jumpCount() == j0 + 1 && apex > 0.6f, b);
+        return true;
+      }
+      return t > 5; });
+    push("jump: press just before landing", [this](App& a, float t) {
+      static int ph, j0; static float y0, tPress, hPress, apex2;
+      if (t == 0) { ph = 0; apex2 = 0; put(a, vec3(20, 0, 20)); a.scriptedInput = ExploreInput{}; return false; }
+      auto c = Physics::character();
+      if (ph == 0 && t > 0.5f) { y0 = c.pos.y; j0 = Physics::jumpCount(); a.scriptedInput.jump = true; ph = 1; return false; }
+      if (ph == 1) {   // falling back, still airborne, 5-30 cm above the ground: press (buffered until touchdown)
+        if (c.vel.y < -1.0f && !c.grounded && c.pos.y - y0 < 0.3f && c.pos.y - y0 > 0.05f) { a.scriptedInput.jump = true; tPress = t; hPress = c.pos.y - y0; ph = 2; }
+        return t > 3;
+      }
+      if (ph == 2) {
+        if (t > tPress + 0.25f) apex2 = std::max(apex2, c.pos.y - y0);
+        if (t < tPress + 1.2f) return false;
+        char b[220]; std::snprintf(b, sizeof b, "Space pressed %.2f m above the ground while falling is buffered and jumps on touchdown (%d impulses, second apex %.2f m)", hPress, Physics::jumpCount() - j0, apex2);
+        check(Physics::jumpCount() == j0 + 2 && apex2 > 0.4f, b);
+        return true;
+      }
+      return t > 5; });
+    push("jump: coyote time off an edge, no double jump", [this](App& a, float t) {
+      static int ph, j0, nAir; static uint32_t plat; static float vAfter, tMid;
+      vec3 base(40, a.terrain.height(40, 40), 40);
+      if (t == 0) {
+        ph = 0; nAir = 0; vAfter = 0;
+        plat = slab(base + vec3(0, 0.5f, 0), vec3(4, 1.0f, 4));   // 1 m high platform, top at +1.0
+        Physics::setCharacterPos(base + vec3(0, 1.05f, 0)); a.eyeYaw = 0; a.scriptedInput = ExploreInput{}; return false;
+      }
+      auto c = Physics::character();
+      if (ph == 0 && t > 0.5f) { j0 = Physics::jumpCount(); a.scriptedInput.move = vec2(0, 1); ph = 1; return false; }   // walk toward -z, off the edge
+      if (ph == 1) {
+        if (!c.grounded && c.pos.y < base.y + 1.0f) ++nAir;
+        if (nAir == 3) { a.scriptedInput.jump = true; ph = 2; }   // 3 frames (0.05 s) after leaving the edge
+        return t > 4;
+      }
+      if (ph == 2) { vAfter = c.vel.y; tMid = t; ph = 3; return false; }
+      if (ph == 3 && t > tMid + 0.25f) { a.scriptedInput.jump = true; ph = 4; return false; }   // mid-air press: no second jump
+      if (ph == 4 && t > tMid + 0.45f) {
+        a.scriptedInput = ExploreInput{};
+        char b[220]; std::snprintf(b, sizeof b, "Space 0.05 s after walking off a 1 m ledge still jumps (v_y %.2f m/s); a second press mid-air does nothing (%d impulse)", vAfter, Physics::jumpCount() - j0);
+        check(vAfter > 2.5f && Physics::jumpCount() == j0 + 1, b);
+        Physics::remove(plat);
+        return true;
+      }
+      return t > 6; });
+    push("jump: right after releasing crouch", [this](App& a, float t) {
+      static int ph, j0; static float y0, apex;
+      if (t == 0) { ph = 0; apex = 0; put(a, vec3(20, 0, 30)); a.scriptedInput = ExploreInput{}; a.scriptedInput.crouch = true; return false; }
+      auto c = Physics::character();
+      if (ph == 0 && t > 0.8f) { a.scriptedInput.crouch = false; ph = 1; return false; }
+      if (ph == 1) { y0 = c.pos.y; j0 = Physics::jumpCount(); a.scriptedInput.jump = true; ph = 2; return false; }   // next frame: the 0.45 s eye rise is still running
+      if (ph == 2) {
+        apex = std::max(apex, c.pos.y - y0);
+        if (t < 2.4f) return false;
+        char b[200]; std::snprintf(b, sizeof b, "Space one frame after releasing Ctrl (crouch -> stand rise running) jumps (apex %.2f m)", apex);
+        check(Physics::jumpCount() == j0 + 1 && apex > 0.6f, b);
+        return true;
+      }
+      return t > 5; });
+    push("jump: every press jumps on a slope", [this](App& a, float t) {
+      // a 14 deg ramp, walked up and then down, Space pressed every 1.25 s, alternate presses while sprinting
+      static int ph, j0, presses; static uint32_t ramp; static float tNext;
+      vec3 base(-80, a.terrain.height(-80, 40), 40);
+      if (t == 0) {
+        ph = 0; presses = 0;
+        Part pr; pr.center = vec3(0); pr.size = vec3(5, 0.4f, 40);
+        ramp = Physics::addStatic(Physics::buildShape({pr}), base + vec3(0, 4.6f, 0), glm::angleAxis(radians(14.0f), vec3(1, 0, 0)), 0xEEEDull << 16);   // rises toward -z
+        Physics::Hit h; vec3 o = base + vec3(0, 20, 16);
+        if (Physics::castRayEx(o, vec3(0, -1, 0), 40, h)) Physics::setCharacterPos(h.pos + vec3(0, 0.05f, 0));
+        a.eyeYaw = 0; a.scriptedInput = ExploreInput{}; return false;
+      }
+      if (ph == 0 && t > 0.6f) { j0 = Physics::jumpCount(); a.scriptedInput.move = vec2(0, 1); tNext = t + 0.4f; ph = 1; return false; }
+      if (ph == 1) {
+        a.scriptedInput.sprint = presses % 2 == 1;
+        if (t > 5.6f) a.scriptedInput.move = vec2(0, -1);   // turn round: back down the ramp
+        if (t >= tNext && presses < 8) { a.scriptedInput.jump = true; ++presses; tNext = t + 1.25f; }
+        if (presses < 8 || t < tNext - 0.2f) return false;
+        a.scriptedInput = ExploreInput{};
+        int n = Physics::jumpCount() - j0;
+        char b[200]; std::snprintf(b, sizeof b, "on a 14 deg ramp (up and down, run and sprint) %d of %d Space presses jumped", n, presses);
+        check(n == presses, b);
+        Physics::remove(ramp);
+        return true;
+      }
+      return t > 16; });
     push("ctrl hold", [this](App& a, float t) {
       if (t == 0) { put(a, vec3(0, 0, 10)); a.scriptedInput = ExploreInput{}; return false; }
       a.scriptedInput.crouch = t < 1.0f;

@@ -59,6 +59,7 @@ struct World {
   Ref<CharacterVirtual> character;
   RefConst<Shape> standShape, crouchShape, proneShape;
   int posture = 0; float bodyYaw = 0;
+  float jumpBuf = 0, sinceGround = 99; bool jumped = false; int jumps = 0;   // jump buffer / coyote state
   bool crouched = false;
   int bodies = 0;
 };
@@ -383,13 +384,16 @@ void Physics::createCharacter(vec3 feet) {
   s->mEnhancedInternalEdgeRemoval = true;
   W->character = new CharacterVirtual(s, jr(feet), Quat::sIdentity(), 0, W->sys.get());
   W->crouched = false; W->posture = STAND; W->bodyYaw = 0;
+  W->jumpBuf = 0; W->sinceGround = 99; W->jumped = false; W->jumps = 0;
 }
+int Physics::jumpCount() { return W ? W->jumps : 0; }
 void Physics::destroyCharacter() { if (W) W->character = nullptr; }
 bool Physics::hasCharacter() { return W && W->character; }
 void Physics::setCharacterPos(vec3 feet) {
   if (!W->character) return;
   W->character->SetPosition(jr(feet));
   W->character->SetLinearVelocity(Vec3::sZero());
+  W->jumpBuf = 0; W->sinceGround = 99; W->jumped = false;   // a teleport carries no pending jump
 }
 
 Physics::MoveTuning Physics::tuning;
@@ -432,9 +436,9 @@ uint64_t Physics::shapeHitUD(int posture, vec3 feet, bool withTerrain) {
   return lock.Succeeded() ? lock.GetBody().GetUserData() : 1;
 }
 
-void Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawWanted) {
+bool Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawWanted) {
   auto& c = W->character;
-  if (!c) return;
+  if (!c) return false;
   auto bpf = W->sys->GetDefaultBroadPhaseLayerFilter(Layers::MOVING);
   AllLayers olf;   // the capsule also meets PLAYER_ONLY traversal volumes
   BodyFilter bf; ShapeFilter sf;
@@ -461,10 +465,21 @@ void Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
   Vec3 vert(0, c->GetLinearVelocity().GetY(), 0);
   Vec3 groundV = c->GetGroundVelocity();
   Vec3 nv;
-  if (c->GetGroundState() == CharacterBase::EGroundState::OnGround && (vert.GetY() - groundV.GetY()) < 0.1f) {
-    nv = groundV;
-    if (jump && W->posture == STAND) nv += Vec3(0, tuning.jumpVelocity, 0);
-  } else nv = vert;
+  // Jump: a press is buffered for tuning.jumpBuffer s (pressed just before landing, or on a step that found no
+  // ground), and honoured up to tuning.coyote s after the last settled ground contact (one-frame ground flicker on
+  // slopes and step-ups, walking off an edge). One impulse per ground contact: steep ground never refreshes it, so
+  // repeated jumps still cannot climb steep faces. Presses made while crouched / prone are not buffered.
+  bool settled = c->GetGroundState() == CharacterBase::EGroundState::OnGround && (vert.GetY() - groundV.GetY()) < 0.1f;
+  if (settled) { W->sinceGround = 0; W->jumped = false; }
+  else W->sinceGround += dt;
+  if (jump && W->posture == STAND) W->jumpBuf = tuning.jumpBuffer;
+  if (W->posture != STAND) W->jumpBuf = 0;
+  bool doJump = W->jumpBuf > 0 && !W->jumped && W->sinceGround <= tuning.coyote;
+  nv = settled ? groundV : vert;
+  if (doJump) {
+    nv = settled ? groundV + Vec3(0, tuning.jumpVelocity, 0) : Vec3(0, std::max(0.0f, groundV.GetY()) + tuning.jumpVelocity, 0);
+    W->jumped = true; W->jumpBuf = 0; W->sinceGround = 99; ++W->jumps;
+  } else W->jumpBuf = std::max(0.0f, W->jumpBuf - dt);
   nv += gravity * dt;
   nv += jv(hv);
   c->SetLinearVelocity(nv);
@@ -475,6 +490,7 @@ void Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
   bool onGround = c->GetGroundState() == CharacterBase::EGroundState::OnGround;
   us.mWalkStairsStepUp = onGround ? Vec3(0, W->posture == PRONE ? 0.2f : 0.35f, 0) : Vec3::sZero();
   c->ExtendedUpdate(dt, gravity, us, bpf, olf, bf, sf, *W->temp);
+  return doJump;
 }
 
 void Physics::updateCharacter(float dt, vec3 hv, bool jump, bool wantCrouch) {

@@ -45,7 +45,7 @@ function weaponCard(id) {
   if (w.model) lines.push(`| First-person model | \`${w.model.src}\` baked to \`content/weapons/models/${w.model.dir}\` (fitted to ${w.model.realLength} m) |`);
   if (w.scope) lines.push(`| Optic | ${w.scope.mag}x (view FOV = 72/${w.scope.mag} deg)${w.scope.irons ? ', iron sights available via V' : ''} |`);
   lines.push(`| Reload (game seconds) | empty ${w.reload?.empty ?? '-'}${w.reload?.partial ? `, partial ${w.reload.partial}` : ''}${w.reload?.round ? `, per round ${w.reload.round}` : ''} |`);
-  lines.push(`| Recoil (game units) | pitch ${w.recoil?.pitch}, yaw ${w.recoil?.yaw}, recovery ${w.recoil?.recover}/s${w.recoil?.climb ? `, climb ${w.recoil.climb}` : ''}${w.recoil?.supported ? `, bipod-supported x${w.recoil.supported}` : ''} |`);
+  lines.push(`| Recoil (game units) | pitch ${w.recoil?.pitch}, yaw ${w.recoil?.yaw}${w.recoil?.climb ? `, climb ${w.recoil.climb}` : ''}${w.recoil?.supported ? `, bipod-supported x${w.recoil.supported}` : ''} |`);
   lines.push('');
   lines.push(`**Reload model.** ${RELOAD[w.feed] || w.feed}`);
   lines.push('');

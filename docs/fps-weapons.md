@@ -204,10 +204,18 @@ A readout gives the pixel errors, relief and weapon FOV. Self-test screenshots a
 | Effect | Formula / value |
 |---|---|
 | Sway | Target = (0.006 · Δyaw, −0.006 · Δpitch) m and (1.6 · Δyaw, −1.6 · Δpitch) deg. Δ is the look delta in degrees per step, clamped to ±0.6. Smooth-damped (Gems 4 critically damped approach, 0.12 s). Scaled ×0.35 in ADS, ×0.3 with reduced motion. Rotates about the rear sight. |
-| Bob | φ += π · v / 1.5 · dt; y = 12 mm · k · sin(2φ), x = 8 mm · k · sin(φ); k = min(v / 4.6, 1) · (1 − ADS) · (0.5 when crouched) · grounded |
+| Bob | φ += π · v / 1.5 · dt; y = 12 mm · k · sin(2φ), x = 8 mm · k · sin(φ); k = min(v / (0.8 · sprint), 1) (0.8 · sprint was the fixed 4.6 m/s before the ×1.1 speed change) · (1 − ADS) · (0.5 when crouched) · grounded |
 | Breathing | Pitch = A · sin(2π · 0.22 · t), yaw = A/2 · sin(π · 0.22 · t). A = 0.08°: ×0.5 while moving, ×2 during recovery. It moves the camera and the sights, so the shot follows. |
 | Hold breath | Left Shift while in ADS. Sprint is ignored when aiming. The breathing phase freezes for up to 5 s, then a forced 3 s recovery follows at double amplitude. |
 | Depth of field | Only first-person pixels write eye distance (an R16F attachment). Focus is relief + \|F − R\| + 3 cm. CoC = ADS · clamp((focus − d) / (0.6 · focus), 0, 1) · 6 px at 1080p. A 24-tap scatter-as-gather lets the blurred rear sight bleed over the background, while the front post and target stay sharp. Turned off by reduced motion and in the scope view. |
+
+### Recoil: no automatic recovery
+
+Each shot adds aim displacement: pitch `pitch × (0.85–1.15) + climb × min(burst, 12)` and a random yaw wander of up to `± yaw`, scaled by posture (standing ×1, crouched ×0.7, prone ×0.2), the deployed bipod factor and ×0.85 in ADS. The climb has no ceiling apart from the ±85° look clamp. While a burst runs, the displacement is held as `recoilP / recoilY` on top of the camera's own pitch and yaw.
+
+**Nothing pulls it back.** Once the burst ends (no shot for 1.6 cycles + 0.06 s), `App::settleRecoil` folds the displacement into the camera's pitch and yaw in one step. The sight line does not move on that frame: the aim stays where the pattern ended, vertically and horizontally. A weapon swap folds it the same way, so the view never snaps back. The player pulls the mouse down to compensate, during the burst or after it. Until this change the offset decayed back toward the start pitch at `recoil.recover` per second once firing stopped. That field is still in the weapon JSON but is ignored.
+
+Checks (`--selftest-update`): the full FG 42 magazine climbs on every shot; after release the aim drifts less than 0.01° over 2.5 s and the camera pitch has risen by the full climb; pulling down by the climb returns to the start pitch; two 4-round bursts stack; a burst fired while the mouse is pulled down against each shot ends within 0.5° of where it started.
 
 ## 4. IK arms
 

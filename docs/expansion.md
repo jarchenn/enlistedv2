@@ -155,13 +155,14 @@ Repeat events are ignored. F5 restores guns. Apply persists `station.wrecked`, a
 
 | Setting | Old | New | Units / note |
 |---|---|---|---|
-| Run | 2.3 | 2.875 | m/s (×1.25) |
-| Sprint | 4.6 | 5.75 | m/s (×1.25, Shift) |
-| Crouch | 1.2 | 1.2 | m/s (Left Ctrl hold, or C) |
-| Prone | — | 0.6 | m/s (Z toggle) |
+| Run | 2.3 | 3.1625 | m/s (×1.25, then ×1.1) |
+| Sprint | 4.6 | 6.325 | m/s (×1.25, then ×1.1, Shift) |
+| Crouch | 1.2 | 1.32 | m/s (×1.1; Left Ctrl hold, or C) |
+| Prone | — | 0.66 | m/s (0.6, then ×1.1; Z toggle) |
 | Player gravity | 9.81 | 7.848 | m/s² (×0.8). Rigid bodies keep 9.81: verified |
 | Jump velocity | 4.2 | 3.757 | m/s (×√0.8): apex 0.90 m held, measured 0.87 m; airtime 0.86 → 0.92 s |
 | Eye height | 1.62 / 1.05 | 1.62 / 1.05 / 0.32 | m, stand / crouch / prone, smoothing 10/s |
+| Jump buffer / coyote | — | 0.15 / 0.12 | s (`jumpBuffer_s`, `coyote_s`): see *Jump reliability* |
 
 **Shapes:**
 - Stand: capsule 1.8 m.
@@ -174,14 +175,22 @@ Repeat events are ignored. F5 restores guns. Apply persists `station.wrecked`, a
 - A blocked stand request stays pending and resolves when space frees up.
 - Entering prone clears crouch intent. While prone, Ctrl does nothing. Z out of prone goes to crouch if Ctrl is held, otherwise to standing.
 - Prone turning rotates the body only when the turned body fits.
-- No sprint and no jump in lower postures.
+- No sprint and no jump in lower postures. Getting up from prone also blocks the jump until the rise ends (Space while prone is the get-up). Releasing crouch does not: Space jumps at once during the 0.45 s crouch → stand rise.
 - The camera never rises through a ceiling.
 - Focus loss clears held input.
 
 **What was investigated:**
 - Movement already ran on a fixed 60 Hz step with normalised diagonals and direct velocity, so there is no acceleration slide; nothing to fix there.
-- The only frame-rate artefact was in the test's measurement, not the game: 10 fps now measures 2.875 m/s exactly.
+- The only frame-rate artefact in speed was in the test's measurement, not the game: 10 fps measures the run speed exactly. (Dropped key presses on short frames were a real frame-rate artefact; see *Jump reliability* below.)
 - There is no remote or third-person body, so remote posture is **not applicable**. Collision posture is real and tested.
+
+**Jump reliability ("Space sometimes does nothing").** Every press on the ground now jumps. There were four causes:
+1. *Frames with no fixed step.* Movement runs on 1/60 s steps. A frame shorter than that (any refresh rate above 60 Hz, or a 60 Hz frame that comes in a hair short) runs no step, and the edge-triggered `kp()` press read that frame was thrown away. Now edge presses (Space, E, R, T, X, B, Q, fire selector, prone, pack-up, rack keys, 1 / 2) and hand-wheel / scroll deltas from a no-step frame are carried to the next frame that runs one (`App::edgeCarry`). The scroll delta is also applied once per frame, no longer once per step.
+2. *Exact-frame ground test.* The impulse needed the controller to be `OnGround` and settled on the very step the press arrived. A one-step ground flicker on bumps, slopes or step-ups ate the press. `Physics::updateCharacter` now allows a jump up to `coyote_s` (0.12 s) after the last settled ground contact.
+3. *Pressing just before landing.* A press up to `jumpBuffer_s` (0.15 s) before touchdown is kept and jumps on landing.
+4. *Crouch → stand rise.* The 0.45 s eye rise after releasing Ctrl used to block jumping.
+
+Neither the buffer nor the coyote window allows a double jump: one impulse per settled ground contact. Steep ground never refreshes it, so the steep-face jump-climb fix stands. Presses made while crouched or prone are not buffered. `--selftest-move` covers a press on a 240 Hz no-step frame, a press 5–30 cm above the ground while falling, a press 0.05 s after walking off a 1 m ledge plus a mid-air press (no second jump), a press one frame after releasing Ctrl, and 8 of 8 presses on a 14° ramp walked up and down at run and sprint.
 
 ## 6. Visuals
 

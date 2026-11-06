@@ -1,5 +1,6 @@
 // --selftest-update: gameplay changes of the complete update (docs/update_checklist.md):
-//   recoil (no climb ceiling, posture x1 / x0.7 / x0.2, bipod only when deployed, smooth recovery after firing),
+//   recoil (no climb ceiling, posture x1 / x0.7 / x0.2, bipod only when deployed, no automatic recovery: the aim
+//   stays where the pattern ended, vertically and horizontally, and the player pulls down to compensate),
 //   hold-Space vault (validated, swept, no chaining; normal jump untouched), interaction reach + full-object
 //   selection, enlarged firing slits that real shots pass through; every bunker slit seen and shot through from the
 //   standing eye (docs/bunkers.md).
@@ -53,16 +54,50 @@ void SelfTest::updateSuite(App& app, float dt) {
       check(trace.size() >= 18 && mono && trace.back() > 9.0f && trace.back() < 60.0f, b);
       summary["fg42_mag_climb_deg"] = trace.empty() ? 0.0f : trace.back();
       return true; });
-    push("recoil: smooth recovery after firing", [this](App& a, float t) {
-      static float p0, p03;
+    push("recoil: no recovery after firing", [this](App& a, float t) {
+      // the aim (camera pitch / yaw + the burst's recoil offset) must not drift back toward where the burst started
+      static float p0, y0, e0, aimP0, aimY0, worstP, worstY; static int ph;
       auto& s = a.wstate["fg42"];
-      if (t == 0) { p0 = s.recoilP; return false; }
-      if (t > 0.3f && p03 == 0) p03 = s.recoilP;
-      if (t < 2.5f) return false;
-      char b[200]; std::snprintf(b, sizeof b, "after the trigger is released it recovers smoothly: %.1f -> %.1f deg after 0.3 s -> %.2f after 2.5 s (no snap)", p0, p03, s.recoilP);
-      check(p03 < p0 && p03 > p0 * 0.25f && s.recoilP < p0 * 0.15f, b);
-      p03 = 0;
+      float aimP = a.eyePitch + s.recoilP, aimY = a.eyeYaw + s.recoilY;
+      if (t == 0) { ph = 0; p0 = s.recoilP; y0 = s.recoilY; e0 = a.eyePitch; aimP0 = aimP; aimY0 = aimY; worstP = worstY = 0; return false; }
+      worstP = std::max(worstP, std::fabs(aimP - aimP0)); worstY = std::max(worstY, std::fabs(wrapDeg(aimY - aimY0 + 180) - 180));
+      if (ph == 0 && t < 2.5f) return false;
+      if (ph == 0) {
+        char b[260]; std::snprintf(b, sizeof b, "after the trigger is released the aim stays where the pattern ended: climb %.1f deg (yaw %+.2f) kept for 2.5 s, worst drift %.3f / %.3f deg; camera pitch %.1f -> %.1f deg", p0, y0, worstP, worstY, e0, a.eyePitch);
+        check(p0 > 9.0f && worstP < 0.01f && worstY < 0.01f && s.recoilP == 0 && s.recoilY == 0 && std::fabs(a.eyePitch - (e0 + p0)) < 0.01f, b);
+        summary["fg42_climb_kept_deg"] = a.eyePitch - e0;
+        a.scriptedInput.dpitch = -(a.eyePitch - e0); ph = 1; return false;   // the player pulls the mouse down by the climb
+      }
+      a.scriptedInput.dpitch = 0;
+      char b[200]; std::snprintf(b, sizeof b, "pulling down by the climb brings the aim back to the start pitch (%.2f deg, start %.2f)", a.eyePitch, e0);
+      check(std::fabs(a.eyePitch - e0) < 0.05f, b);
       return true; });
+    push("recoil: kept between bursts, compensated mid-burst", [this](App& a, float t) {
+      // two short bursts: the second starts from where the first ended (no reset); then a burst fired while the
+      // player pulls down at the climb rate ends near the start pitch
+      static int ph, s0; static float e0, after1, after2, lastP;
+      auto& s = a.wstate["fg42"];
+      if (t == 0) { ph = 0; a.eyePitch = 0; s.loaded = 20; a.scriptedInput = ExploreInput{}; return false; }
+      if (ph == 0 && t > 0.5f) { e0 = a.eyePitch; s0 = a.shotsFired; a.scriptedInput.fire = true; ph = 1; return false; }
+      if (ph == 1 && a.shotsFired - s0 >= 4) { a.scriptedInput.fire = false; ph = 2; return false; }
+      if (ph == 2 && s.recoilP == 0 && s.sinceShot > 0.5f) { after1 = a.eyePitch; s0 = a.shotsFired; a.scriptedInput.fire = true; ph = 3; return false; }
+      if (ph == 3 && a.shotsFired - s0 >= 4) { a.scriptedInput.fire = false; ph = 4; return false; }
+      if (ph == 4 && s.recoilP == 0 && s.sinceShot > 0.5f) {
+        after2 = a.eyePitch;
+        char b[220]; std::snprintf(b, sizeof b, "4-round bursts stack: pitch %.2f -> %.2f -> %.2f deg (the second burst starts where the first ended)", e0, after1, after2);
+        check(after1 > e0 + 1.0f && after2 > after1 + 1.0f, b);
+        a.eyePitch = 0; s.loaded = 20; lastP = 0; s0 = a.shotsFired; a.scriptedInput.fire = true; ph = 5; return false;
+      }
+      if (ph == 5) {   // pull down by each shot's recoil as it lands (perfect compensation)
+        a.scriptedInput.dpitch = -(s.recoilP - lastP); lastP = s.recoilP;
+        if (a.shotsFired - s0 >= 6) { a.scriptedInput.fire = false; ph = 6; }
+        return false;
+      }
+      if (ph == 6) { a.scriptedInput.dpitch = 0; if (s.recoilP != 0 || s.sinceShot < 0.5f) return false;
+        char b[200]; std::snprintf(b, sizeof b, "a 6-round burst with the mouse pulled down against the climb ends at %.2f deg (started at 0)", a.eyePitch);
+        check(std::fabs(a.eyePitch) < 0.5f, b);
+        a.eyePitch = 0; return true; }
+      return t > 10; });
     for (int pose : {0, 1, 2}) {
       push(std::string("recoil posture ") + std::to_string(pose), [this, pose](App& a, float t) {
         static int s0; static float before;

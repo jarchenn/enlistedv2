@@ -44,6 +44,7 @@ void App::loadMoveSettings() {
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "movement.json")); } catch (...) { return; }
   move.run = j.value("run_mps", move.run); move.sprint = j.value("sprint_mps", move.sprint); move.crouch = j.value("crouch_mps", move.crouch); move.prone = j.value("prone_mps", move.prone);
   move.gravity = j.value("gravity_mps2", move.gravity); move.jumpVelocity = j.value("jumpVelocity_mps", move.jumpVelocity);
+  move.jumpBuffer = j.value("jumpBuffer_s", move.jumpBuffer); move.coyote = j.value("coyote_s", move.coyote);
   move.eyeStand = j.value("eyeStand_m", move.eyeStand); move.eyeCrouch = j.value("eyeCrouch_m", move.eyeCrouch); move.eyeProne = j.value("eyeProne_m", move.eyeProne);
   move.eyeRate = j.value("eyeSmoothing_per_s", move.eyeRate);
   move.proneToStand = j.value("proneToStand_s", move.proneToStand); move.proneToCrouch = j.value("proneToCrouch_s", move.proneToCrouch);
