@@ -47,7 +47,9 @@ mat4 fitClip(float x0, float x1, float y0, float y1, float fill) {
 }
 
 std::string footprintLabel(vec2 fp) {
-  char b[64]; std::snprintf(b, sizeof b, "%.1f \xC3\x97 %.1f m", fp.x, fp.y);   // U+00D7 multiplication sign
+  // at least one decimal; under 0.1 m two, so a thin asset (a 4 cm picture frame) never reads 0.0
+  auto num = [](float v) { char s[16]; std::snprintf(s, sizeof s, v < 0.095f ? "%.2f" : "%.1f", v); return std::string(s); };
+  char b[64]; std::snprintf(b, sizeof b, "%s \xC3\x97 %s m", num(fp.x).c_str(), num(fp.y).c_str());   // U+00D7 multiplication sign
   return b;
 }
 

@@ -38,4 +38,4 @@ Code: `src/thumbs.cpp` / `thumbs.h` (W2, MP & Creative update spec 9.4). `App::m
 - **Blank tiles.** No tile may be more than 95 % background, measured per pixel against an empty tile. The five tiles that used to be blank are named in the report. Before and after tiles go to `selftest_out/thumbs/`: `before_*` comes from the legacy renderer and `after_*` from the new one.
 - **Warm cache.** Every tile loads from the cache, pixel-identical to the cold render.
 - **Changed asset.** Only that asset re-renders, and its old file is replaced.
-- **Footprint labels.** One decimal, for example "0.3 × 0.3 m" (`footprintLabel`, used by the editor's `fmtFoot`). No catalogue label reads 0.0.
+- **Footprint labels.** One decimal, for example "0.3 × 0.3 m", and two below 0.1 m, for example "0.6 × 0.04 m" (`footprintLabel`, used by the editor's `fmtFoot`). No catalogue label reads 0.0.
