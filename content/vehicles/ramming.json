@@ -1,0 +1,66 @@
+{
+  "note": "Tank ramming (src/tank_ram.cpp, docs/tanks.md#ramming). An obstacle gives way once the energy put into it reaches breakKJ: the tank brings 1/2 M v^2 on contact and its engine adds engineKW x pushEfficiency x throttle per second while it pushes. massKg: what the knocked-over prop takes with it (momentum). mode: topple (falls as a rigid body), rubble (collapses into a low heap), block (never gives way).",
+  "props": {
+    "utility_pole": {
+      "mode": "topple",
+      "breakKJ": 45,
+      "massKg": 450
+    },
+    "fence_post_wire": {
+      "mode": "topple",
+      "breakKJ": 25,
+      "massKg": 160
+    },
+    "field_gate": {
+      "mode": "topple",
+      "breakKJ": 30,
+      "massKg": 150
+    },
+    "stone_wall_low": {
+      "mode": "rubble",
+      "breakKJ": 600,
+      "massKg": 0
+    },
+    "crate_mixed_supply": {
+      "mode": "topple",
+      "breakKJ": 6,
+      "massKg": 60
+    },
+    "crate_pak40_he": {
+      "mode": "topple",
+      "breakKJ": 6,
+      "massKg": 80
+    },
+    "rack_allied": {
+      "mode": "topple",
+      "breakKJ": 12,
+      "massKg": 90
+    },
+    "rack_axis": {
+      "mode": "topple",
+      "breakKJ": 12,
+      "massKg": 90
+    },
+    "wire_concertina": {
+      "mode": "topple",
+      "breakKJ": 40,
+      "massKg": 60
+    },
+    "wire_fence": {
+      "mode": "topple",
+      "breakKJ": 60,
+      "massKg": 120
+    },
+    "wire_knife_rest": {
+      "mode": "topple",
+      "breakKJ": 50,
+      "massKg": 150
+    }
+  },
+  "wallKJperCm": {
+    "timber": 4,
+    "masonry": 22,
+    "concrete": -1
+  },
+  "wallNote": "building walls: breakKJ = kJ per cm of the wall thickness for its family, shared by the whole face (piers, bays, lintels); concrete (bunkers) never gives way"
+}

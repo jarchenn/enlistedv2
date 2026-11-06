@@ -344,6 +344,9 @@ public:
   // first-person handling (viewmodel.cpp)
   ViewModelState vm;
   float worldFov = 72.0f;               // world projection FOV used last frame (apparent-position mapping)
+  // mouse look matched to the view (explore.cpp): degrees per count x tan(fov / 2) / tan(72 / 2), so a mouse movement
+  // moves the image around the crosshair by the same number of pixels in every view (hip, ADS, scopes, tank sights)
+  static float lookScaleFor(float fovDeg);
   GpuMesh armMesh[3];                   // unit boxes: US sleeve, German sleeve, skin
   void buildArmMeshes();
   void stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, const WeaponState& s);

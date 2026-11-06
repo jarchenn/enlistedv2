@@ -5,6 +5,16 @@
 #include <imgui.h>
 #include <algorithm>
 
+// Mouse look matched to the field of view (docs/fps-weapons.md#mouse-sensitivity). Running around, the view is 72 deg (vertical)
+// and one count turns 0.1 deg. Near the crosshair a turn of a deg moves the image by f tan(a) pixels, f = (H / 2) /
+// tan(fov / 2); keeping that the same in every view gives  a_view = a_hip x tan(fov_view / 2) / tan(72 / 2)  (small
+// angles), i.e. the same mouse movement slides the target across the screen by the same distance with irons, scopes
+// and tank sights as on foot. Applied to the FOV actually rendered (ADS blends and the RMB sight zoom included).
+float App::lookScaleFor(float fovDeg) {
+  fovDeg = std::clamp(fovDeg, 1.0f, 120.0f);
+  return std::tan(radians(fovDeg) * 0.5f) / std::tan(radians(72.0f) * 0.5f);
+}
+
 static bool kd(GLFWwindow* w, int k) { return glfwGetKey(w, k) == GLFW_PRESS; }
 static bool kp(GLFWwindow* w, int k) {
   static std::map<int, bool> prev;
@@ -400,7 +410,7 @@ void App::updateExplore(float dt) {
       StationRT* gs = station(occupied);
       float hs = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42") ? 0.08f : 0.012f;
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
-      else { in.lookYaw = -(float)(mx - lmx) * 0.1f; in.lookPitch = -(float)(my - lmy) * 0.1f; eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
+      else { float k = 0.1f * lookScaleFor(worldFov); in.lookYaw = -(float)(mx - lmx) * k; in.lookPitch = -(float)(my - lmy) * k; eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }
     lmx = mx; lmy = my;
     if (kd(win, GLFW_KEY_W)) in.move.y += 1;

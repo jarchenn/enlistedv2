@@ -36,6 +36,10 @@ public:
   static bool castRayOnly(vec3 o, vec3 dir, float maxDist, uint64_t onlyUd, Hit& hit);
   static bool capsuleBlocked(vec3 feet, float height, float radius);
   static bool boxBlocked(vec3 center, vec3 halfExtents, quat rot, uint64_t ignoreUd = ~0ull, bool ignoreTerrain = true);
+  // every body overlapping an oriented box, one entry per body (its deepest contact point, world space); tanks use it
+  // to tell what they ran into (props to knock over, walls to push through, debris to drive over)
+  struct Overlap { uint64_t ud = 0; uint32_t body = 0; vec3 pos{0}; float depth = 0; };
+  static int boxOverlaps(vec3 center, vec3 halfExtents, quat rot, Overlap* out, int maxOut, uint64_t ignoreUd = ~0ull, bool ignoreTerrain = true);
   static ShapePtr buildCompound(const std::vector<ShapePtr>& shapes);
   static void setShape(uint32_t body, const ShapePtr& s);
   // dynamic terrain patches: holes in the base heightfield + per-tile high-res heightfields

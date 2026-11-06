@@ -96,6 +96,13 @@ void TankSys::drawUI(App& app) {
   vec3 eye, fwd; float fov;
   camera(app, eye, fwd, fov);
   float fpx = (io.DisplaySize.y * 0.5f) / std::tan(radians(fov) * 0.5f);   // pixels per unit tangent (vertical FOV)
+  mat4 vpm = app.projM * app.viewM;
+  auto project = [&](vec3 w, ImVec2& out) {
+    vec4 q = vpm * vec4(w, 1);
+    if (q.w < 0.1f) return false;
+    out = ImVec2((q.x / q.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - q.y / q.w * 0.5f) * io.DisplaySize.y);
+    return true;
+  };
   auto milPx = [&](float mil) { return fpx * std::tan(mil / 1000.0f); };
   if (t.hatchT < 0.5f) {
     // ---- gunner sight: circular field, dark surround, original reticle (docs/tanks.md#optics)
@@ -166,25 +173,46 @@ void TankSys::drawUI(App& app) {
     // hatch: open-sight crosshair for the roof MG (it converges on the aim point)
     dl->AddCircle(c, 7, IM_COL32(240, 240, 230, 210), 20, 1.5f);
     dl->AddCircleFilled(c, 1.8f, IM_COL32(240, 240, 230, 220));
+    // where the main gun is laid (RMB fires it): a gun marker on its line at the aim distance
+    vec3 gd; vec3 gm = muzzleWorld(t, gd);
+    float gdist = std::max(30.0f, glm::length(aimPoint(app, t) - gm));
+    ImVec2 gs;
+    if (project(gm + gd * gdist, gs)) {
+      ImU32 gc = t.loaded != SHELL_NONE ? IM_COL32(240, 200, 80, 235) : IM_COL32(170, 150, 110, 180);
+      dl->AddTriangle(ImVec2(gs.x, gs.y - 9), ImVec2(gs.x - 8, gs.y + 6), ImVec2(gs.x + 8, gs.y + 6), gc, 2);
+      dl->AddText(ImVec2(gs.x + 11, gs.y - 7), gc, t.loaded != SHELL_NONE ? "RMB" : "...");
+    }
   }
-  // ---- status panel
-  std::string load = t.reload > 0 ? "LOADING " + std::string(shellName(t.selected)) : "NEXT " + std::string(shellName(t.selected));
-  char b[640];
-  float tlo = t.reload > 0 ? t.reload : 0;
+  // bow MG: a small diamond where the ball mount points (Space), in both stations
+  if (d.bowOn) {
+    vec3 bd; vec3 bm = bowMuzzleWorld(t, bd);
+    float bdist = std::max(20.0f, glm::length(aimPoint(app, t) - bm));
+    ImVec2 bs;
+    if (project(bm + bd * bdist, bs)) {
+      ImU32 bc = t.bowReloadT > 0 ? IM_COL32(150, 170, 190, 150) : IM_COL32(140, 210, 255, 230);
+      dl->AddQuad(ImVec2(bs.x, bs.y - 6), ImVec2(bs.x + 6, bs.y), ImVec2(bs.x, bs.y + 6), ImVec2(bs.x - 6, bs.y), bc, 1.6f);
+    }
+  }
+  // ---- status panel (ammunition: the strip at the bottom)
+  char b[480];
   std::snprintf(b, sizeof b,
-    "%s  [%s]\nLOADED: %s    %s%s\nAP %d   HE %d\n%s: %d | %d%s\nSPEED %3.0f km/h   TURRET %+4.0f   GUN %+4.1f\nDURABILITY %d/100   (front hits %d, side/rear hits %d)\nCtrl %s | R next shell | E get out | RMB zoom",
-    d.name.c_str(), t.station == TS_HATCH ? "HATCH / ROOF MG" : "GUNNER",
-    shellName(t.loaded), load.c_str(), t.reload > 0 ? (" " + std::to_string(tlo).substr(0, 3) + " s").c_str() : "",
-    t.reserveAP, t.reserveHE,
-    d.mgName.substr(0, d.mgName.find(" (")).c_str(), t.mgLoaded, t.mgReserve, t.mgReloadT > 0 ? "  RELOADING" : "",
-    std::fabs(t.speed) * 3.6f, t.tYaw, t.gElev, t.hp, t.hitsFront, t.hitsSide, t.station == TS_HATCH ? "back to the sight" : "open hatch / roof MG");
+    "%s  [%s]\nSPEED %3.0f km/h   TURRET %+4.0f   GUN %+4.1f\nDURABILITY %d/100   (front hits %d, side/rear hits %d)\n%s",
+    d.name.c_str(), t.station == TS_HATCH ? "HATCH" : "GUNNER",
+    std::fabs(t.speed) * 3.6f, t.tYaw, t.gElev, t.hp, t.hitsFront, t.hitsSide,
+    t.station == TS_HATCH ? "LMB roof MG | Space roof + bow MG | RMB main gun | Ctrl back to the sight | R next shell | E get out"
+                          : "LMB main gun | Space bow MG | RMB zoom | Ctrl open hatch | R next shell | E get out");
   ImVec2 ts = ImGui::CalcTextSize(b);
-  ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30);
+  ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30 - 108);   // above the ammunition strip
   panel(p, b, t.hp <= 50 ? IM_COL32(255, 170, 120, 255) : IM_COL32(235, 225, 190, 255));
-  if (t.reload > 0) {   // load progress bar
-    float u = 1.0f - t.reload / d.reloadTime;
-    dl->AddRectFilled(ImVec2(p.x, p.y - 16), ImVec2(p.x + 160, p.y - 10), IM_COL32(40, 40, 36, 220));
-    dl->AddRectFilled(ImVec2(p.x, p.y - 16), ImVec2(p.x + 160 * u, p.y - 10), IM_COL32(220, 190, 90, 240));
+  drawAmmoStrip(app, t);
+  // ---- pushing an obstacle: how much of its break energy has gone in (hold W)
+  if (t.ramKey && t.ramNeed > 0) {
+    float u = std::clamp(t.ramWork / t.ramNeed, 0.0f, 1.0f);
+    ImVec2 o2(170, io.DisplaySize.y - 150);
+    char rb[120]; std::snprintf(rb, sizeof rb, "PUSHING %s  %.0f%%  (hold W)", t.ramName.c_str(), u * 100);
+    dl->AddText(o2, IM_COL32(255, 210, 140, 255), rb);
+    dl->AddRectFilled(ImVec2(o2.x, o2.y + 18), ImVec2(o2.x + 220, o2.y + 26), IM_COL32(40, 38, 34, 220));
+    dl->AddRectFilled(ImVec2(o2.x, o2.y + 18), ImVec2(o2.x + 220 * u, o2.y + 26), IM_COL32(230, 160, 70, 240));
   }
   // ---- hull / turret orientation (top view: hull up the screen, turret line at the achieved traverse)
   ImVec2 o(90, io.DisplaySize.y - 110);
@@ -195,6 +223,102 @@ void TankSys::drawUI(App& app) {
   dl->AddLine(o, ImVec2(o.x - std::sin(a) * 46, o.y - std::cos(a) * 46), IM_COL32(240, 210, 120, 255), 3);
   if (t.station == TS_HATCH) { float m = radians(t.tYaw + t.mgYaw); dl->AddLine(o, ImVec2(o.x - std::sin(m) * 30, o.y - std::cos(m) * 30), IM_COL32(150, 220, 255, 255), 2); }
   if (!t.blockedBy.empty()) dl->AddText(ImVec2(o.x - 60, o.y + hl + 10), IM_COL32(255, 140, 110, 255), ("blocked: " + t.blockedBy).c_str());
+}
+
+// ============================================================ ammunition strip (bottom centre)
+// Main gun: AP / HE stowage with shell icons, the chambered round and the loader's progress; bow MG and roof MG: the
+// belt in the gun drawn round by round, spare rounds and the belt change in progress. The active controls are named
+// on each group and the weapons usable from the current station are lit.
+void TankSys::drawAmmoStrip(App& app, const TankRT& t) {
+  (void)app;
+  const TankDef& d = *t.def;
+  ImGuiIO& io = ImGui::GetIO();
+  ImDrawList* dl = ImGui::GetForegroundDrawList();
+  bool hatch = t.station == TS_HATCH;
+  const float H = 86, pad = 12;
+  ImU32 txt = IM_COL32(235, 225, 190, 255), dim = IM_COL32(150, 145, 125, 200), hot = IM_COL32(255, 205, 90, 255);
+  // a shell, standing: brass case, painted projectile (AP black, HE olive with a yellow band)
+  auto shell = [&](float x, float yb, float h, bool ap, bool lit) {
+    float w = h * 0.3f;
+    ImU32 cs = lit ? IM_COL32(200, 160, 72, 255) : IM_COL32(92, 82, 56, 200);
+    ImU32 pr = ap ? (lit ? IM_COL32(38, 38, 36, 255) : IM_COL32(50, 50, 46, 170)) : (lit ? IM_COL32(112, 120, 72, 255) : IM_COL32(70, 74, 52, 170));
+    dl->AddRectFilled(ImVec2(x, yb - h * 0.56f), ImVec2(x + w, yb), cs, 1.5f);
+    dl->AddRectFilled(ImVec2(x + w * 0.06f, yb - h * 0.84f), ImVec2(x + w * 0.94f, yb - h * 0.56f), pr);
+    dl->AddTriangleFilled(ImVec2(x + w * 0.06f, yb - h * 0.84f), ImVec2(x + w * 0.94f, yb - h * 0.84f), ImVec2(x + w * 0.5f, yb - h), pr);
+    if (!ap) dl->AddRectFilled(ImVec2(x + w * 0.06f, yb - h * 0.74f), ImVec2(x + w * 0.94f, yb - h * 0.70f), lit ? IM_COL32(230, 200, 60, 255) : IM_COL32(120, 110, 50, 170));
+    else dl->AddRectFilled(ImVec2(x + w * 0.06f, yb - h * 0.62f), ImVec2(x + w * 0.94f, yb - h * 0.59f), lit ? IM_COL32(200, 40, 30, 255) : IM_COL32(100, 40, 30, 170));
+  };
+  // one cartridge of a belt
+  auto round = [&](float x, float yb, bool full, bool lit) {
+    ImU32 c = full ? (lit ? IM_COL32(214, 172, 80, 255) : IM_COL32(150, 125, 70, 220)) : IM_COL32(60, 56, 46, 160);
+    dl->AddRectFilled(ImVec2(x, yb - 9), ImVec2(x + 3, yb), c);
+    if (full) dl->AddRectFilled(ImVec2(x, yb - 12), ImVec2(x + 3, yb - 9), lit ? IM_COL32(150, 110, 60, 255) : IM_COL32(110, 85, 55, 200));
+  };
+  auto beltW = [&](int belt) { int perRow = std::min(belt, 50); return perRow * 4.0f; };
+  auto belt = [&](float x, float yb, int belt, int loaded, bool lit) {   // rows of 50 (yb: bottom of the last row)
+    int perRow = std::min(belt, 50), rows = (belt + perRow - 1) / perRow;
+    for (int k = 0; k < belt; ++k) {
+      int row = k / perRow, col = k % perRow;
+      round(x + col * 4.0f, yb - (rows - 1 - row) * 14.0f, k < loaded, lit);
+    }
+  };
+  // widths of the groups
+  const float gunW = 230;
+  float bowW = d.bowOn ? std::max(170.0f, beltW(d.bowBelt) + 16) : 0;
+  float roofW = std::max(170.0f, beltW(d.mgBelt) + 16);
+  float W = gunW + (d.bowOn ? bowW + pad : 0) + roofW + pad * 2;
+  float x0 = io.DisplaySize.x * 0.5f - W * 0.5f, y0 = io.DisplaySize.y - H - 12;
+  dl->AddRectFilled(ImVec2(x0 - pad, y0), ImVec2(x0 + W, y0 + H), IM_COL32(12, 12, 10, 205), 6);
+  float x = x0;
+  // ---- main gun
+  {
+    bool lit = true;
+    char hd[96]; std::snprintf(hd, sizeof hd, "MAIN GUN  %s", hatch ? "[RMB]" : "[LMB]");
+    dl->AddText(ImVec2(x, y0 + 5), lit ? hot : dim, hd);
+    // stowage: AP and HE with counts; the next round to load is framed
+    for (int k = 0; k < 2; ++k) {
+      bool ap = k == 0;
+      int n = ap ? t.reserveAP : t.reserveHE;
+      float sx = x + k * 72;
+      shell(sx + 4, y0 + H - 8, 40, ap, n > 0);
+      char cb[24]; std::snprintf(cb, sizeof cb, "%s\n%d", ap ? "AP" : "HE", n);
+      dl->AddText(ImVec2(sx + 22, y0 + 28), n > 0 ? txt : dim, cb);
+      if (t.selected == (ap ? SHELL_AP : SHELL_HE)) dl->AddRect(ImVec2(sx - 1, y0 + 22), ImVec2(sx + 62, y0 + H - 4), IM_COL32(230, 200, 110, 220), 3, 0, 1.5f);
+    }
+    // the breech: chambered round, or the loader at work
+    float bx = x + 150;
+    dl->AddRect(ImVec2(bx - 2, y0 + 22), ImVec2(bx + 74, y0 + H - 4), IM_COL32(90, 86, 72, 220), 3);
+    if (t.loaded != SHELL_NONE) {
+      shell(bx + 4, y0 + H - 8, 40, t.loaded == SHELL_AP, true);
+      dl->AddText(ImVec2(bx + 22, y0 + 28), IM_COL32(150, 235, 140, 255), t.loaded == SHELL_AP ? "AP\nREADY" : "HE\nREADY");
+    } else if (t.reload > 0) {
+      float u = 1.0f - t.reload / d.reloadTime;
+      char lb[32]; std::snprintf(lb, sizeof lb, "LOAD %s\n%.1f s", t.selected == SHELL_AP ? "AP" : "HE", t.reload);
+      dl->AddText(ImVec2(bx + 4, y0 + 26), hot, lb);
+      dl->AddRectFilled(ImVec2(bx + 4, y0 + H - 14), ImVec2(bx + 68, y0 + H - 9), IM_COL32(40, 40, 36, 230));
+      dl->AddRectFilled(ImVec2(bx + 4, y0 + H - 14), ImVec2(bx + 4 + 64 * u, y0 + H - 9), IM_COL32(220, 190, 90, 240));
+    } else dl->AddText(ImVec2(bx + 6, y0 + 32), IM_COL32(255, 120, 90, 255), "EMPTY");
+    x += gunW + pad;
+  }
+  auto mgGroup = [&](const char* title, const char* keys, bool lit, int beltN, int loaded, int reserve, float reloadT, float reloadTotal, float w) {
+    char hd[96]; std::snprintf(hd, sizeof hd, "%s  %s", title, keys);
+    dl->AddText(ImVec2(x, y0 + 5), lit ? hot : dim, hd);
+    belt(x, y0 + (beltN > 50 ? 56.0f : 50.0f), beltN, loaded, lit);
+    char cb[64];
+    if (reloadT > 0) std::snprintf(cb, sizeof cb, "BELT CHANGE %.1f s   +%d", reloadT, reserve);
+    else std::snprintf(cb, sizeof cb, "%d / %d   +%d", loaded, beltN, reserve);
+    dl->AddText(ImVec2(x, y0 + H - 22), reloadT > 0 ? hot : (loaded == 0 && reserve == 0 ? IM_COL32(255, 120, 90, 255) : (lit ? txt : dim)), cb);
+    if (reloadT > 0) {
+      float u = 1.0f - reloadT / std::max(0.1f, reloadTotal);
+      dl->AddRectFilled(ImVec2(x, y0 + H - 26), ImVec2(x + (w - 16), y0 + H - 23), IM_COL32(40, 40, 36, 230));
+      dl->AddRectFilled(ImVec2(x, y0 + H - 26), ImVec2(x + (w - 16) * u, y0 + H - 23), IM_COL32(220, 190, 90, 240));
+    }
+    x += w + pad;
+  };
+  if (d.bowOn) mgGroup(d.bowShort.c_str(), "[Space]", true, d.bowBelt, t.bowLoaded, t.bowReserve, t.bowReloadT, d.bowReload, bowW);
+  std::string roofName = d.mgName.substr(0, d.mgName.find(" ("));
+  if (roofName.size() > 18) roofName = "Roof MG";
+  mgGroup(roofName.c_str(), hatch ? "[LMB / Space]" : "[hatch]", hatch, d.mgBelt, t.mgLoaded, t.mgReserve, t.mgReloadT, d.mgReload, roofW);
 }
 
 // ============================================================ Creative selection panel

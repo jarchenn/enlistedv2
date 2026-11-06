@@ -129,6 +129,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     auto& r = it->second;
     mat4 M = instanceMatrix(i);
     if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
+    if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
     if (r.asset->tree.on) {
       if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900) treeDrawItems(i, r, op);
       continue;

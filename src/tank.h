@@ -51,6 +51,15 @@ struct TankDef {
   vec3 mgModelOffset{0};
   float mgYawMin = -180, mgYawMax = 180, mgElevMin = -10, mgElevMax = 45, mgRpm = 500, mgVel = 890, mgSpread = 0.25f;
   int mgBelt = 100, mgReserve = 400; float mgReload = 5.0f, mgBulletMass = 0.012f;
+  std::string mgTail, mgReloadSound;            // bank events: tail on release, belt change
+  // bow (hull) MG in the glacis ball mount: Space, from the gunner sight and the hatch alike (docs/tanks.md#bow-mg)
+  bool bowOn = false;
+  std::string bowName, bowShort, bowSound, bowTail, bowReloadSound;
+  vec3 bowPivot{0}, bowMuzzle{0};               // hull space: ball centre, muzzle (bore along +z at 0 / 0)
+  float bowYaw = 15, bowElevMin = -8, bowElevMax = 15, bowRpm = 900, bowVel = 755, bowSpread = 0.35f, bowReload = 4.6f, bowBulletMass = 0.0128f;
+  int bowBelt = 50, bowReserve = 1000;
+  // ramming (tank_ram.cpp): combat mass and the engine power that pushes against an obstacle
+  float massKg = 30000, engineKW = 300, pushEff = 0.55f;
   // mobility (gameplay profile; historical road speed carried for the docs / HUD only)
   float maxFwd = 9, maxRev = 3, accel = 2, brake = 5, coast = 0.8f, turnRate = 28, pivotRate = 20, maxSlopeDeg = 30, offroadMul = 0.85f;
   float histRoadKmh = 0; std::string histSource;
@@ -75,6 +84,10 @@ struct TankRT {
   // turret / gun relative to the hull: achieved angle and rate
   float tYaw = 0, tYawV = 0, gElev = 0, gElevV = 0, recoilT = 9;
   float mgYaw = 0, mgElev = 0, mgCool = 0, mgReloadT = 0; int mgLoaded = 0, mgReserve = 0, mgShots = 0;
+  float bowYaw = 0, bowElev = 0, bowCool = 0, bowReloadT = 0; int bowLoaded = 0, bowReserve = 0, bowShots = 0;
+  bool mgBurst = false, bowBurst = false;   // a burst is running (the recorded tail plays once on release)
+  // ramming: the obstacle being pushed and the energy put into it so far (tank_ram.cpp)
+  uint64_t ramKey = 0; float ramWork = 0, ramNeed = 0; std::string ramName; int knocks = 0, breaches = 0;
   float hatchT = 0;   // 0 closed (gunner) .. 1 open (head out)
   int station = TS_GUNNER;
   // ammunition state machine (docs/tanks.md#ammunition)
@@ -126,6 +139,7 @@ public:
   bool camera(const App& app, vec3& eye, vec3& fwd, float& fov) const;
   void drawItems(App& app, const Instance& i, const InstanceRT& r);
   void drawUI(App& app);
+  void drawAmmoStrip(App& app, const TankRT& t);   // bottom-centre ammunition / belt display (tank_ui.cpp)
   void drawEditorPanel(App& app, Instance& inst);
   void ghostItems(App& app, const AssetDef* a, const mat4& M, vec4 tint);   // Creative placement preview (tinted model)   // Creative selection panel (undoable edits of extra["tank"])
   // combat
@@ -147,10 +161,36 @@ public:
   void aimGun(TankRT& t, float dt, bool active);
   void fireCannon(App& app, TankRT& t);
   void fireMg(App& app, TankRT& t);
+  void fireBow(App& app, TankRT& t);
+  mat4 bowMatrix(const TankRT& t) const;          // ball mount (hull space pivot, yaw / elevation of the bow MG)
+  vec3 bowMuzzleWorld(const TankRT& t, vec3& dir) const;
+  void stepMgs(App& app, TankRT& t, float dt, const ExploreInput* in, bool focused);   // aim, fire, auto-reload of both MGs
+  vec3 aimPoint(App& app, const TankRT& t) const;  // what the crosshair is on (camera ray, own tank ignored)
   void stepAmmo(App& app, TankRT& t, float dt, bool togglePressed);
   void updateBody(App& app, TankRT& t, bool force);
   bool exitSpot(App& app, const TankRT& t, vec3& out, std::string& why) const;
   void effects(App& app, TankRT& t, float dt);
   void toast(App& app, const std::string& s, double secs = 3.0);
   void groundPose(App& app, const TankDef& d, vec3 pos, float yaw, float& y, float& pitch, float& roll, float& slopeAlong) const;
+  // ---- ramming (tank_ram.cpp): props knocked over, walls pushed through, debris driven over
+  struct RamSpec { std::string mode; float breakKJ = 0, massKg = 0; };   // mode: topple, rubble, block
+  std::map<std::string, RamSpec> ramProps;      // content/vehicles/ram.json, by asset id
+  std::map<std::string, float> ramPanelKJperHp; // wall family -> kJ per cm of wall thickness (< 0: never gives way)
+  struct Knocked { uint64_t id = 0; uint32_t rev = 0, body = 0xffffffffu; bool dynamicBody = false, flat = false, rubble = false, falling = false; float age = 0; mat4 M{1};
+                   mat4 M0{1}; vec3 pivot{0}, axis{1, 0, 0}, dir{0, 0, 1}; float ang = 0, angV = 0, len = 1; };   // falling: hinged at the foot
+  std::map<uint64_t, Knocked> knocked;          // session overlay per prop instance
+  std::map<uint64_t, float> ramWorkDone;        // energy already put into an obstacle (prop id, or id << 16 | bay)
+  std::map<uint64_t, double> ramLastBreach;     // a breached bay clears its leftover edges at most every 0.35 s
+  int knocksTotal = 0, breachesTotal = 0, crushedTotal = 0;
+  std::string lastRam;                          // last ram outcome (tests, HUD)
+  void loadRam(App& app);
+  // drive(): the swept hull box at the new pose overlaps something. Returns true when the move may go on (everything
+  // in the way gave way or is driven over); speed is reduced by the energy the obstacles took. why: what blocks.
+  bool ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c, vec3 he, quat hq, std::string& why);
+  void knockProp(App& app, Instance& i, InstanceRT& r, const RamSpec& s, vec3 at, vec3 dir, float speed);
+  void breachWall(App& app, Instance& i, InstanceRT& r, const TankRT& t, vec3 at, vec3 n, vec3 dir);
+  void stepKnocked(App& app, float dt);
+  void crushUnder(App& app, TankRT& t);           // fallen props under the tracks (below the hull box) are crushed flat
+  void resetRams(App& app);
+  bool propMatrix(const Instance& i, mat4& M) const;   // draw: a knocked prop at its fallen / flattened pose
 };

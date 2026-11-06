@@ -333,6 +333,26 @@ bool Physics::boxBlocked(vec3 c, vec3 he, quat q, uint64_t ignoreUd, bool ignore
   return col.HadHit();
 }
 
+int Physics::boxOverlaps(vec3 c, vec3 he, quat q, Overlap* out, int maxOut, uint64_t ignoreUd, bool ignoreTerrain) {
+  BoxShape box(jv(glm::max(he, vec3(0.01f))), 0.0f);
+  box.SetEmbedded();
+  CollideShapeSettings cs;
+  AllHitCollisionCollector<CollideShapeCollector> col;
+  IgnoreUDTerrain filt(ignoreUd, ignoreTerrain);
+  W->sys->GetNarrowPhaseQuery().CollideShape(&box, Vec3::sReplicate(1.0f), RMat44::sRotationTranslation(jq(q), jr(c)), cs, RVec3::sZero(), col, {}, {}, filt);
+  int n = 0;
+  for (auto& h : col.mHits) {
+    uint32_t id = h.mBodyID2.GetIndexAndSequenceNumber();
+    int k = 0;
+    while (k < n && out[k].body != id) ++k;
+    if (k < n) { if (h.mPenetrationDepth > out[k].depth) { out[k].depth = h.mPenetrationDepth; out[k].pos = gv(Vec3(h.mContactPointOn2)); } continue; }
+    if (n >= maxOut) continue;
+    out[n].body = id; out[n].ud = W->sys->GetBodyInterface().GetUserData(h.mBodyID2);
+    out[n].pos = gv(Vec3(h.mContactPointOn2)); out[n].depth = h.mPenetrationDepth; ++n;
+  }
+  return n;
+}
+
 ShapePtr Physics::buildCompound(const std::vector<ShapePtr>& shapes) {
   StaticCompoundShapeSettings cs;
   int n = 0; const Shape* single = nullptr;
