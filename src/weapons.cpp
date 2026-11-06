@@ -113,6 +113,16 @@ void App::resetWeapons() {
   viewKickPitch = viewKickYaw = 0;
 }
 
+// Recoil never returns on its own: when a burst ends, the climb (and the horizontal wander) the pattern left is
+// folded into the player's own aim. The sight line does not move on that frame; the aim simply stays where the
+// recoil put it, and the player pulls down (mouse) to compensate. Also used on a weapon swap.
+void App::settleRecoil(WeaponState& s) {
+  if (s.recoilP == 0 && s.recoilY == 0) return;
+  eyePitch = std::clamp(eyePitch + s.recoilP, -85.0f, 85.0f);
+  eyeYaw = wrapDeg(eyeYaw + s.recoilY);
+  s.recoilP = s.recoilY = 0;
+}
+
 static float wrand(uint32_t& s) { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return (s % 100000u) / 100000.0f; }
 
 int App::weaponIndex(const std::string& id) const { for (size_t k = 0; k < weaponDefs.size(); ++k) if (weaponDefs[k]->id == id) return (int)k; return -1; }
@@ -121,6 +131,7 @@ void App::selectWeapon(int idx) {
   if (idx < 0 || idx >= (int)weaponDefs.size()) return;
   if (strictDDay && weaponDefs[idx]->laterWar) { toast(weaponDefs[idx]->name + " is hidden by the strict 6 June 1944 preset."); return; }
   WeaponState& cur = wstate[weaponDefs[activeWeapon]->id];
+  settleRecoil(cur);   // the old weapon's climb stays in the aim (no snap back on the swap)
   if (cur.reload > 0) { cur.reload = 0; cur.reloadKind = 0; weaponMsg = "Reload interrupted (no rounds moved)"; }   // nothing is committed until a reload completes
   if (cur.throwT >= 0 && weaponDefs[activeWeapon]->equipment()) { cur.throwT = -1; cur.struck = false; }   // wind-up cancelled: nothing thrown, nothing used
   activeWeapon = idx; adsT = 0; vm.snap = true;
@@ -287,15 +298,13 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   supported = hasBipod && (ch.posture == Physics::PRONE || ch.crouched) && glm::length(in.move) < 0.01f;
   s.cooldown = std::max(0.0f, s.cooldown - dt);
   s.bolt = std::max(0.0f, s.bolt - dt);
-  // recoil: every shot adds aim displacement and nothing pulls it back while the gun keeps firing (no climb
-  // ceiling); once firing stops it recovers smoothly (critically damped, never a snap). The player's own mouse
-  // look is separate, so pulling down compensates immediately.
+  // recoil: every shot adds aim displacement and nothing pulls it back (no climb ceiling, no automatic recovery).
+  // While a burst runs the displacement is held in recoilP / recoilY; once it ends it becomes the player's aim
+  // (settleRecoil), so the view stays elevated where the pattern ended. The player's own mouse look is separate,
+  // so pulling down compensates, during the burst or after it.
   s.sinceShot += dt;
   float cycle = 60.0f / std::max(1.0f, d.rpm);
-  if (s.sinceShot > cycle * 1.6f + 0.06f) {
-    float k = 1.0f - std::exp(-d.rRecover * 0.55f * dt);
-    s.recoilP -= s.recoilP * k; s.recoilY -= s.recoilY * k;
-  }
+  if (s.sinceShot > cycle * 1.6f + 0.06f) settleRecoil(s);
   s.kick -= s.kick * std::min(1.0f, 14.0f * dt);
   if (!fireHeld) {
     if (s.burst > 1 && d.action == "auto") audio.play("tail_" + d.id, weaponMuzzleWorld(d, s), 0.9f);   // recorded tail, once per release
@@ -404,7 +413,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (adsT > 0.85f) sc *= 0.85f;
       lastRecoilScale = sc;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
-      s.recoilP = std::min(s.recoilP, std::max(0.0f, 86.0f - eyePitch));   // only the camera's pitch bound limits the climb
+      s.recoilP = std::min(s.recoilP, std::max(0.0f, 85.0f - eyePitch));   // only the camera's pitch bound (look clamp 85) limits the climb
       s.recoilY = std::clamp(s.recoilY + sc * d.rYaw * (wrand(s.seed) * 2 - 1), -6.0f, 6.0f);   // restrained horizontal wander
       s.sinceShot = 0;
       s.kick = std::min(0.08f, s.kick + d.rVisual);

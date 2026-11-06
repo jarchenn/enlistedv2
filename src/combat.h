@@ -7,7 +7,7 @@ struct WeaponDef {
   std::string id, name, side, action, feed, container, caliber, note, reticle;
   int cap = 1, loaded = 1, reserve = 0, containerSize = 1, tracerEvery = 0;
   float rpm = 60, velocity = 800, zero = 100, boltTime = 0, reloadEmpty = 2.5f, reloadPartial = 2.5f, reloadRound = 0.5f;
-  float rPitch = 1, rYaw = 0.4f, rRecover = 8, rClimb = 0, rVisual = 0.05f, rSupported = 1;
+  float rPitch = 1, rYaw = 0.4f, rRecover = 8 /*unused: recoil no longer recovers*/, rClimb = 0, rVisual = 0.05f, rSupported = 1;
   vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
   bool hasScope = false, scopeIrons = false, laterWar = false;
   float scopeMag = 1;
@@ -49,7 +49,7 @@ struct WeaponState {
   int reloadKind = 0;             // 1 empty, 2 partial (retain), 3 single rounds
   bool triggerReleased = true, clicked = false;
   float recoilP = 0, recoilY = 0, kick = 0;
-  float sinceShot = 99;           // s since the last shot (recoil recovers only once firing has stopped)
+  float sinceShot = 99;           // s since the last shot (a burst ends, and its recoil is folded into the aim, once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
   int mode = 0;                   // index into WeaponDef::modes (AUTO first); reset with the session
   float throwT = -1;              // grenade wind-up / knife swing progress (s), -1 = idle

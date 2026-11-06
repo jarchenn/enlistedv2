@@ -304,8 +304,8 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
   if (rising) speed = std::min(speed, riseSpeed);   // still getting up: the lower posture's pace
   speed *= traversalFactor(Physics::character().pos);   // inside a "slow" wire volume
-  Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity;
-  bool jump = in.jump && !spaceUp && !rising;
+  Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity; Physics::tuning.jumpBuffer = move.jumpBuffer; Physics::tuning.coyote = move.coyote;
+  bool jump = in.jump && !spaceUp && !(rising && riseProne);   // only the prone get-up holds a jump back (a crouch -> stand rise does not)
   if (!occupied) Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
   auto c = Physics::character();
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
@@ -314,7 +314,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   // an eased rise from where the camera is; going down keeps the quick exponential drop
   if (c.posture != before.posture && (before.posture == Physics::PRONE || (before.posture == Physics::CROUCH && c.posture == Physics::STAND))) {
     riseDur = before.posture == Physics::PRONE ? (c.posture == Physics::STAND ? move.proneToStand : move.proneToCrouch) : move.crouchToStand;
-    riseT = 0; riseFrom = eyeHeight; riseSpeed = before.posture == Physics::PRONE ? move.prone : move.crouch;
+    riseT = 0; riseFrom = eyeHeight; riseSpeed = before.posture == Physics::PRONE ? move.prone : move.crouch; riseProne = before.posture == Physics::PRONE;
   } else if (c.posture != before.posture) riseDur = 0;   // lowering cancels a rise
   if (riseT < riseDur) {
     riseT += dt;
@@ -423,6 +423,18 @@ void App::updateExplore(float dt) {
     in.nextWeapon = kp(win, GLFW_KEY_Q);
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
+  // Edge presses (kp: Space, E, R, ...) and station hand-wheel deltas seen on a frame that runs no fixed step (any
+  // frame shorter than 1/60 s) are carried to the next frame that does, instead of being dropped (the "Space
+  // sometimes does nothing" bug at high frame rates).
+  {
+    static bool ExploreInput::* const kEdges[] = {&ExploreInput::interact, &ExploreInput::jump, &ExploreInput::reload, &ExploreInput::switchPos, &ExploreInput::toggleAmmo, &ExploreInput::build,
+      &ExploreInput::fireMode, &ExploreInput::prone, &ExploreInput::packUp, &ExploreInput::rackUp, &ExploreInput::rackDown, &ExploreInput::rackEquip, &ExploreInput::rackClose,
+      &ExploreInput::choose1, &ExploreInput::choose2, &ExploreInput::nextWeapon, &ExploreInput::quickGrenade};
+    for (auto m : kEdges) in.*m = in.*m || edgeCarry.*m;
+    in.dyaw += edgeCarry.dyaw; in.dpitch += edgeCarry.dpitch; in.wheel += edgeCarry.wheel;
+    edgeCarry = ExploreInput{};
+    if (physAccum + dt < 1.0f / 60.0f) { for (auto m : kEdges) edgeCarry.*m = in.*m; edgeCarry.dyaw = in.dyaw; edgeCarry.dpitch = in.dpitch; edgeCarry.wheel = in.wheel; }
+  }
   if (rackOpen) {   // the panel owns input (keyboard and scripted alike): nothing leaks into movement or weapons
     in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = in.packUp = false;
     in.dyaw = in.dpitch = in.lookYaw = in.lookPitch = 0;
@@ -432,6 +444,7 @@ void App::updateExplore(float dt) {
   while (physAccum >= 1.0f / 60.0f && steps < 8) {
     exploreStep(1.0f / 60.0f, in);
     in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.quickGrenade = false; in.dyaw = in.dpitch = 0;
+    in.wheel = 0;   // one scroll notch turns the build ghost once, however many steps run
     physAccum -= 1.0f / 60.0f; ++steps;
   }
   if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral

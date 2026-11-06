@@ -47,7 +47,9 @@ public:
   enum Posture : int { STAND = 0, CROUCH = 1, PRONE = 2 };
   struct CharState { vec3 pos; bool grounded; bool crouched; uint64_t groundUser; int posture = STAND; float bodyYaw = 0; vec3 vel{0}; };
   // player-only tuning (global rigid-body / projectile gravity is separate and unchanged)
-  struct MoveTuning { float gravity = 9.81f * 0.8f, jumpVelocity = 4.2f * 0.894427f; };
+  // jumpBuffer: a press this long before landing still jumps on touchdown; coyote: a press this long after the
+  // last real (settled, walkable) ground contact still jumps (slope / step-up ground flicker, walking off an edge)
+  struct MoveTuning { float gravity = 9.81f * 0.8f, jumpVelocity = 4.2f * 0.894427f, jumpBuffer = 0.15f, coyote = 0.12f; };
   static MoveTuning tuning;
   static void createCharacter(vec3 feet);
   static void destroyCharacter();
@@ -55,7 +57,9 @@ public:
   static void updateCharacter(float dt, vec3 desiredHorizVel, bool jump, bool wantCrouch);
   // posture-aware update: tries the requested posture (stays in the current one when the target shape does
   // not fit), turns the prone body toward bodyYawWanted only when the rotated body fits
-  static void updateCharacter(float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYawWanted);
+  // returns true on the step a jump impulse is applied (buffered press or coyote window included)
+  static bool updateCharacter(float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYawWanted);
+  static int jumpCount();   // jump impulses applied since the character was created (self-tests)
   static bool postureFits(int posture, float bodyYaw);
   static bool shapeFitsAt(int posture, vec3 feet, bool withTerrain = true);   // posture body at an arbitrary position
   static uint64_t shapeHitUD(int posture, vec3 feet, bool withTerrain = true);  // debug: user data of a body it overlaps (0 = none)

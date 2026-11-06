@@ -166,7 +166,9 @@ void App::stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, co
   auto ch = Physics::character();
   float v = vm.speed;
   vm.bobPhase += 3.14159265f * v / 1.5f * dt;
-  float k = std::min(v / 4.6f, 1.0f) * (1 - a) * (ch.crouched ? 0.5f : 1.0f) * red * (ch.grounded ? 1.0f : 0.0f);
+  // full amplitude at 0.8 x the sprint setting (was a fixed 4.6 m/s = 0.8 x 5.75): faster movement tuning keeps
+  // each gait's bob (run ~0.62, sprint 1) instead of saturating the run
+  float k = std::min(v / std::max(0.1f, move.sprint * 0.8f), 1.0f) * (1 - a) * (ch.crouched ? 0.5f : 1.0f) * red * (ch.grounded ? 1.0f : 0.0f);
   vm.bobAmp = k;
   vm.bob = vec3(0.008f * k * std::sin(vm.bobPhase), 0.012f * k * std::sin(2 * vm.bobPhase), 0);
   // ---- breathing: slow vertical wander; Left Shift in ADS holds the breath (max 5 s, then 3 s recovery at 2x)
