@@ -69,10 +69,17 @@ X = T(offset) * S(realLength / L) * R(rot)
 L = normalize(F - R)                    R rear aperture, F front post tip (weapon space)
 Q = Ry(180) * rotation(L -> +z)         weapon +z onto view -z
 T_ads = (0, 0, -relief) - Q * R         relief 0.21 m (irons), 0.07 m (scopes)
-T_hip = T_ads + (0.12, -0.07, 0.06)
+T_hip = (0, 0, -0.21) - Q * R + hipOffset   hipOffset (0.12, -0.07, 0.06) unless the weapon sets ads.hipOffset
 ```
 
-**Spring.** The weapon offset follows `mix(T_hip, T_ads, smoothstep(adsT))` on a critically damped spring: x″ = ω²(target − x) − 2ωx′ with ω = 18/s. It settles to within 0.5 mm in about 0.6 s with no overshoot.
+**One ADS blend.** `adsT` moves toward the held state at 1 / `adsTime_s` per second (`content/settings/movement.json`, default 0.25 s; it is the only writer of `adsT`). With t = smoothstep(adsT), three things follow it together:
+- the weapon pose target `mix(T_hip, T_ads, t)`;
+- the world FOV `mix(72°, ads.worldFov, t)` (58° unless the weapon sets one);
+- the weapon FOV `mix(60°, ads.vmFov, t)` when a weapon sets one.
+
+Releasing aim half-way reverses from the current blend. Recoil and breathing never write the FOV, so a held aim keeps a constant zoom. Before this update the world FOV stepped from 72° to 58° in one frame at adsT 0.85: that step was the "zoom jump". Scoped weapons still switch to the optic (mask, 72°/mag) at adsT 0.85, with the mask.
+
+**Spring.** The weapon offset follows that target on a critically damped spring: x″ = ω²(target − x) − 2ωx′ with ω = 18/s. It settles to within 0.5 mm in about 0.6 s with no overshoot.
 
 **Sight-origin ballistics.** When adsT > 0.85, the round starts at the world-space front sight tip F and travels along `V = normalize(F − R)`. The usual dispersion draw and the declared-zero tilt are added on top. A wall between the eye and F still stops the shot. From the hip, the existing sweep from the muzzle is unchanged. Because the sights are taken from the posed weapon, sway and breathing move the sight picture and the shot together.
 
@@ -130,6 +137,57 @@ With zero corrections, R and F lie exactly on the view axis. The hip pose is com
 | muzzle (bore centre, +z) | (0, 0.034, 1.220) | (−0.0292, 0.0335, 1.220) |
 | hand sockets R / L | x 0 | x −0.0292 (y, z unchanged) |
 | `ads.eyeRelief` | 0.21 | **0.186**: the Y appears 0.21/0.186 = 12.9 % larger |
+
+<a id="w1"></a>
+**Complete update, part 2 (W1): six more weapons, measured the same way on the supplied GLBs.** Every change is anchor data, pose / projection data, or a bake-time edit of the supplied mesh (`model.meshEdits`, below). No geometry was added.
+
+| Weapon | Anchor | Old | Measured / new |
+|---|---|---|---|
+| Kar98k | rear | (0, 0.082, 0.600) | (−0.0316, 0.0880, 0.585): shoulder line over the 1.2 mm deep V-notch (bottom y 0.0868). The barleycorn tip sits level with the shoulders, centred in the V (*gestrichen Korn*). |
+| | front | (0, 0.081, 1.085) | (−0.0316, 0.0880, 1.093), barleycorn tip |
+| | muzzle, sockets | x 0 | bore (−0.0316, 0.0661, 1.11); sockets x −0.0316 |
+| | `ads` | none | relief 0.20, weapon FOV 42° |
+| M1 Carbine | rear | (0, 0.079, 0.330) | (−0.0006, 0.0858, 0.336), centre of the 2.1 mm peep |
+| | front | (0, 0.0805, 0.870) | (−0.0006, 0.0745, 0.887), blade tip between the wings |
+| | muzzle | (0, 0.060, 0.904) | bore (−0.0006, 0.0613, 0.904) |
+| | `ads` | none | relief 0.12, weapon FOV 40° |
+| M1 Thompson | rear | (0.003, 0.107, 0.250) | (0.005, 0.1059, 0.258), centre of the 7.5 mm aperture |
+| | front | (0.003, 0.1068, 0.805) | (0.005, 0.1068, 0.8008), blade tip |
+| | muzzle | (0.003, 0.082, 0.813) | bore (0.005, 0.079, 0.813) |
+| | `ads` | none | relief 0.186 (13 % larger), no FOV change |
+| M1 Garand | rear | (−0.0012, 0.111, 0.306) | (−0.0008, 0.1111, 0.305), peep centre |
+| | front | (−0.0008, 0.113, 1.069) (the wing tops) | (−0.0008, 0.111, 1.069), blade tip |
+| | muzzle | (0, 0.086, 1.107) | bore (−0.0008, 0.0861, 1.107) |
+| | mesh | peep 2.2 mm | inner ring opened to 3.5 mm at bake; the outer ring (4.4–4.7 mm) and the rest of the mesh are untouched. M1 and M1C share the bake. |
+| | `ads` | none | relief 0.15 |
+| BAR | rear | (0, 0.112, 0.285), inside the raised ladder | (−0.001, 0.1105, 0.300): eye line just over the folded leaf (front-sight-only) |
+| | front | (0, 0.1075, 1.090) | (−0.001, 0.1030, 1.0976), hooded post tip (hood top y 0.1078) |
+| | muzzle | (0, 0.079, 1.214) | bore (−0.001, 0.0788, 1.214) |
+| | mesh | ladder leaf raised, top y 0.135 (the "tall rectangle") | leaf folded forward 90° onto its base at bake, top y 0.110 |
+| | `ads` | none | relief 0.20, weapon FOV 32° |
+| Panzerschreck | sight line | (−0.1, 0.06, 1.0 → 1.55), behind the shield | virtual line (−0.28, 0.11, 0.75 → 1.55), 19.6 cm right of and 10 cm above the tube axis, clear of the shield |
+| | muzzle | (0, 0, 1.64) | tube axis (−0.0844, 0.0066, 1.64); sockets x −0.0844, left hand back to z 1.05 behind the shield (z 1.30 was out of reach from the right-side pose) |
+| | `ads` | none | `hipOffset` (0, −0.06, 0.05), `worldFov` 62 (mild zoom), `virtualLine` |
+
+**Extra `ads` fields** (all optional):
+
+| Field | Meaning | Default |
+|---|---|---|
+| `hipOffset` | View-space offset of the hip pose from the ADS line (m) | (0.12, −0.07, 0.06) |
+| `worldFov` | World FOV at full ADS (deg) | 58 |
+| `virtualLine` | rear / front are a view line beside the weapon, not its sights. Aimed rounds then leave the muzzle toward the aim point instead of the front sight. | false |
+
+**Weapon FOV (`vmFov`) versus eye relief.** Relief scales only the rear sight (apparent size ∝ 1/relief). A narrower weapon FOV magnifies the whole drawn weapon about the screen centre while the world keeps its own FOV, so it is framing, not zoom. The Carbine and BAR need both, because their sights are millimetre-sized parts a metre from the eye.
+
+<a id="mesh-edits"></a>
+**Bake-time mesh edits** (`model.meshEdits` in the weapon JSON, applied by `--import-weapon-models`):
+- Each edit selects the connected triangle islands of the supplied mesh that lie entirely inside `islandsIn` (weapon space, after the import transform). Islands are joined through shared triangles and coincident positions.
+- An edit then does one of three things:
+  - re-poses the islands: `deg` about `axis` through `pivot`, then `translate`;
+  - drops them (`hide`);
+  - opens a hole (`radial`): vertices closer than `rMax` to the z-parallel axis through `centre` are pushed outward by `scale`.
+- The bake log names every edit and counts the vertices it touched.
+- Weapons sharing a model folder (M1 / M1C) must carry the same model block. The importer reads the JSONs in sorted order and warns on a mismatch.
 
 **Hip-fire flash and tracers.** These use the original effects, restored at the user's request: the flash and smoke are placed at `vmApparent(muzzle) + aimDir·0.05`, and tracers and streaks are drawn along the true projectile path from the true start. The corrected `muzzle` anchors still move the flash onto the FG 42 and MG 42 barrels, because both effects start from the anchor. `muzzleDir` is parsed but currently unused.
 

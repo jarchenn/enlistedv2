@@ -12,5 +12,6 @@
  "eyeSmoothing_per_s": 10.0,
  "proneToStand_s": 1.1,
  "proneToCrouch_s": 0.75,
- "crouchToStand_s": 0.45
+ "crouchToStand_s": 0.45,
+ "adsTime_s": 0.25
 }

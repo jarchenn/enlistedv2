@@ -62,7 +62,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       Instance* f = a.doc.find(F);
       face(a, vec3(f->pos.x, f->pos.y + 1.6f, f->pos.z + 4.5f));
       a.scriptedInput.aim = true;
-      if (t < 0.6f) return false;
+      if (t < 1.0f) return false;   // ADS blend 0.25 s + spring settle
       const WeaponDef& d = D(a); auto& s = S(a, "m1_garand");
       mat4 M = a.viewModelMatrix(d, s), vp = a.projM * a.viewM;
       auto scr = [&](vec3 l) { vec4 c = vp * (M * vec4(l, 1)); return vec2(c.x / c.w, c.y / c.w); };

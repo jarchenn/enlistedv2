@@ -38,6 +38,8 @@ void App::buildWeaponMeshes() {
       const json& a = j["ads"];
       d->eyeRelief = a.value("eyeRelief", 0.21f); d->adsVmFov = a.value("vmFov", 0.0f);
       d->adsPos = jvec3(a.value("posCorrection", json::array({0, 0, 0}))); d->adsRot = jvec3(a.value("rotCorrection", json::array({0, 0, 0})));
+      if (a.contains("hipOffset")) d->hipOffset = jvec3(a["hipOffset"]);
+      d->adsWorldFov = a.value("worldFov", 58.0f); d->sightLineOnly = a.value("virtualLine", false);
     }
     d->laterWar = j.value("laterWar", false);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); }
@@ -134,9 +136,13 @@ vec3 App::weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const { re
 bool App::weaponCamera(float& fov) const {
   if (occupied || weaponDefs.empty() || mode != Mode::Explore) return false;
   const WeaponDef& d = *weaponDefs[activeWeapon];
-  if (adsT < 0.85f) return false;
-  if (d.hasScope && !(d.scopeIrons && scopeIronsMode)) { fov = 72.0f / d.scopeMag; return true; }   // real magnification via the projection
-  fov = 58.0f;
+  if (adsT <= 0) return false;
+  // One blend drives the world FOV, the weapon pose (vmTarget) and the weapon FOV (vmFovNow): t = smoothstep(adsT),
+  // adsT moving at 1 / move.adsTime per second toward the held state, so entry, exit and a mid-way reversal are
+  // continuous. The optic view (scope mask, real magnification) still switches at adsT 0.85 with the mask.
+  float t = adsT * adsT * (3 - 2 * adsT);
+  if (d.hasScope && !(d.scopeIrons && scopeIronsMode)) { fov = adsT > 0.85f ? 72.0f / d.scopeMag : glm::mix(72.0f, 58.0f, t); return true; }
+  fov = glm::mix(72.0f, d.adsWorldFov, t);
   return true;
 }
 
@@ -246,7 +252,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     return;
   }
   bool fireHeld = in.fire && !modal && (glfwGetWindowAttrib(win, GLFW_FOCUSED) || selftest);
-  adsT = std::clamp(adsT + (in.aim && !modal ? 6.0f : -6.0f) * dt, 0.0f, 1.0f);
+  float adsRate = 1.0f / std::max(0.05f, move.adsTime);   // the only writer of adsT while a weapon is out
+  adsT = std::clamp(adsT + (in.aim && !modal ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
   auto ch = Physics::character();
   // bipod deployed: a bipod weapon (belt MG, or a "supported" recoil factor) rested while prone or crouched and still.
@@ -332,7 +339,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (glm::dot(dir, aimDir) < 0.5f) dir = aimDir;
       // Aimed fire: the round leaves the front sight tip F along the sight line V = normalize(F - R), where R is the
       // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
-      if (adsT > 0.85f && !vmScoped(d)) {
+      if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly) {
         vec3 Rw, Fw; sightLineWorld(d, s, Rw, Fw);
         vec3 V = glm::normalize(Fw - Rw);
         vec3 vr = glm::normalize(glm::cross(V, vec3(0, 1, 0))), vu = glm::cross(vr, V);

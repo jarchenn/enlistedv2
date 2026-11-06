@@ -179,6 +179,7 @@ public:
     float eyeStand = 1.62f, eyeCrouch = 1.05f, eyeProne = 0.32f, eyeRate = 10.0f;    // m, 1/s (camera smoothing)
     float gravity = 9.81f * 0.8f, jumpVelocity = 4.2f * 0.894427f;                  // m/s^2, m/s (player only)
     float proneToStand = 1.1f, proneToCrouch = 0.75f, crouchToStand = 0.45f;        // s, getting up (eye rise; lower speed, no sprint / jump)
+    float adsTime = 0.25f;                                                            // s, hip <-> ADS (world FOV, pose, weapon FOV share it)
   } move;
   // getting up: a timed, eased camera rise; until it finishes the player moves at the lower posture's speed
   float riseT = 0, riseDur = 0, riseFrom = 0, riseSpeed = 0;

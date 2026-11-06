@@ -7,7 +7,7 @@ Sources: `Normandy_Complete_Update` (instructions 01–07, ACCEPTANCE, REFERENCE
 - **Tank durability:** a tank **survives 4 front hits and is destroyed by the 5th**; it **survives 1 side or rear hit and is destroyed by the 2nd**.
 - **What counts as a hit:** tank cannons, AT guns and Flak count from every side. Bazooka and Panzerschreck count only from the side or rear (front: visible non-penetrating impact, no damage, no splash leak). Small arms never count.
 - **Muzzle flash, tracers and impact effects** keep the original look (the user's earlier revert). The package's "universal barrel origins / tracer join" section (02) is **not** applied.
-- **Gun changes use only the GLB models the user supplied**, never procedural geometry Claude created: calibration, sight fixes (BAR rear sight = re-pose / hide a sub-part of the supplied mesh), poses, grenades, knife, Flak. The procedural scopes on M1C and ZF39 are flagged to the user (they are not from supplied models).
+- **Gun changes use only the GLB models the user supplied**, never procedural geometry Claude created: calibration, sight fixes (BAR rear sight = re-pose / hide a sub-part of the supplied mesh), poses, grenades, knife, Flak. The procedural scopes on M1C and ZF39 are kept and left untouched (user decision).
 
 ## Order of work (status kept current)
 
@@ -20,7 +20,7 @@ Sources: `Normandy_Complete_Update` (instructions 01–07, ACCEPTANCE, REFERENCE
 | G2 | Hold Space to vault (validated sweep, no chaining, no double jump) | **done**: also fixed the body-fit queries (centre-of-mass offset) and the steep-ground step-up exploit |
 | G3 | Interaction reach +25 %, full-object / child-collider selection, surface distance, prompt = action | **done** |
 | G4 | Firing slits wider / taller, geometry and collision through the full depth | **done**: casemate 1.7 × 0.68 m, OP 1.5 × 0.38 m; shots from 3 weapons pass |
-| W1 | Per-weapon sights: Kar98k, Panzerschreck (right-side view), BAR (no tall rectangle), Carbine, Thompson, Garand; smooth ADS audit | |
+| W1 | Per-weapon sights: Kar98k, Panzerschreck (right-side view), BAR (no tall rectangle), Carbine, Thompson, Garand; smooth ADS audit | **done**: anchors measured on the supplied GLBs; BAR ladder leaf folded and Garand peep opened at bake (`model.meshEdits`, no added geometry); Panzerschreck virtual view line + hip offset + world FOV 62; one ADS blend (`adsTime_s` 0.25, the 14° FOV step removed); `--selftest-sights` all ≤ 2 px ([fps-weapons.md#w1](fps-weapons.md#w1)) |
 | E1 | Three wire obstacles from the two wire GLBs | |
 | E2 | Tank trap ×1.25 (migration without double scale) | |
 | E3 | Mk 2 and M24 grenades (inventory, throw, fuse, bounce, blast) | |

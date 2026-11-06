@@ -47,6 +47,7 @@ void App::loadMoveSettings() {
   move.eyeRate = j.value("eyeSmoothing_per_s", move.eyeRate);
   move.proneToStand = j.value("proneToStand_s", move.proneToStand); move.proneToCrouch = j.value("proneToCrouch_s", move.proneToCrouch);
   move.crouchToStand = j.value("crouchToStand_s", move.crouchToStand);
+  move.adsTime = j.value("adsTime_s", move.adsTime);
 }
 
 // ---------------------------------------------------------------- loadout

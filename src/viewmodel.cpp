@@ -31,7 +31,7 @@ bool App::vmScoped(const WeaponDef& d) const { return d.hasScope && !(d.scopeIro
 // translate so the rear aperture R sits on that axis at the eye relief:
 //   q    = rotation(L -> +z_weapon), Q = Ry(180) * q          (weapon +z -> view -z)
 //   T_ads = (0, 0, -relief) - Q * R                             (R lands at view (0, 0, -relief))
-//   T_hip = (0, 0, -0.21) - Q * R + (0.12, -0.07, 0.06)            (hip pose independent of the ADS calibration)
+//   T_hip = (0, 0, -0.21) - Q * R + hipOffset                     (default (0.12, -0.07, 0.06); independent of the ADS calibration)
 // Per-weapon calibration (WeaponDef, JSON "ads"): relief = eyeRelief; C = euler(rotCorrection) is applied in view
 // space about R and T_ads += posCorrection, so with both zero R and F sit exactly on the view axis.
 static void sightFrame(const WeaponDef& d, bool scoped, quat& Q, vec3& Rp, vec3& Fp, float& relief) {
@@ -49,7 +49,7 @@ vec3 App::vmTarget(const WeaponDef& d) const {
   bool scoped = vmScoped(d);
   sightFrame(d, scoped, Q, Rp, Fp, relief);
   vec3 ads = vec3(0, 0, -relief) - Q * Rp + (scoped ? vec3(0) : d.adsPos);
-  vec3 hip = vec3(0, 0, scoped ? -relief : -0.21f) - Q * Rp + vec3(0.12f, -0.07f, 0.06f);
+  vec3 hip = vec3(0, 0, scoped ? -relief : -0.21f) - Q * Rp + d.hipOffset;
   float t = adsT * adsT * (3 - 2 * adsT);
   return glm::mix(hip, ads, t);
 }

@@ -28,6 +28,10 @@ struct WeaponDef {
   float adsVmFov = 0;                   // deg, weapon-projection FOV while aiming (0 = keep the fixed vmFov)
   vec3 adsPos{0};                       // view-space translation correction in ADS (m)
   vec3 adsRot{0};                       // view-space rotation correction about the rear sight (deg: pitch, yaw, roll)
+  vec3 hipOffset{0.12f, -0.07f, 0.06f}; // view-space offset of the hip pose from the ADS line (m; JSON ads.hipOffset)
+  float adsWorldFov = 58;               // deg, world FOV at full ADS (irons / launchers; JSON ads.worldFov)
+  bool sightLineOnly = false;           // JSON ads.virtualLine: rear/front are a view line beside the weapon (launcher
+                                        // aimed past its shield), so aimed rounds leave the muzzle, not the "front sight"
   vec3 muzzleDir{0, 0, 1};              // bore axis at the muzzle (weapon space)
   bool useModel() const { return model && model->vao; }
 };

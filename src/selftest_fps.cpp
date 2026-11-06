@@ -82,7 +82,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       vec3 tgt = a.vmTarget(D(a));
       if (settle < 0 && a.adsT >= 1.0f && glm::length(a.vm.pos - tgt) < 0.0005f) settle = t - 0.5f;
       if (t < 1.6f) return false;
-      check(settle > 0.1f && settle < 0.6f, "hip -> ADS on a critically damped spring (omega 18/s): within 0.5 mm after " + std::to_string(settle).substr(0, 4) + " s, no overshoot needed");
+      check(settle > 0.1f && settle < 0.8f, "hip -> ADS on a critically damped spring (omega 18/s, blend adsTime_s 0.25): within 0.5 mm after " + std::to_string(settle).substr(0, 4) + " s, no overshoot needed");
       float fov = 0; check(a.weaponCamera(fov) && fov < 72 && a.vm.vmFov == 60, "world FOV narrows to " + std::to_string((int)fov) + " in ADS while the weapon keeps its fixed 60 deg projection");
       return true; });
 
@@ -193,10 +193,10 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       if (t < 1.0f) return false;
       float focus, amount; a.dofParams(focus, amount);
       const WeaponDef& d = D(a);
-      float want = 0.21f + glm::length(d.front - d.rear) + 0.03f;
+      float want = d.eyeRelief + glm::length(d.front - d.rear) + 0.03f;
       auto coc = [&](float dd) { return amount * std::clamp((focus - dd) / (0.6f * focus), 0.0f, 1.0f) * 6.0f; };
-      char b[200]; std::snprintf(b, sizeof b, "ADS focus %.3f m (front post + 3 cm), blend %.2f; CoC at the rear aperture %.1f px, at the front post %.1f px, at the target 0", focus, amount, coc(0.21f), coc(focus));
-      check(std::fabs(focus - want) < 1e-4f && amount > 0.99f && coc(0.21f) > 5.9f && coc(focus) == 0.0f, b);
+      char b[200]; std::snprintf(b, sizeof b, "ADS focus %.3f m (front post + 3 cm), blend %.2f; CoC at the rear aperture %.1f px, at the front post %.1f px, at the target 0", focus, amount, coc(d.eyeRelief), coc(focus));
+      check(std::fabs(focus - want) < 1e-4f && amount > 0.99f && coc(d.eyeRelief) > 5.9f && coc(focus) == 0.0f, b);
       a.reducedMotion = true; a.dofParams(focus, amount); a.reducedMotion = false;
       check(amount == 0, "reduced motion turns the sight blur off");
       check(!a.R.dofEnabled, "sight blur is removed from play: the depth-of-field pass is off by default with no toggle");

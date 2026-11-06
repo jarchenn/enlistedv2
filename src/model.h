@@ -35,6 +35,15 @@ struct ImportSpec {
   int maxTex = 1024;
   json matOverride = json::object();   // per source material name: {"base":[r,g,b,a], "metal":m, "rough":r, "dropTextures":bool, "roughScale":k}
   vec3 tint{1};                        // multiplies every base colour (palette correction)
+  // Edits of the supplied mesh, applied at bake in weapon space (after rot/scale/placement). Each edit selects the
+  // connected triangle islands lying entirely inside box [lo, hi] and either drops them ("hide") or re-poses them:
+  // rotate by deg about axis through pivot, then translate; or ("radial") push the vertices closer than rMax to the
+  // z-parallel axis through centre outward by scale (opens a peep-sight hole; the outer ring is untouched). Used to
+  // fold sub-parts the source authored raised (BAR ladder leaf) and open the Garand aperture. No geometry is added.
+  // docs/fps-weapons.md#mesh-edits
+  struct MeshEdit { vec3 lo{0}, hi{0}, axis{1, 0, 0}, pivot{0}, move{0}; float deg = 0; bool hide = false;
+                    bool radial = false; vec2 centre{0}; float rMax = 0, scale = 1; std::string note; };
+  std::vector<MeshEdit> meshEdits;
 };
 ImportSpec importSpecFromJson(const json& j);
 

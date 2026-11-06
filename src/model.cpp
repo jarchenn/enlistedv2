@@ -6,6 +6,9 @@
 #include <fstream>
 #include <algorithm>
 #include <cstring>
+#include <functional>
+#include <map>
+#include <tuple>
 
 // ------------------------------------------------------------------ import spec
 ImportSpec importSpecFromJson(const json& j) {
@@ -21,6 +24,19 @@ ImportSpec importSpecFromJson(const json& j) {
   s.maxTex = j.value("maxTex", 1024);
   s.matOverride = j.value("matOverride", json::object());
   s.tint = jvec3(j.value("tint", json()), vec3(1));
+  for (auto& e : j.value("meshEdits", json::array())) {
+    ImportSpec::MeshEdit m;
+    json box = e.value("islandsIn", json::array());
+    if (box.size() == 2) { m.lo = jvec3(box[0], vec3(0)); m.hi = jvec3(box[1], vec3(0)); }
+    m.axis = jvec3(e.value("axis", json()), vec3(1, 0, 0)); m.pivot = jvec3(e.value("pivot", json()), vec3(0));
+    m.move = jvec3(e.value("translate", json()), vec3(0)); m.deg = e.value("deg", 0.0f); m.hide = e.value("hide", false);
+    m.note = e.value("note", "");
+    if (e.contains("radial")) {
+      const json& r = e["radial"]; m.radial = true;
+      m.centre = vec2(r["centre"][0].get<float>(), r["centre"][1].get<float>()); m.rMax = r.value("rMax", 0.0f); m.scale = r.value("scale", 1.0f);
+    }
+    s.meshEdits.push_back(m);
+  }
   return s;
 }
 
@@ -317,14 +333,51 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     auto& q = prims[p];
     uint32_t base = (uint32_t)V.size(), first = (uint32_t)I.size();
     vec3 pmin(1e9f), pmax(-1e9f);
-    for (auto v : q.v) {
-      v.pos = vec3(X * vec4(v.pos, 1)); v.nrm = glm::normalize(R * v.nrm); v.tan = vec4(glm::normalize(R * vec3(v.tan)), v.tan.w);
-      pmin = glm::min(pmin, v.pos); pmax = glm::max(pmax, v.pos); V.push_back(v);
+    std::vector<TexVertex> qv = q.v;
+    for (auto& v : qv) { v.pos = vec3(X * vec4(v.pos, 1)); v.nrm = glm::normalize(R * v.nrm); v.tan = vec4(glm::normalize(R * vec3(v.tan)), v.tan.w); }
+    std::vector<uint8_t> dropV(qv.size(), 0);
+    if (!spec.meshEdits.empty()) {
+      // islands: union-find over vertices, joined by triangles and by coincident positions (split UV seams)
+      std::vector<int> par(qv.size()); for (size_t k = 0; k < par.size(); ++k) par[k] = (int)k;
+      std::function<int(int)> find = [&](int a) { while (par[a] != a) { par[a] = par[par[a]]; a = par[a]; } return a; };
+      auto uni = [&](int a, int b) { a = find(a); b = find(b); if (a != b) par[a] = b; };
+      for (size_t t = 0; t + 2 < q.i.size(); t += 3) { uni(q.i[t], q.i[t + 1]); uni(q.i[t], q.i[t + 2]); }
+      std::map<std::tuple<long, long, long>, int> at;
+      for (size_t k = 0; k < qv.size(); ++k) {
+        auto key = std::make_tuple(std::lround(qv[k].pos.x * 1e5f), std::lround(qv[k].pos.y * 1e5f), std::lround(qv[k].pos.z * 1e5f));
+        auto it = at.find(key); if (it == at.end()) at[key] = (int)k; else uni((int)k, it->second);
+      }
+      for (auto& me : spec.meshEdits) {
+        std::map<int, bool> inside;   // island root -> every vertex inside the box
+        for (size_t k = 0; k < qv.size(); ++k) {
+          const vec3& p = qv[k].pos; bool in = glm::all(glm::greaterThanEqual(p, me.lo)) && glm::all(glm::lessThanEqual(p, me.hi));
+          auto r = inside.emplace(find((int)k), in); if (!in) r.first->second = false;
+        }
+        mat4 E = glm::translate(mat4(1), me.move + me.pivot) * glm::rotate(mat4(1), glm::radians(me.deg), glm::normalize(me.axis)) * glm::translate(mat4(1), -me.pivot);
+        glm::mat3 En(E);
+        int moved = 0;
+        for (size_t k = 0; k < qv.size(); ++k) {
+          if (dropV[k] || !inside[find((int)k)]) continue;
+          ++moved;
+          if (me.hide) { dropV[k] = 1; continue; }
+          if (me.radial) {   // positions only: the ring's normals stay radial / axial
+            vec2 o = vec2(qv[k].pos) - me.centre; float r = glm::length(o);
+            if (r < me.rMax && r > 1e-7f) { o *= me.scale; qv[k].pos.x = me.centre.x + o.x; qv[k].pos.y = me.centre.y + o.y; } else --moved;
+            continue;
+          }
+          qv[k].pos = vec3(E * vec4(qv[k].pos, 1)); qv[k].nrm = glm::normalize(En * qv[k].nrm); qv[k].tan = vec4(glm::normalize(En * vec3(qv[k].tan)), qv[k].tan.w);
+        }
+        if (moved) logf("  mesh edit on '%s': %d vertices %s (%s)", q.name.c_str(), moved, me.hide ? "hidden" : "re-posed", me.note.c_str());
+      }
     }
-    for (auto i : q.i) I.push_back(base + i);
+    for (auto& v : qv) { pmin = glm::min(pmin, v.pos); pmax = glm::max(pmax, v.pos); V.push_back(v); }
+    for (size_t t = 0; t + 2 < q.i.size(); t += 3) {
+      if (dropV[q.i[t]] || dropV[q.i[t + 1]] || dropV[q.i[t + 2]]) continue;
+      for (int c = 0; c < 3; ++c) I.push_back(base + q.i[t + c]);
+    }
     bmin = glm::min(bmin, pmin); bmax = glm::max(bmax, pmax);
     Mat m = q.mat >= 0 && q.mat < (int)mats.size() ? mats[q.mat] : Mat{};
-    json pj = {{"name", q.name}, {"role", q.role}, {"first", first}, {"count", (uint32_t)q.i.size()},
+    json pj = {{"name", q.name}, {"role", q.role}, {"first", first}, {"count", (uint32_t)I.size() - first},
                {"base", {m.base.r, m.base.g, m.base.b, m.base.a}}, {"metal", m.metal}, {"rough", m.rough}, {"textured", m.alb >= 0}, {"mat", q.mat},
                {"bmin", tojson(pmin)}, {"bmax", tojson(pmax)}};
     if (!primAnim[p].empty()) {
@@ -488,15 +541,22 @@ mat4 GpuModel::animAt(int part, float u) const {
 
 bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
   fs::path wdir = contentRoot / "weapons";
-  std::set<std::string> done;
+  std::map<std::string, json> done;   // output dir -> the model block that baked it
   int ok = 0, bad = 0;
-  for (auto& e : fs::directory_iterator(wdir)) {
-    if (e.path().extension() != ".json") continue;
-    json j; try { j = json::parse(readTextFile(e.path())); } catch (...) { continue; }
+  std::vector<fs::path> files;   // sorted: the directory order differs between file systems
+  for (auto& e : fs::directory_iterator(wdir)) if (e.path().extension() == ".json") files.push_back(e.path());
+  std::sort(files.begin(), files.end());
+  for (auto& f : files) {
+    json j; try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
     if (!j.contains("model")) continue;
     ImportSpec s = importSpecFromJson(j["model"]);
-    if (s.src.empty() || s.dir.empty() || done.count(s.dir)) continue;
-    done.insert(s.dir);
+    if (s.src.empty() || s.dir.empty()) continue;
+    if (done.count(s.dir)) {   // weapons sharing one baked model (M1 / M1C Garand) must agree on how it is baked
+      json a = done[s.dir], b = j["model"]; a.erase("overallLength"); b.erase("overallLength");
+      if (a != b) logf("import %-12s WARNING: %s has a different model block for the shared folder; the first one was baked", s.dir.c_str(), f.filename().string().c_str());
+      continue;
+    }
+    done[s.dir] = j["model"];
     fs::path glb = srcDir / s.src;
     if (!fs::exists(glb)) { logf("import %-12s skipped: %s not found", s.dir.c_str(), glb.string().c_str()); continue; }
     std::string err, sum;
