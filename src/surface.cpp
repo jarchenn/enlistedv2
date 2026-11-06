@@ -40,7 +40,8 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
   for (auto& r : routes) {
     float width = r.value("width", 3.0f);
     std::string kind = r.value("kind", "lane");
-    uint8_t kb = kind == "gravel" ? 255 : kind == "footpath" ? 128 : 0;
+    uint8_t kb = kind == "gravel" ? 255 : kind == "footpath" ? 128 : kind == "sand" ? 64 : 0;   // sand: W5 beaches
+    float wetBias = r.value("wet", 0.0f), strength = r.value("strength", 1.0f);   // W5: standing water on tidal flats, partial wear
     std::vector<vec2> pts;
     for (auto& p : r.value("pts", json::array())) pts.push_back(vec2(p[0].get<float>(), p[1].get<float>()));
     for (size_t s = 0; s + 1 < pts.size(); ++s) {
@@ -57,11 +58,14 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
           float e = d / (width * 0.5f + wob);
           float wear = std::clamp(1.25f - e * 1.1f, 0.0f, 1.0f);
           wear = wear * wear * (3 - 2 * wear);
+          if (kind == "sand") wear = std::clamp((width * 0.5f + wob * 6.0f - d) / 5.0f, 0.0f, 1.0f);   // W5: wide bands, 5 m soft edge
+          wear *= strength;
           // wheel ruts on lanes at +-0.75 m from the centre line; puddles where ruts and noise lows meet
           float rut = 0;
           if (kind == "lane") { float rd = std::fabs(d - 0.75f); rut = std::clamp(1.0f - rd / 0.28f, 0.0f, 1.0f); }
           float low = vnoise(w.x * 0.22f, w.y * 0.22f, 31);
           float wet = std::clamp(rut * (low - 0.45f) * 3.2f, 0.0f, 1.0f) + std::clamp((0.25f - low) * 2.0f, 0.0f, 0.5f) * wear;
+          wet = std::max(wet, wetBias * wear * (0.35f + 1.1f * low));
           size_t i = idx(x, y);
           surf[i + 0] = std::max<uint8_t>(surf[i + 0], (uint8_t)(wear * 255));
           surf[i + 1] = std::max<uint8_t>(surf[i + 1], (uint8_t)(std::clamp(wet, 0.0f, 1.0f) * 255));

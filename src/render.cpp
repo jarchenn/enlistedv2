@@ -1412,6 +1412,7 @@ void main(){
   // compacted earth: trodden patches, small stones and wheel-polished strips break the track up at 0.2-2 m
   float pebble = smoothstep(0.78, 0.9, vnoise(vec3(p.xz*6.5, 11.0)));
   track = mix(track * (0.82 + 0.3*vnoise(vec3(p.xz*1.7, 12.0))), track*1.25 + vec3(0.03), pebble*0.45);
+  track = mix(track, mix(vec3(0.40,0.345,0.24), vec3(0.47,0.41,0.29), nF)*(0.9 + 0.2*nX) + vec3(0.02,0.018,0.012)*streak, 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)));   // W5: beach sand (route kind "sand", surface.cpp)
   // grass breaks up into the track along a noisy edge; ruts and damp lows turn to mud
   float tw = smoothstep(0.25, 0.75, wear + (nF - 0.5)*0.35 + (nX - 0.5)*0.15);
   vec3 alb = mix(grass, track, tw);
