@@ -1,4 +1,5 @@
 #include "app.h"
+#include "thumbs.h"
 #include "selftest.h"
 #include "mpai.h"
 #include <GLFW/glfw3.h>
@@ -460,22 +461,7 @@ bool App::startMarkerValid(vec3 pos) const { return !Physics::capsuleBlocked(pos
 
 // ============================================================ thumbnails & screenshots
 void App::makeThumbnails() {
-  for (auto& a : lib.assets) {
-    std::vector<DrawItem> op{{&a->opaque, mat4(1)}, {&a->panelsIntact, mat4(1)}}, gl;
-    if (a->glass.count) gl.push_back({&a->glass, mat4(1)});
-    for (auto& d : a->interactables)
-      for (auto& lf : d.leaves) {
-        mat4 L = glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * (d.defaultOpen ? d.openAngle : 0)), d.axis));
-        op.push_back({&lf.opaque, L});
-        if (lf.glass.count) gl.push_back({&lf.glass, L});
-      }
-    R.foliage.clear(); if (a->tree.on) R.foliage.push_back({&a->tree, mat4(1)});
-    R.worldModels.clear();
-    if (a->model) for (size_t k = 0; k < a->model->parts.size(); ++k) R.worldModels.push_back({a->model.get(), (int)k, mat4(1)});
-    a->thumbnail = R.renderThumbnail(op, gl, a->bmin, a->bmax);
-    R.worldModels.clear();
-    R.foliage.clear();
-  }
+  makeAssetThumbnails(*this);   // thumbs.cpp (W2): silhouette framing, models and wire, disk cache
   for (auto& t : templates) {
     if (!t.available) continue;
     terrain.generate(t);
@@ -528,6 +514,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
+    else if (a == "--selftest-visuals") runSelf = true;   // W2: thumbnails, footprint labels, bunker pass (selftest_visuals.cpp)
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
     else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }

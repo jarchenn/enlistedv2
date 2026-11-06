@@ -71,6 +71,7 @@ target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlo
 target_compile_definitions(NormandyMapmaker PRIVATE GLM_ENABLE_EXPERIMENTAL GLFW_INCLUDE_NONE)
 include(cmake/mpai.cmake)   # multiplayer + AI sources
 include(cmake/w1.cmake)     # W1 gameplay rules: spawn protection, fall damage, damage model
+include(cmake/w2.cmake)     # W2 visual fixes: sight overlay, thumbnails
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

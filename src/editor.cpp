@@ -1,5 +1,6 @@
 // Creative mode: flying camera, asset browser, placement, selection, transforms, undo, start marker.
 #include "app.h"
+#include "thumbs.h"
 #include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -243,7 +244,7 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
 
 // ------------------------------------------------------------------ UI
 static std::string fmtFoot(const AssetDef* a) {
-  char b[96]; std::snprintf(b, sizeof b, "%.0fx%.0f m | %d floor%s%s", a->footprint.x, a->footprint.y, a->floors, a->floors == 1 ? "" : "s", a->enterable ? " | enterable" : "");
+  char b[96]; std::snprintf(b, sizeof b, "%s | %d floor%s%s", footprintLabel(a->footprint).c_str(), a->floors, a->floors == 1 ? "" : "s", a->enterable ? " | enterable" : "");   // W2: one decimal (thumbs.cpp)
   return b;
 }
 

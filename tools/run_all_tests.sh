@@ -18,6 +18,7 @@ run env      --selftest-env
 run arsenal  --selftest-arsenal
 run move     --selftest-move
 run sights   --selftest-sights
+run visuals  --selftest-visuals   # W2: thumbnails (blank tiles, cache), footprint labels, bunker ammo / nav / OP + shelter pass
 run update   --selftest-update
 run entities --selftest-entities
 run tanks    --selftest-tanks

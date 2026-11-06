@@ -1,6 +1,7 @@
 // --selftest-sights: per-weapon ADS calibration measured on the *rendered* weapon: FG 42 and MG 42 (full set), then
-// Kar98k (V-notch), M1 Carbine / Thompson / Garand (apertures), BAR (front sight only, folded leaf) and the
-// Panzerschreck (launcher composition), plus the smooth-ADS blend.
+// Kar98k (V-notch), M1 Carbine / Thompson / Garand (apertures), BAR (front sight only, folded leaf), the
+// Panzerschreck (launcher composition), StG 44 (U-notch, hooded post) and M3 (peep), plus the smooth-ADS blend and the
+// W2 sweep: every weapon at 1920x1080, 2560x1440 and 3440x1440 (front tip 1 px, aperture / notch 2 px, roll 0).
 // The first-person pass writes each pixel's eye distance (vmDist, the depth-of-field attachment); the rear sight
 // (~0.2 m) and the front sight (~0.75 m) separate cleanly by distance, so the aperture hole, the front post tip and
 // the MG 42's V-notch are found in the weapon-projection image itself and compared with the fixed centre dot.
@@ -14,6 +15,10 @@
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> sseq; size_t scur = 0; float stt = 0;
+// W2 sweep: renderer size forced each frame, independent of the window (the OS clamps windows to the work area, so a
+// 3440x1440 window cannot exist on a 2560x1440 desktop). The main loop sizes the renderer to the window first, then
+// the self-test update runs, so the forced size is what the frame renders and the probe reads.
+glm::ivec2 forceRes{0};
 uint64_t SWALL = 0;
 WeaponDef& WD(App& a) { return *a.weaponDefs[a.activeWeapon]; }
 
@@ -40,11 +45,14 @@ bool probeThen(float t, float when, const std::function<void()>& fn) {
 }
 
 float at(const Probe& p, int x, int y) { return p.d[(size_t)(p.h - 1 - y) * p.w + x]; }   // y from the top
+// windows and blob limits below are tuned at 1080 rows; scale them with the framebuffer height (1440p / ultrawide)
+float rs(const Probe& p) { return p.h / 1080.0f; }
+int rsi(const Probe& p, int v) { return (int)std::lround(v * rs(p)); }
 
 // FG 42: diopter ring (near) around an enclosed hole; the front post (far) seen through it.
 Meas measureAperture(const Probe& p, float nearMax, float farMin, float farMax) {
   Meas m;
-  int cx = p.w / 2, cy = p.h / 2, R = 220;
+  int cx = p.w / 2, cy = p.h / 2, R = rsi(p, 220);
   int x0 = std::max(1, cx - R), x1 = std::min(p.w - 2, cx + R), y0 = std::max(1, cy - R), y1 = std::min(p.h - 2, cy + R);
   auto nearPx = [&](int x, int y) { float d = at(p, x, y); return d > 0.001f && d < nearMax; };
   int W = x1 - x0 + 1, H = y1 - y0 + 1;
@@ -67,7 +75,7 @@ Meas measureAperture(const Probe& p, float nearMax, float farMin, float farMax) 
           if (!lab[kk] && !nearPx(nx[n] + x0, ny[n] + y0)) { lab[kk] = id; st.push_back((int)kk); }
         }
       }
-      if (border || pts.size() < 20 || pts.size() > 6000) continue;
+      if (border || pts.size() < 20 || pts.size() > 6000 * rs(p) * rs(p)) continue;
       int bx0 = 1 << 30, bx1 = -1, by0 = 1 << 30, by1 = -1;
       for (int q : pts) { bx0 = std::min(bx0, q % W); bx1 = std::max(bx1, q % W); by0 = std::min(by0, q / W); by1 = std::max(by1, q / W); }
       float ar = float(bx1 - bx0 + 1) / float(by1 - by0 + 1);
@@ -100,7 +108,7 @@ Meas measureAperture(const Probe& p, float nearMax, float farMin, float farMax) 
 Meas measureNotch(const Probe& p, float nearMax) {
   Meas m;
   int cx = p.w / 2, cy = p.h / 2;
-  int x0 = std::max(0, cx - 300), x1 = std::min(p.w - 1, cx + 300), y0 = std::max(0, cy - 320), y1 = std::min(p.h - 1, cy + 120);
+  int x0 = std::max(0, cx - rsi(p, 300)), x1 = std::min(p.w - 1, cx + rsi(p, 300)), y0 = std::max(0, cy - rsi(p, 320)), y1 = std::min(p.h - 1, cy + rsi(p, 120));
   std::vector<int> top(x1 - x0 + 1, -1);
   for (int x = x0; x <= x1; ++x)
     for (int y = y0; y <= y1; ++y) { float d = at(p, x, y); if (d > 0.001f && d < nearMax) { top[x - x0] = y; break; } }
@@ -110,11 +118,11 @@ Meas measureNotch(const Probe& p, float nearMax) {
   int base = def[def.size() * 3 / 4];   // receiver line: most columns
   int ra = -1, rb = -1, a = -1;
   for (int k = 0; k <= (int)top.size(); ++k) {
-    bool leaf = k < (int)top.size() && top[k] >= 0 && top[k] < base - 10;
+    bool leaf = k < (int)top.size() && top[k] >= 0 && top[k] < base - rsi(p, 10);
     if (leaf && a < 0) a = k;
     if (!leaf && a >= 0) { if (k - 1 - a > rb - ra) { ra = a; rb = k - 1; } a = -1; }
   }
-  if (ra < 0 || rb - ra < 6) return m;
+  if (ra < 0 || rb - ra < rsi(p, 6)) return m;
   int mid = (ra + rb) / 2, lp = ra, rp = rb;
   for (int k = ra; k <= mid; ++k) if (top[k] < top[lp]) lp = k;
   for (int k = rb; k >= mid; --k) if (top[k] < top[rp]) rp = k;
@@ -132,30 +140,76 @@ Meas measureNotch(const Probe& p, float nearMax) {
 // V bottom raised by the notch depth drawn at the eye relief (dropPx). The front tip is the topmost far pixel in the V.
 Meas measureVNotch(const Probe& p, float nearMax, float farMin, float farMax, float dropPx) {
   Meas m;
-  int cx = p.w / 2, cy = p.h / 2, X0 = std::max(0, cx - 160), X1 = std::min(p.w - 1, cx + 160);
+  const int w60 = rsi(p, 60), w80 = rsi(p, 80), h200 = rsi(p, 200);
+  int cx = p.w / 2, cy = p.h / 2, X0 = std::max(0, cx - rsi(p, 160)), X1 = std::min(p.w - 1, cx + rsi(p, 160));
   std::vector<int> top(X1 - X0 + 1, -1);
   for (int x = X0; x <= X1; ++x)
-    for (int y = std::max(0, cy - 200); y <= std::min(p.h - 1, cy + 200); ++y) { float d = at(p, x, y); if (d > 0.001f && d < nearMax) { top[x - X0] = y; break; } }
+    for (int y = std::max(0, cy - h200); y <= std::min(p.h - 1, cy + h200); ++y) { float d = at(p, x, y); if (d > 0.001f && d < nearMax) { top[x - X0] = y; break; } }
   // V bottom: the lowest top (largest y) within 60 px of the centre with higher tops on both sides
   int by = -1;
-  for (int k = 60; k < (int)top.size() - 60; ++k) {
-    if (top[k] < 0 || std::abs(k + X0 - cx) > 60) continue;
+  for (int k = w60; k < (int)top.size() - w60; ++k) {
+    if (top[k] < 0 || std::abs(k + X0 - cx) > w60) continue;
     int l = 1 << 30, r = 1 << 30;
-    for (int q = k - 60; q < k; ++q) if (top[q] >= 0) l = std::min(l, top[q]);
-    for (int q = k + 1; q <= k + 60; ++q) if (top[q] >= 0) r = std::min(r, top[q]);
+    for (int q = k - w60; q < k; ++q) if (top[q] >= 0) l = std::min(l, top[q]);
+    for (int q = k + 1; q <= k + w60; ++q) if (top[q] >= 0) r = std::min(r, top[q]);
     if (l < top[k] - 3 && r < top[k] - 3 && top[k] > by) by = top[k];
   }
   if (by < 0) return m;
   // centre of the V: midpoint of the flanks at half the drawn depth (sub-pixel robust vs the 1-px flat bottom)
   int yh = (int)std::lround(by - dropPx * 0.5f), a = -1, b = -1;
-  for (int k = 0; k < (int)top.size(); ++k) if (std::abs(k + X0 - cx) <= 80 && top[k] >= 0 && top[k] >= yh) { if (a < 0) a = k; b = k; }
+  for (int k = 0; k < (int)top.size(); ++k) if (std::abs(k + X0 - cx) <= w80 && top[k] >= 0 && top[k] >= yh) { if (a < 0) a = k; b = k; }
   if (a < 0) return m;
   float vx = (a + b) * 0.5f + X0 + 0.5f;
   m.rear = vec2(vx, by + 1 - dropPx); m.rearOk = true;   // by + 1: lower edge of the bottom pixel row
   m.errRear = glm::length(m.rear - vec2(cx, cy)); m.leafW = float(b - a + 1);
   int t = 1 << 30; double tx = 0; int n = 0;
-  for (int x = a; x <= b; ++x) for (int y = std::max(0, by - 60); y <= by + 2; ++y) { float d = at(p, x + X0, y); if (d >= farMin && d <= farMax) { if (y < t) { t = y; tx = 0; n = 0; } if (y == t) { tx += x + X0 + 0.5; ++n; } break; } }
+  for (int x = a; x <= b; ++x) for (int y = std::max(0, by - w60); y <= by + 2; ++y) { float d = at(p, x + X0, y); if (d >= farMin && d <= farMax) { if (y < t) { t = y; tx = 0; n = 0; } if (y == t) { tx += x + X0 + 0.5; ++n; } break; } }
   if (n) { m.front = vec2(float(tx / n), (float)t); m.frontOk = true; m.errFront = glm::length(m.front - vec2(cx, cy)); }
+  return m;
+}
+
+// StG 44 (W2): tangent leaf (near) with a 2 mm U-notch, a pointed post inside a hood (far). The notch is the
+// contiguous run of columns around the lowest leaf top; the rear reference is the shoulder line over it (notch bottom
+// raised by the drawn depth dropPx, as for the Kar98k). Through the notch the hood arc shows as a short far run above
+// the post; the tip is the top of the first far run of at least minRun pixels in the notch-centre columns.
+Meas measureUNotch(const Probe& p, float nearMax, float farMin, float farMax, float dropPx) {
+  Meas m;
+  const int w40 = rsi(p, 40), w30 = rsi(p, 30), h200 = rsi(p, 200), up = rsi(p, 60);
+  int cx = p.w / 2, cy = p.h / 2, X0 = std::max(0, cx - rsi(p, 160)), X1 = std::min(p.w - 1, cx + rsi(p, 160));
+  std::vector<int> top(X1 - X0 + 1, -1);
+  for (int x = X0; x <= X1; ++x)
+    for (int y = std::max(0, cy - h200); y <= std::min(p.h - 1, cy + h200); ++y) { float d = at(p, x, y); if (d > 0.001f && d < nearMax) { top[x - X0] = y; break; } }
+  int by = -1, bk = -1;
+  for (int k = w30; k < (int)top.size() - w30; ++k) {
+    if (top[k] < 0 || std::abs(k + X0 - cx) > w40) continue;
+    int l = 1 << 30, r = 1 << 30;
+    for (int q = k - w30; q < k; ++q) if (top[q] >= 0) l = std::min(l, top[q]);
+    for (int q = k + 1; q <= k + w30; ++q) if (top[q] >= 0) r = std::min(r, top[q]);
+    if (l < top[k] - 2 && r < top[k] - 2 && top[k] > by) { by = top[k]; bk = k; }
+  }
+  if (by < 0) return m;
+  int yh = (int)std::lround(by - dropPx * 0.5f), a = bk, b = bk;   // contiguous notch columns (below half depth)
+  while (a > 0 && top[a - 1] >= yh) --a;
+  while (b + 1 < (int)top.size() && top[b + 1] >= yh) ++b;
+  float vx = (a + b) * 0.5f + X0 + 0.5f;
+  m.rear = vec2(vx, by + 1 - dropPx); m.rearOk = true;
+  m.errRear = glm::length(m.rear - vec2(cx, cy)); m.leafW = float(b - a + 1);
+  // the post is the far run that reaches down to the notch bottom (the leaf hides the rest); the hood arc above it is
+  // a separate far run with sky / background between
+  int best = 1 << 30; std::vector<std::pair<int, int>> tips;
+  for (int x = (int)std::floor(vx) - 2; x <= (int)std::floor(vx) + 2; ++x) {
+    if (x < 0 || x >= p.w) continue;
+    int start = -1;
+    for (int y = std::max(0, by - up); y < by; ++y) {
+      float d = at(p, x, y);
+      bool far = d >= farMin && d <= farMax;
+      if (far && start < 0) start = y;
+      if (!far) start = -1;
+    }
+    if (start >= 0) { tips.push_back({x, start}); best = std::min(best, start); }
+  }
+  double tx = 0; int n = 0; for (auto& t : tips) if (t.second == best) { tx += t.first + 0.5; ++n; }
+  if (n) { m.front = vec2(float(tx / n), (float)best); m.frontOk = true; m.errFront = glm::length(m.front - vec2(cx, cy)); }
   return m;
 }
 
@@ -166,13 +220,14 @@ Meas measureFrontPost(const Probe& p, float farMin, float farMax, int minRun) {
   Meas m;
   int cx = p.w / 2, cy = p.h / 2, best = 1 << 30; std::vector<int> tips;
   auto solid = [&](int x, int y) { float d = at(p, x, y); return d >= farMin && d <= farMax; };
-  for (int x = cx - 6; x < cx + 6; ++x) {
+  const int hw = rsi(p, 6), vr = rsi(p, 80);
+  for (int x = cx - hw; x < cx + hw; ++x) {
     int tip = -1;
-    for (int y = cy - 80, run = 0; y < cy + 80; ++y) { if (solid(x, y)) { if (++run == minRun) { tip = y - minRun + 1; break; } } else run = 0; }
+    for (int y = cy - vr, run = 0; y < cy + vr; ++y) { if (solid(x, y)) { if (++run == minRun) { tip = y - minRun + 1; break; } } else run = 0; }
     tips.push_back(tip); if (tip >= 0) best = std::min(best, tip);
   }
   if (best == (1 << 30)) return m;
-  double tx = 0; int n = 0; for (int k = 0; k < (int)tips.size(); ++k) if (tips[k] >= 0 && tips[k] <= best) { tx += cx - 6 + k + 0.5; ++n; }
+  double tx = 0; int n = 0; for (int k = 0; k < (int)tips.size(); ++k) if (tips[k] >= 0 && tips[k] <= best) { tx += cx - hw + k + 0.5; ++n; }
   m.front = vec2(float(tx / n), (float)best); m.frontOk = true; m.errFront = glm::length(m.front - vec2(cx, cy));
   m.rearOk = true; m.errRear = 0; m.leafW = (float)n;   // post width at the tip (px)
   return m;
@@ -196,7 +251,30 @@ Cover coverage(const Probe& p, float box) {
   c.centre = in / float(std::max(1, 4 * bw * bh)); c.meanX = all ? float(sx / all) : 0; c.leftShare = all ? left / float(all) : 0;
   return c;
 }
+
+// W2 sweep: the image measurement each calibrated iron sight uses (the same calls as its own steps above).
+// rear / front say which of the two the sight has: MG 42 (folded front post) rear only, BAR (folded leaf) front only.
+// Scoped, launcher and uncalibrated weapons have no image measurement here (analytic check only).
+bool measureById(App& a, const std::string& id, const Probe& p, Meas& m, bool& rear, bool& front) {
+  rear = front = true;
+  auto drop = [&](float depth) {
+    const WeaponDef& d = *a.weaponDefs[a.activeWeapon];
+    vec3 Rw, Fw; a.sightLineWorld(d, a.wstate[d.id], Rw, Fw);
+    float dist = glm::dot(Rw - a.eyePos(), App::forward(a.eyeYaw + a.viewKickYaw, a.eyePitch + a.viewKickPitch));
+    return depth / std::max(0.02f, dist) * (p.h * 0.5f / std::tan(radians(a.vmFovNow()) * 0.5f));
+  };
+  if (id == "fg42") m = measureAperture(p, 0.32f, 0.55f, 1.2f);
+  else if (id == "mg42") { m = measureNotch(p, 0.32f); front = false; }
+  else if (id == "kar98k") m = measureVNotch(p, 0.32f, 0.5f, 1.4f, drop(0.0012f));
+  else if (id == "m1_carbine" || id == "m1_thompson" || id == "m1_garand") m = measureAperture(p, 0.32f, 0.5f, 1.3f);
+  else if (id == "m3_grease_gun") m = measureAperture(p, 0.25f, 0.35f, 0.9f);
+  else if (id == "stg44") m = measureUNotch(p, 0.32f, 0.5f, 1.4f, drop(0.0013f));
+  else if (id == "m1918a2_bar") { m = measureFrontPost(p, 0.5f, 1.4f, rsi(p, 8)); rear = false; }
+  else { rear = front = false; return false; }
+  return true;
 }
+}
+#include "sight_overlay.h"
 
 void SelfTest::sightsUpdate(App& app, float dt) {
   auto push = [&](const std::string& n, std::function<bool(App&, float)> f) { sseq.push_back({n, f}); };
@@ -403,8 +481,9 @@ void SelfTest::sightsUpdate(App& app, float dt) {
 
     // ---- W1 (complete update, part 2): anchors measured on the supplied GLB meshes for six more weapons, each
     // checked on the rendered image with the measurement its sight needs; old values first for the report.
-    enum Kind { AP, VN, HOOD, LAUNCH };
-    struct W1 { std::string id; Kind kind; Calib legacy; float sizeLo, sizeHi; };
+    // W2 (MP & Creative update, spec 8): StG 44 (U-notch + hooded post; the mesh re-baked level) and M3 (peep).
+    enum Kind { AP, VN, HOOD, LAUNCH, UN };
+    struct W1 { std::string id; Kind kind; Calib legacy; float sizeLo, sizeHi; float nearMax = 0.32f, farMin = 0.5f, farMax = 1.3f, notch = 0.0012f; };
     const W1 w1[] = {
       {"kar98k", VN, {{0, 0.082f, 0.6f}, {0, 0.081f, 1.085f}, {0, 0.06f, 1.11f}, {0, 0.02f, 0.27f}, {0, 0.045f, 0.72f}, 0.21f}, 0, 0},
       {"m1_carbine", AP, {{0, 0.079f, 0.33f}, {0, 0.0805f, 0.87f}, {0, 0.06f, 0.904f}, {0, 0.0f, 0.27f}, {0, 0.04f, 0.6f}, 0.21f}, 2.2f, 3.4f},
@@ -412,25 +491,30 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       {"m1_garand", AP, {{-0.0012f, 0.111f, 0.306f}, {-0.0008f, 0.113f, 1.069f}, {0, 0.086f, 1.107f}, {0, 0.03f, 0.25f}, {0, 0.045f, 0.62f}, 0.21f}, 1.30f, 1.50f},
       {"m1918a2_bar", HOOD, {{0, 0.112f, 0.285f}, {0, 0.1075f, 1.09f}, {0, 0.079f, 1.214f}, {0, 0.0f, 0.27f}, {0, 0.035f, 0.64f}, 0.21f}, 0, 0},
       {"panzerschreck", LAUNCH, {{-0.1f, 0.06f, 1.0f}, {-0.1f, 0.06f, 1.55f}, {0, 0, 1.64f}, {0, -0.13f, 0.86f}, {0, -0.06f, 1.3f}, 0.21f}, 0, 0},
+      // old anchors (StG 44: measured on the canted bake, shown on the levelled one) for the before line
+      {"stg44", UN, {{-0.0317f, 0.16f, 0.5f}, {-0.0317f, 0.1616f, 0.904f}, {-0.0313f, 0.1013f, 0.94f}, {-0.032f, -0.01f, 0.33f}, {-0.032f, 0.085f, 0.66f}, 0.21f}, 0, 0, 0.32f, 0.5f, 1.4f, 0.0013f},
+      {"m3_grease_gun", AP, {{0, 0.193f, 0.115f}, {0, 0.1843f, 0.485f}, {-0.0007f, 0.1354f, 0.757f}, {0, -0.02f, 0.21f}, {0, -0.03f, 0.45f}, 0.21f}, 2.4f, 3.2f, 0.25f, 0.35f, 0.9f},
     };
     for (const W1& w : w1) {
       const std::string id = w.id;
       if (!wanted(id)) continue;
       const Kind kind = w.kind;
       auto focal = [](App& a, const Probe& p) { return p.h * 0.5f / std::tan(radians(a.vmFovNow()) * 0.5f); };
-      auto measure = [kind, focal](App& a, const Probe& p) {
+      auto measure = [kind, focal, w](App& a, const Probe& p) {
         const WeaponDef& d = *a.weaponDefs[a.activeWeapon];
-        if (kind == AP) return measureAperture(p, 0.32f, 0.5f, 1.3f);
-        if (kind == VN) {   // notch depth drawn at the live eye-to-rear distance (recoil slides the rifle back)
+        if (kind == AP) return measureAperture(p, w.nearMax, w.farMin, w.farMax);
+        if (kind == VN || kind == UN) {   // notch depth drawn at the live eye-to-rear distance (recoil slides the rifle back)
           vec3 Rw, Fw; a.sightLineWorld(d, a.wstate[d.id], Rw, Fw);
           float dist = glm::dot(Rw - a.eyePos(), App::forward(a.eyeYaw + a.viewKickYaw, a.eyePitch + a.viewKickPitch));
-          return measureVNotch(p, 0.32f, 0.5f, 1.4f, 0.0012f / std::max(0.02f, dist) * focal(a, p));
+          float drop = w.notch / std::max(0.02f, dist) * focal(a, p);
+          return kind == VN ? measureVNotch(p, 0.32f, 0.5f, 1.4f, drop) : measureUNotch(p, w.nearMax, w.farMin, w.farMax, drop);
         }
-        return measureFrontPost(p, 0.5f, 1.4f, 8);
+        return measureFrontPost(p, 0.5f, 1.4f, rsi(p, 8));
       };
       auto fmt = [kind](const Meas& m) {
         char b[260];
         if (kind == AP) std::snprintf(b, sizeof b, "aperture centre %s (%.1f, %.1f) err %.2f px, %.0f px wide, post tip %s (%.1f, %.1f) err %.2f px", m.rearOk ? "found" : "NOT FOUND", m.rear.x, m.rear.y, m.rearOk ? m.errRear : -1.0f, m.leafW, m.frontOk ? "seen through it" : "NOT IN THE APERTURE", m.front.x, m.front.y, m.frontOk ? m.errFront : -1.0f);
+        else if (kind == UN) std::snprintf(b, sizeof b, "U-notch shoulder line over the notch centre %s (%.1f, %.1f) err %.2f px (notch %.0f px wide), hooded post tip %s (%.1f, %.1f) err %.2f px", m.rearOk ? "found" : "NOT FOUND", m.rear.x, m.rear.y, m.rearOk ? m.errRear : -1.0f, m.leafW, m.frontOk ? "in the notch" : "NOT IN THE NOTCH", m.front.x, m.front.y, m.frontOk ? m.errFront : -1.0f);
         else if (kind == VN) std::snprintf(b, sizeof b, "V-notch shoulder line over the V centre %s (%.1f, %.1f) err %.2f px (V %.0f px wide), barleycorn tip %s (%.1f, %.1f) err %.2f px", m.rearOk ? "found" : "NOT FOUND", m.rear.x, m.rear.y, m.rearOk ? m.errRear : -1.0f, m.leafW, m.frontOk ? "in the V" : "NOT IN THE V", m.front.x, m.front.y, m.frontOk ? m.errFront : -1.0f);
         else std::snprintf(b, sizeof b, "hooded front post tip %s (%.1f, %.1f) err %.2f px, post %.0f px wide at the tip", m.frontOk ? "found" : "NOT FOUND", m.front.x, m.front.y, m.frontOk ? m.errFront : -1.0f, m.leafW);
         return std::string(b);
@@ -440,13 +524,13 @@ void SelfTest::sightsUpdate(App& app, float dt) {
         if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.vm.procedural = false; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = true; }
         a.scriptedInput.aim = true;
       };
-      struct Extra { vec3 hip; float fov; bool line; };
+      struct Extra { vec3 hip; float fov; bool line; float vmFov; };
       static Calib saved; static Extra savedX;
       auto legacyOn = [w](App& a) {
-        WeaponDef& d = WD(a); saved = grab(d); savedX = {d.hipOffset, d.adsWorldFov, d.sightLineOnly};
-        apply(d, w.legacy); d.hipOffset = vec3(0.12f, -0.07f, 0.06f); d.adsWorldFov = 58; d.sightLineOnly = false; a.vm.snap = true;
+        WeaponDef& d = WD(a); saved = grab(d); savedX = {d.hipOffset, d.adsWorldFov, d.sightLineOnly, d.adsVmFov};
+        apply(d, w.legacy); d.hipOffset = vec3(0.12f, -0.07f, 0.06f); d.adsWorldFov = 58; d.sightLineOnly = false; d.adsVmFov = 0; a.vm.snap = true;
       };
-      auto legacyOff = [](App& a) { WeaponDef& d = WD(a); apply(d, saved); d.hipOffset = savedX.hip; d.adsWorldFov = savedX.fov; d.sightLineOnly = savedX.line; a.vm.snap = true; };
+      auto legacyOff = [](App& a) { WeaponDef& d = WD(a); apply(d, saved); d.hipOffset = savedX.hip; d.adsWorldFov = savedX.fov; d.sightLineOnly = savedX.line; d.adsVmFov = savedX.vmFov; a.vm.snap = true; };
 
       if (kind == LAUNCH) {
         push(id + " before hip", [this, id, legacyOn](App& a, float t) {
@@ -630,13 +714,49 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       a.scriptedInput = ExploreInput{};
       return true; });
 
+    // ---- W2 / spec 8.3: every weapon in ADS at 1920x1080, 2560x1440 and a 21:9 ultrawide. Image: front tip within
+    // 1 px of the centre pixel, aperture / notch within 2 px (calibrated iron sights); analytic: both anchors through
+    // the weapon projection within 0.5 px (every weapon, scopes included); roll of the drawn weapon 0.
+    if (!only || !*only || wanted("sweep")) {
+      for (glm::ivec2 sz : {glm::ivec2(1920, 1080), glm::ivec2(2560, 1440), glm::ivec2(3440, 1440)}) {
+        push("sweep size " + std::to_string(sz.x), [sz](App& a, float t) { (void)a; forceRes = sz; return t > 0.6f; });
+        for (auto& dp : app.weaponDefs) {
+          if (dp->equipment() || dp->action == "heavy") continue;   // hand equipment; the carried M2HB has no sights (deploys)
+          const std::string id = dp->id;
+          push("sweep " + id + " " + std::to_string(sz.x), [this, id, sz](App& a, float t) {
+            if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }
+            a.scriptedInput.aim = true;
+            return probeThen(t, 0.9f, [&] {
+              SightCheck c = sightCheck(a);
+              Meas m; bool hr = false, hf = false;
+              bool img = measureById(a, id, probe, m, hr, hf);
+              bool okImg = !img || ((!hr || (m.rearOk && m.errRear <= 2.0f)) && (!hf || (m.frontOk && m.errFront <= 1.0f)));
+              bool okAna = c.ok && c.rearErr <= 0.5f && c.frontErr <= 0.5f && std::fabs(c.rollDeg) < 0.05f;
+              char b[320];
+              std::snprintf(b, sizeof b, "%s ADS at %dx%d (asked %dx%d): image rear %s front %s; projected rear %.2f px, front %.2f px; roll %+.3f deg",
+                            id.c_str(), probe.w, probe.h, sz.x, sz.y,
+                            !hr ? "n/a" : m.rearOk ? (std::to_string(m.errRear).substr(0, 4) + " px").c_str() : "NOT FOUND",
+                            !hf ? "n/a" : m.frontOk ? (std::to_string(m.errFront).substr(0, 4) + " px").c_str() : "NOT FOUND",
+                            c.rearErr, c.frontErr, c.rollDeg);
+              check(okImg && okAna && probe.w == sz.x && probe.h == sz.y, b);
+              json& r = summary["sweep"][id][std::to_string(sz.x) + "x" + std::to_string(sz.y)];
+              r = {{"rollDeg", c.rollDeg}, {"projRearPx", c.rearErr}, {"projFrontPx", c.frontErr}};
+              if (hr) r["imgRearPx"] = m.rearOk ? m.errRear : -1;
+              if (hf) r["imgFrontPx"] = m.frontOk ? m.errFront : -1;
+              if (id == "stg44" || id == "m3_grease_gun") shotQueue.push_back("sights_" + id + "_sweep_" + std::to_string(sz.x));
+            }); });
+        }
+      }
+      push("sweep restore size", [](App& a, float t) { (void)a; forceRes = glm::ivec2(0); return t > 0.6f; });
+    }
+
     // ---- every other weapon keeps the shared defaults and its sight line on the dot
     if (!only || !*only) push("others unchanged", [this](App& a, float t) {
       (void)t;
       int n = 0, bad = 0; std::string list;
       for (auto& dp : a.weaponDefs) {
         const WeaponDef& d = *dp;
-        static const std::set<std::string> cal = {"fg42", "mg42", "kar98k", "m1_carbine", "m1_thompson", "m1_garand", "m1918a2_bar", "panzerschreck"};
+        static const std::set<std::string> cal = {"fg42", "mg42", "kar98k", "m1_carbine", "m1_thompson", "m1_garand", "m1918a2_bar", "panzerschreck", "stg44", "m3_grease_gun"};
         if (cal.count(d.id) || d.equipment()) continue;   // calibrated above / hand equipment (no sights; hand pose in "ads.hipOffset")
         ++n;
         bool def = d.eyeRelief == 0.21f && d.adsVmFov == 0 && d.adsPos == vec3(0) && d.adsRot == vec3(0) && d.muzzleDir == vec3(0, 0, 1);
@@ -644,7 +764,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
         if (!def || j.contains("ads") || j.contains("muzzleDir")) { ++bad; list += " " + d.id; }
       }
       int equip = 0; for (auto& dp : a.weaponDefs) equip += dp->equipment();
-      check(bad == 0 && n == (int)a.weaponDefs.size() - 8 - equip && n >= 5, std::to_string(n) + " other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)" + (bad ? ": changed" + list : ""));
+      check(bad == 0 && n == (int)a.weaponDefs.size() - 10 - equip && n >= 5, std::to_string(n) + " other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)" + (bad ? ": changed" + list : ""));
       return true; });
     push("reset", [this](App& a, float) {
       a.sightMarkers = false; a.vm.procedural = true;
@@ -653,6 +773,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       return true; });
   }
   stage = 1601;
+  if (forceRes.x > 0) app.R.resize(forceRes.x, forceRes.y);
   if (scur >= sseq.size()) { check(app.R.shaderErrors == 0, "all shaders compiled"); check(app.R.fboErrors == 0, "every framebuffer complete, including after the resizes (" + std::to_string(app.R.fboErrors) + " incomplete)"); finish(app); return; }
   if (stt == 0) { logf("[selftest] step: %s", sseq[scur].name.c_str()); probeWanted = probeReady = false; }
   bool d2 = sseq[scur].fn(app, stt);
