@@ -362,7 +362,7 @@ public:
   // crater tuning (game values): AT-gun craters enlarged in the complete update -- standard HE 1.5 m / 0.5 m -> 2.0 / 0.62
   // (+33 % radius, +24 % depth), AT shot 3.0 / 1.2 -> 3.9 / 1.5 (+30 %, +25 %); the depth : radius ratio (climbable walls) is kept
   static constexpr float kStdCraterD = 0.62f, kStdCraterR = 2.0f, kATCraterD = 1.5f, kATCraterR = 3.9f, kCraterP = 2.0f;
-  bool craterAt(vec3 p, float radius, float depth);
+  bool craterAt(vec3 p, float radius, float depth, bool irregular = false);   // debug preset: round; shells: irregular oblong
   float groundWeight(float x, float z) const;
   void syncGroundTiles(const std::vector<int>& keys);
   void removeGroundBodies();

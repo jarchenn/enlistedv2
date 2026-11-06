@@ -92,6 +92,7 @@ The radius scales with (damage / reference)^¼ and the removal depth with √(da
   - an ellipse stretched 1.1–1.45× along a random axis;
   - four positive low harmonics on top.
   - `R'` is never below the nominal R, so crater walls are never steeper than the round profile, and the walk-out tests still pass.
+  - The editor and test debug preset (`craterAt` with explicit radius and depth) stays round. A tool should cut exactly what it says.
 - AT-gun craters were enlarged in this update:
 
 | Crater | Was R / D | Now R / D | Change |

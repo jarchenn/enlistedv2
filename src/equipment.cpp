@@ -4,7 +4,8 @@
 // side's grenade from any weapon and returns to it). One throw per press: a short wind-up, then release - the fuse
 // starts at release, never earlier (no cooking). The thrown grenade is a small Jolt dynamic body (linear-cast CCD,
 // tuned restitution / friction, damping so it settles) drawn with the supplied model; when its fuse runs out it
-// goes off exactly once through the shared explode() path with the grenade wall stamp (chips, no launcher holes),
+// goes off exactly once through the shared explode() path with the grenade wall stamp (structural damage where it
+// lies: the Bazooka's stamp radius, 0.29 m, up to 0.36 m deep; docs/destruction.md),
 // a shallow crater, glass / leaf / tree / defence / wire effects and the blast exposure readout. Swapping during the
 // wind-up cancels the throw: nothing spawns and the count is unchanged. The spawn point is pulled back along the
 // eye ray if it would be inside a wall. All numbers are game tuning ("grenade" block of the weapon JSON).

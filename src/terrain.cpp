@@ -203,7 +203,7 @@ float Terrain::craterShape(vec2 c, float angle) {
   return m * lobes;
 }
 
-std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<float(float, float)>& weight, float maxDepth) {
+std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<float(float, float)>& weight, float maxDepth, bool irregular) {
   std::vector<int> touched;
   float reach = R * 1.45f * 1.45f * 1.21f, ts = tileSize(), fs = fineSpacing();   // stretch and lobes reach ~1.75 R
   int tx0 = (int)std::floor((c.x - reach + size * 0.5f) / ts), tx1 = (int)std::floor((c.x + reach + size * 0.5f) / ts);
@@ -220,7 +220,7 @@ std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<f
           vec2 dd(x - c.x, z - c.z);
           float dl = glm::length(dd);
           if (dl > reach) continue;
-          float r = dl / (R * (dl > 1e-5f ? craterShape(vec2(c.x, c.z), std::atan2(dd.y, dd.x)) : 1.0f));
+          float r = dl / (R * (irregular && dl > 1e-5f ? craterShape(vec2(c.x, c.z), std::atan2(dd.y, dd.x)) : 1.0f));
           if (r > 1.45f) continue;
           // Z_new = Z_old - D * (max(0, 1 - d^2/R^2))^p, p = 2 (no rim term: the profile is exactly the formula)
           float u = std::max(0.0f, 1 - r * r);

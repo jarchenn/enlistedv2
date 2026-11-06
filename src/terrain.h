@@ -54,7 +54,7 @@ public:
   // crater; weight(x,z) in [0,1] protects foundations. Returns touched tile keys. The outline is an irregular oblong
   // (random per impact point, never narrower than `radius`, so walls are never steeper than the round profile).
   static float craterShape(vec2 c, float angle);   // radius multiplier (>= 1) of the crater at c in direction angle
-  std::vector<int> crater(vec3 c, float radius, float depth, const std::function<float(float, float)>& weight, float maxDepth = 1.6f);
+  std::vector<int> crater(vec3 c, float radius, float depth, const std::function<float(float, float)>& weight, float maxDepth = 1.6f, bool irregular = true);
   void rebuildMesh(Tile& t);
   void clearTiles();
   std::map<int, std::vector<float>> deltas() const;          // canonical world-metre deltas for persistence

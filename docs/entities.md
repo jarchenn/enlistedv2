@@ -129,7 +129,7 @@ Map assets can carry a `"model"` block, the same import spec the weapons use. `N
 **Detonation.**
 - It goes off exactly once, when the fuse runs out (the timer advances with frame time; measured 4.48 s for a 4.5 s fuse).
 - The blast goes through the shared `explode()` path:
-  - the grenade wall stamp (chips only; no breach in the test);
+  - the grenade wall stamp: structural damage where it lies, with the Bazooka's stamp radius (0.29 m, up to 0.36 m deep; [destruction.md](destruction.md#damage-field));
   - a small crater (0.13 m deep in the test against the HE shell's 0.62 m);
   - glass, leaves, trees, defences and wire (a Mk 2 beside the coil cuts its stretches);
   - the blast-exposure readout.

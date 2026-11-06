@@ -35,11 +35,11 @@ void App::syncGroundTiles(const std::vector<int>& keys) {
   }
 }
 
-bool App::craterAt(vec3 p, float radius, float depth) {
+bool App::craterAt(vec3 p, float radius, float depth, bool irregular) {
   float gh = terrain.height(p.x, p.z);
   if (p.y - gh > 0.9f) return false;                         // airburst: no ground contact
   if (gh < terrain.waterLevel + 0.05f) return false;         // open water: nothing to deform
-  auto touched = terrain.crater(vec3(p.x, gh, p.z), radius, depth, [this](float x, float z) { return groundWeight(x, z); });
+  auto touched = terrain.crater(vec3(p.x, gh, p.z), radius, depth, [this](float x, float z) { return groundWeight(x, z); }, 1.6f, irregular);
   syncGroundTiles(touched);
   if (!touched.empty()) ++groundRev;
   return !touched.empty();
@@ -50,8 +50,9 @@ bool App::deformGround(vec3 p, float scale) {
   //   standard shell (7.5 cm HE): D_max 0.62 m, R 2.0 m;  AT shell (PzGr. 39): D_max 1.5 m, R 3.9 m (was 0.5 / 1.5, 1.2 / 3.0)
   // AT is the guide's deep profile scaled to stay climbable (peak wall ~32 deg); both are game tuning, not
   // measurements of wartime craters.
-  if (blastAT) return craterAt(p, kATCraterR, kATCraterD);
-  return craterAt(p, kStdCraterR * scale, kStdCraterD * scale);
+  // Shell craters have an irregular oblong outline (Terrain::craterShape), never narrower than R.
+  if (blastAT) return craterAt(p, kATCraterR, kATCraterD, true);
+  return craterAt(p, kStdCraterR * scale, kStdCraterD * scale, true);
 }
 
 void App::removeGroundBodies() {

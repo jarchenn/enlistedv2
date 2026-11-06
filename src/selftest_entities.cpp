@@ -334,10 +334,15 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
       float depth = hc0 - a.terrain.height(p.x, p.z), dh = a.terrain.height(p.x + 3, p.z) - h0;
       Instance* h = a.doc.find(G_HOUSE); auto& hr = a.rt[G_HOUSE];
       vec3 wallHit = h->pos + vec3(0.0f, 1.0f, 4.15f);
+      // structural damage where it lands: the Bazooka's stamp radius (0.29 m), up to 0.36 m deep (docs/destruction.md)
+      auto damagedCells = [&](float& maxRm) { int n = 0; maxRm = 0; for (auto& w : hr.wf) for (size_t q = 0; q < w.rf.size(); ++q) { float rm = w.rf[q] + w.rb[q]; n += rm > 0.02f; maxRm = std::max(maxRm, rm); } return n; };
+      float rm0, rm1; int n0 = damagedCells(rm0);
       auto ex = a.explode(wallHit, vec3(0, 0, -1), d.grenade.damage, d.grenade.radius, d.grenade.crater, ~0ull, WALL_GRENADE);
-      char b[300]; std::snprintf(b, sizeof b, "Mk 2 blast: cuts %d coil stretch(es) on the near side, crater %.2f m deep at the centre, ground 3 m away moved %.3f m; against the farmhouse wall: %d bay hit(s), breached %s (chips only, no launcher-sized hole)",
-                                 cut1 - cut0, depth, dh, (int)ex.hits.size(), ex.breached ? "YES" : "no");
-      check(cut1 > cut0 && depth > 0.02f && depth < 0.25f && !ex.breached, b);
+      int n1 = damagedCells(rm1);
+      float area = (n1 - n0) * a.destruction.cell * a.destruction.cell;
+      char b[360]; std::snprintf(b, sizeof b, "Mk 2 blast: cuts %d coil stretch(es) on the near side, crater %.2f m deep at the centre, ground 3 m away moved %.3f m; against the farmhouse wall: %d bay hit(s), %.2f m^2 broken up to %.2f m deep, breached %s (structural damage, Bazooka-sized stamp)",
+                                 cut1 - cut0, depth, dh, (int)ex.hits.size(), area, rm1, ex.breached ? "yes" : "no");
+      check(cut1 > cut0 && depth > 0.02f && depth < 0.25f && !ex.hits.empty() && area > 0.1f && area < 0.7f && rm1 > 0.2f, b);
       summary["grenade"]["craterDepth"] = depth;
       (void)hr;
       return true; });
