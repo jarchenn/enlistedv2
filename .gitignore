@@ -5,3 +5,5 @@ selftest_out/
 normandy.log
 recordings/
 assets_src/
+
+# expansion package source files live outside the repo (long-path safe): see docs/expansion.md

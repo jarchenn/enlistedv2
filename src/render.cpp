@@ -255,7 +255,7 @@ void main(){
   c = applyFog(c, vW);
   oDist = length(vW - uCamPos);
   if (uTint.a < 0.999) { c = mix(c, uTint.rgb, 0.55); oColor = vec4(c, uTint.a); return; }
-  oColor = vec4(c, 1.0);
+  oColor = vec4(c * uTint.rgb, 1.0);   // opaque tint multiplies (white = unchanged; wrecks are blackened)
 }
 )GLSL";
 
@@ -807,23 +807,37 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp) {
   }
 }
 
-void Renderer::drawModels(const std::vector<ModelDraw>& items) {
-  GLuint p = progModel;
-  glUniform1i(U(p, "uAlb"), 2); glUniform1i(U(p, "uMR"), 3); glUniform1i(U(p, "uNrm"), 4); glUniform1i(U(p, "uAO"), 5);
-  GLint lm = U(p, "uModel"), lb = U(p, "uBase"), lme = U(p, "uMetal"), lr = U(p, "uRough"), lt = U(p, "uTint");
+void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items) {
+  GLint lm = U(p, "uModel");
   const GpuModel* bound = nullptr;
   for (auto& it : items) {
     const GpuModel* m = it.model;
     if (!m || !m->vao || it.part < 0 || it.part >= (int)m->parts.size()) continue;
+    if (m != bound) { bound = m; glBindVertexArray(m->vao); }
     const ModelPart& pt = m->parts[it.part];
-    if (m != bound) {
-      bound = m;
-      glBindVertexArray(m->vao);
-      glBindTextureUnit(2, m->texAlb); glBindTextureUnit(3, m->texMR); glBindTextureUnit(4, m->texN); glBindTextureUnit(5, m->texAO);
-      glUniform1i(U(p, "uHasMR"), m->texMR ? 1 : 0); glUniform1i(U(p, "uHasNrm"), m->texN ? 1 : 0);
-      glUniform1i(U(p, "uHasAO"), m->texAO ? 1 : 0); glUniform1i(U(p, "uAOinMR"), m->aoInMR ? 1 : 0);
+    glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
+    glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
+  }
+}
+
+void Renderer::drawModels(const std::vector<ModelDraw>& items) {
+  GLuint p = progModel;
+  glUniform1i(U(p, "uAlb"), 2); glUniform1i(U(p, "uMR"), 3); glUniform1i(U(p, "uNrm"), 4); glUniform1i(U(p, "uAO"), 5);
+  GLint lm = U(p, "uModel"), lb = U(p, "uBase"), lme = U(p, "uMetal"), lr = U(p, "uRough"), lt = U(p, "uTint");
+  const GpuModel* bound = nullptr; int boundMat = -2;
+  for (auto& it : items) {
+    const GpuModel* m = it.model;
+    if (!m || !m->vao || it.part < 0 || it.part >= (int)m->parts.size()) continue;
+    const ModelPart& pt = m->parts[it.part];
+    if (m != bound) { bound = m; boundMat = -2; glBindVertexArray(m->vao); }
+    int mi = pt.mat >= 0 && pt.mat < (int)m->mats.size() ? pt.mat : -1;
+    if (mi != boundMat) {
+      boundMat = mi;
+      GpuModel::MatTex none; const GpuModel::MatTex& t = mi >= 0 ? m->mats[mi] : none;
+      glBindTextureUnit(2, t.alb); glBindTextureUnit(3, t.mr); glBindTextureUnit(4, t.n); glBindTextureUnit(5, t.ao);
+      glUniform1i(U(p, "uHasAlb"), t.alb ? 1 : 0); glUniform1i(U(p, "uHasMR"), t.mr ? 1 : 0); glUniform1i(U(p, "uHasNrm"), t.n ? 1 : 0);
+      glUniform1i(U(p, "uHasAO"), t.ao ? 1 : 0); glUniform1i(U(p, "uAOinMR"), t.aoInMR ? 1 : 0);
     }
-    glUniform1i(U(p, "uHasAlb"), (pt.textured && m->texAlb) ? 1 : 0);
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
     glUniform4fv(lb, 1, glm::value_ptr(pt.base)); glUniform1f(lme, pt.metal); glUniform1f(lr, pt.rough);
     glUniform4fv(lt, 1, glm::value_ptr(it.tint));
@@ -900,6 +914,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   drawItems(progShadow, opaque, true);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP);
   glUseProgram(progShadow);
+  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels);
   // ---- sky occlusion (top down)
   float occR = 90.0f;
   vec3 ofocus = v.camPos; occTop = std::max(v.camPos.y, 0.0f) + 60.0f; occRange = 200.0f;
@@ -916,6 +931,8 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   drawItems(progShadow, opaque, true);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP);
+  glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
+  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels);
   glDisable(GL_POLYGON_OFFSET_FILL);
 
   // ---- main HDR pass
@@ -942,6 +959,13 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   setLighting(progMain, v);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false);
+  if (!worldModels.empty()) {   // imported models placed in the world
+    glDisable(GL_CULL_FACE);
+    setLighting(progModel, v);
+    glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    drawModels(worldModels);
+    glEnable(GL_CULL_FACE);
+  }
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
     glDisable(GL_CULL_FACE);

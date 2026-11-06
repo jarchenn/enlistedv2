@@ -114,7 +114,14 @@ struct AssetDef {
   StationDef station;
   TreeDef tree;
   DefenseDef defense;
-  GpuMesh defBrokenMesh; ShapePtr defBrokenShape;   // destroyed defence: sandbag spill / tipped hedgehog
+  GpuMesh defBrokenMesh; ShapePtr defBrokenShape;
+  bool rack = false;             // weapon rack (arsenal.cpp)
+  std::string rackFaction;       // "US" / "DE": the registry side it lists
+  struct RackDisplay { std::string weapon, pose = "lean"; vec3 p{0}; float lean = 10, dir = 1, yaw = 0; mat4 m{1}; };
+  std::vector<RackDisplay> rackDisplay;   // decorative world models resting on the rack
+  std::vector<std::string> rackDeploy;    // deployable equipment listed (station assets placed through build mode)
+  std::string faction;           // asset-level faction tag (stations)
+  vec3 gunHitMin{0}, gunHitMax{0};   // station: direct-hit volume (asset space, default pose)   // destroyed defence: sandbag spill / tipped hedgehog
   json crate;                               // ammo crate config (empty = not a crate)
   std::vector<Panel> panels;
   GpuMesh panelsIntact;          // all panels intact, merged (fast path for undamaged copies)

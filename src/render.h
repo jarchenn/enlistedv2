@@ -47,7 +47,8 @@ public:
   std::vector<DrawItem> viewModel;      // first-person weapon: drawn last over a cleared depth buffer
   std::vector<ModelDraw> viewModelTex;  // textured (imported) parts of the first-person weapon
   bool dofEnabled = true;
-  std::vector<FoliageDraw> foliage;     // tree leaf cards (alpha-tested, wind sway, shadow casting)
+  std::vector<FoliageDraw> foliage;
+  std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.5f;
@@ -63,6 +64,7 @@ private:
   void setLighting(GLuint prog, const RenderView& v);
   void drawModels(const std::vector<ModelDraw>& items);
   void drawFoliage(GLuint prog, const mat4& vp);
+  void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items);
   GLuint progLeaf = 0, progLeafShadow = 0;
   GLuint progModel = 0, progDof = 0;
   GLuint vmDistTex = 0, dofTex = 0, dofFbo = 0;

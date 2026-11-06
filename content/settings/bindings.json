@@ -1,0 +1,7 @@
+{
+ "_note": "Rebindable Explore actions. Key names: A-Z, 0-9, LEFT_CONTROL, RIGHT_CONTROL, LEFT_SHIFT, LEFT_ALT, TAB, CAPS_LOCK, SPACE, F6-F8. Restart to apply.",
+ "fireMode": "F",
+ "prone": "Z",
+ "crouch": "LEFT_CONTROL",
+ "packUp": "G"
+}

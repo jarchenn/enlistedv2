@@ -1,0 +1,59 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1641915738582611,
+  0.212650328874588,
+  1.6400001049041748
+ ],
+ "bmin": [
+  -0.1641915738582611,
+  -0.212650328874588,
+  5.549266379745177e-09
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "mr": "mr_1.png",
+   "name": "US_Panzerschreck_pickup_Mat"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1641915738582611,
+    0.212650328874588,
+    1.6400001049041748
+   ],
+   "bmin": [
+    -0.1641915738582611,
+    -0.212650328874588,
+    5.549266379745177e-09
+   ],
+   "count": 8811,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "20c7d07f426a4cd9b3b888a6ce9522a1.obj.cleaner.materialmerger.gles",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.6399999856948853,
+ "rot": [
+  0.0,
+  180.0,
+  0.0
+ ],
+ "scale": 0.009977882727980614,
+ "source": "panzerschreck_pickup.glb",
+ "textures": {},
+ "triangles": 2937,
+ "vertices": 2618
+}

@@ -10,6 +10,38 @@
   -0.12027174234390259,
   5.960464477539063e-08
  ],
+ "materials": [
+  {
+   "name": "Material"
+  },
+  {
+   "name": "Material.006"
+  },
+  {
+   "name": "Material.002"
+  },
+  {
+   "name": "Material.004"
+  },
+  {
+   "name": "Material.001"
+  },
+  {
+   "name": "material_0"
+  },
+  {
+   "name": "Material.003"
+  },
+  {
+   "name": "Material.009"
+  },
+  {
+   "name": "Material.008"
+  },
+  {
+   "name": "Material.007"
+  }
+ ],
  "parts": [
   {
    "base": [
@@ -30,6 +62,7 @@
    ],
    "count": 1650,
    "first": 0,
+   "mat": 0,
    "metal": 0.0,
    "name": "body_00",
    "role": "body",
@@ -55,6 +88,7 @@
    ],
    "count": 744,
    "first": 1650,
+   "mat": 1,
    "metal": 0.0,
    "name": "mag_02",
    "role": "mag",
@@ -80,6 +114,7 @@
    ],
    "count": 1590,
    "first": 2394,
+   "mat": 2,
    "metal": 0.0,
    "name": "body_00",
    "role": "body",
@@ -105,6 +140,7 @@
    ],
    "count": 828,
    "first": 3984,
+   "mat": 3,
    "metal": 0.0,
    "name": "body_00",
    "role": "body",
@@ -130,6 +166,7 @@
    ],
    "count": 3093,
    "first": 4812,
+   "mat": 4,
    "metal": 0.0,
    "name": "body_00",
    "role": "body",
@@ -155,6 +192,7 @@
    ],
    "count": 1236,
    "first": 7905,
+   "mat": 5,
    "metal": 0.0,
    "name": "bolt_01",
    "role": "bolt",
@@ -180,6 +218,7 @@
    ],
    "count": 846,
    "first": 9141,
+   "mat": 6,
    "metal": 0.0,
    "name": "bolt_01",
    "role": "bolt",
@@ -205,6 +244,7 @@
    ],
    "count": 1080,
    "first": 9987,
+   "mat": 7,
    "metal": 0.0,
    "name": "bullets_04",
    "role": "mag",
@@ -230,6 +270,7 @@
    ],
    "count": 144,
    "first": 11067,
+   "mat": 8,
    "metal": 0.0,
    "name": "bullets_04",
    "role": "mag",
@@ -255,6 +296,7 @@
    ],
    "count": 468,
    "first": 11211,
+   "mat": 9,
    "metal": 0.0,
    "name": "bullets_04",
    "role": "mag",

@@ -19,6 +19,9 @@ struct WeaponDef {
   fs::path file;                        // source JSON (calibration panel saves back into it)
   vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)
   float bulletMass = 10;                // grams (penetration energy)
+  std::vector<std::string> modes;       // fire-selector modes, first is the default ("auto", "semi")
+  std::string deploys;                  // heavy weapon: station asset it deploys as
+  float rocketDmg = 0, rocketR = 0, rocketCrater = 0, rocketSplashGun = 0;   // launcher rocket tuning (data)
   bool useModel() const { return model && model->vao; }
 };
 struct WeaponState {
@@ -30,12 +33,13 @@ struct WeaponState {
   bool triggerReleased = true, clicked = false;
   float recoilP = 0, recoilY = 0, kick = 0;
   int shotIdx = 0, burst = 0, clipPings = 0;
+  int mode = 0;                   // index into WeaponDef::modes (AUTO first); reset with the session
   uint32_t seed = 1;
   int reserveRounds() const;
 };
 
 // ---------------------------------------------------------------- projectiles & effects (pooled)
-enum ProjKind : int { PROJ_BULLET = 0, PROJ_HE = 1 };
+enum ProjKind : int { PROJ_BULLET = 0, PROJ_HE = 1, PROJ_ROCKET = 2 };
 struct Projectile {
   vec3 p{0}, v{0};
   float life = 0, dmg = 0;
@@ -43,6 +47,8 @@ struct Projectile {
   int kind = PROJ_BULLET;
   int pens = 0;                 // surfaces already passed through
   bool at = false;              // anti-tank shell: deep crater profile, concentrated wall damage
+  bool atKill = false;          // a direct hit destroys an AT gun in one shot (PaK shells, rockets)
+  float blastDmg = 0, blastR = 0, craterScale = 1, splashGun = 40, gravScale = 1;
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
   bool tracer = false;
   std::string ammo;
@@ -81,6 +87,8 @@ struct StationRT {
   float recoilT = 9;                      // seconds since last discharge
   int loaded = 0, reserve = 0, reserveMax = 0;
   int reserveAT = 0, reserveATMax = 0; bool loadedAT = false, selAT = false;   // PaK 40: AT rounds beside HE
+  bool wrecked = false; float hp = 100;   // AT-gun destruction (one idempotent transition)
+  bool semi = false;                      // M2HB fire selector (AUTO default)
   float reload = 0;                       // remaining reload seconds (0 = idle)
   int pos2 = ST_NONE;                     // occupant position
   float trans = 0;                        // remaining transition seconds

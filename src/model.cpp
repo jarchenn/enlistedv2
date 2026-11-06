@@ -19,6 +19,8 @@ ImportSpec importSpecFromJson(const json& j) {
   for (auto& [k, v] : np.items()) s.nodeParts[k] = v.get<std::string>();
   for (auto& h : hd) s.hide.push_back(h.get<std::string>());
   s.maxTex = j.value("maxTex", 1024);
+  s.matOverride = j.value("matOverride", json::object());
+  s.tint = jvec3(j.value("tint", json()), vec3(1));
   return s;
 }
 
@@ -146,7 +148,7 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   auto hidden = [&](int k) { for (auto& h : spec.hide) if (chainHas(k, h)) return true; return false; };
 
   // ---- materials
-  struct Mat { vec4 base{1}; float metal = 1, rough = 1; int alb = -1, mr = -1, nrm = -1, ao = -1; };
+  struct Mat { vec4 base{1}; float metal = 1, rough = 1; int alb = -1, mr = -1, nrm = -1, ao = -1; std::string name; };
   std::vector<Mat> mats;
   auto texImage = [&](const json& t) -> int { if (!t.is_object() || !t.contains("index")) return -1; return J["textures"][t["index"].get<int>()].value("source", -1); };
   for (auto& m : J.value("materials", json::array())) {
@@ -168,6 +170,15 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     }
     x.nrm = texImage(m.value("normalTexture", json()));
     x.ao = texImage(m.value("occlusionTexture", json()));
+    x.name = m.value("name", "");
+    // per-model material corrections (checked-in in the weapon JSON): repaint factor-only parts, tame gloss
+    if (spec.matOverride.contains(x.name)) {
+      const json& o = spec.matOverride[x.name];
+      if (o.contains("base")) x.base = vec4(o["base"][0], o["base"][1], o["base"][2], o["base"].size() > 3 ? o["base"][3].get<float>() : 1.0f);
+      x.metal = o.value("metal", x.metal); x.rough = o.value("rough", x.rough) * o.value("roughScale", 1.0f);
+      if (o.value("dropTextures", false)) x.alb = x.mr = x.nrm = x.ao = -1;
+    }
+    x.base = vec4(vec3(x.base) * spec.tint, x.base.a);
     mats.push_back(x);
   }
 
@@ -314,7 +325,7 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     bmin = glm::min(bmin, pmin); bmax = glm::max(bmax, pmax);
     Mat m = q.mat >= 0 && q.mat < (int)mats.size() ? mats[q.mat] : Mat{};
     json pj = {{"name", q.name}, {"role", q.role}, {"first", first}, {"count", (uint32_t)q.i.size()},
-               {"base", {m.base.r, m.base.g, m.base.b, m.base.a}}, {"metal", m.metal}, {"rough", m.rough}, {"textured", m.alb >= 0},
+               {"base", {m.base.r, m.base.g, m.base.b, m.base.a}}, {"metal", m.metal}, {"rough", m.rough}, {"textured", m.alb >= 0}, {"mat", q.mat},
                {"bmin", tojson(pmin)}, {"bmax", tojson(pmax)}};
     if (!primAnim[p].empty()) {
       json a = json::array();
@@ -324,28 +335,36 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     parts.push_back(pj);
   }
 
-  // ---- textures (one set per model: the first textured material's)
+  // ---- textures: one set per source material; each (image, role) is decoded, downsized and written once
   std::error_code ec; fs::create_directories(outDir, ec);
-  json tex = json::object();
-  const Mat* tm = nullptr; for (auto& m : mats) if (m.alb >= 0 || m.nrm >= 0) { tm = &m; break; }
-  size_t texBytes = 0;
-  if (tm) {
-    auto save = [&](int imgIdx, const char* file, bool jpg) {
-      if (imgIdx < 0) return;
-      Img a; if (!decodeImage(g, imgIdx, a)) { logf("import: image %d failed to decode", imgIdx); return; }
-      Img d = downsize(a, spec.maxTex);
-      fs::path p = outDir / file;
-      if (jpg) { std::vector<uint8_t> rgb((size_t)d.w * d.h * 3); for (size_t k = 0; k < (size_t)d.w * d.h; ++k) std::memcpy(&rgb[k * 3], &d.px[k * 4], 3);
-                 stbi_write_jpg(p.string().c_str(), d.w, d.h, 3, rgb.data(), 92); }
-      else stbi_write_png(p.string().c_str(), d.w, d.h, 4, d.px.data(), d.w * 4);
-      tex[std::string(file).substr(0, std::string(file).find('.'))] = file;
-      texBytes += fs::file_size(p, ec);
-    };
-    save(tm->alb, "albedo.jpg", true);
-    save(tm->mr, "mr.png", false);
-    save(tm->nrm, "normal.png", false);
-    if (tm->ao >= 0 && tm->ao == tm->mr) tex["aoInMR"] = true;
-    else save(tm->ao, "ao.png", false);
+  for (auto& e : fs::directory_iterator(outDir, ec)) { auto x = e.path().extension().string(); if (x == ".png" || x == ".jpg") fs::remove(e.path(), ec); }   // no stale maps
+  json tex = json::object(), matsJ = json::array();
+  size_t texBytes = 0; int texFiles = 0;
+  std::map<std::pair<int, int>, std::string> written;
+  auto save = [&](int imgIdx, int role) -> std::string {   // role 0 albedo (sRGB JPEG), 1 metal-rough, 2 normal, 3 AO (linear PNG)
+    if (imgIdx < 0) return "";
+    auto key = std::make_pair(imgIdx, role);
+    if (written.count(key)) return written[key];
+    Img a; if (!decodeImage(g, imgIdx, a)) { logf("import: image %d failed to decode", imgIdx); return ""; }
+    Img d = downsize(a, spec.maxTex);
+    static const char* pre[4] = {"albedo", "mr", "normal", "ao"};
+    std::string file = std::string(pre[role]) + "_" + std::to_string(imgIdx) + (role == 0 ? ".jpg" : ".png");
+    fs::path pth = outDir / file;
+    if (role == 0) { std::vector<uint8_t> rgb((size_t)d.w * d.h * 3); for (size_t k = 0; k < (size_t)d.w * d.h; ++k) std::memcpy(&rgb[k * 3], &d.px[k * 4], 3);
+                     stbi_write_jpg(pth.string().c_str(), d.w, d.h, 3, rgb.data(), 92); }
+    else stbi_write_png(pth.string().c_str(), d.w, d.h, 4, d.px.data(), d.w * 4);
+    texBytes += fs::file_size(pth, ec); ++texFiles;
+    return written[key] = file;
+  };
+  for (auto& m : mats) {
+    json mj = {{"name", m.name}};
+    std::string fa = save(m.alb, 0), fm = save(m.mr, 1), fn = save(m.nrm, 2);
+    if (!fa.empty()) mj["albedo"] = fa;
+    if (!fm.empty()) mj["mr"] = fm;
+    if (!fn.empty()) mj["normal"] = fn;
+    if (m.ao >= 0 && m.ao == m.mr) mj["aoInMR"] = true;
+    else { std::string fo = save(m.ao, 3); if (!fo.empty()) mj["ao"] = fo; }
+    matsJ.push_back(mj);
   }
   {
     std::ofstream f(outDir / "mesh.bin", std::ios::binary);
@@ -355,12 +374,12 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     f.write((const char*)I.data(), I.size() * 4);
   }
   json out = {{"source", glbPath.filename().string()}, {"scale", S}, {"rot", tojson(spec.rot)}, {"realLength", spec.realLength},
-              {"bmin", tojson(bmin)}, {"bmax", tojson(bmax)}, {"textures", tex}, {"animDuration", duration}, {"parts", parts},
+              {"bmin", tojson(bmin)}, {"bmax", tojson(bmax)}, {"textures", tex}, {"materials", matsJ}, {"animDuration", duration}, {"parts", parts},
               {"vertices", V.size()}, {"triangles", I.size() / 3}};
   { std::ofstream f(outDir / "model.json"); f << out.dump(1); }
   char b[320];
-  std::snprintf(b, sizeof b, "%s: %zu verts %zu tris %zu parts, scale %.5f, bounds (%.3f %.3f %.3f)-(%.3f %.3f %.3f), textures %.1f MB, anim %.2f s",
-                glbPath.filename().string().c_str(), V.size(), I.size() / 3, prims.size(), S, bmin.x, bmin.y, bmin.z, bmax.x, bmax.y, bmax.z, texBytes / 1048576.0, duration);
+  std::snprintf(b, sizeof b, "%s: %zu verts %zu tris %zu parts, scale %.5f, bounds (%.3f %.3f %.3f)-(%.3f %.3f %.3f), %zu materials, %d texture files %.1f MB, anim %.2f s",
+                glbPath.filename().string().c_str(), V.size(), I.size() / 3, prims.size(), S, bmin.x, bmin.y, bmin.z, bmax.x, bmax.y, bmax.z, mats.size(), texFiles, texBytes / 1048576.0, duration);
   summary = b;
   return true;
 }
@@ -401,6 +420,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err) {
     auto& b = pj["base"]; p.base = vec4(b[0], b[1], b[2], b[3]);
     p.metal = pj.value("metal", 1.0f); p.rough = pj.value("rough", 1.0f); p.textured = pj.value("textured", false);
     p.bmin = jvec3(pj["bmin"]); p.bmax = jvec3(pj["bmax"]);
+    p.mat = pj.value("mat", -1);
     for (auto& a : pj.value("anim", json::array())) { mat4 m; for (int k = 0; k < 16; ++k) glm::value_ptr(m)[k] = a[k].get<float>(); p.anim.push_back(m); }
     parts.push_back(std::move(p));
   }
@@ -415,19 +435,38 @@ bool GpuModel::load(const fs::path& dir, std::string& err) {
   glVertexArrayElementBuffer(vao, ebo);
   auto attr = [&](int loc, int n, size_t off) { glEnableVertexArrayAttrib(vao, loc); glVertexArrayAttribFormat(vao, loc, n, GL_FLOAT, GL_FALSE, (GLuint)off); glVertexArrayAttribBinding(vao, loc, 0); };
   attr(0, 3, offsetof(TexVertex, pos)); attr(1, 3, offsetof(TexVertex, nrm)); attr(2, 4, offsetof(TexVertex, tan)); attr(3, 2, offsetof(TexVertex, uv));
-  auto& t = j["textures"];
-  if (t.contains("albedo")) texAlb = loadTex(dir / t["albedo"].get<std::string>(), true, gpuBytes);
-  if (t.contains("mr")) texMR = loadTex(dir / t["mr"].get<std::string>(), false, gpuBytes);
-  if (t.contains("normal")) texN = loadTex(dir / t["normal"].get<std::string>(), false, gpuBytes);
-  if (t.contains("ao")) texAO = loadTex(dir / t["ao"].get<std::string>(), false, gpuBytes);
-  aoInMR = t.value("aoInMR", false);
+  std::map<std::string, GLuint> cache;
+  auto tex = [&](const json& mj, const char* key, bool srgb) -> GLuint {
+    if (!mj.contains(key)) return 0;
+    std::string f = mj[key].get<std::string>();
+    auto it = cache.find(f); if (it != cache.end()) return it->second;
+    GLuint t = loadTex(dir / f, srgb, gpuBytes); if (t) ++textureCount;
+    return cache[f] = t;
+  };
+  if (j.contains("materials")) {
+    for (auto& mj : j["materials"]) {
+      MatTex m; m.name = mj.value("name", "");
+      m.alb = tex(mj, "albedo", true); m.mr = tex(mj, "mr", false); m.n = tex(mj, "normal", false); m.ao = tex(mj, "ao", false);
+      m.aoInMR = mj.value("aoInMR", false);
+      mats.push_back(m);
+    }
+  } else {   // legacy single-set bake
+    auto& t = j["textures"];
+    MatTex m; m.alb = tex(t, "albedo", true); m.mr = tex(t, "mr", false); m.n = tex(t, "normal", false); m.ao = tex(t, "ao", false); m.aoInMR = t.value("aoInMR", false);
+    mats.push_back(m);
+    for (auto& p : parts) if (p.textured) p.mat = 0;
+  }
+  if (!mats.empty()) { texAlb = mats[0].alb; texMR = mats[0].mr; texN = mats[0].n; texAO = mats[0].ao; aoInMR = mats[0].aoInMR; }
+  for (auto& m : mats) if (!texAlb && m.alb) texAlb = m.alb;
   return true;
 }
 
 void GpuModel::destroy() {
   if (vao) { glDeleteVertexArrays(1, &vao); glDeleteBuffers(1, &vbo); glDeleteBuffers(1, &ebo); }
-  GLuint ts[4] = {texAlb, texMR, texN, texAO};
-  for (GLuint x : ts) if (x) glDeleteTextures(1, &x);
+  std::set<GLuint> ts;
+  for (auto& m : mats) for (GLuint x : {m.alb, m.mr, m.n, m.ao}) if (x) ts.insert(x);
+  for (GLuint x : ts) glDeleteTextures(1, &x);
+  mats.clear(); textureCount = 0;
   vao = vbo = ebo = texAlb = texMR = texN = texAO = 0;
   parts.clear(); gpuBytes = 0;
 }

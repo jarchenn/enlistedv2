@@ -10,6 +10,15 @@
   -0.13734795153141022,
   0.0
  ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.png",
+   "name": "None",
+   "normal": "normal_2.png"
+  }
+ ],
  "parts": [
   {
    "base": [
@@ -30,6 +39,7 @@
    ],
    "count": 10641,
    "first": 0,
+   "mat": 0,
    "metal": 1.0,
    "name": "korpus_low_Cube.001",
    "role": "body",
@@ -55,6 +65,7 @@
    ],
    "count": 1326,
    "first": 10641,
+   "mat": 0,
    "metal": 1.0,
    "name": "magazynek_low_Cube.003",
    "role": "mag",
@@ -80,6 +91,7 @@
    ],
    "count": 276,
    "first": 11967,
+   "mat": 0,
    "metal": 1.0,
    "name": "spust_low_Cube.004",
    "role": "body",
@@ -105,6 +117,7 @@
    ],
    "count": 792,
    "first": 12243,
+   "mat": 0,
    "metal": 1.0,
    "name": "kolba1_low_Cube.005",
    "role": "body",
@@ -130,6 +143,7 @@
    ],
    "count": 1176,
    "first": 13035,
+   "mat": 0,
    "metal": 1.0,
    "name": "kolba_low_Cube.006",
    "role": "body",
@@ -155,6 +169,7 @@
    ],
    "count": 390,
    "first": 14211,
+   "mat": 0,
    "metal": 1.0,
    "name": "pokretlo_low_Cube.007",
    "role": "bolt",
@@ -180,6 +195,7 @@
    ],
    "count": 132,
    "first": 14601,
+   "mat": 0,
    "metal": 1.0,
    "name": "szczerbinka_low_Cube.008",
    "role": "body",
@@ -205,6 +221,7 @@
    ],
    "count": 816,
    "first": 14733,
+   "mat": 0,
    "metal": 1.0,
    "name": "zamek_low_Cube.009",
    "role": "bolt",
@@ -230,6 +247,7 @@
    ],
    "count": 1056,
    "first": 15549,
+   "mat": 0,
    "metal": 1.0,
    "name": "srodek_low_Cube.010",
    "role": "body",
@@ -255,6 +273,7 @@
    ],
    "count": 132,
    "first": 16605,
+   "mat": 0,
    "metal": 1.0,
    "name": "lock_low_Cube.011",
    "role": "body",
@@ -280,6 +299,7 @@
    ],
    "count": 240,
    "first": 16737,
+   "mat": 0,
    "metal": 1.0,
    "name": "srodek1_low_Cube.012",
    "role": "body",
@@ -295,12 +315,7 @@
  ],
  "scale": 0.8897928595542908,
  "source": "mp40.glb",
- "textures": {
-  "albedo": "albedo.jpg",
-  "aoInMR": true,
-  "mr": "mr.png",
-  "normal": "normal.png"
- },
+ "textures": {},
  "triangles": 5659,
  "vertices": 4878
 }

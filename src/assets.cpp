@@ -349,6 +349,24 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   a->wallsIntact = Physics::buildCompound(intactShapes);
   a->bmin = vec3(1e9f); a->bmax = vec3(-1e9f);
   if (j.contains("tree")) { buildTreeAsset(*a, j["tree"]); for (auto& c : a->tree.canopy) { pts.push_back(vec3(c) - vec3(c.w)); pts.push_back(vec3(c) + vec3(c.w)); } }
+  a->faction = j.value("faction", "");
+  if (!a->station.kind.empty()) {   // direct-hit volume of a gun: its cradle, barrel and shield plus raised carriage parts
+    vec3 mn(1e9f), mx(-1e9f);
+    auto addParts = [&](const std::vector<Part>& ps, vec3 off) { for (auto& p : ps) { glm::mat3 rm = glm::mat3_cast(p.rot); vec3 hs = p.size * 0.5f; vec3 h = glm::abs(rm[0]) * hs.x + glm::abs(rm[1]) * hs.y + glm::abs(rm[2]) * hs.z; mn = glm::min(mn, p.center + off - h); mx = glm::max(mx, p.center + off + h); } };
+    addParts(a->station.yawParts, a->station.yawPivot); addParts(a->station.elevParts, a->station.elevPivot); addParts(a->station.recoilParts, a->station.elevPivot);
+    std::vector<Part> raised; for (auto& p : a->parts) if (p.visible && p.center.y > 0.3f) raised.push_back(p);
+    addParts(raised, vec3(0));
+    a->gunHitMin = mn; a->gunHitMax = mx;
+  }
+  if (j.contains("rack")) {
+    auto& rj = j["rack"]; a->rack = true; a->rackFaction = rj.value("faction", "US");
+    for (auto& dj : rj.value("display", json::array())) {
+      AssetDef::RackDisplay d; d.weapon = dj.value("weapon", ""); d.pose = dj.value("pose", "lean"); d.p = jvec3(dj["p"]);
+      d.lean = dj.value("lean", 10.0f); d.dir = dj.value("dir", 1.0f); d.yaw = dj.value("yaw", 0.0f);
+      a->rackDisplay.push_back(d);
+    }
+    for (auto& s : rj.value("deploy", json::array())) a->rackDeploy.push_back(s.get<std::string>());
+  }
   if (j.contains("defense")) {
     auto& dj = j["defense"]; DefenseDef& d = a->defense;
     d.kind = dj.value("kind", ""); d.hp = dj.value("hp", 300.0f); d.smallArms = dj.value("smallArmsMultiplier", 1.0f);

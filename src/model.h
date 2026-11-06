@@ -19,6 +19,7 @@ struct ModelPart {
   vec4 base{1};                     // base colour factor (multiplies the texture when present)
   float metal = 1, rough = 1;       // factors (multiply the MR texture when present)
   bool textured = false;
+  int mat = -1;                     // index into GpuModel::mats (-1: factors only)
   vec3 bmin{0}, bmax{0};            // weapon space
   std::vector<mat4> anim;           // optional: weapon-space delta per animation sample (rest = identity)
 };
@@ -32,6 +33,8 @@ struct ImportSpec {
   std::map<std::string, std::string> nodeParts;   // ancestor/joint name -> role
   std::vector<std::string> hide;    // ancestor names dropped entirely
   int maxTex = 1024;
+  json matOverride = json::object();   // per source material name: {"base":[r,g,b,a], "metal":m, "rough":r, "dropTextures":bool, "roughScale":k}
+  vec3 tint{1};                        // multiplies every base colour (palette correction)
 };
 ImportSpec importSpecFromJson(const json& j);
 
@@ -40,8 +43,11 @@ bool bakeGlbModel(const fs::path& glb, const ImportSpec& spec, const fs::path& o
 
 struct GpuModel {
   GLuint vao = 0, vbo = 0, ebo = 0;
-  GLuint texAlb = 0, texMR = 0, texN = 0, texAO = 0;
+  GLuint texAlb = 0, texMR = 0, texN = 0, texAO = 0;   // first material's set (legacy single-set bakes)
   bool aoInMR = false;              // AO packed in the red channel of the MR map
+  struct MatTex { GLuint alb = 0, mr = 0, n = 0, ao = 0; bool aoInMR = false; std::string name; };
+  std::vector<MatTex> mats;         // one texture set per source material (multi-material models: FG42, M2, Tommy gun)
+  int textureCount = 0;
   std::vector<ModelPart> parts;
   float animDuration = 0;
   vec3 bmin{0}, bmax{0};

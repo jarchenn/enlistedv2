@@ -63,7 +63,7 @@ target_link_libraries(imgui PUBLIC glfw)
 add_executable(NormandyMapmaker
   src/main.cpp src/app.cpp src/assets.cpp src/render.cpp src/terrain.cpp
   src/physics.cpp src/mapdoc.cpp src/editor.cpp src/explore.cpp src/audio.cpp
-  src/selftest.cpp src/thirdparty_impl.cpp src/damage.cpp src/ground.cpp src/selftest_damage.cpp src/fx.cpp src/station.cpp src/weapons.cpp src/selftest_pak.cpp src/selftest_weapons.cpp src/capture.cpp src/grass.cpp src/selftest_grass.cpp src/selftest_record.cpp src/recorder.cpp src/model.cpp src/viewmodel.cpp src/selftest_fps.cpp src/selftest_env.cpp src/ballistics.cpp src/foliage.cpp src/builder.cpp)
+  src/selftest.cpp src/thirdparty_impl.cpp src/damage.cpp src/ground.cpp src/selftest_damage.cpp src/fx.cpp src/station.cpp src/weapons.cpp src/selftest_pak.cpp src/selftest_weapons.cpp src/capture.cpp src/grass.cpp src/selftest_grass.cpp src/selftest_record.cpp src/recorder.cpp src/model.cpp src/viewmodel.cpp src/selftest_fps.cpp src/selftest_env.cpp src/ballistics.cpp src/foliage.cpp src/builder.cpp src/selftest_village.cpp src/arsenal.cpp src/selftest_arsenal.cpp)
 target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${miniaudio_SOURCE_DIR})
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)
 target_compile_definitions(NormandyMapmaker PRIVATE GLM_ENABLE_EXPERIMENTAL GLFW_INCLUDE_NONE)

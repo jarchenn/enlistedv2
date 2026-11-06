@@ -74,6 +74,22 @@ bool App::carriageFits(const Instance& i, const InstanceRT& r, vec3& pos, float 
   return true;
 }
 
+void App::resetStation(const Instance& i) {
+  auto it = rt.find(i.id); if (it == rt.end()) return;
+  auto& r = it->second; const AssetDef* a = r.asset;
+  StationRT s;
+  s.active = true; s.pos = i.pos; s.carYaw = i.yaw;
+  json o = i.extra.contains("station") ? i.extra["station"] : json::object();
+  s.loaded = o.value("loaded", a->station.loaded);
+  s.reserve = o.value("reserve", a->station.reserve);
+  s.reserveMax = std::max(a->station.reserve, s.reserve);
+  s.reserveAT = o.value("reserveAT", a->station.reserveAT); s.reserveATMax = std::max(a->station.reserveAT, s.reserveAT);
+  s.wrecked = o.value("wrecked", false);   // applied destruction persists; session wrecks reset with the overlay
+  if (s.wrecked) { s.loaded = 0; s.status = "Destroyed"; }
+  r.st = s;
+  Physics::setTransform(r.staticBody, i.pos, yawQuat(i.yaw));
+}
+
 void App::resetCombat() {
   projectiles.clear(); fx.clear();
   occupied = 0; choiceFor = 0;
@@ -82,17 +98,7 @@ void App::resetCombat() {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
     const AssetDef* a = r.asset;
-    if (!a->station.kind.empty()) {
-      StationRT s;
-      s.active = true; s.pos = i.pos; s.carYaw = i.yaw;
-      json o = i.extra.contains("station") ? i.extra["station"] : json::object();
-      s.loaded = o.value("loaded", a->station.loaded);
-      s.reserve = o.value("reserve", a->station.reserve);
-      s.reserveMax = std::max(a->station.reserve, s.reserve);
-      s.reserveAT = o.value("reserveAT", a->station.reserveAT); s.reserveATMax = std::max(a->station.reserveAT, s.reserveAT);
-      r.st = s;
-      Physics::setTransform(r.staticBody, i.pos, yawQuat(i.yaw));
-    }
+    if (!a->station.kind.empty()) resetStation(i);
     if (a->crate.is_object() && !a->crate.empty()) {
       json o = i.extra.contains("crate") ? i.extra["crate"] : json::object();
       json sup = o.contains("supplies") ? o["supplies"] : a->crate.value("supplies", json::object());
@@ -105,6 +111,7 @@ void App::resetCombat() {
 bool App::occupyStation(uint64_t id, int pos) {
   Instance* inst = doc.find(id); StationRT* s = station(id);
   if (!inst || !s) return false;
+  if (s->wrecked) { toast("The gun is destroyed."); return false; }
   if (occupied && occupied != id) { toast("You are already crewing another gun."); return false; }
   if (pos == ST_HANDLER && rt[id].asset->station.kind == "m2hb") { toast("The M2HB on its tripod is crewed from the spade grips only (Aim)."); return false; }
   auto& r = rt[id];
@@ -171,9 +178,26 @@ void App::stepProjectiles(float dt) {
       float len = glm::length(seg);
       Physics::Hit hit;
       bool impact = len > 1e-5f && Physics::castRayEx(p.p, seg, len, hit, p.ignore);   // continuous swept collision
+      // AT guns: swept test of the segment against each gun's direct-hit volume (the gun is mostly open frame,
+      // so its collision hull alone would let rockets pass between shield, cradle and trails)
+      if (p.atKill && len > 1e-5f) {
+        float tMax = impact ? hit.t : len;
+        for (auto& gi : doc.instances) {
+          auto gr = rt.find(gi.id);
+          if (gr == rt.end() || !isAtGun(gr->second.asset) || gr->second.st.wrecked || (p.ignore >> 16) == gi.id) continue;
+          const AssetDef* ga = gr->second.asset;
+          mat4 GM = stationMatrix(gi, gr->second);
+          vec3 c = vec3(GM * vec4((ga->gunHitMin + ga->gunHitMax) * 0.5f, 1));
+          float tt;
+          if (rayOBB(p.p, seg / len, c, (ga->gunHitMax - ga->gunHitMin) * 0.5f, glm::quat_cast(glm::mat3(GM)), tt) && tt >= 0 && tt <= tMax) {
+            impact = true; tMax = tt; hit.t = tt; hit.pos = p.p + seg / len * tt; hit.normal = -seg / len; hit.ud = gi.id << 16;
+          }
+        }
+      }
       vec3 end = impact ? hit.pos : p.p + seg;
       // visible travel feedback along the actual path
       if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
+      else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
       else if (p.tracer) fx.streak(p.p, end, 0.025f, 0.06f, vec4(9.0f, 2.2f, 0.8f, 1));
       else fx.streak(p.p, end, fx.rangeMode ? 0.012f : 0.007f, fx.rangeMode ? 0.05f : 0.025f, fx.rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1));
       if (impact) {
@@ -189,10 +213,15 @@ void App::stepProjectiles(float dt) {
             for (auto& pn : r.asset->panels) { float d = glm::length(glm::clamp(lp, pn.bmin, pn.bmax) - lp); if (d < best) { best = d; surface = pn.family; } }
           }
         } else if ((hit.ud & 0xFFFF) != 0) surface = "wood";
-        if (p.kind == PROJ_HE) {
+        if (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) {
+          // explicit direct hit on an AT gun (its own body, not merely inside the blast): one-shot destruction
+          uint64_t hitInst = (hit.ud >> 60) == 0xF || hit.ud == 0 ? 0 : (hit.ud >> 16);
+          if (p.atKill && hitInst) { auto hr = rt.find(hitInst); if (hr != rt.end() && isAtGun(hr->second.asset) && !hr->second.st.wrecked) { wreckStation(hitInst, p.kind == PROJ_ROCKET ? "rocket direct hit" : "shell direct hit"); ++directHits; } }
           blastAT = p.at;   // AT: concentrated wall damage, deep crater (ground.cpp)
-          auto ex = p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore) : explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore);
-          blastAT = false;
+          blastSplashGun = p.splashGun;
+          auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore)
+                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore) : explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore);
+          blastAT = false; blastSplashGun = 40;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
           audio.play("explosion", hit.pos, 1.0f);
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};
@@ -206,7 +235,7 @@ void App::stepProjectiles(float dt) {
         continue;
       }
       p.p = end;
-      p.v.y -= 9.81f * h;
+      p.v.y -= 9.81f * p.gravScale * h;
       p.life += h;
       if (p.life > 9.0f || p.p.y < -100) { projectiles.erase(projectiles.begin() + k); continue; }
       ++k;
@@ -218,6 +247,7 @@ void App::stepProjectiles(float dt) {
 void App::stepStation(float dt, const ExploreInput& in) {
   StationRT* s = station(occupied);
   if (!s) { occupied = 0; return; }
+  if (s->wrecked) { leaveStation(); return; }
   Instance* inst = doc.find(occupied);
   auto& r = rt[occupied];
   const StationDef& d = r.asset->station;
@@ -258,8 +288,10 @@ void App::stepStation(float dt, const ExploreInput& in) {
       }
     }
     s->cool = std::max(0.0f, s->cool - dt);
+    if (mg && in.fireMode) { s->semi = !s->semi; s->armed = false; toast(std::string("M2HB: ") + (s->semi ? "SEMI" : "AUTO"), 2); }
     if (mg) {
       if (fireHeld && s->armed && s->reload <= 0 && s->cool <= 0) {
+        if (s->semi) s->armed = false;   // SEMI: one round per press
         if (s->loaded > 0) {
           vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
           mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
@@ -279,7 +311,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
         mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
         vec3 start = vec3(e * vec4(0, 0, 0, 1));   // sweep from the trunnions along the bore: a wall at the muzzle stops the shell
         fireProjectile(start, dir, s->loadedAT ? 790.0f : 550.0f, PROJ_HE, 120.0f, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
-        if (!projectiles.empty()) projectiles.back().at = s->loadedAT;
+        if (!projectiles.empty()) { projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; }
         s->loaded -= 1; s->recoilT = 0; s->shots++;
         fx.muzzle(muzzle, dir, 1.0f);
         audio.play("pak_fire", muzzle, 1.0f);

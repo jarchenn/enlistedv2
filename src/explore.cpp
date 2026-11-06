@@ -63,6 +63,7 @@ bool App::enterExplore() {
 void App::exitExplore() {
   if (mode != Mode::Explore) return;
   Physics::destroyCharacter();
+  closeRack("mode change");
   leaveStation();
   resetInteractStates();   // discard temporary exploration state
   resetDamage();
@@ -133,16 +134,17 @@ InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
   for (auto& i : doc.instances) {   // guns and crates: aim at the object within reach, occlusion as for doors
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
-    bool isStation = !r.asset->station.kind.empty(), isCrate = r.asset->crate.is_object() && !r.asset->crate.empty();
-    if (!isStation && !isCrate) continue;
+    bool isStation = !r.asset->station.kind.empty(), isCrate = r.asset->crate.is_object() && !r.asset->crate.empty(), isRack = r.asset->rack;
+    if (!isStation && !isCrate && !isRack) continue;
     if (i.id == occupied) continue;
+    if (isStation && r.st.wrecked) continue;   // a wreck offers no interaction
     mat4 M = isStation ? stationMatrix(i, r) : instanceMatrix(i);
     vec3 c = vec3(M * vec4((r.asset->bmin + r.asset->bmax) * 0.5f, 1));
     if (glm::length(c - eye) > 6) continue;
     float t;
     quat q = yawQuat(isStation ? r.st.carYaw : i.yaw);
     if (rayOBB(eye, dir, c, (r.asset->bmax - r.asset->bmin) * 0.5f, q, t) && t <= 2.4f && t <= tWall + 0.25f && t < bestT) {
-      bestT = t; best = {true, i.id, -1, t, isStation ? 1 : 2};
+      bestT = t; best = {true, i.id, -1, t, isStation ? 1 : isRack ? 3 : 2};
     }
   }
   return best;
@@ -217,8 +219,10 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   }
   // ---- interaction
   target = findTarget(eyePos(), forward(eyeYaw, eyePitch));
+  stepRack(in);
+  if (in.packUp && !occupied && !rackOpen) packUpHeavy();
   if (occupied) { if (in.interact) leaveStation(); }
-  else if (showLoadout) {}
+  else if (showLoadout || rackOpen) {}
   else if (choiceFor) {
     if (in.choose1) occupyStation(choiceFor, ST_GUNNER);
     else if (in.choose2) occupyStation(choiceFor, ST_HANDLER);
@@ -226,6 +230,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   } else if (in.interact && target.valid) {
     if (target.kind == 1) choiceFor = target.inst;
     else if (target.kind == 2) toast(crateTransaction(target.inst), 5);
+    else if (target.kind == 3) openRack(target.inst);
     else toggleInteract(target.inst, target.idx);
   }
   stepProjectiles(dt);
@@ -236,7 +241,8 @@ void App::exploreStep(float dt, const ExploreInput& in) {
 void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
   if (!selftest) {
-    if (kp(win, GLFW_KEY_ESCAPE)) {
+    if (rackOpen && kp(win, GLFW_KEY_ESCAPE)) closeRack("closed");
+    else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu;
       glfwSetInputMode(win, GLFW_CURSOR, pauseMenu ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
     }
@@ -251,11 +257,12 @@ void App::updateExplore(float dt) {
   static double lmx = -1, lmy = -1;
   if (useScripted) {
     in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false; scriptedInput.toggleAmmo = false; scriptedInput.build = false;
+    scriptedInput.fireMode = scriptedInput.prone = scriptedInput.packUp = scriptedInput.rackUp = scriptedInput.rackDown = scriptedInput.rackEquip = scriptedInput.rackClose = false;
     scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false;
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (lmx >= 0 && !io.WantCaptureMouse && !showLoadout) {
+    if (lmx >= 0 && !io.WantCaptureMouse && !showLoadout && !rackOpen) {
       StationRT* gs = station(occupied);
       float hs = gs && rt[occupied].asset->station.kind == "m2hb" ? 0.08f : 0.012f;
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
@@ -276,16 +283,28 @@ void App::updateExplore(float dt) {
     in.switchPos = kp(win, GLFW_KEY_T);
     in.toggleAmmo = kp(win, GLFW_KEY_X);
     in.build = kp(win, GLFW_KEY_B);
+    in.fireMode = kp(win, binds.fireMode);
+    in.prone = kp(win, binds.prone);
+    in.packUp = kp(win, binds.packUp);
+    if (rackOpen) {   // the panel owns the keyboard: no movement, fire or look leaks through
+      in.rackUp = kp(win, GLFW_KEY_UP) || kp(win, GLFW_KEY_W); in.rackDown = kp(win, GLFW_KEY_DOWN) || kp(win, GLFW_KEY_S); in.rackEquip = kp(win, GLFW_KEY_ENTER);
+      in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = false;
+      in.dyaw = in.dpitch = in.lookYaw = in.lookPitch = 0;
+    }
     { extern double gScrollY; in.wheel = io.WantCaptureMouse ? 0.0f : (float)gScrollY; gScrollY = 0; }
     in.choose1 = kp(win, GLFW_KEY_1); in.choose2 = kp(win, GLFW_KEY_2);
     in.nextWeapon = kp(win, GLFW_KEY_Q);
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
+  if (rackOpen) {   // the panel owns input (keyboard and scripted alike): nothing leaks into movement or weapons
+    in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = in.packUp = false;
+    in.dyaw = in.dpitch = in.lookYaw = in.lookPitch = 0;
+  }
   physAccum += dt;
   int steps = 0;
   while (physAccum >= 1.0f / 60.0f && steps < 8) {
     exploreStep(1.0f / 60.0f, in);
-    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.dyaw = in.dpitch = 0;
+    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.dyaw = in.dpitch = 0;
     physAccum -= 1.0f / 60.0f; ++steps;
   }
   if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral
@@ -303,7 +322,7 @@ void App::drawExploreUI() {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
         if (target.kind != 0) {
-          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : "E  -  Take ammunition (" + it->second.asset->name + ")";
+          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : "E  -  Take ammunition (" + it->second.asset->name + ")";
           ImVec2 ts = ImGui::CalcTextSize(t.c_str());
           ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
           dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
@@ -326,6 +345,7 @@ void App::drawExploreUI() {
   }
   drawDamageDebug();
   drawBuilderUI();
+  drawRackUI();
   if (showStats) {
     auto ch = Physics::character();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 280, 10), ImGuiCond_Always);

@@ -61,13 +61,14 @@ bool App::snapDefense(const AssetDef* a, vec3& pos, float& yaw, int* matchedSock
 void App::stepBuilder(const ExploreInput& in) {
   if (in.build) { build.active = !build.active; if (build.active) toast("Build mode: 1 tank trap, 2 sandbags, Q cycle, R / wheel rotate, LMB place, RMB or B cancel", 5); }
   if (!build.active) return;
-  if (in.aim) { build.active = false; return; }
+  if (in.aim) { build.active = false; build.forceAsset.clear(); return; }
   if (in.choose1) build.item = 0;
   if (in.choose2) build.item = build.item == 1 ? 2 : 1;
   if (in.nextWeapon) build.item = (build.item + 1) % 3;
   if (in.reload) build.yaw += 15.0f;
   build.yaw += in.wheel * 15.0f;
-  const AssetDef* a = lib.find(kBuildItems[build.item]);
+  const AssetDef* a = lib.find(build.forceAsset.empty() ? kBuildItems[build.item] : build.forceAsset.c_str());
+  if (!build.forceAsset.empty() && (in.choose1 || in.choose2 || in.nextWeapon)) { build.forceAsset.clear(); a = lib.find(kBuildItems[build.item]); }
   build.asset = a;
   build.valid = false; build.snapped = false;
   if (!a) { build.reason = "missing asset"; return; }
@@ -81,8 +82,9 @@ void App::stepBuilder(const ExploreInput& in) {
   build.slopeDeg = degrees(std::acos(std::clamp(glm::dot(glm::normalize(h.normal), vec3(0, 1, 0)), -1.0f, 1.0f)));
   vec3 p = build.pos; float y = build.ghostYaw;
   if (snapDefense(a, p, y)) { build.pos = p; build.ghostYaw = y; build.snapped = true; }
-  if (build.slopeDeg > a->defense.maxSlopeDeg) {
-    char b[96]; std::snprintf(b, sizeof b, "Too steep: %.0f deg > %.0f deg", build.slopeDeg, a->defense.maxSlopeDeg);
+  float maxSlope = a->defense.kind.empty() ? 20.0f : a->defense.maxSlopeDeg;   // stations: carriage limit
+  if (build.slopeDeg > maxSlope) {
+    char b[96]; std::snprintf(b, sizeof b, "Too steep: %.0f deg > %.0f deg", build.slopeDeg, maxSlope);
     build.reason = b; return;
   }
   skipSlopeRule = true;   // theta already judged from the hit normal above
@@ -100,9 +102,11 @@ void App::stepBuilder(const ExploreInput& in) {
     i.pos = build.pos; i.yaw = wrapDeg(build.ghostYaw);
     i.extra = json::object(); i.extra["session"] = true;
     if (a->defense.blocksVehicles) i.extra["blocksVehicles"] = true;
+    if (!a->station.kind.empty()) i.extra["deployedBy"] = "player";
     bump(i); dirty = false;
     doc.instances.push_back(i);
     ++buildPlaced;
+    if (!a->station.kind.empty()) { syncRuntime(); resetStation(doc.instances.back()); build.active = false; build.forceAsset.clear(); }
     audio.play("crate", build.pos, 0.8f);
   }
 }

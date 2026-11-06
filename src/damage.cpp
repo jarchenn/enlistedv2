@@ -58,6 +58,13 @@ App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float cra
   blastLeaves(p, radius);   // glass within 1.6 R shatters, shutters / doors within R are blown off
   blastTrees(p, radius);    // HP_AT = 1: a shell within 1.5 m of a trunk fells it
   blastDefenses(p, dmg, radius);
+  for (auto& i : doc.instances) {   // splash on AT guns: separately tuned, never classified as a direct hit
+    auto it = rt.find(i.id); if (it == rt.end() || !isAtGun(it->second.asset) || it->second.st.wrecked) continue;
+    float dist = glm::length(it->second.st.pos + vec3(0, 0.8f, 0) - p);
+    if (dist > radius) continue;
+    it->second.st.hp -= blastSplashGun * (1.0f - dist / radius); ++splashGunHits;
+    if (it->second.st.hp <= 0) wreckStation(i.id, "splash");
+  }
   blastPlayer(p - (glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0)) * 0.06f, dmg, radius);   // exposure readout, sandbag occlusion x0.1
   vec3 d = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0);
   vec3 origin = p - d * 0.06f;   // just in front of the struck surface

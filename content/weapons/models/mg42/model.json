@@ -10,6 +10,15 @@
   -0.1125817596912384,
   5.960464477539063e-08
  ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.png",
+   "name": "MG42",
+   "normal": "normal_2.png"
+  }
+ ],
  "parts": [
   {
    "base": [
@@ -30,6 +39,7 @@
    ],
    "count": 47934,
    "first": 0,
+   "mat": 0,
    "metal": 1.0,
    "name": "MG42_MG42_0",
    "role": "body",
@@ -45,12 +55,7 @@
  ],
  "scale": 1.0049223899841309,
  "source": "mg42.glb",
- "textures": {
-  "albedo": "albedo.jpg",
-  "aoInMR": true,
-  "mr": "mr.png",
-  "normal": "normal.png"
- },
+ "textures": {},
  "triangles": 15978,
  "vertices": 12201
 }

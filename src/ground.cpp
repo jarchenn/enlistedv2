@@ -91,6 +91,10 @@ void App::applyDamageToMap() {
         int v = (r.leafSt[k][l] & 2) ? 2 : 1;
         if (!i.leafState.count(key) || i.leafState[key] != v) { i.leafState[key] = v; changed = true; ++leaves; }
       }
+    if (!r.asset->station.kind.empty() && r.st.wrecked && !(i.extra.is_object() && i.extra.contains("station") && i.extra["station"].value("wrecked", false))) {
+      if (!i.extra.is_object()) i.extra = json::object();
+      i.extra["station"]["wrecked"] = true; changed = true; ++leaves;
+    }
     if (r.asset->tree.on && r.treeFelled && !r.trunkApplied) { json ts = treeApplyState(i, r); if (!ts.is_null()) { i.extra["tree"] = ts; changed = true; ++leaves; } }
     if (changed) { i.rev = ++revCounter; }
   }

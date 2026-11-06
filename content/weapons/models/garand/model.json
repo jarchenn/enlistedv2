@@ -10,6 +10,20 @@
   -0.11583232879638672,
   3.7125151841621573e-09
  ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "mr": "mr_1.png",
+   "name": "02_-_Default",
+   "normal": "normal_2.png"
+  },
+  {
+   "albedo": "albedo_0.jpg",
+   "mr": "mr_1.png",
+   "name": "03_-_Default",
+   "normal": "normal_2.png"
+  }
+ ],
  "parts": [
   {
    "anim": [
@@ -1760,6 +1774,7 @@
    ],
    "count": 6582,
    "first": 0,
+   "mat": 0,
    "metal": 1.0,
    "name": "Clip_02 - Default_0",
    "role": "clip",
@@ -3515,6 +3530,7 @@
    ],
    "count": 690,
    "first": 6582,
+   "mat": 0,
    "metal": 1.0,
    "name": "Bullet_02 - Default_0",
    "role": "clip",
@@ -5270,6 +5286,7 @@
    ],
    "count": 882,
    "first": 7272,
+   "mat": 0,
    "metal": 1.0,
    "name": "Recieve_02 - Default_0",
    "role": "follower",
@@ -7025,6 +7042,7 @@
    ],
    "count": 1440,
    "first": 8154,
+   "mat": 0,
    "metal": 1.0,
    "name": "Charging_Handle_02 - Default_0",
    "role": "handle",
@@ -8780,6 +8798,7 @@
    ],
    "count": 1272,
    "first": 9594,
+   "mat": 0,
    "metal": 1.0,
    "name": "Bolt_02 - Default_0",
    "role": "bolt",
@@ -8805,6 +8824,7 @@
    ],
    "count": 31212,
    "first": 10866,
+   "mat": 1,
    "metal": 1.0,
    "name": "Garand001_03 - Default_0",
    "role": "body",
@@ -8820,11 +8840,7 @@
  ],
  "scale": 0.8785987496376038,
  "source": "realistic_m1_garand.glb",
- "textures": {
-  "albedo": "albedo.jpg",
-  "mr": "mr.png",
-  "normal": "normal.png"
- },
+ "textures": {},
  "triangles": 14026,
  "vertices": 12427
 }

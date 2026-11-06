@@ -169,3 +169,60 @@ save({"id": "def_sandbag_curved", "version": 1, "name": "Sandbag wall (curved 45
       "materials": [bag, bag2], "parts": p2, "furniture": [], "interactables": [], "panels": [],
       "defense": {"kind": "sandbag", "hp": 300, "stopsBullets": True, "blastOcclusion": 0.1, "maxSlopeDeg": 35, "sockets": s2}})
 print("ok")
+
+
+# ---------------------------------------------------------------- weapon racks (A-frame, weathered wood)
+# Structure after references/weapon_rack_reference.png: two A-shaped end frames with angled legs, a lower
+# buttstock tray with lips, an upper rail with individual barrel slots, feet boards and a rear brace. Launchers
+# rest on side hooks outside one end frame; the Allied rack has the M2 on its tripod beside it.
+def rack(id_, name, faction, display, deploy, desc):
+    W = {"name": "rack_wood", "albedo": [0.34, 0.26, 0.17], "roughness": 0.86, "pattern": "wood", "metallic": 0, "grain": 1}
+    W2 = {"name": "rack_wood_end", "albedo": [0.29, 0.22, 0.15], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 0}
+    Fe = {"name": "rack_iron", "albedo": [0.12, 0.11, 0.1], "roughness": 0.7, "pattern": "metal", "metallic": 0.5, "grain": 1}
+    parts = []
+    H, half = 1.25, 0.82
+    def leg(x, z0, z1):   # board from the foot (z0, 0) to the apex (z1, H)
+        L = math.hypot(H, z1 - z0); a = math.degrees(math.atan2(z1 - z0, H))
+        parts.append(box([x, H / 2, (z0 + z1) / 2], [0.05, L, 0.07], "rack_wood", r=[a, 0, 0]))
+    for x in (-half, half):
+        leg(x, 0.44, 0.02); leg(x, -0.42, -0.0)
+        parts.append(box([x, 0.025, 0.0], [0.07, 0.05, 1.02], "rack_wood_end"))            # foot board
+        parts.append(box([x, 0.36, 0.0], [0.045, 0.06, 0.66], "rack_wood"))               # stretcher
+        parts.append(box([x, H - 0.02, 0.01], [0.07, 0.07, 0.12], "rack_wood_end"))       # apex block
+    # buttstock tray with front and back lips
+    parts.append(box([0, 0.085, 0.27], [2 * half - 0.05, 0.025, 0.32], "rack_wood"))
+    parts.append(box([0, 0.12, 0.43], [2 * half - 0.05, 0.07, 0.025], "rack_wood"))
+    parts.append(box([0, 0.12, 0.115], [2 * half - 0.05, 0.07, 0.025], "rack_wood"))
+    # upper rail on the front legs with barrel slots (blocks between the slots)
+    ry, rz = 1.02, 0.44 - (0.44 - 0.02) * 1.02 / H
+    parts.append(box([0, ry, rz - 0.01], [2 * half - 0.05, 0.05, 0.06], "rack_wood"))
+    for k in range(9):
+        xs = -0.75 + k * 0.1875
+        parts.append(box([xs, ry + 0.045, rz + 0.0], [0.05, 0.04, 0.07], "rack_wood_end", k=0))
+    parts.append(box([0, 0.62, -0.2], [2 * half - 0.05, 0.05, 0.03], "rack_wood", r=[-60, 0, 0], k=0))   # rear brace
+    for y, z in ((0.82, 0.22), (0.82, -0.22)):   # side hooks (launcher support) outside the +x frame
+        parts.append(box([half + 0.09, y, z], [0.16, 0.035, 0.035], "rack_iron", k=0))
+        parts.append(box([half + 0.165, y + 0.035, z], [0.02, 0.07, 0.035], "rack_iron", k=0))
+    # nails / weathering details at the joints
+    for x in (-half, half):
+        for y in (0.36, 1.02):
+            parts.append(box([x + (0.028 if x > 0 else -0.028), y, 0.2], [0.006, 0.012, 0.012], "rack_iron", k=0))
+    parts.append(box([0, 0.65, 0.0], [2 * half + 0.1, 1.3, 0.95], "rack_wood", v=0))   # collision hull: simple and snag-free
+    save({"id": id_, "version": 1, "name": name, "category": "Supply", "description": desc, "floors": 0, "enterable": False,
+          "footprint": [2.6 if faction == "US" else 2.0, 1.1], "plinthDepth": 0, "maxGrade": 0.4, "materials": [W, W2, Fe], "parts": parts,
+          "furniture": [], "interactables": [], "panels": [], "faction": faction,
+          "rack": {"faction": faction, "display": display, "deploy": deploy}})
+
+slots = [-0.56, -0.28, 0.0, 0.28, 0.56]
+rack("rack_allied", "Allied weapon rack", "US",
+     [{"weapon": w, "pose": "lean", "p": [x, 0.1, 0.42], "lean": 14} for w, x in zip(["m1_garand", "m1_carbine", "m1_thompson", "m1918a2_bar", "m1c_garand"], slots)] +
+     [{"weapon": "bazooka_m9", "pose": "flat", "p": [0.985, 0.855, -0.75], "dir": 1},
+      {"weapon": "m2hb_carry", "pose": "stand", "p": [1.75, 0.0, 0.0], "yaw": 0}],
+     ["gun_m2hb_tripod"],
+     "Weathered wooden A-frame rack. E opens the Allied arsenal (every US weapon in the registry, launcher and the carried M2).")
+rack("rack_axis", "Axis weapon rack", "DE",
+     [{"weapon": w, "pose": "lean", "p": [x, 0.1, 0.42], "lean": 14} for w, x in zip(["kar98k", "mp40", "fg42", "kar98k_zf39", "mg42"], slots)] +
+     [{"weapon": "panzerschreck", "pose": "flat", "p": [0.985, 0.855, -0.8], "dir": 1}],
+     ["gun_pak40"],
+     "Weathered wooden A-frame rack. E opens the Axis arsenal (every German weapon in the registry and the Panzerschreck; the PaK 40 deploys through build mode).")
+print("racks ok")

@@ -57,6 +57,9 @@ void App::buildWeaponMeshes() {
     }
     d->file = f;
     d->bulletMass = j.value("bulletMass", 10.0f);
+    for (auto& m : j.value("modes", json::array())) d->modes.push_back(m.get<std::string>());
+    d->deploys = j.value("deploys", "");
+    if (j.contains("rocket")) { auto& rj = j["rocket"]; d->rocketDmg = rj.value("damage", 260.0f); d->rocketR = rj.value("radius", 1.6f); d->rocketCrater = rj.value("crater", 0.6f); d->rocketSplashGun = rj.value("splashGun", 40.0f); }
     if (j.contains("sockets")) { d->gripR = jvec3(j["sockets"]["rightGrip"], d->gripR); d->gripL = jvec3(j["sockets"]["leftSupport"], d->gripL); }
     if (j.contains("model") && useImportedModels) {
       std::string dirName = j["model"].value("dir", "");
@@ -96,7 +99,8 @@ void App::resetWeapons() {
     wstate[d.id] = s;
   }
   if (activeWeapon >= (int)weaponDefs.size()) activeWeapon = 0;
-  adsT = 0; weaponMsg.clear(); { ViewModelState keep = vm; vm = ViewModelState{}; vm.procedural = keep.procedural; vm.showArms = keep.showArms; vm.vmFov = keep.vmFov; }
+  adsT = 0; weaponMsg.clear();
+  resetLoadout(); { ViewModelState keep = vm; vm = ViewModelState{}; vm.procedural = keep.procedural; vm.showArms = keep.showArms; vm.vmFov = keep.vmFov; }
   viewKickPitch = viewKickYaw = 0;
 }
 
@@ -110,6 +114,7 @@ void App::selectWeapon(int idx) {
   WeaponState& cur = wstate[weaponDefs[activeWeapon]->id];
   if (cur.reload > 0) { cur.reload = 0; cur.reloadKind = 0; weaponMsg = "Reload interrupted (no rounds moved)"; }   // nothing is committed until a reload completes
   activeWeapon = idx; adsT = 0; vm.snap = true;
+  wstate[weaponDefs[idx]->id].triggerReleased = false;   // a trigger held through the swap never fires the new weapon
 }
 
 mat4 App::viewModelMatrix(const WeaponDef& d, const WeaponState& s) const {
@@ -183,6 +188,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   }
   // en-bloc / stripper clip visible while it is being loaded (imported en-bloc clip: always seated, animated)
   if (tex && d.feed == "enbloc") add(WP_CLIP, M);
+  else if (tex && d.action == "launcher") { if (s.reload > 0) { float u = 1 - s.reload / std::max(0.01f, s.reloadTotal); add(WP_CLIP, M * glm::translate(mat4(1), vec3(0, 0.1f * (1 - u), -0.6f * (1 - u)))); } }
   else if (s.reload > 0 && (s.reloadKind == 1 || s.reloadKind == 2) && (d.feed == "enbloc" || d.feed == "stripper")) {
     float u = 1 - s.reload / s.reloadTotal;
     float y = u < 0.6f ? 0.12f * (1 - u / 0.6f) : 0;
@@ -214,14 +220,25 @@ std::string App::resupplyPersonal(uint64_t crateId) {
 
 void App::stepWeapons(float dt, const ExploreInput& in) {
   if (weaponDefs.empty()) return;
-  if (in.nextWeapon) {
-    int idx = activeWeapon;
-    for (size_t k = 0; k < weaponDefs.size(); ++k) { idx = (idx + 1) % (int)weaponDefs.size(); if (!(strictDDay && weaponDefs[idx]->laterWar)) break; }
-    selectWeapon(idx);
+  if (in.nextWeapon) {   // Q cycles the carried loadout (sandbox loadout + rack swaps)
+    if (carried.empty()) resetLoadout();
+    auto it = std::find(carried.begin(), carried.end(), activeWeapon);
+    size_t at = it == carried.end() ? 0 : (size_t)(it - carried.begin());
+    for (size_t k = 0; k < carried.size(); ++k) { at = (at + 1) % carried.size(); if (!(strictDDay && weaponDefs[carried[at]]->laterWar)) break; }
+    selectWeapon(carried[at]);
   }
   const WeaponDef& d = *weaponDefs[activeWeapon];
   WeaponState& s = wstate[d.id];
-  bool modal = pauseMenu || showLoadout || choiceFor;
+  bool modal = pauseMenu || showLoadout || choiceFor || rackOpen;
+  if (in.fireMode && !modal) toggleFireMode(d, s);
+  if (d.action == "heavy") {   // carried M2: no firing, no sights; LMB deploys it on its tripod
+    adsT = 0;
+    stepViewModel(dt, in, d, s);
+    if (in.fire && !modal && s.triggerReleased) { s.triggerReleased = false; deployHeavy(d, s); }
+    if (!in.fire) s.triggerReleased = true;
+    viewKickPitch = viewKickYaw = 0;
+    return;
+  }
   bool fireHeld = in.fire && !modal && (glfwGetWindowAttrib(win, GLFW_FOCUSED) || selftest);
   adsT = std::clamp(adsT + (in.aim && !modal ? 6.0f : -6.0f) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
@@ -272,7 +289,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   }
   // ---- fire
   bool canCycle = s.cooldown <= 0 && s.bolt <= 0 && s.reload <= 0;
-  bool semi = d.action != "auto";
+  bool semi = d.action != "auto" || std::string(fireModeName(d, s)) == "SEMI";   // selector SEMI: one shot per press
   if (fireHeld && canCycle && (!semi || s.triggerReleased)) {
     s.triggerReleased = false;
     if (s.loaded <= 0) { if (!s.clicked) { audio.play("click", eyePos(), 0.6f); s.clicked = true; } }
@@ -311,11 +328,20 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         dir = V; lastSightR = Rw; lastSightF = Fw; lastSightV = glm::normalize(Fw - Rw);
       }
       // declared zero: tilt up by the drop at the zero range
-      float tz = d.zero / d.velocity, drop = 0.5f * 9.81f * tz * tz;
+      float g = d.action == "launcher" ? 9.81f * 0.35f : 9.81f;   // rockets: reduced effective gravity (sustained motor)
+      float tz = d.zero / d.velocity, drop = 0.5f * g * tz * tz;
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
       bool tracer = d.tracerEvery > 0 && s.shotIdx % d.tracerEvery == 0;
-      fireProjectile(start, dir, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
-      if (!projectiles.empty()) projectiles.back().mass = d.bulletMass * 0.001f;
+      if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
+        fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
+        Projectile& rp = projectiles.back();
+        rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = true; rp.gravScale = 0.35f;
+        vec3 back = weaponMuzzleWorld(d, s) - aimDir * 1.4f;   // backblast
+        for (int n = 0; n < 6; ++n) fx.smoke(back, -aimDir * (3.0f + fx.rnd() * 2) + vec3(fx.rnd() - 0.5f, fx.rnd() * 0.5f, fx.rnd() - 0.5f), 0.25f, 1.5f, vec4(0.55f, 0.53f, 0.5f, 0.5f), 1.6f, 0.3f);
+      } else {
+        fireProjectile(start, dir, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
+        if (!projectiles.empty()) projectiles.back().mass = d.bulletMass * 0.001f;
+      }
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
       fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
@@ -363,7 +389,7 @@ void App::drawWeaponUI() {
   char b[256];
   std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "loading rounds" : "reloading") : s.bolt > 0 ? "working the bolt" : s.loaded == 0 ? "EMPTY - R" : "";
   int nC = (int)s.containers.size();
-  std::snprintf(b, sizeof b, "%s  %s\nloaded %d (incl. chamber) | reserve %d in %d x %s  (allowance %d)\n%s %s", d.name.c_str(), d.caliber.c_str(), s.loaded, s.reserveRounds(), nC, d.container.c_str(), s.reserveMax,
+  std::snprintf(b, sizeof b, "%s  %s  [%s]%s\nloaded %d (incl. chamber) | reserve %d in %d x %s  (allowance %d)\n%s %s", d.name.c_str(), d.caliber.c_str(), fireModeName(d, s), d.modes.size() > 1 ? (" (" + binds.names["fireMode"] + " toggles)").c_str() : "", s.loaded, s.reserveRounds(), nC, d.container.c_str(), s.reserveMax,
                 st.c_str(), d.feed == "belt" ? (supported ? "[bipod supported]" : "[unsupported - crouch & stand still]") : "");
   ImVec2 ts = ImGui::CalcTextSize(b);
   ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30);

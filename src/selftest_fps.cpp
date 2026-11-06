@@ -37,21 +37,21 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         char b[220]; std::snprintf(b, sizeof b, "%s: imported model %s, %d tris, %zu parts, length %.3f m vs real %.3f m (%.2f%%)",
                                    d.id.c_str(), j["model"].value("dir", "").c_str(), ok ? d.model->tris : 0, ok ? d.model->parts.size() : 0, L, want, ok ? 100 * std::fabs(L - want) / want : 100.0f);
         check(ok && std::fabs(L - want) / want < 0.01f, b);
-        bool texExpected = d.id != "m1_thompson";
+        bool texExpected = d.id != "m1_thompson" && d.id != "bazooka_m9";   // both sources are factor-only
         if (ok) check(!texExpected || (d.model->texAlb && d.model->texMR && d.model->texN), d.id + (texExpected ? ": albedo, metal-rough and normal textures bound" : ": factor-only materials (source has no textures)"));
       }
-      check(models == 6, "six weapon entries use imported models (Garand, M1C, MP 40, Thompson, MG 42, BAR); " + std::to_string(models) + " found");
+      check(models == 13, "thirteen weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck); " + std::to_string(models) + " found");
       GpuModel g; std::string err;
       check(!g.load(contentDir() / "weapons" / "models" / "does_not_exist", err), "a missing bake fails cleanly (" + err + ") and the weapon keeps its box parts");
       int box = a.weaponIndex("kar98k");
-      check(box >= 0 && !a.weaponDefs[box]->useModel() && a.weaponDefs[box]->mesh[0].count > 0, "Kar 98k still draws its procedural box model");
+      check(box >= 0 && a.weaponDefs[box]->useModel() && a.weaponDefs[box]->mesh[0].count > 0, "Kar 98k uses the supplied model; its box parts remain as the fallback");
       const WeaponDef* g1 = a.weaponDefs[a.weaponIndex("m1_garand")].get();
       int clip = 0, anim = 0; for (auto& p : g1->model->parts) { clip += p.role == "clip"; anim += !p.anim.empty(); }
       check(clip == 2 && anim >= 5 && g1->model->animDuration > 6.0f, "Garand: clip + rounds mapped to the clip role, " + std::to_string(anim) + " parts carry the 6.3 s reload clip");
       return true; });
 
     // ---- F2 ADS alignment for every weapon at both world FOVs
-    for (size_t wi = 0; wi < 8; ++wi) {
+    for (size_t wi = 0; wi < 16; ++wi) {
       push("ads " + std::to_string(wi), [this, wi](App& a, float t) {
         if (wi >= a.weaponDefs.size()) return true;
         if (t == 0) { a.selectWeapon((int)wi); a.vm.procedural = false; a.eyeYaw = 0; a.eyePitch = 0; }
@@ -59,6 +59,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         if (t < 0.9f) return false;
         const WeaponDef& d = D(a); auto& s = a.wstate[d.id];
         if (a.vmScoped(d)) { check(true, d.id + ": scoped, sight picture replaced by the scope mask"); return true; }
+        if (d.action == "heavy") { check(a.adsT == 0, d.id + ": carried heavy weapon has no sights (deploy it to aim)"); return true; }
         mat4 M = a.viewModelMatrix(d, s);
         vec3 r = vec3(M * vec4(d.rear, 1)), f = vec3(M * vec4(d.front, 1));
         float aspect = 16.0f / 9.0f;
@@ -199,7 +200,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       return true; });
 
     // ---- screenshots of every imported weapon, hip and ADS (procedural motion on)
-    for (size_t wi = 0; wi < 8; ++wi) {
+    for (size_t wi = 0; wi < 16; ++wi) {
       push("shots " + std::to_string(wi), [this, wi](App& a, float t) {
         if (wi >= a.weaponDefs.size()) return true;
         if (t == 0) { a.selectWeapon((int)wi); a.vm.procedural = true; a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = -2; }

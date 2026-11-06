@@ -118,7 +118,7 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
-  R.foliage.clear();
+  R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear();
   R.wind = grass.wind ? 1.0f : 0.0f;
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
@@ -128,8 +128,28 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900) treeDrawItems(i, r, op);
       continue;
     }
+    if (r.asset->rack) { op.push_back({&r.asset->opaque, M}); rackDrawItems(i, r); continue; }
     if (!r.asset->station.kind.empty()) {   // station: base + yaw / elevation / recoil children
       mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc);
+      if (r.st.wrecked) {   // wreck: blackened, barrel slumped and slewed off its line
+        vec4 burnt(0.22f, 0.2f, 0.18f, 1);
+        mat4 slump = glm::rotate(mat4(1), radians(-14.0f), vec3(1, 0, 0)) * glm::rotate(mat4(1), radians(9.0f), vec3(0, 0, 1));
+        op.push_back({&r.asset->opaque, b, burnt});
+        op.push_back({&r.asset->station.yawMesh, y, burnt});
+        op.push_back({&r.asset->station.elevMesh, e * slump, burnt});
+        op.push_back({&r.asset->station.recoilMesh, rc * slump, burnt});
+        continue;
+      }
+      int m2w = r.asset->station.kind == "m2hb" ? weaponIndex("m2hb_carry") : -1;
+      if (m2w >= 0 && weaponDefs[m2w]->useModel()) {   // the supplied M2 GLB on the station: tripod on the base, gun on the cradle
+        const GpuModel* gm = weaponDefs[m2w]->model.get();
+        mat4 tri = b * glm::translate(mat4(1), vec3(0, 0.311f, -0.665f)), gun = rc * glm::translate(mat4(1), vec3(0, -0.181f, -0.665f));
+        for (size_t k = 0; k < gm->parts.size(); ++k) {
+          float cy = (gm->parts[k].bmin.y + gm->parts[k].bmax.y) * 0.5f;
+          R.worldModels.push_back({gm, (int)k, cy < 0.10f ? tri : gun});
+        }
+        continue;
+      }
       op.push_back({&r.asset->opaque, b});
       op.push_back({&r.asset->station.yawMesh, y});
       op.push_back({&r.asset->station.elevMesh, e});
@@ -399,7 +419,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal") runSelf = true;
+    else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
@@ -455,6 +476,9 @@ int App::run(int argc, char** argv) {
     MeshData m; appendPart(m, p, rm, mat4(1)); debrisMesh.upload(m);
     buildWeaponMeshes();
     buildArmMeshes();
+    loadBindings();
+    layoutRackDisplays();
+    resetLoadout();
   }
   if (!sheetsDir.empty()) { writeWeaponSheets(sheetsDir); glfwTerminate(); return 0; }
   {
@@ -496,6 +520,7 @@ int App::run(int argc, char** argv) {
 
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
     buildDrawLists(op, gl);
+    op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {
       dynLeafDrawItems(op);
       builderGhosts(ghosts);

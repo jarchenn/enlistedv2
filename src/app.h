@@ -37,13 +37,14 @@ struct InstanceRT {
 struct ExploreInput {
   vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0;
   bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false, toggleAmmo = false, build = false; float wheel = 0, lookYaw = 0, lookPitch = 0;
+  bool fireMode = false, prone = false, packUp = false, rackUp = false, rackDown = false, rackEquip = false, rackClose = false;
 };
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
 
 struct PlaceCheck { bool ok = true; std::string reason; float y = 0; };
 
-struct InteractTarget { bool valid = false; uint64_t inst = 0; int idx = -1; float t = 0; int kind = 0; /*0 door/window, 1 station, 2 crate*/ };
+struct InteractTarget { bool valid = false; uint64_t inst = 0; int idx = -1; float t = 0; int kind = 0; /*0 door/window, 1 station, 2 crate, 3 rack*/ };
 struct ImpactInfo { vec3 pos{0}; std::string surface; int kind = 0; float time = -10; int breached = 0; };
 
 class SelfTest;
@@ -145,8 +146,34 @@ public:
   void resetLeafDamage();
   void dynLeafDrawItems(std::vector<DrawItem>& op);
   float leafHpFor(const InteractDef& d) const;
+  // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
+  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0; std::map<std::string, std::string> names; } binds;
+  void loadBindings();
+  std::vector<int> carried;
+  bool isSmallArm(const WeaponDef& d) const;
+  void resetLoadout();
+  bool equipWeapon(int idx, std::string& msg);
+  const char* fireModeName(const WeaponDef& d, const WeaponState& s) const;
+  void toggleFireMode(const WeaponDef& d, WeaponState& s);
+  bool deployHeavy(const WeaponDef& d, WeaponState& s);
+  bool packUpHeavy();
+  void resetStation(const Instance& i);
+  void wreckStation(uint64_t id, const std::string& why);
+  bool isAtGun(const AssetDef* a) const;
+  struct WreckInfo { uint64_t id = 0; std::string why; float time = -100; } lastWreck;
+  int stationsWrecked = 0, equips = 0, deploys = 0, packs = 0, rackOpens = 0;
+  bool rackOpen = false; uint64_t rackId = 0; int rackSel = 0; std::string lastRackClose;
+  std::vector<int> rackArsenal(const std::string& faction) const;
+  void rackDrawItems(const Instance& i, const InstanceRT& r);
+  void layoutRackDisplays();
+  void openRack(uint64_t id);
+  void closeRack(const char* why);
+  void stepRack(const ExploreInput& in);
+  void rackActivate();
+  void drawRackUI();
+  std::vector<DrawItem> worldBoxDraws;   // box-model weapons on racks
   // ---- buildable defences (builder.cpp)
-  struct BuildState { bool active = false, valid = false, snapped = false, fireHeld = true; int item = 1; float yaw = 0, ghostYaw = 0, slopeDeg = 0; vec3 pos{0}; std::string reason; const AssetDef* asset = nullptr; };
+  struct BuildState { std::string forceAsset; bool active = false, valid = false, snapped = false, fireHeld = true; int item = 1; float yaw = 0, ghostYaw = 0, slopeDeg = 0; vec3 pos{0}; std::string reason; const AssetDef* asset = nullptr; };
   BuildState build;
   int buildPlaced = 0;
   bool skipSlopeRule = false;
@@ -242,6 +269,8 @@ public:
   vec3 weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const;
   bool deformGround(vec3 p, float scale);   // ground.cpp
   bool blastAT = false;                     // the explosion being resolved is an AT shell (deep crater profile)
+  float blastSplashGun = 40;                // splash damage to AT guns at the blast centre (falls off to 0 at the radius); guns have 100 HP
+  int directHits = 0, splashGunHits = 0;
   static constexpr float kStdCraterD = 0.5f, kStdCraterR = 1.5f, kATCraterD = 1.2f, kATCraterR = 3.0f, kCraterP = 2.0f;
   bool craterAt(vec3 p, float radius, float depth);
   float groundWeight(float x, float z) const;

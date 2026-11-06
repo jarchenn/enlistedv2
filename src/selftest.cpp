@@ -148,6 +148,9 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--record-range") { go(990); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-fps") { go(1100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-env") { go(1200); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--build-village-map") { go(1300); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-arsenal") { go(1400); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }
     const TemplateInfo* t = app.findTemplate("blank_slate");
@@ -340,7 +343,7 @@ void SelfTest::update(App& app, float dt) {
     // the legacy scene uses only the 14 enterable structures (ordnance and crates added later are excluded,
     // so the asset mix and the numbers stay comparable with docs/baseline/benchmark.json)
     std::vector<const AssetDef*> legacy;
-    for (auto& a : app.lib.assets) if (a->station.kind.empty() && !(a->crate.is_object() && !a->crate.empty())) legacy.push_back(a.get());
+    for (auto& a : app.lib.assets) if (a->station.kind.empty() && !(a->crate.is_object() && !a->crate.empty()) && !a->tree.on && a->defense.kind.empty() && !a->rack) legacy.push_back(a.get());
     benchOut["asset_pool"] = legacy.size();
     for (int gz = 0; gz < 6 && placed < 30; ++gz)
       for (int gx = 0; gx < 6 && placed < 30; ++gx) {

@@ -1,0 +1,498 @@
+{
+  "editorCamera": {
+    "pitch": -18.0,
+    "position": [
+      0.0,
+      38.0,
+      95.0
+    ],
+    "yaw": 0.0
+  },
+  "exploreStart": {
+    "position": [
+      0.0,
+      -0.008651716634631157,
+      30.0
+    ],
+    "yaw": 180.0
+  },
+  "format": "normandy-mapmaker-map",
+  "instances": [
+    {
+      "asset": {
+        "id": "large_municipal_building",
+        "version": 1
+      },
+      "id": 1,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -24.0,
+        0.01951642520725727,
+        -8.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "small_storehouse",
+        "version": 1
+      },
+      "id": 2,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        10.0,
+        -0.10258147120475769,
+        -14.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "house_stone_cottage",
+        "version": 1
+      },
+      "id": 3,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.0,
+        -0.14621029794216156,
+        -46.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "house_farmhouse_2story",
+        "version": 1
+      },
+      "id": 4,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        34.0,
+        -0.11829303950071335,
+        -40.0
+      ],
+      "yaw": 200.0
+    },
+    {
+      "asset": {
+        "id": "small_stone_dairy",
+        "version": 1
+      },
+      "id": 5,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -44.0,
+        -0.032173823565244675,
+        -40.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 6,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -10.0,
+        -0.06551166623830795,
+        2.0
+      ],
+      "yaw": 350.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 7,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -4.0,
+        -0.10318110883235931,
+        -6.0
+      ],
+      "yaw": 212.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 8,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        2.0,
+        -0.11004792898893356,
+        3.0
+      ],
+      "yaw": 74.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 9,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -7.0,
+        -0.09779240936040878,
+        -16.0
+      ],
+      "yaw": 101.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 10,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        0.0,
+        -0.07648564875125885,
+        -24.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 11,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        5.0,
+        -0.10218078643083572,
+        -9.0
+      ],
+      "yaw": 185.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 12,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -13.0,
+        -0.08795276284217834,
+        -26.0
+      ],
+      "yaw": 239.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 13,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        7.0,
+        -0.10467874258756638,
+        -30.0
+      ],
+      "yaw": 259.0
+    },
+    {
+      "asset": {
+        "id": "tree_apple",
+        "version": 1
+      },
+      "id": 14,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.0,
+        -0.07263970375061035,
+        12.0
+      ],
+      "yaw": 286.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 1
+      },
+      "id": 15,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        26.0,
+        -0.09198389202356339,
+        8.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 1
+      },
+      "id": 16,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        27.799999237060547,
+        -0.08806022256612778,
+        0.5
+      ],
+      "yaw": 50.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 1
+      },
+      "id": 17,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        29.600000381469727,
+        -0.11849629878997803,
+        -7.0
+      ],
+      "yaw": 100.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 1
+      },
+      "id": 18,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        31.399999618530273,
+        -0.10406038910150528,
+        -14.5
+      ],
+      "yaw": 150.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 1
+      },
+      "id": 19,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        33.20000076293945,
+        -0.07995922118425369,
+        -22.0
+      ],
+      "yaw": 200.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 1
+      },
+      "id": 20,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        35.0,
+        -0.10199268162250519,
+        -29.5
+      ],
+      "yaw": 250.0
+    },
+    {
+      "asset": {
+        "id": "tree_oak",
+        "version": 1
+      },
+      "id": 21,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        40.0,
+        -0.12120743840932846,
+        14.0
+      ],
+      "yaw": 30.0
+    },
+    {
+      "asset": {
+        "id": "tree_oak",
+        "version": 1
+      },
+      "id": 22,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -40.0,
+        -0.0009771586628630757,
+        10.0
+      ],
+      "yaw": 120.0
+    },
+    {
+      "asset": {
+        "id": "def_tank_trap",
+        "version": 1
+      },
+      "blocksVehicles": true,
+      "id": 23,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        30.0,
+        -0.10612636059522629,
+        14.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "def_tank_trap",
+        "version": 1
+      },
+      "blocksVehicles": true,
+      "id": 24,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        33.20000076293945,
+        -0.11959746479988098,
+        14.5
+      ],
+      "yaw": 40.0
+    },
+    {
+      "asset": {
+        "id": "def_tank_trap",
+        "version": 1
+      },
+      "blocksVehicles": true,
+      "id": 25,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        36.400001525878906,
+        -0.1256912648677826,
+        15.0
+      ],
+      "yaw": 80.0
+    },
+    {
+      "asset": {
+        "id": "def_sandbag_straight",
+        "version": 1
+      },
+      "id": 26,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        20.0,
+        -0.07148411124944687,
+        18.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "gun_m2hb_tripod",
+        "version": 1
+      },
+      "id": 27,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        16.0,
+        -0.054850831627845764,
+        16.0
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "gun_pak40",
+        "version": 1
+      },
+      "id": 28,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        8.0,
+        -0.10852422565221786,
+        -34.0
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "crate_mixed_supply",
+        "version": 1
+      },
+      "id": 29,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        13.0,
+        -0.045122548937797546,
+        17.0
+      ],
+      "yaw": 0.0
+    }
+  ],
+  "name": "Normandy village",
+  "nextId": 30,
+  "removedTemplateVegetation": [],
+  "schemaVersion": 1,
+  "template": {
+    "id": "blank_slate",
+    "seed": 1944,
+    "version": 1
+  }
+}
