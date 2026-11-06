@@ -247,7 +247,8 @@ void SelfTest::update(App& app, float dt) {
     if (!next) { finish(app); break; }
     curAsset = next->id; pass = 0;
     float yaw = wrapDeg(123.0f + 61.0f * (float)extraIdx);
-    houseId = app.placeInstance(next, vec3(-250.0f + 48.0f * (float)(extraIdx % 11), 0, -150.0f + 80.0f * (float)(extraIdx / 11)), yaw);
+    static int walked = 0; int slot = walked++;   // grid by walked assets, not library index: assets without a walkthrough don't push the grid out of the build area
+    houseId = app.placeInstance(next, vec3(-250.0f + 48.0f * (float)(slot % 11), 0, -150.0f + 80.0f * (float)(slot / 11)), yaw);
     check(houseId != 0, next->name + " placed at yaw " + std::to_string((int)yaw));
     if (!houseId) break;
     json st = next->walkthrough["start"];

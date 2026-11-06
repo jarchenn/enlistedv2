@@ -650,6 +650,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
       if (a->panels.empty()) continue;
       float yaw = wrapDeg(17.0f + 41.0f * idx);
       uint64_t id = app.placeInstance(a, vec3(-270.0f + 40.0f * (idx % 13), 0, 200.0f + 45.0f * (idx / 13)), yaw);   // rows of 13 stay inside the build area
+      for (int t = 0; !id && t < 81; ++t) id = app.placeInstance(a, vec3(-260.0f + 65.0f * (t % 9), 0, -260.0f + 65.0f * (t / 9)), yaw);   // a big footprint past the rows: first free slot
       ++idx;
       if (!id) { check(false, a->name + " placed for damage test"); continue; }
       app.syncRuntime();
