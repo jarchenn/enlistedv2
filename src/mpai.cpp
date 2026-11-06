@@ -1,6 +1,7 @@
 // Glue between the shared core and the multiplayer + AI systems (see mpai.h).
 #include "mpai.h"
 #include "gore_api.h"
+#include "rules.h"
 #include "mptest.h"
 #include "game.h"
 #include "mpui.h"
@@ -23,6 +24,7 @@ bool mpaiArg(App& app, int argc, char** argv, int& k, bool& runSelf) {
   (void)app; (void)argc;
   installCrashReporter();
   std::string a = argv[k];
+  if (a == "--selftest-rules") { runSelf = true; return true; }   // W1 gameplay rules (selftest_rules.cpp)
   if (a == "--selftest-match") { mpaiExit = runMatchSelfTest(); return true; }
   if (a == "--selftest-ai") { runSelf = true; runAiSelfTestArg = 1; return true; }
   if (a == "--benchmark-match") { runSelf = true; runAiSelfTestArg = 2; return true; }
@@ -52,6 +54,7 @@ void mpaiUI(App& app) {
   if (!gGame || !gGame->active) return;
   if (!app.selftest && edge(app.win, GLFW_KEY_F6)) gGame->debugOverlay = !gGame->debugOverlay;
   gGame->drawHud();
+  rulesHud(*gGame);   // W1: shield icons over protected enemies, own protection ring
   if (gUi.wantExit) {
     gUi.wantExit = false;
     bool host = gNet && gNet->role == Net::HOST;
@@ -139,6 +142,7 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   }
   if (p.owner == -1 && p.life == 0 && gNet && gNet->role == Net::HOST)   // the host's own shots: tracers / sound on clients
     gNet->hostWorldEvent(json{{"t", "shot"}, {"p", tojson(p.p)}, {"d", tojson(glm::normalize(p.v))}, {"w", app.activeWeapon}, {"tr", p.tracer}, {"by", gGame->localSlot}});
+  if (p.life == 0) rulesOnFire(*gGame, gGame->soldierOfOwner(p.owner));   // W1: firing ends spawn protection
   float tHit = tWorld;
   vec3 a = p.p;
   if (!gGame->projectileSegment(p, a, seg, len, tHit)) return false;
@@ -160,6 +164,7 @@ void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float cr
 // ---------------------------------------------------------------- grenades on the shared core (equipment.cpp)
 bool mpaiGrenadeSpawn(App& app, int def, vec3 pos, vec3 vel, int owner) {
   (void)pos;
+  if (gGame && gGame->active && !gGame->isClient) rulesOnThrow(*gGame, gGame->soldierOfOwner(owner));   // W1: a throw ends spawn protection
   if (!gGame || !gGame->active || !gGame->isClient || owner != -1) return false;
   // a LAN client's own release becomes a request: the host checks the inventory and releases it from its soldier
   if (gNet) gNet->clientThrow(app.weaponDefs[def]->grenade.smoke ? GK_SMOKE : GK_FRAG, vel);

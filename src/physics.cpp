@@ -497,7 +497,8 @@ bool Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
   bool doJump = W->jumpBuf > 0 && !W->jumped && W->sinceGround <= tuning.coyote;
   nv = settled ? groundV : vert;
   if (doJump) {
-    nv = settled ? groundV + Vec3(0, tuning.jumpVelocity, 0) : Vec3(0, std::max(0.0f, groundV.GetY()) + tuning.jumpVelocity, 0);
+    float jv0 = tuning.jumpVelocity + 0.5f * tuning.gravity * dt;   // W1: + half a step of gravity, so the stepped jump has the analytic apex v^2/2g and airtime 2v/g
+    nv = settled ? groundV + Vec3(0, jv0, 0) : Vec3(0, std::max(0.0f, groundV.GetY()) + jv0, 0);
     W->jumped = true; W->jumpBuf = 0; W->sinceGround = 99; ++W->jumps;
   } else W->jumpBuf = std::max(0.0f, W->jumpBuf - dt);
   nv += gravity * dt;

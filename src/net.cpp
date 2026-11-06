@@ -7,6 +7,7 @@
 #include "app.h"
 #include "mpai.h"
 #include "crumb.h"
+#include "rules.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <deque>
@@ -266,7 +267,7 @@ static std::string writeSnapshot(Game& g, int forPeer) {
   w.u8((uint8_t)m.slots.size());
   for (auto& r : m.slots) {
     const Soldier& s = g.sold[r.id];
-    uint8_t fl = (s.alive ? 1 : 0) | (s.posture == Physics::CROUCH ? 2 : 0) | (s.posture == Physics::PRONE ? 4 : 0) | (r.human ? 8 : 0) | (r.pending ? 16 : 0) | (s.reload > 0 ? 32 : 0) | (s.throwT >= 0 ? 64 : 0);
+    uint8_t fl = (s.alive ? 1 : 0) | (s.posture == Physics::CROUCH ? 2 : 0) | (s.posture == Physics::PRONE ? 4 : 0) | (r.human ? 8 : 0) | (r.pending ? 16 : 0) | (s.reload > 0 ? 32 : 0) | (s.throwT >= 0 ? 64 : 0) | (s.isProtected(g.t) ? 128 : 0);   // 128: W1 spawn protection
     w.u8(fl); w.v3(s.feet); w.i16((int16_t)std::lround(wrapDeg(s.localPlayer || s.human ? s.yaw : s.yaw) * 100 - 18000));
     w.i16((int16_t)std::lround(std::clamp(s.human ? s.pitch : s.br.aimPitch, -89.0f, 89.0f) * 100));
     w.i16((int16_t)std::lround(wrapDeg(s.br.aimYaw) * 100 - 18000));
@@ -305,6 +306,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     int frags = 0, smokes = 0, loaded = 0; if (own) { frags = r.u8(); smokes = r.u8(); loaded = r.u16(); }
     rs.livesLeft = lives == 255 ? -1 : lives; rs.deadFor = deadFor; rs.kills = kills; rs.deaths = deaths; rs.human = fl & 8; rs.pending = fl & 16; rs.alive = fl & 1;
     bool alive = fl & 1;
+    rulesNetProtect(g, s, fl & 128);   // W1: spawn protection (shimmer, shield icon, ring)
     s.hp = hp; s.weapon = weapon < (int)app.weaponDefs.size() ? weapon : 0; s.killer = killer == 255 ? -1 : killer; s.deathStyle = dstyle;
     s.recoil = recoil; s.throwT = (fl & 64) ? thr : -1.0f; s.reload = (fl & 32) ? rel : 0; s.reloadTotal = (fl & 32) ? 1 : 0;
     s.posture = (fl & 4) ? Physics::PRONE : (fl & 2) ? Physics::CROUCH : Physics::STAND;
