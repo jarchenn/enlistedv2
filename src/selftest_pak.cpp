@@ -67,7 +67,7 @@ void SelfTest::pakUpdate(App& app, float dt) {
     seq.push_back({"engage casemate", [this](App& a, float t) {
       auto& in = a.scriptedInput;
       StationRT* s = stP(a);
-      vec3 target = Wp(a, C, vec3(1.45f, 1.15f, -3.0f));
+      vec3 target = Wp(a, C, vec3(0.55f, 1.15f, -2.9f));   // rear bay-01 (x -0.8..0.98), clear of the blast wall and wing pier
       if (t < 0.05f) { aimAt(a, target); return false; }
       in.dyaw = in.dpitch = 0;
       if (s->reload > 0) return false;

@@ -406,6 +406,51 @@ void main(){
       ao = 1.0 - 0.35 * seam;
       alb = mix(soil, alb, smoothstep(0.0, 0.12, edge));   // a thin soil line where the slab meets the ground
     }
+  } else if (pat == 15) { // bunker concrete (docs/bunkers.md#material): horizontal board formwork with board-to-board
+    // tone, joint fins and grain imprint, pour lifts, form-tie holes, mottling; darker foot and run-off below the roof
+    // lip (grain = lip height in dm, asset space with the origin on the ground)
+    vec3 an = normalize(vAn);
+    float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
+    float along = faceUV(vAp, vAn).x;
+    float bi = floor(vAp.y / 0.24), fy = fract(vAp.y / 0.24);
+    float seg = floor((along + hash12(vec2(bi, 3.0)) * 3.0) / 3.0);
+    float tone = 0.9 + 0.17 * hash12(vec2(bi, seg));
+    float ej = min(fy, 1.0 - fy) * 0.24;
+    float joint = (1.0 - smoothstep(0.002, 0.009, ej)) * vert;
+    float grainB = vnoise(vec3(along * 1.3, vAp.y * 34.0, bi)) * vert;
+    float lift = floor(vAp.y / 1.2);
+    float liftLine = (1.0 - smoothstep(0.004, 0.02, abs(fract(vAp.y / 1.2 + 0.5) - 0.5) * 1.2)) * vert;
+    vec2 tp = vec2(fract(along / 0.9 + 0.5) - 0.5, fract(vAp.y / 0.72 + 0.5) - 0.5) * vec2(0.9, 0.72);
+    float tie = (1.0 - smoothstep(0.009, 0.016, length(tp))) * vert;
+    float mott = fbm(vAp * 0.45);
+    alb *= mix(1.0, tone, vert) * (0.93 + 0.1 * hash12(vec2(lift, 9.0))) * (0.68 + 0.6 * mott);
+    alb *= 1.0 - joint * 0.22 - grainB * 0.06 - liftLine * 0.18 - tie * 0.5;
+    float nn = vnoise(vAp * 1.1);
+    float foot = (1.0 - smoothstep(0.0, 0.7 + 0.5 * nn, vAp.y)) * vert;
+    alb = mix(alb, alb * vec3(0.4, 0.4, 0.31), foot);
+    float lip = float(grain) * 0.1;
+    if (lip > 0.5) {
+      float d = lip - vAp.y;
+      float band = d > 0.0 ? 1.0 - smoothstep(0.0, 0.45, d) : 0.0;
+      float streak = d > 0.0 ? smoothstep(0.52, 0.86, vnoise(vec3(along * 2.6, vAp.y * 0.18, 5.0))) * (1.0 - smoothstep(0.0, 1.8 + 0.8 * nn, d)) : 0.0;
+      alb *= 1.0 - vert * (0.5 * band + 0.55 * streak);
+    }
+    float top = smoothstep(0.6, 0.9, an.y);
+    float lichen = top * smoothstep(0.45, 0.75, vnoise(vAp * 1.7 + 3.0));
+    alb = mix(alb, vec3(0.2, 0.21, 0.15), lichen * 0.45);
+    rough = clamp(rough + joint * 0.06 - foot * 0.08, 0.3, 1.0);
+    h = mott * 0.3 - joint * 0.6 + grainB * 0.15 - tie * 0.8 - liftLine * 0.3; bump = 0.004;
+    ao = 1.0 - joint * 0.15 - tie * 0.4;
+  } else if (pat == 16) { // camouflage net (docs/bunkers.md#camouflage): disruptive olive / brown / dark blotches,
+    // leafy scrim lumps with darker gaps, garnish tufts; part-local so the pattern follows each draped sheet
+    vec2 uv = faceUV(vPc, vPn);
+    float b = fbm(vec3(uv * 0.7, 7.0));
+    vec3 c = mix(vec3(0.075, 0.085, 0.035), vec3(0.15, 0.125, 0.06), smoothstep(0.42, 0.55, b));
+    c = mix(c, vec3(0.045, 0.045, 0.03), smoothstep(0.62, 0.7, b));
+    float strand = smoothstep(0.3, 0.62, vnoise(vec3(uv * 16.0, 5.0)));   // leafy scrim lumps, no regular grid (aliases)
+    float garn = smoothstep(0.55, 0.8, vnoise(vec3(uv * 5.0, 2.0)));
+    alb = c * (0.45 + 0.55 * max(strand, garn)) * (0.85 + 0.3 * vnoise(vec3(uv * 40.0, 1.0)));
+    rough = 0.95; h = max(strand, garn); bump = 0.003; ao = 0.75 + 0.25 * h;
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }

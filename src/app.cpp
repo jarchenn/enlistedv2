@@ -152,6 +152,17 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         continue;
       }
       int m2w = r.asset->station.kind == "m2hb" ? weaponIndex("m2hb_carry") : -1;
+      int g42 = r.asset->station.kind == "mg42" ? weaponIndex("mg42") : -1;
+      if (g42 >= 0 && weaponDefs[g42]->useModel()) {   // the supplied MG 42 GLB in the embrasure mount's cradle (docs/bunkers.md)
+        op.push_back({&r.asset->opaque, b});
+        op.push_back({&r.asset->station.yawMesh, y});
+        op.push_back({&r.asset->station.elevMesh, e});
+        const GpuModel* gm = weaponDefs[g42]->model.get();
+        vec3 bore = weaponDefs[g42]->muzzle; bore.z = 0.45f;   // receiver on the trunnion, bore on the elevation axis
+        mat4 gun = rc * glm::translate(mat4(1), -bore);
+        for (size_t k = 0; k < gm->parts.size(); ++k) R.worldModels.push_back({gm, (int)k, gun});
+        continue;
+      }
       if (m2w >= 0 && weaponDefs[m2w]->useModel()) {   // the supplied M2 GLB on the station: tripod on the base, gun on the cradle
         const GpuModel* gm = weaponDefs[m2w]->model.get();
         mat4 tri = b * glm::translate(mat4(1), vec3(0, 0.311f, -0.665f)), gun = rc * glm::translate(mat4(1), vec3(0, -0.181f, -0.665f));
@@ -349,6 +360,25 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   }
   c.reason = "Valid placement.";
   return c;
+}
+// Companions: crew stations and ammunition an asset ships with ("companions": [{asset, pos, yaw}] in asset space),
+// placed as ordinary instances on the host's floor when the host is placed from the palette (docs/bunkers.md).
+int App::placeCompanions(uint64_t hostId) {
+  Instance* h = doc.find(hostId); if (!h) return 0;
+  const AssetDef* a = assetFor(*h);
+  if (!a || !a->raw.contains("companions")) return 0;
+  vec3 hp = h->pos; float hy = h->yaw; int n = 0;
+  for (auto& c : a->raw["companions"]) {
+    const AssetDef* ca = lib.find(c.value("asset", ""));
+    if (!ca || !c.contains("pos")) continue;
+    Instance i; i.id = doc.newId(); i.assetId = ca->id; i.assetVersion = ca->version;
+    i.pos = hp + yawQuat(hy) * vec3(c["pos"][0].get<float>(), c["pos"][1].get<float>(), c["pos"][2].get<float>());
+    i.yaw = wrapDeg(hy + c.value("yaw", 0.0f));
+    bump(i);
+    doc.instances.push_back(i);
+    ++n;
+  }
+  return n;
 }
 uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   PlaceCheck c = checkPlacement(a, pos, yaw, 0);

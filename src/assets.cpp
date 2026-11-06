@@ -127,8 +127,60 @@ static vec3 prismPoint(int axis, float a, vec2 uv) {
   return vec3(uv.x, a, uv.y);
 }
 
+// Rounded box: the cube's six faces as grids that are dense only near the edges, each grid point projected onto the
+// box shrunk by `rad` plus a sphere of radius `rad` (smooth normals). Samples follow equal angles over each 45-degree
+// half of an edge, so the round reads evenly; 2-4 segments per half by radius.
+static void appendRound(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
+  vec3 h = p.size * 0.5f;
+  float r = std::min(p.rad, std::min({h.x, h.y, h.z}));
+  vec3 e = h - vec3(r);
+  int S = r < 0.12f ? 2 : r < 0.5f ? 3 : 4;
+  auto samples = [&](float ex) {
+    std::vector<float> s;
+    for (int k = S; k >= 1; --k) s.push_back(-ex - r * std::tan(glm::radians(45.0f) * k / S));
+    s.push_back(-ex); if (ex > 1e-4f) s.push_back(ex);
+    for (int k = 1; k <= S; ++k) s.push_back(ex + r * std::tan(glm::radians(45.0f) * k / S));
+    return s;
+  };
+  glm::mat3 nx = glm::mat3(xf);
+  for (int ax = 0; ax < 3; ++ax)
+    for (int sg = -1; sg <= 1; sg += 2) {
+      int u = (ax + 1) % 3, w = (ax + 2) % 3;
+      std::vector<float> su = samples(e[u]), sw = samples(e[w]);
+      uint32_t base = (uint32_t)m.v.size();
+      for (float b : sw)
+        for (float a : su) {
+          vec3 c(0); c[ax] = sg * h[ax]; c[u] = a; c[w] = b;
+          vec3 in = glm::clamp(c, -e, e), d = c - in;
+          vec3 n = glm::length(d) > 1e-6f ? glm::normalize(d) : vec3(0);
+          if (glm::length(d) <= 1e-6f) n[ax] = (float)sg;
+          vec3 lp = in + n * r;
+          Vertex v;
+          v.pos = vec3(xf * vec4(p.center + p.rot * lp, 1));
+          v.nrm = glm::normalize(nx * (p.rot * n));
+          v.albedo = mat.albedo;
+          v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, (float)mat.grainAxis);
+          v.pcoord = lp; v.pnrm = n;
+          m.v.push_back(v);
+        }
+      int nu = (int)su.size(), nw = (int)sw.size();
+      vec3 fn(0); fn[ax] = (float)sg;
+      vec3 wn = glm::normalize(nx * (p.rot * fn));
+      for (int j = 0; j + 1 < nw; ++j)
+        for (int i = 0; i + 1 < nu; ++i) {
+          uint32_t q[4] = {base + j * nu + i, base + j * nu + i + 1, base + (j + 1) * nu + i + 1, base + (j + 1) * nu + i};
+          vec3 a = m.v[q[0]].pos, b = m.v[q[1]].pos, c = m.v[q[2]].pos;
+          bool flip = glm::dot(glm::cross(b - a, c - a), wn) < 0;
+          uint32_t idx[6] = {q[0], q[1], q[2], q[0], q[2], q[3]};
+          if (flip) { idx[1] = q[2]; idx[2] = q[1]; idx[4] = q[3]; idx[5] = q[2]; }
+          for (uint32_t k : idx) m.i.push_back(k);
+        }
+    }
+}
+
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
   if (!p.visible) return;
+  if (p.shape == Part::ROUND) { appendRound(m, p, mat, xf); return; }
   if (p.shape == Part::BOX) {
     vec3 h = p.size * 0.5f;
     for (int ax = 0; ax < 3; ++ax)
@@ -162,7 +214,7 @@ static int patternFromName(const std::string& s) {
   static const std::map<std::string, int> m = {
     {"plain", PAT_PLAIN}, {"stone", PAT_STONE}, {"wood", PAT_WOOD}, {"plaster", PAT_PLASTER},
     {"slate", PAT_SLATE}, {"tile", PAT_TILE}, {"metal", PAT_METAL}, {"glass", PAT_GLASS},
-    {"fabric", PAT_FABRIC}, {"brick", PAT_BRICK}, {"painted", PAT_PAINTED}, {"concrete", PAT_CONCRETE}};
+    {"fabric", PAT_FABRIC}, {"brick", PAT_BRICK}, {"painted", PAT_PAINTED}, {"concrete", PAT_CONCRETE}, {"bunker", PAT_BUNKER}, {"net", PAT_NET}};
   auto it = m.find(s); return it == m.end() ? PAT_PLAIN : it->second;
 }
 
@@ -185,6 +237,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
     p.center = (mn + mx) * 0.5f; p.size = mx - mn;
   } else {
     p.center = jvec3(j["c"]); p.size = jvec3(j["s"], vec3(1));
+    if (t == "r") { p.shape = Part::ROUND; p.rad = std::clamp(j.value("rad", 0.1f), 0.0f, 0.5f * std::min({p.size.x, p.size.y, p.size.z})); }
     if (j.contains("r")) {
       vec3 r = jvec3(j["r"]);
       p.rot = glm::quat(glm::radians(r));
@@ -196,7 +249,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
 static bool isGlass(const AssetDef& a, const Part& p) { return a.materials[p.mat].pattern == PAT_GLASS; }
 
 static void partCorners(const Part& p, std::vector<vec3>& out) {
-  if (p.shape == Part::BOX) {
+  if (p.shape != Part::PRISM) {
     vec3 h = p.size * 0.5f;
     for (int k = 0; k < 8; ++k) out.push_back(p.center + p.rot * vec3(k & 1 ? h.x : -h.x, k & 2 ? h.y : -h.y, k & 4 ? h.z : -h.z));
   } else {

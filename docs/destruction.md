@@ -52,7 +52,7 @@
 
 The radius scales with (damage / reference)^¼ and the removal depth with √(damage / reference). The table's reference damage gives the listed values. Removal also scales by 0.55 + 0.45·cos(incidence) and divides by the material resistance:
 - masonry 1.0 (HP 200)
-- reinforced concrete 1.2 per metre of thickness (its 1.0 m bays already resist through depth), about four HE hits per spot
+- reinforced concrete 1.2 per metre of thickness (its 1.0–1.2 m bays already resist through depth), about four HE hits per spot. Bunker walls are bays; rounded bunker parts (roof slabs, piers, the large casemate's hood, nose, plinth and dome) and the stepped slit liners are static (docs/bunkers.md#destruction)
 - timber 0.45 (one HE hit opens a board wall)
 
 **Derived state** for the rest of the game, which still reads intact, damaged or breached:
@@ -118,4 +118,4 @@ The radius scales with (damage / reference)^¼ and the removal depth with √(da
 
 - **Roofs and stairs.** Sloped roofs and stair treads are not converted to bays (rotated or small parts), so they don't take local damage yet. Upper floors do.
 - **Debris** is cosmetic: pooled boxes with simple physics and no collision with the player.
-- **Crouching through tight holes.** In the 1 m deep concrete casemate, a crouching capsule wedged in a tunnel whose rays all passed; the test now opens a standing-height breach instead. The farmhouse crouch-through works. This needs a follow-up in the posture code, not the damage field.
+- **Crouching through holes.** A crouched capsule is 1.2 m tall plus 2 cm padding, so a breach must be open about 1.25 m high. `--selftest-damage` opens a 0.8 × 1.26 m breach in a fresh 1.2 m MG-casemate wall and crawls through it crouched. The earlier wedge in the 1 m casemate came from a hole lower than the capsule, not from the controller. The farmhouse crouch-through also works.

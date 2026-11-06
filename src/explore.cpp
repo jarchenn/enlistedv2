@@ -388,7 +388,7 @@ void App::updateExplore(float dt) {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
     if (lmx >= 0 && !io.WantCaptureMouse && !showLoadout && !rackOpen) {
       StationRT* gs = station(occupied);
-      float hs = gs && rt[occupied].asset->station.kind == "m2hb" ? 0.08f : 0.012f;
+      float hs = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42") ? 0.08f : 0.012f;
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
       else { in.lookYaw = -(float)(mx - lmx) * 0.1f; in.lookPitch = -(float)(my - lmy) * 0.1f; eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }

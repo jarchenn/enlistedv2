@@ -17,7 +17,8 @@ Coordinates are in metres in asset space. +Y is up, the front of the building fa
   "parts": [                           // static geometry
     { "t": "b", "c": [x,y,z], "s": [sx,sy,sz], "r": [rx,ry,rz] /*deg, optional*/, "m": "stone",
       "v": 0 /*invisible: collider only*/, "k": 0 /*visual only: no collision*/ },
-    { "t": "p", "axis": 0, "a": [a0,a1], "tri": [[u,v],[u,v],[u,v]], "m": "stone" }   // prism (gables)
+    { "t": "p", "axis": 0, "a": [a0,a1], "tri": [[u,v],[u,v],[u,v]], "m": "stone" }   // prism (gables); axis 0: x, 1: y (tri in x,z), 2: z
+    { "t": "r", "c": [x,y,z], "s": [sx,sy,sz], "rad": 0.2, "r": [rx,ry,rz] /*optional*/, "m": "concrete" }   // rounded box: every edge rounded by rad (render + matching Jolt convex radius); never a damage bay (docs/bunkers.md)
   ],
   "furniture": [ { "name": "Kitchen table", "parts": [ ... ] } ],  // children of the building
   "interactables": [ {

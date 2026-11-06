@@ -5,7 +5,9 @@ struct GpuModel;
 // Surface pattern IDs understood by the main shader.
 enum Pattern : int {
   PAT_PLAIN = 0, PAT_STONE = 1, PAT_WOOD = 2, PAT_PLASTER = 3, PAT_SLATE = 4, PAT_TILE = 5,
-  PAT_METAL = 6, PAT_GLASS = 7, PAT_FABRIC = 8, PAT_BRICK = 9, PAT_PAINTED = 10, PAT_CONCRETE = 11
+  PAT_METAL = 6, PAT_GLASS = 7, PAT_FABRIC = 8, PAT_BRICK = 9, PAT_PAINTED = 10, PAT_CONCRETE = 11,
+  PAT_NET = 16,     // camouflage net with garnish (docs/bunkers.md#camouflage)
+  PAT_BUNKER = 15   // board-formed (12-14: path surfaces, src/paths.cpp) bunker concrete; grain = height of the roof lip in decimetres (run-off stains below it)
 };
 
 struct Material {
@@ -18,7 +20,7 @@ struct Material {
 
 // A primitive part. Boxes and triangular prisms, in a parent space.
 struct Part {
-  enum Shape { BOX, PRISM } shape = BOX;
+  enum Shape { BOX, PRISM, ROUND } shape = BOX;   // ROUND: a box with every edge rounded by `rad` (render and collision)
   vec3 center{0}, size{1};
   quat rot{1, 0, 0, 0};
   int mat = 0;
@@ -27,6 +29,7 @@ struct Part {
   int sec = -1;              // "sec": destruction section it belongs to (wire obstacles), -1 = always present
   // PRISM: triangle in (u,v) plane extruded along `axis` from a0..a1.
   int axis = 0; float a0 = 0, a1 = 0; vec2 tri[3]{};
+  float rad = 0;   // ROUND: edge radius
 };
 
 struct Vertex {
