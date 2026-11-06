@@ -57,12 +57,12 @@ void SelfTest::moveUpdate(App& app, float dt) {
     push("gravity + jump", [this](App& a, float t) {
       static float y0, apex, tAir; static bool air;
       if (t == 0) { put(a, vec3(20, 0, 0)); a.scriptedInput = ExploreInput{}; apex = -1; air = false; tAir = 0; return false; }
-      if (t < 0.5f) { y0 = Physics::character().pos.y; return false; }
-      if (t < 0.52f) { a.scriptedInput.jump = true; return false; }
+      if (t < 1.4f) { y0 = Physics::character().pos.y; return false; }   // after the previous prone test: wait out the 1.1 s get-up
+      if (t < 1.42f) { a.scriptedInput.jump = true; return false; }
       auto c = Physics::character();
       apex = std::max(apex, c.pos.y - y0);
       if (c.pos.y - y0 > 0.02f) { air = true; tAir += 1.0f / 60.0f; }
-      if (t < 2.0f) return false;
+      if (t < 2.9f) return false;
       float want = a.move.jumpVelocity * a.move.jumpVelocity / (2 * a.move.gravity), wantT = 2 * a.move.jumpVelocity / a.move.gravity;
       char b[200]; std::snprintf(b, sizeof b, "jump apex %.3f m (old 0.899 m; v^2/2g = %.3f), airtime %.2f s (2v/g = %.2f)", apex, want, tAir, wantT);
       check(std::fabs(apex - want) < 0.05f && std::fabs(tAir - wantT) < 0.08f, b);
@@ -116,6 +116,35 @@ void SelfTest::moveUpdate(App& app, float dt) {
       if (ph == 4 && t > 3.6f) { a.scriptedInput.prone = true; ph = 5; return false; }
       if (ph == 5 && t > 4.4f) { check(c.posture == Physics::STAND, "Z twice: prone and back to standing (Ctrl not held)"); return true; }
       return t > 8; });
+    push("space from prone + rise times", [this](App& a, float t) {
+      // Space while prone stands up (no jump on that press); getting up is timed: prone -> stand move.proneToStand,
+      // crouch -> stand move.crouchToStand (shorter), eased; the lower posture's speed until done
+      static int ph; static float t0, yMax, eyeMid;
+      if (t == 0) { ph = 0; put(a, vec3(-30, 0, 20)); a.scriptedInput = ExploreInput{}; a.scriptedInput.prone = true; yMax = -1e9f; return false; }
+      auto c = Physics::character();
+      if (ph == 0 && t > 1.0f) {
+        check(c.posture == Physics::PRONE, "prone before pressing Space");
+        a.scriptedInput.jump = true; t0 = t; yMax = c.pos.y; ph = 1; return false;
+      }
+      if (ph == 1) {
+        yMax = std::max(yMax, c.pos.y);
+        if (t > t0 + a.move.proneToStand * 0.5f && eyeMid == 0) eyeMid = a.eyeHeight;
+        if (t < t0 + a.move.proneToStand + 0.15f) return false;
+        char b[260]; std::snprintf(b, sizeof b, "Space while prone stands up without jumping (feet rose %.3f m); halfway through the %.2f s rise the eye is at %.2f m, then %.2f m standing", yMax - c.pos.y, a.move.proneToStand, eyeMid, a.eyeHeight);
+        check(c.posture == Physics::STAND && yMax - c.pos.y < 0.05f && eyeMid > a.move.eyeProne + 0.3f && eyeMid < a.move.eyeStand - 0.3f && std::fabs(a.eyeHeight - a.move.eyeStand) < 0.03f, b);
+        check(a.move.proneToStand > a.move.crouchToStand && a.move.crouchToStand >= 0.4f, "getting up: prone -> stand " + std::to_string(a.move.proneToStand).substr(0, 4) + " s, crouch -> stand " + std::to_string(a.move.crouchToStand).substr(0, 4) + " s (both were ~0.3 s)");
+        a.scriptedInput = ExploreInput{}; a.scriptedInput.crouch = true; ph = 2; t0 = t; eyeMid = 0; return false;
+      }
+      if (ph == 2 && t > t0 + 0.8f) { a.scriptedInput.crouch = false; t0 = t; ph = 3; return false; }
+      if (ph == 3) {
+        if (t > t0 + a.move.crouchToStand * 0.5f && eyeMid == 0) eyeMid = a.eyeHeight;
+        if (t < t0 + a.move.crouchToStand + 0.15f) return false;
+        char b[200]; std::snprintf(b, sizeof b, "crouch -> stand eased over %.2f s: eye %.2f m halfway, %.2f m after", a.move.crouchToStand, eyeMid, a.eyeHeight);
+        check(eyeMid > a.move.eyeCrouch + 0.1f && eyeMid < a.move.eyeStand - 0.1f && std::fabs(a.eyeHeight - a.move.eyeStand) < 0.03f, b);
+        eyeMid = 0; a.scriptedInput = ExploreInput{};
+        return true;
+      }
+      return t > 10; });
     push("prone exit blocked", [this](App& a, float t) {
       static int ph;
       if (t == 0) { ph = 0; put(a, vec3(-40, 0, 0)); a.scriptedInput = ExploreInput{}; a.scriptedInput.prone = true; return false; }

@@ -44,7 +44,7 @@ Saved maps go in `maps/` next to the executable. **File > Open** also lists the 
 
 | Action | Control |
 |---|---|
-| Walk | WASD (run 2.875 m/s); Shift to sprint (5.75 m/s); hold Left Ctrl (or C) to crouch; Z toggles prone; Space to jump. Settings: `content/settings/movement.json` |
+| Walk | WASD (run 2.875 m/s); Shift to sprint (5.75 m/s); hold Left Ctrl (or C) to crouch; Z toggles prone; Space to jump, or to get up when prone (Ctrl held: into a crouch). Getting up takes time: prone to standing 1.1 s, prone to crouch 0.75 s, crouch to standing 0.45 s, at the lower posture's pace with no sprint or jump until done. Settings: `content/settings/movement.json` |
 | Interact | E (aim within about 2 m; the prompt reads, e.g., `E — Open window`). Also crews a gun, leaves it, and draws ammunition from a crate |
 | Fire / aim down sights | Left mouse / right mouse. A fresh press is needed after switching position, weapon or fire mode |
 | Fire mode | F: AUTO / SEMI on the Thompson, MP 40, MG 42, FG 42 and the M2HB (AUTO default) |

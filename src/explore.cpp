@@ -51,7 +51,7 @@ bool App::enterExplore() {
   resetWeapons();
   Physics::createCharacter(p);
   exploreStartPos = p; exploreStartYaw = doc.start.yaw;
-  eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f;
+  eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f; riseT = riseDur = 0;
   physAccum = 0; pauseMenu = false; target = {};
   if (looking) looking = false;
   if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -201,19 +201,35 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   //   (the current posture is kept) and resolves when space frees up. Explicit Z overrides pending requests.
   auto before = Physics::character();
   if (in.prone) proneToggle = !(before.posture == Physics::PRONE || proneToggle);
+  // Space while prone gets up (to a crouch if Ctrl is held) instead of jumping, like Z
+  bool spaceUp = in.jump && before.posture == Physics::PRONE && postureWanted == Physics::PRONE;
+  if (spaceUp) proneToggle = false;
   if (before.posture == Physics::PRONE && !proneToggle && postureWanted == Physics::PRONE) postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND;
   else if (proneToggle) postureWanted = Physics::PRONE;
   else postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND;
   int pose = before.posture;
   bool lowered = pose != Physics::STAND || postureWanted != Physics::STAND;
-  bool sprinting = in.sprint && adsT < 0.5f && !lowered;   // Shift while aiming holds the breath; no sprint while lowered
+  bool rising = riseT < riseDur;
+  bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising;   // Shift while aiming holds the breath; no sprint while lowered or getting up
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
+  if (rising) speed = std::min(speed, riseSpeed);   // still getting up: the lower posture's pace
   Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity;
-  if (!occupied) Physics::updateCharacter(dt, wish * speed, in.jump, postureWanted, eyeYaw);
+  bool jump = in.jump && !spaceUp && !rising;
+  if (!occupied) Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
   auto c = Physics::character();
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
   float eyeTarget = c.posture == Physics::PRONE ? move.eyeProne : c.posture == Physics::CROUCH ? move.eyeCrouch : move.eyeStand;
-  eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * move.eyeRate);
+  // getting up takes time: prone -> stand 1.1 s, prone -> crouch 0.75 s, crouch -> stand 0.45 s (movement.json),
+  // an eased rise from where the camera is; going down keeps the quick exponential drop
+  if (c.posture != before.posture && (before.posture == Physics::PRONE || (before.posture == Physics::CROUCH && c.posture == Physics::STAND))) {
+    riseDur = before.posture == Physics::PRONE ? (c.posture == Physics::STAND ? move.proneToStand : move.proneToCrouch) : move.crouchToStand;
+    riseT = 0; riseFrom = eyeHeight; riseSpeed = before.posture == Physics::PRONE ? move.prone : move.crouch;
+  } else if (c.posture != before.posture) riseDur = 0;   // lowering cancels a rise
+  if (riseT < riseDur) {
+    riseT += dt;
+    float u = std::clamp(riseT / std::max(riseDur, 1e-3f), 0.0f, 1.0f);
+    eyeHeight = glm::mix(riseFrom, eyeTarget, u * u * (3 - 2 * u));
+  } else eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * move.eyeRate);
   if (eyeHeight > eyeTarget + 0.02f) {   // never raise the camera through a ceiling while standing up
     Physics::Hit ch; vec3 f0 = c.pos + vec3(0, eyeTarget * 0.5f, 0);
     if (Physics::castRayEx(f0, vec3(0, 1, 0), eyeHeight - eyeTarget * 0.5f + 0.1f, ch) && ch.pos.y - 0.1f < c.pos.y + eyeHeight) eyeHeight = std::max(eyeTarget, ch.pos.y - 0.1f - c.pos.y);
@@ -354,7 +370,7 @@ void App::drawExploreUI() {
         }
       }
     }
-    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
+    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
     drawCombatUI();
     drawWeaponUI();
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());

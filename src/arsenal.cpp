@@ -45,6 +45,8 @@ void App::loadMoveSettings() {
   move.gravity = j.value("gravity_mps2", move.gravity); move.jumpVelocity = j.value("jumpVelocity_mps", move.jumpVelocity);
   move.eyeStand = j.value("eyeStand_m", move.eyeStand); move.eyeCrouch = j.value("eyeCrouch_m", move.eyeCrouch); move.eyeProne = j.value("eyeProne_m", move.eyeProne);
   move.eyeRate = j.value("eyeSmoothing_per_s", move.eyeRate);
+  move.proneToStand = j.value("proneToStand_s", move.proneToStand); move.proneToCrouch = j.value("proneToCrouch_s", move.proneToCrouch);
+  move.crouchToStand = j.value("crouchToStand_s", move.crouchToStand);
 }
 
 // ---------------------------------------------------------------- loadout

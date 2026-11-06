@@ -1,5 +1,5 @@
 {
- "_note": "Explore movement tuning (player only). Old values: run 2.3 m/s, sprint 4.6 m/s, crouch 1.2 m/s, no prone, gravity 9.81 m/s^2, jump 4.2 m/s, eyes 1.62 / 1.05 m.",
+ "_note": "Explore movement tuning (player only). Old values: run 2.3 m/s, sprint 4.6 m/s, crouch 1.2 m/s, no prone, gravity 9.81 m/s^2, jump 4.2 m/s, eyes 1.62 / 1.05 m. Getting up was ~0.3 s (eye smoothing only); now timed: prone->stand 1.1 s, prone->crouch 0.75 s, crouch->stand 0.45 s, at the lower posture speed, no sprint/jump until done. Space when prone stands up.",
  "run_mps": 2.875,
  "sprint_mps": 5.75,
  "crouch_mps": 1.2,
@@ -9,5 +9,8 @@
  "eyeStand_m": 1.62,
  "eyeCrouch_m": 1.05,
  "eyeProne_m": 0.32,
- "eyeSmoothing_per_s": 10.0
+ "eyeSmoothing_per_s": 10.0,
+ "proneToStand_s": 1.1,
+ "proneToCrouch_s": 0.75,
+ "crouchToStand_s": 0.45
 }
