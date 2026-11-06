@@ -29,6 +29,7 @@ struct Opts {
   float minutes = 20; int bots = -1, attackers = -1, respawns = -1;
   std::string difficulty; uint32_t seed = 1944; float size = 560; int objectives = 3, structures = -1;
   std::string thresholds, baseline, saveBaseline, tag; bool saveMap = false, fullThink = false;
+  int stepsPerFrame = 1;   // soak only: simulation steps per rendered frame (the GPU is shared; rendering is not part of the AI)
 } O;
 
 const char* kStepName[7] = {"none", "re-plan", "step back and re-plan", "nearby link", "blocking edge expensive for this bot",
@@ -566,6 +567,7 @@ bool aiHarnessArg(const std::string& a, int argc, char** argv, int& k, bool& run
     static const std::set<std::string> withVal = {"--map", "--maps", "--minutes", "--bots", "--attackers", "--respawns", "--difficulty", "--seed", "--size", "--objectives", "--structures", "--thresholds", "--baseline", "--save-baseline", "--tag"};
     if (o == "--save-map") { O.saveMap = true; ++k; continue; }
     if (o == "--full-think") { O.fullThink = true; ++k; continue; }
+    if (o == "--steps-per-frame" && k + 2 < argc) { O.stepsPerFrame = std::clamp(std::atoi(argv[k + 2]), 1, 16); k += 2; continue; }
     if (!withVal.count(o) || k + 2 >= argc) break;
     k += 2; std::string v = argv[k];
     if (o == "--map" || o == "--maps") O.maps = splitList(v);
@@ -662,6 +664,9 @@ void SelfTest::aiHarnessUpdate(App& app, float dt) {
   }
   if (ji >= jobs.size()) { app.useScripted = false; finish(app); return; }
   const std::string& m = jobs[ji];
+  // soak fast mode: extra fixed simulation steps without rendering them (metrics run on match time and per AI step)
+  if (O.suite == "soak" && O.stepsPerFrame > 1 && app.mode == Mode::Explore && gGame && gGame->active && gGame->match.phase == MatchPhase::Running)
+    for (int k = 1; k < O.stepsPerFrame; ++k) app.updateExplore(1.0f / 60.0f);
   bool done = O.suite == "course" ? runCourse(app, m, jt, cx) : O.suite == "rebuild" ? runRebuild(app, m, jt, cx) : runSoak(app, m, jt, cx);
   jt += dt;
   if (done) { if (app.mode == Mode::Explore) app.exitExplore(); ++ji; jt = 0; }
