@@ -254,63 +254,64 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
   }
   // 4) no slivers: once every bay has its stamp, thin bridges of material left between damaged areas go. Along
   //    each of four directions, a solid run of at most destruction.bridgeMax between two open cells is opened
-  //    (this also sees open cells in the coplanar bay across a seam); a ridge of at most that width standing
-  //    proud between two deeper craters on the struck face is broken down to the shallower side. Wider strips
-  //    are left alone, so holes that are genuinely apart stay apart.
+  //    (this also sees open cells in the coplanar bay across a seam). On the first pass, a ridge of at most that
+  //    width standing proud between two deeper craters on the struck face (inside the impact window) is broken
+  //    down to the shallower side. Wider strips are left alone, so holes that are genuinely apart stay apart.
+  // 5) unsupported fragments: solid cells no longer connected to the bay's edges (where it meets the rest of the
+  //    building) fall out.
+  // Both repeat over each whole touched bay until neither changes anything: a fragment falling out or a bridge
+  // going can expose a new bridge anywhere in the bay, so the result has no bridge left for any outline.
   const int N = (int)std::floor(destruction.bridgeMax / cell + 1e-3f);   // 0: cleanup off (A/B in the self-test)
-  for (int pass = 0, any = 1; pass < 4 && any && N >= 1; ++pass) {   // repeat while clearing exposes new bridges
-    any = 0;
-    for (auto& b : bays) {
+  const int dirs[4][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
+  std::vector<std::vector<size_t>> cands(bays.size());
+  for (size_t q = 0; q < bays.size(); ++q) cands[q] = coplanarBays(a, bays[q].k, bays[q].f.an, cell);
+  for (int pass = 0; pass < 64; ++pass) {
+    bool any = false;
+    for (size_t q = 0; q < bays.size() && N >= 1; ++q) {
+      const Touched& b = bays[q];
       const Frame& f = b.f;
       WallField& w = r.wf[b.k];
-      const std::vector<size_t> cands = coplanarBays(a, b.k, f.an, cell);
       auto openAt = [&](int iu, int iv) -> bool {
         if (iu >= 0 && iv >= 0 && iu < f.nu && iv < f.nv) { int idx = iv * f.nu + iu; return w.rf[idx] + w.rb[idx] >= f.T - 1e-4f; }
-        return openInBay(r, cands, f.u0 + (iu + 0.5f) * f.cu, f.v0 + (iv + 0.5f) * f.cv, cell) == 1;
+        return openInBay(r, cands[q], f.u0 + (iu + 0.5f) * f.cu, f.v0 + (iv + 0.5f) * f.cv, cell) == 1;
       };
       auto nearAt = [&](int iu, int iv) -> float {
         if (iu < 0 || iv < 0 || iu >= f.nu || iv >= f.nv) return -1.0f;
         int idx = iv * f.nu + iu; return b.fromFront ? w.rf[idx] : w.rb[idx];
       };
-      const int dirs[4][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}};
       std::vector<int> open, raise; std::vector<float> raiseTo;
-      int ju0 = std::max(0, b.iu0 - N), ju1 = std::min(f.nu - 1, b.iu1 + N), jv0 = std::max(0, b.iv0 - N), jv1 = std::min(f.nv - 1, b.iv1 + N);
-      for (int iv = jv0; iv <= jv1; ++iv)
-        for (int iu = ju0; iu <= ju1; ++iu) {
+      for (int iv = 0; iv < f.nv; ++iv)
+        for (int iu = 0; iu < f.nu; ++iu) {
           int idx = iv * f.nu + iu;
           if (w.rf[idx] + w.rb[idx] >= f.T - 1e-4f) continue;
+          bool ridgeZone = pass == 0 && iu >= b.iu0 - N && iu <= b.iu1 + N && iv >= b.iv0 - N && iv <= b.iv1 + N;
           float here = b.fromFront ? w.rf[idx] : w.rb[idx], best = here;
           bool bridge = false;
           for (auto& dd : dirs) {
             int lim = dd[0] && dd[1] ? std::max(1, (int)(N / 1.4142f)) : N;
             int sp = 0, sm = 0; float mp = -1, mm = -1;
-            for (int s = 1; s <= lim; ++s) { if (!sp && openAt(iu + dd[0] * s, iv + dd[1] * s)) sp = s; mp = std::max(mp, nearAt(iu + dd[0] * s, iv + dd[1] * s)); }
-            for (int s = 1; s <= lim; ++s) { if (!sm && openAt(iu - dd[0] * s, iv - dd[1] * s)) sm = s; mm = std::max(mm, nearAt(iu - dd[0] * s, iv - dd[1] * s)); }
+            for (int s = 1; s <= lim; ++s) { if (!sp && openAt(iu + dd[0] * s, iv + dd[1] * s)) sp = s; if (ridgeZone) mp = std::max(mp, nearAt(iu + dd[0] * s, iv + dd[1] * s)); }
+            for (int s = 1; s <= lim; ++s) { if (!sm && openAt(iu - dd[0] * s, iv - dd[1] * s)) sm = s; if (ridgeZone) mm = std::max(mm, nearAt(iu - dd[0] * s, iv - dd[1] * s)); }
             if (sp && sm && sp + sm - 1 <= lim) { bridge = true; break; }
             float ridge = std::min(mp, mm);
-            if (ridge > here + 0.15f * f.T) best = std::max(best, ridge);
+            if (ridgeZone && ridge > here + 0.15f * f.T) best = std::max(best, ridge);
           }
           if (bridge) open.push_back(idx);
           else if (best > here) { raise.push_back(idx); raiseTo.push_back(best); }
         }
       for (int idx : open) { w.rb[idx] = f.T - w.rf[idx]; debrisAt(f, idx); }
-      for (size_t q = 0; q < raise.size(); ++q) {
-        int idx = raise[q];
+      for (size_t j = 0; j < raise.size(); ++j) {
+        int idx = raise[j];
         float& near = b.fromFront ? w.rf[idx] : w.rb[idx];
         float& far = b.fromFront ? w.rb[idx] : w.rf[idx];
-        near = std::min(f.T - far, raiseTo[q]);
+        near = std::min(f.T - far, raiseTo[j]);
         if (f.T - near - far < 0.28f * f.T) { far = f.T - near; open.push_back(idx); debrisAt(f, idx); }   // the thinned ridge gives way
       }
-      if (!open.empty()) any = 1;   // only new holes can expose new bridges
+      if (!open.empty()) any = true;   // only new holes can expose new bridges
     }
-  }
-  for (auto& b : bays) {
-    const Panel& pn = a->panels[b.k];
-    const Frame& f = b.f;
-    WallField& w = r.wf[b.k];
-    // 5) unsupported fragments: solid cells no longer connected to the bay's edges (where it meets the rest of the
-    //    building) fall out
-    {
+    for (auto& b : bays) {
+      const Frame& f = b.f;
+      WallField& w = r.wf[b.k];
       std::vector<uint8_t> seen((size_t)f.nu * f.nv, 0);
       std::vector<int> st;
       auto solid = [&](int idx) { return w.rf[idx] + w.rb[idx] < f.T - 1e-4f; };
@@ -322,8 +323,12 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
         for (int m : nb) if (m >= 0 && !seen[m] && solid(m)) { seen[m] = 1; st.push_back(m); }
       }
       for (int idx = 0; idx < f.nu * f.nv; ++idx)
-        if (!seen[idx] && solid(idx)) { w.rb[idx] = f.T - w.rf[idx]; debrisAt(f, idx); }
+        if (!seen[idx] && solid(idx)) { w.rb[idx] = f.T - w.rf[idx]; debrisAt(f, idx); any = true; }
     }
+    if (!any) break;
+  }
+  for (auto& b : bays) {
+    const Panel& pn = a->panels[b.k];
     uint8_t oldState = r.state[b.k];
     rebuildPanel(r, b.k);
     ++touched;
