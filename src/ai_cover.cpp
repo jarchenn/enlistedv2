@@ -28,6 +28,7 @@ void AiCore::generateCoverTile(int tx, int tz, int maxRays) {
   int rays = 0;
   for (auto& e : G.nav.tileEdges(tx, tz)) {
     if (navAreaCost(navarea::toNav(e.area)) < 0) continue;
+    if (G.nav.isTrap((e.a + e.b) * 0.5f, 0.3f)) continue;   // no cover in dead-end pockets (a ditch floor reached by a drop)
     vec3 d = e.b - e.a; float L = lenXZ(d);
     int n = std::max(1, (int)std::lround(L / 1.5f));
     vec3 right(-e.n.z, 0, e.n.x);
@@ -55,7 +56,7 @@ void AiCore::generateCoverTile(int tx, int tz, int maxRays) {
     for (int k = 0; k < 8; ++k) { float a = k * 0.785398f; ring += G.app.terrain.height(x + std::cos(a) * 2.2f, z + std::sin(a) * 2.2f); }
     if (ring / 8 - h0 < 0.45f) continue;
     vec3 p(x, h0, z);
-    if (G.nav.nearest(p, 0.8f) < 0 || coverNear(*this, p, 2.0f)) continue;
+    if (G.nav.nearest(p, 0.8f) < 0 || coverNear(*this, p, 2.0f) || G.nav.isTrap(p)) continue;
     CoverPoint c; c.p = p; c.n = vec3(0); c.natural = true; c.peekOver = true; c.tx = tx; c.tz = tz;
     addCoverPoint(*this, c);
   }
@@ -70,6 +71,9 @@ void AiCore::addAuthoredCover() {
       CoverPoint c; c.p = in.pos + q * cp.p; c.n = q * App::forward(cp.yaw, 0) * -1.0f; c.n.y = 0;
       if (glm::length(c.n) > 0.1f) c.n = glm::normalize(c.n);
       c.high = cp.high; c.peekL = cp.peekLeft; c.peekR = cp.peekRight; c.peekOver = cp.peekOver; c.authored = true;
+      // authored points are placed against the face; the mesh is eroded by the agent radius: stand on the mesh, or drop it
+      { NavRef r; vec3 on; if (!G.nav.closest(c.p, vec3(1.0f, 1.2f, 1.0f), r, on) || lenXZ(on - c.p) > 0.9f || std::fabs(on.y - c.p.y) > 1.0f || G.nav.isTrap(on, 0.3f)) continue; c.p = on; }
+      if (coverNear(*this, c.p, 1.0f)) continue;   // one point per spot (generated wall cover already there)
       c.tx = G.nav.tileOf(c.p.x); c.tz = G.nav.tileOf(c.p.z);
       addCoverPoint(*this, c);
     }

@@ -15,12 +15,13 @@
   "detailSampleDist": 6,
   "detailSampleMaxError": 1,
   "shallowWater_m": 0.9,
+  "hedgePad_m": 0.8,
   "rebuildWorkers": 2,
   "links": {
     "dropMin_m": 0.5, "dropMax_m": 3.0,
     "mantleMin_m": 0.5, "mantleMax_m": 1.6,
     "vaultMaxHeight_m": 1.1, "vaultMaxThickness_m": 0.6,
-    "gapMax_m": 1.5,
+    "gapMax_m": 1.5, "mantleClear_m": 0.6,
     "spacing_m": 1.2,
     "probeBorder_m": 2.6,
     "cost_m": { "drop": 2.0, "mantle": 4.0, "vault": 2.5, "jump": 3.0 }

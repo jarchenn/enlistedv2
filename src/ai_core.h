@@ -240,6 +240,8 @@ public:
   void logStuck(const StuckEvent& e);
   void pollWorld(bool rebuild = true);
   void onTilesChanged();
+  void markNavTraps();   // dead-end pockets (Nav::markTraps) against the objectives and spawns
+  double trapsDueAt = -1; int navTraps = 0;
   // ---- knowledge (ai_core.cpp)
   void shareKnowledge();
   void updateViewsheds();

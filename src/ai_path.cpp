@@ -272,10 +272,16 @@ void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3
     case LINK_JUMP:
       tr.p[0] = a; tr.p[1] = b; tr.np = 2;
       tr.dur = std::max(0.45f, 2.0f * jumpV / std::max(1.0f, gravity)); break;
-    default:   // mantle: up = rise in place then over; down = over then lower
-      if (b.y > a.y) { tr.p[0] = a; tr.p[1] = vec3(a.x, b.y + 0.12f, a.z); tr.p[2] = vec3(b.x, b.y + 0.08f, b.z); tr.p[3] = b; tr.np = 4; tr.dur = 0.55f + 0.5f * h; }
+    default: {   // mantle: up = rise in place then over; down = over then lower
+      // over the rim with clearance (trench revetment pickets, parapets) when the body fits up there; else hug the edge
+      float rim = navj.contains("links") ? navj["links"].value("mantleClear_m", 0.6f) : 0.6f;
+      float hy = std::max(a.y, b.y) + rim;
+      auto fitsAt = [&](vec3 q) { return Physics::shapeFitsAt(Physics::CROUCH, q + vec3(0, 0.04f, 0), true); };
+      bool high = rim > 0.13f && fitsAt(vec3(a.x, hy, a.z)) && fitsAt(vec3(glm::mix(a.x, b.x, 0.5f), hy, glm::mix(a.z, b.z, 0.5f))) && fitsAt(vec3(b.x, hy, b.z));
+      if (high) { tr.p[0] = a; tr.p[1] = vec3(a.x, hy, a.z); tr.p[2] = vec3(b.x, hy, b.z); tr.p[3] = b; tr.np = 4; tr.dur = 0.6f + 0.45f * h + 0.4f * rim; }
+      else if (b.y > a.y) { tr.p[0] = a; tr.p[1] = vec3(a.x, b.y + 0.12f, a.z); tr.p[2] = vec3(b.x, b.y + 0.08f, b.z); tr.p[3] = b; tr.np = 4; tr.dur = 0.55f + 0.5f * h; }
       else { tr.p[0] = a; tr.p[1] = vec3(b.x, a.y + 0.08f, b.z); tr.p[2] = b; tr.np = 3; tr.dur = 0.45f + 0.35f * h; }
-      break;
+      break; }
   }
   tr.end = b;
   ++m.linksTaken; ++metrics.linkTraversals; ++metrics.linkKinds[std::clamp(tr.kind, 0, 3)];
@@ -537,7 +543,19 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
         if (!have && nc > 0) { vec3 c(cv[0], cv[1], cv[2]); vec3 d = c - s.feet; if (glm::length(d) > 0.3f) { target = s.feet + glm::normalize(d) * std::min(3.0f, glm::length(d)); NavRef r; vec3 on; if (G.nav.closest(target, 1.0f, r, on)) { target = on; have = true; } } }
       }
       if (!have) { NavRef r; vec3 on; if (G.nav.closest(s.feet, 3.0f, r, on) && glm::length(on - s.feet) > 0.3f) { target = on; have = true; } }
-      if (have && Physics::shapeFitsAt(Physics::STAND, target + vec3(0, 0.05f, 0), true)) {
+      auto fitsStand = [&](vec3 p) { return Physics::shapeFitsAt(Physics::STAND, p + vec3(0, 0.05f, 0), true); };
+      if (!have || !fitsStand(target)) {   // rings around the bot: the nearest mesh point a standing body fits on (not a pocket)
+        have = false; float bd = 1e9f;
+        for (float rr : {1.0f, 2.0f, 3.0f, 4.0f}) {
+          for (int k = 0; k < 12; ++k) {
+            float an = k * 0.5236f; vec3 q = s.feet + vec3(std::cos(an), 0, std::sin(an)) * rr; NavRef r; vec3 on;
+            if (!G.nav.closest(q, vec3(0.8f, 2.5f, 0.8f), r, on) || glm::length(on - s.feet) < 0.4f || G.nav.isTrap(on, 0.3f) || !fitsStand(on)) continue;
+            float d = glm::length(on - s.feet) + std::fabs(on.y - s.feet.y); if (d < bd) { bd = d; target = on; have = true; }
+          }
+          if (have) break;
+        }
+      }
+      if (have && fitsStand(target)) {
         Physics::setAgentPos(s.agent, target + vec3(0, 0.03f, 0)); s.feet = target; ++metrics.snaps;
         m.progAnchor = target;
         requestPath(s, goal, m.goalRadius, 9.0f, true);

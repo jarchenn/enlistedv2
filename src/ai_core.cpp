@@ -126,7 +126,8 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     const AssetDef& a = *it->second.asset;
     if (a.defense.unsafeVault || a.navMeta.area == NavArea::Wire) return NT_WIRE;
     switch (resolveNavEffect(a.navMeta, a.enterable, a.bmin, a.bmax)) {
-      case NavEffect::None: case NavEffect::Area: return NT_SKIP;
+      case NavEffect::None: return NT_SKIP;
+      case NavEffect::Area: return NT_SOLID;   // trenches, shingle, fences: their own floors / walls / mounds are the ground; the area is painted on top
       case NavEffect::Carve: return NT_CARVE;
       default: return NT_SOLID;
     }
@@ -149,7 +150,14 @@ void AiCore::begin(vec3 lo, vec3 hi) {
       float h0 = in.pos.y + a.bmin.y - 1.0f, h1 = in.pos.y + a.bmax.y + 1.0f;
       auto addPoly = [&](const std::vector<vec2>& local, NavArea ar) {
         std::vector<std::array<vec2, 3>> tris; triangulate(local, tris);
-        for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.area = navarea::fromNav(ar); out.marks.push_back(mk); }
+        // forbidden ground (minefield) grows by the agent radius + a margin: an "area" asset's own fence posts are not
+        // rasterised into the mesh, so the walkable edge would otherwise run through them
+        float grow = navAreaCost(ar) < 0 && ar != NavArea::Wire ? G.nav.cfg.radius + 0.25f : 0.0f;
+        for (auto& t : tris) {
+          std::array<vec2, 3> v = {W(t[0]), W(t[1]), W(t[2])};
+          if (grow > 0) { vec2 c = (v[0] + v[1] + v[2]) / 3.0f; for (auto& p : v) { vec2 d = p - c; float L = glm::length(d); if (L > 1e-3f) p += d / L * grow * 2.0f; } }   // ~grow on every edge of a fan triangle
+          NavAreaMark mk; mk.poly = {v[0], v[1], v[2]}; mk.hmin = h0; mk.hmax = h1; mk.area = navarea::fromNav(ar); out.marks.push_back(mk);
+        }
       };
       if (wireSlow) {   // the wire parts' footprints are forbidden (thin coils leave walkable ground between the rings)
         const auto& cut = it->second.secCut;
@@ -182,6 +190,8 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   };
   crumb("ai: navmesh bake");
   nav.build(lo, hi);
+  markNavTraps();
+  logf("ai: %d navmesh polygons in dead-end pockets (no walk back to an objective or spawn)", navTraps);
   // ---- cover points for every tile (parallel: the physics world is idle while the match starts)
   {
     auto t0 = std::chrono::steady_clock::now();
@@ -323,8 +333,16 @@ void AiCore::pollWorld(bool rebuild) {
   }
 }
 
+void AiCore::markNavTraps() {
+  std::vector<vec3> anchors;
+  for (auto& o : G.match.sc.objectives) anchors.push_back(o.pos);
+  for (auto& s : G.match.sc.spawns) anchors.push_back(s.pos);
+  navTraps = G.nav.markTraps(anchors);
+}
+
 void AiCore::onTilesChanged() {
   if (G.nav.changed.empty()) return;
+  if (trapsDueAt < 0) trapsDueAt = G.t + 0.5;   // committed tiles come without the pocket flags; re-mark soon (batched)
   lastCommitAt = G.t; committedTiles += (int)G.nav.changed.size();
   std::set<std::pair<int, int>> ch(G.nav.changed.begin(), G.nav.changed.end());
   // bots whose corridor crosses a rebuilt tile re-plan now (AI_SPEC 3.3: within 1 s)
@@ -466,6 +484,7 @@ void AiCore::frame() {
     crumb("ai: nav commit");
     G.nav.update();
     onTilesChanged();
+    if (trapsDueAt >= 0 && G.t >= trapsDueAt) { trapsDueAt = -1; markNavTraps(); }
     if (!coverTodo.empty()) { auto t = coverTodo.back(); coverTodo.pop_back(); generateCoverTile(t.first, t.second, 120); }
     if (G.t >= nextWorldPoll) { nextWorldPoll = G.t + 0.1; pollWorld(); }
     receivePaths();
