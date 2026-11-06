@@ -33,12 +33,14 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         if (!j.contains("model")) continue;
         ++models;
         bool ok = d.useModel();
-        float L = ok ? d.model->bmax.z - d.model->bmin.z : 0, want = j["model"].value("realLength", 1.0f);
+        float L = 0, want = j["model"].value("overallLength", j["model"].value("realLength", 1.0f));   // overall length when the fit node is a sub-part (bazooka tube)
+        if (ok) { float z0 = 1e9f, z1 = -1e9f; for (auto& mp : d.model->parts) if (mp.role != "clip") { z0 = std::min(z0, mp.bmin.z); z1 = std::max(z1, mp.bmax.z); } L = z1 - z0; }   // loose rounds / rockets excluded
         char b[220]; std::snprintf(b, sizeof b, "%s: imported model %s, %d tris, %zu parts, length %.3f m vs real %.3f m (%.2f%%)",
                                    d.id.c_str(), j["model"].value("dir", "").c_str(), ok ? d.model->tris : 0, ok ? d.model->parts.size() : 0, L, want, ok ? 100 * std::fabs(L - want) / want : 100.0f);
         check(ok && std::fabs(L - want) / want < 0.01f, b);
         bool texExpected = d.id != "m1_thompson" && d.id != "bazooka_m9";   // both sources are factor-only
-        if (ok) check(!texExpected || (d.model->texAlb && d.model->texMR && d.model->texN), d.id + (texExpected ? ": albedo, metal-rough and normal textures bound" : ": factor-only materials (source has no textures)"));
+        bool nrmExpected = d.id != "panzerschreck";                          // the pickup mesh ships no normal map
+        if (ok) check(!texExpected || (d.model->texAlb && d.model->texMR && (d.model->texN || !nrmExpected)), d.id + (texExpected ? (nrmExpected ? ": albedo, metal-rough and normal textures bound" : ": albedo and metal-rough bound (source has no normal map)") : ": factor-only materials (source has no textures)"));
       }
       check(models == 13, "thirteen weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck); " + std::to_string(models) + " found");
       GpuModel g; std::string err;
@@ -155,7 +157,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       if (t < 1.5f) return false;
       float v = glm::length(vec2(Physics::character().pos.x - p0.x, Physics::character().pos.z - p0.z)) / 1.5f;
       a.scriptedInput = ExploreInput{};
-      check(v < 2.6f, "Shift while aiming does not sprint (" + std::to_string(v).substr(0, 4) + " m/s)");
+      check(v < a.move.run * 1.05f, "Shift while aiming does not sprint (" + std::to_string(v).substr(0, 4) + " m/s, run " + std::to_string(a.move.run).substr(0, 4) + ")");
       return true; });
 
     // ---- F4 IK arms
@@ -197,6 +199,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       check(std::fabs(focus - want) < 1e-4f && amount > 0.99f && coc(0.21f) > 5.9f && coc(focus) == 0.0f, b);
       a.reducedMotion = true; a.dofParams(focus, amount); a.reducedMotion = false;
       check(amount == 0, "reduced motion turns the sight blur off");
+      check(!a.R.dofEnabled, "sight blur is removed from play: the depth-of-field pass is off by default with no toggle");
       return true; });
 
     // ---- screenshots of every imported weapon, hip and ADS (procedural motion on)

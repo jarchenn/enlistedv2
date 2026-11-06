@@ -49,14 +49,14 @@ float skyVis(vec3 w, vec3 n){
 }
 vec3 skyColor(vec3 d){
   float h = clamp(d.y, -1.0, 1.0);
-  vec3 zen = vec3(0.36,0.47,0.62)*1.25, hor = vec3(0.78,0.80,0.80)*1.25, gnd = vec3(0.42,0.43,0.40);
+  vec3 zen = vec3(0.33,0.44,0.60)*1.25, hor = vec3(0.74,0.77,0.79)*1.25, gnd = vec3(0.40,0.41,0.38);
   vec3 c = h > 0.0 ? mix(hor, zen, pow(h, 0.55)) : mix(hor, gnd, clamp(-h*4.0,0.0,1.0));
   float sd = max(dot(d, uSunDir), 0.0);
   c += uSunCol * (pow(sd, 400.0)*6.0 + pow(sd, 12.0)*0.12);
   return c;
 }
 vec3 applyFog(vec3 col, vec3 w){
-  float d = length(w - uCamPos);
+  float d = max(length(w - uCamPos) - 35.0, 0.0);   // clear near view, haze builds with distance
   float f = 1.0 - exp(-d*uFogDens);
   vec3 dir = normalize(w - uCamPos);
   vec3 fc = mix(uFogCol, skyColor(vec3(dir.x, max(dir.y,0.02), dir.z)), 0.5);
@@ -102,7 +102,7 @@ void main(){
 
 static const char* kMainFS = R"GLSL(
 in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn; in vec4 vPar;
-uniform vec4 uTint; uniform float uTime;
+uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world structures get localized weathering
 layout(location=0) out vec4 oColor;
 layout(location=1) out float oDist;   // eye distance, only stored during the first-person pass (depth of field)
 vec2 faceUV(vec3 p, vec3 n){ vec3 a=abs(n); if (a.y>a.x && a.y>a.z) return p.xz; if (a.x>a.z) return vec2(p.z,p.y); return vec2(p.x,p.y); }
@@ -236,6 +236,18 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
+  if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11)) {
+    // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
+    // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
+    float vert = 1.0 - smoothstep(0.4, 0.7, abs(normalize(vN).y));
+    float nn = vnoise(vAp*1.3);
+    float foot = (1.0 - smoothstep(0.0, 0.45 + 0.4*nn, vAp.y)) * vert;
+    alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
+    float moss = foot * smoothstep(0.5, 0.72, vnoise(vAp*2.3 + 7.0)) * (pat == 3 ? 0.5 : 1.0);
+    alb = mix(alb, vec3(0.13, 0.17, 0.07), moss*0.6);
+    float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, vAp.y);
+    alb *= 1.0 - 0.14*streak;
+  }
   vec3 N = dot(vN, vN) > 1e-12 ? normalize(vN) : vec3(0.0, 1.0, 0.0);
   if (!gl_FrontFacing) N = -N;
   if (bump > 0.0) {
@@ -356,15 +368,15 @@ void main(){
 
 // ---- tree leaf cards: alpha-tested clusters, sway  V_offset = D_wind * M * A * sin(f t + k_x X + k_z Z)
 static const char* kLeafVS = R"GLSL(
-layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec2 aUV; layout(location=3) in float aMask;
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec2 aUV; layout(location=3) in float aMask; layout(location=4) in float aShade;
 uniform mat4 uModel, uVP; uniform float uTime, uWind;
-out vec3 vW, vN; out vec2 vUV; out float vM; flat out float vSeed;
+out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
 void main(){
   vec4 w = uModel*vec4(aPos, 1.0);
   const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
   float s = sin(f*uTime + kx*w.x + kz*w.z) + 0.3*sin(2.9*uTime + 0.8*w.x - 0.5*w.y);
   w.xyz += (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * aMask * uWind;
-  vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask;
+  vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask; vShade = aShade;
   vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
   gl_Position = uVP*w;
 }
@@ -382,7 +394,7 @@ float leafAlpha(vec2 uv, float seed){
 }
 )GLSL";
 static const char* kLeafFS = R"GLSL(
-in vec3 vW, vN; in vec2 vUV; in float vM; flat in float vSeed;
+in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
 uniform vec3 uLeafCol;
 out vec4 oColor;
 float leafAlpha(vec2 uv, float seed);
@@ -390,20 +402,21 @@ void main(){
   if (leafAlpha(vUV, vSeed) < 0.5) discard;
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
-  vec3 alb = uLeafCol*(0.72 + 0.56*var);
+  vec3 alb = uLeafCol*(0.72 + 0.56*var)*vShade;
+  alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
   float sh = 1.0;
   if (uShadowOn == 1) { vec4 lp = uLightVP*vec4(vW + N*0.12, 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
     if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.xy, sc.z - 0.002)); }
   float ndl = max(dot(N, uSunDir), 0.0)*0.7 + 0.3;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.45, 1.0, 0.5 + 0.5*N.y);
   vec3 V = normalize(uCamPos - vW);
-  vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.85 + alb*uSunCol*0.12*pow(max(dot(-V, uSunDir), 0.0), 4.0)*sh;
+  vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7*vShade + alb*uSunCol*0.08*pow(max(dot(-V, uSunDir), 0.0), 4.0)*sh;   // restrained translucency
   c = applyFog(c, vW);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
 }
 )GLSL";
 static const char* kLeafShadowFS = R"GLSL(
-in vec3 vW, vN; in vec2 vUV; in float vM; flat in float vSeed;
+in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
 float leafAlpha(vec2 uv, float seed);
 void main(){ if (leafAlpha(vUV, vSeed) < 0.5) discard; }
 )GLSL";
@@ -429,6 +442,7 @@ static const char* kTerrainFS = R"GLSL(
 in vec3 vW, vN; in float vDirt;
 uniform int uGrid; uniform float uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize, uTerrainSize;
+uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 out vec4 oColor;
 void main(){
   vec3 p = vW;
@@ -436,18 +450,37 @@ void main(){
     ivec2 tc = ivec2(floor((p.xz + uTerrainSize*0.5)/uTileSize));
     if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;
   }
-  float n1 = fbm(vec3(p.xz*0.025, 1.0)), n2 = fbm(vec3(p.xz*0.18, 2.0)), n3 = vnoise(vec3(p.xz*3.1, 3.0));
-  vec3 g1 = vec3(0.16,0.24,0.07), g2 = vec3(0.26,0.31,0.10), dry = vec3(0.36,0.35,0.18);
-  vec3 alb = mix(g1, g2, smoothstep(0.3, 0.7, n1));
-  alb = mix(alb, dry, smoothstep(0.62, 0.8, n2)*0.45);
-  alb *= 0.82 + 0.3*n3;
-  // clover / darker tufts
-  alb *= 1.0 - 0.18*smoothstep(0.65, 0.8, vnoise(vec3(p.xz*0.9, 9.0)));
+  vec4 S = texture(uSurf, (p.xz + uTerrainSize*0.5)/uTerrainSize);
+  float wear = S.r, wet = S.g, kind = S.b, rut = S.a;
+  // four scales so nothing tiles: broad fields (80 m), patches (14 m), clumps (1 m), grit (0.2 m)
+  float nB = fbm(vec3(p.xz*0.012, 1.0)), nM = fbm(vec3(p.xz*0.07, 2.0)), nF = vnoise(vec3(p.xz*0.9, 3.0)), nX = vnoise(vec3(p.xz*4.3, 4.0));
+  vec3 g1 = vec3(0.12,0.19,0.06), g2 = vec3(0.21,0.26,0.085), dry = vec3(0.32,0.30,0.165);
+  vec3 grass = mix(g1, g2, smoothstep(0.3, 0.7, nB));
+  grass = mix(grass, dry, smoothstep(0.6, 0.82, nM)*0.5);
+  grass *= 0.78 + 0.32*nF;
+  grass *= 1.0 - 0.16*smoothstep(0.65, 0.8, vnoise(vec3(p.xz*0.9, 9.0)));   // clover / darker tufts
+  vec3 soil = mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF) * (0.85 + 0.3*nX);
+  vec3 mud = mix(vec3(0.12,0.095,0.07), vec3(0.17,0.135,0.10), nX);
+  float stone = step(0.6, vnoise(vec3(p.xz*9.0, 7.0)));
+  vec3 grav = mix(vec3(0.34,0.32,0.28), vec3(0.46,0.43,0.38), stone) * (0.8 + 0.3*nX);
+  vec3 track = mix(soil, grav, smoothstep(0.75, 1.0, kind));
+  // compacted earth: trodden patches, small stones and wheel-polished strips break the track up at 0.2-2 m
+  float pebble = smoothstep(0.78, 0.9, vnoise(vec3(p.xz*6.5, 11.0)));
+  track = mix(track * (0.82 + 0.3*vnoise(vec3(p.xz*1.7, 12.0))), track*1.25 + vec3(0.03), pebble*0.45);
+  // grass breaks up into the track along a noisy edge; ruts and damp lows turn to mud
+  float tw = smoothstep(0.25, 0.75, wear + (nF - 0.5)*0.35 + (nX - 0.5)*0.15);
+  vec3 alb = mix(grass, track, tw);
+  alb = mix(alb, mud, clamp(rut*0.85 + wet*0.6, 0.0, 1.0)*tw);
+  // crater and disturbed soil
   float dirt = clamp(vDirt, 0.0, 1.0);
-  vec3 soil = mix(vec3(0.15,0.105,0.065), vec3(0.22,0.17,0.11), vnoise(vec3(p.xz*2.3, 4.0))) * (0.8 + 0.35*n3);
-  alb = mix(alb, soil, smoothstep(0.15, 0.75, dirt + (n2-0.5)*0.35));
-  vec3 N = normalize(vN + vec3(n3-0.5, 0.0, vnoise(vec3(p.xz*3.1, 5.0))-0.5)*mix(0.25, 0.45, dirt));
-  vec3 c = shade(vW, N, alb, mix(0.95, 1.0, dirt), 0.0, 1.0 - 0.25*dirt);
+  alb = mix(alb, soil, smoothstep(0.15, 0.75, dirt + (nM - 0.5)*0.35));
+  // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
+  float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
+  alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
+  float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
+  vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, vnoise(vec3(p.xz*4.3, 5.0)) - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle));
+  float ao = (1.0 - 0.25*dirt) * (1.0 - 0.18*rut*tw);
+  vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf && abs(p.z) <= uBuildHalf) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
     vec2 fw = fwidth(p.xz)*1.2;
@@ -456,7 +489,7 @@ void main(){
     c = mix(c, vec3(0.85,0.85,0.7), line*0.35*(1.0 - smoothstep(60.0, 220.0, d)));
   }
   c = applyFog(c, vW);
-  oColor = vec4(c, 1.0);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
 }
 )GLSL";
 
@@ -498,7 +531,7 @@ void main(){
   if (e > 1.0 - pow(v, 1.6)) discard;                   // alpha-tested blade silhouette (pointed tip)
   vec3 F = gl_FrontFacing ? vF : -vF;
   vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*0.45);
-  vec3 alb = vAlb * mix(0.78, 1.15, v);
+  vec3 alb = vAlb * mix(0.72, 1.0, v);   // darker roots, no bleached tips
   // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
   float sh = 1.0;
   if (uShadowOn == 1) {
@@ -561,8 +594,8 @@ void main(){
   c = aces(c*e*0.8);
   // subdued, slightly desaturated period grade
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
-  c = mix(vec3(l), c, 0.88);
-  vec2 q = vUV - 0.5; c *= 1.0 - dot(q,q)*0.35;
+  c = mix(vec3(l), c, 0.93);
+  vec2 q = vUV - 0.5; c *= 1.0 - dot(q,q)*0.16;
   oColor = vec4(toSRGB(c), 1.0);
 }
 )GLSL";
@@ -577,8 +610,8 @@ void main(){
   float lr = dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
   float l = max(lr, 1e-4);
-  float target = clamp(0.24/l, 0.8, 2.1);
-  float k = 1.0 - exp(-uDt*(target > prev ? 1.1 : 2.2));
+  float target = clamp(0.24/l, 0.9, 1.45);
+  float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
 )GLSL";
@@ -762,14 +795,14 @@ std::string Renderer::hdrProbe() const {
 void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUseProgram(p);
   glUniform3fv(U(p, "uSunDir"), 1, glm::value_ptr(sunDir));
-  vec3 sun(2.7f, 2.55f, 2.3f), sky(0.50f, 0.58f, 0.70f), ground(0.24f, 0.23f, 0.19f), fog(0.70f, 0.73f, 0.75f), fill(0.15f, 0.135f, 0.11f);
+  vec3 sun(2.65f, 2.52f, 2.32f), sky(0.42f, 0.49f, 0.60f), ground(0.20f, 0.19f, 0.155f), fog(0.64f, 0.68f, 0.72f), fill(0.10f, 0.095f, 0.08f);
   glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
   glUniform3fv(U(p, "uGroundCol"), 1, glm::value_ptr(ground));
   glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog));
   glUniform3fv(U(p, "uFill"), 1, glm::value_ptr(fill));
   glUniform3fv(U(p, "uCamPos"), 1, glm::value_ptr(v.camPos));
-  glUniform1f(U(p, "uFogDens"), thumbMode ? 0.0f : 0.0011f);
+  glUniform1f(U(p, "uFogDens"), thumbMode ? 0.0f : 0.0016f);
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   glUniformMatrix4fv(U(p, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   glUniform1f(U(p, "uOccTop"), occTop); glUniform1f(U(p, "uOccRange"), occRange);
@@ -957,6 +990,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   // opaque
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);
+  glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false);
   if (!worldModels.empty()) {   // imported models placed in the world
@@ -1031,6 +1065,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     mat4 vvp = (v.vmProj[2][3] != 0.0f ? v.vmProj : v.proj) * v.view;
     glEnable(GL_CULL_FACE);
     setLighting(progMain, v);
+    glUniform1i(U(progMain, "uWeather"), 0);
     glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
     drawItems(progMain, viewModel, false);
     if (!viewModelTex.empty()) {
@@ -1112,6 +1147,13 @@ bool Renderer::readPixels(std::vector<uint8_t>& rgba, int& w, int& h) {
   glBindFramebuffer(GL_READ_FRAMEBUFFER, ldrFbo);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
   glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+  return true;
+}
+
+bool Renderer::readVmDist(std::vector<float>& d, int& w, int& h) {
+  w = width; h = height; d.assign((size_t)w * h, 0.0f);
+  if (!vmDistTex) return false;
+  glGetTextureImage(vmDistTex, 0, GL_RED, GL_FLOAT, (GLsizei)(d.size() * sizeof(float)), d.data());
   return true;
 }
 

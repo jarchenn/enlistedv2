@@ -97,6 +97,7 @@ struct TreeDef {
   vec3 leafCol{0.2f, 0.3f, 0.1f};
   std::vector<vec4> canopy;                 // xyz centre (asset space), w radius
   float top = 5;                            // highest point (canopy) for the fall impulse
+  bool hedge = false;                       // hedgerow / bank: indestructible, grass excluded over the bank
   GpuMesh stumpMesh, trunkMesh;             // trunkMesh / trunkShape relative to the cut (0, stumpH, 0)
   ShapePtr stumpShape, trunkShape;
   GLuint cardVao = 0, cardVbo = 0; int cardVerts = 0;   // leaf cards (asset space): pos, normal, uv, mask

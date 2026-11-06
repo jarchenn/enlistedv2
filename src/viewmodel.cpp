@@ -31,23 +31,43 @@ bool App::vmScoped(const WeaponDef& d) const { return d.hasScope && !(d.scopeIro
 // translate so the rear aperture R sits on that axis at the eye relief:
 //   q    = rotation(L -> +z_weapon), Q = Ry(180) * q          (weapon +z -> view -z)
 //   T_ads = (0, 0, -relief) - Q * R                             (R lands at view (0, 0, -relief))
-//   T_hip = T_ads + (0.12, -0.07, 0.06)
+//   T_hip = (0, 0, -0.21) - Q * R + (0.12, -0.07, 0.06)            (hip pose independent of the ADS calibration)
+// Per-weapon calibration (WeaponDef, JSON "ads"): relief = eyeRelief; C = euler(rotCorrection) is applied in view
+// space about R and T_ads += posCorrection, so with both zero R and F sit exactly on the view axis.
 static void sightFrame(const WeaponDef& d, bool scoped, quat& Q, vec3& Rp, vec3& Fp, float& relief) {
   Rp = scoped ? d.scopeEye : d.rear;
   Fp = scoped ? d.scopeEye + vec3(0, 0, 0.25f) : d.front;
-  relief = scoped ? 0.07f : 0.21f;
+  relief = scoped ? 0.07f : d.eyeRelief;
   vec3 L = glm::normalize(Fp - Rp);
   quat q = glm::rotation(L, vec3(0, 0, 1));
   Q = glm::angleAxis(3.14159265f, vec3(0, 1, 0)) * q;
+  if (!scoped && d.adsRot != vec3(0)) Q = glm::quat(glm::radians(d.adsRot)) * Q;
 }
 
 vec3 App::vmTarget(const WeaponDef& d) const {
   quat Q; vec3 Rp, Fp; float relief;
-  sightFrame(d, vmScoped(d), Q, Rp, Fp, relief);
-  vec3 ads = vec3(0, 0, -relief) - Q * Rp;
-  vec3 hip = ads + vec3(0.12f, -0.07f, 0.06f);
+  bool scoped = vmScoped(d);
+  sightFrame(d, scoped, Q, Rp, Fp, relief);
+  vec3 ads = vec3(0, 0, -relief) - Q * Rp + (scoped ? vec3(0) : d.adsPos);
+  vec3 hip = vec3(0, 0, scoped ? -relief : -0.21f) - Q * Rp + vec3(0.12f, -0.07f, 0.06f);
   float t = adsT * adsT * (3 - 2 * adsT);
   return glm::mix(hip, ads, t);
+}
+
+float App::vmFovNow() const {
+  if (weaponDefs.empty()) return vm.vmFov;
+  const WeaponDef& d = *weaponDefs[activeWeapon];
+  if (d.adsVmFov <= 0 || vmScoped(d)) return vm.vmFov;
+  float t = adsT * adsT * (3 - 2 * adsT);
+  return glm::mix(vm.vmFov, d.adsVmFov, t);
+}
+
+void App::fpCamera(mat4& view, float& worldFovNow) const {
+  // the camera the weapon is posed against this frame (viewModelMatrix), and the world FOV that goes with it
+  vec3 e = eyePos(), f = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
+  view = glm::lookAt(e, e + f, vec3(0, 1, 0));
+  worldFovNow = 72.0f;
+  weaponCamera(worldFovNow);
 }
 
 mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural) const {
@@ -81,12 +101,40 @@ void App::sightLineWorld(const WeaponDef& d, const WeaponState& s, vec3& rear, v
 }
 
 vec3 App::vmApparent(vec3 w) const {
-  // a first-person point drawn with the fixed vmFov appears where the world projection puts
+  // a first-person point drawn with the weapon projection (vmFovNow) appears where the world projection puts
   //   x' = x * tan(worldFov / 2) / tan(vmFov / 2)   (same for y, same view depth)
-  vec4 v = viewM * vec4(w, 1);
-  float k = std::tan(radians(worldFov) * 0.5f) / std::tan(radians(vm.vmFov) * 0.5f);
+  // evaluated against the camera the weapon is posed with *now* (fire time), not last frame's render camera
+  mat4 view; float wf; fpCamera(view, wf);
+  vec4 v = view * vec4(w, 1);
+  float k = std::tan(radians(wf) * 0.5f) / std::tan(radians(vmFovNow()) * 0.5f);
   v.x *= k; v.y *= k;
-  return vec3(glm::inverse(viewM) * v);
+  return vec3(glm::inverse(view) * v);
+}
+
+bool App::sightMarks(std::vector<SightMark>& out) const {
+  // Calibration markers in framebuffer pixels (origin top-left): rear aperture / notch, front post tip and muzzle
+  // through the weapon projection; the aim point (eye ray hit) and the flash / tracer origin through the world one.
+  out.clear();
+  if (occupied || weaponDefs.empty() || mode != Mode::Explore || R.width <= 0) return false;
+  const WeaponDef& d = *weaponDefs[activeWeapon];
+  auto it = wstate.find(d.id); if (it == wstate.end()) return false;
+  const WeaponState& s = it->second;
+  mat4 view; float wf; fpCamera(view, wf);
+  float aspect = (float)R.width / std::max(1, R.height);
+  mat4 vmVP = glm::perspective(radians(vmFovNow()), aspect, 0.01f, 6.0f) * view;
+  mat4 wVP = glm::perspective(radians(wf), aspect, 0.03f, 4000.0f) * view;
+  auto px = [&](const mat4& vp, vec3 w) { vec4 c = vp * vec4(w, 1); return vec2((c.x / c.w * 0.5f + 0.5f) * R.width, (0.5f - c.y / c.w * 0.5f) * R.height); };
+  mat4 M = viewModelMatrix(d, s);
+  vec3 Rw = vec3(M * vec4(d.rear, 1)), Fw = vec3(M * vec4(d.front, 1)), Mw = vec3(M * vec4(d.muzzle, 1));
+  out.push_back({px(vmVP, Rw), 0xFFFFD000u, 0});   // rear: cyan ring (ABGR)
+  out.push_back({px(vmVP, Fw), 0xFF30FF30u, 1});   // front tip: green cross
+  out.push_back({px(vmVP, Mw), 0xFF0080FFu, 2});   // muzzle: orange square
+  out.push_back({px(wVP, vmApparent(Mw)), 0xFFFFFFFFu, 3});   // flash / tracer origin (world projection): white dot
+  vec3 e = eyePos(), f = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
+  Physics::Hit h;
+  vec3 P = Physics::castRayEx(e, f, 600, h) ? h.pos : e + f * 600.0f;
+  out.push_back({px(wVP, P), 0xFF2020FFu, 4});     // aim point: red ring
+  return true;
 }
 
 void App::stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, const WeaponState& s) {

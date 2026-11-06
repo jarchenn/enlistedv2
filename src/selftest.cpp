@@ -125,6 +125,7 @@ void SelfTest::update(App& app, float dt) {
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();
+    if (stage >= 1600) sightsUpdate(app, dt);
     return;
   }
   stageTime += dt;
@@ -151,6 +152,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--build-village-map") { go(1300); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-arsenal") { go(1400); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-move") { go(1500); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-sights") { go(1600); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }

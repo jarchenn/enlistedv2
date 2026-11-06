@@ -88,6 +88,15 @@ This update was requested in `claude_instructions.md`, inside `m1_garand_claude_
 - Clouds don't appear in reflections.
 - The package's reference images were placeholders.
 
+## Normandy expansion (weapons, racks, fire modes, AT destruction, movement, visuals)
+
+Details, the acceptance checklist (PASS / FAIL / NOT TESTED), old and new values and the measurements are in [expansion.md](expansion.md). In short:
+- Carbine, FG 42, Bazooka, Panzerschreck and a carried / deployable M2 are integrated, and the Kar 98k uses the supplied model.
+- The Tommy gun and PaK GLBs were inspected and not used (variant mismatch; a static unlit mesh).
+- Allied and Axis racks, an F fire selector, one-shot AT-gun wrecks, stand / crouch / prone, run ×1.25 and player gravity ×0.8 are in.
+- The ground, routes, grass, trees, hedgerows, dressing, lighting and weathering were reworked procedurally.
+- Networking checks are not applicable (no multiplayer).
+
 ## What's implemented
 
 - **Engine.** C++20, CMake, OpenGL 4.5 core (DSA), GLFW, GLAD, GLM, Dear ImGui, Jolt Physics (`CharacterVirtual`), nlohmann/json, miniaudio.

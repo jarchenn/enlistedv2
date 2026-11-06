@@ -215,6 +215,7 @@ public:
   double grassBudgetMs = 2.5;        // per-frame chunk build budget (< 0: build synchronously)
   std::vector<GrassFootprint> grassFootprints() const;
   void updateGrass(vec3 cam);
+  void updateSurface();   // ground surface mask (routes, foundations) -> terrain shader + grass
   std::vector<Projectile> projectiles;
   GpuMesh debrisMesh;
   uint64_t occupied = 0, choiceFor = 0;
@@ -256,6 +257,8 @@ public:
   bool strictDDay = false, reducedMotion = false, scopeIronsMode = false, supported = false, showLoadout = false;
   std::string weaponMsg;
   vec3 lastShotStart{0}, lastShotDir{0}, lastShotMuzzle{0};
+  vec3 lastFlashPos{0}, lastVisStart{0};
+  mat4 lastFireView{1}; float lastFireWorldFov = 72, lastFireVmFov = 60;   // camera the last shot was fired against   // where the last shot's flash and visible path start (world projection)
   int weaponIndex(const std::string& id) const;
   void selectWeapon(int idx);
   mat4 viewModelMatrix(const WeaponDef& d, const WeaponState& s) const;
@@ -270,6 +273,11 @@ public:
   vec3 vmTarget(const WeaponDef& d) const;                                    // spring target (view space)
   void sightLineWorld(const WeaponDef& d, const WeaponState& s, vec3& rear, vec3& front) const;
   vec3 vmApparent(vec3 world) const;    // where a first-person point appears in the world projection
+  float vmFovNow() const;               // weapon-projection FOV this frame (vm.vmFov, or the weapon's ADS override)
+  void fpCamera(mat4& view, float& worldFovNow) const;   // camera + world FOV the weapon is posed against now
+  struct SightMark { vec2 px; uint32_t col; int kind; };   // kind: 0 rear, 1 front tip, 2 muzzle, 3 flash origin, 4 aim
+  bool sightMarks(std::vector<SightMark>& out) const;
+  bool sightMarkers = false;            // draw the calibration markers (HUD and screenshots)
   void armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s);
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot
   vec3 lastHandErr{0};                  // IK residual (right, left) for tests: x = right, y = left

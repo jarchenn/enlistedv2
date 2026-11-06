@@ -403,6 +403,21 @@ void App::screenshot(const fs::path& p) {
   std::vector<uint8_t> flip(px.size());
   for (int y = 0; y < h; ++y) std::memcpy(&flip[(size_t)y * w * 4], &px[(size_t)(h - 1 - y) * w * 4], (size_t)w * 4);
   for (size_t k = 3; k < flip.size(); k += 4) flip[k] = 255;
+  std::vector<SightMark> mk;
+  if (sightMarkers && sightMarks(mk)) {
+    auto put = [&](int x, int y, uint32_t c) { if (x < 0 || y < 0 || x >= w || y >= h) return; uint8_t* p = &flip[((size_t)y * w + x) * 4]; p[0] = c & 255; p[1] = (c >> 8) & 255; p[2] = (c >> 16) & 255; };
+    float sc = std::max(1.0f, h / 1080.0f);
+    for (auto& m : mk) {
+      int cx = (int)std::floor(m.px.x), cy = (int)std::floor(m.px.y);
+      int r = (int)(6 * sc);
+      if (m.kind == 0 || m.kind == 4) for (int a = 0; a < 96; ++a) { float t = a * 6.2831853f / 96; put(cx + (int)std::lround(std::cos(t) * r), cy + (int)std::lround(std::sin(t) * r), m.col); }
+      else if (m.kind == 1) for (int k = -r; k <= r; ++k) { if (std::abs(k) > 1) { put(cx + k, cy, m.col); put(cx, cy + k, m.col); } }
+      else if (m.kind == 2) for (int k = -r / 2; k <= r / 2; ++k) { put(cx + k, cy - r / 2, m.col); put(cx + k, cy + r / 2, m.col); put(cx - r / 2, cy + k, m.col); put(cx + r / 2, cy + k, m.col); }
+      else for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) put(cx + x, cy + y, m.col);
+    }
+    // the HUD centre dot (drawn by ImGui, so not otherwise in the scene capture)
+    for (int y = -2; y <= 2; ++y) for (int x = -2; x <= 2; ++x) if (x * x + y * y <= 5) put(w / 2 + x, h / 2 + y, 0xFFE6F0F0u);
+  }
   std::error_code ec; fs::create_directories(p.parent_path(), ec);
   stbi_write_png(p.string().c_str(), w, h, 4, flip.data(), w * 4);
   logf("screenshot %s", p.string().c_str());
@@ -419,7 +434,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move") runSelf = true;
+    else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights") runSelf = true;
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else if (a == "--box-weapons") useImportedModels = false;
@@ -545,7 +560,7 @@ int App::run(int argc, char** argv) {
       viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
       projM = glm::perspective(radians(fov), aspect, 0.03f, 4000.0f);
       worldFov = fov;
-      v.vmProj = glm::perspective(radians(vm.vmFov), aspect, 0.01f, 6.0f);
+      v.vmProj = glm::perspective(radians(vmFovNow()), aspect, 0.01f, 6.0f);
       dofParams(v.dofFocus, v.dofAmount);
       v.editor = false; v.autoExposure = true; v.camPos = e;
       audio.setListener(e, forward(eyeYaw, eyePitch));
@@ -602,13 +617,35 @@ std::vector<GrassFootprint> App::grassFootprints() const {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || !a->crate.empty()) continue;
-    if (a->tree.on) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
+    if (a->tree.on && !a->tree.hedge) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
+    if (a->tree.on && a->tree.hedge) { vec2 h = a->footprint * 0.5f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-h.x, -h.y * 0.6f), vec2(h.x, h.y * 0.6f)}); continue; }
     fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z)});
   }
   return fp;
 }
 
+void App::updateSurface() {
+  // structures (not guns, crates, trees or defences) get a foundation soil band; routes come from the map
+  std::vector<SurfaceFootprint> feet;
+  uint64_t sig = 1469598103934665603ull;
+  auto mix = [&](uint64_t v) { sig = (sig ^ v) * 1099511628211ull; };
+  for (auto& i : doc.instances) {
+    const AssetDef* a = assetFor(i);
+    if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack) continue;
+    feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
+    uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);
+    mix(b[0]); mix(b[1]); mix(b[2]); mix(std::hash<std::string>{}(i.assetId));
+  }
+  json routes = doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json::array();
+  mix(std::hash<std::string>{}(routes.dump()));
+  mix(terrain.generation);
+  if (sig == terrain.surfSig && !terrain.surf.empty()) return;
+  terrain.buildSurface(routes, feet);
+  terrain.surfSig = sig;
+}
+
 void App::updateGrass(vec3 cam) {
+  updateSurface();
   uint32_t seed = doc.seed * 2654435761u + (uint32_t)doc.templateVersion * 40503u + (uint32_t)std::hash<std::string>{}(doc.templateId);
   grass.update(terrain, seed, grassFootprints(), cam, grassBudgetMs);
 }

@@ -67,21 +67,84 @@ def crown_ring(n, y, R, r, rng, jitter=0.25):
     return out
 
 
-rng = random.Random(7)
-apple_crown = [(0, 3.3, 0, 1.5)] + crown_ring(5, 2.9, 1.2, 1.15, rng)
-save(tree("tree_apple", "Apple tree (orchard)", "Low Normandy cider-orchard apple: short bole, wide rounded crown (~4.5 m).",
-          1.5, 0.14, 0.11, apple_crown, [(30, 40, 1.4, 0.07), (150, 35, 1.3, 0.065), (260, 45, 1.2, 0.06)],
-          [0.20, 0.30, 0.10], 0.30, 70, 11, 4.5))
-rng = random.Random(9)
-oak_crown = [(0, 8.2, 0, 3.0)] + crown_ring(6, 7.2, 2.6, 2.4, rng, 0.6) + crown_ring(4, 9.2, 1.6, 2.0, rng, 0.4)
-save(tree("tree_oak", "Hedgerow oak", "Pedunculate oak of the bocage hedgerows: thick bole, broad crown (~11 m).",
-          4.0, 0.38, 0.28, oak_crown, [(20, 35, 3.0, 0.16), (140, 30, 3.2, 0.15), (250, 40, 2.8, 0.14), (320, 55, 2.6, 0.12)],
-          [0.16, 0.25, 0.08], 0.42, 80, 13, 11.0))
-rng = random.Random(5)
-poplar_crown = [(rng.uniform(-0.2, 0.2), y, rng.uniform(-0.2, 0.2), 1.35 - abs(y - 9) * 0.06) for y in [4.0, 6.0, 8.0, 10.0, 12.0, 14.0]]
-save(tree("tree_poplar", "Lombardy poplar", "Tall columnar poplar used as a windbreak along lanes (~16 m).",
-          13.0, 0.26, 0.12, poplar_crown, [(0, 75, 2.0, 0.07), (120, 70, 2.2, 0.07), (240, 72, 2.0, 0.07)],
-          [0.22, 0.31, 0.12], 0.28, 55, 17, 16.0))
+# ---- v2 trees: recursive branch hierarchy, foliage clusters at the limb tips (layered canopy), smaller leaves
+def branch_tree(id_, name, desc, seed, trunk_h, r0, n_primary, prim_len, prim_pitch, sec_per, sec_len, cluster_r, leaf_col, leaf_size,
+                height, lean=(0.0, 0.0), columnar=False, extra_inner=3, density=34, mat="bark", hp=30):
+    rng = random.Random(seed)
+    parts = []
+    trunk(parts, trunk_h, r0, r0 * 0.72, 6, mat, lean=lean)
+    top = [lean[0] * trunk_h, trunk_h * 0.96, lean[1] * trunk_h]
+    canopy = []
+    for i in range(n_primary):
+        yaw = 360.0 * i / n_primary + rng.uniform(-25, 25)
+        pitch = prim_pitch + rng.uniform(-10, 10)
+        L = prim_len * rng.uniform(0.75, 1.2)
+        base = [top[0], top[1] - rng.uniform(0, trunk_h * (0.25 if not columnar else 0.6)), top[2]]
+        tip = limb(parts, base, L, yaw, pitch, r0 * 0.34, mat)
+        for k in range(sec_per):
+            y2 = yaw + rng.uniform(-45, 45); p2 = pitch + rng.uniform(-15, 25)
+            st = [base[c] + (tip[c] - base[c]) * rng.uniform(0.45, 0.9) for c in range(3)]
+            t2 = limb(parts, st, sec_len * rng.uniform(0.7, 1.2), y2, p2, r0 * 0.16, mat)
+            r = cluster_r * rng.uniform(0.75, 1.15)
+            canopy.append((t2[0], t2[1] + r * 0.25, t2[2], r))
+        canopy.append((tip[0], tip[1] + cluster_r * 0.2, tip[2], cluster_r * rng.uniform(0.9, 1.25)))
+    for k in range(extra_inner):   # inner mass so the crown has depth, not a shell of blobs
+        canopy.append((top[0] + rng.uniform(-0.6, 0.6) * prim_len * 0.4, top[1] + prim_len * rng.uniform(0.2, 0.55), top[2] + rng.uniform(-0.6, 0.6) * prim_len * 0.4, cluster_r * rng.uniform(1.0, 1.4)))
+    canopy = [[round(c[0], 3), round(c[1], 3), round(c[2], 3), round(c[3], 3)] for c in canopy]
+    return {"id": id_, "version": 2, "name": name, "category": "Vegetation", "description": desc,
+            "floors": 0, "enterable": False, "footprint": [1.2, 1.2], "plinthDepth": 0, "maxGrade": 1.5,
+            "materials": [{"name": "bark", "albedo": [0.16, 0.135, 0.11], "roughness": 0.95, "pattern": "wood", "metallic": 0, "grain": 1},
+                          {"name": "bark_pale", "albedo": [0.30, 0.29, 0.26], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1}],
+            "parts": parts, "furniture": [], "interactables": [], "panels": [],
+            "tree": {"hpBullet": hp, "hpAT": 1, "stumpHeight": 0.4, "trunkRadius": r0, "mass": round(math.pi * r0 * r0 * height * 0.5 * 700),
+                     "canopy": canopy, "cardsPerSphere": density, "cardDensity": density, "leafSize": leaf_size, "leafColor": leaf_col, "seed": seed,
+                     "note": "Hit points are game tuning: small-arms hits, or one AT / HE strike within 1.5 m of the trunk."}}
+
+save(branch_tree("tree_apple", "Apple tree (orchard)", "Low Normandy cider-orchard apple: short leaning bole, spreading limbs, clustered crown (~4.5 m).",
+                 11, 1.4, 0.14, 4, 1.5, 38, 2, 0.9, 0.95, [0.17, 0.25, 0.09], 0.19, 4.5, lean=(0.05, 0.02), extra_inner=3, density=62))
+save(branch_tree("tree_oak", "Hedgerow oak", "Pedunculate oak of the bocage: thick bole, wide irregular crown of many leaf clusters (~11 m).",
+                 13, 3.6, 0.38, 6, 3.2, 28, 3, 2.0, 1.6, [0.13, 0.2, 0.07], 0.22, 11.0, lean=(0.02, -0.03), extra_inner=6, density=58))
+save(branch_tree("tree_poplar", "Lombardy poplar", "Tall columnar poplar used as a windbreak along lanes (~16 m).",
+                 17, 12.0, 0.26, 8, 2.4, 74, 2, 1.4, 1.1, [0.19, 0.27, 0.1], 0.17, 16.0, columnar=True, extra_inner=8, density=56, mat="bark_pale"))
+save(branch_tree("tree_ash", "Ash tree", "Young field ash: slender grey bole, open upswept crown (~8 m).",
+                 23, 2.8, 0.2, 5, 2.2, 45, 2, 1.4, 1.15, [0.18, 0.26, 0.09], 0.19, 8.0, lean=(-0.03, 0.03), extra_inner=3, density=52, mat="bark_pale"))
+
+# ---- shrubs and hedges (bocage): woody stems under layered foliage; hedgerows sit on an earth bank
+def shrub(id_, name, desc, seed, spheres, stems, leaf_col, leaf_size, density, hp=15, bank=None, hedge=False):
+    rng = random.Random(seed)
+    parts = []
+    for (x, z, h) in stems:
+        limb(parts, [x, 0.0, z], h, rng.uniform(0, 360), rng.uniform(62, 85), 0.025, "bark")
+    soil = {"name": "bank_soil", "albedo": [0.19, 0.21, 0.11], "roughness": 0.97, "pattern": "plain", "metallic": 0, "grain": 1}   # turf-covered bank
+    if bank:
+        L, W, H = bank
+        parts.append(box([0, H * 0.5, 0], [L, H, W * 0.55], "bank_soil"))
+        parts.append(box([0, H * 0.25, W * 0.33], [L, H * 0.5, W * 0.3], "bank_soil", r=[-25, 0, 0]))
+        parts.append(box([0, H * 0.25, -W * 0.33], [L, H * 0.5, W * 0.3], "bank_soil", r=[25, 0, 0]))
+    t = {"hpBullet": 99999 if hedge else hp, "hpAT": 99999 if hedge else 1, "stumpHeight": 0.15, "trunkRadius": 0.05, "mass": 30,
+         "canopy": [[round(a, 3) for a in c] for c in spheres], "cardsPerSphere": density, "cardDensity": density, "leafSize": leaf_size, "leafColor": leaf_col, "seed": seed,
+         "hedge": hedge}
+    fp = [bank[0], bank[1]] if bank else [1.5, 1.5]
+    save({"id": id_, "version": 1, "name": name, "category": "Vegetation", "description": desc, "floors": 0, "enterable": False,
+          "footprint": fp, "plinthDepth": 0, "maxGrade": 1.5,
+          "materials": [{"name": "bark", "albedo": [0.17, 0.14, 0.11], "roughness": 0.95, "pattern": "wood", "metallic": 0, "grain": 1}, soil],
+          "parts": parts, "furniture": [], "interactables": [], "panels": [], "tree": t})
+
+rng = random.Random(41)
+hedge_sph = []
+for k in range(9):
+    x = -3.6 + k * 0.9 + rng.uniform(-0.2, 0.2)
+    hedge_sph.append((x, 1.15 + rng.uniform(-0.1, 0.25), rng.uniform(-0.15, 0.15), 0.75 + rng.uniform(-0.1, 0.2)))
+    hedge_sph.append((x + 0.45, 2.0 + rng.uniform(-0.25, 0.35), rng.uniform(-0.2, 0.2), 0.6 + rng.uniform(-0.1, 0.15)))
+stems = [(-3.8 + k * 0.5 + rng.uniform(-0.15, 0.15), rng.uniform(-0.2, 0.2), rng.uniform(1.4, 2.4)) for k in range(16)]
+shrub("hedgerow_bocage", "Bocage hedgerow (8 m)", "Earth bank topped by a dense hazel / hawthorn hedge with woody stems: blocks sight, gaps only where you leave them.",
+      43, hedge_sph, [(x, z, h) for (x, z, h) in stems], [0.14, 0.21, 0.075], 0.34, 70, bank=(8.0, 1.5, 0.5), hedge=True)
+shrub("shrub_hazel", "Hazel shrub", "Multi-stemmed hazel clump (~2.5 m).", 47,
+      [(0, 1.5, 0, 0.9), (0.5, 1.0, 0.3, 0.7), (-0.4, 1.1, -0.3, 0.7), (0.1, 2.1, -0.1, 0.6)],
+      [(rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), rng.uniform(1.6, 2.4)) for _ in range(7)], [0.16, 0.24, 0.085], 0.3, 70)
+shrub("shrub_bramble", "Bramble patch", "Low tangled bramble (~0.9 m) for fence lines and ditch edges.", 53,
+      [(0, 0.45, 0, 0.6), (0.7, 0.35, 0.2, 0.5), (-0.6, 0.4, -0.2, 0.55), (0.2, 0.55, -0.5, 0.45)],
+      [], [0.12, 0.16, 0.07], 0.32, 80, hp=6)
 
 # ---------------------------------------------------------------- defences
 steel = {"name": "steel", "albedo": [0.20, 0.19, 0.17], "roughness": 0.6, "pattern": "metal", "metallic": 0.7, "grain": 1}
@@ -226,3 +289,43 @@ rack("rack_axis", "Axis weapon rack", "DE",
      ["gun_pak40"],
      "Weathered wooden A-frame rack. E opens the Axis arsenal (every German weapon in the registry and the Panzerschreck; the PaK 40 deploys through build mode).")
 print("racks ok")
+
+
+# ---------------------------------------------------------------- farm dressing (restrained, snag-free collision)
+def dressing(id_, name, desc, parts, mats, footprint):
+    save({"id": id_, "version": 1, "name": name, "category": "Dressing", "description": desc, "floors": 0, "enterable": False,
+          "footprint": footprint, "plinthDepth": 0, "maxGrade": 0.8, "materials": mats, "parts": parts, "furniture": [], "interactables": [], "panels": []})
+
+post = {"name": "post_wood", "albedo": [0.27, 0.22, 0.16], "roughness": 0.92, "pattern": "wood", "metallic": 0, "grain": 1}
+wire = {"name": "wire", "albedo": [0.30, 0.29, 0.27], "roughness": 0.6, "pattern": "metal", "metallic": 0.6, "grain": 1}
+stone = {"name": "field_stone", "albedo": [0.42, 0.40, 0.36], "roughness": 0.92, "pattern": "stone", "metallic": 0, "grain": 1}
+rng = random.Random(61)
+parts = []
+for k in range(4):   # 8 m run: posts every 2.4 m, three strands of wire
+    x = -3.6 + k * 2.4
+    parts.append(box([x, 0.6, 0], [0.1, 1.2 + rng.uniform(-0.06, 0.06), 0.1], "post_wood", r=[rng.uniform(-3, 3), rng.uniform(0, 40), rng.uniform(-3, 3)]))
+for y in (0.45, 0.78, 1.08):
+    parts.append(box([0, y, 0.055], [7.3, 0.008, 0.008], "wire", k=0))
+parts.append(box([0, 0.6, 0], [7.4, 1.2, 0.12], "post_wood", v=0))
+dressing("fence_post_wire", "Post-and-wire fence (8 m)", "Split chestnut posts with three strands of plain wire along a field edge.", parts, [post, wire], [8.0, 0.4])
+parts = []
+for x in (-1.75, 1.75):
+    parts.append(box([x, 0.7, 0], [0.18, 1.4, 0.18], "post_wood"))
+for k, y in enumerate((0.3, 0.65, 1.0)):
+    parts.append(box([0, y, 0.12], [3.3, 0.09, 0.05], "post_wood"))
+parts.append(box([-0.2, 0.65, 0.12], [3.0, 0.08, 0.05], "post_wood", r=[0, 0, 15]))
+for x in (-1.1, 0.0, 1.1):
+    parts.append(box([x, 0.65, 0.12], [0.07, 0.85, 0.05], "post_wood", k=0))
+dressing("field_gate", "Field gate", "Five-bar style timber field gate between two posts (closed; walk round or vault the hedge).", parts, [post], [3.8, 0.4])
+parts = [box([0, 4.0, 0], [0.24, 8.0, 0.24], "post_wood"), box([0, 7.5, 0], [1.6, 0.1, 0.1], "post_wood", k=0)]
+for x in (-0.65, 0.0, 0.65):
+    parts.append(box([x, 7.62, 0], [0.05, 0.12, 0.05], "wire", k=0))
+dressing("utility_pole", "Telegraph pole", "Creosoted telegraph pole with a cross-arm and insulators (~8 m).", parts, [post, wire], [0.5, 0.5])
+parts = []
+for k in range(12):   # dry-stone boundary wall, 6 m, ~0.9 m high, irregular stones
+    x = -2.75 + k * 0.5
+    for y in (0.15, 0.45, 0.72):
+        parts.append(box([x + rng.uniform(-0.06, 0.06), y + rng.uniform(-0.03, 0.03), rng.uniform(-0.04, 0.04)], [0.48, 0.28 + rng.uniform(-0.04, 0.05), 0.55], "field_stone", r=[0, rng.uniform(-6, 6), rng.uniform(-4, 4)], k=0))
+parts.append(box([0, 0.45, 0], [6.0, 0.9, 0.6], "field_stone", v=0))
+dressing("stone_wall_low", "Low dry-stone wall (6 m)", "Field boundary of rough local stone, ~0.9 m: waist-high cover.", parts, [stone], [6.0, 0.6])
+print("dressing ok")

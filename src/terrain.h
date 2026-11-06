@@ -14,6 +14,8 @@ struct TemplateInfo {
 
 std::vector<TemplateInfo> loadTemplates(const fs::path& dir);
 
+struct SurfaceFootprint { vec2 pos; float yaw; vec2 bmin, bmax; float strength = 1; };
+
 // Ground = coarse base heightfield + sparse high-resolution deformation tiles.
 // height() is the single canonical query used by rendering, physics patches, placement and grass.
 class Terrain {
@@ -55,6 +57,15 @@ public:
   void clearTiles();
   std::map<int, std::vector<float>> deltas() const;          // canonical world-metre deltas for persistence
   void applyDeltas(const std::map<int, std::vector<float>>& d);
+  // ground surface mask (surface.cpp): worn routes, ruts, foundation soil, wetness
+  static constexpr int kSurfRes = 2048;   // 0.39 m texels over the 800 m template
+  std::vector<uint8_t> surf;       // RGBA8: wear, wet, kind, rut
+  uint32_t surfRev = 0; uint64_t surfSig = 0;
+  void buildSurface(const json& routes, const std::vector<SurfaceFootprint>& feet);
+  float surfSample(float x, float z, int channel) const;
+  float wearAt(float x, float z) const { return surfSample(x, z, 0); }
+  float wetAt(float x, float z) const { return surfSample(x, z, 1); }
+  GLuint surfTex = 0;
   std::map<int, Tile> tiles;
   std::vector<uint8_t> holeMask;   // base-vertex collision holes under active tiles
   uint32_t revision = 0, tileRev = 0, generation = 0;

@@ -98,7 +98,7 @@ static float fbm3(vec3 p) { float s = 0, a = 0.5f; for (int i = 0; i < 4; ++i) {
 static float smooth(float a, float b, float x) { float t = std::clamp((x - a) / (b - a), 0.0f, 1.0f); return t * t * (3 - 2 * t); }
 static float packAlbedo(float x, float z, float var) {
   float n1 = fbm3(vec3(x * 0.025f, z * 0.025f, 1.0f)), n2 = fbm3(vec3(x * 0.18f, z * 0.18f, 2.0f));
-  vec3 g1(0.16f, 0.24f, 0.07f), g2(0.26f, 0.31f, 0.10f), dry(0.36f, 0.35f, 0.18f);
+  vec3 g1(0.13f, 0.21f, 0.06f), g2(0.21f, 0.27f, 0.08f), dry(0.30f, 0.29f, 0.15f);
   vec3 alb = glm::mix(g1, g2, smooth(0.3f, 0.7f, n1));
   alb = glm::mix(alb, dry, smooth(0.62f, 0.8f, n2) * 0.45f + var * 0.12f);
   alb *= 0.80f + 0.40f * var;
@@ -148,6 +148,7 @@ bool Grass::density(float x, float z, const Terrain& t, const std::vector<GrassF
   if (y < t.waterLevel + 0.12f) return false;                 // water / shoreline
   if (groundNy(t, x, z) < 0.80f) return false;                // steep banks and crater walls
   if (t.dirtAt(x, z) > 0.18f) return false;                  // disturbed soil
+  if (t.wearAt(x, z) > 0.62f) return false;                  // worn track / foundation soil
   for (auto& f : fp) {
     if (glm::length(vec2(x, z) - f.pos) > fpRadius(f) + kMargin + 1) continue;
     if (fpDist(f, x, z) < kMargin) return false;              // footprints, steps, thresholds, berms
@@ -156,7 +157,7 @@ bool Grass::density(float x, float z, const Terrain& t, const std::vector<GrassF
 }
 
 uint64_t Grass::signature(int cx, int cz, const Terrain& t, const std::vector<GrassFootprint>& fp) const {
-  uint64_t h = hcomb(hcomb(hcomb(seed_, t.generation), (uint32_t)cx), (uint32_t)cz);
+  uint64_t h = hcomb(hcomb(hcomb(hcomb(seed_, t.generation), t.surfSig), (uint32_t)cx), (uint32_t)cz);
   float ox = cx * kChunk, oz = cz * kChunk;
   // deformation tiles under (and one fine sample around) the chunk
   if (!t.tiles.empty()) {
@@ -184,6 +185,12 @@ uint64_t Grass::contentSignature(int cx, int cz, const Terrain& t, const std::ve
     if (glm::length(f.pos - cc) > fpRadius(f) + kMargin + kChunk * 0.75f) continue;
     h = hcomb(h, fbits(f.pos.x)); h = hcomb(h, fbits(f.pos.y)); h = hcomb(h, fbits(f.yaw));
     h = hcomb(h, fbits(f.bmin.x)); h = hcomb(h, fbits(f.bmin.y)); h = hcomb(h, fbits(f.bmax.x)); h = hcomb(h, fbits(f.bmax.y));
+  }
+  if (!t.surf.empty()) {   // wear texels under the chunk: a route / foundation edit rebuilds only the chunks it touches
+    const int R = Terrain::kSurfRes; float half = t.size * 0.5f, tx = t.size / R;
+    int x0 = std::max(0, (int)((ox - 1 + half) / tx)), x1 = std::min(R - 1, (int)((ox + kChunk + 1 + half) / tx));
+    int y0 = std::max(0, (int)((oz - 1 + half) / tx)), y1 = std::min(R - 1, (int)((oz + kChunk + 1 + half) / tx));
+    for (int y = y0; y <= y1; ++y) for (int x = x0; x <= x1; ++x) h = hcomb(h, t.surf[((size_t)y * R + x) * 4]);
   }
   if (t.tiles.empty()) return h;
   // every fine sample that can influence a blade in this chunk (heights, normals, soil): bounds + 2 samples
@@ -218,7 +225,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
   for (int i = 0; i < N; ++i) {
     Rng r{hcomb(hcomb(hcomb(seed_ * 7919ull, (uint32_t)c.cx), (uint32_t)c.cz), (uint64_t)i)};
     float x = ox + r.f() * kChunk, z = oz + r.f() * kChunk;
-    float keep = r.f(), thin = r.f();
+    float keep = r.f(), thin = r.f(), var = r.f();
     // meadow patchiness: sparse and lush areas, plus occasional bare spots
     float patch = vn2(x * 0.09f, z * 0.09f, seed_), fine = vn2(x * 0.6f, z * 0.6f, seed_ + 11);
     if (keep > 0.30f + 0.70f * patch) continue;
@@ -230,10 +237,18 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     bool skip = false;
     for (auto& f : near) { float fd = fpDist(f, x, z) - kMargin; if (fd < 0.9f && thin > fd / 0.9f) { skip = true; break; } }
     if (skip) continue;
+    // routes: thinned and cropped short toward the track, tall rank verges just beyond its edge
+    float wear = t.wearAt(x, z);
+    if (wear > 0.05f && thin < wear * 1.5f) continue;
+    float verge = std::clamp(1.0f - std::fabs(wear - 0.08f) / 0.08f, 0.0f, 1.0f);
+    // weeds against walls and foundations: taller, darker clumps
+    float wall = 0; for (auto& f : near) { float fd = fpDist(f, x, z) - kMargin; if (fd < 2.2f) wall = std::max(wall, 1.0f - fd / 2.2f); }
     float y = groundH(t, x, z);
     float hgt = (0.20f + 0.30f * r.f()) * (0.70f + 0.6f * patch);
+    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.9f * verge + 0.7f * wall * patch);
+    if (verge > 0.2f || wall > 0.3f) var = std::min(1.0f, var * 0.6f);
     float wid = 0.030f + 0.020f * r.f();
-    float var = r.f(), phase = r.f() * 6.2831853f, yaw = r.f() * 6.2831853f;
+    float phase = r.f() * 6.2831853f, yaw = r.f() * 6.2831853f;
     c.inst.push_back({vec4(x, y, z, yaw), vec4(hgt, wid, packAlbedo(x, z, var), phase)});
     c.ymin = std::min(c.ymin, y); c.ymax = std::max(c.ymax, y + hgt);
   }

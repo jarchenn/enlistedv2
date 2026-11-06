@@ -33,6 +33,12 @@ void App::buildWeaponMeshes() {
     d->rPitch = j["recoil"].value("pitch", 1.0f); d->rYaw = j["recoil"].value("yaw", 0.4f); d->rRecover = j["recoil"].value("recover", 8.0f);
     d->rClimb = j["recoil"].value("climb", 0.0f); d->rVisual = j["recoil"].value("visual", 0.05f); d->rSupported = j["recoil"].value("supported", 1.0f);
     d->rear = jvec3(j["sights"]["rear"]); d->front = jvec3(j["sights"]["front"]); d->muzzle = jvec3(j["muzzle"]);
+    if (j.contains("muzzleDir")) d->muzzleDir = glm::normalize(jvec3(j["muzzleDir"], vec3(0, 0, 1)));
+    if (j.contains("ads")) {
+      const json& a = j["ads"];
+      d->eyeRelief = a.value("eyeRelief", 0.21f); d->adsVmFov = a.value("vmFov", 0.0f);
+      d->adsPos = jvec3(a.value("posCorrection", json::array({0, 0, 0}))); d->adsRot = jvec3(a.value("rotCorrection", json::array({0, 0, 0})));
+    }
     d->laterWar = j.value("laterWar", false);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); }
     std::map<std::string, int> mi;
@@ -309,7 +315,9 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       Physics::Hit h;
       vec3 P = Physics::castRayEx(eye, aimDir, 600, h) ? h.pos : eye + aimDir * 600.0f;
       // ...but sweep from the real muzzle: a wall beside the barrel stops the shot
-      vec3 muzzle = weaponMuzzleWorld(d, s);
+      mat4 Mfire = viewModelMatrix(d, s);   // the weapon pose this shot is fired from (sway, kick, posture included)
+      vec3 muzzle = vec3(Mfire * vec4(d.muzzle, 1));
+      vec3 boreW = glm::normalize(vec3(Mfire * vec4(d.muzzleDir, 0)));
       vec3 start = muzzle;
       Physics::Hit hb;
       if (Physics::castRayEx(eye, muzzle - eye, glm::length(muzzle - eye), hb)) start = eye + glm::normalize(muzzle - eye) * std::max(0.0f, hb.t - 0.01f);
@@ -332,20 +340,30 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       float tz = d.zero / d.velocity, drop = 0.5f * g * tz * tz;
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
       bool tracer = d.tracerEvery > 0 && s.shotIdx % d.tracerEvery == 0;
+      // where the shot's origin is *drawn*: the weapon uses its own projection, so its muzzle appears at
+      // vmApparent(muzzle) in the world projection the effects use. Hip fire starts the visible path there.
+      bool fromMuzzle = !(adsT > 0.85f && !vmScoped(d));
+      vec3 visStart = fromMuzzle ? vmApparent(start) : start;
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
         Projectile& rp = projectiles.back();
+        rp.visOff = visStart - start;
         rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = true; rp.gravScale = 0.35f;
         vec3 back = weaponMuzzleWorld(d, s) - aimDir * 1.4f;   // backblast
         for (int n = 0; n < 6; ++n) fx.smoke(back, -aimDir * (3.0f + fx.rnd() * 2) + vec3(fx.rnd() - 0.5f, fx.rnd() * 0.5f, fx.rnd() - 0.5f), 0.25f, 1.5f, vec4(0.55f, 0.53f, 0.5f, 0.5f), 1.6f, 0.3f);
       } else {
         fireProjectile(start, dir, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
-        if (!projectiles.empty()) projectiles.back().mass = d.bulletMass * 0.001f;
+        if (!projectiles.empty()) { projectiles.back().mass = d.bulletMass * 0.001f; projectiles.back().visOff = visStart - start; }
       }
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
-      vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
-      fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
-      fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
+      // flash + smoke at the drawn barrel opening, pushed out along the drawn bore (both mapped into the world
+      // projection the effects use); an obstructed muzzle flashes where the sweep stopped
+      vec3 fxm = vmApparent(start == muzzle ? muzzle : start);
+      vec3 fxFwd = glm::normalize(vmApparent((start == muzzle ? muzzle : start) + boreW * 0.05f) - fxm);
+      lastFlashPos = fxm + fxFwd * 0.04f; lastVisStart = visStart;
+      fpCamera(lastFireView, lastFireWorldFov); lastFireVmFov = vmFovNow();
+      fx.flash(lastFlashPos, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
+      fx.smoke(fxm, fxFwd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
       audio.play("shot_" + d.id, muzzle, 1.0f);
       // recoil: profile + deterministic variation; supported MG fire is far easier to hold
       float sc = d.feed == "belt" ? (supported ? d.rSupported : 1.0f) : 1.0f;
@@ -386,6 +404,22 @@ void App::drawWeaponUI() {
       dl->AddTriangleFilled(ImVec2(c.x, c.y), ImVec2(c.x - 4, c.y + R), ImVec2(c.x + 4, c.y + R), k);
     }
   }
+  std::vector<SightMark> mk;
+  if (sightMarkers && sightMarks(mk)) {
+    float sx = io.DisplaySize.x / std::max(1, R.width), sy = io.DisplaySize.y / std::max(1, R.height);
+    const char* nm[5] = {"rear", "front", "muzzle", "flash", "aim"};
+    for (auto& m : mk) {
+      ImVec2 q(m.px.x * sx, m.px.y * sy);
+      if (m.kind == 0 || m.kind == 4) dl->AddCircle(q, 6, m.col, 24, 1.5f);
+      else if (m.kind == 1) { dl->AddLine(ImVec2(q.x - 7, q.y), ImVec2(q.x + 7, q.y), m.col, 1.5f); dl->AddLine(ImVec2(q.x, q.y - 7), ImVec2(q.x, q.y + 7), m.col, 1.5f); }
+      else if (m.kind == 2) dl->AddRect(ImVec2(q.x - 3, q.y - 3), ImVec2(q.x + 3, q.y + 3), m.col, 0, 0, 1.5f);
+      else dl->AddCircleFilled(q, 2, m.col);
+      dl->AddText(ImVec2(q.x + 8, q.y - 16 + 10 * (m.kind % 3)), m.col, nm[m.kind]);
+    }
+    char cb[200]; vec2 ctr(R.width * 0.5f, R.height * 0.5f);
+    std::snprintf(cb, sizeof cb, "%s  rear %.1f px  front %.1f px from the dot  | relief %.3f m  weapon FOV %.1f", d.id.c_str(), glm::length(mk[0].px - ctr), glm::length(mk[1].px - ctr), d.eyeRelief, vmFovNow());
+    dl->AddText(ImVec2(20, io.DisplaySize.y - 60), IM_COL32(255, 255, 255, 230), cb);
+  }
   char b[256];
   std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "loading rounds" : "reloading") : s.bolt > 0 ? "working the bolt" : s.loaded == 0 ? "EMPTY - R" : "";
   int nC = (int)s.containers.size();
@@ -402,7 +436,8 @@ void App::drawWeaponUI() {
     ImGui::Checkbox("Strict 6 June 1944 preset (hides later-war M1C)", &strictDDay);
     ImGui::Checkbox("Range presentation: show every trajectory", &fx.rangeMode);
     ImGui::Checkbox("Reduced motion (keeps aim displacement)", &reducedMotion);
-    ImGui::Checkbox("Sight depth of field", &R.dofEnabled); ImGui::SameLine(); ImGui::Checkbox("Show arms", &vm.showArms);
+    ImGui::Checkbox("Show arms", &vm.showArms);
+    ImGui::Checkbox("Sight calibration markers (rear, front tip, muzzle, flash origin, aim)", &sightMarkers);
     ImGui::Checkbox("Clouds", &R.clouds); ImGui::SameLine(); ImGui::SetNextItemWidth(120); ImGui::SliderFloat("Cloud cover", &R.cloudCover, 0.0f, 1.0f, "%.2f");
     { int q = (int)grass.quality; const char* names[] = {"Off", "Low", "Medium", "High"};
       if (ImGui::Combo("Grass", &q, names, 4)) grass.quality = (GrassQuality)q; }

@@ -101,7 +101,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 6,
       "overrides": {
@@ -117,7 +117,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 7,
       "overrides": {
@@ -133,7 +133,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 8,
       "overrides": {
@@ -149,7 +149,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 9,
       "overrides": {
@@ -165,7 +165,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 10,
       "overrides": {
@@ -181,7 +181,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 11,
       "overrides": {
@@ -197,7 +197,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 12,
       "overrides": {
@@ -213,7 +213,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 13,
       "overrides": {
@@ -229,7 +229,7 @@
     {
       "asset": {
         "id": "tree_apple",
-        "version": 1
+        "version": 2
       },
       "id": 14,
       "overrides": {
@@ -245,7 +245,7 @@
     {
       "asset": {
         "id": "tree_poplar",
-        "version": 1
+        "version": 2
       },
       "id": 15,
       "overrides": {
@@ -261,7 +261,7 @@
     {
       "asset": {
         "id": "tree_poplar",
-        "version": 1
+        "version": 2
       },
       "id": 16,
       "overrides": {
@@ -277,7 +277,7 @@
     {
       "asset": {
         "id": "tree_poplar",
-        "version": 1
+        "version": 2
       },
       "id": 17,
       "overrides": {
@@ -293,7 +293,7 @@
     {
       "asset": {
         "id": "tree_poplar",
-        "version": 1
+        "version": 2
       },
       "id": 18,
       "overrides": {
@@ -309,7 +309,7 @@
     {
       "asset": {
         "id": "tree_poplar",
-        "version": 1
+        "version": 2
       },
       "id": 19,
       "overrides": {
@@ -325,7 +325,7 @@
     {
       "asset": {
         "id": "tree_poplar",
-        "version": 1
+        "version": 2
       },
       "id": 20,
       "overrides": {
@@ -341,7 +341,7 @@
     {
       "asset": {
         "id": "tree_oak",
-        "version": 1
+        "version": 2
       },
       "id": 21,
       "overrides": {
@@ -357,7 +357,7 @@
     {
       "asset": {
         "id": "tree_oak",
-        "version": 1
+        "version": 2
       },
       "id": 22,
       "overrides": {
@@ -484,11 +484,509 @@
         17.0
       ],
       "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "rack_allied",
+        "version": 1
+      },
+      "id": 30,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -5.0,
+        -0.0003797012323047966,
+        24.0
+      ],
+      "yaw": 180.0
+    },
+    {
+      "asset": {
+        "id": "crate_mixed_supply",
+        "version": 1
+      },
+      "id": 31,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -9.0,
+        0.01445289421826601,
+        25.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "rack_axis",
+        "version": 1
+      },
+      "id": 32,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        15.0,
+        -0.11261701583862305,
+        -30.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "crate_pak40_he",
+        "version": 1
+      },
+      "id": 33,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        3.0,
+        -0.09987494349479675,
+        -31.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 34,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -4.199999809265137,
+        0.009990514256060123,
+        50.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 35,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        7.199999809265137,
+        0.04313318058848381,
+        46.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 36,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -14.0,
+        -0.030770432204008102,
+        62.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 37,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -22.200000762939453,
+        -0.06681916862726212,
+        62.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 38,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -30.399999618530273,
+        -0.10907697677612305,
+        62.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "hedgerow_bocage",
+        "version": 1
+      },
+      "id": 39,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        44.0,
+        -0.09943737089633942,
+        -8.0
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 40,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        0.009616246446967125,
+        40.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 41,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        -0.08168070018291473,
+        10.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 42,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        -0.0814628079533577,
+        -20.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "utility_pole",
+        "version": 1
+      },
+      "id": 43,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -2.5,
+        -0.17671509087085724,
+        -50.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "stone_wall_low",
+        "version": 1
+      },
+      "id": 44,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -12.0,
+        -0.03079085983335972,
+        12.0
+      ],
+      "yaw": 15.0
+    },
+    {
+      "asset": {
+        "id": "stone_wall_low",
+        "version": 1
+      },
+      "id": 45,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -36.0,
+        -0.02669082023203373,
+        -22.0
+      ],
+      "yaw": 80.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 1
+      },
+      "id": 46,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -8.0,
+        0.0009490533266216516,
+        49.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 1
+      },
+      "id": 47,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        10.0,
+        0.0519186370074749,
+        42.0
+      ],
+      "yaw": 60.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 1
+      },
+      "id": 48,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -30.0,
+        -0.10724839568138123,
+        58.0
+      ],
+      "yaw": 120.0
+    },
+    {
+      "asset": {
+        "id": "shrub_bramble",
+        "version": 1
+      },
+      "id": 49,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        8.600000381469727,
+        -0.10614372789859772,
+        -24.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "shrub_bramble",
+        "version": 1
+      },
+      "id": 50,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -15.0,
+        -0.03284396976232529,
+        10.0
+      ],
+      "yaw": 40.0
+    },
+    {
+      "asset": {
+        "id": "tree_ash",
+        "version": 2
+      },
+      "id": 51,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        22.0,
+        -0.015962637960910797,
+        30.0
+      ],
+      "yaw": 10.0
+    },
+    {
+      "asset": {
+        "id": "tree_ash",
+        "version": 2
+      },
+      "id": 52,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -28.0,
+        -0.04473109915852547,
+        30.0
+      ],
+      "yaw": 80.0
+    },
+    {
+      "asset": {
+        "id": "tree_oak",
+        "version": 2
+      },
+      "id": 53,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        52.0,
+        -0.09689225256443024,
+        -18.0
+      ],
+      "yaw": 200.0
     }
   ],
   "name": "Normandy village",
-  "nextId": 30,
+  "nextId": 54,
   "removedTemplateVegetation": [],
+  "routes": [
+    {
+      "kind": "lane",
+      "pts": [
+        [
+          1.5,
+          70
+        ],
+        [
+          1.2,
+          34
+        ],
+        [
+          -0.8,
+          12
+        ],
+        [
+          1.8,
+          -8
+        ],
+        [
+          5.5,
+          -30
+        ],
+        [
+          4.5,
+          -72
+        ]
+      ],
+      "width": 3.4
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          -0.6,
+          6
+        ],
+        [
+          -10,
+          3.5
+        ],
+        [
+          -17,
+          1.5
+        ]
+      ],
+      "width": 1.5
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          2.6,
+          -12
+        ],
+        [
+          7,
+          -9.5
+        ]
+      ],
+      "width": 1.4
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          5,
+          -40
+        ],
+        [
+          0.5,
+          -41.5
+        ]
+      ],
+      "width": 1.3
+    },
+    {
+      "kind": "gravel",
+      "pts": [
+        [
+          5.5,
+          -30
+        ],
+        [
+          10,
+          -33
+        ],
+        [
+          14,
+          -31
+        ]
+      ],
+      "width": 4.5
+    },
+    {
+      "kind": "footpath",
+      "pts": [
+        [
+          1.2,
+          26
+        ],
+        [
+          -5,
+          26.5
+        ],
+        [
+          -9,
+          26
+        ]
+      ],
+      "width": 1.4
+    }
+  ],
   "schemaVersion": 1,
   "template": {
     "id": "blank_slate",

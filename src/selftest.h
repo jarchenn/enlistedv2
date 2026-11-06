@@ -43,6 +43,7 @@ private:
   void fpsUpdate(App& app, float dt);    // selftest_fps.cpp (1100)
   void envUpdate(App& app, float dt);    // selftest_env.cpp (1200)
   void moveUpdate(App& app, float dt);      // selftest_move.cpp (1500)
+  void sightsUpdate(App& app, float dt);    // selftest_sights.cpp (1600); dt < 0 = post-render read-back
   void arsenalUpdate(App& app, float dt);   // selftest_arsenal.cpp (1400)
   void villageUpdate(App& app, float dt);   // selftest_village.cpp (1300 build, 1350 benchmark)
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);

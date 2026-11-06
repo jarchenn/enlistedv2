@@ -44,9 +44,12 @@ Saved maps go in `maps/` next to the executable. **File > Open** also lists the 
 
 | Action | Control |
 |---|---|
-| Walk | WASD; Shift to sprint; Ctrl or C to crouch; Space to jump |
+| Walk | WASD (run 2.875 m/s); Shift to sprint (5.75 m/s); hold Left Ctrl (or C) to crouch; Z toggles prone; Space to jump. Settings: `content/settings/movement.json` |
 | Interact | E (aim within about 2 m; the prompt reads, e.g., `E — Open window`). Also crews a gun, leaves it, and draws ammunition from a crate |
-| Fire / aim down sights | Left mouse / right mouse. A fresh press is needed after switching position or weapon |
+| Fire / aim down sights | Left mouse / right mouse. A fresh press is needed after switching position, weapon or fire mode |
+| Fire mode | F: AUTO / SEMI on the Thompson, MP 40, MG 42, FG 42 and the M2HB (AUTO default) |
+| Weapon racks | E at an Allied or Axis rack opens its arsenal (Up/Down or mouse, Enter to equip, Esc to close). Launchers and the carried M2 come from racks |
+| Carried M2HB | LMB deploys it on its tripod where you look and crews it; G beside your deployed M2 packs it up |
 | Reload | R |
 | Next weapon / loadout panel | Q / L (the panel holds the strict 6 June 1944 preset, range presentation, reduced motion and the grass preset) |
 | Iron sights on a scoped rifle | V (M1C only) |

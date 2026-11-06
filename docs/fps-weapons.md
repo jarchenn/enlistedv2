@@ -76,6 +76,75 @@ T_hip = T_ads + (0.12, -0.07, 0.06)
 
 **Sight-origin ballistics.** When adsT > 0.85, the round starts at the world-space front sight tip F and travels along `V = normalize(F − R)`. The usual dispersion draw and the declared-zero tilt are added on top. A wall between the eye and F still stops the shot. From the hip, the existing sweep from the muzzle is unchanged. Because the sights are taken from the posed weapon, sway and breathing move the sight picture and the shot together.
 
+<a id="calibration"></a>
+### Per-weapon sight calibration
+
+`sights.rear`, `sights.front` and `muzzle` in the weapon JSON are the **measured** anchors on the baked mesh:
+- **rear:** the centre of the aperture, or the bottom of the notch.
+- **front:** the tip of the front post.
+- **muzzle:** the centre of the bore at the barrel's end.
+
+An optional `ads` block refines the pose without moving or scaling any mesh:
+
+```json
+"muzzleDir": [0, 0, 1],
+"ads": { "eyeRelief": 0.186, "vmFov": 0, "posCorrection": [0, 0, 0], "rotCorrection": [0, 0, 0] }
+```
+
+| Field | Meaning | Default |
+|---|---|---|
+| `eyeRelief` | Eye to rear sight in ADS (m). Smaller values give a larger sight picture: the rear sight's apparent size scales with 1/relief. | 0.21 |
+| `vmFov` | Weapon-projection FOV while aiming (deg), blended in with the ADS spring. 0 keeps the fixed 60°. | 0 |
+| `posCorrection` | View-space translation added to `T_ads` (m). | 0 |
+| `rotCorrection` | View-space rotation about the rear sight (deg: pitch, yaw, roll), applied as `Q = C · Q`. | 0 |
+| `muzzleDir` | Bore axis at the muzzle (weapon space), for the flash direction. | +z |
+
+With zero corrections, R and F lie exactly on the view axis. The hip pose is computed from the shared 0.21 m relief, so a weapon's ADS calibration never moves its hip pose.
+
+**How the anchors were measured.**
+- The baked `mesh.bin` was rasterised as a rear view (looking down +z) at 0.05–0.25 mm per pixel, restricted to a z slab and, where possible, a material part.
+- Enclosed holes give the aperture and bore centres. The topmost pixels give the post tip and the bottom of the notch. Side views (z against y) locate each sight along the barrel.
+- The scripts are not shipped. The method is described here so it can be repeated.
+
+**FG 42 (measured this pass).**
+- The bore sits at x −0.0356, not 0. The side magazine widens the bounding box that the baker centred on.
+- The old anchors were at x 0 with the rear 8 mm too low. The ADS line therefore ran 36 mm beside the real sights and was yawed and pitched against them.
+
+| Anchor | Old | Measured |
+|---|---|---|
+| rear (diopter ring centre, 2.6 mm hole) | (0, 0.088, 0.300) | (−0.0356, 0.0961, 0.3105) |
+| front (hooded post tip; hood centre y 0.1018) | (0, 0.100, 0.855) | (−0.0356, 0.1012, 0.8544) |
+| muzzle (bore centre, +z) | (0, 0.030, 0.975) | (−0.0356, 0.0441, 0.975) |
+| hand sockets R / L | x 0 | x −0.0356 (y, z unchanged) |
+| `ads` | n/a | relief 0.21, no FOV override, no corrections |
+
+**MG 42 (measured this pass).**
+- The bore sits at x −0.0292.
+- The rear sight is a raised leaf with a Y-shaped top whose V-notch bottom is at y 0.1114. The old anchor (y 0.087) sat on the leaf's stem, 24 mm low, and at x 0, which put the Y above and to the right of the dot.
+- This mesh has the front post folded flat on the jacket (z 1.01–1.075, only a few mm proud), so nothing upright can be seen through the notch. The sight line therefore runs from the notch parallel to the bore (straight +z), and the front anchor is a point on that line.
+
+| Anchor | Old | Measured |
+|---|---|---|
+| rear (V-notch bottom) | (0, 0.087, 0.620) | (−0.0292, 0.1114, 0.6177) |
+| front (on the bore-parallel line) | (0, 0.087, 1.050) | (−0.0292, 0.1114, 1.050) |
+| muzzle (bore centre, +z) | (0, 0.034, 1.220) | (−0.0292, 0.0335, 1.220) |
+| hand sockets R / L | x 0 | x −0.0292 (y, z unchanged) |
+| `ads.eyeRelief` | 0.21 | **0.186**: the Y appears 0.21/0.186 = 12.9 % larger |
+
+**Hip-fire flash and tracers.**
+- **Fire-time pose.** At the moment of firing, the weapon pose is captured once (`Mfire`, including sway, kick and posture). The muzzle and bore direction come from it.
+- **Correct camera.** `vmApparent()` maps a first-person point into the world projection the effects use. It now uses the camera and world FOV the weapon is posed against at fire time (`fpCamera`), not the previous frame's render camera. The flash and smoke start at `vmApparent(muzzle)` and are pushed 4 cm along the *drawn* bore direction.
+- **Tracer origin.** A hip-fired round still flies from the true muzzle; hits and the muzzle-obstruction sweep use only `p`. It also carries a visual offset `visOff = vmApparent(start) − start`. Streaks are drawn at `p + visOff·(1 − s/6 m)²`, so the tracer leaves the drawn barrel opening and joins the true path by 6 m, with no step or kink.
+- **Aimed fire.** In ADS the round starts at F on the screen centre, where both projections agree, so the offset is zero.
+
+**Debug markers.** Loadout (L) → *Sight calibration markers* draws:
+- the rear anchor (cyan ring) and the front tip (green cross), both through the weapon projection
+- the muzzle (orange square)
+- the flash and tracer origin through the world projection (white dot)
+- the aim point (red ring)
+
+A readout gives the pixel errors, relief and weapon FOV. Self-test screenshots also carry the markers and the centre dot.
+
 ## 3. Sway, bob, breathing and depth of field
 
 | Effect | Formula / value |

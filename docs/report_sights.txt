@@ -1,0 +1,44 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  range: stone dairy 40 m downrange, F5 into Explore
+PASS  fg42 BEFORE (legacy anchors 0.088 / 0.100 at x 0): aperture centre found (1111.0, 506.6) err 154.64 px, post tip NOT IN THE APERTURE (0.0, 0.0) err -1.00 px
+PASS  fg42 AFTER at 1920x1080, world FOV 58, weapon FOV 60: aperture centre found (960.3, 540.0) err 0.35 px, post tip seen through it (960.0, 541.0) err 1.00 px (limit 2 px)
+PASS  fg42: anchors through the weapon projection: rear 0.00 px, front 0.00 px from the dot; aim point 0.00 px
+PASS  fg42 at 1440x1080 (aspect 1.333): aperture centre found (720.4, 540.2) err 0.40 px, post tip seen through it (720.0, 541.0) err 1.00 px
+PASS  fg42 at 2400x1080 (aspect 2.222): aperture centre found (1200.4, 540.2) err 0.40 px, post tip seen through it (1200.0, 541.0) err 1.00 px
+PASS  fg42 at 1280x720 (aspect 1.778): aperture centre found (640.3, 360.1) err 0.27 px, post tip seen through it (640.0, 361.0) err 1.00 px
+PASS  fg42 during recoil (kick 22.5 mm, view kick 0.83 deg): aperture centre found (960.1, 540.0) err 0.13 px, post tip seen through it (960.0, 541.0) err 1.00 px
+PASS  fg42 after sway (flick, 1.3 s settle, breathing on - it moves the camera, not the weapon): aperture centre found (960.3, 540.0) err 0.35 px, post tip seen through it (960.0, 541.0) err 1.00 px
+PASS  fg42 crouched (posture 1): aperture centre found (960.3, 540.0) err 0.35 px, post tip seen through it (960.0, 541.0) err 1.00 px
+PASS  fg42 prone (posture 2): aperture centre found (960.3, 540.0) err 0.35 px, post tip seen through it (960.0, 541.0) err 1.00 px
+PASS  fg42 after a reload (20 loaded): aperture centre found (960.3, 540.0) err 0.35 px, post tip seen through it (960.0, 541.0) err 1.00 px
+PASS  fg42 hip: flash origin 0.00 px and tracer start 0.00 px from the drawn muzzle; flash 9.2 px ahead along the drawn bore; muzzle (-0.036, 0.044, 0.975) bore (0, 0, 1)
+PASS  fg42 hip: an effect at the true muzzle would be drawn 41.4 px off the barrel (the vmFov/world-FOV mismatch this offset removes)
+PASS  fg42 hip: projectile starts at the true muzzle (0.00 mm); the offset is visual only
+PASS  fg42 hip tracer: largest screen-direction change 0.03 deg per 25 cm, no gap at the muzzle (fades into the true path by 6 m)
+PASS  fg42 ADS: the round leaves the calibrated front sight point along the sight line
+PASS  fg42 at a wall 0.55 m away: muzzle 0.81 m out (inside the wall), shot starts 0.54 m out on the near side
+PASS  mg42 BEFORE (legacy anchors 0.087 / 0.087 at x 0): V-notch bottom found (1132.5, 520.0) err 173.66 px, leaf 268 px wide
+PASS  mg42 AFTER at 1920x1080, world FOV 58, weapon FOV 60: V-notch bottom found (960.0, 540.0) err 0.00 px, leaf 74 px wide (limit 2 px)
+PASS  mg42: anchors through the weapon projection: rear 0.00 px, front 0.00 px from the dot; aim point 0.00 px
+PASS  MG 42 Y-leaf drawn 74 px wide at eye relief 0.186 m vs 66 px at the shared 0.21 m: 12.1% larger (want 10-15%), mesh not scaled
+PASS  mg42 at 1440x1080 (aspect 1.333): V-notch bottom found (720.0, 540.0) err 0.00 px, leaf 74 px wide
+PASS  mg42 at 2400x1080 (aspect 2.222): V-notch bottom found (1200.0, 540.0) err 0.00 px, leaf 74 px wide
+PASS  mg42 at 1280x720 (aspect 1.778): V-notch bottom found (640.0, 360.0) err 0.00 px, leaf 92 px wide
+PASS  mg42 during recoil (kick 15.8 mm, view kick 0.66 deg): V-notch bottom found (960.0, 540.0) err 0.00 px, leaf 81 px wide
+PASS  mg42 after sway (flick, 1.3 s settle, breathing on - it moves the camera, not the weapon): V-notch bottom found (960.0, 540.0) err 0.00 px, leaf 74 px wide
+PASS  mg42 crouched (posture 1): V-notch bottom found (960.0, 540.0) err 0.00 px, leaf 74 px wide
+PASS  mg42 prone (posture 2): V-notch bottom found (960.0, 540.0) err 0.00 px, leaf 74 px wide
+PASS  mg42 after a reload (50 loaded): V-notch bottom found (960.0, 540.0) err 0.00 px, leaf 74 px wide
+PASS  mg42 hip: flash origin 0.00 px and tracer start 0.00 px from the drawn muzzle; flash 12.0 px ahead along the drawn bore; muzzle (-0.029, 0.034, 1.220) bore (0, 0, 1)
+PASS  mg42 hip: an effect at the true muzzle would be drawn 48.6 px off the barrel (the vmFov/world-FOV mismatch this offset removes)
+PASS  mg42 hip: projectile starts at the true muzzle (0.00 mm); the offset is visual only
+PASS  mg42 hip tracer: largest screen-direction change 0.05 deg per 25 cm, no gap at the muzzle (fades into the true path by 6 m)
+PASS  mg42 ADS: the round leaves the calibrated front sight point along the sight line
+PASS  mg42 at a wall 0.55 m away: muzzle 0.75 m out (inside the wall), shot starts 0.54 m out on the near side
+PASS  11 other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)
+PASS  back to Creative
+PASS  all shaders compiled
+
+39 passed, 0 failed

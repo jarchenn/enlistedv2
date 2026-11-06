@@ -19,6 +19,7 @@ const Cam kCams[] = {
   {"area", vec3(22, 6, 26), 40, -12},
   {"foliage", vec3(16, 2.0f, 6), -70, 6},
   {"building", vec3(-24, 2.0f, 4), 70, 6},
+  {"lane_north", vec3(2, 1.7f, 32), 180, -3},   // added after the baseline (hedgerows): no matching before shot
 };
 std::string vTag;
 std::vector<double> vFrames, vGpu, vCpu;
@@ -55,8 +56,32 @@ void SelfTest::villageUpdate(App& app, float dt) {
     n += put("crate_mixed_supply", -9, 25, 0) != 0;
     n += put("rack_axis", 15, -30, 0) != 0;          // Axis rack by the PaK position
     n += put("crate_pak40_he", 3, -31, 0) != 0;
+    // ---- dressing: bocage hedgerows on selected lane / field edges (spawn exit, lane and gun lines left open),
+    // fences, a gate, telegraph poles, a dry-stone wall, shrubs and brambles, more varied trees
+    n += put("hedgerow_bocage", -4.2, 50, 90) != 0;
+    n += put("hedgerow_bocage", 7.2, 46, 90) != 0;
+    for (int k = 0; k < 3; ++k) n += put("hedgerow_bocage", -14 - k * 8.2f, 62, 0) != 0;   // field boundary north of the spawn
+    n += put("hedgerow_bocage", 44, -8, 90) != 0;
+    n += put("fence_post_wire", 7.5f, -20, 90) != 0;
+    n += put("fence_post_wire", 7.5f, -28.2f, 90) != 0;
+    n += put("field_gate", 7.5f, -11, 90) != 0;
+    for (int k = 0; k < 4; ++k) n += put("utility_pole", -2.5f, 40 - k * 30.0f, 0) != 0;
+    n += put("stone_wall_low", -12, 12, 15) != 0;
+    n += put("stone_wall_low", -36, -22, 80) != 0;
+    n += put("shrub_hazel", -8, 49, 0) != 0; n += put("shrub_hazel", 10, 42, 60) != 0; n += put("shrub_hazel", -30, 58, 120) != 0;
+    n += put("shrub_bramble", 8.6f, -24, 0) != 0; n += put("shrub_bramble", -15, 10, 40) != 0; n += put("shrub_bramble", -18, -3, 0) != 0;
+    n += put("tree_ash", 22, 30, 10) != 0; n += put("tree_ash", -28, 30, 80) != 0; n += put("tree_oak", 52, -18, 200) != 0;
+    // ---- routes: worn lane through the village, footpaths to the doors, a gravel yard by the gun
+    app.doc.extra = json::object();
+    app.doc.extra["routes"] = json::array({
+      {{"kind", "lane"}, {"width", 3.4}, {"pts", {{1.5, 70}, {1.2, 34}, {-0.8, 12}, {1.8, -8}, {5.5, -30}, {4.5, -72}}}},
+      {{"kind", "footpath"}, {"width", 1.5}, {"pts", {{-0.6, 6}, {-10, 3.5}, {-17, 1.5}}}},
+      {{"kind", "footpath"}, {"width", 1.4}, {"pts", {{2.6, -12}, {7, -9.5}}}},
+      {{"kind", "footpath"}, {"width", 1.3}, {"pts", {{5, -40}, {0.5, -41.5}}}},
+      {{"kind", "gravel"}, {"width", 4.5}, {"pts", {{5.5, -30}, {10, -33}, {14, -31}}}},
+      {{"kind", "footpath"}, {"width", 1.4}, {"pts", {{1.2, 26}, {-5, 26.5}, {-9, 26}}}}});
     app.doc.start = {true, vec3(0, app.terrain.height(0, 30), 30), 180};
-    check(n >= 25, "village: " + std::to_string(n) + " instances placed");
+    check(n >= 50, "village: " + std::to_string(n) + " instances placed");
     fs::path p = userMapsDir() / "village.nmap.json";
     check(app.saveMapTo(p), "saved " + p.string());
     finish(app);

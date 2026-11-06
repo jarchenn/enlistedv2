@@ -42,12 +42,15 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
   std::mt19937 rng(tj.value("seed", 1u));
   std::uniform_real_distribution<float> U(0.0f, 1.0f);
   int per = tj.value("cardsPerSphere", 60);
+  float dens = tj.value("cardDensity", 0.0f);   // v2: cards per m^2 of cluster surface (clusters of different size stay equally dense)
+  t.hedge = tj.value("hedge", false);
   float maxH = 0.1f; for (auto& c : t.canopy) maxH = std::max(maxH, glm::length(vec2(c.x, c.z)) + c.w);
   std::vector<float> v;
   t.top = t.stumpH;
   for (auto& c : t.canopy) {
     t.top = std::max(t.top, c.y + c.w);
-    for (int n = 0; n < per; ++n) {
+    int cards = dens > 0 ? std::max(12, (int)(dens * c.w * c.w * 3.0f)) : per;
+    for (int n = 0; n < cards; ++n) {
       float z = U(rng) * 2 - 1, ph = U(rng) * 6.2831853f, rr = std::sqrt(1 - z * z);
       vec3 dir(rr * std::cos(ph), z, rr * std::sin(ph));
       vec3 ctr = vec3(c) + dir * c.w * (0.45f + 0.55f * std::cbrt(U(rng)));
@@ -55,18 +58,21 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
       vec3 T = glm::normalize(glm::cross(std::fabs(nrm.y) > 0.9f ? vec3(1, 0, 0) : vec3(0, 1, 0), nrm)), B = glm::cross(nrm, T);
       float s = t.leafSize * (0.7f + 0.6f * U(rng)) * c.w * 0.9f;
       float mask = std::clamp(glm::length(vec2(ctr.x, ctr.z)) / maxH * 0.8f + 0.2f, 0.0f, 1.0f);   // 0 at the trunk axis, 1 at the outer tips
+      // canopy self-shading: cards deep inside a cluster and on the lower crown are darker
+      float rad = glm::length(ctr - vec3(c)) / c.w;
+      float shadeV = std::clamp(0.45f + 0.45f * rad + 0.15f * (ctr.y - t.stumpH) / std::max(1.0f, t.top), 0.35f, 1.0f);
       vec3 q[4] = {ctr - T * s - B * s, ctr + T * s - B * s, ctr + T * s + B * s, ctr - T * s + B * s};
       vec2 uv[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
       int idx[6] = {0, 1, 2, 0, 2, 3};
-      for (int k : idx) { v.insert(v.end(), {q[k].x, q[k].y, q[k].z, dir.x, dir.y, dir.z, uv[k].x, uv[k].y, mask}); }
+      for (int k : idx) { v.insert(v.end(), {q[k].x, q[k].y, q[k].z, dir.x, dir.y, dir.z, uv[k].x, uv[k].y, mask, shadeV}); }
     }
   }
-  t.cardVerts = (int)v.size() / 9;
+  t.cardVerts = (int)v.size() / 10;
   glCreateVertexArrays(1, &t.cardVao); glCreateBuffers(1, &t.cardVbo);
   glNamedBufferStorage(t.cardVbo, v.size() * 4, v.data(), 0);
-  glVertexArrayVertexBuffer(t.cardVao, 0, t.cardVbo, 0, 36);
-  int comps[4] = {3, 3, 2, 1}, off = 0;
-  for (int k = 0; k < 4; ++k) { glEnableVertexArrayAttrib(t.cardVao, k); glVertexArrayAttribFormat(t.cardVao, k, comps[k], GL_FLOAT, GL_FALSE, off * 4); glVertexArrayAttribBinding(t.cardVao, k, 0); off += comps[k]; }
+  glVertexArrayVertexBuffer(t.cardVao, 0, t.cardVbo, 0, 40);
+  int comps[5] = {3, 3, 2, 1, 1}, off = 0;
+  for (int k = 0; k < 5; ++k) { glEnableVertexArrayAttrib(t.cardVao, k); glVertexArrayAttribFormat(t.cardVao, k, comps[k], GL_FLOAT, GL_FALSE, off * 4); glVertexArrayAttribBinding(t.cardVao, k, 0); off += comps[k]; }
 }
 
 // ---------------------------------------------------------------- runtime
@@ -113,6 +119,7 @@ bool App::treeImpact(uint64_t iid, vec3 at, vec3 dir, bool shell) {
   if (!i || it == rt.end() || !it->second.asset->tree.on) return false;
   InstanceRT& r = it->second;
   if (r.treeFelled) return true;
+  if (r.asset->tree.hedge) { fx.impact(at, -dir, "wood"); return true; }   // banks and hedges stop rounds, never fall
   if (shell) { fellTree(*i, r, at, dir); return true; }
   r.treeHits += 1;
   fx.impact(at, -dir, "wood");
@@ -125,7 +132,7 @@ void App::blastTrees(vec3 p, float radius) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     InstanceRT& r = it->second;
     const TreeDef& t = r.asset->tree;
-    if (!t.on || r.treeFelled) continue;
+    if (!t.on || r.treeFelled || t.hedge) continue;
     // distance from the blast to the trunk axis (stump cut .. first fork)
     float y = std::clamp(p.y - i.pos.y, 0.0f, std::max(t.stumpH, t.top * 0.5f));
     float d = glm::length(p - (i.pos + vec3(0, y, 0))) - t.trunkR;

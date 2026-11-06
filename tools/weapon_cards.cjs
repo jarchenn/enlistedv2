@@ -36,6 +36,8 @@ function weaponCard(id) {
   lines.push(`| Side / calibre | ${w.side} / ${w.caliber} |`);
   lines.push(`| Action / feed | ${w.action} / ${w.feed} (${w.container}, ${w.containerSize} per container) |`);
   lines.push(`| Capacity | ${w.cap} in the weapon |`);
+  if (w.modes) lines.push(`| Fire selector | ${w.modes.map(m => m.toUpperCase()).join(' / ')} (default ${w.modes[0].toUpperCase()}; F toggles, rebindable) |`);
+  if (w.rocket) lines.push(`| Rocket (game tuning) | blast ${w.rocket.damage} within ${w.rocket.radius} m, crater scale ${w.rocket.crater}, splash on AT guns ${w.rocket.splashGun}/100 HP; a direct hit destroys an AT gun |`);
   lines.push(`| Shipped preset | ${w.loaded} loaded + ${w.reserve} reserve = **${total}** (the allowance a crate refills to) |`);
   lines.push(`| Cyclic / practical rate (game) | ${w.rpm} rpm${w.boltTime ? `, bolt cycle ${w.boltTime} s` : ''} |`);
   lines.push(`| Muzzle velocity (game) | ${w.velocity} m/s, declared zero ${w.zero} m |`);
@@ -62,7 +64,7 @@ function stationCard(id, title, src) {
     '', `**Note.** ${(s.note || '')} ${a.description || ''}`.trim(), '', `Sources: ${src}`, ''].join('\n');
 }
 
-const weapons = ['m1_garand', 'm1c_garand', 'm1_thompson', 'm1918a2_bar', 'kar98k', 'kar98k_zf39', 'mp40', 'mg42'];
+const weapons = ['m1_garand', 'm1c_garand', 'm1_carbine', 'm1_thompson', 'm1918a2_bar', 'bazooka_m9', 'm2hb_carry', 'kar98k', 'kar98k_zf39', 'mp40', 'fg42', 'mg42', 'panzerschreck'];
 const out = [];
 out.push('# Weapon reference cards');
 out.push('');
@@ -72,7 +74,7 @@ out.push('**Game numbers are tuning, not measurements.** Rates, velocities, reco
 out.push('');
 out.push('**No reference images were downloaded or shipped.** The brief lists photographs (carriers, pouches, the preserved PaK 40 optic). They were used only as descriptions to check proportions and container capacities; nothing from those pages is redistributed. All structure geometry is generated from boxes and cylinders by `tools/catalog_*.mjs`. The Garand / M1C, Thompson, BAR, MP 40 and MG 42 first-person models are the user-supplied GLB files (see docs/credits.md), baked by `--import-weapon-models`; the Kar 98k pair keeps its box model.');
 out.push('');
-out.push('## Personal weapons (nine entries with the M2HB station below)');
+out.push('## Personal weapons (thirteen entries, with the M2HB station below)');
 out.push('');
 for (const id of weapons) out.push(weaponCard(id));
 out.push('## Crew-served stations');

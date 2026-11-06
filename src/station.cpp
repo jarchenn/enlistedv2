@@ -195,11 +195,18 @@ void App::stepProjectiles(float dt) {
         }
       }
       vec3 end = impact ? hit.pos : p.p + seg;
-      // visible travel feedback along the actual path
-      if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
-      else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
-      else if (p.tracer) fx.streak(p.p, end, 0.025f, 0.06f, vec4(9.0f, 2.2f, 0.8f, 1));
-      else fx.streak(p.p, end, fx.rangeMode ? 0.012f : 0.007f, fx.rangeMode ? 0.05f : 0.025f, fx.rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1));
+      // visible travel feedback along the actual path. A first-person shot starts where its muzzle is drawn
+      // (visOff, see Projectile); the offset fades as w(s) = (1 - s / kVisBlend)^2 over the first metres, so the
+      // streak leaves the barrel and joins the true path with no step or kink. Only the drawing uses it.
+      const float kVisBlend = 6.0f;
+      float trav1 = p.trav + glm::length(end - p.p);
+      auto vw = [&](float sd) { float u = std::min(sd / kVisBlend, 1.0f); return (1 - u) * (1 - u); };
+      vec3 va = p.p + p.visOff * vw(p.trav), vb = end + p.visOff * vw(trav1);
+      p.trav = trav1;
+      if (p.kind == PROJ_HE) fx.streak(va, vb, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
+      else if (p.kind == PROJ_ROCKET) { fx.streak(va, vb, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(va, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
+      else if (p.tracer) fx.streak(va, vb, 0.025f, 0.06f, vec4(9.0f, 2.2f, 0.8f, 1));
+      else fx.streak(va, vb, fx.rangeMode ? 0.012f : 0.007f, fx.rangeMode ? 0.05f : 0.025f, fx.rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1));
       if (impact) {
         std::string surface = "masonry";
         bool ground = hit.ud == 0 || (hit.ud >> 60) == 0xF;

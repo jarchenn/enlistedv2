@@ -273,7 +273,6 @@ void App::drawCreativeUI() {
         ImGui::EndMenu();
       }
       if (ImGui::BeginMenu("First person")) {
-        ImGui::MenuItem("Sight depth of field", nullptr, &R.dofEnabled);
         ImGui::MenuItem("Show arms", nullptr, &vm.showArms);
         ImGui::MenuItem("Imported weapon models (restart)", nullptr, &useImportedModels);
         ImGui::EndMenu();

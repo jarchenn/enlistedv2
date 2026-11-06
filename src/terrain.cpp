@@ -319,6 +319,8 @@ void Terrain::draw(GLuint prog) const {
   glUniform1f(glGetUniformLocation(prog, "uTileSize"), tileSize());
   glUniform1f(glGetUniformLocation(prog, "uTerrainSize"), size);
   glBindTextureUnit(3, maskTex);
+  glUniform1i(glGetUniformLocation(prog, "uSurf"), 6);
+  glBindTextureUnit(6, surfTex);
   glUniform1i(uDis, tiles.empty() ? 0 : 1);
   glBindVertexArray(vao); glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
   glUniform1i(uDis, 0);

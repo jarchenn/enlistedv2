@@ -22,6 +22,13 @@ struct WeaponDef {
   std::vector<std::string> modes;       // fire-selector modes, first is the default ("auto", "semi")
   std::string deploys;                  // heavy weapon: station asset it deploys as
   float rocketDmg = 0, rocketR = 0, rocketCrater = 0, rocketSplashGun = 0;   // launcher rocket tuning (data)
+  // per-weapon ADS calibration (JSON "ads", docs/fps-weapons.md#calibration). rear / front / muzzle above are the
+  // measured anchors on the mesh; these refine the pose without touching the mesh.
+  float eyeRelief = 0.21f;              // m, eye to rear sight in ADS (irons); smaller = larger sight picture
+  float adsVmFov = 0;                   // deg, weapon-projection FOV while aiming (0 = keep the fixed vmFov)
+  vec3 adsPos{0};                       // view-space translation correction in ADS (m)
+  vec3 adsRot{0};                       // view-space rotation correction about the rear sight (deg: pitch, yaw, roll)
+  vec3 muzzleDir{0, 0, 1};              // bore axis at the muzzle (weapon space)
   bool useModel() const { return model && model->vao; }
 };
 struct WeaponState {
@@ -52,6 +59,10 @@ struct Projectile {
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
   bool tracer = false;
   std::string ammo;
+  // visual only: offset from the true start to where the first-person muzzle is drawn (the weapon has its own
+  // projection); tracers/streaks fade it out over the first metres. Hits and obstruction use p alone.
+  vec3 visOff{0};
+  float trav = 0;               // distance flown (m)
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; };
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };

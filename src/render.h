@@ -41,17 +41,18 @@ public:
   std::string hdrProbe() const;   // debug: top-mip average and count of non-finite HDR pixels
   float exposure() const { float e = 0; glGetTextureImage(expoTex[expoIdx], 0, GL_RED, GL_FLOAT, sizeof e, &e); return e; }   // debug / tests (stalls)
   bool readPixels(std::vector<uint8_t>& rgba, int& w, int& h);
+  bool readVmDist(std::vector<float>& d, int& w, int& h);   // first-person eye distance per pixel (0 = world), rows bottom-up
   FrameStats stats;
   std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)
   const Grass* grass = nullptr;         // instanced pasture grass (owned by the app)
   std::vector<DrawItem> viewModel;      // first-person weapon: drawn last over a cleared depth buffer
   std::vector<ModelDraw> viewModelTex;  // textured (imported) parts of the first-person weapon
-  bool dofEnabled = true;
+  bool dofEnabled = false;   // sight depth of field: removed from play (kept only as a code path, off)
   std::vector<FoliageDraw> foliage;
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
-  bool clouds = true; float cloudCover = 0.5f;
+  bool clouds = true; float cloudCover = 0.62f;
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
   bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));
