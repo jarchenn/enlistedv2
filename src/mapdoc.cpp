@@ -21,6 +21,7 @@ json mapToJson(const MapDoc& d) {
     for (auto& [k, v] : i.panelHp) pv[k] = {{"hp", v}};
     o["overrides"] = {{"interactables", ov}};
     if (!pv.empty()) o["overrides"]["panels"] = pv;
+    if (!i.leafState.empty()) { json lv = json::object(); for (auto& [k, v] : i.leafState) lv[k] = v == 2 ? "removed" : "glass_broken"; o["overrides"]["leaves"] = lv; }
     inst.push_back(o);
   }
   j["instances"] = inst;
@@ -95,6 +96,8 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
       for (auto& [k, v] : o["overrides"]["interactables"].items()) i.openDefaults[k] = v.value("startsOpen", false);
     if (o.contains("overrides") && o["overrides"].contains("panels"))
       for (auto& [k, v] : o["overrides"]["panels"].items()) i.panelHp[k] = v.value("hp", 0.0f);
+    if (o.contains("overrides") && o["overrides"].contains("leaves"))
+      for (auto& [k, v] : o["overrides"]["leaves"].items()) i.leafState[k] = v.is_string() && v.get<std::string>() == "removed" ? 2 : 1;
     n.nextId = std::max(n.nextId, i.id + 1);
     n.instances.push_back(i);
   }

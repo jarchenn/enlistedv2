@@ -39,7 +39,10 @@ enum ProjKind : int { PROJ_BULLET = 0, PROJ_HE = 1 };
 struct Projectile {
   vec3 p{0}, v{0};
   float life = 0, dmg = 0;
+  float mass = 0.01f;           // kg (small arms: penetration energy E = m v^2 / 2)
   int kind = PROJ_BULLET;
+  int pens = 0;                 // surfaces already passed through
+  bool at = false;              // anti-tank shell: deep crater profile, concentrated wall damage
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
   bool tracer = false;
   std::string ammo;
@@ -77,6 +80,7 @@ struct StationRT {
   float yaw = 0, elev = 0, yawT = 0, elevT = 0;
   float recoilT = 9;                      // seconds since last discharge
   int loaded = 0, reserve = 0, reserveMax = 0;
+  int reserveAT = 0, reserveATMax = 0; bool loadedAT = false, selAT = false;   // PaK 40: AT rounds beside HE
   float reload = 0;                       // remaining reload seconds (0 = idle)
   int pos2 = ST_NONE;                     // occupant position
   float trans = 0;                        // remaining transition seconds

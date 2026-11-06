@@ -184,6 +184,34 @@ uint32_t Physics::addKinematic(const ShapePtr& s, vec3 pos, quat rot, uint64_t u
   if (!id.IsInvalid()) ++W->bodies;
   return id.GetIndexAndSequenceNumber();
 }
+uint32_t Physics::addDynamic(const ShapePtr& s, vec3 pos, quat rot, uint64_t ud, float mass) {
+  if (!s) return 0xffffffffu;
+  BodyCreationSettings b(s->s.GetPtr(), jr(pos), jq(rot), EMotionType::Dynamic, Layers::MOVING);
+  b.mUserData = ud;
+  b.mOverrideMassProperties = EOverrideMassProperties::CalculateInertia;
+  b.mMassPropertiesOverride.mMass = std::max(0.1f, mass);
+  b.mFriction = 0.7f; b.mRestitution = 0.1f; b.mLinearDamping = 0.05f; b.mAngularDamping = 0.2f;
+  BodyID id = W->sys->GetBodyInterface().CreateAndAddBody(b, EActivation::Activate);
+  if (!id.IsInvalid()) ++W->bodies;
+  return id.GetIndexAndSequenceNumber();
+}
+void Physics::addImpulse(uint32_t body, vec3 j, vec3 at) {
+  if (body == 0xffffffffu) return;
+  W->sys->GetBodyInterface().AddImpulse(BodyID(body), jv(j), jr(at));
+}
+void Physics::addAngularImpulse(uint32_t body, vec3 a) {
+  if (body == 0xffffffffu) return;
+  W->sys->GetBodyInterface().AddAngularImpulse(BodyID(body), jv(a));
+}
+bool Physics::getTransform(uint32_t body, vec3& pos, quat& rot) {
+  if (body == 0xffffffffu) return false;
+  RVec3 p; Quat q;
+  W->sys->GetBodyInterface().GetPositionAndRotation(BodyID(body), p, q);
+  pos = vec3((float)p.GetX(), (float)p.GetY(), (float)p.GetZ()); rot = quat(q.GetW(), q.GetX(), q.GetY(), q.GetZ());
+  return true;
+}
+bool Physics::isActive(uint32_t body) { return body != 0xffffffffu && W->sys->GetBodyInterface().IsActive(BodyID(body)); }
+vec3 Physics::velocity(uint32_t body) { if (body == 0xffffffffu) return vec3(0); return gv(W->sys->GetBodyInterface().GetLinearVelocity(BodyID(body))); }
 void Physics::setTransform(uint32_t body, vec3 pos, quat rot) {
   if (body == 0xffffffffu) return;
   W->sys->GetBodyInterface().SetPositionAndRotation(BodyID(body), jr(pos), jq(rot), EActivation::DontActivate);
@@ -239,6 +267,17 @@ bool Physics::castRayEx(vec3 o, vec3 d, float maxDist, Hit& out, uint64_t ignore
     out.ud = b.GetUserData();
     out.normal = gv(b.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, ray.GetPointOnRay(hit.mFraction)));
   }
+  return true;
+}
+
+namespace { class OnlyUD final : public BodyFilter { public: explicit OnlyUD(uint64 u) : ud(u) {} bool ShouldCollideLocked(const Body& b) const override { return b.GetUserData() == ud; } uint64 ud; }; }
+bool Physics::castRayOnly(vec3 o, vec3 d, float maxDist, uint64_t onlyUd, Hit& out) {
+  vec3 dn = glm::normalize(d);
+  RRayCast ray{jr(o), jv(dn * maxDist)};
+  RayCastResult hit;
+  OnlyUD filt(onlyUd);
+  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, filt)) return false;
+  out.t = hit.mFraction * maxDist; out.pos = o + dn * out.t; out.ud = onlyUd;
   return true;
 }
 

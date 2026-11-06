@@ -102,6 +102,7 @@ void App::updateCreative(float dt) {
   bool lmbDown = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
   if (tool == Tool::Place && placing) {
+    if (hoverValid && placing->defense.kind == "sandbag") snapDefense(placing, hp, placeYaw);   // chain sandbag runs
     if (hoverValid) lastCheck = checkPlacement(placing, hp, placeYaw, 0);
     if (lmbPress && hoverValid) {
       if (lastCheck.ok) { uint64_t id = placeInstance(placing, hp, placeYaw); if (id) selected = id; }
@@ -263,7 +264,18 @@ void App::drawCreativeUI() {
       ImGui::MenuItem("Performance stats", "F3", &showStats);
       if (ImGui::BeginMenu("Grass")) {
         for (int q = 0; q < 4; ++q) if (ImGui::MenuItem(grassPreset((GrassQuality)q).name, nullptr, (int)grass.quality == q)) grass.quality = (GrassQuality)q;
-        ImGui::Separator(); ImGui::MenuItem("Wind", nullptr, &grass.wind);
+        ImGui::Separator(); ImGui::MenuItem("Wind (grass and trees)", nullptr, &grass.wind);
+        ImGui::EndMenu();
+      }
+      if (ImGui::BeginMenu("Sky")) {
+        ImGui::MenuItem("Clouds", nullptr, &R.clouds);
+        ImGui::SetNextItemWidth(160); ImGui::SliderFloat("Coverage", &R.cloudCover, 0.0f, 1.0f, "%.2f");
+        ImGui::EndMenu();
+      }
+      if (ImGui::BeginMenu("First person")) {
+        ImGui::MenuItem("Sight depth of field", nullptr, &R.dofEnabled);
+        ImGui::MenuItem("Show arms", nullptr, &vm.showArms);
+        ImGui::MenuItem("Imported weapon models (restart)", nullptr, &useImportedModels);
         ImGui::EndMenu();
       }
       ImGui::EndMenu();

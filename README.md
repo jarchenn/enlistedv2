@@ -51,13 +51,18 @@ Saved maps go in `maps/` next to the executable. **File > Open** also lists the 
 | Next weapon / loadout panel | Q / L (the panel holds the strict 6 June 1944 preset, range presentation, reduced motion and the grass preset) |
 | Iron sights on a scoped rifle | V (M1C only) |
 | At a gun | E then 1 (Aim, gunner at the sight) or 2 (Move, handler). T switches position. As handler, WASD rolls and turns the carriage; T again deploys it |
+| Hold breath | Left Shift while aiming down the sights (5 s, then a 3 s recovery) |
+| PaK 40 ammunition | X at the gun: next round HE / AT (takes effect at the next reload) |
+| Build defences | B: 1 tank trap, 2 sandbags (again for the curved piece), Q cycle, R or wheel rotate, LMB place, RMB / B cancel. Green = valid, red = too steep (> 35°), in water or blocked. Sandbags snap end to end within 0.6 m |
 | Damage debug | F4 (panel outlines and states) |
 | Return to start | Backspace, or from the Esc menu |
 | Menu | Esc (Resume / Return to start / Return to Creative). F5 also returns to Creative |
 
-Every walkthrough is a playtest. Doors and windows start in their authored state each time you enter Explore, and returning to Creative throws away what you changed while exploring: breached walls, craters, moved guns, spent ammunition and emptied crates all reset. To keep the damage, use **Edit → Apply damage to map** (one undo step); **Edit → Clear applied damage** removes it again.
+Every walkthrough is a playtest. Doors and windows start in their authored state each time you enter Explore, and returning to Creative throws away what you changed while exploring: breached walls, craters, moved guns, spent ammunition and emptied crates all reset. Defences built with B, broken windows, doors and shutters, and felled trees are part of the same overlay. To keep it, use **Esc → Apply session changes to map + return** (one undo step); **Edit → Clear applied damage** removes applied damage again.
 
 **Grass** has four presets, Off, Low, Medium (default) and High, under **View → Grass** in Creative or in the loadout panel (L) in Explore. `--grass off|low|medium|high` sets it at launch.
+
+**Weapons and environment.** Five of the personal weapons (Garand / M1C, Thompson, BAR, MP 40, MG 42) use the supplied GLB models, aligned so ADS puts the real rear sight and front post on the screen centre; aimed shots leave the front sight along the sight line. Glass breaks, shutters and doors are shot off, and rounds penetrate them with an energy budget. HE and the PaK 40 AT round dig craters by the formula in [docs/fps-weapons.md](docs/fps-weapons.md). Trees (apple, oak, poplar) sway and can be felled; the sky has procedural clouds (View → Sky). View → First person toggles the sight blur and the arms.
 
 **Range example.** Open **content/examples → Range: walls, bunker, ordnance**. It is a copy of Blank Slate with a masonry dairy, an MG casemate rotated 155°, an open grassy plot, a PaK 40, an M2HB on its tripod, and two crates.
 
@@ -111,6 +116,11 @@ The destruction / ordnance / environment suites and tools:
 | `--build-range-map` | Regenerates `maps/range_example.nmap.json` (shipped as `content/examples/range.nmap.json`) |
 | `--record-range` | Scripted run of the range example, written to `selftest_out/range_recording.avi` (MJPEG). Add `--no-video` for checks only |
 | `--capture-materials <tag>` | Five fixed-camera material shots, `selftest_out/mat_<tag>_*.png` |
+| `--selftest-fps` | Imported weapons, ADS alignment at three FOVs, sight-origin shots, sway / bob / breathing, IK arms, depth of field, hip and ADS stills |
+| `--selftest-env` | Glass / shutter / door damage and penetration, crater formula, climbing out, PaK AT round, trees, clouds, tank trap, sandbags, blast occlusion, builder slope and snapping, Apply and undo |
+| `--import-weapon-models <glb dir> [content dir]` | Bakes the GLB weapon models (`assets_src/weapons/` is not in git) into `content/weapons/models/` |
+| `--weapon-sheets <dir>` | Orthographic side / rear calibration sheets of every weapon with sights and hand sockets marked |
+| `--box-weapons` | Draw the procedural box weapons instead of the imported models |
 
 `bash tools/run_all_tests.sh build` runs every functional suite and prints each tally.
 

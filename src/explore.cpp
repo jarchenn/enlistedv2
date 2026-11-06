@@ -69,6 +69,7 @@ void App::exitExplore() {
   resetGround();
   resetCombat();
   resetWeapons();
+  removeSessionPlacements();   // defences built in Explore are a playtest overlay unless applied
   camPos = savedCam.pos; camYaw = savedCam.yaw; camPitch = savedCam.pitch;
   glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   mode = Mode::Creative; pauseMenu = false; target = {};
@@ -183,8 +184,11 @@ void App::exploreStep(float dt, const ExploreInput& in) {
       updateLeafBodies(i, r, (int)k);
     }
   }
+  if (!occupied) stepBuilder(in);
   if (occupied) { stepStation(dt, in); }
+  else if (build.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; stepWeapons(dt, w); }   // weapon lowered while building
   else stepWeapons(dt, in);
+  blastShake = std::max(0.0f, blastShake - dt * 1.5f);
   // ---- move
   vec3 f = forward(eyeYaw, 0), rgt(std::cos(radians(eyeYaw)), 0, -std::sin(radians(eyeYaw)));
   vec3 wish = f * in.move.y + rgt * in.move.x;
@@ -246,7 +250,7 @@ void App::updateExplore(float dt) {
   ExploreInput in;
   static double lmx = -1, lmy = -1;
   if (useScripted) {
-    in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false;
+    in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false; scriptedInput.toggleAmmo = false; scriptedInput.build = false;
     scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false;
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
@@ -255,7 +259,7 @@ void App::updateExplore(float dt) {
       StationRT* gs = station(occupied);
       float hs = gs && rt[occupied].asset->station.kind == "m2hb" ? 0.08f : 0.012f;
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
-      else { eyeYaw = wrapDeg(eyeYaw - (float)(mx - lmx) * 0.1f); eyePitch = std::clamp(eyePitch - (float)(my - lmy) * 0.1f, -85.0f, 85.0f); }
+      else { in.lookYaw = -(float)(mx - lmx) * 0.1f; in.lookPitch = -(float)(my - lmy) * 0.1f; eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }
     lmx = mx; lmy = my;
     if (kd(win, GLFW_KEY_W)) in.move.y += 1;
@@ -270,6 +274,9 @@ void App::updateExplore(float dt) {
     in.aim = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS && !io.WantCaptureMouse;
     in.reload = kp(win, GLFW_KEY_R);
     in.switchPos = kp(win, GLFW_KEY_T);
+    in.toggleAmmo = kp(win, GLFW_KEY_X);
+    in.build = kp(win, GLFW_KEY_B);
+    { extern double gScrollY; in.wheel = io.WantCaptureMouse ? 0.0f : (float)gScrollY; gScrollY = 0; }
     in.choose1 = kp(win, GLFW_KEY_1); in.choose2 = kp(win, GLFW_KEY_2);
     in.nextWeapon = kp(win, GLFW_KEY_Q);
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
@@ -278,11 +285,12 @@ void App::updateExplore(float dt) {
   int steps = 0;
   while (physAccum >= 1.0f / 60.0f && steps < 8) {
     exploreStep(1.0f / 60.0f, in);
-    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.dyaw = in.dpitch = 0;
+    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.dyaw = in.dpitch = 0;
     physAccum -= 1.0f / 60.0f; ++steps;
   }
   if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral
   Physics::step(dt);
+  stepDynLeaves(dt);
 }
 
 void App::drawExploreUI() {
@@ -317,6 +325,7 @@ void App::drawExploreUI() {
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
   drawDamageDebug();
+  drawBuilderUI();
   if (showStats) {
     auto ch = Physics::character();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 280, 10), ImGuiCond_Always);
@@ -334,7 +343,7 @@ void App::drawExploreUI() {
     if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
     if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
     ImGui::Separator();
-    if (ImGui::Button("Apply damage to map + return", ImVec2(240, 0))) { applyDamageToMap(); exitExplore(); }
+    if (ImGui::Button("Apply session changes to map + return", ImVec2(240, 0))) { applyDamageToMap(); exitExplore(); }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nWeapons, ammunition, moved guns and doors are not kept.");
     ImGui::End();
   }

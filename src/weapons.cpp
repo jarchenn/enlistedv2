@@ -315,6 +315,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
       bool tracer = d.tracerEvery > 0 && s.shotIdx % d.tracerEvery == 0;
       fireProjectile(start, dir, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
+      if (!projectiles.empty()) projectiles.back().mass = d.bulletMass * 0.001f;
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
       fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
@@ -375,6 +376,8 @@ void App::drawWeaponUI() {
     ImGui::Checkbox("Strict 6 June 1944 preset (hides later-war M1C)", &strictDDay);
     ImGui::Checkbox("Range presentation: show every trajectory", &fx.rangeMode);
     ImGui::Checkbox("Reduced motion (keeps aim displacement)", &reducedMotion);
+    ImGui::Checkbox("Sight depth of field", &R.dofEnabled); ImGui::SameLine(); ImGui::Checkbox("Show arms", &vm.showArms);
+    ImGui::Checkbox("Clouds", &R.clouds); ImGui::SameLine(); ImGui::SetNextItemWidth(120); ImGui::SliderFloat("Cloud cover", &R.cloudCover, 0.0f, 1.0f, "%.2f");
     { int q = (int)grass.quality; const char* names[] = {"Off", "Low", "Medium", "High"};
       if (ImGui::Combo("Grass", &q, names, 4)) grass.quality = (GrassQuality)q; }
     ImGui::Separator();

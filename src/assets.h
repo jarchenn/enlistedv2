@@ -58,6 +58,7 @@ struct InteractDef {
   std::string id, kind, label, sound;
   vec3 axis{0, 1, 0};
   float openAngle = 95, duration = 0.9f;
+  float hp = -1;            // bullet hits to break (doors / shutters); -1 = default for the kind
   bool defaultOpen = false;
   bool apAlways = false;   // aim volume stays active when open (flaps worked through a slit)
   std::vector<Leaf> leaves;
@@ -82,15 +83,38 @@ struct StationDef {
   vec3 muzzle{0}, optic{0}, gunner{0}, handler{0};
   float yawMin = -32.5f, yawMax = 32.5f, elevMin = -5.0f, elevMax = 22.0f;
   float traverseRate = 14.0f, elevateRate = 8.0f, recoil = 0.6f, reloadTime = 3.5f;
-  int loaded = 1, reserve = 5; std::string ammo;
+  int loaded = 1, reserve = 5, reserveAT = 0; std::string ammo, ammoAT;   // AT: second ammunition type (PaK 40 PzGr. 39)
   std::vector<Part> yawParts, elevParts, recoilParts;   // relative to their pivots
   GpuMesh yawMesh, elevMesh, recoilMesh;
   vec3 moveHalf{1.0f, 0.6f, 2.0f};          // carriage sweep box (half extents) for repositioning
   float serviceRadius = 6.0f;
 };
 
+// Destructible tree (Vegetation): trunk parts split at the stump cut, alpha-tested leaf cards with a sway mask.
+struct TreeDef {
+  bool on = false;
+  float hpBullet = 30, hpAT = 1, stumpH = 0.4f, trunkR = 0.25f, mass = 300, leafSize = 0.35f;
+  vec3 leafCol{0.2f, 0.3f, 0.1f};
+  std::vector<vec4> canopy;                 // xyz centre (asset space), w radius
+  float top = 5;                            // highest point (canopy) for the fall impulse
+  GpuMesh stumpMesh, trunkMesh;             // trunkMesh / trunkShape relative to the cut (0, stumpH, 0)
+  ShapePtr stumpShape, trunkShape;
+  GLuint cardVao = 0, cardVbo = 0; int cardVerts = 0;   // leaf cards (asset space): pos, normal, uv, mask
+};
+// Buildable defence: tank trap / sandbags (builder.cpp, ballistics.cpp).
+struct DefenseSocket { vec3 p{0}, t{1, 0, 0}; };
+struct DefenseDef {
+  std::string kind;                         // "" = not a defence; "tank_trap", "sandbag"
+  float hp = 300, smallArms = 1, occlusion = 1, maxSlopeDeg = 35;
+  bool blocksVehicles = false, stopsBullets = false;
+  std::vector<DefenseSocket> sockets;
+};
+
 struct AssetDef {
   StationDef station;
+  TreeDef tree;
+  DefenseDef defense;
+  GpuMesh defBrokenMesh; ShapePtr defBrokenShape;   // destroyed defence: sandbag spill / tipped hedgehog
   json crate;                               // ammo crate config (empty = not a crate)
   std::vector<Panel> panels;
   GpuMesh panelsIntact;          // all panels intact, merged (fast path for undamaged copies)
@@ -126,4 +150,5 @@ private:
 };
 
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf);
+void buildTreeAsset(AssetDef& a, const json& tj);   // foliage.cpp
 void buildPlaceholder(AssetDef& a);

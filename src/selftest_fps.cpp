@@ -228,7 +228,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       return true; });
   }
   stage = 1101;
-  if (fcur >= fseq.size()) { finish(app); return; }
+  if (fcur >= fseq.size()) { check(app.R.shaderErrors == 0, "all shaders compiled (" + std::to_string(app.R.shaderErrors) + " errors)"); finish(app); return; }
   if (ft == 0) logf("[selftest] step: %s", fseq[fcur].name.c_str());
   bool d2 = fseq[fcur].fn(app, ft);
   ft += dt;

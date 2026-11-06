@@ -170,6 +170,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   auto mit = mats.find(j.value("m", ""));
   p.mat = mit == mats.end() ? 0 : mit->second;
   p.visible = j.value("v", 1) != 0;
+  if (j.contains("q")) p.rot = glm::normalize(quat(j["q"][3].get<float>(), j["q"][0].get<float>(), j["q"][1].get<float>(), j["q"][2].get<float>()));   // explicit quaternion (x, y, z, w)
   p.collide = j.value("k", 1) != 0;
   if (t == "p") {
     p.shape = Part::PRISM;
@@ -248,6 +249,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     d.sound = ij.value("sound", "wood");
     d.axis = glm::normalize(jvec3(ij["axis"], vec3(0, 1, 0)));
     d.openAngle = ij.value("openAngle", 95.0f);
+    d.hp = ij.value("hp", -1.0f);
     d.duration = ij.value("duration", 0.9f);
     d.defaultOpen = ij.value("defaultOpen", false);
     d.apAlways = ij.value("apertureAlways", false);
@@ -281,7 +283,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     if (sj.contains("elevation")) { st.elevMin = sj["elevation"][0]; st.elevMax = sj["elevation"][1]; }
     st.traverseRate = sj.value("traverseRate", 14.0f); st.elevateRate = sj.value("elevateRate", 8.0f);
     st.recoil = sj.value("recoil", 0.6f); st.reloadTime = sj.value("reloadTime", 4.0f);
-    st.loaded = sj.value("loaded", 1); st.reserve = sj.value("reserve", 5); st.ammo = sj.value("ammo", "");
+    st.loaded = sj.value("loaded", 1); st.reserve = sj.value("reserve", 5); st.ammo = sj.value("ammo", ""); st.reserveAT = sj.value("reserveAT", 0); st.ammoAT = sj.value("ammoAT", "");
     st.moveHalf = jvec3(sj["moveHalf"], vec3(1, 0.5f, 1.6f)); st.serviceRadius = sj.value("serviceRadius", 6.0f);
     auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
       MeshData m;
@@ -346,6 +348,24 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   a->panelsIntact.upload(allIntact);
   a->wallsIntact = Physics::buildCompound(intactShapes);
   a->bmin = vec3(1e9f); a->bmax = vec3(-1e9f);
+  if (j.contains("tree")) { buildTreeAsset(*a, j["tree"]); for (auto& c : a->tree.canopy) { pts.push_back(vec3(c) - vec3(c.w)); pts.push_back(vec3(c) + vec3(c.w)); } }
+  if (j.contains("defense")) {
+    auto& dj = j["defense"]; DefenseDef& d = a->defense;
+    d.kind = dj.value("kind", ""); d.hp = dj.value("hp", 300.0f); d.smallArms = dj.value("smallArmsMultiplier", 1.0f);
+    d.occlusion = dj.value("blastOcclusion", 1.0f); d.maxSlopeDeg = dj.value("maxSlopeDeg", 35.0f);
+    d.blocksVehicles = dj.value("blocksVehicles", false); d.stopsBullets = dj.value("stopsBullets", false);
+    for (auto& s : dj.value("sockets", json::array())) d.sockets.push_back({jvec3(s["p"]), jvec3(s["t"], vec3(1, 0, 0))});
+    // destroyed state: sandbags slump into a low spill (~0.25 m), the hedgehog is knocked onto its side
+    MeshData bm; std::vector<Part> bc;
+    for (auto& p : a->parts) {
+      Part q = p;
+      if (d.kind == "sandbag") { q.center.y *= 0.3f; q.size.y *= 0.55f; q.center.z *= 1.35f; }
+      else { quat t = glm::angleAxis(radians(58.0f), vec3(1, 0, 0)); q.center = t * (q.center - vec3(0, 0.43f, 0)) + vec3(0, 0.4f, 0); q.rot = t * q.rot; }
+      if (q.visible) appendPart(bm, q, a->materials[q.mat], mat4(1));
+      if (q.collide) bc.push_back(q);
+    }
+    a->defBrokenMesh.upload(bm); a->defBrokenShape = Physics::buildShape(bc);
+  }
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
   logf("asset %-28s %5zu parts %3zu interactables %3zu panels %6d tris", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), (int)((op.i.size() + allIntact.i.size()) / 3));

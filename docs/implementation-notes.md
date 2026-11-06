@@ -25,6 +25,12 @@ The brief asked for the existing function names to be located before changing th
 | Projectiles and effects | `App::fireProjectile`, `App::stepProjectiles` (`src/station.cpp`); `Fx` pool (`src/fx.cpp`) |
 | Crew stations (PaK 40, M2HB) | `occupyStation`, `switchStationPosition`, `stepStation`, `carriageFits`, `crateTransaction` (`src/station.cpp`) |
 | Personal weapons | `resetWeapons`, `selectWeapon`, `stepWeapons`, `resupplyPersonal`, `weaponCamera`, `weaponDrawItems` (`src/weapons.cpp`) |
+| GLB weapon models | `bakeGlbModel`, `importWeaponModels`, `GpuModel::load` / `animAt` (`src/model.cpp`); `App::writeWeaponSheets` (`src/weapons.cpp`); `Renderer::drawModels`, `renderModelSheet` |
+| First-person handling | `App::stepViewModel`, `vmTarget`, `vmLocal`, `sightLineWorld`, `vmApparent`, `dofParams`, `armDrawItems`, `solveTwoBone` (`src/viewmodel.cpp`); viewmodel pass and the `kDofFS` pass in `Renderer::render` |
+| Surface damage and penetration | `App::bulletImpact`, `locateLeaf`, `breakGlass`, `detachLeaf`, `blastLeaves`, `resetLeafDamage` (`src/ballistics.cpp`); `Physics::addDynamic`, `castRayOnly` |
+| Craters and AT round | `Terrain::crater` (formula profile), `App::deformGround` (`blastAT`); `StationRT::selAT` / `reserveAT`, `crateTransaction` (`src/station.cpp`) |
+| Trees and clouds | `buildTreeAsset`, `App::fellTree`, `treeImpact`, `blastTrees`, `resetTrees`, `treeDrawItems` (`src/foliage.cpp`); `kLeafVS` / `kLeafFS` and the `kSkyFS` clouds (`src/render.cpp`); assets from `tools/gen_env_assets.py` |
+| Defences and builder | `App::stepBuilder`, `snapDefense`, `groundSlopeDeg`, `defenseBulletHit`, `blastDefenses`, `blastOcclusion`, `blastPlayer`, `removeSessionPlacements` (`src/builder.cpp`); the defence rule in `App::checkPlacement` |
 | Instanced grass | `Grass::update` / `draw` / `build` / `signature` / `contentSignature` (`src/grass.cpp`); `App::updateGrass`, `grassFootprints` (`src/app.cpp`) |
 | Recording | `Recorder` (`src/recorder.cpp`), MJPEG AVI. Driven by `--record-range` (`src/selftest_record.cpp`) |
 

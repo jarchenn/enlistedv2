@@ -1,0 +1,47 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  range: farmhouse, apple tree, oak, tank trap, sandbag run placed
+PASS  F5 into Explore
+PASS  glass (HP 1) shatters on the first round; the sash stays
+PASS  round passes through the pane (8.0 mm of glass: 3529 J -> 3369 J)
+PASS  an empty sash costs a later round nothing
+PASS  shutter holds after one round (HP 2)
+PASS  second round tears the shutter off: dynamic body + fractured mesh
+PASS  impulse I = V_bullet * M_force (0.01 kg) plus gravity moves it (1.55 m in 1 s)
+PASS  .45 ACP (605 J) stops in 35 mm of shutter (needs 1400 J)
+PASS  .30-06 through 50 mm of door: E_new = E_old - mu dT = 3529 - 40000 x 0.050 = 1529 J (measured 1529)
+PASS  door holds 9 rounds and comes off its hinges on the 10th (HP 10)
+PASS  door is a dynamic body (torque about the hinge from the hit offset)
+PASS  rigid-body cap: the oldest loose leaf freezes in place (1 live, 2 frozen)
+PASS  standard crater Z = Z0 - 0.5 (1 - d^2/1.5^2)^2: depth 0.500 (want 0.500) at d=0, 0.275 (want 0.281) at R/2, 0.013 at R; max wall slope 25 deg
+PASS  AT crater Z = Z0 - 1.2 (1 - d^2/3.0^2)^2: depth 1.200 (want 1.200) at d=0, 0.673 (want 0.675) at R/2, 0.014 at R; max wall slope 31 deg
+PASS  player walks out of the AT crater unaided (9.68 m from the centre after 4.5 s)
+PASS  PaK 40 AT shell (PzGr. 39) digs the deep profile (1.17 m)
+PASS  apple tree stands after 29 rounds, falls on the 30th (HP_bullet 30)
+PASS  felled: static stump + dynamic trunk body carrying the canopy
+PASS  trunk toppled away from the shooter (91 deg from vertical)
+PASS  HE strike 1.2 m from the oak fells it (HP_AT 1)
+PASS  procedural fBm clouds render with no non-finite pixels (top-mip (0.552 0.606 0.671) non-finite pixels 0 (first at 0,0))
+PASS  tank trap: 100 rifle hits do nothing (small-arms multiplier 0), HP 1500/1500
+PASS  tank trap carries the blocksVehicles flag into the map
+PASS  HE does damage it (1380/1500)
+PASS  sandbags stop a .30-06 round outright (no penetration)
+PASS  explosion -> character ray: behind the sandbags x0.10, in the open x1.00
+PASS  crouched behind the bags: blast readout raw 59 x 0.55 (chest sheltered, head above the parapet)
+PASS  theta = acos(N . up) = 31.4 deg on the crater wall: valid with limit 32.4 (ok), red with limit 30.4 (Too steep: 31 deg > 30 deg)
+PASS  build mode: sandbag hologram green on flat ground (Valid)
+PASS  LMB places the sandbag run (session overlay)
+PASS  aim within 0.6 m of a free socket snaps: joint gap 0.0 mm, tangent continuity 1.00000
+PASS  curved 45 deg piece chains onto the run (Snaps to the sandbag run)
+PASS  three session pieces placed (3)
+PASS  F5 back to Creative discards the three session placements, the felled trees and the broken openings
+PASS  trees stand and the door is back after the reset
+PASS  Creative placement snaps a straight run onto the next socket too
+PASS  F5 again
+PASS  Apply session changes keeps the built sandbag after F5
+PASS  Apply keeps the felled oak (stump + trunk where it lay)
+PASS  Ctrl+Z undoes the apply (sandbag gone, oak standing)
+PASS  all shaders compiled (0 errors)
+
+42 passed, 0 failed

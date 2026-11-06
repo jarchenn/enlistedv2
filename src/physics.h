@@ -13,6 +13,13 @@ public:
   static uint32_t addStatic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);
   static uint32_t addKinematic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);
   static void setTransform(uint32_t body, vec3 pos, quat rot);
+  // dynamic rigid bodies (detached shutters / doors, felled trunks)
+  static uint32_t addDynamic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData, float massKg);
+  static void addImpulse(uint32_t body, vec3 impulse, vec3 atPoint);
+  static void addAngularImpulse(uint32_t body, vec3 angular);
+  static bool getTransform(uint32_t body, vec3& pos, quat& rot);
+  static bool isActive(uint32_t body);
+  static vec3 velocity(uint32_t body);
   static void remove(uint32_t body);
   static int bodyCount();
   static void step(float dt);
@@ -21,6 +28,8 @@ public:
   struct Hit { float t = 0; vec3 pos{0}, normal{0, 1, 0}; uint64_t ud = 0; };
   // nearest solid contact; bodies whose user data == ignoreUd are skipped (e.g. the firing gun)
   static bool castRayEx(vec3 o, vec3 dir, float maxDist, Hit& hit, uint64_t ignoreUd = ~0ull);
+  // ray against bodies with exactly this user data only (exit-point search for penetration)
+  static bool castRayOnly(vec3 o, vec3 dir, float maxDist, uint64_t onlyUd, Hit& hit);
   static bool capsuleBlocked(vec3 feet, float height, float radius);
   static bool boxBlocked(vec3 center, vec3 halfExtents, quat rot, uint64_t ignoreUd = ~0ull, bool ignoreTerrain = true);
   static ShapePtr buildCompound(const std::vector<ShapePtr>& shapes);

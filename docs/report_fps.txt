@@ -1,0 +1,65 @@
+Normandy Mapmaker self-test
+GL: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2 | 4.5.0 NVIDIA 610.88
+
+PASS  range: stone dairy 30 m downrange, F5 into Explore
+PASS  m1918a2_bar: imported model bar, 20043 tris, 5 parts, length 1.214 m vs real 1.214 m (0.00%)
+PASS  m1918a2_bar: albedo, metal-rough and normal textures bound
+PASS  m1_garand: imported model garand, 14026 tris, 6 parts, length 1.107 m vs real 1.107 m (0.00%)
+PASS  m1_garand: albedo, metal-rough and normal textures bound
+PASS  m1_thompson: imported model thompson, 3893 tris, 10 parts, length 0.813 m vs real 0.813 m (0.00%)
+PASS  m1_thompson: factor-only materials (source has no textures)
+PASS  m1c_garand: imported model garand, 14026 tris, 6 parts, length 1.107 m vs real 1.107 m (0.00%)
+PASS  m1c_garand: albedo, metal-rough and normal textures bound
+PASS  mg42: imported model mg42, 15978 tris, 1 parts, length 1.220 m vs real 1.220 m (0.00%)
+PASS  mg42: albedo, metal-rough and normal textures bound
+PASS  mp40: imported model mp40, 5659 tris, 11 parts, length 0.833 m vs real 0.833 m (0.00%)
+PASS  mp40: albedo, metal-rough and normal textures bound
+PASS  six weapon entries use imported models (Garand, M1C, MP 40, Thompson, MG 42, BAR); 6 found
+PASS  a missing bake fails cleanly (missing or bad C:\Users\50bmg\AppData\Local\Temp\nmk\build\content\weapons\models\does_not_exist\model.json) and the weapon keeps its box parts
+PASS  Kar 98k still draws its procedural box model
+PASS  Garand: clip + rounds mapped to the clip role, 5 parts carry the 6.3 s reload clip
+PASS  kar98k: rear and front sight on the screen centre at world FOV 72 and 58 and weapon FOV 60 (worst 0.04 px)
+PASS  kar98k_zf39: scoped, sight picture replaced by the scope mask
+PASS  m1918a2_bar: rear and front sight on the screen centre at world FOV 72 and 58 and weapon FOV 60 (worst 0.04 px)
+PASS  m1_garand: rear and front sight on the screen centre at world FOV 72 and 58 and weapon FOV 60 (worst 0.04 px)
+PASS  m1_thompson: rear and front sight on the screen centre at world FOV 72 and 58 and weapon FOV 60 (worst 0.26 px)
+PASS  m1c_garand: scoped, sight picture replaced by the scope mask
+PASS  mg42: rear and front sight on the screen centre at world FOV 72 and 58 and weapon FOV 60 (worst 0.04 px)
+PASS  mp40: rear and front sight on the screen centre at world FOV 72 and 58 and weapon FOV 60 (worst 0.04 px)
+PASS  hip -> ADS on a critically damped spring (omega 18/s): within 0.5 mm after 0.60 s, no overshoot needed
+PASS  world FOV narrows to 58 in ADS while the weapon keeps its fixed 60 deg projection
+PASS  ADS shot leaves the front sight tip (0.000 mm away) along normalize(F - R) (5.66e-11 rad)
+PASS  dispersion + zero tilt keep the round within 0.2 deg of the sight line (0.034 deg)
+PASS  hip fire still sweeps from the muzzle
+PASS  mouse sway: peak 3.7 mm opposite the look, 0.188% left 0.5 s after the mouse stops
+PASS  bob scales with speed: walk 0.50, sprint 1.00 (vertical peak 11.9 mm at sprint, 12 mm max)
+PASS  idle breathing wanders 0.155 deg; holding breath (Left Shift in ADS) freezes it (0.0000 deg change over 4 s)
+PASS  after 5 s the breath is released: 3 s recovery at double amplitude
+PASS  Shift while aiming does not sprint (2.32 m/s)
+  ik kar98k       right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.234 L 0.328
+  ik kar98k_zf39  right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.055 L 0.442
+  ik m1918a2_bar  right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.173 L 0.608
+  ik m1_garand    right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.153 L 0.573
+  ik m1_thompson  right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.287 L 0.583
+  ik m1c_garand   right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.125 L 0.448
+  ik mg42         right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.132 L 0.406
+  ik mp40         right 0.0 mm left 0.0 mm, elbows down/down, reach R 0.060 L 0.446
+PASS  two-bone IK: both hands on their sockets for every weapon (worst residual 0.000 mm)
+PASS  elbows hang below the shoulder-hand line (pole vector down and outward)
+PASS  out of reach: the arm straightens toward the target without stretching
+PASS  arms drawn in the first-person pass (2 x upper arm, forearm, wrist, hand): 8
+PASS  ADS focus 1.003 m (front post + 3 cm), blend 1.00; CoC at the rear aperture 6.0 px, at the front post 0.0 px, at the target 0
+PASS  reduced motion turns the sight blur off
+PASS  kar98k: hip and ADS frames rendered without GL errors
+PASS  kar98k_zf39: hip and ADS frames rendered without GL errors
+PASS  m1918a2_bar: hip and ADS frames rendered without GL errors
+PASS  m1_garand: hip and ADS frames rendered without GL errors
+PASS  m1_thompson: hip and ADS frames rendered without GL errors
+PASS  m1c_garand: hip and ADS frames rendered without GL errors
+PASS  mg42: hip and ADS frames rendered without GL errors
+PASS  mp40: hip and ADS frames rendered without GL errors
+PASS  Garand reload drives the imported clip animation and seats 8 rounds
+PASS  back to Creative
+PASS  all shaders compiled (0 errors)
+
+60 passed, 0 failed

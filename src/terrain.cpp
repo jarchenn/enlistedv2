@@ -205,8 +205,10 @@ std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<f
           float x = o.x + i * fs, z = o.y + j * fs;
           float r = glm::length(vec2(x - c.x, z - c.z)) / R;
           if (r > 1.45f) continue;
-          float bowl = r < 1.0f ? -D * (1 - r * r) * (1 - r * r) : 0.0f;
-          float rim = D * 0.16f * std::exp(-((r - 0.98f) / 0.22f) * ((r - 0.98f) / 0.22f));
+          // Z_new = Z_old - D * (max(0, 1 - d^2/R^2))^p, p = 2 (no rim term: the profile is exactly the formula)
+          float u = std::max(0.0f, 1 - r * r);
+          float bowl = -D * u * u;
+          float rim = 0.0f;
           float w = weight(x, z);
           if (w <= 0.0f) continue;
           float& hh = t->h[j * kFineN + i];

@@ -107,7 +107,7 @@ void App::stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, co
   float red = reducedMotion ? 0.3f : 1.0f, adsS = glm::mix(1.0f, 0.35f, a);
   // ---- sway: inverted, clamped look delta; smooth-damped back to centre
   float lim = kSwayClampPx * 0.1f;
-  float dx = std::clamp(in.dyaw, -lim, lim), dy = std::clamp(in.dpitch, -lim, lim);
+  float dx = std::clamp(in.dyaw + in.lookYaw, -lim, lim), dy = std::clamp(in.dpitch + in.lookPitch, -lim, lim);
   vec3 tp = vec3(dx * 0.006f, -dy * 0.006f, 0) * adsS * red;
   vec2 tr = vec2(dx * 1.6f, -dy * 1.6f) * adsS * red;
   for (int k = 0; k < 2; ++k) {

@@ -35,6 +35,8 @@ void App::rebuildWalls(const Instance& i, InstanceRT& r) {
 }
 
 void App::resetDamage() {
+  resetLeafDamage();
+  resetTrees();
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
@@ -53,6 +55,10 @@ void App::resetDamage() {
 
 App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float craterScale, uint64_t ignoreUd) {
   Explosion ex; ex.pos = p;
+  blastLeaves(p, radius);   // glass within 1.6 R shatters, shutters / doors within R are blown off
+  blastTrees(p, radius);    // HP_AT = 1: a shell within 1.5 m of a trunk fells it
+  blastDefenses(p, dmg, radius);
+  blastPlayer(p - (glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0)) * 0.06f, dmg, radius);   // exposure readout, sandbag occlusion x0.1
   vec3 d = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0);
   vec3 origin = p - d * 0.06f;   // just in front of the struck surface
   for (auto& i : doc.instances) {

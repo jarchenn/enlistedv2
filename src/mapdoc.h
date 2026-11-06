@@ -13,9 +13,10 @@ struct Instance {
   std::map<std::string, bool> openDefaults;   // authored initial state overrides per interactable id
   json extra;                                 // unknown fields preserved verbatim (forward compat / missing assets)
   std::map<std::string, float> panelHp;       // applied (persistent) wall damage by stable panel id; unknown ids kept
+  std::map<std::string, int> leafState;       // applied opening damage "interactable/leaf" -> 1 glass broken, 2 leaf gone
   uint32_t rev = 1;                           // bumps on every edit; runtime rebuilds colliders on change
   bool operator==(const Instance& o) const {
-    return id == o.id && assetId == o.assetId && pos == o.pos && yaw == o.yaw && openDefaults == o.openDefaults && panelHp == o.panelHp;
+    return id == o.id && assetId == o.assetId && pos == o.pos && yaw == o.yaw && openDefaults == o.openDefaults && panelHp == o.panelHp && leafState == o.leafState;
   }
 };
 

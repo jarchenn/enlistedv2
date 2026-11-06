@@ -89,6 +89,7 @@ void App::resetCombat() {
       s.loaded = o.value("loaded", a->station.loaded);
       s.reserve = o.value("reserve", a->station.reserve);
       s.reserveMax = std::max(a->station.reserve, s.reserve);
+      s.reserveAT = o.value("reserveAT", a->station.reserveAT); s.reserveATMax = std::max(a->station.reserveAT, s.reserveAT);
       r.st = s;
       Physics::setTransform(r.staticBody, i.pos, yawQuat(i.yaw));
     }
@@ -189,12 +190,16 @@ void App::stepProjectiles(float dt) {
           }
         } else if ((hit.ud & 0xFFFF) != 0) surface = "wood";
         if (p.kind == PROJ_HE) {
-          auto ex = explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore);
+          blastAT = p.at;   // AT: concentrated wall damage, deep crater (ground.cpp)
+          auto ex = p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore) : explode(hit.pos, p.v, p.dmg, 2.2f, 1.0f, p.ignore);
+          blastAT = false;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
           audio.play("explosion", hit.pos, 1.0f);
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};
         } else {
-          fx.impact(hit.pos, hit.normal, surface == "concrete" || surface == "masonry" ? "stone" : surface);
+          std::string surf2 = surface;
+          bulletImpact(p, hit, surf2);   // glass / shutters / doors: damage, detach, maybe a penetrating continuation
+          fx.impact(hit.pos, hit.normal, surf2 == "concrete" || surf2 == "masonry" ? "stone" : surf2 == "wood_door" || surf2 == "wood_shutter" ? "wood" : surf2);
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), 0};
         }
         projectiles.erase(projectiles.begin() + k);
@@ -206,6 +211,8 @@ void App::stepProjectiles(float dt) {
       if (p.life > 9.0f || p.p.y < -100) { projectiles.erase(projectiles.begin() + k); continue; }
       ++k;
     }
+  for (auto& c : spawnedProjectiles) projectiles.push_back(c);
+  spawnedProjectiles.clear();
 }
 
 void App::stepStation(float dt, const ExploreInput& in) {
@@ -237,13 +244,16 @@ void App::stepStation(float dt, const ExploreInput& in) {
     s->elev = approach(s->elev, s->elevT, d.elevateRate * dt);
     bool mg = d.kind == "m2hb";
     int full = mg ? 110 : 1;
-    if (in.reload && s->loaded < full && s->reserve > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(mg ? "belt" : "breech", vec3(M[3])); }
+    if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(std::string("PaK 40: next round ") + (s->selAT ? "PzGr. 39 (AT)" : "Sprgr. (HE)") + " - takes effect at the next reload", 3); }
+    int pool = (!mg && s->selAT) ? s->reserveAT : s->reserve;
+    if (in.reload && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(mg ? "belt" : "breech", vec3(M[3])); }
     if (s->reload > 0) {
       s->reload -= dt;
       if (s->reload <= 0) {   // moves rounds; never creates them. A partial .50 belt goes back to the emplacement stock.
         s->reload = 0;
         if (mg) { s->reserve += s->loaded; s->loaded = std::min(full, s->reserve); s->reserve -= s->loaded; }
-        else { s->loaded = 1; s->reserve -= 1; }
+        else if (s->selAT && s->reserveAT > 0) { s->loaded = 1; s->reserveAT -= 1; s->loadedAT = true; }
+        else { s->loaded = 1; s->reserve -= 1; s->loadedAT = false; }
         audio.play(mg ? "belt" : "breech", vec3(M[3]));
       }
     }
@@ -268,7 +278,8 @@ void App::stepStation(float dt, const ExploreInput& in) {
         vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
         mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
         vec3 start = vec3(e * vec4(0, 0, 0, 1));   // sweep from the trunnions along the bore: a wall at the muzzle stops the shell
-        fireProjectile(start, dir, 550.0f, PROJ_HE, 120.0f, coreUD(inst->id), false, d.ammo);
+        fireProjectile(start, dir, s->loadedAT ? 790.0f : 550.0f, PROJ_HE, 120.0f, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
+        if (!projectiles.empty()) projectiles.back().at = s->loadedAT;
         s->loaded -= 1; s->recoilT = 0; s->shots++;
         fx.muzzle(muzzle, dir, 1.0f);
         audio.play("pak_fire", muzzle, 1.0f);
@@ -312,19 +323,26 @@ std::string App::crateTransaction(uint64_t crateId) {
     auto& r = rt[i.id];
     const std::string& ammo = r.asset->station.ammo;
     float dist = glm::length(vec2(s->pos.x - c->pos.x, s->pos.z - c->pos.z));
-    if (!stock.count(ammo)) continue;
+    // AT rounds (PaK 40) come from their own crate line into their own reserve
+    const std::string& ammoAT = r.asset->station.ammoAT;
+    std::string atMsg;
+    if (!ammoAT.empty() && stock.count(ammoAT) && s->reserveAT < s->reserveATMax && glm::length(vec2(s->pos.x - c->pos.x, s->pos.z - c->pos.z)) <= radius) {
+      int n = std::min(s->reserveATMax - s->reserveAT, unlimited ? 1 << 20 : stock[ammoAT]);
+      if (n > 0) { s->reserveAT += n; if (!unlimited) stock[ammoAT] -= n; atMsg = " AT +" + std::to_string(n) + " (" + std::to_string(s->reserveAT) + "/" + std::to_string(s->reserveATMax) + ")."; }
+    }
+    if (!stock.count(ammo)) { if (!atMsg.empty()) { audio.play("crate", c->pos); return "PaK 40" + atMsg; } continue; }
     std::string name = r.asset->station.kind == "pak40" ? "PaK 40 reserve" : "M2HB belts";
     if (dist > radius) { if (msg.empty()) msg = name + ": gun is out of reach (" + std::to_string((int)dist) + " m > " + std::to_string((int)radius) + " m)."; continue; }
     int unit = r.asset->station.kind == "m2hb" ? 110 : 1;   // crate units: single 7.5 cm rounds, or 110-round .50 link increments
     int need = (s->reserveMax - s->reserve) / unit;
-    if (need <= 0) { if (msg.empty()) msg = name + " already full (" + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + ")."; continue; }
+    if (need <= 0) { if (!atMsg.empty()) { audio.play("crate", c->pos); return name + " HE full." + atMsg; } if (msg.empty()) msg = name + " already full (" + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + ")."; continue; }
     int have = unlimited ? need : stock[ammo];
     int n = std::min(need, have);
     if (n <= 0) { msg = name + ": crate has no " + ammo + " left."; continue; }
     s->reserve += n * unit;
     if (!unlimited) stock[ammo] -= n;
     audio.play("crate", c->pos);
-    return name + " +" + std::to_string(n * unit) + " (now " + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + "). Crate " + ammo + ": " + (unlimited ? std::string("unlimited") : std::to_string(stock[ammo]) + " left") + ". Reload with R at the gun.";
+    return name + " +" + std::to_string(n * unit) + " (now " + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + "). Crate " + ammo + ": " + (unlimited ? std::string("unlimited") : std::to_string(stock[ammo]) + " left") + ". Reload with R at the gun." + atMsg;
   }
   // 2) personal weapon reserve (weapons.cpp)
   int before = 0; for (auto& [id, ws] : wstate) before += ws.reserveRounds();
@@ -382,7 +400,7 @@ void App::drawCombatUI() {
   // ammunition / position panel
   char b[256];
   const char* posName[] = {"", "GUNNER (Aim)", "PREPARING TO MOVE", "HANDLER (Move)", "DEPLOYING"};
-  std::string ammoName = d.kind == "pak40" ? "7.5 cm HE" : ".50 belt";
+  std::string ammoName = d.kind == "pak40" ? (s->loadedAT && s->loaded ? std::string("7.5 cm AT loaded") : std::string("7.5 cm HE")) + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
   std::string state = s->reload > 0 ? "RELOADING " + std::to_string(s->reload).substr(0, 3) + " s" : s->loaded > 0 ? "READY" : "EMPTY - R to reload";
   std::snprintf(b, sizeof b, "%s | %s: %d loaded, %d reserve (max %d) | %s\nT switch position   E leave gun   %s", posName[s->pos2], ammoName.c_str(), s->loaded, s->reserve, s->reserveMax,
                 s->pos2 == ST_GUNNER ? state.c_str() : (s->deployed ? "deployed" : "not deployed - no firing"), s->status.c_str());

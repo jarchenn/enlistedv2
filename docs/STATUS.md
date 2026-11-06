@@ -58,6 +58,36 @@ Known limits of this update:
 - The other 26 catalog assets, the disabled templates, glTF import, multiplayer and an installer are out of scope.
 - The benchmarks in this update were measured while a second copy of the game was running on the same GPU (see [benchmarks.md](benchmarks.md)).
 
+## FPS weapons, ballistics, environment and defences update
+
+This update was requested in `claude_instructions.md`, inside `m1_garand_claude_package_v3.zip`. The plan is [plan-fps-update.md](plan-fps-update.md) and the details are in [fps-weapons.md](fps-weapons.md).
+
+| Phase | State | Verified by |
+|---|---|---|
+| F1 GLB import and bake (own GLB reader; skins, spec-gloss, animation, 1024² textures), calibration sheets | Done | `--selftest-fps` (import fit within 1 %, textures, fallback) |
+| F2 Fixed-FOV textured viewmodel, ADS on the real sight line, critically damped spring, rounds from F along normalize(F − R) | Done | `--selftest-fps` (≤ 0.26 px at three FOVs, < 1 mm / < 1e-4 rad) |
+| F3 Sway, bob, breathing with hold-breath, near-field sight depth of field | Done | `--selftest-fps` |
+| F4 Two-bone IK arms on per-weapon sockets | Done | `--selftest-fps` (residual < 1 mm, elbows down) |
+| F5 Glass, shutters and doors (HP 1 / 2 / 10, Jolt rigid bodies), energy-budget penetration | Done | `--selftest-env` |
+| F6 Crater formula Z −= D(1 − d²/R²)², standard 0.5 / 1.5 m and AT 1.2 / 3.0 m; PaK 40 AT round (X) | Done | `--selftest-env` (formula at 0, R/2, R; walk out) |
+| F7 Apple, oak and poplar trees with sway mask and felling (30 bullets / 1 AT); fBm clouds | Done | `--selftest-env` |
+| F8 Tank trap and straight / curved sandbags; B build mode with a 35° slope rule, socket snapping and blast occlusion ×0.1 | Done | `--selftest-env` |
+| Regression | 212 / 68 / 97 / 52 / 139 / 21 / 13 unchanged | `tools/run_all_tests.sh` |
+
+**Decisions you made:**
+- The GLBs ship. Fill in the author and licence blanks in [credits.md](credits.md).
+- AT craters are scaled down to 1.2 m so they stay climbable.
+- The previous update's benchmarks, packaging and report were skipped.
+
+**Known limits:**
+- The arms are procedural blocks; no arm model was supplied.
+- The BAR and MG 42 are single meshes, so they have no separate magazine or belt part.
+- The Thompson has factor-only materials.
+- There is no player health; blast exposure is a readout.
+- No vehicles exist; `blocksVehicles` is only a flag on the instance.
+- Clouds don't appear in reflections.
+- The package's reference images were placeholders.
+
 ## What's implemented
 
 - **Engine.** C++20, CMake, OpenGL 4.5 core (DSA), GLFW, GLAD, GLM, Dear ImGui, Jolt Physics (`CharacterVirtual`), nlohmann/json, miniaudio.

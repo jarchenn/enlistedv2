@@ -51,6 +51,7 @@ void App::updateLeafBodies(const Instance& i, InstanceRT& r, int k) {
 void App::destroyRT(InstanceRT& r) {
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
   Physics::remove(r.wallBody); r.wallBody = 0xffffffffu;
+  Physics::remove(r.trunkBody); r.trunkBody = 0xffffffffu;
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
 }
@@ -59,8 +60,19 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
   uint64_t base = i.id << 16;
   if (r.asset->shape) r.staticBody = Physics::addStatic(r.asset->shape, i.pos, yawQuat(i.yaw), base);
+  if (r.asset->tree.on) buildTreeRT(i, r);
+  r.defHp = r.asset->defense.hp; r.defDestroyed = false;
   size_t n = r.asset->interactables.size();
   r.progress.assign(n, 0); r.dir.assign(n, 0); r.leafBodies.assign(n, {});
+  r.leafSt.assign(n, {}); r.leafHits.assign(n, {});
+  for (size_t k = 0; k < n; ++k) {
+    auto& d = r.asset->interactables[k];
+    r.leafSt[k].assign(d.leaves.size(), 0); r.leafHits[k].assign(d.leaves.size(), 0.0f);
+    for (size_t l = 0; l < d.leaves.size(); ++l) {
+      auto s = i.leafState.find(d.id + "/" + std::to_string(l));
+      if (s != i.leafState.end()) r.leafSt[k][l] = s->second == 2 ? 3 : 1;   // applied damage: glass broken / leaf gone
+    }
+  }
   r.hp.assign(r.asset->panels.size(), 0); r.state.assign(r.asset->panels.size(), PANEL_INTACT);
   for (size_t k = 0; k < r.asset->panels.size(); ++k) {
     auto& p = r.asset->panels[k];
@@ -72,7 +84,9 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   for (size_t k = 0; k < n; ++k) {
     auto& d = r.asset->interactables[k];
     r.progress[k] = authoredOpen(i, d) ? 1.0f : 0.0f;
-    for (auto& lf : d.leaves) {
+    for (size_t l = 0; l < d.leaves.size(); ++l) {
+      auto& lf = d.leaves[l];
+      if (r.leafSt[k][l] & 2) { r.leafBodies[k].push_back(0xffffffffu); continue; }   // leaf gone (applied damage)
       vec3 pos = vec3(instanceMatrix(i) * vec4(lf.hinge, 1));
       quat q = yawQuat(i.yaw) * glm::angleAxis(radians(lf.sign * leafAngle(d, r.progress[k])), d.axis);
       r.leafBodies[k].push_back(Physics::addKinematic(lf.shape, pos, q, base | (k + 1)));
@@ -104,10 +118,16 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
+  R.foliage.clear();
+  R.wind = grass.wind ? 1.0f : 0.0f;
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     auto& r = it->second;
     mat4 M = instanceMatrix(i);
+    if (r.asset->tree.on) {
+      if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900) treeDrawItems(i, r, op);
+      continue;
+    }
     if (!r.asset->station.kind.empty()) {   // station: base + yaw / elevation / recoil children
       mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc);
       op.push_back({&r.asset->opaque, b});
@@ -118,16 +138,20 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     }
     // coarse distance cull
     if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) > 1200) continue;
+    if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }
     op.push_back({&r.asset->opaque, M});
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({&r.asset->panels[k].mesh[r.state[k]], M});
     if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
     for (size_t k = 0; k < r.asset->interactables.size(); ++k) {
       auto& d = r.asset->interactables[k];
-      for (auto& lf : d.leaves) {
+      for (size_t l = 0; l < d.leaves.size(); ++l) {
+        auto& lf = d.leaves[l];
+        uint8_t st = k < r.leafSt.size() && l < r.leafSt[k].size() ? r.leafSt[k][l] : 0;
+        if (st & 2) continue;                                  // detached: drawn from its rigid body
         mat4 L = leafMatrix(i, lf, d, r.progress[k]);
         op.push_back({&lf.opaque, L});
-        if (lf.glass.count) gl.push_back({&lf.glass, L});
+        if (lf.glass.count && !(st & 1)) gl.push_back({&lf.glass, L});
       }
     }
   }
@@ -241,6 +265,12 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   }
   c.y = top;
   float grade = top - low;
+  if (!a->defense.kind.empty()) {   // defences: terrain-conforming, limited by slope (theta = acos(N . up)) instead of grade
+    float sl = skipSlopeRule ? 0.0f : groundSlopeDeg(pos);
+    if (sl > a->defense.maxSlopeDeg) { char b[96]; std::snprintf(b, sizeof b, "Too steep: %.0f deg slope (limit %.0f deg).", sl, a->defense.maxSlopeDeg); c.ok = false; c.reason = b; return c; }
+    c.y = terrain.height(pos.x, pos.z);
+    grade = 0;
+  }
   if (grade > (a->plinthDepth > 0 ? std::min(a->maxGrade, a->plinthDepth) : a->maxGrade)) {
     char buf[160];
     std::string side = lowSide; side[0] = (char)std::toupper(side[0]);
@@ -251,6 +281,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     if (o.id == ignoreId) continue;
     const AssetDef* b = assetFor(o);
     if (b->category == "Trees" || b->category == "Bushes") continue;
+    if (a->defense.kind == "sandbag" && b->defense.kind == "sandbag") continue;   // sandbag runs chain end to end
     if (obbOverlap2D(vec2(pos.x, pos.z), hf - vec2(0.05f), radians(yaw), vec2(o.pos.x, o.pos.z), b->footprint * 0.5f - vec2(0.05f), radians(o.yaw))) {
       c.ok = false; c.reason = "Overlaps " + b->name + " #" + std::to_string(o.id) + "."; return c;
     }
@@ -264,6 +295,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   pushUndo();
   Instance i; i.id = doc.newId(); i.assetId = a->id; i.assetVersion = a->version;
   i.pos = vec3(pos.x, c.y, pos.z); i.yaw = wrapDeg(yaw);
+  if (a->defense.blocksVehicles) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["blocksVehicles"] = true; }
   bump(i);
   doc.instances.push_back(i);
   return i.id;
@@ -334,7 +366,9 @@ void App::makeThumbnails() {
         op.push_back({&lf.opaque, L});
         if (lf.glass.count) gl.push_back({&lf.glass, L});
       }
+    R.foliage.clear(); if (a->tree.on) R.foliage.push_back({&a->tree, mat4(1)});
     a->thumbnail = R.renderThumbnail(op, gl, a->bmin, a->bmax);
+    R.foliage.clear();
   }
   for (auto& t : templates) {
     if (!t.available) continue;
@@ -463,6 +497,8 @@ int App::run(int argc, char** argv) {
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
     buildDrawLists(op, gl);
     if (mode == Mode::Explore) {
+      dynLeafDrawItems(op);
+      builderGhosts(ghosts);
       for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
       weaponDrawItems(op);
     }
@@ -476,7 +512,8 @@ int App::run(int argc, char** argv) {
       if (!hideEditorOverlays) drawCreativeOverlay(ov, ghosts);
       audio.setListener(camPos, forward(camYaw, camPitch));
     } else {
-      vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
+      float shk = reducedMotion ? 0.0f : blastShake * blastShake * 1.6f;   // concussion shake (deg)
+      vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw + shk * std::sin((float)now * 41.0f), eyePitch + viewKickPitch + shk * std::sin((float)now * 53.0f + 1.3f));
       float fov = 72.0f;
       if (!stationCamera(e, fv, fov)) weaponCamera(fov);
       viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
@@ -539,6 +576,7 @@ std::vector<GrassFootprint> App::grassFootprints() const {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || !a->crate.empty()) continue;
+    if (a->tree.on) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
     fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z)});
   }
   return fp;

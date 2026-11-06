@@ -28,11 +28,15 @@ struct InstanceRT {
   bool damaged = false;                           // any panel not intact
   float lastRebuildMs = 0;
   StationRT st;                                   // crew-served station overlay (if the asset is a station)
+  std::vector<std::vector<uint8_t>> leafSt;       // [interactable][leaf] LEAF_* flags (session overlay)
+  std::vector<std::vector<float>> leafHits;       // bullet hits taken
+  float treeHits = 0; bool treeFelled = false, trunkApplied = false; uint32_t trunkBody = 0xffffffffu;   // trees (foliage.cpp)
+  float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
 };
 
 struct ExploreInput {
   vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0;
-  bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false;
+  bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false, toggleAmmo = false, build = false; float wheel = 0, lookYaw = 0, lookPitch = 0;
 };
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
@@ -124,6 +128,51 @@ public:
   bool hideEditorOverlays = false;   // fixed-camera material captures
   Explosion lastExplosion;
   void drawDamageDebug();
+  // ---- surface damage & penetration (ballistics.cpp)
+  struct DynLeaf { uint64_t inst = 0; int k = 0, l = 0; uint32_t body = 0xffffffffu; std::unique_ptr<GpuMesh> fractured; float age = 0; bool frozen = false; };
+  std::vector<std::unique_ptr<DynLeaf>> dynLeaves;
+  size_t maxDynLeaves = 24;
+  std::vector<Projectile> spawnedProjectiles;      // penetrating continuations, appended after the step
+  struct PenetrationInfo { std::string surface; float thickness = 0, eIn = 0, eOut = 0; bool through = false; vec3 entry{0}, exit{0}; };
+  PenetrationInfo lastPen;
+  int leafBreaks = 0;
+  bool bulletImpact(const Projectile& p, const Physics::Hit& hit, std::string& surface);   // true: round continues
+  bool locateLeaf(const Instance& i, const InstanceRT& r, int k, vec3 world, int& leaf, bool& onGlass) const;
+  void breakGlass(Instance& i, InstanceRT& r, int k, int l, vec3 at);
+  void detachLeaf(Instance& i, InstanceRT& r, int k, int l, vec3 impulse, vec3 at, bool fracture);
+  void blastLeaves(vec3 p, float radius);
+  void stepDynLeaves(float dt);
+  void resetLeafDamage();
+  void dynLeafDrawItems(std::vector<DrawItem>& op);
+  float leafHpFor(const InteractDef& d) const;
+  // ---- buildable defences (builder.cpp)
+  struct BuildState { bool active = false, valid = false, snapped = false, fireHeld = true; int item = 1; float yaw = 0, ghostYaw = 0, slopeDeg = 0; vec3 pos{0}; std::string reason; const AssetDef* asset = nullptr; };
+  BuildState build;
+  int buildPlaced = 0;
+  bool skipSlopeRule = false;
+  struct BlastInfo { float raw = 0, mult = 1, value = 0, time = -100; };
+  BlastInfo lastBlast;
+  float blastShake = 0;
+  float groundSlopeDeg(vec3 p, vec3* n = nullptr) const;
+  bool snapDefense(const AssetDef* a, vec3& pos, float& yaw, int* matchedSocket = nullptr) const;
+  void stepBuilder(const ExploreInput& in);
+  void builderGhosts(std::vector<DrawItem>& ghosts) const;
+  void removeSessionPlacements();
+  bool defenseBulletHit(uint64_t iid, vec3 at);
+  void destroyDefense(Instance& i, InstanceRT& r);
+  void blastDefenses(vec3 p, float dmg, float radius);
+  float blastOcclusion(vec3 from, vec3 to) const;
+  void blastPlayer(vec3 p, float dmg, float radius);
+  void drawBuilderUI();
+  // ---- trees (foliage.cpp)
+  int treesFelled = 0;
+  void buildTreeRT(const Instance& i, InstanceRT& r);
+  void fellTree(Instance& i, InstanceRT& r, vec3 at, vec3 push);
+  bool treeImpact(uint64_t iid, vec3 at, vec3 dir, bool shell);
+  void blastTrees(vec3 p, float radius);
+  void resetTrees();
+  void treeDrawItems(const Instance& i, const InstanceRT& r, std::vector<DrawItem>& op);
+  json treeApplyState(const Instance& i, const InstanceRT& r) const;
   // ---- combat (station.cpp / fx.cpp / weapons.cpp)
   Fx fx;
   Grass grass;
@@ -192,6 +241,8 @@ public:
   void dofParams(float& focus, float& amount) const;
   vec3 weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const;
   bool deformGround(vec3 p, float scale);   // ground.cpp
+  bool blastAT = false;                     // the explosion being resolved is an AT shell (deep crater profile)
+  static constexpr float kStdCraterD = 0.5f, kStdCraterR = 1.5f, kATCraterD = 1.2f, kATCraterR = 3.0f, kCraterP = 2.0f;
   bool craterAt(vec3 p, float radius, float depth);
   float groundWeight(float x, float z) const;
   void syncGroundTiles(const std::vector<int>& keys);

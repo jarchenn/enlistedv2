@@ -44,8 +44,12 @@ bool App::craterAt(vec3 p, float radius, float depth) {
 }
 
 bool App::deformGround(vec3 p, float scale) {
-  // shipped 7.5 cm HE profile (game tuning, not a measurement of wartime craters): ~3 m across, ~0.4 m deep
-  return craterAt(p, 1.5f * scale, 0.42f * scale);
+  // Crater displacement (guide formula):  Z_new = Z_old - D_max * (max(0, 1 - d^2 / R^2))^p,  p = 2
+  //   standard shell (7.5 cm HE): D_max 0.5 m, R 1.5 m;  AT shell (PzGr. 39): D_max 1.2 m, R 3.0 m
+  // AT is the guide's deep profile scaled to stay climbable (peak wall ~32 deg); both are game tuning, not
+  // measurements of wartime craters.
+  if (blastAT) return craterAt(p, kATCraterR, kATCraterD);
+  return craterAt(p, kStdCraterR * scale, kStdCraterD * scale);
 }
 
 void App::removeGroundBodies() {
@@ -65,31 +69,42 @@ void App::resetGround() {
 }
 
 void App::applyDamageToMap() {
-  // Explicit editor operation: transfer ONLY panel states and terrain deltas into the map, as one undo step.
+  // Explicit editor operation: transfer the session overlay (panels, openings, trees, built defences, terrain
+  // deltas) into the map, as one undo step. The undo snapshot never contains unapplied session placements.
   pushUndo();
-  int panels = 0;
+  if (!undoStack.empty()) { auto& v = undoStack.back().inst; v.erase(std::remove_if(v.begin(), v.end(), [](const Instance& i) { return i.extra.is_object() && i.extra.value("session", false); }), v.end()); }
+  int panels = 0, leaves = 0, placed = 0;
   for (auto& i : doc.instances) {
-    auto it = rt.find(i.id); if (it == rt.end()) continue;
-    auto& r = it->second;
     bool changed = false;
+    if (i.extra.is_object() && i.extra.value("session", false)) { i.extra.erase("session"); changed = true; ++placed; }
+    auto it = rt.find(i.id); if (it == rt.end()) { if (changed) i.rev = ++revCounter; continue; }
+    auto& r = it->second;
     for (size_t k = 0; k < r.asset->panels.size(); ++k) {
       auto& p = r.asset->panels[k];
       float authored = i.panelHp.count(p.id) ? i.panelHp[p.id] : p.hp;
       if (std::fabs(r.hp[k] - authored) > 0.01f) { i.panelHp[p.id] = r.hp[k]; changed = true; ++panels; }
     }
+    for (size_t k = 0; k < r.leafSt.size(); ++k)
+      for (size_t l = 0; l < r.leafSt[k].size(); ++l) {
+        if (!r.leafSt[k][l]) continue;
+        std::string key = r.asset->interactables[k].id + "/" + std::to_string(l);
+        int v = (r.leafSt[k][l] & 2) ? 2 : 1;
+        if (!i.leafState.count(key) || i.leafState[key] != v) { i.leafState[key] = v; changed = true; ++leaves; }
+      }
+    if (r.asset->tree.on && r.treeFelled && !r.trunkApplied) { json ts = treeApplyState(i, r); if (!ts.is_null()) { i.extra["tree"] = ts; changed = true; ++leaves; } }
     if (changed) { i.rev = ++revCounter; }
   }
   doc.terrainDeltas = terrain.deltas();
   doc.terrainTemplateVersion = doc.templateVersion;
   dirty = true;
   char b[160];
-  std::snprintf(b, sizeof b, "Applied damage to map: %d wall panels, %zu ground tiles (Ctrl+Z to undo).", panels, doc.terrainDeltas.size());
+  std::snprintf(b, sizeof b, "Applied session changes to map: %d wall panels, %d openings / trees, %d defences, %zu ground tiles (Ctrl+Z to undo).", panels, leaves, placed, doc.terrainDeltas.size());
   toast(b, 6);
 }
 
 void App::clearAppliedDamage() {
   pushUndo();
-  for (auto& i : doc.instances) if (!i.panelHp.empty()) { i.panelHp.clear(); i.rev = ++revCounter; }
+  for (auto& i : doc.instances) if (!i.panelHp.empty() || !i.leafState.empty() || i.extra.contains("tree")) { i.panelHp.clear(); i.leafState.clear(); i.extra.erase("tree"); i.rev = ++revCounter; }
   doc.terrainDeltas.clear();
   dirty = true;
   resetGround();

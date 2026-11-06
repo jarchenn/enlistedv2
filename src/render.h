@@ -5,6 +5,8 @@
 #include "grass.h"
 
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; };
+struct TreeDef;
+struct FoliageDraw { const TreeDef* tree; mat4 m; };
 struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; };
 struct OverlayVert { vec3 p; vec4 c; };
 
@@ -45,16 +47,23 @@ public:
   std::vector<DrawItem> viewModel;      // first-person weapon: drawn last over a cleared depth buffer
   std::vector<ModelDraw> viewModelTex;  // textured (imported) parts of the first-person weapon
   bool dofEnabled = true;
+  std::vector<FoliageDraw> foliage;     // tree leaf cards (alpha-tested, wind sway, shadow casting)
+  float wind = 1.0f;
+  // sky clouds: fbm on a plane at 1500 m scrolling with the wind
+  bool clouds = true; float cloudCover = 0.5f;
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
   bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));
   int width = 0, height = 0;
+  int shaderErrors = 0;                 // compile failures since start (self-tests require 0)
 private:
   GLuint compile(const char* vs, const char* fs, const char* name);
   void createTargets();
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass);
   void setLighting(GLuint prog, const RenderView& v);
   void drawModels(const std::vector<ModelDraw>& items);
+  void drawFoliage(GLuint prog, const mat4& vp);
+  GLuint progLeaf = 0, progLeafShadow = 0;
   GLuint progModel = 0, progDof = 0;
   GLuint vmDistTex = 0, dofTex = 0, dofFbo = 0;
   GLuint progGrass = 0;

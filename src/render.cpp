@@ -354,6 +354,60 @@ void main(){
 }
 )GLSL";
 
+// ---- tree leaf cards: alpha-tested clusters, sway  V_offset = D_wind * M * A * sin(f t + k_x X + k_z Z)
+static const char* kLeafVS = R"GLSL(
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec2 aUV; layout(location=3) in float aMask;
+uniform mat4 uModel, uVP; uniform float uTime, uWind;
+out vec3 vW, vN; out vec2 vUV; out float vM; flat out float vSeed;
+void main(){
+  vec4 w = uModel*vec4(aPos, 1.0);
+  const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
+  float s = sin(f*uTime + kx*w.x + kz*w.z) + 0.3*sin(2.9*uTime + 0.8*w.x - 0.5*w.y);
+  w.xyz += (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * aMask * uWind;
+  vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask;
+  vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
+  gl_Position = uVP*w;
+}
+)GLSL";
+static const char* kLeafAlpha = R"GLSL(
+float leafAlpha(vec2 uv, float seed){
+  float a = 0.0;
+  for (int i = 0; i < 6; ++i) {
+    vec2 c = vec2(hash12(vec2(seed, float(i))), hash12(vec2(float(i), seed + 3.1)))*0.64 + 0.18;
+    float ang = hash12(vec2(seed + float(i), 7.0))*6.2832;
+    vec2 d = uv - c; d = mat2(cos(ang), -sin(ang), sin(ang), cos(ang))*d; d.x *= 2.3;
+    if (dot(d, d) < 0.028) a = 1.0;
+  }
+  return a;
+}
+)GLSL";
+static const char* kLeafFS = R"GLSL(
+in vec3 vW, vN; in vec2 vUV; in float vM; flat in float vSeed;
+uniform vec3 uLeafCol;
+out vec4 oColor;
+float leafAlpha(vec2 uv, float seed);
+void main(){
+  if (leafAlpha(vUV, vSeed) < 0.5) discard;
+  vec3 N = normalize(vN);
+  float var = hash12(vec2(vSeed, 2.0));
+  vec3 alb = uLeafCol*(0.72 + 0.56*var);
+  float sh = 1.0;
+  if (uShadowOn == 1) { vec4 lp = uLightVP*vec4(vW + N*0.12, 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
+    if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.xy, sc.z - 0.002)); }
+  float ndl = max(dot(N, uSunDir), 0.0)*0.7 + 0.3;
+  vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.45, 1.0, 0.5 + 0.5*N.y);
+  vec3 V = normalize(uCamPos - vW);
+  vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.85 + alb*uSunCol*0.12*pow(max(dot(-V, uSunDir), 0.0), 4.0)*sh;
+  c = applyFog(c, vW);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
+}
+)GLSL";
+static const char* kLeafShadowFS = R"GLSL(
+in vec3 vW, vN; in vec2 vUV; in float vM; flat in float vSeed;
+float leafAlpha(vec2 uv, float seed);
+void main(){ if (leafAlpha(vUV, vSeed) < 0.5) discard; }
+)GLSL";
+
 static const char* kShadowVS = R"GLSL(
 #version 450 core
 layout(location=0) in vec3 aPos;
@@ -473,18 +527,25 @@ void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUV = p; gl_Posit
 )GLSL";
 static const char* kSkyFS = R"GLSL(
 in vec2 vUV;
-uniform mat4 uInvVP;
+uniform mat4 uInvVP; uniform int uCloudOn; uniform float uCloudCover, uTime;
 out vec4 oColor;
 void main(){
   vec4 a = uInvVP*vec4(vUV*2.0-1.0, -1.0, 1.0), b = uInvVP*vec4(vUV*2.0-1.0, 1.0, 1.0);
   vec3 d = normalize(b.xyz/b.w - a.xyz/a.w);
   vec3 c = skyColor(d);
-  if (d.y > 0.0) {
-    vec2 cp = d.xz/(d.y+0.08)*1.5;
-    float cl = smoothstep(0.42, 0.85, fbm(vec3(cp*0.9, 0.0)));
-    c = mix(c, vec3(0.86,0.87,0.88)*1.15, cl*0.6*smoothstep(0.0,0.15,d.y));
+  if (uCloudOn == 1 && d.y > 0.0) {
+    // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
+    vec2 cp = (d.xz/(d.y + 0.06))*1500.0/600.0 + uTime*vec2(0.012, 0.0075);   // ~600 m cells at the 1500 m deck
+    float n = 0.0, a = 0.5; vec3 q = vec3(cp, uTime*0.002);
+    for (int i = 0; i < 5; ++i) { n += a*vnoise(q); q = q*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }
+    float th = mix(0.72, 0.38, uCloudCover);
+    float cl = smoothstep(th, th + 0.22, n);
+    float sd = max(dot(d, uSunDir), 0.0);
+    float thick = smoothstep(th + 0.05, th + 0.45, n);
+    vec3 lit = vec3(0.95, 0.95, 0.96)*1.35*mix(1.0, 0.5, thick) + uSunCol*0.35*pow(sd, 6.0)*(1.0 - thick);   // grey bases, silver lining at thin edges
+    c = mix(c, lit, cl*0.9*smoothstep(0.0, 0.12, d.y));
   }
-  oColor = vec4(c, 1.0);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? skyColor(d) : c, 1.0);
 }
 )GLSL";
 static const char* kToneFS = R"GLSL(
@@ -576,7 +637,7 @@ GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
     GLuint s = glCreateShader(type);
     glShaderSource(s, n, srcs, nullptr); glCompileShader(s);
     GLint ok; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
-    if (!ok) { char log[4096]; glGetShaderInfoLog(s, sizeof log, nullptr, log); logf("shader %s (%s) error:\n%s", name, type == GL_VERTEX_SHADER ? "vs" : "fs", log); }
+    if (!ok) { char log[4096]; glGetShaderInfoLog(s, sizeof log, nullptr, log); logf("shader %s (%s) error:\n%s", name, type == GL_VERTEX_SHADER ? "vs" : "fs", log); ++shaderErrors; }
     return s;
   };
   bool vsHasVersion = std::strncmp(vs, "\n#version", 9) == 0 || std::strncmp(vs, "#version", 8) == 0;
@@ -606,6 +667,11 @@ bool Renderer::init(int w, int h) {
   progGrass = compile(kGrassVS, kGrassFS, "grass");
   progModel = compile(kModelVS, kModelFS, "model");
   progDof = compile(kFullVS, kDofFS, "dof");
+  {
+    std::string fs1 = std::string(kLeafAlpha) + kLeafFS, fs2 = std::string(kLeafAlpha) + kLeafShadowFS;
+    progLeaf = compile(kLeafVS, fs1.c_str(), "leaf");
+    progLeafShadow = compile(kLeafVS, fs2.c_str(), "leaf_shadow");
+  }
   glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
   glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
   for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
@@ -726,6 +792,21 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
   }
 }
 
+void Renderer::drawFoliage(GLuint p, const mat4& vp) {
+  glUseProgram(p);
+  glUniformMatrix4fv(U(p, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+  glUniform1f(U(p, "uTime"), time); glUniform1f(U(p, "uWind"), wind);
+  GLint lm = U(p, "uModel"), lc = U(p, "uLeafCol");
+  for (auto& f : foliage) {
+    if (!f.tree || !f.tree->cardVao) continue;
+    glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
+    if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(f.tree->leafCol));
+    glBindVertexArray(f.tree->cardVao);
+    glDrawArrays(GL_TRIANGLES, 0, f.tree->cardVerts);
+    stats.draws++; stats.tris += f.tree->cardVerts / 3;
+  }
+}
+
 void Renderer::drawModels(const std::vector<ModelDraw>& items) {
   GLuint p = progModel;
   glUniform1i(U(p, "uAlb"), 2); glUniform1i(U(p, "uMR"), 3); glUniform1i(U(p, "uNrm"), 4); glUniform1i(U(p, "uAO"), 5);
@@ -817,6 +898,8 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   glUseProgram(progShadow);
   glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   drawItems(progShadow, opaque, true);
+  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP);
+  glUseProgram(progShadow);
   // ---- sky occlusion (top down)
   float occR = 90.0f;
   vec3 ofocus = v.camPos; occTop = std::max(v.camPos.y, 0.0f) + 60.0f; occRange = 200.0f;
@@ -832,6 +915,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   glClear(GL_DEPTH_BUFFER_BIT);
   glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   drawItems(progShadow, opaque, true);
+  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP);
   glDisable(GL_POLYGON_OFFSET_FILL);
 
   // ---- main HDR pass
@@ -842,6 +926,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   // sky
   setLighting(progSky, v);
   glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
+  glUniform1i(U(progSky, "uCloudOn"), clouds ? 1 : 0); glUniform1f(U(progSky, "uCloudCover"), cloudCover);
   glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE);
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   glDepthMask(GL_TRUE); glDepthFunc(GL_LESS);
@@ -857,6 +942,13 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   setLighting(progMain, v);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false);
+  // tree canopies (double sided, alpha tested)
+  if (!foliage.empty()) {
+    glDisable(GL_CULL_FACE);
+    setLighting(progLeaf, v);
+    drawFoliage(progLeaf, vp);
+    glEnable(GL_CULL_FACE);
+  }
   // grass after opaque so buildings reject hidden blades early; double sided
   if (grass && !thumbMode) {
     glDisable(GL_CULL_FACE);
@@ -1031,6 +1123,7 @@ GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std:
   setLighting(progMain, v);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false);
+  if (!foliage.empty()) { setLighting(progLeaf, v); drawFoliage(progLeaf, vp); }
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glDepthMask(GL_FALSE);
   setLighting(progGlass, v);
   glUniformMatrix4fv(U(progGlass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
