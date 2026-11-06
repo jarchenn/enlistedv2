@@ -86,4 +86,4 @@ Both values scale with √(damage / reference). Removal also scales by 0.55 + 0.
 
 - **Roofs and stairs.** Sloped roofs and stair treads are not converted to bays (rotated or small parts), so they don't take local damage yet. Upper floors do.
 - **Debris** is cosmetic: pooled boxes with simple physics and no collision with the player.
-- **Crouching through tight holes.** In the 1–1.2 m deep concrete casemate walls, a crouching capsule wedged in a tunnel whose rays all passed; the test now opens a standing-height breach instead. The farmhouse crouch-through works. This needs a follow-up in the posture code, not the damage field.
+- **Crouching through holes.** A crouched capsule is 1.2 m tall plus 2 cm padding, so a breach must be open about 1.25 m high. `--selftest-damage` opens a 0.8 × 1.26 m breach in a fresh 1.2 m MG-casemate wall and crawls through it crouched. The earlier wedge in the 1 m casemate came from a hole lower than the capsule, not from the controller. The farmhouse crouch-through also works.

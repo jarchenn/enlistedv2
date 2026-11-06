@@ -25,13 +25,14 @@ function bunkerMaterials(A, lip) {
 // A slit through a wall of depth outer..inner, given by its throat (the inner-face opening). Adds the stepped liners
 // and returns the hole to cut through the full wall (the outermost, largest opening). open0/open1: that end runs on
 // through a corner (no end step). n depth bands share the wall thickness.
-function slit(A, { axis, outer, inner, a0, a1, y0, y1, open0 = false, open1 = false, n = 3 }) {
+function slit(A, { axis, outer, inner, a0, a1, y0, y1, open0 = false, open1 = false, n = 3, step = {} }) {
+  const st = { da: STEP.da, dyT: STEP.dy, dyB: STEP.dy, ...step };   // a gun embrasure widens more, mostly upward
   const out = Math.sign(outer - inner), t = Math.abs(outer - inner) / n, g = n - 1;
-  const H = { a0: open0 ? a0 : a0 - g * STEP.da, a1: open1 ? a1 : a1 + g * STEP.da, y0: y0 - g * STEP.dy, y1: y1 + g * STEP.dy };
+  const H = { a0: open0 ? a0 : a0 - g * st.da, a1: open1 ? a1 : a1 + g * st.da, y0: y0 - g * st.dyB, y1: y1 + g * st.dyT };
   for (let k = 0; k < g; k++) {   // band k counts from the inner face; its opening is the throat grown by k steps
     const d0 = inner + out * k * t, d1 = inner + out * (k + 1) * t;
-    const oa0 = open0 ? a0 : a0 - k * STEP.da, oa1 = open1 ? a1 : a1 + k * STEP.da, oy0 = y0 - k * STEP.dy, oy1 = y1 + k * STEP.dy;
-    wbox(A, axis, H.a0, H.a1, H.y0, oy0, d0, d1, "concrete");
+    const oa0 = open0 ? a0 : a0 - k * st.da, oa1 = open1 ? a1 : a1 + k * st.da, oy0 = y0 - k * st.dyB, oy1 = y1 + k * st.dyT;
+    if (oy0 > H.y0 + 1e-4) wbox(A, axis, H.a0, H.a1, H.y0, oy0, d0, d1, "concrete");
     wbox(A, axis, H.a0, H.a1, oy1, H.y1, d0, d1, "concrete");
     if (!open0) wbox(A, axis, H.a0, oa0, oy0, oy1, d0, d1, "concrete");
     if (!open1) wbox(A, axis, oa1, H.a1, oy0, oy1, d0, d1, "concrete");
@@ -58,6 +59,31 @@ function roofSlab(A, x0, x1, z0, z1, y0, y1, ov, r = 0.2) { A.rbox([x0 - ov[0], 
 // corner pier / pilaster / wing pier: a rounded block standing proud of the wall faces
 function pier(A, x0, x1, z0, z1, y0, y1, r = 0.12) { A.rbox([x0, y0, z0], [x1, y1, z1], r, "concrete"); }
 
+// Camouflage netting (visual only: no collision, rounds and view rays pass): draped over a roof top in a few slightly
+// tilted sheets, hung from roof edges as skirts that flare out toward the ground, and short festoons along a firing
+// front's fascia. Never hung in front of a slit. hang: [side, a0, a1, edge, yTop, yBottom], side "x+"/"x-"/"z+"/"z-".
+function camoNet(A, { roof = null, hang = [] }) {
+  if (!A.materials.find((m) => m.name === "camo_net")) A.mat("camo_net", [0.12, 0.12, 0.06], 0.95, "net");
+  const o = { k: 0 };
+  if (roof) {
+    const [x0, x1, z0, z1, y] = roof, nx = Math.max(1, Math.round((x1 - x0) / 3.2)), nz = Math.max(1, Math.round((z1 - z0) / 3.2));
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+      const ax = x0 + ((x1 - x0) * i) / nx, bx = x0 + ((x1 - x0) * (i + 1)) / nx, az = z0 + ((z1 - z0) * j) / nz, bz = z0 + ((z1 - z0) * (j + 1)) / nz;
+      const tilt = (((i * 7 + j * 3) % 5) - 2) * 0.7;
+      A.obox([(ax + bx) / 2, y + 0.05 + 0.02 * ((i + j) % 2), (az + bz) / 2], [bx - ax + 0.25, 0.035, bz - az + 0.25], [tilt, 0, -tilt * 0.6], "camo_net", o);
+    }
+  }
+  for (const [side, a0, a1, edge, yTop, yBot] of hang) {
+    const n = Math.max(1, Math.round((a1 - a0) / 1.6)), sgn = side[1] === "+" ? 1 : -1, h = yTop - yBot, flare = Math.min(0.5, h * 0.18);
+    for (let i = 0; i < n; i++) {
+      const b0 = a0 + ((a1 - a0) * i) / n, b1 = a0 + ((a1 - a0) * (i + 1)) / n, jit = ((i * 5) % 3 - 1) * 2.5;
+      const lean = (Math.atan2(flare, h) * 180) / Math.PI + jit * 0.4;
+      const d = edge + sgn * (0.03 + flare / 2);
+      if (side[0] === "z") A.obox([(b0 + b1) / 2, (yTop + yBot) / 2, d], [b1 - b0 + 0.12, h, 0.035], [sgn * lean, jit, 0], "camo_net", o);
+      else A.obox([d, (yTop + yBot) / 2, (b0 + b1) / 2], [0.035, h, b1 - b0 + 0.12], [0, jit, -sgn * lean], "camo_net", o);
+    }
+  }
+}
 // sand / earth drifted against a wall face at `w` (axis 0: wall along x at z = w; axis 2: along z at x = w), running
 // out `run` toward `dir`: a low wedge whose height tapers over the last metre at each end (no steep cut-off faces)
 function drift(A, axis, a0, a1, w, dir, h, run) {
@@ -98,7 +124,7 @@ export function mgCasemate() {
   const X = 4.0, Z = 2.9, T = 1.2, GF = 0.3, CEIL = GF + 2.5, ROOF = CEIL + 1.0, XI = X - T, ZI = Z - T, pt = 0.02;
   const A = new Asset({
     id: "bunker_mg_casemate", version: 2, name: "Machine-Gun Casemate", category: "Bunkers",
-    description: "Free-standing reinforced-concrete MG casemate, 8 x 5.8 m, 1.2 m walls under a heavy overhanging roof slab. A continuous stepped viewing slit runs the full front and wraps both corners over the front half of each side. Recessed steel rear door behind a blast wall. MG table, ammunition, bench and shelf inside.",
+    description: "Free-standing reinforced-concrete MG casemate, 8 x 5.8 m, 1.2 m walls under a heavy overhanging roof slab. A continuous stepped viewing slit runs the full front and wraps both corners over the front half of each side. Recessed steel rear door behind a blast wall, camouflage netting over the roof and rear. Placed with its MG 42 embrasure mount; ammunition, bench and shelf inside.",
     floors: 1, enterable: true, footprint: [10.0, 10.4], plinthDepth: 0.6, maxGrade: 0.6,
   });
   bunkerMaterials(A, CEIL);
@@ -127,11 +153,11 @@ export function mgCasemate() {
   A.box([rear.a0, -0.2, -Z - 0.85], [rear.a1, 0.12, -Z - 0.28], "concrete");
   A.box([-3.0, -0.3, -Z - 2.3], [-0.2, 2.2, -Z - 1.8], "concrete");
   // interior
-  A.beginFurniture("MG table");
-  A.box([-0.6, GF, 1.05], [0.6, GF + 0.9, ZI], "concrete_wash");
-  A.box([-0.65, GF + 0.9, 1.0], [0.65, GF + 0.96, ZI], "oak_x");
-  A.box([-0.04, GF + 0.96, 1.4], [0.04, GF + 1.12, 1.48], "steel_bare");
-  A.endFurniture();
+  // the MG 42 on its embrasure pedestal mount (a crew station, gun_mg42_embrasure) is placed with the casemate
+  A.meta.companions = [{ asset: "gun_mg42_embrasure", pos: [0, GF, 1.5], yaw: 0 }];   // pivot 0.2 m behind the slit
+  camoNet(A, { roof: [-X - 0.6, X + 0.6, -Z - 0.25, Z + 0.7, ROOF],
+    hang: [["z-", -X - 0.6, X + 0.6, -Z - 0.25, ROOF, 0.45], ["x+", -Z - 0.25, -0.3, X + 0.6, ROOF, 0.5], ["x-", -Z - 0.25, -0.3, -X - 0.6, ROOF, 0.5],
+           ["z+", -X - 0.6, X + 0.6, Z + 0.7, ROOF + 0.02, ROOF - 0.5]] });
   crates(A, "Ammunition boxes", [[-1.25, GF, 1.4, 0.45, 0.22, 0.28], [-1.25, GF + 0.22, 1.4, 0.45, 0.22, 0.28], [-1.3, GF, 1.0, 0.45, 0.22, 0.28, 8]], "crate_olive");
   A.beginFurniture("Bench");
   A.box([-XI, GF + 0.42, -1.6], [-2.22, GF + 0.47, -0.2], "plank_z");
@@ -348,6 +374,8 @@ export function commandShelter() {
   for (const z of [-0.6, -0.1, 0.4, 0.9]) A.box([-XI + 0.03, GF + 1.35, z - 0.08], [-XI + 0.12, GF + 1.6, z + 0.08], "crate_olive");
   A.endFurniture(false);
   for (const [x, z] of [[1.0, 0.3], [-2.5, 0.0], [3.0, -1.5]]) lamp(A, x, CEIL, z);
+  camoNet(A, { roof: [-X - 0.45, X + 0.45, -Z - 0.45, Z + 0.6, ROOF],
+    hang: [["x+", -Z - 0.45, Z + 0.6, X + 0.45, ROOF, 0.5], ["x-", -Z - 0.45, Z + 0.6, -X - 0.45, ROOF, 0.5], ["z+", -X - 0.45, X + 0.45, Z + 0.6, ROOF + 0.02, ROOF - 0.5]] });
   const eye = GF + SLIT.eye, pz = -Z - 1.0;
   A.walkthrough = {
     start: { pos: [-0.2, 0, -8.0], yaw: 180 },
@@ -434,6 +462,9 @@ export function largeBunker() {
   drift(A, 0, -2.8, 1.3, -6.3, -1, 0.55, 2.3);
   drift(A, 2, -0.3, 4.8, 8.6, 1, 0.45, 1.8);
   drift(A, 0, -8.4, 2.4, 5.0, 1, 0.42, 1.8);
+  camoNet(A, { roof: [-3.3, 9.8, -6.4, 0.5, 6.0],
+    hang: [["x+", -6.4, 0.5, 9.8, 6.0, 0.9], ["z-", 4.4, 9.8, -6.4, 6.0, 0.9], ["z+", 2.4, 9.8, 0.5, 6.02, 5.5]] });
+  A.obox([-3.05, HOOD_TOP + 0.05, 2.1], [10.6, 0.035, 7.0], [0.8, 0, -0.5], "camo_net", { k: 0 });   // over the hood
   // ---- interiors
   crates(A, "Ammunition", [[-6.3, GF, -0.05, 0.45, 0.22, 0.28], [-6.3, GF + 0.22, -0.05, 0.45, 0.22, 0.28], [-6.3, GF, 0.35, 0.45, 0.22, 0.28], [-5.7, GF, -0.05, 0.45, 0.22, 0.28, 6]], "crate_olive");
   shelfZ(A, "Shell rack", 1.0, 2.6, -6.8, 1, GF, 1.6, 0.4, 3, "plank_z", (y, xa, xx, i) => {
@@ -464,6 +495,107 @@ export function largeBunker() {
       { look: [-1.0, 0.9, -0.3], hold: 0.6 }, { shot: "41_large_firing_room" },
       { goto: [-0.25, 0.4] }, { goto: [-0.2, -2.1] }, { goto: [3.0, -3.6] }, { goto: [3.0, -6.2] }, { goto: [3.0, -7.8] },
       { goto: [6.5, -8.0], note: "leave the casemate" },
+    ],
+  };
+  return A;
+}
+
+// ----------------------------------------------------------------------------- MG 42 embrasure mount (crew station)
+// Steel pedestal mount for the MG 42 behind a slit. The supplied MG 42 GLB is drawn in its cradle (src/app.cpp); the
+// mount is the only geometry here. Bore and sight line sit in the shared slit band (SLIT) for a standing gunner.
+export function mg42Mount() {
+  const A = new Asset({
+    id: "gun_mg42_embrasure", version: 1, name: "MG 42 on embrasure mount", category: "Field guns",
+    description: "MG 42 on a steel pedestal (embrasure) mount, crewed standing from the grips: 55 deg either side, -5/+7 deg (the slit band limits it 0.2 m behind a 1.2 m wall), 50-round belts with 250 in reserve. Placed with the MG casemate behind its slit; stands behind any slit at the shared slit height.",
+    floors: 0, enterable: false, footprint: [0.8, 1.6], plinthDepth: 0, maxGrade: 0.4,
+  });
+  stdMaterials(A);
+  A.meta.faction = "DE";
+  const YP = [0, 1.5, 0], EP = [0, SLIT.eye - 0.036, 0];   // sight line 3.6 cm above the bore, at the standing eye
+  A.box([-0.3, 0, -0.3], [0.3, 0.035, 0.3], "steel_plate", { k: 0 });   // base plate
+  A.box([-0.055, 0.035, -0.055], [0.055, YP[1] - 0.06, 0.055], "steel_plate", { k: 0 });   // pedestal post
+  for (const s of [-1, 1]) {   // gussets
+    A.box([s > 0 ? 0.055 : -0.22, 0.035, -0.012], [s > 0 ? 0.22 : -0.055, 0.22, 0.012], "steel_plate", { k: 0 });
+    A.box([-0.012, 0.035, s > 0 ? 0.055 : -0.22], [0.012, 0.22, s > 0 ? 0.22 : -0.055], "steel_plate", { k: 0 });
+  }
+  A.box([-0.17, 0, -0.17], [0.17, YP[1] - 0.1, 0.17], "steel_plate", { v: 0 });   // the player cannot walk through the post
+  const Y = { into: [], k: 0 }, E = { into: [], k: 0 };
+  A.box([-0.07, YP[1] - 0.06, -0.08], [0.07, YP[1] + 0.02, 0.08], "steel_bare", Y);   // swivel head
+  for (const s of [-1, 1]) A.box([s * 0.05 - 0.012, YP[1], -0.06], [s * 0.05 + 0.012, EP[1] - 0.04, 0.06], "steel_plate", Y);   // fork
+  A.box([-0.035, EP[1] - 0.095, -0.14], [0.035, EP[1] - 0.07, 0.16], "steel_bare", E);   // cradle under the receiver
+  const rel = (parts, p) => parts.map((q) => ({ ...q, c: [q.c[0] - p[0], q.c[1] - p[1], q.c[2] - p[2]] }));
+  A.meta.station = {
+    kind: "mg42", yawPivot: YP, elevPivot: EP, muzzle: [0, EP[1], 0.77], optic: [0, EP[1] + 0.036, -0.2],
+    gunner: [0, 0, -0.85], handler: [0, 0, -0.85], traverse: [-55, 55], elevation: [-5, 7], traverseRate: 90, elevateRate: 60,
+    recoil: 0.015, reloadTime: 4.6, loaded: 50, reserve: 250, ammo: "792_belt50", moveHalf: [0.3, 0.8, 0.3], serviceRadius: 4,
+    yawParts: rel(Y.into, YP), elevParts: rel(E.into, EP), recoilParts: [],
+  };
+  return A;
+}
+
+// ----------------------------------------------------------------------------- PaK casemate (R612 type)
+// Regelbau-612-style gun casemate: a 1.5 m front with one wide stepped gun embrasure, a gun room sized for the PaK 40
+// (placed with it, plus an ammunition crate), a commander's slit at the shared slit height, and double steel gun doors
+// in the rear through which the gun is run in. The floor is flush with the ground so the gun stands level.
+export function pakCasemate() {
+  const GF = 0.02, CEIL = 2.7, ROOF = CEIL + 1.2, XO = 4.2, XI = 3.0, ZF = 3.5, ZFI = 2.0, ZB = -4.2, ZBI = -3.0, pt = 0.02;
+  const A = new Asset({
+    id: "bunker_pak_casemate", version: 1, name: "PaK Casemate (R612 type)", category: "Bunkers",
+    description: "Reinforced-concrete gun casemate after the Regelbau 612: 8.4 x 7.7 m, 1.5 m front with a wide stepped embrasure, gun room for the PaK 40 (placed with the casemate, with an ammunition crate), commander's slit, double steel gun doors at the rear. Camouflage netting over the roof.",
+    floors: 1, enterable: true, footprint: [11.0, 11.0], plinthDepth: 0.6, maxGrade: 0.4,
+  });
+  bunkerMaterials(A, CEIL);
+  // gun embrasure: trunnion 0.93 m behind the inner face, bore 0.95 m. Each 0.5 m band is sized for the bore at its
+  // far end with traverse and elevation combined (path factor 1 / (cos e cos y)): +-32.5 deg, +22 / -5 deg, 6 cm spare
+  const gun = slit(A, { axis: "x", outer: ZF, inner: ZFI, a0: -1.0, a1: 1.0, y0: 0.62, y1: 1.7, step: { da: 0.33, dyT: 0.24, dyB: 0 } });
+  const cmd = slit(A, { axis: "x", outer: ZF, inner: ZFI, a0: 2.05, a1: 2.05 + SLIT.w, y0: GF + SLIT.sill, y1: GF + SLIT.top });
+  const gd = door(A, { id: "gun_doors", axis: "x", outer: ZB, inner: ZBI, c: 0, floor: GF, w: 2.6, h: 2.2, hingeSide: -1, double: true, steel: true, lintel: false, step: false, label: "gun doors", openAngle: 172 });   // leaves fold flat against the rear wall
+  A.box([-XO, -0.6, ZB], [XO, GF - 0.02, ZF], "concrete");
+  A.box([-XI, GF - 0.02, ZBI], [XI, GF, ZFI], "concrete_floor");
+  const m = { stone: "concrete", plaster: "concrete_wash", pt };
+  const pn = (side) => ({ side, family: "concrete", bands: [[0, CEIL, 0, GF]], collar: 0.3, minW: 1.1 });
+  wall(A, { axis: "x", outer: ZF, inner: ZFI, aOut: [-XO, XO], aIn: [-XI, XI], y0: 0, y1: CEIL, holes: [gun, cmd], ...m, panel: pn("front") });
+  wall(A, { axis: "x", outer: ZB, inner: ZBI, aOut: [-XO, XO], aIn: [-XI, XI], y0: 0, y1: CEIL, holes: [gd], ...m, panel: pn("rear") });
+  wall(A, { axis: "z", outer: XO, inner: XI, aOut: [ZBI - pt, ZFI + pt], aIn: [ZBI, ZFI], y0: 0, y1: CEIL, holes: [], ...m, panel: pn("east") });
+  wall(A, { axis: "z", outer: -XO, inner: -XI, aOut: [ZBI - pt, ZFI + pt], aIn: [ZBI, ZFI], y0: 0, y1: CEIL, holes: [], ...m, panel: pn("west") });
+  roofSlab(A, -XO, XO, ZB, ZF, CEIL, ROOF, [0.5, 0.5, 0.3, 0.8]);
+  // footing step on three sides and beside the gun doors (the gun runs in level over the threshold)
+  A.rbox([-XO - 0.28, -0.6, ZF - 0.4], [XO + 0.28, 0.22, ZF + 0.28], 0.1, "concrete");
+  for (const s of [-1, 1]) {
+    A.rbox([s > 0 ? XO - 0.4 : -XO - 0.28, -0.6, ZB - 0.28], [s > 0 ? XO + 0.28 : -XO + 0.4, 0.22, ZF], 0.1, "concrete");
+    A.rbox([s > 0 ? 1.75 : -XO - 0.28, -0.6, ZB - 0.28], [s > 0 ? XO + 0.28 : -1.75, 0.22, ZB + 0.4], 0.1, "concrete");
+  }
+  const P = 0.15, W = 0.55;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1])
+    pier(A, sx > 0 ? XO - W : -XO - P, sx > 0 ? XO + P : -XO + W, sz > 0 ? ZF - W : ZB - P, sz > 0 ? ZF + P : ZB + W, 0.1, CEIL);
+  for (const s of [-1, 1]) {
+    pier(A, s > 0 ? 1.3 : -1.75, s > 0 ? 1.75 : -1.3, ZB - 0.6, ZB + 0.05, 0.1, GF + 2.45, 0.1);   // wing piers
+    pier(A, s > 0 ? XO - 0.05 : -XO - 0.27, s > 0 ? XO + 0.27 : -XO + 0.05, -1.0, -0.3, 0.1, CEIL - 0.1, 0.1);   // flank pilasters
+  }
+  A.rbox([-1.8, GF + 2.25, ZB - 0.65], [1.8, GF + 2.7, ZB + 0.05], 0.12, "concrete");   // hood over the gun doors
+  // interior: shell racks along the east wall, a bench; the gun and a PaK 40 HE crate come with the casemate
+  A.meta.companions = [{ asset: "gun_pak40", pos: [0, 0, 0.95], yaw: 0 }, { asset: "crate_pak40_he", pos: [-2.35, 0, -1.6], yaw: 90 }];
+  shelfZ(A, "Shell rack", -2.6, -0.6, XI, -1, GF, 1.6, 0.4, 3, "plank_z", (y, xa, xx, i) => {
+    if (i > 0) for (let z = -2.4; z < -0.8; z += 0.42) crateBox(A, (xa + xx) / 2, y, z, 0.3, 0.18, 0.36, "crate_olive");
+  });
+  A.beginFurniture("Bench");
+  A.box([-XI, GF + 0.42, -0.6], [-2.6, GF + 0.47, 1.4], "plank_z");
+  for (const z of [-0.45, 1.25]) A.box([-2.95, GF, z - 0.04], [-2.65, GF + 0.42, z + 0.04], "plank_y");
+  A.endFurniture();
+  for (const [x, z] of [[-1.5, 0.0], [1.5, -1.5]]) lamp(A, x, CEIL, z);
+  camoNet(A, { roof: [-XO - 0.5, XO + 0.5, ZB - 0.3, ZF + 0.8, ROOF],
+    hang: [["x+", ZB - 0.3, ZF + 0.8, XO + 0.5, ROOF, 0.5], ["x-", ZB - 0.3, ZF + 0.8, -XO - 0.5, ROOF, 0.5], ["z+", -XO - 0.5, XO + 0.5, ZF + 0.8, ROOF + 0.02, ROOF - 0.45]] });
+  const eye = GF + SLIT.eye;
+  A.walkthrough = {
+    start: { pos: [2.0, 0, -8.0], yaw: 180 },
+    steps: [
+      { goto: [1.0, -5.3], note: "approach the gun doors" },
+      { interact: "gun_doors", aim: [0.65, GF + 1.1, ZBI - 0.08], expectOpen: true },
+      { goto: [0.55, -2.75], expectY: GF, note: "through the gun doors, behind the trail" },
+      { goto: [2.2, -2.55] }, { goto: [2.3, 1.4], expectY: GF, note: "at the commander's slit" },
+      { look: [2.3, eye, 16], hold: 0.8 }, { shot: "42_pak_casemate_slit" },
+      { look: [0, 0.9, 0.8], hold: 0.6 }, { shot: "43_pak_casemate_gun_room" },
+      { goto: [2.2, -2.55] }, { goto: [0.55, -2.75] }, { goto: [0.8, -5.3] }, { goto: [2.0, -7.6], note: "leave the casemate" },
     ],
   };
   return A;

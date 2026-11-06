@@ -6,6 +6,7 @@ struct GpuModel;
 enum Pattern : int {
   PAT_PLAIN = 0, PAT_STONE = 1, PAT_WOOD = 2, PAT_PLASTER = 3, PAT_SLATE = 4, PAT_TILE = 5,
   PAT_METAL = 6, PAT_GLASS = 7, PAT_FABRIC = 8, PAT_BRICK = 9, PAT_PAINTED = 10, PAT_CONCRETE = 11,
+  PAT_NET = 16,     // camouflage net with garnish (docs/bunkers.md#camouflage)
   PAT_BUNKER = 15   // board-formed (12-14: path surfaces, src/paths.cpp) bunker concrete; grain = height of the roof lip in decimetres (run-off stains below it)
 };
 

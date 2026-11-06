@@ -10,7 +10,8 @@
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> useq; size_t ucur = 0; float ut = 0;
-uint64_t U_WALL = 0, U_HOUSE = 0, U_RACK = 0, U_OP = 0, U_MG = 0, U_CMD = 0, U_LG = 0;
+uint64_t U_WALL = 0, U_HOUSE = 0, U_RACK = 0, U_OP = 0, U_MG = 0, U_CMD = 0, U_LG = 0, U_PAK = 0;
+constexpr float SLITS_SILL = 1.47f, SLITS_TOP = 1.77f;   // tools/catalog_bunkers.mjs SLIT
 vec3 Wp(App& a, uint64_t id, vec3 l) { Instance* i = a.doc.find(id); return i->pos + yawQuat(i->yaw) * l; }
 void putFeet(App& a, vec3 p) { Physics::setCharacterPos(vec3(p.x, a.terrain.height(p.x, p.z) + 0.02f, p.z)); }
 }
@@ -28,8 +29,12 @@ void SelfTest::updateSuite(App& app, float dt) {
     U_MG = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(-45, 0, 45), 0.0f);
     U_CMD = app.placeInstance(app.lib.find("bunker_command_shelter"), vec3(45, 0, 50), 25.0f);
     U_LG = app.placeInstance(app.lib.find("bunker_large_casemate"), vec3(0, 0, 95), -30.0f);
+    U_PAK = app.placeInstance(app.lib.find("bunker_pak_casemate"), vec3(-50, 0, 95), 40.0f);
+    int comp = app.placeCompanions(U_MG) + app.placeCompanions(U_PAK);
+    app.syncRuntime();
+    check(comp == 3, "companions placed with their hosts: MG 42 mount in the MG casemate, PaK 40 and its HE crate in the R612 casemate (" + std::to_string(comp) + ")");
     app.doc.start = {true, vec3(0, app.terrain.height(0, 0), 0), 0};
-    check(U_WALL && U_HOUSE && U_RACK && U_OP && U_MG && U_CMD && U_LG && app.enterExplore(), "fixtures: low stone wall, farmhouse, Allied rack, observation post, MG casemate, command shelter (25 deg), large casemate (-30 deg); F5 into Explore");
+    check(U_WALL && U_HOUSE && U_RACK && U_OP && U_MG && U_CMD && U_LG && U_PAK && app.enterExplore(), "fixtures: low stone wall, farmhouse, Allied rack, observation post, MG casemate, command shelter (25 deg), large casemate (-30 deg), R612 PaK casemate (40 deg); F5 into Explore");
     app.useScripted = true;
     useq.clear(); ucur = 0; ut = 0;
 
@@ -201,6 +206,7 @@ void SelfTest::updateSuite(App& app, float dt) {
       {"command shelter front slit", &U_CMD, 0.3f, vec2(2.2f, 1.85f), vec3(0, 0, 1), 6, 3.7f, nullptr, "kar98k"},
       {"command shelter loophole", &U_CMD, 0.3f, vec2(1.5f, -1.85f), vec3(0, 0, -1), 6, 3.7f, "loophole_flap", nullptr},
       {"large casemate embrasure", &U_LG, 0.5f, vec2(-3.2f, 2.35f), vec3(0, 0, 1), 20, 4.6f, nullptr, "kar98k"},
+      {"PaK casemate commander's slit", &U_PAK, 0.02f, vec2(2.3f, 1.4f), vec3(0, 0, 1), 6, 3.5f, nullptr, nullptr},
     };
     for (const SlitSpec& sp : specs) {
       push(std::string("view out: ") + sp.name, [this, &sp](App& a, float t) {
@@ -252,11 +258,75 @@ void SelfTest::updateSuite(App& app, float dt) {
         check(a.shotsFired > s0 && (!newImpact || beyond > 1.0f), b);
         return true; });
     }
+    // ---------------------------------------------------------------- crew stations placed with their casemates
+    // The MG 42 embrasure mount (MG casemate) and the PaK 40 (R612 casemate) arrive as companions. Over the whole
+    // traverse / elevation the bore from the trunnion clears the slit / embrasure, the gunner stands on the bunker
+    // floor with the sight in the slit band, and a real round leaves the bunker.
+    struct GunSpec { const char* name; uint64_t* host; const char* gun; float yaws[3]; float elevs[3]; float outer; float clear; };
+    static const GunSpec guns[] = {
+      {"MG 42 embrasure mount", &U_MG, "gun_mg42_embrasure", {-55, 0, 55}, {-5, 0, 7}, 2.9f, 8.0f},
+      {"PaK 40 in the R612 casemate", &U_PAK, "gun_pak40", {-32.5f, 0, 32.5f}, {-5, 0, 22}, 3.5f, 6.0f},
+    };
+    for (const GunSpec& g : guns) {
+      push(std::string("crew: ") + g.name, [this, &g](App& a, float t) {
+        static uint64_t gid; static int s0;
+        if (t == 0) {
+          gid = 0;
+          for (auto& i : a.doc.instances) if (i.assetId == g.gun && glm::length(vec2(i.pos.x - a.doc.find(*g.host)->pos.x, i.pos.z - a.doc.find(*g.host)->pos.z)) < 6) gid = i.id;
+          check(gid != 0, std::string(g.name) + ": placed with its casemate as a companion");
+          if (!gid) return true;
+          StationRT* s = a.station(gid);
+          Instance* gi = a.doc.find(gid);
+          int clear = 0, total = 0; float worst = 99;
+          for (float y : g.yaws) for (float e : g.elevs) {
+            s->yaw = s->yawT = y; s->elev = s->elevT = e;
+            vec3 dir; a.stationMuzzle(*gi, a.rt[gid], dir);
+            mat4 b, ym, em, rc; a.stationParts(*gi, a.rt[gid], b, ym, em, rc);
+            vec3 o = vec3(em * vec4(0, 0, 0, 1));
+            Physics::Hit h; ++total;
+            if (!Physics::castRayEx(o, dir, g.clear, h, gid << 16)) ++clear; else worst = std::min(worst, h.t);
+          }
+          s->yaw = s->yawT = 0; s->elev = s->elevT = 0;
+          char b[220]; std::snprintf(b, sizeof b, "%s: the bore from the trunnion clears the opening at %d of %d traverse/elevation limits (%.1f m; nearest block %.2f m)", g.name, clear, total, g.clear, worst);
+          check(clear == total, b);
+          a.scriptedInput = ExploreInput{};
+          check(a.occupyStation(gid, ST_GUNNER), std::string(g.name) + ": the gunner takes position");
+          s0 = a.shotsFired;
+          return false;
+        }
+        StationRT* s = a.station(gid);
+        if (t < 0.6f) return false;
+        if (t < 0.65f) {
+          vec3 e, f; float fov; bool cam = a.stationCamera(e, f, fov);
+          float floorY = Wp(a, *g.host, vec3(0)).y + (*g.host == U_MG ? 0.3f : 0.02f);
+          vec3 feet = Physics::character().pos;
+          char b[220]; std::snprintf(b, sizeof b, "%s: gunner stands on the bunker floor (feet %.2f m above it), sight %.2f m above the floor", g.name, feet.y - floorY, e.y - floorY);
+          check(cam && std::fabs(feet.y - floorY) < 0.08f && (*g.host != U_MG || (e.y - floorY > SLITS_SILL && e.y - floorY < SLITS_TOP)), b);
+          return false;
+        }
+        a.scriptedInput.fire = t < 1.2f;
+        if (t < 3.0f) return false;
+        a.scriptedInput = ExploreInput{};
+        Instance* hi = a.doc.find(*g.host);
+        vec3 out = yawQuat(hi->yaw) * vec3(0, 0, 1), front = Wp(a, *g.host, vec3(0, 0, g.outer));
+        float beyond = glm::dot(a.lastImpact.pos - front, out);
+        bool fresh = a.shotsFired > s0;
+        char b[240]; std::snprintf(b, sizeof b, "%s: %d round(s) fired through the opening, last impact %.1f m beyond the outer face (%s)", g.name, a.shotsFired - s0, beyond, a.lastImpact.surface.c_str());
+        check(fresh && s && beyond > 2.0f, b);
+        a.leaveStation();
+        return true; });
+    }
+    push("camouflage nets are visual only", [this](App& a, float) {
+      int nets = 0, solid = 0;
+      for (uint64_t id : {U_MG, U_CMD, U_LG, U_PAK})
+        for (auto& p : a.rt[id].asset->parts) if (a.rt[id].asset->materials[p.mat].name == "camo_net") { ++nets; solid += p.collide; }
+      check(nets > 20 && solid == 0, "camouflage netting on the MG casemate, command shelter, large and PaK casemates: " + std::to_string(nets) + " sheets, " + std::to_string(solid) + " with collision");
+      return true; });
     push("bunkers stand free", [this](App& a, float) {
       // the reworked MG casemate and command shelter carry no earth wedges any more; every bunker's slit throat
       // sits at the shared floor-relative height (walkthrough look targets are generated from the same constant)
       int turf = 0;
-      for (uint64_t id : {U_MG, U_CMD, U_LG}) {
+      for (uint64_t id : {U_MG, U_CMD, U_LG, U_PAK}) {
         const AssetDef* d = a.rt[id].asset;
         for (auto& p : d->parts) if (d->materials[p.mat].name == "turf") ++turf;
       }

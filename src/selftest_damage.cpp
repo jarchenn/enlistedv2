@@ -11,7 +11,7 @@ static const float kHE = 120.0f, kHER = 2.2f;   // game damage units / metres (s
 
 namespace {
 struct Ctx {
-  uint64_t A = 0, B = 0, C = 0, M = 0;
+  uint64_t A = 0, B = 0, C = 0, M = 0, C2 = 0;
   std::string pA;           // farmhouse panel under test
   int variant = 0;
   vec3 Q{0}, Q2{0};
@@ -306,7 +306,37 @@ void SelfTest::damageUpdate(App& app, float dt) {
     }
     break;
   case 507:
-    if (runWalkthrough(app, dt)) go(508);
+    if (runWalkthrough(app, dt)) {
+      // ---- crouch through a low breach in a 1.2 m concrete wall (docs/destruction.md, known limits): a fresh MG
+      //      casemate copy, rear bay opened only to crouching height, then a crouched walk through the tunnel
+      const AssetDef* ca = app.lib.find("bunker_mg_casemate");
+      std::string why = app.checkPlacement(ca, vec3(-100, 0, -115), 15.0f, 0).reason;
+      X.C2 = app.placeInstance(ca, vec3(-100, 0, -115), 15.0f);
+      app.syncRuntime();
+      int k = -1; float best = 0;
+      for (size_t q = 0; q < ca->panels.size(); ++q) if (ca->panels[q].id.find("/rear/") != std::string::npos && tangentWidth(ca->panels[q]) > best) { best = tangentWidth(ca->panels[q]); k = (int)q; }
+      if (!X.C2 || k < 0) { check(false, "second MG casemate copy and its rear bay (" + why + ")"); go(508); break; }
+      const Panel& p = ca->panels[k];
+      float floorUp = 0.3f - (p.bmin.y + std::min(1.3f, (p.bmax.y - p.bmin.y) * 0.45f));   // facePoint "up" of the floor
+      int m = 0; float tt;
+      auto fits = [&]() { for (int a = -4; a <= 4; ++a) for (int u = 0; u <= 8; ++u) if (!rayPasses(app, X.C2, p, tt, a * 0.1f, floorUp + 0.06f + u * 0.15f)) return false; return true; };   // 0.8 x 1.26 m: crouch capsule 1.2 m + padding
+      while (m < 120 && !fits()) { hitPanel(app, X.C2, p, (m % 3 - 1) * 0.35f, floorUp + 0.25f + ((m / 3) % 3) * 0.35f); ++m; }
+      float topOpen = 0;   // how high the opening reaches at the bay centre (it must stay below standing height)
+      for (int u = 0; u < 20; ++u) if (rayPasses(app, X.C2, p, tt, 0, floorUp + 0.06f + u * 0.1f)) topOpen = 0.06f + u * 0.1f;
+      check(m < 120, "crouch-height breach opened in the 1.2 m rear wall by " + std::to_string(m) + " hits (open to " + std::to_string(topOpen).substr(0, 4) + " m above the floor at the centre)");
+      vec3 c = (p.bmin + p.bmax) * 0.5f;
+      Physics::setCharacterPos(W(app, X.C2, vec3(c.x, 0, -3.7f)) + vec3(0, 0.25f, 0));
+      app.eyeYaw = worldYaw(app, 180);
+      json st = json::array({
+        json{{"goto", {c.x, -3.4}}, {"crouch", true}},
+        json{{"goto", {c.x, -1.0}}, {"expectY", 0.3}, {"crouch", true}, {"note", "crouch through the low breach in 1.2 m of concrete"}},
+      });
+      beginCustom(app, "bunker_mg_casemate", X.C2, st);
+      go(520);
+    }
+    break;
+  case 520:
+    if (runWalkthrough(app, dt)) { app.scriptedInput.crouch = false; go(508); }
     break;
   // ------------------------------------------------------------- every variant, rotated, off-centre impacts
   case 508: {
@@ -429,7 +459,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
       const AssetDef* a = up.get();
       if (a->panels.empty()) continue;
       float yaw = wrapDeg(17.0f + 41.0f * idx);
-      uint64_t id = app.placeInstance(a, vec3(-270.0f + 40.0f * idx, 0, 200.0f), yaw);
+      uint64_t id = app.placeInstance(a, vec3(-270.0f + 40.0f * (idx % 13), 0, 200.0f + 45.0f * (idx / 13)), yaw);   // rows of 13 stay inside the build area
       ++idx;
       if (!id) { check(false, a->name + " placed for damage test"); continue; }
       app.syncRuntime();

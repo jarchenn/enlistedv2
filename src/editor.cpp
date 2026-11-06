@@ -106,7 +106,7 @@ void App::updateCreative(float dt) {
     if (hoverValid && placing->path.on) snapPath(placing, hp, placeYaw);                          // paths join end to end
     if (hoverValid) lastCheck = checkPlacement(placing, hp, placeYaw, 0);
     if (lmbPress && hoverValid) {
-      if (lastCheck.ok) { uint64_t id = placeInstance(placing, hp, placeYaw); if (id) selected = id; }
+      if (lastCheck.ok) { uint64_t id = placeInstance(placing, hp, placeYaw); if (id) { selected = id; placeCompanions(id); } }
       else toast(lastCheck.reason);
     }
   } else if (tool == Tool::Marker) {

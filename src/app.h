@@ -404,6 +404,7 @@ public:
   bool leafBlocked(const Instance& i, const InteractDef& d, float p) const;
   InteractTarget findTarget(vec3 eye, vec3 dir) const;
   vec3 eyePos() const;
+  int placeCompanions(uint64_t hostId);   // bunker crew stations / ammunition placed with their host (docs/bunkers.md)
   static vec3 forward(float yawDeg, float pitchDeg);
 
   void screenshot(const fs::path& p);

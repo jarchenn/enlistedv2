@@ -6,6 +6,15 @@
 #include <algorithm>
 
 static uint64_t coreUD(uint64_t id) { return id << 16; }
+// belt-fed machine-gun stations (M2HB tripod, MG 42 embrasure mount): continuous fire, belt reloads, no handler role
+static bool mgKind(const std::string& k) { return k == "m2hb" || k == "mg42"; }
+// standing height at a crew position: the floor under it when one is there (a bunker floor, docs/bunkers.md), else
+// the terrain
+static float crewFloor(float terrainY, vec3 a) {
+  Physics::Hit h;
+  if (Physics::castRayEx(vec3(a.x, std::max(a.y, terrainY) + 1.2f, a.z), vec3(0, -1, 0), 1.9f, h) && h.pos.y > terrainY + 0.02f) return h.pos.y;
+  return terrainY;
+}
 static float approach(float v, float t, float rate) { float d = t - v; float s = rate; return std::fabs(d) <= s ? t : v + (d > 0 ? s : -s); }
 
 StationRT* App::station(uint64_t id) {
@@ -113,11 +122,11 @@ bool App::occupyStation(uint64_t id, int pos) {
   if (!inst || !s) return false;
   if (s->wrecked) { toast("The gun is destroyed."); return false; }
   if (occupied && occupied != id) { toast("You are already crewing another gun."); return false; }
-  if (pos == ST_HANDLER && rt[id].asset->station.kind == "m2hb") { toast("The M2HB on its tripod is crewed from the spade grips only (Aim)."); return false; }
+  if (pos == ST_HANDLER && mgKind(rt[id].asset->station.kind)) { toast("The " + rt[id].asset->name + " is crewed from the grips only (Aim)."); return false; }
   if (pos == ST_HANDLER && rt[id].asset->station.fixed) { toast(rt[id].asset->station.label + ": a dug-in emplacement - crew it from the gunner's position (Aim); it is not moved."); return false; }
   auto& r = rt[id];
   vec3 anchor = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : r.asset->station.gunner, 1));
-  anchor.y = terrain.height(anchor.x, anchor.z);
+  anchor.y = crewFloor(terrain.height(anchor.x, anchor.z), anchor);
   if (Physics::capsuleBlocked(anchor + vec3(0, 0.1f, 0), Physics::standHeight() - 0.1f, Physics::radius())) { toast("Cannot take that position: it is obstructed."); return false; }
   occupied = id; choiceFor = 0;
   s->pos2 = pos; s->trans = 0; s->armed = false;
@@ -136,7 +145,7 @@ void App::leaveStation() {
     // valid dismount point: the position's anchor, else search around the carriage
     vec3 cands[] = {r.asset->station.gunner, r.asset->station.handler, vec3(-1.6f, 0, -0.5f), vec3(1.6f, 0, -0.5f), vec3(0, 0, -4.0f), vec3(-1.8f, 0, 1.0f), vec3(1.8f, 0, 1.0f)};
     for (auto& c : cands) {
-      vec3 p = vec3(M * vec4(c, 1)); p.y = terrain.height(p.x, p.z);
+      vec3 p = vec3(M * vec4(c, 1)); p.y = crewFloor(terrain.height(p.x, p.z), p);
       if (!Physics::capsuleBlocked(p + vec3(0, 0.1f, 0), Physics::standHeight() - 0.1f, Physics::radius())) { Physics::setCharacterPos(p); break; }
     }
     s->pos2 = ST_NONE; s->trans = 0; s->reload = 0; s->armed = false;
@@ -152,7 +161,7 @@ void App::switchStationPosition() {
   if (s->pos2 == ST_GUNNER) { s->pos2 = ST_TO_MOVE; s->trans = 1.2f; s->reload = 0; s->status = "Leaving the sight, lifting the trails..."; audio.play("gun_move", s->pos); }
   else if (s->pos2 == ST_HANDLER) {
     if (s->deployed) {   // to Aim
-      vec3 a = vec3(stationMatrix(*inst, r) * vec4(r.asset->station.gunner, 1)); a.y = terrain.height(a.x, a.z);
+      vec3 a = vec3(stationMatrix(*inst, r) * vec4(r.asset->station.gunner, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
       Physics::setCharacterPos(a);
       s->pos2 = ST_GUNNER; s->armed = false; s->status = "";
     } else {
@@ -278,8 +287,8 @@ void App::stepStation(float dt, const ExploreInput& in) {
     s->atElevStop = s->elevT <= d.elevMin + 1e-3f || s->elevT >= d.elevMax - 1e-3f;
     s->yaw = approach(s->yaw, s->yawT, d.traverseRate * dt);
     s->elev = approach(s->elev, s->elevT, d.elevateRate * dt);
-    bool mg = d.kind == "m2hb";
-    int full = mg ? 110 : 1;
+    bool mg = mgKind(d.kind), mg42 = d.kind == "mg42";
+    int full = mg ? std::max(1, d.loaded) : 1;   // one belt: M2HB 110, MG 42 50
     if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(d.label + ": next round " + (s->selAT ? d.atName : d.heName) + " - takes effect at the next reload", 3); }
     int pool = (!mg && s->selAT) ? s->reserveAT : s->reserve;
     if (in.reload && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(mg ? "belt" : "breech", vec3(M[3])); }
@@ -294,17 +303,17 @@ void App::stepStation(float dt, const ExploreInput& in) {
       }
     }
     s->cool = std::max(0.0f, s->cool - dt);
-    if (mg && in.fireMode) { s->semi = !s->semi; s->armed = false; toast(std::string("M2HB: ") + (s->semi ? "SEMI" : "AUTO"), 2); }
+    if (mg && in.fireMode) { s->semi = !s->semi; s->armed = false; toast(std::string(mg42 ? "MG 42: " : "M2HB: ") + (s->semi ? "SEMI" : "AUTO"), 2); }
     if (mg) {
       if (fireHeld && s->armed && s->reload <= 0 && s->cool <= 0) {
         if (s->semi) s->armed = false;   // SEMI: one round per press
         if (s->loaded > 0) {
           vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
           mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
-          fireProjectile(vec3(e * vec4(0, 0, 0, 1)), dir, 890.0f, PROJ_BULLET, 0, coreUD(inst->id), (s->shots % 5) == 0, d.ammo);
-          s->loaded -= 1; s->shots++; s->cool = 60.0f / 500.0f; s->recoilT = 0;
-          fx.flash(muzzle + dir * 0.08f, 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));
-          audio.play("shot_m2hb", muzzle, 1.0f);
+          fireProjectile(vec3(e * vec4(0, 0, 0, 1)), dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), (s->shots % 5) == 0, d.ammo);
+          s->loaded -= 1; s->shots++; s->cool = 60.0f / (mg42 ? 1200.0f : 500.0f); s->recoilT = 0;
+          fx.flash(muzzle + dir * 0.08f, mg42 ? 0.18f : 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));
+          audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
           viewKickPitch = 0.35f;   // felt through the mount, not the shoulder
         } else if (s->armed) { audio.play("click", vec3(M[3]), 0.6f); s->armed = false; }
       }
@@ -324,7 +333,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
         audio.play(d.fireSound, muzzle, 1.0f);
       } else audio.play("click", vec3(M[3]), 0.6f);
     }
-    vec3 a = vec3(M * vec4(d.gunner, 1)); a.y = terrain.height(a.x, a.z);
+    vec3 a = vec3(M * vec4(d.gunner, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
   } else if (s->pos2 == ST_HANDLER && !s->deployed && s->trans <= 0) {
     // reposition: slow, short, swept against structures and checked for ground support
@@ -339,10 +348,10 @@ void App::stepStation(float dt, const ExploreInput& in) {
       } else { s->moveOk = false; s->status = "Blocked: " + why; }
     }
     M = stationMatrix(*inst, r);
-    vec3 a = vec3(M * vec4(d.handler, 1)); a.y = terrain.height(a.x, a.z);
+    vec3 a = vec3(M * vec4(d.handler, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
   } else {
-    vec3 a = vec3(M * vec4(s->pos2 == ST_GUNNER ? d.gunner : d.handler, 1)); a.y = terrain.height(a.x, a.z);
+    vec3 a = vec3(M * vec4(s->pos2 == ST_GUNNER ? d.gunner : d.handler, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
   }
   s->recoilT += dt;
@@ -370,9 +379,9 @@ std::string App::crateTransaction(uint64_t crateId) {
       if (n > 0) { s->reserveAT += n; if (!unlimited) stock[ammoAT] -= n; atMsg = " AT +" + std::to_string(n) + " (" + std::to_string(s->reserveAT) + "/" + std::to_string(s->reserveATMax) + ")."; }
     }
     if (!stock.count(ammo)) { if (!atMsg.empty()) { audio.play("crate", c->pos); return "PaK 40" + atMsg; } continue; }
-    std::string name = r.asset->station.kind == "m2hb" ? "M2HB belts" : r.asset->station.label + " reserve";
+    std::string name = r.asset->station.kind == "m2hb" ? "M2HB belts" : r.asset->station.kind == "mg42" ? "MG 42 belts" : r.asset->station.label + " reserve";
     if (dist > radius) { if (msg.empty()) msg = name + ": gun is out of reach (" + std::to_string((int)dist) + " m > " + std::to_string((int)radius) + " m)."; continue; }
-    int unit = r.asset->station.kind == "m2hb" ? 110 : 1;   // crate units: single 7.5 cm rounds, or 110-round .50 link increments
+    int unit = mgKind(r.asset->station.kind) ? std::max(1, r.asset->station.loaded) : 1;   // crate units: single 7.5 cm rounds, or one belt (.50 110, 7.92 mm 50)
     int need = (s->reserveMax - s->reserve) / unit;
     if (need <= 0) { if (!atMsg.empty()) { audio.play("crate", c->pos); return name + " HE full." + atMsg; } if (msg.empty()) msg = name + " already full (" + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + ")."; continue; }
     int have = unlimited ? need : stock[ammo];
@@ -407,8 +416,8 @@ void App::drawCombatUI() {
   if (!s) return;
   auto& r = rt[occupied];
   const StationDef& d = r.asset->station;
-  if (s->pos2 == ST_GUNNER && d.kind == "m2hb") dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
-  if (s->pos2 == ST_GUNNER && d.kind != "m2hb") {
+  if (s->pos2 == ST_GUNNER && mgKind(d.kind)) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
+  if (s->pos2 == ST_GUNNER && !mgKind(d.kind)) {
     // eyepiece: dark surround, ZF 3x8 style reticle (central chevron, flanking chevrons, stadia)
     float R = io.DisplaySize.y * 0.44f;
     for (int k = 0; k < 64; ++k) {

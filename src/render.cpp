@@ -441,6 +441,16 @@ void main(){
     rough = clamp(rough + joint * 0.06 - foot * 0.08, 0.3, 1.0);
     h = mott * 0.3 - joint * 0.6 + grainB * 0.15 - tie * 0.8 - liftLine * 0.3; bump = 0.004;
     ao = 1.0 - joint * 0.15 - tie * 0.4;
+  } else if (pat == 16) { // camouflage net (docs/bunkers.md#camouflage): disruptive olive / brown / dark blotches,
+    // leafy scrim lumps with darker gaps, garnish tufts; part-local so the pattern follows each draped sheet
+    vec2 uv = faceUV(vPc, vPn);
+    float b = fbm(vec3(uv * 0.7, 7.0));
+    vec3 c = mix(vec3(0.075, 0.085, 0.035), vec3(0.15, 0.125, 0.06), smoothstep(0.42, 0.55, b));
+    c = mix(c, vec3(0.045, 0.045, 0.03), smoothstep(0.62, 0.7, b));
+    float strand = smoothstep(0.3, 0.62, vnoise(vec3(uv * 16.0, 5.0)));   // leafy scrim lumps, no regular grid (aliases)
+    float garn = smoothstep(0.55, 0.8, vnoise(vec3(uv * 5.0, 2.0)));
+    alb = c * (0.45 + 0.55 * max(strand, garn)) * (0.85 + 0.3 * vnoise(vec3(uv * 40.0, 1.0)));
+    rough = 0.95; h = max(strand, garn); bump = 0.003; ao = 0.75 + 0.25 * h;
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
