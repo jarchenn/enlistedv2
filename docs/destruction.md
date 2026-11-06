@@ -36,9 +36,11 @@
 - **No slivers between holes.** After every bay has its stamp, thin material left between damaged areas is cleared:
   - The cleanup looks along rows, columns and both diagonals. A solid run of at most `destruction.bridgeMax` (0.18 m) with a through-hole on both sides is opened.
   - It also sees open cells in the coplanar bay across a seam, so a strip at a joint between two holes goes too.
-  - A ridge of at most 0.18 m standing proud between two deeper craters on the struck face is broken down to the shallower side. If that leaves less than 28 % of the thickness, it gives way.
-  - The cleanup repeats, at most four passes, while it opens new holes.
-  - Wider strips stay, so holes that are genuinely apart stay apart. In the test, launcher holes 1.1 m apart stay two holes, and pairs 0.50–0.75 m apart leave 77 sliver cells without the cleanup and 0 with it.
+  - On the first pass, a ridge of at most 0.18 m standing proud between two deeper craters on the struck face is broken down to the shallower side. This only happens inside the impact window. If it leaves less than 28 % of the thickness, the ridge gives way.
+  - Bridge clearing and the unsupported-fragment pass then alternate over each whole touched bay until neither changes anything. A fragment falling out, or a bridge going, can expose a new bridge anywhere in the bay. So the result has no bridge left for any outline, whatever the seed.
+  - Wider strips stay, so holes that are genuinely apart stay apart.
+  - **Tested over seeds, not fixture ids.** Launcher-hole pairs are stamped with chosen seeds: 6 spacings from 0.50 to 0.75 m, 32 outline seeds each, so 192 pairs. Without the cleanup they leave 2700 sliver cells; with it, 0.
+  - Pairs 1.4 m apart stay two holes for all 32 seeds. That gap is more than the two largest possible outlines (2 × 0.56 m) plus the bridge width.
 - **Perforation.** When less than 28 % of the thickness remains, the hit punches through. Past half the thickness, the far face spalls.
 - **Unsupported fragments.** Material no longer connected to the bay's edges falls out. A bounded handful of fragments (8 per hit) and dust are thrown with the shot, plus some spall back toward the shooter.
 

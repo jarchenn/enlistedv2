@@ -558,30 +558,49 @@ void SelfTest::damageUpdate(App& app, float dt) {
         std::snprintf(b, sizeof b, "HE damage is an irregular oblong, not a circle: aspect %.2f at %.0f deg and %.2f at %.0f deg on two copies; %d edge wedges smooth the break line", s1, a1, s2, a2, ch);
         check(s1 > 1.12f && s2 > 1.12f && (std::fabs(a1 - a2) > 10.0f || std::fabs(s1 - s2) > 0.1f) && ch > 0, b);
       }
-      // no slivers: two launcher holes side by side, cleanup off (A) vs on (B)
+      // no slivers: two launcher holes side by side, cleanup off (A) vs on (B), over 32 outline seeds per spacing
+      // (stamped directly with chosen seeds, so the result never depends on which instance ids the fixture got)
       {
         float keep = app.destruction.bridgeMax;
-        int N = (int)std::floor(keep / app.destruction.cell + 1e-3f), off = 0, on = 0, merged = 0, cases = 0;
+        int N = (int)std::floor(keep / app.destruction.cell + 1e-3f), off = 0, on = 0, merged = 0, cases = 0, badCases = 0;
+        std::string worst;
+        auto pairAt = [&](vec3 l1, vec3 l2, uint32_t s1, uint32_t s2) {
+          app.resetDamage();
+          InstanceRT& rr = app.rt[c2];
+          if (rr.wf.empty()) app.initWallFields(rr);
+          for (int j = 0; j < 2; ++j) {
+            WallEvent e; e.p = j ? l2 : l1; e.d = -n; e.kind = WALL_ROCKET; e.dmg = 260.0f; e.seed = j ? s2 : s1;
+            app.stampWall(rr, e, false, nullptr, nullptr); rr.wallEvents.push_back(e);
+          }
+          app.rebuildWalls(*app.doc.find(c2), rr);
+          return gridOf(app, c2, k);
+        };
+        auto seedOf = [](uint32_t a, uint32_t b2, uint32_t c) { uint32_t h = a * 0x9E3779B1u ^ (b2 + 0x7f4a7c15u) * 0x85ebca6bu ^ (c + 1u) * 0xc2b2ae35u; h ^= h >> 15; h *= 0x2c1b3c6du; h ^= h >> 12; return h; };
+        const float spacings[6] = {0.50f, 0.55f, 0.60f, 0.65f, 0.70f, 0.75f};
         for (int pass = 0; pass < 2; ++pass) {
           app.destruction.bridgeMax = pass == 0 ? 0.0f : keep;
-          for (float sp : {0.50f, 0.55f, 0.60f, 0.65f, 0.70f, 0.75f}) {
-            app.resetDamage();
-            hitAt(app, c2, fp + n * 0.01f - t * sp * 0.5f, -n, WALL_ROCKET, 260.0f);
-            hitAt(app, c2, fp + n * 0.01f + t * sp * 0.5f, -n, WALL_ROCKET, 260.0f);
-            Grid g = gridOf(app, c2, k);
-            int s = sliverCells(g, N);
-            if (pass) { on += s; merged += openComponents(g) == 1; ++cases; } else off += s;
-          }
+          for (int si = 0; si < 6; ++si)
+            for (uint32_t sd = 0; sd < 32; ++sd) {
+              float sp = spacings[si];
+              Grid g = pairAt(fp + n * 0.01f - t * sp * 0.5f, fp + n * 0.01f + t * sp * 0.5f, seedOf(sd, si, 1), seedOf(sd, si, 2));
+              int s = sliverCells(g, N);
+              if (pass) {
+                on += s; merged += openComponents(g) == 1; ++cases;
+                if (s) { ++badCases; if (worst.empty()) worst = " (first: spacing " + std::to_string(sp).substr(0, 4) + " m, seed " + std::to_string(sd) + ", " + std::to_string(s) + " cells)"; }
+              } else off += s;
+            }
         }
         app.destruction.bridgeMax = keep;
-        std::snprintf(b, sizeof b, "no slivers between neighbouring holes: two launcher holes 0.50-0.75 m apart leave %d sliver cells without the cleanup and %d with it (strips <= %.2f m cleared; %d of %d pairs joined)", off, on, keep, merged, cases);
+        std::snprintf(b, sizeof b, "no slivers between neighbouring holes: %d launcher-hole pairs 0.50-0.75 m apart (32 outline seeds per spacing) leave %d sliver cells without the cleanup and %d with it, in %d pairs (strips <= %.2f m cleared; %d pairs joined)%s",
+                      cases, off, on, badCases, keep, merged, worst.c_str());
         check(off > 0 && on == 0, b);
-        // holes that are genuinely apart stay apart
-        app.resetDamage();
-        hitAt(app, c2, fp + n * 0.01f + vec3(0, 0.35f, 0), -n, WALL_ROCKET, 260.0f);
-        hitAt(app, c2, fp + n * 0.01f - vec3(0, 0.75f, 0), -n, WALL_ROCKET, 260.0f);
-        int comps = openComponents(gridOf(app, c2, k));
-        check(comps == 2, "two launcher holes 1.1 m apart stay two separate holes (" + std::to_string(comps) + " holes)");
+        summary["sliver_cells_without_cleanup"] = off; summary["sliver_cells_with_cleanup"] = on;
+        // holes that are genuinely apart stay apart, for every outline: 1.4 m between centres, more than the two
+        // largest possible outlines (2 x 0.56 m) plus the 0.18 m bridge width
+        int split = 0;
+        for (uint32_t sd = 0; sd < 32; ++sd)
+          split += openComponents(pairAt(fp + n * 0.01f + vec3(0, 0.5f, 0), fp + n * 0.01f - vec3(0, 0.9f, 0), seedOf(sd, 7, 1), seedOf(sd, 7, 2))) == 2;
+        check(split == 32, "two launcher holes 1.4 m apart stay two separate holes for every outline (" + std::to_string(split) + " of 32 seeds)");
       }
       // grenades do structural damage where they land, with the Bazooka's stamp radius
       {
