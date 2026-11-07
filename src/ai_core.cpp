@@ -131,7 +131,7 @@ void AiCore::begin(vec3 lo, vec3 hi) {
         auto sit = solid.find(&a);
         if (sit == solid.end()) { bool any = false; if (a.bmax.y - a.bmin.y > G.nav.cfg.climb) for (auto& p : a.parts) if (p.collide && !p.playerOnly && p.visible) { any = true; break; } sit = solid.emplace(&a, any).first; }   // not flat sheets (sea shallows)
         return sit->second ? NT_SOLID : NT_SKIP; }
-      case NavEffect::Area: return NT_SOLID;   // trenches, shingle, fences: their own floors / walls / mounds are the ground; the area is painted on top
+      case NavEffect::Area: return a.tree.on ? NT_SKIP : NT_SOLID;   // brush (hazel, bramble) is walked through: only its area cost applies; trenches, shingle, fences: their own floors / walls / mounds are the ground
       case NavEffect::Carve: return NT_CARVE;
       default: return NT_SOLID;
     }

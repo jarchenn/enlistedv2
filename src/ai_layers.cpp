@@ -261,7 +261,7 @@ void AiCore::act(Soldier& s, float dt) {
     e = std::max(e, exposure((int)s.role, ahead + vec3(0, 1.2f, 0)));
     if (underFire || e > tj("movement", "sprintExposure", 0.25f)) return SPD_SPRINT;
     // a bound to the next cover is a rush once the enemy is known (AI_SPEC 6.1: short exposed dashes); transit jogs
-    if (coverValid && !m.set && !tb.known.empty() && lenXZ(m.coverPos - s.feet) > tj("movement", "rushMin_m", 3.0f)) return SPD_SPRINT;
+    if (coverValid && !m.set && (!tb.known.empty() || tj("movement", "rushWithoutContact", 0.0f) > 0.5f) && lenXZ(m.coverPos - s.feet) > tj("movement", "rushMin_m", 3.0f)) return SPD_SPRINT;
     return SPD_JOG;
   };
   auto boundTo = [&](vec3 goal, float maxLen) {
@@ -400,6 +400,12 @@ void AiCore::act(Soldier& s, float dt) {
         float sd = (idx % 2 ? 1.0f : -1.0f) * (1.1f + 0.7f * (idx / 2));
         vec3 st = ent ? ent->p - dir * 0.9f + side * sd : s.feet;
         NavRef r; vec3 on; if (G.nav.closest(st, 1.2f, r, on)) st = on;
+        for (int tries = 0; tries < 4; ++tries) {   // snapped onto a teammate's stack spot (a narrow entrance): queue further back
+          bool clash = false;
+          for (int sl : ft->members) if (sl != s.slot && G.sold[sl].alive && sl < (int)minds.size() && minds[sl] && minds[sl]->ftIdx < idx && glm::length(minds[sl]->clearGoal - st) < 0.9f) clash = true;
+          if (!clash) break;
+          vec3 q = st - dir * 1.0f; if (G.nav.closest(q, 1.2f, r, on)) st = on; else break;
+        }
         if (glm::length(st - m.clearGoal) > 0.5f) { m.clearGoal = st; m.clearGoalT = G.t; }
         bool late = G.t - m.clearGoalT > tj("clear", "stackGiveUp_s", 3.0f) && lenXZ(s.feet - st) < 4.0f;   // a stack point it cannot reach: stack where it stands
         if (!late) requestPath(s, st, 0.5f, 5.0f);

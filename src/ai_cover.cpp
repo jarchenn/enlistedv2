@@ -181,6 +181,8 @@ void AiCore::buildDefSlots() {
   auto add = [&](vec3 p, float yaw, int pri, int kind, const char* src) {
     NavRef r; vec3 on;
     if (!G.nav.closest(p, 1.5f, r, on)) return;
+    { float dy = on.y - o->pos.y; if (dy < o->yMin - 0.5f || dy > o->yMax + 0.5f) return; }   // above / below the capture volume: holding it does not hold the point
+    if (G.nav.isTrap(on, 0.3f)) return;
     for (auto& d : defSlots) if (glm::length(d.p - on) < 2.5f) return;
     DefSlot d; d.p = on; d.yaw = yaw; d.priority = pri; d.kind = kind; d.src = src; defSlots.push_back(d);
   };
