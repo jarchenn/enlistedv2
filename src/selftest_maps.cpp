@@ -172,7 +172,13 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       go(4180); break;
     }
     const std::string id = t.id;
-    check(t.available && t.raw.contains("heightmap") && t.raw.contains("waterLevel"), id + ": template is available with an authored heightmap and water level");
+    // "userMap": a map the user built in the editor and published as a template (e.g. battle1). It gets the generic
+    // checks (loads, editable copy, catalogue, validator, save / reopen, views); the SPEC 2.1 / 3.5 layout rules of the
+    // shipped default maps, the authored heightmap and the placed-height rule (free-hand placement) don't apply, and
+    // its frame time is reported, not gated.
+    const bool userMap = t.raw.value("userMap", false);
+    if (userMap) check(t.available, id + ": user map template is available (generated terrain from its seed)");
+    else check(t.available && t.raw.contains("heightmap") && t.raw.contains("waterLevel"), id + ": template is available with an authored heightmap and water level");
     // Play / multiplayer listing (same filter as w5PlayMapPicker)
     // preview thumbnail
     fs::path th = contentDir() / "templates" / t.raw.value("thumbnail", std::string("-"));
@@ -190,7 +196,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     sLoadS = now() - t0; sMemAfter = wsMB();
     check(app.doc.templateId == id && app.docPath.empty(), id + ": Create editable copy gives an unsaved creative document from the template");
     if (terrainBase) { if (terrainBaseChecks(app, t, mj)) go(4102); else go(4101); break; }
-    check(app.doc.instances.size() == fileN && fileN > 1000, fmt("%s: all %zu authored instances loaded (%.2f s, working set %+.0f MB)", id.c_str(), fileN, sLoadS, sMemAfter - sMemBefore));
+    check(app.doc.instances.size() == fileN && fileN > (userMap ? 0u : 1000u), fmt("%s: all %zu authored instances loaded (%.2f s, working set %+.0f MB)", id.c_str(), fileN, sLoadS, sMemAfter - sMemBefore));
     check(std::fabs(app.doc.width - t.width) < 1 && std::fabs(app.terrain.buildHalfZ * 2 - t.depth) < 1, fmt("%s: map size %.0f x %.0f m", id.c_str(), app.doc.width, app.terrain.buildHalfZ * 2));
     size_t missing = 0; for (auto& i : app.doc.instances) if (!app.lib.find(i.assetId)) ++missing;
     check(missing == 0, fmt("%s: every instance names a catalogue asset (%zu missing)", id.c_str(), missing));
@@ -200,10 +206,15 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     int errs = 0, warns = 0; std::string firstErr;
     for (auto& i : issues) { if (i.error) { ++errs; if (firstErr.empty()) firstErr = i.what; } else ++warns; }
     check(errs == 0, fmt("%s: scenario validator: %d errors, %d warnings%s", id.c_str(), errs, warns, firstErr.empty() ? "" : (" (" + firstErr + ")").c_str()));
+    auto xz = [](vec3 p) { return vec2(p.x, p.z); };
+    if (userMap) {
+      int att = 0, def = 0; for (auto& sp : s.spawns) (sp.role == CombatRole::Attacker ? att : def)++;
+      check(!s.objectives.empty() && att > 0 && def > 0, fmt("%s: user map has a playable scenario: %zu objectives, %d attacker / %d defender spawns", id.c_str(), s.objectives.size(), att, def));
+    } else {
     check(s.objectives.size() == 5, fmt("%s: %zu objectives A-E in order", id.c_str(), s.objectives.size()));
     check(s.rules.defendingFaction == Faction::Axis, id + ": Allies attack, Germans defend");
-    auto xz = [](vec3 p) { return vec2(p.x, p.z); };
-    for (size_t k = 0; k < s.objectives.size(); ++k) {
+    }
+    for (size_t k = 0; k < (userMap ? 0 : s.objectives.size()); ++k) {
       const Objective& o = s.objectives[k];
       std::string L(1, o.letter());
       if (k > 0) { float d = glm::length(xz(o.pos) - xz(s.objectives[k - 1].pos)); check(d >= 450 && d <= 600, fmt("%s: %s-%s objective spacing %.0f m (SPEC 2.1: 450-600)", id.c_str(), std::string(1, s.objectives[k - 1].letter()).c_str(), L.c_str(), d)); }
@@ -226,7 +237,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     }
     int racks = 0;
     for (auto& sp : s.spawns) { const Instance* r = app.doc.find(sp.rack); const AssetDef* a = r ? app.lib.find(r->assetId) : nullptr; racks += a && a->rack && glm::length(xz(r->pos) - xz(sp.pos)) < 12; }
-    check(racks == (int)s.spawns.size() && s.spawns.size() == 10, fmt("%s: %d / %zu spawns have their team weapons rack beside them", id.c_str(), racks, s.spawns.size()));
+    if (!userMap) check(racks == (int)s.spawns.size() && s.spawns.size() == 10, fmt("%s: %d / %zu spawns have their team weapons rack beside them", id.c_str(), racks, s.spawns.size()));
     // terrain: sea, shingle, bluff and draw from the authored heightmap
     if (id == "omaha_easy_red") {
       auto H = [&](float x, float sAx) { return app.terrain.height(x, sAx - t.depth * 0.5f); };
@@ -245,7 +256,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       if (!c.ok && (c.reason.find("water") != std::string::npos || c.reason.find("Outside") != std::string::npos)) continue;
       ++tested; float e = std::fabs(c.y - i.pos.y); worst = std::max(worst, e); agree += e < 0.25f;
     }
-    check(tested > 300 && agree >= tested * 0.9, fmt("%s: placed heights match the editor rule for %d / %d sampled instances (worst %.2f m)", id.c_str(), agree, tested, worst));
+    if (!userMap) check(tested > 300 && agree >= tested * 0.9, fmt("%s: placed heights match the editor rule for %d / %d sampled instances (worst %.2f m)", id.c_str(), agree, tested, worst));
     // asset-usage doc covers the catalogue
     std::string doc; try { doc = readTextFile(fs::path(W5_REPO_DIR) / "docs" / "asset-usage-default-maps.md"); } catch (...) {}
     int nIds = 0, covered = 0; std::string miss;
@@ -290,7 +301,9 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       for (auto& p : sPerf) { pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}}); (p.gate ? worstAvg : worstEd) = std::max(p.gate ? worstAvg : worstEd, p.ms); }
       const std::string id = app.templates[sTpl[sTi]].id;
       sSum[id]["views"] = pj; sSum[id]["workingSetEndMB"] = wsMB();
-      check(worstAvg < 16.7, fmt("%s: every gameplay (eye-level) view holds the 60 FPS target: worst view average %.2f ms (elevated editor views, reported only: worst %.2f ms)", id.c_str(), worstAvg, worstEd));
+      if (app.templates[sTpl[sTi]].raw.value("userMap", false))   // user-built map: frame time reported, not gated
+        check(true, fmt("%s: user map frame time (reported only): worst eye-level view %.2f ms, worst editor view %.2f ms", id.c_str(), worstAvg, worstEd));
+      else check(worstAvg < 16.7, fmt("%s: every gameplay (eye-level) view holds the 60 FPS target: worst view average %.2f ms (elevated editor views, reported only: worst %.2f ms)", id.c_str(), worstAvg, worstEd));
       ++sTi; go(4101); break;
     }
     View& v = sViews[sVi];
