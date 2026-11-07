@@ -95,6 +95,8 @@ struct Fx {
   void explosion(vec3 p, vec3 n, const std::string& family, bool ground);
   void muzzle(vec3 p, vec3 dir, float scale);
   void impact(vec3 p, vec3 n, const std::string& surface);
+  void splinters(vec3 p, vec3 v, int n, vec4 col, float size);   // furniture breaks (V4): falling chips
+  void dust(vec3 p, float radius, vec4 col);                     // furniture blown apart (V4): low slow dust
   void build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>& add) const;
   uint32_t rng = 1234567u;
   float rnd() { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return (rng % 100000u) / 100000.0f; }

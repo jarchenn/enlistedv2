@@ -284,3 +284,29 @@ After each batch:
 ## Status and handoff notes (each stream appends one section when it hands off)
 - 2026-11-07 coordinator: Step 0 done. master 4cd7a28+ has W5b merged (Tank Range, Normandy Village Assault; "Battle 1"
   and "Normandy Village Assault" are both the user's battle1 map). `tools/gpu_turn.sh` added.
+- 2026-11-07 V4 (furniture everywhere, 3x, destructible), branch `vo-4-furniture` from 0e8479f, not pushed. Details in
+  `docs/interiors.md` section 4.
+  - **Auto-furnish:** `interior.autoFurnishAll` in `App::openMap` (after `syncRuntime`) and `App::newMap` (after
+    `w5NewMapContent`); `interior.autoFurnish` at the end of `placeInstance`. No undo step, dirty flag kept. Skips
+    `bunker_*` / `aw_*` / `bch_*`, `extra.decor` (V8: tag border buildings before placing them, or place them with
+    `interior.autoOnPlace = false`) and buildings with `extra.interior.on` set. V3's `ruin_*` assets get the ruined-room
+    recipe (few pieces, most broken) once they have rooms; earth and thin `stone_dressed` floors count now.
+  - **Density:** 29 new `furn_*` assets (gen_furniture.py, then build_mpu_assets.mjs for their nav blocks and
+    `tools/nav_backfill.json`; nothing else regenerated; `gun_flak18.json` is already out of step on master and was left
+    alone). Gate x3 in `selftest_interiors`: the four fixtures 164 vs 45 (x3.6), every building 548 vs 163 (x3.4).
+  - **Destruction:** every shell already reaches `interior.blast` through `App::explode`, so `station.cpp` is untouched.
+    New: direct hits, grenades x2.2 against furniture with splinters and dust (`Fx::splinters`, `Fx::dust` appended to
+    fx.cpp), tanks crush furniture (one line in the furniture branch of `tank_ram.cpp`, placed before the door-leaf
+    branch so furniture fragments are driven over). Fragment caps 32 / 240 x `settings().particleBudget()`, picked up
+    through `__has_include("settings.h")` when V2 merges (no code change needed).
+  - **Performance:** a box-LOD batch per building beyond 18 m, culled beyond 75 m (small props 32 m); the per-frame
+    passes skip when nothing changed. A blast in the furnished kitchen: 9 ms (was 62 ms mean / 260 ms p95).
+  - **Tests (through gpu_turn):** interiors 192/192, damage 129/129, tanks 122/122, maps 139/139 (Omaha worst
+    eye-level view 14.7 ms with every building furnished).
+  - **Shared files:** app.cpp (3 hook lines), tank_ram.cpp (1 line), fx.cpp / combat.h (appended), selftest_maps.cpp
+    (authored-instance counts), selftest_damage.cpp (its two walk-through farmhouses unfurnished; authored count),
+    docs/asset-usage-default-maps.md (rows for the new assets).
+  - **For the merge batch:** suites that count instances or walk routes through buildings may need the same
+    authored-count treatment (skip `extra.furnish`). Not run here: ai, match, net, entities, editor, structures, env.
+    The AI navmesh now sees the furniture (blocking pieces carve); walkthrough routes and doorways stay clear.
+  - **Open:** opening Omaha adds about 2.6 s (28 buildings); furniture standing behind a breached wall blocks the way in.

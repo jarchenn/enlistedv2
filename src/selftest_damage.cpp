@@ -158,6 +158,9 @@ void SelfTest::damageUpdate(App& app, float dt) {
     app.newMap(*t, "Destruction range");
     X.A = app.placeInstance(app.lib.find(FH), vec3(20, 0, 10), 37.0f);
     X.B = app.placeInstance(app.lib.find(FH), vec3(62, 0, 10), 37.0f);
+    // V4: the farmhouses are walked through their own breaches (authored routes for the bare house): template furniture
+    // removed, so it stays bare through save / reopen (interior.on = false); furniture damage is the interiors suite
+    app.interior.unfurnish(app, X.A); app.interior.unfurnish(app, X.B);
     X.C = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(-40, 0, 45), 200.0f);
     X.M = app.placeInstance(app.lib.find("large_municipal_building"), vec3(110, 0, -70), 123.0f);
     check(X.A && X.B && X.C && X.M, "fixture: two farmhouse copies (one at 37 deg), rotated MG casemate, municipal building placed");
@@ -725,8 +728,9 @@ void SelfTest::damageUpdate(App& app, float dt) {
     // old map (saved by the pre-destruction build) opens with every wall intact
     check(app.openMap(contentDir() / "examples" / "farmhouse_regression.nmap.json"), "pre-update example map opens");
     app.syncRuntime();
-    int anyD = 0; for (auto& [id, r] : app.rt) anyD += r.damaged;
-    check(app.doc.instances.size() == 1 && anyD == 0, "pre-update map: building present, all panels intact");
+    int anyD = 0, authored = 0; for (auto& [id, r] : app.rt) anyD += r.damaged;
+    for (auto& i : app.doc.instances) authored += !(i.extra.is_object() && i.extra.contains("furnish"));   // V4: opening furnishes the house
+    check(authored == 1 && anyD == 0, "pre-update map: building present, all panels intact");
     finish(app);
     break;
   }
