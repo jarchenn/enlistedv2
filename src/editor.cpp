@@ -4,6 +4,7 @@
 #include "mpai.h"
 #include "w3.h"
 #include "nature.h"
+#include "snap.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -86,11 +87,11 @@ void App::updateCreative(float dt) {
   bool lmbDown = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
   if (tool == Tool::Place && placing) {
-    if (hoverValid && placing->defense.kind == "sandbag") snapDefense(placing, hp, placeYaw);   // chain sandbag runs
-    if (hoverValid && placing->path.on) snapPath(placing, hp, placeYaw);                          // paths join end to end
-    if (hoverValid) lastCheck = checkPlacement(placing, hp, placeYaw, 0);
+    SnapGhost& sg = snapGhost(); sg.pos = hp; sg.yaw = placeYaw;
+    sg.on = hoverValid && snapPlacement(*this, placing, sg.pos, sg.yaw, 0);   // V6: sockets, sandbag runs, path ends (snap.cpp)
+    if (hoverValid) lastCheck = checkPlacement(placing, sg.pos, sg.yaw, 0);
     if (lmbPress && hoverValid) {
-      if (lastCheck.ok) { uint64_t id = placeInstance(placing, hp, placeYaw); if (id) { selected = id; placeCompanions(id); } }
+      if (lastCheck.ok) { uint64_t id = placeInstance(placing, sg.pos, sg.yaw); if (id) { selected = id; placeCompanions(id); } }
       else toast(lastCheck.reason);
     }
   } else if (tool == Tool::Marker) {
@@ -100,39 +101,10 @@ void App::updateCreative(float dt) {
       if (!startMarkerValid(doc.start.pos)) toast("Start marker is obstructed: the player capsule does not fit here.");
       tool = Tool::Select;
     }
-  } else {
-    if (lmbPress) {
-      float t; uint64_t id = pickInstance(ro, rd, t);
-      vec3 gp; bool g = terrain.raycast(ro, rd, 20000, gp);
-      if (id && (!g || t < glm::length(gp - ro) + 0.01f)) {
-        selected = id; dragPending = true;
-        double mx, my; glfwGetCursorPos(win, &mx, &my); dragStartMouse = vec2(mx, my);
-        Instance* s = doc.find(id);
-        dragOffset = s->pos - hoverGround; dragOffset.y = 0;
-      } else if (!editInteract) selected = 0;
-    }
-    if (dragPending && lmbDown) {
-      double mx, my; glfwGetCursorPos(win, &mx, &my);
-      if (!dragging && glm::length(vec2(mx, my) - dragStartMouse) > 4) {
-        Instance* s = doc.find(selected);
-        if (s) { pushUndo(); s = doc.find(selected); dragOrig = *s; dragging = true; }
-      }
-      if (dragging && hoverValid) {
-        Instance* s = doc.find(selected);
-        vec3 np = hoverGround + dragOffset;
-        if (gridSnap) { np.x = std::round(np.x); np.z = std::round(np.z); }
-        lastCheck = checkPlacement(assetFor(*s), np, s->yaw, s->id);
-        s->pos = vec3(lastCheck.snapXZ ? lastCheck.xz.x : np.x, lastCheck.ok ? lastCheck.y : s->pos.y, lastCheck.snapXZ ? lastCheck.xz.y : np.z);
-        bump(*s);
-      }
-    }
-    if (!lmbDown) {
-      if (dragging) {
-        Instance* s = doc.find(selected);
-        if (s && !lastCheck.ok) { *s = dragOrig; bump(*s); undoStack.pop_back(); toast("Move rejected: " + lastCheck.reason); }
-      }
-      dragging = false; dragPending = false;
-    }
+  } else {   // V6: LMB drag orbits about the pressed point, a click selects, a drag that starts on the selection moves it
+    EdPointer ep; double mx, my; glfwGetCursorPos(win, &mx, &my);
+    ep.px = vec2((float)mx, (float)my); ep.lmb = lmbDown; ep.overUi = uiMouse || looking; ep.ro = ro; ep.rd = rd;
+    edSelectPointer(*this, ep);   // editor_nav.cpp
   }
 }
 
@@ -158,8 +130,9 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
   // placement preview
   if (tool == Tool::Place && placing && hoverValid) {
     vec3 hp = hoverGround; if (gridSnap) { hp.x = std::round(hp.x); hp.z = std::round(hp.z); }
+    float gyaw = placeYaw; if (snapGhost().on) { hp = snapGhost().pos; gyaw = snapGhost().yaw; }   // V6: the snapped pose
     vec3 p(hp.x, lastCheck.ok ? lastCheck.y : terrain.height(hp.x, hp.z), hp.z);
-    mat4 M = glm::translate(mat4(1), p) * glm::mat4_cast(yawQuat(placeYaw));
+    mat4 M = glm::translate(mat4(1), p) * glm::mat4_cast(yawQuat(gyaw));
     vec4 tint = lastCheck.ok ? vec4(0.4f, 0.9f, 0.5f, 0.55f) : vec4(1.0f, 0.35f, 0.3f, 0.5f);
     ghosts.push_back({&placing->opaque, M, tint});
     ghosts.push_back({&placing->panelsIntact, M, tint});
@@ -172,8 +145,8 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
       for (auto& lf : d.leaves)
         ghosts.push_back({&lf.opaque, M * glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * (d.defaultOpen ? d.openAngle : 0)), d.axis)), tint});
     vec4 c = lastCheck.ok ? ok : bad;
-    drapedRect(ov, terrain, p, placing->footprint * 0.5f, placeYaw, p.y, c, true);
-    vec3 front = yawQuat(placeYaw) * vec3(0, 0, 1);
+    drapedRect(ov, terrain, p, placing->footprint * 0.5f, gyaw, p.y, c, true);
+    vec3 front = yawQuat(gyaw) * vec3(0, 0, 1);
     arrow(ov, p + front * (placing->footprint.y * 0.5f) + vec3(0, 0.3f, 0), front, 3.0f, c, true);
   }
   // selection

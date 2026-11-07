@@ -6,7 +6,7 @@
 // ("hedge": true), like the existing hedgerow_bocage.
 import { Asset } from "./kit.mjs";
 import { stdMaterials } from "./parts.mjs";
-import { M, mats, rng, rect, fire, cover, setNav, setTour, segBox, r3, extendEnds, band } from "./catalog_atlantic.mjs";
+import { M, mats, rng, rect, fire, cover, setNav, setTour, segBox, r3, extendEnds, band, sock, setSnap, asCap } from "./catalog_atlantic.mjs";
 import { smallArmsCache } from "./catalog_ammo.mjs";
 
 const SOIL = { name: "bank_soil", albedo: [0.19, 0.21, 0.11], roughness: 0.97, pattern: "plain", metallic: 0, grain: 1 };
@@ -22,7 +22,9 @@ function bankSeg(A, p0, p1, H, W = 3.0, Wt = 1.1, e0 = 0, e1 = 0) {
   const ux = run / fl, uy = H / fl;   // outward-down face direction is (ux, -uy); its outward normal is (uy, ux)
   for (const side of [-1, 1]) {
     const mz = Wt / 2 + run / 2 - uy * t, my = H / 2 - ux * t;
-    segBox(A, p0, p1, side * mz, my - (fl + 0.6) / 2, my + (fl + 0.6) / 2, 2 * t, "bank_soil", {}, e0 - 0.3, e1 - 0.3, -side * tilt);
+    // battered sides: shortened only where a leg runs on into another (corner); at a piece end they reach the end
+    // plane so joined pieces close without a notch (V6 snapping)
+    segBox(A, p0, p1, side * mz, my - (fl + 0.6) / 2, my + (fl + 0.6) / 2, 2 * t, "bank_soil", {}, e0 > 0 ? e0 - 0.3 : 0, e1 > 0 ? e1 - 0.3 : 0, -side * tilt);
   }
 }
 // hedge along the bank top: stems and canopy spheres; returns the spheres
@@ -56,6 +58,11 @@ function hedgerowAsset(id, name, desc, footprint) {
   bocageMats(A);
   return A;
 }
+// rounded bank end over socket idx's free end (p on the end plane, outward dir); left out while joined (V6)
+function bankCap(A, p, dir, H, idx) {
+  const c = [p[0] + dir[0] * 0.1, p[1] + dir[1] * 0.1], hx = Math.abs(dir[0]) > 0.5 ? 0.6 : 1.35, hz = Math.abs(dir[0]) > 0.5 ? 1.35 : 0.6;
+  asCap(A.rbox([c[0] - hx, -0.3, c[1] - hz], [c[0] + hx, H - 0.15, c[1] + hz], 0.55, "bank_soil"), idx);
+}
 const bankCover = (x0, x1, z, yaw) => { const out = []; for (let x = x0; x <= x1 + 1e-6; x += 2.5) out.push(cover([x, 0, z], yaw, "high", ["over"])); return out; };
 
 // ============================================================================ hedgerows
@@ -66,6 +73,8 @@ export function hedgerowStraight() {
   bankSeg(A, [-L / 2, 0], [L / 2, 0], H, 3.0, 1.1, 0.0, 0.0);
   hedgeAlong(A, R, [-L / 2, 0], [L / 2, 0], H, canopy);
   bankTree(A, R, -2.6, 0.1, H, canopy, 5.5); bankTree(A, R, 3.1, -0.15, H, canopy, 4.8);
+  setSnap(A, [sock([-L / 2, 0, 0], [-1, 0], "hedge"), sock([L / 2, 0, 0], [1, 0], "hedge")]);
+  bankCap(A, [-L / 2, 0], [-1, 0], H, 0); bankCap(A, [L / 2, 0], [1, 0], H, 1);
   foliage(A, canopy, 7101);
   setNav(A, { effect: "block", cover: bankCover(-3.75, 3.75, -1.9, 0).concat(bankCover(-3.75, 3.75, 1.9, 180)) });
   setTour(A, { pos: [0.8, 0, -6.0], yaw: 180 }, [{ goto: [0.8, -2.2] }, { look: [0.8, 2.2, 0], hold: 0.5 }, { shot: "mpu_hedgerow_from_field" }]);
@@ -80,6 +89,8 @@ export function hedgerowCorner() {
   bankSeg(A, [0, 0], [0, 6], H, 3.0, 1.1, 0.6, 0);
   hedgeAlong(A, R, [-6, 0], [-0.3, 0], H, canopy); hedgeAlong(A, R, [0, 0.3], [0, 6], H, canopy);
   bankTree(A, R, 0.0, 0.0, H, canopy, 6.0);
+  setSnap(A, [sock([-6, 0, 0], [-1, 0], "hedge"), sock([0, 0, 6], [0, 1], "hedge")]);
+  bankCap(A, [-6, 0], [-1, 0], H, 0); bankCap(A, [0, 6], [0, 1], H, 1);
   foliage(A, canopy, 7202);
   setNav(A, { effect: "block", cover: [cover([-1.9, 0, -1.9], 0, "high", ["left"]), cover([-4.2, 0, -1.9], 0, "high", ["over"]), cover([1.9, 0, 1.9], 270, "high", ["right"]), cover([1.9, 0, 4.2], 270, "high", ["over"])],
     firingPoints: [] });
@@ -98,6 +109,8 @@ export function hedgerowGap() {
     bankTree(A, R, s * (G / 2 + 2.3), 0.05, H, canopy, 5.0);
   }
   A.box([-G / 2 + 0.4, -0.05, -1.6], [G / 2 - 0.4, 0.02, 1.6], "mud", { k: 0 });   // trodden gateway
+  setSnap(A, [sock([-L / 2, 0, 0], [-1, 0], "hedge"), sock([L / 2, 0, 0], [1, 0], "hedge")]);
+  bankCap(A, [-L / 2, 0], [-1, 0], H, 0); bankCap(A, [L / 2, 0], [1, 0], H, 1);
   setNav(A, { effect: "block", areas: [{ outline: rect(-G / 2 + 0.6, -1.5, G / 2 - 0.6, 1.5), area: "grass" }],
     cover: [cover([-G / 2 - 1.0, 0, -1.9], 0, "high", ["right"]), cover([G / 2 + 1.0, 0, -1.9], 0, "high", ["left"]), cover([-G / 2 - 1.0, 0, 1.9], 180, "high", ["left"]), cover([G / 2 + 1.0, 0, 1.9], 180, "high", ["right"])] });
   foliage(A, canopy, 7303);
@@ -123,6 +136,7 @@ export function sunkenLane() {
     if (s > 0) bankTree(A, R, W / 2 + side + 0.9, 1.5, 1.0, canopy, 6.0);
   }
   foliage(A, canopy, 7404);
+  setSnap(A, [sock([0, 0, -Z], [0, -1], "lane"), sock([0, 0, Z], [0, 1], "lane")]);   // open ends: no caps
   const cutW = W / 2 + side + 0.2;
   setNav(A, { effect: "area", area: "road", areas: [{ outline: rect(-W / 2, -Z, W / 2, Z), area: "road" }],
     cover: [cover([-1.1, -D, -2], 270, "high", ["over"]), cover([1.1, -D, 2], 90, "high", ["over"])] },
@@ -183,6 +197,7 @@ export function earthRampart() {
   A.box([-L / 2, H, 0.75], [L / 2, H + 0.85, 1.35], "bank_soil");   // firing parapet
   for (let x = -L / 2 + 1; x < L / 2 - 0.5; x += 1.5 + R()) canopy.push([r3(x), r3(H + 0.9 + R() * 0.4), r3(-1.6 - R() * 1.5), r3(0.6 + R() * 0.3)]);
   bankTree(A, R, -3.5, -0.6, H, canopy, 5.0); bankTree(A, R, 3.8, -0.4, H, canopy, 5.5);
+  setSnap(A, [sock([-L / 2, 0, 0], [-1, 0], "rampart"), sock([L / 2, 0, 0], [1, 0], "rampart")]);   // V6: open ends
   foliage(A, canopy, 7606, [0.15, 0.22, 0.08]);
   const fp = []; for (const x of [-4.5, -1.5, 1.5, 4.5]) fp.push(fire([x, H, 0.25], 0, "firestep"));
   setNav(A, { effect: "block", firingPoints: fp, cover: [-4, 0, 4].map((x) => cover([x, H, 0.15], 0, "low", ["over"])) });

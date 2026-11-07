@@ -8,6 +8,8 @@
 #include "selftest.h"
 #include "editor_nav.h"
 #include "scenario.h"
+#include "snap.h"
+#include <imgui_internal.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <fstream>
@@ -361,6 +363,93 @@ void SelfTest::editorUpdate(App& app, float dt) {
     fs::path tmp = outDirEd() / "w3_dropin.nmap.json";
     app.saveMapTo(tmp); app.newMap(*blank, "x"); app.openMap(tmp);
     check(app.doc.start.set && glm::length(app.doc.start.pos - vec3(gDropAt.x, app.terrain.height(gDropAt.x, gDropAt.z), gDropAt.z)) < 1e-3f, "explore start saved with the map");
+    gPerfFrame = 0;
+    go(3390);
+    break;
+  }
+  case 3390: {   // ================= V6: Select-tool LMB gestures (orbit / click-select / drag-move) and the zoom buttons
+    navNewMapSized(app, *blank, "V6 gesture test", vec2(600, 600));
+    Terrain& T = app.terrain;
+    const AssetDef* house = app.lib.find("house_stone_cottage");
+    if (!house) { check(false, "house_stone_cottage for the gesture test"); go(3350); break; }
+    uint64_t hid = app.placeInstance(house, vec3(20, 0, -10), 0), other = app.placeInstance(house, vec3(45, 0, -10), 0);
+    app.syncRuntime(); app.selected = 0;
+    int W = 1600, H = 900; if (app.win) glfwGetWindowSize(app.win, &W, &H);
+    auto toPx = [&](vec2 ndc) { return vec2((ndc.x * 0.5f + 0.5f) * W, (0.5f - ndc.y * 0.5f) * H); };
+    auto ptr = [&](vec2 ndc, bool down, vec2 pxOff = vec2(0)) { EdPointer p; vec3 ro, rd; rayAt(app, ndc, ro, rd); p.px = toPx(ndc) + pxOff; p.lmb = down; p.ro = ro; p.rd = rd; return p; };
+    auto setCam = [&]() { app.camPos = vec3(20, T.height(20, -10) + 26, 22); app.camYaw = 0; app.camPitch = -42; };
+    setCam();
+    Instance* hs = app.doc.find(hid); vec3 h0 = hs ? hs->pos : vec3(0);
+    vec2 houseNdc = project(viewProj(app), h0 + vec3(0, 2.0f, 0));
+    // 1. LMB press-drag on open ground orbits about the pressed point and selects nothing
+    vec2 gNdc(-0.55f, -0.35f); vec3 ro, rd, g; rayAt(app, gNdc, ro, rd); bool gh = T.raycast(ro, rd, 5000, g);
+    float yaw0 = app.camYaw;
+    EdGesture a0 = edSelectPointer(app, ptr(gNdc, true));
+    EdGesture a1 = edSelectPointer(app, ptr(gNdc, true, vec2(50, 0)));
+    EdGesture a2 = edSelectPointer(app, ptr(gNdc, true, vec2(80, 0)));
+    vec2 gAfter = project(viewProj(app), g);
+    edSelectPointer(app, ptr(gNdc, false, vec2(80, 0)));
+    float wantYaw = wrapDeg(yaw0 - 80 * navSettings().orbitDegPerPixel);
+    check(gh && a0 == EdGesture::Pending && a1 == EdGesture::Orbit && a2 == EdGesture::Orbit && std::fabs(wrapDeg(app.camYaw - wantYaw)) < 0.01f && glm::length(gAfter - gNdc) < 3e-3f && app.selected == 0,
+          fmt("LMB drag on the ground orbits about the pressed point: heading %.1f -> %.1f deg (want %.1f), the point stays under the cursor (err %.4f), nothing selected", yaw0, app.camYaw, wantYaw, glm::length(gAfter - gNdc)));
+    // 2. press-drag starting on an unselected house: orbit, still no selection and the house stays put
+    setCam(); houseNdc = project(viewProj(app), h0 + vec3(0, 2.0f, 0));
+    edSelectPointer(app, ptr(houseNdc, true)); EdGesture b1 = edSelectPointer(app, ptr(houseNdc, true, vec2(0, 30)));
+    edSelectPointer(app, ptr(houseNdc, false, vec2(0, 30)));
+    hs = app.doc.find(hid);
+    check(b1 == EdGesture::Orbit && app.selected == 0 && hs && hs->pos == h0 && app.camPitch != -42.0f, fmt("dragging over an unselected house orbits (pitch %.1f deg) and never selects or moves it", app.camPitch));
+    // 3. a click without drag selects
+    setCam(); houseNdc = project(viewProj(app), h0 + vec3(0, 2.0f, 0));
+    edSelectPointer(app, ptr(houseNdc, true)); edSelectPointer(app, ptr(houseNdc, true, vec2(2, 1))); EdGesture c1 = edSelectPointer(app, ptr(houseNdc, false, vec2(2, 1)));
+    check(app.selected == hid && c1 == EdGesture::Pending && app.camYaw == 0 && app.camPitch == -42, fmt("a click (2 px of jitter) selects the house (#%llu) without moving the camera", (unsigned long long)app.selected));
+    // 4. click, release, then press-drag on the selection: moves it, one undo step
+    size_t und = app.undoStack.size();
+    vec3 r0, d0, g0, r1, d1, g1; rayAt(app, houseNdc, r0, d0); T.raycast(r0, d0, 5000, g0);
+    vec2 toNdc = project(viewProj(app), h0 + vec3(-6, 0, 4)); rayAt(app, toNdc, r1, d1); T.raycast(r1, d1, 5000, g1);
+    vec3 want = h0 + (g1 - g0); want.y = 0;
+    edSelectPointer(app, ptr(houseNdc, true));
+    EdGesture m1 = edSelectPointer(app, ptr(toNdc, true));
+    EdGesture m2 = edSelectPointer(app, ptr(toNdc, true));
+    bool dragging = app.dragging;
+    edSelectPointer(app, ptr(toNdc, false));
+    hs = app.doc.find(hid);
+    float err = hs ? glm::length(vec2(hs->pos.x - want.x, hs->pos.z - want.z)) : 99.0f;
+    check(m1 == EdGesture::Move && m2 == EdGesture::Move && dragging && err < 0.02f && app.undoStack.size() == und + 1 && app.lastCheck.ok && app.camYaw == 0,
+          fmt("press-drag on the selected house moves it with the cursor (%.3f m off), one undo step, camera still", err));
+    app.undo(); app.syncRuntime(); hs = app.doc.find(hid);
+    check(hs && hs->pos == h0, "undo puts the moved house back");
+    // 5. a rejected move (onto the other house) reverts on release and leaves no undo step
+    app.selected = hid; und = app.undoStack.size();
+    vec2 onOther = project(viewProj(app), app.doc.find(other)->pos);
+    edSelectPointer(app, ptr(houseNdc, true)); edSelectPointer(app, ptr(onOther, true)); edSelectPointer(app, ptr(onOther, true));
+    bool wasBad = !app.lastCheck.ok; std::string why = app.lastCheck.reason;
+    edSelectPointer(app, ptr(onOther, false));
+    hs = app.doc.find(hid);
+    check(wasBad && hs && hs->pos == h0 && app.undoStack.size() == und, fmt("a move onto another house is refused and reverts (%s)", why.c_str()));
+    // 6. a click on open ground deselects
+    edSelectPointer(app, ptr(gNdc, true)); edSelectPointer(app, ptr(gNdc, false));
+    check(app.selected == 0, "a click on open ground clears the selection");
+    // 7. + / - zoom toward the screen centre
+    setCam();
+    vec3 c0; bool ch = T.raycast(app.camPos, App::forward(app.camYaw, app.camPitch), 5000, c0);
+    float dz0 = glm::length(c0 - app.camPos);
+    navZoomCentre(app, 1.0f);
+    float dz1 = glm::length(c0 - app.camPos); vec2 cn = project(viewProj(app), c0);
+    navZoomCentre(app, -1.0f);
+    float dz2 = glm::length(c0 - app.camPos);
+    check(ch && std::fabs(dz1 / dz0 - (1 - navSettings().zoomStep)) < 0.01f && glm::length(cn) < 2e-3f && std::fabs(dz2 - dz0) < 0.05f,
+          fmt("+ zooms toward the screen centre (distance x%.3f, centre point stays at the centre, err %.4f); - zooms back out (%.2f -> %.2f m)", dz1 / dz0, glm::length(cn), dz0, dz2));
+    check(std::string(w3StatusHelp()).find("LMB drag orbit") != std::string::npos && std::string(w3StatusHelp()).find("+ / - zoom") != std::string::npos, "status bar help lists the new mouse controls and the zoom buttons");
+    gPerfFrame = 0;
+    go(3391);
+    break;
+  }
+  case 3391: {   // the zoom buttons are drawn at the bottom centre
+    if (++gPerfFrame < 4) break;
+    ImGuiWindow* w = ImGui::FindWindowByName("##zoomButtons");
+    ImGuiIO& io = ImGui::GetIO();
+    bool ok = w && (w->Active || w->WasActive) && std::fabs(w->Pos.x + w->Size.x * 0.5f - io.DisplaySize.x * 0.5f) < 2.0f && w->Pos.y + w->Size.y > io.DisplaySize.y * 0.8f;
+    check(ok, fmt("+ / - zoom buttons drawn at the bottom centre (window at %.0f, %.0f, %.0f x %.0f in %.0f x %.0f)", w ? w->Pos.x : -1, w ? w->Pos.y : -1, w ? w->Size.x : 0, w ? w->Size.y : 0, io.DisplaySize.x, io.DisplaySize.y));
     gRuns.clear(); gPerfIdx = 0; gPerfFrame = 0;
     go(3350);
     break;

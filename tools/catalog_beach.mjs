@@ -220,6 +220,7 @@ export function atDitch() {
     A.box([-X, -D - 0.3, s > 0 ? ZT + 0.05 : -ZT - 1.25], [X, 0.02, s > 0 ? ZT + 1.25 : -ZT - 0.05], "spoil");   // earth out past the cut's step (terrain grid)
   }
   A.prism(0, -X, X, [[-ZT - 0.6, -0.2], [-ZT - 1.8, 1.0], [-ZT - 4.2, -0.2]], "spoil");   // defender's spoil bank
+  A.meta.snap = [{ p: [-X, 0, 0], dir: [-1, 0], kind: "atditch" }, { p: [X, 0, 0], dir: [1, 0], kind: "atditch" }];   // V6 snapping; the ends stay open
   setNav(A, { effect: "carve", cover: [-4, 0, 4].map((x) => cover([x, 0, -ZT - 4.6], 0, "low", ["over"])),
     areas: [{ outline: rect(-X, -ZB, X, ZB), area: "water" }] },
     [{ outline: rect(-X - 0.8, -ZT - 0.15, X + 0.8, ZT + 0.15), depth: D + 0.3, bank: 0.3 }]);

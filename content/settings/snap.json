@@ -1,0 +1,15 @@
+{
+  "_doc": "V6 snapping and crush & flatten (src/snap.h). radius: placing / moving this close to a free compatible socket snaps onto it (m). joinTol: sockets this close and facing each other are joined (m); a snapped piece's own ground may differ from the chain's base height by up to the asset's maxGrade. compatible: socket kinds that join each other besides equal kinds. assets: sockets for assets whose generator is not re-run (asset space p, outward dir x/z). crush: placing or moving a building removes vegetation / nature instances under its footprint (+ margin) up to maxHeight m and flattens the ground to its base with a feathered skirt (m); taller growth blocks the placement. categories: asset categories that count as buildings (enterable assets with wall bays count too).",
+  "radius": 1.5,
+  "joinTol": 0.06,
+  "compatible": [],
+  "assets": {
+    "hedgerow_bocage": [{"p": [-4, 0, 0], "dir": [-1, 0], "kind": "hedge_low"}, {"p": [4, 0, 0], "dir": [1, 0], "kind": "hedge_low"}]
+  },
+  "crush": {
+    "maxHeight": 1.6,
+    "margin": 0.3,
+    "skirt": 2.5,
+    "categories": ["Houses", "Large buildings", "Small buildings", "Landmarks", "Bunkers", "Ruins", "Ruined buildings"]
+  }
+}

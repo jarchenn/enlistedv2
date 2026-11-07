@@ -4,6 +4,7 @@
 #include "editor_nav.h"
 #include "app.h"
 #include "scenario.h"
+#include "snap.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -261,6 +262,7 @@ int navSyncCuts(App& app) {
 
 void w3Frame(App& app) {
   NavState& n = navState();
+  snapSync(app);   // V6: joined snap sockets (caps, chain texture origins; snap.cpp)
   navSyncCuts(app);
   terrainPhysicsSync(app.terrain);
   if (app.mode == Mode::Creative) { navStepFlight(app, app.frameDt); n.creativeSession = false; }
@@ -299,7 +301,7 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
   double mx, my; glfwGetCursorPos(w, &mx, &my);
   // ---- right-drag: orbit about the ground under the cursor (sky: turn in place)
   bool rmb = glfwGetMouseButton(w, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-  if (rmb && !n.orbiting && !uiMouse && !n.panning && !n.dropDrag) {
+  if (rmb && !n.orbiting && !uiMouse && !n.panning && !n.dropDrag && n.lmbGesture < 2) {
     vec3 ro, rd, hit; rayFromCursor(app, ro, rd);
     n.pivot = groundHit(app, ro, rd, hit) && glm::length(hit - app.camPos) < 6000.0f ? hit : app.camPos;
     n.orbiting = true; n.flying = false; app.looking = true; n.lastMx = mx; n.lastMy = my;
@@ -315,7 +317,7 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
   }
   // ---- middle-drag: grab the ground and pan
   bool mmb = glfwGetMouseButton(w, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
-  if (mmb && !n.panning && !uiMouse && !n.orbiting) {
+  if (mmb && !n.panning && !uiMouse && !n.orbiting && n.lmbGesture < 2) {
     vec3 ro, rd, hit; rayFromCursor(app, ro, rd);
     if (!groundHit(app, ro, rd, hit)) { float gy = app.terrain.height(app.camPos.x, app.camPos.z); hit = ro + rd * std::max(30.0f, (app.camPos.y - gy) * 2.0f); hit.y = gy; }
     n.panAnchor = hit; n.panPlaneY = hit.y; n.panning = true; n.flying = false;
@@ -358,7 +360,85 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
 }
 
 const char* w3StatusHelp() {
-  return "Wheel zoom to cursor | MMB drag pan | RMB drag orbit | WASD/QE fly (Shift fast, Alt+wheel speed) | F frame | Home map | M overview | Ctrl+1-9 / 1-9 bookmarks | drag the soldier to explore | F5 explore from start";
+  return "LMB drag orbit | click select | drag the selection to move it | Wheel zoom to cursor | + / - zoom | MMB drag pan | RMB drag orbit | WASD/QE fly (Shift fast, Alt+wheel speed) | F frame | Home map | M overview | Ctrl+1-9 / 1-9 bookmarks | drag the soldier to explore | F5 explore from start";
+}
+
+// ------------------------------------------------------------------ V6: Select tool LMB gestures, centre zoom
+void navZoomCentre(App& app, float steps) {
+  navState().flying = false;
+  navZoomAlongRay(app, steps, app.camPos, camForward(app.camYaw, app.camPitch));
+}
+
+EdGesture edSelectPointer(App& app, const EdPointer& p) {
+  NavState& n = navState();
+  const NavCamSettings& s = navSettings();
+  bool press = p.lmb && !n.lmbPrev;
+  n.lmbPrev = p.lmb;
+  auto endOrbit = [&]() {
+    app.looking = false;
+    if (!app.selftest && app.win) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  };
+  if (press && n.lmbGesture == 0 && !p.overUi && !app.looking && !n.orbiting && !n.panning && !n.dropDrag) {
+    float t; uint64_t id = app.pickInstance(p.ro, p.rd, t);
+    vec3 gp; bool g = app.terrain.raycast(p.ro, p.rd, 20000, gp);
+    bool onObj = id && (!g || t < glm::length(gp - p.ro) + 0.01f);
+    n.pressId = onObj ? id : 0;
+    n.pressOnSel = onObj && id == app.selected;
+    n.pressPx = p.px; n.lastPx = p.px;
+    n.pressGround = g; n.pressGroundPt = gp;
+    n.lpivot = onObj ? p.ro + p.rd * t : (g && glm::length(gp - app.camPos) < 6000.0f ? gp : app.camPos);   // orbit about the pressed point
+    n.lmbGesture = 1; app.dragPending = true;
+  }
+  if (n.lmbGesture == 1 && p.lmb && glm::length(p.px - n.pressPx) > 4.0f) {
+    Instance* sel = n.pressOnSel ? app.doc.find(app.selected) : nullptr;
+    if (sel) {   // press-drag on the selected piece: move it (one undo step; rejected moves revert on release)
+      app.pushUndo(); sel = app.doc.find(app.selected);
+      app.dragOrig = *sel; app.dragging = true;
+      vec3 gp = n.pressGround ? n.pressGroundPt : sel->pos;
+      app.dragOffset = sel->pos - gp; app.dragOffset.y = 0;
+      n.moveYaw = sel->yaw; n.appliedYaw = sel->yaw;
+      n.lmbGesture = 3;
+    } else {     // anywhere else: orbit about the pressed point, never select
+      n.lmbGesture = 2; n.flying = false; app.looking = true;
+      if (!app.selftest && app.win) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);   // virtual cursor continues from here
+    }
+  }
+  if (n.lmbGesture == 2 && p.lmb) {
+    vec2 d = p.px - n.lastPx; n.lastPx = p.px;
+    if (d.x != 0 || d.y != 0) navOrbit(app, n.lpivot, -d.x * s.orbitDegPerPixel, -d.y * s.orbitDegPerPixel);
+  }
+  if (n.lmbGesture == 3 && p.lmb) {
+    Instance* sel = app.doc.find(app.selected);
+    vec3 gp;
+    if (!sel) { n.lmbGesture = 0; app.dragging = false; }
+    else if (app.terrain.raycast(p.ro, p.rd, 20000, gp)) {
+      const AssetDef* a = app.assetFor(*sel);
+      if (sel->yaw != n.appliedYaw) n.moveYaw = wrapDeg(n.moveYaw + sel->yaw - n.appliedYaw);   // wheel turns while moving
+      vec3 np = gp + app.dragOffset;
+      if (app.gridSnap) { np.x = std::round(np.x); np.z = std::round(np.z); }
+      float ny = n.moveYaw;
+      snapPlacement(app, a, np, ny, sel->id);   // sockets, sandbag runs, path ends (snap.cpp)
+      PlaceCheck c = app.checkPlacement(a, np, ny, sel->id);
+      app.lastCheck = c;
+      sel->pos = vec3(c.snapXZ ? c.xz.x : np.x, c.ok ? c.y : sel->pos.y, c.snapXZ ? c.xz.y : np.z);
+      sel->yaw = ny; n.appliedYaw = ny;
+      app.bump(*sel);
+    }
+  }
+  EdGesture out = n.lmbGesture == 1 ? EdGesture::Pending : n.lmbGesture == 2 ? EdGesture::Orbit : n.lmbGesture == 3 ? EdGesture::Move : EdGesture::None;
+  if (!p.lmb && n.lmbGesture) {
+    if (n.lmbGesture == 1) {   // a click: select what was under the cursor
+      if (n.pressId) app.selected = n.pressId;
+      else if (!app.editInteract) app.selected = 0;
+    } else if (n.lmbGesture == 2) endOrbit();
+    else if (n.lmbGesture == 3) {
+      Instance* sel = app.doc.find(app.selected);
+      if (sel && !app.lastCheck.ok) { *sel = app.dragOrig; app.bump(*sel); if (!app.undoStack.empty()) app.undoStack.pop_back(); app.toast("Move rejected: " + app.lastCheck.reason); }
+      else if (sel) crushAndFlatten(app, sel->id);   // buildings crush growth and flatten at the new spot (same undo step)
+    }
+    n.lmbGesture = 0; app.dragging = false; app.dragPending = false;
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------ overlays
@@ -610,8 +690,26 @@ static void newMapDialog(App& app) {
   ImGui::EndPopup();
 }
 
+// V6: + / - zoom buttons at the bottom centre (above the status bar), toward the ground at the screen centre
+static void zoomButtons(App& app) {
+  if (app.mode != Mode::Creative) return;
+  ImGuiIO& io = ImGui::GetIO();
+  ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y - ImGui::GetFrameHeightWithSpacing() - 14), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+  ImGui::SetNextWindowBgAlpha(0.55f);
+  ImGui::Begin("##zoomButtons", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing);
+  ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
+  if (ImGui::Button(" + ", ImVec2(40, 32))) navZoomCentre(app, 1.0f);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Zoom in toward the screen centre");
+  ImGui::SameLine();
+  if (ImGui::Button(" - ", ImVec2(40, 32))) navZoomCentre(app, -1.0f);
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Zoom out from the screen centre");
+  ImGui::PopItemFlag();
+  ImGui::End();
+}
+
 void w3EditorUI(App& app) {
   newMapDialog(app);
   if (navState().overview) drawOverview(app);
   dropinUI(app);
+  zoomButtons(app);
 }

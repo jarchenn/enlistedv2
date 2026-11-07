@@ -19,6 +19,7 @@
 #include <set>
 #include <algorithm>
 
+bool crushStep(App& a, MpTest& t);   // V6 (selftest_snap.cpp)
 namespace {
 MpTest* T = nullptr;
 int mode = -1; bool started = false;
@@ -175,7 +176,7 @@ void build(App& app) {
       uint64_t H = place(a, "house_stone_cottage", vec3(12, 0, 12), 0); a.syncRuntime(); buildPatch(a, P1);
       size_t after = rtOf(a, P1)->natCount;
       chk(H && after < before, "a structure placed on the patch clears it under its footprint (%zu -> %zu plants)", before, after);
-      if (H) { a.selected = H; a.deleteSelected(); a.syncRuntime(); buildPatch(a, P1); }
+      if (H) { a.undo(); a.syncRuntime(); buildPatch(a, P1); }   // undo, not delete: placing a building also flattens its ground (V6), which only undo restores
       chk(naturePatchHash(*rtOf(a, P1)) == h1, "structure removed: the patch is back exactly");
       fs::path f = userMapsDir() / "selftest_nature.nmap.json";
       chk(a.saveMapTo(f), "map saved");
@@ -266,6 +267,7 @@ void build(App& app) {
       const char* p[] = {"nat_hawthorn_bush", "nat_bramble_thicket", "nat_blackthorn_low", "nat_gorse_shrub", "nat_bracken_clump", "nat_fern_clump", "nat_nettle_clump", "nat_sapling_ash", "nat_sapling_oak"};
       for (int k = 0; k < 9; ++k) place(a, p[k], vec3(19.0f + 2.8f * k, 0, 14 - (k % 2) * 2.5f), 30.0f * k); }},
   };
+  push("V6: a house on shrubs crushes them and flattens the ground", [](App& a, float) { return crushStep(a, *T); });   // selftest_snap.cpp
   push("screenshots", [](App& a, float t) {
     static float t0 = 0; static bool armed = false;
     if (t == 0) { si = 0; t0 = 0; armed = false; }

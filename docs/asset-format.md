@@ -55,6 +55,24 @@ These optional top-level keys are read into `AssetDef::navMeta`. They are the co
 
 Positions in both keys are asset-local, like parts.
 
+## Snap sockets (`"snap"`, `src/snap.h`)
+
+`"snap": [{p: [x, y, z], dir: [x, z], kind}]` marks the asset's joinable ends:
+- `p` is the end point, asset-local.
+- `dir` is the outward direction through that end.
+- `kind` is any string. Two sockets join when their kinds are equal or are listed as a pair in `content/settings/snap.json` (`compatible`).
+
+When a piece is placed or moved within 1.5 m of a free compatible socket, it snaps onto it: position and yaw. It takes the neighbour's base height, so a chain shares one base and its terrain-cut floors line up. Snapped neighbours pass the overlap test.
+
+A part tagged `"cap": n` closes socket `n`'s free end. While that socket is joined, the part is left out of both the mesh and the collision. Faces lying in a joined end's plane and facing out through it are dropped too.
+
+Every piece of a chain draws its procedural patterns in world xz from one chain origin (`uSnapAp` in `kMainVS`), so the texture continues across joints.
+
+Where sockets come from:
+- `aw_trench_*`, `bcg_hedgerow_*`, `bcg_sunken_lane`, `bcg_rampart` and `bch_at_ditch` declare theirs in their generators (`catalog_atlantic`, `catalog_bocage`, `catalog_beach`). Trench and hedgerow ends carry caps.
+- `path_*` sockets follow each path's own length (kind `path`).
+- Assets whose generator is not re-run get theirs from `snap.json` (`assets`), for example `hedgerow_bocage` (kind `hedge_low`).
+
 ## Rules the kit follows
 
 - Walls are real two-layer solids: rubble stone on the outside and lime plaster inside. Openings are cut out of them, never painted on.

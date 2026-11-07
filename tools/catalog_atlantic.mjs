@@ -67,6 +67,21 @@ export function setNav(A, nav, cuts = null) { A.meta.nav = nav; if (cuts) A.meta
 // scripted route for --selftest-structures (same step vocabulary as "walkthrough"; kept under its own key so the
 // legacy --selftest phase A does not pick these assets up). cut: the test applies the terrain cut before walking.
 export function setTour(A, start, steps, extra = {}) { A.meta.tour = { start, steps, ...extra }; }
+// V6 snap sockets (src/snap.h): p asset-space, dir the outward direction (x, z) through that end; pieces whose sockets
+// meet join at one base height. A part tagged cap: n closes socket n's free end and is left out while it is joined.
+export const sock = (p, dir, kind) => ({ p: p.map(r3), dir: dir.map(r3), kind });
+export function setSnap(A, sockets) { A.meta.snap = sockets; }
+export function asCap(part, idx) { if (part) part.cap = idx; return part; }
+// trench end cap at socket idx (point p, outward dir): wattle end wall on the socket plane and earth fill out over the
+// cut's open end (both collide: the end is closed until another piece joins there)
+export function trenchCap(A, p, dir, idx) {
+  const { D, HW, RV, FILL, PAR, PARADOS } = TR;
+  const n = [-dir[1], dir[0]], at = (a, o) => [p[0] + dir[0] * a + n[0] * o, p[1] + dir[1] * a + n[1] * o];
+  const w = HW + RV;
+  asCap(segBox(A, at(RV / 2, w), at(RV / 2, -w), 0, -D - 0.2, Math.max(PAR, PARADOS) - 0.03, RV, "wattle"), idx);
+  asCap(segBox(A, at(RV + 0.6, w + FILL + 0.2), at(RV + 0.6, -w - FILL - 0.2), 0, -D - 0.25, 0.1, 1.2, "spoil"), idx);
+  for (const o of [-0.4, 0, 0.4]) asCap(segBox(A, at(RV + 0.07, o - 0.03), at(RV + 0.07, o + 0.03), 0, -D - 0.1, PAR + 0.1, 0.06, "picket", { k: 0 }), idx);
+}
 
 // segment-aligned box: runs from p0 to p1 ([x, z]) offset by `off` along the left normal n = (-dz, dx), y0..y1,
 // thickness th across the segment, extended by e0 / e1 past the ends; tilt leans its top toward +n (degrees)
@@ -125,7 +140,9 @@ export function tellerMine(A, c, yawDeg = 0, tiltX = 0) {
 // CUT_RING wide at grade, earth banks or spoil heaps cover the step outside.
 export const CUT_PAD = 0.45, CUT_SETBACK = 0.3, CUT_APRON = 1.0, CUT_RING = 0.6;
 export const TR = { D: 1.5, HW: 0.6, RV: 0.1, FILL: 0.6, STEP: 0.33, STEPW: 0.45, PAR: 0.4, PARADOS: 0.25 };
-export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cache = "Small-arms ammunition (niche)" } = {}) {
+// endExt: how far the parapet / parados slabs reach past the run's first / last point (0 at a snap socket: joined
+// pieces meet at exactly 8.0 m without overlapping spoil; V6 snapping)
+export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cache = "Small-arms ammunition (niche)", endExt = [0, 0] } = {}) {
   mats(A, "wattle", "picket", "mud", "spoil");
   const { D, HW, RV, FILL, STEP, STEPW, PAR, PARADOS } = TR;
   const n = pts.length - 1;
@@ -143,7 +160,8 @@ export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cach
         const ux = (rv[i + 1][0] - rv[i][0]) / L, uz = (rv[i + 1][1] - rv[i][1]) / L;
         const a = [rv[i][0] + ux * s0, rv[i][1] + uz * s0], b = [rv[i][0] + ux * s1, rv[i][1] + uz * s1];
         segBox(A, a, b, 0, -D - 0.2, top - 0.03, RV, "wattle");                                      // revetment
-        const fa = [fl[i][0] + ux * s0, fl[i][1] + uz * s0], fb = [fl[i][0] + ux * s1, fl[i][1] + uz * s1];
+        // fill ends on the fill line's own end points (its mitred length differs from the revetment's): no overshoot past a piece end
+        const fa = s0 === 0 ? fl[i] : [fl[i][0] + ux * s0, fl[i][1] + uz * s0], fb = s1 === L ? fl[i + 1] : [fl[i][0] + ux * s1, fl[i][1] + uz * s1];
         segBox(A, fa, fb, 0, -D - 0.25, top, FILL, "spoil", {}, s0 === 0 ? (i > 0 ? 0.3 : 0) : 0, s1 === L ? (i < n - 1 ? 0.3 : 0) : 0);
         for (let s = s0 + 0.15; s < s1 - 0.05; s += 0.95) {                                            // pickets
           const p = [rv[i][0] + ux * s, rv[i][1] + uz * s];
@@ -154,7 +172,7 @@ export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cach
       const run = isFront ? 2.2 : 1.6, alpha = Math.atan2(top, run), t = 0.5, edge = HW + RV + FILL;
       const cz = edge + run / 2 + Math.sin(alpha) * t * -1, cy = top / 2 - Math.cos(alpha) * t;
       const ej = -(HW + RV + FILL);   // stop short of a joint: the corner mounds close it (no slab reaches into the next leg)
-      segBox(A, pts[i], pts[i + 1], side * (cz + 0.05), cy - t, cy + t, Math.hypot(run, top) + 0.1, "spoil", { k: 1 }, i > 0 ? ej : 0.2, i < n - 1 ? ej : 0.2, side * (alpha * 180) / Math.PI);
+      segBox(A, pts[i], pts[i + 1], side * (cz + 0.05), cy - t, cy + t, Math.hypot(run, top) + 0.1, "spoil", { k: 1 }, i > 0 ? ej : endExt[0], i < n - 1 ? ej : endExt[1], side * (alpha * 180) / Math.PI);
     }
     // outer-corner mounds close the wedge gaps between parapet slabs
     for (let i = 1; i < n; i++) {
@@ -169,7 +187,7 @@ export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cach
     segBox(A, p0, p1, 0, -D - 0.2, -D - 0.07, 2 * HW, "mud", { k: 0 }, join0(i) ? HW : 0, join1(i) ? HW : 0);
     const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), ux = (p1[0] - p0[0]) / L, uz = (p1[1] - p0[1]) / L;
     for (const off of [-0.25, 0.25]) segBox(A, p0, p1, off, -D - 0.07, -D - 0.03, 0.08, "plank_x", { k: 0 }, -0.05, -0.05);
-    for (let s = 0.15; s < L - 0.1; s += 0.32) segBox(A, [p0[0] + ux * s, p0[1] + uz * s], [p0[0] + ux * (s + 0.12), p0[1] + uz * (s + 0.12)], 0, -D - 0.03, -D, 0.75, "plank_x", { k: 0 });
+    for (let s = 0.15; s + 0.12 < L - 0.02; s += 0.32) segBox(A, [p0[0] + ux * s, p0[1] + uz * s], [p0[0] + ux * (s + 0.12), p0[1] + uz * (s + 0.12)], 0, -D - 0.03, -D, 0.75, "plank_x", { k: 0 });
     if (firestep.includes(i)) {
       const off = front * (HW - STEPW / 2), e0 = i > 0 ? -1.0 : 0, e1 = i < n - 1 ? -1.0 : 0;
       segBox(A, p0, p1, off, -D, -D + STEP - 0.05, STEPW, "spoil", {}, e0, e1);
@@ -506,6 +524,10 @@ function trenchPiece(id, name, desc, pts, opt, footprint, tourPts) {
   const A = new Asset({ id, version: 1, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A);
   const r = trenchRun(A, pts, opt);
+  const unit = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+  const ends = [[pts[0], unit(pts[1], pts[0])], [pts[pts.length - 1], unit(pts[pts.length - 2], pts[pts.length - 1])]];
+  setSnap(A, ends.map(([p, d]) => sock([p[0], 0, p[1]], d, "trench")));
+  ends.forEach(([p, d], k) => trenchCap(A, p, d, k));
   const D = TR.D;
   const fps = [];
   pts.forEach((p, i) => { if (i < pts.length - 1 && (opt.firestep || []).includes(i)) { const q = pts[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]); for (let s = 1.0; s < L - 0.6; s += 2.0) { const ux = (q[0] - p[0]) / L, uz = (q[1] - p[1]) / L; fps.push(fire([p[0] + ux * s - uz * (TR.HW - TR.STEPW / 2), -D + TR.STEP, p[1] + uz * s + ux * (TR.HW - TR.STEPW / 2)], (Math.atan2(-uz, ux) * 180) / Math.PI, "firestep")); } } });
@@ -548,7 +570,9 @@ export function trenchEntry() {
   const A = new Asset({ id: "aw_trench_entry", version: 1, name: "Trench, entry ramp (wattle)", description: "Trench end with a log-stepped ramp from the ground down to the 1.5 m trench floor, wattle revetment and a small-arms cache in a niche. Joins a trench run at its +X end.", category: "Atlantic Wall", floors: 0, enterable: false, footprint: [6, 6.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A);
   const D = TR.D;
-  const r = trenchRun(A, [[0.4, 0], [3, 0]], { firestep: [], niche: [0, 0.5] });
+  const r = trenchRun(A, [[0.4, 0], [3, 0]], { firestep: [], niche: [0, 0.5], endExt: [0.2, 0] });
+  setSnap(A, [sock([3, 0, 0], [1, 0], "trench")]);
+  trenchCap(A, [3, 0], [1, 0], 0);
   // ramp from (-3.2, grade) down to (0.4, -D): collision slab, log steps, wattle sides and fill
   const x0 = -3.3, x1 = 0.45, ang = (Math.atan2(D, x1 - x0) * 180) / Math.PI, L = Math.hypot(D, x1 - x0);
   A.obox([(x0 + x1) / 2, -D / 2 - 0.12, 0], [L + 0.1, 0.24, 1.2], [0, 0, -ang], "mud", { v: 0 });

@@ -38,6 +38,9 @@ struct NavState {
   CamPose dropSavedCam;                         // editor camera at the drop (checked against the restore)
   vec2 pendingSize{0};                          // New Map: size consumed by the next w3ApplyTerrain
   int cutsApplied = 0;                          // tiles re-cut by the last cut sync (tests)
+  // V6 Select-tool LMB gesture (edSelectPointer, snap.h): 0 none, 1 pressed (click until it moves 4 px), 2 orbit, 3 move
+  int lmbGesture = 0; bool lmbPrev = false, pressOnSel = false, pressGround = false;
+  uint64_t pressId = 0; vec2 pressPx{0}, lastPx{0}; vec3 pressGroundPt{0}, lpivot{0}; float moveYaw = 0, appliedYaw = 0;
 };
 NavState& navState();
 
