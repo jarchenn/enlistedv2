@@ -39,6 +39,9 @@ struct RenderView {
 };
 
 struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; };
+// water surface of a placed asset (water.cpp): drawn by the water pass after the opaque world
+struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, tint{0}; };   // look: kind, clarity, waves
+#define NMK_REVZ 1   // the world pass is reverse-Z (docs/rendering.md#depth-convention)
 
 class Renderer {
 public:
@@ -77,7 +80,7 @@ public:
     bool ssao = true; float ssaoStrength = 0.85f, ssaoRadius = 0.6f;
     bool bloom = true; float bloomStrength = 0.045f;
     bool ssr = true; float ssrStrength = 1.0f;
-    bool taa = true; float taaSharpen = 0.40f, taaJitter = 0.5f;
+    bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
   } q;
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
@@ -86,6 +89,16 @@ public:
   int width = 0, height = 0;
   int shaderErrors = 0;                 // compile failures since start (self-tests require 0)
   int fboErrors = 0;                    // incomplete framebuffers since start (self-tests require 0)
+  // Depth convention (docs/rendering.md#depth-convention). The world camera passes of render() are reverse-Z: clip depth
+  // 0..1 (glClipControl), near = 1, far = 0, cleared to 0, GL_GREATER. Shadow cascades, sky occlusion, thumbnails and
+  // offscreen sheets keep the standard GL convention. Code drawing inside render() picks its depth state from these.
+  int wallRelief = 1;                   // A/B (--selftest-render): 0 = wall patterns 17-22 without their relief bump / light term
+  bool revZ = false;                    // true once render() ran: the world camera passes are reverse-Z
+  GLenum zLess() const { return revZ ? GL_GREATER : GL_LESS; }
+  GLenum zLEqual() const { return revZ ? GL_GEQUAL : GL_LEQUAL; }
+  float zToward() const { return revZ ? 1.0f : -1.0f; }   // polygon-offset sign that pulls a fragment toward the eye
+  std::vector<WaterDraw> water;         // set by the app each frame (water.cpp), consumed by render()
+  friend struct WaterPass;
 private:
   GLuint compile(const char* vs, const char* fs, const char* name);
   void createTargets();

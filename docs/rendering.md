@@ -15,7 +15,7 @@ The archive contains no licence file, and every shader carries only the header "
 | BSL requirement | BSL source (inspected) | Engine equivalent |
 |---|---|---|
 | Deferred G-buffers (`gbuffers_*`: albedo, normal, specular, lightmap) | `program/deferred*.glsl`, `lib/surface/materialDeferred.glsl` | **Forward** renderer into RGBA16F HDR. Added: world-pass MRT attachments 2 (indirect light), 3 (world normal + roughness) and 4 (motion). The weapon pass writes attachments 0 (colour) and 1 (eye distance) only. |
-| `depthtex0/1/2` (with / without translucents, hand) | `composite*.glsl` | One D32F world depth (`depthTex`, standard 0..1, near 0.03, far 4000). Glass and ghosts don't write depth. The weapon is drawn after a depth clear with its own projection, so the world post-passes run **before** it and never see its depth. |
+| `depthtex0/1/2` (with / without translucents, hand) | `composite*.glsl` | One D32F world depth (`depthTex`, **reverse-Z** since V1: near 0.03 → 1, far 4000 → 0; see §9.1). Glass and ghosts don't write depth. The weapon is drawn after a depth clear with its own projection, so the world post-passes run **before** it and never see its depth. |
 | Hand mask (`z < 0.56` "hand" tests) | `ambientOcclusion.glsl`, `taa.glsl` | Not needed: the first-person pass happens after AO, shafts, SSR and TAA, unjittered. |
 | `shadowtex0/1` + `shadowcolor0`, distorted single map | `lighting/shadows.glsl` | Two orthographic cascades: near 4096² (±40 m in Explore) and far 2048² (≥ ±240 m). Distortion was rejected: large building quads would warp between vertices. No coloured shadows (no stained glass). |
 | Lightmap (block / sky light) | `forwardLighting.glsl` | Sky light = top-down sky-occlusion map (`skyVis`), plus material AO and SSAO on indirect light. Block light has no equivalent (no torches); not emulated. |
@@ -33,13 +33,14 @@ The archive contains no licence file, and every shader carries only the header "
 ## 2. Pass order (Explore)
 
 1. Shadow maps: near and far cascades, then sky occlusion.
-2. World HDR pass (jittered when TAA is on): sky; then terrain, opaque, world models, foliage and grass. The last group writes attachments 0 / 2 / 3 / 4.
-3. Transparent glass and placement ghosts (attachment 0 only).
-4. **World composite** (`worldComposite`): SSAO (half res), light shafts (half res), then one composite. It applies SSR, removes the occluded share of indirect light, and adds the shafts.
-5. **TAA resolve** (`taaResolve`), world only.
-6. Bloom chain from the world; then effects (smoke, flashes, tracers, impacts), unjittered, with their own blend state. Until the fix, the composite and TAA passes left blending off, so effects drew as opaque squares.
-7. First-person weapon and arms: depth clear, own projection, unjittered.
-8. Exposure → tonemap → LDR → editor overlays → blit → ImGui / HUD.
+2. World HDR pass (jittered when TAA is on, reverse-Z): sky; then terrain, opaque, world models, foliage and grass. The last group writes attachments 0 / 2 / 3 / 4.
+3. **Water** (V1, §9.4): surfaces of the water assets, after the opaque world, writing colour, normal + roughness and depth.
+4. Gore decals; transparent glass and placement ghosts (attachment 0 only).
+5. **World composite** (`worldComposite`): SSAO (half res), light shafts (half res), then one composite. It applies SSR, removes the occluded share of indirect light, and adds the shafts.
+6. **TAA resolve** (`taaResolve`), world only.
+7. Bloom chain from the world; then effects (smoke, flashes, tracers, impacts), unjittered, with their own blend state. Until the fix, the composite and TAA passes left blending off, so effects drew as opaque squares.
+8. First-person weapon and arms: depth clear, own projection (also reverse-Z), unjittered.
+9. Exposure → tonemap → LDR → editor overlays → blit → ImGui / HUD.
 
 ## 3. What was implemented (stage by stage, each visually checked)
 
@@ -75,7 +76,7 @@ The archive contains no licence file, and every shader carries only the header "
 - **TAA.** Halton (2, 3) 8-phase jitter at ±0.25 px, world projection only.
   - **Reprojection.** Static geometry reprojects from depth with the *unjittered* current and previous matrices. Wind-animated leaves and grass write their own motion vectors: each re-evaluates last frame's sway and projects it with last frame's matrix.
   - **History.** Catmull-Rom history fetch, then YCoCg 3×3 variance clipping (±1.1σ) in a luminance-compressed space. The current-frame weight is 0.08, rising to 0.30 with motion.
-  - **Sharpening.** An unsharp mask (0.40) on the displayed image only; it never enters the history.
+  - **Sharpening.** An unsharp mask (0.30 since V1, was 0.40: it amplified facade shimmer, §9.5) on the displayed image only; it never enters the history.
   - **Invalidation.** History is invalid after a resize, a camera jump over 4 m (teleport, respawn, Creative↔Explore) or a disabled frame.
   - **FOV changes.** ADS zoom reprojects correctly because the previous matrix carries the previous FOV.
   - **Weapon effects.** The weapon, sights, muzzle flash and tracers are drawn after the resolve and unjittered, so they cannot ghost.
@@ -105,7 +106,7 @@ Command line:
 - **Shadow acne and peter-panning.** Inspected on walls and shutters, tree trunks, the kerb and poles in the village frames: contact holds and no acne bands.
 - **Transparency.** Glass and ghosts are drawn after the MRT world pass with attachment 0 only, so they can't corrupt the AO, normal or motion buffers.
 - **Foliage alpha edges.** Checked with the TAA on/off pixel crops (`--rq-off taa`).
-- **Near/far depth.** All reconstruction uses the exact projection that wrote the depth; sky pixels (depth 1) are skipped (SSAO, SSR) or reprojected from the far plane (TAA).
+- **Near/far depth.** All reconstruction uses the exact projection that wrote the depth; sky pixels (depth 0 under reverse-Z, §9.1) are skipped (SSAO, SSR) or reprojected from the far plane (TAA).
 - **Weapon presentation.** `--selftest-sights` re-run after the pass (see `docs/testing.md`).
 
 ## 6. Performance (same machine, same resolution, back-to-back)
@@ -154,7 +155,7 @@ Stage-by-stage frames (s1-s4) and the TAA / SSR pixel A/B crops were inspected d
 
 ## 8. Not done / limits
 
-- **No coloured or translucent shadows.** The scene has no stained glass and no water.
+- **No coloured or translucent shadows.** The scene has no stained glass; water (§9.4) neither casts nor receives caustics.
 - **No block light, night or weather cycle.** The game has one daylight setting.
 - **SSR is screen-space only.** Reflections of off-screen objects fall back to the sky. Glass windows keep their analytic sky reflection, since they're forward-blended after the composite.
 - **No velocity for rigid moving bodies** (debris, felled trunks, swinging doors). They rely on TAA clipping, which can leave a faint trail on a fast-moving door.

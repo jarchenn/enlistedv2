@@ -79,6 +79,7 @@ include(cmake/recast.cmake) # W6: Recast/Detour navmesh + AI core
 include(cmake/w6b.cmake)    # W6b: AI tuning harness
 include(cmake/w5.cmake)     # W5 default maps runtime + suite
 include(cmake/nature.cmake) # natural ground dressing (boulders, flowers, tall grass, stones, shrubs)
+include(cmake/vo1.cmake)    # V1: water pass, --selftest-render (facades, walls, water)
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

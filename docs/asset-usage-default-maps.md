@@ -149,6 +149,13 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `vil_church_ruined` | Landmarks | excluded: Saint-Laurent's church stood; the ruined church is on the Mont-Castre summit | terrain-only base map |
 | `vil_norman_farmhouse` | Houses | 2: D: farm HQ; Saint-Laurent | terrain-only base map |
 | `vil_stone_barn` | Houses | 3: C: barn strongpoint; D farm; Saint-Laurent | terrain-only base map |
+| `wat_crater_pool` | Water | not placed: V1 water feature added after the map was built (Beautify / the user place it) | terrain-only base map |
+| `wat_pond_irregular` | Water | not placed: V1 water feature added after the map was built | terrain-only base map |
+| `wat_pond_round` | Water | not placed: V1 water feature added after the map was built | terrain-only base map |
+| `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map |
+| `wat_stream_bend` | Water | not placed: V1 stream piece (snaps with V6) added after the map was built | terrain-only base map |
+| `wat_stream_end` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map |
+| `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map |
 | `wire_concertina` | Defences | 337: Shelf belt (s 438), WN65 front | terrain-only base map |
 | `wire_fence` | Defences | 195: Post-and-wire fence behind the concertina | terrain-only base map |
 | `wire_knife_rest` | Defences | 3: Closing the wire gaps | terrain-only base map |

@@ -32,6 +32,7 @@ run structures --selftest-structures   # W4 structure assets: nav, colliders, cu
 run aicourse --selftest-ai-course   # W6 AI: live navmesh rebuild + obstacle course (AI_SPEC 12.2 / 12.4, ~5 min)
 run nature   --selftest-nature  # natural ground dressing: boulders, patches, shrubs (docs/nature.md)
 run maps     --selftest-maps    # W5 default maps: template load, scenario, SPEC 2.1 distances, asset-usage doc, views + frame time
+run render   --selftest-render  # V1: facade shimmer 20 / 50 / 100 m (static + strafe), rough walls, water assets / pass (docs/rendering.md §9)
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"

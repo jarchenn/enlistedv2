@@ -123,6 +123,9 @@ uniform int uLook;          // 0 legacy look, 1 current
 // Indirect (hemisphere) light of the current fragment and the haze transmittance in front of it. World shaders
 // write gInd*gFogT to the AO attachment, so screen-space AO can remove occluded *indirect* light only.
 vec3 gInd = vec3(0.0); float gFogT = 1.0;
+// Relief inputs from the wall materials (kMainFS, docs/rendering.md#rough-walls): gNg = the geometric normal when the
+// material bumped N (zero otherwise), gCavity = how much of the sky a relief recess still sees (mortar, hollows).
+vec3 gNg = vec3(0.0); float gCavity = 1.0;
 uniform float uHazeH;       // aerial-perspective scale height (m)
 vec3 skyColor(vec3 d){
   float h = clamp(d.y, -1.0, 1.0);
@@ -181,15 +184,30 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   vec3 F = F_Schlick(max(dot(H,V),0.0), F0);
   vec3 spec = D_GGX(NdH,a)*G_Smith(NdV,NdL,rough)*F/(4.0*NdV*max(NdL,1e-3));
   vec3 kd = (1.0-F)*(1.0-metal);
-  float sh = NdL > 0.0 ? shadowPCF(w, N) * cloudShadow(w) : 0.0;
+  // shadow and sky-occlusion lookups offset along the *geometric* normal when the material bumped N (gNg): the bumped
+  // normal moved the receiver offset / slope bias per pixel, which the per-frame PCF rotation turned into flicker
+  vec3 Ng = dot(gNg, gNg) > 0.5 ? gNg : N;
+  float sh = NdL > 0.0 ? shadowPCF(w, Ng) * cloudShadow(w) : 0.0;
   vec3 direct = (kd*alb/PI + spec) * uSunCol * NdL * sh;
-  float sv = skyVis(w, N);
+  float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
+  float cav = 1.0;
+  if (uLook == 1 && dot(gNg, gNg) > 0.5) {
+    // relief under sky light (bent normal): the sky toward the sun and overhead is brighter than the far side and the
+    // horizon band, so a relief facet turned toward the sun's azimuth or up gathers more of it and one turned away
+    // less. Only the relief's deviation from the geometric normal counts (flat walls are unchanged), and recesses
+    // see less sky (gCavity): mortar, pillowed stones and render bulges stay legible on walls in shadow.
+    vec3 dn = N - gNg;
+    vec2 az = uSunDir.xz/max(length(uSunDir.xz), 1e-3);
+    float rel = dot(dn.xz, az)*0.9 + dn.y*0.6;
+    cav = clamp(gCavity, 0.3, 1.0);
+    irr *= clamp(1.0 + rel, 0.55, 1.5)*cav;
+  }
   vec3 R = reflect(-V, N);
   vec3 Fr = F0 + (max(vec3(1.0-rough), F0)-F0)*pow(1.0-NdV, 5.0);
   vec3 envL = mix(uFill * 2.4 + uGroundCol * 0.25, skyColor(R) * amb, sv);
-  vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6;
+  vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6 * cav;
   // material AO darkens the light arriving from the hemisphere, not the direct sun (legacy: everything)
   float aoD = mix(ao, 1.0, uAoIndirectOnly);
   vec3 r = direct*aoD + (irr*alb*kd + envSpec*mix(1.0, ao, 0.7)) * ao;
@@ -213,6 +231,7 @@ void main(){
 static const char* kMainFS = R"GLSL(
 in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn; in vec4 vPar;
 uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world structures get localized weathering
+uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
 layout(location=0) out vec4 oColor;
 layout(location=1) out float oDist;   // eye distance, only stored during the first-person pass (depth of field)
 layout(location=2) out vec4 oAmb;     // indirect light (screen-space AO), world pass only
@@ -220,6 +239,14 @@ layout(location=3) out vec4 oNR;      // world normal + roughness (screen-space 
 layout(location=4) out vec4 oVel;     // motion: static geometry leaves a = 0 (TAA reprojects it from depth)
 vec2 faceUV(vec3 p, vec3 n){ vec3 a=abs(n); if (a.y>a.x && a.y>a.z) return p.xz; if (a.x>a.z) return vec2(p.z,p.y); return vec2(p.x,p.y); }
 int domAxis(vec3 n){ vec3 a=abs(n); if (a.x>=a.y && a.x>=a.z) return 0; if (a.y>=a.z) return 1; return 2; }
+// ---- detail filtering (docs/rendering.md#facade-shimmer). gPix = metres covered by this pixel. Procedural detail finer
+// than about two pixels is faded toward its mean instead of being point-sampled: unfiltered 85-230 cycles/m grain and
+// sub-pixel joints made facades crawl at 20-100 m, and the derivative bump amplified it.
+float gPix = 0.001;
+float res(float freq){ return 1.0 - smoothstep(0.18, 0.5, freq*gPix); }                       // 1 resolved .. 0 sub-pixel
+float vnF(vec3 p, float freq){ float w = res(freq); return w <= 0.0 ? 0.5 : mix(0.5, vnoise(p), w); }
+float fbmF(vec3 p, float f0){ float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ float w = res(f0); s += a*(w <= 0.0 ? 0.5 : mix(0.5, vnoise(p), w)); p *= 2.03; f0 *= 2.03; a *= 0.5; } return s; }
+float lineAA(float mask, float w, float mean){ return mix(mask, mean, smoothstep(0.6*w, 2.5*w, gPix)); }   // mask of feature width w (m)
 // ---- walls, interiors and furniture (docs/interiors.md): per building copy parameters (SurfaceParams)
 uniform vec4 uInst;                    // seed (0..1), wear (0..2), palette variation (0..1), room count
 uniform vec4 uRoomA[16], uRoomB[16];   // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
@@ -259,7 +286,8 @@ void stoneLayout(vec2 uv, out vec2 id, out float e, out float u, out float vr){
 float hairline(vec2 uv, float density){
   vec2 w = uv * 2.2 + vec2(fbm(vec3(uv * 1.1, 8.0)), fbm(vec3(uv * 1.1, 9.0))) * 1.6;
   float cn = abs(vnoise(vec3(w, 3.0)) - 0.5);
-  return (1.0 - smoothstep(0.0, 0.006, cn)) * smoothstep(0.7 - 0.06 * density, 0.84 - 0.06 * density, fbm(vec3(uv * 0.55, 12.0)));
+  float fw = max(0.006, fwidth(cn) * 1.2);   // under a pixel the line widens to the pixel but keeps its integrated darkness
+  return (1.0 - smoothstep(0.0, fw, cn)) * (0.006 / fw) * smoothstep(0.7 - 0.06 * density, 0.84 - 0.06 * density, fbm(vec3(uv * 0.55, 12.0)));
 }
 // run-off below window sills (asset space): streaks hanging from the sill ends, fading with drop
 float sillRunoff(vec3 p){
@@ -308,6 +336,7 @@ float woodGrain(float along, float across, float seed){
        + 0.15 * smoothstep(0.3, 0.7, fract(across * 18.0 + vnoise(vec3(along * 0.8, across * 6.0, seed)) * 2.5));
 }
 void main(){
+  gPix = max(length(dFdx(vW)), length(dFdy(vW)));
   int pat = int(vPar.x + 0.5);
   vec3 alb = vAlb; float rough = vPar.y, metal = vPar.z; int grain = int(vPar.w+0.5);
   float h = 0.0, bump = 0.0, ao = 1.0;
@@ -539,40 +568,57 @@ void main(){
     float garn = smoothstep(0.55, 0.8, vnoise(vec3(uv * 5.0, 2.0)));
     alb = c * (0.45 + 0.55 * max(strand, garn)) * (0.85 + 0.3 * vnoise(vec3(uv * 40.0, 1.0)));
     rough = 0.95; h = max(strand, garn); bump = 0.003; ao = 0.75 + 0.25 * h;
-  } else if (pat == 17) { // lime render over rubble (docs/interiors.md): broad drift, mineral grain, pits, hairline
-    // cracks, uneven coats; spalled patches show the rubble with a render edge; damp foot, run-off below sills
+  } else if (pat == 17) { // lime render over rubble (docs/interiors.md, docs/rendering.md#rough-walls): broad drift, mineral
+    // grain, pits, hairline cracks, uneven coats; mid-scale relief: the render bulging over the rubble behind it, trowel
+    // lumps, repair patches standing proud with a lip, spalled patches showing pillowed rubble behind a render edge, grime
+    // in the hollows and run-off streaks; damp foot, run-off below sills. Detail under a pixel fades to its mean.
     vec2 uv = faceUV(vAp, vAn);
     vec3 an = normalize(vAn);
     float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
     float pv = uInst.z, wear = uInst.y, sd = uInst.x * 17.0;
     float broad = fbm(vec3(uv * 0.33, sd));
-    float coat = fbm(vec3(uv * 1.3, 4.0 + sd));
-    float grn = vnoise(vec3(uv * 85.0, 1.0)) * 0.6 + vnoise(vec3(uv * 230.0, 2.0)) * 0.4;
-    float pit = smoothstep(0.72, 0.88, vnoise(vec3(uv * 38.0, 5.0)));
+    float coat = fbmF(vec3(uv * 1.3, 4.0 + sd), 1.3);
+    float grn = vnF(vec3(uv * 85.0, 1.0), 85.0) * 0.6 + vnF(vec3(uv * 230.0, 2.0), 230.0) * 0.4;
+    float pit = lineAA(smoothstep(0.72, 0.88, vnoise(vec3(uv * 38.0, 5.0))), 0.008, 0.08);
     float crack = hairline(uv + sd, wear) * vert;
+    float bulge = fbm(vec3(uv * vec2(0.9, 1.2), 40.0 + sd));
+    float lump = fbmF(vec3(uv * 4.0, 41.0 + sd), 4.0);
+    float pm = fbm(vec3(uv * 0.6, 33.0 + sd)) + 0.04 * (lump - 0.5);
+    float patchM = smoothstep(0.62, 0.62 + max(0.008, fwidth(pm) * 1.5), pm) * vert;
+    float patchLip = smoothstep(0.595, 0.62, pm) * (1.0 - patchM) * vert;
     float sp = fbm(vec3(uv * 0.85, 21.0 + sd)) + 0.16 * (1.0 - smoothstep(0.0, 1.3, vAp.y)) + 0.05 * vnoise(vec3(uv * 9.0, 6.0));
     float thr = 0.83 - 0.06 * wear;
-    float spall = smoothstep(thr, thr + 0.012, sp) * vert;
+    float spall = smoothstep(thr, thr + max(0.012, fwidth(sp) * 1.5), sp) * vert;
     float rim = smoothstep(thr - 0.035, thr, sp) * (1.0 - spall) * vert;
     vec3 lime = alb * (0.9 + 0.2 * (broad - 0.5) * (0.5 + pv)) * (0.96 + 0.06 * coat) * (0.95 + 0.07 * grn);
     lime *= 1.0 - 0.1 * pit;
     lime = mix(lime, lime * vec3(0.92, 0.92, 0.9), smoothstep(0.55, 0.78, coat) * 0.6);
+    lime = mix(lime, alb * vec3(1.05, 1.05, 1.07) * (0.97 + 0.04 * grn), patchM * 0.75);   // newer lime: cleaner, cooler
     vec2 id; float e, u, vr; stoneLayout(uv, id, e, u, vr);
-    float mortar = 1.0 - smoothstep(0.006, 0.026, e);
-    vec3 stoneC = vec3(0.29, 0.26, 0.205) * (0.82 + 0.3 * hash12(id)) * (0.9 + 0.15 * fbm(vec3(uv * 9.0, 2.0)));
+    float mortar = lineAA(1.0 - smoothstep(0.006, 0.026, e), 0.016, 0.16);
+    float dome = sin(u * PI) * sin(vr * PI);
+    vec3 stoneC = vec3(0.29, 0.26, 0.205) * (0.82 + 0.3 * hash12(id)) * (0.9 + 0.15 * fbmF(vec3(uv * 9.0, 2.0), 9.0));
     stoneC = mix(stoneC, vec3(0.36, 0.34, 0.3), mortar * 0.8);
     alb = mix(lime, stoneC, spall);
-    alb *= 1.0 - 0.16 * rim - 0.16 * crack;
+    float hollow = clamp((0.5 - bulge) * 2.2, 0.0, 1.0) * (1.0 - patchM);
+    float streak = smoothstep(0.55, 0.86, vnF(vec3(uv.x * 7.0, uv.y * 0.35, 13.0 + sd), 7.0)) * vert * (1.0 - spall);
+    alb *= 1.0 - 0.16 * rim - 0.2 * crack - 0.08 * hollow - 0.1 * streak * (0.5 + 0.5 * wear) - 0.05 * patchLip;
     float nn = vnoise(vAp * 1.3);
     float damp = (1.0 - smoothstep(0.0, 0.45 + 0.5 * nn, vAp.y)) * vert;
     alb = mix(alb, alb * vec3(0.7, 0.71, 0.64), damp * 0.85);
     float ro = sillRunoff(vAp) * vert;
     alb = mix(alb, alb * vec3(0.74, 0.75, 0.7), ro * (0.4 + 0.3 * wear));
-    rough = clamp(mix(rough, 0.97, spall) - 0.06 * damp, 0.4, 1.0);
-    h = (1.0 - spall) * 0.9 + rim * 0.25 + coat * 0.12 + grn * 0.06 - pit * 0.2 - crack * 0.35 + spall * (1.0 - mortar) * 0.4;
-    bump = 0.006; ao = 1.0 - 0.22 * rim - 0.25 * spall * mortar;
+    rough = clamp(mix(rough, 0.97, spall) - 0.06 * damp - 0.04 * patchM, 0.4, 1.0);
+    // relief (m): bulges +-1.2 cm, trowel lumps 2 mm, patches 3 mm proud with a 1.5 mm lip, the render 1.6 cm over the
+    // rubble face, spalled stones pillowed 2 cm behind 8 mm recessed mortar, cracks 3 mm deep
+    float hR = 0.024 * (bulge - 0.5) + 0.002 * (lump - 0.47) + 0.003 * patchM + 0.0015 * patchLip + 0.0006 * coat + 0.0003 * grn - 0.0008 * pit - 0.003 * crack + 0.002 * rim;
+    float hS = -0.016 + (1.0 - mortar) * 0.02 * mix(smoothstep(0.0, 0.12, e), 0.7, smoothstep(0.05, 0.25, gPix)) * (0.7 + 0.3 * dome) - mortar * 0.008;
+    h = mix(hR, hS, spall); bump = 1.0;
+    ao = 1.0 - 0.22 * rim - 0.25 * spall * mortar;
+    gCavity = 1.0 - 0.22 * hollow - 0.12 * crack - spall * (0.15 + 0.3 * mortar) * (1.0 - 0.5 * dome);
   } else if (pat == 18) { // brickwork, Flemish bond (docs/interiors.md): cohesive palette, neighbouring-value lime
-    // mortar recessed, a few over-burnt headers, chipped arrises; corners continue through faceUV
+    // mortar recessed, a few over-burnt headers, chipped arrises, grime and streaks; corners continue through faceUV.
+    // Joints fade to the blend under a pixel and the courses to the wall's mean beyond ~50 m (no moire).
     vec2 uv = faceUV(vAp, vAn);
     float bh = 0.075, bl = 0.235, hl = 0.115, unit = bl + hl;
     float row = floor(uv.y / bh);
@@ -581,69 +627,99 @@ void main(){
     float hdr = step(bl, fu);
     float x0 = mix(0.0, bl, hdr), x1 = mix(bl, unit, hdr);
     vec2 id = vec2(ui * 2.0 + hdr, row);
-    float e = min(min(fu - x0, x1 - fu), min(uv.y - row * bh, (row + 1.0) * bh - uv.y)) + (vnoise(vec3(uv * 40.0, 2.0)) - 0.5) * 0.003;
-    float aa = smoothstep(0.0012, 0.005, max(fwidth(uv.x), fwidth(uv.y)));   // brick scale under a pixel: fade to the blend
-    float mortar = (1.0 - smoothstep(0.0035, 0.0075, e)) * (1.0 - aa);
-    float pv = uInst.z, v = hash12(id + uInst.x * 31.0);
+    float e = min(min(fu - x0, x1 - fu), min(uv.y - row * bh, (row + 1.0) * bh - uv.y)) + (vnF(vec3(uv * 40.0, 2.0), 40.0) - 0.5) * 0.003;
+    float aa = smoothstep(0.0025, 0.008, gPix);    // joints under a pixel
+    float aaB = smoothstep(0.02, 0.05, gPix);      // courses under ~1.5 px
+    float mortarS = 1.0 - smoothstep(0.0035, 0.0075, e);
+    float mortar = mix(mortarS, 0.12, aa);
+    float pv = uInst.z, v = mix(hash12(id + uInst.x * 31.0), 0.5, aaB);
     vec3 bc = alb * (1.0 + 0.17 * pv * (v - 0.5));
-    bc = mix(bc, bc * vec3(0.72, 0.68, 0.72), hdr * step(0.62, hash12(id + 5.0)) * 0.75);
-    bc = mix(bc, bc * vec3(1.08, 1.03, 0.92), step(0.86, hash12(id + 9.0)) * 0.5 * pv);
-    bc *= 0.9 + 0.14 * fbm(vec3(uv * 18.0, id.x));
+    bc = mix(bc, bc * vec3(0.72, 0.68, 0.72), hdr * step(0.62, hash12(id + 5.0)) * 0.75 * (1.0 - aaB));
+    bc = mix(bc, bc * vec3(1.08, 1.03, 0.92), step(0.86, hash12(id + 9.0)) * 0.5 * pv * (1.0 - aaB));
+    bc *= 0.9 + 0.14 * fbmF(vec3(uv * 18.0, id.x), 18.0);
     bc *= 0.9 + 0.12 * fbm(vec3(uv * 0.4, 3.0 + uInst.x * 7.0));
-    vec3 mcol = mix(alb * 0.95, vec3(0.6, 0.57, 0.51), 0.55) * (0.9 + 0.1 * vnoise(vec3(uv * 60.0, 1.0)));
-    float chip = smoothstep(0.74, 0.88, vnoise(vec3(uv * 30.0, v * 7.0))) * (1.0 - smoothstep(0.0, 0.012, e));
-    alb = mix(bc, mcol, max(mortar, chip * 0.55 * (1.0 - aa)));
-    alb = mix(alb, mix(alb, mcol, 0.18), aa);
+    vec3 mcol = mix(alb * 0.95, vec3(0.6, 0.57, 0.51), 0.55) * (0.9 + 0.1 * vnF(vec3(uv * 60.0, 1.0), 60.0));
+    float chip = smoothstep(0.74, 0.88, vnoise(vec3(uv * 30.0, v * 7.0))) * (1.0 - smoothstep(0.0, 0.012, e)) * (1.0 - aa);
+    alb = mix(bc, mcol, max(mortar, chip * 0.55));
+    float streak = smoothstep(0.58, 0.86, vnF(vec3(uv.x * 6.0, uv.y * 0.3, 19.0), 6.0)) * smoothstep(0.5, 2.5, vAp.y);
+    float soot = smoothstep(0.55, 0.8, fbm(vec3(uv * 0.7, 23.0 + uInst.x * 3.0)));
+    alb *= (1.0 - 0.12 * streak) * (1.0 - 0.1 * soot * uInst.y) * (1.0 - 0.06 * mortar);
     rough = mix(clamp(rough + (v - 0.5) * 0.1, 0.5, 1.0), 0.95, mortar);
-    h = ((1.0 - mortar) * (0.8 + 0.2 * smoothstep(0.0, 0.02, e)) - chip * 0.3) * (1.0 - aa) + 0.1 * fbm(vec3(uv * 25.0, 4.0)); bump = 0.008;
+    // relief (m): mortar recessed 6 mm, brick faces pillowed 2 mm with 4 mm arris rounding, chips 3 mm, fired texture
+    float arr = mix(1.0 - smoothstep(0.0, 0.012, e), 0.25, aa);
+    float hb = 0.002 * (1.0 - arr) - 0.004 * arr * arr + 0.0012 * (fbmF(vec3(uv * 25.0, 4.0), 25.0) - 0.47) - 0.003 * chip;
+    h = mix(hb, -0.006, mix(mortarS, 0.12, smoothstep(0.0015, 0.005, gPix))); bump = 1.0;   // relief fades before the tone
     ao = 1.0 - mortar * 0.22;
+    gCavity = 1.0 - 0.3 * mortar - 0.08 * arr;
   } else if (pat == 19) { // dressed limestone (docs/interiors.md): pattern 1's layout, fine lime joints close in
-    // value to the stone, low block-to-block contrast, tooling striations, worn arrises
+    // value to the stone, low block-to-block contrast, tooling striations, worn arrises; blocks gently pillowed and
+    // tilted, joints recessed, chips, grime in the joints and streaks. Joints / tooling fade under a pixel.
     vec2 uv = faceUV(vAp, vAn);
     vec2 id; float e, u, vr; stoneLayout(uv, id, e, u, vr);
-    e += (vnoise(vec3(uv * 14.0, 3.0)) - 0.5) * 0.004;
-    float joint = 1.0 - smoothstep(0.002, 0.007, e);
-    float arris = 1.0 - smoothstep(0.004, 0.022, e);
+    e += (vnF(vec3(uv * 14.0, 3.0), 14.0) - 0.5) * 0.004;
+    float joint = lineAA(1.0 - smoothstep(0.002, 0.007, e), 0.004, 0.03);
+    float arris = lineAA(1.0 - smoothstep(0.004, 0.022, e), 0.012, 0.08);
     float pv = uInst.z;
     vec3 sc = alb * (1.0 + 0.12 * pv * (hash12(id) - 0.5)) * (0.92 + 0.12 * fbm(vec3(uv * 0.5, 4.0)));
     sc = mix(sc, sc * vec3(1.05, 1.0, 0.9), hash12(id + 11.0) * 0.35 * pv);
-    float tool = vnoise(vec3((uv.x + uv.y * 0.35) * 180.0, uv.y * 4.0, id.x));
-    float patina = fbm(vec3(uv * 3.0, id.y));
+    float tool = vnF(vec3((uv.x + uv.y * 0.35) * 180.0, uv.y * 4.0, id.x), 180.0);
+    float patina = fbmF(vec3(uv * 3.0, id.y), 3.0);
     sc *= (0.94 + 0.06 * tool) * (0.9 + 0.12 * patina);
-    float chip = smoothstep(0.7, 0.86, vnoise(vec3(uv * 16.0, id.x + id.y))) * arris;
+    float chip = smoothstep(0.7, 0.86, vnF(vec3(uv * 16.0, id.x + id.y), 32.0)) * arris;
     vec3 jc = mix(sc, vec3(0.56, 0.54, 0.48), 0.4) * 0.93;
     alb = mix(sc, jc, max(joint, chip * 0.5));
     alb *= 1.0 - 0.08 * arris;
+    float streak = smoothstep(0.6, 0.88, vnF(vec3(uv.x * 5.0, uv.y * 0.28, 29.0), 5.0)) * smoothstep(0.4, 2.2, vAp.y);
+    alb *= (1.0 - 0.1 * streak) * (1.0 - 0.1 * joint);
     float damp = 1.0 - smoothstep(-0.2, 0.9, vAp.y);
     alb *= mix(1.0, 0.76, damp);
     rough = clamp(rough + 0.05 * (tool - 0.5) + 0.06 * joint, 0.4, 1.0);
-    h = (1.0 - joint) * (0.7 + 0.3 * smoothstep(0.0, 0.03, e)) + tool * 0.05 - chip * 0.3; bump = 0.006;
+    // relief (m): blocks pillowed 6 mm and tilted +-3 mm, arrises worn 6 mm down into 5 mm recessed joints, chips 4 mm,
+    // tooling 0.4 mm
+    float dome = sin(u * PI) * sin(vr * PI);
+    float tilt = (hash12(id + 3.0) - 0.5) * (u - 0.5) + (hash12(id + 9.0) - 0.5) * (vr - 0.5);
+    float jointH = lineAA(1.0 - smoothstep(0.002, 0.007, e), 0.008, 0.03), arrisH = lineAA(1.0 - smoothstep(0.004, 0.022, e), 0.024, 0.08);
+    float hs = 0.006 * dome + 0.012 * tilt - 0.006 * arrisH * arrisH + 0.0004 * tool - 0.004 * chip + 0.001 * (patina - 0.47);
+    h = mix(hs, -0.005, jointH); bump = 1.0;
     ao = 1.0 - joint * 0.2 - arris * 0.08;
+    gCavity = 1.0 - 0.3 * joint - 0.1 * arris;
   } else if (pat == 22) { // rubble masonry, muted (docs/interiors.md): pattern 1's layout; mortar a recessed
-    // neighbouring value (never black), cohesive palette, softer stone-to-stone alternation
+    // neighbouring value (never black), cohesive palette, softer stone-to-stone alternation; stones pillowed 2-4 cm and
+    // tilted with knobbly quarry faces, mortar recessed 1.5 cm, grime in the joints, streaks. Fine terms fade to the mean.
     vec2 uv = faceUV(vAp, vAn);
     vec2 id; float e, u, vr; stoneLayout(uv, id, e, u, vr);
-    e += (vnoise(vec3(uv * 9.0, 3.0)) - 0.5) * 0.02;
-    float mortar = 1.0 - smoothstep(0.005, 0.024, e);
-    float pillow = smoothstep(0.0, 0.07, e);
+    e += (vnF(vec3(uv * 9.0, 3.0), 9.0) - 0.5) * 0.02;
+    float mortar = lineAA(1.0 - smoothstep(0.005, 0.024, e), 0.015, 0.18);
+    float pillow = lineAA(smoothstep(0.0, 0.07, e), 0.05, 0.75);
+    float dome = sin(u * PI) * sin(vr * PI);
     float tilt = (hash12(id + 3.0) - 0.5) * (u - 0.5) + (hash12(id + 9.0) - 0.5) * (vr - 0.5);
-    float pit = smoothstep(0.72, 0.86, vnoise(vec3(uv * 55.0, id.x)));
-    float aa = smoothstep(0.002, 0.008, max(fwidth(uv.x), fwidth(uv.y)));
-    mortar *= 1.0 - 0.6 * aa;
+    float pit = lineAA(smoothstep(0.72, 0.86, vnoise(vec3(uv * 55.0, id.x))), 0.006, 0.06);
+    float face = fbmF(vec3(uv * 6.0, id.x * 1.3 + id.y), 6.0);
     float pv = uInst.z;
     vec3 sc = alb * 0.84 * (1.0 + 0.24 * pv * (hash12(id + uInst.x * 13.0) - 0.5));
     sc = mix(sc, sc * vec3(1.06, 0.99, 0.86), hash12(id + 11.0) * 0.55 * pv);
     sc = mix(sc, sc * vec3(0.9, 0.93, 0.97), step(0.88, hash12(id + 5.0)) * 0.45);
     sc *= 0.86 + 0.26 * fbm(vec3(uv * 0.3, 9.0 + uInst.x * 5.0));
-    sc *= 0.92 + 0.12 * fbm(vec3(uv * 16.0, 5.0));
-    sc *= 1.0 - 0.08 * pit;
-    vec3 mcol = mix(alb * 0.78, vec3(0.44, 0.42, 0.37), 0.5) * (0.88 + 0.18 * fbm(vec3(uv * 11.0, 2.0)));
+    sc *= 0.92 + 0.12 * fbmF(vec3(uv * 16.0, 5.0), 16.0);
+    sc *= (1.0 - 0.08 * pit) * (0.95 + 0.1 * face);
+    vec3 mcol = mix(alb * 0.78, vec3(0.44, 0.42, 0.37), 0.5) * (0.88 + 0.18 * fbmF(vec3(uv * 11.0, 2.0), 11.0));
     alb = mix(sc, mcol, mortar);
     alb *= 1.0 - 0.1 * (1.0 - pillow) * (1.0 - mortar);
+    float streak = smoothstep(0.6, 0.88, vnF(vec3(uv.x * 5.0, uv.y * 0.3, 17.0), 5.0)) * smoothstep(0.4, 2.0, vAp.y);
+    alb *= (1.0 - 0.12 * streak) * (1.0 - 0.1 * mortar);
     float damp = 1.0 - smoothstep(-0.2, 1.0, vAp.y);
     alb *= mix(1.0, 0.78, damp);
     rough = mix(clamp(rough * (0.9 + 0.2 * hash12(id + 7.0)) - 0.08 * damp, 0.3, 1.0), 0.97, mortar);
-    h = (1.0 - mortar) * (0.5 + 0.5 * pillow) + tilt * 0.3 - pit * 0.06 + 0.12 * fbm(vec3(uv * 7.0, id.x)); bump = 0.016; ao = 1.0 - mortar * 0.3;
+    // relief (m): stones pillowed 2-4 cm (per stone) and tilted +-1.5 cm, knobbly faces 6 mm, pits 2 mm; mortar 1.5 cm back
+    float pil = 0.02 + 0.02 * hash12(id + 21.0);
+    float edge = mix(smoothstep(0.0, 0.14, e), 0.7, smoothstep(0.05, 0.25, gPix));   // rounded 14 cm arrises, faded at range
+    float hs = pil * edge * (0.7 + 0.3 * dome) + 0.03 * tilt + 0.012 * (face - 0.47) - 0.002 * pit;
+    // the joint's relief fades to its mean recess sooner than its tone: a groove one or two pixels wide is what TAA
+    // jitter turns into shimmer (docs/rendering.md 9.5)
+    float mortarH = lineAA(1.0 - smoothstep(0.005, 0.024, e), 0.03, 0.18);
+    h = mix(hs, -0.015, mortarH); bump = 1.0;
+    ao = 1.0 - mortar * 0.3;
+    gCavity = 1.0 - 0.35 * mortar - 0.15 * (1.0 - dome) * (1.0 - mortar);
   } else if (pat == 20) { // interior wall finish by room (docs/interiors.md): painted limewash, sprig or striped paper,
     // wainscot under paper or paint, bare whitewash, smoke-darkened plaster; skirting, dado rail, seams, fading,
     // peeling near the foot and damp; finish codes per room (SurfaceParams), material grain = code without a room
@@ -659,7 +735,10 @@ void main(){
     vec3 tints[5] = vec3[5](vec3(0.71, 0.68, 0.6), vec3(0.68, 0.61, 0.46), vec3(0.56, 0.61, 0.62), vec3(0.6, 0.63, 0.53), vec3(0.69, 0.58, 0.52));
     vec3 tint = tints[int(hash12(vec2(s, 3.0)) * 4.99)];
     float n = fbm(vec3(uv * 1.4, s));
-    float grn = vnoise(vec3(uv * 70.0, 2.0));
+    float grn = vnF(vec3(uv * 70.0, 2.0), 70.0);
+    float bulge = fbm(vec3(uv * vec2(1.0, 1.3), s + 40.0));                     // hand-plastered wall: gentle bulges
+    float pm = fbm(vec3(uv * 0.8, s + 33.0));
+    float patchM = smoothstep(0.64, 0.64 + max(0.008, fwidth(pm) * 1.5), pm) * vert;   // replastered patches
     vec3 plaster = alb * (0.92 + 0.1 * n) * (0.96 + 0.05 * grn);
     float mott = fbm(vec3(uv * 0.7, s + 3.0)), trow = vnoise(vec3(uv * vec2(2.5, 7.0), s + 5.0));
     vec3 paint = mix(alb, tint, 0.65 * pv + 0.2) * (0.84 + 0.2 * n + 0.1 * (mott - 0.5)) * (0.96 + 0.05 * grn) * (0.97 + 0.04 * trow);
@@ -686,12 +765,13 @@ void main(){
         float leaf = 1.0 - smoothstep(0.03, 0.05, length((f - vec2(-0.07, -0.2)) * vec2(1.0, 2.2)));
         m = max(flower, max(stem * 0.8, leaf * 0.7));
       }
+      m = mix(m, 0.18, 1.0 - res(40.0));   // motif strokes under a pixel: the paper's mean tone
       vec3 motif = ground * mix(vec3(0.62, 0.55, 0.52), vec3(0.55, 0.6, 0.58), hash12(vec2(s, 9.0)));
       vec3 paper = mix(ground, motif, m * 0.6);
       float fade = smoothstep(0.35, 0.8, fbm(vec3(uv * 0.22, s + 4.0)));
       paper = mix(paper, mix(paper, vec3(dot(paper, vec3(0.333))), 0.5) * 1.08, fade * 0.5);
       float sx = abs(fract(uv.x / 0.53 + 0.5) - 0.5) * 0.53;
-      float seam = 1.0 - smoothstep(0.0007, 0.0018, sx);
+      float seam = lineAA(1.0 - smoothstep(0.0007, 0.0018, sx), 0.0015, 0.004);
       paper *= 1.0 - 0.18 * seam;
       float footD = 1.0 - smoothstep(0.0, 0.7, y);
       float peelM = fbm(vec3(uv * 1.9, s + 11.0)) + 0.22 * footD + 0.18 * seam * smoothstep(0.4, 0.7, fbm(vec3(uv.y * 3.0, uv.x * 0.5, s)));
@@ -703,7 +783,7 @@ void main(){
     }
     if ((code == 3 || code == 4) && vert > 0.5 && y < 1.03) {   // wainscot: vertical boards, dado rail, skirting
       float bx = uv.x / 0.105, bi = floor(bx), fb = fract(bx);
-      float vj = 1.0 - smoothstep(0.0, 0.06, min(fb, 1.0 - fb));
+      float vj = lineAA(1.0 - smoothstep(0.0, 0.06, min(fb, 1.0 - fb)), 0.006, 0.08);
       float gr = woodGrain(y, uv.x, bi);
       vec3 wood = vec3(0.2, 0.125, 0.07) * (0.86 + 0.25 * hash12(vec2(bi, s))) * (0.8 + 0.32 * gr);
       if (code == 4) {
@@ -733,7 +813,12 @@ void main(){
     }
     float crack = hairline(uv + s, wear * 0.7) * vert * (y > 1.0 || code < 3 ? 1.0 : 0.0);
     c *= 1.0 - 0.25 * crack;
-    alb = c; h = hh - crack * 0.4; bump = 0.0032; ao = clamp(aoW, 0.4, 1.0);
+    float plasterLike = (code == 3 || code == 4) && y < 1.03 ? 0.25 : 1.0;   // wainscot boards barely follow the wall
+    c = mix(c, c * vec3(1.03, 1.03, 1.04), patchM * 0.5 * plasterLike);
+    c *= 1.0 - 0.06 * clamp((0.5 - bulge) * 2.0, 0.0, 1.0) * plasterLike;   // dust and smoke settle in the hollows
+    // relief (m): the finish's own texture (3.2 mm scale), bulges +-6 mm, patches 2 mm proud, cracks
+    alb = c; h = (hh - crack * 0.4) * 0.0032 + (0.012 * (bulge - 0.5) + 0.002 * patchM) * plasterLike; bump = 1.0; ao = clamp(aoW, 0.4, 1.0);
+    gCavity = 1.0 - 0.15 * clamp((0.5 - bulge) * 2.0, 0.0, 1.0) * plasterLike - 0.1 * crack;
   } else if (pat == 21) { // floor finish by room (docs/interiors.md): worn boards, herringbone parquet, hexagonal
     // terracotta tomettes, stone flags, beaten earth; dirt at the room's edges, traffic polish in the middle
     vec3 an = normalize(vAn);
@@ -946,9 +1031,12 @@ void main(){
   }
   vec3 N = dot(vN, vN) > 1e-12 ? normalize(vN) : vec3(0.0, 1.0, 0.0);
   if (!gl_FrontFacing) N = -N;
+  if (pat >= 17 && pat <= 22 && pat != 21) gNg = N;   // rough walls: relief ambient term in shade()
+  if (uNoWallRelief == 1 && pat >= 17 && pat <= 22 && pat != 21) { bump = 0.0; gCavity = 1.0; }
+  else gCavity = 1.0;
   if (bump > 0.0) {
-    vec3 dpdx = dFdx(vW), dpdy = dFdy(vW);
-    float dhx = dFdx(h)*bump, dhy = dFdy(h)*bump;
+    vec3 dpdx = dFdxFine(vW), dpdy = dFdyFine(vW);
+    float dhx = dFdxFine(h)*bump, dhy = dFdyFine(h)*bump;
     vec3 r1 = cross(dpdy, N), r2 = cross(N, dpdx);
     float det = dot(dpdx, r1);
     if (abs(det) > 1e-10) {
@@ -1084,7 +1172,7 @@ out vec4 oColor;
 float hgPhase(float c, float g){ float g2 = g*g; return (1.0 - g2)/(4.0*PI*pow(1.0 + g2 - 2.0*g*c, 1.5)); }
 void main(){
   float z = texture(uDepth, vUV).r;
-  vec4 p = uInvVP*vec4(vUV*2.0 - 1.0, z*2.0 - 1.0, 1.0); vec3 w = p.xyz/p.w;
+  vec4 p = uInvVP*vec4(vUV*2.0 - 1.0, z, 1.0); vec3 w = p.xyz/p.w;   // reverse-Z: ndc z = depth (sky 0 = far plane)
   vec3 rd = w - uCamPos; float L = length(rd); rd /= max(L, 1e-4);
   L = min(L, uMaxDist);
   const int N = 14;
@@ -1110,10 +1198,10 @@ static const char* kSsaoFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uDepth; uniform mat4 uInvProj, uProj; uniform float uRadius, uPower; uniform vec2 uTexel;
 out vec4 oColor;
-vec3 vpos(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z*2.0 - 1.0, 1.0); return p.xyz/p.w; }
+vec3 vpos(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 void main(){
   float z = texture(uDepth, vUV).r;
-  if (z >= 1.0) { oColor = vec4(1.0); return; }
+  if (z <= 0.0) { oColor = vec4(1.0); return; }   // sky
   vec3 P = vpos(vUV);
   vec3 px = vpos(vUV + vec2(uTexel.x, 0.0)) - P, nx = P - vpos(vUV - vec2(uTexel.x, 0.0));
   vec3 py = vpos(vUV + vec2(0.0, uTexel.y)) - P, ny = P - vpos(vUV - vec2(0.0, uTexel.y));
@@ -1158,7 +1246,7 @@ in vec2 vUV;
 uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftAmt, uAoAmt, uSsrAmt;
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
 out vec4 oColor;
-vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z*2.0 - 1.0, 1.0); return p.xyz/p.w; }
+vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 vec4 traceSSR(vec3 Pv, vec3 Rv){
   float stepL = 0.22, t = 0.10, jit = pixelNoise();
@@ -1184,7 +1272,7 @@ void main(){
   vec3 c = texture(uScene, vUV).rgb;
   if (uSsrAmt > 0.0) {
     vec4 nr = texture(uNR, vUV);
-    if (nr.w < 0.4 && texture(uDepth, vUV).r < 1.0) {
+    if (nr.w < 0.4 && texture(uDepth, vUV).r > 0.0) {   // not sky
       vec3 Pv = viewPosAt(vUV);
       vec3 Nv = normalize(mat3(uView)*nr.xyz);
       vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
@@ -1201,7 +1289,7 @@ void main(){
   if (uAoAmt > 0.0) {
     // depth-aware 4x4 blur of the half-resolution AO, then remove the occluded share of the indirect light
     float z = texture(uDepth, vUV).r;
-    vec4 p = uInvProj*vec4(vUV*2.0 - 1.0, z*2.0 - 1.0, 1.0); float d0 = -p.z/p.w;
+    vec4 p = uInvProj*vec4(vUV*2.0 - 1.0, z, 1.0); float d0 = -p.z/p.w;
     float s = 0.0, w = 0.0;
     for (int y = -2; y < 2; ++y) for (int x = -2; x < 2; ++x) {
       vec2 o = (vec2(x, y) + 0.5)*uAoTexel;
@@ -1252,9 +1340,8 @@ void main(){
   }
   m1 /= 9.0; vec3 sig = sqrt(max(m2/9.0 - m1*m1, 0.0));
   float z = texture(uDepth, vUV).r;
-  vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, z*2.0 - 1.0, 1.0);
+  vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, z, 1.0);   // reverse-Z: ndc z = depth; the sky (0) lands on the far plane
   vec3 w = wp.xyz/wp.w;
-  if (z >= 1.0) w = (uInvVP*vec4(vUV*2.0 - 1.0, 1.0, 1.0)).xyz/(uInvVP*vec4(vUV*2.0 - 1.0, 1.0, 1.0)).w;   // sky: far plane
   vec4 pc = uPrevVP*vec4(w, 1.0); vec2 puv = pc.xy/pc.w*0.5 + 0.5;
   vec4 mv = texture(uVel, vUV);
   if (mv.a > 0.5) puv = vUV + mv.xy;   // animated foliage / grass: their own motion, not the depth reprojection
@@ -2189,9 +2276,24 @@ static mat4 stableOrtho(vec3 focus, vec3 dir, float radius, float depth, int res
   return proj * view;
 }
 
-void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<DrawItem>& opaque,
+// Standard GL projection (clip z -1..1) -> reverse-Z for glClipControl(GL_ZERO_TO_ONE): z' = (w - z) / 2, so the near
+// plane maps to 1 and the far plane to 0. Float depth then keeps ~constant relative precision with distance (layers
+// millimetres apart no longer fight at 100 m, docs/rendering.md#depth-convention). x / y / w rows are unchanged, so jitter,
+// motion vectors and screen projection are unaffected. Built in double.
+static mat4 reverseZ(const mat4& p) {
+  glm::dmat4 d(p);
+  for (int c = 0; c < 4; ++c) d[c][2] = 0.5 * d[c][3] - 0.5 * d[c][2];
+  return mat4(d);
+}
+
+void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
+  // shadow cascades and sky occlusion: standard depth; the camera passes below switch to reverse-Z
+  glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
+  RenderView v = v0;
+  v.proj = reverseZ(v0.proj);
+  if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
   stats.draws = 0; stats.tris = 0;
   time += v.dt;
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
@@ -2283,15 +2385,16 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   mat4 vp = projJ * v.view;
   glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
   glViewport(0, 0, width, height);
+  revZ = true; glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE); glClearDepth(0.0);   // reverse-Z from here to the end
   glClearColor(0.7f, 0.73f, 0.75f, 1); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   if (!thumbMode) { float z4[4] = {0, 0, 0, 0}, n4[4] = {0, 1, 0, 1}; glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 2, z4); glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 3, n4); glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 4, z4); }
   // sky
   setLighting(progSky, v);
   glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
   glUniform1i(U(progSky, "uCloudOn"), clouds ? 1 : 0); glUniform1f(U(progSky, "uCloudCover"), cloudCover);
-  glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE);
+  glDepthFunc(zLEqual()); glDepthMask(GL_FALSE);
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
-  glDepthMask(GL_TRUE); glDepthFunc(GL_LESS);
+  glDepthMask(GL_TRUE); glDepthFunc(zLess());
   // terrain .. grass also write their indirect light to attachment 2 (screen-space AO)
   if (!thumbMode) { GLenum b5[5] = {GL_COLOR_ATTACHMENT0, GL_NONE, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4}; glNamedFramebufferDrawBuffers(hdrFbo, 5, b5); }
   // terrain
@@ -2304,6 +2407,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
+  glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false);
   if (!worldModels.empty()) {   // imported models placed in the world
@@ -2349,6 +2453,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);
   }
+  if (!water.empty() && !thumbMode) { extern void waterRenderPass(Renderer&, const RenderView&, const mat4&); waterRenderPass(*this, v, vp); }   // V1 water (water.cpp)
   glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);   // transparent / effects / weapon never touch attachment 2
   if (!thumbMode) { extern void goreRenderPass(Renderer&, const RenderView&, const mat4&, unsigned); goreRenderPass(*this, v, vp, depthTex); }   // W7 gore: blood decals + droplets
   // transparent: glass then ghosts
@@ -2483,6 +2588,8 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   glEnable(GL_DEPTH_TEST);
   glBlitNamedFramebuffer(ldrFbo, 0, 0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0); glDepthFunc(GL_LESS);   // back to standard GL
+  water.clear();
   glEndQuery(GL_TIME_ELAPSED);
   qidx ^= 1; qvalid = true;
   stats.cpuMs = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - c0).count();
