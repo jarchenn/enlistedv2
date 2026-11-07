@@ -2,6 +2,7 @@
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
+#include "settings.h"
 #include "sight_overlay.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -155,8 +156,9 @@ bool App::weaponCamera(float& fov) const {
   // adsT moving at 1 / move.adsTime per second toward the held state, so entry, exit and a mid-way reversal are
   // continuous. The optic view (scope mask, real magnification) still switches at adsT 0.85 with the mask.
   float t = adsT * adsT * (3 - 2 * adsT);
-  if (d.hasScope && !(d.scopeIrons && scopeIronsMode)) { fov = adsT > 0.85f ? 72.0f / d.scopeMag : glm::mix(72.0f, 58.0f, t); return true; }
-  fov = glm::mix(72.0f, d.adsWorldFov, t);
+  const float hip = settings().fov();   // 72 unless changed in Settings; optics keep their real magnification of the 72 deg view
+  if (d.hasScope && !(d.scopeIrons && scopeIronsMode)) { fov = adsT > 0.85f ? 72.0f / d.scopeMag : glm::mix(hip, 58.0f, t); return true; }
+  fov = glm::mix(hip, d.adsWorldFov, t);
   return true;
 }
 
@@ -402,8 +404,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
         Projectile& rp = projectiles.back();
         rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = true; rp.gravScale = 0.35f;
-        vec3 back = weaponMuzzleWorld(d, s) - aimDir * 1.4f;   // backblast
-        for (int n = 0; n < 6; ++n) fx.smoke(back, -aimDir * (3.0f + fx.rnd() * 2) + vec3(fx.rnd() - 0.5f, fx.rnd() * 0.5f, fx.rnd() - 0.5f), 0.25f, 1.5f, vec4(0.55f, 0.53f, 0.5f, 0.5f), 1.6f, 0.3f);
+        fx.backblast(weaponMuzzleWorld(d, s) - aimDir * 1.4f, -aimDir);   // content/settings/fx.json
       } else {
         fireProjectile(start, dir, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
         if (!projectiles.empty()) projectiles.back().mass = d.bulletMass * 0.001f;
@@ -489,25 +490,18 @@ void App::drawWeaponUI() {
     ImGui::Begin("Loadout / range (L)", &showLoadout, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
     ImGui::Checkbox("Strict 6 June 1944 preset (hides later-war M1C)", &strictDDay);
     ImGui::Checkbox("Range presentation: show every trajectory", &fx.rangeMode);
-    ImGui::Checkbox("Reduced motion (keeps aim displacement)", &reducedMotion);
-    ImGui::Checkbox("Show arms", &vm.showArms);
-    ImGui::Checkbox("Sight calibration markers (rear, front tip, muzzle, flash origin, aim)", &sightMarkers);
-    ImGui::Checkbox("Clouds", &R.clouds); ImGui::SameLine(); ImGui::SetNextItemWidth(120); ImGui::SliderFloat("Cloud cover", &R.cloudCover, 0.0f, 1.0f, "%.2f");
-    if (ImGui::CollapsingHeader("Render quality (docs/rendering.md)")) {
+    // graphics presets, render quality, grass, gore, reduced motion, arms and sight markers: the Settings window
+    if (ImGui::Button("Settings...")) settings().open = true;
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Graphics (presets, render quality, grass), gameplay (sensitivity, gore, reduced motion, arms, sight markers), audio, controls, interface");
+    if (ImGui::CollapsingHeader("Look development (docs/rendering.md)")) {   // tuning values outside the presets
       auto& q = R.q;
       ImGui::Checkbox("Legacy look (fallback)", &q.legacy);
       ImGui::BeginDisabled(q.legacy);
-      ImGui::Checkbox("Far shadow cascade", &q.farCascade); ImGui::SameLine(); ImGui::Checkbox("Cloud shadows", &q.cloudShadows);
       ImGui::SetNextItemWidth(160); ImGui::SliderFloat("Shadow softness", &q.shadowSoft, 0.5f, 4.0f, "%.1f texels");
-      ImGui::Checkbox("Ambient occlusion", &q.ssao); ImGui::SameLine(); ImGui::Checkbox("Light shafts", &q.shafts); ImGui::SameLine(); ImGui::Checkbox("Bloom", &q.bloom);
-      ImGui::Checkbox("Screen-space reflections", &q.ssr); ImGui::SameLine();
-      if (ImGui::Checkbox("Temporal AA", &q.taa)) R.resetTemporal();
       ImGui::SetNextItemWidth(160); ImGui::SliderFloat("Haze density", &q.hazeDensity, 0.0f, 0.003f, "%.4f /m");
+      ImGui::SetNextItemWidth(160); ImGui::SliderFloat("Cloud cover", &R.cloudCover, 0.0f, 1.0f, "%.2f");
       ImGui::EndDisabled();
     }
-    { int q = (int)grass.quality; const char* names[] = {"Off", "Low", "Medium", "High"};
-      if (ImGui::Combo("Grass", &q, names, 4)) grass.quality = (GrassQuality)q; }
-    { extern void goreOptionsUI(); goreOptionsUI(); }   // W7: Gore Off / Reduced / Full
     ImGui::Separator();
     for (size_t k = 0; k < weaponDefs.size(); ++k) {
       auto& w = *weaponDefs[k];

@@ -1,0 +1,87 @@
+#pragma once
+// User settings (docs/settings.md): graphics presets Low / Medium / High / Custom, gameplay, audio, controls and
+// interface options, persisted to exeDir()/settings_user.json and edited in the Settings window (Creative top menu,
+// the Explore pause menu and Loadout). Medium is exactly the built-in defaults, so a missing or deleted file, and
+// every self-test run (which never reads or writes the user file), renders as before.
+#include "common.h"
+#include <map>
+#include <algorithm>
+
+class App;
+
+enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3 };
+
+// The part of the graphics options a preset sets. Everything else (FOV, vsync, FPS cap, cloud cover) is personal and
+// kept when a preset is picked.
+struct GraphicsOpts {
+  float resScale = 1.0f;       // internal render resolution, upscaled at the final blit (0.5 .. 1)
+  int shadowQuality = 1;       // 0: near 2048 / far 1024, 1: 4096 / 2048 (default), 2: 4096 / 4096
+  bool farCascade = true, cloudShadows = true, shafts = true, ssr = true, ssao = true, ssaoFull = false, bloom = true, taa = true;
+  int taaPhases = 8;           // Halton jitter sequence length
+  bool clouds = true;
+  int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High
+  float drawDist = 1.0f;       // decor cull distances (w5CullDraw) and the hard draw cuts (buildDrawLists)
+  float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
+  bool operator==(const GraphicsOpts&) const = default;
+};
+GraphicsOpts presetOpts(GfxPreset p);
+const char* presetName(GfxPreset p);
+
+struct UserSettings {
+  // graphics
+  GraphicsOpts gfx;
+  float fov = 72.0f;           // hip / running world FOV (vertical deg); ADS and sights narrow from it
+  bool vsync = true;
+  int fpsCap = 0;              // 0 = unlimited
+  // gameplay
+  float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
+  float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)
+  bool invertY = false, reducedMotion = false, showArms = true, sightMarkers = false;
+  // audio (linear gains 0..1)
+  float master = 1.0f, effects = 1.0f, ui = 1.0f, ambience = 1.0f;
+  // controls: action -> key name overrides of content/settings/bindings.json (only the ones the user changed)
+  std::map<std::string, std::string> keys;
+  // interface
+  float uiScale = 1.0f, editorFly = 1.0f, editorOrbit = 1.0f, editorZoom = 1.0f;
+
+  GfxPreset preset() const;    // Low / Medium / High when gfx matches one exactly, else Custom
+  json toJson() const;
+  static UserSettings fromJson(const json& j);
+  bool operator==(const UserSettings&) const = default;
+};
+
+class Settings {
+public:
+  UserSettings s;
+  bool persist = true;         // false in self-tests: the user file is never read or written
+  fs::path path() const { return exeDir() / "settings_user.json"; }
+  bool load(const fs::path& p);
+  bool save(const fs::path& p) const;
+  void save() const { if (persist) save(path()); }
+  // push every value into the running game (renderer targets, grass, audio, gore, bindings, ImGui scale...)
+  void apply(App& app);
+  // read back the values other UI can change (editor View menu, Loadout), so the window and the file follow them
+  void capture(const App& app);
+  void applyPreset(App& app, GfxPreset p) { if (p != GfxPreset::Custom) s.gfx = presetOpts(p); apply(app); }
+  // getters for other systems
+  float drawDist() const { return s.gfx.drawDist; }
+  float particleBudget() const { return s.gfx.particles; }   // multiplier on effect / fragment caps (1 = Medium)
+  float fov() const { return s.fov; }
+  float lookDegPerCount(float adsT) const { return s.mouseSens * (1.0f + (s.adsSens - 1.0f) * std::clamp(adsT, 0.0f, 1.0f)); }
+  float pitchSign() const { return s.invertY ? -1.0f : 1.0f; }
+  bool open = false;           // the Settings window
+  int tab = 0;
+  int applied = 0;             // apply() calls (tests)
+  int windowFrames = 0;        // frames the window was drawn (tests)
+private:
+  std::string rebinding;       // action waiting for a key press
+  std::string bindMsg;
+  friend void settingsWindow(App& app);
+};
+Settings& settings();
+
+// ---- hooks (one line each at the call site)
+void settingsInit(App& app, bool selftest);   // app.cpp, after the renderer and bindings exist
+void settingsWindow(App& app);                // drawn every frame in both modes (no-op while closed)
+void settingsEndFrame(App& app);              // app.cpp, after SwapBuffers: FPS cap
+bool settingsMenuItem();                      // "Settings..." menu entry / button helper: opens the window

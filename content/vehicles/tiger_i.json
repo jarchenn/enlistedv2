@@ -200,6 +200,7 @@
     "note": "simplified boxes in hull space (turret boxes at 0 deg traverse): hull, turret up to the roof plate (2.70 m), cupola. armourTurret (the zone frame) spans the turret and cupola"
   },
   "gun": {
+    "muzzleScale": 1.2,
     "name": "8.8 cm KwK 36 L/56",
     "traverseRate": 10,
     "traverseAccel": 8,

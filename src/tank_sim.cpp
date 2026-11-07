@@ -475,7 +475,7 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   if (!app.projectiles.empty()) { auto& pr = app.projectiles.back(); pr.at = ap; pr.atKill = true; }
   t.loaded = SHELL_NONE; ++t.shots; t.recoilT = 0;
   t.suspPitch += 1.2f;   // the hull rocks back on its suspension
-  app.fx.muzzle(muzzle, dir, 1.2f);
+  app.fx.muzzle(muzzle, dir, d.muzzleScale);   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
   app.audio.play(t.def->id == "tiger_i" ? "tank_88" : "tank_17pdr", muzzle, 1.0f);
   app.viewKickPitch = 0.6f;
 }

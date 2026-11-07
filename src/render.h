@@ -78,7 +78,18 @@ public:
     bool bloom = true; float bloomStrength = 0.045f;
     bool ssr = true; float ssrStrength = 1.0f;
     bool taa = true; float taaSharpen = 0.40f, taaJitter = 0.5f;
+    int taaPhases = 8;          // Halton (2,3) jitter phases (settings: High uses 16)
   } q;
+  // render targets set by the settings presets (settings.cpp, docs/settings.md). width / height are the internal
+  // render size = display size x resolution scale; the final blit upscales to displayW x displayH.
+  void setShadowSizes(int nearSize, int farSize);   // recreates the shadow maps when a size changes
+  void setResolutionScale(float s);                  // 0.5 .. 1
+  void setSsaoFull(bool full);                       // SSAO at full instead of half resolution
+  int shadowNearPx() const { return shadowSize; }
+  int shadowFarPx() const { return shadowFarSize; }
+  float resolutionScale() const { return resScale; }
+  bool ssaoFull() const { return aoDiv == 1; }
+  int displayW = 0, displayH = 0;
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
   bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
@@ -89,6 +100,8 @@ public:
 private:
   GLuint compile(const char* vs, const char* fs, const char* name);
   void createTargets();
+  void createShadowTargets();
+  float resScale = 1.0f; int aoDiv = 2;
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass);
   void setLighting(GLuint prog, const RenderView& v);
   void drawModels(const std::vector<ModelDraw>& items);

@@ -210,6 +210,7 @@
     "note": "simplified boxes in hull space (turret boxes at 0 deg traverse); hit zones are classified on these faces in the struck component's own frame"
   },
   "gun": {
+    "muzzleScale": 1.2,
     "name": "OQF 17-pounder (game data; mesh shows the 76 mm M1)",
     "traverseRate": 24,
     "traverseAccel": 40,

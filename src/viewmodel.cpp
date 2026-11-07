@@ -1,6 +1,7 @@
 // First-person weapon handling. View space here is the camera frame: +x right, +y up, -z forward.
 // Weapon space: butt at z = 0, muzzle toward +z, top +y (the import pipeline and the box parts share it).
 #include "app.h"
+#include "settings.h"
 #include <algorithm>
 #include <glm/gtx/quaternion.hpp>
 
@@ -66,7 +67,7 @@ void App::fpCamera(mat4& view, float& worldFovNow) const {
   // the camera the weapon is posed against this frame (viewModelMatrix), and the world FOV that goes with it
   vec3 e = eyePos(), f = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
   view = glm::lookAt(e, e + f, vec3(0, 1, 0));
-  worldFovNow = 72.0f;
+  worldFovNow = settings().fov();   // the hip view (72 unless changed in Settings)
   weaponCamera(worldFovNow);
 }
 

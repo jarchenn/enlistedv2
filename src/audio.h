@@ -19,6 +19,10 @@ public:
   void play(const std::string& name, vec3 pos, float volume = 1.0f);
   void setListener(vec3 pos, vec3 fwd);
   void setAmbience(float wind, float leaves);
+  // volume settings (settings.cpp): master on the engine; effects on every spatial play / loop; UI on events whose
+  // name starts with "ui_" or whose manifest kind is "ui"; ambience on the wind / leaf beds
+  void setGains(float master, float effects, float ui, float ambience);
+  float masterGain = 1, effectsGain = 1, uiGain = 1, ambienceGain = 1;
   // looping spatialised voices (tank engines, tracks, turret motors) and runtime-registered sounds (tank.cpp)
   void addSound(const std::string& name, std::vector<float> mono44k);
   int loopStart(const std::string& name, vec3 pos, float volume, float pitch);   // -1: no voice / unknown sound

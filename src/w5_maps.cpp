@@ -1,5 +1,6 @@
 // W5 default maps runtime: authored template terrain, template map content, previews, the Play map picker and the
 // decorator distance cull (see w5.h; the content is built by tools/mapgen, documented in tools/mapgen/README.md).
+#include "settings.h"
 #include "w5.h"
 #include "app.h"
 #include "editor_nav.h"
@@ -167,6 +168,6 @@ bool w5CullDraw(const App& app, const Instance& i, const AssetDef* a) {
   float d2 = glm::dot(i.pos - eye, i.pos - eye);
   vec3 ext = a->bmax - a->bmin;
   float size = std::max({ext.x, ext.y, ext.z, 0.3f});
-  float cut = std::clamp(it->second.perMetre * size, it->second.minD, it->second.maxD);
+  float cut = std::clamp(it->second.perMetre * size, it->second.minD, it->second.maxD) * settings().drawDist();   // Settings draw distance (rules stay cached)
   return d2 > cut * cut;
 }

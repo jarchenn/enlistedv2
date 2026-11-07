@@ -134,6 +134,7 @@ void SelfTest::finish(App& app) {
 void SelfTest::update(App& app, float dt) {
   { extern bool goreSelfTest(App&, float); if (goreSelfTest(app, dt)) return; }   // W7: --selftest-gore
   { extern bool natureSelfTest(App&, float); if (natureSelfTest(app, dt)) return; }   // --selftest-nature (selftest_nature.cpp)
+  { extern bool settingsSelfTest(App&, float); if (settingsSelfTest(app, dt)) return; }   // V2: --selftest-settings (selftest_settings.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();

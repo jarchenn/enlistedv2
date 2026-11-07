@@ -3,6 +3,7 @@
 #include <miniaudio.h>
 #include <random>
 #include <cmath>
+#include <algorithm>
 #include <fstream>
 #include <chrono>
 
@@ -93,7 +94,7 @@ struct Audio::Impl {
   vec3 listener{0};
   struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; std::string event; double start = 0; };
   Voice voices[48];
-  Buf windBuf, leafBuf;
+  Buf windBuf, leafBuf; float windVol = 0.25f, leafVol = 0.0f;
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
   Voice loops[16];
 };
@@ -168,8 +169,9 @@ bool Audio::init() {
     ma_sound_init_from_data_source(&p->engine, &ab, MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, &s);
     ma_sound_set_looping(&s, MA_TRUE); ma_sound_set_volume(&s, vol); ma_sound_start(&s);
   };
-  loop(p->windBuf, p->windAB, p->wind, 0.25f);
+  loop(p->windBuf, p->windAB, p->wind, 0.25f * ambienceGain);
   loop(p->leafBuf, p->leafAB, p->leaves, 0.0f);
+  ma_engine_set_volume(&p->engine, masterGain);
   ok_ = true;
   return true;
 }
@@ -229,7 +231,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   if (!p) return;
   // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
   // "_suffix" (explosion_grenade -> explosion), so a missing sample never silences an event
-  const Buf* src = nullptr; std::string used; float gain = 1; bool shot = false, step = false;
+  const Buf* src = nullptr; std::string used; float gain = 1; bool shot = false, step = false, uiEv = false;
   std::string n = name;
   for (int tries = 0; tries < 3 && !src; ++tries) {
     std::string cand = n;
@@ -238,7 +240,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
     if (e != p->events.end()) {
       auto& ev = e->second; int k = 0;
       if (ev.v.size() > 1) { k = (int)(p->pick() % (ev.v.size() - 1)); if (ev.last >= 0 && k >= ev.last) ++k; }   // never the same twice running
-      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; shot = ev.kind == "shot"; step = ev.kind == "step";
+      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; uiEv = ev.kind == "ui"; shot = ev.kind == "shot"; step = ev.kind == "step";
     } else if (auto b = p->bufs.find(n); b != p->bufs.end()) { src = &b->second; used = n; }
     else { size_t u = n.rfind('_'); if (u == std::string::npos) break; n = n.substr(0, u); }
   }
@@ -259,7 +261,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   for (auto& c : p->voices) if (!c.used || ma_sound_at_end(&c.snd)) { v = &c; break; }
   if (!v) { for (auto& c : p->voices) if (!v || c.start < v->start) v = &c; }   // all busy: steal the oldest
   if (v->used) { ma_sound_uninit(&v->snd); ma_audio_buffer_uninit(&v->buf); }
-  volume *= gain;
+  volume *= gain * ((uiEv || name.rfind("ui_", 0) == 0) ? uiGain : effectsGain);
   ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 1, src->size(), src->data(), nullptr);
   c.sampleRate = SR;
   ma_audio_buffer_init(&c, &v->buf);
@@ -280,8 +282,17 @@ void Audio::setListener(vec3 pos, vec3 fwd) {
 }
 void Audio::setAmbience(float wind, float leaves) {
   if (!p) return;
-  ma_sound_set_volume(&p->wind, wind);
-  ma_sound_set_volume(&p->leaves, leaves);
+  p->windVol = wind; p->leafVol = leaves;
+  ma_sound_set_volume(&p->wind, wind * ambienceGain);
+  ma_sound_set_volume(&p->leaves, leaves * ambienceGain);
+}
+void Audio::setGains(float master, float effects, float ui, float ambience) {
+  masterGain = std::clamp(master, 0.0f, 1.0f); effectsGain = std::clamp(effects, 0.0f, 1.0f);
+  uiGain = std::clamp(ui, 0.0f, 1.0f); ambienceGain = std::clamp(ambience, 0.0f, 1.0f);
+  if (!p) return;
+  ma_engine_set_volume(&p->engine, masterGain);
+  ma_sound_set_volume(&p->wind, p->windVol * ambienceGain);
+  ma_sound_set_volume(&p->leaves, p->leafVol * ambienceGain);
 }
 
 // ---- looping voices (tanks): one sound per handle, pitch / volume / position updated every step, never restarted
@@ -299,7 +310,7 @@ int Audio::loopStart(const std::string& name, vec3 pos, float volume, float pitc
     ma_sound_init_from_data_source(&p->engine, &v.buf, 0, nullptr, &v.snd);
     ma_sound_set_looping(&v.snd, MA_TRUE);
     ma_sound_set_min_distance(&v.snd, 3.0f); ma_sound_set_rolloff(&v.snd, 1.0f);
-    ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));
+    ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume * effectsGain); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));
     ma_sound_start(&v.snd);
     v.used = true;
     return k;
@@ -309,7 +320,7 @@ int Audio::loopStart(const std::string& name, vec3 pos, float volume, float pitc
 void Audio::loopSet(int h, vec3 pos, float volume, float pitch) {
   if (!p || h < 0 || h >= 16 || !p->loops[h].used) return;
   auto& v = p->loops[h];
-  ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));
+  ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume * effectsGain); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));
 }
 void Audio::loopStop(int h) {
   if (!p || h < 0 || h >= 16 || !p->loops[h].used) return;

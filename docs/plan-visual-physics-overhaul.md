@@ -284,3 +284,16 @@ After each batch:
 ## Status and handoff notes (each stream appends one section when it hands off)
 - 2026-11-07 coordinator: Step 0 done. master 4cd7a28+ has W5b merged (Tank Range, Normandy Village Assault; "Battle 1"
   and "Normandy Village Assault" are both the user's battle1 map). `tools/gpu_turn.sh` added.
+- 2026-11-07 V2 (`vo-2-settings`): Settings window, graphics presets and firing smoke done (docs/settings.md).
+  - **New files:** `src/settings.h/.cpp`, `src/selftest_settings.cpp`, `cmake/settings.cmake`, `content/settings/fx.json`.
+  - **User file:** `exeDir()/settings_user.json`. Self-tests never read or write it, and run on Medium.
+  - **Renderer** (target, shadow and composite setup only; `kMainFS`/`kMainVS` untouched):
+    - `setShadowSizes`, `createShadowTargets`;
+    - `setResolutionScale`: `width`/`height` are now the internal size and `displayW`/`displayH` the window, with a bilinear upscale in the final blit;
+    - `setSsaoFull` (`aoDiv`);
+    - `Quality::taaPhases`.
+  - **Hooks:** one line each in `app.cpp` (init, window, FPS cap, FOV, three hard draw cuts), `editor.cpp` (menu), `explore.cpp` (pause button, sensitivity / invert Y), `weapons.cpp` (Loadout button, ADS FOV base, backblast), `viewmodel.cpp` (`fpCamera` FOV), `w5_maps.cpp` (cull x drawDist), `arsenal.cpp` (key overrides), `selftest.cpp` / `selftest_maps.cpp`.
+  - **Getters for other streams:** `settings().particleBudget()` (V4 fragment caps: Low 0.6, Medium 1, High 1.5), `settings().drawDist()`, `settings().fov()`.
+  - **Smoke:** 20 puffs at 0.5-0.55 alpha for 3-5 s became 8 puffs at 0.28 for 1.2-2.4 s, with a (life left)^1.6 fade. The vehicle JSON has `gun.muzzleScale`; the PaK 40 (1.0) and Flak 18 (1.4) already had station `muzzleScale`. The launcher backblast now goes through `Fx::backblast`.
+  - **Merge notes:** V1 should rebase the depth convention on top of the `aoDiv` uniforms in `worldComposite` (values only, no shader text changed). Loadout lost its render-quality, grass and gore block (now in Settings).
+  - **Tests:** `settings` 42/0, `tanks` 122/0, `pak` 52/0; `maps`: see below.

@@ -1,5 +1,6 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "settings.h"
 #include "mpai.h"
 #include "rules.h"
 #include "w3.h"
@@ -415,7 +416,7 @@ void App::updateExplore(float dt) {
       StationRT* gs = station(occupied);
       float hs = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42") ? 0.08f : 0.012f;
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
-      else { float k = 0.1f * lookScaleFor(worldFov); in.lookYaw = -(float)(mx - lmx) * k; in.lookPitch = -(float)(my - lmy) * k; eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
+      else { float k = settings().lookDegPerCount(adsT) * lookScaleFor(worldFov); in.lookYaw = -(float)(mx - lmx) * k; in.lookPitch = -(float)(my - lmy) * k * settings().pitchSign(); eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }
     lmx = mx; lmy = my;
     if (kd(win, GLFW_KEY_W)) in.move.y += 1;
@@ -531,6 +532,7 @@ void App::drawExploreUI() {
     if (ImGui::Button("Resume", ImVec2(240, 0))) { pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
     if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
     if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
+    if (ImGui::Button("Settings...", ImVec2(240, 0))) settings().open = true;
     ImGui::Separator();
     if (ImGui::Button("Apply session changes to map + return", ImVec2(240, 0))) { applyDamageToMap(); exitExplore(); }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");

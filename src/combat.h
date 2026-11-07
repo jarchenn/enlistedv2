@@ -75,7 +75,7 @@ struct Projectile {
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
 };
-struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; };
+struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0; };   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };
 struct Debris { vec3 p{0}, v{0}, w{0}, size{0.1f}; quat r{1, 0, 0, 0}; float life = 0; bool resting = false; };
 struct FxVert { vec3 p; vec4 c; vec2 uv; };
@@ -86,6 +86,7 @@ struct Fx {
   std::vector<Streak> streaks;
   std::vector<Debris> debris;
   size_t maxParts = 900, maxStreaks = 160, maxDebris = 72;
+  void setBudget(float k);        // settings: caps = the defaults above x k (Low 0.6, Medium 1, High 1.5)
   bool rangeMode = true;          // range presentation: every trajectory clearly visible
   void update(float dt, const Terrain& t);
   void clear() { parts.clear(); streaks.clear(); debris.clear(); }
@@ -93,7 +94,8 @@ struct Fx {
   void flash(vec3 p, float size, float life, vec4 col);
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);
   void explosion(vec3 p, vec3 n, const std::string& family, bool ground);
-  void muzzle(vec3 p, vec3 dir, float scale);
+  void muzzle(vec3 p, vec3 dir, float scale);   // tank / AT / Flak gun discharge (content/settings/fx.json "muzzle")
+  void backblast(vec3 p, vec3 back);              // launcher backblast (fx.json "backblast")
   void impact(vec3 p, vec3 n, const std::string& surface);
   void build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>& add) const;
   uint32_t rng = 1234567u;
