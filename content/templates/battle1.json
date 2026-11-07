@@ -1,0 +1,36 @@
+{
+  "id": "battle1",
+  "version": 1,
+  "order": 3,
+  "name": "Battle 1",
+  "available": true,
+  "seed": 1944,
+  "description": "A user-built 600 x 600 m Norman pasture battle: gravel lanes, low stone walls, orchards and hedgerow trees, zig-zag trenches and wire belts. 4 objectives (A-D), Axis defend. Built in the editor on Blank Slate.",
+  "width": 600,
+  "depth": 600,
+  "margin": 100,
+  "size": 800,
+  "buildHalf": 300,
+  "camera": {
+    "pos": [
+      23.026634216308594,
+      160.3778839111328,
+      286.8551025390625
+    ],
+    "yaw": 353.25,
+    "pitch": -25.0
+  },
+  "map": "battle1.nmap.json",
+  "playable": true,
+  "thumbnail": "battle1.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      23.026634216308594,
+      70.0,
+      230.0
+    ],
+    "yaw": 353.25,
+    "pitch": -16.0
+  },
+  "userMap": true
+}

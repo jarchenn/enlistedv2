@@ -2,6 +2,7 @@
 #include "model.h"
 #include <functional>
 #include "physics.h"
+#include "nature.h"
 #include <cstdarg>
 #include <fstream>
 #include <sstream>
@@ -223,7 +224,7 @@ static int patternFromName(const std::string& s) {
     {"fabric", PAT_FABRIC}, {"brick", PAT_BRICK}, {"painted", PAT_PAINTED}, {"concrete", PAT_CONCRETE}, {"bunker", PAT_BUNKER}, {"net", PAT_NET},
     {"limewash", PAT_LIMEWASH}, {"brickwork", PAT_BRICKWORK}, {"ashlar", PAT_ASHLAR}, {"interior", PAT_INTERIOR}, {"floorfin", PAT_FLOORFIN},
     {"rubble", PAT_RUBBLE}, {"rug", PAT_RUG}, {"ceramic", PAT_CERAMIC}, {"joinery", PAT_JOINERY}, {"paintwood", PAT_PAINTWOOD},
-    {"paper", PAT_PAPER}, {"textile", PAT_TEXTILE}};
+    {"paper", PAT_PAPER}, {"textile", PAT_TEXTILE}, {"rock", PAT_ROCK}};
   auto it = m.find(s); return it == m.end() ? PAT_PLAIN : it->second;
 }
 
@@ -511,6 +512,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   a->wallsIntact = Physics::buildCompound(intactShapes);
   a->bmin = vec3(1e9f); a->bmax = vec3(-1e9f);
   if (j.contains("tree")) { buildTreeAsset(*a, j["tree"]); for (auto& c : a->tree.canopy) { pts.push_back(vec3(c) - vec3(c.w)); pts.push_back(vec3(c) + vec3(c.w)); } }
+  if (j.contains("rock") || j.contains("scatter")) buildNatureAsset(*a, j, pts);   // boulders / patches (nature.cpp)
   a->faction = j.value("faction", "");
   if (!a->station.kind.empty()) {   // direct-hit volume of a gun: its cradle, barrel and shield plus raised carriage parts
     vec3 mn(1e9f), mx(-1e9f);

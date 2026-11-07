@@ -82,26 +82,40 @@ void build(App& app) {
     for (auto& s : G.sold) if (s.alive && !s.human && !s.localPlayer) { if (tgt < 0) tgt = s.slot; else if (tgt2 < 0 && s.slot != tgt) tgt2 = s.slot; }
     chk(tgt >= 0 && tgt2 >= 0, "two bots to shoot (slots %d, %d); match paused", tgt, tgt2);
     if (tgt < 0 || tgt2 < 0) { cur = seq.size() - 2; return true; }
-    // a spot with a wall 5-9 m away: the target stands 1.6 m in front of it (the 2.5 m splatter ray reaches it)
+    // a spot with a wall 5-9 m away: the target stands 1.6 m in front of it (the 2.5 m splatter ray reaches it).
+    // Searched around the local soldier, every objective and every spawn marker, so it does not depend on which
+    // spawn the match picked (W6's AI setup changed that: the local spawn alone had no wall within reach).
     Soldier* L = G.local();
-    vec3 base = L ? L->feet : vec3(0, a.terrain.height(0, 30), 30);
-    float bestScore = -1;
-    for (int r = 0; r < 7; ++r) for (int k = 0; k < 24; ++k) {
-      vec3 c = base + vec3(std::sin(r * 1.7f) * r * 4.0f, 0, std::cos(r * 1.7f) * r * 4.0f); c.y = a.terrain.height(c.x, c.z);
+    std::vector<vec3> bases;
+    if (L) bases.push_back(L->feet);
+    for (auto& o : G.match.sc.objectives) bases.push_back(o.pos);
+    for (auto& m : G.match.sc.spawns) bases.push_back(m.pos);
+    if (bases.empty()) bases.push_back(vec3(0, a.terrain.height(0, 30), 30));
+    float bestScore = -1; int nSpots = 0, nWall = 0, nFlat = 0, nOk = 0;
+    for (vec3 base : bases) for (int r = 0; r < 7; ++r) for (int j = 0; j < (r ? 6 : 1); ++j) {
+      float ang = r * 1.7f + j * 1.0472f;
+      vec3 c = base + vec3(std::sin(ang) * r * 4.0f, 0, std::cos(ang) * r * 4.0f); c.y = a.terrain.height(c.x, c.z);
       if (!Physics::shapeFitsAt(Physics::STAND, c + vec3(0, 0.05f, 0))) continue;
-      vec3 d(std::sin(k * 0.2618f), 0, std::cos(k * 0.2618f));
-      Physics::Hit h;
-      if (!Physics::castRayEx(c + vec3(0, 1.3f, 0), d, 9.0f, h) || h.t < 4.5f || std::fabs(h.normal.y) > 0.3f || h.ud == 0) continue;
-      int flat = 0; vec3 sd = glm::normalize(glm::cross(d, vec3(0, 1, 0)));   // a building wall, not a trunk: flat across 1 m and up
-      for (vec3 o : {sd * 0.5f, -sd * 0.5f, vec3(0, 0.7f, 0), vec3(0, -0.5f, 0)}) { Physics::Hit q; if (Physics::castRayEx(c + vec3(0, 1.3f, 0) + o, d, 9.0f, q) && std::fabs(q.t - h.t) < 0.35f && glm::dot(q.normal, h.normal) > 0.9f) ++flat; }
-      if (flat < 3) continue;
-      vec3 tf = c + d * (h.t - 1.6f); tf.y = a.terrain.height(tf.x, tf.z);
-      Physics::Hit h2; bool clear = !Physics::castRayEx(c + vec3(0, 1.4f, 0), d, h.t - 1.7f, h2);
-      if (!clear || std::fabs(tf.y - c.y) > 0.6f) continue;
-      float score = 10 - std::fabs(h.t - 6.5f) + glm::dot(-d, h.normal);
-      if (score > bestScore) { bestScore = score; camFeet = c; wallDir = d; wallDist = h.t; tgtFeet = tf; }
+      ++nSpots;
+      for (int k = 0; k < 24; ++k) {
+        vec3 d(std::sin(k * 0.2618f), 0, std::cos(k * 0.2618f));
+        Physics::Hit h;
+        if (!Physics::castRayEx(c + vec3(0, 1.3f, 0), d, 9.0f, h) || h.t < 4.5f || std::fabs(h.normal.y) > 0.3f || h.ud == 0) continue;
+        ++nWall;
+        int flat = 0; vec3 sd = glm::normalize(glm::cross(d, vec3(0, 1, 0)));   // a building wall, not a trunk: flat across 1 m and up
+        for (vec3 o : {sd * 0.5f, -sd * 0.5f, vec3(0, 0.7f, 0), vec3(0, -0.5f, 0)}) { Physics::Hit q; if (Physics::castRayEx(c + vec3(0, 1.3f, 0) + o, d, 9.0f, q) && std::fabs(q.t - h.t) < 0.35f && glm::dot(q.normal, h.normal) > 0.9f) ++flat; }
+        if (flat < 3) continue;
+        ++nFlat;
+        vec3 tf = c + d * (h.t - 1.6f); tf.y = a.terrain.height(tf.x, tf.z);
+        Physics::Hit h2; bool clear = !Physics::castRayEx(c + vec3(0, 1.4f, 0), d, h.t - 1.7f, h2);
+        if (!clear || std::fabs(tf.y - c.y) > 0.6f) continue;
+        ++nOk;
+        float score = 10 - std::fabs(h.t - 6.5f) + glm::dot(-d, h.normal);
+        if (score > bestScore) { bestScore = score; camFeet = c; wallDir = d; wallDist = h.t; tgtFeet = tf; }
+      }
     }
-    chk(bestScore > 0, "test spot: camera at (%.1f, %.1f), wall %.1f m away, target 1.6 m in front of it", camFeet.x, camFeet.z, wallDist);
+    chk(bestScore > 0, "test spot: camera at (%.1f, %.1f), wall %.1f m away, target 1.6 m in front of it (searched %d bases: %d spots, %d wall rays, %d flat, %d clear)",
+        camFeet.x, camFeet.z, wallDist, (int)bases.size(), nSpots, nWall, nFlat, nOk);
     Soldier& S = G.sold[tgt];
     S.hp = 1e6f; S.protectUntil = -1;
     placeSoldier(S, tgtFeet, -wallDir);
@@ -242,7 +256,7 @@ void build(App& app) {
     // weight of the decal's bone at its triangle: >= 0.95 = rigidly on that bone, else skinned across neighbours
     auto boneWeight = [&](const BoneDecal& d) { float w = 1; for (int i = 0; i < 3; ++i) { const auto& sv = M.verts[M.indices[d.tri * 3 + i]]; float wi = 0; for (int q = 0; q < 4; ++q) if ((int)sv.j[q] == d.joint) wi += sv.w[q]; w = std::min(w, wi); } return w; };
     auto measure = [&](const char* what, float minMove) {
-      float worstRigid = 0, worstBlend = 0, minMoved = 1e9f, worstGpu = 0; int nRigid = 0;
+      float worstRigid = 0, worstBlend = 0, minMoved = 1e9f, worstGpu = 0; int nRigid = 0, nBlend = 0, nLoose = 0;
       for (size_t k = 0; k < rec.decals.size() && k < before.size(); ++k) {
         auto& d = rec.decals[k]; vec3 p, n; gorePosedPoint(tgt, d.tri, d.bary, p, n);
         mat4 Bm = V.world * V.pose.delta[d.joint];
@@ -251,13 +265,17 @@ void build(App& app) {
         // the triangle's blended skin matrix carries the rest-space point (what the GPU pass projects) onto the posed point
         mat4 Mb(0.0f); for (int i = 0; i < 3; ++i) { const auto& sv = M.verts[M.indices[d.tri * 3 + i]]; for (int q = 0; q < 4; ++q) if (sv.w[q] > 0) Mb += V.pose.skin[sv.j[q]] * (sv.w[q] * d.bary[i]); }
         worstGpu = std::max(worstGpu, glm::length(vec3(V.world * Mb * vec4(d.restPos, 1)) - p));
-        if (boneWeight(d) >= 0.95f) { ++nRigid; worstRigid = std::max(worstRigid, dev); }
-        else worstBlend = std::max(worstBlend, dev);
+        // the main bone is a meaningful reference only where it carries >= 30 % of every vertex of the triangle; a triangle
+        // spanning torso and arm (hits through the arm holding the rifle) is checked by the skinning bound alone
+        float bw = boneWeight(d);
+        if (bw >= 0.95f) { ++nRigid; worstRigid = std::max(worstRigid, dev); }
+        else if (bw >= 0.3f) { ++nBlend; worstBlend = std::max(worstBlend, dev); }
+        else ++nLoose;
         minMoved = std::min(minMoved, glm::length(p - before[k].p));
       }
       return chk(worstRigid < 0.005f && worstGpu < 0.025f && worstBlend < 0.15f && minMoved > minMove,
-                 "%s: %zu decals moved >= %.2f m with the body; skinning their rest-space point lands on the posed surface within %.2f mm (%d on a single bone stay on it within %.2f mm, the rest skinned across joints within %.0f mm of their main bone)",
-                 what, rec.decals.size(), minMoved, worstGpu * 1000, nRigid, worstRigid * 1000, worstBlend * 1000);
+                 "%s: %zu decals moved >= %.2f m with the body; skinning their rest-space point lands on the posed surface within %.2f mm (%d on a single bone stay on it within %.2f mm, %d skinned across joints within %.0f mm of their main bone, %d on triangles spanning bones)",
+                 what, rec.decals.size(), minMoved, worstGpu * 1000, nRigid, worstRigid * 1000, nBlend, worstBlend * 1000, nLoose);
     };
     // aim up, crouch, turn and step aside
     vec3 f0 = V.feet; float y0 = V.yaw;
