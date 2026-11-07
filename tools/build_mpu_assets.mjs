@@ -13,6 +13,7 @@ import { atlanticAssets } from "./catalog_atlantic.mjs";
 import { beachAssets } from "./catalog_beach.mjs";
 import { bocageAssets } from "./catalog_bocage.mjs";
 import { villageAssets } from "./catalog_village2.mjs";
+import { ruinAssets } from "./catalog_ruins.mjs";   // V3 (visual & physics overhaul): ruin_* / rub_*
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "content", "assets");
@@ -28,7 +29,7 @@ function put(file, text) {
 
 // ---------------------------------------------------------------- new assets
 const ids = new Set();
-for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets()]) {
+for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets()]) {
   const j = A.json();
   if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
   ids.add(j.id);

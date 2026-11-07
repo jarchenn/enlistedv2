@@ -303,3 +303,27 @@ After each batch:
     - Medium is the default code path (checked field by field by `settings`). Views without hitches match master `build-pkg` (12:12) within about 1 ms, for example village_assault `explore_start`: 9.68 ms on master, 11.89 ms on run 3 here.
     - The coordinator's full run on a quiet GPU should settle the gate. Worst eye-level Low / Medium / High, run 1: Omaha 10.0 / 15.4 / 24.1 ms, village_assault 14.6 / 18.6 / 22.3 ms (noisy), tank_range 2.3 / 3.8 / 4.9 ms, forest 2.1 / 3.3 / 4.7 ms.
     - The maps hook now gives the view after a High pass 2 s more settle time.
+
+- 2026-11-07 V3 (ruins and rubble), branch `vo-3-ruins`:
+  - New `tools/catalog_ruins.mjs`, registered in `tools/build_mpu_assets.mjs` (`ruinAssets()`); 16 new assets, palette
+    categories *Ruins* and *Rubble*; documented in `docs/assets-mpu.md` ("Ruins and rubble (V3)").
+    - Ruins (all enterable, nav + tour): `ruin_house_shelled`, `ruin_farmhouse_gutted`, `ruin_shop_row`,
+      `ruin_barn_burnt`, `ruin_cottage_corner`, `ruin_townhouse_facade`.
+    - Rubble: `rub_brick_pile_s/m/l`, `rub_stone_pile_s/m/l`, `rub_beam_tile_heap`, `rub_collapsed_wall`,
+      `rub_spill_strip`, `rub_debris_patch`.
+  - Walls are ragged `parts.wall()` bays (damage panels where a bay is tall enough; auto panels take the rest). No
+    coplanar faces between materials: a scan of the 16 files finds only the oak door-frame corners `parts.door()` makes
+    in every house (V5 owns frames). Heaps are walkable stepped mounds of rounded tiers (steps <= 0.25 m) under k:0
+    chunks; every tour climbs its stairs and heaps with `expectY`.
+  - **For V6:** `rub_spill_strip` carries `"snap": [{"p":[-4,0,0],"dir":[-1,0,0],"kind":"rubble"}, {"p":[4,0,0],
+    "dir":[1,0,0],"kind":"rubble"}]` (top-level key, asset space). Nothing reads it yet.
+  - **For V4:** ruins have `nav.rooms` per floor; the shelled house, shop row and townhouse have one door interactable
+    each, the others only open doorways (burnt or blown). Upper floors: shelled house (3.25 m), shop row (3.35 m),
+    barn loft (3.3 m).
+  - **For V8:** suggested Beautify roles: `rub_debris_patch` / `rub_brick_pile_s` / `rub_stone_pile_s` as scatter,
+    the M/L piles and `rub_beam_tile_heap` as clutter near buildings, the ruins as town-ring buildings.
+  - Note for the coordinator: `node tools/build_mpu_assets.mjs --check` on master 0e8479f already reports
+    `gun_flak18.json` as would-change (pre-existing drift, not V3's); this branch does not touch that file.
+  - Tests (build-vo3, through `tools/gpu_turn.sh`): `--selftest-structures` 863 PASS / 0 FAIL (all 16 tours, stairs
+    and heap crests at their `expectY`), `--selftest-interiors` 141 / 0, `--selftest-visuals` 31 / 0 (159 tiles, none
+    blank). `build_mpu_assets.mjs --check`: only the pre-existing `gun_flak18.json` line.

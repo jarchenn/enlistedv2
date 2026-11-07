@@ -1,12 +1,13 @@
 # MP & Creative update: structure assets (W4, SPEC §3.6)
 
-37 new catalogue assets for the two default maps (Omaha E-1 and Mont-Castre / Hill 122). They are ordinary catalogue assets, so they are in the Creative palette as well.
+37 new catalogue assets for the two default maps (Omaha E-1 and Mont-Castre / Hill 122), plus 16 ruins and rubble pieces from the Visual & Physics Overhaul (V3). They are ordinary catalogue assets, so they are in the Creative palette as well.
 
 - **Generators** (the house kit: `tools/kit.mjs`, `parts.mjs`, `furniture2.mjs`, plus `catalog_ammo.mjs`):
   - `tools/catalog_atlantic.mjs`, which also holds the shared helpers
   - `tools/catalog_beach.mjs`
   - `tools/catalog_bocage.mjs`
   - `tools/catalog_village2.mjs`
+  - `tools/catalog_ruins.mjs`: the ruins and rubble (Visual & Physics Overhaul V3, below)
 - **Builder:** `node tools/build_mpu_assets.mjs` writes only these files. `--check` writes nothing and exits 1 if a file would change. Never run `build_assets.mjs` for these.
 - **Test:** `--selftest-structures`, in `src/selftest_structures.cpp`, registered in `tools/run_all_tests.sh`.
 
@@ -74,6 +75,32 @@ The Czech hedgehog is the existing `def_tank_trap`. It now has nav metadata (car
 | `vil_church` | Church with steeple: tower, nave, choir; spire to 25 m | 25.4 × 8 m | four-flight tower stair to the belfry (10.7 m), three open arches (**sniper**), pews, altar |
 | `vil_church_ruined` | Roofless ruined church | 17 × 8 m | broken walls 1.2–6 m, south breach, rubble |
 | `vil_chateau_keep` | Ruined donjon of Le Plessis-Lastelle | 11 m square, walls 2 m thick, 11–15 m high, plus a curtain wall | stair to a part-collapsed first floor; window embrasures (MG) |
+
+### Ruins and rubble (V3; palette categories *Ruins*, *Rubble*)
+
+Added by the Visual & Physics Overhaul, stream V3 (`docs/plan-visual-physics-overhaul.md`, items 0 and 0a), in `tools/catalog_ruins.mjs`. Every ruin is enterable and walkable, with nav (rooms, doors, entrances, corners, firing points, cover) and a tour.
+
+| Id | What | Size | Interior / notes |
+|---|---|---|---|
+| `ruin_house_shelled` | Shelled two-storey house, roof collapsed | 10 × 7.5 m, eaves 6.1 m | front door (closed); west half stands with its gable and a strip of rear roof; stair to the surviving upper floor, which ends in a broken edge over the rubble; the east room is a heap of floor and roof; shell breach in the front, rear doorway |
+| `ruin_farmhouse_gutted` | Gutted (burnt-out) farmhouse shell | 14 × 7 m, eaves 3.6 m | shell stands to the eaves, roof and loft gone; west gable, chimney and hearth; cross wall with doorway (kitchen / hall); charred tie beams, ash heaps; 3 doorways |
+| `ruin_shop_row` | Half-collapsed shop terrace, two units | 12 × 8 m, eaves 6.2 m | west unit stands: shopfront blown open, house door (closed), stair to the upper floor, holed roof; east unit is a climbable heap (1.6 m); party wall to the gable with wallpaper, joist pockets and a hanging fireplace; breach through it at ground level |
+| `ruin_barn_burnt` | Burnt-out barn | 16 × 9 m, walls 3–5 m | roof gone, both gables up; the east end of the loft survives on its posts, reached by the scorched stair (pitching door, unglazed firing point); loophole slits are embrasure firing points; burnt cart, ash heaps |
+| `ruin_cottage_corner` | Ruined cottage corner | 8 × 6 m | only the NW corner stands (3.4 m) with the fireplace and chimney stack; front and east walls are low stubs (low cover, firesteps); the rest is a rubble heap with fallen rafters |
+| `ruin_townhouse_facade` | Bombed townhouse, facade only | 9 m wide, 7.4–10.6 m high, rubble 6 m deep | dressed-stone street facade with string courses and empty windows on three floors, street door (open) and shop window; short side returns with joist pockets and a hanging floor; raking shores; the house is a climbable rubble field (1.8 m) behind it |
+| `rub_brick_pile_s` / `_m` / `_l` | Brick rubble pile | 1.7 × 1.4 m × 0.45 m / 3.2 × 2.6 m × 1.0 m / 5.2 × 4.4 m × 1.8 m | S nav none; M carve, low cover; L carve, high cover |
+| `rub_stone_pile_s` / `_m` / `_l` | Stone rubble pile | same sizes | same |
+| `rub_beam_tile_heap` | Beam and tile heap (a fallen roof) | 4 × 3 m × 0.9 m | timbers, broken tiles and slates, a rafter section still carrying its tiles; carve, low cover |
+| `rub_collapsed_wall` | Collapsed wall section | 6 m wall standing 0.9–2.6 m, spill to +Z | the standing bays are damage panels; fallen slabs and a spill; carve, high and low cover on the −Z side |
+| `rub_spill_strip` | Rubble spill strip | 8 × 1.6 m × 0.4 m | tapers at both ends; `"snap": [{p, dir, kind: "rubble"}]` sockets at x = ±4 (V6 wires them); nav none |
+| `rub_debris_patch` | Scattered debris patch | 6 × 6 m | stones, brick, tiles, plaster, splinters, three tiny heaps; walk-through dressing; nav none |
+
+How they are built:
+
+- **Walls** are `rwall` (in `catalog_ruins.mjs`): equal bays standing to their own heights, each a `parts.wall()` call. A bay tall enough on a storey is a masonry damage panel; the loader's auto panels take the rest (teeth, stubs, lintels), so ruins still take wall damage. Broken tops get narrower stone teeth and loose stones bedded into the break.
+- **No coplanar faces between materials.** The long (X) walls own the corners and their plaster skin is inset to the inner span; end walls stop at the inner faces, as in `catalog_village2` `shell()` (its `raggedWall` uses `aIn = aOut`, which leaves plaster on the outer corner faces). Internal walls stand on the floor, not on the plinth plane, and patches (wallpaper, soot, sills, noses, fascias) are embedded 1–3 cm into the surface they sit on. A scan of every `ruin_*` / `rub_*` file for same-facing coplanar overlaps of different materials finds only the oak door-frame corners that `parts.door()` makes in every house.
+- **Heaps** (`heap`) are walkable: stepped mounds of rounded tiers (`t:"r"`, solid, visible rubble core), each tier a cross of two rounded boxes, steps of at most 0.25 m with rounded noses and treads of about 0.25–0.35 m (35–45° overall), so the character walks up them like a stair. The loose pieces on them are `k:0` chunks (stone, brick clumps, plaster flakes, tiles, slates, beams) resting on the tier tops.
+- **Tours** walk into every ruin, up every stair (`expectY` on each floor), onto the heaps (`expectY` at the crest) and out again; each rubble pile's tour walks over its crest.
 
 ## Conventions (contract notes for W3 / W5 / W6)
 
