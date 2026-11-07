@@ -41,6 +41,7 @@ uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only 
 // ---- L2 lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, probe GI
 uniform vec3 uSkyZen, uSkyHor;    // sky model zenith / horizon colour (time of day; Day = the BSL-pass constants)
 uniform vec3 uSkySun, uSkySunCol; // true sun direction and colour for the sky dome / haze glow (the key light may be the moon)
+uniform vec3 uSkyK;               // horizon colour relative to Day (exactly 1 by Day): scales the ground band and the legacy dome
 
 // interleaved gradient noise (Jimenez 2014), rotated per frame
 float ign(vec2 p){ return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715))) + float(uFrame % 64)*0.618034); }
@@ -144,7 +145,7 @@ vec3 skyColor(vec3 d){
   float h = clamp(d.y, -1.0, 1.0);
   float sd = max(dot(d, uSkySun), 0.0);
   if (uLook == 0) {
-    vec3 tk = uSkyHor/vec3(0.80, 0.84, 0.87);   // time-of-day scale of the legacy dome (1 by day)
+    vec3 tk = uSkyK;   // time-of-day scale of the legacy dome (1 by day)
     vec3 zen = vec3(0.33,0.44,0.60)*1.25*tk, hor = vec3(0.74,0.77,0.79)*1.25*tk, gnd = vec3(0.40,0.41,0.38)*tk;
     vec3 c = h > 0.0 ? mix(hor, zen, pow(h, 0.55)) : mix(hor, gnd, clamp(-h*4.0,0.0,1.0));
     return c + uSkySunCol * (pow(sd, 400.0)*6.0 + pow(sd, 12.0)*0.12);
@@ -152,7 +153,7 @@ vec3 skyColor(vec3 d){
   // Exponential gradient: the horizon is brightest and greyest (long air path), the zenith a soft Channel blue.
   // The sun side of the sky is lifted and warmed (forward scattering by haze), the opposite side stays cool.
   // Day: zen (0.28, 0.40, 0.62), hor (0.80, 0.84, 0.87); the time of day moves both (lighting.cpp todCompute)
-  vec3 zen = uSkyZen, hor = uSkyHor, gnd = vec3(0.36, 0.37, 0.34)*(uSkyHor/vec3(0.80, 0.84, 0.87));
+  vec3 zen = uSkyZen, hor = uSkyHor, gnd = vec3(0.36, 0.37, 0.34)*uSkyK;
   float up = max(h, 0.0);
   float g = exp(-up*3.2);                                       // 1 at the horizon -> ~0.04 at the zenith
   vec3 c = mix(zen, hor, g);
@@ -2405,6 +2406,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   vec3 zen(0.28f, 0.40f, 0.62f), hor(0.80f, 0.84f, 0.87f), skySun = sunDir, skySunCol = sun;
   lightingTodColors(*this, sun, sky, ground, fog, fill, zen, hor, skySun, skySunCol);   // L2 time of day (no change by Day / in thumbnails)
   glUniform3fv(U(p, "uSkyZen"), 1, glm::value_ptr(zen)); glUniform3fv(U(p, "uSkyHor"), 1, glm::value_ptr(hor));
+  { vec3 sk = hor / vec3(0.80f, 0.84f, 0.87f); glUniform3fv(U(p, "uSkyK"), 1, glm::value_ptr(sk)); }
   glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
   glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));

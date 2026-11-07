@@ -173,3 +173,42 @@ Ownership follows the overhaul's rules: one or two hook lines in shared files, w
   - `src/interior.cpp`, `src/settings.cpp`, `src/water.cpp`, `src/grass.cpp`;
   - `tools/gen_env_assets.py`, `tools/gen_furniture.py`;
   - `content/settings/beautify.json`.
+
+## Handoff: L2 lighting engine (branch `lt-2-lighting`)
+The full write-up is in `docs/lighting.md`.
+
+### What it adds
+- **Time of day.** The Settings Graphics tab has a Lighting section with Day / Dusk / Night / Dawn presets and an hour slider, saved as `graphics.timeOfDay` / `graphics.hour`.
+  - It drives the sun or moon key light, which the shadow cascades follow; the sky (zenith, horizon, twilight glow, stars, moon disc, cloud light); and the fog, ground and fill.
+  - It widens the exposure range and adds a night key. Creative uses a fixed exposure curve.
+  - Day (14:00) is exactly the old constants. Self-tests and thumbnails always render at Day.
+- **Local lights.** `src/light_types.h` (`LightDesc`) is filled each frame by L3's `lightsGather` when `src/lights.h` exists, plus `Renderer::testLights`.
+  - Clustered forward: a 16 × 9 × 24 froxel grid built in a compute pass, with SSBO bindings 5 and 6.
+  - `localLights()` is wired into `shade()` and the leaf, grass, glass and water shaders.
+  - Flicker is applied on the CPU.
+- **Shadowed lights.** The nearest 4 (Medium) or 8 (High) shadow-casting lights render into a D32F atlas: a cube for point lights, one tile for spot lights. It goes through `progShadow` in standard Z, is cached per light, and is culled with L1's `Frustum`, with a local fallback until L1 merges.
+- **Probe GI.** Near (1.5 m) and far (6 m) volumes scroll with the camera.
+  - Probes are relocated into `InteriorSys::rooms()` boxes and lifted out of the ground.
+  - Captures are 16 × 16 cube views of the lit forward shader, drawn in one layered pass: sun, sky, local lights and multi-bounce. They are projected to L1 SH plus octahedral distance tiles, and sampled with a Chebyshev visibility test so light doesn't leak through walls.
+  - Probe light only adds to the old analytic term.
+  - Presets: Low off, Medium near volume at 3 probes per frame, High both volumes at 8 per frame.
+- **Emission.** The material field `"emissive": [r,g,b]` travels as vertex attribute 6 and lands in the HDR target before bloom. `DrawItem::glow` scales it per item (0 = lamp off) and `R.lt.emissive` scales it globally.
+- **Settings.** Light count (64 / 256 / 512), shadowed lights (0 / 4 / 8) and indirect light (Off / Medium / High) are part of the presets. Medium equals the defaults.
+
+### Units and bindings
+- Texture units 16 (light shadow atlas) and 17 (probe distance atlas); 18 and 19 only during the probe compute pass. Units 20-23 are free for L4.
+- SSBO bindings 5-9.
+- The probe capture needs `GL_ARB_shader_viewport_layer_array`. Without it, GI is off.
+
+### Merge notes for the coordinator
+- **L1:**
+  - two `uGlow` lines in `drawItems`;
+  - `lightingBegin` / `lightingPrepass` / `lightingEnd` lines in `render()`;
+  - `frustum.h` and `GpuMesh::bmin/bmax` are picked up automatically (`__has_include`, a `requires` test).
+- **L3:** `light_types.h` must stay byte-identical. The `lights.h` gather is picked up automatically. Lamp glass uses `"emissive"`, and `DrawItem::glow` turns it off.
+- **L4:** vertex attribute 6 is taken. `kCaptureVS` in `lighting.cpp` mirrors `kMainVS`'s outputs.
+
+### Tests
+- `--selftest-lights`: 45 checks, covering clusters = CPU replica, lit vs unlit room, bounce onto the face turned away from the lamp, no leak through the wall, light shadows, the time-of-day presets, Day = the old look, and emission.
+- `--selftest-maps` also runs each gameplay view at Night (Medium), reported only.
+- `--selftest-render` and `--selftest-settings` pass.
