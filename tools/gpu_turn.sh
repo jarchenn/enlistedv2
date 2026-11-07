@@ -2,7 +2,7 @@
 # GPU turn-taking for parallel work sessions: runs "<cmd...>" while holding one of N machine-wide GPU slots, so the
 # self-test suites of many worktrees share the GPU in a controlled way instead of all at once.
 # Usage: tools/gpu_turn.sh <cmd> [args...]          e.g. tools/gpu_turn.sh ./NormandyMapmaker.exe --selftest-interiors
-#   GPU_TURN_SLOTS=<n>      how many runs may use the GPU at once (default 3; the user raised it from 1, 2026-11-07)
+#   GPU_TURN_SLOTS=<n>      how many runs may use the GPU at once (default 5; the user raised it from 1 to 3 to 5, 2026-11-07)
 #   GPU_TURN_EXCLUSIVE=1    take every slot (frame-time measurements that must not share the GPU)
 #   GPU_TURN_LOCK=<dir>     slot 1 directory (default: %TEMP%/nmk/gpu.lock; slot k > 1 is <dir>.k)
 #   GPU_TURN_STALE=<min>    a slot older than this is treated as abandoned and taken over (default 40)
@@ -16,7 +16,7 @@ set -u
 [ $# -ge 1 ] || { echo "usage: tools/gpu_turn.sh <cmd> [args...]"; exit 2; }
 LOCK="${GPU_TURN_LOCK:-${TEMP:-/tmp}/nmk/gpu.lock}"
 Q="$LOCK.q"
-N="${GPU_TURN_SLOTS:-3}"; [ "$N" -ge 1 ] 2>/dev/null || N=1
+N="${GPU_TURN_SLOTS:-5}"; [ "$N" -ge 1 ] 2>/dev/null || N=1
 EXCL="${GPU_TURN_EXCLUSIVE:-0}"
 STALE="${GPU_TURN_STALE:-40}"
 TAG="${GPU_TURN_TAG:-$(pwd)}"
