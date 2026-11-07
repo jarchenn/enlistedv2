@@ -140,6 +140,24 @@ ShapePtr Physics::buildShape(const std::vector<Part>& parts) {
   return h;
 }
 
+ShapePtr Physics::buildHulls(const std::vector<std::vector<vec3>>& hulls) {
+  StaticCompoundShapeSettings cs; RefConst<Shape> single; int n = 0;
+  for (auto& pts : hulls) {
+    if (pts.size() < 4) continue;
+    Array<Vec3> jp; for (auto& q : pts) jp.push_back(jv(q));
+    auto r = ConvexHullShapeSettings(jp, 0.01f).Create();
+    if (r.HasError()) { logf("hull error: %s", r.GetError().c_str()); continue; }
+    single = r.Get(); cs.AddShape(Vec3::sZero(), Quat::sIdentity(), single.GetPtr()); ++n;
+  }
+  if (n == 0) return nullptr;
+  auto h = std::make_shared<ShapeHandle>();
+  if (n == 1) { h->s = single; return h; }
+  auto r = cs.Create();
+  if (r.HasError()) { logf("shape error: %s", r.GetError().c_str()); return nullptr; }
+  h->s = r.Get();
+  return h;
+}
+
 // Base ground collision: one heightfield body per terrain chunk, holes under deformation tiles (terrain_chunks.cpp,
 // via addHeightPatch with cNoCollisionValue samples).
 

@@ -11,7 +11,8 @@ enum Pattern : int {
   PAT_BUNKER = 15,  // board-formed (12-14: path surfaces, src/paths.cpp) bunker concrete; grain = height of the roof lip in decimetres (run-off stains below it)
   // walls, interiors and furniture (docs/interiors.md)
   PAT_LIMEWASH = 17, PAT_BRICKWORK = 18, PAT_ASHLAR = 19, PAT_INTERIOR = 20, PAT_FLOORFIN = 21, PAT_RUBBLE = 22,
-  PAT_RUG = 23, PAT_CERAMIC = 24, PAT_JOINERY = 25, PAT_PAINTWOOD = 26, PAT_PAPER = 27, PAT_TEXTILE = 28
+  PAT_RUG = 23, PAT_CERAMIC = 24, PAT_JOINERY = 25, PAT_PAINTWOOD = 26, PAT_PAPER = 27, PAT_TEXTILE = 28,
+  PAT_ROCK = 29     // natural rock (docs/nature.md): grain = lithology 0 granite, 1 limestone, 2 schist; matches kTerrainFS's slope rock
 };
 
 struct Material {
@@ -135,10 +136,27 @@ struct DefenseDef {
   std::vector<DefenseSocket> sockets;
 };
 
+// Natural ground dressing (nature.cpp, docs/nature.md): procedural boulders / outcrops ("rock") and scatter patches
+// ("scatter": flowers, tall grass, stones), one placed instance with a radius and density that scatters deterministically.
+struct RockPiece { int lith = 1; uint32_t seed = 1; vec3 size{1}, pos{0}; float yaw = 0, tiltX = 0, tiltZ = 0, sink = 0.25f; int detail = 2; };
+struct NatureDef {
+  enum Kind { NONE = 0, ROCK = 1, SCATTER = 2 } kind = NONE;
+  enum Scatter { FLOWERS = 1, TALLGRASS = 2, STONES = 3 } scatter = FLOWERS;
+  std::vector<RockPiece> pieces;           // ROCK
+  bool collide = true;                     // ROCK: convex hull per piece, stops bullets, solid for the navmesh
+  float radius = 3, density = 4, minR = 0.5f, maxR = 15, minD = 0.2f, maxD = 40;   // SCATTER: m, items per m^2
+  std::vector<std::pair<int, float>> mix;  // SCATTER flowers / grass: (grass species id, weight)
+  float sizeMin = 0.05f, sizeMax = 0.4f, sizePow = 2.2f;   // STONES: metres, power-law exponent (many small, few large)
+  int lith = 1;                            // STONES: lithology
+  float clump = 0.5f;                      // 0 even .. 1 strongly clumped
+  float hMin = 1.0f, hMax = 1.0f;          // FLOWERS / TALLGRASS: height scale range (x the species heights, nature.cpp)
+  std::vector<vec3> tris;                  // ROCK: CPU copy of the render triangles, asset space (collision tests)
+};
 struct AssetDef {
   StationDef station;
   TreeDef tree;
   PathDef path;
+  NatureDef nature;
   // imported model (JSON "model": baked from a supplied GLB by --import-weapon-models into content/assets/models/<dir>)
   std::shared_ptr<GpuModel> model, modelLod;   // modelLod: <dir>/lod1, drawn beyond modelLodDist
   float modelLodDist = 30, modelCull = 400;   // m

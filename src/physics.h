@@ -8,6 +8,7 @@ public:
   static bool init();
   static void shutdown();
   static ShapePtr buildShape(const std::vector<Part>& boxes);
+  static ShapePtr buildHulls(const std::vector<std::vector<vec3>>& hulls);   // one convex hull per point set (boulders, nature.cpp)
 
   static uint32_t addStatic(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);
   static uint32_t addPlayerOnly(const ShapePtr& s, vec3 pos, quat rot, uint64_t userData);   // blocks only the player (wire)

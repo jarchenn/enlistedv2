@@ -4,6 +4,7 @@
 #include "mpai.h"
 #include "w5.h"
 #include "w3.h"
+#include "nature.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -60,6 +61,7 @@ void App::destroyRT(InstanceRT& r) {
   Physics::remove(r.trunkBody); r.trunkBody = 0xffffffffu;
   Physics::remove(r.playerBody); r.playerBody = 0xffffffffu;
   r.pathMesh.destroy(); r.pathGround = ~0u;
+  { extern void natureDestroyRT(InstanceRT&); natureDestroyRT(r); }
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
 }
@@ -124,7 +126,7 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
-  R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear();
+  R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   if (mode == Mode::Explore) grenadeDrawItems();
   R.wind = grass.wind ? 1.0f : 0.0f;
   for (auto& i : doc.instances) {
@@ -134,6 +136,11 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
     if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
     if (w5CullDraw(*this, i, r.asset)) continue;   // W5: small decorators beyond their draw distance (content/settings/maps.json)
+    if (r.asset->nature.kind != NatureDef::NONE) {   // boulders, stone / flower / tall-grass patches (nature.cpp)
+      float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
+      if (cd < 1200) natureDrawItems(*this, i, r, op, cd);
+      continue;
+    }
     if (r.asset->tree.on) {
       if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900) treeDrawItems(i, r, op);
       continue;
@@ -330,6 +337,12 @@ static bool obbOverlap2D(vec2 c1, vec2 h1, float a1, vec2 c2, vec2 h2, float a2)
 }
 PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t ignoreId) const {
   PlaceCheck c;
+  if (a->nature.kind == NatureDef::SCATTER) {   // patches: only the centre must be on dry ground in the build area (items skip water)
+    if (!terrain.inBuildArea(pos.x, pos.z)) { c.ok = false; c.reason = "Outside the build area."; return c; }
+    c.y = terrain.height(pos.x, pos.z);
+    if (c.y < terrain.waterLevel + 0.05f && a->nature.scatter != NatureDef::STONES) { c.ok = false; c.reason = "The patch centre is in water."; return c; }
+    c.reason = "Valid placement."; return c;
+  }
   vec2 hf = a->footprint * 0.5f;
   quat q = yawQuat(yaw);
   struct S { vec3 local; const char* side; };
@@ -348,6 +361,10 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   }
   c.y = top;
   if (a->path.on) { c.y = terrain.height(pos.x, pos.z); return c; }
+  if (a->nature.kind != NatureDef::NONE || a->category == "Nature") {   // ground dressing: sits into any slope, overlaps anything
+    c.y = a->nature.kind == NatureDef::ROCK ? (low + terrain.height(pos.x, pos.z)) * 0.5f : terrain.height(pos.x, pos.z);   // boulders: half way down to the lowest edge (the sunk base)
+    c.reason = "Valid placement."; return c;
+  }
   float grade = top - low;
   if (interior.isProp(a)) return const_cast<InteriorSys&>(interior).checkPlacement(const_cast<App&>(*this), a, pos, yaw, ignoreId);   // furniture (lazy caches): floors, walls, keep-clear volumes
   if (!a->defense.kind.empty()) {   // defences: terrain-conforming, limited by slope (theta = acos(N . up)) instead of grade
@@ -365,7 +382,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   for (auto& o : doc.instances) {
     if (o.id == ignoreId) continue;
     const AssetDef* b = assetFor(o);
-    if (b->category == "Trees" || b->category == "Bushes") continue;
+    if (b->category == "Trees" || b->category == "Bushes" || b->category == "Nature" || b->nature.kind != NatureDef::NONE) continue;
     if (a->defense.kind == "sandbag" && b->defense.kind == "sandbag") continue;   // sandbag runs chain end to end
     if (interior.isProp(b)) continue;   // furniture is checked by its own placement rules
     if (obbOverlap2D(vec2(pos.x, pos.z), hf - vec2(0.05f), radians(yaw), vec2(o.pos.x, o.pos.z), b->footprint * 0.5f - vec2(0.05f), radians(o.yaw))) {
@@ -512,6 +529,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;   // W7 gore suite (selftest_gore.cpp)
+    else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -722,6 +740,8 @@ std::vector<GrassFootprint> App::grassFootprints() const {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || !a->crate.empty() || isVehicleAsset(a)) continue;   // tanks drive away: no fixed grass hole
+    if (a->nature.kind == NatureDef::SCATTER) continue;   // flowers / tall grass / stones grow in the grass
+    if (a->nature.kind == NatureDef::ROCK) { GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z) * 0.78f, vec2(a->bmax.x, a->bmax.z) * 0.78f}; f.margin = 0.0f; fp.push_back(f); continue; }   // grass up to the boulder's flanks
     if (a->tree.on && !a->tree.hedge) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
     if (a->path.on) { vec2 wl = pathSize(i, a); GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, -wl * 0.5f + vec2(0.06f, 0), wl * 0.5f - vec2(0.06f, 0)}; f.margin = 0.05f; fp.push_back(f); continue; }   // the trodden surface only, verges keep their grass
     if (a->tree.on && a->tree.hedge) { vec2 h = a->footprint * 0.5f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-h.x, -h.y * 0.6f), vec2(h.x, h.y * 0.6f)}); continue; }
@@ -737,7 +757,7 @@ void App::updateSurface() {
   auto mix = [&](uint64_t v) { sig = (sig ^ v) * 1099511628211ull; };
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
-    if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a)) continue;
+    if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a) || a->nature.kind != NatureDef::NONE) continue;
     feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
     uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);
     mix(b[0]); mix(b[1]); mix(b[2]); mix(std::hash<std::string>{}(i.assetId));

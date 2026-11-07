@@ -1,4 +1,5 @@
 #include "render.h"
+#include "nature.h"
 #include <chrono>
 
 // ============================================================== shaders
@@ -890,6 +891,44 @@ void main(){
     float weave = vnoise(vec3(uv * 300.0, 1.0)) * 0.5 + 0.5 * step(0.5, fract(uv.x * 220.0 + step(0.5, fract(uv.y * 220.0)) * 0.5));
     float fold = fbm(vec3(uv * 4.0, 3.0));
     alb = c * (0.86 + 0.14 * weave) * (0.88 + 0.16 * fold); rough = 0.95; h = weave * 0.3 + fold * 0.7; bump = 0.0015;
+  } else if (pat == 29) { // natural rock (docs/nature.md): kTerrainFS's slope-rock lithologies, in world space so boulders
+    // share the cliffs' bed tones, bedding lines, joints, iron staining and lichen; grain 0 granite, 1 limestone, 2 schist.
+    // Vertex albedo is a per-rock tint (~1). Moss and damp at the foot (asset y ~ 0 is the ground line).
+    vec3 p = vW; float up = normalize(vN).y;
+    float grn = vnoise(p*3.1 + 44.0), mott = fbm(p*0.6 + 45.0);
+    vec3 rock; float crack = 0.0, bedLine = 0.0;
+    if (grain == 0) {   // granite: grey-pink, feldspar flecks, dark mica specks, rounded weathering, no beds
+      float speck = vnoise(p*23.0 + 3.0), feld = smoothstep(0.62, 0.75, vnoise(p*9.0 + 5.0));
+      rock = mix(vec3(0.40, 0.39, 0.38), vec3(0.53, 0.49, 0.46), mott) * (0.86 + 0.24*speck);
+      rock = mix(rock, vec3(0.60, 0.50, 0.46), feld*0.45);
+      rock *= 1.0 - 0.4*smoothstep(0.72, 0.9, vnoise(p*31.0 + 9.0));
+      h = speck*0.35 + mott*0.65; bump = 0.010;
+    } else {
+      float lith = grain == 2 ? 1.0 : 0.0;
+      float warp = fbm(vec3(p.xz*0.06, p.y*0.02 + 42.0))*5.0;
+      float bedY = p.y*0.42*2.0 + warp;                                                         // boulder scale: ~1.2 m beds
+      float bedV = fract(sin(floor(bedY)*91.7)*4375.85);
+      bedLine = 1.0 - smoothstep(0.0, 0.07, min(fract(bedY), 1.0 - fract(bedY)));
+      float thin = smoothstep(0.82, 0.97, sin((p.y + warp*0.4)*7.5)*0.5 + 0.5);
+      float jx = (p.x*0.62 + p.z*0.78)*0.58 + (vnoise(vec3(p.xz*0.1, p.y*0.14 + 43.0)) - 0.5)*0.7;
+      crack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.45, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)));
+      vec3 lime = mix(vec3(0.44, 0.40, 0.33), vec3(0.57, 0.52, 0.43), bedV) * (0.74 + 0.42*mott);
+      vec3 schist = mix(vec3(0.24, 0.23, 0.21), vec3(0.34, 0.31, 0.27), bedV) * (0.78 + 0.36*mott) * (1.0 - 0.25*thin*lith);
+      rock = mix(lime, schist, lith) * (0.9 + 0.2*grn);
+      rock *= 1.0 - 0.4*bedLine - 0.42*crack;
+      rock = mix(rock, vec3(0.30, 0.22, 0.15), 0.25*smoothstep(0.55, 0.8, fbm(p*0.25 + 46.0)));   // iron staining
+      h = grn*0.4 + mott*0.4 - bedLine*0.5 - crack*0.6 + thin*lith*0.3; bump = 0.018;
+    }
+    // weathering at hand scale: blotchy tone, solution pits / vesicles, fine grit relief
+    float blot = vnoise(p*1.7 + 70.0), pit = smoothstep(0.72, 0.88, vnoise(p*7.0 + 71.0)), grit = vnoise(p*11.0 + 72.0);
+    rock *= (0.80 + 0.40*blot) * (1.0 - 0.32*pit) * (0.92 + 0.16*grit);
+    h += grit*0.35 - pit*0.6; bump = max(bump, 0.035);
+    float lichen = smoothstep(0.62, 0.8, vnoise(p*0.9 + 47.0)) * smoothstep(0.1, 0.7, up + 0.25);
+    rock = mix(rock, mix(vec3(0.16, 0.19, 0.09), vec3(0.42, 0.41, 0.30), grn), lichen*0.55);     // moss / grey lichen
+    rock = mix(rock, vec3(0.55, 0.50, 0.26), smoothstep(0.78, 0.86, vnoise(p*5.5 + 61.0))*smoothstep(0.0, 0.6, up)*0.45);   // crusty yellow lichen
+    float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnoise(vAp*1.7), vAp.y);
+    rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnoise(vAp*2.3 + 7.0))*0.6) * mix(1.0, 0.75, foot);   // damp foot
+    alb = rock * vAlb * 0.8; rough = 0.86 + 0.08*grn; ao *= 1.0 - 0.3*crack;   // 0.8: matches the cliff faces' in-game brightness
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
@@ -1299,6 +1338,18 @@ float leafAlpha(vec2 uv, float seed){
 #ifdef NMK_FS
   grow = clamp(length(fwidth(uv))*0.35, 0.0, 0.03);
 #endif
+  if (uv.x > 1.5) {   // styled cards (foliage.cpp): [2,4) fern frond, [4,6) nettle leaf, [6,8) stem strip
+    float st = floor(uv.x*0.5); vec2 q = vec2(uv.x - st*2.0, uv.y);
+    float d = abs(q.x - 0.5)*2.0;
+    if (st < 1.5) {   // rachis and slanted pinnae under a tapering envelope
+      float env = sin(3.14159*min(1.0, q.y*1.08))*(1.0 - 0.35*q.y);
+      if (d < 0.07 + grow) return 1.0;
+      if (d > env + grow) return 0.0;
+      return fract(q.y*16.0 - d*1.3) < 0.6 + grow*8.0 ? 1.0 : 0.0;
+    }
+    if (st < 2.5) return d < sin(3.14159*pow(q.y, 0.75))*0.92 + 0.06*sin(q.y*42.0) + grow ? 1.0 : 0.0;   // serrated ovate leaf
+    return 1.0;
+  }
   float a = 0.0;
   for (int i = 0; i < 6; ++i) {
     vec2 c = vec2(hash12(vec2(seed, float(i))), hash12(vec2(float(i), seed + 3.1)))*0.64 + 0.18;
@@ -1486,64 +1537,133 @@ static const char* kGrassVS = R"GLSL(
 layout(location=0) in vec3 aB; layout(location=1) in vec4 iP; layout(location=2) in vec4 iS;
 uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
-out vec3 vW, vAlb, vF; out vec2 vUV;
+out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid;
 out vec4 vCC, vPC;
-flat out int vSp;
+flat out int vSp; flat out int vPart; flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf
 void main(){
   float d = length(iP.xyz - uCamPos);
   float fade = 1.0 - smoothstep(uRadius*0.72, uRadius, d);
-  float bl = aB.z;
+  bool head = aB.z > 9.5;                                  // patch plants (nature.cpp) carry a head quad per blade
+  float bl = head ? aB.z - 10.0 : aB.z;
   vec4 pk = unpackUnorm4x8(floatBitsToUint(iS.z));
-  int sp = clamp(int(pk.a*255.0 + 0.5) - 56, 0, 4);      // species (grass.h): 0 turf 1 medium 2 tall 3 clover 4 straw
+  // species (grass.h 0 turf 1 medium 2 tall 3 clover 4 straw; nature.h 5 tall meadow, 6 poppy, 7 ox-eye daisy,
+  // 8 buttercup, 9 cornflower, 10 cow parsley, 11 foxglove, 12 clover in flower)
+  int sp = clamp(int(pk.a*255.0 + 0.5) - 56, 0, 15);
   // per-blade variation inside the tuft (deterministic from the instance phase)
   float r1 = fract(sin(iS.w*12.9898 + bl*78.233)*43758.5453), r2 = fract(sin(iS.w*39.346 + bl*11.135)*24634.6345);
   float ang = iP.w + bl*2.39996 + r1*0.6;
   vec3 side = vec3(cos(ang), 0.0, -sin(ang));
   vec3 fwd = vec3(sin(ang), 0.0, cos(ang));
-  float spread = sp == 3 ? 0.05 : sp == 0 ? 0.085 : sp == 2 ? 0.04 : 0.065;
+  bool fl = sp >= 6;
+  int ib = int(bl + 0.5);
+  int nL = sp == 5 ? 2 : sp == 12 ? 4 : fl ? 3 : 0;        // basal leaves
+  int nS = sp == 5 ? 5 : sp == 6 ? 2 : sp == 7 ? 3 : sp == 8 ? 4 : sp == 9 ? 3 : sp == 10 ? 2 : sp == 11 ? 1 : sp == 12 ? 2 : 7;
+  bool isLeaf = sp >= 5 && ib < nL, isStem = sp < 5 || (!isLeaf && ib < nL + nS);
+  bool disc = head && isStem && fl && sp != 11;            // flat flower heads (foxglove bells are on its stem)
+  float spread = sp == 3 ? 0.05 : sp == 0 ? 0.085 : sp == 2 ? 0.04 : sp >= 5 ? (isLeaf ? 0.03 : 0.05) : 0.065;
   vec3 root = iP.xyz + fwd*(spread*(0.4 + r2));
   float h = iS.x * (0.6 + 0.45*r2) * fade;
   if (sp == 2 && bl > 2.5) h = 0.0;                        // stems: three per clump (the rest collapse to nothing)
-  float v = aB.y;
-  float taper = sp == 3 ? 1.0 : (1.0 - v*0.8);
-  float w = iS.y * uWidthScale * taper;
-  if (sp == 2 && v > 0.78) w *= 2.6;                       // seed head
-  float lift = sp == 3 ? 0.35 : 1.0;                       // clover leaves lie low and spread
-  vec3 p = root + side*(aB.x*w*0.5) + vec3(0.0, v*h*lift, 0.0);
-  float curve = sp == 0 ? 0.30 + 0.35*r1 : sp == 2 ? 0.04 + 0.10*r1 : sp == 3 ? 1.6 + 0.6*r1 : sp == 4 ? 0.55 + 0.45*r1 : 0.12 + 0.30*r1;
-  float windAmp = sp == 2 ? 1.8 : sp == 0 ? 0.35 : sp == 3 ? 0.15 : 1.0;   // tall stems sway most, turf barely
-  float freq = sp == 2 ? 1.1 : 1.7;
-  vec3 p0 = p;
-  float gust = sin(uTime*freq + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(uTime*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
-  vec3 bend = fwd*curve*(sp == 3 ? 0.5 : 1.0) + vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.20)*uWind*windAmp;
-  p += bend*(v*v)*h;            // root (v = 0) never moves
-  p.y -= (v*v)*h*dot(bend, bend)*0.35*lift;
-  float gustP = sin(uPrevTime*freq + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(uPrevTime*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
-  vec3 bendP = fwd*curve*(sp == 3 ? 0.5 : 1.0) + vec3(0.8, 0.0, 0.6)*(0.08 + gustP*0.20)*uWind*windAmp;
-  vec3 pp = p0 + bendP*(v*v)*h; pp.y -= (v*v)*h*dot(bendP, bendP)*0.35*lift;
-  vCC = uVPU*vec4(p, 1.0); vPC = uPrevVP*vec4(pp, 1.0);
+  if (sp >= 5) h = isLeaf ? iS.x*(sp == 12 ? 0.8 : sp == 5 ? 0.55 : 0.26)*(0.7 + 0.5*r2)*fade : isStem ? iS.x*(0.82 + 0.25*r2)*fade : 0.0;
+  if (head && !disc) h = 0.0;
+  float v = head ? 1.0 : aB.y;
+  float taper = (sp == 3 || (sp == 12 && isLeaf)) ? 1.0 : (1.0 - v*0.8);
+  float w;
+  if (sp < 5) { w = iS.y * uWidthScale * taper; if (sp == 2 && v > 0.78) w *= 2.6; }
+  else if (isLeaf) w = (sp == 5 ? 0.006 : sp == 12 ? 0.026 : 0.016) * uWidthScale * taper * (0.8 + 0.4*r1);
+  else if (sp == 5) w = (v > 0.6 ? 0.022*(1.25 - 0.6*v) : iS.y) * uWidthScale;       // panicle on the upper stem
+  else if (sp == 11) w = (v > 0.49 ? iS.y*(1.3 - 0.8*v) : 0.007) * uWidthScale;      // foxglove: bell spike
+  else w = 0.0045 * uWidthScale;
+  float lift = (sp == 3 || (sp == 12 && isLeaf)) ? 0.35 : 1.0;   // clover leaves lie low and spread
+  float curve = sp == 0 ? 0.30 + 0.35*r1 : sp == 2 ? 0.04 + 0.10*r1 : sp == 3 ? 1.6 + 0.6*r1 : sp == 4 ? 0.55 + 0.45*r1 : sp == 1 ? 0.12 + 0.30*r1
+              : isLeaf ? (sp == 12 ? 1.6 + 0.6*r1 : 0.9 + 0.6*r1) : 0.05 + 0.10*r1;
+  float windAmp = sp == 2 ? 1.8 : sp == 0 ? 0.35 : sp == 3 ? 0.15 : sp == 5 ? (isLeaf ? 1.0 : 1.9) : sp == 12 ? 0.2 : fl ? (isLeaf ? 0.5 : 0.9) : 1.0;   // tall stems sway most, turf barely
+  float freq = sp == 2 ? 1.1 : sp == 5 ? 1.0 : fl ? 1.4 : 1.7;
+  float hr = iS.y * (0.85 + 0.3*r2) * min(1.0, fade*3.0);   // flower head radius
+  float tilt = sp == 6 ? 0.45 : sp == 7 ? 0.35 : sp == 8 ? 0.30 : sp == 9 ? 0.50 : sp == 10 ? 0.12 : 1.1;
+  vec3 pos[2]; vec3 nH = vec3(0.0, 1.0, 0.0);
+  for (int k = 0; k < 2; ++k) {   // k 0: this frame, 1: previous frame (motion vectors)
+    float t = k == 0 ? uTime : uPrevTime;
+    float gust = sin(t*freq + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(t*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
+    vec3 bend = fwd*curve*((sp == 3 || (sp == 12 && isLeaf)) ? 0.5 : 1.0) + vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.20)*uWind*windAmp;
+    vec3 p;
+    if (head) {
+      vec3 top = root + vec3(0.0, h*lift, 0.0) + bend*h; top.y -= h*dot(bend, bend)*0.35*lift;
+      vec3 n = normalize(vec3(0.0, 1.0, 0.0) + fwd*tilt + bend*0.6);
+      vec3 T1 = normalize(side - n*dot(side, n)), T2 = cross(n, T1);
+      p = top + (T1*aB.x + T2*(aB.y*2.0 - 1.0))*(disc ? hr : 0.0);
+      if (k == 0) nH = n;
+    } else {
+      p = root + side*(aB.x*w*0.5) + vec3(0.0, v*h*lift, 0.0);
+      p += bend*(v*v)*h;            // root (v = 0) never moves
+      p.y -= (v*v)*h*dot(bend, bend)*0.35*lift;
+    }
+    pos[k] = p;
+  }
+  vec3 p = pos[0];
+  vCC = uVPU*vec4(p, 1.0); vPC = uPrevVP*vec4(pos[1], 1.0);
   vec3 alb = pk.rgb*0.5;   // meadow palette baked per tuft on the CPU (cluster colour + species tint)
   if (sp == 2) alb = mix(alb, vec3(0.36, 0.32, 0.18), smoothstep(0.72, 0.9, v));   // straw-coloured seed heads
-  vAlb = alb; vW = p; vF = fwd; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp;
+  vAlb = alb; vW = p; vF = head ? nH : fwd; vUV = head ? vec2(aB.x, aB.y*2.0 - 1.0) : vec2(aB.x*0.5 + 0.5, v); vSp = sp;
+  vPart = head ? 1 : isLeaf ? 2 : 0; vWid = w; vSeed = r1;
   gl_Position = uVP*vec4(p, 1.0);
 }
 )GLSL";
 static const char* kGrassFS = R"GLSL(
-in vec3 vW, vAlb, vF; in vec2 vUV;
+in vec3 vW, vAlb, vF; in vec2 vUV; in float vWid;
 in vec4 vCC, vPC;
-flat in int vSp;
+flat in int vSp; flat in int vPart; flat in float vSeed;
+uniform float uWidthScale;
 layout(location=4) out vec4 oVel;
 layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 void main(){
-  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y;
-  if (vSp == 3) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }   // clover / weed leaf: rounded
-  else if (vSp == 2 && v > 0.78) { float y = (v - 0.78)/0.22*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))*0.9) discard; }   // oval seed head
-  else if (e > 1.0 - pow(v, 1.3)) discard;               // narrow tapered blade, pointed tip
+  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y, lv = v;
   vec3 F = gl_FrontFacing ? vF : -vF;
   vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*0.45);
-  vec3 alb = vAlb * mix(0.62, 1.12, v);   // shaded roots, sunlit (not bleached) tips
+  vec3 alb;
+  if (vPart == 1) {   // flower head: disc in [-1, 1]^2 (nature.cpp patches)
+    vec2 q = vUV; float r = length(q), th = atan(q.y, q.x);
+    float aa = fwidth(r)*1.5;   // distant heads fill in instead of sparkling
+    vec3 petal, ctr; float rim, cr;
+    if (vSp == 6) { rim = 0.80 + 0.20*abs(cos(2.0*th)); cr = 0.22; petal = mix(vec3(0.62, 0.05, 0.03), vec3(0.72, 0.10, 0.04), vSeed); ctr = vec3(0.05, 0.04, 0.04);
+      petal = mix(ctr, petal, smoothstep(cr, cr + 0.16, r)); }                                                                  // poppy: four broad petals, black eye
+    else if (vSp == 7) { rim = (0.5 + 0.5*cos(18.0*th + vSeed*6.0)) > 0.22 + aa*4.0 ? 1.0 : 0.30; cr = 0.30; petal = vec3(0.86, 0.86, 0.80); ctr = vec3(0.78, 0.56, 0.05); }   // ox-eye daisy: white rays, yellow disc
+    else if (vSp == 8) { rim = 0.68 + 0.32*sqrt(abs(cos(2.5*th + vSeed*3.0))); cr = 0.20; petal = vec3(0.86, 0.66, 0.03); ctr = vec3(0.62, 0.55, 0.08); }   // buttercup: five glossy petals
+    else if (vSp == 9) { rim = 0.72 + 0.28*abs(fract(th*1.27324 + vSeed) - 0.5)*2.0; cr = 0.28; petal = mix(vec3(0.13, 0.26, 0.74), vec3(0.20, 0.33, 0.80), vSeed); ctr = vec3(0.24, 0.10, 0.36); }   // cornflower: ragged blue florets
+    else if (vSp == 10) {   // cow parsley: an umbel of tiny white florets
+      vec2 g = q*5.0 + vSeed*3.0; vec2 cl = fract(g) - 0.5;
+      float dot_ = 1.0 - smoothstep(0.30, 0.36 + fwidth(g.x)*0.5, length(cl));
+      rim = 1.0; cr = 0.0; petal = vec3(0.86, 0.86, 0.80); ctr = petal;
+      if (dot_ < 0.5 && fwidth(g.x) < 0.6) discard;
+    }
+    else { rim = 0.95; cr = 0.0; petal = mix(vec3(0.62, 0.28, 0.44), vec3(0.82, 0.80, 0.72), step(0.7, vSeed)); ctr = petal;     // clover head (red / white)
+      petal *= 0.8 + 0.25*vnoise(vec3(q*9.0, vSeed*10.0)); }
+    if (r > rim) discard;
+    alb = r < cr ? ctr : petal;
+    N = normalize(F); lv = 1.0;
+  } else if (vSp < 5) {
+    if (vSp == 3) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }   // clover / weed leaf: rounded
+    else if (vSp == 2 && v > 0.78) { float y = (v - 0.78)/0.22*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))*0.9) discard; }   // oval seed head
+    else if (e > 1.0 - pow(v, 1.3)) discard;               // narrow tapered blade, pointed tip
+    alb = vAlb;
+  } else if (vPart == 2) {   // basal leaves: lanceolate (clover: rounded leaflets)
+    if (vSp == 12) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
+    else if (e > sin(3.14159*pow(v, 0.8))*0.95) discard;
+    alb = vAlb;
+  } else if (vSp == 5) {   // tall meadow grass: thin stem, then a feathery panicle
+    if (v < 0.62) { if (e*vWid > 0.0058*uWidthScale) discard; alb = vAlb; }
+    else { float y = (v - 0.62)/0.38; float lobe = 0.55 + 0.45*step(0.45, fract(y*9.0 + vSeed*3.0));
+      if (e > sqrt(max(0.0, 1.0 - (2.0*y - 1.0)*(2.0*y - 1.0)))*lobe) discard;
+      alb = mix(vec3(0.40, 0.36, 0.22), vec3(0.34, 0.27, 0.28), vSeed); }   // straw / purplish heads
+  } else if (vSp == 11) {   // foxglove: bare stem, then nodding bells along the spike
+    if (v < 0.49) { if (e*vWid > 0.0075*uWidthScale) discard; alb = vAlb; }
+    else { float t = fract((v - 0.49)*14.0); if (e > (0.45 + 0.55*sin(3.14159*t))) discard;
+      alb = mix(vec3(0.62, 0.24, 0.50), vec3(0.80, 0.62, 0.72), (1.0 - e)*0.35*(1.0 - t)); }
+  } else alb = vAlb;   // flower stems
+  alb *= mix(0.62, 1.12, lv);   // shaded roots, sunlit (not bleached) tips
+  if (vPart == 1) alb *= 0.85;
   // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
   float sh = 1.0;
   if (uShadowSoft > 0.0) sh = sunShadowT(vW + vec3(0.0, 0.04, 0.0), vec3(0.0, 1.0, 0.0), 0.6, 4) * cloudShadow(vW);
@@ -1558,12 +1678,12 @@ void main(){
   }
   float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
-  vec3 c = (alb/PI*uSunCol*ndl*sh + irr*alb) * mix(0.72, 1.0, v);
+  vec3 c = (alb/PI*uSunCol*ndl*sh + irr*alb) * mix(0.72, 1.0, lv);
   vec3 V = normalize(uCamPos - vW);
-  c += alb * uSunCol * 0.10 * pow(max(dot(-V, uSunDir), 0.0), 3.0) * v * sh;   // thin-leaf transmission
+  c += alb * uSunCol * 0.10 * pow(max(dot(-V, uSunDir), 0.0), 3.0) * lv * sh;   // thin-leaf transmission
   c = applyFog(c, vW);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
-  oAmb = vec4(irr*alb*mix(0.72, 1.0, v)*gFogT*0.6, 1.0);   // blades: reduced weight (thin, sparse occluders)
+  oAmb = vec4(irr*alb*mix(0.72, 1.0, lv)*gFogT*0.6, 1.0);   // blades: reduced weight (thin, sparse occluders)
   oNR = vec4(N, 1.0);
   oVel = vec4(vPC.xy/vPC.w*0.5 - vCC.xy/vCC.w*0.5, 0.0, 1.0);
 }
@@ -2213,6 +2333,20 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
     grass->draw(progGrass, vp, v.camPos);
     stats.draws += grass->lastDrawnChunks; stats.tris += (int)grass->lastDrawnBlades * 8;
+    glEnable(GL_CULL_FACE);
+  }
+  natDraws = 0; natTufts = 0;
+  if (!natPatches.empty() && grass && !thumbMode) {   // flower / tall-grass patches (nature.cpp): same program, wind and fade
+    glDisable(GL_CULL_FACE);
+    setLighting(progGrass, v);
+    glUniformMatrix4fv(U(progGrass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glUniformMatrix4fv(U(progGrass, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
+    glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
+    glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
+    const GrassPreset& gp = grassPreset(grass->quality);
+    float frac = gp.radius <= 0 ? 0.0f : gp.density <= 8 ? 0.6f : gp.density <= 16 ? 0.8f : 1.0f;   // Low / Medium / High share of each patch
+    if (frac > 0) natureDrawPatches(progGrass, natPatches, vp, v.camPos, gp.radius * 1.1f, frac, wind, natDraws, natTufts);
+    stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);
   }
   glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);   // transparent / effects / weapon never touch attachment 2

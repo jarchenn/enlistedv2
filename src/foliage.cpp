@@ -67,6 +67,63 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
       for (int k : idx) { v.insert(v.end(), {q[k].x, q[k].y, q[k].z, dir.x, dir.y, dir.z, uv[k].x, uv[k].y, mask, shadeV}); }
     }
   }
+  // ---- styled cards (docs/nature.md): fern / bracken fronds and nettle stems with paired leaves. The card's uv.x is
+  // offset by 2 (frond), 4 (nettle leaf) or 6 (plain stem strip) so leafAlpha (render.cpp) draws that silhouette.
+  auto quad = [&](vec3 a, vec3 b, vec3 c, vec3 d, vec3 n, float u0, float v0, float v1, float m0, float m1, float shade) {
+    vec3 q[4] = {a, b, c, d}; vec2 uv[4] = {{u0, v0}, {u0 + 1, v0}, {u0 + 1, v1}, {u0, v1}}; float mk[4] = {m0, m0, m1, m1};
+    int idx[6] = {0, 1, 2, 0, 2, 3};
+    for (int k : idx) v.insert(v.end(), {q[k].x, q[k].y, q[k].z, n.x, n.y, n.z, uv[k].x, uv[k].y, mk[k], shade});
+  };
+  if (tj.contains("fronds")) {   // radiating, arching fronds from a crown at the base
+    auto& fj = tj["fronds"];
+    int n = fj.value("count", 12); float L0 = fj["len"][0], L1 = fj["len"][1], W = fj.value("width", 0.22f), e0 = fj["elev"][0], e1 = fj["elev"][1];
+    float droop = fj.value("droop", 0.5f), rad = fj.value("radius", 0.1f), stalk = fj.value("stalk", 0.0f);
+    for (int k = 0; k < n; ++k) {
+      float az = k * 2.39996f + (U(rng) - 0.5f) * 0.5f, el = radians(e0 + (e1 - e0) * U(rng)), L = L0 + (L1 - L0) * U(rng);
+      vec3 hd(std::cos(az), 0, std::sin(az)), sd(-hd.z, 0, hd.x);
+      vec3 base = hd * rad * U(rng) + vec3(0, 0.02f, 0);
+      if (stalk > 0) {   // bracken: a bare upright stalk, the frond spreads from its top
+        vec3 top = base + vec3(0, stalk * (0.8f + 0.4f * U(rng)), 0) + hd * 0.06f;
+        quad(base - sd * 0.008f, base + sd * 0.008f, top + sd * 0.008f, top - sd * 0.008f, glm::normalize(glm::cross(sd, top - base)), 6.0f, 0, 1, 0.0f, 0.2f, 0.7f);
+        base = top;
+      }
+      const int S = 4;
+      for (int s = 0; s < S; ++s) {
+        float a0 = (float)s / S, a1 = (float)(s + 1) / S;
+        auto P = [&](float a) { return base + hd * std::cos(el) * a * L + vec3(0, std::sin(el) * a * L - droop * a * a * L, 0); };
+        vec3 p0 = P(a0), p1 = P(a1), tg = glm::normalize(p1 - p0), nn = glm::normalize(glm::cross(sd, tg));
+        if (nn.y < 0) nn = -nn;
+        float w = W * 0.5f;
+        quad(p0 - sd * w, p0 + sd * w, p1 + sd * w, p1 - sd * w, nn, 2.0f, a0, a1, 0.15f + 0.85f * a0, 0.15f + 0.85f * a1, 0.75f + 0.25f * a1);
+        t.top = std::max(t.top, p1.y);
+      }
+    }
+  }
+  if (tj.contains("nettles")) {   // upright stems with opposite, decussate drooping leaves
+    auto& nj = tj["nettles"];
+    int n = nj.value("stems", 10); float H0 = nj["height"][0], H1 = nj["height"][1], rad = nj.value("radius", 0.35f), lw = nj.value("leaf", 0.09f);
+    for (int k = 0; k < n; ++k) {
+      float a = U(rng) * 6.2831853f, r = rad * std::sqrt(U(rng)), H = H0 + (H1 - H0) * U(rng);
+      vec3 base(std::cos(a) * r, 0, std::sin(a) * r), lean(U(rng) - 0.5f, 0, U(rng) - 0.5f);
+      vec3 top = base + vec3(0, H, 0) + lean * 0.15f * H;
+      vec3 ax = glm::normalize(top - base), sd = glm::normalize(glm::cross(ax, vec3(0.3f, 0, 1)));
+      quad(base - sd * 0.007f, base + sd * 0.007f, top + sd * 0.007f, top - sd * 0.007f, glm::normalize(glm::cross(sd, ax)), 6.0f, 0, 1, 0.0f, 1.0f, 0.8f);
+      int nodes = std::max(3, (int)(H / 0.09f));
+      for (int nd = 1; nd <= nodes; ++nd) {
+        float f = (float)nd / (nodes + 1); vec3 at = glm::mix(base, top, f);
+        float ls = lw * (1.15f - 0.6f * f) * (0.8f + 0.4f * U(rng));
+        float rot = nd * 1.5708f + a;
+        for (int pr = 0; pr < 2; ++pr) {
+          vec3 out(std::cos(rot + pr * 3.14159f), 0, std::sin(rot + pr * 3.14159f)), sdl(-out.z, 0, out.x);
+          vec3 tip = at + out * ls * 1.6f + vec3(0, -ls * (0.3f + 0.4f * U(rng)), 0);
+          vec3 tg = glm::normalize(tip - at), nn = glm::normalize(glm::cross(sdl, tg)); if (nn.y < 0) nn = -nn;
+          float m = std::clamp(0.3f + f * 0.7f, 0.0f, 1.0f);
+          quad(at - sdl * ls * 0.5f, at + sdl * ls * 0.5f, tip + sdl * ls * 0.5f, tip - sdl * ls * 0.5f, nn, 4.0f, 0, 1, m * 0.8f, m, 0.65f + 0.35f * f);
+        }
+      }
+      t.top = std::max(t.top, top.y);
+    }
+  }
   t.cardVerts = (int)v.size() / 10;
   glCreateVertexArrays(1, &t.cardVao); glCreateBuffers(1, &t.cardVbo);
   glNamedBufferStorage(t.cardVbo, v.size() * 4, v.data(), 0);
