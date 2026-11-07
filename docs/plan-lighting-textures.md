@@ -173,3 +173,33 @@ Ownership follows the overhaul's rules: one or two hook lines in shared files, w
   - `src/interior.cpp`, `src/settings.cpp`, `src/water.cpp`, `src/grass.cpp`;
   - `tools/gen_env_assets.py`, `tools/gen_furniture.py`;
   - `content/settings/beautify.json`.
+
+## L4 handoff: textures (branch `lt-4-textures`)
+
+Full docs: `docs/textures.md`. Credit: `docs/credits.md` → "Textures: ambientCG (CC0)".
+
+**Download.** The user approved 57 ambientCG ids, 1K-JPG only, 448.5 MB (`tools/texture_sets.json`; the dry run is in `side-session-notes/lt4-ambientcg-dryrun.md`).
+- All 57 downloaded and packed. There were no skips and no swaps.
+- Raw zips stay in `%TEMP%/nmk/ambientcg_raw` (675 MB extracted).
+- The commit holds `content/textures/<set>/{color,normal,rma}.jpg` + `meta.json`: 105 MB, 228 files, plus `textures.json`.
+- Fifteen sets ship without an AO map, so their AO is white.
+
+**Engine.** All in `src/textures.cpp/.h`. Hooks in shared files:
+- `render.cpp`:
+  - `Renderer::init`: two `compile` lines prepend the texture GLSL, and one line `tex::init` + `attach`;
+  - `kMainFS`: the slot decode at `pat`, a `texReplace` guard ahead of the pattern chain, `texMaterial()` before the weathering, the height added into the derivative bump, and the normal added after it (5 lines);
+  - `kTerrainFS`: per-layer samples next to the existing mixes.
+- `assets.h/.cpp`: `Material::texCode`, the `"texture"` field, `params.x = pattern + 100 * code`.
+- `app.cpp`: `--pack-texture`, `--texture-placeholders`, `--no-textures`, `--selftest-textures`.
+- `thumbs.cpp`: one line adds `tex::stateKey()` to the tile cache key.
+- `selftest.cpp`: one dispatch line.
+- `CMakeLists.txt` → `cmake/lt4.cmake`.
+- `tools/run_all_tests.sh`: the `textures` row.
+
+The vertex format is unchanged. No generator or asset JSON changed: the pattern and material-name → set mapping is done at load time (`content/textures/textures.json`), so `build_mpu_assets --check` is unaffected.
+- **Texture units 20-22** (colour+AO BC3 sRGB, normal BC5, roughness+height BC5), compressed on the CPU with `stb_dxt`. `GL_MAX_TEXTURE_IMAGE_UNITS` = 32.
+- 48 of the 57 sets are referenced by a slot, about 190 MB of VRAM, loaded in about 1.5 s (threaded). Nine sets are unmapped and not loaded (listed in `docs/textures.md`).
+
+**Results** (build `%TEMP%/nmk/build-lt4`, all through `gpu_turn.sh`):
+- `render` shimmer, layer on vs `--no-textures`: 0 of 26 views worse by more than 2 %, mean ratio 0.99, worst +0.8 %. The farmhouse and the moving strip improve by 2-3 %. The tuning history is in `docs/textures.md#shimmer`. The first untuned pass was 22 % worse on average.
+- `textures` (new): 27/0. Includes the missing-texture fallback: no sets, a corrupt set, a lone set, and `--legacy-look` stays procedural.

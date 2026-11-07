@@ -1,0 +1,20 @@
+{
+ "set": "bark_fir",
+ "id": "Bark014",
+ "family": "planks",
+ "size": [
+  1.2,
+  1.2
+ ],
+ "source": "https://ambientcg.com/a/Bark014",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

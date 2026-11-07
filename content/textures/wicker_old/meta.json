@@ -1,0 +1,20 @@
+{
+ "set": "wicker_old",
+ "id": "Wicker010B",
+ "family": "fabric",
+ "size": [
+  0.4,
+  0.4
+ ],
+ "source": "https://ambientcg.com/a/Wicker010B",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

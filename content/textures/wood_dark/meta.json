@@ -1,0 +1,19 @@
+{
+ "set": "wood_dark",
+ "id": "Wood051",
+ "family": "planks",
+ "size": [
+  0.8,
+  0.8
+ ],
+ "source": "https://ambientcg.com/a/Wood051",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

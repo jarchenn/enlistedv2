@@ -21,6 +21,7 @@ struct Material {
   float roughness = 0.8f, metallic = 0.0f;
   int pattern = PAT_PLAIN;
   int grainAxis = 1; // part-local axis that wood grain / slate courses follow; -1 = the part's longest axis (furniture)
+  int texCode = 0;   // L4 texture layer (textures.h): 0 = the pattern's default slot, 1 = none, 2 + slot ("texture" field / textures.json)
 };
 
 // A primitive part. Boxes and triangular prisms, in a parent space.

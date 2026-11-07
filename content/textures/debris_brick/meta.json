@@ -1,0 +1,20 @@
+{
+ "set": "debris_brick",
+ "id": "Ground111",
+ "family": "rubble stone",
+ "size": [
+  2.8,
+  2.8
+ ],
+ "source": "https://ambientcg.com/a/Ground111",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

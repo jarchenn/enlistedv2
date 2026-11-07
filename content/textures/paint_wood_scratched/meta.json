@@ -1,0 +1,20 @@
+{
+ "set": "paint_wood_scratched",
+ "id": "PaintedWood009B",
+ "family": "painted wood",
+ "size": [
+  1.0,
+  1.0
+ ],
+ "source": "https://ambientcg.com/a/PaintedWood009B",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}
