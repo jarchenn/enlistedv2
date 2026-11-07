@@ -552,6 +552,7 @@ static void newMapDialog(App& app) {
   const MapSizeRules& r = mapSizeRules();
   ImGui::InputText("Map name", app.nameBuf, sizeof app.nameBuf);
   ImGui::Separator();
+  bool createNow = false;
   for (int k = 0; k < (int)app.templates.size(); ++k) {
     auto& t = app.templates[k];
     ImGui::PushID(k);
@@ -561,7 +562,12 @@ static void newMapDialog(App& app) {
     else ImGui::Dummy(ImVec2(160, 100));
     ImGui::SameLine();
     ImGui::BeginGroup();
-    if (ImGui::Selectable(t.name.c_str(), sel, 0, ImVec2(560, 0))) { app.newTemplateIdx = k; if (t.id != "blank_slate") { W = (int)t.width; D = (int)t.depth; } }
+    // NoAutoClosePopups: a Selectable inside a popup closes it by default, which shut this dialog on the first click
+    // without creating anything. Double-click creates the map at once.
+    if (ImGui::Selectable(t.name.c_str(), sel, ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_AllowDoubleClick, ImVec2(560, 0))) {
+      app.newTemplateIdx = k; if (t.id != "blank_slate") { W = (int)t.width; D = (int)t.depth; }
+      if (t.available && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) createNow = true;
+    }
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 560);
     ImGui::TextDisabled("%s", t.description.c_str());
     ImGui::TextDisabled("%s %.0f x %.0f m", t.id == "blank_slate" ? "Default size" : "Size", t.width, t.depth);
@@ -598,7 +604,7 @@ static void newMapDialog(App& app) {
   ImGui::Separator();
   bool canCreate = t && t->available;
   ImGui::BeginDisabled(!canCreate);
-  if (ImGui::Button("Create editable copy")) { navNewMapSized(app, *t, app.nameBuf, sizable ? wd : vec2(t->width, t->depth)); ImGui::CloseCurrentPopup(); }
+  if (ImGui::Button("Create editable copy") || (createNow && canCreate)) { navNewMapSized(app, *t, app.nameBuf, sizable ? wd : vec2(t->width, t->depth)); ImGui::CloseCurrentPopup(); }
   ImGui::EndDisabled();
   ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
   ImGui::EndPopup();
