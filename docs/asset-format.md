@@ -57,7 +57,7 @@ Positions in both keys are asset-local, like parts.
 
 ## Snap sockets (`"snap"`, `src/snap.h`)
 
-`"snap": [{p: [x, y, z], dir: [x, z], kind}]` marks the asset's joinable ends:
+`"snap": [{p: [x, y, z], dir: [x, z] or [x, 0, z], kind}]` marks the asset's joinable ends:
 - `p` is the end point, asset-local.
 - `dir` is the outward direction through that end.
 - `kind` is any string. Two sockets join when their kinds are equal or are listed as a pair in `content/settings/snap.json` (`compatible`).

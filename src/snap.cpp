@@ -51,7 +51,7 @@ std::vector<SnapSocket> parseSockets(const json& arr) {
   for (auto& s : arr) {
     SnapSocket k;
     if (s.contains("p")) k.p = vec3(s["p"][0].get<float>(), s["p"][1].get<float>(), s["p"][2].get<float>());
-    if (s.contains("dir")) { k.dir = vec2(s["dir"][0].get<float>(), s["dir"][1].get<float>()); if (glm::length(k.dir) > 1e-6f) k.dir = glm::normalize(k.dir); }
+    if (s.contains("dir")) { const json& d = s["dir"]; k.dir = d.size() >= 3 ? vec2(d[0].get<float>(), d[2].get<float>()) : vec2(d[0].get<float>(), d[1].get<float>()); if (glm::length(k.dir) > 1e-6f) k.dir = glm::normalize(k.dir); }   // dir: [x, z] or [x, y, z] (y ignored)
     k.kind = s.value("kind", std::string("default"));
     v.push_back(k);
   }
