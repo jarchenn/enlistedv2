@@ -10,7 +10,7 @@
 class App;
 
 constexpr int kNetPort = 27960;
-constexpr int kNetVersion = 1;
+constexpr int kNetVersion = 2;   // 2: per-peer session token on D / X, padded discovery query, bounded reliable channel
 
 struct LobbyInfo { std::string addr, hostName, map, mapHash, contentHash; int humans = 0, maxHumans = 0, phase = 0, version = 0; double seen = 0; };
 struct LobbyPlayer { int peer = 0; std::string name; bool ready = false; };
