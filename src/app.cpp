@@ -1,5 +1,6 @@
 #include "app.h"
 #include "settings.h"
+#include "snap.h"
 #include "thumbs.h"
 #include "selftest.h"
 #include "mpai.h"
@@ -71,7 +72,7 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
   uint64_t base = i.id << 16;
-  if (ShapePtr s = interior.staticShape(*this, i, r.asset)) r.staticBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), base);   // interiors: props, furnished copies
+  if (ShapePtr s = snapShape(*this, i, r.asset) ? snapShape(*this, i, r.asset) : interior.staticShape(*this, i, r.asset)) r.staticBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), base);   // interiors: props, furnished copies
   if (r.asset->tree.on) buildTreeRT(i, r);
   r.defHp = r.asset->defense.hp; r.defDestroyed = false;
   r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0);
@@ -196,7 +197,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     }
     if (r.asset->path.on) {   // draped on the current ground; re-draped after any terrain change or edit
       if (r.pathGround != groundRev || r.pathRev != i.rev) rebuildPathMesh(i, r);
-      op.push_back({&r.pathMesh, M});
+      op.push_back({&r.pathMesh, M}); snapDraw(*this, i, op.back());   // V6: world-space pattern across joined ends
       continue;
     }
     // coarse distance cull
@@ -217,7 +218,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (interior.propDraw(*this, i, r, M, op, gl)) continue;   // furniture: intact / glass gone / broken (interior.cpp)
     const SurfaceParams* surf = interior.surfaceFor(*this, i, r.asset); size_t opFirst = op.size();   // building finish parameters
     bool noFurn = interior.hideBuiltin(i) && r.asset->noFurnOpaque.count;   // furnished by room templates
-    op.push_back({noFurn ? &r.asset->noFurnOpaque : &r.asset->opaque, M});
+    op.push_back({noFurn ? &r.asset->noFurnOpaque : &r.asset->opaque, M}); snapDraw(*this, i, op.back());   // V6: joined ends without caps (snap.cpp)
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
     if (noFurn) { if (r.asset->noFurnGlass.count) gl.push_back({&r.asset->noFurnGlass, M}); } else if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
@@ -362,7 +363,9 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     top = std::max(top, h);
     if (h < low) { low = h; lowSide = s.side; }
   }
-  c.y = top;
+  SnapFit sf = snapFit(*this, a, pos, yaw, ignoreId);   // V6: on neighbours' sockets: the chain's base height, their cuts ignored (snap.cpp)
+  if (sf.on) { top = sf.top; low = sf.low; }
+  c.y = sf.on ? sf.y : top;
   if (a->path.on) { c.y = terrain.height(pos.x, pos.z); return c; }
   if (a->nature.kind != NatureDef::NONE || a->category == "Nature") {   // ground dressing: sits into any slope, overlaps anything
     c.y = a->nature.kind == NatureDef::ROCK ? (low + terrain.height(pos.x, pos.z)) * 0.5f : terrain.height(pos.x, pos.z);   // boulders: half way down to the lowest edge (the sunk base)
@@ -382,10 +385,12 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     std::snprintf(buf, sizeof buf, "%s foundation is unsupported (ground falls %.1f m; limit %.1f m).", side.c_str(), grade, (a->plinthDepth > 0 ? std::min(a->maxGrade, a->plinthDepth) : a->maxGrade));
     c.ok = false; c.reason = buf; return c;
   }
+  if (crushBlocked(*this, a, pos, yaw, ignoreId, c.reason)) { c.ok = false; return c; }   // V6: growth taller than the crush limit
   for (auto& o : doc.instances) {
-    if (o.id == ignoreId) continue;
+    if (o.id == ignoreId || std::find(sf.neighbours.begin(), sf.neighbours.end(), o.id) != sf.neighbours.end()) continue;   // snapped neighbours touch
     const AssetDef* b = assetFor(o);
     if (b->category == "Trees" || b->category == "Bushes" || b->category == "Nature" || b->nature.kind != NatureDef::NONE) continue;
+    if (crushBuilding(a) && crushVegetation(b)) continue;   // V6: low growth is crushed, taller growth blocked above (crushBlocked)
     if (a->defense.kind == "sandbag" && b->defense.kind == "sandbag") continue;   // sandbag runs chain end to end
     if (interior.isProp(b)) continue;   // furniture is checked by its own placement rules
     if (obbOverlap2D(vec2(pos.x, pos.z), hf - vec2(0.05f), radians(yaw), vec2(o.pos.x, o.pos.z), b->footprint * 0.5f - vec2(0.05f), radians(o.yaw))) {
@@ -423,6 +428,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   if (a->defense.blocksVehicles) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["blocksVehicles"] = true; }
   bump(i);
   doc.instances.push_back(i);
+  crushAndFlatten(*this, i.id);   // V6: buildings crush low growth and flatten their ground (same undo step; snap.cpp)
   autopathOnPlaced(*this, i.id);   // "Auto paths" on: a new house gets its aprons and a path to its neighbours (autopath.cpp)
   return i.id;
 }
@@ -536,6 +542,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
     else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
     else if (a == "--selftest-autopath") runSelf = true;   // V9 auto paths between houses (selftest_autopath.cpp)
+    else if (a == "--selftest-snap") runSelf = true;     // V6: snapping (selftest_snap.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)

@@ -363,3 +363,41 @@ After each batch:
     - `env` 42/42 and `editor` 83/83 (new stage 3346: first-person placement). These two ran before the final low-wall gate in `mantle.cpp`, which only narrows when a mantle starts.
     - Not run: `structures` (its anti-tank ditch faces are 3 m, outside the range) and the full suite.
   - **Merge notes:** V6 also edits `selftest_editor.cpp` (my stage sits between 3345 and 3350) and `editor.cpp` (my change is only the browser block, lines ~292–296).
+
+- 2026-11-07 V6 (`vo-6-editor`): editor controls, seamless snapping, crush and flatten.
+  - **Controls** (`editor_nav.cpp` `edSelectPointer`, called from the Select branch of `editor.cpp`):
+    - LMB press-drag orbits about the pressed point (object or ground hit) and never selects.
+    - A click (under 4 px of travel) selects; a click on open ground clears the selection.
+    - A press-drag that starts on the already-selected instance moves it. It keeps `checkPlacement`, one undo step, reject-revert and wheel-rotate, and snaps while moving.
+    - RMB orbit and MMB pan are unchanged; they don't start during an LMB gesture.
+    - The **+ / -** buttons (`##zoomButtons`, bottom centre, auto-repeat) call `navZoomCentre`. `w3StatusHelp` is updated.
+  - **Snapping** (`src/snap.h/.cpp`; settings in `content/settings/snap.json`; format in `docs/asset-format.md`):
+    - Assets declare `"snap": [{p, dir, kind}]`. Any kind joins its own kind, plus the `compatible` pairs.
+    - Socket metadata is in `catalog_atlantic` (trench straight, zig-zag, corner, entry), `catalog_bocage` (hedgerow straight, corner, gap, sunken lane, rampart) and `catalog_beach` (`bch_at_ditch`). Only `aw_*`, `bcg_*` and `bch_*` were regenerated. `gun_flak18` still differs from its generator, as it did before V6.
+    - `path_*` sockets follow each path's length. `hedgerow_bocage` gets its sockets from `snap.json` (kind `hedge_low`).
+    - `snapPlacement()` is the one API. It dispatches to `snapPath` (V9), `snapDefense` and the socket snap, within 1.5 m.
+    - The editor Place tool previews the snapped pose (`snapGhost`). **V7: call `snapPlacement` from `builder.cpp`.**
+    - `checkPlacement` hook `snapFit`: a pose on neighbours' sockets takes the chain's base height, the neighbours' cuts are ignored for its grade, and the neighbours pass the overlap test.
+    - `snapSync` (in `w3Frame`) computes joined masks and the chain texture origins. It bumps a piece's rev when its joins change, so its collision rebuilds without the joined caps (`snapShape`, hooked in `buildRT`).
+  - **Seams:**
+    - The trench parapet/parados slabs end on the joint plane: 8.0 m, not 8.4. The bocage battered sides reach the piece ends.
+    - Parts tagged `"cap": n` close free ends: wattle end wall plus fill for trenches, a rounded bank end for hedgerows. They are hidden, and their collision removed, while socket n is joined. Faces on a joined end's plane are dropped too (`snapMesh`).
+    - World-space patterns: `DrawItem::apWorld` becomes `uSnapAp`, with one uniform plus one line in `kMainVS`. V1 has been told. Hooks: `app.cpp` (buildings and paths draw), `foliage.cpp` (hedgerow banks).
+  - **Crush and flatten** (`crushBlocked` in `checkPlacement`; `crushAndFlatten` in `placeInstance` and on a move release):
+    - Applies to building categories and to enterable assets with wall bays and no terrain cut.
+    - Removes trees, bushes and nature instances of 1.6 m or less under the footprint (+0.3 m). Taller growth blocks the placement with a message.
+    - Flattens `doc.terrainDeltas` to the base with a 2.5 m smoothstep skirt (Creative only; other pieces' cuts are kept), then calls `resetGround()`. Growth left in the skirt is re-seated. It is one undo step with the placement.
+  - **Tests:**
+    - new `--selftest-snap` (`selftest_snap.cpp`, added to `run_all_tests.sh`);
+    - `--selftest-editor` stages 3390/3391 (scripted gestures and the zoom buttons);
+    - a `--selftest-nature` step (`crushStep`).
+    - `structures` re-run for the trench and hedge tours (joined entry pieces now open their caps).
+    - Results (build-vo6, all through `gpu_turn.sh`): snap 41/0, editor 76/0, nature 97/0, structures 642/0.
+  - **Changes outside V6's own files** (shared-file hooks are one or two lines each):
+    - `app.cpp`: `buildRT` shape, two draw hooks, `checkPlacement` (`snapFit`, `crushBlocked`, overlap skip), `placeInstance`, the `--selftest-snap` flag.
+    - `foliage.cpp`: one draw hook. `render.h/.cpp`: `apWorld` and `uSnapAp`.
+    - `selftest_nature.cpp`: the crush step, and the existing patch test now removes its house with undo, not delete (only undo restores flattened ground).
+    - Generator fixes in `trenchRun`: the fill now ends on its own mitred end points (it overshot zig-zag ends by 0.14 m), and duckboards stay inside the piece.
+  - **Not done:**
+    - Deleting or moving a building does not un-flatten its old spot; undo does.
+    - V3's rubble strip and V9's wheat squares get snapping as soon as their assets declare `snap` sockets (any kind).

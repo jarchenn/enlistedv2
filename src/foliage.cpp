@@ -4,6 +4,7 @@
 //   (canopy rides on the trunk), with an impulse pushing away from the hit.
 // Leaf sway (vertex shader, render.cpp):  V_offset = D_wind * M * A * sin(f t + k_x X_world + k_z Z_world)
 #include "app.h"
+#include "snap.h"
 #include <algorithm>
 #include <random>
 
@@ -211,7 +212,7 @@ void App::treeDrawItems(const Instance& i, const InstanceRT& r, std::vector<Draw
   const TreeDef& t = r.asset->tree;
   mat4 M = instanceMatrix(i);
   if (!r.treeFelled) {
-    op.push_back({&r.asset->opaque, M});
+    op.push_back({&r.asset->opaque, M}); snapDraw(*this, i, op.back());   // V6: hedgerow banks: joined ends without caps (snap.cpp)
     R.foliage.push_back({&t, M});
     return;
   }

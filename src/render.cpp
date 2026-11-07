@@ -201,11 +201,12 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
 static const char* kMainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec3 aAlb;
 layout(location=3) in vec4 aPar; layout(location=4) in vec3 aPc; layout(location=5) in vec3 aPn;
-uniform mat4 uModel, uVP;
+uniform mat4 uModel, uVP; uniform vec4 uSnapAp;   // V6: w = 1 for snap chains, xz = the chain's texture origin
 out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn; out vec4 vPar;
 void main(){
   vec4 w = uModel*vec4(aPos,1.0);
   vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm;
+  if (uSnapAp.w > 0.5) { vAp = vec3(w.x - uSnapAp.x, aPos.y, w.z - uSnapAp.z); vAn = vN; }   // V6: patterns continue across snapped joints
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -2125,13 +2126,14 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
 
 void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shadowPass) {
   GLint lm = U(p, "uModel"), lt = U(p, "uTint");
-  GLint li = shadowPass ? -1 : U(p, "uInst");
+  GLint li = shadowPass ? -1 : U(p, "uInst"), la = shadowPass ? -1 : U(p, "uSnapAp");   // la: V6 snap-chain texture origin
   static const SurfaceParams kDefaultSurf;
   const SurfaceParams* lastSurf = nullptr;
   for (auto& it : items) {
     if (!it.mesh || !it.mesh->count) continue;
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.model));
     if (!shadowPass && lt >= 0) glUniform4fv(lt, 1, glm::value_ptr(it.tint));
+    if (la >= 0) glUniform4fv(la, 1, glm::value_ptr(it.apWorld));
     if (li >= 0) {   // building finish parameters (docs/interiors.md): uploaded only when the copy changes
       const SurfaceParams* sp = it.surf ? it.surf : &kDefaultSurf;
       if (sp != lastSurf) {
