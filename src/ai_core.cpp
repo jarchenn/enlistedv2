@@ -338,7 +338,7 @@ void AiCore::pollWorld(bool rebuild) {
     std::vector<std::pair<vec3, vec3>> dirty;
     for (auto& [id, v] : now) { auto it = instPrint.find(id); if (it == instPrint.end()) dirty.push_back(v.second); else if (it->second.first != v.first) { dirty.push_back(v.second); dirty.push_back(it->second.second); } }
     for (auto& [id, v] : instPrint) if (!now.count(id)) dirty.push_back(v.second);
-    for (auto& d : dirty) { G.nav.rebuildArea(d.first, d.second); rebuildLog.push_back({G.t, d.first, d.second}); if (rebuildLog.size() <= 12) logf("ai: world changed at (%.0f %.0f)-(%.0f %.0f): navmesh tiles rebuild", d.first.x, d.first.z, d.second.x, d.second.z); }
+    for (auto& d : dirty) { G.nav.rebuildArea(d.first, d.second); lateRebuilds.push_back({d.first, d.second, G.t + tj("budget", "lateRebuild_s", 0.6f)}); rebuildLog.push_back({G.t, d.first, d.second}); if (rebuildLog.size() <= 12) logf("ai: world changed at (%.0f %.0f)-(%.0f %.0f): navmesh tiles rebuild", d.first.x, d.first.z, d.second.x, d.second.z); }
   }
   instPrint.swap(now);
   // terrain deformation (craters, cuts): only when the ground revision moved, tiles whose heights changed
@@ -511,6 +511,7 @@ void AiCore::frame() {
     if (trapsDueAt >= 0 && G.t >= trapsDueAt) { trapsDueAt = -1; markNavTraps(); }
     if (!coverTodo.empty()) { auto t = coverTodo.back(); coverTodo.pop_back(); generateCoverTile(t.first, t.second, 120); }
     if (G.t >= nextWorldPoll) { nextWorldPoll = G.t + 0.1; pollWorld(); }
+    for (size_t k = 0; k < lateRebuilds.size();) { if (G.t >= lateRebuilds[k].due) { G.nav.rebuildArea(lateRebuilds[k].lo, lateRebuilds[k].hi); lateRebuilds.erase(lateRebuilds.begin() + k); } else ++k; }
     receivePaths();
     dispatchPaths();
   }

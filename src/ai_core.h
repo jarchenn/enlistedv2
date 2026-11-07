@@ -229,6 +229,7 @@ public:
   std::map<uint32_t, std::pair<int, vec3>> grenadeWatch;   // live grenade id -> (owner, last position)
   struct Rebuild { double at; vec3 lo, hi; };
   std::vector<Rebuild> rebuildLog;       // creative live rebuild timing (tests)
+  struct LateRebuild { vec3 lo, hi; double due; }; std::vector<LateRebuild> lateRebuilds;   // the same area again once late colliders (generated furniture) exist
   double lastCommitAt = -100; int committedTiles = 0, commitLogs = 0;
   std::string mapName;
   // speeds (movement.json) and tunables
