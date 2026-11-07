@@ -33,7 +33,7 @@ Options:
 
 | Option | Meaning |
 |---|---|
-| `--map a,b` | `village`, `course`, `random[:seed[:size]]`, a map name in `content/examples` or `maps/`, or a `.nmap.json` path. |
+| `--map a,b` | `village`, `course`, `random[:seed[:size]]`, a map name in `content/examples`, `maps/` or `content/templates` (a part of the name is enough: `omaha`), or a `.nmap.json` path. Random maps above 600 m use W3's sized New Map. |
 | `--minutes f` | Soak length in match minutes. Matches restart until the time is used up. |
 | `--bots n` | Combatants (default 32). For a soak, 62.5 % attack; the local player takes one defender slot and stands still. |
 | `--attackers n`, `--respawns n` | Override the scenario's numbers. |
@@ -45,6 +45,7 @@ Options:
 | `--baseline file` | Use another baseline file. |
 | `--save-baseline file` | Writes this soak in the baseline format. |
 | `--tag s` | Suffix for the report names. |
+| `--steps-per-frame k` | Soak only: k fixed simulation steps per rendered frame (1-16). Use it when the GPU is shared; metrics run on match time and per AI step, frame-time figures are then per rendered frame. W6b tuned with 6. |
 
 ## Outputs
 
@@ -100,3 +101,9 @@ How some metrics are counted:
   - the baseline verdict
   - an exit code for tuning runs
 - Omaha and Mont-Castre are passed by their map names once they exist (`--maps "omaha montcastre"`). Give per-map overrides in `maps` if needed.
+
+## W6b notes
+
+- **Exposure [DECISION]:** the fail threshold is `exposedUnderFireShareOfTime`, the attackers' exposed-under-fire seconds over their living seconds (AI_SPEC 12.3: "< 10 % of their time"). `exposedUnderFireFraction` (over their time under fire) is reported as a warning.
+- **Stuck events** carry what the bot was doing, its goal, the next path corner and the nearest soldier (`doing`, `goal`, `next` in `stuckEventsList`).
+- The log has two tuning lines per match: exposed-under-fire seconds by action, and attacker deaths by action.
