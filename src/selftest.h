@@ -60,6 +60,7 @@ private:
   void structuresUpdate(App& app, float dt);   // selftest_structures.cpp (3800): W4 structure assets
   void mapsUpdate(App& app, float dt);         // selftest_maps.cpp (4100): W5 default maps
   bool terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj);   // selftest_maps.cpp: W5b terrain-only template
+  void authoredChecks(App& app, const TemplateInfo& t, const json& mj);     // selftest_maps.cpp: a saved map promoted to a template
   void beginCustom(App& app, const std::string& asset, uint64_t inst, const json& steps);
   json summary = json::object();
 };

@@ -142,6 +142,42 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
   return true;
 }
 
+// A user's saved map promoted to a template (tools/mapgen/promote_map.py, "selftest": "authored"): it loads whole on
+// the template ground, its scenario as authored (reported, not held to the SPEC 2.1 default-map bands), saves and
+// reopens; views from the preview camera, first person at the explore start, and the template camera.
+void SelfTest::authoredChecks(App& app, const TemplateInfo& t, const json& mj) {
+  const std::string id = t.id;
+  size_t fileN = mj.value("instances", json::array()).size();
+  check(app.doc.instances.size() == fileN && fileN > 0, fmt("%s: all %zu authored instances loaded (working set %+.0f MB)", id.c_str(), fileN, sMemAfter - sMemBefore));
+  size_t missing = 0; for (auto& i : app.doc.instances) if (!app.lib.find(i.assetId)) ++missing;
+  check(missing == 0, fmt("%s: every instance names a catalogue asset (%zu missing)", id.c_str(), missing));
+  check(std::fabs(app.doc.width - t.width) < 1 && std::fabs(app.terrain.buildHalfZ * 2 - t.depth) < 1, fmt("%s: map size %.0f x %.0f m", id.c_str(), app.doc.width, app.terrain.buildHalfZ * 2));
+  json sj = mj.value("scenario", json::object());
+  Scenario s = Scenario::fromJson(app.doc.extra.value("scenario", json()));
+  check(s.objectives.size() == sj.value("objectives", json::array()).size() && s.spawns.size() == sj.value("spawns", json::array()).size(),
+        fmt("%s: scenario as authored: %zu objectives, %zu spawns", id.c_str(), s.objectives.size(), s.spawns.size()));
+  if (!s.objectives.empty()) {
+    auto issues = validateScenario(s, true);
+    int errs = 0, warns = 0; std::string first;
+    for (auto& i : issues) { if (i.error) { ++errs; if (first.empty()) first = i.what; } else ++warns; }
+    check(errs == 0, fmt("%s: scenario validator: %d errors, %d warnings%s", id.c_str(), errs, warns, first.empty() ? "" : (" (" + first + ")").c_str()));
+    int racks = 0; for (auto& sp : s.spawns) racks += app.doc.find(sp.rack) != nullptr;
+    logf("maps %s: %d / %zu spawns have a weapons rack (reported only: the author's layout)", id.c_str(), racks, s.spawns.size());
+  }
+  size_t n = app.doc.instances.size();
+  fs::path p = userMapsDir() / ("selftest_" + id + ".nmap.json");
+  bool ok = app.saveMapTo(p) && app.openMap(p);
+  Scenario s2 = Scenario::fromJson(app.doc.extra.value("scenario", json()));
+  check(ok && app.doc.instances.size() == n && s2.objectives.size() == s.objectives.size() && s2.spawns.size() == s.spawns.size(),
+        fmt("%s: the editable copy saves and reopens (%zu instances, %zu objectives)", id.c_str(), app.doc.instances.size(), s2.objectives.size()));
+  sViews.clear();
+  if (t.raw.contains("thumbnailCamera")) { json c = t.raw["thumbnailCamera"]; sViews.push_back({"preview", jvec3(c["pos"], vec3(0)), c.value("yaw", 0.0f), c.value("pitch", 0.0f), false, false}); }
+  if (app.doc.start.set) sViews.push_back({"explore_start", app.doc.start.pos, app.doc.start.yaw, 0.0f, true, true});
+  sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
+  sVi = 0; sPerf.clear(); sViewInit = false;
+  sSum[id] = {{"instances", fileN}, {"objectives", s.objectives.size()}, {"spawns", s.spawns.size()}, {"workingSetMB", sMemAfter}};
+}
+
 void SelfTest::mapsUpdate(App& app, float dt) {
   (void)dt;
   auto go = [&](int s) { stage = s; stageTime = 0; };
@@ -172,6 +208,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     // its frame time is reported, not gated.
     const bool userMap = t.raw.value("userMap", false);
     if (userMap) check(t.available, id + ": user map template is available (generated terrain from its seed)");
+    else if (t.raw.value("selftest", std::string()) == "authored") check(t.available && !t.raw.contains("heightmap"), id + ": template is available, on the procedural ground its map was built on (seed " + std::to_string(t.seed) + ")");
     else check(t.available && t.raw.contains("heightmap") && t.raw.contains("waterLevel"), id + ": template is available with an authored heightmap and water level");
     // Play / multiplayer listing (same filter as w5PlayMapPicker)
     // preview thumbnail
@@ -181,14 +218,19 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     // file content vs loaded document
     json mj; try { mj = json::parse(readTextFile(contentDir() / "templates" / t.raw.value("map", std::string()))); } catch (...) {}
     size_t fileN = mj.value("instances", json::array()).size();
-    const bool terrainBase = !mj.contains("scenario");   // W5b: a terrain-only starting map (Mont-Castre): the user authors the rest
-    if (terrainBase) check(!t.raw.value("playable", false), id + ": terrain base (no scenario): kept out of the Play > Default maps list");
+    const bool authored = t.raw.value("selftest", std::string()) == "authored";   // a user's saved map promoted to a template
+    const bool terrainBase = !authored && !mj.contains("scenario");   // W5b: a terrain-only starting map (Mont-Castre): the user authors the rest
+    if (authored) {
+      bool objs = !mj.value("scenario", json::object()).value("objectives", json::array()).empty();
+      check(t.raw.value("playable", false) == objs, id + (objs ? ": has objectives: listed in Play > Default maps" : ": no objectives: kept out of the Play > Default maps list"));
+    } else if (terrainBase) check(!t.raw.value("playable", false), id + ": terrain base (no scenario): kept out of the Play > Default maps list");
     else check(t.raw.value("playable", false), id + ": listed in Play > setup > Default maps (playable)");
     sMemBefore = wsMB();
     double t0 = now();
     navNewMapSized(app, t, "Selftest " + t.name, vec2(t.width, t.depth));   // exactly the New Map "Create editable copy" path
     sLoadS = now() - t0; sMemAfter = wsMB();
     check(app.doc.templateId == id && app.docPath.empty(), id + ": Create editable copy gives an unsaved creative document from the template");
+    if (authored) { authoredChecks(app, t, mj); go(4102); break; }
     if (terrainBase) { if (terrainBaseChecks(app, t, mj)) go(4102); else go(4101); break; }
     check(app.doc.instances.size() == fileN && fileN > (userMap ? 0u : 1000u), fmt("%s: all %zu authored instances loaded (%.2f s, working set %+.0f MB)", id.c_str(), fileN, sLoadS, sMemAfter - sMemBefore));
     check(std::fabs(app.doc.width - t.width) < 1 && std::fabs(app.terrain.buildHalfZ * 2 - t.depth) < 1, fmt("%s: map size %.0f x %.0f m", id.c_str(), app.doc.width, app.terrain.buildHalfZ * 2));
