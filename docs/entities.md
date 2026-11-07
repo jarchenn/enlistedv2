@@ -183,6 +183,37 @@ These are original procedural materials, not photographic textures. They hold up
   - Bullet impacts: concrete and gravel give stone chips; dirt gives a ground puff.
 - There is no friction model for the player, so surfaces do not change grip.
 
+### Curved pieces (V9)
+
+A path instance may also carry, in `extra.path` next to `width` / `length` (API in `src/autopath.h`):
+- `bend` (degrees, signed, + turns toward local +x): the strip follows a circular arc that turns this much over its length. The instance sits at the arc's midpoint, local +z being the tangent there. The inner edge keeps at least 0.2 m of radius (the bend is clamped to `L / (W/2 + 0.2)` rad). Concrete stays straight (slabs).
+- `u0` (metres): an along-path offset of the surface coordinate, so a chain of pieces continues the dirt / gravel pattern across its joints instead of restarting it.
+
+Resizing in the Selection panel keeps both. `snapPath` (signature unchanged, also used by `src/snap.cpp`) continues a curved end along its tangent; the grass footprint is the arc's box; footstep surface lookups follow the arc.
+
+## Auto paths (V9, user item 3)
+
+**Paths > Connect houses** (Creative menu bar, `src/autopath.cpp`) lays dirt paths from door to door:
+1. **Aprons.** Every house (houses, small and large buildings, landmarks, ruins with ground-level `nav.entrances`; not bunkers or Atlantic Wall works) gets a 1.6 m `path_dirt` apron straight out of each entrance: at least 2.6 m, longer until it clears its own walls, shorter if a neighbour is in the way. It is a real, editable path instance (it replaces the idea of the soil band as the door's trodden ground; the band itself stays).
+2. **Links.** A minimum spanning tree (Kruskal, routing each candidate; a pair that cannot be routed leaves the next-shortest one to join those groups, and any entrance of the other house is a goal) joins the houses over their shortest entrance-to-entrance distances. Up to one loop link per five houses is added where going round the tree would be more than 2.4 × the direct way (+15 m). Unused entrances of connected houses get a short spur to the network when it is within reach.
+3. **Routing.** A* on a 0.5 m grid over the houses (+30 m), clipped to the build area. Blocked: water, slopes over 24°, and anything closer to a footprint than the path's half width + 15 cm (structures, defences, rocks, guns, crates, tree trunks, hedges). Cost grows with slope; worn lanes and existing paths are cheaper; cells another link already uses cost 40 %, so links merge into shared trunks. Things the navmesh treats as walkable (nav effect none / area, such as marsh patches) are not obstacles. Groups still apart after that (Battle 1: a farmhouse behind a wire and knife-rest belt) get a **relaxed pass** in which hedges, shrubs, wire, defences and low walls may be crossed at 8x cost; buildings, bunkers, rocks and trunks never.
+4. **Smoothing.** The routed cells form one graph. Each polyline between junctions / doors is string-pulled (line of sight checked against the exact footprint clearance every 25 cm) and Chaikin-smoothed twice (kept only where it stays clear).
+5. **Pieces.** Each polyline becomes chained 1.8 m `path_dirt` pieces: straights, and a curved joint (`bend`) at every turn over 4° (radius up to 4 m, never cutting a footprint), with continuous `u0`. Each chain also adds a ground-wear `footpath` route (2.4 m) to `doc.extra.routes`, so the terrain and pasture grass wear in along it.
+
+**Re-running** replaces exactly the previous auto paths: instances tagged `extra.auto` (`"apron"` / `"link"`) and routes with `"auto": true`. Hand-placed paths and the map's own routes are kept, and the router prefers them. **Paths > Remove auto paths** deletes them. The whole operation is **one undo step**: the undo snapshot now carries `doc.extra.routes`.
+
+**Auto paths toggle** (Paths menu, session setting, off by default): placing a house re-runs Connect houses inside that placement's undo step, so the new house is connected at once and one Ctrl+Z removes the house and its paths together.
+
+**Test** (`--selftest-autopath`, on Normandy Village Assault and Battle 1):
+- Result on both maps: 19 houses, 33 aprons, 18 links (1 through the wire belt), 4 spurs, 116 pieces with 21 curved joints, 53 routes, one network, about 250 ms.
+- Every house is connected. This is checked independently of the router, from the emitted pieces' own end points.
+- No piece crosses a footprint (aprons may start inside their own house's door recess).
+- Chains are continuous: every joint meets a straight.
+- The routes wear the ground.
+- Re-running gives the same layout without duplicates; undo and redo work as one step.
+- The toggle connects a newly placed cottage.
+- The curved-piece geometry is checked too: mesh ends against `pathEnd`, snapping along the tangent, resizing, surface lookup and grass footprint.
+
 ## E5 Knife and 8.8 cm Flak 18
 
 **Knife** (`knife_bayonet.json`, the supplied model, 0.40 m).

@@ -5,12 +5,16 @@
 //    save / reopen), seeds change it, it stays inside its radius and is not a grid (nearest-neighbour spread);
 //  * boulder collision matches the visual mesh (rays against the physics body vs. the render triangles) and stops rounds;
 //  * the navmesh contract: boulders solid, bushes brush areas, flowers / tall grass / stones / ferns ignored;
+//  * V9 ground cover: brush / dry grass / clover / meadow patches (species, pebbles, colour), wheat squares (tiling,
+//    snap sockets, no pasture grass under the crop, variants), the grass preset share, wheat flattened by blasts and a
+//    moving tank (amount, radial / along-track direction), reset by F5;
 //  * shader compile errors stay at 0; screenshots of each family; draws and frame time with and without a dressing set
 //    on the village and Mont-Castre maps (selftest_out/nature_perf.json).
 #include "selftest.h"
 #include "mptest.h"
 #include "nature.h"
 #include "physics.h"
+#include <cstring>
 #include "thumbs.h"
 #include <cstdarg>
 #include <functional>
@@ -122,7 +126,7 @@ void build(App& app) {
     chk(rocks >= 8 && patches >= 12 && plants >= 9, "catalogue: %d boulders / outcrops, %d patches, %d small plants (%zu nat_* assets)", rocks, patches, plants, v.size());
     // the patch species cover the brief
     std::set<int> sp; for (auto* d : v) for (auto& m : d->nature.mix) sp.insert(m.first);
-    chk(sp.size() == 8, "patch species: %zu of 8 (tall meadow grass, poppy, ox-eye daisy, buttercup, cornflower, cow parsley, foxglove, clover)", sp.size());
+    chk(sp.size() == 16, "patch species: %zu of 16 (pasture turf, meadow grass, seed grass, weeds, straw; tall meadow grass, poppy, ox-eye daisy, buttercup, cornflower, cow parsley, foxglove, clover; wheat, brush, stubble)", sp.size());
     return true;
   });
   push("thumbnails", [](App& a, float) {
@@ -142,11 +146,11 @@ void build(App& app) {
       NatPatchParams p; p.radius = d->nature.radius; p.density = d->nature.density; p.seed = 7;
       std::vector<NatScatterPt> A, Bv, C; natureLayout(d->nature, d->id, p, A); natureLayout(d->nature, d->id, p, Bv);
       NatPatchParams p2 = p; p2.seed = 8; natureLayout(d->nature, d->id, p2, C);
-      float maxR = 0; for (auto& q : A) maxR = std::max(maxR, glm::length(q.p));
+      float maxR = 0; for (auto& q : A) maxR = d->nature.square ? std::max(maxR, std::max(std::fabs(q.p.x), std::fabs(q.p.y))) : std::max(maxR, glm::length(q.p));   // squares: half side
       // not a grid: nearest-neighbour distances spread (coefficient of variation), and no shared lattice phase
       std::vector<float> nn; for (size_t i = 0; i < A.size(); ++i) { float b = 1e9f; for (size_t j = 0; j < A.size(); ++j) if (i != j) b = std::min(b, glm::length(A[i].p - A[j].p)); nn.push_back(b); }
       double m = 0, s2 = 0; for (float x : nn) m += x; m /= std::max<size_t>(1, nn.size()); for (float x : nn) s2 += (x - m) * (x - m); double cv = std::sqrt(s2 / std::max<size_t>(1, nn.size())) / std::max(1e-6, m);
-      double expect = d->nature.density * 3.14159 * p.radius * p.radius;
+      double expect = d->nature.density * (d->nature.square ? 4.0 : 3.14159) * p.radius * p.radius;
       chk(natureLayoutHash(A) == natureLayoutHash(Bv) && natureLayoutHash(A) != natureLayoutHash(C) && maxR <= p.radius + 1e-3f && cv > 0.12 && A.size() > expect * 0.35,
           "%s: %zu items (target %.0f) inside r %.1f (max %.2f), same seed = same layout, new seed differs, nearest-neighbour CV %.2f (a grid is ~0)",
           d->id.c_str(), A.size(), expect, p.radius, maxR, cv);
@@ -184,6 +188,137 @@ void build(App& app) {
       chk(rtOf(a, P1) && naturePatchHash(*rtOf(a, P1)) == h1 && naturePatchHash(*rtOf(a, P2)) == h2 && naturePatchHash(*rtOf(a, S1)) == hs, "save / reopen: all three patches bit-identical");
     }
     return t > 0.2f;
+  });
+  // ---------------------------------------------------------------- V9 ground cover and wheat (docs/nature.md#ground-cover)
+  static uint64_t WA = 0, WB = 0, WP = 0, TK = 0;
+  push("V9 ground cover patches", [](App& a, float t) {
+    static std::vector<std::pair<uint64_t, std::string>> placed;
+    if (t == 0) {
+      const TemplateInfo* tp = a.findTemplate("blank_slate"); a.newMap(*tp, "Nature ground cover");
+      a.grass.quality = GrassQuality::Medium;
+      static const char* ids[] = {"nat_brush_patchy", "nat_brush_scrub", "nat_brush_rank", "nat_drygrass_tufts", "nat_drygrass_tall", "nat_drygrass_sparse", "nat_clover_tufts", "nat_green_tufts", "nat_meadow_mixed"};
+      placed.clear();
+      for (int k = 0; k < 9; ++k) placed.push_back({place(a, ids[k], vec3(-36.0f + 9.0f * k, 0, 30), 17.0f * k), ids[k]});
+      a.syncRuntime();
+      for (auto& [id, name] : placed) {
+        buildPatch(a, id); InstanceRT* r = rtOf(a, id); const AssetDef* d = r ? r->asset : nullptr;
+        if (!r || !d) { chk(false, "%s placed", name.c_str()); continue; }
+        bool peb = d->nature.pebDensity > 0;
+        std::set<int> sp; for (auto& g : r->natInst) { uint32_t u; std::memcpy(&u, &g.shape.z, 4); sp.insert((int)((u >> 24) & 0xff) - 0x38); }
+        chk(r->natInst.size() > 100 && sp.size() >= 3 && (!peb || (r->natPos.size() > 5 && r->natMesh.count > 0)),
+            "%s: %zu plants of %zu species%s", name.c_str(), r->natInst.size(), sp.size(), peb ? (", " + std::to_string(r->natPos.size()) + " pebbles under them").c_str() : "");
+      }
+      // dry grass is straw coloured, clover / green tufts are green (mean albedo of the instance colours)
+      auto meanAlb = [&](const std::string& id) { vec3 s(0); size_t n = 0; for (auto& [pid, nm] : placed) if (nm == id) for (auto& g : rtOf(a, pid)->natInst) { uint32_t u; std::memcpy(&u, &g.shape.z, 4); s += vec3(u & 0xff, (u >> 8) & 0xff, (u >> 16) & 0xff); ++n; } return n ? s / (float)n : s; };
+      vec3 dry = meanAlb("nat_drygrass_tufts"), grn = meanAlb("nat_green_tufts");
+      chk(dry.r / std::max(1.0f, dry.g) > 0.95f && grn.g / std::max(1.0f, grn.r) > 1.3f, "dry grass reads straw (r/g %.2f), green tufts read green (g/r %.2f)", dry.r / std::max(1.0f, dry.g), grn.g / std::max(1.0f, grn.r));
+      look(a, vec3(0, 4.5f, 44), vec3(0, 0.3f, 30)); a.selected = 0; a.R.resetTemporal();
+    }
+    if (t > 1.5f) { pendingShot = outDir() / "nature_groundcover.png"; note("screenshot selftest_out/nature_groundcover.png"); return true; }
+    return false;
+  });
+  push("wheat tiles", [](App& a, float t) {
+    if (t == 0) {
+      WA = place(a, "nat_wheat_field", vec3(0, 0, 0), 0); WB = place(a, "nat_wheat_field", vec3(10, 0, 0), 0);
+      WP = place(a, "nat_flowers_poppy", vec3(-3, 0, -3), 0);
+      a.syncRuntime(); buildPatch(a, WA); buildPatch(a, WB); buildPatch(a, WP);
+      InstanceRT* ra = rtOf(a, WA); InstanceRT* rb = rtOf(a, WB);
+      if (!ra || !rb) { chk(false, "wheat tiles placed"); return true; }
+      const AssetDef* d = ra->asset;
+      chk(ra->natInst.size() > 2500 && ra->natMesh.count > 0 && d->nature.square && std::fabs(d->nature.minR - 5) < 1e-3f && std::fabs(d->nature.maxR - 5) < 1e-3f,
+          "a 10 m wheat square: %zu stalks, a soil / straw layer (%d indices), size locked to 10 m so tiles stay aligned", ra->natInst.size(), ra->natMesh.count);
+      // seam: both tiles grow right up to the shared edge, and their layouts differ (no visible repeat)
+      float aMax = -1e9f, bMin = 1e9f; for (auto& g : ra->natInst) aMax = std::max(aMax, g.posYaw.x); for (auto& g : rb->natInst) bMin = std::min(bMin, g.posYaw.x);
+      chk(aMax > 4.75f && aMax <= 5.0f && bMin < 5.25f && bMin >= 5.0f && naturePatchHash(*ra) != naturePatchHash(*rb), "tiles meet at the seam x = 5: left reaches %.2f, right starts %.2f; layouts differ", aMax, bMin);
+      // V6 snap sockets on the four edges
+      const json& sn = d->raw.contains("snap") ? d->raw["snap"] : json();
+      int ok = 0; if (sn.is_array()) for (auto& s : sn) { vec3 p = jvec3(s["p"]), dr = jvec3(s["dir"]); ok += s.value("kind", "") == "wheat" && std::fabs(glm::length(p) - 5) < 1e-3f && glm::dot(glm::normalize(p), dr) > 0.999f; }
+      chk(ok == 4, "wheat squares carry 4 edge sockets {p, dir, kind: wheat} for snapping (%d valid)", ok);
+      // pasture grass does not grow under the crop; other patches still do
+      auto fp = a.grassFootprints();
+      bool under = a.grass.density(1.0f, 1.0f, a.terrain, fp), outside = a.grass.density(0.0f, -20.0f, a.terrain, fp);
+      chk(!under && rtOf(a, WP)->natInst.size() > 20, "no pasture grass under the wheat (grows outside: %s); a poppy patch inside the field keeps %zu plants", outside ? "yes" : "no", rtOf(a, WP)->natInst.size());
+      // variants
+      uint64_t T1 = place(a, "nat_wheat_trampled", vec3(0, 0, 14), 0), T2 = place(a, "nat_wheat_stubble", vec3(10, 0, 14), 0);
+      a.syncRuntime(); buildPatch(a, T1); buildPatch(a, T2);
+      float ripe = naturePatchFlatShare(*ra), tr = naturePatchFlatShare(*rtOf(a, T1)), stb = naturePatchFlatShare(*rtOf(a, T2));
+      chk(ripe < 0.12f && tr > 0.2f && stb > 0.08f && stb < 0.4f && rtOf(a, T2)->natPos.size() > 5, "variants: ripe %.0f %% laid (lodged patches), trampled %.0f %%, stubble %.0f %% lying straw with %zu stones",
+          ripe * 100, tr * 100, stb * 100, rtOf(a, T2)->natPos.size());
+      look(a, vec3(-6, 1.7f, -9), vec3(3, 0.6f, 2)); a.selected = 0; a.R.resetTemporal();
+    }
+    if (t > 1.5f) { pendingShot = outDir() / "nature_wheat.png"; note("screenshot selftest_out/nature_wheat.png"); return true; }
+    return false;
+  });
+  push("wheat follows the grass quality preset", [](App& a, float t) {
+    static size_t tufts[4]; static int q = 0; static float t0 = 0;
+    if (t == 0) { q = 0; t0 = 0; a.grass.quality = GrassQuality::Off; look(a, vec3(5, 6, -14), vec3(5, 0, 0)); }
+    if (t - t0 > 0.35f) {
+      tufts[q] = a.R.natTufts;
+      if (++q == 4) {
+        a.grass.quality = GrassQuality::Medium;
+        chk(tufts[0] == 0 && tufts[1] < tufts[2] && tufts[2] < tufts[3], "patch plants drawn follow the grass preset: Off %zu, Low %zu, Medium %zu, High %zu", tufts[0], tufts[1], tufts[2], tufts[3]);
+        return true;
+      }
+      a.grass.quality = (GrassQuality)q; t0 = t;
+    }
+    return false;
+  });
+  auto flatIn = [](App& a, uint64_t id, std::function<bool(vec2)> in, float atLeast, float* meanDir = nullptr) {
+    InstanceRT* r = rtOf(a, id); size_t n = 0, f = 0; double sx = 0, sz = 0;
+    for (auto& g : r->natInst) {
+      uint32_t u; std::memcpy(&u, &g.shape.z, 4); if ((int)((u >> 24) & 0xff) - 0x38 != NS_WHEAT) continue;
+      if (!in(vec2(g.posYaw.x, g.posYaw.z))) continue;
+      ++n; float fl = std::floor(g.shape.y) / 63.0f; f += fl >= atLeast;
+      float dir = (g.shape.y - std::floor(g.shape.y)) / 0.98f * 6.2831853f; if (fl >= atLeast) { sx += std::sin(dir); sz += std::cos(dir); }
+    }
+    if (meanDir) *meanDir = (float)std::atan2(sx, sz);
+    return n ? (float)f / n : -1.0f;
+  };
+  push("wheat flattening: blasts", [flatIn](App& a, float t) {
+    if (t == 0) {
+      size_t s0 = natureFlattenStamps();
+      vec3 p(2, a.terrain.height(2, 2) + 0.3f, 2);
+      a.blastPaths(p, 110, 4.0f);   // the App::explode hook (paths.cpp -> natureBlast)
+      buildPatch(a, WA); buildPatch(a, WB);
+      float nearS = flatIn(a, WA, [](vec2 q) { return glm::length(q - vec2(2, 2)) < 1.5f; }, 0.6f);
+      float farS = flatIn(a, WA, [](vec2 q) { return glm::length(q - vec2(2, 2)) > 7.0f; }, 0.6f);
+      // radial: stalks east of the burst lie toward +x
+      float dirE = 0; float eastS = flatIn(a, WA, [](vec2 q) { return q.x > 3.0f && q.x < 4.5f && std::fabs(q.y - 2) < 0.5f; }, 0.4f, &dirE);
+      chk(natureFlattenStamps() == s0 + 1 && nearS > 0.9f && farS < 0.12f && eastS > 0.8f && std::fabs(degrees(dirE) - 90) < 25,
+          "a shell burst lays the wheat flat: %.0f %% within 1.5 m, %.0f %% beyond 7 m (the crop's own lodging), east of it laid toward %.0f deg (radial = 90)", nearS * 100, farS * 100, degrees(dirE));
+      size_t s1 = natureFlattenStamps(); natureBlast(a, vec3(60, a.terrain.height(60, 60), 60), 110, 4.0f);
+      chk(natureFlattenStamps() == s1, "a burst away from any wheat records nothing");
+    }
+    return t > 0.2f;
+  });
+  push("wheat flattening: a tank drives through", [flatIn](App& a, float t) {
+    if (t == 0) {
+      const AssetDef* as = a.lib.find("tank_sherman_firefly");
+      TK = as ? a.placeInstance(as, vec3(0, 0, -25), 0.0f) : 0; a.syncRuntime();
+      if (!chk(TK && a.enterExplore(), "a Sherman by the field; F5 Explore")) return true;
+      buildPatch(a, WA);
+      chk(natureFlattenStamps() == 0 && flatIn(a, WA, [](vec2 q) { return glm::length(q - vec2(2, 2)) < 1.5f; }, 0.6f) < 0.15f, "entering Explore resets the session: the burst's wheat stands again");
+      a.tanks.sync(a); auto it = a.tanks.tanks.find(TK);
+      if (!chk(it != a.tanks.tanks.end(), "the Sherman is a live tank")) return true;
+      TankRT& tk = it->second; vec3 keep = tk.pos;
+      for (float z = -12; z <= 12.01f; z += 0.5f) { tk.pos = vec3(0, a.terrain.height(0, z), z); tk.yaw = 0; a.now += 0.05; natureStepFlatten(a); }
+      tk.pos = keep;
+      buildPatch(a, WA);
+      float hw = tk.def->halfSize.x;
+      float mean = 0, under = flatIn(a, WA, [hw](vec2 q) { return std::fabs(q.x) < hw - 0.1f && std::fabs(q.y) < 4.0f; }, 0.9f, &mean);
+      float side = flatIn(a, WA, [hw](vec2 q) { return std::fabs(q.x) > hw + 1.2f && std::fabs(q.y) < 4.0f; }, 0.6f);
+      chk(under > 0.95f && side < 0.12f && std::fabs(degrees(mean)) < 20, "a tank swath: %.0f %% flat under the %.1f m hull, %.0f %% beside it, laid along the track (%.0f deg; 0 = its heading), %zu stamps",
+          under * 100, 2 * hw, side * 100, degrees(mean), natureFlattenStamps());
+      a.resetDamage(); buildPatch(a, WA);
+      chk(natureFlattenStamps() == 0 && flatIn(a, WA, [hw](vec2 q) { return std::fabs(q.x) < hw - 0.1f && std::fabs(q.y) < 4.0f; }, 0.9f) < 0.15f, "reset (F5 / Return to start): the wheat stands again");
+      a.exitExplore();
+      // a swath for the screenshot (Creative keeps the session stamps until the next reset)
+      for (float z = -6; z <= 6; z += 0.5f) natureTrample(a, vec2(-1.5f, z), 10.0f, vec2(1.6f, 3.2f));
+      a.blastPaths(vec3(3, a.terrain.height(3, -2) + 0.2f, -2), 110, 3.5f);
+      look(a, vec3(-4, 2.4f, -11), vec3(0, 0.3f, 0)); a.selected = 0; a.R.resetTemporal();
+    }
+    if (t > 1.5f) { pendingShot = outDir() / "nature_wheat_flattened.png"; note("screenshot selftest_out/nature_wheat_flattened.png"); natureResetFlatten(); return true; }
+    return false;
   });
   // ---------------------------------------------------------------- collision vs visuals
   static std::vector<std::pair<uint64_t, std::string>> rocksPlaced;

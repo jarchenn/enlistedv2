@@ -69,6 +69,49 @@ patch("nat_tallgrass_patch", "Tall meadow grass (patch)", "Vegetation", "Uncut m
 patch("nat_tallgrass_verge", "Tall grass verge (patch)", "Vegetation", "Rank verge of tall grass with cow parsley and a few foxgloves.",
   { kind: "tallgrass", radius: 3, density: 12, clump: 0.35, mix: { tallgrass: 1, cowparsley: 0.18, foxglove: 0.05 } });
 
+// ---------------------------------------------------------------- V9 ground cover (docs/nature.md#ground-cover)
+// Scatter patches like the stone patches: plants through the grass shader (wind, distance fade, the grass quality
+// preset's share), most with a pebble layer underneath for depth. Species: turf, meadowgrass, seedgrass, weeds, straw
+// (the pasture species), tallgrass .. clover (flowers), wheat, brush, stubble. "dry": [min, max] share of each plant's
+// colour turned to straw in world-space drifts; "tint": per-species albedo.
+const pebbles = (density, size = [0.03, 0.14], lith = "mixed") => ({ density, size, lith });
+const cover = (id, name, desc, scatter) => patch(id, name, "Vegetation", desc, { kind: "grass", ...scatter });
+cover("nat_brush_patchy", "Patchy brush (patch)", "Low patchy brush: twiggy shrublets, dry tussocks and seed grass in clumps with bare ground and pebbles between.",
+  { radius: 4, density: 6, clump: 0.85, mix: { brush: 1, straw: 0.6, meadowgrass: 0.8, seedgrass: 0.4, tallgrass: 0.3 }, dry: [0.1, 0.45], pebbles: pebbles(1.5) });
+cover("nat_brush_scrub", "Dry scrub (patch)", "Sun-dried scrub of shrublets and straw on stony ground, for banks, quarry floors and field corners.",
+  { radius: 4, density: 5, clump: 0.7, mix: { brush: 1.2, straw: 1, seedgrass: 0.5 }, dry: [0.3, 0.7], pebbles: pebbles(3, [0.03, 0.18]) });
+cover("nat_brush_rank", "Rank brush (patch)", "Rank brush at a hedge foot or ruin: shrublets, tall grass, weeds and a little cow parsley, up to about 1 m.",
+  { radius: 3.5, density: 7, clump: 0.6, mix: { brush: 1, tallgrass: 0.8, cowparsley: 0.12, meadowgrass: 0.6, weeds: 0.5 }, heightScale: [1.0, 1.35], dry: [0, 0.2], pebbles: pebbles(0.8) });
+cover("nat_drygrass_tufts", "Dry grass tufts (patch)", "Yellowed tussocks and straw of a dry summer pasture, with a few pebbles.",
+  { radius: 3.5, density: 12, clump: 0.6, mix: { meadowgrass: 1, straw: 1, turf: 0.4 }, dry: [0.55, 0.95], pebbles: pebbles(1, [0.03, 0.1]) });
+cover("nat_drygrass_tall", "Tall dry grass (patch)", "Uncut grass gone yellow, 0.5-1.1 m with seed heads.",
+  { radius: 3.5, density: 12, clump: 0.35, mix: { tallgrass: 1, seedgrass: 0.8, straw: 0.4 }, dry: [0.6, 1.0], heightScale: [0.85, 1.15] });
+cover("nat_drygrass_sparse", "Sparse dry grass (patch)", "Thin, straw-coloured grass over stony ground: worn verges, tracksides, chalky banks.",
+  { radius: 4, density: 6, clump: 0.8, mix: { straw: 1, meadowgrass: 0.6, seedgrass: 0.3 }, dry: [0.5, 0.9], pebbles: pebbles(3.5, [0.03, 0.16], "limestone") });
+cover("nat_clover_tufts", "Clover and green tufts (patch)", "Clover leaves, flowering clover and short lush grass tufts.",
+  { radius: 3, density: 18, clump: 0.5, mix: { weeds: 1, clover: 0.5, turf: 0.6, meadowgrass: 0.4 }, tint: { meadowgrass: [0.13, 0.22, 0.06] } });
+cover("nat_green_tufts", "Green grass tufts (patch)", "Lush green tussocks of a damp field corner or ditch side.",
+  { radius: 3, density: 14, clump: 0.55, mix: { meadowgrass: 1, seedgrass: 0.25, turf: 0.5, weeds: 0.2 }, tint: { meadowgrass: [0.12, 0.23, 0.06], turf: [0.11, 0.21, 0.05] } });
+cover("nat_meadow_mixed", "Mixed meadow (patch)", "An unmown Normandy meadow: grasses of every height, clover, buttercups, daisies, a few poppies and cornflowers.",
+  { radius: 5, density: 12, clump: 0.45, mix: { meadowgrass: 1, tallgrass: 0.8, seedgrass: 0.5, weeds: 0.4, clover: 0.35, buttercup: 0.3, daisy: 0.25, poppy: 0.12, cornflower: 0.08, straw: 0.2 },
+    dry: [0, 0.25], pebbles: pebbles(0.4) });
+
+// Wheat field squares (10 x 10 m, size locked so they tile): golden stalks with ears that sway in rolling waves, a soil /
+// straw-litter layer, edge sockets for snapping (V6, src/snap.cpp: {p, dir, kind}); tanks and blasts lay them flat.
+const W = 5;
+const wheatSnap = [{ p: [0, 0, W], dir: [0, 0, 1], kind: "wheat" }, { p: [0, 0, -W], dir: [0, 0, -1], kind: "wheat" },
+  { p: [W, 0, 0], dir: [1, 0, 0], kind: "wheat" }, { p: [-W, 0, 0], dir: [-1, 0, 0], kind: "wheat" }];
+const wheat = (id, name, desc, state, scatter) => ids.push(write(base(id, name, "Vegetation", desc, [2 * W, 2 * W], {
+  scatter: { kind: "wheat", shape: "square", state, radius: W, minRadius: W, maxRadius: W, density: 34, minDensity: 12, maxDensity: 50, clump: 0.04,
+    heightScale: [0.92, 1.06], ...scatter },
+  snap: wheatSnap, nav: { effect: "none" } })));
+wheat("nat_wheat_field", "Wheat field (10 m square)", "Ripe wheat, about 1.1 m, golden ears swaying in the wind, a few poppies and cornflowers. Tiles edge to edge; tanks and shell bursts flatten it.",
+  "ripe", { mix: { wheat: 1, poppy: 0.012, cornflower: 0.006 } });
+wheat("nat_wheat_trampled", "Wheat field, trampled (10 m square)", "Ripe wheat beaten down in swathes and trails, as after troops and vehicles went through.",
+  "trampled", { density: 30, mix: { wheat: 1, poppy: 0.008 } });
+wheat("nat_wheat_stubble", "Wheat stubble (10 m square)", "A harvested field: short cut stubble with straw lying between and a few stones.",
+  "stubble", { density: 30, mix: { stubble: 1 }, soil: [0.31, 0.26, 0.17], pebbles: pebbles(0.8, [0.03, 0.09], "limestone") });
+
 // ---------------------------------------------------------------- small vegetation (foliage block)
 const BARK = { name: "bark", albedo: [0.17, 0.14, 0.11], roughness: 0.95, pattern: "wood", metallic: 0, grain: 1 };
 const stem = (x, z, h, w) => ({ t: "b", c: [x, h / 2, z], s: [w, h, w], m: "bark", k: 1 });

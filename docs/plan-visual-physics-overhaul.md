@@ -327,3 +327,22 @@ After each batch:
   - Tests (build-vo3, through `tools/gpu_turn.sh`): `--selftest-structures` 863 PASS / 0 FAIL (all 16 tours, stairs
     and heap crests at their `expectY`), `--selftest-interiors` 141 / 0, `--selftest-visuals` 31 / 0 (159 tiles, none
     blank). `build_mpu_assets.mjs --check`: only the pre-existing `gun_flak18.json` line.
+
+- 2026-11-07 V9 (`vo-9-paths`): ground cover, wheat, auto paths. Suites: nature 135/135, autopath 40/40 (new), grass 22/22,
+  entities 77/77.
+  - Content: `node tools/catalog_nature.mjs` (rewrites only `nat_*`; existing files byte-identical) adds 12 scatter patches:
+    `nat_brush_patchy/scrub/rank`, `nat_drygrass_tufts/tall/sparse`, `nat_clover_tufts`, `nat_green_tufts`, `nat_meadow_mixed`,
+    `nat_wheat_field/trampled/stubble`. Rows added to `docs/asset-usage-default-maps.md` (maps suite gate). Most carry a
+    pebble layer. All follow the grass preset.
+  - Wheat squares: 10 x 10 m, size locked, raw `"snap": [{p, dir, kind: "wheat"}]` on the 4 edge midpoints (for V6).
+    Grass shader species 13 wheat (waves), 14 brush, 15 stubble (kGrassVS/FS, not kMainFS). Pasture grass is cleared
+    under wheat via a `soft` GrassFootprint (grass.h field). Flattening: `natureBlast` (hooked in `App::blastPaths`),
+    tank hull stamps polled in `natureDrawItems`, reset by `natureResetFlatten` (one line in `App::resetDamage`).
+  - Paths (`paths.cpp`, `src/autopath.h`): curved pieces (`extra.path.bend`), chain texture offset (`u0`); `snapPath`
+    signature unchanged, now follows curved ends. Helpers for V6: `pathEnd`, `pathLocalBounds`, `pathCentre`.
+  - Auto paths (`src/autopath.cpp`): Paths menu (one line in `editor.cpp`), toggle hook in `App::placeInstance`
+    (one line), undo `Snapshot` now carries `doc.extra.routes` (app.h / app.cpp `snap` / `restore`).
+  - For V8 beautify.json: ground-cover roles can use the 12 ids above; wheat squares tile by their sockets.
+  - Shared-file touches: app.h (Snapshot), app.cpp (grass footprint + path bounds line, placeInstance hook, selftest flag,
+    snap/restore), assets.h (NatureDef fields), render.h (NatPatchDraw.reach), render.cpp (kGrassVS/FS species only),
+    grass.h (`soft`), damage.cpp (1 line), editor.cpp (1 line), selftest.cpp (1 line), cmake/nature.cmake, run_all_tests.sh.

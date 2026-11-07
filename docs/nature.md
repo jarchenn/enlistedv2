@@ -116,6 +116,55 @@ Stones get shadows and SSAO like any solid. Beyond 160 m + radius a stone patch 
 **Collision and navmesh.** Patches never collide and have no physics body, so the navmesh and AI ignore them
 (`"nav": {"effect": "none"}`).
 
+## Ground cover (V9)
+
+Nine more plant patches and three wheat squares, all scatter patches like the stone patches. They follow the grass
+quality preset (share drawn, draw distance, LOD; Off draws none).
+
+| Asset | What | Species mix | Pebbles |
+|---|---|---|---|
+| `nat_brush_patchy` | Patchy brush: shrublets and tussocks in clumps, bare ground between | brush, straw, meadow grass, seed grass, tall grass | yes |
+| `nat_brush_scrub` | Dry scrub on stony ground | brush, straw, seed grass | yes, more |
+| `nat_brush_rank` | Rank brush at a hedge foot / ruin, up to ~1 m | brush, tall grass, weeds, meadow grass, cow parsley | yes, few |
+| `nat_drygrass_tufts` | Yellowed tussocks of a dry pasture | meadow grass, straw, turf | yes, few |
+| `nat_drygrass_tall` | Uncut grass gone yellow, 0.5–1.1 m | tall grass, seed grass, straw | no |
+| `nat_drygrass_sparse` | Thin straw grass over stony ground | straw, meadow grass, seed grass | yes, many |
+| `nat_clover_tufts` | Clover leaves, flowering clover, short lush tufts | weeds, clover, turf, meadow grass | no |
+| `nat_green_tufts` | Lush green tussocks | meadow grass, turf, seed grass, weeds | no |
+| `nat_meadow_mixed` | Unmown meadow: grasses of every height and wild flowers | 10 species | yes, few |
+| `nat_wheat_field` | Ripe wheat, 10 m square, a few poppies and cornflowers | wheat | no |
+| `nat_wheat_trampled` | Ripe wheat beaten down in swathes and trails | wheat | no |
+| `nat_wheat_stubble` | Harvested: cut stubble, lying straw, stones | stubble | yes |
+
+**New scatter keys:**
+- `"kind": "grass"` / `"brush"`: the same plant path as `tallgrass`.
+- `"shape": "square"`: a tile; `radius` is the half side, and plants grow right up to the straight edge (no ragged rim).
+- `"dry": [min, max]`: the share of each plant's colour turned to straw, varying between min and max in world-space drifts.
+- `"tint": {species: [r, g, b]}`: overrides a species' green.
+- `"pebbles": {density, size, lith}`: a stone scatter under the plants, in the same merged-mesh style as the stone patches. It scales with the patch's density slider. It is there for the depth the pebbles add.
+- Wheat only: `"state"` (`"ripe"` / `"trampled"` / `"stubble"`) and `"soil"` (the albedo of the litter layer).
+
+**Species added:**
+- **0–4, the pasture species** (turf, meadow grass, seed grass, weeds / clover leaves, straw), now usable in patches with their own heights.
+- **13 wheat:** an even crop of 0.95–1.2 m straws, each with a plump ear of paired spikelets on its last 12 %. Seven straws per tuft, about 34 tufts per m². The wind sways it in waves rolling across the field along the wind direction, not per plant.
+- **14 brush:** woody twigs with leaf clusters.
+- **15 stubble:** cut straw, 8–18 cm.
+
+**Wheat squares:**
+- **Size.** 10 × 10 m, locked so tiles always line up. Each carries four edge sockets `"snap": [{p, dir, kind: "wheat"}]` (±5 m on x and z, `dir` outward) for V6's snapping.
+- **Seams.** Neighbouring tiles mix their world position into the layout seed, so they never repeat. Colour drifts and the trampled pattern are world-space, so they run on across seams.
+- **Litter layer.** A draped 1 m grid of soil and straw litter, 6 cm up, sits under the crop, with holes at craters and footprints. It is drawn to 480 m, so a field still reads gold beyond the stalks' range.
+- **Draw range.** The stalks are drawn to 1.6 × the patch range.
+- **Grass.** Pasture grass does not grow under the crop: the tile is a "soft" grass footprint, which other nature patches ignore, so poppies inside the field still grow.
+
+**Flattening.** Tanks and explosions lay the wheat down (`nature.cpp`, the "wheat flattening" section):
+- **Encoding.** Each stalk's amount (0–1) and direction are packed into the instance's `shape.y`. The shader tilts the straw up to 81° along that direction and damps its wind.
+- **Explosions.** `App::explode` → `blastPaths` → `natureBlast`. The burst is radial: full within 0.4 × radius, fading to 1.15 × radius. Strength is `dmg / 120`, clamped to 0.45–1, and air bursts are reduced by their height.
+- **Tanks.** Every 0.45 m a moving tank in Explore stamps its hull rectangle plus 0.1 m. Stalks fall along the direction of travel, splayed outward toward the hull sides.
+- **Cost.** Stamps are recorded only near wheat. Each patch applies new stamps incrementally to its instance buffer (one sub-upload), and re-applies all of them after a rebuild.
+- **Reset.** This is session state, like felled trees: `App::resetDamage` (F5, Return to start, entering or leaving Explore) stands the crop up again.
+- **Built-in states.** Trampled fields bake swathes and winding trails. Ripe fields have a few lodged patches. Stubble has about 20 % lying straw.
+
 ## Small vegetation (foliage `"tree"` block)
 
 Shrubs, ferns, nettles and saplings use the tree system: leaf cards, wind sway, felling.

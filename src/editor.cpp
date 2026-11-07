@@ -265,6 +265,7 @@ void App::drawCreativeUI() {
     { extern bool settingsMenuItem(); settingsMenuItem(); }   // Settings window (settings.cpp)
     if (ImGui::MenuItem("Explore from start  (F5)")) w3EnterExplore(*this);
     mpaiMenus(*this);   // Play (Singleplayer / Host LAN / Join LAN) and Scenario menus
+    { extern void autopathMenu(App&); autopathMenu(*this); }   // Paths > Connect houses (autopath.cpp)
     ImGui::SameLine(ImGui::GetWindowWidth() - 360);
     ImGui::TextDisabled("%s%s  |  %s", doc.name.c_str(), dirty ? " *" : "", docPath.empty() ? "unsaved" : docPath.filename().string().c_str());
     ImGui::EndMainMenuBar();

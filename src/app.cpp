@@ -6,6 +6,7 @@
 #include "w5.h"
 #include "w3.h"
 #include "nature.h"
+#include "autopath.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -312,11 +313,12 @@ bool App::saveMapTo(const fs::path& p) {
 }
 
 // ============================================================ undo
-Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas}; }
+Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas, doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json()}; }
 void App::restore(const Snapshot& s) {
   bool groundChanged = doc.terrainDeltas != s.terrain;
   doc.instances = s.inst; doc.start = s.start; doc.removedVegetation = s.removedVeg; selected = s.selected;
   doc.terrainDeltas = s.terrain;
+  if (doc.extra.is_object() || !s.routes.is_null()) { if (!doc.extra.is_object()) doc.extra = json::object(); if (s.routes.is_null()) doc.extra.erase("routes"); else doc.extra["routes"] = s.routes; }   // ground-wear routes (auto paths)
   if (groundChanged) resetGround();
   for (auto& i : doc.instances) i.rev = ++revCounter;  // force collider rebuild to the restored transforms
   dirty = true;
@@ -421,6 +423,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   if (a->defense.blocksVehicles) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["blocksVehicles"] = true; }
   bump(i);
   doc.instances.push_back(i);
+  autopathOnPlaced(*this, i.id);   // "Auto paths" on: a new house gets its aprons and a path to its neighbours (autopath.cpp)
   return i.id;
 }
 bool App::duplicateSelected() {
@@ -532,6 +535,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-gore") runSelf = true;   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
     else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
+    else if (a == "--selftest-autopath") runSelf = true;   // V9 auto paths between houses (selftest_autopath.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -745,10 +749,10 @@ std::vector<GrassFootprint> App::grassFootprints() const {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || !a->crate.empty() || isVehicleAsset(a)) continue;   // tanks drive away: no fixed grass hole
-    if (a->nature.kind == NatureDef::SCATTER) continue;   // flowers / tall grass / stones grow in the grass
+    if (a->nature.kind == NatureDef::SCATTER) { GrassFootprint f; if (natureGrassFootprint(i, *a, f)) fp.push_back(f); continue; }   // flowers / tall grass / stones grow in the grass; a wheat tile clears it
     if (a->nature.kind == NatureDef::ROCK) { GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z) * 0.78f, vec2(a->bmax.x, a->bmax.z) * 0.78f}; f.margin = 0.0f; fp.push_back(f); continue; }   // grass up to the boulder's flanks
     if (a->tree.on && !a->tree.hedge) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
-    if (a->path.on) { vec2 wl = pathSize(i, a); GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, -wl * 0.5f + vec2(0.06f, 0), wl * 0.5f - vec2(0.06f, 0)}; f.margin = 0.05f; fp.push_back(f); continue; }   // the trodden surface only, verges keep their grass
+    if (a->path.on) { vec2 mn, mx; pathLocalBounds(*this, i, a, mn, mx); GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, mn + vec2(0.06f, 0), mx - vec2(0.06f, 0)}; f.margin = 0.05f; fp.push_back(f); continue; }   // the trodden surface only, verges keep their grass
     if (a->tree.on && a->tree.hedge) { vec2 h = a->footprint * 0.5f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-h.x, -h.y * 0.6f), vec2(h.x, h.y * 0.6f)}); continue; }
     fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z)});
   }
