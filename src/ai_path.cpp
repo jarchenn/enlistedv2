@@ -348,7 +348,7 @@ void AiCore::linkAborted(NavRef ref, uint32_t id) {
 void AiCore::move(Soldier& s, float dt) {
   BotMind& m = mind(s);
   Brain& b = s.br;
-  if (s.throwT >= 0 && !s.throwReleased && s.throwKind == GK_FRAG) {   // winding up: a teammate came near the target meanwhile -> hold the grenade
+  if (s.throwT >= 0 && !s.throwReleased && s.throwKind == GK_FRAG && m.action == A_GRENADE) {   // only throws the AI decided itself   // winding up: a teammate came near the target meanwhile -> hold the grenade
     float safe = std::max(8.0f, tj("grenade", "safeRadius_m", 11.0f));
     for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role && glm::length(o.feet - s.throwTarget) < safe) { s.throwT = -1; break; }
   }
