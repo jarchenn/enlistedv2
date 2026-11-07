@@ -3,6 +3,7 @@
 #include "thumbs.h"
 #include "mpai.h"
 #include "w3.h"
+#include "nature.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -369,6 +370,16 @@ void App::drawCreativeUI() {
       if (act) { pushUndo(); s = doc.find(selected); }
       if (ed && s) setPathSize(*s, vec2(W, L));
       ImGui::TextDisabled("Placing a path next to a free end continues it in line.");
+    }
+    if (s && a->nature.kind == NatureDef::SCATTER) {   // patch: radius / density / seed (nature.cpp); the layout is deterministic
+      NatPatchParams pp = naturePatchParams(*s, *a); bool act = false, ed = false; int seed = (int)pp.seed;
+      ImGui::DragFloat("Radius (m)", &pp.radius, 0.05f, a->nature.minR, a->nature.maxR, "%.2f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
+      ImGui::DragFloat("Density (per m2)", &pp.density, 0.05f, a->nature.minD, a->nature.maxD, "%.2f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
+      ImGui::DragInt("Seed", &seed, 0.2f, 1, 99999); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
+      if (ImGui::Button("New seed")) { pushUndo(); s = doc.find(selected); seed = (int)(pp.seed * 2654435761u % 99991u) + 1; ed = true; }
+      if (act) { pushUndo(); s = doc.find(selected); }
+      if (ed && s) { pp.seed = (uint32_t)std::max(1, seed); setNaturePatchParams(*s, *a, pp); bump(*s); }
+      if (auto it = rt.find(s ? s->id : 0); it != rt.end()) ImGui::TextDisabled("%d items scattered (not on a grid; same seed = same layout)", it->second.natCount);
     }
     if (ImGui::Button("Duplicate (Ctrl+D)")) duplicateSelected();
     ImGui::SameLine();

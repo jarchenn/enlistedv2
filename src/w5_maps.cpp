@@ -88,9 +88,16 @@ bool w5TemplateThumbnail(TemplateInfo& t) {
   int w = 0, h = 0, n = 0;
   stbi_uc* d = stbi_load((contentDir() / "templates" / f).string().c_str(), &w, &h, &n, 4);
   if (!d) return false;
-  // stored top row first; the dialog samples GL-style (v up), so upload bottom row first
-  std::vector<uint8_t> flip((size_t)w * h * 4);
-  for (int y = 0; y < h; ++y) std::memcpy(&flip[(size_t)y * w * 4], d + (size_t)(h - 1 - y) * w * 4, (size_t)w * 4);
+  // The New Map dialog samples template tiles with v 0.8 -> 0.2 (the middle 60 % of a square generated thumbnail),
+  // so pad the stored 16:10 image into a texture 1 / 0.6 as tall with the picture in that band (edge rows repeated
+  // into the padding so filtering at the band edge shows no seam). Stored top row first; upload bottom row first.
+  const int H = (int)std::lround(h / 0.6), off = (H - h) / 2;
+  std::vector<uint8_t> flip((size_t)w * H * 4);
+  for (int y = 0; y < H; ++y) {
+    int src = std::clamp(H - 1 - y - off, 0, h - 1);
+    std::memcpy(&flip[(size_t)y * w * 4], d + (size_t)src * w * 4, (size_t)w * 4);
+  }
+  h = H;
   stbi_image_free(d);
   GLuint tex = 0;
   glCreateTextures(GL_TEXTURE_2D, 1, &tex);
