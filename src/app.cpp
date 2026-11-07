@@ -1,4 +1,5 @@
 #include "app.h"
+#include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "thumbs.h"
 #include "selftest.h"
 #include "mpai.h"
@@ -136,6 +137,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
     if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
     if (w5CullDraw(*this, i, r.asset)) continue;   // W5: small decorators beyond their draw distance (content/settings/maps.json)
+    if (beautifyDecorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor, cheap at range (beautify.cpp)
     if (r.asset->nature.kind != NatureDef::NONE) {   // boulders, stone / flower / tall-grass patches (nature.cpp)
       float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
       if (cd < 1200) natureDrawItems(*this, i, r, op, cd);
@@ -311,12 +313,14 @@ bool App::saveMapTo(const fs::path& p) {
 }
 
 // ============================================================ undo
-Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas}; }
+Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas, doc.terrainSculpt, doc.terrainGen}; }
 void App::restore(const Snapshot& s) {
-  bool groundChanged = doc.terrainDeltas != s.terrain;
+  bool groundChanged = doc.terrainDeltas != s.terrain || doc.terrainSculpt != s.sculpt;
+  bool genChanged = doc.terrainGen != s.terrainGen;   // V8: outer ring / generated hills: the terrain is regenerated
   doc.instances = s.inst; doc.start = s.start; doc.removedVegetation = s.removedVeg; selected = s.selected;
-  doc.terrainDeltas = s.terrain;
-  if (groundChanged) resetGround();
+  doc.terrainDeltas = s.terrain; doc.terrainSculpt = s.sculpt; doc.terrainGen = s.terrainGen;
+  if (genChanged) applyTemplate(doc.templateId);
+  if (groundChanged || genChanged) resetGround();
   for (auto& i : doc.instances) i.rev = ++revCounter;  // force collider rebuild to the restored transforms
   dirty = true;
 }
@@ -338,7 +342,7 @@ static bool obbOverlap2D(vec2 c1, vec2 h1, float a1, vec2 c2, vec2 h2, float a2)
 PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t ignoreId) const {
   PlaceCheck c;
   if (a->nature.kind == NatureDef::SCATTER) {   // patches: only the centre must be on dry ground in the build area (items skip water)
-    if (!terrain.inBuildArea(pos.x, pos.z)) { c.ok = false; c.reason = "Outside the build area."; return c; }
+    if (!terrain.inBuildArea(pos.x, pos.z) && !decorMayLeaveBorder(*this, ignoreId, pos)) { c.ok = false; c.reason = "Outside the build area."; return c; }   // V8: decor (beautify.cpp)
     c.y = terrain.height(pos.x, pos.z);
     if (c.y < terrain.waterLevel + 0.05f && a->nature.scatter != NatureDef::STONES) { c.ok = false; c.reason = "The patch centre is in water."; return c; }
     c.reason = "Valid placement."; return c;
@@ -352,7 +356,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   float top = -1e9f, low = 1e9f; const char* lowSide = "center";
   for (auto& s : samples) {
     vec3 w = pos + q * s.local;
-    if (!terrain.inBuildArea(w.x, w.z)) { c.ok = false; c.reason = "Outside the build area."; return c; }
+    if (!terrain.inBuildArea(w.x, w.z) && !decorMayLeaveBorder(*this, ignoreId, w)) { c.ok = false; c.reason = "Outside the build area."; return c; }   // V8: decor (beautify.cpp)
     if (a->path.on) continue;   // paths drape on any ground and may cross water's edge, other paths and footprints
     float h = terrain.placementHeight(w.x, w.z, ignoreId);   // ignores the instance's own terrain cut
     if (h < terrain.waterLevel + 0.2f) { c.ok = false; c.reason = std::string("The ") + s.side + " of the footprint is in water."; return c; }
@@ -530,6 +534,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
+    else if (a == "--selftest-terrain") runSelf = true;   // V8 sculpt, hills, Beautify (selftest_terrain.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)

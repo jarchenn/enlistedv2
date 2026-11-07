@@ -14,7 +14,7 @@
 struct GLFWwindow;
 
 enum class Mode { Creative, Explore };
-enum class Tool { Select, Place, Marker };
+enum class Tool { Select, Place, Marker, Terrain };   // Terrain: V8 sculpt brush (terrain_brush.cpp)
 
 // Impact-centred wall damage (wallfield.cpp): per bay, depth removed from the front and back face per cell.
 enum WallHitKind { WALL_HE = 0, WALL_AP = 1, WALL_ROCKET = 2, WALL_GRENADE = 3, WALL_BULLET = 4 };
@@ -63,7 +63,7 @@ struct ExploreInput {
   bool quickGrenade = false;   // H (rebindable "grenade"): throw the side's grenade from any weapon
 };
 
-struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; };
+struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; std::map<int, std::vector<float>> sculpt; json terrainGen; };
 
 struct PlaceCheck { bool ok = true; std::string reason; float y = 0; bool snapXZ = false; vec2 xz{0}; };   // snapXZ: wall-hung furniture pulled flat to its wall
 

@@ -37,6 +37,12 @@ json mapToJson(const MapDoc& d) {
     }
     j["terrainDeltas"] = {{"templateVersion", d.terrainTemplateVersion}, {"fineN", 36}, {"tiles", tiles}};
   }
+  if (!d.terrainSculpt.empty()) {   // V8: same tile layout as terrainDeltas; keys follow the grid (terrainGen ring)
+    json tiles = json::array();
+    for (auto& [k, v] : d.terrainSculpt) { json a = json::array(); for (float f : v) a.push_back(std::round(f * 1000.0f) / 1000.0f); tiles.push_back({{"key", k}, {"d", a}}); }
+    j["terrainSculpt"] = {{"fineN", 36}, {"tiles", tiles}};
+  }
+  if (d.terrainGen.is_object() && !d.terrainGen.empty()) j["terrainGen"] = d.terrainGen;
   if (d.camera.set) j["editorCamera"] = {{"position", tojson(d.camera.pos)}, {"yaw", d.camera.yaw}, {"pitch", d.camera.pitch}};
   if (d.camera.set && d.cameraBookmarks.is_object() && !d.cameraBookmarks.empty()) j["editorCamera"]["bookmarks"] = d.cameraBookmarks;
   return j;
@@ -80,6 +86,11 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
     for (auto& t : j["terrainDeltas"]["tiles"]) n.terrainDeltas[t["key"].get<int>()] = t["d"].get<std::vector<float>>();
     n.extra.erase("terrainDeltas");
   }   // otherwise kept verbatim in extra (deltas for another template version are preserved, not applied)
+  if (j.contains("terrainSculpt") && j["terrainSculpt"].value("fineN", 0) == 36) {   // V8 sculpt layer
+    for (auto& t : j["terrainSculpt"]["tiles"]) n.terrainSculpt[t["key"].get<int>()] = t["d"].get<std::vector<float>>();
+    n.extra.erase("terrainSculpt");
+  }
+  if (j.contains("terrainGen") && j["terrainGen"].is_object()) { n.terrainGen = j["terrainGen"]; n.extra.erase("terrainGen"); }
   n.name = j.value("name", "Untitled map");
   n.templateId = j["template"].value("id", "blank_slate");
   n.templateVersion = j["template"].value("version", 1);

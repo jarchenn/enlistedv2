@@ -228,6 +228,7 @@ bool navRecallBookmark(App& app, int n) {
 void w3ApplyTerrain(App& app, const TemplateInfo& t) {
   NavState& n = navState();
   if (n.pendingSize.x > 0) { app.doc.width = n.pendingSize.x; app.doc.depth = n.pendingSize.y; n.pendingSize = vec2(0); }
+  app.terrain.gen = app.doc.terrainGen;   // V8: outer ring + generated hills (terrain_brush.cpp)
   app.terrain.generate(t, app.doc.width, app.doc.depth);
   terrainPhysicsBuild(app.terrain);
   n.flying = false; n.ovScale = 0;

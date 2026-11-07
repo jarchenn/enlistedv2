@@ -46,19 +46,128 @@ static float vnoise(float x, float y, uint32_t s) {
   return glm::mix(glm::mix(a, b, fx), glm::mix(c, d, fx), fy) * 2 - 1;
 }
 
+float Terrain::baseFormula(float wx, float wz, uint32_t seed) const {
+  // Blank slate: gentle undulation that gives scale without hiding placement previews.
+  float v = 0.35f * vnoise(wx / 140.f, wz / 140.f, seed) + 0.12f * vnoise(wx / 45.f, wz / 45.f, seed + 7) +
+            0.04f * vnoise(wx / 12.f, wz / 12.f, seed + 13);
+  // outside the build area, rise gently into low hedge-bank country
+  float edge = std::max(std::fabs(wx) - buildHalfX, std::fabs(wz) - buildHalfZ);
+  if (edge > 0) v += edge * 0.03f + 2.0f * vnoise(wx / 60.f, wz / 60.f, seed + 3) * std::min(1.0f, edge / 40.f);
+  return v;
+}
+
+// ---- V8 generator layers (MapDoc::terrainGen; the tools are in terrain_brush.cpp / beautify.cpp)
+int Terrain::ringTiles() const {
+  if (!gen.is_object() || !gen.contains("ring") || !gen["ring"].is_object()) return 0;
+  return std::clamp(gen["ring"].value("tiles", 0), 0, 24);
+}
+static float fbm3(float x, float z, uint32_t s) { return 0.62f * vnoise(x, z, s) + 0.28f * vnoise(x * 2.07f, z * 2.07f, s + 17) + 0.10f * vnoise(x * 4.31f, z * 4.31f, s + 29); }
+float terrainFbm(float x, float z, uint32_t s) { return fbm3(x, z, s); }   // shared with the brush (terrain_brush.cpp)
+static float smooth01(float e0, float e1, float x) { float t = std::clamp((x - e0) / (e1 - e0), 0.0f, 1.0f); return t * t * (3 - 2 * t); }
+
+// Protect shapes of a hill stamp: {"o":[[cx,cz,hx,hz,yaw]...]} oriented boxes, {"c":[[x,z,r]...]} circles,
+// {"l":[[width, x0,z0, x1,z1, ...]...]} polylines. shapeDist is <= 0 inside.
+namespace {
+struct HillShape { int type = 0; vec2 c{0}, h{0}; float yaw = 0, r = 0; std::vector<vec2> pts; vec2 lo{0}, hi{0}; };
+float shapeDist(const HillShape& s, vec2 p) {
+  if (s.type == 0) {
+    float ca = std::cos(radians(s.yaw)), sa = std::sin(radians(s.yaw));
+    vec2 d = p - s.c; vec2 l(ca * d.x - sa * d.y, sa * d.x + ca * d.y);   // inverse of yawQuat about +Y on (x, z)
+    vec2 q = glm::abs(l) - s.h;
+    return glm::length(glm::max(q, vec2(0))) + std::min(std::max(q.x, q.y), 0.0f);
+  }
+  if (s.type == 1) return glm::length(p - s.c) - s.r;
+  float best = 1e30f;
+  for (size_t k = 0; k + 1 < s.pts.size(); ++k) {
+    vec2 a = s.pts[k], b = s.pts[k + 1], ab = b - a; float L2 = glm::dot(ab, ab);
+    float t = L2 > 1e-9f ? std::clamp(glm::dot(p - a, ab) / L2, 0.0f, 1.0f) : 0.0f;
+    best = std::min(best, glm::length(p - (a + ab * t)));
+  }
+  if (s.pts.size() == 1) best = glm::length(p - s.pts[0]);
+  return best - s.r;
+}
+}
+
+void Terrain::applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz) {
+  if (!gen.is_object() || gen.empty()) return;
+  // ---- outer ring: the inner grid is untouched; ring vertices continue the edge of the inner grid (an authored
+  // heightmap's edge level is kept) plus the procedural relief, and gentle hills fade in beyond the old edge
+  if (int ring = ringTiles(); ring > 0) {
+    const json& r = gen["ring"];
+    const int off = ring * kTileCells;
+    uint32_t seed = r.value("seed", 1u);
+    float amp = r.value("amp", 3.5f), scale = std::max(20.0f, r.value("scale", 110.0f)), rise = r.value("rise", 0.015f), fade = std::max(1.0f, r.value("fade", 45.0f));
+    std::vector<float> src = h;
+    for (int z = 0; z < nz; ++z)
+      for (int x = 0; x < nx; ++x) {
+        int ix = x - off, iz = z - off;
+        if (ix >= 0 && iz >= 0 && ix < innerNx && iz < innerNz) continue;
+        int cx = std::clamp(ix, 0, innerNx - 1) + off, cz = std::clamp(iz, 0, innerNz - 1) + off;
+        float wx = org.x + x * kCell, wz = org.y + z * kCell, ex = org.x + cx * kCell, ez = org.y + cz * kCell;
+        float dist = glm::length(vec2(wx - ex, wz - ez));
+        float rel = baseFormula(wx, wz, t.seed) - baseFormula(ex, ez, t.seed);   // the blank-slate relief, continued
+        float hills = amp * fbm3(wx / scale, wz / scale, seed + 101);
+        h[(size_t)z * nx + x] = src[(size_t)cz * nx + cx] + rel + rise * dist + hills * smooth01(0.0f, fade, dist);
+      }
+  }
+  // ---- generated hills (Terrain > Generate hills...): seeded fbm on the base grid, zero inside the protected
+  // shapes (+pad), feathered over `feather` metres, faded out toward open water
+  if (gen.contains("hills") && gen["hills"].is_array()) {
+    for (auto& st : gen["hills"]) {
+      float amp = st.value("amp", 4.0f), scale = std::max(10.0f, st.value("scale", 120.0f)), pad = st.value("pad", 4.0f), feather = std::max(0.5f, st.value("feather", 18.0f));
+      uint32_t seed = st.value("seed", 1u);
+      std::vector<HillShape> shapes;
+      const json pr = st.value("protect", json::object());
+      for (auto& o : pr.value("o", json::array())) if (o.size() >= 5) { HillShape s; s.type = 0; s.c = vec2(o[0].get<float>(), o[1].get<float>()); s.h = vec2(o[2].get<float>(), o[3].get<float>()); s.yaw = o[4].get<float>(); float rr = glm::length(s.h); s.lo = s.c - vec2(rr); s.hi = s.c + vec2(rr); shapes.push_back(s); }
+      for (auto& o : pr.value("c", json::array())) if (o.size() >= 3) { HillShape s; s.type = 1; s.c = vec2(o[0].get<float>(), o[1].get<float>()); s.r = o[2].get<float>(); s.lo = s.c - vec2(s.r); s.hi = s.c + vec2(s.r); shapes.push_back(s); }
+      for (auto& o : pr.value("l", json::array())) if (o.size() >= 3) {
+        HillShape s; s.type = 2; s.r = o[0].get<float>() * 0.5f; s.lo = vec2(1e30f); s.hi = vec2(-1e30f);
+        for (size_t k = 1; k + 1 < o.size(); k += 2) { vec2 p(o[k].get<float>(), o[k + 1].get<float>()); s.pts.push_back(p); s.lo = glm::min(s.lo, p); s.hi = glm::max(s.hi, p); }
+        s.lo -= vec2(s.r); s.hi += vec2(s.r);
+        if (!s.pts.empty()) shapes.push_back(s);
+      }
+      // 32 m buckets of the shapes whose reach (pad + feather) touches them
+      const float B = 32.0f, reach = pad + feather;
+      int bx = std::max(1, (int)std::ceil(size / B) + 1), bz = std::max(1, (int)std::ceil(sizeZ / B) + 1);
+      std::vector<std::vector<int>> buckets((size_t)bx * bz);
+      for (int k = 0; k < (int)shapes.size(); ++k) {
+        int x0 = std::clamp((int)std::floor((shapes[k].lo.x - reach - org.x) / B), 0, bx - 1), x1 = std::clamp((int)std::floor((shapes[k].hi.x + reach - org.x) / B), 0, bx - 1);
+        int z0 = std::clamp((int)std::floor((shapes[k].lo.y - reach - org.y) / B), 0, bz - 1), z1 = std::clamp((int)std::floor((shapes[k].hi.y + reach - org.y) / B), 0, bz - 1);
+        for (int zz = z0; zz <= z1; ++zz) for (int xx = x0; xx <= x1; ++xx) buckets[(size_t)zz * bx + xx].push_back(k);
+      }
+      for (int z = 0; z < nz; ++z)
+        for (int x = 0; x < nx; ++x) {
+          float wx = org.x + x * kCell, wz = org.y + z * kCell;
+          float w = 1.0f;
+          int b = std::clamp((int)std::floor((wz - org.y) / B), 0, bz - 1) * bx + std::clamp((int)std::floor((wx - org.x) / B), 0, bx - 1);
+          for (int k : buckets[(size_t)b]) { float d = shapeDist(shapes[k], vec2(wx, wz)) - pad; if (d < feather) { w = std::min(w, smooth01(0.0f, feather, d)); if (w <= 0) break; } }
+          if (w <= 0) continue;
+          float& hv = h[(size_t)z * nx + x];
+          if (waterLevel > -999.0f) w *= smooth01(waterLevel + 0.5f, waterLevel + 3.0f, hv);
+          hv += amp * fbm3(wx / scale, wz / scale, seed + 211) * w;
+        }
+    }
+  }
+}
+
 void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   destroy();
   cuts.clear();
+  sculpt.clear();   // V8: the sculpt layer is the document's (App::resetGround reinstalls it on the new grid)
   clearTiles();
   ++generation;
   vec2 wd = ((width <= 0 && depth <= 0) || (width == t.width && depth == t.depth)) ? vec2(t.width, t.depth)   // a template's own size is used as authored (W5b: also when passed explicitly, e.g. 850 x 1700 off the 100 m step)
                                        : mapSizeRules().clampSize(vec2(width > 0 ? width : t.width, depth > 0 ? depth : t.depth));
+  const int ring = ringTiles();   // V8 outer ring (beautify.cpp): whole tiles on every side, so the inner grid keeps its world positions
   margin = t.margin;
   buildHalfX = wd.x * 0.5f; buildHalfZ = wd.y * 0.5f; buildHalf = std::max(buildHalfX, buildHalfZ);
   waterLevel = t.waterLevel;
   // grid: whole tiles covering build area + margin, centred on the origin (600 x 600 + 100 = the pre-9.1 800 m grid)
   auto cellsFor = [&](float ext) { int c = (int)std::ceil(ext / kCell - 1e-3f); return std::max(kTileCells * 2, (c + kTileCells - 1) / kTileCells * kTileCells); };
   int cx = cellsFor(wd.x + 2 * margin), cz = cellsFor(wd.y + 2 * margin);
+  const int innerNx = cx + 1, innerNz = cz + 1;
+  cx += 2 * ring * kTileCells; cz += 2 * ring * kTileCells;
+  margin += ring * kTileCells * kCell;
   nx = cx + 1; nz = cz + 1;
   size = cx * kCell; sizeZ = cz * kCell;
   org = vec2(-size * 0.5f, -sizeZ * 0.5f);
@@ -66,15 +175,10 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   for (int z = 0; z < nz; ++z)
     for (int x = 0; x < nx; ++x) {
       float wx = org.x + x * kCell, wz = org.y + z * kCell;
-      // Blank slate: gentle undulation that gives scale without hiding placement previews.
-      float v = 0.35f * vnoise(wx / 140.f, wz / 140.f, t.seed) + 0.12f * vnoise(wx / 45.f, wz / 45.f, t.seed + 7) +
-                0.04f * vnoise(wx / 12.f, wz / 12.f, t.seed + 13);
-      // outside the build area, rise gently into low hedge-bank country
-      float edge = std::max(std::fabs(wx) - buildHalfX, std::fabs(wz) - buildHalfZ);
-      if (edge > 0) v += edge * 0.03f + 2.0f * vnoise(wx / 60.f, wz / 60.f, t.seed + 3) * std::min(1.0f, edge / 40.f);
-      h[(size_t)z * nx + x] = v;
+      h[(size_t)z * nx + x] = baseFormula(wx, wz, t.seed);
     }
   w5TerrainBase(*this, t);   // W5: authored template heightmap + water level (w5_maps.cpp)
+  applyGenLayers(t, innerNx, innerNz);   // V8: outer ring + generated hills (terrain_brush.cpp)
   chunkRev.assign((size_t)chunksX() * chunksZ(), 0);
   glCreateTextures(GL_TEXTURE_2D, 1, &maskTex);
   glTextureStorage2D(maskTex, 1, GL_R8, tilesX(), tilesZ());
@@ -186,7 +290,7 @@ Terrain::Tile* Terrain::activate(int tx, int tz) {
   float fs = fineSpacing();
   for (int j = 0; j < kFineN; ++j)
     for (int i = 0; i < kFineN; ++i) {
-      float raw = baseHeight(o.x + i * fs, o.y + j * fs);
+      float raw = groundBase(o.x + i * fs, o.y + j * fs);   // V8: base + sculpt
       float b = cuts.empty() ? raw : cutBase(o.x + i * fs, o.y + j * fs);
       t.base[j * kFineN + i] = b; t.h[j * kFineN + i] = b;
       t.cut |= b < raw - 1e-5f;
@@ -302,6 +406,8 @@ void Terrain::clearTiles() {
   ++revision;
   // the authored ground under terrain cuts lives in tiles: rebuild them from the cuts (no crater deltas)
   if (!cuts.empty()) { std::vector<WorldCut> keep; keep.swap(cuts); setCuts(std::move(keep)); }
+  // V8: sculpted ground lives in tiles too (no crater deltas)
+  if (!sculpt.empty()) { std::vector<int> keys; for (auto& [k, v] : sculpt) keys.push_back(k); sculptChanged(keys); }
 }
 
 std::map<int, std::vector<float>> Terrain::deltas() const {

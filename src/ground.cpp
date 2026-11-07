@@ -55,6 +55,7 @@ void App::removeGroundBodies() {
 void App::resetGround() {
   // Explore damage is a session overlay: restore the map's authored ground (base + applied deltas).
   removeGroundBodies();
+  terrain.sculpt = doc.terrainSculpt;   // V8 sculpt layer: re-based into the tiles by clearTiles
   terrain.clearTiles();
   ++groundRev;
   if (!doc.terrainDeltas.empty()) terrain.applyDeltas(doc.terrainDeltas);

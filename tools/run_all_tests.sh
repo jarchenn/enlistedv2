@@ -31,6 +31,7 @@ run gore     --selftest-gore    # W7 gore: decals, droplets, budgets, Off mode, 
 run structures --selftest-structures   # W4 structure assets: nav, colliders, cuts, walk-throughs
 run aicourse --selftest-ai-course   # W6 AI: live navmesh rebuild + obstacle course (AI_SPEC 12.2 / 12.4, ~5 min)
 run nature   --selftest-nature  # natural ground dressing: boulders, patches, shrubs (docs/nature.md)
+run terrain  --selftest-terrain # V8 terrain sculpt, Generate hills, Beautify ring (docs/terrain-tools.md)
 run maps     --selftest-maps    # W5 default maps: template load, scenario, SPEC 2.1 distances, asset-usage doc, views + frame time
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
 if [ "${1:-}" = "--bench" ]; then

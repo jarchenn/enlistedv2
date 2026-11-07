@@ -57,6 +57,20 @@ public:
   void generate(const TemplateInfo& t, float width = 0, float depth = 0);
   float height(float x, float z) const;
   float baseHeight(float x, float z) const;
+  // ---- V8 sculpt layer (terrain_brush.cpp): sparse fine tiles of absolute metres added to the base heightfield.
+  // groundBase = baseHeight + sculpt: the authored ground under cuts and craters (Tile::base includes it), so crater
+  // deltas, dirt and persistence (deltas()) never see the sculpt; sculpted ground shades as grass.
+  std::map<int, std::vector<float>> sculpt;   // tile key -> kFineN^2 metres (every key keeps its tile active)
+  float sculptAt(float x, float z) const;
+  float groundBase(float x, float z) const { return baseHeight(x, z) + (sculpt.empty() ? 0.0f : sculptAt(x, z)); }
+  void sculptChanged(const std::vector<int>& keys);   // re-bases those tiles (craters kept) and remeshes them + neighbours
+  // ---- V8 generator layers (terrain_brush.cpp / beautify.cpp): MapDoc::terrainGen, applied by generate()
+  //   {"ring": {"tiles": k, "seed": s, "amp": m}}   outer ring: k whole tiles of extra margin on every side (the inner
+  //                                                 grid keeps its world positions, so tile keys remap exactly)
+  //   {"hills": [{"amp", "scale", "seed", "pad", "feather", "protect": [...]}]}   rolling-hill stamps on the base grid
+  json gen = json::object();
+  int ringTiles() const;          // of `gen`
+  static int remapKey(int key, int oldTilesX, int shift, int newTilesX) { int tx = key % oldTilesX, tz = key / oldTilesX; return (tz + shift) * newTilesX + (tx + shift); }
   vec3 normal(float x, float z) const;
   vec3 baseNormal(float x, float z) const;   // of the base heightfield only (chunk meshes)
   float dirtAt(float x, float z) const;      // disturbed-soil blend at a point (0 off-tile)
@@ -129,6 +143,8 @@ public:
   GLuint maskTexture() const { return maskTex; }
 private:
   GLuint maskTex = 0;
+  float baseFormula(float wx, float wz, uint32_t seed) const;   // the procedural blank-slate ground (before W5 heightmaps)
+  void applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz);   // V8: ring + hill stamps over the base grid (terrain.cpp)
   void setMask(int tx, int tz, uint8_t v);
   void recutTile(Tile& t);
   friend struct TerrainStream;

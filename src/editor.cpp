@@ -4,6 +4,7 @@
 #include "mpai.h"
 #include "w3.h"
 #include "nature.h"
+#include "terrain_tools.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -93,6 +94,8 @@ void App::updateCreative(float dt) {
       if (lastCheck.ok) { uint64_t id = placeInstance(placing, hp, placeYaw); if (id) { selected = id; placeCompanions(id); } }
       else toast(lastCheck.reason);
     }
+  } else if (tool == Tool::Terrain) {
+    terrainToolUpdate(*this, dt, uiMouse);   // V8 sculpt strokes (terrain_brush.cpp)
   } else if (tool == Tool::Marker) {
     if (lmbPress && hoverValid) {
       pushUndo();
@@ -153,6 +156,7 @@ static void arrow(Overlay& ov, vec3 from, vec3 dir, float len, vec4 col, bool to
 }
 
 void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
+  terrainOverlay(*this, ov);   // V8 brush ring preview (terrain_brush.cpp)
   w3Overlay(*this, ov);   // build-area outline (follows the map size), drop-in marker (editor_nav.cpp / dropin.cpp)
   vec4 ok(0.35f, 0.95f, 0.45f, 1.0f), bad(1.0f, 0.3f, 0.25f, 1.0f), selc(1.0f, 0.65f, 0.15f, 1.0f);
   // placement preview
@@ -263,6 +267,7 @@ void App::drawCreativeUI() {
       ImGui::EndMenu();
     }
     if (ImGui::MenuItem("Explore from start  (F5)")) w3EnterExplore(*this);
+    terrainMenus(*this);   // V8: Terrain menu (sculpt, Generate hills) and Beautify... (terrain_brush.cpp)
     mpaiMenus(*this);   // Play (Singleplayer / Host LAN / Join LAN) and Scenario menus
     ImGui::SameLine(ImGui::GetWindowWidth() - 360);
     ImGui::TextDisabled("%s%s  |  %s", doc.name.c_str(), dirty ? " *" : "", docPath.empty() ? "unsaved" : docPath.filename().string().c_str());
@@ -278,6 +283,7 @@ void App::drawCreativeUI() {
     ImGui::SameLine(); return r;
   };
   if (toolBtn("Select (Esc)", tool == Tool::Select)) { tool = Tool::Select; placing = nullptr; }
+  terrainToolbar(*this);   // V8 Terrain tool button (terrain_brush.cpp)
   w3Toolbar(*this); ImGui::SameLine();   // drop-in soldier: drag onto the terrain (dropin.cpp)
   if (toolBtn(gridSnap ? "Grid snap: on (G)" : "Grid snap: off (G)", gridSnap)) gridSnap = !gridSnap;
   if (toolBtn(rotSnap ? "Rotate: 15 deg" : "Rotate: free", rotSnap)) rotSnap = !rotSnap;
@@ -463,6 +469,7 @@ void App::drawCreativeUI() {
   }
 
   // ---- modals
+  terrainEditorUI(*this);   // V8: brush panel, Generate hills, Beautify (terrain_brush.cpp / beautify.cpp)
   w3EditorUI(*this);   // New Map dialog (size, presets, estimate), overview map, drop-in drag (editor_nav.cpp)
   if (showOpen) { ImGui::OpenPopup("Open map"); showOpen = false; }
   ImGui::SetNextWindowSize(ImVec2(620, 420), ImGuiCond_Appearing);
