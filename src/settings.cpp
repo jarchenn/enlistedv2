@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "app.h"
 #include "editor_nav.h"
+#include "lighting.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -18,9 +19,11 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.resScale = 0.85f; g.shadowQuality = 0;
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
     g.grass = 1; g.drawDist = 0.6f; g.particles = 0.6f;
+    g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
   } else if (p == GfxPreset::High) {
     g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16;
     g.grass = 3; g.drawDist = 1.4f; g.particles = 1.5f;
+    g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
   }
   return g;
 }
@@ -40,7 +43,9 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass},
-                  {"drawDistance", g.drawDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap}}},
+                  {"drawDistance", g.drawDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
+                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi},
+                  {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}}},
@@ -65,6 +70,12 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 3);
     g.drawDist = std::clamp(q.value("drawDistance", g.drawDist), 0.3f, 3.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
+    g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
+    g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
+    // time of day: a preset name gives its hour; an explicit hour wins
+    std::string tn = q.value("timeOfDay", std::string("Day"));
+    for (TodPreset p : {TodPreset::Day, TodPreset::Dusk, TodPreset::Night, TodPreset::Dawn}) if (tn == todPresetName(p)) u.hour = todPresetHour(p);
+    float h = q.value("hour", u.hour); if (std::isfinite(h)) u.hour = std::fmod(std::fmod(h, 24.0f) + 24.0f, 24.0f);
   }
   if (j.contains("gameplay") && j["gameplay"].is_object()) {
     const json& q = j["gameplay"];
@@ -170,6 +181,7 @@ void Settings::apply(App& app) {
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
   R.clouds = g.clouds;
+  R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3);
   app.fx.setBudget(g.particles);
   if (!gSelftest) glfwSwapInterval(s.vsync ? 1 : 0);
@@ -190,6 +202,7 @@ void Settings::capture(const App& app) {
   g.shadowQuality = R.shadowNearPx() < 4096 ? 0 : R.shadowFarPx() >= 4096 ? 2 : 1;
   g.farCascade = R.q.farCascade; g.cloudShadows = R.q.cloudShadows; g.shafts = R.q.shafts; g.ssr = R.q.ssr; g.ssao = R.q.ssao; g.bloom = R.q.bloom;
   g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds;
+  g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
   g.grass = (int)app.grass.quality;
   s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers;
   s.editorFly = navState().speedMult;
@@ -262,6 +275,22 @@ void settingsWindow(App& app) {
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Draw distance", &g.drawDist, 0.4f, 2.0f, "x %.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Scales the small-decoration cull distances and the far draw cuts (nature, trees, buildings).");
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Particle budget", &g.particles, 0.25f, 2.5f, "x %.2f");
+      ImGui::SeparatorText("Lighting");
+      {   // L2 (docs/lighting.md): time of day is personal (kept when a preset is picked); the rest belongs to the presets
+        int tp = (int)todPresetOf(u.hour); const char* tn[] = {"Day", "Dusk", "Night", "Dawn", "Custom"};
+        ImGui::SetNextItemWidth(200);
+        if (ImGui::Combo("Time of day", &tp, tn, 5) && tp != (int)TodPreset::Custom) u.hour = todPresetHour((TodPreset)tp);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Day is the standard look. Dusk and Dawn: low sun, long shadows. Night: moon, stars, lamps.");
+        int hh = (int)u.hour, mm = (int)std::lround((u.hour - hh) * 60); if (mm == 60) { ++hh; mm = 0; }
+        char hl[32]; std::snprintf(hl, sizeof hl, "%02d:%02d", hh % 24, mm);
+        ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl);
+        ImGui::SetNextItemWidth(200); ImGui::SliderInt("Light count", &g.lightCount, 0, 1024);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lamps, lanterns and fires lit each frame (nearest first).");
+        { int sl[] = {0, 2, 4, 8}; const char* sn[] = {"Off", "2", "4", "8"}; int si = 0; for (int k = 0; k < 4; ++k) if (sl[k] == g.shadowLights) si = k;
+          ImGui::SetNextItemWidth(200); if (ImGui::Combo("Shadowed lights", &si, sn, 4)) g.shadowLights = sl[si]; }
+        { const char* gn[] = {"Off", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Indirect light", &g.gi, gn, 3);
+          if (ImGui::IsItemHovered()) ImGui::SetTooltip("Probe light around the camera: lamplight and window light bounce onto walls and ceilings.\nOff: the flat fill of earlier versions."); }
+      }
       ImGui::Separator();
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Field of view", &u.fov, 55.0f, 100.0f, "%.0f deg");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Vertical field of view on foot (72 standard). Aiming and gun sights narrow from it.");

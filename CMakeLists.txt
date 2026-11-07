@@ -82,6 +82,7 @@ include(cmake/w5.cmake)     # W5 default maps runtime + suite
 include(cmake/nature.cmake) # natural ground dressing (boulders, flowers, tall grass, stones, shrubs)
 include(cmake/settings.cmake) # V2: Settings window, graphics presets, --selftest-settings
 include(cmake/vo1.cmake)    # V1: water pass, --selftest-render (facades, walls, water)
+include(cmake/lt2.cmake)    # L2: lighting engine, --selftest-lights (docs/lighting.md)
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

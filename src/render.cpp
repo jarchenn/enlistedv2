@@ -1,6 +1,15 @@
 #include "render.h"
 #include "nature.h"
 #include <chrono>
+// L2 lighting engine hooks (src/lighting.cpp, docs/lighting.md)
+void lightingInit(Renderer& R, const char* kCommonSrc, const char* kMainFSSrc);
+void lightingBegin(Renderer& R, const RenderView& v);
+void lightingPrepass(Renderer& R, const RenderView& v, const std::vector<DrawItem>& opaque, const Terrain& t);
+void lightingEnd(Renderer& R);
+void lightingTodColors(const Renderer& R, vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySun, vec3& skySunCol);
+void lightingUniforms(Renderer& R, GLuint p);
+void lightingExposure(const Renderer& R, GLuint p);
+float lightingFixedExposure(const Renderer& R);
 
 // ============================================================== shaders
 static const char* kCommon = R"GLSL(
@@ -29,6 +38,9 @@ uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = lega
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
+// ---- L2 lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, probe GI
+uniform vec3 uSkyZen, uSkyHor;    // sky model zenith / horizon colour (time of day; Day = the BSL-pass constants)
+uniform vec3 uSkySun, uSkySunCol; // true sun direction and colour for the sky dome / haze glow (the key light may be the moon)
 
 // interleaved gradient noise (Jimenez 2014), rotated per frame
 float ign(vec2 p){ return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715))) + float(uFrame % 64)*0.618034); }
@@ -126,26 +138,29 @@ vec3 gInd = vec3(0.0); float gFogT = 1.0;
 // Relief inputs from the wall materials (kMainFS, docs/rendering.md#rough-walls): gNg = the geometric normal when the
 // material bumped N (zero otherwise), gCavity = how much of the sky a relief recess still sees (mortar, hollows).
 vec3 gNg = vec3(0.0); float gCavity = 1.0;
+vec3 gEyeOv = vec3(1e30);   // L2 probe captures: the probe is the eye (kMainFS sets it from the capture vertex shader)
 uniform float uHazeH;       // aerial-perspective scale height (m)
 vec3 skyColor(vec3 d){
   float h = clamp(d.y, -1.0, 1.0);
-  float sd = max(dot(d, uSunDir), 0.0);
+  float sd = max(dot(d, uSkySun), 0.0);
   if (uLook == 0) {
-    vec3 zen = vec3(0.33,0.44,0.60)*1.25, hor = vec3(0.74,0.77,0.79)*1.25, gnd = vec3(0.40,0.41,0.38);
+    vec3 tk = uSkyHor/vec3(0.80, 0.84, 0.87);   // time-of-day scale of the legacy dome (1 by day)
+    vec3 zen = vec3(0.33,0.44,0.60)*1.25*tk, hor = vec3(0.74,0.77,0.79)*1.25*tk, gnd = vec3(0.40,0.41,0.38)*tk;
     vec3 c = h > 0.0 ? mix(hor, zen, pow(h, 0.55)) : mix(hor, gnd, clamp(-h*4.0,0.0,1.0));
-    return c + uSunCol * (pow(sd, 400.0)*6.0 + pow(sd, 12.0)*0.12);
+    return c + uSkySunCol * (pow(sd, 400.0)*6.0 + pow(sd, 12.0)*0.12);
   }
   // Exponential gradient: the horizon is brightest and greyest (long air path), the zenith a soft Channel blue.
   // The sun side of the sky is lifted and warmed (forward scattering by haze), the opposite side stays cool.
-  vec3 zen = vec3(0.28, 0.40, 0.62), hor = vec3(0.80, 0.84, 0.87), gnd = vec3(0.36, 0.37, 0.34);
+  // Day: zen (0.28, 0.40, 0.62), hor (0.80, 0.84, 0.87); the time of day moves both (lighting.cpp todCompute)
+  vec3 zen = uSkyZen, hor = uSkyHor, gnd = vec3(0.36, 0.37, 0.34)*(uSkyHor/vec3(0.80, 0.84, 0.87));
   float up = max(h, 0.0);
   float g = exp(-up*3.2);                                       // 1 at the horizon -> ~0.04 at the zenith
   vec3 c = mix(zen, hor, g);
   float halo = pow(sd, 6.0)*0.22 + pow(sd, 48.0)*0.55;
-  c += uSunCol*vec3(1.0, 0.93, 0.80)*halo*(0.35 + 0.65*g)*0.32;
+  c += uSkySunCol*vec3(1.0, 0.93, 0.80)*halo*(0.35 + 0.65*g)*0.32;
   c *= 1.0 - 0.06*(1.0 - sd)*(1.0 - g);                         // anti-solar sky a touch deeper
   if (h < 0.0) c = mix(hor*0.92, gnd, clamp(-h*5.0, 0.0, 1.0));   // below the horizon (reflections only)
-  c += uSunCol*pow(sd, 900.0)*7.0*step(0.0, h);                  // sun disc
+  c += uSkySunCol*pow(sd, 900.0)*7.0*step(0.0, h);               // sun disc
   return c;
 }
 // Aerial perspective: height-falloff haze integrated along the view ray, density rho(y) = rho0 exp(-y / Hh).
@@ -167,16 +182,170 @@ vec3 applyFog(vec3 col, vec3 w){
   float f = 1.0 - exp(-tau);
   vec3 fd = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
-  float sd = max(dot(dir, uSunDir), 0.0);
-  fc += uSunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
+  float sd = max(dot(dir, uSkySun), 0.0);
+  fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
   gFogT = 1.0 - f;
   return mix(col, fc, f);
 }
 float D_GGX(float NdH, float a){ float a2=a*a; float d=NdH*NdH*(a2-1.0)+1.0; return a2/(PI*d*d); }
 float G_Smith(float NdV, float NdL, float r){ float k=(r+1.0)*(r+1.0)/8.0; return (NdV/(NdV*(1.0-k)+k))*(NdL/(NdL*(1.0-k)+k)); }
 vec3 F_Schlick(float c, vec3 F0){ return F0 + (1.0-F0)*pow(1.0-c, 5.0); }
+// ---- local lights: clustered forward (lighting.cpp builds the froxel lists in a compute pass)
+struct LLight { vec4 posR; vec4 colI; vec4 dirC; vec4 misc; };   // pos, radius | rgb x intensity (flicker applied) | spot dir, cos outer | cos inner, shadow slot, spot, -
+layout(std430, binding = 5) readonly buffer NmkLights { LLight gLights[]; };
+layout(std430, binding = 6) readonly buffer NmkClusters { uint gCluster[]; };      // per froxel: count, then max-per indices
+layout(std430, binding = 7) readonly buffer NmkLShadowVP { mat4 gLShadowVP[]; };   // 6 per shadow slot (cube faces; spot: face 0)
+#ifdef NMK_PROBE_RW
+layout(std430, binding = 8) buffer NmkProbes { vec4 gProbe[]; };                   // the probe projection pass writes them
+#else
+layout(std430, binding = 8) readonly buffer NmkProbes { vec4 gProbe[]; };          // 4 per probe: SH R, G, B (irradiance / pi), pos + valid
+#endif
+uniform int uLightCount, uLightMode;   // mode 0: froxel clusters (camera passes), 1: every light (probe captures)
+uniform vec4 uClusterP;                // unjittered projection [0][0], [1][1], [2][0], [2][1]
+uniform vec4 uClusterZ;                // near (m), slices / ln(far / near)
+uniform ivec4 uClusterDim;             // nx, ny, nz, max lights per froxel
+uniform vec2 uScreen;                  // camera target size (px)
+uniform mat4 uViewM;                   // camera view matrix
+uniform sampler2DShadow uLShadow;      // unit 16: light shadow atlas (standard Z)
+uniform vec4 uLShadowTile;             // tile px, atlas w, atlas h
+uniform float uLampUnit;               // irradiance at 1 m of intensity 1 (scene units; the Day sun is 3.3)
+float lightFalloff(float d2, float r){ float x = d2/(r*r); float w = clamp(1.0 - x*x, 0.0, 1.0); return w*w/max(d2, 0.09); }
+float lightShadow(int slot, bool spot, vec3 w, vec3 Ng, vec3 lp, vec3 L){
+  vec3 d = w - lp; int face = 0;
+  if (!spot) { vec3 a = abs(d); face = (a.x >= a.y && a.x >= a.z) ? (d.x > 0.0 ? 0 : 1) : (a.y >= a.z ? (d.y > 0.0 ? 2 : 3) : (d.z > 0.0 ? 4 : 5)); }
+  float dist = length(d);
+  vec3 q = w + Ng*(0.02 + 0.012*dist) + L*(0.01 + 0.01*dist);   // normal offset and a pull toward the light (acne)
+  vec4 c = gLShadowVP[slot*6 + face]*vec4(q, 1.0);
+  if (c.w <= 1e-4) return 1.0;
+  vec3 s = c.xyz/c.w*0.5 + 0.5;
+  if (s.z >= 1.0 || s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0) return 1.0;
+  float T = uLShadowTile.x; vec2 inset = vec2(1.5/T);
+  vec2 base = vec2(float(face), float(slot))*T;
+  float sum = 0.0;
+  for (int i = 0; i < 4; ++i) {
+    vec2 o = (vec2(float(i & 1), float(i >> 1)) - 0.5)*1.2/T;
+    vec2 uv = (base + clamp(s.xy + o, inset, 1.0 - inset)*T)/uLShadowTile.yz;
+    sum += texture(uLShadow, vec3(uv, s.z - 0.0004));
+  }
+  return sum*0.25;
+}
+void lightTerm(int i, vec3 w, vec3 N, vec3 Ng, vec3 V, float a, float rough, vec3 F0, inout vec3 dif, inout vec3 spe){
+  LLight l = gLights[i];
+  vec3 dl = l.posR.xyz - w; float d2 = dot(dl, dl);
+  if (d2 >= l.posR.w*l.posR.w) return;
+  float d = sqrt(d2); vec3 L = dl/max(d, 1e-4);
+  float NdL = dot(N, L);
+  if (NdL <= 0.0) return;
+  float att = lightFalloff(d2, l.posR.w);
+  if (l.dirC.w > -1.0) att *= smoothstep(l.dirC.w, max(l.misc.x, l.dirC.w + 1e-3), dot(-L, l.dirC.xyz));
+  if (att <= 0.0) return;
+  if (l.misc.y >= 0.0) att *= lightShadow(int(l.misc.y + 0.5), l.misc.z > 0.5, w, Ng, l.posR.xyz, L);
+  vec3 E = l.colI.rgb*(uLampUnit*att*NdL);
+  dif += E;
+  if (a > 0.0) {
+    vec3 H = normalize(V + L); float NdV = max(dot(N, V), 1e-3), NdH = max(dot(N, H), 0.0);
+    spe += E*D_GGX(NdH, a)*G_Smith(NdV, NdL, rough)*F_Schlick(max(dot(H, V), 0.0), F0)/(4.0*NdV*max(NdL, 1e-3));
+  }
+}
+// Sum of the local lights at w: dif = irradiance (times NdL, shadowed), spe = GGX specular radiance. rough < 0: diffuse only.
+void localLights(vec3 w, vec3 N, vec3 Ng, vec3 V, float rough, vec3 F0, out vec3 dif, out vec3 spe){
+  dif = vec3(0.0); spe = vec3(0.0);
+  if (uLightCount <= 0) return;
+  float a = rough < 0.0 ? 0.0 : max(rough*rough, 0.02);
+#ifdef NMK_FS
+  if (uLightMode == 0) {
+    float vz = -(uViewM*vec4(w, 1.0)).z;
+    int sz = int(floor(log(max(vz, uClusterZ.x)/uClusterZ.x)*uClusterZ.y));
+    if (sz >= uClusterDim.z) return;
+    ivec2 t = clamp(ivec2(gl_FragCoord.xy/uScreen*vec2(uClusterDim.xy)), ivec2(0), uClusterDim.xy - 1);
+    int base = ((sz*uClusterDim.y + t.y)*uClusterDim.x + t.x)*(uClusterDim.w + 1);
+    int n = int(gCluster[base]);
+    for (int k = 0; k < n; ++k) lightTerm(int(gCluster[base + 1 + k]), w, N, Ng, V, a, rough, F0, dif, spe);
+    return;
+  }
+#endif
+  for (int i = 0; i < uLightCount; ++i) lightTerm(i, w, N, Ng, V, a, rough, F0, dif, spe);
+}
+// ---- indirect light: DDGI-lite probe volumes around the camera (lighting.cpp). Each probe holds L1 SH of its captured
+// radiance (stored as irradiance / pi: E(n)/pi = c.x + dot(c.yzw, n)) and an 8x8 octahedral tile of the distance to
+// the nearest surface (mean, mean^2) for a Chebyshev visibility test, so light does not leak through walls.
+uniform int uGiOn, uGiCascades;
+uniform vec4 uGiGrid[2];               // spacing (m), capture range (m)
+uniform ivec4 uGiOrg[2];               // origin cell (world cell index), first probe index
+uniform ivec4 uGiDim[2];               // probes per axis
+uniform sampler2D uGiVis;              // unit 17
+uniform int uGiVisCols;                // tiles per atlas row
+uniform float uGiOpenK;                // share of the analytic sky model where the sky is open (1 by day)
+vec2 octEncode(vec3 n){
+  n /= (abs(n.x) + abs(n.y) + abs(n.z));
+  vec2 p = n.xz;
+  if (n.y < 0.0) p = (1.0 - abs(p.yx))*vec2(n.x >= 0.0 ? 1.0 : -1.0, n.z >= 0.0 ? 1.0 : -1.0);
+  return p;
+}
+vec3 octDecode(vec2 p){
+  vec3 n = vec3(p.x, 1.0 - abs(p.x) - abs(p.y), p.y);
+  if (n.y < 0.0) { vec2 q = (1.0 - abs(n.zx))*vec2(n.x >= 0.0 ? 1.0 : -1.0, n.z >= 0.0 ? 1.0 : -1.0); n.x = q.x; n.z = q.y; }
+  return normalize(n);
+}
+int giIndex(int c, ivec3 cell){ ivec3 n = uGiDim[c].xyz; ivec3 m = ((cell % n) + n) % n; return uGiOrg[c].w + (m.y*n.z + m.z)*n.x + m.x; }
+vec2 giVisUV(int idx, vec3 d){
+  vec2 o = octEncode(d)*0.5 + 0.5;
+  vec2 tile = vec2(float(idx % uGiVisCols), float(idx / uGiVisCols));
+  return (tile*8.0 + 0.5 + o*7.0)/vec2(textureSize(uGiVis, 0));
+}
+// Probe irradiance / pi at w for normal N (and for direction R in env). Returns the probe coverage 0..1: the caller
+// keeps its analytic term for the rest (outside the volumes, no visible probe).
+float giSample(vec3 w, vec3 Ng, vec3 N, vec3 R, out vec3 irr, out vec3 env){
+  irr = vec3(0.0); env = vec3(0.0);
+  if (uGiOn == 0) return 0.0;
+  float rem = 1.0;
+  for (int c = 0; c < uGiCascades; ++c) {
+    float s = uGiGrid[c].x;
+    ivec3 n = uGiDim[c].xyz;
+    vec3 g = w/s - vec3(uGiOrg[c].xyz);
+    if (any(lessThan(g, vec3(0.0))) || any(greaterThanEqual(g, vec3(n - 1)))) continue;
+    vec3 edge = min(g, vec3(n - 1) - g);
+    float cw = c + 1 < uGiCascades ? clamp(min(min(edge.x, edge.y), edge.z), 0.0, 1.0) : 1.0;   // fade to the next volume over the outer cell
+    ivec3 b = ivec3(floor(g)); vec3 f = g - vec3(b);
+    vec3 q = w + Ng*(0.18*s);   // visibility bias along the geometric normal
+    vec4 sR = vec4(0.0), sG = vec4(0.0), sB = vec4(0.0); float sw = 0.0, tw = 0.0;
+    for (int k = 0; k < 8; ++k) {
+      ivec3 o = ivec3(k & 1, (k >> 1) & 1, k >> 2);
+      int idx = giIndex(c, uGiOrg[c].xyz + b + o);
+      vec3 tri = mix(1.0 - f, f, vec3(o));
+      float wt = tri.x*tri.y*tri.z;
+      vec4 pp = gProbe[idx*4 + 3];
+      if (pp.w < 0.5) continue;
+      tw += wt;
+      vec3 toP = pp.xyz - w; float dp = length(toP);
+      float bf = (dot(toP/max(dp, 1e-4), Ng) + 1.0)*0.5; wt *= bf*bf + 0.05;   // probes behind the surface count less
+      vec3 pd = q - pp.xyz; float r = length(pd);
+      vec2 m = textureLod(uGiVis, giVisUV(idx, pd/max(r, 1e-4)), 0.0).rg;
+      if (r > m.x) { float var = max(m.y - m.x*m.x, 0.0004); float dd = r - m.x; float ch = var/(var + dd*dd); wt *= ch*ch*ch; }
+      if (wt < 1e-6) continue;
+      sR += gProbe[idx*4]*wt; sG += gProbe[idx*4 + 1]*wt; sB += gProbe[idx*4 + 2]*wt; sw += wt;
+    }
+    if (sw <= 1e-5) continue;
+    float conf = clamp(tw*4.0, 0.0, 1.0)*clamp(sw/max(tw, 1e-4)*8.0, 0.0, 1.0);
+    sR /= sw; sG /= sw; sB /= sw;
+    vec3 e = max(vec3(sR.x + dot(sR.yzw, N), sG.x + dot(sG.yzw, N), sB.x + dot(sB.yzw, N)), vec3(0.0));
+    vec3 v = max(vec3(sR.x + dot(sR.yzw, R), sG.x + dot(sG.yzw, R), sB.x + dot(sB.yzw, R)), vec3(0.0));
+    float take = rem*cw*conf;
+    irr += e*take; env += v*take; rem -= take;
+    if (rem <= 1e-3) break;
+  }
+  return 1.0 - rem;
+}
+// The hemisphere term of the cheaper copies (leaf, grass, water): probe light where the sky is hidden or by night.
+vec3 giAmbient(vec3 w, vec3 N, float sv, vec3 analytic){
+  if (uGiOn == 0) return analytic;
+  float k = clamp(sv*uGiOpenK, 0.0, 1.0);
+  if (k >= 0.98) return analytic;
+  vec3 gi, ge; float cov = giSample(w, N, N, N, gi, ge);
+  return mix(max(gi + analytic*(1.0 - cov), analytic), analytic, k);   // probe light only adds (as in shade())
+}
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
-  vec3 V = normalize(uCamPos - w);
+  vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
   vec3 L = uSunDir; vec3 H = normalize(V+L);
   float NdL = max(dot(N,L),0.0), NdV = max(dot(N,V),1e-3), NdH = max(dot(N,H),0.0);
   float a = max(rough*rough, 0.02);
@@ -192,7 +361,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
-  float cav = 1.0;
+  float cav = 1.0, relK = 1.0;
   if (uLook == 1 && dot(gNg, gNg) > 0.5) {
     // relief under sky light (bent normal): the sky toward the sun and overhead is brighter than the far side and the
     // horizon band, so a relief facet turned toward the sun's azimuth or up gathers more of it and one turned away
@@ -202,15 +371,31 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
     vec2 az = uSunDir.xz/max(length(uSunDir.xz), 1e-3);
     float rel = dot(dn.xz, az)*0.9 + dn.y*0.6;
     cav = clamp(gCavity, 0.3, 1.0);
-    irr *= clamp(1.0 + rel, 0.55, 1.5)*cav;
+    relK = clamp(1.0 + rel, 0.55, 1.5)*cav;
+    irr *= relK;
   }
   vec3 R = reflect(-V, N);
   vec3 Fr = F0 + (max(vec3(1.0-rough), F0)-F0)*pow(1.0-NdV, 5.0);
-  vec3 envL = mix(uFill * 2.4 + uGroundCol * 0.25, skyColor(R) * amb, sv);
+  vec3 envOcc = uFill * 2.4 + uGroundCol * 0.25;
+  if (uGiOn == 1) {   // probe GI replaces the fill term where the sky is hidden (and outdoors by night): docs/lighting.md
+    float k = clamp(sv*uGiOpenK, 0.0, 1.0);
+    if (k < 0.98) {
+      vec3 gi, ge; float cov = giSample(w, Ng, N, R, gi, ge);
+      if (cov > 0.0) {
+        // probe light only ever adds to the analytic term (the old fill is the floor): a sealed room keeps today's look
+        // by Day and the analytic term fades out by night, where lamps and window spill take over
+        vec3 giIrr = gi*relK + irr*(1.0 - cov);
+        irr = mix(max(giIrr, irr), irr, k);
+        envOcc = max(ge*0.9 + envOcc*(1.0 - cov), envOcc);
+      }
+    }
+  }
+  vec3 envL = mix(envOcc, skyColor(R) * amb, sv);
   vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6 * cav;
   // material AO darkens the light arriving from the hemisphere, not the direct sun (legacy: everything)
   float aoD = mix(ao, 1.0, uAoIndirectOnly);
   vec3 r = direct*aoD + (irr*alb*kd + envSpec*mix(1.0, ao, 0.7)) * ao;
+  if (uLightCount > 0) { vec3 ld, ls; localLights(w, N, Ng, V, rough, F0, ld, ls); r += (kd*alb/PI*ld + ls)*aoD; }
   gInd = irr*alb*kd*ao;
   return (any(isnan(r)) || any(isinf(r))) ? vec3(0.0) : r;   // never write a non-finite HDR value
 }
@@ -219,18 +404,21 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
 static const char* kMainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec3 aAlb;
 layout(location=3) in vec4 aPar; layout(location=4) in vec3 aPc; layout(location=5) in vec3 aPn;
+layout(location=6) in vec3 aEmi;   // material emission (L2); VAOs without the attribute read 0
 uniform mat4 uModel, uVP;
-out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn; out vec4 vPar;
+out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye;
 void main(){
   vec4 w = uModel*vec4(aPos,1.0);
-  vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm;
+  vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi; vEye = uCamPos;
   gl_Position = uVP*w;
 }
 )GLSL";
 
 static const char* kMainFS = R"GLSL(
-in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn; in vec4 vPar;
+in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; in vec4 vPar; flat in vec3 vEye;
 uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world structures get localized weathering
+uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
+uniform int uCapture;              // L2 probe capture: radiance + front-facing flag, no emission
 uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
 layout(location=0) out vec4 oColor;
 layout(location=1) out float oDist;   // eye distance, only stored during the first-person pass (depth of field)
@@ -336,6 +524,7 @@ float woodGrain(float along, float across, float seed){
        + 0.15 * smoothstep(0.3, 0.7, fract(across * 18.0 + vnoise(vec3(along * 0.8, across * 6.0, seed)) * 2.5));
 }
 void main(){
+  if (uCapture == 1) gEyeOv = vEye;
   gPix = max(length(dFdx(vW)), length(dFdy(vW)));
   int pat = int(vPar.x + 0.5);
   vec3 alb = vAlb; float rough = vPar.y, metal = vPar.z; int grain = int(vPar.w+0.5);
@@ -1053,6 +1242,8 @@ void main(){
     }
   }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
+  if (uCapture == 1) { oColor = vec4(c*uTint.rgb, gl_FrontFacing ? 1.0 : 0.0); return; }
+  c += vEmi*(uGlow*uEmissiveK);   // emission: into the HDR target before bloom, never into the indirect (AO) buffer
   c = applyFog(c, vW);
   oDist = length(vW - uCamPos);
   if (uTint.a < 0.999) { c = mix(c, uTint.rgb, 0.55); oColor = vec4(c, uTint.a); oAmb = vec4(0.0); oNR = vec4(0.0, 1.0, 0.0, 1.0); oVel = vec4(0.0); return; }
@@ -1064,7 +1255,8 @@ void main(){
 )GLSL";
 
 static const char* kGlassFS = R"GLSL(
-in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn; in vec4 vPar;
+in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; in vec4 vPar;
+uniform float uGlow, uEmissiveK;
 out vec4 oColor;
 void main(){
   vec3 N = normalize(vN); vec3 V = normalize(uCamPos - vW);
@@ -1076,14 +1268,20 @@ void main(){
   vec3 R = reflect(-V, N);
   float sv = skyVis(vW, N);
   vec3 refl = skyColor(R) * mix(0.25, 1.0, sv);
+  if (uGiOn == 1 && sv*uGiOpenK < 0.98) {   // reflections of a lit room / street at night (probe GI)
+    vec3 gi, ge; float cov = giSample(vW, N, R, R, gi, ge);
+    refl = mix(max(mix(refl, ge*1.2, cov), refl), refl, clamp(sv*uGiOpenK, 0.0, 1.0));
+  }
   vec3 H = normalize(V + uSunDir);
   float spec = pow(max(dot(N,H),0.0), 600.0) * 30.0 * shadowPCF(vW, N);
   float dirt = fbm(vAp*6.0);
   vec3 tint = vec3(0.82,0.88,0.84);
   vec3 c = refl*F + uSunCol*spec*F + tint*0.03*dirt;
+  if (uLightCount > 0) { vec3 ld, ls; localLights(vW, N, N, V, 0.05, vec3(0.04), ld, ls); c += ls + tint*ld*0.02; }   // lamp highlights on the panes
   float a = clamp(0.10 + F*0.85 + dirt*0.08, 0.0, 0.95);
+  vec3 emi = vEmi*(uGlow*uEmissiveK);   // lit lamp glass: added in full whatever the pane alpha
   c = applyFog(c, vW);
-  oColor = vec4(c / max(a, 0.05), a);
+  oColor = vec4((c + emi) / max(a, 0.05), a);
 }
 )GLSL";
 
@@ -1473,12 +1671,18 @@ void main(){
     if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.xy, sc.z - 0.002)); }
   float ndl = max(dot(N, uSunDir), 0.0)*0.7 + 0.3;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.45, 1.0, 0.5 + 0.5*N.y);
-  if (uShadowSoft > 0.0) irr *= mix(0.4, 1.0, skyVis(vW, N));   // the inner canopy sees less sky
+  float lsv = uShadowSoft > 0.0 ? skyVis(vW, N) : 1.0;
+  if (uShadowSoft > 0.0) irr *= mix(0.4, 1.0, lsv);   // the inner canopy sees less sky
+  irr = giAmbient(vW, N, lsv, irr);                   // L2: probe light by night / under cover
   vec3 V = normalize(uCamPos - vW);
   // subsurface: light through the leaf toward the viewer, tinted by the leaf (stronger looking into the sun)
   float VoL = max(dot(-V, uSunDir), 0.0);
   vec3 sss = alb*normalize(alb + 1e-4)*uSunCol*(0.05 + 0.22*pow(VoL, 6.0))*sh;
   vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7*vShade + (uShadowSoft > 0.0 ? sss : alb*uSunCol*0.08*pow(VoL, 4.0)*sh);
+  if (uLightCount > 0) {   // lamps: wrapped diffuse, both faces of the card (thin leaves)
+    vec3 ld, ls, lb; localLights(vW, N, N, V, -1.0, vec3(0.04), ld, ls); localLights(vW, -N, -N, V, -1.0, vec3(0.04), lb, ls);
+    c += alb/PI*(ld + lb*0.6)*vShade;
+  }
   c = applyFog(c, vW);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
   oAmb = vec4(irr*alb*0.7*vShade*gFogT*0.5, 1.0);   // canopies: half weight (their own sky occlusion already darkens them)
@@ -1796,7 +2000,9 @@ void main(){
   }
   float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
+  irr = giAmbient(vW, N, sv, irr);   // L2: probe light by night / under cover
   vec3 c = (alb/PI*uSunCol*ndl*sh + irr*alb) * mix(0.72, 1.0, lv);
+  if (uLightCount > 0) { vec3 ld, ls; localLights(vW, vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), -1.0, vec3(0.04), ld, ls); c += alb/PI*ld*mix(0.72, 1.0, lv); }   // lamps: blades lit as the ground under them
   vec3 V = normalize(uCamPos - vW);
   c += alb * uSunCol * 0.10 * pow(max(dot(-V, uSunDir), 0.0), 3.0) * lv * sh;   // thin-leaf transmission
   c = applyFog(c, vW);
@@ -1815,11 +2021,24 @@ void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUV = p; gl_Posit
 static const char* kSkyFS = R"GLSL(
 in vec2 vUV;
 uniform mat4 uInvVP; uniform int uCloudOn; uniform float uCloudCover, uTime;
+uniform vec3 uMoonDir, uMoonCol, uCloudLit; uniform float uStars;   // L2 time of day (Day: no moon / stars, clouds x1)
 out vec4 oColor;
 void main(){
   vec4 a = uInvVP*vec4(vUV*2.0-1.0, -1.0, 1.0), b = uInvVP*vec4(vUV*2.0-1.0, 1.0, 1.0);
   vec3 d = normalize(b.xyz/b.w - a.xyz/a.w);
   vec3 c = skyColor(d);
+  if (uStars > 0.0 && d.y > 0.0) {   // stars: a fixed hashed field on the sphere, faint twinkle
+    vec3 q = d*190.0; vec3 id = floor(q); float h = hash13(id);
+    if (h > 0.9955) {
+      vec3 cc = id + 0.5 + (vec3(hash13(id + 1.7), hash13(id + 4.3), hash13(id + 9.1)) - 0.5)*0.6;
+      float r = length(q - cc), tw = 0.7 + 0.3*sin(uTime*(1.5 + 4.0*hash13(id + 3.1)) + h*60.0);
+      c += vec3(0.85, 0.9, 1.0)*(1.0 - smoothstep(0.0, 0.45, r))*tw*uStars*0.05*((h - 0.9955)/0.0045 + 0.25)*smoothstep(0.0, 0.2, d.y);
+    }
+  }
+  if (dot(uMoonCol, uMoonCol) > 0.0) {   // moon disc and a small halo
+    float md = dot(d, uMoonDir);
+    c += uMoonCol*(smoothstep(0.99985, 0.99992, md)*55.0 + pow(max(md, 0.0), 300.0)*0.8);
+  }
   if (uCloudOn == 1 && d.y > 0.0) {
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
     vec2 cpw = uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells)
@@ -1842,7 +2061,7 @@ void main(){
       float far = 1.0 - smoothstep(0.02, 0.25, d.y);           // distant cloud fades into the horizon haze
       lit = mix(lit, skyColor(d), far*0.65);
     }
-    c = mix(c, lit, cl*0.9*smoothstep(0.0, 0.12, d.y));
+    c = mix(c, lit*uCloudLit, cl*0.9*smoothstep(0.0, 0.12, d.y));
   }
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? skyColor(d) : c, 1.0);
 }
@@ -1882,6 +2101,7 @@ void main(){
 static const char* kExpoFS = R"GLSL(
 #version 450 core
 uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
+uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .. 1.45; night opens the range (lighting.cpp)
 out float oE;
 void main(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
@@ -1890,7 +2110,7 @@ void main(){
   float lr = dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
   float l = max(lr, 1e-4);
-  float target = clamp(0.24/l, 0.9, 1.45);
+  float target = clamp(uExpoKey/l, uExpoMin, uExpoMax);
   float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
@@ -2032,6 +2252,7 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferTexture(thumbHdrFbo, GL_COLOR_ATTACHMENT0, thumbHdr, 0);
   glNamedFramebufferTexture(thumbHdrFbo, GL_DEPTH_ATTACHMENT, thumbDepth, 0);
   resize(w, h);
+  lightingInit(*this, kCommon, kMainFS);   // L2: clusters, light shadows, probe volumes
   return true;
 }
 
@@ -2181,6 +2402,10 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   // shadowed sides read blue-grey and lit faces warm, while shadows stay open (no crushed blacks).
   vec3 sun(2.65f, 2.52f, 2.32f), sky(0.42f, 0.49f, 0.60f), ground(0.20f, 0.19f, 0.155f), fog(0.64f, 0.68f, 0.72f), fill(0.10f, 0.095f, 0.08f);
   if (!q.legacy) { sun = vec3(3.30f, 3.05f, 2.62f); sky = vec3(0.30f, 0.36f, 0.47f); ground = vec3(0.17f, 0.155f, 0.12f); fill = vec3(0.075f, 0.072f, 0.065f); }
+  vec3 zen(0.28f, 0.40f, 0.62f), hor(0.80f, 0.84f, 0.87f), skySun = sunDir, skySunCol = sun;
+  lightingTodColors(*this, sun, sky, ground, fog, fill, zen, hor, skySun, skySunCol);   // L2 time of day (no change by Day / in thumbnails)
+  glUniform3fv(U(p, "uSkyZen"), 1, glm::value_ptr(zen)); glUniform3fv(U(p, "uSkyHor"), 1, glm::value_ptr(hor));
+  glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
   glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
   glUniform3fv(U(p, "uGroundCol"), 1, glm::value_ptr(ground));
@@ -2213,17 +2438,20 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
   glUniform1f(U(p, "uHazeH"), q.hazeHeight);
   glUniform1f(U(p, "uTime"), time);
+  lightingUniforms(*this, p);   // L2: local lights, light shadows, probe GI, sky extras
 }
 
 void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shadowPass) {
   GLint lm = U(p, "uModel"), lt = U(p, "uTint");
   GLint li = shadowPass ? -1 : U(p, "uInst");
+  GLint lg = shadowPass ? -1 : U(p, "uGlow");   // L2: per-item emission multiplier
   static const SurfaceParams kDefaultSurf;
   const SurfaceParams* lastSurf = nullptr;
   for (auto& it : items) {
     if (!it.mesh || !it.mesh->count) continue;
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.model));
     if (!shadowPass && lt >= 0) glUniform4fv(lt, 1, glm::value_ptr(it.tint));
+    if (lg >= 0) glUniform1f(lg, it.glow);
     if (li >= 0) {   // building finish parameters (docs/interiors.md): uploaded only when the copy changes
       const SurfaceParams* sp = it.surf ? it.surf : &kDefaultSurf;
       if (sp != lastSurf) {
@@ -2356,6 +2584,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
   stats.draws = 0; stats.tris = 0;
   time += v.dt;
+  lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   if (qvalid) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[qidx ^ 1], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
   glBeginQuery(GL_TIME_ELAPSED, queries[qidx]);
@@ -2428,6 +2657,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels);
   glDisable(GL_POLYGON_OFFSET_FILL);
+  lightingPrepass(*this, v, opaque, t);   // L2: light upload, light shadow atlas, probe captures, froxel clusters (standard Z)
 
   // ---- main HDR pass. With TAA the world is rendered with a sub-pixel jitter (Halton 2,3, 8 phases); effects,
   // the weapon and overlays use the unjittered matrices.
@@ -2611,6 +2841,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progExpo, "uHdr"), 0); glUniform1i(U(progExpo, "uPrev"), 1);
   glUniform1f(U(progExpo, "uLod"), (float)levels); glUniform1f(U(progExpo, "uDt"), v.dt);
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
+  lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   expoIdx ^= 1;
 
@@ -2620,7 +2851,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
-  glUniform1f(U(progTone, "uFixedExpo"), v.autoExposure ? -1.0f : 1.0f);
+  glUniform1f(U(progTone, "uFixedExpo"), v.autoExposure ? -1.0f : lightingFixedExposure(*this));   // 1 by Day
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? q.bloomStrength : 0.0f);
@@ -2653,6 +2884,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0); glDepthFunc(GL_LESS);   // back to standard GL
   water.clear();
+  lightingEnd(*this);
   glEndQuery(GL_TIME_ELAPSED);
   qidx ^= 1; qvalid = true;
   stats.cpuMs = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - c0).count();

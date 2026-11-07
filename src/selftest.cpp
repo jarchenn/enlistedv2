@@ -137,6 +137,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool settingsSelfTest(App&, float); if (settingsSelfTest(app, dt)) return; }   // V2: --selftest-settings (selftest_settings.cpp)
   { extern bool autopathSelfTest(App&, float); if (autopathSelfTest(app, dt)) return; }   // --selftest-autopath (selftest_autopath.cpp)
   { extern bool renderSelfTest(App&, float); if (renderSelfTest(app, dt)) return; }   // V1: --selftest-render (selftest_render.cpp)
+  { extern bool lightsSelfTest(App&, float); if (lightsSelfTest(app, dt)) return; }   // L2: --selftest-lights (selftest_lights.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();

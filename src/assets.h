@@ -21,6 +21,7 @@ struct Material {
   float roughness = 0.8f, metallic = 0.0f;
   int pattern = PAT_PLAIN;
   int grainAxis = 1; // part-local axis that wood grain / slate courses follow; -1 = the part's longest axis (furniture)
+  vec3 emissive{0};  // "emissive": [r, g, b] linear HDR emission added before bloom (lamp glass, flames; docs/lighting.md)
 };
 
 // A primitive part. Boxes and triangular prisms, in a parent space.
@@ -43,6 +44,7 @@ struct Vertex {
   vec4 params;  // pattern, roughness, metallic, grain axis
   vec3 pcoord;  // part-local position (for rotated-part patterns)
   vec3 pnrm;    // part-local normal
+  vec3 emis{0}; // material emission (linear HDR, attribute 6)
 };
 
 struct MeshData { std::vector<Vertex> v; std::vector<uint32_t> i; };
