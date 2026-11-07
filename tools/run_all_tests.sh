@@ -31,6 +31,7 @@ run gore     --selftest-gore    # W7 gore: decals, droplets, budgets, Off mode, 
 run structures --selftest-structures   # W4 structure assets: nav, colliders, cuts, walk-throughs
 run aicourse --selftest-ai-course   # W6 AI: live navmesh rebuild + obstacle course (AI_SPEC 12.2 / 12.4, ~5 min)
 run nature   --selftest-nature  # natural ground dressing: boulders, patches, shrubs (docs/nature.md)
+run terrain  --selftest-terrain # V8 terrain sculpt, Generate hills, Beautify ring (docs/terrain-tools.md)
 run settings --selftest-settings   # V2: graphics presets, settings file and window, firing smoke (docs/settings.md)
 run autopath --selftest-autopath  # V9 auto paths: Connect houses on the village maps, curved path pieces (docs/entities.md)
 run snap     --selftest-snap    # V6: snapping trenches / hedges / paths: joints, caps, cut floors, texture origin

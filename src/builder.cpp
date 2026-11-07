@@ -20,6 +20,7 @@
 #include "app.h"
 #include "editor_nav.h"
 #include "palette.h"
+#include "snap.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -27,12 +28,11 @@
 static const char* kBuildItems[3] = {"def_tank_trap", "def_sandbag_straight", "def_sandbag_curved"};
 static constexpr float kBuildReach = 12.0f, kSnapR = 0.6f;
 
-// Snapping for the asset in hand. V6 hook: route through snap.cpp's sockets here once it lands; until then
-// sandbag sockets (snapDefense) and path ends (snapPath), as in the editor.
+// Snapping for the asset in hand: the editor's one snap API (snap.cpp: sockets, sandbag runs, path ends).
 static bool buildSnap(const App& app, const AssetDef* a, vec3& pos, float& yaw) {
-  if (app.snapDefense(a, pos, yaw)) return true;
-  if (a->path.on) { vec3 p = pos; float y = yaw; if (app.snapPath(a, p, y)) { bool moved = glm::length(p - pos) > 1e-4f || y != yaw; pos = p; yaw = y; return moved; } }
-  return false;
+  vec3 p = pos; float y = yaw;
+  if (!snapPlacement(app, a, p, y, 0)) return false;
+  pos = p; yaw = y; return true;   // snapped (a sandbag already at its socket still counts as snapped)
 }
 static bool isSession(const Instance& i) { return i.extra.is_object() && i.extra.value("session", false); }
 static bool buildRemovable(const App& app, const Instance& i) {

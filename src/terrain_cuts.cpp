@@ -33,7 +33,7 @@ bool overlaps(vec2 alo, vec2 ahi, vec2 blo, vec2 bhi) { return alo.x <= bhi.x &&
 }
 
 float Terrain::cutBase(float x, float z, uint64_t excludeOwner) const {
-  float b = baseHeight(x, z);
+  float b = groundBase(x, z);   // V8: cuts lower the sculpted ground
   for (auto& c : cuts) {
     if (excludeOwner && c.owner == excludeOwner) continue;
     b = std::min(b, cutTarget(c, vec2(x, z)));
@@ -68,7 +68,7 @@ void Terrain::recutTile(Tile& t) {
   t.cut = false;
   for (int j = 0; j < kFineN; ++j)
     for (int i = 0; i < kFineN; ++i) {
-      float x = o.x + i * fs, z = o.y + j * fs, raw = baseHeight(x, z);
+      float x = o.x + i * fs, z = o.y + j * fs, raw = groundBase(x, z);
       float nb = cutBase(x, z);
       size_t k = (size_t)j * kFineN + i;
       float delta = t.h[k] - t.base[k];   // crater deltas survive a re-cut
@@ -116,7 +116,7 @@ int Terrain::setCuts(std::vector<WorldCut> next) {
     Tile& t = it->second;
     recutTile(t);
     ++touched;
-    bool untouched = !t.cut;
+    bool untouched = !t.cut && !sculpt.count(k);   // V8: sculpted tiles stay
     if (untouched) for (size_t s = 0; s < t.h.size() && untouched; ++s) untouched = std::fabs(t.h[s] - t.base[s]) < 1e-5f && t.dirt[s] == 0.0f;
     if (untouched) {   // nothing left on this tile: back to the base mesh and the chunk collider
       if (t.vao) glDeleteVertexArrays(1, &t.vao);

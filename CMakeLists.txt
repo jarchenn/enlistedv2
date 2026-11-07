@@ -79,6 +79,7 @@ include(cmake/w3.cmake)     # editor & terrain (W3)
 include(cmake/recast.cmake) # W6: Recast/Detour navmesh + AI core
 include(cmake/w6b.cmake)    # W6b: AI tuning harness
 include(cmake/w5.cmake)     # W5 default maps runtime + suite
+include(cmake/v8.cmake)     # V8 terrain sculpt + Beautify
 include(cmake/nature.cmake) # natural ground dressing (boulders, flowers, tall grass, stones, shrubs)
 include(cmake/settings.cmake) # V2: Settings window, graphics presets, --selftest-settings
 include(cmake/v6.cmake)     # V6: snapping, crush & flatten (snap.cpp)

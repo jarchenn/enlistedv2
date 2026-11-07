@@ -401,3 +401,33 @@ After each batch:
   - **Not done:**
     - Deleting or moving a building does not un-flatten its old spot; undo does.
     - V3's rubble strip and V9's wheat squares get snapping as soon as their assets declare `snap` sockets (any kind).
+
+- 2026-11-07 **V8 (terrain sculpt + Beautify)**, branch `vo-8-terrain` (docs/terrain-tools.md).
+  - **New:**
+    - `src/terrain_brush.cpp` (brushes, sculpt layer, re-seating, Generate hills, UI) and `src/beautify.cpp` (scatter, outer ring, decor rows, decor draw);
+    - `src/terrain_tools.h` (API), `src/selftest_terrain.cpp`, `cmake/v8.cmake`, `content/settings/beautify.json`.
+  - **Data model:**
+    - `MapDoc::terrainSculpt` holds fine tiles and is saved as `"terrainSculpt"`.
+    - `MapDoc::terrainGen` holds `ring` and `hills`, saved as `"terrainGen"`.
+    - Sculpt is part of `Tile::base` (`Terrain::groundBase`), below cuts and craters. `terrainDeltas` keeps meaning crater damage only, so its `dirt` never covers sculpted ground.
+    - `Snapshot` carries both new fields. `restore()` regenerates the terrain when `terrainGen` changed.
+  - **Hooks** (one or two lines each):
+    - `app.h`: `Tool::Terrain`, Snapshot fields.
+    - `app.cpp`: snap/restore, the two `checkPlacement` border lines (`decorMayLeaveBorder`), the `--selftest-terrain` arg, `beautifyDecorDraw` next to `w5CullDraw`.
+    - `editor.cpp`: include, toolbar, menu, Terrain-tool branch, overlay, UI.
+    - Others: `editor_nav.cpp` `w3ApplyTerrain` (`terrain.gen = doc.terrainGen`), `ground.cpp` `resetGround` (`terrain.sculpt = doc.terrainSculpt`), `mapdoc.*`, `selftest.cpp`, `CMakeLists.txt`, `run_all_tests.sh`.
+    - V6 also edits `editor.cpp` and `checkPlacement`: my lines are self-contained additions next to existing calls.
+  - **Ring:**
+    - `Terrain::generate` adds `ring.tiles` whole tiles per side (6 = 94 m), so the inner grid keeps its world positions. Tile keys are remapped with `Terrain::remapKey`.
+    - Any stream that stores per-tile keys must remap them the same way, or key by world position.
+  - **For V4:** decor buildings carry `extra.decor = true` (all Beautify output also carries `extra.beautify = true`). They lie beyond the build area, so the navmesh, which is clamped to it, already excludes them.
+  - **For V1/V3/V9:** `beautify.json` patterns already list `water_pond*`, `water_crater*`, `water_puddle*`, `water_shell*`, `rub_*`, `ruin_*`, `nat_brush_*`, `nat_drygrass_*`, `nat_clover_*`, `nat_meadow_*`, `gc_*` and `wheat_*` (laid in blocks). Missing assets are skipped. Adjust the patterns at merge if your ids differ.
+  - **Note:** the scene renderer has no frustum culling; every opaque item goes through the main pass and three shadow passes. `beautifyDecorDraw` frustum-culls Beautify output beyond 140 m itself. A general cull in `render.cpp` (V2's area) would help every map.
+  - **Tests** (build-vo8, through `gpu_turn.sh`):
+    - `--selftest-terrain`: 43 passed, 0 failed.
+      - Dab cost on the 600 m map: about 2.5 ms (25 m radius), about 9 ms (60 m).
+      - Beautify on battle1: 451 scatter placements, 184 decor buildings, 162 hedges and 198 ring trees (620 → 1615 instances). The playable ground stays within 0.1 mm and the existing placements are untouched.
+      - Eye-level worst view: 16.23 → 16.25 ms.
+    - `--selftest-editor`: 66 passed, 0 failed.
+    - `--selftest-maps`: 139 passed, 0 failed (Omaha worst eye-level 15.34 ms).
+    - Earlier runs were noisy while another session's game build held the GPU outside the lock: Omaha hit 24 ms with identical draw counts.

@@ -36,6 +36,8 @@ struct MapDoc {
   json cameraBookmarks = json::object();   // editor view bookmarks "1".."9" (saved under editorCamera, like the view)
   std::map<int, std::vector<float>> terrainDeltas;   // applied ground damage: tile key -> per-sample metres
   int terrainTemplateVersion = 0;
+  std::map<int, std::vector<float>> terrainSculpt;   // V8 sculpted ground (terrain_brush.cpp): tile key -> per-sample metres
+  json terrainGen = json::object();                  // V8 generator layers: outer ring, generated hills (Terrain::gen)
   uint64_t nextId = 1;
   json extra;
 
