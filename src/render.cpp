@@ -612,8 +612,8 @@ void main(){
     // relief (m): bulges +-1.2 cm, trowel lumps 2 mm, patches 3 mm proud with a 1.5 mm lip, the render 1.6 cm over the
     // rubble face, spalled stones pillowed 2 cm behind 8 mm recessed mortar, cracks 3 mm deep
     float hR = 0.024 * (bulge - 0.5) + 0.002 * (lump - 0.47) + 0.003 * patchM + 0.0015 * patchLip + 0.0006 * coat + 0.0003 * grn - 0.0008 * pit - 0.003 * crack + 0.002 * rim;
-    float hS = -0.016 + (1.0 - mortar) * 0.02 * mix(smoothstep(0.0, 0.12, e), 0.7, smoothstep(0.05, 0.25, gPix)) * (0.7 + 0.3 * dome) - mortar * 0.008;
-    h = mix(hR, hS, spall); bump = 1.0;
+    float hS = -0.016 + mix(0.02 * smoothstep(0.0, 0.12, e) * (0.7 + 0.3 * dome) - lineAA(1.0 - smoothstep(0.006, 0.026, e), 0.008, 0.0) * 0.008, 0.012, smoothstep(0.04, 0.12, gPix));
+    h = mix(hR, mix(hS, hR - 0.004, smoothstep(0.004, 0.016, gPix)), spall); bump = 1.0;   // the 1.6 cm spall step fades by ~15 m
     ao = 1.0 - 0.22 * rim - 0.25 * spall * mortar;
     gCavity = 1.0 - 0.22 * hollow - 0.12 * crack - spall * (0.15 + 0.3 * mortar) * (1.0 - 0.5 * dome);
   } else if (pat == 18) { // brickwork, Flemish bond (docs/interiors.md): cohesive palette, neighbouring-value lime
@@ -678,8 +678,11 @@ void main(){
     // tooling 0.4 mm
     float dome = sin(u * PI) * sin(vr * PI);
     float tilt = (hash12(id + 3.0) - 0.5) * (u - 0.5) + (hash12(id + 9.0) - 0.5) * (vr - 0.5);
-    float jointH = lineAA(1.0 - smoothstep(0.002, 0.007, e), 0.008, 0.03), arrisH = lineAA(1.0 - smoothstep(0.004, 0.022, e), 0.024, 0.08);
-    float hs = 0.006 * dome + 0.012 * tilt - 0.006 * arrisH * arrisH + 0.0004 * tool - 0.004 * chip + 0.001 * (patina - 0.47);
+    // per-block pillow and tilt reach zero at the worn arris (continuous across joints); joint and arris relief fade
+    // under the pixel (as for rubble, 9.5)
+    float blockH = mix(smoothstep(0.0, 0.03, e) * (0.006 * dome + 0.012 * tilt), 0.003, smoothstep(0.04, 0.12, gPix));
+    float jointH = lineAA(1.0 - smoothstep(0.002, 0.007, e), 0.004, 0.0), arrisH = lineAA(1.0 - smoothstep(0.004, 0.022, e), 0.006, 0.0);
+    float hs = blockH - 0.006 * arrisH * arrisH + 0.0004 * tool - 0.004 * chip + 0.001 * (patina - 0.47);
     h = mix(hs, -0.005, jointH); bump = 1.0;
     ao = 1.0 - joint * 0.2 - arris * 0.08;
     gCavity = 1.0 - 0.3 * joint - 0.1 * arris;
@@ -711,12 +714,14 @@ void main(){
     alb *= mix(1.0, 0.78, damp);
     rough = mix(clamp(rough * (0.9 + 0.2 * hash12(id + 7.0)) - 0.08 * damp, 0.3, 1.0), 0.97, mortar);
     // relief (m): stones pillowed 2-4 cm (per stone) and tilted +-1.5 cm, knobbly faces 6 mm, pits 2 mm; mortar 1.5 cm back
+    // Every per-stone term goes to zero at the joint through the rounded arris (14 cm), so the height is continuous
+    // across joints; beyond ~70 m the per-stone relief fades to its mean, and the 2 cm groove itself by ~20 m (it is a
+    // one-pixel feature there: TAA jitter turns it into shimmer; the joint still reads by its tone and the cavity term)
     float pil = 0.02 + 0.02 * hash12(id + 21.0);
-    float edge = mix(smoothstep(0.0, 0.14, e), 0.7, smoothstep(0.05, 0.25, gPix));   // rounded 14 cm arrises, faded at range
-    float hs = pil * edge * (0.7 + 0.3 * dome) + 0.03 * tilt + 0.012 * (face - 0.47) - 0.002 * pit;
-    // the joint's relief fades to its mean recess sooner than its tone: a groove one or two pixels wide is what TAA
-    // jitter turns into shimmer (docs/rendering.md 9.5)
-    float mortarH = lineAA(1.0 - smoothstep(0.005, 0.024, e), 0.03, 0.18);
+    float edge = smoothstep(0.0, 0.14, e);
+    float stoneH = mix(edge * (pil * (0.7 + 0.3 * dome) + 0.03 * tilt), 0.7 * 0.03, smoothstep(0.04, 0.12, gPix));
+    float hs = stoneH + 0.012 * (face - 0.47) - 0.002 * pit;
+    float mortarH = lineAA(1.0 - smoothstep(0.005, 0.024, e), 0.008, 0.0);
     h = mix(hs, -0.015, mortarH); bump = 1.0;
     ao = 1.0 - mortar * 0.3;
     gCavity = 1.0 - 0.35 * mortar - 0.15 * (1.0 - dome) * (1.0 - mortar);

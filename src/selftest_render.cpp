@@ -243,6 +243,20 @@ void build(App& app) {
       return false;
     });
   }
+  // ---------------------------------------------------------------- rough walls up close: sunlit front, shadowed back
+  struct CV { const char* name; vec3 at; float yaw, pitch; };
+  static const CV closeups[] = {{"render_walls_close_sun", vec3(-3.0f, 0, kFacadeZ + 6.5f), 0.0f, 6.0f},
+                                {"render_walls_close_shadow", vec3(2.0f, 0, -kFacadeZ - 6.5f), 180.0f, 6.0f},
+                                {"render_walls_ruin_close", vec3(19.5f - 2.0f, 0, 4.0f + 7.0f), 0.0f, 12.0f}};
+  for (const CV& cv : closeups) {
+    push(cv.name, [cv](App& a, float t) {
+      if (t == 0) firstPerson(a, F0 + cv.at, cv.yaw, cv.pitch);
+      a.eyeYaw = cv.yaw; a.eyePitch = cv.pitch;
+      if (t > 2.0f && t < 2.0f + 1.5f / 60.0f) pendingShot = outDir() / (std::string(cv.name) + ".png");
+      if (t > 2.3f && pendingShot.empty()) { chk(true, "%s -> selftest_out/%s.png", cv.name, cv.name); return true; }
+      return false;
+    });
+  }
   push("leave first person", [](App& a, float t) {
     if (t == 0 && a.mode == Mode::Explore) a.exitExplore();
     return t > 0.3f;
