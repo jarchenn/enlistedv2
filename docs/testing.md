@@ -50,3 +50,25 @@ The farmhouse route covers:
 - The upper floor and an upstairs casement.
 - The rear service stair down.
 - Opening the rear door from inside and closing it from outside.
+
+## Fast mode (`tools/run_fast_tests.sh`)
+
+`tools/run_fast_tests.sh <build dir> <base ref> [--dry-run] [--net-port N]` is for checking work in progress. It
+runs only the suites that the change touches, chosen from the files changed since `<base ref>` (e.g. `master`). Each
+suite has a path rule, and `--dry-run` prints which suites were chosen and the file that triggered each one. A suite
+with no rule always runs, so new suites are never skipped silently.
+
+- Suite `A` always runs.
+- The slow AI suites (`ai`, `aicourse`) run only when AI, nav or `content/ai` changes.
+- The LAN test runs only when net, game, damage, interiors, lights or the map format changes.
+- The `maps` frame-time gate runs whenever rendering, terrain, maps, assets, textures or lighting changes.
+- `match` needs no GPU, so it runs in parallel with the GPU suites. Every GPU suite goes through
+  `tools/gpu_turn.sh`.
+
+Fast mode can miss a break between streams in a suite it skipped, so it does not replace the full run:
+`tools/run_all_tests.sh --net` is still the check before master.
+
+**aicourse timing:** its live-rebuild checks (bots re-route within 1 s, and none get stuck against a dropped
+obstacle) depend on timing. Navmesh tiles rebuild on worker threads in real time while the simulation steps a fixed
+1/60 s, so a change in frame cost can flip a check. Treat one failure as a re-run, and repeated failures on a quiet
+GPU as a real problem.
