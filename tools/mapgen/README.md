@@ -184,6 +184,13 @@ distance dominates the frame. In bocage the next hedge hides what lies beyond it
   everything; the template is not `playable`. It defines its own stamps (`stamp_escarpment`, `stamp_tor`,
   `stamp_quarry`, `stamp_cut`) and writes `views` (named cameras) into the template for `--selftest-maps`.
 
+- `promote_map.py <map.nmap.json> <id> "<Name>" --order N [--description ...] [--thumb x,y,z,yaw,pitch]` turns a
+  saved map into a New Map template on the same procedural ground (template seed and size), with its instances,
+  scenario and cameras; `playable` when it has objectives. Shipped this way: `tank_range` (Tank Range, from
+  `content/examples/tank_range.nmap.json`) and `village_assault` (Normandy Village Assault, the user's `battle1`).
+  `--selftest-maps` checks them as `"selftest": "authored"` templates (loads whole, scenario as authored and
+  validated, save and reopen, preview / first-person / overview views), not against the SPEC 3 default-map rules.
+
 A template's own `width` x `depth` is kept as authored even off the New Map dialog's 100 m size step. Steep ground
 (about 45 deg and over) renders as bare rock with a scree band from about 28 deg (terrain shader), so cliffs need no
 assets. `--selftest-maps` treats a template whose map file has no `scenario` as a terrain base: size, relief, slope

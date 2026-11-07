@@ -263,7 +263,7 @@ def build(ctx):
              view("summit_overlook", (60, 1285), (-40, 700), 3.0)]
     tv = view("thumb", (-410, 760), (-345, 1010), 9.0)                        # preview: the ravine and the west escarpment
     thumb_cam = (tv["pos"], tv["yaw"], tv["pitch"])
-    write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=2, version=VERSION, seed=SEED,
+    write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=4, version=VERSION, seed=SEED,
                    description="Terrain base for the forest of Mont-Castre and Hill 122 (90th Infantry Division, 3-12 July 1944): "
                                "rolling bocage lowland with streams and a marsh, the ridge climbing about 80 m to the summit, "
                                "rock escarpments, tors, an old quarry and a ravine on its flanks, a draw and a sunken lane up to "

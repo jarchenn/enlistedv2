@@ -1,0 +1,34 @@
+{
+  "id": "village_assault",
+  "version": 1,
+  "order": 3,
+  "name": "Normandy Village Assault",
+  "available": true,
+  "seed": 1944,
+  "description": "A Norman village held by German defenders: trenches, wire, hedgehogs, MG and PaK casemates, the unfinished R612s, Flak and PaK guns among the farms and orchards. Four objectives A-D, Allies attack. 600 x 600 m.",
+  "width": 600,
+  "depth": 600,
+  "margin": 100,
+  "camera": {
+    "pos": [
+      23.026634216308594,
+      160.3778839111328,
+      286.8551025390625
+    ],
+    "yaw": 353.25,
+    "pitch": -25.0
+  },
+  "map": "village_assault.nmap.json",
+  "playable": true,
+  "thumbnail": "village_assault.thumb.png",
+  "selftest": "authored",
+  "thumbnailCamera": {
+    "pos": [
+      70.0,
+      22.0,
+      170.0
+    ],
+    "yaw": 40.2,
+    "pitch": -7.5
+  }
+}

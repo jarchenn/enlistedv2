@@ -490,7 +490,7 @@ def build(ctx):
                    explore_start=((a1[0], b.ground(*a1), a1[1]), 180.0), camera=cam,
                    bookmarks={str(i + 1): {"position": [w(*OBJ[k])[0] - 40, b.ground(*w(*OBJ[k])) + 45, w(*OBJ[k])[1] - 110], "yaw": 180 + 20, "pitch": -20}
                               for i, k in enumerate(OBJ)})
-    write_template(os.path.join(tdir, TID + ".json"), tid=TID, name="Normandy Beaches - Omaha, Easy Red", order=1, version=VERSION, seed=SEED,
+    write_template(os.path.join(tdir, TID + ".json"), tid=TID, name="Normandy Beaches - Omaha, Easy Red", order=2, version=VERSION, seed=SEED,
                    description="Easy Red and the E-1 draw, 6 June 1944: the tidal flat with its four obstacle belts, the shingle and seawall, "
                                "wire, mines and the anti-tank ditch on the sand shelf, WN65 (R667 casemate) and WN64 (unfinished R612) on the "
                                "bluff, the draw road through the bocage to Saint-Laurent-sur-Mer. Five objectives, Allies attack from the "

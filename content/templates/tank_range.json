@@ -1,0 +1,34 @@
+{
+  "id": "tank_range",
+  "version": 1,
+  "order": 1,
+  "name": "Tank Range",
+  "available": true,
+  "seed": 1944,
+  "description": "Flat Norman pasture laid out as a tank range: an M4 Sherman Firefly and a Tiger I to drive, a PaK 40, an MG casemate, a cottage, a hedgehog and a tree to shoot at. Free play, no objectives. 600 x 600 m.",
+  "width": 600,
+  "depth": 600,
+  "margin": 100,
+  "camera": {
+    "pos": [
+      -9.0,
+      4.5,
+      -8.0
+    ],
+    "yaw": 225.0,
+    "pitch": -12.0
+  },
+  "map": "tank_range.nmap.json",
+  "playable": false,
+  "thumbnail": "tank_range.thumb.png",
+  "selftest": "authored",
+  "thumbnailCamera": {
+    "pos": [
+      -14.0,
+      4.0,
+      -12.0
+    ],
+    "yaw": -148.4,
+    "pitch": -5.5
+  }
+}
