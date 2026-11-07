@@ -216,6 +216,7 @@ int AiCore::pickDefSlot(Soldier& s) {
   for (size_t k = 0; k < defSlots.size(); ++k) {
     DefSlot& d = defSlots[k];
     if (d.heldBy >= 0 && d.heldBy != s.slot && d.heldBy < (int)G.sold.size() && G.sold[d.heldBy].alive) continue;
+    if (G.t < d.unreachableUntil) continue;   // a defender could not get there
     float sc = d.priority * 2.0f - glm::length(d.p - s.feet) * 0.02f;
     for (auto& o : defSlots) if (&o != &d && o.heldBy >= 0 && o.heldBy != s.slot && glm::length(o.p - d.p) < 5.0f) sc -= 2.5f;   // spread out
     if (G.t - d.suppressedAt < 10) sc -= 4.0f;

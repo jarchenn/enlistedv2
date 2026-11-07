@@ -1084,7 +1084,7 @@
       "captureBase": 5.0,
       "capturePresenceFull": 5.0,
       "defenderSlots": 5,
-      "defenderWave_s": 8.0,
+      "defenderWave_s": 16.0,
       "defendingFaction": "Allies",
       "fragPerLife": 2,
       "friendlyFire": false,

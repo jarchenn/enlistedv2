@@ -39,7 +39,7 @@ void AiCore::commander(TeamBrain& tb) {
       for (int i = 0; i < n; ++i) fts[i % k].members.push_back(v[i]);
       for (auto& ft : fts) {
         ft.role = tb.role; ft.lane = lane; ft.id = (int)tb.fts.size(); ft.pairSince = G.t;
-        for (auto& o : old) if (!o.members.empty() && !ft.members.empty() && o.members[0] == ft.members[0]) { ft.movingPair = o.movingPair; ft.pairSince = o.pairSince; ft.clearBuilding = o.clearBuilding; ft.clearRoom = o.clearRoom; ft.clearStage = o.clearStage; ft.clearT = o.clearT; ft.roomsCleared = o.roomsCleared; }
+        for (auto& o : old) if (!o.members.empty() && !ft.members.empty() && o.members[0] == ft.members[0]) { ft.movingPair = o.movingPair; ft.pairSince = o.pairSince; ft.clearBuilding = o.clearBuilding; ft.clearRoom = o.clearRoom; ft.clearStage = o.clearStage; ft.clearT = o.clearT; ft.roomsCleared = o.roomsCleared; ft.clearAlive = o.clearAlive; ft.clearRetryAt = o.clearRetryAt; }
         tb.fts.push_back(ft);
       }
     }
@@ -89,6 +89,7 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
       for (size_t ri = 0; ri < b.rooms.size(); ++ri) {
         std::string key = std::to_string(b.inst) + ":" + b.rooms[ri].id;
         if (ft.roomsCleared.count(key)) continue;
+        if (auto rt = ft.clearRetryAt.find(key); rt != ft.clearRetryAt.end() && G.t < rt->second) continue;   // an entry failed there: soften it first
         bool occupied = false; for (auto* k : threats) if (b.roomAt(k->pos) == (int)ri && G.t - k->seen < 20) occupied = true;
         bool onObjective = (ob && (ob->contains(bc) || glm::length(vec2(bc.x - ob->pos.x, bc.z - ob->pos.z)) < ob->extent() + 4)) || (regroup && lenXZ(bc - tb.regroupAt) < 40);   // consolidation clears the captured strongpoint
         bool entrance = false; for (auto& e : b.entrances) if (e.room == b.rooms[ri].id) entrance = true;
@@ -109,8 +110,13 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
   for (size_t i = 0; i < ft.members.size(); ++i) { Soldier& s = G.sold[ft.members[i]]; if (s.alive && mind(s).set) ++ready; }
   switch (ft.clearStage) {
     case 1: if (ready >= std::min(2, n) || G.t - ft.clearT > 22) { ft.clearStage = occupied ? 2 : 3; ft.clearT = G.t; } break;          // stacked
-    case 2: if (G.t - ft.clearT > 3.2) { ft.clearStage = 3; ft.clearT = G.t; ft.clearEntered = 0; } break;                                 // grenade, blast
-    case 3: if (G.t - ft.clearT > 1.3 * (ft.clearEntered + 1) && ft.clearEntered < n) ++ft.clearEntered;                                // one at a time
+    case 2: if (G.t - ft.clearT > 3.2) { ft.clearStage = 3; ft.clearT = G.t; ft.clearEntered = 0; ft.clearAlive = n; } break;                                 // grenade, blast
+    case 3:
+      if (ft.clearAlive == 0) ft.clearAlive = n;
+      if (occupied && n < ft.clearAlive) {   // someone fell going in and the room still holds: pull back, come again later
+        ft.clearRetryAt[key] = G.t + tj("commander", "clearRetry_s", 30.0f); ft.clearBuilding = -1; ft.clearAlive = 0; break;
+      }
+      if (G.t - ft.clearT > 1.3 * (ft.clearEntered + 1) && ft.clearEntered < n) ++ft.clearEntered;                                // one at a time
             if (ft.clearEntered >= n && (ready >= n || G.t - ft.clearT > 14)) { ft.clearStage = 4; ft.clearT = G.t; } break;
     case 4: {   // room clear: next room along the room graph, else done
       ft.roomsCleared.insert(key); clearedRooms.insert(key);
@@ -374,6 +380,18 @@ void AiCore::act(Soldier& s, float dt) {
       const AiBuilding::Room& room = bd.rooms[ft->clearRoom];
       const AiBuilding::Entrance* ent = nullptr; float ed = 1e9f;
       for (auto& e : bd.entrances) if (e.room == room.id || ent == nullptr) { float d = glm::length(e.p - s.feet); if (e.room == room.id && d < ed) { ed = d; ent = &e; } }
+      AiBuilding::Entrance inner;   // a room behind an inside door: stack at that door, facing into the room (W6 limit)
+      if (!ent) {
+        const AiBuilding::Door* best = nullptr; float bd2 = 1e9f;
+        for (auto& d : bd.doors) {
+          std::string other = d.a == room.id ? d.b : d.b == room.id ? d.a : "";
+          if (other.empty() || other == "outside") continue;
+          bool fromCleared = ft->roomsCleared.count(std::to_string(bd.inst) + ":" + other) > 0;
+          float dd = glm::length(d.p - s.feet) - (fromCleared ? 100.0f : 0.0f);
+          if (dd < bd2) { bd2 = dd; best = &d; }
+        }
+        if (best) { inner.p = best->p; inner.room = room.id; vec3 rc = (room.mn + room.mx) * 0.5f; inner.dir = xz(rc - best->p); if (glm::length(inner.dir) < 0.1f) inner.dir = vec3(0, 0, 1); inner.dir = glm::normalize(inner.dir); ent = &inner; }
+      }
       if (!ent && !bd.entrances.empty()) ent = &bd.entrances[0];
       vec3 dir = ent ? glm::normalize(xz(ent->dir) + vec3(1e-4f)) : vec3(0, 0, 1), side(-dir.z, 0, dir.x);
       int idx = m.ftIdx;
@@ -382,11 +400,11 @@ void AiCore::act(Soldier& s, float dt) {
         float sd = (idx % 2 ? 1.0f : -1.0f) * (1.1f + 0.7f * (idx / 2));
         vec3 st = ent ? ent->p - dir * 0.9f + side * sd : s.feet;
         NavRef r; vec3 on; if (G.nav.closest(st, 1.2f, r, on)) st = on;
-        requestPath(s, st, 0.5f, 5.0f);
         if (glm::length(st - m.clearGoal) > 0.5f) { m.clearGoal = st; m.clearGoalT = G.t; }
-        bool late = G.t - m.clearGoalT > 9.0;   // a stack point it cannot reach: stack where it stands
+        bool late = G.t - m.clearGoalT > tj("clear", "stackGiveUp_s", 3.0f) && lenXZ(s.feet - st) < 4.0f;   // a stack point it cannot reach: stack where it stands
+        if (!late) requestPath(s, st, 0.5f, 5.0f);
         if (lenXZ(s.feet - st) < 0.8f || late) { m.set = true; if (m.setAt < ft->clearT) m.setAt = G.t; } else m.set = false;
-        m.speed = lenXZ(s.feet - st) > 6 ? SPD_JOG : SPD_WALK; m.posture = Physics::CROUCH;
+        m.speed = late ? SPD_STOP : lenXZ(s.feet - st) > 6 ? SPD_JOG : SPD_WALK; m.posture = Physics::CROUCH;
         b.why = "stacking at the entrance";
         if (ft->clearStage == 2 && idx == 0 && s.frags > 0 && s.throwT < 0 && b.grenadeCD <= 0 && ent) {
           vec3 tgt = (room.mn + room.mx) * 0.5f; tgt.y = room.mn.y + 0.2f; vec3 vel;

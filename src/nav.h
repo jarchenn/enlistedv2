@@ -31,7 +31,8 @@ inline bool isLink(uint8_t id) { return id >= kLinkDrop && id <= kLinkJump; }
 // Detour polygon flags
 enum NavFlags : uint16_t { NF_WALK = 1, NF_CROUCH = 2, NF_FORBID = 4, NF_LINK = 8,
   NF_TRAP = 16,        // ground polygon from which no anchor (objective / spawn) can be walked to: a dead-end pocket
-  NF_TRAPLINK = 32 };  // one-way link landing in a pocket (excluded by the default filter)
+  NF_TRAPLINK = 32,    // one-way link landing in a pocket (excluded by the default filter)
+  NF_BADLINK = 64 };   // a link that keeps blocking bodies (W6b: disabled after repeated aborts; excluded)
 enum NavLinkKind : int { LINK_DROP = 0, LINK_MANTLE, LINK_VAULT, LINK_JUMP, LINK_KINDS };
 const char* navLinkName(int k);
 

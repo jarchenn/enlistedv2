@@ -229,6 +229,7 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
   float safe = std::max(8.0f, tj("grenade", "safeRadius_m", 11.0f)), arcClear = tj("grenade", "arcClearance_m", 2.0f);
   for (auto& o : G.sold) if (o.alive && o.role == s.role && &o != &s && glm::length(o.feet - target) < safe) return false;   // teammates (humans too)
   if (glm::length(s.feet - target) < safe) return false;
+  for (auto& bd : buildings) { int r = bd.roomAt(s.feet); if (r >= 0 && bd.roomAt(target) != r) return false; }   // not out of a window / embrasure: the real release clips the opening
   // where teammates (and the thrower) will be when it goes off: bots along their planned route, humans by velocity
   {
     float fuse = G.app.weaponDefs[fd]->grenade.fuse + 0.5f;

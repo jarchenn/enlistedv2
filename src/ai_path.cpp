@@ -251,7 +251,7 @@ float AiCore::pathRemaining(Soldier& s) const {
 // ---------------------------------------------------------------- link traversal (player-like moves)
 void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3 ep) {
   BotMind::Trav& tr = m.trav;
-  tr = BotMind::Trav{}; tr.on = true; tr.t = 0;
+  tr = BotMind::Trav{}; tr.on = true; tr.t = 0; tr.ref = offRef;
   const dtOffMeshConnection* con = G.nav.mesh()->getOffMeshConnectionByRef(offRef);
   const NavLink* l = con ? G.nav.linkById(con->userId) : nullptr;
   tr.link = con ? con->userId : 0;
@@ -277,7 +277,13 @@ void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3
       float rim = navj.contains("links") ? navj["links"].value("mantleClear_m", 0.6f) : 0.6f;
       float hy = std::max(a.y, b.y) + rim;
       auto fitsAt = [&](vec3 q) { return Physics::shapeFitsAt(Physics::CROUCH, q + vec3(0, 0.04f, 0), true); };
-      bool high = rim > 0.13f && fitsAt(vec3(a.x, hy, a.z)) && fitsAt(vec3(glm::mix(a.x, b.x, 0.5f), hy, glm::mix(a.z, b.z, 0.5f))) && fitsAt(vec3(b.x, hy, b.z));
+      auto pathFits = [&](std::initializer_list<vec3> pts) {   // every 0.25 m along the profile (lintels, door tops, revetments)
+        vec3 prev(0); bool first = true;
+        for (vec3 q : pts) { if (!first) { int n = std::max(1, (int)std::ceil(glm::length(q - prev) / 0.25f)); for (int k = 1; k <= n; ++k) if (!fitsAt(glm::mix(prev, q, k / (float)n))) return false; } prev = q; first = false; }
+        return true; };
+      bool high = rim > 0.13f && pathFits({vec3(a.x, a.y + 0.3f, a.z), vec3(a.x, hy, a.z), vec3(b.x, hy, b.z), vec3(b.x, b.y + 0.3f, b.z)});
+      bool low = !high && (b.y > a.y ? pathFits({vec3(a.x, b.y + 0.12f, a.z), vec3(b.x, b.y + 0.08f, b.z)}) : pathFits({vec3(b.x, a.y + 0.08f, b.z), vec3(b.x, b.y + 0.3f, b.z)}));
+      if (!high && !low) { tr.on = false; ++metrics.linkAborts; m.linkBlockUntil = G.t + 1.0; linkAborted(offRef, tr.link); m.penalties.push_back({a, 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)}); requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true); return; }   // no body fits through: never start it
       if (high) { tr.p[0] = a; tr.p[1] = vec3(a.x, hy, a.z); tr.p[2] = vec3(b.x, hy, b.z); tr.p[3] = b; tr.np = 4; tr.dur = 0.6f + 0.45f * h + 0.4f * rim; }
       else if (b.y > a.y) { tr.p[0] = a; tr.p[1] = vec3(a.x, b.y + 0.12f, a.z); tr.p[2] = vec3(b.x, b.y + 0.08f, b.z); tr.p[3] = b; tr.np = 4; tr.dur = 0.55f + 0.5f * h; }
       else { tr.p[0] = a; tr.p[1] = vec3(b.x, a.y + 0.08f, b.z); tr.p[2] = b; tr.np = 3; tr.dur = 0.45f + 0.35f * h; }
@@ -307,6 +313,7 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
   if (!fits && u < 0.98f) {
     // someone / something in the way: stop where the body still fits, re-plan
     tr.on = false; ++metrics.linkAborts; m.linkBlockUntil = G.t + 1.0;
+    { bool soldier = false; for (auto& o : G.sold) if (&o != &s && o.alive && glm::length(o.feet - p) < 0.9f) soldier = true; if (!soldier) linkAborted(tr.ref, tr.link); }   // geometry, not a teammate, in the way
     m.penalties.push_back({tr.p[0], 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)});   // this bot avoids that link for a while
     if (metrics.linkAborts <= 15) logf("ai: bot %d %s link blocked at (%.1f %.1f %.1f) -> (%.1f %.1f %.1f), u %.2f", s.slot, navLinkName(tr.kind), tr.p[0].x, tr.p[0].y, tr.p[0].z, tr.end.x, tr.end.y, tr.end.z, u);
     requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true);
@@ -328,10 +335,23 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
   return false;
 }
 
+void AiCore::linkAborted(NavRef ref, uint32_t id) {
+  if (!ref || !G.nav.mesh()) return;
+  int n = ++linkAbortsById[id];
+  if (n < (int)(navj.contains("links") ? navj["links"].value("disableAfterAborts", 2) : 2)) return;
+  std::unique_lock<std::shared_mutex> wl(G.nav.sharedLock());
+  unsigned short fl = 0; if (dtStatusSucceed(G.nav.mesh()->getPolyFlags(ref, &fl))) G.nav.mesh()->setPolyFlags(ref, fl | NF_BADLINK);
+  if (++metrics.linksDisabled <= 10) logf("ai: link %u disabled after %d aborts", id, n);
+}
+
 // ---------------------------------------------------------------- movement (every step)
 void AiCore::move(Soldier& s, float dt) {
   BotMind& m = mind(s);
   Brain& b = s.br;
+  if (s.throwT >= 0 && !s.throwReleased && s.throwKind == GK_FRAG) {   // winding up: a teammate came near the target meanwhile -> hold the grenade
+    float safe = std::max(8.0f, tj("grenade", "safeRadius_m", 11.0f));
+    for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role && glm::length(o.feet - s.throwTarget) < safe) { s.throwT = -1; break; }
+  }
   if (m.trav.on) { bool done = stepTraversal(s, m, dt); if (!m.trav.on && !done) stuckLadder(s, m, dt, true); return; }   // an aborted link counts as no progress
   dtNavMeshQuery* q = G.nav.query();
   const dtQueryFilter* f = &G.nav.defaultFilter();
@@ -357,8 +377,12 @@ void AiCore::move(Soldier& s, float dt) {
       vec3 c0(cv[0], cv[1], cv[2]), last(cv[(nc - 1) * 3], cv[(nc - 1) * 3 + 1], cv[(nc - 1) * 3 + 2]);
       bool offmesh = (cf[nc - 1] & DT_STRAIGHTPATH_OFFMESH_CONNECTION) != 0;
       if (offmesh && nc == 1 && lenXZ(last - pos) < 0.6f && G.t >= m.linkBlockUntil) {
-        dtPolyRef refs[2]; float sp[3], ep[3];
-        if (c.moveOverOffmeshConnection(cp[nc - 1], refs, sp, ep, q)) { startTraversal(s, m, cp[nc - 1], vec3(sp[0], sp[1], sp[2]), vec3(ep[0], ep[1], ep[2])); return; }
+        unsigned short lf = 0; G.nav.mesh()->getPolyFlags(cp[nc - 1], &lf);
+        if (lf & (NF_BADLINK | NF_TRAPLINK)) { m.linkBlockUntil = G.t + 1.0; m.penalties.push_back({pos, 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)}); requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true); }   // disabled since this path was planned
+        else {
+          dtPolyRef refs[2]; float sp[3], ep[3];
+          if (c.moveOverOffmeshConnection(cp[nc - 1], refs, sp, ep, q)) { startTraversal(s, m, cp[nc - 1], vec3(sp[0], sp[1], sp[2]), vec3(ep[0], ep[1], ep[2])); return; }
+        }
       }
       vec3 tgt = offMesh ? cpos : c0;
       if (!offMesh && lenXZ(c0 - pos) < 0.15f && nc > 1 && !(cf[0] & DT_STRAIGHTPATH_OFFMESH_CONNECTION)) tgt = vec3(cv[3], cv[4], cv[5]);
@@ -528,6 +552,8 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
     if (m.hasPath) { float cv[3]; unsigned char cf; dtPolyRef cp; if (m.corridor->findCorners(cv, &cf, &cp, 1, G.nav.query(), &G.nav.defaultFilter()) > 0) e.next = vec3(cv[0], cv[1], cv[2]); }
     stuck.push_back(e); m.eventIdx = (int)stuck.size() - 1; ++metrics.stuckEvents;
     m.ladder = 1; m.ladderT = G.t; m.stuckPos = s.feet;
+    if (lenXZ(s.feet - m.lastStuckPos) < 1.5f && G.t - m.lastStuckT < 30.0) m.ladder = std::min(2 + ++m.stuckRepeats, 5); else m.stuckRepeats = 0;
+    m.lastStuckPos = s.feet; m.lastStuckT = G.t;
   }
   vec3 goal = m.hasSubGoal ? m.subGoal : m.goal;
   StuckEvent& e = stuck[m.eventIdx];
@@ -542,7 +568,29 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
       { bool blocked = false, human = false; vec3 fw = glm::normalize(xz(m.moveDir) + vec3(1e-4f));
         for (auto& o : G.sold) { if (&o == &s || !o.alive) continue; vec3 d = xz(o.feet - s.feet); float L = glm::length(d);
           if (o.human && L < 4.0f) human = true; if (L < 1.4f && glm::dot(d, fw) > 0.3f * L) blocked = true; }
-        if (blocked && !human) { m.ghostUntil = G.t + tj("movement", "ghost_s", 1.5f); if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } } }
+        if (blocked && !human) { m.ghostUntil = G.t + tj("movement", "ghost_s", 1.5f); if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } }
+        // nobody in the way: a snag the mesh does not see (a picket, a post, a lip). Hop over it toward the next corner
+        // when a crouched body fits along the whole hop (a visible move, like a player's, not a teleport)
+        if (!blocked && m.hasPath) {
+          float cv[3 * 3]; unsigned char cf[3]; dtPolyRef cp[3];
+          int nc = m.corridor->findCorners(cv, cf, cp, 3, G.nav.query(), &G.nav.defaultFilter());
+          vec3 tgt2 = s.feet + fw * 1.2f;
+          for (int k = 0; k < nc; ++k) { vec3 c(cv[k * 3], cv[k * 3 + 1], cv[k * 3 + 2]); if (lenXZ(c - s.feet) > 0.5f) { tgt2 = s.feet + glm::normalize(xz(c - s.feet)) * std::min(1.4f, lenXZ(c - s.feet)); tgt2.y = c.y; break; } }
+          NavRef r; vec3 on;
+          if (G.nav.closest(tgt2, vec3(0.5f, 1.0f, 0.5f), r, on) && lenXZ(on - s.feet) > 0.45f && std::fabs(on.y - s.feet.y) < 0.9f) {
+            float hy = std::max(s.feet.y, on.y) + tj("stuck", "hopHeight_m", 0.55f);
+            auto fits = [&](vec3 q) { return Physics::shapeFitsAt(Physics::CROUCH, q + vec3(0, 0.04f, 0), true); };
+            bool ok = true; vec3 pts[3] = {vec3(s.feet.x, hy, s.feet.z), vec3(on.x, hy, on.z), on + vec3(0, 0.45f, 0)};   // from the top of the hop: the start overlaps whatever snagged it
+            ok = fits(pts[0]); for (int k = 0; k < 2 && ok; ++k) { int n = std::max(1, (int)std::ceil(glm::length(pts[k + 1] - pts[k]) / 0.2f)); for (int j = 1; j <= n && ok; ++j) ok = fits(glm::mix(pts[k], pts[k + 1], j / (float)n)); }
+            if (ok) {
+              BotMind::Trav& tr = m.trav; tr = BotMind::Trav{}; tr.on = true; tr.kind = LINK_VAULT; tr.np = 4;
+              tr.p[0] = s.feet; tr.p[1] = vec3(s.feet.x, hy, s.feet.z); tr.p[2] = vec3(on.x, hy, on.z); tr.p[3] = on; tr.end = on; tr.dur = 0.6f;
+              m.backUntil = -100; m.replanAfterBack = true; ++metrics.hops;
+              e.why = "hop over a snag"; s.br.why = "stuck: hopping over"; break;
+            }
+          }
+        }
+      }
       e.why = "step back"; s.br.why = "stuck: stepping back"; break; }
     case 3: {   // a nearby link (mantle / vault / jump / drop) toward the goal
       auto L = G.nav.linksNear(s.feet, 3.0f);
@@ -565,6 +613,7 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
       e.why = "penalise edge"; requestPath(s, m.goal, m.goalRadius, 9.0f, true); s.br.why = "stuck: avoiding this spot"; break; }
     case 5: {   // a different goal (the decision layer picks another cover / route)
       m.needNewGoal = true;
+      if (s.role == CombatRole::Defender && m.slot >= 0 && m.slot < (int)defSlots.size()) { defSlots[m.slot].unreachableUntil = G.t + 60; defSlots[m.slot].heldBy = -1; m.slot = -1; pickDefSlot(s); }   // that slot cannot be reached: another one
       vec3 side = glm::normalize(vec3(-m.moveDir.z, 0, m.moveDir.x) + vec3(1e-4f)) * (G.rnd(s) < 0.5f ? 7.0f : -7.0f);
       vec3 alt = m.goal + side; NavRef r; vec3 on;
       if (G.nav.closest(alt, 4.0f, r, on)) alt = on;

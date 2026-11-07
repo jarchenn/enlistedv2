@@ -244,7 +244,7 @@ void Nav::initMesh() {
   query_ = dtAllocNavMeshQuery();
   query_->init(mesh_, 4096);
   dtQueryFilter& f = impl_->filter;
-  f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID | NF_TRAPLINK);
+  f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID | NF_TRAPLINK | NF_BADLINK);
   for (int a = 0; a < DT_MAX_AREAS; ++a) f.setAreaCost(a, 1.0f);
   for (int k = 0; k < (int)NavArea::Count; ++k) {
     float cst = std::max(0.1f, navAreaCost((NavArea)k));
