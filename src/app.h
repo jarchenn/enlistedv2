@@ -55,6 +55,7 @@ struct InstanceRT {
   vec3 natMin{0}, natMax{0}; std::vector<GrassInstance> natInst; std::vector<vec4> natPos; std::vector<vec3> natGy; float natCy = 0;   // natGy: item xz + ground y
 };
 
+struct PoseParams;   // character.h
 struct ExploreInput {
   vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0;
   bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false, toggleAmmo = false, build = false; float wheel = 0, lookYaw = 0, lookPitch = 0;
@@ -208,6 +209,16 @@ public:
   struct VaultState { bool active = false, latch = false; float held = 0, t = 0, dur = 0; vec3 pts[4]{}; std::string why; int count = 0; } vault;
   bool tryStartVault(vec3 feet, float yawDeg);
   void stepVault(float dt);
+  // ---- mantle (hold Space facing a 0.9-2.1 m ledge with standing room on top, or a narrow wall to drop over):
+  // hands on the ledge, weapon lowered, camera rises then rolls forward, the body follows a swept path (mantle.cpp)
+  struct MantleSettings { float minH = 0.9f, maxH = 2.15f, reach = 0.85f, durMin = 0.9f, durMax = 1.3f, landUp = 0.3f, landDown = 0.6f, maxDrop = 2.2f, narrow = 0.55f, pitchDip = 14.0f, pitchUp = 5.0f, handSpread = 0.24f; } mantleCfg;
+  struct MantleState { bool active = false, over = false; float t = 0, dur = 0, h = 0, pitchOff = 0, eyeFrom = 1.62f; vec3 pts[4]{}; vec3 ledge{0}, fwd{0}; std::string why; int count = 0; } mantle;
+  bool tryStartMantle(vec3 feet, float yawDeg);
+  void stepMantle(float dt);
+  float mantleLower() const;                                  // 0 weapon up .. 1 lowered out of view (viewmodel.cpp)
+  bool mantleGrips(vec3& left, vec3& right, float& w) const;  // world hand points on the ledge and their blend weight
+  void mantlePose(vec3 feet, PoseParams& pp) const;           // third-person body for the local soldier (pose.cpp)
+  void loadClimbSettings(const json& movement);               // "vault" / "mantle" blocks of movement.json
   void loadMoveSettings();
   int postureWanted = 0;          // Physics::Posture requested by input (stand / crouch / prone)
   static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)
@@ -239,8 +250,14 @@ public:
   void drawRackUI();
   std::vector<DrawItem> worldBoxDraws;   // box-model weapons on racks
   // ---- buildable defences (builder.cpp)
-  struct BuildState { std::string forceAsset; bool active = false, valid = false, snapped = false, fireHeld = true; int item = 1; float yaw = 0, ghostYaw = 0, slopeDeg = 0; vec3 pos{0}; std::string reason; const AssetDef* asset = nullptr; };
+  struct BuildAction { std::vector<uint64_t> placed; std::vector<Instance> removed; size_t undoDepth = 0; bool real = false; };
+  struct BuildState { std::string forceAsset, pick; bool active = false, valid = false, snapped = false, fireHeld = true, palette = false, realEdits = false; int item = 1; float yaw = 0, ghostYaw = 0, slopeDeg = 0; vec3 pos{0}; std::string reason; const AssetDef* asset = nullptr;
+                      uint64_t aimId = 0; bool pendDel = false, pendUndo = false, pendPalette = false; float pendRot = 0; std::vector<BuildAction> history; int removed = 0, undone = 0; };
   BuildState build;
+  void builderKeys(ExploreInput& in);       // first-person build keys (Z / X rotate, Del, Ctrl+Z, Tab): read each frame (builder.cpp)
+  void setBuildPalette(bool open);          // the Assets palette in build mode (frees / captures the cursor)
+  bool buildRemoveAimed();                  // Del: the aimed placement (any instance in a Creative drop-in)
+  bool buildUndo();                         // Ctrl+Z: the last first-person place / remove
   int buildPlaced = 0;
   bool skipSlopeRule = false;
   struct BlastInfo { float raw = 0, mult = 1, value = 0, time = -100; };
@@ -249,7 +266,7 @@ public:
   float groundSlopeDeg(vec3 p, vec3* n = nullptr) const;
   bool snapDefense(const AssetDef* a, vec3& pos, float& yaw, int* matchedSocket = nullptr) const;
   void stepBuilder(const ExploreInput& in);
-  void builderGhosts(std::vector<DrawItem>& ghosts) const;
+  void builderGhosts(std::vector<DrawItem>& ghosts);
   void removeSessionPlacements();
   bool defenseBulletHit(uint64_t iid, vec3 at);
   void destroyDefense(Instance& i, InstanceRT& r);

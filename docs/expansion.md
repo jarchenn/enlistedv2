@@ -153,6 +153,8 @@ Repeat events are ignored. F5 restores guns. Apply persists `station.wrecked`, a
 
 ## 5. Movement
 
+Vault and mantle (getting over low obstacles and out of trenches, onto ledges up to 2.1 m) are described in [movement.md](movement.md).
+
 | Setting | Old | New | Units / note |
 |---|---|---|---|
 | Run | 2.3 | 3.1625 | m/s (×1.25, then ×1.1) |

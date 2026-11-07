@@ -92,6 +92,11 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
     float dip = std::sin(u * 3.14159f);
     m = m * glm::translate(mat4(1), vec3(0, -0.06f * dip, 0.25f)) * glm::mat4_cast(glm::angleAxis(radians(-22.0f * dip), vec3(0, 0, 1))) * glm::translate(mat4(1), vec3(0, 0, -0.25f));
   }
+  // mantle: the weapon swings down out of view while both hands are on the ledge (mantle.cpp)
+  if (float lw = mantleLower(); lw > 0) {
+    float e = lw * lw * (3 - 2 * lw);
+    m = glm::translate(mat4(1), vec3(0.05f * e, -0.34f * e, 0.08f * e)) * glm::mat4_cast(glm::angleAxis(radians(-60.0f * e), vec3(1, 0, 0))) * m;
+  }
   return m;
 }
 
@@ -218,6 +223,8 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
     float w = std::sin(std::clamp(u, 0.0f, 1.0f) * 3.14159f);
     tL = glm::mix(tL, vec3(Mv * vec4(feed, 1)), w);
   }
+  vec3 gl, gr; float gw = 0;   // mantle: both hands reach for the ledge (world points, mantle.cpp)
+  if (mantleGrips(gl, gr, gw)) { mat4 ci = glm::inverse(cam); tR = glm::mix(tR, vec3(ci * vec4(gr, 1)), gw); tL = glm::mix(tL, vec3(ci * vec4(gl, 1)), gw); }
   vec3 SR(0.17f, -0.24f, 0.02f), SL(-0.17f, -0.24f, 0.02f);
   vec3 eR, hR, eL, hL;
   solveTwoBone(SR, tR, kUpperArm, kForearm, vec3(0.4f, -1, 0), eR, hR);
@@ -247,6 +254,10 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
     mat4 m = glm::translate(mat4(1), socket + vec3(0, -size.y * 0.3f, -size.z * 0.5f)) * glm::scale(mat4(1), size);
     R.viewModel.push_back({&armMesh[2], weaponWorld * m});
   };
+  if (gw > 0.5f) {   // palms flat on the ledge, following the IK hands
+    for (vec3 hp : {hR, hL}) R.viewModel.push_back({&armMesh[2], cam * glm::translate(mat4(1), hp + vec3(0, -0.02f, 0)) * glm::scale(mat4(1), vec3(0.08f, 0.035f, 0.10f)) * glm::translate(mat4(1), vec3(0, 0, -0.5f))});
+    return;
+  }
   hand(d.gripR, vec3(0.05f, 0.06f, 0.085f));
   hand(vec3(glm::inverse(Mv) * vec4(tL, 1)), vec3(0.065f, 0.035f, 0.09f));
 }

@@ -23,5 +23,30 @@
  "proneToStand_s": 1.1,
  "proneToCrouch_s": 0.75,
  "crouchToStand_s": 0.45,
- "adsTime_s": 0.25
+ "adsTime_s": 0.25,
+ "vault": {
+  "_note": "Hold Space (hold_s) at an obstacle whose top is minHeight_m-maxHeight_m above the feet, at most maxDepth_m deep, landing no more than maxDrop_m below the top; swept, no chaining, never over barbed wire (src/explore.cpp). Taller or deeper obstacles are climbed by the mantle below.",
+  "hold_s": 0.16,
+  "minHeight_m": 0.62,
+  "maxHeight_m": 1.35,
+  "reach_m": 0.85,
+  "maxDepth_m": 1.1,
+  "maxDrop_m": 2.2,
+  "speed": 1.0
+ },
+ "mantle": {
+  "_note": "Hold Space facing a ledge minHeight_m-maxHeight_m above the ground under the feet (trench lips are 1.9-2.0 m above the floor, 1.57 m above the firestep; 2.15 keeps a 2.1 m wall in range). Lands on top where the standing body fits (top within landAbove_m / landBelow_m of the ledge, 0.42-1.6 m past the face), or drops over a top narrower than narrowTop_m to a far side at most maxDrop_m down. Duration minDuration_s-maxDuration_s by the rise; the view pitches up by pitchUp_deg while pulling and down by pitchDip_deg rolling over the top; hands handSpread_m either side of the aim line. Vault is tried first. Bot mantle links (content/ai/navigation.json links.mantleMax_m 1.6) stay inside this range. src/mantle.cpp, docs/movement.md#mantle.",
+  "minHeight_m": 0.9,
+  "maxHeight_m": 2.15,
+  "reach_m": 0.85,
+  "minDuration_s": 0.9,
+  "maxDuration_s": 1.3,
+  "landAbove_m": 0.3,
+  "landBelow_m": 0.6,
+  "narrowTop_m": 0.55,
+  "maxDrop_m": 2.2,
+  "pitchUp_deg": 5.0,
+  "pitchDip_deg": 14.0,
+  "handSpread_m": 0.24
+ }
 }

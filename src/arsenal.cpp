@@ -52,6 +52,7 @@ void App::loadMoveSettings() {
   move.proneToStand = j.value("proneToStand_s", move.proneToStand); move.proneToCrouch = j.value("proneToCrouch_s", move.proneToCrouch);
   move.crouchToStand = j.value("crouchToStand_s", move.crouchToStand);
   move.adsTime = j.value("adsTime_s", move.adsTime);
+  loadClimbSettings(j);   // vault + mantle (mantle.cpp)
 }
 
 // ---------------------------------------------------------------- loadout

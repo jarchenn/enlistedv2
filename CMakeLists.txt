@@ -73,6 +73,7 @@ include(cmake/mpai.cmake)   # multiplayer + AI sources
 include(cmake/w1.cmake)     # W1 gameplay rules: spawn protection, fall damage, damage model
 include(cmake/w2.cmake)     # W2 visual fixes: sight overlay, thumbnails
 include(cmake/w7.cmake)     # W7 gore: wounds, spray, decals
+include(cmake/vo7.cmake)    # VO7 mantle out of trenches, first-person building with the Assets palette
 include(cmake/w4.cmake)     # W4 structures suite
 include(cmake/w3.cmake)     # editor & terrain (W3)
 include(cmake/recast.cmake) # W6: Recast/Detour navmesh + AI core

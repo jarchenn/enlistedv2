@@ -65,6 +65,9 @@ struct PoseParams {
   float death = -1;                         // 0..1 fall progress, < 0 = alive
   int deathStyle = 0;                       // 0 backward, 1 forward, 2 side
   float recoil = 0;                         // 0..1 kick
+  float climb = -1;                         // 0..1 mantle progress (hands on a ledge, weapon slung low), < 0 = none
+  float climbW = 0, climbSpread = 0.24f;    // hands-on-ledge blend; half the distance between the hands (m)
+  vec3 climbGrip{0, 1.9f, 0.45f};           // model-space ledge point between the hands (feet at the origin, +z forward)
 };
 
 struct PoseResult {
