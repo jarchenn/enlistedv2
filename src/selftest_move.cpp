@@ -2,8 +2,11 @@
 // independence, player-only gravity and jump, the posture state machine (Ctrl hold, Z toggle, Ctrl+Z,
 // blocked stand / prone exit, prone turning clearance), camera heights, no sprint while lowered, jump
 // reliability (press on a frame with no fixed step, buffered press before landing, coyote time off an edge, no
-// double jump, jump right after releasing crouch, every press jumps on a slope).
+// double jump, jump right after releasing crouch, every press jumps on a slope), mantle (mantle.cpp: out of the
+// straight / corner / zig-zag trenches from the floor and the firestep, onto a 2 m platform, over a 2.1 m wall,
+// refused at 2.4 m; weapon lowered, hands on the ledge, camera arc; movement.json limits vs the bots' links).
 #include "selftest.h"
+#include "editor_nav.h"
 #include <GLFW/glfw3.h>
 #include <functional>
 
@@ -305,6 +308,165 @@ void SelfTest::moveUpdate(App& app, float dt) {
       a.scriptedInput = ExploreInput{}; a.proneToggle = false;
       check(flat(Physics::character().pos, P) > App::kATCraterR + 0.2f, "crawls out of an AT crater while prone (" + std::to_string(flat(Physics::character().pos, P)).substr(0, 4) + " m from the centre)");
       return true; });
+    // ---- mantle (mantle.cpp): out of trenches (floor and firestep, front and rear walls), onto a 2 m platform,
+    // over a 2.1 m wall; refused at 2.4 m; settings from movement.json; bot links inside the player's range
+    push("mantle: settings + bot link limits", [this](App& a, float) {
+      auto& m = a.mantleCfg; auto& v = a.vaultCfg;
+      json nav; try { nav = json::parse(readTextFile(contentDir() / "ai" / "navigation.json")); } catch (...) {}
+      const json& L = nav.contains("links") ? nav["links"] : json::object();
+      float bm = L.value("mantleMax_m", 9.0f), bv = L.value("vaultMaxHeight_m", 9.0f);
+      char b[400]; std::snprintf(b, sizeof b, "movement.json: vault %.2f-%.2f m (depth %.1f m, hold %.2f s); mantle %.2f-%.2f m in %.1f-%.1f s; bot links (navigation.json) mantle <= %.2f m, vault <= %.2f m stay inside the player's ranges",
+                                 v.minH, v.maxH, v.maxDepth, v.hold, m.minH, m.maxH, m.durMin, m.durMax, bm, bv);
+      check(std::fabs(v.maxH - 1.35f) < 1e-3f && std::fabs(v.hold - 0.16f) < 1e-3f && m.minH <= v.maxH && m.maxH >= 2.1f && m.maxH <= 2.2f && m.durMin >= 0.9f - 1e-3f && m.durMax <= 1.3f + 1e-3f && bm <= m.maxH && bv <= v.maxH, b);
+      summary["mantle"] = {{"minH", m.minH}, {"maxH", m.maxH}, {"durMin", m.durMin}, {"durMax", m.durMax}, {"botMantleMax", bm}};
+      return true; });
+    struct Exit { const char* asset; vec3 at; vec3 dir; const char* what; };
+    static const Exit kExits[] = {
+      {"aw_trench_straight", {0, 0, 0}, {0, 0, 1}, "floor, front parapet"},
+      {"aw_trench_straight", {1.5f, 0, 0}, {0, 0, -1}, "floor, parados"},
+      {"aw_trench_straight", {-1, 0, 0.375f}, {0, 0, 1}, "firestep"},
+      {"aw_trench_corner", {-3, 0, 0}, {0, 0, 1}, "floor, outer wall"},
+      {"aw_trench_corner", {-3, 0, 0}, {0, 0, -1}, "floor, inner wall"},
+      {"aw_trench_corner", {-1, 0, 0.375f}, {0, 0, 1}, "firestep"},
+      {"aw_trench_corner", {0, 0, 3}, {1, 0, 0}, "second leg floor"},
+      {"aw_trench_zigzag", {-5, 0, 0}, {0, 0, -1}, "floor, rear wall"},
+      {"aw_trench_zigzag", {-5, 0, 0.375f}, {0, 0, 1}, "firestep"},
+      {"aw_trench_zigzag", {0, 0, 1.8f}, {0, 0, 1}, "fire bay floor"},
+      {"aw_trench_zigzag", {-0.6f, 0, 2.175f}, {0, 0, 1}, "fire bay firestep"},
+    };
+    static std::map<std::string, uint64_t> trenchIds;
+    push("mantle: place trenches", [this](App& a, float t) {
+      if (t == 0) {
+        trenchIds.clear();
+        float z = -60;
+        for (const char* id : {"aw_trench_straight", "aw_trench_corner", "aw_trench_zigzag"}) {
+          const AssetDef* ad = a.lib.find(id);
+          uint64_t iid = ad ? a.placeInstance(ad, vec3(130, 0, z), 0) : 0;
+          check(iid != 0, std::string("mantle course: ") + id + " placed");
+          if (iid) trenchIds[id] = iid;
+          z += 30;
+        }
+        navSyncCuts(a); a.syncRuntime();
+        return false;
+      }
+      return t > 0.5f; });   // chunk colliders follow the cut over the next frames (w3Frame)
+    for (const Exit& e : kExits) {
+      push(std::string("mantle: ") + e.asset + " " + e.what, [this, &e](App& a, float t) {
+        static int c0, ph; static float tStart, tEnd, yMax; static vec3 p0;
+        Instance* in = trenchIds.count(e.asset) ? a.doc.find(trenchIds[e.asset]) : nullptr;
+        if (!in) return true;
+        quat q = yawQuat(in->yaw);
+        vec3 dir = q * e.dir;
+        if (t == 0) {
+          vec3 w = in->pos + q * e.at;
+          Physics::Hit h; if (Physics::castRayEx(vec3(w.x, in->pos.y + 2.0f, w.z), vec3(0, -1, 0), 6.0f, h)) w.y = h.pos.y + 0.03f; else w.y = a.terrain.height(w.x, w.z);
+          Physics::setCharacterPos(w);
+          a.eyeYaw = degrees(std::atan2(-dir.x, -dir.z)); a.eyePitch = 0; a.scriptedInput = ExploreInput{};
+          c0 = a.mantle.count; ph = 0; tStart = tEnd = -1; yMax = -1e9f; p0 = w;
+          return false;
+        }
+        auto c = Physics::character();
+        if (ph == 0 && t > 0.4f) { p0 = c.pos; a.scriptedInput.jump = true; a.scriptedInput.jumpHeld = true; a.scriptedInput.move = vec2(0, 1); ph = 1; return false; }
+        if (ph == 1) {
+          if (tEnd < 0) { a.scriptedInput.jumpHeld = true; a.scriptedInput.move = vec2(0, 1); }   // let go once it is done
+          if (a.mantle.active && tStart < 0) tStart = t;
+          if (tStart >= 0 && !a.mantle.active && tEnd < 0) { tEnd = t; a.scriptedInput = ExploreInput{}; }
+          yMax = std::max(yMax, c.pos.y);
+          if (tEnd < 0 && t < 3.0f) return false;
+          if (tEnd >= 0 && t < tEnd + 0.4f) return false;
+          a.scriptedInput = ExploreInput{};
+          vec3 lp = glm::inverse(q) * (c.pos - in->pos);
+          float out = glm::dot(vec3(lp.x, 0, lp.z) - vec3(e.at.x, 0, e.at.z), e.dir);
+          float rise = c.pos.y - p0.y, dur = tEnd > 0 ? tEnd - tStart : -1;
+          char b[420]; std::snprintf(b, sizeof b, "%s, %s: hold Space at the wall: %d mantle (%s), %.2f s, feet %.2f m above the start and %.2f m above the ground outside (%.2f m past the start, h %.2f m)",
+                                     e.asset, e.what, a.mantle.count - c0, a.mantle.why.c_str(), dur, rise, c.pos.y - in->pos.y, out, a.mantle.h);
+          check(a.mantle.count == c0 + 1 && dur >= 0.85f && dur <= 1.35f && c.pos.y > in->pos.y - 0.15f && out > 0.5f && !a.mantle.active, b);
+          return true;
+        }
+        return t > 8; });
+    }
+    push("mantle: remove trenches", [this](App& a, float) {
+      for (auto& [k, id] : trenchIds) { uint64_t x = id; a.doc.instances.erase(std::remove_if(a.doc.instances.begin(), a.doc.instances.end(), [x](const Instance& i) { return i.id == x; }), a.doc.instances.end()); }
+      trenchIds.clear(); navSyncCuts(a); a.syncRuntime();
+      return true; });
+    struct Block { const char* what; float h, depth; bool want, over; };
+    static const Block kBlocks[] = {
+      {"2.1 m garden wall (0.35 m thick): over it", 2.1f, 0.35f, true, true},
+      {"2.0 m platform (2 m deep): onto it", 2.0f, 2.0f, true, false},
+      {"1.2 m deep platform (too deep to vault): onto it", 1.2f, 2.0f, true, false},
+      {"2.4 m wall: out of reach", 2.4f, 0.35f, false, false},
+    };
+    for (const Block& bk : kBlocks) {
+      push(std::string("mantle: ") + bk.what, [this, &bk](App& a, float t) {
+        static uint32_t body; static int c0, ph; static float tStart, tEnd, y0; static vec3 base;
+        if (t == 0) {
+          base = vec3(170, a.terrain.height(170, 40), 40);
+          body = slab(base + vec3(0, bk.h * 0.5f, -1.0f - bk.depth * 0.5f), vec3(4, bk.h, bk.depth));   // face 1.0 m in front (-z)
+          Physics::setCharacterPos(base + vec3(0, 0.03f, 0)); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{};
+          c0 = a.mantle.count; ph = 0; tStart = tEnd = -1;
+          return false;
+        }
+        auto c = Physics::character();
+        if (ph == 0 && t > 0.4f) { y0 = c.pos.y; a.scriptedInput.jump = true; a.scriptedInput.jumpHeld = true; a.scriptedInput.move = vec2(0, 1); ph = 1; return false; }
+        if (ph == 1) {
+          if (tEnd < 0) { a.scriptedInput.jumpHeld = true; a.scriptedInput.move = vec2(0, 1); }   // let go once it is done
+          if (a.mantle.active && tStart < 0) tStart = t;
+          if (tStart >= 0 && !a.mantle.active && tEnd < 0) { tEnd = t; a.scriptedInput = ExploreInput{}; }
+          if (tEnd < 0 && t < 3.0f) return false;
+          if (tEnd >= 0 && t < tEnd + 0.4f) return false;
+          a.scriptedInput = ExploreInput{};
+          float past = -(c.pos.z - base.z) - 1.0f;   // metres beyond the near face
+          char b[360]; std::snprintf(b, sizeof b, "%s: %d mantle (%s%s), %.2f s, feet %.2f m above the ground, %.2f m past the face",
+                                     bk.what, a.mantle.count - c0, a.mantle.why.c_str(), a.mantle.over ? ", over" : "", tEnd > 0 ? tEnd - tStart : -1.0f, c.pos.y - y0, past);
+          bool ok;
+          if (!bk.want) ok = a.mantle.count == c0 && c.pos.y - y0 < 1.2f;
+          else if (bk.over) ok = a.mantle.count == c0 + 1 && a.mantle.over && past > bk.depth + 0.2f && c.pos.y - y0 < 0.3f;
+          else ok = a.mantle.count == c0 + 1 && !a.mantle.over && std::fabs(c.pos.y - y0 - bk.h) < 0.15f && past > 0.3f;
+          check(ok, b);
+          Physics::remove(body); body = 0xffffffffu;
+          return true;
+        }
+        return t > 8; });
+    }
+    push("mantle: weapon lowered, hands on the ledge, camera arc", [this](App& a, float t) {
+      static uint32_t body; static int ph; static float lowMax, wMax, eyeMin, eyeMax, pitchMin, pitch0; static vec3 base; static int shots0;
+      if (t == 0) {
+        base = vec3(170, a.terrain.height(170, 70), 70);
+        body = slab(base + vec3(0, 0.95f, -2.0f), vec3(4, 1.9f, 2.0f));
+        Physics::setCharacterPos(base + vec3(0, 0.03f, 0)); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{};
+        ph = 0; lowMax = wMax = 0; eyeMin = 1e9f; eyeMax = -1e9f; pitchMin = 0; shots0 = 0;
+        return false;
+      }
+      if (ph == 0 && t > 0.4f) { a.scriptedInput.jump = true; a.scriptedInput.jumpHeld = true; pitch0 = a.eyePitch; ph = 1; return false; }
+      if (ph == 1) {
+        a.scriptedInput.jumpHeld = true;
+        if (a.mantle.active) {
+          shots0 = a.shotsFired; a.scriptedInput.fire = true;   // LMB held from here: no shot while both hands are on the ledge
+          vec3 l, r; float w = 0; a.mantleGrips(l, r, w);
+          lowMax = std::max(lowMax, a.mantleLower()); wMax = std::max(wMax, w);
+          float ey = a.eyePos().y - a.mantle.ledge.y; eyeMin = std::min(eyeMin, ey); eyeMax = std::max(eyeMax, ey);
+          pitchMin = std::min(pitchMin, a.eyePitch - pitch0);
+          ph = 2;
+        }
+        return t > 3;
+      }
+      if (ph == 2) {
+        if (a.mantle.active) {
+          a.scriptedInput.fire = true;
+          vec3 l, r; float w = 0; a.mantleGrips(l, r, w);
+          lowMax = std::max(lowMax, a.mantleLower()); wMax = std::max(wMax, w);
+          float ey = a.eyePos().y - a.mantle.ledge.y; eyeMin = std::min(eyeMin, ey); eyeMax = std::max(eyeMax, ey);
+          pitchMin = std::min(pitchMin, a.eyePitch - pitch0);
+          return false;
+        }
+        a.scriptedInput = ExploreInput{};
+        char b[420]; std::snprintf(b, sizeof b, "during the mantle the weapon is lowered (%.2f) and holds fire with LMB held (%d shots), both hands reach the ledge (weight %.2f), the eye rides %.2f-%.2f m over the lip, the view pitches forward %.1f deg and is level again after (%.1f deg)",
+                                   lowMax, a.shotsFired - shots0, wMax, eyeMin, eyeMax, -pitchMin, a.eyePitch - pitch0);
+        check(lowMax > 0.95f && wMax > 0.95f && a.shotsFired == shots0 && eyeMax > 0.6f && pitchMin < -8.0f && std::fabs(a.eyePitch - pitch0) < 0.5f, b);
+        Physics::remove(body); body = 0xffffffffu;
+        return true;
+      }
+      return t > 8; });
     push("reset", [this](App& a, float) { a.exitExplore(); check(a.mode == Mode::Creative, "back to Creative"); return true; });
   }
   stage = 1501;

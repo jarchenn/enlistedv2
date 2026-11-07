@@ -51,6 +51,10 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   // ---- spine: crouch lean + aim pitch (looking up leans back a little) + upper-body twist
   float pitch = dead ? 0.0f : p.aimPitch;
   float lean = 0.22f * crouch + 0.10f * walk;
+  // mantle: hands on the ledge (climbW), the chest rolls forward over it in the second half
+  float climb = dead ? -1.0f : p.climb, climbW = climb >= 0 ? std::clamp(p.climbW, 0.0f, 1.0f) : 0.0f;
+  float climbRoll = climb >= 0 ? std::max(0.0f, std::sin(3.14159265f * std::clamp((climb - 0.45f) / 0.5f, 0.0f, 1.0f))) : 0.0f;
+  lean += 0.55f * climbRoll;
   for (int s : {CJ_SPINE, CJ_SPINE1, CJ_SPINE2}) if (J(s) >= 0)
     D[J(s)] = glm::angleAxis(p.aimYawOffset / 3.0f, vec3(0, 1, 0)) * glm::angleAxis(lean / 3.0f - pitch * 0.12f, vec3(1, 0, 0));
   if (J(CJ_NECK) >= 0) D[J(CJ_NECK)] = glm::angleAxis(-pitch * 0.25f - lean * 0.4f, vec3(1, 0, 0));
@@ -97,6 +101,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
         float t = p.throwT;
         T = t < 0.45f ? glm::mix(vec3(weapon * vec4(p.gripR, 1)), back, ease(t / 0.45f)) : t < 0.7f ? glm::mix(back, rel, ease((t - 0.45f) / 0.25f)) : glm::mix(rel, fol, ease((t - 0.7f) / 0.3f));
       }
+      if (climbW > 0) T = glm::mix(T, p.climbGrip + vec3(side ? -p.climbSpread : p.climbSpread, 0, 0), climbW);   // palms on the ledge (left is +x)
       // the wrist sits ~7 cm behind the palm socket, toward the elbow
       float l1 = glm::length(b0 - a0), l2 = glm::length(c0 - b0);
       vec3 pole = side ? vec3(-0.6f, -1, -0.2f) : vec3(0.7f, -1, -0.1f);
@@ -121,6 +126,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       float ph = p.walkPhase + (leg ? 3.14159265f : 0.0f);
       vec3 T = c0 + vec3(0, std::max(0.0f, std::cos(ph)) * 0.11f * walk, 0.30f * walk * std::sin(ph) + 0.10f * crouch);
       if (crouch > 0.01f) T.x += (leg ? -0.04f : 0.04f) * crouch;
+      if (climb >= 0 && leg) T += vec3(0, 0.55f, 0.30f) * climbRoll;   // the right knee comes up onto the ledge
       float l1 = glm::length(b0 - a0), l2 = glm::length(c0 - b0);
       vec3 K = solve2(A, l1, l2, T, vec3(0, 0.2f, 1));
       quat Rp = rotOf(Pd);

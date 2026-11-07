@@ -42,7 +42,7 @@ bool w3EnterExplore(App& app) {
   n.creativeSession = true; n.escReturn = false;
   bool ok = app.enterExplore();
   if (!ok || app.mode != Mode::Explore) { n.creativeSession = false; return false; }
-  if (!app.selftest) app.toast("Esc: back to the editor  |  P: pause menu", 4);
+  if (!app.selftest) app.toast("Esc: back to the editor  |  P: pause menu  |  B: build with the Assets palette (map edits)", 4);
   return true;
 }
 
@@ -118,7 +118,7 @@ bool w3ExploreKeys(App& app) {
   NavState& n = navState();
   if (app.selftest || !n.creativeSession || app.mode != Mode::Explore) return false;
   bool esc = kedge2(app.win, GLFW_KEY_ESCAPE), pause = kedge2(app.win, GLFW_KEY_P);
-  if (esc && !app.rackOpen) n.escReturn = true;   // an open rack closes first (explore.cpp)
+  if (esc && !app.rackOpen && !app.build.palette) n.escReturn = true;   // an open rack / build palette closes first (explore.cpp)
   if (n.escReturn) {   // return on release, so the editor does not also see the press (it would drop the selection)
     if (glfwGetKey(app.win, GLFW_KEY_ESCAPE) != GLFW_PRESS) { n.escReturn = false; dropinReturn(app); }
     return true;

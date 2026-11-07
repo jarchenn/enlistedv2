@@ -284,3 +284,19 @@ After each batch:
 ## Status and handoff notes (each stream appends one section when it hands off)
 - 2026-11-07 coordinator: Step 0 done. master 4cd7a28+ has W5b merged (Tank Range, Normandy Village Assault; "Battle 1"
   and "Normandy Village Assault" are both the user's battle1 map). `tools/gpu_turn.sh` added.
+- 2026-11-07 V7 (`vo-7-mantle`): mantle out of trenches and first-person building, done.
+  - **Mantle** (new `src/mantle.cpp`; [movement.md](movement.md)): hold Space at a ledge 0.9–2.15 m above the ground under the feet. Below 1.35 m only tops deeper than a vault crosses, so low walls stay the vault's. It lands on top where the standing body fits, or drops over a top narrower than 0.55 m. It is swept before moving, never within 1 m of uncut wire, and runs 0.9–1.3 s: reach, pull up, roll forward with the view dipping 14°, stand. The weapon is lowered (no fire), the first-person arms IK to the ledge (`viewmodel.cpp`), and the soldier body gets a hands-on-ledge pose (`pose.cpp`, `PoseParams::climb*`, set for the local soldier by a one-line hook in `game.cpp`).
+    - Vault and mantle values are now the `"vault"` / `"mantle"` blocks of `movement.json` (`App::loadClimbSettings`, one-line hook in `arsenal.cpp`). The vault defaults are unchanged.
+    - Hooks in `explore.cpp`: the mantle step and trigger next to the vault, and the weapon held while mantling.
+    - Bot code is untouched. `--selftest-move` checks that the bots' link limits (mantle 1.6, vault 1.1) stay inside the player's.
+  - **First-person building** (`builder.cpp`, new `src/palette.cpp/.h`; [builder.md](builder.md)): the editor's Assets palette is factored out into `drawAssetPalette()`. The `editor.cpp` browser is now a two-line call, and `fmtFoot`/`tex` moved to `palette.cpp`.
+    - B opens build mode with that palette (Tab toggles it, Esc closes it). The ghost sits within 12 m and is pushed off the player.
+    - Wheel / Z / X / R rotate, LMB places through `checkPlacement`, Del removes the aimed piece, Ctrl+Z undoes, 1 / 2 / Q pick the quick defences.
+    - In a Creative drop-in, placements and removals are real edits through `placeInstance` and the editor's undo stack. Elsewhere they stay a session overlay. Sandbag and path snapping go through `buildSnap()` in `builder.cpp`: **V6, route that function through `snap.cpp`**.
+    - Shared-file hooks: `explore.cpp` (look freeze and Esc while the palette is open, a `builderKeys(in)` call), `dropin.cpp` (Esc closes the palette first), `app.h` (`MantleSettings`/`MantleState`, `BuildState` fields), `character.h` (`PoseParams` climb fields), `cmake/vo7.cmake` (+1 include line in `CMakeLists.txt`).
+  - **Tests** (all through `gpu_turn.sh`):
+    - `move` 58/58: 11 trench exits from the straight, corner and zig-zag pieces, from the floor and every firestep, plus over a 2.1 m wall, onto a 2.0 m platform and a 1.2 m-deep platform, refused at 2.4 m, and the motion checks;
+    - `update` 58/58; `entities` 90/90 (no mantle at the wire, ledge-beside-coil refused);
+    - `env` 42/42 and `editor` 83/83 (new stage 3346: first-person placement). These two ran before the final low-wall gate in `mantle.cpp`, which only narrows when a mantle starts.
+    - Not run: `structures` (its anti-tank ditch faces are 3 m, outside the range) and the full suite.
+  - **Merge notes:** V6 also edits `selftest_editor.cpp` (my stage sits between 3345 and 3350) and `editor.cpp` (my change is only the browser block, lines ~292–296).

@@ -4,6 +4,7 @@
 #include "mpai.h"
 #include "w3.h"
 #include "nature.h"
+#include "palette.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -20,7 +21,6 @@ static bool mousePressed(GLFWwindow* w, int b) {
   static std::map<int, bool> prev;
   bool d = glfwGetMouseButton(w, b) == GLFW_PRESS, p = prev[b]; prev[b] = d; return d && !p;
 }
-static ImTextureID tex(GLuint t) { return (ImTextureID)(intptr_t)t; }
 
 void App::updateCreative(float dt) {
   ImGuiIO& io = ImGui::GetIO();
@@ -212,11 +212,6 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
 }
 
 // ------------------------------------------------------------------ UI
-static std::string fmtFoot(const AssetDef* a) {
-  char b[96]; std::snprintf(b, sizeof b, "%s | %d floor%s%s", footprintLabel(a->footprint).c_str(), a->floors, a->floors == 1 ? "" : "s", a->enterable ? " | enterable" : "");   // W2: one decimal (thumbs.cpp)
-  return b;
-}
-
 void App::drawCreativeUI() {
   ImGuiIO& io = ImGui::GetIO();
   float menuH = 0;
@@ -294,48 +289,8 @@ void App::drawCreativeUI() {
     ImGui::SetNextWindowPos(ImVec2(8, menuH + 8), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(300, io.DisplaySize.y - menuH - 60), ImGuiCond_FirstUseEver);
     ImGui::Begin("Assets", &showBrowser);
-    std::vector<std::string> cats = {"All"};
-    for (auto& a : lib.assets) if (std::find(cats.begin(), cats.end(), a->category) == cats.end()) cats.push_back(a->category);
-    browserCategory = std::min(browserCategory, (int)cats.size() - 1);
-    if (ImGui::BeginCombo("Category", cats[browserCategory].c_str())) {
-      for (int k = 0; k < (int)cats.size(); ++k) if (ImGui::Selectable(cats[k].c_str(), k == browserCategory)) browserCategory = k;
-      ImGui::EndCombo();
-    }
-    static char filt[64] = "";
-    ImGui::InputTextWithHint("##search", "Search...", filt, sizeof filt);
-    ImGui::Checkbox("Enterable only", &browserEnterableOnly); ImGui::SameLine();
-    ImGui::SetNextItemWidth(80); ImGui::SliderInt("Min floors", &browserMinFloors, 0, 3);
-    ImGui::Separator();
-    ImGui::BeginChild("##grid");
-    float avail = ImGui::GetContentRegionAvail().x;
-    int cols = std::max(1, (int)(avail / 132));
-    int n = 0;
-    for (auto& a : lib.assets) {
-      if (browserCategory > 0 && a->category != cats[browserCategory]) continue;
-      if (browserEnterableOnly && !a->enterable) continue;
-      if (a->floors < browserMinFloors) continue;
-      std::string lname = a->name; std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
-      std::string lf = filt; std::transform(lf.begin(), lf.end(), lf.begin(), ::tolower);
-      if (!lf.empty() && lname.find(lf) == std::string::npos) continue;
-      if (n % cols) ImGui::SameLine();
-      ImGui::BeginGroup();
-      ImGui::PushID(a->id.c_str());
-      bool active = tool == Tool::Place && placing == a.get();
-      if (active) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.6f, 0.2f, 1));
-      if (ImGui::ImageButton("##thumb", tex(a->thumbnail), ImVec2(120, 120), ImVec2(0, 1), ImVec2(1, 0))) { tool = Tool::Place; placing = a.get(); selected = 0; }
-      if (active) ImGui::PopStyleColor();
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s\n%s\n%s\n\n%s", a->name.c_str(), a->category.c_str(), fmtFoot(a.get()).c_str(), a->description.c_str());
-      ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 124);
-      ImGui::TextUnformatted(a->name.c_str());
-      ImGui::TextDisabled("%s", a->category.c_str());
-      ImGui::TextDisabled("%s", fmtFoot(a.get()).c_str());
-      ImGui::PopTextWrapPos();
-      ImGui::PopID();
-      ImGui::EndGroup();
-      ++n;
-    }
-    if (n == 0) ImGui::TextDisabled("No assets match the filter.");
-    ImGui::EndChild();
+    static AssetPalette pal;   // categories, search, filters, thumbnails: shared with first-person build mode (palette.cpp)
+    if (const AssetDef* a = drawAssetPalette(*this, pal, tool == Tool::Place ? placing : nullptr)) { tool = Tool::Place; placing = a; selected = 0; }
     ImGui::End();
   }
 

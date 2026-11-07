@@ -292,7 +292,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   }
   if (!occupied) stepBuilder(in);
   if (occupied) { stepStation(dt, in); }
-  else if (build.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; stepWeapons(dt, w); }   // weapon lowered while building
+  else if (build.active || mantle.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing
   else stepWeapons(dt, in);
   blastShake = std::max(0.0f, blastShake - dt * 1.5f);
   if (mpaiLocalFrozen(*this)) { stepProjectiles(dt); fx.update(dt, terrain); return; }   // dead in a match: spectating
@@ -319,7 +319,8 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   if (!in.jumpHeld) { vault.held = 0; vault.latch = false; }
   else vault.held += dt;
   if (vault.active) { stepVault(dt); return; }
-  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && tryStartVault(before.pos, eyeYaw)) { vault.latch = true; return; }
+  if (mantle.active) { stepMantle(dt); return; }   // mantle.cpp: ledges too tall / deep to vault (trench lips, 2 m walls)
+  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; return; }
   bool rising = riseT < riseDur;
   bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising;   // Shift while aiming holds the breath; no sprint while lowered or getting up
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
@@ -390,7 +391,7 @@ void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
   if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
   if (!selftest) {
-    if (rackOpen && kp(win, GLFW_KEY_ESCAPE)) closeRack("closed");
+    if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu;
       glfwSetInputMode(win, GLFW_CURSOR, pauseMenu ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
@@ -411,7 +412,7 @@ void App::updateExplore(float dt) {
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (lmx >= 0 && !io.WantCaptureMouse && !showLoadout && !rackOpen) {
+    if (lmx >= 0 && !io.WantCaptureMouse && !showLoadout && !rackOpen && !build.palette) {
       StationRT* gs = station(occupied);
       float hs = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42") ? 0.08f : 0.012f;
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
@@ -438,6 +439,7 @@ void App::updateExplore(float dt) {
     in.prone = kp(win, binds.prone);
     in.packUp = kp(win, binds.packUp);
     in.quickGrenade = kp(win, binds.grenade);
+    builderKeys(in);   // build mode: Z / X rotate (not prone / ammo), Del, Ctrl+Z, Tab (builder.cpp)
     if (rackOpen) {   // the panel owns the keyboard: no movement, fire or look leaks through
       in.rackUp = kp(win, GLFW_KEY_UP) || kp(win, GLFW_KEY_W); in.rackDown = kp(win, GLFW_KEY_DOWN) || kp(win, GLFW_KEY_S); in.rackEquip = kp(win, GLFW_KEY_ENTER);
       in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = false;

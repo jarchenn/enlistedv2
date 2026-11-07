@@ -4,6 +4,8 @@
 //  * terrain cuts: depth, bank, move / delete, crater + persistence on top, placement never sinks
 //  * camera maths: zoom to cursor, orbit pivot, pan anchor, height-scaled speed, F / Home framing, bookmarks
 //  * drop-in round trip: facing from the drag, first person at the drop, Esc restores the editor camera exactly
+//  * first-person placement (VO7, builder.cpp): B in a drop-in, palette pick, ghost within 12 m, rotate, place as a
+//    real map edit (editor undo stack), Del the aimed piece, Ctrl+Z, kept on return; a playtest stays a session overlay
 //  * frame time: 600 x 600 vs 1200 x 2400 (same cameras), memory on 1200 x 2400
 #include "selftest.h"
 #include "editor_nav.h"
@@ -361,8 +363,93 @@ void SelfTest::editorUpdate(App& app, float dt) {
     fs::path tmp = outDirEd() / "w3_dropin.nmap.json";
     app.saveMapTo(tmp); app.newMap(*blank, "x"); app.openMap(tmp);
     check(app.doc.start.set && glm::length(app.doc.start.pos - vec3(gDropAt.x, app.terrain.height(gDropAt.x, gDropAt.z), gDropAt.z)) < 1e-3f, "explore start saved with the map");
-    gRuns.clear(); gPerfIdx = 0; gPerfFrame = 0;
-    go(3350);
+    gExploreFrames = 0;
+    go(3346);
+    break;
+  }
+  case 3346: {   // ================= first-person placement (builder.cpp, VO7): B in a drop-in builds real map edits
+    static uint64_t crate = 0, house = 0; static size_t n0 = 0, u0 = 0; static int removed0 = 0;
+    static const AssetDef* crateA = nullptr; static const AssetDef* houseA = nullptr;
+    int f = gExploreFrames++;
+    auto aimAt = [&](vec3 p) { vec3 e = app.eyePos(); app.eyeYaw = degrees(std::atan2(-(p.x - e.x), -(p.z - e.z))); app.eyePitch = degrees(std::atan2(p.y - e.y, glm::length(vec2(p.x - e.x, p.z - e.z)))); };
+    auto has = [&](uint64_t id) { return app.doc.find(id) != nullptr; };
+    app.scriptedInput.fire = false;
+    if (f == 0) {
+      navNewMapSized(app, *blank, "VO7 first-person build", vec2(600, 600));
+      crateA = app.lib.find("crate_mixed_supply"); houseA = app.lib.find("house_stone_cottage");
+      check(crateA && houseA, "first-person build: test assets (crate_mixed_supply, house_stone_cottage) in the library");
+      if (!crateA || !houseA) { go(3350); break; }
+      bool ok = dropinCommit(app, vec3(20, 0, 20), 0.0f);
+      check(ok && app.mode == Mode::Explore && navState().creativeSession, "first-person build: dropped in from Creative");
+      app.useScripted = true; app.scriptedInput = ExploreInput{}; app.vm.procedural = false;
+      n0 = app.doc.instances.size(); u0 = app.undoStack.size(); app.dirty = false;
+      app.scriptedInput.build = true;   // B
+      break;
+    }
+    if (f == 2) {
+      check(app.build.active && app.build.realEdits, "B opens build mode; placements are map edits in a Creative drop-in");
+      app.build.pick = crateA->id;   // what clicking its thumbnail in the Assets palette does (palette.cpp)
+      app.eyeYaw = 0; app.eyePitch = -28;
+    }
+    if (f == 6) {
+      vec3 feet = Physics::character().pos;
+      float d = glm::length(vec2(app.build.pos.x - feet.x, app.build.pos.z - feet.z));
+      check(app.build.asset == crateA && app.build.valid && d > 1.0f && d < 12.0f, fmt("crate ghost in front of the player, %.1f m away, valid (%s)", d, app.build.reason.c_str()));
+      app.scriptedInput.fire = true;   // LMB
+    }
+    if (f == 8) {
+      crate = app.doc.instances.size() > n0 ? app.doc.instances.back().id : 0;
+      const Instance* ci = app.doc.find(crate);
+      bool real = ci && ci->assetId == crateA->id && !(ci->extra.is_object() && ci->extra.value("session", false));
+      check(real && app.dirty && app.undoStack.size() == u0 + 1, fmt("LMB places it as a real map edit (no session flag, map dirty, one editor undo step: %d)", (int)(app.undoStack.size() - u0)));
+      app.build.pick = houseA->id; app.build.pendRot = 90.0f;   // Z / X / wheel: rotate
+      app.eyeYaw = 90; app.eyePitch = -14;
+    }
+    if (f == 12) {
+      vec3 feet = Physics::character().pos;
+      vec3 lp = glm::inverse(yawQuat(app.build.ghostYaw)) * (feet - app.build.pos);
+      bool outside = std::fabs(lp.x) > houseA->footprint.x * 0.5f || std::fabs(lp.z) > houseA->footprint.y * 0.5f;
+      check(app.build.asset == houseA && app.build.valid && outside && std::fabs(wrapDeg(app.build.ghostYaw - app.eyeYaw - 90.0f)) < 0.5f,
+            fmt("house ghost: valid (%s), rotated 90 deg off the view, its footprint kept off the player", app.build.reason.c_str()));
+      app.scriptedInput.fire = true;
+    }
+    if (f == 14) {
+      house = app.doc.instances.size() > n0 + 1 ? app.doc.instances.back().id : 0;
+      check(has(house) && app.doc.find(house)->assetId == houseA->id, "the house is placed through checkPlacement / placeInstance");
+      if (const Instance* ci = app.doc.find(crate)) aimAt(ci->pos + vec3(0, 0.3f, 0));
+    }
+    if (f == 18) { check(app.build.aimId == crate, fmt("aiming at the crate targets it for Del (aimed #%llu)", (unsigned long long)app.build.aimId)); removed0 = app.build.removed; app.build.pendDel = true; }
+    if (f == 20) { check(!has(crate) && app.build.removed == removed0 + 1, "Del removes the aimed placement"); app.build.pendUndo = true; }
+    if (f == 22) { check(has(crate), "Ctrl+Z brings it back"); app.build.pendUndo = true; }
+    if (f == 24) { check(!has(house) && has(crate), "Ctrl+Z again takes the house away"); app.build.pendUndo = true; }
+    if (f == 26) {
+      check(!has(crate) && app.doc.instances.size() == n0 && app.undoStack.size() == u0, fmt("and once more the crate: map and editor undo stack back where they started (%d instances, %d undo steps)", (int)(app.doc.instances.size() - n0), (int)(app.undoStack.size() - u0)));
+      app.build.pick = crateA->id; app.eyeYaw = 0; app.eyePitch = -28;
+    }
+    if (f == 30) app.scriptedInput.fire = true;
+    if (f == 32) {
+      crate = app.doc.instances.size() > n0 ? app.doc.instances.back().id : 0;
+      app.scriptedInput = ExploreInput{}; app.useScripted = false;
+      dropinReturn(app);
+      check(app.mode == Mode::Creative && has(crate) && app.dirty, "back in the editor the first-person placement is part of the map");
+      app.undo();
+      check(!has(crate), "and the editor's Undo removes it");
+      // outside a Creative drop-in (F5 playtest) placements stay a session overlay
+      check(app.enterExplore(), "F5 playtest");
+      app.useScripted = true; app.scriptedInput = ExploreInput{}; app.scriptedInput.build = true;
+    }
+    if (f == 34) { app.build.pick = crateA->id; app.eyeYaw = 0; app.eyePitch = -28; check(app.build.active && !app.build.realEdits, "in a playtest build mode is a session overlay"); }
+    if (f == 38) app.scriptedInput.fire = true;
+    if (f == 40) {
+      const Instance* ci = app.doc.instances.empty() ? nullptr : &app.doc.instances.back();
+      bool sess = ci && ci->assetId == crateA->id && ci->extra.is_object() && ci->extra.value("session", false);
+      uint64_t sid = ci ? ci->id : 0;
+      app.scriptedInput = ExploreInput{}; app.useScripted = false;
+      app.exitExplore();
+      check(sess && !has(sid), "...placed with the session flag and discarded on the way back to Creative");
+      gRuns.clear(); gPerfIdx = 0; gPerfFrame = 0;
+      go(3350);
+    }
     break;
   }
   case 3350: {   // ================= frame time: same cameras on 600 x 600 and 1200 x 2400

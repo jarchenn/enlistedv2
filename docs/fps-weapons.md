@@ -380,7 +380,8 @@ The self-test (`--selftest-tanks`, "sensitivity") checks every view against the 
 |---|---|
 | Left Shift (in ADS) | Hold breath (5 s) |
 | X (PaK 40 gunner) | Next round HE / AT |
-| B | Build mode (1 / 2 / Q / R / wheel / LMB / RMB) |
+| B | Build mode with the Assets palette: Tab palette, 1 / 2 / Q defences, wheel / Z / X / R rotate, LMB place, Del remove, Ctrl+Z undo, RMB leave ([builder.md](builder.md)) |
+| Hold Space | Vault a low obstacle, or mantle onto / over a ledge up to 2.1 m ([movement.md](movement.md)) |
 
 ## Tests
 

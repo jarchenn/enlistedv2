@@ -494,6 +494,7 @@ void Game::posesStep(float dt) {
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
     pp.lowReady = (!s.localPlayer && s.br.target < 0 && s.speed > 2.5f) ? 1.0f : 0.0f;
+    if (s.localPlayer) app.mantlePose(s.feet, pp);   // hands on the ledge while mantling (mantle.cpp)
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
     poseCharacter(m, pp, s.pose);
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;

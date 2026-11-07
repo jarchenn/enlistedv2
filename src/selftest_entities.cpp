@@ -104,8 +104,25 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
         bool v = a.tryStartVault(feet, yawPlusX());
         check(!v, std::string(kWires[k]) + ": hold-Space vault refused (" + a.vault.why + ")");
         a.vault = App::VaultState{};
+        bool m = a.tryStartMantle(feet, yawPlusX());   // nor climbed: the mantle keeps the same wire rule (mantle.cpp)
+        check(!m, std::string(kWires[k]) + ": hold-Space mantle refused (" + a.mantle.why + ")");
+        a.mantle = App::MantleState{};
         return true; });
     }
+    push("wire: a 1.6 m ledge next to wire is not mantled (unsafe-wire rule)", [this](App& a, float t) {
+      if (t == 0) {
+        Part pt; pt.center = vec3(0); pt.size = vec3(1.0f, 1.6f, 4.0f);   // a 1 m deep block along z ending 0.6 m short of the coil: the landing is beside the wire
+        vec3 c = W_POS[0] + vec3(-1.1f, 0, 0); c.y = a.terrain.height(c.x, c.z) + 0.8f;
+        uint32_t blk = Physics::addStatic(Physics::buildShape({pt}), c, quat(1, 0, 0, 0), 0xEEEDull << 16);
+        feetAt(a, W_POS[0] + vec3(-2.2f, 0, 0.3f)); a.eyeYaw = yawPlusX();
+        bool withWire = a.tryStartMantle(Physics::character().pos, a.eyeYaw); std::string why1 = a.mantle.why; a.mantle = App::MantleState{};
+        Instance* ci = a.doc.find(W_ID[0]); vec3 keep = ci->pos; ci->pos.z += 40; ci->rev++; a.syncRuntime();   // move the coil away
+        bool without = a.tryStartMantle(Physics::character().pos, a.eyeYaw); std::string why2 = a.mantle.why; a.mantle = App::MantleState{};
+        ci->pos = keep; ci->rev++; a.syncRuntime();
+        Physics::remove(blk);
+        check(!withWire && why1 == "unsafe obstacle (wire)" && without, "1.6 m ledge beside the coil: mantle refused (" + why1 + "); the same ledge with the coil moved away is climbed (" + (without ? std::string("yes") : "NO: " + why2) + ")");
+      }
+      return true; });
     push("wire: a vaultable wall next to wire is not vaulted (unsafe-wire rule)", [this](App& a, float t) {
       static uint64_t wall; static bool withWire, without; static std::string why1, why2;
       if (t == 0) {
