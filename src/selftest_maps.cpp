@@ -146,10 +146,15 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
 // A user's saved map promoted to a template (tools/mapgen/promote_map.py, "selftest": "authored"): it loads whole on
 // the template ground, its scenario as authored (reported, not held to the SPEC 2.1 default-map bands), saves and
 // reopens; views from the preview camera, first person at the explore start, and the template camera.
+static size_t authoredCount(const App& app) {   // V4: openMap / newMap add furniture pieces (extra.furnish) to every building
+  size_t n = 0; for (auto& i : app.doc.instances) n += !(i.extra.is_object() && i.extra.contains("furnish"));
+  return n;
+}
+
 void SelfTest::authoredChecks(App& app, const TemplateInfo& t, const json& mj) {
   const std::string id = t.id;
   size_t fileN = mj.value("instances", json::array()).size();
-  check(app.doc.instances.size() == fileN && fileN > 0, fmt("%s: all %zu authored instances loaded (working set %+.0f MB)", id.c_str(), fileN, sMemAfter - sMemBefore));
+  check(authoredCount(app) == fileN && fileN > 0, fmt("%s: all %zu authored instances loaded, %zu furniture pieces added (working set %+.0f MB)", id.c_str(), fileN, app.doc.instances.size() - authoredCount(app), sMemAfter - sMemBefore));
   size_t missing = 0; for (auto& i : app.doc.instances) if (!app.lib.find(i.assetId)) ++missing;
   check(missing == 0, fmt("%s: every instance names a catalogue asset (%zu missing)", id.c_str(), missing));
   check(std::fabs(app.doc.width - t.width) < 1 && std::fabs(app.terrain.buildHalfZ * 2 - t.depth) < 1, fmt("%s: map size %.0f x %.0f m", id.c_str(), app.doc.width, app.terrain.buildHalfZ * 2));
@@ -233,7 +238,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     check(app.doc.templateId == id && app.docPath.empty(), id + ": Create editable copy gives an unsaved creative document from the template");
     if (authored) { authoredChecks(app, t, mj); go(4102); break; }
     if (terrainBase) { if (terrainBaseChecks(app, t, mj)) go(4102); else go(4101); break; }
-    check(app.doc.instances.size() == fileN && fileN > (userMap ? 0u : 1000u), fmt("%s: all %zu authored instances loaded (%.2f s, working set %+.0f MB)", id.c_str(), fileN, sLoadS, sMemAfter - sMemBefore));
+    check(authoredCount(app) == fileN && fileN > (userMap ? 0u : 1000u), fmt("%s: all %zu authored instances loaded, %zu furniture pieces added (%.2f s, working set %+.0f MB)", id.c_str(), fileN, app.doc.instances.size() - authoredCount(app), sLoadS, sMemAfter - sMemBefore));
     check(std::fabs(app.doc.width - t.width) < 1 && std::fabs(app.terrain.buildHalfZ * 2 - t.depth) < 1, fmt("%s: map size %.0f x %.0f m", id.c_str(), app.doc.width, app.terrain.buildHalfZ * 2));
     size_t missing = 0; for (auto& i : app.doc.instances) if (!app.lib.find(i.assetId)) ++missing;
     check(missing == 0, fmt("%s: every instance names a catalogue asset (%zu missing)", id.c_str(), missing));

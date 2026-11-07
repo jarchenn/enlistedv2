@@ -283,6 +283,7 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
       continue;
     }
     if (low == kDebrisLow || low == 0xFFF1u) continue;   // shutter / door debris, felled trunks: driven over
+    if (app.interior.isProp(a)) { if (low == 0) app.interior.tankContact(app, *i, r, ov[h].pos, dir, v); continue; }   // V4: furniture is crushed and its fragments driven over, never blocks (interior.cpp)
     if (low == 0xFFFFu) {   // a building's wall bays: push through
       quat q = yawQuat(i->yaw);
       vec3 lp = glm::inverse(q) * (ov[h].pos - i->pos);

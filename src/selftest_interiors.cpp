@@ -13,7 +13,7 @@
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; float limit = 30; };
 std::vector<Step> seq; size_t cur = 0; float tcur = 0;
-uint64_t FH = 0, CT = 0, INN = 0, WS = 0, PLAIN = 0, CRATES[30] = {};
+uint64_t FH = 0, CT = 0, INN = 0, WS = 0, PLAIN = 0, CRATES[30] = {}, GK = 0, TK = 0, CRUSH[3] = {}, SHOT[3] = {};
 std::vector<std::string> firstLayout;
 json perf = json::object();
 std::vector<double> frameMs; std::chrono::high_resolution_clock::time_point lastT;
@@ -180,15 +180,26 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
 
     // ================================================================ templates
     push("templates: furnish four buildings", [this](App& a, float) {
+      size_t undo0 = a.undoStack.size();
       FH = a.placeInstance(a.lib.find("house_farmhouse_2story"), vec3(0, 0, 0), 0.0f);
       CT = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(40, 0, 0), 90.0f);
       INN = a.placeInstance(a.lib.find("large_village_inn"), vec3(-45, 0, 0), 0.0f);
       WS = a.placeInstance(a.lib.find("small_carpenter_workshop"), vec3(0, 0, 40), 180.0f);
+      // V4 auto-furnish on placement: each building arrives furnished, with one undo step (the placement itself; the furnishing adds none)
+      int autoN = 0; bool allAuto = true;
+      for (uint64_t h : {FH, CT, INN, WS}) { int n = (int)childrenOf(a, h).size(); autoN += n; allAuto &= n > 0 && a.interior.hideBuiltin(*a.doc.find(h)); }
+      std::snprintf(b_, sizeof b_, "auto-furnish on placement: the four buildings arrive furnished (%d pieces); %zu undo steps for 4 placements", autoN, a.undoStack.size() - undo0);
+      check(allAuto && a.undoStack.size() - undo0 == 4, b_);
+      a.interior.autoOnPlace = false;
       PLAIN = a.placeInstance(a.lib.find("house_farmhouse_2story"), vec3(0, 0, -40), 0.0f);   // built-in furniture (baseline)
-      check(FH && CT && INN && WS && PLAIN, "fixtures: farmhouse, cottage (turned 90 deg), inn, workshop (turned 180 deg), a plain farmhouse");
+      a.interior.autoOnPlace = true;
+      a.interior.unfurnish(a, PLAIN);   // built-in furniture on purpose: interior.on = false, never auto-furnished (save / reopen)
+      check(FH && CT && INN && WS && PLAIN && childrenOf(a, PLAIN).empty(), "fixtures: farmhouse, cottage (turned 90 deg), inn, workshop (turned 180 deg), a plain farmhouse (auto-furnish off)");
       a.syncRuntime();
       for (uint64_t h : {FH, CT, INN, WS}) {
+        size_t had = childrenOf(a, h).size();
         int n = a.interior.furnish(a, h, 0);
+        check((size_t)n == had, a.doc.find(h)->assetId + ": regenerating the auto-furnished layout gives the same " + std::to_string(had) + " pieces");
         Instance* hi = a.doc.find(h);
         std::set<std::string> kinds; for (auto* c : childrenOf(a, h)) kinds.insert(c->assetId);
         std::snprintf(b_, sizeof b_, "%s: %d pieces of %zu kinds in %.0f ms; built-in box furniture hidden", hi->assetId.c_str(), n, kinds.size(), a.interior.lastFurnishMs);
@@ -200,6 +211,18 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::set<std::string> rooms;
       for (auto* c : childrenOf(a, FH)) { std::string s = c->extra["furnish"].value("slot", std::string()); rooms.insert(s.substr(0, s.find('/'))); }
       check(rooms.size() >= 4, "farmhouse: furniture in " + std::to_string(rooms.size()) + " rooms");
+      // V4 density gate: at least 3x the pieces of the first templates (measured on master 0e8479f with these four fixtures:
+      // farmhouse 22, cottage 8, inn 9, workshop 6 = 45)
+      const std::map<std::string, int> before = {{"house_farmhouse_2story", 22}, {"house_stone_cottage", 8}, {"large_village_inn", 9}, {"small_carpenter_workshop", 6}};
+      int now = 0, was = 0; std::string per;
+      for (uint64_t h : {FH, CT, INN, WS}) {
+        Instance* hi = a.doc.find(h); int n = (int)childrenOf(a, h).size(), b = before.at(hi->assetId);
+        now += n; was += b;
+        char q[120]; std::snprintf(q, sizeof q, "%s%s %d (x%.1f)", per.empty() ? "" : ", ", hi->assetId.c_str(), n, n / (float)b); per += q;
+      }
+      std::snprintf(b_, sizeof b_, "density: %d pieces in the four fixtures vs %d before = x%.2f (gate x3): %s", now, was, now / (float)was, per.c_str());
+      check(now >= 3 * was, b_);
+      summary["density"] = {{"before", was}, {"now", now}, {"ratio", now / (float)was}};
       return true; });
     push("templates: every piece valid (floors, walls, doors, stairs, windows)", [this](App& a, float) {
       int bad = 0, n = 0, rugs = 0, rugOk = 0; std::string why;
@@ -355,6 +378,15 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         // the kitchen windows of the furnished farmhouse open, so a shell can pass through them
         Instance* h = a.doc.find(FH); h->openDefaults["kitchen_casement"] = true; h->openDefaults["kitchen_shutters"] = true; a.bump(*h);
         for (int k = 0; k < 30; ++k) CRATES[k] = a.placeInstance(a.lib.find("furn_crate"), vec3(30.0f + (k % 6) * 0.75f, 0, 30.0f + (k / 6) * 0.75f), (float)(k * 13 % 90));
+        // V4: a second farmhouse for the grenade, three free-standing pieces for direct shell hits, a tank and the
+        // furniture in its path
+        GK = a.placeInstance(a.lib.find("house_farmhouse_2story"), vec3(75, 0, -20), 0.0f);
+        const char* shotIds[3] = {"furn_armoire", "furn_dresser", "furn_sideboard"};
+        for (int k = 0; k < 3; ++k) SHOT[k] = a.placeInstance(a.lib.find(shotIds[k]), vec3(-30.0f + k * 12.0f, 0, 70.0f), 0.0f);
+        TK = a.placeInstance(a.lib.find("tank_sherman_firefly"), vec3(110, 0, -75), 0.0f);
+        const char* crushIds[3] = {"furn_table_dining", "furn_dresser", "furn_armoire"};
+        for (int k = 0; k < 3; ++k) CRUSH[k] = a.placeInstance(a.lib.find(crushIds[k]), vec3(110.0f + (k - 1) * 0.4f, 0, -64.0f + k * 4.0f), k == 0 ? 90.0f : 0.0f);
+        check(GK && SHOT[0] && SHOT[1] && SHOT[2] && TK && CRUSH[0] && CRUSH[1] && CRUSH[2], "V4 fixtures: a furnished farmhouse for a grenade, three pieces in the open for shells, a Sherman and three pieces in its path");
         int placed = 0; for (auto c : CRATES) placed += c != 0;
         check(placed == 30, "30 crates for the fragment-budget test (" + std::to_string(placed) + ")");
         a.doc.start = {true, vec3(10, 0, 20), 0}; a.doc.start.pos.y = a.terrain.height(10, 20);
@@ -404,7 +436,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       Instance* h = a.doc.find(FH); quat iq = glm::inverse(yawQuat(h->yaw));
       Instance* best = nullptr; float bz = -1e9f;
       for (auto* c : childrenOf(a, FH)) {
-        const PropDef* pd = a.interior.prop(a.assetFor(*c)); if (!pd || !pd->blocking || pd->family == "masonry" || propBroken(a, c->id)) continue;
+        const PropDef* pd = a.interior.prop(a.assetFor(*c)); if (!pd || !pd->blocking || pd->mount > 0 || pd->family == "masonry" || pd->family == "metal" || pd->blast > 60 || propBroken(a, c->id)) continue;
         vec3 l = iq * (c->pos - h->pos); if (l.y > 1.0f || std::fabs(l.x - 1.5f) < 1.2f) continue;
         if (l.z > bz) { bz = l.z; best = c; }
       }
@@ -416,7 +448,9 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       auto ex = a.explode(outside, yawQuat(h->yaw) * vec3(0, 0, -1), 120, 2.2f, 0.0f, ~0ull, WALL_HE);
       std::snprintf(b_, sizeof b_, "HE on the outside of the front wall, %.2f m from %s: wall cratered (%zu bays), the piece behind it intact (shielded checks %d)", glm::length(outside - best->pos), best->assetId.c_str(), ex.hits.size(), a.interior.shielded - sh0);
       check(!propBroken(a, id) && a.interior.shielded > sh0, b_);
-      vec3 inside = W(a, FH, vec3(l.x, 1.0f, 4.0f - 0.02f));
+      const PropDef* bpd = a.interior.prop(a.assetFor(*best));
+      vec3 lc = l + glm::inverse(yawQuat(h->yaw)) * (yawQuat(best->yaw) * ((bpd->bmin + bpd->bmax) * 0.5f));   // the piece's centre (host-local)
+      vec3 inside = W(a, FH, vec3(lc.x, lc.y, std::min(4.0f - 0.02f, lc.z + 0.45f)));   // the same charge inside the room, between the piece and that wall
       a.explode(inside, yawQuat(h->yaw) * vec3(0, 0, 1), 120, 2.2f, 0.0f, ~0ull, WALL_HE);
       check(propBroken(a, id), "the same HE blast inside the room breaks it: " + a.interior.lastBreak);
       return true; });
@@ -495,6 +529,79 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(liveFrags(a) == 0 && Physics::bodyCount() <= bodies0, b_);
       summary["fragments"] = {{"crates", crates}, {"peakLive", maxLive}, {"kept", a.interior.frags.size()}};
       return true; }, 15);
+    push("damage: a grenade in a kitchen blows the furniture apart", [this](App& a, float t) {
+      static int inRoom = 0, broke = 0, fr0 = 0, bursts0 = 0; static size_t parts0 = 0; static float ms = 0;
+      if (t == 0) {
+        Instance* h = a.doc.find(GK); const RoomInfo* ri = a.interior.rooms(a.assetFor(*h));
+        int kr = -1; for (size_t k = 0; k < ri->rooms.size(); ++k) if (ri->rooms[k].type == ROOM_KITCHEN) kr = (int)k;
+        check(kr >= 0, "fixture: the farmhouse kitchen");
+        if (kr < 0) return true;
+        const auto& R = ri->rooms[kr]; vec2 c = (R.mn + R.mx) * 0.5f;
+        vec3 gp = W(a, GK, vec3(c.x + 0.7f, R.y0 + 0.08f, c.y + 0.5f));
+        quat iq = glm::inverse(yawQuat(h->yaw));
+        std::vector<uint64_t> ids;
+        for (auto* p : childrenOf(a, GK)) {
+          const PropDef* pd = a.interior.prop(a.assetFor(*p)); if (!pd || propBroken(a, p->id)) continue;
+          vec3 l = iq * (p->pos - h->pos);
+          if (l.x < R.mn.x - 0.1f || l.x > R.mx.x + 0.1f || l.z < R.mn.y - 0.1f || l.z > R.mx.y + 0.1f || std::fabs(l.y - R.y0) > 0.4f) continue;
+          if (glm::length(p->pos - gp) > 4.0f || !pd->blocking) continue;
+          ids.push_back(p->id);
+        }
+        inRoom = (int)ids.size(); fr0 = a.interior.fragsSpawned; bursts0 = a.interior.splinterBursts; parts0 = a.fx.parts.size();
+        a.explode(gp, vec3(0, -1, 0), 85.0f, 4.5f, 0.3f, ~0ull, WALL_GRENADE);   // the M24's blast values
+        ms = a.interior.lastBlastMs;
+        broke = 0; for (uint64_t id : ids) broke += propBroken(a, id);
+        return false;
+      }
+      if (t < 0.3f) return false;
+      std::snprintf(b_, sizeof b_, "a grenade on the kitchen floor: %d of the %d pieces within 4 m blown apart (%d broke in all, %d rigid fragments, %d splinter bursts, +%zu particles; furniture pass %.1f ms)",
+                    broke, inRoom, a.interior.lastBlastBreaks, a.interior.fragsSpawned - fr0, a.interior.splinterBursts - bursts0, a.fx.parts.size() - parts0, ms);
+      check(inRoom >= 4 && broke * 10 >= inRoom * 7 && a.interior.fragsSpawned - fr0 >= 8 && a.interior.splinterBursts - bursts0 >= broke, b_);
+      summary["grenade"] = {{"near", inRoom}, {"broke", broke}, {"allBroke", a.interior.lastBlastBreaks}, {"ms", ms}};
+      return true; }, 5);
+    push("damage: tank HE, AT and rocket direct hits blow pieces apart", [this](App& a, float t) {
+      static int d0 = 0;
+      if (t == 0) {
+        d0 = a.interior.directHits;
+        for (int k = 0; k < 3; ++k) {
+          Instance* p = a.doc.find(SHOT[k]); const PropDef* pd = a.interior.prop(a.assetFor(*p));
+          vec3 c = p->pos + vec3(0, (pd->bmin.y + pd->bmax.y) * 0.5f, 0), from = c + vec3(0, 0.4f, 30.0f);
+          vec3 d = glm::normalize(c - from);
+          if (k == 0) a.fireProjectile(from, d, 620, PROJ_HE, 150.0f, ~0ull, false, "sherman_he");                          // 75 mm tank HE
+          if (k == 1) { a.fireProjectile(from, d, 790, PROJ_HE, 0.0f, ~0ull, false, "pak40"); a.projectiles.back().at = true; a.projectiles.back().atKill = true; }   // PaK 40 AP
+          if (k == 2) { a.fireProjectile(from, d, 110, PROJ_ROCKET, 0.0f, ~0ull, false, "panzerschreck"); a.projectiles.back().blastDmg = 320; a.projectiles.back().blastR = 1.3f; }
+          a.projectiles.back().gravScale = 0;
+        }
+        return false;
+      }
+      if (t < 1.5f) return false;
+      int ok = 0; for (int k = 0; k < 3; ++k) ok += propBroken(a, SHOT[k]);
+      std::snprintf(b_, sizeof b_, "a tank HE shell, a PaK AP shot and a rocket each strike a piece in the open: %d of 3 blown apart, %d direct hits", ok, a.interior.directHits - d0);
+      check(ok == 3 && a.interior.directHits - d0 >= 3, b_);
+      return true; }, 6);
+    push("damage: a tank drives through furniture", [this](App& a, float t) {
+      TankRT* k = a.tanks.get(TK);
+      if (!k) { check(false, "fixture: the Sherman"); return true; }
+      static int c0 = 0;
+      if (t == 0) {
+        c0 = a.interior.crushed;
+        k->pos = vec3(110, a.terrain.height(110, -75), -75); k->yaw = 0; k->speed = 0; k->yawRate = 0; a.tanks.updateBody(a, *k, true);
+        check(a.tanks.enter(a, TK), "into the Sherman");
+        a.scriptedInput.move = vec2(0, 1);
+        return false;
+      }
+      if (t < 9.0f && k->pos.z < -46.0f) return false;
+      a.scriptedInput.move = vec2(0);
+      int n = 0; for (uint64_t id : CRUSH) { auto it = a.interior.st.find(id); n += it != a.interior.st.end() && it->second.crushed; }
+      std::snprintf(b_, sizeof b_, "a Sherman driving at a table, a dresser and an armoire crushes all of them (%d of 3, %d crushed in all) and drives on to z %.1f (blocked by '%s')", n, a.interior.crushed - c0, k->pos.z, k->blockedBy.c_str());
+      check(n == 3 && k->pos.z > -50.0f, b_);
+      return true; }, 12);
+    push("damage: out of the tank", [this](App& a, float t) {
+      TankRT* k = a.tanks.get(TK);
+      a.scriptedInput.move = vec2(0); a.scriptedInput.interact = false;
+      if (!k || !a.tanks.occupied) return true;
+      if (std::fabs(k->speed) < 0.05f && std::fmod(t, 1.0f) < 0.02f) a.scriptedInput.interact = true;
+      return t > 8.0f; }, 10);
     push("persistence: reset on F5, Apply, Clear applied damage", [this](App& a, float t) {
       if (t > 0) return true;
       int broken = 0; for (auto& [id, s] : a.interior.st) broken += s.broken;
@@ -511,6 +618,54 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(propBroken(a, c), "undo brings the applied break back");
       return true; });
 
+    // ================================================================ every building
+    push("all buildings: auto-furnish every enterable asset, skip rules, pews, density", [this](App& a, float) {
+      // pieces per building with the first templates (master 0e8479f, default density 0.7): the 3x gate is on the total
+      const std::map<std::string, int> before = {{"house_farmhouse_2story", 22}, {"house_stone_cottage", 10}, {"large_municipal_building", 22},
+        {"large_stone_warehouse", 13}, {"large_village_inn", 11}, {"large_village_schoolhouse", 27}, {"small_carpenter_workshop", 5}, {"small_roadside_office", 2},
+        {"small_stone_dairy", 4}, {"small_storehouse", 4}, {"vil_chateau_keep", 7}, {"vil_church", 5}, {"vil_norman_farmhouse", 31}};
+      json all = json::object(); int k = 0, total = 0, was = 0, skippedOk = 0, skipped = 0, furnished = 0, eligible = 0, vilRooms = 0, vils = 0, pews = 0, fixed = 0;
+      std::string bad, lowest; float worst = 1e9f;
+      for (auto& as : a.lib.assets) {
+        if (!as->enterable || as->category == "Furniture") continue;
+        vec3 at(-245.0f + (k % 8) * 70.0f, 0, (k / 8 % 2 ? -1.0f : 1.0f) * (110.0f + (k / 16) * 65.0f)); ++k;
+        uint64_t id = a.placeInstance(as.get(), at, 0.0f);
+        if (!id) { all[as->id] = {{"placed", false}}; bad += " " + as->id + "(not placed)"; continue; }
+        const RoomInfo* ri = a.interior.rooms(as.get());
+        int n = (int)childrenOf(a, id).size();
+        bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0;
+        if (as->id.rfind("vil_", 0) == 0) { ++vils; vilRooms += !ri->rooms.empty(); if (ri->rooms.empty()) bad += " " + as->id + "(no rooms)"; }
+        if (skip) { ++skipped; skippedOk += n == 0 && !a.interior.hideBuiltin(*a.doc.find(id)); }
+        else if (!ri->rooms.empty()) { ++eligible; furnished += n > 0 && a.interior.hideBuiltin(*a.doc.find(id)); if (n == 0) bad += " " + as->id + "(empty)"; }
+        if (as->id.find("church") != std::string::npos) for (auto* c : childrenOf(a, id)) pews += c->assetId == "furn_pew";
+        auto bf = before.find(as->id);
+        if (bf != before.end()) { total += n; was += bf->second; float r = n / (float)bf->second; if (r < worst) { worst = r; lowest = as->id; } }
+        if (as->id == "vil_stone_barn" || as->id == "vil_church_ruined") fixed += n > 0;
+        all[as->id] = {{"pieces", n}, {"rooms", ri->rooms.size()}};
+        logf("[interiors] %s: %zu rooms, %d pieces", as->id.c_str(), ri->rooms.size(), n);
+      }
+      std::snprintf(b_, sizeof b_, "auto-furnish: %d of %d enterable houses, barns, churches and civic buildings furnished on placement;%s", furnished, eligible, bad.empty() ? " none missed" : bad.c_str());
+      check(eligible >= 15 && furnished == eligible, b_);
+      std::snprintf(b_, sizeof b_, "skip rules: %d of %d bunkers / Atlantic Wall / landing craft left as authored", skippedOk, skipped);
+      check(skipped >= 10 && skippedOk == skipped, b_);
+      std::snprintf(b_, sizeof b_, "room detection: %d of %d vil_* buildings have rooms (earth and dressed-stone floors count: the barn and the ruined church, %d now furnished)", vilRooms, vils, fixed);
+      check(vils >= 5 && vilRooms == vils && fixed == 2, b_);
+      std::snprintf(b_, sizeof b_, "churches get pews: %d pews in the church and the ruined church", pews);
+      check(pews >= 8, b_);
+      std::snprintf(b_, sizeof b_, "density over every building: %d pieces vs %d with the first templates = x%.2f (gate x3); lowest %s x%.1f", total, was, total / (float)std::max(1, was), lowest.c_str(), worst);
+      check(total >= 3 * was, b_);
+      // a decorative border building (V8, extra.decor) and a building whose furniture the user removed stay as they are
+      a.interior.autoOnPlace = false;
+      uint64_t dec = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-245.0f, 0, -240.0f), 0.0f);
+      a.interior.autoOnPlace = true;
+      if (Instance* d = a.doc.find(dec)) { d->extra = json::object(); d->extra["decor"] = true; }
+      int dn = a.interior.autoFurnish(a, dec);
+      uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, -240.0f), 0.0f);
+      a.interior.unfurnish(a, rem);
+      int rn = a.interior.autoFurnish(a, rem);
+      check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), "extra.decor buildings and buildings with their template furniture removed are not auto-furnished");
+      summary["allBuildings"] = all; summary["allBuildingsDensity"] = {{"before", was}, {"now", total}, {"ratio", total / (float)std::max(1, was)}};
+      return true; });
     // ================================================================ performance
     push("performance: furnished vs built-in room, a blast in the room", [this](App& a, float t) {
       static int phase = 0; static float t0 = 0;
@@ -539,6 +694,40 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       summary["performance"] = perf;
       a.exitExplore();
       return true; }, 12);
+    push("auto-furnish: open map and new map (no undo step, not dirty)", [this](App& a, float) {
+      // a saved map with one bare building: opening it furnishes the building without an undo step or the dirty flag
+      fs::path p = outDirI() / "interiors_autofurnish.nmap.json";
+      a.newMap(*a.findTemplate("blank_slate"), "Auto-furnish check");
+      a.interior.autoOnPlace = false;
+      uint64_t h = a.placeInstance(a.lib.find("vil_norman_farmhouse"), vec3(0, 0, 0), 0.0f);
+      a.interior.autoOnPlace = true;
+      bool saved = a.saveMapTo(p), opened = a.openMap(p);
+      int n = (int)childrenOf(a, h).size();
+      std::snprintf(b_, sizeof b_, "open a map with a bare Norman farmhouse: furnished with %d pieces in %.0f ms; undo stack %zu, dirty %d", n, a.interior.lastAutoMs, a.undoStack.size(), (int)a.dirty);
+      check(saved && opened && n > 0 && a.undoStack.empty() && !a.dirty, b_);
+      // a new map from the Normandy Village Assault template: every building furnished, nothing to undo, not dirty
+      const TemplateInfo* bt = a.findTemplate("battle1");
+      check(bt != nullptr, "template: battle1 (Normandy Village Assault)");
+      if (bt) {
+        a.newMap(*bt, "Village check");
+        int hosts = 0, done = 0, pieces = 0;
+        for (auto& i : a.doc.instances) {
+          const AssetDef* as = a.lib.find(i.assetId); if (!as || !as->enterable || a.interior.isProp(as)) continue;
+          bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0 || a.interior.rooms(as)->rooms.empty();
+          if (skip) continue;
+          ++hosts; done += a.interior.hideBuiltin(i);
+        }
+        for (auto& i : a.doc.instances) pieces += i.extra.is_object() && i.extra.contains("furnish");
+        std::snprintf(b_, sizeof b_, "new map from battle1: %d of %d buildings furnished (%d pieces, %.0f ms); undo stack %zu, dirty %d", done, hosts, pieces, a.interior.lastAutoMs, a.undoStack.size(), (int)a.dirty);
+        check(hosts > 0 && done == hosts && a.undoStack.empty() && !a.dirty, b_);
+        summary["battle1"] = {{"buildings", hosts}, {"pieces", pieces}, {"ms", a.interior.lastAutoMs}};
+      }
+      return true; });
+
+    if (getenv("NMK_INTERIORS_QUICK")) {   // tuning: only the furnishing steps (no Explore, no frame times)
+      std::vector<Step> q; for (auto& s : seq) if (s.name.rfind("templates: furnish", 0) == 0 || s.name.rfind("all buildings", 0) == 0) q.push_back(s);
+      seq.swap(q);
+    }
   }
   stage = 2801;
   if (cur >= seq.size()) { check(app.R.shaderErrors == 0, "all shaders compiled"); finish(app); return; }

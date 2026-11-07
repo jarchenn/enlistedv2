@@ -44,6 +44,29 @@ MATS = {
     "hearth": ([0.28, 0.27, 0.24], 0.85, "ashlar", 1),
     "firebrick": ([0.17, 0.08, 0.05], 0.9, "brickwork", 1),
     "soot": ([0.025, 0.022, 0.02], 0.97, "plain", 1),
+    # V4 (dense interiors): materials of the second furniture set
+    "marble": ([0.62, 0.6, 0.56], 0.25, "plain", 1),
+    "zinc": ([0.36, 0.37, 0.37], 0.45, "metal", 1),
+    "copper": ([0.45, 0.22, 0.12], 0.35, "metal", 1),
+    "cast_iron": ([0.06, 0.058, 0.056], 0.6, "metal", 1),
+    "enamel": ([0.55, 0.53, 0.47], 0.3, "ceramic", 0),
+    "wicker": ([0.45, 0.34, 0.18], 0.9, "fabric", 1),
+    "sacking": ([0.46, 0.39, 0.27], 0.97, "fabric", 1),
+    "hay": ([0.55, 0.46, 0.22], 0.97, "fabric", 1),
+    "bark": ([0.2, 0.14, 0.09], 0.95, "joinery", -1),
+    "log_end": ([0.42, 0.32, 0.2], 0.9, "joinery", -1),
+    "upholstery": ([0.22, 0.24, 0.14], 0.9, "textile", 2),
+    "coat_wool": ([0.15, 0.14, 0.12], 0.95, "textile", 0),
+    "coat_blue": ([0.12, 0.15, 0.22], 0.95, "textile", 0),
+    "mirror": ([0.72, 0.74, 0.74], 0.05, "metal", 1),
+    "jar_glass": ([0.75, 0.82, 0.78], 0.05, "glass", 1),
+    "preserve_red": ([0.32, 0.05, 0.04], 0.4, "plain", 1),
+    "preserve_amber": ([0.45, 0.25, 0.05], 0.4, "plain", 1),
+    "preserve_green": ([0.22, 0.28, 0.08], 0.4, "plain", 1),
+    "apple": ([0.42, 0.08, 0.05], 0.55, "plain", 1),
+    "wax": ([0.8, 0.77, 0.66], 0.6, "plain", 1),
+    "slate_black": ([0.07, 0.075, 0.08], 0.7, "plain", 1),
+    "dial": ([0.78, 0.75, 0.66], 0.5, "paper", 1),
 }
 
 
@@ -97,7 +120,7 @@ class A:
                 alb, rough, pat, grain = self.extra_mats[n]
             else:
                 alb, rough, pat, grain = MATS[n]
-            materials.append({"name": n, "albedo": alb, "roughness": rough, "pattern": pat, "metallic": 1.0 if n == "brass" else (0.15 if n == "iron" else 0), "grain": grain})
+            materials.append({"name": n, "albedo": alb, "roughness": rough, "pattern": pat, "metallic": 1.0 if n in ("brass", "copper", "mirror") else (0.8 if n == "zinc" else (0.15 if n in ("iron", "cast_iron") else 0)), "grain": grain})
         if not any(m["name"] == "oak" for m in materials) and self.cols:
             alb, rough, pat, grain = MATS["oak"]
             materials.append({"name": "oak", "albedo": alb, "roughness": rough, "pattern": pat, "metallic": 0, "grain": grain})
@@ -527,6 +550,473 @@ def rug(root, id, name, W, D, variant, col):
     return a.write(root, [W, D], fragments=[], keep=[])
 
 
+# ---------------------------------------------------------------- V4: the second set (dense, lived-in interiors)
+def books_row(a, x0, x1, y, z, depth, grp, seed):
+    """A row of upright books on a shelf at height y, spines facing +z (a few leaning)."""
+    covers = ["cover_red", "cover_blue", "cover_green", "paper", "cover_red", "cover_green"]
+    x, i = x0, 0
+    while True:
+        w = 0.025 + 0.012 * ((seed + i * 7) % 4)
+        h = 0.17 + 0.03 * ((seed + i * 5) % 3)
+        if x + w > x1:
+            break
+        lean = 8 if (seed + i) % 9 == 0 else 0
+        a.r([x + w / 2, y + h / 2, z], [w, h, depth], covers[(seed + i) % len(covers)], grp, 0.003, rot=[0, 0, lean] if lean else None)
+        x += w + 0.002 + (0.03 if lean else 0)
+        i += 1
+
+
+def dresser(root):
+    a = A("furn_dresser", "Buffet bas (dresser)", "Low Norman buffet: two panelled doors under two drawers, moulded top, short feet. Things stand on its top.",
+          "wood", 18, 45, wall=True, front=0.7)
+    W, D, H = 1.25, 0.52, 0.95
+    w = "oak"
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.02), H / 2 + 0.04, 0], [0.04, H - 0.08, D], w, "carcass", 0.006)
+        for sz in (-1, 1):
+            a.r([sx * (W / 2 - 0.04), 0.04, sz * (D / 2 - 0.04)], [0.06, 0.08, 0.06], w, "carcass", 0.01)
+    a.r([0, 0.1, 0], [W - 0.04, 0.04, D - 0.02], w, "carcass", 0.005)
+    a.r([0, H / 2 + 0.04, -D / 2 + 0.01], [W - 0.04, H - 0.1, 0.02], w, "carcass", 0.004)
+    a.r([0, H - 0.015, 0.012], [W + 0.05, 0.035, D + 0.035], w, "top", 0.01)
+    for i, sx in enumerate((-1, 1)):
+        a.r([sx * W / 4, H - 0.12, D / 2 - 0.01], [W / 2 - 0.05, 0.12, 0.022], w, f"drawer{i}", 0.005)
+        a.r([sx * W / 4, H - 0.12, D / 2 + 0.006], [0.06, 0.02, 0.014], "brass", f"drawer{i}", 0.005)
+        framed_door(a, sx * W / 4, 0.46, D / 2 - 0.01, W / 2 - 0.05, 0.6, w, f"door{i}")
+        a.r([sx * 0.05, 0.52, D / 2 + 0.006], [0.014, 0.05, 0.014], "brass", f"door{i}", 0.005)
+    a.col([0, H / 2, 0], [W, H, D])
+    return a.write(root, [W + 0.05, D + 0.035], fragments=["top", "door0", "door1", "drawer0"], keep=["carcass", "drawer1"],
+                   surfaces=[[-W / 2 + 0.05, -D / 2 + 0.06, W / 2 - 0.05, D / 2 - 0.02, H + 0.003]])
+
+
+def sideboard(root):
+    a = A("furn_sideboard", "Sideboard", "Long painted enfilade: three doors, a drawer row, plinth. Crockery and lamps stand on it.",
+          "painted", 18, 45, wall=True, front=0.7)
+    W, D, H = 1.8, 0.48, 0.9
+    w = "paint_green"
+    for x in (-W / 2 + 0.02, -W / 6, W / 6, W / 2 - 0.02):
+        a.r([x, H / 2 + 0.03, 0], [0.035, H - 0.06, D], w, "carcass", 0.006)
+    a.r([0, 0.05, 0], [W - 0.02, 0.1, D - 0.02], w, "carcass", 0.006)
+    a.r([0, H / 2, -D / 2 + 0.01], [W - 0.04, H - 0.08, 0.02], w, "carcass", 0.004)
+    a.r([0, H - 0.015, 0.01], [W + 0.04, 0.03, D + 0.03], "oak", "top", 0.008)
+    for i in range(3):
+        cx = -W / 3 + i * W / 3
+        a.r([cx, H - 0.1, D / 2 - 0.01], [W / 3 - 0.06, 0.1, 0.022], w, "drawers", 0.005)
+        a.r([cx, H - 0.1, D / 2 + 0.006], [0.05, 0.018, 0.012], "brass", "drawers", 0.005)
+        framed_door(a, cx, 0.42, D / 2 - 0.01, W / 3 - 0.06, 0.56, w, f"door{i}")
+    a.col([0, H / 2, 0], [W, H, D])
+    return a.write(root, [W + 0.04, D + 0.03], fragments=["top", "door0", "door2", "drawers"], keep=["carcass", "door1"],
+                   surfaces=[[-W / 2 + 0.05, -D / 2 + 0.05, W / 2 - 0.05, D / 2 - 0.02, H]])
+
+
+def bookcase(root):
+    a = A("furn_bookcase", "Bookcase", "Tall oak bookcase, five shelves of upright cloth-bound books, cornice. Books spill when it breaks.",
+          "wood", 22, 50, wall=True, front=0.7)
+    W, D, H = 1.0, 0.34, 2.0
+    w = "oak_dark"
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.015), H / 2, 0], [0.03, H, D], w, "carcass", 0.006)
+    a.r([0, H / 2, -D / 2 + 0.008], [W - 0.03, H, 0.016], w, "carcass", 0.003)
+    a.r([0, H + 0.02, 0.01], [W + 0.06, 0.05, D + 0.04], w, "carcass", 0.012)
+    a.r([0, 0.05, 0], [W - 0.02, 0.1, D - 0.01], w, "carcass", 0.005)
+    ys = [0.1, 0.48, 0.86, 1.24, 1.62]
+    for i, y in enumerate(ys):
+        a.r([0, y + 0.012, 0.0], [W - 0.04, 0.024, D - 0.03], w, "shelves" if i < 3 else "upper", 0.004)
+        books_row(a, -W / 2 + 0.05, W / 2 - 0.08 - 0.06 * (i % 2), y + 0.024, 0.01, 0.2, "books" if i % 2 == 0 else "books2", i * 3)
+    a.col([0, H / 2, 0], [W, H, D])
+    return a.write(root, [W + 0.06, D + 0.04], fragments=["upper", "books", "books2"], keep=["carcass", "shelves"])
+
+
+def washstand(root):
+    a = A("furn_washstand", "Washstand", "Marble-topped washstand with a splashback, towel rail, drawer and shelf; a faience basin and ewer stand on it.",
+          "wood", 12, 32, wall=True, front=0.6)
+    W, D, H = 0.85, 0.45, 0.78
+    w = "cherry"
+    for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
+        a.r([sx * (W / 2 - 0.03), H / 2, sz * (D / 2 - 0.03)], [0.04, H, 0.04], w, "frame", 0.006)
+    a.r([0, 0.16, 0], [W - 0.06, 0.02, D - 0.06], w, "frame", 0.004)   # lower shelf
+    a.r([0, H - 0.08, D / 2 - 0.03], [W - 0.1, 0.1, 0.02], w, "drawer", 0.004)
+    a.r([0, H - 0.08, D / 2 - 0.016], [0.05, 0.016, 0.012], "brass", "drawer", 0.004)
+    a.r([0, H - 0.08, -D / 2 + 0.03], [W - 0.1, 0.1, 0.02], w, "frame", 0.004)
+    a.r([0, H + 0.015, 0], [W + 0.02, 0.03, D + 0.02], "marble", "top", 0.006)
+    a.r([0, H + 0.13, -D / 2 + 0.01], [W, 0.2, 0.02], "marble", "top", 0.005)
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 + 0.03), H - 0.1, 0], [0.018, 0.018, 0.018], w, "frame", 0.004)
+    a.r([0, H - 0.1, 0], [0.016, 0.016, D - 0.1], w, "frame", 0.004)   # towel rail along a side
+    a.r([0, H - 0.18, D / 2 + 0.01], [W - 0.1, 0.2, 0.006], "linen", "towel", 0.003)
+    a.r([0, H + 0.065, 0.02], [0.36, 0.07, 0.3], "faience", "basin", 0.03)
+    a.r([0.13, H + 0.15, -0.05], [0.12, 0.2, 0.12], "faience_red", "basin", 0.045)
+    a.col([0, H / 2, 0], [W, H + 0.05, D])
+    return a.write(root, [W + 0.06, D + 0.02], fragments=["basin", "top", "drawer", "towel"], keep=["frame"])
+
+
+def stove(root):
+    a = A("furn_stove", "Cooking range", "Cast-iron cuisinière: enamelled oven doors, brass rail, hot plate rings, a flue pipe to the wall, a pot on top.",
+          "metal", 0, 160, wall=True, front=0.9)
+    W, D, H = 1.0, 0.6, 0.82
+    a.r([0, H / 2 + 0.05, 0], [W, H - 0.1, D], "cast_iron", "body", 0.012)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            a.r([sx * (W / 2 - 0.06), 0.03, sz * (D / 2 - 0.06)], [0.05, 0.06, 0.05], "cast_iron", "body", 0.01)
+    a.r([0, H + 0.01, 0], [W + 0.02, 0.025, D + 0.02], "cast_iron", "top", 0.006)
+    for x, z in ((-0.25, 0.1), (0.05, 0.1), (-0.25, -0.13)):
+        a.r([x, H + 0.026, z], [0.2, 0.008, 0.2], "iron", "top", 0.003)
+    a.r([0, H - 0.06, D / 2 + 0.04], [W - 0.06, 0.02, 0.02], "brass", "rail", 0.008)
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.05), H - 0.06, D / 2 + 0.02], [0.02, 0.02, 0.05], "brass", "rail", 0.006)
+    for i, x in enumerate((-0.24, 0.24)):
+        a.r([x, 0.42, D / 2 + 0.006], [0.4, 0.42, 0.02], "enamel", f"door{i}", 0.01)
+        a.r([x, 0.6, D / 2 + 0.02], [0.12, 0.018, 0.018], "brass", f"door{i}", 0.006)
+    a.r([0.38, H + 0.5, -D / 2 + 0.1], [0.13, 1.0, 0.13], "cast_iron", "flue", 0.05)
+    a.r([0.08, H + 0.1, 0.1], [0.22, 0.15, 0.22], "cast_iron", "pot", 0.06)
+    a.r([0.08, H + 0.18, 0.1], [0.2, 0.02, 0.2], "cast_iron", "pot", 0.02)
+    a.col([0, H / 2, 0], [W, H + 0.03, D])
+    return a.write(root, [W + 0.02, D + 0.05], fragments=["pot", "door0", "flue"], keep=["body", "top", "rail", "door1"])
+
+
+def pantry(root):
+    a = A("furn_pantry", "Pantry shelves", "Open pine shelves crowded with preserving jars, crocks, a cheese and folded cloths. Jars shatter first.",
+          "wood", 14, 30, wall=True, front=0.6)
+    W, D, H = 1.1, 0.36, 1.85
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            a.r([sx * (W / 2 - 0.025), H / 2, sz * (D / 2 - 0.025)], [0.045, H, 0.045], "pine", "frame", 0.006)
+    ys = [0.15, 0.6, 1.05, 1.5]
+    mats = ["preserve_red", "preserve_amber", "preserve_green"]
+    for i, y in enumerate(ys):
+        a.r([0, y, 0], [W - 0.02, 0.024, D - 0.01], "pine", "frame", 0.004)
+        for j in range(6):
+            x = -W / 2 + 0.11 + j * 0.17
+            h = 0.16 if (i + j) % 3 else 0.22
+            if (i * 6 + j) % 5 == 4:   # a stoneware crock
+                a.r([x, y + 0.012 + 0.08, 0.0], [0.13, 0.16, 0.13], "stoneware", "crocks", 0.04)
+                continue
+            a.r([x, y + 0.012 + h / 2 - 0.01, 0.02], [0.085, h - 0.03, 0.085], mats[(i + j) % 3], "jars", 0.03)
+            a.b([x, y + 0.012 + h / 2, 0.02], [0.1, h, 0.1], "jar_glass", "glass")
+            a.r([x, y + 0.012 + h + 0.008, 0.02], [0.09, 0.016, 0.09], "zinc", "jars", 0.006)
+    a.r([0.2, 1.5 + 0.06, -0.06], [0.24, 0.1, 0.18], "linen", "cloths", 0.03)
+    a.col([0, H / 2, 0], [W, H, D])
+    return a.write(root, [W, D], fragments=["jars", "crocks", "cloths"], keep=["frame"], glass="glass")
+
+
+def sacks(root):
+    a = A("furn_sacks", "Grain sacks", "Three tied hessian sacks of grain and flour slumped against each other.", "cloth", 30, 60, wall=True, front=0.4)
+    for i, (x, z, h, tilt) in enumerate([(-0.25, 0.0, 0.62, 4), (0.12, 0.04, 0.55, -6), (-0.05, -0.28, 0.5, 9)]):
+        a.r([x, h / 2, z], [0.42, h, 0.32], "sacking", f"sack{i}", 0.12, rot=[0, 15 * i, tilt])
+        a.r([x, h + 0.04, z], [0.1, 0.1, 0.08], "sacking", f"sack{i}", 0.04, rot=[0, 15 * i, tilt])
+    a.col([-0.07, 0.3, -0.1], [0.85, 0.6, 0.65])
+    return a.write(root, [0.9, 0.7], fragments=["sack1", "sack2"], keep=["sack0"])
+
+
+def barrel(root, id, name, rack):
+    a = A(id, name, ("Two oak casks on their sides in a timber cradle, taps in the heads." if rack else
+                     "Standing oak cask with iron hoops and a lid."), "wood", 20 if rack else 14, 55 if rack else 40, wall=rack, front=0.6 if rack else 0.4)
+    def cask(c, along, L, R, grp):
+        n = 8
+        for k in range(n):   # staves around the axis (octagonal barrel, bulging middle)
+            ang = 360.0 * k / n
+            ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+            if along == "y":
+                off = [ca * R * 0.93, 0, sa * R * 0.93]
+                a.r([c[0] + off[0], c[1], c[2] + off[2]], [R * 0.78, L, 0.03], "oak", grp, 0.008, rot=[0, -ang + 90, 0])
+            else:
+                off = [0, ca * R * 0.93, sa * R * 0.93]
+                a.r([c[0], c[1] + off[1], c[2] + off[2]], [L, R * 0.78, 0.03], "oak", grp, 0.008, rot=[ang - 90, 0, 0])
+        for t in (-0.38, 0.0, 0.38):
+            if along == "y":
+                a.r([c[0], c[1] + t * L, c[2]], [R * 2.06, 0.03, R * 2.06], "iron", grp, 0.01)
+            else:
+                a.r([c[0] + t * L, c[1], c[2]], [0.03, R * 2.06, R * 2.06], "iron", grp, 0.01)
+        if along == "y":
+            a.r([c[0], c[1] + L / 2 - 0.01, c[2]], [R * 1.75, 0.025, R * 1.75], "oak_dark", grp, 0.006)
+        else:
+            a.r([c[0] + L / 2 - 0.01, c[1], c[2]], [0.025, R * 1.75, R * 1.75], "oak_dark", grp, 0.006)
+            a.r([c[0] + L / 2 + 0.03, c[1] - R * 0.5, c[2]], [0.06, 0.03, 0.03], "brass", grp, 0.008)
+    if rack:
+        for sx in (-1, 1):
+            a.r([sx * 0.3, 0.08, 0], [0.08, 0.16, 1.15], "oak_dark", "cradle", 0.01)
+        a.r([0, 0.04, 0], [0.7, 0.06, 0.08], "oak_dark", "cradle", 0.006)
+        cask([0.0, 0.42, -0.28], "x", 0.75, 0.27, "cask0")
+        cask([0.0, 0.42, 0.28], "x", 0.75, 0.27, "cask1")
+        a.col([0, 0.35, 0], [0.8, 0.7, 1.15])
+        return a.write(root, [0.85, 1.15], fragments=["cask1", "cask0"], keep=["cradle"],
+                       surfaces=[[-0.3, -0.45, 0.3, 0.45, 0.705]])
+    cask([0, 0.42, 0], "y", 0.84, 0.28, "cask")
+    a.r([0, 0.86, 0], [0.5, 0.03, 0.5], "oak_dark", "lid", 0.008)
+    a.col([0, 0.43, 0], [0.56, 0.86, 0.56])
+    return a.write(root, [0.6, 0.6], fragments=["lid", "cask"], keep=[], surfaces=[[-0.18, -0.18, 0.18, 0.18, 0.875]])
+
+
+def workbench(root):
+    a = A("furn_workbench", "Workbench", "Carpenter's bench: thick beech top with a wooden vice and bench dogs, a tool well holding a plane, mallet and chisels.",
+          "wood", 26, 60, wall=True, front=0.8)
+    W, D, H = 1.9, 0.65, 0.86
+    a.r([0, H - 0.04, 0], [W, 0.08, D - 0.12], "pine", "top", 0.008)
+    a.r([0, H - 0.07, -D / 2 + 0.06], [W, 0.02, 0.12], "pine", "top", 0.004)   # tool well
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            a.r([sx * (W / 2 - 0.12), (H - 0.08) / 2, sz * (D / 2 - 0.08)], [0.08, H - 0.08, 0.08], "oak", "legs", 0.008)
+        a.r([sx * (W / 2 - 0.12), 0.16, 0], [0.07, 0.07, D - 0.1], "oak", "legs", 0.006)
+    a.r([0, 0.16, 0], [W - 0.3, 0.07, 0.07], "oak", "legs", 0.006)
+    a.r([W / 2 - 0.08, H - 0.12, D / 2 - 0.02], [0.3, 0.2, 0.06], "oak_dark", "vice", 0.01)
+    a.r([W / 2 - 0.08, H - 0.12, D / 2 + 0.08], [0.03, 0.03, 0.2], "oak_dark", "vice", 0.01)
+    a.r([W / 2 - 0.08, H - 0.12, D / 2 + 0.18], [0.2, 0.025, 0.025], "oak_dark", "vice", 0.01)
+    a.r([-0.4, H + 0.03, 0.02], [0.3, 0.06, 0.07], "oak", "tools", 0.01)   # plane
+    a.r([-0.4, H + 0.07, 0.02], [0.04, 0.04, 0.03], "iron", "tools", 0.006)
+    a.r([0.15, H + 0.03, 0.1], [0.12, 0.06, 0.06], "oak_dark", "tools", 0.01, rot=[0, 30, 0])   # mallet
+    a.r([0.25, H + 0.02, 0.15], [0.28, 0.025, 0.025], "oak", "tools", 0.008, rot=[0, 30, 0])
+    for i in range(3):
+        a.r([-0.1 + i * 0.06, H - 0.04, -D / 2 + 0.06], [0.02, 0.012, 0.2], "iron", "tools", 0.004)
+    a.r([0.55, H + 0.006, -0.05], [0.3, 0.01, 0.2], "log_end", "tools", 0.003)   # shavings / an offcut
+    a.col([0, H / 2, 0], [W, H, D])
+    return a.write(root, [W + 0.04, D + 0.2], fragments=["tools", "vice", "top"], keep=["legs"],
+                   surfaces=[[-W / 2 + 0.05, -D / 2 + 0.14, W / 2 - 0.4, D / 2 - 0.08, H]])
+
+
+def armchair(root):
+    a = A("furn_armchair", "Armchair", "Upholstered fauteuil: carved cherry frame, padded seat and back in green check, scrolled arms.",
+          "wood", 12, 30, front=0.5)
+    W, D = 0.7, 0.68
+    for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
+        a.r([sx * (W / 2 - 0.04), 0.18, sz * (D / 2 - 0.05)], [0.05, 0.36, 0.05], "cherry", "frame", 0.008)
+    a.r([0, 0.4, 0.03], [W - 0.06, 0.12, D - 0.12], "upholstery", "seat", 0.04)
+    a.r([0, 0.32, 0.03], [W - 0.04, 0.06, D - 0.08], "cherry", "frame", 0.008)
+    a.r([0, 0.74, -D / 2 + 0.07], [W - 0.12, 0.62, 0.1], "upholstery", "back", 0.04, rot=[-8, 0, 0])
+    a.r([0, 1.06, -D / 2 + 0.03], [W - 0.08, 0.05, 0.06], "cherry", "back", 0.015, rot=[-8, 0, 0])
+    for i, sx in enumerate((-1, 1)):
+        a.r([sx * (W / 2 - 0.045), 0.62, 0.0], [0.07, 0.05, D - 0.1], "cherry", f"arm{i}", 0.02)
+        a.r([sx * (W / 2 - 0.045), 0.52, D / 2 - 0.08], [0.045, 0.2, 0.045], "cherry", f"arm{i}", 0.01)
+    a.col([0, 0.33, 0.02], [W, 0.66, D - 0.04])
+    a.col([0, 0.8, -D / 2 + 0.07], [W, 0.6, 0.14])
+    return a.write(root, [W, D], fragments=["back", "seat", "arm0", "arm1"], keep=["frame"])
+
+
+def desk(root):
+    a = A("furn_desk", "Writing desk", "Oak bureau plat: leather-look writing top, three drawers in the apron, square legs; an inkwell and blotter on it.",
+          "wood", 16, 40, wall=True, front=0.8)
+    W, D, H = 1.15, 0.62, 0.76
+    a.r([0, H - 0.015, 0], [W, 0.03, D], "oak", "top", 0.006)
+    a.r([0, H + 0.001, 0.02], [W - 0.2, 0.004, D - 0.16], "cover_green", "top", 0.001)
+    for i, x in enumerate((-W / 3, 0, W / 3)):
+        a.r([x, H - 0.08, D / 2 - 0.03], [W / 3 - 0.06, 0.09, 0.02], "oak", "drawers", 0.004)
+        a.r([x, H - 0.08, D / 2 - 0.016], [0.04, 0.014, 0.012], "brass", "drawers", 0.004)
+    a.r([0, H - 0.08, -D / 2 + 0.03], [W - 0.08, 0.1, 0.02], "oak", "apron", 0.004)
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.04), H - 0.08, 0], [0.02, 0.1, D - 0.08], "oak", "apron", 0.004)
+    for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
+        leg_tapered(a, sx * (W / 2 - 0.04), sz * (D / 2 - 0.04), H - 0.03, 0.05, 0.035, "oak", f"leg{i}")
+    a.r([0.35, H + 0.03, -0.15], [0.06, 0.06, 0.06], "glass", "glass", 0.01)
+    a.r([0.35, H + 0.012, -0.15], [0.07, 0.02, 0.07], "brass", "inkwell", 0.006)
+    a.col([0, H / 2, 0], [W, H, D])
+    return a.write(root, [W, D], fragments=["top", "drawers", "leg0", "inkwell"], keep=["apron", "leg2", "leg3", "leg1"], glass="glass",
+                   surfaces=[[-W / 2 + 0.05, -D / 2 + 0.05, W / 2 - 0.25, D / 2 - 0.05, H + 0.003]])
+
+
+def pew(root):
+    a = A("furn_pew", "Church pew", "Oak pew with a panelled back, book ledge and scrolled ends; seats four.", "wood", 24, 50, front=0.55)
+    W, D = 2.6, 0.55
+    for i, sx in enumerate((-1, 1)):
+        a.r([sx * (W / 2 - 0.03), 0.48, 0], [0.05, 0.96, D], "oak_dark", f"end{i}", 0.012)
+        a.r([sx * (W / 2 - 0.03), 0.98, 0.1], [0.05, 0.08, 0.2], "oak_dark", f"end{i}", 0.03)
+    a.r([0, 0.44, 0.06], [W - 0.06, 0.04, 0.38], "oak", "seat", 0.008)
+    a.r([0, 0.36, 0.22], [W - 0.06, 0.1, 0.025], "oak", "seat", 0.004)
+    a.r([0, 0.72, -D / 2 + 0.06], [W - 0.06, 0.52, 0.03], "oak", "back", 0.006, rot=[-6, 0, 0])
+    for k in range(4):
+        a.r([-W / 2 + 0.4 + k * 0.6, 0.72, -D / 2 + 0.078], [0.4, 0.38, 0.012], "oak_dark", "back", 0.004, rot=[-6, 0, 0])
+    a.r([0, 0.96, -D / 2 + 0.03], [W - 0.06, 0.04, 0.12], "oak", "ledge", 0.008)   # book ledge for the row behind
+    a.r([0, 0.08, 0.0], [W - 0.06, 0.04, 0.06], "oak", "seat", 0.004)
+    a.col([0, 0.25, 0.06], [W, 0.5, 0.42])
+    a.col([0, 0.75, -D / 2 + 0.06], [W, 0.5, 0.12])
+    return a.write(root, [W, D], fragments=["back", "seat", "ledge", "end0"], keep=["end1"])
+
+
+def school_desk(root):
+    a = A("furn_school_desk", "School desk", "Twin pupils' desk with a sloped lid, inkwell holes and a fixed bench on an iron frame.", "wood", 16, 40, front=0.4)
+    W, D = 1.1, 0.8
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.04), 0.35, 0.0], [0.04, 0.05, D - 0.05], "cast_iron", "frame", 0.01)
+        a.r([sx * (W / 2 - 0.04), 0.35, -0.22], [0.04, 0.7, 0.04], "cast_iron", "frame", 0.01)
+        a.r([sx * (W / 2 - 0.04), 0.2, 0.22], [0.04, 0.4, 0.04], "cast_iron", "frame", 0.01)
+        a.r([sx * (W / 2 - 0.04), 0.02, 0.0], [0.05, 0.04, D - 0.05], "cast_iron", "frame", 0.01)
+    a.r([0, 0.72, -0.22], [W, 0.025, 0.4], "pine", "lid", 0.005, rot=[-8, 0, 0])
+    a.r([0, 0.62, -0.25], [W - 0.06, 0.18, 0.36], "pine", "box", 0.005)
+    for sx in (-1, 1):
+        a.r([sx * 0.3, 0.745, -0.4], [0.035, 0.012, 0.035], "slate_black", "lid", 0.004)
+    a.r([0, 0.42, 0.24], [W, 0.03, 0.26], "pine", "bench", 0.006)
+    a.r([0, 0.62, 0.36], [W, 0.12, 0.025], "pine", "bench", 0.005, rot=[-6, 0, 0])
+    a.col([0, 0.37, -0.22], [W, 0.74, 0.42])
+    a.col([0, 0.3, 0.26], [W, 0.6, 0.3])
+    return a.write(root, [W, D], fragments=["lid", "bench", "box"], keep=["frame"])
+
+
+def wood_pile(root):
+    a = A("furn_wood_pile", "Firewood stack", "Split logs of firewood stacked against a wall, a few kindling sticks on top.", "wood", 30, 45, wall=True, front=0.4)
+    k = 0
+    for row in range(4):
+        for i in range(5 - (row % 2)):
+            x = -0.36 + i * 0.18 + (0.09 if row % 2 else 0)
+            a.r([x, 0.08 + row * 0.14, -0.02 * (i % 2)], [0.15, 0.14, 0.42], "bark", "logs" if row < 2 else "top", 0.05)
+            a.r([x, 0.08 + row * 0.14, 0.212], [0.12, 0.11, 0.004], "log_end", "logs" if row < 2 else "top", 0.002)
+            k += 1
+    for i in range(3):
+        a.r([-0.1 + i * 0.12, 0.63, 0.02], [0.03, 0.03, 0.4], "pine", "top", 0.008, rot=[0, 10 * i - 10, 0])
+    a.col([0, 0.31, 0], [0.9, 0.62, 0.44])
+    return a.write(root, [0.92, 0.46], fragments=["top", "logs"], keep=[])
+
+
+def hay_bales(root):
+    a = A("furn_hay_bales", "Hay bales", "Two stacked bales of hay with twine, loose hay at the foot.", "cloth", 40, 70, wall=True, front=0.5)
+    a.r([0, 0.2, 0], [0.9, 0.4, 0.5], "hay", "bale0", 0.05)
+    a.r([0.06, 0.6, 0.02], [0.9, 0.4, 0.5], "hay", "bale1", 0.05, rot=[0, 6, 0])
+    for z in (-0.15, 0.15):
+        a.r([0, 0.2, z], [0.92, 0.41, 0.012], "sacking", "bale0", 0.004)
+        a.r([0.06, 0.6, z + 0.02], [0.92, 0.41, 0.012], "sacking", "bale1", 0.004, rot=[0, 6, 0])
+    a.r([0.2, 0.015, 0.35], [0.6, 0.03, 0.3], "hay", "loose", 0.012)
+    a.col([0, 0.4, 0], [0.95, 0.8, 0.55])
+    return a.write(root, [1.0, 0.8], fragments=["bale1", "loose"], keep=["bale0"])
+
+
+# wall-hung (mount: height of the piece's origin above the floor; back at z = 0, front toward +z)
+def coat_rack(root):
+    a = A("furn_coat_rack", "Coat pegs", "Peg rail by the door with a wool coat, a work jacket and a cap.", "cloth", 4, 10, blocking=False, wall=True, front=0.0, mount=1.55)
+    a.r([0, 0.0, 0.012], [0.9, 0.09, 0.024], "oak_dark", "rail", 0.006)
+    for i in range(4):
+        a.r([-0.33 + i * 0.22, 0.0, 0.06], [0.025, 0.025, 0.08], "oak_dark", "rail", 0.008, rot=[-20, 0, 0])
+    a.r([-0.33, -0.45, 0.07], [0.42, 0.85, 0.09], "coat_wool", "coats", 0.04)
+    a.r([0.11, -0.36, 0.07], [0.38, 0.7, 0.08], "coat_blue", "coats", 0.04)
+    a.r([0.33, 0.02, 0.09], [0.2, 0.06, 0.2], "coat_wool", "cap", 0.03)
+    return a.write(root, [0.9, 0.12], fragments=["coats", "cap"], keep=["rail"])
+
+
+def wall_clock(root):
+    a = A("furn_wall_clock", "Wall clock", "Cartel clock in a painted case with a brass pendulum.", "painted", 2, 8, blocking=False, wall=True, front=0.0, mount=1.6)
+    a.r([0, 0.0, 0.05], [0.32, 0.38, 0.1], "paint_cream", "case", 0.03)
+    a.r([0, 0.03, 0.102], [0.24, 0.24, 0.006], "dial", "case", 0.002)
+    a.b([0, 0.03, 0.108], [0.25, 0.25, 0.004], "glass", "glass")
+    a.r([0, -0.3, 0.04], [0.06, 0.25, 0.04], "paint_cream", "case", 0.01)
+    a.r([0, -0.38, 0.065], [0.08, 0.08, 0.01], "brass", "case", 0.004)
+    return a.write(root, [0.32, 0.11], fragments=["case"], keep=[], glass="glass")
+
+
+def utensil_rack(root):
+    a = A("furn_utensil_rack", "Utensil rack", "Iron rail with hanging copper pans, a ladle, a skimmer and a colander.", "metal", 0, 25, blocking=False, wall=True, front=0.0, mount=1.45)
+    a.r([0, 0.0, 0.04], [1.0, 0.02, 0.02], "iron", "rail", 0.008)
+    for sx in (-1, 1):
+        a.r([sx * 0.48, 0.0, 0.02], [0.02, 0.06, 0.04], "iron", "rail", 0.006)
+    for i, (x, d, drop) in enumerate([(-0.35, 0.22, 0.16), (-0.08, 0.18, 0.13), (0.38, 0.2, 0.15)]):
+        a.r([x, -drop - 0.05, 0.05], [d, d, 0.05], "copper", "pans", 0.02)
+        a.r([x, -0.05, 0.05], [0.025, 0.12, 0.012], "copper", "pans", 0.005)
+    a.r([0.15, -0.18, 0.05], [0.02, 0.32, 0.012], "iron", "pans", 0.004)
+    a.r([0.15, -0.36, 0.06], [0.08, 0.05, 0.06], "iron", "pans", 0.02)
+    return a.write(root, [1.0, 0.1], fragments=["pans"], keep=["rail"])
+
+
+def tool_rack(root):
+    a = A("furn_tool_rack", "Tool board", "Pine board with a bow saw, hammer, auger, square and a coil of rope on pegs.", "wood", 6, 15, blocking=False, wall=True, front=0.0, mount=1.1)
+    a.r([0, 0.35, 0.01], [1.2, 0.7, 0.02], "pine", "board", 0.004)
+    a.r([-0.35, 0.4, 0.04], [0.5, 0.025, 0.02], "oak", "tools", 0.006)   # bow saw
+    a.r([-0.35, 0.53, 0.04], [0.5, 0.02, 0.012], "iron", "tools", 0.003)
+    for sx in (-1, 1):
+        a.r([-0.35 + sx * 0.25, 0.47, 0.04], [0.025, 0.16, 0.02], "oak", "tools", 0.006)
+    a.r([0.1, 0.35, 0.04], [0.03, 0.32, 0.03], "oak", "tools", 0.008)   # hammer
+    a.r([0.1, 0.5, 0.045], [0.12, 0.04, 0.04], "iron", "tools", 0.008)
+    a.r([0.3, 0.35, 0.04], [0.02, 0.45, 0.02], "iron", "tools", 0.004)   # auger
+    a.r([0.3, 0.58, 0.04], [0.2, 0.03, 0.03], "oak", "tools", 0.008)
+    a.r([0.48, 0.3, 0.05], [0.2, 0.2, 0.06], "sacking", "rope", 0.08)
+    return a.write(root, [1.2, 0.08], fragments=["tools", "rope"], keep=["board"])
+
+
+def mirror(root):
+    a = A("furn_mirror", "Mirror", "Gilt-framed looking glass.", "glass", 1, 6, blocking=False, wall=True, front=0.0, mount=1.3)
+    a.r([0, 0.3, 0.012], [0.44, 0.56, 0.006], "mirror", "glass", 0.002)
+    for sy in (-1, 1):
+        a.r([0, 0.3 + sy * 0.3, 0.016], [0.52, 0.05, 0.03], "brass", "frame", 0.01)
+    for sx in (-1, 1):
+        a.r([sx * 0.25, 0.3, 0.016], [0.05, 0.62, 0.03], "brass", "frame", 0.01)
+    return a.write(root, [0.52, 0.04], fragments=["frame"], keep=[])
+
+
+def portrait(root):
+    a = A("furn_portrait", "Portrait", "Small framed family photograph portrait.", "wood", 1, 4, blocking=False, wall=True, front=0.0, mount=1.5)
+    a.r([0, 0.15, 0.01], [0.22, 0.28, 0.008], "paper", "print", 0.002)
+    a.r([0, 0.15, 0.006], [0.3, 0.36, 0.014], "oak_dark", "frame", 0.006)
+    return a.write(root, [0.3, 0.03], fragments=[], keep=[])
+
+
+def wall_shelf(root):
+    a = A("furn_wall_shelf", "Wall shelf", "A single pine board on two shaped brackets; small things stand on it (the board is its collider).", "wood", 3, 10, wall=True, front=0.0, mount=1.45)
+    a.r([0, 0.0, 0.13], [0.9, 0.025, 0.26], "pine", "board", 0.004)
+    for sx in (-1, 1):
+        a.r([sx * 0.36, -0.1, 0.07], [0.025, 0.18, 0.14], "pine", "brackets", 0.004)
+    a.col([0, 0.0, 0.13], [0.9, 0.025, 0.26])
+    return a.write(root, [0.9, 0.26], fragments=["board"], keep=["brackets"], surfaces=[[-0.43, 0.02, 0.43, 0.25, 0.0125]])
+
+
+def plate_rack(root):
+    a = A("furn_plate_rack", "Plate rack", "Wall-hung oak plate rack: faience plates standing on two rails, a shelf on top.", "wood", 4, 12, wall=True, front=0.0, mount=1.35)
+    W = 1.0
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.015), 0.25, 0.08], [0.025, 0.55, 0.16], "oak", "frame", 0.005)
+    for y in (0.0, 0.28):
+        a.r([0, y, 0.08], [W - 0.03, 0.02, 0.16], "oak", "frame", 0.004)
+        a.r([0, y + 0.05, 0.13], [W - 0.03, 0.012, 0.012], "oak", "frame", 0.003)
+        for i in range(4):
+            a.plate([-W / 2 + 0.14 + i * 0.24, y + 0.12, 0.06], 0.21, 0.011, ["faience", "faience_dots", "faience_red"][(i + int(y * 10)) % 3], "plates", axis="z", tilt=[-10, 0, 0])
+    a.r([0, 0.53, 0.09], [W, 0.022, 0.18], "oak", "frame", 0.004)
+    a.col([0, 0.27, 0.08], [W, 0.56, 0.16])
+    return a.write(root, [W, 0.18], fragments=["plates"], keep=["frame"], surfaces=[[-W / 2 + 0.05, 0.02, W / 2 - 0.05, 0.17, 0.541]])
+
+
+# small props (cosmetic)
+def jars(root):
+    a = A("furn_jars", "Preserving jars", "Three glass jars of preserves with zinc lids.", "glass", 1, 4, blocking=False, front=0.0)
+    for i, (x, z, h, m) in enumerate([(-0.06, 0.0, 0.16, "preserve_red"), (0.05, 0.03, 0.2, "preserve_amber"), (0.0, -0.08, 0.14, "preserve_green")]):
+        a.r([x, h / 2 - 0.005, z], [0.08, h - 0.02, 0.08], m, "jars", 0.03)
+        a.b([x, h / 2, z], [0.09, h, 0.09], "jar_glass", "glass")
+        a.r([x, h + 0.006, z], [0.085, 0.012, 0.085], "zinc", "jars", 0.005)
+    return a.write(root, [0.22, 0.2], fragments=[], keep=[], glass="glass")
+
+
+def bucket(root):
+    a = A("furn_bucket", "Bucket", "Coopered wooden pail with iron hoops and a rope handle.", "wood", 2, 8, blocking=False, front=0.0)
+    for k in range(8):
+        ang = 45.0 * k
+        a.r([math.cos(math.radians(ang)) * 0.13, 0.15, math.sin(math.radians(ang)) * 0.13], [0.105, 0.3, 0.02], "oak", "pail", 0.005, rot=[0, -ang + 90, 0])
+    for y in (0.06, 0.26):
+        a.r([0, y, 0], [0.29, 0.02, 0.29], "iron", "pail", 0.008)
+    a.r([0, 0.012, 0], [0.24, 0.02, 0.24], "oak", "pail", 0.005)
+    a.r([0, 0.36, 0], [0.3, 0.015, 0.015], "sacking", "pail", 0.006)
+    return a.write(root, [0.3, 0.3], fragments=[], keep=[])
+
+
+def basket(root):
+    a = A("furn_basket", "Basket of apples", "Wicker basket with a bow handle, full of red apples.", "cloth", 2, 6, blocking=False, front=0.0)
+    a.r([0, 0.1, 0], [0.42, 0.2, 0.3], "wicker", "basket", 0.05)
+    a.r([0, 0.32, 0], [0.4, 0.025, 0.025], "wicker", "basket", 0.01)
+    for sx in (-1, 1):
+        a.r([sx * 0.19, 0.25, 0], [0.025, 0.14, 0.025], "wicker", "basket", 0.01)
+    for i, (x, z) in enumerate([(-0.1, -0.05), (0.02, 0.06), (0.12, -0.04), (-0.04, 0.03), (0.08, 0.08)]):
+        a.r([x, 0.21 + 0.01 * (i % 2), z], [0.075, 0.07, 0.075], "apple", "apples", 0.033)
+    return a.write(root, [0.42, 0.3], fragments=[], keep=[])
+
+
+def pot(root):
+    a = A("furn_pot", "Cooking pot", "Cast-iron marmite with a lid and a ladle.", "metal", 0, 20, blocking=False, front=0.0)
+    a.r([0, 0.1, 0], [0.26, 0.2, 0.26], "cast_iron", "pot", 0.07)
+    a.r([0, 0.2, 0], [0.24, 0.02, 0.24], "cast_iron", "lid", 0.02)
+    a.r([0, 0.22, 0], [0.04, 0.03, 0.04], "cast_iron", "lid", 0.01)
+    a.r([0.12, 0.25, 0], [0.02, 0.2, 0.015], "iron", "lid", 0.004, rot=[0, 0, -30])
+    return a.write(root, [0.3, 0.26], fragments=[], keep=[])
+
+
+def candlesticks(root):
+    a = A("furn_candlesticks", "Candlesticks", "A pair of brass candlesticks with half-burnt candles.", "metal", 0, 6, blocking=False, front=0.0)
+    for i, x in enumerate((-0.07, 0.07)):
+        a.r([x, 0.012, 0], [0.09, 0.024, 0.09], "brass", "sticks", 0.01)
+        a.r([x, 0.1, 0], [0.025, 0.16, 0.025], "brass", "sticks", 0.008)
+        a.r([x, 0.24 - 0.03 * i, 0], [0.022, 0.12 - 0.06 * i, 0.022], "wax", "sticks", 0.008)
+    return a.write(root, [0.24, 0.1], fragments=[], keep=[])
+
+
 def main():
     root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parent.parent)
     outs = [
@@ -540,6 +1030,13 @@ def main():
         crockery(root), jug(root), bottles(root), books(root), lamp(root), crate(root), papers(root), picture(root), curtains(root),
         rug(root, "furn_rug_medallion", "Rug (medallion)", 2.2, 1.5, 0, [0.3, 0.1, 0.07]),
         rug(root, "furn_rug_kilim", "Rug (kilim)", 1.6, 0.9, 1, [0.36, 0.25, 0.14]),
+        # V4 second set
+        dresser(root), sideboard(root), bookcase(root), washstand(root), stove(root), pantry(root), sacks(root),
+        barrel(root, "furn_barrel", "Cask", False), barrel(root, "furn_barrel_rack", "Casks on a cradle", True),
+        workbench(root), armchair(root), desk(root), pew(root), school_desk(root), wood_pile(root), hay_bales(root),
+        coat_rack(root), wall_clock(root), utensil_rack(root), tool_rack(root), mirror(root), portrait(root),
+        wall_shelf(root), plate_rack(root),
+        jars(root), bucket(root), basket(root), pot(root), candlesticks(root),
     ]
     for o in outs:
         print("wrote", o.name)

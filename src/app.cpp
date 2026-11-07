@@ -261,6 +261,7 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   docPath.clear(); dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   tool = Tool::Select; placing = nullptr;
   w5NewMapContent(*this, t);   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
+  interior.autoFurnishAll(*this);   // V4: every building furnished (no undo step, not dirty; interior.cpp)
   toast("New map from template: " + t.name);
   return true;
 }
@@ -299,6 +300,7 @@ bool App::openMap(const fs::path& p) {
   dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   std::snprintf(nameBuf, sizeof nameBuf, "%s", doc.name.c_str());
   syncRuntime();
+  interior.autoFurnishAll(*this);   // V4: buildings without extra.interior get furnished (no undo step, not dirty; interior.cpp)
   toast("Opened " + doc.name + (isContent ? " (copy — Save As to keep)" : ""));
   return true;
 }
@@ -425,6 +427,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   bump(i);
   doc.instances.push_back(i);
   autopathOnPlaced(*this, i.id);   // "Auto paths" on: a new house gets its aprons and a path to its neighbours (autopath.cpp)
+  if (interior.autoOnPlace) interior.autoFurnish(*this, i.id);   // V4: a new building comes furnished (interior.cpp)
   return i.id;
 }
 bool App::duplicateSelected() {
