@@ -67,6 +67,23 @@ MATS = {
     "wax": ([0.8, 0.77, 0.66], 0.6, "plain", 1),
     "slate_black": ([0.07, 0.075, 0.08], 0.7, "plain", 1),
     "dial": ([0.78, 0.75, 0.66], 0.5, "paper", 1),
+    # L3 lights (docs/lights.md): lamp glass, flames and embers carry "emissive" (EMISSIVE below)
+    "lamp_glass": ([0.82, 0.8, 0.72], 0.05, "glass", 1),
+    "bulb": ([0.9, 0.86, 0.74], 0.1, "plain", 1),
+    "flame": ([0.95, 0.62, 0.22], 0.9, "plain", 1),
+    "ember": ([0.32, 0.08, 0.02], 0.95, "plain", 1),
+    "ash": ([0.2, 0.19, 0.18], 0.98, "plain", 1),
+    "enamel_green": ([0.12, 0.2, 0.14], 0.3, "ceramic", 0),
+    "enamel_white": ([0.68, 0.67, 0.62], 0.3, "ceramic", 0),
+    "shade_silk": ([0.62, 0.5, 0.32], 0.85, "textile", 0),
+    "porcelain": ([0.76, 0.74, 0.68], 0.25, "ceramic", 0),
+}
+# L3: linear HDR emissive multipliers (the lighting engine, L2, scales them by the light's on / time-of-day state)
+EMISSIVE = {
+    "lamp_glass": [1.6, 1.15, 0.62],
+    "bulb": [6.0, 4.6, 2.9],
+    "flame": [7.0, 3.4, 0.9],
+    "ember": [3.2, 0.9, 0.18],
 }
 
 
@@ -79,6 +96,7 @@ class A:
             self.prop["mount"] = mount
         self.cols = []
         self.extra_mats = {}
+        self.light = None   # L3: "light" block (dict or list of dicts), docs/lights.md
 
     def g(self, name):
         if name not in self.groups:
@@ -121,6 +139,8 @@ class A:
             else:
                 alb, rough, pat, grain = MATS[n]
             materials.append({"name": n, "albedo": alb, "roughness": rough, "pattern": pat, "metallic": 1.0 if n in ("brass", "copper", "mirror") else (0.8 if n == "zinc" else (0.15 if n in ("iron", "cast_iron") else 0)), "grain": grain})
+            if n in EMISSIVE:
+                materials[-1]["emissive"] = EMISSIVE[n]
         if not any(m["name"] == "oak" for m in materials) and self.cols:
             alb, rough, pat, grain = MATS["oak"]
             materials.append({"name": "oak", "albedo": alb, "roughness": rough, "pattern": pat, "metallic": 0, "grain": grain})
@@ -134,6 +154,8 @@ class A:
                "floors": 0, "enterable": False, "footprint": [round(footprint[0], 3), round(footprint[1], 3)],
                "plinthDepth": 0, "maxGrade": 0.3, "noAutoPanels": True, "materials": materials,
                "parts": self.parts + self.cols, "prop": self.prop}
+        if self.light is not None:
+            doc["light"] = light_block(self, self.light)
         out = root / "content" / "assets" / (self.id + ".json")
         out.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8", newline="")
         return out
@@ -484,6 +506,9 @@ def lamp(root):
     a.r([0, 0.08, 0], [0.04, 0.1, 0.04], "brass", "base", 0.01)
     a.r([0, 0.16, 0], [0.11, 0.07, 0.11], "brass", "base", 0.03)
     a.b([0, 0.27, 0], [0.06, 0.16, 0.06], "glass", "glass")
+    a.r([0, 0.225, 0], [0.012, 0.03, 0.006], "flame", "glass", 0.002)   # L3: the wick's flame inside the chimney
+    a.col([0, 0.2, 0], [0.1, 0.3, 0.1])   # L3: rounds can shoot it out (invisible: the navmesh skips it)
+    a.light = {"color": [1.0, 0.68, 0.36], "intensity": 0.45, "radius": 4.0, "offset": [0, 0.24, 0], "flicker": 0.12, "group": "glass", "use": "interior"}
     return a.write(root, [0.12, 0.12], fragments=[], keep=["base"], glass="glass")
 
 
@@ -669,6 +694,9 @@ def stove(root):
     a.r([0.38, H + 0.5, -D / 2 + 0.1], [0.13, 1.0, 0.13], "cast_iron", "flue", 0.05)
     a.r([0.08, H + 0.1, 0.1], [0.22, 0.15, 0.22], "cast_iron", "pot", 0.06)
     a.r([0.08, H + 0.18, 0.1], [0.2, 0.02, 0.2], "cast_iron", "pot", 0.02)
+    for x in (-0.06, 0.0, 0.06):   # L3: the glowing slots of the firebox draught plate
+        a.r([0.3 + x, 0.14, D / 2 + 0.002], [0.025, 0.05, 0.004], "ember", "grate", 0.0018)
+    a.light = {"color": [1.0, 0.45, 0.16], "intensity": 0.3, "radius": 2.5, "offset": [0.3, 0.16, D / 2 + 0.12], "flicker": 0.35, "group": "grate", "use": "fire"}
     a.col([0, H / 2, 0], [W, H + 0.03, D])
     return a.write(root, [W + 0.02, D + 0.05], fragments=["pot", "door0", "flue"], keep=["body", "top", "rail", "door1"])
 
@@ -1014,7 +1042,130 @@ def candlesticks(root):
         a.r([x, 0.012, 0], [0.09, 0.024, 0.09], "brass", "sticks", 0.01)
         a.r([x, 0.1, 0], [0.025, 0.16, 0.025], "brass", "sticks", 0.008)
         a.r([x, 0.24 - 0.03 * i, 0], [0.022, 0.12 - 0.06 * i, 0.022], "wax", "sticks", 0.008)
+        top = 0.24 - 0.03 * i + (0.12 - 0.06 * i) / 2
+        a.r([x, top + 0.016, 0], [0.008, 0.026, 0.004], "flame", "flames", 0.0018)   # L3
+    a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.22, "radius": 3.0, "offset": [0, 0.28, 0], "flicker": 0.28, "group": "flames", "use": "interior"}
     return a.write(root, [0.24, 0.1], fragments=[], keep=[])
+
+
+# ---------------------------------------------------------------- L3 lights (docs/lights.md)
+def light_block(a, light):
+    """The asset's "light" block: group names become prop group indices."""
+    out = []
+    for l in (light if isinstance(light, list) else [light]):
+        l = dict(l)
+        if isinstance(l.get("group"), str):
+            l["group"] = a.groups.index(l["group"])
+        for k in ("offset", "dir", "color"):
+            if k in l:
+                l[k] = [round(v, 4) for v in l[k]]
+        out.append(l)
+    return out[0] if len(out) == 1 else out
+
+
+def table_lamp(root):
+    a = A("furn_lamp_table", "Table lamp", "Electric table lamp: turned porcelain base, brass stem and a pleated silk shade over one bulb. "
+          "Towns and larger farms had mains electricity by 1944.", "ceramic", 1, 6, blocking=False, front=0.0)
+    a.r([0, 0.012, 0], [0.13, 0.024, 0.13], "brass", "base", 0.01)
+    a.r([0, 0.08, 0], [0.11, 0.11, 0.11], "porcelain", "base", 0.04)
+    a.r([0, 0.18, 0], [0.018, 0.12, 0.018], "brass", "base", 0.006)
+    a.r([0, 0.255, 0], [0.04, 0.05, 0.04], "bulb", "bulb", 0.018)
+    for rot in (0, 45):
+        a.r([0, 0.29, 0], [0.24, 0.16, 0.24], "shade_silk", "shade", 0.02, rot=[0, rot, 0])
+    a.light = {"color": [1.0, 0.76, 0.48], "intensity": 0.9, "radius": 5.5, "offset": [0, 0.27, 0], "group": "bulb", "use": "interior"}
+    a.col([0, 0.19, 0], [0.22, 0.36, 0.22])
+    return a.write(root, [0.24, 0.24], fragments=["shade"], keep=["base"], glass="bulb")
+
+
+def candle(root):
+    a = A("furn_candle", "Candle", "A tallow candle in an enamelled chamberstick with a finger ring, half burnt.", "ceramic", 1, 4, blocking=False, front=0.0)
+    a.r([0, 0.008, 0], [0.12, 0.016, 0.12], "enamel_white", "holder", 0.006)
+    a.r([0.07, 0.02, 0], [0.03, 0.03, 0.008], "enamel_white", "holder", 0.003)
+    a.r([0, 0.03, 0], [0.04, 0.03, 0.04], "enamel_white", "holder", 0.008)
+    a.r([0, 0.085, 0], [0.024, 0.08, 0.024], "wax", "candle", 0.008)
+    a.r([0, 0.138, 0], [0.008, 0.026, 0.004], "flame", "candle", 0.0018)
+    a.col([0, 0.07, 0], [0.1, 0.14, 0.1])
+    a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.12, "radius": 2.5, "offset": [0, 0.14, 0], "flicker": 0.3, "group": "candle", "use": "interior"}
+    return a.write(root, [0.13, 0.12], fragments=[], keep=["holder"])
+
+
+def candelabra(root):
+    a = A("furn_candelabra", "Candelabra", "Five-branch brass altar candelabra with beeswax candles.", "metal", 0, 10, blocking=False, front=0.0)
+    a.r([0, 0.015, 0], [0.18, 0.03, 0.18], "brass", "frame", 0.012)
+    a.r([0, 0.2, 0], [0.03, 0.36, 0.03], "brass", "frame", 0.01)
+    a.r([0, 0.38, 0], [0.5, 0.02, 0.02], "brass", "frame", 0.008)
+    for x in (-0.24, -0.12, 0.0, 0.12, 0.24):
+        y = 0.38 + (0.06 if x == 0 else 0.0)
+        a.r([x, y + 0.01, 0], [0.04, 0.02, 0.04], "brass", "frame", 0.01)
+        a.r([x, y + 0.08, 0], [0.022, 0.12, 0.022], "wax", "candles", 0.008)
+        a.r([x, y + 0.155, 0], [0.008, 0.026, 0.004], "flame", "candles", 0.0018)
+    a.light = {"color": [1.0, 0.64, 0.32], "intensity": 0.55, "radius": 4.5, "offset": [0, 0.56, 0], "flicker": 0.25, "group": "candles", "use": "interior"}
+    return a.write(root, [0.52, 0.18], fragments=[], keep=["frame"])
+
+
+def ceiling_lamp(root):
+    a = A("furn_lamp_ceiling", "Ceiling lamp", "Pendant lamp: a green enamelled steel shade on a cord from a ceiling rose, one bulb. Hangs from a ceiling or beam (origin at the top).",
+          "metal", 0, 10, blocking=False, front=0.0)
+    a.prop["hang"] = True
+    a.r([0, -0.012, 0], [0.09, 0.024, 0.09], "porcelain", "rose", 0.01)
+    a.r([0, -0.22, 0], [0.008, 0.4, 0.008], "iron", "rose", 0.0018)
+    a.r([0, -0.43, 0], [0.05, 0.04, 0.05], "brass", "shade", 0.012)
+    for rot in (0, 45):
+        a.r([0, -0.48, 0], [0.32, 0.07, 0.32], "enamel_green", "shade", 0.025, rot=[0, rot, 0])
+    a.r([0, -0.52, 0], [0.06, 0.06, 0.06], "bulb", "bulb", 0.026)
+    a.light = {"color": [1.0, 0.77, 0.5], "intensity": 1.6, "radius": 8.0, "offset": [0, -0.53, 0], "cone": [70, 105], "dir": [0, -1, 0], "shadow": 1, "group": "bulb", "use": "interior"}
+    a.col([0, -0.49, 0], [0.3, 0.12, 0.3])
+    return a.write(root, [0.32, 0.32], fragments=["shade"], keep=["rose"], glass="bulb")
+
+
+def caged_lamp(root):
+    a = A("furn_lamp_caged", "Caged bulkhead lamp", "Electric bunker lamp: cast-iron ceiling mount, a glass globe and a steel wire guard (field-grey). Flush on concrete ceilings; also the low-ceiling lamp.",
+          "metal", 0, 25, blocking=False, front=0.0)
+    a.prop["hang"] = True
+    a.extra_mats["bunker_grey"] = ([0.2, 0.21, 0.19], 0.6, "metal", 1)
+    a.used.add("bunker_grey")
+    a.r([0, -0.015, 0], [0.2, 0.03, 0.2], "bunker_grey", "mount", 0.012)
+    a.r([0, -0.09, 0], [0.13, 0.12, 0.13], "lamp_glass", "globe", 0.05)
+    a.r([0, -0.08, 0], [0.04, 0.05, 0.04], "bulb", "globe", 0.018)
+    for rot in (0, 90):
+        a.r([0, -0.1, 0], [0.16, 0.16, 0.008], "bunker_grey", "cage", 0.0025, rot=[0, rot, 0])
+    a.col([0, -0.09, 0], [0.18, 0.16, 0.18])
+    a.r([0, -0.17, 0], [0.05, 0.012, 0.05], "bunker_grey", "cage", 0.005)
+    a.light = {"color": [1.0, 0.85, 0.64], "intensity": 1.3, "radius": 7.0, "offset": [0, -0.1, 0], "shadow": 1, "group": "globe", "use": "electric"}
+    return a.write(root, [0.2, 0.2], fragments=["cage"], keep=["mount"], glass="globe")
+
+
+def hearth_fire(root):
+    a = A("furn_fire_hearth", "Fireplace fire", "A log fire on the hearth: split oak logs over a bed of embers and ash, flames licking up the flue.",
+          "masonry", 0, 400, blocking=False, front=0.0)
+    a.r([0, 0.01, 0], [0.56, 0.02, 0.3], "ash", "ash", 0.008)
+    a.r([0, 0.026, 0.0], [0.44, 0.02, 0.22], "ember", "fire", 0.008)
+    for i, (x, z, yaw, L) in enumerate(((-0.06, 0.05, 8, 0.5), (0.05, -0.05, -10, 0.46), (0.0, 0.0, 85, 0.3))):
+        y = 0.07 if i < 2 else 0.14
+        a.r([x, y, z], [L, 0.1, 0.1], "bark", "logs", 0.03, rot=[0, yaw, 0])
+        a.r([x, y, z], [L + 0.004, 0.06, 0.06], "log_end", "logs", 0.02, rot=[0, yaw, 0])
+    for x, h, rot in ((-0.1, 0.22, 12), (0.02, 0.3, -6), (0.12, 0.2, 20), (0.05, 0.16, 70)):
+        a.r([x, 0.08 + h / 2, 0.0], [0.07, h, 0.01], "flame", "fire", 0.003, rot=[0, rot, 0])
+    a.light = {"color": [1.0, 0.52, 0.2], "intensity": 1.8, "radius": 7.0, "offset": [0, 0.28, 0.12], "flicker": 0.8, "shadow": 1, "group": "fire", "use": "fire", "fx": "flame", "fxSize": 0.16}
+    return a.write(root, [0.56, 0.3], fragments=[], keep=["ash", "logs"])
+
+
+def potbelly_stove(root):
+    a = A("furn_stove_potbelly", "Pot-bellied stove", "Small cast-iron heating stove with a glowing draught grate and a flue pipe; the Kanonenofen of dugouts, guard rooms and offices.",
+          "metal", 0, 120, wall=True, front=0.6)
+    a.r([0, 0.05, 0], [0.42, 0.04, 0.42], "cast_iron", "body", 0.01)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            a.r([sx * 0.15, 0.025, sz * 0.15], [0.04, 0.05, 0.04], "cast_iron", "body", 0.01)
+    for rot in (0, 45):
+        a.r([0, 0.36, 0], [0.36, 0.56, 0.36], "cast_iron", "body", 0.06, rot=[0, rot, 0])
+    a.r([0, 0.67, 0], [0.3, 0.06, 0.3], "cast_iron", "body", 0.02)
+    a.r([0, 1.25, -0.05], [0.12, 1.1, 0.12], "cast_iron", "flue", 0.05)
+    for y in (0.2, 0.24, 0.28):
+        a.r([0, y, 0.205], [0.16, 0.018, 0.006], "ember", "grate", 0.002)
+    a.light = {"color": [1.0, 0.46, 0.17], "intensity": 0.5, "radius": 3.5, "offset": [0, 0.26, 0.32], "flicker": 0.4, "group": "grate", "use": "fire"}
+    a.col([0, 0.35, 0], [0.42, 0.7, 0.42])
+    return a.write(root, [0.42, 0.42], fragments=["flue"], keep=["body", "grate"])
 
 
 def main():
@@ -1037,6 +1188,8 @@ def main():
         coat_rack(root), wall_clock(root), utensil_rack(root), tool_rack(root), mirror(root), portrait(root),
         wall_shelf(root), plate_rack(root),
         jars(root), bucket(root), basket(root), pot(root), candlesticks(root),
+        # L3 lights (docs/lights.md)
+        table_lamp(root), candle(root), candelabra(root), ceiling_lamp(root), caged_lamp(root), hearth_fire(root), potbelly_stove(root),
     ]
     for o in outs:
         print("wrote", o.name)

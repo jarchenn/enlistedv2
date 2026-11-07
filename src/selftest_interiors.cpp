@@ -6,6 +6,9 @@
 //   routes), reachability of every room, small arms, blast shielding by walls, a shell through an open window,
 //   support loss (tables, floors), fragment budgets, reset / Apply, and frame time in a furnished room and a blast.
 #include "selftest.h"
+#include "lights.h"   // L3 (docs/lights.md)
+#include <set>
+#include <unordered_map>
 #include <GLFW/glfw3.h>
 #include <functional>
 #include <chrono>
@@ -139,7 +142,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         if (!pd) { check(false, as->id + ": no prop block"); continue; }
         int round = 0, cols = 0; for (auto& p : as->parts) { round += p.shape == Part::ROUND; cols += (!p.visible && p.collide); }
         if (round * 2 >= (int)as->parts.size() - cols || pd->flat()) ++bevelled;
-        if (pd->blocking ? (cols >= 1 && cols <= 3 && as->shape) : (!as->shape && cols == 0)) ++blockingOk;
+        if (pd->blocking ? (cols >= 1 && cols <= 3 && as->shape) : ((!as->shape && cols == 0) || (lightDef(as.get()) && cols <= 1))) ++blockingOk;   // L3: a lamp keeps one invisible box so rounds can shoot it out
         cosmetic += !pd->blocking;
         frags += (int)pd->frags.size();
         int tris = (as->opaque.count + as->glass.count) / 3;
@@ -635,7 +638,8 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         int n = (int)childrenOf(a, id).size();
         bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0;
         if (as->id.rfind("vil_", 0) == 0) { ++vils; vilRooms += !ri->rooms.empty(); if (ri->rooms.empty()) bad += " " + as->id + "(no rooms)"; }
-        if (skip) { ++skipped; skippedOk += n == 0 && !a.interior.hideBuiltin(*a.doc.find(id)); }
+        int lamps = 0; for (auto* c : childrenOf(a, id)) lamps += lightDef(a.assetFor(*c)) != nullptr;   // L3: bunkers get caged lamps only
+        if (skip) { ++skipped; skippedOk += n - lamps == 0 && !a.interior.hideBuiltin(*a.doc.find(id)); }
         else if (!ri->rooms.empty()) { ++eligible; furnished += n > 0 && a.interior.hideBuiltin(*a.doc.find(id)); if (n == 0) bad += " " + as->id + "(empty)"; }
         if (as->id.find("church") != std::string::npos) for (auto* c : childrenOf(a, id)) pews += c->assetId == "furn_pew";
         auto bf = before.find(as->id);
@@ -665,6 +669,171 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       int rn = a.interior.autoFurnish(a, rem);
       check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), "extra.decor buildings and buildings with their template furniture removed are not auto-furnished");
       summary["allBuildings"] = all; summary["allBuildingsDensity"] = {{"before", was}, {"now", total}, {"ratio", total / (float)std::max(1, was)}};
+      return true; });
+    // ================================================================ L3 lights (docs/lights.md)
+    push("lights: every intact building lit, ruins dark, broken lamps out, breach, day / night, switch, apply", [this](App& a, float) {
+      lightsSetDaylight(0.0f);   // night: every light at full output
+      std::unordered_map<uint64_t, const Instance*> idx; for (auto& i : a.doc.instances) idx[i.id] = &i;
+      auto gather = [&]() { std::vector<LightDesc> L; lightsGather(a, L); return L; };
+      auto litIds = [&](const std::vector<LightDesc>& L) { std::set<uint64_t> s; for (auto& l : L) s.insert(l.id / 16); return s; };
+      std::vector<LightDesc> L = gather();
+      std::map<uint64_t, int> lightsOf; std::map<uint64_t, std::set<int>> roomsLit; std::set<uint32_t> ids; int badDesc = 0;
+      for (auto& l : L) {
+        ids.insert(l.id); badDesc += !(l.intensity > 0 && l.radius > 0 && glm::length(l.color) > 0);
+        auto it = idx.find(l.id / 16); if (it == idx.end()) continue;
+        const Instance& i = *it->second;
+        if (!i.extra.is_object() || !i.extra.contains("furnish")) continue;
+        uint64_t h = i.extra["furnish"].value("host", (uint64_t)0); std::string slot = i.extra["furnish"].value("slot", std::string());
+        ++lightsOf[h]; if (slot.size() > 1 && slot[0] == 'r') roomsLit[h].insert(std::atoi(slot.c_str() + 1));
+      }
+      int eligible = 0, lit = 0, ruins = 0, ruinsDark = 0, bunkers = 0, bunkersOk = 0, rooms = 0, roomsWith = 0, crafts = 0, craftsDark = 0;
+      std::string bad, ruinBad, open; int openLit = 0; json per = json::object();
+      for (auto& i : a.doc.instances) {
+        const AssetDef* as = a.lib.find(i.assetId); if (!as || !as->enterable || as->category == "Furniture") continue;
+        int n = lightsOf[i.id];
+        if (lightsRuinedAsset(as)) { ++ruins; ruinsDark += n == 0; if (n) ruinBad += " " + as->id; continue; }
+        if (as->id.rfind("bch_", 0) == 0) { ++crafts; craftsDark += n == 0; continue; }
+        bool gen = i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false);
+        const RoomInfo* ri = a.interior.rooms(as);
+        if (!gen || !lightsLitBuilding(as) || ri->rooms.empty()) continue;   // authored bare (auto-furnish off, decor, removed)
+        if (!lightsRoofed(a, i)) { if (open.find(as->id) == std::string::npos) open += " " + as->id; openLit += n > 0; continue; }   // open-topped pits: nothing to hang a lamp from
+        ++eligible; lit += n > 0; if (!n) bad += " " + as->id;
+        if (lightsOnlyHost(as)) { ++bunkers; bunkersOk += n > 0 && !a.interior.hideBuiltin(i); }
+        int nr = 0; for (auto& R : ri->rooms) nr += R.type != ROOM_RUIN;
+        rooms += nr; roomsWith += (int)roomsLit[i.id].size();
+        if (!per.contains(as->id)) per[as->id] = {{"lights", n}, {"rooms", nr}, {"roomsLit", roomsLit[i.id].size()}};
+      }
+      std::snprintf(b_, sizeof b_, "interior lights: %d of %d intact furnished buildings lit (%d lights at night, ids unique %d, bad %d);%s", lit, eligible, (int)L.size(), (int)(ids.size() == L.size()), badDesc, bad.empty() ? " none dark" : bad.c_str());
+      check(eligible >= 20 && lit == eligible && ids.size() == L.size() && badDesc == 0, b_);
+      std::snprintf(b_, sizeof b_, "open-topped emplacements (no ceiling over any room) get no lamp:%s (%d lit)", open.empty() ? " none" : open.c_str(), openLit);
+      check(openLit == 0 && open.find("bunker_") == std::string::npos && open.find("house") == std::string::npos, b_);
+      std::snprintf(b_, sizeof b_, "rooms lit: %d of %d rooms of those buildings have their own light (gate 80 %%)", roomsWith, rooms);
+      check(rooms > 0 && roomsWith >= rooms * 0.8f, b_);
+      std::snprintf(b_, sizeof b_, "ruins stay dark: %d of %d ruin / rubble / unfinished buildings without a light%s; %d of %d landing craft dark", ruinsDark, ruins, ruinBad.c_str(), craftsDark, crafts);
+      check(ruins >= 3 && ruinsDark == ruins && craftsDark == crafts, b_);
+      std::snprintf(b_, sizeof b_, "bunkers and casemates: %d of %d lit with caged electric lamps, their own furniture kept", bunkersOk, bunkers);
+      check(bunkers >= 5 && bunkersOk == bunkers, b_);
+      summary["lightsPerBuilding"] = per;
+      // ---- a hung ceiling lamp: held from above, high enough to walk under
+      Instance* cl = nullptr; Instance* tl = nullptr;
+      for (auto* c : childrenOf(a, FH)) { if (c->assetId == "furn_lamp_ceiling" && !cl) cl = c; if ((c->assetId == "furn_lamp" || c->assetId == "furn_lamp_table" || c->assetId == "furn_candle") && !tl) tl = c; }
+      if (!cl) for (auto* c : childrenOf(a, INN)) if (c->assetId == "furn_lamp_ceiling") { cl = c; break; }
+      check(cl != nullptr && tl != nullptr, std::string("farmhouse: a ceiling lamp and a table light (") + (cl ? cl->assetId : "-") + ", " + (tl ? tl->assetId : "-") + ")");
+      if (!cl || !tl) { lightsSetDaylight(-1); return true; }
+      const PropDef* cpd = a.interior.prop(a.assetFor(*cl));
+      {
+        uint64_t h = cl->extra["furnish"].value("host", (uint64_t)0); std::string slot = cl->extra["furnish"].value("slot", std::string());
+        const RoomInfo* ri = a.interior.rooms(a.assetFor(*a.doc.find(h))); int k = std::atoi(slot.c_str() + 1);
+        float ly = cl->extra["furnish"]["loc"][1].get<float>(), clear = ly + cpd->bmin.y - ri->rooms[k].y0;
+        std::snprintf(b_, sizeof b_, "ceiling lamp hangs from the ceiling (support from above %d) with %.2f m clear under it (>= 1.75)", (int)a.interior.supported(a, *cl, a.assetFor(*cl)), clear);
+        check(a.interior.supported(a, *cl, a.assetFor(*cl)) && clear >= 1.75f, b_);
+      }
+      uint64_t CL = cl->id, TL = tl->id;
+      // ---- day: interior lamps dim to kInteriorDay; a street lamp is off by day, on at night
+      const AssetDef* gas = a.lib.find("lamp_gas_street");
+      uint64_t SL = 0, SL2 = 0;
+      for (int k = 0; k < 40 && (!SL || !SL2) && gas; ++k) {
+        vec3 p(-250.0f + 12.0f * k, 0, -285.0f);
+        if (!a.checkPlacement(gas, p, 0, 0).ok) continue;
+        uint64_t id = a.placeInstance(gas, p, 0); if (!SL) SL = id; else SL2 = id;
+      }
+      a.syncRuntime();
+      idx.clear(); for (auto& i : a.doc.instances) idx[i.id] = &i;   // placing reallocates the instance list
+      cl = a.doc.find(CL); tl = a.doc.find(TL);
+      check(SL && SL2, "two gas street lamps placed in the open");
+      L = gather();
+      float nightI = 0; bool streetNight = false; for (auto& l : L) { if (l.id / 16 == CL) nightI = l.intensity; if (l.id / 16 == SL) streetNight = true; }
+      lightsSetDaylight(1.0f); L = gather();
+      float dayI = 0; bool streetDay = false; for (auto& l : L) { if (l.id / 16 == CL) dayI = l.intensity; if (l.id / 16 == SL) streetDay = true; }
+      std::snprintf(b_, sizeof b_, "time of day: street lamp lit at night %d, by day %d; ceiling lamp %.2f at night, %.2f by day (x%.2f, want %.2f)", (int)streetNight, (int)streetDay, nightI, dayI, nightI > 0 ? dayI / nightI : 0.0f, kInteriorDay);
+      check(streetNight && !streetDay && nightI > 0 && std::fabs(dayI / nightI - kInteriorDay) < 0.02f, b_);
+      lightsSetDaylight(0.0f);
+      // ---- rounds: the iron post rings off, a round in the panes puts the lamp out; a shot table lamp; a blast
+      {
+        Instance* s = a.doc.find(SL); const PropDef* spd = a.interior.prop(a.assetFor(*s));
+        vec3 gc = s->pos + yawQuat(s->yaw) * ((spd->gmin + spd->gmax) * 0.5f);
+        int post = a.interior.bulletHit(a, SL, s->pos + vec3(0, 1.4f, 0), vec3(0, 0, 1), scratch_);
+        bool stillLit = litIds(gather()).count(SL) > 0;
+        int pane = a.interior.bulletHit(a, SL, gc, vec3(0, 0, 1), scratch_);
+        std::string why = lightOffReason(a, *a.doc.find(SL));
+        std::snprintf(b_, sizeof b_, "street lamp: a round on the post stops (%d) and it stays lit (%d); a round in the panes passes (%d) and puts it out (\"%s\")", post, (int)stillLit, pane, why.c_str());
+        check(post == 1 && stillLit && pane == 2 && why == "glass broken" && !litIds(gather()).count(SL), b_);
+      }
+      {
+        const PropDef* tpd = a.interior.prop(a.assetFor(*tl));
+        vec3 c = tl->pos + yawQuat(tl->yaw) * ((tpd->bmin + tpd->bmax) * 0.5f);
+        int r = a.interior.bulletHit(a, TL, c, vec3(0, -0.3f, 1), scratch_);
+        std::string why = lightOffReason(a, *a.doc.find(TL));
+        std::snprintf(b_, sizeof b_, "%s shot on the table: hit %d, its light gone from lightsGather (\"%s\")", tl->assetId.c_str(), r, why.c_str());
+        check(r == 2 && !why.empty() && !litIds(gather()).count(TL), b_);
+      }
+      {
+        Instance* c = a.doc.find(CL); vec3 gc = c->pos + yawQuat(c->yaw) * ((cpd->gmin + cpd->gmax) * 0.5f);
+        bool hit = a.interior.bulletHit(a, CL, gc, vec3(0, 1, 0), scratch_) == 2;
+        check(hit && lightOffReason(a, *a.doc.find(CL)) == "glass broken" && !litIds(gather()).count(CL), "ceiling lamp: a round through the bulb puts it out");
+        if (Instance* s2 = a.doc.find(SL2)) a.interior.breakProp(a, *s2, a.rt[SL2], vec3(2, 0, 0), "test blast", 1);
+        check(propBroken(a, SL2) && !litIds(gather()).count(SL2), "a street lamp blown over: its lantern falls, the light goes out");
+      }
+      // ---- Apply damage to map: the lights put out this session are saved off; Clear restores
+      {
+        int n = lightsApplyToMap(a);
+        Instance* s = a.doc.find(SL);
+        bool saved = s && s->extra.contains("light") && !s->extra["light"].value("on", true) && s->extra["light"].value("applied", false);
+        lightsClearApplied(a); s = a.doc.find(SL);
+        std::snprintf(b_, sizeof b_, "Apply damage: %d lights saved off (extra.light {on: false, applied: true}); Clear applied damage removes them (%d)", n, (int)(s && !s->extra.contains("light")));
+        check(n >= 4 && saved && s && !s->extra.contains("light"), b_);
+      }
+      // ---- a breached wall bay around the room puts its lamp out; a bay elsewhere does not
+      {
+        uint64_t lamp = 0, host = 0; int room = -1;
+        for (auto& l : gather()) {
+          auto it = idx.find(l.id / 16); if (it == idx.end() || !it->second->extra.contains("furnish")) continue;
+          const json& f = it->second->extra["furnish"]; if (f.value("host", (uint64_t)0) != FH) continue;
+          std::string sl = f.value("slot", std::string()); if (sl.size() < 2 || sl[0] != 'r') continue;
+          lamp = l.id / 16; host = FH; room = std::atoi(sl.c_str() + 1); break;
+        }
+        InstanceRT& hr = a.rt[host];
+        const AssetDef* ha = hr.asset; const RoomInfo* ri = a.interior.rooms(ha);
+        std::vector<uint8_t> st0 = hr.state; bool dm0 = hr.damaged;
+        int near = -1, far = -1;
+        if (lamp && room >= 0) {
+          const auto& R = ri->rooms[room];
+          for (size_t k = 0; k < ha->panels.size(); ++k) {
+            const Panel& p = ha->panels[k]; if (p.trim >= 0) continue;
+            bool ov = !(p.bmax.x < R.mn.x - 0.45f || p.bmin.x > R.mx.x + 0.45f || p.bmax.z < R.mn.y - 0.45f || p.bmin.z > R.mx.y + 0.45f) && !(p.bmax.y < R.y0 + 0.1f || p.bmin.y > R.y1 - 0.1f);
+            bool away = p.bmin.x > R.mx.x + 1.5f || p.bmax.x < R.mn.x - 1.5f || p.bmin.z > R.mx.y + 1.5f || p.bmax.z < R.mn.y - 1.5f || p.bmin.y > R.y1 + 0.5f || p.bmax.y < R.y0 - 0.5f;
+            if (ov && near < 0) near = (int)k;
+            if (away && far < 0) far = (int)k;
+          }
+        }
+        bool okFar = true, okNear = false;
+        if (near >= 0) {
+          if (hr.state.size() < ha->panels.size()) hr.state.resize(ha->panels.size(), PANEL_INTACT);
+          if (far >= 0) { hr.state[far] = PANEL_BREACHED; hr.damaged = true; okFar = lightOffReason(a, *a.doc.find(lamp)).empty(); hr.state[far] = PANEL_INTACT; }
+          hr.state[near] = PANEL_BREACHED; hr.damaged = true;
+          okNear = lightOffReason(a, *a.doc.find(lamp)) == "room breached" && !litIds(gather()).count(lamp);
+        }
+        hr.state = st0; hr.damaged = dm0;
+        std::snprintf(b_, sizeof b_, "breach: a breached bay of its room (panel %d) puts the farmhouse room's lamp out (%d); a bay of another part of the house (panel %d) leaves it lit (%d)", near, (int)okNear, far, (int)okFar);
+        check(near >= 0 && okNear && okFar, b_);
+      }
+      // ---- the editor switch (extra.light.on) and the emissive scale
+      {
+        uint64_t sw = 0; for (auto& l : gather()) if (l.id / 16 != CL && l.id / 16 != TL) { sw = l.id / 16; break; }
+        Instance* w = a.doc.find(sw);
+        float e0 = w ? lightsEmissiveScale(a, *w) : 0;
+        if (w) { w->extra["light"]["on"] = false; }
+        bool off = w && !litIds(gather()).count(sw) && lightsEmissiveScale(a, *a.doc.find(sw)) == 0.0f;
+        if ((w = a.doc.find(sw))) { w->extra.erase("light"); }
+        bool back = w && litIds(gather()).count(sw);
+        std::snprintf(b_, sizeof b_, "switch: extra.light.on = false darkens %s (emissive %.2f -> 0), removing it lights it again (%d)", w ? w->assetId.c_str() : "-", e0, (int)back);
+        check(sw && off && back && e0 > 0, b_);
+      }
+      a.interior.reset(a); a.syncRuntime();
+      check(litIds(gather()).count(CL) > 0, "reset: the shot ceiling lamp is whole and lit again");
+      for (uint64_t id : {SL, SL2}) { a.selected = id; a.deleteSelected(); }
+      a.syncRuntime();
+      lightsSetDaylight(-1.0f);
       return true; });
     // ================================================================ performance
     push("performance: furnished vs built-in room, a blast in the room", [this](App& a, float t) {

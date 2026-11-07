@@ -15,6 +15,7 @@
 //     step. The "Auto paths" toggle re-runs it whenever a house is placed (inside that placement's undo step).
 #include "autopath.h"
 #include "nature.h"
+#include "lights.h"   // L3: lamp posts along the routes
 #include <imgui.h>
 #include <algorithm>
 #include <chrono>
@@ -159,7 +160,9 @@ std::string AutoPathReport::summary() const {
   std::snprintf(b, sizeof b, "Auto paths: %d houses, %d aprons, %d links (%d loops, %d spurs, %d through wire / hedges)%s, %d path pieces (%d curved joints), %d routes; %d group%s; %.0f ms",
                 houses, aprons, links, loops, spurs, relaxed, failed ? (", " + std::to_string(failed) + " not routable").c_str() : "", pieces, joints, routes,
                 components, components == 1 ? "" : "s", ms);
-  return b;
+  std::string out = b;
+  if (lamps) out += "; " + std::to_string(lamps) + " lamp posts";
+  return out;
 }
 
 int autopathRemove(App& app) {
@@ -507,6 +510,7 @@ AutoPathReport autopathConnectHouses(App& app, bool undoStep) {
     for (auto& r : routes) all.push_back(r);
     app.doc.extra["routes"] = all; rep.routes = (int)routes.size();
   }
+  if (gAutoPathLamps) rep.lamps = lightsLineRoutes(app, lightsRoutesOf(routes), "lamp_lantern_post", 22.0f, "lamp");   // L3 (docs/lights.md)
   app.dirty = true;
   rep.ms = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
   logf("[autopath] %s", rep.summary().c_str());
@@ -528,6 +532,8 @@ void autopathMenu(App& app) {
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Dirt aprons at every house door and footpaths joining the houses (round footprints, water and steep ground).\nRe-running replaces the previous auto paths only. One undo step.");
   if (ImGui::MenuItem("Remove auto paths", nullptr, false, nAuto > 0)) { app.pushUndo(); int n = autopathRemove(app); app.toast("Removed " + std::to_string(n) + " auto path pieces."); }
   ImGui::MenuItem("Auto paths (connect each new house)", nullptr, &gAutoPaths);
+  ImGui::MenuItem("Line auto paths with lamp posts", nullptr, &gAutoPathLamps);   // L3: lamp_lantern_post every ~22 m, removed with the paths
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Connect houses also lines the new footpaths with iron lantern posts (lit at dusk and night).");
   ImGui::TextDisabled("%d auto path pieces on the map", nAuto);
   ImGui::EndMenu();
 }

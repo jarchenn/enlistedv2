@@ -173,3 +173,39 @@ Ownership follows the overhaul's rules: one or two hook lines in shared files, w
   - `src/interior.cpp`, `src/settings.cpp`, `src/water.cpp`, `src/grass.cpp`;
   - `tools/gen_env_assets.py`, `tools/gen_furniture.py`;
   - `content/settings/beautify.json`.
+
+## Handoff: L3 light assets, interior lighting, placement (branch `lt-3-lightassets`)
+Full detail is in `docs/lights.md`.
+
+**For L2:**
+- `src/light_types.h` is byte-identical to the brief.
+- Call `lightsGather(app, out)` once per frame. It **appends**, so clear `out` first. Intensity already includes time of day and the editor gain.
+- Multiply each instance's `emissive` materials by `lightsEmissiveScale(app, inst)`.
+- Call `lightsSetDaylight(d)` (1 = noon, 0 = night) from the time of day. Until then, daylight is derived from `R.sunDir.y`.
+- Emissive values used: `lamp_glass` 1.6/1.15/0.62, `bulb` 6/4.6/2.9, `gas_mantle` 6/5/3.2, `flame` 7/3.4/0.9, `ember` 3.2/0.9/0.18.
+
+**Assets:**
+- 13 new: `lamp_gas_street`, `lamp_lantern_post`, `lamp_wall_lantern`, `lamp_hanging_lantern`, `fire_brazier`, `fire_campfire` (category Lighting); `furn_lamp_table`, `furn_candle`, `furn_candelabra`, `furn_lamp_ceiling`, `furn_lamp_caged`, `furn_fire_hearth`, `furn_stove_potbelly`.
+- Light blocks added to `furn_lamp`, `furn_candlesticks` and `furn_stove`.
+- Only `gen_furniture.py`, `gen_env_assets.py` and `build_mpu_assets.mjs` were run. `gun_flak18.json` was restored (out of step before, as V4 noted).
+- `build_mpu_assets.mjs` gets a one-line nav rule for `lamp_*` / `fire_*`.
+- `docs/asset-usage-default-maps.md` has rows for the new assets.
+
+**Hooks outside `lights.*`:**
+- `interior.cpp/.h`:
+  - `PropDef::hang` and glass bounds;
+  - a round in the panes of a metal lantern breaks the glass;
+  - `supported()` / `checkPlacement` for hung pieces;
+  - lights-only `furnish()` for bunkers (`extra.interior.lightsOnly`, `hideBuiltin` false), with `autoFurnishable` admitting them;
+  - `sync()` hosts;
+  - the `lightsPlanRooms` call after the room templates;
+  - `step` / `applyToMap` / `clearApplied` / `editorPanel` one-liners.
+- `autopath.cpp/.h`: the `gAutoPathLamps` menu item, the `lightsLineRoutes` call, `AutoPathReport::lamps`.
+- `CMakeLists.txt` + `cmake/lt3.cmake`.
+- Tests: `selftest_interiors.cpp`, `selftest_autopath.cpp`, `selftest_net.cpp` (`lightsOut` in client stats, a "lamp shot out" host step).
+
+**Merge notes:**
+- **V4 ruin exclusion:** replace `lightsRuinedAsset()` with V4's `isRuinedAsset()` when it lands; the list is the same. V4 edits `interior.cpp` near `autoFurnishable` too: keep both conditions.
+- **Beautify (V8):** add the `street_lamps` role and the `along: "paths"` branch from `docs/lights.md` §8.
+- **Bunkers** are now auto-furnished with caged lamps only. Their pieces carry `extra.furnish`, which the counting suites already skip.
+- **Tobruk MG / mortar** are open-topped and get no lamp.
