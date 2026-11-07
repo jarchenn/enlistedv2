@@ -2,6 +2,7 @@
 #include "combat.h"
 #include "terrain.h"
 #include <algorithm>
+#include <cmath>
 
 void Fx::smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow, float lift) {
   if (parts.size() >= maxParts) parts.erase(parts.begin());
@@ -41,14 +42,67 @@ void Fx::explosion(vec3 p, vec3 n, const std::string& family, bool ground) {
     debris.push_back(d);
   }
 }
+// ---- firing smoke (content/settings/fx.json): read once; the defaults below match the shipped file
+namespace {
+struct MuzzleFx {
+  float flashSize = 1.4f, flashLife = 0.06f, sideFlashSize = 0.8f, sideFlashLife = 0.05f;
+  int sidePuffs = 2, forePuffs = 4;
+  float sideSize = 0.4f, sideSpeed = 4.0f, foreSize = 0.5f; vec2 foreSpeed{3, 8};
+  float alpha = 0.28f; vec2 life{1.2f, 2.4f}; float grow = 2.2f, lift = 0.35f, drag = 2.2f, fadePow = 1.6f; vec3 col{0.6f, 0.58f, 0.55f};
+};
+struct BackblastFx { int puffs = 5; float offset = 1.4f, size = 0.25f; vec2 speed{3, 5}; float alpha = 0.4f; vec2 life{1.0f, 1.5f}; float grow = 1.8f, lift = 0.3f, fadePow = 1.3f; vec3 col{0.55f, 0.53f, 0.5f}; };
+vec2 jv2(const json& j, const char* k, vec2 d) { return j.contains(k) && j[k].is_array() && j[k].size() >= 2 ? vec2(j[k][0].get<float>(), j[k][1].get<float>()) : d; }
+struct FxSettings {
+  MuzzleFx m; BackblastFx b;
+  FxSettings() {
+    json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "fx.json")); } catch (std::exception& e) { logf("fx: settings/fx.json: %s (defaults)", e.what()); return; }
+    if (j.contains("muzzle")) {
+      const json& q = j["muzzle"];
+      m.flashSize = q.value("flashSize", m.flashSize); m.flashLife = q.value("flashLife", m.flashLife);
+      m.sideFlashSize = q.value("sideFlashSize", m.sideFlashSize); m.sideFlashLife = q.value("sideFlashLife", m.sideFlashLife);
+      m.sidePuffs = q.value("sidePuffsPerSide", m.sidePuffs); m.forePuffs = q.value("forePuffs", m.forePuffs);
+      m.sideSize = q.value("sideSize", m.sideSize); m.sideSpeed = q.value("sideSpeed", m.sideSpeed); m.foreSize = q.value("foreSize", m.foreSize);
+      m.foreSpeed = jv2(q, "foreSpeed", m.foreSpeed); m.alpha = q.value("alpha", m.alpha); m.life = jv2(q, "life", m.life);
+      m.grow = q.value("grow", m.grow); m.lift = q.value("lift", m.lift); m.drag = q.value("drag", m.drag); m.fadePow = q.value("fadePow", m.fadePow);
+      m.col = jvec3(q.value("colour", json()), m.col);
+    }
+    if (j.contains("backblast")) {
+      const json& q = j["backblast"];
+      b.puffs = q.value("puffs", b.puffs); b.offset = q.value("offset", b.offset); b.size = q.value("size", b.size); b.speed = jv2(q, "speed", b.speed);
+      b.alpha = q.value("alpha", b.alpha); b.life = jv2(q, "life", b.life); b.grow = q.value("grow", b.grow); b.lift = q.value("lift", b.lift);
+      b.fadePow = q.value("fadePow", b.fadePow); b.col = jvec3(q.value("colour", json()), b.col);
+    }
+    logf("fx: firing smoke %d puffs, alpha %.2f, life %.1f-%.1f s", m.sidePuffs * 2 + m.forePuffs, m.alpha, m.life.x, m.life.y);
+  }
+};
+const FxSettings& fxSettings() { static FxSettings s; return s; }
+}
+
+void Fx::setBudget(float k) {
+  k = std::clamp(k, 0.25f, 4.0f);
+  maxParts = (size_t)(900 * k); maxStreaks = (size_t)(160 * k); maxDebris = (size_t)(72 * k);
+}
+
 void Fx::muzzle(vec3 p, vec3 dir, float scale) {
-  flash(p + dir * 0.25f * scale, 1.4f * scale, 0.06f, vec4(10.0f, 7.0f, 3.0f, 1));
+  const MuzzleFx& m = fxSettings().m;
+  flash(p + dir * 0.25f * scale, m.flashSize * scale, m.flashLife, vec4(10.0f, 7.0f, 3.0f, 1));
+  auto puff = [&](vec3 at, vec3 v, float size) {
+    smoke(at, v, size, glm::mix(m.life.x, m.life.y, rnd()), vec4(m.col, m.alpha), m.grow, m.lift);
+    parts.back().fade = m.fadePow; parts.back().drag = m.drag;
+  };
   for (int s : {-1, 1}) {   // muzzle-brake side blast
     vec3 side = glm::normalize(glm::cross(dir, vec3(0, 1, 0))) * (float)s;
-    flash(p + side * 0.5f * scale, 0.8f * scale, 0.05f, vec4(7, 4.5f, 2, 1));
-    for (int i = 0; i < 6; ++i) smoke(p + side * 0.3f, (side * 4.0f + dir * 1.5f + vec3(0, 0.5f, 0)) * (0.6f + rnd()), 0.4f * scale, 2.5f + rnd() * 2, vec4(0.55f, 0.53f, 0.5f, 0.55f), 1.6f, 0.3f);
+    flash(p + side * 0.5f * scale, m.sideFlashSize * scale, m.sideFlashLife, vec4(7, 4.5f, 2, 1));
+    for (int i = 0; i < m.sidePuffs; ++i) puff(p + side * 0.3f, (side * m.sideSpeed + dir * 1.5f + vec3(0, 0.5f, 0)) * (0.6f + rnd()), m.sideSize * scale);
   }
-  for (int i = 0; i < 8; ++i) smoke(p + dir * 0.6f * scale, dir * (3.0f + rnd() * 5) + vec3(rnd() - 0.5f, rnd(), rnd() - 0.5f), 0.5f * scale, 3 + rnd() * 2, vec4(0.6f, 0.58f, 0.55f, 0.5f), 1.5f, 0.35f);
+  for (int i = 0; i < m.forePuffs; ++i) puff(p + dir * 0.6f * scale, dir * glm::mix(m.foreSpeed.x, m.foreSpeed.y, rnd()) + vec3(rnd() - 0.5f, rnd(), rnd() - 0.5f), m.foreSize * scale);
+}
+void Fx::backblast(vec3 p, vec3 back) {
+  const BackblastFx& b = fxSettings().b;
+  for (int n = 0; n < b.puffs; ++n) {
+    smoke(p, back * glm::mix(b.speed.x, b.speed.y, rnd()) + vec3(rnd() - 0.5f, rnd() * 0.5f, rnd() - 0.5f), b.size, glm::mix(b.life.x, b.life.y, rnd()), vec4(b.col, b.alpha), b.grow, b.lift);
+    parts.back().fade = b.fadePow;
+  }
 }
 void Fx::impact(vec3 p, vec3 n, const std::string& surface) {
   vec4 c = surface == "ground" ? vec4(0.25f, 0.2f, 0.14f, 0.7f) : surface == "wood" ? vec4(0.4f, 0.32f, 0.22f, 0.6f) : surface == "metal" ? vec4(0.5f, 0.5f, 0.5f, 0.4f) : vec4(0.55f, 0.52f, 0.46f, 0.65f);
@@ -96,7 +150,9 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
   for (auto& q : parts) {
     float f = std::clamp(q.life / q.maxLife, 0.0f, 1.0f);
     vec4 c = q.col;
-    if (q.additive) c *= f; else c.a *= std::min(1.0f, f * 2.0f) * std::min(1.0f, (1 - f) * 8.0f + 0.2f);
+    if (q.additive) c *= f;
+    else if (q.fade > 0) c.a *= std::pow(f, q.fade) * std::min(1.0f, (1 - f) * 10.0f + 0.25f);   // firing smoke: thins out from the start
+    else c.a *= std::min(1.0f, f * 2.0f) * std::min(1.0f, (1 - f) * 8.0f + 0.2f);
     quad(q.additive ? add : alpha, q.p, right * q.size, up * q.size, c);
   }
   for (auto& s : streaks) {

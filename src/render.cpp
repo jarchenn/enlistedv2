@@ -1892,23 +1892,7 @@ bool Renderer::init(int w, int h) {
   glEnableVertexArrayAttrib(lineVao, 0); glVertexArrayAttribFormat(lineVao, 0, 3, GL_FLOAT, GL_FALSE, 0); glVertexArrayAttribBinding(lineVao, 0, 0);
   glEnableVertexArrayAttrib(lineVao, 1); glVertexArrayAttribFormat(lineVao, 1, 4, GL_FLOAT, GL_FALSE, 12); glVertexArrayAttribBinding(lineVao, 1, 0);
 
-  // shadow map
-  glCreateTextures(GL_TEXTURE_2D, 1, &shadowTex);
-  glTextureStorage2D(shadowTex, 1, GL_DEPTH_COMPONENT32F, shadowSize, shadowSize);
-  glTextureParameteri(shadowTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(shadowTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTextureParameteri(shadowTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(shadowTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTextureParameteri(shadowTex, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); glTextureParameteri(shadowTex, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-  glCreateFramebuffers(1, &shadowFbo); glNamedFramebufferTexture(shadowFbo, GL_DEPTH_ATTACHMENT, shadowTex, 0);
-  glNamedFramebufferDrawBuffer(shadowFbo, GL_NONE); glNamedFramebufferReadBuffer(shadowFbo, GL_NONE);
-  // far cascade (same comparison sampler setup)
-  glCreateTextures(GL_TEXTURE_2D, 1, &shadowFarTex);
-  glTextureStorage2D(shadowFarTex, 1, GL_DEPTH_COMPONENT32F, shadowFarSize, shadowFarSize);
-  glTextureParameteri(shadowFarTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(shadowFarTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTextureParameteri(shadowFarTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(shadowFarTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-  glCreateFramebuffers(1, &shadowFarFbo); glNamedFramebufferTexture(shadowFarFbo, GL_DEPTH_ATTACHMENT, shadowFarTex, 0);
-  glNamedFramebufferDrawBuffer(shadowFarFbo, GL_NONE); glNamedFramebufferReadBuffer(shadowFarFbo, GL_NONE);
-  if (glCheckNamedFramebufferStatus(shadowFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE || glCheckNamedFramebufferStatus(shadowFarFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("shadow framebuffer incomplete"); ++fboErrors; }
+  createShadowTargets();
   // sky occlusion (top-down depth)
   glCreateTextures(GL_TEXTURE_2D, 1, &occTex);
   glTextureStorage2D(occTex, 1, GL_DEPTH_COMPONENT32F, occSize, occSize);
@@ -1931,6 +1915,46 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferTexture(thumbHdrFbo, GL_DEPTH_ATTACHMENT, thumbDepth, 0);
   resize(w, h);
   return true;
+}
+
+// Shadow maps (near cascade and far cascade): sizes come from the settings presets (setShadowSizes).
+void Renderer::createShadowTargets() {
+  if (shadowFbo) { glDeleteFramebuffers(1, &shadowFbo); glDeleteFramebuffers(1, &shadowFarFbo); GLuint t[2] = {shadowTex, shadowFarTex}; glDeleteTextures(2, t); }
+  glCreateTextures(GL_TEXTURE_2D, 1, &shadowTex);
+  glTextureStorage2D(shadowTex, 1, GL_DEPTH_COMPONENT32F, shadowSize, shadowSize);
+  glTextureParameteri(shadowTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(shadowTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(shadowTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(shadowTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTextureParameteri(shadowTex, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); glTextureParameteri(shadowTex, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+  glCreateFramebuffers(1, &shadowFbo); glNamedFramebufferTexture(shadowFbo, GL_DEPTH_ATTACHMENT, shadowTex, 0);
+  glNamedFramebufferDrawBuffer(shadowFbo, GL_NONE); glNamedFramebufferReadBuffer(shadowFbo, GL_NONE);
+  // far cascade (same comparison sampler setup)
+  glCreateTextures(GL_TEXTURE_2D, 1, &shadowFarTex);
+  glTextureStorage2D(shadowFarTex, 1, GL_DEPTH_COMPONENT32F, shadowFarSize, shadowFarSize);
+  glTextureParameteri(shadowFarTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(shadowFarTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(shadowFarTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(shadowFarTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+  glCreateFramebuffers(1, &shadowFarFbo); glNamedFramebufferTexture(shadowFarFbo, GL_DEPTH_ATTACHMENT, shadowFarTex, 0);
+  glNamedFramebufferDrawBuffer(shadowFarFbo, GL_NONE); glNamedFramebufferReadBuffer(shadowFarFbo, GL_NONE);
+  if (glCheckNamedFramebufferStatus(shadowFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE || glCheckNamedFramebufferStatus(shadowFarFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("shadow framebuffer incomplete"); ++fboErrors; }
+}
+
+void Renderer::setShadowSizes(int nearSize, int farSize) {
+  nearSize = std::clamp(nearSize, 512, 8192); farSize = std::clamp(farSize, 512, 8192);
+  if (nearSize == shadowSize && farSize == shadowFarSize) return;
+  shadowSize = nearSize; shadowFarSize = farSize;
+  if (shadowFbo) createShadowTargets();
+}
+void Renderer::setResolutionScale(float sc) {
+  sc = std::clamp(sc, 0.5f, 1.0f);
+  if (sc == resScale) return;
+  resScale = sc;
+  if (displayW > 0) { int w = displayW, h = displayH; displayW = 0; resize(w, h); }
+}
+void Renderer::setSsaoFull(bool full) {
+  int d = full ? 1 : 2;
+  if (d == aoDiv) return;
+  aoDiv = d;
+  if (hdrFbo) createTargets();
 }
 
 void Renderer::createTargets() {
@@ -1970,7 +1994,7 @@ void Renderer::createTargets() {
   glCreateTextures(GL_TEXTURE_2D, 1, &ambTex); glTextureStorage2D(ambTex, 1, GL_RGBA16F, width, height);
   glTextureParameteri(ambTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(ambTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glNamedFramebufferTexture(hdrFbo, GL_COLOR_ATTACHMENT2, ambTex, 0);
-  glCreateTextures(GL_TEXTURE_2D, 1, &aoTex); glTextureStorage2D(aoTex, 1, GL_RG16F, std::max(1, width / 2), std::max(1, height / 2));
+  glCreateTextures(GL_TEXTURE_2D, 1, &aoTex); glTextureStorage2D(aoTex, 1, GL_RG16F, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
   glTextureParameteri(aoTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(aoTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(aoTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(aoTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glCreateFramebuffers(1, &aoFbo); glNamedFramebufferTexture(aoFbo, GL_COLOR_ATTACHMENT0, aoTex, 0);
@@ -2009,9 +2033,14 @@ void Renderer::createTargets() {
 }
 
 void Renderer::resize(int w, int h) {
+  // w, h: the window framebuffer. The world renders at that size x the resolution scale (settings) and the final
+  // blit upscales it; at scale 1 (the default) internal and display sizes are the same.
   w = std::max(w, 16); h = std::max(h, 16);
-  if (w == width && h == height) return;
-  width = w; height = h; createTargets();
+  if (w == displayW && h == displayH) return;
+  displayW = w; displayH = h;
+  int iw = std::max(16, (int)std::lround(w * resScale)), ih = std::max(16, (int)std::lround(h * resScale));
+  if (iw == width && ih == height) return;
+  width = iw; height = ih; createTargets();
 }
 
 void Renderer::resetExposure(float e) { expoReset = e; }
@@ -2274,7 +2303,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   mat4 projJ = v.proj;
   if (taaOn) {
     auto halton = [](int i, int b) { float f = 1, r = 0; while (i > 0) { f /= b; r += f * (i % b); i /= b; } return r; };
-    int ph = frame % 8 + 1;
+    int ph = frame % std::clamp(q.taaPhases, 1, 64) + 1;
     jitterPx = vec2(halton(ph, 2) - 0.5f, halton(ph, 3) - 0.5f) * q.taaJitter;   // +-0.25 px default: edges stay crisp
     projJ[2][0] += jitterPx.x * 2.0f / width; projJ[2][1] += jitterPx.y * 2.0f / height;
     // camera cut: teleport / mode switch / respawn (a fast flick is fine; reprojection handles it)
@@ -2481,7 +2510,10 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
     glDisable(GL_BLEND);
   }
   glEnable(GL_DEPTH_TEST);
-  glBlitNamedFramebuffer(ldrFbo, 0, 0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  {   // to the window: 1:1, or upscaled (bilinear) from the reduced internal resolution
+    int dw = displayW > 0 ? displayW : width, dh = displayH > 0 ? displayH : height;
+    glBlitNamedFramebuffer(ldrFbo, 0, 0, 0, width, height, 0, 0, dw, dh, GL_COLOR_BUFFER_BIT, (dw == width && dh == height) ? GL_NEAREST : GL_LINEAR);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glEndQuery(GL_TIME_ELAPSED);
   qidx ^= 1; qvalid = true;
@@ -2496,14 +2528,14 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   mat4 inv = glm::inverse(vp), invP = glm::inverse(v.proj);
   if (ao) {
     glBindFramebuffer(GL_FRAMEBUFFER, aoFbo);
-    glViewport(0, 0, std::max(1, width / 2), std::max(1, height / 2));
+    glViewport(0, 0, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
     glUseProgram(progSsao);
     glUniform1i(U(progSsao, "uFrame"), frame);
     glBindTextureUnit(7, depthTex); glUniform1i(U(progSsao, "uDepth"), 7);
     glUniformMatrix4fv(U(progSsao, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
     glUniformMatrix4fv(U(progSsao, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniform1f(U(progSsao, "uRadius"), q.ssaoRadius); glUniform1f(U(progSsao, "uPower"), 1.4f);
-    glUniform2f(U(progSsao, "uTexel"), 2.0f / width, 2.0f / height);
+    glUniform2f(U(progSsao, "uTexel"), (float)aoDiv / width, (float)aoDiv / height);
     glDrawArrays(GL_TRIANGLES, 0, 3);
   }
   // light shafts at half resolution
@@ -2535,7 +2567,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
-  glUniform2f(U(progComposite, "uAoTexel"), 2.0f / width, 2.0f / height);
+  glUniform2f(U(progComposite, "uAoTexel"), (float)aoDiv / width, (float)aoDiv / height);
   glDrawArrays(GL_TRIANGLES, 0, 3);
   glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
   glViewport(0, 0, width, height);

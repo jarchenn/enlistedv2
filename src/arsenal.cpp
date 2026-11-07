@@ -38,6 +38,7 @@ void App::loadBindings() {
   binds.packUp = get("packUp", "G");
   binds.grenade = get("grenade", "H");
   binds.smokeGrenade = get("smokeGrenade", "J");   // match: quick smoke (mpai)
+  { extern void settingsApplyKeys(App&); settingsApplyKeys(*this); }   // the user's rebinds from the Settings window
 }
 
 void App::loadMoveSettings() {

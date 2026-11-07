@@ -46,6 +46,7 @@ struct TankDef {
   float reloadTime = 6.0f, velAP = 880, velHE = 600, dmgHE = 140;
   int reserveHE = 20, reserveAP = 30; std::string startLoaded = "AP", ammoHE, ammoAP, cannonName, reticle;
   float zeroRange = 400;                         // m, game zero of the sight
+  float muzzleScale = 1.2f;                      // discharge flash / smoke size (Fx::muzzle)
   // roof MG (hatch mode)
   std::string mgWeapon, mgName, mgSound;         // mgWeapon: registry weapon whose supplied GLB is drawn on the mount
   vec3 mgModelOffset{0};

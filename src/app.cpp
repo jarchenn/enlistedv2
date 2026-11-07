@@ -1,4 +1,5 @@
 #include "app.h"
+#include "settings.h"
 #include "thumbs.h"
 #include "selftest.h"
 #include "mpai.h"
@@ -138,11 +139,11 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (w5CullDraw(*this, i, r.asset)) continue;   // W5: small decorators beyond their draw distance (content/settings/maps.json)
     if (r.asset->nature.kind != NatureDef::NONE) {   // boulders, stone / flower / tall-grass patches (nature.cpp)
       float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
-      if (cd < 1200) natureDrawItems(*this, i, r, op, cd);
+      if (cd < 1200 * settings().drawDist()) natureDrawItems(*this, i, r, op, cd);
       continue;
     }
     if (r.asset->tree.on) {
-      if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900) treeDrawItems(i, r, op);
+      if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900 * settings().drawDist()) treeDrawItems(i, r, op);
       continue;
     }
     if (r.asset->rack) { op.push_back({&r.asset->opaque, M}); rackDrawItems(i, r); continue; }
@@ -199,7 +200,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     }
     // coarse distance cull
     float camDist = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
-    if (camDist > 1200) continue;
+    if (camDist > 1200 * settings().drawDist()) continue;   // x the Settings draw distance (Low 0.6, High 1.4)
     if (r.asset->model) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
@@ -530,6 +531,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
+    else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -592,6 +594,7 @@ int App::run(int argc, char** argv) {
   audio.loadEvents(contentDir() / "audio");
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
   R.init(fbw, fbh);
+  settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)
   R.q.legacy = legacyLook;
   for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; }
   templates = loadTemplates(contentDir() / "templates");
@@ -639,6 +642,7 @@ int App::run(int argc, char** argv) {
     if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); drawExploreUI(); }
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
+    settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
     syncRuntime();
     tanks.sync(*this);
     interior.sync(*this);   // generated furniture follows / leaves with its building
@@ -675,7 +679,7 @@ int App::run(int argc, char** argv) {
     } else {
       float shk = reducedMotion ? 0.0f : blastShake * blastShake * 1.6f;   // concussion shake (deg)
       vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw + shk * std::sin((float)now * 41.0f), eyePitch + viewKickPitch + shk * std::sin((float)now * 53.0f + 1.3f));
-      float fov = 72.0f;
+      float fov = settings().fov();   // 72 unless changed in Settings
       if (!tanks.camera(*this, e, fv, fov) && !stationCamera(e, fv, fov)) weaponCamera(fov);
       mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
       viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
@@ -721,6 +725,7 @@ int App::run(int argc, char** argv) {
       logf("ui screenshot %s", uiShot.string().c_str()); uiShot.clear();
     }
     glfwSwapBuffers(win);
+    settingsEndFrame(*this);   // FPS cap
   }
   int code = selftest ? selftest->exitCode : 0;
   clearRuntime();
