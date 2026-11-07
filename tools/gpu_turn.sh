@@ -7,6 +7,7 @@
 #   GPU_TURN_LOCK=<dir>     slot 1 directory (default: %TEMP%/nmk/gpu.lock; slot k > 1 is <dir>.k)
 #   GPU_TURN_STALE=<min>    a slot older than this is treated as abandoned and taken over (default 40)
 #   GPU_TURN_TAG=<text>     who holds the slot (shown to waiters; default: the current directory)
+# Pause: while the file <lock>.pause exists (tools/gpu_pause.sh on|off), no new run takes a slot; running ones finish.
 # Fair queue: each waiter takes a ticket in <lock>.q (named by arrival time). A waiter may take a free slot only while
 # fewer than N older tickets are waiting, so nobody is starved; an exclusive waiter must be first and waits for every
 # slot. A waiter touches its ticket every poll; tickets untouched for 2 minutes belong to a waiter that died and are
@@ -34,6 +35,10 @@ while :; do
     if [ -n "$(find "$d" -maxdepth 0 -mmin +"$STALE" 2>/dev/null)" ]; then echo "gpu_turn: slot $k older than $STALE min ($(cat "$d/owner" 2>/dev/null)): taking it over"; rm -rf "$d"; fi
   done
   ahead=$(ls -1 "$Q" 2>/dev/null | sort | awk -v me="$(basename "$TICKET")" '$0 < me' | wc -l)
+  if [ -e "$LOCK.pause" ]; then   # the user is playing: no new test takes the GPU (running ones finish)
+    [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: paused ($(cat "$LOCK.pause" 2>/dev/null)); waiting"
+    sleep 5; waited=$((waited + 5)); continue
+  fi
   if [ "$EXCL" = 1 ]; then
     if [ "$ahead" -eq 0 ]; then
       for k in $(seq 1 "$N"); do d="$(slot $k)"; if mkdir "$d" 2>/dev/null; then HELD+=("$d"); fi; done   # keep what we got; wait for the rest
