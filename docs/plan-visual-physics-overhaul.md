@@ -284,3 +284,20 @@ After each batch:
 ## Status and handoff notes (each stream appends one section when it hands off)
 - 2026-11-07 coordinator: Step 0 done. master 4cd7a28+ has W5b merged (Tank Range, Normandy Village Assault; "Battle 1"
   and "Normandy Village Assault" are both the user's battle1 map). `tools/gpu_turn.sh` added.
+- 2026-11-07 V5 (frames and structural collapse, branch `vo-5-frames`): done, not pushed.
+  - **Trim** (`extractTrim`, `src/assets.cpp`, at load, no asset regeneration). Each door / window interactable's aperture gives the opening, and the static parts touching it become one trim bay (`trim/<id>`, family `trim`, `Panel::trim`, `AssetDef::trims`). Steel openings are skipped. Counts: two-storey farmhouse 10, cottage 4, Norman farmhouse 8, inn 29, bunkers 0.
+  - **Breaking** (`wallfield.cpp`, inside `stampWall`, so `replayWallDamage` reproduces it). Trim breaks whole on a blast or shell within reach, on lost support (half the band under the sill or beside a jamb open through), or on a tank (new `WALL_RAM` event kind). It takes the leaves with it; the pieces are DynLeaf rigid bodies.
+  - **Support between bays.** An arch rule: a 60° triangle falls over a lost bottom span, spans run on across seams, and unanchored remnants fall. Off switch: `destruction.support` (A/B in the tests). Doc: `docs/destruction.md#trim`, `#support`.
+  - **Sashes** break like doors (HP 5, shatter into pieces), in `ballistics.cpp`.
+  - **Tank ram** (`tank_ram.cpp`, non-furniture branches only): `O_TRIM` obstacles, `trimKJ` 40 and `trimMarginM` 0.35 in `ramming.json`. A core contact within the margin breaks the trim instead of blocking. Doc: `docs/tanks.md#ramming`.
+  - **Shared-file hooks:**
+    - `app.h`: `WALL_RAM`, `trimStats`, `trimIntact`, three `DestructionSettings` fields;
+    - `assets.h`: `Panel::trim`, `TrimGroup`;
+    - `tank.h`: three ram fields.
+  - **Tests** (all through `gpu_turn.sh`):
+    - damage 136/0 (new checks: HE at a window removes the frame and sash, spandrel collapses with A/B, breach under a sill drops it, a small hole holds while a destroyed bay drops the one above, replay with broken trim);
+    - tanks 123/0 (new: ram through a doorway passes in 7.2 s);
+    - env 42/0, arsenal 70/0;
+    - net host 19/0, clients a/b/c/d all pass.
+  - **Test change:** the tanks "HE shell through an open window" step now starts with `resetDamage()`. The earlier shells detonate on the far window's trim, which now breaks.
+  - **For V4:** the furniture branch of `tank_ram.cpp` is untouched. Trim contacts are routed before the furniture/core check, inside the `s.mode == "block" && !a->panels.empty()` block.

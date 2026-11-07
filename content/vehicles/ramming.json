@@ -62,5 +62,8 @@
     "masonry": 22,
     "concrete": -1
   },
+  "trimKJ": 40,
+  "trimMarginM": 0.35,
+  "trimNote": "opening trim (door / window frames, jambs, sills, lintels; src/wallfield.cpp): breaks whole once trimKJ is put into it, taking the leaves with it; a contact with the building's static core within trimMarginM of the trim breaks the trim instead of blocking the tank, and once it has gone the tank passes what is left at the opening",
   "wallNote": "building walls: breakKJ = kJ per cm of the wall thickness for its family, shared by the whole face (piers, bays, lintels); concrete (bunkers) never gives way"
 }

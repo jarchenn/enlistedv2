@@ -6,6 +6,9 @@
 //   Glass   HP 1  -> glass mesh hidden, the pane no longer stops rounds, shard burst
 //   Shutter HP 2  -> detaches: Jolt dynamic body, impulse I = V_bullet * M_force at the hit, fractured mesh
 //   Door    HP 10 -> breaks apart: plank fragments (own rigid bodies, splintered ends), impulse concentrated at the hit
+//   Sash    HP 5  -> (window casement, rounds into its frame) breaks apart the same way, its panes bursting first
+//   Frames, jambs, sills and lintels around an opening are trim bays (wallfield.cpp): they break whole, taking the
+//   leaves with them
 //   Steel doors, steel shutters and flaps: never break, whatever the weapon (rounds ring off, blasts leave them)
 // Penetration through glass / shutters / doors (rounds only):
 //   exit:   P_exit = P_hit + V_dir * dT   (dT from a back-cast against the same body)
@@ -20,18 +23,20 @@ static constexpr float kMuGlass = 20000.0f, kMuWood = 40000.0f, kMForce = 0.01f;
 static bool isSteel(const InteractDef& d) { return d.sound == "steel"; }
 static bool isDoor(const InteractDef& d) { return d.kind == "door"; }
 static bool isShutter(const InteractDef& d) { return d.kind == "shutter" || d.kind == "shutters"; }
+static bool isSash(const InteractDef& d) { return d.kind == "window"; }
 
 static uint32_t hmix(uint32_t h) { h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16; return h; }
 static float hrnd(uint32_t seed, uint32_t a, uint32_t b) { return (hmix(seed ^ hmix(a * 0x9E3779B1u + 0x85ebca6bu) ^ hmix(b * 0xc2b2ae35u + 7u)) & 0xFFFFFF) / 16777216.0f; }
 
-bool App::leafBreakable(const InteractDef& d) const { return !isSteel(d) && (isDoor(d) || isShutter(d)); }
+bool App::leafBreakable(const InteractDef& d) const { return !isSteel(d) && (isDoor(d) || isShutter(d) || isSash(d)); }
 
 float App::leafHpFor(const InteractDef& d) const {
   if (isSteel(d)) return 1e9f;
   if (d.hp > 0) return d.hp;
   if (isDoor(d)) return 10;
   if (isShutter(d)) return 2;
-  return 1e9f;   // window sashes: only their glass breaks
+  if (isSash(d)) return 5;   // a casement's frame: lighter than a door (its glass goes on the first round)
+  return 1e9f;
 }
 
 static bool pointInPart(const Part& p, vec3 lp, float pad) {
@@ -200,7 +205,8 @@ void App::detachLeaf(Instance& i, InstanceRT& r, int k, int l, vec3 impulse, vec
   const InteractDef& d = r.asset->interactables[k];
   if (!leafBreakable(d)) return;   // iron doors, steel shutters and flaps: no weapon breaks them, whatever the caller
   const Leaf& lf = d.leaves[l];
-  if (isDoor(d)) {   // doors break apart into pieces instead of falling off whole
+  if (isDoor(d) || isSash(d)) {   // doors and window sashes break apart into pieces instead of falling off whole
+    if (isSash(d)) breakGlass(i, r, k, l, at);   // the panes burst first
     shatterLeaf(i, r, k, l, impulse, at);
     r.leafSt[k][l] |= LEAF_GONE | LEAF_GLASS_BROKEN; ++leafBreaks;
     Physics::remove(r.leafBodies[k][l]); r.leafBodies[k][l] = 0xffffffffu;
@@ -243,7 +249,7 @@ void App::detachLeaf(Instance& i, InstanceRT& r, int k, int l, vec3 impulse, vec
     if (glm::dot(out, out) > 1e-6f) Physics::addImpulse(dl->body, glm::normalize(out) * mass * 0.6f, pos);
     dynLeaves.push_back(std::move(dl));
   }
-  audio.play(isDoor(d) ? "door_break" : "shutter_break", at, 0.9f);
+  audio.play(isDoor(d) || isSash(d) ? "door_break" : "shutter_break", at, 0.9f);
   fx.impact(at, -glm::normalize(impulse + vec3(0, 1e-4f, 0)), "wood");
   // cap the number of live rigid bodies: the oldest becomes static where it lies
   size_t live = 0; for (auto& x : dynLeaves) live += !x->frozen;

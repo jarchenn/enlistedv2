@@ -86,6 +86,19 @@ struct Panel {
   std::vector<Part> parts[3];
   GpuMesh mesh[3];
   ShapePtr shape[3];
+  int trim = -1;   // >= 0: the trim of opening AssetDef::trims[trim] (frames, jambs, sills, lintels): never stamped, breaks whole
+};
+
+// The trim around one opening (a door or window interactable): frame, jambs, sills, lintels, hood moulds and threshold,
+// bound to the wall bays around it at load (docs/destruction.md#trim). Asset-space opening rectangle in the wall plane.
+struct TrimGroup {
+  std::vector<int> interact;   // the opening's interactables (sash / door / shutters): they go with the frame
+  int panel = -1;              // index of its trim bay in AssetDef::panels
+  int an = 2;                  // wall normal axis
+  float u0 = 0, u1 = 0, v0 = 0, v1 = 0;   // opening rectangle: u = horizontal in-plane axis, v = y
+  float d0 = 0, d1 = 0;        // wall slab along the normal
+  vec3 bmin{0}, bmax{0};       // all trim parts
+  int parts = 0;
 };
 
 // Crew-served station (field gun / mounted MG): named moving parts with local pivots.
@@ -174,7 +187,8 @@ struct AssetDef {
   vec3 gunHitMin{0}, gunHitMax{0};   // station: direct-hit volume (asset space, default pose)   // destroyed defence: sandbag spill / tipped hedgehog
   json crate;                               // ammo crate config (empty = not a crate)
   std::vector<Panel> panels;
-  GpuMesh panelsIntact;          // all panels intact, merged (fast path for undamaged copies)
+  std::vector<TrimGroup> trims;  // opening trim bound to its bays (wallfield.cpp)
+  GpuMesh panelsIntact;         // all panels intact, merged (fast path for undamaged copies)
   ShapePtr wallsIntact;          // shared compound of all intact panel shapes
   std::string id, name, category, description, file;
   int version = 1, floors = 1;
