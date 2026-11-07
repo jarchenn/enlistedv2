@@ -550,6 +550,7 @@ void AiCore::frame() {
     bool advancing = m.action == A_ADVANCE && !m.set && m.hasPath && !arrived(s) && !m.trav.on;   // AI_SPEC 12.3 "while advancing": bounding, not stopped to fire / reload
     if (advancing) {
       metrics.advT += dt; metrics.advSpeedSum += s.speed; ++metrics.advN;
+      if (s.posture != Physics::STAND) ++metrics.advCrouchN; if (s.speed < 1.0f) ++metrics.advSlowN; if (m.speed == SPD_SPRINT) ++metrics.advSprintN;
       float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role) nn = std::min(nn, glm::length(o.feet - s.feet));
       if (nn < 1e8f) { metrics.nnSum += nn; ++metrics.nnN; }
     }

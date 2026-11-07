@@ -576,19 +576,26 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
           int nc = m.corridor->findCorners(cv, cf, cp, 3, G.nav.query(), &G.nav.defaultFilter());
           vec3 tgt2 = s.feet + fw * 1.2f;
           for (int k = 0; k < nc; ++k) { vec3 c(cv[k * 3], cv[k * 3 + 1], cv[k * 3 + 2]); if (lenXZ(c - s.feet) > 0.5f) { tgt2 = s.feet + glm::normalize(xz(c - s.feet)) * std::min(1.4f, lenXZ(c - s.feet)); tgt2.y = c.y; break; } }
-          NavRef r; vec3 on;
-          if (G.nav.closest(tgt2, vec3(0.5f, 1.0f, 0.5f), r, on) && lenXZ(on - s.feet) > 0.45f && std::fabs(on.y - s.feet.y) < 0.9f) {
-            float hy = std::max(s.feet.y, on.y) + tj("stuck", "hopHeight_m", 0.55f);
+          bool hopped = false;
+          vec3 base = xz(tgt2 - s.feet); float bl = glm::length(base); if (bl < 0.1f) { base = fw; bl = 1.2f; } base /= bl;
+          for (float hh : {tj("stuck", "hopHeight_m", 0.55f), 0.2f}) for (float ang : {0.0f, 40.0f, -40.0f, 80.0f, -80.0f}) {   // straight at the corner first, then fanning out; a low slide indoors
+            if (hopped) break;
+            vec3 dirH = glm::angleAxis(radians(ang), vec3(0, 1, 0)) * base;
+            vec3 cand = s.feet + dirH * std::clamp(bl, 0.8f, 1.4f); cand.y = tgt2.y;
+            NavRef r; vec3 on;
+            if (!G.nav.closest(cand, vec3(0.5f, 1.0f, 0.5f), r, on) || lenXZ(on - s.feet) < 0.45f || std::fabs(on.y - s.feet.y) > 0.9f) continue;
+            float hy = std::max(s.feet.y, on.y) + hh;
             auto fits = [&](vec3 q) { return Physics::shapeFitsAt(Physics::CROUCH, q + vec3(0, 0.04f, 0), true); };
-            bool ok = true; vec3 pts[3] = {vec3(s.feet.x, hy, s.feet.z), vec3(on.x, hy, on.z), on + vec3(0, 0.45f, 0)};   // from the top of the hop: the start overlaps whatever snagged it
-            ok = fits(pts[0]); for (int k = 0; k < 2 && ok; ++k) { int n = std::max(1, (int)std::ceil(glm::length(pts[k + 1] - pts[k]) / 0.2f)); for (int j = 1; j <= n && ok; ++j) ok = fits(glm::mix(pts[k], pts[k + 1], j / (float)n)); }
-            if (ok) {
-              BotMind::Trav& tr = m.trav; tr = BotMind::Trav{}; tr.on = true; tr.kind = LINK_VAULT; tr.np = 4;
-              tr.p[0] = s.feet; tr.p[1] = vec3(s.feet.x, hy, s.feet.z); tr.p[2] = vec3(on.x, hy, on.z); tr.p[3] = on; tr.end = on; tr.dur = 0.6f;
-              m.backUntil = -100; m.replanAfterBack = true; ++metrics.hops;
-              e.why = "hop over a snag"; s.br.why = "stuck: hopping over"; break;
-            }
+            vec3 pts[3] = {vec3(s.feet.x, hy, s.feet.z), vec3(on.x, hy, on.z), on + vec3(0, 0.45f, 0)};
+            bool ok = fits(pts[0]);
+            for (int k = 0; k < 2 && ok; ++k) { int n = std::max(1, (int)std::ceil(glm::length(pts[k + 1] - pts[k]) / 0.2f)); for (int j = 1; j <= n && ok; ++j) ok = fits(glm::mix(pts[k], pts[k + 1], j / (float)n)); }
+            if (!ok) continue;
+            BotMind::Trav& tr = m.trav; tr = BotMind::Trav{}; tr.on = true; tr.kind = LINK_VAULT; tr.np = 4;
+            tr.p[0] = s.feet; tr.p[1] = vec3(s.feet.x, hy, s.feet.z); tr.p[2] = vec3(on.x, hy, on.z); tr.p[3] = on; tr.end = on; tr.dur = 0.6f;
+            m.backUntil = -100; m.replanAfterBack = true; ++metrics.hops; hopped = true;
+            break;
           }
+          if (hopped) { e.why = "hop over a snag"; s.br.why = "stuck: hopping over"; break; }
         }
       }
       e.why = "step back"; s.br.why = "stuck: stepping back"; break; }

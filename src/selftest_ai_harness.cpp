@@ -247,7 +247,8 @@ struct Rec {
     { std::string s; for (int k = 0; k < A_COUNT; ++k) if (M.exposedBy[k] > 0) { char b[64]; std::snprintf(b, sizeof b, " %s %.0f s", aiActionName(k), M.exposedBy[k]); s += b; }
       logf("aiharness: exposed under fire %.0f of %.0f s (set at a cover point %.0f s):%s; side-steps %d", M.exposedT, M.fireT, M.exposedAtCover, s.c_str(), M.sidesteps);
       s.clear(); for (int k = 0; k < A_COUNT; ++k) if (M.deathsBy[k] > 0) { char b[64]; std::snprintf(b, sizeof b, " %s %d", aiActionName(k), M.deathsBy[k]); s += b; }
-      logf("aiharness: attacker deaths by action:%s; set at cover %d, inside the objective %d", s.c_str(), M.deathsInCover, M.deathsInObjective); }
+      logf("aiharness: attacker deaths by action:%s; set at cover %d, inside the objective %d", s.c_str(), M.deathsInCover, M.deathsInObjective);
+      double an = std::max(1L, M.advN); logf("aiharness: advancing samples %ld: crouched %.0f %%, under 1 m/s %.0f %%, sprinting %.0f %%; hops %d, ghosts %d, links disabled %d", M.advN, 100.0 * M.advCrouchN / an, 100.0 * M.advSlowN / an, 100.0 * M.advSprintN / an, M.hops, M.ghosts, M.linksDisabled); }
     advT += M.advT; advSpeedSum += M.advSpeedSum; advN += M.advN; nnSum += M.nnSum; nnN += M.nnN; fireT += M.fireT; exposedT += M.exposedT; coverNear5T += M.coverNear5T; attackerT += M.attackerT;
     bounds += M.bounds; boundExp += M.boundExposure; stuck += M.stuckEvents; over5 += M.stuckOver5; unrec += M.stuckUnrecovered; gren += M.grenadesThrown; grenHurt += M.grenadesHurtTeammate;
     linkTrav += M.linkTraversals; linkAborts += M.linkAborts; snaps += M.snaps; replans += M.rebuildReplans;
