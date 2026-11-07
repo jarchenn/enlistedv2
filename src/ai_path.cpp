@@ -376,8 +376,15 @@ void AiCore::move(Soldier& s, float dt) {
     if (glm::length(desired) > 0.1f) m.moveDir = glm::normalize(desired);
   } else if (m.wantPath || m.pendingReq) wantsMove = G.t - m.lastReplan > 1.5;   // waiting long for a route counts as stuck
   if (G.t < m.departAt) { desired = vec3(0); wantsMove = false; }   // staggered departure from the spawn
+  // wedged against a soldier with no room to pass (a trench, a pit, a doorway): pass through for a moment, never near a human
+  auto humanNear = [&](float r) { for (auto& o : G.sold) if (o.alive && o.human && lenXZ(o.feet - pos) < r) return true; return false; };
+  auto ghostOn = [&](float sec) { if (humanNear(4.0f)) return; m.ghostUntil = G.t + sec; if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } };
+  if (m.ghost && G.t >= m.ghostUntil) {
+    bool overlap = false; for (auto& o : G.sold) if (&o != &s && o.alive && lenXZ(o.feet - pos) < 0.65f && std::fabs(o.feet.y - pos.y) < 1.5f) overlap = true;
+    if (overlap && G.t < m.ghostUntil + 3.0) m.ghostUntil = G.t + 0.3; else { m.ghost = false; Physics::setAgentGhost(s.agent, false); }
+  }
   // a soldier standing in the way (a teammate settled in cover along a wall): side-step around him before it becomes a stuck
-  if (wantsMove && glm::length(desired) > 0.5f && !(G.t < m.backUntil) && q && m.hasPath && !offMesh) {
+  if (wantsMove && glm::length(desired) > 0.5f && !(G.t < m.backUntil) && q && m.hasPath && !offMesh && !m.ghost) {
     vec3 fwd = glm::normalize(xz(desired)); const Soldier* blk = nullptr; float bd = 1e9f;
     for (auto& o : G.sold) {
       if (&o == &s || !o.alive) continue;
@@ -393,7 +400,7 @@ void AiCore::move(Soldier& s, float dt) {
         if (dtStatusSucceed(q->moveAlongSurface(m.corridor->getFirstPoly(), &pos.x, &tgt.x, f, &res.x, vis, &nv, 16))) { float l = lenXZ(res - pos); if (l > bl + 0.3f) { bl = l; best = res; } }
       }
       if (bl > 0.5f) { m.backTarget = best; m.backUntil = G.t + 0.8; m.replanAfterBack = true; ++metrics.sidesteps; }
-      else m.needNewGoal = true;   // no room to pass (a trench, a doorway): the decision layer picks another goal
+      else { m.needNewGoal = true; ghostOn(tj("movement", "ghost_s", 1.5f)); }   // no room to pass (a trench, a doorway): another goal, and through him
       m.blockedT = 0;
     }
   }
@@ -433,7 +440,7 @@ void AiCore::move(Soldier& s, float dt) {
     if (((int)G.steps + s.slot) % 2 == 0 || glm::length(m.avoidVel) < 0.01f) {
       oaq->reset();
       for (auto& o : G.sold) {
-        if (&o == &s || !o.alive) continue;
+        if (&o == &s || !o.alive || m.ghost) continue;   // passing through: soldiers are not obstacles for now
         vec3 d = o.feet - pos; if (glm::length(d) > 5.0f || std::fabs(d.y) > 1.8f) continue;
         vec3 ov = o.vel; ov.y = 0; vec3 dv = ov;
         oaq->addCircle(&o.feet.x, G.nav.cfg.radius + tj("movement", "avoidPad_m", 0.3f), &ov.x, &dv.x);
@@ -532,6 +539,10 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
       vec3 tgt = s.feet + back * 1.6f, res = tgt;
       if (m.hasPath) { dtPolyRef vis[16]; int nv = 0; G.nav.query()->moveAlongSurface(m.corridor->getFirstPoly(), &s.feet.x, &tgt.x, &G.nav.defaultFilter(), &res.x, vis, &nv, 16); }
       m.backTarget = res; m.backUntil = G.t + 1.0; m.replanAfterBack = true;
+      { bool blocked = false, human = false; vec3 fw = glm::normalize(xz(m.moveDir) + vec3(1e-4f));
+        for (auto& o : G.sold) { if (&o == &s || !o.alive) continue; vec3 d = xz(o.feet - s.feet); float L = glm::length(d);
+          if (o.human && L < 4.0f) human = true; if (L < 1.4f && glm::dot(d, fw) > 0.3f * L) blocked = true; }
+        if (blocked && !human) { m.ghostUntil = G.t + tj("movement", "ghost_s", 1.5f); if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } } }
       e.why = "step back"; s.br.why = "stuck: stepping back"; break; }
     case 3: {   // a nearby link (mantle / vault / jump / drop) toward the goal
       auto L = G.nav.linksNear(s.feet, 3.0f);

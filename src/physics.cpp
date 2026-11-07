@@ -518,7 +518,7 @@ Physics::CharState Physics::character() {
 
 // ============================================================ physics_agents (multiplayer + AI)
 namespace {
-struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false; };
+struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false, ghost = false; };
 std::vector<AgentRec> gAgents;
 CharacterVsCharacterCollisionSimple gCvc;
 const CharacterVirtual* gCvcPlayer = nullptr;
@@ -553,8 +553,14 @@ int Physics::createAgent(vec3 feet) {
 }
 void Physics::destroyAgent(int h) {
   if (h < 0 || h >= (int)gAgents.size() || !gAgents[h].used) return;
-  gCvc.Remove(gAgents[h].c.GetPtr());
-  gAgents[h].c = nullptr; gAgents[h].used = false;
+  if (!gAgents[h].ghost) gCvc.Remove(gAgents[h].c.GetPtr());
+  gAgents[h].c = nullptr; gAgents[h].used = false; gAgents[h].ghost = false;
+}
+void Physics::setAgentGhost(int h, bool on) {   // W6b: a bot wedged against a teammate passes through soldiers for a moment
+  if (h < 0 || h >= (int)gAgents.size() || !gAgents[h].used || gAgents[h].ghost == on) return;
+  AgentRec& a = gAgents[h]; a.ghost = on;
+  if (on) { gCvc.Remove(a.c.GetPtr()); a.c->SetCharacterVsCharacterCollision(nullptr); }
+  else { gCvc.Add(a.c.GetPtr()); a.c->SetCharacterVsCharacterCollision(&gCvc); }
 }
 void Physics::destroyAllAgents() { for (int k = 0; k < (int)gAgents.size(); ++k) destroyAgent(k); }
 void Physics::setAgentPos(int h, vec3 feet) {

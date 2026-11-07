@@ -273,6 +273,7 @@ BotMind& AiCore::mind(Soldier& s) {
     m.progAnchor = s.feet; m.boundFrom = s.feet;
     m.nextThink = G.t + G.rnd(s) * 0.2;
     m.departAt = G.t + (s.slot % 8) * tj("movement", "spawnStagger_s", 0.25f);
+    Physics::setAgentGhost(s.agent, false);   // a new life never starts passing through soldiers
     m.actionSince = G.t;
     paths.cancelSlot(s.slot);
   }

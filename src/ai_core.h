@@ -130,6 +130,7 @@ struct BotMind {
   vec3 progAnchor{0}; float progT = 0; int ladder = 0; double ladderT = 0; int eventIdx = -1; vec3 stuckPos{0};
   float blockedT = 0;   // time spent stopped by a soldier just ahead (side-step)
   double departAt = 0;  // a wave leaves its spawn staggered, not as one block
+  double ghostUntil = -100; bool ghost = false;   // passing through soldiers after a wedge (Physics::setAgentGhost)
   vec3 backTarget{0}; double backUntil = -100; bool needNewGoal = false; vec3 subGoal{0}; bool hasSubGoal = false;
   std::vector<EdgePenalty> penalties;
   // decisions
@@ -193,7 +194,7 @@ struct AiProf {
 // ---------------------------------------------------------------- metrics (AI_SPEC 12.3)
 struct AiMetrics {
   double t = 0, advT = 0, advSpeedSum = 0; long advN = 0; double nnSum = 0; long nnN = 0; double attackerT = 0;   // attackerT: living attacking-bot seconds
-  double fireT = 0, exposedT = 0, coverNear5T = 0; int bounds = 0; double boundExposure = 0; int sidesteps = 0;
+  double fireT = 0, exposedT = 0, coverNear5T = 0; int bounds = 0; double boundExposure = 0; int sidesteps = 0, ghosts = 0;
   double exposedBy[A_COUNT] = {}; double exposedAtCover = 0;   // exposed-under-fire seconds by action (tuning)
   int deathsBy[A_COUNT] = {}; int deathsInCover = 0, deathsInObjective = 0; std::vector<char> aliveLast;   // attacker deaths by action (tuning)
   int stuckEvents = 0, stuckOver5 = 0, stuckUnrecovered = 0, stuckResolvedBy[7]{};
