@@ -250,9 +250,11 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
   }
   float speed = G.app.weaponDefs[fd]->grenade.speed;
   vec3 hand = s.feet + vec3(0, 1.7f, 0);
-  for (float f : {1.0f, 0.88f, 0.76f}) for (int hi = 0; hi < 2; ++hi) {
+  const float damp = G.app.weaponDefs[fd]->grenade.linDamp;   // the body's linear damping: undamped arcs fall short
+  for (float f : {1.0f, 0.88f, 0.76f}) for (int hi = 0; hi < 2; ++hi) for (int corr = 0; corr < 3; ++corr) {
+    static thread_local vec3 aimOff; if (corr == 0) aimOff = vec3(0);   // aim past the target by how far the last try fell short
     vec3 v;
-    if (!grenadeVelocity(hand, target, speed * f, hi == 1, v)) continue;
+    if (!grenadeVelocity(hand, target + aimOff, speed * f, hi == 1, v)) break;
     vec3 p = hand, vv = v; bool ok = false, bad = false;
     for (int k = 0; k < 140 && !bad; ++k) {
       vec3 seg = vv * 0.04f; Physics::Hit h;
@@ -264,10 +266,11 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
         bool bounceBack = std::fabs(h.normal.y) < 0.5f && glm::length(toMe) > 0.1f && glm::dot(glm::normalize(vec3(h.normal.x, 0, h.normal.z) + vec3(1e-4f)), glm::normalize(toMe)) > 0.4f && lenXZ(h.pos - target) > 1.0f;
         if (bounceBack || lenXZ(h.pos - s.feet) < 6.0f) { bad = true; break; }
         ok = lenXZ(h.pos - target) < tj("grenade", "landWithin_m", 2.0f) && std::fabs(h.pos.y - target.y) < 1.8f && h.normal.y > 0.6f;   // lands on the ground: a wall or a window frame sends it anywhere
+        if (!ok && h.normal.y > 0.6f) { aimOff += vec3(target.x - h.pos.x, 0, target.z - h.pos.z); }
         for (auto& o : G.sold) if (ok && o.alive && o.role == s.role && glm::length(o.feet - h.pos) < safe) ok = false;   // around where it really lands
         break;
       }
-      p += seg; vv.y -= 9.81f * 0.04f;
+      p += seg; vv.y -= 9.81f * 0.04f; vv *= std::max(0.0f, 1.0f - damp * 0.04f);
     }
     if (ok && !bad) { vel = v; return true; }
   }

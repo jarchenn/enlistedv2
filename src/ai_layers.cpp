@@ -19,7 +19,7 @@ void AiCore::commander(TeamBrain& tb) {
       tb.regroupUntil = G.t + rules.value("regroupSeconds", 30.0f);                 // consolidate on the captured point
       tb.regroupAt = G.match.sc.objectives[tb.stage].pos;
     }
-    tb.stage = G.match.active;
+    tb.stage = G.match.active; tb.stageSince = G.t;
     for (auto& s : G.sold) if (s.alive && !s.human && (int)s.role == tb.role) { BotMind& m = mind(s); releaseCover(s); m.slot = -1; m.flankReached = false; m.needNewGoal = true; m.hasSubGoal = false; }
   }
   (void)ob;
@@ -187,9 +187,15 @@ void AiCore::think(Soldier& s) {
   if (!visible && recent && ammo > 0.25f && (autoW || wd.feed == "belt") && ((ft && ft->overwatch && !m.bounding) || !attacker)) u[A_SUPPRESS] = 0.6f;
   if (attacker && !regroup && !insideObj) {
     float a = m.bounding ? 0.62f : 0.22f;
+    // assault pressure: the longer the point holds, the more the moving pair pushes instead of trading fire from cover
+    if (m.bounding) {
+      float p0 = tj("commander", "pressureAfter_s", 90.0f), pr = std::max(1.0f, tj("commander", "pressureRamp_s", 120.0f));
+      a *= 1.0f + tj("commander", "pressureMax", 0.5f) * std::clamp((float)(G.t - tb.stageSince - p0) / pr, 0.0f, 1.0f);
+    }
     if (underFire && !inCover) a *= 0.45f;
     if (m.set && G.t < m.peekUntil) a *= 0.55f;                              // peek and fire first
     if (sup > 0.75f) a *= 0.4f;                                              // pinned
+    for (auto& g : G.gren.live) if (g.kind == GK_FRAG && g.owner >= 0 && g.owner < (int)G.sold.size() && G.sold[g.owner].role == s.role && glm::length(g.p - s.feet) < 18.0f) { a *= 0.15f; break; }   // a friendly frag ahead: let it go off first
     u[A_ADVANCE] = a;
   }
   if (attacker && ft && ft->overwatch && !m.bounding && !regroup) u[A_OVERWATCH] = 0.6f;
@@ -315,7 +321,7 @@ void AiCore::act(Soldier& s, float dt) {
       if (!atCover && s.posture == Physics::PRONE) m.posture = Physics::PRONE;
       b.mode = Brain::M_ENGAGE; b.why = m.action == A_SUPPRESS ? "suppressing" : atCover ? "returning fire from cover" : "returning fire"; break; }
     case A_GRENADE:
-      if (s.throwT < 0 && s.frags > 0 && G.startThrow(s, GK_FRAG, s.throwVel, s.throwTarget)) {
+      if (s.throwT < 0 && s.frags > 0 && planGrenade(s, s.throwTarget, s.throwVel) && G.startThrow(s, GK_FRAG, s.throwVel, s.throwTarget)) {   // re-planned from where it stands now
         b.grenadeCD = diff.grenadeCooldown * (0.8f + 0.4f * G.rnd(s)); ++metrics.grenadesThrown;
       }
       m.speed = SPD_STOP; m.posture = Physics::STAND; b.mode = Brain::M_THROW; b.why = "frag at a hidden enemy"; break;

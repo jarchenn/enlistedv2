@@ -79,7 +79,7 @@ struct Fireteam {
 };
 
 struct TeamBrain {
-  int role = 0;
+  int role = 0; double stageSince = 0;   // when the current objective phase began (assault pressure)
   std::map<int, Known> known;
   std::vector<Fireteam> fts;
   std::shared_ptr<const ThreatSnapshot> threat = std::make_shared<ThreatSnapshot>();
@@ -129,6 +129,7 @@ struct BotMind {
   // stuck ladder (AI_SPEC 3.6)
   vec3 progAnchor{0}; float progT = 0; int ladder = 0; double ladderT = 0; int eventIdx = -1; vec3 stuckPos{0};
   float blockedT = 0;   // time spent stopped by a soldier just ahead (side-step)
+  double departAt = 0;  // a wave leaves its spawn staggered, not as one block
   vec3 backTarget{0}; double backUntil = -100; bool needNewGoal = false; vec3 subGoal{0}; bool hasSubGoal = false;
   std::vector<EdgePenalty> penalties;
   // decisions

@@ -272,6 +272,7 @@ BotMind& AiCore::mind(Soldier& s) {
     m.flanker = s.role == CombatRole::Attacker && s.br.lane != LANE_MAIN;
     m.progAnchor = s.feet; m.boundFrom = s.feet;
     m.nextThink = G.t + G.rnd(s) * 0.2;
+    m.departAt = G.t + (s.slot % 8) * tj("movement", "spawnStagger_s", 0.25f);
     m.actionSince = G.t;
     paths.cancelSlot(s.slot);
   }

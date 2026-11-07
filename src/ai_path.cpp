@@ -375,6 +375,7 @@ void AiCore::move(Soldier& s, float dt) {
     }
     if (glm::length(desired) > 0.1f) m.moveDir = glm::normalize(desired);
   } else if (m.wantPath || m.pendingReq) wantsMove = G.t - m.lastReplan > 1.5;   // waiting long for a route counts as stuck
+  if (G.t < m.departAt) { desired = vec3(0); wantsMove = false; }   // staggered departure from the spawn
   // a soldier standing in the way (a teammate settled in cover along a wall): side-step around him before it becomes a stuck
   if (wantsMove && glm::length(desired) > 0.5f && !(G.t < m.backUntil) && q && m.hasPath && !offMesh) {
     vec3 fwd = glm::normalize(xz(desired)); const Soldier* blk = nullptr; float bd = 1e9f;
@@ -392,6 +393,7 @@ void AiCore::move(Soldier& s, float dt) {
         if (dtStatusSucceed(q->moveAlongSurface(m.corridor->getFirstPoly(), &pos.x, &tgt.x, f, &res.x, vis, &nv, 16))) { float l = lenXZ(res - pos); if (l > bl + 0.3f) { bl = l; best = res; } }
       }
       if (bl > 0.5f) { m.backTarget = best; m.backUntil = G.t + 0.8; m.replanAfterBack = true; ++metrics.sidesteps; }
+      else m.needNewGoal = true;   // no room to pass (a trench, a doorway): the decision layer picks another goal
       m.blockedT = 0;
     }
   }

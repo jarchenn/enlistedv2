@@ -28,6 +28,7 @@ void AiCore::generateCoverTile(int tx, int tz, int maxRays) {
   int rays = 0;
   for (auto& e : G.nav.tileEdges(tx, tz)) {
     if (navAreaCost(navarea::toNav(e.area)) < 0) continue;
+    { NavArea na = navarea::toNav(e.area); if (na == NavArea::Water || na == NavArea::Marsh) continue; }   // nobody takes cover lying in a ditch's water or a marsh (W4 puts the ditch's cover on its lip)
     if (G.nav.isTrap((e.a + e.b) * 0.5f, 0.3f)) continue;   // no cover in dead-end pockets (a ditch floor reached by a drop)
     vec3 d = e.b - e.a; float L = lenXZ(d);
     int n = std::max(1, (int)std::lround(L / 1.5f));
@@ -125,7 +126,10 @@ int AiCore::pickCover(Soldier& s, vec3 goal, float maxDist, float minProgress, b
       for (int k = 1; k <= ns; ++k) expo += exposure((int)s.role, glm::mix(s.feet, c.p, k / (float)ns) + vec3(0, 1.2f, 0));
       expo = expo / ns * std::min(1.0f, dist / 15.0f);
       // spacing: teammates (and their reserved cover) within 8 m
-      float sp = 0; const float spacing = tj("cover", "spacing_m", 8.0f), spW = tj("cover", "spacingWeight", 1.1f);
+      float sp = 0; const float spacing = tj("cover", "spacing_m", 8.0f), spW = tj("cover", "spacingWeight", 1.1f), occ = tj("cover", "occupied_m", 2.5f);
+      bool taken = false;   // a teammate already standing there (a Tobruk pit, a trench bay holds one or two)
+      for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role && glm::length(o.feet - c.p) < occ) { taken = true; break; }
+      if (taken) continue;
       for (auto& o : G.sold) {
         if (&o == &s || !o.alive || o.role != s.role) continue;
         float dd = glm::length(o.feet - c.p);
