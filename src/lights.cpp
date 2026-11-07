@@ -503,10 +503,13 @@ int lightsLineRoutes(App& app, const std::vector<LampLine>& lines, const std::st
         if (total > 10.0f && (along < 3.5f || along > total - 3.5f)) continue;   // not at the doors the route joins
         vec2 c = a + t * s;
         bool near = false;
-        for (auto& p : placed) if (glm::length(p - c) < spacing) { near = true; break; }
+        for (auto& p : placed) if (glm::length(p - c) < spacing - L.width - 2.0f) { near = true; break; }   // quick reject; the post itself is checked below
         if (near) continue;
         for (float sd : {side, -side}) {
           vec2 w = c + nrm * sd * (L.width * 0.5f + 0.75f);
+          bool close = false;
+          for (auto& p : placed) if (glm::length(p - w) < spacing) { close = true; break; }   // spacing between the posts, not the route points
+          if (close) continue;
           if (!T.inBuildArea(w.x, w.y)) continue;
           float y = T.height(w.x, w.y);
           if (y < T.waterLevel + 0.15f) continue;
