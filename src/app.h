@@ -50,6 +50,9 @@ struct InstanceRT {
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
   GpuMesh pathMesh; uint32_t pathGround = ~0u, pathRev = 0; std::vector<uint8_t> slabCut;   // path entities (paths.cpp)
   std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut
+  // nature scatter patches (nature.cpp): stones as one merged mesh, plants as a grass-shader instance buffer
+  GpuMesh natMesh; GLuint natVbo = 0; int natCount = 0; uint32_t natRev = 0, natGround = ~0u; uint64_t natFoot = 0;
+  vec3 natMin{0}, natMax{0}; std::vector<GrassInstance> natInst; std::vector<vec4> natPos; std::vector<vec3> natGy; float natCy = 0;   // natGy: item xz + ground y
 };
 
 struct ExploreInput {
