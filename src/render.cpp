@@ -1547,24 +1547,25 @@ void main(){
   float bl = head ? aB.z - 10.0 : aB.z;
   vec4 pk = unpackUnorm4x8(floatBitsToUint(iS.z));
   // species (grass.h 0 turf 1 medium 2 tall 3 clover 4 straw; nature.h 5 tall meadow, 6 poppy, 7 ox-eye daisy,
-  // 8 buttercup, 9 cornflower, 10 cow parsley, 11 foxglove, 12 clover in flower)
+  // 8 buttercup, 9 cornflower, 10 cow parsley, 11 foxglove, 12 clover in flower; V9 13 wheat, 14 brush, 15 stubble)
   int sp = clamp(int(pk.a*255.0 + 0.5) - 56, 0, 15);
   // per-blade variation inside the tuft (deterministic from the instance phase)
   float r1 = fract(sin(iS.w*12.9898 + bl*78.233)*43758.5453), r2 = fract(sin(iS.w*39.346 + bl*11.135)*24634.6345);
   float ang = iP.w + bl*2.39996 + r1*0.6;
   vec3 side = vec3(cos(ang), 0.0, -sin(ang));
   vec3 fwd = vec3(sin(ang), 0.0, cos(ang));
-  bool fl = sp >= 6;
+  bool fl = sp >= 6 && sp <= 12;                          // flowers (13-15 are stems only)
   int ib = int(bl + 0.5);
   int nL = sp == 5 ? 2 : sp == 12 ? 4 : fl ? 3 : 0;        // basal leaves
   int nS = sp == 5 ? 5 : sp == 6 ? 2 : sp == 7 ? 3 : sp == 8 ? 4 : sp == 9 ? 3 : sp == 10 ? 2 : sp == 11 ? 1 : sp == 12 ? 2 : 7;
   bool isLeaf = sp >= 5 && ib < nL, isStem = sp < 5 || (!isLeaf && ib < nL + nS);
   bool disc = head && isStem && fl && sp != 11;            // flat flower heads (foxglove bells are on its stem)
-  float spread = sp == 3 ? 0.05 : sp == 0 ? 0.085 : sp == 2 ? 0.04 : sp >= 5 ? (isLeaf ? 0.03 : 0.05) : 0.065;
+  float spread = sp == 3 ? 0.05 : sp == 0 ? 0.085 : sp == 2 ? 0.04 : sp == 14 ? 0.12 : sp >= 5 ? (isLeaf ? 0.03 : 0.05) : 0.065;
   vec3 root = iP.xyz + fwd*(spread*(0.4 + r2));
   float h = iS.x * (0.6 + 0.45*r2) * fade;
   if (sp == 2 && bl > 2.5) h = 0.0;                        // stems: three per clump (the rest collapse to nothing)
   if (sp >= 5) h = isLeaf ? iS.x*(sp == 12 ? 0.8 : sp == 5 ? 0.55 : 0.26)*(0.7 + 0.5*r2)*fade : isStem ? iS.x*(0.82 + 0.25*r2)*fade : 0.0;
+  if (sp == 13 || sp == 15) h = iS.x*(0.92 + 0.12*r2)*fade;   // an even crop
   if (head && !disc) h = 0.0;
   float v = head ? 1.0 : aB.y;
   float taper = (sp == 3 || (sp == 12 && isLeaf)) ? 1.0 : (1.0 - v*0.8);
@@ -1573,18 +1574,29 @@ void main(){
   else if (isLeaf) w = (sp == 5 ? 0.006 : sp == 12 ? 0.026 : 0.016) * uWidthScale * taper * (0.8 + 0.4*r1);
   else if (sp == 5) w = (v > 0.6 ? 0.022*(1.25 - 0.6*v) : iS.y) * uWidthScale;       // panicle on the upper stem
   else if (sp == 11) w = (v > 0.49 ? iS.y*(1.3 - 0.8*v) : 0.007) * uWidthScale;      // foxglove: bell spike
+  else if (sp == 13) w = (v > 0.6 ? 0.014 : 0.0055) * uWidthScale;                   // wheat: straw, the ear on the top quad
+  else if (sp == 14) w = 0.034 * uWidthScale * (1.0 - 0.45*v);                       // brush: twig with leaf clusters
+  else if (sp == 15) w = 0.0065 * uWidthScale;                                       // stubble
   else w = 0.0045 * uWidthScale;
   float lift = (sp == 3 || (sp == 12 && isLeaf)) ? 0.35 : 1.0;   // clover leaves lie low and spread
   float curve = sp == 0 ? 0.30 + 0.35*r1 : sp == 2 ? 0.04 + 0.10*r1 : sp == 3 ? 1.6 + 0.6*r1 : sp == 4 ? 0.55 + 0.45*r1 : sp == 1 ? 0.12 + 0.30*r1
+              : sp == 13 ? 0.03 + 0.07*r1 : sp == 14 ? 0.35 + 0.30*r1 : sp == 15 ? 0.03
               : isLeaf ? (sp == 12 ? 1.6 + 0.6*r1 : 0.9 + 0.6*r1) : 0.05 + 0.10*r1;
-  float windAmp = sp == 2 ? 1.8 : sp == 0 ? 0.35 : sp == 3 ? 0.15 : sp == 5 ? (isLeaf ? 1.0 : 1.9) : sp == 12 ? 0.2 : fl ? (isLeaf ? 0.5 : 0.9) : 1.0;   // tall stems sway most, turf barely
-  float freq = sp == 2 ? 1.1 : sp == 5 ? 1.0 : fl ? 1.4 : 1.7;
+  float windAmp = sp == 13 ? 1.15 : sp == 14 ? 0.35 : sp == 15 ? 0.05 : sp == 2 ? 1.8 : sp == 0 ? 0.35 : sp == 3 ? 0.15 : sp == 5 ? (isLeaf ? 1.0 : 1.9) : sp == 12 ? 0.2 : fl ? (isLeaf ? 0.5 : 0.9) : 1.0;   // tall stems sway most, turf barely
+  float freq = sp == 13 ? 1.25 : sp == 2 ? 1.1 : sp == 5 ? 1.0 : fl ? 1.4 : 1.7;
   float hr = iS.y * (0.85 + 0.3*r2) * min(1.0, fade*3.0);   // flower head radius
   float tilt = sp == 6 ? 0.45 : sp == 7 ? 0.35 : sp == 8 ? 0.30 : sp == 9 ? 0.50 : sp == 10 ? 0.12 : 1.1;
+  // wheat / stubble laid flat (nature.cpp: tanks, blasts, trampled crop): shape.y = amount x 63 + direction fraction
+  float flat_ = 0.0; vec3 fD = vec3(0.0, 0.0, 1.0);
+  if (sp == 13 || sp == 15) { flat_ = floor(iS.y)/63.0; float fa = fract(iS.y)/0.98*6.2831853 + (r1 - 0.5)*0.8; fD = vec3(sin(fa), 0.0, cos(fa)); }
+  float tiltA = flat_*1.42*(0.86 + 0.14*r2);
+  vec3 axis = vec3(0.0, cos(tiltA), 0.0) + fD*sin(tiltA);
+  vec3 sideF = normalize(mix(side, cross(vec3(0.0, 1.0, 0.0), fD), flat_) + vec3(1e-5));
   vec3 pos[2]; vec3 nH = vec3(0.0, 1.0, 0.0);
   for (int k = 0; k < 2; ++k) {   // k 0: this frame, 1: previous frame (motion vectors)
     float t = k == 0 ? uTime : uPrevTime;
     float gust = sin(t*freq + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(t*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
+    if (sp == 13) gust = sin(t*freq - dot(iP.xz, vec2(0.8, 0.6))*0.34)*0.6 + sin(t*0.57 - dot(iP.xz, vec2(0.8, 0.6))*0.11 + iS.w*0.15)*0.4;   // waves rolling across the field
     vec3 bend = fwd*curve*((sp == 3 || (sp == 12 && isLeaf)) ? 0.5 : 1.0) + vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.20)*uWind*windAmp;
     vec3 p;
     if (head) {
@@ -1593,6 +1605,8 @@ void main(){
       vec3 T1 = normalize(side - n*dot(side, n)), T2 = cross(n, T1);
       p = top + (T1*aB.x + T2*(aB.y*2.0 - 1.0))*(disc ? hr : 0.0);
       if (k == 0) nH = n;
+    } else if (flat_ > 0.0) {
+      p = root + sideF*(aB.x*w*0.5) + axis*(v*h) + bend*(v*v)*h*(1.0 - 0.85*flat_);
     } else {
       p = root + side*(aB.x*w*0.5) + vec3(0.0, v*h*lift, 0.0);
       p += bend*(v*v)*h;            // root (v = 0) never moves
@@ -1661,6 +1675,18 @@ void main(){
     if (v < 0.49) { if (e*vWid > 0.0075*uWidthScale) discard; alb = vAlb; }
     else { float t = fract((v - 0.49)*14.0); if (e > (0.45 + 0.55*sin(3.14159*t))) discard;
       alb = mix(vec3(0.62, 0.24, 0.50), vec3(0.80, 0.62, 0.72), (1.0 - e)*0.35*(1.0 - t)); }
+  } else if (vSp == 13) {   // wheat: straw, then a plump ear of paired spikelets
+    if (v < 0.88) { if (e*vWid > 0.0055*uWidthScale) discard; alb = vAlb; }
+    else { float y = (v - 0.88)/0.12; float spk = 0.72 + 0.28*step(0.4, fract(y*7.0 + vSeed*2.0));
+      if (e > pow(max(0.0, 1.0 - (2.0*y - 1.0)*(2.0*y - 1.0)), 0.35)*spk) discard;
+      alb = vAlb*vec3(1.08, 0.97, 0.80); }
+  } else if (vSp == 14) {   // brush: woody twig with leaf clusters along it
+    float lobe = 0.22 + 0.78*smoothstep(0.25, 0.7, fract(v*5.0 + vSeed*3.0))*step(0.15, v);
+    if (e > lobe) discard;
+    alb = e < 0.2 ? vec3(0.15, 0.11, 0.075) : vAlb;
+  } else if (vSp == 15) {   // stubble: cut straw stems, paler cut tops
+    if (e > 0.9) discard;
+    alb = vAlb*(v > 0.9 ? 1.15 : 1.0);
   } else alb = vAlb;   // flower stems
   alb *= mix(0.62, 1.12, lv);   // shaded roots, sunlit (not bleached) tips
   if (vPart == 1) alb *= 0.85;

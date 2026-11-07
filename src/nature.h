@@ -18,10 +18,13 @@
 class App; struct Instance; struct InstanceRT; struct DrawItem;
 
 // grass shader species added for patches (grass.h has 0-4)
-enum NatSpecies : int { NS_TALLMEADOW = 5, NS_POPPY = 6, NS_DAISY = 7, NS_BUTTERCUP = 8, NS_CORNFLOWER = 9, NS_COWPARSLEY = 10, NS_FOXGLOVE = 11, NS_CLOVER = 12 };
+// 0-4 are the pasture species (grass.h) reused in patches with their own heights / colours; 13-15 are V9 ground cover
+enum NatSpecies : int { NS_TURF = 0, NS_MEADOWGRASS = 1, NS_SEEDGRASS = 2, NS_WEEDS = 3, NS_STRAW = 4,
+                        NS_TALLMEADOW = 5, NS_POPPY = 6, NS_DAISY = 7, NS_BUTTERCUP = 8, NS_CORNFLOWER = 9, NS_COWPARSLEY = 10, NS_FOXGLOVE = 11, NS_CLOVER = 12,
+                        NS_WHEAT = 13, NS_BRUSH = 14, NS_STUBBLE = 15 };
 int natSpeciesFrom(const std::string& s);   // "poppy" .. ; -1 unknown
 
-struct NatScatterPt { vec2 p{0}; float size = 0, r0 = 0, r1 = 0, r2 = 0, r3 = 0; int species = 0; };
+struct NatScatterPt { vec2 p{0}; float size = 0, r0 = 0, r1 = 0, r2 = 0, r3 = 0; int species = -1; };   // species -1: the patch default
 struct NatPatchParams { float radius = 3, density = 4; uint32_t seed = 1; };
 
 void buildNatureAsset(AssetDef& a, const json& j, std::vector<vec3>& pts);   // assets.cpp: "rock" / "scatter" blocks
@@ -37,6 +40,18 @@ void natureDestroyRT(InstanceRT& r);
 uint64_t naturePatchHash(const InstanceRT& r);   // hash of the built patch (plants: instances; stones: vertex positions)
 size_t naturePatchItems(const InstanceRT& r);
 extern int gNatRebuilds;   // patch rebuilds since start (tests / profiling)
+
+// ---- wheat flattening (V9): tanks driving through and explosions lay the stalks down (session state, like felled
+// trees; cleared by natureResetFlatten from App::resetDamage). Stamps are world-space; every wheat patch applies the
+// stamps that overlap it to its instance buffer incrementally, and again after a rebuild.
+void natureBlast(App& app, vec3 p, float dmg, float radius);              // App::blastPaths (paths.cpp)
+void natureTrample(App& app, vec2 c, float yaw, vec2 half, float strength = 1.0f);   // a hull / track footprint (yaw deg)
+void natureStepFlatten(App& app);   // once per frame (from natureDrawItems): stamps for tanks moving through wheat
+void natureResetFlatten();
+size_t natureFlattenStamps();
+float naturePatchFlatShare(const InstanceRT& r, float atLeast = 0.5f);   // share of the patch's wheat stalks at least this flat
+// pasture-grass footprint for a wheat tile (grass does not grow under a crop; other patches ignore it): false = none
+bool natureGrassFootprint(const Instance& i, const AssetDef& a, GrassFootprint& out);
 
 // renderer: plant patches (progGrass), drawn after the pasture grass
 #include "render.h"

@@ -141,7 +141,15 @@ struct DefenseDef {
 struct RockPiece { int lith = 1; uint32_t seed = 1; vec3 size{1}, pos{0}; float yaw = 0, tiltX = 0, tiltZ = 0, sink = 0.25f; int detail = 2; };
 struct NatureDef {
   enum Kind { NONE = 0, ROCK = 1, SCATTER = 2 } kind = NONE;
-  enum Scatter { FLOWERS = 1, TALLGRASS = 2, STONES = 3 } scatter = FLOWERS;
+  enum Scatter { FLOWERS = 1, TALLGRASS = 2, STONES = 3, WHEAT = 4 } scatter = FLOWERS;
+  // V9 ground cover (nature.cpp): square tiles (radius = half side, no ragged rim), per-species colour overrides,
+  // drying toward straw, a pebble layer under plants, wheat state (1 ripe, 2 trampled, 3 stubble) and its soil layer
+  bool square = false;
+  std::vector<std::pair<int, vec3>> tint;   // (species, albedo) overrides of the species' green
+  float dryMin = 0, dryMax = 0;             // share of each plant's colour blended to straw (world-space noise between)
+  float pebDensity = 0, pebMin = 0.03f, pebMax = 0.12f; int pebLith = -1;   // pebbles per m^2 under the plants
+  int wheat = 0;
+  vec3 soil{0.25f, 0.20f, 0.13f};           // WHEAT: soil / straw-litter layer albedo
   std::vector<RockPiece> pieces;           // ROCK
   bool collide = true;                     // ROCK: convex hull per piece, stops bullets, solid for the navmesh
   float radius = 3, density = 4, minR = 0.5f, maxR = 15, minD = 0.2f, maxD = 40;   // SCATTER: m, items per m^2

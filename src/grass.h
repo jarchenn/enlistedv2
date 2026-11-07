@@ -11,7 +11,7 @@
 //    draw a prefix of that list, so changing the preset never re-places grass.
 #include "terrain.h"
 
-struct GrassFootprint { vec2 pos; float yaw; vec2 bmin, bmax; float margin = -1; };   // asset-local XZ bounds, world placement; margin < 0 = kMargin
+struct GrassFootprint { vec2 pos; float yaw; vec2 bmin, bmax; float margin = -1; bool soft = false; };   // asset-local XZ bounds, world placement; margin < 0 = kMargin; soft: a crop tile (pasture grass only, nature patches ignore it)
 
 enum class GrassQuality : int { Off = 0, Low = 1, Medium = 2, High = 3 };
 struct GrassPreset { const char* name; float density, radius, lodStart; };

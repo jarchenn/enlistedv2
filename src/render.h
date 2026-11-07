@@ -18,7 +18,7 @@ struct FoliageDraw { const TreeDef* tree; mat4 m; };
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
 struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; };
 struct OverlayVert { vec3 p; vec4 c; };
-struct NatPatchDraw { GLuint vbo = 0; int count = 0; vec3 mn{0}, mx{0}; };   // plant patch (nature.cpp)
+struct NatPatchDraw { GLuint vbo = 0; int count = 0; vec3 mn{0}, mx{0}; float reach = 1; };   // plant patch (nature.cpp); reach x the grass radius
 
 struct Overlay {
   std::vector<OverlayVert> lines, tris, linesTop;

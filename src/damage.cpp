@@ -43,6 +43,7 @@ void App::rebuildWalls(const Instance& i, InstanceRT& r) {
 void App::resetDamage() {
   resetLeafDamage();
   resetTrees();
+  { extern void natureResetFlatten(); natureResetFlatten(); }   // wheat laid flat by tanks and blasts stands again (nature.cpp)
   interior.reset(*this);   // furniture back to its authored state
   for (auto& i : doc.instances) {   // session overlays of wire and concrete paths
     auto it = rt.find(i.id); if (it == rt.end()) continue;
