@@ -6,6 +6,13 @@
 //   b     joins late (mid-match): must receive the damaged wall, the smoke at its true age and the match state
 //   c     joins with a different map: must be refused with the map message
 //   d     joins when the lobby is full: must be refused with the full message
+// Internet play (tools/run_inet_test.sh, with tools/rendezvous/rendezvous.py on 127.0.0.1, NMK_INET_SERVER):
+//   ihost hosts an internet room, writes its room code to selftest_out/inet_code.txt, plays a match with e and f,
+//         checks that one came direct and one through the relay, that both see its world, and that the hostile
+//         traffic from z kicked nobody
+//   e     joins by room code (UDP hole punch over loopback), plays, reports
+//   f     joins by room code through the relay (NMK_INET_FORCE_RELAY=1), plays, reports
+//   z     sends spoofed, malformed, oversized and flooding datagrams to the host, then checks it still answers
 // Localhost windows do not test LAN discovery across machines, firewalls or real network quality (docs/multiplayer.md).
 #include "selftest.h"
 #include "game.h"
@@ -13,6 +20,7 @@
 #include "net.h"
 #include <functional>
 #include <cmath>
+#include <fstream>
 static double gTestCloudStart = -1, gTestCloudDense = 0;   // host: the smoke cloud the test starts (bots may throw others)
 
 namespace {
@@ -33,6 +41,7 @@ json netClientStats(App& app) {
   if (g && !g->gren.clouds.empty()) { j["cloudAge"] = g->t - g->gren.clouds.back().start; j["cloudStart"] = g->gren.clouds.back().start; j["cloudDense"] = g->gren.clouds.back().dense;
     json all = json::array(); for (auto& c : g->gren.clouds) all.push_back({c.start, c.dense}); j["cloudList"] = all; }
   j["gameActive"] = g && g->active; j["isClient"] = g && g->isClient; j["mode"] = (int)app.mode; j["netRole"] = gNet ? (int)gNet->role : -1;
+  j["relayed"] = gNet && gNet->relayed();
   { extern json goreNetStats(); j["gore"] = goreNetStats(); }   // W7: gore events received from the host
   if (g) { int alive = 0; for (auto& s : g->sold) alive += s.alive; j["alive"] = alive; j["slots"] = (int)g->sold.size(); j["phase"] = (int)g->match.phase; j["active"] = g->match.active; j["progress"] = g->match.obj.empty() ? 0.0f : g->match.obj[0].progress; j["local"] = g->localSlot; j["t"] = g->t; }
   return j;
@@ -49,7 +58,65 @@ void SelfTest::netUpdate(App& app, float dt) {
     check(app.openMap(map), "opened " + map.filename().string());
     gUi.loaded = false;
     stage = 2101; seq.clear(); cur = 0; st = total = 0;
-    if (role == "host") {
+    const fs::path codeFile = exeDir() / "selftest_out" / "inet_code.txt";
+    if (role == "ihost") {   // ---------------- internet room host
+      std::error_code ec; fs::remove(codeFile, ec);
+      ScenarioRules r = gUi.scenario(app).rules; r.defenderSlots = 3; r.attackerAI = 6; gUi.rules = r; gUi.rulesInit = true;   // host + E + F
+      std::string err; check(n.host(app, err, port), "hosting on port " + std::to_string(port) + " " + err);
+      push("room", [this, codeFile](App& a, float t) {
+        Net& n = *gNet;
+        if (t == 0) { check(n.setInternet(a, true), "internet room requested from the room server"); return false; }
+        std::string code = n.roomCode();
+        if (!code.empty()) {
+          fs::create_directories(codeFile.parent_path()); { std::ofstream f(codeFile); f << code; }
+          check(code.size() == 6, "room code " + code + " from the room server (written for the clients)");
+          return true;
+        }
+        if (t > 20) { check(false, "no room code within 20 s"); finish(a); return true; }
+        return false; });
+      push("lobby", [this](App& a, float t) {
+        Net& n = *gNet;
+        if (n.players.size() >= 3 && n.allReady()) { check(true, "clients E (direct) and F (relay) joined by room code and are ready after " + std::to_string((int)t) + " s"); return true; }
+        if (t > 90) { check(false, "only " + std::to_string(n.players.size()) + " players ready within 90 s"); finish(a); return true; }
+        return false; });
+      push("start", [this](App& a, float t) {
+        gNet->startMatch(a); a.useScripted = true; a.scriptedInput = ExploreInput{};
+        int humans = 0; if (gGame) for (auto& s : gGame->match.slots) humans += s.human;
+        check(gGame && gGame->active && humans == 3, "internet match started with 3 human defenders");
+        return true; });
+      push("world change", [this](App& a, float t) {
+        if (t < 6) return false;
+        Physics::Hit h; vec3 o(-24, 1.2f, 20);
+        if (Physics::castRayEx(o, vec3(0, 0, -1), 30, h)) a.explode(h.pos, vec3(0, 0, -1), 320, 0.9f, 1.0f, ~0ull, WALL_AP);
+        check(true, "host breached the town hall wall (both clients must see it)");
+        return true; });
+      push("play", [this](App& a, float t) {
+        Net& n = *gNet;
+        auto ps = n.peerStats();
+        int finals = 0; for (auto& [id, js] : ps) finals += js.value("final", false);
+        if (t < 180 && finals < 2) return false;
+        if (t < 20) return false;
+        std::string hw = std::to_string(wallHash(a));
+        int relayed = 0, direct = 0;
+        for (auto& [peer, js] : ps) {
+          bool rl = js.value("relayed", false); (rl ? relayed : direct)++;
+          check(js.value("wallHash", "") == hw, std::string("client ") + (rl ? "F (relay)" : "E (direct)") + " wall damage matches the host (hash " + hw.substr(0, 8) + ")");
+        }
+        check(relayed == 1 && direct == 1, "one client direct (hole punch) and one through the relay: " + std::to_string(direct) + " direct, " + std::to_string(relayed) + " relayed");
+        check(n.players.size() == 3, "nobody was kicked by the hostile traffic: " + std::to_string(n.players.size()) + " players still in the session");
+        char b[200]; std::snprintf(b, sizeof b, "host validated the internet clients' requests: %d shots accepted, %d rejected", n.acceptedShots, n.rejectedRequests);
+        check(n.acceptedShots > 3 && n.rejectedRequests > 0, b);
+        return true; });
+      push("end", [this](App& a, float t) {
+        gNet->leave("test over"); check(gNet->role == Net::NONE, "host closed the internet room"); a.exitExplore(); return true; });
+    } else if (role == "z") {   // ---------------- hostile traffic
+      push("fuzz", [this](App& a, float t) {
+        if (t < 4) return false;
+        extern bool inetFuzzHost(int, std::string&);
+        std::string rep; bool ok = inetFuzzHost(port, rep);
+        check(ok, rep);
+        return true; });
+    } else if (role == "host") {
       ScenarioRules r = gUi.scenario(app).rules; r.defenderSlots = 3; r.attackerAI = 6; gUi.rules = r; gUi.rulesInit = true;   // host + A + B; D finds it full
       std::string err; check(n.host(app, err, port), "hosting on port " + std::to_string(port) + " " + err);
       push("lobby", [this](App& a, float t) {
@@ -130,9 +197,17 @@ void SelfTest::netUpdate(App& app, float dt) {
     } else {
       bool lag = role == "a";
       if (lag) { n.simLagMs = 60; n.simLoss = 0.05f; }
-      push("join", [this, lag](App& a, float t) {
+      const bool byCode = role == "e" || role == "f";
+      push("join", [this, lag, byCode, codeFile](App& a, float t) {
         Net& n = *gNet;
-        if (t == 0) { std::string err; n.join(a, "127.0.0.1", "Client " + role, err, port); return false; }
+        static bool started = false; if (t == 0) started = false;
+        if (byCode && !started) {   // the internet host writes its room code once the room server answered
+          std::string code; { std::ifstream f(codeFile); f >> code; }
+          if (code.size() == 6) { std::string err; started = n.joinCode(a, code, "Client " + role, err); if (!started) { check(false, "join by code failed at once: " + err); return true; } }
+          else if (t > 40) { check(false, "no room code from the host within 40 s"); return true; }
+          return false;
+        }
+        if (!byCode && t == 0) { std::string err; n.join(a, "127.0.0.1", "Client " + role, err, port); return false; }
         if (role == "c" || role == "d") {
           if (n.role == Net::NONE) {
             bool ok = role == "c" ? n.status.find("Map differs") != std::string::npos : (n.status.find("full") != std::string::npos);
@@ -142,10 +217,15 @@ void SelfTest::netUpdate(App& app, float dt) {
           if (t > 20) { check(false, "expected a refusal, got: " + n.status); return true; }
           return false;
         }
-        if (n.connected) { check(true, std::string("connected to the host lobby") + (lag ? " with 60 ms simulated delay and 5 % loss" : "")); n.setReady(true); return true; }
-        if (t > 30) { check(false, "could not connect: " + n.status); return true; }
+        if (n.connected) {
+          std::string how = byCode ? (n.relayed() ? " by room code, through the relay" : " by room code, directly (hole punch)") : "";
+          check(!byCode || n.relayed() == (role == "f"), std::string("connected to the host lobby") + how + (lag ? " with 60 ms simulated delay and 5 % loss" : ""));
+          n.setReady(true); return true;
+        }
+        if (byCode && n.role == Net::NONE) { check(false, "join by code failed: " + n.status); return true; }
+        if (t > (byCode ? 60 : 30)) { check(false, "could not connect: " + n.status); return true; }
         return false; });
-      if (role == "a" || role == "b") {
+      if (role == "a" || role == "b" || role == "e" || role == "f") {
         push("in match", [this](App& a, float t) {
           if (gGame && gGame->active && gGame->isClient) {
             check(true, "received START and entered the match as a client (slot " + std::to_string(gGame->localSlot) + ")");

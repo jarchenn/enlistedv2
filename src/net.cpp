@@ -2,6 +2,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "net.h"
+#include "inet.h"
 #include "game.h"
 #include "mpui.h"
 #include "app.h"
@@ -29,8 +30,11 @@ constexpr double kConnectTimeout = 20.0;   // first contact: the host may be bus
 // than kWindow ahead of the next expected one are a protocol violation; unauthenticated queries / hellos are limited
 // per source address; a discovery query must be padded to kQueryPad bytes so the answer never amplifies.
 constexpr uint32_t kWindow = 256;
-constexpr size_t kMaxMessage = 256 * 1024, kQueryPad = 256, kMaxName = 24;
+constexpr size_t kMaxMessage = 8 * 1024 * 1024, kQueryPad = 256, kMaxName = 24;
 constexpr int kUnauthPerSec = 4;
+// Largest game datagram: fits a 1500-byte internet MTU with IP / UDP headers, the relay's 9-byte 'L' header and a
+// margin for tunnels (PPPoE, VPNs), so nothing is ever IP-fragmented (fragments are often dropped on the internet).
+constexpr size_t kMaxPacket = 1360;
 
 struct W {
   std::string b;
@@ -73,11 +77,12 @@ struct Chan {
     } while (o < msg.size());
   }
   void acked(uint32_t ackNext) { while (!out.empty() && (int32_t)(out.front().id - ackNext) < 0) out.pop_front(); }
-  // deliver contiguous chunks, return complete messages; false = protocol violation (chunk far outside the window,
-  // or a message larger than kMaxMessage): the caller drops the peer
+  // deliver contiguous chunks, return complete messages; false = protocol violation (a message larger than
+  // kMaxMessage): the caller drops the peer. Chunks beyond the receive window are ignored (bounded memory); the
+  // sender keeps them unacked and resends them once the window has moved.
   bool receive(uint32_t id, const std::string& c, std::vector<std::string>& msgs) {
     if ((int32_t)(id - nextIn) < 0) return true;            // duplicate
-    if (id - nextIn >= kWindow) return false;
+    if (id - nextIn >= kWindow) return true;
     early[id] = c;
     for (auto it = early.find(nextIn); it != early.end(); it = early.find(nextIn)) {
       const std::string& x = it->second;
@@ -111,7 +116,22 @@ std::string cleanName(std::string s) {   // printable ASCII, at most kMaxName ch
 }
 
 struct Net::Impl {
-  SOCKET s = INVALID_SOCKET; bool wsa = false; int port = kNetPort;
+  SOCKET s = INVALID_SOCKET; bool wsa = false; int port = kNetPort, localPort = 0;
+  Inet inet;                                 // internet rooms (inet.h)
+  bool awaitHost = false;                    // client joining by code: the host endpoint is not known yet
+  bool inetLoaded = false;
+  Impl() {
+    inet.ver = kNetVersion;
+    inet.send = [this](const sockaddr_in& to, const std::string& b) { if (s != INVALID_SOCKET) sendto(s, b.data(), (int)b.size(), 0, (const sockaddr*)&to, sizeof to); };
+  }
+  // the wire: a virtual (relayed) address goes to the room server wrapped in an 'L' datagram
+  void wire(const sockaddr_in& to, const std::string& data) {
+    if (Inet::isVirtual(to)) {
+      if (!inet.serverOk) return;
+      std::string b = inet.wrap(Inet::ridOf(to), data);
+      sendto(s, b.data(), (int)b.size(), 0, (const sockaddr*)&inet.serverAddr, sizeof inet.serverAddr);
+    } else sendto(s, data.data(), (int)data.size(), 0, (const sockaddr*)&to, sizeof to);
+  }
   std::vector<Peer> peers;                   // host: clients; client: [0] = host
   int nextPeer = 1;
   struct Delayed { double at; sockaddr_in to; std::string data; };
@@ -146,12 +166,12 @@ struct Net::Impl {
   void sendRaw(const sockaddr_in& to, const std::string& data, Net& n) {
     if (n.simLoss > 0 && std::uniform_real_distribution<float>(0, 1)(rng) < n.simLoss) { ++n.dropped; return; }
     if (n.simLagMs > 0) { delayq.push_back({now + n.simLagMs / 1000.0, to, data}); return; }
-    sendto(s, data.data(), (int)data.size(), 0, (const sockaddr*)&to, sizeof to);
+    wire(to, data);
     n.bytesOut += data.size(); ++n.packetsOut;
   }
   void flushDelayed(Net& n) {
     for (size_t k = 0; k < delayq.size();) {
-      if (delayq[k].at <= now) { sendto(s, delayq[k].data.data(), (int)delayq[k].data.size(), 0, (const sockaddr*)&delayq[k].to, sizeof delayq[k].to); n.bytesOut += delayq[k].data.size(); ++n.packetsOut; delayq.erase(delayq.begin() + k); }
+      if (delayq[k].at <= now) { wire(delayq[k].to, delayq[k].data); n.bytesOut += delayq[k].data.size(); ++n.packetsOut; delayq.erase(delayq.begin() + k); }
       else ++k;
     }
   }
@@ -164,15 +184,17 @@ struct Net::Impl {
       W w; header(w, 'D'); w.u32((uint32_t)myId); w.u64(p.token); w.u32(p.ch.nextIn);
       size_t countPos = w.b.size(); w.u8(0);
       int n2 = 0;
-      for (; idx < p.ch.out.size() && w.b.size() < 1100; ++idx) {
+      for (; idx < p.ch.out.size(); ++idx) {
         auto& c = p.ch.out[idx];
+        if (c.id - p.ch.out.front().id >= kWindow) { idx = p.ch.out.size(); break; }   // stay inside the receiver's window
         if (c.sent >= 0 && now - c.sent < kResend) continue;
+        if (w.b.size() + 6 + c.data.size() + 3 > kMaxPacket) break;   // never an IP-fragmented datagram (relay, internet)
         if (c.sent >= 0) ++n.resends;
         w.u32(c.id); w.u16((uint16_t)c.data.size()); w.b += c.data; c.sent = now; ++n2;
-        if (n2 >= 40) break;
+        if (n2 >= 40) { ++idx; break; }
       }
       w.b[countPos] = (char)n2;
-      if (!unrelSent && w.b.size() + p.unrel.size() < 1400) { w.u8((uint8_t)p.unrelType); w.u16((uint16_t)p.unrel.size()); w.b += p.unrel; unrelSent = true; }
+      if (!unrelSent && w.b.size() + 3 + p.unrel.size() <= kMaxPacket) { w.u8((uint8_t)p.unrelType); w.u16((uint16_t)p.unrel.size()); w.b += p.unrel; unrelSent = true; }
       else {
         w.u8(0);
         if (!unrelSent && n2 == 0 && !warnedSnapshot) { warnedSnapshot = true; logf("net: an unreliable payload of %zu bytes does not fit a packet and is dropped (snapshot too large for this many soldiers)", p.unrel.size()); }
@@ -229,6 +251,8 @@ static bool openSocket(Net::Impl& d, int port, std::string& err) {
     err = port ? "port " + std::to_string(port) + " is in use (another host on this PC?)" : "could not bind a UDP socket";
     closesocket(d.s); d.s = INVALID_SOCKET; return false;
   }
+  sockaddr_in me{}; int ml = sizeof me; d.localPort = getsockname(d.s, (sockaddr*)&me, &ml) == 0 ? ntohs(me.sin_port) : port;
+  if (!d.inetLoaded) { d.inet.load(); d.inetLoaded = true; }
   return true;
 }
 
@@ -269,13 +293,42 @@ bool Net::join(App& app, const std::string& ip, const std::string& name, std::st
   }
   if (!resolved) { err = "'" + ip + "' is not an IPv4 address or a host name that resolves (optionally with :port)"; status = err; closesocket(d->s); d->s = INVALID_SOCKET; return false; }
   a.sin_port = htons((u_short)hostPort);
-  d->hostAddr = a; role = CLIENT; connected = false; myPeer = -1;
+  d->hostAddr = a; role = CLIENT; connected = false; myPeer = -1; d->awaitHost = false;
   d->peers.clear(); Peer h; h.id = 0; h.addr = a; h.heard = d->now; d->peers.push_back(h);
   d->helloJson = json{{"name", cleanName(name)}, {"version", kNetVersion}, {"content", contentHash()}, {"map", mapHash(app)}, {"mapName", app.doc.name}}.dump();
   d->lastHello = -10;
   status = "Connecting to " + addrStr(a) + "...";
   return true;
 }
+
+bool Net::joinCode(App& app, const std::string& code, const std::string& name, std::string& err) {
+  if (!d) d = new Impl();
+  if (role != NONE) leave("rejoin");
+  gContentHash.clear(); contentHash();
+  if (!openSocket(*d, 0, err)) { status = "Could not join: " + err; return false; }
+  d->now = glfwGetTime();
+  d->inet.tick(d->now, json::object(), d->localPort);   // brings the inet clock up to date
+  d->inet.lastName = cleanName(name);
+  if (!d->inet.joinStart(code)) { err = status = d->inet.joinStatus; closesocket(d->s); d->s = INVALID_SOCKET; return false; }
+  role = CLIENT; connected = false; myPeer = -1; d->awaitHost = true;
+  d->hostAddr = sockaddr_in{};
+  d->peers.clear(); Peer h; h.id = 0; h.heard = d->now; d->peers.push_back(h);
+  d->helloJson = json{{"name", cleanName(name)}, {"version", kNetVersion}, {"content", contentHash()}, {"map", mapHash(app)}, {"mapName", app.doc.name}}.dump();
+  d->lastHello = -10;
+  status = d->inet.joinStatus;
+  return true;
+}
+
+bool Net::setInternet(App& app, bool on) {
+  (void)app;
+  if (role != HOST || !d) return false;
+  if (!on) { d->inet.hostStop(); return true; }
+  d->inet.tick(d->now, json::object(), d->localPort);
+  return d->inet.hostStart();
+}
+std::string Net::roomCode() const { return d && d->inet.hosting ? d->inet.code : std::string(); }
+bool Net::joiningByCode() const { return d && d->awaitHost; }
+bool Net::relayed() const { return d && role == CLIENT && Inet::isVirtual(d->hostAddr); }
 
 void Net::discover() {
   if (!d) d = new Impl();
@@ -295,9 +348,10 @@ void Net::setReady(bool r) { if (role == CLIENT && connected && !d->peers.empty(
 void Net::leave(const char* reason) {
   if (!d) return;
   if (d->s != INVALID_SOCKET) {
-    for (int k = 0; k < 3; ++k) for (auto& p : d->peers) { if (p.token == 0) continue; W w; d->header(w, 'X'); w.u32((uint32_t)(role == HOST ? 0 : myPeer)); w.u64(p.token); w.str(reason); sendto(d->s, w.b.data(), (int)w.b.size(), 0, (sockaddr*)&p.addr, sizeof p.addr); }
+    for (int k = 0; k < 3; ++k) for (auto& p : d->peers) { if (p.token == 0) continue; W w; d->header(w, 'X'); w.u32((uint32_t)(role == HOST ? 0 : myPeer)); w.u64(p.token); w.str(reason); d->wire(p.addr, w.b); }
     closesocket(d->s); d->s = INVALID_SOCKET;
   }
+  d->inet.hostStop(); d->inet.joinStop(); d->awaitHost = false;
   d->peers.clear(); d->delayq.clear(); d->worldLog.clear(); d->poses.clear();
   role = NONE; connected = false; matchRunning = false; players.clear();
   logf("net: left (%s)", reason);
@@ -341,8 +395,13 @@ static std::string writeSnapshot(Game& g, int forPeer) {
     w.u8(own ? 1 : 0);
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
   }
-  w.u8((uint8_t)std::min<size_t>(g.gren.live.size(), 32));
-  for (size_t k = 0; k < g.gren.live.size() && k < 32; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u8((uint8_t)(x.owner < 0 ? 255 : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
+  // grenades in flight fill what is left of one packet (36 bytes each): a 32-soldier snapshot is ~1150 bytes, and a
+  // snapshot that does not fit a packet would be dropped whole. The nearest-in-list grenades are kept.
+  constexpr size_t kSnapBudget = kMaxPacket - 30, kGrenBytes = 36;
+  size_t room = w.b.size() + 1 < kSnapBudget ? (kSnapBudget - w.b.size() - 1) / kGrenBytes : 0;
+  size_t nGren = std::min({g.gren.live.size(), (size_t)32, room});
+  w.u8((uint8_t)nGren);
+  for (size_t k = 0; k < nGren; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u8((uint8_t)(x.owner < 0 ? 255 : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
   return w.b;
 }
 
@@ -540,6 +599,18 @@ void Net::update(App& app, float dt) {
     }
     if (got == 0) continue;
     bytesIn += got; ++packetsIn;
+    if (got >= 5) {   // rendezvous traffic ("NMKR"): control messages and punches to Inet, relayed game packets unwrapped
+      uint32_t mg; std::memcpy(&mg, buf, 4);
+      if (mg == kRendezvousMagic) {
+        if (buf[4] != 'L') { d->inet.onPacket(d->now, from, (const uint8_t*)buf, (size_t)got); continue; }
+        if (got < 9 || !d->inet.fromServer(from)) continue;   // only the room server relays
+        uint32_t rid; std::memcpy(&rid, buf + 5, 4);
+        if (rid == 0) continue;
+        std::memmove(buf, buf + 9, (size_t)got - 9); got -= 9;
+        from = Inet::virt(rid);   // the relayed peer's virtual address (inet.h)
+        if (got <= 0) continue;
+      }
+    }
     R r(buf, got);
     if (r.u32() != kMagic) continue;
     char type = (char)r.u8();
@@ -675,6 +746,7 @@ void Net::update(App& app, float dt) {
   }
   // ---- host: timeouts, lobby, snapshots, flush
   if (role == HOST) {
+    if (d->inet.hosting) d->inet.tick(d->now, json{{"name", players.empty() ? std::string("Host") : players[0].name}, {"map", app.doc.name}, {"humans", (int)players.size()}, {"max", std::max(1, gUi.rules.defenderSlots)}}, d->localPort);
     for (size_t k = 0; k < d->peers.size();) {
       if (d->now - d->peers[k].heard > kTimeout) {
         int id = d->peers[k].id;
@@ -699,6 +771,17 @@ void Net::update(App& app, float dt) {
     crumb("net: flush"); for (auto& p : d->peers) d->flushPeer(p, *this, 0);
   } else if (role == CLIENT) {
     Peer& h = d->peers[0];
+    if (d->awaitHost) {   // joining by room code: Inet looks the room up, punches, falls back to the relay
+      d->inet.tick(d->now, json::object(), d->localPort);
+      status = d->inet.joinStatus;
+      if (d->inet.targetReady) {
+        d->inet.targetReady = false; d->awaitHost = false;
+        d->hostAddr = d->inet.target; h.addr = d->inet.target; h.heard = d->now; d->lastHello = -10;
+        logf("net: room %s reached %s", d->inet.lastCode.c_str(), d->inet.usingRelay ? "through the relay" : ("directly at " + addrStr(d->inet.target)).c_str());
+      } else if (d->inet.phase == Inet::FAILED) {
+        std::string why = d->inet.joinStatus; leave("room join failed"); status = why; return;
+      } else return;   // nothing to send yet
+    }
     if (!connected && d->now - d->lastHello > 0.5) { W w; d->header(w, 'H'); w.str(d->helloJson); d->sendRaw(d->hostAddr, w.b, *this); d->lastHello = d->now; }
     if (d->now - h.heard > (connected ? kTimeout : kConnectTimeout)) { d->endReason = connected ? "Connection to the host was lost (no reply for 6 s)." : "No answer from " + addrStr(d->hostAddr) + ". Check the address, that the host is in its lobby, and the host's firewall."; d->wantEnd = true; }
     if (connected && gGame && gGame->active && gGame->isClient && d->now - d->lastInput >= 1.0 / 30) {
@@ -773,15 +856,41 @@ void Net::returnToLobby(App& app) {
 }
 
 // ---------------------------------------------------------------- lobby UI
+// room server address / secret / relay preference (exeDir()/net_user.json)
+static void internetSettings(Inet& in) {
+  if (!ImGui::TreeNode("Internet settings")) return;
+  static char srv[128] = "", sec[65] = ""; static bool init = false;
+  if (!init) { std::snprintf(srv, sizeof srv, "%s", in.server.c_str()); std::snprintf(sec, sizeof sec, "%s", in.secret.c_str()); init = true; }
+  ImGui::InputText("Room server", srv, sizeof srv); ImGui::SameLine(); ImGui::TextDisabled("host or host:port");
+  ImGui::InputText("Server secret", sec, sizeof sec, ImGuiInputTextFlags_Password);
+  ImGui::Checkbox("Always use the relay (skip direct connection)", &in.forceRelay);
+  if (ImGui::Button("Save settings")) { in.server = srv; in.secret = sec; in.save(); }
+  ImGui::TextDisabled("Set up your free room server with tools/rendezvous/README.md (Oracle Cloud Always Free).");
+  ImGui::TreePop();
+}
+
 void MpUi::netLobby(App& app, bool blocked) {
   if (!gNet) gNet = new Net();
   Net& n = *gNet;
+  if (!n.d) n.d = new Net::Impl();
+  if (!n.d->inetLoaded) { n.d->inet.load(); n.d->inetLoaded = true; }
   ImGui::Separator();
   if (n.role != Net::HOST) {
-    ImGui::TextWrapped("Host a LAN lobby on this PC. Players on the same network join with Play > Join LAN (search or the address shown).");
-    if (ImGui::Button("Open LAN lobby", ImVec2(220, 0))) { std::string err; n.host(app, err); }
+    ImGui::TextWrapped("Host a lobby on this PC. Players on the same network join with Play > Join LAN (search or the address shown); players anywhere join with a room code once you switch on Internet room.");
+    if (ImGui::Button("Open lobby", ImVec2(220, 0))) { std::string err; n.host(app, err); }
+    internetSettings(n.d->inet);
   } else {
     ImGui::TextWrapped("%s", n.status.c_str());
+    Inet& in = n.d->inet;
+    bool on = in.hosting;
+    if (ImGui::Checkbox("Internet room (friends anywhere join with a code)", &on)) n.setInternet(app, on);
+    if (in.hosting && !in.code.empty()) {
+      ImGui::Text("Room code:"); ImGui::SameLine(); ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1), "%s", in.code.c_str());
+      ImGui::SameLine(); if (ImGui::SmallButton("Copy")) ImGui::SetClipboardText(in.code.c_str());
+    }
+    if (!in.hostStatus.empty()) ImGui::TextWrapped("%s", in.hostStatus.c_str());
+    if (in.relayedPeers > 0) ImGui::Text("%d player(s) connected through the relay", in.relayedPeers);
+    internetSettings(in);
     ImGui::Text("Players (%zu, all defend as %s):", n.players.size(), factionName(rules.defendingFaction));
     for (auto& p : n.players) ImGui::BulletText("%s%s  %s", p.name.c_str(), p.peer == 0 ? " (host)" : "", p.ready ? "READY" : "not ready");
     ImGui::BeginDisabled(blocked || !n.allReady());
@@ -796,10 +905,19 @@ void MpUi::netLobby(App& app, bool blocked) {
 void MpUi::netJoin(App& app) {
   if (!gNet) gNet = new Net();
   Net& n = *gNet;
-  static char name[32] = "Player", ip[64] = "192.168.1.";
+  if (!n.d) n.d = new Net::Impl();
+  if (!n.d->inetLoaded) { n.d->inet.load(); n.d->inetLoaded = true; }
+  Inet& in = n.d->inet;
+  static char name[32] = "Player", ip[64] = "192.168.1.", code[17] = ""; static bool init = false;
+  if (!init) { std::snprintf(name, sizeof name, "%s", in.lastName.c_str()); std::snprintf(code, sizeof code, "%s", in.lastCode.c_str()); init = true; }
   ImGui::InputText("Your name", name, sizeof name);
+  if (n.role == Net::CLIENT && n.joiningByCode()) {
+    ImGui::TextWrapped("%s", n.status.c_str());
+    if (ImGui::Button("Cancel")) { n.leave("cancelled"); n.status = "Cancelled."; }
+    return;
+  }
   if (n.role == Net::CLIENT && n.connected) {
-    ImGui::Text("Lobby of %s on map '%s'", n.players.empty() ? "host" : n.players[0].name.c_str(), n.hostMapName.c_str());
+    ImGui::Text("Lobby of %s on map '%s'%s", n.players.empty() ? "host" : n.players[0].name.c_str(), n.hostMapName.c_str(), n.relayed() ? "  (through the relay)" : "");
     for (auto& p : n.players) ImGui::BulletText("%s%s  %s", p.name.c_str(), p.peer == n.myPeer ? " (you)" : "", p.ready ? "READY" : "not ready");
     if (!n.lobbyRules.is_null()) { ScenarioRules r = ScenarioRules::fromJson(n.lobbyRules); ImGui::Text("%s defend (%d slots) vs %d attacking AI, %d lives per attacker slot", factionName(r.defendingFaction), r.defenderSlots, r.attackerAI, 1 + r.attackerRespawns); }
     bool me = false; for (auto& p : n.players) if (p.peer == n.myPeer) me = p.ready;
@@ -821,7 +939,12 @@ void MpUi::netJoin(App& app) {
     }
     ImGui::InputText("Host address", ip, sizeof ip); ImGui::SameLine();
     if (ImGui::Button("Join address")) { std::string err; n.join(app, ip, name, err); }
+    ImGui::Separator();
+    ImGui::Text("Internet");
+    ImGui::InputText("Room code", code, sizeof code, ImGuiInputTextFlags_CharsUppercase); ImGui::SameLine();
+    if (ImGui::Button("Join room")) { std::string err; in.lastName = name; n.joinCode(app, code, name, err); }
+    internetSettings(in);
     if (!n.status.empty()) ImGui::TextWrapped("%s", n.status.c_str());
-    ImGui::TextDisabled("Both PCs need the same build, content and map file. Internet play is not supported.");
+    ImGui::TextDisabled("Every PC needs the same build, content and map file. Internet rooms need a room server (Internet settings).");
   }
 }

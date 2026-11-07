@@ -35,6 +35,12 @@ public:
 
   bool host(App& app, std::string& err, int port = kNetPort);
   bool join(App& app, const std::string& ip, const std::string& name, std::string& err, int port = kNetPort);
+  // internet play (inet.h): join a room by its code through the rendezvous server (direct punch, else relay)
+  bool joinCode(App& app, const std::string& code, const std::string& name, std::string& err);
+  bool setInternet(App& app, bool on);       // host: register / unregister this lobby as an internet room
+  std::string roomCode() const;              // host: the current room code ("" until the server answered)
+  bool joiningByCode() const;                // client: still resolving the room (looking up / punching / relay)
+  bool relayed() const;                      // client: connected through the relay
   void discover();                          // send a broadcast query (results arrive in `found`)
   void update(App& app, float dt);          // every frame
   void leave(const char* reason);           // client: disconnect; host: end the session (clients return to menu)

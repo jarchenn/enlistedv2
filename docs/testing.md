@@ -50,3 +50,11 @@ The farmhouse route covers:
 - The upper floor and an upstairs casement.
 - The rear service stair down.
 - Opening the rear door from inside and closing it from outside.
+
+## Network tests (separate processes)
+
+- `tools/run_net_test.sh <build> [port]`: LAN roles host / a / b / c / d (35 checks). It is also run by `run_all_tests.sh --net`.
+- `tools/run_inet_test.sh <build> [port] [server port]`: internet play roles ihost / e / f / z. These cover a room code, a direct hole punch, the relay, and hostile traffic (27 checks). The script starts `tools/rendezvous/rendezvous.py` on 127.0.0.1.
+- `python -I tools/rendezvous/rendezvous.py --selftest`: the room server on its own.
+
+See [multiplayer.md](multiplayer.md#tests-one-pc).
