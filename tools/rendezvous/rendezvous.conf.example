@@ -1,0 +1,9 @@
+# Copy to rendezvous.conf next to rendezvous.py. Lines are "key = value"; # starts a comment.
+
+# Shared secret: when set, the game's net_user.json must contain the same "secret" to host a room.
+# Joining by code never needs it. Leave empty for an open server.
+secret =
+
+# UDP port and bind address (defaults shown).
+port = 27900
+bind = 0.0.0.0
