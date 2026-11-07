@@ -284,6 +284,7 @@ bool crushStep(App& a, MpTest& t) {
   for (float u = -0.9f; u <= 0.91f; u += 0.3f) for (float v = -0.9f; v <= 0.91f; v += 0.3f) { vec3 w = c + q * vec3(u * hf.x, 0, v * hf.y); float h = Tr.height(w.x, w.z); before0 = std::min(before0, h); before1 = std::max(before1, h); }
   auto deltasBefore = a.doc.terrainDeltas; size_t nBefore = a.doc.instances.size(), undoBefore = a.undoStack.size();
   uint64_t hid = a.placeInstance(house, c, yaw);
+  if (hid) crushAndFlatten(a, hid);   // what the Place tool does (editor.cpp); programmatic placeInstance leaves the ground alone
   a.syncRuntime();
   Instance* H = a.doc.find(hid);
   if (!chk(t, H != nullptr, "house placed over the shrubs once the tree is gone")) return true;

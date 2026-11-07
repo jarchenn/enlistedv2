@@ -92,7 +92,7 @@ void App::updateCreative(float dt) {
     sg.on = hoverValid && snapPlacement(*this, placing, sg.pos, sg.yaw, 0);   // V6: sockets, sandbag runs, path ends (snap.cpp)
     if (hoverValid) lastCheck = checkPlacement(placing, sg.pos, sg.yaw, 0);
     if (lmbPress && hoverValid) {
-      if (lastCheck.ok) { uint64_t id = placeInstance(placing, sg.pos, sg.yaw); if (id) { selected = id; placeCompanions(id); } }
+      if (lastCheck.ok) { uint64_t id = placeInstance(placing, sg.pos, sg.yaw); if (id) { crushAndFlatten(*this, id); selected = id; placeCompanions(id); } }
       else toast(lastCheck.reason);
     }
   } else if (tool == Tool::Terrain) {

@@ -433,7 +433,6 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   if (a->defense.blocksVehicles) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["blocksVehicles"] = true; }
   bump(i);
   doc.instances.push_back(i);
-  crushAndFlatten(*this, i.id);   // V6: buildings crush low growth and flatten their ground (same undo step; snap.cpp)
   autopathOnPlaced(*this, i.id);   // "Auto paths" on: a new house gets its aprons and a path to its neighbours (autopath.cpp)
   return i.id;
 }
