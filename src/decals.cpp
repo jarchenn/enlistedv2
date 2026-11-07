@@ -54,10 +54,10 @@ layout(location=0) out vec4 o;
 const char* kWorldFS = R"GLSL(
 void main(){
   float z = texelFetch(uDepth, ivec2(gl_FragCoord.xy), 0).r;
-  vec4 w = uInvVP*vec4(gl_FragCoord.xy/uSize*2.0 - 1.0, z*2.0 - 1.0, 1.0);
+  vec4 w = uInvVP*vec4(gl_FragCoord.xy/uSize*2.0 - 1.0, z, 1.0);   // reverse-Z world pass (docs/rendering.md#depth-convention)
   vec3 P = w.xyz/w.w;
   vec3 Ng = cross(dFdx(P), dFdy(P));
-  if (z >= 1.0 || texelFetch(uMask, ivec2(gl_FragCoord.xy), 0).r > 0.5) discard;   // never onto soldiers
+  if (z <= 0.0 || texelFetch(uMask, ivec2(gl_FragCoord.xy), 0).r > 0.5) discard;   // never onto soldiers
   vec3 c = dd[vId].a.xyz, N = dd[vId].n.xyz, T = dd[vId].t.xyz, B = cross(N, T);
   float ext = dd[vId].a.w, dep = dd[vId].n.w;
   int kind = int(dd[vId].t.w + 0.5);
@@ -272,8 +272,8 @@ void decalsRender(Renderer& r, const RenderView& v, const mat4& vp, unsigned dep
       glBindFramebuffer(GL_FRAMEBUFFER, gMaskFbo);
       glUseProgram(gMaskProg);
       glUniformMatrix4fv(U(gMaskProg, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-      glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
-      glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1.0f, -4.0f);
+      glEnable(GL_DEPTH_TEST); glDepthFunc(r.zLEqual()); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
+      glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(r.zToward(), 4.0f * r.zToward());
       if (gGame && gGame->active)
         for (auto& s : gGame->sold) {
           if (!soldierDrawn(*gGame, s, v.camPos, corpse)) continue;
@@ -340,8 +340,8 @@ void decalsRender(Renderer& r, const RenderView& v, const mat4& vp, unsigned dep
     glUniform3fv(U(gCharProg, "uCam"), 1, glm::value_ptr(v.camPos)); glUniform3fv(U(gCharProg, "uSun"), 1, glm::value_ptr(r.sunDir));
     glUniform1f(U(gCharProg, "uAgeBrown"), S.cfg.ageToBrown); glUniform1f(U(gCharProg, "uFade"), fadeT);
     GLint lM = U(gCharProg, "uModel"), lN = U(gCharProg, "uCount"), l0 = U(gCharProg, "uD0"), l1 = U(gCharProg, "uD1"), l2 = U(gCharProg, "uD2"), l3 = U(gCharProg, "uD3");
-    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LEQUAL); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
-    glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1.0f, -4.0f);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(r.zLEqual()); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
+    glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(r.zToward(), 4.0f * r.zToward());
     glEnable(GL_BLEND); glBlendFuncSeparate(GL_DST_COLOR, GL_ZERO, GL_ZERO, GL_ONE);
     for (auto& [slot, rec] : S.sold) {
       if (rec.decals.empty() || slot < 0 || slot >= (int)G.sold.size()) continue;
@@ -367,7 +367,7 @@ void decalsRender(Renderer& r, const RenderView& v, const mat4& vp, unsigned dep
   glQueryCounter(gQ[gQi][1], GL_TIMESTAMP); gQv[gQi] = true; gQi = (gQi + 1) % 3;
   // restore the state the main pass continues with
   glDisable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST); glDepthFunc(r.zLess()); glDepthMask(GL_TRUE);
   glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
   glBindVertexArray(0); glUseProgram(0);
   S.st.cpuRenderMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c0).count();

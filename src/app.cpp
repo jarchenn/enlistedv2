@@ -199,6 +199,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       op.push_back({&r.pathMesh, M});
       continue;
     }
+    { extern bool waterDrawItems(App&, const Instance&, const InstanceRT&, const mat4&, std::vector<DrawItem>&); if (waterDrawItems(*this, i, r, M, op)) continue; }   // V1 water surfaces (water.cpp)
     // coarse distance cull
     float camDist = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
     if (camDist > 1200 * settings().drawDist()) continue;   // x the Settings draw distance (Low 0.6, High 1.4)
@@ -536,6 +537,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
     else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
     else if (a == "--selftest-autopath") runSelf = true;   // V9 auto paths between houses (selftest_autopath.cpp)
+    else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -767,6 +769,7 @@ void App::updateSurface() {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a) || a->nature.kind != NatureDef::NONE) continue;
+    { extern bool waterAsset(const AssetDef*); if (waterAsset(a)) continue; }   // V1: ponds / streams / the sea have no foundation band
     feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
     uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);
     mix(b[0]); mix(b[1]); mix(b[2]); mix(std::hash<std::string>{}(i.assetId));

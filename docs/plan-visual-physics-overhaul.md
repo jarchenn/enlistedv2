@@ -363,3 +363,55 @@ After each batch:
     - `env` 42/42 and `editor` 83/83 (new stage 3346: first-person placement). These two ran before the final low-wall gate in `mantle.cpp`, which only narrows when a mantle starts.
     - Not run: `structures` (its anti-tank ditch faces are 3 m, outside the range) and the full suite.
   - **Merge notes:** V6 also edits `selftest_editor.cpp` (my stage sits between 3345 and 3350) and `editor.cpp` (my change is only the browser block, lines ~292–296).
+
+
+### V1 handoff (2026-11-07): facades, rough walls, water
+Branch `vo-1-render` (worktree `nmk-vo1`), two commits on 0e8479f: 27f8aae (the work) and the follow-up (relief tuning, docs, proof images). Not pushed. Full write-up: `docs/rendering.md` §9; proof images in `docs/rendering/v1/`.
+
+**Tests** (build `%TEMP%/nmk/build-vo1`, each through `tools/gpu_turn.sh`):
+
+| Suite | Result |
+|---|---|
+| `render` (new) | 48/0 |
+| `visuals` | 31/0 |
+| `env` | 42/0 |
+| `interiors` | 141/0 |
+| `maps` | 139/0, FPS gate held: Omaha worst eye-level 15.40 ms (master 15.33); Battle 1 17.5 ms (reported only) |
+
+`visuals`, `env`, `interiors` and `maps` ran on the build one shader tweak before the final one. The tweak only changes the patterns 17/19/22 relief formula; `render` 48/0 confirms the final shaders compile.
+
+**Shimmer** (`--selftest-render`, same camera path on master and here; lower is better):
+- Farmhouse, still: 20 m 1.73 → 1.63, 50 m 2.00 → 1.85, 100 m 1.52 → 1.27.
+- Ruined church, 100 m: 1.24 → 0.60.
+- Strafe flicker: 50 m 3.37 → 3.00, 100 m 1.90 → 1.51.
+- With the new wall relief off, the shimmer fixes alone give 33–61 % below master.
+
+**Merge notes**
+- **Depth convention: reverse-Z inside `Renderer::render`.**
+  - CPU `projM` stays standard GL.
+  - Code drawing inside `render()` must use `R.zLess()`, `zLEqual()` and `zToward()`. Depth readers use ndc z = depth, and the sky is 0.
+  - Patched: SSAO, composite, shafts, TAA, `decals.cpp`.
+  - V2's resolution scale is fine: the water pass uses the internal `width`/`height`.
+- **`render.h`:**
+  - `WaterDraw`, `Renderer::water`, `revZ` + helpers, `wallRelief` (A/B), `friend struct WaterPass`;
+  - **`Quality::taaSharpen` default 0.40 → 0.30.** V2 should take 0.30 as Medium. If V2's settings test pins 0.40, update it.
+- **One-line hooks:**
+  - `app.cpp`: `buildDrawLists` water hook, `updateSurface` skips water assets, `--selftest-render` arg;
+  - `selftest.cpp`;
+  - `CMakeLists.txt` (`cmake/vo1.cmake`);
+  - `tools/run_all_tests.sh` (`render`);
+  - `tools/build_mpu_assets.mjs` (`waterAssets`).
+- **Assets:**
+  - `vil_norman_farmhouse`, `vil_church_ruined` and `vil_chateau_keep` regenerated;
+  - new `wat_*` (7, category Water) from `tools/catalog_water.mjs`;
+  - `env_sea_shallows` gains a `water` block. Its JSON was edited by hand: no generator owns it.
+  - `build_mpu_assets.mjs --check` reports only `gun_flak18.json`, which already drifts on master.
+- **For V6:** stream pieces carry `snap: [{p, dir, kind: "stream"}]`. Their channel cut runs 1.6 m past each socket. The footprints of a bend and a straight overlap when snapped, so the overlap check must allow snapped neighbours.
+- **For V8:** `waterSurfaceAt(app, x, z)` and `waterAsset(a)` are in `water.h`, for Beautify's water role.
+
+**Known limits** (`docs/rendering.md` §9.6):
+- Old `build_assets.mjs` houses keep 5 mm shutters until that generator is re-run.
+- The ruined church at 20–50 m is level with master.
+- Water is not physical (no collision, splashes or wading sounds).
+- SSR only, no underwater view.
+- No far-plane culling of terrain and grass chunks under reverse-Z.
