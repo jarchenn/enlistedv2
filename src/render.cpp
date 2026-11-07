@@ -1516,6 +1516,7 @@ void main(){
     rough = mix(rough, 0.9, rockK);
     ao *= 1.0 - 0.35*rCrack*rockK;
   }
+  paintApply(p, normalize(vN), alb, rough, N, ao, dirt);   // lasso ground paint (ground_paint.cpp)
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
@@ -1881,7 +1882,7 @@ bool Renderer::init(int w, int h) {
   progMain = compile(kMainVS, kMainFS, "main");
   progGlass = compile(kMainVS, kGlassFS, "glass");
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
-  progTerrain = compile(kTerrainVS, kTerrainFS, "terrain");
+  { extern const char* groundPaintGlsl(); progTerrain = compile(kTerrainVS, (std::string(groundPaintGlsl()) + kTerrainFS).c_str(), "terrain"); }   // lasso ground paint
   progSky = compile(kFullVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");
   progExpo = compile(kFullVS, kExpoFS, "expo");

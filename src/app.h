@@ -64,7 +64,7 @@ struct ExploreInput {
   bool quickGrenade = false;   // H (rebindable "grenade"): throw the side's grenade from any weapon
 };
 
-struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; json routes; std::map<int, std::vector<float>> sculpt; json terrainGen; std::vector<WaterBody> water; };   // routes: MapDoc::extra["routes"] (auto paths)
+struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; json routes; std::map<int, std::vector<float>> sculpt; json terrainGen; std::vector<WaterBody> water; std::vector<uint64_t> selection; std::map<int64_t, std::vector<uint8_t>> paint; uint64_t paintSig = 0; };   // routes: MapDoc::extra["routes"] (auto paths)
 
 struct PlaceCheck { bool ok = true; std::string reason; float y = 0; bool snapXZ = false; vec2 xz{0}; };   // snapXZ: wall-hung furniture pulled flat to its wall
 

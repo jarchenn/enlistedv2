@@ -2,7 +2,49 @@
 #include "lasso_water.h"
 #include "app.h"
 #include "geom2d.h"
+#include <cstring>
 #include <queue>
+#include <unordered_map>
+#if __has_include("water.h")
+#include "water.h"
+namespace {
+struct BodyMesh { uint64_t sig = 0; GLuint vao = 0, vbo = 0; int count = 0; bool live = false; };
+std::unordered_map<uint64_t, BodyMesh> gMeshes;
+}
+void lassoWaterDrawItems(App& app) {
+  for (auto& [id, m] : gMeshes) m.live = false;
+  for (auto& w : app.doc.waterBodies) {
+    uint64_t sig = 1469598103934665603ull;
+    auto mixf = [&](float f) { uint32_t b; std::memcpy(&b, &f, 4); sig = (sig ^ b) * 1099511628211ull; };
+    mixf(w.level); for (vec2 p : w.outline) { mixf(p.x); mixf(p.y); }
+    BodyMesh& m = gMeshes[w.id];
+    m.live = true;
+    if (m.sig != sig || !m.vao) {   // flat, at the level, no flow (a pond); V1's vertex layout: pos.xyz, flow.xy
+      if (m.vbo) glDeleteBuffers(1, &m.vbo);
+      if (m.vao) glDeleteVertexArrays(1, &m.vao);
+      std::vector<vec2> tri = geom2d::triangulate(w.outline);
+      std::vector<float> v; v.reserve(tri.size() * 5);
+      for (vec2 p : tri) v.insert(v.end(), {p.x, w.level, p.y, 0.0f, 0.0f});
+      m.count = (int)tri.size();
+      glCreateBuffers(1, &m.vbo); glNamedBufferData(m.vbo, (GLsizeiptr)(std::max<size_t>(1, v.size()) * sizeof(float)), v.data(), GL_STATIC_DRAW);
+      glCreateVertexArrays(1, &m.vao);
+      glVertexArrayVertexBuffer(m.vao, 0, m.vbo, 0, 5 * sizeof(float));
+      glEnableVertexArrayAttrib(m.vao, 0); glVertexArrayAttribFormat(m.vao, 0, 3, GL_FLOAT, GL_FALSE, 0); glVertexArrayAttribBinding(m.vao, 0, 0);
+      glEnableVertexArrayAttrib(m.vao, 1); glVertexArrayAttribFormat(m.vao, 1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float)); glVertexArrayAttribBinding(m.vao, 1, 0);
+      m.sig = sig;
+    }
+    if (m.count) app.R.water.push_back({m.vao, m.count, mat4(1), vec4(1.0f, 1.0f, 1.0f, 0.0f), vec4(0.0f)});   // kind 1 = pond
+  }
+  for (auto it = gMeshes.begin(); it != gMeshes.end();) {
+    if (it->second.live) { ++it; continue; }
+    if (it->second.vbo) glDeleteBuffers(1, &it->second.vbo);
+    if (it->second.vao) glDeleteVertexArrays(1, &it->second.vao);
+    it = gMeshes.erase(it);
+  }
+}
+#else
+void lassoWaterDrawItems(App&) {}   // before V1's water pass is in the build: lasso_ui.cpp draws a translucent sheet
+#endif
 
 float lassoWaterAt(const App& app, float x, float z) {
   float best = -1e9f;
@@ -86,7 +128,7 @@ WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, floa
   r.seed = org + fs * vec2((float)(seed % W), (float)(seed / W));
   if (sh < T.waterLevel + 0.02f) { r.why = "the hollow is already under the sea"; return r; }
   // priority flood from the seed: pop the lowest frontier sample; the running maximum is the water level the hollow
-  // has reached. The first sample strictly below it lies past the rim: the water spills there.
+  // has reached. The first sample outside the region strictly below it lies past the rim: the water spills there.
   using QE = std::pair<float, size_t>;
   std::priority_queue<QE, std::vector<QE>, std::greater<QE>> q;
   std::vector<char> seen((size_t)W * H, 0);
@@ -96,7 +138,9 @@ WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, floa
   while (!q.empty()) {
     auto [hv, k] = q.top(); q.pop();
     int x = (int)(k % W), z = (int)(k / W);
-    if (hv < level - 0.001f) { spilled = true; r.spill = org + fs * vec2((float)x, (float)z); break; }
+    // lower than the water has reached: past the rim when it is outside the region (lower pockets inside the region
+    // are part of the hollow: its floor is never perfectly flat)
+    if (hv < level - 0.001f && !geom2d::inside(region, org + fs * vec2((float)x, (float)z))) { spilled = true; r.spill = org + fs * vec2((float)x, (float)z); break; }
     level = std::max(level, hv);
     if (level < T.waterLevel) continue;   // (never: the seed is above the sea)
     if (x == 0 || z == 0 || x == W - 1 || z == H - 1) break;   // reached the search edge still climbing: open ground

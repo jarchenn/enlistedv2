@@ -85,4 +85,33 @@ inline std::vector<vec2> simplifyLoop(const std::vector<vec2>& p, float tol) {
   return out.size() >= 3 ? out : p;
 }
 
+// ear clipping of a simple polygon: triangles (3 points each), counter-clockwise in xz
+inline std::vector<vec2> triangulate(std::vector<vec2> P) {
+  std::vector<vec2> out;
+  if (P.size() < 3) return out;
+  if (signedArea(P) < 0) std::reverse(P.begin(), P.end());
+  auto cross = [](vec2 a, vec2 b, vec2 c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); };
+  size_t guard = P.size() * P.size() + 8;
+  while (P.size() > 3 && guard--) {
+    bool cut = false;
+    for (size_t i = 0; i < P.size(); ++i) {
+      vec2 a = P[(i + P.size() - 1) % P.size()], b = P[i], c = P[(i + 1) % P.size()];
+      if (cross(a, b, c) <= 1e-9f) continue;
+      bool ear = true;
+      for (size_t k = 0; k < P.size() && ear; ++k) {
+        vec2 q = P[k];
+        if (q == a || q == b || q == c) continue;
+        if (cross(a, b, q) >= 0 && cross(b, c, q) >= 0 && cross(c, a, q) >= 0) ear = false;
+      }
+      if (!ear) continue;
+      out.insert(out.end(), {a, b, c});
+      P.erase(P.begin() + (long)i);
+      cut = true; break;
+    }
+    if (!cut) break;   // degenerate: give up on the rest
+  }
+  if (P.size() == 3) out.insert(out.end(), {P[0], P[1], P[2]});
+  return out;
+}
+
 }   // namespace geom2d

@@ -49,6 +49,10 @@ struct MapDoc {
   std::map<int, std::vector<float>> terrainSculpt;   // V8 sculpted ground (terrain_brush.cpp): tile key -> per-sample metres
   json terrainGen = json::object();                  // V8 generator layers: outer ring, generated hills (Terrain::gen)
   std::vector<WaterBody> waterBodies;                // lasso water fill (lasso_water.cpp)
+  // lasso ground paint (ground_paint.cpp): world-anchored 16 m chunks of 32 x 32 texels (0.5 m), RGBA8 per texel
+  // (top type, top weight, under type, under weight); key = groundPaintKey(cx, cz)
+  std::map<int64_t, std::vector<uint8_t>> groundPaint;
+  uint64_t paintSig = 0;                             // runtime: changes whenever groundPaint does (not saved)
   uint64_t nextId = 1;
   json extra;
 

@@ -7,6 +7,10 @@
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
+bool groundPaintBlocksNature(float x, float z);   // lasso ground paint / water (ground_paint.cpp)
+float lassoWaterAtCurrent(float x, float z);
+uint64_t lassoGroundRev();
+uint64_t lassoGroundSig(vec2 lo, vec2 hi);
 
 namespace {
 inline uint64_t mix64(uint64_t z) {
@@ -530,7 +534,7 @@ void rebuildPatch(App& app, const Instance& i, InstanceRT& r, const std::vector<
     vec3 w = i.pos + q * vec3(s.p.x, 0, s.p.y);
     if (!inside(w)) return;
     float y = t.height(w.x, w.z);
-    if (blocked(w.x, w.z) || y < t.waterLevel - 0.3f) return;
+    if (blocked(w.x, w.z) || y < t.waterLevel - 0.3f || y < lassoWaterAtCurrent(w.x, w.z) - 0.3f) return;
     vec3 nn = t.normal(w.x, w.z);
     int lith = sn.lith < 0 ? 1 + (s.r3 < 0.5f) : sn.lith;
     vec3 nl = qi * nn, up = glm::normalize(glm::mix(vec3(0, 1, 0), nl, 0.75f));
@@ -556,6 +560,7 @@ void rebuildPatch(App& app, const Instance& i, InstanceRT& r, const std::vector<
       vec3 nn = t.normal(w.x, w.z);
       if (blocked(w.x, w.z)) continue;
       if (y < t.waterLevel + 0.05f || nn.y < 0.62f || t.dirtAt(w.x, w.z) > 0.25f) continue;
+      if (y < lassoWaterAtCurrent(w.x, w.z) + 0.05f || groundPaintBlocksNature(w.x, w.z)) continue;   // lasso water / paint
       int sp = s.species >= 0 ? s.species : defaultSpecies(n);
       const SpeciesDef& d = spDef(sp);
       vec2 wxz(w.x, w.z);
@@ -576,7 +581,7 @@ void rebuildPatch(App& app, const Instance& i, InstanceRT& r, const std::vector<
       bool in = inside(w);
       float y = in ? t.height(w.x, w.z) : i.pos.y;
       P[(size_t)iz * N + ix] = vec3(l.x, y - i.pos.y + 0.06f, l.y);
-      ok[(size_t)iz * N + ix] = in && y > t.waterLevel + 0.05f;
+      ok[(size_t)iz * N + ix] = in && y > t.waterLevel + 0.05f && y > lassoWaterAtCurrent(w.x, w.z) + 0.05f && !groundPaintBlocksNature(w.x, w.z);
       if (in) { r.natGy.push_back(vec3(w.x, y, w.z)); r.natMin = glm::min(r.natMin, vec3(w.x, y, w.z)); r.natMax = glm::max(r.natMax, vec3(w.x, y + 0.1f, w.z)); }
     }
     uint32_t base = (uint32_t)m.v.size();
@@ -627,6 +632,11 @@ void natureDrawItems(App& app, const Instance& i, InstanceRT& r, std::vector<Dra
   const auto& fp = footprints(app);
   uint64_t fh = footHash(fp, vec2(i.pos.x, i.pos.z), R);
   bool stale = r.natRev != i.rev || r.natFoot != fh;
+  {   // lasso paint / water: re-check only when they changed somewhere, rebuild only when they changed here
+    static std::unordered_map<const void*, std::pair<uint64_t, uint64_t>> lsig;
+    uint64_t g = lassoGroundRev(); auto& s = lsig[&r];
+    if (s.first != g) { vec2 c(i.pos.x, i.pos.z); uint64_t a = lassoGroundSig(c - vec2(R + 2), c + vec2(R + 2)); if (a != s.second && s.first != 0) stale = true; if (s.first == 0 && a != lassoGroundSig(vec2(1e9f), vec2(1e9f))) stale = true; s = {g, a}; }
+  }
   if (wheat && !stale) { auto it = gFlat.find(&r); stale = it == gFlat.end() || it->second.epoch != gStampEpoch; }
   if (!stale && r.natGround != app.groundRev) {   // the ground changed somewhere: rebuild only if it moved under this patch
     size_t n = r.natGy.size(), step = std::max<size_t>(1, n / 384);

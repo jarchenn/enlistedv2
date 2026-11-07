@@ -1,5 +1,38 @@
 #include "mapdoc.h"
 #include <fstream>
+#include <cstring>
+
+// ground paint chunks: run-length (count, r, g, b, a) then base64 (docs/lasso.md#map-format)
+static const char* kB64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static std::string paintEncode(const std::vector<uint8_t>& t) {
+  std::vector<uint8_t> r;
+  for (size_t i = 0; i + 3 < t.size();) {
+    size_t j = i + 4; int n = 1;
+    while (j + 3 < t.size() && n < 255 && std::memcmp(&t[i], &t[j], 4) == 0) { j += 4; ++n; }
+    r.push_back((uint8_t)n); r.insert(r.end(), t.begin() + (long)i, t.begin() + (long)i + 4);
+    i = j;
+  }
+  std::string s;
+  for (size_t i = 0; i < r.size(); i += 3) {
+    uint32_t v = (uint32_t)r[i] << 16 | (i + 1 < r.size() ? (uint32_t)r[i + 1] << 8 : 0) | (i + 2 < r.size() ? r[i + 2] : 0);
+    s += kB64[v >> 18 & 63]; s += kB64[v >> 12 & 63]; s += i + 1 < r.size() ? kB64[v >> 6 & 63] : '='; s += i + 2 < r.size() ? kB64[v & 63] : '=';
+  }
+  return s;
+}
+static bool paintDecode(const std::string& s, std::vector<uint8_t>& t, size_t texels) {
+  std::vector<uint8_t> r; uint32_t acc = 0; int bits = 0;
+  for (char c : s) {
+    const char* p = c ? std::strchr(kB64, c) : nullptr;
+    if (!p) continue;   // '=' padding
+    acc = acc << 6 | (uint32_t)(p - kB64); bits += 6;
+    if (bits >= 8) { bits -= 8; r.push_back((uint8_t)(acc >> bits & 255)); }
+  }
+  t.clear();
+  for (size_t i = 0; i + 5 <= r.size(); i += 5) {
+    for (int k = 0; k < r[i]; ++k) t.insert(t.end(), r.begin() + (long)i + 1, r.begin() + (long)i + 5);
+  }
+  return t.size() == texels * 4;
+}
 
 json mapToJson(const MapDoc& d) {
   json j = d.extra.is_object() ? d.extra : json::object();
@@ -52,6 +85,11 @@ json mapToJson(const MapDoc& d) {
       wb.push_back({{"id", w.id}, {"kind", w.kind}, {"level", mm(w.level)}, {"seed", json::array({mm(w.seed.x), mm(w.seed.y)})}, {"outline", o}});
     }
     j["waterBodies"] = wb;
+  }
+  if (!d.groundPaint.empty()) {   // lasso ground paint
+    json ch = json::array();
+    for (auto& [k, v] : d.groundPaint) ch.push_back({{"c", json::array({(int)(k >> 32), (int)(int32_t)(uint32_t)(k & 0xffffffffu)})}, {"d", paintEncode(v)}});
+    j["groundPaint"] = {{"texel", 0.5}, {"chunk", 32}, {"chunks", ch}};
   }
   if (d.camera.set) j["editorCamera"] = {{"position", tojson(d.camera.pos)}, {"yaw", d.camera.yaw}, {"pitch", d.camera.pitch}};
   if (d.camera.set && d.cameraBookmarks.is_object() && !d.cameraBookmarks.empty()) j["editorCamera"]["bookmarks"] = d.cameraBookmarks;
@@ -110,6 +148,19 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
       if (w.outline.size() >= 3) n.waterBodies.push_back(w);
     }
     n.extra.erase("waterBodies");
+  }
+  if (j.contains("groundPaint") && j["groundPaint"].is_object() && j["groundPaint"].value("chunk", 0) == 32) {   // lasso ground paint
+    uint64_t sig = 1469598103934665603ull;
+    for (auto& c : j["groundPaint"].value("chunks", json::array())) {
+      if (!c.contains("c") || !c["c"].is_array() || c["c"].size() < 2) continue;
+      std::vector<uint8_t> t;
+      if (!paintDecode(c.value("d", std::string()), t, 32 * 32)) continue;
+      int64_t key = (int64_t)((uint64_t)(uint32_t)c["c"][0].get<int>() << 32 | (uint32_t)c["c"][1].get<int>());
+      for (uint8_t b : t) sig = (sig ^ b) * 1099511628211ull;
+      n.groundPaint[key] = std::move(t);
+    }
+    n.paintSig = n.groundPaint.empty() ? 0 : sig | 1;
+    n.extra.erase("groundPaint");
   }
   n.name = j.value("name", "Untitled map");
   n.templateId = j["template"].value("id", "blank_slate");

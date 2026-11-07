@@ -358,6 +358,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
       std::string s = "step_grass";
       std::string ps = pathSurfaceAt(c.pos);
       if (ps == "gravel" || ps == "concrete") s = "step_stone";   // dirt stays the soft step
+      { extern const std::string& groundPaintStep(float, float); const std::string& gs = groundPaintStep(c.pos.x, c.pos.z); if (!gs.empty() && audio.hasEvent(gs)) s = gs; }   // lasso ground paint
       if (c.groundUser != ~0ull && c.groundUser != 0) {
         uint64_t iid = c.groundUser >> 16;
         for (auto& i : doc.instances) if (i.id == iid) s = (c.pos.y - i.pos.y > 0.9f) ? "step_wood" : "step_stone";

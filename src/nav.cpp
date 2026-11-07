@@ -129,6 +129,20 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
       if (chf->spans[i].h < standCells && a < navarea::kLinkDrop && !(a & navarea::kCrouchBit)) a = (unsigned char)(a | navarea::kCrouchBit);
     }
   }
+  {   // lasso ground paint: marsh and mud are slow ground (their NavArea), on plain ground spans only
+    extern int groundPaintNavArea(float, float);
+    const unsigned char plain = navarea::fromNav(NavArea::Default), grass = navarea::fromNav(NavArea::Grass);
+    for (int z = 0; z < chf->height; ++z) for (int x = 0; x < chf->width; ++x) {
+      const rcCompactCell& cell = chf->cells[x + z * chf->width];
+      if (!cell.count) continue;
+      int pa = groundPaintNavArea(chf->bmin[0] + (x + 0.5f) * chf->cs, chf->bmin[2] + (z + 0.5f) * chf->cs);
+      if (pa < 0) continue;
+      for (int i = (int)cell.index, ni = (int)(cell.index + cell.count); i < ni; ++i) {
+        unsigned char& a = chf->areas[i]; unsigned char base = (unsigned char)(a & ~navarea::kCrouchBit);
+        if (base == plain || base == grass) a = (unsigned char)(navarea::fromNav((NavArea)pa) | (a & navarea::kCrouchBit));
+      }
+    }
+  }
   if (!rcBuildDistanceField(&ctx, *chf) || !rcBuildRegions(&ctx, *chf, rc.borderSize, rc.minRegionArea, rc.mergeRegionArea)) { cleanup(); return; }
   cset = rcAllocContourSet();
   if (!rcBuildContours(&ctx, *chf, rc.maxSimplificationError, rc.maxEdgeLen, *cset) || cset->nconts == 0) { cleanup(); j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); return; }

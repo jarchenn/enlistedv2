@@ -3,6 +3,8 @@
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
 #include "settings.h"
 #include "snap.h"
+#include "lasso.h"
+#include "ground_paint.h"
 #include "thumbs.h"
 #include "selftest.h"
 #include "mpai.h"
@@ -133,6 +135,7 @@ void App::resetInteractStates() {
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   if (mode == Mode::Explore) grenadeDrawItems();
+  lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
   R.wind = grass.wind ? 1.0f : 0.0f;
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
@@ -317,13 +320,15 @@ bool App::saveMapTo(const fs::path& p) {
 }
 
 // ============================================================ undo
-Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas, doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json(), doc.terrainSculpt, doc.terrainGen, doc.waterBodies}; }
+Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas, doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json(), doc.terrainSculpt, doc.terrainGen, doc.waterBodies, selection, doc.groundPaint, doc.paintSig}; }
 void App::restore(const Snapshot& s) {
   bool groundChanged = doc.terrainDeltas != s.terrain || doc.terrainSculpt != s.sculpt;
   bool genChanged = doc.terrainGen != s.terrainGen;   // V8: outer ring / generated hills: the terrain is regenerated
   doc.instances = s.inst; doc.start = s.start; doc.removedVegetation = s.removedVeg; selected = s.selected;
   doc.terrainDeltas = s.terrain; doc.terrainSculpt = s.sculpt; doc.terrainGen = s.terrainGen;
   doc.waterBodies = s.water;   // lasso water fill
+  selection = s.selection;     // lasso group
+  doc.groundPaint = s.paint; doc.paintSig = s.paintSig;   // lasso ground paint
   if (doc.extra.is_object() || !s.routes.is_null()) { if (!doc.extra.is_object()) doc.extra = json::object(); if (s.routes.is_null()) doc.extra.erase("routes"); else doc.extra["routes"] = s.routes; }   // ground-wear routes (auto paths)
   if (genChanged) { applyTemplate(doc.templateId); navSyncCuts(*this); }   // generate() drops the terrain cuts: re-cut now, not next frame
   if (groundChanged || genChanged) resetGround();
@@ -439,6 +444,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   return i.id;
 }
 bool App::duplicateSelected() {
+  if (selection.size() > 1) return lassoDuplicateGroup(*this) > 0;   // a lasso group (lasso.cpp)
   Instance* s = doc.find(selected); if (!s) return false;
   const AssetDef* a = assetFor(*s);
   vec3 off = yawQuat(s->yaw) * vec3(a->footprint.x + 2.0f, 0, 0);
@@ -460,6 +466,7 @@ bool App::duplicateSelected() {
   return false;
 }
 void App::deleteSelected() {
+  if (selection.size() > 1) { lassoDeleteGroup(*this); return; }   // a lasso group (lasso.cpp)
   auto it = std::find_if(doc.instances.begin(), doc.instances.end(), [&](auto& i) { return i.id == selected; });
   if (it == doc.instances.end()) return;
   pushUndo();
@@ -541,6 +548,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest") runSelf = true;
     else if (a == "--benchmark") { runSelf = true; bench = true; }
     else if (a == "--selftest-terrain") runSelf = true;   // V8 sculpt, hills, Beautify (selftest_terrain.cpp)
+    else if (a == "--selftest-lasso") runSelf = true;     // lasso tool (selftest_lasso.cpp)
     else if (a == "--selftest-reopen") { runSelf = true; ++k; }
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
@@ -774,6 +782,7 @@ std::vector<GrassFootprint> App::grassFootprints() const {
 }
 
 void App::updateSurface() {
+  groundPaintSync(*this);   // lasso ground paint: the GPU copy follows the map (ground_paint.cpp)
   // structures (not guns, crates, trees or defences) get a foundation soil band; routes come from the map
   std::vector<SurfaceFootprint> feet;
   uint64_t sig = 1469598103934665603ull;

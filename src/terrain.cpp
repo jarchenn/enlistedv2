@@ -459,6 +459,7 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
   glBindTextureUnit(15, maskTex);
   glUniform1i(glGetUniformLocation(prog, "uSurf"), 14);
   glBindTextureUnit(14, surfTex);
+  { extern void groundPaintBind(GLuint); groundPaintBind(prog); }   // lasso ground paint: unit 23 (ground_paint.cpp)
   glUniform1i(uDis, tiles.empty() ? 0 : 1);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
   stream.drawBase(*this, cam, vp);
