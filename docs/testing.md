@@ -72,3 +72,8 @@ Fast mode can miss a break between streams in a suite it skipped, so it does not
 obstacle) depend on timing. Navmesh tiles rebuild on worker threads in real time while the simulation steps a fixed
 1/60 s, so a change in frame cost can flip a check. Treat one failure as a re-run, and repeated failures on a quiet
 GPU as a real problem.
+
+**Merge policy (the user's choice, 2026-11-07):**
+- Each branch merged into an integration branch is checked with fast mode against the integration branch it lands on.
+- One full run (`tools/run_all_tests.sh --net`) is done before each master update, not after every merge.
+- If that full run finds a break between streams, bisect the merges since the last full run.
