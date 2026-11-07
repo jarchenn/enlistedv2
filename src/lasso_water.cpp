@@ -101,7 +101,7 @@ std::vector<vec2> traceBlob(const std::vector<char>& m, int W, int H, vec2 org, 
 
 }   // namespace
 
-WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, float margin) {
+WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, float margin, float grow) {
   WaterFill r;
   const Terrain& T = app.terrain;
   if (region.size() < 3) { r.why = "draw a region first"; return r; }
@@ -118,6 +118,10 @@ WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, floa
   vec2 org = T.org + fs * vec2((float)i0, (float)j0);
   std::vector<float> h((size_t)W * H);
   for (int z = 0; z < H; ++z) for (int x = 0; x < W; ++x) h[(size_t)z * W + x] = T.height(org.x + x * fs, org.y + z * fs);
+  // the hollow: the region grown by `grow` (its banks); lower ground beyond it is the way out
+  std::vector<char> hollow((size_t)W * H, 0);
+  { vec2 rl, rh; geom2d::bounds(region, rl, rh); rl -= vec2(grow + fs); rh += vec2(grow + fs);
+    for (int z = 0; z < H; ++z) for (int x = 0; x < W; ++x) { vec2 p = org + fs * vec2((float)x, (float)z); if (p.x < rl.x || p.y < rl.y || p.x > rh.x || p.y > rh.y) continue; hollow[(size_t)z * W + x] = geom2d::signedDist(region, p) > -grow; } }
   // seed: the lowest sample inside the region
   size_t seed = SIZE_MAX; float sh = 1e30f;
   for (int z = 1; z < H - 1; ++z) for (int x = 1; x < W - 1; ++x) {
@@ -138,9 +142,9 @@ WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, floa
   while (!q.empty()) {
     auto [hv, k] = q.top(); q.pop();
     int x = (int)(k % W), z = (int)(k / W);
-    // lower than the water has reached: past the rim when it is outside the region (lower pockets inside the region
-    // are part of the hollow: its floor is never perfectly flat)
-    if (hv < level - 0.001f && !geom2d::inside(region, org + fs * vec2((float)x, (float)z))) { spilled = true; r.spill = org + fs * vec2((float)x, (float)z); break; }
+    // lower than the water has reached: past the rim when it is beyond the hollow (lower pockets inside it belong to
+    // the hollow: a floor is never perfectly flat)
+    if (hv < level - 0.001f && !hollow[k]) { spilled = true; r.spill = org + fs * vec2((float)x, (float)z); break; }
     level = std::max(level, hv);
     if (level < T.waterLevel) continue;   // (never: the seed is above the sea)
     if (x == 0 || z == 0 || x == W - 1 || z == H - 1) break;   // reached the search edge still climbing: open ground

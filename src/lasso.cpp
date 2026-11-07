@@ -328,7 +328,7 @@ bool lassoElevApply(App& app, bool fillWater, WaterFill* fill) {
   terrainCommitSculpt(app, keys);
   ++app.groundRev;
   if (fillWater) {
-    WaterFill f = lassoFillWater(app, gE.region, false);   // the same undo step as the lowering
+    WaterFill f = lassoFillWater(app, gE.region, false, gE.last.falloff + 1.0f);   // the same undo step as the lowering; its ring is the bank
     if (!f.ok) app.toast("No water: " + f.why, 4);
     if (fill) *fill = f;
   }
@@ -351,12 +351,12 @@ bool lassoElevate(App& app, const LassoRegion& r, const ElevParams& p, bool fill
 }
 
 // ================================================================ water
-WaterFill lassoFillWater(App& app, const LassoRegion& r, bool ownUndo) {
+WaterFill lassoFillWater(App& app, const LassoRegion& r, bool ownUndo, float grow) {
   std::vector<vec2> outer;   // the flood seeds inside the union of the add shapes
   WaterFill best; best.why = "draw a region first";
   for (auto& s : r.shapes) {
     if (s.subtract) continue;
-    WaterFill f = lassoComputeFill(app, s.poly);
+    WaterFill f = lassoComputeFill(app, s.poly, 80.0f, grow);
     if (f.ok && (!best.ok || f.level < best.level)) best = f;
     else if (!best.ok) best = f;
   }

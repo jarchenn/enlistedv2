@@ -75,7 +75,7 @@ bool lassoElevActive();
 bool lassoElevate(App& app, const LassoRegion& r, const ElevParams& p, bool fillWater = false, WaterFill* fill = nullptr);   // all in one
 
 // ---------------------------------------------------------------- water
-WaterFill lassoFillWater(App& app, const LassoRegion& r, bool ownUndo = true);   // adds a body on success
+WaterFill lassoFillWater(App& app, const LassoRegion& r, bool ownUndo = true, float grow = 2.0f);   // adds a body on success
 int lassoRemoveWater(App& app, const LassoRegion& r);   // bodies whose seed is inside; one undo step
 
 // ---------------------------------------------------------------- editor hooks (editor.cpp)

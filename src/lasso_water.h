@@ -23,10 +23,12 @@ struct WaterFill {
 };
 
 // Find the hollow that contains the lowest ground point inside `region` and compute the level it holds before it
-// spills (priority flood on the fine sample grid, bounded to the region bbox + margin): the first ground outside the
-// region lower than the rising water is where it leaves. Pockets inside the region belong to the hollow. Does not
+// spills (priority flood on the fine sample grid, bounded to the region bbox + margin): the first ground beyond the
+// region (grown by `grow`) lower than the rising water is where it leaves. Pockets inside the region belong to the hollow. Does not
 // modify the map.
 // buildDrawLists: the map's water bodies into V1's water pass (R.water); a no-op in builds without water.h
 void lassoWaterDrawItems(App& app);
 
-WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, float margin = 80.0f);
+// `grow`: the hollow reaches this far beyond the outline (the falloff ring of a lowering), so its banks and a not
+// quite flat floor never count as the way out.
+WaterFill lassoComputeFill(const App& app, const std::vector<vec2>& region, float margin = 80.0f, float grow = 2.0f);

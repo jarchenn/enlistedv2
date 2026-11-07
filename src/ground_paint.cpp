@@ -338,7 +338,7 @@ void paintMat(int t, vec3 p, out vec3 a, out float r, out vec3 bm, out float ao)
   } else if (t == 7) {   // rock: a flat limestone pavement with joints and lichen
     float jx = abs(fract(p.x*0.35 + n1*0.6) - 0.5), jz = abs(fract(p.z*0.28 + nb*1.3) - 0.5);
     float crack = 1.0 - smoothstep(0.0, 0.025, min(jx, jz));
-    a = mix(vec3(0.52,0.52,0.49), vec3(0.66,0.65,0.60), nb)*(0.85 + 0.25*n2);
+    a = mix(vec3(0.44,0.44,0.41), vec3(0.58,0.57,0.53), nb)*(0.85 + 0.25*n2);
     a = mix(a, mix(vec3(0.17,0.20,0.10), vec3(0.42,0.41,0.30), n2), 0.4*smoothstep(0.65, 0.85, vnoise(vec3(p.xz*0.5, 81.0))));
     a *= 1.0 - 0.45*crack; r = 0.86; bm *= 1.2; ao = 1.0 - 0.4*crack;
   } else if (t == 8) {   // dry grass: straw sward

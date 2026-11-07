@@ -58,8 +58,9 @@ std::vector<float> membrane(const Grid& G, const std::vector<float>& g, const st
 }
 struct Xf {   // world xz map: source -> destination
   vec2 pivot, delta; float c, s;
-  vec2 fwd(vec2 p) const { vec2 d = p - pivot; return pivot + delta + vec2(d.x * c - d.y * s, d.x * s + d.y * c); }
-  vec2 inv(vec2 q) const { vec2 d = q - pivot - delta; return pivot + vec2(d.x * c + d.y * s, -d.x * s + d.y * c); }
+  // the editor's yaw convention (yawQuat): +yaw turns +x toward -z, as instance yaws do
+  vec2 fwd(vec2 p) const { vec2 d = p - pivot; return pivot + delta + vec2(d.x * c + d.y * s, -d.x * s + d.y * c); }
+  vec2 inv(vec2 q) const { vec2 d = q - pivot - delta; return pivot + vec2(d.x * c - d.y * s, d.x * s + d.y * c); }
 };
 }   // namespace
 
