@@ -103,6 +103,9 @@ static void triangulate(const std::vector<vec2>& poly, std::vector<std::array<ve
 
 void AiCore::begin(vec3 lo, vec3 hi) {
   App& app = G.app;
+  // rectangular maps (SPEC 9.1): the caller clamps to the larger half; the navmesh stays inside the build area on each axis
+  lo.x = std::max(lo.x, -app.terrain.buildHalfX); hi.x = std::min(hi.x, app.terrain.buildHalfX);
+  lo.z = std::max(lo.z, -app.terrain.buildHalfZ); hi.z = std::min(hi.z, app.terrain.buildHalfZ);
   tactics = loadJson("ai", "tactics.json"); navj = loadJson("ai", "navigation.json"); diffj = loadJson("ai", "difficulty.json");
   rules = loadJson("settings", "rules.json");
   json mv = loadJson("settings", "movement.json");
@@ -123,7 +126,12 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     const AssetDef& a = *it->second.asset;
     if (a.defense.unsafeVault || a.navMeta.area == NavArea::Wire) return NT_WIRE;
     switch (resolveNavEffect(a.navMeta, a.enterable, a.bmin, a.bmax)) {
-      case NavEffect::None: case NavEffect::Area: return NT_SKIP;
+      case NavEffect::None: {   // decor; but crates, tripods and signs still stop a body: rasterise anything taller than a step that collides
+        static std::unordered_map<const AssetDef*, bool> solid;
+        auto sit = solid.find(&a);
+        if (sit == solid.end()) { bool any = false; if (a.bmax.y - a.bmin.y > G.nav.cfg.climb) for (auto& p : a.parts) if (p.collide && !p.playerOnly && p.visible) { any = true; break; } sit = solid.emplace(&a, any).first; }   // not flat sheets (sea shallows)
+        return sit->second ? NT_SOLID : NT_SKIP; }
+      case NavEffect::Area: return a.tree.on ? NT_SKIP : NT_SOLID;   // brush (hazel, bramble) is walked through: only its area cost applies; trenches, shingle, fences: their own floors / walls / mounds are the ground
       case NavEffect::Carve: return NT_CARVE;
       default: return NT_SOLID;
     }
@@ -138,7 +146,9 @@ void AiCore::begin(vec3 lo, vec3 hi) {
       const NavMeta& m = a.navMeta;
       bool wireSlow = a.defense.unsafeVault && !it->second.defDestroyed;   // every wire obstacle: its uncut stretches are forbidden ground
       bool hedge = a.tree.on && a.tree.hedge && resolveNavEffect(m, a.enterable, a.bmin, a.bmax) != NavEffect::None;   // bank + woody stems: a wall (AI_SPEC 3.1)
-      if (m.areas.empty() && m.area == NavArea::Default && !wireSlow && !hedge) continue;
+      // lattice obstacles (Belgian gates, hedgehogs, abatis): their struts rasterise as walkable ledges; the footprint is no-go
+      bool lattice = false; if (navj.contains("footprintNull")) for (auto& id : navj["footprintNull"]) if (id.is_string() && id.get<std::string>() == a.id) lattice = true;
+      if (m.areas.empty() && m.area == NavArea::Default && !wireSlow && !hedge && !lattice) continue;
       float r = glm::length(vec2(std::max(std::fabs(a.bmin.x), std::fabs(a.bmax.x)), std::max(std::fabs(a.bmin.z), std::fabs(a.bmax.z)))) + 1;
       if (in.pos.x + r < tlo.x || in.pos.x - r > thi.x || in.pos.z + r < tlo.y || in.pos.z - r > thi.y) continue;
       quat q = yawQuat(in.yaw);
@@ -146,7 +156,14 @@ void AiCore::begin(vec3 lo, vec3 hi) {
       float h0 = in.pos.y + a.bmin.y - 1.0f, h1 = in.pos.y + a.bmax.y + 1.0f;
       auto addPoly = [&](const std::vector<vec2>& local, NavArea ar) {
         std::vector<std::array<vec2, 3>> tris; triangulate(local, tris);
-        for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.area = navarea::fromNav(ar); out.marks.push_back(mk); }
+        // forbidden ground (minefield) grows by the agent radius + a margin: an "area" asset's own fence posts are not
+        // rasterised into the mesh, so the walkable edge would otherwise run through them
+        float grow = navAreaCost(ar) < 0 && ar != NavArea::Wire ? G.nav.cfg.radius + 0.25f : 0.0f;
+        for (auto& t : tris) {
+          std::array<vec2, 3> v = {W(t[0]), W(t[1]), W(t[2])};
+          if (grow > 0) { vec2 c = (v[0] + v[1] + v[2]) / 3.0f; for (auto& p : v) { vec2 d = p - c; float L = glm::length(d); if (L > 1e-3f) p += d / L * grow * 2.0f; } }   // ~grow on every edge of a fan triangle
+          NavAreaMark mk; mk.poly = {v[0], v[1], v[2]}; mk.hmin = h0; mk.hmax = h1; mk.area = navarea::fromNav(ar); out.marks.push_back(mk);
+        }
       };
       if (wireSlow) {   // the wire parts' footprints are forbidden (thin coils leave walkable ground between the rings)
         const auto& cut = it->second.secCut;
@@ -157,9 +174,24 @@ void AiCore::begin(vec3 lo, vec3 hi) {
           addPoly(fp, NavArea::Wire);
         }
       }
+      if (lattice) {
+        float pd = navj.value("footprintNullPad_m", 0.2f) + G.nav.cfg.radius;   // marks land after erosion
+        std::vector<std::array<vec2, 3>> tris; triangulate({vec2(a.bmin.x - pd, a.bmin.z - pd), vec2(a.bmax.x + pd, a.bmin.z - pd), vec2(a.bmax.x + pd, a.bmax.z + pd), vec2(a.bmin.x - pd, a.bmax.z + pd)}, tris);
+        for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.nullify = true; out.marks.push_back(mk); }
+      }
       if (hedge) {
-        vec2 hf = a.footprint * 0.5f + vec2(0.1f);
-        std::vector<std::array<vec2, 3>> tris; triangulate({vec2(-hf.x, -hf.y), vec2(hf.x, -hf.y), vec2(hf.x, hf.y), vec2(-hf.x, hf.y)}, tris);
+        // the bank and the leaning stems as built (every colliding part's rotated box, up to head height), plus a pad
+        vec2 lo2(-a.footprint * 0.5f), hi2(a.footprint * 0.5f);
+        for (auto& p : a.parts) {
+          if (!p.collide || p.playerOnly) continue;
+          for (int c = 0; c < 8; ++c) {
+            vec3 l = p.center + p.rot * (vec3((c & 1) ? 0.5f : -0.5f, (c & 2) ? 0.5f : -0.5f, (c & 4) ? 0.5f : -0.5f) * p.size);
+            if (l.y > 2.0f) continue;
+            lo2 = glm::min(lo2, vec2(l.x, l.z)); hi2 = glm::max(hi2, vec2(l.x, l.z));
+          }
+        }
+        float hp = navj.value("hedgePad_m", 0.1f) + G.nav.cfg.radius; lo2 -= vec2(hp); hi2 += vec2(hp);   // marks land after erosion: add the agent radius
+        std::vector<std::array<vec2, 3>> tris; triangulate({vec2(lo2.x, lo2.y), vec2(hi2.x, lo2.y), vec2(hi2.x, hi2.y), vec2(lo2.x, hi2.y)}, tris);
         for (auto& t : tris) { NavAreaMark mk; mk.poly = {W(t[0]), W(t[1]), W(t[2])}; mk.hmin = h0; mk.hmax = h1; mk.nullify = true; out.marks.push_back(mk); }
       }
       if (!m.areas.empty()) { for (auto& ap : m.areas) if (ap.outline.size() >= 3) addPoly(ap.outline, ap.area); }
@@ -179,6 +211,8 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   };
   crumb("ai: navmesh bake");
   nav.build(lo, hi);
+  markNavTraps();
+  logf("ai: %d navmesh polygons in dead-end pockets (no walk back to an objective or spawn)", navTraps);
   // ---- cover points for every tile (parallel: the physics world is idle while the match starts)
   {
     auto t0 = std::chrono::steady_clock::now();
@@ -238,6 +272,8 @@ BotMind& AiCore::mind(Soldier& s) {
     m.flanker = s.role == CombatRole::Attacker && s.br.lane != LANE_MAIN;
     m.progAnchor = s.feet; m.boundFrom = s.feet;
     m.nextThink = G.t + G.rnd(s) * 0.2;
+    m.departAt = G.t + (s.slot % 8) * tj("movement", "spawnStagger_s", 0.25f);
+    Physics::setAgentGhost(s.agent, false);   // a new life never starts passing through soldiers
     m.actionSince = G.t;
     paths.cancelSlot(s.slot);
   }
@@ -274,7 +310,8 @@ bool AiCore::humanSees(const Soldier& s) {
 void AiCore::logStuck(const StuckEvent& e) {
   std::ofstream f(exeDir() / "selftest_out" / "ai_stuck.log", std::ios::app);
   f << e.t0 << " " << e.t1 << " \"" << mapName << "\" " << e.pos.x << " " << e.pos.y << " " << e.pos.z << " " << e.slot << " " << e.step << " " << (e.resolved ? "yes" : "NO") << " " << e.why << "\n";
-  logf("ai: stuck bot %d at (%.1f %.1f %.1f) on %s for %.1f s: %s (ladder step %d)", e.slot, e.pos.x, e.pos.y, e.pos.z, mapName.c_str(), e.t1 - e.t0, e.resolved ? "recovered" : "UNRECOVERED", e.step);
+  logf("ai: stuck bot %d at (%.1f %.1f %.1f) on %s for %.1f s: %s (ladder step %d) | %s, goal (%.1f %.1f %.1f), next (%.1f %.1f %.1f)", e.slot, e.pos.x, e.pos.y, e.pos.z, mapName.c_str(), e.t1 - e.t0, e.resolved ? "recovered" : "UNRECOVERED", e.step,
+       e.doing.c_str(), e.goal.x, e.goal.y, e.goal.z, e.next.x, e.next.y, e.next.z);
 }
 
 // ---------------------------------------------------------------- world changes (creative live rebuild, breaches)
@@ -320,8 +357,16 @@ void AiCore::pollWorld(bool rebuild) {
   }
 }
 
+void AiCore::markNavTraps() {
+  std::vector<vec3> anchors;
+  for (auto& o : G.match.sc.objectives) anchors.push_back(o.pos);
+  for (auto& s : G.match.sc.spawns) anchors.push_back(s.pos);
+  navTraps = G.nav.markTraps(anchors);
+}
+
 void AiCore::onTilesChanged() {
   if (G.nav.changed.empty()) return;
+  if (trapsDueAt < 0) trapsDueAt = G.t + 0.5;   // committed tiles come without the pocket flags; re-mark soon (batched)
   lastCommitAt = G.t; committedTiles += (int)G.nav.changed.size();
   std::set<std::pair<int, int>> ch(G.nav.changed.begin(), G.nav.changed.end());
   // bots whose corridor crosses a rebuilt tile re-plan now (AI_SPEC 3.3: within 1 s)
@@ -463,6 +508,7 @@ void AiCore::frame() {
     crumb("ai: nav commit");
     G.nav.update();
     onTilesChanged();
+    if (trapsDueAt >= 0 && G.t >= trapsDueAt) { trapsDueAt = -1; markNavTraps(); }
     if (!coverTodo.empty()) { auto t = coverTodo.back(); coverTodo.pop_back(); generateCoverTile(t.first, t.second, 120); }
     if (G.t >= nextWorldPoll) { nextWorldPoll = G.t + 0.1; pollWorld(); }
     receivePaths();
@@ -489,12 +535,22 @@ void AiCore::frame() {
   // ---- metrics (AI_SPEC 12.3, attackers)
   float dt = 1.0f / 60.0f;
   metrics.t += dt;
+  if (metrics.aliveLast.size() != G.sold.size()) metrics.aliveLast.assign(G.sold.size(), 0);
   for (auto& s : G.sold) {
-    if (!s.alive || s.human || s.role != CombatRole::Attacker || s.slot >= (int)minds.size() || !minds[s.slot]) continue;
+    if (s.human || s.role != CombatRole::Attacker || s.slot >= (int)minds.size() || !minds[s.slot]) continue;
+    if (!s.alive && metrics.aliveLast[s.slot]) {   // died this step: what it was doing
+      BotMind& m = *minds[s.slot]; ++metrics.deathsBy[std::clamp(m.action, 0, A_COUNT - 1)];
+      if (m.set) ++metrics.deathsInCover;
+      if (const Objective* ob = G.match.activeObjective(); ob && ob->contains(s.feet)) ++metrics.deathsInObjective;
+    }
+    metrics.aliveLast[s.slot] = s.alive;
+    if (!s.alive) continue;
     BotMind& m = *minds[s.slot];
-    bool advancing = m.hasPath && !arrived(s) && m.action != A_HOLD && !m.trav.on;
+    metrics.attackerT += dt;
+    bool advancing = m.action == A_ADVANCE && !m.set && m.hasPath && !arrived(s) && !m.trav.on;   // AI_SPEC 12.3 "while advancing": bounding, not stopped to fire / reload
     if (advancing) {
       metrics.advT += dt; metrics.advSpeedSum += s.speed; ++metrics.advN;
+      if (s.posture != Physics::STAND) ++metrics.advCrouchN; if (s.speed < 1.0f) ++metrics.advSlowN; if (m.speed == SPD_SPRINT) ++metrics.advSprintN;
       float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role) nn = std::min(nn, glm::length(o.feet - s.feet));
       if (nn < 1e8f) { metrics.nnSum += nn; ++metrics.nnN; }
     }
@@ -506,9 +562,9 @@ void AiCore::frame() {
       int64_t cx = (int64_t)std::floor(s.feet.x / 8), cz = (int64_t)std::floor(s.feet.z / 8);
       for (int64_t dz = -1; dz <= 1 && !covered; ++dz) for (int64_t dx = -1; dx <= 1 && !covered; ++dx) {
         auto it = coverGrid.find(((cx + dx) << 32) ^ (uint32_t)(cz + dz)); if (it == coverGrid.end()) continue;
-        for (int ci : it->second) { const CoverPoint& c = cover[ci]; if (!c.serial || glm::length(c.p - s.feet) > 5) continue; vec3 td = from - c.p; td.y = 0; if (glm::length(td) < 1 || glm::dot(glm::normalize(td), c.n) > 0.25f) { covered = true; break; } }
+        for (int ci : it->second) { const CoverPoint& c = cover[ci]; if (!c.serial || glm::length(c.p - s.feet) > 5) continue; vec3 td = from - c.p; td.y = 0; if (c.natural || glm::length(td) < 1 || glm::dot(glm::normalize(td), c.n) > 0.25f) { covered = true; break; } }   // craters cover all round (coverProtects)
       }
-      if (!covered) metrics.exposedT += dt; else metrics.coverNear5T += dt;
+      if (!covered) { metrics.exposedT += dt; metrics.exposedBy[std::clamp(m.action, 0, A_COUNT - 1)] += dt; if (m.set) metrics.exposedAtCover += dt; } else metrics.coverNear5T += dt;
     }
   }
   if (metrics.attackerDeaths0 < 0) { metrics.attackerDeaths0 = 0; for (auto& rs : G.match.slots) if (rs.role == CombatRole::Attacker) metrics.attackerDeaths0 += rs.deaths; }
@@ -522,8 +578,8 @@ json AiMetrics::toJson(const Game& G) const {
             {"stuckEvents", stuckEvents}, {"stuckOver5s", stuckOver5}, {"stuckUnrecovered", stuckUnrecovered},
             {"stuckPerBotPer10Min", stuckEvents / std::max(1, bots) / mins * 10.0},
             {"advanceSpeedMean_mps", advN ? advSpeedSum / advN : 0.0}, {"advancingBotSeconds", advT},
-            {"underFireSeconds", fireT}, {"exposedUnderFireFraction", fireT > 0 ? exposedT / fireT : 0.0},
-            {"boundExposureMean_s", bounds ? boundExposure / bounds : 0.0}, {"bounds", bounds},
+            {"underFireSeconds", fireT}, {"exposedUnderFireFraction", fireT > 0 ? exposedT / fireT : 0.0}, {"exposedUnderFireShareOfTime", attackerT > 0 ? exposedT / attackerT : 0.0},
+            {"boundExposureMean_s", bounds ? boundExposure / bounds : 0.0}, {"bounds", bounds}, {"sidesteps", sidesteps}, {"exposedAtCover_s", exposedAtCover}, {"exposedByAction_s", [&] { json e = json::object(); for (int k = 0; k < A_COUNT; ++k) if (exposedBy[k] > 0) e[aiActionName(k)] = exposedBy[k]; return e; }()},
             {"nearestTeammateWhileAdvancing_m", nnN ? nnSum / nnN : 0.0},
             {"attackerDeathsPerMin", deaths / mins}, {"grenadesThrown", grenadesThrown}, {"grenadesHurtTeammate", grenadesHurtTeammate},
             {"rebuildReplans", rebuildReplans}, {"linkTraversals", linkTraversals}, {"linkAborts", linkAborts}, {"snaps", snaps}};

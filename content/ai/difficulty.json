@@ -3,7 +3,7 @@
   "default": "regular",
   "presets": {
     "recruit": { "reaction_s": 0.6, "aimError_deg": 4.0, "aimSettle_s": 1.2, "boundMax_m": 40, "boundMaxUnderFire_m": 20, "threatCost": 2.0, "shareDelay_s": 3.0, "suppressionResist": 0.25, "grenadeCooldown_s": 45, "overwatch": "sometimes", "detectOpen_m": 150 },
-    "regular": { "reaction_s": 0.35, "aimError_deg": 2.5, "aimSettle_s": 0.7, "boundMax_m": 30, "boundMaxUnderFire_m": 14, "threatCost": 3.5, "shareDelay_s": 1.5, "suppressionResist": 0.5, "grenadeCooldown_s": 30, "overwatch": "yes", "detectOpen_m": 220 },
+    "regular": { "reaction_s": 0.35, "aimError_deg": 2.5, "aimSettle_s": 0.7, "boundMax_m": 20, "boundMaxUnderFire_m": 12, "threatCost": 3.5, "shareDelay_s": 1.5, "suppressionResist": 0.5, "grenadeCooldown_s": 30, "overwatch": "yes", "detectOpen_m": 220 },
     "veteran": { "reaction_s": 0.2, "aimError_deg": 1.2, "aimSettle_s": 0.4, "boundMax_m": 25, "boundMaxUnderFire_m": 10, "threatCost": 5.0, "shareDelay_s": 0.5, "suppressionResist": 0.75, "grenadeCooldown_s": 20, "overwatch": "tight", "detectOpen_m": 300 }
   }
 }

@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <unordered_map>
 
 static_assert(sizeof(dtPolyRef) == sizeof(NavRef), "build Detour with DT_POLYREF64 (cmake/recast.cmake)");
 
@@ -243,7 +244,7 @@ void Nav::initMesh() {
   query_ = dtAllocNavMeshQuery();
   query_->init(mesh_, 4096);
   dtQueryFilter& f = impl_->filter;
-  f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID);
+  f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID | NF_TRAPLINK | NF_BADLINK);
   for (int a = 0; a < DT_MAX_AREAS; ++a) f.setAreaCost(a, 1.0f);
   for (int k = 0; k < (int)NavArea::Count; ++k) {
     float cst = std::max(0.1f, navAreaCost((NavArea)k));
@@ -470,4 +471,56 @@ std::vector<NavEdge> Nav::tileEdges(int tx, int tz) const {
     }
   }
   return out;
+}
+
+int Nav::markTraps(const std::vector<vec3>& anchors) {
+  if (!mesh_) return 0;
+  std::unique_lock<std::shared_mutex> wl(mtx_);
+  dtNavMesh* M = mesh_;
+  // reverse adjacency over every link (polygon neighbours, tile portals, off-mesh connections)
+  std::unordered_map<dtPolyRef, std::vector<dtPolyRef>> rev;
+  std::vector<dtPolyRef> all;
+  for (int i = 0; i < M->getMaxTiles(); ++i) {
+    const dtMeshTile* t = static_cast<const dtNavMesh*>(M)->getTile(i);
+    if (!t || !t->header) continue;
+    dtPolyRef base = M->getPolyRefBase(t);
+    for (int j = 0; j < t->header->polyCount; ++j) {
+      const dtPoly& p = t->polys[j]; dtPolyRef ref = base | (dtPolyRef)j;
+      unsigned short fl = p.flags & ~(NF_TRAP | NF_TRAPLINK);
+      M->setPolyFlags(ref, fl);
+      all.push_back(ref);
+      if (fl & NF_FORBID) continue;
+      for (unsigned int k = p.firstLink; k != DT_NULL_LINK; k = t->links[k].next) if (t->links[k].ref) rev[t->links[k].ref].push_back(ref);
+    }
+  }
+  // flood backwards from the anchors: every polygon that can reach one
+  std::unordered_map<dtPolyRef, char> ok; std::vector<dtPolyRef> q;
+  dtQueryFilter f; f.setIncludeFlags(0xffff); f.setExcludeFlags(NF_FORBID);
+  for (auto& a : anchors) {
+    dtPolyRef r = 0; float c[3] = {a.x, a.y + 0.3f, a.z}, e[3] = {4, 6, 4}, n[3];
+    if (dtStatusSucceed(query_->findNearestPoly(c, e, &f, &r, n)) && r && !ok.count(r)) { ok[r] = 1; q.push_back(r); }
+  }
+  if (q.empty()) return 0;
+  while (!q.empty()) {
+    dtPolyRef r = q.back(); q.pop_back();
+    auto it = rev.find(r); if (it == rev.end()) continue;
+    for (dtPolyRef s : it->second) if (!ok.count(s)) { ok[s] = 1; q.push_back(s); }
+  }
+  int traps = 0;
+  for (dtPolyRef ref : all) {
+    if (ok.count(ref)) continue;
+    const dtMeshTile* t = nullptr; const dtPoly* p = nullptr;
+    if (dtStatusFailed(M->getTileAndPolyByRef(ref, &t, &p)) || (p->flags & NF_FORBID)) continue;
+    if (p->getType() == DT_POLYTYPE_OFFMESH_CONNECTION) M->setPolyFlags(ref, p->flags | NF_TRAPLINK);   // leads only into a pocket
+    else { M->setPolyFlags(ref, p->flags | NF_TRAP); ++traps; }
+  }
+  return traps;
+}
+
+bool Nav::isTrap(vec3 p, float r) const {
+  NavRef ref; vec3 on;
+  dtQueryFilter all; all.setIncludeFlags(0xffff); all.setExcludeFlags(NF_FORBID);
+  if (!closest(p + vec3(0, 0.3f, 0), vec3(r, 1.5f, r), ref, on, &all)) return false;
+  unsigned short fl = 0; mesh_->getPolyFlags(ref, &fl);
+  return (fl & NF_TRAP) != 0;
 }

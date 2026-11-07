@@ -28,6 +28,8 @@ void AiCore::generateCoverTile(int tx, int tz, int maxRays) {
   int rays = 0;
   for (auto& e : G.nav.tileEdges(tx, tz)) {
     if (navAreaCost(navarea::toNav(e.area)) < 0) continue;
+    { NavArea na = navarea::toNav(e.area); if (na == NavArea::Water || na == NavArea::Marsh) continue; }   // nobody takes cover lying in a ditch's water or a marsh (W4 puts the ditch's cover on its lip)
+    if (G.nav.isTrap((e.a + e.b) * 0.5f, 0.3f)) continue;   // no cover in dead-end pockets (a ditch floor reached by a drop)
     vec3 d = e.b - e.a; float L = lenXZ(d);
     int n = std::max(1, (int)std::lround(L / 1.5f));
     vec3 right(-e.n.z, 0, e.n.x);
@@ -55,7 +57,7 @@ void AiCore::generateCoverTile(int tx, int tz, int maxRays) {
     for (int k = 0; k < 8; ++k) { float a = k * 0.785398f; ring += G.app.terrain.height(x + std::cos(a) * 2.2f, z + std::sin(a) * 2.2f); }
     if (ring / 8 - h0 < 0.45f) continue;
     vec3 p(x, h0, z);
-    if (G.nav.nearest(p, 0.8f) < 0 || coverNear(*this, p, 2.0f)) continue;
+    if (G.nav.nearest(p, 0.8f) < 0 || coverNear(*this, p, 2.0f) || G.nav.isTrap(p)) continue;
     CoverPoint c; c.p = p; c.n = vec3(0); c.natural = true; c.peekOver = true; c.tx = tx; c.tz = tz;
     addCoverPoint(*this, c);
   }
@@ -70,6 +72,9 @@ void AiCore::addAuthoredCover() {
       CoverPoint c; c.p = in.pos + q * cp.p; c.n = q * App::forward(cp.yaw, 0) * -1.0f; c.n.y = 0;
       if (glm::length(c.n) > 0.1f) c.n = glm::normalize(c.n);
       c.high = cp.high; c.peekL = cp.peekLeft; c.peekR = cp.peekRight; c.peekOver = cp.peekOver; c.authored = true;
+      // authored points are placed against the face; the mesh is eroded by the agent radius: stand on the mesh, or drop it
+      { NavRef r; vec3 on; if (!G.nav.closest(c.p, vec3(1.0f, 1.2f, 1.0f), r, on) || lenXZ(on - c.p) > 0.9f || std::fabs(on.y - c.p.y) > 1.0f || G.nav.isTrap(on, 0.3f)) continue; c.p = on; }
+      if (coverNear(*this, c.p, tj("cover", "authoredMinGap_m", 1.0f))) continue;   // one point per spot (generated wall cover or a neighbour already there)
       c.tx = G.nav.tileOf(c.p.x); c.tz = G.nav.tileOf(c.p.z);
       addCoverPoint(*this, c);
     }
@@ -121,14 +126,21 @@ int AiCore::pickCover(Soldier& s, vec3 goal, float maxDist, float minProgress, b
       for (int k = 1; k <= ns; ++k) expo += exposure((int)s.role, glm::mix(s.feet, c.p, k / (float)ns) + vec3(0, 1.2f, 0));
       expo = expo / ns * std::min(1.0f, dist / 15.0f);
       // spacing: teammates (and their reserved cover) within 8 m
-      float sp = 0; const float spacing = tj("cover", "spacing_m", 8.0f);
+      float sp = 0; const float spacing = tj("cover", "spacing_m", 8.0f), spW = tj("cover", "spacingWeight", 1.1f), occ = tj("cover", "occupied_m", 2.5f);
+      bool taken = false;   // a teammate already standing there (a Tobruk pit, a trench bay holds one or two)
+      for (auto& o : G.sold) {
+        if (&o == &s || !o.alive || o.role != s.role) continue;
+        if (glm::length(o.feet - c.p) < occ) { taken = true; break; }
+        if (o.slot < (int)minds.size() && minds[o.slot] && minds[o.slot]->cover >= 0 && glm::length(minds[o.slot]->coverPos - c.p) < occ) { taken = true; break; }   // already claimed by a teammate on the way
+      }
+      if (taken) continue;
       for (auto& o : G.sold) {
         if (&o == &s || !o.alive || o.role != s.role) continue;
         float dd = glm::length(o.feet - c.p);
         if (o.slot < (int)minds.size() && minds[o.slot] && minds[o.slot]->cover >= 0 && minds[o.slot]->cover < (int)cover.size()) dd = std::min(dd, glm::length(cover[minds[o.slot]->cover].p - c.p));
         if (dd < spacing) sp += 1.0f - dd / spacing;
       }
-      float sc = 2.0f * prot + 1.6f * progress - 1.4f * expo - 1.1f * sp - 0.015f * dist + (c.high ? 0.1f : 0.0f) + (c.authored ? 0.2f : 0.0f);
+      float sc = 2.0f * prot + 1.6f * progress - 1.4f * expo - spW * sp - (reactive ? tj("cover", "reactDistWeight", 0.1f) : 0.015f) * dist + (c.high ? 0.1f : 0.0f) + (c.authored ? 0.2f : 0.0f);
       cand.push_back({i, sc, prot});
     }
   }
@@ -169,6 +181,8 @@ void AiCore::buildDefSlots() {
   auto add = [&](vec3 p, float yaw, int pri, int kind, const char* src) {
     NavRef r; vec3 on;
     if (!G.nav.closest(p, 1.5f, r, on)) return;
+    { float dy = on.y - o->pos.y; if (dy < o->yMin - 0.5f || dy > o->yMax + 0.5f) return; }   // above / below the capture volume: holding it does not hold the point
+    if (G.nav.isTrap(on, 0.3f)) return;
     for (auto& d : defSlots) if (glm::length(d.p - on) < 2.5f) return;
     DefSlot d; d.p = on; d.yaw = yaw; d.priority = pri; d.kind = kind; d.src = src; defSlots.push_back(d);
   };
@@ -204,6 +218,7 @@ int AiCore::pickDefSlot(Soldier& s) {
   for (size_t k = 0; k < defSlots.size(); ++k) {
     DefSlot& d = defSlots[k];
     if (d.heldBy >= 0 && d.heldBy != s.slot && d.heldBy < (int)G.sold.size() && G.sold[d.heldBy].alive) continue;
+    if (G.t < d.unreachableUntil) continue;   // a defender could not get there
     float sc = d.priority * 2.0f - glm::length(d.p - s.feet) * 0.02f;
     for (auto& o : defSlots) if (&o != &d && o.heldBy >= 0 && o.heldBy != s.slot && glm::length(o.p - d.p) < 5.0f) sc -= 2.5f;   // spread out
     if (G.t - d.suppressedAt < 10) sc -= 4.0f;

@@ -81,6 +81,7 @@ public:
   static void updateAgent(int h, float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYaw);
   static CharState agent(int h);
   static void setAgentPos(int h, vec3 feet);
+  static void setAgentGhost(int h, bool on);   // W6b: no collision with other characters while on
   // every hit along a ray, nearest first (bodies, terrain); skipLeaves drops movable door / window leaves
   static int castRayAll(vec3 o, vec3 dir, float maxDist, Hit* out, int maxHits, bool skipLeaves);
 };

@@ -75,11 +75,12 @@ struct Fireteam {
   std::map<int, int> targetFor;   // member -> assigned enemy
   // room / bunker clearing (AI_SPEC 8.2)
   int clearBuilding = -1, clearRoom = -1, clearStage = 0; double clearT = 0; int clearEntered = 0;
+  int clearAlive = 0; std::map<std::string, double> clearRetryAt;   // members alive when the entry began; rooms to leave alone until
   std::set<std::string> roomsCleared;
 };
 
 struct TeamBrain {
-  int role = 0;
+  int role = 0; double stageSince = 0;   // when the current objective phase began (assault pressure)
   std::map<int, Known> known;
   std::vector<Fireteam> fts;
   std::shared_ptr<const ThreatSnapshot> threat = std::make_shared<ThreatSnapshot>();
@@ -90,7 +91,7 @@ struct TeamBrain {
 };
 
 // defense positions for one objective (AI_SPEC 6.6, SPEC 5.5)
-struct DefSlot { vec3 p{0}; float yaw = 0; int priority = 1; int kind = 0; int heldBy = -1; double suppressedAt = -100; std::string src; };
+struct DefSlot { vec3 p{0}; float yaw = 0; int priority = 1; int kind = 0; int heldBy = -1; double suppressedAt = -100; std::string src; double unreachableUntil = -100; };
 
 // building / bunker clearing annotations, world space (from asset nav metadata or generated)
 struct AiBuilding {
@@ -106,7 +107,8 @@ struct AiBuilding {
 };
 
 // ---------------------------------------------------------------- per bot
-struct StuckEvent { int slot = -1; double t0 = 0, t1 = 0; vec3 pos{0}; int step = 0; bool resolved = false, open = true; std::string why; };
+struct StuckEvent { int slot = -1; double t0 = 0, t1 = 0; vec3 pos{0}; int step = 0; bool resolved = false, open = true; std::string why;
+  std::string doing; vec3 goal{0}, next{0}; };   // what the bot was doing, its goal and next path corner when it stuck (tuning)
 struct EdgePenalty { vec3 p{0}; float r = 2; double until = 0; };
 
 struct BotMind {
@@ -118,7 +120,7 @@ struct BotMind {
   std::vector<std::pair<int, int>> pathTiles;   // tiles the corridor crosses (re-plan when they rebuild)
   double optT = 0, topoT = 0, validT = 0;
   // link traversal
-  struct Trav { bool on = false; int kind = 0; vec3 p[4]{}; int np = 0; float t = 0, dur = 1; uint32_t link = 0; vec3 end{0}; } trav;
+  struct Trav { bool on = false; int kind = 0; vec3 p[4]{}; int np = 0; float t = 0, dur = 1; uint32_t link = 0; vec3 end{0}; NavRef ref = 0; } trav;
   int linksTaken = 0;
   // steering
   dtLocalBoundary boundary; double boundaryT = -100; vec3 boundaryPos{1e9f};
@@ -127,6 +129,10 @@ struct BotMind {
   float doorWait = 0;
   // stuck ladder (AI_SPEC 3.6)
   vec3 progAnchor{0}; float progT = 0; int ladder = 0; double ladderT = 0; int eventIdx = -1; vec3 stuckPos{0};
+  float blockedT = 0;   // time spent stopped by a soldier just ahead (side-step)
+  vec3 lastStuckPos{1e9f}; double lastStuckT = -100; int stuckRepeats = 0;   // the same snag again: start higher on the ladder
+  double departAt = 0;  // a wave leaves its spawn staggered, not as one block
+  double ghostUntil = -100; bool ghost = false;   // passing through soldiers after a wedge (Physics::setAgentGhost)
   vec3 backTarget{0}; double backUntil = -100; bool needNewGoal = false; vec3 subGoal{0}; bool hasSubGoal = false;
   std::vector<EdgePenalty> penalties;
   // decisions
@@ -135,6 +141,7 @@ struct BotMind {
   int cover = -1; uint32_t coverSerial = 0; vec3 coverPos{0}; bool coverHigh = false; bool set = false; double setAt = -100, peekUntil = -100;
   int slot = -1; double slotShiftAt = -100;   // defense slot index, last voluntary shift
   double boundStart = -100; vec3 boundFrom{0}; float exposedThisBound = 0; bool bounding = false;
+  double linkBlockUntil = -100;   // a link just blocked this bot: no new traversal until the penalised re-plan lands
   // perception extras
   double nearMissAt = -100; vec3 nearMissFrom{0}; double grenadeSeenAt = -100;
   // aim model (AI_SPEC 6.4)
@@ -188,8 +195,10 @@ struct AiProf {
 
 // ---------------------------------------------------------------- metrics (AI_SPEC 12.3)
 struct AiMetrics {
-  double t = 0, advT = 0, advSpeedSum = 0; long advN = 0; double nnSum = 0; long nnN = 0;
-  double fireT = 0, exposedT = 0, coverNear5T = 0; int bounds = 0; double boundExposure = 0;
+  double t = 0, advT = 0, advSpeedSum = 0; long advN = 0; double nnSum = 0; long nnN = 0; double attackerT = 0;   // attackerT: living attacking-bot seconds
+  double fireT = 0, exposedT = 0, coverNear5T = 0; int bounds = 0; double boundExposure = 0; int sidesteps = 0, ghosts = 0, linksDisabled = 0, hops = 0; long advCrouchN = 0, advSlowN = 0, advSprintN = 0;
+  double exposedBy[A_COUNT] = {}; double exposedAtCover = 0;   // exposed-under-fire seconds by action (tuning)
+  int deathsBy[A_COUNT] = {}; int deathsInCover = 0, deathsInObjective = 0; std::vector<char> aliveLast;   // attacker deaths by action (tuning)
   int stuckEvents = 0, stuckOver5 = 0, stuckUnrecovered = 0, stuckResolvedBy[7]{};
   int grenadesThrown = 0, grenadesHurtTeammate = 0, rebuildReplans = 0, linkTraversals = 0, linkAborts = 0, snaps = 0, linkKinds[4]{};
   int attackerDeaths0 = -1;
@@ -240,6 +249,10 @@ public:
   void logStuck(const StuckEvent& e);
   void pollWorld(bool rebuild = true);
   void onTilesChanged();
+  void markNavTraps();
+  std::map<uint32_t, int> linkAbortsById;   // link id -> aborts; at links.disableAfterAborts the link is flagged NF_BADLINK
+  void linkAborted(NavRef ref, uint32_t id);   // dead-end pockets (Nav::markTraps) against the objectives and spawns
+  double trapsDueAt = -1; int navTraps = 0;
   // ---- knowledge (ai_core.cpp)
   void shareKnowledge();
   void updateViewsheds();

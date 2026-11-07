@@ -1,0 +1,58 @@
+{
+  "_doc": "AI tuning harness thresholds (AI_SPEC 12.2-12.5), read by --ai-harness (src/selftest_ai_harness.cpp, runner tools/run_ai_harness.sh). Each entry names a metric of the result JSON (dotted path, e.g. frameMs.p95) and a bound: lt (<), max (<=), gt (>), min (>=); a bound of \"jog\" is the jog speed from content/settings/movement.json. severity: fail (default; a miss makes the run exit 1), warn (reported, never fails) or off. \"maps\" overrides any entry per map tag (village, course, random, or the map file's name).",
+  "soak": {
+    "_doc": "AI_SPEC 12.3: 32 bots, 20 minutes, on both default maps and a large random blank map. Per-bot figures divide by every AI bot (attackers and defenders), the deaths figure by attacking bots.",
+    "stuckPerBotPer10Min": { "lt": 1.0, "note": "AI_SPEC 12.3: < 1 stuck event per bot per 10 minutes" },
+    "stuckOver5s": { "max": 0, "note": "AI_SPEC 12.3: no stuck event lasting more than 5 s (open events of living bots at the end count)" },
+    "stuckUnrecovered": { "max": 0, "note": "AI_SPEC 3.6: every stuck spot is fixed at the source" },
+    "exposedUnderFireShareOfTime": { "lt": 0.10, "note": "AI_SPEC 12.3: attackers under fire without cover within 5 m < 10 % of their time ([DECISION] W6b: of the attacking bots' living time, as the spec words it)" },
+    "exposedUnderFireFraction": { "lt": 0.10, "severity": "warn", "note": "the stricter reading: < 10 % of their time under fire (reported, not a fail)" },
+    "boundExposureMean_s": { "lt": 3.0, "note": "AI_SPEC 12.3: average exposure per bound < 3 s" },
+    "nearestTeammateWhileAdvancing_m": { "min": 8.0, "note": "AI_SPEC 12.3: >= 8 m to the nearest teammate while advancing" },
+    "advanceSpeedMean_mps": { "min": "jog", "note": "AI_SPEC 12.3: at least jog speed while advancing" },
+    "grenadesHurtTeammate": { "max": 0, "note": "AI_SPEC 12.3: no grenade that hurts a teammate" },
+    "objectiveFall_s": { "min": 240, "max": 600, "note": "AI_SPEC 12.5: each objective falls within 4-10 minutes of its phase start (Regular, all-bot match); a phase held past 10 minutes is a miss" },
+    "aiMainThreadMs.p95": { "max": 3.0, "severity": "warn", "note": "AI_SPEC 11: <= 3 ms AI main-thread time per frame on min spec (this machine is not min spec)" },
+    "frameMs.p95": { "max": 33.3, "severity": "warn", "note": "frame time (wall clock, includes rendering); the GPU may be shared with other processes" }
+  },
+  "baseline": {
+    "_doc": "AI_SPEC 12.5: compared with the saved baseline of the old grid AI (AI_SPEC 2.2, --baseline-ai). file is relative to the repo root (found from the exe / working directory upwards, from NMK_SRC, or given with --baseline). report: metrics listed side by side; compare: bounds as a ratio of the baseline value.",
+    "file": "docs/baseline/ai_baseline.json",
+    "report": ["advanceSpeedMean_mps", "exposedUnderFireFraction", "nearestTeammateWhileAdvancing_m", "attackerDeathsPerMin", "attackerDeathsPerBotPerMin", "stuckPerBotPerMin"],
+    "compare": {
+      "attackerDeathsPerBotPerMin": { "maxRatio": 0.75, "note": "AI_SPEC 12.5: deaths per minute for attacking bots fall clearly ([DECISION] clearly = at least 25 % fewer per attacking bot)" }
+    }
+  },
+  "course": {
+    "_doc": "AI_SPEC 12.2: attackers spawned on one side reach the other side and clear the building and bunker, with zero unrecovered stuck events. timeout_s ends the run.",
+    "timeout_s": 420,
+    "reachedFraction": { "min": 0.8, "note": "attacker lives that reached the far side (the objective's front half or beyond)" },
+    "buildingsCleared": { "min": 2, "note": "the two-room building and the bunker cleared room by room" },
+    "objectiveACaptured": { "min": 1 },
+    "stuckUnrecovered": { "max": 0, "note": "AI_SPEC 12.2: zero unrecovered stuck events" },
+    "stuckOver5s": { "max": 0, "severity": "warn" },
+    "forbiddenSamples": { "max": 0, "note": "no bot ever stands in the marked minefield or the wire (outside a link traversal)" },
+    "linkTraversals": { "min": 1, "note": "links used with player-like moves" },
+    "navLinks.mantle": { "min": 1 },
+    "navLinks.vault": { "min": 1 }
+  },
+  "rebuild": {
+    "_doc": "AI_SPEC 12.4: a wire belt, a bunker and a wall dropped across a group of moving bots: every affected bot re-routes within 1 s and none walk into the new object. Each drop goes across the route of the moving attacker with the longest route left, dropAhead_m in front of it; count objects spacing_m apart across the route, ahead_m further along it, yaw added to the route heading.",
+    "firstDropAt_s": 5, "dropInterval_s": 8, "settle_s": 15, "dropAhead_m": 9,
+    "drops": [
+      { "what": "wire belt", "asset": "wire_concertina", "count": 5, "spacing_m": 3.7, "yaw": 90 },
+      { "what": "bunker", "asset": "bunker_mg_casemate", "count": 1, "ahead_m": 3, "enterable": true },
+      { "what": "wall (hedgerow bank)", "asset": "hedgerow_bocage", "count": 3, "spacing_m": 8 }
+    ],
+    "rerouteWithin_s": { "max": 1.0 },
+    "walkedIn": { "max": 0 },
+    "stuckAgainst": { "max": 0 },
+    "affectedBots": { "min": 1 },
+    "navRebuildMsMax": { "lt": 1000, "note": "tile rebuilds run on the worker threads" },
+    "stuckUnrecovered": { "max": 0, "severity": "warn" }
+  },
+  "maps": {
+    "_doc": "Per-map overrides, keyed by map tag. Example: \"omaha\": { \"soak\": { \"objectiveFall_s\": { \"min\": 240, \"max\": 720 } } }",
+    "course": { "soak": { "objectiveFall_s": { "severity": "off" } } }
+  }
+}

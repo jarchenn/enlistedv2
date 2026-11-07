@@ -29,7 +29,10 @@ inline bool crouch(uint8_t id) { return id < kLinkDrop && (id & kCrouchBit); }
 inline bool isLink(uint8_t id) { return id >= kLinkDrop && id <= kLinkJump; }
 }
 // Detour polygon flags
-enum NavFlags : uint16_t { NF_WALK = 1, NF_CROUCH = 2, NF_FORBID = 4, NF_LINK = 8 };
+enum NavFlags : uint16_t { NF_WALK = 1, NF_CROUCH = 2, NF_FORBID = 4, NF_LINK = 8,
+  NF_TRAP = 16,        // ground polygon from which no anchor (objective / spawn) can be walked to: a dead-end pocket
+  NF_TRAPLINK = 32,    // one-way link landing in a pocket (excluded by the default filter)
+  NF_BADLINK = 64 };   // a link that keeps blocking bodies (W6b: disabled after repeated aborts; excluded)
 enum NavLinkKind : int { LINK_DROP = 0, LINK_MANTLE, LINK_VAULT, LINK_JUMP, LINK_KINDS };
 const char* navLinkName(int k);
 
@@ -84,6 +87,10 @@ public:
   const NavLink* linkById(uint32_t id) const;
   std::vector<NavEdge> tileEdges(int tx, int tz) const;  // wall edges of a committed tile (cover generation)
   void forEachTile(const std::function<void(int, int)>& fn) const;
+  // dead-end pockets (an AT ditch floor reached only by drops): ground polygons that cannot walk to any anchor get NF_TRAP,
+  // one-way links into them NF_TRAPLINK. Re-run after commits (tile rebuilds start without the flags). Returns trap polygons.
+  int markTraps(const std::vector<vec3>& anchors);
+  bool isTrap(vec3 p, float r = 0.8f) const;
   vec3 lo{0}, hi{0};
   float waterLevel = -1000;                            // terrain water: shallow = water area, deep = forbidden
   // ---- statistics (tests / overlay)

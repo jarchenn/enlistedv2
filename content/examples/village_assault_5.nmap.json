@@ -1006,7 +1006,8 @@
         "routes": [],
         "yMax": 4.0,
         "yMin": -2.0,
-        "yaw": 0.0
+        "yaw": 0.0,
+        "captureTime_s": 70.0
       },
       {
         "attackYaw": 0.0,
@@ -1023,7 +1024,8 @@
         "routes": [],
         "yMax": 4.0,
         "yMin": -2.0,
-        "yaw": 0.0
+        "yaw": 0.0,
+        "captureTime_s": 70.0
       },
       {
         "attackYaw": 0.0,
@@ -1040,7 +1042,8 @@
         "routes": [],
         "yMax": 4.0,
         "yMin": -2.0,
-        "yaw": 0.0
+        "yaw": 0.0,
+        "captureTime_s": 70.0
       },
       {
         "attackYaw": 0.0,
@@ -1057,7 +1060,8 @@
         "routes": [],
         "yMax": 4.0,
         "yMin": -2.0,
-        "yaw": 0.0
+        "yaw": 0.0,
+        "captureTime_s": 70.0
       },
       {
         "attackYaw": 0.0,
@@ -1074,7 +1078,8 @@
         "routes": [],
         "yMax": 4.0,
         "yMin": -2.0,
-        "yaw": 0.0
+        "yaw": 0.0,
+        "captureTime_s": 70.0
       }
     ],
     "rules": {
@@ -1084,7 +1089,7 @@
       "captureBase": 5.0,
       "capturePresenceFull": 5.0,
       "defenderSlots": 5,
-      "defenderWave_s": 8.0,
+      "defenderWave_s": 16.0,
       "defendingFaction": "Allies",
       "fragPerLife": 2,
       "friendlyFire": false,

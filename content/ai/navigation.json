@@ -6,7 +6,7 @@
   "agentRadius_m": 0.3,
   "agentHeight_m": 1.8,
   "crouchHeight_m": 1.2,
-  "maxStep_m": 0.45,
+  "maxStep_m": 0.4,
   "maxSlope_deg": 45,
   "regionMinSize": 4,
   "regionMergeSize": 40,
@@ -15,13 +15,15 @@
   "detailSampleDist": 6,
   "detailSampleMaxError": 1,
   "shallowWater_m": 0.9,
+  "hedgePad_m": 0.15,
+  "footprintNull": ["bch_belgian_gate", "def_tank_trap", "bcg_abatis", "bch_log_stake_mine", "bch_log_ramp_mined", "gun_pak40"], "footprintNullPad_m": 0.2,
   "rebuildWorkers": 2,
   "links": {
-    "dropMin_m": 0.5, "dropMax_m": 3.0,
-    "mantleMin_m": 0.5, "mantleMax_m": 1.6,
+    "dropMin_m": 0.4, "dropMax_m": 3.0,
+    "mantleMin_m": 0.4, "mantleMax_m": 1.6,
     "vaultMaxHeight_m": 1.1, "vaultMaxThickness_m": 0.6,
-    "gapMax_m": 1.5,
-    "spacing_m": 1.2,
+    "gapMax_m": 1.5, "mantleClear_m": 0.6,
+    "spacing_m": 1.2, "disableAfterAborts": 2,
     "probeBorder_m": 2.6,
     "cost_m": { "drop": 2.0, "mantle": 4.0, "vault": 2.5, "jump": 3.0 }
   }
