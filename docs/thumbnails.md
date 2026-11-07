@@ -21,7 +21,13 @@ Code: `src/thumbs.cpp` / `thumbs.h` (W2, MP & Creative update spec 9.4). `App::m
 3. The projection is zoomed and shifted in clip space so the silhouette fills 88 % of the tile, centred: `x' = s (x - c_x w)`, `s = 2 · 0.88 / max(w_ndc, h_ndc)`. The same applies to y.
 4. The default view is yaw 37°, pitch 24°, the old 3/4 view. If its silhouette covers less than `kThumbMinFill` (15 %) of the tile, the asset counts as thin or tall.
 5. For a thin or tall asset, 8 yaws × 4 pitches (20–65°) are probed. The view with the largest covered share wins. Steep views are weighted down slightly (×0.92 at 50°, ×0.82 at 65°), so a near tie keeps the gentler one.
-6. Vehicles (`"vehicle"` assets) keep the tile `TankSys::makeThumbnails` draws from the baked hull, turret and tracks.
+6. **Detail crop.** A long, sparse asset still looks empty in any whole view. A 10 m fence is a few posts 2.5 m apart and some wire, so even its best whole view covers about 4 %. When the best whole view covers less than `kThumbCropFill` (7 %), the tile shows the densest square window of the silhouette instead:
+   - Window sides range from 1/5 of the silhouette's long side up to all of it (×1.2 steps). Each side slides over the silhouette bounds on a 256 px probe.
+   - The largest window within 80 % of the densest is kept, so the tile favours context over a close-up. It is zoomed to 92 % of the tile.
+   - The 3/4 view's crop is used whenever it covers at least 1.25× the best whole view. Otherwise the searched view's crop is used, under the same bar. If neither qualifies, the whole view stays.
+   - Thickened box wire is rebuilt at 1.5 px of the zoomed tile, so it does not swell with the zoom.
+   - Current crops: `bch_minefield_fence` shows a post, both wires and the sign (13.9 % covered, from 3.9 %), and `fence_post_wire` shows a post with three wires (11.9 %, from 5.5 %).
+7. Vehicles (`"vehicle"` assets) keep the tile `TankSys::makeThumbnails` draws from the baked hull, turret and tracks.
 
 ## Cache
 - **Location.** Tiles are stored as `<exe>/cache/thumbs/<asset id>-<key>.png`. `NMK_THUMB_CACHE` overrides the folder; the tests use this.

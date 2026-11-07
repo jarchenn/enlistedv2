@@ -131,3 +131,19 @@ User decisions:
   - AI soak report.
   - `--benchmark-match` with 32 bots on both maps.
 - Not verifiable here, so reported honestly: separate-PC LAN, min-spec hardware performance, and the playtest recording, which the user must do.
+
+## Change: Mont-Castre cancelled (2026-11-06, user decision)
+
+The user said: "dont make the new map, instead focus all on AI for now".
+
+- **W5b (Mont-Castre / Hill 122)** is cancelled. Its branch is not merged, and the New Map entry "Normandy Forest" stays "Not included in this build yet".
+- **W5a (Omaha)** ships.
+- **AI tuning (W6b)** is the top priority. It runs on village, Omaha and a random blank map.
+- **Merge order:** W5a → W6b tuning → master.
+- **Further Normandy maps** will be built by the user in the editor.
+
+## Change: Mont-Castre returns as a terrain-only base map
+
+W5b builds Mont-Castre as a terrain-only map (850 × 1700 m: hills, the Hill 122 ridge, cliffs with climbable routes, a slope-based rock material). It ships as the "Normandy Forest – Mont-Castre, Hill 122" template with an empty scenario, and the user places everything else.
+
+Merge order: W5a → W5b → W6b tuning → master.

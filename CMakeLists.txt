@@ -70,13 +70,13 @@ target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${mini
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)
 target_compile_definitions(NormandyMapmaker PRIVATE GLM_ENABLE_EXPERIMENTAL GLFW_INCLUDE_NONE)
 include(cmake/mpai.cmake)   # multiplayer + AI sources
-include(cmake/recast.cmake) # W6: Recast/Detour navmesh + AI core
-include(cmake/w6b.cmake)    # W6b: AI tuning harness
 include(cmake/w1.cmake)     # W1 gameplay rules: spawn protection, fall damage, damage model
 include(cmake/w2.cmake)     # W2 visual fixes: sight overlay, thumbnails
 include(cmake/w7.cmake)     # W7 gore: wounds, spray, decals
 include(cmake/w4.cmake)     # W4 structures suite
 include(cmake/w3.cmake)     # editor & terrain (W3)
+include(cmake/recast.cmake) # W6: Recast/Detour navmesh + AI core
+include(cmake/w6b.cmake)    # W6b: AI tuning harness
 include(cmake/w5.cmake)     # W5 default maps runtime + suite
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
