@@ -17,7 +17,7 @@ enum class Mode { Creative, Explore };
 enum class Tool { Select, Place, Marker };
 
 // Impact-centred wall damage (wallfield.cpp): per bay, depth removed from the front and back face per cell.
-enum WallHitKind { WALL_HE = 0, WALL_AP = 1, WALL_ROCKET = 2, WALL_GRENADE = 3, WALL_BULLET = 4 };
+enum WallHitKind { WALL_HE = 0, WALL_AP = 1, WALL_ROCKET = 2, WALL_GRENADE = 3, WALL_BULLET = 4, WALL_RAM = 5 };   // WALL_RAM: a tank against opening trim (breaks it, stamps nothing)
 struct WallEvent { vec3 p{0}, d{0, 0, -1}; int kind = WALL_HE; float dmg = 120; uint32_t seed = 1; };   // asset-local contact, direction
 struct WallField {
   std::vector<float> rf, rb;   // removed depth (m) from the front (+normal) and back face, per cell
@@ -158,9 +158,14 @@ public:
     float breachArea = 0.04f;   // through-hole area that counts a bay as breached (m^2)
     int maxFragmentsPerHit = 8;
     float bridgeMax = 0.18f;    // strips of wall at most this wide left between damaged areas are cleared (m)
+    bool support = true;        // support between bays and of opening trim (wallfield.cpp; off: A/B in the self-test)
+    float archSlope = 1.732f;   // material over a lost support falls in a triangle this steep (tan 60 deg, the lintel load rule)
+    float archMinSpan = 0.3f;   // spans narrower than this hold (m)
   } destruction;
   void initWallFields(InstanceRT& r);
   int stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<std::string>* hitIds, int* newlyBreached);
+  struct TrimStats { int blast = 0, support = 0, ram = 0, bays = 0, cells = 0; float supportMs = 0; } trimStats;   // opening trim broken by cause; bays / cells collapsed over lost support (wallfield.cpp)
+  bool trimIntact(const InstanceRT& r, int g) const;
   void rebuildPanel(InstanceRT& r, size_t k);
   json wallEventsJson(const InstanceRT& r) const;
   void authoredWallEvents(const Instance& i, const AssetDef* a, std::vector<WallEvent>& out) const;

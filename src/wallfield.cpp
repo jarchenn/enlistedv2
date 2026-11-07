@@ -8,6 +8,7 @@
 // material, so an open hole never keeps collision and intact material never loses it.
 #include "app.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <unordered_map>
 
@@ -114,13 +115,13 @@ static WallField& fieldFor(InstanceRT& r, size_t k, const Frame& f) {
   return w;
 }
 
-// bays in the same wall slab as bay k (same normal axis, overlapping thickness)
+// bays in the same wall slab as bay k (same normal axis, overlapping thickness); opening trim is never one
 static std::vector<size_t> coplanarBays(const AssetDef* a, size_t k, int ank, float cell) {
   std::vector<size_t> out;
   const Panel& pk = a->panels[k];
   for (size_t j = 0; j < a->panels.size(); ++j) {
     const Panel& pj = a->panels[j];
-    if (j == k || panelFrame(pj, cell).an != ank) continue;
+    if (j == k || pj.trim >= 0 || panelFrame(pj, cell).an != ank) continue;
     float ov = std::min(pk.bmax[ank], pj.bmax[ank]) - std::max(pk.bmin[ank], pj.bmin[ank]);
     if (ov < 0.5f * std::min(pk.bmax[ank] - pk.bmin[ank], pj.bmax[ank] - pj.bmin[ank])) continue;   // not the same wall slab
     out.push_back(j);
@@ -143,6 +144,176 @@ static int openInBay(const InstanceRT& r, const std::vector<size_t>& cands, floa
   return -1;
 }
 
+// ---------------------------------------------------------------------------------------------- support (docs/destruction.md#support)
+// What each bay rests on and leans against, per edge cell, found once per asset (and cell size) by probing half a cell
+// across each edge: another bay (looked up live), a static part or the ground, the trim of an opening (holds while the
+// trim stands), or nothing (the inside of an opening, air). And for each opening's trim, the cells of the bays around
+// it that carry it: a band under the sill and one beside each jamb.
+namespace {
+enum : int { EDGE_AIR = -1, EDGE_STATIC = -2, EDGE_BAY = -3 };   // >= 0: trim group
+struct BaySupport { std::array<std::vector<int>, 4> edge; std::vector<size_t> cands; bool on = false; };   // 0 bottom, 1 u-, 2 u+, 3 top
+struct TrimBand { size_t k; int idx; int side; };   // 0 under, 1 u-, 2 u+
+struct SupportInfo {
+  float cell = 0;
+  std::vector<BaySupport> bay;
+  std::vector<std::vector<TrimBand>> band;
+};
+std::unordered_map<const AssetDef*, SupportInfo> gSupport;
+
+const SupportInfo& supportFor(const AssetDef* a, float cell) {
+  SupportInfo& S = gSupport[a];
+  if (S.cell == cell && S.bay.size() == a->panels.size()) return S;
+  S = SupportInfo{}; S.cell = cell;
+  S.bay.resize(a->panels.size()); S.band.resize(a->trims.size());
+  std::vector<std::pair<vec3, vec3>> statics;
+  for (size_t i = 0; i < a->furnFirst && i < a->parts.size(); ++i) {
+    const Part& p = a->parts[i];
+    if (!p.collide || p.playerOnly) continue;
+    glm::mat3 R = glm::mat3_cast(p.rot); vec3 h = glm::abs(R[0]) * p.size.x * 0.5f + glm::abs(R[1]) * p.size.y * 0.5f + glm::abs(R[2]) * p.size.z * 0.5f;
+    statics.push_back({p.center - h, p.center + h});
+  }
+  for (size_t k = 0; k < a->panels.size(); ++k) {
+    const Panel& pn = a->panels[k];
+    Frame f = panelFrame(pn, cell);
+    if (pn.trim >= 0 || f.an == 1) continue;
+    BaySupport& B = S.bay[k];
+    B.on = true;
+    B.cands = coplanarBays(a, k, f.an, cell);
+    const float mid = coordOf(f, f.T * 0.5f), W = f.nu * f.cu, H = f.nv * f.cv, e = 0.5f * cell;
+    auto classify = [&](float u, float v, bool bottom) {
+      for (size_t j : B.cands) {
+        const Panel& pj = a->panels[j]; Frame fj = panelFrame(pj, cell);
+        if (u >= pj.bmin[fj.au] && u <= pj.bmax[fj.au] && v >= pj.bmin[fj.av] && v <= pj.bmax[fj.av]) return (int)EDGE_BAY;
+      }
+      vec3 P(0); P[f.an] = mid; P[f.au] = u; P[f.av] = v;
+      for (size_t g = 0; g < a->trims.size(); ++g) {
+        const TrimGroup& t = a->trims[g];
+        if (t.an != f.an || mid < t.d0 - 0.05f || mid > t.d1 + 0.05f) continue;
+        if (glm::all(glm::greaterThanEqual(P, t.bmin - vec3(0.02f))) && glm::all(glm::lessThanEqual(P, t.bmax + vec3(0.02f)))) return (int)g;
+        if (bottom && u >= t.u0 && u <= t.u1 && t.v1 <= v + 0.1f && t.v1 >= v - 0.35f) return (int)g;   // over the opening: the lintel / head
+      }
+      for (auto& [mn, mx] : statics)
+        if (glm::all(glm::greaterThanEqual(P, mn - vec3(0.01f))) && glm::all(glm::lessThanEqual(P, mx + vec3(0.01f)))) return (int)EDGE_STATIC;
+      if (bottom && v <= a->bmin.y + 0.05f) return (int)EDGE_STATIC;   // the ground
+      return (int)EDGE_AIR;
+    };
+    B.edge[0].resize(f.nu); B.edge[3].resize(f.nu); B.edge[1].resize(f.nv); B.edge[2].resize(f.nv);
+    for (int iu = 0; iu < f.nu; ++iu) {
+      float u = f.u0 + (iu + 0.5f) * f.cu;
+      B.edge[0][iu] = classify(u, f.v0 - e, true);
+      B.edge[3][iu] = classify(u, f.v0 + H + e, false);
+    }
+    for (int iv = 0; iv < f.nv; ++iv) {
+      float v = f.v0 + (iv + 0.5f) * f.cv;
+      B.edge[1][iv] = classify(f.u0 - e, v, false);
+      B.edge[2][iv] = classify(f.u0 + W + e, v, false);
+    }
+    // the cells of this bay that carry an opening's trim
+    for (size_t g = 0; g < a->trims.size(); ++g) {
+      const TrimGroup& t = a->trims[g];
+      if (t.an != f.an) continue;
+      float ov = std::min(pn.bmax[f.an], t.d1) - std::max(pn.bmin[f.an], t.d0);
+      if (ov < 0.5f * std::min(f.T, t.d1 - t.d0)) continue;
+      const float band = 0.3f, bot = std::min(t.v0, t.bmin.y);
+      for (int iv = 0; iv < f.nv; ++iv)
+        for (int iu = 0; iu < f.nu; ++iu) {
+          float u = f.u0 + (iu + 0.5f) * f.cu, v = f.v0 + (iv + 0.5f) * f.cv;
+          int side = -1;
+          if (u >= t.u0 && u <= t.u1 && v < bot + 0.02f && v >= bot - band) side = 0;
+          else if (v >= t.v0 && v <= t.v1 && u < t.u0 + 0.02f && u >= t.u0 - band) side = 1;
+          else if (v >= t.v0 && v <= t.v1 && u > t.u1 - 0.02f && u <= t.u1 + band) side = 2;
+          if (side >= 0) S.band[g].push_back({k, iv * f.nu + iu, side});
+        }
+    }
+  }
+  return S;
+}
+bool cellOpen(const InstanceRT& r, size_t k, int idx, float T) { return k < r.wf.size() && !r.wf[k].rf.empty() && r.wf[k].rf[idx] + r.wf[k].rb[idx] >= T - 1e-4f; }
+}
+
+// Broken trim falls out of the wall as pieces: each frame member, lintel and sill split along its length into one to
+// three lengths, every one its own small rigid body (the debris bodies of shattered doors: capped, the oldest freeze),
+// thrown with the shot and dropping out of the opening. Effects only: replay rebuilds the wall without them.
+static void trimPieces(App& app, Instance& i, InstanceRT& r, int g, const WallEvent& e) {
+  const AssetDef* a = r.asset;
+  const TrimGroup& t = a->trims[g];
+  if (t.panel < 0 || t.interact.empty() || a->interactables[t.interact[0]].leaves.empty()) return;
+  mat4 M = app.instanceMatrix(i);
+  quat qi = yawQuat(i.yaw);
+  vec3 dn = glm::length(e.d) > 1e-5f ? glm::normalize(e.d) : vec3(0, 0, -1);
+  if (e.kind == WALL_GRENADE) dn = -a->panels[t.panel].normal;
+  vec3 dw = glm::normalize(vec3(M * vec4(dn, 0)));
+  int made = 0;
+  bool stone = false;
+  for (const Part& p : a->panels[t.panel].parts[0]) {
+    if (!p.visible || p.shape == Part::PRISM || made >= 14) continue;
+    const std::string& mn = a->materials[p.mat].name;
+    bool st = mn.find("stone") != std::string::npos;
+    stone |= st;
+    int ax = p.size.x >= p.size.y && p.size.x >= p.size.z ? 0 : p.size.y >= p.size.z ? 1 : 2;
+    float L = p.size[ax];
+    int n = std::clamp((int)std::round(L / 0.45f), 1, 3);
+    std::vector<float> cut{-0.5f * L};
+    for (int c = 1; c < n; ++c) cut.push_back(-0.5f * L + L * (c + (rnd01(e.seed, 211u + made, (uint32_t)c) - 0.5f) * 0.4f) / n);
+    cut.push_back(0.5f * L);
+    for (int c = 0; c < n && made < 14; ++c) {
+      Part q = p;
+      vec3 off(0); off[ax] = 0.5f * (cut[c] + cut[c + 1]);
+      q.size[ax] = cut[c + 1] - cut[c];
+      if (q.size[ax] < 0.02f) continue;
+      vec3 pos = vec3(M * vec4(p.center + p.rot * off, 1));
+      quat rot = qi * p.rot;
+      Part local = q; local.center = vec3(0); local.rot = quat(1, 0, 0, 0);
+      MeshData md; appendPart(md, local, a->materials[q.mat], mat4(1));
+      Part box; box.shape = Part::BOX; box.center = vec3(0); box.size = glm::max(q.size - vec3(0.006f), vec3(0.012f));
+      ShapePtr sh = Physics::buildShape({box});
+      if (!sh) continue;
+      float mass = std::clamp(q.size.x * q.size.y * q.size.z * (st ? 2300.0f : 600.0f), 0.6f, 80.0f);
+      auto dl = std::make_unique<App::DynLeaf>();
+      dl->inst = i.id; dl->k = t.interact[0]; dl->l = 0; dl->fragment = true; dl->shape = sh;
+      dl->body = Physics::addDynamic(sh, pos, rot, (i.id << 16) | 0xFFF0u, mass);
+      dl->fractured = std::make_unique<GpuMesh>(); dl->fractured->upload(md);
+      uint32_t s = (uint32_t)made;
+      vec3 J = (dw * (1.5f + 2.5f * rnd01(e.seed, 223u, s)) + vec3(rnd01(e.seed, 227u, s) - 0.5f, 0.6f * rnd01(e.seed, 229u, s), rnd01(e.seed, 233u, s) - 0.5f) * 2.0f) * mass;
+      Physics::addImpulse(dl->body, J, pos + rot * ((vec3(rnd01(e.seed, 239u, s), rnd01(e.seed, 241u, s), rnd01(e.seed, 251u, s)) - 0.5f) * 0.08f));
+      app.dynLeaves.push_back(std::move(dl));
+      ++made;
+    }
+  }
+  vec3 c = vec3(M * vec4(0.5f * (t.bmin + t.bmax), 1));
+  for (int n = 0; n < 14; ++n) {
+    vec3 v(app.fx.rnd() * 2 - 1, app.fx.rnd() * 1.4f, app.fx.rnd() * 2 - 1);
+    float s = 0.02f + 0.05f * app.fx.rnd();
+    app.fx.debris.push_back({c + vec3(app.fx.rnd() - 0.5f, app.fx.rnd() - 0.5f, app.fx.rnd() - 0.5f) * 0.8f, v * 2.0f + dw * 2.0f, vec3(app.fx.rnd(), app.fx.rnd(), app.fx.rnd()) * 10.0f, vec3(s, s * 0.5f, s * 1.6f)});
+  }
+  if (app.fx.debris.size() > app.fx.maxDebris) app.fx.debris.erase(app.fx.debris.begin(), app.fx.debris.begin() + (app.fx.debris.size() - app.fx.maxDebris));
+  for (int n = 0; n < 4; ++n) app.fx.smoke(c + vec3(app.fx.rnd() - 0.5f, app.fx.rnd() - 0.5f, app.fx.rnd() - 0.5f), vec3(0, 0.5f, 0) + dw * 0.5f, 0.3f, 2.4f, vec4(0.6f, 0.56f, 0.5f, 0.45f), 2.0f, 0.2f);
+  app.fx.impact(c, -dw, stone ? "stone" : "wood");
+  app.audio.play("door_break", c, 0.8f);
+  // cap the live rigid bodies: the oldest becomes static where it lies (as for shattered doors)
+  size_t live = 0; for (auto& x : app.dynLeaves) live += !x->frozen;
+  for (auto& x : app.dynLeaves) {
+    if (live <= app.maxDynLeaves) break;
+    if (x->frozen) continue;
+    ShapePtr sh = x->shape;
+    if (!sh) { auto it = app.rt.find(x->inst); if (it == app.rt.end()) continue; sh = it->second.asset->interactables[x->k].leaves[x->l].shape; }
+    vec3 p; quat qq;
+    Physics::getTransform(x->body, p, qq);
+    Physics::remove(x->body);
+    x->body = Physics::addStatic(sh, p, qq, (x->inst << 16) | 0xFFF0u);
+    x->frozen = true; --live;
+  }
+}
+
+bool App::trimIntact(const InstanceRT& r, int g) const {
+  const AssetDef* a = r.asset;
+  if (g < 0 || g >= (int)a->trims.size()) return true;
+  int k = a->trims[g].panel;
+  if (k < 0 || k >= (int)r.wf.size() || r.wf[k].rf.empty()) return true;
+  Frame f = panelFrame(a->panels[k], destruction.cell);
+  return !cellOpen(r, (size_t)k, 0, f.T);
+}
+
 int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<std::string>* hitIds, int* newlyBreached) {
   const AssetDef* a = r.asset;
   const float cell = destruction.cell;
@@ -161,8 +332,9 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     vec3 pa(0); pa[f.au] = f.u0 + (iu + 0.5f) * f.cu; pa[f.av] = f.v0 + (iv + 0.5f) * f.cv; pa[f.an] = coordOf(f, f.T * 0.5f);
     removedAt.push_back(pa);
   };
-  for (size_t k = 0; k < a->panels.size(); ++k) {
+  for (size_t k = 0; k < a->panels.size() && e.kind != WALL_RAM; ++k) {   // a ram against trim stamps nothing
     const Panel& pn = a->panels[k];
+    if (pn.trim >= 0) continue;   // opening trim is never cratered: it stands or breaks whole (below)
     Frame f = panelFrame(pn, cell);
     // resistance per unit depth (thickness already counts): masonry 1, reinforced concrete 1.2 (x HP / 450), timber 0.45
     float resist = std::max(0.2f, pn.family == "concrete" ? 1.2f * pn.hp / 450.0f : pn.hp / 200.0f);
@@ -327,13 +499,187 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     }
     if (!any) break;
   }
+  // 6) opening trim and support between bays (docs/destruction.md#trim, #support)
+  std::vector<uint8_t> dirty(a->panels.size(), 0);
+  for (auto& b : bays) dirty[b.k] = 1;
+  std::vector<int> trimBroken;
+  auto breakTrim = [&](int g, int cause) {
+    const TrimGroup& t = a->trims[g];
+    if (t.panel < 0 || !trimIntact(r, g)) return false;
+    Frame f = panelFrame(a->panels[t.panel], cell);
+    WallField& w = fieldFor(r, (size_t)t.panel, f);
+    std::fill(w.rf.begin(), w.rf.end(), f.T); std::fill(w.rb.begin(), w.rb.end(), 0.0f);
+    dirty[t.panel] = 1;
+    ++(cause == 0 ? trimStats.blast : cause == 1 ? trimStats.support : trimStats.ram);
+    trimBroken.push_back(g);
+    return true;
+  };
+  // a blast, shell or ram within reach of the trim breaks it whole (game tuning: about the crater's core)
+  {
+    float tr = e.kind == WALL_HE ? 0.5f : e.kind == WALL_AP ? 0.35f : e.kind == WALL_ROCKET ? 0.4f : e.kind == WALL_GRENADE ? 0.45f : e.kind == WALL_RAM ? 0.6f : -1.0f;
+    if (e.kind != WALL_RAM) tr *= std::clamp(std::sqrt(strength), 0.5f, 2.0f);
+    for (size_t g = 0; g < a->trims.size() && tr > 0; ++g) {
+      const TrimGroup& t = a->trims[g];
+      if (glm::length(glm::clamp(e.p, t.bmin, t.bmax) - e.p) <= tr) breakTrim((int)g, e.kind == WALL_RAM ? 2 : 0);
+    }
+  }
+  bool through = false;
   for (auto& b : bays) {
-    const Panel& pn = a->panels[b.k];
-    uint8_t oldState = r.state[b.k];
-    rebuildPanel(r, b.k);
+    const WallField& w = r.wf[b.k];
+    for (size_t idx = 0; idx < w.rf.size() && !through; ++idx) through = w.rf[idx] + w.rb[idx] >= b.f.T - 1e-4f;
+  }
+  if (destruction.support && (through || !trimBroken.empty())) {
+    auto ts = std::chrono::high_resolution_clock::now();
+    const SupportInfo& S = supportFor(a, cell);
+    const float ec = 0.5f * cell;
+    auto solidAt = [&](size_t k, int idx, const Frame& f) { return !cellOpen(r, k, idx, f.T); };
+    // is the bottom of bay j lost under the in-plane position u?
+    auto bottomLost = [&](size_t j, float u) {
+      const BaySupport& B = S.bay[j];
+      if (!B.on) return false;
+      Frame f = panelFrame(a->panels[j], cell);
+      int iu = std::clamp((int)std::floor((u - f.u0) / f.cu), 0, f.nu - 1);
+      int kind = B.edge[0][iu];
+      if (kind == EDGE_BAY) return openInBay(r, B.cands, f.u0 + (iu + 0.5f) * f.cu, f.v0 - ec, cell) == 1;
+      return kind >= 0 && !trimIntact(r, kind);
+    };
+    // across a bay's side edge at its bottom row: an opening, broken trim, a hole, or a neighbour that has lost its own
+    // bottom there too -- the lost span goes on past the edge (the triangle does not close at the seam)
+    auto spanGoesOn = [&](size_t k, const Frame& f, int side) {
+      const BaySupport& B = S.bay[k];
+      int kind = B.edge[side][0];
+      if (kind == EDGE_AIR) return true;
+      if (kind >= 0) return !trimIntact(r, kind);
+      if (kind == EDGE_STATIC) return false;
+      float u = side == 1 ? f.u0 - ec : f.u0 + f.nu * f.cu + ec, v = f.v0 + ec;
+      if (openInBay(r, B.cands, u, v, cell) == 1) return true;
+      for (size_t j : B.cands) {
+        const Panel& pj = a->panels[j]; Frame fj = panelFrame(pj, cell);
+        if (u < pj.bmin[fj.au] || u > pj.bmax[fj.au] || v < pj.bmin[fj.av] || v > pj.bmax[fj.av]) continue;
+        return std::fabs(fj.v0 - f.v0) < 0.1f && bottomLost(j, u);
+      }
+      return false;
+    };
+    auto anchorKind = [&](const BaySupport& B, int kind, float u, float v) {
+      if (kind == EDGE_STATIC) return true;
+      if (kind == EDGE_AIR) return false;
+      if (kind >= 0) return trimIntact(r, kind);
+      return openInBay(r, B.cands, u, v, cell) == 0;
+    };
+    for (int it = 0; it < 32; ++it) {
+      bool ch = false;
+      // trim: the bays under the sill or beside a jamb gone (half the band through) -- the frame falls out
+      for (size_t g = 0; g < a->trims.size(); ++g) {
+        if (S.band[g].empty() || !trimIntact(r, (int)g)) continue;
+        int tot[3] = {0, 0, 0}, open[3] = {0, 0, 0};
+        for (auto& c : S.band[g]) {
+          ++tot[c.side];
+          if (cellOpen(r, c.k, c.idx, panelFrame(a->panels[c.k], cell).T)) ++open[c.side];
+        }
+        bool fail = false;
+        for (int s = 0; s < 3; ++s) fail |= tot[s] >= 8 && open[s] * 2 >= tot[s];
+        if (fail && breakTrim((int)g, 1)) ch = true;
+      }
+      // bays: material over a span that lost its support falls in a triangle (the lintel load rule); what is left
+      // hanging from nothing goes with it
+      for (size_t k = 0; k < a->panels.size(); ++k) {
+        const BaySupport& B = S.bay[k];
+        if (!B.on) continue;
+        Frame f = panelFrame(a->panels[k], cell);
+        std::vector<uint8_t> sup((size_t)f.nu, 1);
+        bool anyLost = false;
+        for (int iu = 0; iu < f.nu; ++iu) {
+          int kind = B.edge[0][iu];
+          if (kind == EDGE_BAY) sup[iu] = openInBay(r, B.cands, f.u0 + (iu + 0.5f) * f.cu, f.v0 - ec, cell) != 1;
+          else if (kind >= 0) sup[iu] = trimIntact(r, kind);
+          anyLost |= !sup[iu];
+        }
+        if (!anyLost) continue;
+        WallField& w = fieldFor(r, k, f);
+        int removed = 0;
+        for (int a0 = 0; a0 < f.nu;) {
+          if (sup[a0]) { ++a0; continue; }
+          int b0 = a0; while (b0 + 1 < f.nu && !sup[b0 + 1]) ++b0;
+          bool openL = a0 == 0 && spanGoesOn(k, f, 1), openR = b0 == f.nu - 1 && spanGoesOn(k, f, 2);
+          float uA = openL ? -1e9f : f.u0 + a0 * f.cu, uB = openR ? 1e9f : f.u0 + (b0 + 1) * f.cu;
+          if (openL || openR || uB - uA >= destruction.archMinSpan)
+            for (int iu = a0; iu <= b0; ++iu) {
+              float uc = f.u0 + (iu + 0.5f) * f.cu, h = destruction.archSlope * std::min(uc - uA, uB - uc);
+              for (int iv = 0; iv < f.nv && (iv + 0.5f) * f.cv < h; ++iv) {
+                int idx = iv * f.nu + iu;
+                if (w.rf[idx] + w.rb[idx] >= f.T - 1e-4f) continue;
+                w.rb[idx] = f.T - w.rf[idx]; debrisAt(f, idx); ++removed;
+              }
+            }
+          a0 = b0 + 1;
+        }
+        if (!removed) continue;
+        // what is left of this bay stays only where it still touches something that holds
+        std::vector<uint8_t> seen((size_t)f.nu * f.nv, 0);
+        std::vector<int> st;
+        auto seed = [&](int idx) { if (!seen[idx] && solidAt(k, idx, f)) { seen[idx] = 1; st.push_back(idx); } };
+        for (int iu = 0; iu < f.nu; ++iu) {
+          float u = f.u0 + (iu + 0.5f) * f.cu;
+          if (sup[iu]) seed(iu);
+          if (anchorKind(B, B.edge[3][iu], u, f.v0 + f.nv * f.cv + ec)) seed((f.nv - 1) * f.nu + iu);
+        }
+        for (int iv = 0; iv < f.nv; ++iv) {
+          float v = f.v0 + (iv + 0.5f) * f.cv;
+          if (anchorKind(B, B.edge[1][iv], f.u0 - ec, v)) seed(iv * f.nu);
+          if (anchorKind(B, B.edge[2][iv], f.u0 + f.nu * f.cu + ec, v)) seed(iv * f.nu + f.nu - 1);
+        }
+        while (!st.empty()) {
+          int idx = st.back(); st.pop_back(); int iu = idx % f.nu, iv = idx / f.nu;
+          if (iu > 0) seed(idx - 1);
+          if (iu < f.nu - 1) seed(idx + 1);
+          if (iv > 0) seed(idx - f.nu);
+          if (iv < f.nv - 1) seed(idx + f.nu);
+        }
+        int left = 0;
+        for (int idx = 0; idx < f.nu * f.nv; ++idx) if (solidAt(k, idx, f)) { if (seen[idx]) ++left; else { w.rb[idx] = f.T - w.rf[idx]; debrisAt(f, idx); ++removed; } }
+        if (left > 0 && left < 0.12f * f.nu * f.nv)   // a remnant this small does not stand on its own
+          for (int idx = 0; idx < f.nu * f.nv; ++idx) if (solidAt(k, idx, f)) { w.rb[idx] = f.T - w.rf[idx]; ++removed; left = 0; }
+        if (left == 0) ++trimStats.bays;
+        trimStats.cells += removed;
+        dirty[k] = 1; ch = true;
+      }
+      if (!ch) break;
+    }
+    trimStats.supportMs += (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - ts).count();
+  }
+  for (size_t k = 0; k < a->panels.size(); ++k) {
+    if (!dirty[k]) continue;
+    const Panel& pn = a->panels[k];
+    uint8_t oldState = r.state[k];
+    rebuildPanel(r, k);
     ++touched;
     if (hitIds) hitIds->push_back(pn.id);
-    if (newlyBreached && oldState != PANEL_BREACHED && r.state[b.k] == PANEL_BREACHED) ++*newlyBreached;
+    if (newlyBreached && oldState != PANEL_BREACHED && r.state[k] == PANEL_BREACHED) ++*newlyBreached;
+  }
+  // broken trim takes its sash / door / shutters with it, and falls out of the wall in pieces
+  if (!trimBroken.empty()) {
+    Instance* inst = doc.find(r.id);
+    for (int g : trimBroken) {
+      const TrimGroup& t = a->trims[g];
+      for (int k : t.interact) {
+        if (k < 0 || k >= (int)a->interactables.size() || k >= (int)r.leafSt.size()) continue;
+        const InteractDef& d = a->interactables[k];
+        for (size_t l = 0; l < d.leaves.size() && l < r.leafSt[k].size(); ++l) {
+          if (r.leafSt[k][l] & 2) continue;
+          bool body = k < (int)r.leafBodies.size() && l < r.leafBodies[k].size() && r.leafBodies[k][l] != 0xffffffffu;
+          if (effects && inst && body && !d.leaves[l].colliders.empty()) {
+            vec3 c = vec3(leafMatrix(*inst, d.leaves[l], d, r.progress[k]) * vec4(d.leaves[l].colliders[0].center, 1));
+            vec3 dw = vec3(instanceMatrix(*inst) * vec4(e.kind == WALL_GRENADE ? vec3(0, 1, 0) : dn0, 0));
+            detachLeaf(*inst, r, k, (int)l, dw * 60.0f + vec3(0, 20, 0), c, true);
+          }
+          if (!(r.leafSt[k][l] & 2)) {   // replay (no effects) or a leaf no weapon breaks: gone with its frame all the same
+            r.leafSt[k][l] |= 3;
+            if (body) { Physics::remove(r.leafBodies[k][l]); r.leafBodies[k][l] = 0xffffffffu; }
+          }
+        }
+      }
+      if (effects && inst) trimPieces(*this, *inst, r, g, e);
+    }
   }
   // a bounded handful of masonry / timber fragments thrown out of the far side and back toward the shooter
   if (effects && !removedAt.empty()) {
@@ -481,6 +827,7 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
   w.chamfers = chamfers;
   r.state[k] = w.openArea >= destruction.breachArea ? PANEL_BREACHED : w.removedFrac > 1e-5f ? PANEL_DAMAGED : PANEL_INTACT;
   r.hp[k] = r.state[k] == PANEL_BREACHED ? 0.0f : pn.hp * (1.0f - std::min(1.0f, w.removedFrac * 2.5f));
+  if (pn.trim >= 0) { r.state[k] = w.removedFrac > 1e-5f ? PANEL_DAMAGED : PANEL_INTACT; r.hp[k] = w.removedFrac > 1e-5f ? 0.0f : pn.hp; }   // trim fell out of an opening: no new opening
   r.lastPanelMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
 }
 

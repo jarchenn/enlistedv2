@@ -276,7 +276,8 @@ int AssetDef::findInteract(const std::string& iid) const {
 // lintels, sills, upper floors) become damage-field bays, so every part of a wall takes impact-centred damage.
 // Parts sharing one face rectangle and touching along the thin axis are stacked as the layers of one bay
 // (stone + plaster skin). Furniture and foundations are left alone.
-static void extractWallPanels(AssetDef& a, std::vector<Panel>& out) {
+static void extractTrim(AssetDef& a, const json& j, std::vector<Panel>& out, vec3 mid);
+static void extractWallPanels(AssetDef& a, std::vector<Panel>& out, const json& j) {
   auto matName = [&](const Part& p) { return p.mat >= 0 && p.mat < (int)a.materials.size() ? a.materials[p.mat].name : std::string(); };
   auto isWallMat = [](const std::string& m) {
     static const char* k[] = {"stone", "stone_dressed", "plaster", "plaster_smoke", "render", "concrete", "concrete_wash", "brick", "plank_y", "plank_x", "plank_z", "log_x", "log_z"};
@@ -336,6 +337,86 @@ static void extractWallPanels(AssetDef& a, std::vector<Panel>& out) {
   std::vector<Part> keep;
   for (size_t i = 0; i < a.parts.size(); ++i) if (!remove[i]) keep.push_back(a.parts[i]);
   a.parts.swap(keep);
+  extractTrim(a, j, out, mid);
+}
+
+// Opening trim (docs/destruction.md#trim): the frame, jambs, head, sills, lintels, hood moulds and threshold of every
+// door / window interactable are static parts outside the bays. They are found by adjacency to the opening (the
+// interactables' aperture boxes give its rectangle in the wall plane, the bays around it the wall slab) and by
+// material, and become one trim bay per opening that breaks whole (wallfield.cpp: blasts and shells within its radius,
+// the bays under or beside it giving way, a tank ramming it). Iron doors and steel shutters keep their frames.
+static void extractTrim(AssetDef& a, const json& j, std::vector<Panel>& out, vec3 mid) {
+  auto matName = [&](const Part& p) { return p.mat >= 0 && p.mat < (int)a.materials.size() ? a.materials[p.mat].name : std::string(); };
+  auto trimMat = [&](const Part& p) {
+    if (p.mat < 0 || p.mat >= (int)a.materials.size() || a.materials[p.mat].pattern == PAT_GLASS) return false;
+    std::string m = matName(p);
+    static const char* no[] = {"terracotta", "floor_x", "concrete_floor", "slate", "ridge_tile", "stone_plinth", "zinc", "soot", "hearthstone", "tread_x"};
+    for (auto* s : no) if (m == s) return false;
+    return m.rfind("concrete", 0) != 0 && m.rfind("steel", 0) != 0 && m.find("bunker") == std::string::npos;
+  };
+  struct Op { std::vector<int> ks; int an; float u0, u1, v0, v1, e0, e1; };   // e: aperture depth along the normal
+  std::vector<Op> ops;
+  const json ij = j.value("interactables", json::array());
+  for (size_t k = 0; k < ij.size(); ++k) {
+    const json& d = ij[k];
+    if (d.value("sound", "wood") == "steel" || !d.contains("aperture")) continue;
+    vec3 mn = jvec3(d["aperture"]["min"]), mx = jvec3(d["aperture"]["max"]), s = mx - mn;
+    if (s.y < 0.3f || s.y < std::min(s.x, s.z)) continue;   // hatches and flaps lying flat: not a wall opening
+    int an = s.x < s.z ? 0 : 2, au = an == 0 ? 2 : 0;
+    Op o{{(int)k}, an, mn[au], mx[au], mn.y, mx.y, mn[an], mx[an]};
+    bool merged = false;
+    for (auto& q : ops) {   // a window's casement and its shutters are one opening
+      if (q.an != an || o.u0 > q.u1 + 0.05f || o.u1 < q.u0 - 0.05f || o.v0 > q.v1 + 0.05f || o.v1 < q.v0 - 0.05f) continue;
+      if (std::fabs(0.5f * (o.e0 + o.e1) - 0.5f * (q.e0 + q.e1)) > 1.3f) continue;
+      q.ks.push_back((int)k); q.u0 = std::min(q.u0, o.u0); q.u1 = std::max(q.u1, o.u1); q.v0 = std::min(q.v0, o.v0); q.v1 = std::max(q.v1, o.v1);
+      q.e0 = std::min(q.e0, o.e0); q.e1 = std::max(q.e1, o.e1); merged = true; break;
+    }
+    if (!merged) ops.push_back(o);
+  }
+  if (ops.empty()) return;
+  // wall bays (authored and converted) as boxes, for the wall slab each opening is cut through
+  std::vector<std::pair<vec3, vec3>> bays;
+  for (auto& pn : out) bays.push_back({pn.bmin, pn.bmax});
+  for (auto& pj : j.value("panels", json::array())) bays.push_back({jvec3(pj["min"]), jvec3(pj["max"])});
+  std::vector<bool> taken(a.parts.size(), false);
+  for (auto& o : ops) {
+    int an = o.an, au = an == 0 ? 2 : 0;
+    float d0 = 1e9f, d1 = -1e9f;
+    for (auto& [bmn, bmx] : bays) {
+      vec3 s = bmx - bmn;
+      if (!(s[an] <= s[au] && s[an] <= s.y) || s[an] > 1.3f) continue;   // a wall facing along this normal
+      if (bmn[au] > o.u1 + 0.1f || bmx[au] < o.u0 - 0.1f || bmn.y > o.v1 + 0.1f || bmx.y < o.v0 - 0.1f) continue;
+      if (bmx[an] < o.e0 - 0.7f || bmn[an] > o.e1 + 0.7f) continue;
+      d0 = std::min(d0, bmn[an]); d1 = std::max(d1, bmx[an]);
+    }
+    if (d0 > d1) { d0 = o.e0 - 0.3f; d1 = o.e1 + 0.3f; }
+    Panel pn;
+    pn.id = "trim/" + ij[o.ks[0]].value("id", std::string("opening"));
+    pn.family = "trim"; pn.hp = 60.0f; pn.trim = (int)a.trims.size();
+    pn.bmin = vec3(1e9f); pn.bmax = vec3(-1e9f);
+    for (size_t i = 0; i < a.parts.size(); ++i) {
+      const Part& p = a.parts[i];
+      if (taken[i] || (!p.visible && !p.collide) || p.playerOnly || !trimMat(p)) continue;
+      std::vector<vec3> cs; partCorners(p, cs);
+      vec3 mn(1e9f), mx(-1e9f); for (auto& c : cs) { mn = glm::min(mn, c); mx = glm::max(mx, c); }
+      if (mx[an] < d0 - 0.08f || mn[an] > d1 + 0.08f) continue;                                   // in the wall slab (sill noses, hood moulds)
+      if (mn[au] < o.u0 - 0.45f || mx[au] > o.u1 + 0.45f || mn.y < o.v0 - 0.45f || mx.y > o.v1 + 0.45f) continue;   // not a wall-sized slab
+      if (mx[au] < o.u0 - 0.12f || mn[au] > o.u1 + 0.12f || mx.y < o.v0 - 0.1f || mn.y > o.v1 + 0.12f) continue;   // touches the opening
+      taken[i] = true;
+      pn.parts[0].push_back(p);
+      pn.bmin = glm::min(pn.bmin, mn); pn.bmax = glm::max(pn.bmax, mx);
+    }
+    if (pn.parts[0].empty()) continue;
+    pn.normal = vec3(0); pn.normal[an] = 0.5f * (d0 + d1) >= mid[an] ? 1.0f : -1.0f;
+    TrimGroup g;
+    g.interact = o.ks; g.an = an; g.u0 = o.u0; g.u1 = o.u1; g.v0 = o.v0; g.v1 = o.v1; g.d0 = d0; g.d1 = d1;
+    g.bmin = pn.bmin; g.bmax = pn.bmax; g.parts = (int)pn.parts[0].size();
+    a.trims.push_back(g);
+    out.push_back(std::move(pn));
+  }
+  std::vector<Part> keep;
+  for (size_t i = 0; i < a.parts.size(); ++i) if (!taken[i]) keep.push_back(a.parts[i]);
+  a.parts.swap(keep);
 }
 
 bool AssetLibrary::loadOne(const fs::path& path) {
@@ -369,7 +450,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   }
   for (auto& pj : j.value("parts", json::array())) a->parts.push_back(parsePart(pj, mats));
   std::vector<Panel> autoPanels;
-  if (!j.value("noAutoPanels", false)) extractWallPanels(*a, autoPanels);   // piers, corners, lintels, upper floors: destructible too
+  if (!j.value("noAutoPanels", false)) extractWallPanels(*a, autoPanels, j);   // piers, corners, lintels, upper floors, opening trim: destructible too
   a->furnFirst = a->parts.size();
   for (auto& fj : j.value("furniture", json::array())) {
     a->furnitureNames.push_back(fj.value("name", "item"));
@@ -508,6 +589,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     if (pn.shape[0]) intactShapes.push_back(pn.shape[0]);
     a->panels.push_back(std::move(pn));
   }
+  for (size_t k = 0; k < a->panels.size(); ++k) if (a->panels[k].trim >= 0) a->trims[a->panels[k].trim].panel = (int)k;
   a->panelsIntact.upload(allIntact);
   a->wallsIntact = Physics::buildCompound(intactShapes);
   a->bmin = vec3(1e9f); a->bmax = vec3(-1e9f);
@@ -587,7 +669,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   }
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
-  logf("asset %-28s %5zu parts %3zu interactables %3zu panels %6d tris", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), (int)((op.i.size() + allIntact.i.size()) / 3));
+  logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3));
   assets.push_back(std::move(a));
   return true;
 }

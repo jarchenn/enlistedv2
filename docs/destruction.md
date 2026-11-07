@@ -17,6 +17,7 @@
 - At load, structural slabs that were plain parts are converted into bays (`auto/<part>`): piers between openings, corners and quoins, lintels, sills, and upper floors.
 - Parts sharing a face rectangle stack into one layered bay.
 - Furniture and foundations are never converted.
+- The trim of every door and window becomes one trim bay per opening ([below](#trim)).
 - The farmhouse went from 27 to 115 bays, the casemate to 23.
 
 **One impact, one stamp, at the true contact point.**
@@ -80,12 +81,68 @@ The radius scales with (damage / reference)^¼ and the removal depth with √(da
   - Each piece is its own small Jolt body. It gets its share of the impulse, concentrated around the hit, plus a push out of the frame and some scatter.
   - The farmhouse front door gives 12 pieces in the test. Splinters and paint flakes are thrown as cosmetic debris.
   - The live rigid-body cap is 64 (was 24). Past it, the oldest piece freezes where it lies.
+- **Window sashes break the same way.** A casement takes 5 rounds into its frame (its glass still goes on the first round into a pane), or a blast within its radius. Its panes burst, then the sash splits into stile and rail pieces, each its own rigid body. Before this update only the glass could break.
 - **Wooden shutters** come off whole, with the struck plank split (unchanged).
 - **Iron doors, steel shutters and steel flaps are unbreakable.** Every opening whose sound is `steel` is affected: the bunker doors, the casemate embrasure shutter and the viewing and loophole flaps. No weapon breaks them:
   - rounds ring off;
   - blasts of any kind (HE, AP, rocket, grenade) leave them;
   - `detachLeaf` itself refuses them, so no other caller can break them either.
   - Tested: 40 rifle rounds and all four blast kinds at 0.3 m on each steel leaf of the casemate.
+
+<a id="trim"></a>
+## Frames, sills and lintels (trim)
+
+**What changed and why.** Before this update, the frame, jambs, head, sills, lintels, hood moulds and threshold of every door and window were permanent static parts. A shell could take out the sash or the door and the wall around it, and the frame still stood in the air. Now they break.
+
+**Binding, at load (`extractTrim`, `src/assets.cpp`).** No asset is regenerated.
+- Each door or window interactable gives its opening: the aperture boxes of the casement and its shutters are merged into one rectangle in the wall plane.
+- The bays around the opening give the wall slab.
+- The **trim** is every remaining static part that touches the opening (within 0.12 m), stays within 0.45 m of it and lies in the slab: frames (`window_paint`, oak), sills and lintels (`stone_dressed`), the inner timber lintels, thresholds, and slivers of wall too small to be bays.
+- Floors, roofs, the plinth, glass, concrete and steel are never trim. Iron doors and steel shutters keep their frames, so bunker openings are unchanged.
+- Measured: the two-storey farmhouse binds 10 openings (8 windows, 2 doors, 72 parts), the cottage 4, the Norman farmhouse 8 and the village inn 29. Bunkers bind none.
+- The trim of one opening becomes one **trim bay** (`trim/<interactable id>`, family `trim`). It is drawn and collides like any other bay, so the intact building looks and blocks exactly as before.
+- A trim bay is never cratered: it stands, or it breaks whole.
+
+**It breaks when** any of these happens:
+
+| Cause | Rule (game tuning) |
+|---|---|
+| Blast or shell | The impact lands within reach of the trim's box: HE 0.5 m, AP 0.35 m, rocket 0.4 m, grenade 0.45 m, scaled with √strength like the stamp radius. Small arms never break trim |
+| Support lost | Half the cells of the band that carries it are open through: the 0.3 m of wall under the sill, or the 0.3 m beside either jamb |
+| A tank | Ramming the frame, or touching the building's static core within 0.35 m of it (see [docs/tanks.md](tanks.md#ramming)) |
+
+**What breaks with it.**
+- The sash, door and shutters of the opening go too: shattered (rigid-body pieces) when the break is live, removed in replay.
+- The frame members, sills and lintels fall out as pieces. Each part is split along its length into one to three pieces, at most 14 per opening, each its own small rigid body thrown with the shot. They share the debris bodies of shattered doors (the cap of 64 live bodies applies).
+- The bays over the opening lose the lintel they rested on (below).
+
+<a id="support"></a>
+## Support between bays
+
+The unsupported-fragment pass keeps material connected to a bay's edges, so before this update a bay stood whatever happened to the bay under it. Now, after every impact that opens a hole through a wall or breaks trim, a support pass runs over the building copy.
+
+**What a bay rests on.** Once per asset, each bay's edges are probed half a cell outside them. Across each edge cell there is one of these:
+- another bay, read live;
+- a static part or the ground;
+- the trim of an opening, which holds while it stands;
+- nothing (the inside of an opening).
+
+A bay's bottom edge is supported where the bay below is solid, on static parts and the ground, and over an opening while its trim stands. Openings without trim, such as partition doorways, still count as supported, as before.
+
+**What falls.**
+- **Arch rule.** Over a span of the bottom edge that has lost its support, the bay's material falls in a triangle 60° steep (archSlope = tan 60°). This is the lintel load rule: masonry over a gap arches, and only the triangle over the gap comes down. Spans under 0.3 m hold.
+- **Spans across seams.** Where the lost span runs on past the bay's side, into an opening, broken trim, a hole, or a neighbour whose own bottom is lost there, the triangle does not close at the seam. So a breach under two bays brings down one large triangle, not two small ones.
+- **Leftovers.** What is left of the bay stays only where it touches something that holds. That means a supported bottom cell, or a solid neighbour, static part or standing trim at its sides or top. Anything else falls. A remnant under 12 % of the bay falls too.
+- **Cascade.** The pass repeats until nothing changes: a collapsed spandrel can undermine the sill of the window above it.
+
+**Measured in `--selftest-damage`** (two-storey farmhouse):
+- **Small hole.** A rocket opens 0.26 m² at the top of a ground-floor bay. The first-floor bay over it loses 1 %, and no bay collapses.
+- **Destroyed bay.** AP shots across the top of the same ground-floor bay. The first-floor bay over it loses 45 % (7 % with the support rule off: the stamps' own reach).
+- **Spandrel.** An HE shell on the pier 0.3 m beside a window breaks its trim. The spandrel over the window comes down. With the rule off, the same shell leaves the spandrel standing.
+- **Sill.** One AT shot 0.55 m under a sill, beyond the shell's trim reach, drops the sill, frame and lintels through lost support.
+- **Cost.** The support pass added up to 90 ms over every impact of the suite up to that check (it runs only after an impact that opens a hole through a wall or breaks trim).
+
+**Deterministic.** The trim and support rules are a function of the stored impact events. A tank's ram on trim is stored too, as a `WALL_RAM` event. So `replayWallDamage` rebuilds them exactly: save and load, Apply, undo and LAN late join (tested). `destruction.support = false` turns the support rule off (A/B in the self-test).
 
 ## Ground (craters)
 
@@ -118,6 +175,8 @@ The radius scales with (damage / reference)^¼ and the removal depth with √(da
 
 ## Known limits
 
+- **Support is per wall plane.** Bays only rest on bays in the same wall slab, on static parts and on the ground. Floors and roofs carry no load in the support pass, and a wall does not fall because the floor behind it went.
+- **Trim pieces** are rigid-body debris with no further damage. Openings without an interactable (partition doorways, unglazed ruin windows, loopholes) have no trim bay; their frames stay static.
 - **Roofs and stairs.** Sloped roofs and stair treads are not converted to bays (rotated or small parts), so they don't take local damage yet. Upper floors do.
 - **Debris** is cosmetic: pooled boxes with simple physics and no collision with the player.
 - **Crouching through holes.** A crouched capsule is 1.2 m tall plus 2 cm padding, so a breach must be open about 1.25 m high. `--selftest-damage` opens a 0.8 × 1.26 m breach in a fresh 1.2 m MG-casemate wall and crawls through it crouched. The earlier wedge in the 1 m casemate came from a hole lower than the capsule, not from the controller. The farmhouse crouch-through also works.

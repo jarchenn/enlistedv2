@@ -574,6 +574,36 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       summary["ram_house_push_s"] = tBreach - tPush;
       shotQueue.push_back("tanks_14_house_breached");
       return true; }});
+    // a doorway: the frame, jambs and threshold go (the trim margin breaks instead of blocking), the piers are pushed
+    seq.push_back({"ram: through a doorway", [this](App& a, float t) {
+      TankRT& k = T(a, SH);
+      static uint64_t H3; static int g; static vec3 n, door; static bool odd; static std::string blocks; static int tr0;
+      if (t == 0) {
+        H3 = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-150, 0, 115), 0.0f);
+        a.syncRuntime();
+        const AssetDef* ha = H3 ? a.rt[H3].asset : nullptr;
+        g = -1;
+        if (ha) for (size_t q = 0; q < ha->trims.size() && g < 0; ++q) for (int kk : ha->trims[q].interact) if (ha->interactables[kk].kind == "door") { g = (int)q; break; }
+        if (g < 0) { check(false, "a second cottage with a door frame placed for the doorway ram"); return true; }
+        const TrimGroup& tg = ha->trims[g];
+        vec3 nl = ha->panels[tg.panel].normal, c(0);
+        c[tg.an == 0 ? 2 : 0] = 0.5f * (tg.u0 + tg.u1); c[tg.an] = nl[tg.an] > 0 ? tg.d1 : tg.d0;
+        Instance* h = a.doc.find(H3);
+        door = h->pos + yawQuat(h->yaw) * c; door.y = 0; n = yawQuat(h->yaw) * nl;
+        place(a, SH, door + n * (k.def->halfSize.z + 6.0f), glm::degrees(std::atan2(-n.x, -n.z)));
+        a.scriptedInput.move = vec2(0, 1); odd = false; blocks.clear(); tr0 = a.tanks.trimRams;
+      }
+      if (!k.blockedBy.empty() && k.blockedBy.rfind("pushing", 0) != 0) { odd = true; if (blocks.find(k.blockedBy) == std::string::npos) blocks += k.blockedBy + "; "; }
+      vec3 front = k.pos - n * k.def->halfSize.z;
+      bool passed = glm::dot(door - front, n) > 1.5f;
+      if (!passed && t < 40) return false;
+      a.scriptedInput.move = vec2(0);
+      bool trimGone = !a.trimIntact(a.rt[H3], g);
+      std::snprintf(b_, sizeof b_, "a tank driven at the cottage door goes through the doorway (front %.1f m inside after %.1f s): the frame breaks (%s, %d by ramming), nothing at the opening blocks it%s%s",
+                    glm::dot(door - front, n), t, trimGone ? "gone" : "standing", a.tanks.trimRams - tr0, odd ? ": blocked by " : "", blocks.c_str());
+      check(passed && trimGone && !odd, b_);
+      shotQueue.push_back("tanks_14b_doorway");
+      return true; }});
     seq.push_back({"bunker concrete holds", [this](App& a, float t) {
       TankRT& k = T(a, SH);
       Instance* c = a.doc.find(WALLT);
@@ -775,6 +805,10 @@ void SelfTest::tanksUpdate(App& app, float dt) {
           // path from 14 m out is clear: the window's own leaf first when closed, nothing before 0.35 m inside when open
           static std::set<int> used;
           k = -1;
+          // the earlier shells detonated inside the cottage and broke windows on the far wall with their trim (frames,
+          // sashes and their pieces in the openings): start the open-window shot from the restored house
+          if (open) a.resetDamage();
+          std::string why;
           for (size_t q = 0; q < ha->interactables.size() && k < 0; ++q) {
             auto& d = ha->interactables[q];
             bool glass = false; for (auto& lf : d.leaves) glass = glass || lf.glass.count > 0;
@@ -797,9 +831,10 @@ void SelfTest::tanksUpdate(App& app, float dt) {
               if (open) ok = !hit || hh.t > 14.35f;
               else { int lf2 = -1; bool onG = false; ok = hit && hh.ud == ((HOUSE << 16) | (uint64_t)(q + 1)) && a.locateLeaf(*h, r, (int)q, hh.pos, lf2, onG) && onG; }
               if (ok) { k = (int)q; c = cw; n = nw; break; }
+              if (why.size() < 300) why += " " + d.id + ":" + firstHit(a, cw + nw * 14.0f, -nw, 16.0f);
             }
           }
-          if (k < 0) { check(false, std::string(label) + ": a glazed cottage window with a clear shot"); return true; }
+          if (k < 0) { check(false, std::string(label) + ": a glazed cottage window with a clear shot (blocked:" + why + ")"); return true; }
           used.insert(k);
           pathInfo = firstHit(a, c + n * 14.0f, -n, 16.0f);
           i0 = a.lastImpact.time;
