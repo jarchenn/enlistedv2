@@ -46,27 +46,21 @@ json sSum = json::object();
 bool writeThumb(App& app, const fs::path& p) {
   std::vector<uint8_t> px; int w = 0, h = 0;
   if (!app.R.readPixels(px, w, h) || w < 64 || h < 64) return false;
-  // crop to 16:10 about the centre, box-filter to 320 x 200, place in the middle 60 % band of a square-ish canvas
+  // crop to 16:10 about the centre and box-filter to a plain 320 x 200 PNG (the New Map tile's aspect; the loader,
+  // w5TemplateThumbnail, pads it into the band the dialog samples)
   int cw = std::min(w, (int)(h * 1.6f)), ch = (int)(cw / 1.6f), x0 = (w - cw) / 2, y0 = (h - ch) / 2;
-  const int TW = 320, TH = 200, CH = 334, off = (CH - TH) / 2;
-  std::vector<uint8_t> out((size_t)TW * CH * 4, 0);
-  for (size_t k = 3; k < out.size(); k += 4) out[k] = 255;
+  const int TW = 320, TH = 200;
+  std::vector<uint8_t> out((size_t)TW * TH * 4, 255);
   for (int y = 0; y < TH; ++y)
     for (int x = 0; x < TW; ++x) {
       int sx0 = x0 + x * cw / TW, sx1 = x0 + (x + 1) * cw / TW, sy0 = y0 + y * ch / TH, sy1 = y0 + (y + 1) * ch / TH;
       double acc[3] = {0, 0, 0}; int n = 0;
       for (int sy = sy0; sy < std::max(sy1, sy0 + 1); ++sy)
         for (int sx = sx0; sx < std::max(sx1, sx0 + 1); ++sx) { const uint8_t* q = &px[((size_t)(h - 1 - sy) * w + sx) * 4]; for (int c = 0; c < 3; ++c) acc[c] += q[c]; ++n; }
-      uint8_t* o = &out[((size_t)(y + off) * TW + x) * 4];
+      uint8_t* o = &out[((size_t)y * TW + x) * 4];
       for (int c = 0; c < 3; ++c) o[c] = (uint8_t)(acc[c] / std::max(1, n));
     }
-  // top / bottom bands: repeat the edge rows, darkened (they are cropped away by the dialog anyway)
-  for (int y = 0; y < CH; ++y) {
-    if (y >= off && y < off + TH) continue;
-    int src = y < off ? off : off + TH - 1;
-    for (int x = 0; x < TW; ++x) for (int c = 0; c < 3; ++c) out[((size_t)y * TW + x) * 4 + c] = out[((size_t)src * TW + x) * 4 + c] / 2;
-  }
-  return stbi_write_png(p.string().c_str(), TW, CH, 4, out.data(), TW * 4) != 0;
+  return stbi_write_png(p.string().c_str(), TW, TH, 4, out.data(), TW * 4) != 0;
 }
 double blankFraction(const fs::path& p) {
   int w = 0, h = 0, n = 0;
