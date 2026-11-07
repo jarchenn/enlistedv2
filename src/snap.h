@@ -59,8 +59,9 @@ ShapePtr snapShape(App& app, const Instance& i, const AssetDef* a);
 // mesh of an asset with the given joined-socket mask (tests); nullptr if the asset has no sockets
 const GpuMesh* snapMesh(App& app, const AssetDef* a, uint32_t mask, std::vector<vec3>* tris = nullptr);
 
-// crush & flatten: checkPlacement hook (taller vegetation blocks) and placeInstance / move hook (removes the low
-// vegetation under the footprint and flattens the ground to the base with a feathered skirt; the caller pushed undo)
+// crush & flatten: checkPlacement hook (taller vegetation blocks) and the editor's Place tool / drag-move hook (removes
+// the low vegetation under the footprint and flattens the ground to the base with a feathered skirt; the caller pushed
+// undo). Not called from placeInstance: templates, tests and map tools place without touching the ground.
 bool crushBuilding(const AssetDef* a);
 bool crushVegetation(const AssetDef* b);   // growth / nature a building crushes or is blocked by (not hedgerow banks, not scatter patches)
 bool crushBlocked(const App& app, const AssetDef* a, vec3 pos, float yaw, uint64_t ignoreId, std::string& reason);

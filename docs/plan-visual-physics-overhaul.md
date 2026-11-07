@@ -383,7 +383,7 @@ After each batch:
     - The trench parapet/parados slabs end on the joint plane: 8.0 m, not 8.4. The bocage battered sides reach the piece ends.
     - Parts tagged `"cap": n` close free ends: wattle end wall plus fill for trenches, a rounded bank end for hedgerows. They are hidden, and their collision removed, while socket n is joined. Faces on a joined end's plane are dropped too (`snapMesh`).
     - World-space patterns: `DrawItem::apWorld` becomes `uSnapAp`, with one uniform plus one line in `kMainVS`. V1 has been told. Hooks: `app.cpp` (buildings and paths draw), `foliage.cpp` (hedgerow banks).
-  - **Crush and flatten** (`crushBlocked` in `checkPlacement`; `crushAndFlatten` in `placeInstance` and on a move release):
+  - **Crush and flatten** (`crushBlocked` in `checkPlacement`; `crushAndFlatten` from the editor Place tool (`editor.cpp`) and on a move release; not from `placeInstance`, so templates, tests and map tools leave the ground alone. Batch C fix: it used to run inside `placeInstance` and broke the damage and pak `terrain.tiles.empty()` restore checks):
     - Applies to building categories and to enterable assets with wall bays and no terrain cut.
     - Removes trees, bushes and nature instances of 1.6 m or less under the footprint (+0.3 m). Taller growth blocks the placement with a message.
     - Flattens `doc.terrainDeltas` to the base with a 2.5 m smoothstep skirt (Creative only; other pieces' cuts are kept), then calls `resetGround()`. Growth left in the skirt is re-seated. It is one undo step with the placement.
@@ -394,7 +394,7 @@ After each batch:
     - `structures` re-run for the trench and hedge tours (joined entry pieces now open their caps).
     - Results (build-vo6, all through `gpu_turn.sh`): snap 41/0, editor 76/0, nature 97/0, structures 642/0.
   - **Changes outside V6's own files** (shared-file hooks are one or two lines each):
-    - `app.cpp`: `buildRT` shape, two draw hooks, `checkPlacement` (`snapFit`, `crushBlocked`, overlap skip), `placeInstance`, the `--selftest-snap` flag.
+    - `app.cpp`: `buildRT` shape, two draw hooks, `checkPlacement` (`snapFit`, `crushBlocked`, overlap skip), the `--selftest-snap` flag.
     - `foliage.cpp`: one draw hook. `render.h/.cpp`: `apWorld` and `uSnapAp`.
     - `selftest_nature.cpp`: the crush step, and the existing patch test now removes its house with undo, not delete (only undo restores flattened ground).
     - Generator fixes in `trenchRun`: the fill now ends on its own mitred end points (it overshot zig-zag ends by 0.14 m), and duckboards stay inside the piece.
