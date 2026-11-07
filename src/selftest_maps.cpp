@@ -383,7 +383,10 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         Perf q; q.name = v.name + (sPresetPass == 1 ? "@low" : "@high"); q.gate = true; q.preset = (int)ps; sPerf.push_back(q);
         stageTime = 0; sLast = 0; break;
       }
-      if (sPresetPass) { settings().applyPreset(app, GfxPreset::Medium); sPresetPass = 0; }
+      if (sPresetPass) {   // back to Medium: the next view gets 2 s more to settle (grass / targets rebuild from High)
+        settings().applyPreset(app, GfxPreset::Medium); sPresetPass = 0;
+        ++sVi; stageTime = -2.0; sViewInit = false; break;
+      }
       ++sVi; stageTime = 0; sViewInit = false;
     }
     break;

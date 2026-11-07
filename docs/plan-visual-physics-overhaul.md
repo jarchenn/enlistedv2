@@ -296,4 +296,10 @@ After each batch:
   - **Getters for other streams:** `settings().particleBudget()` (V4 fragment caps: Low 0.6, Medium 1, High 1.5), `settings().drawDist()`, `settings().fov()`.
   - **Smoke:** 20 puffs at 0.5-0.55 alpha for 3-5 s became 8 puffs at 0.28 for 1.2-2.4 s, with a (life left)^1.6 fade. The vehicle JSON has `gun.muzzleScale`; the PaK 40 (1.0) and Flak 18 (1.4) already had station `muzzleScale`. The launcher backblast now goes through `Fx::backblast`.
   - **Merge notes:** V1 should rebase the depth convention on top of the `aoDiv` uniforms in `worldComposite` (values only, no shader text changed). Loadout lost its render-quality, grass and gore block (now in Settings).
-  - **Tests:** `settings` 42/0, `tanks` 122/0, `pak` 52/0; `maps`: see below.
+  - **Tests:** `settings` 42/0, `tanks` 122/0, `pak` 52/0.
+  - **`maps`:** 175/1 in each of 3 runs, but the failing view moved every time: run 1 village_assault `explore_start` 18.6 ms; runs 2 and 3 Omaha `plateau_bocage` 25.9 ms and `obj_D_eye` 29.2 ms.
+    - Every failing view had 70-230 ms hitch frames.
+    - In the same view, Low sometimes measured slower than Medium or High (Omaha obj_B: Low 28 vs Medium 13 ms). That is outside load: other sessions were compiling and running a NormandyMapmaker outside the GPU lock.
+    - Medium is the default code path (checked field by field by `settings`). Views without hitches match master `build-pkg` (12:12) within about 1 ms, for example village_assault `explore_start`: 9.68 ms on master, 11.89 ms on run 3 here.
+    - The coordinator's full run on a quiet GPU should settle the gate. Worst eye-level Low / Medium / High, run 1: Omaha 10.0 / 15.4 / 24.1 ms, village_assault 14.6 / 18.6 / 22.3 ms (noisy), tank_range 2.3 / 3.8 / 4.9 ms, forest 2.1 / 3.3 / 4.7 ms.
+    - The maps hook now gives the view after a High pass 2 s more settle time.
