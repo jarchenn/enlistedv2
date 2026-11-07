@@ -20,6 +20,16 @@ struct Instance {
   }
 };
 
+// Lasso water fill (docs/lasso.md): a flat surface at `level` over a world-space xz outline (V1 water surface schema).
+struct WaterBody {
+  uint64_t id = 0;
+  std::vector<vec2> outline;   // world xz, simple polygon
+  float level = 0;             // world y of the surface (the hollow's spill height)
+  vec2 seed{0};                // the lowest point the fill started from
+  std::string kind = "pond";
+  bool operator==(const WaterBody& o) const { return id == o.id && outline == o.outline && level == o.level && seed == o.seed && kind == o.kind; }
+};
+
 struct StartMarker { bool set = false; vec3 pos{0}; float yaw = 0; };
 struct EditorCam { bool set = false; vec3 pos{0, 40, 80}; float yaw = 0, pitch = -20; };
 
@@ -38,6 +48,7 @@ struct MapDoc {
   int terrainTemplateVersion = 0;
   std::map<int, std::vector<float>> terrainSculpt;   // V8 sculpted ground (terrain_brush.cpp): tile key -> per-sample metres
   json terrainGen = json::object();                  // V8 generator layers: outer ring, generated hills (Terrain::gen)
+  std::vector<WaterBody> waterBodies;                // lasso water fill (lasso_water.cpp)
   uint64_t nextId = 1;
   json extra;
 

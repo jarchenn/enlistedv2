@@ -43,6 +43,16 @@ json mapToJson(const MapDoc& d) {
     j["terrainSculpt"] = {{"fineN", 36}, {"tiles", tiles}};
   }
   if (d.terrainGen.is_object() && !d.terrainGen.empty()) j["terrainGen"] = d.terrainGen;
+  if (!d.waterBodies.empty()) {   // lasso water fill (docs/lasso.md), mm precision
+    auto mm = [](float f) { return std::round(f * 1000.0f) / 1000.0f; };
+    json wb = json::array();
+    for (auto& w : d.waterBodies) {
+      json o = json::array();
+      for (vec2 p : w.outline) o.push_back(json::array({mm(p.x), mm(p.y)}));
+      wb.push_back({{"id", w.id}, {"kind", w.kind}, {"level", mm(w.level)}, {"seed", json::array({mm(w.seed.x), mm(w.seed.y)})}, {"outline", o}});
+    }
+    j["waterBodies"] = wb;
+  }
   if (d.camera.set) j["editorCamera"] = {{"position", tojson(d.camera.pos)}, {"yaw", d.camera.yaw}, {"pitch", d.camera.pitch}};
   if (d.camera.set && d.cameraBookmarks.is_object() && !d.cameraBookmarks.empty()) j["editorCamera"]["bookmarks"] = d.cameraBookmarks;
   return j;
@@ -91,6 +101,16 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
     n.extra.erase("terrainSculpt");
   }
   if (j.contains("terrainGen") && j["terrainGen"].is_object()) { n.terrainGen = j["terrainGen"]; n.extra.erase("terrainGen"); }
+  if (j.contains("waterBodies") && j["waterBodies"].is_array()) {   // lasso water fill
+    for (auto& o : j["waterBodies"]) {
+      WaterBody w;
+      w.id = o.value("id", 0ull); w.kind = o.value("kind", std::string("pond")); w.level = o.value("level", 0.0f);
+      if (o.contains("seed") && o["seed"].is_array() && o["seed"].size() >= 2) w.seed = vec2(o["seed"][0].get<float>(), o["seed"][1].get<float>());
+      for (auto& p : o.value("outline", json::array())) if (p.is_array() && p.size() >= 2) w.outline.push_back(vec2(p[0].get<float>(), p[1].get<float>()));
+      if (w.outline.size() >= 3) n.waterBodies.push_back(w);
+    }
+    n.extra.erase("waterBodies");
+  }
   n.name = j.value("name", "Untitled map");
   n.templateId = j["template"].value("id", "blank_slate");
   n.templateVersion = j["template"].value("version", 1);

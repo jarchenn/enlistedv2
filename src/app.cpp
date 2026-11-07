@@ -317,12 +317,13 @@ bool App::saveMapTo(const fs::path& p) {
 }
 
 // ============================================================ undo
-Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas, doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json(), doc.terrainSculpt, doc.terrainGen}; }
+Snapshot App::snap() const { return Snapshot{doc.instances, doc.start, doc.removedVegetation, selected, doc.terrainDeltas, doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json(), doc.terrainSculpt, doc.terrainGen, doc.waterBodies}; }
 void App::restore(const Snapshot& s) {
   bool groundChanged = doc.terrainDeltas != s.terrain || doc.terrainSculpt != s.sculpt;
   bool genChanged = doc.terrainGen != s.terrainGen;   // V8: outer ring / generated hills: the terrain is regenerated
   doc.instances = s.inst; doc.start = s.start; doc.removedVegetation = s.removedVeg; selected = s.selected;
   doc.terrainDeltas = s.terrain; doc.terrainSculpt = s.sculpt; doc.terrainGen = s.terrainGen;
+  doc.waterBodies = s.water;   // lasso water fill
   if (doc.extra.is_object() || !s.routes.is_null()) { if (!doc.extra.is_object()) doc.extra = json::object(); if (s.routes.is_null()) doc.extra.erase("routes"); else doc.extra["routes"] = s.routes; }   // ground-wear routes (auto paths)
   if (genChanged) { applyTemplate(doc.templateId); navSyncCuts(*this); }   // generate() drops the terrain cuts: re-cut now, not next frame
   if (groundChanged || genChanged) resetGround();
@@ -393,6 +394,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
   if (crushBlocked(*this, a, pos, yaw, ignoreId, c.reason)) { c.ok = false; return c; }   // V6: growth taller than the crush limit
   for (auto& o : doc.instances) {
     if (o.id == ignoreId || std::find(sf.neighbours.begin(), sf.neighbours.end(), o.id) != sf.neighbours.end()) continue;   // snapped neighbours touch
+    if (placeIgnore && std::find(placeIgnore->begin(), placeIgnore->end(), o.id) != placeIgnore->end()) continue;   // lasso group: members move together
     const AssetDef* b = assetFor(o);
     if (b->category == "Trees" || b->category == "Bushes" || b->category == "Nature" || b->nature.kind != NatureDef::NONE) continue;
     if (crushBuilding(a) && crushVegetation(b)) continue;   // V6: low growth is crushed, taller growth blocked above (crushBlocked)
