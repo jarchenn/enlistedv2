@@ -1,5 +1,6 @@
 #include "app.h"
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
+#include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
 #include "settings.h"
 #include "snap.h"
 #include "thumbs.h"
@@ -323,7 +324,7 @@ void App::restore(const Snapshot& s) {
   doc.instances = s.inst; doc.start = s.start; doc.removedVegetation = s.removedVeg; selected = s.selected;
   doc.terrainDeltas = s.terrain; doc.terrainSculpt = s.sculpt; doc.terrainGen = s.terrainGen;
   if (doc.extra.is_object() || !s.routes.is_null()) { if (!doc.extra.is_object()) doc.extra = json::object(); if (s.routes.is_null()) doc.extra.erase("routes"); else doc.extra["routes"] = s.routes; }   // ground-wear routes (auto paths)
-  if (genChanged) applyTemplate(doc.templateId);
+  if (genChanged) { applyTemplate(doc.templateId); navSyncCuts(*this); }   // generate() drops the terrain cuts: re-cut now, not next frame
   if (groundChanged || genChanged) resetGround();
   for (auto& i : doc.instances) i.rev = ++revCounter;  // force collider rebuild to the restored transforms
   dirty = true;
