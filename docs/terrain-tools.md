@@ -105,7 +105,7 @@ Patterns cover today's `nat_*`, `shrub_*` and `tree_*`, V1 `water_*`, V3 `rub_*`
 - it isn't in water and isn't too steep;
 - it passes `checkPlacement`, which covers overlap, grade and water.
 
-Existing placements and the terrain are never changed.
+Existing placements and the terrain are never changed, except under a pond Beautify places (V1 `wat_pond_*` carry a terrain cut, so the basin is dug like any placed pond's and saved with the map).
 
 ### 2. Outer ring
 
