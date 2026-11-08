@@ -106,51 +106,207 @@ def branch_tree(id_, name, desc, seed, trunk_h, r0, n_primary, prim_len, prim_pi
                      "canopy": canopy, "cardsPerSphere": density, "cardDensity": density, "leafSize": leaf_size, "leafColor": leaf_col, "seed": seed,
                      "note": "Hit points are game tuning: small-arms hits, or one AT / HE strike within 1.5 m of the trunk."}}
 
-save(branch_tree("tree_apple", "Apple tree (orchard)", "Low Normandy cider-orchard apple: short leaning bole, spreading limbs, clustered crown (~4.5 m).",
-                 11, 1.4, 0.14, 4, 1.5, 38, 2, 0.9, 0.95, [0.17, 0.25, 0.09], 0.19, 4.5, lean=(0.05, 0.02), extra_inner=3, density=62))
-save(branch_tree("tree_oak", "Hedgerow oak", "Pedunculate oak of the bocage: thick bole, wide irregular crown of many leaf clusters (~11 m).",
-                 13, 3.6, 0.38, 6, 3.2, 28, 3, 2.0, 1.6, [0.13, 0.2, 0.07], 0.22, 11.0, lean=(0.02, -0.03), extra_inner=6, density=58))
-save(branch_tree("tree_poplar", "Lombardy poplar", "Tall columnar poplar used as a windbreak along lanes (~16 m).",
-                 17, 12.0, 0.26, 8, 2.4, 74, 2, 1.4, 1.1, [0.19, 0.27, 0.1], 0.17, 16.0, columnar=True, extra_inner=8, density=56, mat="bark_pale"))
-save(branch_tree("tree_ash", "Ash tree", "Young field ash: slender grey bole, open upswept crown (~8 m).",
-                 23, 2.8, 0.2, 5, 2.2, 45, 2, 1.4, 1.15, [0.18, 0.26, 0.09], 0.19, 8.0, lean=(-0.03, 0.03), extra_inner=3, density=52, mat="bark_pale"))
 
 # ---- shrubs and hedges (bocage): woody stems under layered foliage; hedgerows sit on an earth bank
-def shrub(id_, name, desc, seed, spheres, stems, leaf_col, leaf_size, density, hp=15, bank=None, hedge=False):
+
+# ---- v3 nature models (NT pass): round tapered trunks with a root flare and buttress roots, curved tapering limbs with
+# twigs, clumped and layered leaf clusters, coppiced shrubs and hedges with bare stems at the foot. Tree colliders stay
+# the v2 trunk boxes (now invisible), so cover, damage, felling and the stump cut behave exactly as before; every visual
+# part is "k": 0. Shared helpers (other species can use them):
+#   seg3(parts, a, b, ra, rb, m, n)      one tapered round segment (B1 frustum "k") from point a to point b
+#   flare3(parts, r0, stump, m, rng)     root flare + buttress roots, all below the stump cut (they stay on the stump)
+#   trunk3(...) / limb3(...)             a wobbling tapered bole / a curved limb, as point lists
+#   clump3(canopy, c, r, rng, sats, out) a leaf cluster: a main sphere and smaller satellites pushed outward (lumpy)
+# Foliage assets split their parts at the stump cut by the part's own y extent (foliage.cpp), so anything meant to stay
+# on the stump must end below it; round parts never split, they go whole to the side their extent says.
+def mat3(name, albedo, rough=0.95):   # bark: the L4 bark set along the part's axis over a plain base (no plank seams)
+    return {"name": name, "albedo": albedo, "roughness": rough, "pattern": "plain", "texture": "bark", "metallic": 0, "grain": 1}
+
+
+BARK3 = [mat3("bark", [0.15, 0.125, 0.10], 0.96), mat3("bark_pale", [0.30, 0.29, 0.26], 0.9), mat3("bark_moss", [0.13, 0.15, 0.085], 0.97)]
+
+
+def seg3(parts, a, b, ra, rb, m, n=8):
+    d = [b[i] - a[i] for i in range(3)]
+    L = math.sqrt(sum(x * x for x in d))
+    pitch = math.degrees(math.asin(max(-1.0, min(1.0, d[1] / L))))
+    p = {"t": "k", "c": [round((a[i] + b[i]) / 2, 4) for i in range(3)], "s": [round(2 * ra, 4), round(L + 0.02, 4), round(2 * ra, 4)],
+         "top": round(min(1.0, rb / ra), 3), "seg": n, "m": m, "k": 0}
+    if abs(90 - pitch) > 0.05:
+        p["r"] = [round(90 - pitch, 2), round(math.degrees(math.atan2(d[0], d[2])), 2), 0]
+    parts.append(p)
+    return list(b)
+
+
+def along(pts, f):
+    """point at fraction f of a polyline (by segment count)"""
+    s = min(len(pts) - 2, int(f * (len(pts) - 1))); t = f * (len(pts) - 1) - s
+    return [pts[s][i] + (pts[s + 1][i] - pts[s][i]) * t for i in range(3)]
+
+
+def flare3(parts, r0, stump, m, rng, roots=5, n=12):
+    rb, rt = r0 * 1.55, r0 * 1.04
+    parts.append({"t": "k", "c": [0, round((stump - 0.15) / 2, 4), 0], "s": [round(2 * rb, 4), round(stump + 0.145, 4), round(2 * rb, 4)],
+                  "top": round(rt / rb, 3), "seg": n, "m": m, "k": 0})
+    y0 = stump * 0.3
+    for i in range(roots):
+        yaw = math.radians(360.0 * i / roots + rng.uniform(-20, 20)); p = math.radians(rng.uniform(-12, -5))
+        L = min(r0 * 2.4, 2 * (stump - 0.015 - y0) / (1 + math.sin(p)))   # top of the part's y extent stays under the cut
+        a = [math.sin(yaw) * r0 * 0.55, y0, math.cos(yaw) * r0 * 0.55]
+        d = [math.sin(yaw) * math.cos(p), math.sin(p), math.cos(yaw) * math.cos(p)]
+        seg3(parts, a, [a[k] + d[k] * L for k in range(3)], r0 * 0.42, r0 * 0.05, m, 6)
+
+
+def trunk3(parts, h, r0, r1, stump, lean, m, rng, nseg=3, n=12, wob=0.25):
+    pts, rad = [], []
+    for i in range(nseg + 1):
+        t = i / nseg; y = stump + (h - stump) * t
+        w = wob * r0 * (1 if 0 < i else 0)
+        pts.append([lean[0] * y + rng.uniform(-w, w), y, lean[1] * y + rng.uniform(-w, w)])
+        rad.append(r0 * 1.04 + (r1 - r0 * 1.04) * t ** 0.8)
+    for i in range(nseg):
+        seg3(parts, pts[i], pts[i + 1], rad[i], rad[i + 1], m, n)
+    return pts
+
+
+def limb3(parts, base, L, yaw, pitch, bend, ra, rb, m, nseg=2, n=7, rng=None):
+    pts = [list(base)]
+    for s in range(nseg):
+        pr = math.radians(pitch + bend * s / max(1, nseg - 1)); yr = math.radians(yaw + (rng.uniform(-8, 8) if rng else 0))
+        d = [math.sin(yr) * math.cos(pr), math.sin(pr), math.cos(yr) * math.cos(pr)]
+        pts.append([pts[-1][k] + d[k] * L / nseg for k in range(3)])
+        seg3(parts, pts[-2], pts[-1], ra + (rb - ra) * s / nseg, ra + (rb - ra) * (s + 1) / nseg, m, n)
+    return pts
+
+
+def clump3(canopy, c, r, rng, sats=2, out=(0.0, 0.0), up=0.25):
+    canopy.append((c[0], c[1] + r * up, c[2], r * rng.uniform(0.82, 0.95)))
+    for _ in range(sats):
+        a = rng.uniform(0, 2 * math.pi); e = rng.uniform(-0.3, 0.75)
+        d = [math.cos(e) * math.sin(a) + out[0] * 0.8, math.sin(e), math.cos(e) * math.cos(a) + out[1] * 0.8]
+        dl = math.sqrt(sum(x * x for x in d)); o = r * rng.uniform(0.6, 0.85) / dl
+        canopy.append((c[0] + d[0] * o, c[1] + r * up + d[1] * o, c[2] + d[2] * o, r * rng.uniform(0.45, 0.62)))
+
+
+def cards3(canopy, dens):   # leaf cards the engine builds for this canopy (foliage.cpp): draw-cost check
+    return sum(max(12, int(dens * c[3] * c[3] * 3)) for c in canopy)
+
+
+def tree3(id_, name, desc, seed, trunk_h, r0, n_primary, prim_len, prim_pitch, sec_per, sec_len, cluster_r, leaf_col, leaf_size,
+          height, lean=(0.0, 0.0), columnar=False, extra_inner=3, density=34, mat="bark", hp=30, bend=-14, roots=5, nseg=3, low=0.25):
     rng = random.Random(seed)
     parts = []
-    for (x, z, h) in stems:
-        limb(parts, [x, 0.0, z], h, rng.uniform(0, 360), rng.uniform(62, 85), 0.025, "bark")
+    for i in range(6):   # colliders: the v2 trunk boxes, unchanged, invisible
+        y0, y1 = trunk_h * i / 6, trunk_h * (i + 1) / 6
+        r = r0 + (r0 * 0.72 - r0) * (i + 0.5) / 6
+        parts.append(box([lean[0] * (y0 + y1) * 0.5, (y0 + y1) / 2, lean[1] * (y0 + y1) * 0.5], [2 * r, y1 - y0 + 0.02, 2 * r], mat, v=0))
+    flare3(parts, r0, 0.4, "bark_moss" if mat == "bark" else mat, rng, roots)
+    top_h = trunk_h + prim_len * 0.55 if columnar else trunk_h * 1.04
+    bole = trunk3(parts, top_h, r0, r0 * (0.14 if columnar else 0.5), 0.4, lean, mat, rng, nseg)
+    at = lambda y: along(bole, max(0.0, min(1.0, (y - 0.4) / (top_h - 0.4))))
+    canopy = []
+    for i in range(n_primary):
+        yaw = 360.0 * i / n_primary + rng.uniform(-25, 25)
+        pitch = prim_pitch + rng.uniform(-10, 10)
+        L = prim_len * rng.uniform(0.75, 1.2)
+        y = trunk_h * 0.35 + (trunk_h * 0.98 - trunk_h * 0.35) * (i + rng.uniform(0.2, 0.8)) / n_primary if columnar else trunk_h * 0.96 - rng.uniform(0, trunk_h * low)
+        pts = limb3(parts, at(y), L, yaw, pitch, bend, r0 * 0.42, r0 * 0.14, mat, 2, 8, rng)
+        out = (math.sin(math.radians(yaw)), math.cos(math.radians(yaw)))
+        for k in range(sec_per):
+            st = along(pts, rng.uniform(0.45, 0.9))
+            y2 = yaw + rng.uniform(-45, 45); p2 = pitch + rng.uniform(-15, 25); L2 = sec_len * rng.uniform(0.7, 1.2)
+            sp = limb3(parts, st, L2, y2, p2, 10, r0 * 0.15, r0 * 0.05, mat, 1, 5)
+            tw = along(sp, 0.55)   # a twig off the secondary, up and out into its own leaf mass
+            twt = seg3(parts, tw, [tw[0] + out[0] * L2 * 0.35 + rng.uniform(-0.2, 0.2), tw[1] + L2 * 0.4, tw[2] + out[1] * L2 * 0.35 + rng.uniform(-0.2, 0.2)],
+                       r0 * 0.06, r0 * 0.02, mat, 4)
+            clump3(canopy, sp[-1], cluster_r * rng.uniform(0.75, 1.15), rng, 1, out)
+            canopy.append((twt[0], twt[1] + 0.1, twt[2], cluster_r * rng.uniform(0.45, 0.6)))
+        clump3(canopy, pts[-1], cluster_r * rng.uniform(0.9, 1.2), rng, 2, out, 0.2)
+    top = bole[-1]
+    for k in range(extra_inner):   # inner mass so the crown has depth, not a shell of blobs (columnar: all along the stem)
+        c = along(bole, rng.uniform(0.35, 1.0)) if columnar else [top[0], top[1] + prim_len * rng.uniform(0.15, 0.5), top[2]]
+        canopy.append((c[0] + rng.uniform(-0.6, 0.6) * prim_len * 0.4, c[1], c[2] + rng.uniform(-0.6, 0.6) * prim_len * 0.4, cluster_r * rng.uniform(0.9, 1.25)))
+    canopy = [[round(c[0], 3), round(c[1], 3), round(c[2], 3), round(c[3], 3)] for c in canopy]
+    print(f"{id_}: {len(parts)} parts, {len(canopy)} clusters, {cards3(canopy, density)} leaf cards")
+    return {"id": id_, "version": 3, "name": name, "category": "Vegetation", "description": desc,
+            "floors": 0, "enterable": False, "footprint": [1.2, 1.2], "plinthDepth": 0, "maxGrade": 1.5,
+            "materials": BARK3, "parts": parts, "furniture": [], "interactables": [], "panels": [],
+            "tree": {"hpBullet": hp, "hpAT": 1, "stumpHeight": 0.4, "trunkRadius": r0, "mass": round(math.pi * r0 * r0 * height * 0.5 * 700),
+                     "canopy": canopy, "cardsPerSphere": density, "cardDensity": density, "leafSize": leaf_size, "leafColor": leaf_col, "seed": seed,
+                     "note": "Hit points are game tuning: small-arms hits, or one AT / HE strike within 1.5 m of the trunk."}}
+
+
+save(tree3("tree_apple", "Apple tree (orchard)", "Low Normandy cider-orchard apple: short leaning bole, spreading crooked limbs, clustered crown (~4.5 m).",
+           11, 1.4, 0.14, 5, 1.5, 34, 2, 0.9, 0.85, [0.17, 0.25, 0.09], 0.19, 4.5, lean=(0.05, 0.02), extra_inner=3, density=56, bend=-18, roots=4))
+save(tree3("tree_oak", "Hedgerow oak", "Pedunculate oak of the bocage: thick flared bole, wide irregular crown of many leaf clusters (~11 m).",
+           13, 3.6, 0.38, 6, 3.2, 26, 3, 2.0, 1.35, [0.13, 0.2, 0.07], 0.22, 11.0, lean=(0.02, -0.03), extra_inner=7, density=60, bend=-16, roots=6, low=0.45))
+save(tree3("tree_poplar", "Lombardy poplar", "Tall columnar poplar used as a windbreak along lanes (~16 m).",
+           17, 12.0, 0.26, 12, 2.0, 76, 2, 1.2, 1.1, [0.19, 0.27, 0.1], 0.17, 16.0, columnar=True, extra_inner=8, density=40, mat="bark_pale", bend=6, nseg=5))
+save(tree3("tree_ash", "Ash tree", "Young field ash: slender grey bole, open upswept crown (~8 m).",
+           23, 2.8, 0.2, 5, 2.2, 45, 2, 1.4, 1.0, [0.18, 0.26, 0.09], 0.19, 8.0, lean=(-0.03, 0.03), extra_inner=3, density=50, mat="bark_pale", bend=10))
+
+
+def shrub3(id_, name, desc, seed, canopy, parts, leaf_col, leaf_size, density, hp=15, bank=None, hedge=False):
+    """v2 shrub / hedge: like shrub() but with ready stems (coppice3 / cane3) and clumped canopy"""
     soil = {"name": "bank_soil", "albedo": [0.19, 0.21, 0.11], "roughness": 0.97, "pattern": "plain", "metallic": 0, "grain": 1}   # turf-covered bank
     if bank:
         L, W, H = bank
         parts.append(box([0, H * 0.5, 0], [L, H, W * 0.55], "bank_soil"))
         parts.append(box([0, H * 0.25, W * 0.33], [L, H * 0.5, W * 0.3], "bank_soil", r=[-25, 0, 0]))
         parts.append(box([0, H * 0.25, -W * 0.33], [L, H * 0.5, W * 0.3], "bank_soil", r=[25, 0, 0]))
+    canopy = [[round(a, 3) for a in c] for c in canopy]
+    print(f"{id_}: {len(parts)} parts, {len(canopy)} clusters, {cards3(canopy, density)} leaf cards")
     t = {"hpBullet": 99999 if hedge else hp, "hpAT": 99999 if hedge else 1, "stumpHeight": 0.15, "trunkRadius": 0.05, "mass": 30,
-         "canopy": [[round(a, 3) for a in c] for c in spheres], "cardsPerSphere": density, "cardDensity": density, "leafSize": leaf_size, "leafColor": leaf_col, "seed": seed,
-         "hedge": hedge}
-    fp = [bank[0], bank[1]] if bank else [1.5, 1.5]
-    save({"id": id_, "version": 1, "name": name, "category": "Vegetation", "description": desc, "floors": 0, "enterable": False,
-          "footprint": fp, "plinthDepth": 0, "maxGrade": 1.5,
-          "materials": [{"name": "bark", "albedo": [0.17, 0.14, 0.11], "roughness": 0.95, "pattern": "wood", "metallic": 0, "grain": 1}, soil],
-          "parts": parts, "furniture": [], "interactables": [], "panels": [], "tree": t})
+         "canopy": canopy, "cardsPerSphere": density, "cardDensity": density, "leafSize": leaf_size, "leafColor": leaf_col, "seed": seed, "hedge": hedge}
+    save({"id": id_, "version": 2, "name": name, "category": "Vegetation", "description": desc, "floors": 0, "enterable": False,
+          "footprint": [bank[0], bank[1]] if bank else [1.5, 1.5], "plinthDepth": 0, "maxGrade": 1.5,
+          "materials": BARK3 + [soil], "parts": parts, "furniture": [], "interactables": [], "panels": [], "tree": t})
+
+
+def coppice3(parts, canopy, rng, x, z, y, stems, h0, h1, rs, spread, lobe, bare=0.4, side=True):
+    """a coppice stool: stems splaying from one root, a leaf lobe at each top and a smaller one on the outer side; the
+    lower `bare` share of each stem carries no leaves (visible stems at the foot)"""
+    for i in range(stems):
+        yaw = 360.0 * i / stems + rng.uniform(-30, 30); pitch = rng.uniform(90 - spread, 86); h = rng.uniform(h0, h1)
+        pts = limb3(parts, [x + rng.uniform(-0.06, 0.06), y - 0.05, z + rng.uniform(-0.06, 0.06)], h / math.sin(math.radians(pitch)), yaw, pitch,
+                    -rng.uniform(4, 14), rs, rs * 0.3, "bark", 2, 5)
+        out = (math.sin(math.radians(yaw)), math.cos(math.radians(yaw)))
+        clump3(canopy, pts[-1], lobe * rng.uniform(0.85, 1.1), rng, 1, out, 0.1)
+        if not side:
+            continue
+        m = along(pts, rng.uniform(bare + 0.15, bare + 0.35))
+        canopy.append((m[0] + out[0] * lobe * 0.45, m[1], m[2] + out[1] * lobe * 0.45, lobe * rng.uniform(0.55, 0.7)))
+
 
 rng = random.Random(41)
-hedge_sph = []
-for k in range(9):
-    x = -3.6 + k * 0.9 + rng.uniform(-0.2, 0.2)
-    hedge_sph.append((x, 1.15 + rng.uniform(-0.1, 0.25), rng.uniform(-0.15, 0.15), 0.75 + rng.uniform(-0.1, 0.2)))
-    hedge_sph.append((x + 0.45, 2.0 + rng.uniform(-0.25, 0.35), rng.uniform(-0.2, 0.2), 0.6 + rng.uniform(-0.1, 0.15)))
-stems = [(-3.8 + k * 0.5 + rng.uniform(-0.15, 0.15), rng.uniform(-0.2, 0.2), rng.uniform(1.4, 2.4)) for k in range(16)]
-shrub("hedgerow_bocage", "Bocage hedgerow (8 m)", "Earth bank topped by a dense hazel / hawthorn hedge with woody stems: blocks sight, gaps only where you leave them.",
-      43, hedge_sph, [(x, z, h) for (x, z, h) in stems], [0.14, 0.21, 0.075], 0.34, 70, bank=(8.0, 1.5, 0.5), hedge=True)
-shrub("shrub_hazel", "Hazel shrub", "Multi-stemmed hazel clump (~2.5 m).", 47,
-      [(0, 1.5, 0, 0.9), (0.5, 1.0, 0.3, 0.7), (-0.4, 1.1, -0.3, 0.7), (0.1, 2.1, -0.1, 0.6)],
-      [(rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), rng.uniform(1.6, 2.4)) for _ in range(7)], [0.16, 0.24, 0.085], 0.3, 70)
-shrub("shrub_bramble", "Bramble patch", "Low tangled bramble (~0.9 m) for fence lines and ditch edges.", 53,
-      [(0, 0.45, 0, 0.6), (0.7, 0.35, 0.2, 0.5), (-0.6, 0.4, -0.2, 0.55), (0.2, 0.55, -0.5, 0.45)],
-      [], [0.12, 0.16, 0.07], 0.32, 80, hp=6)
+parts, canopy = [], []
+x = -3.75
+while x < 3.8:   # the hedge body: overlapping leaf masses, undersides ~0.45 m above the bank (stems show), rolling top
+    r = rng.uniform(0.72, 0.86)
+    canopy.append((x, 0.5 + 0.5 + r * 0.95 + 0.25 * math.sin(x * 0.8 + 0.6), rng.uniform(-0.17, 0.17), r))
+    x += rng.uniform(0.6, 0.75)
+for k in range(8):   # hazel / hawthorn stools: bare stems at the foot, tops breaking the line unevenly, a few standards
+    x = -3.5 + k * 1.0 + rng.uniform(-0.2, 0.2)
+    tall = 0.35 * math.sin(k * 0.9 + 0.6) + (0.9 if rng.random() < 0.18 else 0.0)
+    coppice3(parts, canopy, rng, x, rng.uniform(-0.2, 0.2), 0.5, 3 if rng.random() < 0.4 else 2, 1.7 + tall, 2.3 + tall, 0.035, 18, 0.5, 0.4, False)
+    if k % 3 == 1:   # a low skirt here and there (the foot is not bare everywhere)
+        canopy.append((x + 0.3, 0.85, rng.uniform(-0.3, 0.3), 0.38))
+shrub3("hedgerow_bocage", "Bocage hedgerow (8 m)", "Earth bank topped by a dense hazel / hawthorn hedge on coppiced stools, uneven top, woody stems showing at the foot: blocks sight, gaps only where you leave them.",
+       43, canopy, parts, [0.14, 0.21, 0.075], 0.34, 66, bank=(8.0, 1.5, 0.5), hedge=True)
+parts, canopy = [], []
+coppice3(parts, canopy, rng, 0, 0, 0, 8, 1.7, 2.5, 0.04, 26, 0.55, 0.35)
+shrub3("shrub_hazel", "Hazel shrub", "Multi-stemmed coppiced hazel clump (~2.5 m), bare grey stems under clumped leaf masses.", 47,
+       canopy, parts, [0.16, 0.24, 0.085], 0.3, 56)
+parts, canopy = [], []
+for i in range(7):   # arching bramble canes: up from the crown, over and down to root again; leaves in lumps along them
+    yaw = 360.0 * i / 7 + rng.uniform(-20, 20)
+    pts = limb3(parts, [rng.uniform(-0.2, 0.2), 0.0, rng.uniform(-0.2, 0.2)], rng.uniform(1.3, 1.8), yaw, rng.uniform(48, 62), -95, 0.009, 0.005, "bark", 3, 4, rng)
+    for f in (0.25, 0.5, 0.75, 0.95):   # leaves out to the tip (a bare cane end reads as a spider leg)
+        p = along(pts, f)
+        canopy.append((p[0], max(0.2, p[1]), p[2], rng.uniform(0.27, 0.37)))
+canopy.append((0, 0.45, 0, 0.5))
+shrub3("shrub_bramble", "Bramble patch", "Low tangled bramble (~0.9 m) of arching canes for fence lines and ditch edges.", 53,
+       canopy, parts, [0.12, 0.16, 0.07], 0.32, 45, hp=6)
 
 # ---------------------------------------------------------------- defences
 steel = {"name": "steel", "albedo": [0.20, 0.19, 0.17], "roughness": 0.6, "pattern": "metal", "metallic": 0.7, "grain": 1}

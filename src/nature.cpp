@@ -100,7 +100,7 @@ void buildRockPiece(MeshData& m, const RockPiece& rp, vec3 tint, std::vector<vec
   auto support = [&](vec3 n) { return glm::length(he * n); };
   auto addPl = [&](vec3 n, float lo, float hi) { n = glm::normalize(n); pl.push_back({n, support(n) * (lo + (hi - lo) * r.f())}); };
   auto rdir = [&]() { float z = r.f() * 2 - 1, a = r.f() * 6.2831853f, s = std::sqrt(1 - z * z); return vec3(s * std::cos(a), z, s * std::sin(a)); };
-  if (lith == 0) { for (int k = 0; k < 5; ++k) addPl(rdir(), 0.80f, 0.95f); }
+  if (lith == 0) { for (int k = 0; k < 7; ++k) addPl(rdir(), 0.76f, 0.93f); }   // NT: more, deeper spalls (granite read as smooth blobs)
   else if (lith == 1) {
     addPl(vec3((r.f() - 0.5f) * 0.25f, 1, (r.f() - 0.5f) * 0.25f), 0.62f, 0.8f);                      // bedding: flat top
     for (int k = 0; k < 4; ++k) { float a = r.f() * 6.2831853f; addPl(vec3(std::cos(a), (r.f() - 0.5f) * 0.3f, std::sin(a)), 0.62f, 0.85f); }   // joints: steep faces

@@ -1674,6 +1674,10 @@ void main(){
   float var = hash12(vec2(vSeed, 2.0));
   vec3 alb = uLeafCol*(0.72 + 0.56*var)*vShade;
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
+  // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
+  // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
+  float sv = vnoise(vec3(vW.xz*0.045, 3.7))*0.7 + vnoise(vW*0.4)*0.3;
+  alb *= mix(vec3(0.9, 1.04, 0.92), vec3(1.1, 1.0, 0.78), smoothstep(0.25, 0.75, sv));
   float sh = 1.0;
   if (uShadowSoft > 0.0) sh = sunShadowT(vW + N*0.06, N, 1.0, 8) * cloudShadow(vW);   // soft: thin leaves blur the map
   else if (uShadowOn == 1) { vec4 lp = uLightVP*vec4(vW + N*0.12, 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
