@@ -186,6 +186,7 @@ A glass-only break is not otherwise persisted: a lamp that was only shot out kee
 - **Auto paths:** the Paths menu has **Line auto paths with lamp posts** (`gAutoPathLamps`). **Connect houses** then lines every new route with `lamp_lantern_post`:
   - spaced 22 m from any other street lamp, staggered across the route;
   - 0.75 m beyond the path edge, never on a path, in water, on steep ground or against a wall, tree or fence;
+  - the solid check ignores auto pieces and bodies of instances already removed from the doc (physics syncs later), so a re-run lays out the same posts;
   - not within 3.5 m of a route's ends (doors);
   - tagged `extra.auto = "lamp"`, so `autopathRemove` and re-runs remove them with the paths;
   - the report counts them (`AutoPathReport::lamps`).

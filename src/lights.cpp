@@ -6,6 +6,7 @@
 //   * fire particles (the wreck-flame recipe of tank_sim.cpp), Apply damage to map, lamp posts along routes, the
 //     editor's Light section.
 #include "lights.h"
+#include <unordered_set>
 #include "app.h"
 #include "autopath.h"
 #include <imgui.h>
@@ -485,6 +486,11 @@ int lightsLineRoutes(App& app, const std::vector<LampLine>& lines, const std::st
   float H = bmx.y - bmn.y;
   std::vector<vec2> placed;   // lamp posts already on the map (any street lamp) keep their spacing too
   for (auto& i : app.doc.instances) { const LightAssetDef* d = lightDef(app.assetFor(i)); if (d && !d->lights.empty() && d->lights[0].use == "street") placed.push_back(vec2(i.pos.x, i.pos.z)); }
+  // bodies a post may overlap: auto pieces (paths, other posts) and instances already removed from the doc whose bodies
+  // stay in physics until the next sync, so a re-run lays out the same posts as the first run
+  std::unordered_set<uint64_t> pass, live;
+  for (auto& i : app.doc.instances) { live.insert(i.id); if (i.extra.is_object() && i.extra.contains("auto") && i.extra["auto"].is_string()) pass.insert(i.id); }
+  for (auto& r : app.rt) if (!live.count(r.first)) pass.insert(r.first);
   std::vector<size_t> order(lines.size());
   for (size_t k = 0; k < order.size(); ++k) order[k] = k;
   auto lenOf = [&](const LampLine& l) { float s = 0; for (size_t k = 0; k + 1 < l.pts.size(); ++k) s += glm::length(l.pts[k + 1] - l.pts[k]); return s; };
@@ -519,7 +525,11 @@ int lightsLineRoutes(App& app, const std::vector<LampLine>& lines, const std::st
           float yaw = degrees(std::atan2(face.x, face.y));
           quat q = yawQuat(yaw);
           vec3 cen = vec3(w.x, y, w.y) + q * ((bmn + bmx) * 0.5f) + vec3(0, 0.15f, 0);
-          if (Physics::boxBlocked(cen, glm::max((bmx - bmn) * 0.5f, vec3(0.3f, H * 0.5f - 0.2f, 0.3f)), q)) continue;   // a wall, a tree, a fence
+          Physics::Overlap ov[16];
+          int no = Physics::boxOverlaps(cen, glm::max((bmx - bmn) * 0.5f, vec3(0.3f, H * 0.5f - 0.2f, 0.3f)), q, ov, 16);
+          bool blocked = false;   // a wall, a tree, a fence
+          for (int o = 0; o < no && !blocked; ++o) blocked = !pass.count(ov[o].ud >> 16);
+          if (blocked) continue;
           Instance in; in.id = app.doc.newId(); in.assetId = la->id; in.assetVersion = la->version;
           in.pos = vec3(w.x, y, w.y); in.yaw = wrapDeg(yaw);
           in.extra = json::object(); in.extra["auto"] = tag;

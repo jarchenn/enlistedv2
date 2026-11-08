@@ -209,3 +209,17 @@ Full detail is in `docs/lights.md`.
 - **Beautify (V8):** add the `street_lamps` role and the `along: "paths"` branch from `docs/lights.md` §8.
 - **Bunkers** are now auto-furnished with caged lamps only. Their pieces carry `extra.furnish`, which the counting suites already skip.
 - **Tobruk MG / mortar** are open-topped and get no lamp.
+
+**Test results (build-lt3, all through `tools/gpu_turn.sh`; Day lighting):**
+- interiors 215/216, damage 145/145, visuals 31/31, A 226/226, tanks 123/123.
+- B 67/68: the one failure ("exactly one placed instance after reopen") is already known.
+- The remaining interiors failure is the known V4 `ruin_townhouse_facade` (empty).
+- LAN: host 22/22, A 6/6, B 6/6, C 2/2.
+  - The host shoots out a ceiling lamp, and clients A and B both see it dark.
+  - Second run: D 2/2, host 21/22.
+  - Two failures are frame-time flakes under the shared GPU slots, not lamps:
+    - Client D: "refused with a usable message" ("No answer"). Map load is slow, so the host has ended the session before D joins.
+    - Host: "server-validated client requests: 0 rejected". Client A's over-rate fire and teleport fire only in 20 ms windows (`t > 6.0 && t < 6.02`), and frames longer than 20 ms skip them. One-shot flags would fix it.
+- autopath 45/45, including the lamp posts: ≥ 22.3 m apart, and a re-run gives the same 22.
+- structures: the walk failures match the batch B baseline (`build-voB`: cottage_corner, townhouse_facade, chateau_keep, church, church_ruined, norman_farmhouse). The new `ruin_barn_burnt` walk failures are V4 furniture pieces in a ruin; the lights planner skips ruins. Every interior light asset is nav `"none"`.
+- maps: the frame-time gates (tank_range, omaha) fail only under the shared GPU slots. Draw and triangle counts equal `build-voB`'s, but every view is 2–5× slower, including tank_range, which has no L3 content.
