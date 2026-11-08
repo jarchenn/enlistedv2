@@ -375,7 +375,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   target = findTarget(eyePos(), forward(eyeYaw, eyePitch));
   stepRack(in);
   if (in.packUp && !occupied && !rackOpen) packUpHeavy();
-  if (occupied) { if (in.interact) leaveStation(); }
+  if (occupied) { if (in.interact) { logf("station: leave on interact"); leaveStation(); } }
   else if (!showLoadout && !rackOpen && !choiceFor && tanks.handleInteract(*this, in)) {}   // E on a tank: enter
   else if (showLoadout || rackOpen) {}
   else if (choiceFor) {

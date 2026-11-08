@@ -99,7 +99,7 @@ void mpaiInput(App& app, ExploreInput& in) {
   if (!gGame || !gGame->active) return;
   Soldier* L = gGame->local();
   bool frozen = !L || !L->alive || gGame->match.phase != MatchPhase::Running;
-  if (frozen) { if (L && !L->alive && app.occupied) app.leaveStation(); in = ExploreInput{}; return; }   // the dead free their gun
+  if (frozen) { if (L && !L->alive && app.occupied) { logf("station: leave, crew dead"); app.leaveStation(); } in = ExploreInput{}; return; }   // the dead free their gun
   if (app.selftest || app.pauseMenu) return;
   // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); quick smoke on "smokeGrenade" (default J, match only)
   if (edge(app.win, app.binds.smokeGrenade) && L->throwT < 0 && app.quickReturn < 0) {
@@ -216,9 +216,10 @@ void mpaiImpact(App& app, const Projectile& p, vec3 hitPos, vec3 hitNormal, uint
 #include "crumb.h"
 #include <windows.h>
 const char* volatile gCrumb = "start";
+static LPTOP_LEVEL_EXCEPTION_FILTER gPrevFilter = nullptr;   // crashlog.cpp's backtrace writer runs after this line
 static LONG WINAPI crashFilter(EXCEPTION_POINTERS* e) {
   logf("CRASH: exception 0x%08lx at %p, last stage: %s", e->ExceptionRecord->ExceptionCode, e->ExceptionRecord->ExceptionAddress, gCrumb ? gCrumb : "?");
   fflush(stdout);
-  return EXCEPTION_CONTINUE_SEARCH;
+  return gPrevFilter ? gPrevFilter(e) : EXCEPTION_CONTINUE_SEARCH;
 }
-void installCrashReporter() { static bool done = false; if (!done) { done = true; SetUnhandledExceptionFilter(crashFilter); } }
+void installCrashReporter() { static bool done = false; if (!done) { done = true; gPrevFilter = SetUnhandledExceptionFilter(crashFilter); } }

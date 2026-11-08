@@ -729,7 +729,8 @@ void mpaiBuildChanged(App& app, const std::vector<uint64_t>& placed, const std::
 // ---------------------------------------------------------------- per-frame update
 void Net::update(App& app, float dt) {
   if (!d || d->s == INVALID_SOCKET) return;
-  (void)dt; d->now = glfwGetTime();   // real time: two processes simulate at their own frame rates
+  (void)dt; double prevNow = d->now; d->now = glfwGetTime();   // real time: two processes simulate at their own frame rates
+  if (prevNow > 0 && d->now - prevNow > 1.0) logf("net: this process stalled %.1f s between updates (stage %s)", d->now - prevNow, gCrumb ? gCrumb : "?");   // peers time out at 6 s
   d->flushDelayed(*this);
   char buf[2048];
   sockaddr_in from{}; int fl = sizeof from;

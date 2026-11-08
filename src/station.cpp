@@ -320,7 +320,7 @@ void App::stepProjectiles(float dt) {
 void App::stepStation(float dt, const ExploreInput& in) {
   StationRT* s = station(occupied);
   if (!s) { occupied = 0; return; }
-  if (s->wrecked) { leaveStation(); return; }
+  if (s->wrecked) { logf("station: leave, gun wrecked"); leaveStation(); return; }
   Instance* inst = doc.find(occupied);
   auto& r = rt[occupied];
   const StationDef& d = r.asset->station;

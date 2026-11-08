@@ -11,6 +11,7 @@
 //   d     joins when the lobby is full: must be refused with the full message
 // Localhost windows do not test LAN discovery across machines, firewalls or real network quality (docs/multiplayer.md).
 #include "selftest.h"
+#include <GLFW/glfw3.h>   // glfwGetTime: step timing
 #include "game.h"
 #include "mpui.h"
 #include "net.h"
@@ -139,10 +140,18 @@ void SelfTest::netUpdate(App& app, float dt) {
           }
           return 0;
         };
-        uint64_t G1 = place("gun_mg42_embrasure", 2.0f, 3.5f, "G1", feet);
-        vec3 seat = G1 ? a.stationAnchor(G1, ST_GUNNER) : feet;   // A dismounts here: the rack and crate go round it
-        uint64_t R = place("rack_allied", 2.0f, 3.5f, "R", seat), C = place("crate_mixed_supply", 2.0f, 3.5f, "C", seat);
-        uint64_t G2 = place("gun_mg42_embrasure", 5.0f, 9.0f, "G2", feet), G3 = place("gun_mg42_embrasure", 30.0f, 45.0f, "G3", feet);
+        // one piece per frame: each search runs the full placement check per candidate spot, and doing all five in
+        // one frame stalled the host past the clients' 6 s timeout
+        static int step = 0; static uint64_t G1, R, C, G2, G3; static vec3 feet0, seat;
+        if (t == 0 || step == 0) { step = 0; G1 = R = C = G2 = G3 = 0; feet0 = feet; }
+        switch (step++) {
+          case 0: G1 = place("gun_mg42_embrasure", 2.0f, 3.5f, "G1", feet0); seat = G1 ? a.stationAnchor(G1, ST_GUNNER) : feet0; return false;   // A dismounts here: the rack and crate go round it
+          case 1: R = place("rack_allied", 2.0f, 3.5f, "R", seat); return false;
+          case 2: C = place("crate_mixed_supply", 2.0f, 3.5f, "C", seat); return false;
+          case 3: G2 = place("gun_mg42_embrasure", 5.0f, 9.0f, "G2", feet0); return false;
+          case 4: G3 = place("gun_mg42_embrasure", 30.0f, 45.0f, "G3", feet0); return false;
+          default: step = 0; break;
+        }
         check(G1 && G2 && G3 && R && C, "host placed the test pieces round client A (MG 42 " + std::to_string(G1) + ", rack " + std::to_string(R) + ", crate " + std::to_string(C) + ", second MG 42 " + std::to_string(G2) + ", far MG 42 " + std::to_string(G3) + ")");
         bool own = G2 && a.occupyStation(G2, ST_GUNNER);
         check(own, "host crews the second MG 42 itself (A must be refused it)");
@@ -153,6 +162,7 @@ void SelfTest::netUpdate(App& app, float dt) {
         for (int sl : {gGame->match.slotOfPeer(1), gGame->localSlot}) if (sl >= 0 && gGame->sold[sl].alive) { gGame->sold[sl].hp = 100; gGame->sold[sl].protectUntil = gGame->t + 1; }   // test only: bots must not end A's steps or the host's gun early
         if (!done && t < 180) return false;
         check(done, "client A finished its gun / crate / rack / build steps");
+        if (!done || gGame->match.slotOfPeer(1) < 0) return true;   // A left or timed out: its results below would read missing data
         Net& n = *gNet; int slotA = gGame->match.slotOfPeer(1);
         uint64_t G1 = tagged(a, "G1"), C = tagged(a, "C");
         StationRT* g1 = a.station(G1);
@@ -451,7 +461,9 @@ void SelfTest::netUpdate(App& app, float dt) {
     return;
   }
   if (cur >= seq.size()) { app.useScripted = false; if (gNet && gNet->role != Net::NONE) gNet->leave("test done"); finish(app); return; }
+  double t0 = glfwGetTime();
   bool done = seq[cur].fn(app, st);
+  if (glfwGetTime() - t0 > 0.5) logf("net test: step '%s' took %.1f s in one frame", seq[cur].name.c_str(), glfwGetTime() - t0);   // peers time out at 6 s
   st += dt; total += dt;
   if (done) { ++cur; st = 0; }
   if (total > 600) { check(false, "net test timed out in step '" + seq[cur < seq.size() ? cur : 0].name + "'"); cur = seq.size(); }
