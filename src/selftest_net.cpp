@@ -18,6 +18,7 @@
 #include "lights.h"   // L3: a lamp shot out on the host is dark on the clients
 #include "mpai.h"
 #include <functional>
+#include <cstdlib>
 #include <fstream>
 #include <cmath>
 static uint64_t gNetLampProbe = 0;   // L3: the ceiling lamp the host shoots out
@@ -273,7 +274,7 @@ void SelfTest::netUpdate(App& app, float dt) {
         return false; });
       push("join", [this, lag](App& a, float t) {
         Net& n = *gNet;
-        if (t == 0) { std::string err; n.join(a, "127.0.0.1", "Client " + role, err, port); return false; }
+        if (t == 0) { std::string err; const char* h = std::getenv("NMK_NET_HOST"); n.join(a, h && *h ? h : "127.0.0.1", "Client " + role, err, port); return false; }   // NMK_NET_HOST: a host on another machine (Windows <-> macOS cross-play)
         if (role == "c" || role == "d") {
           if (n.role == Net::NONE) {
             bool ok = role == "c" ? n.status.find("Map differs") != std::string::npos : (n.status.find("full") != std::string::npos);
