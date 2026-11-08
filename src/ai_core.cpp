@@ -509,10 +509,12 @@ void AiCore::frame() {
     AiProf::Scope sc(prof, PROF_NAV);
     crumb("ai: nav commit");
     G.nav.update();
-    onTilesChanged();
+    crumb("ai: tiles changed"); onTilesChanged();
+    crumb("ai: traps / cover / poll");
     if (trapsDueAt >= 0 && G.t >= trapsDueAt) { trapsDueAt = -1; markNavTraps(); }
     if (!coverTodo.empty()) { auto t = coverTodo.back(); coverTodo.pop_back(); generateCoverTile(t.first, t.second, 120); }
-    if (G.t >= nextWorldPoll) { nextWorldPoll = G.t + 0.1; pollWorld(); }
+    if (G.t >= nextWorldPoll) { nextWorldPoll = G.t + 0.1; crumb("ai: poll world"); pollWorld(); }
+    crumb("ai: late rebuilds / paths");
     for (size_t k = 0; k < lateRebuilds.size();) { if (G.t >= lateRebuilds[k].due) { G.nav.rebuildArea(lateRebuilds[k].lo, lateRebuilds[k].hi); lateRebuilds.erase(lateRebuilds.begin() + k); } else ++k; }
     receivePaths();
     dispatchPaths();

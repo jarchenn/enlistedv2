@@ -109,6 +109,18 @@ float minPairDist(const Game& G, bool sameTeamToo) {
 
 void build(App&) {
   push("headless rules", [](App&, float) { headless(); return true; });
+  push("team spawn tool", [](App& a, float) {   // Scenario panel: "Team A spawn" / "Team B spawn"
+    if (a.mode == Mode::Explore) a.exitExplore();
+    a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
+    size_t n0 = a.doc.instances.size();
+    vec3 pa(0, a.terrain.height(0, 60), 60), pb(0, a.terrain.height(0, -60), -60);
+    std::string ia = gUi.addTeamSpawnAt(a, 0, pa), ib = gUi.addTeamSpawnAt(a, 1, pb);
+    const SpawnMarker *A = nullptr, *B = nullptr;
+    for (auto& m : gUi.scenario(a).spawns) { if (m.id == ia) A = &m; if (m.id == ib) B = &m; }
+    const Instance* ra = A ? a.doc.find(A->rack) : nullptr;
+    chk(A && B && A->team == 0 && B->team == 1 && A->phases.empty() && ra && a.doc.instances.size() >= n0 + 2,
+        "Team A / B spawn tools place TDM markers (teams %d / %d, no Assault phase) with a team rack (%s)", A ? A->team : -9, B ? B->team : -9, ra ? ra->assetId.c_str() : "none");
+    return true; });
   const bool only100 = std::getenv("NMK_MODES_ONLY_100") != nullptr;   // diagnostics: just the 100-AI run
   if (!only100) {
   // ---- Solo: 8 combatants, first to 4

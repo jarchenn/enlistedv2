@@ -1,5 +1,6 @@
 // Recast/Detour navigation mesh: tile pipeline, background rebuilds, commits and main-thread queries (nav.h).
 #include "nav_internal.h"
+#include "crumb.h"
 #include <DetourNavMesh.h>
 #include <DetourNavMeshBuilder.h>
 #include <DetourNavMeshQuery.h>
@@ -236,16 +237,17 @@ Nav::~Nav() {
 
 const dtQueryFilter& Nav::defaultFilter() const { return impl_->filter; }
 
-bool Nav::busy() const { std::lock_guard<std::mutex> l(impl_->qm); return !impl_->queue.empty() || impl_->running.load() > 0 || !impl_->done.empty(); }
+bool Nav::busy() const { std::lock_guard<std::mutex> l(impl_->qm); return !pending_.empty() || !impl_->queue.empty() || impl_->running.load() > 0 || !impl_->done.empty(); }
 
 void Nav::clear() {
+  pending_.clear();
   {
     std::unique_lock<std::mutex> l(impl_->qm);
     impl_->queue.clear();
     impl_->cv.wait(l, [&] { return impl_->running.load() == 0; });   // a worker may still finish one tile
     impl_->done.clear();
   }
-  std::unique_lock<std::shared_mutex> wl(mtx_);
+  auto wl = writeLock();
   if (query_) { dtFreeNavMeshQuery(query_); query_ = nullptr; }
   if (mesh_) { dtFreeNavMesh(mesh_); mesh_ = nullptr; }
   impl_->genIssued.clear(); impl_->genCommitted.clear(); impl_->stamps.clear(); impl_->tileLinks.clear(); impl_->linkById.clear();
@@ -354,8 +356,13 @@ void Nav::rebuildArea(vec3 a, vec3 b) {
   if (!mesh_) return;
   int x0 = std::max(impl_->tx0, tileOf(a.x) - 1), x1 = std::min(impl_->tx1, tileOf(b.x) + 1);
   int z0 = std::max(impl_->tz0, tileOf(a.z) - 1), z1 = std::min(impl_->tz1, tileOf(b.z) + 1);
+  for (int tz = z0; tz <= z1; ++tz) for (int tx = x0; tx <= x1; ++tx) pending_.insert({tx, tz});
+}
+
+// snapshot one dirty tile's input (physics bodies, water, area marks: main thread) and hand it to the workers
+void Nav::queueTile(int tx, int tz) {
   float pad = cfg.linkBorder + cfg.radius + 1.0f;
-  for (int tz = z0; tz <= z1; ++tz) for (int tx = x0; tx <= x1; ++tx) {
+  {
     auto j = std::make_unique<NavBuildJob>();
     j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
     sampleWater(*this, *j, pad);
@@ -368,11 +375,19 @@ void Nav::rebuildArea(vec3 a, vec3 b) {
     impl_->queue.push_back(std::move(j));
     ++queued;
   }
-  impl_->cv.notify_all();
 }
 
 void Nav::update() {
   changed.clear();
+  if (!pending_.empty() && mesh_) {   // body collection costs ms per tile: about 4 ms of it per frame (100 AI, many craters)
+    auto t0 = std::chrono::steady_clock::now();
+    while (!pending_.empty()) {
+      auto k = *pending_.begin(); pending_.erase(pending_.begin());
+      queueTile(k.first, k.second);
+      if (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() > 4.0) break;
+    }
+    impl_->cv.notify_all();
+  }
   std::vector<std::unique_ptr<NavBuildJob>> fin;
   { std::lock_guard<std::mutex> l(impl_->qm); fin.swap(impl_->done); }
   for (auto& j : fin) {
@@ -387,7 +402,9 @@ void Nav::commit(NavBuildJob& j) {
   NavImpl& I = *impl_;
   auto key = std::make_pair(j.tx, j.tz);
   {
-    std::unique_lock<std::shared_mutex> wl(mtx_);   // path workers pause between slices
+    crumb("nav: wait for path workers");
+    auto wl = writeLock();   // path workers pause between slices
+    crumb("nav: swap tile");
     dtTileRef old = mesh_->getTileRefAt(j.tx, j.tz, 0);
     if (old) {
       const dtMeshTile* t = mesh_->getTileByRef(old);
@@ -512,7 +529,7 @@ std::vector<NavEdge> Nav::tileEdges(int tx, int tz) const {
 
 int Nav::markTraps(const std::vector<vec3>& anchors) {
   if (!mesh_) return 0;
-  std::unique_lock<std::shared_mutex> wl(mtx_);
+  auto wl = writeLock();
   dtNavMesh* M = mesh_;
   // reverse adjacency over every link (polygon neighbours, tile portals, off-mesh connections)
   std::unordered_map<dtPolyRef, std::vector<dtPolyRef>> rev;

@@ -11,7 +11,7 @@ struct MpUi {
   Scenario sc; json lastSaved; bool loaded = false;
   std::vector<std::string> migration, worldIssues;
   std::string selObj, selSpawn;
-  enum Tool { T_NONE, T_OBJECTIVE, T_ATK, T_DEF, T_POLY, T_SLOT, T_LINK } tool = T_NONE;
+  enum Tool { T_NONE, T_OBJECTIVE, T_ATK, T_DEF, T_POLY, T_SLOT, T_LINK, T_TEAM_A, T_TEAM_B } tool = T_NONE;
   enum Drag { D_NONE, D_OBJ, D_RADIUS, D_VERTEX, D_SPAWN } drag = D_NONE;
   int dragIndex = 0, slotKind = 0, slotPriority = 2; bool lmbPrev = false;
   std::vector<ScenarioIssue> lastValidated; bool validatedOnce = false;
@@ -27,6 +27,7 @@ struct MpUi {
   // editing helpers used by the panel, the mouse tools and the tests
   bool addObjectiveAt(App& app, vec3 p);
   std::string addSpawnAt(App& app, CombatRole role, vec3 p, int phase);   // places the team weapons rack beside it
+  std::string addTeamSpawnAt(App& app, int team, vec3 p);   // Team Deathmatch marker for team 0 (A) / 1 (B), with a rack
   bool deleteSpawn(App& app, const std::string& id);                      // also removes its rack
   bool deleteObjective(App& app, const std::string& id);                  // spawns serving only it go too (with racks)
   uint64_t placeRack(App& app, const SpawnMarker& m);

@@ -102,6 +102,7 @@ void PathService::loop() {
     auto t0 = std::chrono::steady_clock::now();
     PathResult res; res.id = r.id; res.slot = r.slot; res.life = r.life; res.target = r.ep;
     for (int attempt = 0; attempt < 3; ++attempt) {
+      while (nav_->writerWaiting()) std::this_thread::sleep_for(std::chrono::microseconds(100));   // writers first
       std::shared_lock<std::shared_mutex> rl(nav_->sharedLock());
       dtNavMesh* mesh = nav_->mesh();
       if (!mesh) break;
@@ -116,6 +117,7 @@ void PathService::loop() {
         if (dtStatusInProgress(st)) {
           rl.unlock();                                         // let the main thread commit tiles between slices
           std::this_thread::yield();
+          while (nav_->writerWaiting()) std::this_thread::sleep_for(std::chrono::microseconds(100));
           rl.lock();
           if (nav_->mesh() != mesh || nav_->stamp() != stamp) { restart = true; break; }
         }
@@ -339,7 +341,7 @@ void AiCore::linkAborted(NavRef ref, uint32_t id) {
   if (!ref || !G.nav.mesh()) return;
   int n = ++linkAbortsById[id];
   if (n < (int)(navj.contains("links") ? navj["links"].value("disableAfterAborts", 2) : 2)) return;
-  std::unique_lock<std::shared_mutex> wl(G.nav.sharedLock());
+  auto wl = G.nav.writeLock();
   unsigned short fl = 0; if (dtStatusSucceed(G.nav.mesh()->getPolyFlags(ref, &fl))) G.nav.mesh()->setPolyFlags(ref, fl | NF_BADLINK);
   if (++metrics.linksDisabled <= 10) logf("ai: link %u disabled after %d aborts", id, n);
 }

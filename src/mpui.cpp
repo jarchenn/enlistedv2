@@ -68,7 +68,7 @@ void MpUi::creativeMenus(App& app) {
 static vec3 groundAt(App& app, vec3 p) { vec3 q; if (app.terrain.raycast(vec3(p.x, p.y + 50, p.z), vec3(0, -1, 0), 200, q)) return q; return p; }
 
 uint64_t MpUi::placeRack(App& app, const SpawnMarker& m) {
-  Faction f = m.role == CombatRole::Defender ? sc.rules.defendingFaction : otherFaction(sc.rules.defendingFaction);
+  Faction f = m.team >= 0 ? sc.rules.teamFaction[m.team] : m.role == CombatRole::Defender ? sc.rules.defendingFaction : otherFaction(sc.rules.defendingFaction);
   const AssetDef* a = app.lib.find(f == Faction::Allies ? "rack_allied" : "rack_axis");
   if (!a) return 0;
   vec3 fw = App::forward(m.yaw, 0), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
@@ -105,6 +105,17 @@ std::string MpUi::addSpawnAt(App& app, CombatRole role, vec3 p, int phase) {
   vec3 to = s.objectives[phase].pos - p;   // face the objective
   m.yaw = glm::length(vec2(to.x, to.z)) > 0.1f ? wrapDeg(degrees(std::atan2(-to.x, -to.z))) : app.camYaw;
   m.label = std::string(role == CombatRole::Attacker ? "Attackers " : "Defenders ") + objectiveLetter(phase);
+  m.rack = placeRack(app, m);
+  s.spawns.push_back(m); selSpawn = m.id; commit(app);
+  return m.id;
+}
+std::string MpUi::addTeamSpawnAt(App& app, int team, vec3 p) {
+  Scenario& s = scenario(app);
+  SpawnMarker m; m.id = s.newId("spawn"); m.team = team; m.phases.clear(); m.pos = p;
+  m.role = team == 0 ? CombatRole::Defender : CombatRole::Attacker;   // TDM: team 0 plays the Defender role (G1)
+  vec2 to = -vec2(p.x, p.z);   // face the map centre
+  m.yaw = glm::length(to) > 0.1f ? wrapDeg(degrees(std::atan2(-to.x, -to.y))) : app.camYaw;
+  m.label = team == 0 ? "Team A spawn" : "Team B spawn";
   m.rack = placeRack(app, m);
   s.spawns.push_back(m); selSpawn = m.id; commit(app);
   return m.id;
@@ -158,6 +169,8 @@ bool MpUi::creativeMouse(App& app) {
       case T_OBJECTIVE: addObjectiveAt(app, hit); tool = T_NONE; break;
       case T_ATK: addSpawnAt(app, CombatRole::Attacker, hit, so ? so->order : 0); tool = T_NONE; break;
       case T_DEF: addSpawnAt(app, CombatRole::Defender, hit, so ? so->order : 0); tool = T_NONE; break;
+      case T_TEAM_A: addTeamSpawnAt(app, 0, hit); tool = T_NONE; break;
+      case T_TEAM_B: addTeamSpawnAt(app, 1, hit); tool = T_NONE; break;
       case T_POLY: if (so) { if (so->shape != CaptureShape::Polygon) { so->polygon.clear(); so->shape = CaptureShape::Polygon; } so->polygon.push_back(vec2(hit.x, hit.z)); commit(app); } break;
       case T_SLOT: if (so) { DefenseSlot d; d.pos = hit; d.yaw = wrapDeg(so->attackYaw + 180.0f); d.kind = (SlotKind)slotKind; d.priority = slotPriority; so->defenseSlots.push_back(d); commit(app); } break;
       case T_LINK: if (so) {
@@ -198,6 +211,8 @@ void MpUi::scenarioPanel(App& app) {
   };
   ImGui::BeginDisabled(!s.canAddObjective()); toolBtn("Place objective", T_OBJECTIVE); ImGui::EndDisabled();
   ImGui::SameLine(); ImGui::BeginDisabled(s.objectives.empty()); toolBtn("Attacker spawn", T_ATK); ImGui::SameLine(); toolBtn("Defender spawn", T_DEF); ImGui::EndDisabled();
+  toolBtn("Team A spawn", T_TEAM_A); ImGui::SameLine(); toolBtn("Team B spawn", T_TEAM_B);
+  ImGui::SameLine(); ImGui::TextDisabled("(Team Deathmatch; Solo finds far-apart spots itself)");
   if (!s.canAddObjective()) ImGui::TextDisabled("10 objectives placed: the maximum (A to J).");
   if (tool != T_NONE) ImGui::TextColored(ImVec4(1, 0.85f, 0.4f, 1), "Click the ground to place (Esc or click the tool again to cancel).");
   if (tool != T_NONE && ImGui::IsKeyPressed(ImGuiKey_Escape)) tool = T_NONE;

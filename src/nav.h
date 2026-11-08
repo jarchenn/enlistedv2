@@ -13,7 +13,9 @@
 #include "navmeta.h"
 #include <memory>
 #include <shared_mutex>
+#include <atomic>
 #include <functional>
+#include <set>
 
 class dtNavMesh; class dtNavMeshQuery; class dtQueryFilter;
 using NavRef = uint64_t;                       // dtPolyRef (DT_POLYREF64)
@@ -61,7 +63,7 @@ public:
   NavConfig cfg;
   // ---- lifecycle (main thread)
   void build(vec3 lo, vec3 hi, int threads = 0);       // full bake of the tiles covering lo..hi (blocking, thread pool)
-  void rebuildArea(vec3 lo, vec3 hi);                  // mark tiles dirty (+1 tile border): background rebuild
+  void rebuildArea(vec3 lo, vec3 hi);                  // mark tiles dirty (+1 tile border): queued by update() on a budget
   void update();                                       // commit finished rebuilds; fills `changed`
   void clear();
   bool valid() const { return mesh_ != nullptr && tilesBuilt > 0; }
@@ -78,6 +80,10 @@ public:
   dtNavMeshQuery* query() const { return query_; }
   const dtQueryFilter& defaultFilter() const;
   std::shared_mutex& sharedLock() const { return mtx_; }
+  // exclusive lock for main-thread writes (tile swaps, flags). std::shared_mutex is not fair: path workers that unlock
+  // and relock between A* slices could hold off a writer for seconds (100 AI), so they wait while writerWaiting()
+  std::unique_lock<std::shared_mutex> writeLock() const { ++writers_; std::unique_lock<std::shared_mutex> l(mtx_); --writers_; return l; }
+  bool writerWaiting() const { return writers_.load(std::memory_order_relaxed) > 0; }
   // ---- tiles
   int tileOf(float v) const { return (int)std::floor(v / cfg.tile); }
   uint32_t tileStamp(int tx, int tz) const;            // bumps on every commit of that tile
@@ -102,6 +108,9 @@ public:
 private:
   dtNavMesh* mesh_ = nullptr; dtNavMeshQuery* query_ = nullptr;
   mutable std::shared_mutex mtx_;
+  mutable std::atomic<int> writers_{0};
+  std::set<std::pair<int, int>> pending_;   // dirty tiles not yet snapshotted (deduplicated: craters overlap)
+  void queueTile(int tx, int tz);
   std::unique_ptr<struct NavImpl> impl_;
   uint32_t stamp_ = 0;
   void commit(NavBuildJob& j);
