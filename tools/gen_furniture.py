@@ -1,8 +1,9 @@
 """Furniture family for walls, interiors and furniture (docs/interiors.md): original parametric assets.
 
 Writes content/assets/furn_*.json (category "Furniture"). Deterministic and safe to rerun; it touches no other file.
-Every visible piece is a rounded box ("t": "r", 4-10 mm edge radius: small bevels, smooth normals) or a plain box;
-wood uses the "joinery" pattern with grain -1 (grain follows each part's longest axis: legs, rails, boards, stiles).
+Pieces are B1-kit parts (docs/asset-format.md#b1-geometry-kit): chamfered boxes ("bv", what a small rounding radius
+becomes), rounded boxes for soft shapes, cylinders / frustums for turned legs, casks, pots, lamps and plates, arches for
+bail handles, crests and aprons, wedges for brackets (P1, version 2). Wood uses the "joinery" pattern with grain -1 (grain follows each part's longest axis: legs, rails, boards, stiles).
 Colliders are 1-3 invisible boxes per item; cosmetic props have none. The "prop" block drives damage and placement.
 
 Usage: python -I tools/gen_furniture.py [repo root]
@@ -106,8 +107,47 @@ class A:
     def r(self, c, s, m, grp, rad=0.006, rot=None):
         rad = min(rad, 0.5 * min(s) - 1e-4)
         p = {"t": "r" if rad > 0.0015 else "b", "c": [round(v, 4) for v in c], "s": [round(v, 4) for v in s], "m": m, "k": 0, "g": self.g(grp)}
-        if p["t"] == "r":
+        if p["t"] == "r" and rad <= 0.012:   # P1: small rounds become a mesh chamfer (smooth normals, ~108 tris instead of ~300)
+            p["t"], p["bv"] = "b", round(rad, 4)
+        elif p["t"] == "r":
             p["rad"] = round(rad, 4)
+        if rot:
+            p["r"] = [round(v, 3) for v in rot]
+        self.parts.append(p)
+        self.used.add(m)
+        return p
+
+    def cyl(self, c, d, h, m, grp, top=1.0, dz=None, n=0, seg=0, rot=None, t="c"):
+        """P1 (B1 kit): cylinder / frustum along local y (d across x, dz across z; top = top / base section).
+        rot [180, 0, 0] puts the base on top (a frustum widening upward); [90, 0, 0] lays it along z."""
+        p = {"t": t, "c": [round(v, 4) for v in c], "s": [round(d, 4), round(h, 4), round(d if dz is None else dz, 4)], "m": m, "k": 0, "g": self.g(grp)}
+        if n:
+            p["n"] = n
+        if seg:
+            p["seg"] = seg
+        if t == "k" or top != 1.0:
+            p["top"] = round(top, 4)
+        if rot:
+            p["r"] = [round(v, 3) for v in rot]
+        self.parts.append(p)
+        self.used.add(m)
+        return p
+
+    def arch(self, c, s, m, grp, th, rot=None, fill=False):
+        """P1: arch ring (bail handles, rope loops) or, with th past both radii, a solid half-disc; extruded along local z."""
+        p = {"t": "a", "c": [round(v, 4) for v in c], "s": [round(v, 4) for v in s], "m": m, "th": round(th, 4), "k": 0, "g": self.g(grp)}
+        if fill:
+            p["fill"] = 1
+        if rot:
+            p["r"] = [round(v, 3) for v in rot]
+        self.parts.append(p)
+        self.used.add(m)
+        return p
+
+    def wedge(self, c, s, m, grp, top=0.0, rot=None):
+        p = {"t": "w", "c": [round(v, 4) for v in c], "s": [round(v, 4) for v in s], "m": m, "k": 0, "g": self.g(grp)}
+        if top:
+            p["top"] = round(top, 4)
         if rot:
             p["r"] = [round(v, 3) for v in rot]
         self.parts.append(p)
@@ -121,15 +161,12 @@ class A:
         self.cols.append({"t": "b", "c": [round(v, 4) for v in c], "s": [round(v, 4) for v in s], "m": "oak", "v": 0})
 
     def plate(self, c, d, t, m, grp, axis="y", tilt=None):
-        """Octagonal plate: two square slabs, one turned 45 degrees about the plate's normal."""
-        rr = min(0.004, 0.5 * t - 2e-4)
+        """Round plate: one shallow frustum (the rim slopes in to the foot), 16 sides."""
         if axis == "y":
-            self.r(c, [d * 0.83, t, d * 0.83], m, grp, rr, rot=tilt)
-            self.r(c, [d * 0.83, t, d * 0.83], m, grp, rr, rot=[(tilt or [0, 0, 0])[0], 45 + (tilt or [0, 0, 0])[1], (tilt or [0, 0, 0])[2]])
-        else:   # standing in a rack, facing +z
+            self.cyl(c, d, t, m, grp, top=0.86, seg=16, rot=[180 + (tilt or [0, 0, 0])[0], (tilt or [0, 0, 0])[1], (tilt or [0, 0, 0])[2]])
+        else:   # standing in a rack, face toward +z
             rx = (tilt or [0, 0, 0])[0]
-            self.r(c, [d * 0.83, d * 0.83, t], m, grp, rr, rot=[rx, 0, 0])
-            self.r(c, [d * 0.83, d * 0.83, t], m, grp, rr, rot=[rx, 0, 45])
+            self.cyl(c, d, t, m, grp, top=0.86, seg=16, rot=[rx - 90, 0, 0])
 
     def write(self, root, footprint, fragments=(), keep=(), glass=None, surfaces=(), mats=None):
         materials = []
@@ -150,7 +187,7 @@ class A:
         if glass:
             self.prop["glass"] = self.groups.index(glass)
         self.prop["surfaces"] = [[round(v, 3) for v in s] for s in surfaces]
-        doc = {"id": self.id, "version": 1, "name": self.name, "category": "Furniture", "description": self.desc,
+        doc = {"id": self.id, "version": 2, "name": self.name, "category": "Furniture", "description": self.desc,
                "floors": 0, "enterable": False, "footprint": [round(footprint[0], 3), round(footprint[1], 3)],
                "plinthDepth": 0, "maxGrade": 0.3, "noAutoPanels": True, "materials": materials,
                "parts": self.parts + self.cols, "prop": self.prop}
@@ -162,10 +199,27 @@ class A:
 
 
 # ---------------------------------------------------------------- builders
+def turned_leg(a, x, z, h, d, m, grp, block=0.0, y0=0.0, foot=True, taper=0.62):
+    """P1: lathe-turned leg from y0 to y0 + h: a square block at the top (where the rails are tenoned in), a bead ring,
+    a long taper, an ankle ring and a turned foot."""
+    y = y0 + h
+    if block > 0:
+        a.r([x, y - block / 2, z], [d, block, d], m, grp, 0.004)
+        y -= block
+    a.cyl([x, y - 0.011, z], d * 0.98, 0.022, m, grp, seg=12)               # bead under the block
+    y -= 0.022
+    fh = 0.05 if foot else 0.0
+    L = y - y0 - fh - 0.016
+    a.cyl([x, y - L / 2, z], d * 0.84, L, m, grp, top=taper, seg=12, rot=[180, 0, 0])   # taper, narrowing downward
+    y -= L
+    a.cyl([x, y - 0.008, z], d * 0.66, 0.016, m, grp, seg=12)               # ankle ring
+    if foot:
+        a.cyl([x, y0 + fh / 2, z], d * 0.62, fh, m, grp, top=0.78, seg=12, rot=[180, 0, 0])
+
+
 def leg_tapered(a, x, z, h, top, bot, m, grp):
-    """Square leg tapering in two stacked bevelled sections."""
-    a.r([x, h * 0.75, z], [top, h * 0.5, top], m, grp, 0.005)
-    a.r([x, h * 0.25, z], [(top + bot) * 0.5, h * 0.5, (top + bot) * 0.5], m, grp, 0.005)
+    """Table leg: turned below a square block at apron height (was two stacked square sections)."""
+    turned_leg(a, x, z, h, top, m, grp, block=0.13)
 
 
 def dining_table(root, id, name, W, D, boards, wood):
@@ -199,10 +253,11 @@ def side_table(root):
     a.r([0, H - 0.07, -D / 2 + 0.04], [W - 0.1, 0.09, 0.02], "cherry", "apron", 0.004)
     for sx in (-1, 1):
         a.r([sx * (W / 2 - 0.05), H - 0.07, 0], [0.02, 0.09, D - 0.1], "cherry", "apron", 0.004)
+    a.r([0, H - 0.0285, 0], [W - 0.03, 0.008, D - 0.03], "cherry", "top", 0.003)   # moulded edge under the top
     for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
         x, z = sx * (W / 2 - 0.05), sz * (D / 2 - 0.05)
-        a.r([x, (H - 0.115) * 0.7, z], [0.04, (H - 0.115) * 0.6, 0.04], "cherry", f"leg{i}", 0.005)
-        a.r([x, (H - 0.115) * 0.2, z], [0.032, (H - 0.115) * 0.4, 0.032], "cherry", f"leg{i}", 0.005)
+        turned_leg(a, x, z, H - 0.025, 0.042, "cherry", f"leg{i}", block=0.1)
+    a.r([0, 0.16, 0], [W - 0.12, 0.016, D - 0.12], "cherry", "apron", 0.003)   # undershelf
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["top", "drawer", "leg0"], keep=["leg2", "leg3"], surfaces=[[-W / 2 + 0.04, -D / 2 + 0.04, W / 2 - 0.04, D / 2 - 0.04, H]])
 
@@ -212,40 +267,63 @@ def chair(root, id, name, ladder, wood):
           " Thin square legs, rails and stretchers; the back and seat come off on a blast.", "wood", 8, 20, front=0.45)
     S, H = 0.44, 0.45   # seat size, seat height
     bh = 0.95
-    for sx in (-1, 1):   # back legs rise into the back posts, raked slightly
-        a.r([sx * (S / 2 - 0.02), bh / 2, -S / 2 + 0.02], [0.034, bh, 0.034], wood, "back", 0.005, rot=[-4, 0, 0])
-        a.r([sx * (S / 2 - 0.02), H / 2, S / 2 - 0.02], [0.032, H, 0.032], wood, "legs", 0.005)
+    for sx in (-1, 1):   # back legs rise into the back posts, raked slightly; turned front legs; finials on the posts
+        a.r([sx * (S / 2 - 0.02), bh / 2, -S / 2 + 0.02], [0.04, bh, 0.04], wood, "back", 0.005, rot=[-4, 0, 0])
+        turned_leg(a, sx * (S / 2 - 0.02), S / 2 - 0.02, H, 0.048, wood, "legs", block=0.06, foot=False, taper=0.85)
+        fz = -S / 2 + 0.02 - math.sin(math.radians(4)) * bh / 2 - 0.002
+        a.cyl([sx * (S / 2 - 0.02), bh + 0.004, fz], 0.03, 0.014, wood, "back", seg=10)                  # finial collar
+        a.r([sx * (S / 2 - 0.02), bh + 0.026, fz], [0.034, 0.034, 0.034], wood, "back", 0.016)           # ball finial
     if ladder:
         for i in range(3):
             y = H + 0.17 + i * 0.13
-            a.r([0, y, -S / 2 + 0.005 - 0.012 * (i + 1)], [S - 0.04, 0.05, 0.016], wood, "back", 0.005, rot=[-4, 0, 0])
+            a.r([0, y, -S / 2 + 0.005 - 0.012 * (i + 1)], [S - 0.04, 0.065, 0.018], wood, "back", 0.005, rot=[-4, 0, 0])
         a.r([0, H - 0.012, 0.01], [S - 0.03, 0.03, S - 0.02], "rush", "seat", 0.008)
     else:
         a.r([0, H + 0.4, -S / 2 + 0.0], [S - 0.04, 0.06, 0.02], wood, "back", 0.005, rot=[-4, 0, 0])
         for i in range(4):
             x = -0.12 + i * 0.08
-            a.r([x, H + 0.22, -S / 2 + 0.012], [0.035, 0.32, 0.012], wood, "back", 0.004, rot=[-4, 0, 0])
+            a.r([x, H + 0.22, -S / 2 + 0.012], [0.045, 0.32, 0.014], wood, "back", 0.004, rot=[-4, 0, 0])
         a.r([0, H - 0.012, 0.01], [S, 0.026, S - 0.01], wood, "seat", 0.006)
-    for sz in (-1, 1):   # seat rails and stretchers
+    for sz in (-1, 1):   # seat rails and turned rungs (stretchers)
         a.r([0, H - 0.045, sz * (S / 2 - 0.02)], [S - 0.05, 0.035, 0.02], wood, "seat", 0.004)
-        a.r([0, 0.16 + 0.04 * (sz > 0), sz * (S / 2 - 0.02)], [S - 0.05, 0.02, 0.02], wood, "legs", 0.004)
+        a.cyl([0, 0.16 + 0.04 * (sz > 0), sz * (S / 2 - 0.02)], 0.02, S - 0.03, wood, "legs", seg=8, rot=[0, 0, 90])
     for sx in (-1, 1):
         a.r([sx * (S / 2 - 0.02), H - 0.045, 0], [0.02, 0.035, S - 0.05], wood, "seat", 0.004)
-        a.r([sx * (S / 2 - 0.02), 0.2, 0], [0.018, 0.018, S - 0.05], wood, "legs", 0.004)
+        a.cyl([sx * (S / 2 - 0.02), 0.2, 0], 0.018, S - 0.03, wood, "legs", seg=8, rot=[90, 0, 0])
     a.col([0, H / 2, 0.0], [S, H, S])
     a.col([0, (H + bh) / 2, -S / 2 + 0.02], [S, bh - H, 0.06])
     return a.write(root, [S, S], fragments=["back", "seat"], keep=[])
 
 
 def stool(root):
-    a = A("furn_stool", "Milking stool", "Low three-legged stool: thick pine seat, splayed legs.", "wood", 6, 16, front=0.3)
-    a.r([0, 0.32, 0], [0.32, 0.04, 0.32], "pine", "seat", 0.012)
+    a = A("furn_stool", "Milking stool", "Low three-legged stool: thick round pine seat, splayed round legs wedged through it.", "wood", 6, 16, front=0.3)
+    a.cyl([0, 0.32, 0], 0.32, 0.04, "pine", "seat", top=0.94, seg=20)
     for i in range(3):
         ang = math.radians(90 + 120 * i)
         x, z = math.cos(ang) * 0.1, math.sin(ang) * 0.1
-        a.r([x, 0.15, z], [0.035, 0.32, 0.035], "pine", f"leg{i}", 0.006, rot=[-80 * z, 0, 80 * x])   # splayed outward
+        a.cyl([x, 0.15, z], 0.036, 0.32, "pine", f"leg{i}", top=0.8, seg=10, rot=[-80 * z, 0, 80 * x])   # splayed outward, tapering
+        a.cyl([x * 0.8, 0.342, z * 0.8], 0.03, 0.006, "oak_dark", f"leg{i}", seg=8)                    # wedged tenon end in the seat
     a.col([0, 0.17, 0], [0.32, 0.34, 0.32])
     return a.write(root, [0.34, 0.34], fragments=["seat", "leg0"], keep=[], surfaces=[[-0.12, -0.12, 0.12, 0.12, 0.34]])
+
+
+def drawer_front(a, cx, cy, z, w, h, m, grp):
+    """P1: drawer front with a raised field (fielded panel) 8 mm proud of the front board."""
+    a.r([cx, cy, z], [w, h, 0.022], m, grp, 0.005)
+    a.r([cx, cy, z + 0.008], [w - 0.05, h - 0.045, 0.012], m, grp, 0.006)
+
+
+def bail(a, x, y, z, grp, w=0.07, m="brass"):
+    """P1: brass bail pull on the face at depth z: two round rosettes and a hanging half-ring handle."""
+    for sx in (-1, 1):
+        a.cyl([x + sx * w / 2, y, z + 0.003], 0.022, 0.006, m, grp, seg=10, rot=[90, 0, 0])
+    a.arch([x, y - 0.014, z + 0.009], [w, 0.028, 0.006], m, grp, th=0.006, rot=[180, 0, 0])
+
+
+def knob(a, x, y, z, grp, d=0.026, m="brass"):
+    """P1: turned knob on the face at depth z: a short neck and a flattened ball."""
+    a.cyl([x, y, z + 0.006], d * 0.55, 0.012, m, grp, seg=8, rot=[90, 0, 0])
+    a.r([x, y, z + 0.018], [d, d, d * 0.7], m, grp, d * 0.34)
 
 
 def framed_door(a, cx, cy, z, w, h, wood, grp, panel=True, glazed=False):
@@ -277,11 +355,13 @@ def hutch(root, glazed):
     a.r([0, H1 - 0.015, 0.01], [W + 0.04, 0.03, D + 0.03], wood, "carcass", 0.008)   # worktop
     a.r([0, H1 / 2, -D / 2 + 0.01], [W - 0.02, H1 - 0.04, 0.02], wood, "carcass", 0.004)
     for i, sx in enumerate((-1, 1)):   # drawers
-        a.r([sx * W / 4, H1 - 0.1, D / 2 - 0.01], [W / 2 - 0.05, 0.12, 0.022], wood, f"drawer{i}", 0.005)
-        a.r([sx * W / 4, H1 - 0.1, D / 2 + 0.006], [0.07, 0.022, 0.016], "brass", f"drawer{i}", 0.005)
+        drawer_front(a, sx * W / 4, H1 - 0.1, D / 2 - 0.01, W / 2 - 0.05, 0.12, wood, f"drawer{i}")
+        bail(a, sx * W / 4, H1 - 0.09, D / 2 + 0.007, f"drawer{i}")
     for i, sx in enumerate((-1, 1)):
         framed_door(a, sx * W / 4, 0.42, D / 2 - 0.01, W / 2 - 0.05, 0.56, wood, f"door{i}")
-        a.r([sx * 0.04, 0.48, D / 2 + 0.006], [0.016, 0.05, 0.016], "brass", f"door{i}", 0.005)
+        a.r([sx * 0.04, 0.48, D / 2 + 0.003], [0.016, 0.06, 0.004], "brass", f"door{i}", 0.002)   # escutcheon plate
+        knob(a, sx * 0.04, 0.44, D / 2 + 0.001, f"door{i}", 0.022)
+    a.r([0, 0.1, 0.006], [W - 0.03, 0.02, D - 0.035], wood, "carcass", 0.006)   # plinth moulding
     # upper part
     UD, UH, y0 = 0.28, 1.0, H1
     for sx in (-1, 1):
@@ -289,6 +369,8 @@ def hutch(root, glazed):
     a.r([0, y0 + UH / 2, -D / 2 + 0.01], [W - 0.08, UH, 0.016], wood, "upper", 0.003)
     a.r([0, y0 + UH + 0.03, -D / 2 + UD / 2 + 0.02], [W - 0.02, 0.06, UD + 0.05], wood, "upper", 0.01)   # cornice
     a.r([0, y0 + UH - 0.01, -D / 2 + UD / 2 + 0.03], [W - 0.04, 0.035, UD + 0.03], wood, "upper", 0.008)
+    if not glazed:   # shaped apron under the cornice: a flat arch cut from a board
+        a.arch([0, y0 + UH - 0.075, -D / 2 + UD - 0.012], [W - 0.1, 0.09, 0.02], wood, "upper", th=0.03, fill=True)
     shelves = [y0 + 0.36, y0 + 0.7]
     for y in shelves:
         a.r([0, y, -D / 2 + UD / 2], [W - 0.1, 0.022, UD - 0.02], wood, "upper", 0.004)
@@ -317,8 +399,10 @@ def armoire(root):
     wood = "cherry"
     for sx in (-1, 1):
         a.r([sx * (W / 2 - 0.02), H / 2 + 0.06, 0], [0.04, H - 0.12, D], wood, "carcass", 0.008)
-        for sz in (-1, 1):
-            a.r([sx * (W / 2 - 0.05), 0.04, sz * (D / 2 - 0.05)], [0.07, 0.08, 0.07], wood, "carcass", 0.012)   # feet
+        for sz in (-1, 1):   # turned bun feet
+            a.cyl([sx * (W / 2 - 0.05), 0.045, sz * (D / 2 - 0.05)], 0.085, 0.05, wood, "carcass", top=0.7, seg=14)
+            a.cyl([sx * (W / 2 - 0.05), 0.01, sz * (D / 2 - 0.05)], 0.085, 0.02, wood, "carcass", top=0.75, seg=14, rot=[180, 0, 0])
+            a.cyl([sx * (W / 2 - 0.05), 0.075, sz * (D / 2 - 0.05)], 0.06, 0.012, wood, "carcass", seg=14)
     a.r([0, 0.11, 0], [W, 0.06, D], wood, "carcass", 0.006)
     a.r([0, H / 2 + 0.06, -D / 2 + 0.01], [W - 0.04, H - 0.12, 0.02], wood, "carcass", 0.004)
     a.r([0, H - 0.04, 0.01], [W + 0.06, 0.06, D + 0.05], wood, "cornice", 0.012)
@@ -329,6 +413,10 @@ def armoire(root):
         framed_door(a, cx, 1.17, D / 2 - 0.01, W / 2 - 0.05, 1.08, wood, f"door{i}")
         framed_door(a, cx, 0.42, D / 2 - 0.01, W / 2 - 0.05, 0.42, wood, f"door{i}")
         a.r([sx * 0.03, 1.0, D / 2 + 0.008], [0.03, 0.09, 0.008], "brass", f"door{i}", 0.003)
+        knob(a, sx * 0.03, 0.93, D / 2 + 0.004, f"door{i}", 0.022)
+        for hy in (0.5, 1.55):   # iron hinge knuckles on the outer stiles
+            a.cyl([sx * (W / 2 - 0.045), hy, D / 2 + 0.006], 0.014, 0.07, "iron", "carcass", seg=8)
+    a.arch([0, H - 0.17, D / 2 - 0.004], [W - 0.12, 0.08, 0.02], wood, "cornice", th=0.025, fill=True)   # arched frieze under the cornice
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W + 0.1, D + 0.07], fragments=["door0", "door1", "cornice"], keep=["carcass"])
 
@@ -345,9 +433,12 @@ def commode(root):
     a.r([0, H - 0.015, 0.01], [W + 0.04, 0.03, D + 0.03], "oak", "top", 0.008)
     for i in range(3):
         y = 0.22 + i * 0.21
-        a.r([0, y, D / 2 - 0.01], [W - 0.07, 0.18, 0.022], w, f"drawer{i}", 0.006)
+        drawer_front(a, 0, y, D / 2 - 0.01, W - 0.07, 0.18, w, f"drawer{i}")
         for sx in (-1, 1):
-            a.r([sx * 0.25, y, D / 2 + 0.008], [0.06, 0.018, 0.014], "brass", f"drawer{i}", 0.005)
+            bail(a, sx * 0.25, y + 0.025, D / 2 + 0.007, f"drawer{i}")
+        a.cyl([0, y + 0.02, D / 2 + 0.008], 0.018, 0.004, "brass", f"drawer{i}", seg=8, rot=[90, 0, 0])   # keyhole escutcheon
+    a.r([0, 0.1, 0.006], [W + 0.005, 0.02, D - 0.005], w, "carcass", 0.006)   # plinth moulding
+    a.r([0, H - 0.04, 0.0], [W + 0.005, 0.02, D + 0.005], w, "carcass", 0.006)   # moulding under the top
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W + 0.04, D + 0.03], fragments=["top", "drawer2", "drawer0"], keep=["carcass", "drawer1"],
                    surfaces=[[-W / 2 + 0.04, -D / 2 + 0.05, W / 2 - 0.04, D / 2 - 0.03, H]])
@@ -363,6 +454,14 @@ def blanket_chest(root):
         for sz in (-1, 1):
             a.r([sx * (W / 2 - 0.05), 0.04, sz * (D / 2 - 0.05)], [0.08, 0.08, 0.08], "oak_dark", "body", 0.01)
     a.r([0, H - 0.08, D / 2 + 0.008], [0.05, 0.08, 0.01], "iron", "lid", 0.003)
+    for sx in (-1, 1):   # the straps carry on over the lid and its front lip; nail heads; ring handles on the ends
+        a.r([sx * 0.3, H - 0.003, 0.005], [0.035, 0.006, D + 0.034], "iron", "lid", 0.002)
+        a.r([sx * 0.3, H - 0.03, D / 2 + 0.019], [0.035, 0.05, 0.006], "iron", "lid", 0.002)
+        for ny in (0.12, 0.25, 0.38):
+            a.cyl([sx * 0.3, ny, D / 2 + 0.008], 0.012, 0.004, "iron", "body", seg=6, rot=[90, 0, 0])
+        a.cyl([sx * (W / 2 + 0.004), H * 0.62, 0], 0.04, 0.008, "iron", "body", seg=10, rot=[0, 0, 90])
+        a.arch([sx * (W / 2 + 0.012), H * 0.62 - 0.05, 0], [0.09, 0.06, 0.012], "iron", "body", th=0.01, rot=[180, 90, 0])
+    a.r([0, H - 0.115, D / 2 + 0.014], [0.06, 0.06, 0.006], "iron", "body", 0.002)   # lock plate under the hasp
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W + 0.03, D + 0.03], fragments=["lid"], keep=["body"], surfaces=[[-W / 2 + 0.05, -D / 2 + 0.05, W / 2 - 0.05, D / 2 - 0.05, H]])
 
@@ -371,13 +470,21 @@ def bed(root):
     a = A("furn_bed", "Bed", "Period bed: turned-look posts, panelled head- and footboard, ticking mattress, linen sheet and bolster, "
           "folded red wool blanket.", "wood", 24, 55, wall=True, front=0.6)
     W, L = 1.4, 2.0
-    for sx in (-1, 1):
-        a.r([sx * (W / 2 - 0.03), 0.55, -L / 2 + 0.03], [0.06, 1.1, 0.06], "oak", "head", 0.008)
-        a.r([sx * (W / 2 - 0.03), 0.38, L / 2 - 0.03], [0.06, 0.76, 0.06], "oak", "foot", 0.008)
-        a.r([sx * (W / 2 - 0.03), 0.3, 0], [0.04, 0.16, L - 0.1], "oak", "frame", 0.006)
+    for sx in (-1, 1):   # turned posts: square where the boards and rails are tenoned in, turned above and below, ball finials
+        x = sx * (W / 2 - 0.03)
+        for z, ph, grp in ((-L / 2 + 0.03, 1.1, "head"), (L / 2 - 0.03, 0.76, "foot")):
+            a.cyl([x, 0.06, z], 0.055, 0.12, "oak", grp, top=0.75, seg=12, rot=[180, 0, 0])            # turned foot
+            sq = ph - 0.2 if grp == "head" else ph - 0.14
+            a.r([x, 0.12 + sq / 2, z], [0.06, sq, 0.06], "oak", grp, 0.008)                             # square section
+            a.cyl([x, 0.12 + sq + 0.012, z], 0.064, 0.024, "oak", grp, seg=12)                         # collar
+            top = 0.12 + sq + 0.024
+            a.cyl([x, (top + ph) / 2, z], 0.05, ph - top, "oak", grp, top=0.7, seg=12)                 # turned top
+            a.r([x, ph + 0.03, z], [0.06, 0.06, 0.06], "oak", grp, 0.029)                              # ball finial
+        a.r([x, 0.3, 0], [0.04, 0.16, L - 0.1], "oak", "frame", 0.006)
     framed_door(a, 0, 0.72, -L / 2 + 0.03, W - 0.1, 0.62, "oak", "head")
     framed_door(a, 0, 0.5, L / 2 - 0.03, W - 0.1, 0.4, "oak", "foot")
-    a.r([0, 1.12, -L / 2 + 0.03], [W + 0.02, 0.05, 0.08], "oak", "head", 0.012)
+    a.r([0, 1.06, -L / 2 + 0.03], [W - 0.1, 0.05, 0.07], "oak", "head", 0.012)                      # crest rail between the posts
+    a.arch([0, 1.085, -L / 2 + 0.03], [W - 0.4, 0.1, 0.04], "oak", "head", th=0.04, fill=False)      # arched crest
     a.r([0, 0.5, 0.0], [W - 0.1, 0.2, L - 0.12], "ticking", "mattress", 0.06)
     a.r([0, 0.6, 0.12], [W - 0.08, 0.025, L - 0.38], "linen", "mattress", 0.012)
     a.r([0, 0.66, -L / 2 + 0.2], [W - 0.18, 0.14, 0.26], "linen", "mattress", 0.06)
@@ -434,9 +541,11 @@ def fireplace(root):
     a.r([0, (H - 0.3) / 2 + 0.06, -D / 2 + 0.06], [W - 0.52, H - 0.3, 0.1], "firebrick", "jambs", 0.004)
     a.b([0, 0.062, -0.02], [W - 0.54, 0.004, D - 0.12], "soot", "jambs")
     a.b([0, (H - 0.3) / 2 + 0.06, -D / 2 + 0.115], [W - 0.54, H - 0.32, 0.004], "soot", "jambs")
-    for sx in (-1, 1):
-        a.r([sx * 0.25, 0.14, 0.05], [0.03, 0.16, 0.03], "iron", "dogs", 0.006)
+    for sx in (-1, 1):   # fire-dogs: a turned upright with a ball top, the log bar running back, splayed feet
+        a.cyl([sx * 0.25, 0.14, 0.05], 0.03, 0.16, "iron", "dogs", top=0.7, seg=10)
+        a.r([sx * 0.25, 0.235, 0.05], [0.042, 0.042, 0.042], "iron", "dogs", 0.02)
         a.r([sx * 0.25, 0.08, -0.08], [0.025, 0.025, 0.3], "iron", "dogs", 0.006)
+        a.r([sx * 0.25, 0.075, 0.05], [0.12, 0.016, 0.02], "iron", "dogs", 0.004, rot=[0, 0, 0])
     for sx in (-1, 1):
         a.col([sx * (W / 2 - 0.13), H / 2, 0], [0.26, H, D])
     a.col([0, H - 0.1, 0], [W, 0.36, D])
@@ -451,10 +560,17 @@ def clock(root):
     a.r([0, 0.15, 0], [0.48, 0.3, 0.32], w, "case", 0.01)
     a.r([0, 1.0, 0], [0.4, 1.4, 0.26], w, "case", 0.01)
     a.r([0, 1.95, 0.0], [0.5, 0.5, 0.3], w, "hood", 0.012)
-    a.r([0, 1.95, 0.155], [0.3, 0.3, 0.01], "brass", "hood", 0.004)
-    a.b([0, 1.95, 0.163], [0.32, 0.32, 0.004], "glass", "glass")
-    a.r([0, 1.1, 0.135], [0.1, 0.5, 0.008], "brass", "case", 0.004)
-    a.b([0, 1.1, 0.141], [0.16, 0.6, 0.004], "glass", "glass")
+    a.arch([0, 2.2, 0.0], [0.5, 0.1, 0.28], w, "hood", th=0.3)                       # bonnet: a solid half-disc on the hood
+    a.r([0, 1.95, 0.155], [0.34, 0.34, 0.008], "brass", "hood", 0.004)               # repoussé brass surround
+    a.cyl([0, 1.95, 0.161], 0.26, 0.006, "dial", "hood", seg=24, rot=[90, 0, 0])     # round enamel dial
+    a.r([0, 1.97, 0.166], [0.008, 0.09, 0.003], "iron", "hood", 0.001)               # hands
+    a.r([0.03, 1.95, 0.166], [0.07, 0.007, 0.003], "iron", "hood", 0.001)
+    a.b([0, 1.95, 0.17], [0.32, 0.32, 0.004], "glass", "glass")
+    a.r([0, 1.25, 0.135], [0.012, 0.6, 0.006], "brass", "case", 0.002)              # pendulum rod
+    a.cyl([0, 0.94, 0.137], 0.13, 0.008, "brass", "case", seg=20, rot=[90, 0, 0])    # lenticle bob
+    a.b([0, 1.1, 0.143], [0.16, 0.6, 0.004], "glass", "glass")
+    a.r([0, 1.72, 0.0], [0.46, 0.04, 0.29], w, "case", 0.008)
+    a.r([0, 0.32, 0.0], [0.46, 0.04, 0.29], w, "case", 0.008)
     a.col([0, 1.1, 0], [0.5, 2.2, 0.32])
     return a.write(root, [0.5, 0.32], fragments=["hood"], keep=["case"], glass="glass")
 
@@ -464,25 +580,42 @@ def crockery(root):
     a = A("furn_crockery", "Crockery stack", "Stacked faience plates, a bowl and a cup.", "ceramic", 1, 6, blocking=False, front=0.0)
     for i in range(5):
         a.plate([0, 0.006 + i * 0.013, 0], 0.23, 0.011, "faience" if i % 2 else "faience_dots", "plates")
-    a.r([0.2, 0.04, 0.02], [0.15, 0.07, 0.15], "faience_red", "bowl", 0.035)
-    a.r([0.15, 0.035, -0.14], [0.08, 0.07, 0.08], "faience", "bowl", 0.025)
+    bowl(a, 0.2, 0.0, 0.02, 0.15, 0.07, "faience_red", "bowl")
+    a.cyl([0.15, 0.035, -0.14], 0.075, 0.07, "faience", "bowl", top=0.82, seg=14, rot=[180, 0, 0])   # cup
+    a.arch([0.195, 0.035, -0.14], [0.03, 0.04, 0.008], "faience", "bowl", th=0.007, rot=[0, 0, -90])
     return a.write(root, [0.42, 0.32], fragments=[], keep=[])
+
+
+def bowl(a, x, y, z, d, h, m, grp):
+    """P1: a bowl: a flaring frustum on a foot ring."""
+    a.cyl([x, y + 0.006, z], d * 0.45, 0.012, m, grp, seg=14)
+    a.cyl([x, y + 0.012 + (h - 0.012) / 2, z], d, h - 0.012, m, grp, top=0.55, seg=18, rot=[180, 0, 0])
 
 
 def jug(root):
     a = A("furn_jug_bowl", "Jug and basin", "Stoneware jug standing in a faience basin.", "ceramic", 1, 6, blocking=False, front=0.0)
-    a.r([0, 0.035, 0], [0.36, 0.07, 0.36], "faience", "basin", 0.03)
-    a.r([0, 0.16, 0], [0.14, 0.18, 0.14], "stoneware", "jug", 0.05)
-    a.r([0, 0.27, 0], [0.09, 0.06, 0.09], "stoneware", "jug", 0.03)
-    a.r([0.085, 0.19, 0], [0.025, 0.12, 0.02], "stoneware", "jug", 0.008)
+    bowl(a, 0, 0, 0, 0.36, 0.07, "faience", "basin")
+    a.cyl([0, 0.11, 0], 0.15, 0.08, "stoneware", "jug", top=0.9, seg=18, rot=[180, 0, 0])   # belly
+    a.cyl([0, 0.19, 0], 0.15, 0.08, "stoneware", "jug", top=0.62, seg=18)                   # shoulder
+    a.cyl([0, 0.26, 0], 0.095, 0.06, "stoneware", "jug", top=0.85, seg=16, rot=[180, 0, 0])   # neck, flaring to the rim
+    a.wedge([0, 0.28, 0.055], [0.04, 0.02, 0.05], "stoneware", "jug", top=0.2)              # pouring lip
+    a.arch([0.075, 0.18, 0], [0.13, 0.05, 0.02], "stoneware", "jug", th=0.016, rot=[0, 0, -90])   # handle
     return a.write(root, [0.36, 0.36], fragments=[], keep=[])
+
+
+def bottle(a, x, z, m, grp, h=0.2, d=0.075):
+    """P1: a wine / cider bottle: body, rounded shoulder, neck, lip ring."""
+    a.cyl([x, h * 0.36, z], d, h * 0.72, m, grp, seg=14)
+    a.cyl([x, h * 0.72 + 0.02, z], d, 0.04, m, grp, top=0.42, seg=14)
+    a.cyl([x, h * 0.72 + 0.075, z], d * 0.38, 0.07, m, grp, top=0.9, seg=10)
+    a.cyl([x, h * 0.72 + 0.11, z], d * 0.44, 0.012, m, grp, seg=10)
 
 
 def bottles(root):
     a = A("furn_bottles", "Bottles", "Three cider and wine bottles, green and brown glass.", "glass", 1, 4, blocking=False, front=0.0)
     for i, (x, z, m) in enumerate([(-0.07, 0.0, "bottle_green"), (0.03, 0.04, "bottle_brown"), (0.08, -0.05, "bottle_green")]):
-        a.r([x, 0.1, z], [0.075, 0.2, 0.075], m, f"b{i}", 0.03)
-        a.r([x, 0.24, z], [0.03, 0.09, 0.03], m, f"b{i}", 0.012)
+        bottle(a, x, z, m, f"b{i}")
+    a.cyl([0.03, 0.264, 0.04], 0.024, 0.02, "log_end", "b1", seg=8)   # a cork in the cider
     return a.write(root, [0.26, 0.2], fragments=[], keep=[])
 
 
@@ -502,10 +635,13 @@ def books(root):
 
 def lamp(root):
     a = A("furn_lamp", "Oil lamp", "Brass oil lamp with a glass chimney.", "glass", 1, 6, blocking=False, front=0.0)
-    a.r([0, 0.015, 0], [0.12, 0.03, 0.12], "brass", "base", 0.01)
-    a.r([0, 0.08, 0], [0.04, 0.1, 0.04], "brass", "base", 0.01)
-    a.r([0, 0.16, 0], [0.11, 0.07, 0.11], "brass", "base", 0.03)
-    a.b([0, 0.27, 0], [0.06, 0.16, 0.06], "glass", "glass")
+    a.cyl([0, 0.015, 0], 0.12, 0.03, "brass", "base", top=0.7, seg=16)               # stepped foot
+    a.cyl([0, 0.08, 0], 0.035, 0.1, "brass", "base", top=0.8, seg=12, rot=[180, 0, 0])
+    a.cyl([0, 0.145, 0], 0.11, 0.04, "brass", "base", top=0.55, seg=16, rot=[180, 0, 0])   # font, lower half
+    a.cyl([0, 0.18, 0], 0.11, 0.03, "brass", "base", top=0.6, seg=16)                       # font, upper half
+    a.cyl([0, 0.2, 0], 0.06, 0.012, "brass", "base", seg=12)                                # burner collar
+    a.cyl([0, 0.27, 0], 0.06, 0.13, "glass", "glass", top=0.6, seg=14)                      # chimney: bulb...
+    a.cyl([0, 0.36, 0], 0.036, 0.05, "glass", "glass", seg=12)                              # ...and stack
     a.r([0, 0.225, 0], [0.012, 0.03, 0.006], "flame", "glass", 0.002)   # L3: the wick's flame inside the chimney
     a.col([0, 0.2, 0], [0.1, 0.3, 0.1])   # L3: rounds can shoot it out (invisible: the navmesh skips it)
     a.light = {"color": [1.0, 0.68, 0.36], "intensity": 0.45, "radius": 4.0, "offset": [0, 0.24, 0], "flicker": 0.12, "group": "glass", "use": "interior"}
@@ -525,6 +661,11 @@ def crate(root):
         for sz in (-1, 1):
             a.r([sx * (S / 2 - 0.03), 0.22, sz * (S / 2 - 0.03)], [0.04, 0.44, 0.04], "pine", "corners", 0.004)
     a.r([0, 0.012, 0], [S - 0.04, 0.02, S - 0.04], "pine", "corners", 0.003)
+    for sx in (-1, 1):   # rope handles through the end slats, nail heads at the corners
+        a.arch([sx * (S / 2 + 0.004), 0.36, 0], [0.16, 0.05, 0.018], "sacking", "corners", th=0.014, rot=[0, 90, 0])
+        for sz in (-1, 1):
+            for y in (0.07, 0.23, 0.39):
+                a.cyl([sx * (S / 2 - 0.03), y, sz * (S / 2 + 0.001)], 0.008, 0.003, "iron", f"slats{int((y - 0.07) / 0.16 + 0.5)}", seg=6, rot=[90, 0, 0])
     a.col([0, 0.22, 0], [S, 0.44, S])
     return a.write(root, [S, S], fragments=["slats2", "slats0"], keep=["corners"], surfaces=[[-0.2, -0.2, 0.2, 0.2, 0.45]])
 
@@ -557,11 +698,14 @@ def picture(root):
 def curtains(root):
     a = A("furn_curtains", "Curtains", "Pair of checked cotton curtains on an iron rod, gathered at the sides of a window.",
           "cloth", 0, 8, blocking=False, wall=True, front=0.0, mount=0.7)
-    a.r([0, 1.5, 0.06], [1.5, 0.02, 0.02], "iron", "rod", 0.008)
+    a.cyl([0, 1.5, 0.06], 0.02, 1.5, "iron", "rod", seg=8, rot=[0, 0, 90])
     for sx in (-1, 1):
-        for i in range(4):   # pleats
-            x = sx * (0.62 - i * 0.045)
-            a.r([x, 0.78, 0.06 + 0.012 * (i % 2)], [0.05, 1.44, 0.018], "curtain", f"side{(sx + 1) // 2}", 0.008)
+        a.r([sx * 0.765, 1.5, 0.06], [0.036, 0.036, 0.036], "iron", "rod", 0.017)              # ball finials
+        a.r([sx * 0.7, 1.5, 0.03], [0.012, 0.012, 0.06], "iron", "rod", 0.003)                # wall brackets
+        for i in range(5):   # gathered folds: flattened round pleats, deeper toward the tie-back
+            x = sx * (0.64 - i * 0.04)
+            a.cyl([x, 0.78, 0.06 + 0.01 * (i % 2)], 0.05, 1.44, "curtain", f"side{(sx + 1) // 2}", dz=0.022 + 0.004 * i, seg=8)
+        a.cyl([sx * 0.56, 0.62, 0.075], 0.2, 0.025, "curtain", f"side{(sx + 1) // 2}", dz=0.05, seg=10)   # tie-back band
     return a.write(root, [1.5, 0.08], fragments=[], keep=["rod"])
 
 
@@ -598,16 +742,19 @@ def dresser(root):
     w = "oak"
     for sx in (-1, 1):
         a.r([sx * (W / 2 - 0.02), H / 2 + 0.04, 0], [0.04, H - 0.08, D], w, "carcass", 0.006)
-        for sz in (-1, 1):
-            a.r([sx * (W / 2 - 0.04), 0.04, sz * (D / 2 - 0.04)], [0.06, 0.08, 0.06], w, "carcass", 0.01)
+        for sz in (-1, 1):   # turned feet
+            a.cyl([sx * (W / 2 - 0.04), 0.04, sz * (D / 2 - 0.04)], 0.065, 0.08, w, "carcass", top=0.6, seg=12, rot=[180, 0, 0])
     a.r([0, 0.1, 0], [W - 0.04, 0.04, D - 0.02], w, "carcass", 0.005)
+    a.arch([0, 0.055, D / 2 - 0.03], [W - 0.1, 0.05, 0.02], w, "carcass", th=0.02, fill=True)   # shaped apron between the feet
     a.r([0, H / 2 + 0.04, -D / 2 + 0.01], [W - 0.04, H - 0.1, 0.02], w, "carcass", 0.004)
     a.r([0, H - 0.015, 0.012], [W + 0.05, 0.035, D + 0.035], w, "top", 0.01)
+    a.r([0, H - 0.04, 0.008], [W + 0.015, 0.016, D + 0.02], w, "top", 0.006)   # moulding under the top
     for i, sx in enumerate((-1, 1)):
-        a.r([sx * W / 4, H - 0.12, D / 2 - 0.01], [W / 2 - 0.05, 0.12, 0.022], w, f"drawer{i}", 0.005)
-        a.r([sx * W / 4, H - 0.12, D / 2 + 0.006], [0.06, 0.02, 0.014], "brass", f"drawer{i}", 0.005)
+        drawer_front(a, sx * W / 4, H - 0.12, D / 2 - 0.01, W / 2 - 0.05, 0.12, w, f"drawer{i}")
+        bail(a, sx * W / 4, H - 0.11, D / 2 + 0.007, f"drawer{i}")
         framed_door(a, sx * W / 4, 0.46, D / 2 - 0.01, W / 2 - 0.05, 0.6, w, f"door{i}")
-        a.r([sx * 0.05, 0.52, D / 2 + 0.006], [0.014, 0.05, 0.014], "brass", f"door{i}", 0.005)
+        a.r([sx * 0.05, 0.52, D / 2 + 0.003], [0.016, 0.06, 0.004], "brass", f"door{i}", 0.002)
+        knob(a, sx * 0.05, 0.48, D / 2 + 0.001, f"door{i}", 0.022)
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W + 0.05, D + 0.035], fragments=["top", "door0", "door1", "drawer0"], keep=["carcass", "drawer1"],
                    surfaces=[[-W / 2 + 0.05, -D / 2 + 0.06, W / 2 - 0.05, D / 2 - 0.02, H + 0.003]])
@@ -625,9 +772,11 @@ def sideboard(root):
     a.r([0, H - 0.015, 0.01], [W + 0.04, 0.03, D + 0.03], "oak", "top", 0.008)
     for i in range(3):
         cx = -W / 3 + i * W / 3
-        a.r([cx, H - 0.1, D / 2 - 0.01], [W / 3 - 0.06, 0.1, 0.022], w, "drawers", 0.005)
-        a.r([cx, H - 0.1, D / 2 + 0.006], [0.05, 0.018, 0.012], "brass", "drawers", 0.005)
+        drawer_front(a, cx, H - 0.1, D / 2 - 0.01, W / 3 - 0.06, 0.1, w, "drawers")
+        bail(a, cx, H - 0.09, D / 2 + 0.007, "drawers", 0.06)
         framed_door(a, cx, 0.42, D / 2 - 0.01, W / 3 - 0.06, 0.56, w, f"door{i}")
+        knob(a, cx + (W / 3 - 0.06) / 2 - 0.05, 0.46, D / 2 + 0.001, f"door{i}", 0.024)
+    a.r([0, 0.1, 0.006], [W - 0.01, 0.02, D - 0.03], w, "carcass", 0.006)   # plinth moulding
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W + 0.04, D + 0.03], fragments=["top", "door0", "door2", "drawers"], keep=["carcass", "door1"],
                    surfaces=[[-W / 2 + 0.05, -D / 2 + 0.05, W / 2 - 0.05, D / 2 - 0.02, H]])
@@ -657,19 +806,23 @@ def washstand(root):
     W, D, H = 0.85, 0.45, 0.78
     w = "cherry"
     for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
-        a.r([sx * (W / 2 - 0.03), H / 2, sz * (D / 2 - 0.03)], [0.04, H, 0.04], w, "frame", 0.006)
+        turned_leg(a, sx * (W / 2 - 0.03), sz * (D / 2 - 0.03), H, 0.042, w, "frame", block=0.13)
     a.r([0, 0.16, 0], [W - 0.06, 0.02, D - 0.06], w, "frame", 0.004)   # lower shelf
-    a.r([0, H - 0.08, D / 2 - 0.03], [W - 0.1, 0.1, 0.02], w, "drawer", 0.004)
-    a.r([0, H - 0.08, D / 2 - 0.016], [0.05, 0.016, 0.012], "brass", "drawer", 0.004)
+    drawer_front(a, 0, H - 0.08, D / 2 - 0.03, W - 0.1, 0.1, w, "drawer")
+    knob(a, 0, H - 0.08, D / 2 - 0.011, "drawer", 0.024)
     a.r([0, H - 0.08, -D / 2 + 0.03], [W - 0.1, 0.1, 0.02], w, "frame", 0.004)
     a.r([0, H + 0.015, 0], [W + 0.02, 0.03, D + 0.02], "marble", "top", 0.006)
     a.r([0, H + 0.13, -D / 2 + 0.01], [W, 0.2, 0.02], "marble", "top", 0.005)
     for sx in (-1, 1):
         a.r([sx * (W / 2 + 0.03), H - 0.1, 0], [0.018, 0.018, 0.018], w, "frame", 0.004)
-    a.r([0, H - 0.1, 0], [0.016, 0.016, D - 0.1], w, "frame", 0.004)   # towel rail along a side
+    a.cyl([0, H - 0.1, 0], 0.016, D - 0.1, w, "frame", seg=8, rot=[90, 0, 0])   # towel rail along a side
     a.r([0, H - 0.18, D / 2 + 0.01], [W - 0.1, 0.2, 0.006], "linen", "towel", 0.003)
-    a.r([0, H + 0.065, 0.02], [0.36, 0.07, 0.3], "faience", "basin", 0.03)
-    a.r([0.13, H + 0.15, -0.05], [0.12, 0.2, 0.12], "faience_red", "basin", 0.045)
+    bowl(a, 0, H + 0.03, 0.02, 0.36, 0.09, "faience", "basin")
+    a.cyl([0.13, H + 0.1, -0.05], 0.12, 0.1, "faience_red", "basin", top=0.85, seg=16, rot=[180, 0, 0])   # ewer belly
+    a.cyl([0.13, H + 0.2, -0.05], 0.12, 0.1, "faience_red", "basin", top=0.55, seg=16)                    # shoulder and neck
+    a.cyl([0.13, H + 0.27, -0.05], 0.08, 0.04, "faience_red", "basin", top=0.82, seg=14, rot=[180, 0, 0])
+    a.arch([0.2, H + 0.17, -0.05], [0.14, 0.05, 0.02], "faience_red", "basin", th=0.016, rot=[0, 0, -90])   # handle
+    a.arch([0, H + 0.268, -D / 2 + 0.01], [W, 0.08, 0.02], "marble", "top", th=0.3)   # rounded crest on the splashback
     a.col([0, H / 2, 0], [W, H + 0.05, D])
     return a.write(root, [W + 0.06, D + 0.02], fragments=["basin", "top", "drawer", "towel"], keep=["frame"])
 
@@ -680,20 +833,28 @@ def stove(root):
     W, D, H = 1.0, 0.6, 0.82
     a.r([0, H / 2 + 0.05, 0], [W, H - 0.1, D], "cast_iron", "body", 0.012)
     for sx in (-1, 1):
-        for sz in (-1, 1):
-            a.r([sx * (W / 2 - 0.06), 0.03, sz * (D / 2 - 0.06)], [0.05, 0.06, 0.05], "cast_iron", "body", 0.01)
+        for sz in (-1, 1):   # cast cabriole-ish feet: a tapering turned foot
+            a.cyl([sx * (W / 2 - 0.06), 0.03, sz * (D / 2 - 0.06)], 0.06, 0.06, "cast_iron", "body", top=0.65, seg=10, rot=[180, 0, 0])
     a.r([0, H + 0.01, 0], [W + 0.02, 0.025, D + 0.02], "cast_iron", "top", 0.006)
-    for x, z in ((-0.25, 0.1), (0.05, 0.1), (-0.25, -0.13)):
-        a.r([x, H + 0.026, z], [0.2, 0.008, 0.2], "iron", "top", 0.003)
-    a.r([0, H - 0.06, D / 2 + 0.04], [W - 0.06, 0.02, 0.02], "brass", "rail", 0.008)
+    for x, z in ((-0.25, 0.1), (0.05, 0.1), (-0.25, -0.13)):   # hot plates: concentric lids in their rings
+        a.cyl([x, H + 0.026, z], 0.22, 0.008, "iron", "top", seg=20)
+        a.cyl([x, H + 0.031, z], 0.15, 0.004, "cast_iron", "top", seg=18)
+        a.cyl([x, H + 0.035, z], 0.06, 0.004, "iron", "top", seg=12)
+    a.cyl([0, H - 0.06, D / 2 + 0.04], 0.02, W - 0.06, "brass", "rail", seg=10, rot=[0, 0, 90])
     for sx in (-1, 1):
-        a.r([sx * (W / 2 - 0.05), H - 0.06, D / 2 + 0.02], [0.02, 0.02, 0.05], "brass", "rail", 0.006)
+        a.cyl([sx * (W / 2 - 0.05), H - 0.06, D / 2 + 0.02], 0.018, 0.05, "brass", "rail", seg=8, rot=[90, 0, 0])
     for i, x in enumerate((-0.24, 0.24)):
         a.r([x, 0.42, D / 2 + 0.006], [0.4, 0.42, 0.02], "enamel", f"door{i}", 0.01)
-        a.r([x, 0.6, D / 2 + 0.02], [0.12, 0.018, 0.018], "brass", f"door{i}", 0.006)
-    a.r([0.38, H + 0.5, -D / 2 + 0.1], [0.13, 1.0, 0.13], "cast_iron", "flue", 0.05)
-    a.r([0.08, H + 0.1, 0.1], [0.22, 0.15, 0.22], "cast_iron", "pot", 0.06)
-    a.r([0.08, H + 0.18, 0.1], [0.2, 0.02, 0.2], "cast_iron", "pot", 0.02)
+        a.r([x, 0.42, D / 2 + 0.018], [0.34, 0.36, 0.006], "enamel", f"door{i}", 0.003)   # raised panel
+        a.cyl([x, 0.6, D / 2 + 0.03], 0.018, 0.12, "brass", f"door{i}", seg=8, rot=[0, 0, 90])   # handle bar
+        for sx in (-1, 1):
+            a.cyl([x + sx * 0.055, 0.6, D / 2 + 0.022], 0.014, 0.016, "brass", f"door{i}", seg=8, rot=[90, 0, 0])
+    a.cyl([0.38, H + 0.5, -D / 2 + 0.1], 0.13, 1.0, "cast_iron", "flue", seg=16)
+    a.cyl([0.38, H + 0.04, -D / 2 + 0.1], 0.16, 0.05, "cast_iron", "flue", seg=16)   # flue collar
+    a.cyl([0.38, H + 0.6, -D / 2 + 0.1], 0.14, 0.02, "cast_iron", "flue", seg=16)    # pipe joint
+    a.cyl([0.08, H + 0.1, 0.1], 0.22, 0.15, "cast_iron", "pot", top=0.92, seg=18)
+    a.cyl([0.08, H + 0.18, 0.1], 0.21, 0.016, "cast_iron", "pot", seg=18)
+    a.r([0.08, H + 0.2, 0.1], [0.04, 0.025, 0.02], "cast_iron", "pot", 0.008)
     for x in (-0.06, 0.0, 0.06):   # L3: the glowing slots of the firebox draught plate
         a.r([0.3 + x, 0.14, D / 2 + 0.002], [0.025, 0.05, 0.004], "ember", "grate", 0.0018)
     a.light = {"color": [1.0, 0.45, 0.16], "intensity": 0.3, "radius": 2.5, "offset": [0.3, 0.16, D / 2 + 0.12], "flicker": 0.35, "group": "grate", "use": "fire"}
@@ -715,12 +876,11 @@ def pantry(root):
         for j in range(6):
             x = -W / 2 + 0.11 + j * 0.17
             h = 0.16 if (i + j) % 3 else 0.22
-            if (i * 6 + j) % 5 == 4:   # a stoneware crock
-                a.r([x, y + 0.012 + 0.08, 0.0], [0.13, 0.16, 0.13], "stoneware", "crocks", 0.04)
+            if (i * 6 + j) % 5 == 4:   # a stoneware crock with a lid
+                a.cyl([x, y + 0.012 + 0.07, 0.0], 0.13, 0.14, "stoneware", "crocks", top=0.88, seg=16)
+                a.cyl([x, y + 0.012 + 0.145, 0.0], 0.115, 0.012, "stoneware", "crocks", seg=16)
                 continue
-            a.r([x, y + 0.012 + h / 2 - 0.01, 0.02], [0.085, h - 0.03, 0.085], mats[(i + j) % 3], "jars", 0.03)
-            a.b([x, y + 0.012 + h / 2, 0.02], [0.1, h, 0.1], "jar_glass", "glass")
-            a.r([x, y + 0.012 + h + 0.008, 0.02], [0.09, 0.016, 0.09], "zinc", "jars", 0.006)
+            jar(a, x, y + 0.012, 0.02, h, 0.1, mats[(i + j) % 3])
     a.r([0.2, 1.5 + 0.06, -0.06], [0.24, 0.1, 0.18], "linen", "cloths", 0.03)
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["jars", "crocks", "cloths"], keep=["frame"], glass="glass")
@@ -739,29 +899,29 @@ def barrel(root, id, name, rack):
     a = A(id, name, ("Two oak casks on their sides in a timber cradle, taps in the heads." if rack else
                      "Standing oak cask with iron hoops and a lid."), "wood", 20 if rack else 14, 55 if rack else 40, wall=rack, front=0.6 if rack else 0.4)
     def cask(c, along, L, R, grp):
-        n = 8
-        for k in range(n):   # staves around the axis (octagonal barrel, bulging middle)
-            ang = 360.0 * k / n
-            ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
-            if along == "y":
-                off = [ca * R * 0.93, 0, sa * R * 0.93]
-                a.r([c[0] + off[0], c[1], c[2] + off[2]], [R * 0.78, L, 0.03], "oak", grp, 0.008, rot=[0, -ang + 90, 0])
-            else:
-                off = [0, ca * R * 0.93, sa * R * 0.93]
-                a.r([c[0], c[1] + off[1], c[2] + off[2]], [L, R * 0.78, 0.03], "oak", grp, 0.008, rot=[ang - 90, 0, 0])
-        for t in (-0.38, 0.0, 0.38):
-            if along == "y":
-                a.r([c[0], c[1] + t * L, c[2]], [R * 2.06, 0.03, R * 2.06], "iron", grp, 0.01)
-            else:
-                a.r([c[0] + t * L, c[1], c[2]], [0.03, R * 2.06, R * 2.06], "iron", grp, 0.01)
-        if along == "y":
-            a.r([c[0], c[1] + L / 2 - 0.01, c[2]], [R * 1.75, 0.025, R * 1.75], "oak_dark", grp, 0.006)
-        else:
-            a.r([c[0] + L / 2 - 0.01, c[1], c[2]], [0.025, R * 1.75, R * 1.75], "oak_dark", grp, 0.006)
-            a.r([c[0] + L / 2 + 0.03, c[1] - R * 0.5, c[2]], [0.06, 0.03, 0.03], "brass", grp, 0.008)
+        """P1: a coopered cask: two frustums bulging to the bilge (staves = the joinery grain along the axis), two end
+        hoops and two bilge hoops, heads set in below the chime."""
+        Rh = R * 0.84   # radius at the heads
+        def at(t):   # point on the axis, t in -0.5..0.5 of L
+            return [c[0], c[1] + t * L, c[2]] if along == "y" else [c[0] + t * L, c[1], c[2]]
+        up, down = ([0, 0, 0], [180, 0, 0]) if along == "y" else ([0, 0, -90], [0, 0, 90])
+        a.cyl(at(0.25), 2 * R, L / 2, "oak", grp, top=Rh / R, seg=20, rot=up)
+        a.cyl(at(-0.25), 2 * R, L / 2, "oak", grp, top=Rh / R, seg=20, rot=down)
+        for t in (-0.43, -0.3, 0.3, 0.43):
+            rr = R - (R - Rh) * abs(t) / 0.5 + 0.005
+            a.cyl(at(t), 2 * rr, 0.035, "iron", grp, seg=20, rot=up)
+        for t in (-0.5, 0.5):   # heads, 2 cm inside the chime
+            a.cyl(at(t - math.copysign(0.025, t)), 2 * Rh - 0.02, 0.012, "oak_dark", grp, rot=up)
+        if along != "y":
+            a.cyl([c[0] + L / 2 + 0.02, c[1] - Rh * 0.5, c[2]], 0.03, 0.08, "brass", grp, seg=10, rot=[0, 0, 90])   # tap
+            a.r([c[0] + L / 2 + 0.055, c[1] - Rh * 0.5 + 0.03, c[2]], [0.014, 0.04, 0.03], "brass", grp, 0.005)    # tap key
+            a.cyl([c[0], c[1] + R - 0.004, c[2]], 0.035, 0.012, "oak_dark", grp, seg=10)                            # bung
     if rack:
-        for sx in (-1, 1):
-            a.r([sx * 0.3, 0.08, 0], [0.08, 0.16, 1.15], "oak_dark", "cradle", 0.01)
+        for sx in (-1, 1):   # cradle rails with saddles cut for the casks
+            a.r([sx * 0.3, 0.06, 0], [0.08, 0.12, 1.15], "oak_dark", "cradle", 0.01)
+            for z in (-0.28, 0.28):
+                for sz in (-1, 1):
+                    a.wedge([sx * 0.3, 0.16, z + sz * 0.2], [0.08, 0.08, 0.14], "oak_dark", "cradle", top=0.0, rot=[0, 90 + 90 * sz, 0])
         a.r([0, 0.04, 0], [0.7, 0.06, 0.08], "oak_dark", "cradle", 0.006)
         cask([0.0, 0.42, -0.28], "x", 0.75, 0.27, "cask0")
         cask([0.0, 0.42, 0.28], "x", 0.75, 0.27, "cask1")
@@ -769,7 +929,8 @@ def barrel(root, id, name, rack):
         return a.write(root, [0.85, 1.15], fragments=["cask1", "cask0"], keep=["cradle"],
                        surfaces=[[-0.3, -0.45, 0.3, 0.45, 0.705]])
     cask([0, 0.42, 0], "y", 0.84, 0.28, "cask")
-    a.r([0, 0.86, 0], [0.5, 0.03, 0.5], "oak_dark", "lid", 0.008)
+    a.cyl([0, 0.855, 0], 0.5, 0.03, "oak_dark", "lid", top=0.96, seg=20)   # loose lid
+    a.r([0, 0.885, 0], [0.3, 0.03, 0.04], "oak_dark", "lid", 0.008)          # lid batten / handle
     a.col([0, 0.43, 0], [0.56, 0.86, 0.56])
     return a.write(root, [0.6, 0.6], fragments=["lid", "cask"], keep=[], surfaces=[[-0.18, -0.18, 0.18, 0.18, 0.875]])
 
@@ -785,15 +946,23 @@ def workbench(root):
             a.r([sx * (W / 2 - 0.12), (H - 0.08) / 2, sz * (D / 2 - 0.08)], [0.08, H - 0.08, 0.08], "oak", "legs", 0.008)
         a.r([sx * (W / 2 - 0.12), 0.16, 0], [0.07, 0.07, D - 0.1], "oak", "legs", 0.006)
     a.r([0, 0.16, 0], [W - 0.3, 0.07, 0.07], "oak", "legs", 0.006)
+    for sx in (-1, 1):   # through-tenons of the long stretcher, wedged
+        a.r([sx * (W / 2 - 0.07), 0.16, 0], [0.03, 0.06, 0.06], "oak", "legs", 0.004)
+        a.r([sx * (W / 2 - 0.058), 0.16, 0], [0.008, 0.075, 0.018], "oak_dark", "legs", 0.002)
     a.r([W / 2 - 0.08, H - 0.12, D / 2 - 0.02], [0.3, 0.2, 0.06], "oak_dark", "vice", 0.01)
-    a.r([W / 2 - 0.08, H - 0.12, D / 2 + 0.08], [0.03, 0.03, 0.2], "oak_dark", "vice", 0.01)
-    a.r([W / 2 - 0.08, H - 0.12, D / 2 + 0.18], [0.2, 0.025, 0.025], "oak_dark", "vice", 0.01)
+    a.cyl([W / 2 - 0.08, H - 0.12, D / 2 + 0.08], 0.034, 0.2, "oak_dark", "vice", seg=10, rot=[90, 0, 0])   # vice screw
+    a.cyl([W / 2 - 0.08, H - 0.12, D / 2 + 0.03], 0.07, 0.04, "oak_dark", "vice", seg=12, rot=[90, 0, 0])   # screw boss
+    a.cyl([W / 2 - 0.08, H - 0.12, D / 2 + 0.18], 0.022, 0.22, "oak_dark", "vice", seg=8, rot=[0, 0, 90])   # tommy bar
+    for x in (-0.3, 0.1, 0.5):   # bench dogs standing proud of the top
+        a.r([x, H + 0.012, 0.18], [0.025, 0.03, 0.025], "oak_dark", "top", 0.003)
     a.r([-0.4, H + 0.03, 0.02], [0.3, 0.06, 0.07], "oak", "tools", 0.01)   # plane
     a.r([-0.4, H + 0.07, 0.02], [0.04, 0.04, 0.03], "iron", "tools", 0.006)
-    a.r([0.15, H + 0.03, 0.1], [0.12, 0.06, 0.06], "oak_dark", "tools", 0.01, rot=[0, 30, 0])   # mallet
-    a.r([0.25, H + 0.02, 0.15], [0.28, 0.025, 0.025], "oak", "tools", 0.008, rot=[0, 30, 0])
-    for i in range(3):
-        a.r([-0.1 + i * 0.06, H - 0.04, -D / 2 + 0.06], [0.02, 0.012, 0.2], "iron", "tools", 0.004)
+    a.cyl([-0.31, H + 0.075, 0.02], 0.04, 0.03, "oak", "tools", seg=10, rot=[90, 0, 0])   # front knob
+    a.cyl([0.15, H + 0.035, 0.1], 0.07, 0.13, "oak_dark", "tools", seg=12, rot=[90, 120, 0])   # mallet head
+    a.cyl([0.25, H + 0.02, 0.15], 0.026, 0.28, "oak", "tools", top=0.8, seg=8, rot=[90, 120, 0])
+    for i in range(3):   # chisels: blade and turned handle
+        a.r([-0.1 + i * 0.06, H - 0.04, -D / 2 + 0.03], [0.02, 0.006, 0.1], "iron", "tools", 0.002)
+        a.cyl([-0.1 + i * 0.06, H - 0.04, -D / 2 + 0.12], 0.026, 0.11, "oak", "tools", top=0.75, seg=8, rot=[90, 0, 0])
     a.r([0.55, H + 0.006, -0.05], [0.3, 0.01, 0.2], "log_end", "tools", 0.003)   # shavings / an offcut
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W + 0.04, D + 0.2], fragments=["tools", "vice", "top"], keep=["legs"],
@@ -805,14 +974,18 @@ def armchair(root):
           "wood", 12, 30, front=0.5)
     W, D = 0.7, 0.68
     for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
-        a.r([sx * (W / 2 - 0.04), 0.18, sz * (D / 2 - 0.05)], [0.05, 0.36, 0.05], "cherry", "frame", 0.008)
+        turned_leg(a, sx * (W / 2 - 0.04), sz * (D / 2 - 0.05), 0.35, 0.05, "cherry", "frame", block=0.06)
     a.r([0, 0.4, 0.03], [W - 0.06, 0.12, D - 0.12], "upholstery", "seat", 0.04)
     a.r([0, 0.32, 0.03], [W - 0.04, 0.06, D - 0.08], "cherry", "frame", 0.008)
+    a.arch([0, 0.265, D / 2 - 0.02], [W - 0.14, 0.045, 0.025], "cherry", "frame", th=0.02, fill=True)   # carved front apron
     a.r([0, 0.74, -D / 2 + 0.07], [W - 0.12, 0.62, 0.1], "upholstery", "back", 0.04, rot=[-8, 0, 0])
     a.r([0, 1.06, -D / 2 + 0.03], [W - 0.08, 0.05, 0.06], "cherry", "back", 0.015, rot=[-8, 0, 0])
+    a.arch([0, 1.105, -D / 2 + 0.024], [0.26, 0.06, 0.05], "cherry", "back", th=0.2, rot=[-8, 0, 0])   # carved crest
     for i, sx in enumerate((-1, 1)):
         a.r([sx * (W / 2 - 0.045), 0.62, 0.0], [0.07, 0.05, D - 0.1], "cherry", f"arm{i}", 0.02)
-        a.r([sx * (W / 2 - 0.045), 0.52, D / 2 - 0.08], [0.045, 0.2, 0.045], "cherry", f"arm{i}", 0.01)
+        a.cyl([sx * (W / 2 - 0.045), 0.62, D / 2 - 0.05], 0.07, 0.06, "cherry", f"arm{i}", seg=14, rot=[0, 0, 90])   # scroll end
+        a.cyl([sx * (W / 2 - 0.045), 0.5, D / 2 - 0.08], 0.04, 0.2, "cherry", f"arm{i}", top=0.75, seg=10)          # turned arm support
+        a.cyl([sx * (W / 2 - 0.045), 0.59, D / 2 - 0.08], 0.05, 0.02, "cherry", f"arm{i}", seg=10)
     a.col([0, 0.33, 0.02], [W, 0.66, D - 0.04])
     a.col([0, 0.8, -D / 2 + 0.07], [W, 0.6, 0.14])
     return a.write(root, [W, D], fragments=["back", "seat", "arm0", "arm1"], keep=["frame"])
@@ -825,15 +998,17 @@ def desk(root):
     a.r([0, H - 0.015, 0], [W, 0.03, D], "oak", "top", 0.006)
     a.r([0, H + 0.001, 0.02], [W - 0.2, 0.004, D - 0.16], "cover_green", "top", 0.001)
     for i, x in enumerate((-W / 3, 0, W / 3)):
-        a.r([x, H - 0.08, D / 2 - 0.03], [W / 3 - 0.06, 0.09, 0.02], "oak", "drawers", 0.004)
-        a.r([x, H - 0.08, D / 2 - 0.016], [0.04, 0.014, 0.012], "brass", "drawers", 0.004)
+        drawer_front(a, x, H - 0.08, D / 2 - 0.03, W / 3 - 0.06, 0.09, "oak", "drawers")
+        bail(a, x, H - 0.072, D / 2 - 0.013, "drawers", 0.055)
     a.r([0, H - 0.08, -D / 2 + 0.03], [W - 0.08, 0.1, 0.02], "oak", "apron", 0.004)
     for sx in (-1, 1):
         a.r([sx * (W / 2 - 0.04), H - 0.08, 0], [0.02, 0.1, D - 0.08], "oak", "apron", 0.004)
     for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
         leg_tapered(a, sx * (W / 2 - 0.04), sz * (D / 2 - 0.04), H - 0.03, 0.05, 0.035, "oak", f"leg{i}")
-    a.r([0.35, H + 0.03, -0.15], [0.06, 0.06, 0.06], "glass", "glass", 0.01)
-    a.r([0.35, H + 0.012, -0.15], [0.07, 0.02, 0.07], "brass", "inkwell", 0.006)
+    a.cyl([0.35, H + 0.04, -0.15], 0.06, 0.05, "glass", "glass", top=0.85, seg=12)
+    a.cyl([0.35, H + 0.07, -0.15], 0.03, 0.012, "brass", "inkwell", seg=10)
+    a.r([0.35, H + 0.009, -0.15], [0.11, 0.014, 0.09], "brass", "inkwell", 0.005)   # inkstand tray
+    a.cyl([0.28, H + 0.012, -0.15], 0.012, 0.16, "oak_dark", "inkwell", top=0.6, seg=6, rot=[90, 75, 0])   # pen
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["top", "drawers", "leg0", "inkwell"], keep=["apron", "leg2", "leg3", "leg1"], glass="glass",
                    surfaces=[[-W / 2 + 0.05, -D / 2 + 0.05, W / 2 - 0.25, D / 2 - 0.05, H + 0.003]])
@@ -844,7 +1019,9 @@ def pew(root):
     W, D = 2.1, 0.55
     for i, sx in enumerate((-1, 1)):
         a.r([sx * (W / 2 - 0.03), 0.48, 0], [0.05, 0.96, D], "oak_dark", f"end{i}", 0.012)
-        a.r([sx * (W / 2 - 0.03), 0.98, 0.1], [0.05, 0.08, 0.2], "oak_dark", f"end{i}", 0.03)
+        a.arch([sx * (W / 2 - 0.03), 0.95, 0.1], [0.3, 0.11, 0.05], "oak_dark", f"end{i}", th=0.4, rot=[0, 90, 0])   # rounded poppyhead
+        a.cyl([sx * (W / 2 - 0.03), 1.035, 0.1], 0.07, 0.07, "oak_dark", f"end{i}", top=0.4, seg=10)                 # finial
+        a.r([sx * (W / 2 - 0.03), 0.5, 0.0], [0.065, 0.6, D - 0.12], "oak_dark", f"end{i}", 0.01)                     # fielded panel
     a.r([0, 0.44, 0.06], [W - 0.06, 0.04, 0.38], "oak", "seat", 0.008)
     a.r([0, 0.36, 0.22], [W - 0.06, 0.1, 0.025], "oak", "seat", 0.004)
     a.r([0, 0.72, -D / 2 + 0.06], [W - 0.06, 0.52, 0.03], "oak", "back", 0.006, rot=[-6, 0, 0])
@@ -867,8 +1044,10 @@ def school_desk(root):
         a.r([sx * (W / 2 - 0.04), 0.02, 0.0], [0.05, 0.04, D - 0.05], "cast_iron", "frame", 0.01)
     a.r([0, 0.72, -0.22], [W, 0.025, 0.4], "pine", "lid", 0.005, rot=[-8, 0, 0])
     a.r([0, 0.62, -0.25], [W - 0.06, 0.18, 0.36], "pine", "box", 0.005)
-    for sx in (-1, 1):
-        a.r([sx * 0.3, 0.745, -0.4], [0.035, 0.012, 0.035], "slate_black", "lid", 0.004)
+    for sx in (-1, 1):   # inkwells: a black well in a brass ring, the pen groove
+        a.cyl([sx * 0.3, 0.745, -0.4], 0.045, 0.012, "brass", "lid", seg=12)
+        a.cyl([sx * 0.3, 0.749, -0.4], 0.03, 0.008, "slate_black", "lid", seg=12)
+        a.r([sx * 0.12, 0.744, -0.4], [0.2, 0.006, 0.014], "oak_dark", "lid", 0.002)
     a.r([0, 0.42, 0.24], [W, 0.03, 0.26], "pine", "bench", 0.006)
     a.r([0, 0.62, 0.36], [W, 0.12, 0.025], "pine", "bench", 0.005, rot=[-6, 0, 0])
     a.col([0, 0.37, -0.22], [W, 0.74, 0.42])
@@ -882,11 +1061,14 @@ def wood_pile(root):
     for row in range(4):
         for i in range(5 - (row % 2)):
             x = -0.36 + i * 0.18 + (0.09 if row % 2 else 0)
-            a.r([x, 0.08 + row * 0.14, -0.02 * (i % 2)], [0.15, 0.14, 0.42], "bark", "logs" if row < 2 else "top", 0.05)
-            a.r([x, 0.08 + row * 0.14, 0.212], [0.12, 0.11, 0.004], "log_end", "logs" if row < 2 else "top", 0.002)
+            grp, y, z = "logs" if row < 2 else "top", 0.08 + row * 0.14, -0.02 * (i % 2)
+            split = (k * 7) % 3 == 0   # every third log split: a hexagonal billet turned at random about its axis
+            roll = (k * 53) % 60
+            a.cyl([x, y, z], 0.15, 0.42, "bark", grp, dz=0.14, n=6 if split else 0, seg=12, rot=[90, 0, roll])
+            a.cyl([x, y, z + 0.211], 0.125, 0.004, "log_end", grp, dz=0.115, n=6 if split else 0, seg=12, rot=[90, 0, roll])
             k += 1
     for i in range(3):
-        a.r([-0.1 + i * 0.12, 0.63, 0.02], [0.03, 0.03, 0.4], "pine", "top", 0.008, rot=[0, 10 * i - 10, 0])
+        a.cyl([-0.1 + i * 0.12, 0.63, 0.02], 0.03, 0.4, "pine", "top", seg=6, rot=[90, 10 * i - 10, 0])
     a.col([0, 0.31, 0], [0.9, 0.62, 0.44])
     return a.write(root, [0.92, 0.46], fragments=["top", "logs"], keep=[])
 
@@ -907,8 +1089,9 @@ def hay_bales(root):
 def coat_rack(root):
     a = A("furn_coat_rack", "Coat pegs", "Peg rail by the door with a wool coat, a work jacket and a cap.", "cloth", 4, 10, blocking=False, wall=True, front=0.0, mount=1.55)
     a.r([0, 0.0, 0.012], [0.9, 0.09, 0.024], "oak_dark", "rail", 0.006)
-    for i in range(4):
-        a.r([-0.33 + i * 0.22, 0.0, 0.06], [0.025, 0.025, 0.08], "oak_dark", "rail", 0.008, rot=[-20, 0, 0])
+    for i in range(4):   # turned pegs angled up, a knob on each
+        a.cyl([-0.33 + i * 0.22, 0.008, 0.06], 0.024, 0.08, "oak_dark", "rail", top=0.8, seg=8, rot=[70, 0, 0])
+        a.r([-0.33 + i * 0.22, 0.022, 0.098], [0.03, 0.03, 0.03], "oak_dark", "rail", 0.014)
     a.r([-0.33, -0.45, 0.07], [0.42, 0.85, 0.09], "coat_wool", "coats", 0.04)
     a.r([0.11, -0.36, 0.07], [0.38, 0.7, 0.08], "coat_blue", "coats", 0.04)
     a.r([0.33, 0.02, 0.09], [0.2, 0.06, 0.2], "coat_wool", "cap", 0.03)
@@ -917,24 +1100,32 @@ def coat_rack(root):
 
 def wall_clock(root):
     a = A("furn_wall_clock", "Wall clock", "Cartel clock in a painted case with a brass pendulum.", "painted", 2, 8, blocking=False, wall=True, front=0.0, mount=1.6)
-    a.r([0, 0.0, 0.05], [0.32, 0.38, 0.1], "paint_cream", "case", 0.03)
-    a.r([0, 0.03, 0.102], [0.24, 0.24, 0.006], "dial", "case", 0.002)
-    a.b([0, 0.03, 0.108], [0.25, 0.25, 0.004], "glass", "glass")
+    a.r([0, -0.02, 0.05], [0.32, 0.34, 0.1], "paint_cream", "case", 0.03)
+    a.arch([0, 0.15, 0.05], [0.32, 0.1, 0.1], "paint_cream", "case", th=0.3)                  # arched hood
+    a.cyl([0, 0.215, 0.05], 0.05, 0.04, "brass", "case", top=0.3, seg=10)                         # finial
+    a.cyl([0, 0.03, 0.103], 0.26, 0.008, "brass", "case", seg=24, rot=[90, 0, 0])                # bezel
+    a.cyl([0, 0.03, 0.106], 0.22, 0.006, "dial", "case", seg=24, rot=[90, 0, 0])
+    a.r([0, 0.055, 0.11], [0.007, 0.06, 0.003], "iron", "case", 0.001)                           # hands
+    a.r([0.025, 0.03, 0.11], [0.05, 0.006, 0.003], "iron", "case", 0.001)
+    a.cyl([0, 0.03, 0.113], 0.25, 0.004, "glass", "glass", seg=24, rot=[90, 0, 0])
     a.r([0, -0.3, 0.04], [0.06, 0.25, 0.04], "paint_cream", "case", 0.01)
-    a.r([0, -0.38, 0.065], [0.08, 0.08, 0.01], "brass", "case", 0.004)
+    a.r([0, -0.27, 0.062], [0.006, 0.18, 0.004], "brass", "case", 0.002)                         # pendulum rod
+    a.cyl([0, -0.38, 0.065], 0.08, 0.01, "brass", "case", seg=16, rot=[90, 0, 0])               # bob
     return a.write(root, [0.32, 0.11], fragments=["case"], keep=[], glass="glass")
 
 
 def utensil_rack(root):
     a = A("furn_utensil_rack", "Utensil rack", "Iron rail with hanging copper pans, a ladle, a skimmer and a colander.", "metal", 0, 25, blocking=False, wall=True, front=0.0, mount=1.45)
-    a.r([0, 0.0, 0.04], [1.0, 0.02, 0.02], "iron", "rail", 0.008)
+    a.cyl([0, 0.0, 0.04], 0.02, 1.0, "iron", "rail", seg=8, rot=[0, 0, 90])
     for sx in (-1, 1):
         a.r([sx * 0.48, 0.0, 0.02], [0.02, 0.06, 0.04], "iron", "rail", 0.006)
+        a.cyl([sx * 0.48, 0.0, 0.003], 0.05, 0.006, "iron", "rail", seg=10, rot=[90, 0, 0])   # wall rosette
     for i, (x, d, drop) in enumerate([(-0.35, 0.22, 0.16), (-0.08, 0.18, 0.13), (0.38, 0.2, 0.15)]):
-        a.r([x, -drop - 0.05, 0.05], [d, d, 0.05], "copper", "pans", 0.02)
+        a.cyl([x, -drop - 0.05, 0.05], d, 0.05, "copper", "pans", top=0.8, seg=18, rot=[90, 0, 0])   # pan seen from below: base to the wall
         a.r([x, -0.05, 0.05], [0.025, 0.12, 0.012], "copper", "pans", 0.005)
-    a.r([0.15, -0.18, 0.05], [0.02, 0.32, 0.012], "iron", "pans", 0.004)
-    a.r([0.15, -0.36, 0.06], [0.08, 0.05, 0.06], "iron", "pans", 0.02)
+        a.arch([x, 0.004, 0.05], [0.03, 0.03, 0.006], "iron", "pans", th=0.005, rot=[180, 0, 0])      # S-hook over the rail
+    a.cyl([0.15, -0.18, 0.05], 0.016, 0.32, "iron", "pans", seg=6)                                      # ladle
+    bowl(a, 0.15, -0.395, 0.06, 0.09, 0.05, "iron", "pans")
     return a.write(root, [1.0, 0.1], fragments=["pans"], keep=["rail"])
 
 
@@ -945,11 +1136,15 @@ def tool_rack(root):
     a.r([-0.35, 0.53, 0.04], [0.5, 0.02, 0.012], "iron", "tools", 0.003)
     for sx in (-1, 1):
         a.r([-0.35 + sx * 0.25, 0.47, 0.04], [0.025, 0.16, 0.02], "oak", "tools", 0.006)
-    a.r([0.1, 0.35, 0.04], [0.03, 0.32, 0.03], "oak", "tools", 0.008)   # hammer
-    a.r([0.1, 0.5, 0.045], [0.12, 0.04, 0.04], "iron", "tools", 0.008)
-    a.r([0.3, 0.35, 0.04], [0.02, 0.45, 0.02], "iron", "tools", 0.004)   # auger
-    a.r([0.3, 0.58, 0.04], [0.2, 0.03, 0.03], "oak", "tools", 0.008)
-    a.r([0.48, 0.3, 0.05], [0.2, 0.2, 0.06], "sacking", "rope", 0.08)
+    a.cyl([0.1, 0.35, 0.04], 0.03, 0.32, "oak", "tools", dz=0.024, top=0.85, seg=10, rot=[180, 0, 0])   # hammer handle
+    a.cyl([0.13, 0.5, 0.045], 0.035, 0.07, "iron", "tools", seg=10, rot=[0, 0, 90])                       # head and claw
+    a.wedge([0.065, 0.5, 0.045], [0.06, 0.03, 0.03], "iron", "tools", top=0.2, rot=[0, 90, 0])
+    a.cyl([0.3, 0.35, 0.04], 0.018, 0.45, "iron", "tools", seg=6)   # auger
+    a.cyl([0.3, 0.58, 0.04], 0.03, 0.2, "oak", "tools", top=0.8, seg=8, rot=[0, 0, 90])
+    a.cyl([0.48, 0.3, 0.05], 0.22, 0.06, "sacking", "rope", seg=16, rot=[90, 0, 0])                       # coil of rope
+    a.cyl([0.48, 0.3, 0.083], 0.1, 0.008, "pine", "rope", seg=12, rot=[90, 0, 0])
+    for x in (-0.35, 0.1, 0.3, 0.48):   # pegs
+        a.cyl([x, 0.56 if x != 0.48 else 0.42, 0.03], 0.018, 0.04, "oak_dark", "board", seg=6, rot=[90, 0, 0])
     return a.write(root, [1.2, 0.08], fragments=["tools", "rope"], keep=["board"])
 
 
@@ -973,8 +1168,8 @@ def portrait(root):
 def wall_shelf(root):
     a = A("furn_wall_shelf", "Wall shelf", "A single pine board on two shaped brackets; small things stand on it (the board is its collider).", "wood", 3, 10, wall=True, front=0.0, mount=1.45)
     a.r([0, 0.0, 0.13], [0.9, 0.025, 0.26], "pine", "board", 0.004)
-    for sx in (-1, 1):
-        a.r([sx * 0.36, -0.1, 0.07], [0.025, 0.18, 0.14], "pine", "brackets", 0.004)
+    for sx in (-1, 1):   # shaped brackets: tall at the wall, sweeping out under the board
+        a.wedge([sx * 0.36, -0.1, 0.07], [0.025, 0.18, 0.14], "pine", "brackets", top=0.2, rot=[180, 180, 0])
     a.col([0, 0.0, 0.13], [0.9, 0.025, 0.26])
     return a.write(root, [0.9, 0.26], fragments=["board"], keep=["brackets"], surfaces=[[-0.43, 0.02, 0.43, 0.25, 0.0125]])
 
@@ -998,50 +1193,67 @@ def plate_rack(root):
 def jars(root):
     a = A("furn_jars", "Preserving jars", "Three glass jars of preserves with zinc lids.", "glass", 1, 4, blocking=False, front=0.0)
     for i, (x, z, h, m) in enumerate([(-0.06, 0.0, 0.16, "preserve_red"), (0.05, 0.03, 0.2, "preserve_amber"), (0.0, -0.08, 0.14, "preserve_green")]):
-        a.r([x, h / 2 - 0.005, z], [0.08, h - 0.02, 0.08], m, "jars", 0.03)
-        a.b([x, h / 2, z], [0.09, h, 0.09], "jar_glass", "glass")
-        a.r([x, h + 0.006, z], [0.085, 0.012, 0.085], "zinc", "jars", 0.005)
+        jar(a, x, 0.0, z, h, 0.09, m)
     return a.write(root, [0.22, 0.2], fragments=[], keep=[], glass="glass")
+
+
+def jar(a, x, y, z, h, d, m):
+    """P1: preserving jar standing at y: the preserve, the glass with a shoulder, a zinc screw lid with a rim."""
+    a.cyl([x, y + (h - 0.03) / 2 + 0.004, z], d * 0.88, h - 0.03, m, "jars", seg=14)
+    a.cyl([x, y + (h - 0.02) / 2, z], d, h - 0.02, "jar_glass", "glass", seg=14)
+    a.cyl([x, y + h - 0.012, z], d, 0.016, "jar_glass", "glass", top=0.82, seg=14)
+    a.cyl([x, y + h + 0.002, z], d * 0.86, 0.014, "zinc", "jars", seg=14)
+    a.cyl([x, y + h + 0.0095, z], d * 0.8, 0.003, "zinc", "jars", seg=14)
 
 
 def bucket(root):
     a = A("furn_bucket", "Bucket", "Coopered wooden pail with iron hoops and a rope handle.", "wood", 2, 8, blocking=False, front=0.0)
-    for k in range(8):
-        ang = 45.0 * k
-        a.r([math.cos(math.radians(ang)) * 0.13, 0.15, math.sin(math.radians(ang)) * 0.13], [0.105, 0.3, 0.02], "oak", "pail", 0.005, rot=[0, -ang + 90, 0])
+    a.cyl([0, 0.15, 0], 0.29, 0.3, "oak", "pail", top=0.82, seg=18, rot=[180, 0, 0])   # coopered body, widening upward
     for y in (0.06, 0.26):
-        a.r([0, y, 0], [0.29, 0.02, 0.29], "iron", "pail", 0.008)
-    a.r([0, 0.012, 0], [0.24, 0.02, 0.24], "oak", "pail", 0.005)
-    a.r([0, 0.36, 0], [0.3, 0.015, 0.015], "sacking", "pail", 0.006)
+        rr = 0.29 * (0.82 + 0.18 * y / 0.3) + 0.008
+        a.cyl([0, y, 0], rr, 0.022, "iron", "pail", seg=18)
+    a.cyl([0, 0.2995, 0], 0.255, 0.004, "oak_dark", "pail", seg=16)   # the dark inside seen over the rim
+    for sx in (-1, 1):   # ears through which the rope runs
+        a.r([sx * 0.145, 0.32, 0], [0.025, 0.05, 0.04], "oak", "pail", 0.006)
+    a.arch([0, 0.335, 0], [0.3, 0.13, 0.016], "sacking", "pail", th=0.014)   # rope bail
     return a.write(root, [0.3, 0.3], fragments=[], keep=[])
 
 
 def basket(root):
     a = A("furn_basket", "Basket of apples", "Wicker basket with a bow handle, full of red apples.", "cloth", 2, 6, blocking=False, front=0.0)
-    a.r([0, 0.1, 0], [0.42, 0.2, 0.3], "wicker", "basket", 0.05)
-    a.r([0, 0.32, 0], [0.4, 0.025, 0.025], "wicker", "basket", 0.01)
-    for sx in (-1, 1):
-        a.r([sx * 0.19, 0.25, 0], [0.025, 0.14, 0.025], "wicker", "basket", 0.01)
+    a.cyl([0, 0.1, 0], 0.42, 0.2, "wicker", "basket", dz=0.3, top=0.8, seg=20, rot=[180, 0, 0])   # oval, flaring to the rim
+    a.cyl([0, 0.196, 0], 0.43, 0.022, "wicker", "basket", dz=0.31, seg=20)                          # rolled rim
+    a.cyl([0, 0.012, 0], 0.32, 0.024, "wicker", "basket", dz=0.22, seg=16)                          # foot ring
+    a.arch([0, 0.2, 0], [0.4, 0.18, 0.025], "wicker", "basket", th=0.02)                              # bow handle
     for i, (x, z) in enumerate([(-0.1, -0.05), (0.02, 0.06), (0.12, -0.04), (-0.04, 0.03), (0.08, 0.08)]):
         a.r([x, 0.21 + 0.01 * (i % 2), z], [0.075, 0.07, 0.075], "apple", "apples", 0.033)
+        a.cyl([x, 0.248 + 0.01 * (i % 2), z], 0.006, 0.014, "bark", "apples", seg=4)                     # stalk
     return a.write(root, [0.42, 0.3], fragments=[], keep=[])
 
 
 def pot(root):
-    a = A("furn_pot", "Cooking pot", "Cast-iron marmite with a lid and a ladle.", "metal", 0, 20, blocking=False, front=0.0)
-    a.r([0, 0.1, 0], [0.26, 0.2, 0.26], "cast_iron", "pot", 0.07)
-    a.r([0, 0.2, 0], [0.24, 0.02, 0.24], "cast_iron", "lid", 0.02)
-    a.r([0, 0.22, 0], [0.04, 0.03, 0.04], "cast_iron", "lid", 0.01)
-    a.r([0.12, 0.25, 0], [0.02, 0.2, 0.015], "iron", "lid", 0.004, rot=[0, 0, -30])
+    a = A("furn_pot", "Cooking pot", "Cast-iron marmite on three short legs, with a bail, a lid and a ladle.", "metal", 0, 20, blocking=False, front=0.0)
+    a.cyl([0, 0.075, 0], 0.26, 0.09, "cast_iron", "pot", top=0.78, seg=18, rot=[180, 0, 0])   # belly
+    a.cyl([0, 0.155, 0], 0.26, 0.07, "cast_iron", "pot", top=0.88, seg=18)                     # shoulder
+    a.cyl([0, 0.195, 0], 0.235, 0.012, "cast_iron", "pot", seg=18)                             # rim
+    for k in range(3):
+        ang = math.radians(90 + 120 * k)
+        a.cyl([math.cos(ang) * 0.08, 0.018, math.sin(ang) * 0.08], 0.022, 0.036, "cast_iron", "pot", top=0.6, seg=6, rot=[180, 0, 0])
+    a.arch([0, 0.2, 0], [0.27, 0.12, 0.01], "iron", "pot", th=0.008)                          # bail
+    a.cyl([0, 0.207, 0], 0.22, 0.014, "cast_iron", "lid", top=0.8, seg=18)
+    a.cyl([0, 0.222, 0], 0.035, 0.018, "cast_iron", "lid", top=0.7, seg=10)
+    a.cyl([0.11, 0.25, 0], 0.016, 0.2, "iron", "lid", seg=6, rot=[0, 0, -30])                # ladle handle
     return a.write(root, [0.3, 0.26], fragments=[], keep=[])
 
 
 def candlesticks(root):
     a = A("furn_candlesticks", "Candlesticks", "A pair of brass candlesticks with half-burnt candles.", "metal", 0, 6, blocking=False, front=0.0)
     for i, x in enumerate((-0.07, 0.07)):
-        a.r([x, 0.012, 0], [0.09, 0.024, 0.09], "brass", "sticks", 0.01)
-        a.r([x, 0.1, 0], [0.025, 0.16, 0.025], "brass", "sticks", 0.008)
-        a.r([x, 0.24 - 0.03 * i, 0], [0.022, 0.12 - 0.06 * i, 0.022], "wax", "sticks", 0.008)
+        a.cyl([x, 0.012, 0], 0.09, 0.024, "brass", "sticks", top=0.6, seg=14)                       # domed foot
+        a.cyl([x, 0.09, 0], 0.022, 0.14, "brass", "sticks", top=0.8, seg=10)                         # stem
+        a.r([x, 0.07, 0], [0.034, 0.03, 0.034], "brass", "sticks", 0.014)                            # knop
+        a.cyl([x, 0.168, 0], 0.05, 0.016, "brass", "sticks", top=1.0, seg=12)                        # drip pan
+        a.cyl([x, 0.24 - 0.03 * i, 0], 0.022, 0.12 - 0.06 * i, "wax", "sticks", seg=10)
         top = 0.24 - 0.03 * i + (0.12 - 0.06 * i) / 2
         a.r([x, top + 0.016, 0], [0.008, 0.026, 0.004], "flame", "flames", 0.0018)   # L3
     a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.22, "radius": 3.0, "offset": [0, 0.28, 0], "flicker": 0.28, "group": "flames", "use": "interior"}
@@ -1066,12 +1278,13 @@ def light_block(a, light):
 def table_lamp(root):
     a = A("furn_lamp_table", "Table lamp", "Electric table lamp: turned porcelain base, brass stem and a pleated silk shade over one bulb. "
           "Towns and larger farms had mains electricity by 1944.", "ceramic", 1, 6, blocking=False, front=0.0)
-    a.r([0, 0.012, 0], [0.13, 0.024, 0.13], "brass", "base", 0.01)
-    a.r([0, 0.08, 0], [0.11, 0.11, 0.11], "porcelain", "base", 0.04)
-    a.r([0, 0.18, 0], [0.018, 0.12, 0.018], "brass", "base", 0.006)
+    a.cyl([0, 0.012, 0], 0.13, 0.024, "brass", "base", top=0.8, seg=16)
+    a.cyl([0, 0.06, 0], 0.115, 0.07, "porcelain", "base", top=0.8, seg=16, rot=[180, 0, 0])   # turned vase base
+    a.cyl([0, 0.115, 0], 0.115, 0.04, "porcelain", "base", top=0.45, seg=16)
+    a.cyl([0, 0.18, 0], 0.016, 0.12, "brass", "base", seg=8)
     a.r([0, 0.255, 0], [0.04, 0.05, 0.04], "bulb", "bulb", 0.018)
-    for rot in (0, 45):
-        a.r([0, 0.29, 0], [0.24, 0.16, 0.24], "shade_silk", "shade", 0.02, rot=[0, rot, 0])
+    a.cyl([0, 0.29, 0], 0.26, 0.16, "shade_silk", "shade", top=0.55, n=12)   # pleated (12-sided) tapering shade
+    a.cyl([0, 0.212, 0], 0.262, 0.006, "brass", "shade", n=12)              # rim wire
     a.light = {"color": [1.0, 0.76, 0.48], "intensity": 0.9, "radius": 5.5, "offset": [0, 0.27, 0], "group": "bulb", "use": "interior"}
     a.col([0, 0.19, 0], [0.22, 0.36, 0.22])
     return a.write(root, [0.24, 0.24], fragments=["shade"], keep=["base"], glass="bulb")
@@ -1079,10 +1292,12 @@ def table_lamp(root):
 
 def candle(root):
     a = A("furn_candle", "Candle", "A tallow candle in an enamelled chamberstick with a finger ring, half burnt.", "ceramic", 1, 4, blocking=False, front=0.0)
-    a.r([0, 0.008, 0], [0.12, 0.016, 0.12], "enamel_white", "holder", 0.006)
-    a.r([0.07, 0.02, 0], [0.03, 0.03, 0.008], "enamel_white", "holder", 0.003)
-    a.r([0, 0.03, 0], [0.04, 0.03, 0.04], "enamel_white", "holder", 0.008)
-    a.r([0, 0.085, 0], [0.024, 0.08, 0.024], "wax", "candle", 0.008)
+    a.cyl([0, 0.008, 0], 0.13, 0.016, "enamel_white", "holder", top=1.0, seg=18)                        # dish
+    a.cyl([0, 0.019, 0], 0.11, 0.006, "enamel_white", "holder", seg=18)                                  # rim
+    a.arch([0.07, 0.008, 0], [0.04, 0.035, 0.008], "enamel_white", "holder", th=0.008, rot=[0, 0, -90])  # finger ring
+    a.cyl([0, 0.03, 0], 0.04, 0.03, "enamel_white", "holder", top=0.85, seg=12)
+    a.cyl([0, 0.085, 0], 0.024, 0.08, "wax", "candle", seg=10)
+    a.r([0.008, 0.11, 0.011], [0.008, 0.03, 0.006], "wax", "candle", 0.003)                               # a drip
     a.r([0, 0.138, 0], [0.008, 0.026, 0.004], "flame", "candle", 0.0018)
     a.col([0, 0.07, 0], [0.1, 0.14, 0.1])
     a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.12, "radius": 2.5, "offset": [0, 0.14, 0], "flicker": 0.3, "group": "candle", "use": "interior"}
@@ -1091,13 +1306,16 @@ def candle(root):
 
 def candelabra(root):
     a = A("furn_candelabra", "Candelabra", "Five-branch brass altar candelabra with beeswax candles.", "metal", 0, 10, blocking=False, front=0.0)
-    a.r([0, 0.015, 0], [0.18, 0.03, 0.18], "brass", "frame", 0.012)
-    a.r([0, 0.2, 0], [0.03, 0.36, 0.03], "brass", "frame", 0.01)
-    a.r([0, 0.38, 0], [0.5, 0.02, 0.02], "brass", "frame", 0.008)
+    a.cyl([0, 0.02, 0], 0.18, 0.04, "brass", "frame", top=0.55, seg=16)
+    a.cyl([0, 0.2, 0], 0.028, 0.36, "brass", "frame", top=0.75, seg=10)
+    for y in (0.12, 0.27):   # knops on the stem
+        a.r([0, y, 0], [0.045, 0.035, 0.045], "brass", "frame", 0.02)
+    a.arch([0, 0.345, 0], [0.48, 0.07, 0.016], "brass", "frame", th=0.014, rot=[180, 0, 0])   # curved arms
+    a.cyl([0, 0.38, 0], 0.018, 0.5, "brass", "frame", seg=8, rot=[0, 0, 90])
     for x in (-0.24, -0.12, 0.0, 0.12, 0.24):
         y = 0.38 + (0.06 if x == 0 else 0.0)
-        a.r([x, y + 0.01, 0], [0.04, 0.02, 0.04], "brass", "frame", 0.01)
-        a.r([x, y + 0.08, 0], [0.022, 0.12, 0.022], "wax", "candles", 0.008)
+        a.cyl([x, y + 0.01, 0], 0.045, 0.02, "brass", "frame", top=1.0, seg=12)   # drip pan
+        a.cyl([x, y + 0.08, 0], 0.022, 0.12, "wax", "candles", seg=10)
         a.r([x, y + 0.155, 0], [0.008, 0.026, 0.004], "flame", "candles", 0.0018)
     a.light = {"color": [1.0, 0.64, 0.32], "intensity": 0.55, "radius": 4.5, "offset": [0, 0.56, 0], "flicker": 0.25, "group": "candles", "use": "interior"}
     return a.write(root, [0.52, 0.18], fragments=[], keep=["frame"])
@@ -1107,11 +1325,11 @@ def ceiling_lamp(root):
     a = A("furn_lamp_ceiling", "Ceiling lamp", "Pendant lamp: a green enamelled steel shade on a cord from a ceiling rose, one bulb. Hangs from a ceiling or beam (origin at the top).",
           "metal", 0, 10, blocking=False, front=0.0)
     a.prop["hang"] = True
-    a.r([0, -0.012, 0], [0.09, 0.024, 0.09], "porcelain", "rose", 0.01)
-    a.r([0, -0.22, 0], [0.008, 0.4, 0.008], "iron", "rose", 0.0018)
-    a.r([0, -0.43, 0], [0.05, 0.04, 0.05], "brass", "shade", 0.012)
-    for rot in (0, 45):
-        a.r([0, -0.48, 0], [0.32, 0.07, 0.32], "enamel_green", "shade", 0.025, rot=[0, rot, 0])
+    a.cyl([0, -0.012, 0], 0.09, 0.024, "porcelain", "rose", top=0.7, seg=14, rot=[180, 0, 0])
+    a.cyl([0, -0.22, 0], 0.008, 0.4, "iron", "rose", seg=6)
+    a.cyl([0, -0.43, 0], 0.05, 0.04, "brass", "shade", top=0.7, seg=12)
+    a.cyl([0, -0.475, 0], 0.32, 0.07, "enamel_green", "shade", top=0.2, seg=24)       # conical enamel shade
+    a.cyl([0, -0.511, 0], 0.325, 0.006, "enamel_white", "shade", seg=24)               # white enamel rim
     a.r([0, -0.52, 0], [0.06, 0.06, 0.06], "bulb", "bulb", 0.026)
     a.light = {"color": [1.0, 0.77, 0.5], "intensity": 1.6, "radius": 8.0, "offset": [0, -0.53, 0], "cone": [70, 105], "dir": [0, -1, 0], "shadow": 1, "group": "bulb", "use": "interior"}
     a.col([0, -0.49, 0], [0.3, 0.12, 0.3])
@@ -1124,13 +1342,15 @@ def caged_lamp(root):
     a.prop["hang"] = True
     a.extra_mats["bunker_grey"] = ([0.2, 0.21, 0.19], 0.6, "metal", 1)
     a.used.add("bunker_grey")
-    a.r([0, -0.015, 0], [0.2, 0.03, 0.2], "bunker_grey", "mount", 0.012)
+    a.cyl([0, -0.015, 0], 0.2, 0.03, "bunker_grey", "mount", top=0.85, seg=18, rot=[180, 0, 0])
+    a.cyl([0, -0.035, 0], 0.15, 0.014, "bunker_grey", "mount", seg=16)                  # globe collar
     a.r([0, -0.09, 0], [0.13, 0.12, 0.13], "lamp_glass", "globe", 0.05)
     a.r([0, -0.08, 0], [0.04, 0.05, 0.04], "bulb", "globe", 0.018)
-    for rot in (0, 90):
-        a.r([0, -0.1, 0], [0.16, 0.16, 0.008], "bunker_grey", "cage", 0.0025, rot=[0, rot, 0])
+    for rot in (0, 60, 120):   # wire guard: three bent hoops over the globe
+        a.arch([0, -0.105, 0], [0.16, 0.13, 0.006], "bunker_grey", "cage", th=0.005, rot=[180, rot, 0])
+    a.cyl([0, -0.11, 0], 0.165, 0.006, "bunker_grey", "cage", seg=16)                  # equator ring
     a.col([0, -0.09, 0], [0.18, 0.16, 0.18])
-    a.r([0, -0.17, 0], [0.05, 0.012, 0.05], "bunker_grey", "cage", 0.005)
+    a.cyl([0, -0.17, 0], 0.05, 0.012, "bunker_grey", "cage", seg=10)
     a.light = {"color": [1.0, 0.85, 0.64], "intensity": 1.3, "radius": 7.0, "offset": [0, -0.1, 0], "shadow": 1, "group": "globe", "use": "electric"}
     return a.write(root, [0.2, 0.2], fragments=["cage"], keep=["mount"], glass="globe")
 
@@ -1142,8 +1362,9 @@ def hearth_fire(root):
     a.r([0, 0.026, 0.0], [0.44, 0.02, 0.22], "ember", "fire", 0.008)
     for i, (x, z, yaw, L) in enumerate(((-0.06, 0.05, 8, 0.5), (0.05, -0.05, -10, 0.46), (0.0, 0.0, 85, 0.3))):
         y = 0.07 if i < 2 else 0.14
-        a.r([x, y, z], [L, 0.1, 0.1], "bark", "logs", 0.03, rot=[0, yaw, 0])
-        a.r([x, y, z], [L + 0.004, 0.06, 0.06], "log_end", "logs", 0.02, rot=[0, yaw, 0])
+        a.cyl([x, y, z], 0.1, L, "bark", "logs", seg=12, rot=[90, yaw + 90, 0])                  # round log along its yaw
+        a.cyl([x, y, z], 0.075, L + 0.006, "log_end", "logs", seg=12, rot=[90, yaw + 90, 0])     # the sawn ends
+        a.cyl([x, y - 0.03, z], 0.07, L * 0.6, "ember", "fire", seg=10, rot=[90, yaw + 90, 0])   # glowing underside
     for x, h, rot in ((-0.1, 0.22, 12), (0.02, 0.3, -6), (0.12, 0.2, 20), (0.05, 0.16, 70)):
         a.r([x, 0.08 + h / 2, 0.0], [0.07, h, 0.01], "flame", "fire", 0.003, rot=[0, rot, 0])
     a.light = {"color": [1.0, 0.52, 0.2], "intensity": 1.8, "radius": 7.0, "offset": [0, 0.28, 0.12], "flicker": 0.8, "shadow": 1, "group": "fire", "use": "fire", "fx": "flame", "fxSize": 0.16}
@@ -1153,16 +1374,24 @@ def hearth_fire(root):
 def potbelly_stove(root):
     a = A("furn_stove_potbelly", "Pot-bellied stove", "Small cast-iron heating stove with a glowing draught grate and a flue pipe; the Kanonenofen of dugouts, guard rooms and offices.",
           "metal", 0, 120, wall=True, front=0.6)
-    a.r([0, 0.05, 0], [0.42, 0.04, 0.42], "cast_iron", "body", 0.01)
-    for sx in (-1, 1):
-        for sz in (-1, 1):
-            a.r([sx * 0.15, 0.025, sz * 0.15], [0.04, 0.05, 0.04], "cast_iron", "body", 0.01)
-    for rot in (0, 45):
-        a.r([0, 0.36, 0], [0.36, 0.56, 0.36], "cast_iron", "body", 0.06, rot=[0, rot, 0])
-    a.r([0, 0.67, 0], [0.3, 0.06, 0.3], "cast_iron", "body", 0.02)
-    a.r([0, 1.25, -0.05], [0.12, 1.1, 0.12], "cast_iron", "flue", 0.05)
+    a.cyl([0, 0.05, 0], 0.42, 0.04, "cast_iron", "body", top=0.9, seg=20)                       # base plate
+    for k in range(4):   # cabriole-ish feet
+        ang = math.radians(45 + 90 * k)
+        a.cyl([math.cos(ang) * 0.17, 0.025, math.sin(ang) * 0.17], 0.045, 0.05, "cast_iron", "body", top=0.6, seg=8, rot=[180, 0, 0])
+    a.cyl([0, 0.12, 0], 0.3, 0.1, "cast_iron", "body", seg=20)                                    # ash pit
+    a.cyl([0, 0.27, 0], 0.38, 0.2, "cast_iron", "body", top=0.82, seg=20, rot=[180, 0, 0])        # the belly
+    a.cyl([0, 0.47, 0], 0.38, 0.2, "cast_iron", "body", top=0.8, seg=20)
+    a.cyl([0, 0.37, 0], 0.4, 0.025, "cast_iron", "body", seg=20)                                  # belly band
+    a.cyl([0, 0.6, 0], 0.3, 0.06, "cast_iron", "body", top=0.85, seg=20)                          # firebox top
+    a.cyl([0, 0.65, 0], 0.32, 0.04, "cast_iron", "body", top=0.6, seg=20)                         # domed lid
+    a.cyl([0, 0.68, 0], 0.05, 0.03, "cast_iron", "body", top=0.6, seg=10)                         # lid knob
+    a.cyl([0, 1.25, -0.05], 0.12, 1.1, "cast_iron", "flue", seg=14)
+    a.cyl([0, 0.72, -0.05], 0.15, 0.04, "cast_iron", "flue", seg=14)                              # flue collar
+    a.cyl([0, 1.1, -0.05], 0.13, 0.02, "cast_iron", "flue", seg=14)                               # damper ring
+    a.r([0, 0.42, 0.2], [0.12, 0.1, 0.02], "cast_iron", "body", 0.006)                            # fuel door
+    a.cyl([0.04, 0.42, 0.214], 0.02, 0.012, "cast_iron", "body", seg=8, rot=[90, 0, 0])
     for y in (0.2, 0.24, 0.28):
-        a.r([0, y, 0.205], [0.16, 0.018, 0.006], "ember", "grate", 0.002)
+        a.r([0, y, 0.18], [0.16, 0.018, 0.006], "ember", "grate", 0.002)
     a.light = {"color": [1.0, 0.46, 0.17], "intensity": 0.5, "radius": 3.5, "offset": [0, 0.26, 0.32], "flicker": 0.4, "group": "grate", "use": "fire"}
     a.col([0, 0.35, 0], [0.42, 0.7, 0.42])
     return a.write(root, [0.42, 0.42], fragments=["flue"], keep=["body", "grate"])
