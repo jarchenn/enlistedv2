@@ -213,3 +213,12 @@ The vertex format is unchanged. No generator or asset JSON changed: the pattern 
   - Expected cost: one tap of three BC textures per box-face pixel, and 1-3 planar taps per terrain pixel inside the fade distance.
   - If Omaha's 1.3 ms headroom is not enough, these knobs reduce the cost: narrower terrain `fade`, a lower `uTexLod` threshold, or `--no-textures` on Low.
 - Tuning left for the joint L2+L4 pass: per-slot strengths in `textures.json`, the 9 unmapped sets, and terrain anti-tiling (the layers currently fade out by 140-260 m).
+
+**L4 addendum** (after the coordinator installed the fixed `gpu_turn.sh`):
+- **FPS A/B with `GPU_TURN_EXCLUSIVE=1`** (`%TEMP%/nmk/lt4-fps/report_maps_{off3,on3}.txt`). It is still disturbed by processes outside the lock: the *off* run fails the gate by itself (Omaha 24.4 ms, forest 18.7 ms). The two maps that look undisturbed, on vs off:
+  - tank_range: 4.64 → 5.10 ms (+0.46 ms);
+  - village_assault: 10.41 → 11.43 ms (+1.0 ms).
+
+  That is roughly **+10 % GPU**, close to Omaha's 1.3 ms headroom. The gate needs a quiet machine. If it fails there, the cheapest cuts are shorter terrain `fade` ranges and a far cutoff for building slots (sampling stops beyond about 100 m, where the ×3 LOD bias leaves little detail anyway).
+- **Painted ground (lasso stream):** `uPaintSlot[12]` + `terrTexSlot()` in `tex::glslCommon()`, 12 `paint_<type>` slots (`docs/textures.md#painted-ground`). Five sets for paint types (Ground070, Ground104, Ground051, Gravel008, Ground024; 49.1 MB) are listed in `tools/texture_sets.json`, but they are **not downloaded** until the user's OK arrives through the coordinator. Until then their slots stay procedural.
+- `textures` 28/0.
