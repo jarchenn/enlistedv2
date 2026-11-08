@@ -58,7 +58,20 @@
     "terrain_sand":    {"set": "sand_dirty",       "space": "ground", "albedo": 0.55, "normal": 0.5,  "rough": 0.3, "ao": 0.3, "fade": [50, 160]},
     "terrain_rock":    {"set": "rock_cliff",       "space": "world",  "albedo": 0.6,  "normal": 0.6,  "rough": 0.4, "ao": 0.4, "scale": 0.5, "fade": [80, 260]},
     "terrain_scree":   {"set": "ground_rubble",    "space": "world",  "albedo": 0.6,  "normal": 0.6,  "rough": 0.3, "ao": 0.4, "fade": [60, 200]},
-    "terrain_crater":  {"set": "soil_dry",         "space": "ground", "albedo": 0.6,  "normal": 0.6,  "rough": 0.3, "ao": 0.4, "fade": [50, 160]}
+    "terrain_crater":  {"set": "soil_dry",         "space": "ground", "albedo": 0.6,  "normal": 0.6,  "rough": 0.3, "ao": 0.4, "fade": [50, 160]},
+
+    "paint_marsh":           {"set": "marsh_bog",         "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_dirt":            {"set": "soil_brown",        "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_mud":             {"set": "mud_soil",          "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_gravel":          {"set": "gravel_path",       "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_sand":            {"set": "sand_beach",        "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_cobbles":         {"set": "cobbles_old",       "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_rock":            {"set": "rock_wall",         "space": "world", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [60, 200]},
+    "paint_dry_grass":       {"set": "grass_lawn",        "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_ploughed":        {"set": "soil_ploughed",     "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_leaf_litter":     {"set": "leaves_forest",     "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_scorched":        {"set": "ground_burnt",      "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "paint_pebbles":         {"set": "pebbles_river",     "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]}
   },
   "patterns": {
     "1": "stone_coursed", "2": "wood", "3": "plaster", "4": "slate", "5": "terracotta", "6": "metal", "8": "fabric",
@@ -94,5 +107,6 @@
   "terrain": {
     "grass": "terrain_grass", "soil": "terrain_soil", "mud": "terrain_mud", "gravel": "terrain_gravel",
     "sand": "terrain_sand", "rock": "terrain_rock", "scree": "terrain_scree", "crater": "terrain_crater"
-  }
+  },
+  "paint": {"marsh": "paint_marsh", "dirt": "paint_dirt", "mud": "paint_mud", "gravel": "paint_gravel", "sand": "paint_sand", "cobbles": "paint_cobbles", "rock": "paint_rock", "dry_grass": "paint_dry_grass", "ploughed": "paint_ploughed", "leaf_litter": "paint_leaf_litter", "scorched": "paint_scorched", "pebbles": "paint_pebbles"}
 }

@@ -79,6 +79,14 @@ The vertex carries the slot in the existing pattern float, so the vertex format 
 - **`kTerrainFS`.** Each ground layer takes a world planar sample, and only where its weight is above about 1 %: grass, the track (soil, gravel or sand by route kind), mud (ruts and wet), crater soil, scree and rock (triplanar). The samples multiply the existing procedural colours, which keeps the palette, the broad variation and the masks (`uSurf`, crater `aDirt`, slope). The normal, roughness and AO deltas blend with the same weights. Puddles stay mirror-smooth.
 - **`--legacy-look`** and **`--no-textures`** (A/B) are procedural only. A missing set, a corrupt file or no `textures.json` also leave the affected slots procedural.
 
+## Painted ground (lasso stream)
+
+`textures.json` → `"paint"` maps the 12 painted-ground types to `paint_<type>` slots: marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched and pebbles. The order is `tex::kPaintTypeNames`; the shader sees it as `uniform int uPaintSlot[12]`.
+
+The lasso ground-paint shader calls `terrTexSlot(uPaintSlot[k], p, tn0, tdx, tdy, tDist)` from kTerrainFS. It gets back an albedo and roughness multiplier, AO and a normal delta (`TerrT`), and identity when the layer is off or the set is missing. `#define NMK_TEX_PAINT` marks the API.
+
+Five sets for paint types were requested in addition to the 57 (`side-session-notes/lt4-paint-sets.md`); their slots stay procedural until those sets are downloaded.
+
 ## Shimmer
 
 Photo detail near the pixel frequency flickers under the TAA jitter. Three measures, tuned on `--selftest-render` against `--no-textures` (the metric is deterministic: two baseline runs are identical):

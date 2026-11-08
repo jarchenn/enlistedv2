@@ -14,7 +14,10 @@
 
 namespace tex {
 
-constexpr int kMaxSlots = 64, kMaxLayers = 64, kUnitBase = 20;
+constexpr int kMaxSlots = 80, kMaxLayers = 64, kUnitBase = 20;
+// painted ground types (lasso ground paint, ground_paint.cpp): uPaintSlot[k] in the terrain shader, "paint" in textures.json
+constexpr int kPaintTypes = 12;
+inline const char* const kPaintTypeNames[kPaintTypes] = {"marsh", "dirt", "mud", "gravel", "sand", "cobbles", "rock", "dry_grass", "ploughed", "leaf_litter", "scorched", "pebbles"};
 
 // Load content/textures/textures.json (slot table) and upload every set found under content/textures (GL context
 // required). Safe to call when nothing is there. Logs what it loaded.

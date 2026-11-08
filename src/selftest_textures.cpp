@@ -85,6 +85,10 @@ void run(App& a) {
   explicitOk = c1 == 1 && c2 == tex::slotIndex("limewash") + 2;
   chk(explicitOk, "a material's own \"texture\" field wins (none -> %d, limewash -> %d)", c1, c2);
 
+  int paintOk = 0;   // painted ground (lasso, ground_paint.cpp): every type has a slot named paint_<type>
+  for (int k = 0; k < tex::kPaintTypes; ++k) if (tex::slotIndex(std::string("paint_") + tex::kPaintTypeNames[k]) >= 0) ++paintOk; else note("paint type %s has no slot", tex::kPaintTypeNames[k]);
+  chk(paintOk == tex::kPaintTypes, "painted-ground types have slots (%d of %d)", paintOk, tex::kPaintTypes);
+
   // ---- sets
   int onDisk = 0, liveOk = 0;
   for (const char* s : {"limewash", "brick", "wood", "slate", "concrete", "bunker", "metal", "fabric", "terrain_grass", "terrain_rock"}) {

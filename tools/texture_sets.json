@@ -68,6 +68,12 @@
     {"set": "rock_wall",            "id": "Rock022",             "family": "rock",               "size": [3.0, 3.0]},
     {"set": "rock_mossy",           "id": "Rock057",             "family": "rock",               "size": [3.0, 3.0]},
     {"set": "ground_rubble",        "id": "Ground110",           "family": "dirt",               "size": [2.1, 2.1]},
-    {"set": "debris_brick",         "id": "Ground111",           "family": "rubble stone",       "size": [2.8, 2.8]}
+    {"set": "debris_brick",         "id": "Ground111",           "family": "rubble stone",       "size": [2.8, 2.8]},
+
+    {"set": "leaves_forest",        "id": "Ground070",           "family": "ground paint",       "size": [2.6, 2.6]},
+    {"set": "soil_ploughed",        "id": "Ground104",           "family": "ground paint",       "size": [2.0, 2.0]},
+    {"set": "ground_burnt",         "id": "Ground051",           "family": "ground paint",       "size": [2.0, 2.0]},
+    {"set": "pebbles_river",        "id": "Gravel008",           "family": "ground paint",       "size": [1.5, 1.5]},
+    {"set": "marsh_bog",            "id": "Ground024",           "family": "ground paint",       "size": [2.0, 2.0]}
   ]
 }

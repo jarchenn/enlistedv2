@@ -37,6 +37,7 @@ std::map<std::string, int> slotByName;
 std::map<std::string, int> matSlot;    // material name -> slot, -2 = none
 int patSlot[32];
 int terrSlot[8];
+int paintSlot[kPaintTypes];
 std::vector<SetInfo> sets;             // loaded layers
 std::vector<GLuint> progs;
 GLuint arr[3] = {0, 0, 0};
@@ -62,7 +63,7 @@ int slotFromJson(const std::string& name, const json& j) {
 
 void loadMapping(const fs::path& file) {
   slots.clear(); slotByName.clear(); matSlot.clear();
-  std::fill(std::begin(patSlot), std::end(patSlot), -1); std::fill(std::begin(terrSlot), std::end(terrSlot), -1);
+  std::fill(std::begin(patSlot), std::end(patSlot), -1); std::fill(std::begin(terrSlot), std::end(terrSlot), -1); std::fill(std::begin(paintSlot), std::end(paintSlot), -1);
   if (!fs::exists(file)) { logf("textures: no %s (procedural patterns only)", file.string().c_str()); return; }
   json j;
   try { j = json::parse(readTextFile(file)); } catch (std::exception& e) { logf("textures: %s: %s", file.string().c_str(), e.what()); return; }
@@ -74,6 +75,8 @@ void loadMapping(const fs::path& file) {
   static const char* tl[8] = {"grass", "soil", "mud", "gravel", "sand", "rock", "scree", "crater"};
   auto tj = j.value("terrain", json::object());
   for (int k = 0; k < 8; ++k) if (tj.contains(tl[k])) terrSlot[k] = std::max(-1, ref(tj[tl[k]].get<std::string>()));
+  json pj = j.value("paint", json::object());
+  for (int k = 0; k < kPaintTypes; ++k) if (pj.contains(kPaintTypeNames[k])) paintSlot[k] = std::max(-1, ref(pj[kPaintTypeNames[k]].get<std::string>()));
 }
 
 // ------------------------------------------------------------------ image helpers
@@ -211,7 +214,7 @@ void upload(GLuint p) {
   if (const char* e = std::getenv("NMK_TEX_LOD")) std::sscanf(e, "%f,%f,%f,%f", &lod.x, &lod.y, &lod.z, &lod.w);
   if (const char* e = std::getenv("NMK_TEX_LOD2")) std::sscanf(e, "%f,%f,%f", &lod2.x, &lod2.y, &lod2.z);
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
-  glProgramUniform1iv(p, U("uPatSlot"), 32, patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot);
+  glProgramUniform1iv(p, U("uPatSlot"), 32, patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlot);
 }
 void uploadAll() { for (GLuint p : progs) upload(p); }
 
@@ -229,12 +232,14 @@ const char* kCommonGLSL = R"GLSL(
 // ---- L4 texture layer (src/textures.cpp, docs/textures.md): ambientCG sets in three 2D arrays (units 20-22)
 uniform sampler2DArray uTexCol, uTexNrm, uTexRH;   // colour (sRGB) + ao, normal xy, roughness + height
 uniform int uTexOn;
-uniform vec4 uTexA[64];   // per slot: layer (-1 none), mode (0 detail, 1 replace), space (0 asset, 1 part, 2 world, 3 ground), scale
-uniform vec4 uTexB[64];   // per slot: albedo, normal, roughness, ao strength
-uniform vec4 uTexC[64];   // per slot: height (m), quarter turns, distance fade start, end (m; end 0 = no fade)
+uniform vec4 uTexA[80];   // per slot: layer (-1 none), mode (0 detail, 1 replace), space (0 asset, 1 part, 2 world, 3 ground), scale
+uniform vec4 uTexB[80];   // per slot: albedo, normal, roughness, ao strength
+uniform vec4 uTexC[80];   // per slot: height (m), quarter turns, distance fade start, end (m; end 0 = no fade)
 uniform vec4 uTexL[64];   // per layer: 1/size u, 1/size v (1/m), mean roughness, mean height
 uniform vec4 uTexM[64];   // per layer: mean linear colour, mean ao
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
+#define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
+uniform int uPaintSlot[12];
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
 struct TexS { vec3 col; float ao, r, h; vec3 n; };
@@ -269,10 +274,11 @@ TexS texTri(float L, vec3 p, vec3 n, vec3 dpx, vec3 dpy, vec2 inv, int rot){
 // terrain layer: albedo / roughness multipliers against the layer's means, ao, world normal delta; strengths and the
 // distance fade applied, identity when the layer has no texture
 struct TerrT { vec3 alb; float r, ao; vec3 dn; };
-TerrT terrTex(int layer, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
+// any slot (terrain layers, painted ground: terrTexSlot(uPaintSlot[k], ...)); dpx / dpy = dFdx / dFdy of p taken in
+// uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
+TerrT terrTexSlot(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   TerrT o = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0));
-  if (!texOn()) return o;
-  int slot = uTerrSlot[layer]; if (slot < 0) return o;
+  if (!texOn() || slot < 0 || slot >= 80) return o;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return o;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
@@ -289,6 +295,7 @@ TerrT terrTex(int layer, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   o.dn = (s.n - n)*K.y*f;
   return o;
 }
+TerrT terrTex(int layer, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){ return terrTexSlot(uTerrSlot[layer], p, n, dpx, dpy, dist); }
 )GLSL";
 
 const char* kMainGLSL = R"GLSL(
@@ -297,14 +304,14 @@ uniform mat4 uModel;
 uniform int uPatSlot[32];
 vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world normal delta, height (m) for the derivative bump
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
-bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 64 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
+bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 80 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
 // sample the slot's set and layer it on the material: albedo and roughness multiplied by the sample against the set's
 // means (the material colour, per-stone tint and room finishes stay), ao, the normal (applied after the bump) and the
 // height (into the derivative bump, faded by the detail filter like the procedural relief)
 void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, int grain, float pix,
                  inout vec3 alb, inout float rough, inout float ao){
   vec3 dwx = dFdx(w), dwy = dFdy(w), dax = dFdx(ap), day = dFdy(ap), dcx = dFdx(pc), dcy = dFdy(pc);
-  if (!texOn() || slot < 0 || slot >= 64) return;
+  if (!texOn() || slot < 0 || slot >= 80) return;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, length(w - uCamPos)) : 1.0;
