@@ -587,3 +587,216 @@ export function quoins(A, X, Z, y0, y1) {
       A.box([Math.min(xa, xb), y, Math.min(za, zb)], [Math.max(xa, xb), Math.min(y + 0.29, y1), Math.max(za, zb)], "stone_dressed");
     }
 }
+
+// =========================================================================== B1 architectural kit
+// Facade depth, arches, columns, roofs and turrets from the B1 part types (Asset.cyl / cone / arch / wedge and the box
+// "bv" chamfer; docs/asset-format.md#b1-geometry-kit). Shimmer rule (docs/rendering.md): no coplanar faces between parts, so every
+// member is embedded 1 cm or more into the surface it sits on, and members that meet differ in projection.
+// Wall frame F = { axis, d, out }: axis "x" = a wall along X (depth z), "z" = along Z (depth x); d = the exterior face;
+// out = +1 / -1, the exterior direction along the depth axis. In F, a runs along the wall, y is up and e is the
+// distance out from the face (negative = into the wall).
+// None of these are destructible wall bays: put them on walls built with wall(), or on non-destructible cladding.
+export const faceYaw = (axis, out) => (axis === "x" ? (out > 0 ? 0 : 180) : out > 0 ? 90 : -90);
+const fpt = (F, a, y, e) => P(F.axis, a, y, F.d + F.out * e);
+export function fbox(A, F, a0, a1, y0, y1, e0, e1, m, o = {}) { return wbox(A, F.axis, a0, a1, y0, y1, F.d + F.out * e0, F.d + F.out * e1, m, o); }
+// a B1 part turned to face out of the wall: s = [along the wall, height, out of the wall]
+export function fpart(A, kind, F, a, y, e, s, m, o = {}) { return A[kind](fpt(F, a, y, e), s, m, { ...o, r: [0, faceYaw(F.axis, F.out), 0] }); }
+function ensureMat(A, name, ...def) { if (!A.materials.some((m) => m.name === name)) A.mat(name, ...def); }
+const q4 = (v) => Math.round(v * 1e4) / 1e4;
+
+// flat pilaster with a bevelled base and capital
+export function pilaster(A, F, a, y0, y1, { w = 0.42, proj = 0.07, m = "stone_dressed", bv = 0.012 } = {}) {
+  const bh = Math.min(0.3, (y1 - y0) * 0.1);
+  fbox(A, F, a - w / 2 - 0.04, a + w / 2 + 0.04, y0, y0 + bh, -0.01, proj + 0.04, m, { bv });
+  fbox(A, F, a - w / 2, a + w / 2, y0 + bh, y1 - bh, -0.01, proj, m, { bv });
+  fbox(A, F, a - w / 2 - 0.05, a + w / 2 + 0.05, y1 - bh, y1, -0.01, proj + 0.05, m, { bv });
+}
+// a string course at height y: a bevelled band with a sloped weathering on top
+export function stringCourse(A, F, a0, a1, y, { h = 0.16, proj = 0.06, m = "stone_dressed", bv = 0.01 } = {}) {
+  fbox(A, F, a0, a1, y, y + h, -0.01, proj, m, { bv });
+  fpart(A, "wedge", F, (a0 + a1) / 2, y + h * 1.2, (proj - 0.01) / 2, [a1 - a0 - 0.02, h * 0.4, proj + 0.01], m, { top: 0.2, k: 0 });
+}
+// stepped cornice under the eaves: `steps` bevelled bands growing out to `proj`, topped by a weathering.
+// ext: the bands run past a0 / a1 by their projection (walls along X own the corners; the end walls pass ext: false)
+export function cornice(A, F, a0, a1, y, { steps = 3, h = 0.36, proj = 0.3, m = "stone_dressed", bv = 0.012, ext = true } = {}) {
+  for (let i = 0; i < steps; i++) {
+    const p = (proj * (i + 1)) / steps, x = ext ? p : 0;
+    fbox(A, F, a0 - x, a1 + x, y + (h * i) / steps, y + (h * (i + 1)) / steps, -0.01, p, m, { bv });
+  }
+  const x = ext ? proj - 0.01 : -0.01;
+  fpart(A, "wedge", F, (a0 + a1) / 2, y + h + 0.04, (proj - 0.02) / 2, [a1 - a0 + 2 * x, 0.08, proj], m, { top: 0.3, k: 0 });
+}
+// window or door surround: architrave jambs and head proud of the wall, a sloped projecting sill, optional keystone
+export function surround(A, F, { a0, a1, y0, y1, w = 0.14, proj = 0.05, m = "stone_dressed", sill = true, key = false, bv = 0.01 }) {
+  fbox(A, F, a0 - w, a0, y0, y1, -0.01, proj, m, { bv });
+  fbox(A, F, a1, a1 + w, y0, y1, -0.01, proj, m, { bv });
+  fbox(A, F, a0 - w - 0.02, a1 + w + 0.02, y1, y1 + w, -0.01, proj + 0.015, m, { bv });
+  if (sill) fpart(A, "wedge", F, (a0 + a1) / 2, y0 - 0.05, (proj + 0.04) / 2, [a1 - a0 + 2 * w + 0.12, 0.1, proj + 0.06], m, { top: 0.55 });
+  if (key) fbox(A, F, (a0 + a1) / 2 - 0.09, (a0 + a1) / 2 + 0.09, y1 - 0.03, y1 + w + 0.07, -0.01, proj + 0.035, m, { bv });
+}
+// Arched opening a0..a1 springing at y1 with a semicircular (rise = half the span) or elliptical head:
+//  - the voussoir ring (width w) proud of the face, with a keystone;
+//  - wall: { e0, e1, m }: the spandrel that closes the wall's rectangular hole (cut it up to y1 + rise + 0.02) down to
+//    the arch, inside the wall slab e0..e1 (e <= 0);
+//  - jambs: y0 of dressed jambs below the springing; sill: a projecting sill under the jambs;
+//  - fan: e of a fixed glass fanlight in the arch (with a transom bar at the springing).
+export function archOpening(A, F, { a0, a1, y1, rise = (a1 - a0) / 2, w = 0.2, proj = 0.05, m = "stone_dressed", key = true, wall = null, jambs = null, sill = false, fan = null }) {
+  const span = a1 - a0, ac = (a0 + a1) / 2, H = rise + w + 0.005;
+  fpart(A, "arch", F, ac, y1 + H / 2, (proj - 0.01) / 2, [span + 2 * w + 0.01, H, proj + 0.01], m, { th: w });
+  if (key) fbox(A, F, ac - 0.1, ac + 0.1, y1 + rise - 0.02, y1 + rise + w + 0.06, -0.01, proj + 0.025, m, { bv: 0.01 });
+  if (wall) fpart(A, "arch", F, ac, y1 + (rise + 0.02) / 2, (wall.e0 + wall.e1) / 2, [span, rise + 0.02, Math.abs(wall.e1 - wall.e0)], wall.m || "stone", { th: 0.02, fill: true });
+  if (jambs !== null) {
+    fbox(A, F, a0 - w, a0, jambs, y1, -0.01, proj - 0.005, m, { bv: 0.01 });
+    fbox(A, F, a1, a1 + w, jambs, y1, -0.01, proj - 0.005, m, { bv: 0.01 });
+  }
+  if (sill) fpart(A, "wedge", F, ac, (jambs ?? y1) - 0.05, (proj + 0.04) / 2, [span + 2 * w + 0.12, 0.1, proj + 0.06], m, { top: 0.55 });
+  if (fan !== null) {
+    fpart(A, "arch", F, ac, y1 + rise / 2, fan, [span, rise, 0.02], "glass", { th: 99, k: 0 });
+    fbox(A, F, a0, a1, y1 - 0.03, y1 + 0.03, fan - 0.03, fan + 0.03, "window_paint", { k: 0 });
+  }
+}
+export const archWindow = (A, F, o) => archOpening(A, F, { sill: true, fan: -0.12, ...o });
+export const archDoor = (A, F, o) => archOpening(A, F, { jambs: 0, ...o });
+// Arcade along a line (axis as wall(), at depth d): n round (or `sides`-sided) columns from a0 to a1 on bevelled
+// plinths with capitals, semicircular arches from column to column, recessed spandrels and an entablature beam up to
+// y1. Returns the springing height.
+export function colonnade(A, { axis, a0, a1, d, y0, y1, n, r = 0.2, depth = 0.5, th = 0.3, beam = 0.4, sides = 0, m = "stone_dressed" }) {
+  const sp = (a1 - a0) / (n - 1), ys = y1 - beam - sp / 2 - 0.01, F = { axis, d, out: 1 }, cd = Math.max(1.2 * r, depth / 2 + 0.01);
+  for (let i = 0; i < n; i++) {
+    const a = a0 + sp * i;
+    A.box(P(axis, a - 1.3 * r, y0, d - 1.3 * r), P(axis, a + 1.3 * r, y0 + 0.25, d + 1.3 * r), m, { bv: 0.015 });
+    A.cyl(P(axis, a, (y0 + 0.25 + ys - 0.22) / 2, d), [2 * r, ys - 0.22 - y0 - 0.25, 2 * r], m, { n: sides });
+    const p0 = P(axis, a - 1.2 * r, ys - 0.22, d - cd), p1 = P(axis, a + 1.2 * r, ys, d + cd);
+    A.box(p0, p1, m, { bv: 0.015 });
+  }
+  for (let i = 0; i + 1 < n; i++) {
+    const ac = a0 + sp * (i + 0.5);
+    fpart(A, "arch", F, ac, ys + sp / 4, 0, [sp, sp / 2, depth], m, { th });
+    fpart(A, "arch", F, ac, ys + (sp / 2 + 0.01) / 2, 0, [sp, sp / 2 + 0.01, depth - 0.02], m, { th: 0.01, fill: true });
+  }
+  A.box(P(axis, a0 - 1.4 * r, y1 - beam, d - depth / 2 - 0.03), P(axis, a1 + 1.4 * r, y1, d + depth / 2 + 0.03), m, { bv: 0.015 });
+  return ys;
+}
+// Balcony on a wall: a bevelled slab on stone consoles with an iron railing (hidden colliders keep people on it)
+export function balcony(A, F, { a0, a1, y, depth = 0.85, t = 0.14, h = 0.95, m = "stone_dressed", rail = "iron" }) {
+  fbox(A, F, a0, a1, y - t, y, -0.02, depth, m, { bv: 0.015 });
+  const nb = Math.max(2, Math.round((a1 - a0) / 1.4) + 1), bh = Math.min(0.5, depth * 0.6);
+  for (let i = 0; i < nb; i++) {
+    const a = a0 + 0.15 + ((a1 - a0 - 0.3) * i) / (nb - 1);
+    fpart(A, "wedge", F, a, y - t - bh / 2, (depth * 0.75 - 0.02) / 2, [0.16, bh, depth * 0.75 + 0.02], m, { top: 0.25 });
+  }
+  const e1 = depth - 0.05, yb = (2 * y + h - 0.05) / 2;
+  fbox(A, F, a0 + 0.02, a1 - 0.02, y + h - 0.05, y + h, e1 - 0.03, e1 + 0.03, rail, { k: 0 });
+  fbox(A, F, a0 + 0.04, a1 - 0.04, y + 0.06, y + 0.1, e1 - 0.02, e1 + 0.02, rail, { k: 0 });
+  for (const aa of [a0 + 0.05, a1 - 0.05]) {
+    fbox(A, F, aa - 0.03, aa + 0.03, y + h - 0.05, y + h, 0, e1 - 0.03, rail, { k: 0 });
+    for (let e = 0.12; e < e1 - 0.06; e += 0.12) fpart(A, "cyl", F, aa, yb, e, [0.022, h - 0.05, 0.022], rail, { n: 4, k: 0 });
+  }
+  for (let a = a0 + 0.17; a < a1 - 0.12; a += 0.12) fpart(A, "cyl", F, a, yb, e1, [0.022, h - 0.05, 0.022], rail, { n: 4, k: 0 });
+  fbox(A, F, a0, a1, y, y + h, e1 - 0.03, e1 + 0.03, rail, { v: 0 });
+  for (const aa of [a0, a1 - 0.06]) fbox(A, F, aa, aa + 0.06, y, y + h, 0, e1, rail, { v: 0 });
+}
+// Gabled dormer with its front at z (facing s = +1 / -1 along z) and sill height y, w wide, reaching `depth` back
+// into the roof: cheeks, a glazed front with frame, a small gable roof with a round ridge
+export function dormer(A, { x, z, y, w = 1.2, h = 1.3, depth = 1.6, s = 1, m = "plaster", roof = "slate", frame = "window_paint", ridge = "ridge_tile" }) {
+  const zb = z - s * depth, z0 = Math.min(z, zb), z1 = Math.max(z, zb), x0 = x - w / 2, x1 = x + w / 2, t = 0.1;
+  A.box([x0, y - 0.12, z0], [x0 + t, y + h, z1], m);
+  A.box([x1 - t, y - 0.12, z0], [x1, y + h, z1], m);
+  const F = { axis: "x", d: z, out: s };
+  fbox(A, F, x0 + t, x1 - t, y - 0.12, y, -0.14, -0.005, m);                          // apron under the window
+  fbox(A, F, x0 + t, x1 - t, y, y + 0.07, -0.08, 0, frame);
+  fbox(A, F, x0 + t, x1 - t, y + h - 0.07, y + h, -0.08, 0, frame);
+  fbox(A, F, x - 0.03, x + 0.03, y + 0.07, y + h - 0.07, -0.07, -0.01, frame, { k: 0 });
+  fbox(A, F, x0 + t, x1 - t, y + 0.07, y + h - 0.07, -0.05, -0.04, "glass", { k: 0 });
+  const half = w / 2 + 0.15, rh = half * 0.9, yr = y + h, th = Math.atan2(rh, half), deg = (th * 180) / Math.PI, L = (half + 0.02) / Math.cos(th);
+  A.prism(2, z0 + 0.02, z1 - 0.02, [[x0 + 0.005, yr], [x1 - 0.005, yr], [x, yr + rh - 0.06]], m, { k: 0 });   // gable infill
+  for (const sx of [-1, 1]) {
+    const nx = -sx * Math.sin(th), ny = Math.cos(th);
+    A.obox([x + (sx * half) / 2 + nx * 0.04, yr + rh / 2 + ny * 0.04, (z0 + z1) / 2 + s * 0.1], [L, 0.08, depth + 0.2], [0, 0, -sx * deg], roof);
+  }
+  A.cyl([x, yr + rh + 0.05, (z0 + z1) / 2 + s * 0.1], [0.14, depth + 0.24, 0.14], ridge, { r: [90, 0, 0], k: 0 });
+}
+// Hip roof over |x| <= X, |z| <= Z with eaves at EAVE and ridge at RIDGE (equal pitch on all four sides, the ridge
+// along the longer side): a solid prism over the middle, square pyramids for the hips (2 cm in, so their faces stay
+// under the main slopes) and a round ridge tile
+export function hipRoof(A, { X, Z, EAVE, RIDGE, ov = 0.4, m = "slate", ridge = "ridge_tile" }) {
+  const alongX = X >= Z, L = alongX ? X : Z, S = alongX ? Z : X;
+  const pitch = (RIDGE - EAVE) / S, Lo = L + ov, So = S + ov, ye = EAVE - ov * pitch, run = Lo - So;
+  const pt = (l, y, s) => (alongX ? [l, y, s] : [s, y, l]);
+  if (run > 0.01) A.prism(alongX ? 0 : 2, -run, run, [[-So, ye], [So, ye], [0, RIDGE]], m);
+  const Sp = So - 0.02, Hp = pitch * Sp;
+  for (const sg of run > 0.01 ? [-1, 1] : [0]) A.cone(pt(sg * run, ye + 0.005 + Hp / 2, 0), [2 * Sp, Hp, 2 * Sp], m, { n: 4 });
+  if (run > 0.01) A.cyl(pt(0, RIDGE + 0.02, 0), [0.2, 2 * run + 0.1, 0.2], ridge, { r: alongX ? [0, 0, 90] : [90, 0, 0], k: 0 });
+}
+// Thatched gable roof (ridge along X): thick rounded slopes with deep eaves, a round ridge roll, plastered gables
+export function thatchRoof(A, { X, Z, EAVE, RIDGE, ov = 0.5, t = 0.45, gov = 0.35, m = "thatch", gable = "plaster" }) {
+  ensureMat(A, "thatch", [0.30, 0.235, 0.13], 0.97, "fabric", { grain: 2 });
+  const th = Math.atan2(RIDGE - EAVE, Z), deg = (th * 180) / Math.PI;
+  for (const sx of [-1, 1]) A.prism(0, sx > 0 ? X - 0.3 : -X, sx > 0 ? X : -X + 0.3, [[-Z, EAVE], [Z, EAVE], [0, RIDGE]], gable);
+  for (const s of [1, -1]) {
+    const len = (Z + ov + 0.15) / Math.cos(th), zm = (s * (Z + ov) - s * 0.15) / 2, ym = RIDGE - Math.abs(zm) * Math.tan(th);
+    const ny = Math.cos(th), nz = s * Math.sin(th);
+    A._put({ t: "r", c: [0, ym + (ny * t) / 2, zm + (nz * t) / 2].map(q4), s: [2 * X + 2 * gov, t, len].map(q4), rad: q4(t * 0.45), m }, { r: [s > 0 ? deg : -deg, 0, 0] });
+  }
+  A.cyl([0, RIDGE + t / Math.cos(th) - 0.12, 0], [t * 1.3, 2 * X + 2 * gov + 0.1, t * 1.3], m, { r: [0, 0, 90] });
+}
+// Round (sides 0) or polygonal turret: plinth ring, body, a cornice band and a conical spire with an iron finial
+export function turret(A, { x, z, y0, y1, r = 1.4, spire = 4.5, sides = 0, ov = 0.25, m = "stone", band = "stone_dressed", roof = "slate", finial = "iron" }) {
+  A.cyl([x, (y0 + y1 - 0.01) / 2, z], [2 * r, y1 - 0.01 - y0, 2 * r], m, { n: sides });
+  A.cyl([x, y0 + 0.18, z], [2 * r + 0.12, 0.36, 2 * r + 0.12], band, { n: sides });
+  A.cyl([x, y1 - 0.125, z], [2 * r + 0.18, 0.24, 2 * r + 0.18], band, { n: sides });
+  A.cone([x, y1 - 0.02 + spire / 2, z], [2 * (r + ov), spire, 2 * (r + ov)], roof, { n: sides });   // base 1.5 cm into the band
+  A.cyl([x, y1 + spire + 0.35, z], [0.05, 1.0, 0.05], finial, { n: 8, k: 0 });
+  A.cyl([x, y1 + spire + 0.3, z], [0.14, 0.14, 0.14], finial, { n: 8, k: 0 });
+}
+// Half-timbering on a wall face (Norman colombage): rails at y0 (sill), y1 (plate) and each `rails` height, posts
+// every `sp` between them and beside each hole {a0, a1, y0, y1}, head and sill rails over and under the holes, braces
+// in the end bays; members proud of the infill by `proj` and embedded `embed` into it
+export function timberFrame(A, F, { a0, a1, y0, y1, holes = [], rails = [], t = 0.16, sp = 0.85, proj = 0.04, embed = 0.03, braces = true, m = "oak_y", mx = "oak_x" }) {
+  const box = (aa0, aa1, ya, yb, mat) => fbox(A, F, aa0, aa1, ya, yb, -embed, proj, mat);
+  const bands = [[y0, y0 + t], ...rails.map((r) => [r - t / 2, r + t / 2]), [y1 - t, y1]].sort((p, q) => p[0] - q[0]);
+  const hv = holes.map((h) => ({ ...h, c0: h.y0 - t * 0.8, c1: h.y1 + t * 0.8 }));
+  const inWall = (a) => a > a0 + t / 2 - 1e-6 && a < a1 - t / 2 + 1e-6;
+  for (const [b0, b1] of bands) {   // rails, cut where a hole crosses the band (over the hole and its jamb posts)
+    const cut = hv.filter((h) => h.y0 < b1 && h.y1 > b0).map((h) => ({ a0: h.a0 - t, a1: h.a1 + t, y0: b0, y1: b1 }));
+    for (const [aa0, aa1, ya, yb] of cutRect(a0, a1, b0, b1, cut)) box(aa0, aa1, ya, yb, mx);
+  }
+  for (const h of hv) {
+    // head and sill rails between the jamb posts, unless a rail band is already there
+    if (h.c1 < y1 && !bands.some(([b0, b1]) => b0 < h.c1 && b1 > h.y1)) box(h.a0, h.a1, h.y1, h.c1, mx);
+    if (h.c0 > y0 && !bands.some(([b0, b1]) => b0 < h.y0 && b1 > h.c0)) box(h.a0, h.a1, h.c0, h.y0, mx);
+    // jamb posts run from the band under the hole to the band over it, through the bands the hole cuts
+    const below = bands.filter(([, b1]) => b1 <= h.y0 + 1e-6).map((b) => b[1]), above = bands.filter(([b0]) => b0 >= h.y1 - 1e-6).map((b) => b[0]);
+    const ya = below.length ? Math.max(...below) : y0, yb = above.length ? Math.min(...above) : y1;
+    for (const a of [h.a0 - t / 2, h.a1 + t / 2]) if (inWall(a)) box(a - t / 2, a + t / 2, ya, yb, m);
+  }
+  const jambs = holes.flatMap((h) => [h.a0 - t / 2, h.a1 + t / 2]), posts = [a0 + t / 2, a1 - t / 2].filter((a) => jambs.every((q) => Math.abs(q - a) > t * 1.5));
+  for (let a = a0 + sp; a < a1 - sp * 0.5; a += sp) if ([...posts, ...jambs].every((q) => Math.abs(q - a) > t * 1.5)) posts.push(a);
+  for (const a of posts) {
+    if (!inWall(a)) continue;
+    const cut = hv.filter((h) => a > h.a0 - t / 2 && a < h.a1 + t / 2).map((h) => ({ a0: a - t, a1: a + t, y0: h.c0, y1: h.c1 }));
+    for (let i = 0; i + 1 < bands.length; i++)
+      for (const [, , ya, yb] of cutRect(a - t / 2, a + t / 2, bands[i][1], bands[i + 1][0], cut)) if (yb - ya > 0.05) box(a - t / 2, a + t / 2, ya, yb, m);
+  }
+  if (!braces) return;
+  for (let i = 0; i + 1 < bands.length; i++) {   // one brace in each end bay of each storey, unless a hole is there
+    const g0 = bands[i][1], g1 = bands[i + 1][0], bw = Math.min(sp, (a1 - a0) / 3);
+    for (const [p0, p1] of [[a0 + t, a0 + bw], [a1 - t, a1 - bw]]) {
+      const lo = Math.min(p0, p1), hi = Math.max(p0, p1);
+      if (g1 - g0 < 0.4 || hv.some((h) => h.a1 + t > lo && h.a0 - t < hi && h.c1 > g0 && h.c0 < g1)) continue;
+      const da = p1 - p0, dy = g1 - g0, Lb = Math.hypot(da, dy) - t * 0.4, ang = (Math.atan2(F.axis === "x" ? -da : da, dy) * 180) / Math.PI;
+      const dep = proj - 0.008 + embed, c = fpt(F, (p0 + p1) / 2, (g0 + g1) / 2, (proj - 0.008 - embed) / 2);
+      A.obox(c, F.axis === "x" ? [t * 0.85, Lb, dep] : [dep, Lb, t * 0.85], F.axis === "x" ? [0, 0, ang] : [ang, 0, 0], m);
+    }
+  }
+}
+// cap on a chimney stack (x, z, top y, w x d): a bevelled oversailing course, a cap slab and clay pots
+export function chimneyCap(A, { x, z, y, w = 0.7, d = 0.5, m = "stone_dressed", pots = 2, pot = "terracotta" }) {
+  A.box([x - w / 2 - 0.05, y - 0.16, z - d / 2 - 0.05], [x + w / 2 + 0.05, y - 0.04, z + d / 2 + 0.05], m, { bv: 0.012 });
+  A.box([x - w / 2 - 0.09, y - 0.04, z - d / 2 - 0.09], [x + w / 2 + 0.09, y + 0.06, z + d / 2 + 0.09], m, { bv: 0.015 });
+  for (let i = 0; i < pots; i++) A.cone([x - w / 2 + (w * (i + 0.5)) / pots, y + 0.05 + 0.22, z], [0.2, 0.44, 0.2], pot, { top: 0.78, k: 0 });
+}
+export function chimney(A, { x, z, y0, y1, w = 0.7, d = 0.5, m = "stone", ...o }) {
+  A.box([x - w / 2, y0, z - d / 2], [x + w / 2, y1 - 0.15, z + d / 2], m);
+  chimneyCap(A, { x, z, y: y1, w, d, ...o });
+}

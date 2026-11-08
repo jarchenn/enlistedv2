@@ -72,6 +72,7 @@ void App::destroyRT(InstanceRT& r) {
   { extern void natureDestroyRT(InstanceRT&); natureDestroyRT(r); }
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
+  { extern void ivyDestroy(InstanceRT&); ivyDestroy(r); }
 }
 void App::buildRT(const Instance& i, InstanceRT& r) {
   destroyRT(r);
@@ -242,6 +243,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       }
     }
     for (size_t k = opFirst; k < op.size(); ++k) op[k].surf = surf;
+    { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // B1 ivy (ivy.cpp)
   }
 }
 

@@ -46,6 +46,7 @@ struct InstanceRT {
   StationRT st;                                   // crew-served station overlay (if the asset is a station)
   std::vector<std::vector<uint8_t>> leafSt;       // [interactable][leaf] LEAF_* flags (session overlay)
   std::vector<std::vector<float>> leafHits;       // bullet hits taken
+  std::shared_ptr<TreeDef> ivy; uint64_t ivyKey = 0;   // B1 ivy cards for this instance (ivy.cpp), rebuilt when a bay breaks
   float treeHits = 0; bool treeFelled = false, trunkApplied = false; uint32_t trunkBody = 0xffffffffu;   // trees (foliage.cpp)
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
@@ -384,6 +385,7 @@ public:
   std::map<std::string, WeaponState> wstate;
   int activeWeapon = 0;
   float adsT = 0;
+  bool ivyOn = true;   // B1: Settings > Ivy on walls (ivy.cpp)
   bool strictDDay = false, reducedMotion = false, scopeIronsMode = false, supported = false, showLoadout = false;
   std::string weaponMsg;
   vec3 lastShotStart{0}, lastShotDir{0}, lastShotMuzzle{0};

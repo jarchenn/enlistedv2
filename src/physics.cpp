@@ -115,6 +115,16 @@ ShapePtr Physics::buildShape(const std::vector<Part>& parts) {
       vec3 h = glm::max(p.size * 0.5f, vec3(0.005f));
       float cr = std::min(p.shape == Part::ROUND ? std::max(0.02f, p.rad) : 0.02f, std::min(h.x, std::min(h.y, h.z)) * (p.shape == Part::ROUND ? 0.999f : 0.5f));
       s = new BoxShape(jv(h), cr);
+    } else if (p.shape != Part::PRISM) {   // CYL / ARCH / WEDGE: their convex pieces, in the part frame
+      std::vector<std::vector<vec3>> hulls; partHulls(p, hulls);
+      for (auto& hl : hulls) {
+        Array<Vec3> pts; for (auto& q : hl) pts.push_back(jv(q));
+        auto r = ConvexHullShapeSettings(pts, 0.0f).Create();
+        if (r.HasError()) continue;
+        s = r.Get(); cs.AddShape(pos, rot, s.GetPtr());
+        single = s; singlePos = pos; singleRot = rot; ++n;
+      }
+      continue;
     } else {
       Array<Vec3> pts;
       for (int k = 0; k < 3; ++k) for (float a : {p.a0, p.a1}) {
