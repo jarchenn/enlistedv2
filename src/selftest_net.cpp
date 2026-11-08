@@ -143,18 +143,24 @@ void SelfTest::netUpdate(App& app, float dt) {
         };
         // one piece per frame: each search runs the full placement check per candidate spot, and doing all five in
         // one frame stalled the host past the clients' 6 s timeout
-        static int step = 0; static uint64_t G1, R, C, G2, G3; static vec3 feet0, seat;
-        if (t == 0 || step == 0) { step = 0; G1 = R = C = G2 = G3 = 0; feet0 = feet; }
+        static int step = 0; static uint64_t G1, R, C, G2, G3; static vec3 feet0, seat; static bool own;
+        if (t == 0 || step == 0) { step = 0; G1 = R = C = G2 = G3 = 0; feet0 = feet; own = false; }
         switch (step++) {
           case 0: G1 = place("gun_mg42_embrasure", 2.0f, 3.5f, "G1", feet0); seat = G1 ? a.stationAnchor(G1, ST_GUNNER) : feet0; return false;   // A dismounts here: the rack and crate go round it
           case 1: R = place("rack_allied", 2.0f, 3.5f, "R", seat); return false;
           case 2: C = place("crate_mixed_supply", 2.0f, 3.5f, "C", seat); return false;
-          case 3: G2 = place("gun_mg42_embrasure", 5.0f, 9.0f, "G2", feet0); return false;
+          case 3: {   // place G2 and crew it before G3 exists: A only asks for G2 once it has seen all five pieces
+            if (!G2) G2 = place("gun_mg42_embrasure", 5.0f, 9.0f, "G2", feet0);
+            int ls = gGame->localSlot;
+            if (G2 && (ls < 0 || !gGame->sold[ls].alive) && t < 90) { --step; return false; }   // the host's soldier may be dead (bots, the breach blast)
+            if (ls >= 0 && gGame->sold[ls].alive) { gGame->sold[ls].hp = 100; gGame->sold[ls].protectUntil = gGame->t + 2; }
+            own = G2 && a.occupyStation(G2, ST_GUNNER);
+            return false;
+          }
           case 4: G3 = place("gun_mg42_embrasure", 30.0f, 45.0f, "G3", feet0); return false;
           default: step = 0; break;
         }
         check(G1 && G2 && G3 && R && C, "host placed the test pieces round client A (MG 42 " + std::to_string(G1) + ", rack " + std::to_string(R) + ", crate " + std::to_string(C) + ", second MG 42 " + std::to_string(G2) + ", far MG 42 " + std::to_string(G3) + ")");
-        bool own = G2 && a.occupyStation(G2, ST_GUNNER);
         check(own, "host crews the second MG 42 itself (A must be refused it)");
         return true; });
       push("A interacts", [this](App& a, float t) {
