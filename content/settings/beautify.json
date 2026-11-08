@@ -13,7 +13,7 @@
   "ringScatter": 0.6,
   "ring": {"tiles": 6, "amp": 3.5, "scale": 110, "rise": 0.015, "fade": 45},
   "decor": {
-    "buildings": ["house_farmhouse_2story", "house_stone_cottage", "vil_norman_farmhouse", "vil_stone_barn", "small_stone_dairy", "small_storehouse", "small_carpenter_workshop", "vil_church_ruined", "ruin_*"],
+    "buildings": ["house_farmhouse_2story", "house_stone_cottage", "vil_norman_farmhouse", "vil_stone_barn", "small_stone_dairy", "small_storehouse", "small_carpenter_workshop", "vil_church_ruined", "ruin_*", "vil_longhouse_thatched", "vil_townhouse_jettied", "vil_villa_deauville", "vil_manor_turret", "vil_corner_shop", "vil_gatehouse_chapel", "vil_mill_house", "vil_terrace_pair", "vil_cottage_barn", "vil_rectory"],
     "rowOffsets": [16, 44, 72],
     "gapMin": 5, "gapMax": 34,
     "hedges": ["hedgerow_bocage", "bcg_hedgerow_straight"],
