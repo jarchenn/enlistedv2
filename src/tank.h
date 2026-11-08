@@ -177,6 +177,9 @@ public:
   struct RamSpec { std::string mode; float breakKJ = 0, massKg = 0; };   // mode: topple, rubble, block
   std::map<std::string, RamSpec> ramProps;      // content/vehicles/ram.json, by asset id
   std::map<std::string, float> ramPanelKJperHp; // wall family -> kJ per cm of wall thickness (< 0: never gives way)
+  float ramTrimKJ = 40, ramTrimMargin = 0.35f;  // opening trim (frames, sills, lintels): break energy; core contacts this close go with it
+  int trimRams = 0;                             // trim broken by ramming (tests)
+  void breakTrimRam(App& app, Instance& i, InstanceRT& r, int g, vec3 at, vec3 dir);
   struct Knocked { uint64_t id = 0; uint32_t rev = 0, body = 0xffffffffu; bool dynamicBody = false, flat = false, rubble = false, falling = false; float age = 0; mat4 M{1};
                    mat4 M0{1}; vec3 pivot{0}, axis{1, 0, 0}, dir{0, 0, 1}; float ang = 0, angV = 0, len = 1; };   // falling: hinged at the foot
   std::map<uint64_t, Knocked> knocked;          // session overlay per prop instance

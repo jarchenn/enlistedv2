@@ -11,6 +11,12 @@
 #include <imgui.h>
 #include <chrono>
 #include <algorithm>
+#include <unordered_map>
+#include <limits>
+#if __has_include("settings.h")   // V2: graphics presets (particle / fragment budget)
+#include "settings.h"
+#define NMK_V4_SETTINGS 1
+#endif
 
 namespace {
 uint32_t hmix32(uint32_t h) { h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16; return h; }
@@ -44,9 +50,19 @@ bool supportHit(vec3 o, vec3 d, float len, uint64_t self, Physics::Hit& out) {
 bool boxOverlap(vec3 amn, vec3 amx, vec3 bmn, vec3 bmx) { return amn.x < bmx.x && amx.x > bmn.x && amn.y < bmx.y && amx.y > bmn.y && amn.z < bmx.z && amx.z > bmn.z; }
 }
 
+bool isRuinedAsset(const std::string& id) {
+  if (id.rfind("ruin_", 0) == 0 || id.rfind("rub_", 0) == 0) return true;   // V3 ruins and rubble
+  static const char* named[] = {"vil_church_ruined", "vil_chateau_keep", "aw_r612_unfinished", "bch_lcvp_wrecked"};
+  for (const char* n : named) if (id == n) return true;
+  return false;
+}
+bool isFurnishPiece(const Instance& i) { return i.extra.is_object() && i.extra.contains("furnish"); }
+size_t authoredInstanceCount(const std::vector<Instance>& v) { size_t n = 0; for (auto& i : v) n += !isFurnishPiece(i); return n; }
+
 const char* roomTypeName(int t) {
-  static const char* n[] = {"Kitchen / dining", "Sitting room", "Bedroom", "Utility / storage", "Workshop", "Hall / passage"};
-  return t >= 0 && t < 6 ? n[t] : "Room";
+  static const char* n[] = {"Kitchen / dining", "Sitting room", "Bedroom", "Utility / storage", "Workshop", "Hall / passage",
+                            "Church nave", "Barn", "Classroom", "Office", "Tavern room", "Ruined room"};
+  return t >= 0 && t < ROOM_TYPES ? n[t] : "Room";
 }
 
 int16_t RoomInfo::at(int s, vec3 p) const {
@@ -85,8 +101,8 @@ const PropDef* InteriorSys::prop(const AssetDef* a) {
   d.brokenMesh.upload(bm);
   if (d.blocking && !kb.empty()) d.brokenShape = Physics::buildShape(kb);
   // fragments: each listed group as one rigid piece (mesh centred on its bounds, one box shape, mass from volume)
-  float density = d.family == "masonry" ? 1600.0f : d.family == "ceramic" ? 900.0f : d.family == "cloth" ? 200.0f : 600.0f;
-  for (size_t fi = 0; fi < d.fragments.size() && fi < 4; ++fi) {
+  float density = d.family == "masonry" ? 1600.0f : d.family == "metal" ? 2500.0f : d.family == "ceramic" ? 900.0f : d.family == "cloth" ? 200.0f : 600.0f;
+  for (size_t fi = 0; fi < d.fragments.size() && fi < 6; ++fi) {
     int g = d.fragments[fi];
     vec3 mn(1e9f), mx(-1e9f); float vol = 0;
     for (auto& p : a->parts) if (p.visible && p.grp == g) { vec3 a0, a1; partAabb(p, a0, a1); mn = glm::min(mn, a0); mx = glm::max(mx, a1); vol += p.size.x * p.size.y * p.size.z; }
@@ -116,7 +132,7 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
   auto add = [&](const Part& p) {
     vec3 mn, mx; partAabb(p, mn, mx); std::string m = matOf(a, p);
     if (m == "tread_x") stairs.push_back({mn, mx});
-    bool flagFloor = (m == "hearthstone" || m == "stone_plinth") && p.size.y <= 0.06f && p.size.x > 1.5f && p.size.z > 1.5f;   // flagged floors (workshop, dairy)
+    bool flagFloor = (m == "hearthstone" || m == "stone_plinth" || m == "stone_dressed" || m == "earth") && p.size.y <= 0.06f && p.size.x > 1.5f && p.size.z > 1.5f;   // flagged floors (workshop, dairy)
     if (p.visible && (isFloorMat(m) || flagFloor) && p.size.y <= 0.35f && p.size.x > 0.5f && p.size.z > 0.5f) floors.push_back({mn, mx});
     if (!p.collide || p.playerOnly) return;
     solids.push_back({mn, mx});
@@ -260,9 +276,13 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
   }
   // the asset's authored circulation (its walkthrough route through doors, rooms and stairs) stays clear of template
   // furniture: 0.4 m either side of every leg, on the storey the route is on (expectY marks storey changes)
-  if (a->walkthrough.is_object() && !ri.storeys.empty()) {
+  // (also the W4 / V3 "tour" an asset carries for the structures suite: the same goto / expectY vocabulary)
+  static const json kNone = json();
+  for (const json* route : {&a->walkthrough, a->raw.is_object() && a->raw.contains("tour") ? &a->raw["tour"] : &kNone}) {
+  if (!route->is_object() || ri.storeys.empty()) continue;
+  {
     float lvl = ri.storeys[0].y; vec2 prev(0); bool has = false;
-    if (a->walkthrough.contains("start")) { vec3 sp = jvec3(a->walkthrough["start"]["pos"]); prev = vec2(sp.x, sp.z); has = true; }
+    if (route->contains("start") && (*route)["start"].contains("pos")) { vec3 sp = jvec3((*route)["start"]["pos"]); prev = vec2(sp.x, sp.z); has = true; }
     auto markLeg = [&](vec2 p0, vec2 p1, float level) {
       int s = 0; for (size_t q = 0; q < ri.storeys.size(); ++q) if (std::fabs(ri.storeys[q].y - level) < std::fabs(ri.storeys[s].y - level)) s = (int)q;
       auto& S = ri.storeys[s];
@@ -270,16 +290,17 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
       for (int j = 0; j < S.nz; ++j) for (int i = 0; i < S.nx; ++i) {
         vec2 c(S.o.x + (i + 0.5f) * C, S.o.y + (j + 0.5f) * C);
         float u = std::clamp(glm::dot(c - p0, d) / L2, 0.0f, 1.0f);
-        if (glm::length(c - (p0 + d * u)) < 0.4f) S.keep[(size_t)j * S.nx + i] = 1;
+        if (glm::length(c - (p0 + d * u)) < 0.45f) S.keep[(size_t)j * S.nx + i] = 1;   // a 0.9 m corridor for the 0.6 m capsule
       }
     };
-    for (auto& s : a->walkthrough.value("steps", json::array())) {
-      if (!s.contains("goto")) continue;
+    for (auto& s : route->value("steps", json::array())) {
+      if (!s.contains("goto") || !s["goto"].is_array() || s["goto"].size() < 2) continue;
       vec2 p(s["goto"][0].get<float>(), s["goto"][1].get<float>());
       if (has) markLeg(prev, p, lvl);
       if (s.contains("expectY")) { lvl = s["expectY"].get<float>(); if (has) markLeg(prev, p, lvl); }
       prev = p; has = true;
     }
+  }
   }
   {   // a storey no staircase reaches (a loft over a single-storey cottage) has no rooms
     std::vector<bool> reach(ri.storeys.size(), false);
@@ -301,10 +322,22 @@ int InteriorSys::roomType(const AssetDef* a, const RoomInfo& ri, int k) const {
   const RoomInfo::Room& R = ri.rooms[k];
   vec2 e = R.mx - R.mn;
   const std::string& id = a->id;
-  if (id.find("workshop") != std::string::npos) return R.area < 4 ? ROOM_UTILITY : ROOM_WORKSHOP;
-  if (id.find("storehouse") != std::string::npos || id.find("warehouse") != std::string::npos || id.find("dairy") != std::string::npos) return ROOM_UTILITY;
+  auto has = [&](const char* w) { return id.find(w) != std::string::npos; };
+  auto largestOnGround = [&]() {   // the biggest ground-floor room (a nave, a tavern room, a classroom)
+    int best = -1; float area = 0;
+    for (size_t q = 0; q < ri.rooms.size(); ++q) if (ri.rooms[q].storey == 0 && ri.rooms[q].area > area) { area = ri.rooms[q].area; best = (int)q; }
+    return best;
+  };
+  if (has("church") || has("chapel")) return k == largestOnGround() && R.area > 12.0f ? ROOM_CHURCH : ROOM_UTILITY;
+  if (id.rfind("ruin_", 0) == 0) return ROOM_RUIN;   // V3 ruined buildings: sparse, mostly broken
+  if (has("barn") || has("stable")) return ROOM_BARN;
+  if (has("workshop")) return R.area < 4 ? ROOM_UTILITY : ROOM_WORKSHOP;
+  if (has("storehouse") || has("warehouse") || has("dairy")) return ROOM_UTILITY;
   if (std::min(e.x, e.y) < 1.7f || R.cells < (int)(0.55f * (e.x * e.y) / (ri.cell * ri.cell))) return R.area < 4 ? ROOM_UTILITY : ROOM_HALL;
   if (R.area < 5.0f) return ROOM_UTILITY;
+  if (has("school")) return R.area > 14.0f ? ROOM_CLASS : ROOM_OFFICE;
+  if (has("municipal") || has("office") || has("mairie")) return R.storey == 0 && k == largestOnGround() && R.area > 20.0f ? ROOM_HALL : ROOM_OFFICE;
+  if (has("inn") || has("cafe") || has("tavern")) { if (R.storey == 0) return k == largestOnGround() ? ROOM_TAVERN : ROOM_KITCHEN; return ROOM_BEDROOM; }
   if (R.storey == 0) {
     int kitchen = -1; float best = 0;   // the hearth room, else the largest ground-floor room
     for (size_t q = 0; q < ri.rooms.size(); ++q) {
@@ -322,12 +355,50 @@ bool InteriorSys::hideBuiltin(const Instance& i) const {
   return i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false);
 }
 
+// ============================================================ automatic furnishing (V4)
+bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
+  const AssetDef* a = app.lib.find(i.assetId);
+  if (!a || !a->enterable || isProp(a)) return false;
+  const std::string& id = a->id;
+  if (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0) return false;   // bunkers, Atlantic Wall, beach / landing craft
+  if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built
+  if (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0) return false;
+  if (i.extra.is_object()) {
+    if (i.extra.value("decor", false)) return false;                                   // V8 decorative border buildings
+    if (i.extra.contains("furnish")) return false;
+    auto in = i.extra.find("interior");
+    if (in != i.extra.end() && in->is_object() && in->contains("on")) return false;    // furnished, or furniture removed by the user
+  }
+  return !rooms(a)->rooms.empty();
+}
+
+int InteriorSys::autoFurnish(App& app, uint64_t hostId) {
+  Instance* h = app.doc.find(hostId);
+  if (!h || !autoFurnishable(app, *h)) return 0;
+  bool dirty = app.dirty;   // furnishing an authored building is not an edit: no undo step, no unsaved-changes prompt
+  int n = furnish(app, hostId, 0);
+  app.dirty = dirty;
+  if (n > 0) ++autoFurnished;
+  return n;
+}
+
+int InteriorSys::autoFurnishAll(App& app) {
+  auto t0 = std::chrono::high_resolution_clock::now();
+  std::vector<uint64_t> ids;
+  for (auto& i : app.doc.instances) if (autoFurnishable(app, i)) ids.push_back(i.id);
+  int pieces = 0;
+  for (uint64_t id : ids) pieces += autoFurnish(app, id);
+  lastAutoMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
+  if (!ids.empty()) logf("interior: auto-furnished %zu buildings, %d pieces in %.0f ms", ids.size(), pieces, lastAutoMs);
+  return pieces;
+}
+
 ShapePtr InteriorSys::staticShape(App& app, const Instance& i, const AssetDef* a) {
   if (const PropDef* pd = prop(a)) {
     PropRT& s = st[i.id];
     s = PropRT{};
     s.applied = i.extra.is_object() && i.extra.value("propBroken", false);
-    s.broken = s.applied;
+    s.broken = s.applied; ++epoch_;
     return s.broken ? pd->brokenShape : a->shape;
   }
   if (hideBuiltin(i) && a->noFurnShape) return a->noFurnShape;
@@ -357,6 +428,11 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
       case ROOM_BEDROOM: wall = hA < 0.5f ? 1 : 2; floor = hB < 0.3f ? 1 : 0; break;
       case ROOM_UTILITY: wall = 5; floor = R.storey == 0 ? 4 : 0; break;
       case ROOM_WORKSHOP: wall = 5; floor = 4; break;
+      case ROOM_CHURCH: wall = 5; floor = 3; break;
+      case ROOM_BARN: case ROOM_RUIN: wall = 5; floor = R.storey == 0 ? 4 : 0; break;
+      case ROOM_CLASS: wall = 4; floor = 0; break;
+      case ROOM_OFFICE: wall = hA < 0.5f ? 3 : 4; floor = R.storey == 0 ? 1 : 0; break;
+      case ROOM_TAVERN: wall = 3; floor = 3; break;
       default: wall = 4; floor = R.storey == 0 ? 3 : 0; break;
     }
     if (civic) { wall = R.type == ROOM_UTILITY ? 5 : 4; floor = R.storey == 0 && R.type == ROOM_HALL ? 3 : (hB < 0.5f ? 1 : 0); }
@@ -375,12 +451,136 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
 }
 
 // ============================================================ drawing
-bool InteriorSys::propDraw(App&, const Instance& i, const InstanceRT& r, const mat4& M, std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
+// box LOD of a furniture asset (CPU): every rounded box drawn as a plain box, glass and tiny bits left out
+const InteriorSys::CpuMesh& InteriorSys::cpuMesh(const AssetDef* a) {
+  auto& slot = cpu_[a];
+  if (slot) return *slot;
+  slot = std::make_unique<CpuMesh>();
+  for (auto& p : a->parts) {
+    if (!p.visible || p.mat < 0 || p.mat >= (int)a->materials.size()) continue;
+    const Material& m = a->materials[p.mat];
+    if (m.pattern == PAT_GLASS) continue;
+    Part b = p; if (b.shape == Part::ROUND) b.shape = Part::BOX;
+    vec3 e = p.size;
+    if (std::max({e.x, e.y, e.z}) > 0.06f || p.size.x * p.size.y * p.size.z > 2e-5f) appendPart(slot->lod, b, m, mat4(1));   // tiny bits (handles, nails) dropped far away
+  }
+  const PropDef* pd = prop(a);
+  slot->small = pd && !pd->blocking && pd->mount <= 0;
+  return *slot;
+}
+
+namespace {
+void appendXf(MeshData& dst, const MeshData& src, const mat4& M) {
+  uint32_t base = (uint32_t)dst.v.size();
+  glm::mat3 N = glm::mat3(M);
+  dst.v.reserve(dst.v.size() + src.v.size());
+  for (const Vertex& v : src.v) { Vertex w = v; w.pos = vec3(M * vec4(v.pos, 1)); w.nrm = glm::normalize(N * v.nrm); dst.v.push_back(w); }
+  dst.i.reserve(dst.i.size() + src.i.size());
+  for (uint32_t k : src.i) dst.i.push_back(base + k);
+}
+}
+
+void InteriorSys::rebuildBatch(App& app, uint64_t host, Batch& b, const std::vector<const Instance*>& pieces) {
+  MeshData lop, slop;
+  vec3 mn(1e9f), mx(-1e9f);
+  for (const Instance* i : pieces) {
+    const AssetDef* a = app.assetFor(*i);
+    const CpuMesh& c = cpuMesh(a);
+    mat4 M = app.instanceMatrix(*i);
+    appendXf(c.small ? slop : lop, c.lod, M);
+    mn = glm::min(mn, i->pos); mx = glm::max(mx, i->pos + vec3(0, 2, 0));
+  }
+  b.lop.destroy(); b.slop.destroy();
+  b.lop.upload(lop); b.slop.upload(slop);
+  b.verts = lop.v.size() + slop.v.size();
+  b.c = (mn + mx) * 0.5f; b.r = glm::length(mx - mn) * 0.5f + 1.0f;
+  b.built = true; ++batchRebuilds;
+  (void)host;
+}
+
+void InteriorSys::updateBatches(App& app) {
+  batchDraws = soloDraws = culledPieces = 0;
+  if (!batching) {
+    for (auto& [h, b] : batches_) { b.lop.destroy(); b.slop.destroy(); }
+    batches_.clear(); member_.clear(); batchedPieces = 0; batchSig_ = 0;
+    return;
+  }
+  uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full);
+  if (sig == batchSig_) return;
+  batchSig_ = sig; ++batchPasses;
+  // which pieces each building's batch holds: intact, unselected, unmoved template pieces (cached per instance revision)
+  struct HostOf { uint32_t rev = 0; uint64_t host = 0; };
+  static std::unordered_map<uint64_t, HostOf> hostOf;
+  std::map<uint64_t, std::pair<uint64_t, std::vector<const Instance*>>> want;
+  for (auto& i : app.doc.instances) {
+    HostOf& ho = hostOf[i.id];
+    if (ho.rev != i.rev) {
+      ho.rev = i.rev; ho.host = 0;
+      if (i.extra.is_object()) { auto f = i.extra.find("furnish"); if (f != i.extra.end() && f->is_object()) ho.host = f->value("host", (uint64_t)0); }
+    }
+    if (!ho.host || i.id == app.selected) continue;
+    auto rit = app.rt.find(i.id);
+    if (rit == app.rt.end() || !prop(rit->second.asset)) continue;
+    auto s = st.find(i.id);
+    if (s != st.end() && (s->second.broken || s->second.glassBroken || s->second.crushed)) continue;
+    auto& w = want[ho.host];
+    w.first = (w.first ^ (i.id * 0x9E3779B97F4A7C15ull + i.rev)) * 0x100000001B3ull + 7;
+    w.second.push_back(&i);
+  }
+  if (hostOf.size() > app.doc.instances.size() * 2 + 64) hostOf.clear();   // deleted instances
+  for (auto it = batches_.begin(); it != batches_.end();) {
+    if (!want.count(it->first)) { it->second.lop.destroy(); it->second.slop.destroy(); it = batches_.erase(it); }
+    else ++it;
+  }
+  member_.clear(); batchedPieces = 0; batchVerts = 0;
+  for (auto& [host, w] : want) {
+    if (w.second.size() < 2) continue;   // a lone piece draws on its own
+    Batch& b = batches_[host];
+    if (!b.built || b.sig != w.first) { b.sig = w.first; b.members.clear(); for (auto* pi : w.second) b.members.push_back(pi->id); rebuildBatch(app, host, b, w.second); }
+    for (uint64_t id : b.members) member_[id] = host;
+    batchedPieces += (int)b.members.size(); batchVerts += b.verts;
+  }
+}
+
+bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, const mat4& M, std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   const PropDef* pd = prop(r.asset);
   if (!pd) return false;
   auto it = st.find(i.id);
   PropRT s = it == st.end() ? PropRT{} : it->second;
-  if (s.broken) { if (pd->brokenMesh.count) op.push_back({&pd->brokenMesh, M}); return true; }
+  vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
+  if (batching && !s.broken && !s.glassBroken && !s.crushed && i.id != app.selected) {
+    auto m = member_.find(i.id);
+    if (m != member_.end()) {
+      auto bt = batches_.find(m->second);
+      if (bt != batches_.end() && bt->second.built) {
+        Batch& b = bt->second;
+        float d = std::max(0.0f, glm::length(eye - b.c) - b.r);
+        if (d >= lodDist) {   // far: the merged box LOD, drawn once with the batch's first piece
+          if (b.members.front() == i.id && d < cullBig) {
+            if (b.lop.count) op.push_back({&b.lop, mat4(1)});
+            if (d < cullSmall && b.slop.count) op.push_back({&b.slop, mat4(1)});
+            ++batchDraws;
+          }
+          if (d >= cullBig) ++culledPieces;
+          return true;
+        }
+      }
+    }
+  }
+  // drawn on its own: the same distances (hand-placed dressing outside a building is never culled closer than 75 m)
+  float d = glm::length(eye - i.pos);
+  bool small = !pd->blocking && pd->mount <= 0;
+  bool furnished = i.extra.is_object() && i.extra.contains("furnish");
+  if (furnished && d > (small ? cullSmall : cullBig)) { ++culledPieces; return true; }
+  ++soloDraws;
+  if (s.broken) {
+    if (!pd->brokenMesh.count) return true;
+    if (s.crushed) {   // run over by a tank: what is left lies flattened on the floor
+      mat4 F = glm::translate(mat4(1), vec3(0, i.pos.y, 0)) * glm::scale(mat4(1), vec3(1, 0.2f, 1)) * glm::translate(mat4(1), vec3(0, -i.pos.y, 0)) * M;
+      op.push_back({&pd->brokenMesh, F});
+    } else op.push_back({&pd->brokenMesh, M});
+    return true;
+  }
   op.push_back({&r.asset->opaque, M});
   if (r.asset->glass.count && !s.glassBroken) gl.push_back({&r.asset->glass, M});
   return true;
@@ -397,6 +597,7 @@ void InteriorSys::fragDrawItems(std::vector<DrawItem>& op) {
 // ============================================================ damage
 static std::string surfaceOf(const PropDef* pd) {
   if (pd->family == "masonry") return "masonry";
+  if (pd->family == "metal") return "metal";
   if (pd->family == "ceramic") return "ceramic";
   if (pd->family == "glass") return "glass";
   if (pd->family == "cloth" || pd->family == "paper") return "cloth";
@@ -412,9 +613,9 @@ int InteriorSys::bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::strin
   if (!inst) return 0;
   PropRT& s = st[iid];
   surface = surfaceOf(pd);
-  if (pd->family == "masonry") { app.fx.impact(at, -dir, "masonry"); return 1; }
+  if (pd->family == "masonry" || pd->family == "metal") { app.fx.impact(at, -dir, pd->family); return 1; }   // stone, cast iron: rounds stop
   if (!s.broken) {
-    if (pd->glass >= 0 && !s.glassBroken) { s.glassBroken = true; ++glassBreaks; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); }
+    if (pd->glass >= 0 && !s.glassBroken) { s.glassBroken = true; ++glassBreaks; ++epoch_; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); }
     if (pd->rounds > 0) {
       s.hits += 1.0f;
       app.fx.impact(at, -dir, surface == "wood" ? "wood" : surface);
@@ -436,55 +637,98 @@ void InteriorSys::freezeOldest() {
   while (frags.size() > maxKept) { if (!frags.front().frozen) Physics::remove(frags.front().body); frags.pop_front(); }
 }
 
-bool InteriorSys::breakProp(App& app, Instance& i, InstanceRT& r, vec3 push, const char* why) {
+float InteriorSys::budgetScale() const {
+#ifdef NMK_V4_SETTINGS
+  return std::clamp(settings().particleBudget(), 0.25f, 4.0f);   // Low / Medium / High presets (V2)
+#else
+  return 1.0f;
+#endif
+}
+
+bool InteriorSys::breakProp(App& app, Instance& i, InstanceRT& r, vec3 push, const char* why, int violence) {
   const PropDef* pd = prop(r.asset);
   if (!pd) return false;
   PropRT& s = st[i.id];
   if (s.broken) return false;
-  s.broken = true; s.glassBroken = true; ++breaks;
+  s.broken = true; s.glassBroken = true; ++breaks; ++epoch_;
   lastBreak = r.asset->id + " #" + std::to_string(i.id) + " (" + why + ")";
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
   if (pd->brokenShape) r.staticBody = Physics::addStatic(pd->brokenShape, i.pos, yawQuat(i.yaw), i.id << 16);
   mat4 M = app.instanceMatrix(i);
   quat q = yawQuat(i.yaw);
   vec3 c = vec3(M * vec4((pd->bmin + pd->bmax) * 0.5f, 1));
-  // bounded rigid fragments with capped speed; family-coloured particles for the fine debris
+  // bounded rigid fragments with capped speed; family-coloured particles for the fine debris. A violent break (grenade,
+  // direct shell hit, tank) throws every fragment group (up to six), an ordinary one at most four. Over the live budget a
+  // fragment is not spawned as a body (its share goes to the splinters), unless the oldest live one has had time to settle.
   float sp = std::min(glm::length(push), 7.0f);
   vec3 dirN = sp > 1e-3f ? push / std::max(glm::length(push), 1e-4f) : vec3(0, -1, 0);
   uint32_t seed = (uint32_t)i.id * 2654435761u ^ (uint32_t)breaks * 40503u;
-  int n = 0;
+  float scale = budgetScale();
+  maxLive = (size_t)std::max(8.0f, std::round(32.0f * scale)); maxKept = (size_t)std::max(40.0f, std::round(240.0f * scale));
+  int n = 0, cap = violence ? 6 : 4, dropped = 0;
   for (auto& f : pd->frags) {
-    if (n >= 4) break;
+    if (n >= cap) break;
+    size_t live = 0; for (auto& g : frags) live += !g.frozen;
+    if (live >= maxLive) {
+      Frag* oldest = nullptr; for (auto& g : frags) if (!g.frozen) { oldest = &g; break; }
+      if (oldest && oldest->age > 0.8f) {
+        vec3 p; quat qq; if (Physics::getTransform(oldest->body, p, qq)) oldest->m = glm::translate(mat4(1), p) * glm::mat4_cast(qq);
+        Physics::remove(oldest->body); oldest->body = 0xffffffffu; oldest->frozen = true;
+      } else { ++dropped; ++n; continue; }
+    }
     vec3 wp = vec3(M * vec4(f->center, 1)) + vec3(0, 0.03f, 0);
     wp.y = std::max(wp.y, app.terrain.height(wp.x, wp.z) + glm::length(f->half) + 0.01f);   // clear of uneven ground
     Frag fr; fr.inst = i.id; fr.mesh = &f->mesh;
     fr.body = Physics::addDynamic(f->shape, wp, q, (i.id << 16) | 0xFFE0u, f->mass);
     vec3 jit(h01(seed, n, 1) - 0.5f, h01(seed, n, 2) * 0.6f, h01(seed, n, 3) - 0.5f);
-    vec3 v = dirN * sp * (0.6f + 0.4f * h01(seed, n, 4)) + jit * 1.6f + vec3(0, sp > 0.5f ? 1.2f : 0.0f, 0);
+    vec3 v = dirN * sp * (0.6f + 0.4f * h01(seed, n, 4)) + jit * (violence ? 2.6f : 1.6f) + vec3(0, sp > 0.5f ? 1.2f : 0.0f, 0);
     v.y = std::max(v.y, 0.3f);   // never driven down into the floor / ground
     if (glm::length(v) > 7.0f) v = glm::normalize(v) * 7.0f;
-    Physics::setVelocity(fr.body, v, vec3(h01(seed, n, 5) - 0.5f, h01(seed, n, 6) - 0.5f, h01(seed, n, 7) - 0.5f) * 6.0f);
+    Physics::setVelocity(fr.body, v, vec3(h01(seed, n, 5) - 0.5f, h01(seed, n, 6) - 0.5f, h01(seed, n, 7) - 0.5f) * (violence ? 9.0f : 6.0f));
     Physics::setDamping(fr.body, 0.2f, 0.4f);
     Physics::setMaterial(fr.body, 0.7f, 0.15f, true);   // continuous collision: no tunnelling through floors
     fr.m = glm::translate(mat4(1), wp) * glm::mat4_cast(q);
     frags.push_back(fr); ++n; ++fragsSpawned;
   }
+  fragsDropped += dropped;
   size_t live = 0; for (auto& f : frags) live += !f.frozen;
   maxLiveSeen = std::max(maxLiveSeen, (int)std::min(live, maxLive));
   freezeOldest();
   vec4 col = pd->family == "ceramic" ? vec4(0.8f, 0.78f, 0.72f, 0.7f) : pd->family == "glass" ? vec4(0.7f, 0.75f, 0.75f, 0.35f)
-           : pd->family == "masonry" ? vec4(0.55f, 0.52f, 0.46f, 0.7f) : pd->family == "cloth" || pd->family == "paper" ? vec4(0.62f, 0.58f, 0.5f, 0.45f)
-           : vec4(0.42f, 0.33f, 0.22f, 0.65f);
-  for (int k = 0; k < 10; ++k) {
+           : pd->family == "masonry" ? vec4(0.55f, 0.52f, 0.46f, 0.7f) : pd->family == "metal" ? vec4(0.2f, 0.2f, 0.2f, 0.6f)
+           : pd->family == "cloth" || pd->family == "paper" ? vec4(0.62f, 0.58f, 0.5f, 0.45f) : vec4(0.42f, 0.33f, 0.22f, 0.65f);
+  int puffs = (int)std::round((violence ? 14 : 10) * std::min(scale, 1.5f));
+  for (int k = 0; k < puffs; ++k) {
     vec3 d(h01(seed, k, 11) - 0.5f, h01(seed, k, 12), h01(seed, k, 13) - 0.5f);
     app.fx.smoke(c + d * 0.3f, (d * 2.5f + dirN * sp * 0.3f), 0.05f + 0.06f * h01(seed, k, 14), 0.5f + h01(seed, k, 15), col, 0.6f, 0.1f);
   }
+  // splinters (wood, paint), chips (ceramic, masonry), shards (glass), shreds (cloth, paper); dust when it is blown apart
+  float size = glm::length(pd->bmax - pd->bmin);
+  int chips = (int)std::round((violence ? 26 : 9 + 3 * dropped) * std::clamp(size, 0.4f, 2.0f) * std::min(scale, 1.5f));
+  vec4 chipCol = pd->family == "glass" ? vec4(0.75f, 0.8f, 0.8f, 0.6f) : pd->family == "ceramic" ? vec4(0.85f, 0.83f, 0.77f, 0.9f)
+               : vec4(vec3(col) * 0.8f, std::min(1.0f, col.a * 1.4f));
+  app.fx.splinters(c, dirN * std::max(sp, 2.0f) * (violence ? 1.3f : 0.8f), chips, chipCol, (pd->family == "wood" || pd->family == "painted") ? 0.022f : 0.012f);
+  if (violence || dropped) app.fx.dust(c, std::clamp(size * 0.5f, 0.4f, 1.4f), vec4(0.55f, 0.51f, 0.45f, 0.35f));
+  ++splinterBursts;
   if (pd->family == "glass" || pd->glass >= 0) app.fx.flash(c, 0.12f, 0.04f, vec4(2, 2, 2, 1));
-  app.fx.impact(c, vec3(0, 1, 0), pd->family == "masonry" ? "masonry" : "wood");
+  app.fx.impact(c, vec3(0, 1, 0), pd->family == "masonry" ? "masonry" : pd->family == "metal" ? "metal" : "wood");
   app.audio.play(pd->family == "ceramic" || pd->family == "glass" ? "glass_break" : "door_break", c, pd->family == "cloth" || pd->family == "paper" ? 0.2f : 0.6f);
   static int depth = 0;
-  if (depth < 4) { ++depth; checkSupport(app, c, std::max(1.5f, glm::length(pd->bmax - pd->bmin))); --depth; }   // what stood on it falls
+  if (!inBlast_ && depth < 4) { ++depth; checkSupport(app, c, std::max(1.5f, size)); --depth; }   // what stood on it falls (a blast checks once, at its end)
   return true;
+}
+
+void InteriorSys::tankContact(App& app, Instance& i, InstanceRT& r, vec3 at, vec3 dir, float speed) {
+  const PropDef* pd = prop(r.asset);
+  if (!pd) return;
+  PropRT& s = st[i.id];
+  if (s.crushed) return;
+  vec3 d = glm::length(vec3(dir.x, 0, dir.z)) > 1e-4f ? glm::normalize(vec3(dir.x, 0, dir.z)) : vec3(0, 0, 1);
+  if (!s.broken) breakProp(app, i, r, d * std::clamp(speed * 1.5f + 1.5f, 2.0f, 6.0f) + vec3(0, 1.0f, 0), "crushed by a tank", 1);
+  // what is left goes flat under the tracks: no collision, drawn squashed
+  s.crushed = true; ++crushed; ++epoch_;
+  Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
+  app.fx.splinters(at, d * 2.0f + vec3(0, 1.5f, 0), 10, vec4(0.36f, 0.28f, 0.19f, 0.9f), 0.02f);
 }
 
 bool InteriorSys::supported(App& app, const Instance& i, const AssetDef* a, int* hitsOut) {
@@ -534,7 +778,13 @@ int InteriorSys::checkSupport(App& app, vec3 near, float radius) {
 }
 
 void InteriorSys::blast(App& app, vec3 p, vec3 dir, float dmg, float radius, int kind) {
+  auto t0 = std::chrono::high_resolution_clock::now();
+  int b0 = breaks;
   float R = radius * 1.4f + 0.3f;
+  // a grenade's fragments shred furniture far better than its blast moves walls; a shell or rocket bursting on a piece
+  // blows that piece apart (direct hit) whatever its rating
+  float mul = kind == WALL_GRENADE ? 2.2f : 1.0f;
+  inBlast_ = true;
   vec3 d = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0);
   vec3 from = p - d * 0.06f;   // just in front of the struck surface
   bool any = false;
@@ -565,18 +815,24 @@ void InteriorSys::blast(App& app, vec3 p, vec3 dir, float dmg, float radius, int
       vis = std::max(vis, v);
     }
     if (vis <= 0) { ++shielded; continue; }
-    float e = dmg * std::pow(std::max(0.0f, 1.0f - dist / R), 1.5f) * vis;
-    if (dist < 0.15f) e = std::max(e, dmg * vis);
+    float e = dmg * mul * std::pow(std::max(0.0f, 1.0f - dist / R), 1.5f) * vis;
+    bool direct = dist < 0.15f && kind != WALL_GRENADE && kind != WALL_BULLET && pd->family != "masonry";
+    if (dist < 0.15f) e = std::max(e, dmg * mul * vis);
+    if (direct) { e = std::max(e, pd->blast * 1.01f); ++directHits; }
     PropRT& s = st[i.id];
-    if (pd->glass >= 0 && !s.glassBroken && e > pd->blast * 0.15f) { s.glassBroken = true; ++glassBreaks; }
+    if (pd->glass >= 0 && !s.glassBroken && e > pd->blast * 0.15f) { s.glassBroken = true; ++glassBreaks; ++epoch_; }
     if (e >= pd->blast) {
       vec3 push = c - p; float pl = glm::length(push);
       push = (pl > 1e-3f ? push / pl : d) * (2.0f + 5.0f * std::min(1.0f, e / (pd->blast * 3.0f)));
-      if (breakProp(app, i, it->second, push, kind == WALL_GRENADE ? "grenade" : kind == WALL_AP ? "AP shot" : kind == WALL_ROCKET ? "rocket" : "HE blast")) any = true;
+      int violent = kind == WALL_GRENADE || direct || e > pd->blast * 2.5f ? 1 : 0;
+      if (breakProp(app, i, it->second, push, direct ? "direct hit" : kind == WALL_GRENADE ? "grenade" : kind == WALL_AP ? "AP shot" : kind == WALL_ROCKET ? "rocket" : "HE blast", violent)) any = true;
     }
   }
+  inBlast_ = false;
   checkSupport(app, p, R + 3.0f);   // floors and tables brought down by this blast drop what stood on them
-  (void)any;
+  if (any && kind == WALL_GRENADE) app.fx.dust(p + vec3(0, 0.5f, 0), std::min(R * 0.5f, 2.5f), vec4(0.5f, 0.47f, 0.42f, 0.3f));   // the room fills with dust
+  lastBlastBreaks = breaks - b0;
+  lastBlastMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
 }
 
 void InteriorSys::step(App& app, float dt) {
@@ -600,7 +856,7 @@ void InteriorSys::reset(App& app) {
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !prop(it->second.asset)) continue;
     auto s = st.find(i.id);
     bool applied = i.extra.is_object() && i.extra.value("propBroken", false);
-    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.hits > 0)) app.buildRT(i, it->second);
+    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
   }
 }
 
@@ -719,6 +975,8 @@ struct Planner {
   std::vector<PlanItem> out;
   std::vector<std::pair<vec3, vec3>> boxes;   // placed blocking items (host-local AABB)
   int calls = 0;
+  std::string failed;   // slots that found no place (the furnish log)
+  std::unordered_map<uint64_t, float> faceCache;   // wall-face probes per (storey, cell, side, height): one ray each per furnish
   float rnd(uint32_t a, uint32_t b = 0) { return h01(seed, a, b); }
   const AssetDef* A(const char* id) { return app.lib.find(id); }
   vec3 world(vec3 lp) const { return host.pos + yawQuat(host.yaw) * lp; }
@@ -730,7 +988,7 @@ struct Planner {
     for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) {
       size_t c = (size_t)j * S.nx + i;
       if (S.id[c] != room) return false;
-      if (mode < 2 && S.keep[c]) return false;
+      if ((mode < 2 || mode == 3) && S.keep[c]) return false;   // 3: the room, clear of doors / stairs / routes, furniture below allowed
       if (mode == 0 && occ[s][c]) return false;
       if (mode == 1 && occ[s][c] == 1) return false;
     }
@@ -764,8 +1022,13 @@ struct Planner {
     const PropDef* pd = sys.prop(fa);
     const auto& R = ri.rooms[k];
     vec3 mn, mx; bounds(pd, p, yaw, mn, mx);
-    if (!rectCells(R.storey, k, vec2(mn.x, mn.z), vec2(mx.x, mx.z), mode)) return false;
-    if ((pd->blocking || pd->mount > 0) && !windowFree(mn, mx)) return false;
+    bool hung = pd->mount > 0;
+    // wall-hung pieces (pictures, racks, pegs, clocks) only need their own room and wall: they may hang above a
+    // dresser or a bench (3D boxes below), never in a door swing or over a stair
+    // (a solid one -- a wall shelf, a plate rack -- also keeps out of the route corridors and doorway rings: it is at head height)
+    if (!rectCells(R.storey, k, vec2(mn.x, mn.z), vec2(mx.x, mx.z), hung ? (pd->blocking ? 3 : 2) : mode)) return false;
+    if (hung) for (auto& b : ri.keep) if (b.kind != 2 && boxOverlap(mn, mx, b.mn, b.mx)) return false;
+    if ((pd->blocking || hung) && !windowFree(mn, mx)) return false;
     for (auto& b : boxes) if (boxOverlap(mn + vec3(0.01f), mx - vec3(0.01f), b.first, b.second)) return false;
     vec3 fmn(0), fmx(0);
     if (front && pd->front > 0) {   // access clearance in front of it must stay walkable
@@ -777,7 +1040,12 @@ struct Planner {
       fmn = a0; fmx = a1;
     }
     if (!solidFree(fa, pd, p, yaw)) return false;
-    if (hard && pd->blocking) { mark(R.storey, vec2(mn.x, mn.z), vec2(mx.x, mx.z), 1); boxes.push_back({mn, mx}); }
+    if (hung) {
+      Instance probe; probe.id = 0; probe.pos = world(p); probe.yaw = wrapDeg(host.yaw + yaw);
+      if (!sys.supported(app, probe, fa)) return false;
+    }
+    if (hard && pd->blocking && !hung) { mark(R.storey, vec2(mn.x, mn.z), vec2(mx.x, mx.z), 1); boxes.push_back({mn, mx}); }
+    else if (hung || (hard && !pd->flat())) boxes.push_back({mn, mx});   // buckets, baskets, pictures: never two in one place
     if (front && pd->front > 0) mark(R.storey, vec2(fmn.x, fmn.z), vec2(fmx.x, fmx.z), 2);
     PlanItem it; it.slot = slot; it.asset = asset; it.p = p; it.yaw = yaw;
     out.push_back(it);
@@ -795,7 +1063,6 @@ struct Planner {
     const float yaws[4] = {0, 90, 180, 270};
     for (int j = 0; j < S.nz; ++j) for (int i = 0; i < S.nx; ++i) {
       if (S.id[(size_t)j * S.nx + i] != k) continue;
-      if (((i * 7 + j * 3) % 2) != 0) continue;   // every other cell is plenty
       for (int d = 0; d < 4; ++d) {
         int ni = i + di[d], nj = j + dj[d];
         if (ni < 0 || nj < 0 || ni >= S.nx || nj >= S.nz || S.id[(size_t)nj * S.nx + ni] != RoomInfo::WALL) continue;
@@ -803,10 +1070,16 @@ struct Planner {
         vec3 p(S.o.x + (i + 0.5f) * C, R.y0 + lift, S.o.y + (j + 0.5f) * C);
         float face = d == 0 ? S.o.y + j * C : d == 2 ? S.o.y + (j + 1) * C : d == 1 ? S.o.x + i * C : S.o.x + (i + 1) * C;
         {   // the real wall face along this direction (the cell edge can be up to half a cell off)
-          vec3 dl = d == 0 ? vec3(0, 0, -1) : d == 2 ? vec3(0, 0, 1) : d == 1 ? vec3(-1, 0, 0) : vec3(1, 0, 0);
-          vec3 o(S.o.x + (i + 0.5f) * C, R.y0 + 0.6f + lift * 0.5f, S.o.y + (j + 0.5f) * C);
-          Physics::Hit wh;
-          if (Physics::castRayEx(world(o), yawQuat(host.yaw) * dl, 0.3f, wh)) { vec3 lw = glm::inverse(yawQuat(host.yaw)) * (wh.pos - host.pos); face = (d == 0 || d == 2) ? lw.z : lw.x; }
+          uint64_t key = ((uint64_t)R.storey << 48) | ((uint64_t)(j * S.nx + i) << 8) | ((uint64_t)d << 5) | (uint64_t)std::min(31, (int)(lift * 8.0f));
+          auto fc = faceCache.find(key);
+          if (fc != faceCache.end()) { if (fc->second == fc->second) face = fc->second; }
+          else {
+            vec3 dl = d == 0 ? vec3(0, 0, -1) : d == 2 ? vec3(0, 0, 1) : d == 1 ? vec3(-1, 0, 0) : vec3(1, 0, 0);
+            vec3 o(S.o.x + (i + 0.5f) * C, R.y0 + 0.6f + lift * 0.5f, S.o.y + (j + 0.5f) * C);
+            Physics::Hit wh; float f = std::numeric_limits<float>::quiet_NaN();
+            if (Physics::castRayEx(world(o), yawQuat(host.yaw) * dl, 0.3f, wh)) { vec3 lw = glm::inverse(yawQuat(host.yaw)) * (wh.pos - host.pos); f = face = (d == 0 || d == 2) ? lw.z : lw.x; }
+            faceCache[key] = f;
+          }
         }
         if (d == 0) p.z = face + 0.012f - mn.z;
         if (d == 2) p.z = face - 0.012f - mx.z;
@@ -819,6 +1092,7 @@ struct Planner {
     }
     std::sort(cs.begin(), cs.end(), [](const Cand& a, const Cand& b) { return a.score < b.score; });
     for (auto& c : cs) if (tryAt(k, asset, slot, c.p, c.yaw, true, true, 0, got)) return true;
+    if (failed.size() < 900) failed += " " + slot;
     return false;
   }
   bool center(int k, const char* asset, const std::string& slot, float ring, PlanItem* got = nullptr) {
@@ -836,14 +1110,18 @@ struct Planner {
       cs.push_back({p, glm::length(vec2(p.x, p.z) - cc) + rnd((uint32_t)(i * 31 + j), strHash(slot)) * 0.7f});
     }
     std::sort(cs.begin(), cs.end(), [](const Cand& a, const Cand& b) { return a.score < b.score; });
-    for (auto& c : cs) {
-      vec3 mn, mx; bounds(pd, c.p, yaw, mn, mx);
-      if (ring > 0 && !rectCells(R.storey, k, vec2(mn.x - ring, mn.z - ring), vec2(mx.x + ring, mx.z + ring), 1)) continue;
-      if (tryAt(k, asset, slot, c.p, yaw, true, false, 0, got)) {
-        if (ring > 0) mark(R.storey, vec2(mn.x - ring, mn.z - ring), vec2(mx.x + ring, mx.z + ring), 2);
-        return true;
+    for (float rg : {ring, ring * 0.45f}) {
+      for (auto& c : cs) {
+        vec3 mn, mx; bounds(pd, c.p, yaw, mn, mx);
+        if (rg > 0 && !rectCells(R.storey, k, vec2(mn.x - rg, mn.z - rg), vec2(mx.x + rg, mx.z + rg), 1)) continue;
+        if (tryAt(k, asset, slot, c.p, yaw, true, false, 0, got)) {
+          if (rg > 0) mark(R.storey, vec2(mn.x - rg, mn.z - rg), vec2(mx.x + rg, mx.z + rg), 2);
+          return true;
+        }
       }
+      if (ring <= 0) break;
     }
+    if (failed.size() < 900) failed += " " + slot;
     return false;
   }
   void chairsAround(int k, const PlanItem& t, const char* chair, int want, bool ends) {
@@ -851,8 +1129,8 @@ struct Planner {
     float W = tp->bmax.x - tp->bmin.x, D = tp->bmax.z - tp->bmin.z;
     quat q = yawQuat(t.yaw);
     struct S { vec3 off; float yaw; };
-    std::vector<S> spots = {{vec3(-W * 0.25f, 0, D * 0.5f + 0.2f), 180}, {vec3(W * 0.25f, 0, -D * 0.5f - 0.2f), 0}, {vec3(W * 0.25f, 0, D * 0.5f + 0.2f), 180}, {vec3(-W * 0.25f, 0, -D * 0.5f - 0.2f), 0}};
-    if (ends) { spots.push_back({vec3(W * 0.5f + 0.22f, 0, 0), 270}); spots.push_back({vec3(-W * 0.5f - 0.22f, 0, 0), 90}); }
+    std::vector<S> spots = {{vec3(-W * 0.25f, 0, D * 0.5f + 0.27f), 180}, {vec3(W * 0.25f, 0, -D * 0.5f - 0.27f), 0}, {vec3(W * 0.25f, 0, D * 0.5f + 0.27f), 180}, {vec3(-W * 0.25f, 0, -D * 0.5f - 0.27f), 0}};
+    if (ends) { spots.push_back({vec3(W * 0.5f + 0.28f, 0, 0), 270}); spots.push_back({vec3(-W * 0.5f - 0.28f, 0, 0), 90}); }
     int n = 0;
     for (size_t s = 0; s < spots.size() && n < want; ++s) {
       vec3 p = t.p + q * spots[s].off;
@@ -865,21 +1143,24 @@ struct Planner {
     const PropDef* bp = sys.prop(ba);
     if (bp->surfaces.empty() || choices.empty()) return;
     quat q = yawQuat(base.yaw);
-    for (int n = 0; n < count; ++n) {
+    int placed = 0;
+    for (int n = 0; n < count * 3 && placed < count; ++n) {
       uint32_t h = strHash(base.slot) + (uint32_t)n * 977u;
       size_t si = (size_t)(rnd(h, 1) * bp->surfaces.size()) % bp->surfaces.size();
       vec4 s = bp->surfaces[si];
       const AssetDef* pa = A(choices[(size_t)(rnd(h, 2) * choices.size()) % choices.size()]); if (!pa) continue;
       const PropDef* pp = sys.prop(pa);
       vec3 he = (pp->bmax - pp->bmin) * 0.5f; float r = std::max(he.x, he.z);
-      if (s.z - s.x < 2 * r || s.w - s.y < 2 * r) continue;
-      vec3 lp(s.x + r + (s.z - s.x - 2 * r) * rnd(h, 3), bp->surfY[si], s.y + r + (s.w - s.y - 2 * r) * rnd(h, 4));
+      bool narrow = s.z - s.x < 2 * r + 0.02f || s.w - s.y < 2 * r + 0.02f;   // a shelf board: the prop stands square to it
+      float hx = narrow ? he.x : r, hz = narrow ? he.z : r;
+      if (s.z - s.x < 2 * hx || s.w - s.y < 2 * hz) continue;
+      vec3 lp(s.x + hx + (s.z - s.x - 2 * hx) * rnd(h, 3), bp->surfY[si], s.y + hz + (s.w - s.y - 2 * hz) * rnd(h, 4));
       lp -= vec3((pp->bmin.x + pp->bmax.x) * 0.5f, 0, (pp->bmin.z + pp->bmax.z) * 0.5f);
       PlanItem it; it.slot = base.slot + "/top" + std::to_string(n); it.asset = pa->id; it.p = base.p + q * lp;
-      it.yaw = wrapDeg(base.yaw + (rnd(h, 5) - 0.5f) * 50.0f);
+      it.yaw = wrapDeg(base.yaw + (narrow ? 0.0f : (rnd(h, 5) - 0.5f) * 50.0f));
       bool clash = false;   // two props on one top never overlap
-      for (auto& o : out) if (o.slot.rfind(base.slot + "/top", 0) == 0 && glm::length(vec2(o.p.x - it.p.x, o.p.z - it.p.z)) < r + 0.12f) clash = true;
-      if (!clash) out.push_back(it);
+      for (auto& o : out) if (o.slot.rfind(base.slot + "/top", 0) == 0 && glm::length(vec2(o.p.x - it.p.x, o.p.z - it.p.z)) < (narrow ? hx + 0.13f : r + 0.12f)) clash = true;
+      if (!clash) { out.push_back(it); ++placed; }
     }
   }
   bool rug(int k, const char* asset, const std::string& slot, vec2 at, float yaw) {
@@ -917,77 +1198,315 @@ struct Planner {
     }
   }
   bool maybe(uint32_t a, float p) { return rnd(a, 99) < p; }
+  int count(uint32_t a, float base) { return (int)std::floor(base * density + rnd(a, 98)); }   // density-scaled count
+  float mountOf(const char* asset) { const AssetDef* fa = A(asset); const PropDef* pd = fa ? sys.prop(fa) : nullptr; return pd ? pd->mount : 0.0f; }
+  bool hang(int k, const char* asset, const std::string& slot, float corner, PlanItem* got = nullptr) { return A(asset) && wall(k, asset, slot, corner, got, mountOf(asset)); }
+  // the first of several pieces that fits (a smaller one where the big one has no room)
+  bool wallAny(int k, std::initializer_list<const char*> as, const std::string& slot, float corner, PlanItem* got = nullptr) {
+    std::string f0 = failed;
+    for (const char* a : as) if (wall(k, a, slot, corner, got)) { failed = f0; return true; }
+    return false;
+  }
+  void hangTop(int k, const char* asset, const std::string& slot, float corner, const std::vector<const char*>& choices, int n) {
+    PlanItem s; if (hang(k, asset, slot, corner, &s)) { onTop(s, choices, n); return; }
+    // no wall left for a solid shelf (they keep out of routes): a picture or a portrait may still hang there
+    std::string f0 = failed;
+    if (hang(k, rnd(strHash(slot), 3) < 0.5f ? "furn_portrait" : "furn_picture", slot, corner)) failed = f0;
+  }
+  void breakLast(bool did, float p, uint32_t h) { if (did && !out.empty() && rnd(h, 77) < p) out.back().broken = true; }
+  // the end of a room's long axis that faces away from its doors (an altar, a teacher's desk): +1 toward mx, -1 toward mn
+  int farEnd(int k, int& axis) {
+    const auto& R = ri.rooms[k]; vec2 e = R.mx - R.mn; axis = e.x >= e.y ? 0 : 1;
+    float c = axis == 0 ? (R.mn.x + R.mx.x) * 0.5f : (R.mn.y + R.mx.y) * 0.5f, sum = 0; int n = 0;
+    for (auto& b : ri.keep) {
+      if (b.kind != 0 || b.mx.y < R.y0 - 0.3f || b.mn.y > R.y0 + 2.0f) continue;
+      if (b.mx.x < R.mn.x - 0.6f || b.mn.x > R.mx.x + 0.6f || b.mx.z < R.mn.y - 0.6f || b.mn.z > R.mx.y + 0.6f) continue;
+      float dc = (axis == 0 ? (b.mn.x + b.mx.x) * 0.5f : (b.mn.z + b.mx.z) * 0.5f) - c;
+      sum += dc; ++n;
+    }
+    return n && sum > 0 ? -1 : 1;
+  }
+  // rows of pews / school desks facing the far end, with a centre aisle; returns how many were placed
+  int rows(int k, const char* asset, const std::string& slot, float pitch, float aisle, float backGap, float frontGap, float breakP) {
+    const AssetDef* fa = A(asset); if (!fa) return 0;
+    const PropDef* pd = sys.prop(fa);
+    const auto& R = ri.rooms[k];
+    int ax; int s = farEnd(k, ax);
+    float W = pd->bmax.x - pd->bmin.x;
+    float lo = ax == 0 ? R.mn.x : R.mn.y, hi = ax == 0 ? R.mx.x : R.mx.y;
+    float cl = ax == 0 ? R.mn.y : R.mn.x, ch = ax == 0 ? R.mx.y : R.mx.x, cc = (cl + ch) * 0.5f;
+    float yaw = ax == 0 ? (s > 0 ? 90.0f : 270.0f) : (s > 0 ? 0.0f : 180.0f);
+    // a column against each side wall, the aisle between them (often the authored route); in a narrow room the second
+    // column does not fit beside the first and only one stands
+    std::vector<float> across = {cl + W * 0.5f + 0.05f, ch - W * 0.5f - 0.05f};
+    (void)cc; (void)aisle;
+    int n = 0, row = 0;
+    for (float t = 0; ; t += pitch, ++row) {
+      float along = s > 0 ? lo + backGap + t : hi - backGap - t;
+      if ((s > 0 && along > hi - frontGap) || (s < 0 && along < lo + frontGap)) break;
+      for (size_t c = 0; c < across.size(); ++c) {
+        vec3 p = ax == 0 ? vec3(along, R.y0, across[c]) : vec3(across[c], R.y0, along);
+        std::string sl = slot + std::to_string(row) + (c ? "b" : "a");
+        bool ok = tryAt(k, asset, sl, p, yaw, true, false, 0, nullptr);
+        breakLast(ok, breakP, strHash(sl));
+        n += ok;
+      }
+    }
+    return n;
+  }
   void room(int k) {
     const auto& R = ri.rooms[k];
     std::string r = "r" + std::to_string(k) + "/";
     uint32_t base = (uint32_t)k * 1009u;
     PlanItem t, w;
     vec2 cc = (R.mn + R.mx) * 0.5f; vec2 e = R.mx - R.mn;
+    float C = clutter, D = density;
+    bool ruined = ha->id.find("ruin") != std::string::npos;
+    const std::vector<const char*> kitchenTop = {"furn_crockery", "furn_jug_bowl", "furn_bottles", "furn_jars", "furn_basket", "furn_candlesticks", "furn_lamp"};
+    const std::vector<const char*> shelfTop = {"furn_bottles", "furn_crockery", "furn_books", "furn_jars", "furn_candlesticks"};
+    const std::vector<const char*> sitTop = {"furn_lamp", "furn_books", "furn_candlesticks", "furn_jug_bowl", "furn_crockery"};
+    const std::vector<const char*> bedTop = {"furn_jug_bowl", "furn_lamp", "furn_books", "furn_candlesticks"};
+    auto tops = [&](int base_) { return (int)std::round(base_ + 3 * C); };
+    auto withTop = [&](bool placed, const std::vector<const char*>& ch, int n) { if (placed) onTop(w, ch, n); };
     switch (R.type) {
       case ROOM_KITCHEN: {
-        wall(k, rnd(base, 1) < 0.5f ? "furn_hutch" : "furn_hutch_glazed", r + "hutch", -0.5f, &w);
-        onTop(w, {"furn_jug_bowl", "furn_bottles", "furn_crockery"}, 1 + (clutter > 0.6f));
+        withTop(wallAny(k, {rnd(base, 1) < 0.5f ? "furn_hutch" : "furn_hutch_glazed", "furn_dresser", "furn_commode"}, r + "hutch", -0.5f, &w), {"furn_jug_bowl", "furn_bottles", "furn_crockery", "furn_jars"}, tops(1));
         bool big = R.area > 11.0f;
-        if (center(k, big ? "furn_table_dining" : "furn_table_small", r + "table", 0.75f, &t)) {
-          chairsAround(k, t, rnd(base, 2) < 0.6f ? "furn_chair_ladder" : "furn_chair_slat", 2 + (int)std::round(2 * density * rnd(base, 3) + (big ? 1 : 0)), big);
-          onTop(t, {"furn_crockery", "furn_bottles", "furn_jug_bowl", "furn_lamp"}, (int)std::round(1 + 2 * clutter));
+        if (center(k, big ? "furn_table_dining" : "furn_table_small", r + "table", 0.75f, &t) || center(k, "furn_table_small", r + "table", 0.5f, &t)) {
+          chairsAround(k, t, rnd(base, 2) < 0.6f ? "furn_chair_ladder" : "furn_chair_slat", 2 + (int)std::round(2 * std::min(D, 1.0f) * rnd(base, 3) + (big ? 1 : 0) + (D > 1.2f)), big);
+          onTop(t, kitchenTop, tops(1));
         }
-        if (maybe(base + 4, density)) wall(k, "furn_shelf", r + "shelf", 0.8f, &w) && (onTop(w, {"furn_bottles", "furn_crockery", "furn_books"}, (int)std::round(1 + 2 * clutter)), true);
-        if (maybe(base + 5, density * 0.7f)) wall(k, "furn_bench", r + "bench", -0.2f);
-        if (maybe(base + 6, density * 0.6f)) wall(k, "furn_crate", r + "crate", 1.0f);
+        if (!R.hearth || maybe(base + 20, 0.5f * D)) wall(k, "furn_stove", r + "stove", 0.2f);
+        if (maybe(base + 21, D)) withTop(wall(k, "furn_dresser", r + "dresser", -0.2f, &w), kitchenTop, tops(1));
+        if (maybe(base + 22, 0.8f * D)) wallAny(k, {"furn_pantry", "furn_shelf"}, r + "pantry", 0.7f);
+        hangTop(k, "furn_plate_rack", r + "platerack", -0.3f, {"furn_jars", "furn_crockery", "furn_bottles"}, 2);
+        for (int c = 0; c < 1 + count(base + 140, 1.0f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), 0.2f, {"furn_jars", "furn_bottles", "furn_crockery", "furn_candlesticks"}, 2);
+        if (maybe(base + 4, D)) withTop(wall(k, "furn_shelf", r + "shelf", 0.8f, &w), shelfTop, tops(1));
+        if (maybe(base + 5, 0.7f * D)) wall(k, "furn_bench", r + "bench", -0.2f);
+        if (R.hearth || maybe(base + 23, 0.4f * D)) wall(k, "furn_wood_pile", r + "wood", 0.9f);
+        if (maybe(base + 24, D)) hang(k, "furn_utensil_rack", r + "utensils", -0.1f);
+        if (maybe(base + 25, 0.6f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.4f);
+        if (maybe(base + 26, 0.6f * D)) hang(k, "furn_wall_clock", r + "wallclock", -0.4f);
+        if (maybe(base + 27, 0.5f * D)) hang(k, "furn_picture", r + "picture", -0.6f);
+        for (int c = 0; c < count(base + 28, 1.2f); ++c) wall(k, c % 2 ? "furn_basket" : "furn_bucket", r + "pail" + std::to_string(c), 1.0f);
+        if (maybe(base + 6, 0.6f * D)) wall(k, "furn_crate", r + "crate", 1.0f);
+        if (maybe(base + 29, 0.4f * D)) wall(k, "furn_sacks", r + "sacks", 1.0f);
+        if (maybe(base + 30, 0.3f * D)) wall(k, "furn_barrel", r + "cask", 1.0f);
+        curtains(k);
         break;
       }
       case ROOM_SITTING: {
         float yaw = e.x >= e.y ? 0.0f : 90.0f;
         rug(k, rnd(base, 7) < 0.6f ? "furn_rug_medallion" : "furn_rug_kilim", r + "rug", cc, yaw);
-        wall(k, "furn_commode", r + "commode", -0.3f, &w);
-        onTop(w, {"furn_lamp", "furn_books", "furn_jug_bowl"}, 1 + (clutter > 0.5f));
-        if (maybe(base + 8, density)) wall(k, "furn_clock", r + "clock", 0.6f);
+        withTop(wallAny(k, {"furn_commode", "furn_chest", "furn_side_table"}, r + "commode", -0.3f, &w), sitTop, 1 + (C > 0.5f));
+        if (maybe(base + 31, D)) withTop(wallAny(k, {"furn_sideboard", "furn_dresser", "furn_chest"}, r + "sideboard", -0.2f, &w), {"furn_crockery", "furn_candlesticks", "furn_lamp", "furn_bottles", "furn_jug_bowl"}, tops(1));
+        if (maybe(base + 8, D)) wall(k, "furn_clock", r + "clock", 0.6f);
         if (center(k, "furn_side_table", r + "table", 0.55f, &t)) {
-          chairsAround(k, t, "furn_chair_slat", 1 + (int)std::round(density), false);
-          onTop(t, {"furn_books", "furn_lamp", "furn_crockery"}, 1);
-          if (maybe(base + 9, clutter * 0.8f)) papers(k, t, 1);
+          chairsAround(k, t, "furn_chair_slat", 1 + (int)std::round(std::min(D, 1.5f)), false);
+          chairsAround(k, t, "furn_armchair", 1 + (D > 0.9f), true);
+          onTop(t, {"furn_books", "furn_lamp", "furn_crockery", "furn_candlesticks"}, 1 + (C > 0.6f));
+          if (maybe(base + 9, C * 0.8f)) papers(k, t, 1);
         }
-        if (maybe(base + 10, density)) wall(k, "furn_shelf", r + "shelf", 0.8f, &w) && (onTop(w, {"furn_books", "furn_crockery", "furn_bottles"}, (int)std::round(1 + 2 * clutter)), true);
-        for (int p = 0; p < 1 + (density > 0.6f); ++p) wall(k, "furn_picture", r + "picture" + std::to_string(p), -0.6f, nullptr, sys.prop(A("furn_picture"))->mount);
+        for (int c = 0; c < 1 + (D > 0.8f); ++c) wallAny(k, {"furn_armchair", "furn_chair_slat"}, r + "armchair" + std::to_string(c), 0.9f);
+        if (maybe(base + 32, 0.8f * D)) wallAny(k, {"furn_bookcase", "furn_shelf"}, r + "bookcase", 0.5f);
+        for (int c = 0; c < 1 + count(base + 141, 0.8f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), -0.2f, {"furn_books", "furn_candlesticks", "furn_crockery", "furn_jug_bowl"}, 2);
+        if (maybe(base + 10, 0.7f * D)) withTop(wall(k, "furn_shelf", r + "shelf", 0.8f, &w), shelfTop, tops(1));
+        if (maybe(base + 33, 0.6f * D) && wall(k, "furn_desk", r + "desk", 0.3f, &w)) {
+          onTop(w, {"furn_papers", "furn_books", "furn_lamp"}, 1 + (C > 0.5f));
+          quat q = yawQuat(w.yaw);
+          tryAt(k, "furn_chair_slat", w.slot + "/chair", w.p + q * vec3(0, 0, 0.55f), wrapDeg(w.yaw + 180), true, false, 1, nullptr);
+        }
+        for (int p = 0; p < 1 + count(base + 34, 1.2f); ++p) hang(k, "furn_picture", r + "picture" + std::to_string(p), -0.6f);
+        if (maybe(base + 35, 0.7f * D)) hang(k, "furn_portrait", r + "portrait", -0.3f);
+        if (maybe(base + 36, 0.5f * D)) hang(k, "furn_mirror", r + "mirror", -0.5f);
+        if (maybe(base + 37, 0.4f * D)) wall(k, "furn_basket", r + "basket", 1.0f);
         curtains(k);
         break;
       }
       case ROOM_BEDROOM: {
         if (wall(k, "furn_bed", r + "bed", -0.2f, &t)) {
-          quat q = yawQuat(t.yaw);   // a rug beside the bed, not under it
+          quat q = yawQuat(t.yaw);   // a rug beside the bed, not under it; a chest at its foot
           vec3 side = t.p + q * vec3(1.05f, 0, 0.1f);
           if (!rug(k, "furn_rug_kilim", r + "rug", vec2(side.x, side.z), wrapDeg(t.yaw + 90))) { vec3 s2 = t.p + q * vec3(-1.05f, 0, 0.1f); rug(k, "furn_rug_kilim", r + "rug", vec2(s2.x, s2.z), wrapDeg(t.yaw + 90)); }
+          if (maybe(base + 40, 0.7f * D)) tryAt(k, "furn_chest", t.slot + "/footchest", t.p + q * vec3(0, 0, 1.3f), t.yaw, true, false, 0, nullptr);
         }
-        if (R.area > 9.0f || maybe(base + 11, density)) wall(k, "furn_armoire", r + "armoire", 0.6f);
-        if (wall(k, rnd(base, 12) < 0.5f ? "furn_commode" : "furn_chest", r + "commode", 0.2f, &w)) onTop(w, {"furn_jug_bowl", "furn_lamp", "furn_books"}, 1 + (clutter > 0.5f));
-        if (maybe(base + 13, density)) wall(k, "furn_chair_ladder", r + "chair", 0.4f);
-        if (maybe(base + 14, density * 0.8f)) wall(k, "furn_picture", r + "picture", -0.5f, nullptr, sys.prop(A("furn_picture"))->mount);
+        if (R.area > 9.0f || maybe(base + 11, D)) wallAny(k, {"furn_armoire", "furn_commode", "furn_chest"}, r + "armoire", 0.6f);
+        withTop(wallAny(k, {rnd(base, 12) < 0.5f ? "furn_commode" : "furn_chest", "furn_chest", "furn_side_table"}, r + "commode", 0.2f, &w), bedTop, 1 + (C > 0.5f));
+        if (maybe(base + 41, D)) wallAny(k, {"furn_washstand", "furn_side_table", "furn_stool"}, r + "washstand", 0.5f);
+        hangTop(k, "furn_wall_shelf", r + "wallshelf", -0.1f, {"furn_books", "furn_candlesticks", "furn_jug_bowl"}, 2);
+        if (maybe(base + 13, D)) wall(k, "furn_chair_ladder", r + "chair", 0.4f);
+        if (maybe(base + 14, 0.8f * D)) hang(k, "furn_picture", r + "picture", -0.5f);
+        if (maybe(base + 42, 0.6f * D)) hang(k, "furn_picture", r + "picture2", 0.3f);
+        if (maybe(base + 43, 0.7f * D)) hang(k, "furn_mirror", r + "mirror", -0.2f);
+        if (maybe(base + 44, 0.6f * D)) hang(k, "furn_portrait", r + "portrait", 0.0f);
+        if (maybe(base + 45, 0.4f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.5f);
+        if (maybe(base + 46, 0.3f * D)) withTop(wall(k, "furn_desk", r + "desk", 0.3f, &w), {"furn_books", "furn_lamp", "furn_papers"}, 1);
+        if (maybe(base + 47, 0.3f * D)) wall(k, "furn_basket", r + "basket", 1.0f);
         curtains(k);
         break;
       }
       case ROOM_WORKSHOP: {
-        wall(k, "furn_bench", r + "bench", -0.3f);
-        if (wall(k, "furn_shelf", r + "shelf", 0.6f, &w)) onTop(w, {"furn_bottles", "furn_books", "furn_crate"}, (int)std::round(1 + 2 * clutter));
-        for (int c = 0; c < 1 + (int)std::round(2 * density); ++c) wall(k, "furn_crate", r + "crate" + std::to_string(c), 1.0f, &w);
+        if (!wall(k, "furn_workbench", r + "workbench", -0.3f, &w)) wall(k, "furn_bench", r + "bench", -0.3f);
+        for (int c = 0; c < 1 + (D > 1.1f); ++c) hang(k, "furn_tool_rack", r + "tools" + std::to_string(c), -0.2f);
+        withTop(wallAny(k, {"furn_shelf", "furn_chest"}, r + "shelf", 0.6f, &w), {"furn_bottles", "furn_books", "furn_jars", "furn_pot"}, tops(1));
+        for (int c = 0; c < 1 + count(base + 50, 2.0f); ++c) withTop(wall(k, "furn_crate", r + "crate" + std::to_string(c), 1.0f, &w), {"furn_bucket", "furn_jars", "furn_bottles", "furn_pot"}, 1);
+        for (int c = 0; c < 1 + count(base + 142, 1.0f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), 0.3f, {"furn_jars", "furn_bottles", "furn_pot", "furn_books"}, 2);
+        if (maybe(base + 143, D)) wall(k, "furn_basket", r + "basket", 1.0f);
+        if (maybe(base + 144, 0.8f * D)) wall(k, "furn_sacks", r + "sacks2", 1.0f);
         wall(k, "furn_stool", r + "stool", 0.0f);
+        if (maybe(base + 51, 0.6f * D)) wall(k, "furn_barrel", r + "cask", 1.0f);
+        if (maybe(base + 52, 0.5f * D)) wall(k, "furn_sacks", r + "sacks", 1.0f);
+        if (maybe(base + 53, 0.8f * D)) wall(k, "furn_wood_pile", r + "wood", 0.9f);
+        if (maybe(base + 54, D)) wall(k, "furn_bucket", r + "bucket", 1.0f);
+        if (maybe(base + 55, 0.4f * D)) wall(k, "furn_chest", r + "chest", 0.5f);
+        if (maybe(base + 56, 0.4f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.4f);
         break;
       }
       case ROOM_HALL: {
-        if (maybe(base + 15, density * 0.8f)) wall(k, "furn_bench", r + "bench", -0.4f);
-        if (maybe(base + 16, density * 0.6f)) wall(k, "furn_picture", r + "picture", -0.5f, nullptr, sys.prop(A("furn_picture"))->mount);
+        if (maybe(base + 15, 0.8f * D)) wall(k, "furn_bench", r + "bench", -0.4f);
+        if (maybe(base + 57, D)) hang(k, "furn_coat_rack", r + "pegs", 0.3f);
+        if (maybe(base + 16, 0.6f * D)) hang(k, "furn_picture", r + "picture", -0.5f);
+        if (maybe(base + 58, 0.5f * D)) hang(k, "furn_portrait", r + "portrait", 0.0f);
+        if (maybe(base + 59, 0.4f * D)) hang(k, "furn_mirror", r + "mirror", -0.3f);
+        if (maybe(base + 60, 0.5f * D)) withTop(wall(k, "furn_chest", r + "chest", 0.4f, &w), {"furn_lamp", "furn_books", "furn_candlesticks"}, 1);
+        if (maybe(base + 150, 0.6f * D)) hangTop(k, "furn_wall_shelf", r + "wallshelf", 0.0f, {"furn_lamp", "furn_candlesticks", "furn_books"}, 2);
+        if (maybe(base + 61, 0.4f * D) && R.area > 6.0f) wall(k, "furn_clock", r + "clock", 0.6f);
+        if (maybe(base + 62, 0.3f * D)) wall(k, "furn_bucket", r + "bucket", 1.0f);
+        break;
+      }
+      case ROOM_CHURCH: {   // pews in rows toward the altar end, an altar table with candlesticks, pictures on the walls
+        int ax; int s = farEnd(k, ax);
+        rows(k, "furn_pew", r + "pew", 1.0f, 1.1f, 1.4f, 2.6f, ruined ? 0.55f : 0.0f);
+        vec3 alt = ax == 0 ? vec3(s > 0 ? R.mx.x - 1.3f : R.mn.x + 1.3f, R.y0, cc.y) : vec3(cc.x, R.y0, s > 0 ? R.mx.y - 1.3f : R.mn.y + 1.3f);
+        float ayaw = ax == 0 ? 90.0f : 0.0f;
+        PlanItem at;
+        bool ok = tryAt(k, "furn_table_dining", r + "altar", alt, ayaw, true, false, 0, &at);
+        breakLast(ok, ruined ? 0.6f : 0.0f, base + 70);
+        if (ok && !ruined) onTop(at, {"furn_candlesticks"}, 2);
+        for (int c = 0; c < 2 + count(base + 71, 2.0f); ++c) hang(k, "furn_picture", r + "picture" + std::to_string(c), -0.5f);
+        if (maybe(base + 72, D)) wall(k, "furn_bench", r + "bench", 0.6f);
+        for (int c = 0; c < count(base + 73, 2.0f); ++c) breakLast(wall(k, "furn_chair_ladder", r + "chair" + std::to_string(c), 0.7f), ruined ? 0.6f : 0.0f, base + 74 + c);
+        if (maybe(base + 75, 0.6f * D)) wall(k, "furn_chest", r + "chest", 0.8f);
+        break;
+      }
+      case ROOM_BARN: {
+        for (int c = 0; c < 2 + count(base + 80, 2.0f); ++c) wall(k, "furn_hay_bales", r + "hay" + std::to_string(c), 0.8f);
+        for (int c = 0; c < 1 + count(base + 81, 1.0f); ++c) wall(k, "furn_sacks", r + "sacks" + std::to_string(c), 1.0f);
+        for (int c = 0; c < 1 + count(base + 82, 1.0f); ++c) wall(k, "furn_barrel", r + "cask" + std::to_string(c), 1.0f);
+        if (maybe(base + 83, 0.5f * D)) wall(k, "furn_barrel_rack", r + "casks", 0.6f);
+        for (int c = 0; c < 2 + count(base + 84, 2.0f); ++c) wall(k, "furn_crate", r + "crate" + std::to_string(c), 1.0f);
+        if (maybe(base + 85, D)) wall(k, "furn_wood_pile", r + "wood", 0.9f);
+        if (maybe(base + 86, 0.6f * D)) withTop(wall(k, "furn_workbench", r + "workbench", -0.2f, &w), {"furn_bottles", "furn_pot"}, 1);
+        if (maybe(base + 87, D)) hang(k, "furn_tool_rack", r + "tools", -0.2f);
+        for (int c = 0; c < count(base + 149, 1.0f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), 0.2f, {"furn_jars", "furn_bottles", "furn_pot"}, 2);
+        for (int c = 0; c < count(base + 88, 1.6f); ++c) wall(k, c % 2 ? "furn_basket" : "furn_bucket", r + "pail" + std::to_string(c), 1.0f);
+        if (maybe(base + 89, 0.5f * D)) wall(k, "furn_stool", r + "stool", 0.3f);
+        if (maybe(base + 90, 0.3f * D)) wall(k, "furn_chest", r + "chest", 0.6f);
+        break;
+      }
+      case ROOM_CLASS: {   // rows of twin desks toward the teacher's desk, a stove, books and the clock
+        int ax; int s = farEnd(k, ax);
+        rows(k, "furn_school_desk", r + "desks", 0.95f, 0.8f, 0.5f, 1.9f, 0.0f);
+        vec3 tp = ax == 0 ? vec3(s > 0 ? R.mx.x - 1.0f : R.mn.x + 1.0f, R.y0, cc.y) : vec3(cc.x, R.y0, s > 0 ? R.mx.y - 1.0f : R.mn.y + 1.0f);
+        float tyaw = ax == 0 ? (s > 0 ? 270.0f : 90.0f) : (s > 0 ? 180.0f : 0.0f);   // facing the class
+        PlanItem dk;
+        if (tryAt(k, "furn_desk", r + "teacher", tp, tyaw, true, false, 0, &dk)) {
+          onTop(dk, {"furn_books", "furn_papers", "furn_lamp"}, 2);
+          quat q = yawQuat(dk.yaw);
+          tryAt(k, "furn_chair_slat", dk.slot + "/chair", dk.p + q * vec3(0, 0, -0.6f), dk.yaw, true, false, 1, nullptr);
+        }
+        if (maybe(base + 91, D)) wall(k, "furn_bookcase", r + "bookcase", 0.7f);
+        if (maybe(base + 92, 0.7f * D)) wall(k, "furn_stove", r + "stove", 0.9f);
+        if (maybe(base + 93, D)) withTop(wall(k, "furn_shelf", r + "shelf", 0.8f, &w), {"furn_books", "furn_jars"}, tops(1));
+        for (int c = 0; c < 1 + count(base + 148, 1.0f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), -0.2f, {"furn_books", "furn_jars", "furn_candlesticks"}, 2);
+        if (maybe(base + 94, D)) hang(k, "furn_wall_clock", r + "wallclock", -0.3f);
+        for (int c = 0; c < 1 + count(base + 95, 1.0f); ++c) hang(k, "furn_coat_rack", r + "pegs" + std::to_string(c), 0.5f);
+        for (int c = 0; c < count(base + 96, 2.0f); ++c) hang(k, c % 2 ? "furn_portrait" : "furn_picture", r + "picture" + std::to_string(c), -0.4f);
+        if (maybe(base + 97, 0.5f * D)) wall(k, "furn_bucket", r + "bucket", 1.0f);
+        curtains(k);
+        break;
+      }
+      case ROOM_OFFICE: {
+        if (wall(k, "furn_desk", r + "desk", -0.2f, &w)) {
+          onTop(w, {"furn_papers", "furn_books", "furn_lamp"}, 1 + (C > 0.4f));
+          quat q = yawQuat(w.yaw);
+          tryAt(k, "furn_chair_slat", w.slot + "/chair", w.p + q * vec3(0, 0, 0.55f), wrapDeg(w.yaw + 180), true, false, 1, nullptr);
+          if (maybe(base + 100, C)) papers(k, w, 1);
+        }
+        if (R.area > 12.0f && maybe(base + 101, D)) withTop(wall(k, "furn_desk", r + "desk2", 0.4f, &w), {"furn_papers", "furn_books"}, 1);
+        for (int c = 0; c < 1 + count(base + 102, 1.0f); ++c) wallAny(k, {"furn_bookcase", "furn_shelf"}, r + "bookcase" + std::to_string(c), 0.6f);
+        if (maybe(base + 103, 0.7f * D)) withTop(wallAny(k, {"furn_commode", "furn_chest"}, r + "cabinet", 0.2f, &w), {"furn_books", "furn_papers", "furn_lamp"}, 1);
+        for (int c = 0; c < 1 + count(base + 146, 1.0f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), -0.2f, {"furn_books", "furn_papers", "furn_lamp"}, 2);
+        if (maybe(base + 104, 0.7f * D)) withTop(wall(k, "furn_shelf", r + "shelf", 0.8f, &w), {"furn_books", "furn_papers", "furn_bottles"}, tops(1));
+        for (int c = 0; c < 1 + count(base + 105, 1.0f); ++c) wall(k, "furn_chair_ladder", r + "chair" + std::to_string(c), 0.2f);
+        if (maybe(base + 106, D)) hang(k, "furn_wall_clock", r + "wallclock", -0.3f);
+        if (maybe(base + 107, 0.8f * D)) hang(k, "furn_portrait", r + "portrait", -0.5f);
+        if (maybe(base + 108, 0.6f * D)) hang(k, "furn_picture", r + "picture", 0.0f);
+        if (maybe(base + 109, 0.6f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.5f);
+        if (maybe(base + 110, 0.4f * D)) wall(k, "furn_chest", r + "chest", 0.9f);
+        curtains(k);
+        break;
+      }
+      case ROOM_TAVERN: {   // several tables with chairs, casks along a wall, a sideboard and shelves of bottles
+        int tables = std::max(1, std::min(5, (int)std::round(R.area / 11.0f * std::min(D, 1.5f))));
+        for (int c = 0; c < tables; ++c) {
+          PlanItem tt;
+          if (!center(k, c % 2 ? "furn_table_small" : "furn_table_dining", r + "table" + std::to_string(c), 0.7f, &tt)) break;
+          chairsAround(k, tt, c % 2 ? "furn_chair_slat" : "furn_chair_ladder", 2 + (int)std::round(2 * rnd(base + c, 3)), c % 2 == 0);
+          onTop(tt, {"furn_bottles", "furn_crockery", "furn_candlesticks", "furn_jug_bowl"}, tops(1));
+        }
+        wallAny(k, {"furn_barrel_rack", "furn_barrel"}, r + "casks", -0.3f);
+        hangTop(k, "furn_plate_rack", r + "platerack", -0.2f, {"furn_bottles", "furn_jars"}, 2);
+        for (int c = 0; c < 1 + count(base + 147, 1.0f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), 0.2f, {"furn_bottles", "furn_crockery", "furn_candlesticks"}, 2);
+        for (int c = 0; c < 1 + count(base + 111, 1.0f); ++c) wall(k, "furn_barrel", r + "cask" + std::to_string(c), 1.0f);
+        withTop(wallAny(k, {"furn_sideboard", "furn_dresser", "furn_commode"}, r + "sideboard", -0.2f, &w), {"furn_bottles", "furn_crockery", "furn_lamp"}, tops(1));
+        if (maybe(base + 112, D)) withTop(wall(k, "furn_shelf", r + "shelf", 0.8f, &w), {"furn_bottles", "furn_jars", "furn_crockery"}, tops(1));
+        for (int c = 0; c < count(base + 113, 1.5f); ++c) wall(k, "furn_bench", r + "bench" + std::to_string(c), 0.0f);
+        if (maybe(base + 114, D)) hang(k, "furn_coat_rack", r + "pegs", 0.5f);
+        if (maybe(base + 115, D)) hang(k, "furn_wall_clock", r + "wallclock", -0.2f);
+        for (int c = 0; c < count(base + 116, 2.0f); ++c) hang(k, "furn_picture", r + "picture" + std::to_string(c), -0.5f);
+        curtains(k);
+        break;
+      }
+      case ROOM_RUIN: {   // what was left behind: a few pieces, most of them broken
+        PlanItem tt;
+        if (center(k, "furn_table_small", r + "table", 0.6f, &tt)) { breakLast(true, 0.6f, base + 120); chairsAround(k, tt, "furn_chair_slat", 1 + (D > 0.8f), false); for (auto& o : out) if (o.slot.rfind(tt.slot + "/chair", 0) == 0) o.broken = rnd(strHash(o.slot), 5) < 0.7f; }
+        for (int c = 0; c < 1 + count(base + 121, 1.0f); ++c) breakLast(wall(k, "furn_crate", r + "crate" + std::to_string(c), 1.0f), 0.6f, base + 122 + c);
+        if (maybe(base + 125, 0.6f * D)) breakLast(wall(k, "furn_commode", r + "commode", 0.3f), 0.8f, base + 126);
+        if (maybe(base + 127, 0.5f * D)) wall(k, "furn_sacks", r + "sacks", 1.0f);
+        if (maybe(base + 128, 0.5f * D)) breakLast(wall(k, "furn_barrel", r + "cask", 1.0f), 0.5f, base + 129);
+        if (maybe(base + 130, 0.5f * D)) wall(k, "furn_bucket", r + "bucket", 1.0f);
         break;
       }
       default: {   // utility / storage
-        if (wall(k, "furn_shelf", r + "shelf", 0.8f, &w)) onTop(w, {"furn_bottles", "furn_crockery", "furn_crate"}, (int)std::round(1 + 2 * clutter));
-        for (int c = 0; c < 1 + (int)std::round(2 * density); ++c) wall(k, "furn_crate", r + "crate" + std::to_string(c), 1.0f);
-        if (maybe(base + 17, density * 0.6f)) wall(k, "furn_chest", r + "chest", 0.5f);
-        if (maybe(base + 18, density * 0.5f)) wall(k, "furn_stool", r + "stool", 0.3f);
+        withTop(wallAny(k, {"furn_shelf", "furn_chest"}, r + "shelf", 0.8f, &w), {"furn_bottles", "furn_crockery", "furn_jars", "furn_pot"}, tops(1));
+        if (maybe(base + 131, 0.7f * D)) wallAny(k, {"furn_pantry", "furn_shelf"}, r + "pantry", 0.6f);
+        for (int c = 0; c < 1 + count(base + 132, 2.0f); ++c) withTop(wall(k, "furn_crate", r + "crate" + std::to_string(c), 1.0f, &w), {"furn_bucket", "furn_jars", "furn_basket", "furn_bottles"}, 1);
+        for (int c = 0; c < 1 + count(base + 145, 0.8f); ++c) hangTop(k, "furn_wall_shelf", r + "wallshelf" + std::to_string(c), 0.3f, {"furn_jars", "furn_bottles", "furn_pot", "furn_crockery"}, 2);
+        for (int c = 0; c < count(base + 133, 1.2f); ++c) wall(k, "furn_sacks", r + "sacks" + std::to_string(c), 1.0f);
+        if (maybe(base + 134, 0.8f * D)) wall(k, "furn_barrel", r + "cask", 1.0f);
+        if (maybe(base + 135, 0.4f * D)) wall(k, "furn_barrel_rack", r + "casks", 0.5f);
+        if (maybe(base + 17, 0.6f * D)) wall(k, "furn_chest", r + "chest", 0.5f);
+        if (maybe(base + 18, 0.5f * D)) wall(k, "furn_stool", r + "stool", 0.3f);
+        for (int c = 0; c < count(base + 136, 1.2f); ++c) wall(k, c % 2 ? "furn_basket" : "furn_bucket", r + "pail" + std::to_string(c), 1.0f);
+        if (maybe(base + 137, 0.4f * D)) wall(k, "furn_wood_pile", r + "wood", 0.9f);
+        if (maybe(base + 138, 0.4f * D)) hang(k, "furn_tool_rack", r + "tools", -0.2f);
+        if (maybe(base + 139, 0.3f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.4f);
         break;
       }
     }
+    // lived-in rooms collect pictures and family portraits on whatever wall is left (they may hang beside a route)
+    if (R.type != ROOM_CHURCH && R.type != ROOM_RUIN && R.type != ROOM_BARN && R.type != ROOM_UTILITY)
+      for (int c = 0; c < count(base + 160, 1.0f); ++c) hang(k, c % 2 ? "furn_portrait" : "furn_picture", r + "art" + std::to_string(c), 0.1f);
   }
 };
+}
+
+int InteriorSys::dropPieces(App& app, uint64_t hostId) {
+  size_t n0 = app.doc.instances.size();
+  app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) {
+    return isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == hostId; }), app.doc.instances.end());
+  return (int)(n0 - app.doc.instances.size());
 }
 
 int InteriorSys::unfurnish(App& app, uint64_t hostId) {
@@ -996,7 +1515,11 @@ int InteriorSys::unfurnish(App& app, uint64_t hostId) {
   app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) {
     return i.extra.is_object() && i.extra.contains("furnish") && i.extra["furnish"].value("host", (uint64_t)0) == hostId; }), app.doc.instances.end());
   h = app.doc.find(hostId);
-  if (h && h->extra.is_object() && h->extra.contains("interior")) { h->extra["interior"]["on"] = false; h->extra["interior"].erase("slots"); }
+  if (h) {   // stays bare: on: false also keeps auto-furnishing away from it
+    if (!h->extra.is_object()) h->extra = json::object();
+    json& in = h->extra["interior"]; if (!in.is_object()) in = json::object();
+    in["on"] = false; in.erase("slots");
+  }
   if (h) app.bump(*h);
   app.syncRuntime();
   return (int)(n0 - app.doc.instances.size());
@@ -1015,7 +1538,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   uint32_t seed = in.value("seed", (uint32_t)(hmix32((uint32_t)hostId * 2654435761u) & 0xFFFFFF));
   if (mode == 1) seed = hmix32(seed + 0x9E3779B9u) & 0xFFFFFF;
   in["seed"] = seed; in["on"] = true; in["gen"] = hostId;
-  float density = std::clamp(in.value("density", 0.7f), 0.0f, 1.0f), clutter = std::clamp(in.value("clutter", 0.5f), 0.0f, 1.0f);
+  float density = std::clamp(in.value("density", 1.0f), 0.0f, 2.0f), clutter = std::clamp(in.value("clutter", 0.7f), 0.0f, 2.0f);   // V4: 1.0 is a lived-in house (3x the first templates), 2.0 crowded
   float wear = h->extra.contains("finish") ? h->extra["finish"].value("wear", 1.0f) : 1.0f;
   std::set<std::string> removed;
   for (auto& s : in.value("removed", json::array())) removed.insert(s.get<std::string>());
@@ -1036,8 +1559,13 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     if (!i.extra.is_object() || !i.extra.contains("furnish") || i.extra["furnish"].value("host", (uint64_t)0) != hostId) return false;
     return !manual.count(i.extra["furnish"].value("slot", std::string())); }), app.doc.instances.end());
   h = app.doc.find(hostId);
-  app.bump(*h);
-  app.syncRuntime();   // built-in furniture leaves the collision before planning
+  {   // built-in furniture leaves the collision before planning: swap the building's static shape in place (a full
+      // rebuild of the building -- walls, terrain cut -- is not needed and is slow on large maps)
+    auto rit = app.rt.find(hostId);
+    if (rit != app.rt.end() && rit->second.rev == h->rev && rit->second.staticBody != 0xffffffffu) { if (ShapePtr sh = staticShape(app, *h, ha)) Physics::setShape(rit->second.staticBody, sh); }
+    else app.bump(*h);
+  }
+  app.syncRuntime();
   h = app.doc.find(hostId);
   Planner P{app, *this, *h, ha, *ri, seed, density, clutter, wear, {}, {}, {}, 0};
   for (auto& S : ri->storeys) P.occ.emplace_back(S.id.size(), 0);
@@ -1068,7 +1596,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     n.pos = hp + hq * it.p; n.yaw = wrapDeg(hy + it.yaw);
     n.extra = json::object();
     json loc = {it.p.x, it.p.y, it.p.z, it.yaw};
-    n.extra["furnish"] = {{"host", hostId}, {"slot", it.slot}, {"loc", loc}, {"gen", loc}, {"hp", {hp.x, hp.y, hp.z, hy}}};
+    n.extra["furnish"] = {{"host", hostId}, {"slot", it.slot}, {"loc", loc}, {"hp", {hp.x, hp.y, hp.z, hy}}};
     if (it.broken) n.extra["propBroken"] = true;
     app.bump(n);
     app.doc.instances.push_back(n);
@@ -1081,12 +1609,17 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   app.dirty = true;
   app.syncRuntime();
   lastFurnishMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
-  logf("interior: furnished %s #%llu: %d pieces (%zu slots, %zu kept overrides, %zu removed) in %.1f ms, %d solid queries", ha->id.c_str(), (unsigned long long)hostId, made, P.out.size(), manual.size(), removed.size(), lastFurnishMs, P.calls);
+  if (getenv("NMK_INTERIORS_QUICK")) { std::string l; for (auto& it : P.out) l += " " + it.slot + "=" + it.asset.substr(5); logf("interior: placed%s", l.c_str()); }
+  logf("interior: furnished %s #%llu: %d pieces (%zu slots, %zu kept overrides, %zu removed) in %.1f ms, %d solid queries; no room for:%s", ha->id.c_str(), (unsigned long long)hostId, made, P.out.size(), manual.size(), removed.size(), lastFurnishMs, P.calls, P.failed.empty() ? " -" : P.failed.c_str());
   return made;
 }
 
 void InteriorSys::sync(App& app) {
+  updateBatches(app);   // every frame, every mode: merged furniture meshes follow breaks, edits and selection
   if (app.mode != Mode::Creative) return;
+  auto syncSig = [&]() { return ((uint64_t)app.revCounter << 32) ^ (uint64_t)app.doc.instances.size(); };
+  if (syncSig() == syncSig_) return;   // nothing moved, appeared or went away since the last pass
+  ++syncPasses;
   bool changed = false;
   std::map<uint64_t, Instance*> hosts;
   for (auto& i : app.doc.instances) if (hideBuiltin(i)) hosts[i.id] = &i;
@@ -1123,6 +1656,7 @@ void InteriorSys::sync(App& app) {
   }
   for (uint64_t id : regen) furnish(app, id, 0);
   if (changed) app.dirty = true;
+  syncSig_ = syncSig();
 }
 
 // ============================================================ editor
@@ -1155,10 +1689,10 @@ void InteriorSys::editorPanel(App& app, Instance& s) {
   if (ed && sp) { if (!sp->extra.is_object()) sp->extra = json::object(); sp->extra["finish"]["wear"] = wear; sp->extra["finish"]["palette"] = pal; app.bump(*sp); }
   if (!sp) return;
   json in = sp->extra.is_object() && sp->extra.contains("interior") ? sp->extra["interior"] : json::object();
-  float dens = in.value("density", 0.7f), clut = in.value("clutter", 0.5f);
+  float dens = in.value("density", 1.0f), clut = in.value("clutter", 0.7f);
   bool a2 = false, e2 = false;
-  ImGui::SliderFloat("Furniture density", &dens, 0.0f, 1.0f, "%.2f"); a2 |= ImGui::IsItemActivated(); e2 |= ImGui::IsItemEdited();
-  ImGui::SliderFloat("Clutter density", &clut, 0.0f, 1.0f, "%.2f"); a2 |= ImGui::IsItemActivated(); e2 |= ImGui::IsItemEdited();
+  ImGui::SliderFloat("Furniture density", &dens, 0.0f, 2.0f, "%.2f"); a2 |= ImGui::IsItemActivated(); e2 |= ImGui::IsItemEdited();
+  ImGui::SliderFloat("Clutter density", &clut, 0.0f, 2.0f, "%.2f"); a2 |= ImGui::IsItemActivated(); e2 |= ImGui::IsItemEdited();
   if (a2) { app.pushUndo(); sp = app.doc.find(s.id); }
   if (e2 && sp) { if (!sp->extra.is_object()) sp->extra = json::object(); sp->extra["interior"]["density"] = dens; sp->extra["interior"]["clutter"] = clut; app.dirty = true; }
   int pieces = 0, overrides = 0;

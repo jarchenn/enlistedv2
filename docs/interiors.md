@@ -189,3 +189,130 @@ Each asset has a simplified collider of 1–3 invisible boxes. Small props, rugs
 - **Breaks replicate over LAN** only through the replicated explosion events. A late joiner sees applied breaks (`propBroken`) but not session breaks.
 - **The CC-BY furniture GLBs** in `docs/assets-ai-lan.md` are not used.
 - **Grass bending under tanks** (the first half of V1) is still open.
+
+## 4. V4: furniture everywhere, 3x density, destructible (2026-11-07, branch `vo-4-furniture`)
+
+User item 0b of `docs/plan-visual-physics-overhaul.md`: keep the look of the furniture, but put it in every building
+automatically, at least three times as dense, and let shells, AT rounds, rockets, grenades and tanks destroy it.
+
+### Automatic furnishing
+
+- **When.** `InteriorSys::autoFurnishAll` runs after `syncRuntime` in `App::openMap` and after `w5NewMapContent` in
+  `App::newMap` (so also the New Map dialog and every template). `App::placeInstance` calls `autoFurnish` for the new
+  building (`interior.autoOnPlace`, on by default; tests switch it off to keep a built-in baseline).
+- **Which buildings.** Every enterable asset with rooms whose copy has no `extra.interior` with an `on` key. Skipped:
+  `bunker_*`, `aw_*`, `bch_*` (and the Bunkers / Atlantic Wall / Landing craft / Beach categories), ruined or
+  half-built assets (`isRuinedAsset()` in `interior.h`: `ruin_*`, `rub_*`, `vil_church_ruined`, `vil_chateau_keep`,
+  `aw_r612_unfinished`, `bch_lcvp_wrecked`; the lighting stream reuses the list), anything tagged `extra.decor`
+  (V8's border buildings), and a building whose template furniture the user removed (`on: false`).
+- **Deleting** a building (`deleteSelected`, build-mode Del) removes its template furniture at once; build-mode
+  Ctrl+Z after placing a building removes the furniture that came with it.
+- **Ground cover.** Template furniture is not a grass / nature-patch footprint and has no foundation soil band: it
+  stands inside its building's footprint.
+- **Routes stay clear.** Both the asset's `walkthrough` and its structures-suite `tour` keep a 0.9 m corridor free of
+  template furniture (church nave, Norman farmhouse), and so do the doorway rings. Solid wall-hung pieces (wall shelf,
+  plate rack: head height) keep out of them too; pictures and other cosmetic wall pieces may hang beside a route.
+  Pews are 2.1 m and stand in a column against each side wall. A wall shelf with no wall left becomes a picture or a
+  portrait, and lived-in rooms get one or two more of those wherever a wall is free.
+- **Not an edit.** No undo step is pushed and the dirty flag is restored, so opening a map and closing it again asks
+  nothing. The pieces are ordinary instances (`extra.furnish`), so a saved map keeps them and is not furnished twice;
+  a built-in example opened as a copy is furnished the same way every time (the seed comes from the host id).
+- **Room detection.** Earth floors and thin dressed-stone floors now count, which gives the stone barn, the church
+  nave, the chateau keep's ground floor and the ruined church their rooms. New room kinds: church nave, barn, classroom,
+  office, tavern room and ruined room (a `ruin_*` asset furnished by hand from the Interior panel), next to kitchen,
+  sitting room, bedroom, utility, workshop and hall.
+
+### Density
+
+- **29 new furniture assets** from `tools/gen_furniture.py` (56 in all), the same rounded-box construction and
+  materials as the first set:
+  - large: buffet bas (dresser), sideboard, bookcase, washstand, cooking range, pantry shelves with jars, grain sacks,
+    cask, casks on a cradle, workbench, armchair, writing desk, church pew, school desk, firewood stack, hay bales;
+  - wall-hung: coat pegs, wall clock, utensil rack, tool board, mirror, portrait, and a wall shelf and a plate rack
+    that carry small things (their board is a thin collider, so what stands on them is supported);
+  - small: preserving jars, bucket, basket of apples, cooking pot, candlesticks.
+  - `"metal"` is a new prop family (range, pot, utensils, candlesticks): rounds stop on it, like masonry.
+- **Recipes** (`Planner::room`): more wall slots per room, clutter on every top, corner pieces (casks, sacks,
+  baskets, buckets, firewood), and wall-hung pieces that may hang above a dresser or a bench (they keep out of door
+  swings, stairs and windows). Churches get rows of pews toward the end away from the door, with an altar table and
+  candlesticks; classrooms get rows of twin desks facing the teacher's desk; taverns several tables, casks and a
+  sideboard; barns hay, sacks, casks, crates and tools; ruins a few pieces, most of them broken.
+- **Density range.** Furniture density 0–2 (default 1.0, was 0–1 with 0.7), clutter 0–2 (default 0.7).
+
+### Destruction
+
+- **Every shell already reaches the furniture** through `App::explode` → `interior.blast` (tank HE / AP, PaK HE / AP in
+  `station.cpp`, rockets, grenades, LAN replays). New in `blast`:
+  - a burst within 0.15 m of a piece (the shell struck it) is a **direct hit**: the piece is blown apart whatever its
+    rating (masonry excepted);
+  - **grenades** count 2.2x against furniture (fragmentation shreds wood); a grenade on a kitchen floor takes out
+    nearly everything within 3 m;
+  - a grenade, a direct hit or a blast at 2.5x the rating is a **violent break**: all fragment groups fly (up to six,
+    was four), faster spin, wood splinters / faience chips / glass shards (`Fx::splinters`) and a dust cloud
+    (`Fx::dust`); a grenade also leaves the room dusty;
+  - support checks run once at the end of a blast instead of after every break.
+- **Fragment budget.** 32 live / 240 kept rigid fragments (was 24 / 160) times the particle budget of V2's graphics
+  preset (`settings().particleBudget()`, picked up automatically through `__has_include("settings.h")`; 1.0 before V2
+  merges). Over the live budget a new fragment is not spawned (its share goes to the splinters) unless the oldest live
+  one has had 0.8 s to settle, so nothing freezes in mid-air.
+- **Tanks** (`tank_ram.cpp`, furniture branch only): furniture never blocks a tank. On contact a piece is broken
+  violently, its remains lose their collision and draw flattened; fragments are driven over.
+
+### Drawing
+
+- Near a building (within 18 m of its furniture's bounds) every piece draws on its own with full detail from the
+  shared asset meshes. Farther away the building's intact pieces draw as **one merged box-LOD mesh** (rounded boxes as
+  plain boxes, glass and tiny parts dropped), small props only to 32 m, nothing beyond 75 m. A piece that breaks, is
+  moved or selected leaves the batch, which is rebuilt the next frame (`InteriorSys::updateBatches`, from `sync`).
+  Hand-placed furniture outside a building is never culled.
+- **Per frame**, `updateBatches` and the Creative follow / override pass in `sync` return at once unless the edit
+  revision, the instance count, the selection or a furniture state (a break, glass, a crush, a reset) changed. Without
+  that, a map with ~1,200 pieces (Omaha: 28 buildings) spent about 10 ms a frame in JSON lookups.
+- **Load time.** Furnishing swaps the building's static collision to its no-built-in-furniture shape in place instead of
+  rebuilding the whole building, and the planner probes each wall face once per cell (cached).
+
+### Shared core touched (V4, one-line hooks)
+
+| File | Change |
+|---|---|
+| `app.cpp` | `interior.autoFurnishAll` after `w5NewMapContent` in `newMap` and after `syncRuntime` in `openMap`; `interior.autoFurnish` at the end of `placeInstance` |
+| `tank_ram.cpp` | Furniture branch: `interior.tankContact` for a piece, fragments driven over; never a blocker |
+| `fx.cpp`, `combat.h` | `Fx::splinters`, `Fx::dust` (appended) |
+| `selftest_maps.cpp` | Instance counts compare the authored instances (pieces with `extra.furnish` are added on open / new map) |
+| `selftest_damage.cpp` | The two walk-through farmhouses are unfurnished (their breach routes are authored for the bare house); the pre-update map counts authored instances |
+| `docs/asset-usage-default-maps.md` | Rows for the new furniture |
+
+### Tests (`--selftest-interiors`, 2026-11-07)
+
+New checks, next to the 141 of the first set:
+
+- **Auto-furnish.** The four fixtures arrive furnished on placement, one undo step each, and regenerating gives the same
+  layout. Every enterable asset is placed once: all 15 houses, barns, churches and civic buildings are furnished,
+  all 16 bunkers / Atlantic Wall / landing craft are left alone, every `vil_*` building has rooms, and the two
+  churches have 16 pews. `extra.decor` and a building whose furniture was removed stay bare. Opening a saved map with a
+  bare Norman farmhouse furnishes it with no undo step and no dirty flag; so does a new map from battle1 (19
+  buildings, 769 pieces, 0.7 s).
+- **Density gate (x3).** The four fixtures: 164 pieces vs 45 with the first templates (x3.6). Every building: 548 vs
+  163 (x3.4; the exact count moves a little with the instance ids, which seed the layouts). Lowest single building:
+  the schoolhouse at x2.4.
+- **Grenade in a kitchen.** An M24 on the kitchen floor of a furnished farmhouse blows apart at least 70 % of the
+  pieces within 4 m (7 of 8 in the last run, 46 pieces in all), with rigid fragments, splinter bursts and dust.
+- **Direct hits.** A 75 mm tank HE shell, a PaK AP shot and a rocket each strike a piece in the open: all three are
+  blown apart as direct hits.
+- **Tanks.** A Sherman drives at a table, a dresser and an armoire, crushes all three and drives on.
+- **Performance.** Kitchen view: built-in 8.3 / 8.7 ms, furnished 8.7 / 9.6 ms, during a room blast 8.9 / 9.9 ms in two
+  runs (the first set measured 62 ms mean / 260 ms p95 during that blast, mostly repeated support checks). The `maps` FPS gates hold
+  with every building furnished (Omaha worst eye-level view 14.6 ms; battle1, reported only, 15.7 ms).
+
+`NMK_INTERIORS_QUICK=1` runs only the furnishing steps (for tuning recipes; the furnish log then lists every placed
+slot and the slots that found no room).
+
+### Limits (V4)
+
+- **Furniture behind a breach blocks the way in.** A piece standing against a wall stays there when the wall is
+  breached from outside (the wall shields it from that blast); a soldier then has to break or blast it.
+- **Some rooms stay sparse.** Rooms crossed by an authored walkthrough route, with doors and windows on most walls
+  (the farmhouse sitting room, the municipal offices), have little wall left: they get small and wall-hung pieces.
+- **Opening a large map takes longer.** battle1 (19 buildings, 769 pieces) 0.5–0.9 s; Omaha (28 buildings, 1,169
+  pieces) about 2.6 s, where each building costs more as the map fills (not profiled further).
+- **The pieces are saved with the map.** Undo snapshots and LAN map transfers carry them like any other instance.

@@ -154,10 +154,16 @@ void SelfTest::damageUpdate(App& app, float dt) {
   // ------------------------------------------------------------- setup: fixture map
   case 500: {
     reportName = "damage";
+    // V4: the destruction range is about walls, so its buildings are placed bare (no auto-furnish). Wall-stamp seeds come
+    // from instance ids, and furniture pieces would shift them; furniture damage is the interiors suite's
+    app.interior.autoOnPlace = false;
     const TemplateInfo* t = app.findTemplate("blank_slate");
     app.newMap(*t, "Destruction range");
     X.A = app.placeInstance(app.lib.find(FH), vec3(20, 0, 10), 37.0f);
     X.B = app.placeInstance(app.lib.find(FH), vec3(62, 0, 10), 37.0f);
+    // V4: the farmhouses are walked through their own breaches (authored routes for the bare house): template furniture
+    // removed, so it stays bare through save / reopen (interior.on = false); furniture damage is the interiors suite
+    app.interior.unfurnish(app, X.A); app.interior.unfurnish(app, X.B);
     X.C = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(-40, 0, 45), 200.0f);
     X.M = app.placeInstance(app.lib.find("large_municipal_building"), vec3(110, 0, -70), 123.0f);
     check(X.A && X.B && X.C && X.M, "fixture: two farmhouse copies (one at 37 deg), rotated MG casemate, municipal building placed");
@@ -639,6 +645,145 @@ void SelfTest::damageUpdate(App& app, float dt) {
           check((r2d.leafSt[kd][0] & 2) && frags >= 6, b);
         } else check(false, "farmhouse front door found");
       }
+      // ---- opening trim and support between bays (docs/destruction.md#trim, #support)
+      {
+        app.resetDamage();
+        InstanceRT& r1 = app.rt[c1]; InstanceRT& r2 = app.rt[c2];
+        auto& TS = app.trimStats;
+        std::vector<int> wins; int doorsT = 0;
+        for (size_t g = 0; g < fa->trims.size(); ++g) {
+          bool w = false; for (int k2 : fa->trims[g].interact) w |= fa->interactables[k2].kind == "window";
+          if (w && fa->trims[g].panel >= 0) wins.push_back((int)g); else ++doorsT;
+        }
+        int trimParts = 0; for (auto& t : fa->trims) trimParts += t.parts;
+        char tb[400];
+        std::snprintf(tb, sizeof tb, "%s: %zu openings carry trim (%zu windows, %d doors; %d frame, jamb, sill, lintel and threshold parts) bound to the bays around them at load",
+                      fa->name.c_str(), fa->trims.size(), wins.size(), doorsT, trimParts);
+        check(wins.size() >= 2 && doorsT >= 1 && trimParts >= 6 * (int)fa->trims.size(), tb);
+        auto outer = [&](const TrimGroup& t, float u, float v) {   // local point just outside the wall's outer face
+          vec3 p(0); p[t.an == 0 ? 2 : 0] = u; p.y = v;
+          p[t.an] = fa->panels[t.panel].normal[t.an] > 0 ? t.d1 + 0.02f : t.d0 - 0.02f;
+          return p;
+        };
+        // a ray through the sill (it spans the wall's depth just over the spandrel), from outside: blocked by the trim while it stands
+        std::string rayWhat;
+        auto jambBlocks = [&](uint64_t id, const TrimGroup& t) {
+          vec3 n = fa->panels[t.panel].normal;
+          vec3 o = W(app, id, outer(t, 0.5f * (t.u0 + t.u1), t.bmin.y + 0.04f) + n * 0.3f), d = Wd(app, id, -n);
+          Physics::Hit h;
+          bool hit = Physics::castRayEx(o, d, 0.4f + (t.d1 - t.d0) + 0.2f, h);
+          char w[80]; std::snprintf(w, sizeof w, "%s%s %04llx@%.2f", rayWhat.empty() ? "" : ", ", hit ? "hit" : "miss", hit ? (unsigned long long)(h.ud & 0xFFFF) : 0ull, hit ? h.t : 0.0f); rayWhat += w;
+          return hit && h.ud == ((id << 16) | 0xFFFFull);
+        };
+        // the bay over an opening's head (its spandrel): a cell 0.12 m above the head, over the opening's centre
+        auto spandrel = [&](const TrimGroup& t, int& kk, int& idx) {
+          kk = -1; idx = -1;
+          float uc = 0.5f * (t.u0 + t.u1);
+          int au = t.an == 0 ? 2 : 0;
+          for (size_t q = 0; q < fa->panels.size(); ++q) {
+            const Panel& p = fa->panels[q];
+            if (p.trim >= 0 || std::fabs(p.normal[t.an]) < 0.5f || p.bmax[t.an] < t.d0 + 0.05f || p.bmin[t.an] > t.d1 - 0.05f) continue;
+            if (p.bmin[au] > uc || p.bmax[au] < uc || p.bmin.y < t.v1 - 0.1f || p.bmin.y > t.v1 + 0.3f) continue;
+            float cell = app.destruction.cell, W2 = p.bmax[au] - p.bmin[au];
+            int nu = std::max(1, (int)std::ceil(W2 / cell)); float cu = W2 / nu;
+            int nv = std::max(1, (int)std::ceil((p.bmax.y - p.bmin.y) / cell)); float cv = (p.bmax.y - p.bmin.y) / nv;
+            int iu = std::clamp((int)((uc - p.bmin[au]) / cu), 0, nu - 1), iv = std::clamp((int)((t.v1 + 0.12f - p.bmin.y) / cv), 0, nv - 1);
+            kk = (int)q; idx = iv * nu + iu; return;
+          }
+        };
+        auto cellGone = [&](InstanceRT& r, int kk, int idx) {
+          if (kk < 0 || r.wf[kk].rf.empty()) return false;
+          const Panel& p = fa->panels[kk]; float T = std::fabs(glm::dot(p.bmax - p.bmin, glm::abs(p.normal)));
+          return r.wf[kk].rf[idx] + r.wf[kk].rb[idx] >= T - 1e-3f;
+        };
+        if (wins.size() >= 2) {
+          // 1) HE at a window: the frame, sill and lintels come out with the sash; the spandrel over it loses its lintel
+          int g = wins[0];
+          const TrimGroup& t = fa->trims[g];
+          vec3 n = fa->panels[t.panel].normal;
+          bool blocked0 = jambBlocks(c1, t);
+          int sk, sidx; spandrel(t, sk, sidx);
+          int bl0 = TS.blast; size_t dl0 = app.dynLeaves.size();
+          hitAt(app, c1, outer(t, t.u1 + 0.3f, 0.5f * (t.v0 + t.v1)), -n, WALL_HE, kHE);
+          int pieces = 0; for (size_t q = dl0; q < app.dynLeaves.size(); ++q) pieces += app.dynLeaves[q]->inst == c1 && app.dynLeaves[q]->fragment;
+          bool leaves = true; for (int k2 : t.interact) for (auto s : r1.leafSt[k2]) leaves = leaves && (s & 2);
+          bool gone = !app.trimIntact(r1, g), blocked1 = jambBlocks(c1, t);
+          std::snprintf(tb, sizeof tb, "an HE shell on the pier beside the %s window (0.3 m from the frame) breaks its trim whole: frame, sill and lintels gone (the sill blocks a ray %s -> %s: %s), sash and shutters with it, %d pieces fall as rigid bodies",
+                        fa->interactables[t.interact[0]].id.c_str(), blocked0 ? "yes" : "no", blocked1 ? "yes" : "no", rayWhat.c_str(), pieces);
+          check(gone && TS.blast > bl0 && blocked0 && !blocked1 && leaves && pieces >= 4, tb);
+          // the same shell with the support rule off (copy 2): only the frame goes, the spandrel stands
+          bool spOn = cellGone(r1, sk, sidx);
+          app.destruction.support = false;
+          hitAt(app, c2, outer(t, t.u1 + 0.3f, 0.5f * (t.v0 + t.v1)), -n, WALL_HE, kHE);
+          bool spOff = cellGone(r2, sk, sidx);
+          app.destruction.support = true;
+          std::snprintf(tb, sizeof tb, "the spandrel over the broken lintel collapses (%s, a cell 0.12 m over the head at the centre: %s; with the support rule off the same shell leaves it: %s)",
+                        sk >= 0 ? fa->panels[sk].id.c_str() : "none found", spOn ? "gone" : "stands", spOff ? "gone" : "stands");
+          check(sk >= 0 && spOn && !spOff, tb);
+          summary["trim_he_pieces"] = pieces;
+          // 2) a breach under the sill (AP 0.55 m below it, beyond the shell's trim reach): the sill and frame drop
+          app.resetDamage();
+          int g2 = wins.back();
+          const TrimGroup& t2 = fa->trims[g2];
+          vec3 n2 = fa->panels[t2.panel].normal;
+          int su0 = TS.support, bl1 = TS.blast, shots = 0;
+          float vv = std::min(t2.v0, t2.bmin.y) - 0.55f;
+          while (app.trimIntact(r1, g2) && shots < 3) { hitAt(app, c1, outer(t2, 0.5f * (t2.u0 + t2.u1), vv), -n2, WALL_AP, 320.0f); ++shots; }
+          std::snprintf(tb, sizeof tb, "a breach under the %s sill (%d AT shot%s 0.55 m below it) drops the sill, frame and lintels: support lost, not the blast (support %d, blast %d)",
+                        fa->interactables[t2.interact[0]].id.c_str(), shots, shots == 1 ? "" : "s", TS.support - su0, TS.blast - bl1);
+          check(!app.trimIntact(r1, g2) && TS.support > su0 && TS.blast == bl1, tb);
+            // replay: the trim and collapse events rebuild exactly (late join, Apply)
+          {
+            bool same = true;
+            auto before = r1.wf;
+            Instance tmp = *app.doc.find(c1); tmp.extra = json::object(); tmp.extra["wallDamage"] = app.wallEventsJson(r1);
+            InstanceRT r3; r3.id = c1; r3.asset = fa; r3.hp.assign(fa->panels.size(), 0); r3.state.assign(fa->panels.size(), PANEL_INTACT);
+            app.replayWallDamage(tmp, r3);
+            for (size_t q = 0; q < before.size() && same; ++q) same = before[q].rf == r3.wf[q].rf && before[q].rb == r3.wf[q].rb;
+            int broken = 0; for (size_t g = 0; g < fa->trims.size(); ++g) broken += !app.trimIntact(r1, (int)g) && !app.trimIntact(r3, (int)g);
+            std::snprintf(tb, sizeof tb, "replaying %zu stored events rebuilds every cell, broken trim (%d) and collapsed bay exactly", r1.wallEvents.size(), broken);
+            check(same && broken >= 1, tb);
+            for (auto& m : r3.pmesh) m.destroy();
+          }
+        } else check(false, "two windows with trim on the farmhouse");
+        // 3) bays stacked on bays: a small hole under one leaves it standing; a destroyed bay drops the one over it
+        {
+          app.resetDamage();
+          int k0 = -1, k1 = -1;
+          for (size_t q = 0; q < fa->panels.size() && k1 < 0; ++q) for (size_t q2 = 0; q2 < fa->panels.size(); ++q2) {
+            const Panel &L = fa->panels[q], &U = fa->panels[q2];
+            if (L.trim >= 0 || U.trim >= 0 || std::fabs(L.normal.z) < 0.5f || L.normal != U.normal || std::fabs(U.bmin.y - L.bmax.y) > 0.03f) continue;
+            if (std::fabs(U.bmin.z - L.bmin.z) > 0.05f || U.bmin.x < L.bmin.x - 0.02f || U.bmax.x > L.bmax.x + 0.02f || U.bmax.x - U.bmin.x < 1.0f || L.bmax.y - L.bmin.y < 1.5f || U.bmax.y - U.bmin.y < 0.8f) continue;
+            k0 = (int)q; k1 = (int)q2; break;
+          }
+          if (k0 >= 0) {
+            const Panel &L = fa->panels[k0], &U = fa->panels[k1];
+            vec3 n = L.normal;
+            float uc = 0.5f * (U.bmin.x + U.bmax.x), zf = n.z > 0 ? L.bmax.z + 0.02f : L.bmin.z - 0.02f;
+            int bays0 = TS.bays;
+            hitAt(app, c1, vec3(uc, L.bmax.y - 0.25f, zf), -n, WALL_ROCKET, 260.0f);
+            float smallFrac = r1.wf[k1].rf.empty() ? 0.0f : r1.wf[k1].removedFrac;
+            float lowerOpen = r1.wf[k0].openArea;
+            std::snprintf(tb, sizeof tb, "a small hole (rocket, %.2f m^2 open) just under %s leaves it standing: %.0f %% of it removed, no bay collapses",
+                          lowerOpen, U.id.c_str(), 100 * smallFrac);
+            check(lowerOpen > 0.02f && smallFrac < 0.2f && TS.bays == bays0, tb);
+            app.resetDamage();
+            auto destroyLower = [&](uint64_t id) {
+              for (float x = L.bmin.x + 0.4f; x < L.bmax.x - 0.2f; x += 0.7f) hitAt(app, id, vec3(x, L.bmax.y - 0.45f, zf), -n, WALL_AP, 320.0f);
+            };
+            destroyLower(c1);
+            float onFrac = r1.wf[k1].rf.empty() ? 0.0f : r1.wf[k1].removedFrac;
+            app.destruction.support = false;
+            destroyLower(c2);
+            float offFrac = r2.wf[k1].rf.empty() ? 0.0f : r2.wf[k1].removedFrac;
+            app.destruction.support = true;
+            std::snprintf(tb, sizeof tb, "%s left over the destroyed top of %s falls in (%.0f %% of it gone, %.0f %% with the support rule off; %d support cells collapsed so far, %.1f ms in the support pass)",
+                          U.id.c_str(), L.id.c_str(), 100 * onFrac, 100 * offFrac, TS.cells, TS.supportMs);
+            check(onFrac > offFrac + 0.2f, tb);
+            summary["support_over_destroyed"] = {{"on", onFrac}, {"off", offFrac}};
+          } else check(true, "no bays stacked on bays on this asset");
+        }
+      }
       app.resetDamage();
       app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) { return i.id == c1 || i.id == c2; }), app.doc.instances.end());
       app.syncRuntime();
@@ -725,8 +870,9 @@ void SelfTest::damageUpdate(App& app, float dt) {
     // old map (saved by the pre-destruction build) opens with every wall intact
     check(app.openMap(contentDir() / "examples" / "farmhouse_regression.nmap.json"), "pre-update example map opens");
     app.syncRuntime();
-    int anyD = 0; for (auto& [id, r] : app.rt) anyD += r.damaged;
-    check(app.doc.instances.size() == 1 && anyD == 0, "pre-update map: building present, all panels intact");
+    int anyD = 0, authored = 0; for (auto& [id, r] : app.rt) anyD += r.damaged;
+    for (auto& i : app.doc.instances) authored += !(i.extra.is_object() && i.extra.contains("furnish"));   // V4: opening furnishes the house
+    check(authored == 1 && anyD == 0, "pre-update map: building present, all panels intact");
     finish(app);
     break;
   }

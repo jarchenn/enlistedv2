@@ -168,3 +168,24 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
     add.push_back({p0, c, {0, 0.5f}}); add.push_back({p2, c, {1, 0.5f}}); add.push_back({p3, c, {0, 0.5f}});
   }
 }
+
+// V4 furniture breaks (interior.cpp): small fast chips that fall under gravity (wood splinters, faience chips, glass), and
+// a slow low dust cloud when a piece is blown apart. Both respect maxParts like every other effect.
+void Fx::splinters(vec3 p, vec3 v, int n, vec4 col, float size) {
+  for (int k = 0; k < n; ++k) {
+    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    Particle q;
+    vec3 r(rnd() - 0.5f, rnd() * 0.9f + 0.1f, rnd() - 0.5f);
+    q.p = p + r * 0.25f; q.v = v * (0.4f + 0.8f * rnd()) + r * (2.5f + 3.5f * rnd());
+    q.size = size * (0.6f + 0.9f * rnd()); q.life = q.maxLife = 0.6f + 0.8f * rnd();
+    q.col = vec4(vec3(col) * (0.75f + 0.5f * rnd()), col.a); q.grow = 0; q.drag = 0.9f; q.lift = -9.0f;
+    parts.push_back(q);
+  }
+}
+void Fx::dust(vec3 p, float radius, vec4 col) {
+  int n = 6 + (int)(radius * 6);
+  for (int k = 0; k < n; ++k) {
+    vec3 r(rnd() - 0.5f, rnd() * 0.5f, rnd() - 0.5f);
+    smoke(p + r * radius, r * 0.8f + vec3(0, 0.15f, 0), 0.25f + 0.35f * radius * rnd(), 2.2f + 2.0f * rnd(), col, 0.5f + 0.3f * rnd(), 0.05f);
+  }
+}

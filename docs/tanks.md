@@ -163,7 +163,7 @@ One energy rule decides what gives way (`src/tank_ram.cpp`, values in `content/v
 
 So the slowdown depends on speed, as asked. Measured in the self-test, a Sherman hitting a telegraph pole loses 3 % of its speed at 29 km/h but 43 % at 7 km/h.
 
-**Durable obstacles take longer.** A slow Sherman stops against a low stone wall and needs 2.4 s of W (2.3 s predicted from E / P). A 57 t Tiger at 24 km/h goes straight through the same wall (1.3 MJ > 600 kJ) and keeps 18 km/h. A Sherman stops against a cottage's masonry wall and breaks through after about 2.6 s of W. Concrete never gives way.
+**Durable obstacles take longer.** A slow Sherman stops against a low stone wall and needs 2.4 s of W (2.3 s predicted from E / P). A 57 t Tiger at 24 km/h goes straight through the same wall (1.3 MJ > 600 kJ) and keeps 18 km/h. A Sherman stops against a cottage's masonry wall and breaks through after about 2.6 s of W. Concrete never gives way. Driven at a cottage's door, a Sherman breaks the door frame (trim) and pushes through the piers beside it: 1.5 m inside after 7.2 s, never blocked by a core contact at the opening.
 
 | Obstacle | What happens |
 |---|---|
@@ -171,8 +171,9 @@ So the slowdown depends on speed, as asked. Measured in the self-test, a Sherman
 | Low dry-stone wall | Collapses into a low heap of rubble with dust; the tank and soldiers cross it |
 | Barbed wire | Every stretch is cut (`destroyDefense`) |
 | Tree | Felled through the shared foliage path |
-| Wooden door or shutter | Smashed in (`detachLeaf`, which shatters doors into pieces). Iron doors and steel shutters hold |
-| Building wall bay (masonry, timber) | A tank-sized breach is driven through with the shared impact-centred wall damage (AT-class stamps across the hull width up to the turret roof). It is ordinary wall damage, so Apply / undo keeps it. Window and door frames that are part of the building's solid core go with the bay they sit in |
+| Wooden door, window sash or shutter | Smashed in (`detachLeaf`, which shatters doors and sashes into pieces). Iron doors and steel shutters hold |
+| Building wall bay (masonry, timber) | A tank-sized breach is driven through with the shared impact-centred wall damage (AT-class stamps across the hull width up to the turret roof). It is ordinary wall damage, so Apply / undo keeps it |
+| Door or window trim (frame, jambs, sill, lintels, threshold) | Breaks whole for 40 kJ (`trimKJ`), taking the door, sash or shutters with it, and falls out in pieces ([docs/destruction.md](destruction.md#trim)). A contact with the building's static core within 0.35 m of an opening (`trimMarginM`) breaks that trim instead of blocking the tank, and once the trim has gone the tank passes what is left at the opening (steps, slivers). Stored as a `WALL_RAM` wall event, so it replays like any wall damage. The bays over the opening lose their lintel and fall in under the support rule |
 
 Knocked-over props are a session overlay: leaving Explore puts them back. Wall breaches, felled trees and cut wire follow their usual Apply rules.
 

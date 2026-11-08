@@ -37,14 +37,17 @@ function roofX(A, x0, x1, Z, EAVE, RIDGE, { ov = 0.35, gov = 0.28, t = 0.14, gab
   }
   A.obox([xc + (gr - gl) / 2, RIDGE + t / Math.cos(th) - 0.02, 0], [2 * X + gl + gr + 0.04, 0.2, 0.2], [45, 0, 0], "ridge_tile");
 }
-// a wall whose top is broken: equal bays along a0..a1, each with its own height, plus loose stones on the tops
-function raggedWall(A, R, { axis, outer, inner, a0, a1, y0, heights, holes = [], side }) {
+// a wall whose top is broken: equal bays along a0..a1, each with its own height, plus loose stones on the tops.
+// inA: the inner (plaster) span, inset like shell() does. With the plaster running the full outer length, its end faces
+// lay coplanar with the crossing wall's stone face at every corner and shimmered (docs/rendering.md).
+function raggedWall(A, R, { axis, outer, inner, a0, a1, inA = [a0, a1], y0, heights, holes = [], side }) {
   const n = heights.length, w = (a1 - a0) / n;
   for (let i = 0; i < n; i++) {
     const b0 = a0 + i * w, b1 = b0 + w, h = heights[i];
     if (h <= y0 + 0.05) continue;
     const hs = holes.filter((q) => q.a1 > b0 && q.a0 < b1).map((q) => ({ ...q, a0: Math.max(q.a0, b0), a1: Math.min(q.a1, b1) }));
-    wall(A, { axis, outer, inner, aOut: [b0, b1], aIn: [b0, b1], y0, y1: h, holes: hs, pt: PT, panel: h - y0 > 1.5 && w > 1.2 ? pnM(side + "_" + i, y0, h, y0 + 0.02) : null });
+    const aIn = [Math.max(b0, inA[0]), Math.min(b1, inA[1])];
+    wall(A, { axis, outer, inner, aOut: [b0, b1], aIn, y0, y1: h, holes: hs, pt: PT, panel: h - y0 > 1.5 && w > 1.2 ? pnM(side + "_" + i, y0, h, y0 + 0.02) : null });
     for (let k = 0; k < 2; k++) { const a = b0 + 0.2 + R() * (w - 0.6), d0 = Math.min(outer, inner), d1 = Math.max(outer, inner); wbox(A, axis, a, a + 0.25 + R() * 0.35, h, h + 0.12 + R() * 0.25, d0 + R() * 0.2, d1 - R() * 0.2, "stone", { k: 0 }); }
   }
 }
@@ -334,17 +337,17 @@ export function churchRuined() {
   A.box([XI0, y0, -ZI], [XI1, GF, ZI], "earth");
   const wdoor = { a0: -0.75, a1: 0.75, y0: -10, y1: GF + 2.8 }, breach = { a0: 0.4, a1: 2.6, y0: -10, y1: 20 };
   const sWin = (c) => ({ a0: c - 0.45, a1: c + 0.45, y0: GF + 2.4, y1: GF + 4.4 });
-  raggedWall(A, R, { axis: "x", outer: Z, inner: ZI, a0: X0, a1: X1, y0, heights: [5.2, 4.1, 3.0, 1.2, 2.6, 4.8, 5.9], holes: [breach, sWin(-4.4), sWin(4.4)], side: "s" });
-  raggedWall(A, R, { axis: "x", outer: -Z, inner: -ZI, a0: X0, a1: X1, y0, heights: [5.8, 5.0, 2.2, 1.5, 1.6, 3.5, 5.0], holes: [sWin(-4.4), sWin(4.4)], side: "n" });
-  raggedWall(A, R, { axis: "z", outer: X0, inner: XI0, a0: -ZI - PT, a1: ZI + PT, y0, heights: [6.5, 8.2, 6.0], holes: [wdoor], side: "w" });
-  raggedWall(A, R, { axis: "z", outer: X1, inner: XI1, a0: -ZI - PT, a1: ZI + PT, y0, heights: [5.0, 6.2, 4.6], holes: [{ a0: -1.6, a1: 1.6, y0: -10, y1: GF + 4.0 }], side: "e" });
+  raggedWall(A, R, { axis: "x", outer: Z, inner: ZI, a0: X0, a1: X1, inA: [XI0, XI1], y0, heights: [5.2, 4.1, 3.0, 1.2, 2.6, 4.8, 5.9], holes: [breach, sWin(-4.4), sWin(4.4)], side: "s" });
+  raggedWall(A, R, { axis: "x", outer: -Z, inner: -ZI, a0: X0, a1: X1, inA: [XI0, XI1], y0, heights: [5.8, 5.0, 2.2, 1.5, 1.6, 3.5, 5.0], holes: [sWin(-4.4), sWin(4.4)], side: "n" });
+  raggedWall(A, R, { axis: "z", outer: X0, inner: XI0, a0: -ZI - PT, a1: ZI + PT, inA: [-ZI, ZI], y0, heights: [6.5, 8.2, 6.0], holes: [wdoor], side: "w" });
+  raggedWall(A, R, { axis: "z", outer: X1, inner: XI1, a0: -ZI - PT, a1: ZI + PT, inA: [-ZI, ZI], y0, heights: [5.0, 6.2, 4.6], holes: [{ a0: -1.6, a1: 1.6, y0: -10, y1: GF + 4.0 }], side: "e" });
   // choir: x 7..10.2, z -2.6..2.6, walls to ~4 m, east window
   const CX1 = 10.2, CZ = 2.6, CZI = CZ - T;
   A.box([X1, -0.9, -CZ], [CX1, y0, CZ], "stone_plinth");
   A.box([X1, y0, -CZI], [CX1 - T, GF, CZI], "earth");
-  raggedWall(A, R, { axis: "x", outer: CZ, inner: CZI, a0: X1, a1: CX1, y0, heights: [4.2, 3.4], side: "cs" });
-  raggedWall(A, R, { axis: "x", outer: -CZ, inner: -CZI, a0: X1, a1: CX1, y0, heights: [3.6, 4.4], side: "cn" });
-  raggedWall(A, R, { axis: "z", outer: CX1, inner: CX1 - T, a0: -CZI - PT, a1: CZI + PT, y0, heights: [3.8, 4.6], holes: [{ a0: -0.45, a1: 0.45, y0: GF + 1.6, y1: GF + 3.6 }], side: "ce" });
+  raggedWall(A, R, { axis: "x", outer: CZ, inner: CZI, a0: X1, a1: CX1, inA: [X1, CX1 - T], y0, heights: [4.2, 3.4], side: "cs" });
+  raggedWall(A, R, { axis: "x", outer: -CZ, inner: -CZI, a0: X1, a1: CX1, inA: [X1, CX1 - T], y0, heights: [3.6, 4.4], side: "cn" });
+  raggedWall(A, R, { axis: "z", outer: CX1, inner: CX1 - T, a0: -CZI - PT, a1: CZI + PT, inA: [-CZI, CZI], y0, heights: [3.8, 4.6], holes: [{ a0: -0.45, a1: 0.45, y0: GF + 1.6, y1: GF + 3.6 }], side: "ce" });
   // rubble heaps and charred timbers
   for (let k = 0; k < 40; k++) {
     const x = XI0 + 0.5 + R() * (XI1 - XI0 - 1), z = (R() < 0.5 ? -1 : 1) * (ZI - 0.4 - R() * 1.0), s = 0.25 + R() * 0.5;
@@ -387,10 +390,10 @@ export function chateauKeep() {
   const ent = { a0: 0.8, a1: 2.2, y0: -10, y1: GF + 2.7 };
   const win = (c) => ({ a0: c - 0.5, a1: c + 0.5, y0: FF + 0.85, y1: FF + 2.3 });
   const arrow = (c) => ({ a0: c - 0.12, a1: c + 0.12, y0: GF + 1.2, y1: GF + 2.4 });
-  raggedWall(A, R, { axis: "x", outer: X, inner: XI, a0: -X, a1: X, y0, heights: [14.5, 12.0, 13.2, 15.0], holes: [ent, win(-1.2), arrow(-2.4), arrow(3.0)], side: "s" });
-  raggedWall(A, R, { axis: "x", outer: -X, inner: -XI, a0: -X, a1: X, y0, heights: [15.2, 14.0, 11.0, 12.8], holes: [], side: "n" });
-  raggedWall(A, R, { axis: "z", outer: X, inner: XI, a0: -XI - PT, a1: XI + PT, y0, heights: [13.0, 11.4, 14.2], holes: [win(1.6)], side: "e" });
-  raggedWall(A, R, { axis: "z", outer: -X, inner: -XI, a0: -XI - PT, a1: XI + PT, y0, heights: [14.8, 13.4, 12.2], holes: [win(2.2)], side: "w" });
+  raggedWall(A, R, { axis: "x", outer: X, inner: XI, a0: -X, a1: X, inA: [-XI, XI], y0, heights: [14.5, 12.0, 13.2, 15.0], holes: [ent, win(-1.2), arrow(-2.4), arrow(3.0)], side: "s" });
+  raggedWall(A, R, { axis: "x", outer: -X, inner: -XI, a0: -X, a1: X, inA: [-XI, XI], y0, heights: [15.2, 14.0, 11.0, 12.8], holes: [], side: "n" });
+  raggedWall(A, R, { axis: "z", outer: X, inner: XI, a0: -XI - PT, a1: XI + PT, inA: [-XI, XI], y0, heights: [13.0, 11.4, 14.2], holes: [win(1.6)], side: "e" });
+  raggedWall(A, R, { axis: "z", outer: -X, inner: -XI, a0: -XI - PT, a1: XI + PT, inA: [-XI, XI], y0, heights: [14.8, 13.4, 12.2], holes: [win(2.2)], side: "w" });
   // stair up the inner west wall: x -3.5..-2.5, from z -2.4 toward +Z to 2.2, then the first floor
   stairs(A, { x0: -XI, x1: -XI + 1.0, z0: -2.4, dir: 1, y0: GF, rise: FF - GF, n: 20, run: 4.6, openSide: 1 });
   // first floor: z -0.8..3.5 except the stair hole; the southern part has fallen in (broken joists hang down)

@@ -431,3 +431,112 @@ After each batch:
     - `--selftest-editor`: 66 passed, 0 failed.
     - `--selftest-maps`: 139 passed, 0 failed (Omaha worst eye-level 15.34 ms).
     - Earlier runs were noisy while another session's game build held the GPU outside the lock: Omaha hit 24 ms with identical draw counts.
+
+
+### V1 handoff (2026-11-07): facades, rough walls, water
+Branch `vo-1-render` (worktree `nmk-vo1`), two commits on 0e8479f: 27f8aae (the work) and the follow-up (relief tuning, docs, proof images). Not pushed. Full write-up: `docs/rendering.md` §9; proof images in `docs/rendering/v1/`.
+
+**Tests** (build `%TEMP%/nmk/build-vo1`, each through `tools/gpu_turn.sh`):
+
+| Suite | Result |
+|---|---|
+| `render` (new) | 48/0 |
+| `visuals` | 31/0 |
+| `env` | 42/0 |
+| `interiors` | 141/0 |
+| `maps` | 139/0, FPS gate held: Omaha worst eye-level 15.40 ms (master 15.33); Battle 1 17.5 ms (reported only) |
+
+`visuals`, `env`, `interiors` and `maps` ran on the build one shader tweak before the final one. The tweak only changes the patterns 17/19/22 relief formula; `render` 48/0 confirms the final shaders compile.
+
+**Shimmer** (`--selftest-render`, same camera path on master and here; lower is better):
+- Farmhouse, still: 20 m 1.73 → 1.63, 50 m 2.00 → 1.85, 100 m 1.52 → 1.27.
+- Ruined church, 100 m: 1.24 → 0.60.
+- Strafe flicker: 50 m 3.37 → 3.00, 100 m 1.90 → 1.51.
+- With the new wall relief off, the shimmer fixes alone give 33–61 % below master.
+
+**Merge notes**
+- **Depth convention: reverse-Z inside `Renderer::render`.**
+  - CPU `projM` stays standard GL.
+  - Code drawing inside `render()` must use `R.zLess()`, `zLEqual()` and `zToward()`. Depth readers use ndc z = depth, and the sky is 0.
+  - Patched: SSAO, composite, shafts, TAA, `decals.cpp`.
+  - V2's resolution scale is fine: the water pass uses the internal `width`/`height`.
+- **`render.h`:**
+  - `WaterDraw`, `Renderer::water`, `revZ` + helpers, `wallRelief` (A/B), `friend struct WaterPass`;
+  - **`Quality::taaSharpen` default 0.40 → 0.30.** V2 should take 0.30 as Medium. If V2's settings test pins 0.40, update it.
+- **One-line hooks:**
+  - `app.cpp`: `buildDrawLists` water hook, `updateSurface` skips water assets, `--selftest-render` arg;
+  - `selftest.cpp`;
+  - `CMakeLists.txt` (`cmake/vo1.cmake`);
+  - `tools/run_all_tests.sh` (`render`);
+  - `tools/build_mpu_assets.mjs` (`waterAssets`).
+- **Assets:**
+  - `vil_norman_farmhouse`, `vil_church_ruined` and `vil_chateau_keep` regenerated;
+  - new `wat_*` (7, category Water) from `tools/catalog_water.mjs`;
+  - `env_sea_shallows` gains a `water` block. Its JSON was edited by hand: no generator owns it.
+  - `build_mpu_assets.mjs --check` reports only `gun_flak18.json`, which already drifts on master.
+- **For V6:** stream pieces carry `snap: [{p, dir, kind: "stream"}]`. Their channel cut runs 1.6 m past each socket. The footprints of a bend and a straight overlap when snapped, so the overlap check must allow snapped neighbours.
+- **For V8:** `waterSurfaceAt(app, x, z)` and `waterAsset(a)` are in `water.h`, for Beautify's water role.
+
+**Known limits** (`docs/rendering.md` §9.6):
+- Old `build_assets.mjs` houses keep 5 mm shutters until that generator is re-run.
+- The ruined church at 20–50 m is level with master.
+- Water is not physical (no collision, splashes or wading sounds).
+- SSR only, no underwater view.
+- No far-plane culling of terrain and grass chunks under reverse-Z.
+
+- 2026-11-07 V5 (frames and structural collapse, branch `vo-5-frames`): done, not pushed.
+  - **Trim** (`extractTrim`, `src/assets.cpp`, at load, no asset regeneration). Each door / window interactable's aperture gives the opening, and the static parts touching it become one trim bay (`trim/<id>`, family `trim`, `Panel::trim`, `AssetDef::trims`). Steel openings are skipped. Counts: two-storey farmhouse 10, cottage 4, Norman farmhouse 8, inn 29, bunkers 0.
+  - **Breaking** (`wallfield.cpp`, inside `stampWall`, so `replayWallDamage` reproduces it). Trim breaks whole on a blast or shell within reach, on lost support (half the band under the sill or beside a jamb open through), or on a tank (new `WALL_RAM` event kind). It takes the leaves with it; the pieces are DynLeaf rigid bodies.
+  - **Support between bays.** An arch rule: a 60° triangle falls over a lost bottom span, spans run on across seams, and unanchored remnants fall. Off switch: `destruction.support` (A/B in the tests). Doc: `docs/destruction.md#trim`, `#support`.
+  - **Sashes** break like doors (HP 5, shatter into pieces), in `ballistics.cpp`.
+  - **Tank ram** (`tank_ram.cpp`, non-furniture branches only): `O_TRIM` obstacles, `trimKJ` 40 and `trimMarginM` 0.35 in `ramming.json`. A core contact within the margin breaks the trim instead of blocking. Doc: `docs/tanks.md#ramming`.
+  - **Shared-file hooks:**
+    - `app.h`: `WALL_RAM`, `trimStats`, `trimIntact`, three `DestructionSettings` fields;
+    - `assets.h`: `Panel::trim`, `TrimGroup`;
+    - `tank.h`: three ram fields.
+  - **Tests** (all through `gpu_turn.sh`):
+    - damage 136/0 (new checks: HE at a window removes the frame and sash, spandrel collapses with A/B, breach under a sill drops it, a small hole holds while a destroyed bay drops the one above, replay with broken trim);
+    - tanks 123/0 (new: ram through a doorway passes in 7.2 s);
+    - env 42/0, arsenal 70/0;
+    - net host 19/0, clients a/b/c/d all pass.
+  - **Test change:** the tanks "HE shell through an open window" step now starts with `resetDamage()`. The earlier shells detonate on the far window's trim, which now breaks.
+  - **For V4:** the furniture branch of `tank_ram.cpp` is untouched. Trim contacts are routed before the furniture/core check, inside the `s.mode == "block" && !a->panels.empty()` block.
+
+- 2026-11-07 V4 (furniture everywhere, 3x, destructible), branch `vo-4-furniture` from 0e8479f, not pushed. Details in
+  `docs/interiors.md` section 4.
+  - **Auto-furnish:** `interior.autoFurnishAll` in `App::openMap` (after `syncRuntime`) and `App::newMap` (after
+    `w5NewMapContent`); `interior.autoFurnish` at the end of `placeInstance`. No undo step, dirty flag kept. Skips
+    `bunker_*` / `aw_*` / `bch_*`, `extra.decor` (V8: tag border buildings before placing them, or place them with
+    `interior.autoOnPlace = false`) and buildings with `extra.interior.on` set. V3's `ruin_*` assets get the ruined-room
+    recipe (few pieces, most broken) once they have rooms; earth and thin `stone_dressed` floors count now.
+  - **Density:** 29 new `furn_*` assets (gen_furniture.py, then build_mpu_assets.mjs for their nav blocks and
+    `tools/nav_backfill.json`; nothing else regenerated; `gun_flak18.json` is already out of step on master and was left
+    alone). Gate x3 in `selftest_interiors`: the four fixtures 164 vs 45 (x3.6), every building 548 vs 163 (x3.4).
+  - **Destruction:** every shell already reaches `interior.blast` through `App::explode`, so `station.cpp` is untouched.
+    New: direct hits, grenades x2.2 against furniture with splinters and dust (`Fx::splinters`, `Fx::dust` appended to
+    fx.cpp), tanks crush furniture (one line in the furniture branch of `tank_ram.cpp`, placed before the door-leaf
+    branch so furniture fragments are driven over). Fragment caps 32 / 240 x `settings().particleBudget()`, picked up
+    through `__has_include("settings.h")` when V2 merges (no code change needed).
+  - **Performance:** a box-LOD batch per building beyond 18 m, culled beyond 75 m (small props 32 m); the per-frame
+    passes skip when nothing changed. A blast in the furnished kitchen: 9 ms (was 62 ms mean / 260 ms p95).
+  - **Tests (through gpu_turn):** interiors 192/192, damage 129/129, tanks 122/122, maps 139/139 (Omaha worst
+    eye-level view 14.7 ms with every building furnished).
+  - **Shared files:** app.cpp (3 hook lines), tank_ram.cpp (1 line), fx.cpp / combat.h (appended), selftest_maps.cpp
+    (authored-instance counts), selftest_damage.cpp (its two walk-through farmhouses unfurnished; authored count),
+    docs/asset-usage-default-maps.md (rows for the new assets).
+  - **For the merge batch:** suites that count instances or walk routes through buildings may need the same
+    authored-count treatment (skip `extra.furnish`). Not run here: ai, match, net, entities, editor, structures, env.
+    The AI navmesh now sees the furniture (blocking pieces carve); walkthrough routes and doorways stay clear.
+  - **Open:** opening Omaha adds about 2.6 s (28 buildings); furniture standing behind a breached wall blocks the way in.
+  - **Batch B fixes (on 3ead61b):** ruined / half-built assets are never auto-furnished (`isRuinedAsset()` in
+    `interior.h`, for the lighting stream too). `deleteSelected` and build-mode Del take a building's furniture with it;
+    build-mode Ctrl+Z after placing a building removes its furniture (`builder.cpp`). Template furniture is no grass /
+    nature footprint and gets no soil band (`app.cpp`). Counting suites use `authoredInstanceCount()` (A/B reopen,
+    maps); the editor test finds the placed house by asset instead of `instances.back()`. Asset `tour` routes are kept
+    clear like `walkthrough` (church, Norman farmhouse tours); pews 2.1 m against the side walls; solid wall-hung
+    pieces keep out of route corridors. LAN: on this build the host no longer stalls (late joiner B in at match 17 s,
+    D refused as lobby-full); the remaining host failure was the test's 20 ms trigger windows for client A's
+    over-rate burst / teleport, missed at low frame rates; they now fire once on the first frame past the time
+    (`selftest_net.cpp`). The batch-B host crash did not reproduce here. The damage suite places its buildings bare
+    (`interior.autoOnPlace = false`): wall-stamp seeds come from instance ids, and furniture pieces shifted them enough
+    to flip V5's seed-sensitive support on/off comparison (23 % vs 11 %, needs +20 points).

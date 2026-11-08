@@ -245,11 +245,12 @@ export function window(A, o) {
     aperture: apBox(axis, a0, a1, sill, top, inner, inner + out * 0.12),
   });
 
-  // ---- exterior shutters (persiennes pleines), open outward against the facade
+  // ---- exterior shutters (persiennes pleines), open outward against the facade. Every layer stands >= 2 cm off the
+  // wall face (battens 2 cm, boards 3.5 cm, strap hinges on the boards): 5 mm layers shimmered at range (docs/rendering.md)
   if (o.shutters !== false) {
     const sl = [];
     const sy0 = sill - 0.03, sy1 = top + 0.03;
-    const sd0 = outer + out * 0.005, sd1 = outer + out * 0.04;
+    const sd0 = outer + out * 0.035, sd1 = outer + out * 0.07;
     for (const side of [0, 1]) {
       const L = { parts: [] };
       const s0 = side === 0 ? a0 - 0.03 : c, s1 = side === 0 ? c : a1 + 0.03;
@@ -257,15 +258,15 @@ export function window(A, o) {
       // vertical boards
       wbox(A, axis, s0, s1, sy0, sy1, sd0, sd1, "shutter_paint", T);
       // battens and Z-brace on the inner face
-      for (const y of [sy0 + 0.18, sy1 - 0.18]) wbox(A, axis, s0 + 0.03, s1 - 0.03, y - 0.05, y + 0.05, sd0 - out * 0.025, sd0, "shutter_paint", T);
+      for (const y of [sy0 + 0.18, sy1 - 0.18]) wbox(A, axis, s0 + 0.03, s1 - 0.03, y - 0.05, y + 0.05, sd0 - out * 0.015, sd0, "shutter_paint", T);
       // strap hinges (exterior face)
       const hingeA = side === 0 ? a0 - 0.03 : a1 + 0.03;
       for (const y of [sy0 + 0.2, sy1 - 0.2]) {
         const e0 = hingeA, e1 = hingeA + (side === 0 ? 0.3 : -0.3);
-        wbox(A, axis, e0, e1, y - 0.02, y + 0.02, sd1, sd1 + out * 0.006, "iron", T);
+        wbox(A, axis, e0, e1, y - 0.02, y + 0.02, sd1, sd1 + out * 0.008, "iron", T);
       }
       wbox(A, axis, s0, s1, sy0, sy1, sd0, sd1, "shutter_paint", { into: L.parts, v: 0 });
-      const hinge = P(axis, hingeA, 0, outer + out * 0.045);
+      const hinge = P(axis, hingeA, 0, outer + out * 0.075);
       const mid = P(axis, (s0 + s1) / 2, 0, (sd0 + sd1) / 2);
       L.hinge = hinge;
       L.sign = swingSign(axis, mid, hinge, out);
@@ -274,7 +275,7 @@ export function window(A, o) {
     A.interactables.push({
       id: id + "_shutters", kind: "shutters", label: "shutters", sound: "shutter", axis: [0, 1, 0], openAngle: 172, duration: 1.0,
       defaultOpen: o.shuttersOpen !== false, leaves: sl,
-      aperture: apBox(axis, a0, a1, sill, top, outer - out * 0.12, outer + out * 0.06),
+      aperture: apBox(axis, a0, a1, sill, top, outer - out * 0.12, outer + out * 0.09),
     });
   }
   return { a0, a1, y0: sill - 0.08, y1: top };

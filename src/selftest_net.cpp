@@ -163,8 +163,10 @@ void SelfTest::netUpdate(App& app, float dt) {
           // walk, fire at a wall a few times, then misbehave: over-rate fire and a teleport
           a.scriptedInput.move = vec2(0, t < 3 ? 1.0f : 0.0f);
           a.scriptedInput.fire = std::fmod(t, 0.7f) < 0.05f && t < 6;
-          if (t > 6.0f && t < 6.02f) { for (int k = 0; k < 6; ++k) gNet->clientFire(a.eyePos(), App::forward(a.eyeYaw, -10), a.activeWeapon, false); }
-          if (t > 7.0f && t < 7.02f) { auto c = Physics::character(); Physics::setCharacterPos(c.pos + vec3(30, 0, 0)); }
+          // once each, on the first frame past the time (a 20 ms window was missed at low frame rates: 5 processes, one GPU)
+          static bool burst = false, tele = false; if (t == 0) burst = tele = false;
+          if (t > 6.0f && !burst) { burst = true; for (int k = 0; k < 6; ++k) gNet->clientFire(a.eyePos(), App::forward(a.eyeYaw, -10), a.activeWeapon, false); }
+          if (t > 7.0f && !tele) { tele = true; auto c = Physics::character(); Physics::setCharacterPos(c.pos + vec3(30, 0, 0)); }
           if (t < 12) return false;
           a.scriptedInput = ExploreInput{};
           return true; });

@@ -75,8 +75,20 @@
  "field_gate": {
   "effect": "carve"
  },
+ "furn_armchair": {
+  "effect": "carve"
+ },
  "furn_armoire": {
   "effect": "carve"
+ },
+ "furn_barrel": {
+  "effect": "carve"
+ },
+ "furn_barrel_rack": {
+  "effect": "carve"
+ },
+ "furn_basket": {
+  "effect": "none"
  },
  "furn_bed": {
   "effect": "carve"
@@ -84,10 +96,19 @@
  "furn_bench": {
   "effect": "carve"
  },
+ "furn_bookcase": {
+  "effect": "carve"
+ },
  "furn_books": {
   "effect": "none"
  },
  "furn_bottles": {
+  "effect": "none"
+ },
+ "furn_bucket": {
+  "effect": "none"
+ },
+ "furn_candlesticks": {
   "effect": "none"
  },
  "furn_chair_ladder": {
@@ -102,6 +123,9 @@
  "furn_clock": {
   "effect": "carve"
  },
+ "furn_coat_rack": {
+  "effect": "none"
+ },
  "furn_commode": {
   "effect": "carve"
  },
@@ -114,7 +138,16 @@
  "furn_curtains": {
   "effect": "none"
  },
+ "furn_desk": {
+  "effect": "carve"
+ },
+ "furn_dresser": {
+  "effect": "carve"
+ },
  "furn_fireplace": {
+  "effect": "carve"
+ },
+ "furn_hay_bales": {
   "effect": "carve"
  },
  "furn_hutch": {
@@ -123,16 +156,37 @@
  "furn_hutch_glazed": {
   "effect": "carve"
  },
+ "furn_jars": {
+  "effect": "none"
+ },
  "furn_jug_bowl": {
   "effect": "none"
  },
  "furn_lamp": {
   "effect": "none"
  },
+ "furn_mirror": {
+  "effect": "none"
+ },
+ "furn_pantry": {
+  "effect": "carve"
+ },
  "furn_papers": {
   "effect": "none"
  },
+ "furn_pew": {
+  "effect": "carve"
+ },
  "furn_picture": {
+  "effect": "none"
+ },
+ "furn_plate_rack": {
+  "effect": "carve"
+ },
+ "furn_portrait": {
+  "effect": "none"
+ },
+ "furn_pot": {
   "effect": "none"
  },
  "furn_rug_kilim": {
@@ -141,19 +195,52 @@
  "furn_rug_medallion": {
   "effect": "none"
  },
+ "furn_sacks": {
+  "effect": "carve"
+ },
+ "furn_school_desk": {
+  "effect": "carve"
+ },
  "furn_shelf": {
   "effect": "carve"
  },
  "furn_side_table": {
   "effect": "carve"
  },
+ "furn_sideboard": {
+  "effect": "carve"
+ },
  "furn_stool": {
+  "effect": "carve"
+ },
+ "furn_stove": {
   "effect": "carve"
  },
  "furn_table_dining": {
   "effect": "carve"
  },
  "furn_table_small": {
+  "effect": "carve"
+ },
+ "furn_tool_rack": {
+  "effect": "none"
+ },
+ "furn_utensil_rack": {
+  "effect": "none"
+ },
+ "furn_wall_clock": {
+  "effect": "none"
+ },
+ "furn_wall_shelf": {
+  "effect": "carve"
+ },
+ "furn_washstand": {
+  "effect": "carve"
+ },
+ "furn_wood_pile": {
+  "effect": "carve"
+ },
+ "furn_workbench": {
   "effect": "carve"
  },
  "gun_flak18": {

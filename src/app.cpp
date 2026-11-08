@@ -203,6 +203,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       op.push_back({&r.pathMesh, M}); snapDraw(*this, i, op.back());   // V6: world-space pattern across joined ends
       continue;
     }
+    { extern bool waterDrawItems(App&, const Instance&, const InstanceRT&, const mat4&, std::vector<DrawItem>&); if (waterDrawItems(*this, i, r, M, op)) continue; }   // V1 water surfaces (water.cpp)
     // coarse distance cull
     float camDist = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
     if (camDist > 1200 * settings().drawDist()) continue;   // x the Settings draw distance (Low 0.6, High 1.4)
@@ -264,6 +265,7 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   docPath.clear(); dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   tool = Tool::Select; placing = nullptr;
   w5NewMapContent(*this, t);   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
+  interior.autoFurnishAll(*this);   // V4: every building furnished (no undo step, not dirty; interior.cpp)
   toast("New map from template: " + t.name);
   return true;
 }
@@ -302,6 +304,7 @@ bool App::openMap(const fs::path& p) {
   dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   std::snprintf(nameBuf, sizeof nameBuf, "%s", doc.name.c_str());
   syncRuntime();
+  interior.autoFurnishAll(*this);   // V4: buildings without extra.interior get furnished (no undo step, not dirty; interior.cpp)
   toast("Opened " + doc.name + (isContent ? " (copy — Save As to keep)" : ""));
   return true;
 }
@@ -434,6 +437,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   bump(i);
   doc.instances.push_back(i);
   autopathOnPlaced(*this, i.id);   // "Auto paths" on: a new house gets its aprons and a path to its neighbours (autopath.cpp)
+  if (interior.autoOnPlace) interior.autoFurnish(*this, i.id);   // V4: a new building comes furnished (interior.cpp)
   return i.id;
 }
 bool App::duplicateSelected() {
@@ -461,7 +465,9 @@ void App::deleteSelected() {
   auto it = std::find_if(doc.instances.begin(), doc.instances.end(), [&](auto& i) { return i.id == selected; });
   if (it == doc.instances.end()) return;
   pushUndo();
+  uint64_t gone = it->id;
   doc.instances.erase(it); selected = 0; dirty = true;
+  interior.dropPieces(*this, gone);   // V4: its room-template furniture goes with it (interior.cpp)
 }
 uint64_t App::pickInstance(vec3 ro, vec3 rd, float& tBest) const {
   uint64_t best = 0; tBest = 1e30f;
@@ -548,6 +554,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
     else if (a == "--selftest-autopath") runSelf = true;   // V9 auto paths between houses (selftest_autopath.cpp)
     else if (a == "--selftest-snap") runSelf = true;     // V6: snapping (selftest_snap.cpp)
+    else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -761,6 +768,7 @@ std::vector<GrassFootprint> App::grassFootprints() const {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || !a->crate.empty() || isVehicleAsset(a)) continue;   // tanks drive away: no fixed grass hole
+    if (isFurnishPiece(i)) continue;   // V4: room-template furniture stands inside its building's footprint
     if (a->nature.kind == NatureDef::SCATTER) { GrassFootprint f; if (natureGrassFootprint(i, *a, f)) fp.push_back(f); continue; }   // flowers / tall grass / stones grow in the grass; a wheat tile clears it
     if (a->nature.kind == NatureDef::ROCK) { GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z) * 0.78f, vec2(a->bmax.x, a->bmax.z) * 0.78f}; f.margin = 0.0f; fp.push_back(f); continue; }   // grass up to the boulder's flanks
     if (a->tree.on && !a->tree.hedge) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk
@@ -779,6 +787,8 @@ void App::updateSurface() {
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a) || a->nature.kind != NatureDef::NONE) continue;
+    { extern bool waterAsset(const AssetDef*); if (waterAsset(a)) continue; }   // V1: ponds / streams / the sea have no foundation band
+    if (isFurnishPiece(i)) continue;   // V4: furniture inside a building has no foundation band of its own
     feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
     uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);
     mix(b[0]); mix(b[1]); mix(b[2]); mix(std::hash<std::string>{}(i.assetId));

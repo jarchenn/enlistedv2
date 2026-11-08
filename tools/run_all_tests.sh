@@ -36,6 +36,7 @@ run settings --selftest-settings   # V2: graphics presets, settings file and win
 run autopath --selftest-autopath  # V9 auto paths: Connect houses on the village maps, curved path pieces (docs/entities.md)
 run snap     --selftest-snap    # V6: snapping trenches / hedges / paths: joints, caps, cut floors, texture origin
 run maps     --selftest-maps    # W5 default maps: template load, scenario, SPEC 2.1 distances, asset-usage doc, views + frame time
+run render   --selftest-render  # V1: facade shimmer 20 / 50 / 100 m (static + strafe), rough walls, water assets / pass (docs/rendering.md §9)
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
 if [ "${1:-}" = "--bench" ]; then
   ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"

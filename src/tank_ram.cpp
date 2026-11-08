@@ -7,7 +7,9 @@
 //     and then shares momentum with what it knocks over (v'' = v' M / (M + m)), so a fast tank barely notices a
 //     telegraph pole while a slow one loses a good part of its speed; when K is not enough the tank stops against
 //     the obstacle and the energy it did put in is kept (pushing on finishes the job: "hold W longer");
-//   * concrete (bunkers), other tanks, guns, tank traps, sandbags, hedgerow banks and iron doors never give way.
+//   * concrete (bunkers), other tanks, guns, tank traps, sandbags, hedgerow banks and iron doors never give way;
+//   * the trim of a door or window (frame, jambs, sill, lintels; ramming.json trimKJ) breaks whole, and a contact with
+//     the building's core within trimMarginM of it goes with the trim instead of blocking the tank.
 // Knocked-over props fall as rigid bodies (instantly, from the hit side), settle, and are crushed flat when a tank
 // drives over them; walls are pushed through with the shared impact-centred wall damage (wallfield.cpp), so the
 // breach is ordinary wall damage (Apply / undo like any other). Props and walls reset with the Explore session.
@@ -32,6 +34,7 @@ void TankSys::loadRam(App& app) {
     ramProps[id] = s;
   }
   for (auto& [fam, v] : walls.items()) ramPanelKJperHp[fam] = v.get<float>();
+  ramTrimKJ = j.value("trimKJ", 40.0f); ramTrimMargin = j.value("trimMarginM", 0.35f);
   logf("ramming: %zu props, %zu wall families", ramProps.size(), ramPanelKJperHp.size());
 }
 
@@ -117,6 +120,22 @@ void TankSys::breachWall(App& app, Instance& i, InstanceRT& r, const TankRT& t, 
   ++breachesTotal;
 }
 
+// A tank against the trim of an opening (frame, jambs, sill, lintels): the trim breaks whole and the leaves go with it.
+// Recorded as a WALL_RAM event at the contact (asset frame), so it replays with the rest of the wall damage (Apply,
+// undo, late join) and the bays over the opening lose the lintel they rested on (wallfield.cpp support).
+void TankSys::breakTrimRam(App& app, Instance& i, InstanceRT& r, int g, vec3 at, vec3 dir) {
+  const AssetDef* a = r.asset;
+  if (g < 0 || g >= (int)a->trims.size()) return;
+  const TrimGroup& tg = a->trims[g];
+  quat qi = glm::inverse(yawQuat(i.yaw));
+  if (r.wf.empty()) app.initWallFields(r);
+  WallEvent e;
+  e.p = glm::clamp(qi * (at - i.pos), tg.bmin, tg.bmax); e.d = qi * dir; e.kind = WALL_RAM; e.dmg = 0.0f;
+  e.seed = (uint32_t)(i.id * 2654435761u) ^ (uint32_t)(r.wallEvents.size() * 40503u + 17u);
+  std::vector<std::string> hits; int breached = 0;
+  if (app.stampWall(r, e, true, &hits, &breached) > 0) { r.wallEvents.push_back(e); app.rebuildWalls(i, r); ++trimRams; }
+}
+
 void TankSys::stepKnocked(App& app, float dt) {
   for (auto it = knocked.begin(); it != knocked.end();) {
     Knocked& k = it->second;
@@ -197,7 +216,7 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
   int n = Physics::boxOverlaps(c, he, hq, ov, 48, bodyUD(t.id), true);
   vec3 dir = vec3(H * vec4(0, 0, t.speed >= 0 ? 1.0f : -1.0f, 0));
   float v = std::fabs(t.speed), M = d.massKg;
-  enum { O_PROP, O_TREE, O_WIRE, O_LEAF, O_WALL };
+  enum { O_PROP, O_TREE, O_WIRE, O_LEAF, O_WALL, O_TRIM };
   // a building wall is pushed as a whole plane (piers, bays and lintels of one face share the effort): key = instance,
   // normal axis and the plane's offset (25 cm); break energy = kJ per cm of the wall's thickness for its family
   auto wallKey = [](uint64_t iid, const Panel& pn) {
@@ -212,6 +231,23 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
   };
   struct Obs { int kind; Instance* i; InstanceRT* r; RamSpec spec; uint64_t key; float need; vec3 at, nrm; int k = -1, l = -1; std::string name; float mass = 0; };
   std::vector<Obs> obs;
+  // opening trim (frames, jambs, sills, lintels) near a contact: -1 none, else the group; broken: whether it has gone
+  auto trimNear = [&](const AssetDef* a, const InstanceRT& r, vec3 lp, float margin, bool& broken) {
+    int best = -1; float bd = 1e9f;
+    for (size_t g = 0; g < a->trims.size(); ++g) {
+      float dd = glm::length(glm::clamp(lp, a->trims[g].bmin - vec3(margin), a->trims[g].bmax + vec3(margin)) - lp);
+      if (dd < 1e-3f) { float dc = glm::length(glm::clamp(lp, a->trims[g].bmin, a->trims[g].bmax) - lp); if (dc < bd) { bd = dc; best = (int)g; } }
+    }
+    broken = best >= 0 && !app.trimIntact(r, best);
+    return best;
+  };
+  auto addTrim = [&](Instance* i, InstanceRT& r, int g, vec3 at) {
+    uint64_t key = (i->id << 16) | 0x2000u | (uint64_t)(g & 0x1FFF);
+    for (auto& o : obs) if (o.key == key) return;
+    Obs o{O_TRIM, i, &r, {}, key, ramTrimKJ * 1000.0f, at, -dir};
+    o.k = g; o.name = "door frame"; o.mass = 0;
+    obs.push_back(o);
+  };
   std::string blocker; char dbg[200] = ""; uint64_t holdKey = 0; std::string holdName;
   for (int h = 0; h < n; ++h) {
     uint64_t ud = ov[h].ud, low = ud & 0xFFFF;
@@ -247,15 +283,19 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
       continue;
     }
     if (low == kDebrisLow || low == 0xFFF1u) continue;   // shutter / door debris, felled trunks: driven over
+    if (app.interior.isProp(a)) { if (low == 0) app.interior.tankContact(app, *i, r, ov[h].pos, dir, v); continue; }   // V4: furniture is crushed and its fragments driven over, never blocks (interior.cpp)
     if (low == 0xFFFFu) {   // a building's wall bays: push through
       quat q = yawQuat(i->yaw);
       vec3 lp = glm::inverse(q) * (ov[h].pos - i->pos);
       int best = -1; float bd = 1e9f;
       for (size_t k = 0; k < a->panels.size(); ++k) {
         const Panel& pn = a->panels[k];
+        if (pn.trim >= 0) continue;   // opening trim: below
         float dd = glm::length(glm::clamp(lp, pn.bmin, pn.bmax) - lp);
         if (dd < bd) { bd = dd; best = (int)k; }
       }
+      bool tb = false; int tg = trimNear(a, r, lp, 0.03f, tb);
+      if (tg >= 0 && !tb && bd > 0.03f) { addTrim(i, r, tg, ov[h].pos); continue; }   // the frame itself, not the wall around it
       if (best < 0) { blocker = a->name; continue; }
       const Panel& pn = a->panels[best];
       auto f = ramPanelKJperHp.find(pn.family);
@@ -306,13 +346,20 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
              (a->bmax.x - a->bmin.x) * (a->bmax.z - a->bmin.z) < 2.5f) { s.mode = "topple"; s.breakKJ = 10; s.massKg = 100; }   // small dressing
     else s.mode = "block";
     if (s.mode == "block" && !a->panels.empty()) {
-      // a building's solid core where it meets a wall bay (window / door frames, sills, lintels): it goes with that bay,
-      // and once the bay is pushed through the tank passes the frame pieces left standing in the opening
+      // a building's solid core where it meets a wall bay or an opening: within the trim margin of a door or window it
+      // breaks that trim (once it has gone the tank passes what is left at the opening, steps and slivers); beside a bay
+      // it goes with that bay, and once the bay is pushed through the tank passes the pieces left standing
       quat q = yawQuat(i->yaw);
       vec3 lp = glm::inverse(q) * (ov[h].pos - i->pos);
+      {
+        bool tb = false; int tg = trimNear(a, r, lp, ramTrimMargin, tb);
+        if (tg >= 0 && tb) continue;
+        if (tg >= 0) { addTrim(i, r, tg, ov[h].pos); continue; }
+      }
       int best = -1; float bd = 1e9f;
       for (size_t k = 0; k < a->panels.size(); ++k) {
         const Panel& pn = a->panels[k];
+        if (pn.trim >= 0) continue;
         float dd = glm::length(glm::clamp(lp, pn.bmin - vec3(0.35f), pn.bmax + vec3(0.35f)) - lp);
         if (dd < bd) { bd = dd; best = (int)k; }
       }
@@ -375,6 +422,7 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
           }
           ++knocksTotal; break;
         case O_WALL: breachWall(app, *o.i, *o.r, t, at, o.nrm, dir); ramLastBreach[o.key] = app.now; break;
+        case O_TRIM: breakTrimRam(app, *o.i, *o.r, o.k, at, dir); break;
       }
       lastRam = "broke " + o.name;
       ++t.knocks; ++t.crushes;

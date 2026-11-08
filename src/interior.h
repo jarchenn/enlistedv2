@@ -43,7 +43,14 @@ struct RoomInfo {
   int16_t at(int s, vec3 p) const;   // cell id at an asset-space point on storey s (WALL outside the grid)
 };
 
-enum RoomType { ROOM_KITCHEN = 0, ROOM_SITTING, ROOM_BEDROOM, ROOM_UTILITY, ROOM_WORKSHOP, ROOM_HALL };
+// Assets that stand ruined or half-built: never furnished automatically (the lighting stream reuses the list)
+bool isRuinedAsset(const std::string& assetId);
+// a room-template furniture piece (extra.furnish), and the instances of a map without them (tests count these)
+bool isFurnishPiece(const Instance& i);
+size_t authoredInstanceCount(const std::vector<Instance>& v);
+
+enum RoomType { ROOM_KITCHEN = 0, ROOM_SITTING, ROOM_BEDROOM, ROOM_UTILITY, ROOM_WORKSHOP, ROOM_HALL,
+                ROOM_CHURCH, ROOM_BARN, ROOM_CLASS, ROOM_OFFICE, ROOM_TAVERN, ROOM_RUIN, ROOM_TYPES };
 const char* roomTypeName(int t);
 
 class InteriorSys {
@@ -54,15 +61,30 @@ public:
   const RoomInfo* rooms(const AssetDef* a);
   // ---- per building copy
   bool hideBuiltin(const Instance& i) const;                 // furnished by room templates: built-in furniture hidden
+  // ---- automatic furnishing (V4): every enterable building without extra.interior, on open / new map / placement.
+  // Skips bunkers, aw_* / bch_* and extra.decor. Never pushes undo, never changes the dirty flag.
+  bool autoFurnishable(App& app, const Instance& i);
+  int autoFurnish(App& app, uint64_t hostId);
+  int autoFurnishAll(App& app);
+  bool autoOnPlace = true;                                   // placeInstance furnishes a new building (tests may turn it off)
+  int autoFurnished = 0; float lastAutoMs = 0;
   ShapePtr staticShape(App& app, const Instance& i, const AssetDef* a);   // buildRT: building / prop static collision
   const SurfaceParams* surfaceFor(App& app, const Instance& i, const AssetDef* a);
   // ---- drawing
   bool propDraw(App& app, const Instance& i, const InstanceRT& r, const mat4& M, std::vector<DrawItem>& op, std::vector<DrawItem>& gl);
   void fragDrawItems(std::vector<DrawItem>& op);
+  // near a building its furniture draws piece by piece (full detail, shared asset meshes); farther away the intact
+  // pieces draw as one merged box-LOD mesh per building (small props culled sooner), and nothing beyond cullBig.
+  // A piece that breaks, moves or is selected leaves the batch (rebuilt next frame) and draws on its own.
+  void updateBatches(App& app);
+  bool batching = true;
+  float lodDist = 18.0f, cullBig = 75.0f, cullSmall = 32.0f;
+  int batchDraws = 0, batchedPieces = 0, batchRebuilds = 0, soloDraws = 0, culledPieces = 0, batchPasses = 0, syncPasses = 0; size_t batchVerts = 0;
   // ---- damage (session overlay)
   int bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::string& surface);   // 0 not a prop, 1 stops the round, 2 penetrable
   void blast(App& app, vec3 p, vec3 dir, float dmg, float radius, int kind);
-  bool breakProp(App& app, Instance& i, InstanceRT& r, vec3 push, const char* why);
+  bool breakProp(App& app, Instance& i, InstanceRT& r, vec3 push, const char* why, int violence = 0);   // violence 1: grenade / direct hit (every fragment group, splinters, dust)
+  void tankContact(App& app, Instance& i, InstanceRT& r, vec3 at, vec3 dir, float speed);   // tank_ram: furniture is crushed, never blocks
   int checkSupport(App& app, vec3 near, float radius);       // unsupported props fall and break; returns how many
   bool supported(App& app, const Instance& i, const AssetDef* a, int* hitsOut = nullptr);
   void step(App& app, float dt);
@@ -76,16 +98,19 @@ public:
   // ---- room templates
   int furnish(App& app, uint64_t hostId, int mode);   // 0 regenerate (keeps overrides / deletions), 1 reroll, 2 reset
   int unfurnish(App& app, uint64_t hostId);
+  int dropPieces(App& app, uint64_t hostId);           // a deleted building's template furniture goes with it (no runtime sync)
   int roomType(const AssetDef* a, const RoomInfo& ri, int k) const;
   void sync(App& app);                                 // Creative: generated pieces follow / leave with their host
   void editorPanel(App& app, Instance& s);
   // ---- state
-  struct PropRT { bool broken = false, glassBroken = false, applied = false; float hits = 0; };
+  struct PropRT { bool broken = false, glassBroken = false, applied = false, crushed = false; float hits = 0; };
   std::map<uint64_t, PropRT> st;
   struct Frag { uint64_t inst = 0; const GpuMesh* mesh = nullptr; uint32_t body = 0xffffffffu; mat4 m{1}; float age = 0; bool frozen = false; };
   std::deque<Frag> frags;
-  size_t maxLive = 24, maxKept = 160;
-  int breaks = 0, fragsSpawned = 0, falls = 0, shielded = 0, glassBreaks = 0, maxLiveSeen = 0;
+  size_t maxLive = 32, maxKept = 240;                       // x budgetScale() (V2 particle budget)
+  float budgetScale() const;
+  int breaks = 0, fragsSpawned = 0, falls = 0, shielded = 0, glassBreaks = 0, maxLiveSeen = 0, fragsDropped = 0, crushed = 0, directHits = 0, splinterBursts = 0;
+  float lastBlastMs = 0; int lastBlastBreaks = 0;
   std::string lastBreak;
   float lastFurnishMs = 0;
 private:
@@ -94,4 +119,15 @@ private:
   struct SurfEntry { uint32_t rev = 0; SurfaceParams sp; };
   std::map<uint64_t, SurfEntry> surf_;
   void freezeOldest();
+  bool inBlast_ = false;
+  // per-frame work is skipped while nothing changed: the edit revision, the instance count, the selection, or a
+  // furniture state (epoch_: breaks, glass, crushing, resets)
+  uint64_t epoch_ = 1, batchSig_ = 0, syncSig_ = 0;
+  struct Batch { GpuMesh lop, slop; uint64_t sig = 0; std::vector<uint64_t> members; vec3 c{0}; float r = 0; bool built = false; size_t verts = 0; };
+  std::map<uint64_t, Batch> batches_;                       // by host
+  std::map<uint64_t, uint64_t> member_;                     // piece -> host while it is drawn by the batch
+  struct CpuMesh { MeshData lod; bool small = false; };
+  std::map<const AssetDef*, std::unique_ptr<CpuMesh>> cpu_;
+  const CpuMesh& cpuMesh(const AssetDef* a);
+  void rebuildBatch(App& app, uint64_t host, Batch& b, const std::vector<const Instance*>& pieces);
 };
