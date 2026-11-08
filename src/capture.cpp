@@ -64,6 +64,41 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "b3") {
+      // NMK_CAPTURE_SET=b3: the B3 chateau and houses (tools/catalog_chateau.mjs), furnished: a front and a rear
+      // three-quarter view, then one view from every "look" step of the tour (from the last goto, at the last
+      // expected floor height). Names are <asset>_<view>.
+      static std::deque<std::string> keep;
+      static const char* ids[] = {"vil_chateau_grand", "vil_longhouse_thatched", "vil_townhouse_jettied", "vil_villa_deauville", "vil_manor_turret", "vil_corner_shop",
+                                  "vil_gatehouse_chapel", "vil_mill_house", "vil_terrace_pair", "vil_cottage_barn", "vil_rectory"};
+      cams.clear();
+      int n = 0;
+      for (const char* aid : ids) {
+        const AssetDef* a = app.lib.find(aid);
+        if (!a) continue;
+        vec3 at3(-135.0f + (n % 4) * 90.0f, 0, -90.0f + (n / 4) * 90.0f);   // a 4 x 3 grid inside the Blank Slate
+        ++n;
+        uint64_t id = app.placeInstance(a, at3, 0.0f);
+        if (!id) continue;
+        app.placeCompanions(id);
+        app.syncRuntime();
+        app.interior.furnish(app, id, 0);
+        vec3 o = app.doc.find(id)->pos;
+        float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f, H = a->bmax.y - a->bmin.y;
+        keep.push_back(a->id + "_ext_front"); cams.push_back({keep.back().c_str(), o + vec3(fx * 0.9f + 4, 1.7f + H * 0.25f, fz * 1.6f + 6), o + vec3(0, H * 0.35f, 0)});
+        keep.push_back(a->id + "_ext_rear"); cams.push_back({keep.back().c_str(), o + vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6), o + vec3(0, H * 0.35f, 0)});
+        vec2 at(0); float y = 0; int k = 0;
+        for (auto& st : a->raw["tour"].value("steps", json::array())) {
+          if (st.contains("goto")) { at = vec2(st["goto"][0].get<float>(), st["goto"][1].get<float>()); if (st.contains("expectY")) y = st["expectY"].get<float>(); }
+          if (st.contains("look")) { keep.push_back(a->id + "_int" + std::to_string(++k)); cams.push_back({keep.back().c_str(), o + vec3(at.x, y + 1.6f, at.y), o + jvec3(st["look"])}); }
+        }
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "interiors") {
       // NMK_CAPTURE_SET=interiors: walls, interiors and furniture (docs/interiors.md). The representative house is the
       // farmhouse (exterior wall, windows, doorway, two stairs, a dirt road and pasture in front); the inn shows the

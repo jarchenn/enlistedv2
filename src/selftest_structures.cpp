@@ -9,6 +9,8 @@
 //  * "climb" probes: the character is driven at a face with jumps and vault input and must stay below it (AT ditch).
 #include "selftest.h"
 #include "physics.h"
+#include <cstdlib>
+#include <cstring>
 #if __has_include("editor_nav.h")   // W3 terrain cuts present (claude/changes): the suite uses them, not its stand-in
 #include "editor_nav.h"
 #define W4_REAL_CUTS 1
@@ -123,7 +125,8 @@ void SelfTest::structuresUpdate(App& app, float dt) {
                     (a->navMeta.hasAnnotations() ? " + annotations" : "") + (a->navMeta.terrainCuts.empty() ? "" : " + terrain cut"));
       } else if (w2Owned(a->id)) { ++pending; check(true, a->id + ": nav pending (bunker metadata is W2's)"); }
       else check(false, a->id + ": has no nav metadata");
-      if (a->raw.contains("tour")) sIds.push_back(a->id);
+      const char* only = std::getenv("NMK_STRUCTURES_ONLY");   // comma-separated asset ids: walk only those (B3 dev runs)
+      if (a->raw.contains("tour") && (!only || std::strstr(only, a->id.c_str()))) sIds.push_back(a->id);
     }
     summary["catalogue"] = {{"assets", app.lib.assets.size()}, {"navAuthored", authored}, {"navPendingW2", pending}, {"w4Assets", sIds.size()}};
     check(sIds.size() >= 30, "W4 structure assets found: " + std::to_string(sIds.size()));

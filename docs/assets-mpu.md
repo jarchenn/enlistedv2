@@ -76,6 +76,26 @@ The Czech hedgehog is the existing `def_tank_trap`. It now has nav metadata (car
 | `vil_church_ruined` | Roofless ruined church | 17 × 8 m | broken walls 1.2–6 m, south breach, rubble |
 | `vil_chateau_keep` | Ruined donjon of Le Plessis-Lastelle | 11 m square, walls 2 m thick, 11–15 m high, plus a curtain wall | stair to a part-collapsed first floor; window embrasures (MG) |
 
+### Chateau and houses (B3; palette categories *Landmarks*, *Houses*)
+
+Added by stream B3 in `tools/catalog_chateau.mjs` with the B1 geometry kit (`docs/asset-format.md#b1-geometry-kit`). All are enterable, auto-furnished, with nav, damage panels, ivy where suited, `companions` (trees, shrubs, flowers) and a tour. The ten houses are in the Beautify `decor.buildings` list.
+
+| Id | What | Size | Interior |
+|---|---|---|---|
+| `vil_chateau_grand` | Villa-Strassburger-style chateau: stone-and-brick checker ground floor, two half-timbered storeys, 45° tiled roof with three front cross gables and dormers, round corner tower with an 11 m spire, octagonal turret, arcaded gallery with a balcony over it, balconies, tall brick stacks | 40 × 22 m body (49 × 29 m with tower, turret, gallery), ridge 22.6 m, spire 25.7 m | hall, salon, library, dining room, kitchen (hearth); 8 bedrooms on two floors; open attic; two stair cores to the attic, rear corridor on every level |
+| `vil_longhouse_thatched` | Thatched colombage longhouse on a stone sill wall | 17 × 7.2 m | kitchen with hearth, salle, byre (own double door); doorways along the rear |
+| `vil_townhouse_jettied` | Stone ground floor, two half-timbered storeys jettied 35 cm each (front and rear) | 10.4 × 8.4 m (11.8 m at the top) | shop, parlour, bedroom; two stairs |
+| `vil_villa_deauville` | Brick ground floor, half-timbered first floor and gables, porch, balconies, cross gable, dormers | 15 × 10.6 m | salon, hall, dining; two bedrooms; open attic; two stairs |
+| `vil_manor_turret` | Stone manor, round stair turret with a spire on the front, stone gables and chimneys | 17 × 10 m | hall, salon, dining (fireplaces); three bedrooms; two stairs |
+| `vil_corner_shop` | Brick-and-stone corner shop, slate hip roof, fascia, awnings, corner door | 11 × 9.2 m | shop; apartment above; two stairs |
+| `vil_gatehouse_chapel` | Chapel-style gatehouse: vaulted carriage arch through the middle, bellcote, buttresses | 12.8 × 7.2 m | porter's lodge (hearth) and chapel (altar, lancets, own front door) off the passage |
+| `vil_mill_house` | Stone mill with a lean-to wheelhouse annex and a 4.2 m oak waterwheel in its race (static) | 14 × 9.6 m (20.4 m with the annex) | mill room with millstones, store; two bedrooms; two stairs |
+| `vil_terrace_pair` | Two narrow terraced town houses (rendered / brick), party-wall upstand and shared stack | 11.2 × 9.2 m | a room per floor per house, a stair each; rear corridors knocked through the party wall |
+| `vil_cottage_barn` | Cottage + barn under one roof, round dovecote turret with pigeon holes | 20 × 7.8 m | kitchen (hearth), living room; barn open to the rafters, earth floor, cart doors |
+| `vil_rectory` | Rendered presbytery, stone quoins and cornice, slate hip roof with dormers, door case with pediment | 15 × 11 m | study, hall, dining; three rooms above; two stairs |
+
+How they are built: one builder (`house()`) lays every multi-storey house out like `catalog_large.mjs` (rear corridor on every level, two switchback stair cores at its ends, rooms off the corridor, doorways at the room centres); single-storey houses are a row of rooms with doorways near the rear wall. Walls are built storey by storey (`parts.wall()`, one panel band each) so storeys can change material and jetty out; half-timbered storeys are rendered walls with `timberFrame()` on them and timber-family panels. The chateau's checkerwork is a post-pass: its ground-floor outer layer becomes a grid of brick and dressed-stone squares (the core keeps one invisible collider; bay states keep their squares as colliders, breached states are plain brick). `NMK_CAPTURE_SET=b3 --capture-materials <tag>` captures every one (front and rear views, then each tour viewpoint, furnished); `NMK_STRUCTURES_ONLY=<ids>` limits `--selftest-structures` to those ids for a quick walkthrough.
+
 ### Ruins and rubble (V3; palette categories *Ruins*, *Rubble*)
 
 Added by the Visual & Physics Overhaul, stream V3 (`docs/plan-visual-physics-overhaul.md`, items 0 and 0a), in `tools/catalog_ruins.mjs`. Every ruin is enterable and walkable, with nav (rooms, doors, entrances, corners, firing points, cover) and a tour.
