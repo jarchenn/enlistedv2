@@ -22,6 +22,9 @@ public:
   // volume settings (settings.cpp): master on the engine; effects on every spatial play / loop; UI on events whose
   // name starts with "ui_" or whose manifest kind is "ui"; ambience on the wind / leaf beds
   void setGains(float master, float effects, float ui, float ambience);
+  // under water (swim.cpp): 0 normal .. 1 muffled (a low-pass on everything that reaches the speakers, a little quieter)
+  void setUnderwater(float k);
+  float underwater = 0;
   float masterGain = 1, effectsGain = 1, uiGain = 1, ambienceGain = 1;
   // looping spatialised voices (tank engines, tracks, turret motors) and runtime-registered sounds (tank.cpp)
   void addSound(const std::string& name, std::vector<float> mono44k);

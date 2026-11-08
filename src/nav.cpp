@@ -43,6 +43,12 @@ void NavConfig::load(const json& j) {
 struct NavBuildJob {
   int tx = 0, tz = 0; uint32_t gen = 0, idBase = 0;
   std::shared_ptr<NavBodySet> bodies; NavAreaMarks marks; float water = -1000;
+  std::vector<float> wgrid; float wx0 = 0, wz0 = 0, wstep = 1; int wn = 0;   // sampled local water (Nav::waterQuery), empty = none
+  float waterAt(float x, float z) const {
+    if (wgrid.empty()) return water;
+    int i = std::clamp((int)std::lround((x - wx0) / wstep), 0, wn - 1), k = std::clamp((int)std::lround((z - wz0) / wstep), 0, wn - 1);
+    return std::max(water, wgrid[(size_t)k * wn + i]);
+  }
   unsigned char* data = nullptr; int size = 0; std::vector<NavLink> links; double ms = 0; int polys = 0, tris = 0, kinds[4] = {0, 0, 0, 0};
   ~NavBuildJob() { if (data) dtFree(data); }
 };
@@ -125,7 +131,8 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
       unsigned char& a = chf->areas[i];
       if (a == RC_NULL_AREA) continue;
       float y = chf->bmin[1] + chf->spans[i].y * chf->ch;
-      if (y < j.water) a = (j.water - y > c.shallowWater) ? forbidWater : navarea::fromNav(NavArea::Water);
+      float wl = j.wgrid.empty() ? j.water : j.waterAt(chf->bmin[0] + (x + 0.5f) * chf->cs, chf->bmin[2] + (z + 0.5f) * chf->cs);   // swim.cpp: lakes and ponds too
+      if (y < wl) a = (wl - y > c.shallowWater) ? forbidWater : navarea::fromNav(NavArea::Water);
       if (chf->spans[i].h < standCells && a < navarea::kLinkDrop && !(a & navarea::kCrouchBit)) a = (unsigned char)(a | navarea::kCrouchBit);
     }
   }
@@ -280,6 +287,20 @@ static uint32_t linkIdBase(const NavImpl& I, int tx, int tz) {
   return (serial << 12) + 1;   // 0 is "no link"
 }
 
+// local water over a tile and its border, 1 m samples taken here (the main thread), so the workers never touch the map
+static void sampleWater(const Nav& nav, NavBuildJob& j, float pad) {
+  if (!nav.waterQuery) return;
+  const float T = nav.cfg.tile, P = pad + 3.0f, st = 1.0f;
+  j.wx0 = j.tx * T - P; j.wz0 = j.tz * T - P; j.wstep = st; j.wn = (int)std::ceil((T + 2 * P) / st) + 1;
+  j.wgrid.assign((size_t)j.wn * j.wn, -1e9f);
+  bool any = false;
+  for (int k = 0; k < j.wn; ++k) for (int i = 0; i < j.wn; ++i) {
+    float w = nav.waterQuery(j.wx0 + i * st, j.wz0 + k * st);
+    j.wgrid[(size_t)k * j.wn + i] = w; any = any || (w > -999.0f && w > j.water);
+  }
+  if (!any) j.wgrid.clear();
+}
+
 void Nav::build(vec3 blo, vec3 bhi, int threads) {
   clear();
   auto t0 = std::chrono::steady_clock::now();
@@ -292,6 +313,7 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
   for (int tz = impl_->tz0; tz <= impl_->tz1; ++tz) for (int tx = impl_->tx0; tx <= impl_->tx1; ++tx) {
     auto j = std::make_unique<NavBuildJob>();
     j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
+    sampleWater(*this, *j, pad);
     vec3 a(tx * cfg.tile - pad, -2000, tz * cfg.tile - pad), b((tx + 1) * cfg.tile + pad, 2000, (tz + 1) * cfg.tile + pad);
     j->bodies = navCollectBodies(a, b, classify);
     if (areaMarks) areaMarks(tx, tz, j->marks);
@@ -322,6 +344,7 @@ void Nav::rebuildArea(vec3 a, vec3 b) {
   for (int tz = z0; tz <= z1; ++tz) for (int tx = x0; tx <= x1; ++tx) {
     auto j = std::make_unique<NavBuildJob>();
     j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
+    sampleWater(*this, *j, pad);
     vec3 lo2(tx * cfg.tile - pad, -2000, tz * cfg.tile - pad), hi2((tx + 1) * cfg.tile + pad, 2000, (tz + 1) * cfg.tile + pad);
     j->bodies = navCollectBodies(lo2, hi2, classify);
     if (areaMarks) areaMarks(tx, tz, j->marks);

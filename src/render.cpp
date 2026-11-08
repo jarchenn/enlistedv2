@@ -17,6 +17,7 @@ float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=
 
 uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uCamPos, uFogCol, uFill;
 uniform float uFogDens;
+uniform float uUnder;   // 1: the camera is under water (swim.cpp): applyFog / sky become a dense uniform water fog
 uniform sampler2DShadow uShadow; uniform mat4 uLightVP; uniform int uShadowOn;
 uniform sampler2D uOcc; uniform mat4 uOccVP; uniform float uOccTop, uOccRange; uniform int uOccOn;
 uniform vec2 uShadowTexel;
@@ -149,6 +150,7 @@ vec3 skyColor(vec3 d){
 // Optical depth from the eye at e to the point: rho0 * L * exp(-e.y/Hh) * (1 - exp(-dy/Hh)) / (dy/Hh).
 // The in-scattered colour is the horizon sky in that direction plus a sun glow, so the land fades into the sky.
 vec3 applyFog(vec3 col, vec3 w){
+  if (uUnder > 0.5) { float f = 1.0 - exp(-length(w - uCamPos)*uFogDens); gFogT = 1.0 - f; return mix(col, uFogCol, f); }
   vec3 dir = normalize(w - uCamPos);
   if (uLook == 0) {
     float d = max(length(w - uCamPos) - 35.0, 0.0);
@@ -1753,6 +1755,7 @@ void main(){
     }
     c = mix(c, lit, cl*0.9*smoothstep(0.0, 0.12, d.y));
   }
+  if (uUnder > 0.5) c = uFogCol*(0.75 + 0.45*max(d.y, 0.0));   // under water: the fog, a little lighter toward the surface
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? skyColor(d) : c, 1.0);
 }
 )GLSL";
@@ -1760,6 +1763,7 @@ static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt; uniform int uTonemap;
+uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
 vec3 toSRGB(vec3 c){ return mix(c*12.92, 1.055*pow(c, vec3(1.0/2.4))-0.055, step(0.0031308, c)); }
@@ -1785,6 +1789,7 @@ void main(){
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
   c = mix(vec3(l), c, 0.93);
   vec2 q = vUV - 0.5; c *= 1.0 - dot(q,q)*0.16;
+  if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
   oColor = vec4(toSRGB(c), 1.0);
 }
 )GLSL";
@@ -2090,6 +2095,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   // shadowed sides read blue-grey and lit faces warm, while shadows stay open (no crushed blacks).
   vec3 sun(2.65f, 2.52f, 2.32f), sky(0.42f, 0.49f, 0.60f), ground(0.20f, 0.19f, 0.155f), fog(0.64f, 0.68f, 0.72f), fill(0.10f, 0.095f, 0.08f);
   if (!q.legacy) { sun = vec3(3.30f, 3.05f, 2.62f); sky = vec3(0.30f, 0.36f, 0.47f); ground = vec3(0.17f, 0.155f, 0.12f); fill = vec3(0.075f, 0.072f, 0.065f); }
+  if (v.underwater && !thumbMode) { sun *= vec3(0.22f, 0.38f, 0.40f); sky *= vec3(0.45f, 0.75f, 0.80f); ground *= vec3(0.45f, 0.75f, 0.80f); }   // swim.cpp: light filtered by the water above
   glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
   glUniform3fv(U(p, "uGroundCol"), 1, glm::value_ptr(ground));
@@ -2097,6 +2103,9 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uFill"), 1, glm::value_ptr(fill));
   glUniform3fv(U(p, "uCamPos"), 1, glm::value_ptr(v.camPos));
   glUniform1f(U(p, "uFogDens"), thumbMode ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity));
+  if (v.underwater && !thumbMode) { fog = v.underFogCol; glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog)); glUniform1f(U(p, "uFogDens"), v.underFogDens); }   // swim.cpp
+  glUniform1f(U(p, "uUnder"), v.underwater && !thumbMode ? 1.0f : 0.0f);
+  if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : (thumbMode ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity)));
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   glUniformMatrix4fv(U(p, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   glUniform1f(U(p, "uOccTop"), occTop); glUniform1f(U(p, "uOccRange"), occRange);
@@ -2513,6 +2522,7 @@ void Renderer::render(const RenderView& v, const Terrain& t, const std::vector<D
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uFixedExpo"), v.autoExposure ? -1.0f : 1.0f);
+  glUniform1f(U(progTone, "uUnderTone"), v.underwater ? 1.0f : 0.0f);   // swim.cpp
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? q.bloomStrength : 0.0f);

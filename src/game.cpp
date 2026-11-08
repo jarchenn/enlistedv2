@@ -423,7 +423,7 @@ void Game::clientStep(float dt) {
   netInterpolate(*this, t);
   if (Soldier* L = local(); L && L->alive) {
     auto c = Physics::character();
-    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->weapon = app.activeWeapon;
+    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
   // door toggles made locally are requests: undo them here and ask the host
@@ -457,7 +457,7 @@ void Game::step(float dt) {
     localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
     auto c = Physics::character();
     L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture;
-    L->weapon = app.activeWeapon;
+    L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
   // occupancy sample at step start (capture precedence uses it)
@@ -495,6 +495,9 @@ void Game::posesStep(float dt) {
     pp.throwT = s.throwT; pp.recoil = s.recoil;
     pp.lowReady = (!s.localPlayer && s.br.target < 0 && s.speed > 2.5f) ? 1.0f : 0.0f;
     if (s.localPlayer) app.mantlePose(s.feet, pp);   // hands on the ledge while mantling (mantle.cpp)
+    s.swimBlend += ((s.swim && s.alive ? 1.0f : 0.0f) - s.swimBlend) * std::min(1.0f, dt * 5);
+    pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz
+    if (s.localPlayer) app.swimPose(pp);   // swim.cpp: the player's own stroke phase
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
     poseCharacter(m, pp, s.pose);
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;

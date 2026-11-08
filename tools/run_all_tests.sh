@@ -17,6 +17,7 @@ run fps      --selftest-fps
 run env      --selftest-env
 run arsenal  --selftest-arsenal
 run move     --selftest-move
+run swim     --selftest-swim    # swimming: depth hysteresis, bob, no fire, arms, underwater fog, breath, mantle out, bots, nav (docs/movement.md#swimming)
 run sights   --selftest-sights
 run visuals  --selftest-visuals   # W2: thumbnails (blank tiles, cache), footprint labels, bunker ammo / nav / OP + shelter pass
 run update   --selftest-update

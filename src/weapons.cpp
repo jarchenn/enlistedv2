@@ -142,7 +142,7 @@ void App::selectWeapon(int idx) {
 
 mat4 App::viewModelMatrix(const WeaponDef& d, const WeaponState& s) const {
   vec3 e = eyePos(), f = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
-  mat4 cam = glm::inverse(glm::lookAt(e, e + f, vec3(0, 1, 0)));
+  mat4 cam = glm::inverse(glm::lookAt(e, e + f, viewUp(f)));
   return cam * vmLocal(d, s);   // viewmodel.cpp: ADS alignment, spring, sway, bob, kick, reload dip
 }
 
@@ -170,6 +170,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   bool scopedView = d.hasScope && !(d.scopeIrons && scopeIronsMode) && adsT > 0.85f;
   if (scopedView) return;   // looking through the optic: the scope mask replaces the model
   mat4 M = viewModelMatrix(d, s);
+  if (swimLower() >= 0.999f) { armDrawItems(M, d, s); return; }   // swimming (swim.cpp): weapon slung, hands-only stroke
   bool tex = d.useModel();
   // reload progress drives an imported reload clip (Garand: clip seats, follower and operating rod cycle)
   float animU = 1.0f;

@@ -41,7 +41,9 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   auto J = [&](int s) { return m.semantic[s]; };
   auto H = [&](int s) { return J(s) >= 0 ? m.jointHead[J(s)] : vec3(0); };
   bool dead = p.death >= 0;
-  float prone = dead ? 0.0f : std::clamp(p.prone, 0.0f, 1.0f);
+  // swimming: the body tilts forward about the waterline, arms breaststroke, legs frog-kick, the weapon rides slung
+  float swim = dead ? 0.0f : std::clamp(p.swim, 0.0f, 1.0f), sph = p.swimPhase;
+  float prone = dead ? 0.0f : std::clamp(p.prone, 0.0f, 1.0f) * (1 - swim);
   float crouch = dead ? 0.0f : std::clamp(p.crouch, 0.0f, 1.0f) * (1 - prone);
   float walk = dead ? 0.0f : std::clamp(p.walkAmount, 0.0f, 1.0f) * (1 - prone);
   // ---- body root: hips drop for crouch, bob for walking
@@ -76,6 +78,8 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     weapon = glm::translate(mat4(1), pocket) * glm::mat4_cast(q);
     if (p.recoil > 0) weapon = weapon * glm::translate(mat4(1), vec3(0, 0, -0.035f * p.recoil)) * glm::mat4_cast(glm::angleAxis(-0.06f * p.recoil, vec3(1, 0, 0)));
     if (p.reload > 0 && p.reload < 1) weapon = weapon * glm::mat4_cast(glm::angleAxis(0.35f * std::sin(p.reload * 3.14159f), vec3(0, 0, 1)));
+    if (swim > 0.5f)   // slung across the back, muzzle up over the left shoulder
+      weapon = glm::translate(mat4(1), vec3(chest * vec4(0.0f, H(CJ_HIPS).y + 0.30f, -0.17f, 1))) * glm::mat4_cast(rotOf(chest) * glm::angleAxis(0.5f, vec3(0, 0, 1)) * glm::angleAxis(-1.35f, vec3(1, 0, 0)) * glm::angleAxis(3.14159265f, vec3(0, 1, 0))) * glm::translate(mat4(1), vec3(0, 0, -0.45f));
     weaponSet = true;
   };
   for (int j : order) {
@@ -102,6 +106,13 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
         T = t < 0.45f ? glm::mix(vec3(weapon * vec4(p.gripR, 1)), back, ease(t / 0.45f)) : t < 0.7f ? glm::mix(back, rel, ease((t - 0.45f) / 0.25f)) : glm::mix(rel, fol, ease((t - 0.7f) / 0.3f));
       }
       if (climbW > 0) T = glm::mix(T, p.climbGrip + vec3(side ? -p.climbSpread : p.climbSpread, 0, 0), climbW);   // palms on the ledge (left is +x)
+      if (swim > 0) {   // breaststroke in the upright model frame (+y becomes forward once the body tilts): reach, sweep out, in
+        float u = std::fmod(sph / 6.2831853f, 1.0f); if (u < 0) u += 1;
+        float sx = side ? -1.0f : 1.0f, sh = H(CJ_RARM).y;   // left is +x
+        vec3 chestP(0.12f * sx, sh - 0.20f, 0.30f), reach(0.10f * sx, sh + 0.55f, 0.18f), wide(0.55f * sx, sh + 0.30f, 0.10f);
+        vec3 S = u < 0.35f ? glm::mix(chestP, reach, ease(u / 0.35f)) : u < 0.65f ? glm::mix(reach, wide, ease((u - 0.35f) / 0.3f)) : glm::mix(wide, chestP, ease((u - 0.65f) / 0.35f));
+        T = glm::mix(T, vec3(root * vec4(S, 1)), swim);
+      }
       // the wrist sits ~7 cm behind the palm socket, toward the elbow
       float l1 = glm::length(b0 - a0), l2 = glm::length(c0 - b0);
       vec3 pole = side ? vec3(-0.6f, -1, -0.2f) : vec3(0.7f, -1, -0.1f);
@@ -127,6 +138,10 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       vec3 T = c0 + vec3(0, std::max(0.0f, std::cos(ph)) * 0.11f * walk, 0.30f * walk * std::sin(ph) + 0.10f * crouch);
       if (crouch > 0.01f) T.x += (leg ? -0.04f : 0.04f) * crouch;
       if (climb >= 0 && leg) T += vec3(0, 0.55f, 0.30f) * climbRoll;   // the right knee comes up onto the ledge
+      if (swim > 0) {   // frog kick: heels draw up and out, then snap back together (half a cycle behind the arms)
+        float k = 0.5f + 0.5f * std::sin(sph - 1.2f);
+        T = glm::mix(T, c0 + vec3((leg ? -0.16f : 0.16f) * k, 0.38f * k, -0.22f * k), swim);
+      }
       float l1 = glm::length(b0 - a0), l2 = glm::length(c0 - b0);
       vec3 K = solve2(A, l1, l2, T, vec3(0, 0.2f, 1));
       quat Rp = rotOf(Pd);
@@ -147,6 +162,10 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   // ---- whole-body transforms: prone (lying forward, head at the capsule origin), death fall about the feet
   mat4 body(1);
   if (prone > 0) body = glm::translate(mat4(1), vec3(0, 0.16f * prone, -1.45f * prone)) * glm::mat4_cast(glm::angleAxis(1.5707963f * prone, vec3(1, 0, 0)));
+  if (swim > 0) {   // about the waterline (the feet float ~1.38 m under it): 70 deg forward, a small roll with the stroke
+    const vec3 pivot(0, 1.32f, 0);
+    body = about(pivot, glm::angleAxis(1.22f * swim, vec3(1, 0, 0)) * glm::angleAxis(0.06f * swim * std::sin(sph), vec3(0, 1, 0)));
+  }
   if (dead) {
     float e = ease(p.death);
     float s = p.deathStyle == 1 ? 1.0f : -1.0f;

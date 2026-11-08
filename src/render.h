@@ -37,6 +37,8 @@ struct RenderView {
   // first-person weapon: own fixed-FOV projection (identity = use proj) and the depth-of-field focus
   mat4 vmProj{0};
   float dofFocus = 0, dofAmount = 0;   // metres from the eye; 0..1 (ADS blend)
+  bool underwater = false;             // camera below the water surface (swim.cpp): dense fog, tint, vignette
+  vec3 underFogCol{0.06f, 0.24f, 0.25f}; float underFogDens = 0.11f;   // movement.json "swim"
 };
 
 struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; };
@@ -55,6 +57,7 @@ public:
   bool readPixels(std::vector<uint8_t>& rgba, int& w, int& h);
   bool readVmDist(std::vector<float>& d, int& w, int& h);   // first-person eye distance per pixel (0 = world), rows bottom-up
   FrameStats stats;
+  vec4 fogNow{0};   // fog colour (rgb) and density of the last frame's world pass (tests)
   std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)
   const Grass* grass = nullptr;         // instanced pasture grass (owned by the app)
   std::vector<DrawItem> viewModel;      // first-person weapon: drawn last over a cleared depth buffer

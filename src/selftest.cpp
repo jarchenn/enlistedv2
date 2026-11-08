@@ -138,6 +138,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool settingsSelfTest(App&, float); if (settingsSelfTest(app, dt)) return; }   // V2: --selftest-settings (selftest_settings.cpp)
   { extern bool autopathSelfTest(App&, float); if (autopathSelfTest(app, dt)) return; }   // --selftest-autopath (selftest_autopath.cpp)
   { extern bool snapSelfTest(App&, float); if (snapSelfTest(app, dt)) return; }   // V6: --selftest-snap (selftest_snap.cpp)
+  { extern bool swimSelfTest(App&, float); if (swimSelfTest(app, dt)) return; }   // --selftest-swim (selftest_swim.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();

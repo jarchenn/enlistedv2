@@ -48,5 +48,28 @@
   "pitchUp_deg": 5.0,
   "pitchDip_deg": 14.0,
   "handSpread_m": 0.24
+ },
+ "swim": {
+  "_note": "Swimming (src/swim.cpp, docs/movement.md#swimming). Water is waterAt(): the global sea level, V1 water assets and lasso water bodies. Swim above enterDepth_m of water over the feet, walk again below exitDepth_m once grounded; floating, the feet hang floatDepth_m under the surface (eye ~0.24 m above it). Space rises, Ctrl dives, the look steers W/S when submerged or looking more than diveSteerPitch_deg down. Buoyancy drifts back up at buoyancy_mps; velocity follows the wish at drag_per_s. Surface bob bobAmp_m at bobHz plus the stroke, roll_deg with the stroke. breath_s with the eye under water, breathRecover_per_s back above; then drownDamage_hps HP per second every drownTick_s (rules damage path, match only). Underwater fog: underwaterFog_per_m, underwaterFogColor (linear).",
+  "enterDepth_m": 1.25,
+  "exitDepth_m": 1.05,
+  "floatDepth_m": 1.38,
+  "speed_mps": 2.2,
+  "sprint_mps": 3.2,
+  "rise_mps": 1.6,
+  "dive_mps": 1.5,
+  "buoyancy_mps": 0.45,
+  "drag_per_s": 4.0,
+  "diveSteerPitch_deg": 30.0,
+  "bobAmp_m": 0.035,
+  "bobHz": 0.55,
+  "roll_deg": 1.6,
+  "strokeHz": 0.85,
+  "breath_s": 30.0,
+  "breathRecover_per_s": 7.5,
+  "drownDamage_hps": 10.0,
+  "drownTick_s": 1.0,
+  "underwaterFog_per_m": 0.11,
+  "underwaterFogColor": [0.06, 0.24, 0.25]
  }
 }

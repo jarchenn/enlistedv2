@@ -68,6 +68,7 @@ struct PoseParams {
   float climb = -1;                         // 0..1 mantle progress (hands on a ledge, weapon slung low), < 0 = none
   float climbW = 0, climbSpread = 0.24f;    // hands-on-ledge blend; half the distance between the hands (m)
   vec3 climbGrip{0, 1.9f, 0.45f};           // model-space ledge point between the hands (feet at the origin, +z forward)
+  float swim = 0, swimPhase = 0;            // 0..1 swimming blend (body tilted forward, breaststroke, frog kick); stroke phase (rad)
 };
 
 struct PoseResult {

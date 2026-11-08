@@ -66,7 +66,7 @@ float App::vmFovNow() const {
 void App::fpCamera(mat4& view, float& worldFovNow) const {
   // the camera the weapon is posed against this frame (viewModelMatrix), and the world FOV that goes with it
   vec3 e = eyePos(), f = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
-  view = glm::lookAt(e, e + f, vec3(0, 1, 0));
+  view = glm::lookAt(e, e + f, viewUp(f));
   worldFovNow = settings().fov();   // the hip view (72 unless changed in Settings)
   weaponCamera(worldFovNow);
 }
@@ -93,7 +93,7 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
     m = m * glm::translate(mat4(1), vec3(0, -0.06f * dip, 0.25f)) * glm::mat4_cast(glm::angleAxis(radians(-22.0f * dip), vec3(0, 0, 1))) * glm::translate(mat4(1), vec3(0, 0, -0.25f));
   }
   // mantle: the weapon swings down out of view while both hands are on the ledge (mantle.cpp)
-  if (float lw = mantleLower(); lw > 0) {
+  if (float lw = std::max(mantleLower(), swimLower()); lw > 0) {   // swimming: the same, both hands on the stroke (swim.cpp)
     float e = lw * lw * (3 - 2 * lw);
     m = glm::translate(mat4(1), vec3(0.05f * e, -0.34f * e, 0.08f * e)) * glm::mat4_cast(glm::angleAxis(radians(-60.0f * e), vec3(1, 0, 0))) * m;
   }
@@ -223,8 +223,12 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
     float w = std::sin(std::clamp(u, 0.0f, 1.0f) * 3.14159f);
     tL = glm::mix(tL, vec3(Mv * vec4(feed, 1)), w);
   }
-  vec3 gl, gr; float gw = 0;   // mantle: both hands reach for the ledge (world points, mantle.cpp)
+  vec3 gl, gr; float gw = 0;   // swimming: hands-only breaststroke (camera space, swim.cpp)
+  if (swimHands(gl, gr, gw)) { tR = glm::mix(tR, gr, gw); tL = glm::mix(tL, gl, gw); }
+  float sw = gw; gw = 0;
+  // mantle: both hands reach for the ledge (world points, mantle.cpp); wins over the stroke when climbing out of water
   if (mantleGrips(gl, gr, gw)) { mat4 ci = glm::inverse(cam); tR = glm::mix(tR, vec3(ci * vec4(gr, 1)), gw); tL = glm::mix(tL, vec3(ci * vec4(gl, 1)), gw); }
+  gw = std::max(gw, sw);
   vec3 SR(0.17f, -0.24f, 0.02f), SL(-0.17f, -0.24f, 0.02f);
   vec3 eR, hR, eL, hL;
   solveTwoBone(SR, tR, kUpperArm, kForearm, vec3(0.4f, -1, 0), eR, hR);

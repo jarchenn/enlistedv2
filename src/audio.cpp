@@ -97,6 +97,8 @@ struct Audio::Impl {
   Buf windBuf, leafBuf; float windVol = 0.25f, leafVol = 0.0f;
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
   Voice loops[16];
+  ma_lpf_node lpf; bool lpfOk = false; float lpfCut = -1;   // under-water muffle: every sound routes through it
+  void route(ma_sound& s) { if (lpfOk) ma_node_attach_output_bus(&s, 0, &lpf, 0); }
 };
 
 bool Audio::init() {
@@ -104,6 +106,12 @@ bool Audio::init() {
   ma_engine_config cfg = ma_engine_config_init();
   cfg.sampleRate = SR;
   if (ma_engine_init(&cfg, &p->engine) != MA_SUCCESS) { logf("audio: no device, sound disabled"); delete p; p = nullptr; return false; }
+  {   // muffle stage (swim.cpp): open at 20 kHz until the camera goes under water
+    ma_lpf_node_config lc = ma_lpf_node_config_init(ma_engine_get_channels(&p->engine), ma_engine_get_sample_rate(&p->engine), 20000.0, 2);
+    p->lpfOk = ma_lpf_node_init(ma_engine_get_node_graph(&p->engine), &lc, nullptr, &p->lpf) == MA_SUCCESS &&
+               ma_node_attach_output_bus(&p->lpf, 0, ma_engine_get_endpoint(&p->engine), 0) == MA_SUCCESS;
+    p->lpfCut = 20000;
+  }
   Rng r;
   auto mk = [&](float len) { return Buf((size_t)(len * SR), 0.0f); };
   // wooden door: latch click, hinge creak / closing thud + latch
@@ -167,6 +175,7 @@ bool Audio::init() {
     c.sampleRate = SR;
     ma_audio_buffer_init(&c, &ab);
     ma_sound_init_from_data_source(&p->engine, &ab, MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, &s);
+    p->route(s);
     ma_sound_set_looping(&s, MA_TRUE); ma_sound_set_volume(&s, vol); ma_sound_start(&s);
   };
   loop(p->windBuf, p->windAB, p->wind, 0.25f * ambienceGain);
@@ -181,6 +190,7 @@ void Audio::shutdown() {
   for (auto& v : p->voices) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (auto& v : p->loops) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   ma_sound_uninit(&p->wind); ma_sound_uninit(&p->leaves);
+  if (p->lpfOk) ma_lpf_node_uninit(&p->lpf, nullptr);
   ma_audio_buffer_uninit(&p->windAB); ma_audio_buffer_uninit(&p->leafAB);
   ma_engine_uninit(&p->engine);
   delete p; p = nullptr; ok_ = false;
@@ -266,6 +276,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   c.sampleRate = SR;
   ma_audio_buffer_init(&c, &v->buf);
   ma_sound_init_from_data_source(&p->engine, &v->buf, 0, nullptr, &v->snd);
+  p->route(v->snd);
   ma_sound_set_position(&v->snd, pos.x, pos.y, pos.z);
   ma_sound_set_min_distance(&v->snd, 1.0f);
   ma_sound_set_rolloff(&v->snd, 1.2f);
@@ -286,6 +297,18 @@ void Audio::setAmbience(float wind, float leaves) {
   ma_sound_set_volume(&p->wind, wind * ambienceGain);
   ma_sound_set_volume(&p->leaves, leaves * ambienceGain);
 }
+void Audio::setUnderwater(float k) {
+  k = std::clamp(k, 0.0f, 1.0f);
+  underwater = k;
+  if (!p || !p->lpfOk) return;
+  float cut = k > 0 ? 20000.0f * std::pow(550.0f / 20000.0f, k) : 20000.0f;   // 20 kHz -> 550 Hz (log blend)
+  if (std::fabs(cut - p->lpfCut) < 1.0f) return;
+  p->lpfCut = cut;
+  ma_lpf_config c = ma_lpf_config_init(ma_format_f32, ma_engine_get_channels(&p->engine), ma_engine_get_sample_rate(&p->engine), cut, 2);
+  ma_lpf_node_reinit(&c, &p->lpf);
+  ma_node_set_output_bus_volume(&p->lpf, 0, 1.0f - 0.35f * k);
+}
+
 void Audio::setGains(float master, float effects, float ui, float ambience) {
   masterGain = std::clamp(master, 0.0f, 1.0f); effectsGain = std::clamp(effects, 0.0f, 1.0f);
   uiGain = std::clamp(ui, 0.0f, 1.0f); ambienceGain = std::clamp(ambience, 0.0f, 1.0f);
@@ -308,6 +331,7 @@ int Audio::loopStart(const std::string& name, vec3 pos, float volume, float pitc
     c.sampleRate = SR;
     ma_audio_buffer_init(&c, &v.buf);
     ma_sound_init_from_data_source(&p->engine, &v.buf, 0, nullptr, &v.snd);
+    p->route(v.snd);
     ma_sound_set_looping(&v.snd, MA_TRUE);
     ma_sound_set_min_distance(&v.snd, 3.0f); ma_sound_set_rolloff(&v.snd, 1.0f);
     ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume * effectsGain); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));

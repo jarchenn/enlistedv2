@@ -32,6 +32,7 @@ rule() {
     env)        echo 'src/(explore|ballistics|damage|builder|render|tank_ram|physics|mantle)' ;;
     arsenal)    echo 'src/(arsenal|weapons|station|builder)' ;;
     move)       echo 'src/(explore|physics|mantle|pose)|content/settings/movement' ;;
+    swim)       echo 'src/(swim|water|explore|physics|mantle|pose|viewmodel|nav\.|render|audio|rules)|content/settings/movement' ;;
     sights)     echo 'src/(viewmodel|render|weapons|model)|content/weapons/' ;;
     visuals)    echo 'src/(thumbs|render|assets|editor|palette)|content/assets/' ;;
     update)     echo 'src/(explore|weapons|mantle|viewmodel)' ;;

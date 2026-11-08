@@ -30,6 +30,8 @@ vec4 rulesTint(const Game& g, const Soldier& s);            // Game::drawItems: 
 void rulesHud(Game& g);                                     // after Game::drawHud: shield icons, own countdown ring
 void rulesNetProtect(Game& g, Soldier& s, bool on);         // LAN client snapshot: the host's protection bit
 void rulesAfterMove(App& app, const Physics::CharState& before, const Physics::CharState& after, float dt);   // fall damage
+void rulesInWater(App& app);                                // swim.cpp: water breaks a fall (no fall damage climbing out)
+void rulesDrown(App& app, float dmg);                       // swim.cpp: out of breath with the head under (match, player only)
 void rulesDeflectPuff(App& app, vec3 p, vec3 n, vec3 dir);  // hit on a protected soldier (no gore)
 
 // ---- helpers / test probes

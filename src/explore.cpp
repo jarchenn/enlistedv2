@@ -4,6 +4,7 @@
 #include "mpai.h"
 #include "rules.h"
 #include "w3.h"
+#include "water_query.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -66,6 +67,7 @@ bool App::enterExplore() {
   Physics::createCharacter(p);
   exploreStartPos = p; exploreStartYaw = doc.start.yaw;
   eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f; riseT = riseDur = 0;
+  swim = SwimState{}; swim.breath = swimCfg.breath;   // swim.cpp
   physAccum = 0; pauseMenu = false; target = {};
   if (looking) looking = false;
   if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -293,10 +295,11 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   }
   if (!occupied) stepBuilder(in);
   if (occupied) { stepStation(dt, in); }
-  else if (build.active || mantle.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing
+  else if (build.active || mantle.active || swim.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; if (swim.active) w.quickGrenade = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing / swimming
   else stepWeapons(dt, in);
   blastShake = std::max(0.0f, blastShake - dt * 1.5f);
   if (mpaiLocalFrozen(*this)) { stepProjectiles(dt); fx.update(dt, terrain); return; }   // dead in a match: spectating
+  swimBreath(dt);   // swim.cpp: breath runs down with the eye under water (swimming or not), then drowning
   // ---- move
   vec3 f = forward(eyeYaw, 0), rgt(std::cos(radians(eyeYaw)), 0, -std::sin(radians(eyeYaw)));
   vec3 wish = f * in.move.y + rgt * in.move.x;
@@ -321,6 +324,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   else vault.held += dt;
   if (vault.active) { stepVault(dt); return; }
   if (mantle.active) { stepMantle(dt); return; }   // mantle.cpp: ledges too tall / deep to vault (trench lips, 2 m walls)
+  if (!occupied && stepSwim(dt, in, before)) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }   // swim.cpp: chest-deep water
   if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; return; }
   bool rising = riseT < riseDur;
   bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising;   // Shift while aiming holds the breath; no sprint while lowered or getting up
@@ -362,7 +366,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
         uint64_t iid = c.groundUser >> 16;
         for (auto& i : doc.instances) if (i.id == iid) s = (c.pos.y - i.pos.y > 0.9f) ? "step_wood" : "step_stone";
       }
-      if (c.pos.y < terrain.waterLevel - 0.05f && audio.hasEvent("step_water")) s = "step_water";   // wading: the bank's deep-water steps
+      if (c.pos.y < waterAt(*this, c.pos.x, c.pos.z) - 0.05f && audio.hasEvent("step_water")) s = "step_water";   // wading: the bank's deep-water steps (any water, water_query.h)
       audio.play(s, c.pos, in.crouch ? 0.4f : 0.8f);
     }
   }
@@ -512,7 +516,7 @@ void App::drawExploreUI() {
     }
     dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
     if (tanks.occupied) tanks.drawUI(*this);
-    else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); }
+    else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); }
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
   drawDamageDebug();
