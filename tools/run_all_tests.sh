@@ -38,6 +38,7 @@ run autopath --selftest-autopath  # V9 auto paths: Connect houses on the village
 run snap     --selftest-snap    # V6: snapping trenches / hedges / paths: joints, caps, cut floors, texture origin
 run lasso    --selftest-lasso   # lasso tool: groups, elevation, water fill, ground paint, move land (docs/lasso.md)
 run maps     --selftest-maps    # W5 default maps: template load, scenario, SPEC 2.1 distances, asset-usage doc, views + frame time
+run lights   --selftest-lights   # L2: clusters, light shadows, probe GI, time of day
 run render   --selftest-render  # V1: facade shimmer 20 / 50 / 100 m (static + strafe), rough walls, water assets / pass (docs/rendering.md §9)
 run textures --selftest-textures   # L4: ambientCG texture layer, slots, on / off look, missing-texture fallback (docs/textures.md)
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
