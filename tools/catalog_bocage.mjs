@@ -3,7 +3,8 @@
 // piece, an abatis of felled trees and a marsh / reed patch.
 // Hedges and trees use the engine's foliage block ("tree": leaf cards on canopy spheres). Everything in a foliage
 // asset goes through the stump / trunk split, so these pieces use boxes only (no prisms) and are indestructible
-// ("hedge": true), like the existing hedgerow_bocage.
+// ("hedge": true), like the existing hedgerow_bocage. Round parts (B1 frustums) are fine: they never split at the
+// stump cut, they go whole to the trunk mesh, which a hedge never fells.
 import { Asset } from "./kit.mjs";
 import { stdMaterials } from "./parts.mjs";
 import { M, mats, rng, rect, fire, cover, setNav, setTour, segBox, r3, extendEnds, band, sock, setSnap, asCap } from "./catalog_atlantic.mjs";
@@ -14,6 +15,54 @@ function bocageMats(A) {
   stdMaterials(A);
   A.materials.push({ ...SOIL });
   mats(A, "spoil", "mud", "rock", "rock_dark", "log_raw", "bark_grey", "water", "reed", "reed_green");
+  // NT pass: bark is the L4 bark set along each part's axis over a plain base (the wood pattern drew plank seams)
+  for (const m of A.materials) if (m.name === "bark" || m.name === "bark_grey") Object.assign(m, { pattern: "plain", texture: "bark", grain: 1 });
+  // quarry rock: the natural-rock pattern (limestone lithology, as the slope rock and boulders; its albedo multiplies
+  // that palette) instead of coursed masonry, which made the face and talus read as brickwork
+  for (const m of A.materials) if (m.name === "rock" || m.name === "rock_dark") Object.assign(m, { albedo: m.name === "rock" ? [0.95, 0.92, 0.86] : [0.7, 0.68, 0.64], pattern: "rock", texture: "rock" });
+  A.materials.push({ name: "bark_moss", albedo: [0.13, 0.15, 0.085], roughness: 0.97, pattern: "plain", texture: "bark", metallic: 0, grain: 1 });
+}
+// ---- NT pass (v2): round tapered stems and limbs, coppiced hedge stools with bare stems at the foot and an uneven
+// top, clumped leaf masses (as tools/gen_env_assets.py seg3 / limb3 / clump3 / coppice3)
+const D2R = Math.PI / 180;
+function seg(A, a, b, ra, rb, m, n = 6) {   // one tapered round segment from a to b, visual only
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d);
+  const pitch = Math.asin(Math.max(-1, Math.min(1, d[1] / L))) / D2R, yaw = Math.atan2(d[0], d[2]) / D2R;
+  const o = { seg: n, top: Math.min(1, rb / ra), k: 0 };
+  if (Math.abs(90 - pitch) > 0.05) o.r = [90 - pitch, yaw, 0];
+  A.cone([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], [2 * ra, L + 0.02, 2 * ra], m, o);
+  return b;
+}
+const along = (pts, f) => { const s = Math.min(pts.length - 2, Math.floor(f * (pts.length - 1))), t = f * (pts.length - 1) - s; return [0, 1, 2].map((i) => pts[s][i] + (pts[s + 1][i] - pts[s][i]) * t); };
+function limb(A, R, base, L, yaw, pitch, bend, ra, rb, m, nseg = 2, n = 6) {   // a curved tapering limb; returns its points
+  const pts = [base];
+  for (let s = 0; s < nseg; s++) {
+    const pr = (pitch + (bend * s) / Math.max(1, nseg - 1)) * D2R, yr = (yaw + (R() - 0.5) * 16) * D2R, p = pts[pts.length - 1];
+    pts.push([p[0] + Math.sin(yr) * Math.cos(pr) * L / nseg, p[1] + Math.sin(pr) * L / nseg, p[2] + Math.cos(yr) * Math.cos(pr) * L / nseg]);
+    seg(A, p, pts[pts.length - 1], ra + ((rb - ra) * s) / nseg, ra + ((rb - ra) * (s + 1)) / nseg, m, n);
+  }
+  return pts;
+}
+function clump(R, canopy, c, r, sats, out, up = 0.25) {   // a main leaf sphere and smaller satellites pushed outward
+  canopy.push([r3(c[0]), r3(c[1] + r * up), r3(c[2]), r3(r * (0.82 + R() * 0.13))]);
+  for (let k = 0; k < sats; k++) {
+    const a = R() * 2 * Math.PI, e = -0.3 + R() * 1.05;
+    const d = [Math.cos(e) * Math.sin(a) + out[0] * 0.8, Math.sin(e), Math.cos(e) * Math.cos(a) + out[1] * 0.8], o = (r * (0.6 + R() * 0.25)) / Math.hypot(...d);
+    canopy.push([r3(c[0] + d[0] * o), r3(c[1] + r * up + d[1] * o), r3(c[2] + d[2] * o), r3(r * (0.45 + R() * 0.17))]);
+  }
+}
+// a coppice stool: stems splaying from one root, a leaf lobe at each top and one on the outer side; the lower `bare`
+// share of each stem carries no leaves
+function coppice(A, R, canopy, x, z, y, stems, h0, h1, rs, spread, lobe, bare = 0.4, side = true) {
+  for (let i = 0; i < stems; i++) {
+    const yaw = (360 * i) / stems + (R() - 0.5) * 60, pitch = 90 - spread + R() * (spread - 4), h = h0 + R() * (h1 - h0);
+    const pts = limb(A, R, [x + (R() - 0.5) * 0.12, y - 0.05, z + (R() - 0.5) * 0.12], h / Math.sin(pitch * D2R), yaw, pitch, -(4 + R() * 10), rs, rs * 0.3, "bark", 2, 5);
+    const out = [Math.sin(yaw * D2R), Math.cos(yaw * D2R)];
+    clump(R, canopy, pts[pts.length - 1], lobe * (0.85 + R() * 0.25), 1, out, 0.1);
+    if (!side) continue;
+    const m = along(pts, bare + 0.15 + R() * 0.2);
+    canopy.push([r3(m[0] + out[0] * lobe * 0.45), r3(m[1]), r3(m[2] + out[1] * lobe * 0.45), r3(lobe * (0.55 + R() * 0.15))]);
+  }
 }
 // earth bank along a segment: base W, top Wt, height H (a core box and two battered side slabs)
 function bankSeg(A, p0, p1, H, W = 3.0, Wt = 1.1, e0 = 0, e1 = 0) {
@@ -27,34 +76,46 @@ function bankSeg(A, p0, p1, H, W = 3.0, Wt = 1.1, e0 = 0, e1 = 0) {
     segBox(A, p0, p1, side * mz, my - (fl + 0.6) / 2, my + (fl + 0.6) / 2, 2 * t, "bank_soil", {}, e0 > 0 ? e0 - 0.3 : 0, e1 > 0 ? e1 - 0.3 : 0, -side * tilt);
   }
 }
-// hedge along the bank top: stems and canopy spheres; returns the spheres
+// hedge along the bank top: a continuous body of overlapping leaf masses whose undersides sit ~0.45 m above the bank
+// (the stems show below), rolling with a slow wave; coppice stools whose tops break the line unevenly, the odd
+// standard, a low skirt in places
 function hedgeAlong(A, R, p0, p1, H, canopy) {
-  const dx = p1[0] - p0[0], dz = p1[1] - p0[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L;
-  for (let s = 0.35; s < L - 0.2; s += 0.62 + R() * 0.25) {
-    const off = (R() - 0.5) * 0.5, x = p0[0] + ux * s - uz * off, z = p0[1] + uz * s + ux * off;
-    canopy.push([r3(x), r3(H + 0.7 + R() * 0.9), r3(z), r3(0.65 + R() * 0.35)]);
-    if (R() < 0.55) canopy.push([r3(x + (R() - 0.5) * 0.6), r3(H + 1.6 + R() * 0.6), r3(z + (R() - 0.5) * 0.6), r3(0.5 + R() * 0.25)]);
-    const h = 1.6 + R() * 1.0, lean = (R() - 0.5) * 20, yaw = R() * 360;
-    A.obox([x, H - 0.1 + h / 2, z], [0.05, h, 0.05], [lean, yaw, 0], "bark", { k: 0 });
+  const dx = p1[0] - p0[0], dz = p1[1] - p0[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ph = R() * 6.28;
+  const at = (s, off) => [p0[0] + ux * s - uz * off, p0[1] + uz * s + ux * off];
+  for (let s = 0.3; s < L - 0.1; s += 0.6 + R() * 0.15) {
+    const [x, z] = at(s, (R() - 0.5) * 0.35), r = 0.72 + R() * 0.14;
+    canopy.push([r3(x), r3(H + 0.5 + r * 0.95 + 0.25 * Math.sin(s * 0.8 + ph)), r3(z), r3(r)]);
+  }
+  for (let s = 0.4; s < L - 0.2; s += 0.9 + R() * 0.4) {
+    const [x, z] = at(s, (R() - 0.5) * 0.5), tall = 0.35 * Math.sin(s * 0.8 + ph) + (R() < 0.18 ? 0.9 : 0);
+    coppice(A, R, canopy, x, z, H, R() < 0.4 ? 3 : 2, 1.7 + tall, 2.3 + tall, 0.035, 18, 0.5, 0.4, false);
+    if (R() < 0.3) canopy.push([r3(x + (R() - 0.5) * 0.4), r3(H + 0.35), r3(z + (R() - 0.5) * 0.4), r3(0.38)]);
   }
 }
 // hedgerow tree on the bank (oak / ash pollard): tapered trunk, a few limbs, a crown of canopy spheres
+// NT: the collider boxes are as before (now invisible); the visible tree is a flared, wobbling round bole with curved
+// tapering limbs, a secondary on each and clumped leaf masses
 function bankTree(A, R, x, z, H, canopy, h = 5.5) {
-  A.box([x - 0.24, H - 0.3, z - 0.24], [x + 0.24, H + h * 0.5, z + 0.24], "bark");
-  A.box([x - 0.17, H + h * 0.5, z - 0.17], [x + 0.17, H + h, z + 0.17], "bark");
-  A.obox([x, H + h * 0.25, z], [0.4, h * 0.5, 0.4], [0, 45, 0], "bark", { k: 0 });
+  A.box([x - 0.24, H - 0.3, z - 0.24], [x + 0.24, H + h * 0.5, z + 0.24], "bark", { v: 0 });
+  A.box([x - 0.17, H + h * 0.5, z - 0.17], [x + 0.17, H + h, z + 0.17], "bark", { v: 0 });
+  seg(A, [x, H - 0.35, z], [x, H + 0.3, z], 0.4, 0.26, "bark_moss", 12);   // root flare over the bank top
+  const bole = [[x, H + 0.25, z]];
+  for (let k = 1; k <= 3; k++) bole.push([x + (R() - 0.5) * 0.14, H + 0.25 + ((h - 0.25) * k) / 3, z + (R() - 0.5) * 0.14]);
+  for (let k = 0; k < 3; k++) seg(A, bole[k], bole[k + 1], 0.25 - 0.035 * k, 0.215 - 0.035 * k, "bark", 12);
   for (let k = 0; k < 4; k++) {
-    const yaw = k * 90 + R() * 50, len = 2.0 + R() * 1.2, y = H + h * (0.62 + 0.1 * k), pr = (yaw * Math.PI) / 180;
-    A.obox([x + Math.sin(pr) * len * 0.4, y + len * 0.3, z + Math.cos(pr) * len * 0.4], [0.12, len, 0.12], [55, yaw, 0], "bark", { k: 0 });
-    canopy.push([r3(x + Math.sin(pr) * len * 0.8), r3(y + len * 0.65), r3(z + Math.cos(pr) * len * 0.8), r3(1.4 + R() * 0.5)]);
+    const yaw = k * 90 + R() * 50, len = 2.0 + R() * 1.2, out = [Math.sin(yaw * D2R), Math.cos(yaw * D2R)];
+    const pts = limb(A, R, along(bole, 0.55 + 0.12 * k), len, yaw, 35 + R() * 15, -14, 0.1, 0.04, "bark", 2, 7);
+    const sp = limb(A, R, along(pts, 0.5), len * 0.55, yaw + (R() - 0.5) * 80, 50, 0, 0.045, 0.015, "bark", 1, 5);
+    clump(R, canopy, pts[2], 1.2 + R() * 0.35, 2, out);
+    clump(R, canopy, sp[1], 0.75 + R() * 0.2, 0, out);
   }
-  canopy.push([r3(x), r3(H + h + 1.4), r3(z), r3(1.9)]);
+  clump(R, canopy, [x, H + h + 0.9, z], 1.6, 2, [0, 0], 0.3);
 }
 function foliage(A, canopy, seed, leaf = [0.14, 0.21, 0.075]) {
   A.meta.tree = { hpBullet: 99999, hpAT: 99999, stumpHeight: 0.15, trunkRadius: 0.05, mass: 30, canopy, cardsPerSphere: 70, cardDensity: 70, leafSize: 0.34, leafColor: leaf, seed, hedge: true };
 }
 function hedgerowAsset(id, name, desc, footprint) {
-  const A = new Asset({ id, version: 1, name, category: "Bocage", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 1.5, noAutoPanels: true });
+  const A = new Asset({ id, version: 2, name, category: "Bocage", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 1.5, noAutoPanels: true });
   bocageMats(A);
   return A;
 }
@@ -152,7 +213,7 @@ export function sunkenLane() {
 // The old stone quarry of Mont-Castre: a 12 m rock face (local +Z faces the quarry floor) with ledges and a talus of
 // fallen blocks at its foot, a 5 m lip on top and the walkable back slope (about 35 deg) down to the ground behind.
 export function quarryFace() {
-  const A = new Asset({ id: "bcg_quarry_face", version: 1, name: "Quarry face (12 m)", category: "Bocage",
+  const A = new Asset({ id: "bcg_quarry_face", version: 2, name: "Quarry face (12 m)", category: "Bocage",
     description: "Old stone-quarry face as on Mont-Castre: a 12 m sandstone face, 22 m wide, with ledges and a talus of fallen blocks at its foot (cover), a 5 m lip on top for an MG nest, and a walkable back slope (about 35 deg) down behind. Local +Z faces the quarry floor.",
     floors: 0, enterable: false, footprint: [22, 24], plinthDepth: 2.0, maxGrade: 3.0, noAutoPanels: true });
   bocageMats(A);
@@ -168,10 +229,12 @@ export function quarryFace() {
   // back slope from the lip down to grade
   const sl = Math.hypot(Hq, ZL - ZB), ang = (Math.atan2(Hq, ZL - ZB) * 180) / Math.PI;
   A.obox([0, Hq / 2 - 0.35, (ZL + ZB) / 2 + 0.25], [2 * X, 0.7, sl + 0.6], [-ang, 0, 0], "bank_soil");
-  // talus of fallen blocks at the foot (cover for the attackers)
+  // talus of fallen blocks at the foot (cover for the attackers): faceted n-sided frustums, tilted, a broken cap on most
   for (let k = 0; k < 16; k++) {
-    const x = (R() * 2 - 1) * (X - 1.5), z = ZF + 0.8 + R() * 4.0, s = 0.6 + R() * 1.3;
-    A.rbox([x - s * 0.6, -0.4, z - s * 0.5], [x + s * 0.6, s * (0.55 + R() * 0.4), z + s * 0.5], s * 0.2, R() < 0.5 ? "rock" : "rock_dark");
+    const x = (R() * 2 - 1) * (X - 1.5), z = ZF + 0.8 + R() * 4.0, s = 0.6 + R() * 1.3, top = s * (0.55 + R() * 0.4), m = R() < 0.5 ? "rock" : "rock_dark";
+    const tilt = () => (R() - 0.5) * 14;
+    A.cone([x, (top - 0.4) / 2, z], [s * 1.2, top + 0.4, s], m, { n: 5 + (k % 3), top: 0.55 + R() * 0.3, r: [tilt(), R() * 360, tilt()] });
+    if (R() < 0.7) A.cone([x + (R() - 0.5) * s * 0.3, top + s * 0.08, z + (R() - 0.5) * s * 0.3], [s * 0.7, s * 0.3, s * 0.55], m, { n: 5, top: 0.45 + R() * 0.3, r: [tilt() * 2, R() * 360, tilt() * 2] });
   }
   for (let k = 0; k < 10; k++) { const x = (R() * 2 - 1) * (X - 1), z = ZB + 2 + R() * 14; A.rbox([x - 0.5, Hq * (z - ZB) / (ZL - ZB) - 0.4, z - 0.5], [x + 0.5, Hq * (z - ZB) / (ZL - ZB) + 0.3, z + 0.5], 0.3, "reed_green", { k: 0 }); }   // scrub on the slope
   smallArmsCache(A, "Small-arms ammunition", 4.0, Hq, ZL + 0.6, 0, { boxes: 3, bandoliers: 2 });
@@ -212,7 +275,7 @@ export function earthRampart() {
 // felled trees laid crown-first toward the enemy (+Z), interlaced: the trunks are solid, the tangle of branches is a
 // player-only volume (rounds and sight pass, nobody walks through)
 export function abatis() {
-  const A = new Asset({ id: "bcg_abatis", version: 1, name: "Abatis (felled trees, 8 m)", category: "Bocage",
+  const A = new Asset({ id: "bcg_abatis", version: 2, name: "Abatis (felled trees, 8 m)", category: "Bocage",
     description: "Abatis across a forest trail: four felled trees laid crowns-first toward the enemy (+Z) and interlaced, the trunks staked down. The trunks stop rounds and give cover; the branch tangle cannot be walked through (rounds and sight pass).",
     floors: 0, enterable: false, footprint: [8.6, 8.0], plinthDepth: 0, maxGrade: 1.2, noAutoPanels: true });
   bocageMats(A);
@@ -221,12 +284,12 @@ export function abatis() {
   for (let k = 0; k < 4; k++) {
     const x0 = -3.3 + k * 2.2 + (R() - 0.5) * 0.3, yaw = (R() - 0.5) * 16, r = 0.4 + R() * 0.08, Lt = 4.5 + R() * 1.5;
     const pr = (yaw * Math.PI) / 180, z0 = -3.4, x1 = x0 + Math.sin(pr) * Lt, z1 = z0 + Math.cos(pr) * Lt;
-    A.obox([(x0 + x1) / 2, r, (z0 + z1) / 2], [2 * r, 2 * r, Lt], [0, yaw, 0], "bark_grey");
-    A.obox([x0, r, z0 - 0.02], [2 * r * 0.95, 2 * r * 0.95, 0.05], [0, yaw, 0], "log_raw", { k: 0 });   // saw cut
+    A.cone([(x0 + x1) / 2, r, (z0 + z1) / 2], [2 * r, Lt, 2 * r], "bark_grey", { top: 0.7, seg: 12, r: [90, yaw, 0] });   // round log, thinner to the crown
+    A.cyl([x0 - Math.sin(pr) * 0.02, r, z0 - Math.cos(pr) * 0.02], [2 * r * 0.96, 0.05, 2 * r * 0.96], "log_raw", { seg: 12, r: [90, yaw, 0], k: 0 });   // saw cut
     for (let b = 0; b < 9; b++) {   // branches from the crown end
       const s = 0.45 + R() * 0.55, bx = x0 + Math.sin(pr) * Lt * s, bz = z0 + Math.cos(pr) * Lt * s;
       const by = yaw + (R() - 0.5) * 120, len = 1.4 + R() * 1.8, pit = 15 + R() * 50, bpr = (by * Math.PI) / 180;
-      A.obox([bx + Math.sin(bpr) * len * 0.4, r + Math.sin((pit * Math.PI) / 180) * len * 0.4, bz + Math.cos(bpr) * len * 0.4], [0.07, 0.07, len], [-pit, by, 0], "bark", { k: 0 });
+      seg(A, [bx, r, bz], [bx + Math.sin(bpr) * Math.cos(pit * D2R) * len * 0.8, r + Math.sin(pit * D2R) * len * 0.8, bz + Math.cos(bpr) * Math.cos(pit * D2R) * len * 0.8], 0.05, 0.015, "bark", 5);
       A.rbox([bx + Math.sin(bpr) * len * 0.8 - 0.35, r + 0.5, bz + Math.cos(bpr) * len * 0.8 - 0.35], [bx + Math.sin(bpr) * len * 0.8 + 0.35, r + 1.0 + R() * 0.4, bz + Math.cos(bpr) * len * 0.8 + 0.35], 0.2, "reed", { k: 0 });   // withered leaves
     }
     A.box([x0 - 0.05, -0.3, z0 + 0.3], [x0 + 0.05, 0.6, z0 + 0.4], "picket", { k: 0 });
