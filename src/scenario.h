@@ -12,6 +12,13 @@ enum class CombatRole : int { Defender = 0, Attacker = 1 };
 inline const char* factionName(Faction f) { return f == Faction::Allies ? "Allies" : "Axis"; }
 inline const char* roleName(CombatRole r) { return r == CombatRole::Attacker ? "Attackers" : "Defenders"; }
 inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::Axis : Faction::Allies; }
+// Match modes (G1). Assault: the objective mode (attackers / defenders, lives, waves). Solo: free-for-all, every
+// soldier is its own team, first to the kill cap wins. TDM: two teams (team 0 = the Defender role, team 1 = Attacker),
+// unlimited respawns, the first team to the kill cap wins. The role stays the team's identity in TDM, so role-based
+// code keeps working; friend / foe is always the roster team (Game::hostile).
+enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2 };
+inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : "Assault"; }
+enum class AiType : int { Soldiers = 0, Zombies = 1 };   // per side (G2 implements the zombie brain)
 
 constexpr int kScenarioVersion = 2;
 constexpr int kMinObjectives = 1, kMaxObjectives = 10;
@@ -23,6 +30,7 @@ struct SpawnMarker {
   std::vector<int> phases{0};    // objective sequence indices this marker serves (spawns while one of them is active)
   vec3 pos{0}; float yaw = 0;
   uint64_t rack = 0;             // instance id of the team weapons rack placed next to it (0 = none / deleted)
+  int team = -1;                 // TDM spawn for team 0 / 1 (G1); -1 = an Assault marker (role + phases)
   bool activeIn(int phase) const { return std::find(phases.begin(), phases.end(), phase) != phases.end(); }
   int firstPhase() const { return phases.empty() ? -1 : *std::min_element(phases.begin(), phases.end()); }
 };
@@ -77,7 +85,17 @@ struct ScenarioRules {
   float captureBase = 5.0f, capturePresenceFull = 5.0f;   // contest model: %/s at full advantage; attackers for full presence
   float laneLeft = 0.2f, laneMain = 0.6f, laneRight = 0.2f;
   bool friendlyFire = false;      // explosive / bullet damage to own side (default off; exposed in setup)
-  static constexpr int kMaxCombatants = 32;   // AI_SPEC: up to 32 per match, both teams combined
+  // ---- G1 modes (Solo / TDM); Assault ignores these
+  GameMode mode = GameMode::Assault;
+  int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills
+  int soloPlayers = 8;            // Solo: combatants in all (humans + AI)
+  int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
+  AiType aiType[2] = {AiType::Soldiers, AiType::Soldiers};   // per team (Assault: [Defender], [Attacker]); Solo uses [0]
+  int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
+  Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
+  float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn
+  static constexpr int kMaxAI = 100;             // up to 100 AI (user request, 2026-11-08)
+  static constexpr int kMaxCombatants = kMaxAI + 16;   // plus up to 16 humans
   json toJson() const;
   static ScenarioRules fromJson(const json& j, int version = kScenarioVersion);
 };

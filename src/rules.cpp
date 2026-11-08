@@ -107,7 +107,7 @@ void rulesHud(Game& g) {
   // ---- small shield over the head of protected enemies (in line of sight only: never through walls)
   for (auto& s : g.sold) {
     if (!s.alive || s.localPlayer || !s.isProtected(g.t)) continue;
-    if (L && s.role == L->role) continue;
+    if (L && s.team == L->team) continue;   // teammates (Solo: nobody)
     vec3 head = vec3(s.world * vec4(s.pose.joint[CJ_HEAD], 1)) + vec3(0, 0.42f, 0);
     float dist = glm::length(head - cam);
     if (dist > c.iconRange || !g.lineOfSight(cam, head - vec3(0, 0.3f, 0))) continue;

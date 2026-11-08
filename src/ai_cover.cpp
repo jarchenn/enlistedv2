@@ -129,13 +129,13 @@ int AiCore::pickCover(Soldier& s, vec3 goal, float maxDist, float minProgress, b
       float sp = 0; const float spacing = tj("cover", "spacing_m", 8.0f), spW = tj("cover", "spacingWeight", 1.1f), occ = tj("cover", "occupied_m", 2.5f);
       bool taken = false;   // a teammate already standing there (a Tobruk pit, a trench bay holds one or two)
       for (auto& o : G.sold) {
-        if (&o == &s || !o.alive || o.role != s.role) continue;
+        if (&o == &s || !o.alive || o.team != s.team) continue;
         if (glm::length(o.feet - c.p) < occ) { taken = true; break; }
         if (o.slot < (int)minds.size() && minds[o.slot] && minds[o.slot]->cover >= 0 && glm::length(minds[o.slot]->coverPos - c.p) < occ) { taken = true; break; }   // already claimed by a teammate on the way
       }
       if (taken) continue;
       for (auto& o : G.sold) {
-        if (&o == &s || !o.alive || o.role != s.role) continue;
+        if (&o == &s || !o.alive || o.team != s.team) continue;
         float dd = glm::length(o.feet - c.p);
         if (o.slot < (int)minds.size() && minds[o.slot] && minds[o.slot]->cover >= 0 && minds[o.slot]->cover < (int)cover.size()) dd = std::min(dd, glm::length(cover[minds[o.slot]->cover].p - c.p));
         if (dd < spacing) sp += 1.0f - dd / spacing;

@@ -47,6 +47,7 @@ struct Brain {
 struct Soldier {
   int slot = -1; bool inUse = false, alive = false;
   Faction faction = Faction::Allies; CombatRole role = CombatRole::Defender;
+  int team = 0;                              // friend / foe (G1): Assault / TDM = (int)role, Solo = own slot
   bool localPlayer = false, human = false; int peer = -1;
   int agent = -1;                            // physics agent (bots, remote humans); the local player uses the explore character
   vec3 feet{0}, vel{0}; float yaw = 0, pitch = 0; int posture = 0; float speed = 0;
@@ -122,6 +123,8 @@ public:
   bool ensureModels(std::string& err);
   // spawning
   bool trySpawn(int slot, std::string& why);
+  const std::vector<vec3>& spawnPool();      // G1: walkable spawn points over the map (Solo / unmarked TDM)
+  std::vector<vec3> pool; bool poolBuilt = false;
   void killSoldier(int s, int killer, vec3 dir);
   void applyLoadout(Soldier& s, bool newLife);
   // damage (server)
@@ -130,7 +133,8 @@ public:
   void damage(int s, float dmg, int attacker, vec3 dir, const char* how);
   bool hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const;
   int soldierOfOwner(int owner) const;
-  bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].role == sold[b].role; }
+  bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }
+  static bool hostile(const Soldier& a, const Soldier& b) { return &a != &b && a.team != b.team; }   // G1: every enemy check
   // perception helpers
   bool lineOfSight(vec3 a, vec3 b, float* smokeT = nullptr) const;
   vec3 eye(const Soldier& s) const;

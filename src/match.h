@@ -27,6 +27,8 @@ struct RosterSlot {
   float spawnFailFor = 0;        // s of consecutive failed placement attempts
   int deaths = 0, kills = 0, spawns = 0;
   int lane = LANE_MAIN;          // attacker approach lane (stable until objective change / rebalance)
+  int team = 0;                  // friend / foe: Assault and TDM = (int)role, Solo = the slot id (G1)
+  int score = 0;                 // +100 per kill, -100 per team kill (G1)
 };
 
 struct ObjectiveRT {
@@ -59,6 +61,10 @@ public:
   std::vector<MatchEvent> events;
   std::string spawnProblem;      // actionable message when placement keeps failing
   uint32_t rev = 1;              // bumps on any replicated change (net dirty flag)
+  int winnerSlot = -1;           // Solo: the slot that reached the kill cap
+  GameMode mode() const { return rules.mode; }
+  int teamKills(int team) const; // TDM: kills scored by the team
+  int topKills(int* slot = nullptr) const;   // Solo: the best kill count (and its slot)
 
   // Build the roster: `humans` human defenders (peers 0..humans-1) fill defender slots first, friendly AI the rest.
   bool setup(const Scenario& s, int humans, std::string& err);
@@ -82,6 +88,7 @@ public:
   float nextWaveIn(CombatRole r) const { return r == CombatRole::Attacker ? attackerWaveIn : defenderWaveIn; }
   const Objective* activeObjective() const { return active >= 0 && active < (int)sc.objectives.size() ? &sc.objectives[active] : nullptr; }
   bool attackersExhausted() const;
+  bool setupDeathmatch(int humans, std::string& err);   // G1: Solo / TDM roster
   void log(const std::string& s);
   json stateJson() const;                       // replicated summary (tests / net)
 private:

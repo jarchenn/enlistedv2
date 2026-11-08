@@ -350,7 +350,7 @@ void AiCore::move(Soldier& s, float dt) {
   Brain& b = s.br;
   if (s.throwT >= 0 && !s.throwReleased && s.throwKind == GK_FRAG && m.action == A_GRENADE) {   // only throws the AI decided itself   // winding up: a teammate came near the target meanwhile -> hold the grenade
     float safe = std::max(8.0f, tj("grenade", "safeRadius_m", 11.0f));
-    for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role && glm::length(o.feet - s.throwTarget) < safe) { s.throwT = -1; break; }
+    for (auto& o : G.sold) if (&o != &s && o.alive && o.team == s.team && glm::length(o.feet - s.throwTarget) < safe) { s.throwT = -1; break; }
   }
   if (m.trav.on) { bool done = stepTraversal(s, m, dt); if (!m.trav.on && !done) stuckLadder(s, m, dt, true); return; }   // an aborted link counts as no progress
   dtNavMeshQuery* q = G.nav.query();
@@ -436,7 +436,7 @@ void AiCore::move(Soldier& s, float dt) {
   if (glm::length(desired) > 0.5f && (m.action == A_ADVANCE || m.action == A_TAKE_COVER) && !m.trav.on) {
     vec3 fwd = glm::normalize(desired), side(0);
     for (auto& o : G.sold) {
-      if (&o == &s || !o.alive || o.role != s.role) continue;
+      if (&o == &s || !o.alive || o.team != s.team) continue;
       vec3 d = xz(pos - o.feet); float L = glm::length(d);
       if (L < 0.05f || L > sepR) continue;
       vec3 lat = d - fwd * glm::dot(d, fwd);                 // sideways only: never slows the advance

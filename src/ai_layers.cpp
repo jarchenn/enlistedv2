@@ -135,6 +135,15 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
 // ---------------------------------------------------------------- goals
 vec3 AiCore::objectiveGoal(Soldier& s) {
   BotMind& m = mind(s);
+  if (G.match.mode() != GameMode::Assault) {   // G1 Solo / TDM: hunt the closest living enemy (user: closest combatant)
+    const Soldier* best = nullptr; float bd = 1e9f;
+    for (auto& o : G.sold) if (o.alive && Game::hostile(s, o)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
+    if (!best) return s.feet;
+    float a = s.slot * 2.39996f;   // close in to a few metres off the target, not onto it
+    vec3 p = best->feet + vec3(std::cos(a), 0, std::sin(a)) * std::min(6.0f, bd * 0.5f);
+    NavRef r; vec3 on; if (G.nav.closest(p, 6.0f, r, on)) p = on;
+    return p;
+  }
   const Objective* ob = G.match.activeObjective();
   TeamBrain& tb = teams[(int)s.role];
   if (!ob) return s.feet;
@@ -201,7 +210,7 @@ void AiCore::think(Soldier& s) {
     if (underFire && !inCover) a *= 0.45f;
     if (m.set && G.t < m.peekUntil) a *= 0.55f;                              // peek and fire first
     if (sup > 0.75f) a *= 0.4f;                                              // pinned
-    for (auto& g : G.gren.live) if (g.kind == GK_FRAG && g.owner >= 0 && g.owner < (int)G.sold.size() && G.sold[g.owner].role == s.role && glm::length(g.p - s.feet) < 18.0f) { a *= 0.15f; break; }   // a friendly frag ahead: let it go off first
+    for (auto& g : G.gren.live) if (g.kind == GK_FRAG && g.owner >= 0 && g.owner < (int)G.sold.size() && G.sold[g.owner].team == s.team && glm::length(g.p - s.feet) < 18.0f) { a *= 0.15f; break; }   // a friendly frag ahead: let it go off first
     u[A_ADVANCE] = a;
   }
   if (attacker && ft && ft->overwatch && !m.bounding && !regroup) u[A_OVERWATCH] = 0.6f;
