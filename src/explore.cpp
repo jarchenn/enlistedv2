@@ -336,7 +336,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   bool jump = in.jump && !spaceUp && !(rising && riseProne) && stamina >= move.staminaJump;   // only the prone get-up holds a jump back; too tired: no jump
   bool jumped = !occupied && Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
   if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
-  tickStamina(dt, sprinting && glm::length(wish) > 0.1f);
+  { int pp = Physics::character().posture; tickStamina(dt, sprinting && glm::length(wish) > 0.1f, pp == Physics::CROUCH || pp == Physics::PRONE ? move.staminaLowRegen : 1.0f); }   // crouched / prone: faster recovery
   auto c = Physics::character();
   rulesAfterMove(*this, before, c, dt);   // W1: fall damage (match, player only)
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);

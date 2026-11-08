@@ -12,12 +12,13 @@
   "jumpVelocity_mps": 6.0112
  },
  "stamina": {
-  "_note": "Player only (src/app.h tickStamina): sprinting drains sprintDrain_per_s, a jump / vault / mantle costs jumpCost, walking or standing regenerates regen_per_s after regenDelay_s. Below 1 no sprint, below jumpCost no jump (vault / mantle still allowed, trench exits).",
-  "max": 100,
+  "_note": "Player only (src/app.h tickStamina): sprinting drains sprintDrain_per_s, a jump / vault / mantle costs jumpCost, walking or standing regenerates regen_per_s after regenDelay_s (x crouchProneRegen_x while crouched or prone). max 200 (doubled 2026-11-08). Below 1 no sprint, below jumpCost no jump (vault / mantle still allowed, trench exits).",
+  "max": 200,
   "sprintDrain_per_s": 12,
   "jumpCost": 22,
   "regen_per_s": 18,
-  "regenDelay_s": 0.6
+  "regenDelay_s": 0.6,
+  "crouchProneRegen_x": 1.5
  },
  "fallDamage": {
   "safeHeight_m": 3.0,

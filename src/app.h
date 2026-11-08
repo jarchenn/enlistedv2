@@ -211,13 +211,14 @@ public:
     float adsTime = 0.25f;                                                            // s, hip <-> ADS (world FOV, pose, weapon FOV share it)
     // stamina (movement.json "stamina"): sprint drains it, a jump (or vault / mantle) costs a chunk, walking or standing
     // regenerates it after a short pause; empty = no sprint, and no jump below the jump cost
-    float staminaMax = 100, staminaSprint = 12, staminaJump = 22, staminaRegen = 18, staminaDelay = 0.6f;   // pts, pts/s, pts, pts/s, s
+    float staminaMax = 200, staminaSprint = 12, staminaJump = 22, staminaRegen = 18, staminaDelay = 0.6f;   // pts, pts/s, pts, pts/s, s
+    float staminaLowRegen = 1.5f;   // regeneration x this while crouched or prone
   } move;
-  float stamina = 100, staminaIdle = 0;   // current points; s since the last drain (regeneration waits staminaDelay)
+  float stamina = 200, staminaIdle = 0;   // current points; s since the last drain (regeneration waits staminaDelay)
   void spendStamina(float pts) { stamina = std::max(0.0f, stamina - pts); staminaIdle = 0; }
-  void tickStamina(float dt, bool sprinting) {   // per movement step: drain while sprinting, else regenerate after the pause
+  void tickStamina(float dt, bool sprinting, float regenScale = 1.0f) {   // per movement step: drain while sprinting, else regenerate after the pause
     if (sprinting) spendStamina(move.staminaSprint * dt);
-    else if ((staminaIdle += dt) >= move.staminaDelay) stamina = std::min(move.staminaMax, stamina + move.staminaRegen * dt);
+    else if ((staminaIdle += dt) >= move.staminaDelay) stamina = std::min(move.staminaMax, stamina + move.staminaRegen * regenScale * dt);
   }
   void drawStaminaUI();                   // explore.cpp: the bar under the breath bar, hidden when full
   // getting up: a timed, eased camera rise; until it finishes the player moves at the lower posture's speed

@@ -58,6 +58,7 @@ void App::loadMoveSettings() {
     move.staminaMax = s.value("max", move.staminaMax); move.staminaSprint = s.value("sprintDrain_per_s", move.staminaSprint);
     move.staminaJump = s.value("jumpCost", move.staminaJump); move.staminaRegen = s.value("regen_per_s", move.staminaRegen);
     move.staminaDelay = s.value("regenDelay_s", move.staminaDelay);
+    move.staminaLowRegen = s.value("crouchProneRegen_x", move.staminaLowRegen);
   }
   loadClimbSettings(j);   // vault + mantle (mantle.cpp)
   loadSwimSettings(j);    // swimming, breath (swim.cpp)

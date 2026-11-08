@@ -75,6 +75,11 @@ void SelfTest::moveUpdate(App& app, float dt) {
         float r4 = a.stamina;
         char b[300]; std::snprintf(b, sizeof b, "stamina math: 2 s sprint %.1f (want %.0f), jump -> %.1f, 0.5 s rest %.1f (pause), +1 s %.1f (regen %.0f/s)", r1, m.staminaMax - 2 * m.staminaSprint, r2, r3, r4, m.staminaRegen);
         check(std::fabs(r1 - (m.staminaMax - 2 * m.staminaSprint)) < 0.2f && std::fabs(r1 - r2 - m.staminaJump) < 0.01f && std::fabs(r3 - r2) < 0.01f && r4 > r3 + m.staminaRegen * 0.85f, b);
+        a.stamina = 50; a.staminaIdle = 1;
+        for (int k = 0; k < 60; ++k) a.tickStamina(1.0f / 60.0f, false, m.staminaLowRegen);   // 1 s crouched / prone
+        float low = a.stamina - 50;
+        std::snprintf(b, sizeof b, "stamina: max %.0f; crouched / prone recovers %.1f in 1 s (x%.1f of %.0f/s)", m.staminaMax, low, m.staminaLowRegen, m.staminaRegen);
+        check(m.staminaMax >= 199.0f && std::fabs(low - m.staminaRegen * m.staminaLowRegen) < 0.5f && m.staminaLowRegen > 1.4f, b);
         a.stamina = keep; a.staminaIdle = keepIdle;
         put(a, vec3(20, 0, -10)); a.scriptedInput = ExploreInput{}; return false;
       }
