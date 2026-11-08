@@ -91,7 +91,7 @@ bool Game::begin(std::string& err) {
   if (!isClient) { int k = 0; for (auto& rs : match.slots) if (rs.human && k < (int)humanPeers.size()) { rs.peer = humanPeers[k].first; rs.name = humanPeers[k].second; ++k; } }
   else {   // the host's roster, exactly
     for (auto& sj : clientStart["slots"]) { int id = sj["id"]; if (id < 0 || id >= (int)match.slots.size()) continue; auto& rs = match.slots[id];
-      rs.faction = (Faction)sj["f"].get<int>(); rs.role = (CombatRole)sj["r"].get<int>(); rs.human = sj["h"]; rs.peer = sj["p"]; rs.name = sj["n"]; rs.lane = sj.value("lane", 1); }
+      rs.faction = (Faction)sj["f"].get<int>(); rs.role = (CombatRole)sj["r"].get<int>(); rs.human = sj["h"]; rs.peer = sj["p"]; rs.name = sj["n"]; rs.lane = sj.value("lane", 1); rs.team = sj.value("t", (int)rs.role); }
   }
   int me = isClient && gNet ? gNet->myPeer : 0;
   localSlot = -1; for (auto& rs : match.slots) if (rs.human && rs.peer == me) localSlot = rs.id;
@@ -103,6 +103,7 @@ bool Game::begin(std::string& err) {
   for (auto& o : match.sc.objectives) { grow(o.pos, o.extent() + 35); for (auto& r : o.routes) for (auto& p : r.points) grow(p, 20); }
   for (auto& s : match.sc.spawns) grow(s.pos, 25);
   float half = app.terrain.buildHalf;
+  if (match.mode() != GameMode::Assault) { lo = vec3(-half); hi = vec3(half); }   // G1: Solo / TDM fight anywhere: the whole build area
   lo = glm::max(lo, vec3(-half)); hi = glm::min(hi, vec3(half));
   if (!isClient) aiMatchBegin(*this, lo, hi);   // W6: navmesh bake (Recast/Detour) and AI setup
   // soldiers per roster slot
@@ -110,7 +111,7 @@ bool Game::begin(std::string& err) {
   auto& arr = archetypes["archetypes"];
   for (auto& rs : match.slots) {
     Soldier& s = sold[rs.id];
-    s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role;
+    s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
@@ -125,6 +126,7 @@ bool Game::begin(std::string& err) {
     auto& ml = combat["models"][fac];
     s.model = modelIdx[ml[rs.id % ml.size()].get<std::string>()];
   }
+  pool.clear(); poolBuilt = false;
   sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;
   t = 0; steps = 0; spectate = -1; hitMarker = hurtFlash = 0;
   shotsByBots = hitsOnSoldiers = kills = doorOpens = smokeThrows = fragThrows = navRebuilds = 0;
@@ -188,14 +190,56 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
   s.reload = 0; s.throwT = -1; s.throwReleased = false;
 }
 
+// G1: Solo (and TDM teams without markers): walkable points over the whole build area, validated once per match
+const std::vector<vec3>& Game::spawnPool() {
+  if (!poolBuilt) {
+    poolBuilt = true; pool.clear();
+    float half = app.terrain.buildHalf * 0.94f; const int n = 28;
+    for (int i = 0; i < n; ++i) for (int j = 0; j < n; ++j) {
+      float x = -half + (2 * half) * (i + 0.5f) / n, z = -half + (2 * half) * (j + 0.5f) / n;
+      Physics::Hit h; float top = app.terrain.height(x, z) + 60;
+      if (!Physics::castRayEx(vec3(x, top, z), vec3(0, -1, 0), 120.0f, h)) continue;
+      if (h.pos.y < app.terrain.waterLevel + 0.2f) continue;                       // not in the sea / a pond
+      if (!Physics::shapeFitsAt(Physics::STAND, h.pos, false)) continue;
+      if (nav.valid() && nav.nearest(h.pos, 1.5f) < 0) continue;
+      pool.push_back(h.pos);
+    }
+    for (auto& m : match.sc.spawns) pool.push_back(m.pos);                         // authored markers count too
+    logf("match: spawn pool of %zu walkable points", pool.size());
+  }
+  return pool;
+}
+
 bool Game::trySpawn(int slot, std::string& why) {
   Soldier& s = sold[slot];
-  auto marks = match.sc.spawnsFor(s.role, match.active);
-  if (marks.empty()) { why = std::string("no ") + (s.role == CombatRole::Attacker ? "attacker" : "defender") + " spawn markers for this stage"; return false; }
+  struct Cand { vec3 pos; float yaw; };
+  std::vector<Cand> cands;
+  const GameMode mode = match.mode();
+  if (mode == GameMode::Assault) {
+    for (auto* m : match.sc.spawnsFor(s.role, match.active)) cands.push_back({m->pos, m->yaw});
+    if (cands.empty()) { why = std::string("no ") + (s.role == CombatRole::Attacker ? "attacker" : "defender") + " spawn markers for this stage"; return false; }
+    int start = (slot * 3 + (int)steps) % (int)cands.size();
+    std::rotate(cands.begin(), cands.begin() + start, cands.end());
+  } else {
+    if (mode == GameMode::TDM) for (auto& m : match.sc.spawns) if (m.team == s.team) cands.push_back({m.pos, m.yaw});
+    if (cands.empty()) {   // Solo / unmarked TDM team: the walkable points farthest from living enemies
+      std::vector<std::pair<float, vec3>> scored;
+      for (vec3 p : spawnPool()) {
+        float d = 1e9f;
+        for (auto& o : sold) if (o.alive && hostile(s, o)) d = std::min(d, glm::length(vec2(o.feet.x - p.x, o.feet.z - p.z)));
+        scored.push_back({d, p});
+      }
+      std::sort(scored.begin(), scored.end(), [](auto& x, auto& y) { return x.first > y.first; });
+      size_t keep = std::min<size_t>(scored.size(), 6);   // a little spread so two respawns don't stack on one point
+      for (size_t k = 0; k < keep; ++k) { vec3 p = scored[(k + slot) % keep].second; cands.push_back({p, glm::degrees(std::atan2(-p.x, -p.z))}); }   // face the middle
+    } else {
+      int start = (slot * 3 + (int)steps) % (int)cands.size();
+      std::rotate(cands.begin(), cands.begin() + start, cands.end());
+    }
+    if (cands.empty()) { why = "no walkable spawn point on this map"; return false; }
+  }
   static const float ring[3] = {0.0f, 1.2f, 2.4f};
-  int start = (slot * 3 + (int)steps) % (int)marks.size();
-  for (size_t mi = 0; mi < marks.size(); ++mi) {
-    const SpawnMarker& m = *marks[(start + mi) % marks.size()];
+  for (const Cand& m : cands) {
     for (float r : ring)
       for (int k = 0; k < (r == 0 ? 1 : 8); ++k) {
         float a = k * 0.785398f + slot * 0.37f;
@@ -228,7 +272,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         return true;
       }
   }
-  why = "every marker for this stage is blocked or not walkable";
+  why = mode == GameMode::Assault ? "every marker for this stage is blocked or not walkable" : "every spawn point is blocked or not walkable";
   return false;
 }
 
@@ -592,7 +636,7 @@ bool Game::camera(vec3& e, vec3& f, float& fov) {
   int w = spectate;
   if (w < 0 || w >= (int)sold.size() || !sold[w].alive) {
     w = -1;
-    for (auto& s : sold) if (s.alive && s.role == L->role) { w = s.slot; break; }
+    for (auto& s : sold) if (s.alive && s.team == L->team && &s != L) { w = s.slot; break; }   // Solo: none, so the killer or the body
     if (t - L->diedAt < 3.0 && L->killer >= 0 && sold[L->killer].alive) w = L->killer;
     spectate = w;
   }

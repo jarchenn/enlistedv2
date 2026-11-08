@@ -1,4 +1,5 @@
 #include "app.h"
+#include "crumb.h"
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
 #include "settings.h"
@@ -203,7 +204,11 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (r.asset->path.on) {   // draped on the current ground; re-draped after any terrain change or edit
-      if (r.pathGround != groundRev || r.pathRev != i.rev) rebuildPathMesh(i, r);
+      if (r.pathRev != i.rev) rebuildPathMesh(i, r);
+      else if (r.pathGround != groundRev) {   // a crater only re-drapes the paths it reaches (100 AI throw a lot of frags)
+        vec2 wl = pathSize(i, r.asset);
+        if (groundChangedNear(r.pathGround, vec2(i.pos.x, i.pos.z), glm::length(wl) + 1.0f)) rebuildPathMesh(i, r); else r.pathGround = groundRev;
+      }
       op.push_back({&r.pathMesh, M}); snapDraw(*this, i, op.back());   // V6: world-space pattern across joined ends
       continue;
     }
@@ -560,7 +565,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
-    else if (a == "--selftest-gore") runSelf = true;   // W7 gore suite (selftest_gore.cpp)
+    else if (a == "--selftest-gore") runSelf = true;
+    else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
     else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
     else if (a == "--selftest-autopath") runSelf = true;   // V9 auto paths between houses (selftest_autopath.cpp)
@@ -662,7 +668,11 @@ int App::run(int argc, char** argv) {
 
   double last = glfwGetTime();
   bool confirmQuit = false;
+  // NMK_FRAME_PROF=1: a frame over 150 ms logs where its time went: time per phase / crumb, summed, top 8
+  auto mark = [&](const char* w) { if (gCrumbProf) crumbMark(w); };
   while (!quit) {
+    if (gCrumbProf) crumbFrameEnd();
+    mark("start");
     glfwPollEvents();
     if (glfwWindowShouldClose(win)) {
       if (dirty && !selftest) { confirmQuit = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }
@@ -676,8 +686,10 @@ int App::run(int argc, char** argv) {
 
     platformImGuiNewFrame(); ImGui::NewFrame();
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
+    mark("selftest");
     if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); drawExploreUI(); }
+    mark("update");
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
     settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
     syncRuntime();
@@ -693,8 +705,10 @@ int App::run(int argc, char** argv) {
       ImGui::EndPopup();
     }
 
+    mark("sync");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
     buildDrawLists(op, gl);
+    mark("drawlists");
     op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {
       dynLeafDrawItems(op);
@@ -729,15 +743,22 @@ int App::run(int argc, char** argv) {
       audio.setListener(e, forward(eyeYaw, eyePitch));
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
+    mark("view");
     mpaiFrame(*this, ov);   // soldiers, grenades, scenario overlay
+    mark("mpai");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    mark("fx");
     w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
+    mark("w3");
     updateGrass(v.camPos);
+    mark("grass");
     R.grass = &grass;
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
+    mark("lights");
     R.render(v, terrain, op, gl, ghosts, ov);
+    mark("render");
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
     if (!recCaption.empty()) {   // recording caption, over every other overlay
       ImDrawList* dl = ImGui::GetForegroundDrawList(); ImGuiIO& io = ImGui::GetIO();
@@ -750,6 +771,7 @@ int App::run(int argc, char** argv) {
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
     platformImGuiRender(ImGui::GetDrawData());
+    mark("imgui");
     if (rec.active() && (++recTick & 1)) {   // 30 fps from the fixed 60 Hz simulation, HUD included
       recPx.resize((size_t)fbw * fbh * 4);
       glReadBuffer(GL_BACK); glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -765,6 +787,7 @@ int App::run(int argc, char** argv) {
       logf("ui screenshot %s", uiShot.string().c_str()); uiShot.clear();
     }
     platformPresent(win);
+    mark("present");
     settingsEndFrame(*this);   // FPS cap
   }
   int code = selftest ? selftest->exitCode : 0;
@@ -823,4 +846,21 @@ void App::updateGrass(vec3 cam) {
   updateSurface();
   uint32_t seed = doc.seed * 2654435761u + (uint32_t)doc.templateVersion * 40503u + (uint32_t)std::hash<std::string>{}(doc.templateId);
   grass.update(terrain, seed, grassFootprints(), cam, grassBudgetMs);
+}
+
+// ---- NMK_FRAME_PROF: crumbs as profile marks (crumb.h)
+bool gCrumbProf = std::getenv("NMK_FRAME_PROF") != nullptr;
+static std::vector<std::pair<const char*, double>> gMarks;
+void crumbMark(const char* s) { gMarks.push_back({s, glfwGetTime()}); }
+void crumbFrameEnd() {
+  if (gMarks.size() > 1 && gMarks.back().second - gMarks.front().second > 0.15) {
+    std::map<std::string, double> per;   // time from a mark to the next, charged to the mark
+    for (size_t k = 0; k + 1 < gMarks.size(); ++k) per[gMarks[k].first] += gMarks[k + 1].second - gMarks[k].second;
+    std::vector<std::pair<double, std::string>> v; for (auto& [n, t] : per) v.push_back({t, n});
+    std::sort(v.rbegin(), v.rend());
+    std::string b; char x[96];
+    for (size_t k = 0; k < v.size() && k < 8; ++k) { std::snprintf(x, sizeof x, " [%s] %.0f", v[k].second.c_str(), v[k].first * 1000); b += x; }
+    logf("[frameprof] %.0f ms:%s", (gMarks.back().second - gMarks.front().second) * 1000, b.c_str());
+  }
+  gMarks.clear();
 }

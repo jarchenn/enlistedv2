@@ -509,10 +509,12 @@ void AiCore::frame() {
     AiProf::Scope sc(prof, PROF_NAV);
     crumb("ai: nav commit");
     G.nav.update();
-    onTilesChanged();
+    crumb("ai: tiles changed"); onTilesChanged();
+    crumb("ai: traps / cover / poll");
     if (trapsDueAt >= 0 && G.t >= trapsDueAt) { trapsDueAt = -1; markNavTraps(); }
     if (!coverTodo.empty()) { auto t = coverTodo.back(); coverTodo.pop_back(); generateCoverTile(t.first, t.second, 120); }
-    if (G.t >= nextWorldPoll) { nextWorldPoll = G.t + 0.1; pollWorld(); }
+    if (G.t >= nextWorldPoll) { nextWorldPoll = G.t + 0.1; crumb("ai: poll world"); pollWorld(); }
+    crumb("ai: late rebuilds / paths");
     for (size_t k = 0; k < lateRebuilds.size();) { if (G.t >= lateRebuilds[k].due) { G.nav.rebuildArea(lateRebuilds[k].lo, lateRebuilds[k].hi); lateRebuilds.erase(lateRebuilds.begin() + k); } else ++k; }
     receivePaths();
     dispatchPaths();
@@ -554,7 +556,7 @@ void AiCore::frame() {
     if (advancing) {
       metrics.advT += dt; metrics.advSpeedSum += s.speed; ++metrics.advN;
       if (s.posture != Physics::STAND) ++metrics.advCrouchN; if (s.speed < 1.0f) ++metrics.advSlowN; if (m.speed == SPD_SPRINT) ++metrics.advSprintN;
-      float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role) nn = std::min(nn, glm::length(o.feet - s.feet));
+      float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.team == s.team) nn = std::min(nn, glm::length(o.feet - s.feet));
       if (nn < 1e8f) { metrics.nnSum += nn; ++metrics.nnN; }
     }
     bool underFire = G.t - s.br.hurtAt < 2.0 || s.br.suppressed > 0.3f || G.t - m.nearMissAt < 1.0;

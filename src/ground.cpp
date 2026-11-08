@@ -34,8 +34,24 @@ bool App::craterAt(vec3 p, float radius, float depth, bool irregular) {
   if (gh < terrain.waterLevel + 0.05f) return false;         // open water: nothing to deform
   auto touched = terrain.crater(vec3(p.x, gh, p.z), radius, depth, [this](float x, float z) { return groundWeight(x, z); }, 1.6f, irregular);
   syncGroundTiles(touched);
-  if (!touched.empty()) ++groundRev;
+  if (!touched.empty()) {
+    ++groundRev;
+    if (groundChanges.size() >= 256) groundChanges.erase(groundChanges.begin(), groundChanges.begin() + 128);
+    groundChanges.push_back({groundRev, vec2(p.x, p.z), radius * 1.6f + 1.0f});   // irregular outline reach + margin
+  }
   return !touched.empty();
+}
+
+// true unless every ground change after sinceRev is a recorded crater clear of the circle (c, r). Other changes
+// (sculpt, lasso, resets) are not recorded, so a gap in the revisions counts as near.
+bool App::groundChangedNear(uint32_t sinceRev, vec2 c, float r) const {
+  uint32_t seen = 0;
+  for (auto& g : groundChanges) {
+    if (g.rev <= sinceRev) continue;
+    ++seen;
+    if (glm::length(g.c - c) < g.r + r) return true;
+  }
+  return seen != groundRev - sinceRev;
 }
 
 bool App::deformGround(vec3 p, float scale) {

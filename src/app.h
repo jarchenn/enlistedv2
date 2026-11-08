@@ -309,6 +309,9 @@ public:
   void destroyDefense(Instance& i, InstanceRT& r);
   // ---- path entities (paths.cpp)
   uint32_t groundRev = 1;   // bumps whenever the terrain changes (craters, resets): paths re-drape
+  struct GroundChange { uint32_t rev; vec2 c; float r; };
+  std::vector<GroundChange> groundChanges;   // recent craters (bounded): a path far from all of them skips its re-drape
+  bool groundChangedNear(uint32_t sinceRev, vec2 c, float r) const;
   vec2 pathSize(const Instance& i, const AssetDef* a) const;   // (width, length), clamped
   void setPathSize(Instance& i, vec2 wl);
   void rebuildPathMesh(const Instance& i, InstanceRT& r);

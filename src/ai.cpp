@@ -53,10 +53,12 @@ void Game::aiStep(Soldier& s, float dt) {
   }
   float hd = A->nearestHumanDist(s.feet);
   bool lod = hd < 1e8f && hd > A->tj("budget", "lodDistance_m", 300.0f);
+  // G1 crowds (up to 100 AI): beyond 60 m from every human, perception / decisions slow down with the bot count
+  float crowd = hd > 60.0f ? std::clamp((float)sold.size() / 40.0f, 1.0f, 2.5f) : 1.0f;
   {
     AiProf::Scope sc(A->prof, PROF_PERCEPTION);
     crumb("ai: perceive");
-    if (t >= b.nextPerceive && A->rayFree()) { A->perceive(s); b.nextPerceive = (float)t + (lod ? 0.5f : 0.2f); }
+    if (t >= b.nextPerceive && A->rayFree()) { A->perceive(s); b.nextPerceive = (float)t + (lod ? 0.5f : 0.2f) * crowd; }
   }
   {
     AiProf::Scope sc(A->prof, PROF_DECISIONS);
@@ -65,7 +67,7 @@ void Game::aiStep(Soldier& s, float dt) {
       A->think(s);
       A->act(s, (float)std::min(1.0, t - m.lastAct));
       m.lastAct = t;
-      m.nextThink = t + (lod ? 0.5 : 0.1 + rnd(s) * 0.1);
+      m.nextThink = t + (lod ? 0.5 : 0.1 + rnd(s) * 0.1) * crowd;
     }
   }
   { AiProf::Scope sc(A->prof, PROF_AIMING); crumb("ai: aim"); A->aim(s, dt); }

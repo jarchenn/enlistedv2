@@ -20,14 +20,15 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
   sc = s; sc.renumber(); rules = sc.rules;
   phase = MatchPhase::Setup; winner = Winner::None; result.clear();
   slots.clear(); obj.clear(); events.clear(); spawnProblem.clear();
-  time = 0; step = 0; active = 0;
+  time = 0; step = 0; active = 0; winnerSlot = -1;
+  if (rules.mode != GameMode::Assault) return setupDeathmatch(humans, err);   // G1: Solo / TDM
   if (sc.objectives.empty()) { err = "The map has no objectives (Creative > Scenario)."; return false; }
   int defSlots = std::max(rules.defenderSlots, humans);
   if (defSlots + rules.attackerAI > ScenarioRules::kMaxCombatants) { err = "Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants."; return false; }
   if (rules.attackerAI < 1) { err = "At least one attacking AI is required."; return false; }
   Faction df = rules.defendingFaction, af = otherFaction(df);
   for (int k = 0; k < defSlots; ++k) {
-    RosterSlot r; r.id = (int)slots.size(); r.faction = df; r.role = CombatRole::Defender; r.livesLeft = -1;
+    RosterSlot r; r.id = (int)slots.size(); r.faction = df; r.role = CombatRole::Defender; r.team = 0; r.livesLeft = -1;
     if (k < humans) { r.human = true; r.peer = k; r.name = k == 0 ? "Host" : "Player " + std::to_string(k + 1); }
     else r.name = std::string(df == Faction::Allies ? "Pvt. " : "Gren. ") + std::to_string(k + 1);
     slots.push_back(r);
@@ -35,7 +36,7 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
   std::vector<int> lanes = allocateLanes(rules.attackerAI, rules.laneLeft, rules.laneMain, rules.laneRight);
   int laneOf[3] = {lanes[0], lanes[1], lanes[2]};
   for (int k = 0; k < rules.attackerAI; ++k) {
-    RosterSlot r; r.id = (int)slots.size(); r.faction = af; r.role = CombatRole::Attacker;
+    RosterSlot r; r.id = (int)slots.size(); r.faction = af; r.role = CombatRole::Attacker; r.team = 1;
     r.livesLeft = 1 + rules.attackerRespawns;
     r.name = std::string(af == Faction::Allies ? "Pvt. " : "Gren. ") + std::to_string(100 + k + 1);
     // deterministic lane assignment: left block, then main, then right (roster order)
@@ -47,8 +48,43 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
   return true;
 }
 
+// Solo: `soloPlayers` slots, each its own team (humans first). TDM: teamPlayers[t] per team, team 0 = the Defender role,
+// team 1 = Attacker; humans join the host's team first, then fill the team with fewer humans. Unlimited respawns.
+bool Match::setupDeathmatch(int humans, std::string& err) {
+  const bool solo = rules.mode == GameMode::Solo;
+  int counts[2] = {solo ? std::max(rules.soloPlayers, humans) : rules.teamPlayers[0], solo ? 0 : rules.teamPlayers[1]};
+  if (counts[0] + counts[1] > ScenarioRules::kMaxCombatants) { err = "Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants."; return false; }
+  if (counts[0] + counts[1] < 2) { err = "A match needs at least two combatants."; return false; }
+  int humansOn[2] = {0, 0};
+  if (solo) humansOn[0] = humans;
+  else for (int h = 0; h < humans; ++h) {   // host on humanTeam, then balance
+    int t = h == 0 ? rules.humanTeam : (humansOn[0] <= humansOn[1] ? 0 : 1);
+    if (humansOn[t] >= counts[t]) t = 1 - t;
+    if (humansOn[t] >= counts[t]) { err = "More players than slots: raise the team sizes."; return false; }
+    ++humansOn[t];
+  }
+  int peer = 0;
+  for (int t = 0; t < (solo ? 1 : 2); ++t)
+    for (int k = 0; k < counts[t]; ++k) {
+      RosterSlot r; r.id = (int)slots.size(); r.livesLeft = -1; r.lane = LANE_MAIN;
+      r.role = t == 0 ? CombatRole::Defender : CombatRole::Attacker;
+      r.team = solo ? r.id : t;
+      r.faction = solo ? (k % 2 == 0 ? rules.teamFaction[0] : rules.teamFaction[1]) : rules.teamFaction[t];
+      if (k < humansOn[t]) { r.human = true; r.peer = peer; r.name = peer == 0 ? "Host" : "Player " + std::to_string(peer + 1); ++peer; }
+      else r.name = std::string(r.faction == Faction::Allies ? "Pvt. " : "Gren. ") + std::to_string(r.id + 1);
+      slots.push_back(r);
+    }
+  ++rev;
+  return true;
+}
+
 void Match::start() {
   phase = MatchPhase::Running;
+  if (rules.mode != GameMode::Assault) {
+    for (auto& s : slots) { s.pending = true; s.deadFor = 999; }
+    log(std::string("match start: ") + gameModeName(rules.mode) + ", first to " + std::to_string(rules.killCap) + " kills, " + std::to_string(slots.size()) + " combatants");
+    return;
+  }
   if (!obj.empty()) obj[0].state = ObjState::Active;
   for (auto& s : slots) { s.pending = true; s.deadFor = 999; }   // initial spawn of everyone (spends the first life)
   attackerWaveIn = rules.attackerWave; defenderWaveIn = rules.defenderWave;
@@ -91,8 +127,20 @@ void Match::onDeath(int slot, int killer) {
   auto& s = slots[slot];
   if (!s.alive) return;
   s.alive = false; s.deadFor = 0; ++s.deaths;   // the step's occupancy sample is kept (capture precedence)
-  if (killer >= 0 && killer < (int)slots.size() && killer != slot) ++slots[killer].kills;
+  if (killer >= 0 && killer < (int)slots.size() && killer != slot) {
+    auto& k = slots[killer];
+    if (k.team == s.team && rules.mode != GameMode::Assault) k.score -= 100;   // a team kill counts against the killer
+    else { ++k.kills; k.score += 100; }
+  }
   ++rev;
+}
+
+int Match::teamKills(int team) const { int n = 0; for (auto& s : slots) if (s.team == team) n += s.kills; return n; }
+int Match::topKills(int* slot) const {
+  int best = 0, bs = -1;
+  for (auto& s : slots) if (s.kills > best) { best = s.kills; bs = s.id; }
+  if (slot) *slot = bs;
+  return best;
 }
 
 std::vector<int> Match::spawnQueue() const {
@@ -127,6 +175,21 @@ void Match::update(float dt) {
   dt = std::min(dt, 0.25f);
   ++step; time += dt;
   for (auto& s : slots) if (!s.alive) s.deadFor += dt;
+  if (rules.mode != GameMode::Assault) {   // G1: kill cap, then plain respawn delays (no waves, no lives)
+    if (rules.mode == GameMode::Solo) {
+      int ws = -1; int top = topKills(&ws);
+      if (top >= rules.killCap) {
+        phase = MatchPhase::Ended; winnerSlot = ws; winner = Winner::None;
+        result = slots[ws].name + " reached " + std::to_string(rules.killCap) + " kills"; log("result: " + result); return;
+      }
+    } else for (int t = 0; t < 2; ++t) if (teamKills(t) >= rules.killCap) {
+      phase = MatchPhase::Ended; winner = t == 0 ? Winner::Defenders : Winner::Attackers;
+      result = std::string(factionName(rules.teamFaction[t])) + " (team " + (t == 0 ? "A" : "B") + ") reached " + std::to_string(rules.killCap) + " kills";
+      log("result: " + result); return;
+    }
+    for (auto& s : slots) if (!s.alive && !s.pending && s.deadFor >= rules.respawnDelay) { s.pending = true; ++rev; }
+    return;
+  }
   // ---- capture (active objective only; later points stay locked even if occupied)
   bool finalCaptured = false;
   if (active < (int)obj.size()) {
@@ -168,7 +231,15 @@ void Match::update(float dt) {
 int Match::humanJoin(int peer, const std::string& name) {
   // prefer an AI defender slot whose soldier is dead (immediate, normal respawn flow), then any AI defender slot
   int best = -1;
-  for (auto& s : slots) if (s.role == CombatRole::Defender && !s.human && s.pendingPeer < 0) { if (best < 0 || (!s.alive && slots[best].alive)) best = s.id; }
+  int wantTeam = -1;   // TDM: the team with fewer humans
+  if (rules.mode == GameMode::TDM) { int h[2] = {0, 0}; for (auto& s : slots) if (s.human || s.pendingPeer >= 0) ++h[s.team]; wantTeam = h[0] <= h[1] ? 0 : 1; }
+  auto eligible = [&](const RosterSlot& s) {
+    if (s.human || s.pendingPeer >= 0) return false;
+    if (rules.mode == GameMode::Assault) return s.role == CombatRole::Defender;
+    return wantTeam < 0 || s.team == wantTeam;
+  };
+  for (auto& s : slots) if (eligible(s)) { if (best < 0 || (!s.alive && slots[best].alive)) best = s.id; }
+  if (best < 0 && wantTeam >= 0) { wantTeam = -1; for (auto& s : slots) if (eligible(s)) { if (best < 0 || (!s.alive && slots[best].alive)) best = s.id; } }   // that team is all human: the other one
   if (best < 0) return -1;                                // lobby full
   auto& s = slots[best];
   if (phase == MatchPhase::Setup) { s.human = true; s.peer = peer; s.name = name; }

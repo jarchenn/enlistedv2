@@ -102,6 +102,7 @@ void PathService::loop() {
     auto t0 = std::chrono::steady_clock::now();
     PathResult res; res.id = r.id; res.slot = r.slot; res.life = r.life; res.target = r.ep;
     for (int attempt = 0; attempt < 3; ++attempt) {
+      while (nav_->writerWaiting()) std::this_thread::sleep_for(std::chrono::microseconds(100));   // writers first
       std::shared_lock<std::shared_mutex> rl(nav_->sharedLock());
       dtNavMesh* mesh = nav_->mesh();
       if (!mesh) break;
@@ -116,6 +117,7 @@ void PathService::loop() {
         if (dtStatusInProgress(st)) {
           rl.unlock();                                         // let the main thread commit tiles between slices
           std::this_thread::yield();
+          while (nav_->writerWaiting()) std::this_thread::sleep_for(std::chrono::microseconds(100));
           rl.lock();
           if (nav_->mesh() != mesh || nav_->stamp() != stamp) { restart = true; break; }
         }
@@ -339,7 +341,7 @@ void AiCore::linkAborted(NavRef ref, uint32_t id) {
   if (!ref || !G.nav.mesh()) return;
   int n = ++linkAbortsById[id];
   if (n < (int)(navj.contains("links") ? navj["links"].value("disableAfterAborts", 2) : 2)) return;
-  std::unique_lock<std::shared_mutex> wl(G.nav.sharedLock());
+  auto wl = G.nav.writeLock();
   unsigned short fl = 0; if (dtStatusSucceed(G.nav.mesh()->getPolyFlags(ref, &fl))) G.nav.mesh()->setPolyFlags(ref, fl | NF_BADLINK);
   if (++metrics.linksDisabled <= 10) logf("ai: link %u disabled after %d aborts", id, n);
 }
@@ -350,7 +352,7 @@ void AiCore::move(Soldier& s, float dt) {
   Brain& b = s.br;
   if (s.throwT >= 0 && !s.throwReleased && s.throwKind == GK_FRAG && m.action == A_GRENADE) {   // only throws the AI decided itself   // winding up: a teammate came near the target meanwhile -> hold the grenade
     float safe = std::max(8.0f, tj("grenade", "safeRadius_m", 11.0f));
-    for (auto& o : G.sold) if (&o != &s && o.alive && o.role == s.role && glm::length(o.feet - s.throwTarget) < safe) { s.throwT = -1; break; }
+    for (auto& o : G.sold) if (&o != &s && o.alive && o.team == s.team && glm::length(o.feet - s.throwTarget) < safe) { s.throwT = -1; break; }
   }
   if (m.trav.on) { bool done = stepTraversal(s, m, dt); if (!m.trav.on && !done) stuckLadder(s, m, dt, true); return; }   // an aborted link counts as no progress
   dtNavMeshQuery* q = G.nav.query();
@@ -436,7 +438,7 @@ void AiCore::move(Soldier& s, float dt) {
   if (glm::length(desired) > 0.5f && (m.action == A_ADVANCE || m.action == A_TAKE_COVER) && !m.trav.on) {
     vec3 fwd = glm::normalize(desired), side(0);
     for (auto& o : G.sold) {
-      if (&o == &s || !o.alive || o.role != s.role) continue;
+      if (&o == &s || !o.alive || o.team != s.team) continue;
       vec3 d = xz(pos - o.feet); float L = glm::length(d);
       if (L < 0.05f || L > sepR) continue;
       vec3 lat = d - fwd * glm::dot(d, fwd);                 // sideways only: never slows the advance

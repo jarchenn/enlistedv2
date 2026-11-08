@@ -51,7 +51,10 @@ json ScenarioRules::toJson() const {
           {"smokePerLifeAttacker", smokePerLifeAttacker}, {"smokePerLifeDefender", smokePerLifeDefender},
           {"captureModel", captureModel == CaptureModel::Contest ? "contest" : "timed"}, {"captureSpeedCap", captureSpeedCap},
           {"captureBase", captureBase}, {"capturePresenceFull", capturePresenceFull},
-          {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire}};
+          {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire},
+          {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : "assault"}, {"killCap", killCap},
+          {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiType", {(int)aiType[0], (int)aiType[1]}},
+          {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}};
 }
 
 ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
@@ -74,6 +77,17 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   r.capturePresenceFull = j.value("capturePresenceFull", r.capturePresenceFull);
   if (j.contains("lanes") && j["lanes"].is_array() && j["lanes"].size() == 3) { r.laneLeft = j["lanes"][0]; r.laneMain = j["lanes"][1]; r.laneRight = j["lanes"][2]; }
   r.friendlyFire = j.value("friendlyFire", r.friendlyFire);
+  { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : GameMode::Assault; }
+  r.killCap = std::clamp(j.value("killCap", r.killCap), 1, 999);
+  r.soloPlayers = std::clamp(j.value("soloPlayers", r.soloPlayers), 2, kMaxCombatants);
+  if (j.contains("teamPlayers") && j["teamPlayers"].is_array() && j["teamPlayers"].size() == 2)
+    for (int t = 0; t < 2; ++t) r.teamPlayers[t] = std::clamp(j["teamPlayers"][t].get<int>(), 1, kMaxCombatants / 2);
+  if (j.contains("aiType") && j["aiType"].is_array() && j["aiType"].size() == 2)
+    for (int t = 0; t < 2; ++t) r.aiType[t] = j["aiType"][t].get<int>() == 1 ? AiType::Zombies : AiType::Soldiers;
+  r.humanTeam = std::clamp(j.value("humanTeam", r.humanTeam), 0, 1);
+  if (j.contains("teamFaction") && j["teamFaction"].is_array() && j["teamFaction"].size() == 2)
+    for (int t = 0; t < 2; ++t) r.teamFaction[t] = j["teamFaction"][t].get<std::string>() == "Axis" ? Faction::Axis : Faction::Allies;
+  r.respawnDelay = std::clamp(j.value("respawnDelay_s", r.respawnDelay), 0.0f, 30.0f);
   // clamp to the limits (setup UI enforces the same)
   r.defenderSlots = std::clamp(r.defenderSlots, 1, kMaxCombatants - 1);
   r.attackerAI = std::clamp(r.attackerAI, 1, kMaxCombatants - r.defenderSlots);
@@ -107,7 +121,7 @@ json Scenario::toJson() const {
   json sp = json::array();
   for (auto& s : spawns)
     sp.push_back({{"id", s.id}, {"label", s.label}, {"role", s.role == CombatRole::Attacker ? "attacker" : "defender"},
-                  {"phases", s.phases}, {"pos", tojson(s.pos)}, {"yaw", s.yaw}, {"rack", s.rack}});
+                  {"phases", s.phases}, {"pos", tojson(s.pos)}, {"yaw", s.yaw}, {"rack", s.rack}, {"team", s.team}});
   return {{"version", version}, {"objectives", o}, {"spawns", sp}, {"rules", rules.toJson()}, {"devTestMap", devTestMap}, {"nextSerial", nextSerial}};
 }
 
@@ -159,6 +173,8 @@ Scenario Scenario::fromJson(const json& j, std::vector<std::string>* notes) {
     std::sort(m.phases.begin(), m.phases.end()); m.phases.erase(std::unique(m.phases.begin(), m.phases.end()), m.phases.end());
     m.pos = jvec3(o.value("pos", json())); m.yaw = o.value("yaw", 0.0f);
     m.rack = o.value("rack", (uint64_t)0);
+    m.team = std::clamp(o.value("team", -1), -1, 1);
+    if (m.team >= 0) m.phases.clear();   // TDM markers serve no Assault phase
     if (m.id.empty()) m.id = s.newId("spawn");
     s.spawns.push_back(m);
   }
@@ -253,6 +269,18 @@ std::vector<ScenarioIssue> validateScenario(const Scenario& s, bool forPublish) 
   auto err = [&](const std::string& w) { out.push_back({true, w}); };
   auto warn = [&](const std::string& w) { out.push_back({false, w}); };
   size_t n = s.objectives.size();
+  auto& r0 = s.rules;
+  if (r0.mode != GameMode::Assault) {   // G1: Solo / TDM need no objectives; spawns are team markers or found by the game
+    std::set<std::string> sids;
+    for (auto& m : s.spawns) if (!sids.insert(m.id).second) err("Duplicate spawn id '" + m.id + "'.");
+    if (r0.mode == GameMode::TDM) for (int t = 0; t < 2; ++t) {
+      bool any = false; for (auto& m : s.spawns) any |= m.team == t;
+      if (!any) warn(std::string("Team Deathmatch: no spawn markers for team ") + (t == 0 ? "A" : "B") + " (Scenario panel): its soldiers spawn far from the enemy instead.");
+    }
+    int total = r0.mode == GameMode::Solo ? r0.soloPlayers : r0.teamPlayers[0] + r0.teamPlayers[1];
+    if (total > ScenarioRules::kMaxCombatants) err("Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants.");
+    return out;
+  }
   if (n == 0) err("No objectives: place 1 to 10 capture points (Scenario panel, Add objective).");
   if ((int)n > kMaxObjectives) err(std::to_string(n) + " objectives: a map holds at most " + std::to_string(kMaxObjectives) + " (A to J).");
   std::set<int> orders; std::set<std::string> ids;
@@ -290,6 +318,7 @@ std::vector<ScenarioIssue> validateScenario(const Scenario& s, bool forPublish) 
   std::set<std::string> sids;
   for (auto& m : s.spawns) {
     if (!sids.insert(m.id).second) err("Duplicate spawn id '" + m.id + "'.");
+    if (m.team >= 0) continue;   // a TDM marker: no Assault phase
     if (m.phases.empty()) err("Spawn '" + (m.label.empty() ? m.id : m.label) + "' is not active in any phase.");
     for (int p : m.phases) if (p < 0 || p >= (int)std::max<size_t>(n, 1)) { err("Spawn '" + (m.label.empty() ? m.id : m.label) + "' refers to phase " + std::to_string(p + 1) + ", which has no objective."); break; }
   }

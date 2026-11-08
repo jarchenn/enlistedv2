@@ -33,7 +33,7 @@ void AiCore::perceive(Soldier& s) {
   float range = diff.detectOpen;
   for (auto& mm : b.mem) mm.visible = false;
   for (auto& o : G.sold) {
-    if (!o.alive || o.role == s.role) continue;
+    if (!o.alive || o.team == s.team) continue;
     vec3 tc = G.chest(o), th = G.eye(o);
     float dist = glm::length(tc - e);
     EnemyMemory* mm = nullptr; for (auto& x : b.mem) if (x.enemy == o.slot) mm = &x;
@@ -67,7 +67,7 @@ void AiCore::perceive(Soldier& s) {
   for (auto& snd : G.sounds) {
     if (G.t - snd.t > 0.25 || snd.src < 0 || snd.src >= (int)G.sold.size()) continue;
     const Soldier& o = G.sold[snd.src];
-    if (o.role == s.role || !o.alive) continue;
+    if (o.team == s.team || !o.alive) continue;
     float d = glm::length(snd.p - s.feet), R = snd.range;
     if (snd.kind == 0) { bool pistol = o.weapon >= 0 && pistolCal(G.app.weaponDefs[o.weapon]->caliber); R = pistol ? tj("perception", "hearSmg_m", 120.0f) : tj("perception", "hearRifle_m", 250.0f); }
     else if (snd.kind == 1) R = tj("perception", "hearExplosion_m", 200.0f);
@@ -85,7 +85,7 @@ void AiCore::perceive(Soldier& s) {
   for (auto& g : G.gren.live) {
     if (g.kind != GK_FRAG) continue;
     // ours ("frag out"): known without seeing it; keep clear of its whole hurt radius (AI_SPEC 12.3: no grenade hurts a teammate)
-    bool ours = g.owner >= 0 && g.owner < (int)G.sold.size() && G.sold[g.owner].role == s.role;
+    bool ours = g.owner >= 0 && g.owner < (int)G.sold.size() && G.sold[g.owner].team == s.team;
     float d = glm::length(g.p - s.feet);
     if (d > (ours ? tj("grenade", "friendlyClear_m", 11.0f) : tj("grenade", "reactRadius_m", 8.0f))) continue;
     bool seen = ours || (glm::dot(glm::normalize(g.p - e + vec3(1e-4f)), look) > 0.3f && G.lineOfSight(e, g.p));
@@ -120,7 +120,7 @@ void AiCore::nearMisses() {
     vec3 a = p.p - p.v * (1.0f / 60.0f), b = p.p;
     vec3 ab = b - a; float L2 = glm::dot(ab, ab); if (L2 < 1e-6f) continue;
     for (auto& s : G.sold) {
-      if (!s.alive || s.human || s.role == sh.role) continue;
+      if (!s.alive || s.human || s.team == sh.team) continue;
       vec3 c = G.chest(s);
       float u = std::clamp(glm::dot(c - a, ab) / L2, 0.0f, 1.0f);
       float d = glm::length(a + ab * u - c);
@@ -140,7 +140,7 @@ void AiCore::nearMisses() {
   // hits (Game::damage sets hurtFrom / hurtAt): the shooter's rough position joins the memory too
   for (auto& s : G.sold) {
     if (!s.alive || s.human || G.t - s.br.hurtAt > 0.02) continue;
-    for (auto& o : G.sold) if (o.alive && o.role != s.role && glm::length(o.feet - s.br.hurtFrom) < 0.5f) {
+    for (auto& o : G.sold) if (o.alive && o.team != s.team && glm::length(o.feet - s.br.hurtFrom) < 0.5f) {
       EnemyMemory* mm = nullptr; for (auto& x : s.br.mem) if (x.enemy == o.slot) mm = &x;
       if (!mm) { s.br.mem.push_back({o.slot}); mm = &s.br.mem.back(); }
       if (!mm->visible) { mm->lastPos = o.feet; mm->lastSeen = G.t; mm->heardOnly = true; mm->awareness = std::max(mm->awareness, 0.7f); }
@@ -227,14 +227,14 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
   int fd = G.fragDef(s.faction);
   if (fd < 0 || s.frags <= 0) return false;
   float safe = std::max(8.0f, tj("grenade", "safeRadius_m", 11.0f)), arcClear = tj("grenade", "arcClearance_m", 2.0f);
-  for (auto& o : G.sold) if (o.alive && o.role == s.role && &o != &s && glm::length(o.feet - target) < safe) return false;   // teammates (humans too)
+  for (auto& o : G.sold) if (o.alive && o.team == s.team && &o != &s && glm::length(o.feet - target) < safe) return false;   // teammates (humans too)
   if (glm::length(s.feet - target) < safe) return false;
   for (auto& bd : buildings) { int r = bd.roomAt(s.feet); if (r >= 0 && bd.roomAt(target) != r) return false; }   // not out of a window / embrasure: the real release clips the opening
   // where teammates (and the thrower) will be when it goes off: bots along their planned route, humans by velocity
   {
     float fuse = G.app.weaponDefs[fd]->grenade.fuse + 0.5f;
     for (auto& o : G.sold) {
-      if (!o.alive || o.role != s.role) continue;
+      if (!o.alive || o.team != s.team) continue;
       if (o.human || o.slot >= (int)minds.size() || !minds[o.slot]) {
         for (float t : {1.5f, 3.0f, fuse}) if (glm::length(o.feet + o.vel * t - target) < safe) return false;
         continue;
@@ -259,7 +259,7 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
     vec3 p = hand, vv = v; bool ok = false, bad = false;
     for (int k = 0; k < 140 && !bad; ++k) {
       vec3 seg = vv * 0.04f; Physics::Hit h;
-      for (auto& o : G.sold) if (o.alive && o.role == s.role && &o != &s && glm::length(G.chest(o) - p) < arcClear) bad = true;
+      for (auto& o : G.sold) if (o.alive && o.team == s.team && &o != &s && glm::length(G.chest(o) - p) < arcClear) bad = true;
       if (bad) break;
       if (ray(p, seg, glm::length(seg), &h)) {
         if (isLeafUD(h.ud)) { bad = true; break; }
@@ -268,7 +268,7 @@ bool AiCore::planGrenade(Soldier& s, vec3 target, vec3& vel) {
         if (bounceBack || lenXZ(h.pos - s.feet) < 6.0f) { bad = true; break; }
         ok = lenXZ(h.pos - target) < tj("grenade", "landWithin_m", 2.0f) && std::fabs(h.pos.y - target.y) < 1.8f && h.normal.y > 0.6f;   // lands on the ground: a wall or a window frame sends it anywhere
         if (!ok && h.normal.y > 0.6f) { aimOff += vec3(target.x - h.pos.x, 0, target.z - h.pos.z); }
-        for (auto& o : G.sold) if (ok && o.alive && o.role == s.role && glm::length(o.feet - h.pos) < safe) ok = false;   // around where it really lands
+        for (auto& o : G.sold) if (ok && o.alive && o.team == s.team && glm::length(o.feet - h.pos) < safe) ok = false;   // around where it really lands
         break;
       }
       p += seg; vv.y -= 9.81f * 0.04f; vv *= std::max(0.0f, 1.0f - damp * 0.04f);
@@ -290,7 +290,7 @@ void AiCore::watchGrenades() {
     int owner = it->second.first; vec3 p = it->second.second;
     if (owner >= 0 && owner < (int)G.sold.size()) {
       for (auto& o : G.sold) {
-        if (!o.alive || o.role != G.sold[owner].role) continue;
+        if (!o.alive || o.team != G.sold[owner].team) continue;
         vec3 c = G.chest(o); float d = glm::length(c - p), R = G.gren.tun.fragMaxR;
         if (d > R) continue;
         float raw = G.gren.tun.fragDamage * std::pow(std::max(0.0f, 1.0f - std::max(0.0f, d - 0.5f) / R), 1.6f) * G.app.blastOcclusion(p, c);
