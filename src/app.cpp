@@ -606,6 +606,7 @@ int App::run(int argc, char** argv) {
   logf("GL %s | %s | %s", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
   platformSwapInterval(runSelf ? 0 : 1);
   glfwSetScrollCallback(win, scrollCb);
+  if (glfwRawMouseMotionSupported()) glfwSetInputMode(win, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);   // look ignores OS pointer acceleration
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();

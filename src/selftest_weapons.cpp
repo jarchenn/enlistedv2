@@ -90,11 +90,12 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       auto& s = S(a, "m1_garand");
       check(s.loaded == 0 && s.clipPings == 1 && total(a, "m1_garand") == 72, "8 rounds fired: clip ejects with a ping, 0 + 72 left");
       return true; });
-    // ---- resupply before reloading: total never above 80, loaded stays 0
+    // ---- the crate refills the held weapon to its allowance: a full clip in the rifle plus a full reserve
     push("crate garand", [this](App& a, float t) {
+      int stock0 = a.crateStock[K]["30-06_clip"];
       std::string m = a.crateTransaction(K);
       auto& s = S(a, "m1_garand");
-      check(s.loaded == 0 && total(a, "m1_garand") == 80 && s.reserveRounds() == 80, "crate refills reserve only: Garand 0 + 80, still empty until R (" + m + ")");
+      check(s.loaded == 8 && s.reserveRounds() == 72 && a.crateStock[K]["30-06_clip"] == stock0 - 1, "crate refills the Garand to max: 8 + 72, one clip from the crate (" + m + ")");
       int stock = a.crateStock[K]["30-06_clip"];
       std::string m2 = a.crateTransaction(K);
       check(a.crateStock[K]["30-06_clip"] == stock && total(a, "m1_garand") == 80, "full reserve leaves the crate stock untouched (" + m2 + ")");
@@ -106,7 +107,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     push("garand reload", [this](App& a, float t) {
       if (t < 2.6f) return false;
       auto& s = S(a, "m1_garand");
-      check(s.loaded == 8 && total(a, "m1_garand") == 80, "R loads a fresh en-bloc clip: 8 + 72");
+      check(s.loaded == 8 && total(a, "m1_garand") == 80, "R with a full rifle keeps 8 + 72");
       return true; });
     push("garand partial", fireN(3));
     push("garand partial reload", [this](App& a, float t) {

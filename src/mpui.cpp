@@ -525,6 +525,7 @@ void Game::drawHud() {
     if (isClient) ImGui::TextDisabled("Waiting for the host to return everyone to the lobby...");
     else if (ImGui::Button("Return to lobby", ImVec2(220, 0))) gUi.wantExit = true;
     ImGui::End();
+    app.uiCursor = true;
     if (!app.selftest) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
   if (debugOverlay) drawDebug();

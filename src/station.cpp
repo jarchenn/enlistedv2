@@ -449,7 +449,12 @@ std::string App::crateTransaction(uint64_t crateId, WeaponState* who, int whoWea
   bool unlimited = crateUnlimited[crateId];
   float radius = assetFor(*c)->crate.value("serviceRadius", 6.0f);
   std::string msg;
-  // 1) emplacements in reach that take an ammunition type this crate holds
+  // 1) the held weapon, refilled to a full magazine plus a full reserve (weapons.cpp); guns in reach on the next press
+  auto rounds = [&] { int n = 0; if (who) return who->loaded + who->reserveRounds(); for (auto& [id, ws] : wstate) n += ws.loaded + ws.reserveRounds(); return n; };
+  int before = rounds();
+  std::string personal = who ? resupplyWeapon(crateId, *weaponDefs[whoWeapon], *who) : resupplyPersonal(crateId);
+  if (rounds() > before) return personal;
+  // 2) emplacements in reach that take an ammunition type this crate holds
   for (auto& i : doc.instances) {
     StationRT* s = station(i.id);
     if (!s) continue;
@@ -477,11 +482,6 @@ std::string App::crateTransaction(uint64_t crateId, WeaponState* who, int whoWea
     audio.play("crate", c->pos);
     return name + " +" + std::to_string(n * unit) + " (now " + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + "). Crate " + ammo + ": " + (unlimited ? std::string("unlimited") : std::to_string(stock[ammo]) + " left") + ". Reload with R at the gun." + atMsg;
   }
-  // 2) personal weapon reserve (weapons.cpp)
-  auto rounds = [&] { int n = 0; if (who) return who->reserveRounds(); for (auto& [id, ws] : wstate) n += ws.reserveRounds(); return n; };
-  int before = rounds();
-  std::string personal = who ? resupplyWeapon(crateId, *weaponDefs[whoWeapon], *who) : resupplyPersonal(crateId);
-  if (rounds() > before) return personal;                    // personal resupply happened
   // nothing moved: the emplacement reason (out of reach, empty, full) leads, the personal refusal follows
   if (!msg.empty()) return personal.empty() ? msg : msg + "  " + personal;
   return personal.empty() ? "Nothing here fits your weapon or a gun in reach." : personal;

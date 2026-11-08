@@ -236,17 +236,20 @@ std::string App::resupplyWeapon(uint64_t crateId, const WeaponDef& d, WeaponStat
   auto& stock = crateStock[crateId];
   if (!stock.count(d.container)) return d.name + ": this crate holds no " + d.container + " (wrong feed type).";
   bool unlimited = crateUnlimited[crateId];
-  int headroom = s.reserveMax - (s.loaded + s.reserveRounds());   // total carried may never exceed the preset allowance
-  if (headroom <= 0) return d.name + " already at its allowance (" + std::to_string(s.loaded + s.reserveRounds()) + "/" + std::to_string(s.reserveMax) + "). Crate untouched.";
-  int fits = headroom / d.containerSize;     // whole clips / magazines / belt segments only: partial containers are kept as they are
-  if (fits <= 0) return d.name + ": no room for another full " + d.container + " (" + std::to_string(headroom) + " rounds of headroom).";
-  int n = unlimited ? fits : std::min(fits, stock[d.container]);
-  if (n <= 0) return d.name + ": crate has no " + d.container + " left.";
-  for (int k = 0; k < n; ++k) s.containers.push_back(d.containerSize);
-  if (!unlimited) stock[d.container] -= n;
+  int have = s.loaded + s.reserveRounds();
+  int want = s.reserveMax - have;   // refill to the preset allowance: a full weapon plus a full reserve
+  if (want <= 0) return d.name + " already full (" + std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds()) + "). Crate untouched.";
+  int units = (want + d.containerSize - 1) / d.containerSize;   // the crate pays in whole containers
+  if (!unlimited) units = std::min(units, stock[d.container]);
+  if (units <= 0) return d.name + ": crate has no " + d.container + " left.";
+  int total = std::min(s.reserveMax, have + units * d.containerSize);
+  s.reload = 0;   // a reload in progress would move rounds again when it ends
+  s.loaded = std::min(d.loaded, total);
+  s.containers.clear();
+  for (int r = total - s.loaded; r > 0; r -= d.containerSize) s.containers.push_back(std::min(r, d.containerSize));
+  if (!unlimited) stock[d.container] -= units;
   audio.play("crate", doc.find(crateId)->pos);
-  return d.name + " reserve +" + std::to_string(n * d.containerSize) + " rounds (" + std::to_string(n) + " x " + d.container + "), now " + std::to_string(s.reserveRounds()) + " reserve, total " + std::to_string(s.loaded + s.reserveRounds()) + "/" + std::to_string(s.reserveMax) +
-         ". Loaded still " + std::to_string(s.loaded) + ": press R to reload.";
+  return "Refilled " + d.name + ": " + std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds()) + ".";
 }
 
 void App::stepWeapons(float dt, const ExploreInput& in) {

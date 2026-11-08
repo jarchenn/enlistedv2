@@ -525,7 +525,11 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     for (auto& [k, v] : ev["s"].items()) st[k] = v.get<int>();
   } else if (t == "crateok") {   // our own resupply: the host moved the rounds
     int w = ev.value("w", -1);
-    if (w >= 0 && w < (int)app.weaponDefs.size() && ev.contains("c")) app.wstate[app.weaponDefs[w]->id].containers = ev["c"].get<std::vector<int>>();
+    if (w >= 0 && w < (int)app.weaponDefs.size() && ev.contains("c")) {
+      WeaponState& ws = app.wstate[app.weaponDefs[w]->id];
+      ws.containers = ev["c"].get<std::vector<int>>();
+      if (ev.contains("l")) { ws.loaded = ev["l"]; ws.reload = 0; }
+    }
     app.toast(ev.value("msg", ""), 5);
   } else if (t == "place") {   // field defences placed / removed on the host: the same instances, ids and all
     std::vector<uint64_t> added;
@@ -672,10 +676,10 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
     uint64_t id = m.value("i", 0ull); Instance* ci = app.doc.find(id);
     if (!ci || !app.crateStock.count(id)) { refuse("no crate", ""); return; }
     if (reachTo(app, *ci, eye) > 4.0f) { refuse("reach", "Too far from the crate."); return; }
-    auto stock0 = app.crateStock[id]; size_t c0 = s.ws.containers.size();
+    auto stock0 = app.crateStock[id]; int r0 = s.ws.loaded + s.ws.reserveRounds();
     std::string msg = app.crateTransaction(id, &s.ws, s.weapon);
-    if (app.crateStock[id] == stock0 && s.ws.containers.size() == c0) { ++n.rejectedRequests; ++n.rejects["crate: nothing moved"]; }   // full, empty or the wrong feed: refused
-    p.ch.send(json{{"t", "crateok"}, {"msg", msg}, {"w", s.weapon}, {"c", s.ws.containers}}.dump());
+    if (app.crateStock[id] == stock0 && s.ws.loaded + s.ws.reserveRounds() == r0) { ++n.rejectedRequests; ++n.rejects["crate: nothing moved"]; }   // full, empty or the wrong feed: refused
+    p.ch.send(json{{"t", "crateok"}, {"msg", msg}, {"w", s.weapon}, {"l", s.ws.loaded}, {"c", s.ws.containers}}.dump());
   } else if (t == "build") {   // place a field defence / palette asset: the builder's own rules, re-run here
     const AssetDef* a = app.lib.find(m.value("a", std::string()));
     vec3 pos = jvec3(m["p"]); float yaw = m.value("y", 0.0f);

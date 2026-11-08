@@ -408,6 +408,10 @@ void App::updateExplore(float dt) {
     if (kp(win, GLFW_KEY_L) && !pauseMenu) { showLoadout = !showLoadout; glfwSetInputMode(win, GLFW_CURSOR, showLoadout ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED); }
     if (kp(win, GLFW_KEY_V)) scopeIronsMode = !scopeIronsMode;
   }
+  // the cursor is captured unless a menu needs it: every look delta below assumes GLFW_CURSOR_DISABLED (a free cursor
+  // stops at the screen edge and look then stops in that direction)
+  if (!selftest) { int want = wantCursor() ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED; if (glfwGetInputMode(win, GLFW_CURSOR) != want) glfwSetInputMode(win, GLFW_CURSOR, want); }
+  uiCursor = false;
   if (pauseMenu) return;
   ExploreInput in;
   static double lmx = -1, lmy = -1;
@@ -418,7 +422,7 @@ void App::updateExplore(float dt) {
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (lmx >= 0 && !io.WantCaptureMouse && !showLoadout && !rackOpen && !build.palette) {
+    if (lmx >= 0 && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
       StationRT* gs = station(occupied);
       float hs = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42") ? 0.08f : 0.012f;
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips

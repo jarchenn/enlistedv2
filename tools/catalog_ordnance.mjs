@@ -163,6 +163,6 @@ export function crates() {
   return [
     crate("crate_pak40_he", "PaK 40 ammunition crate", "Wooden crate of 7.5 cm HE rounds for a PaK 40 within 6 m. Finite stock by default (editable).", { "75mm_he": 12 }, "crate_olive"),
     crate("crate_mixed_supply", "Mixed supply crate", "Sandbox range crate: rifle clips, magazines, belts, .50 links and 7.5 cm HE. Feeds personal reserve or a nearby emplacement; finite by default.",
-      { "30-06_clip": 30, "792_clip": 30, "9mm_mag32": 12, "45_mag20": 12, "792_belt50": 10, "50bmg_belt": 6, "75mm_he": 10 }, "oak_x"),
+      { "30-06_clip": 30, "792_clip": 30, "9mm_mag32": 12, "45_mag20": 12, "792_belt50": 10, "50bmg_belt": 6, "75mm_he": 10, "30-06_bar_mag20": 12, "75mm_ap": 2, "30carbine_mag15": 16, "45_mag30": 12, "792k_mag30": 12, "792_fg42_mag20": 12, "60mm_rocket": 6, "88mm_rocket": 6, "mk2_grenade": 8, "m24_grenade": 8, "smoke_grenade": 4 }, "oak_x"),
   ];
 }

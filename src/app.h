@@ -123,6 +123,8 @@ public:
   // ---- explore
   float eyeYaw = 0, eyePitch = 0, eyeHeight = 1.62f;
   bool pauseMenu = false;
+  bool uiCursor = false;   // set each frame by a HUD window that needs the mouse (match result)
+  bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor; }
   vec3 exploreStartPos{0}; float exploreStartYaw = 0;
   InteractTarget target;
   float physAccum = 0;
