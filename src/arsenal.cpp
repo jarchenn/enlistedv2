@@ -53,6 +53,13 @@ void App::loadMoveSettings() {
   move.proneToStand = j.value("proneToStand_s", move.proneToStand); move.proneToCrouch = j.value("proneToCrouch_s", move.proneToCrouch);
   move.crouchToStand = j.value("crouchToStand_s", move.crouchToStand);
   move.adsTime = j.value("adsTime_s", move.adsTime);
+  if (j.contains("stamina") && j["stamina"].is_object()) {
+    const json& s = j["stamina"];
+    move.staminaMax = s.value("max", move.staminaMax); move.staminaSprint = s.value("sprintDrain_per_s", move.staminaSprint);
+    move.staminaJump = s.value("jumpCost", move.staminaJump); move.staminaRegen = s.value("regen_per_s", move.staminaRegen);
+    move.staminaDelay = s.value("regenDelay_s", move.staminaDelay);
+    move.staminaLowRegen = s.value("crouchProneRegen_x", move.staminaLowRegen);
+  }
   loadClimbSettings(j);   // vault + mantle (mantle.cpp)
   loadSwimSettings(j);    // swimming, breath (swim.cpp)
 }

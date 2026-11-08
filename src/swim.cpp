@@ -101,7 +101,9 @@ bool App::stepSwim(float dt, const ExploreInput& in, const Physics::CharState& b
   vec3 fw = (under || eyePitch < -S.diveSteerPitch) ? forward(eyeYaw, eyePitch) : f;   // submerged, the look steers
   vec3 wish = fw * in.move.y + rgt * in.move.x;
   if (glm::length(wish) > 1) wish = glm::normalize(wish);
-  wish *= (in.sprint ? S.sprint : S.speed) * traversalFactor(feet);
+  const bool fast = in.sprint && stamina > 1.0f;   // sprint-stroke drains stamina like a run
+  tickStamina(dt, fast && (in.move.x != 0 || in.move.y != 0));
+  wish *= (fast ? S.sprint : S.speed) * traversalFactor(feet);
   float vy = in.jumpHeld ? S.rise : in.crouch ? -S.dive : 0.0f;
   if (!in.jumpHeld && !in.crouch) {
     float dy = target - feet.y;

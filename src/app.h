@@ -211,7 +211,18 @@ public:
     float jumpBuffer = 0.15f, coyote = 0.12f;                                         // s: early press kept / late press after leaving ground
     float proneToStand = 1.1f, proneToCrouch = 0.75f, crouchToStand = 0.45f;        // s, getting up (eye rise; lower speed, no sprint; no jump from prone)
     float adsTime = 0.25f;                                                            // s, hip <-> ADS (world FOV, pose, weapon FOV share it)
+    // stamina (movement.json "stamina"): sprint drains it, a jump (or vault / mantle) costs a chunk, walking or standing
+    // regenerates it after a short pause; empty = no sprint, and no jump below the jump cost
+    float staminaMax = 200, staminaSprint = 12, staminaJump = 22, staminaRegen = 18, staminaDelay = 0.6f;   // pts, pts/s, pts, pts/s, s
+    float staminaLowRegen = 1.5f;   // regeneration x this while crouched or prone
   } move;
+  float stamina = 200, staminaIdle = 0;   // current points; s since the last drain (regeneration waits staminaDelay)
+  void spendStamina(float pts) { stamina = std::max(0.0f, stamina - pts); staminaIdle = 0; }
+  void tickStamina(float dt, bool sprinting, float regenScale = 1.0f) {   // per movement step: drain while sprinting, else regenerate after the pause
+    if (sprinting) spendStamina(move.staminaSprint * dt);
+    else if ((staminaIdle += dt) >= move.staminaDelay) stamina = std::min(move.staminaMax, stamina + move.staminaRegen * regenScale * dt);
+  }
+  void drawStaminaUI();                   // explore.cpp: the bar under the breath bar, hidden when full
   // getting up: a timed, eased camera rise; until it finishes the player moves at the lower posture's speed
   float riseT = 0, riseDur = 0, riseFrom = 0, riseSpeed = 0; bool riseProne = false;   // riseProne: getting up from prone (blocks jump)
   // ---- vault (hold Space at a taller obstacle): validated, swept, no chaining (explore.cpp)

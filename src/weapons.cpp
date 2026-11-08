@@ -430,7 +430,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       s.recoilP = std::min(s.recoilP, std::max(0.0f, 85.0f - eyePitch));   // only the camera's pitch bound (look clamp 85) limits the climb
       s.recoilY = std::clamp(s.recoilY + sc * d.rYaw * (wrand(s.seed) * 2 - 1), -6.0f, 6.0f);   // restrained horizontal wander
       s.sinceShot = 0;
-      s.kick = std::min(0.08f, s.kick + d.rVisual);
+      s.kick = std::min(std::max(0.08f, d.rVisual), s.kick + d.rVisual);   // bursts build to 0.08; a single rifle shot may kick harder (2026-11-08)
       if (d.feed == "enbloc" && s.loaded == 0) { audio.play("ping", muzzle, 0.8f); weaponMsg = "Clip ejected (ping)"; s.clipPings++; }
     }
   }

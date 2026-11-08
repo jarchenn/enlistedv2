@@ -31,10 +31,10 @@ void SelfTest::moveUpdate(App& app, float dt) {
     mseq.clear(); mcur = 0; mt = 0;
     push("settings", [this](App& a, float) {
       auto& m = a.move;
-      char b[360]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.4f m/s (2.875 x1.1), sprint %.3f (5.75 x1.1), crouch %.2f (1.2 x1.1), prone %.2f (0.6 x1.1), player gravity %.3f m/s^2 (SPEC 4: 7.848 x2.1333), jump %.3f m/s (SPEC 4: 3.757 x1.6), buffer %.2f s, coyote %.2f s",
+      char b[360]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.4f m/s (2.875 x1.1), sprint %.3f (5.75 x1.1), crouch %.2f (1.2 x1.1), prone %.2f (0.6 x1.1), player gravity %.3f m/s^2 (real life: 9.81), jump %.3f m/s (real life 3.1; was SPEC 4: 3.757 x1.6), buffer %.2f s, coyote %.2f s",
                     m.run, m.sprint, m.crouch, m.prone, m.gravity, m.jumpVelocity, m.jumpBuffer, m.coyote);
       check(std::fabs(m.run - 3.1625f) < 1e-3f && std::fabs(m.sprint - 6.325f) < 1e-3f && std::fabs(m.crouch - 1.32f) < 1e-3f && std::fabs(m.prone - 0.66f) < 1e-3f &&
-            std::fabs(m.gravity - 16.7424f) < 1e-3f && std::fabs(m.jumpVelocity - 6.0112f) < 2e-3f && m.jumpBuffer >= 0.1f && m.jumpBuffer <= 0.2f && m.coyote >= 0.08f && m.coyote <= 0.15f, b);
+            std::fabs(m.gravity - 9.81f) < 1e-3f && std::fabs(m.jumpVelocity - 3.1f) < 2e-3f && m.jumpBuffer >= 0.1f && m.jumpBuffer <= 0.2f && m.coyote >= 0.08f && m.coyote <= 0.15f, b);
       summary["movement"] = {{"run", m.run}, {"sprint", m.sprint}, {"crouch", m.crouch}, {"prone", m.prone}, {"gravity", m.gravity}, {"jump", m.jumpVelocity}};
       return true; });
     auto speedTest = [this](const char* name, vec2 mv, bool sprint, int pose, float want, bool slow) {
@@ -60,6 +60,43 @@ void SelfTest::moveUpdate(App& app, float dt) {
     push("sprint", speedTest("sprint", vec2(0, 1), true, Physics::STAND, 6.325f, false));
     push("crouch", speedTest("crouch (sprint held: ignored)", vec2(0, 1), true, Physics::CROUCH, 1.32f, false));
     push("prone", speedTest("prone (sprint held: ignored)", vec2(0, 1), true, Physics::PRONE, 0.66f, false));
+    push("stamina", [this](App& a, float t) {   // sprint drains, a jump costs a chunk, rest regenerates; empty blocks sprint / jump
+      static float s0, afterSprint = 1e9f, beforeJump, afterJump, sprintBlocked; static int j0, lowJumps;
+      const auto& m = a.move;
+      if (t == 0) {
+        // the arithmetic, independent of frame timing
+        float keep = a.stamina, keepIdle = a.staminaIdle;
+        a.stamina = m.staminaMax; a.staminaIdle = 0;
+        for (int k = 0; k < 120; ++k) a.tickStamina(1.0f / 60.0f, true);       // 2 s sprint
+        float r1 = a.stamina; a.spendStamina(m.staminaJump); float r2 = a.stamina;
+        for (int k = 0; k < 30; ++k) a.tickStamina(1.0f / 60.0f, false);      // 0.5 s: still inside the pause
+        float r3 = a.stamina;
+        for (int k = 0; k < 60; ++k) a.tickStamina(1.0f / 60.0f, false);      // +1 s
+        float r4 = a.stamina;
+        char b[300]; std::snprintf(b, sizeof b, "stamina math: 2 s sprint %.1f (want %.0f), jump -> %.1f, 0.5 s rest %.1f (pause), +1 s %.1f (regen %.0f/s)", r1, m.staminaMax - 2 * m.staminaSprint, r2, r3, r4, m.staminaRegen);
+        check(std::fabs(r1 - (m.staminaMax - 2 * m.staminaSprint)) < 0.2f && std::fabs(r1 - r2 - m.staminaJump) < 0.01f && std::fabs(r3 - r2) < 0.01f && r4 > r3 + m.staminaRegen * 0.85f, b);
+        a.stamina = 50; a.staminaIdle = 1;
+        for (int k = 0; k < 60; ++k) a.tickStamina(1.0f / 60.0f, false, m.staminaLowRegen);   // 1 s crouched / prone
+        float low = a.stamina - 50;
+        std::snprintf(b, sizeof b, "stamina: max %.0f; crouched / prone recovers %.1f in 1 s (x%.1f of %.0f/s)", m.staminaMax, low, m.staminaLowRegen, m.staminaRegen);
+        check(m.staminaMax >= 199.0f && std::fabs(low - m.staminaRegen * m.staminaLowRegen) < 0.5f && m.staminaLowRegen > 1.4f, b);
+        a.stamina = keep; a.staminaIdle = keepIdle;
+        put(a, vec3(20, 0, -10)); a.scriptedInput = ExploreInput{}; return false;
+      }
+      if (t < 1.4f) { s0 = a.stamina; return false; }
+      if (t < 3.4f) { a.scriptedInput.move = vec2(0, 1); a.scriptedInput.sprint = true; return false; }   // sprint
+      if (t < 4.4f) { afterSprint = std::min(afterSprint, a.stamina); a.scriptedInput = ExploreInput{}; a.stamina = m.staminaMax; a.staminaIdle = 0; beforeJump = a.stamina; j0 = Physics::jumpCount(); return false; }   // stand still, rested
+      if (t < 4.42f) { a.scriptedInput.jump = true; return false; }
+      if (t < 4.7f) { a.scriptedInput.jump = false; afterJump = a.stamina; return false; }   // inside the 0.6 s pause
+      if (t < 5.9f) { if (t < 5.72f) { lowJumps = 0; a.stamina = m.staminaJump - 1; a.staminaIdle = 0; j0 = Physics::jumpCount(); } a.scriptedInput.jump = t < 5.74f && t >= 5.72f; lowJumps = Physics::jumpCount() - j0; return false; }
+      if (t < 7.0f) { a.stamina = 0.5f; a.staminaIdle = 0; a.scriptedInput.move = vec2(0, 1); a.scriptedInput.sprint = true; sprintBlocked = a.vm.speed; return false; }   // held empty
+      a.scriptedInput = ExploreInput{};
+      if (t < 9.5f) return false;   // rest
+      char b[400]; std::snprintf(b, sizeof b, "stamina in play: rested %.0f, sprinting -> %.1f; a standing jump costs %.1f (want %.0f); below the jump cost %d jumps; empty: %.2f m/s (run %.2f, no sprint); 2.5 s rest -> %.1f",
+                    s0, afterSprint, beforeJump - afterJump, m.staminaJump, lowJumps, sprintBlocked, m.run, a.stamina);
+      check(s0 >= m.staminaMax - 0.5f && afterSprint < m.staminaMax - 10 && std::fabs(beforeJump - afterJump - m.staminaJump) < 1.0f && lowJumps == 0 &&
+            sprintBlocked < m.run + 0.3f && sprintBlocked > m.run * 0.5f && a.stamina > 20.0f, b);
+      return true; });
     push("gravity + jump", [this](App& a, float t) {
       static float y0, apex, tAir; static bool air;
       if (t == 0) { put(a, vec3(20, 0, 0)); a.scriptedInput = ExploreInput{}; apex = -1; air = false; tAir = 0; return false; }
@@ -70,7 +107,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
       if (c.pos.y - y0 > 0.02f) { air = true; tAir += 1.0f / 60.0f; }
       if (t < 2.9f) return false;
       float want = a.move.jumpVelocity * a.move.jumpVelocity / (2 * a.move.gravity), wantT = 2 * a.move.jumpVelocity / a.move.gravity;
-      char b[200]; std::snprintf(b, sizeof b, "jump apex %.3f m (was 0.899 m, SPEC 4 x1.2; v^2/2g = %.3f), airtime %.2f s (2v/g = %.2f)", apex, want, tAir, wantT);
+      char b[200]; std::snprintf(b, sizeof b, "jump apex %.3f m (real life about 0.5 m; v^2/2g = %.3f), airtime %.2f s (2v/g = %.2f)", apex, want, tAir, wantT);
       check(std::fabs(apex - want) < 0.05f && std::fabs(tAir - wantT) < 0.08f, b);
       // a falling rigid body still uses the world gravity
       Part p; p.size = vec3(0.3f); uint32_t body = Physics::addDynamic(Physics::buildShape({p}), vec3(20, 30, 20), quat(1, 0, 0, 0), 0xEEEFull << 16, 5);
@@ -97,7 +134,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
         apex = std::max(apex, c.pos.y - y0);
         if (t < 1.9f) return false;
         char b[200]; std::snprintf(b, sizeof b, "...and jumps on the next step (%d impulse, apex %.2f m)", Physics::jumpCount() - j0, apex);
-        check(Physics::jumpCount() == j0 + 1 && apex > 0.6f, b);
+        check(Physics::jumpCount() == j0 + 1 && apex > 0.35f, b);   // real-life jump: apex about 0.49 m
         return true;
       }
       return t > 5; });
@@ -153,7 +190,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
         apex = std::max(apex, c.pos.y - y0);
         if (t < 2.4f) return false;
         char b[200]; std::snprintf(b, sizeof b, "Space one frame after releasing Ctrl (crouch -> stand rise running) jumps (apex %.2f m)", apex);
-        check(Physics::jumpCount() == j0 + 1 && apex > 0.6f, b);
+        check(Physics::jumpCount() == j0 + 1 && apex > 0.35f, b);   // real-life jump: apex about 0.49 m
         return true;
       }
       return t > 5; });
@@ -172,6 +209,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
       if (ph == 0 && t > 0.6f) { j0 = Physics::jumpCount(); a.scriptedInput.move = vec2(0, 1); tNext = t + 0.4f; ph = 1; return false; }
       if (ph == 1) {
         a.scriptedInput.sprint = presses % 2 == 1;
+        a.stamina = a.move.staminaMax;   // this step tests jump reliability, not stamina
         if (t > 5.6f) a.scriptedInput.move = vec2(0, -1);   // turn round: back down the ramp
         if (t >= tNext && presses < 8) { a.scriptedInput.jump = true; ++presses; tNext = t + 1.25f; }
         if (presses < 8 || t < tNext - 0.2f) return false;
@@ -471,7 +509,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
   }
   stage = 1501;
   if (mcur >= mseq.size()) { finish(app); return; }
-  if (mt == 0) logf("[selftest] step: %s", mseq[mcur].name.c_str());
+  if (mt == 0) { logf("[selftest] step: %s", mseq[mcur].name.c_str()); app.stamina = app.move.staminaMax; app.staminaIdle = 0; }   // each step starts rested (the stamina step tests the drain)
   bool d2 = mseq[mcur].fn(app, mt);
   mt += dt;
   if (mt > 60) { check(false, "step timed out: " + mseq[mcur].name); d2 = true; }
