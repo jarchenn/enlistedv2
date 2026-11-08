@@ -203,3 +203,13 @@ The vertex format is unchanged. No generator or asset JSON changed: the pattern 
 **Results** (build `%TEMP%/nmk/build-lt4`, all through `gpu_turn.sh`):
 - `render` shimmer, layer on vs `--no-textures`: 0 of 26 views worse by more than 2 %, mean ratio 0.99, worst +0.8 %. The farmhouse and the moving strip improve by 2-3 %. The tuning history is in `docs/textures.md#shimmer`. The first untuned pass was 22 % worse on average.
 - `textures` (new): 27/0. Includes the missing-texture fallback: no sets, a corrupt set, a lone set, and `--legacy-look` stays procedural.
+- `visuals` 31/0: thumbnails re-render, because the cache key now includes the texture state.
+- `interiors` 191/1 and `B` 67/1: the two known batch-B failures from Step 0 (`ruin_townhouse_facade` empty; exactly one instance after reopen). Neither comes from L4.
+- `A` 226/0 and `damage` 145/0 (fast mode). The rest of the fast run was still queued at handoff: `%TEMP%/nmk/lt4-fast.log`.
+- **`maps` FPS gate: not measured cleanly. Please re-run it on a quiet GPU.**
+  - The user raised `gpu_turn` to 5 shared slots today. Even with `GPU_TURN_EXCLUSIVE=1`, other sessions' NormandyMapmaker processes ran outside the lock, so `tank_range` (normally 5 ms) measured 25-46 ms.
+  - The exclusive back-to-back A/B is in `%TEMP%/nmk/lt4-fps/report_maps_{off,on}.txt`. The run with the layer **on** was faster on every map (Omaha Medium 20.9 vs 91.3 ms), which only shows the noise.
+  - The cleaner signal comes from the earlier same-lock `render` runs: water views took +0.4 ms GPU on average with the layer on.
+  - Expected cost: one tap of three BC textures per box-face pixel, and 1-3 planar taps per terrain pixel inside the fade distance.
+  - If Omaha's 1.3 ms headroom is not enough, these knobs reduce the cost: narrower terrain `fade`, a lower `uTexLod` threshold, or `--no-textures` on Low.
+- Tuning left for the joint L2+L4 pass: per-slot strengths in `textures.json`, the 9 unmapped sets, and terrain anti-tiling (the layers currently fade out by 140-260 m).
