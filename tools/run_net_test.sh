@@ -12,15 +12,16 @@
 set -u
 B="${1:?build dir}"; PORT="${2:-27970}"
 cd "$B" || exit 2
+EXE=./NormandyMapmaker.exe; [ -x "$EXE" ] || EXE=./NormandyMapmaker   # Windows / macOS build
 rm -f selftest_out/report_net_*.txt selftest_out/net_*.flag   # B waits for A's flag (src/selftest_net.cpp)
-./NormandyMapmaker.exe --selftest-net host "$PORT" > net_host.log 2>&1 & H=$!
+"$EXE" --selftest-net host "$PORT" > net_host.log 2>&1 & H=$!
 sleep 4
-./NormandyMapmaker.exe --selftest-net a "$PORT" > net_a.log 2>&1 & A=$!
-./NormandyMapmaker.exe --selftest-net c "$PORT" > net_c.log 2>&1 & C=$!
+"$EXE" --selftest-net a "$PORT" > net_a.log 2>&1 & A=$!
+"$EXE" --selftest-net c "$PORT" > net_c.log 2>&1 & C=$!
 sleep 22
-./NormandyMapmaker.exe --selftest-net b "$PORT" > net_b.log 2>&1 & BB=$!
+"$EXE" --selftest-net b "$PORT" > net_b.log 2>&1 & BB=$!
 sleep 8
-./NormandyMapmaker.exe --selftest-net d "$PORT" > net_d.log 2>&1 & D=$!
+"$EXE" --selftest-net d "$PORT" > net_d.log 2>&1 & D=$!
 status=0
 for p in $H $A $BB $C $D; do
   for i in $(seq 1 720); do kill -0 $p 2>/dev/null || break; sleep 1; done

@@ -5,8 +5,9 @@ set -u
 B="${1:?build dir}"; shift || true
 HERE="$(cd "$(dirname "$0")" && pwd)"   # resolve before cd: $0 may be relative
 cd "$B" || exit 2
+EXE=./NormandyMapmaker.exe; [ -x "$EXE" ] || EXE=./NormandyMapmaker   # Windows / macOS build
 status=0
-run() { local name="$1"; shift; ./NormandyMapmaker.exe "$@" >/dev/null 2>&1; local rc=$?; printf '%-28s exit %d  ' "$name" $rc; tail -1 "selftest_out/report_$name.txt" 2>/dev/null || echo; [ $rc -eq 0 ] || status=1; }
+run() { local name="$1"; shift; "$EXE" "$@" >/dev/null 2>&1; local rc=$?; printf '%-28s exit %d  ' "$name" $rc; tail -1 "selftest_out/report_$name.txt" 2>/dev/null || echo; [ $rc -eq 0 ] || status=1; }
 run A        --selftest
 run B        --selftest-reopen "maps/selftest_regression.nmap.json"
 run damage   --selftest-damage
@@ -43,7 +44,7 @@ run render   --selftest-render  # V1: facade shimmer 20 / 50 / 100 m (static + s
 run textures --selftest-textures   # L4: ambientCG texture layer, slots, on / off look, missing-texture fallback (docs/textures.md)
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
 if [ "${1:-}" = "--bench" ]; then
-  ./NormandyMapmaker.exe --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"
-  ./NormandyMapmaker.exe --benchmark-stress >/dev/null 2>&1; echo "benchmark-stress   exit $?  -> selftest_out/benchmark_stress.json"
+  "$EXE" --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"
+  "$EXE" --benchmark-stress >/dev/null 2>&1; echo "benchmark-stress   exit $?  -> selftest_out/benchmark_stress.json"
 fi
 exit $status
