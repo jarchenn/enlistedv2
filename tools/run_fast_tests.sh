@@ -77,7 +77,7 @@ export GPU_TURN_TAG="${GPU_TURN_TAG:-fast tests $(basename "$REPO")}"
 status=0; bg=()
 runone() {   # line from run_all_tests.sh: "run <name> <args> # comment"
   local ln="$1"; set -- $ln; local name="$2"; shift 2
-  local args="${*%%#*}"; eval "set -- $args"
+  local all="$*"; local args="${all%%#*}"; eval "set -- $args"   # strip the comment from the whole line, not per word
   if [[ "$HEADLESS" == *" $name "* ]]; then ./NormandyMapmaker.exe "$@" >/dev/null 2>&1; else bash "$HERE/gpu_turn.sh" ./NormandyMapmaker.exe "$@" >/dev/null 2>&1; fi
   local rc=$?; printf '%-12s exit %d  %s\n' "$name" $rc "$(tail -1 "selftest_out/report_$name.txt" 2>/dev/null)"; return $rc
 }
