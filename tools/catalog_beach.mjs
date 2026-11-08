@@ -105,8 +105,9 @@ function pixelText(A, text, cx, cy, zf, dir, px, m) {
         if (line[c0] !== "#" || (c0 > 0 && line[c0 - 1] === "#")) continue;
         let c1 = c0; while (c1 + 1 < 5 && line[c1 + 1] === "#") c1++;
         const col0 = k * 6 + c0, col1 = k * 6 + c1 + 1;
-        // reading left to right: from -Z the text runs toward +X; from +Z toward -X
-        const xa = dir < 0 ? cx + (col0 - w / 2) * px : cx - (col1 - w / 2) * px, xb = xa + (col1 - col0) * px;
+        // reading left to right: a viewer at +Z has +X on the right, so text read from +Z runs toward +X and text read
+        // from -Z toward -X (P1 fix: versions 1-2 had these swapped, so both faces read mirrored)
+        const xa = dir > 0 ? cx + (col0 - w / 2) * px : cx - (col1 - w / 2) * px, xb = xa + (col1 - col0) * px;
         const y1 = cy + (3.5 - row) * px;
         A.box([xa, y1 - px, Math.min(zf, zf + dir * 0.004)], [xb, y1, Math.max(zf, zf + dir * 0.004)], m, { k: 0 });
       }
@@ -297,7 +298,7 @@ export function roadblock() {
 }
 // minefield fence (10 m) with the sign, and the sign alone on a stake
 export function minefieldFence() {
-  const A = new Asset({ id: "bch_minefield_fence", version: 2, name: "Minefield fence with sign (10 m)", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_minefield_fence", version: 3, name: "Minefield fence with sign (10 m)", category: "Beach obstacles",
     description: "Single-strand wire fence on pickets marking a minefield, with an \"Achtung Minen!\" board. The marked field (10 x 10 m on the +Z side) is a minefield nav area: bots never path through it.",
     floors: 0, enterable: false, footprint: [10, 0.5], plinthDepth: 0, maxGrade: 1.0, noAutoPanels: true });
   stdMaterials(A); mats(A, "picket", "steel_dark");
@@ -312,7 +313,7 @@ export function minefieldFence() {
   return A;
 }
 export function minenSignStake() {
-  const A = new Asset({ id: "bch_minen_sign", version: 2, name: "\"Achtung Minen\" sign", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_minen_sign", version: 3, name: "\"Achtung Minen\" sign", category: "Beach obstacles",
     description: "\"Achtung Minen!\" warning board on a stake, for the bluff paths and the forest edge. Dressing only (place a minefield fence to mark the mined ground for the bots).",
     floors: 0, enterable: false, footprint: [0.8, 0.3], plinthDepth: 0, maxGrade: 1.2, noAutoPanels: true });
   stdMaterials(A);
