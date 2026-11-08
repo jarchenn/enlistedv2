@@ -81,6 +81,11 @@ Done. Details and numbers are in `docs/rendering.md` §10 (`#frustum-culling`).
 - `DrawItem` is unchanged, so V6's `apWorld` slots in.
 - `shade()`, `setLighting`, exposure and the `kMainFS` / `kTerrainFS` material code are untouched.
 
+**Suites** (each through `gpu_turn.sh`):
+- These pass: render 48/0, visuals 31/0, fps 114/0, sights 140/0, env 42/0, damage 145/0, gore 45/0, settings 42/0, A 226/0.
+- These fail, with the same failures as the pre-L1 exe on the same base: grass 21/1, interiors 191/1, structures 905/12, B 67/1.
+- maps: Omaha's 60 FPS gate fails before and after, at about 22-23 ms. In the contended L1 runs the village and forest gates also failed; the forest's draws are identical, so that is contention.
+
 **Not done / limits:**
 - No clean ms comparison. The GPU was shared by five gpu_turn slots throughout. The draws fell by 42 % on the village bench and by 55-85 % on Omaha, but the ms that could be compared were level. The village and Omaha frames are bound by fill and shading.
 - The terrain and grass chunk streams still test the jittered reverse-Z `vp`, so they have no far plane.
