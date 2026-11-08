@@ -5,7 +5,7 @@
 import { Asset, cutRect, wbox } from "./kit.mjs";
 import {
   stdMaterials, pilaster, stringCourse, cornice, surround, archDoor, archWindow, colonnade, balcony, dormer,
-  hipRoof, turret, timberFrame, chimney, fbox,
+  hipRoof, turret, timberFrame, chimney, fbox, weather,
 } from "./parts.mjs";
 import { cover, setNav, setTour } from "./catalog_atlantic.mjs";
 
@@ -17,7 +17,7 @@ export function kitDemoFolly() {
   stdMaterials(A);
   const X = 3.5, Z = 2.25, G = 0.45, F1 = 3.6, F2 = 3.8, EAVE = 6.4;
   // plinth (chamfered), stone core of both storeys, plastered upper core
-  A.box([-X - 0.5, 0, -Z - 0.5], [X + 0.5, G, Z + 1.65], "stone_plinth", { bv: 0.03 });
+  const plinth = A.box([-X - 0.5, 0, -Z - 0.5], [X + 0.5, G, Z + 1.65], "stone_plinth", { bv: 0.03 });
   A.box([-X, G, -Z], [X, F1, Z - 0.3], "stone");
   A.box([-X, F1, -Z], [X, F2, Z], "stone_dressed", { bv: 0.02 });   // floor band
   A.box([-X + 0.01, F2, -Z + 0.01], [X - 0.01, EAVE, Z - 0.01], "render");
@@ -55,6 +55,9 @@ export function kitDemoFolly() {
   // corner turrets: round with a conical spire (back right), octagonal (back left)
   turret(A, { x: X, z: -Z, y0: 0, y1: EAVE + 1.1, r: 1.25, spire: 4.6 });
   turret(A, { x: -X, z: -Z, y0: 0, y1: EAVE + 0.4, r: 0.75, spire: 3.0, sides: 8, m: "stone_dressed" });
+  // imperfections: trims jittered and chipped, shell scars on the rendered upper walls (not damage bays: the render
+  // block is 4.5 m deep). The plinth stays exact (a collider probe measures its edge).
+  weather(A, { keep: [plinth], pocks: [{ F: west, a0: -1.8, a1: 1.8, y0: F2 + 0.4, y1: EAVE - 0.3, n: 4 }, { F: { axis: "x", d: -Z + 0.01, out: -1 }, a0: -2.5, a1: 2.5, y0: F2 + 0.4, y1: EAVE - 0.3, n: 3 }] });
   setNav(A, {
     effect: "block",
     cover: [cover([X + 1.4, 0, 1.8], 270, "high", ["right"]), cover([-X - 1.0, 0, 1.8], 90, "high", ["left"]), cover([0, 0, -Z - 1.6], 0, "high", ["left", "right"])],

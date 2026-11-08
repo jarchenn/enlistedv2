@@ -800,3 +800,50 @@ export function chimney(A, { x, z, y0, y1, w = 0.7, d = 0.5, m = "stone", ...o }
   A.box([x - w / 2, y0, z - d / 2], [x + w / 2, y1 - 0.15, z + d / 2], m);
   chimneyCap(A, { x, z, y: y1, w, d, ...o });
 }
+
+// --------------------------------------------------------------------------- B1 imperfections
+// Seeded by the asset id (the same every generator run). Call it last, after every trim is placed; keep: parts left alone.
+//  - jitter: every bevelled trim (box with bv) slides up to `jitter` m along its length;
+//  - chips: that share of bevelled trims (>= 25 cm long) loses a top corner at one end: the end piece is lowered and a
+//    broken wedge fills the notch (the pieces never share a face plane);
+//  - pocks: [{F, a0, a1, y0, y1, n}] n shell scars on non-destructible cladding in that wall rectangle: a spalled patch
+//    of stone where the render fell, ringed by small dark pocks, all a few mm proud and embedded.
+export function weather(A, { jitter = 0.015, chips = 0.15, pocks = [], seed = A.meta.id, keep = [] } = {}) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const R = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
+  const out = [];
+  for (const p of A.parts) {
+    if (p.t !== "b" || !(p.bv > 0) || p.r || p.q || keep.includes(p)) { out.push(p); continue; }
+    const L = p.s[0] >= p.s[2] ? 0 : 2, T = 2 - L;
+    p.c[L] = q4(p.c[L] + (R() - 0.5) * 2 * jitter);
+    if (!(R() < chips && p.s[L] >= 0.25 && p.s[1] >= 0.08)) { out.push(p); continue; }
+    const s = R() < 0.5 ? -1 : 1, lo = p.c[L] - p.s[L] / 2, hi = p.c[L] + p.s[L] / 2, top = p.c[1] + p.s[1] / 2;
+    const c = Math.min(0.04 + 0.08 * R(), p.s[L] * 0.3), dh = Math.min(0.03 + 0.06 * R(), p.s[1] * 0.45);
+    const piece = (l0, l1, yTop) => {
+      const q = { ...p, c: [...p.c], s: [...p.s] };
+      q.c[L] = q4((l0 + l1) / 2); q.s[L] = q4(l1 - l0); q.c[1] = q4((top - p.s[1] + yTop) / 2); q.s[1] = q4(yTop - (top - p.s[1]));
+      q.bv = q4(Math.min(p.bv, ...q.s.map((x) => x / 2)));
+      return q;
+    };
+    const e0 = s > 0 ? hi - c : lo, e1 = s > 0 ? hi : lo + c;
+    out.push(s > 0 ? piece(lo, hi - c, top) : piece(lo + c, hi, top), piece(e0, e1, top - dh));
+    const wc = [...p.c]; wc[L] = q4((e0 + e1) / 2); wc[1] = q4(top - dh / 2);
+    const yaw = L === 0 ? (s > 0 ? 90 : -90) : s > 0 ? 0 : 180;   // the wedge's full height toward the trim, falling to its end
+    out.push({ t: "w", c: wc, s: [p.s[T], dh, c].map(q4), r: [0, yaw, 0], top: q4(0.15 + 0.35 * R()), m: p.m, k: 0 });
+  }
+  A.parts.length = 0; A.parts.push(...out);
+  // shell scars: discs facing out of the wall (cylinder axis turned onto the wall normal)
+  for (const { F, a0, a1, y0, y1, n = 3 } of pocks) {
+    const rot = F.axis === "x" ? [F.out > 0 ? 90 : -90, 0, 0] : [0, 0, F.out > 0 ? -90 : 90];
+    const disc = (a, y, e, r, th, m) => A.cyl(P(F.axis, a, y, F.d + F.out * (e - th / 2)), [2 * r, th, 2 * r], m, { r: rot, k: 0 });
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (0.1 + 0.8 * R()) * (a1 - a0), y = y0 + (0.1 + 0.8 * R()) * (y1 - y0), r = 0.07 + 0.13 * R();
+      if (R() < 0.6) disc(a, y, 0.002 + 0.003 * R(), r, 0.014, "stone");   // render spalled off: the stone shows
+      for (let k = 0, m = 2 + Math.floor(R() * 4); k < m; k++) {
+        const ang = R() * 6.2832, d = r * (0.3 + 0.9 * R());
+        disc(a + Math.cos(ang) * d, y + Math.sin(ang) * d, 0.006 + 0.004 * R(), 0.012 + 0.022 * R(), 0.016, "rubble_core");
+      }
+    }
+  }
+}
