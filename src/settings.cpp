@@ -216,7 +216,9 @@ void settingsInit(App& app, bool selftest) {
   if (selftest) return;   // self-tests: Medium defaults, nothing read or written, nothing applied
   if (!S.load(S.path())) {
 #ifdef __APPLE__
-    S.s.gfx = presetOpts(GfxPreset::Low);   // first run on a Mac: integrated GPUs, start light (View > Settings raises it)
+    // first run on a Mac: start light (View > Settings raises it). The window is Retina-sized (2x pixels each way), so a
+    // 50 % scale renders the 3D scene at about the window's point size; the upscale and the UI stay at full sharpness
+    S.s.gfx = presetOpts(GfxPreset::Low); S.s.gfx.resScale = 0.5f;
 #endif
   }
   S.apply(app);
