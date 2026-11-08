@@ -130,7 +130,7 @@ Everything Beautify puts beyond the border is tagged `extra.decor` (plus `extra.
 - **are not in the navmesh:** the AI navmesh is clamped to the build area (`AiCore::begin`), and everything decor stands beyond it;
 - **are drawn cheaply** (`beautifyDecorDraw`, the hook next to `w5CullDraw` in `App::buildDrawLists`):
   - the scene renderer draws every opaque item in the main pass and in all three shadow passes with no frustum culling. So beyond `nearDist` (140 m), decor and Beautify scatter whose bounds, padded by 30 m, fall outside the view frustum are skipped. The padding keeps off-screen shadow casters near the view;
-  - buildings are culled beyond `cullDist` (950 m), trees and hedges beyond `treeCullDist` (480 m), and other ring dressing beyond `smallCullDist` (300 m);
+  - buildings are culled beyond `cullDist` (950 m), trees and hedges beyond `treeCullDist` (480 m), and other ring dressing beyond `smallCullDist` (300 m). Inside the border, low Beautify scatter (under `insideLowHeight`, 1.3 m: ground cover, stones, rubble, small shrubs) is culled beyond `insideLowCullDist` (170 m); Beautify trees take the ordinary path;
   - beyond `nearDist`, a building draws only its shell and intact panels (glass up to `glassDist`, 320 m), with no door or shutter leaves: 1–3 draws per building;
   - near, damaged or furnished decor takes the ordinary path.
 
