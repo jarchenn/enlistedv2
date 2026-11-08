@@ -179,7 +179,7 @@ Depth readers patched for it (ndc z = depth, sky = 0):
 - Gore world decals (`decals.cpp`): reconstruction, sky test, `GL_GEQUAL`, and a polygon offset that now pulls toward the eye with positive values.
 - Fog is computed per fragment from the world position and needs nothing; picking is a CPU ray cast.
 
-Code drawing inside `render()` takes its depth state from `Renderer::zLess()`, `zLEqual()` and `zToward()` (polygon-offset sign), and `Renderer::revZ` says the convention is active. Far-plane culling of the terrain and grass chunks is lost (their GL-style plane tests stay conservative); the far plane is 4 km.
+Code drawing inside `render()` takes its depth state from `Renderer::zLess()`, `zLEqual()` and `zToward()` (polygon-offset sign), and `Renderer::revZ` says the convention is active. The terrain and grass chunk streams still test the jittered reverse-Z `vp`, so they have no far plane (their GL-style tests stay conservative; the far plane is 4 km). The per-item culling of §10 builds its planes from the standard-Z projection and keeps the far plane.
 
 ### 9.2 Facade shimmer
 
@@ -298,5 +298,114 @@ Run the same suite on master for the before frames (the suite builds there uncha
 - **Water reflections are screen-space.** Reflections of objects off screen fall back to the sky; there are no planar reflections.
 - **No underwater rendering** beyond a flat tint when the eye is below a surface.
 - **Stream pieces snap via V6.** Until V6 lands, they join only when placed by hand on the sockets. The overlap check refuses a bend next to a straight, because the footprints overlap; V6 allows snapped neighbours.
-- **Far-plane culling is lost** for terrain and grass chunks: their GL-style plane tests are conservative under reverse-Z.
+- **Terrain and grass chunks have no far-plane cull.** Their GL-style plane tests are conservative under reverse-Z. Item, foliage and model culling (§10) does have one.
 - **`build_mpu_assets.mjs --check`** reports `gun_flak18.json`. That drift is already on master and not V1's.
+
+<a id="frustum-culling"></a>
+## 10. Frustum culling and draw cost (L1)
+
+Plan: `docs/plan-lighting-textures.md` (L1). Before L1, every opaque item, tree card and model part was submitted to every pass: the main view, both shadow cascades and sky occlusion. Only the terrain and grass chunk streams were culled.
+
+### 10.1 API (`src/frustum.h`)
+
+| Call | Use |
+|---|---|
+| `Frustum::fromVP(vp)` | Planes from a view-projection in the standard GL clip convention, extracted in double and normalized to metres. A degenerate plane (infinite far) is dropped. `n == 0` means everything is visible. |
+| `Frustum::fromProjView(proj, view)` | The same, multiplying in double. Use it for a camera whose far plane is huge (the editor's 1e6 m). |
+| `visible(lo, hi, margin)` | World-space AABB, centre-extent test. |
+| `visible(lo, hi, model, margin)` | Object-space box under an affine model matrix. The planes go into object space (`p * model`), so a rotated wall is tested as its oriented box. `margin` is in world metres. |
+| `sphere(c, r)` | Sphere test. |
+
+The main camera's frustum must come from the standard-Z projection, before `reverseZ()`. In the reverse-Z matrix the far plane is the w row alone, so it would be lost. The terrain chunk stream (`terrain_chunks.cpp`) uses the same header; its old static `frustumPlanes` / `boxVisible` are gone, and its behaviour is unchanged.
+
+### 10.2 Bounds
+
+- **`GpuMesh::bmin/bmax`** are computed in `GpuMesh::upload` over the indexed vertices, in mesh space. Every `DrawItem` source gets them for free: assets, panels, door leaves (`interior.cpp`), interior and wall fragments (`ballistics.cpp`, `wallfield.cpp`), debris, batches, paths and nature. An empty mesh has `0, 0`.
+- **`TreeDef::cardMin/cardMax`** cover a tree's leaf-card buffer (`foliage.cpp`).
+- **Model parts** use their import bounds, `ModelPart::bmin/bmax`, which are in vertex space (`model.cpp`). Part animations go through the instance matrix, so they're covered.
+
+### 10.3 Which pass culls against what
+
+| Pass | Frustum | What is culled |
+|---|---|---|
+| near cascade | `lightVP` | items, tree cards, model parts |
+| far cascade | `lightVPFar` | items, tree cards, model parts |
+| sky occlusion | `occVP` | items, tree cards, model parts |
+| main view | `v0.proj * view` (standard Z, unjittered) | opaque items, models, tree cards, glass, ghosts |
+
+Each cascade tests its own ortho box. A caster behind the camera but inside the cascade still casts.
+
+The TAA jitter is sub-pixel, so the main pass uses the unjittered projection. The 0.01 m margin covers it.
+
+These paths stay unculled:
+- thumbnails (`thumbs.cpp`) and `renderModelSheet`;
+- the first-person weapon;
+- skinned soldier parts. The skinning compute pass rewrites their vertex buffer each frame, so their part bounds are degenerate and `partCulled` always draws them.
+
+### 10.4 Margins
+
+| Draw | Margin | Covers |
+|---|---|---|
+| box-kit items, glass, ghosts | 0.01 m | rounding only, no vertex displacement |
+| tree cards | 0.14 x wind + 0.01 m | `kLeafVS` sway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x `uWind` |
+| model parts | 0.05 m | thin-wire widening (<= 3 cm) and small part animations |
+
+### 10.5 Draw-loop cost
+
+- **Uniform locations are cached once per program.** `Renderer::drawLocs(prog)` returns a `DrawLocs` by value, because the cache may grow while a loop holds a copy. `compile()` clears the cache, since a new program can reuse a deleted program's id. The draw loops make no `glGetUniformLocation` calls.
+- **The main opaque pass is stable-sorted by `SurfaceParams*`.** The building finish block (`uInst`, rooms, sills) then uploads once per building, not once per run of items. Because the sort is stable, the order inside a building is unchanged, coplanar ties resolve as before, and nothing depends on the camera.
+- **The VAO is bound only when it changes,** and the loop calls `glDrawElements` directly.
+- **Glass is culled first and then sorted far to near,** as before. The sort only sees what is drawn.
+- **`FrameStats::culled`** counts the items, cards and parts skipped across all passes. `stats.draws` still counts the draws that were made.
+
+### 10.6 Results
+
+**Identity.** `--selftest-render` passes 48/0. `render_shimmer.json` matches the pre-L1 build to within 1e-5 on every metric; the only differences are float summation order in the 20 m cottage and farmhouse views. `visuals` passes 31/0 and `fps` 114/0.
+
+**Draw counts: village bench** (`--benchmark-village`, 1080p, Medium, Day; draws are deterministic):
+
+| Camera | Draws before | Draws L1 | Triangles before | Triangles L1 |
+|---|---|---|---|---|
+| overview | 1934 | 1492 | 2419 k | 2149 k |
+| road | 1954 | 974 | 2473 k | 2068 k |
+| area | 1937 | 1776 | 2583 k | 2405 k |
+| foliage | 1950 | 726 | 2452 k | 1979 k |
+| building | 2198 | 912 | 3087 k | 2177 k |
+| lane_north | 1936 | 603 | 2427 k | 1626 k |
+| into_sun | 2010 | 1575 | 2567 k | 2182 k |
+| **mean** | **1988** | **1151 (−42 %)** | **2573 k** | **2084 k (−19 %)** |
+
+`stats.draws` counts the draws of all four passes. The triangles drop less than the draws, because the terrain and grass chunks were already culled and are most of the triangle budget.
+
+**Draw counts: `--selftest-maps`, Medium** (from `summary_maps.json`, same session):
+
+| Map / view | Before | L1 |
+|---|---|---|
+| battle1 A1_spawn | 5638 | 736 |
+| battle1 obj_A_eye | 6294 | 4473 |
+| battle1 obj_B_eye | 7076 | 4400 |
+| battle1 obj_D_eye | 6073 | 1820 |
+| battle1 overview | 4573 | 3624 |
+| omaha_easy_red A1_spawn | 3033 | 1287 |
+| omaha_easy_red obj_A_eye | 6809 | 1189 |
+| omaha_easy_red obj_A_eye@high | 13387 | 2990 |
+| omaha_easy_red obj_D | 7762 | 2261 |
+| omaha_easy_red bluff_top_to_beach | 5241 | 2226 |
+| village_assault preview | 5451 | 3721 |
+| village_assault explore_start | 7033 | 3147 |
+| tank_range explore_start | 175 | 108 |
+| normandy_forest (all views) | unchanged | unchanged (17-75: terrain only) |
+
+**Frame time.** This could not be measured cleanly. `gpu_turn.sh` lets five GPU jobs run at once, and the other sessions kept the GPU busy throughout. Across five interleaved village A/B pairs, one camera's GPU p50 ranged from 4.6 to 92 ms on the same exe, and normandy_forest, whose draws don't change, measured 7 ms in one `maps` run and 50 ms in the next.
+
+The cleanest data point is the first pair, run back to back while the GPU was nearly idle:
+- `into_sun` measured 5.70 ms before and 5.60 ms with L1;
+- `lane_north` measured 5.10 ms before and 5.25 ms with L1 (raw data: `docs/rendering/benchmark_village_bench_l1_{before,after}.json`).
+
+At 1080p the village frame is bound by fill and shading, not by submission, so L1 buys CPU time and pass headroom rather than GPU milliseconds.
+
+In `maps`, the early A/B views show the same pattern:
+- battle1 A1_spawn went from 9.83 ms to 7.08 ms;
+- Omaha's eye-level views stayed level at about 20-23 ms.
+
+Omaha's 60 FPS gate fails in both builds, at 22.3 ms before and 23.1 ms after, because its cost is the terrain and sea. The village and forest gate failures in the L1 run were contention: the forest's draws are identical. A clean ms comparison needs an idle GPU, and the coordinator's full run at merge is that chance.

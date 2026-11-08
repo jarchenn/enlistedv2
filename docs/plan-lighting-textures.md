@@ -59,6 +59,33 @@ Ownership follows the overhaul's rules: one or two hook lines in shared files, w
 - Expose a per-view culling API that L2 uses for light and shadow views.
 - **Tests:** the village draw count drops a lot, and the `maps` gate gains headroom (report ms before and after). Run `render` (shimmer and legacy identity), `visuals`, `fps`, `sights` and `maps`.
 
+#### L1 handoff (branch `lt-1-culling`)
+Done. Details and numbers are in `docs/rendering.md` §10 (`#frustum-culling`).
+
+**API for L2:**
+- `src/frustum.h`:
+  - `Frustum::fromVP(mat4|dmat4)` and `Frustum::fromProjView(proj, view)`. Use the standard-Z matrix, not the reverse-Z one.
+  - `visible(lo, hi[, model], margin)` and `sphere(c, r)`.
+- `GpuMesh::bmin/bmax`, in mesh space, set by `upload`.
+- `TreeDef::cardMin/cardMax`.
+- `ModelPart::bmin/bmax`, already there.
+- `drawItems(prog, items, shadowPass, const Frustum* fr = nullptr, bool sortSurf = false)`, `drawFoliage(prog, vp, fr)`, `drawModels(items, fr)` and `drawModelsDepth(prog, items, fr)`. A null `fr` means unculled.
+- `FrameStats::culled`.
+
+**Merge points with L2:**
+- **`uGlow` in `drawItems`.** Add `glow` to `Renderer::DrawLocs` / `drawLocs()` instead of calling `U(p, "uGlow")` per call. Upload it next to the tint, inside the visible-items loop.
+- **`lightingPrepass(..., opaque, ...)`.** It still gets the full `opaque` list; L2 culls it with its own frustums.
+- **`render()` pass blocks.** Each pass now builds its frustum next to its `uVP`: `frNear`, `frFar`, `frOcc` and `frMain`. `frMain` is built right after `mat4 vp = projJ * v.view`.
+
+**Kept additive:**
+- `DrawItem` is unchanged, so V6's `apWorld` slots in.
+- `shade()`, `setLighting`, exposure and the `kMainFS` / `kTerrainFS` material code are untouched.
+
+**Not done / limits:**
+- No clean ms comparison. The GPU was shared by five gpu_turn slots throughout. The draws fell by 42 % on the village bench and by 55-85 % on Omaha, but the ms that could be compared were level. The village and Omaha frames are bound by fill and shading.
+- The terrain and grass chunk streams still test the jittered reverse-Z `vp`, so they have no far plane.
+- Skinned soldiers are never culled, because their part bounds are degenerate.
+
 ### L2: Lighting engine: time of day, many lights, indirect light
 - **Time of day:**
   - A global Settings option (Graphics or Gameplay tab, persisted in `settings_user.json`): Day / Dusk / Night / Dawn, plus a fine hour slider.

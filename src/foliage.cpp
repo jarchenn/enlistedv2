@@ -5,6 +5,7 @@
 // Leaf sway (vertex shader, render.cpp):  V_offset = D_wind * M * A * sin(f t + k_x X_world + k_z Z_world)
 #include "app.h"
 #include <algorithm>
+#include <cfloat>
 #include <random>
 
 void buildTreeAsset(AssetDef& a, const json& tj) {
@@ -125,6 +126,9 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
     }
   }
   t.cardVerts = (int)v.size() / 10;
+  t.cardMin = vec3(FLT_MAX); t.cardMax = vec3(-FLT_MAX);   // culling bounds (render.cpp drawFoliage)
+  for (size_t k = 0; k + 2 < v.size(); k += 10) { vec3 p(v[k], v[k + 1], v[k + 2]); t.cardMin = glm::min(t.cardMin, p); t.cardMax = glm::max(t.cardMax, p); }
+  if (t.cardMin.x > t.cardMax.x) t.cardMin = t.cardMax = vec3(0);
   glCreateVertexArrays(1, &t.cardVao); glCreateBuffers(1, &t.cardVbo);
   glNamedBufferStorage(t.cardVbo, v.size() * 4, v.data(), 0);
   glVertexArrayVertexBuffer(t.cardVao, 0, t.cardVbo, 0, 40);

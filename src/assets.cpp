@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <cfloat>
 #include <windows.h>
 
 // ---------------------------------------------------------------- utilities
@@ -71,6 +72,9 @@ void GpuMesh::upload(const MeshData& m) {
   destroy();
   count = (int)m.i.size();
   if (!count) return;
+  bmin = vec3(FLT_MAX); bmax = vec3(-FLT_MAX);
+  for (uint32_t k : m.i) if (k < m.v.size()) { bmin = glm::min(bmin, m.v[k].pos); bmax = glm::max(bmax, m.v[k].pos); }
+  if (bmin.x > bmax.x) bmin = bmax = vec3(0);
   glCreateVertexArrays(1, &vao);
   glCreateBuffers(1, &vbo); glCreateBuffers(1, &ebo);
   glNamedBufferData(vbo, m.v.size() * sizeof(Vertex), m.v.data(), GL_STATIC_DRAW);
@@ -90,7 +94,7 @@ void GpuMesh::destroy() {
   if (vao) glDeleteVertexArrays(1, &vao);
   if (vbo) glDeleteBuffers(1, &vbo);
   if (ebo) glDeleteBuffers(1, &ebo);
-  vao = vbo = ebo = 0; count = 0;
+  vao = vbo = ebo = 0; count = 0; bmin = bmax = vec3(0);
 }
 void GpuMesh::draw() const {
   if (!count) return;

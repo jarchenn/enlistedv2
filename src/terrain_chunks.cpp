@@ -2,6 +2,7 @@
 // size rules and the New Map memory estimate. See terrain_chunks.h.
 #include "terrain.h"
 #include "physics.h"
+#include "frustum.h"
 #include <algorithm>
 #include <cfloat>
 #include <chrono>
@@ -223,24 +224,13 @@ void TerrainStream::build(const Terrain& t, int idx, int lod) {
   glNamedBufferSubData(p.vbo, (GLintptr)slot * p.vertsPerSlot * kVertBytes, (GLsizeiptr)p.vertsPerSlot * kVertBytes, v.data());
 }
 
-static void frustumPlanes(const mat4& m, vec4 pl[6]) {
-  vec4 r0(m[0][0], m[1][0], m[2][0], m[3][0]), r1(m[0][1], m[1][1], m[2][1], m[3][1]), r2(m[0][2], m[1][2], m[2][2], m[3][2]), r3(m[0][3], m[1][3], m[2][3], m[3][3]);
-  pl[0] = r3 + r0; pl[1] = r3 - r0; pl[2] = r3 + r1; pl[3] = r3 - r1; pl[4] = r3 + r2; pl[5] = r3 - r2;
-}
-static bool boxVisible(const vec4 pl[6], vec3 lo, vec3 hi) {
-  for (int k = 0; k < 6; ++k) {
-    vec3 n(pl[k]);
-    vec3 pv(n.x >= 0 ? hi.x : lo.x, n.y >= 0 ? hi.y : lo.y, n.z >= 0 ? hi.z : lo.z);
-    if (glm::dot(n, pv) + pl[k].w < 0) return false;
-  }
-  return true;
-}
+// plane culling: src/frustum.h (shared with the renderer's passes)
 
 void TerrainStream::update(const Terrain& t, vec3 cam, const mat4& vp, float budgetMs) {
   if (t.h.empty()) return;
   if (generation != t.generation || (int)chunks.size() != t.chunksX() * t.chunksZ()) reset(t);
   auto t0 = std::chrono::high_resolution_clock::now();
-  vec4 pl[6]; frustumPlanes(vp, pl);
+  Frustum fr = Frustum::fromVP(vp);
   struct Todo { int idx, lod; float key; };
   std::vector<Todo> todo;
   stats.visibleUnloaded = 0;
@@ -252,7 +242,7 @@ void TerrainStream::update(const Terrain& t, vec3 cam, const mat4& vp, float bud
     if (stale) { c.bounds = false; }
     if (want == c.lod && !stale) continue;
     vec3 lo, hi; chunkBox(t, i, lo, hi);
-    bool vis = boxVisible(pl, lo, hi);
+    bool vis = fr.visible(lo, hi);
     if (vis && c.lod < 0) ++stats.visibleUnloaded;
     float d = chunkDistance(t, i, cam);
     // missing visible chunks first, then refinements (nearest first), then the rest
@@ -278,7 +268,7 @@ void TerrainStream::update(const Terrain& t, vec3 cam, const mat4& vp, float bud
 
 void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp) {
   (void)cam;
-  vec4 pl[6]; frustumPlanes(vp, pl);
+  Frustum fr = Frustum::fromVP(vp);
   std::vector<GLsizei> counts[kLods]; std::vector<const void*> offs[kLods]; std::vector<GLint> base[kLods];
   int drawn = 0, culled = 0; int64_t tris = 0;
   for (int i = 0; i < (int)chunks.size(); ++i) {
@@ -286,7 +276,7 @@ void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp) {
     if (c.lod < 0) continue;
     vec3 lo, hi; chunkBox(t, i, lo, hi);
     lo.y -= cfg.skirtDepth * 6;
-    if (!boxVisible(pl, lo, hi)) { ++culled; continue; }
+    if (!fr.visible(lo, hi)) { ++culled; continue; }
     counts[c.lod].push_back(pools[c.lod].indexCount); offs[c.lod].push_back(nullptr); base[c.lod].push_back(c.slot * pools[c.lod].vertsPerSlot);
     ++drawn; tris += pools[c.lod].indexCount / 3;
   }

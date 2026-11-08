@@ -3,6 +3,7 @@
 #include "terrain.h"
 #include "combat.h"
 #include "grass.h"
+#include "frustum.h"
 
 // Per building copy parameters of the wall / floor finish patterns 17-22 (docs/interiors.md): no shader edits needed
 // to vary wear, palette or room finishes. Rooms and sills are in asset space.
@@ -38,7 +39,7 @@ struct RenderView {
   float dofFocus = 0, dofAmount = 0;   // metres from the eye; 0..1 (ADS blend)
 };
 
-struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; };
+struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int culled = 0; };   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes)
 // water surface of a placed asset (water.cpp): drawn by the water pass after the opaque world
 struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, tint{0}; };   // look: kind, clarity, waves
 #define NMK_REVZ 1   // the world pass is reverse-Z (docs/rendering.md#depth-convention)
@@ -115,11 +116,20 @@ private:
   void createTargets();
   void createShadowTargets();
   float resScale = 1.0f; int aoDiv = 2;
-  void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass);
+  // fr: the pass's own frustum (src/frustum.h, docs/rendering.md#frustum-culling); null = draw everything (thumbnails,
+  // model sheets, the first-person weapon). sortSurf: stable sort by building finish parameters (main opaque pass)
+  void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr = nullptr, bool sortSurf = false);
   void setLighting(GLuint prog, const RenderView& v);
-  void drawModels(const std::vector<ModelDraw>& items);
-  void drawFoliage(GLuint prog, const mat4& vp);
-  void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items);
+  void drawModels(const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
+  void drawFoliage(GLuint prog, const mat4& vp, const Frustum* fr = nullptr);
+  void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
+  // uniform locations of the draw loops, looked up once per program (cleared by compile())
+  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1,
+                    vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,
+                    alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1; };
+  std::vector<std::pair<GLuint, DrawLocs>> locCache;
+  DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
+  std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call
   GLuint progLeaf = 0, progLeafShadow = 0;
   GLuint progModel = 0, progDof = 0, progShaft = 0, progComposite = 0;
   GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)
