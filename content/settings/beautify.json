@@ -19,6 +19,7 @@
     "hedges": ["hedgerow_bocage", "bcg_hedgerow_straight"],
     "trees": ["tree_oak", "tree_ash", "tree_poplar", "tree_apple"],
     "treesPerGap": 1.2,
-    "cullDist": 950, "nearDist": 140, "glassDist": 320, "treeCullDist": 480, "smallCullDist": 300
+    "cullDist": 950, "nearDist": 140, "glassDist": 320, "treeCullDist": 480, "smallCullDist": 300,
+    "insideLowHeight": 1.3, "insideLowCullDist": 170
   }
 }
