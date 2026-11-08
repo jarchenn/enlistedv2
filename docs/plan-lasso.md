@@ -195,3 +195,23 @@ Run through `tools/gpu_turn.sh`:
 - with `--selftest-swim` added after merging the swim branch.
 
 The full `tools/run_all_tests.sh --net` runs before handing to the coordinator. Done = all of these pass, docs (`docs/lasso.md`, `testing.md`, README) are updated, and a handoff is written in `docs/plan-visual-physics-overhaul.md` style plus the shared notes folder.
+
+## Handoff (lasso stream)
+
+Branch `lasso-tool` (worktree `nmk-lasso`, build `%TEMP%/nmk/build-lasso`), on `vo-batch-c` 8d01f51. Not pushed.
+
+| Step | State |
+|---|---|
+| L0 plan, water-body data, `lassoWaterAt` contract | done (d0ec8cf) |
+| L1 capture / region / overlay, L2 Objects, L3 Elevation, L4w water fill | done |
+| L5 ground paint (procedural materials, grass / nature / nav / footsteps) | done; L4 texture slots + 5 new ambientCG sets requested from L4 (pending on their side) |
+| L6 move land | done |
+| L7 `--selftest-lasso` 71/71, docs (`docs/lasso.md`, README, `docs/testing.md`) | done |
+| V1 water pass for water bodies | code in `lasso_water.cpp` under `__has_include("water.h")`; compiled against vo-batch-b's `water.h`; wired automatically when batch B is in the base |
+| Swimming | parallel stream (branch `swim`, worktree `nmk-swim`); merge it after this branch for `--selftest-swim` |
+
+Merge notes:
+- `kTerrainFS` (L4 owns it): `paintApply(...)` one line before `shade()`, and `std::string(groundPaintGlsl()) + kTerrainFS` in the `progTerrain` compile line (keep L4's `tex::glslCommon()` prepend too). Paint uses texture unit 23 only.
+- `App` gains `selection`, `placeIgnore`; `Snapshot` gains water, selection, paint; `MapDoc` gains `waterBodies`, `groundPaint`, `paintSig` (map keys `waterBodies`, `groundPaint`).
+- `nav.cpp`: a separate pass (just before `rcBuildDistanceField`) marks painted marsh / mud; the swim stream edits the earlier water line.
+- `tools/gpu_turn.sh` in the worktree is the coordinator's copy (not committed here).
