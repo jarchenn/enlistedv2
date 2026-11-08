@@ -147,8 +147,8 @@ void SelfTest::rulesUpdate(App& app, float dt) {
           done = true;
         } else { apex = std::max(apex, y); yPrev = y; vPrev = c.vel.y; ++k; if (k > 200) done = true; return false; }
       }
-      float g0 = 7.848f, v0 = 3.757f, hT = 1.2f * v0 * v0 / (2 * g0), tT = 0.75f * 2 * v0 / g0;
-      char b[260]; std::snprintf(b, sizeof b, "measured jump: apex %.4f m (target %.4f, %+.2f %%), airtime %.4f s (target %.4f, %+.2f %%); old apex 0.8993 m, airtime 0.9574 s",
+      const auto& mv = a.move; float hT = mv.jumpVelocity * mv.jumpVelocity / (2 * mv.gravity), tT = 2 * mv.jumpVelocity / mv.gravity;   // the configured (real-life) jump
+      char b[260]; std::snprintf(b, sizeof b, "measured jump: apex %.4f m (target %.4f, %+.2f %%), airtime %.4f s (target %.4f, %+.2f %%); SPEC 4 was apex 1.0791 m, airtime 0.7181 s",
                                 apex, hT, 100 * (apex / hT - 1), air, tT, 100 * (air / tT - 1));
       check(std::fabs(apex / hT - 1) < 0.02f && std::fabs(air / tT - 1) < 0.02f, b);
       summary["jumpMeasured"] = {{"apex", apex}, {"airtime", air}, {"apexTarget", hT}, {"airtimeTarget", tT}};
