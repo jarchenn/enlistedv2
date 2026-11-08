@@ -93,13 +93,24 @@ namespace {
 struct GroupState {
   bool active = false, ok = true;
   std::vector<Instance> orig;
+  std::vector<uint64_t> ids;              // the members (a copy: the selection may change while the gesture runs)
+  std::map<uint64_t, std::string> bad;    // members that cannot stand where they are now, and why
+  std::map<uint64_t, float> seatY;        // the ground height under each member at its new spot (Place anyway)
   vec3 centre{0};
   std::string reason;
   size_t undoMark = 0;
 } gG;
+// members are never obstacles to each other: overlap, crushing, snapping and their terrain cuts are ignored
+struct GroupIgnore {
+  App& app;
+  GroupIgnore(App& a, const std::vector<uint64_t>& ids) : app(a) { app.placeIgnore = &ids; app.terrain.cutIgnore = &ids; }
+  ~GroupIgnore() { app.placeIgnore = nullptr; app.terrain.cutIgnore = nullptr; }
+};
 }
 bool lassoGroupActive() { return gG.active; }
 const std::string& lassoGroupReason() { return gG.reason; }
+int lassoGroupBlocked() { return (int)gG.bad.size(); }
+bool lassoGroupIsBlocked(uint64_t id) { return gG.bad.count(id) != 0; }
 
 bool lassoGroupBegin(App& app) {
   lassoSanitize(app);
@@ -107,9 +118,9 @@ bool lassoGroupBegin(App& app) {
   app.pushUndo();
   gG = GroupState{};
   gG.active = true; gG.undoMark = app.undoStack.size();
-  for (uint64_t id : app.selection) if (Instance* i = app.doc.find(id)) gG.orig.push_back(*i);
+  for (uint64_t id : app.selection) if (Instance* i = app.doc.find(id)) { gG.orig.push_back(*i); gG.ids.push_back(id); }
   gG.centre = lassoGroupCentre(app);
-  return true;
+  return !gG.orig.empty();
 }
 
 bool lassoGroupSet(App& app, vec2 delta, float yawDeg) {
@@ -122,44 +133,68 @@ bool lassoGroupSet(App& app, vec2 delta, float yawDeg) {
     i->pos = vec3(gG.centre.x + off.x + delta.x, o.pos.y, gG.centre.z + off.z + delta.y);
     i->yaw = wrapDeg(o.yaw + yawDeg);
   }
-  gG.ok = true; gG.reason.clear();
-  app.placeIgnore = &app.selection;
+  gG.ok = true; gG.reason.clear(); gG.bad.clear(); gG.seatY.clear();
+  GroupIgnore ig(app, gG.ids);
   for (auto& o : gG.orig) {
     Instance* i = app.doc.find(o.id); if (!i) continue;
     const AssetDef* a = app.assetFor(*i);
-    PlaceCheck c = app.checkPlacement(a, i->pos, i->yaw, i->id);
+    PlaceCheck c = a ? app.checkPlacement(a, i->pos, i->yaw, i->id) : PlaceCheck{false, "missing asset"};
+    // the ground it would stand on (keeps its height above the ground when it cannot be seated properly)
+    float g0 = app.terrain.placementHeight(o.pos.x, o.pos.z, o.id), g1 = app.terrain.placementHeight(i->pos.x, i->pos.z, i->id);
+    gG.seatY[o.id] = o.pos.y + (g1 - g0);
     if (c.ok) { i->pos.y = c.y; if (c.snapXZ) { i->pos.x = c.xz.x; i->pos.z = c.xz.y; } }
-    else if (gG.ok) { gG.ok = false; gG.reason = (a ? a->name : i->assetId) + ": " + c.reason; }
+    else {
+      i->pos.y = gG.seatY[o.id];
+      gG.bad[o.id] = c.reason;
+      if (gG.ok) { gG.ok = false; gG.reason = (a ? a->name : i->assetId) + ": " + c.reason; }
+    }
     app.bump(*i);
   }
-  app.placeIgnore = nullptr;
   app.lastCheck.ok = gG.ok; app.lastCheck.reason = gG.reason;
   return gG.ok;
 }
 
-bool lassoGroupEnd(App& app, bool commit) {
+bool lassoGroupEnd(App& app, bool commit, int policy) {
   if (!gG.active) return false;
   gG.active = false;
+  GroupState g = std::move(gG);   // the gesture is over whatever happens below
+  gG = GroupState{};
+  auto revert = [&](uint64_t id) {
+    for (auto& o : g.orig) if (o.id == id) if (Instance* i = app.doc.find(id)) { *i = o; app.bump(*i); }
+  };
+  auto dropStep = [&]() { if (app.undoStack.size() == g.undoMark && !app.undoStack.empty()) app.undoStack.pop_back(); };
   bool moved = false;
-  for (auto& o : gG.orig) if (Instance* i = app.doc.find(o.id)) if (i->pos != o.pos || i->yaw != o.yaw) moved = true;
-  if (!commit || !gG.ok || !moved) {
-    for (auto& o : gG.orig) if (Instance* i = app.doc.find(o.id)) { *i = o; app.bump(*i); }
-    if (app.undoStack.size() == gG.undoMark && !app.undoStack.empty()) app.undoStack.pop_back();
-    if (commit && !gG.ok) app.toast("Group move rejected: " + gG.reason);
+  for (auto& o : g.orig) if (Instance* i = app.doc.find(o.id)) if (i->pos != o.pos || i->yaw != o.yaw) moved = true;
+  int nBad = (int)g.bad.size(), nAll = (int)g.orig.size();
+  if (!commit || !moved || (nBad && (policy == LG_CANCEL || nBad == nAll))) {
+    for (auto& o : g.orig) revert(o.id);
+    dropStep();
+    if (commit && nBad) app.toast("Group move cancelled: " + g.reason, 4);
     app.lastCheck.ok = true;
+    gG.reason = g.reason; gG.bad = g.bad;
     return false;
   }
-  std::vector<uint64_t> ids; for (auto& o : gG.orig) ids.push_back(o.id);
-  for (uint64_t id : ids) if (app.doc.find(id)) crushAndFlatten(app, id);   // buildings crush growth at the new spot (same step)
+  if (nBad && policy == LG_MOVE_REST) {   // the blocked members stay where they were
+    for (auto& [id, why] : g.bad) revert(id);
+    app.toast("Moved " + std::to_string(nAll - nBad) + " of " + std::to_string(nAll) + "; " + std::to_string(nBad) + " stayed (" + g.reason + ").", 5);
+  } else if (nBad) {                      // LG_PLACE_ANYWAY: they keep the move, sitting at the ground's new height
+    for (auto& [id, why] : g.bad) if (Instance* i = app.doc.find(id)) { i->pos.y = g.seatY[id]; app.bump(*i); }
+    app.toast("Placed anyway: " + std::to_string(nBad) + " of " + std::to_string(nAll) + " ignore their placement rules (" + g.reason + ").", 5);
+  }
+  {   // buildings crush growth at the new spot (same undo step), never another member
+    GroupIgnore ig(app, g.ids);
+    for (uint64_t id : g.ids) if (!g.bad.count(id) || policy == LG_PLACE_ANYWAY) if (app.doc.find(id)) crushAndFlatten(app, id);
+  }
+  gG.reason = g.reason; gG.bad = g.bad;
   lassoSanitize(app);
   app.dirty = true;
   return true;
 }
 
-bool lassoGroupMove(App& app, vec2 delta, float yawDeg) {
+bool lassoGroupMove(App& app, vec2 delta, float yawDeg, int policy) {
   if (!lassoGroupBegin(app)) return false;
   lassoGroupSet(app, delta, yawDeg);
-  return lassoGroupEnd(app, true);
+  return lassoGroupEnd(app, true, policy);
 }
 
 int lassoDeleteGroup(App& app) {

@@ -104,6 +104,7 @@ public:
   void applyDeltas(const std::map<int, std::vector<float>>& d);
   // ---- terrain cuts (terrain_cuts.cpp)
   std::vector<WorldCut> cuts;
+  const std::vector<uint64_t>* cutIgnore = nullptr;   // lasso group checks: these owners' cuts are ignored for support (lasso.cpp)
   float cutBase(float x, float z, uint64_t excludeOwner = 0) const;   // base height lowered by every cut (but excludeOwner's)
   float cutDepthAt(float x, float z) const { return baseHeight(x, z) - cutBase(x, z); }
   // ground for placing instance `owner`: its own cut is ignored, so re-placing a trench never sinks it into itself

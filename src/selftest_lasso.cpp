@@ -16,6 +16,7 @@
 #include "net.h"
 #include "terrain_tools.h"
 #include "navmeta.h"
+#include "editor_nav.h"
 #include "grass.h"
 #if __has_include("ground_paint.h")
 #include "ground_paint.h"
@@ -93,7 +94,7 @@ std::string gHash;
 vec2 gMesa{120, -110}; float gLip = 0;
 
 std::function<void(App&)> gProbe;   // runs after the next frame is rendered (pixel probes)
-void paintSteps(); void landSteps();
+void paintSteps(); void landSteps(); void trenchSteps();
 
 void snapshotPoses(App& a) { gPose.clear(); for (auto& i : a.doc.instances) gPose[i.id] = i; }
 
@@ -173,7 +174,7 @@ void build() {
     snapshotPoses(app); gUndo = app.undoStack.size();
     Instance* cot = app.doc.find(gCot); Instance* farm = app.doc.find(gFarm);
     vec2 d(farm->pos.x - cot->pos.x, farm->pos.z - cot->pos.z);   // the cottage onto the farmhouse
-    bool ok = lassoGroupMove(app, d, 0);
+    bool ok = lassoGroupMove(app, d, 0, LG_CANCEL);
     float worst = 0; for (auto& [id, p] : gPose) if (Instance* i = app.doc.find(id)) worst = std::max(worst, glm::length(i->pos - p.pos) + std::fabs(i->yaw - p.yaw));
     chk(!ok && worst < 1e-5f && app.undoStack.size() == gUndo, "rejected (%s), everything back in place, no undo step", lassoGroupReason().c_str());
     return true;
@@ -310,6 +311,7 @@ void build() {
     if (ph == 1 && t > 1.0f) { pendingShot = outDir() / "lasso_water.png"; ph = 2; return false; }
     return ph == 2 && t > 1.3f;
   });
+  trenchSteps();   // Battle 1 (after the blank-map screenshots)
 }
 #ifdef LT_PAINT
 // ================================================================ paint
@@ -477,6 +479,144 @@ void landSteps() {
   });
 }
 #endif
+// ================================================================ Battle 1: trench groups (user crash reports)
+void trenchSteps() {
+  push("battle1: open", [](App& app, float) {
+    const TemplateInfo* t = app.findTemplate("battle1");
+    if (!chk(t != nullptr, "template battle1 exists")) return true;
+    app.newMap(*t, "Lasso battle1");
+    app.selection.clear(); app.selected = 0; lassoRegion().clear();
+    return true;
+  });
+  push("battle1: drag a trench group across slopes, frame by frame", [](App& app, float) {
+    static int ph = 0, dir = 0, frame = 0, rejected = 0, kept = 0;
+    static std::map<uint64_t, Instance> before;
+    static size_t undo0 = 0;
+    if (ph == 0) {
+      LassoRegion r = circleRegion(vec2(58, 25), 14);
+      lassoSelectObjects(app, r, 0);
+      int tr = 0; for (uint64_t id : app.selection) if (app.doc.find(id)->assetId.find("trench") != std::string::npos) ++tr;
+      chk(tr >= 2, "the lasso holds %d trench pieces among %zu placements", tr, app.selection.size());
+      ph = 1; return false;
+    }
+    if (ph == 1) {   // one drag per direction: 20 frames of growing offset, then release
+      if (dir >= 8) { ph = 2; return false; }
+      if (frame == 0) {
+        before.clear(); for (uint64_t id : app.selection) if (Instance* i = app.doc.find(id)) before[id] = *i;
+        undo0 = app.undoStack.size();
+        if (!lassoGroupBegin(app)) { chk(false, "group drag %d begins", dir); ph = 2; return false; }
+      }
+      float a = dir * 0.785398f;
+      vec2 d = vec2(std::cos(a), std::sin(a)) * (frame * 2.0f);
+      lassoGroupSet(app, d, 0);
+      if (++frame <= 20) return false;
+      bool ok = lassoGroupEnd(app, true, LG_CANCEL);
+      frame = 0; ++dir;
+      if (ok) { ++kept; app.undo(); }
+      else {
+        ++rejected;
+        float worst = 0; for (auto& [id, p] : before) if (Instance* i = app.doc.find(id)) worst = std::max(worst, glm::length(i->pos - p.pos) + std::fabs(i->yaw - p.yaw));
+        chk(worst < 1e-5f && app.undoStack.size() == undo0, "rejected drag %d (%s) reverts exactly, no undo step", dir, lassoGroupReason().c_str());
+      }
+      return false;
+    }
+    if (ph >= 2 && ph < 60) { ++ph; return false; }   // keep rendering after the reverts
+    note("%d drags kept (undone), %d rejected", kept, rejected);
+    chk(rejected + kept == 8, "8 drags over Battle 1 slopes ran without a crash");
+    return true;
+  });
+  push("battle1: blocked members under each release policy", [](App& app, float) {
+    // find a drag that blocks some members but not all (the Battle 1 trench line runs onto slopes)
+    vec2 hit(0); bool found = false;
+    for (int dir = 0; dir < 16 && !found; ++dir)
+      for (float r = 6; r <= 40 && !found; r += 6) {
+        vec2 d = vec2(std::cos(dir * 0.3927f), std::sin(dir * 0.3927f)) * r;
+        lassoGroupBegin(app); lassoGroupSet(app, d, 0);
+        int b = lassoGroupBlocked(); size_t n = app.selection.size();
+        lassoGroupEnd(app, false);
+        if (b > 0 && b < (int)n) { hit = d; found = true; }
+      }
+    if (!chk(found, "a drag over Battle 1 blocks some trench-group members but not all")) return true;
+    std::map<uint64_t, Instance> before; for (uint64_t id : app.selection) before[id] = *app.doc.find(id);
+    size_t u0 = app.undoStack.size();
+    // Move the rest: the blocked ones stay exactly, the others move
+    lassoGroupBegin(app); lassoGroupSet(app, hit, 0);
+    std::set<uint64_t> blocked; for (auto& [id, p] : before) if (lassoGroupIsBlocked(id)) blocked.insert(id);
+    bool kept = lassoGroupEnd(app, true, LG_MOVE_REST);
+    float stay = 0, moved = 0;
+    for (auto& [id, p] : before) {
+      Instance* i = app.doc.find(id); if (!i) continue;
+      if (blocked.count(id)) stay = std::max(stay, glm::length(i->pos - p.pos));
+      else moved = std::max(moved, glm::length(vec2(i->pos.x - p.pos.x, i->pos.z - p.pos.z) - hit));
+    }
+    chk(kept && stay < 1e-5f && moved < 0.05f && app.undoStack.size() == u0 + 1, "Move the rest: %zu blocked stay put, %zu move by (%.0f, %.0f), one undo step", blocked.size(), before.size() - blocked.size(), hit.x, hit.y);
+    app.undo();
+    float back = 0; for (auto& [id, p] : before) if (Instance* i = app.doc.find(id)) back = std::max(back, glm::length(i->pos - p.pos));
+    chk(back < 1e-4f && app.undoStack.size() == u0, "undo puts the whole group back (%.5f m)", back);
+    // Place anyway: everything moves, blocked members keep their height above the ground
+    lassoGroupBegin(app); lassoGroupSet(app, hit, 0);
+    bool all = lassoGroupEnd(app, true, LG_PLACE_ANYWAY);
+    float off = 0; for (auto& [id, p] : before) if (Instance* i = app.doc.find(id)) off = std::max(off, glm::length(vec2(i->pos.x - p.pos.x, i->pos.z - p.pos.z) - hit));
+    chk(all && off < 0.05f && app.undoStack.size() == u0 + 1, "Place anyway: every member moves (%.3f m off), one undo step", off);
+    app.undo();
+    return true;
+  });
+  push("battle1: lasso edits, then first person three times (user crash report)", [](App& app, float) {
+    static int ph = 0, cycle = 0, frames = 0;
+    if (ph == 0) {
+      const TemplateInfo* t = app.findTemplate("battle1");
+      if (!t) return true;
+      app.newMap(*t, "Lasso battle1 explore");
+      app.selection.clear(); app.selected = 0;
+      vec2 c(58, 25);
+      lassoSelectObjects(app, circleRegion(c, 14), 0);
+      lassoGroupMove(app, vec2(4, 0), 0, LG_PLACE_ANYWAY);                         // a trench group, placed anyway
+      ElevParams lo; lo.amount = -3; lo.falloff = 4;
+      WaterFill f; lassoElevate(app, circleRegion(vec2(-60, 60), 8), lo, true, &f);   // a pond
+#ifdef LT_PAINT
+      groundPaintRegion(app, circleRegion(vec2(-40, 60), 10), 3, 1.0f, 2.0f);     // mud
+      groundPaintRegion(app, circleRegion(vec2(-30, 70), 10), 1, 1.0f, 2.0f);     // marsh
+#endif
+#ifdef LT_LAND
+      lassoMoveLand(app, circleRegion(vec2(-60, 60), 10), vec2(0, 25), 0, 4);       // the pond's hollow moves
+#endif
+      note("battle1 edits: pond %s, %zu water bodies, %zu paint chunks", f.ok ? "filled" : f.why.c_str(), app.doc.waterBodies.size(), app.doc.groundPaint.size());
+      ph = 1; return false;
+    }
+    if (ph == 1) {   // enter, walk a little, leave; three times
+      if (frames == 0) { bool ok = app.enterExplore(); app.useScripted = true; app.scriptedInput = ExploreInput{}; app.scriptedInput.move = vec2(0, 1); if (!ok) { chk(false, "Explore cycle %d enters", cycle); ph = 2; return false; } }
+      if (++frames < 90) return false;
+      app.useScripted = false; app.exitExplore();
+      frames = 0;
+      if (++cycle >= 3) ph = 2;
+      return false;
+    }
+    if (ph < 40) { ++ph; return false; }
+    chk(app.mode == Mode::Creative && cycle == 3, "three Explore round trips after the lasso edits ran without a crash");
+    return true;
+  });
+  push("group shifted onto its own footprint and trench cut", [](App& app, float) {
+    const TemplateInfo* t = app.findTemplate("blank_slate");
+    if (!t) return true;
+    app.newMap(*t, "Lasso shift");
+    const AssetDef* ca = app.lib.find("house_stone_cottage"); const AssetDef* ta = app.lib.find("aw_trench_straight");
+    if (!chk(ca && ta, "cottage and straight trench assets exist")) return true;
+    vec3 A(200, 0, -100), B = A + vec3(ca->footprint.x + 0.6f, 0, 0), C = B + vec3(ca->footprint.x * 0.5f + 0.6f + ta->footprint.x * 0.5f, 0, 0);
+    uint64_t a = place(app, "house_stone_cottage", A), b = place(app, "house_stone_cottage", B), c = place(app, "aw_trench_straight", C);
+    for (int k = 0; k < 3; ++k) app.syncRuntime();
+    navSyncCuts(app);   // the trench's cut is in the ground now
+    if (!a || !b || !c) return true;
+    app.selection = {a, b, c}; app.selected = a;
+    vec2 d(ca->footprint.x * 0.5f + 1.0f, 0.0f);   // the second cottage lands on the trench's old cut, the first on the second's footprint
+    std::map<uint64_t, vec3> p0; for (uint64_t id : app.selection) p0[id] = app.doc.find(id)->pos;
+    size_t u0 = app.undoStack.size();
+    bool ok = lassoGroupMove(app, d, 0, LG_CANCEL);
+    float off = 0; for (auto& [id, p] : p0) { Instance* i = app.doc.find(id); off = std::max(off, glm::length(vec2(i->pos.x - p.x, i->pos.z - p.z) - d)); }
+    chk(ok && off < 1e-3f && app.undoStack.size() == u0 + 1, "a group shifted %.1f m onto its own footprints and its trench's cut is accepted (%s)", d.x, ok ? "kept" : lassoGroupReason().c_str());
+    chk(app.terrain.cutIgnore == nullptr && app.placeIgnore == nullptr, "the group exemptions end with the move");
+    return true;
+  });
+}
 }   // namespace
 
 bool lassoSelfTest(App& app, float dt) {

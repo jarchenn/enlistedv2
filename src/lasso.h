@@ -41,6 +41,7 @@ struct LassoParams {
   float paintStrength = 1.0f, paintFeather = 1.5f;
   // move land
   float moveFalloff = 6.0f;
+  int groupPolicy = 0;      // LassoGroupPolicy: blocked members on release
 };
 LassoParams& lassoParams();
 LassoRegion& lassoRegion();
@@ -54,12 +55,17 @@ vec3 lassoGroupCentre(const App& app);     // mean of the members' pivots
 void lassoSanitize(App& app);              // drops ids that no longer exist; keeps `selected` the primary
 // a group transform: begin (one undo step), any number of set() calls (offset from the original layout and a turn
 // about the original centre), end(commit). A move where any member is invalid is rejected and reverted on end.
+// Members never block each other (overlap, crushing, terrain cuts: App::placeIgnore, Terrain::cutIgnore). When some
+// members cannot stand at their new spot, `policy` decides on release (always one undo step):
+enum LassoGroupPolicy : int { LG_MOVE_REST = 0, LG_CANCEL, LG_PLACE_ANYWAY };
 bool lassoGroupBegin(App& app);
 bool lassoGroupSet(App& app, vec2 delta, float yawDeg);   // true when every member is placeable
-bool lassoGroupEnd(App& app, bool commit);                // true = kept
+bool lassoGroupEnd(App& app, bool commit, int policy = LG_MOVE_REST);   // true = something moved (kept)
 bool lassoGroupActive();
 const std::string& lassoGroupReason();
-bool lassoGroupMove(App& app, vec2 delta, float yawDeg);  // begin + set + end
+int lassoGroupBlocked();                                   // members blocked at the last set() / end()
+bool lassoGroupIsBlocked(uint64_t id);
+bool lassoGroupMove(App& app, vec2 delta, float yawDeg, int policy = LG_MOVE_REST);  // begin + set + end
 int lassoDeleteGroup(App& app);
 int lassoDuplicateGroup(App& app);   // the copies become the selection
 

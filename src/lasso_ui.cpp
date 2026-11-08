@@ -100,11 +100,11 @@ void lassoGroupKeys(App& app, float dt) {
   float d = 0;
   if (app.rotSnap) { if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) d = -15; if (ImGui::IsKeyPressed(ImGuiKey_X, false)) d = 15; }
   else { if (ImGui::IsKeyDown(ImGuiKey_Z)) d = -45 * dt; if (ImGui::IsKeyDown(ImGuiKey_X)) d = 45 * dt; }
-  if (app.rotSnap) { if (d != 0 && !lassoGroupMove(app, vec2(0), d)) app.toast("Group turn rejected: " + lassoGroupReason(), 3); return; }
+  if (app.rotSnap) { if (d != 0) lassoGroupMove(app, vec2(0), d, lassoParams().groupPolicy); return; }
   if (d != 0) {
     if (!gU.rotGesture) { if (!lassoGroupBegin(app)) return; gU.rotGesture = true; gU.rotAccum = 0; }
     gU.rotAccum += d; lassoGroupSet(app, vec2(0), gU.rotAccum);
-  } else if (gU.rotGesture) { gU.rotGesture = false; if (!lassoGroupEnd(app, true)) app.toast("Group turn rejected: " + lassoGroupReason(), 3); }
+  } else if (gU.rotGesture) { gU.rotGesture = false; lassoGroupEnd(app, true, lassoParams().groupPolicy); }
 }
 
 void lassoToolUpdate(App& app, float dt, bool uiMouse) {
@@ -150,7 +150,7 @@ void lassoToolUpdate(App& app, float dt, bool uiMouse) {
       }
     }
     if (!down) {
-      if (gU.gesture == 3) lassoGroupEnd(app, true);
+      if (gU.gesture == 3) lassoGroupEnd(app, true, P.groupPolicy);
       else {   // a click on a member: make it the primary
         float t; vec3 o, r; app.cursorRay(o, r);
         if (uint64_t id = app.pickInstance(o, r, t)) app.selected = id;
@@ -187,11 +187,11 @@ void lassoOverlay(App& app, Overlay& ov) {
   vec4 selc(1.0f, 0.65f, 0.15f, 1.0f), bad(1.0f, 0.3f, 0.25f, 1.0f);
   // the group (shown in every tool while it exists)
   if (app.selection.size() > 1 || (app.tool == Tool::Lasso && !app.selection.empty())) {
-    vec4 c = lassoGroupActive() && !app.lastCheck.ok ? bad : selc;
+    vec4 c = lassoGroupActive() && !app.lastCheck.ok ? vec4(1.0f, 0.85f, 0.3f, 1.0f) : selc;
     for (uint64_t id : app.selection) {
       Instance* i = app.doc.find(id); if (!i) continue;
       const AssetDef* a = app.assetFor(*i);
-      ov.box(app.instanceMatrix(*i), a->bmin - vec3(0.05f), a->bmax + vec3(0.05f), c);
+      ov.box(app.instanceMatrix(*i), a->bmin - vec3(0.05f), a->bmax + vec3(0.05f), lassoGroupActive() && lassoGroupIsBlocked(id) ? bad : c);
     }
     vec3 ce = lassoGroupCentre(app); ce.y = T.height(ce.x, ce.z);
     ov.line(ce, ce + vec3(0, 2.5f, 0), c, true);
@@ -251,14 +251,16 @@ void lassoEditorUI(App& app) {
   ImGui::Separator();
   if (P.mode == LM_OBJECTS) {
     ImGui::Checkbox("Touching counts (any footprint corner)", &P.touching);
+    ImGui::SetNextItemWidth(170); ImGui::Combo("If some can't move", &P.groupPolicy, "Move the rest\0Cancel the move\0Place anyway\0");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Move the rest: blocked pieces stay where they were.\nCancel: nothing moves.\nPlace anyway: blocked pieces move too, sitting on the ground (slope / overlap rules ignored).");
     ImGui::Text("%zu selected", app.selection.size());
     if (!app.selection.empty()) {
       std::map<std::string, int> counts;
       for (uint64_t id : app.selection) if (Instance* i = app.doc.find(id)) counts[app.assetFor(*i)->name]++;
       int shown = 0;
       for (auto& [n, c] : counts) { if (shown++ == 6) { ImGui::TextDisabled("  ..."); break; } ImGui::TextDisabled("  %d x %s", c, n.c_str()); }
-      if (ImGui::Button("Turn -15")) { if (!lassoGroupMove(app, vec2(0), -15)) app.toast("Group turn rejected: " + lassoGroupReason(), 3); }
-      ImGui::SameLine(); if (ImGui::Button("Turn +15")) { if (!lassoGroupMove(app, vec2(0), 15)) app.toast("Group turn rejected: " + lassoGroupReason(), 3); }
+      if (ImGui::Button("Turn -15")) lassoGroupMove(app, vec2(0), -15, P.groupPolicy);
+      ImGui::SameLine(); if (ImGui::Button("Turn +15")) lassoGroupMove(app, vec2(0), 15, P.groupPolicy);
       ImGui::SameLine(); if (ImGui::Button("Duplicate")) lassoDuplicateGroup(app);
       ImGui::SameLine(); if (ImGui::Button("Delete")) lassoDeleteGroup(app);
       if (has && ImGui::Button("Reselect in region")) lassoSelectObjects(app, R, 0, P.touching);

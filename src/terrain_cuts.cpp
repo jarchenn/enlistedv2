@@ -36,6 +36,7 @@ float Terrain::cutBase(float x, float z, uint64_t excludeOwner) const {
   float b = groundBase(x, z);   // V8: cuts lower the sculpted ground
   for (auto& c : cuts) {
     if (excludeOwner && c.owner == excludeOwner) continue;
+    if (cutIgnore && std::find(cutIgnore->begin(), cutIgnore->end(), c.owner) != cutIgnore->end()) continue;   // a moving lasso group
     b = std::min(b, cutTarget(c, vec2(x, z)));
   }
   return b;
@@ -45,7 +46,7 @@ float Terrain::placementHeight(float x, float z, uint64_t owner) const {
   float hh = height(x, z);
   if (!owner || cuts.empty()) return hh;
   bool mine = false;
-  for (auto& c : cuts) if (c.owner == owner && x >= c.bmin.x && z >= c.bmin.y && x <= c.bmax.x && z <= c.bmax.y) { mine = true; break; }
+  for (auto& c : cuts) if ((c.owner == owner || (cutIgnore && std::find(cutIgnore->begin(), cutIgnore->end(), c.owner) != cutIgnore->end())) && x >= c.bmin.x && z >= c.bmin.y && x <= c.bmax.x && z <= c.bmax.y) { mine = true; break; }
   if (!mine) return hh;
   // the tile's own samples with this owner's cut taken out (crater deltas kept), interpolated exactly like height()
   float ts = tileSize();

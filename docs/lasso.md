@@ -42,9 +42,20 @@ The selection is every placement whose pivot is inside the region; "Touching cou
 | Delete | Del or the panel |
 
 How the group behaves:
-- **Rejected moves:** if any member cannot stand at its new spot, the group draws red. On release, everything goes back and no undo step is left.
-- **Crushing:** buildings crush low growth at their new spot (`crushAndFlatten`), as single moves do.
-- **Placement checks:** `App::placeIgnore` makes `checkPlacement` ignore the other members, so they never collide with the group's old positions.
+- **Members never block each other.** While a group moves or turns, every member ignores the others:
+  - overlap (`App::placeIgnore` in `checkPlacement`);
+  - crush blocking and crushing (`crushBlocked` / `crushAndFlatten`);
+  - the other members' terrain cuts, for support (`Terrain::cutIgnore` in `cutBase` / `placementHeight`).
+
+  So a group can be shifted partly onto its own old footprints, trenches included.
+- **Blocked members:** a member that cannot stand at its new spot (outside the area, too steep, overlapping something outside the group) draws red while you drag. On release, the panel's **If some can't move** setting decides, always as one undo step:
+
+  | Setting | What happens |
+  |---|---|
+  | Move the rest (default) | The blocked members stay where they were; the rest move. A toast names the first reason |
+  | Cancel the move | Nothing moves, and no undo step is left |
+  | Place anyway | Everything moves. Blocked members keep their height above the ground at the new spot (slope and overlap rules ignored) |
+- **Crushing:** buildings crush low growth at their new spot (`crushAndFlatten`), as single moves do, but never another member of the group.
 - **Other tools:** the group stays selected (orange boxes, a centre marker) when you switch tools. Del and Ctrl+D act on the whole group (`App::deleteSelected` / `duplicateSelected` route to the lasso). A click on one object in Select replaces the group.
 
 ## Elevation
@@ -201,4 +212,18 @@ A move where a carried placement would not fit is refused and reverted. Ground i
   - a 90° turn;
   - a move onto a cottage is refused and changes nothing.
 
+- **Battle 1:**
+  - eight frame-by-frame drags of a trench group onto slopes and neighbours, each rejected and reverted exactly;
+  - the same blocked drag under each release policy;
+  - lasso edits (a group placed anyway, a pond, paint, move land) followed by three first-person round trips;
+  - a group (two cottages and a trench) shifted onto its own footprints and the trench's cut is accepted.
+
 Screenshots go to `selftest_out/lasso/`.
+
+## Crash logs
+
+`src/crashlog.cpp` installs an unhandled-exception filter. A crash writes its exception code and a backtrace to `normandy.log`, as `[crash]` lines with offsets into the exe (`exe+0x...`). The release exe is stripped, so symbolize the offsets against an unstripped link of the same objects. That link is the build's link command without `-s`:
+
+```
+llvm-symbolizer --obj=NormandyMapmaker_sym.exe 0x<0x140000000 + offset>
+```
