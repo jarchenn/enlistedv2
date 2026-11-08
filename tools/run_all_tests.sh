@@ -35,6 +35,7 @@ run terrain  --selftest-terrain # V8 terrain sculpt, Generate hills, Beautify ri
 run settings --selftest-settings   # V2: graphics presets, settings file and window, firing smoke (docs/settings.md)
 run autopath --selftest-autopath  # V9 auto paths: Connect houses on the village maps, curved path pieces (docs/entities.md)
 run snap     --selftest-snap    # V6: snapping trenches / hedges / paths: joints, caps, cut floors, texture origin
+run lasso    --selftest-lasso   # lasso tool: groups, elevation, water fill, ground paint, move land (docs/lasso.md)
 run maps     --selftest-maps    # W5 default maps: template load, scenario, SPEC 2.1 distances, asset-usage doc, views + frame time
 run render   --selftest-render  # V1: facade shimmer 20 / 50 / 100 m (static + strafe), rough walls, water assets / pass (docs/rendering.md §9)
 run textures --selftest-textures   # L4: ambientCG texture layer, slots, on / off look, missing-texture fallback (docs/textures.md)

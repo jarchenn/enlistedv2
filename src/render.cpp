@@ -1828,6 +1828,7 @@ void main(){
   float dirtK = smoothstep(0.15, 0.75, dirt + (nM - 0.5)*0.35);
   if (dirtK > 0.01) { TerrT tC = terrTex(7, p, tn0, tdx, tdy, tDist); soil *= tC.alb; tdn = mix(tdn, tC.dn, dirtK); trr = mix(trr, tC.r, dirtK); tao = mix(tao, tC.ao, dirtK); }   // L4
   alb = mix(alb, soil, dirtK);
+  PaintOut po = paintApply(p, normalize(vN), alb, dirt, dFdx(p), dFdy(p), length(p - uCamPos));   // lasso ground paint: albedo (ground_paint.cpp)
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
@@ -1841,6 +1842,7 @@ void main(){
     ao *= 1.0 - 0.35*rCrack*rockK;
   }
   N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
+  paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
@@ -2223,7 +2225,7 @@ bool Renderer::init(int w, int h) {
   progMain = compile(kMainVS, (std::string(tex::glslCommon()) + tex::glslMain() + kMainFS).c_str(), "main");   // L4 texture hooks first
   progGlass = compile(kMainVS, kGlassFS, "glass");
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
-  progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + kTerrainFS).c_str(), "terrain");
+  { extern const char* groundPaintGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
   progSky = compile(kFullVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");

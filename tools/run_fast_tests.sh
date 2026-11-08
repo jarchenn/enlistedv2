@@ -38,7 +38,7 @@ rule() {
     entities)   echo 'src/(equipment|paths|explore|builder|audio|wire)|content/audio/' ;;
     tanks)      echo 'src/(tank|damage|ballistics|wallfield|interior)|content/vehicles/' ;;
     interiors)  echo 'src/(interior|assets|wallfield|render|lights?)|content/assets/(furn_|house_|small_|large_|vil_|ruin_)' ;;
-    editor)     echo 'src/(editor|terrain|snap|palette|dropin|builder|app)\.|src/editor_nav' ;;
+    editor)     echo 'src/(editor|terrain|snap|palette|dropin|builder|app|lasso|ground_paint|geom2d)\.|src/editor_nav' ;;
     match)      echo 'src/(mpai|match|scenario|rules|game)' ;;
     ai)         echo 'src/(ai_|nav|mpai)|content/ai/' ;;
     rules)      echo 'src/(rules|damage|match|game|w1)' ;;
@@ -49,7 +49,8 @@ rule() {
     settings)   echo 'src/(settings|render|audio)' ;;
     autopath)   echo 'src/(autopath|paths)' ;;
     snap)       echo 'src/(snap|editor|builder|paths)|content/assets/(aw_|bcg_|bch_|path_|wat_|rub_)' ;;
-    terrain)    echo 'src/(terrain|beautify|ground)|content/settings/beautify' ;;
+    terrain)    echo 'src/(terrain|beautify|ground|lasso)|content/settings/beautify' ;;
+    lasso)      echo 'src/(lasso|ground_paint|geom2d|terrain|editor|app|mapdoc|water|grass|nature|render)|content/(ground_paint|textures/)' ;;
     render)     echo 'src/(render|water|frustum|lighting|textures|settings)|content/textures/' ;;
     lights)     echo 'src/(render|lighting|lights?|interior)|content/assets/' ;;
     maps)       echo 'src/(render|terrain|w5|assets|interior|nature|grass|settings|frustum|lighting|textures|water)|content/(assets|templates|textures|settings/maps)' ;;

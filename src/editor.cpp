@@ -5,6 +5,7 @@
 #include "w3.h"
 #include "nature.h"
 #include "terrain_tools.h"
+#include "lasso.h"
 #include "palette.h"
 #include "snap.h"
 #include <GLFW/glfw3.h>
@@ -59,7 +60,8 @@ void App::updateCreative(float dt) {
     if (!ctrl && keyPressed(win, GLFW_KEY_H)) gridOverlay = !gridOverlay;
     if (keyPressed(win, GLFW_KEY_F3)) showStats = !showStats;
     // rotate selection with Z / X (15° steps when snapping; continuous when held otherwise)
-    if (sel && !dragging && !ctrl) {
+    if (lassoOwnsKeys(*this)) lassoGroupKeys(*this, dt);   // a lasso group turns about its centre (lasso_ui.cpp)
+    else if (sel && !dragging && !ctrl) {
       float d = 0;
       if (rotSnap) { if (keyPressed(win, GLFW_KEY_Z)) d = -15; if (keyPressed(win, GLFW_KEY_X)) d = 15; }
       else { if (keyDown(win, GLFW_KEY_Z)) d = -45 * dt; if (keyDown(win, GLFW_KEY_X)) d = 45 * dt; }
@@ -95,6 +97,8 @@ void App::updateCreative(float dt) {
       if (lastCheck.ok) { uint64_t id = placeInstance(placing, sg.pos, sg.yaw); if (id) { crushAndFlatten(*this, id); selected = id; placeCompanions(id); } }
       else toast(lastCheck.reason);
     }
+  } else if (tool == Tool::Lasso) {
+    lassoToolUpdate(*this, dt, uiMouse);   // lasso regions, group drags, move land (lasso_ui.cpp)
   } else if (tool == Tool::Terrain) {
     terrainToolUpdate(*this, dt, uiMouse);   // V8 sculpt strokes (terrain_brush.cpp)
   } else if (tool == Tool::Marker) {
@@ -129,6 +133,7 @@ static void arrow(Overlay& ov, vec3 from, vec3 dir, float len, vec4 col, bool to
 
 void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
   terrainOverlay(*this, ov);   // V8 brush ring preview (terrain_brush.cpp)
+  lassoOverlay(*this, ov);     // lasso region, group boxes, water outlines (lasso_ui.cpp)
   w3Overlay(*this, ov);   // build-area outline (follows the map size), drop-in marker (editor_nav.cpp / dropin.cpp)
   vec4 ok(0.35f, 0.95f, 0.45f, 1.0f), bad(1.0f, 0.3f, 0.25f, 1.0f), selc(1.0f, 0.65f, 0.15f, 1.0f);
   // placement preview
@@ -254,6 +259,7 @@ void App::drawCreativeUI() {
   };
   if (toolBtn("Select (Esc)", tool == Tool::Select)) { tool = Tool::Select; placing = nullptr; }
   terrainToolbar(*this);   // V8 Terrain tool button (terrain_brush.cpp)
+  lassoToolbar(*this);     // Lasso tool button (lasso_ui.cpp)
   w3Toolbar(*this); ImGui::SameLine();   // drop-in soldier: drag onto the terrain (dropin.cpp)
   if (toolBtn(gridSnap ? "Grid snap: on (G)" : "Grid snap: off (G)", gridSnap)) gridSnap = !gridSnap;
   if (toolBtn(rotSnap ? "Rotate: 15 deg" : "Rotate: free", rotSnap)) rotSnap = !rotSnap;
@@ -400,6 +406,7 @@ void App::drawCreativeUI() {
 
   // ---- modals
   terrainEditorUI(*this);   // V8: brush panel, Generate hills, Beautify (terrain_brush.cpp / beautify.cpp)
+  lassoEditorUI(*this);     // Lasso panel and the L key (lasso_ui.cpp)
   w3EditorUI(*this);   // New Map dialog (size, presets, estimate), overview map, drop-in drag (editor_nav.cpp)
   if (showOpen) { ImGui::OpenPopup("Open map"); showOpen = false; }
   ImGui::SetNextWindowSize(ImVec2(620, 420), ImGuiCond_Appearing);

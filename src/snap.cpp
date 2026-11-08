@@ -356,6 +356,7 @@ bool crushBlocked(const App& app, const AssetDef* a, vec3 pos, float yaw, uint64
   if (!crushBuilding(a)) return false;
   for (auto& o : app.doc.instances) {
     if (o.id == ignoreId) continue;
+    if (app.placeIgnore && std::find(app.placeIgnore->begin(), app.placeIgnore->end(), o.id) != app.placeIgnore->end()) continue;   // lasso group members move together
     const AssetDef* b = app.assetFor(o);
     if (!isVegetation(b) || !underFootprint(a, pos, yaw, o.pos, snapSettings().crushMargin)) continue;
     float h = vegHeight(b);
@@ -379,6 +380,7 @@ int crushAndFlatten(App& app, uint64_t id) {
   auto& v = app.doc.instances;
   v.erase(std::remove_if(v.begin(), v.end(), [&](const Instance& o) {
     if (o.id == id) return false;
+    if (app.placeIgnore && std::find(app.placeIgnore->begin(), app.placeIgnore->end(), o.id) != app.placeIgnore->end()) return false;   // lasso group members survive
     const AssetDef* b = app.assetFor(o);
     bool c = isVegetation(b) && underFootprint(a, pos, yaw, o.pos, S.crushMargin) && vegHeight(b) <= S.crushHeight;
     removed += c;

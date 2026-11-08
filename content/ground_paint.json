@@ -1,0 +1,18 @@
+{
+  "_doc": "Lasso ground paint types (docs/lasso.md#paint). The order is fixed (the terrain shader's materials, src/ground_paint.cpp); these fields tune gameplay. grass: share of the pasture sward kept (0 none, 1 all). natureOk: flower / tall-grass / stone patches may grow. navArea: NavArea index for bots (-1 plain ground; 4 Marsh = slow). step: footstep audio event (used when the bank has it).",
+  "types": [
+    {"id": "grass",       "name": "Grass (erase paint)",   "grass": 1.0,  "natureOk": true,  "navArea": -1, "step": "",            "swatch": [0.20, 0.26, 0.09]},
+    {"id": "marsh",       "name": "Marsh / shallow water", "grass": 0.15, "natureOk": false, "navArea": 4,  "step": "step_water",  "swatch": [0.10, 0.12, 0.08]},
+    {"id": "dirt",        "name": "Dirt",                  "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_dirt",   "swatch": [0.26, 0.20, 0.13]},
+    {"id": "mud",         "name": "Mud",                   "grass": 0.0,  "natureOk": false, "navArea": 4,  "step": "step_mud",    "swatch": [0.14, 0.11, 0.08]},
+    {"id": "gravel",      "name": "Gravel",                "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_gravel", "swatch": [0.42, 0.38, 0.30]},
+    {"id": "sand",        "name": "Sand",                  "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_sand",   "swatch": [0.62, 0.55, 0.40]},
+    {"id": "cobbles",     "name": "Cobbles",               "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_stone",  "swatch": [0.29, 0.28, 0.26]},
+    {"id": "rock",        "name": "Rock",                  "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_stone",  "swatch": [0.58, 0.57, 0.53]},
+    {"id": "dry_grass",   "name": "Dry grass",             "grass": 0.55, "natureOk": true,  "navArea": -1, "step": "",            "swatch": [0.44, 0.38, 0.20]},
+    {"id": "ploughed",    "name": "Ploughed farmland",     "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_dirt",   "swatch": [0.22, 0.16, 0.10]},
+    {"id": "leaf_litter", "name": "Leaf litter",           "grass": 0.1,  "natureOk": true,  "navArea": -1, "step": "step_leaves", "swatch": [0.34, 0.19, 0.07]},
+    {"id": "scorched",    "name": "Scorched earth",        "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_dirt",   "swatch": [0.07, 0.06, 0.055]},
+    {"id": "pebbles",     "name": "Pebbles",               "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_gravel", "swatch": [0.50, 0.47, 0.41]}
+  ]
+}

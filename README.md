@@ -36,6 +36,7 @@ Saved maps go in `maps/` next to the executable. **File > Open** also lists the 
 | Select / move | Left-click a building, including through a window, then drag. One drag is one undo step |
 | Precise transform | X/Z position and rotation fields in the **Selection** panel |
 | Duplicate / delete | Ctrl+D / Del |
+| Lasso | L or the toolbar button: draw a freehand loop or a circle on the map (Shift adds, Alt cuts). **Objects**: select everything inside, drag one to move the group, Z/X turn it about its centre, Ctrl+D / Del. **Elevation**: raise or lower the region with a falloff ring, optionally fill the hollow with water up to its lip. **Paint**: 12 ground types (marsh, dirt, mud, gravel, sand, cobbles, rock, dry grass, ploughed field, leaf litter, scorched earth, pebbles). **Move land**: drag inside the region to slide the ground and what is on it. See [docs/lasso.md](docs/lasso.md) |
 | Undo / redo | Ctrl+Z / Ctrl+Y |
 | Grid snap / grid overlay | G / H |
 | Door & window defaults | Checkboxes in the Selection panel, or the **Doors & windows** toolbar view (click labels in 3D) |

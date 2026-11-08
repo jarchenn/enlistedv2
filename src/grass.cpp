@@ -1,4 +1,8 @@
 #include "grass.h"
+float groundPaintGrass(float x, float z);     // lasso ground paint (ground_paint.cpp)
+float lassoWaterAtCurrent(float x, float z);
+uint64_t lassoGroundRev();
+uint64_t lassoGroundSig(vec2 lo, vec2 hi);
 #include <chrono>
 #include <cstring>
 #include <algorithm>
@@ -156,6 +160,11 @@ bool Grass::density(float x, float z, const Terrain& t, const std::vector<GrassF
   if (groundNy(t, x, z) < 0.80f) return false;                // steep banks and crater walls
   if (t.dirtAt(x, z) > 0.18f) return false;                  // disturbed soil
   if (t.wearAt(x, z) > 0.62f) return false;                  // worn track / foundation soil
+  if (y < lassoWaterAtCurrent(x, z) + 0.12f) return false;   // lasso water bodies
+  if (float gp = groundPaintGrass(x, z); gp < 0.999f) {      // lasso ground paint thins / removes the sward
+    uint32_t hx; float fx = x * 7.31f + z * 3.17f; std::memcpy(&hx, &fx, 4); hx ^= hx >> 15; hx *= 0x2c1b3c6du; hx ^= hx >> 12;
+    if ((hx & 0xffff) / 65536.0f >= gp) return false;
+  }
   for (auto& f : fp) {
     if (glm::length(vec2(x, z) - f.pos) > fpRadius(f) + kMargin + 1) continue;
     if (fpDist(f, x, z) < fpMargin(f)) return false;              // footprints, steps, thresholds, berms
@@ -164,7 +173,7 @@ bool Grass::density(float x, float z, const Terrain& t, const std::vector<GrassF
 }
 
 uint64_t Grass::signature(int cx, int cz, const Terrain& t, const std::vector<GrassFootprint>& fp) const {
-  uint64_t h = hcomb(hcomb(hcomb(hcomb(seed_, t.generation), t.surfSig), (uint32_t)cx), (uint32_t)cz);
+  uint64_t h = hcomb(hcomb(hcomb(hcomb(hcomb(seed_, t.generation), t.surfSig), (uint32_t)cx), (uint32_t)cz), lassoGroundRev());   // + lasso paint / water
   float ox = cx * kChunk, oz = cz * kChunk;
   // deformation tiles under (and one fine sample around) the chunk
   if (!t.tiles.empty()) {
@@ -199,6 +208,7 @@ uint64_t Grass::contentSignature(int cx, int cz, const Terrain& t, const std::ve
     int y0 = std::max(0, (int)((oz - 1 + hz) / tx)), y1 = std::min(t.surfH - 1, (int)((oz + kChunk + 1 + hz) / tx));
     for (int y = y0; y <= y1; ++y) for (int x = x0; x <= x1; ++x) h = hcomb(h, t.surf[((size_t)y * R + x) * 4]);
   }
+  h = hcomb(h, lassoGroundSig(vec2(ox - 1, oz - 1), vec2(ox + kChunk + 1, oz + kChunk + 1)));   // lasso paint / water under the chunk
   if (t.tiles.empty()) return h;
   // every fine sample that can influence a blade in this chunk (heights, normals, soil): bounds + 2 samples
   float ts = t.tileSize(), hx = -t.org.x, hz = -t.org.y, fs = t.fineSpacing(), pad = 2 * fs;
