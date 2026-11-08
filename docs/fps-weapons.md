@@ -54,6 +54,7 @@ X = T(offset) * S(realLength / L) * R(rot)
 | MP 40 | mp40.glb | 5 659 | zamek and pokretlo → bolt, magazynek → mag |
 | MG 42 | mg42.glb | 15 978 | single mesh |
 | M1918A2 BAR (new) | browning_m1918a2_bar.glb | 20 043 | single material, body |
+| Kar 98k ZF39 | kar98k_aria.glb (ARIA, CC-BY-4.0, [credits](credits.md)) | 9 767 | Kar98k_Bolt_1 and Kar98k_Bolt_2 → bolt (lift −80° about the bore, `boltPivot`), Kar98k_Scope → scope, Body, Trigger and Belt (sling) → body; `lengthNode` Kar98k_Body |
 
 ## 2. Viewmodel rendering and ADS
 
@@ -77,7 +78,7 @@ T_hip = (0, 0, -0.21) - Q * R + hipOffset   hipOffset (0.12, -0.07, 0.06) unless
 - the world FOV `mix(72°, ads.worldFov, t)` (58° unless the weapon sets one);
 - the weapon FOV `mix(60°, ads.vmFov, t)` when a weapon sets one.
 
-Releasing aim half-way reverses from the current blend. Recoil and breathing never write the FOV, so a held aim keeps a constant zoom. Before this update the world FOV stepped from 72° to 58° in one frame at adsT 0.85: that step was the "zoom jump". Scoped weapons still switch to the optic (mask, 72°/mag) at adsT 0.85, with the mask.
+Releasing aim half-way reverses from the current blend. Recoil and breathing never write the FOV, so a held aim keeps a constant zoom. Before this update the world FOV stepped from 72° to 58° in one frame at adsT 0.85: that step was the "zoom jump". Scoped weapons still switch to the optic (eyepiece view, 72°/mag) at adsT 0.85; see [Optic eyepiece](#eyepiece).
 
 **Spring.** The weapon offset follows that target on a critically damped spring: x″ = ω²(target − x) − 2ωx′ with ω = 18/s. It settles to within 0.5 mm in about 0.6 s with no overshoot.
 
@@ -225,6 +226,40 @@ It works for whichever weapon is in hand.
 - the aim point (red ring)
 
 A readout gives the pixel errors, relief and weapon FOV. Self-test screenshots also carry the markers and the centre dot.
+
+<a id="eyepiece"></a>
+### Optic eyepiece (sniper scopes and the AT gun sight)
+
+**Scopes (ZF39, M1C).** At adsT > 0.85 the world renders at 72° / magnification, and the weapon **stays drawn**. Its scoped pose puts `scope.eye` (the centre of the ocular lens) on the view axis at `scope.relief` (default 0.07 m; the ZF39 uses 0.06 m, so its 49 mm ocular bell rings the eyepiece circle). `App::scopeView()` turns the eyepiece on. Previously the model was hidden and an ImGui mask covered the screen.
+
+**Passes** (`Renderer::render`, `kEyepieceFS`):
+1. The world is drawn as usual.
+2. **Eyepiece composite** into `dofTex`, copied back to `hdrColor`:
+   - inside a circle of radius `App::kScopeEyepieceR` (0.35 of the frame height, so 70 % across), the sharp, magnified world with a slight edge falloff and the reticle ink;
+   - outside it, the world blurred heavily (16 taps on a coarse `hdrColor` mip), darkened to 3.5 % (linear; about 20 % on screen), with a black tube rim just past the circle.
+3. **The view model** (weapon and arms), as before.
+4. **Eyepiece restore**, blended `ONE, SRC_ALPHA`: the inside of the circle comes back from the composite, so the weapon shows only around the eyepiece (tube rim, receiver, bolt, stock below it). Outside, the weapon is shaded to 60 % (55 % of that toward the corners).
+
+**Exposure.** The exposure reads the `hdrColor` mips made before the eyepiece, so the dark surround does not brighten the view.
+
+**Reticles** are drawn in the shader, so they appear in screenshots:
+- ZF39 (`de_absehen1`): a pointed post from below (its tip is the aim point) and heavy side bars with an open centre;
+- M1C (`us_post_cross`): a fine crosshair with a tapered lower post.
+
+`scopeIronsMode` (V) still switches the M1C to its irons, with no eyepiece.
+
+**AT gun sight (PaK 40, Flak).** `App::gunnerOptic()` uses the same pass with radius `kGunnerEyepieceR` (0.44, which matches the 8° field of the ZF 3x8), a near-black surround (0.6 % linear) and a TZF-style reticle:
+- a big chevron, its tip the aim point;
+- a row of three small range chevrons each side, one stadia unit (R / 4) apart;
+- a vertical post below;
+- three dotted range arcs over the upper field.
+
+ImGui adds the readout at the bottom right of the eyepiece, for example "Shell AP · Traverse +3.2° · Elevation +12 mil" (6400 mil per turn). It also shows the traverse and elevation stop warnings.
+
+**Tests.**
+- `--selftest-sights` (`NMK_SIGHTS_ONLY=kar98k_zf39`): the ZF39 part map and anchors; for ZF39 and M1C, weapon pixels under the eyepiece, the reticle centred within 1.5 px, a clear eyepiece against a darker surround; irons mode.
+- `--selftest-fps`: scoped weapons stay drawn, with the scope eye on the centre.
+- `--selftest-pak`: the `41_pak_gunner_sight` fixture, plus the `41_pak_gunner_sight_ui.png` shot with the readout.
 
 ## 3. Sway, bob, breathing and depth of field
 

@@ -44,7 +44,8 @@ void App::buildWeaponMeshes() {
       d->adsWorldFov = a.value("worldFov", 58.0f); d->sightLineOnly = a.value("virtualLine", false);
     }
     d->laterWar = j.value("laterWar", false);
-    if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); }
+    if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
+    if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
     std::map<std::string, int> mi;
     d->mats.push_back(Material{"default"});
     for (auto& mj : j.value("materials", json::array())) {
@@ -162,21 +163,24 @@ bool App::weaponCamera(float& fov) const {
   return true;
 }
 
+bool App::scopeView() const {
+  if (occupied || tanks.occupied || weaponDefs.empty() || mode != Mode::Explore) return false;
+  return vmScoped(*weaponDefs[activeWeapon]) && adsT > 0.85f;   // the same switch as the scope magnification (weaponCamera)
+}
+
 void App::weaponDrawItems(std::vector<DrawItem>& op) {
   R.viewModel.clear(); R.viewModelTex.clear();
   if (occupied || weaponDefs.empty() || mode != Mode::Explore) return;
   const WeaponDef& d = *weaponDefs[activeWeapon];
   const WeaponState& s = wstate[d.id];
-  bool scopedView = d.hasScope && !(d.scopeIrons && scopeIronsMode) && adsT > 0.85f;
-  if (scopedView) return;   // looking through the optic: the scope mask replaces the model
-  mat4 M = viewModelMatrix(d, s);
+  mat4 M = viewModelMatrix(d, s);   // scoped too: the receiver, bolt and stock show around the eyepiece (render.cpp eyepiece pass)
   if (swimLower() >= 0.999f) { armDrawItems(M, d, s); return; }   // swimming (swim.cpp): weapon slung, hands-only stroke
   bool tex = d.useModel();
   // reload progress drives an imported reload clip (Garand: clip seats, follower and operating rod cycle)
   float animU = 1.0f;
   if (s.reload > 0 && s.reloadKind && s.reloadTotal > 0) animU = std::clamp(1 - s.reload / s.reloadTotal, 0.0f, 1.0f);
   auto add = [&](int p, const mat4& m) {
-    if (tex && p != WP_SCOPE) {
+    if (tex && (p != WP_SCOPE || !d.modelParts[p].empty())) {   // a model without a scope keeps the box-part scope (M1C)
       for (int k : d.modelParts[p]) {
         const ModelPart& mp = d.model->parts[k];
         if (p == WP_CLIP && s.loaded == 0 && s.reload <= 0) continue;   // en-bloc clip ejected
@@ -192,7 +196,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     float u = d.boltTime > 0 ? std::clamp(1 - s.bolt / d.boltTime, 0.0f, 1.0f) : 1;
     float phase = s.bolt > 0 ? std::sin(u * 3.14159f) : 0;
     if (s.reload > 0 && s.reloadKind) phase = 1;
-    mat4 b = M * glm::translate(mat4(1), vec3(0, 0.028f, 0)) * glm::mat4_cast(glm::angleAxis(radians(70.0f * std::min(1.0f, phase * 2)), vec3(0, 0, 1))) * glm::translate(mat4(1), vec3(0, -0.028f, -0.09f * phase));
+    mat4 b = M * glm::translate(mat4(1), d.boltPivot) * glm::mat4_cast(glm::angleAxis(radians(d.boltLift * std::min(1.0f, phase * 2)), vec3(0, 0, 1))) * glm::translate(mat4(1), vec3(-d.boltPivot.x, -d.boltPivot.y, -0.09f * phase));
     add(WP_BOLT, b);
   } else {
     float cyc = std::clamp(s.cooldown * (d.rpm / 60.0f), 0.0f, 1.0f);
@@ -443,27 +447,7 @@ void App::drawWeaponUI() {
   const WeaponDef& d = *weaponDefs[activeWeapon];
   const WeaponState& s = wstate[d.id];
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
-  bool scoped = d.hasScope && !(d.scopeIrons && scopeIronsMode) && adsT > 0.85f;
-  if (scoped) {
-    float R = io.DisplaySize.y * 0.46f;
-    for (int k = 0; k < 64; ++k) {
-      float a0 = k * 6.2831853f / 64, a1 = (k + 1) * 6.2831853f / 64;
-      ImVec2 p0(c.x + std::cos(a0) * R, c.y + std::sin(a0) * R), p1(c.x + std::cos(a1) * R, c.y + std::sin(a1) * R);
-      ImVec2 q0(c.x + std::cos(a0) * io.DisplaySize.x, c.y + std::sin(a0) * io.DisplaySize.x), q1(c.x + std::cos(a1) * io.DisplaySize.x, c.y + std::sin(a1) * io.DisplaySize.x);
-      dl->AddQuadFilled(p0, q0, q1, p1, IM_COL32(3, 3, 3, 255));
-    }
-    ImU32 k = IM_COL32(8, 8, 8, 245);
-    if (d.reticle == "de_absehen1") {   // German no. 1: pointed centre post, two side posts, gap
-      dl->AddTriangleFilled(ImVec2(c.x, c.y), ImVec2(c.x - 5, c.y + 26), ImVec2(c.x + 5, c.y + 26), k);
-      dl->AddRectFilled(ImVec2(c.x - 5, c.y + 26), ImVec2(c.x + 5, c.y + R), k);
-      dl->AddRectFilled(ImVec2(c.x - R, c.y - 3), ImVec2(c.x - R * 0.18f, c.y + 3), k);
-      dl->AddRectFilled(ImVec2(c.x + R * 0.18f, c.y - 3), ImVec2(c.x + R, c.y + 3), k);
-    } else {                            // US M81/M82 style: crosshair with a tapered lower post
-      dl->AddLine(ImVec2(c.x - R, c.y), ImVec2(c.x + R, c.y), k, 1.2f);
-      dl->AddLine(ImVec2(c.x, c.y - R), ImVec2(c.x, c.y), k, 1.2f);
-      dl->AddTriangleFilled(ImVec2(c.x, c.y), ImVec2(c.x - 4, c.y + R), ImVec2(c.x + 4, c.y + R), k);
-    }
-  }
+  // scoped: the eyepiece, its surround and the reticle are drawn by the renderer (render.cpp eyepiece pass)
   std::vector<SightMark> mk;
   if (sightMarkers && sightMarks(mk)) {
     float sx = io.DisplaySize.x / std::max(1, R.width), sy = io.DisplaySize.y / std::max(1, R.height);

@@ -674,6 +674,95 @@ void SelfTest::sightsUpdate(App& app, float dt) {
         return true; });
     }
 
+    // ---- W2 (sights): the Kar98k ZF39 rebuilt from ARIA's model (CC-BY-4.0, docs/credits.md), and the eyepiece scope
+    // view (ZF39, M1C): the weapon stays drawn, a clear eyepiece circle holds the reticle, the surround is dark
+    if (wanted("kar98k_zf39")) {
+      push("kar98k_zf39 model", [this](App& a, float) {
+        int k = a.weaponIndex("kar98k_zf39");
+        if (k < 0) { check(false, "kar98k_zf39 loaded"); return true; }
+        const WeaponDef& d = *a.weaponDefs[k];
+        std::map<std::string, std::string> role;
+        if (d.useModel()) for (auto& p : d.model->parts) role[p.name] = p.role;
+        auto is = [&](const char* n, const char* r) { for (auto& [nm, rl] : role) if (nm.rfind(n, 0) == 0) return rl == r; return false; };
+        check(d.useModel() && is("Kar98k_Body", "body") && is("Kar98k_Bolt_1", "bolt") && is("Kar98k_Bolt_2", "bolt") && is("Kar98k_Scope", "scope")
+              && d.modelParts[1].size() == 2 && d.modelParts[6].size() == 1,
+              "kar98k_zf39: ARIA model (" + std::to_string(d.useModel() ? d.model->tris : 0) + " tris): Body -> body, Bolt_1 + Bolt_2 -> bolt (cycles with the bolt), Scope -> scope");
+        auto nearV = [](vec3 p, vec3 q) { return glm::length(p - q) < 0.0005f; };
+        char b[300]; std::snprintf(b, sizeof b, "kar98k_zf39 calibration on the new mesh: scope eye (%.4f, %.4f, %.3f) on the tube axis at the ocular, relief %.3f; bore (%.4f, %.4f); bolt pivot on the bore; rear notch y %.4f, front tip y %.4f; grips x %.4f",
+                                   d.scopeEye.x, d.scopeEye.y, d.scopeEye.z, d.scopeRelief, d.muzzle.x, d.muzzle.y, d.rear.y, d.front.y, d.gripR.x);
+        check(nearV(d.scopeEye, {-0.0024f, 0.1269f, 0.267f}) && nearV(d.muzzle, {-0.0025f, 0.07f, 1.11f}) && nearV(d.boltPivot, {-0.0024f, 0.07f, 0})
+              && nearV(d.rear, {-0.0024f, 0.0907f, 0.585f}) && nearV(d.front, {-0.0025f, 0.0957f, 1.091f}) && std::fabs(d.gripR.x - d.scopeEye.x) < 0.001f && std::fabs(d.gripL.x - d.scopeEye.x) < 0.001f, b);
+        return true; });
+      for (std::string id : {"kar98k_zf39", "m1c_garand"}) {
+        push(id + " scope view", [this, id](App& a, float t) {
+          if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.scopeIronsMode = false; a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }
+          a.scriptedInput.aim = true;
+          if (t > 1.0f && t < 1.02f) shotQueue.push_back("sights_" + id + "_scope");
+          return probeThen(t, 1.2f, [&] {
+            const Probe& p = probe;
+            int cx = p.w / 2, cy = p.h / 2, R = (int)std::lround(p.h * App::kScopeEyepieceR);
+            // weapon pixels around the eyepiece: below it (receiver, bolt, stock) and none drawn over it
+            int below = 0, belowAll = 0, inside = 0;
+            for (int y = 0; y < p.h; ++y) for (int x = 0; x < p.w; ++x) {
+              float r = std::hypot(x + 0.5f - cx, y + 0.5f - cy);
+              bool w = at(p, x, y) > 0.001f;
+              if (y > cy && r > R + 2 && std::abs(x - cx) < R) { ++belowAll; below += w; }
+              if (r < R - 2) inside += w;   // vmDist keeps the weapon drawn before the eyepiece is restored over it
+            }
+            std::vector<uint8_t> px; int w, h; a.R.readPixels(px, w, h);
+            auto L = [&](int x, int y) { const uint8_t* q = &px[((size_t)(h - 1 - y) * w + x) * 4]; return 0.2126f * q[0] + 0.7152f * q[1] + 0.0722f * q[2]; };
+            // reticle ink (near black) centred: the vertical post / line under the centre, the bars / line beside it
+            // ink line centre: darkness-weighted centroid of the pixels under half the segment's mean (bloom lifts thin black lines)
+            auto ink = [&](int c0, auto at2) { double m = 0, s = 0, n = 0; for (int k = c0 - R / 8; k <= c0 + R / 8; ++k) m += at2(k); m /= 2 * (R / 8) + 1;
+              for (int k = c0 - R / 8; k <= c0 + R / 8; ++k) { double v = 0.5 * m - at2(k); if (v > 0) { s += v * (k + 0.5); n += v; } } return n > 0 ? float(s / n) : -1.0f; };
+            auto inkX = [&](int y) { return ink(cx, [&](int x) { return L(x, y); }); };
+            auto inkY = [&](int x) { return ink(cy, [&](int y) { return L(x, y); }); };
+            float vx = 0, hy = 0; int nv = 0, nh = 0;
+            for (float f : {0.3f, 0.45f, 0.6f}) { float x = inkX(cy + int(f * R)); if (x >= 0) { vx += x; ++nv; } }
+            for (float f : {-0.5f, 0.5f}) { float y = inkY(cx + int(f * R)); if (y >= 0) { hy += y; ++nh; } }
+            vx = nv ? vx / nv : -1; hy = nh ? hy / nh : -1;
+            double sin = 0, sout = 0; int nin = 0, nout = 0;   // clear eyepiece vs the dark surround (upper half, no weapon there)
+            for (int y = cy - R; y < cy; y += 3) for (int x = cx - R; x < cx + R; x += 3) {
+              float r = std::hypot(x + 0.5f - cx, y + 0.5f - cy);
+              if (r > 0.3f * R && r < 0.7f * R && std::abs(x - cx) > R / 10 && std::abs(y - cy) > R / 10) { sin += L(x, y); ++nin; }
+            }
+            for (int y = 0; y < cy - R / 2; y += 3) for (int x = 0; x < p.w; x += 3) if (std::hypot(x + 0.5f - cx, y + 0.5f - cy) > 1.2f * R) { sout += L(x, y); ++nout; }
+            float mIn = nin ? float(sin / nin) : 0, mOut = nout ? float(sout / nout) : 0;
+            const WeaponDef& d = WD(a);
+            SightCheck c = sightCheck(a);
+            char b[420];
+            std::snprintf(b, sizeof b, "%s scope view at %dx%d: weapon drawn (%zu + %zu items), %.1f%% of the band under the eyepiece is weapon (want >= 3%%), the eyepiece restored over the weapon (%d weapon pixels under it); reticle '%s' post x %.1f (centre %d), bar y %.1f (centre %d); eyepiece mean %.0f vs surround %.0f; scope eye %.2f px from the centre",
+                          id.c_str(), p.w, p.h, a.R.viewModel.size(), a.R.viewModelTex.size(), 100.0f * below / std::max(1, belowAll), inside, d.reticle.c_str(), vx, cx, hy, cy, mIn, mOut, c.rearErr);
+            check(a.scopeView() && !(a.R.viewModel.empty() && a.R.viewModelTex.empty()) && below >= 0.03f * belowAll && nv == 3 && nh == 2 && std::fabs(vx - cx) <= 1.5f && std::fabs(hy - cy) <= 1.5f
+                  && mIn > 2.0f * mOut && c.ok && c.rearErr < 0.5f, b);
+            summary[id]["scope"] = {{"belowWeaponPct", 100.0f * below / std::max(1, belowAll)}, {"postX", vx}, {"barY", hy}, {"centre", {cx, cy}}, {"eyepieceMean", mIn}, {"surroundMean", mOut}};
+          }); });
+      }
+      push("kar98k_zf39 bolt", [this](App& a, float t) {   // the model's bolt (Bolt_1 + Bolt_2) lifts and draws back after a shot
+        static int s0; static mat4 rest;
+        auto handle = [](App& a2) { for (auto& it : a2.R.viewModelTex) if (a2.weaponDefs[a2.activeWeapon]->model->parts[it.part].name.rfind("Kar98k_Bolt_2", 0) == 0) return it.m; return mat4(0); };
+        if (t == 0) { a.selectWeapon(a.weaponIndex("kar98k_zf39")); a.vm.procedural = false; a.vm.snap = true; a.scriptedInput = ExploreInput{}; a.wstate["kar98k_zf39"].loaded = 5; s0 = a.shotsFired; return false; }
+        if (t < 0.5f) { rest = glm::inverse(a.viewModelMatrix(WD(a), a.wstate["kar98k_zf39"])) * handle(a); return false; }
+        if (a.shotsFired == s0) { a.scriptedInput.fire = true; return t > 4; }
+        a.scriptedInput.fire = false;
+        const WeaponDef& d = WD(a); auto& s = a.wstate[d.id];
+        if (s.bolt > d.boltTime * 0.5f) return false;   // mid-cycle: handle up and drawn back
+        shotQueue.push_back("sights_kar98k_zf39_bolt");
+        mat4 now = glm::inverse(a.viewModelMatrix(d, s)) * handle(a);   // weapon-space transform of the bolt part
+        vec3 knob(-0.045f, 0.045f, 0.4f), p0 = vec3(rest * vec4(knob, 1)), p1 = vec3(now * vec4(knob, 1));
+        char b[200]; std::snprintf(b, sizeof b, "kar98k_zf39 bolt mid-cycle: handle knob y %.3f -> %.3f (lifted over the bore), z %.3f -> %.3f (drawn back)", p0.y, p1.y, p0.z, p1.z);
+        check(p1.y > d.boltPivot.y && p1.y > p0.y + 0.02f && p1.z < p0.z - 0.03f, b);
+        return true; });
+      push("scope irons mode", [this](App& a, float t) {   // V: the M1C over its irons, no eyepiece
+        if (t == 0) { a.selectWeapon(a.weaponIndex("m1c_garand")); a.scopeIronsMode = true; a.vm.procedural = false; a.vm.snap = true; a.scriptedInput = ExploreInput{}; }
+        a.scriptedInput.aim = true;
+        if (t < 1.0f) return false;
+        float fov = 0; a.weaponCamera(fov);
+        check(!a.scopeView() && std::fabs(fov - WD(a).adsWorldFov) < 0.01f, "M1C in irons mode (V): no eyepiece, world FOV " + std::to_string(fov).substr(0, 4) + " (irons)");
+        a.scopeIronsMode = false;
+        return true; });
+    }
+
     // ---- smooth ADS: one blend, editable time, continuous world FOV, mid-way reversal, stable hold under recoil
     if (wanted("ads")) push("ads smooth", [this](App& a, float t) {
       static std::vector<vec2> fe, fr; static float tFull, tRev, holdMin, holdMax; static int phase, s0;

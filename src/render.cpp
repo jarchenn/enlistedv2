@@ -1374,6 +1374,66 @@ void main(){
 }
 )GLSL";
 
+// ---- optic eyepiece (W2: sniper scopes, AT gun sight). Pixels q from the frame centre (y up), circle radius R.
+// uMode 0 (after the world, into dofTex): inside the circle the magnified world, an edge falloff and the reticle ink;
+//   outside it the world blurred heavily (16 taps on a coarse hdrColor mip) and darkened, with a black tube rim.
+// uMode 1 (after the weapon, blended ONE / SRC_ALPHA into hdrColor): the inside comes back from the composite, so the
+//   weapon shows only around the eyepiece; outside, the weapon is shaded by uShade (out of focus, in the eye's shadow).
+static const char* kEyepieceFS = R"GLSL(
+#version 450 core
+in vec2 vUV;
+uniform sampler2D uSrc; uniform vec2 uRes; uniform float uR, uDark, uShade; uniform int uReticle, uMode;
+out vec4 oColor;
+float segD(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0); return length(pa - ba*h); }
+float cov(float d){ return clamp(0.5 - d, 0.0, 1.0); }   // ink coverage at signed distance d (px, < 0 inside)
+float reticleInk(vec2 q, float R){
+  float ink = 0.0;
+  if (uReticle == 1) {          // German no. 1 (ZF39): pointed post from below, its tip the aim point; heavy side bars, open centre
+    float hw = max(1.6, R*0.011), tip = R*0.07;
+    if (q.y <= 0.0) ink = cov(abs(q.x) - hw*min(1.0, -q.y/tip));
+    ink = max(ink, cov(max(abs(q.y) - max(1.0, R*0.007), R*0.18 - abs(q.x))));
+  } else if (uReticle == 2) {   // US M81 / M82 (M1C): fine crosshair, tapered lower post
+    float t = max(0.8, R*0.002);
+    ink = cov(abs(q.y) - t);
+    ink = max(ink, cov(abs(q.x) - (q.y > 0.0 ? t : max(t, 0.012*(-q.y)))));
+  } else if (uReticle == 3) {   // TZF: big chevron (aim point at its tip), a row of small range chevrons, a post, dotted range arcs
+    float u = R*0.25, lw = max(1.0, R*0.0035), d = 1e9;
+    d = min(d, segD(q, vec2(0.0), vec2(-0.45*u, -0.63*u)));
+    d = min(d, segD(q, vec2(0.0), vec2( 0.45*u, -0.63*u)));
+    for (int k = 1; k <= 3; ++k) for (int s = -1; s <= 1; s += 2) {
+      vec2 a = vec2(float(s*k)*u, 0.0);
+      d = min(d, segD(q, a, a + vec2(-0.2*u, -0.28*u)));
+      d = min(d, segD(q, a, a + vec2( 0.2*u, -0.28*u)));
+    }
+    ink = cov(d - lw);
+    if (q.y < -0.9*u) ink = max(ink, cov(abs(q.x) - 1.8*lw));   // vertical post under the big chevron
+    float th = degrees(atan(q.y, q.x));
+    if (th > 28.0 && th < 152.0) for (int i = 0; i < 3; ++i) {   // range arcs over the upper field, a dot every 5 deg
+      float ri = R*(0.42 + 0.17*float(i)), tk = clamp(round(th/5.0)*5.0, 35.0, 145.0);
+      ink = max(ink, cov(length(q - ri*vec2(cos(radians(tk)), sin(radians(tk)))) - 1.4*lw));
+    }
+  }
+  return ink;
+}
+void main(){
+  vec2 q = (vUV - 0.5)*uRes; float R = uR*uRes.y, r = length(q);
+  float f = clamp(R + 0.5 - r, 0.0, 1.0);   // inside the eyepiece (1 px antialiased edge)
+  float outer = smoothstep(R, 2.2*R, r);
+  if (uMode == 1) { vec3 c = textureLod(uSrc, vUV, 0.0).rgb; oColor = vec4(c*f, (1.0 - f)*uShade*mix(1.0, 0.55, outer)); return; }
+  vec3 sharp = textureLod(uSrc, vUV, 0.0).rgb * mix(1.0, 0.6, smoothstep(0.8*R, R, r));
+  sharp = mix(sharp, vec3(0.0015), reticleInk(q, R));
+  float bl = R*0.09, lod = log2(max(1.0, bl/3.0));
+  vec3 s = vec3(0.0);
+  for (int i = 0; i < 16; ++i) {
+    float rr = sqrt((float(i) + 0.5)/16.0)*bl, a = float(i)*2.39996323;
+    s += textureLod(uSrc, vUV + vec2(cos(a), sin(a))*rr/uRes, lod).rgb;
+  }
+  vec3 outside = s/16.0*uDark*smoothstep(R, 1.1*R, r)*mix(1.0, 0.5, outer);
+  vec3 c = mix(outside, sharp, f);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
+}
+)GLSL";
+
 // ---- volumetric light shafts (half resolution): march the shadow cascades along the view ray up to the world
 // depth (never the first-person weapon: it is drawn after this pass), accumulate lit haze with a forward-biased
 // Henyey-Greenstein phase. Restrained: it adds light only where the haze is sunlit between occluders.
@@ -2104,7 +2164,7 @@ void main(){
 static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
-uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt; uniform int uTonemap;
+uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect; uniform int uTonemap;
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
@@ -2124,7 +2184,9 @@ vec3 filmic(vec3 x){
 }
 void main(){
   vec3 c = texture(uHdr, vUV).rgb;
-  if (uBloomAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, uBloomAmt);   // chain sums 6 levels; energy-preserving blend, not an add
+  float bAmt = uBloomAmt;   // optic eyepiece: no bloom over its dark surround (the bloom is taken from the whole lit view)
+  if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
+  if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
   // subdued, slightly desaturated period grade
@@ -2240,6 +2302,7 @@ bool Renderer::init(int w, int h) {
   progGrass = compile(kGrassVS, kGrassFS, "grass");
   progModel = compile(kModelVS, kModelFS, "model");
   progDof = compile(kFullVS, kDofFS, "dof");
+  progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
   progShaft = compile(kFullVS, kShaftFS, "shafts");
   progSsao = compile(kFullVS, kSsaoFS, "ssao");
   progBloomDown = compile(kFullVS, kBloomDownFS, "bloom_down");
@@ -2353,6 +2416,7 @@ void Renderer::createTargets() {
   glNamedFramebufferTexture(hdrFbo, GL_COLOR_ATTACHMENT1, vmDistTex, 0);
   glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);
   glCreateTextures(GL_TEXTURE_2D, 1, &dofTex); glTextureStorage2D(dofTex, 1, GL_RGBA16F, width, height);
+  glTextureParameteri(dofTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);   // one level: sampled by the eyepiece pass
   glCreateFramebuffers(1, &dofFbo); glNamedFramebufferTexture(dofFbo, GL_COLOR_ATTACHMENT0, dofTex, 0);
   glCreateFramebuffers(1, &ldrFbo);
   glNamedFramebufferTexture(ldrFbo, GL_COLOR_ATTACHMENT0, ldrColor, 0);
@@ -2899,6 +2963,27 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   glDepthMask(GL_TRUE);
   glDisable(GL_BLEND);
+  // optic eyepiece (W2): world -> eyepiece composite (kEyepieceFS mode 0) -> weapon -> eyepiece restored over it (mode 1)
+  const bool eyepiece = v.eyepieceR > 0 && !thumbMode;
+  auto eyepiecePass = [&](int mode) {
+    glDisable(GL_DEPTH_TEST);
+    glUseProgram(progEyepiece);
+    glBindTextureUnit(0, mode == 0 ? hdrColor : dofTex); glUniform1i(U(progEyepiece, "uSrc"), 0);
+    glUniform2f(U(progEyepiece, "uRes"), (float)width, (float)height);
+    glUniform1f(U(progEyepiece, "uR"), v.eyepieceR);
+    glUniform1f(U(progEyepiece, "uDark"), v.reticle == 3 ? 0.006f : 0.035f);   // linear: gunner sight soft black; scopes the world dimly (~20 % on screen)
+    glUniform1f(U(progEyepiece, "uShade"), 0.6f);
+    glUniform1i(U(progEyepiece, "uReticle"), v.reticle); glUniform1i(U(progEyepiece, "uMode"), mode);
+    glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+    glEnable(GL_DEPTH_TEST);
+  };
+  if (eyepiece) {
+    glGenerateTextureMipmap(hdrColor);   // the blur source; also the exposure's (below), so the dark surround does not brighten the view
+    glBindFramebuffer(GL_FRAMEBUFFER, dofFbo);
+    eyepiecePass(0);
+    glCopyImageSubData(dofTex, GL_TEXTURE_2D, 0, 0, 0, 0, hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
+  }
   if (!viewModel.empty() || !viewModelTex.empty()) {
     // First-person weapon (and arms): drawn over a cleared depth buffer so it never clips into walls, lit at its
     // world position, with its own fixed-FOV projection so the world FOV can zoom while the weapon keeps its size.
@@ -2934,10 +3019,15 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glEnable(GL_DEPTH_TEST);
       glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
     }
+    if (eyepiece) {   // dofTex still holds the eyepiece composite
+      glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_SRC_ALPHA);
+      eyepiecePass(1);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glDisable(GL_BLEND);
+    }
   }
 
   // ---- exposure
-  glGenerateTextureMipmap(hdrColor);
+  if (!eyepiece) glGenerateTextureMipmap(hdrColor);
   int levels = (int)std::floor(std::log2((float)std::max(width, height)));
   glBindFramebuffer(GL_FRAMEBUFFER, expoFbo[expoIdx ^ 1]);
   glViewport(0, 0, 1, 1);
@@ -2962,6 +3052,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? q.bloomStrength : 0.0f);
+  glUniform1f(U(progTone, "uEyeR"), eyepiece ? v.eyepieceR : 0.0f); glUniform1f(U(progTone, "uAspect"), (float)width / std::max(1, height));
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   // ---- editor overlays (separate pass; never drawn in Explore)

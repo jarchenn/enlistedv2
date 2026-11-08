@@ -60,7 +60,14 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         a.scriptedInput.aim = true;
         if (t < 0.9f) return false;
         const WeaponDef& d = D(a); auto& s = a.wstate[d.id];
-        if (a.vmScoped(d)) { check(true, d.id + ": scoped, sight picture replaced by the scope mask"); return true; }
+        if (a.vmScoped(d)) {   // W2: the weapon stays drawn under the eyepiece, the scope eye on the centre
+          vec3 r, f; a.sightLineWorld(d, s, r, f);
+          mat4 vp = glm::perspective(radians(a.vm.vmFov), 16.0f / 9.0f, 0.03f, 100.0f) * a.viewM;
+          float worst = std::max(pxFromCentre(vp, r), pxFromCentre(vp, f));
+          char b[200]; std::snprintf(b, sizeof b, "%s: scoped, the weapon stays drawn (%zu + %zu items) with the scope eye on the screen centre (%.2f px), eyepiece view %s", d.id.c_str(), a.R.viewModel.size(), a.R.viewModelTex.size(), worst, a.scopeView() ? "on" : "OFF");
+          check(a.scopeView() && !(a.R.viewModel.empty() && a.R.viewModelTex.empty()) && worst < 0.5f, b);
+          return true;
+        }
         if (d.action == "heavy") { check(a.adsT == 0, d.id + ": carried heavy weapon has no sights (deploy it to aim)"); return true; }
         if (d.equipment()) { check(a.adsT == 0, d.id + ": hand equipment (grenade / knife) has no sights"); return true; }
         mat4 M = a.viewModelMatrix(d, s);

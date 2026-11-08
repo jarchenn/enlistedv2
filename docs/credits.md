@@ -14,7 +14,8 @@ You supplied these five GLB files and confirmed you own or have licensed them. A
 | bazooka.glb (expansion) | M9 Bazooka (two-piece tube, reads as M9/M9A1; factor-only material repainted OD in the weapon JSON) | 12.65.0 | **unknown** | **unknown** | **unknown** |
 | panzerschreck_pickup.glb (expansion) | Panzerschreck (pickup-grade mesh, 2.9k tris, no normal map) | 12.68.0 | **unknown** | **unknown** | **unknown** |
 | m2_browning_machine_gun.glb (expansion) | Carried M2HB and the M2HB tripod station | 12.68.0 | **unknown** | **unknown** | **unknown** |
-| kar98k (1).glb (expansion) | Kar 98k and Kar 98k ZF39 (replaces the box model; the ZF39 scope stays procedural) | 14.39.1 | **unknown** | **unknown** | **unknown** |
+| kar98k (1).glb (expansion) | Kar 98k (iron sights; replaces the box model) | 14.39.1 | **unknown** | **unknown** | **unknown** |
+| kar98k_aria.glb (gunplay / sights) | Kar 98k ZF39 sniper rifle (`kar98k_zf39`): body, bolt (Bolt_1 + Bolt_2), ZF39 scope; the sling and trigger stay in the body | 12.66.0 | ARIA (https://sketchfab.com/I_Live) | CC-BY-4.0 | https://sketchfab.com/3d-models/kar98k-c383b7ac23854314989773776e6c76ff |
 | tommy_gun.glb (expansion) | **Not used**: an M1928-style drum gun (finned barrel, Cutts compensator, vertical foregrip), a different variant from the shipped M1 Thompson | 14.62.0 | **unknown** | **unknown** | **unknown** |
 | wire_obstacle_defence_set (1).glb (complete update) | The three wire obstacles (concertina coil, post fence, knife rest), simplified to 24-45k tris each; the other copy, `wire_obstacle_defence_set.glb`, has identical geometry with smaller textures and is not used | from Sketchfab (exporter not recorded) | **unknown** | **unknown** | **unknown** |
 | mk_2_grenade.glb (complete update) | Mk 2 hand grenade (held, thrown) | 12.68.0 | Nila | CC-BY-4.0 | https://sketchfab.com/3d-models/mk-2-grenade-fc6408a7f7cd485397061ef0b72531b0 |
@@ -51,7 +52,7 @@ Everything else in the game is generated procedurally from box parts: the struct
 
 BSL Shaders v10.1.8 by Capt Tatsu (https://capttatsu.com) was the visual reference for the lighting, atmosphere and post-processing pass (`docs/rendering.md`). The pack ships no licence file and no reuse terms were found, so none of its code, tables or textures are used or redistributed. The engine's shaders are original implementations, and the pack is not part of this repository.
 
-Author, licence and source for the grenade, StG 44, M3 and soldier rows come from each file's own glTF `asset.extras` (Sketchfab export fields). They were read from the files, not taken from the filenames.
+Author, licence and source for the grenade, StG 44, M3, Kar 98k ZF39 and soldier rows come from each file's own glTF `asset.extras` (Sketchfab export fields). They were read from the files, not taken from the filenames.
 
 ## Libraries: navigation
 

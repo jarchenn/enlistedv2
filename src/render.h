@@ -39,6 +39,9 @@ struct RenderView {
   // first-person weapon: own fixed-FOV projection (identity = use proj) and the depth-of-field focus
   mat4 vmProj{0};
   float dofFocus = 0, dofAmount = 0;   // metres from the eye; 0..1 (ADS blend)
+  // optic eyepiece (W2): radius of the clear circle (fraction of the frame height; 0 = none) and its reticle:
+  // 1 German post with side bars (ZF39), 2 crosshair with a lower post (M1C), 3 TZF gunner sight (PaK 40)
+  float eyepieceR = 0; int reticle = 0;
   bool underwater = false;             // camera below the water surface (swim.cpp): dense fog, tint, vignette
   vec3 underFogCol{0.06f, 0.24f, 0.25f}; float underFogDens = 0.11f;   // movement.json "swim"
 };
@@ -151,7 +154,7 @@ private:
   DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
   std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call
   GLuint progLeaf = 0, progLeafShadow = 0;
-  GLuint progModel = 0, progDof = 0, progShaft = 0, progComposite = 0;
+  GLuint progModel = 0, progDof = 0, progShaft = 0, progComposite = 0, progEyepiece = 0;
   GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)
   void worldComposite(const RenderView& v, const mat4& vp);
   GLuint ambTex = 0, aoTex = 0, aoFbo = 0, progSsao = 0, progBloomDown = 0, progBloomUp = 0;
