@@ -25,13 +25,15 @@ mkdir -p "$(dirname "$LOCK")" "$Q"
 TICKET="$Q/$(date +%s%N)-$$-$RANDOM$([ "$EXCL" = 1 ] && echo -X)"   # -X: exclusive (nobody behind it takes a slot)
 echo "$TAG | $*" > "$TICKET"
 HELD=()
-release() { rm -f "$TICKET"; for d in "${HELD[@]}"; do rm -rf "$d"; done; }
-trap release EXIT INT TERM
+release() { rm -f "$TICKET"; for d in "${HELD[@]}"; do rm -rf "$d"; done; HELD=(); }
+trap release EXIT
+trap 'release; exit 143' INT TERM   # a plain kill stops a waiter (and frees what it holds)
 waited=0
 while :; do
   touch "$TICKET"
   find "$Q" -type f -mmin +2 ! -path "$TICKET" -delete 2>/dev/null    # waiters that died
   for k in $(seq 1 "$N"); do d="$(slot $k)"
+    case " ${HELD[*]} " in *" $d "*) continue;; esac   # never time out a slot this waiter holds
     if [ -n "$(find "$d" -maxdepth 0 -mmin +"$STALE" 2>/dev/null)" ]; then echo "gpu_turn: slot $k older than $STALE min ($(cat "$d/owner" 2>/dev/null)): taking it over"; rm -rf "$d"; fi
   done
   ahead=$(ls -1 "$Q" 2>/dev/null | sort | awk -v me="$(basename "$TICKET")" '$0 < me' | wc -l)
@@ -41,8 +43,8 @@ while :; do
   fi
   if [ "$EXCL" = 1 ]; then
     if [ "$ahead" -eq 0 ]; then
-      for k in $(seq 1 "$N"); do d="$(slot $k)"; if mkdir "$d" 2>/dev/null; then HELD+=("$d"); fi; done   # keep what we got; wait for the rest
-      [ "${#HELD[@]}" -eq "$N" ] && break
+      for k in $(seq 1 "$N"); do d="$(slot $k)"; case " ${HELD[*]} " in *" $d "*) continue;; esac; if mkdir "$d" 2>/dev/null; then HELD+=("$d"); fi; done   # keep what we got; wait for the rest
+      [ "${#HELD[@]}" -ge "$N" ] && break
     fi
   elif [ "$ahead" -lt "$N" ] && ! ls -1 "$Q" 2>/dev/null | sort | awk -v me="$(basename "$TICKET")" '$0 < me' | grep -q -- "-X$"; then
     got=""; for k in $(seq 1 "$N"); do d="$(slot $k)"; if mkdir "$d" 2>/dev/null; then got="$d"; break; fi; done
