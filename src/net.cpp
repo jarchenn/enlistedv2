@@ -24,6 +24,8 @@ static int closesocket(SOCKET s) { return close(s); }
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <deque>
+#include <cstdlib>
+#include <fstream>
 #include <cstring>
 #include <algorithm>
 #include <random>
@@ -228,6 +230,7 @@ std::string Net::mapHash(const App& app) {
   j.erase("scenario"); j.erase("editorCamera"); j.erase("exploreStart"); j.erase("name");   // the host sends the scenario itself
   j.erase("nextId");   // session placements (field defences) reach late joiners through the world log, not the map
   auto& in = j["instances"]; in.erase(std::remove_if(in.begin(), in.end(), [](const json& o) { return o.value("session", false); }), in.end());
+  if (const char* d = std::getenv("NMK_DUMP_MAPHASH"); d && *d) std::ofstream(d) << j.dump(1);   // diagnostics: compare what two machines hash
   return hex(fnv(j.dump()));
 }
 
