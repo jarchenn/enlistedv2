@@ -8,8 +8,8 @@ import { stdMaterials, wall, partition, window, door, stairs, railing, quoins, g
 import { shelfX, shelfZ, crates, barrel, sacks, stool } from "./furniture2.mjs";
 import { mats, rng, fire, cover, room, corners, setNav, setTour, r3 } from "./catalog_atlantic.mjs";
 
-const PT = 0.03;
-const pnM = (side, y0, y1, GF) => ({ side, family: "masonry", bands: [[y0, y1, 0, GF]] });
+export const PT = 0.03;
+export const pnM = (side, y0, y1, GF) => ({ side, family: "masonry", bands: [[y0, y1, 0, GF]] });
 function shell(A, { X, Z, T, GF, EAVE, front = [], back = [], east = [], west = [], panel = true }) {
   const XI = X - T, ZI = Z - T, y0 = GF - 0.02;
   A.box([-X - 0.05, -0.9, -Z - 0.05], [X + 0.05, y0, Z + 0.05], "stone_plinth");
@@ -21,7 +21,7 @@ function shell(A, { X, Z, T, GF, EAVE, front = [], back = [], east = [], west = 
   return { XI, ZI, y0 };
 }
 // slate gable roof over x0..x1 (ridge along X, symmetric in Z); gables: which end gables to build
-function roofX(A, x0, x1, Z, EAVE, RIDGE, { ov = 0.35, gov = 0.28, t = 0.14, gables = [true, true], wallT = 0.6, gableMat = "stone" } = {}) {
+export function roofX(A, x0, x1, Z, EAVE, RIDGE, { ov = 0.35, gov = 0.28, t = 0.14, gables = [true, true], wallT = 0.6, gableMat = "stone" } = {}) {
   const xc = (x0 + x1) / 2, X = (x1 - x0) / 2, th = Math.atan2(RIDGE - EAVE, Z), deg = (th * 180) / Math.PI;
   if (gables[0]) A.prism(0, x0, x0 + wallT, [[-Z, EAVE], [Z, EAVE], [0, RIDGE]], gableMat);
   if (gables[1]) A.prism(0, x1 - wallT, x1, [[-Z, EAVE], [Z, EAVE], [0, RIDGE]], gableMat);
@@ -52,7 +52,7 @@ function raggedWall(A, R, { axis, outer, inner, a0, a1, inA = [a0, a1], y0, heig
   }
 }
 // pews facing +X (toward the altar) in a block z0..z1, rows from x0 to x1
-function pews(A, x0, x1, z0, z1, GF) {
+export function pews(A, x0, x1, z0, z1, GF) {
   for (let x = x0; x <= x1 + 1e-6; x += 1.0) {
     A.beginFurniture("Pew");
     A.box([x - 0.2, GF + 0.42, z0], [x + 0.2, GF + 0.47, z1], "oak_z");
@@ -61,20 +61,7 @@ function pews(A, x0, x1, z0, z1, GF) {
     A.endFurniture();
   }
 }
-// square slate spire from y0 to y1 over a base of half-width h: each face a stack of leaning bands
-function spire(A, cx, cz, h, y0, y1, bands = 8) {
-  const H = y1 - y0, lean = Math.atan2(h, H), ldeg = (lean * 180) / Math.PI, sl = H / Math.cos(lean) / bands;
-  for (let b = 0; b < bands; b++) {
-    const f0 = b / bands, f1 = (b + 1) / bands, fm = (f0 + f1) / 2, w = 2 * h * (1 - fm) + 0.1, y = y0 + H * fm, off = h * (1 - fm);
-    A.obox([cx, y, cz + off], [w, sl + 0.04, 0.12], [-ldeg, 0, 0], "slate");
-    A.obox([cx, y, cz - off], [w, sl + 0.04, 0.12], [ldeg, 0, 0], "slate");
-    A.obox([cx + off, y, cz], [0.12, sl + 0.04, w], [0, 0, ldeg], "slate");
-    A.obox([cx - off, y, cz], [0.12, sl + 0.04, w], [0, 0, -ldeg], "slate");
-  }
-  A.box([cx - 0.05, y1 - 0.2, cz - 0.05], [cx + 0.05, y1 + 1.4, cz + 0.05], "iron", { k: 0 });   // cross
-  A.box([cx - 0.35, y1 + 0.85, cz - 0.04], [cx + 0.35, y1 + 0.95, cz + 0.04], "iron", { k: 0 });
-}
-const unglazed = (p, yaw) => ({ ...fire(p, yaw, "window"), unglazed: true });
+export const unglazed = (p, yaw) => ({ ...fire(p, yaw, "window"), unglazed: true });
 
 // ============================================================================ Norman longere farmhouse
 // 15 x 7 m single-storey longhouse under a steep slate roof: kitchen with hearth (west), salle with the box bed
@@ -210,122 +197,6 @@ export function stoneBarn() {
   return A;
 }
 
-// ============================================================================ church with steeple
-// Tower (west, x -14.4..-8.0) with a four-flight stair to the belfry at 10.7 m (openings on three sides: the sniper
-// position) under a slate spire to 25 m; nave (x -8..6, 8 m wide, 6 m to the eaves) with pews; choir (x 6..11).
-export function church() {
-  const A = new Asset({ id: "vil_church", version: 1, name: "Village church with steeple", category: "Landmarks",
-    description: "Norman village church (Saint-Laurent): a 14 x 8 m nave with pews, a narrower choir with the altar, and a west tower 6.4 m square rising 15 m to the belfry under a slate spire (25 m). A four-flight stair climbs the tower to the belfry floor at 10.7 m, whose open louvred arches on three sides are the sniper position. South door into the nave, south door into the tower base.",
-    floors: 1, enterable: true, footprint: [28.8, 9.4], plinthDepth: 1.0, maxGrade: 0.8 });
-  stdMaterials(A);
-  A.mat("bronze", [0.3, 0.22, 0.1], 0.45, "metal", { metallic: 0.9 });
-  const R = rng(9101);
-  const GF = 0.3, y0 = GF - 0.02, NT = 0.8;
-  // ---- tower: outer x -14.4..-8.0, z -3.2..3.2; inner x -13.6..-8.8, z -2.4..2.4
-  const TX0 = -14.4, TX1 = -8.0, TZ = 3.2, TT = 0.8, TXI0 = TX0 + TT, TXI1 = TX1 - TT, TZI = TZ - TT, TOP = 15.0, BF = 10.7;
-  const tdoor = door(A, { id: "tower_door", axis: "x", outer: TZ, inner: TZI, c: -11.2, floor: GF, w: 1.1, h: 2.3, hingeSide: 1 });
-  const belfry = (c) => ({ a0: c - 0.55, a1: c + 0.55, y0: BF + 0.9, y1: BF + 3.2 });
-  const lancet = (c, y) => ({ a0: c - 0.15, a1: c + 0.15, y0: y, y1: y + 1.1 });
-  const tArch = { a0: -0.7, a1: 0.7, y0: -10, y1: GF + 2.7 };
-  const tp = (s) => pnM(s, y0, BF - 0.4, GF);
-  A.box([TX0 - 0.05, -0.9, -TZ - 0.05], [TX1, y0, TZ + 0.05], "stone_plinth");
-  A.box([TXI0, y0, -TZI], [TXI1, GF, TZI], "stone_dressed");
-  wall(A, { axis: "x", outer: TZ, inner: TZI, aOut: [TX0, TX1], aIn: [TXI0, TXI1], y0, y1: TOP, holes: [tdoor, belfry(-11.2), lancet(-11.2, 6.2)], pt: PT, panel: tp("tower_s") });
-  wall(A, { axis: "x", outer: -TZ, inner: -TZI, aOut: [TX0, TX1], aIn: [TXI0, TXI1], y0, y1: TOP, holes: [belfry(-11.2), lancet(-11.2, 4.0)], pt: PT, panel: tp("tower_n") });
-  wall(A, { axis: "z", outer: TX0, inner: TXI0, aOut: [-TZI - PT, TZI + PT], aIn: [-TZI, TZI], y0, y1: TOP, holes: [belfry(0)], pt: PT, panel: tp("tower_w") });
-  wall(A, { axis: "z", outer: TX1, inner: TXI1, aOut: [-TZI - PT, TZI + PT], aIn: [-TZI, TZI], y0, y1: TOP, holes: [tArch], pt: PT, panel: null });
-  for (const s of [-1, 1]) for (const x of [TX0, TX1 - 0.6]) A.box([x - (x === TX0 ? 0.25 : 0), y0, s > 0 ? TZ - 0.6 : -TZ - 0.25], [x + 0.6 + (x === TX0 ? 0 : 0.25), 7.0 - (x === TX0 ? 0 : 1.5), s > 0 ? TZ + 0.25 : -TZ + 0.6], "stone_dressed");   // buttresses
-  A.box([TX0 - 0.15, TOP - 0.3, -TZ - 0.15], [TX1 + 0.15, TOP, TZ + 0.15], "stone_dressed");   // cornice
-  for (const [axis, d0, d1, c] of [["x", TZI, TZ, -11.2], ["x", -TZ, -TZI, -11.2], ["z", TX0, TXI0, 0]]) for (let k = 0; k < 2; k++) wbox(A, axis, c - 0.55, c + 0.55, BF + 2.75 + k * 0.22, BF + 2.82 + k * 0.22, d0, d1, "oak_x", { k: 0 });   // abat-son slats (top only)
-  spire(A, (TX0 + TX1) / 2, 0, TZ + 0.1, TOP, 25.0, 9);
-  // tower stair: W strip x -13.6..-12.6 climbs +Z, E strip x -9.8..-8.8 climbs -Z, landings at the ends
-  const fl = [[TXI0, TXI0 + 1.0, -1.6, 1, GF], [TXI1 - 1.0, TXI1, 1.6, -1, GF + 2.6], [TXI0, TXI0 + 1.0, -1.6, 1, GF + 5.2], [TXI1 - 1.0, TXI1, 1.6, -1, GF + 7.8]];
-  fl.forEach(([x0, x1, z0, dir, yb], i) => {
-    const west = dir > 0;
-    stairs(A, { x0, x1, z0, dir, y0: yb, rise: 2.6, n: 12, run: 3.2, openSide: west ? 1 : -1, core: !west });
-    if (!west) {   // E flights: no spandrel (the ground passage runs under them); a vertical guard per tread toward the void
-      for (let k = 0; k < 12; k++) { const za = z0 - k * (3.2 / 12), zb = za - 3.2 / 12, top = yb + (k + 1) * (2.6 / 12); A.box([x0 - 0.06, top - 0.05, zb], [x0, top + 1.1, za], "oak_x", { v: 0 }); }
-      A.obox([x0 - 0.03, yb + 1.3 + 0.9, 0], [0.05, 0.07, Math.hypot(3.2, 2.6)], [Math.atan2(2.6, 3.2) * 180 / Math.PI, 0, 0], "oak_x", { k: 0 });
-    }
-    void i;
-  });
-  for (const [z0, z1, y] of [[1.6, TZI, GF + 2.6], [-TZI, -1.6, GF + 5.2], [1.6, TZI, GF + 7.8]]) {
-    A.box([TXI0, y - 0.2, z0], [TXI1, y, z1], "floor_x");
-    railing(A, "x", TXI0 + 1.0, TXI1 - 1.0, z0 > 0 ? z0 - 0.03 : z1 + 0.03, y);
-  }
-  // belfry floor with the stair hole over the last E flight, its guard, the bell frame and bell
-  A.box([TXI0, BF - 0.2, -TZI], [TXI1 - 1.0, BF, TZI], "floor_x");
-  A.box([TXI1 - 1.0, BF - 0.2, -TZI], [TXI1, BF, -1.6], "floor_x");
-  railing(A, "z", -1.6, TZI, TXI1 - 1.03, BF);
-  for (const x of [-12.2, -10.6]) for (const z of [-0.6, 1.0]) A.box([x - 0.1, BF, z - 0.1], [x + 0.1, BF + 3.6, z + 0.1], "oak_y");
-  for (const z of [-0.6, 1.0]) A.box([-12.3, BF + 3.4, z - 0.12], [-10.5, BF + 3.6, z + 0.12], "oak_x", { k: 0 });
-  A.box([-11.6, BF + 3.6, -0.7], [-11.2, BF + 3.75, 1.1], "oak_z", { k: 0 });
-  for (const [w, y] of [[0.5, 3.35], [0.75, 3.0], [0.95, 2.6]]) A.box([-11.4 - w / 2, BF + y, 0.2 - w / 2], [-11.4 + w / 2, BF + y + 0.38, 0.2 + w / 2], "bronze", { k: 0 });
-  A.box([TXI0, BF + 3.8, -TZI], [TXI1, BF + 4.0, TZI], "floor_x");   // belfry ceiling under the spire
-  // ---- nave: outer x -8.0..6.0, z -4..4; inner x -7.2..5.2, z -3.2..3.2
-  const NX0 = -8.0, NX1 = 6.0, NZ = 4.0, NXI0 = NX0 + NT, NXI1 = NX1 - NT, NZI = NZ - NT, NE = 6.0, NR = 10.0;
-  const sdoor = door(A, { id: "south_door", axis: "x", outer: NZ, inner: NZI, c: -2.6, floor: GF, w: 1.6, h: 2.8, double: true, label: "church doors" });
-  const cw = (id, outer, inner, c) => window(A, { id, axis: "x", outer, inner, c, sill: GF + 2.4, w: 0.9, h: 2.2, shutters: false });
-  const nS = [sdoor, cw("nave_s1", NZ, NZI, -5.8), cw("nave_s2", NZ, NZI, 1.0), cw("nave_s3", NZ, NZI, 3.8)];
-  const nN = [cw("nave_n1", -NZ, -NZI, -5.8), cw("nave_n2", -NZ, -NZI, -2.6), cw("nave_n3", -NZ, -NZI, 1.0), cw("nave_n4", -NZ, -NZI, 3.8)];
-  const chancel = { a0: -1.8, a1: 1.8, y0: -10, y1: GF + 4.4 };
-  A.box([NX0, -0.9, -NZ - 0.05], [NX1, y0, NZ + 0.05], "stone_plinth");
-  A.box([NXI0, y0, -NZI], [NXI1, GF, NZI], "stone_dressed");
-  const np = (s) => pnM(s, y0, NE, GF);
-  wall(A, { axis: "x", outer: NZ, inner: NZI, aOut: [NX0, NX1], aIn: [NXI0, NXI1], y0, y1: NE, holes: nS, pt: PT, panel: np("nave_s") });
-  wall(A, { axis: "x", outer: -NZ, inner: -NZI, aOut: [NX0, NX1], aIn: [NXI0, NXI1], y0, y1: NE, holes: nN, pt: PT, panel: np("nave_n") });
-  wall(A, { axis: "z", outer: NX0, inner: NXI0, aOut: [-NZI - PT, NZI + PT], aIn: [-NZI, NZI], y0, y1: NE, holes: [tArch], pt: PT, panel: null });
-  wall(A, { axis: "z", outer: NX1, inner: NXI1, aOut: [-NZI - PT, NZI + PT], aIn: [-NZI, NZI], y0, y1: NE, holes: [chancel], pt: PT, panel: null });
-  for (const s of [-1, 1]) for (const x of [-4.3, -0.8, 2.6]) A.box([x - 0.35, y0, s > 0 ? NZ : -NZ - 0.55], [x + 0.35, NE - 1.2, s > 0 ? NZ + 0.55 : -NZ], "stone_dressed");   // buttresses
-  roofX(A, NX0, NX1, NZ, NE, NR, { gables: [false, true], wallT: NT });
-  A.prism(0, NX0, NX0 + NT, [[-NZ, NE], [NZ, NE], [0, NR]], "stone");
-  // ---- choir: outer x 6..11, z -3..3; inner x 6..10.2, z -2.2..2.2
-  const CX1 = 11.0, CZ = 3.0, CXI1 = CX1 - NT, CZI = CZ - NT, CE = 5.0, CR = 7.8;
-  A.box([NX1, -0.9, -CZ - 0.05], [CX1 + 0.05, y0, CZ + 0.05], "stone_plinth");
-  A.box([NX1 - 0.02, y0, -CZI], [CXI1, GF + 0.15, CZI], "stone_dressed");   // choir floor one step up
-  const cp = (s) => pnM(s, y0, CE, GF);
-  wall(A, { axis: "x", outer: CZ, inner: CZI, aOut: [NX1, CX1], aIn: [NX1, CXI1], y0, y1: CE, holes: [cw("choir_s", CZ, CZI, 8.4)], pt: PT, panel: cp("choir_s") });
-  wall(A, { axis: "x", outer: -CZ, inner: -CZI, aOut: [NX1, CX1], aIn: [NX1, CXI1], y0, y1: CE, holes: [cw("choir_n", -CZ, -CZI, 8.4)], pt: PT, panel: cp("choir_n") });
-  wall(A, { axis: "z", outer: CX1, inner: CXI1, aOut: [-CZI - PT, CZI + PT], aIn: [-CZI, CZI], y0, y1: CE, holes: [window(A, { id: "choir_e", axis: "z", outer: CX1, inner: CXI1, c: 0, sill: GF + 2.0, w: 1.0, h: 2.4, shutters: false })], pt: PT, panel: cp("choir_e") });
-  roofX(A, NX1 - 0.3, CX1, CZ, CE, CR, { gables: [false, true], wallT: NT });
-  // ---- furnishings
-  pews(A, -6.4, 3.6, -3.0, -0.6, GF); pews(A, -6.4, 3.6, 0.6, 3.0, GF);
-  A.beginFurniture("Altar"); A.box([9.2, GF + 0.15, -1.1], [9.9, GF + 1.15, 1.1], "stone_dressed"); A.box([9.15, GF + 1.15, -1.2], [9.95, GF + 1.22, 1.2], "linen"); A.endFurniture();
-  A.beginFurniture("Altar candlesticks"); for (const z of [-0.8, 0.8]) A.box([9.5, GF + 1.22, z - 0.03], [9.56, GF + 1.6, z + 0.03], "brass"); A.endFurniture(false);
-  A.beginFurniture("Pulpit"); A.box([4.3, GF, 2.2], [5.0, GF + 1.3, 2.95], "oak_y"); A.endFurniture();
-  A.beginFurniture("Font"); A.box([-6.6, GF, 2.0], [-6.0, GF + 0.95, 2.6], "stone_dressed"); A.endFurniture();
-  table(A, "Vestry table", 7.0, -1.7, 1.0, 0.6, GF + 0.15);
-  setNav(A, {
-    effect: "block",
-    rooms: [room("tower", [TXI0, GF, -TZI], [TXI1, BF - 0.2, TZI]), room("belfry", [TXI0, BF, -TZI], [TXI1, BF + 3.8, TZI]),
-            room("nave", [NXI0, GF, -NZI], [NXI1, NE, NZI]), room("choir", [NX1, GF + 0.15, -CZI], [CXI1, CE, CZI])],
-    doors: [{ a: "nave", b: "outside", p: [-2.6, GF, NZ - NT / 2] }, { a: "tower", b: "outside", p: [-11.2, GF, TZ - TT / 2] }, { a: "tower", b: "nave", p: [-8.0, GF, 0] },
-            { a: "nave", b: "choir", p: [5.6, GF, 0] }, { a: "tower", b: "belfry", p: [-9.3, BF, -2.0] }],
-    entrances: [{ p: [-2.6, 0, NZ + 1.2], dir: [0, 0, -1], room: "nave" }, { p: [-11.2, 0, TZ + 1.2], dir: [0, 0, -1], room: "tower" }],
-    corners: [...corners("tower", TXI0, TXI1, -TZI, TZI, GF, 0.4), ...corners("belfry", TXI0, TXI1, -TZI, TZI, BF, 0.4), ...corners("nave", NXI0, NXI1, -NZI, NZI, GF, 0.6), ...corners("choir", NX1, CXI1, -CZI, CZI, GF + 0.15, 0.5)],
-    firingPoints: [unglazed([-11.2, BF, TZI - 0.35], 0), unglazed([-11.2, BF, -TZI + 0.35], 180), unglazed([TXI0 + 0.35, BF, 0], 270)],
-    cover: [cover([-4.3, 0, NZ + 1.2], 180, "high", ["left", "right"]), cover([2.6, 0, -NZ - 1.2], 0, "high", ["left", "right"]), cover([TX0 - 0.6, 0, 0], 90, "high", ["left", "right"])],
-  });
-  setTour(A, { pos: [-11.2, 0, 7.0], yaw: 0 }, [
-    { goto: [-11.2, 4.6], note: "approach the tower door" },
-    { interact: "tower_door", aim: [-11.0, 1.3, TZI + 0.05], expectOpen: true },
-    { goto: [-11.2, 1.0], expectY: GF, note: "into the tower base" },
-    { goto: [-11.2, -2.08] }, { goto: [-13.1, -2.08], note: "foot of the first flight" },
-    { goto: [-13.1, 2.0], expectY: GF + 2.6, note: "first landing" }, { goto: [-9.3, 2.0] },
-    { goto: [-9.3, -2.08], expectY: GF + 5.2, note: "second landing" }, { goto: [-13.1, -2.08] },
-    { goto: [-13.1, 2.0], expectY: GF + 7.8, note: "third landing" }, { goto: [-9.3, 2.0] },
-    { goto: [-9.3, -2.0], expectY: BF, note: "belfry floor" }, { goto: [-11.2, -1.95], expectY: BF, note: "at the north arch" },
-    { look: [-11.2, BF - 6, -40], hold: 0.8 }, { shot: "mpu_church_belfry_view" },
-    { goto: [-9.3, -2.0] }, { goto: [-9.3, 2.0], expectY: GF + 7.8, note: "down" }, { goto: [-13.1, 2.0] }, { goto: [-13.1, -2.08], expectY: GF + 5.2 },
-    { goto: [-9.3, -2.08] }, { goto: [-9.3, 2.0], expectY: GF + 2.6 }, { goto: [-13.1, 2.0] }, { goto: [-13.1, -2.08], expectY: GF, note: "back at the tower base" },
-    { goto: [-11.2, -2.08] }, { goto: [-11.2, -0.2] }, { goto: [-7.6, 0], note: "through the tower arch" }, { goto: [-2.6, 0.0], expectY: GF, note: "nave" },
-    { look: [9.5, 1.5, 0], hold: 0.6 }, { shot: "mpu_church_nave" },
-    { goto: [5.6, 0.0] }, { goto: [8.2, 0.0], expectY: GF + 0.15, note: "choir" },
-  ]);
-  void R;
-  return A;
-}
-
 // ============================================================================ ruined church (roofless)
 export function churchRuined() {
   const A = new Asset({ id: "vil_church_ruined", version: 1, name: "Ruined church (roofless)", category: "Landmarks",
@@ -428,6 +299,6 @@ export function chateauKeep() {
 }
 
 export function villageAssets() {
-  return [normanFarmhouse(), stoneBarn(), church(), churchRuined(), chateauKeep()];
+  return [churchRuined(), chateauKeep()];   // the farmhouse, barn and church are B2's (catalog_houses2.mjs)
 }
 void bench; void chest; void shelfX; void stool;

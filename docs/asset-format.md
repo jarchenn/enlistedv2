@@ -105,6 +105,28 @@ Colliders: cylinders, cones and wedges are one convex hull (round sections at up
 
 They keep the shimmer rule: members are embedded at least 1 cm into what they sit on, and members that meet differ in projection, so no two faces are coplanar. `kit_demo_folly` (`tools/catalog_kitdemo.mjs`) uses every one of them and is the `--selftest-render` "kit primitives" fixture.
 
+## B2: the reworked buildings and their dressing
+
+`tools/catalog_houses2.mjs` builds every house, outbuilding, large building and the village church (same ids, version 2). The legacy builders keep the interiors, stairs, doors, casements, shutters, bays, nav and tours. `dress()` then layers the facade from the kit:
+- a plinth course, string courses at the floors, a cornice under the eaves;
+- bevelled quoins, lintels, sills, thresholds and steps;
+- jambs and keystones round each opening, read from its interactable. Where shutters fold back over the jambs they stand under 2 cm proud;
+- half-timbering on the Norman types: the stone above the sole plate is re-rendered, in the bays too;
+- per building: dormers, capped chimneys, arcades, balconies and arches;
+- ivy and weathering.
+
+Facade members are visual only (`k: 0`) unless people stand on them. Trim round an opening joins that opening's trim bay (`extractTrim`).
+
+Each building lists `companions` (docs/bunkers.md) with `chance` and `ground`, so each placed copy gets its own yard. `tools/catalog_dressing.mjs` makes the dressing (`drs_*`):
+- garden wall and gate piers (snap kind `garden_wall`), picket fence;
+- flower bed, hay bales, woodpile, well;
+- gravestones, tomb chest, churchyard cross;
+- bridges with one and three arches;
+- sandbag wall and ring, wooden X obstacle;
+- barrels, cart.
+
+`NMK_CAPTURE_SET=b2 NormandyMapmaker --capture-materials <tag>` renders them all to `selftest_out/mat_<tag>_*.png`: each building from its front and rear corners with its companions, and each dressing piece close up.
+
 ## Rules the kit follows
 
 - Walls are real two-layer solids: rubble stone on the outside and lime plaster inside. Openings are cut out of them, never painted on.

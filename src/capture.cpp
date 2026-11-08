@@ -98,6 +98,43 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "b2") {
+      // NMK_CAPTURE_SET=b2: the B2 buildings with their companions (front corner and rear corner, framed from the
+      // footprint) and every drs_* dressing piece close up (tools/catalog_houses2.mjs, catalog_dressing.mjs)
+      static std::deque<std::string> keep;
+      cams.clear();
+      std::vector<const AssetDef*> houses, dress;
+      for (auto& a : app.lib.assets) {
+        if (a->id.rfind("drs_", 0) == 0) dress.push_back(a.get());
+        else if (a->raw.contains("companions") && a->version >= 2 && a->enterable && a->category != "Bunkers") houses.push_back(a.get());
+      }
+      int n = 0;
+      auto frame = [&](const AssetDef* a, vec3 at, const char* view, vec3 dir, float k) {
+        float r = std::max({a->footprint.x, a->footprint.y, a->bmax.y}) * k + 2.0f;
+        keep.push_back(a->id + "_" + view);
+        vec3 t = at + vec3(0, a->bmax.y * 0.35f, 0);
+        cams.push_back({keep.back().c_str(), t + glm::normalize(dir) * r, t});
+      };
+      for (auto* a : houses) {
+        uint64_t id = app.placeInstance(a, vec3(-240.0f + 90.0f * (n % 6), 0, -220.0f + 80.0f * (n / 6)), 0.0f); ++n;   // inside the 300 m build area
+        if (!id) { logf("b2 capture: %s not placed", a->id.c_str()); continue; }
+        app.placeCompanions(id);
+        vec3 o = app.doc.find(id)->pos;
+        frame(a, o, "front", vec3(0.75f, 0.42f, 1.0f), 1.15f);
+        frame(a, o, "rear", vec3(-0.8f, 0.5f, -1.0f), 1.15f);
+      }
+      n = 0;
+      for (auto* a : dress) {
+        uint64_t id = app.placeInstance(a, vec3(-250.0f + 45.0f * (n % 10), 0, 60.0f + 50.0f * (n / 10)), 0.0f); ++n;
+        if (!id) { logf("b2 capture: %s not placed", a->id.c_str()); continue; }
+        frame(a, app.doc.find(id)->pos, "close", vec3(0.7f, 0.45f, 1.0f), 1.0f);
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     FH =app.placeInstance(app.lib.find("house_farmhouse_2story"), vec3(0, 0, 0), 0.0f);
     CM = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(0, 0, 40), 0.0f);
     WH = app.placeInstance(app.lib.find("large_stone_warehouse"), vec3(45, 0, 0), 0.0f);

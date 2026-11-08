@@ -14,7 +14,7 @@ Six bunkers live in the **Bunkers** palette category, plus one crew station in *
 
 ## Companions
 
-An asset can list `"companions": [{ "asset", "pos", "yaw" }]`, given in asset space. When the host is placed from the palette, `App::placeCompanions` places each companion as an ordinary instance on the host's floor. After that they are independent instances: they save and load like anything else, and they don't move with the host.
+An asset can list `"companions": [{ "asset", "pos", "yaw" }]`, given in asset space. When the host is placed from the palette, `App::placeCompanions` places each companion as an ordinary instance on the host's floor. After that they are independent instances: they save and load like anything else, and they don't move with the host. Two optional keys (B2 decor, `tools/catalog_houses2.mjs`): `"chance": p` keeps that companion on only that share of placed copies, rolled from the host's id and the companion's index, so copies are dressed differently; `"ground": true` sets it on the terrain at its own position (plus `pos[1]`) instead of the host's floor.
 
 | Host | Companions |
 |---|---|

@@ -16,6 +16,7 @@ import { villageAssets } from "./catalog_village2.mjs";
 import { ruinAssets } from "./catalog_ruins.mjs";   // V3 (visual & physics overhaul): ruin_* / rub_*
 import { waterAssets } from "./catalog_water.mjs";   // V1 water features (docs/rendering.md#water)
 import { kitDemoAssets } from "./catalog_kitdemo.mjs";   // B1 geometry kit demo (docs/asset-format.md#b1-geometry-kit)
+import { houses2Assets } from "./catalog_houses2.mjs"; import { dressingAssets } from "./catalog_dressing.mjs";   // B2 reworked buildings + dressing
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "content", "assets");
@@ -27,17 +28,6 @@ function put(file, text) {
   changed++;
   if (check) { console.log("would change", file); return; }
   fs.writeFileSync(p, text);
-}
-
-// ---------------------------------------------------------------- new assets
-const ids = new Set();
-for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets()]) {
-  const j = A.json();
-  if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
-  ids.add(j.id);
-  if (!j.nav) throw new Error(j.id + ": no nav block");
-  put(j.id + ".json", JSON.stringify(j));
-  if (!check) console.log(j.id.padEnd(28), String(j.parts.length).padStart(5), "parts", String(j.furniture.length).padStart(3), "furniture", String(j.interactables.length).padStart(3), "interactables", j.terrainCut ? "cut" : "");
 }
 
 // ---------------------------------------------------------------- nav backfill on the existing catalogue
@@ -108,6 +98,18 @@ const BACKFILL = {
   crate_mixed_supply: { effect: "none" }, crate_pak40_he: { effect: "none" },
   tank_sherman_firefly: { effect: "none" }, tank_tiger_i: { effect: "none" },
 };
+// ---------------------------------------------------------------- new assets (after the backfill table: B2's legacy houses use houseNav)
+const ids = new Set();
+for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...houses2Assets(), ...dressingAssets()]) {
+  const j = A.json();
+  if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
+  ids.add(j.id);
+  if (!j.nav && BACKFILL[j.id] === "house") j.nav = houseNav(j);   // B2: the legacy houses keep their derived nav
+  if (!j.nav) throw new Error(j.id + ": no nav block");
+  put(j.id + ".json", JSON.stringify(j));
+  if (!check) console.log(j.id.padEnd(28), String(j.parts.length).padStart(5), "parts", String(j.furniture.length).padStart(3), "furniture", String(j.interactables.length).padStart(3), "interactables", j.terrainCut ? "cut" : "");
+}
+
 const navTable = {};
 for (const file of fs.readdirSync(out).filter((f) => f.endsWith(".json")).sort()) {
   const id = file.slice(0, -5);
