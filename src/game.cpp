@@ -153,8 +153,11 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
   const json& lo = combat["loadouts"][fac];
   if (!s.localPlayer && s.human) {   // remote player (host side): the faction pool, ammo kept per weapon
     s.wsBy.clear(); s.weapon = std::max(0, app.weaponIndex(lo["player"][0].get<std::string>()));
-    const WeaponDef& d = *app.weaponDefs[s.weapon]; s.ws = WeaponState{}; s.ws.loaded = d.loaded;
+    const WeaponDef& d = *app.weaponDefs[s.weapon]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
     for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
+    s.carried.clear();   // the same pool the client's own applyLoadout builds below
+    for (auto& id : lo["player"]) { int w = app.weaponIndex(id.get<std::string>()); if (w >= 0) s.carried.push_back(w); }
+    for (int d2 : {fragDef(s.faction), smokeDef(), app.weaponIndex("knife_bayonet")}) if (d2 >= 0) s.carried.push_back(d2);
   } else if (s.localPlayer) {
     app.resetWeapons();
     std::vector<int> pool;

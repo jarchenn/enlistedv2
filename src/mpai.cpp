@@ -99,7 +99,7 @@ void mpaiInput(App& app, ExploreInput& in) {
   if (!gGame || !gGame->active) return;
   Soldier* L = gGame->local();
   bool frozen = !L || !L->alive || gGame->match.phase != MatchPhase::Running;
-  if (frozen) { in = ExploreInput{}; return; }
+  if (frozen) { if (L && !L->alive && app.occupied) app.leaveStation(); in = ExploreInput{}; return; }   // the dead free their gun
   if (app.selftest || app.pauseMenu) return;
   // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); quick smoke on "smokeGrenade" (default J, match only)
   if (edge(app.win, app.binds.smokeGrenade) && L->throwT < 0 && app.quickReturn < 0) {
@@ -113,12 +113,11 @@ void mpaiInput(App& app, ExploreInput& in) {
       gs.cooldown = 0; gs.throwT = 0; gs.triggerReleased = false;
     }
   }
-  if (gGame->isClient && in.reload) gNet->clientReload();
-  if (gGame->isClient && in.interact && app.target.valid && app.target.kind != 0) {   // stations / crates / racks are not replicated yet
-    in.interact = false;
-    app.toast("Crew-served guns, supply crates and weapon racks are host-only in LAN matches (this milestone).", 4);
+  if (gGame->isClient && in.reload) {
+    if (StationRT* st = app.station(app.occupied)) gNet->clientRequest(json{{"t", "greload"}, {"i", app.occupied}, {"at", st->selAT}});   // the host reloads the gun
+    else gNet->clientReload();
   }
-  if (gGame->isClient) in.build = false;   // field defences are not replicated yet
+  if (gGame->isClient && app.occupied && in.switchPos) { in.switchPos = false; app.toast("Moving a gun is host-only in LAN matches.", 3); }
   if (L->throwT >= 0) { in.fire = false; in.aim = false; in.reload = false; }   // the throw occupies the hands
 }
 
@@ -137,11 +136,11 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   if (!gGame || !gGame->active || len <= 1e-5f) return false;
   if (gGame->isClient) {
     // a LAN client never resolves rounds itself: its own shots become requests, drawn as visual tracers meanwhile
-    if (p.owner == -1 && p.life == 0 && gNet) gNet->clientFire(p.p, glm::normalize(p.v), app.activeWeapon, p.tracer);
+    if (p.owner == -1 && p.life == 0 && gNet && !app.occupied) gNet->clientFire(p.p, glm::normalize(p.v), app.activeWeapon, p.tracer);   // a gun's rounds are gfire requests (stationShoot)
     gGame->ghosts.push_back({p.p, p.v, 0, p.tracer});
     return true;
   }
-  if (p.owner == -1 && p.life == 0 && gNet && gNet->role == Net::HOST)   // the host's own shots: tracers / sound on clients
+  if (p.owner == -1 && p.life == 0 && gNet && gNet->role == Net::HOST && !app.occupied)   // the host's own shots: tracers / sound on clients (a gun's: gshot)
     gNet->hostWorldEvent(json{{"t", "shot"}, {"p", tojson(p.p)}, {"d", tojson(glm::normalize(p.v))}, {"w", app.activeWeapon}, {"tr", p.tracer}, {"by", gGame->localSlot}});
   if (p.life == 0) rulesOnFire(*gGame, gGame->soldierOfOwner(p.owner));   // W1: firing ends spawn protection
   float tHit = tWorld;

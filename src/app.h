@@ -286,6 +286,8 @@ public:
   float groundSlopeDeg(vec3 p, vec3* n = nullptr) const;
   bool snapDefense(const AssetDef* a, vec3& pos, float& yaw, int* matchedSocket = nullptr) const;
   void stepBuilder(const ExploreInput& in);
+  std::string buildCheckAt(const AssetDef* a, vec3& pos, float yaw, bool snapped, vec3 builderFeet);   // placement rules after the aim ("" = ok); LAN host re-checks with it
+  std::vector<uint64_t> buildSessionPiece(const AssetDef* a, vec3 pos, float yaw, bool companions, BuildAction* act = nullptr);   // a session-overlay placement (+ companions)
   void builderGhosts(std::vector<DrawItem>& ghosts);
   void removeSessionPlacements();
   bool defenseBulletHit(uint64_t iid, vec3 at);
@@ -357,8 +359,13 @@ public:
   vec3 stationMuzzle(const Instance& i, const InstanceRT& r, vec3& dir) const;
   bool stationCamera(vec3& eye, vec3& fwd, float& fov) const;
   bool carriageFits(const Instance& i, const InstanceRT& r, vec3& pos, float yaw, std::string& why) const;
-  std::string crateTransaction(uint64_t crateId);
+  std::string crateTransaction(uint64_t crateId, WeaponState* who = nullptr, int whoWeapon = -1);   // who: a LAN client's weapon on the host (else the local player's)
   std::string resupplyPersonal(uint64_t crateId);
+  std::string resupplyWeapon(uint64_t crateId, const WeaponDef& d, WeaponState& s);
+  void stationShoot(uint64_t id, int owner);       // one round from a station (local gunner, or a LAN client's on the host)
+  void stationFinishReload(StationRT& s, const StationDef& d);
+  void resetCrate(const Instance& i);
+  vec3 stationAnchor(uint64_t id, int pos);        // crew position on its floor (ST_GUNNER / ST_HANDLER)
   void drawCombatUI();
   // personal weapons (weapons.cpp)
   void resetWeapons();

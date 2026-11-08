@@ -28,3 +28,14 @@ bool mpaiGrenadeDetonate(App& app, int def, vec3 pos, int owner, int phase);
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits);
 struct PhysicsHitFwd;
 void mpaiImpact(App& app, const Projectile& p, vec3 hitPos, vec3 hitNormal, uint64_t hitUd, float hitT, const std::string& surface);   // after bulletImpact (LAN replication)
+// LAN: crew-served guns, racks, crates and field defences for clients (net.cpp). A client's call becomes a request
+// (true = consumed); on the host the result replicates (snapshots for guns, reliable world events otherwise).
+bool mpaiStationRequest(App& app, uint64_t id, int pos);   // occupyStation
+void mpaiStationLeft(App& app, uint64_t id);                // end of leaveStation
+void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, bool tracer, int owner);   // stationShoot
+bool mpaiRackRequest(App& app, uint64_t rack, int weapon);  // rackActivate
+bool mpaiCrateRequest(App& app, uint64_t crate);            // crateTransaction
+void mpaiCrateChanged(App& app, uint64_t crate);            // the crate's stock changed (host)
+bool mpaiBuildClient(App& app);                             // in a LAN match as a client
+bool mpaiBuildRequest(App& app, const struct AssetDef* a, vec3 pos, float yaw);   // build mode LMB
+void mpaiBuildChanged(App& app, const std::vector<uint64_t>& placed, const std::vector<uint64_t>& removed);   // host: session pieces placed / removed
