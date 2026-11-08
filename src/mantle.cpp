@@ -98,7 +98,14 @@ bool App::tryStartMantle(vec3 feet, float yawDeg, bool fromWater) {
       if (glm::length(glm::clamp(q, lo, hi) - q) < 1.0f) { mantle.why = "unsafe obstacle (wire)"; return false; }
     }
   }
-  float yCross = std::max(run, land) + 0.08f;
+  vec3 ledgePt = feet + f * dFace; ledgePt.y = ledge;
+  return beginMantle(feet, f, dLand, std::max(run, land) + 0.08f, land, hgt, ledgePt, over);
+}
+
+// the climb from `feet` up to yCross, forward dLand along f, down onto `land`: swept for the standing body, then started
+bool App::beginMantle(vec3 feet, vec3 f, float dLand, float yCross, float land, float hgt, vec3 ledgePt, bool over) {
+  const MantleSettings& M = mantleCfg;
+  const vec3 lift(0, 0.06f, 0);
   vec3 P0 = feet, P1(feet.x, yCross, feet.z), P2 = feet + f * dLand, P3;
   P2.y = yCross; P3 = vec3(P2.x, land, P2.z);
   auto sweep = [&](vec3 a, vec3 b) { int n = std::max(1, (int)std::ceil(glm::length(b - a) / 0.08f)); for (int k = 1; k <= n; ++k) if (!Physics::shapeFitsAt(Physics::STAND, glm::mix(a, b, (float)k / n) + lift)) return false; return true; };
@@ -107,13 +114,29 @@ bool App::tryStartMantle(vec3 feet, float yawDeg, bool fromWater) {
   if (!sweep(P2, P3)) { mantle.why = "landing blocked"; return false; }
   mantle.pts[0] = P0; mantle.pts[1] = P1; mantle.pts[2] = P2; mantle.pts[3] = P3;
   mantle.h = hgt; mantle.over = over; mantle.fwd = f;
-  mantle.ledge = feet + f * dFace; mantle.ledge.y = ledge;
+  mantle.ledge = ledgePt;
   float k = std::clamp((yCross - P0.y - 0.6f) / 1.6f, 0.0f, 1.0f);   // rise 0.6 m (mid-jump) .. 2.2 m (floor to a 2.1 m lip)
   mantle.dur = std::clamp(glm::mix(M.durMin, M.durMax, k) + (over ? 0.1f : 0.0f), M.durMin, M.durMax);
   mantle.t = 0; mantle.pitchOff = 0; mantle.eyeFrom = eyeHeight;
   mantle.active = true; mantle.why = over ? "mantle over" : "mantle"; ++mantle.count;
   riseT = riseDur = 0;
   return true;
+}
+
+// out of the water up a sloped or stepped bank, where the mantle finds no face: the first spot ahead (0.4-1.6 m) shallow
+// enough to stand in (or dry, at most 0.8 m above the surface) where the standing body fits
+bool App::tryClimbBank(vec3 feet, float yawDeg, float surface) {
+  vec3 f = forward(yawDeg, 0); f.y = 0; f = glm::normalize(f);
+  for (float d = 0.4f; d <= 1.6f + 1e-4f; d += 0.1f) {
+    Physics::Hit g; vec3 o = feet + f * d; o.y = surface + 1.2f;
+    if (!Physics::castRayEx(o, vec3(0, -1, 0), 4.0f, g)) continue;
+    if (g.pos.y > surface + 0.8f) { mantle.why = "bank too high to climb"; return false; }
+    if (surface - g.pos.y > swimCfg.exitDepth) continue;   // still too deep to stand: swim on
+    if (!Physics::shapeFitsAt(Physics::STAND, g.pos + vec3(0, 0.06f, 0))) continue;
+    return beginMantle(feet, f, d, std::max(g.pos.y, feet.y) + 0.08f, g.pos.y, g.pos.y - feet.y, g.pos, false);
+  }
+  mantle.why = "no bank in reach";
+  return false;
 }
 
 void App::stepMantle(float dt) {

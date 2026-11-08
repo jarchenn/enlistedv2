@@ -215,6 +215,31 @@ void build(App& app) {
     }
     return t > 10 ? (CHK(false, "mantle out finished standing"), true) : false; });
 
+  // a 25 degree slope out of the water: buoyancy keeps the feet ~1.3 m under the surface, so swimming up it alone never
+  // reaches standing depth; swimming forward into it (W only, no Space) climbs out (App::tryClimbBank)
+  push("swim forward up a sloped bank", [](App& a, float t) {
+    static float surf, prev;
+    if (t == 0) {
+      prev = a.terrain.waterLevel;
+      if (bankBody != 0xffffffffu) { Physics::remove(bankBody); bankBody = 0xffffffffu; }
+      surf = G0 + 3.0f; water(a, surf);
+      const float th = radians(25.0f), zc = P0.z - 2.5f;   // the slab's top crosses the surface 2.5 m ahead of P0 (-z)
+      Part p; p.center = vec3(0); p.size = vec3(6, 1, 14);
+      bankBody = Physics::addStatic(Physics::buildShape({p}), vec3(P0.x, surf - 0.5f * std::cos(th), zc - 0.5f * std::sin(th)), glm::angleAxis(th, vec3(1, 0, 0)), 0xEEEDull << 16);
+      Physics::setCharacterPos(vec3(P0.x, surf - a.swimCfg.floatDepth, P0.z + 3.0f));
+      a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 0;
+      return false;
+    }
+    a.scriptedInput.move = vec2(0, t > 0.8f ? 1.0f : 0.0f);
+    auto c = Physics::character();
+    if (t > 1.5f && !a.swim.active && !a.mantle.active && c.grounded) {
+      a.scriptedInput = ExploreInput{}; water(a, prev);
+      CHK(c.pos.y > surf - a.swimCfg.exitDepth && c.pos.z < P0.z, "W into a 25 degree bank climbs out (%s, %s): feet %.2f m under the surface, standing", a.swim.why.c_str(), a.mantle.why.c_str(), surf - c.pos.y);
+      return true;
+    }
+    if (t > 12) { a.scriptedInput = ExploreInput{}; water(a, prev); CHK(false, "W into a 25 degree bank climbs out (stuck: swimming %d, depth %.2f m, %s)", a.swim.active, a.swim.depth, a.mantle.why.c_str()); return true; }
+    return false; });
+
   push("bot floats", [](App& a, float t) {
     if (t < 0.2f) return false;
     if (bankBody != 0xffffffffu) { Physics::remove(bankBody); bankBody = 0xffffffffu; }

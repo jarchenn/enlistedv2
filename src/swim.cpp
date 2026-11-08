@@ -7,8 +7,9 @@
 //           W / S. Buoyancy pulls the feet back to floatDepth (1.38 m) below the surface, gently from below and quickly
 //           from above (a jump in); never above it + 0.12 m (Space at the surface only lifts the chin). Velocity follows
 //           the wish with drag (4 /s), so a plunge from a pier slows in the water instead of stopping dead;
-//   exit    hold Space facing a bank or a pier with the head up: the mantle (mantle.cpp), heights measured from the
-//           floating feet, so a lip 0.3 m above the surface is ~1.7 m and 1 m above it is out of reach;
+//   exit    Space, or swimming forward into the edge for 0.3 s, with the head up: the mantle onto a bank or a pier
+//           (mantle.cpp, heights from the floating feet, so a lip 0.3 m above the surface is ~1.7 m and 1 m above it is
+//           out of reach), else App::tryClimbBank up a sloped bank to the first spot shallow enough to stand;
 //   look    weapon lowered, fire / aim / reload stripped (explore.cpp), hands-only breaststroke arms (viewmodel.cpp),
 //           surface bob (bobAmp, ~0.55 Hz + the stroke) and a slight roll with the stroke;
 //   under   the camera below waterAt() at the camera: RenderView::underwater (dense blue-green fog, a tint and
@@ -86,7 +87,9 @@ bool App::stepSwim(float dt, const ExploreInput& in, const Physics::CharState& b
   rulesInWater(*this);   // the water broke any fall: no fall damage when the feet find ground again
   // ---- out onto a bank / pier: hold Space facing it with the head up (mantle.cpp, heights from the floating feet)
   bool nearSurface = swim.depth < S.floatDepth + 0.35f;
-  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && nearSurface && tryStartMantle(feet, eyeYaw, true)) {
+  swim.pushT = in.move.y > 0.5f && glm::length(vec2(before.vel.x, before.vel.z)) < 0.6f ? swim.pushT + dt : 0;   // swimming into the edge
+  bool wantOut = (in.jumpHeld && !vault.latch) || swim.pushT > 0.3f;
+  if (wantOut && nearSurface && (tryStartMantle(feet, eyeYaw, true) || tryClimbBank(feet, eyeYaw, swim.surface))) {
     vault.latch = true; swim.active = false; ++swim.mantles; ++swim.exits; swim.why = "mantle out";
     return true;
   }

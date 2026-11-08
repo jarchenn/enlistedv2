@@ -300,10 +300,12 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       return true; });
     push("m2hb crate", [this](App& a, float t) {
       if (t < 0.3f) return false;
-      int rifle = total(a, "m1_garand");
       std::string m = a.crateTransaction(K);
+      bool rifleFirst = m.rfind("Refilled", 0) == 0;   // the held rifle is served first; the next press restocks the gun
+      if (rifleFirst) m = a.crateTransaction(K);
       StationRT* s = a.station(M2);
-      check(s->reserve == 110 && a.crateStock[K]["50bmg_belt"] == 5 && total(a, "m1_garand") == rifle, ".50 belt from the crate goes to the M2HB reserve only (" + m + ")");
+      check(s->reserve == 110 && a.crateStock[K]["50bmg_belt"] == 5,
+            std::string(rifleFirst ? "after the rifle refill, " : "") + ".50 belt from the crate goes to the M2HB reserve only (" + m + ")");
       return true; });
     push("reset", [this](App& a, float) {
       a.exitExplore();

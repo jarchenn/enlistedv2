@@ -327,17 +327,23 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
     if (!mmb) n.panning = false;
     else { vec3 ro, rd; rayFromCursor(app, ro, rd); navPanTo(app, n.panAnchor, n.panPlaneY, ro, rd); }
   }
-  // ---- WASD / QE fly, speed scales with the height above ground
+  // ---- WASD / QE fly (Space up, Ctrl down), speed scales with the height above ground
   bool ctrl = kdown(w, GLFW_KEY_LEFT_CONTROL) || kdown(w, GLFW_KEY_RIGHT_CONTROL);
-  if (!uiKey && !ctrl) {
+  bool ctrlCombo = false;   // Ctrl + a letter / digit is a shortcut (Ctrl+Z, Ctrl+S, Ctrl+1): no flying then
+  if (ctrl) for (int k = GLFW_KEY_0; k <= GLFW_KEY_Z && !ctrlCombo; ++k) ctrlCombo = (k <= GLFW_KEY_9 || k >= GLFW_KEY_A) && kdown(w, k);
+  if (!uiKey && !ctrlCombo) {
     vec3 f = camForward(app.camYaw, app.camPitch), r = glm::normalize(glm::cross(camForward(app.camYaw, 0), vec3(0, 1, 0)));
     vec3 mv(0);
-    if (kdown(w, GLFW_KEY_W)) mv += f;
-    if (kdown(w, GLFW_KEY_S)) mv -= f;
-    if (kdown(w, GLFW_KEY_D)) mv += r;
-    if (kdown(w, GLFW_KEY_A)) mv -= r;
-    if (kdown(w, GLFW_KEY_E)) mv.y += 1;
-    if (kdown(w, GLFW_KEY_Q)) mv.y -= 1;
+    if (!ctrl) {
+      if (kdown(w, GLFW_KEY_W)) mv += f;
+      if (kdown(w, GLFW_KEY_S)) mv -= f;
+      if (kdown(w, GLFW_KEY_D)) mv += r;
+      if (kdown(w, GLFW_KEY_A)) mv -= r;
+      if (kdown(w, GLFW_KEY_E)) mv.y += 1;
+      if (kdown(w, GLFW_KEY_Q)) mv.y -= 1;
+    }
+    if (kdown(w, GLFW_KEY_SPACE)) mv.y += 1;
+    if (ctrl) mv.y -= 1;
     if (glm::length(mv) > 0) {
       n.flying = false;
       float sp = navFlySpeed(app) * n.speedMult * (kdown(w, GLFW_KEY_LEFT_SHIFT) || kdown(w, GLFW_KEY_RIGHT_SHIFT) ? s.shiftMult : 1.0f);
@@ -361,7 +367,7 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
 }
 
 const char* w3StatusHelp() {
-  return "LMB drag orbit | click select | drag the selection to move it | Wheel zoom to cursor | + / - zoom | MMB drag pan | RMB drag orbit | WASD/QE fly (Shift fast, Alt+wheel speed) | F frame | Home map | M overview | Ctrl+1-9 / 1-9 bookmarks | drag the soldier to explore | F5 explore from start";
+  return "LMB drag orbit | click select | drag the selection to move it | Wheel zoom to cursor | + / - zoom | MMB drag pan | RMB drag orbit | WASD/QE fly, Space up, Ctrl down (Shift fast, Alt+wheel speed) | F frame | Home map | M overview | Ctrl+1-9 / 1-9 bookmarks | drag the soldier to explore | F5 explore from start";
 }
 
 // ------------------------------------------------------------------ V6: Select tool LMB gestures, centre zoom
