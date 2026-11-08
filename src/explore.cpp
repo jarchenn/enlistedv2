@@ -68,6 +68,7 @@ bool App::enterExplore() {
   exploreStartPos = p; exploreStartYaw = doc.start.yaw;
   eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f; riseT = riseDur = 0;
   swim = SwimState{}; swim.breath = swimCfg.breath;   // swim.cpp
+  stamina = move.staminaMax; staminaIdle = 0;
   physAccum = 0; pauseMenu = false; target = {};
   if (looking) looking = false;
   if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -325,15 +326,17 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   if (vault.active) { stepVault(dt); return; }
   if (mantle.active) { stepMantle(dt); return; }   // mantle.cpp: ledges too tall / deep to vault (trench lips, 2 m walls)
   if (!occupied && stepSwim(dt, in, before)) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }   // swim.cpp: chest-deep water
-  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; return; }
+  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; spendStamina(move.staminaJump); return; }   // a vault / mantle costs like a jump (never refused: trench exits)
   bool rising = riseT < riseDur;
-  bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising;   // Shift while aiming holds the breath; no sprint while lowered or getting up
+  bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising && stamina > 1.0f;   // Shift while aiming holds the breath; no sprint while lowered, getting up or out of stamina
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
   if (rising) speed = std::min(speed, riseSpeed);   // still getting up: the lower posture's pace
   speed *= traversalFactor(Physics::character().pos);   // inside a "slow" wire volume
   Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity; Physics::tuning.jumpBuffer = move.jumpBuffer; Physics::tuning.coyote = move.coyote;
-  bool jump = in.jump && !spaceUp && !(rising && riseProne);   // only the prone get-up holds a jump back (a crouch -> stand rise does not)
-  if (!occupied) Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
+  bool jump = in.jump && !spaceUp && !(rising && riseProne) && stamina >= move.staminaJump;   // only the prone get-up holds a jump back; too tired: no jump
+  bool jumped = !occupied && Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
+  if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
+  tickStamina(dt, sprinting && glm::length(wish) > 0.1f);
   auto c = Physics::character();
   rulesAfterMove(*this, before, c, dt);   // W1: fall damage (match, player only)
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
@@ -517,7 +520,7 @@ void App::drawExploreUI() {
     }
     dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
     if (tanks.occupied) tanks.drawUI(*this);
-    else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); }
+    else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
   drawDamageDebug();
@@ -545,4 +548,16 @@ void App::drawExploreUI() {
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
     ImGui::End();
   }
+}
+
+// stamina bar: under the breath bar, only while not full; amber when a jump is no longer affordable
+void App::drawStaminaUI() {
+  if (stamina >= move.staminaMax - 0.01f) return;
+  ImGuiIO& io = ImGui::GetIO();
+  ImDrawList* dl = ImGui::GetForegroundDrawList();
+  float W = 240, H = 6, x = io.DisplaySize.x * 0.5f - W * 0.5f, y = io.DisplaySize.y - 112;
+  float f = std::clamp(stamina / std::max(0.01f, move.staminaMax), 0.0f, 1.0f);
+  ImU32 col = stamina < move.staminaJump ? IM_COL32(230, 150, 60, 230) : IM_COL32(225, 225, 210, 220);
+  dl->AddRectFilled(ImVec2(x - 2, y - 2), ImVec2(x + W + 2, y + H + 2), IM_COL32(10, 14, 18, 150), 3);
+  dl->AddRectFilled(ImVec2(x, y), ImVec2(x + W * f, y + H), col, 2);
 }

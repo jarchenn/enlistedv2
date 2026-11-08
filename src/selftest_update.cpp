@@ -148,7 +148,7 @@ void SelfTest::updateSuite(App& app, float dt) {
       apex = std::max(apex, c.pos.y - y0);
       if (t < 1.6f) return false;
       char b[200]; std::snprintf(b, sizeof b, "a tapped Space at the 0.91 m wall is an ordinary jump (apex %.2f m), no vault, still on the near side", apex);
-      check(a.vault.count == c0 && apex > 0.5f && glm::dot(c.pos - Wp(a, U_WALL, vec3(0)), vec3(0, 0, 1)) > 0, b);
+      check(a.vault.count == c0 && apex > 0.35f && glm::dot(c.pos - Wp(a, U_WALL, vec3(0)), vec3(0, 0, 1)) > 0, b);
       return true; });
     push("hold Space: vault the low wall", [this](App& a, float t) {
       static int c0; static bool done;
@@ -207,25 +207,26 @@ void SelfTest::updateSuite(App& app, float dt) {
     // ---------------------------------------------------------------- firing slit
     for (std::string w : {"kar98k", "m1_garand", "mg42"}) {
       push("slit " + w, [this, w](App& a, float t) {
-        static int s0; static float imp0;
+        static int s0; static float imp0, pFire, rFire, kFire;
         const AssetDef* oa = a.lib.find("bunker_observation_post");
         if (t == 0) {
           auto& r = a.rt[U_OP]; int k = oa->findInteract("viewing_flap");
           if (k >= 0 && r.progress[k] < 0.5f && r.dir[k] == 0) a.toggleInteract(U_OP, k);
           putFeet(a, Wp(a, U_OP, vec3(0, 0, 0.75f))); a.eyeYaw = 180; a.eyePitch = 1.0f;   // facing out through the slit (+z)
           a.selectWeapon(a.weaponIndex(w)); a.wstate[w].loaded = std::max(a.wstate[w].loaded, 3); a.wstate[w].mode = a.weaponDefs[a.activeWeapon]->modes.size() > 1 ? 1 : 0;
+          a.wstate[w].recoilP = a.wstate[w].recoilY = 0; a.wstate[w].kick = 0; a.eyePitch = 1.0f;   // aim after the swap: selectWeapon folds the previous gun's leftover climb into the view (settleRecoil)   // earlier steps' climb (rifle recoil x1.5) must not tip this aimed shot
           a.scriptedInput = ExploreInput{}; s0 = a.shotsFired; imp0 = a.lastImpact.time; return false;
         }
         a.scriptedInput.aim = true;
         if (t < 2.0f) return false;
-        if (a.shotsFired == s0) { a.scriptedInput.fire = true; return t > 6; }
+        if (a.shotsFired == s0) { pFire = a.eyePitch; rFire = a.wstate[w].recoilP; kFire = a.wstate[w].kick; a.scriptedInput.fire = true; return t > 6; }
         a.scriptedInput.fire = false;
         if (!a.projectiles.empty() && t < 4) return false;
         int fk = oa->findInteract("viewing_flap");
         vec3 front = Wp(a, U_OP, vec3(0, 0, oa->interactables[fk].apMax.z));   // the slit's outer face
         float beyond = glm::dot(a.lastImpact.pos - front, vec3(0, 0, 1));
-        char b[320]; std::snprintf(b, sizeof b, "%s fired at ADS through the enlarged slit: the round leaves the bunker (impact %.1f m beyond the front face, on %s); start %.2f m above the floor [start %.1f %.1f %.1f dir %.2f %.2f %.2f impact %.1f %.1f %.1f front z %.1f]",
-                                   w.c_str(), beyond, a.lastImpact.surface.c_str(), a.lastShotStart.y - Wp(a, U_OP, vec3(0)).y, a.lastShotStart.x, a.lastShotStart.y, a.lastShotStart.z, a.lastShotDir.x, a.lastShotDir.y, a.lastShotDir.z, a.lastImpact.pos.x, a.lastImpact.pos.y, a.lastImpact.pos.z, front.z);
+        char b[320]; std::snprintf(b, sizeof b, "%s fired at ADS through the enlarged slit: the round leaves the bunker (impact %.1f m beyond the front face, on %s); start %.2f m above the floor [start %.1f %.1f %.1f dir %.2f %.2f %.2f impact %.1f %.1f %.1f front z %.1f; at the trigger: eye pitch %.2f, recoil %.2f, kick %.3f]",
+                                   w.c_str(), beyond, a.lastImpact.surface.c_str(), a.lastShotStart.y - Wp(a, U_OP, vec3(0)).y, a.lastShotStart.x, a.lastShotStart.y, a.lastShotStart.z, a.lastShotDir.x, a.lastShotDir.y, a.lastShotDir.z, a.lastImpact.pos.x, a.lastImpact.pos.y, a.lastImpact.pos.z, front.z, pFire, rFire, kFire);
         bool newImpact = a.lastImpact.time > imp0;
         check(!newImpact || beyond > 1.0f, std::string(newImpact ? "" : "[no impact: the round flew out of the slit and away] ") + b);
         return true; });

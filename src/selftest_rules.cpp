@@ -117,7 +117,8 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       float g0 = 7.848f, v0 = 3.757f, h0 = v0 * v0 / (2 * g0), t0 = 2 * v0 / g0;
       float h = m.jumpVelocity * m.jumpVelocity / (2 * m.gravity), t = 2 * m.jumpVelocity / m.gravity;
       char b[300]; std::snprintf(b, sizeof b, "movement.json: player g %.4f m/s^2 (x%.4f of 7.848), jump %.4f m/s; analytic apex %.4f m (x%.4f), airtime %.4f s (x%.4f)", m.gravity, m.gravity / g0, m.jumpVelocity, h, h / h0, t, t / t0);
-      check(std::fabs(m.gravity / g0 - 2.13333f) < 1e-3f && std::fabs(h / h0 - 1.2f) < 1e-3f && std::fabs(t / t0 - 0.75f) < 1e-3f && std::fabs(m.jumpVelocity - std::sqrt(2 * m.gravity * 1.2f * h0)) < 2e-3f, b);
+      (void)h0; (void)t0;   // was SPEC 4 (x1.2 apex, x0.75 airtime of these); 2026-11-08 jumps like real life
+      check(std::fabs(m.gravity - 9.81f) < 1e-3f && h > 0.4f && h < 0.6f && t > 0.55f && t < 0.7f, b);
       summary["movement"] = {{"gravity", m.gravity}, {"jump", m.jumpVelocity}, {"apex", h}, {"airtime", t}};
       const RulesConfig& c = rulesConfig();
       float vs = rulesImpactSpeed(c.safeHeight, m.gravity), vl = rulesImpactSpeed(c.lethalHeight, m.gravity);

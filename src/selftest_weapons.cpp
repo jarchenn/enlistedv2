@@ -182,6 +182,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       return true; });
     // ---- MG 42 bipod: supported bursts are easier to control
     push("mg42 unsupported", [this](App& a, float t) {
+      if (t == 0) { a.eyePitch = 0; S(a, "mg42").recoilP = 0; }   // the rifle steps' climb (x1.5 recoil) can reach the 85 deg look clamp, which zeroes the MG's climb
       a.scriptedInput.fire = true;
       if (t < 0.5f) return false;
       summary["mg42_climb_unsupported_deg"] = S(a, "mg42").recoilP;
