@@ -21,6 +21,7 @@
 // view's crop under the same bar; with neither, the whole view stays. Thickened box wire is rebuilt at 1.5 px
 // of the zoomed tile so it does not grow with the zoom.
 #include "thumbs.h"
+#include "textures.h"
 #include "app.h"
 #include <stb_image.h>
 #include <stb_image_write.h>
@@ -71,6 +72,7 @@ std::string assetThumbKey(const AssetDef& a) {
   h = fnvStr(h, kThumbVersion);
   std::string src = readTextFile(contentDir() / "assets" / a.file);
   h = fnvStr(h, src);
+  h = fnvStr(h, tex::stateKey());   // L4: texture sets / slots / on-off change the tile (textures.cpp)
   try {   // baked model: its description, mesh and texture files
     json j = json::parse(src);
     if (j.contains("model")) {

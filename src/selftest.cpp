@@ -132,6 +132,7 @@ void SelfTest::finish(App& app) {
 }
 
 void SelfTest::update(App& app, float dt) {
+  { extern bool texturesSelfTest(App&, float); if (texturesSelfTest(app, dt)) return; }   // L4: --selftest-textures (selftest_textures.cpp)
   { extern bool goreSelfTest(App&, float); if (goreSelfTest(app, dt)) return; }   // W7: --selftest-gore
   { extern bool natureSelfTest(App&, float); if (natureSelfTest(app, dt)) return; }   // --selftest-nature (selftest_nature.cpp)
   { extern bool terrainSelfTest(App&, float); if (terrainSelfTest(app, dt)) return; }   // V8: --selftest-terrain (selftest_terrain.cpp)

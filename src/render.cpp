@@ -1,5 +1,6 @@
 #include "render.h"
 #include "nature.h"
+#include "textures.h"
 #include <chrono>
 // L2 lighting engine hooks (src/lighting.cpp, docs/lighting.md)
 void lightingInit(Renderer& R, const char* kCommonSrc, const char* kMainFSSrc);
@@ -528,10 +529,11 @@ float woodGrain(float along, float across, float seed){
 void main(){
   if (uCapture == 1) gEyeOv = vEye;
   gPix = max(length(dFdx(vW)), length(dFdy(vW)));
-  int pat = int(vPar.x + 0.5);
+  int pat = int(vPar.x + 0.5) % 100, tslot = texSlot(vPar.x, pat);   // L4: x = pattern + 100 * texture code (textures.cpp)
   vec3 alb = vAlb; float rough = vPar.y, metal = vPar.z; int grain = int(vPar.w+0.5);
   float h = 0.0, bump = 0.0, ao = 1.0;
-  if (pat == 1) { // coursed limestone: courses of varying height, irregular joints, pillowed faces
+  if (texReplace(tslot)) { alb *= 0.94 + 0.08*vnoise(vAp*7.0); }   // L4: the set replaces the pattern (textures.json mode "replace")
+  else if (pat == 1) { // coursed limestone: courses of varying height, irregular joints, pillowed faces
     vec2 uv = faceUV(vAp, vAn);
     float band = floor(uv.y / 0.62), fy = uv.y - band * 0.62;
     float s1 = 0.62 * (0.36 + 0.28 * hash12(vec2(band, 17.0)));
@@ -1213,6 +1215,7 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
+  texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
@@ -1228,11 +1231,12 @@ void main(){
   vec3 N = dot(vN, vN) > 1e-12 ? normalize(vN) : vec3(0.0, 1.0, 0.0);
   if (!gl_FrontFacing) N = -N;
   if (pat >= 17 && pat <= 22 && pat != 21) gNg = N;   // rough walls: relief ambient term in shade()
-  if (uNoWallRelief == 1 && pat >= 17 && pat <= 22 && pat != 21) { bump = 0.0; gCavity = 1.0; }
+  if (uNoWallRelief == 1 && pat >= 17 && pat <= 22 && pat != 21) { bump = 0.0; gCavity = 1.0; gTexH = 0.0; gTexBump = false; gTexDN = vec3(0.0); }
   else gCavity = 1.0;
-  if (bump > 0.0) {
+  if (bump > 0.0 || gTexBump) {
     vec3 dpdx = dFdxFine(vW), dpdy = dFdyFine(vW);
-    float dhx = dFdxFine(h)*bump, dhy = dFdyFine(h)*bump;
+    float hb = h*bump + gTexH;   // L4: + the set's height (m)
+    float dhx = dFdxFine(hb), dhy = dFdyFine(hb);
     vec3 r1 = cross(dpdy, N), r2 = cross(N, dpdx);
     float det = dot(dpdx, r1);
     if (abs(det) > 1e-10) {
@@ -1243,6 +1247,7 @@ void main(){
       if (dot(nb, nb) > 1e-24) N = normalize(nb);
     }
   }
+  if (gl_FrontFacing) N = normalize(N + gTexDN);   // L4: the set's normal map
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   if (uCapture == 1) { oColor = vec4(c*uTint.rgb, gl_FrontFacing ? 1.0 : 0.0); return; }
   c += vEmi*(uGlow*uEmissiveK);   // emission: into the HDR target before bloom, never into the indirect (AO) buffer
@@ -1726,6 +1731,7 @@ layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel;
 void main(){
   vec3 p = vW;
+  vec3 tdx = dFdx(p), tdy = dFdy(p), tn0 = normalize(vN); float tDist = length(p - uCamPos);   // L4 terrain layers (before any discard)
   if (uDiscard == 1) {   // base mesh hidden under high-resolution deformation tiles
     ivec2 tc = ivec2(floor((p.xz - uTerrainOrg)/uTileSize));
     if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;
@@ -1764,6 +1770,19 @@ void main(){
   track = mix(track, mix(vec3(0.40,0.345,0.24), vec3(0.47,0.41,0.29), nF)*(0.9 + 0.2*nX) + vec3(0.02,0.018,0.012)*streak, 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)));   // W5: beach sand (route kind "sand", surface.cpp)
   // grass breaks up into the track along a noisy edge; ruts and damp lows turn to mud
   float tw = smoothstep(0.25, 0.75, wear + (nF - 0.5)*0.35 + (nX - 0.5)*0.15);
+  // L4 (textures.cpp, docs/textures.md): world-space planar ambientCG detail on each ground layer, multiplied against the
+  // set's mean so the procedural palette and its broad variation stay; layers whose weight is ~0 take no samples
+  TerrT tI = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0)), tG = tI, tS = tI, tV = tI, tA = tI;
+  float wGrav = smoothstep(0.75, 1.0, kind), wSand = 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)), wSoil = (1.0 - wGrav)*(1.0 - wSand);
+  if (tw < 0.995) tG = terrTex(0, p, tn0, tdx, tdy, tDist);
+  if (tw > 0.005 && wSoil > 0.01) tS = terrTex(1, p, tn0, tdx, tdy, tDist);
+  if (tw > 0.005 && wGrav > 0.01) tV = terrTex(3, p, tn0, tdx, tdy, tDist);
+  if (tw > 0.005 && wSand > 0.01) tA = terrTex(4, p, tn0, tdx, tdy, tDist);
+  float wT = max(wSoil + wGrav*(1.0 - wSand) + wSand, 1e-4);
+  TerrT tTr = TerrT((tS.alb*wSoil + tV.alb*wGrav*(1.0 - wSand) + tA.alb*wSand)/wT, (tS.r*wSoil + tV.r*wGrav*(1.0 - wSand) + tA.r*wSand)/wT,
+                    (tS.ao*wSoil + tV.ao*wGrav*(1.0 - wSand) + tA.ao*wSand)/wT, (tS.dn*wSoil + tV.dn*wGrav*(1.0 - wSand) + tA.dn*wSand)/wT);
+  grass *= tG.alb; track *= tTr.alb;
+  vec3 tdn = mix(tG.dn, tTr.dn, tw); float trr = mix(tG.r, tTr.r, tw), tao = mix(tG.ao, tTr.ao, tw);
   vec3 alb = mix(grass, track, tw);
   // W5b: slope material. Soil and scree from ~28 to ~42 deg, bare rock above ~45 deg (cliffs, quarry and ravine
   // walls): grey-brown limestone and darker schist in beds, bedding lines, vertical joints, lichen on ledges.
@@ -1793,14 +1812,22 @@ void main(){
     // scree: brown soil with loose grey stones, collecting toward the foot of the face
     float pebs = smoothstep(0.55, 0.72, vnoise(vec3(p*4.2 + 48.0))) + 0.5*smoothstep(0.6, 0.8, vnoise(vec3(p*1.4 + 49.0)));
     vec3 scr = mix(soil*0.95, mix(lime, schist, lith)*(0.7 + 0.25*grain), clamp(pebs, 0.0, 1.0)*0.6);
+    TerrT tSc = terrTex(6, p, tn0, tdx, tdy, tDist), tRk = rockK > 0.01 ? terrTex(5, p, tn0, tdx, tdy, tDist) : tI;   // L4
+    scr *= tSc.alb; rock *= tRk.alb;
+    float sK = screeK*(1.0 - 0.6*tw);
+    tdn = mix(mix(tdn, tSc.dn, sK), tRk.dn, rockK); trr = mix(mix(trr, tSc.r, sK), tRk.r, rockK); tao = mix(mix(tao, tSc.ao, sK), tRk.ao, rockK);
     alb = mix(alb, scr, screeK*(1.0 - 0.6*tw));
     alb = mix(alb, rock, rockK);
     rBump = vec3(vnoise(vec3(p*1.7 + 50.0)) - 0.5, (bedLine - 0.5)*0.6, vnoise(vec3(p*1.7 + 51.0)) - 0.5)*1.1;
   }
-  alb = mix(alb, mud, clamp(rut*0.85 + wet*0.6, 0.0, 1.0)*tw);
+  float mudK = clamp(rut*0.85 + wet*0.6, 0.0, 1.0)*tw;
+  if (mudK > 0.01) { TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist); mud *= tM.alb; tdn = mix(tdn, tM.dn, mudK); trr = mix(trr, tM.r, mudK); tao = mix(tao, tM.ao, mudK); }   // L4
+  alb = mix(alb, mud, mudK);
   // crater and disturbed soil
   float dirt = clamp(vDirt, 0.0, 1.0);
-  alb = mix(alb, soil, smoothstep(0.15, 0.75, dirt + (nM - 0.5)*0.35));
+  float dirtK = smoothstep(0.15, 0.75, dirt + (nM - 0.5)*0.35);
+  if (dirtK > 0.01) { TerrT tC = terrTex(7, p, tn0, tdx, tdy, tDist); soil *= tC.alb; tdn = mix(tdn, tC.dn, dirtK); trr = mix(trr, tC.r, dirtK); tao = mix(tao, tC.ao, dirtK); }   // L4
+  alb = mix(alb, soil, dirtK);
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
@@ -1813,6 +1840,7 @@ void main(){
     rough = mix(rough, 0.9, rockK);
     ao *= 1.0 - 0.35*rCrack*rockK;
   }
+  N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
@@ -2192,10 +2220,11 @@ GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
 static GLint U(GLuint p, const char* n) { return glGetUniformLocation(p, n); }
 
 bool Renderer::init(int w, int h) {
-  progMain = compile(kMainVS, kMainFS, "main");
+  progMain = compile(kMainVS, (std::string(tex::glslCommon()) + tex::glslMain() + kMainFS).c_str(), "main");   // L4 texture hooks first
   progGlass = compile(kMainVS, kGlassFS, "glass");
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
-  progTerrain = compile(kTerrainVS, kTerrainFS, "terrain");
+  progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + kTerrainFS).c_str(), "terrain");
+  tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
   progSky = compile(kFullVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");
   progExpo = compile(kFullVS, kExpoFS, "expo");

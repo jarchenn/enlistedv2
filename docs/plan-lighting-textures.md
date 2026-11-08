@@ -309,3 +309,53 @@ Full detail is in `docs/lights.md`.
 - autopath 45/45, including the lamp posts: ≥ 22.3 m apart, and a re-run gives the same 22.
 - structures: the walk failures match the batch B baseline (`build-voB`: cottage_corner, townhouse_facade, chateau_keep, church, church_ruined, norman_farmhouse). The new `ruin_barn_burnt` walk failures are V4 furniture pieces in a ruin; the lights planner skips ruins. Every interior light asset is nav `"none"`.
 - maps: the frame-time gates (tank_range, omaha) fail only under the shared GPU slots. Draw and triangle counts equal `build-voB`'s, but every view is 2–5× slower, including tank_range, which has no L3 content.
+
+## L4 handoff: textures (branch `lt-4-textures`)
+
+Full docs: `docs/textures.md`. Credit: `docs/credits.md` → "Textures: ambientCG (CC0)".
+
+**Download.** The user approved 57 ambientCG ids, 1K-JPG only, 448.5 MB (`tools/texture_sets.json`; the dry run is in `side-session-notes/lt4-ambientcg-dryrun.md`).
+- All 57 downloaded and packed. There were no skips and no swaps.
+- Raw zips stay in `%TEMP%/nmk/ambientcg_raw` (675 MB extracted).
+- The commit holds `content/textures/<set>/{color,normal,rma}.jpg` + `meta.json`: 105 MB, 228 files, plus `textures.json`.
+- Fifteen sets ship without an AO map, so their AO is white.
+
+**Engine.** All in `src/textures.cpp/.h`. Hooks in shared files:
+- `render.cpp`:
+  - `Renderer::init`: two `compile` lines prepend the texture GLSL, and one line `tex::init` + `attach`;
+  - `kMainFS`: the slot decode at `pat`, a `texReplace` guard ahead of the pattern chain, `texMaterial()` before the weathering, the height added into the derivative bump, and the normal added after it (5 lines);
+  - `kTerrainFS`: per-layer samples next to the existing mixes.
+- `assets.h/.cpp`: `Material::texCode`, the `"texture"` field, `params.x = pattern + 100 * code`.
+- `app.cpp`: `--pack-texture`, `--texture-placeholders`, `--no-textures`, `--selftest-textures`.
+- `thumbs.cpp`: one line adds `tex::stateKey()` to the tile cache key.
+- `selftest.cpp`: one dispatch line.
+- `CMakeLists.txt` → `cmake/lt4.cmake`.
+- `tools/run_all_tests.sh`: the `textures` row.
+
+The vertex format is unchanged. No generator or asset JSON changed: the pattern and material-name → set mapping is done at load time (`content/textures/textures.json`), so `build_mpu_assets --check` is unaffected.
+- **Texture units 20-22** (colour+AO BC3 sRGB, normal BC5, roughness+height BC5), compressed on the CPU with `stb_dxt`. `GL_MAX_TEXTURE_IMAGE_UNITS` = 32.
+- 48 of the 57 sets are referenced by a slot, about 190 MB of VRAM, loaded in about 1.5 s (threaded). Nine sets are unmapped and not loaded (listed in `docs/textures.md`).
+
+**Results** (build `%TEMP%/nmk/build-lt4`, all through `gpu_turn.sh`):
+- `render` shimmer, layer on vs `--no-textures`: 0 of 26 views worse by more than 2 %, mean ratio 0.99, worst +0.8 %. The farmhouse and the moving strip improve by 2-3 %. The tuning history is in `docs/textures.md#shimmer`. The first untuned pass was 22 % worse on average.
+- `textures` (new): 27/0. Includes the missing-texture fallback: no sets, a corrupt set, a lone set, and `--legacy-look` stays procedural.
+- `visuals` 31/0: thumbnails re-render, because the cache key now includes the texture state.
+- `interiors` 191/1 and `B` 67/1: the two known batch-B failures from Step 0 (`ruin_townhouse_facade` empty; exactly one instance after reopen). Neither comes from L4.
+- `A` 226/0 and `damage` 145/0 (fast mode). The rest of the fast run was still queued at handoff: `%TEMP%/nmk/lt4-fast.log`.
+- **`maps` FPS gate: not measured cleanly. Please re-run it on a quiet GPU.**
+  - The user raised `gpu_turn` to 5 shared slots today. Even with `GPU_TURN_EXCLUSIVE=1`, other sessions' NormandyMapmaker processes ran outside the lock, so `tank_range` (normally 5 ms) measured 25-46 ms.
+  - The exclusive back-to-back A/B is in `%TEMP%/nmk/lt4-fps/report_maps_{off,on}.txt`. The run with the layer **on** was faster on every map (Omaha Medium 20.9 vs 91.3 ms), which only shows the noise.
+  - The cleaner signal comes from the earlier same-lock `render` runs: water views took +0.4 ms GPU on average with the layer on.
+  - Expected cost: one tap of three BC textures per box-face pixel, and 1-3 planar taps per terrain pixel inside the fade distance.
+  - If Omaha's 1.3 ms headroom is not enough, these knobs reduce the cost: narrower terrain `fade`, a lower `uTexLod` threshold, or `--no-textures` on Low.
+- Tuning left for the joint L2+L4 pass: per-slot strengths in `textures.json`, the 9 unmapped sets, and terrain anti-tiling (the layers currently fade out by 140-260 m).
+
+**L4 addendum** (after the coordinator installed the fixed `gpu_turn.sh`):
+- **FPS A/B with `GPU_TURN_EXCLUSIVE=1`** (`%TEMP%/nmk/lt4-fps/report_maps_{off3,on3}.txt`). It is still disturbed by processes outside the lock: the *off* run fails the gate by itself (Omaha 24.4 ms, forest 18.7 ms). The two maps that look undisturbed, on vs off:
+  - tank_range: 4.64 → 5.10 ms (+0.46 ms);
+  - village_assault: 10.41 → 11.43 ms (+1.0 ms).
+
+  That is roughly **+10 % GPU**, close to Omaha's 1.3 ms headroom. The gate needs a quiet machine. If it fails there, the cheapest cuts are shorter terrain `fade` ranges and a far cutoff for building slots (sampling stops beyond about 100 m, where the ×3 LOD bias leaves little detail anyway).
+- **Painted ground (lasso stream):** `uPaintSlot[12]` + `terrTexSlot()` in `tex::glslCommon()`, 12 `paint_<type>` slots (`docs/textures.md#painted-ground`). Five sets for paint types (Ground070, Ground104, Ground051, Gravel008, Ground024; 49.1 MB) are listed in `tools/texture_sets.json`, but they are **not downloaded** until the user's OK arrives through the coordinator. Until then their slots stay procedural.
+- `textures` 28/0.
+- **Paint sets downloaded** after the user's OK (2026-11-07): Ground070, Ground104, Ground051, Gravel008 and Ground024, all 5 packed, about +13.5 MB in `content/textures`. All 12 paint slots are now live.

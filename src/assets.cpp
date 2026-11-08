@@ -1,5 +1,6 @@
 #include "assets.h"
 #include "model.h"
+#include "textures.h"
 #include <functional>
 #include "physics.h"
 #include "nature.h"
@@ -119,7 +120,7 @@ static void pushQuad(MeshData& m, const Part& p, const Material& mat, const mat4
     v.pos = vec3(xf * vec4(ap, 1));
     v.nrm = glm::normalize(nx * (prismSpace ? ln : p.rot * ln));
     v.albedo = mat.albedo;
-    v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat)); v.emis = mat.emissive;
+    v.params = vec4((float)(mat.pattern + 100 * mat.texCode), mat.roughness, mat.metallic, grainOf(p, mat)); v.emis = mat.emissive;
     v.pcoord = lp[k];
     v.pnrm = ln;
     m.v.push_back(v);
@@ -170,7 +171,7 @@ static void appendRound(MeshData& m, const Part& p, const Material& mat, const m
           v.pos = vec3(xf * vec4(p.center + p.rot * lp, 1));
           v.nrm = glm::normalize(nx * (p.rot * n));
           v.albedo = mat.albedo;
-          v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat)); v.emis = mat.emissive;
+          v.params = vec4((float)(mat.pattern + 100 * mat.texCode), mat.roughness, mat.metallic, grainOf(p, mat)); v.emis = mat.emissive;
           v.pcoord = lp; v.pnrm = n;
           m.v.push_back(v);
         }
@@ -450,6 +451,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     m.pattern = patternFromName(mj.value("pattern", "plain"));
     m.grainAxis = mj.value("grain", 1);
     m.emissive = glm::max(jvec3(mj.value("emissive", json()), vec3(0)), vec3(0));   // L2 (docs/lighting.md)
+    m.texCode = tex::materialCode(m.name, m.pattern, mj.value("texture", ""));   // L4: "texture": "<set>" (docs/textures.md)
     mats[m.name] = (int)a->materials.size();
     a->materials.push_back(m);
   }

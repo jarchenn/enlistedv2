@@ -22,6 +22,7 @@ struct Material {
   int pattern = PAT_PLAIN;
   int grainAxis = 1; // part-local axis that wood grain / slate courses follow; -1 = the part's longest axis (furniture)
   vec3 emissive{0};  // "emissive": [r, g, b] linear HDR emission added before bloom (lamp glass, flames; docs/lighting.md)
+  int texCode = 0;   // L4 texture layer (textures.h): 0 = the pattern's default slot, 1 = none, 2 + slot ("texture" field / textures.json)
 };
 
 // A primitive part. Boxes and triangular prisms, in a parent space.

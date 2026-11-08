@@ -1,0 +1,20 @@
+{
+ "set": "roof_clay",
+ "id": "RoofingTiles013A",
+ "family": "terracotta",
+ "size": [
+  2.9,
+  2.9
+ ],
+ "source": "https://ambientcg.com/a/RoofingTiles013A",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

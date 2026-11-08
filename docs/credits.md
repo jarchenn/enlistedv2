@@ -68,3 +68,11 @@ Author, licence and source for the grenade, StG 44, M3 and soldier rows come fro
 > 3. This notice may not be removed or altered from any source distribution.
 
 The sources are used unmodified, built with `DT_POLYREF64` and `DT_VIRTUAL_QUERYFILTER`.
+
+## Textures: ambientCG (CC0)
+
+The photo texture sets in `content/textures/` (L4, `docs/textures.md`) come from **[ambientCG](https://ambientcg.com)** by Lennart Demes. They are released under **CC0 1.0 Universal**, so no attribution is required; it is given here anyway. Only the 1K-JPG downloads are used. Their Color, NormalGL, Roughness, AmbientOcclusion and Displacement maps are repacked into `color.jpg`, `normal.jpg` and `rma.jpg`.
+
+- The curated list of 62 asset ids (57, plus 5 for painted ground) is in `tools/texture_sets.json`.
+- Each set's `meta.json` names its ambientCG asset and source URL (`https://ambientcg.com/a/<id>`).
+- Fetched with `tools/fetch_ambientcg.py` through the official API.

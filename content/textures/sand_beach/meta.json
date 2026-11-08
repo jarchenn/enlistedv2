@@ -1,0 +1,20 @@
+{
+ "set": "sand_beach",
+ "id": "Ground055S",
+ "family": "sand",
+ "size": [
+  1.5,
+  1.5
+ ],
+ "source": "https://ambientcg.com/a/Ground055S",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}
