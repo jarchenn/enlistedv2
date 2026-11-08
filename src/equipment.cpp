@@ -151,7 +151,11 @@ void App::meleeSweep(const WeaponDef& d) {
     float a = n == 1 ? 0.0f : (k / float(n - 1) - 0.5f) * d.melee.arcDeg;
     vec3 f = forward(eyeYaw + a, eyePitch - 4.0f);
     Physics::Hit h;
-    if (!Physics::castRayEx(e, f, d.melee.reach, h)) continue;
+    bool world = Physics::castRayEx(e, f, d.melee.reach, h);
+    float ts = world ? h.t : d.melee.reach;
+    size_t n0 = meleeHits.size();
+    if (mpaiMeleeRay(*this, e, f, ts, d.melee.damage)) { if (meleeHits.size() > n0) { ++meleeHitCount; lastMeleeHit = e + f * ts; lastMeleeUd = 0; } continue; }   // G2: a soldier took the blade
+    if (!world) continue;
     uint64_t key = h.ud == 0 ? 0 : h.ud;
     if (meleeHits.count(key)) continue;   // one hit per target per swing
     meleeHits.insert(key);

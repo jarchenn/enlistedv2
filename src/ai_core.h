@@ -38,7 +38,9 @@ std::string& aiDifficultySetting();      // match setup choice (default from rul
 // ---------------------------------------------------------------- actions (AI_SPEC 9)
 enum AiAction : int { A_ADVANCE = 0, A_RETURN_FIRE, A_SUPPRESS, A_TAKE_COVER, A_RELOAD, A_GRENADE, A_CLEAR, A_HOLD, A_EVADE, A_OVERWATCH, A_COUNT };
 const char* aiActionName(int a);
-enum AiSpeed : int { SPD_STOP = 0, SPD_CRAWL, SPD_CROUCH, SPD_WALK, SPD_JOG, SPD_SPRINT };
+enum AiSpeed : int { SPD_STOP = 0, SPD_CRAWL, SPD_CROUCH, SPD_WALK, SPD_JOG, SPD_SPRINT, SPD_ZOMBIE };
+float aiZombieSpeed();   // G2 (zombie.cpp): content/ai/zombie.json speed_mps
+int aiZombieBlows();    // G2: zombie blows that landed since start (tests)
 
 // ---------------------------------------------------------------- cover (AI_SPEC 5)
 inline int64_t coverKey(float x, float z) { return ((int64_t)std::floor(x / 8.0f) << 32) ^ (int64_t)(uint32_t)(int)std::floor(z / 8.0f); }

@@ -1,0 +1,13 @@
+{
+  "note": "G2 zombie AI (game balance, not real-world data). Zombies only pursue the closest hostile and strike it in melee: no weapon, no grenades, no cover. speed_mps sits between the jog and the sprint of content/settings/movement.json (W1 cuts all movement speeds by 15 %). The model is content/characters/zombie.glb (RINONO, CC-BY-4.0, docs/credits.md) with its own clips: the blow lands at the attack clip's swing frame played at attack_rate (windup_s is the fallback without clips).",
+  "speed_mps": 4.0,
+  "repath_s": 0.5,
+  "reach_m": 1.6,
+  "damage": 35,
+  "cooldown_s": 0.9,
+  "windup_s": 0.25,
+  "model": "zombie",
+  "height_m": 1.85,
+  "attack_rate": 1.4,
+  "flinch_s": 0.6
+}

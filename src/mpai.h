@@ -22,6 +22,7 @@ void mpaiInput(App& app, ExploreInput& in);    // filters local input (dead, mat
 bool mpaiLocalFrozen(App& app);                // local player dead: skip its movement this step
 void mpaiStep(App& app, float dt);             // end of the fixed explore step
 bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld);   // true: hit a soldier (consume)
+bool mpaiMeleeRay(App& app, vec3 o, vec3 d, float& t, float dmg);   // knife ray: true = a soldier nearer than t took it (t = its distance)
 bool mpaiGrenadeSpawn(App& app, int def, vec3 pos, vec3 vel, int owner);   // true: handled (LAN client request), no local body
 // grenade fuse ran out: phase 0 before the blast (returns true when it handled it: smoke), phase 1 after explode()
 bool mpaiGrenadeDetonate(App& app, int def, vec3 pos, int owner, int phase);

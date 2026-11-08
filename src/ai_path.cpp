@@ -357,7 +357,7 @@ void AiCore::move(Soldier& s, float dt) {
   const dtQueryFilter* f = &G.nav.defaultFilter();
   vec3 pos = s.feet;
   vec3 desired(0); bool wantsMove = false; bool crouchArea = false; bool offMesh = false;
-  float vmax = m.speed == SPD_SPRINT ? vSprint : m.speed == SPD_JOG ? vJog : m.speed == SPD_WALK ? vWalk : m.speed == SPD_CROUCH ? vCrouch : m.speed == SPD_CRAWL ? vProne : 0.0f;
+  float vmax = m.speed == SPD_ZOMBIE ? aiZombieSpeed() : m.speed == SPD_SPRINT ? vSprint : m.speed == SPD_JOG ? vJog : m.speed == SPD_WALK ? vWalk : m.speed == SPD_CROUCH ? vCrouch : m.speed == SPD_CRAWL ? vProne : 0.0f;
   if (m.doorWait > 0) m.doorWait -= dt;
   if (m.hasPath && q && m.speed != SPD_STOP && m.doorWait <= 0) {
     dtPathCorridor& c = *m.corridor;

@@ -113,6 +113,7 @@ bool Game::begin(std::string& err) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
+    s.zombie = !rs.human && match.rules.aiType[match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1)] == AiType::Zombies;   // G2
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
     Brain& b = s.br;
@@ -125,6 +126,7 @@ bool Game::begin(std::string& err) {
     std::string fac = factionName(rs.faction);
     auto& ml = combat["models"][fac];
     s.model = modelIdx[ml[rs.id % ml.size()].get<std::string>()];
+    if (s.zombie) { int zm = aiZombieModel(*this); if (zm >= 0) s.model = zm; }   // G2: the animated zombie
   }
   pool.clear(); poolBuilt = false;
   sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;
@@ -170,6 +172,9 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
       app.carried = pool; app.selectWeapon(pool[0]);
     }
     s.weapon = app.activeWeapon;
+  } else if (s.zombie) {   // G2: bare hands, nothing to throw
+    s.weapon = -1; s.ws = WeaponState{}; s.frags = s.smokes = 0; s.meleeWind = -1; s.reload = 0; s.throwT = -1; s.throwReleased = false;
+    return;
   } else {
     // weighted pool, deterministic per slot + life
     std::vector<std::pair<int, int>> pool; int tot = 0;
@@ -528,7 +533,7 @@ void Game::step(float dt) {
 
 void Game::posesStep(float dt) {
   for (auto& s : sold) {
-    if (!s.inUse || (!s.alive && t - s.diedAt > 2.0)) continue;
+    if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s
     const CharModel& m = *models[s.model];
     PoseParams pp;
     pp.walkAmount = std::min(1.0f, s.speed / 3.0f); s.walkPhase += s.speed * dt * 2.6f; pp.walkPhase = s.walkPhase;
@@ -546,7 +551,7 @@ void Game::posesStep(float dt) {
     pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz
     if (s.localPlayer) app.swimPose(pp);   // swim.cpp: the player's own stroke phase
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
-    poseCharacter(m, pp, s.pose);
+    if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else poseCharacter(m, pp, s.pose);   // G2: clips
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
   }
@@ -596,7 +601,7 @@ void Game::drawItems() {
     float dist = glm::length(c - cam);
     if (dist > 300) continue;
     if (dist > 4 && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
-    if (!s.alive && t - s.diedAt > 2.0 && s.ciReady && s.ci.frameSkinned >= 0) {}   // settled corpse: keep the last skin
+    if (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0) {}   // settled corpse: keep the last skin
     else {
       if (!s.ciReady) { s.ci.create(*models[s.model]); s.ciReady = true; }
       bool far = dist > 70;

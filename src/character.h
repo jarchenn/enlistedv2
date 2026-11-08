@@ -5,6 +5,7 @@
 // Skinning runs in a compute shader that writes each soldier's own vertex buffer, which the existing model pass
 // (Renderer::worldModels: shading + shadows) draws unchanged.
 #include "model.h"
+#include "anim_clip.h"
 
 // Model space: metres, y up, the soldier faces +z, its left is +x, feet at y = 0.
 enum CharJoint : int {
@@ -27,6 +28,9 @@ struct CharModel {
   std::vector<int> jointParent;             // skin joint -> parent skin joint (-1 root)
   std::vector<vec3> jointHead;              // rest head position (model space)
   int semantic[CJ_COUNT];                   // CharJoint -> skin joint (-1 missing)
+  std::vector<int> nodeOrder;               // parents before children
+  mat4 rootFix{1};                          // applied above the root nodes (load with a height: scale / recentre)
+  std::vector<AnimClip> clips;              // G2: the GLB's own clips (anim_clip.h), empty for the soldiers
   // geometry
   struct SkinVert { vec3 pos; float pad0; vec3 nrm; float pad1; vec2 uv; vec2 pad2; uint32_t j[4]; vec4 w; };
   std::vector<SkinVert> verts;
@@ -34,7 +38,7 @@ struct CharModel {
   GpuModel gpu;                             // shared index buffer, textures, parts (vao/vbo hold the bind pose)
   GLuint restSsbo = 0;
   vec3 bmin{0}, bmax{0};
-  bool load(const fs::path& glb, std::string& err);
+  bool load(const fs::path& glb, std::string& err, float height = 0);   // height > 0: scaled to it, feet at 0, centred
   void destroy();
   int joints() const { return (int)jointNode.size(); }
 };
