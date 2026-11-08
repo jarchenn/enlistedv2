@@ -1,0 +1,2 @@
+# shell scripts run on macOS / Linux too: always LF (a CRLF run_all_tests.sh passed "--selftest" to the game)
+*.sh text eol=lf
