@@ -10,6 +10,7 @@
 //    local lights, previous probes: multi-bounce), projected to L1 SH plus an octahedral distance tile (visibility).
 // Hooks: Renderer::render (begin / prepass / end), setLighting (todColors / uniforms), exposure, app.cpp (gather).
 #include "lighting.h"
+#include "textures.h"   // L4: the capture shader samples the same texture arrays as progMain
 #include "app.h"
 #include <algorithm>
 #include <cstring>
@@ -424,7 +425,7 @@ void LightingPass::init(Renderer& R, const char* kCommonSrc, const char* kMainFS
   L.progCluster = compileCS(R, kClusterCS, false, "light_clusters", kCommonSrc);
   if (L.giAvail) {
     L.progProbe = compileCS(R, kProbeCS, true, "probe_project", kCommonSrc);
-    L.progCapture = R.compile(kCaptureVS, kMainFSSrc, "probe_capture");
+    L.progCapture = R.compile(kCaptureVS, kMainFSSrc, "probe_capture"); tex::attach(L.progCapture);
     glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &L.capCol); glTextureStorage3D(L.capCol, 1, GL_RGBA16F, kCapN, kCapN, kMaxCap * 6);
     glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &L.capDepth); glTextureStorage3D(L.capDepth, 1, GL_DEPTH_COMPONENT32F, kCapN, kCapN, kMaxCap * 6);
     for (GLuint tx : {L.capCol, L.capDepth}) { glTextureParameteri(tx, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(tx, GL_TEXTURE_MAG_FILTER, GL_NEAREST); }

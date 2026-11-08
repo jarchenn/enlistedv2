@@ -398,7 +398,7 @@ void build(App& app) {
     }
     if (s < 0.3f) return false;   // the frame re-cuts the trenches (navSyncCuts) after opening
     int dec2 = 0; for (auto& i : app.doc.instances) dec2 += isDecor(i);
-    chk(ok && app.doc.instances.size() == n && dec2 == dec && app.terrain.ringTiles() == 6 && maxDiff(gH0, heightsAt(app, gPts)) < 2e-3f, "save / reopen: %zu instances, %d decor, ring %d tiles", app.doc.instances.size(), dec2, app.terrain.ringTiles());
+    chk(ok && app.doc.instances.size() == n && dec2 == dec && app.terrain.ringTiles() == 6 && maxDiff(gH0, heightsAt(app, gPts)) < 2e-3f, "save / reopen: %zu instances (was %zu), %d decor (was %d), ring %d tiles, worst height error %.4f m, save+open %s", app.doc.instances.size(), n, dec2, dec, app.terrain.ringTiles(), maxDiff(gH0, heightsAt(app, gPts)), ok ? "ok" : "FAILED");
     app.undoStack.clear();
     return true;
   });
