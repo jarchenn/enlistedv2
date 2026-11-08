@@ -9,7 +9,7 @@ the sets add photographic surface detail, normal maps and roughness and AO varia
 
 | Path | What |
 |---|---|
-| `tools/texture_sets.json` | The curated list: 57 sets, each an ambientCG id, a family and its tile size in metres |
+| `tools/texture_sets.json` | The curated list: 62 sets (57, plus 5 for painted ground), each an ambientCG id, a family and its tile size in metres |
 | `tools/fetch_ambientcg.py` | Fetch and pack (Python stdlib only, run with `-I`) |
 | `content/textures/<set>/color.jpg` | Colour, sRGB, 1024² |
 | `content/textures/<set>/normal.jpg` | NormalGL (OpenGL convention: green up) |
@@ -85,7 +85,7 @@ The vertex carries the slot in the existing pattern float, so the vertex format 
 
 The lasso ground-paint shader calls `terrTexSlot(uPaintSlot[k], p, tn0, tdx, tdy, tDist)` from kTerrainFS. It gets back an albedo and roughness multiplier, AO and a normal delta (`TerrT`), and identity when the layer is off or the set is missing. `#define NMK_TEX_PAINT` marks the API.
 
-Five sets for paint types were requested in addition to the 57 (`side-session-notes/lt4-paint-sets.md`); their slots stay procedural until those sets are downloaded.
+Five more sets serve the paint types: Ground070 (leaf litter), Ground104 (ploughed), Ground051 (scorched), Gravel008 (pebbles) and Ground024 (marsh). The user approved them on 2026-11-07 (`side-session-notes/lt4-paint-sets.md`). ambientCG has no burnt-ground or furrowed-field set, so the lasso shader tints scorched ground and draws the furrows.
 
 ## Shimmer
 
