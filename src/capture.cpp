@@ -122,6 +122,22 @@ void SelfTest::captureUpdate(App& app, float) {
         vec3 o = app.doc.find(id)->pos;
         frame(a, o, "front", vec3(0.75f, 0.42f, 1.0f), 1.15f);
         frame(a, o, "rear", vec3(-0.8f, 0.5f, -1.0f), 1.15f);
+        // interiors: furnish, log rooms and pieces per detected storey, one view per storey from its largest room
+        app.syncRuntime();
+        int nf = app.interior.furnish(app, id, 0);
+        const RoomInfo* ri = app.interior.rooms(a);
+        std::string rep = a->id + ": " + std::to_string(nf) + " pieces;";
+        for (size_t s = 0; s < ri->storeys.size(); ++s) {
+          auto& S = ri->storeys[s];
+          int rooms = 0, pieces = 0; const RoomInfo::Room* big = nullptr;
+          for (auto& R : ri->rooms) if (R.storey == (int)s) { ++rooms; if (!big || R.area > big->area) big = &R; }
+          for (auto& i : app.doc.instances) if (isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == id && i.pos.y - o.y > S.y - 0.3f && i.pos.y - o.y < S.ceil) ++pieces;
+          rep += " storey y=" + std::to_string(S.y).substr(0, 4) + " rooms " + std::to_string(rooms) + " pieces " + std::to_string(pieces) + ";";
+          if (!big) continue;
+          keep.push_back(a->id + "_int" + std::to_string(s));   // from one corner of the room across to the other
+          cams.push_back({keep.back().c_str(), o + vec3(big->mn.x + 0.35f, S.y + 1.7f, big->mn.y + 0.35f), o + vec3(big->mx.x - 0.3f, S.y + 0.4f, big->mx.y - 0.3f)});
+        }
+        logf("b2 interiors %s", rep.c_str());
       }
       n = 0;
       for (auto* a : dress) {

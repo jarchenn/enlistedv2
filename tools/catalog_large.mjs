@@ -37,7 +37,7 @@ function largeBuilding(A, c) {
     for (let f = 0; f < n - 1; f++) {
       const y = yAt(f);
       stairs(A, { x0: k.l1[0], x1: k.l1[1], z0: zA, dir: +1, y0: y, rise: h / 2, n: nr, run: R, openSide: 1, core: true });
-      A.box([k.xa, y + h / 2 - 0.2, zA + R], [k.xa + coreLen, y + h / 2, zA + R + LAND], c.upperFloor || "floor_x");
+      A.box([k.xa, y + h / 2 - 0.2, zA + R], [k.xa + coreLen, y + h / 2, zA + R + LAND], "tread_x");   // stair, not a floor: interior.cpp would read a floor_x landing as a storey and skip the floors around it
       stairs(A, { x0: k.l2[0], x1: k.l2[1], z0: zA + R, dir: -1, y0: y + h / 2, rise: h / 2, n: nr, run: R, openSide: 1, core: true });
     }
     A.box([k.l1[1], GF, zA], [k.l2[0], EAVE - 0.2, zA + R], "plaster");                     // spine wall
