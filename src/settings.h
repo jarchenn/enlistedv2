@@ -22,6 +22,8 @@ struct GraphicsOpts {
   int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High
   float drawDist = 1.0f;       // decor cull distances (w5CullDraw) and the hard draw cuts (buildDrawLists)
   float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
+  // L2 lighting (docs/lighting.md): local lights per frame, shadowed lights, probe GI 0 off / 1 near / 2 near + far
+  int lightCount = 256, shadowLights = 4, gi = 1;
   bool operator==(const GraphicsOpts&) const = default;
 };
 GraphicsOpts presetOpts(GfxPreset p);
@@ -33,6 +35,7 @@ struct UserSettings {
   float fov = 72.0f;           // hip / running world FOV (vertical deg); ADS and sights narrow from it
   bool vsync = true;
   int fpsCap = 0;              // 0 = unlimited
+  float hour = 14.0f;          // time of day (L2): 14:00 Day, 18:36 Dusk, 00:00 Night, 05:00 Dawn, or any hour
   // gameplay
   float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
   float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)

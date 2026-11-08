@@ -555,6 +555,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-autopath") runSelf = true;   // V9 auto paths between houses (selftest_autopath.cpp)
     else if (a == "--selftest-snap") runSelf = true;     // V6: snapping (selftest_snap.cpp)
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
+    else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -720,6 +721,7 @@ int App::run(int argc, char** argv) {
     w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
     updateGrass(v.camPos);
     R.grass = &grass;
+    { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
     R.render(v, terrain, op, gl, ghosts, ov);
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
     if (!recCaption.empty()) {   // recording caption, over every other overlay

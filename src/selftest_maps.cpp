@@ -36,7 +36,7 @@ std::vector<int> mapTemplates(App& app) {
   return v;
 }
 struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; };   // gate: gameplay view held to the frame target
-struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; };   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
+struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; };   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
 bool thumbOnly = false;
 std::vector<int> sTpl; size_t sTi = 0;
@@ -336,9 +336,10 @@ void SelfTest::mapsUpdate(App& app, float dt) {
   case 4102: {   // ---------------------------------------------------------------- views: settle, measure, shoot
     if (sVi >= sViews.size()) {
       if (app.mode == Mode::Explore) app.exitExplore();
-      json pj = json::array(); double worstAvg = 0, worstEd = 0, worstPre[3] = {0, 0, 0};
+      json pj = json::array(); double worstAvg = 0, worstEd = 0, worstPre[3] = {0, 0, 0}, worstNight = 0;
       for (auto& p : sPerf) {
-        pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"preset", presetName((GfxPreset)p.preset)}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}});
+        pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"preset", presetName((GfxPreset)p.preset)}, {"night", p.night}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}});
+        if (p.night) { worstNight = std::max(worstNight, p.ms); continue; }   // L2: Night is reported, never gated
         if (p.gate) worstPre[p.preset] = std::max(worstPre[p.preset], p.ms);
         if (p.preset != (int)GfxPreset::Medium) continue;   // Low / High: reported below, never gated
         (p.gate ? worstAvg : worstEd) = std::max(p.gate ? worstAvg : worstEd, p.ms);
@@ -349,7 +350,8 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         check(true, fmt("%s: user map frame time (reported only): worst eye-level view %.2f ms, worst editor view %.2f ms", id.c_str(), worstAvg, worstEd));
       else check(worstAvg < 16.7, fmt("%s: every gameplay (eye-level) view holds the 60 FPS target: worst view average %.2f ms (elevated editor views, reported only: worst %.2f ms)", id.c_str(), worstAvg, worstEd));
       check(true, fmt("%s: graphics presets, worst eye-level view (reported; only Medium is gated): Low %.2f ms, Medium %.2f ms, High %.2f ms", id.c_str(), worstPre[0], worstPre[1], worstPre[2]));
-      sSum[id]["presetWorstMs"] = {{"Low", worstPre[0]}, {"Medium", worstPre[1]}, {"High", worstPre[2]}};
+      sSum[id]["presetWorstMs"] = {{"Low", worstPre[0]}, {"Medium", worstPre[1]}, {"High", worstPre[2]}, {"MediumNight", worstNight}};
+      check(true, fmt("%s: Night at Medium (L2 time of day, reported only): worst eye-level view %.2f ms", id.c_str(), worstNight));
       ++sTi; go(4101); break;
     }
     View& v = sViews[sVi];
@@ -376,17 +378,18 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     sLast = tnow;
     if (stageTime >= 4.0f) {
       Perf& p = sPerf.back();
-      std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : "");
+      std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
-      check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : " at High") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
-      if (v.gate && sPresetPass < 2) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High
-        ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : GfxPreset::High;
+      check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
+      if (v.gate && sPresetPass < 3) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
+        ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
-        Perf q; q.name = v.name + (sPresetPass == 1 ? "@low" : "@high"); q.gate = true; q.preset = (int)ps; sPerf.push_back(q);
+        if (sPresetPass == 3) app.R.lt.hour = 0.0f;   // Night (docs/lighting.md)
+        Perf q; q.name = v.name + (sPresetPass == 1 ? "@low" : sPresetPass == 2 ? "@high" : "@night"); q.gate = true; q.preset = (int)ps; q.night = sPresetPass == 3; sPerf.push_back(q);
         stageTime = 0; sLast = 0; break;
       }
       if (sPresetPass) {   // back to Medium: the next view gets 2 s more to settle (grass / targets rebuild from High)
-        settings().applyPreset(app, GfxPreset::Medium); sPresetPass = 0;
+        settings().applyPreset(app, GfxPreset::Medium); app.R.lt.hour = 14.0f; sPresetPass = 0;   // back to Day
         ++sVi; stageTime = -2.0; sViewInit = false; break;
       }
       ++sVi; stageTime = 0; sViewInit = false;

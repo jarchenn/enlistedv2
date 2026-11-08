@@ -32,6 +32,7 @@ void checkMediumIsDefault(App& app, const char* when) {
   T->check(R.shadowNearPx() == 4096 && R.shadowFarPx() == 2048, fmt("%s: shadow maps %d / %d (defaults 4096 / 2048)", when, R.shadowNearPx(), R.shadowFarPx()));
   T->check(R.resolutionScale() == 1.0f && R.width == R.displayW && R.height == R.displayH && !R.ssaoFull(), fmt("%s: full resolution %d x %d, half-resolution AO", when, R.width, R.height));
   T->check(app.grass.quality == GrassQuality::Medium && R.clouds, fmt("%s: grass Medium, clouds on", when));
+  T->check(R.lt.gi == 1 && R.lt.shadowLights == 4 && R.lt.maxLights == 256 && R.lt.hour == 14.0f, fmt("%s: L2 lighting: near probe GI, 4 shadowed lights, 256 lights, Day (14:00)", when));
   T->check(app.fx.maxParts == 900 && app.fx.maxStreaks == 160 && app.fx.maxDebris == 72 && settings().particleBudget() == 1.0f && settings().drawDist() == 1.0f,
            fmt("%s: effect caps 900 / 160 / 72, particle budget and draw distance x1", when));
 }
@@ -125,12 +126,12 @@ bool settingsSelfTest(App& app, float dt) {
       const Renderer& R = app.R;
       if (p == GfxPreset::Low)
         T->check(R.shadowNearPx() == 2048 && R.shadowFarPx() == 1024 && !R.q.ssao && !R.q.ssr && !R.q.shafts && !R.q.cloudShadows && app.grass.quality == GrassQuality::Low &&
-                 R.width == (int)std::lround(R.displayW * 0.85) && app.fx.maxParts == 540 && S.drawDist() == 0.6f,
+                 R.width == (int)std::lround(R.displayW * 0.85) && app.fx.maxParts == 540 && S.drawDist() == 0.6f && R.lt.gi == 0 && R.lt.shadowLights == 0,
                  fmt("Low applied live: shadows 2048 / 1024, effects off, grass Low, render %d x %d upscaled to %d x %d, %zu particles", R.width, R.height, R.displayW, R.displayH, app.fx.maxParts));
       if (p == GfxPreset::Medium) checkMediumIsDefault(app, "Medium applied after Low");
       if (p == GfxPreset::High)
         T->check(R.shadowNearPx() == 4096 && R.shadowFarPx() == 4096 && R.ssaoFull() && R.q.taaPhases == 16 && app.grass.quality == GrassQuality::High &&
-                 R.width == R.displayW && app.fx.maxParts == 1350 && S.drawDist() == 1.4f,
+                 R.width == R.displayW && app.fx.maxParts == 1350 && S.drawDist() == 1.4f && R.lt.gi == 2 && R.lt.shadowLights == 8,
                  fmt("High applied live: shadows 4096 / 4096, full-resolution AO, 16 jitter phases, grass High, %zu particles", app.fx.maxParts));
       T->check(R.fboErrors == 0 && R.shaderErrors == 0, fmt("%s: every framebuffer complete, every shader compiled", presetName(p)));
       T->check(S.s.preset() == p, fmt("the settings report the %s preset", presetName(p)));

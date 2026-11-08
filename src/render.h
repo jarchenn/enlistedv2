@@ -4,6 +4,7 @@
 #include "combat.h"
 #include "grass.h"
 #include "frustum.h"
+#include "light_types.h"
 
 // Per building copy parameters of the wall / floor finish patterns 17-22 (docs/interiors.md): no shader edits needed
 // to vary wear, palette or room finishes. Rooms and sills are in asset space.
@@ -12,7 +13,7 @@ struct SurfaceParams {
   vec4 roomA[16]{}, roomB[16]{};         // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
   vec4 sillA[12]{}, sillB[12]{}; int sills = 0;   // (centre x, sill y, centre z, half width) / (outward normal x, z, -, -)
 };
-struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0};   // apWorld.w = 1: world-space pattern coordinates from origin xz (snap chains, V6 snap.cpp)
+struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
 };
 struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; };
@@ -98,7 +99,22 @@ public:
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
   bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
-  vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));
+  vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));   // the Day sun; inside render() the key light of the time of day (lighting.cpp)
+  // ---- lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, light shadows, probe GI
+  struct LightQ {
+    float hour = 14.0f;         // time of day, 0..24 (14:00 = Day: exactly the pre-L2 sun, sky and exposure)
+    int maxLights = 256;        // local lights uploaded per frame (nearest first)
+    int shadowLights = 4;       // nearest spot / point lights with a shadow map (0, 4, 8)
+    int gi = 1;                 // probe GI: 0 off (the old fill term), 1 near volume, 2 near + far volumes, faster updates
+    float emissive = 1.0f;      // global multiplier on material emission
+    int probeBudget = 0;        // > 0: probes captured per frame (tests); 0 = the preset rate
+  } lt;
+  std::vector<LightDesc> lights;        // filled every frame (lightsGather, src/lights.h) before render()
+  std::vector<LightDesc> testLights;    // appended to lights every frame (self-tests, no L3 data)
+  struct RoomBox { mat4 m{1}; vec3 half{0}; };   // building room volumes in world space (probe placement)
+  std::vector<RoomBox> rooms;
+  struct LightingSys* lsys = nullptr;   // lighting.cpp state
+  friend struct LightingPass;
   int width = 0, height = 0;
   int shaderErrors = 0;                 // compile failures since start (self-tests require 0)
   int fboErrors = 0;                    // incomplete framebuffers since start (self-tests require 0)
@@ -127,7 +143,7 @@ private:
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
   struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1,
                     vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,
-                    alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, snapAp = -1; };
+                    alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, snapAp = -1, glow = -1; };
   std::vector<std::pair<GLuint, DrawLocs>> locCache;
   DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
   std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call

@@ -217,7 +217,7 @@ void main(){
   vec3 up = vec3(0.0, 1.0, 0.0);
   float sh = shadowPCF(vW, up)*cloudShadow(vW);
   float sv = skyVis(vW, up);
-  vec3 Lin = sc*(uSkyCol*mix(0.35, 1.0, sv) + uSunCol*max(uSunDir.y, 0.0)*sh*0.6);
+  vec3 Lin = sc*(giAmbient(vW, up, sv, uSkyCol*mix(0.35, 1.0, sv)) + uSunCol*max(uSunDir.y, 0.0)*sh*0.6);   // L2: probe light by night / under cover
   float NdV = max(dot(N, V), 1e-3);
   float F = 0.02 + 0.98*pow(1.0 - NdV, 5.0);
   vec3 R = reflect(-V, N); R.y = abs(R.y);
@@ -225,6 +225,7 @@ void main(){
   vec3 L = uSunDir, H = normalize(V + L);
   float NdL = max(dot(N, L), 0.0), NdH = max(dot(N, H), 0.0), a = max(rough*rough, 0.0009);
   vec3 spec = D_GGX(NdH, a)*G_Smith(NdV, NdL, rough)*vec3(F_Schlick(max(dot(H, V), 0.0), vec3(0.02)))/(4.0*NdV*max(NdL, 1e-3))*uSunCol*NdL*sh;
+  if (uLightCount > 0) { vec3 ld, ls; localLights(vW, N, up, V, rough, vec3(0.02), ld, ls); Lin += sc*ld*0.6; spec += ls; }   // L2: lamps on the water
   if (under) { env = Lin*2.0; spec = vec3(0.0); }
   vec3 own = F*env + spec + (1.0 - F)*(1.0 - T)*Lin;
   vec3 trans = (1.0 - F)*T;

@@ -83,8 +83,8 @@ void GpuMesh::upload(const MeshData& m) {
   glVertexArrayElementBuffer(vao, ebo);
   struct A { int n; size_t off; } attrs[] = {
     {3, offsetof(Vertex, pos)}, {3, offsetof(Vertex, nrm)}, {3, offsetof(Vertex, albedo)},
-    {4, offsetof(Vertex, params)}, {3, offsetof(Vertex, pcoord)}, {3, offsetof(Vertex, pnrm)}};
-  for (int k = 0; k < 6; ++k) {
+    {4, offsetof(Vertex, params)}, {3, offsetof(Vertex, pcoord)}, {3, offsetof(Vertex, pnrm)}, {3, offsetof(Vertex, emis)}};
+  for (int k = 0; k < 7; ++k) {
     glEnableVertexArrayAttrib(vao, k);
     glVertexArrayAttribFormat(vao, k, attrs[k].n, GL_FLOAT, GL_FALSE, (GLuint)attrs[k].off);
     glVertexArrayAttribBinding(vao, k, 0);
@@ -119,7 +119,7 @@ static void pushQuad(MeshData& m, const Part& p, const Material& mat, const mat4
     v.pos = vec3(xf * vec4(ap, 1));
     v.nrm = glm::normalize(nx * (prismSpace ? ln : p.rot * ln));
     v.albedo = mat.albedo;
-    v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat));
+    v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat)); v.emis = mat.emissive;
     v.pcoord = lp[k];
     v.pnrm = ln;
     m.v.push_back(v);
@@ -170,7 +170,7 @@ static void appendRound(MeshData& m, const Part& p, const Material& mat, const m
           v.pos = vec3(xf * vec4(p.center + p.rot * lp, 1));
           v.nrm = glm::normalize(nx * (p.rot * n));
           v.albedo = mat.albedo;
-          v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat));
+          v.params = vec4((float)mat.pattern, mat.roughness, mat.metallic, grainOf(p, mat)); v.emis = mat.emissive;
           v.pcoord = lp; v.pnrm = n;
           m.v.push_back(v);
         }
@@ -449,6 +449,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     m.metallic = mj.value("metallic", 0.0f);
     m.pattern = patternFromName(mj.value("pattern", "plain"));
     m.grainAxis = mj.value("grain", 1);
+    m.emissive = glm::max(jvec3(mj.value("emissive", json()), vec3(0)), vec3(0));   // L2 (docs/lighting.md)
     mats[m.name] = (int)a->materials.size();
     a->materials.push_back(m);
   }
