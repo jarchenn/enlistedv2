@@ -212,3 +212,18 @@ The full write-up is in `docs/lighting.md`.
 - `--selftest-lights`: 45 checks, covering clusters = CPU replica, lit vs unlit room, bounce onto the face turned away from the lamp, no leak through the wall, light shadows, the time-of-day presets, Day = the old look, and emission.
 - `--selftest-maps` also runs each gameplay view at Night (Medium), reported only.
 - `--selftest-render` and `--selftest-settings` pass.
+
+### Results (fast mode against vo-batch-b, 2080 Ti with three GPU slots shared)
+- **Passed:** `lights` 45/0, `render` 48/0, `settings` 44/0, `A` 226/0, `damage` 145/0, `fps` 114/0, `env` 42/0, `sights` 140/0, `visuals` 31/0, `gore` 45/0.
+- **Render frames against the pre-L2 baseline:** the facade, moving and water frames are identical, with a mean |dL| of 0.00-0.02. The close wall in shadow differs by 0.19 mean (0.44 % of pixels over 12 levels), where probe light now adds a little under cover. The shimmer and detail numbers are unchanged.
+- **Known batch-B failures, not caused by L2** (Step 0, routed to V4):
+  - `B` 67/1: one placed instance after reopen;
+  - `grass` 21/1: exclusion footprints;
+  - `interiors` 191/1: `ruin_townhouse_facade` is empty;
+  - `structures` 905/12 and `nature` 133/2: the same counts as the batch-B baseline;
+  - `editor`: 3 house place/undo checks.
+- **Timing-only failures under the shared GPU:**
+  - the `maps` FPS gate on 4 maps;
+  - 1 `editor` frame-time check.
+
+  V4's build (no L2 code), measured under the same load, shows similar maps times: Omaha 369 ms against 480 ms, the village 101 ms against 106 ms. The real Medium Day gate needs an exclusive run (`GPU_TURN_EXCLUSIVE=1`) at merge. Night at Medium is reported per map in `summary_maps.json`.
