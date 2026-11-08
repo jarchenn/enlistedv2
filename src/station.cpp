@@ -1,6 +1,7 @@
 // Crew-served stations (PaK 40, M2HB), projectiles and ammunition crates.
 // All state here is an Explore session overlay: F5 starts from authored defaults, returning discards it.
 #include "app.h"
+#include "crumb.h"
 #include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -170,6 +171,7 @@ bool App::occupyStation(uint64_t id, int pos) {
 
 void App::leaveStation() {
   if (!occupied) return;
+  logf("station: left gun %llu (stage %s)", (unsigned long long)occupied, gCrumb ? gCrumb : "?");   // why a crew left (LAN tests)
   Instance* inst = doc.find(occupied); StationRT* s = station(occupied);
   if (inst && s) {
     auto& r = rt[occupied];
