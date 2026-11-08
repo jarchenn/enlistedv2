@@ -1,6 +1,10 @@
 #pragma once
 // Shared includes and small helpers.
+#ifdef __APPLE__
+#include "mac/gl_metal.h"   // normandy-mac fork: the GL subset this game uses, implemented on Metal
+#else
 #include <glad/gl.h>
+#endif
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>

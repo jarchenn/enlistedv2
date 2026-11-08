@@ -5,6 +5,7 @@
 #include "match.h"
 #include "mptest.h"
 #include "navmeta.h"
+#include "net.h"
 #include <cmath>
 #include <fstream>
 
@@ -321,6 +322,21 @@ int runMatchSelfTest() {
             resolveNavEffect(none, false, vec3(0), vec3(1, 2.5f, 1)) == NavEffect::Block, "no nav block: enterable / tall assets block, low ones carve");
     T.check(navAreaCost(NavArea::Road) == 1.0f && navAreaCost(NavArea::Trench) == 0.9f && navAreaCost(NavArea::Marsh) == 3.0f && navAreaCost(NavArea::Minefield) < 0 && navAreaCost(NavArea::Wire) < 0,
             "AI_SPEC 3.1 area costs: road 1.0, trench 0.9, marsh 3.0, minefield and wire forbidden");
+  }
+  // ---------------------------------------------------------------- cross-play: the join's content hash ignores line endings
+  {
+    fs::path root = fs::temp_directory_path() / "nmk_selftest_hash";
+    auto write = [&](const char* sub, const char* nl) {
+      std::error_code ec; fs::create_directories(root / sub / "assets", ec);
+      std::ofstream(root / sub / "assets" / "a.json", std::ios::binary) << "{" << nl << "  \"id\": \"a\"" << nl << "}" << nl;
+      std::ofstream(root / sub / "assets" / "b.bin", std::ios::binary) << "1234";
+    };
+    write("crlf", "\r\n"); write("lf", "\n");
+    std::string hc = Net::contentHashAt(root / "crlf"), hl = Net::contentHashAt(root / "lf");
+    std::ofstream(root / "lf" / "assets" / "a.json", std::ios::binary) << "{\n  \"id\": \"b\"\n}\n";
+    std::string hd = Net::contentHashAt(root / "lf");
+    T.check(hc == hl && hd != hl, "content hash: CRLF and LF copies match (Windows <-> macOS joins), a changed value differs");
+    std::error_code ec; fs::remove_all(root, ec);
   }
   return T.finish();
 }

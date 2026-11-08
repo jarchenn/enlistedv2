@@ -9,7 +9,11 @@
 #include <sstream>
 #include <algorithm>
 #include <cfloat>
+#ifdef _WIN32
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 
 // ---------------------------------------------------------------- utilities
 void logf(const char* fmt, ...) {
@@ -25,12 +29,23 @@ std::string readTextFile(const fs::path& p) {
   std::stringstream ss; ss << in.rdbuf(); return ss.str();
 }
 fs::path exeDir() {
+#ifdef _WIN32
   wchar_t buf[MAX_PATH]; GetModuleFileNameW(nullptr, buf, MAX_PATH);
   return fs::path(buf).parent_path();
+#elif defined(__APPLE__)
+  char buf[4096]; uint32_t n = sizeof buf; std::error_code ec;
+  if (_NSGetExecutablePath(buf, &n) != 0) return fs::current_path();
+  return fs::weakly_canonical(buf, ec).parent_path();
+#else
+  std::error_code ec; return fs::read_symlink("/proc/self/exe", ec).parent_path();
+#endif
 }
 fs::path contentDir() {
   fs::path p = exeDir() / "content";
   if (fs::exists(p)) return p;
+#ifdef __APPLE__
+  if (fs::exists(exeDir() / "../Resources/content")) return exeDir() / "../Resources/content";   // NormandyMapmaker.app/Contents/MacOS
+#endif
   return fs::current_path() / "content";
 }
 fs::path userMapsDir() {

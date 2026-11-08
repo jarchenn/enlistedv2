@@ -5,7 +5,7 @@
 #include "app.h"
 #include "editor_nav.h"
 #include "lighting.h"
-#include <GLFW/glfw3.h>
+#include "platform_gfx.h"
 #include <imgui.h>
 #include <algorithm>
 #include <chrono>
@@ -184,7 +184,7 @@ void Settings::apply(App& app) {
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3);
   app.fx.setBudget(g.particles);
-  if (!gSelftest) glfwSwapInterval(s.vsync ? 1 : 0);
+  if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers;
   app.audio.setGains(s.master, s.effects, s.ui, s.ambience);
   if (ImGui::GetCurrentContext()) ImGui::GetIO().FontGlobalScale = s.uiScale;

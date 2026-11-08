@@ -1,6 +1,18 @@
-// LAN multiplayer over Winsock2 UDP (see net.h, docs/multiplayer.md).
+// LAN multiplayer over UDP: Winsock2 on Windows, BSD sockets elsewhere (see net.h, docs/multiplayer.md).
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <fcntl.h>
+using SOCKET = int;
+constexpr SOCKET INVALID_SOCKET = -1;
+static int closesocket(SOCKET s) { return close(s); }
+#endif
 #include "net.h"
 #include "game.h"
 #include "mpui.h"
@@ -191,19 +203,22 @@ static float reachTo(App& app, const Instance& i, vec3 eye) {
 }
 static json pieceJson(const Instance& i) { return {{"id", i.id}, {"a", i.assetId}, {"v", i.assetVersion}, {"p", tojson(i.pos)}, {"y", i.yaw}, {"x", i.extra}}; }
 
-std::string Net::contentHash() {
-  // build protocol + gameplay content (assets, weapons, AI data, characters); sizes + leading bytes keep it fast
+std::string Net::contentHash() { return contentHashAt(contentDir()); }
+std::string Net::contentHashAt(const fs::path& root) {
+  // build protocol + gameplay content (assets, weapons, AI data, characters): binary files by size, JSON by text.
+  // JSON is hashed with '\r' removed so CRLF (Windows checkout) and LF (macOS / Linux) copies cross-play.
   uint64_t h = fnv("nmk-net-" + std::to_string(kNetVersion));
-  std::vector<fs::path> files;
+  std::vector<std::pair<std::string, fs::path>> files;   // sorted by relative path, the same order on every OS
   for (const char* sub : {"assets", "weapons", "ai", "characters"}) {
     std::error_code ec;
-    for (auto& e : fs::recursive_directory_iterator(contentDir() / sub, ec)) if (e.is_regular_file()) { auto ext = e.path().extension().string(); if (ext == ".json" || ext == ".glb" || ext == ".bin") files.push_back(e.path()); }
+    for (auto& e : fs::recursive_directory_iterator(root / sub, ec)) if (e.is_regular_file()) { auto ext = e.path().extension().string(); if (ext == ".json" || ext == ".glb" || ext == ".bin") files.push_back({fs::relative(e.path(), root, ec).generic_string(), e.path()}); }
   }
   std::sort(files.begin(), files.end());
-  for (auto& f : files) {
-    std::error_code ec; auto sz = fs::file_size(f, ec);
-    h = fnv(fs::relative(f, contentDir(), ec).generic_string() + "#" + std::to_string(sz), h);
-    if (f.extension() == ".json") h = fnv(readTextFile(f), h);
+  for (auto& [rel, f] : files) {
+    if (f.extension() == ".json") {
+      std::string t = readTextFile(f); t.erase(std::remove(t.begin(), t.end(), '\r'), t.end());
+      h = fnv(rel + "#" + std::to_string(t.size()), h); h = fnv(t, h);
+    } else { std::error_code ec; h = fnv(rel + "#" + std::to_string(fs::file_size(f, ec)), h); }
   }
   return hex(h);
 }
@@ -216,12 +231,18 @@ std::string Net::mapHash(const App& app) {
 }
 
 static bool openSocket(Net::Impl& d, int port, std::string& err) {
+#ifdef _WIN32
   if (!d.wsa) { WSADATA w; if (WSAStartup(MAKEWORD(2, 2), &w) != 0) { err = "Winsock could not start"; return false; } d.wsa = true; }
+#endif
   d.s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (d.s == INVALID_SOCKET) { err = "could not create a UDP socket"; return false; }
-  BOOL yes = TRUE; setsockopt(d.s, SOL_SOCKET, SO_BROADCAST, (const char*)&yes, sizeof yes);
+  int yes = 1; setsockopt(d.s, SOL_SOCKET, SO_BROADCAST, (const char*)&yes, sizeof yes);
+#ifdef _WIN32
   u_long nb = 1; ioctlsocket(d.s, FIONBIO, &nb);
-  sockaddr_in a{}; a.sin_family = AF_INET; a.sin_addr.s_addr = htonl(INADDR_ANY); a.sin_port = htons((u_short)port);
+#else
+  fcntl(d.s, F_SETFL, fcntl(d.s, F_GETFL, 0) | O_NONBLOCK);
+#endif
+  sockaddr_in a{}; a.sin_family = AF_INET; a.sin_addr.s_addr = htonl(INADDR_ANY); a.sin_port = htons((uint16_t)port);
   if (bind(d.s, (sockaddr*)&a, sizeof a) != 0) {
     err = port ? "port " + std::to_string(port) + " is in use (another host on this PC?)" : "could not bind a UDP socket";
     closesocket(d.s); d.s = INVALID_SOCKET; return false;
@@ -725,7 +746,7 @@ void Net::update(App& app, float dt) {
   (void)dt; d->now = glfwGetTime();   // real time: two processes simulate at their own frame rates
   d->flushDelayed(*this);
   char buf[2048];
-  sockaddr_in from{}; int fl = sizeof from;
+  sockaddr_in from{}; socklen_t fl = sizeof from;
   for (int iter = 0; iter < 512; ++iter) {
     int got = recvfrom(d->s, buf, sizeof buf, 0, (sockaddr*)&from, &fl);
     if (got <= 0) break;

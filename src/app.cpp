@@ -16,8 +16,7 @@
 #include "water_query.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
+#include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
 #include <stb_image_write.h>
 #include <algorithm>
 
@@ -599,16 +598,13 @@ int App::run(int argc, char** argv) {
     else openPath = a;
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4); glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+  platformWindowHints();
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
   win = glfwCreateWindow(W, H, "Normandy Mapmaker", nullptr, nullptr);
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
-  glfwMakeContextCurrent(win);
-  if (!gladLoadGL((GLADloadfunc)glfwGetProcAddress)) { logf("gladLoadGL failed"); return 1; }
+  if (!platformInitContext(win)) { logf("graphics context init failed"); return 1; }
   logf("GL %s | %s | %s", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
-  glfwSwapInterval(runSelf ? 0 : 1);
+  platformSwapInterval(runSelf ? 0 : 1);
   glfwSetScrollCallback(win, scrollCb);
 
   IMGUI_CHECKVERSION();
@@ -627,8 +623,7 @@ int App::run(int argc, char** argv) {
   st.Colors[ImGuiCol_ButtonActive] = ImVec4(0.48f, 0.52f, 0.36f, 1.0f);
   st.Colors[ImGuiCol_FrameBg] = ImVec4(0.18f, 0.19f, 0.16f, 1.0f);
   st.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.22f, 0.25f, 0.18f, 1.0f);
-  ImGui_ImplGlfw_InitForOpenGL(win, true);
-  ImGui_ImplOpenGL3_Init("#version 450 core");
+  platformImGuiInit(win);
 
   Physics::init();
   audio.init();
@@ -678,7 +673,7 @@ int App::run(int argc, char** argv) {
     glfwGetFramebufferSize(win, &fbw, &fbh);
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 
-    ImGui_ImplOpenGL3_NewFrame(); ImGui_ImplGlfw_NewFrame(); ImGui::NewFrame();
+    platformImGuiNewFrame(); ImGui::NewFrame();
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); drawExploreUI(); }
@@ -753,7 +748,7 @@ int App::run(int argc, char** argv) {
     }
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    platformImGuiRender(ImGui::GetDrawData());
     if (rec.active() && (++recTick & 1)) {   // 30 fps from the fixed 60 Hz simulation, HUD included
       recPx.resize((size_t)fbw * fbh * 4);
       glReadBuffer(GL_BACK); glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -768,14 +763,14 @@ int App::run(int argc, char** argv) {
       stbi_write_png(uiShot.string().c_str(), fbw, fbh, 4, fl.data(), fbw * 4);
       logf("ui screenshot %s", uiShot.string().c_str()); uiShot.clear();
     }
-    glfwSwapBuffers(win);
+    platformPresent(win);
     settingsEndFrame(*this);   // FPS cap
   }
   int code = selftest ? selftest->exitCode : 0;
   clearRuntime();
   Physics::destroyCharacter();
   audio.shutdown();
-  ImGui_ImplOpenGL3_Shutdown(); ImGui_ImplGlfw_Shutdown(); ImGui::DestroyContext();
+  platformImGuiShutdown(); ImGui::DestroyContext();
   Physics::shutdown();
   glfwDestroyWindow(win); glfwTerminate();
   return code;

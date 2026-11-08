@@ -47,6 +47,7 @@ public:
   void startMatch(App& app);                // host: lobby -> match (all clients receive START)
   void returnToLobby(App& app);             // host: after the result
   static std::string contentHash();
+  static std::string contentHashAt(const fs::path& contentRoot);   // contentHash() of another content folder (tests)
   static std::string mapHash(const App& app);
   // game-layer hooks (called by Game / mpai)
   void hostWorldEvent(const json& ev);      // explosion, impact, door, cloud, kill, log -> all clients in order

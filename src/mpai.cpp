@@ -214,11 +214,15 @@ void mpaiImpact(App& app, const Projectile& p, vec3 hitPos, vec3 hitNormal, uint
 
 // ---------------------------------------------------------------- crash breadcrumbs
 #include "crumb.h"
-#include <windows.h>
 const char* volatile gCrumb = "start";
+#ifdef _WIN32
+#include <windows.h>
 static LONG WINAPI crashFilter(EXCEPTION_POINTERS* e) {
   logf("CRASH: exception 0x%08lx at %p, last stage: %s", e->ExceptionRecord->ExceptionCode, e->ExceptionRecord->ExceptionAddress, gCrumb ? gCrumb : "?");
   fflush(stdout);
   return EXCEPTION_CONTINUE_SEARCH;
 }
 void installCrashReporter() { static bool done = false; if (!done) { done = true; SetUnhandledExceptionFilter(crashFilter); } }
+#else
+void installCrashReporter() {}   // POSIX: crashlog.cpp's signal handler already logs gCrumb
+#endif
