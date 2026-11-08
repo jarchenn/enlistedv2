@@ -1,10 +1,4 @@
 {
- "crate_mixed_supply": {
-  "effect": "none"
- },
- "crate_pak40_he": {
-  "effect": "none"
- },
  "def_sandbag_curved": {
   "effect": "carve",
   "cover": [

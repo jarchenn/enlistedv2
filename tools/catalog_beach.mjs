@@ -16,15 +16,48 @@ function rod(A, p0, p1, w, m, o = {}) {
   const yaw = (Math.atan2(d[0], d[2]) * 180) / Math.PI, pitch = (-Math.atan2(d[1], Math.hypot(d[0], d[2])) * 180) / Math.PI;
   return A.obox(c, [w, w, L], [pitch, yaw, 0], m, o);
 }
-// a round-ish log: two crossed square rods
+// P1: flat-bottom railway rail drawn along its local y (length L): head, web and foot, rotated by euler r about c
+function rail(A, c, L, r) {
+  const q = qeuler(r);
+  for (const [dz, sx, sz] of [[0.05, 0.068, 0.045], [-0.002, 0.018, 0.08], [-0.064, 0.13, 0.02]]) {
+    const o = qrot(q, [0, 0, dz]);
+    A._target.push({ t: "b", c: [c[0] + o[0], c[1] + o[1], c[2] + o[2]].map(r3), s: [sx, L, sz].map(r3), q: q.map((v) => Math.round(v * 1e5) / 1e5), m: "rust", k: 0, bv: 0.004 });
+  }
+}
+// a round log: P1 draws a smooth round cylinder (slightly tapered, with a sawn-end disc) along the axis; the square rod
+// of version 1 stays as the invisible collider (and keeps its place as a first part / knock-over pivot)
 function log(A, p0, p1, r, m = "log_raw", o = {}) {
-  rod(A, p0, p1, r * 1.8, m, o);
+  pmat(A, "log_end");
+  rod(A, p0, p1, r * 1.8, m, { ...o, v: 0 });
   const d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]], L = Math.hypot(...d);
   const c = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2];
   const yaw = (Math.atan2(d[0], d[2]) * 180) / Math.PI, pitch = (-Math.atan2(d[1], Math.hypot(d[0], d[2])) * 180) / Math.PI;
-  // second box rolled 45 deg about the log axis: built as a quaternion so the roll is about the log's own axis
-  const q = qmul(qeuler([pitch, yaw, 0]), qaxis([0, 0, 1], 45));
-  A._target.push({ t: "b", c: c.map(r3), s: [r3(r * 1.8), r3(r * 1.8), r3(L)], q: q.map((v) => Math.round(v * 1e5) / 1e5), m, k: 0 });
+  const q = qmul(qeuler([pitch, yaw, 0]), qaxis([1, 0, 0], 90)).map((v) => Math.round(v * 1e5) / 1e5);   // local y onto the log axis (p0 -> p1)
+  A._target.push({ t: "c", c: c.map(r3), s: [r3(r * 2), r3(L), r3(r * 1.9)], q, top: 0.88, m, k: 0 });
+  const e = [p1[0] - (d[0] / L) * 0.004, p1[1] - (d[1] / L) * 0.004, p1[2] - (d[2] / L) * 0.004];
+  A._target.push({ t: "c", c: e.map(r3), s: [r3(r * 1.6), 0.012, r3(r * 1.5)], q, m: "log_end", k: 0 });   // sawn end
+}
+// P1: materials of the new detail, added once per asset
+const P_MATS = { log_end: [[0.36, 0.27, 0.17], 0.9, "wood", { grain: 0 }], barbed: [[0.16, 0.13, 0.11], 0.6, "metal", { metallic: 0.4 }], nail: [[0.07, 0.065, 0.06], 0.6, "metal", { metallic: 0.3 }] };
+function pmat(A, n) { if (!A.materials.some((m) => m.name === n)) { const [al, ro, pa, ex] = P_MATS[n]; A.mat(n, al, ro, pa, ex); } return n; }
+// P1: 2-ply barbed wire along x from x0 to x1 at height y, depth z: the plies cross every half pitch (a braid from the
+// side), four-point barbs every `barb` m, sagging by `sag` mid-span. Thin boxes, no collision.
+function barbedWire(A, x0, x1, y, z, { pitch = 0.24, r = 0.004, w = 0.003, barb = 0.3, sag = 0.03, seed = 1 } = {}) {
+  pmat(A, "barbed");
+  const L = x1 - x0, n = Math.max(2, Math.round(L / (pitch / 2))), seg = L / n, R = rng(seed);
+  const yy = (x) => y - sag * (1 - ((2 * (x - (x0 + x1) / 2)) / L) ** 2);
+  for (let i = 0; i < n; i++) {
+    const xa = x0 + i * seg, xb = xa + seg;
+    for (const s of [-1, 1]) {
+      const sg = s * (i % 2 ? -1 : 1), ya = yy(xa) + sg * r, yb = yy(xb) - sg * r;
+      A.obox([(xa + xb) / 2, (ya + yb) / 2, z + s * 0.0006], [Math.hypot(seg, yb - ya) + w * 0.6, w, w], [0, 0, (Math.atan2(yb - ya, seg) * 180) / Math.PI], "barbed", { k: 0 });
+    }
+  }
+  const nb = Math.floor(L / barb);
+  for (let i = 0; i < nb; i++) {
+    const x = x0 + ((i + 0.5) * L) / nb, a = R() * 90;
+    for (const t of [a, a + 90]) A.obox([x, yy(x), z], [0.003, 0.026, 0.003], [t, 0, 0], "barbed", { k: 0 });
+  }
 }
 // quaternions [x, y, z, w]; qeuler matches glm::quat(radians(euler)) (R = Rz * Ry * Rx)
 function qaxis(ax, deg) { const h = (deg * Math.PI) / 360, s = Math.sin(h); return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(h)]; }
@@ -72,8 +105,9 @@ function pixelText(A, text, cx, cy, zf, dir, px, m) {
         if (line[c0] !== "#" || (c0 > 0 && line[c0 - 1] === "#")) continue;
         let c1 = c0; while (c1 + 1 < 5 && line[c1 + 1] === "#") c1++;
         const col0 = k * 6 + c0, col1 = k * 6 + c1 + 1;
-        // reading left to right: from -Z the text runs toward +X; from +Z toward -X
-        const xa = dir < 0 ? cx + (col0 - w / 2) * px : cx - (col1 - w / 2) * px, xb = xa + (col1 - col0) * px;
+        // reading left to right: a viewer at +Z has +X on the right, so text read from +Z runs toward +X and text read
+        // from -Z toward -X (P1 fix: versions 1-2 had these swapped, so both faces read mirrored)
+        const xa = dir > 0 ? cx + (col0 - w / 2) * px : cx - (col1 - w / 2) * px, xb = xa + (col1 - col0) * px;
         const y1 = cy + (3.5 - row) * px;
         A.box([xa, y1 - px, Math.min(zf, zf + dir * 0.004)], [xb, y1, Math.max(zf, zf + dir * 0.004)], m, { k: 0 });
       }
@@ -83,7 +117,8 @@ function pixelText(A, text, cx, cy, zf, dir, px, m) {
 // "Achtung Minen!" sign board (both faces) centred at (x, y) on a post at z
 function minenSign(A, x, y, z) {
   mats(A, "sign_white", "sign_black", "sign_red", "picket");
-  A.box([x - 0.36, y - 0.22, z - 0.012], [x + 0.36, y + 0.22, z + 0.012], "sign_white", { k: 0 });
+  A.box([x - 0.36, y - 0.22, z - 0.012], [x + 0.36, y + 0.22, z + 0.012], "sign_white", { k: 0, bv: 0.006 });
+  for (const sy of [-1, 1]) for (const sx of [-1, 1]) A.cyl([x + sx * 0.32, y + sy * 0.18, z - 0.0135], [0.012, 0.004, 0.012], pmat(A, "nail"), { r: [90, 0, 0], seg: 6, k: 0 });
   for (const s of [-1, 1]) {
     A.box([x - 0.36, y + 0.19, z + s * 0.012], [x + 0.36, y + 0.22, z + s * 0.016], "sign_red", { k: 0 });
     A.box([x - 0.36, y - 0.22, z + s * 0.012], [x + 0.36, y - 0.19, z + s * 0.016], "sign_red", { k: 0 });
@@ -97,7 +132,7 @@ const obstacleDef = (hp, mult, slope = 25) => ({ kind: "tank_trap", hp, smallArm
 // Belgian gate (Element C / Cointet): 3.0 m wide, 2.5 m high steel-angle front lattice on rollers, braced back to
 // three 4 m base girders; Teller mines lashed along the top. Front (+Z) faces the sea.
 export function belgianGate() {
-  const A = new Asset({ id: "bch_belgian_gate", version: 1, name: "Belgian gate (Element C)", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_belgian_gate", version: 2, name: "Belgian gate (Element C)", category: "Beach obstacles",
     description: "Element C (Cointet gate) as in the outer Omaha belt: a 3.0 m wide, 2.5 m high riveted steel-angle lattice on concrete rollers, braced back to three 4 m base girders, Teller mines lashed along the top. Front faces the sea. Immune to small arms; HE / AT knocks it over; blocks vehicles and craft.",
     floors: 0, enterable: false, footprint: [3.3, 4.4], plinthDepth: 0, maxGrade: 0.6, noAutoPanels: true });
   stdMaterials(A); mats(A, "rust", "steel_dark", "cement");
@@ -114,7 +149,12 @@ export function belgianGate() {
   rod(A, [-1.55, Y0, ZB + 0.1], [1.55, Y0, ZB + 0.1], 0.1, S);
   rod(A, [-1.5, Y0, ZF - 1.5], [1.5, Y0, ZF - 1.5], 0.08, S);
   rod(A, [-1.5, Y0 + 0.05, ZB + 0.3], [1.5, 1.2, ZF - 0.6], 0.06, S);
-  for (const [x, z] of [[-1.5, ZF], [1.5, ZF], [0, ZB + 0.2]]) for (const a of [0, 45]) A.obox([x, 0.16, z], [0.28, 0.32, 0.32], [a, 0, 0], "cement");   // rollers
+  for (const [x, z] of [[-1.5, ZF], [1.5, ZF], [0, ZB + 0.2]]) {   // rollers: v1's two boxes the collider, a round roller and axle drawn (P1)
+    for (const a of [0, 45]) A.obox([x, 0.16, z], [0.28, 0.32, 0.32], [a, 0, 0], "cement", { v: 0 });
+    A.cyl([x, 0.16, z], [0.33, 0.28, 0.33], "cement", { r: [0, 0, 90], k: 0 });
+    A.cyl([x, 0.16, z], [0.06, 0.36, 0.06], "steel_dark", { r: [0, 0, 90], k: 0, seg: 8 });
+  }
+  for (const p of A.parts) if (p.m === S && p.t === "b") p.bv = 0.006;   // P1: rolled-steel edges (mesh only)
   for (const x of [-1.0, 0.3, 1.2]) tellerMine(A, [x, H + 0.06, ZF], 15 * x, 90);
   A.meta.defense = obstacleDef(2500, 0, 20);
   setNav(A, { effect: "block", cover: [cover([0, 0, ZF - 0.45], 0, "low", ["left", "right"])] });
@@ -123,12 +163,12 @@ export function belgianGate() {
 }
 // log stake (Pfahl) with a Teller mine: a 3.6 m pine log driven in leaning toward the sea, the mine on its tip
 export function logStakeMine() {
-  const A = new Asset({ id: "bch_log_stake_mine", version: 1, name: "Log stake with Teller mine", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_log_stake_mine", version: 2, name: "Log stake with Teller mine", category: "Beach obstacles",
     description: "Seaward-leaning log stake of the second Omaha belt: a 0.3 m pine log 3.6 m long driven in at about 60 deg, a Teller mine 35 fixed to its tip. Small arms barely mark it; HE / AT knocks it over.",
     floors: 0, enterable: false, footprint: [0.8, 2.2], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A); mats(A, "log_raw", "bark_grey");
   const base = [0, -0.4, -0.7], tip = [0, 2.75, 1.1];
-  rod(A, base, tip, 0.27, "log_raw");
+  rod(A, base, tip, 0.27, "log_raw", { v: 0 });   // P1: collider only; the round log below is drawn
   log(A, base, tip, 0.15, "bark_grey");
   tellerMine(A, [0, tip[1] + 0.07, tip[2] + 0.04], 0, -30);
   A.box([-0.06, tip[1] - 0.05, tip[2] - 0.06], [0.06, tip[1] + 0.05, tip[2] + 0.06], "steel_dark", { k: 0 });
@@ -139,7 +179,7 @@ export function logStakeMine() {
 }
 // mined log ramp (Hemmbalken): two 5 m logs rising from the seaward end to 1.9 m on two legs, mines on the high end
 export function logRampMined() {
-  const A = new Asset({ id: "bch_log_ramp_mined", version: 1, name: "Mined log ramp", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_log_ramp_mined", version: 2, name: "Mined log ramp", category: "Beach obstacles",
     description: "Log ramp of the third Omaha belt: two 5 m logs rising from the sand at the seaward end to 1.9 m on a pair of legs, braced and capped with Teller mines, so a craft riding in on the tide climbs it onto the mines. Small arms barely mark it; HE / AT knocks it down.",
     floors: 0, enterable: false, footprint: [1.8, 5.4], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A); mats(A, "log_raw", "bark_grey");
@@ -185,7 +225,7 @@ export function shingleBank() {
 }
 // wooden seawall section: piles every 2 m, horizontal planking 1.4 m above the sand on the seaward face, raking braces
 export function seawallWood() {
-  const A = new Asset({ id: "bch_seawall_wood", version: 1, name: "Wooden seawall (10 m)", category: "Beach",
+  const A = new Asset({ id: "bch_seawall_wood", version: 2, name: "Wooden seawall (10 m)", category: "Beach",
     description: "10 m of the timber seawall behind the Omaha shingle (east half of Easy Red): creosoted piles every 2 m, planking standing 1.4 m above the sand on the seaward face with shingle drifted against it, raking braces behind. Crouching cover; the planking bays splinter under fire.",
     floors: 0, enterable: false, footprint: [10.4, 2.6], plinthDepth: 0, maxGrade: 0.8 });
   stdMaterials(A); mats(A, "shingle", "picket");
@@ -193,10 +233,12 @@ export function seawallWood() {
   const H = 1.4;
   for (let x = -5; x < 5 - 0.01; x += 2) A.box([x + 0.12, -0.4, 0.0], [x + 1.88, H, 0.08], "plank_x");   // planking bays (timber panels)
   for (let x = -5; x <= 5.01; x += 2) {
-    A.box([x - 0.12, -0.8, -0.24], [x + 0.12, H + 0.15, 0.0], "log_z");
-    A.obox([x, 0.5, -0.9], [0.14, 0.14, 1.9], [-38, 0, 0], "picket", { k: 0 });
+    A.box([x - 0.12, -0.8, -0.24], [x + 0.12, H + 0.15, 0.0], "log_z", { v: 0 });   // v1 pile: the collider
+    A.cyl([x, (H + 0.15 - 0.8) / 2, -0.12], [0.27, H + 0.95, 0.27], "log_z", { k: 0, top: 0.92 });
+    A.cyl([x, H + 0.16, -0.12], [0.22, 0.02, 0.22], pmat(A, "log_end"), { k: 0 });
+    A.cyl([x, 0.5, -0.9], [0.15, 1.9, 0.15], "picket", { r: [52, 0, 0], k: 0, seg: 10 });
   }
-  A.box([-5.1, H - 0.08, -0.26], [5.1, H + 0.04, 0.1], "log_x", { k: 0 });   // capping waler
+  A.box([-5.1, H - 0.08, -0.26], [5.1, H + 0.04, 0.1], "log_x", { k: 0, bv: 0.015 });   // capping waler
   A.prism(0, -5, 5, [[0.08, -0.3], [0.08, 0.7], [1.3, -0.3]], "shingle");
   setNav(A, { effect: "block", cover: [-3.5, -1.0, 1.5, 4.0].map((x) => cover([x, 0, -0.7], 0, "low", ["over"])) });
   setTour(A, { pos: [1.0, 0, -3.0], yaw: 180 }, [{ goto: [1.0, -0.8] }, { look: [1.0, 1.2, 6], hold: 0.5 }, { shot: "mpu_seawall" }]);
@@ -234,45 +276,49 @@ export function atDitch() {
 }
 // roadblock: a log crib filled with earth across the left half, steel rails in concrete sockets across the right
 export function roadblock() {
-  const A = new Asset({ id: "bch_roadblock", version: 1, name: "Log and steel roadblock", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_roadblock", version: 2, name: "Log and steel roadblock", category: "Beach obstacles",
     description: "Draw-road block as at the head of E-1: an earth-filled log crib 1.5 m high across 4.6 m, and five railway rails set in concrete sockets across the rest (on foot you squeeze between them; vehicles cannot). The crib's log faces splinter under fire.",
     floors: 0, enterable: false, footprint: [9.0, 2.4], plinthDepth: 0, maxGrade: 0.6 });
   stdMaterials(A); mats(A, "spoil", "rust", "cement", "log_raw");
   const H = 1.5;
   for (const z of [-0.6, 0.6]) A.box([-4.4, 0, z - 0.15], [0.2, H, z + 0.15], "log_x");     // crib faces (timber panels)
-  for (let y = 0.15; y < H; y += 0.3) for (const z of [-0.6, 0.6]) A.obox([-2.1, y, z + Math.sign(z) * 0.14], [4.7, 0.28, 0.06], [0, 0, 0], "log_raw", { k: 0 });
+  for (let y = 0.15; y < H; y += 0.3) for (const z of [-0.6, 0.6]) A.cyl([-2.1, y, z + Math.sign(z) * 0.15], [0.29, 4.7, 0.11], "log_raw", { r: [0, 0, 90], k: 0, seg: 16 });   // P1: round log faces
   for (const x of [-4.4, -2.1, 0.2]) A.box([x - 0.15, 0, -0.75], [x + 0.15, H + 0.1, 0.75], "log_z");
   A.box([-4.25, 0, -0.45], [0.05, H - 0.05, 0.45], "spoil");
   for (let k = 0; k < 5; k++) {
     const x = 1.0 + k * 0.85;
     A.rbox([x - 0.3, -0.3, -0.3], [x + 0.3, 0.12, 0.3], 0.06, "cement");
-    A.obox([x, 0.75, 0.05], [0.13, 1.5, 0.15], [8, 0, 0], "rust");
+    A.obox([x, 0.75, 0.05], [0.13, 1.5, 0.15], [8, 0, 0], "rust", { v: 0 });   // v1 box: the collider
+    rail(A, [x, 0.75, 0.05], 1.5, [8, 0, 0]);
   }
-  A.obox([2.6, 0.08, -1.0], [3.6, 0.13, 0.15], [0, 6, 0], "rust", { k: 0 });   // a spare rail on the ground
+  rail(A, [2.6, 0.08, -1.0], 3.6, [90, 96, 0]);   // a spare rail lying on the ground
   setNav(A, { effect: "block", cover: [-3.5, -2.1, -0.7].map((x) => cover([x, 0, -1.1], 0, "high", ["over"])) });
   setTour(A, { pos: [-1.0, 0, -3.5], yaw: 180 }, [{ goto: [-1.0, -1.3] }, { look: [-1.0, 1.4, 4], hold: 0.4 }, { shot: "mpu_roadblock" }]);
   return A;
 }
 // minefield fence (10 m) with the sign, and the sign alone on a stake
 export function minefieldFence() {
-  const A = new Asset({ id: "bch_minefield_fence", version: 1, name: "Minefield fence with sign (10 m)", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_minefield_fence", version: 3, name: "Minefield fence with sign (10 m)", category: "Beach obstacles",
     description: "Single-strand wire fence on pickets marking a minefield, with an \"Achtung Minen!\" board. The marked field (10 x 10 m on the +Z side) is a minefield nav area: bots never path through it.",
     floors: 0, enterable: false, footprint: [10, 0.5], plinthDepth: 0, maxGrade: 1.0, noAutoPanels: true });
   stdMaterials(A); mats(A, "picket", "steel_dark");
-  for (let x = -5; x <= 5.01; x += 2.5) A.box([x - 0.04, 0, -0.04], [x + 0.04, 1.15, 0.04], "picket");
-  for (const y of [0.55, 1.0]) A.box([-5, y - 0.004, -0.004], [5, y + 0.004, 0.004], "steel_dark", { k: 0 });
+  for (let x = -5; x <= 5.01; x += 2.5) {
+    A.box([x - 0.04, 0, -0.04], [x + 0.04, 1.15, 0.04], "picket", { bv: 0.01 });
+    A.cone([x, 1.17, 0], [0.08, 0.04, 0.08], "picket", { n: 4, top: 0.3, k: 0 });   // weathered pointed top
+  }
+  for (const y of [0.55, 1.0]) for (let k = 0; k < 4; k++) barbedWire(A, -5 + k * 2.5, -2.5 + k * 2.5, y, 0.045, { sag: 0.035, seed: 17 + k + y * 10 });   // P1: 2-ply barbed
   minenSign(A, 1.25, 0.82, -0.05);
   setNav(A, { effect: "area", area: "minefield", areas: [{ outline: rect(-5, 0.2, 5, 10.2), area: "minefield" }], cover: [] });
   setTour(A, { pos: [1.25, 0, -3.0], yaw: 180 }, [{ goto: [1.25, -1.2] }, { look: [1.25, 0.82, 0], hold: 0.5 }, { shot: "mpu_minefield_sign" }]);
   return A;
 }
 export function minenSignStake() {
-  const A = new Asset({ id: "bch_minen_sign", version: 1, name: "\"Achtung Minen\" sign", category: "Beach obstacles",
+  const A = new Asset({ id: "bch_minen_sign", version: 3, name: "\"Achtung Minen\" sign", category: "Beach obstacles",
     description: "\"Achtung Minen!\" warning board on a stake, for the bluff paths and the forest edge. Dressing only (place a minefield fence to mark the mined ground for the bots).",
     floors: 0, enterable: false, footprint: [0.8, 0.3], plinthDepth: 0, maxGrade: 1.2, noAutoPanels: true });
   stdMaterials(A);
   minenSign(A, 0, 1.15, 0.05);
-  A.box([-0.04, -0.3, -0.04], [0.04, 1.35, 0.04], "picket");
+  A.box([-0.04, -0.3, -0.04], [0.04, 1.35, 0.04], "picket", { bv: 0.01 });
   setNav(A, { effect: "none" });
   setTour(A, { pos: [0, 0, -2.2], yaw: 180 }, [{ look: [0, 1.15, 0], hold: 0.5 }, { shot: "mpu_minen_sign" }]);
   return A;
