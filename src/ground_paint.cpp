@@ -369,8 +369,15 @@ void paintMat(int t, vec3 p, out vec3 a, out float r, out vec3 bm, out float ao)
     bm = vec3(f.x - o.x, 0.0, f.y - o.y)/rad*0.7*st; r = mix(0.95, 0.7, st); ao = mix(0.75, 1.0, st);
   }
 }
-void paintApply(vec3 p, vec3 nGeo, inout vec3 alb, inout float rough, inout vec3 N, inout float ao, float dirt) {
-  if (uPaintOn == 0) return;
+// Two calls in kTerrainFS (docs/lasso.md#shading):
+//   PaintOut po = paintApply(p, nGeo, alb, dirt, dpx, dpy, dist);   after the crater mix, before the wet / puddle lines
+//   paintFinish(po, rough, N, ao);                                   just before shade(), after every other layer
+// With L4's textures in the build (tex::glslCommon() prepended first: NMK_TEX_PAINT, uPaintSlot[12], terrTexSlot)
+// each painted type is modulated by its ambientCG set; without them the materials are the procedural ones above.
+struct PaintOut { float w; float rough, ao; vec3 dn, ng; };
+PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec3 dpy, float dist) {
+  PaintOut o; o.w = 0.0; o.rough = 1.0; o.ao = 1.0; o.dn = vec3(0.0); o.ng = nGeo;
+  if (uPaintOn == 0) return o;
   float w[13]; for (int i = 0; i < 13; ++i) w[i] = 0.0;
   vec2 j = (vec2(vnoise(vec3(p.xz*0.8, 61.0)), vnoise(vec3(p.xz*0.8, 62.0))) - 0.5)*0.8;   // no texel grid at the edges
   vec2 q = (p.xz - uPaintOrg)/uPaintTexel - 0.5 + j;
@@ -379,18 +386,27 @@ void paintApply(vec3 p, vec3 nGeo, inout vec3 alb, inout float rough, inout vec3
   paintAcc(w, c + ivec2(0, 1), (1.0 - f.x)*f.y); paintAcc(w, c + ivec2(1, 1), f.x*f.y);
   float W = 0.0; for (int i = 1; i < 13; ++i) W += w[i];
   W = clamp(W, 0.0, 1.0)*(1.0 - smoothstep(0.15, 0.75, dirt));   // craters show through the paint
-  if (W < 0.004) return;
-  vec3 a = vec3(0.0), bm = vec3(0.0); float r = 0.0, o = 0.0, tot = 0.0;
+  if (W < 0.004) return o;
+  vec3 a = vec3(0.0), bm = vec3(0.0); float r = 0.0, ao = 0.0, tot = 0.0;
   for (int i = 1; i < 13; ++i) {
     if (w[i] < 0.01) continue;
     vec3 ai, bi; float ri, oi;
     paintMat(i, p, ai, ri, bi, oi);
-    a += ai*w[i]; r += ri*w[i]; o += oi*w[i]; bm += bi*w[i]; tot += w[i];
+#ifdef NMK_TEX_PAINT
+    TerrT t = terrTexSlot(uPaintSlot[i - 1], p, nGeo, dpx, dpy, dist);   // identity when texturing is off / the set is missing
+    ai *= t.alb; ri *= t.r; oi *= t.ao; bi += t.dn;
+#endif
+    a += ai*w[i]; r += ri*w[i]; ao += oi*w[i]; bm += bi*w[i]; tot += w[i];
   }
-  if (tot <= 0.0) return;
-  a /= tot; r /= tot; o /= tot; bm /= tot;
-  alb = mix(alb, a, W); rough = mix(rough, r, W); ao = mix(ao, o, W);
-  N = normalize(mix(N, normalize(nGeo + bm), W));
+  if (tot <= 0.0) return o;
+  alb = mix(alb, a/tot, W);
+  o.w = W; o.rough = r/tot; o.ao = ao/tot; o.dn = bm/tot;
+  return o;
+}
+void paintFinish(PaintOut o, inout float rough, inout vec3 N, inout float ao) {
+  if (o.w <= 0.0) return;
+  rough = mix(rough, o.rough, o.w); ao = mix(ao, o.ao, o.w);
+  N = normalize(mix(N, normalize(o.ng + o.dn), o.w));   // the painted ground's own relief replaces the sward's
 }
 )GLSL";
 }

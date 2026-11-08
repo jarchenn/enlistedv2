@@ -134,13 +134,18 @@ Twelve ground types over the default grass:
 - **The paint texture:** `groundPaintSync`, called from `App::updateSurface` every frame, mirrors the chunks into one RGBA8 texture over the terrain.
   - It uses texture unit 23, at 0.5 m texels, coarser only on terrain over 2 km.
   - Only the chunks that changed are uploaded.
-- **The shader function:** `paintApply(...)` comes from `groundPaintGlsl()`, which is prepended to `kTerrainFS`. It is called once, just before `shade()`.
+- **The shader functions** come from `groundPaintGlsl()`, prepended to `kTerrainFS`. There are two calls:
+  - `PaintOut po = paintApply(p, nGeo, alb, dirt, dpx, dpy, dist)` after the crater mix and before the wet / puddle lines. It sets the albedo, so wet ground darkens painted ground too.
+  - `paintFinish(po, rough, N, ao)` just before `shade()`, after every other layer (L4's final texture line included). It sets the paint's roughness, AO and relief.
+
+  How `paintApply` works:
   - It fetches the four surrounding texels by hand, with a jittered position so no texel grid shows, and accumulates per-type weights.
   - Types below 1 % are not evaluated.
   - Crater soil shows through the paint.
 - **Materials:** each type has a procedural material (`paintMat`): cobble setts with joints, furrows, pebbles with a domed normal, ash patches, standing water in marsh lows. It needs no textures.
-  - L4's ambientCG layers can be added per type through `terrTex` once L4 merges.
-  - Coordination note: L4 owns the `kTerrainFS` material layers. The splice is these two lines plus the prepend in `Renderer::init`.
+- **L4 textures:** with L4's `tex::glslCommon()` in the build (`NMK_TEX_PAINT`, `uPaintSlot[12]`, `terrTexSlot`), each painted type's material is multiplied by its ambientCG set (`paint_<type>` in `textures.json`). Without it the procedural material stands alone.
+  - The prepend order on the `progTerrain` compile line must be `tex::glslCommon()`, then `groundPaintGlsl()`, then `kTerrainFS`.
+  - After the merge, the `paintApply` call can pass L4's `tdx`, `tdy` and `tDist` instead of its own `dFdx(p)`, `dFdy(p)`, `length(p - uCamPos)`.
 
 ### Gameplay
 

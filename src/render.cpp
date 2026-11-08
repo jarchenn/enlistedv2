@@ -1504,6 +1504,7 @@ void main(){
   // crater and disturbed soil
   float dirt = clamp(vDirt, 0.0, 1.0);
   alb = mix(alb, soil, smoothstep(0.15, 0.75, dirt + (nM - 0.5)*0.35));
+  PaintOut po = paintApply(p, normalize(vN), alb, dirt, dFdx(p), dFdy(p), length(p - uCamPos));   // lasso ground paint: albedo (ground_paint.cpp)
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
@@ -1516,7 +1517,7 @@ void main(){
     rough = mix(rough, 0.9, rockK);
     ao *= 1.0 - 0.35*rCrack*rockK;
   }
-  paintApply(p, normalize(vN), alb, rough, N, ao, dirt);   // lasso ground paint (ground_paint.cpp)
+  paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
