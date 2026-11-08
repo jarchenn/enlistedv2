@@ -229,7 +229,10 @@ std::string Net::mapHash(const App& app) {
   json j = mapToJson(app.doc);
   j.erase("scenario"); j.erase("editorCamera"); j.erase("exploreStart"); j.erase("name");   // the host sends the scenario itself
   j.erase("nextId");   // session placements (field defences) reach late joiners through the world log, not the map
-  auto& in = j["instances"]; in.erase(std::remove_if(in.begin(), in.end(), [](const json& o) { return o.value("session", false); }), in.end());
+  // auto-furnished pieces (V4) are derived on load from their buildings; their trig-placed positions differ in the last
+  // float bits between Windows and macOS maths libraries, so they would fail a Windows <-> Mac join for nothing
+  auto& in = j["instances"]; in.erase(std::remove_if(in.begin(), in.end(), [](const json& o) {
+    return o.value("session", false) || o.contains("furnish") || (o.contains("extra") && o["extra"].is_object() && o["extra"].contains("furnish")); }), in.end());
   if (const char* d = std::getenv("NMK_DUMP_MAPHASH"); d && *d) std::ofstream(d) << j.dump(1);   // diagnostics: compare what two machines hash
   return hex(fnv(j.dump()));
 }
