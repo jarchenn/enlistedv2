@@ -214,7 +214,11 @@ void settingsInit(App& app, bool selftest) {
   gSelftest = selftest;
   S.persist = !selftest;
   if (selftest) return;   // self-tests: Medium defaults, nothing read or written, nothing applied
-  S.load(S.path());
+  if (!S.load(S.path())) {
+#ifdef __APPLE__
+    S.s.gfx = presetOpts(GfxPreset::Low);   // first run on a Mac: integrated GPUs, start light (View > Settings raises it)
+#endif
+  }
   S.apply(app);
 }
 
