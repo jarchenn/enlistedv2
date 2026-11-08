@@ -32,7 +32,7 @@ std::string readTextFile(const fs::path& p) {
   std::ifstream in(p, std::ios::binary); if (!in) return {};
   std::stringstream ss; ss << in.rdbuf(); return ss.str();
 }
-fs::path exeDir() {
+static fs::path binaryDir() {   // the folder of the running executable
 #ifdef _WIN32
   wchar_t buf[MAX_PATH]; GetModuleFileNameW(nullptr, buf, MAX_PATH);
   return fs::path(buf).parent_path();
@@ -43,6 +43,23 @@ fs::path exeDir() {
 #else
   std::error_code ec; return fs::read_symlink("/proc/self/exe", ec).parent_path();
 #endif
+}
+// where the game writes (log, settings, maps, caches, selftest_out): next to the executable, except inside a macOS .app,
+// which is signed and may run from a read-only translocated copy: there ~/Library/Application Support/NormandyMapmaker
+fs::path exeDir() {
+  static const fs::path dir = [] {
+    fs::path b = binaryDir();
+#ifdef __APPLE__
+    if (b.filename() == "MacOS" && b.parent_path().filename() == "Contents") {
+      const char* home = std::getenv("HOME");
+      fs::path u = fs::path(home ? home : "/tmp") / "Library" / "Application Support" / "NormandyMapmaker";
+      std::error_code ec; fs::create_directories(u, ec);
+      return u;
+    }
+#endif
+    return b;
+  }();
+  return dir;
 }
 ProcMem processMemory() {
   ProcMem m;
@@ -58,10 +75,10 @@ ProcMem processMemory() {
   return m;
 }
 fs::path contentDir() {
-  fs::path p = exeDir() / "content";
+  fs::path p = binaryDir() / "content";
   if (fs::exists(p)) return p;
 #ifdef __APPLE__
-  if (fs::exists(exeDir() / "../Resources/content")) return exeDir() / "../Resources/content";   // NormandyMapmaker.app/Contents/MacOS
+  if (fs::exists(binaryDir() / "../Resources/content")) return binaryDir() / "../Resources/content";   // NormandyMapmaker.app/Contents/MacOS
 #endif
   return fs::current_path() / "content";
 }
