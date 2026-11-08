@@ -371,6 +371,7 @@ BeautifyReport beautifyRun(App& app, const BeautifyParams& P) {
           vec3 o3 = q * vec3(bi * a->footprint.x, 0, bj * a->footprint.y);
           vec2 pp(p.x + o3.x, p.y + o3.z);
           if (got && (prot.nearest(pp) < pad + rr || T.height(pp.x, pp.y) < T.waterLevel + 0.3f)) continue;
+          if (!inside && std::fabs(pp.x) < Hx + band0 && std::fabs(pp.y) < Hz + band0) continue;   // a ring block (wheat squares) never reaches back over the border
           if (!occ.free(pp, rr, ri, got ? 0.0f : spacing)) continue;
           float y = 0; bool ok = false;
           if (inside) { PlaceCheck c = app.checkPlacement(a, vec3(pp.x, 0, pp.y), yaw, 0); ok = c.ok; y = c.y; }
