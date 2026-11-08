@@ -63,6 +63,7 @@ struct Soldier {
   double protectUntil = -1;                  // spawn protection (SPEC 2.2): Game::t until which damage is ignored (W1 sets it)
   bool isProtected(double now) const { return alive && now < protectUntil; }
   std::map<int, WeaponState> wsBy;          // remote human: ammo per carried weapon (host)
+  std::vector<int> carried;                 // remote human: the weapons the host lets it hold (loadout + rack swaps)
   double netHeard = 0, lastShotReal = -100;   // host: request timing in wall-clock seconds
 };
 

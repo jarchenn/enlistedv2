@@ -8,6 +8,7 @@
 #include "mpai.h"
 #include "crumb.h"
 #include "rules.h"
+#include "tank.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <deque>
@@ -31,6 +32,7 @@ struct W {
   void i16(int16_t v) { b.append((const char*)&v, 2); }
   void f32(float v) { b.append((const char*)&v, 4); }
   void v3(vec3 v) { f32(v.x); f32(v.y); f32(v.z); }
+  void u64(uint64_t v) { b.append((const char*)&v, 8); }
   void str(const std::string& s) { u32((uint32_t)s.size()); b += s; }
 };
 struct R {
@@ -43,6 +45,7 @@ struct R {
   int16_t i16() { int16_t v = 0; if (need(2)) { std::memcpy(&v, p + o, 2); o += 2; } return v; }
   float f32() { float v = 0; if (need(4)) { std::memcpy(&v, p + o, 4); o += 4; } if (!std::isfinite(v)) { ok = false; v = 0; } return v; }
   vec3 v3() { float x = f32(), y = f32(), z = f32(); return vec3(x, y, z); }
+  uint64_t u64() { uint64_t v = 0; if (need(8)) { std::memcpy(&v, p + o, 8); o += 8; } return v; }
   std::string str() { uint32_t k = u32(); if (k > 1u << 24 || !need(k)) { ok = false; return {}; } std::string s((const char*)p + o, k); o += k; return s; }
 };
 
@@ -106,6 +109,14 @@ struct Net::Impl {
   std::map<int, NetPose> poses;
   std::map<int, json> stats;                // host: diagnostics reported by clients
   double serverT = 0, serverTAt = 0;
+  // crew-served guns
+  std::map<uint64_t, int> gunner;            // host: station -> remote occupant slot (the host's own gun is App::occupied)
+  std::map<uint64_t, double> gunShotAt;      // host: last accepted round per station (wall clock)
+  std::vector<uint64_t> guns; uint64_t gunsKey = ~0ull; size_t gunRR = 0;   // every station id (snapshot round robin)
+  double lastLocalGunShot = -10;             // client: own gun's last round (its ammo display waits for the host)
+  std::map<int, double> buildAt;             // host: last accepted placement per peer
+  bool applying = false;                     // client: applying the host's decision (no request back)
+  std::set<std::string> refusedFrom;         // host: addresses refused at the join (counted once each)
   void sendRaw(const sockaddr_in& to, const std::string& data, Net& n) {
     if (n.simLoss > 0 && std::uniform_real_distribution<float>(0, 1)(rng) < n.simLoss) { ++n.dropped; return; }
     if (n.simLagMs > 0) { delayq.push_back({now + n.simLagMs / 1000.0, to, data}); return; }
@@ -148,6 +159,37 @@ struct Net::Impl {
 };
 
 static Game& G(App& app) { if (!gGame) gGame = new Game(app); return *gGame; }
+static bool lanClient() { return gNet && gNet->role == Net::CLIENT && gNet->connected && gGame && gGame->active && gGame->isClient; }
+static bool lanHost() { return gNet && gNet->role == Net::HOST && gGame && gGame->active && !gGame->isClient; }
+// host: a remote human takes another weapon (each keeps its own ammunition; a new one starts with its preset load)
+static void hostSwitch(App& app, Soldier& s, int w) {
+  if (w == s.weapon) return;
+  s.wsBy[s.weapon] = s.ws; s.weapon = w;
+  auto it = s.wsBy.find(w);
+  if (it != s.wsBy.end()) { s.ws = it->second; return; }
+  const WeaponDef& d = *app.weaponDefs[w]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
+  for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
+}
+static bool carries(const Soldier& s, int w) { return s.carried.empty() || std::find(s.carried.begin(), s.carried.end(), w) != s.carried.end(); }
+static std::vector<uint64_t>& gunList(App& app, Net::Impl& d) {
+  uint64_t key = app.doc.nextId * 100003ull + app.doc.instances.size();
+  if (key != d.gunsKey) { d.gunsKey = key; d.guns.clear(); for (auto& i : app.doc.instances) if (app.station(i.id)) d.guns.push_back(i.id); }
+  return d.guns;
+}
+static int gunOccupant(App& app, Net::Impl& d, uint64_t id) {
+  if (id && app.occupied == id && gGame) return gGame->localSlot;
+  auto it = d.gunner.find(id); return it == d.gunner.end() ? -1 : it->second;
+}
+static uint64_t gunOf(Net::Impl& d, int slot) { for (auto& [id, sl] : d.gunner) if (sl == slot) return id; return 0; }
+// distance from a soldier's eye to an instance's bounds (interaction reach is 3 m to the surface, plus latency slack)
+static float reachTo(App& app, const Instance& i, vec3 eye) {
+  const AssetDef* a = app.assetFor(i); auto it = app.rt.find(i.id);
+  vec3 pos = i.pos; float yaw = i.yaw;
+  if (it != app.rt.end() && it->second.st.active) { pos = it->second.st.pos; yaw = it->second.st.carYaw; }
+  vec3 lp = glm::inverse(yawQuat(yaw)) * (eye - pos);
+  return glm::length(glm::clamp(lp, a->bmin, a->bmax) - lp);
+}
+static json pieceJson(const Instance& i) { return {{"id", i.id}, {"a", i.assetId}, {"v", i.assetVersion}, {"p", tojson(i.pos)}, {"y", i.yaw}, {"x", i.extra}}; }
 
 std::string Net::contentHash() {
   // build protocol + gameplay content (assets, weapons, AI data, characters); sizes + leading bytes keep it fast
@@ -168,6 +210,8 @@ std::string Net::contentHash() {
 std::string Net::mapHash(const App& app) {
   json j = mapToJson(app.doc);
   j.erase("scenario"); j.erase("editorCamera"); j.erase("exploreStart"); j.erase("name");   // the host sends the scenario itself
+  j.erase("nextId");   // session placements (field defences) reach late joiners through the world log, not the map
+  auto& in = j["instances"]; in.erase(std::remove_if(in.begin(), in.end(), [](const json& o) { return o.value("session", false); }), in.end());
   return hex(fnv(j.dump()));
 }
 
@@ -208,6 +252,7 @@ bool Net::join(App& app, const std::string& ip, const std::string& name, std::st
   if (!openSocket(*d, 0, err)) { status = "Could not join: " + err; return false; }
   sockaddr_in a{}; a.sin_family = AF_INET; a.sin_port = htons((u_short)port);
   if (inet_pton(AF_INET, ip.c_str(), &a.sin_addr) != 1) { err = "'" + ip + "' is not an IPv4 address"; status = err; closesocket(d->s); d->s = INVALID_SOCKET; return false; }
+  d->now = glfwGetTime();   // update() only refreshes it once a socket is open: a join late in the process must not time out at once
   d->hostAddr = a; role = CLIENT; connected = false; myPeer = -1;
   d->peers.clear(); Peer h; h.id = 0; h.addr = a; h.heard = d->now; d->peers.push_back(h);
   d->helloJson = json{{"name", name}, {"version", kNetVersion}, {"content", contentHash()}, {"map", mapHash(app)}, {"mapName", app.doc.name}}.dump();
@@ -237,7 +282,7 @@ void Net::leave(const char* reason) {
     for (int k = 0; k < 3; ++k) for (auto& p : d->peers) { W w; d->header(w, 'X'); w.u32((uint32_t)(role == HOST ? 0 : myPeer)); w.str(reason); sendto(d->s, w.b.data(), (int)w.b.size(), 0, (sockaddr*)&p.addr, sizeof p.addr); }
     closesocket(d->s); d->s = INVALID_SOCKET;
   }
-  d->peers.clear(); d->delayq.clear(); d->worldLog.clear(); d->poses.clear();
+  d->peers.clear(); d->delayq.clear(); d->worldLog.clear(); d->poses.clear(); d->gunner.clear(); gunOcc.clear();
   role = NONE; connected = false; matchRunning = false; players.clear();
   logf("net: left (%s)", reason);
 }
@@ -245,7 +290,7 @@ void Net::leave(const char* reason) {
 void Net::hostWorldEvent(const json& ev) {
   if (role != HOST) return;
   std::string type = ev.value("t", "");
-  if (type == "ex" || type == "imp" || type == "cloud") d->worldLog.push_back(ev);
+  if (type == "ex" || type == "imp" || type == "cloud" || type == "place" || type == "crate") d->worldLog.push_back(ev);
   std::string m = ev.dump();
   for (auto& p : d->peers) if (p.inMatch) p.ch.send(m);
 }
@@ -254,10 +299,11 @@ void Net::clientReload() { if (role == CLIENT && connected) d->peers[0].ch.send(
 void Net::clientThrow(int kind, vec3 vel) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "throw"}, {"k", kind}, {"v", tojson(vel)}}.dump()); }
 void Net::sendStats(const json& s) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "stats"}, {"s", s}}.dump()); }
 std::map<int, json> Net::peerStats() const { return d ? d->stats : std::map<int, json>{}; }
+void Net::clientRequest(const json& m) { if (role == CLIENT && connected) d->peers[0].ch.send(m.dump()); }
 void Net::clientInteract(uint64_t inst, int idx) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "door"}, {"i", inst}, {"k", idx}}.dump()); }
 
 // ---------------------------------------------------------------- snapshots (host -> client, unreliable, 20 Hz)
-static std::string writeSnapshot(Game& g, int forPeer) {
+static std::string writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
   W w;
   Match& m = g.match;
   w.f32((float)g.t); w.u8((uint8_t)m.phase); w.u8((uint8_t)(m.winner == Winner::None ? 255 : (int)m.winner)); w.u8((uint8_t)m.active);
@@ -282,6 +328,20 @@ static std::string writeSnapshot(Game& g, int forPeer) {
   }
   w.u8((uint8_t)std::min<size_t>(g.gren.live.size(), 32));
   for (size_t k = 0; k < g.gren.live.size() && k < 32; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u8((uint8_t)(x.owner < 0 ? 255 : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
+  // crew-served guns: every crewed one, then the rest in turn (6 per snapshot keeps the packet small)
+  auto& gl = gunList(app, d);
+  std::vector<uint64_t> pick;
+  for (uint64_t id : gl) if (gunOccupant(app, d, id) >= 0 && pick.size() < 12) pick.push_back(id);
+  for (size_t k = 0; k < gl.size() && pick.size() < 6; ++k) { uint64_t id = gl[(d.gunRR + k) % gl.size()]; if (std::find(pick.begin(), pick.end(), id) == pick.end()) pick.push_back(id); }
+  if (!gl.empty()) d.gunRR = (d.gunRR + 6) % gl.size();
+  w.u8((uint8_t)pick.size());
+  for (uint64_t id : pick) {
+    const StationRT& s = *app.station(id); int occ = gunOccupant(app, d, id);
+    w.u64(id); w.u8((uint8_t)(occ < 0 ? 255 : occ));
+    w.i16((int16_t)std::lround(std::clamp(s.yaw, -327.0f, 327.0f) * 100)); w.i16((int16_t)std::lround(std::clamp(s.elev, -327.0f, 327.0f) * 100));
+    w.u16((uint16_t)std::max(0, s.loaded)); w.u16((uint16_t)std::max(0, s.reserve)); w.u16((uint16_t)std::max(0, s.reserveAT));
+    w.u8((uint8_t)((s.reload > 0 ? 1 : 0) | (s.wrecked ? 2 : 0) | (s.selAT ? 4 : 0) | (s.loadedAT ? 8 : 0) | (s.deployed ? 16 : 0)));
+  }
   return w.b;
 }
 
@@ -339,6 +399,23 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
   int ngr = r.u8();
   g.gren.live.clear();
   for (int k = 0; k < ngr && r.ok; ++k) { GrenadeRT x; x.kind = r.u8(); x.def = r.u8(); x.p = r.v3(); x.rot.x = r.f32(); x.rot.y = r.f32(); x.rot.z = r.f32(); x.rot.w = r.f32(); int o = r.u8(); x.owner = o == 255 ? -1 : o; x.resting = r.u8() != 0; x.fuse = r.f32(); g.gren.live.push_back(x); }
+  int ngun = r.u8();
+  for (int k = 0; k < ngun && r.ok; ++k) {
+    uint64_t id = r.u64(); int occ = r.u8(); float yaw = r.i16() / 100.0f, elev = r.i16() / 100.0f;
+    int loaded = r.u16(), reserve = r.u16(), reserveAT = r.u16(), fl = r.u8();
+    if (!r.ok) break;
+    if (occ == 255) gNet->gunOcc.erase(id); else gNet->gunOcc[id] = occ;
+    StationRT* s = app.station(id);
+    if (!s) continue;
+    if ((fl & 2) && !s->wrecked) app.wreckStation(id, "destroyed on the host");
+    if (app.occupied == id) {   // our gun: aim is ours, ammunition the host's (once our own rounds have been answered)
+      if (s->reload <= 0 && !(fl & 1) && d.now - d.lastLocalGunShot > 0.5) { s->loaded = loaded; s->reserve = reserve; s->reserveAT = reserveAT; }
+      continue;
+    }
+    s->yaw = s->yawT = yaw; s->elev = s->elevT = elev;
+    s->loaded = loaded; s->reserve = reserve; s->reserveAT = reserveAT;
+    s->reload = (fl & 1) ? 0.5f : 0.0f; s->selAT = fl & 4; s->loadedAT = fl & 8; s->deployed = fl & 16;
+  }
 }
 
 // client: interpolate remote soldiers 100 ms behind the newest snapshot
@@ -403,11 +480,51 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     if (!replay) { extern void goreNetEvent(App&, const json&); goreNetEvent(app, ev); }
   } else if (t == "log") {
     app.toast(ev.value("text", ""), 4);
+  } else if (t == "gshot") {   // a crew-served gun fired on the host (our own rounds are drawn here already)
+    uint64_t id = ev.value("i", 0ull); StationRT* s = app.station(id);
+    if (s && ev.value("by", -1) != g.localSlot) {
+      const StationDef& sd = app.rt[id].asset->station;
+      vec3 p = jvec3(ev["p"]), dir = glm::normalize(jvec3(ev["d"], vec3(0, 0, 1)));
+      bool mg = sd.kind == "mg42" || sd.kind == "m2hb";
+      s->recoilT = 0; s->shots++;
+      g.ghosts.push_back({p, dir * (sd.kind == "mg42" ? 755.0f : mg ? 890.0f : sd.heVelocity), 0, ev.value("tr", false)});
+      if (mg) { app.fx.flash(p + dir * 0.08f, 0.18f, 0.04f, vec4(9, 6, 2.5f, 1)); app.audio.play(sd.kind == "mg42" ? "shot_mg42" : "shot_m2hb", p, 1.0f); }
+      else { app.fx.muzzle(p, dir, sd.muzzleScale); app.audio.play(sd.fireSound, p, 1.0f); }
+    }
+  } else if (t == "crate") {   // stock after a resupply (also replayed for late joiners)
+    auto& st = app.crateStock[ev.value("i", 0ull)]; st.clear();
+    for (auto& [k, v] : ev["s"].items()) st[k] = v.get<int>();
+  } else if (t == "crateok") {   // our own resupply: the host moved the rounds
+    int w = ev.value("w", -1);
+    if (w >= 0 && w < (int)app.weaponDefs.size() && ev.contains("c")) app.wstate[app.weaponDefs[w]->id].containers = ev["c"].get<std::vector<int>>();
+    app.toast(ev.value("msg", ""), 5);
+  } else if (t == "place") {   // field defences placed / removed on the host: the same instances, ids and all
+    std::vector<uint64_t> added;
+    for (auto& o : ev["in"]) {
+      uint64_t id = o["id"]; if (app.doc.find(id)) continue;
+      Instance i; i.id = id; i.assetId = o.value("a", ""); i.assetVersion = o.value("v", 1); i.pos = jvec3(o["p"]); i.yaw = o.value("y", 0.0f); i.extra = o.value("x", json::object());
+      app.doc.instances.push_back(i); app.doc.nextId = std::max(app.doc.nextId, id + 1); added.push_back(id);
+    }
+    for (auto& rm : ev.value("rm", json::array())) {
+      uint64_t id = rm; if (app.occupied == id) { gNet->d->applying = true; app.leaveStation(); gNet->d->applying = false; }
+      app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) { return i.id == id; }), app.doc.instances.end());
+    }
+    app.syncRuntime();
+    for (uint64_t id : added) if (Instance* i = app.doc.find(id)) { if (app.station(id)) app.resetStation(*i); app.resetCrate(*i); }
+    if (!replay && !added.empty()) app.audio.play("crate", app.doc.find(added[0])->pos, 0.6f);
+  } else if (t == "gun") {   // the host gave us the gun
+    uint64_t id = ev.value("i", 0ull);
+    gNet->d->applying = true; bool ok = app.occupyStation(id, ST_GUNNER); gNet->d->applying = false;
+    if (!ok) gNet->clientRequest(json{{"t", "gun"}, {"i", id}, {"on", false}, {"p", tojson(Physics::character().pos)}});
+  } else if (t == "gunr") {   // released by the host (gun destroyed, removed)
+    if (app.occupied == ev.value("i", 0ull)) { gNet->d->applying = true; app.leaveStation(); gNet->d->applying = false; }
+  } else if (t == "rack") {   // the host swapped our loadout
+    std::string msg; app.equipWeapon(ev.value("w", 0), msg); app.toast(msg, 3);
   }
 }
 
 // ---------------------------------------------------------------- host handles client requests (validated)
-static void hostRequest(App& app, Net& n, Peer& p, const json& m) {
+static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable: a missing key reads as null, never undefined
   std::string t = m.value("t", "");
   crumb(t == "fire" ? "net: host fire request" : t == "door" ? "net: host door request" : t == "throw" ? "net: host throw request" : "net: host request");
   Game& g = G(app);
@@ -417,13 +534,18 @@ static void hostRequest(App& app, Net& n, Peer& p, const json& m) {
   int slot = g.match.slotOfPeer(p.id);
   if (slot < 0 || !g.match.slots[slot].human || g.match.slots[slot].peer != p.id) { ++n.rejectedRequests; return; }   // never another slot
   Soldier& s = g.sold[slot];
-  if (!s.alive) { ++n.rejectedRequests; return; }
+  if (!s.alive) { ++n.rejectedRequests; ++n.rejects[t + ": dead"]; return; }
+  auto refuse = [&](const char* why, const std::string& msg) {
+    ++n.rejectedRequests; ++n.rejects[t + ": " + why];
+    if (!msg.empty()) p.ch.send(json{{"t", "log"}, {"text", msg}}.dump());
+  };
+  vec3 eye = s.feet + vec3(0, 1.6f, 0);
   if (t == "fire") {
     int w = m.value("w", -1);
     vec3 from = jvec3(m["p"]), dir = jvec3(m["d"]);
-    bool ok = w >= 0 && w < (int)app.weaponDefs.size() && glm::length(dir) > 0.5f && glm::length(from - (s.feet + vec3(0, 1.3f, 0))) < 2.2f;
+    bool ok = w >= 0 && w < (int)app.weaponDefs.size() && carries(s, w) && !gunOf(*n.d, slot) && glm::length(dir) > 0.5f && glm::length(from - (s.feet + vec3(0, 1.3f, 0))) < 2.2f;
     if (ok) {
-      if (w != s.weapon) { s.wsBy[s.weapon] = s.ws; s.weapon = w; auto it = s.wsBy.find(w); if (it != s.wsBy.end()) s.ws = it->second; else { const WeaponDef& d = *app.weaponDefs[w]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize)); } }
+      hostSwitch(app, s, w);
       const WeaponDef& d = *app.weaponDefs[w];
       float minGap = 60.0f / std::max(1.0f, d.rpm) * 0.75f;   // tolerate network jitter, never faster than the weapon
       ok = s.ws.loaded > 0 && s.reload <= 0 && n.d->now - s.lastShotReal >= minGap;   // requests arrive in real time
@@ -453,7 +575,147 @@ static void hostRequest(App& app, Net& n, Peer& p, const json& m) {
       vec3 c = vec3(app.instanceMatrix(*in) * vec4((def.apMin + def.apMax) * 0.5f, 1));
       if (glm::length(c - (s.feet + vec3(0, 1.2f, 0))) < 3.5f) app.toggleInteract(inst, k); else ++n.rejectedRequests;
     }
+  } else if (t == "gun") {   // crew / leave a gun (gunner position only: moving a carriage stays host-only)
+    uint64_t id = m.value("i", 0ull); Instance* in = app.doc.find(id); StationRT* st = app.station(id);
+    if (!in || !st) { refuse("no gun", ""); return; }
+    if (!m.value("on", false)) {
+      if (gunOccupant(app, *n.d, id) != slot) { refuse("not yours", ""); return; }
+      n.d->gunner.erase(id); st->pos2 = ST_NONE; st->reload = 0;
+      vec3 f = jvec3(m["p"], s.feet);   // the dismount point the client found beside the gun
+      if (glm::length(f - app.stationAnchor(id, ST_GUNNER)) < 6.0f) { s.feet = f; if (s.agent >= 0) Physics::setAgentPos(s.agent, f); }
+      s.netHeard = n.d->now;
+      return;
+    }
+    int occ = gunOccupant(app, *n.d, id);
+    if (st->wrecked) refuse("wrecked", "The gun is destroyed.");
+    else if (occ >= 0 && occ != slot) refuse("taken", "Someone else is crewing that gun.");
+    else if (gunOf(*n.d, slot) && gunOf(*n.d, slot) != id) refuse("busy", "You are already crewing another gun.");
+    else if (reachTo(app, *in, eye) > 4.0f) refuse("reach", "Too far from the gun.");
+    else if (!st->deployed) refuse("not deployed", "The gun is not deployed.");
+    else {
+      n.d->gunner[id] = slot; st->pos2 = ST_GUNNER; st->armed = false; st->yawT = st->yaw; st->elevT = st->elev;
+      s.feet = app.stationAnchor(id, ST_GUNNER); if (s.agent >= 0) Physics::setAgentPos(s.agent, s.feet);
+      p.ch.send(json{{"t", "gun"}, {"i", id}}.dump());
+    }
+  } else if (t == "gfire") {   // one round from the gun this soldier crews: the host's ammunition, reload and rate
+    uint64_t id = m.value("i", 0ull); StationRT* st = app.station(id);
+    if (!st || gunOccupant(app, *n.d, id) != slot) { refuse("not yours", ""); return; }
+    const StationDef& sd = app.rt[id].asset->station;
+    bool mg = sd.kind == "mg42" || sd.kind == "m2hb";
+    double gap = mg ? 60.0 / (sd.kind == "mg42" ? 1200.0 : 500.0) * 0.75 : 0.5;   // tolerate jitter, never faster than the gun
+    if (st->wrecked || st->loaded <= 0 || st->reload > 0 || (!mg && !st->deployed) || n.d->now - n.d->gunShotAt[id] < gap) { refuse("ammo or rate", ""); return; }
+    n.d->gunShotAt[id] = n.d->now;
+    app.stationShoot(id, slot);
+    g.hearSound(app.stationAnchor(id, ST_GUNNER), (int)s.role, 90, slot, 0);
+    ++n.acceptedGunShots;
+  } else if (t == "greload") {
+    uint64_t id = m.value("i", 0ull); StationRT* st = app.station(id);
+    if (!st || gunOccupant(app, *n.d, id) != slot) { refuse("not yours", ""); return; }
+    const StationDef& sd = app.rt[id].asset->station;
+    bool mg = sd.kind == "mg42" || sd.kind == "m2hb";
+    if (!mg && st->reserveATMax > 0) st->selAT = m.value("at", st->selAT);
+    int full = mg ? std::max(1, sd.loaded) : 1, pool = (!mg && st->selAT) ? st->reserveAT : st->reserve;
+    if (st->loaded < full && pool > 0 && st->reload <= 0 && (mg || st->loaded == 0)) st->reload = sd.reloadTime;
+    else refuse("reload", "");
+  } else if (t == "rack") {   // take a weapon: it replaces the one in hand, as at a rack in singleplayer
+    uint64_t id = m.value("i", 0ull); int w = m.value("w", -1); Instance* ri = app.doc.find(id);
+    const AssetDef* a = ri ? app.assetFor(*ri) : nullptr;
+    std::vector<int> ars = a && a->rack ? app.rackArsenal(a->rackFaction) : std::vector<int>{};
+    if (!a || !a->rack) refuse("no rack", "");
+    else if (glm::length(ri->pos - s.feet) > 4.0f) refuse("reach", "Too far from the rack.");
+    else if (std::find(ars.begin(), ars.end(), w) == ars.end() || (app.strictDDay && app.weaponDefs[w]->laterWar)) refuse("weapon", "That weapon is not in this rack.");
+    else if (gunOf(*n.d, slot)) refuse("on gun", "Leave the gun first.");
+    else {
+      if (std::find(s.carried.begin(), s.carried.end(), w) == s.carried.end()) {
+        auto cur = std::find(s.carried.begin(), s.carried.end(), s.weapon);
+        if (cur == s.carried.end()) s.carried.push_back(w); else *cur = w;
+      }
+      hostSwitch(app, s, w);
+      p.ch.send(json{{"t", "rack"}, {"w", w}}.dump());
+    }
+  } else if (t == "crate") {   // resupply from a crate: the host's stock, the soldier's own weapon (whole containers only)
+    uint64_t id = m.value("i", 0ull); Instance* ci = app.doc.find(id);
+    if (!ci || !app.crateStock.count(id)) { refuse("no crate", ""); return; }
+    if (reachTo(app, *ci, eye) > 4.0f) { refuse("reach", "Too far from the crate."); return; }
+    auto stock0 = app.crateStock[id]; size_t c0 = s.ws.containers.size();
+    std::string msg = app.crateTransaction(id, &s.ws, s.weapon);
+    if (app.crateStock[id] == stock0 && s.ws.containers.size() == c0) { ++n.rejectedRequests; ++n.rejects["crate: nothing moved"]; }   // full, empty or the wrong feed: refused
+    p.ch.send(json{{"t", "crateok"}, {"msg", msg}, {"w", s.weapon}, {"c", s.ws.containers}}.dump());
+  } else if (t == "build") {   // place a field defence / palette asset: the builder's own rules, re-run here
+    const AssetDef* a = app.lib.find(m.value("a", std::string()));
+    vec3 pos = jvec3(m["p"]); float yaw = m.value("y", 0.0f);
+    if (!a) { refuse("asset", ""); return; }
+    bool defence = !a->defense.kind.empty() || !a->station.kind.empty();
+    bool snapped = false; { vec3 q = pos; float yy = yaw; if (app.snapDefense(a, q, yy) && glm::length(vec2(q.x - pos.x, q.z - pos.z)) < 0.05f) snapped = true; }
+    std::string why;
+    if (isVehicleAsset(a)) refuse("vehicle", "Vehicles cannot be placed in a LAN match.");
+    else if (glm::length(pos - eye) > 13.0f) refuse("reach", "Out of reach (12 m)");
+    else if (n.d->now - n.d->buildAt[p.id] < 0.25) refuse("rate", "");
+    else if (defence && !snapped && app.groundSlopeDeg(pos) > (a->defense.kind.empty() ? 20.0f : a->defense.maxSlopeDeg) + 3.0f) refuse("slope", "Too steep here.");
+    else if (!(why = app.buildCheckAt(a, pos, yaw, snapped, s.feet)).empty()) refuse("rules", why);
+    else {
+      n.d->buildAt[p.id] = n.d->now;
+      auto ids = app.buildSessionPiece(a, pos, yaw, true);
+      mpaiBuildChanged(app, ids, {});
+    }
   }
+}
+
+// host: guns crewed by clients turn at their own rates, reload on the host's clock, and free up when the gunner can't stay
+static void hostGuns(App& app, Net& n, float dt) {
+  Game& g = *gGame;
+  auto approach = [](float v, float t, float r) { float dd = t - v; return std::fabs(dd) <= r ? t : v + (dd > 0 ? r : -r); };
+  for (auto it = n.d->gunner.begin(); it != n.d->gunner.end();) {
+    uint64_t id = it->first; int slot = it->second; StationRT* st = app.station(id);
+    bool keep = st && !st->wrecked && slot < (int)g.sold.size() && g.sold[slot].alive && g.match.slots[slot].human;
+    if (!keep) {
+      int peer = slot < (int)g.match.slots.size() ? g.match.slots[slot].peer : -1;
+      for (auto& p : n.d->peers) if (p.id == peer) p.ch.send(json{{"t", "gunr"}, {"i", id}}.dump());
+      if (st) { st->pos2 = ST_NONE; st->reload = 0; }
+      it = n.d->gunner.erase(it); continue;
+    }
+    const StationDef& sd = app.rt[id].asset->station;
+    st->yaw = approach(st->yaw, st->yawT, sd.traverseRate * dt); st->elev = approach(st->elev, st->elevT, sd.elevateRate * dt);
+    st->recoilT += dt;
+    if (st->reload > 0) { st->reload -= dt; if (st->reload <= 0) app.stationFinishReload(*st, sd); }
+    Soldier& s = g.sold[slot];
+    s.feet = app.stationAnchor(id, ST_GUNNER); if (s.agent >= 0) Physics::setAgentPos(s.agent, s.feet);
+    s.yaw = wrapDeg(st->carYaw + st->yaw + 180.0f); s.pitch = st->elev; s.speed = 0;
+    ++it;
+  }
+  n.gunOcc.clear(); for (auto& [id, sl] : n.d->gunner) n.gunOcc[id] = sl;   // same meaning on every PC (tests, HUD)
+  if (app.occupied) n.gunOcc[app.occupied] = g.localSlot;
+}
+
+// ---------------------------------------------------------------- hooks from the shared core (mpai.h)
+bool mpaiStationRequest(App& app, uint64_t id, int pos) {
+  if (lanHost() && gNet->d->gunner.count(id)) { app.toast("Someone else is crewing that gun."); return true; }
+  if (!lanClient() || gNet->d->applying) return false;
+  app.choiceFor = 0;
+  if (pos != ST_GUNNER) { app.toast("Moving a gun is host-only in LAN matches: crew it from the gunner's position (Aim).", 4); return true; }
+  gNet->clientRequest(json{{"t", "gun"}, {"i", id}, {"on", true}});
+  return true;
+}
+void mpaiStationLeft(App& app, uint64_t id) {
+  (void)app;
+  if (!id || !lanClient() || gNet->d->applying) return;
+  if (Soldier* L = gGame->local(); L && L->alive) gNet->clientRequest(json{{"t", "gun"}, {"i", id}, {"on", false}, {"p", tojson(Physics::character().pos)}});
+}
+void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, bool tracer, int owner) {
+  (void)app;
+  if (lanClient()) { if (owner < 0) { gNet->d->lastLocalGunShot = gNet->d->now; gNet->clientRequest(json{{"t", "gfire"}, {"i", id}}); } return; }
+  if (lanHost()) gNet->hostWorldEvent(json{{"t", "gshot"}, {"i", id}, {"p", tojson(from)}, {"d", tojson(dir)}, {"tr", tracer}, {"by", owner < 0 ? gGame->localSlot : owner}});
+}
+bool mpaiRackRequest(App& app, uint64_t rack, int weapon) { (void)app; if (!lanClient()) return false; gNet->clientRequest(json{{"t", "rack"}, {"i", rack}, {"w", weapon}}); return true; }
+bool mpaiCrateRequest(App& app, uint64_t crate) { (void)app; if (!lanClient()) return false; gNet->clientRequest(json{{"t", "crate"}, {"i", crate}}); return true; }
+void mpaiCrateChanged(App& app, uint64_t crate) { if (lanHost()) gNet->hostWorldEvent(json{{"t", "crate"}, {"i", crate}, {"s", app.crateStock[crate]}}); }
+bool mpaiBuildClient(App& app) { (void)app; return lanClient(); }
+bool mpaiBuildRequest(App& app, const AssetDef* a, vec3 pos, float yaw) { (void)app; if (!lanClient()) return false; gNet->clientRequest(json{{"t", "build"}, {"a", a->id}, {"p", tojson(pos)}, {"y", yaw}}); return true; }
+void mpaiBuildChanged(App& app, const std::vector<uint64_t>& placed, const std::vector<uint64_t>& removed) {
+  if (!lanHost() || (placed.empty() && removed.empty())) return;
+  json in = json::array();
+  for (uint64_t id : placed) if (const Instance* i = app.doc.find(id)) { in.push_back(pieceJson(*i)); gGame->worldChanged(i->pos - vec3(4), i->pos + vec3(4)); }
+  gNet->hostWorldEvent(json{{"t", "place"}, {"in", in}, {"rm", removed}});
 }
 
 // ---------------------------------------------------------------- per-frame update
@@ -481,7 +743,7 @@ void Net::update(App& app, float dt) {
       if (type == 'H') {
         json h; try { h = json::parse(r.str()); } catch (...) { continue; }
         Peer* ex = nullptr; for (auto& p : d->peers) if (sameAddr(p.addr, from)) ex = &p;
-        auto reject = [&](const std::string& why) { W w; d->header(w, 'R'); w.str(why); d->sendRaw(from, w.b, *this); logf("net: rejected %s: %s", addrStr(from).c_str(), why.c_str()); };
+        auto reject = [&](const std::string& why) { W w; d->header(w, 'R'); w.str(why); d->sendRaw(from, w.b, *this); logf("net: rejected %s: %s", addrStr(from).c_str(), why.c_str()); if (d->refusedFrom.insert(addrStr(from)).second) ++refusedJoins; };
         if (h.value("version", 0) != kNetVersion) { reject("Different game build (network version " + std::to_string(h.value("version", 0)) + ", host " + std::to_string(kNetVersion) + "). Install the same build on both PCs."); continue; }
         if (h.value("content", "") != contentHash()) { reject("Game content differs from the host's (weapons / assets / AI data). Copy the same build and content folder to both PCs."); continue; }
         if (h.value("map", "") != mapHash(app)) { reject("Map differs: the host plays '" + app.doc.name + "'. Open the same map file on this PC (File > Open), then join again."); continue; }
@@ -525,9 +787,15 @@ void Net::update(App& app, float dt) {
         if (ut == 2 && r.need(ul)) {   // client movement (latest wins, validated)
           R in(r.p + r.o, ul);
           vec3 feet = in.v3(); float yaw = in.f32(), pitch = in.f32(); int posture = in.u8(), weapon = in.u8();
+          bool gunAim = posture & 0x80; posture &= 0x7f;   // 0x80: yaw / pitch are a gun's traverse / elevation targets
           Game& g = G(app);
           int slot = g.match.slotOfPeer(p->id);
-          if (in.ok && g.active && slot >= 0 && g.match.slots[slot].human && g.sold[slot].alive) {
+          uint64_t gun = slot >= 0 ? gunOf(*d, slot) : 0;
+          if (in.ok && gun && g.active && g.sold[slot].alive) {   // a gunner stays at the gun; it sends the gun's targets and the host turns it at its own rates
+            const StationDef& sd = app.rt[gun].asset->station; StationRT& st = *app.station(gun);
+            if (gunAim) { st.yawT = std::clamp(yaw, sd.yawMin, sd.yawMax); st.elevT = std::clamp(pitch, sd.elevMin, sd.elevMax); }
+            g.sold[slot].netHeard = d->now;
+          } else if (in.ok && g.active && slot >= 0 && g.match.slots[slot].human && g.sold[slot].alive) {
             Soldier& s = g.sold[slot];
             float dtIn = std::max(0.05f, (float)(d->now - s.netHeard)); s.netHeard = d->now;
             float step = glm::length(vec2(feet.x - s.feet.x, feet.z - s.feet.z));
@@ -537,11 +805,11 @@ void Net::update(App& app, float dt) {
             if (ok) { s.feet = feet; if (s.agent >= 0) Physics::setAgentPos(s.agent, feet); }
             else { ++rejectedRequests; p->ch.send(json{{"t", "correct"}, {"p", tojson(s.feet)}}.dump()); }
             s.yaw = yaw; s.pitch = std::clamp(pitch, -89.0f, 89.0f); s.posture = std::clamp(posture, 0, 2);
-            if (weapon != s.weapon && weapon < (int)app.weaponDefs.size()) { s.wsBy[s.weapon] = s.ws; s.weapon = weapon; auto it = s.wsBy.find(weapon); if (it != s.wsBy.end()) s.ws = it->second; else { const WeaponDef& wd = *app.weaponDefs[weapon]; s.ws = WeaponState{}; s.ws.loaded = wd.loaded; for (int q = wd.reserve; q > 0; q -= wd.containerSize) s.ws.containers.push_back(std::min(q, wd.containerSize)); } }
+            if (weapon != s.weapon && weapon < (int)app.weaponDefs.size() && carries(s, weapon)) hostSwitch(app, s, weapon);   // only what it carries
             s.vel = vec3(0); s.speed = step / dtIn;
           }
         }
-        for (auto& m : msgs) { json j; try { j = json::parse(m); } catch (...) { continue; } hostRequest(app, *this, *p, j); }
+        for (auto& m : msgs) { json j; try { j = json::parse(m); hostRequest(app, *this, *p, j); } catch (const std::exception& e) { ++rejectedRequests; logf("net: malformed request from peer %d: %s", p->id, e.what()); } }   // wrong types never reach the host's state
       }
     } else if (role == CLIENT) {
       if (!sameAddr(from, d->hostAddr)) { if (type == 'A') { json a; try { a = json::parse(r.str()); } catch (...) { continue; } LobbyInfo li; li.addr = addrStr(from).substr(0, addrStr(from).find(':')); li.hostName = a.value("host", ""); li.map = a.value("map", ""); li.mapHash = a.value("mapHash", ""); li.contentHash = a.value("content", ""); li.humans = a.value("humans", 0); li.maxHumans = a.value("max", 0); li.phase = a.value("phase", 0); li.version = a.value("version", 0); li.seen = d->now; bool dup = false; for (auto& f : found) if (f.addr == li.addr) { f = li; dup = true; } if (!dup) found.push_back(li); } continue; }
@@ -589,10 +857,11 @@ void Net::update(App& app, float dt) {
       std::string m = json{{"t", "lobby"}, {"players", pl}, {"rules", gUi.rules.toJson()}, {"map", app.doc.name}, {"running", matchRunning}}.dump();
       for (auto& p : d->peers) p.ch.send(m);
     }
+    if (gGame && gGame->active && !gGame->isClient) hostGuns(app, *this, app.frameDt);
     if (gGame && gGame->active && !gGame->isClient && d->now - d->lastSnap >= 0.05) {
       d->lastSnap = d->now;
       crumb("net: snapshot");
-      for (auto& p : d->peers) if (p.inMatch) { p.unrel = writeSnapshot(*gGame, p.id); p.unrelType = 1; }
+      for (auto& p : d->peers) if (p.inMatch) { p.unrel = writeSnapshot(app, *d, *gGame, p.id); p.unrelType = 1; }
     }
     crumb("net: flush"); for (auto& p : d->peers) d->flushPeer(p, *this, 0);
   } else if (role == CLIENT) {
@@ -603,7 +872,8 @@ void Net::update(App& app, float dt) {
       d->lastInput = d->now;
       if (Soldier* L = gGame->local(); L && L->alive) {
         W w; auto c = Physics::character();
-        w.v3(c.pos); w.f32(app.eyeYaw); w.f32(app.eyePitch); w.u8((uint8_t)c.posture); w.u8((uint8_t)app.activeWeapon);
+        StationRT* gun = app.station(app.occupied);   // crewing a gun: its traverse / elevation targets ride in the yaw / pitch fields
+        w.v3(c.pos); w.f32(gun ? gun->yawT : app.eyeYaw); w.f32(gun ? gun->elevT : app.eyePitch); w.u8((uint8_t)(c.posture | (gun ? 0x80 : 0))); w.u8((uint8_t)app.activeWeapon);
         h.unrel = w.b; h.unrelType = 2;
       }
     }
@@ -618,6 +888,8 @@ void Net::update(App& app, float dt) {
       if (!app.enterExplore()) status = "Could not enter the match: the start marker is obstructed on this PC.";
       d->poses.clear(); d->serverT = st.value("st", 0.0); d->serverTAt = d->now;
     }
+    if (gGame && gGame->active && gGame->isClient)
+      for (uint64_t id : gunList(app, *d)) if (id != app.occupied) if (StationRT* s = app.station(id)) s->recoilT += app.frameDt;
     if (gGame && gGame->active && gGame->isClient) {
       for (auto& w : d->pendingWorld) {
         vec3 l = app.eyePos(); app.audio.setListener(l + vec3(0, 5000, 0), vec3(0, 0, -1));   // replay quietly
@@ -648,7 +920,7 @@ void Net::startMatch(App& app) {
   gUi.startMatch(app);
   if (!g.active) { status = "Match could not start: " + g.setupError; return; }
   matchRunning = true;
-  d->worldLog.clear();
+  d->worldLog.clear(); d->gunner.clear(); d->gunShotAt.clear(); gunOcc.clear();
   json slots = json::array(); for (auto& s : g.match.slots) slots.push_back({{"id", s.id}, {"f", (int)s.faction}, {"r", (int)s.role}, {"h", s.human}, {"p", s.peer}, {"n", s.name}, {"lane", s.lane}});
   std::string m = json{{"t", "start"}, {"scenario", gUi.matchScenario}, {"slots", slots}, {"st", g.t}}.dump();
   for (auto& p : d->peers) { p.ch.send(m); p.inMatch = true; }

@@ -3,14 +3,15 @@
 //   transport: one UDP socket; per peer a reliable ordered channel (chunked, acked, resent) plus unreliable
 //   snapshots / inputs (latest wins). Discovery: broadcast query on the game port, hosts answer with lobby info.
 //   authority: the host runs the match (Game); clients send movement (validated), fire / reload / throw / door
-//   requests; the host replicates soldiers (20 Hz snapshots), world events (explosions, bullet impacts, doors, smoke)
+//   requests, and gun / rack / crate / build requests; the host replicates soldiers and crew-served guns (20 Hz
+//   snapshots), world events (explosions, bullet impacts, doors, smoke, placements, crate stock)
 //   in order, and a full world state to late joiners.
 #include "common.h"
 
 class App;
 
 constexpr int kNetPort = 27960;
-constexpr int kNetVersion = 1;
+constexpr int kNetVersion = 3;   // 3: station block in snapshots, gun / rack / crate / build requests (2 is the internet branch's)
 
 struct LobbyInfo { std::string addr, hostName, map, mapHash, contentHash; int humans = 0, maxHumans = 0, phase = 0, version = 0; double seen = 0; };
 struct LobbyPlayer { int peer = 0; std::string name; bool ready = false; };
@@ -31,7 +32,9 @@ public:
   float simLagMs = 0, simLoss = 0;
   // stats
   uint64_t bytesOut = 0, bytesIn = 0, packetsOut = 0, packetsIn = 0, resends = 0, dropped = 0;
-  int rejectedRequests = 0, acceptedShots = 0;
+  int rejectedRequests = 0, acceptedShots = 0, acceptedGunShots = 0, refusedJoins = 0;
+  std::map<std::string, int> rejects;       // host: refused interaction requests by reason ("gun: taken", "build: dead", ...)
+  std::map<uint64_t, int> gunOcc;           // every PC: station id -> occupant slot, as the host reports it
 
   bool host(App& app, std::string& err, int port = kNetPort);
   bool join(App& app, const std::string& ip, const std::string& name, std::string& err, int port = kNetPort);
@@ -51,6 +54,7 @@ public:
   void clientReload();
   void clientThrow(int kind, vec3 vel);
   void clientInteract(uint64_t inst, int idx);
+  void clientRequest(const json& m);        // gun / gfire / greload / rack / crate / build (validated by the host)
   void sendStats(const json& s);            // client -> host diagnostics (tests)
   std::map<int, json> peerStats() const;
   struct Impl; Impl* d = nullptr;

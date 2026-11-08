@@ -9,6 +9,7 @@
 //    swapping never refills or duplicates rounds; only ammunition crates restock (existing rule).
 //  - Returning to Creative (F5) resets the loadout, ammunition and fire modes (the existing session reset).
 #include "app.h"
+#include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -101,6 +102,7 @@ void App::toggleFireMode(const WeaponDef& d, WeaponState& s) {
 
 // ---------------------------------------------------------------- carried M2: deploy / pack up
 bool App::deployHeavy(const WeaponDef& d, WeaponState& s) {
+  if (mpaiBuildClient(*this)) { weaponMsg = "Deploying a carried M2HB is host-only in LAN matches (a rack's tripod deploys through build mode)"; return false; }
   const AssetDef* a = lib.find(d.deploys);
   if (!a) { weaponMsg = "Missing asset " + d.deploys; return false; }
   vec3 f = forward(eyeYaw, 0);
@@ -129,7 +131,7 @@ bool App::deployHeavy(const WeaponDef& d, WeaponState& s) {
 }
 
 bool App::packUpHeavy() {
-  if (occupied) return false;
+  if (occupied || mpaiBuildClient(*this)) return false;   // LAN client: host-only (a session gun every PC has)
   int m2 = weaponIndex("m2hb_carry");
   if (m2 < 0) return false;
   vec3 eye = eyePos();
@@ -266,6 +268,7 @@ void App::rackActivate() {
   const AssetDef* a = assetFor(*i);
   auto ars = rackArsenal(a->rackFaction);
   if (rackSel < (int)ars.size()) {
+    if (mpaiRackRequest(*this, rackId, ars[rackSel])) { closeRack("requested"); return; }   // LAN client: the host swaps the loadout
     std::string msg; bool ok = equipWeapon(ars[rackSel], msg);
     toast(msg, 3);
     if (ok) closeRack("equipped");

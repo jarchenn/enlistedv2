@@ -229,7 +229,9 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
 std::string App::resupplyPersonal(uint64_t crateId) {
   if (weaponDefs.empty()) return "";
   const WeaponDef& d = *weaponDefs[activeWeapon];
-  WeaponState& s = wstate[d.id];
+  return resupplyWeapon(crateId, d, wstate[d.id]);
+}
+std::string App::resupplyWeapon(uint64_t crateId, const WeaponDef& d, WeaponState& s) {
   auto& stock = crateStock[crateId];
   if (!stock.count(d.container)) return d.name + ": this crate holds no " + d.container + " (wrong feed type).";
   bool unlimited = crateUnlimited[crateId];

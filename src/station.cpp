@@ -128,18 +128,30 @@ void App::resetCombat() {
     auto& r = it->second;
     const AssetDef* a = r.asset;
     if (!a->station.kind.empty()) resetStation(i);
-    if (a->crate.is_object() && !a->crate.empty()) {
-      json o = i.extra.contains("crate") ? i.extra["crate"] : json::object();
-      json sup = o.contains("supplies") ? o["supplies"] : a->crate.value("supplies", json::object());
-      for (auto& [k, v] : sup.items()) crateStock[i.id][k] = v.get<int>();
-      crateUnlimited[i.id] = o.value("unlimited", a->crate.value("unlimited", false));
-    }
+    resetCrate(i);
   }
+}
+
+void App::resetCrate(const Instance& i) {   // a crate's authored stock (also for crates placed during play)
+  const AssetDef* a = assetFor(i);
+  if (!a || !a->crate.is_object() || a->crate.empty()) return;
+  json o = i.extra.contains("crate") ? i.extra["crate"] : json::object();
+  json sup = o.contains("supplies") ? o["supplies"] : a->crate.value("supplies", json::object());
+  for (auto& [k, v] : sup.items()) crateStock[i.id][k] = v.get<int>();
+  crateUnlimited[i.id] = o.value("unlimited", a->crate.value("unlimited", false));
+}
+
+vec3 App::stationAnchor(uint64_t id, int pos) {
+  Instance* inst = doc.find(id); auto& r = rt[id];
+  vec3 a = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : r.asset->station.gunner, 1));
+  a.y = crewFloor(terrain.height(a.x, a.z), a);
+  return a;
 }
 
 bool App::occupyStation(uint64_t id, int pos) {
   Instance* inst = doc.find(id); StationRT* s = station(id);
   if (!inst || !s) return false;
+  if (mpaiStationRequest(*this, id, pos)) return false;   // LAN client: the host decides (net.cpp)
   if (s->wrecked) { toast("The gun is destroyed."); return false; }
   if (occupied && occupied != id) { toast("You are already crewing another gun."); return false; }
   if (pos == ST_HANDLER && mgKind(rt[id].asset->station.kind)) { toast("The " + rt[id].asset->name + " is crewed from the grips only (Aim)."); return false; }
@@ -170,7 +182,9 @@ void App::leaveStation() {
     }
     s->pos2 = ST_NONE; s->trans = 0; s->reload = 0; s->armed = false;
   }
+  uint64_t was = occupied;
   occupied = 0;
+  mpaiStationLeft(*this, was);
 }
 
 void App::switchStationPosition() {
@@ -337,13 +351,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
     if (in.reload && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(loadSnd, vec3(M[3])); }
     if (s->reload > 0) {
       s->reload -= dt;
-      if (s->reload <= 0) {   // moves rounds; never creates them. A partial .50 belt goes back to the emplacement stock.
-        s->reload = 0;
-        if (mg) { s->reserve += s->loaded; s->loaded = std::min(full, s->reserve); s->reserve -= s->loaded; }
-        else if (s->selAT && s->reserveAT > 0) { s->loaded = 1; s->reserveAT -= 1; s->loadedAT = true; }
-        else { s->loaded = 1; s->reserve -= 1; s->loadedAT = false; }
-        audio.play(loadSnd, vec3(M[3]));
-      }
+      if (s->reload <= 0) { stationFinishReload(*s, d); audio.play(loadSnd, vec3(M[3])); }
     }
     s->cool = std::max(0.0f, s->cool - dt);
     if (mg && in.fireMode) { s->semi = !s->semi; s->armed = false; toast(std::string(mg42 ? "MG 42: " : "M2HB: ") + (s->semi ? "SEMI" : "AUTO"), 2); }
@@ -351,19 +359,8 @@ void App::stepStation(float dt, const ExploreInput& in) {
       if (fireHeld && s->armed && s->reload <= 0 && s->cool <= 0) {
         if (s->semi) s->armed = false;   // SEMI: one round per press
         if (s->loaded > 0) {
-          vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
-          mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
-          vec3 start = vec3(e * vec4(0, 0, 0, 1)), se, sf; float sfov;
-          if (mg42 && mg42MountSight(*this, se, sf, sfov)) {   // the handheld's aimed fire: from the front post along the sight line, zeroed
-            const WeaponDef& w = *weaponDefs[weaponIndex("mg42")];
-            vec3 E = vec3(e * vec4(se, 1)), F = vec3(e * vec4(sf, 1)); Physics::Hit hf;
-            start = Physics::castRayEx(E, F - E, glm::length(F - E), hf, coreUD(inst->id)) ? E + glm::normalize(F - E) * std::max(0.0f, hf.t - 0.01f) : F;
-            float tz = w.zero / w.velocity; dir = glm::normalize(glm::normalize(F - E) + vec3(0, 0.5f * 9.81f * tz * tz / w.zero, 0));
-          }
-          fireProjectile(start, dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), (s->shots % 5) == 0, d.ammo);
-          s->loaded -= 1; s->shots++; s->burst++; s->cool = 60.0f / (mg42 ? 1200.0f : 500.0f); s->recoilT = 0;
-          fx.flash(muzzle + dir * 0.08f, mg42 ? 0.18f : 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));
-          audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
+          stationShoot(occupied, -1);
+          s->cool = 60.0f / (mg42 ? 1200.0f : 500.0f);
           viewKickPitch = 0.35f;   // felt through the mount, not the shoulder
         } else if (s->armed) { audio.play("click", vec3(M[3]), 0.6f); s->armed = false; }
       }
@@ -372,17 +369,8 @@ void App::stepStation(float dt, const ExploreInput& in) {
     }
     if (!mg && fireHeld && s->armed && s->deployed && s->trans <= 0) {
       s->armed = false;
-      if (s->loaded > 0 && s->reload <= 0) {
-        vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
-        mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
-        vec3 bore = d.muzzle - d.elevPivot;   // the bore axis at the trunnion plane (the Flak's bore sits above its trunnions)
-        vec3 start = vec3(e * vec4(bore.x, bore.y, 0, 1));   // sweep from there along the bore: a wall at the muzzle stops the shell
-        fireProjectile(start, dir, s->loadedAT ? d.atVelocity : d.heVelocity, PROJ_HE, d.heDamage, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
-        if (!projectiles.empty()) { projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; projectiles.back().blastR = d.heRadius; projectiles.back().craterScale = d.heCrater; }
-        s->loaded -= 1; s->recoilT = 0; s->shots++;
-        fx.muzzle(muzzle, dir, d.muzzleScale);
-        audio.play(d.fireSound, muzzle, 1.0f);
-      } else audio.play("click", vec3(M[3]), 0.6f);
+      if (s->loaded > 0 && s->reload <= 0) stationShoot(occupied, -1);
+      else audio.play("click", vec3(M[3]), 0.6f);
     }
     vec3 a = vec3(M * vec4(d.gunner, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
@@ -408,10 +396,54 @@ void App::stepStation(float dt, const ExploreInput& in) {
   s->recoilT += dt;
 }
 
-std::string App::crateTransaction(uint64_t crateId) {
+// one round: the projectile along the moving parts' aim, ammunition, recoil, flash and sound. owner -1 = the local gunner.
+void App::stationShoot(uint64_t id, int owner) {
+  Instance* inst = doc.find(id); auto& r = rt[id]; StationRT* s = &r.st;
+  const StationDef& d = r.asset->station;
+  bool mg42 = d.kind == "mg42";
+  vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
+  mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
+  vec3 start; bool tracer = false;
+  if (mgKind(d.kind)) {
+    start = vec3(e * vec4(0, 0, 0, 1)); vec3 se, sf; float sfov;
+    if (mg42 && mg42MountSight(*this, se, sf, sfov)) {   // the handheld's aimed fire: from the front post along the sight line, zeroed
+      const WeaponDef& w = *weaponDefs[weaponIndex("mg42")];
+      vec3 E = vec3(e * vec4(se, 1)), F = vec3(e * vec4(sf, 1)); Physics::Hit hf;
+      start = Physics::castRayEx(E, F - E, glm::length(F - E), hf, coreUD(inst->id)) ? E + glm::normalize(F - E) * std::max(0.0f, hf.t - 0.01f) : F;
+      float tz = w.zero / w.velocity; dir = glm::normalize(glm::normalize(F - E) + vec3(0, 0.5f * 9.81f * tz * tz / w.zero, 0));
+    }
+    tracer = (s->shots % 5) == 0;
+    fireProjectile(start, dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), tracer, d.ammo);
+    s->burst++;
+    fx.flash(muzzle + dir * 0.08f, mg42 ? 0.18f : 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));
+    audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
+  } else {
+    vec3 bore = d.muzzle - d.elevPivot;   // the bore axis at the trunnion plane (the Flak's bore sits above its trunnions)
+    start = vec3(e * vec4(bore.x, bore.y, 0, 1));   // sweep from there along the bore: a wall at the muzzle stops the shell
+    fireProjectile(start, dir, s->loadedAT ? d.atVelocity : d.heVelocity, PROJ_HE, d.heDamage, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
+    projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; projectiles.back().blastR = d.heRadius; projectiles.back().craterScale = d.heCrater;
+    fx.muzzle(muzzle, dir, d.muzzleScale);
+    audio.play(d.fireSound, muzzle, 1.0f);
+  }
+  projectiles.back().owner = owner;
+  s->loaded -= 1; s->shots++; s->recoilT = 0;
+  mpaiStationShot(*this, id, start, dir, tracer, owner);
+}
+
+// a reload's end: moves rounds, never creates them. A partial MG belt goes back to the emplacement stock.
+void App::stationFinishReload(StationRT& s, const StationDef& d) {
+  s.reload = 0;
+  if (mgKind(d.kind)) { int full = std::max(1, d.loaded); s.reserve += s.loaded; s.loaded = std::min(full, s.reserve); s.reserve -= s.loaded; }
+  else if (s.selAT && s.reserveAT > 0) { s.loaded = 1; s.reserveAT -= 1; s.loadedAT = true; }
+  else { s.loaded = 1; s.reserve -= 1; s.loadedAT = false; }
+}
+
+std::string App::crateTransaction(uint64_t crateId, WeaponState* who, int whoWeapon) {
   Instance* c = doc.find(crateId);
   if (!c || !crateStock.count(crateId)) return "Not a supply crate.";
+  if (!who && mpaiCrateRequest(*this, crateId)) return "Asking the host for ammunition...";   // LAN client: the host moves the rounds
   auto& stock = crateStock[crateId];
+  struct OnChange { App& a; uint64_t id; std::map<std::string, int> was; ~OnChange() { if (a.crateStock[id] != was) mpaiCrateChanged(a, id); } } onChange{*this, crateId, stock};   // LAN host: the stock replicates
   bool unlimited = crateUnlimited[crateId];
   float radius = assetFor(*c)->crate.value("serviceRadius", 6.0f);
   std::string msg;
@@ -444,10 +476,10 @@ std::string App::crateTransaction(uint64_t crateId) {
     return name + " +" + std::to_string(n * unit) + " (now " + std::to_string(s->reserve) + "/" + std::to_string(s->reserveMax) + "). Crate " + ammo + ": " + (unlimited ? std::string("unlimited") : std::to_string(stock[ammo]) + " left") + ". Reload with R at the gun." + atMsg;
   }
   // 2) personal weapon reserve (weapons.cpp)
-  int before = 0; for (auto& [id, ws] : wstate) before += ws.reserveRounds();
-  std::string personal = resupplyPersonal(crateId);
-  int after = 0; for (auto& [id, ws] : wstate) after += ws.reserveRounds();
-  if (after > before) return personal;                       // personal resupply happened
+  auto rounds = [&] { int n = 0; if (who) return who->reserveRounds(); for (auto& [id, ws] : wstate) n += ws.reserveRounds(); return n; };
+  int before = rounds();
+  std::string personal = who ? resupplyWeapon(crateId, *weaponDefs[whoWeapon], *who) : resupplyPersonal(crateId);
+  if (rounds() > before) return personal;                    // personal resupply happened
   // nothing moved: the emplacement reason (out of reach, empty, full) leads, the personal refusal follows
   if (!msg.empty()) return personal.empty() ? msg : msg + "  " + personal;
   return personal.empty() ? "Nothing here fits your weapon or a gun in reach." : personal;

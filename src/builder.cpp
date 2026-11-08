@@ -20,6 +20,7 @@
 #include "app.h"
 #include "editor_nav.h"
 #include "palette.h"
+#include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -114,6 +115,7 @@ void App::builderKeys(ExploreInput& in) {
 }
 
 bool App::buildRemoveAimed() {
+  if (mpaiBuildClient(*this)) { toast("Removing placements is host-only in LAN matches.", 3); return false; }
   Instance* t = doc.find(build.aimId);
   if (!t || !buildRemovable(*this, *t)) { toast(build.realEdits ? "Nothing to remove under the crosshair." : "Only pieces built in this session can be removed (drop in from Creative to edit the map).", 3); return false; }
   BuildAction act; act.real = !isSession(*t);
@@ -125,6 +127,7 @@ bool App::buildRemoveAimed() {
   doc.instances.erase(std::remove_if(doc.instances.begin(), doc.instances.end(), [&](const Instance& i) { return i.id == id; }), doc.instances.end());
   syncRuntime();
   dirty = act.real ? true : wasDirty;
+  mpaiBuildChanged(*this, {}, {id});   // LAN host: every PC removes it
   build.history.push_back(std::move(act)); ++build.removed; build.aimId = 0;
   audio.play("crate", build.pos, 0.5f);
   return true;
@@ -138,6 +141,7 @@ bool App::buildUndo() {
   for (auto& i : act.removed) { Instance c = i; bump(c); doc.instances.push_back(c); }
   if (act.real && !undoStack.empty() && undoStack.size() == act.undoDepth) undoStack.pop_back();   // the editor's matching undo entry
   syncRuntime();
+  if (!act.real) { std::vector<uint64_t> back; for (auto& i : act.removed) back.push_back(i.id); mpaiBuildChanged(*this, back, act.placed); }   // LAN host
   dirty = act.real ? true : wasDirty;
   ++build.undone;
   return true;
@@ -203,20 +207,15 @@ void App::stepBuilder(const ExploreInput& in) {
       if (!clear) { build.reason = "Too close: you would be inside it"; return; }
     }
   }
-  skipSlopeRule = true;   // theta already judged from the hit normal above
-  PlaceCheck c = checkPlacement(a, build.pos, build.ghostYaw, 0);
-  skipSlopeRule = false;
-  if (!c.ok) { build.reason = c.reason; return; }
-  build.pos.y = c.y;
-  if (c.snapXZ) { build.pos.x = c.xz.x; build.pos.z = c.xz.y; }
-  if (defence) {
-    vec3 half = (a->bmax - a->bmin) * 0.5f * 0.9f, ctr = build.pos + yawQuat(build.ghostYaw) * ((a->bmin + a->bmax) * 0.5f);
-    if (Physics::boxBlocked(ctr + vec3(0, 0.05f, 0), half, yawQuat(build.ghostYaw), ~0ull, true) && !build.snapped) { build.reason = "Blocked by something here"; return; }
-  }
+  if (std::string why = buildCheckAt(a, build.pos, build.ghostYaw, build.snapped, vec3(1e9f)); !why.empty()) { build.reason = why; return; }
   build.valid = true; build.reason = build.snapped ? (a->defense.kind == "sandbag" ? "Snaps to the sandbag run" : "Snaps to the joint") : "Valid";
   bool firePress = in.fire && !build.fireHeld;
   build.fireHeld = in.fire;
   if (!firePress || build.palette) return;
+  if (mpaiBuildRequest(*this, a, build.pos, build.ghostYaw)) {   // LAN client: the host re-checks and places it on every PC
+    if (!build.forceAsset.empty()) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); }
+    return;
+  }
   BuildAction act; act.real = build.realEdits && build.forceAsset.empty();   // rack deployments stay a session overlay
   uint64_t id = 0;
   if (act.real) {
@@ -229,25 +228,55 @@ void App::stepBuilder(const ExploreInput& in) {
     for (size_t k = n0; k < doc.instances.size(); ++k) act.placed.push_back(doc.instances[k].id);
     dirty = true;
   } else {
-    bool wasDirty = dirty;
-    Instance i; i.id = doc.newId(); i.assetId = a->id; i.assetVersion = a->version;
-    i.pos = build.pos; i.yaw = wrapDeg(build.ghostYaw);
-    i.extra = json::object(); i.extra["session"] = true;
-    if (a->defense.blocksVehicles) i.extra["blocksVehicles"] = true;
-    if (!a->station.kind.empty()) i.extra["deployedBy"] = "player";
-    bump(i);
-    doc.instances.push_back(i);
-    id = i.id; act.placed.push_back(id);
-    if (build.forceAsset.empty()) {   // a bunker's crew stations / ammunition come with it, also as session pieces
-      size_t n0 = doc.instances.size(); placeCompanions(id);
-      for (size_t k = n0; k < doc.instances.size(); ++k) { auto& ci = doc.instances[k]; if (!ci.extra.is_object()) ci.extra = json::object(); ci.extra["session"] = true; act.placed.push_back(ci.id); }
-    }
-    dirty = wasDirty;
+    id = buildSessionPiece(a, build.pos, build.ghostYaw, build.forceAsset.empty(), &act)[0];
+    if (!act.real) mpaiBuildChanged(*this, act.placed, {});   // LAN host: every PC creates the same pieces
   }
   build.history.push_back(std::move(act));
   ++buildPlaced;
   if (!a->station.kind.empty()) { syncRuntime(); if (Instance* si = doc.find(id)) resetStation(*si); if (!build.forceAsset.empty()) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); } }
   audio.play("crate", build.pos, 0.8f);
+}
+
+// the placement rules once the aim is known: the editor's checkPlacement (slope judged by the caller), then for
+// defences a clear footprint. builderFeet: never build round that soldier (a LAN client's, re-checked on the host).
+std::string App::buildCheckAt(const AssetDef* a, vec3& pos, float yaw, bool snapped, vec3 builderFeet) {
+  bool defence = !a->defense.kind.empty() || !a->station.kind.empty();
+  vec3 lp = glm::inverse(yawQuat(yaw)) * (builderFeet - pos); vec2 hf = a->footprint * 0.5f + vec2(Physics::radius() + 0.1f);
+  if (!snapped && !interior.isProp(a) && std::fabs(lp.x) < hf.x && std::fabs(lp.z) < hf.y && std::fabs(lp.y) < 3) return "Too close: you would be inside it";
+  skipSlopeRule = true;
+  PlaceCheck c = checkPlacement(a, pos, yaw, 0);
+  skipSlopeRule = false;
+  if (!c.ok) return c.reason;
+  pos.y = c.y;
+  if (c.snapXZ) { pos.x = c.xz.x; pos.z = c.xz.y; }
+  if (defence) {
+    vec3 half = (a->bmax - a->bmin) * 0.5f * 0.9f, ctr = pos + yawQuat(yaw) * ((a->bmin + a->bmax) * 0.5f);
+    if (Physics::boxBlocked(ctr + vec3(0, 0.05f, 0), half, yawQuat(yaw), ~0ull, true) && !snapped) return "Blocked by something here";
+  }
+  return "";
+}
+
+// a placement kept as a session overlay (Instance::extra "session"); returns its id first, then any companions
+std::vector<uint64_t> App::buildSessionPiece(const AssetDef* a, vec3 pos, float yaw, bool companions, BuildAction* act) {
+  bool wasDirty = dirty;
+  std::vector<uint64_t> ids;
+  Instance i; i.id = doc.newId(); i.assetId = a->id; i.assetVersion = a->version;
+  i.pos = pos; i.yaw = wrapDeg(yaw);
+  i.extra = json::object(); i.extra["session"] = true;
+  if (a->defense.blocksVehicles) i.extra["blocksVehicles"] = true;
+  if (!a->station.kind.empty()) i.extra["deployedBy"] = "player";
+  bump(i);
+  doc.instances.push_back(i);
+  ids.push_back(i.id);
+  if (companions) {   // a bunker's crew stations / ammunition come with it, also as session pieces
+    size_t n0 = doc.instances.size(); placeCompanions(i.id);
+    for (size_t k = n0; k < doc.instances.size(); ++k) { auto& ci = doc.instances[k]; if (!ci.extra.is_object()) ci.extra = json::object(); ci.extra["session"] = true; ids.push_back(ci.id); }
+  }
+  dirty = wasDirty;
+  syncRuntime();
+  for (uint64_t id : ids) if (Instance* si = doc.find(id)) { if (!assetFor(*si)->station.kind.empty()) resetStation(*si); resetCrate(*si); }
+  if (act) act->placed.insert(act->placed.end(), ids.begin(), ids.end());
+  return ids;
 }
 
 void App::builderGhosts(std::vector<DrawItem>& ghosts) {
