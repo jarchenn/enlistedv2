@@ -346,12 +346,12 @@ void build(App& app) {
     chk(moved == 0 && missing == 0, "existing placements untouched: %d moved, %d missing of %zu", moved, missing, gInst.size());
     // nothing new inside footprints, paths, objectives or spawns; decor only beyond the border
     Scenario sc = Scenario::fromJson(app.doc.extra.value("scenario", json()));
-    int inFoot = 0, inPath = 0, inObj = 0, inSpawn = 0, decorInside = 0, untagged = 0, insideNew = 0; std::string ex;
+    int inFoot = 0, inPath = 0, inObj = 0, inSpawn = 0, decorInside = 0, untagged = 0, insideNew = 0; std::string ex, exDecor;
     for (auto& i : app.doc.instances) {
       if (gInst.count(i.id)) continue;
       bool beyond = std::fabs(i.pos.x) > t.buildHalfX || std::fabs(i.pos.z) > t.buildHalfZ;
       if (!i.extra.is_object() || !i.extra.value("beautify", false) || (beyond && !isDecor(i))) ++untagged;
-      if (isDecor(i) && !beyond) ++decorInside;
+      if (isDecor(i) && !beyond) { ++decorInside; if (exDecor.size() < 120) exDecor += " " + i.assetId; }
       if (beyond) continue;
       ++insideNew;
       vec2 p(i.pos.x, i.pos.z);
@@ -365,7 +365,7 @@ void build(App& app) {
       for (auto& sp : sc.spawns) if (glm::length(p - vec2(sp.pos.x, sp.pos.z)) < 10.0f) ++inSpawn;
     }
     chk(inFoot == 0 && inPath == 0 && inObj == 0 && inSpawn == 0, "%d new placements inside the playable area: %d in footprints, %d on paths, %d in objectives, %d at spawns%s", insideNew, inFoot, inPath, inObj, inSpawn, ex.c_str());
-    chk(decorInside == 0 && untagged == 0, "tags: %d decor inside the border, %d untagged / mis-tagged placements", decorInside, untagged);
+    chk(decorInside == 0 && untagged == 0, "tags: %d decor inside the border%s, %d untagged / mis-tagged placements", decorInside, exDecor.c_str(), untagged);
     // a decor building can be moved in the editor beyond the border (checkPlacement exception); others cannot
     const Instance* d = nullptr; for (auto& i : app.doc.instances) if (isDecor(i) && app.assetFor(i)->enterable) { d = &i; break; }
     if (d) {

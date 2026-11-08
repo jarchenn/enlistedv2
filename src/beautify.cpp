@@ -42,6 +42,7 @@ bool beautifyDecorDraw(App& app, const Instance& i, InstanceRT& r, const mat4& M
   static const json d = beautifySettings().value("decor", json::object());
   static const float cull = d.value("cullDist", 950.0f), nearD = d.value("nearDist", 140.0f), glassD = d.value("glassDist", 320.0f);
   static const float treeCull = d.value("treeCullDist", 480.0f), smallCull = d.value("smallCullDist", 300.0f);
+  static const float lowH = d.value("insideLowHeight", 1.3f), lowCull = d.value("insideLowCullDist", 170.0f);
   vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
   float dist = glm::length(i.pos - eye);
   if (decor && dist > cull) return true;   // beyond the horizon band: not drawn at all
@@ -59,7 +60,7 @@ bool beautifyDecorDraw(App& app, const Instance& i, InstanceRT& r, const mat4& M
       if (len > 1e-6f && (glm::dot(vec3(pl), c) + pl.w) / len < -rad) return true;
     }
   }
-  if (!decor) return false;   // Beautify scatter inside the border: frustum cull only
+  if (!decor) return a->bmax.y - a->bmin.y < lowH && dist > lowCull;   // Beautify scatter inside the border: low dressing (ground cover, stones, rubble, small shrubs) is culled at range
   if (!a->enterable) {   // ring dressing: trees, hedges, rocks, patches. Culled well inside their usual distances
     float c = a->tree.on ? treeCull : a->category == "Vegetation" && a->footprint.x >= 6.0f ? treeCull : smallCull;
     return dist > c;     // otherwise the ordinary path
@@ -371,6 +372,7 @@ BeautifyReport beautifyRun(App& app, const BeautifyParams& P) {
           vec3 o3 = q * vec3(bi * a->footprint.x, 0, bj * a->footprint.y);
           vec2 pp(p.x + o3.x, p.y + o3.z);
           if (got && (prot.nearest(pp) < pad + rr || T.height(pp.x, pp.y) < T.waterLevel + 0.3f)) continue;
+          if (!inside && std::fabs(pp.x) < Hx + band0 && std::fabs(pp.y) < Hz + band0) continue;   // a ring block (wheat squares) never reaches back over the border
           if (!occ.free(pp, rr, ri, got ? 0.0f : spacing)) continue;
           float y = 0; bool ok = false;
           if (inside) { PlaceCheck c = app.checkPlacement(a, vec3(pp.x, 0, pp.y), yaw, 0); ok = c.ok; y = c.y; }
