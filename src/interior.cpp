@@ -194,7 +194,7 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
         }
       }
       float area = cells.size() * C * C;
-      if (area < 2.5f || ri.rooms.size() >= 16) { for (int c : cells) id[c] = RoomInfo::NOFLOOR; continue; }
+      if (area < 2.5f || ri.rooms.size() >= 32) { for (int c : cells) id[c] = RoomInfo::NOFLOOR; continue; }   // 32: the 5-storey mairie alone has ~20 rooms
       RoomInfo::Room R; R.storey = sIdx; R.y0 = S.y; R.y1 = S.ceil; R.area = area; R.cells = (int)cells.size();
       R.mn = vec2(1e9f); R.mx = vec2(-1e9f);
       for (int c : cells) { vec2 lo(o.x + (c % nx) * C, o.y + (c / nx) * C); R.mn = glm::min(R.mn, lo); R.mx = glm::max(R.mx, lo + vec2(C)); }
