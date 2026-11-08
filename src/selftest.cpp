@@ -5,8 +5,6 @@
 #include "selftest.h"
 #include <GLFW/glfw3.h>
 #include <fstream>
-#include <windows.h>
-#include <psapi.h>
 
 static fs::path outDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 static const char* kHouse = "house_farmhouse_2story";
@@ -414,7 +412,7 @@ void SelfTest::update(App& app, float dt) {
     if (u >= 1) {
       std::sort(frameTimes.begin(), frameTimes.end());
       double sum = 0; for (double v : frameTimes) sum += v;
-      PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
+      ProcMem pmc = processMemory();
       benchOut["flyover"] = {{"frames", frameTimes.size()}, {"avg_ms", sum / std::max<size_t>(1, frameTimes.size())},
         {"p50_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() / 2]}, {"p95_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 95 / 100]}, {"p99_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 99 / 100]}, {"max_ms", frameTimes.empty() ? 0 : frameTimes.back()},
         {"last_gpu_ms", app.R.stats.gpuMs}, {"last_render_cpu_ms", app.R.stats.cpuMs}, {"draws", app.R.stats.draws}, {"tris", app.R.stats.tris},
@@ -439,7 +437,7 @@ void SelfTest::update(App& app, float dt) {
     if (!houseId || runWalkthrough(app, dt)) {
       std::sort(frameTimes.begin(), frameTimes.end());
       double sum = 0; for (double v : frameTimes) sum += v;
-      PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
+      ProcMem pmc = processMemory();
       benchOut["interior_walk"] = {{"frames", frameTimes.size()}, {"avg_ms", sum / std::max<size_t>(1, frameTimes.size())},
         {"p50_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() / 2]}, {"p95_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 95 / 100]}, {"p99_ms", frameTimes.empty() ? 0 : frameTimes[frameTimes.size() * 99 / 100]}, {"max_ms", frameTimes.empty() ? 0 : frameTimes.back()},
         {"working_set_mb", pmc.WorkingSetSize / 1048576.0}};

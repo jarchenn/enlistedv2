@@ -5,8 +5,6 @@
 #include <chrono>
 #include <fstream>
 #include <algorithm>
-#include <windows.h>
-#include <psapi.h>
 
 namespace {
 struct G {
@@ -38,7 +36,7 @@ json stats(std::vector<double> v) {
   return {{"frames", v.size()}, {"avg_ms", sum / std::max<size_t>(1, v.size())}, {"p50_ms", at(0.5)}, {"p95_ms", at(0.95)}, {"p99_ms", at(0.99)}, {"max_ms", v.empty() ? 0 : v.back()}};
 }
 double workingSetMB(bool peak) {
-  PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
+  ProcMem pmc = processMemory();
   return (peak ? pmc.PeakWorkingSetSize : pmc.WorkingSetSize) / 1048576.0;
 }
 }

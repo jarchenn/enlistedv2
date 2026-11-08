@@ -6,8 +6,6 @@
 // render CPU, draws, triangles, working set; a screenshot per camera -> selftest_out/village_<tag>_<cam>.png.
 #include "selftest.h"
 #include <GLFW/glfw3.h>
-#include <windows.h>
-#include <psapi.h>
 #include <algorithm>
 
 namespace {
@@ -107,7 +105,7 @@ void SelfTest::villageUpdate(App& app, float dt) {
     { static int shotCam = -1; if (stageTime > 2.4 && shotCam != vCam) { shotCam = vCam; shotQueue.push_back("village_" + vTag + "_" + c.name); } }   // once per camera, whatever the frame time
     if (stageTime < 5.0) return;
     auto pct = [](std::vector<double> v, double q) { if (v.empty()) return 0.0; std::sort(v.begin(), v.end()); return v[std::min(v.size() - 1, (size_t)(v.size() * q))]; };
-    PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
+    ProcMem pmc = processMemory();
     benchOut[c.name] = {{"frames", vFrames.size()}, {"frame_p50_ms", pct(vFrames, 0.5)}, {"frame_p95_ms", pct(vFrames, 0.95)},
                         {"gpu_p50_ms", pct(vGpu, 0.5)}, {"gpu_p95_ms", pct(vGpu, 0.95)}, {"render_cpu_p50_ms", pct(vCpu, 0.5)},
                         {"draws", app.R.stats.draws}, {"tris", app.R.stats.tris}, {"working_set_mb", pmc.WorkingSetSize / 1048576.0},

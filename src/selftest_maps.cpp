@@ -21,12 +21,10 @@
 #include <chrono>
 #include <fstream>
 #include <cstdarg>
-#include <windows.h>
-#include <psapi.h>
 
 namespace {
 fs::path outDirM() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
-double wsMB() { PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc); return pmc.WorkingSetSize / 1048576.0; }
+double wsMB() { ProcMem pmc = processMemory(); return pmc.WorkingSetSize / 1048576.0; }
 std::string fmt(const char* f, ...) { char b[600]; va_list a; va_start(a, f); std::vsnprintf(b, sizeof b, f, a); va_end(a); return b; }
 double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 

@@ -17,12 +17,10 @@
 #include <fstream>
 #include <cstring>
 #include <cstdarg>
-#include <windows.h>
-#include <psapi.h>
 
 namespace {
 fs::path outDirEd() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
-double wsMB() { PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc); return pmc.WorkingSetSize / 1048576.0; }
+double wsMB() { ProcMem pmc = processMemory(); return pmc.WorkingSetSize / 1048576.0; }
 std::string fmt(const char* f, ...) { char b[512]; va_list a; va_start(a, f); std::vsnprintf(b, sizeof b, f, a); va_end(a); return b; }
 // the pre-9.1 terrain generator (800 m square, n = 256), kept here to prove old maps load unchanged
 float lhash2(int x, int y, uint32_t s) {

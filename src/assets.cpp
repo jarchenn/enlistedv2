@@ -11,8 +11,12 @@
 #include <cfloat>
 #ifdef _WIN32
 #include <windows.h>
+#include <psapi.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
+#include <mach/mach.h>
+#else
+#include <sys/resource.h>
 #endif
 
 // ---------------------------------------------------------------- utilities
@@ -39,6 +43,19 @@ fs::path exeDir() {
 #else
   std::error_code ec; return fs::read_symlink("/proc/self/exe", ec).parent_path();
 #endif
+}
+ProcMem processMemory() {
+  ProcMem m;
+#ifdef _WIN32
+  PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
+  m.WorkingSetSize = pmc.WorkingSetSize; m.PeakWorkingSetSize = pmc.PeakWorkingSetSize;
+#elif defined(__APPLE__)
+  mach_task_basic_info_data_t info{}; mach_msg_type_number_t n = MACH_TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &n) == KERN_SUCCESS) { m.WorkingSetSize = info.resident_size; m.PeakWorkingSetSize = info.resident_size_max; }
+#else
+  rusage u{}; getrusage(RUSAGE_SELF, &u); m.WorkingSetSize = m.PeakWorkingSetSize = (size_t)u.ru_maxrss * 1024;
+#endif
+  return m;
 }
 fs::path contentDir() {
   fs::path p = exeDir() / "content";

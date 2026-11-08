@@ -12,7 +12,11 @@ void patch(FILE* f, long pos, uint32_t v) { long here = std::ftell(f); std::fsee
 bool Recorder::open(const fs::path& p, int w, int h, int fps_, int quality) {
   close();
   W = w & ~1; H = h & ~1; fps = fps_; q = quality;
+#ifdef _WIN32
   f = _wfopen(p.wstring().c_str(), L"wb");
+#else
+  f = std::fopen(p.c_str(), "wb");
+#endif
   if (!f) return false;
   index.clear(); maxFrame = 0;
   fcc(f, "RIFF"); riffSizePos = std::ftell(f); u32(f, 0); fcc(f, "AVI ");
