@@ -49,6 +49,7 @@ struct MeshData { std::vector<Vertex> v; std::vector<uint32_t> i; };
 
 struct GpuMesh {
   GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
+  vec3 bmin{0}, bmax{0};   // mesh-space bounds of the uploaded vertices (frustum culling, src/frustum.h); empty mesh: 0, 0
   void upload(const MeshData& m);
   void destroy();
   void draw() const;
@@ -132,6 +133,7 @@ struct TreeDef {
   GpuMesh stumpMesh, trunkMesh;             // trunkMesh / trunkShape relative to the cut (0, stumpH, 0)
   ShapePtr stumpShape, trunkShape;
   GLuint cardVao = 0, cardVbo = 0; int cardVerts = 0;   // leaf cards (asset space): pos, normal, uv, mask
+  vec3 cardMin{0}, cardMax{0};                          // leaf card bounds (asset space, before wind sway): frustum culling
 };
 // Buildable defence: tank trap / sandbags (builder.cpp, ballistics.cpp).
 struct DefenseSocket { vec3 p{0}, t{1, 0, 0}; };

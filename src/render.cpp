@@ -1947,6 +1947,7 @@ void Overlay::capsule(vec3 f, float h, float r, vec4 c) {
 
 // ============================================================== renderer
 GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
+  locCache.clear();   // a new program may reuse a deleted one's id
   auto sh = [&](GLenum type, const char* const* srcs, int n) {
     GLuint s = glCreateShader(type);
     glShaderSource(s, n, srcs, nullptr); glCompileShader(s);
@@ -2216,40 +2217,77 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uTime"), time);
 }
 
-void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shadowPass) {
-  GLint lm = U(p, "uModel"), lt = U(p, "uTint");
-  GLint li = shadowPass ? -1 : U(p, "uInst"), la = shadowPass ? -1 : U(p, "uSnapAp");   // la: V6 snap-chain texture origin
+Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
+  for (auto& [k, l] : locCache) if (k == p) return l;
+  DrawLocs l;
+  l.model = U(p, "uModel"); l.tint = U(p, "uTint"); l.inst = U(p, "uInst"); l.snapAp = U(p, "uSnapAp");   // snapAp: V6 snap-chain texture origin
+  l.roomA = U(p, "uRoomA"); l.roomB = U(p, "uRoomB"); l.sills = U(p, "uSills"); l.sillA = U(p, "uSillA"); l.sillB = U(p, "uSillB");
+  l.vp = U(p, "uVP"); l.time = U(p, "uTime"); l.wind = U(p, "uWind"); l.leafCol = U(p, "uLeafCol");
+  l.base = U(p, "uBase"); l.metal = U(p, "uMetal"); l.rough = U(p, "uRough"); l.thin = U(p, "uThin");
+  l.alb = U(p, "uAlb"); l.mr = U(p, "uMR"); l.nrm = U(p, "uNrm"); l.ao = U(p, "uAO");
+  l.hasAlb = U(p, "uHasAlb"); l.hasMR = U(p, "uHasMR"); l.hasNrm = U(p, "uHasNrm"); l.hasAO = U(p, "uHasAO"); l.aoInMR = U(p, "uAOinMR");
+  locCache.push_back({p, l});
+  return l;
+}
+
+// Frustum culling (docs/rendering.md#frustum-culling). Margins in world metres cover vertex-shader displacement beyond
+// the uploaded bounds.
+static constexpr float kCullEps = 0.01f;        // box-kit meshes: no displacement (rounding only)
+static constexpr float kModelCullPad = 0.05f;   // imported models: thin-wire widening (<= 3 cm) and small part anims
+
+void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr, bool sortSurf) {
+  const DrawLocs L = drawLocs(p);
+  GLint lm = L.model, lt = L.tint;
+  GLint li = shadowPass ? -1 : L.inst, la = shadowPass ? -1 : L.snapAp;
   static const SurfaceParams kDefaultSurf;
-  const SurfaceParams* lastSurf = nullptr;
-  for (auto& it : items) {
+  // visible set: the mesh's bounds under its model matrix against this pass's frustum
+  drawIdx.clear();
+  for (uint32_t k = 0; k < (uint32_t)items.size(); ++k) {
+    const DrawItem& it = items[k];
     if (!it.mesh || !it.mesh->count) continue;
+    if (fr && !fr->visible(it.mesh->bmin, it.mesh->bmax, it.model, kCullEps)) { stats.culled++; continue; }
+    drawIdx.push_back(k);
+  }
+  // main pass: copies sharing finish parameters are grouped so the parameter block uploads once per building. Stable,
+  // so the order inside a building (and any coplanar tie) is unchanged and never depends on the camera.
+  auto surfOf = [&](uint32_t k) -> const SurfaceParams* { return items[k].surf ? items[k].surf : &kDefaultSurf; };
+  if (sortSurf && li >= 0)
+    std::stable_sort(drawIdx.begin(), drawIdx.end(), [&](uint32_t a, uint32_t b) { return std::less<const SurfaceParams*>()(surfOf(a), surfOf(b)); });
+  const SurfaceParams* lastSurf = nullptr;
+  GLuint boundVao = 0;
+  for (uint32_t k : drawIdx) {
+    const DrawItem& it = items[k];
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.model));
     if (!shadowPass && lt >= 0) glUniform4fv(lt, 1, glm::value_ptr(it.tint));
     if (la >= 0) glUniform4fv(la, 1, glm::value_ptr(it.apWorld));
     if (li >= 0) {   // building finish parameters (docs/interiors.md): uploaded only when the copy changes
-      const SurfaceParams* sp = it.surf ? it.surf : &kDefaultSurf;
+      const SurfaceParams* sp = surfOf(k);
       if (sp != lastSurf) {
         lastSurf = sp;
         glUniform4fv(li, 1, glm::value_ptr(sp->inst));
         int nr = std::clamp((int)(sp->inst.w + 0.5f), 0, 16);
-        if (nr) { glUniform4fv(U(p, "uRoomA"), nr, glm::value_ptr(sp->roomA[0])); glUniform4fv(U(p, "uRoomB"), nr, glm::value_ptr(sp->roomB[0])); }
+        if (nr) { glUniform4fv(L.roomA, nr, glm::value_ptr(sp->roomA[0])); glUniform4fv(L.roomB, nr, glm::value_ptr(sp->roomB[0])); }
         int ns = std::clamp(sp->sills, 0, 12);
-        glUniform1i(U(p, "uSills"), ns);
-        if (ns) { glUniform4fv(U(p, "uSillA"), ns, glm::value_ptr(sp->sillA[0])); glUniform4fv(U(p, "uSillB"), ns, glm::value_ptr(sp->sillB[0])); }
+        glUniform1i(L.sills, ns);
+        if (ns) { glUniform4fv(L.sillA, ns, glm::value_ptr(sp->sillA[0])); glUniform4fv(L.sillB, ns, glm::value_ptr(sp->sillB[0])); }
       }
     }
-    it.mesh->draw();
+    if (it.mesh->vao != boundVao) { boundVao = it.mesh->vao; glBindVertexArray(boundVao); }
+    glDrawElements(GL_TRIANGLES, it.mesh->count, GL_UNSIGNED_INT, nullptr);
     stats.draws++; stats.tris += it.mesh->count / 3;
   }
 }
 
-void Renderer::drawFoliage(GLuint p, const mat4& vp) {
+void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr) {
   glUseProgram(p);
-  glUniformMatrix4fv(U(p, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-  glUniform1f(U(p, "uTime"), time); glUniform1f(U(p, "uWind"), wind);
-  GLint lm = U(p, "uModel"), lc = U(p, "uLeafCol");
+  const DrawLocs L = drawLocs(p);
+  glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(vp));
+  glUniform1f(L.time, time); glUniform1f(L.wind, wind);
+  GLint lm = L.model, lc = L.leafCol;
+  float sway = 0.14f * std::max(0.0f, wind) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
   for (auto& f : foliage) {
     if (!f.tree || !f.tree->cardVao) continue;
+    if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway)) { stats.culled++; continue; }
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
     if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(f.tree->leafCol));
     glBindVertexArray(f.tree->cardVao);
@@ -2258,36 +2296,48 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp) {
   }
 }
 
-void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items) {
-  GLint lm = U(p, "uModel");
+// Imported model parts are tested with their import bounds (model.cpp, vertex space). Parts without bounds are always
+// drawn: skinned soldiers (the skinning pass rewrites their vertex buffer every frame) and older bakes.
+static bool partCulled(const Frustum* fr, const ModelPart& pt, const mat4& m) {
+  if (!fr) return false;
+  vec3 e = pt.bmax - pt.bmin;
+  if (e.x < 0 || e.y < 0 || e.z < 0 || e.x + e.y + e.z <= 0) return false;
+  return !fr->visible(pt.bmin, pt.bmax, m, kModelCullPad);
+}
+
+void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, const Frustum* fr) {
+  GLint lm = drawLocs(p).model;
   const GpuModel* bound = nullptr;
   for (auto& it : items) {
     const GpuModel* m = it.model;
     if (!m || !m->vao || it.part < 0 || it.part >= (int)m->parts.size()) continue;
-    if (m != bound) { bound = m; glBindVertexArray(m->vao); }
     const ModelPart& pt = m->parts[it.part];
+    if (partCulled(fr, pt, it.m)) { stats.culled++; continue; }
+    if (m != bound) { bound = m; glBindVertexArray(m->vao); }
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
   }
 }
 
-void Renderer::drawModels(const std::vector<ModelDraw>& items) {
+void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr) {
   GLuint p = progModel;
-  glUniform1i(U(p, "uAlb"), 2); glUniform1i(U(p, "uMR"), 3); glUniform1i(U(p, "uNrm"), 4); glUniform1i(U(p, "uAO"), 5);
-  GLint lm = U(p, "uModel"), lb = U(p, "uBase"), lme = U(p, "uMetal"), lr = U(p, "uRough"), lt = U(p, "uTint"), lth = U(p, "uThin");
+  const DrawLocs L = drawLocs(p);
+  glUniform1i(L.alb, 2); glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5);
+  GLint lm = L.model, lb = L.base, lme = L.metal, lr = L.rough, lt = L.tint, lth = L.thin;
   const GpuModel* bound = nullptr; int boundMat = -2;
   for (auto& it : items) {
     const GpuModel* m = it.model;
     if (!m || !m->vao || it.part < 0 || it.part >= (int)m->parts.size()) continue;
     const ModelPart& pt = m->parts[it.part];
+    if (partCulled(fr, pt, it.m)) { stats.culled++; continue; }
     if (m != bound) { bound = m; boundMat = -2; glBindVertexArray(m->vao); }
     int mi = pt.mat >= 0 && pt.mat < (int)m->mats.size() ? pt.mat : -1;
     if (mi != boundMat) {
       boundMat = mi;
       GpuModel::MatTex none; const GpuModel::MatTex& t = mi >= 0 ? m->mats[mi] : none;
       glBindTextureUnit(2, t.alb); glBindTextureUnit(3, t.mr); glBindTextureUnit(4, t.n); glBindTextureUnit(5, t.ao);
-      glUniform1i(U(p, "uHasAlb"), t.alb ? 1 : 0); glUniform1i(U(p, "uHasMR"), t.mr ? 1 : 0); glUniform1i(U(p, "uHasNrm"), t.n ? 1 : 0);
-      glUniform1i(U(p, "uHasAO"), t.ao ? 1 : 0); glUniform1i(U(p, "uAOinMR"), t.aoInMR ? 1 : 0);
+      glUniform1i(L.hasAlb, t.alb ? 1 : 0); glUniform1i(L.hasMR, t.mr ? 1 : 0); glUniform1i(L.hasNrm, t.n ? 1 : 0);
+      glUniform1i(L.hasAO, t.ao ? 1 : 0); glUniform1i(L.aoInMR, t.aoInMR ? 1 : 0);
     }
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
     glUniform4fv(lb, 1, glm::value_ptr(pt.base)); glUniform1f(lme, pt.metal); glUniform1f(lr, pt.rough);
@@ -2356,7 +2406,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   RenderView v = v0;
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
-  stats.draws = 0; stats.tris = 0;
+  stats.draws = 0; stats.tris = 0; stats.culled = 0;
   time += v.dt;
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   if (qvalid) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[qidx ^ 1], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
@@ -2392,10 +2442,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glDisable(GL_CULL_FACE);
   glUseProgram(progShadow);
   glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
-  drawItems(progShadow, opaque, true);
-  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP);
+  // every depth / colour pass culls against its own view-projection (docs/rendering.md#frustum-culling): a cascade keeps
+  // the casters inside its ortho box even when they are behind the camera
+  Frustum frNear = Frustum::fromVP(lightVP);
+  drawItems(progShadow, opaque, true, &frNear);
+  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear);
   glUseProgram(progShadow);
-  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels);
+  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
   // far cascade: the whole visible village / fields (texel ~0.23 m), blended in where the near one ends
   if (!q.legacy && q.farCascade && !thumbMode) {
     farR = std::max(240.0f, radius * 2.5f);
@@ -2406,10 +2459,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glClear(GL_DEPTH_BUFFER_BIT);
     glUseProgram(progShadow);
     glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
-    drawItems(progShadow, opaque, true);
-    if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar);
+    Frustum frFar = Frustum::fromVP(lightVPFar);
+    drawItems(progShadow, opaque, true, &frFar);
+    if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar);
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
-    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels);
+    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
   }
   // ---- sky occlusion (top down)
   float occR = 90.0f;
@@ -2425,10 +2479,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glViewport(0, 0, occSize, occSize);
   glClear(GL_DEPTH_BUFFER_BIT);
   glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
-  drawItems(progShadow, opaque, true);
-  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP);
+  Frustum frOcc = Frustum::fromVP(occVP);
+  drawItems(progShadow, opaque, true, &frOcc);
+  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP, &frOcc);
   glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
-  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels);
+  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frOcc);
   glDisable(GL_POLYGON_OFFSET_FILL);
 
   // ---- main HDR pass. With TAA the world is rendered with a sub-pixel jitter (Halton 2,3, 8 phases); effects,
@@ -2445,6 +2500,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (glm::length(v.camPos - prevCam) > 4.0f) taaValid = false;
   } else { taaValid = false; jitterPx = vec2(0); }
   mat4 vp = projJ * v.view;
+  // main-view planes from the standard-Z projection (reverse-Z loses the far plane); the TAA jitter is sub-pixel
+  Frustum frMain = Frustum::fromProjView(v0.proj, v.view);
   glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
   glViewport(0, 0, width, height);
   revZ = true; glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE); glClearDepth(0.0);   // reverse-Z from here to the end
@@ -2471,12 +2528,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-  drawItems(progMain, opaque, false);
+  drawItems(progMain, opaque, false, &frMain, true);
   if (!worldModels.empty()) {   // imported models placed in the world
     glDisable(GL_CULL_FACE);
     setLighting(progModel, v);
     glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-    drawModels(worldModels);
+    drawModels(worldModels, &frMain);
     glEnable(GL_CULL_FACE);
   }
   // tree canopies (double sided, alpha tested)
@@ -2486,7 +2543,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progLeaf, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
     glUniformMatrix4fv(U(progLeaf, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     glUniform1f(U(progLeaf, "uPrevTime"), time - v.dt);
-    drawFoliage(progLeaf, vp);
+    drawFoliage(progLeaf, vp, &frMain);
     glEnable(GL_CULL_FACE);
   }
   // grass after opaque so buildings reject hidden blades early; double sided
@@ -2522,8 +2579,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glDepthMask(GL_FALSE);
   glDisable(GL_CULL_FACE);
-  if (!glass.empty()) {
-    std::vector<DrawItem> sorted = glass;
+  if (!glass.empty()) {   // culled first, then sorted far to near (the sort only sees what is drawn)
+    std::vector<DrawItem> sorted; sorted.reserve(glass.size());
+    for (auto& g : glass) {
+      if (!g.mesh || !g.mesh->count) continue;
+      if (!frMain.visible(g.mesh->bmin, g.mesh->bmax, g.model, 0.01f)) { stats.culled++; continue; }
+      sorted.push_back(g);
+    }
     std::sort(sorted.begin(), sorted.end(), [&](const DrawItem& a, const DrawItem& b) {
       return glm::length(vec3(a.model[3]) - v.camPos) > glm::length(vec3(b.model[3]) - v.camPos); });
     setLighting(progGlass, v);
@@ -2535,7 +2597,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glDepthMask(GL_TRUE);
     setLighting(progMain, v);
     glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-    drawItems(progMain, ghosts, false);
+    drawItems(progMain, ghosts, false, &frMain);
   }
   // world-only composite (light shafts; later AO / reflections / TAA): runs before effects and the first-person
   // pass, so nothing here ever reads the weapon's depth
