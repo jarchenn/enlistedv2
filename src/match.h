@@ -86,7 +86,7 @@ public:
   int livingAttackers() const, livingDefenders() const, unusedAttackerLives() const, pendingAttackers() const;
   int occupancyFriendly(CombatRole viewer) const;
   float nextWaveIn(CombatRole r) const { return r == CombatRole::Attacker ? attackerWaveIn : defenderWaveIn; }
-  const Objective* activeObjective() const { return active >= 0 && active < (int)sc.objectives.size() ? &sc.objectives[active] : nullptr; }
+  const Objective* activeObjective() const { return rules.mode == GameMode::Assault && active >= 0 && active < (int)sc.objectives.size() && active < (int)obj.size() ? &sc.objectives[active] : nullptr; }   // G1: none outside Assault (the map may still carry its objectives)
   bool attackersExhausted() const;
   bool setupDeathmatch(int humans, std::string& err);   // G1: Solo / TDM roster
   void log(const std::string& s);

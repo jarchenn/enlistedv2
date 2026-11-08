@@ -11,7 +11,8 @@
 class App;
 
 constexpr int kNetPort = 27960;
-constexpr int kNetVersion = 3;   // 3: station block in snapshots, gun / rack / crate / build requests (2 is the internet branch's)
+constexpr int kNetVersion = 4;   // 4: G1 modes (team in START, u16 kills / deaths + score, Solo winner)
+// was 3:   // 3: station block in snapshots, gun / rack / crate / build requests (2 is the internet branch's)
 
 struct LobbyInfo { std::string addr, hostName, map, mapHash, contentHash; int humans = 0, maxHumans = 0, phase = 0, version = 0; double seen = 0; };
 struct LobbyPlayer { int peer = 0; std::string name; bool ready = false; };

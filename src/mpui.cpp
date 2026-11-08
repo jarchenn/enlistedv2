@@ -375,6 +375,43 @@ void MpUi::setupWindow(App& app) {
   if (!ImGui::Begin(title, &showSetup, ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
   ImGui::Text("Map: %s   (%zu objectives)", app.doc.name.c_str(), s.objectives.size());
   w5PlayMapPicker(app);   // W5: ready-to-play default maps (w5_maps.cpp)
+  // ---- G1: mode first (Solo / Team Deathmatch / Assault), then that mode's settings
+  {
+    int m = (int)rules.mode;
+    ImGui::SeparatorText("Game mode");
+    ImGui::RadioButton("Solo (free-for-all)", &m, (int)GameMode::Solo); ImGui::SameLine();
+    ImGui::RadioButton("Team Deathmatch", &m, (int)GameMode::TDM); ImGui::SameLine();
+    ImGui::RadioButton("Assault (objectives)", &m, (int)GameMode::Assault);
+    rules.mode = (GameMode)m;
+  }
+  int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
+  const char* aiTypes = "Soldiers\0Zombies\0";
+  if (rules.mode != GameMode::Assault) {
+    ImGui::SliderInt("Kill cap (wins the match)", &rules.killCap, 5, 150);
+    if (rules.mode == GameMode::Solo) {
+      ImGui::SliderInt("Players in all (humans + AI)", &rules.soloPlayers, std::max(2, humansHere), std::min(ScenarioRules::kMaxCombatants, ScenarioRules::kMaxAI + humansHere));
+      int t = (int)rules.aiType[0]; ImGui::Combo("AI type", &t, aiTypes); rules.aiType[0] = rules.aiType[1] = (AiType)t;
+      ImGui::TextDisabled("Every AI attacks whoever is closest; spawns are chosen far from everyone.");
+    } else {
+      for (int t = 0; t < 2; ++t) {
+        ImGui::PushID(t);
+        ImGui::SeparatorText(t == 0 ? "Team A" : "Team B");
+        int f = (int)rules.teamFaction[t];
+        ImGui::RadioButton("Allies [US]", &f, 0); ImGui::SameLine(); ImGui::RadioButton("Axis [GER]", &f, 1); rules.teamFaction[t] = (Faction)f;
+        ImGui::SliderInt("Players (humans + AI)", &rules.teamPlayers[t], 1, ScenarioRules::kMaxCombatants / 2);
+        int a = (int)rules.aiType[t]; ImGui::Combo("AI type", &a, aiTypes); rules.aiType[t] = (AiType)a;
+        ImGui::PopID();
+      }
+      ImGui::Text("You play on:"); ImGui::SameLine(); ImGui::RadioButton("Team A", &rules.humanTeam, 0); ImGui::SameLine(); ImGui::RadioButton("Team B", &rules.humanTeam, 1);
+      if (setupMode == 1) ImGui::TextDisabled("LAN players who join are put on the team with fewer humans.");
+      int ai = std::max(0, rules.teamPlayers[0] + rules.teamPlayers[1] - humansHere);
+      if (ai > ScenarioRules::kMaxAI) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "%d AI: the most is %d.", ai, ScenarioRules::kMaxAI);
+      ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own team)", &rules.friendlyFire);
+    }
+    ImGui::SliderFloat("Respawn delay (s)", &rules.respawnDelay, 1, 15, "%.0f");
+    ImGui::SliderInt("Frag grenades per life", &rules.fragPerLife, 0, 4);
+    aiDifficultyCombo();
+  } else {
   int fac = (int)rules.defendingFaction;
   ImGui::Text("Defending side (humans join the defenders):");
   ImGui::RadioButton("Axis [GER] defend, Allies attack", &fac, 1); ImGui::SameLine(); ImGui::RadioButton("Allies [US] defend, Axis attack", &fac, 0);
@@ -392,12 +429,16 @@ void MpUi::setupWindow(App& app) {
   aiDifficultyCombo();   // W6: Recruit / Regular / Veteran (AI_SPEC 10)
   rules.defenderSlots = std::clamp(rules.defenderSlots, std::max(1, humans), ScenarioRules::kMaxCombatants - 1);
   rules.attackerAI = std::clamp(rules.attackerAI, 1, ScenarioRules::kMaxCombatants - rules.defenderSlots);
+  { int a = (int)rules.aiType[0]; ImGui::Combo("Defender AI type", &a, aiTypes); rules.aiType[0] = (AiType)a; }
+  { int a = (int)rules.aiType[1]; ImGui::Combo("Attacker AI type", &a, aiTypes); rules.aiType[1] = (AiType)a; }
   int lives = 1 + rules.attackerRespawns;
   ImGui::Separator();
   ImGui::Text("Humans %d  |  Friendly AI %d  |  Enemy AI %d  |  Total %d / %d", humans, rules.defenderSlots - humans, rules.attackerAI, rules.defenderSlots + rules.attackerAI, ScenarioRules::kMaxCombatants);
   ImGui::Text("Each attacking slot: 1 initial life + %d respawns = %d lives  ->  %d attacker lives in total", rules.attackerRespawns, lives, lives * rules.attackerAI);
   ImGui::Text("Defenders respawn without limit. Minimum %.0f s from death to respawn.", rules.minRespawnDelay);
-  auto issues = validateScenario(s, false);
+  }
+  Scenario withRules = s; withRules.rules = rules;   // validate what will be played, not the map's saved defaults
+  auto issues = validateScenario(withRules, false);
   bool blocked = false;
   for (auto& i : issues) if (i.error) { blocked = true; ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "%s", i.what.c_str()); }
   if (gGame && !gGame->setupError.empty()) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "Last start failed: %s", gGame->setupError.c_str());
@@ -440,6 +481,9 @@ void Game::drawHud() {
   Soldier* L = local();
   CombatRole myRole = L ? L->role : CombatRole::Defender;
   Faction myFac = L ? L->faction : match.rules.defendingFaction;
+  const bool assault = match.mode() == GameMode::Assault;
+  if (!assault) { drawModeBanner(); drawModePanel(); }   // G1: Solo / TDM banner, panel, respawn countdown (mpui_modes.cpp)
+  drawScoreboardOverlay();                              // G1: held Tab, every mode
   // ---- objective sequence across the top: every point, in order, with permanent progress and live occupancy
   int n = (int)match.obj.size();
   float W = std::min(io.DisplaySize.x - 40.0f, 170.0f * n), x0 = (io.DisplaySize.x - W) * 0.5f, y0 = 10, cw = W / std::max(1, n);
@@ -473,7 +517,7 @@ void Game::drawHud() {
     dl->AddText(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f, y0 + 58), IM_COL32(240, 235, 210, 255), b);
   }
   // ---- side panel: forces, lives, grenades, health
-  {
+  if (assault) {
     char b[256];
     Faction ef = otherFaction(match.rules.defendingFaction);
     std::snprintf(b, sizeof b, "%s %s defending: %d alive", factionTag(match.rules.defendingFaction), factionName(match.rules.defendingFaction), match.livingDefenders());
@@ -496,7 +540,7 @@ void Game::drawHud() {
     dl->AddCircleFilled(ImVec2(c.x + std::cos(a) * 120, c.y + std::sin(a) * 120), 14, IM_COL32(220, 40, 30, (int)(200 * hurtFlash)));
   }
   // ---- death / spectate
-  if (L && !L->alive && match.phase == MatchPhase::Running) {
+  if (assault && L && !L->alive && match.phase == MatchPhase::Running) {
     const RosterSlot& rs = match.slots[L->slot];
     float wave = match.nextWaveIn(rs.role), minLeft = std::max(0.0f, match.rules.minRespawnDelay - rs.deadFor);
     char b[200];
@@ -516,12 +560,16 @@ void Game::drawHud() {
   if (match.phase == MatchPhase::Ended) {
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.45f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::Begin("Match result", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
-    bool won = (match.winner == Winner::Defenders) == (myRole == CombatRole::Defender);
+    bool won = match.mode() == GameMode::Solo ? (L && match.winnerSlot == L->slot)
+             : (match.winner == Winner::Defenders) == (myRole == CombatRole::Defender);   // TDM: team 0 = Defender role
     ImGui::TextColored(won ? ImVec4(0.6f, 0.95f, 0.6f, 1) : ImVec4(1, 0.5f, 0.45f, 1), "%s", won ? "VICTORY" : "DEFEAT");
     ImGui::Text("%s after %.0f s.", match.result.c_str(), match.time);
-    int caps = 0; for (auto& o : match.obj) caps += o.state == ObjState::Captured;
-    ImGui::Text("Objectives captured: %d / %zu   Attacker lives left: %d", caps, match.obj.size(), match.unusedAttackerLives());
-    if (L) ImGui::Text("Your kills %d, deaths %d", match.slots[L->slot].kills, match.slots[L->slot].deaths);
+    if (assault) {
+      int caps = 0; for (auto& o : match.obj) caps += o.state == ObjState::Captured;
+      ImGui::Text("Objectives captured: %d / %zu   Attacker lives left: %d", caps, match.obj.size(), match.unusedAttackerLives());
+    }
+    ImGui::Separator();
+    scoreboardTable();   // G1: name, kills, deaths, score for everyone
     if (isClient) ImGui::TextDisabled("Waiting for the host to return everyone to the lobby...");
     else if (ImGui::Button("Return to lobby", ImVec2(220, 0))) gUi.wantExit = true;
     ImGui::End();

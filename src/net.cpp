@@ -334,7 +334,7 @@ void Net::clientInteract(uint64_t inst, int idx) { if (role == CLIENT && connect
 static std::string writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
   W w;
   Match& m = g.match;
-  w.f32((float)g.t); w.u8((uint8_t)m.phase); w.u8((uint8_t)(m.winner == Winner::None ? 255 : (int)m.winner)); w.u8((uint8_t)m.active);
+  w.f32((float)g.t); w.u8((uint8_t)m.phase); w.u8((uint8_t)(m.winner == Winner::None ? 255 : (int)m.winner)); w.u8((uint8_t)m.active); w.u8((uint8_t)(m.winnerSlot < 0 ? 255 : m.winnerSlot));   // G1: Solo winner
   w.f32(m.attackerWaveIn); w.f32(m.defenderWaveIn); w.f32((float)m.time);
   w.u8((uint8_t)m.obj.size());
   for (auto& o : m.obj) { w.u8((uint8_t)o.state); w.f32(o.progress); w.u8((uint8_t)o.A); w.u8((uint8_t)o.D); }
@@ -348,7 +348,7 @@ static std::string writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
     w.u8((uint8_t)std::clamp(s.hp, 0.0f, 255.0f)); w.u8((uint8_t)std::max(0, s.weapon)); w.u16((uint16_t)s.lifeId);
     w.u8((uint8_t)std::clamp(s.recoil * 255.0f, 0.0f, 255.0f)); w.u8((uint8_t)std::clamp(s.throwT < 0 ? 0.0f : s.throwT * 255.0f, 0.0f, 255.0f));
     w.u8((uint8_t)std::clamp(s.reloadTotal > 0 ? s.reload / s.reloadTotal * 255.0f : 0.0f, 0.0f, 255.0f));
-    w.u8((uint8_t)(r.livesLeft < 0 ? 255 : r.livesLeft)); w.u8((uint8_t)std::min(250.0f, r.deadFor * 10)); w.u8((uint8_t)r.kills); w.u8((uint8_t)r.deaths);
+    w.u8((uint8_t)(r.livesLeft < 0 ? 255 : r.livesLeft)); w.u8((uint8_t)std::min(250.0f, r.deadFor * 10)); w.u16((uint16_t)std::max(0, r.kills)); w.u16((uint16_t)std::max(0, r.deaths)); w.u16((uint16_t)(int16_t)std::clamp(r.score, -32000, 32000));
     w.u8((uint8_t)(s.killer < 0 ? 255 : s.killer)); w.u8((uint8_t)s.deathStyle);
     bool own = r.human && r.peer == forPeer;
     w.u8(own ? 1 : 0);
@@ -379,7 +379,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
   Match& m = g.match;
   if (st + 1e-4f < d.serverT) return;   // out of order: keep the newer one
   d.serverT = st; d.serverTAt = d.now;
-  m.phase = (MatchPhase)r.u8(); uint8_t wn = r.u8(); m.winner = wn == 255 ? Winner::None : (Winner)wn; m.active = r.u8();
+  m.phase = (MatchPhase)r.u8(); uint8_t wn = r.u8(); m.winner = wn == 255 ? Winner::None : (Winner)wn; m.active = r.u8(); { int ws = r.u8(); m.winnerSlot = ws == 255 ? -1 : ws; }
   m.attackerWaveIn = r.f32(); m.defenderWaveIn = r.f32(); m.time = r.f32();
   int no = r.u8();
   for (int k = 0; k < no && k < (int)m.obj.size(); ++k) { m.obj[k].state = (ObjState)r.u8(); m.obj[k].progress = r.f32(); m.obj[k].A = r.u8(); m.obj[k].D = r.u8(); }
@@ -389,10 +389,10 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     uint8_t fl = r.u8(); vec3 feet = r.v3(); float yaw = r.i16() / 100.0f + 180.0f, pitch = r.i16() / 100.0f, aimYaw = r.i16() / 100.0f + 180.0f;
     float hp = r.u8(); int weapon = r.u8(); int life = r.u16();
     float recoil = r.u8() / 255.0f, thr = r.u8() / 255.0f, rel = r.u8() / 255.0f;
-    int lives = r.u8(); float deadFor = r.u8() / 10.0f; int kills = r.u8(), deaths = r.u8(); int killer = r.u8(); int dstyle = r.u8();
+    int lives = r.u8(); float deadFor = r.u8() / 10.0f; int kills = r.u16(), deaths = r.u16(); int score = (int16_t)r.u16(); int killer = r.u8(); int dstyle = r.u8();
     bool own = r.u8() != 0;
     int frags = 0, smokes = 0, loaded = 0; if (own) { frags = r.u8(); smokes = r.u8(); loaded = r.u16(); }
-    rs.livesLeft = lives == 255 ? -1 : lives; rs.deadFor = deadFor; rs.kills = kills; rs.deaths = deaths; rs.human = fl & 8; rs.pending = fl & 16; rs.alive = fl & 1;
+    rs.livesLeft = lives == 255 ? -1 : lives; rs.deadFor = deadFor; rs.kills = kills; rs.deaths = deaths; rs.score = score; rs.human = fl & 8; rs.pending = fl & 16; rs.alive = fl & 1;
     bool alive = fl & 1;
     rulesNetProtect(g, s, fl & 128);   // W1: spawn protection (shimmer, shield icon, ring)
     s.hp = hp; s.weapon = weapon < (int)app.weaponDefs.size() ? weapon : 0; s.killer = killer == 255 ? -1 : killer; s.deathStyle = dstyle;
@@ -784,7 +784,8 @@ void Net::update(App& app, float dt) {
         if (h.value("content", "") != contentHash()) { reject("Game content differs from the host's (weapons / assets / AI data). Copy the same build and content folder to both PCs."); continue; }
         if (h.value("map", "") != mapHash(app)) { reject("Map differs: the host plays '" + app.doc.name + "'. Open the same map file on this PC (File > Open), then join again."); continue; }
         if (!ex) {
-          int maxHumans = std::max(1, gUi.rules.defenderSlots);
+          const ScenarioRules& R = gUi.rules;   // G1: humans fit the mode's roster (Solo: everyone, TDM: both teams, Assault: defenders)
+          int maxHumans = std::max(1, R.mode == GameMode::Solo ? std::min(R.soloPlayers, 16) : R.mode == GameMode::TDM ? std::min(R.teamPlayers[0] + R.teamPlayers[1], 16) : R.defenderSlots);
           if ((int)players.size() >= maxHumans || (int)players.size() >= ScenarioRules::kMaxCombatants) { reject("Lobby full (" + std::to_string(players.size()) + " of " + std::to_string(maxHumans) + " defender slots taken by players)."); continue; }
           Peer p; p.id = d->nextPeer++; p.addr = from; p.name = h.value("name", "Player"); p.heard = d->now;
           if (matchRunning) {
@@ -797,7 +798,7 @@ void Net::update(App& app, float dt) {
           logf("net: %s joined from %s as peer %d", p.name.c_str(), addrStr(from).c_str(), p.id);
           if (matchRunning) {   // late join: the match, then the world as it is now
             Game& g = G(app);
-            json slots = json::array(); for (auto& s : g.match.slots) slots.push_back({{"id", s.id}, {"f", (int)s.faction}, {"r", (int)s.role}, {"h", s.human || s.pendingPeer >= 0}, {"p", s.pendingPeer >= 0 ? s.pendingPeer : s.peer}, {"n", s.name}, {"lane", s.lane}});
+            json slots = json::array(); for (auto& s : g.match.slots) slots.push_back({{"id", s.id}, {"f", (int)s.faction}, {"r", (int)s.role}, {"h", s.human || s.pendingPeer >= 0}, {"p", s.pendingPeer >= 0 ? s.pendingPeer : s.peer}, {"n", s.name}, {"lane", s.lane}, {"t", s.team}});
             ex->ch.send(json{{"t", "start"}, {"scenario", gUi.matchScenario}, {"slots", slots}, {"st", g.t}, {"late", true}}.dump());
             json doors = json::array();
             for (auto& [id, rt] : app.rt) for (size_t k = 0; k < rt.dir.size(); ++k) if (rt.progress[k] > 0.01f || rt.dir[k] != 0) doors.push_back({{"i", id}, {"k", k}, {"dir", rt.dir[k]}, {"p", rt.progress[k]}});
@@ -957,7 +958,7 @@ void Net::startMatch(App& app) {
   if (!g.active) { status = "Match could not start: " + g.setupError; return; }
   matchRunning = true;
   d->worldLog.clear(); d->gunner.clear(); d->gunShotAt.clear(); d->gunCredit.clear(); gunOcc.clear();
-  json slots = json::array(); for (auto& s : g.match.slots) slots.push_back({{"id", s.id}, {"f", (int)s.faction}, {"r", (int)s.role}, {"h", s.human}, {"p", s.peer}, {"n", s.name}, {"lane", s.lane}});
+  json slots = json::array(); for (auto& s : g.match.slots) slots.push_back({{"id", s.id}, {"f", (int)s.faction}, {"r", (int)s.role}, {"h", s.human}, {"p", s.peer}, {"n", s.name}, {"lane", s.lane}, {"t", s.team}});
   std::string m = json{{"t", "start"}, {"scenario", gUi.matchScenario}, {"slots", slots}, {"st", g.t}}.dump();
   for (auto& p : d->peers) { p.ch.send(m); p.inMatch = true; }
   d->lobbyDirty = true;

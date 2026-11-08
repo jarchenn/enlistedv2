@@ -1,0 +1,188 @@
+// --selftest-modes (G1): Solo / Team Deathmatch rules (headless) and live matches on the shipped 3-point village:
+// Solo spawns spread apart, bots fight the closest combatant and score, the scoreboard draws; TDM teams split and
+// score; a 100-AI Solo match runs without long stalls.
+#include "selftest.h"
+#include "game.h"
+#include "mpui.h"
+#include "mptest.h"
+#include "match.h"
+#include "crumb.h"
+#include <GLFW/glfw3.h>
+#include <algorithm>
+#include <set>
+#include <cstdlib>
+#include <cstdarg>
+#include <functional>
+
+namespace {
+struct Step { std::string name; std::function<bool(App&, float)> fn; };
+std::vector<Step> seq; size_t cur = 0; float st = 0, total = 0;
+MpTest* T = nullptr;
+int mode = -1; bool started = false;
+fs::path pendingShot;
+char B[700];
+bool chk(bool ok, const char* fmt, ...) { va_list a; va_start(a, fmt); std::vsnprintf(B, sizeof B, fmt, a); va_end(a); return T->check(ok, B); }
+void push(const std::string& n, std::function<bool(App&, float)> f) { seq.push_back({n, f}); }
+fs::path outDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
+
+ScenarioRules dmRules(GameMode m) { ScenarioRules r; r.mode = m; return r; }
+
+void headless() {
+  // ---- rosters
+  {
+    Scenario sc; sc.rules = dmRules(GameMode::Solo); sc.rules.soloPlayers = 6;
+    Match m; std::string err;
+    bool ok = m.setup(sc, 1, err);
+    std::set<int> teams; for (auto& s : m.slots) teams.insert(s.team);
+    chk(ok && m.slots.size() == 6 && teams.size() == 6 && m.slots[0].human && !m.slots[1].human, "Solo roster: 6 slots, 6 teams, the host in slot 0 (%s)", err.c_str());
+  }
+  {
+    Scenario sc; sc.rules = dmRules(GameMode::TDM); sc.rules.teamPlayers[0] = 4; sc.rules.teamPlayers[1] = 3; sc.rules.humanTeam = 1;
+    Match m; std::string err; bool ok = m.setup(sc, 1, err);
+    int n[2] = {0, 0}; int hostTeam = -1; for (auto& s : m.slots) { ++n[s.team]; if (s.human) hostTeam = s.team; }
+    chk(ok && n[0] == 4 && n[1] == 3 && hostTeam == 1 && m.slots[0].role == CombatRole::Defender && m.slots.back().role == CombatRole::Attacker,
+        "TDM roster: 4 v 3, the host on team B as chosen, team A = Defender role (%s)", err.c_str());
+    m.start();
+    int j = m.humanJoin(7, "Joiner");
+    chk(j >= 0 && m.slots[j].team == 0, "a LAN joiner balances onto team A (slot %d, team %d)", j, j >= 0 ? m.slots[j].team : -1);
+  }
+  // ---- scoring and the kill cap
+  {
+    Scenario sc; sc.rules = dmRules(GameMode::TDM); sc.rules.teamPlayers[0] = sc.rules.teamPlayers[1] = 2; sc.rules.killCap = 3;
+    Match m; std::string err; m.setup(sc, 0, err); m.start();
+    for (auto& s : m.slots) { s.pending = false; s.alive = true; }
+    m.onDeath(2, 0);                                   // team A kills team B
+    m.slots[2].alive = true; m.onDeath(1, 0);          // a team kill
+    chk(m.slots[0].kills == 1 && m.slots[0].score == 0 && m.teamKills(0) == 1, "TDM: an enemy kill scores +100, a team kill -100 and no kill (kills %d, score %d)", m.slots[0].kills, m.slots[0].score);
+    for (int k = 0; k < 2; ++k) { m.slots[3].alive = true; m.onDeath(3, 0); }
+    m.update(1.0f / 60);
+    chk(m.phase == MatchPhase::Ended && m.winner == Winner::Defenders, "TDM: team A reaches the kill cap of 3 and wins (%s)", m.result.c_str());
+  }
+  {
+    Scenario sc; sc.rules = dmRules(GameMode::Solo); sc.rules.soloPlayers = 4; sc.rules.killCap = 2; sc.rules.respawnDelay = 1.0f;
+    Match m; std::string err; m.setup(sc, 0, err); m.start();
+    for (auto& s : m.slots) { s.pending = false; s.alive = true; }
+    m.onDeath(1, 2);
+    for (int k = 0; k < 70; ++k) m.update(1.0f / 60);
+    chk(m.phase == MatchPhase::Running && m.slots[1].pending, "Solo: the dead respawn after the delay (pending after 1.17 s)");
+    m.slots[3].alive = true; m.onDeath(3, 2); m.update(1.0f / 60);
+    chk(m.phase == MatchPhase::Ended && m.winnerSlot == 2, "Solo: the first to 2 kills wins (winner slot %d, %s)", m.winnerSlot, m.result.c_str());
+  }
+  // ---- data round trip and validation
+  {
+    ScenarioRules r = dmRules(GameMode::TDM); r.killCap = 42; r.teamPlayers[0] = 30; r.teamPlayers[1] = 50; r.aiType[1] = AiType::Zombies; r.humanTeam = 1; r.teamFaction[0] = Faction::Axis;
+    ScenarioRules b = ScenarioRules::fromJson(r.toJson());
+    chk(b.mode == GameMode::TDM && b.killCap == 42 && b.teamPlayers[1] == 50 && b.aiType[1] == AiType::Zombies && b.humanTeam == 1 && b.teamFaction[0] == Faction::Axis,
+        "rules round trip: mode, kill cap, team sizes, AI type, host team, factions");
+    Scenario sc; sc.rules = dmRules(GameMode::Solo);
+    bool err = false; for (auto& i : validateScenario(sc, false)) err |= i.error;
+    Scenario tdm; tdm.rules = dmRules(GameMode::TDM);
+    int warns = 0; bool terr = false; for (auto& i : validateScenario(tdm, false)) { terr |= i.error; warns += !i.error; }
+    SpawnMarker m; m.team = 1; m.id = "tA"; tdm.spawns.push_back(m);
+    Scenario back = Scenario::fromJson(tdm.toJson());
+    chk(!err && !terr && warns == 2 && back.spawns.size() == 1 && back.spawns[0].team == 1 && back.spawns[0].phases.empty(),
+        "Solo / TDM need no objectives; TDM without team markers warns (%d); team markers round trip", warns);
+    chk(ScenarioRules::kMaxAI == 100 && dmRules(GameMode::Solo).kMaxCombatants >= 101, "up to 100 AI (kMaxCombatants %d)", ScenarioRules::kMaxCombatants);
+  }
+}
+
+bool startMode(App& a, GameMode m, int players, int cap, int teamA = 4, int teamB = 4) {
+  if (a.mode == Mode::Explore) a.exitExplore();
+  a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
+  json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
+  Scenario sc = Scenario::fromJson(scj);
+  sc.rules.mode = m; sc.rules.killCap = cap; sc.rules.soloPlayers = players; sc.rules.teamPlayers[0] = teamA; sc.rules.teamPlayers[1] = teamB;
+  sc.rules.respawnDelay = 2.0f; sc.rules.humanTeam = 0;
+  if (std::getenv("NMK_MODES_NOFRAG")) sc.rules.fragPerLife = 0;   // diagnostics
+  gUi.loaded = false; gUi.matchScenario = sc.toJson();
+  if (!gGame) gGame = new Game(a);
+  gGame->pendingStart = true; a.doc.start = {true, vec3(0, 0, 30), 180};
+  bool ok = a.enterExplore() && gGame->active;
+  a.useScripted = true; a.scriptedInput = ExploreInput{};
+  return ok;
+}
+float minPairDist(const Game& G, bool sameTeamToo) {
+  float d = 1e9f;
+  for (auto& a : G.sold) for (auto& b : G.sold) if (&a < &b && a.alive && b.alive && (sameTeamToo || a.team != b.team)) d = std::min(d, glm::length(vec2(a.feet.x - b.feet.x, a.feet.z - b.feet.z)));
+  return d;
+}
+
+void build(App&) {
+  push("headless rules", [](App&, float) { headless(); return true; });
+  const bool only100 = std::getenv("NMK_MODES_ONLY_100") != nullptr;   // diagnostics: just the 100-AI run
+  if (!only100) {
+  // ---- Solo: 8 combatants, first to 4
+  push("solo start", [](App& a, float t) {
+    if (t == 0) { chk(startMode(a, GameMode::Solo, 8, 4), "Solo match starts on the village (%s)", gGame->setupError.c_str()); return false; }
+    if (t < 2.0f) return false;
+    Game& G = *gGame;
+    int alive = 0; std::set<int> teams; for (auto& s : G.sold) { alive += s.alive; teams.insert(s.team); }
+    float md = minPairDist(G, true);
+    chk(G.match.mode() == GameMode::Solo && G.sold.size() == 8 && teams.size() == 8 && alive == 8 && md > 20.0f,
+        "Solo: 8 combatants on 8 teams all spawned, nearest pair %.0f m apart (spawns far from everyone)", md);
+    return true; });
+  push("solo fight", [](App& a, float t) {
+    Game& G = *gGame;
+    if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }   // keep the local player out of it
+    int kills = 0; for (auto& s : G.match.slots) kills += s.kills;
+    if (t > 20 && t < 20.05f) { G.showScoreboard = true; pendingShot = outDir() / "modes_solo_scoreboard.png"; }
+    if (G.match.phase != MatchPhase::Ended && t < 150) return false;
+    G.showScoreboard = false;
+    int ws = -1; int top = G.match.topKills(&ws);
+    chk(kills >= 3, "Solo: bots hunt the closest combatant and score (%d kills in %.0f s, leader %d)", kills, t, top);
+    if (G.match.phase == MatchPhase::Ended) { chk(ws == G.match.winnerSlot && top >= 4, "Solo: %s", G.match.result.c_str()); pendingShot = outDir() / "modes_solo_end.png"; }
+    else T->note("Solo: no winner within 150 s (kill cap 4)");
+    return true; });
+  // ---- TDM: 4 v 4, first to 6, no team markers on this map (the far-from-the-enemy fallback)
+  push("tdm start", [](App& a, float t) {
+    if (t == 0) { chk(startMode(a, GameMode::TDM, 8, 6), "TDM match starts (%s)", gGame->setupError.c_str()); return false; }
+    if (t < 2.0f) return false;
+    Game& G = *gGame;
+    int n[2] = {0, 0}; for (auto& s : G.sold) ++n[s.team];
+    Soldier* L = G.local();
+    float md = minPairDist(G, false);
+    chk(n[0] == 4 && n[1] == 4 && L && L->team == 0 && md > 15.0f, "TDM: 4 v 4, you on team A, nearest enemies %.0f m apart at spawn", md);
+    return true; });
+  push("tdm fight", [](App& a, float t) {
+    Game& G = *gGame;
+    if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
+    if (t > 15 && t < 15.05f) pendingShot = outDir() / "modes_tdm_banner.png";
+    if (G.match.phase != MatchPhase::Ended && t < 150) return false;
+    int k0 = G.match.teamKills(0), k1 = G.match.teamKills(1);
+    chk(k0 + k1 >= 3, "TDM: teams score (A %d, B %d) in %.0f s%s", k0, k1, t, G.match.phase == MatchPhase::Ended ? (" - " + G.match.result).c_str() : "");
+    return true; });
+  }
+  // ---- 100 AI: Solo, 101 combatants, 40 s; frame-time stalls
+  push("100 ai", [](App& a, float t) {
+    static double last; static int frames, stalls; static float worst, sum; static std::string when;
+    if (t == 0) { chk(startMode(a, GameMode::Solo, 101, 999), "100-AI Solo match starts (%s)", gGame->setupError.c_str()); last = glfwGetTime(); frames = stalls = 0; worst = sum = 0; when.clear(); return false; }
+    double now = glfwGetTime(); float ft = (float)(now - last); last = now;
+    if (t > 3) { ++frames; sum += ft; worst = std::max(worst, ft); stalls += ft > 0.15f; if (ft > 0.15f && when.size() < 400) { char w[64]; std::snprintf(w, sizeof w, " t%.1f:%.0fms(%s)", t, ft * 1000, gCrumb ? gCrumb : "?"); when += w; } }
+    Game& G = *gGame;
+    if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
+    if (t < 40) return false;
+    int alive = 0; for (auto& s : G.sold) alive += s.alive;
+    int kills = 0; for (auto& s : G.match.slots) kills += s.kills;
+    chk(G.sold.size() == 101 && alive >= 80, "100 AI: %zu combatants, %d alive, %d kills in 40 s", G.sold.size(), alive, kills);
+    chk(stalls <= 3, "100 AI: frames over 150 ms: %d (worst %.0f ms, average %.1f ms over %d frames)", stalls, worst * 1000, frames ? sum / frames * 1000 : 0.0f, frames);
+    T->note("stalls:" + when);
+    pendingShot = outDir() / "modes_100ai.png";
+    return true; });
+  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+}
+}   // namespace
+
+bool modesSelfTest(App& app, float dt) {
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--selftest-modes") mode = 1; }
+  if (mode != 1) return false;
+  if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
+  if (!started) { started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0; }
+  if (cur < seq.size()) {
+    bool done = seq[cur].fn(app, st);
+    st += dt; total += dt;
+    if (done) { ++cur; st = 0; }
+    if (total > 600) { T->check(false, "modes test timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
+  }
+  if (cur >= seq.size() && !app.selftest->done) { app.selftest->exitCode = T->finish(); app.selftest->done = true; }
+  return true;
+}
