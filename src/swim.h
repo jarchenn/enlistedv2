@@ -28,7 +28,7 @@ struct SwimState {
   float depth = 0;              // surface - feet
   float lower = 0;              // 0 weapon up .. 1 weapon lowered out of view (eased in the viewmodel)
   float phase = 0;              // stroke phase (cycles)
-  float pushT = 0;              // s spent swimming forward into something (climbs out after 0.3 s)
+  float pushT = 0;              // s swimming forward (W): after 0.3 s an edge in reach is climbed
   float bobT = 0, bob = 0, roll = 0;   // surface bob time, eye offset (m) and view roll (deg)
   float breath = 30.0f;         // s left
   float drownAcc = 0;           // s out of breath since the last damage tick

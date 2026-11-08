@@ -34,7 +34,7 @@ fs::path outDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; 
 vec3 P0(0);             // test spot (feet on the ground)
 float G0 = 0;           // ground height there
 bool wantProbe = false; int probes = 0; vec3 probeMean(0); fs::path pendingShot;
-uint32_t bankBody = 0xffffffffu;
+uint32_t bankBody = 0xffffffffu, bankTop = 0xffffffffu;
 
 void put(App& a, vec3 p) { Physics::setCharacterPos(vec3(p.x, a.terrain.height(p.x, p.z) + 0.02f, p.z)); }
 void water(App& a, float level) { a.terrain.waterLevel = level; }
@@ -195,6 +195,7 @@ void build(App& app) {
     }
     if (ph == 0) {
       a.scriptedInput.move = vec2(0, 1);
+      if (a.mantle.active) { ph = 2; return false; }   // swimming forward into the bank already climbs (no Space needed)
       if (t > 1.6f) { a.scriptedInput.jumpHeld = true; a.scriptedInput.jump = true; ph = 1; }
       return false;
     }
@@ -208,41 +209,45 @@ void build(App& app) {
       auto c = Physics::character();
       if (!a.mantle.active && c.grounded) {
         CHK(a.swim.mantles == m0 + 1 && !a.swim.active && std::fabs(c.pos.y - top) < 0.15f && c.pos.z < base.z - 1.6f,
-            "hold Space at a bank 0.3 m above the surface: mantles out (%s), feet %.2f m above the surface on top, %.2f m in, not swimming",
+            "swim at a bank 0.3 m above the surface (W, then Space): mantles out (%s), feet %.2f m above the surface on top, %.2f m in, not swimming",
             a.swim.why.c_str(), c.pos.y - a.terrain.waterLevel, -(c.pos.z - base.z) - 1.6f);
         return true;
       }
     }
     return t > 10 ? (CHK(false, "mantle out finished standing"), true) : false; });
 
-  // a 25 degree slope out of the water: buoyancy keeps the feet ~1.3 m under the surface, so swimming up it alone never
-  // reaches standing depth; swimming forward into it (W only, no Space) climbs out (App::tryClimbBank)
-  push("swim forward up a sloped bank", [](App& a, float t) {
-    static float surf, prev;
+  // a 50 degree bank (too steep to wade up: the controller slides) up to a flat top 0.4 m above the surface. Buoyancy
+  // holds the feet ~1.3 m under, so swimming forward into it (W only, no Space) must climb out (App::tryClimbBank)
+  push("swim forward up a steep bank", [](App& a, float t) {
+    static float S; static int m0;
     if (t == 0) {
-      prev = a.terrain.waterLevel;
       if (bankBody != 0xffffffffu) { Physics::remove(bankBody); bankBody = 0xffffffffu; }
-      surf = G0 + 3.0f; water(a, surf);
-      const float th = radians(25.0f), zc = P0.z - 2.5f;   // the slab's top crosses the surface 2.5 m ahead of P0 (-z)
-      Part p; p.center = vec3(0); p.size = vec3(6, 1, 14);
-      bankBody = Physics::addStatic(Physics::buildShape({p}), vec3(P0.x, surf - 0.5f * std::cos(th), zc - 0.5f * std::sin(th)), glm::angleAxis(th, vec3(1, 0, 0)), 0xEEEDull << 16);
-      Physics::setCharacterPos(vec3(P0.x, surf - a.swimCfg.floatDepth, P0.z + 3.0f));
+      S = a.terrain.waterLevel; m0 = a.swim.mantles;
+      const float th = radians(50.0f), zt = P0.z - 4.0f;
+      vec3 Q(P0.x, S + 0.4f, zt), u(0, -std::sin(th), std::cos(th)), n(0, std::cos(th), std::sin(th));
+      Part slab; slab.center = vec3(0); slab.size = vec3(6, 1, 6);
+      bankBody = Physics::addStatic(Physics::buildShape({slab}), Q + u * 3.0f - n * 0.5f, glm::angleAxis(th, vec3(1, 0, 0)), 0xEEEDull << 16);
+      float h = S + 0.4f - (G0 - 1.0f);
+      Part top; top.center = vec3(0); top.size = vec3(6, h, 5);
+      bankTop = Physics::addStatic(Physics::buildShape({top}), vec3(P0.x, G0 - 1.0f + h * 0.5f, zt - 2.5f), quat(1, 0, 0, 0), 0xEEEEull << 16);
+      Physics::setCharacterPos(vec3(P0.x, S - a.swimCfg.floatDepth, P0.z));
       a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 0;
       return false;
     }
     a.scriptedInput.move = vec2(0, t > 0.8f ? 1.0f : 0.0f);
     auto c = Physics::character();
     if (t > 1.5f && !a.swim.active && !a.mantle.active && c.grounded) {
-      a.scriptedInput = ExploreInput{}; water(a, prev);
-      CHK(c.pos.y > surf - a.swimCfg.exitDepth && c.pos.z < P0.z, "W into a 25 degree bank climbs out (%s, %s): feet %.2f m under the surface, standing", a.swim.why.c_str(), a.mantle.why.c_str(), surf - c.pos.y);
+      a.scriptedInput = ExploreInput{};
+      CHK(a.swim.mantles == m0 + 1 && c.pos.y > S + 0.3f, "W into a 50 degree bank climbs out onto the top (%s, %s): feet %.2f m above the surface", a.swim.why.c_str(), a.mantle.why.c_str(), c.pos.y - S);
       return true;
     }
-    if (t > 12) { a.scriptedInput = ExploreInput{}; water(a, prev); CHK(false, "W into a 25 degree bank climbs out (stuck: swimming %d, depth %.2f m, %s)", a.swim.active, a.swim.depth, a.mantle.why.c_str()); return true; }
+    if (t > 12) { a.scriptedInput = ExploreInput{}; CHK(false, "W into a 50 degree bank climbs out (stuck: swimming %d, depth %.2f m, %s)", a.swim.active, a.swim.depth, a.mantle.why.c_str()); return true; }
     return false; });
 
   push("bot floats", [](App& a, float t) {
     if (t < 0.2f) return false;
     if (bankBody != 0xffffffffu) { Physics::remove(bankBody); bankBody = 0xffffffffu; }
+    if (bankTop != 0xffffffffu) { Physics::remove(bankTop); bankTop = 0xffffffffu; }
     vec3 p(30, 0, 30); float g = a.terrain.height(p.x, p.z); p.y = g + 0.05f;
     int h = Physics::createAgent(p);
     int sw = 0;
