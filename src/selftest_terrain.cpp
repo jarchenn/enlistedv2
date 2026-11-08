@@ -13,6 +13,7 @@
 #include "mptest.h"
 #include "terrain_tools.h"
 #include "terrain_chunks.h"
+#include "editor_nav.h"
 #include "physics.h"
 #include "scenario.h"
 #include <cstdarg>
@@ -122,7 +123,16 @@ std::vector<View> battleViews(App& app) {
 
 // ---------------------------------------------------------------- state shared by the steps
 BrushParams gB; vec2 gC[BR_COUNT]; float gBefore[BR_COUNT];
-std::vector<vec2> gPts; std::vector<float> gH0;
+std::vector<vec2> gPts; std::vector<float> gH0, gHs;
+// inside a Beautify placement that digs the ground (V1 ponds carry a terrainCut): its basin is meant to change the ground
+bool inBeautifyCut(App& app, vec2 p) {
+  for (auto& i : app.doc.instances) {
+    if (!i.extra.is_object() || !i.extra.value("beautify", false)) continue;
+    const AssetDef* a = app.assetFor(i);
+    if (a && !a->navMeta.terrainCuts.empty() && glm::length(p - vec2(i.pos.x, i.pos.z)) < glm::length(a->footprint) * 0.5f + 3.0f) return true;
+  }
+  return false;
+}
 uint64_t gTree = 0, gHouse = 0, gPath = 0;
 struct InstRec { vec3 pos; float yaw; std::string asset; };
 std::map<uint64_t, InstRec> gInst; size_t gUndo0 = 0, gN0 = 0; int gTilesX0 = 0;
@@ -339,7 +349,10 @@ void build(App& app) {
     chk(scatter >= 80 && gRep.placed["trees"] > 5 && gRep.placed["boulders"] > 5 && gRep.placed["groundcover"] > 10, "scatter placed: %d (%s)", scatter, roles.c_str());
     chk(gRep.decor >= 40 && gRep.hedges >= 10 && gRep.ringTrees >= 10, "border ring dressed: %d decor buildings, %d hedges, %d trees", gRep.decor, gRep.hedges, gRep.ringTrees);
     chk(gRep.ringTiles == 6 && t.tilesX() == gTilesX0 + 12, "the outer ring is present (%d tiles, margin %.0f m)", gRep.ringTiles, t.margin);
-    chk(maxDiff(gH0, heightsAt(app, gPts)) < 1e-4f, "the playable area keeps its exact ground (worst %.6f m over %zu points)", maxDiff(gH0, heightsAt(app, gPts)), gPts.size());
+    navSyncCuts(app);   // cut now, as the next frame would: Beautify ponds dig their basins
+    { auto h = heightsAt(app, gPts); float worst = 0; int dug = 0;
+      for (size_t k = 0; k < gPts.size(); ++k) { if (inBeautifyCut(app, gPts[k])) { ++dug; continue; } worst = std::max(worst, std::fabs(h[k] - gH0[k])); }
+      chk(worst < 1e-4f, "the playable area keeps its exact ground outside Beautify's own pond basins (worst %.6f m over %zu points, %d in basins)", worst, gPts.size() - dug, dug); }
     // existing placements untouched
     int moved = 0, missing = 0;
     for (auto& [id, r] : gInst) { Instance* i = app.doc.find(id); if (!i) { ++missing; continue; } if (i->pos != r.pos || i->yaw != r.yaw || i->assetId != r.asset) ++moved; }
@@ -392,13 +405,14 @@ void build(App& app) {
     static size_t n = 0; static int dec = 0; static bool ok = false;
     if (s == 0) {
       n = app.doc.instances.size(); dec = 0; for (auto& i : app.doc.instances) dec += isDecor(i);
+      gHs = heightsAt(app, gPts);   // the ground as saved (trenches and pond basins cut)
       fs::path f = userMapsDir() / "selftest_terrain_beautify.nmap.json";
       ok = app.saveMapTo(f) && app.openMap(f);
       return false;
     }
     if (s < 0.3f) return false;   // the frame re-cuts the trenches (navSyncCuts) after opening
     int dec2 = 0; for (auto& i : app.doc.instances) dec2 += isDecor(i);
-    chk(ok && app.doc.instances.size() == n && dec2 == dec && app.terrain.ringTiles() == 6 && maxDiff(gH0, heightsAt(app, gPts)) < 2e-3f, "save / reopen: %zu instances, %d decor, ring %d tiles", app.doc.instances.size(), dec2, app.terrain.ringTiles());
+    chk(ok && app.doc.instances.size() == n && dec2 == dec && app.terrain.ringTiles() == 6 && maxDiff(gHs, heightsAt(app, gPts)) < 2e-3f, "save / reopen: %zu instances (was %zu), %d decor (was %d), ring %d tiles, worst height error vs the saved ground %.4f m, save+open %s", app.doc.instances.size(), n, dec2, dec, app.terrain.ringTiles(), maxDiff(gHs, heightsAt(app, gPts)), ok ? "ok" : "FAILED");
     app.undoStack.clear();
     return true;
   });

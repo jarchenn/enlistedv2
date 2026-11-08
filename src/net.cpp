@@ -123,7 +123,8 @@ struct Net::Impl {
   double serverT = 0, serverTAt = 0;
   // crew-served guns
   std::map<uint64_t, int> gunner;            // host: station -> remote occupant slot (the host's own gun is App::occupied)
-  std::map<uint64_t, double> gunShotAt;      // host: last accepted round per station (wall clock)
+  std::map<uint64_t, double> gunShotAt;      // host: last rate-credit update per station (wall clock)
+  std::map<uint64_t, double> gunCredit;      // host: rounds the gun may still fire now (token bucket, up to 1 s of fire)
   std::vector<uint64_t> guns; uint64_t gunsKey = ~0ull; size_t gunRR = 0;   // every station id (snapshot round robin)
   double lastLocalGunShot = -10;             // client: own gun's last round (its ammo display waits for the host)
   std::map<int, double> buildAt;             // host: last accepted placement per peer
@@ -624,9 +625,15 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
     if (!st || gunOccupant(app, *n.d, id) != slot) { refuse("not yours", ""); return; }
     const StationDef& sd = app.rt[id].asset->station;
     bool mg = sd.kind == "mg42" || sd.kind == "m2hb";
-    double gap = mg ? 60.0 / (sd.kind == "mg42" ? 1200.0 : 500.0) * 0.75 : 0.5;   // tolerate jitter, never faster than the gun
-    if (st->wrecked || st->loaded <= 0 || st->reload > 0 || (!mg && !st->deployed) || n.d->now - n.d->gunShotAt[id] < gap) { refuse("ammo or rate", ""); return; }
+    // rate: a token bucket (one round per firing interval, at most 1 s banked), so rounds that arrive bunched by network
+    // jitter or a slow frame are accepted, yet over any stretch the gun never fires faster than its real rate
+    double gap = mg ? 60.0 / (sd.kind == "mg42" ? 1200.0 : 500.0) : 0.5;
+    auto last = n.d->gunShotAt.find(id);
+    double& credit = n.d->gunCredit[id];
+    credit = last == n.d->gunShotAt.end() ? (mg ? 1.0 / gap : 1.0) : std::min(mg ? 1.0 / gap : 1.0, credit + (n.d->now - last->second) / gap);
     n.d->gunShotAt[id] = n.d->now;
+    if (st->wrecked || st->loaded <= 0 || st->reload > 0 || (!mg && !st->deployed) || credit < 1.0) { refuse("ammo or rate", ""); return; }
+    credit -= 1.0;
     app.stationShoot(id, slot);
     g.hearSound(app.stationAnchor(id, ST_GUNNER), (int)s.role, 90, slot, 0);
     ++n.acceptedGunShots;
@@ -743,7 +750,8 @@ void mpaiBuildChanged(App& app, const std::vector<uint64_t>& placed, const std::
 // ---------------------------------------------------------------- per-frame update
 void Net::update(App& app, float dt) {
   if (!d || d->s == INVALID_SOCKET) return;
-  (void)dt; d->now = glfwGetTime();   // real time: two processes simulate at their own frame rates
+  (void)dt; double prevNow = d->now; d->now = glfwGetTime();   // real time: two processes simulate at their own frame rates
+  if (prevNow > 0 && d->now - prevNow > 1.0) logf("net: this process stalled %.1f s between updates (stage %s)", d->now - prevNow, gCrumb ? gCrumb : "?");   // peers time out at 6 s
   d->flushDelayed(*this);
   char buf[2048];
   sockaddr_in from{}; socklen_t fl = sizeof from;
@@ -942,7 +950,7 @@ void Net::startMatch(App& app) {
   gUi.startMatch(app);
   if (!g.active) { status = "Match could not start: " + g.setupError; return; }
   matchRunning = true;
-  d->worldLog.clear(); d->gunner.clear(); d->gunShotAt.clear(); gunOcc.clear();
+  d->worldLog.clear(); d->gunner.clear(); d->gunShotAt.clear(); d->gunCredit.clear(); gunOcc.clear();
   json slots = json::array(); for (auto& s : g.match.slots) slots.push_back({{"id", s.id}, {"f", (int)s.faction}, {"r", (int)s.role}, {"h", s.human}, {"p", s.peer}, {"n", s.name}, {"lane", s.lane}});
   std::string m = json{{"t", "start"}, {"scenario", gUi.matchScenario}, {"slots", slots}, {"st", g.t}}.dump();
   for (auto& p : d->peers) { p.ch.send(m); p.inMatch = true; }

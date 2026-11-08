@@ -105,7 +105,7 @@ Patterns cover today's `nat_*`, `shrub_*` and `tree_*`, V1 `water_*`, V3 `rub_*`
 - it isn't in water and isn't too steep;
 - it passes `checkPlacement`, which covers overlap, grade and water.
 
-Existing placements and the terrain are never changed.
+Existing placements and the playable ground are never changed: the water role places ponds only in the outer ring (`"inside": false` in `beautify.json`), because V1 `wat_pond_*` carry a terrain cut that digs a basin. A pond placed by hand inside the border still digs its basin and is saved with the map.
 
 ### 2. Outer ring
 

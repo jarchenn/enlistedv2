@@ -8,7 +8,7 @@
     {"name": "shrubs", "slider": "vegetation", "assets": ["shrub_*", "nat_hawthorn_bush", "nat_gorse_shrub", "nat_blackthorn_low", "nat_bramble_thicket", "nat_sapling_*"], "perHa": 2.2, "spacing": 5, "pad": 2.5, "maxSlope": 30, "cluster": 0.6, "inside": true, "ring": true},
     {"name": "groundcover", "slider": "groundCover", "assets": ["nat_flowers_*", "nat_tallgrass_*", "nat_fern_clump", "nat_bracken_clump", "nat_nettle_clump", "nat_brush_*", "nat_drygrass_*", "nat_clover_*", "nat_green_*", "nat_meadow_*"], "perHa": 2.4, "spacing": 9, "pad": 1.5, "maxSlope": 28, "cluster": 0.45, "inside": true, "ring": true},
     {"name": "wheat", "slider": "groundCover", "assets": ["nat_wheat_field"], "perHa": 0.05, "spacing": 30, "pad": 5.0, "maxSlope": 7, "cluster": 0.0, "inside": true, "ring": true, "block": 3},
-    {"name": "water", "slider": "water", "assets": ["wat_pond_*", "wat_puddles"], "perHa": 0.05, "spacing": 60, "pad": 8.0, "maxSlope": 6, "cluster": 0.0, "inside": true, "ring": true}
+    {"name": "water", "slider": "water", "assets": ["wat_pond_*", "wat_puddles"], "perHa": 0.05, "spacing": 60, "pad": 8.0, "maxSlope": 6, "cluster": 0.0, "inside": false, "ring": true}
   ],
   "ringScatter": 0.6,
   "ring": {"tiles": 6, "amp": 3.5, "scale": 110, "rise": 0.015, "fade": 45},

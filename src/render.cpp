@@ -2291,7 +2291,7 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferTexture(thumbHdrFbo, GL_COLOR_ATTACHMENT0, thumbHdr, 0);
   glNamedFramebufferTexture(thumbHdrFbo, GL_DEPTH_ATTACHMENT, thumbDepth, 0);
   resize(w, h);
-  lightingInit(*this, kCommon, kMainFS);   // L2: clusters, light shadows, probe volumes
+  { static const std::string mainFS = std::string(tex::glslCommon()) + tex::glslMain() + kMainFS; lightingInit(*this, kCommon, mainFS.c_str()); }   // the capture shader is progMain's FS, L4 texture hooks included   // L2: clusters, light shadows, probe volumes
   return true;
 }
 

@@ -1052,7 +1052,16 @@ struct Planner {
     // dresser or a bench (3D boxes below), never in a door swing or over a stair
     // (a solid one -- a wall shelf, a plate rack -- also keeps out of the route corridors and doorway rings: it is at head height)
     if (!rectCells(R.storey, k, vec2(mn.x, mn.z), vec2(mx.x, mx.z), hung ? (pd->blocking ? 3 : 2) : mode)) return false;
-    if (hung) for (auto& b : ri.keep) if (b.kind != 2 && boxOverlap(mn, mx, b.mn, b.mx)) return false;
+    // the manual placement rule's exact tests (checkPlacement), so a generated piece never fails them: the keep cells
+    // above are 0.1 m cells marked by their centres, and a stair box can reach a few cm into a cell it does not mark
+    for (auto& b : ri.keep) {
+      if (b.kind == 2 || (!hung && !pd->blocking && b.kind != 1)) continue;   // cosmetic floor pieces may lie in a door swing
+      if (hung ? boxOverlap(mn, mx, b.mn, b.mx) : boxOverlap(mn + vec3(0.03f), mx - vec3(0.03f), b.mn, b.mx)) return false;
+    }
+    if (pd->blocking && app.doc.start.set) {
+      vec3 s = glm::inverse(yawQuat(host.yaw + yaw)) * (app.doc.start.pos - world(p));
+      if (s.x > pd->bmin.x - 0.35f && s.x < pd->bmax.x + 0.35f && s.z > pd->bmin.z - 0.35f && s.z < pd->bmax.z + 0.35f && std::fabs(app.doc.start.pos.y - world(p).y) < 1.5f) return false;
+    }
     if ((pd->blocking || hung) && !windowFree(mn, mx)) return false;
     for (auto& b : boxes) if (boxOverlap(mn + vec3(0.01f), mx - vec3(0.01f), b.first, b.second)) return false;
     vec3 fmn(0), fmx(0);

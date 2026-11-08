@@ -66,6 +66,7 @@ void App::swimBreath(float dt) {
     swim.drownAcc -= S.drownTick;
     float dmg = S.drownDps * S.drownTick;
     swim.drownDealt += dmg; ++swim.drownTicks;
+    if (swim.drownTicks == 1) logf("swim: out of breath, drowning (eye %.2f m under water)", waterAt(*this, eyePos().x, eyePos().z) - eyePos().y);
     rulesDrown(*this, dmg);
   }
 }

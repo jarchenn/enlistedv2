@@ -186,7 +186,7 @@ void build(App&) {
   }, [](App& a) {
     std::vector<int> g, c; glm::ivec3 dims; lightingClusterCounts(g, c, dims);
     int bad = 0, sum = 0, maxc = 0; for (size_t i = 0; i < g.size(); ++i) { bad += g[i] != c[i]; sum += g[i]; maxc = std::max(maxc, g[i]); }
-    chk(lightingStats().lights == 48, "48 lights uploaded");
+    chk(lightingStats().lights == 48 + (int)a.R.lights.size(), "48 test lights uploaded (+%zu placed by the map, L3)", a.R.lights.size());
     chk(sum > 200 && bad <= (int)g.size() / 500, "froxels %d x %d x %d: %d light references, max %d in one; GPU = CPU in %zu of %zu (%d differ at float edges)",
         dims.x, dims.y, dims.z, sum, maxc, g.size() - bad, g.size(), bad);
     report["clusters"] = {{"refs", sum}, {"max", maxc}, {"mismatch", bad}};
@@ -266,7 +266,7 @@ void build(App&) {
     chk(cov > 0.5f && in > 0.004f && out < in * 0.08f, "no leak through the wall: lamp adds %.5f outside (probe coverage %.2f) vs %.5f inside the same wall", out, cov, in);
     report["room"] = {{"lum_on", lumOn}, {"lum_off", lumOff}, {"gi_away_on", lumf(giOnAway)}, {"gi_away_off", lumf(giOffAway)}, {"gi_in_delta", in}, {"gi_out_delta", out}};
     LightingStats s = lightingStats();
-    chk(s.shadowSlots >= 1 && s.lights == 1, "the lamp holds a shadow slot (%d slots, %d lights)", s.shadowSlots, s.lights);
+    chk(s.shadowSlots >= 1 && s.lights == 1 + (int)a.R.lights.size(), "the lamp holds a shadow slot (%d slots, %d lights incl. %zu placed by the map)", s.shadowSlots, s.lights, a.R.lights.size());
   });
   auto awayView = [](App& a) { look(a, W({-2.3f, 1.4f, 0.3f}), W({-0.1f, 1.2f, 0.0f})); };
   measure("night: partition face away from the lamp, GI on", 160, [=](App& a) { awayView(a); a.R.lt.gi = 1; }, [](App& a) {
