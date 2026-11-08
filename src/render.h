@@ -94,6 +94,9 @@ public:
   void setShadowSizes(int nearSize, int farSize);   // recreates the shadow maps when a size changes
   void setResolutionScale(float s);                  // 0.5 .. 1
   void setSsaoFull(bool full);                       // SSAO at full instead of half resolution
+  void setMsaa(int samples);                         // B1: 4 = 4x MSAA on the opaque world (High), 0 = off
+  int msaa() const { return msaaSamples; }
+  bool msaaActive() const { return msFbo != 0; }   // the multisampled world target exists (complete)
   int shadowNearPx() const { return shadowSize; }
   int shadowFarPx() const { return shadowFarSize; }
   float resolutionScale() const { return resScale; }
@@ -134,6 +137,7 @@ public:
 private:
   GLuint compile(const char* vs, const char* fs, const char* name);
   void createTargets();
+  void createMsaa(); void resolveMsaa();   // B1 MSAA world target (render.cpp)
   void createShadowTargets();
   float resScale = 1.0f; int aoDiv = 2;
   // fr: the pass's own frustum (src/frustum.h, docs/rendering.md#frustum-culling); null = draw everything (thumbnails,
@@ -170,6 +174,8 @@ private:
   GLuint shadowFarFbo = 0, shadowFarTex = 0; int shadowFarSize = 2048;
   mat4 lightVPFar{1}; float nearR = 40.0f, farR = 240.0f; int frame = 0;
   GLuint hdrFbo = 0, hdrColor = 0, depthTex = 0, ldrFbo = 0, ldrColor = 0;
+  int msaaSamples = 0;
+  GLuint msFbo = 0, msRb[5] = {};   // B1 MSAA world target: colour, indirect, normal, velocity, depth (0 = off)
   GLuint expoFbo[2]{}, expoTex[2]{}; int expoIdx = 0; float expoReset = -1;
   GLuint emptyVao = 0, lineVao = 0, lineVbo = 0;
   GLuint thumbHdrFbo = 0, thumbHdr = 0, thumbDepth = 0;

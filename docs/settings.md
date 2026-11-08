@@ -25,6 +25,8 @@ Every change applies immediately. Two sliders apply when you release them instea
 | Far shadow cascade, Cloud shadows, Ambient occlusion, Full-resolution AO, Screen-space reflections, Bloom, Light shafts, Temporal AA | `Renderer::Quality` flags and the AO target size. |
 | Clouds | The cloud layer. Cloud cover is under Creative > View > Sky. |
 | Grass | `GrassQuality` Off / Low / Medium / High (`grassPreset`, `grass.cpp`). |
+| 4x MSAA | `Renderer::setMsaa`: the opaque world (sky, terrain, solids, models, foliage, grass) renders into a 4x multisampled copy of the HDR target's world attachments, resolved (colour averaged, depth one sample) before water, decals and TAA. `"msaa": 4 / 0`. |
+| Ivy on walls | `App::ivyOn` (`ivy.cpp`): the assets' `"ivy"` leaf cards. Their density follows Grass: none at Off, 60 % at Low. `"ivy"`. |
 | Draw distance | Multiplier on the decor cull distances (`w5CullDraw`, rules from `content/settings/maps.json`) and on the hard cuts in `App::buildDrawLists`: nature 1200 m, trees 900 m, everything else 1200 m. |
 | Particle budget | Multiplier on the effect caps (`Fx` particles 900, streaks 160, debris 72). Other systems read it through `settings().particleBudget()`. |
 | Field of view | Vertical FOV on foot, 72° by default. ADS blends from it. Optics keep their real magnification of the 72° view. |
@@ -80,6 +82,8 @@ Overrides are stored in `settings_user.json` and applied at the end of `App::loa
 | Grass | Low | Medium | High |
 | Draw distance | ×0.6 | ×1 | ×1.4 |
 | Particle budget | ×0.6 | ×1 | ×1.5 |
+| 4x MSAA | off | off | on |
+| Ivy on walls | off | on | on |
 
 Measured by `--selftest-settings` (RTX 2080 Ti, 1920×1080, one farmhouse on Blank Slate, reported only): Low 2.96 ms, Medium 3.77 ms, High 6.23 ms. `--selftest-maps` reports Low / Medium / High for every eye-level view of the shipped maps; only Medium is gated.
 

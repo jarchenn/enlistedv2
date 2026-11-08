@@ -68,6 +68,7 @@ bool settingsSelfTest(App& app, float dt) {
              "Low: shadows 2048 / 1024, no cloud shadows / shafts / SSR / SSAO, grass Low, cull x0.6, resolution 0.85, smaller caps");
     T->check(hi.shadowQuality == 2 && hi.ssaoFull && hi.grass == 3 && hi.drawDist == 1.4f && hi.particles > 1 && hi.taaPhases > 8,
              "High: far shadows 4096, full-resolution AO, grass High, cull x1.4, bigger budgets, more jitter phases");
+    T->check(hi.msaa == 4 && GraphicsOpts{}.msaa == 0 && lo.msaa == 0 && !lo.ivy && GraphicsOpts{}.ivy && hi.ivy, "B1: 4x MSAA on High only; ivy off on Low, on at Medium / High");
     // file round trip
     UserSettings u; u.gfx = presetOpts(GfxPreset::High); u.gfx.bloom = false; u.gfx.drawDist = 1.25f; u.fov = 84; u.vsync = false; u.fpsCap = 144;
     u.mouseSens = 0.135f; u.adsSens = 0.7f; u.invertY = true; u.reducedMotion = true; u.showArms = false; u.sightMarkers = true;
@@ -133,6 +134,8 @@ bool settingsSelfTest(App& app, float dt) {
         T->check(R.shadowNearPx() == 4096 && R.shadowFarPx() == 4096 && R.ssaoFull() && R.q.taaPhases == 16 && app.grass.quality == GrassQuality::High &&
                  R.width == R.displayW && app.fx.maxParts == 1350 && S.drawDist() == 1.4f && R.lt.gi == 2 && R.lt.shadowLights == 8,
                  fmt("High applied live: shadows 4096 / 4096, full-resolution AO, 16 jitter phases, grass High, %zu particles", app.fx.maxParts));
+      T->check(p == GfxPreset::High ? R.msaa() == 4 && R.msaaActive() : R.msaa() == 0 && !R.msaaActive(),
+               fmt("%s: MSAA %s (world target %s)", presetName(p), R.msaa() ? "4x" : "off", R.msaaActive() ? "multisampled" : "single-sample"));
       T->check(R.fboErrors == 0 && R.shaderErrors == 0, fmt("%s: every framebuffer complete, every shader compiled", presetName(p)));
       T->check(S.s.preset() == p, fmt("the settings report the %s preset", presetName(p)));
       T->note(fmt("%s: %.2f ms per frame over %d frames (reported only)", presetName(p), gN[idx] ? gMs[idx] / gN[idx] : 0.0, gN[idx]));

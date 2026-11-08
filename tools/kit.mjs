@@ -1,6 +1,7 @@
 // Authoring kit for Normandy Mapmaker asset definitions.
 // Produces the JSON format read by src/assets.cpp. All units are metres; +Y is up;
-// a building's front faces local +Z. Boxes are { t:"b", c, s, r?, m, v, k }.
+// a building's front faces local +Z. Boxes are { t:"b", c, s, r?, m, v, k, bv? }; B1 adds cylinders / cones / arches /
+// wedges { t: "c" | "k" | "a" | "w" } (Asset.cyl / cone / arch / wedge).
 
 const R3 = (v) => Math.round(v * 10000) / 10000;
 
@@ -22,19 +23,53 @@ export class Asset {
     const c = [0, 1, 2].map((i) => R3((min[i] + max[i]) / 2));
     const s = [0, 1, 2].map((i) => R3(Math.abs(max[i] - min[i])));
     if (s.some((x) => x < 1e-4)) return null;
-    const p = { t: "b", c, s, m };
+    return this._put({ t: "b", c, s, m }, o);
+  }
+  // rotated box: centre, size, euler degrees
+  obox(c, s, r, m, o = {}) {
+    return this._put({ t: "b", c: c.map(R3), s: s.map(R3), r: r.map(R3), m }, o);
+  }
+  // shared options: v:0 hidden, k:0 no collider, bv (boxes) a mesh-only edge chamfer in metres (the collider stays the
+  // box; never on destructible wall bays: the loader strips it there), r euler degrees, into a target list
+  _put(p, o) {
+    if (o.r && !p.r) p.r = o.r.map(R3);
+    if (o.bv > 0 && p.t === "b") p.bv = R3(o.bv);
     if (o.v === 0) p.v = 0;
     if (o.k === 0) p.k = 0;
     (o.into || this._target).push(p);
     return p;
   }
-  // rotated box: centre, size, euler degrees
-  obox(c, s, r, m, o = {}) {
-    const p = { t: "b", c: c.map(R3), s: s.map(R3), r: r.map(R3), m };
-    if (o.v === 0) p.v = 0;
-    if (o.k === 0) p.k = 0;
-    (o.into || this._target).push(p);
-    return p;
+  // B1 curved / sloped parts (src/assets.cpp appendCurved): each fills its box c (centre), s (size), rotated by o.r.
+  // cylinder along local y; s[0], s[2] the diameters. o.n: 0 round (smooth), 4 square, 8 octagonal; o.seg segments
+  cyl(c, s, m, o = {}) {
+    const p = { t: "c", c: c.map(R3), s: s.map(R3), m };
+    if (o.n) p.n = o.n;
+    if (o.seg) p.seg = o.seg;
+    if (o.top !== undefined && o.top !== 1) p.top = R3(o.top);
+    return this._put(p, o);
+  }
+  // cone / spire / frustum along local y: o.top = top section / base (0 = a point), o.n as cyl
+  cone(c, s, m, o = {}) {
+    const p = { t: "k", c: c.map(R3), s: s.map(R3), m };
+    if (o.n) p.n = o.n;
+    if (o.seg) p.seg = o.seg;
+    if (o.top) p.top = R3(o.top);
+    return this._put(p, o);
+  }
+  // arch standing on the box's bottom face (springing), extruded along local z: s = [span, rise, depth].
+  // o.th ring thickness (default 0.25); o.fill: the spandrel (the box minus the intrados, crown thickness th)
+  arch(c, s, m, o = {}) {
+    const p = { t: "a", c: c.map(R3), s: s.map(R3), m };
+    if (o.th !== undefined) p.th = R3(o.th);
+    if (o.fill) p.fill = 1;
+    if (o.seg) p.seg = o.seg;
+    return this._put(p, o);
+  }
+  // wedge: full height at local -z falling to o.top * height at +z (0 = a sharp edge): weatherings, sills, brackets
+  wedge(c, s, m, o = {}) {
+    const p = { t: "w", c: c.map(R3), s: s.map(R3), m };
+    if (o.top) p.top = R3(o.top);
+    return this._put(p, o);
   }
   // rounded box from min/max corners: every edge rounded by `rad` (render and collision; src/assets.cpp appendRound).
   // Not a damage-field bay: use it for plinths, roof slabs, hoods, piers, not for the destructible wall body.
@@ -42,11 +77,7 @@ export class Asset {
     const c = [0, 1, 2].map((i) => R3((min[i] + max[i]) / 2));
     const s = [0, 1, 2].map((i) => R3(Math.abs(max[i] - min[i])));
     if (s.some((x) => x < 1e-4)) return null;
-    const p = { t: "r", c, s, rad: R3(Math.min(rad, ...s.map((x) => x / 2))), m };
-    if (o.v === 0) p.v = 0;
-    if (o.k === 0) p.k = 0;
-    (o.into || this._target).push(p);
-    return p;
+    return this._put({ t: "r", c, s, rad: R3(Math.min(rad, ...s.map((x) => x / 2))), m }, o);
   }
   // triangular prism: triangle in (u,v) extruded along axis (0:x → (z,y), 1:y → (x,z), 2:z → (x,y))
   prism(axis, a0, a1, tri, m, o = {}) {

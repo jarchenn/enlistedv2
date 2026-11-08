@@ -18,6 +18,7 @@
 #include <cstdarg>
 #include <functional>
 #include <fstream>
+void buildIvyCards(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, std::vector<float>& v);   // ivy.cpp
 
 namespace {
 MpTest* T = nullptr;
@@ -117,6 +118,8 @@ void writeCrop(const fs::path& p, const std::vector<uint8_t>& px, int w, int h, 
 
 const float kFacadeZ = 3.5f;   // the farmhouse front wall (asset +Z)
 vec3 F0(0);                    // farmhouse origin
+vec3 K0(0);                    // B1 kit folly origin (west of the cottage)
+uint64_t kitId = 0;
 const vec3 W0(55, 0, 10);      // water features: the round pond (east of the facades)
 int wDraws = 0, wN = 0; double wGpu = 0;
 void firstPerson(App& a, vec3 p, float yaw, float pitch) {
@@ -139,6 +142,8 @@ void build(App& app) {
       place(a, "vil_norman_farmhouse", F0);
       place(a, "vil_church_ruined", F0 + vec3(19.5f, 0, -0.5f));
       place(a, "house_stone_cottage", F0 + vec3(-17.0f, 0, 0));
+      K0 = F0 + vec3(-45.0f, 0, 0);
+      kitId = place(a, "kit_demo_folly", K0);
       a.syncRuntime();
       chk(a.R.shaderErrors == 0, "shader compile errors at start: %d", a.R.shaderErrors);
     }
@@ -203,6 +208,104 @@ void build(App& app) {
       return regions[0].frames < 0 && pendingShot.empty();
     });
   }
+  // ---------------------------------------------------------------- B1 primitives: the kit folly at 20 / 50 m
+  // Arches, round columns, turrets, spires, wedges and bevelled trims (kit_demo_folly, docs/asset-format.md#b1-geometry-kit): the
+  // same static shimmer measure; relative shimmer (shimmer / detail) no worse than the farmhouse's at the same range.
+  // The last run repeats 50 m with 4x MSAA (the High preset): no worse than without it.
+  struct KV { int D; int msaa; };
+  for (KV kv : {KV{20, 0}, KV{50, 0}, KV{50, 4}}) {
+    int D = kv.D;
+    std::string tag = kv.msaa ? "_msaa4" : "";
+    push("kit primitives " + std::to_string(D) + " m" + tag, [D, kv, tag](App& a, float t) {
+      if (t == 0) {
+        a.R.setMsaa(kv.msaa);
+        if (kv.msaa) chk(a.R.msaa() == 4 && a.R.msaaActive() && a.R.fboErrors == 0, "4x MSAA world target created (framebuffer complete)");
+        firstPerson(a, K0 + vec3(0, 0, 3.9f + (float)D), 0.0f, D == 20 ? 8.0f : 3.0f);
+        float y0 = a.terrain.height(K0.x, K0.z);
+        regions.clear();
+        regions.push_back({"kit_folly", K0 + vec3(-4.6f, y0 + 0.2f, 3.6f), K0 + vec3(4.6f, y0 + 11.5f, 3.6f)});
+      }
+      a.eyeYaw = 0.0f;
+      if (t > 2.5f && captureLeft == 0 && regions[0].frames == 0) { captureLeft = 24; projectRegions(a, a.R.width, a.R.height); }
+      if (regions[0].frames >= 24) {
+        const Region& r = regions[0];
+        double s = shimmer(r), dt = detail(r), rel = dt > 0 ? s / dt : -1;
+        report["kit_" + std::to_string(D) + "m" + tag] = {{"shimmer", s}, {"detail", dt}, {"relative", rel}, {"px", (r.x1 - r.x0) * (r.y1 - r.y0)}};
+        if (kv.msaa) {
+          double ref = report["kit_50m"].value("relative", -1.0);
+          chk(rel >= 0 && ref > 0 && rel <= ref * 1.1 + 0.003, "kit primitives at 50 m with 4x MSAA: relative shimmer %.4f (shimmer %.3f, detail %.2f) <= without MSAA %.4f x 1.1 -> selftest_out/render_kit_50m_msaa4.png",
+              rel, s, dt, ref);
+        } else {
+          double ref = report["static_" + std::to_string(D) + "m"]["farmhouse"].value("relative", -1.0);
+          chk(rel >= 0 && ref > 0 && rel <= ref * 1.25 + 0.005, "kit primitives at %d m: relative shimmer %.4f (shimmer %.3f, detail %.2f) <= farmhouse %.4f x 1.25 -> selftest_out/render_kit_%dm.png",
+              D, rel, s, dt, ref, D);
+        }
+        pendingShot = outDir() / ("render_kit_" + std::to_string(D) + "m" + tag + ".png");
+        regions[0].frames = -1;
+        return false;
+      }
+      if (regions[0].frames < 0 && pendingShot.empty()) {
+        if (kv.msaa) { a.R.setMsaa(0); chk(!a.R.msaaActive(), "MSAA off again: the world renders straight into the HDR target"); }
+        return true;
+      }
+      return false;
+    });
+  }
+  push("render_kit_close", [](App& a, float t) {
+    if (t == 0) firstPerson(a, K0 + vec3(8.0f, 0, 12.0f), 33.7f, 14.0f);
+    a.eyeYaw = 33.7f; a.eyePitch = 14.0f;
+    if (t > 2.0f && t < 2.0f + 1.5f / 60.0f) pendingShot = outDir() / "render_kit_close.png";
+    if (t > 2.3f && pendingShot.empty()) { chk(true, "kit folly close-up -> selftest_out/render_kit_close.png"); return true; }
+    return false;
+  });
+  // ---------------------------------------------------------------- B1 ivy on the folly ("ivy": "auto", src/ivy.cpp)
+  push("kit ivy", [](App& a, float t) {
+    static int phase = 0; static int verts0 = 0, best = -1; static GrassQuality gq = GrassQuality::Medium;
+    if (t == 0) phase = 0;
+    auto it = a.rt.find(kitId);
+    if (it == a.rt.end()) { chk(false, "kit folly runtime"); return true; }
+    InstanceRT& r = it->second; const AssetDef& d = *r.asset;
+    int verts = r.ivy ? r.ivy->cardVerts : 0;
+    if (phase == 0 && t > 0.3f) {
+      chk(verts / 6 >= 100, "ivy: %d leaf cards on the folly's stone walls", verts / 6);
+      std::vector<uint8_t> intact(d.panels.size(), PANEL_INTACT);
+      std::vector<float> v1, v2, v3; buildIvyCards(d, d.ivy, intact, 77, 1.0f, v1); buildIvyCards(d, d.ivy, intact, 77, 1.0f, v2); buildIvyCards(d, d.ivy, intact, 78, 1.0f, v3);
+      chk(!v1.empty() && v1 == v2 && v1 != v3, "ivy: the same seed grows identical cards, another instance's seed a different growth");
+      float worst = 0;   // every card hugs a wall: its centre 2 .. 5.5 cm out from the face it grows on (nearest stone face)
+      bool hug = true;
+      for (size_t k = 0; k + 59 < v1.size(); k += 60) {
+        vec3 c(0); for (int q : {0, 1, 2, 5}) c += vec3(v1[k + q * 10], v1[k + q * 10 + 1], v1[k + q * 10 + 2]) * 0.25f;   // the quad's four corners
+        float dmin = 1e9f;
+        for (auto& p : d.parts) if (p.visible && p.shape == Part::BOX && std::fabs(std::fabs(p.rot.w) - 1.0f) < 1e-4f) { vec3 e = glm::max(glm::abs(c - p.center) - p.size * 0.5f, vec3(0)); dmin = std::min(dmin, glm::length(e)); }
+        for (auto& pn : d.panels) for (auto& p : pn.parts[0]) if (p.visible) { vec3 e = glm::max(glm::abs(c - p.center) - p.size * 0.5f, vec3(0)); dmin = std::min(dmin, glm::length(e)); }
+        worst = std::max(worst, dmin); hug &= dmin > 0.0f && dmin < 0.06f;
+      }
+      chk(hug, "ivy: every card hugs its wall (centre outside the stone, within 6 cm of it; farthest %.3f m)", worst);
+      size_t fewest = v1.size();
+      for (size_t k = 0; k < d.panels.size(); ++k) { auto s = intact; s[k] = PANEL_BREACHED; std::vector<float> w; buildIvyCards(d, d.ivy, s, 77, 1.0f, w); if (w.size() < fewest) { fewest = w.size(); best = (int)k; } }
+      { IvyDef au; au.mode = IvyDef::AUTO; size_t most = 0, least = SIZE_MAX;   // "auto": colonies from the ground on the outer stone walls
+        for (uint32_t sd = 1; sd <= 8; ++sd) { std::vector<float> w; buildIvyCards(d, au, intact, sd, 1.0f, w); most = std::max(most, w.size()); least = std::min(least, w.size()); }
+        chk(least > 0, "ivy \"auto\": every one of 8 instance seeds grows some (%zu .. %zu cards)", least / 60, most / 60); }
+      chk(best >= 0 && fewest < v1.size(), "ivy: breaching bay %d takes its %zu cards with it (%zu left)", best, (v1.size() - fewest) / 60, fewest / 60);
+      verts0 = verts;
+      if (best >= 0) r.state[best] = PANEL_BREACHED;   // the runtime path: the next frame rebuilds without them
+      phase = 1;
+    } else if (phase == 1 && t > 0.6f) {
+      chk(verts > 0 && verts < verts0, "ivy: the instance's cards rebuilt after the breach (%d -> %d)", verts0 / 6, verts / 6);
+      if (best >= 0) r.state[best] = PANEL_INTACT;
+      a.ivyOn = false; phase = 2;
+    } else if (phase == 2 && t > 0.9f) {
+      chk(!r.ivy, "ivy: Settings > Ivy on walls off removes it");
+      a.ivyOn = true; gq = a.grass.quality; a.grass.quality = GrassQuality::Off; phase = 3;
+    } else if (phase == 3 && t > 1.2f) {
+      chk(!r.ivy, "ivy: none with the grass quality Off (density follows it)");
+      a.grass.quality = gq; phase = 4;
+    } else if (phase == 4 && t > 1.5f) {
+      chk(verts == verts0, "ivy: back with every bay intact and the toggle on (%d cards)", verts / 6);
+      return true;
+    }
+    return false;
+  });
   // ---------------------------------------------------------------- moving camera: a slow strafe at 50 and 100 m
   // Walking sideways moves the facade well under a pixel per frame (fixed 60 Hz steps: the same path in every build), so
   // a well-filtered image changes almost linearly from frame to frame. The flicker index is the mean absolute second

@@ -261,8 +261,8 @@ automatically, at least three times as dense, and let shells, AT rounds, rockets
 ### Drawing
 
 - Near a building (within 18 m of its furniture's bounds) every piece draws on its own with full detail from the
-  shared asset meshes. Farther away the building's intact pieces draw as **one merged box-LOD mesh** (rounded boxes as
-  plain boxes, glass and tiny parts dropped), small props only to 32 m, nothing beyond 75 m. A piece that breaks, is
+  shared asset meshes. Farther away the building's intact pieces draw as **one merged box-LOD mesh** (rounded and chamfered boxes as
+  plain boxes, round turnings as hexagonal prisms, glass and tiny parts dropped), small props only to 32 m, nothing beyond 75 m. A piece that breaks, is
   moved or selected leaves the batch, which is rebuilt the next frame (`InteriorSys::updateBatches`, from `sync`).
   Hand-placed furniture outside a building is never culled.
 - **Per frame**, `updateBatches` and the Creative follow / override pass in `sync` return at once unless the edit

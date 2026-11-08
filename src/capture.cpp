@@ -1,6 +1,7 @@
 // --capture-materials <tag>: identical fixed cameras for before/after material comparisons.
 #include "selftest.h"
 #include <GLFW/glfw3.h>
+#include <cstdio>
 #include <cstdlib>
 #include <deque>
 
@@ -64,6 +65,67 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set).rfind("ids:", 0) == 0) {
+      // NMK_CAPTURE_SET=ids:a,b,c (D1 model pass): each asset from a front-corner and a rear-corner camera sized to
+      // its footprint; names are <id>_front / <id>_rear
+      std::string s = std::string(set).substr(4) + ",";
+      cams.clear();
+      static std::deque<std::string> keep;
+      int k = 0;
+      for (size_t p = 0, q; (q = s.find(',', p)) != std::string::npos; p = q + 1) {
+        std::string id = s.substr(p, q - p);
+        const AssetDef* a = id.empty() ? nullptr : app.lib.find(id);
+        if (!a) continue;
+        uint64_t iid = app.placeInstance(a, vec3(-125.0f + 50.0f * (k % 6), 0, -125.0f + 50.0f * (k / 6)), 0.0f);
+        ++k;
+        if (!iid) continue;
+        vec3 o = app.doc.find(iid)->pos;
+        float r = std::max(1.6f, 0.5f * std::max(a->footprint.x, a->footprint.y)) * 1.3f;
+        vec3 t = o + vec3(0, std::clamp(0.2f * r, 0.9f, 1.2f), 0);
+        keep.push_back(id + "_front"); cams.push_back({keep.back().c_str(), t + vec3(0.75f * r, 0.45f * r, 1.0f * r), t});
+        keep.push_back(id + "_rear"); cams.push_back({keep.back().c_str(), t + vec3(-0.8f * r, 0.55f * r, -0.9f * r), t});
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "b3") {
+      // NMK_CAPTURE_SET=b3: the B3 chateau and houses (tools/catalog_chateau.mjs), furnished: a front and a rear
+      // three-quarter view, then one view from every "look" step of the tour (from the last goto, at the last
+      // expected floor height). Names are <asset>_<view>.
+      static std::deque<std::string> keep;
+      static const char* ids[] = {"vil_chateau_grand", "vil_longhouse_thatched", "vil_townhouse_jettied", "vil_villa_deauville", "vil_manor_turret", "vil_corner_shop",
+                                  "vil_gatehouse_chapel", "vil_mill_house", "vil_terrace_pair", "vil_cottage_barn", "vil_rectory"};
+      cams.clear();
+      int n = 0;
+      for (const char* aid : ids) {
+        const AssetDef* a = app.lib.find(aid);
+        if (!a) continue;
+        vec3 at3(-135.0f + (n % 4) * 90.0f, 0, -90.0f + (n / 4) * 90.0f);   // a 4 x 3 grid inside the Blank Slate
+        ++n;
+        uint64_t id = app.placeInstance(a, at3, 0.0f);
+        if (!id) continue;
+        app.placeCompanions(id);
+        app.syncRuntime();
+        app.interior.furnish(app, id, 0);
+        vec3 o = app.doc.find(id)->pos;
+        float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f, H = a->bmax.y - a->bmin.y;
+        keep.push_back(a->id + "_ext_front"); cams.push_back({keep.back().c_str(), o + vec3(fx * 0.9f + 4, 1.7f + H * 0.25f, fz * 1.6f + 6), o + vec3(0, H * 0.35f, 0)});
+        keep.push_back(a->id + "_ext_rear"); cams.push_back({keep.back().c_str(), o + vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6), o + vec3(0, H * 0.35f, 0)});
+        vec2 at(0); float y = 0; int k = 0;
+        for (auto& st : a->raw["tour"].value("steps", json::array())) {
+          if (st.contains("goto")) { at = vec2(st["goto"][0].get<float>(), st["goto"][1].get<float>()); if (st.contains("expectY")) y = st["expectY"].get<float>(); }
+          if (st.contains("look")) { keep.push_back(a->id + "_int" + std::to_string(++k)); cams.push_back({keep.back().c_str(), o + vec3(at.x, y + 1.6f, at.y), o + jvec3(st["look"])}); }
+        }
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "interiors") {
       // NMK_CAPTURE_SET=interiors: walls, interiors and furniture (docs/interiors.md). The representative house is the
       // farmhouse (exterior wall, windows, doorway, two stairs, a dirt road and pasture in front); the inn shows the
@@ -98,6 +160,59 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "b2") {
+      // NMK_CAPTURE_SET=b2: the B2 buildings with their companions (front corner and rear corner, framed from the
+      // footprint) and every drs_* dressing piece close up (tools/catalog_houses2.mjs, catalog_dressing.mjs)
+      static std::deque<std::string> keep;
+      cams.clear();
+      std::vector<const AssetDef*> houses, dress;
+      for (auto& a : app.lib.assets) {
+        if (a->id.rfind("drs_", 0) == 0) dress.push_back(a.get());
+        else if (a->raw.contains("companions") && a->version >= 2 && a->enterable && a->category != "Bunkers") houses.push_back(a.get());
+      }
+      int n = 0;
+      auto frame = [&](const AssetDef* a, vec3 at, const char* view, vec3 dir, float k) {
+        float r = std::max({a->footprint.x, a->footprint.y, a->bmax.y}) * k + 2.0f;
+        keep.push_back(a->id + "_" + view);
+        vec3 t = at + vec3(0, a->bmax.y * 0.35f, 0);
+        cams.push_back({keep.back().c_str(), t + glm::normalize(dir) * r, t});
+      };
+      for (auto* a : houses) {
+        uint64_t id = app.placeInstance(a, vec3(-240.0f + 90.0f * (n % 6), 0, -220.0f + 80.0f * (n / 6)), 0.0f); ++n;   // inside the 300 m build area
+        if (!id) { logf("b2 capture: %s not placed", a->id.c_str()); continue; }
+        app.placeCompanions(id);
+        vec3 o = app.doc.find(id)->pos;
+        frame(a, o, "front", vec3(0.75f, 0.42f, 1.0f), 1.15f);
+        frame(a, o, "rear", vec3(-0.8f, 0.5f, -1.0f), 1.15f);
+        // interiors: furnish, log rooms and pieces per detected storey, one view per storey from its largest room
+        app.syncRuntime();
+        int nf = app.interior.furnish(app, id, 0);
+        const RoomInfo* ri = app.interior.rooms(a);
+        std::string rep = a->id + ": " + std::to_string(nf) + " pieces;";
+        for (size_t s = 0; s < ri->storeys.size(); ++s) {
+          auto& S = ri->storeys[s];
+          int rooms = 0, pieces = 0; const RoomInfo::Room* big = nullptr;
+          for (auto& R : ri->rooms) if (R.storey == (int)s) { ++rooms; if (!big || R.area > big->area) big = &R; }
+          for (auto& i : app.doc.instances) if (isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == id && i.pos.y - o.y > S.y - 0.3f && i.pos.y - o.y < S.ceil) ++pieces;
+          rep += " storey y=" + std::to_string(S.y).substr(0, 4) + " rooms " + std::to_string(rooms) + " pieces " + std::to_string(pieces) + ";";
+          if (!big) continue;
+          keep.push_back(a->id + "_int" + std::to_string(s));   // from one corner of the room across to the other
+          cams.push_back({keep.back().c_str(), o + vec3(big->mn.x + 0.35f, S.y + 1.7f, big->mn.y + 0.35f), o + vec3(big->mx.x - 0.3f, S.y + 0.4f, big->mx.y - 0.3f)});
+        }
+        logf("b2 interiors %s", rep.c_str());
+      }
+      n = 0;
+      for (auto* a : dress) {
+        uint64_t id = app.placeInstance(a, vec3(-250.0f + 45.0f * (n % 10), 0, 60.0f + 50.0f * (n / 10)), 0.0f); ++n;
+        if (!id) { logf("b2 capture: %s not placed", a->id.c_str()); continue; }
+        frame(a, app.doc.find(id)->pos, "close", vec3(0.7f, 0.45f, 1.0f), 1.0f);
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     FH =app.placeInstance(app.lib.find("house_farmhouse_2story"), vec3(0, 0, 0), 0.0f);
     CM = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(0, 0, 40), 0.0f);
     WH = app.placeInstance(app.lib.find("large_stone_warehouse"), vec3(45, 0, 0), 0.0f);
@@ -114,6 +229,11 @@ void SelfTest::captureUpdate(App& app, float) {
       {"pasture_to_bunker", W(CM, vec3(3.0f, 1.7f, 30.0f)), W(CM, vec3(0.0f, 1.2f, 3.0f))},
     };
     ci = 0; frames = 0; stage = 801;
+  }
+  if (const char* pose = std::getenv("NMK_CAPTURE_POSE")) {   // D1: every station traversed / elevated / recoiling
+    float y = 0, e = 0, t = 1;
+    if (std::sscanf(pose, "%f,%f,%f", &y, &e, &t) >= 2)
+      for (auto& [id, r] : app.rt) if (r.asset && !r.asset->station.kind.empty()) { r.st.yaw = y; r.st.elev = e; r.st.recoilT = t; }
   }
   if (ci >= cams.size()) { finish(app); return; }
   Cam& c = cams[ci];

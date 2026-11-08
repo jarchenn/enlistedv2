@@ -9,6 +9,8 @@
 //  * "climb" probes: the character is driven at a face with jumps and vault input and must stay below it (AT ditch).
 #include "selftest.h"
 #include "physics.h"
+#include <cstdlib>
+#include <cstring>
 #if __has_include("editor_nav.h")   // W3 terrain cuts present (claude/changes): the suite uses them, not its stand-in
 #include "editor_nav.h"
 #define W4_REAL_CUTS 1
@@ -123,7 +125,8 @@ void SelfTest::structuresUpdate(App& app, float dt) {
                     (a->navMeta.hasAnnotations() ? " + annotations" : "") + (a->navMeta.terrainCuts.empty() ? "" : " + terrain cut"));
       } else if (w2Owned(a->id)) { ++pending; check(true, a->id + ": nav pending (bunker metadata is W2's)"); }
       else check(false, a->id + ": has no nav metadata");
-      if (a->raw.contains("tour")) sIds.push_back(a->id);
+      const char* only = std::getenv("NMK_STRUCTURES_ONLY");   // comma-separated asset ids: walk only those (B3 dev runs)
+      if (a->raw.contains("tour") && (!only || std::strstr(only, a->id.c_str()))) sIds.push_back(a->id);
     }
     summary["catalogue"] = {{"assets", app.lib.assets.size()}, {"navAuthored", authored}, {"navPendingW2", pending}, {"w4Assets", sIds.size()}};
     check(sIds.size() >= 30, "W4 structure assets found: " + std::to_string(sIds.size()));
@@ -225,6 +228,19 @@ void SelfTest::structuresUpdate(App& app, float dt) {
       bool ground = Physics::castRayEx(p + vec3(0, 1.0f, 0), vec3(0, -1, 0), 2.2f, g);
       bool solid = Physics::castRayEx(p + vec3(0, cv.high ? 1.45f : 0.75f, 0), d, 2.5f, h);
       check(ground && solid, a->id + ": cover point " + std::to_string(c) + (cv.high ? " (high)" : " (low)") + (ground ? "" : " has no ground") + (solid ? "" : " has nothing in front"));
+    }
+    // tour "probes" (B1 part colliders: cylinders, cones, arches, wedges, bevelled boxes): a ray from o along d, in asset
+    // space, hits at `hit` m (within tol) or, without `hit`, runs clear for `len` m
+    for (auto& pr : tour.value("probes", json::array())) {
+      vec3 o = in.pos + q * jvec3(pr["o"]), d = q * glm::normalize(jvec3(pr["d"]));
+      float want = pr.value("hit", -1.0f), tol = pr.value("tol", 0.03f);
+      Physics::Hit h;
+      bool hit = Physics::castRayEx(o, d, want > 0 ? want + 1.0f : pr.value("len", 3.0f), h);
+      bool ok = want > 0 ? hit && std::fabs(h.t - want) <= tol : !hit;
+      char b[300];
+      std::snprintf(b, sizeof b, "%s: collider probe '%s': %s (want %s%.3f m, tol %.3f)", a->id.c_str(), pr.value("note", std::string()).c_str(),
+                    hit ? ("hit at " + std::to_string(h.t).substr(0, 5) + " m").c_str() : "clear", want > 0 ? "a hit at " : "clear for ", want > 0 ? want : pr.value("len", 3.0f), tol);
+      check(ok, b);
     }
     // frame the asset for its screenshot
     float R = std::max({a->footprint.x, a->footprint.y, a->bmax.y - a->bmin.y, 4.0f});

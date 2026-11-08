@@ -6,6 +6,7 @@ import { Asset, wbox } from "./kit.mjs";
 import { stdMaterials, wall, partition, door, hinged, aabb, chair, table } from "./parts.mjs";
 import { shelfX, shelfZ, crates, bunkZ, stove, stool, lamp, crateBox } from "./furniture2.mjs";
 import { smallArmsCache, gunAmmoStack } from "./catalog_ammo.mjs";
+import { rod, ventPipe, periscope, doorKnuckles, dmat } from "./defence_detail.mjs";
 
 // ----------------------------------------------------------------------------- shared bunker vocabulary
 // Viewing-slit height, shared by every slit in every bunker (docs/bunkers.md#slit-height). Floor-relative, metres.
@@ -215,7 +216,7 @@ const plate = (A, p0, p1, ribAxis, ribs = 2, handle = null) => (T) => {
 export function mgCasemate() {
   const X = 4.0, Z = 2.9, T = 1.2, GF = 0.3, CEIL = GF + 2.5, ROOF = CEIL + 1.0, XI = X - T, ZI = Z - T, pt = 0.02;
   const A = new Asset({
-    id: "bunker_mg_casemate", version: 2, name: "Machine-Gun Casemate", category: "Bunkers",
+    id: "bunker_mg_casemate", version: 3, name: "Machine-Gun Casemate", category: "Bunkers",
     description: "Free-standing reinforced-concrete MG casemate, 8 x 5.8 m, 1.2 m walls under a heavy overhanging roof slab. A continuous stepped viewing slit runs the full front and wraps both corners over the front half of each side. Recessed steel rear door behind a blast wall, camouflage netting over the roof and rear. Placed with its MG 42 embrasure mount; ammunition, bench and shelf inside.",
     floors: 1, enterable: true, footprint: [10.0, 10.4], plinthDepth: 0.6, maxGrade: 0.6,
   });
@@ -285,13 +286,16 @@ export function mgCasemate() {
       { goto: [-1.6, -0.9] }, { goto: [-1.6, -4.0] }, { goto: [1.5, -4.0] }, { goto: [1.5, -7.0], note: "leave casemate" },
     ],
   };
+  // D1 fittings: roof ventilation pipes through the netting, hinge knuckles on the rear door
+  ventPipe(A, 2.6, ROOF, -1.6); ventPipe(A, -2.8, ROOF, -1.1, { h: 0.35, dia: 0.13 });
+  doorKnuckles(A, { axis: "x", outer: -Z, inner: -ZI, c: -1.6, floor: GF, w: 1.0, h: 1.9, hingeSide: -1, steel: true });
   return A;
 }
 
 // ----------------------------------------------------------------------------- observation post
 export function observationPost() {
   const A = new Asset({
-    id: "bunker_observation_post", version: 3, name: "Observation Post", category: "Bunkers",
+    id: "bunker_observation_post", version: 4, name: "Observation Post", category: "Bunkers",
     description: "Small board-formed concrete observation post dug into an earth mound: soft earth banks over the flanks, rear and roof, the front face exposed. An eye-level slit closed by a top-hung armoured flap, operated from inside; sandbagged entrance passage to the rear steel door, camouflage netting over the roof. Map table, field telephone, scissors periscope, small-arms ammunition.",
     floors: 1, enterable: true, footprint: [10.0, 8.9], plinthDepth: 0.6, maxGrade: 0.6,
   });
@@ -387,13 +391,16 @@ export function observationPost() {
       { goto: [0.4, -0.3] }, { goto: [0.6, -3.0] }, { goto: [0.6, -4.3], note: "leave observation post" },
     ],
   };
+  // D1 fittings: observation periscope and a vent through the roof earth, door hinge knuckles
+  periscope(A, -0.8, ROOF + 0.4, 0.7, 0, { h: 0.55 }); ventPipe(A, 1.1, ROOF + 0.4, -1.2, { h: 0.35, dia: 0.12 });
+  doorKnuckles(A, { axis: "x", outer: -Z, inner: -ZI, c: 0.6, floor: GF, w: 1.0, h: 1.9, hingeSide: 1, steel: true });
   return A;
 }
 
 // ----------------------------------------------------------------------------- field shelter
 export function fieldShelter() {
   const A = new Asset({
-    id: "bunker_field_shelter", version: 3, name: "Field Shelter", category: "Bunkers",
+    id: "bunker_field_shelter", version: 4, name: "Field Shelter", category: "Bunkers",
     description: "Log-built field shelter (Unterstand) under a thick earth cover: soft banks over the walls, earth and turf on the log roof, camouflage netting. Board-formed concrete retaining walls and apron at the plank door, a small eye-level aperture with a top-hung timber shutter. Two-tier bunks, stove, bench, small-arms ammunition.",
     floors: 1, enterable: true, footprint: [9.2, 7.4], plinthDepth: 0.5, maxGrade: 0.6,
   });
@@ -496,6 +503,11 @@ export function fieldShelter() {
       { goto: [0.3, -0.3] }, { goto: [0, -2.6] }, { goto: [0, -3.9], note: "leave shelter" },
     ],
   };
+  // D1: rain cap on the stove flue where it leaves the roof earth
+  dmat(A, "steel_dark");
+  A.cyl([-1.65, CEIL + 1.02, -1.15], [0.15, 0.04, 0.15], "steel_dark", { k: 0, seg: 12 });
+  A.cone([-1.65, CEIL + 1.12, -1.15], [0.3, 0.09, 0.3], "steel_dark", { k: 0, top: 0.15, seg: 14 });
+  for (const a of [0, 2.1, 4.2]) A.cyl([-1.65 + 0.07 * Math.cos(a), CEIL + 1.05, -1.15 + 0.07 * Math.sin(a)], [0.015, 0.07, 0.015], "steel_dark", { k: 0, seg: 5 });
   return A;
 }
 
@@ -503,7 +515,7 @@ export function fieldShelter() {
 export function commandShelter() {
   const X = 4.7, Z = 3.7, T = 1.2, GF = 0.3, CEIL = GF + 2.3, ROOF = CEIL + 1.2, XI = X - T, ZI = Z - T;
   const A = new Asset({
-    id: "bunker_command_shelter", version: 2, name: "Command Shelter", category: "Bunkers",
+    id: "bunker_command_shelter", version: 3, name: "Command Shelter", category: "Bunkers",
     description: "Free-standing two-room concrete command shelter, 9.4 x 7.4 m, 1.2 m walls under a heavy overhanging roof slab. Recessed steel entrance behind a blast wall, gas lock with a gas-tight inner door. Map room with radio desk and bunks; a stepped observation slit in the front and a steel-flapped loophole covering the entrance.",
     floors: 1, enterable: true, footprint: [12.4, 12.2], plinthDepth: 0.6, maxGrade: 0.6,
   });
@@ -597,6 +609,10 @@ export function commandShelter() {
       { goto: [-0.4, pz] }, { goto: [-0.2, -7.6], note: "leave command shelter" },
     ],
   };
+  // D1 fittings: commander's periscope, ventilation pipes, hinge knuckles on both steel doors
+  periscope(A, 2.4, ROOF, 1.6, 0); ventPipe(A, -3.2, ROOF, -2.2); ventPipe(A, 0.8, ROOF, -2.4, { h: 0.35, dia: 0.13 });
+  doorKnuckles(A, { axis: "x", outer: -Z, inner: -ZI, c: -2.5, floor: GF, w: 1.0, h: 1.9, hingeSide: -1, steel: true });
+  doorKnuckles(A, { axis: "z", outer: -1.5, inner: -1.2, c: -1.2, floor: GF, w: 1.0, h: 1.9, hingeSide: -1, steel: true });
   return A;
 }
 
@@ -608,7 +624,7 @@ export function commandShelter() {
 export function largeBunker() {
   const GF = 0.5, eye = GF + SLIT.eye, pt = 0.02, MAIN_TOP = 4.9, HOOD = 2.95, HOOD_TOP = 3.85;
   const A = new Asset({
-    id: "bunker_large_casemate", version: 1, name: "Large Bunker (Casemate)", category: "Bunkers",
+    id: "bunker_large_casemate", version: 2, name: "Large Bunker (Casemate)", category: "Bunkers",
     description: "Large Atlantic Wall gun casemate, about 18 x 12 m and 6 m tall. A tall main block with a heavy overhanging roof slab holds the crew room; the lower forward casemate has a pillowed nose, a deep overhanging hood and a 4.4 m stepped embrasure in shadow under it. Rear steel entrance between wing piers behind a blast wall, half-buried dome on the flank, sand drifted against the walls.",
     floors: 1, enterable: true, footprint: [24.0, 17.0], plinthDepth: 0.6, maxGrade: 0.6,
   });
@@ -707,6 +723,10 @@ export function largeBunker() {
       { goto: [6.5, -8.0], note: "leave the casemate" },
     ],
   };
+  // D1 fittings: ventilation pipes on the main roof, hinge knuckles on both steel doors
+  ventPipe(A, 6.6, 6.0, -3.6); ventPipe(A, 0.8, 6.0, -4.4, { h: 0.35, dia: 0.13 });
+  doorKnuckles(A, { axis: "x", outer: -6.0, inner: -4.8, c: 3.0, floor: GF, w: 1.0, h: 2.0, hingeSide: -1, steel: true });
+  doorKnuckles(A, { axis: "x", outer: -0.3, inner: -1.5, c: -0.25, floor: GF, w: 1.0, h: 1.9, hingeSide: -1, steel: true });
   return A;
 }
 
@@ -715,24 +735,34 @@ export function largeBunker() {
 // mount is the only geometry here. Bore and sight line sit in the shared slit band (SLIT) for a standing gunner.
 export function mg42Mount() {
   const A = new Asset({
-    id: "gun_mg42_embrasure", version: 1, name: "MG 42 on embrasure mount", category: "Field guns",
+    id: "gun_mg42_embrasure", version: 2, name: "MG 42 on embrasure mount", category: "Field guns",
     description: "MG 42 on a steel pedestal (embrasure) mount, crewed standing from the grips: 55 deg either side, -5/+7 deg (the slit band limits it 0.2 m behind a 1.2 m wall), a 200-round belt on the gun and 250 rounds in reserve. Aimed exactly like the handheld MG 42 (same sights, eye and zero); it is not moved. Placed with the MG casemate behind its slit; stands behind any slit at the shared slit height.",
     floors: 0, enterable: false, footprint: [0.8, 1.6], plinthDepth: 0, maxGrade: 0.4,
   });
   stdMaterials(A);
   A.meta.faction = "DE";
   const YP = [0, 1.5, 0], EP = [0, SLIT.eye - 0.036, 0];   // sight line 3.6 cm above the bore, at the standing eye
-  A.box([-0.3, 0, -0.3], [0.3, 0.035, 0.3], "steel_plate", { k: 0 });   // base plate
-  A.box([-0.055, 0.035, -0.055], [0.055, YP[1] - 0.06, 0.055], "steel_plate", { k: 0 });   // pedestal post
-  for (const s of [-1, 1]) {   // gussets
-    A.box([s > 0 ? 0.055 : -0.22, 0.035, -0.012], [s > 0 ? 0.22 : -0.055, 0.22, 0.012], "steel_plate", { k: 0 });
-    A.box([-0.012, 0.035, s > 0 ? 0.055 : -0.22], [0.012, 0.22, s > 0 ? 0.22 : -0.055], "steel_plate", { k: 0 });
+  // D1: round base plate with its anchor bolts, tubular pedestal with a collar, wedge gussets
+  A.cyl([0, 0.0175, 0], [0.6, 0.035, 0.6], "steel_plate", { k: 0, seg: 32 });   // base plate
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * 2 * Math.PI + 0.26; A.cyl([0.24 * Math.cos(a), 0.045, 0.24 * Math.sin(a)], [0.035, 0.025, 0.035], "steel_bare", { k: 0, n: 8 }); }
+  A.cyl([0, (0.035 + YP[1] - 0.06) / 2, 0], [0.11, YP[1] - 0.095, 0.11], "steel_plate", { k: 0, seg: 16 });   // pedestal post
+  A.cyl([0, YP[1] - 0.2, 0], [0.15, 0.06, 0.15], "steel_plate", { k: 0, seg: 16 });   // clamp collar
+  rod(A, [0.075, YP[1] - 0.2, 0], [0.2, YP[1] - 0.24, 0], 0.02, "steel_bare");          // clamp lever
+  for (const yaw of [0, 90, 180, 270]) {   // gussets: wedges falling away from the post
+    const f = [Math.sin((yaw * Math.PI) / 180), Math.cos((yaw * Math.PI) / 180)];
+    A.wedge([f[0] * 0.135, 0.13, f[1] * 0.135], [0.024, 0.19, 0.16], "steel_plate", { k: 0, r: [0, yaw, 0] });
   }
   A.box([-0.17, 0, -0.17], [0.17, YP[1] - 0.1, 0.17], "steel_plate", { v: 0 });   // the player cannot walk through the post
   const Y = { into: [], k: 0 }, E = { into: [], k: 0 };
-  A.box([-0.07, YP[1] - 0.06, -0.08], [0.07, YP[1] + 0.02, 0.08], "steel_bare", Y);   // swivel head
-  for (const s of [-1, 1]) A.box([s * 0.05 - 0.012, YP[1], -0.06], [s * 0.05 + 0.012, EP[1] - 0.04, 0.06], "steel_plate", Y);   // fork
-  A.box([-0.035, EP[1] - 0.095, -0.14], [0.035, EP[1] - 0.07, 0.16], "steel_bare", E);   // cradle under the receiver
+  A.cyl([0, YP[1] - 0.02, 0], [0.15, 0.08, 0.15], "steel_bare", { ...Y, seg: 18 });   // swivel head
+  for (const s of [-1, 1]) {
+    A.box([s * 0.05 - 0.012, YP[1], -0.06], [s * 0.05 + 0.012, EP[1] - 0.04, 0.06], "steel_plate", { ...Y, bv: 0.006 });   // fork
+    rod(A, [s * 0.038, EP[1] - 0.075, 0], [s * 0.075, EP[1] - 0.075, 0], 0.035, "steel_bare", { ...Y, seg: 10 });   // trunnion bosses
+  }
+  rod(A, [0.07, YP[1] + 0.02, -0.05], [0.13, YP[1] - 0.02, -0.12], 0.018, "steel_bare", { ...Y, seg: 6 });   // traverse lock handle
+  A.box([-0.035, EP[1] - 0.095, -0.14], [0.035, EP[1] - 0.07, 0.16], "steel_bare", { ...E, bv: 0.006 });   // cradle under the receiver
+  A.box([-0.045, EP[1] - 0.1, 0.1], [0.045, EP[1] - 0.06, 0.16], "steel_bare", { ...E, bv: 0.005 });   // front latch
+  A.box([-0.2, EP[1] - 0.14, -0.12], [-0.04, EP[1] - 0.09, 0.08], "steel_plate", { ...E, bv: 0.006 });   // belt tray
   const rel = (parts, p) => parts.map((q) => ({ ...q, c: [q.c[0] - p[0], q.c[1] - p[1], q.c[2] - p[2]] }));
   A.meta.station = {
     kind: "mg42", yawPivot: YP, elevPivot: EP, muzzle: [0, EP[1], 0.77], optic: [0, EP[1] + 0.036, -0.2],   // fallback only: with the GLB the eye is the handheld ADS eye (src/station.cpp mg42MountSight)
@@ -750,7 +780,7 @@ export function mg42Mount() {
 export function pakCasemate() {
   const GF = 0.02, CEIL = 2.7, ROOF = CEIL + 1.2, XO = 4.2, XI = 3.0, ZF = 3.5, ZFI = 2.0, ZB = -4.2, ZBI = -3.0, pt = 0.02;
   const A = new Asset({
-    id: "bunker_pak_casemate", version: 1, name: "PaK Casemate (R612 type)", category: "Bunkers",
+    id: "bunker_pak_casemate", version: 2, name: "PaK Casemate (R612 type)", category: "Bunkers",
     description: "Reinforced-concrete gun casemate after the Regelbau 612: 8.4 x 7.7 m, 1.5 m front with a wide stepped embrasure, gun room for the PaK 40 (placed with the casemate, with an ammunition crate), commander's slit, double steel gun doors at the rear. Camouflage netting over the roof.",
     floors: 1, enterable: true, footprint: [11.0, 11.0], plinthDepth: 0.6, maxGrade: 0.4,
   });
@@ -818,5 +848,8 @@ export function pakCasemate() {
       { goto: [2.2, -2.55] }, { goto: [0.55, -2.75] }, { goto: [0.8, -5.3] }, { goto: [2.0, -7.6], note: "leave the casemate" },
     ],
   };
+  // D1 fittings: ventilation pipes, hinge knuckles on the double gun doors
+  ventPipe(A, -2.6, ROOF, -2.6); ventPipe(A, 2.7, ROOF, -2.2, { h: 0.35, dia: 0.13 });
+  doorKnuckles(A, { axis: "x", outer: ZB, inner: ZBI, c: 0, floor: GF, w: 2.6, h: 2.2, double: true, steel: true });
   return A;
 }

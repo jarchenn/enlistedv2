@@ -194,7 +194,7 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
         }
       }
       float area = cells.size() * C * C;
-      if (area < 2.5f || ri.rooms.size() >= 16) { for (int c : cells) id[c] = RoomInfo::NOFLOOR; continue; }
+      if (area < 2.5f || ri.rooms.size() >= 32) { for (int c : cells) id[c] = RoomInfo::NOFLOOR; continue; }   // 32: the 5-storey mairie alone has ~20 rooms
       RoomInfo::Room R; R.storey = sIdx; R.y0 = S.y; R.y1 = S.ceil; R.area = area; R.cells = (int)cells.size();
       R.mn = vec2(1e9f); R.mx = vec2(-1e9f);
       for (int c : cells) { vec2 lo(o.x + (c % nx) * C, o.y + (c / nx) * C); R.mn = glm::min(R.mn, lo); R.mx = glm::max(R.mx, lo + vec2(C)); }
@@ -466,6 +466,7 @@ const InteriorSys::CpuMesh& InteriorSys::cpuMesh(const AssetDef* a) {
     const Material& m = a->materials[p.mat];
     if (m.pattern == PAT_GLASS) continue;
     Part b = p; if (b.shape == Part::ROUND) b.shape = Part::BOX;
+    b.bv = 0; if (b.shape == Part::CYL && b.sides < 3) b.sides = 6;   // P1: chamfers and smooth turnings go flat and coarse in the LOD
     vec3 e = p.size;
     if (std::max({e.x, e.y, e.z}) > 0.06f || p.size.x * p.size.y * p.size.z > 2e-5f) appendPart(slot->lod, b, m, mat4(1));   // tiny bits (handles, nails) dropped far away
   }

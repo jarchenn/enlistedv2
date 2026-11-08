@@ -27,7 +27,10 @@ struct Material {
 
 // A primitive part. Boxes and triangular prisms, in a parent space.
 struct Part {
-  enum Shape { BOX, PRISM, ROUND } shape = BOX;   // ROUND: a box with every edge rounded by `rad` (render and collision)
+  // ROUND: a box with every edge rounded by `rad` (render and collision). CYL / ARCH / WEDGE fill their bounding box
+  // (center, size, rot): CYL = cylinder, cone, frustum or spire along local y; ARCH = arch ring, vault or spandrel
+  // standing on the box's bottom face, extruded along local z; WEDGE = a slope falling toward local +z (docs/asset-format.md#b1-geometry-kit)
+  enum Shape { BOX, PRISM, ROUND, CYL, ARCH, WEDGE } shape = BOX;
   vec3 center{0}, size{1};
   quat rot{1, 0, 0, 0};
   int mat = 0;
@@ -38,7 +41,15 @@ struct Part {
   int axis = 0; float a0 = 0, a1 = 0; vec2 tri[3]{};
   float rad = 0;   // ROUND: edge radius
   int grp = -1;    // "g": prop group (furniture pieces that break off together, docs/interiors.md)
+  float bv = 0;    // BOX "bv": edge chamfer in the mesh only (the collider stays the box); stripped from wall bays
+  int sides = 0;   // CYL "n": 0 = round (smooth normals), else an n-gon (4 square, 8 octagonal) with flat faces
+  float top = 1;   // CYL "top": top section / bottom section (0 = a point: cone, spire); WEDGE "top": front height / height
+  float th = 0.25f;  // ARCH "th": ring thickness (crown thickness when `fill`)
+  bool fill = false; // ARCH "fill": the solid between the box's rectangle and the intrados (a spandrel over an opening)
+  int seg = 0;     // CYL / ARCH "seg": curve segments, 0 = by size
 };
+// Convex pieces of a CYL / ARCH / WEDGE part in its local frame (relative to center, before rot): its colliders.
+void partHulls(const Part& p, std::vector<std::vector<vec3>>& out);
 
 struct Vertex {
   vec3 pos, nrm, albedo;
@@ -126,6 +137,14 @@ struct StationDef {
 };
 
 // Destructible tree (Vegetation): trunk parts split at the stump cut, alpha-tested leaf cards with a sway mask.
+// B1 ivy on stone walls (src/ivy.cpp): "ivy": "auto" | {"auto": true, "density": d} |
+// [{"face": "+z" | "-z" | "+x" | "-x", "a0", "a1" (along the wall), "y0", "y1", "density"}]
+struct IvyDef {
+  enum Mode { NONE, AUTO, BLOCKS } mode = NONE;
+  float density = 1;
+  struct Block { int axis = 2; float sign = 1, a0 = 0, a1 = 0, y0 = 0, y1 = 3, density = 1; };
+  std::vector<Block> blocks;
+};
 struct TreeDef {
   bool on = false;
   float hpBullet = 30, hpAT = 1, stumpH = 0.4f, trunkR = 0.25f, mass = 300, leafSize = 0.35f;
@@ -181,6 +200,7 @@ struct NatureDef {
 struct AssetDef {
   StationDef station;
   TreeDef tree;
+  IvyDef ivy;
   PathDef path;
   NatureDef nature;
   // imported model (JSON "model": baked from a supplied GLB by --import-weapon-models into content/assets/models/<dir>)

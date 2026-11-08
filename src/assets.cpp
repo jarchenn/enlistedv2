@@ -193,9 +193,10 @@ static vec3 prismPoint(int axis, float a, vec2 uv) {
 // half of an edge, so the round reads evenly; 2-4 segments per half by radius.
 static void appendRound(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
   vec3 h = p.size * 0.5f;
-  float r = std::min(p.rad, std::min({h.x, h.y, h.z}));
+  bool bevel = p.shape == Part::BOX;   // "bv": one 45-degree facet per half edge (a soft chamfer)
+  float r = std::min(bevel ? p.bv : p.rad, std::min({h.x, h.y, h.z}));
   vec3 e = h - vec3(r);
-  int S = r < 0.12f ? 2 : r < 0.5f ? 3 : 4;
+  int S = bevel ? 1 : r < 0.12f ? 2 : r < 0.5f ? 3 : 4;
   auto samples = [&](float ex) {
     std::vector<float> s;
     for (int k = S; k >= 1; --k) s.push_back(-ex - r * std::tan(glm::radians(45.0f) * k / S));
@@ -239,9 +240,165 @@ static void appendRound(MeshData& m, const Part& p, const Material& mat, const m
     }
 }
 
+// ---------------------------------------------------------------- curved and sloped parts (CYL, ARCH, WEDGE)
+// Built in the part's local frame (box centred on the origin). Curved surfaces carry smooth normals; caps, ends and
+// faces flat ones. partHulls gives the same outlines as convex pieces for the collider.
+namespace {
+struct LocalMesh {
+  MeshData& m; const Part& p; const Material& mat; const mat4& xf; glm::mat3 nx;
+  LocalMesh(MeshData& m_, const Part& p_, const Material& mat_, const mat4& xf_) : m(m_), p(p_), mat(mat_), xf(xf_), nx(glm::mat3(xf_)) {}
+  uint32_t v(vec3 lp, vec3 ln) {
+    Vertex q;
+    q.pos = vec3(xf * vec4(p.center + p.rot * lp, 1));
+    q.nrm = glm::normalize(nx * (p.rot * ln));
+    q.albedo = mat.albedo;
+    q.params = vec4((float)(mat.pattern + 100 * mat.texCode), mat.roughness, mat.metallic, grainOf(p, mat)); q.emis = mat.emissive;
+    q.pcoord = lp; q.pnrm = ln;
+    m.v.push_back(q);
+    return (uint32_t)m.v.size() - 1;
+  }
+  // a triangle wound counter-clockwise about the local outward direction `out` (in world space, as pushQuad)
+  void tri(uint32_t a, uint32_t b, uint32_t c, vec3 out) {
+    vec3 A = m.v[a].pos, B = m.v[b].pos, C = m.v[c].pos;
+    float d = glm::dot(glm::cross(B - A, C - A), nx * (p.rot * out));
+    if (d == 0) return;   // degenerate (a cusp)
+    if (d < 0) std::swap(b, c);
+    m.i.insert(m.i.end(), {a, b, c});
+  }
+  void quad(uint32_t a, uint32_t b, uint32_t c, uint32_t d, vec3 out) { tri(a, b, c, out); tri(a, c, d, out); }
+  void poly(const std::vector<vec3>& pts, vec3 n) {   // flat convex polygon
+    uint32_t b = v(pts[0], n);
+    for (size_t k = 1; k < pts.size(); ++k) v(pts[k], n);
+    for (uint32_t k = 1; k + 1 < (uint32_t)pts.size(); ++k) tri(b, b + k, b + k + 1, n);
+  }
+};
+int curveSegs(const Part& p, float len, int lo, int hi) {   // ~0.2 m chords, a multiple of 4
+  if (p.seg > 0) return std::clamp(p.seg, 3, 128);
+  return std::clamp(((int)std::ceil(len / 0.2f) + 3) / 4 * 4, lo, hi);
+}
+// CYL bottom ring (x, z). n-gon: flats facing the axes and touching the box (n a multiple of 4); round: the ellipse.
+std::vector<vec2> cylRing(const Part& p, int maxSeg = 48) {
+  vec3 h = p.size * 0.5f;
+  bool flat = p.sides >= 3;
+  int N = flat ? p.sides : curveSegs(p, glm::pi<float>() * (h.x + h.z), 12, maxSeg);
+  float off = flat ? glm::pi<float>() / N : 0.0f, k = flat ? 1.0f / std::cos(glm::pi<float>() / N) : 1.0f;
+  std::vector<vec2> r;
+  for (int i = 0; i < N; ++i) { float t = off + glm::two_pi<float>() * i / N; r.push_back(vec2(h.x * k * std::cos(t), h.z * k * std::sin(t))); }
+  return r;
+}
+// ARCH profile in (x, y): intrados I and extrados O at N + 1 angles from the springing (+x) over the crown to -x; the
+// arch stands on the box's bottom face. Ring: both ellipses (outer = the box). Fill: O is the box top above each I.
+void archProfile(const Part& p, int N, std::vector<vec2>& I, std::vector<vec2>& O, std::vector<vec2>& nI, std::vector<vec2>& nO) {
+  vec3 h = p.size * 0.5f;
+  float H = p.size.y, th = std::clamp(p.th, 0.01f, 0.999f * std::min(p.fill ? H : h.x, H));
+  float rix = p.fill ? h.x : h.x - th, riy = H - th;
+  if (!p.fill && p.th >= std::min(h.x, H)) { rix = 0.001f * h.x; riy = 0.001f * H; }   // th past both radii: a solid half-disc (fanlights)
+  for (int k = 0; k <= N; ++k) {
+    float t = glm::pi<float>() * k / N, c = k == N ? -1.0f : std::cos(t), s = k == 0 || k == N ? 0.0f : std::sin(t);
+    I.push_back(vec2(rix * c, -h.y + riy * s));
+    nI.push_back(-glm::normalize(vec2(c / rix, s / riy)));
+    if (p.fill) { O.push_back(vec2(rix * c, h.y)); nO.push_back(vec2(0, 1)); }
+    else { O.push_back(vec2(h.x * c, -h.y + H * s)); nO.push_back(glm::normalize(vec2(c / h.x, s / H))); }
+  }
+}
+// WEDGE profile in (z, y): back bottom, front bottom, front top (front height = top * height), back top
+std::vector<vec2> wedgeProfile(const Part& p) {
+  vec3 h = p.size * 0.5f;
+  std::vector<vec2> q{{-h.z, -h.y}, {h.z, -h.y}};
+  if (p.top > 1e-3f) q.push_back(vec2(h.z, -h.y + p.size.y * std::min(p.top, 1.0f)));
+  q.push_back(vec2(-h.z, h.y));
+  return q;
+}
+}  // namespace
+
+static void appendCurved(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
+  LocalMesh L(m, p, mat, xf);
+  vec3 h = p.size * 0.5f;
+  if (p.shape == Part::CYL) {
+    std::vector<vec2> ring = cylRing(p);
+    int N = (int)ring.size();
+    float tp = std::clamp(p.top, 0.0f, 1.0f);
+    bool flat = p.sides >= 3, apex = tp < 1e-3f;
+    auto bot = [&](int i) { vec2 r = ring[i % N]; return vec3(r.x, -h.y, r.y); };
+    auto upp = [&](int i) { vec2 r = ring[i % N] * tp; return vec3(r.x, h.y, r.y); };
+    // side normal from the slant (bottom to top) and the tangent along the ring, pointing away from the axis
+    auto sideN = [&](vec2 r, vec2 tan) {
+      vec3 slant(r.x * (tp - 1), p.size.y, r.y * (tp - 1)), n = glm::cross(slant, vec3(tan.x, 0, tan.y));
+      if (glm::dot(n, vec3(r.x, 0, r.y)) < 0) n = -n;
+      return glm::normalize(n);
+    };
+    auto roundN = [&](float t) { return sideN(vec2(h.x * std::cos(t), h.z * std::sin(t)), vec2(-h.x * std::sin(t), h.z * std::cos(t))); };
+    for (int i = 0; i < N; ++i) {
+      int j = i + 1;
+      vec3 out = vec3(0.5f * (bot(i).x + bot(j).x), 0, 0.5f * (bot(i).z + bot(j).z));
+      vec3 ni, nj, nm;
+      if (flat) ni = nj = nm = sideN(0.5f * (ring[i] + ring[j % N]), ring[j % N] - ring[i]);
+      else { float t = glm::two_pi<float>() / N; ni = roundN(t * i); nj = roundN(t * j); nm = roundN(t * (i + 0.5f)); }
+      uint32_t a = L.v(bot(i), ni), b = L.v(bot(j), nj);
+      if (apex) L.tri(a, b, L.v(vec3(0, h.y, 0), nm), out);
+      else L.quad(a, b, L.v(upp(j), nj), L.v(upp(i), ni), out);
+    }
+    std::vector<vec3> cap;
+    for (int i = 0; i < N; ++i) cap.push_back(bot(i));
+    L.poly(cap, vec3(0, -1, 0));
+    if (!apex) { cap.clear(); for (int i = 0; i < N; ++i) cap.push_back(upp(i)); L.poly(cap, vec3(0, 1, 0)); }
+  } else if (p.shape == Part::ARCH) {
+    int N = curveSegs(p, glm::half_pi<float>() * (p.size.x + p.size.y), 8, 32);
+    std::vector<vec2> I, O, nI, nO;
+    archProfile(p, N, I, O, nI, nO);
+    auto P3 = [&](vec2 q, float z) { return vec3(q.x, q.y, z); };
+    auto N3 = [](vec2 n) { return vec3(n.x, n.y, 0); };
+    for (int k = 0; k < N; ++k) {
+      vec3 oi = N3(glm::normalize(nI[k] + nI[k + 1])), oo = N3(glm::normalize(nO[k] + nO[k + 1]));
+      L.quad(L.v(P3(I[k], -h.z), N3(nI[k])), L.v(P3(I[k + 1], -h.z), N3(nI[k + 1])), L.v(P3(I[k + 1], h.z), N3(nI[k + 1])), L.v(P3(I[k], h.z), N3(nI[k])), oi);
+      L.quad(L.v(P3(O[k], -h.z), N3(nO[k])), L.v(P3(O[k + 1], -h.z), N3(nO[k + 1])), L.v(P3(O[k + 1], h.z), N3(nO[k + 1])), L.v(P3(O[k], h.z), N3(nO[k])), oo);
+      for (float z : {-h.z, h.z}) L.poly({P3(I[k], z), P3(I[k + 1], z), P3(O[k + 1], z), P3(O[k], z)}, vec3(0, 0, z > 0 ? 1.0f : -1.0f));
+    }
+    for (int k : {0, N}) {   // ends: the springing beds (ring) or the sides of the spandrel (fill)
+      vec3 n = p.fill ? vec3(k == 0 ? 1.0f : -1.0f, 0, 0) : vec3(0, -1, 0);
+      L.poly({P3(I[k], -h.z), P3(O[k], -h.z), P3(O[k], h.z), P3(I[k], h.z)}, n);
+    }
+  } else {   // WEDGE: the profile extruded along x
+    std::vector<vec2> q = wedgeProfile(p);
+    int n = (int)q.size();
+    for (int k = 0; k < n; ++k) {
+      vec2 a = q[k], b = q[(k + 1) % n], d = b - a, o = glm::normalize(vec2(d.y, -d.x));   // the profile runs counter-clockwise in (z, y)
+      L.poly({vec3(-h.x, a.y, a.x), vec3(-h.x, b.y, b.x), vec3(h.x, b.y, b.x), vec3(h.x, a.y, a.x)}, vec3(0, o.y, o.x));
+    }
+    for (float x : {-h.x, h.x}) { std::vector<vec3> side; for (auto& v2 : q) side.push_back(vec3(x, v2.y, v2.x)); L.poly(side, vec3(x > 0 ? 1.0f : -1.0f, 0, 0)); }
+  }
+}
+
+void partHulls(const Part& p, std::vector<std::vector<vec3>>& out) {
+  vec3 h = p.size * 0.5f;
+  if (p.shape == Part::CYL) {
+    std::vector<vec2> ring = cylRing(p, 24);
+    float tp = std::clamp(p.top, 0.0f, 1.0f);
+    std::vector<vec3> pts;
+    for (auto& r : ring) pts.push_back(vec3(r.x, -h.y, r.y));
+    if (tp < 1e-3f) pts.push_back(vec3(0, h.y, 0));
+    else for (auto& r : ring) pts.push_back(vec3(r.x * tp, h.y, r.y * tp));
+    out.push_back(pts);
+  } else if (p.shape == Part::ARCH) {   // one convex voussoir per coarse segment
+    int N = std::clamp(curveSegs(p, glm::half_pi<float>() * (p.size.x + p.size.y), 8, 32) / 2, 4, 10);
+    std::vector<vec2> I, O, nI, nO;
+    archProfile(p, N, I, O, nI, nO);
+    for (int k = 0; k < N; ++k) {
+      std::vector<vec3> pts;
+      for (float z : {-h.z, h.z}) for (vec2 q : {I[k], I[k + 1], O[k], O[k + 1]}) pts.push_back(vec3(q.x, q.y, z));
+      out.push_back(pts);
+    }
+  } else if (p.shape == Part::WEDGE) {
+    std::vector<vec3> pts;
+    for (auto& q : wedgeProfile(p)) for (float x : {-h.x, h.x}) pts.push_back(vec3(x, q.y, q.x));
+    out.push_back(pts);
+  }
+}
+
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
   if (!p.visible) return;
-  if (p.shape == Part::ROUND) { appendRound(m, p, mat, xf); return; }
+  if (p.shape == Part::ROUND || (p.shape == Part::BOX && p.bv > 0)) { appendRound(m, p, mat, xf); return; }
+  if (p.shape == Part::CYL || p.shape == Part::ARCH || p.shape == Part::WEDGE) { appendCurved(m, p, mat, xf); return; }
   if (p.shape == Part::BOX) {
     vec3 h = p.size * 0.5f;
     for (int ax = 0; ax < 3; ++ax)
@@ -301,7 +458,12 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
     p.center = (mn + mx) * 0.5f; p.size = mx - mn;
   } else {
     p.center = jvec3(j["c"]); p.size = jvec3(j["s"], vec3(1));
-    if (t == "r") { p.shape = Part::ROUND; p.rad = std::clamp(j.value("rad", 0.1f), 0.0f, 0.5f * std::min({p.size.x, p.size.y, p.size.z})); }
+    float half = 0.5f * std::min({p.size.x, p.size.y, p.size.z});
+    if (t == "r") { p.shape = Part::ROUND; p.rad = std::clamp(j.value("rad", 0.1f), 0.0f, half); }
+    else if (t == "c" || t == "k") { p.shape = Part::CYL; p.sides = j.value("n", 0); p.top = std::clamp(j.value("top", t == "k" ? 0.0f : 1.0f), 0.0f, 1.0f); p.seg = j.value("seg", 0); }
+    else if (t == "a") { p.shape = Part::ARCH; p.th = j.value("th", 0.25f); p.fill = j.value("fill", 0) != 0; p.seg = j.value("seg", 0); }
+    else if (t == "w") { p.shape = Part::WEDGE; p.top = std::clamp(j.value("top", 0.0f), 0.0f, 1.0f); }
+    else p.bv = std::clamp(j.value("bv", 0.0f), 0.0f, half);
     if (j.contains("r")) {
       vec3 r = jvec3(j["r"]);
       p.rot = glm::quat(glm::radians(r));
@@ -346,7 +508,7 @@ static void extractWallPanels(AssetDef& a, std::vector<Panel>& out, const json& 
   std::vector<Cand> cands;
   for (size_t i = 0; i < a.parts.size(); ++i) {
     const Part& p = a.parts[i];
-    if (p.shape != Part::BOX || std::fabs(std::fabs(p.rot.w) - 1.0f) > 1e-4f || !p.collide || !p.visible) continue;
+    if (p.shape != Part::BOX || p.bv > 0 || std::fabs(std::fabs(p.rot.w) - 1.0f) > 1e-4f || !p.collide || !p.visible) continue;   // bevelled = trim (kit rule), never a bay
     std::string m = matName(p);
     int n = p.size.x <= p.size.y && p.size.x <= p.size.z ? 0 : p.size.y <= p.size.z ? 1 : 2;
     int u = n == 1 ? 0 : (n == 2 ? 0 : 2), v = n == 1 ? 2 : 1;
@@ -621,7 +783,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     for (int s = 0; s < 3 && s < (int)sts.size(); ++s) {
       MeshData m; std::vector<Part> c;
       for (auto& qj : sts[s]) {
-        Part p = parsePart(qj, mats);
+        Part p = parsePart(qj, mats); p.bv = 0;   // wall bays stay plain boxes (the damage field re-meshes them)
         pn.parts[s].push_back(p);
         appendPart(m, p, a->materials[p.mat], mat4(1));
         if (s == 0) { appendPart(allIntact, p, a->materials[p.mat], mat4(1)); if (p.visible) partCorners(p, pts); }
@@ -649,6 +811,21 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   a->panelsIntact.upload(allIntact);
   a->wallsIntact = Physics::buildCompound(intactShapes);
   a->bmin = vec3(1e9f); a->bmax = vec3(-1e9f);
+  if (j.contains("ivy")) {   // B1 ivy (src/ivy.cpp)
+    const json& iv = j["ivy"];
+    if (iv.is_string() && iv.get<std::string>() == "auto") a->ivy.mode = IvyDef::AUTO;
+    else if (iv.is_object() && iv.value("auto", false)) { a->ivy.mode = IvyDef::AUTO; a->ivy.density = iv.value("density", 1.0f); }
+    else if (iv.is_array()) {
+      a->ivy.mode = IvyDef::BLOCKS;
+      for (auto& b : iv) {
+        std::string f = b.value("face", std::string("+z"));
+        IvyDef::Block k;
+        k.axis = f.size() > 1 && f[1] == 'x' ? 0 : 2; k.sign = f[0] == '-' ? -1.0f : 1.0f;
+        k.a0 = b.value("a0", b.value("x0", 0.0f)); k.a1 = b.value("a1", b.value("x1", 0.0f)); k.y0 = b.value("y0", 0.0f); k.y1 = b.value("y1", 3.0f); k.density = b.value("density", 1.0f);
+        a->ivy.blocks.push_back(k);
+      }
+    }
+  }
   if (j.contains("tree")) { buildTreeAsset(*a, j["tree"]); for (auto& c : a->tree.canopy) { pts.push_back(vec3(c) - vec3(c.w)); pts.push_back(vec3(c) + vec3(c.w)); } }
   if (j.contains("rock") || j.contains("scatter")) buildNatureAsset(*a, j, pts);   // boulders / patches (nature.cpp)
   a->faction = j.value("faction", "");

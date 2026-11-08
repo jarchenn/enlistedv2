@@ -1674,6 +1674,10 @@ void main(){
   float var = hash12(vec2(vSeed, 2.0));
   vec3 alb = uLeafCol*(0.72 + 0.56*var)*vShade;
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
+  // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
+  // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
+  float sv = vnoise(vec3(vW.xz*0.045, 3.7))*0.7 + vnoise(vW*0.4)*0.3;
+  alb *= mix(vec3(0.9, 1.04, 0.92), vec3(1.1, 1.0, 0.78), smoothstep(0.25, 0.75, sv));
   float sh = 1.0;
   if (uShadowSoft > 0.0) sh = sunShadowT(vW + N*0.06, N, 1.0, 8) * cloudShadow(vW);   // soft: thin leaves blur the map
   else if (uShadowOn == 1) { vec4 lp = uLightVP*vec4(vW + N*0.12, 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
@@ -2408,6 +2412,47 @@ void Renderer::createTargets() {
   }
   for (GLuint f : {hdrFbo, ldrFbo, compFbo, shaftFbo, dofFbo, aoFbo})
     if (glCheckNamedFramebufferStatus(f, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("framebuffer %u incomplete after resize to %dx%d", f, width, height); ++fboErrors; }
+  createMsaa();
+}
+
+// B1 MSAA (settings: High): the opaque world (sky, terrain, solids, models, foliage, grass) renders into a
+// multisampled copy of the HDR target's world attachments (0 colour, 2 indirect light, 3 normal + roughness,
+// 4 velocity, depth), resolved into the HDR target before water, decals and TAA (resolveMsaa). Renderbuffers: only
+// blits read them. 0 / 1 samples: no MSAA target, the world renders straight into hdrFbo as before.
+void Renderer::createMsaa() {
+  if (msFbo) { glDeleteFramebuffers(1, &msFbo); glDeleteRenderbuffers(5, msRb); msFbo = 0; for (auto& r : msRb) r = 0; }
+  if (msaaSamples < 2) return;
+  GLint maxS = 0; glGetIntegerv(GL_MAX_SAMPLES, &maxS);
+  int s = std::min(msaaSamples, (int)maxS);
+  if (s < 2) return;
+  glCreateFramebuffers(1, &msFbo); glCreateRenderbuffers(5, msRb);
+  const GLenum fmt[5] = {GL_RGBA16F, GL_RGBA16F, GL_RGBA16F, GL_RGBA16F, GL_DEPTH_COMPONENT32F};
+  const GLenum att[5] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_DEPTH_ATTACHMENT};
+  for (int k = 0; k < 5; ++k) {
+    glNamedRenderbufferStorageMultisample(msRb[k], s, fmt[k], width, height);
+    glNamedFramebufferRenderbuffer(msFbo, att[k], GL_RENDERBUFFER, msRb[k]);
+  }
+  glNamedFramebufferDrawBuffer(msFbo, GL_COLOR_ATTACHMENT0);
+  if (glCheckNamedFramebufferStatus(msFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    logf("MSAA x%d framebuffer incomplete: MSAA off", s); ++fboErrors;
+    glDeleteFramebuffers(1, &msFbo); glDeleteRenderbuffers(5, msRb); msFbo = 0; for (auto& r : msRb) r = 0;
+  }
+}
+void Renderer::setMsaa(int samples) {
+  samples = samples >= 2 ? 4 : 0;
+  if (samples == msaaSamples) return;
+  msaaSamples = samples;
+  if (hdrFbo) createMsaa();
+  taaValid = false;
+}
+// colour attachments average their samples; depth takes one sample per pixel (the resolved depth stays a real surface)
+void Renderer::resolveMsaa() {
+  for (GLenum a : {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4}) {
+    glNamedFramebufferReadBuffer(msFbo, a); glNamedFramebufferDrawBuffer(hdrFbo, a);
+    glBlitNamedFramebuffer(msFbo, hdrFbo, 0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  }
+  glBlitNamedFramebuffer(msFbo, hdrFbo, 0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+  glNamedFramebufferReadBuffer(msFbo, GL_COLOR_ATTACHMENT0);
 }
 
 void Renderer::resize(int w, int h) {
@@ -2774,11 +2819,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   mat4 vp = projJ * v.view;
   // main-view planes from the standard-Z projection (reverse-Z loses the far plane); the TAA jitter is sub-pixel
   Frustum frMain = Frustum::fromProjView(v0.proj, v.view);
-  glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
+  const bool ms = msFbo && !thumbMode && !q.legacy;   // B1 MSAA: the opaque world goes to msFbo, resolved before water
+  const GLuint worldFbo = ms ? msFbo : hdrFbo;
+  glBindFramebuffer(GL_FRAMEBUFFER, worldFbo);
   glViewport(0, 0, width, height);
   revZ = true; glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE); glClearDepth(0.0);   // reverse-Z from here to the end
   glClearColor(0.7f, 0.73f, 0.75f, 1); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  if (!thumbMode) { float z4[4] = {0, 0, 0, 0}, n4[4] = {0, 1, 0, 1}; glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 2, z4); glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 3, n4); glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 4, z4); }
+  if (!thumbMode) { float z4[4] = {0, 0, 0, 0}, n4[4] = {0, 1, 0, 1}; glClearNamedFramebufferfv(worldFbo, GL_COLOR, 2, z4); glClearNamedFramebufferfv(worldFbo, GL_COLOR, 3, n4); glClearNamedFramebufferfv(worldFbo, GL_COLOR, 4, z4); }
   // sky
   setLighting(progSky, v);
   glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
@@ -2787,7 +2834,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   glDepthMask(GL_TRUE); glDepthFunc(zLess());
   // terrain .. grass also write their indirect light to attachment 2 (screen-space AO)
-  if (!thumbMode) { GLenum b5[5] = {GL_COLOR_ATTACHMENT0, GL_NONE, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4}; glNamedFramebufferDrawBuffers(hdrFbo, 5, b5); }
+  if (!thumbMode) { GLenum b5[5] = {GL_COLOR_ATTACHMENT0, GL_NONE, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4}; glNamedFramebufferDrawBuffers(worldFbo, 5, b5); }
   // terrain
   setLighting(progTerrain, v);
   glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
@@ -2843,6 +2890,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (frac > 0) natureDrawPatches(progGrass, natPatches, vp, v.camPos, gp.radius * 1.1f, frac, wind, natDraws, natTufts);
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);
+  }
+  if (ms) {   // B1 MSAA resolve into the HDR target; water and everything after draw there, as without MSAA
+    resolveMsaa();
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
+    GLenum b5[5] = {GL_COLOR_ATTACHMENT0, GL_NONE, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4}; glNamedFramebufferDrawBuffers(hdrFbo, 5, b5);
   }
   if (!water.empty() && !thumbMode) { extern void waterRenderPass(Renderer&, const RenderView&, const mat4&); waterRenderPass(*this, v, vp); }   // V1 water (water.cpp)
   glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);   // transparent / effects / weapon never touch attachment 2

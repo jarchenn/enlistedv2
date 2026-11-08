@@ -73,6 +73,7 @@ void App::destroyRT(InstanceRT& r) {
   { extern void natureDestroyRT(InstanceRT&); natureDestroyRT(r); }
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
+  { extern void ivyDestroy(InstanceRT&); ivyDestroy(r); }
 }
 void App::buildRT(const Instance& i, InstanceRT& r) {
   destroyRT(r);
@@ -247,6 +248,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       }
     }
     for (size_t k = opFirst; k < op.size(); ++k) op[k].surf = surf;
+    { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // B1 ivy (ivy.cpp)
   }
 }
 
@@ -427,12 +429,17 @@ int App::placeCompanions(uint64_t hostId) {
   Instance* h = doc.find(hostId); if (!h) return 0;
   const AssetDef* a = assetFor(*h);
   if (!a || !a->raw.contains("companions")) return 0;
-  vec3 hp = h->pos; float hy = h->yaw; int n = 0;
+  vec3 hp = h->pos; float hy = h->yaw; int n = 0, k = 0;
   for (auto& c : a->raw["companions"]) {
+    // B2 decor: "chance" keeps a companion on that share of placed copies (seeded by the host id and its index);
+    // "ground" sets it on the terrain instead of the host's floor
+    uint64_t s = (hostId + 0x9E3779B97F4A7C15ull * (uint64_t)++k) * 0xBF58476D1CE4E5B9ull; s ^= s >> 31;
+    if (c.contains("chance") && (float)(s % 10000) / 10000.0f >= c["chance"].get<float>()) continue;
     const AssetDef* ca = lib.find(c.value("asset", ""));
     if (!ca || !c.contains("pos")) continue;
     Instance i; i.id = doc.newId(); i.assetId = ca->id; i.assetVersion = ca->version;
     i.pos = hp + yawQuat(hy) * vec3(c["pos"][0].get<float>(), c["pos"][1].get<float>(), c["pos"][2].get<float>());
+    if (c.value("ground", false)) i.pos.y = terrain.height(i.pos.x, i.pos.z) + c["pos"][1].get<float>();
     i.yaw = wrapDeg(hy + c.value("yaw", 0.0f));
     bump(i);
     doc.instances.push_back(i);

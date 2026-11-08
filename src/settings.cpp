@@ -18,10 +18,10 @@ GraphicsOpts presetOpts(GfxPreset p) {
   if (p == GfxPreset::Low) {
     g.resScale = 0.85f; g.shadowQuality = 0;
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
-    g.grass = 1; g.drawDist = 0.6f; g.particles = 0.6f;
+    g.grass = 1; g.drawDist = 0.6f; g.particles = 0.6f; g.ivy = false;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
   } else if (p == GfxPreset::High) {
-    g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16;
+    g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;
     g.grass = 3; g.drawDist = 1.4f; g.particles = 1.5f;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
   }
@@ -44,7 +44,7 @@ json UserSettings::toJson() const {
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass},
                   {"drawDistance", g.drawDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
-                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi},
+                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}}},
@@ -72,6 +72,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
+    g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy);
     // time of day: a preset name gives its hour; an explicit hour wins
     std::string tn = q.value("timeOfDay", std::string("Day"));
     for (TodPreset p : {TodPreset::Day, TodPreset::Dusk, TodPreset::Night, TodPreset::Dawn}) if (tn == todPresetName(p)) u.hour = todPresetHour(p);
@@ -180,6 +181,8 @@ void Settings::apply(App& app) {
   R.q.farCascade = g.farCascade; R.q.cloudShadows = g.cloudShadows; R.q.shafts = g.shafts; R.q.ssr = g.ssr; R.q.ssao = g.ssao; R.q.bloom = g.bloom;
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
+  R.setMsaa(g.msaa);
+  app.ivyOn = g.ivy;
   R.clouds = g.clouds;
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3);
@@ -204,6 +207,7 @@ void Settings::capture(const App& app) {
   g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds;
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
   g.grass = (int)app.grass.quality;
+  g.msaa = R.msaa(); g.ivy = app.ivyOn;
   s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers;
   s.editorFly = navState().speedMult;
 }
@@ -275,6 +279,10 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Ambient occlusion", &g.ssao); ImGui::SameLine(220); ImGui::BeginDisabled(!g.ssao); ImGui::Checkbox("Full-resolution AO", &g.ssaoFull); ImGui::EndDisabled();
       ImGui::Checkbox("Screen-space reflections", &g.ssr); ImGui::SameLine(220); ImGui::Checkbox("Bloom", &g.bloom);
       ImGui::Checkbox("Light shafts", &g.shafts); ImGui::SameLine(220); ImGui::Checkbox("Temporal AA", &g.taa);
+      { bool m = g.msaa >= 2; if (ImGui::Checkbox("4x MSAA", &m)) g.msaa = m ? 4 : 0; }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Multisampled world geometry (smoother building and roof edges), resolved before temporal AA. High turns it on.");
+      ImGui::SameLine(220); ImGui::Checkbox("Ivy on walls", &g.ivy);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ivy on stone walls; its density follows the grass quality.");
       ImGui::Checkbox("Clouds", &g.clouds);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloud cover: Creative > View > Sky");
       { const char* gq[] = {"Off", "Low", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Grass", &g.grass, gq, 4); }

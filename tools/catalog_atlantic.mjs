@@ -10,6 +10,15 @@ import { stdMaterials, wall, door, stairs, table } from "./parts.mjs";
 import { bunkZ, stove, stool, lamp, crates, sacks, shelfZ, crateBox } from "./furniture2.mjs";
 import { smallArmsCache, gunAmmoStack } from "./catalog_ammo.mjs";
 import { SLIT } from "./catalog_bunkers.mjs";
+import { rod, sandbag, seeded, doorKnuckles, ventPipe, dmat } from "./defence_detail.mjs";
+// D1: cosmetic detail parts go to A.d1 and are appended after every other part (atlanticAssets), so the colliding parts
+// keep their indices
+const d1 = (A) => (A.d1 ??= []);
+const flushD1 = (A) => { if (A.d1) { A.parts.push(...A.d1); delete A.d1; } return A; };
+// a ring laid flat (two half-ring arches turned onto their backs) centred at c: outer radius R, ring width th, height h
+function flatRing(A, c, R, th, h, m, o = {}) {
+  for (const s of [1, -1]) A.arch([c[0], c[1], c[2] + (s * R) / 2], [2 * R, R, h], m, { th, seg: 16, ...o, r: [90, s > 0 ? 0 : 180, 0] });
+}
 
 // ============================================================================ shared helpers (exported)
 export const r3 = (v) => Math.round(v * 1000) / 1000;
@@ -80,9 +89,11 @@ export function trenchCap(A, p, dir, idx) {
   const w = HW + RV;
   asCap(segBox(A, at(RV / 2, w), at(RV / 2, -w), 0, -D - 0.2, Math.max(PAR, PARADOS) - 0.03, RV, "wattle"), idx);
   asCap(segBox(A, at(RV + 0.6, w + FILL + 0.2), at(RV + 0.6, -w - FILL - 0.2), 0, -D - 0.25, 0.1, 1.2, "spoil"), idx);
-  for (const o of [-0.4, 0, 0.4]) asCap(segBox(A, at(RV + 0.07, o - 0.03), at(RV + 0.07, o + 0.03), 0, -D - 0.1, PAR + 0.1, 0.06, "picket", { k: 0 }), idx);
+  for (const o of [-0.4, 0, 0.4]) roundPicket(asCap(segBox(A, at(RV + 0.07, o - 0.03), at(RV + 0.07, o + 0.03), 0, -D - 0.1, PAR + 0.1, 0.06, "picket", { k: 0 }), idx));
 }
 
+// D1: a picket box turned in place into a round stake (same slot, so no index moves)
+function roundPicket(q) { if (q) { q.t = "c"; q.s = [0.075, q.s[1], 0.075]; q.seg = 8; } return q; }
 // segment-aligned box: runs from p0 to p1 ([x, z]) offset by `off` along the left normal n = (-dz, dx), y0..y1,
 // thickness th across the segment, extended by e0 / e1 past the ends; tilt leans its top toward +n (degrees)
 export function segBox(A, p0, p1, off, y0, y1, th, m, o = {}, e0 = 0, e1 = 0, tilt = 0) {
@@ -165,8 +176,9 @@ export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cach
         segBox(A, fa, fb, 0, -D - 0.25, top, FILL, "spoil", {}, s0 === 0 ? (i > 0 ? 0.3 : 0) : 0, s1 === L ? (i < n - 1 ? 0.3 : 0) : 0);
         for (let s = s0 + 0.15; s < s1 - 0.05; s += 0.95) {                                            // pickets
           const p = [rv[i][0] + ux * s, rv[i][1] + uz * s];
-          segBox(A, [p[0] - ux * 0.03, p[1] - uz * 0.03], [p[0] + ux * 0.03, p[1] + uz * 0.03], -side * 0.07, -D - 0.1, top + 0.12, 0.06, "picket", { k: 0 });
+          roundPicket(segBox(A, [p[0] - ux * 0.03, p[1] - uz * 0.03], [p[0] + ux * 0.03, p[1] + uz * 0.03], -side * 0.07, -D - 0.1, top + 0.12, 0.06, "picket", { k: 0 }));
         }
+        rod(A, [a[0], top - 0.03, a[1]], [b[0], top - 0.03, b[1]], 0.075, "picket", { into: d1(A), seg: 8 });   // D1: capping pole on the revetment
       }
       // parapet / parados slab: top face from (edge, top) down to grade `run` further out
       const run = isFront ? 2.2 : 1.6, alpha = Math.atan2(top, run), t = 0.5, edge = HW + RV + FILL;
@@ -207,6 +219,32 @@ export function trenchRun(A, pts, { front = 1, firestep = [], niche = null, cach
     const yaw = (Math.atan2(-uz, ux) * 180) / Math.PI;
     const cc = at(0, HW + RV + 0.27);
     smallArmsCache(A, cache, cc[0], -D, cc[1], yaw + (side > 0 ? 180 : 0), { boxes: 3, bandoliers: 2 });
+  }
+  // D1: lumpy spoil and grass clods on the parapet / parados slopes (mostly sunk, a few cm proud: the slab stays the
+  // walking and cover surface), riser boards and pegs on the firesteps
+  const R = seeded(A.meta.id + "trench" + pts.length);
+  dmat(A, "spoil");
+  for (const side of [1, -1]) {
+    const top = side === front ? PAR : PARADOS, run = side === front ? 2.2 : 1.6, edge = HW + RV + FILL;
+    for (let i = 0; i < n; i++) {
+      const [p0, p1] = segs[i], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), ux = (p1[0] - p0[0]) / L, uz = (p1[1] - p0[1]) / L, nx = -uz * side, nz = ux * side;
+      const yaw = (Math.atan2(ux, uz) * 180) / Math.PI;
+      for (let k = 0, m = Math.max(3, Math.round(L / 0.4)); k < m; k++) {
+        const t = (k + 0.15 + 0.7 * R()) / m * (L - 1.2) + 0.6, x = 0.25 + R() * (run - 0.55), y = top * (1 - x / run);
+        const h = 0.14 + 0.1 * R(), w = 0.45 + 0.6 * R(), d = 0.35 + 0.4 * R(), mat = R() < 0.15 ? "turf" : R() < 0.45 ? "earth" : "spoil";
+        const c = [p0[0] + ux * t + nx * (edge + x), y - h * 0.6, p0[1] + uz * t + nz * (edge + x)];
+        A.obox(c, [w, h, d], [0, yaw + R() * 60 - 30, 0], mat, { into: d1(A), k: 0, bv: h * 0.45 });
+      }
+    }
+  }
+  for (const i of firestep) {
+    const [p0, p1] = segs[i], e0 = i > 0 ? -1.0 : 0, e1 = i < n - 1 ? -1.0 : 0, off = front * (HW - STEPW - 0.012);
+    segBox(A, p0, p1, off, -D - 0.02, -D + STEP - 0.05, 0.025, "plank_x", { into: d1(A), k: 0 }, e0, e1);
+    const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), ux = (p1[0] - p0[0]) / L, uz = (p1[1] - p0[1]) / L;
+    for (let t = 0.4 - e0; t < L + e1 - 0.2; t += 0.9) {
+      const o2 = off - front * 0.035, c = [p0[0] + ux * t - uz * o2, -D + 0.12, p0[1] + uz * t + ux * o2];
+      A.cyl(c, [0.06, 0.32, 0.06], "picket", { into: d1(A), k: 0, seg: 8 });
+    }
   }
   return { floor: band(pts, HW), cut: band(extendEnds(pts, 0.8), HW + RV + FILL + 0.1) };
 }
@@ -249,7 +287,7 @@ const pnC = (side, y0, y1, GF) => ({ side, family: "concrete", bands: [[y0, y1, 
 export function r667() {
   const GF = 0.02, CEIL = 2.7, ROOF = 4.3, XI0 = -2.8, XI1 = 2.2, XO0 = -4.4, XO1 = 3.8, ZI = 2.3, ZO = 3.9, pt = 0.02;
   const A = new Asset({
-    id: "aw_r667_casemate", version: 1, name: "R667 flanking casemate (5 cm)", category: "Atlantic Wall",
+    id: "aw_r667_casemate", version: 2, name: "R667 flanking casemate (5 cm)", category: "Atlantic Wall",
     description: "Regelbau 667 gun casemate as at WN65 (Ruquet, E-1 draw): 8.2 x 7.8 m, 1.6 m walls and a 1.6 m roof. One gun room with a wide stepped embrasure firing along the beach, shielded from the sea by a sloping wing wall; earth heaped on the sea and landward flanks; rear steel door. Placed with a PaK 40 station as stand-in for the 5 cm KwK (no 5 cm gun model supplied), 5 cm shell crates and a small-arms cache. Embrasure faces local +X.",
     floors: 1, enterable: true, footprint: [15.6, 12.6], plinthDepth: 0.6, maxGrade: 0.6,
   });
@@ -280,6 +318,11 @@ export function r667() {
   A.box([rd.a0, -0.2, -ZO - 0.6], [rd.a1, GF, -ZO], "concrete");
   // interior: the PaK 40 stand-in (trunnion 1.05 m behind the inner face), 5 cm shell crates, cache, bench, lamps
   A.meta.companions = [{ asset: "gun_pak40", pos: [XI1 - 1.05, 0, 0], yaw: 90 }];
+  // D1 fittings (cosmetic, appended last): door hinge knuckles, roof ventilation pipes
+  { const T0 = A.parts.length;
+    doorKnuckles(A, { axis: "x", outer: -ZO, inner: -ZI, c: -1.4, floor: GF, w: 1.0, h: 2.0, hingeSide: -1, steel: true });
+    ventPipe(A, -2.6, ROOF, -2.2); ventPipe(A, 0.9, ROOF, -2.8, { h: 0.35, dia: 0.13 });
+    d1(A).push(...A.parts.splice(T0)); }
   gunAmmoStack(A, "5 cm shell crates", -1.2, GF, 1.85, 0, { cal: "50", crates: 6, carriers: 0, loose: 2 });
   smallArmsCache(A, "Small-arms ammunition", XI0 + 0.35, GF, 0.9, 90);
   shelfZ(A, "Shell rack", -1.3, 0.2, XI0, 1, GF, 1.5, 0.35, 3, "plank_z", (y, xa, xx, i) => {
@@ -416,7 +459,7 @@ function tobruk(kind) {
     mortar: { id: "aw_tobruk_mortar", name: "Mortar Tobruk", desc: "Granatwerferstand: an open circular concrete pit 1.4 m deep and 2.4 m across with the mortar pedestal, the painted range ring and an ammunition niche, entered by a ramped trench from the rear. The mortar itself is not modelled (guns come only from supplied models)." },
     turret: { id: "aw_tobruk_turret", name: "Tank-turret Tobruk (Panzerstellung)", desc: "Panzerstellung as on Omaha (reference photo 06): a cast light-tank turret with its 37 mm gun on a Tobruk ring set in a flush concrete slab, the buried crew chamber beneath, entered by a ramped trench from the rear. The turret is static dressing (not crewable)." },
   }[kind];
-  const A = new Asset({ id: info.id, version: 1, name: info.name, category: "Atlantic Wall", description: info.desc,
+  const A = new Asset({ id: info.id, version: 2, name: info.name, category: "Atlantic Wall", description: info.desc,
     floors: 0, enterable: true, footprint: [4.6, 9.4], plinthDepth: 0.3, maxGrade: 0.5 });
   stdMaterials(A); mats(A, "wattle", "picket", "spoil", "mud", "turret_paint", "steel_dark", "rust");
   const C = A.materials.find((q) => q.name === "concrete"); Object.assign(C, { albedo: [0.29, 0.28, 0.25], pattern: "bunker", grain: 3 });
@@ -436,34 +479,62 @@ function tobruk(kind) {
     const o = kind === "mg" ? { x: 0.45, z0: -1.5, z1: 1.05 } : { x: 0.65, z0: -0.65, z1: 0.65 };
     A.box([-X, CEIL, -Z], [X, RT, o.z0], "concrete"); A.box([-X, CEIL, o.z1], [X, RT, Z], "concrete");
     A.box([-X, CEIL, o.z0], [-o.x, RT, o.z1], "concrete"); A.box([o.x, CEIL, o.z0], [X, RT, o.z1], "concrete");
-    A.rbox([-X - 0.3, RT - 0.25, -Z - 0.3], [X + 0.3, RT, Z + 0.3], 0.08, "concrete", { k: 0 });   // apron lip
+    // apron lip; D1: for the ringstand it frames the opening (it used to cover it): the old part keeps its slot as the rear piece
+    if (kind === "mg") {
+      A.rbox([-X - 0.3, RT - 0.25, -Z - 0.3], [X + 0.3, RT, o.z0], 0.08, "concrete", { k: 0 });
+      A.rbox([-X - 0.3, RT - 0.25, o.z1], [X + 0.3, RT, Z + 0.3], 0.08, "concrete", { into: d1(A), k: 0 });
+      for (const sx of [-1, 1]) A.box([sx > 0 ? o.x : -X - 0.3, RT - 0.25, o.z0 - 0.01], [sx > 0 ? X + 0.3 : -o.x, RT, o.z1 + 0.01], "concrete", { into: d1(A), k: 0, bv: 0.03 });
+    } else A.rbox([-X - 0.3, RT - 0.25, -Z - 0.3], [X + 0.3, RT, Z + 0.3], 0.08, "concrete", { k: 0 });
     if (kind === "mg") {
       // ring collar and the MG rail
-      for (const a of [0, 45]) A.obox([0, RT + 0.06, 0.55], [1.2, 0.12, 0.12], [0, a, 0], "concrete", { k: 0 });
-      for (let k = 0; k < 8; k++) { const t = (k * Math.PI) / 4; A.obox([Math.sin(t) * 0.55, RT + 0.15, 0.55 + Math.cos(t) * 0.55], [0.44, 0.05, 0.05], [0, (k * 45) + 90, 0], "steel_dark", { k: 0 }); }
+      for (const a of [0, 45]) A.obox([0, RT + 0.06, 0.55], [1.2, 0.12, 0.12], [0, a, 0], "concrete", { k: 0, v: 0 });   // D1: replaced by the ring below
+      for (let k = 0; k < 8; k++) { const t = (k * Math.PI) / 4; A.obox([Math.sin(t) * 0.55, RT + 0.15, 0.55 + Math.cos(t) * 0.55], [0.44, 0.05, 0.05], [0, (k * 45) + 90, 0], "steel_dark", { k: 0, v: 0 }); }
+      flatRing(A, [0, RT - 0.01, 0.55], 0.72, 0.24, 0.13, "concrete", { into: d1(A), k: 0 });            // D1: round ring collar
+      flatRing(A, [0, RT + 0.12, 0.55], 0.575, 0.05, 0.04, "steel_dark", { into: d1(A), k: 0 });          // and its MG rail
+      for (let k = 0; k < 6; k++) { const t = (k * Math.PI) / 3 + 0.5; A.cyl([Math.sin(t) * 0.55, RT + 0.08, 0.55 + Math.cos(t) * 0.55], [0.03, 0.1, 0.03], "steel_dark", { into: d1(A), k: 0, seg: 6 }); }
       stairs(A, { x0: -0.42, x1: 0.42, z0: -1.1, dir: 1, y0: GF, rise: 1.02, n: 4, run: 1.2, openSide: 1, core: true });   // 40 deg
       A.box([-0.45, GF, 0.1], [0.45, GF + 1.02, 1.05], "concrete_wash");   // gunner's platform under the ring
     } else {
       // Panzerstellung turret: faceted cast body, cone mantlet and 37 mm barrel facing +Z, cupola, hatch handles
-      const ty = RT, T = "turret_paint";
-      A.box([-0.68, ty, -0.6], [0.68, ty + 0.12, 0.6], T);
-      A.box([-0.62, ty + 0.12, -0.52], [0.62, ty + 0.72, 0.5], T);
-      for (const s of [-1, 1]) for (const zz of [-1, 1]) A.obox([s * 0.5, ty + 0.42, zz * 0.42], [0.36, 0.6, 0.36], [0, 45, 0], T);
-      A.obox([0, ty + 0.62, -0.1], [1.12, 0.22, 0.95], [-6, 0, 0], T);
-      A.box([-0.24, ty + 0.72, -0.35], [0.24, ty + 0.92, 0.1], T);                  // cupola
-      A.box([-0.27, ty + 0.92, -0.38], [0.27, ty + 0.95, 0.13], "steel_dark");
-      A.obox([0.0, ty + 0.4, 0.62], [0.36, 0.36, 0.3], [0, 0, 45], T);             // mantlet block
-      A.obox([0.0, ty + 0.4, 0.84], [0.22, 0.22, 0.28], [0, 0, 0], T);             // cone
-      A.obox([0.0, ty + 0.4, 1.08], [0.11, 0.11, 0.36], [0, 0, 0], "steel_dark", { k: 0 });   // 37 mm barrel
-      A.obox([0.18, ty + 0.4, 0.66], [0.05, 0.05, 0.12], [0, 0, 0], "steel_dark", { k: 0 });   // coaxial MG port
-      for (const x of [-0.35, 0.2]) A.box([x, ty + 0.72, 0.05], [x + 0.15, ty + 0.78, 0.09], "steel_dark", { k: 0 });   // handles
-      A.box([-0.7, ty - 0.02, -0.62], [0.7, ty + 0.02, 0.62], "rust", { k: 0 });    // turret ring
+      // D1: the faceted boxes stay as the (now invisible) collider; the visible turret is a round casting below
+      const ty = RT, T = "turret_paint", H = { v: 0 }, G = { k: 0, v: 0 };
+      A.box([-0.68, ty, -0.6], [0.68, ty + 0.12, 0.6], T, H);
+      A.box([-0.62, ty + 0.12, -0.52], [0.62, ty + 0.72, 0.5], T, H);
+      for (const s of [-1, 1]) for (const zz of [-1, 1]) A.obox([s * 0.5, ty + 0.42, zz * 0.42], [0.36, 0.6, 0.36], [0, 45, 0], T, H);
+      A.obox([0, ty + 0.62, -0.1], [1.12, 0.22, 0.95], [-6, 0, 0], T, H);
+      A.box([-0.24, ty + 0.72, -0.35], [0.24, ty + 0.92, 0.1], T, H);                  // cupola
+      A.box([-0.27, ty + 0.92, -0.38], [0.27, ty + 0.95, 0.13], "steel_dark", H);
+      A.obox([0.0, ty + 0.4, 0.62], [0.36, 0.36, 0.3], [0, 0, 45], T, H);             // mantlet block
+      A.obox([0.0, ty + 0.4, 0.84], [0.22, 0.22, 0.28], [0, 0, 0], T, H);             // cone
+      A.obox([0.0, ty + 0.4, 1.08], [0.11, 0.11, 0.36], [0, 0, 0], "steel_dark", G);   // 37 mm barrel
+      A.obox([0.18, ty + 0.4, 0.66], [0.05, 0.05, 0.12], [0, 0, 0], "steel_dark", G);   // coaxial MG port
+      for (const x of [-0.35, 0.2]) A.box([x, ty + 0.72, 0.05], [x + 0.15, ty + 0.78, 0.09], "steel_dark", G);   // handles
+      A.box([-0.7, ty - 0.02, -0.62], [0.7, ty + 0.02, 0.62], "rust", G);    // turret ring
+      const V = { into: d1(A), k: 0 };
+      A.cyl([0, ty + 0.01, 0], [1.42, 0.05, 1.3], "rust", { ...V, seg: 32 });                                  // turret ring
+      A.cyl([0, ty + 0.06, 0], [1.34, 0.08, 1.2], T, { ...V, seg: 32 });                                         // base flange
+      A.cyl([0, ty + 0.4, -0.02], [1.26, 0.62, 1.1], T, { ...V, seg: 32, top: 0.84 });                          // cast body, tapering
+      A.cone([0, ty + 0.75, -0.04], [1.06, 0.1, 0.92], T, { ...V, seg: 32, top: 0.82 });                         // rounded roof edge
+      A.cyl([0.0, ty + 0.86, -0.14], [0.5, 0.16, 0.5], T, { ...V, seg: 24 });                                    // cupola
+      A.cone([0.0, ty + 0.97, -0.14], [0.46, 0.08, 0.46], T, { ...V, seg: 24, top: 0.55 });                      // cupola dome
+      A.cyl([0.0, ty + 1.02, -0.14], [0.22, 0.03, 0.22], "steel_dark", { ...V, seg: 16 });                        // cupola hatch
+      for (let k = 0; k < 5; k++) { const a = -1.1 + k * 0.55; A.obox([Math.sin(a) * 0.25, ty + 0.88, -0.14 + Math.cos(a) * 0.25], [0.09, 0.025, 0.02], [0, (a * 180) / Math.PI, 0], "steel_dark", V); }   // vision slits
+      rod(A, [-0.22, ty + 0.4, 0.52], [0.22, ty + 0.4, 0.52], 0.36, T, { ...V, seg: 20 });                        // mantlet trunnion housing
+      rod(A, [0, ty + 0.4, 0.55], [0, ty + 0.4, 0.86], 0.26, T, { ...V, seg: 20, top: 0.55 });                    // gun mantlet cone
+      rod(A, [0, ty + 0.4, 0.8], [0, ty + 0.4, 1.26], 0.075, "steel_dark", { ...V, seg: 14 });                    // 37 mm barrel
+      rod(A, [0, ty + 0.4, 1.2], [0, ty + 0.4, 1.27], 0.09, "steel_dark", { ...V, seg: 14 });                     // muzzle ring
+      rod(A, [0.17, ty + 0.4, 0.62], [0.17, ty + 0.4, 0.76], 0.045, "steel_dark", { ...V, seg: 10 });            // coaxial MG
+      for (const s of [-1, 1]) {                                                                                   // lifting eyes, hatch handles
+        rod(A, [s * 0.5, ty + 0.62, -0.25], [s * 0.5, ty + 0.62, -0.1], 0.03, "steel_dark", { ...V, seg: 6 });
+        rod(A, [s * 0.12, ty + 1.04, -0.08], [s * 0.12, ty + 1.04, -0.2], 0.018, "steel_dark", { ...V, seg: 6 });
+      }
       A.box([-0.12, GF, 0.6], [0.12, CEIL, 0.66], "steel_dark", { k: 0 });          // ladder rails
     }
   } else {
     // mortar pit: octagonal collar, pedestal with the base-plate pin, range ring, ammunition niche in the front wall
-    for (const a of [0, 45]) A.obox([0, RT + 0.05, 0], [2.6, 0.1, 0.25], [0, a, 0], "concrete", { k: 0 });
-    for (const a of [90, 135]) A.obox([0, RT + 0.05, 0], [2.6, 0.1, 0.25], [0, a, 0], "concrete", { k: 0 });
+    for (const a of [0, 45]) A.obox([0, RT + 0.05, 0], [2.6, 0.1, 0.25], [0, a, 0], "concrete", { k: 0, v: 0 });   // D1: replaced by the ring below
+    for (const a of [90, 135]) A.obox([0, RT + 0.05, 0], [2.6, 0.1, 0.25], [0, a, 0], "concrete", { k: 0, v: 0 });
+    flatRing(A, [0, RT - 0.02, 0], 1.42, 0.3, 0.14, "concrete", { into: d1(A), k: 0 });   // D1: round pit collar
     A.rbox([-0.35, GF, -0.35], [0.35, GF + 0.45, 0.35], 0.08, "concrete_wash");
     A.box([-0.06, GF + 0.45, -0.06], [0.06, GF + 0.6, 0.06], "steel_dark", { k: 0 });
     for (let k = 0; k < 16; k++) { const t = (k * Math.PI) / 8; A.obox([Math.sin(t) * 0.75, GF + 0.004, Math.cos(t) * 0.75], [0.28, 0.008, 0.04], [0, k * 22.5 + 90, 0], k % 4 ? "plaster" : "soot", { k: 0 }); }
@@ -521,7 +592,7 @@ export const tobrukTurret = () => tobruk("turret");
 // All pieces join end to end: a run enters at local (-L/2, 0) and leaves at (+L/2, 0) along +X (the corner leaves
 // along +Z at (0, +L/2)), floor 1.5 m down, front (parapet and firestep) toward +Z.
 function trenchPiece(id, name, desc, pts, opt, footprint, tourPts) {
-  const A = new Asset({ id, version: 1, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  const A = new Asset({ id, version: 2, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A);
   const r = trenchRun(A, pts, opt);
   const unit = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
@@ -567,7 +638,7 @@ export function trenchCorner() {
 }
 // entry: a 3.6 m ramp from grade down to the trench floor, then 2.4 m of trench; joins at local (+3, 0)
 export function trenchEntry() {
-  const A = new Asset({ id: "aw_trench_entry", version: 1, name: "Trench, entry ramp (wattle)", description: "Trench end with a log-stepped ramp from the ground down to the 1.5 m trench floor, wattle revetment and a small-arms cache in a niche. Joins a trench run at its +X end.", category: "Atlantic Wall", floors: 0, enterable: false, footprint: [6, 6.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  const A = new Asset({ id: "aw_trench_entry", version: 2, name: "Trench, entry ramp (wattle)", description: "Trench end with a log-stepped ramp from the ground down to the 1.5 m trench floor, wattle revetment and a small-arms cache in a niche. Joins a trench run at its +X end.", category: "Atlantic Wall", floors: 0, enterable: false, footprint: [6, 6.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A);
   const D = TR.D;
   const r = trenchRun(A, [[0.4, 0], [3, 0]], { firestep: [], niche: [0, 0.5], endExt: [0.2, 0] });
@@ -596,7 +667,7 @@ export function trenchEntry() {
 // Personnel dugout (Mannschaftsunterstand): a timber-lined chamber 2.3 m down under a log roof and an earth mound,
 // entered down a stepped trench from the rear through a plank door. Bunks, stove, table, cache.
 export function dugoutPersonnel() {
-  const A = new Asset({ id: "aw_dugout_personnel", version: 1, name: "Personnel dugout", category: "Atlantic Wall",
+  const A = new Asset({ id: "aw_dugout_personnel", version: 2, name: "Personnel dugout", category: "Atlantic Wall",
     description: "Timber-lined personnel dugout 2.3 m below ground: a 4.0 x 3.0 m chamber of log walls on posts under a double log roof and an earth mound, entered down a stepped trench and a plank door. Two-tier bunks for six, trench stove, table and bench, small-arms cache.",
     floors: 0, enterable: true, footprint: [6.4, 11.2], plinthDepth: 0.3, maxGrade: 0.6 });
   stdMaterials(A); mats(A, "spoil", "mud", "wattle", "picket");
@@ -629,6 +700,9 @@ export function dugoutPersonnel() {
   bunkZ(A, "Bunks", 1.2, 1.95, -1.45, 0.6, GF, 2);
   bunkZ(A, "Bunks", -1.95, -1.2, -0.4, 1.45, GF, 2);
   stove(A, "Trench stove", 1.55, 1.15, GF, CEIL + 1.2);
+  dmat(A, "steel_dark");   // D1: rain cap on the flue
+  A.cyl([1.55, CEIL + 1.22, 1.15], [0.15, 0.04, 0.15], "steel_dark", { into: d1(A), k: 0, seg: 12 });
+  A.cone([1.55, CEIL + 1.32, 1.15], [0.3, 0.09, 0.3], "steel_dark", { into: d1(A), k: 0, top: 0.15, seg: 14 });
   table(A, "Table", 0.05, 0.9, 1.0, 0.6, GF, 0.72);
   stool(A, "Stool", -0.5, 0.25, GF, 0.45);
   smallArmsCache(A, "Small-arms ammunition", -1.45, GF, -1.15, 0, { boxes: 3, bandoliers: 2 });
@@ -692,7 +766,7 @@ export function dugoutLog() {
 }
 // Two-man foxhole: 1.9 x 0.8 m, 1.3 m deep, spoil parapet to the front and flanks, a few sandbags, small cache.
 export function foxhole() {
-  const A = new Asset({ id: "aw_foxhole", version: 1, name: "Foxhole (two-man)", category: "Atlantic Wall",
+  const A = new Asset({ id: "aw_foxhole", version: 2, name: "Foxhole (two-man)", category: "Atlantic Wall",
     description: "Two-man foxhole 1.9 x 0.8 m and 1.2 m deep: the spoil thrown up as a parapet to the front and flanks, a few sandbags, a small ammunition cache at one end. Standing in it the eye clears the parapet; the rear lip is low enough to climb out.",
     floors: 0, enterable: false, footprint: [4.4, 4.0], plinthDepth: 0, maxGrade: 0.6, noAutoPanels: true });
   stdMaterials(A); mats(A, "spoil", "mud");
@@ -701,7 +775,10 @@ export function foxhole() {
   for (const s of [-1, 1]) { A.box([-X - 0.15, -D - 0.2, s > 0 ? Z : -Z - 0.15], [X + 0.15, 0.0, s > 0 ? Z + 0.15 : -Z], "spoil"); A.box([s > 0 ? X : -X - 0.15, -D - 0.2, -Z], [s > 0 ? X + 0.15 : -X, 0.0, Z], "spoil"); }
   A.prism(0, -X - 0.6, X + 0.6, [[Z + 0.15, -0.2], [Z + 0.15, 0.3], [Z + 1.6, -0.2]], "spoil");
   for (const s of [-1, 1]) A.prism(2, -Z - 0.2, Z + 1.2, [[s * (X + 0.15), -0.2], [s * (X + 0.15), 0.2], [s * (X + 1.1), -0.2]], "spoil");
-  for (const [x, z, r] of [[-1.45, 0.1, 85], [1.45, -0.1, 95], [1.45, 0.5, 80]]) A.obox([x, 0.3, z], [0.58, 0.18, 0.32], [0, r, 0], "sacking");   // flank sandbags
+  for (const [x, z, r] of [[-1.45, 0.1, 85], [1.45, -0.1, 95], [1.45, 0.5, 80]]) A.obox([x, 0.3, z], [0.58, 0.18, 0.32], [0, r, 0], "sacking", { v: 0 });   // flank sandbags (collider)
+  { const T0 = A.parts.length;   // D1: soft sandbags over the colliders
+    for (const [x, z, r] of [[-1.45, 0.1, 85], [1.45, -0.1, 95], [1.45, 0.5, 80]]) sandbag(A, [x, 0.3, z], r + 90, { L: 0.64, W: 0.34, H: 0.19 });
+    d1(A).push(...A.parts.splice(T0)); }
   A.box([-X - 1.0, -0.25, -Z - 1.05], [X + 1.0, 0.03, -Z - 0.15], "spoil");   // trampled rear lip at grade over the cut's step
   smallArmsCache(A, "Small-arms ammunition", -0.62, -D, 0.0, 90, { boxes: 1, crate: false, bandoliers: 2 });
   setNav(A, { effect: "area", area: "trench", areas: [{ outline: rect(-X, -Z, X, Z), area: "trench" }],
@@ -715,5 +792,5 @@ export function foxhole() {
 }
 
 export function atlanticAssets() {
-  return [r667(), r612Unfinished(), tobrukTurret(), tobrukMg(), tobrukMortar(), trenchStraight(), trenchZigzag(), trenchCorner(), trenchEntry(), dugoutPersonnel(), dugoutLog(), foxhole()];
+  return [r667(), r612Unfinished(), tobrukTurret(), tobrukMg(), tobrukMortar(), trenchStraight(), trenchZigzag(), trenchCorner(), trenchEntry(), dugoutPersonnel(), dugoutLog(), foxhole()].map(flushD1);
 }

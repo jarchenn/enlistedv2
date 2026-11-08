@@ -19,6 +19,12 @@ Coordinates are in metres in asset space. +Y is up, the front of the building fa
       "v": 0 /*invisible: collider only*/, "k": 0 /*visual only: no collision*/ },
     { "t": "p", "axis": 0, "a": [a0,a1], "tri": [[u,v],[u,v],[u,v]], "m": "stone" }   // prism (gables); axis 0: x, 1: y (tri in x,z), 2: z
     { "t": "r", "c": [x,y,z], "s": [sx,sy,sz], "rad": 0.2, "r": [rx,ry,rz] /*optional*/, "m": "concrete" }   // rounded box: every edge rounded by rad (render + matching Jolt convex radius); never a damage bay (docs/bunkers.md)
+    // B1 part types (below): cylinder / cone / arch / wedge fill their box c, s, r (or "q"); "bv" chamfers a box's mesh
+    { "t": "c", "c": [...], "s": [dx, h, dz], "n": 0, "seg": 0, "m": "stone" },
+    { "t": "k", "c": [...], "s": [dx, h, dz], "top": 0, "n": 8, "m": "slate" },
+    { "t": "a", "c": [...], "s": [span, rise, depth], "th": 0.25, "fill": 0, "m": "stone_dressed" },
+    { "t": "w", "c": [...], "s": [sx, sy, sz], "top": 0.3, "m": "stone_dressed" },
+    { "t": "b", "c": [...], "s": [...], "bv": 0.015, "m": "stone_dressed" }
   ],
   "furniture": [ { "name": "Kitchen table", "parts": [ ... ] } ],  // children of the building
   "interactables": [ {
@@ -72,6 +78,63 @@ Where sockets come from:
 - `aw_trench_*`, `bcg_hedgerow_*`, `bcg_sunken_lane`, `bcg_rampart` and `bch_at_ditch` declare theirs in their generators (`catalog_atlantic`, `catalog_bocage`, `catalog_beach`). Trench and hedgerow ends carry caps.
 - `path_*` sockets follow each path's own length (kind `path`).
 - Assets whose generator is not re-run get theirs from `snap.json` (`assets`), for example `hedgerow_bocage` (kind `hedge_low`).
+
+## B1 geometry kit
+
+Curved and sloped parts (`src/assets.cpp` `appendCurved` / `partHulls`) fill their bounding box `c`, `s`, rotated by `r` or `q`:
+
+| `t` | Shape | Fields |
+|---|---|---|
+| `c` | Cylinder along local y, elliptical when `s[0] != s[2]` | `n`: 0 round (smooth normals), 4 square, 8 octagonal (flats face the axes and touch the box). `seg`: segments, 0 = about one per 0.2 m (12 to 48). |
+| `k` | Cone, spire or frustum along local y | As `c`, plus `top`: the top section as a fraction of the base (default 0, a point). |
+| `a` | Arch standing on the box's bottom face, extruded along local z | Ring (default): an arch ring `th` thick whose extrados is the box (`s[1]` = rise of the extrados). With `th` past both radii it is a solid half-disc (fanlights). `fill: 1`: a spandrel, the box minus an intrados of half-span `s[0]/2` and rise `s[1] - th`. |
+| `w` | Wedge: full height at local -z, falling toward +z | `top`: the height at +z as a fraction (default 0, a sharp edge). |
+| `b` + `bv` | Box with chamfered edges in the mesh only | The collider stays the box. A bevelled box is trim: the loader never makes it a damage bay, and authored bays drop `bv`. |
+
+Colliders: cylinders, cones and wedges are one convex hull (round sections at up to 24 segments); arches are 4 to 10 convex voussoirs. `--selftest-structures` runs the tour's `"probes"` (`[{note, o, d, hit, tol}]` rays in asset space) against them.
+
+`tools/kit.mjs` adds `Asset.cyl / cone / arch / wedge` and a `bv` option on `box` / `obox`. `tools/parts.mjs` builds facade depth from them on a wall frame `F = {axis, d, out}` (the outer face `d`, exterior along `out`):
+- `pilaster`, `stringCourse`, `cornice` (stepped; the walls along X own the corners), `surround` (architrave, sloped sill, keystone);
+- `archOpening` / `archWindow` / `archDoor` (voussoir ring, keystone, the spandrel closing a rectangular wall hole, jambs, fanlight);
+- `colonnade`, `balcony`, `timberFrame` (half-timbering 4 cm proud of the infill, cut around holes);
+- roofs and tops: `dormer`, `hipRoof`, `thatchRoof`, `turret` (round or polygonal, conical spire), `chimney` / `chimneyCap`.
+
+### Defence, gun and ruin detail (`tools/defence_detail.mjs`, D1)
+
+Round detail for the defence families, built on the kit above. Every helper adds non-colliding (`k: 0`) parts after the existing ones, so colliders, damage bays (`auto/<part index>`), doors, nav and station data stay as they were:
+- `rod` (a cylinder or frustum between two points), `wheel` (tyre, rim, dished hub, lug nuts), `handwheel`, `rivets`, `sandbag`;
+- `doorKnuckles` (hinge barrels on a `door()` leaf's axis), `ventPipe`, `periscope`, `rebar`, `splinters`;
+- `debrisDetail(A)`: a ruin / rubble pass with its own RNG. It chamfers loose stone, brick and timber boxes and splinters the ends of loose beams, joists and rafters.
+
+Where a visible box was the collider (the Tobruk turret, the foxhole sandbags, the Tobruk ring collars), it stays in place with `"v": 0` and a round visible part is added. `catalog_atlantic.mjs` queues its detail on `A.d1` and appends it last. The PaK 40 builder (`catalog_ordnance.mjs` `ordnanceAssets`) is written by `build_mpu_assets.mjs`.
+
+### Ivy (`"ivy"`, `src/ivy.cpp`)
+
+`"ivy": "auto"` (or `{"auto": true, "density": 0.8}`) grows ivy colonies from the ground on the outer stone, brick and rendered walls of every placed copy, seeded by the instance. `"ivy": [{face: "+z", a0, a1, y0, y1, density}]` grows it inside those rectangles instead (a0 / a1 along the wall, on the outermost facade facing that way). The cards are alpha-tested leaf cards 2 to 5.5 cm off the wall, drawn through the foliage pass (wind, culling, shadows). Nothing grows on bevelled trims, behind anything visible or in openings. The cards on a bay go when it is breached. Settings > Ivy on walls and the grass quality control it.
+
+They keep the shimmer rule: members are embedded at least 1 cm into what they sit on, and members that meet differ in projection, so no two faces are coplanar. `kit_demo_folly` (`tools/catalog_kitdemo.mjs`) uses every one of them and is the `--selftest-render` "kit primitives" fixture.
+
+## B2: the reworked buildings and their dressing
+
+`tools/catalog_houses2.mjs` builds every house, outbuilding, large building and the village church (same ids, version 2). The legacy builders keep the interiors, stairs, doors, casements, shutters, bays, nav and tours. `dress()` then layers the facade from the kit:
+- a plinth course, string courses at the floors, a cornice under the eaves;
+- bevelled quoins, lintels, sills, thresholds and steps;
+- jambs and keystones round each opening, read from its interactable. Where shutters fold back over the jambs they stand under 2 cm proud;
+- half-timbering on the Norman types: the stone above the sole plate is re-rendered, in the bays too;
+- per building: dormers, capped chimneys, arcades, balconies and arches;
+- ivy and weathering.
+
+Facade members are visual only (`k: 0`) unless people stand on them. Trim round an opening joins that opening's trim bay (`extractTrim`).
+
+Each building lists `companions` (docs/bunkers.md) with `chance` and `ground`, so each placed copy gets its own yard. `tools/catalog_dressing.mjs` makes the dressing (`drs_*`):
+- garden wall and gate piers (snap kind `garden_wall`), picket fence;
+- flower bed, hay bales, woodpile, well;
+- gravestones, tomb chest, churchyard cross;
+- bridges with one and three arches;
+- sandbag wall and ring, wooden X obstacle;
+- barrels, cart.
+
+`NMK_CAPTURE_SET=b2 NormandyMapmaker --capture-materials <tag>` renders them all to `selftest_out/mat_<tag>_*.png`: each building from its front and rear corners with its companions, and each dressing piece close up.
 
 ## Rules the kit follows
 
