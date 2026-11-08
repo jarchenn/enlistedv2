@@ -10,6 +10,7 @@
 #include "viewmodel.h"
 #include "tank.h"
 #include "interior.h"   // walls, interiors and furniture (docs/interiors.md)
+#include "swim.h"       // swimming state (swim.cpp)
 
 struct GLFWwindow;
 
@@ -220,13 +221,25 @@ public:
   // hands on the ledge, weapon lowered, camera rises then rolls forward, the body follows a swept path (mantle.cpp)
   struct MantleSettings { float minH = 0.9f, maxH = 2.15f, reach = 0.85f, durMin = 0.9f, durMax = 1.3f, landUp = 0.3f, landDown = 0.6f, maxDrop = 2.2f, narrow = 0.55f, pitchDip = 14.0f, pitchUp = 5.0f, handSpread = 0.24f; } mantleCfg;
   struct MantleState { bool active = false, over = false; float t = 0, dur = 0, h = 0, pitchOff = 0, eyeFrom = 1.62f; vec3 pts[4]{}; vec3 ledge{0}, fwd{0}; std::string why; int count = 0; } mantle;
-  bool tryStartMantle(vec3 feet, float yawDeg);
+  bool tryStartMantle(vec3 feet, float yawDeg, bool fromWater = false);   // fromWater: heights from the floating feet
   void stepMantle(float dt);
   float mantleLower() const;                                  // 0 weapon up .. 1 lowered out of view (viewmodel.cpp)
   bool mantleGrips(vec3& left, vec3& right, float& w) const;  // world hand points on the ledge and their blend weight
   void mantlePose(vec3 feet, PoseParams& pp) const;           // third-person body for the local soldier (pose.cpp)
   void loadClimbSettings(const json& movement);               // "vault" / "mantle" blocks of movement.json
   void loadMoveSettings();
+  // ---- swimming (swim.cpp, docs/movement.md#swimming): chest-deep water floats the player; Space up, Ctrl down, look
+  // pitch steers when submerged; weapon lowered, breaststroke arms; 30 s of breath with the head under, then drowning
+  SwimSettings swimCfg; SwimState swim;
+  bool stepSwim(float dt, const ExploreInput& in, const Physics::CharState& before);   // exploreStep: true = this step moved by swimming
+  void swimBreath(float dt);                                  // breath / drowning, from the eye position
+  bool eyeUnderwater() const;                                 // the eye this frame is below waterAt() at the eye
+  float swimLower() const;                                    // 0 weapon up .. 1 lowered (viewmodel.cpp)
+  bool swimHands(vec3& left, vec3& right, float& w) const;    // camera-space breaststroke hand targets and blend weight
+  void swimPose(PoseParams& pp) const;                        // third-person body for the local soldier (pose.cpp)
+  void drawSwimUI();                                          // breath bar
+  vec3 viewUp(vec3 fwd) const;                                // first-person camera up: world up, rolled with the stroke while swimming
+  void loadSwimSettings(const json& movement);                // "swim" block of movement.json
   int postureWanted = 0;          // Physics::Posture requested by input (stand / crouch / prone)
   static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)
   bool proneToggle = false;       // Z state: prone requested

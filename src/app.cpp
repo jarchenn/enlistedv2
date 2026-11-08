@@ -13,6 +13,7 @@
 #include "w3.h"
 #include "nature.h"
 #include "autopath.h"
+#include "water_query.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -567,6 +568,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-snap") runSelf = true;     // V6: snapping (selftest_snap.cpp)
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
+    else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -721,14 +723,16 @@ int App::run(int argc, char** argv) {
       float fov = settings().fov();   // 72 unless changed in Settings
       if (!tanks.camera(*this, e, fv, fov) && !stationCamera(e, fv, fov)) weaponCamera(fov);
       mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
-      viewM = glm::lookAt(e, e + fv, vec3(0, 1, 0));
+      viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke
       projM = glm::perspective(radians(fov), aspect, 0.03f, 4000.0f);
       worldFov = fov;
       v.vmProj = glm::perspective(radians(vmFovNow()), aspect, 0.01f, 6.0f);
       dofParams(v.dofFocus, v.dofAmount);
       v.editor = false; v.autoExposure = true; v.camPos = e;
+      v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp
       audio.setListener(e, forward(eyeYaw, eyePitch));
     }
+    audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mpaiFrame(*this, ov);   // soldiers, grenades, scenario overlay
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();

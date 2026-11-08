@@ -93,6 +93,7 @@ public:
   bool isTrap(vec3 p, float r = 0.8f) const;
   vec3 lo{0}, hi{0};
   float waterLevel = -1000;                            // terrain water: shallow = water area, deep = forbidden
+  std::function<float(float x, float z)> waterQuery;   // local water too (water_query.h waterAt): sampled per tile job on the calling thread
   // ---- statistics (tests / overlay)
   double buildMs = 0, lastRebuildMs = 0, rebuildMsMax = 0; int usedNodes = 0, links = 0, tilesBuilt = 0, rebuilds = 0, queued = 0;
   int linkCount[LINK_KINDS] = {0, 0, 0, 0};

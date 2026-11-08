@@ -88,6 +88,7 @@ include(cmake/lt2.cmake)    # L2: lighting engine, --selftest-lights (docs/light
 include(cmake/lt3.cmake)    # L3: light assets, interior lighting, lamp placement (docs/lights.md)
 include(cmake/lt4.cmake)    # L4: ambientCG texture layer, --selftest-textures
 include(cmake/lasso.cmake)  # Lasso tool: multi-select, elevation, water fill, ground paint, move land
+include(cmake/swim.cmake)   # swimming, underwater view, breath (swim.cpp)
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

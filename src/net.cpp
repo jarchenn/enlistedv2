@@ -267,7 +267,7 @@ static std::string writeSnapshot(Game& g, int forPeer) {
   w.u8((uint8_t)m.slots.size());
   for (auto& r : m.slots) {
     const Soldier& s = g.sold[r.id];
-    uint8_t fl = (s.alive ? 1 : 0) | (s.posture == Physics::CROUCH ? 2 : 0) | (s.posture == Physics::PRONE ? 4 : 0) | (r.human ? 8 : 0) | (r.pending ? 16 : 0) | (s.reload > 0 ? 32 : 0) | (s.throwT >= 0 ? 64 : 0) | (s.isProtected(g.t) ? 128 : 0);   // 128: W1 spawn protection
+    uint8_t fl = (s.alive ? 1 : 0) | (s.swim ? 6 : s.posture == Physics::CROUCH ? 2 : s.posture == Physics::PRONE ? 4 : 0) | (r.human ? 8 : 0) | (r.pending ? 16 : 0) | (s.reload > 0 ? 32 : 0) | (s.throwT >= 0 ? 64 : 0) | (s.isProtected(g.t) ? 128 : 0);   // 2|4: swimming; 128: W1 spawn protection
     w.u8(fl); w.v3(s.feet); w.i16((int16_t)std::lround(wrapDeg(s.localPlayer || s.human ? s.yaw : s.yaw) * 100 - 18000));
     w.i16((int16_t)std::lround(std::clamp(s.human ? s.pitch : s.br.aimPitch, -89.0f, 89.0f) * 100));
     w.i16((int16_t)std::lround(wrapDeg(s.br.aimYaw) * 100 - 18000));
@@ -309,7 +309,8 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     rulesNetProtect(g, s, fl & 128);   // W1: spawn protection (shimmer, shield icon, ring)
     s.hp = hp; s.weapon = weapon < (int)app.weaponDefs.size() ? weapon : 0; s.killer = killer == 255 ? -1 : killer; s.deathStyle = dstyle;
     s.recoil = recoil; s.throwT = (fl & 64) ? thr : -1.0f; s.reload = (fl & 32) ? rel : 0; s.reloadTotal = (fl & 32) ? 1 : 0;
-    s.posture = (fl & 4) ? Physics::PRONE : (fl & 2) ? Physics::CROUCH : Physics::STAND;
+    s.swim = (fl & 6) == 6;   // 2|4: swimming (swim.cpp), drawn upright-tilted, not prone
+    s.posture = s.swim ? Physics::STAND : (fl & 4) ? Physics::PRONE : (fl & 2) ? Physics::CROUCH : Physics::STAND;
     if (k == g.pendingLocal && own && g.localSlot != k) { g.localSlot = k; s.localPlayer = true; s.alive = false; }   // the slot is ours now
     if (s.localPlayer) {
       if (own) { s.frags = frags; s.smokes = smokes; if (s.alive) g.localGrenadeCounts(s, true); }   // the host's count is the inventory
@@ -536,7 +537,7 @@ void Net::update(App& app, float dt) {
             if (ok && step > 0.05f) ok = !Physics::castRayEx(s.feet + vec3(0, 0.6f, 0), feet - s.feet, glm::length(feet - s.feet), hh);   // no walking through walls
             if (ok) { s.feet = feet; if (s.agent >= 0) Physics::setAgentPos(s.agent, feet); }
             else { ++rejectedRequests; p->ch.send(json{{"t", "correct"}, {"p", tojson(s.feet)}}.dump()); }
-            s.yaw = yaw; s.pitch = std::clamp(pitch, -89.0f, 89.0f); s.posture = std::clamp(posture, 0, 2);
+            s.yaw = yaw; s.pitch = std::clamp(pitch, -89.0f, 89.0f); s.swim = posture == 3; s.posture = s.swim ? Physics::STAND : std::clamp(posture, 0, 2);   // 3: swimming
             if (weapon != s.weapon && weapon < (int)app.weaponDefs.size()) { s.wsBy[s.weapon] = s.ws; s.weapon = weapon; auto it = s.wsBy.find(weapon); if (it != s.wsBy.end()) s.ws = it->second; else { const WeaponDef& wd = *app.weaponDefs[weapon]; s.ws = WeaponState{}; s.ws.loaded = wd.loaded; for (int q = wd.reserve; q > 0; q -= wd.containerSize) s.ws.containers.push_back(std::min(q, wd.containerSize)); } }
             s.vel = vec3(0); s.speed = step / dtIn;
           }
@@ -603,7 +604,7 @@ void Net::update(App& app, float dt) {
       d->lastInput = d->now;
       if (Soldier* L = gGame->local(); L && L->alive) {
         W w; auto c = Physics::character();
-        w.v3(c.pos); w.f32(app.eyeYaw); w.f32(app.eyePitch); w.u8((uint8_t)c.posture); w.u8((uint8_t)app.activeWeapon);
+        w.v3(c.pos); w.f32(app.eyeYaw); w.f32(app.eyePitch); w.u8((uint8_t)(app.swim.active ? 3 : c.posture)); w.u8((uint8_t)app.activeWeapon);   // posture 3: swimming
         h.unrel = w.b; h.unrelType = 2;
       }
     }

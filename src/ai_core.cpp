@@ -5,6 +5,7 @@
 #include "app.h"
 #include "nav_geom.h"
 #include "crumb.h"
+#include "water_query.h"
 #include <DetourNavMesh.h>
 #include <algorithm>
 #include <cmath>
@@ -119,6 +120,7 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   Nav& nav = G.nav;
   nav.cfg = NavConfig{}; nav.cfg.load(navj);
   nav.waterLevel = app.terrain.waterLevel;
+  nav.waterQuery = [ap = &app](float x, float z) { return waterAt(*ap, x, z); };   // lakes / ponds / water assets (water_query.h)
   nav.classify = [this](uint64_t ud) -> int {
     if (ud == 0 || (ud >> 60) == 0xF) return NT_SOLID;                 // terrain tiles and height patches
     auto it = G.app.rt.find(ud >> 16);

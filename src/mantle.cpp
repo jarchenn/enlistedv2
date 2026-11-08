@@ -42,12 +42,13 @@ void App::loadClimbSettings(const json& j) {
   }
 }
 
-bool App::tryStartMantle(vec3 feet, float yawDeg) {
+bool App::tryStartMantle(vec3 feet, float yawDeg, bool fromWater) {
   const MantleSettings& M = mantleCfg;
   vec3 f = forward(yawDeg, 0); f.y = 0; f = glm::normalize(f);
   // heights are measured from the ground under the feet (mid-jump: the floor the jump left)
   float ground = feet.y;
-  { Physics::Hit g; if (Physics::castRayEx(feet + vec3(0, 0.05f, 0), vec3(0, -1, 0), 1.6f, g)) ground = g.pos.y; }
+  // swimming (swim.cpp): the floating feet are the base, so a bank 0.3 m above the surface measures ~1.7 m
+  if (!fromWater) { Physics::Hit g; if (Physics::castRayEx(feet + vec3(0, 0.05f, 0), vec3(0, -1, 0), 1.6f, g)) ground = g.pos.y; }
   Physics::Hit h; float dFace = 99;
   for (float hy : {0.35f, 0.75f, 1.15f}) if (Physics::castRayEx(feet + vec3(0, hy, 0), f, M.reach + 0.3f, h) && h.t < dFace) dFace = h.t;
   if (dFace > M.reach + 0.3f) { mantle.why = "no ledge in reach"; return false; }

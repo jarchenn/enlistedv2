@@ -395,6 +395,26 @@ void Physics::setCharacterPos(vec3 feet) {
 }
 
 Physics::MoveTuning Physics::tuning;
+Physics::SwimTuning Physics::swimTuning;
+std::function<float(float, float)> Physics::waterQuery;
+
+void Physics::updateSwim(float dt, vec3 vel) {
+  auto& c = W->character;
+  if (!c) return;
+  auto bpf = W->sys->GetDefaultBroadPhaseLayerFilter(Layers::MOVING);
+  AllLayers olf;   // the capsule also meets PLAYER_ONLY traversal volumes
+  BodyFilter bf; ShapeFilter sf;
+  if (W->posture != STAND && postureFits(STAND, W->bodyYaw) && c->SetShape(W->standShape.GetPtr(), 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp)) {
+    W->posture = STAND; W->crouched = false; c->SetRotation(Quat::sIdentity());
+  }
+  W->jumpBuf = 0; W->jumped = false; W->sinceGround = 99;   // no buffered / coyote jump carries out of the water
+  c->UpdateGroundVelocity();
+  c->SetLinearVelocity(jv(vel));
+  CharacterVirtual::ExtendedUpdateSettings us;
+  us.mStickToFloorStepDown = Vec3::sZero();
+  us.mWalkStairsStepUp = c->GetGroundState() == CharacterBase::EGroundState::OnGround ? Vec3(0, 0.35f, 0) : Vec3::sZero();
+  c->ExtendedUpdate(dt, Vec3::sZero(), us, bpf, olf, bf, sf, *W->temp);
+}
 
 bool Physics::postureFits(int posture, float bodyYaw) {
   auto& c = W->character; if (!c) return false;
@@ -536,7 +556,7 @@ Physics::CharState Physics::character() {
 
 // ============================================================ physics_agents (multiplayer + AI)
 namespace {
-struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false, ghost = false; };
+struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false, ghost = false, swim = false; };
 std::vector<AgentRec> gAgents;
 CharacterVsCharacterCollisionSimple gCvc;
 const CharacterVirtual* gCvcPlayer = nullptr;
@@ -566,7 +586,7 @@ int Physics::createAgent(vec3 feet) {
   a.c = new CharacterVirtual(s, jr(feet), Quat::sIdentity(), 0, W->sys.get());
   a.c->SetCharacterVsCharacterCollision(&gCvc);
   gCvc.Add(a.c.GetPtr());
-  a.posture = STAND; a.bodyYaw = 0; a.used = true;
+  a.posture = STAND; a.bodyYaw = 0; a.used = true; a.swim = false;
   return h;
 }
 void Physics::destroyAgent(int h) {
@@ -592,7 +612,7 @@ Physics::CharState Physics::agent(int h) {
   RVec3 p = c->GetPosition();
   s.pos = vec3((float)p.GetX(), (float)p.GetY(), (float)p.GetZ());
   s.grounded = c->GetGroundState() == CharacterBase::EGroundState::OnGround;
-  s.posture = gAgents[h].posture; s.crouched = s.posture != STAND; s.bodyYaw = gAgents[h].bodyYaw;
+  s.posture = gAgents[h].posture; s.crouched = s.posture != STAND; s.bodyYaw = gAgents[h].bodyYaw; s.swim = gAgents[h].swim;
   Vec3 v = c->GetLinearVelocity(); s.vel = vec3(v.GetX(), v.GetY(), v.GetZ());
   s.groundUser = c->GetGroundBodyID().IsInvalid() ? ~0ull : W->sys->GetBodyInterface().GetUserData(c->GetGroundBodyID());
   return s;
@@ -615,6 +635,23 @@ void Physics::updateAgent(int h, float dt, vec3 hv, bool jump, int want, float y
   Vec3 gravity(0, -9.81f, 0);
   Vec3 vert(0, c->GetLinearVelocity().GetY(), 0), groundV = c->GetGroundVelocity(), nv;
   bool onGround = c->GetGroundState() == CharacterBase::EGroundState::OnGround;
+  // deep water: float at the surface (buoyancy toward floatDepth, slower strokes), never walk on the bed; hysteresis as
+  // for the player (start above `enter` m of water over the feet, stop below `exit` once grounded)
+  if (waterQuery) {
+    RVec3 pp = c->GetPosition(); float y = (float)pp.GetY();
+    float depth = waterQuery((float)pp.GetX(), (float)pp.GetZ()) - y;
+    a.swim = a.swim ? !(onGround && depth < swimTuning.exit) && depth > 0.2f : depth > swimTuning.enter;
+  } else a.swim = false;
+  if (a.swim) {
+    float surf = waterQuery((float)c->GetPosition().GetX(), (float)c->GetPosition().GetZ());
+    float vy = std::clamp((surf - swimTuning.floatDepth - (float)c->GetPosition().GetY()) * 2.0f, -1.0f, 0.8f);
+    c->SetLinearVelocity(jv(hv * swimTuning.speedScale) + Vec3(0, vy, 0));
+    CharacterVirtual::ExtendedUpdateSettings us;
+    us.mStickToFloorStepDown = Vec3::sZero();
+    us.mWalkStairsStepUp = onGround ? Vec3(0, 0.35f, 0) : Vec3::sZero();
+    c->ExtendedUpdate(dt, Vec3::sZero(), us, bpf, olf, bf, sf, *W->temp);
+    return;
+  }
   if (onGround && (vert.GetY() - groundV.GetY()) < 0.1f) { nv = groundV; if (jump && a.posture == STAND) nv += Vec3(0, 4.2f * 0.894427f, 0); }
   else nv = vert;
   nv += gravity * dt; nv += jv(hv);

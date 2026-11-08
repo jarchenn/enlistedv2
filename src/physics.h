@@ -1,5 +1,6 @@
 #pragma once
 #include "assets.h"
+#include <functional>
 
 // Thin wrapper over Jolt so the rest of the game never includes Jolt headers.
 // Body user data encodes (instance id << 16) | (leaf slot + 1); 0 = terrain.
@@ -47,7 +48,7 @@ public:
 
   // Character controller (Explore)
   enum Posture : int { STAND = 0, CROUCH = 1, PRONE = 2 };
-  struct CharState { vec3 pos; bool grounded; bool crouched; uint64_t groundUser; int posture = STAND; float bodyYaw = 0; vec3 vel{0}; };
+  struct CharState { vec3 pos; bool grounded; bool crouched; uint64_t groundUser; int posture = STAND; float bodyYaw = 0; vec3 vel{0}; bool swim = false; };   // swim: agent floating (updateAgent)
   // player-only tuning (global rigid-body / projectile gravity is separate and unchanged)
   // jumpBuffer: a press this long before landing still jumps on touchdown; coyote: a press this long after the
   // last real (settled, walkable) ground contact still jumps (slope / step-up ground flicker, walking off an edge)
@@ -62,6 +63,14 @@ public:
   // returns true on the step a jump impulse is applied (buffered press or coyote window included)
   static bool updateCharacter(float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYawWanted);
   static int jumpCount();   // jump impulses applied since the character was created (self-tests)
+  // swimming (swim.cpp): no gravity, the caller's full 3-D velocity (buoyancy and drag are the caller's), Jolt collisions
+  // and step-up onto the bed kept, no stick-to-floor; a crouched / prone body stands up when the standing body fits
+  static void updateSwim(float dt, vec3 vel);
+  // deep water for agents (updateAgent): bots and remote players float at the surface instead of walking on the bed.
+  // waterQuery is set by the app (water_query.h waterAt); unset = no water anywhere.
+  struct SwimTuning { float enter = 1.25f, exit = 1.05f, floatDepth = 1.38f, speedScale = 0.6f; };
+  static SwimTuning swimTuning;
+  static std::function<float(float x, float z)> waterQuery;
   static bool postureFits(int posture, float bodyYaw);
   static bool shapeFitsAt(int posture, vec3 feet, bool withTerrain = true);   // posture body at an arbitrary position
   static uint64_t shapeHitUD(int posture, vec3 feet, bool withTerrain = true);  // debug: user data of a body it overlaps (0 = none)

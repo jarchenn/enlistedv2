@@ -512,7 +512,7 @@ void AiCore::move(Soldier& s, float dt) {
   if (posture == Physics::PRONE && glm::length(vel) > vProne + 0.1f) vel = glm::normalize(vel) * vProne;
   Physics::updateAgent(s.agent, dt, vel, false, posture, s.yaw);
   auto st = Physics::agent(s.agent);
-  s.vel = (st.pos - s.feet) / std::max(dt, 1e-4f); s.feet = st.pos; s.posture = st.posture;
+  s.vel = (st.pos - s.feet) / std::max(dt, 1e-4f); s.feet = st.pos; s.posture = st.posture; s.swim = st.swim;   // floating in deep water (physics.cpp)
   s.speed = lenXZ(s.vel);
   m.lastVel = vel;
   if (s.feet.y < -60) { s.hp = 0; G.killSoldier(s.slot, -1, vec3(0, -1, 0)); return; }

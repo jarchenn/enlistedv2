@@ -162,3 +162,12 @@ void rulesAfterMove(App& app, const Physics::CharState& before, const Physics::C
   gRulesStats.lastFallSpeed = v; gRulesStats.lastFallDamage = dmg; ++gRulesStats.falls;
   if (dmg >= 0.5f) g->damage(L->slot, dmg, -1, vec3(0, -1, 0), "fall");   // spawn protection applies (Game::damage)
 }
+
+void rulesInWater(App&) { gFall.air = false; gFall.maxDown = 0; }
+
+void rulesDrown(App&, float dmg) {
+  Game* g = gGame;
+  Soldier* L = g && g->active && !g->isClient ? g->local() : nullptr;   // LAN client: the host owns damage
+  if (!L || !L->alive || dmg <= 0) return;
+  g->damage(L->slot, dmg, -1, vec3(0, 1, 0), "drown");   // spawn protection applies (Game::damage)
+}
