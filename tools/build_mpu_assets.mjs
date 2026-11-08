@@ -16,6 +16,7 @@ import { villageAssets } from "./catalog_village2.mjs";
 import { ruinAssets } from "./catalog_ruins.mjs";   // V3 (visual & physics overhaul): ruin_* / rub_*
 import { waterAssets } from "./catalog_water.mjs";   // V1 water features (docs/rendering.md#water)
 import { kitDemoAssets } from "./catalog_kitdemo.mjs";   // B1 geometry kit demo (docs/asset-format.md#b1-geometry-kit)
+import { ordnanceAssets } from "./catalog_ordnance.mjs";   // D1: gun_pak40 (ported from build_assets.mjs)
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "content", "assets");
@@ -31,7 +32,7 @@ function put(file, text) {
 
 // ---------------------------------------------------------------- new assets
 const ids = new Set();
-for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets()]) {
+for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets()]) {
   const j = A.json();
   if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
   ids.add(j.id);
@@ -103,7 +104,6 @@ const BACKFILL = {
   path_concrete: { effect: "area", area: "road" }, path_dirt: { effect: "area", area: "road" }, path_gravel: { effect: "area", area: "road" },
   // stations, racks, crates (small dressing), vehicles (dynamic: the AI treats them as moving obstacles)
   gun_flak18: { effect: "carve", cover: [{ p: [0, 0, -3.0], yaw: 0, height: "low", peek: ["left", "right"] }] },
-  gun_pak40: { effect: "carve", cover: [{ p: [0, 0, -1.2], yaw: 0, height: "low", peek: ["left", "right"] }] },
   gun_m2hb_tripod: { effect: "none" }, rack_allied: { effect: "carve" }, rack_axis: { effect: "carve" },
   crate_mixed_supply: { effect: "none" }, crate_pak40_he: { effect: "none" },
   tank_sherman_firefly: { effect: "none" }, tank_tiger_i: { effect: "none" },

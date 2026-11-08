@@ -99,6 +99,15 @@ Colliders: cylinders, cones and wedges are one convex hull (round sections at up
 - `colonnade`, `balcony`, `timberFrame` (half-timbering 4 cm proud of the infill, cut around holes);
 - roofs and tops: `dormer`, `hipRoof`, `thatchRoof`, `turret` (round or polygonal, conical spire), `chimney` / `chimneyCap`.
 
+### Defence, gun and ruin detail (`tools/defence_detail.mjs`, D1)
+
+Round detail for the defence families, built on the kit above. Every helper adds non-colliding (`k: 0`) parts after the existing ones, so colliders, damage bays (`auto/<part index>`), doors, nav and station data stay as they were:
+- `rod` (a cylinder or frustum between two points), `wheel` (tyre, rim, dished hub, lug nuts), `handwheel`, `rivets`, `sandbag`;
+- `doorKnuckles` (hinge barrels on a `door()` leaf's axis), `ventPipe`, `periscope`, `rebar`, `splinters`;
+- `debrisDetail(A)`: a ruin / rubble pass with its own RNG. It chamfers loose stone, brick and timber boxes and splinters the ends of loose beams, joists and rafters.
+
+Where a visible box was the collider (the Tobruk turret, the foxhole sandbags, the Tobruk ring collars), it stays in place with `"v": 0` and a round visible part is added. `catalog_atlantic.mjs` queues its detail on `A.d1` and appends it last. The PaK 40 builder (`catalog_ordnance.mjs` `ordnanceAssets`) is written by `build_mpu_assets.mjs`.
+
 ### Ivy (`"ivy"`, `src/ivy.cpp`)
 
 `"ivy": "auto"` (or `{"auto": true, "density": 0.8}`) grows ivy colonies from the ground on the outer stone, brick and rendered walls of every placed copy, seeded by the instance. `"ivy": [{face: "+z", a0, a1, y0, y1, density}]` grows it inside those rectangles instead (a0 / a1 along the wall, on the outermost facade facing that way). The cards are alpha-tested leaf cards 2 to 5.5 cm off the wall, drawn through the foliage pass (wind, culling, shadows). Nothing grows on bevelled trims, behind anything visible or in openings. The cards on a bay go when it is breached. Settings > Ivy on walls and the grass quality control it.

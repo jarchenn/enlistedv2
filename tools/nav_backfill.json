@@ -291,24 +291,6 @@
  "gun_m2hb_tripod": {
   "effect": "none"
  },
- "gun_pak40": {
-  "effect": "carve",
-  "cover": [
-   {
-    "p": [
-     0,
-     0,
-     -1.2
-    ],
-    "yaw": 0,
-    "height": "low",
-    "peek": [
-     "left",
-     "right"
-    ]
-   }
-  ]
- },
  "hedgerow_bocage": {
   "effect": "block",
   "cover": [

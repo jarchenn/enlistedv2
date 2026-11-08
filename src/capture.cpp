@@ -1,6 +1,7 @@
 // --capture-materials <tag>: identical fixed cameras for before/after material comparisons.
 #include "selftest.h"
 #include <GLFW/glfw3.h>
+#include <cstdio>
 #include <cstdlib>
 #include <deque>
 
@@ -64,6 +65,32 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set).rfind("ids:", 0) == 0) {
+      // NMK_CAPTURE_SET=ids:a,b,c (D1 model pass): each asset from a front-corner and a rear-corner camera sized to
+      // its footprint; names are <id>_front / <id>_rear
+      std::string s = std::string(set).substr(4) + ",";
+      cams.clear();
+      static std::deque<std::string> keep;
+      int k = 0;
+      for (size_t p = 0, q; (q = s.find(',', p)) != std::string::npos; p = q + 1) {
+        std::string id = s.substr(p, q - p);
+        const AssetDef* a = id.empty() ? nullptr : app.lib.find(id);
+        if (!a) continue;
+        uint64_t iid = app.placeInstance(a, vec3(-125.0f + 50.0f * (k % 6), 0, -125.0f + 50.0f * (k / 6)), 0.0f);
+        ++k;
+        if (!iid) continue;
+        vec3 o = app.doc.find(iid)->pos;
+        float r = std::max(1.6f, 0.5f * std::max(a->footprint.x, a->footprint.y)) * 1.3f;
+        vec3 t = o + vec3(0, std::clamp(0.2f * r, 0.9f, 1.2f), 0);
+        keep.push_back(id + "_front"); cams.push_back({keep.back().c_str(), t + vec3(0.75f * r, 0.45f * r, 1.0f * r), t});
+        keep.push_back(id + "_rear"); cams.push_back({keep.back().c_str(), t + vec3(-0.8f * r, 0.55f * r, -0.9f * r), t});
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "interiors") {
       // NMK_CAPTURE_SET=interiors: walls, interiors and furniture (docs/interiors.md). The representative house is the
       // farmhouse (exterior wall, windows, doorway, two stairs, a dirt road and pasture in front); the inn shows the
@@ -114,6 +141,11 @@ void SelfTest::captureUpdate(App& app, float) {
       {"pasture_to_bunker", W(CM, vec3(3.0f, 1.7f, 30.0f)), W(CM, vec3(0.0f, 1.2f, 3.0f))},
     };
     ci = 0; frames = 0; stage = 801;
+  }
+  if (const char* pose = std::getenv("NMK_CAPTURE_POSE")) {   // D1: every station traversed / elevated / recoiling
+    float y = 0, e = 0, t = 1;
+    if (std::sscanf(pose, "%f,%f,%f", &y, &e, &t) >= 2)
+      for (auto& [id, r] : app.rt) if (r.asset && !r.asset->station.kind.empty()) { r.st.yaw = y; r.st.elev = e; r.st.recoilT = t; }
   }
   if (ci >= cams.size()) { finish(app); return; }
   Cam& c = cams[ci];

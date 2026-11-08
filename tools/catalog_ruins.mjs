@@ -11,6 +11,7 @@
 import { Asset, wbox } from "./kit.mjs";
 import { stdMaterials, wall, door, stairs, railing } from "./parts.mjs";
 import { rng, fire, cover, room, corners, setNav, setTour, r3 } from "./catalog_atlantic.mjs";
+import { debrisDetail } from "./defence_detail.mjs";
 
 const PT = 0.03;
 const D2R = Math.PI / 180;
@@ -667,5 +668,9 @@ export function rubDebrisPatch() {
 export function ruinAssets() {
   return [ruinHouseShelled(), ruinFarmhouseGutted(), ruinShopRow(), ruinBarnBurnt(), ruinCottageCorner(), ruinTownhouseFacade(),
     pile("brick", "s"), pile("brick", "m"), pile("brick", "l"), pile("stone", "s"), pile("stone", "m"), pile("stone", "l"),
-    rubBeamTileHeap(), rubCollapsedWall(), rubSpillStrip(), rubDebrisPatch()];
+    rubBeamTileHeap(), rubCollapsedWall(), rubSpillStrip(), rubDebrisPatch()].map((A) => {
+    debrisDetail(A);       // D1: chunky chamfered debris, splintered timber ends (appended, own RNG)
+    A.meta.version += 1;   // D1 model pass: every ruin / rubble asset was version 1
+    return A;
+  });
 }
