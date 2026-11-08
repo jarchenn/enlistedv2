@@ -460,3 +460,15 @@ Branch `vo-1-render` (worktree `nmk-vo1`), two commits on 0e8479f: 27f8aae (the 
     authored-count treatment (skip `extra.furnish`). Not run here: ai, match, net, entities, editor, structures, env.
     The AI navmesh now sees the furniture (blocking pieces carve); walkthrough routes and doorways stay clear.
   - **Open:** opening Omaha adds about 2.6 s (28 buildings); furniture standing behind a breached wall blocks the way in.
+  - **Batch B fixes (on 3ead61b):** ruined / half-built assets are never auto-furnished (`isRuinedAsset()` in
+    `interior.h`, for the lighting stream too). `deleteSelected` and build-mode Del take a building's furniture with it;
+    build-mode Ctrl+Z after placing a building removes its furniture (`builder.cpp`). Template furniture is no grass /
+    nature footprint and gets no soil band (`app.cpp`). Counting suites use `authoredInstanceCount()` (A/B reopen,
+    maps); the editor test finds the placed house by asset instead of `instances.back()`. Asset `tour` routes are kept
+    clear like `walkthrough` (church, Norman farmhouse tours); pews 2.1 m against the side walls; solid wall-hung
+    pieces keep out of route corridors. LAN: on this build the host no longer stalls (late joiner B in at match 17 s,
+    D refused as lobby-full); the remaining host failure was the test's 20 ms trigger windows for client A's
+    over-rate burst / teleport, missed at low frame rates; they now fire once on the first frame past the time
+    (`selftest_net.cpp`). The batch-B host crash did not reproduce here. The damage suite places its buildings bare
+    (`interior.autoOnPlace = false`): wall-stamp seeds come from instance ids, and furniture pieces shifted them enough
+    to flip V5's seed-sensitive support on/off comparison (23 % vs 11 %, needs +20 points).

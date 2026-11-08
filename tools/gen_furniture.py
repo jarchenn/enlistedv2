@@ -812,16 +812,16 @@ def desk(root):
 
 
 def pew(root):
-    a = A("furn_pew", "Church pew", "Oak pew with a panelled back, book ledge and scrolled ends; seats four.", "wood", 24, 50, front=0.55)
-    W, D = 2.6, 0.55
+    a = A("furn_pew", "Church pew", "Oak pew with a panelled back, book ledge and scrolled ends; seats three.", "wood", 24, 50, front=0.55)
+    W, D = 2.1, 0.55
     for i, sx in enumerate((-1, 1)):
         a.r([sx * (W / 2 - 0.03), 0.48, 0], [0.05, 0.96, D], "oak_dark", f"end{i}", 0.012)
         a.r([sx * (W / 2 - 0.03), 0.98, 0.1], [0.05, 0.08, 0.2], "oak_dark", f"end{i}", 0.03)
     a.r([0, 0.44, 0.06], [W - 0.06, 0.04, 0.38], "oak", "seat", 0.008)
     a.r([0, 0.36, 0.22], [W - 0.06, 0.1, 0.025], "oak", "seat", 0.004)
     a.r([0, 0.72, -D / 2 + 0.06], [W - 0.06, 0.52, 0.03], "oak", "back", 0.006, rot=[-6, 0, 0])
-    for k in range(4):
-        a.r([-W / 2 + 0.4 + k * 0.6, 0.72, -D / 2 + 0.078], [0.4, 0.38, 0.012], "oak_dark", "back", 0.004, rot=[-6, 0, 0])
+    for k in range(3):
+        a.r([-0.6 + k * 0.6, 0.72, -D / 2 + 0.078], [0.4, 0.38, 0.012], "oak_dark", "back", 0.004, rot=[-6, 0, 0])
     a.r([0, 0.96, -D / 2 + 0.03], [W - 0.06, 0.04, 0.12], "oak", "ledge", 0.008)   # book ledge for the row behind
     a.r([0, 0.08, 0.0], [W - 0.06, 0.04, 0.06], "oak", "seat", 0.004)
     a.col([0, 0.25, 0.06], [W, 0.5, 0.42])

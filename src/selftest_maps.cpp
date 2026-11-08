@@ -146,10 +146,7 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
 // A user's saved map promoted to a template (tools/mapgen/promote_map.py, "selftest": "authored"): it loads whole on
 // the template ground, its scenario as authored (reported, not held to the SPEC 2.1 default-map bands), saves and
 // reopens; views from the preview camera, first person at the explore start, and the template camera.
-static size_t authoredCount(const App& app) {   // V4: openMap / newMap add furniture pieces (extra.furnish) to every building
-  size_t n = 0; for (auto& i : app.doc.instances) n += !(i.extra.is_object() && i.extra.contains("furnish"));
-  return n;
-}
+static size_t authoredCount(const App& app) { return authoredInstanceCount(app.doc.instances); }   // V4: openMap / newMap add furniture pieces (extra.furnish) to every building
 
 void SelfTest::authoredChecks(App& app, const TemplateInfo& t, const json& mj) {
   const std::string id = t.id;

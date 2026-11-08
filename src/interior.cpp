@@ -50,6 +50,15 @@ bool supportHit(vec3 o, vec3 d, float len, uint64_t self, Physics::Hit& out) {
 bool boxOverlap(vec3 amn, vec3 amx, vec3 bmn, vec3 bmx) { return amn.x < bmx.x && amx.x > bmn.x && amn.y < bmx.y && amx.y > bmn.y && amn.z < bmx.z && amx.z > bmn.z; }
 }
 
+bool isRuinedAsset(const std::string& id) {
+  if (id.rfind("ruin_", 0) == 0 || id.rfind("rub_", 0) == 0) return true;   // V3 ruins and rubble
+  static const char* named[] = {"vil_church_ruined", "vil_chateau_keep", "aw_r612_unfinished", "bch_lcvp_wrecked"};
+  for (const char* n : named) if (id == n) return true;
+  return false;
+}
+bool isFurnishPiece(const Instance& i) { return i.extra.is_object() && i.extra.contains("furnish"); }
+size_t authoredInstanceCount(const std::vector<Instance>& v) { size_t n = 0; for (auto& i : v) n += !isFurnishPiece(i); return n; }
+
 const char* roomTypeName(int t) {
   static const char* n[] = {"Kitchen / dining", "Sitting room", "Bedroom", "Utility / storage", "Workshop", "Hall / passage",
                             "Church nave", "Barn", "Classroom", "Office", "Tavern room", "Ruined room"};
@@ -267,9 +276,13 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
   }
   // the asset's authored circulation (its walkthrough route through doors, rooms and stairs) stays clear of template
   // furniture: 0.4 m either side of every leg, on the storey the route is on (expectY marks storey changes)
-  if (a->walkthrough.is_object() && !ri.storeys.empty()) {
+  // (also the W4 / V3 "tour" an asset carries for the structures suite: the same goto / expectY vocabulary)
+  static const json kNone = json();
+  for (const json* route : {&a->walkthrough, a->raw.is_object() && a->raw.contains("tour") ? &a->raw["tour"] : &kNone}) {
+  if (!route->is_object() || ri.storeys.empty()) continue;
+  {
     float lvl = ri.storeys[0].y; vec2 prev(0); bool has = false;
-    if (a->walkthrough.contains("start")) { vec3 sp = jvec3(a->walkthrough["start"]["pos"]); prev = vec2(sp.x, sp.z); has = true; }
+    if (route->contains("start") && (*route)["start"].contains("pos")) { vec3 sp = jvec3((*route)["start"]["pos"]); prev = vec2(sp.x, sp.z); has = true; }
     auto markLeg = [&](vec2 p0, vec2 p1, float level) {
       int s = 0; for (size_t q = 0; q < ri.storeys.size(); ++q) if (std::fabs(ri.storeys[q].y - level) < std::fabs(ri.storeys[s].y - level)) s = (int)q;
       auto& S = ri.storeys[s];
@@ -277,16 +290,17 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
       for (int j = 0; j < S.nz; ++j) for (int i = 0; i < S.nx; ++i) {
         vec2 c(S.o.x + (i + 0.5f) * C, S.o.y + (j + 0.5f) * C);
         float u = std::clamp(glm::dot(c - p0, d) / L2, 0.0f, 1.0f);
-        if (glm::length(c - (p0 + d * u)) < 0.4f) S.keep[(size_t)j * S.nx + i] = 1;
+        if (glm::length(c - (p0 + d * u)) < 0.45f) S.keep[(size_t)j * S.nx + i] = 1;   // a 0.9 m corridor for the 0.6 m capsule
       }
     };
-    for (auto& s : a->walkthrough.value("steps", json::array())) {
-      if (!s.contains("goto")) continue;
+    for (auto& s : route->value("steps", json::array())) {
+      if (!s.contains("goto") || !s["goto"].is_array() || s["goto"].size() < 2) continue;
       vec2 p(s["goto"][0].get<float>(), s["goto"][1].get<float>());
       if (has) markLeg(prev, p, lvl);
       if (s.contains("expectY")) { lvl = s["expectY"].get<float>(); if (has) markLeg(prev, p, lvl); }
       prev = p; has = true;
     }
+  }
   }
   {   // a storey no staircase reaches (a loft over a single-storey cottage) has no rooms
     std::vector<bool> reach(ri.storeys.size(), false);
@@ -347,6 +361,7 @@ bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
   if (!a || !a->enterable || isProp(a)) return false;
   const std::string& id = a->id;
   if (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0) return false;   // bunkers, Atlantic Wall, beach / landing craft
+  if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built
   if (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0) return false;
   if (i.extra.is_object()) {
     if (i.extra.value("decor", false)) return false;                                   // V8 decorative border buildings
@@ -973,7 +988,7 @@ struct Planner {
     for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) {
       size_t c = (size_t)j * S.nx + i;
       if (S.id[c] != room) return false;
-      if (mode < 2 && S.keep[c]) return false;
+      if ((mode < 2 || mode == 3) && S.keep[c]) return false;   // 3: the room, clear of doors / stairs / routes, furniture below allowed
       if (mode == 0 && occ[s][c]) return false;
       if (mode == 1 && occ[s][c] == 1) return false;
     }
@@ -1010,7 +1025,8 @@ struct Planner {
     bool hung = pd->mount > 0;
     // wall-hung pieces (pictures, racks, pegs, clocks) only need their own room and wall: they may hang above a
     // dresser or a bench (3D boxes below), never in a door swing or over a stair
-    if (!rectCells(R.storey, k, vec2(mn.x, mn.z), vec2(mx.x, mx.z), hung ? 2 : mode)) return false;
+    // (a solid one -- a wall shelf, a plate rack -- also keeps out of the route corridors and doorway rings: it is at head height)
+    if (!rectCells(R.storey, k, vec2(mn.x, mn.z), vec2(mx.x, mx.z), hung ? (pd->blocking ? 3 : 2) : mode)) return false;
     if (hung) for (auto& b : ri.keep) if (b.kind != 2 && boxOverlap(mn, mx, b.mn, b.mx)) return false;
     if ((pd->blocking || hung) && !windowFree(mn, mx)) return false;
     for (auto& b : boxes) if (boxOverlap(mn + vec3(0.01f), mx - vec3(0.01f), b.first, b.second)) return false;
@@ -1192,7 +1208,10 @@ struct Planner {
     return false;
   }
   void hangTop(int k, const char* asset, const std::string& slot, float corner, const std::vector<const char*>& choices, int n) {
-    PlanItem s; if (hang(k, asset, slot, corner, &s)) onTop(s, choices, n);
+    PlanItem s; if (hang(k, asset, slot, corner, &s)) { onTop(s, choices, n); return; }
+    // no wall left for a solid shelf (they keep out of routes): a picture or a portrait may still hang there
+    std::string f0 = failed;
+    if (hang(k, rnd(strHash(slot), 3) < 0.5f ? "furn_portrait" : "furn_picture", slot, corner)) failed = f0;
   }
   void breakLast(bool did, float p, uint32_t h) { if (did && !out.empty() && rnd(h, 77) < p) out.back().broken = true; }
   // the end of a room's long axis that faces away from its doors (an altar, a teacher's desk): +1 toward mx, -1 toward mn
@@ -1217,8 +1236,10 @@ struct Planner {
     float lo = ax == 0 ? R.mn.x : R.mn.y, hi = ax == 0 ? R.mx.x : R.mx.y;
     float cl = ax == 0 ? R.mn.y : R.mn.x, ch = ax == 0 ? R.mx.y : R.mx.x, cc = (cl + ch) * 0.5f;
     float yaw = ax == 0 ? (s > 0 ? 90.0f : 270.0f) : (s > 0 ? 0.0f : 180.0f);
-    bool two = ch - cl > 2 * W + aisle + 0.3f;
-    std::vector<float> across = two ? std::vector<float>{cc - aisle * 0.5f - W * 0.5f, cc + aisle * 0.5f + W * 0.5f} : std::vector<float>{cc - (ch - cl - W) * 0.25f};
+    // a column against each side wall, the aisle between them (often the authored route); in a narrow room the second
+    // column does not fit beside the first and only one stands
+    std::vector<float> across = {cl + W * 0.5f + 0.05f, ch - W * 0.5f - 0.05f};
+    (void)cc; (void)aisle;
     int n = 0, row = 0;
     for (float t = 0; ; t += pitch, ++row) {
       float along = s > 0 ? lo + backGap + t : hi - backGap - t;
@@ -1474,8 +1495,18 @@ struct Planner {
         break;
       }
     }
+    // lived-in rooms collect pictures and family portraits on whatever wall is left (they may hang beside a route)
+    if (R.type != ROOM_CHURCH && R.type != ROOM_RUIN && R.type != ROOM_BARN && R.type != ROOM_UTILITY)
+      for (int c = 0; c < count(base + 160, 1.0f); ++c) hang(k, c % 2 ? "furn_portrait" : "furn_picture", r + "art" + std::to_string(c), 0.1f);
   }
 };
+}
+
+int InteriorSys::dropPieces(App& app, uint64_t hostId) {
+  size_t n0 = app.doc.instances.size();
+  app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) {
+    return isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == hostId; }), app.doc.instances.end());
+  return (int)(n0 - app.doc.instances.size());
 }
 
 int InteriorSys::unfurnish(App& app, uint64_t hostId) {

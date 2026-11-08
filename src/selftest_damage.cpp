@@ -154,6 +154,9 @@ void SelfTest::damageUpdate(App& app, float dt) {
   // ------------------------------------------------------------- setup: fixture map
   case 500: {
     reportName = "damage";
+    // V4: the destruction range is about walls, so its buildings are placed bare (no auto-furnish). Wall-stamp seeds come
+    // from instance ids, and furniture pieces would shift them; furniture damage is the interiors suite's
+    app.interior.autoOnPlace = false;
     const TemplateInfo* t = app.findTemplate("blank_slate");
     app.newMap(*t, "Destruction range");
     X.A = app.placeInstance(app.lib.find(FH), vec3(20, 0, 10), 37.0f);

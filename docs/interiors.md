@@ -201,15 +201,26 @@ automatically, at least three times as dense, and let shells, AT rounds, rockets
   `App::newMap` (so also the New Map dialog and every template). `App::placeInstance` calls `autoFurnish` for the new
   building (`interior.autoOnPlace`, on by default; tests switch it off to keep a built-in baseline).
 - **Which buildings.** Every enterable asset with rooms whose copy has no `extra.interior` with an `on` key. Skipped:
-  `bunker_*`, `aw_*`, `bch_*` (and the Bunkers / Atlantic Wall / Landing craft / Beach categories), anything tagged
-  `extra.decor` (V8's border buildings), and a building whose template furniture the user removed (`on: false`).
+  `bunker_*`, `aw_*`, `bch_*` (and the Bunkers / Atlantic Wall / Landing craft / Beach categories), ruined or
+  half-built assets (`isRuinedAsset()` in `interior.h`: `ruin_*`, `rub_*`, `vil_church_ruined`, `vil_chateau_keep`,
+  `aw_r612_unfinished`, `bch_lcvp_wrecked`; the lighting stream reuses the list), anything tagged `extra.decor`
+  (V8's border buildings), and a building whose template furniture the user removed (`on: false`).
+- **Deleting** a building (`deleteSelected`, build-mode Del) removes its template furniture at once; build-mode
+  Ctrl+Z after placing a building removes the furniture that came with it.
+- **Ground cover.** Template furniture is not a grass / nature-patch footprint and has no foundation soil band: it
+  stands inside its building's footprint.
+- **Routes stay clear.** Both the asset's `walkthrough` and its structures-suite `tour` keep a 0.9 m corridor free of
+  template furniture (church nave, Norman farmhouse), and so do the doorway rings. Solid wall-hung pieces (wall shelf,
+  plate rack: head height) keep out of them too; pictures and other cosmetic wall pieces may hang beside a route.
+  Pews are 2.1 m and stand in a column against each side wall. A wall shelf with no wall left becomes a picture or a
+  portrait, and lived-in rooms get one or two more of those wherever a wall is free.
 - **Not an edit.** No undo step is pushed and the dirty flag is restored, so opening a map and closing it again asks
   nothing. The pieces are ordinary instances (`extra.furnish`), so a saved map keeps them and is not furnished twice;
   a built-in example opened as a copy is furnished the same way every time (the seed comes from the host id).
 - **Room detection.** Earth floors and thin dressed-stone floors now count, which gives the stone barn, the church
   nave, the chateau keep's ground floor and the ruined church their rooms. New room kinds: church nave, barn, classroom,
-  office, tavern room and ruined room (any V3 `ruin_*` asset), next to kitchen, sitting room, bedroom, utility, workshop
-  and hall.
+  office, tavern room and ruined room (a `ruin_*` asset furnished by hand from the Interior panel), next to kitchen,
+  sitting room, bedroom, utility, workshop and hall.
 
 ### Density
 

@@ -122,7 +122,9 @@ bool App::buildRemoveAimed() {
   act.removed.push_back(*t);
   uint64_t id = t->id;
   if (selected == id) selected = 0;
-  doc.instances.erase(std::remove_if(doc.instances.begin(), doc.instances.end(), [&](const Instance& i) { return i.id == id; }), doc.instances.end());
+  auto furnOf = [&](const Instance& i) { return isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == id; };   // V4: its furniture goes with it
+  for (auto& i : doc.instances) if (furnOf(i)) act.removed.push_back(i);
+  doc.instances.erase(std::remove_if(doc.instances.begin(), doc.instances.end(), [&](const Instance& i) { return i.id == id || furnOf(i); }), doc.instances.end());
   syncRuntime();
   dirty = act.real ? true : wasDirty;
   build.history.push_back(std::move(act)); ++build.removed; build.aimId = 0;
@@ -220,13 +222,13 @@ void App::stepBuilder(const ExploreInput& in) {
   BuildAction act; act.real = build.realEdits && build.forceAsset.empty();   // rack deployments stay a session overlay
   uint64_t id = 0;
   if (act.real) {
+    size_t n0 = doc.instances.size();
     skipSlopeRule = true; id = placeInstance(a, build.pos, build.ghostYaw); skipSlopeRule = false;   // the editor's own path (undo, furnishing hooks)
     if (!id) return;   // placeInstance toasted why
     stripSessionFromUndoTop(*this);
     act.undoDepth = undoStack.size();
-    act.placed.push_back(id);
-    size_t n0 = doc.instances.size(); placeCompanions(id);
-    for (size_t k = n0; k < doc.instances.size(); ++k) act.placed.push_back(doc.instances[k].id);
+    placeCompanions(id);
+    for (size_t k = n0; k < doc.instances.size(); ++k) act.placed.push_back(doc.instances[k].id);   // the placement, its furniture (V4) and companions
     dirty = true;
   } else {
     bool wasDirty = dirty;

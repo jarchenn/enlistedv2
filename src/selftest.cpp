@@ -283,7 +283,7 @@ void SelfTest::update(App& app, float dt) {
   case 100: {
     check(app.openMap(reopenPath), "relaunch: reopened " + reopenPath.filename().string());
     try { expected = json::parse(readTextFile(outDir() / "expected_A.json")); } catch (...) {}
-    check(app.doc.instances.size() == 1, "exactly one placed instance after reopen");
+    check(authoredInstanceCount(app.doc.instances) == 1 && !isFurnishPiece(app.doc.instances[0]), "exactly one placed instance after reopen (its room-template furniture saved with it: " + std::to_string(app.doc.instances.size() - 1) + " pieces)");
     if (app.doc.instances.empty()) { finish(app); break; }
     Instance& h = app.doc.instances[0]; houseId = h.id;
     if (expected.is_object()) {
@@ -349,9 +349,10 @@ void SelfTest::update(App& app, float dt) {
       check(app.rt[houseId].progress[k] == 0.0f, "door returns to authored closed state after exploring");
       // undo correctness: delete furnished building, undo, redo, undo
       Instance before = *app.doc.find(houseId);
-      size_t n0 = app.doc.instances.size();
+      size_t n0 = app.doc.instances.size(), a0 = authoredInstanceCount(app.doc.instances);
       app.selected = houseId; app.deleteSelected();
-      check(app.doc.instances.size() == n0 - 1, "delete removes the building and its furniture");
+      int orphans = 0; for (auto& i : app.doc.instances) orphans += isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == before.id;
+      check(authoredInstanceCount(app.doc.instances) == a0 - 1 && orphans == 0, "delete removes the building and its furniture (" + std::to_string(n0 - app.doc.instances.size()) + " instances)");
       app.undo(); app.redo(); app.undo();
       int count = 0; for (auto& i : app.doc.instances) if (i.id == before.id) ++count;
       check(count == 1 && app.doc.instances.size() == n0, "undo/redo/undo restores exactly one building");

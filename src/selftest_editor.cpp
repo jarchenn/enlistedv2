@@ -414,7 +414,7 @@ void SelfTest::editorUpdate(App& app, float dt) {
       app.scriptedInput.fire = true;
     }
     if (f == 14) {
-      house = app.doc.instances.size() > n0 + 1 ? app.doc.instances.back().id : 0;
+      house = 0; for (size_t k = n0; k < app.doc.instances.size(); ++k) if (app.doc.instances[k].assetId == houseA->id && !isFurnishPiece(app.doc.instances[k])) house = app.doc.instances[k].id;   // its furniture follows it (V4)
       check(has(house) && app.doc.find(house)->assetId == houseA->id, "the house is placed through checkPlacement / placeInstance");
       if (const Instance* ci = app.doc.find(crate)) aimAt(ci->pos + vec3(0, 0.3f, 0));
     }

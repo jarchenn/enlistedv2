@@ -43,6 +43,12 @@ struct RoomInfo {
   int16_t at(int s, vec3 p) const;   // cell id at an asset-space point on storey s (WALL outside the grid)
 };
 
+// Assets that stand ruined or half-built: never furnished automatically (the lighting stream reuses the list)
+bool isRuinedAsset(const std::string& assetId);
+// a room-template furniture piece (extra.furnish), and the instances of a map without them (tests count these)
+bool isFurnishPiece(const Instance& i);
+size_t authoredInstanceCount(const std::vector<Instance>& v);
+
 enum RoomType { ROOM_KITCHEN = 0, ROOM_SITTING, ROOM_BEDROOM, ROOM_UTILITY, ROOM_WORKSHOP, ROOM_HALL,
                 ROOM_CHURCH, ROOM_BARN, ROOM_CLASS, ROOM_OFFICE, ROOM_TAVERN, ROOM_RUIN, ROOM_TYPES };
 const char* roomTypeName(int t);
@@ -92,6 +98,7 @@ public:
   // ---- room templates
   int furnish(App& app, uint64_t hostId, int mode);   // 0 regenerate (keeps overrides / deletions), 1 reroll, 2 reset
   int unfurnish(App& app, uint64_t hostId);
+  int dropPieces(App& app, uint64_t hostId);           // a deleted building's template furniture goes with it (no runtime sync)
   int roomType(const AssetDef* a, const RoomInfo& ri, int k) const;
   void sync(App& app);                                 // Creative: generated pieces follow / leave with their host
   void editorPanel(App& app, Instance& s);

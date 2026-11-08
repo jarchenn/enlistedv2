@@ -623,7 +623,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       // pieces per building with the first templates (master 0e8479f, default density 0.7): the 3x gate is on the total
       const std::map<std::string, int> before = {{"house_farmhouse_2story", 22}, {"house_stone_cottage", 10}, {"large_municipal_building", 22},
         {"large_stone_warehouse", 13}, {"large_village_inn", 11}, {"large_village_schoolhouse", 27}, {"small_carpenter_workshop", 5}, {"small_roadside_office", 2},
-        {"small_stone_dairy", 4}, {"small_storehouse", 4}, {"vil_chateau_keep", 7}, {"vil_church", 5}, {"vil_norman_farmhouse", 31}};
+        {"small_stone_dairy", 4}, {"small_storehouse", 4}, {"vil_church", 5}, {"vil_norman_farmhouse", 31}};   // vil_chateau_keep (7) is left bare now
       json all = json::object(); int k = 0, total = 0, was = 0, skippedOk = 0, skipped = 0, furnished = 0, eligible = 0, vilRooms = 0, vils = 0, pews = 0, fixed = 0;
       std::string bad, lowest; float worst = 1e9f;
       for (auto& as : a.lib.assets) {
@@ -633,25 +633,25 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         if (!id) { all[as->id] = {{"placed", false}}; bad += " " + as->id + "(not placed)"; continue; }
         const RoomInfo* ri = a.interior.rooms(as.get());
         int n = (int)childrenOf(a, id).size();
-        bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0;
+        bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0 || isRuinedAsset(as->id);
         if (as->id.rfind("vil_", 0) == 0) { ++vils; vilRooms += !ri->rooms.empty(); if (ri->rooms.empty()) bad += " " + as->id + "(no rooms)"; }
         if (skip) { ++skipped; skippedOk += n == 0 && !a.interior.hideBuiltin(*a.doc.find(id)); }
         else if (!ri->rooms.empty()) { ++eligible; furnished += n > 0 && a.interior.hideBuiltin(*a.doc.find(id)); if (n == 0) bad += " " + as->id + "(empty)"; }
         if (as->id.find("church") != std::string::npos) for (auto* c : childrenOf(a, id)) pews += c->assetId == "furn_pew";
         auto bf = before.find(as->id);
         if (bf != before.end()) { total += n; was += bf->second; float r = n / (float)bf->second; if (r < worst) { worst = r; lowest = as->id; } }
-        if (as->id == "vil_stone_barn" || as->id == "vil_church_ruined") fixed += n > 0;
+        if (as->id == "vil_stone_barn") fixed += n > 0;
         all[as->id] = {{"pieces", n}, {"rooms", ri->rooms.size()}};
         logf("[interiors] %s: %zu rooms, %d pieces", as->id.c_str(), ri->rooms.size(), n);
       }
-      std::snprintf(b_, sizeof b_, "auto-furnish: %d of %d enterable houses, barns, churches and civic buildings furnished on placement;%s", furnished, eligible, bad.empty() ? " none missed" : bad.c_str());
-      check(eligible >= 15 && furnished == eligible, b_);
-      std::snprintf(b_, sizeof b_, "skip rules: %d of %d bunkers / Atlantic Wall / landing craft left as authored", skippedOk, skipped);
-      check(skipped >= 10 && skippedOk == skipped, b_);
-      std::snprintf(b_, sizeof b_, "room detection: %d of %d vil_* buildings have rooms (earth and dressed-stone floors count: the barn and the ruined church, %d now furnished)", vilRooms, vils, fixed);
-      check(vils >= 5 && vilRooms == vils && fixed == 2, b_);
-      std::snprintf(b_, sizeof b_, "churches get pews: %d pews in the church and the ruined church", pews);
-      check(pews >= 8, b_);
+      std::snprintf(b_, sizeof b_, "auto-furnish: %d of %d enterable houses, barns, the church and civic buildings furnished on placement;%s", furnished, eligible, bad.empty() ? " none missed" : bad.c_str());
+      check(eligible >= 12 && furnished == eligible, b_);
+      std::snprintf(b_, sizeof b_, "skip rules: %d of %d bunkers / Atlantic Wall / landing craft / ruins (isRuinedAsset: ruin_*, rub_*, the ruined church, the chateau keep) left as authored", skippedOk, skipped);
+      check(skipped >= 12 && skippedOk == skipped, b_);
+      std::snprintf(b_, sizeof b_, "room detection: %d of %d vil_* buildings have rooms (earth and dressed-stone floors count: the barn is furnished now (%d), the ruined church has rooms but stays bare)", vilRooms, vils, fixed);
+      check(vils >= 5 && vilRooms == vils && fixed == 1, b_);
+      std::snprintf(b_, sizeof b_, "the church gets pews: %d pews", pews);
+      check(pews >= 6, b_);
       std::snprintf(b_, sizeof b_, "density over every building: %d pieces vs %d with the first templates = x%.2f (gate x3); lowest %s x%.1f", total, was, total / (float)std::max(1, was), lowest.c_str(), worst);
       check(total >= 3 * was, b_);
       // a decorative border building (V8, extra.decor) and a building whose furniture the user removed stay as they are
@@ -713,7 +713,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         int hosts = 0, done = 0, pieces = 0;
         for (auto& i : a.doc.instances) {
           const AssetDef* as = a.lib.find(i.assetId); if (!as || !as->enterable || a.interior.isProp(as)) continue;
-          bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0 || a.interior.rooms(as)->rooms.empty();
+          bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0 || isRuinedAsset(as->id) || a.interior.rooms(as)->rooms.empty();
           if (skip) continue;
           ++hosts; done += a.interior.hideBuiltin(i);
         }
