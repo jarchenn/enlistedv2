@@ -55,6 +55,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `env_sea_shallows` | Beach | 87: The sea (s < 50): shallow water surface | terrain-only base map |
 | `fence_post_wire` | Dressing | 30: Plateau field fences | terrain-only base map |
 | `field_gate` | Dressing | 6: Bocage field gates | terrain-only base map |
+| `fire_brazier` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map |
+| `fire_campfire` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map |
 | `furn_armchair` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_armoire` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
 | `furn_barrel_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
@@ -66,6 +68,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_books` | Furniture | 1: D: CP map table | terrain-only base map |
 | `furn_bottles` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
 | `furn_bucket` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
+| `furn_candelabra` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): church altars | terrain-only base map |
+| `furn_candle` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): bedrooms, small rooms | terrain-only base map |
 | `furn_candlesticks` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_chair_ladder` | Furniture | 3: D: CP map table | terrain-only base map |
 | `furn_chair_slat` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
@@ -78,6 +82,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_curtains` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
 | `furn_desk` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_dresser` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
+| `furn_fire_hearth` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): a fire on every hearth | terrain-only base map |
 | `furn_fireplace` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
 | `furn_hay_bales` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_hutch_glazed` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
@@ -85,6 +90,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_jars` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_jug_bowl` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
 | `furn_lamp` | Furniture | 1: D: CP map table | terrain-only base map |
+| `furn_lamp_caged` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): bunkers, casemates and low ceilings | terrain-only base map |
+| `furn_lamp_ceiling` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): kitchens, sitting rooms, halls, offices, classrooms, taverns | terrain-only base map |
+| `furn_lamp_table` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): sitting rooms | terrain-only base map |
 | `furn_mirror` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_pantry` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_papers` | Furniture | 1: D: CP map table (maps) | terrain-only base map |
@@ -102,6 +110,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_sideboard` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
 | `furn_stool` | Furniture | 1: D: farmyard | terrain-only base map |
 | `furn_stove` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
+| `furn_stove_potbelly` | Furniture | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map |
 | `furn_table_dining` | Furniture | 1: D: the HQ map table in the farmyard | terrain-only base map |
 | `furn_table_small` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map |
 | `furn_tool_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map |
@@ -118,6 +127,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `hedgerow_bocage` | Vegetation | 228: Plateau: older 8 m hedges mixed into the network | terrain-only base map |
 | `house_farmhouse_2story` | Houses | 4: Saint-Laurent | terrain-only base map |
 | `house_stone_cottage` | Houses | 7: Saint-Laurent; the beach house on the sand shelf | terrain-only base map |
+| `lamp_gas_street` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md); the Beautify street_lamps role lines roads with it | terrain-only base map |
+| `lamp_hanging_lantern` | Lighting | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): barns, workshops, stores, church naves | terrain-only base map |
+| `lamp_lantern_post` | Lighting | not hand-placed: Paths > Line auto paths with lamp posts (L3, docs/lights.md) | terrain-only base map |
+| `lamp_wall_lantern` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map |
 | `large_municipal_building` | Large buildings | 1: Saint-Laurent (mairie) | terrain-only base map |
 | `large_stone_warehouse` | Large buildings | 1: Saint-Laurent | terrain-only base map |
 | `large_village_inn` | Large buildings | 1: Saint-Laurent crossroads | terrain-only base map |

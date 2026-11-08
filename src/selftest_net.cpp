@@ -11,8 +11,10 @@
 #include "game.h"
 #include "mpui.h"
 #include "net.h"
+#include "lights.h"   // L3: a lamp shot out on the host is dark on the clients
 #include <functional>
 #include <cmath>
+static uint64_t gNetLampProbe = 0;   // L3: the ceiling lamp the host shoots out
 static double gTestCloudStart = -1, gTestCloudDense = 0;   // host: the smoke cloud the test starts (bots may throw others)
 
 namespace {
@@ -34,6 +36,7 @@ json netClientStats(App& app) {
     json all = json::array(); for (auto& c : g->gren.clouds) all.push_back({c.start, c.dense}); j["cloudList"] = all; }
   j["gameActive"] = g && g->active; j["isClient"] = g && g->isClient; j["mode"] = (int)app.mode; j["netRole"] = gNet ? (int)gNet->role : -1;
   { extern json goreNetStats(); j["gore"] = goreNetStats(); }   // W7: gore events received from the host
+  { json out = json::array(); for (auto& i : app.doc.instances) if (lightDef(app.assetFor(i))) { std::string w = lightOffReason(app, i); if (w == "glass broken" || w == "broken") out.push_back(i.id); } j["lightsOut"] = out; }   // L3
   if (g) { int alive = 0; for (auto& s : g->sold) alive += s.alive; j["alive"] = alive; j["slots"] = (int)g->sold.size(); j["phase"] = (int)g->match.phase; j["active"] = g->match.active; j["progress"] = g->match.obj.empty() ? 0.0f : g->match.obj[0].progress; j["local"] = g->localSlot; j["t"] = g->t; }
   return j;
 }
@@ -68,6 +71,21 @@ void SelfTest::netUpdate(App& app, float dt) {
         Physics::Hit h; vec3 o(-24, 1.2f, 20);
         if (Physics::castRayEx(o, vec3(0, 0, -1), 30, h)) a.explode(h.pos, vec3(0, 0, -1), 320, 0.9f, 1.0f, ~0ull, WALL_AP);
         check(true, "host breached the town hall wall (late joiners must see it)");
+        return true; });
+      push("lamp shot out", [this](App& a, float t) {   // L3 (docs/lights.md): a real round through a ceiling lamp's bulb, replicated as an impact event
+        if (t == 0) {
+          gNetLampProbe = 0;
+          for (auto& i : a.doc.instances) if (i.assetId == "furn_lamp_ceiling" && lightOffReason(a, i).empty()) { gNetLampProbe = i.id; break; }
+          if (!gNetLampProbe) { check(false, "a lit ceiling lamp on the map"); return true; }
+          Instance* i = a.doc.find(gNetLampProbe); const PropDef* pd = a.interior.prop(a.assetFor(*i));
+          vec3 gc = i->pos + yawQuat(i->yaw) * ((pd->gmin + pd->gmax) * 0.5f), from = gc - vec3(0.25f, 0.9f, 0.1f);
+          a.fireProjectile(from, glm::normalize(gc - from), 700.0f, PROJ_BULLET, 30.0f, ~0ull, false, "");
+          return false;
+        }
+        if (t < 1.0f) return false;
+        Instance* i = a.doc.find(gNetLampProbe);
+        std::string why = i ? lightOffReason(a, *i) : "missing";
+        check(why == "glass broken", "host shot out ceiling lamp #" + std::to_string(gNetLampProbe) + " (" + why + ")");
         return true; });
       push("gore probe hit", [this](App& a, float t) {   // W7: one real flesh hit with a known seed, replicated as a "gore" event
         extern uint64_t goreTestInjectHit(App&); extern uint64_t gNetGoreProbe;
@@ -116,6 +134,10 @@ void SelfTest::netUpdate(App& app, float dt) {
             extern uint64_t gNetGoreProbe; json gj = js.value("gore", json::object());
             std::snprintf(b, sizeof b, "client %s received %d gore events; probe hit's droplets simulated from the seed: hash %s (host %s)", nm.c_str(), gj.value("received", 0), gj.value("probe", std::string("none")).substr(0, 8).c_str(), std::to_string(gNetGoreProbe).substr(0, 8).c_str());
             check(gj.value("received", 0) >= 1 && gj.value("probe", std::string()) == std::to_string(gNetGoreProbe), b);
+          }
+          {   // L3: the lamp the host shot out is dark there too (A live, B through the late-join world log)
+            bool out = false; for (auto& v : js.value("lightsOut", json::array())) out |= v.is_number() && v.get<uint64_t>() == gNetLampProbe;
+            check(gNetLampProbe && out, "client " + nm + ": the ceiling lamp shot out on the host is dark (" + std::to_string(js.value("lightsOut", json::array()).size()) + " lights out there)");
           }
           int sa = js.value("alive", 0), ha = 0; for (auto& s : gGame->sold) ha += s.alive;
           check(std::abs(sa - ha) <= 2, "client " + nm + " sees " + std::to_string(sa) + " living soldiers (host " + std::to_string(ha) + ")");

@@ -75,6 +75,12 @@
  "field_gate": {
   "effect": "carve"
  },
+ "fire_brazier": {
+  "effect": "carve"
+ },
+ "fire_campfire": {
+  "effect": "none"
+ },
  "furn_armchair": {
   "effect": "carve"
  },
@@ -106,6 +112,12 @@
   "effect": "none"
  },
  "furn_bucket": {
+  "effect": "none"
+ },
+ "furn_candelabra": {
+  "effect": "none"
+ },
+ "furn_candle": {
   "effect": "none"
  },
  "furn_candlesticks": {
@@ -144,6 +156,9 @@
  "furn_dresser": {
   "effect": "carve"
  },
+ "furn_fire_hearth": {
+  "effect": "none"
+ },
  "furn_fireplace": {
   "effect": "carve"
  },
@@ -163,6 +178,15 @@
   "effect": "none"
  },
  "furn_lamp": {
+  "effect": "none"
+ },
+ "furn_lamp_caged": {
+  "effect": "none"
+ },
+ "furn_lamp_ceiling": {
+  "effect": "none"
+ },
+ "furn_lamp_table": {
   "effect": "none"
  },
  "furn_mirror": {
@@ -214,6 +238,9 @@
   "effect": "carve"
  },
  "furn_stove": {
+  "effect": "carve"
+ },
+ "furn_stove_potbelly": {
   "effect": "carve"
  },
  "furn_table_dining": {
@@ -810,6 +837,18 @@
    }
   ],
   "derived": "auto (tools/build_mpu_assets.mjs houseNav)"
+ },
+ "lamp_gas_street": {
+  "effect": "carve"
+ },
+ "lamp_hanging_lantern": {
+  "effect": "none"
+ },
+ "lamp_lantern_post": {
+  "effect": "carve"
+ },
+ "lamp_wall_lantern": {
+  "effect": "none"
  },
  "large_municipal_building": {
   "effect": "block",

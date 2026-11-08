@@ -8,6 +8,7 @@
 //   * per building copy finish parameters (SurfaceParams) for the wall / floor patterns 17-22.
 #include "interior.h"
 #include "app.h"
+#include "lights.h"   // L3: light assets, interior lighting (docs/lights.md)
 #include <imgui.h>
 #include <chrono>
 #include <algorithm>
@@ -91,6 +92,9 @@ const PropDef* InteriorSys::prop(const AssetDef* a) {
   d.bmin = vec3(1e9f); d.bmax = vec3(-1e9f);
   for (auto& p : a->parts) if (p.visible) { vec3 mn, mx; partAabb(p, mn, mx); d.bmin = glm::min(d.bmin, mn); d.bmax = glm::max(d.bmax, mx); }
   if (d.bmin.x > d.bmax.x) { d.bmin = vec3(-0.2f); d.bmax = vec3(0.2f); }
+  d.hang = pj.value("hang", false);   // L3 lights (docs/lights.md)
+  d.gmin = vec3(1e9f); d.gmax = vec3(-1e9f);
+  for (auto& p : a->parts) if (p.visible && p.grp == d.glass && d.glass >= 0) { vec3 mn, mx; partAabb(p, mn, mx); d.gmin = glm::min(d.gmin, mn); d.gmax = glm::max(d.gmax, mx); }
   // broken state: the keep groups stay (static), with one collider box over them when the prop blocks
   MeshData bm; std::vector<Part> kb;
   for (auto& p : a->parts) {
@@ -352,7 +356,7 @@ int InteriorSys::roomType(const AssetDef* a, const RoomInfo& ri, int k) const {
 }
 
 bool InteriorSys::hideBuiltin(const Instance& i) const {
-  return i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false);
+  return i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false) && !i.extra["interior"].value("lightsOnly", false);   // L3: a lit bunker keeps its own furniture
 }
 
 // ============================================================ automatic furnishing (V4)
@@ -360,9 +364,10 @@ bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
   const AssetDef* a = app.lib.find(i.assetId);
   if (!a || !a->enterable || isProp(a)) return false;
   const std::string& id = a->id;
-  if (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0) return false;   // bunkers, Atlantic Wall, beach / landing craft
-  if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built
-  if (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0) return false;
+  bool lit = lightsOnlyHost(a);   // L3: bunkers and casemates get caged electric lamps only (their own furniture stays)
+  if (!lit && (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0)) return false;   // bunkers, Atlantic Wall, beach / landing craft
+  if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built (V4)
+  if (!lit && (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0)) return false;
   if (i.extra.is_object()) {
     if (i.extra.value("decor", false)) return false;                                   // V8 decorative border buildings
     if (i.extra.contains("furnish")) return false;
@@ -613,6 +618,12 @@ int InteriorSys::bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::strin
   if (!inst) return 0;
   PropRT& s = st[iid];
   surface = surfaceOf(pd);
+  if ((pd->family == "masonry" || pd->family == "metal") && pd->glass >= 0 && !s.broken && !s.glassBroken) {   // L3: a lantern's glass panes in an iron frame
+    vec3 lp = glm::inverse(yawQuat(inst->yaw)) * (at - inst->pos);
+    if (glm::all(glm::greaterThan(lp, pd->gmin - vec3(0.04f))) && glm::all(glm::lessThan(lp, pd->gmax + vec3(0.04f)))) {
+      s.glassBroken = true; ++glassBreaks; ++epoch_; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); return 2;
+    }
+  }
   if (pd->family == "masonry" || pd->family == "metal") { app.fx.impact(at, -dir, pd->family); return 1; }   // stone, cast iron: rounds stop
   if (!s.broken) {
     if (pd->glass >= 0 && !s.glassBroken) { s.glassBroken = true; ++glassBreaks; ++epoch_; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); }
@@ -736,6 +747,13 @@ bool InteriorSys::supported(App& app, const Instance& i, const AssetDef* a, int*
   if (!pd) return true;
   quat q = yawQuat(i.yaw);
   uint64_t self = i.id << 16;
+  if (pd->hang) {   // L3: hung from a ceiling or beam: something solid right above its top
+    vec3 c = i.pos + q * vec3((pd->bmin.x + pd->bmax.x) * 0.5f, pd->bmax.y - 0.03f, (pd->bmin.z + pd->bmax.z) * 0.5f);
+    Physics::Hit h;
+    bool ok = Physics::castRayEx(c, vec3(0, 1, 0), 0.15f, h, self) && !isDebris(h.ud);
+    if (hitsOut) *hitsOut = ok ? 5 : 0;
+    return ok;
+  }
   if (pd->mount > 0) {   // wall-hung: something solid right behind it
     bool ok = false;
     for (float fx : {0.5f, 0.1f, 0.9f}) {
@@ -836,6 +854,7 @@ void InteriorSys::blast(App& app, vec3 p, vec3 dir, float dmg, float radius, int
 }
 
 void InteriorSys::step(App& app, float dt) {
+  lightsStep(app, dt);   // L3: flames of lit fires near the camera
   for (auto& f : frags) {
     if (f.frozen) continue;
     f.age += dt;
@@ -861,7 +880,7 @@ void InteriorSys::reset(App& app) {
 }
 
 int InteriorSys::applyToMap(App& app) {
-  int n = 0;
+  int n = lightsApplyToMap(app);   // L3: lights put out this session are saved off
   for (auto& i : app.doc.instances) {
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !prop(it->second.asset)) continue;
     auto s = st.find(i.id);
@@ -873,6 +892,7 @@ int InteriorSys::applyToMap(App& app) {
 }
 
 void InteriorSys::clearApplied(App& app) {
+  lightsClearApplied(app);   // L3
   for (auto& i : app.doc.instances)
     if (i.extra.is_object() && i.extra.contains("propBroken")) { i.extra.erase("propBroken"); i.rev = ++app.revCounter; }
 }
@@ -916,6 +936,11 @@ PlaceCheck InteriorSys::checkPlacement(App& app, const AssetDef* a, vec3 pos, fl
     onProp = (h.ud & 0xFFFF) == 0 && ht != app.rt.end() && prop(ht->second.asset);
   }
   if (onProp && pd->blocking) { c.ok = false; c.reason = a->name + " must stand on a floor, not on other furniture."; return c; }
+  if (pd->hang) {   // L3: hung by its top from the ceiling or beam above the cursor point
+    Physics::Hit uh;   // from the floor point, or from just under a point already at the ceiling
+    if (!Physics::castRayEx(vec3(pos.x, std::max(y + 0.3f, pos.y - 0.25f), pos.z), vec3(0, 1, 0), 8.0f, uh, self)) { c.ok = false; c.reason = a->name + " hangs from a ceiling or a beam: nothing above it."; return c; }
+    y = uh.pos.y - pd->bmax.y - 0.004f;
+  }
   if (pd->mount > 0) {   // wall-hung: at its height above the floor, flat against the wall behind
     y += pd->mount;
     vec3 back = q * vec3(0, 0, -1);
@@ -1538,6 +1563,8 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   uint32_t seed = in.value("seed", (uint32_t)(hmix32((uint32_t)hostId * 2654435761u) & 0xFFFFFF));
   if (mode == 1) seed = hmix32(seed + 0x9E3779B9u) & 0xFFFFFF;
   in["seed"] = seed; in["on"] = true; in["gen"] = hostId;
+  const bool lightsOnly = lightsOnlyHost(ha);   // L3: bunkers: lamps only, no room templates
+  if (lightsOnly) in["lightsOnly"] = true; else in.erase("lightsOnly");
   float density = std::clamp(in.value("density", 1.0f), 0.0f, 2.0f), clutter = std::clamp(in.value("clutter", 0.7f), 0.0f, 2.0f);   // V4: 1.0 is a lived-in house (3x the first templates), 2.0 crowded
   float wear = h->extra.contains("finish") ? h->extra["finish"].value("wear", 1.0f) : 1.0f;
   std::set<std::string> removed;
@@ -1579,7 +1606,12 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   }
   std::vector<int> order(ri->rooms.size());
   for (size_t k = 0; k < order.size(); ++k) order[k] = (int)k;
-  for (int k : order) P.room(k);
+  for (int k : order) if (!lightsOnly) P.room(k);
+  {   // L3 (docs/lights.md): a ceiling or table light per room, a fire on each hearth, caged lamps in bunkers
+    std::vector<LightPlanItem> li; for (auto& it : P.out) li.push_back({it.slot, it.asset, it.p, it.yaw});
+    size_t n0 = li.size(); lightsPlanRooms(app, *this, *h, ha, *ri, seed, li);
+    for (size_t q = n0; q < li.size(); ++q) { PlanItem it; it.slot = li[q].slot; it.asset = li[q].asset; it.p = li[q].p; it.yaw = li[q].yaw; P.out.push_back(it); }
+  }
   // occasional broken items in worn buildings (restrained: intact houses stay intact)
   for (auto& it : P.out) if (it.asset.rfind("furn_chair", 0) == 0 && h01(seed, strHash(it.slot), 8u) < 0.05f * std::max(0.0f, wear - 0.6f)) it.broken = true;
   json slots = json::array();
@@ -1622,7 +1654,7 @@ void InteriorSys::sync(App& app) {
   ++syncPasses;
   bool changed = false;
   std::map<uint64_t, Instance*> hosts;
-  for (auto& i : app.doc.instances) if (hideBuiltin(i)) hosts[i.id] = &i;
+  for (auto& i : app.doc.instances) if (i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false)) hosts[i.id] = &i;   // L3: lit bunkers too
   std::vector<uint64_t> orphans, regen;
   for (auto& [id, h] : hosts) if (h->extra["interior"].value("gen", (uint64_t)0) != id) regen.push_back(id);   // a duplicated building
   for (auto& i : app.doc.instances) {
@@ -1661,6 +1693,8 @@ void InteriorSys::sync(App& app) {
 
 // ============================================================ editor
 void InteriorSys::editorPanel(App& app, Instance& s) {
+  lightsEditorPanel(app, s);   // L3: the Light section (colour, intensity, on / off)
+  if (!app.doc.find(s.id)) return;
   const AssetDef* a = app.assetFor(s);
   if (const PropDef* pd = prop(a)) {
     if (ImGui::CollapsingHeader("Furniture", ImGuiTreeNodeFlags_DefaultOpen)) {

@@ -85,6 +85,7 @@ include(cmake/settings.cmake) # V2: Settings window, graphics presets, --selftes
 include(cmake/v6.cmake)     # V6: snapping, crush & flatten (snap.cpp)
 include(cmake/vo1.cmake)    # V1: water pass, --selftest-render (facades, walls, water)
 include(cmake/lt2.cmake)    # L2: lighting engine, --selftest-lights (docs/lighting.md)
+include(cmake/lt3.cmake)    # L3: light assets, interior lighting, lamp placement (docs/lights.md)
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

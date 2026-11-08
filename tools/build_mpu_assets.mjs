@@ -113,7 +113,8 @@ for (const file of fs.readdirSync(out).filter((f) => f.endsWith(".json")).sort()
   if (ids.has(id) || id.startsWith("bunker_") || id === "gun_mg42_embrasure") continue;
   // furniture (tools/gen_furniture.py, docs/interiors.md): blocking pieces carve, cosmetic props (rugs, papers,
   // crockery, curtains) are small dressing
-  const rule = BACKFILL[id] ?? (id.startsWith("furn_") ? (j) => ({ effect: j.prop && j.prop.blocking ? "carve" : "none" }) : undefined);
+  // L3 lights (lamp_*, fire_*: gen_env_assets.py, docs/lights.md) follow the same rule
+  const rule = BACKFILL[id] ?? (id.startsWith("furn_") || id.startsWith("lamp_") || id.startsWith("fire_") ? (j) => ({ effect: j.prop && j.prop.blocking ? "carve" : "none" }) : undefined);
   if (!rule) { console.warn("no nav rule for", id, "(left unchanged)"); continue; }
   let text = fs.readFileSync(path.join(out, file), "utf8");
   const j = JSON.parse(text);

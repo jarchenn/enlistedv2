@@ -467,3 +467,177 @@ flak = {"id": "gun_flak18", "version": 1, "name": "8.8 cm Flak 18 (emplacement)"
                     "recoilParts": [vb([0, 0.157, 1.62], [0.26, 0.26, 4.35])]}}
 save(flak)
 print("flak ok")
+
+
+# ---------------------------------------------------------------- L3 lights (docs/lights.md): street lamps, lanterns, fires
+# Category "Lighting". Each is a "prop" (interior.cpp: breakable, glass panes shot out, tanks crush it) with a "light"
+# block (lights.cpp): street lamps light at dusk and night, lanterns in barns are dim by day, fires burn day and night.
+# Materials with "emissive" (lamp glass, mantles, flames, embers) glow through the lighting engine (L2), which scales them
+# by the light's state. Lantern panes sit in an iron frame: a round in the panes breaks the glass (and puts the light out),
+# a round on the post rings off the iron.
+L_IRON = {"name": "lamp_iron", "albedo": [0.045, 0.045, 0.043], "roughness": 0.55, "pattern": "metal", "metallic": 0.2, "grain": 1}
+L_GREEN = {"name": "lamp_green", "albedo": [0.07, 0.11, 0.08], "roughness": 0.5, "pattern": "metal", "metallic": 0.15, "grain": 1}
+L_GLASS = {"name": "lamp_glass", "albedo": [0.82, 0.8, 0.72], "roughness": 0.05, "pattern": "glass", "metallic": 0, "grain": 1, "emissive": [1.6, 1.15, 0.62]}
+L_MANTLE = {"name": "gas_mantle", "albedo": [0.9, 0.88, 0.8], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1, "emissive": [6.0, 5.0, 3.2]}
+L_FLAME = {"name": "flame", "albedo": [0.95, 0.62, 0.22], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1, "emissive": [7.0, 3.4, 0.9]}
+L_EMBER = {"name": "ember", "albedo": [0.32, 0.08, 0.02], "roughness": 0.95, "pattern": "plain", "metallic": 0, "grain": 1, "emissive": [3.2, 0.9, 0.18]}
+L_ASH = {"name": "ash", "albedo": [0.2, 0.19, 0.18], "roughness": 0.98, "pattern": "plain", "metallic": 0, "grain": 1}
+L_BARK = {"name": "bark", "albedo": [0.2, 0.14, 0.09], "roughness": 0.95, "pattern": "wood", "metallic": 0, "grain": 1}
+L_TIN = {"name": "lamp_tin", "albedo": [0.3, 0.3, 0.28], "roughness": 0.45, "pattern": "metal", "metallic": 0.6, "grain": 1}
+
+
+def lpart(c, s, m, g, r=None):
+    """visible, no collision, in prop group g"""
+    p = box(c, s, m, r=r, k=0); p["g"] = g; return p
+
+
+def lcol(c, s):
+    return box(c, s, "lamp_iron", v=0)
+
+
+def octo(parts, c, s, m, g):
+    """a square section and the same turned 45 degrees: reads as an octagonal casting"""
+    parts.append(lpart(c, s, m, g)); parts.append(lpart(c, [s[0] * 0.98, s[1], s[2] * 0.98], m, g, r=[0, 45, 0]))
+
+
+def lantern4(parts, cx, cy, cz, w, h, frame, g_frame, g_glass, flame="flame", fh=0.04):
+    """four-paned lantern centred at (cx, cy, cz): glass box, corner posts, top and bottom frames, a flame or mantle"""
+    parts.append(lpart([cx, cy, cz], [w * 0.9, h, w * 0.9], "lamp_glass", g_glass))
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            parts.append(lpart([cx + sx * w * 0.47, cy, cz + sz * w * 0.47], [0.018, h + 0.02, 0.018], frame, g_frame))
+    parts.append(lpart([cx, cy - h / 2 - 0.02, cz], [w, 0.04, w], frame, g_frame))
+    parts.append(lpart([cx, cy + h / 2 + 0.025, cz], [w * 1.12, 0.05, w * 1.12], frame, g_frame))
+    parts.append(lpart([cx, cy + h / 2 + 0.07, cz], [w * 0.6, 0.06, w * 0.6], frame, g_frame))
+    parts.append(lpart([cx, cy - h * 0.12, cz], [0.014 if flame == "flame" else 0.05, fh, 0.008 if flame == "flame" else 0.05], flame, g_glass))
+
+
+def light_asset(id_, name, desc, parts, mats, footprint, groups, prop, light):
+    p = {"family": prop.get("family", "metal"), "rounds": prop.get("rounds", 0), "blast": prop.get("blast", 120), "blocking": prop.get("blocking", True),
+         "wall": prop.get("wall", False), "front": prop.get("front", 0.0)}
+    for k in ("mount", "hang"):
+        if k in prop: p[k] = prop[k]
+    p["groups"] = groups
+    p["fragments"] = [groups.index(g) for g in prop.get("fragments", [])]
+    p["keep"] = [groups.index(g) for g in prop.get("keep", [])]
+    if "glass" in prop: p["glass"] = groups.index(prop["glass"])
+    p["surfaces"] = []
+    lt = dict(light)
+    if isinstance(lt.get("group"), str): lt["group"] = groups.index(lt["group"])
+    save({"id": id_, "version": 1, "name": name, "category": "Lighting", "description": desc, "floors": 0, "enterable": False,
+          "footprint": footprint, "plinthDepth": 0, "maxGrade": 0.8, "noAutoPanels": True, "materials": mats, "parts": parts,
+          "furniture": [], "interactables": [], "panels": [], "prop": p, "light": lt})
+
+
+# gas street lamp (candelabre): cast-iron fluted column on an octagonal plinth, ladder bar, four-paned lantern, gas mantle
+G = ["post", "lantern", "glass"]
+parts = []
+octo(parts, [0, 0.15, 0], [0.36, 0.3, 0.36], "lamp_green", 0)
+octo(parts, [0, 0.42, 0], [0.24, 0.24, 0.24], "lamp_green", 0)
+for i in range(5):
+    y0, y1 = 0.54 + i * 0.45, 0.54 + (i + 1) * 0.45
+    r = 0.085 - 0.007 * i
+    octo(parts, [0, (y0 + y1) / 2, 0], [2 * r, y1 - y0 + 0.01, 2 * r], "lamp_green", 0)
+octo(parts, [0, 2.8, 0], [0.16, 0.06, 0.16], "lamp_green", 0)
+parts.append(lpart([0, 2.86, 0], [0.7, 0.035, 0.035], "lamp_green", 0))
+for sx in (-1, 1):
+    parts.append(lpart([sx * 0.34, 2.9, 0], [0.04, 0.06, 0.04], "lamp_green", 0))
+parts.append(lpart([0, 2.94, 0], [0.12, 0.08, 0.12], "lamp_green", 1))
+lantern4(parts, 0, 3.2, 0, 0.32, 0.42, "lamp_green", 1, 2, flame="gas_mantle", fh=0.08)
+parts.append(lpart([0, 3.55, 0], [0.04, 0.14, 0.04], "lamp_green", 1))
+parts += [lcol([0, 1.45, 0], [0.22, 2.9, 0.22]), lcol([0, 3.22, 0], [0.34, 0.58, 0.34])]
+light_asset("lamp_gas_street", "Gas street lamp", "Cast-iron gas street lamp of a Norman town square: fluted column, ladder bar for the lamplighter, four-paned lantern with a mantle (~3.6 m). Lit at dusk and night; shoot the panes or blast it to put it out.",
+            parts, [L_GREEN, L_GLASS, L_MANTLE], [0.5, 0.5], G,
+            {"family": "metal", "blast": 140, "fragments": ["lantern"], "keep": ["post"], "glass": "glass"},
+            {"color": [1.0, 0.84, 0.58], "intensity": 3.0, "radius": 14.0, "offset": [0, 3.18, 0], "shadow": 1, "group": "glass", "use": "street"})
+
+# iron lantern post: a wrought-iron post with a scrolled arm, a lantern hanging over the lane (farm lanes, church paths)
+parts = []
+parts.append(lpart([0, 0.03, 0], [0.22, 0.06, 0.22], "lamp_iron", 0))
+parts.append(lpart([0, 1.33, 0], [0.07, 2.6, 0.07], "lamp_iron", 0))
+parts.append(lpart([0, 2.68, 0], [0.05, 0.1, 0.05], "lamp_iron", 0))
+parts.append(lpart([0, 2.6, 0.3], [0.03, 0.03, 0.62], "lamp_iron", 0))
+parts.append(lpart([0, 2.42, 0.13], [0.025, 0.42, 0.025], "lamp_iron", 0, r=[-40, 0, 0]))
+parts.append(lpart([0, 2.55, 0.55], [0.012, 0.08, 0.012], "lamp_iron", 1))
+lantern4(parts, 0, 2.33, 0.55, 0.18, 0.26, "lamp_iron", 1, 2)
+parts += [lcol([0, 1.35, 0], [0.12, 2.7, 0.12]), lcol([0, 2.36, 0.55], [0.22, 0.42, 0.22])]
+light_asset("lamp_lantern_post", "Iron lantern post", "Wrought-iron post with a scrolled arm and a paraffin lantern hanging over the lane (~2.7 m): farmyards, church paths, the auto-path lamp posts. Lit at dusk and night.",
+            parts, [L_IRON, L_GLASS, L_FLAME], [0.4, 0.8], G,
+            {"family": "metal", "blast": 110, "fragments": ["lantern"], "keep": ["post"], "glass": "glass"},
+            {"color": [1.0, 0.74, 0.42], "intensity": 2.0, "radius": 11.0, "offset": [0, 2.33, 0.55], "flicker": 0.08, "shadow": 1, "group": "glass", "use": "street"})
+
+# wall lantern: a bracket on a facade, the lantern 0.3 m off the wall (wall-hung: "mount" height above the ground or floor)
+G = ["bracket", "lantern", "glass"]
+parts = []
+parts.append(lpart([0, 0.3, 0.012], [0.12, 0.24, 0.024], "lamp_iron", 0))
+parts.append(lpart([0, 0.43, 0.17], [0.025, 0.025, 0.32], "lamp_iron", 0))
+parts.append(lpart([0, 0.3, 0.11], [0.02, 0.3, 0.02], "lamp_iron", 0, r=[50, 0, 0]))
+parts.append(lpart([0, 0.4, 0.3], [0.012, 0.04, 0.012], "lamp_iron", 1))
+lantern4(parts, 0, 0.2, 0.3, 0.17, 0.24, "lamp_iron", 1, 2)
+parts.append(lcol([0, 0.24, 0.19], [0.22, 0.44, 0.34]))
+light_asset("lamp_wall_lantern", "Wall lantern", "Iron wall lantern on a scrolled bracket, hung beside a door or on a farmhouse gable (wall-hung, 2 m up). Lit at dusk and night.",
+            parts, [L_IRON, L_GLASS, L_FLAME], [0.24, 0.4], G,
+            {"family": "metal", "blast": 60, "mount": 2.0, "wall": True, "blocking": False, "fragments": ["lantern"], "keep": ["bracket"], "glass": "glass"},
+            {"color": [1.0, 0.74, 0.42], "intensity": 1.4, "radius": 9.0, "offset": [0, 0.19, 0.3], "flicker": 0.08, "shadow": 1, "group": "glass", "use": "street"})
+
+# hanging storm lantern: hung by its top from a beam, a porch or a barn ceiling (origin at the hook)
+G = ["hook", "lantern", "glass"]
+parts = []
+parts.append(lpart([0, -0.02, 0], [0.04, 0.04, 0.012], "lamp_iron", 0))
+parts.append(lpart([0, -0.1, 0], [0.012, 0.13, 0.012], "lamp_iron", 0))
+parts.append(lpart([0, -0.185, 0], [0.16, 0.035, 0.16], "lamp_tin", 1))
+parts.append(lpart([0, -0.15, 0], [0.07, 0.05, 0.07], "lamp_tin", 1))
+parts.append(lpart([0, -0.32, 0], [0.13, 0.2, 0.13], "lamp_glass", 2))
+parts.append(lpart([0, -0.32, 0], [0.13, 0.2, 0.13], "lamp_glass", 2, r=[0, 45, 0]))
+for sx in (-1, 1):
+    parts.append(lpart([sx * 0.095, -0.32, 0], [0.014, 0.3, 0.014], "lamp_tin", 1))
+    parts.append(lpart([0, -0.32, sx * 0.075], [0.008, 0.22, 0.008], "lamp_iron", 1))
+parts.append(lpart([0, -0.46, 0], [0.17, 0.07, 0.17], "lamp_tin", 1))
+parts.append(lpart([0, -0.46, 0], [0.17, 0.07, 0.17], "lamp_tin", 1, r=[0, 45, 0]))
+parts.append(lpart([0, -0.36, 0], [0.012, 0.035, 0.006], "flame", 2))
+parts.append(lcol([0, -0.32, 0], [0.2, 0.32, 0.2]))
+light_asset("lamp_hanging_lantern", "Hanging lantern", "Paraffin storm lantern hung from a hook: porches, barn beams, workshops and stables. Hangs by its top from a ceiling or beam; dim by day, full at dusk and night.",
+            parts, [L_IRON, L_TIN, L_GLASS, L_FLAME], [0.2, 0.2], G,
+            {"family": "metal", "blast": 40, "hang": True, "blocking": False, "fragments": ["lantern"], "keep": ["hook"], "glass": "glass"},
+            {"color": [1.0, 0.7, 0.4], "intensity": 1.0, "radius": 7.0, "offset": [0, -0.33, 0], "flicker": 0.15, "shadow": 1, "group": "glass", "use": "interior"})
+
+# brazier: an iron fire basket on three legs, coals glowing, flames and smoke (sentry posts, gun pits, bivouacs)
+G = ["frame", "fire"]
+parts = []
+for k in range(3):
+    a = math.radians(k * 120)
+    parts.append(lpart([math.sin(a) * 0.2, 0.3, math.cos(a) * 0.2], [0.035, 0.62, 0.035], "lamp_iron", 0, r=[-12 * math.cos(a), 0, 12 * math.sin(a)]))
+octo(parts, [0, 0.66, 0], [0.5, 0.025, 0.5], "lamp_iron", 0)
+for k in range(8):
+    a = math.radians(k * 45)
+    parts.append(lpart([math.sin(a) * 0.25, 0.76, math.cos(a) * 0.25], [0.02, 0.2, 0.02], "lamp_iron", 0))
+octo(parts, [0, 0.86, 0], [0.52, 0.02, 0.52], "lamp_iron", 0)
+octo(parts, [0, 0.72, 0], [0.42, 0.08, 0.42], "ember", 1)
+for x, z, h, rot in ((-0.08, 0.02, 0.28, 10), (0.06, -0.05, 0.34, -20), (0.02, 0.08, 0.22, 60)):
+    parts.append(lpart([x, 0.76 + h / 2, z], [0.1, h, 0.012], "flame", 1, r=[0, rot, 0]))
+parts.append(lcol([0, 0.45, 0], [0.52, 0.9, 0.52]))
+light_asset("fire_brazier", "Brazier", "Iron fire basket on three legs with glowing coals, flames and a little smoke: sentry posts, gun pits and bivouacs. Burns day and night; a blast scatters it.",
+            parts, [L_IRON, L_EMBER, L_FLAME], [0.6, 0.6], G,
+            {"family": "metal", "blast": 120, "fragments": ["frame"], "keep": []},
+            {"color": [1.0, 0.5, 0.2], "intensity": 2.5, "radius": 9.0, "offset": [0, 1.0, 0], "flicker": 0.75, "shadow": 1, "group": "fire", "use": "fire", "fx": "flame_smoke", "fxSize": 0.26})
+
+# campfire: a ring of field stones, a teepee of split logs over embers and ash
+stone = {"name": "field_stone", "albedo": [0.42, 0.40, 0.36], "roughness": 0.92, "pattern": "stone", "metallic": 0, "grain": 1}
+G = ["ring", "logs", "fire"]
+rng = random.Random(131)
+parts = []
+for k in range(9):
+    a = 2 * math.pi * k / 9 + rng.uniform(-0.1, 0.1)
+    parts.append(lpart([math.sin(a) * 0.5, 0.07, math.cos(a) * 0.5], [0.2 + rng.uniform(-0.03, 0.04), 0.14 + rng.uniform(-0.02, 0.03), 0.16], "field_stone", 0, r=[0, math.degrees(a) + rng.uniform(-15, 15), rng.uniform(-8, 8)]))
+parts.append(lpart([0, 0.012, 0], [0.75, 0.024, 0.75], "ash", 0))
+parts.append(lpart([0, 0.03, 0], [0.5, 0.03, 0.5], "ember", 2, r=[0, 30, 0]))
+for k in range(5):
+    a = 2 * math.pi * k / 5 + 0.3
+    parts.append(lpart([math.sin(a) * 0.14, 0.2, math.cos(a) * 0.14], [0.07, 0.48, 0.07], "bark", 1, r=[-28 * math.cos(a), 0, 28 * math.sin(a)]))
+for x, z, h, rot in ((-0.05, 0.03, 0.42, 15), (0.06, -0.04, 0.5, -25), (0.0, 0.07, 0.34, 70), (0.04, 0.0, 0.28, 120)):
+    parts.append(lpart([x, 0.05 + h / 2, z], [0.12, h, 0.012], "flame", 2, r=[0, rot, 0]))
+light_asset("fire_campfire", "Campfire", "A camp fire in a ring of field stones: a teepee of split logs over embers and ash, flames and smoke. Burns day and night (cosmetic: walk round it).",
+            parts, [stone, L_ASH, L_EMBER, L_BARK, L_FLAME], [1.2, 1.2], G,
+            {"family": "masonry", "blast": 300, "blocking": False, "keep": ["ring", "logs"]},
+            {"color": [1.0, 0.5, 0.18], "intensity": 3.0, "radius": 10.0, "offset": [0, 0.5, 0], "flicker": 0.85, "shadow": 1, "group": "fire", "use": "fire", "fx": "flame_smoke", "fxSize": 0.36})
+print("lights ok")

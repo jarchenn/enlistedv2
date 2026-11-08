@@ -10,6 +10,8 @@
 #include "selftest.h"
 #include "mptest.h"
 #include "autopath.h"
+#include "lights.h"   // L3: lamp posts along the routes
+#include <set>
 #include <cstdarg>
 #include <functional>
 #include <unordered_map>
@@ -284,6 +286,53 @@ void build(App&) {
     return t > 1.0f;
   });
   networkChecks("battle1");
+  // ---------------------------------------------------------------- L3: lamp posts lining the routes (docs/lights.md)
+  push("battle1: lamp posts along the auto paths", [](App& a, float t) {
+    if (t != 0) return t > 0.3f;
+    gAutoPathLamps = true;
+    size_t undo0 = a.undoStack.size();
+    AutoPathReport r = autopathConnectHouses(a, true); a.syncRuntime();
+    gAutoPathLamps = false;
+    std::vector<const Instance*> lamps; int paths = 0;
+    for (auto& i : a.doc.instances) if (isAuto(i)) { if (i.extra["auto"] == "lamp") lamps.push_back(&i); else ++paths; }
+    note("battle1 with lamp posts: %s", r.summary().c_str());
+    chk(a.undoStack.size() == undo0 + 1 && r.lamps >= 6 && (int)lamps.size() == r.lamps && paths == r.pieces,
+        "Connect houses with \"Line auto paths with lamp posts\": %d lamp posts (extra.auto = \"lamp\", report %d) beside %d path pieces, one undo step", (int)lamps.size(), r.lamps, paths);
+    float minD = 1e9f, worstOff = 0; int onPath = 0, wrongAsset = 0;
+    std::vector<LampLine> lines = lightsRoutesOf(a.doc.extra.is_object() ? a.doc.extra.value("routes", json::array()) : json::array());
+    for (size_t x = 0; x < lamps.size(); ++x) {
+      for (size_t y = x + 1; y < lamps.size(); ++y) minD = std::min(minD, glm::length(vec2(lamps[x]->pos.x - lamps[y]->pos.x, lamps[x]->pos.z - lamps[y]->pos.z)));
+      onPath += !a.pathSurfaceAt(lamps[x]->pos).empty();
+      wrongAsset += lamps[x]->assetId != "lamp_lantern_post";
+      float best = 1e9f; vec2 p(lamps[x]->pos.x, lamps[x]->pos.z);
+      for (auto& l : lines) for (size_t k = 0; k + 1 < l.pts.size(); ++k) {
+        vec2 a0 = l.pts[k], d = l.pts[k + 1] - a0; float L2 = glm::dot(d, d);
+        float u = L2 > 1e-6f ? std::clamp(glm::dot(p - a0, d) / L2, 0.0f, 1.0f) : 0.0f;
+        best = std::min(best, glm::length(p - (a0 + d * u)));
+      }
+      worstOff = std::max(worstOff, best);
+    }
+    chk(minD >= 21.9f && onPath == 0 && wrongAsset == 0 && worstOff < 3.5f, "lamp posts: at least %.1f m apart (spacing 22), %d standing on a path, all within %.2f m of their route, %d of another asset",
+        minD, onPath, worstOff, wrongAsset);
+    lightsSetDaylight(0.0f);
+    std::vector<LightDesc> L; lightsGather(a, L);
+    std::set<uint64_t> ids; for (auto& l : L) ids.insert(l.id / 16);
+    int litLamps = 0; for (auto* l : lamps) litLamps += ids.count(l->id) > 0;
+    lightsSetDaylight(1.0f); L.clear(); lightsGather(a, L);
+    std::set<uint64_t> dayIds; for (auto& l : L) dayIds.insert(l.id / 16);
+    int dayLamps = 0; for (auto* l : lamps) dayLamps += dayIds.count(l->id) > 0;
+    lightsSetDaylight(-1.0f);
+    chk(litLamps == (int)lamps.size() && dayLamps == 0, "the lamp posts light at night (%d of %d) and are dark by day (%d)", litLamps, (int)lamps.size(), dayLamps);
+    // re-running replaces them; Remove auto paths takes them away with the paths
+    gAutoPathLamps = true; AutoPathReport r2 = autopathConnectHouses(a, true); a.syncRuntime(); gAutoPathLamps = false;
+    int again = 0; for (auto& i : a.doc.instances) again += isAuto(i) && i.extra["auto"] == "lamp";
+    chk(again == r.lamps && r2.lamps == r.lamps, "re-running replaces the lamp posts: %d (was %d), nothing duplicated", again, r.lamps);
+    int removed = autopathRemove(a); a.syncRuntime();
+    int left = 0; for (auto& i : a.doc.instances) left += isAuto(i);
+    chk(left == 0 && removed == r.pieces + r.lamps, "Remove auto paths: %d pieces removed (paths and lamp posts), %d auto instances left", removed, left);
+    a.undo(); a.syncRuntime();
+    return false;
+  });
   push("finish", [](App& a, float t) {
     if (t < 0.3f) return false;
     chk(a.R.shaderErrors == 0, "shader errors: %d", a.R.shaderErrors);

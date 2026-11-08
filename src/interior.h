@@ -26,6 +26,8 @@ struct PropDef {
   struct Frag { GpuMesh mesh; ShapePtr shape; vec3 center{0}, half{0}; float mass = 1; };
   std::vector<std::unique_ptr<Frag>> frags;
   bool flat() const { return bmax.y - bmin.y < 0.06f; }   // rugs, papers
+  bool hang = false;                      // L3 lights: hung from a ceiling / beam by its origin (top), supported from above
+  vec3 gmin{0}, gmax{0};                  // L3: bounds of the glass group (a round there shatters a metal lantern's panes)
 };
 
 // Rooms of an enterable building (asset space), from a 0.1 m occupancy grid per storey

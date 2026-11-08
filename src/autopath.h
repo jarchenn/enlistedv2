@@ -30,6 +30,7 @@ void buildPathMeshDataEx(MeshData& m, const PathDef& p, vec2 wl, vec3 pos, float
 struct AutoPathReport {
   int houses = 0, entrances = 0, aprons = 0, links = 0, loops = 0, spurs = 0, failed = 0, relaxed = 0, pieces = 0, joints = 0, routes = 0, removed = 0;
   int components = 0;        // connected groups of houses after the run (1 = every house reachable from every other)
+  int lamps = 0;             // L3: lamp posts lining the routes (Paths > Line with lamp posts; extra.auto = "lamp")
   double ms = 0;
   std::string summary() const;
 };
