@@ -9,7 +9,15 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
 
+#ifndef _WIN32
+int __argc = 0;
+char** __argv = nullptr;
+#endif
+
 int main(int argc, char** argv) {
+#ifndef _WIN32
+  __argc = argc; __argv = argv;
+#endif
   App app;
   gApp = &app;
   return app.run(argc, argv);

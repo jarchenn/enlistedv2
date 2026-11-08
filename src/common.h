@@ -28,6 +28,13 @@ using glm::vec2; using glm::vec3; using glm::vec4; using glm::mat4; using glm::q
 void logf(const char* fmt, ...);
 struct ProcMem { size_t WorkingSetSize = 0, PeakWorkingSetSize = 0; };   // bytes resident now / at peak
 ProcMem processMemory();   // assets.cpp: psapi on Windows, Mach task_info on macOS
+#ifndef _WIN32
+// shortcut: the selftests read the command line through MSVCRT's __argc / __argv; elsewhere main.cpp sets these
+extern int __argc;
+extern char** __argv;
+#include <cstdlib>
+inline int _putenv_s(const char* name, const char* value) { return *value ? setenv(name, value, 1) : unsetenv(name); }
+#endif
 std::string readTextFile(const fs::path& p);
 fs::path exeDir();
 fs::path contentDir();
