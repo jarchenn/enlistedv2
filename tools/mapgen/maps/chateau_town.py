@@ -14,7 +14,7 @@ docs/asset-usage-default-maps.md. The thumbnail comes from --render-map-thumbs."
 import math
 import os
 
-from mapgen import (Grid, Frame, MapBuilder, ScenarioBuilder, stamp_valley, stamp_flatten_poly, hedgerow,
+from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, stamp_valley, stamp_flatten_poly, hedgerow,
                     sunken_lane, cut_gaps, slots_from_structures, catmull_rom, write_map, write_template, write_summary,
                     asset_usage, rect, rng, point_at, polyline_length, polyline_dist, offset_polyline, in_poly, poly_area,
                     asset_yaw_facing, asset_yaw_along, look_yaw, local_to_world, fbm, circle_poly, dist, resample)
@@ -35,6 +35,8 @@ TOWN_HOUSES = [("vil_townhouse_jettied", 4), ("vil_terrace_pair", 4), ("vil_corn
                ("vil_gatehouse_chapel", 1), ("vil_longhouse_thatched", 2), ("small_carpenter_workshop", 1),
                ("small_roadside_office", 1), ("small_storehouse", 1), ("vil_rectory", 1), ("large_municipal_building", 1),
                ("large_village_schoolhouse", 1), ("small_stone_dairy", 1), ("large_stone_warehouse", 1)]
+INFILL = ["small_storehouse", "small_stone_dairy", "vil_stone_barn", "small_carpenter_workshop", "small_storehouse",
+          "small_roadside_office"]
 FARM = ["vil_cottage_barn", "vil_norman_farmhouse", "vil_stone_barn", "small_stone_dairy"]
 DECOR_HOUSES = ["house_farmhouse_2story", "house_stone_cottage", "vil_norman_farmhouse", "vil_stone_barn", "small_stone_dairy",
                 "small_storehouse", "small_carpenter_workshop", "vil_longhouse_thatched", "vil_townhouse_jettied",
@@ -75,6 +77,14 @@ def geometry():
     g["loop"] = catmull_rom([(-122, 22), (-112, -40), (-88, -82), (-45, -112), (0, -118), (50, -108), (88, -72), (100, -22)])
     g["mill_lane"] = catmull_rom([(45, 46), (68, 56), (86, 34), (90, 6), (94, -19)])
     g["forecourt"] = [(0, -41), (0, 2)]
+    # the back lane: half-way between the ring road and the loop lane, so the band between the two house rows has a
+    # lane with walls, hedges and outbuildings instead of open grass
+    ring_pts = resample(g["ring"], 2.0)
+    mids = []
+    for p in resample(g["loop"], 9.0)[1:-1]:
+        q = min(ring_pts, key=lambda r: (r[0] - p[0]) ** 2 + (r[1] - p[1]) ** 2)
+        mids.append(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2))
+    g["back_lane"] = catmull_rom(mids, 4)
     return g
 
 
@@ -181,6 +191,10 @@ def populate(ctx, grid, pads=None):
     g = geometry()
     stream = g["stream"]
     rep = {}
+    yards = []   # (poly, bounds) behind each town house: later buildings keep out, the yard dressing goes in
+
+    def in_yard(x, z):
+        return any(bb[0] <= x <= bb[2] and bb[1] <= z <= bb[3] and in_poly((x, z), p) for p, bb in yards)
 
     def clear(aid, x, z, yaw, pad=0.6):
         a = cat[aid]
@@ -189,7 +203,7 @@ def populate(ctx, grid, pads=None):
         for i in range(nx):
             for j in range(nz):
                 wx, wz = local_to_world((x, z), yaw, -hx + 2 * hx * i / (nx - 1), -hz + 2 * hz * j / (nz - 1))
-                if not grid.in_build(wx, wz) or b.in_keepout(wx, wz):
+                if not grid.in_build(wx, wz) or b.in_keepout(wx, wz) or in_yard(wx, wz):
                     return False
         return True
 
@@ -219,11 +233,21 @@ def populate(ctx, grid, pads=None):
     b.route("footpath", g["mill_lane"], 3.5)
     b.route("gravel", [(SQUARE[0] - 1, SQUARE[1]), (SQUARE[0] + 1, SQUARE[1])], 30.0)
     b.route("footpath", [(CHURCH[0], YARD[1] - 6), (CHURCH[0], CHURCH[1] - 5)], 2.5)
+    b.route("footpath", g["back_lane"], 2.6)
+    # the chateau's formal garden: side parterre walks and cross paths, the rear garden cross, the path to the rear gate
+    for sx in (-1, 1):
+        b.route("gravel", [(sx * 25.5, -36.0), (sx * 25.5, 1.0)], 1.8, keepout=False)
+        for zz in (-24.0, -12.0):
+            b.route("gravel", [(sx * 17.5, zz), (sx * 33.0, zz)], 1.6, keepout=False)
+    b.route("gravel", [(-32.0, 41.0), (32.0, 41.0)], 2.0, keepout=False)
+    b.route("gravel", [(0.0, 33.0), (0.0, 51.0)], 2.4, keepout=False)
     b.keepout_line(stream, 10.5)
     b.keepout_poly(rect(ENCL[0] - 1, ENCL[1] - 1, ENCL[2] + 1, ENCL[3] + 1))
     b.keepout_poly(rect(YARD[0] - 1, YARD[1] - 1, YARD[2] + 1, YARD[3] + 1))
     b.keepout_poly(circle_poly(SQUARE[0], SQUARE[1], 17.0))
     streets = [g["ring"], g["S1"], g["S2"], g["S3"], g["S4"], g["loop"], g["mill_lane"]]
+    paint = GroundPaint()
+    b.paint = paint
 
     # ------------------------------------------------------------------ 2. the stream and the two bridges
     b.chain("wat_stream_straight", stream, along="z", spacing=-0.6, tags={"stream"}, ok_with={"flat", "none"})
@@ -256,7 +280,7 @@ def populate(ctx, grid, pads=None):
     deck = Deck(TOWN_HOUSES, R)
     houses = []
 
-    def frontage(street, half, side, s0, s1, tags=(), setback=(2.2, 3.6), gap=(0.8, 4.0)):
+    def frontage(street, half, side, s0, s1, tags=(), setback=(1.6, 2.8), gap=(0.0, 0.9)):   # terraces: near-continuous
         L = polyline_length(street)
         s, s1 = s0, min(s1, L)
         while s < s1:
@@ -299,6 +323,31 @@ def populate(ctx, grid, pads=None):
     sq = sq + [sq[0]]
     frontage(sq, 0.0, outward(sq, SQUARE), 0.0, 1e9, tags={"square"}, setback=(0.5, 1.5), gap=(0.5, 2.0))
     rep["houses"] = len(houses)
+    # back yards: 7.5 m behind every house (no later building there; fenced and dressed in step 7)
+    for e in houses:
+        a = cat[e["asset"]]
+        hx, hz = a.half
+        p = [local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lx, lz) for lx, lz in ((-hx, -hz), (hx, -hz), (hx, -hz - 7.5), (-hx, -hz - 7.5))]
+        yards.append((p, (min(q[0] for q in p), min(q[1] for q in p), max(q[0] for q in p), max(q[1] for q in p))))
+    # infill: outbuildings, workshops and barns in the gaps between the house rows, turned to the nearest lane
+    lanes = streets + [g["back_lane"]]
+    infill = 0
+    pts = [(x, z) for x in range(-130, 131, 6) for z in range(-140, 160, 6) if town(x, z, 0.98)]
+    R.shuffle(pts)
+    for x, z in pts:
+        x, z = x + R.uniform(-2, 2), z + R.uniform(-2, 2)
+        if b.near(x, z, 7.0, classes={"solid"}) or in_yard(x, z) or b.in_keepout(x, z):
+            continue
+        (d, s, _), ln = min(((polyline_dist((x, z), l), l) for l in lanes), key=lambda r: r[0][0])
+        if d > 30:
+            continue
+        (px, pz), t = point_at(ln, s)
+        aid = R.choice(INFILL)
+        yaw = asset_yaw_facing(px - x, pz - z) if d > 0.1 else 0.0
+        if clear(aid, x, z, yaw, pad=1.2):
+            e = building(aid, x, z, yaw, tags={"infill"})
+            infill += e is not None
+    rep["infill"] = infill
 
     # ------------------------------------------------------------------ 5. green-ring fields and farms
     fields, lines = ring_fields(R)
@@ -311,12 +360,14 @@ def populate(ctx, grid, pads=None):
         r = R.random()
         if id(f) in farm_ids:
             kinds[id(f)] = "farm"
-        elif r < 0.5:
+        elif r < 0.4:
             kinds[id(f)] = "orchard"
-        elif r < 0.86:
+        elif r < 0.6:
             kinds[id(f)] = "meadow"
-        else:
+        elif r < 0.82:
             kinds[id(f)] = "wheat"
+        else:
+            kinds[id(f)] = "ploughed"
     farms = []
     for f, c in green:
         if kinds[id(f)] != "farm":
@@ -346,39 +397,52 @@ def populate(ctx, grid, pads=None):
             pads.append((aid, x, z, e["yaw"]))
         return e
 
-    decor_trees = ["tree_oak", "tree_ash", "tree_poplar", "tree_apple"]
+    # hamlets of 3-6 houses round a green, at 30-75 m beyond the border (outside the padded navmesh tiles), woods
+    # and fields between them; every piece is extra.decor (never furnished, cheap to draw)
+    decor_trees = ["tree_oak", "tree_ash", "tree_poplar", "tree_oak", "tree_ash"]
+    perim = [(-HX - 52, -HZ - 52), (HX + 52, -HZ - 52), (HX + 52, HZ + 52), (-HX - 52, HZ + 52), (-HX - 52, -HZ - 52)]
+    Lp = polyline_length(perim)
+    hamlets, woods, plots = [], [], []
+    s = R.uniform(0, 30)
+    while s < Lp - 20:
+        (px, pz), t = point_at(perim, s)
+        nx_, nz_ = t[1], -t[0]                     # outward normal (the perimeter runs anticlockwise in x / z)
+        if nx_ * px + nz_ * pz < 0:
+            nx_, nz_ = -nx_, -nz_
+        c = (px + nx_ * R.uniform(-14, 18), pz + nz_ * R.uniform(-14, 18))
+        r = R.random()
+        (hamlets if r < 0.55 else woods if r < 0.8 else plots).append((c, (nx_, nz_)))
+        s += R.uniform(62, 95)
     ndecor = 0
-    for off in (16.0, 44.0):
-        for side in range(4):
-            along_x = side < 2
-            sgn = 1.0 if side in (0, 2) else -1.0
-            half = (HX if along_x else HZ) + off
-            yaw_in = (180.0 if side == 0 else 0.0) if along_x else (270.0 if side == 2 else 90.0)
-            u, last = -half + R.uniform(0, 12), None
-            while u < half:
-                aid = R.choice(DECOR_HOUSES)
-                a = cat[aid]
-                uc = u + a.fw * 0.5
-                dd = (HZ if along_x else HX) + off + a.fd * 0.5 + R.uniform(0, 4)
-                x, z = (uc, sgn * dd) if along_x else (sgn * dd, uc)
-                e = decor(aid, x, z, yaw_in + R.uniform(-5, 5))
-                if e is None:
-                    u += 6.0
-                    continue
-                ndecor += 1
-                if last is not None and u - last > 9:   # hedge pieces and a tree or two in the gap
-                    rd = (HZ if along_x else HX) + off + 2.0
-                    s = last + 1.0
-                    while s + 8.0 <= u - 1.0:
-                        hx_, hz_ = (s + 4, sgn * rd) if along_x else (sgn * rd, s + 4)
-                        decor("hedgerow_bocage", hx_, hz_, 0.0 if along_x else 90.0)
-                        s += 8.0
-                    for _ in range(int((u - last) / 12.0 + R.random())):
-                        tu, td = R.uniform(last + 2, u - 2), rd + R.uniform(3, 10)
-                        decor(R.choice(decor_trees), *((tu, sgn * td) if along_x else (sgn * td, tu)), R.uniform(0, 360))
-                last = u + a.fw
-                u += a.fw + R.uniform(4, 14)
+    for c, nrm in hamlets:
+        n = R.randint(3, 6)
+        a0 = R.uniform(0, 360)
+        for k in range(n):
+            ang = math.radians(a0 + 360.0 * k / n + R.uniform(-18, 18))
+            rr = R.uniform(13, 22)
+            x, z = c[0] + rr * math.cos(ang), c[1] + rr * math.sin(ang)
+            if abs(x) < HX + 30 and abs(z) < HZ + 30:
+                continue
+            aid = R.choice(DECOR_HOUSES)
+            ndecor += decor(aid, x, z, asset_yaw_facing(c[0] - x, c[1] - z) + R.uniform(-20, 20)) is not None
+        for k in range(R.randint(4, 8)):                 # orchard trees and hedges round the green
+            ang, rr = R.uniform(0, 2 * math.pi), R.uniform(24, 34)
+            decor(R.choice(["tree_apple", "tree_oak", "tree_ash"]), c[0] + rr * math.cos(ang), c[1] + rr * math.sin(ang), R.uniform(0, 360))
+        paint.poly("dirt", circle_poly(c[0], c[1], 7.0, 14), weight=0.8, edge=3.0, ragged=1.5, seed=int(c[0]))
+        paint.line("dirt", [c, (c[0] - nrm[0] * 60, c[1] - nrm[1] * 60)], 3.0, weight=0.75)   # the track toward town
+    for c, nrm in woods:
+        for k in range(R.randint(14, 26)):
+            ang, rr = R.uniform(0, 2 * math.pi), 24 * math.sqrt(R.random())
+            decor(R.choice(decor_trees + ["shrub_hazel"]), c[0] + rr * math.cos(ang), c[1] + rr * math.sin(ang), R.uniform(0, 360))
+        paint.poly("leaf_litter", circle_poly(c[0], c[1], 20.0, 16), weight=0.7, edge=6.0, ragged=4.0, seed=int(c[1]))
+    for c, nrm in plots:
+        tx, tz = -nrm[1], nrm[0]
+        corners = [(c[0] + tx * u + nrm[0] * v, c[1] + tz * u + nrm[1] * v) for u, v in ((-30, -20), (30, -20), (30, 20), (-30, 20))]
+        paint.poly(R.choice(["ploughed", "dry_grass"]), corners, weight=0.9, edge=2.0, ragged=2.0, seed=int(c[0] + c[1]))
+        for u in range(-28, 29, 8):                      # a hedge along the field's town side
+            decor("hedgerow_bocage", c[0] + tx * u - nrm[0] * 22, c[1] + tz * u - nrm[1] * 22, asset_yaw_along(tx, tz))
     rep["decorHouses"] = ndecor
+    rep["hamlets"] = len(hamlets)
     if pads is not None:
         return b, None, None, rep
 
@@ -390,31 +454,65 @@ def populate(ctx, grid, pads=None):
         if R.random() < 0.65:
             for sx in ((-1, 1) if R.random() < 0.5 else (R.choice((-1, 1)),)):
                 b.place("drs_flower_bed", *local_to_world((x, z), yaw, sx * (hx - 1.8), hz + 0.75), yaw, tags={"dressing"})
-        r = R.random()
-        rear = local_to_world((x, z), yaw, R.uniform(-hx + 2, hx - 2), -hz - 1.6)
-        if r < 0.25:
-            b.place("drs_woodpile", *rear, yaw, tags={"dressing"})
-        elif r < 0.42:
-            b.place("drs_barrels", *rear, yaw + R.uniform(-20, 20), tags={"dressing"})
-        elif r < 0.52:
-            b.place("drs_hay_bale_stack", *rear, yaw, tags={"dressing"})
-        if R.random() < 0.3:
-            for k in (-1, 0, 1):
-                p = local_to_world((x, z), yaw, k * 3.0, -hz - 5.0)
-                if not b.in_keepout(*p):
-                    b.place("drs_picket_fence", *p, yaw, tags={"dressing"})
-    # forecourt: flower beds and clipped shrubs along the drive, sandbag walls in front of the steps
-    for zz in range(-32, 0, 5):
-        for sx in (-1, 1):
-            b.place("drs_flower_bed", sx * 19.5, zz, 90.0, tags={"forecourt"})
-            b.place("shrub_hazel", sx * 23.5, zz + 2.5, R.uniform(0, 360), tags={"forecourt"})
+        # the back yard (7.5 m deep): a picket fence or low stone wall round it, a vegetable plot, a fruit tree,
+        # firewood, barrels, sacks or hay by the back door
+        L = lambda lx, lz: local_to_world((x, z), yaw, lx, lz)
+        street_ok = lambda p: not b.in_keepout(*p)
+        wall = R.random() < 0.4
+        piece = "stone_wall_low" if wall else "drs_picket_fence"
+        pl = cat[piece].fw
+        n = max(1, int((2 * hx - 0.4) // pl))
+        for k in range(n):                                            # back edge
+            p = L(-hx + 0.2 + pl * (k + 0.5), -hz - 7.2)
+            if street_ok(p):
+                b.place(piece, *p, yaw, tags={"yard"}, ok_with={"flat", "none", "veg"})
+        for sx in (-1, 1):                                            # sides
+            for k in range(int(7.0 // pl)):
+                p = L(sx * (hx - 0.15), -hz - 0.3 - pl * (k + 0.5))
+                if street_ok(p):
+                    b.place(piece, *p, yaw + 90.0, tags={"yard"}, ok_with={"flat", "none", "veg"})
+        if R.random() < 0.6 and hx > 3.5:                              # vegetable plot (ground paint) in one half
+            sx = R.choice((-1, 1))
+            plot = [L(sx * 0.8, -hz - 1.8), L(sx * (hx - 1.0), -hz - 1.8), L(sx * (hx - 1.0), -hz - 6.4), L(sx * 0.8, -hz - 6.4)]
+            paint.poly(R.choice(["ploughed", "dirt"]), plot, weight=0.95, edge=0.6)
+            other = -sx
+        else:
+            other = R.choice((-1, 1))
+        if R.random() < 0.7:
+            b.place(R.choice(["tree_apple", "tree_apple", "tree_ash"]), *L(other * min(hx - 2.0, 3.5), -hz - 4.5), R.uniform(0, 360),
+                    tags={"yard"}, cls="veg")
+        for aid in R.sample(["drs_woodpile", "drs_barrels", "furn_sacks", "furn_barrel", "drs_hay_bale_stack", "furn_bucket",
+                             "furn_wood_pile", "furn_crate"], 2):
+            p = L(R.uniform(-hx + 1.5, hx - 1.5), -hz - R.uniform(0.9, 1.6))
+            if street_ok(p):
+                b.place(aid, *p, yaw + R.uniform(-15, 15), tags={"yard"})
+    # the back lane: low stone walls on one side, a hedge on the other, open where buildings or streets meet it
+    bl = g["back_lane"]
+    for off, piece in ((2.4, "stone_wall_low"), (-2.4, "hedgerow_bocage")):
+        side = offset_polyline(bl, off)
+        b.chain(piece, side, along="x", gaps=cut_gaps(side, streets, 5.0), tags={"back_lane"}, ok_with={"flat", "none", "veg", "wire"})
+    # the chateau's formal garden: parterre beds along the side walks, clipped shrubs at the corners, benches facing
+    # the drive, gas lamps along it; the rear garden with its bed rows, apple trees, the well and benches
     for sx in (-1, 1):
+        for z0_, z1_ in ((-35.0, -25.5), (-22.5, -13.5), (-10.5, 0.0)):
+            for xx in (sx * 20.0, sx * 30.5):
+                for zz in [z0_ + 1.2 + 2.0 * k for k in range(int((z1_ - z0_ - 1.0) // 2.0))]:
+                    b.place("drs_flower_bed", xx, zz, 90.0, tags={"parterre"})
+            for xx, zz in ((sx * 22.5, z0_ + 0.8), (sx * 28.5, z0_ + 0.8), (sx * 22.5, z1_ - 0.8), (sx * 28.5, z1_ - 0.8)):
+                b.place("shrub_hazel", xx, zz, R.uniform(0, 360), tags={"parterre"}, cls="veg")
+        for zz in (-30.0, -18.0, -6.0):
+            b.place("furn_bench", sx * 17.6, zz, -90.0 * sx, tags={"parterre"})   # facing the drive
+            b.place("lamp_gas_street", sx * 16.6, zz + 3.0, 0.0, tags={"parterre"})
+        b.chain("hedgerow_bocage", [(sx * 29.0, 5.0), (sx * 29.0, 31.0)], along="x", tags={"garden"}, ok_with={"flat", "none", "veg"})
         b.place("drs_sandbag_wall", sx * 9.0, -6.0, 0.0 + sx * 10, tags={"forecourt", "cover"})
-        b.place("drs_sandbag_wall", sx * 14.0, -22.0, 0.0 - sx * 15, tags={"forecourt", "cover"})
-        b.place("drs_well" if sx < 0 else "drs_cart", sx * 28.0, 42.0, R.uniform(0, 90), tags={"garden"})
-    b.scatter([("tree_oak", 2), ("tree_ash", 2), ("tree_apple", 1), ("shrub_hazel", 2), ("nat_hawthorn_bush", 1)],
-              lambda x, z: x0 + 2 < x < x1 - 2 and z0 + 2 < z < z1 - 2 and (abs(x) > 26 or z > 34), 1 / 45.0, R,
-              bounds=(x0, z0, x1, z1), avoid_routes=False, tags={"garden"}, min_dist=4.5)
+        b.place("drs_sandbag_wall", sx * 12.0, -24.0, 0.0 - sx * 15, tags={"forecourt", "cover"})
+        for xx in (sx * 8.0, sx * 14.0, sx * 20.0, sx * 26.0):
+            for zz in (37.5, 44.5):
+                b.place("drs_flower_bed", xx, zz, 0.0, tags={"garden"})
+        for xx, zz in ((sx * 31.0, 35.5), (sx * 31.0, 46.5), (sx * 4.5, 47.0)):
+            b.place("tree_apple", xx, zz, R.uniform(0, 360), tags={"garden"}, cls="veg")
+        b.place("furn_bench", sx * 3.0, 38.5, 180.0, tags={"garden"})
+    b.place("drs_well", 0.0, 44.5, 0.0, tags={"garden"})
     # churchyard: rows of graves before and behind the church, the cross by the path, yews (oaks) by the walls
     graves = ["drs_gravestone_round", "drs_gravestone_cross", "drs_tomb_chest", "drs_gravestone_round"]
     for zz, xs in ((31.0, range(-121, -68, 2)), (35.5, range(-121, -68, 2)), (60.0, range(-120, -69, 2)), (64.5, range(-120, -69, 2)),
@@ -428,6 +526,10 @@ def populate(ctx, grid, pads=None):
         b.place(R.choice(["tree_oak", "tree_ash"]), p[0], p[1], R.uniform(0, 360), tags={"graveyard"})
     # town square: the well, carts, barrels and flower beds round the edge
     b.place("drs_well", SQUARE[0], SQUARE[1], 0.0, tags={"square"})
+    for k in range(4):
+        a = 2 * math.pi * k / 4 + 0.75
+        b.place("lamp_gas_street", SQUARE[0] + 8.0 * math.cos(a), SQUARE[1] + 8.0 * math.sin(a), 0.0, tags={"square"})
+        b.place("furn_bench", SQUARE[0] + 10.0 * math.cos(a + 0.4), SQUARE[1] + 10.0 * math.sin(a + 0.4), math.degrees(-(a + 0.4)) + 90, tags={"square"})
     for k in range(10):
         a = 2 * math.pi * k / 10 + 0.2
         px, pz = SQUARE[0] + 13.0 * math.cos(a), SQUARE[1] + 13.0 * math.sin(a)
@@ -474,7 +576,7 @@ def populate(ctx, grid, pads=None):
     for ln in lines:
         gaps = cut_gaps(ln, roads, 6.0) + gaps_where(ln, lambda x, z: town(x, z, 1.0) or polyline_dist((x, z), stream)[0] < 9
                                                      or any(e is not None and math.hypot(x - e["pos"][0], z - e["pos"][2]) < 12 for e in bridges.values()))
-        pl, tr = hedgerow(b, ln, R, group=grp, gaps=gaps, gate_every=(45.0, 90.0), tags={"green"})
+        pl, tr = hedgerow(b, ln, R, group=grp, gaps=gaps, gate_every=(45.0, 90.0), tree_every=(2.6, 4.4), tags={"green"})
         nhedge += len(pl)
     rep["hedgePieces"] = nhedge
     norch = 0
@@ -500,20 +602,33 @@ def populate(ctx, grid, pads=None):
                       ok_with={"flat", "none", "veg", "wire"})
             b.scatter([("tree_oak", 2), ("tree_ash", 1), ("nat_hawthorn_bush", 2), ("nat_blackthorn_low", 1)], inner, 1 / 900.0, R,
                       tags={"meadow"}, cls="veg")
-        elif k == "wheat":
-            b.scatter([("nat_wheat_field", 6), ("nat_wheat_trampled", 1)], inner, 1 / 85.0, R, tags={"wheat"}, min_dist=8.5, cls="flat",
+        elif k == "wheat":   # the stubble-gold ground under the wheat patches reads as a field from the air
+            paint.poly("dry_grass", inner, weight=0.9, edge=2.5, ragged=1.5, seed=int(c[0]))
+            b.scatter([("nat_wheat_field", 6), ("nat_wheat_trampled", 1)], inner, 1 / 70.0, R, tags={"wheat"}, min_dist=7.5, cls="flat",
                       ok_with={"flat", "none", "veg", "wire"})
+        elif k == "ploughed":
+            paint.poly("ploughed", inner, weight=1.0, edge=2.0, ragged=1.5, seed=int(c[1]))
         else:
             b.scatter([("nat_drygrass_tufts", 1), ("nat_green_tufts", 1)], inner, 1 / 500.0, R, tags={"farm"}, cls="flat",
                       ok_with={"flat", "none", "veg", "wire"})
-    for c, gp in farms:
-        for aid in ("drs_hay_bale_stack", "drs_hay_bale_stack", "drs_cart", "drs_woodpile", "drs_well"):
-            b.try_place(aid, c[0] + R.uniform(-18, 18), c[1] + R.uniform(-18, 18), R.uniform(0, 360), R, tags={"farm"})
+    for c, gp in farms:   # the farmyard: trodden dirt and mud, a low wall with a field gate, hay, carts, firewood, a well
+        paint.poly("dirt", circle_poly(c[0], c[1], 17.0, 18), weight=0.9, edge=4.0, ragged=3.0, seed=int(c[0]))
+        paint.poly("mud", circle_poly(c[0] + 4, c[1] - 3, 5.0, 10), weight=0.6, edge=2.0, ragged=1.5, seed=int(c[1]))
+        ang0 = R.uniform(0, 360)
+        for k in range(10):
+            a = math.radians(ang0 + 27.0 * k)
+            px, pz = c[0] + 21.0 * math.cos(a), c[1] + 21.0 * math.sin(a)
+            if not b.in_keepout(px, pz):
+                b.place("field_gate" if k == 0 else "stone_wall_low", px, pz, asset_yaw_along(-math.sin(a), math.cos(a)), tags={"farm"},
+                        ok_with={"flat", "none", "veg"})
+        for aid in ("drs_hay_bale_stack", "drs_hay_bale_stack", "drs_hay_bale_stack", "drs_cart", "drs_cart", "drs_woodpile",
+                    "drs_well", "drs_barrels", "furn_sacks"):
+            b.try_place(aid, c[0] + R.uniform(-15, 15), c[1] + R.uniform(-15, 15), R.uniform(0, 360), R, tags={"farm"})
     rep["orchardTrees"] = norch
 
     # ------------------------------------------------------------------ 10. town greenery between the buildings
     in_town = lambda x, z: town(x, z) and not in_poly((x, z), rect(*ENCL)) and not in_poly((x, z), rect(*YARD))
-    b.scatter([("tree_oak", 3), ("tree_ash", 3), ("tree_apple", 3), ("tree_poplar", 1)], in_town, 1 / 330.0, R,
+    b.scatter([("tree_oak", 3), ("tree_ash", 3), ("tree_apple", 3), ("tree_poplar", 1)], in_town, 1 / 210.0, R,
               bounds=(-HX, -HZ, HX, HZ), tags={"town_green"}, min_dist=6.0)
     b.scatter([("shrub_hazel", 3), ("shrub_bramble", 1), ("nat_hawthorn_bush", 2), ("nat_blackthorn_low", 1), ("nat_fern_clump", 1)],
               in_town, 1 / 170.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"town_green"}, cls="veg")
@@ -524,14 +639,14 @@ def populate(ctx, grid, pads=None):
               1 / 120.0, R, bounds=(-HX, -HZ, HX, HZ), avoid_routes=False, tags={"stream_bank"}, cls="veg",
               accept=lambda x, z: 0.0 if any(e and math.hypot(x - e["pos"][0], z - e["pos"][2]) < 18 for e in bridges.values()) else 1.0)
 
-    # ------------------------------------------------------------------ 11. decor ring: trees in the margin band
+    # ------------------------------------------------------------------ 11. decor ring: a loose tree line just beyond the border
     nt = 0
     for _ in range(2600):
         x, z = R.uniform(-HX - 86, HX + 86), R.uniform(-HZ - 86, HZ + 86)
-        if abs(x) < HX + 6 and abs(z) < HZ + 6:
+        if (abs(x) < HX + 6 and abs(z) < HZ + 6) or abs(x) > HX + 30 or abs(z) > HZ + 30:
             continue
         nt += decor(R.choice(decor_trees + ["shrub_hazel"]), x, z, R.uniform(0, 360)) is not None
-        if nt >= 420:
+        if nt >= 260:
             break
     rep["decorTrees"] = nt
 
@@ -662,7 +777,8 @@ def build(ctx):
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(), explore_start=((a1[0], a1[1], a1[2]), 180.0), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], o["pos"][1] + 40, o["pos"][2] - 70], "yaw": 180.0, "pitch": -28}
-                         for i, o in enumerate(sc.objectives)})
+                         for i, o in enumerate(sc.objectives)},
+              extra={"groundPaint": b.paint.to_json()})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=5, version=VERSION, seed=SEED,
                    description="A dense Norman town around a grand chateau: the chateau on its gravel forecourt behind garden walls "
                                "and an iron gate, a ring road and four winding streets of town houses, the church in its walled "
