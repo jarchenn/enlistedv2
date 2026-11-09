@@ -222,6 +222,9 @@ bool blendPlacement(const App& app, const AssetDef* a, vec3 pos, float yaw, uint
 
 // ================================================================ generated meshes
 namespace {
+// the revetment mesh is built this far below its draw position: the material weathering (rising damp and moss at the
+// foot of walls, in mesh space) then never paints the dug-in timber, which has no ground line of its own
+constexpr float kTrenchMeshDrop = 3.0f;
 Part boxPart(vec3 c, vec3 s, quat q, Part::Shape sh = Part::BOX, float rad = 0) { Part p; p.shape = sh; p.center = c; p.size = s; p.rot = q; p.rad = rad; return p; }
 quat yawPitch(float yawRad, float tiltRad) { return glm::angleAxis(yawRad, vec3(0, 1, 0)) * glm::angleAxis(tiltRad, vec3(1, 0, 0)); }
 
@@ -232,7 +235,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   const TerrainStamp* st = stampOf(T, i.id, TerrainStamp::TRENCH);
   if (!st) return;
   quat iq = glm::inverse(yawQuat(i.yaw));
-  auto L = [&](vec3 w) { return iq * (w - i.pos); };   // world -> instance space
+  auto L = [&](vec3 w) { return iq * (w - i.pos) - vec3(0, kTrenchMeshDrop, 0); };   // world -> instance space (dropped)
   const Material& wattle = matNamed(a, "wattle"); const Material& picket = matNamed(a, "picket"); const Material& bag = matNamed(a, "sacking");
   const Material* clod[3] = {&matNamed(a, "spoil"), &matNamed(a, "earth"), &matNamed(a, "turf")};
   const float thk = sp.carvePad + 0.06f;   // the panel fills the carve pad behind the revetment line: no slot between revetment and soil
@@ -282,7 +285,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
             vec3 sz(step * (0.55f + 0.35f * r1), 0.12f + 0.08f * r2, thk * (0.75f + 0.4f * r0));
             Part c = boxPart(L(vec3(sc.x, cap - sz.y * 0.45f, sc.y)), sz, iq * glm::angleAxis(yawR + (r2 - 0.5f) * 0.6f, vec3(0, 1, 0)) * glm::angleAxis((r0 - 0.5f) * 0.25f, vec3(1, 0, 0)));
             c.bv = 0.045f;
-            appendPart(m, c, *clod[r2 < 0.12f ? 2 : r1 < 0.45f ? 1 : 0], mat4(1));
+            appendPart(m, c, *clod[r1 < 0.45f ? 1 : 0], mat4(1));   // spoil and dark earth (no turf squares)
           }
           vec2 rc = q + n * (0.03f + sp.batter * H);
           Part rail = boxPart(L(vec3(rc.x, y1 + 0.01f, rc.y)), vec3(0.08f, step + 0.04f, 0.08f), iq * glm::angleAxis(yawR, vec3(0, 1, 0)) * glm::angleAxis(1.5707963f, vec3(0, 0, 1)), Part::CYL);
@@ -401,7 +404,7 @@ void blendDrawItems(App& app, const Instance& i, InstanceRT& r, const mat4& M, s
     if (!m.i.empty()) r.earthMesh.upload(m);
     r.earthKey = key; r.earthGround = app.groundRev;
   }
-  if (r.earthMesh.count) op.push_back({&r.earthMesh, M});
+  if (r.earthMesh.count) op.push_back({&r.earthMesh, tr ? M * glm::translate(mat4(1), vec3(0, kTrenchMeshDrop, 0)) : M});
 }
 
 // ================================================================ preview

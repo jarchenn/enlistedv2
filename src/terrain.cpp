@@ -287,7 +287,7 @@ Terrain::Tile* Terrain::activate(int tx, int tz) {
   auto it = tiles.find(key(tx, tz));
   if (it != tiles.end()) return &it->second;
   Tile t; t.tx = tx; t.tz = tz;
-  t.h.assign(kFineN * kFineN, 0.0f); t.base.assign(kFineN * kFineN, 0.0f); t.dirt.assign(kFineN * kFineN, 0.0f); t.sdirt.assign(kFineN * kFineN, 0.0f);
+  t.h.assign(kFineN * kFineN, 0.0f); t.base.assign(kFineN * kFineN, 0.0f); t.dirt.assign(kFineN * kFineN, 0.0f); t.sdirt.assign(kFineN * kFineN, 0.0f); t.sew.assign(kFineN * kFineN * 3, 0.0f);
   recutTile(t);   // V8 sculpt + GX1 stamps + cuts: the authored base
   auto& ref = tiles[key(tx, tz)] = std::move(t);
   setMask(tx, tz, 1);
@@ -357,7 +357,7 @@ std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<f
 
 void Terrain::rebuildMesh(Tile& t) {
   t.rev = ++tileRev;
-  struct TV { vec3 p, n; float dirt; };
+  struct TV { vec3 p, n; float dirt; vec3 ew; };   // ew: GX1 stamp material (mud, fresh earth, wet)
   std::vector<TV> v(kFineN * kFineN);
   vec2 o = tileOrigin(t.tx, t.tz);
   float fs = fineSpacing();
@@ -365,7 +365,8 @@ void Terrain::rebuildMesh(Tile& t) {
     for (int i = 0; i < kFineN; ++i) {
       float x = o.x + i * fs, z = o.y + j * fs;
       size_t k = (size_t)j * kFineN + i;
-      v[k] = {vec3(x, t.h[k], z), normal(x, z), t.sdirt.empty() ? t.dirt[k] : std::max(t.dirt[k], t.sdirt[k])};
+      v[k] = {vec3(x, t.h[k], z), normal(x, z), t.sdirt.empty() ? t.dirt[k] : std::max(t.dirt[k], t.sdirt[k]),
+              t.sew.size() == v.size() * 3 ? vec3(t.sew[k * 3], t.sew[k * 3 + 1], t.sew[k * 3 + 2]) : vec3(0.0f)};
     }
   if (!t.vao) {
     std::vector<uint32_t> idx;
@@ -380,9 +381,9 @@ void Terrain::rebuildMesh(Tile& t) {
     glNamedBufferData(t.vbo, v.size() * sizeof(TV), nullptr, GL_DYNAMIC_DRAW);
     glVertexArrayVertexBuffer(t.vao, 0, t.vbo, 0, sizeof(TV));
     glVertexArrayElementBuffer(t.vao, t.ebo);
-    for (int k = 0; k < 3; ++k) {
+    for (int k = 0; k < 4; ++k) {
       glEnableVertexArrayAttrib(t.vao, k);
-      glVertexArrayAttribFormat(t.vao, k, k == 2 ? 1 : 3, GL_FLOAT, GL_FALSE, k * 12);
+      glVertexArrayAttribFormat(t.vao, k, k == 2 ? 1 : 3, GL_FLOAT, GL_FALSE, k < 3 ? k * 12 : 28);
       glVertexArrayAttribBinding(t.vao, k, 0);
     }
   }

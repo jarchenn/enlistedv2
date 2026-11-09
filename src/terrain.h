@@ -84,6 +84,7 @@ public:
     std::vector<float> base;   // authored base per fine sample: base heightfield lowered by terrain cuts
     std::vector<float> dirt;   // disturbed-soil blend 0..1
     std::vector<float> sdirt;  // GX1 stamp soil mask 0..1 (trench mud, spoil, bare berm faces, pad embankments); derived, never saved
+    std::vector<float> sew;    // GX1 stamp material per sample, 3 floats: packed mud (cut walls / floor), freshly turned earth (spoil), wet
     GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
     uint32_t body = 0xffffffffu;
     uint32_t rev = 0;          // bumped on every remesh (grass / cache invalidation)
@@ -153,8 +154,8 @@ public:
   std::vector<TerrainStamp> stamps;
   StampParams sp;
   int setStamps(std::vector<TerrainStamp> next);   // re-bases the tiles under old and new stamps; returns tiles touched
-  // stamped ground at a point from groundBase g (no polygon cuts); soil (optional) receives the stamp soil mask
-  float stampHeight(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t excludeOwner, float* soil) const;
+  // stamped ground at a point from groundBase g (no polygon cuts); mask (optional): soil (grass), mud, fresh earth, wet
+  float stampHeight(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t excludeOwner, vec4* mask) const;
   float stampSoilAt(float x, float z) const;   // the stamp soil mask (0 off-tile)
   float trenchLipY(const TerrainStamp& s, float x, float z) const;   // the uncarved ground (with parapet) at a point
   // ---- base edits (map tools): bump the chunk revisions over a rectangle so meshes and colliders rebuild
@@ -195,7 +196,7 @@ private:
   void setMask(int tx, int tz, uint8_t v);
   void recutTile(Tile& t);
   int recutRegions(const std::vector<std::pair<vec2, vec2>>& regions);   // shared by setCuts / setStamps
-  float stampEval(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t excludeOwner, float* soil, bool carve) const;
+  float stampEval(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t excludeOwner, vec4* mask, bool carve) const;
   void stampsNear(vec2 lo, vec2 hi, std::vector<const TerrainStamp*>& out) const;
   friend struct TerrainStream;
 };

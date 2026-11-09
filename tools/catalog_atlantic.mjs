@@ -595,14 +595,17 @@ export const tobrukTurret = () => tobruk("turret");
 // `path` (x, z, depth scale), with the niches as `branches`, and generates the revetment along the cut; the slab parts
 // listed in `replace` are dropped at load while content/settings/terrain_blend.json is enabled
 export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0, keepCollision: ["wattle"] };
+// GX1: the trench floor reads as dug soil (the default mud texture set has a green cast)
+function trenchMud(A) { const m = A.materials.find((x) => x.name === "mud"); if (m) m.texture = "soil"; }
 export function trenchNiche(pts, niche) {   // from the centreline into the rear wall (right of the run), to the niche's back
   const [i, t] = niche, p = pts[i], q = pts[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / L, uz = (q[1] - p[1]) / L;
   const c = [p[0] + ux * L * t, p[1] + uz * L * t];
   return [[r3(c[0]), r3(c[1]), 1], [r3(c[0] + uz * 1.25), r3(c[1] - ux * 1.25), 1]];
 }
 function trenchPiece(id, name, desc, pts, opt, footprint, tourPts) {
-  const A = new Asset({ id, version: 2, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  const A = new Asset({ id, version: 3, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A);
+  trenchMud(A);
   const r = trenchRun(A, pts, opt);
   const unit = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
   const ends = [[pts[0], unit(pts[1], pts[0])], [pts[pts.length - 1], unit(pts[pts.length - 2], pts[pts.length - 1])]];
@@ -648,8 +651,9 @@ export function trenchCorner() {
 }
 // entry: a 3.6 m ramp from grade down to the trench floor, then 2.4 m of trench; joins at local (+3, 0)
 export function trenchEntry() {
-  const A = new Asset({ id: "aw_trench_entry", version: 2, name: "Trench, entry ramp (wattle)", description: "Trench end with a log-stepped ramp from the ground down to the 1.5 m trench floor, wattle revetment and a small-arms cache in a niche. Joins a trench run at its +X end.", category: "Atlantic Wall", floors: 0, enterable: false, footprint: [6, 6.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  const A = new Asset({ id: "aw_trench_entry", version: 3, name: "Trench, entry ramp (wattle)", description: "Trench end with a log-stepped ramp from the ground down to the 1.5 m trench floor, wattle revetment and a small-arms cache in a niche. Joins a trench run at its +X end.", category: "Atlantic Wall", floors: 0, enterable: false, footprint: [6, 6.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   stdMaterials(A);
+  trenchMud(A);
   const D = TR.D;
   const r = trenchRun(A, [[0.4, 0], [3, 0]], { firestep: [], niche: [0, 0.5], endExt: [0.2, 0] });
   setSnap(A, [sock([3, 0, 0], [1, 0], "trench")]);

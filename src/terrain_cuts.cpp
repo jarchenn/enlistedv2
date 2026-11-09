@@ -86,8 +86,8 @@ void Terrain::stampsNear(vec2 lo, vec2 hi, std::vector<const TerrainStamp*>& out
   for (auto& s : stamps) if (overlaps(s.bmin, s.bmax, lo, hi)) out.push_back(&s);
 }
 
-float Terrain::stampEval(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t ex, float* soil, bool carve) const {
-  float h = g, so = 0;
+float Terrain::stampEval(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t ex, vec4* mask, bool carve) const {
+  float h = g, so = 0, mud = 0, fresh = 0, wet = 0;
   const vec2 p(x, z);
   auto in = [&](const TerrainStamp& s) { return x >= s.bmin.x && z >= s.bmin.y && x <= s.bmax.x && z <= s.bmax.y && !excluded(s, ex, cutIgnore); };
   // 1. pad rings: the levelled footprint blended into the ground around it (raised: embankment, lowered: a cut)
@@ -152,8 +152,11 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
     float r = (th.lat - lip) / (sp.parapetW * (1.0f + 0.22f * nw));
     if (r < -0.2f || r >= 1.0f) continue;
     float P = sp.parapetH * (th.front ? sp.parapetFront : 1.0f) * (1.0f + sp.parapetNoise * nn) * sstep(-0.08f, 0.22f, r) * (1.0f - sstep(0.32f, 1.0f, r));   // fire side low: a man on the firestep sees over it
+    P += 0.07f * (terrainFbm(x / 1.3f, z / 1.3f, s.seed + 17) - 0.2f) * sstep(-0.05f, 0.15f, r) * (1.0f - sstep(0.45f, 0.85f, r));   // clods: thrown soil, not a smooth bank
     h += std::max(0.0f, P);
     so = std::max(so, 0.85f * (1.0f - sstep(0.15f, 0.8f, r)));
+    // freshly turned dark earth on the crest, breaking up into the sparse dry grass of the outer slope over 1-2 m
+    fresh = std::max(fresh, (1.0f - sstep(0.12f, 0.62f + 0.18f * nw, r + 0.12f * (nn - 0.1f))) * (0.8f + 0.2f * nn));
   }
   // 4. pinned footprints: exactly their anchor (a neighbour's ring or berm never moves a building's floor)
   for (auto* sp_ : list) {
@@ -172,15 +175,17 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
       if (!th.any) continue;
       // the floor runs carvePad past the revetment line, so on the 0.45 m grid the wall slope never comes in front of it
       float target = th.floorY + std::max(0.0f, th.lat - sp.floorHalf - sp.carvePad) / std::max(0.02f, sp.batter);
-      if (target < h) { h = target; so = 1.0f; }
-      else if (th.lat < sp.floorHalf + sp.carvePad + 0.3f) so = 1.0f;
+      if (target < h || th.lat < sp.floorHalf + sp.carvePad + 0.3f) {   // floor and cut walls: packed mud, wetter low down
+        h = std::min(h, target); so = 1.0f; mud = 1.0f;
+        wet = std::max(wet, 1.0f - sstep(0.1f, 1.3f, h - th.floorY));
+      }
     }
-  if (soil) *soil = so;
+  if (mask) *mask = vec4(so, mud, std::min(fresh, 1.0f - mud), wet);
   return h;
 }
 
-float Terrain::stampHeight(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t ex, float* soil) const {
-  return stampEval(x, z, g, list, ex, soil, true);
+float Terrain::stampHeight(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t ex, vec4* mask) const {
+  return stampEval(x, z, g, list, ex, mask, true);
 }
 
 float Terrain::trenchLipY(const TerrainStamp& s, float x, float z) const {
@@ -247,15 +252,18 @@ void Terrain::recutTile(Tile& t) {
   std::vector<const TerrainStamp*> L;
   stampsNear(o - vec2(fs), o + vec2(ts + fs), L);
   if (t.sdirt.size() != t.h.size()) t.sdirt.assign(t.h.size(), 0.0f);
+  if (t.sew.size() != t.h.size() * 3) t.sew.assign(t.h.size() * 3, 0.0f);
   t.cut = false;
   for (int j = 0; j < kFineN; ++j)
     for (int i = 0; i < kFineN; ++i) {
       float x = o.x + i * fs, z = o.y + j * fs, raw = groundBase(x, z);
-      float so = 0, nb = L.empty() ? raw : stampEval(x, z, raw, L, 0, &so, true);
+      vec4 mk(0.0f);
+      float nb = L.empty() ? raw : stampEval(x, z, raw, L, 0, &mk, true), so = mk.x;
       for (auto& c : cuts) nb = std::min(nb, cutTarget(c, vec2(x, z)));
       size_t k = (size_t)j * kFineN + i;
       float delta = t.h[k] - t.base[k];   // crater deltas survive a re-cut
       t.base[k] = nb; t.h[k] = nb + delta; t.sdirt[k] = so;
+      t.sew[k * 3] = mk.y; t.sew[k * 3 + 1] = mk.z; t.sew[k * 3 + 2] = mk.w;
       t.cut |= std::fabs(nb - raw) > 1e-5f || so > 0.0f;
     }
 }

@@ -211,7 +211,7 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
   - floor at the anchor minus `depth` (1.62 m); 2 x `floorHalf` = 1.36 m wide between the revetments;
   - the floor runs one grid step (0.45 m) past the revetment line and past free ends, so on the 0.45 m grid the wall
     slope never comes in front of the revetment, whatever the trench's angle. The generated panel is that thick,
-    with heaped clods (spoil, dark earth, turf) flush with the soil on top, so nothing shows behind it. The asset's wattle boxes stay as invisible
+    with heaped clods (spoil, dark earth) flush with the soil on top, so nothing shows behind it. The asset's wattle boxes stay as invisible
     colliders (`keepCollision`): players and bots meet the walls exactly where they did before;
   - walls lean back 0.12 m per metre;
   - corners are mitred: the legs are boxes that overlap by the floor half-width.
@@ -229,8 +229,15 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
     side stays clear;
   - end walls where a run stops;
   - openings where the ground behind is carved (junctions, the inner side of a corner, niches).
-- Masks: mud on the floor and walls (`sdirt` 1); turned earth on the parapet fading to sparse grass on its outer
-  slope, then full grass.
+- Masks:
+  - `Tile::sdirt` (the soil mask that grass reads) is 1 on the floor and walls, and turned earth on the parapet
+    fading to sparse grass on its outer slope, then full grass.
+  - `Tile::sew` goes to the terrain shader as vertex attribute 3: packed mud, freshly turned earth and wetness. Inside
+    the cut it overrides the slope rock / scree shading, so the walls and floor are dark packed mud, wetter and
+    duller low down. The spoil crest is dark crumbly earth breaking up into the outer slope over 1-2 m.
+  - The material weathering (rising damp and moss) stops at an asset's ground line, and the generated revetment is
+    built below its draw position, so dug-in timber gets no moss blotches.
+  - The trench pieces' mud uses the `soil` texture slot (asset version 3).
 - Collision: the asset's wattle boxes (invisible) and the carved heightfield; the generated revetment is visual.
 
 ### For the other streams
