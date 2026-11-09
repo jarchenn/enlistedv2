@@ -596,7 +596,7 @@ export const tobrukTurret = () => tobruk("turret");
 // listed in `replace` are dropped at load while content/settings/terrain_blend.json is enabled
 export const TRENCH_FLOOR_DROP = { materials: ["plank_x"], topBelow: -1.45 };
 export const TRENCH_STEP_DROP = { materials: ["plank_x"], topAbove: -1.3, minWidth: 0.3 };   // the firestep's full-width top plank
-export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0, keepCollision: ["wattle"] };
+export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0, keepCollision: ["wattle", "spoil"] };
 // GX1: the trench floor reads as dug soil (the default mud texture set has a green cast)
 // and its plank edges are dark, worn field timber (the generated duckboards replace the asset's, "floorDrop")
 function trenchMud(A) {
