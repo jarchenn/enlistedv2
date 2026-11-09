@@ -1,0 +1,18 @@
+{
+  "_doc": "GX5 static decals (src/static_decals.cpp, docs/graphics-overhaul.md#gx5-decals). Scattered per building from its rooms, hearths and windows, deterministic from the instance id, evaluated in the wall material (lit, with relief). Rates are expected counts: per wall per 6 m (stains) or 5 m (scuffs, pocks), per room, per window or per sill; all but soot, outlines and pocks scale with the building's wear (Finish > Wear, 0..2). density multiplies everything; Settings > Material detail Low switches the pass off.",
+  "density": 1.0,
+  "rates": {
+    "stainPerWall": 0.35,
+    "stainCeiling": 0.35,
+    "sootHearth": 1.0,
+    "crackPerWindow": 0.45,
+    "crackPerWall": 0.25,
+    "scuffPerWall": 0.45,
+    "ghostPerWall": 0.3,
+    "dampPerRoom": 0.45,
+    "pockDamaged": 1.2,
+    "streakPerSill": 0.8
+  },
+  "maxPerRoom": 40,
+  "maxExterior": 24
+}

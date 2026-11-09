@@ -243,6 +243,9 @@ uniform int uPaintSlot[12];
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
 struct TexS { vec3 col; float ao, r, h; vec3 n; };
+// GX5 parallax occlusion (High): the eye direction (world, toward the eye) and the height in uv units; 0 = off. Set by
+// texMaterial for slots with a height, near the eye; the taps march the height map before sampling (docs/textures.md)
+vec3 gPomV = vec3(0.0); float gPomK = 0.0;
 bool texOn(){ return uTexOn == 1 && uLook == 1; }
 void texFrame(int q, inout vec3 T, inout vec3 B){ vec3 t = T; if (q == 1) { T = B; B = -t; } else if (q == 2) { T = -T; B = -B; } else if (q == 3) { T = -B; B = t; } }
 // one planar tap: frame T (u), B (v), Nf (out of the plane); explicit gradients (taps sit in divergent branches);
@@ -250,6 +253,12 @@ void texFrame(int q, inout vec3 T, inout vec3 B){ vec3 t = T; if (q == 1) { T = 
 void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 Nf, vec3 ns, float w, inout TexS s){
   vec3 q = vec3(dot(p, T)*inv.x, dot(p, B)*inv.y, L);
   vec2 gx = vec2(dot(dpx, T), dot(dpx, B))*inv*uTexLod.x, gy = vec2(dot(dpy, T), dot(dpy, B))*inv*uTexLod.x;
+  if (gPomK > 0.0 && w > 0.3) {   // GX5 POM: march from the top of the relief down until the height map is above the ray
+    vec3 Vt = vec3(dot(gPomV, T), dot(gPomV, B), max(dot(gPomV, Nf), 0.2));
+    vec2 step = Vt.xy/Vt.z*gPomK*vec2(1.0, 1.0)/10.0;
+    float depth = 0.0, hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g;
+    for (int i = 0; i < 10 && depth < hd; ++i) { q.xy -= step; depth += 0.1; hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g; }
+  }
   vec4 c = textureGrad(uTexCol, q, gx, gy);
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
   float fp = max(length(gx), length(gy))*1024.0/max(uTexLod.x, 1e-3);
@@ -302,6 +311,7 @@ const char* kMainGLSL = R"GLSL(
 // ---- L4 main-pass hooks (src/textures.cpp): vertex params.x = pattern + 100 * code (0 pattern default, 1 none, 2+ slot)
 uniform mat4 uModel;
 uniform int uPatSlot[32];
+uniform int uMatLayer;   // GX5 layered materials (render.cpp kMainFS, docs/graphics-overhaul.md#gx5): 0 off, 1 on, 2 High (+ POM)
 vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world normal delta, height (m) for the derivative bump
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
 bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 80 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
@@ -318,6 +328,10 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   if (f <= 0.0) return;
   vec2 inv = Lp.xy*A.w; int sp = int(A.z + 0.5), rot = int(C.y + 0.5);
   vec3 ng = normalize(nW);
+  float eyeD = length(w - uCamPos);
+  gPomK = 0.0;
+  float pomD = max(C.x, A.y > 0.5 ? 0.015 : 0.0);   // GX5: replace-mode sets (their own structure: brick, slates, cobbles) get 1.5 cm
+  if (uMatLayer == 2 && pomD > 0.0 && sp != 1 && eyeD < 14.0) { gPomV = normalize(uCamPos - w); gPomK = pomD*max(inv.x, inv.y)*(1.0 - smoothstep(8.0, 14.0, eyeD)); }
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0)); vec3 dn = vec3(0.0);
   if (sp == 2) { s = texTri(A.x, w, ng, dwx, dwy, inv, rot); dn = s.n - ng; }
   else if (sp == 1) {
@@ -338,10 +352,13 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
     float m = max(dot(Tw, Tw), dot(Bw, Bw));
     if (m > 1e-30) { float im = inversesqrt(m); dn = normalize(Tw*im*tn.x + Bw*im*tn.y + ng*tn.z) - ng; }
   } else {
-    vec3 na = normalize(an); s = texTri(A.x, ap, na, dax, day, inv, rot);
+    vec3 na = normalize(an);
+    if (gPomK > 0.0) gPomV = normalize(transpose(mat3(uModel))*gPomV);   // asset space (rotation only)
+    s = texTri(A.x, ap, na, dax, day, inv, rot);
     mat3 mm = mat3(uModel); vec3 nw = mm*na; float sc = max(length(nw), 1e-6);
     dn = (mm*s.n - nw)/sc;
   }
+  gPomK = 0.0;
   float fa = f*(1.0 - uTexLod2.z*smoothstep(uTexLod2.x, uTexLod2.y, pix*1024.0*max(inv.x, inv.y)));   // detail at the pixel scale: fade (shimmer)
   alb *= mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*fa);
   rough = clamp(rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), 0.04, 1.0);

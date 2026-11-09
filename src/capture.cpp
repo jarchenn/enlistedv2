@@ -1,5 +1,6 @@
 // --capture-materials <tag>: identical fixed cameras for before/after material comparisons.
 #include "selftest.h"
+#include "settings.h"
 #include <GLFW/glfw3.h>
 #include <cstdio>
 #include <cstdlib>
@@ -115,6 +116,11 @@ void SelfTest::captureUpdate(App& app, float dt) {
         float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f, H = a->bmax.y - a->bmin.y;
         cams.push_back({"current_01_hallway", W(ch, vec3(-17.5f, 5.5f, -8.8f)), W(ch, vec3(-14.5f, 5.1f, -8.8f))});   // level-1 corridor (B3 tour look 2)
         cams.push_back({"current_02_room", W(ch, vec3(0.0f, 1.9f, 9.0f)), W(ch, vec3(0.0f, 1.5f, -8.2f))});           // entrance hall (B3 tour look 1)
+        if (std::getenv("NMK_GX5_CLOSE")) {   // GX5 close-ups for judging the wall detail: corridor wall at 1.3 m, hall wall corner
+          cams.push_back({"gx5_corridor_wall", W(ch, vec3(-17.5f, 5.3f, -8.8f)), W(ch, vec3(-17.5f, 5.1f, -6.8f))});
+          cams.push_back({"gx5_corridor_wall2", W(ch, vec3(-17.5f, 5.3f, -8.8f)), W(ch, vec3(-17.5f, 5.1f, -10.8f))});
+          cams.push_back({"gx5_hall_corner", W(ch, vec3(-2.0f, 1.7f, 8.0f)), W(ch, vec3(-6.0f, 1.2f, 3.0f))});
+        }
         cams.push_back({"current_03_exterior", W(ch, vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6)), W(ch, vec3(0, H * 0.35f, 0))});
       }
       if (op) cams.push_back({"current_04_lineup", W(op, vec3(-16.0f, 1.7f, 46.0f)), W(op, vec3(-16.0f, 3.2f, 0.0f))});
@@ -297,6 +303,8 @@ void SelfTest::captureUpdate(App& app, float dt) {
     if (std::sscanf(pose, "%f,%f,%f", &y, &e, &t) >= 2)
       for (auto& [id, r] : app.rt) if (r.asset && !r.asset->station.kind.empty()) { r.st.yaw = y; r.st.elev = e; r.st.recoilT = t; }
   }
+  { static bool presetDone = false;   // NMK_CAPTURE_PRESET=Low|Medium|High (GX5: the High-only material extras)
+    if (!presetDone) { presetDone = true; if (const char* ps = std::getenv("NMK_CAPTURE_PRESET")) { std::string q = ps; settings().applyPreset(app, q == "Low" ? GfxPreset::Low : q == "High" ? GfxPreset::High : GfxPreset::Medium); } } }
   if (ci >= cams.size()) { finish(app); return; }
   Cam& c = cams[ci];
   app.camPos = c.pos;
@@ -307,9 +315,25 @@ void SelfTest::captureUpdate(App& app, float dt) {
   // NMK_CAPTURE_PERF=<frames>: hold each camera that long and log its mean GPU / CPU frame time (after 60 warm-up frames)
   static const int hold = std::getenv("NMK_CAPTURE_PERF") ? std::max(90, std::atoi(std::getenv("NMK_CAPTURE_PERF"))) : 5;
   static double gpuSum = 0, dtSum = 0; static int n = 0;
+  // NMK_CAPTURE_AB=<Renderer::perf switch> (GX5): interleaved A/B while the camera is held: 24-frame blocks alternate
+  // the switch on / off, the first 8 frames of a block skipped (GPU timestamps are read 2-3 frames late); logs both
+  // sides' mean GPU ms. Other load on a shared GPU falls on both sides alike.
+  static const char* abSw = std::getenv("NMK_CAPTURE_AB");
+  static double abSum[2] = {0, 0}; static int abN[2] = {0, 0};
+  if (abSw && hold > 5 && frames > 60) {
+    int blk = (frames - 61) / 24, side = blk & 1, in = (frames - 61) % 24;
+    if (in == 0) app.R.perf.set(abSw, side == 0);
+    if (in >= 8) { abSum[side] += app.R.stats.gpuMs; ++abN[side]; }
+  }
   if (hold > 5 && frames > 60) { gpuSum += app.R.stats.gpuMs; dtSum += dt * 1000.0; ++n; }
   if (frames >= hold) {
     if (n) logf("capture perf %s: gpu %.3f ms, frame %.3f ms (%d frames)", c.name, gpuSum / n, dtSum / n, n);
+    if (abSw && abN[0] && abN[1]) {
+      double on = abSum[0] / abN[0], off = abSum[1] / abN[1];
+      logf("capture ab %s %s: on %.3f ms, off %.3f ms, %+.1f %% (%d / %d frames)", c.name, abSw, on, off, off > 0 ? (on / off - 1) * 100 : 0.0, abN[0], abN[1]);
+      app.R.perf.set(abSw, true);
+    }
+    abSum[0] = abSum[1] = 0; abN[0] = abN[1] = 0;
     gpuSum = dtSum = 0; n = 0;
     ++ci; frames = 0;
   }

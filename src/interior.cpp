@@ -7,6 +7,7 @@
 //     ordinary furniture instances tagged extra.furnish = {host, slot};
 //   * per building copy finish parameters (SurfaceParams) for the wall / floor patterns 17-22.
 #include "interior.h"
+#include "static_decals.h"
 #include "app.h"
 #include "lights.h"   // L3: light assets, interior lighting (docs/lights.md)
 #include <imgui.h>
@@ -422,7 +423,8 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
   float seed = h01((uint32_t)i.id, 77u);
   sp.inst = vec4(seed, std::clamp(fin.value("wear", 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
   const RoomInfo* ri = rooms(a);
-  int n = std::min((int)ri->rooms.size(), 16);
+  int n = (int)ri->rooms.size();   // GX5: every room (the first 16 in uniforms, the rest in the decal buffer)
+  std::vector<vec4> xA, xB;
   bool civic = a->id.find("municipal") != std::string::npos || a->id.find("school") != std::string::npos;
   for (int k = 0; k < n; ++k) {
     const auto& R = ri->rooms[k];
@@ -442,17 +444,17 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
       default: wall = 4; floor = R.storey == 0 ? 3 : 0; break;
     }
     if (civic) { wall = R.type == ROOM_UTILITY ? 5 : 4; floor = R.storey == 0 && R.type == ROOM_HALL ? 3 : (hB < 0.5f ? 1 : 0); }
-    sp.roomA[k] = vec4(R.mn.x, R.mn.y, R.mx.x, R.mx.y);
-    sp.roomB[k] = vec4(R.y0, R.y1, (float)wall, (float)floor);
+    vec4 A(R.mn.x, R.mn.y, R.mx.x, R.mx.y), B(R.y0, R.y1, (float)wall, (float)floor);
+    if (k < 16) { sp.roomA[k] = A; sp.roomB[k] = B; } else { xA.push_back(A); xB.push_back(B); }
   }
-  sp.inst.w = (float)n;
+  sp.inst.w = (float)std::min(n, 16);
+  staticDecalsFor(app.R, i.id, *ri, sp, sp.inst.y, isRuinedAsset(a->id) || sp.inst.y > 1.5f, xA, xB);   // GX5 (static_decals.cpp)
   sp.sills = std::min((int)ri->sills.size(), 12);
   for (int k = 0; k < sp.sills; ++k) {
     const auto& s = ri->sills[k];
     sp.sillA[k] = vec4(s.c.x, s.c.y, s.c.z, s.halfW);
     sp.sillB[k] = vec4(s.n.x, s.n.y, 0, 0);
   }
-  (void)app;
   return &sp;
 }
 

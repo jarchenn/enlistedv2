@@ -1,0 +1,11 @@
+{
+  "_doc": "GX5 grade (kToneFS, docs/graphics-overhaul.md#gx5-grade), applied after the filmic tonemap in display-linear: saturation (1 = unchanged; the brief asks -5 to -10 %), shadowTint / highlightTint multiply the darks / lights (cool shadows, warm light), contrast blends in a smoothstep S-curve (0 = none), vignette darkens the corners by vignette x r^2, sharpen is an edge-aware luminance unsharp mask against TAA softening (only with TAA on), chromaticAberration offsets red / blue toward the corners (0 = off, 1 = mild). enabled false keeps the pre-GX5 fixed grade (7 % desaturation, 0.16 vignette).",
+  "enabled": true,
+  "saturation": 0.91,
+  "shadowTint": [0.96, 0.99, 1.05],
+  "highlightTint": [1.04, 1.0, 0.95],
+  "contrast": 0.08,
+  "vignette": 0.22,
+  "sharpen": 0.22,
+  "chromaticAberration": 0.0
+}
