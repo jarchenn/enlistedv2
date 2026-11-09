@@ -1,0 +1,316 @@
+{
+  "gpu_budget": {
+    "High": {
+      "frames": 121,
+      "passMs": {
+        "bloom": 0.093,
+        "clears": 0.098,
+        "cloud_shadow": 0.029,
+        "clusters": 0.012,
+        "composite": 0.556,
+        "fx": 0.001,
+        "glass": 0.026,
+        "gore": 0.001,
+        "grass": 1.836,
+        "light_shadows": 0.003,
+        "models": 0.004,
+        "msaa_resolve": 0.923,
+        "nature": 0.018,
+        "opaque": 0.47,
+        "post": 0.703,
+        "probes": 0.074,
+        "shadow_far": 0.02,
+        "shadow_near": 0.054,
+        "sky": 0.097,
+        "sky_occlusion": 0.004,
+        "taa": 0.155,
+        "terrain": 8.593,
+        "trees": 0.034,
+        "ui": 0.031,
+        "water": 0.101,
+        "weapon": 0.08
+      },
+      "probeCpuMs": 0.10780330578512394,
+      "timers": true,
+      "totalMs": 14.018608925619834
+    },
+    "Medium": {
+      "frames": 121,
+      "passMs": {
+        "bloom": 0.101,
+        "clears": 0.064,
+        "cloud_shadow": 0.029,
+        "clusters": 0.017,
+        "composite": 0.619,
+        "fx": 0.001,
+        "glass": 0.026,
+        "gore": 0.001,
+        "grass": 0.744,
+        "light_shadows": 0.003,
+        "models": 0.012,
+        "msaa_resolve": 0.001,
+        "nature": 0.012,
+        "opaque": 0.407,
+        "post": 0.778,
+        "probes": 0.131,
+        "shadow_far": 0.016,
+        "shadow_near": 0.053,
+        "sky": 0.087,
+        "sky_occlusion": 0.019,
+        "taa": 0.228,
+        "terrain": 6.837,
+        "trees": 0.18,
+        "ui": 0.031,
+        "water": 0.093,
+        "weapon": 0.028
+      },
+      "probeCpuMs": 0.07765454545454545,
+      "timers": true,
+      "totalMs": 10.517038280991732
+    }
+  },
+  "kit_20m": {
+    "detail": 37.880968855880155,
+    "px": 137600,
+    "relative": 0.01933687786181444,
+    "shimmer": 0.7324996680533513
+  },
+  "kit_50m": {
+    "detail": 34.63177641503208,
+    "px": 22576,
+    "relative": 0.031499540419118545,
+    "shimmer": 1.0908850409711792
+  },
+  "kit_50m_msaa4": {
+    "detail": 34.13791334732508,
+    "px": 22576,
+    "relative": 0.025867728644103773,
+    "shimmer": 0.8830702789445335
+  },
+  "moving_100m": {
+    "flicker": 2.4976760232312945,
+    "frames": 40,
+    "motion": 2.163344480274086,
+    "px": 2664,
+    "relative": 1.1545438306315645
+  },
+  "moving_50m": {
+    "flicker": 3.982437514061347,
+    "frames": 40,
+    "motion": 3.878323181202041,
+    "px": 10528,
+    "relative": 1.0268451926244675
+  },
+  "static_100m": {
+    "cottage": {
+      "detail": 10.146962380345988,
+      "mean_luma": 131.5840827885384,
+      "px": 1239,
+      "relative": 0.1269113417505098,
+      "shimmer": 1.287764610381656
+    },
+    "farmhouse": {
+      "detail": 15.110547828411873,
+      "mean_luma": 127.68822704302993,
+      "px": 2688,
+      "relative": 0.12946316190371002,
+      "shimmer": 1.95625929996344
+    },
+    "ruined_church": {
+      "detail": 18.9754854121013,
+      "mean_luma": 151.81265171385417,
+      "px": 3744,
+      "relative": 0.031247451031796446,
+      "shimmer": 0.5929355512192032
+    }
+  },
+  "static_20m": {
+    "cottage": {
+      "detail": 29.914133538879234,
+      "mean_luma": 97.15866044647805,
+      "px": 30192,
+      "relative": 0.05684500451274765,
+      "shimmer": 1.7004690560125257
+    },
+    "farmhouse": {
+      "detail": 34.89001168735605,
+      "mean_luma": 91.74851270685834,
+      "px": 66878,
+      "relative": 0.047667515996243796,
+      "shimmer": 1.6631201902161776
+    },
+    "ruined_church": {
+      "detail": 25.055946028859704,
+      "mean_luma": 127.21781729848071,
+      "px": 89000,
+      "relative": 0.03837767583895551,
+      "shimmer": 0.9615889745339423
+    }
+  },
+  "static_20m_no_wall_relief": {
+    "cottage": {
+      "detail": 29.244515584051374,
+      "mean_luma": 97.81767324373719,
+      "px": 30192,
+      "relative": 0.04372356604126099,
+      "shimmer": 1.2786745084839566
+    },
+    "farmhouse": {
+      "detail": 34.88595477522851,
+      "mean_luma": 91.5653447075411,
+      "px": 66878,
+      "relative": 0.04635168800093526,
+      "shimmer": 1.6170228913561295
+    },
+    "ruined_church": {
+      "detail": 22.50370310537673,
+      "mean_luma": 128.80591323048387,
+      "px": 89000,
+      "relative": 0.01648336396336336,
+      "shimmer": 0.3709367288093949
+    }
+  },
+  "static_20m_taa_sharpen0.40": {
+    "cottage": {
+      "detail": 30.409441082032817,
+      "mean_luma": 97.22308554446214,
+      "px": 30192,
+      "relative": 0.06287999750735743,
+      "shimmer": 1.912145579438356
+    },
+    "farmhouse": {
+      "detail": 35.33323780518721,
+      "mean_luma": 91.73794907669081,
+      "px": 66878,
+      "relative": 0.05277189724893788,
+      "shimmer": 1.864601994927627
+    },
+    "ruined_church": {
+      "detail": 25.27933930709762,
+      "mean_luma": 127.16747897591556,
+      "px": 89000,
+      "relative": 0.04087572986691241,
+      "shimmer": 1.033311444730943
+    }
+  },
+  "static_50m": {
+    "cottage": {
+      "detail": 17.5168403408323,
+      "mean_luma": 112.65709782586822,
+      "px": 4956,
+      "relative": 0.11865747867058501,
+      "shimmer": 2.078504109118352
+    },
+    "farmhouse": {
+      "detail": 25.75445285381987,
+      "mean_luma": 103.22960716998216,
+      "px": 10752,
+      "relative": 0.07960736190605033,
+      "shimmer": 2.0502440490263494
+    },
+    "ruined_church": {
+      "detail": 22.701978602888744,
+      "mean_luma": 141.53309668161316,
+      "px": 14839,
+      "relative": 0.04750237730862169,
+      "shimmer": 1.0783979532466774
+    }
+  },
+  "static_50m_no_wall_relief": {
+    "cottage": {
+      "detail": 17.044740626150777,
+      "mean_luma": 112.71233438256742,
+      "px": 4956,
+      "relative": 0.10432415664938689,
+      "shimmer": 1.7781781911307224
+    },
+    "farmhouse": {
+      "detail": 25.759523448234688,
+      "mean_luma": 103.06017098059063,
+      "px": 10752,
+      "relative": 0.07454652534282052,
+      "shimmer": 1.9202829675528066
+    },
+    "ruined_church": {
+      "detail": 22.228658889367093,
+      "mean_luma": 141.93056655828917,
+      "px": 14839,
+      "relative": 0.02399035426634198,
+      "shimmer": 0.5332734016215884
+    }
+  },
+  "static_50m_taa_jitter0.35": {
+    "cottage": {
+      "detail": 17.72255525102391,
+      "mean_luma": 112.63540160579828,
+      "px": 4956,
+      "relative": 0.11887145391288088,
+      "shimmer": 2.106705909740574
+    },
+    "farmhouse": {
+      "detail": 26.020303723480204,
+      "mean_luma": 103.16571291930016,
+      "px": 10752,
+      "relative": 0.0818514592555977,
+      "shimmer": 2.129799830040717
+    },
+    "ruined_church": {
+      "detail": 22.830248320994524,
+      "mean_luma": 141.47991274626273,
+      "px": 14839,
+      "relative": 0.045836450576570285,
+      "shimmer": 1.0464575488160923
+    }
+  },
+  "static_50m_taa_sharpen0.20": {
+    "cottage": {
+      "detail": 17.191180339918972,
+      "mean_luma": 112.66453075565029,
+      "px": 4956,
+      "relative": 0.10438085126937191,
+      "shimmer": 1.7944300382060328
+    },
+    "farmhouse": {
+      "detail": 25.260975199525692,
+      "mean_luma": 103.2948616257426,
+      "px": 10752,
+      "relative": 0.06902186742727973,
+      "shimmer": 1.7435596813054635
+    },
+    "ruined_church": {
+      "detail": 22.528381832460386,
+      "mean_luma": 141.61710057731645,
+      "px": 14839,
+      "relative": 0.04248681934248656,
+      "shimmer": 0.9571592889943008
+    }
+  },
+  "water_render_water_crater": {
+    "draws": 13,
+    "gpu_ms": 11.782177032258069
+  },
+  "water_render_water_overview": {
+    "draws": 13,
+    "gpu_ms": 12.696077935483874
+  },
+  "water_render_water_pond": {
+    "draws": 13,
+    "gpu_ms": 9.765346064516136
+  },
+  "water_render_water_pond_irregular": {
+    "draws": 13,
+    "gpu_ms": 8.89016258064516
+  },
+  "water_render_water_puddles": {
+    "draws": 13,
+    "gpu_ms": 9.833644387096772
+  },
+  "water_render_water_sea": {
+    "draws": 13,
+    "gpu_ms": 6.6828299354838725
+  },
+  "water_render_water_stream": {
+    "draws": 13,
+    "gpu_ms": 8.77450012903226
+  }
+}

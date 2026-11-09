@@ -1675,6 +1675,7 @@ uniform mat4 uModel, uVP; uniform float uTime, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;   // motion vectors (TAA): unjittered current / previous
 out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
 out vec4 vCC, vPC;
+invariant gl_Position;
 vec3 leafSway(vec3 w, float t){
   const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
   float s = sin(f*t + kx*w.x + kz*w.z) + 0.3*sin(2.9*t + 0.8*w.x - 0.5*w.y);
@@ -1686,7 +1687,7 @@ void main(){
   vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask; vShade = aShade;
   vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
   vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime), 1.0);
-  gl_Position = uVP*w;
+  gl_Position = uVP*w;   // invariant: the PF2 canopy depth prepass (leaf_shadow) and the GL_EQUAL shading pass must agree
 }
 )GLSL";
 static const char* kLeafAlpha = R"GLSL(
@@ -2116,6 +2117,14 @@ static const char* kFullVS = R"GLSL(
 out vec2 vUV;
 void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUV = p; gl_Position = vec4(p*2.0-1.0, 1.0, 1.0); }
 )GLSL";
+// the sky's triangle sits on the far plane of the reverse-Z world pass (clip z 0 = depth 0), so drawn after the opaque
+// world (PF2 skyLast) it passes GL_GEQUAL only where nothing was drawn and early-Z skips its shading everywhere else.
+// Thumbnails (standard Z, sky first, no depth write) are unaffected.
+static const char* kSkyVS = R"GLSL(
+#version 450 core
+out vec2 vUV;
+void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUV = p; gl_Position = vec4(p*2.0-1.0, 0.0, 1.0); }
+)GLSL";
 static const char* kSkyFS = R"GLSL(
 in vec2 vUV;
 uniform mat4 uInvVP; uniform int uCloudOn; uniform float uCloudCover, uTime;
@@ -2298,7 +2307,7 @@ bool Renderer::init(int w, int h) {
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
   { extern const char* groundPaintGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
-  progSky = compile(kFullVS, kSkyFS, "sky");
+  progSky = compile(kSkyVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");
   progExpo = compile(kFullVS, kExpoFS, "expo");
   progLine = compile(kLineVS, kLineFS, "line");
@@ -2364,6 +2373,7 @@ bool Renderer::init(int w, int h) {
 
 // Shadow maps (near cascade and far cascade): sizes come from the settings presets (setShadowSizes).
 void Renderer::createShadowTargets() {
+  farFrame = occFrame = -1000;   // PF2 caches: the maps are new
   if (shadowFbo) { glDeleteFramebuffers(1, &shadowFbo); glDeleteFramebuffers(1, &shadowFarFbo); GLuint t[2] = {shadowTex, shadowFarTex}; glDeleteTextures(2, t); }
   glCreateTextures(GL_TEXTURE_2D, 1, &shadowTex);
   glTextureStorage2D(shadowTex, 1, GL_DEPTH_COMPONENT32F, shadowSize, shadowSize);
@@ -2611,6 +2621,11 @@ Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
 // the uploaded bounds.
 static constexpr float kCullEps = 0.01f;        // box-kit meshes: no displacement (rounding only)
 static constexpr float kModelCullPad = 0.05f;   // imported models: thin-wire widening (<= 3 cm) and small part anims
+// world-space diagonal of a mesh-space box (largest axis scale of the model matrix): the small-caster test of the coarse depth passes
+static float worldDiag(vec3 lo, vec3 hi, const mat4& m) {
+  float sc = std::max({glm::length(vec3(m[0])), glm::length(vec3(m[1])), glm::length(vec3(m[2]))});
+  return glm::length(hi - lo) * sc;
+}
 
 void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr, bool sortSurf) {
   const DrawLocs L = drawLocs(p);
@@ -2624,6 +2639,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
     const DrawItem& it = items[k];
     if (!it.mesh || !it.mesh->count) continue;
     if (fr && !fr->visible(it.mesh->bmin, it.mesh->bmax, it.model, kCullEps)) { stats.culled++; continue; }
+    if (shadowPass && minCaster > 0 && worldDiag(it.mesh->bmin, it.mesh->bmax, it.model) < minCaster) { stats.culled++; continue; }
     drawIdx.push_back(k);
   }
   // main pass: copies sharing finish parameters are grouped so the parameter block uploads once per building. Stable,
@@ -2692,6 +2708,7 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
     if (!m || !m->vao || it.part < 0 || it.part >= (int)m->parts.size()) continue;
     const ModelPart& pt = m->parts[it.part];
     if (partCulled(fr, pt, it.m)) { stats.culled++; continue; }
+    if (minCaster > 0 && pt.bmax.x >= pt.bmin.x && worldDiag(pt.bmin, pt.bmax, it.m) < minCaster) { stats.culled++; continue; }
     if (m != bound) { bound = m; glBindVertexArray(m->vao); }
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
@@ -2777,6 +2794,41 @@ static mat4 reverseZ(const mat4& p) {
   return mat4(d);
 }
 
+const char* gpuPassName(int p) {
+  static const char* n[GP_Count] = {"cloud_shadow", "shadow_near", "shadow_far", "sky_occlusion", "light_shadows", "probes", "clusters",
+                                    "clears", "sky", "terrain", "opaque", "models", "trees", "grass", "nature", "msaa_resolve", "water", "gore",
+                                    "glass", "composite", "taa", "bloom", "fx", "weapon", "post", "ui"};
+  return p >= 0 && p < GP_Count ? n[p] : "end";
+}
+// one slot of GP_Count + 1 timestamps per frame, three slots in flight: a slot is read (only when every result is ready,
+// so the CPU never waits) just before it is reused
+void Renderer::gpuFrameBegin() {
+  if (!gpuTimers) return;
+  if (!gq[0][0]) {
+    if (!glQueryCounter || !glGetQueryObjectui64v) { gpuTimers = false; return; }   // e.g. a GL subset without timestamps
+    for (auto& s : gq) glGenQueries(GP_Count + 1, s);
+  }
+  gqSlot = (gqSlot + 1) % 3;
+  bool* set = gqSet[gqSlot]; GLuint* q = gq[gqSlot];
+  bool ready = set[0];
+  for (int i = 0; i <= GP_Count && ready; ++i) if (set[i]) { GLint a = 0; glGetQueryObjectiv(q[i], GL_QUERY_RESULT_AVAILABLE, &a); ready = a != 0; }
+  if (ready) {
+    GLuint64 ts[GP_Count + 1] = {};
+    for (int i = 0; i <= GP_Count; ++i) if (set[i]) glGetQueryObjectui64v(q[i], GL_QUERY_RESULT, &ts[i]);
+    int ord[GP_Count + 1], n = 0;   // passes in GPU time order (the pass order may change with the PF2 switches)
+    for (int i = 0; i <= GP_Count; ++i) if (set[i]) ord[n++] = i;
+    std::sort(ord, ord + n, [&](int a, int b) { return ts[a] < ts[b]; });
+    std::fill(gpuPassMs, gpuPassMs + GP_Count, 0.0);
+    for (int k = 0; k + 1 < n; ++k) if (ord[k] < GP_Count) gpuPassMs[ord[k]] = (ts[ord[k + 1]] - ts[ord[k]]) / 1e6;
+    if (!perf.syncGpuQuery && set[GP_UI]) stats.gpuMs = (ts[GP_UI] - ts[0]) / 1e6;   // render() only, as GL_TIME_ELAPSED measured it
+  }
+  std::fill(set, set + GP_Count + 1, false);
+}
+void Renderer::gpuMark(int p) {
+  if (!gpuTimers || !gq[0][0] || p < 0 || p > GP_Count) return;
+  glQueryCounter(gq[gqSlot][p], GL_TIMESTAMP); gqSet[gqSlot][p] = true;
+}
+
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
@@ -2789,8 +2841,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   time += v.dt;
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
-  if (qvalid) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[qidx ^ 1], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
-  glBeginQuery(GL_TIME_ELAPSED, queries[qidx]);
+  gpuFrameBegin(); gpuMark(GP_CloudShadow);   // stats.gpuMs from the timestamps: read 2-3 frames late, never waits
+  const bool elapsedQ = !gpuTimers || perf.syncGpuQuery;   // fallback / pre-PF2 A/B: GL_TIME_ELAPSED, read back (waiting) next frame
+  if (elapsedQ) {
+    if (qvalid) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[qidx ^ 1], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
+    glBeginQuery(GL_TIME_ELAPSED, queries[qidx]);
+  }
 
   // ---- cloud shadow map (once per frame, texel-snapped so it does not swim as the camera moves)
   if (!thumbMode && !q.legacy && q.cloudShadows && clouds) {
@@ -2803,6 +2859,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
     glEnable(GL_DEPTH_TEST);
   }
+  gpuMark(GP_ShadowNear);
   // ---- shadow map: tighter around the camera when walking, wider while flying
   float camH = std::max(0.0f, v.camPos.y - t.height(v.camPos.x, v.camPos.z));
   float radius = v.editor ? std::clamp(60.0f + camH * 1.2f, 60.0f, 260.0f) : (q.legacy ? 55.0f : 40.0f);
@@ -2829,11 +2886,18 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear);
   glUseProgram(progShadow);
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
+  gpuMark(GP_ShadowFar);
   // far cascade: the whole visible village / fields (texel ~0.23 m), blended in where the near one ends
-  if (!q.legacy && q.farCascade && !thumbMode) {
-    farR = std::max(240.0f, radius * 2.5f);
-    vec3 ff = v.camPos + vec3(fwd.x, 0, fwd.z) * farR * 0.6f; ff.y = t.height(ff.x, ff.z);
+  // PF2 farcache: redrawn every 2nd frame, or at once when its focus moves > 8 m, its radius or the key light changes;
+  // in between the shaders keep sampling the last map with the matrix it was drawn with (moving casters lag <= 1 frame)
+  const float fR = std::max(240.0f, radius * 2.5f);
+  const vec3 ffw = v.camPos + vec3(fwd.x, 0, fwd.z) * fR * 0.6f;
+  const bool farRedo = !perf.farCache || frame - farFrame >= 2 || fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
+  if (!q.legacy && q.farCascade && !thumbMode && farRedo) {
+    farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir;
+    vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
+    minCaster = perf.smallCasters ? 2.0f * (2 * farR / shadowFarSize) : 0.0f;   // PF2: casters under ~1 texel
     glBindFramebuffer(GL_FRAMEBUFFER, shadowFarFbo);
     glViewport(0, 0, shadowFarSize, shadowFarSize);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -2844,10 +2908,17 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar);
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
+    minCaster = 0;
   }
-  // ---- sky occlusion (top down)
+  gpuMark(GP_SkyOcc);
+  // ---- sky occlusion (top down). PF2 occcache: redrawn every 16 frames, or at once when the camera moves 4 m across
+  // or 8 m up / down (the map covers +-90 m, so the camera stays >= 86 m inside it); thumbnails always redraw.
   float occR = 90.0f;
-  vec3 ofocus = v.camPos; occTop = std::max(v.camPos.y, 0.0f) + 60.0f; occRange = 200.0f;
+  const float occTopW = std::max(v.camPos.y, 0.0f) + 60.0f;
+  const bool occRedo = !perf.occCache || thumbMode || frame - occFrame >= 16 || glm::length(vec2(v.camPos.x - occCam.x, v.camPos.z - occCam.z)) > 4.0f || std::fabs(occTopW - occTop) > 8.0f;
+  if (occRedo) {
+  occFrame = thumbMode ? -1000 : frame; occCam = v.camPos;
+  vec3 ofocus = v.camPos; occTop = occTopW; occRange = 200.0f;
   {
     float texel = 2 * occR / occSize;
     ofocus.x = std::floor(ofocus.x / texel) * texel; ofocus.z = std::floor(ofocus.z / texel) * texel;
@@ -2858,15 +2929,20 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glBindFramebuffer(GL_FRAMEBUFFER, occFbo);
   glViewport(0, 0, occSize, occSize);
   glClear(GL_DEPTH_BUFFER_BIT);
+  glUseProgram(progShadow);
   glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   Frustum frOcc = Frustum::fromVP(occVP);
+  minCaster = perf.smallCasters ? std::max(0.3f, 2.0f * (2 * occR / occSize)) : 0.0f;   // PF2: props too small to shade the sky
   drawItems(progShadow, opaque, true, &frOcc);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP, &frOcc);
   glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frOcc);
+  minCaster = 0;
+  }
   glDisable(GL_POLYGON_OFFSET_FILL);
   lightingPrepass(*this, v, opaque, t);   // L2: light upload, light shadow atlas, probe captures, froxel clusters (standard Z)
 
+  gpuMark(GP_Clears);
   // ---- main HDR pass. With TAA the world is rendered with a sub-pixel jitter (Halton 2,3, 8 phases); effects,
   // the weapon and overlays use the unjittered matrices.
   bool taaOn = q.taa && !q.legacy && !thumbMode;
@@ -2890,21 +2966,32 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   revZ = true; glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE); glClearDepth(0.0);   // reverse-Z from here to the end
   glClearColor(0.7f, 0.73f, 0.75f, 1); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   if (!thumbMode) { float z4[4] = {0, 0, 0, 0}, n4[4] = {0, 1, 0, 1}; glClearNamedFramebufferfv(worldFbo, GL_COLOR, 2, z4); glClearNamedFramebufferfv(worldFbo, GL_COLOR, 3, n4); glClearNamedFramebufferfv(worldFbo, GL_COLOR, 4, z4); }
-  // sky
-  setLighting(progSky, v);
-  glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
-  glUniform1i(U(progSky, "uCloudOn"), clouds ? 1 : 0); glUniform1f(U(progSky, "uCloudCover"), cloudCover);
-  glDepthFunc(zLEqual()); glDepthMask(GL_FALSE);
-  glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
-  glDepthMask(GL_TRUE); glDepthFunc(zLess());
-  // terrain .. grass also write their indirect light to attachment 2 (screen-space AO)
-  if (!thumbMode) { GLenum b5[5] = {GL_COLOR_ATTACHMENT0, GL_NONE, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4}; glNamedFramebufferDrawBuffers(worldFbo, 5, b5); }
-  // terrain
-  setLighting(progTerrain, v);
-  glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-  glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
-  glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
-  t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
+  // sky: colour attachment 0 only (the cleared 2 / 3 / 4 are the sky's values); first, or last (PF2 skyLast, see kSkyVS)
+  const GLenum b5[5] = {GL_COLOR_ATTACHMENT0, GL_NONE, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4};
+  auto drawSky = [&]() {
+    gpuMark(GP_Sky);
+    glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0);
+    setLighting(progSky, v);
+    glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
+    glUniform1i(U(progSky, "uCloudOn"), clouds ? 1 : 0); glUniform1f(U(progSky, "uCloudCover"), cloudCover);
+    glDepthFunc(zLEqual()); glDepthMask(GL_FALSE);   // a front-facing triangle: the cull state does not matter
+    glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDepthMask(GL_TRUE); glDepthFunc(zLess());
+    if (!thumbMode) glNamedFramebufferDrawBuffers(worldFbo, 5, b5);   // terrain .. grass also write attachments 2-4
+  };
+  if (!perf.skyLast) drawSky();
+  else if (!thumbMode) glNamedFramebufferDrawBuffers(worldFbo, 5, b5);
+  glDepthMask(GL_TRUE); glDepthFunc(zLess());   // the world's depth state (drawSky leaves it too; sky-last must set it here)
+  auto drawTerrain = [&]() {
+    gpuMark(GP_Terrain);
+    setLighting(progTerrain, v);
+    glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
+    glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
+    t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
+  };
+  if (!perf.terrainLast) drawTerrain();
+  gpuMark(GP_Opaque);
   // opaque
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);
@@ -2912,6 +2999,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false, &frMain, true);
+  gpuMark(GP_Models);
   if (!worldModels.empty()) {   // imported models placed in the world
     glDisable(GL_CULL_FACE);
     setLighting(progModel, v);
@@ -2919,6 +3007,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     drawModels(worldModels, &frMain);
     glEnable(GL_CULL_FACE);
   }
+  gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
     glDisable(GL_CULL_FACE);
@@ -2926,9 +3015,18 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progLeaf, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
     glUniformMatrix4fv(U(progLeaf, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     glUniform1f(U(progLeaf, "uPrevTime"), time - v.dt);
-    drawFoliage(progLeaf, vp, &frMain);
+    if (perf.leafPrepass) {   // PF2: canopy depth first (alpha test only), then each covered pixel is shaded once at GL_EQUAL
+      glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
+      drawFoliage(progLeafShadow, vp, &frMain);
+      if (thumbMode) glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0); else glNamedFramebufferDrawBuffers(worldFbo, 5, b5);
+      glDepthFunc(GL_EQUAL); glDepthMask(GL_FALSE);
+      drawFoliage(progLeaf, vp, &frMain);
+      glDepthFunc(zLess()); glDepthMask(GL_TRUE);
+    } else drawFoliage(progLeaf, vp, &frMain);
     glEnable(GL_CULL_FACE);
   }
+  if (perf.terrainLast) drawTerrain();   // PF2: after solids / models / canopies, so the ground they hide is never shaded
+  gpuMark(GP_Grass);
   // grass after opaque so buildings reject hidden blades early; double sided
   if (grass && !thumbMode) {
     glDisable(GL_CULL_FACE);
@@ -2941,6 +3039,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     stats.draws += grass->lastDrawnChunks; stats.tris += (int)grass->lastDrawnBlades * 8;
     glEnable(GL_CULL_FACE);
   }
+  gpuMark(GP_Nature);
   natDraws = 0; natTufts = 0;
   if (!natPatches.empty() && grass && !thumbMode) {   // flower / tall-grass patches (nature.cpp): same program, wind and fade
     glDisable(GL_CULL_FACE);
@@ -2955,14 +3054,19 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);
   }
+  if (perf.skyLast) drawSky();
+  gpuMark(GP_MsaaResolve);
   if (ms) {   // B1 MSAA resolve into the HDR target; water and everything after draw there, as without MSAA
     resolveMsaa();
     glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
     GLenum b5[5] = {GL_COLOR_ATTACHMENT0, GL_NONE, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4}; glNamedFramebufferDrawBuffers(hdrFbo, 5, b5);
   }
+  gpuMark(GP_Water);
   if (!water.empty() && !thumbMode) { extern void waterRenderPass(Renderer&, const RenderView&, const mat4&); waterRenderPass(*this, v, vp); }   // V1 water (water.cpp)
   glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);   // transparent / effects / weapon never touch attachment 2
+  gpuMark(GP_Gore);
   if (!thumbMode) { extern void goreRenderPass(Renderer&, const RenderView&, const mat4&, unsigned); goreRenderPass(*this, v, vp, depthTex); }   // W7 gore: blood decals + droplets
+  gpuMark(GP_Glass);
   // transparent: glass then ghosts
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glDepthMask(GL_FALSE);
@@ -2989,11 +3093,15 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   // world-only composite (light shafts; later AO / reflections / TAA): runs before effects and the first-person
   // pass, so nothing here ever reads the weapon's depth
+  gpuMark(GP_Composite);
   if (!thumbMode && !q.legacy) { RenderView vj = v; vj.proj = projJ; worldComposite(vj, vp); }
+  gpuMark(GP_Taa);
   if (taaOn) taaResolve(vp, vpU, v);
   // bloom is taken from the lit world *before* effects are drawn, so muzzle flashes, tracers and impact sparks
   // look as they did before this pass (no glow)
+  gpuMark(GP_Bloom);
   if (!thumbMode && !q.legacy && q.bloom && q.bloomStrength > 0) bloomPass();
+  gpuMark(GP_Fx);
   // effects: smoke (alpha) then flashes / tracers / streaks (additive), depth-tested, no depth writes
   if (!fxAlpha.empty() || !fxAdd.empty()) {
     glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
@@ -3015,6 +3123,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   glDepthMask(GL_TRUE);
   glDisable(GL_BLEND);
+  gpuMark(GP_Weapon);
   // optic eyepiece (W2): world -> eyepiece composite (kEyepieceFS mode 0) -> weapon -> eyepiece restored over it (mode 1)
   const bool eyepiece = v.eyepieceR > 0 && !thumbMode;
   auto eyepiecePass = [&](int mode) {
@@ -3078,6 +3187,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
   }
 
+  gpuMark(GP_Post);
   // ---- exposure
   if (!eyepiece) glGenerateTextureMipmap(hdrColor);
   int levels = (int)std::floor(std::log2((float)std::max(width, height)));
@@ -3135,8 +3245,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0); glDepthFunc(GL_LESS);   // back to standard GL
   water.clear();
   lightingEnd(*this);
-  glEndQuery(GL_TIME_ELAPSED);
-  qidx ^= 1; qvalid = true;
+  gpuMark(GP_UI);   // ends at the app's GP_Count mark after ImGui
+  if (elapsedQ) { glEndQuery(GL_TIME_ELAPSED); qidx ^= 1; qvalid = true; } else qvalid = false;
   stats.cpuMs = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - c0).count();
 }
 

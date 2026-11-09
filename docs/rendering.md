@@ -409,3 +409,130 @@ In `maps`, the early A/B views show the same pattern:
 - Omaha's eye-level views stayed level at about 20-23 ms.
 
 Omaha's 60 FPS gate fails in both builds, at 22.3 ms before and 23.1 ms after, because its cost is the terrain and sea. The village and forest gate failures in the L1 run were contention: the forest's draws are identical. A clean ms comparison needs an idle GPU, and the coordinator's full run at merge is that chance.
+
+<a id="gpu-budget"></a>
+## 11. GPU budget and frame cost (PF2)
+
+### 11.1 Per-pass GPU timers
+
+`Renderer::gpuMark(GpuPass)` writes a `GL_TIMESTAMP` (`glQueryCounter`) where each pass starts; the app writes the end mark after ImGui. `gpuPassMs[GP_Count]` holds the last resolved frame.
+
+- **No stall.** Three slots are in flight, and a slot is read only when every result in it is available, so the CPU never waits. Results are 2-3 frames old.
+- **Order independent.** A pass lasts from its mark to the next mark in GPU time, so passes that move (the sky drawn last) are still timed right. A pass that did not run reads 0.
+- **Passes:** `cloud_shadow, shadow_near, shadow_far, sky_occlusion, light_shadows, probes, clusters, clears, sky, terrain, opaque, models, trees, grass, nature, msaa_resolve, water, gore, glass, composite, taa, bloom, fx, weapon, post, ui`. There is no depth prepass in this renderer. `post` is exposure, tonemap, editor overlays and the blit.
+- **What a span means.** A span is GPU wall time, so it includes time the GPU waits for the CPU to submit. Where the CPU loop is slow (the probe capture loop, grass instancing), the span is mostly submission time, not shading.
+- **`stats.gpuMs`** is now the `render()` span from the same timestamps (read late, no stall). Before PF2 it came from a `GL_TIME_ELAPSED` query read back with `GL_QUERY_RESULT` at the start of the next frame. That read **blocked the CPU until the GPU had finished the previous frame**, so the GPU then sat idle while the CPU built the next one. The old path is kept as the fallback when timestamps are missing, and as `--rq-off asyncq`.
+- **Mac.** The calls are `glQueryCounter`, `glGetQueryObjectiv` (`GL_QUERY_RESULT_AVAILABLE`) and `glGetQueryObjectui64v`, the same ones `decals.cpp` already uses. When `glQueryCounter` is missing, `gpuTimers` turns off and everything reads 0.
+
+Reports:
+- `--selftest-render`: a "gpu budget" step, with per-pass ms and the probe-capture CPU time at Medium and High on one fixed elevated view over the facades and water (`render_shimmer.json` `gpu_budget`). Reported only, never gated.
+- `--selftest-maps`: every view in `summary_maps.json` has `gpuMs` and `gpuPassMs`.
+
+Measurement environment variables for `--selftest-maps`:
+- `NMK_MAPS=battle1,omaha_easy_red`: only these templates.
+- `NMK_PERF_AB=all | <switch>`: an **interleaved A/B**. Each view measures 2-6 s in ten 0.4 s blocks, alternating the baseline (all: the pre-PF2 renderer, `Renderer::Perf::legacy()`; else that switch off) and PF2. The first 5 frames of each block are skipped. `views[].ab` holds frames, frame ms, pass ms and the probe CPU ms for both sides. Other GPU load (other sessions' runs, a game the user is playing) hits both sides alike. This is the only frame-time comparison that held up on the shared GPU: back-to-back runs varied by a factor of 2-4.
+
+### 11.2 Switches (`Renderer::perf`)
+
+Each switch can be turned off with `--rq-off <name>` and on with `--rq-on <name>`; both name the same switches as `NMK_PERF_AB`.
+
+| Switch | Default | What it does |
+|---|---|---|
+| `asyncq` | on | The frame GPU time comes from the timestamps. Off: the blocking `GL_TIME_ELAPSED` read-back. |
+| `farcache` | on | The far cascade is redrawn every 2nd frame, or at once when its focus moves more than 8 m or its radius or the key light changes. In between, the shaders sample the last map with the matrix it was drawn with, so static shadows are exact and moving casters lag at most one frame (a tank at 10 m/s: 0.17 m, under a far texel). |
+| `occcache` | on | The sky-occlusion map (±90 m, 2048²) is redrawn every 16 frames, or when the camera moves 4 m across or 8 m up or down. Thumbnails always redraw. |
+| `smallcasters` | on | The far cascade skips casters whose world diagonal is under 2 texels (Medium 0.47 m, High 0.23 m). Sky occlusion skips those under max(0.3 m, 2 texels). The near cascade and light shadows are unchanged. |
+| `probecull` | on | A GI probe capture skips items narrower than one capture texel as seen from that probe (90° / 16 = 0.098 rad; a probe inside the item's box never skips it). Such items add next to nothing to an L1 SH but cost six layers of geometry. |
+| `leafprepass` | on | Canopies are drawn depth-only first (the `leaf_shadow` program, alpha test), then shaded once per pixel at `GL_EQUAL` with depth writes off. `kLeafVS` declares `invariant gl_Position` so both passes produce the same depth. |
+| `skylast` | on | The sky is drawn after the opaque world. Its triangle now sits on the reverse-Z far plane (`kSkyVS`, depth 0), so `GL_GEQUAL` passes only where nothing was drawn, and early-Z skips the cloud shader under terrain and buildings. Thumbnails (standard Z, sky first) are unchanged. |
+| `terrainlast` | on | The terrain is drawn after solids, models and canopies (before grass, which is alpha-tested over it), so the ground they hide is never shaded. In principle this changes which side of an exact coplanar tie wins. In the maps suite every frame was byte-identical with it on and off (battle1, village_assault, Omaha, all presets; the suites run on a fixed time step, so frames are deterministic). |
+| `proberefresh` | on | The full probe budget (8 per frame at High, 3 at Medium) is spent only while probes wait for their first capture (the camera moved, rooms changed, or time of day jumped by more than 0.1 h, which now re-captures everything). Once the volumes are converged, 2 (High) or 1 (Medium) re-captures per frame keep them fresh, oldest and nearest first. Tests that set `lt.probeBudget` keep their rate. |
+| `probecapture` | on | Measurement only: off skips every probe capture (GI frozen). Its A/B gives the true cost of live capture. |
+
+### 11.3 Results
+
+**Frame time, interleaved A/B, before → after.** Before is the pre-PF2 renderer, `Perf::legacy()`; after is the shipped switches. `NMK_PERF_AB=all`, exclusive GPU turn, 1920x1080, RTX 2080 Ti, ms, mean of each map's eye-level (gameplay) views:
+
+| Map | Low | Medium | High | Night (Medium) |
+|---|---|---|---|---|
+| battle1 (5 views) | 13.3 → **6.5** (−51 %) | 19.1 → **10.8** (−44 %) | 25.1 → **15.4** (−39 %) | 20.3 → **11.8** (−42 %) |
+| village_assault (1) | 12.0 → **4.9** (−59 %) | 15.3 → **8.1** (−47 %) | 21.2 → **12.3** (−42 %) | 17.6 → **9.7** (−45 %) |
+| normandy_forest (1) | 5.7 → **4.0** (−30 %) | 8.1 → **6.3** (−23 %) | 10.3 → **9.2** (−11 %) | 8.9 → **6.9** (−23 %) |
+| omaha_easy_red (8) | −17 % | −12 % | −30 % | −22 % |
+
+Worst eye-level view at Medium: battle1 28.8 → 17.8 ms, village_assault 15.3 → 8.1 ms. Elevated editor views at Medium: battle1 −40 %, village_assault −39 %, forest −20 %, Omaha −13 %.
+
+**Omaha is given as percentages only.** During that part of the run another process loaded the GPU heavily: both sides measured 30-85 ms, and fixed-cost passes like the tonemap ran up to 20x slower. The paired percentages still hold. An earlier, cleaner A/B (without `terrainlast` and `proberefresh`) measured Omaha −19 to −22 %. Terrain-last on its own was neutral on Omaha (±3 %).
+
+**Contributions, from single-switch A/Bs:**
+- `terrainlast`: battle1 −19 to −21 % and village_assault −12 to −18 % at every preset. It was measured on top of the other switches, in an exclusive run with less load.
+- `proberefresh` at High, converged view: −0.6 ms (battle1) and −1.1 ms (village_assault). See §11.4.
+- The other switches are measured together in the first A/B: −7 to −36 % across the four maps and presets, under heavier outside load.
+
+`normandy_forest` is the biome/forest stand-in, since batch2 has no biome engine. Its views are terrain and grass only, so only `asyncq`, `skylast` and the shadow caches apply.
+
+**Where the time went** (final A/B pass spans, baseline → PF2, battle1 Medium unless noted):
+- `cloud_shadow` 5.2 → **0.03 ms** on every map (`asyncq`). This span starts right after the old blocking read-back, so it was GPU idle time while the CPU built the frame.
+- `terrain` 5.4 → **2.7 ms**; village_assault High 6.8 → 3.8 ms (`terrainlast`: ground hidden by buildings, props and canopies is no longer shaded).
+- `trees` 0.70 → **0.31 ms**; Omaha High 6.4 → 2.9 ms (`leafprepass`).
+- `sky_occlusion` 0.36 → **0.02 ms** (`occcache`).
+- `shadow_far` 0.41 → **0.21 ms** (`farcache`, `smallcasters`).
+- `sky` 0.30 → **0.16 ms** (`skylast`).
+- `probes` at High, converged view: 1.6-1.9 → **0.6 ms** (`proberefresh`).
+
+Some spans grew a little on the PF2 side (`grass`, `opaque`). The GPU no longer starts each frame idle, so time it spends waiting for the CPU lands in the pass after a slow CPU section. Only the frame time is a clean sum.
+
+**Visual check.** The suites run on a fixed time step, so their frames are deterministic. The same build was run twice: with every PF2 switch on, and with every switch off (`--rq-off` for each switch, which is the pre-PF2 renderer). The frames were then diffed.
+- **`--selftest-maps`** (battle1, village_assault, omaha_easy_red, normandy_forest; every view at Medium, Low, High and Night; 79 frames). 78 frames differ by at most 0.02/255 on average. The other, battle1 A1_spawn at Night, differs by 0.23/255 on average, with 0.45 % of pixels over 24. Only the first-person weapon and arms differ there: they are lit by the probe at the player. After the jump to Night, PF2 re-captures every probe at once, while the old path waited for the age-based refresh.
+- **`--selftest-render`**. Every frame (facades, kit, walls, water) is within 0.005/255. The 156 shimmer metrics agree to about 1e-4 relative, which is float summation order.
+- `terrainlast` on its own was byte-identical in every maps frame.
+
+Files in `docs/rendering/pf2/`:
+- Raw A/B data: `summary_maps_ab_{final,probecapture,proberefresh_settled,terrainlast}.json`.
+- Render metrics for both renderers: `render_shimmer_{pf2,legacy}.json`.
+- Frame pairs (pre-PF2 / PF2, same deterministic frame): `{before,after}_battle1_obj_A_eye.png` and `{before,after}_village_explore_start_high.png`.
+
+### 11.4 Saved lighting (probe GI): decision
+
+**Measured cost of live capture.** An interleaved A/B with capture frozen (`NMK_PERF_AB=probecapture`; exclusive run, eye-level means) gave the frame-time difference:
+
+| Map | High | Medium |
+|---|---|---|
+| battle1 | +1.09 ms (worst view +1.96) | +0.61 ms |
+| village_assault | +1.35 ms | +0.75 ms |
+| omaha_easy_red | +0.12 ms | +0.81 ms |
+
+The A/B noise is about ±0.5 ms: Omaha at Low captures nothing and still read +0.56. The probe span was 1.2-1.5 ms at High, of which 0.2-0.4 ms is CPU (`stats.probeCpuMs`). The rest is the layered capture's geometry: every item within range is drawn into up to 48 cube-face layers. `probecull` barely changed this, because the cost is in the large nearby buildings, not in small parts.
+
+So live capture cost about **1.1-1.4 ms per frame at High** on the building-heavy maps, just over the 1 ms threshold.
+
+**What was done: `proberefresh`.** Before PF2 the full budget (8 per frame at High) was spent every frame, even once every probe in the volumes had been captured. Now the full budget is used only while probes wait for their first capture. Once converged, 2 per frame (High) or 1 (Medium) keep the volumes fresh.
+
+A/B on a converged view (`NMK_PERF_AB=proberefresh NMK_SETTLE=14`; the view is held 14 s first, since full convergence takes about 450 frames at High):
+
+| Map, High | Captures / frame | Probe span | Frame |
+|---|---|---|---|
+| battle1 | 8 → 2 | 1.55 → **0.58 ms** | 16.47 → 15.83 ms |
+| village_assault | 8 → 2 | 1.91 → **0.64 ms** | 13.69 → 12.61 ms |
+
+At Medium the captures go 3 → 1 and the span 0.69-0.85 → 0.52-0.55 ms.
+
+**Decision: no `.gi` sidecar for now.** The steady-state capture cost at High is now about 0.6 ms, under the 1 ms threshold. The remaining cost is when the camera moves into cells the volumes have not captured, and only a saved set would remove that. A saved set is a large feature:
+- The volumes are camera-relative. Near: 16x8x16 probes at 1.5 m; far: 16x6x16 at 6 m. Both scroll with the camera, so a saved set is keyed by world cell.
+- Size: battle1's near cascade over the whole 300 x 400 m map is about 427 k probes x (64 B SH + 256 B visibility), roughly 137 MB.
+- It needs a GPU-side probe cache (copy out on scroll, copy in on re-entry), a bake path, invalidation hooks for breaches and fires, and a key of map content and time of day.
+
+It is worth building only if moving-camera captures show up in play.
+
+Changes to probe behaviour:
+- A time-of-day jump of more than 0.1 h now re-captures every probe at the full budget. Before, they refreshed at the age-based rate.
+- A probe near a change that does not move rooms (a breached wall, a new fire) is re-captured by age. That takes up to about 30 s at High (2 per frame over about 3600 probes), against about 7.5 s before; nearer and older probes go first.
+
+### 11.5 Not done
+
+- **LOD and merged static batches for B1/B2/B3 parts.** The main opaque pass is not the frame's limit on these maps: battle1 Medium `opaque` is 4.1 ms after PF2 against 3.8 ms before, and the span includes CPU submission waits. The frame was limited by the GPU idling, terrain, and the shadow, probe and sky passes above. Merging per chunk would cut CPU submission, which is PF3's area (draw lists).
+- **Interior occlusion, half-resolution effects, cheaper TAA / MSAA.**
+  - Bloom is already a half-resolution chain.
+  - SSAO is already half resolution on Medium.
+  - `composite`, `taa` and `msaa_resolve` are each 0.15-0.5 ms in the exclusive baseline.
+- **Terrain shading** is still the largest real-shading pass: 2.7-4.7 ms at Medium after PF2, and 6.8 ms on the `--selftest-render` budget view, which is mostly ground. Most of it is the shared `shade()` (two-cascade PCF, probe GI, clustered lights) plus the fBm layers of `kTerrainFS`. Trimming either changes the look, so it is the next candidate, not done here.

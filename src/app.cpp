@@ -560,7 +560,7 @@ void App::screenshot(const fs::path& p) {
 
 // ============================================================ main loop
 int App::run(int argc, char** argv) {
-  bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec, tankPreviewDir;
+  bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff, rqOn; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec, tankPreviewDir;
   for (int k = 1; k < argc; ++k) {
     std::string a = argv[k];
     if (mpaiArg(*this, argc, argv, k, runSelf)) { if (mpaiExit >= 0) return mpaiExit; continue; }   // multiplayer + AI flags (mpai.cpp)
@@ -592,7 +592,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-textures") runSelf = true;   // L4 texture layer + missing-texture fallback (selftest_textures.cpp)
     else if (a == "--pack-texture" && k + 2 < argc) { fs::path s = argv[k + 1], d = argv[k + 2]; return tex::packSet(s, d); }   // tools/fetch_ambientcg.py
     else if (a == "--texture-placeholders" && k + 1 < argc) { std::vector<std::string> v; std::string l = argv[++k]; for (size_t b = 0, e; b <= l.size(); b = e + 1) { e = l.find(',', b); if (e == std::string::npos) e = l.size(); if (e > b) v.push_back(l.substr(b, e - b)); } return tex::writePlaceholders(k + 1 < argc ? fs::path(argv[k + 1]) : contentDir() / "textures", v); }
-    else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow
+    else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow, or a Renderer::perf switch
+    else if (a == "--rq-on" && k + 1 < argc) rqOn.push_back(argv[++k]);   // PF2: switch one Renderer::perf feature on (A/B)
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
     else if (a == "--selftest-visuals") runSelf = true;   // W2: thumbnails, footprint labels, bunker pass (selftest_visuals.cpp)
@@ -647,7 +648,8 @@ int App::run(int argc, char** argv) {
   R.init(fbw, fbh);
   settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)
   R.q.legacy = legacyLook;
-  for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; }
+  for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; else if (!R.perf.set(f, false)) logf("--rq-off: unknown feature %s", f.c_str()); }
+  for (auto& f : rqOn) if (!R.perf.set(f, true)) logf("--rq-on: unknown feature %s", f.c_str());
   templates = loadTemplates(contentDir() / "templates");
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
   makeThumbnails();
@@ -781,6 +783,7 @@ int App::run(int argc, char** argv) {
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
     platformImGuiRender(ImGui::GetDrawData());
+    R.gpuMark(GP_Count);   // end of the UI pass (render.cpp gpuMark)
     mark("imgui");
     if (rec.active() && (++recTick & 1)) {   // 30 fps from the fixed 60 Hz simulation, HUD included
       recPx.resize((size_t)fbw * fbh * 4);

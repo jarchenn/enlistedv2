@@ -34,7 +34,7 @@ std::vector<int> mapTemplates(App& app) {
   return v;
 }
 struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; };   // gate: gameplay view held to the frame target
-struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; };   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
+struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}; };   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
 bool thumbOnly = false;
 std::vector<int> sTpl; size_t sTi = 0;
@@ -71,6 +71,7 @@ double blankFraction(const fs::path& p) {
   stbi_image_free(d);
   return tot ? (double)same / tot : 1.0;
 }
+json passJson(const double* ms) { json j = json::object(); for (int i = 0; i < GP_Count; ++i) j[gpuPassName(i)] = std::round(ms[i] * 1000) / 1000; return j; }
 // Views authored in the template ("views": [{name, pos, yaw, pitch, gameplay}]), e.g. the terrain base's cliff shots.
 void templateViews(const TemplateInfo& t) {
   for (auto& v : t.raw.value("views", json::array()))
@@ -188,6 +189,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     gUi.showOverlay = false;   // screenshots and previews without the scenario overlay
     for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--render-map-thumbs") thumbOnly = true;
     sTpl = mapTemplates(app); sTi = 0;
+    if (const char* only = std::getenv("NMK_MAPS")) { std::string o = std::string(",") + only + ","; std::erase_if(sTpl, [&](int k) { return o.find("," + app.templates[k].id + ",") == std::string::npos; }); }   // measurement runs: only these map ids
     check(!sTpl.empty(), fmt("authored default-map templates found: %zu", sTpl.size()));
     if (sTpl.empty()) { finish(app); return; }
     go(4101);
@@ -336,7 +338,8 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       if (app.mode == Mode::Explore) app.exitExplore();
       json pj = json::array(); double worstAvg = 0, worstEd = 0, worstPre[3] = {0, 0, 0}, worstNight = 0;
       for (auto& p : sPerf) {
-        pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"preset", presetName((GfxPreset)p.preset)}, {"night", p.night}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}});
+        pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"preset", presetName((GfxPreset)p.preset)}, {"night", p.night}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}, {"gpuMs", p.gpu}, {"gpuPassMs", passJson(p.pass)}});
+        if (p.abN[0] && p.abN[1]) pj.back()["ab"] = {{"frames", {p.abN[0], p.abN[1]}}, {"frameMs", {p.abMs[0], p.abMs[1]}}, {"gpuPassMs", {passJson(p.abPass[0]), passJson(p.abPass[1])}}, {"probeCpuMs", {p.abProbeCpu[0], p.abProbeCpu[1]}}, {"probesPerFrame", {p.abProbes[0], p.abProbes[1]}}};
         if (p.night) { worstNight = std::max(worstNight, p.ms); continue; }   // L2: Night is reported, never gated
         if (p.gate) worstPre[p.preset] = std::max(worstPre[p.preset], p.ms);
         if (p.preset != (int)GfxPreset::Medium) continue;   // Low / High: reported below, never gated
@@ -368,14 +371,40 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
     double tnow = now();
-    if (stageTime > 2.0f && stageTime < 4.0f && sLast > 0) {   // streaming settled: measure wall-clock frame time
+    // PF2 interleaved A/B (NMK_PERF_AB=all | <Renderer::perf switch>): 2..6 s (+ NMK_SETTLE) in 0.4 s blocks, alternating the
+    // baseline (even blocks: pre-PF2 renderer, or that switch off) and the PF2 renderer, so other GPU load hits both sides alike.
+    // The first 5 frames of a block are skipped (the pass timers lag 2-3 frames; caches refill).
+    static const char* abEnv = std::getenv("NMK_PERF_AB");
+    static const float abT0 = 2.0f + (std::getenv("NMK_SETTLE") ? (float)std::atof(std::getenv("NMK_SETTLE")) : 0.0f);   // NMK_SETTLE=<s>: A/B starts later (converged probe GI)
+    const float measEnd = abEnv ? abT0 + 4.0f : 4.0f;
+    if (abEnv && sLast > 0) {
+      static int lastBlk = -1, blkFrames = 0;
+      int blk = stageTime < abT0 ? -1 : std::min(9, (int)((stageTime - abT0) / 0.4f));
+      Renderer::Perf A, B = std::string(abEnv) == "all" ? Renderer::Perf::legacy() : A;
+      if (std::string(abEnv) != "all") { A.set(abEnv, true); B.set(abEnv, false); }
+      bool base = blk >= 0 && blk % 2 == 0;
+      if (blk != lastBlk) { lastBlk = blk; blkFrames = 0; app.R.perf = base ? B : A; }
+      if (blk >= 0 && stageTime < measEnd && ++blkFrames > 5) {
+        Perf& p = sPerf.back(); int s = base ? 1 : 0; double ms = (tnow - sLast) * 1000.0;
+        p.abMs[s] = (p.abMs[s] * p.abN[s] + ms) / (p.abN[s] + 1);
+        for (int i = 0; i < GP_Count; ++i) p.abPass[s][i] = (p.abPass[s][i] * p.abN[s] + app.R.gpuPassMs[i]) / (p.abN[s] + 1);
+        p.abProbeCpu[s] = (p.abProbeCpu[s] * p.abN[s] + app.R.stats.probeCpuMs) / (p.abN[s] + 1);
+        p.abProbes[s] = (p.abProbes[s] * p.abN[s] + app.R.stats.probes) / (p.abN[s] + 1);
+        ++p.abN[s];
+      }
+    }
+    if (stageTime > 2.0f && stageTime < 4.0f && sLast > 0 && !abEnv) {   // streaming settled: measure wall-clock frame time
       Perf& p = sPerf.back(); double ms = (tnow - sLast) * 1000.0;
       p.ms = (p.ms * p.frames + ms) / (p.frames + 1); p.worst = std::max(p.worst, ms);
-      p.draws = (p.draws * p.frames + app.R.stats.draws) / (p.frames + 1); p.tris = (p.tris * p.frames + app.R.stats.tris) / (p.frames + 1); ++p.frames;
+      p.draws = (p.draws * p.frames + app.R.stats.draws) / (p.frames + 1); p.tris = (p.tris * p.frames + app.R.stats.tris) / (p.frames + 1);
+      double g = 0; for (int i = 0; i < GP_Count; ++i) { p.pass[i] = (p.pass[i] * p.frames + app.R.gpuPassMs[i]) / (p.frames + 1); g += app.R.gpuPassMs[i]; }
+      p.gpu = (p.gpu * p.frames + g) / (p.frames + 1); ++p.frames;
     }
     sLast = tnow;
-    if (stageTime >= 4.0f) {
+    if (stageTime >= measEnd) {
       Perf& p = sPerf.back();
+      if (abEnv) { app.R.perf = Renderer::Perf(); if (std::string(abEnv) != "all") app.R.perf.set(abEnv, true); p.frames = p.abN[0]; p.ms = p.abMs[0]; p.gpu = 0; for (int i = 0; i < GP_Count; ++i) { p.pass[i] = p.abPass[0][i]; p.gpu += p.pass[i]; }
+        check(true, fmt("A/B %s, view %s: PF2 %.2f ms (%d frames) vs baseline %.2f ms (%d frames)", abEnv, v.name.c_str(), p.abMs[0], p.abN[0], p.abMs[1], p.abN[1])); }
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
