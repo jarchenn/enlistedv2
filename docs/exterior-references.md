@@ -126,3 +126,34 @@ The non-`lod` growth is the facade strips that sit in wall bays (they must fall 
 - A strip shortened at a ridge keeps its lower edge on a texture joint; its top row is off-phase (under the ridge tiles).
 - Timber members, string courses and other static facade trims over a breached wall bay still hang in the air (as
   before GX4); the GX4 strips over bays do not.
+
+## Z-fighting (coplanar overlaps)
+
+The main pass draws without face culling, so any two same-facing faces closer than ~6 mm that overlap flicker at range.
+`tools/zfight_check.mjs` flags, on every enterable asset (static parts, each wall bay's intact state, the closed door /
+window leaves): two box faces of different parts that face the same way, lie within 6 mm and overlap by >= 1 cm2,
+unless a third solid sits within 3 mm in front of the whole overlap. `node tools/zfight_check.mjs [--ref <git-ref>]
+[--list] [ids]`.
+
+- **At the source:** timberFrame members get distinct depths by kind (rails 3.5, posts 2.7, braces 2.0 cm proud); roof
+  course strips end at six staggered verge insets.
+- **`unfight()`** (last step of the exterior pass): for each remaining pair, a thin end overlap (<= 4 cm, ends crossing)
+  is trimmed off one part so the faces only touch; otherwise one part grows along the shared normal until its face
+  stands 7 mm clear, its back face staying where it was. Grown first: visual-only trim, then static parts over bay parts,
+  then non-wall materials, then the smaller part; door / window leaves last.
+- **Selftest:** `--selftest-structures` step "no new coplanar overlaps" (same rule in C++, area floor 2 cm2) fails when
+  any enterable asset exceeds its accepted count (`kZAllowed` in src/selftest_structures.cpp: the residual of the B2 / B3
+  buildings and the bunkers, ruins and landing craft this pass does not generate). `NMK_ZFIGHT_ONLY=1` runs only it.
+
+| | batch2 | GX4 |
+|---|---|---|
+| the 24 B2 / B3 buildings | 4808 | 43 |
+| all enterable assets | 5497 | 737 (C++ step: 696, 0 over the list) |
+
+The 43 left are mostly sub-cm2 slivers at corners and floor edges that the 7 mm growth would push into a neighbour.
+
+## Colour grade
+
+`content/settings/grade.json`, read once by the tonemap pass (`kToneFS`): saturation 0.91 (was 0.93 hard-coded), a
+split tone (shadows x[0.965, 0.995, 1.045], highlights x[1.035, 1.0, 0.955] around a 0.18 pivot), vignette 0.21 (was
+0.16).
