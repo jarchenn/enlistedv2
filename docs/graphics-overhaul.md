@@ -11,7 +11,7 @@ fixed cameras. Each stream adds its own section and its `CHANGES.md` notes.
 | GX2 | §2 interior lighting, §3 interior dressing | `gx2-interiors` |
 | GX3 | §4 grass and ground cover | `gx3-grass` |
 | GX4 | §1 exterior part (toward the GLB references) | `gx4-exteriors` |
-| GX5 | §1 interior / material part, §8 post (after PF2 merges) | |
+| GX5 | §1 interior / material part, §8 post (after PF2 merges) | `gx5-materials` |
 | GX6 | new houses and a stronghold | `gx6-buildings` |
 
 Rules from the brief: ask the user before changing the terrain representation (heightmap vs mesh), adding a
@@ -234,3 +234,92 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
   `dirt > 0.02` and drops at `> 0.18`. `Terrain::stampSoilAt` gives the stamp mask alone.
 - GX6 new buildings: pinned automatically. Give an earth-covered stronghold an `earthwork` block instead of bank
   prisms.
+
+## GX5 materials, decals and post (§1 interior / material part, §8)
+
+Everything is in the main material shader (`kMainFS`, `src/render.cpp`) and the tonemap (`kToneFS`), so it costs
+shading time only where it is drawn. Probe captures and thumbnails run without it. **Settings > Material detail** picks the tier:
+
+| Tier | What it adds |
+|---|---|
+| Low | Nothing: the batch2 materials. |
+| Medium (default) | The wear / grime layer, seam occlusion, detail relief, roughness breakup, two-material blends, damask paper, embossed print, static decals. |
+| High | Medium, plus parallax occlusion on the replace-mode texture sets near the eye. |
+
+The grade has its own switch in `content/settings/grade.json` (`enabled`).
+
+A/B switches (`--rq-off <name>` and `NMK_PERF_AB`): `matlayer`, `sdecals`, `grade`, and `gx5` for all three.
+
+Capture environment variables (`NMK_CAPTURE_SET=gx ... --capture-materials <tag>`):
+- `NMK_CAPTURE_PERF=<frames>` holds each camera and logs its mean GPU ms.
+- `NMK_CAPTURE_AB=<switch>[,<switch>...]` adds an interleaved A/B at each held camera: 24-frame blocks alternate the switch on and off, the first 8 frames of a block skipped, 192 frames per switch (so `NMK_CAPTURE_PERF` >= 60 + 192 x switches). The log line is `capture ab <camera> <switch>: on ... off ...`.
+- `NMK_CAPTURE_PRESET=Low|Medium|High` sets the preset first.
+- `NMK_GX5_CLOSE=1` adds three close-up cameras (`gx5_corridor_wall`, `gx5_corridor_wall2`, `gx5_hall_corner`).
+- `NMK_GX5_DEBUG=1` paints the material inputs (red interior, green rooms past 16, blue decal count); `=2` paints which decal tests pass.
+
+### Layered materials (`gxLayer`)
+
+The layer runs after the pattern and the L4 texture layer, on every building surface.
+
+- **Grime and wear are masks, not baked albedo.** Grime gathers at the floor, in room corners and under the ceiling (smoke), with world-space blotches on top.
+  - It scales with the copy's wear (`Finish > Wear`, `uInst.y`), so one finish reads clean in one house and grimy in the next.
+  - Hand-height smudges lower the roughness (grease).
+- **Seam occlusion, about 0.5 m.** Wall-wall corners, wall-floor and wall-ceiling joints, and floor and ceiling edges darken.
+  - It uses the distance to the room rectangle (`gCornerD`, `gFloorY`, `gCeilD`), so it is exact at any distance and costs no extra pass.
+  - It darkens the indirect light, and the lamp and window light by 45 % of that.
+- **Detail relief.** A 52 and 170 cycles/m height on walls is fed into the derivative bump and faded under the pixel.
+- **Roughness breakup** on every surface, from two noise octaves around the material's own roughness.
+- **Wallpaper.**
+  - Half the papered rooms now get a damask (a palmette on an ogee lattice, half-drop) instead of the sprig.
+  - The print is embossed 0.5 mm with its edges in shadow, and a touch satin.
+  - The paper has fibre.
+
+### Two-material blends
+
+- **Interior walls (pattern 20).** Plaster with its paper or paint falls away to the brick behind (target_08):
+  - a noise mask, more at the foot and with wear;
+  - a torn ring of bare plaster and a broken rim around each loss;
+  - mortar recessed and crumbs left in the joints;
+  - the relief steps back 1.4 cm.
+  - None on wainscot or skirting.
+- **Exterior lime render / infill (pattern 3).** It falls off to the brick nogging behind, with a rim.
+- Pattern 17 (render over rubble) already had its own spall.
+
+### Static decals (`src/static_decals.cpp`, `content/settings/decals.json`)
+
+**Placement.** Decals are scattered per building copy in asset space, deterministic from the instance id. They are evaluated in the material, not projected after lighting, so they change albedo, roughness, relief and occlusion and are lit like the wall under them.
+
+| Type | Where | Look |
+|---|---|---|
+| crack | From the top corners of windows; down from the ceiling | A wandering hairline with a branch, a groove and a lifted rim |
+| water stain | Hanging from the ceiling on walls; on ceilings | Yellowed blot with dark tide lines, drips below |
+| soot | On the wall each hearth stands against, up to the ceiling | A streaky plume, densest at the mantel and the ceiling |
+| scuff | Along the skirting (not barns or workshops) | Horizontal rubs and knocks |
+| bullet pocks | Damaged / ruined copies | Craters with a spalled ring and a dark hole |
+| rain streak | Exterior, under the sills | Vertical streaks fading down |
+| picture outline | Walls over 2.5 m at 1.35-1.75 m | The unfaded paper where a frame hung, and its nail |
+| damp | Ground-floor corners | A mottled grey-green tide with a flaking rim |
+
+**Data.** One SSBO (binding 10) holds every copy's block. `SurfaceParams::roomDec[k]` is each room's range and `extDec` the exterior range. A fragment only walks its own room's list (at most `maxPerRoom`, 14).
+
+**Rooms past 16.** Large buildings (the chateau) have more than 16 rooms. Those rooms are records in the same block (`roomX`), read only by fragments not in the first 16 rooms. Before GX5 those rooms had no finishes, seams or decals. Small buildings pay nothing.
+
+**For GX4 (rain-streak anchors).** Push a `StaticDecal` of type `SD_STREAK` into the copy's list in `staticDecalsFor`. It takes a centre in asset space, an outward normal, a half width / height and a strength. That is the same path as the sills.
+
+### Corner AO, SSAO and parallax
+
+- SSAO is retuned for interiors: radius 0.6 → 0.5 m, strength 0.85 → 0.95. GTAO was not needed: the seam occlusion above is exact at the corners, which were the brief's complaint.
+- **Parallax occlusion (High).** It applies to the replace-mode sets (brick, slates, cobbles, debris) whose own structure is the texture, within 14 m (fading from 8 m).
+  - It takes 10 steps on the dominant triplanar tap, 1.5 cm deep (or the slot's `height`).
+  - Detail-mode sets modulate a procedural structure, so they get none.
+
+### Grade (`content/settings/grade.json`)
+
+This replaces the fixed grade, applied after the filmic tonemap:
+
+- saturation 0.91 (was 0.93);
+- cool shadows (0.96, 0.99, 1.05) and warm highlights (1.04, 1.0, 0.95);
+- a gentle S-curve (0.08);
+- vignette 0.22 (was 0.16);
+- an edge-aware luminance sharpen (0.22) against TAA softening, held back on strong edges so it adds no halos, and only on while TAA is on;
+- chromatic aberration available, off by default.

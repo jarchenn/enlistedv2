@@ -545,6 +545,7 @@ float woodGrain(float along, float across, float seed){
 // ---- GX5 layered materials: inputs the room finishes set (pattern 20 walls, 21 floors / ceilings), read by gxLayer.
 // gIn 1 = an interior surface with a known room: height above its floor, distance along the surface to the nearest room
 // corner (walls) or room edge (floors, ceilings), and to the ceiling.
+float fbm2(vec3 p){ return 0.66*vnoise(p) + 0.34*vnoise(p*2.03); }   // GX5: two octaves where four were too dear for a per-pixel mask
 int gIn = 0; float gFloorY = 9.0, gCornerD = 9.0, gCeilD = 9.0;
 float gWear = -1.0;   // per-room wear (pattern 20 sets it: rooms of one house range from kept to ruined); < 0 = the copy's
 float gSeam = 1.0;   // seam / corner occlusion (also dims the direct lamp light a little there)
@@ -571,14 +572,16 @@ void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
   int first = int(r.x + 0.5), n = int(r.y + 0.5);
   for (int i = 0; i < 40; ++i) {
     if (i >= n) break;
-    SDec D = gSD[first + i];
-    vec3 nd = D.b.xyz;
+    vec4 Db = gSD[first + i].b;                    // facing first, so the other two records are fetched only by decals on this wall
+    vec3 nd = Db.xyz;
     gDbg.x = max(gDbg.x, 0.3);
     if (dot(an, nd) < 0.6) continue;
     gDbg.x = 1.0;
-    vec3 d = vAp - D.a.xyz;
+    vec4 Da = gSD[first + i].a;
+    vec3 d = vAp - Da.xyz;
     if (abs(dot(d, nd)) > 0.25) continue;
     gDbg.y = 1.0;
+    SDec D; D.a = Da; D.b = Db; D.c = gSD[first + i].c;
     vec3 t = abs(nd.y) > 0.7 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), nd));
     vec3 bt = cross(nd, t);
     vec2 hs = D.c.xy;
@@ -659,14 +662,14 @@ void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
 void gxLayer(int pat, vec3 an, inout vec3 alb, inout float rough, inout float ao){
   float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
   float wearK = clamp(gWear >= 0.0 ? gWear : uInst.y, 0.0, 2.0);
-  float rb = fbmF(vW*2.3 + 31.0, 2.3), rb2 = vnF(vW*19.0 + 7.0, 19.0);
+  float rb = fbm2(vW*2.3 + 31.0), rb2 = vnF(vW*19.0 + 7.0, 19.0);
   rough = clamp(rough*(0.8 + 0.34*rb + 0.12*(rb2 - 0.5)), 0.05, 1.0);   // specular breakup: nothing has uniform roughness
   bool wall = pat == 20 || pat == 17 || pat == 3 || pat == 18 || pat == 19 || pat == 22 || pat == 1 || pat == 9 || pat == 11 || pat == 15;
   if (wall && vert > 0.0) gDetH = ((vnF(vW*170.0, 170.0) - 0.5)*0.00022 + (vnF(vW*52.0 + 3.0, 52.0) - 0.5)*0.0004)*vert;
   if (gIn != 1) return;
-  float n1 = vnoise(vW*1.7 + 2.0), n2 = fbm(vW*0.9 + 5.0);
+  float n1 = vnoise(vW*1.7 + 2.0), n2 = fbm2(vW*0.9 + 5.0);
   float y = gFloorY, cd = gCornerD, cl = gCeilD;
-  float blot = smoothstep(0.55, 0.85, fbm(vW*0.45 + uInst.x*9.0));
+  float blot = smoothstep(0.55, 0.85, fbm2(vW*0.45 + uInst.x*9.0));
   float g;
   if (pat == 21) {   // floors: dirt along the skirting and into the corners; ceilings: smoke at the edges
     float edge = 1.0 - smoothstep(0.0, 0.18 + 0.3*n1, cd);
@@ -1210,8 +1213,8 @@ void main(){
     if (uMatLayer > 0 && vert > 0.5 && !trimHere) {
       // GX5 two materials (target_08): plaster and its paper or paint fall away to the brick behind, more with the wear,
       // at the foot and where the noise mask says; a torn ring of bare plaster round each loss and a broken rim
-      float lm = fbm(vec3(uv * 0.65, s + 51.0)) + 0.2 * (1.0 - smoothstep(0.0, 0.9, y)) + 0.14 * (1.0 - smoothstep(0.0, 0.7, gCornerD)) + 0.05 * (vnoise(vec3(uv * 7.0, s + 52.0)) - 0.5);
-      float thr = 0.82 - 0.12 * wear, fw = max(0.006, fwidth(lm) * 1.5);
+      float lm = fbm2(vec3(uv * 0.65, s + 51.0)) + 0.2 * (1.0 - smoothstep(0.0, 0.9, y)) + 0.14 * (1.0 - smoothstep(0.0, 0.7, gCornerD)) + 0.05 * (vnoise(vec3(uv * 7.0, s + 52.0)) - 0.5);
+      float thr = 0.8 - 0.14 * wear, fw = max(0.006, fwidth(lm) * 1.5);
       float lost = smoothstep(thr, thr + fw, lm);
       float rimP = smoothstep(thr - 0.022, thr, lm) * (1.0 - lost);
       float tear = smoothstep(thr - 0.06, thr - 0.022, lm) * (1.0 - smoothstep(thr - 0.022, thr, lm));

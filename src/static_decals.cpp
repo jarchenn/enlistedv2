@@ -6,12 +6,12 @@
 namespace {
 struct Cfg {
   float density = 1.0f;                 // global multiplier (Settings: Material detail Low turns the pass off instead)
-  float stainPerWall = 0.35f, stainCeiling = 0.35f;   // per wall (per 6 m) / per room; scaled by the building's wear
+  float stainPerWall = 0.9f, stainCeiling = 0.5f;   // per wall (per 6 m) / per room; scaled by the building's wear
   float sootHearth = 1.0f;              // a soot plume over each hearth
-  float crackPerWindow = 0.45f, crackPerWall = 0.25f;
-  float scuffPerWall = 0.45f;            // per 5 m of wall
-  float ghostPerWall = 0.3f;            // the clean outline of a picture that hung there, on walls over 2.5 m
-  float dampPerRoom = 0.45f;            // ground floor corners
+  float crackPerWindow = 0.6f, crackPerWall = 0.45f;
+  float scuffPerWall = 0.6f;            // per 5 m of wall
+  float ghostPerWall = 0.5f;            // the clean outline of a picture that hung there, on walls over 2.5 m
+  float dampPerRoom = 0.7f;            // ground floor corners
   float pockDamaged = 1.2f;             // bullet pock clusters per wall, damaged variants only
   float streakPerSill = 0.8f;           // exterior rain streaks under sills
   int maxPerRoom = 40, maxExterior = 24;

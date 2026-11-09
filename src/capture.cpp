@@ -318,22 +318,31 @@ void SelfTest::captureUpdate(App& app, float dt) {
   // NMK_CAPTURE_AB=<Renderer::perf switch> (GX5): interleaved A/B while the camera is held: 24-frame blocks alternate
   // the switch on / off, the first 8 frames of a block skipped (GPU timestamps are read 2-3 frames late); logs both
   // sides' mean GPU ms. Other load on a shared GPU falls on both sides alike.
-  static const char* abSw = std::getenv("NMK_CAPTURE_AB");
-  static double abSum[2] = {0, 0}; static int abN[2] = {0, 0};
-  if (abSw && hold > 5 && frames > 60) {
-    int blk = (frames - 61) / 24, side = blk & 1, in = (frames - 61) % 24;
-    if (in == 0) app.R.perf.set(abSw, side == 0);
-    if (in >= 8) { abSum[side] += app.R.stats.gpuMs; ++abN[side]; }
+  // NMK_CAPTURE_AB may list several switches (a,b,c): each gets 192 frames (8 blocks), so hold >= 60 + 192 x count
+  static std::vector<std::string> abList = [] { std::vector<std::string> v; if (const char* e = std::getenv("NMK_CAPTURE_AB")) { std::string s = e; for (size_t b = 0, q; b <= s.size(); b = q + 1) { q = s.find(',', b); if (q == std::string::npos) q = s.size(); if (q > b) v.push_back(s.substr(b, q - b)); } } return v; }();
+  static double abSum[8][2] = {}; static int abN[8][2] = {};
+  // wall-clock frame time (the GPU timestamp ring drops frames under load: stats.gpuMs went stale): selftest swaps without vsync,
+  // so a GPU-bound frame takes as long as the GPU needs
+  static double lastT = 0; double nowT = glfwGetTime(), wallMs = lastT > 0 ? (nowT - lastT) * 1000.0 : 0.0; lastT = nowT;
+  if (!abList.empty() && hold > 5 && frames > 60) {
+    int rel = frames - 61, sub = rel / 192;
+    if (sub < (int)abList.size() && sub < 8) {
+      int blk = (rel % 192) / 24, side = blk & 1, in = rel % 24;
+      if (in == 0) app.R.perf.set(abList[sub], side == 0);
+      if (in >= 8) { abSum[sub][side] += wallMs; ++abN[sub][side]; }
+    }
   }
   if (hold > 5 && frames > 60) { gpuSum += app.R.stats.gpuMs; dtSum += dt * 1000.0; ++n; }
   if (frames >= hold) {
     if (n) logf("capture perf %s: gpu %.3f ms, frame %.3f ms (%d frames)", c.name, gpuSum / n, dtSum / n, n);
-    if (abSw && abN[0] && abN[1]) {
-      double on = abSum[0] / abN[0], off = abSum[1] / abN[1];
-      logf("capture ab %s %s: on %.3f ms, off %.3f ms, %+.1f %% (%d / %d frames)", c.name, abSw, on, off, off > 0 ? (on / off - 1) * 100 : 0.0, abN[0], abN[1]);
-      app.R.perf.set(abSw, true);
+    for (size_t j = 0; j < abList.size() && j < 8; ++j) {
+      if (abN[j][0] && abN[j][1]) {
+        double on = abSum[j][0] / abN[j][0], off = abSum[j][1] / abN[j][1];
+        logf("capture ab %s %s: on %.3f ms, off %.3f ms (wall clock), %+.1f %% (%d / %d frames)", c.name, abList[j].c_str(), on, off, off > 0 ? (on / off - 1) * 100 : 0.0, abN[j][0], abN[j][1]);
+      }
+      app.R.perf.set(abList[j], true);
+      abSum[j][0] = abSum[j][1] = 0; abN[j][0] = abN[j][1] = 0;
     }
-    abSum[0] = abSum[1] = 0; abN[0] = abN[1] = 0;
     gpuSum = dtSum = 0; n = 0;
     ++ci; frames = 0;
   }
