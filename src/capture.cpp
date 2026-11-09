@@ -306,11 +306,11 @@ void SelfTest::captureUpdate(App& app, float dt) {
   if (++frames == 4) shotQueue.push_back("mat_" + tag + "_" + c.name);
   // NMK_CAPTURE_PERF=<frames>: hold each camera that long and log its mean GPU / CPU frame time (after 60 warm-up frames)
   static const int hold = std::getenv("NMK_CAPTURE_PERF") ? std::max(90, std::atoi(std::getenv("NMK_CAPTURE_PERF"))) : 5;
-  static double gpuSum = 0, dtSum = 0; static int n = 0;
-  if (hold > 5 && frames > 60) { gpuSum += app.R.stats.gpuMs; dtSum += dt * 1000.0; ++n; }
+  static double gpuSum = 0, dtSum = 0, cpuSum = 0; static int n = 0;
+  if (hold > 5 && frames > 60) { gpuSum += app.R.stats.gpuMs; dtSum += dt * 1000.0; cpuSum += app.R.stats.cpuMs; ++n; }
   if (frames >= hold) {
-    if (n) logf("capture perf %s: gpu %.3f ms, frame %.3f ms (%d frames)", c.name, gpuSum / n, dtSum / n, n);
-    gpuSum = dtSum = 0; n = 0;
+    if (n) logf("capture perf %s: gpu %.3f ms, cpu %.3f ms, frame %.3f ms (%d frames), %d draws, %d tris, %zu terrain tiles", c.name, gpuSum / n, cpuSum / n, dtSum / n, n, app.R.stats.draws, app.R.stats.tris, app.terrain.tiles.size());
+    gpuSum = dtSum = cpuSum = 0; n = 0;
     ++ci; frames = 0;
   }
 }

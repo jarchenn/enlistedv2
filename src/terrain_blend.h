@@ -20,8 +20,11 @@ bool blendEnabled();
 
 bool blendPinned(const AssetDef* a);            // gets a pad: buildings, bunkers, emplacements with a footprint
 bool blendTrench(const AssetDef* a);            // a trench piece ("trench" block)
-// asset loading: true when part pj is replaced by generated terrain / revetment ("trench" / "earthwork" replace)
-bool blendReplacesPart(const json& asset, const json& pj);
+// asset loading: what happens to part pj of an asset with a "trench" / "earthwork" block: 0 kept, 1 dropped (the terrain
+// or the generated revetment replaces it), 2 kept as an invisible collider ("keepCollision": the trench walls stay
+// where players and bots met them)
+int blendPartMode(const json& asset, const json& pj);
+inline bool blendReplacesPart(const json& asset, const json& pj) { return blendPartMode(asset, pj) == 1; }
 // navSyncCuts: the stamps for the current instances (pads, berms, trench networks); returns the tiles touched
 int blendSyncStamps(App& app);
 // checkPlacement for a pinned object: the auto-level height (median of the footprint) or a refusal with the variance

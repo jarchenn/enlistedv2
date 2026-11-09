@@ -594,7 +594,7 @@ export const tobrukTurret = () => tobruk("turret");
 // GX1 (docs/graphics-overhaul.md#gx1-terrain-conformance): the engine carves joined pieces as one terrain network along
 // `path` (x, z, depth scale), with the niches as `branches`, and generates the revetment along the cut; the slab parts
 // listed in `replace` are dropped at load while content/settings/terrain_blend.json is enabled
-export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0 };
+export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0, keepCollision: ["wattle"] };
 export function trenchNiche(pts, niche) {   // from the centreline into the rear wall (right of the run), to the niche's back
   const [i, t] = niche, p = pts[i], q = pts[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / L, uz = (q[1] - p[1]) / L;
   const c = [p[0] + ux * L * t, p[1] + uz * L * t];

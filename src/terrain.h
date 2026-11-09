@@ -46,7 +46,7 @@ struct TerrainStamp {
   float ring = 2.5f, skirt = 0;       // PAD: blend ring, max raise at the edge before the retaining skirt (0 = no cap)
   float grow = 0;                     // PAD: the level region reaches this far past the footprint (one grid step: no slope under the walls)
   std::vector<vec4> banks;            // BERM: ridge segments along the walls, local (ax, az, bx, bz)
-  std::vector<float> bankH;           // BERM: crest height above y per segment
+  std::vector<vec2> bankH;            // BERM: crest height above y at each end of the segment (a flank tapers toward an open face)
   std::vector<vec4> holes;            // BERM: local rectangles kept clear (x0, z0, x1, z1): passages, embrasures
   std::vector<vec4> seg;              // TRENCH: centreline segments, world (x0, z0, x1, z1)
   std::vector<vec2> segY;             // TRENCH: floor y at both ends
@@ -61,8 +61,9 @@ struct TerrainStamp {
 };
 struct StampParams {                  // content/settings/terrain_blend.json (terrain_blend.cpp fills it)
   float reposeDeg = 33, crest = 0.35f, smoothing = 3, noise = 0.12f, noiseScale = 7, edgeJitter = 0.45f, blendK = 1.2f;
-  float sparseSlope = 12, bareSlope = 24, contactBand = 0.8f, holeEdge = 1.2f;
+  float sparseSlope = 14, bareSlope = 31, contactBand = 0.8f, holeEdge = 1.2f;
   float soilMax = 0.55f, soilPerMetre = 1.4f, skirtEmbed = 0.15f;
+  float carvePad = 0.45f;   // trench floor reaches this far past the revetment line (one grid step: the wall slope stays behind it)
   float depth = 1.62f, floorHalf = 0.68f, batter = 0.12f, parapetH = 0.45f, parapetW = 1.9f, parapetNoise = 0.35f, parapetFront = 0.5f;
 };
 

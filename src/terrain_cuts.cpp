@@ -46,6 +46,8 @@ vec2 toLocal(const TerrainStamp& s, float x, float z) {   // inverse of yawQuat 
 float rectOut(vec2 l, vec2 half) { return glm::length(glm::max(glm::abs(l) - half, vec2(0))); }   // 0 inside
 float rectOut(vec2 l, vec4 r) { vec2 c((r.x + r.z) * 0.5f, (r.y + r.w) * 0.5f), h(std::fabs(r.z - r.x) * 0.5f, std::fabs(r.w - r.y) * 0.5f); return rectOut(l - c, h); }
 float segDist(vec2 p, vec2 a, vec2 b) { vec2 ab = b - a; float L2 = glm::dot(ab, ab); float t = L2 > 1e-12f ? std::clamp(glm::dot(p - a, ab) / L2, 0.0f, 1.0f) : 0.0f; return glm::length(p - (a + ab * t)); }
+float segDistT(vec2 p, vec2 a, vec2 b, float& t) { vec2 ab = b - a; float L2 = glm::dot(ab, ab); t = L2 > 1e-12f ? std::clamp(glm::dot(p - a, ab) / L2, 0.0f, 1.0f) : 0.0f; return glm::length(p - (a + ab * t)); }
+float smin(float a, float b, float k) { float h = std::max(k - std::fabs(a - b), 0.0f) / k; return std::min(a, b) - h * h * k * 0.25f; }
 float smax(float a, float b, float k) { float h = std::max(k - std::fabs(a - b), 0.0f) / k; return std::max(a, b) + h * h * k * 0.25f; }
 bool excluded(const TerrainStamp& s, uint64_t ex, const std::vector<uint64_t>* ignore) {
   if (ex && std::find(s.members.begin(), s.members.end(), ex) != s.members.end()) return true;
@@ -110,17 +112,21 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
     float n = terrainFbm(x / sp.noiseScale, z / sp.noiseScale, s.seed + 5);
     float jit = sp.edgeJitter * terrainFbm(x / (sp.noiseScale * 0.6f), z / (sp.noiseScale * 0.6f), s.seed + 9);
     float B = 0, toe = 1e30f, slope = 0;
+    // repose profile per bank: a flat crest, a rounded shoulder, a straight face at the repose slope (less a margin for
+    // the noise and the outline jitter), and a wide concave toe (the sparse-grass band); crest height interpolated along
+    // the bank, so a flank tapers down toward an open face
+    const float sl = tanR / 1.15f;
     for (size_t k = 0; k < s.banks.size(); ++k) {
-      float H = s.bankH[k] * (1.0f + sp.noise * n);
+      float t;
+      float dist = segDistT(l, vec2(s.banks[k].x, s.banks[k].y), vec2(s.banks[k].z, s.banks[k].w), t) + jit * std::min(1.0f, dCore / 1.5f);
+      float H = glm::mix(s.bankH[k].x, s.bankH[k].y, t) * (1.0f + sp.noise * n);
       if (H <= 0.01f) continue;
-      float Lb = 1.25f * 3.14159265f * H / (2.0f * tanR);   // cosine shoulder: steepest slope repose / 1.25, so the noise and outline jitter keep it near repose
-      float dist = segDist(l, vec2(s.banks[k].x, s.banks[k].y), vec2(s.banks[k].z, s.banks[k].w)) + jit * std::min(1.0f, dCore / 1.5f);
-      float u = (dist - sp.crest) / Lb;
-      float hk = u <= 0 ? H : u >= 1 ? 0.0f : H * (0.5f + 0.5f * std::cos(3.14159265f * u));
-      float dk = (u > 0 && u < 1) ? H * 0.5f * 3.14159265f * std::sin(3.14159265f * u) / Lb : 0.0f;
+      float lin = H - sl * (dist - sp.crest), kc = 0.3f * H, kt = 0.5f * H;
+      float hk = smax(smin(lin, H, kc), 0.0f, kt);
+      float dk = sl * std::clamp(std::min(lin + kt * 0.5f, H + kc * 0.5f - lin) / std::max(0.05f, std::min(kt, kc)), 0.0f, 1.0f);
       if (hk > B - sp.blendK) slope = std::max(slope, dk);
       B = k ? smax(B, hk, sp.blendK) : hk;
-      toe = std::min(toe, dist - sp.crest - Lb);
+      toe = std::min(toe, dist - sp.crest - H / sl - kt * 0.5f / sl);
     }
     for (auto& hr : s.holes) B *= sstep(0.0f, sp.holeEdge, rectOut(l, hr));   // passages and embrasures stay clear
     float W = 1.0f - sstep(0.0f, sp.smoothing, std::max(0.0f, toe));
@@ -128,13 +134,15 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
     if (T > h && W > 0) {
       h += (T - h) * W;
       float deg = degrees(std::atan(slope * W));
-      float sb = 0.14f * sstep(sp.sparseSlope - 4, sp.sparseSlope + 4, deg) + 0.46f * sstep(sp.bareSlope - 3, sp.bareSlope + 3, deg);
+      // sparse dry grass over the face, bare packed earth only where it is steepest and in low-frequency patches
+      float patch = sstep(0.25f, 0.6f, terrainFbm(x / 3.5f, z / 3.5f, s.seed + 13));
+      float sb = 0.13f * sstep(sp.sparseSlope - 4, sp.sparseSlope + 4, deg) + 0.45f * std::max(sstep(sp.bareSlope - 2, sp.bareSlope + 2, deg), patch * sstep(sp.sparseSlope + 4, sp.bareSlope, deg));
       so = std::max(so, sb * W);
     }
     so = std::max(so, 0.7f * (1.0f - sstep(0.0f, sp.contactBand, dCore)));   // dirt band where the concrete meets the earth
   }
   // 3. trench parapets: spoil heaped either side of the lip, lumpy, fading to the field
-  const float lip = sp.floorHalf + 0.12f;
+  const float lip = sp.floorHalf + sp.carvePad + 0.05f;   // the parapet rises where the carved wall reaches the surface
   for (auto* sp_ : list) {
     const TerrainStamp& s = *sp_;
     if (s.kind != TerrainStamp::TRENCH || !in(s)) continue;
@@ -162,9 +170,10 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
       if (s.kind != TerrainStamp::TRENCH || !in(s)) continue;
       TrenchHit th = trenchAt(s, p, sp.floorHalf, true, sp.floorHalf);
       if (!th.any) continue;
-      float target = th.floorY + std::max(0.0f, th.lat - sp.floorHalf) / std::max(0.02f, sp.batter);
+      // the floor runs carvePad past the revetment line, so on the 0.45 m grid the wall slope never comes in front of it
+      float target = th.floorY + std::max(0.0f, th.lat - sp.floorHalf - sp.carvePad) / std::max(0.02f, sp.batter);
       if (target < h) { h = target; so = 1.0f; }
-      else if (th.lat < sp.floorHalf + 0.3f) so = 1.0f;
+      else if (th.lat < sp.floorHalf + sp.carvePad + 0.3f) so = 1.0f;
     }
   if (soil) *soil = so;
   return h;

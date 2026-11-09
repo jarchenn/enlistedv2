@@ -423,18 +423,19 @@ void build(App& app) {
     if (!s1) return true;
     float nat = app.terrain.groundBase(60, 0), fl = app.terrain.height(60, 0);
     chk(std::fabs(fl - (s1->pos.y - sp.depth)) < 0.06f, "trench floor %.2f m below the anchor (config %.2f m)", s1->pos.y - fl, sp.depth);
-    float lipL = app.terrain.height(60, sp.floorHalf + 0.12f + 0.5f) - app.terrain.groundBase(60, sp.floorHalf + 0.62f);
-    float lipR = app.terrain.height(60, -sp.floorHalf - 0.62f) - app.terrain.groundBase(60, -sp.floorHalf - 0.62f);
+    const float crest = app.terrain.sp.floorHalf + app.terrain.sp.carvePad + 0.6f;   // past the carved wall, on the spoil
+    float lipL = app.terrain.height(60, crest) - app.terrain.groundBase(60, crest);
+    float lipR = app.terrain.height(60, -crest) - app.terrain.groundBase(60, -crest);
     float far = std::fabs(app.terrain.height(60, 4.5f) - app.terrain.groundBase(60, 4.5f));
     chk(lipL > 0.1f && lipR > 0.25f && far < 0.03f, "spoil parapets: fire side +%.2f m (kept low for the firestep), parados +%.2f m, back to the field by 4.5 m (%.3f m)", lipL, lipR, far);
-    float depthToLip = std::max(app.terrain.height(60, 1.3f), app.terrain.height(60, -1.3f)) - fl;
+    float depthToLip = std::max(app.terrain.height(60, crest), app.terrain.height(60, -crest)) - fl;
     chk(depthToLip > 1.8f && depthToLip < 2.4f, "lip to floor %.2f m (brief: 1.8-2.2 m)", depthToLip);
     // the corner: the floor turns, the outer mitre is soil (not carved), no overlapping slabs (parts replaced)
     float cf = app.terrain.height(76, 0), outer = app.terrain.height(76 + 1.5f, -1.5f);
     chk(std::fabs(cf - fl) < 0.25f && outer > cf + 1.4f, "mitred corner: floor at the corner %.2f m, soil outside the mitre %.2f m above it", cf - fl, outer - cf);
-    int slabs = 0; for (auto& pt : app.lib.find("aw_trench_straight")->parts) slabs += pt.center.y + pt.size.y * 0.5f > -1.0f;
+    int slabs = 0; for (auto& pt : app.lib.find("aw_trench_straight")->parts) slabs += pt.visible && pt.center.y + pt.size.y * 0.5f > -1.0f;   // the wattle stays as invisible colliders
     chk(slabs == 0, "the slab-and-gap parts are gone from the piece mesh (%d above -1 m left)", slabs);
-    float dFloor = app.terrain.dirtAt(60, 0), dPar = app.terrain.dirtAt(60, sp.floorHalf + 0.5f), dOut = app.terrain.dirtAt(60, 4.2f);
+    float dFloor = app.terrain.dirtAt(60, 0), dPar = app.terrain.dirtAt(60, crest), dOut = app.terrain.dirtAt(60, 4.2f);
     chk(dFloor > 0.9f && dPar > 0.3f && dOut < 0.18f, "masks: mud on the floor %.2f, turned earth on the parapet %.2f, grass beyond %.2f", dFloor, dPar, dOut);
     (void)nat;
     return true;
@@ -445,9 +446,9 @@ void build(App& app) {
     navSyncCuts(app);
     Instance* b = app.doc.find(id); if (!b) return true;
     vec2 c(b->pos.x, b->pos.z);
-    float raised = app.terrain.height(c.x + 2.25f + 2.0f, c.y) - b->pos.y;
+    float raised = app.terrain.height(c.x + 2.25f + 1.0f, c.y) - b->pos.y;
     float sl, st; profileStats(app, c + vec2(2.6f, 0), c + vec2(16, 0), sl, st);
-    chk(raised > 1.2f && sl < 36.0f && st < 0.2f, "berm as terrain: +%.2f m 2 m from the wall, steepest %.1f deg (repose %.0f), biggest step %.3f m", raised, sl, blendConfig().sp.reposeDeg, st);
+    chk(raised > 1.0f && sl < 36.0f && st < 0.2f, "berm as terrain: +%.2f m 1 m from the wall, steepest %.1f deg (repose %.0f), biggest step %.3f m", raised, sl, blendConfig().sp.reposeDeg, st);
     // no straight ridge line: the bank's height 3 m out varies along the wall
     std::vector<float> hs; for (int k = -8; k <= 8; ++k) hs.push_back(app.terrain.height(c.x + 5.25f, c.y + k * 0.35f));
     float mean = std::accumulate(hs.begin(), hs.end(), 0.0f) / hs.size(), var = 0; for (float h : hs) var += (h - mean) * (h - mean);
@@ -455,7 +456,9 @@ void build(App& app) {
     float passage = app.terrain.height(c.x + 0.6f, c.y - 3.6f) - b->pos.y;
     chk(std::fabs(passage) < 0.3f, "the rear entrance passage stays clear (ground %.2f m from the floor)", passage);
     float bare = 0, sparse = 0; for (float x = 3.0f; x < 12.0f; x += 0.25f) { float d = app.terrain.dirtAt(c.x + x, c.y); bare = std::max(bare, d); if (d > 0.02f && d < 0.18f) sparse += 0.25f; }
-    chk(bare > 0.3f && sparse >= 1.5f, "slope blend: bare earth on the steep face (soil %.2f), a sparse-grass band %.2f m wide (brief: >= 1.5 m)", bare, sparse);
+    // patches of bare packed earth on the face (low-frequency noise) anywhere around the mound, a sparse-grass band
+    float patchMax = 0; for (int a = 0; a < 48; ++a) for (float d = 3.0f; d < 7.0f; d += 0.5f) { float an = a * 0.1309f; patchMax = std::max(patchMax, app.terrain.dirtAt(c.x + std::cos(an) * (2.25f + d), c.y + std::sin(an) * (2.25f + d))); }
+    chk(bare > 0.08f && patchMax > 0.3f && sparse >= 1.5f, "slope blend: soil on the face %.2f, bare patches %.2f, a sparse-grass band %.2f m wide (brief: >= 1.5 m)", bare, patchMax, sparse);
     int prisms = 0; for (auto& pt : app.lib.find("bunker_observation_post")->parts) prisms += pt.shape == Part::PRISM;
     chk(prisms == 0, "the faceted bank prisms are gone from the bunker mesh (%d left)", prisms);
     return true;

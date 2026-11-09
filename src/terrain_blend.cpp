@@ -77,22 +77,24 @@ bool blendPinned(const AssetDef* a) {
   return a->category == "Atlantic Wall" && a->navMeta.terrainCuts.empty() && a->footprint.x * a->footprint.y >= 6.0f;
 }
 
-bool blendReplacesPart(const json& asset, const json& pj) {
-  if (!blendEnabled() || !asset.is_object() || !pj.is_object()) return false;
+int blendPartMode(const json& asset, const json& pj) {
+  if (!blendEnabled() || !asset.is_object() || !pj.is_object()) return 0;
   const std::string m = pj.value("m", std::string());
   if (asset.contains("trench")) {
     const json& r = asset["trench"].value("replace", json::object());
     auto mats = r.value("materials", json::array());
-    if (std::find(mats.begin(), mats.end(), m) == mats.end()) return false;
+    if (std::find(mats.begin(), mats.end(), m) == mats.end()) return 0;
     float top = pj.contains("c") && pj.contains("s") ? pj["c"][1].get<float>() + 0.5f * pj["s"][1].get<float>() : 1.0f;
-    return top > r.value("aboveY", -1.0f);   // the firestep, floor and duckboards below stay
+    if (top <= r.value("aboveY", -1.0f)) return 0;   // the firestep, floor and duckboards below stay
+    auto keep = r.value("keepCollision", json::array());
+    return std::find(keep.begin(), keep.end(), m) != keep.end() && pj.value("k", 1) != 0 ? 2 : 1;
   }
   if (asset.contains("earthwork")) {
     const json& r = asset["earthwork"].value("replace", json::object());
     auto mats = r.value("materials", json::array());
-    return pj.value("t", std::string()) == r.value("shape", std::string("p")) && std::find(mats.begin(), mats.end(), m) != mats.end();
+    return pj.value("t", std::string()) == r.value("shape", std::string("p")) && std::find(mats.begin(), mats.end(), m) != mats.end() ? 1 : 0;
   }
-  return false;
+  return 0;
 }
 
 // ================================================================ stamps from the instances
@@ -100,7 +102,7 @@ int blendSyncStamps(App& app) {
   Terrain& T = app.terrain;
   const BlendConfig& C = blendConfig();
   if (!C.enabled) return T.setStamps({});
-  T.sp = C.sp;
+  T.sp = C.sp; T.sp.carvePad = T.fineSpacing();
   const StampParams& sp = C.sp;
   std::vector<TerrainStamp> out;
   const float tanR = std::tan(radians(std::clamp(sp.reposeDeg, 15.0f, 45.0f)));
@@ -145,9 +147,10 @@ int blendSyncStamps(App& app) {
       for (auto& k : ew["banks"]) {
         if (k.size() < 5) continue;
         b.banks.push_back(vec4(k[0].get<float>(), k[1].get<float>(), k[2].get<float>(), k[3].get<float>()));
-        float H = k[4].get<float>(); b.bankH.push_back(H);
+        float Ha = k[4].get<float>(), Hb = k.size() > 5 ? k[5].get<float>() : Ha, H = std::max(Ha, Hb);   // [ax, az, bx, bz, crest at a(, crest at b)]
+        b.bankH.push_back(vec2(Ha, Hb));
         reach = std::max(reach, std::max(glm::length(vec2(k[0].get<float>(), k[1].get<float>())), glm::length(vec2(k[2].get<float>(), k[3].get<float>()))) +
-                                    sp.crest + 1.25f * 3.14159265f * H * (1 + sp.noise) / (2 * tanR));
+                                    sp.crest + 1.3f * H * (1 + sp.noise) * 1.15f / tanR + 1.0f);
       }
       for (auto& h : ew.value("holes", json::array())) if (h.size() >= 4) b.holes.push_back(vec4(h[0].get<float>(), h[1].get<float>(), h[2].get<float>(), h[3].get<float>()));
       float r = reach + sp.smoothing + sp.edgeJitter + 1.0f;
@@ -225,20 +228,22 @@ quat yawPitch(float yawRad, float tiltRad) { return glm::angleAxis(yawRad, vec3(
 // revetment, pickets and sandbags along one trench piece's path, fitted to the carved network around it
 void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   const Terrain& T = app.terrain;
-  const BlendConfig& C = blendConfig(); const StampParams& sp = C.sp;
+  const BlendConfig& C = blendConfig(); const StampParams& sp = T.sp;
   const TerrainStamp* st = stampOf(T, i.id, TerrainStamp::TRENCH);
   if (!st) return;
   quat iq = glm::inverse(yawQuat(i.yaw));
   auto L = [&](vec3 w) { return iq * (w - i.pos); };   // world -> instance space
   const Material& wattle = matNamed(a, "wattle"); const Material& picket = matNamed(a, "picket"); const Material& bag = matNamed(a, "sacking");
+  const Material* clod[3] = {&matNamed(a, "spoil"), &matNamed(a, "earth"), &matNamed(a, "turf")};
+  const float thk = sp.carvePad + 0.06f;   // the panel fills the carve pad behind the revetment line: no slot between revetment and soil
   std::vector<vec2> P; std::vector<float> D;
   for (auto& q : a->raw["trench"].value("path", json::array())) { P.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); D.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
   if (P.size() < 2) return;
   const float plane = sp.floorHalf + 0.02f, tilt = std::atan(sp.batter);
   uint32_t seed = idSeed(i.id);
-  auto lipAt = [&](vec2 q, vec2 n) {   // the soil just behind the wall: the highest uncarved ground in a 0.7 m band
+  auto lipAt = [&](vec2 q, vec2 n) {   // the soil the panel meets: the highest uncarved ground just past its back
     float y = -1e30f;
-    for (float d : {0.12f, 0.35f, 0.6f}) { vec2 w = q + n * d; y = std::max(y, T.trenchLipY(*st, w.x, w.y)); }
+    for (float d : {thk + 0.05f, thk + 0.3f}) { vec2 w = q + n * d; y = std::max(y, T.trenchLipY(*st, w.x, w.y)); }
     return y;
   };
   auto floorAt = [&](vec2 q) { return T.height(q.x, q.y); };
@@ -259,25 +264,35 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
         float tm = t0 + (k + 0.5f) * step;
         vec2 c = A + dir * tm, q = c + n * plane;
         float fy = floorAt(c), lip = lipAt(q, n);
-        float behind = T.height(q.x + n.x * 0.3f, q.y + n.y * 0.3f);
+        float behind = T.height(q.x + n.x * (thk + 0.35f), q.y + n.y * (thk + 0.35f));
         if (behind < fy + 0.6f || lip < fy + 0.45f) continue;   // open behind: a junction, the niche, the ramp mouth
         if (C.revetment) {
-          float y0 = fy - 0.12f, y1 = lip + 0.03f + 0.04f * hash01(seed, (uint32_t)(s * 97 + k * 2 + (side > 0)));
+          float cap = lip + 0.02f + 0.03f * hash01(seed, (uint32_t)(s * 97 + k * 2 + (side > 0)));
+          float y0 = fy - 0.12f, y1 = cap - 0.08f;
           float H = y1 - y0;
-          vec2 cc = q + n * (0.035f + sp.batter * H * 0.5f);
+          vec2 cc = q + n * (thk * 0.5f + sp.batter * H * 0.5f);
           vec3 w(cc.x, (y0 + y1) * 0.5f, cc.y);
           quat qw = yawPitch(yawR, side > 0 ? tilt : -tilt);   // the wall leans back into the soil
-          appendPart(m, boxPart(L(w), vec3(step + 0.03f, H, 0.07f), iq * qw), wattle, mat4(1));
-          // top rail: a round pole along the lip
-          vec2 rc = q + n * (0.035f + sp.batter * H);
-          Part rail = boxPart(L(vec3(rc.x, y1 - 0.02f, rc.y)), vec3(0.075f, step + 0.04f, 0.075f), iq * glm::angleAxis(yawR, vec3(0, 1, 0)) * glm::angleAxis(1.5707963f, vec3(0, 0, 1)), Part::CYL);
+          appendPart(m, boxPart(L(w), vec3(step + 0.03f, H, thk), iq * qw), wattle, mat4(1));
+          // heaped clods over the panel's top, flush with the soil behind it (spoil, dark earth, the odd turf)
+          for (int cl = 0; cl < 2; ++cl) {
+            uint32_t hs = (uint32_t)(s * 7919 + k * 31 + cl * 7 + (side > 0) * 3);
+            float r0 = hash01(seed, hs), r1 = hash01(seed, hs + 1), r2 = hash01(seed, hs + 2);
+            vec2 sc = q + dir * ((cl - 0.5f) * step * 0.5f + (r0 - 0.5f) * 0.1f) + n * ((thk + 0.1f) * 0.5f + sp.batter * H + (r1 - 0.5f) * 0.08f);
+            vec3 sz(step * (0.55f + 0.35f * r1), 0.12f + 0.08f * r2, thk * (0.75f + 0.4f * r0));
+            Part c = boxPart(L(vec3(sc.x, cap - sz.y * 0.45f, sc.y)), sz, iq * glm::angleAxis(yawR + (r2 - 0.5f) * 0.6f, vec3(0, 1, 0)) * glm::angleAxis((r0 - 0.5f) * 0.25f, vec3(1, 0, 0)));
+            c.bv = 0.045f;
+            appendPart(m, c, *clod[r2 < 0.12f ? 2 : r1 < 0.45f ? 1 : 0], mat4(1));
+          }
+          vec2 rc = q + n * (0.03f + sp.batter * H);
+          Part rail = boxPart(L(vec3(rc.x, y1 + 0.01f, rc.y)), vec3(0.08f, step + 0.04f, 0.08f), iq * glm::angleAxis(yawR, vec3(0, 1, 0)) * glm::angleAxis(1.5707963f, vec3(0, 0, 1)), Part::CYL);
           rail.seg = 8; appendPart(m, rail, picket, mat4(1));
         }
         // pickets driven into the floor, every C.pickets metres
         float pk = std::max(0.3f, C.pickets);
         float a0 = std::floor((tm - step * 0.5f) / pk), a1 = std::floor((tm + step * 0.5f) / pk);
         if (C.revetment && a1 > a0) {
-          float H = lip + 0.14f + 0.06f * hash01(seed, (uint32_t)(s * 131 + k)) - (fy - 0.35f);
+          float H = lip - 0.02f + 0.06f * hash01(seed, (uint32_t)(s * 131 + k)) - (fy - 0.35f);
           vec2 pc = q - n * 0.01f + n * (sp.batter * H * 0.5f);
           Part pp = boxPart(L(vec3(pc.x, fy - 0.35f + H * 0.5f, pc.y)), vec3(0.08f, H, 0.08f), iq * yawPitch(yawR, side > 0 ? tilt : -tilt), Part::CYL);
           pp.seg = 8; appendPart(m, pp, picket, mat4(1));
@@ -292,7 +307,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
           float gap = terrainFbm((c.x + n.x) * 0.35f, (c.y + n.y) * 0.35f, seed + 21);
           if (!front && gap > -0.35f) {
             int courses = 2;
-            vec2 bc = q + n * (0.42f + 0.1f * hash01(seed, (uint32_t)(s * 31 + k * 7 + side)));
+            vec2 bc = q + n * (thk + 0.3f + 0.1f * hash01(seed, (uint32_t)(s * 31 + k * 7 + side)));
             float by = 1e30f;
             for (float dl : {-0.24f, 0.0f, 0.24f}) for (float dn : {-0.14f, 0.14f}) { vec2 w = bc + dir * dl + n * dn; by = std::min(by, T.height(w.x, w.y)); }
             for (int cs = 0; cs < courses; ++cs) {
@@ -322,10 +337,18 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
     }
     if (joined || !C.revetment) continue;
     vec2 dir = glm::normalize(p - q), n = dir;
-    float fy = T.height(p.x - dir.x * 0.3f, p.y - dir.y * 0.3f), lip = lipAt(p, n), H = lip + 0.03f - (fy - 0.12f);
-    vec2 cc = p + n * (0.035f + sp.batter * H * 0.5f);
+    vec2 pe = p + n * 0.03f;   // the asset's end wall line (its invisible collider stays there)
+    float fy = T.height(p.x - dir.x * 0.3f, p.y - dir.y * 0.3f), cap = lipAt(pe, n) + 0.02f, H = cap - 0.08f - (fy - 0.12f);
+    vec2 cc = pe + n * (thk * 0.5f + sp.batter * H * 0.5f);
     float yawR = std::atan2(n.x, n.y);
-    appendPart(m, boxPart(L(vec3(cc.x, fy - 0.12f + H * 0.5f, cc.y)), vec3(2 * plane + 0.1f, H, 0.07f), iq * yawPitch(yawR, tilt)), wattle, mat4(1));
+    appendPart(m, boxPart(L(vec3(cc.x, fy - 0.12f + H * 0.5f, cc.y)), vec3(2 * plane + 0.1f, H, thk), iq * yawPitch(yawR, tilt)), wattle, mat4(1));
+    for (int cl = -1; cl <= 1; ++cl) {
+      float r0 = hash01(seed, 9001 + cl + e * 5), r1 = hash01(seed, 9101 + cl + e * 5);
+      vec2 sc = pe + vec2(n.y, -n.x) * (cl * plane * 0.66f) + n * ((thk + 0.1f) * 0.5f + sp.batter * H);
+      Part c = boxPart(L(vec3(sc.x, cap - 0.07f, sc.y)), vec3(plane * 0.8f, 0.14f + 0.06f * r0, thk * (0.8f + 0.3f * r1)), iq * glm::angleAxis(yawR + (r1 - 0.5f) * 0.5f, vec3(0, 1, 0)));
+      c.bv = 0.045f;
+      appendPart(m, c, *clod[r0 < 0.4f ? 1 : 0], mat4(1));
+    }
   }
 }
 

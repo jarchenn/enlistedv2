@@ -325,8 +325,9 @@ export function observationPost() {
   // passage (x -0.1..1.3 clear), a low bank under the exposed front, 0.45 m of earth on the roof slab
   const pa0 = -0.1, pa1 = 1.3, pLen = 2.0;
   // GX1 (docs/graphics-overhaul.md): with content/settings/terrain_blend.json enabled the engine raises these banks as
-  // terrain (ridges at the wall faces: ax, az, bx, bz, crest height) and drops the bank prisms below
-  A.meta.earthwork = { core: [X, Z], banks: [[X, -Z - 0.7, X, Z + 0.15, CEIL + 0.3], [-X, -Z - 0.7, -X, Z + 0.15, CEIL + 0.3],
+  // terrain (ridges at the wall faces: ax, az, bx, bz, crest at a, crest at b: the flanks fall to the front bank, so the
+  // front face stays exposed) and drops the bank prisms below
+  A.meta.earthwork = { core: [X, Z], banks: [[X, -Z - 0.7, X, Z + 0.15, CEIL + 0.3, GF + 0.95], [-X, -Z - 0.7, -X, Z + 0.15, CEIL + 0.3, GF + 0.95],
     [-X - 0.6, -Z, -1.7, -Z, CEIL + 0.2], [2.5, -Z, X + 0.6, -Z, CEIL + 0.2], [-X - 0.3, Z, X + 0.3, Z, GF + 0.95]].map((b) => b.map(r3)),
     holes: [[-0.45, -40, 1.65, -Z]], replace: EARTH_REPLACE };
   earthBank(A, 2, -Z - 0.7, Z + 0.15, X, 1, CEIL + 0.3, 2.7, 11, { taper: [false, true] });
@@ -430,7 +431,7 @@ export function fieldShelter() {
   // earth cover: 0.5 m of earth and turf on the log roof, banks over both flanks and the rear (either side of the
   // entrance), a low bank under the aperture; the entrance passage (x -0.65..0.65) between concrete retaining walls
   const RL = CEIL + 0.26, pw = 0.65, pl = 1.4;
-  A.meta.earthwork = { core: [X, Z], banks: [[X, -Z - 0.6, X, Z + 0.4, CEIL + 0.1], [-X, -Z - 0.6, -X, Z + 0.4, CEIL + 0.1],
+  A.meta.earthwork = { core: [X, Z], banks: [[X, -Z - 0.6, X, Z + 0.4, CEIL + 0.1, GF + 0.75], [-X, -Z - 0.6, -X, Z + 0.4, CEIL + 0.1, GF + 0.75],
     [-X - 0.5, -Z, -1.9, -Z, CEIL], [1.9, -Z, X + 0.5, -Z, CEIL], [-X - 0.3, Z, X + 0.3, Z, GF + 0.75]].map((b) => b.map(r3)),
     holes: [[-0.9, -40, 0.9, -Z]], replace: EARTH_REPLACE };   // GX1 terrain banks (see observationPost)
   roofEarth(A, -X - 0.12, X + 0.12, -Z - 0.12, Z + 0.12, RL, 0.5, 21);

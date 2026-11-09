@@ -184,16 +184,17 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
 
 - An asset's `earthwork` block turns its earth cover into terrain:
   - `core`: the walls' half-size;
-  - `banks`: ridge segments `[ax, az, bx, bz, crest height]` along the walls;
+  - `banks`: ridge segments `[ax, az, bx, bz, crest at a, crest at b]` along the walls (a flank falls toward an
+    open face, so the observation post's front stays exposed);
   - `holes`: rectangles kept clear, such as entrance passages;
   - `replace`: the prism parts it supersedes, dropped at load.
 - Profile:
-  - a 0.35 m crest shelf, then a cosine shoulder (steepest slope near `reposeDeg`, 33°, with the noise included), so the top is convex
-    and the toe concave;
+  - a 0.35 m crest shelf, a rounded shoulder, a straight face at `reposeDeg` (33°) less a 15 % margin for the noise,
+    and a wide concave toe;
   - banks merged with a smooth max (no crease ridges);
   - ±12 % low-frequency height noise and ±0.45 m outline jitter (no straight ridge line);
   - a 3 m smoothing band past the toe into the natural ground.
-- Soil mask by slope: bare above `bareSlope` (24°), sparse dry grass from `sparseSlope` (12°), full grass below.
+- Soil mask by slope: bare above `bareSlope` (31°) and in low-frequency patches, sparse dry grass from `sparseSlope` (14°), full grass below.
   It is continuous because the profile is. A 0.8 m dirt contact band runs where the concrete meets the earth.
 - Done for `bunker_observation_post` and `bunker_field_shelter` (the two bunkers with earth banks). Their roof earth
   stays a mesh.
@@ -207,7 +208,11 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
     duckboards stay.
 - Pieces whose path ends meet form one network and one stamp. Shared ends average their floor heights.
 - The carve:
-  - floor at the anchor minus `depth` (1.62 m); 2 x `floorHalf` = 1.36 m wide;
+  - floor at the anchor minus `depth` (1.62 m); 2 x `floorHalf` = 1.36 m wide between the revetments;
+  - the floor runs one grid step (0.45 m) past the revetment line and past free ends, so on the 0.45 m grid the wall
+    slope never comes in front of the revetment, whatever the trench's angle. The generated panel is that thick,
+    with heaped clods (spoil, dark earth, turf) flush with the soil on top, so nothing shows behind it. The asset's wattle boxes stay as invisible
+    colliders (`keepCollision`): players and bots meet the walls exactly where they did before;
   - walls lean back 0.12 m per metre;
   - corners are mitred: the legs are boxes that overlap by the floor half-width.
 - Parapets:
@@ -226,7 +231,7 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
   - openings where the ground behind is carved (junctions, the inner side of a corner, niches).
 - Masks: mud on the floor and walls (`sdirt` 1); turned earth on the parapet fading to sparse grass on its outer
   slope, then full grass.
-- Collision: the carved heightfield is the trench wall (Jolt tile heightfields); the revetment mesh is visual.
+- Collision: the asset's wattle boxes (invisible) and the carved heightfield; the generated revetment is visual.
 
 ### For the other streams
 
