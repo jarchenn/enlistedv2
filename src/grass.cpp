@@ -11,7 +11,7 @@ const GrassPreset& grassPreset(GrassQuality q) {
   static GrassPreset P[4] = {
     {"Off", 0, 0, 0, 0, 2, 0.1f, 0, 0, 0, 0},
     {"Low", 12, 36, 10, 22, 2.0f, 0.12f, 5, 3, 0, 0},
-    {"Medium", 30, 46, 15, 30, 2.0f, 0.10f, 6, 3, 13, 10},
+    {"Medium", 30, 54, 15, 32, 1.6f, 0.14f, 6, 3, 13, 10},
     {"High", 44, 62, 18, 40, 1.8f, 0.12f, 8, 4, 15, 14},
   };
   static bool loaded = false;
@@ -158,6 +158,7 @@ static float packAlbedo(float x, float z, float var, float tint, int species) {
   vec3 yg = alb * vec3(1.32f, 1.16f, 0.72f) + vec3(0.02f, 0.015f, 0.0f), straw(0.40f, 0.35f, 0.19f);
   alb = tint < 0.5f ? glm::mix(alb, yg, tint * 2.0f) : glm::mix(yg, straw, (tint - 0.5f) * 1.6f);
   if (species == 0) alb *= vec3(0.92f, 1.0f, 0.9f);                       // turf: a touch deeper green
+  if (species == 1) alb *= vec3(0.92f, 1.04f, 0.86f);                     // meadow grass: lush
   if (species == 2) alb = glm::mix(alb, vec3(0.27f, 0.27f, 0.13f), 0.30f); // tall seed-head grass: paler, yellowing
   if (species == 3) alb = glm::mix(alb, vec3(0.10f, 0.19f, 0.07f), 0.60f); // clover: fresh broadleaf green
   if (species == 4) alb = glm::mix(alb, vec3(0.40f, 0.35f, 0.19f), 0.75f); // dry straw
@@ -298,7 +299,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float keep = r.f(), thin = r.f(), var = r.f();
     // meadow patchiness: lush and sparser areas, small gaps, and bare-earth patches where the ground shows soil
     float patch = vn2(x * 0.09f, z * 0.09f, seed_), fine = vn2(x * 0.6f, z * 0.6f, seed_ + 11);
-    if (keep > 0.45f + 0.55f * patch) continue;
+    if (keep > 0.70f + 0.30f * patch) continue;
     if (fine < 0.14f) continue;
     float bare = bareField(x, z);
     if (thin < bare * 0.85f) continue;
@@ -309,14 +310,14 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float d = t.dirtAt(x, z);
     if (d > 0.02f && thin < d * 5.5f) continue;
     bool skip = false;
-    for (auto& f : near) { float fd = fpDist(f, x, z) - fpMargin(f); if (fd < 0.9f && thin > fd / 0.9f) { skip = true; break; } }
+    for (auto& f : near) { float fd = fpDist(f, x, z) - fpMargin(f); if (fd < 2.0f && thin > fd / 2.0f) { skip = true; break; } }
     if (skip) continue;
     // routes: thinned and cropped short toward the track, tall rank verges just beyond its edge
     float wear = t.wearAt(x, z);
     if (wear > 0.05f && thin < wear * 1.5f) continue;
     float verge = std::clamp(1.0f - std::fabs(wear - 0.08f) / 0.08f, 0.0f, 1.0f);
     // weeds against walls and foundations: taller, darker clumps
-    float wall = 0; for (auto& f : near) { float fd = fpDist(f, x, z) - fpMargin(f); if (fd < 2.2f) wall = std::max(wall, 1.0f - fd / 2.2f); }
+    float wall = 0, fdMin = 1e9f; for (auto& f : near) { float fd = fpDist(f, x, z) - fpMargin(f); fdMin = std::min(fdMin, fd); if (fd < 2.2f) wall = std::max(wall, 1.0f - fd / 2.2f); }
     float y = groundH(t, x, z);
     float paintG = groundPaintGrass(x, z);   // < 1 on painted dry grass / litter / marsh: drier, sparser species
     // species layers from correlated noise masks: fine grass everywhere, seed-head grass in clumpy broad patches (and
@@ -325,27 +326,27 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float nTall = vn2(x * 0.06f, z * 0.06f, seed_ + 21), nClump = vn2(x * 0.45f, z * 0.45f, seed_ + 51), nClo = vn2(x * 0.35f, z * 0.35f, seed_ + 31);
     float nDry = vn2(x * 0.12f, z * 0.12f, seed_ + 41), nBroad = vn2(x * 0.22f, z * 0.22f, seed_ + 61), nShrub = vn2(x * 0.05f, z * 0.05f, seed_ + 71);
     float rs = r.f(), r1 = r.f(), r2 = r.f();
-    float pTall = 0.03f + 0.42f * smooth(0.5f, 0.8f, nTall) * smooth(0.3f, 0.65f, nClump) + 0.35f * verge + 0.3f * wall;
+    float pTall = 0.015f + 0.26f * smooth(0.5f, 0.8f, nTall) * smooth(0.3f, 0.65f, nClump) + 0.35f * verge + 0.12f * wall;
     float pClo = 0.12f * smooth(0.55f, 0.8f, nClo), pBroad = 0.015f + 0.05f * smooth(0.5f, 0.8f, nBroad);
     float pShrub = 0.010f * smooth(0.55f, 0.8f, nShrub) + 0.03f * wall;
-    float pStraw = 0.07f * smooth(0.62f, 0.82f, nDry) + 0.6f * (1.0f - paintG), pTurf = 0.45f * (1.0f - 0.6f * smooth(0.55f, 0.82f, nTall));
+    float pStraw = 0.07f * smooth(0.62f, 0.82f, nDry) + 0.6f * (1.0f - paintG), pTurf = 0.30f * (1.0f - 0.6f * smooth(0.55f, 0.82f, nTall));
     if (wear > 0.05f) { pTall *= 0.2f; pShrub = 0; pTurf = 0.8f; }   // trodden: cropped short
     float acc = 0; int sp = 1;
     const std::pair<float, int> layers[] = {{pShrub, 16}, {pTall, 2}, {pClo, 3}, {pBroad, 17}, {pStraw, 4}, {pTurf, 0}};
     for (auto [p, s] : layers) { acc += p; if (rs < acc) { sp = s; break; } }
     float hgt, wid;
     switch (sp) {
-      case 0: hgt = 0.09f + 0.10f * r1; wid = 0.0075f + 0.003f * r2; break;
-      case 2: hgt = 0.62f + 0.38f * r1; wid = 0.008f + 0.003f * r2; break;
+      case 0: hgt = 0.20f + 0.14f * r1; wid = 0.014f + 0.005f * r2; break;
+      case 2: hgt = 0.62f + 0.38f * r1; wid = 0.015f + 0.005f * r2; break;
       case 3: hgt = 0.07f + 0.05f * r1; wid = 0.024f + 0.008f * r2; break;
-      case 4: hgt = 0.26f + 0.26f * r1; wid = 0.008f + 0.003f * r2; break;
+      case 4: hgt = 0.30f + 0.26f * r1; wid = 0.015f + 0.005f * r2; break;
       case 16: hgt = 0.28f + 0.30f * r1; wid = 0.075f + 0.025f * r2; break;
       case 17: hgt = 0.13f + 0.08f * r1; wid = 0.036f + 0.014f * r2; break;
-      default: hgt = (0.24f + 0.26f * r1) * (0.7f + 0.6f * patch); wid = 0.009f + 0.004f * r2; break;
+      default: hgt = (0.34f + 0.28f * r1) * (0.75f + 0.5f * patch); wid = 0.018f + 0.007f * r2; break;
     }
-    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch);
+    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch) * (0.45f + 0.55f * smooth(0.0f, 3.0f, fdMin));   // grass grows back from a footprint edge
     if (verge > 0.2f || wall > 0.3f) var = std::min(1.0f, var * 0.6f);
-    float tint = std::clamp(std::pow(r.f(), 2.2f) * 0.75f + smooth(0.55f, 0.85f, nDry) * 0.35f + (1.0f - paintG) * 0.4f, 0.0f, 1.0f);
+    float tint = std::clamp(std::pow(r.f(), 3.0f) * 0.55f + smooth(0.55f, 0.85f, nDry) * 0.35f + (1.0f - paintG) * 0.4f, 0.0f, 1.0f);
     float yaw = r.f() * 6.2831853f;
     // shape.y: width (0..0.1 m) and the ground normal's x / z (clumps lean with the slope); shape.w: the ground colour
     auto q8 = [](float v) { return (uint32_t)std::clamp((int)std::lround(v * 255.0f), 0, 255); };

@@ -24,7 +24,8 @@ Every change applies immediately. Two sliders apply when you release them instea
 | Shadow quality | Near / far shadow-map sizes: Low 2048 / 1024, Medium 4096 / 2048, High 4096 / 4096. |
 | Far shadow cascade, Cloud shadows, Ambient occlusion, Full-resolution AO, Screen-space reflections, Bloom, Light shafts, Temporal AA | `Renderer::Quality` flags and the AO target size. |
 | Clouds | The cloud layer. Cloud cover is under Creative > View > Sky. |
-| Grass | `GrassQuality` Off / Low / Medium / High (`grassPreset`, `grass.cpp`). |
+| Grass | `GrassQuality` Off / Low / Medium / High (`grassPreset`, `grass.cpp`; tiers in `content/settings/grass.json`, docs/ground-grass.md#gx3). |
+| Grass wind | `grassWind`: vertex wind on the near grass clumps (within 13–15 m). Low turns it off. |
 | 4x MSAA | `Renderer::setMsaa`: the opaque world (sky, terrain, solids, models, foliage, grass) renders into a 4x multisampled copy of the HDR target's world attachments, resolved (colour averaged, depth one sample) before water, decals and TAA. `"msaa": 4 / 0`. |
 | Ivy on walls | `App::ivyOn` (`ivy.cpp`): the assets' `"ivy"` leaf cards. Their density follows Grass: none at Off, 60 % at Low. `"ivy"`. |
 | Draw distance | Multiplier on the decor cull distances (`w5CullDraw`, rules from `content/settings/maps.json`) and on the hard cuts in `App::buildDrawLists`: nature 1200 m, trees 900 m, everything else 1200 m. |

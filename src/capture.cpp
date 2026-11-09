@@ -13,7 +13,7 @@ size_t ci = 0; int frames = 0;
 std::string tag = "now";
 uint64_t FH = 0, CM = 0, WH = 0, PK = 0;
 // grass set: per camera, mean GPU ms with grass on (Medium) then off, and the blades drawn
-bool grassSet = false; double gOn = 0, gOff = 0; size_t gBlades = 0; int gN = 0;
+bool grassSet = false; double gOn = 0, gOff = 0; size_t gBlades = 0; int gN = 0; size_t gNear = 0, gShadowN = 0;
 // interiors set: houses are furnished by the room templates (seeded by the instance id, so every run matches)
 void captureHook(App& app, uint64_t id) {
   Instance* i = app.doc.find(id); if (!i) return;
@@ -339,16 +339,19 @@ void SelfTest::captureUpdate(App& app, float dt) {
     if (frames == 30) shotQueue.push_back(tag + "_" + c.name);
     if (frames == 40) { gOn = gOff = 0; gBlades = 0; gN = 0; }
     if (frames > 40 && frames <= 160) { gOn += app.R.stats.gpuMs; gBlades += app.grass.lastDrawnBlades; ++gN; }
-    if (frames == 160) app.grass.quality = GrassQuality::Off;
+    if (frames == 160) {   // resident clumps within 15 m of the eye, before grass is switched off
+      gShadowN = app.grass.lastShadowClumps; gNear = 0; app.grass.forEachInstance([&](const GrassInstance& i) { if (glm::length(vec2(i.posYaw.x - c.pos.x, i.posYaw.z - c.pos.z)) < 15.0f) ++gNear; });
+      app.grass.quality = GrassQuality::Off;
+    }
     if (frames > 180 && frames <= 300) gOff += app.R.stats.gpuMs;
     if (frames == 300) {
       app.grass.quality = GrassQuality::Medium;
       double on = gOn / gN, off = gOff / 120;
       // drawn blades / cards per m^2 within 15 m of the eye: resident clumps there x the preset's drawn share x cards per clump
-      size_t near = 0; app.grass.forEachInstance([&](const GrassInstance& i) { if (glm::length(vec2(i.posYaw.x - c.pos.x, i.posYaw.z - c.pos.z)) < 15.0f) ++near; });
+      size_t near = gNear;
       double nearD = near * (grassPreset(GrassQuality::Medium).density / Grass::kMaxDensity) * Grass::kBlades / (3.14159265 * 225.0);
-      summary[c.name] = {{"gpu_ms_grass_on", on}, {"gpu_ms_grass_off", off}, {"grass_ms", on - off}, {"blades_drawn", gBlades / gN}, {"near15_blades_per_m2", nearD}};
-      logf("grass capture %s: gpu %.3f ms on, %.3f off, grass %.3f ms, %zu blades, %.0f blades/m2 within 15 m", c.name, on, off, on - off, gBlades / gN, nearD);
+      summary[c.name] = {{"gpu_ms_grass_on", on}, {"gpu_ms_grass_off", off}, {"grass_ms", on - off}, {"blades_drawn", gBlades / gN}, {"near15_blades_per_m2", nearD}, {"shadow_clumps", gShadowN}};
+      logf("grass capture %s: gpu %.3f ms on, %.3f off, grass %.3f ms, %zu blades, %.0f blades/m2 within 15 m, %zu shadow clumps", c.name, on, off, on - off, gBlades / gN, nearD, gShadowN);
       ++ci; frames = 0;
     }
     return;

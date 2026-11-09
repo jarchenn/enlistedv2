@@ -2,7 +2,7 @@
   "_doc": "GX3 pasture grass tiers (grass.cpp grassPreset; docs/ground-grass.md). density: clumps per m2 drawn within nearRadius (max 44; each clump has up to 12 cards). Beyond nearRadius the drawn share falls as (nearRadius / d)^falloff down to floor, and clumps keep fewer cards: midBlades by midRadius, farBlades by radius, where the grass has faded into the tinted ground. windRadius: vertex wind on clumps within it (0 = static; the Grass wind setting turns it off). shadowRadius: clumps within it cast sun shadows (0 = none). Read once at start-up.",
   "tiers": {
     "Low":    {"density": 12, "radius": 36, "nearRadius": 10, "midRadius": 22, "falloff": 2.0, "floor": 0.12, "midBlades": 5, "farBlades": 3, "windRadius": 0,  "shadowRadius": 0},
-    "Medium": {"density": 30, "radius": 46, "nearRadius": 15, "midRadius": 30, "falloff": 2.0, "floor": 0.10, "midBlades": 6, "farBlades": 3, "windRadius": 13, "shadowRadius": 10},
+    "Medium": {"density": 30, "radius": 54, "nearRadius": 15, "midRadius": 32, "falloff": 1.6, "floor": 0.14, "midBlades": 6, "farBlades": 3, "windRadius": 13, "shadowRadius": 10},
     "High":   {"density": 44, "radius": 62, "nearRadius": 18, "midRadius": 40, "falloff": 1.8, "floor": 0.12, "midBlades": 8, "farBlades": 4, "windRadius": 15, "shadowRadius": 14}
   }
 }

@@ -9,6 +9,62 @@ The brief is `GROUND_AND_GRASS.md` in the Phase 2 package. Its target image is `
 
 Matching the reference would take scanned grass-cluster meshes or cards, plus tiling ground texture sets (base colour, normal, roughness) for turf, soil, mud, gravel and litter. Those are the missing assets.
 
+## GX3: clumps and ground cover (graphics overhaul §4, 2026-11)
+
+This section replaces the first-pass design below where they differ (the first-pass text is kept for history).
+
+**Clumps.** One instance is a clump of 12 crossed cards (`Grass::kBlades`), pre-arranged around the root: tall in the
+middle, shorter and leaning outward at the rim (a fountain), so neighbouring clumps overlap into a continuous sward.
+The first 8 cards have 4 segments, the 4 short rim cards 2. Nature patches (`nature.cpp`) keep their 7-blade plants
+(`Grass::kPlantBlades`) and the old shader path.
+
+**Species layers** (noise masks, `Grass::build`), each with its own procedural card texture in `kGrassFS`:
+
+| Id | Layer | Cards | Texture |
+|---|---|---|---|
+| 0 | fine turf (base) | 12 blades, 0.2–0.34 m | midrib, darker margins, veins, some browned tips |
+| 1 | meadow grass (dominant) | 12 blades, 0.34–0.62 m, drooping rim | as above |
+| 2 | seed-head grass (clumpy patches, verges) | 3 culms with a spike or open panicle + 9 leaves | straw / brown heads |
+| 3 | clover (small colonies) | 3 trifoliate leaves (9 leaflets) + 3 grass blades | notched leaflets, pale chevron |
+| 17 | broadleaf rosette (plantain) | 7 lanceolate leaves + 2 seed spikes + 3 blades | parallel veins |
+| 16 | small shrub (rare, more near walls) | 12 leafy twig cards in a dome | alternate oval leaves on a woody twig |
+| 4 | dry straw (dry patches, painted dry grass) | 12 curled blades | straw |
+
+**Colour.** Per clump: the meadow palette plus a random tint along green → yellow-green → straw. Per card: value and
+an occasional yellower card. Per vertex: darker, more saturated base → lighter, drier tip; the lower 30 % blends into
+the ground colour under the clump (a CPU port of `kTerrainFS`'s palette, bare soil, wear, craters and painted ground,
+packed per instance), so grass and ground never disagree at the root.
+
+**Shading.** Base AO darker inside the clump and under the canopy (`pastureClump`), translucency when looking toward
+the sun, and sun shadows cast by the clumps within `shadowRadius` (`Grass::drawShadow`, the near cascade; the tall 8
+cards only). Blades sample the sun map 5 cm toward the sun so they do not shadow themselves.
+
+**Placement.** Clumps lean with the terrain normal (packed per instance) and sit on the slope plane; the sward thins
+toward the 0.8 normal cut-off; natural bare-earth patches (the `bare` field of `kTerrainFS`, now 0.65 soil) and
+painted paths thin it; it grows back from footprint edges over 2–3 m (short first).
+
+**LOD (no pop).** Instances are generated at 44 per m² in a shuffled order. Within `nearRadius` a tier draws its full
+density; beyond it the drawn share falls as (nearRadius / d)^falloff (floor `floor`) and clumps keep fewer cards
+(`midBlades` by `midRadius`, `farBlades` at `radius`), the rest widening to keep coverage. Each chunk draws the prefix
+for its nearest point; the vertex shader fades every clump and card by its own rank at its own distance, so nothing
+pops as the eye moves. Beyond `radius` the grass has shrunk into the tinted ground (moss / dirt near, the meadow palette
+far: `terrain_grass` = `grass_forest`, ambientCG Ground037, CC0).
+
+**Wind.** Vertex-shader wind only within `windRadius` (13 m Medium, 15 m High, none on Low); further out the clumps
+keep their static lean. Settings → Graphics → Grass wind turns it off (`grassWind`).
+
+**Tiers** (`content/settings/grass.json`, read at start-up):
+
+| Tier | Clumps / m² near | Near / mid / radius | Cards mid / far | Wind | Shadows |
+|---|---|---|---|---|---|
+| Low | 12 | 10 / 22 / 36 m | 5 / 3 | off | off |
+| Medium | 30 | 15 / 32 / 54 m | 6 / 3 | 13 m | 10 m |
+| High | 44 | 18 / 40 / 62 m | 8 / 4 | 15 m | 14 m |
+
+**Test field.** `NMK_CAPTURE_SET=grass --capture-materials <tag>`: a 40 x 40 m pasture with a painted dirt path, a dry
+patch and a bunker from six cameras; each logs GPU ms with grass on and off, blades drawn, cards per m² within 15 m
+and the clumps drawn into the sun map.
+
 ## Grass (`src/grass.{h,cpp}`, `kGrassVS/FS` in `src/render.cpp`)
 
 **Density.**
