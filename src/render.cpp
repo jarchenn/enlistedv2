@@ -425,6 +425,7 @@ uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world str
 uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
 uniform int uCapture;              // L2 probe capture: radiance + front-facing flag, no emission
 uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
+uniform int uMatLayer;       // GX5 layered materials (docs/graphics-overhaul.md#gx5): 0 off (Low, probe captures), 1 on, 2 High
 layout(location=0) out vec4 oColor;
 layout(location=1) out float oDist;   // eye distance, only stored during the first-person pass (depth of field)
 layout(location=2) out vec4 oAmb;     // indirect light (screen-space AO), world pass only
@@ -527,6 +528,45 @@ float hexEdge(vec2 h){ h = abs(h); return 0.5 - max(dot(h, vec2(0.5, 0.8660254))
 float woodGrain(float along, float across, float seed){
   return vnoise(vec3(along * 1.4, across * 52.0, seed)) * 0.55 + vnoise(vec3(along * 0.35, across * 150.0, seed + 3.0)) * 0.3
        + 0.15 * smoothstep(0.3, 0.7, fract(across * 18.0 + vnoise(vec3(along * 0.8, across * 6.0, seed)) * 2.5));
+}
+// ---- GX5 layered materials: inputs the room finishes set (pattern 20 walls, 21 floors / ceilings), read by gxLayer.
+// gIn 1 = an interior surface with a known room: height above its floor, distance along the surface to the nearest room
+// corner (walls) or room edge (floors, ceilings), and to the ceiling.
+int gIn = 0; float gFloorY = 9.0, gCornerD = 9.0, gCeilD = 9.0;
+float gSeam = 1.0;   // seam / corner occlusion (also dims the direct lamp light a little there)
+float gDetH = 0.0;   // detail relief (m), added to the derivative bump
+// Mask-driven wear and grime over the base material (brief section 1): grime gathers at the floor, in room corners and
+// under the ceiling (smoke), with world-space blotches, scaled by the building's wear, so one finish reads clean in one
+// house and grimy in the next; roughness breakup on every surface; a high-frequency detail relief on walls; ~0.5 m seam
+// occlusion at wall-wall, wall-floor and wall-ceiling joints (the flat lighting there made rooms read as boxes).
+void gxLayer(int pat, vec3 an, inout vec3 alb, inout float rough, inout float ao){
+  float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
+  float wearK = clamp(uInst.y, 0.0, 2.0);
+  float rb = fbmF(vW*2.3 + 31.0, 2.3), rb2 = vnF(vW*19.0 + 7.0, 19.0);
+  rough = clamp(rough*(0.8 + 0.34*rb + 0.12*(rb2 - 0.5)), 0.05, 1.0);   // specular breakup: nothing has uniform roughness
+  bool wall = pat == 20 || pat == 17 || pat == 3 || pat == 18 || pat == 19 || pat == 22 || pat == 1 || pat == 9 || pat == 11 || pat == 15;
+  if (wall && vert > 0.0) gDetH = ((vnF(vW*170.0, 170.0) - 0.5)*0.00022 + (vnF(vW*52.0 + 3.0, 52.0) - 0.5)*0.0004)*vert;
+  if (gIn != 1) return;
+  float n1 = vnoise(vW*1.7 + 2.0), n2 = fbm(vW*0.9 + 5.0);
+  float y = gFloorY, cd = gCornerD, cl = gCeilD;
+  float blot = smoothstep(0.55, 0.85, fbm(vW*0.45 + uInst.x*9.0));
+  float g;
+  if (pat == 21) {   // floors: dirt along the skirting and into the corners; ceilings: smoke at the edges
+    float edge = 1.0 - smoothstep(0.0, 0.18 + 0.3*n1, cd);
+    g = clamp(edge*0.8 + blot*0.25, 0.0, 1.0)*(0.3 + 0.4*wearK);
+    gSeam = 0.62 + 0.38*smoothstep(0.0, 0.45, cd);
+  } else {
+    float foot = 1.0 - smoothstep(0.0, 0.22 + 0.35*n1, y);
+    float corner = 1.0 - smoothstep(0.0, 0.25 + 0.45*n2, cd);
+    float top = 1.0 - smoothstep(0.0, 0.25 + 0.35*n1, cl);
+    g = clamp(max(max(foot*0.85, corner*0.75), top*0.8) + blot*0.3, 0.0, 1.0)*(0.3 + 0.42*wearK)*vert;
+    float hand = smoothstep(0.85, 1.0, y)*(1.0 - smoothstep(1.4, 1.7, y))*smoothstep(0.62, 0.85, vnoise(vW*vec3(3.0, 1.4, 3.0) + 11.0))*vert;
+    rough = mix(rough, rough*0.72, hand*0.5*wearK); alb *= 1.0 - 0.05*hand*wearK;   // greasy hand-height smudges
+    gSeam = (0.52 + 0.48*smoothstep(0.0, 0.5, cd))*(0.55 + 0.45*smoothstep(0.0, 0.45, y))*(0.6 + 0.4*smoothstep(0.0, 0.45, cl));
+  }
+  alb = mix(alb, alb*vec3(0.6, 0.55, 0.46), g*0.75);
+  rough = mix(rough, min(1.0, rough + 0.14), g);
+  ao *= gSeam;
 }
 void main(){
   if (uCapture == 1) gEyeOv = vEye;
@@ -931,6 +971,8 @@ void main(){
     float y = vAp.y - rb.x;
     vec2 uv = faceUV(vAp, vAn);
     float s = uInst.x * 13.0 + float(ri) * 1.7;
+    if (ri >= 0) { vec4 ra = uRoomA[ri]; gIn = 1; gFloorY = y; gCeilD = rb.y - vAp.y;
+      gCornerD = abs(an.x) > abs(an.z) ? min(vAp.z - ra.y, ra.w - vAp.z) : min(vAp.x - ra.x, ra.z - vAp.x); }   // GX5 layer inputs
     float wear = uInst.y, pv = uInst.z;
     vec3 tints[5] = vec3[5](vec3(0.71, 0.68, 0.6), vec3(0.68, 0.61, 0.46), vec3(0.56, 0.61, 0.62), vec3(0.6, 0.63, 0.53), vec3(0.69, 0.58, 0.52));
     vec3 tint = tints[int(hash12(vec2(s, 3.0)) * 4.99)];
@@ -1024,6 +1066,8 @@ void main(){
     vec3 an = normalize(vAn);
     vec2 q = vAp.xz;
     if (an.y < -0.5 || abs(an.y) < 0.5) {   // ceiling of the room below / cut faces: plain boards along x
+      int rc = an.y < -0.5 ? roomAt(vAp - vec3(0.0, 0.12, 0.0)) : -1;
+      if (rc >= 0) { vec4 ra = uRoomA[rc]; gIn = 1; gCornerD = min(min(q.x - ra.x, ra.z - q.x), min(q.y - ra.y, ra.w - q.y)); }   // GX5 layer inputs
       float bw = 0.16, bi = floor(q.y / bw), fb = fract(q.y / bw);
       float seam = 1.0 - smoothstep(0.0, 0.04, min(fb, 1.0 - fb));
       float gr = woodGrain(q.x, q.y, bi);
@@ -1035,6 +1079,7 @@ void main(){
       int code = ri >= 0 ? int(uRoomB[ri].w + 0.5) : grain % 16;
       vec4 ra = ri >= 0 ? uRoomA[ri] : vec4(q - 50.0, q + 50.0);
       float edgeD = min(min(q.x - ra.x, ra.z - q.x), min(q.y - ra.y, ra.w - q.y));
+      if (ri >= 0) { gIn = 1; gCornerD = edgeD; }   // GX5 layer inputs
       float edgeDirt = ri >= 0 ? (1.0 - smoothstep(0.0, 0.3 + 0.2 * vnoise(vec3(q * 3.0, 1.0)), edgeD)) : 0.0;
       vec2 rc = (ra.xy + ra.zw) * 0.5, rh = max((ra.zw - ra.xy) * 0.5, vec2(0.6));
       float traffic = ri >= 0 ? 1.0 - smoothstep(0.15, 0.85, length((q - rc) / rh)) : 0.3;
@@ -1218,6 +1263,7 @@ void main(){
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
+  if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
   if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
@@ -1235,9 +1281,9 @@ void main(){
   if (pat >= 17 && pat <= 22 && pat != 21) gNg = N;   // rough walls: relief ambient term in shade()
   if (uNoWallRelief == 1 && pat >= 17 && pat <= 22 && pat != 21) { bump = 0.0; gCavity = 1.0; gTexH = 0.0; gTexBump = false; gTexDN = vec3(0.0); }
   else gCavity = 1.0;
-  if (bump > 0.0 || gTexBump) {
+  if (bump > 0.0 || gTexBump || gDetH != 0.0) {
     vec3 dpdx = dFdxFine(vW), dpdy = dFdyFine(vW);
-    float hb = h*bump + gTexH;   // L4: + the set's height (m)
+    float hb = h*bump + gTexH + gDetH;   // L4: + the set's height (m); GX5: + the detail relief
     float dhx = dFdxFine(hb), dhy = dFdyFine(hb);
     vec3 r1 = cross(dpdy, N), r2 = cross(N, dpdx);
     float det = dot(dpdx, r1);
@@ -1251,6 +1297,7 @@ void main(){
   }
   if (gl_FrontFacing) N = normalize(N + gTexDN);   // L4: the set's normal map
   vec3 c = shade(vW, N, alb, rough, metal, ao);
+  c *= mix(1.0, gSeam, 0.45);   // GX5: corners and seams also see less of the lamps and the window light
   if (uCapture == 1) { oColor = vec4(c*uTint.rgb, gl_FrontFacing ? 1.0 : 0.0); return; }
   c += vEmi*(uGlow*uEmissiveK);   // emission: into the HDR target before bloom, never into the indirect (AO) buffer
   c = applyFog(c, vW);
@@ -2997,6 +3044,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   setLighting(progMain, v);
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
+  glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false, &frMain, true);
   gpuMark(GP_Models);

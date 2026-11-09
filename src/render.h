@@ -97,6 +97,7 @@ public:
     bool ssr = true; float ssrStrength = 1.0f;
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
     int taaPhases = 8;          // Halton (2,3) jitter phases (settings: High uses 16)
+    int matLayer = 1;           // GX5 layered materials: 0 off (Low), 1 wear / grime / seams / detail, 2 + High extras
   } q;
   // render targets set by the settings presets (settings.cpp, docs/settings.md). width / height are the internal
   // render size = display size x resolution scale; the final blit upscales to displayW x displayH.
@@ -122,10 +123,11 @@ public:
     bool terrainLast = true;     // terrainlast: the terrain after solids, models and canopies (the ground they hide is never shaded)
     bool probeRefresh = true;    // proberefresh: full probe budget only while probes wait for a first capture, then 2 / 1 per frame
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
+    bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : nullptr;
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "matlayer" ? &matLayer : nullptr;
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (b) *b = on;
       return b != nullptr;
