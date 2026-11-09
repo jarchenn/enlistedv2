@@ -118,7 +118,7 @@ int runMatchSelfTest() {
   {
     Scenario s = testScenario(3); s.rules.defenderSlots = 1; s.rules.attackerAI = 1; Match m; std::string err;
     T.check(m.setup(s, 1, err) && m.slots.size() == 2, "zero friendly AI and one enemy AI is a valid roster");
-    s.rules.defenderSlots = 5; s.rules.attackerAI = 200; s.rules = ScenarioRules::fromJson(s.rules.toJson());
+    s.rules.defenderSlots = 5; s.rules.attackerAI = ScenarioRules::kMaxCombatants + 50; s.rules = ScenarioRules::fromJson(s.rules.toJson());
     T.check(s.rules.defenderSlots + s.rules.attackerAI == ScenarioRules::kMaxCombatants, "rules clamp the roster to " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants (5 + " + std::to_string(s.rules.attackerAI) + ")");
   }
   // ---------------------------------------------------------------- end-of-match precedence

@@ -26,7 +26,7 @@ run entities --selftest-entities
 run tanks    --selftest-tanks
 run interiors --selftest-interiors   # walls, interiors and furniture (docs/interiors.md)
 run editor   --selftest-editor  # editor & terrain: map size, chunks, cuts, camera, drop-in (W3)
-run modes    --selftest-modes   # G1: Solo / Team Deathmatch rules, live matches, 100 AI
+run modes    --selftest-modes   # G1: Solo / Team Deathmatch rules, live matches, 100 / 200 AI, navmesh sidecar (PF1)
 run match    --selftest-match   # multiplayer + AI: headless rules suite
 run ai       --selftest-ai      # multiplayer + AI: village match integration (~4 min)
 run rules    --selftest-rules   # W1: spawn protection, movement / fall damage, damage table
@@ -43,7 +43,7 @@ run maps     --selftest-maps    # W5 default maps: template load, scenario, SPEC
 run lights   --selftest-lights   # L2: clusters, light shadows, probe GI, time of day
 run render   --selftest-render  # V1: facade shimmer 20 / 50 / 100 m (static + strafe), rough walls, water assets / pass (docs/rendering.md §9)
 run textures --selftest-textures   # L4: ambientCG texture layer, slots, on / off look, missing-texture fallback (docs/textures.md)
-run zombies  --selftest-zombies   # G2: zombie AI type: pursuit, melee, speed band, closest target, knife v soldiers, mixed TDM
+run zombies  --selftest-zombies   # G2: zombie AI type: pursuit, melee, speed band, closest target, knife v soldiers, mixed TDM; PF1 200-zombie packs
 if [ "${1:-}" = "--net" ]; then bash "$HERE/run_net_test.sh" "$B" "${NMK_NET_PORT:-27970}" || status=1; fi   # LAN: 5 processes on 127.0.0.1 (NMK_NET_PORT: parallel sessions use distinct ports)
 if [ "${1:-}" = "--bench" ]; then
   "$EXE" --benchmark >/dev/null 2>&1; echo "benchmark          exit $?  -> selftest_out/benchmark.json"

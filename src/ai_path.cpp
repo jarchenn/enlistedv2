@@ -200,7 +200,7 @@ void AiCore::dispatchPaths() {
     ++started;
     if (!okS || !okE) { m.hasPath = false; ++m.pathFails; m.pathFailAt = G.t; s.br.why = !okS ? "off the navmesh" : "goal off the navmesh"; continue; }
     m.pendingReq = paths.submit(slot, s.lifeId, sr, sp, er, ep, makeFilter(s), pri);
-    ++G.pathCalls;
+    ++G.pathCalls; if (s.zombie) ++(m.follower ? pathsFollower : pathsLeader);   // PF1: pack followers should hardly ever path
   }
 }
 
@@ -360,6 +360,7 @@ void AiCore::move(Soldier& s, float dt) {
   vec3 pos = s.feet;
   vec3 desired(0); bool wantsMove = false; bool crouchArea = false; bool offMesh = false;
   float vmax = m.speed == SPD_ZOMBIE ? aiZombieSpeed() : m.speed == SPD_SPRINT ? vSprint : m.speed == SPD_JOG ? vJog : m.speed == SPD_WALK ? vWalk : m.speed == SPD_CROUCH ? vCrouch : m.speed == SPD_CRAWL ? vProne : 0.0f;
+  vmax *= m.speedScale;   // PF1: pack pacing (1 for everyone else)
   if (m.doorWait > 0) m.doorWait -= dt;
   if (m.hasPath && q && m.speed != SPD_STOP && m.doorWait <= 0) {
     dtPathCorridor& c = *m.corridor;
@@ -410,7 +411,7 @@ void AiCore::move(Soldier& s, float dt) {
     if (overlap && G.t < m.ghostUntil + 3.0) m.ghostUntil = G.t + 0.3; else { m.ghost = false; Physics::setAgentGhost(s.agent, false); }
   }
   // a soldier standing in the way (a teammate settled in cover along a wall): side-step around him before it becomes a stuck
-  if (wantsMove && glm::length(desired) > 0.5f && !(G.t < m.backUntil) && q && m.hasPath && !offMesh && !m.ghost) {
+  if (wantsMove && glm::length(desired) > 0.5f && !(G.t < m.backUntil) && q && m.hasPath && !offMesh && !m.ghost && !m.follower) {   // PF1: a pack follower slides by its flock
     vec3 fwd = glm::normalize(xz(desired)); const Soldier* blk = nullptr; float bd = 1e9f;
     for (auto& o : G.sold) {
       if (&o == &s || !o.alive) continue;
@@ -435,7 +436,8 @@ void AiCore::move(Soldier& s, float dt) {
   else if (m.replanAfterBack) { m.replanAfterBack = false; requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 8.0f, true); }
   // separation: teammates closer than 6 m push sideways while advancing (AI_SPEC 3.5, SPEC 5.2)
   float sepR = tj("movement", "separation_m", 6.0f);
-  if (glm::length(desired) > 0.5f && (m.action == A_ADVANCE || m.action == A_TAKE_COVER) && !m.trav.on) {
+  if (m.follower) { if (glm::length(desired) > 0.1f) desired += m.flockPush; }   // PF1: separation / alignment from the pack (zombie.cpp)
+  else if (glm::length(desired) > 0.5f && (m.action == A_ADVANCE || m.action == A_TAKE_COVER) && !m.trav.on) {
     vec3 fwd = glm::normalize(desired), side(0);
     for (auto& o : G.sold) {
       if (&o == &s || !o.alive || o.team != s.team) continue;
@@ -449,7 +451,7 @@ void AiCore::move(Soldier& s, float dt) {
   }
   vec3 vel = desired;
   // velocity-obstacle avoidance (Detour RVO sampling) against soldiers, mesh walls and probed new geometry
-  if (glm::length(desired) > 0.1f && oaq && q && m.hasPath) {
+  if (glm::length(desired) > 0.1f && oaq && q && m.hasPath && !m.follower) {   // PF1: followers skip the RVO sampling (the flock separates them)
     dtPathCorridor& c = *m.corridor;
     if (glm::length(pos - m.boundaryPos) > 0.6f || G.t - m.boundaryT > 0.3) { m.boundary.update(c.getFirstPoly(), &pos.x, 2.5f, q, f); m.boundaryPos = pos; m.boundaryT = G.t; }
     if (G.t >= m.probeT) {   // geometry not in the mesh yet (rebuild pending, debris, felled trees)
@@ -512,7 +514,7 @@ void AiCore::move(Soldier& s, float dt) {
   if (crouchArea && posture == Physics::STAND) posture = Physics::CROUCH;
   if (posture == Physics::CROUCH && glm::length(vel) > vCrouch + 0.2f) vel = glm::normalize(vel) * vCrouch;
   if (posture == Physics::PRONE && glm::length(vel) > vProne + 0.1f) vel = glm::normalize(vel) * vProne;
-  Physics::updateAgent(s.agent, dt, vel, false, posture, s.yaw);
+  crumb("ai: agent physics"); Physics::updateAgent(s.agent, dt, vel, false, posture, s.yaw); crumb("ai: move end");
   auto st = Physics::agent(s.agent);
   s.vel = (st.pos - s.feet) / std::max(dt, 1e-4f); s.feet = st.pos; s.posture = st.posture; s.swim = st.swim;   // floating in deep water (physics.cpp)
   s.speed = lenXZ(s.vel);

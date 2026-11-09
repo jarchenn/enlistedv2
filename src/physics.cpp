@@ -20,6 +20,10 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <thread>
+#include <unordered_map>
+#include <algorithm>
+#include <cstdlib>
+#include <cmath>
 
 using namespace JPH;
 
@@ -568,7 +572,43 @@ Physics::CharState Physics::character() {
 namespace {
 struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false, ghost = false, swim = false; };
 std::vector<AgentRec> gAgents;
-CharacterVsCharacterCollisionSimple gCvc;
+// PF1: Jolt's simple character-vs-character list tests a mover against every character in each of a move's several
+// collision queries (O(n^2): 200 AI). This one hands the base class only the characters in the 3 x 3 grid cells (4 m)
+// around the mover; the grid is rebuilt every `all.size()` queries (about every quarter frame: they move centimetres).
+// NMK_CVC_GRID=0: every character (A/B measurements).
+class CvcNear final : public CharacterVsCharacterCollisionSimple {
+public:
+  void Add(CharacterVirtual* c) { all.push_back(c); grid.clear(); }
+  void Remove(const CharacterVirtual* c) { auto it = std::find(all.begin(), all.end(), c); if (it != all.end()) all.erase(it); grid.clear(); }
+  void CollideCharacter(const CharacterVirtual* ch, RMat44Arg com, const CollideShapeSettings& s, RVec3Arg base, CollideShapeCollector& out) const override {
+    gather(ch, com.GetTranslation(), 0); CharacterVsCharacterCollisionSimple::CollideCharacter(ch, com, s, base, out);
+  }
+  void CastCharacter(const CharacterVirtual* ch, RMat44Arg com, Vec3Arg dir, const ShapeCastSettings& s, RVec3Arg base, CastShapeCollector& out) const override {
+    gather(ch, com.GetTranslation(), dir.Length()); CharacterVsCharacterCollisionSimple::CastCharacter(ch, com, dir, s, base, out);
+  }
+private:
+  static constexpr float kCell = 4.0f;
+  std::vector<CharacterVirtual*> all;
+  mutable std::unordered_map<int64_t, std::vector<CharacterVirtual*>> grid; mutable size_t queries = 0;
+  static int64_t key(int x, int z) { return ((int64_t)x << 32) ^ (uint32_t)z; }
+  void gather(const CharacterVirtual* me, RVec3 p, float reach) const {
+    static const bool on = [] { const char* e = std::getenv("NMK_CVC_GRID"); return !(e && *e == '0'); }();
+    auto& near = const_cast<Array<CharacterVirtual*>&>(mCharacters);   // the base class's list: this query's candidates
+    near.clear();
+    if (!on) { for (auto* c : all) near.push_back(c); return; }
+    if (grid.empty() || ++queries > all.size()) {
+      grid.clear(); queries = 0;
+      for (auto* c : all) { RVec3 q = c->GetPosition(); grid[key((int)std::floor((float)q.GetX() / kCell), (int)std::floor((float)q.GetZ() / kCell))].push_back(c); }
+    }
+    int r = 1 + (int)std::ceil(reach / kCell);
+    int cx = (int)std::floor((float)p.GetX() / kCell), cz = (int)std::floor((float)p.GetZ() / kCell);
+    for (int dz = -r; dz <= r; ++dz) for (int dx = -r; dx <= r; ++dx) {
+      auto it = grid.find(key(cx + dx, cz + dz));
+      if (it != grid.end()) for (auto* c : it->second) if (c != me) near.push_back(c);
+    }
+  }
+};
+CvcNear gCvc;
 const CharacterVirtual* gCvcPlayer = nullptr;
 void syncCvcPlayer() {
   // the player's character is created / destroyed by explore.cpp: keep it registered without touching that code

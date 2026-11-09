@@ -15,6 +15,7 @@
 #include "nature.h"
 #include "autopath.h"
 #include "water_query.h"
+#include "ai_hooks.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
@@ -273,7 +274,7 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   doc.name = name; doc.templateId = t.id; doc.templateVersion = t.version; doc.seed = t.seed;
   applyTemplate(t.id);
   camPos = t.camPos; camYaw = t.camYaw; camPitch = t.camPitch;
-  docPath.clear(); dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
+  docPath.clear(); navSidecar.clear(); dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   tool = Tool::Select; placing = nullptr;
   w5NewMapContent(*this, t);   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
   interior.autoFurnishAll(*this);   // V4: every building furnished (no undo step, not dirty; interior.cpp)
@@ -312,6 +313,7 @@ bool App::openMap(const fs::path& p) {
   if (doc.camera.set) { camPos = doc.camera.pos; camYaw = doc.camera.yaw; camPitch = doc.camera.pitch; }
   bool isContent = p.string().find((contentDir()).string()) == 0;
   docPath = isContent ? fs::path() : p;  // built-in examples open as unsaved copies
+  navSidecar = navSidecarOf(p);          // PF1: its navmesh (a built-in map's is read-only)
   dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   std::snprintf(nameBuf, sizeof nameBuf, "%s", doc.name.c_str());
   syncRuntime();
@@ -325,7 +327,8 @@ bool App::saveMapTo(const fs::path& p) {
   if (mode == Mode::Explore) { doc.camera.pos = savedCam.pos; doc.camera.yaw = savedCam.yaw; doc.camera.pitch = savedCam.pitch; }
   std::string err;
   if (!saveMap(p, doc, err)) { toast("Save failed: " + err, 8); return false; }
-  docPath = p; dirty = false;
+  aiNavSidecarSave(*this, navSidecar, navSidecarOf(p));   // PF1: the navmesh bakes that still match the map
+  docPath = p; navSidecar = navSidecarOf(p); dirty = false;
   toast("Saved " + p.filename().string());
   return true;
 }

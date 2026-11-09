@@ -94,7 +94,7 @@ struct ScenarioRules {
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn
-  static constexpr int kMaxAI = 100;             // up to 100 AI (user request, 2026-11-08)
+  static constexpr int kMaxAI = 200;             // up to 200 AI (user request, 2026-11-08; was 100)
   static constexpr int kMaxCombatants = kMaxAI + 16;   // plus up to 16 humans
   json toJson() const;
   static ScenarioRules fromJson(const json& j, int version = kScenarioVersion);

@@ -82,7 +82,7 @@ void SelfTest::netUpdate(App& app, float dt) {
     gUi.loaded = false;
     stage = 2101; seq.clear(); cur = 0; st = total = 0;
     if (role == "host") {
-      ScenarioRules r = gUi.scenario(app).rules; r.defenderSlots = 3; r.attackerAI = 6; gUi.rules = r; gUi.rulesInit = true;   // host + A + B; D finds it full
+      ScenarioRules r = gUi.scenario(app).rules; r.defenderSlots = 3; r.attackerAI = 22; gUi.rules = r; gUi.rulesInit = true;   // host + A + B; D finds it full; 25 slots: the snapshot goes in 2 parts (PF1)
       std::string err; check(n.host(app, err, port), "hosting on port " + std::to_string(port) + " " + err);
       push("lobby", [this](App& a, float t) {
         Net& n = *gNet;

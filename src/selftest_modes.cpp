@@ -1,12 +1,14 @@
 // --selftest-modes (G1): Solo / Team Deathmatch rules (headless) and live matches on the shipped 3-point village:
 // Solo spawns spread apart, bots fight the closest combatant and score, the scoreboard draws; TDM teams split and
-// score; a 100-AI Solo match runs without long stalls.
+// score; 100-AI and 200-AI Solo matches run without long stalls.
 #include "selftest.h"
 #include "game.h"
 #include "mpui.h"
 #include "mptest.h"
 #include "match.h"
 #include "crumb.h"
+#include "selftest_crowd.h"
+#include "nav.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <set>
@@ -82,13 +84,14 @@ void headless() {
     Scenario back = Scenario::fromJson(tdm.toJson());
     chk(!err && !terr && warns == 2 && back.spawns.size() == 1 && back.spawns[0].team == 1 && back.spawns[0].phases.empty(),
         "Solo / TDM need no objectives; TDM without team markers warns (%d); team markers round trip", warns);
-    chk(ScenarioRules::kMaxAI == 100 && dmRules(GameMode::Solo).kMaxCombatants >= 101, "up to 100 AI (kMaxCombatants %d)", ScenarioRules::kMaxCombatants);
+    chk(ScenarioRules::kMaxAI == 200 && dmRules(GameMode::Solo).kMaxCombatants >= 201, "up to 200 AI (kMaxCombatants %d)", ScenarioRules::kMaxCombatants);
   }
 }
 
-bool startMode(App& a, GameMode m, int players, int cap, int teamA = 4, int teamB = 4) {
+// a match on the open map (`map` empty) or on `map` (default: the shipped 3-point village)
+bool startMode(App& a, GameMode m, int players, int cap, int teamA = 4, int teamB = 4, const fs::path& map = contentDir() / "examples" / "village_assault_3.nmap.json") {
   if (a.mode == Mode::Explore) a.exitExplore();
-  a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
+  if (!map.empty()) a.openMap(map);
   json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
   Scenario sc = Scenario::fromJson(scj);
   sc.rules.mode = m; sc.rules.killCap = cap; sc.rules.soloPlayers = players; sc.rules.teamPlayers[0] = teamA; sc.rules.teamPlayers[1] = teamB;
@@ -134,6 +137,77 @@ void build(App&) {
       return true;
     }
     return t > 60 ? (chk(false, "bake cache steps finished (stage %d)", stage), true) : false; });
+  // PF1: the navmesh saved with the map: <map>.nav beside a user map, one entry per bake bounds, never a stale one
+  push("nav sidecar", [](App& a, float t) {
+    static int stage; static int tiles0, polys0; static double ms0; static fs::path map, side;
+    auto entries = [&] { std::vector<NavSidecarEntry> e; navSidecarRead(side, e); return e.size(); };
+    std::error_code ec;
+    if (t == 0) {
+      _putenv_s("NMK_NAV_CACHE", "1"); stage = 0;
+      map = userMapsDir() / "pf1_sidecar_test.nmap.json"; side = navSidecarOf(map);
+      fs::remove(side, ec); fs::remove_all(exeDir() / "cache" / "nav", ec);
+      if (a.mode == Mode::Explore) a.exitExplore();
+      a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
+      a.doc.instances.pop_back(); a.syncRuntime();   // not the village the previous step played (its bake would carry over)
+      chk(a.saveMapTo(map) && !fs::exists(side), "a user map saved before any match on it has no sidecar yet");
+      chk(startMode(a, GameMode::Solo, 4, 99, 4, 4, map), "Solo on the saved map (%s)", gGame->setupError.c_str());
+      Game& G = *gGame;
+      tiles0 = G.nav.tilesBuilt; polys0 = G.nav.usedNodes; ms0 = G.nav.buildMs;
+      chk(!G.nav.fromSidecar && !G.nav.fromCache && fs::exists(side) && entries() == 1, "first play bakes (%d tiles, %.0f ms) and writes %s with 1 entry (%zu)",
+          tiles0, ms0, side.filename().string().c_str(), entries());
+      return false;
+    }
+    Game& G = *gGame;
+    if (stage == 0 && t > 0.5f) {
+      stage = 1; fs::remove_all(exeDir() / "cache" / "nav", ec);
+      chk(startMode(a, GameMode::Solo, 4, 99, 4, 4, map), "Solo again, bake cache emptied");
+      chk(G.nav.fromSidecar && G.nav.tilesBuilt == tiles0 && G.nav.usedNodes == polys0 && G.nav.buildMs < ms0 * 0.5,
+          "the second start loads the navmesh from the map's sidecar: %d tiles, %d polygons in %.0f ms (baked %.0f ms)", G.nav.tilesBuilt, G.nav.usedNodes, G.nav.buildMs, ms0);
+      return false;
+    }
+    if (stage == 1 && t > 1.0f) {
+      stage = 2;
+      chk(startMode(a, GameMode::Assault, 4, 99, 4, 4, map), "Assault on the same map (%s)", gGame->setupError.c_str());
+      chk(!G.nav.fromSidecar && entries() == 2, "Assault bakes its objective area and adds a second entry (%zu entries; bounds %.0f x %.0f m)", entries(), G.nav.hi.x - G.nav.lo.x, G.nav.hi.z - G.nav.lo.z);
+      return false;
+    }
+    if (stage == 2 && t > 1.5f) {
+      stage = 3;
+      if (a.mode == Mode::Explore) a.exitExplore();
+      a.openMap(map);
+      a.saveMapTo(map);
+      chk(entries() == 2, "saving the unchanged map keeps both entries (%zu)", entries());
+      a.doc.instances.pop_back(); a.syncRuntime(); a.saveMapTo(map);
+      chk(!fs::exists(side), "an edited map's save drops the stale entries (sidecar removed: %d)", (int)!fs::exists(side));
+      fs::remove_all(exeDir() / "cache" / "nav", ec);
+      chk(startMode(a, GameMode::Solo, 4, 99, 4, 4, map), "Solo on the edited map");
+      chk(!G.nav.fromSidecar && !G.nav.fromCache && entries() == 1, "the edited map bakes afresh and gets its own entry (%zu)", entries());
+      if (a.mode == Mode::Explore) a.exitExplore();
+      fs::remove(map, ec); fs::remove(side, ec);
+      _putenv_s("NMK_NAV_CACHE", "");
+      return true;
+    }
+    return t > 60 ? (chk(false, "sidecar steps finished (stage %d)", stage), true) : false; });
+  // PF1 maintenance (NMK_NAV_PREBAKE=1): bake every template's Solo / TDM and Assault navmesh into
+  // content/templates/<map>.nav of this build (copy them to the repository's content/templates)
+  if (std::getenv("NMK_NAV_PREBAKE")) push("prebake templates", [](App& a, float t) {
+    _putenv_s("NMK_NAV_CACHE", "1");
+    for (auto& tp : a.templates) {
+      std::string mf = tp.raw.value("map", "");
+      if (mf.empty()) continue;
+      if (a.mode == Mode::Explore) a.exitExplore();
+      a.newMap(tp, tp.name);
+      Scenario sc = Scenario::fromJson(a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object());
+      for (GameMode m : {GameMode::Solo, GameMode::Assault}) {
+        if (m == GameMode::Assault && sc.objectives.empty()) continue;
+        bool ok = startMode(a, m, 2, 99, 1, 1, fs::path());
+        fs::path side = navSidecarOf(contentDir() / "templates" / mf); std::error_code ec;
+        chk(ok && gGame->nav.valid(), "%s %s: %d tiles (%s), %s %.1f MB", tp.id.c_str(), gameModeName(m), gGame->nav.tilesBuilt, gGame->nav.fromSidecar ? "sidecar" : "baked",
+            side.filename().string().c_str(), fs::exists(side, ec) ? fs::file_size(side, ec) / 1048576.0 : 0.0);
+      }
+    }
+    _putenv_s("NMK_NAV_CACHE", "");
+    return true; });
   push("team spawn tool", [](App& a, float) {   // Scenario panel: "Team A spawn" / "Team B spawn"
     if (a.mode == Mode::Explore) a.exitExplore();
     a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
@@ -146,7 +220,7 @@ void build(App&) {
     chk(A && B && A->team == 0 && B->team == 1 && A->phases.empty() && ra && a.doc.instances.size() >= n0 + 2,
         "Team A / B spawn tools place TDM markers (teams %d / %d, no Assault phase) with a team rack (%s)", A ? A->team : -9, B ? B->team : -9, ra ? ra->assetId.c_str() : "none");
     return true; });
-  const bool only100 = std::getenv("NMK_MODES_ONLY_100") != nullptr;   // diagnostics: just the 100-AI run
+  const bool only100 = std::getenv("NMK_MODES_ONLY_100") != nullptr;   // diagnostics: just the 100- and 200-AI runs (modesSelfTest drops the rest)
   if (!only100) {
   // ---- Solo: 8 combatants, first to 4
   push("solo start", [](App& a, float t) {
@@ -205,6 +279,21 @@ void build(App&) {
     T->note("stalls:" + when);
     pendingShot = outDir() / "modes_100ai.png";
     return true; });
+  // ---- 200 AI (PF1): Solo, 201 combatants, 40 s; frame time, AI ms and path requests
+  push("200 ai", [](App& a, float t) {
+    static CrowdBench cb;
+    if (t == 0) { chk(startMode(a, GameMode::Solo, 201, 999), "200-AI Solo match starts (%s)", gGame->setupError.c_str()); cb.begin(); return false; }
+    Game& G = *gGame;
+    cb.frame(G, t, 3.0f);
+    if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
+    if (t < 40) return false;
+    int alive = 0; for (auto& s : G.sold) alive += s.alive;
+    int kills = 0; for (auto& s : G.match.slots) kills += s.kills;
+    chk(G.sold.size() == 201 && alive >= 150, "200 AI: %zu combatants, %d alive, %d kills in 40 s", G.sold.size(), alive, kills);
+    chk(cb.over150() == 0, "200 AI: %s", cb.line(G).c_str());
+    if (!cb.stalls.empty()) T->note("stalls:" + cb.stalls);
+    pendingShot = outDir() / "modes_200ai.png";
+    return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 }   // namespace
@@ -213,7 +302,11 @@ bool modesSelfTest(App& app, float dt) {
   if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--selftest-modes") mode = 1; }
   if (mode != 1) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0; }
+  if (!started) {
+    started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
+    if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
+    else if (std::getenv("NMK_MODES_ONLY_100")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "100 ai" && s.name != "200 ai" && s.name != "done"; }), seq.end());   // just the crowds
+  }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

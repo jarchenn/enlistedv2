@@ -60,6 +60,7 @@ struct Soldier {
   int frags = 0, smokes = 0;
   float throwT = -1; int throwKind = 0; vec3 throwTarget{0}; vec3 throwVel{0}; bool throwReleased = false;
   int model = -1; CharInstance ci; bool ciReady = false; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
+  uint32_t poseRev = 0, skinRev = ~0u; int poseFrom = -1;   // PF1: skin only a changed pose; a far pack follower draws its leader's skin
   mat4 world{1};
   Brain br;
   uint32_t rng = 1;

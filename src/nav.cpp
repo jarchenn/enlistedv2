@@ -323,32 +323,67 @@ static void sampleWater(const Nav& nav, NavBuildJob& j, float pad) {
 // ---- bake cache: header, then per tile (tx, tz, Detour tile bytes, links). Machine-local: the caller's key (map,
 // content, nav settings, bounds, executable) names the file, so a stale file is never read.
 static const uint32_t kNavCacheMagic = 0x4E4D4B43u, kNavCacheVersion = 1;
-template <class T> static void wr(std::ofstream& f, const T& v) { f.write((const char*)&v, sizeof v); }
+template <class T> static void wr(std::vector<char>& b, const T& v) { b.insert(b.end(), (const char*)&v, (const char*)&v + sizeof v); }
 template <class T> static bool rd(const std::vector<char>& b, size_t& p, T& v) { if (p + sizeof v > b.size()) return false; std::memcpy(&v, b.data() + p, sizeof v); p += sizeof v; return true; }
-
-void Nav::saveCache(const std::vector<std::unique_ptr<NavBuildJob>>& jobs) {
-  std::error_code ec; fs::create_directories(fs::path(cachePath).parent_path(), ec);
-  fs::path tmp = cachePath + ".tmp";
+static bool readAll(const fs::path& p, std::vector<char>& b) {
+  std::ifstream f(p, std::ios::binary);
+  if (!f) return false;
+  b.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+  return true;
+}
+static bool writeAtomic(const fs::path& p, const std::vector<char>& b) {   // tmp + rename: a reader never sees half a file
+  std::error_code ec; fs::create_directories(p.parent_path(), ec);
+  fs::path tmp = p; tmp += ".tmp";
   {
     std::ofstream f(tmp, std::ios::binary);
-    if (!f) return;
-    wr(f, kNavCacheMagic); wr(f, kNavCacheVersion); wr(f, (int32_t)jobs.size());
-    for (auto& j : jobs) {
-      wr(f, (int32_t)j->tx); wr(f, (int32_t)j->tz); wr(f, (int32_t)(j->data ? j->size : 0));
-      if (j->data) f.write((const char*)j->data, j->size);
-      wr(f, (int32_t)j->links.size());
-      for (auto& l : j->links) { wr(f, l.a); wr(f, l.b); wr(f, (int32_t)l.kind); wr(f, (uint8_t)l.bidir); wr(f, l.top); wr(f, l.id); }
-    }
-    if (!f) { f.close(); fs::remove(tmp, ec); return; }
+    if (!f) return false;
+    f.write(b.data(), (std::streamsize)b.size());
+    if (!f) { f.close(); fs::remove(tmp, ec); return false; }
   }
-  fs::rename(tmp, cachePath, ec);
-  if (ec) fs::remove(tmp, ec);
+  fs::rename(tmp, p, ec);
+  if (ec) { fs::remove(tmp, ec); return false; }
+  return true;
 }
 
-bool Nav::loadCache() {
-  std::ifstream f(cachePath, std::ios::binary);
-  if (!f) return false;
-  std::vector<char> b((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+std::vector<char> Nav::blobOf(const std::vector<std::unique_ptr<NavBuildJob>>& jobs) {
+  std::vector<char> f;
+  wr(f, kNavCacheMagic); wr(f, kNavCacheVersion); wr(f, (int32_t)jobs.size());
+  for (auto& j : jobs) {
+    wr(f, (int32_t)j->tx); wr(f, (int32_t)j->tz); wr(f, (int32_t)(j->data ? j->size : 0));
+    if (j->data) f.insert(f.end(), (const char*)j->data, (const char*)j->data + j->size);
+    wr(f, (int32_t)j->links.size());
+    for (auto& l : j->links) { wr(f, l.a); wr(f, l.b); wr(f, (int32_t)l.kind); wr(f, (uint8_t)l.bidir); wr(f, l.top); wr(f, l.id); }
+  }
+  return f;
+}
+
+// ---- PF1 sidecar: magic, version, count, then per entry: key, bounds (6 floats), blob size, blob
+static const uint32_t kSidecarMagic = 0x4E4D4B53u, kSidecarVersion = 1;
+bool navSidecarRead(const fs::path& path, std::vector<NavSidecarEntry>& out) {
+  out.clear();
+  std::vector<char> b;
+  if (!readAll(path, b)) return false;
+  size_t p = 0; uint32_t magic = 0, ver = 0, n = 0;
+  if (!rd(b, p, magic) || !rd(b, p, ver) || !rd(b, p, n) || magic != kSidecarMagic || ver != kSidecarVersion || n > 64) return false;
+  for (uint32_t k = 0; k < n; ++k) {
+    NavSidecarEntry e; uint32_t size = 0;
+    if (!rd(b, p, e.key) || !rd(b, p, e.lo) || !rd(b, p, e.hi) || !rd(b, p, size) || p + size > b.size()) { out.clear(); return false; }
+    e.blob.assign(b.begin() + p, b.begin() + p + size); p += size;
+    out.push_back(std::move(e));
+  }
+  if (p != b.size()) { out.clear(); return false; }
+  return true;
+}
+bool navSidecarWrite(const fs::path& path, const std::vector<NavSidecarEntry>& entries) {
+  std::error_code ec;
+  if (entries.empty()) { fs::remove(path, ec); return true; }
+  std::vector<char> b;
+  wr(b, kSidecarMagic); wr(b, kSidecarVersion); wr(b, (uint32_t)entries.size());
+  for (auto& e : entries) { wr(b, e.key); wr(b, e.lo); wr(b, e.hi); wr(b, (uint32_t)e.blob.size()); b.insert(b.end(), e.blob.begin(), e.blob.end()); }
+  return writeAtomic(path, b);
+}
+
+bool Nav::loadBlob(const std::vector<char>& b) {
   size_t p = 0; uint32_t magic = 0, ver = 0; int32_t n = 0;
   if (!rd(b, p, magic) || !rd(b, p, ver) || !rd(b, p, n) || magic != kNavCacheMagic || ver != kNavCacheVersion || n < 0 || n > 100000) return false;
   struct T { int32_t tx = 0, tz = 0; std::vector<char> data; std::vector<NavLink> links; };
@@ -382,14 +417,19 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
   lo = blo; hi = bhi;
   impl_->tx0 = tileOf(blo.x); impl_->tx1 = tileOf(bhi.x); impl_->tz0 = tileOf(blo.z); impl_->tz1 = tileOf(bhi.z);
   initMesh();
-  fromCache = !cachePath.empty() && loadCache();
-  if (fromCache) {
+  // the map's sidecar first, then the machine's bake cache, else bake
+  fromSidecar = !preload.empty() && loadBlob(preload);
+  fromCache = !fromSidecar && !cachePath.empty() && readAll(cachePath, blob) && loadBlob(blob);
+  if (fromSidecar) blob = std::move(preload);
+  preload.clear();
+  if (fromSidecar || fromCache) {
     changed.clear();
     buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     if (impl_->threads.empty()) for (int k = 0; k < std::max(1, cfg.workers); ++k) impl_->threads.emplace_back(workerLoop, impl_.get());
-    logf("nav: %d tiles, %d polygons, %d links from the bake cache %s in %.0f ms", tilesBuilt, usedNodes, links, fs::path(cachePath).filename().string().c_str(), buildMs);
+    logf("nav: %d tiles, %d polygons, %d links from %s in %.0f ms", tilesBuilt, usedNodes, links, fromSidecar ? "the map's sidecar" : ("the bake cache " + fs::path(cachePath).filename().string()).c_str(), buildMs);
     return;
   }
+  blob.clear();
   std::vector<std::unique_ptr<NavBuildJob>> jobs;
   float pad = cfg.linkBorder + cfg.radius + 1.0f;
   const size_t nTiles = (size_t)(impl_->tz1 - impl_->tz0 + 1) * (size_t)(impl_->tx1 - impl_->tx0 + 1);
@@ -412,7 +452,8 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
   }
   for (auto& t : T) t.join();
-  if (!cachePath.empty()) saveCache(jobs);
+  blob = blobOf(jobs);
+  if (!cachePath.empty()) writeAtomic(cachePath, blob);
   int bodies = 0, tri = 0, kinds[4] = {0, 0, 0, 0}, polys = 0;
   for (auto& j : jobs) { bodies += navBodyCount(*j->bodies); tri += j->tris; for (int k = 0; k < 4; ++k) kinds[k] += j->kinds[k]; polys += j->polys; }
   logf("nav: input %d body refs, %d triangles (solid %d, wire %d, skip %d, carve %d), %d polygons", bodies, tri, kinds[0], kinds[1], kinds[2], kinds[3], polys);
@@ -438,10 +479,11 @@ void Nav::queueTile(int tx, int tz) {
   {
     auto j = std::make_unique<NavBuildJob>();
     j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
-    sampleWater(*this, *j, pad);
+    crumb("nav: tile water"); sampleWater(*this, *j, pad);
     vec3 lo2(tx * cfg.tile - pad, -2000, tz * cfg.tile - pad), hi2((tx + 1) * cfg.tile + pad, 2000, (tz + 1) * cfg.tile + pad);
-    j->bodies = navCollectBodies(lo2, hi2, classify);
-    if (areaMarks) areaMarks(tx, tz, j->marks);
+    crumb("nav: tile bodies"); j->bodies = navCollectBodies(lo2, hi2, classify);
+    crumb("nav: tile areas"); if (areaMarks) areaMarks(tx, tz, j->marks);
+    crumb("nav: tile queue");
     std::lock_guard<std::mutex> l(impl_->qm);
     // a queued (not started) job for the same tile is superseded by this newer snapshot
     impl_->queue.erase(std::remove_if(impl_->queue.begin(), impl_->queue.end(), [&](const std::unique_ptr<NavBuildJob>& q) { return q->tx == tx && q->tz == tz; }), impl_->queue.end());

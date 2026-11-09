@@ -65,8 +65,11 @@ public:
   // ---- lifecycle (main thread)
   void build(vec3 lo, vec3 hi, int threads = 0);       // full bake of the tiles covering lo..hi (blocking, thread pool)
   // build(): with cachePath set, the baked tiles are loaded from that file when it exists (seconds -> milliseconds),
-  // else written there after the bake; progress (0..1) is called from the main thread while the bake runs
-  std::string cachePath; bool fromCache = false;
+  // else written there after the bake; progress (0..1) is called from the main thread while the bake runs.
+  // PF1: `preload` (tiles from the map's sidecar, navSidecarRead) is tried first; `blob` keeps the bytes of the tiles
+  // the build ended with (loaded or baked), for the caller to store in the sidecar.
+  std::string cachePath; bool fromCache = false, fromSidecar = false;
+  std::vector<char> preload, blob;
   std::function<void(float)> progress;
   void rebuildArea(vec3 lo, vec3 hi);                  // mark tiles dirty (+1 tile border): queued by update() on a budget
   void update();                                       // commit finished rebuilds; fills `changed`
@@ -115,14 +118,20 @@ private:
   mutable std::shared_mutex mtx_;
   mutable std::atomic<int> writers_{0};
   std::set<std::pair<int, int>> pending_;   // dirty tiles not yet snapshotted (deduplicated: craters overlap)
-  bool loadCache();
-  void saveCache(const std::vector<std::unique_ptr<NavBuildJob>>& jobs);
+  bool loadBlob(const std::vector<char>& b);
+  static std::vector<char> blobOf(const std::vector<std::unique_ptr<NavBuildJob>>& jobs);
   void queueTile(int tx, int tz);
   std::unique_ptr<struct NavImpl> impl_;
   uint32_t stamp_ = 0;
   void commit(NavBuildJob& j);
   void initMesh();
 };
+
+// PF1 map sidecar <map>.nav: one entry per bake bounds (Solo / TDM bake the whole build area, Assault the objective
+// area), each the content key it was baked under (the caller's, ai_core.cpp) and the tiles blob (Nav::blob)
+struct NavSidecarEntry { uint64_t key = 0; vec3 lo{0}, hi{0}; std::vector<char> blob; };
+bool navSidecarRead(const fs::path& p, std::vector<NavSidecarEntry>& out);
+bool navSidecarWrite(const fs::path& p, const std::vector<NavSidecarEntry>& entries);   // none: removes the file
 
 // convex area volumes for one tile (filled on the main thread from the placed instances' nav metadata)
 struct NavAreaMark { std::vector<vec2> poly; float hmin = -1000, hmax = 1000; uint8_t area = 1; bool nullify = false; };

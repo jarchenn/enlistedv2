@@ -9,5 +9,29 @@
   "model": "zombie",
   "height_m": 1.85,
   "attack_rate": 1.4,
-  "flinch_s": 0.6
+  "flinch_s": 0.6,
+  "pack": {
+    "note": "PF1 hordes: with more than min_zombies alive, zombies run in packs of up to `size`. Only the leader picks a target and requests paths; followers slide along the navmesh to a wedge slot slot_spacing_m apart behind it (separation within separation_m, alignment to the leader's velocity), catch up at catch_up x speed while the leader keeps leader_pace, break off to strike any hostile within break_off_m, and path on their own beyond lost_m. A packless zombie joins the nearest pack leader within join_m.",
+    "on": true,
+    "min_zombies": 20,
+    "size": 8,
+    "join_m": 35,
+    "break_off_m": 4,
+    "slot_spacing_m": 1.6,
+    "leader_pace": 0.9,
+    "catch_up": 1.25,
+    "separation_m": 1.3,
+    "separation_gain": 2.0,
+    "alignment": 0.35,
+    "lost_m": 18
+  },
+  "lod": {
+    "note": "PF1: clips are sampled at anim_hz_near beyond anim_near_m from the camera and at anim_hz_far beyond anim_far_m; a pack follower walking beyond share_pose_m wears its leader's pose and skinned mesh.",
+    "on": true,
+    "anim_near_m": 40,
+    "anim_far_m": 100,
+    "anim_hz_near": 15,
+    "anim_hz_far": 7.5,
+    "share_pose_m": 60
+  }
 }

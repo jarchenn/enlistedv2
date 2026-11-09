@@ -5,6 +5,7 @@
 #include "app.h"
 #include "editor_nav.h"
 #include "mpui.h"
+#include "ai_hooks.h"
 #include <imgui.h>
 #include <stb_image.h>
 #include <algorithm>
@@ -74,6 +75,7 @@ void w5NewMapContent(App& app, const TemplateInfo& t) {
     if (const AssetDef* a = app.lib.find(i.assetId)) i.assetVersion = std::max(i.assetVersion, a->version);
   }
   app.doc = std::move(d);
+  app.navSidecar = navSidecarOf(contentDir() / "templates" / mf);   // PF1: the template's pre-baked navmesh
   app.resetGround();
   app.syncRuntime();
   if (app.doc.camera.set) { app.camPos = app.doc.camera.pos; app.camYaw = app.doc.camera.yaw; app.camPitch = app.doc.camera.pitch; }
