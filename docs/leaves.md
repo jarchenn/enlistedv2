@@ -116,7 +116,7 @@ Instances are grouped by sprig. One VAO per tree binds the shared mesh (binding 
 `Renderer::selectLeafLods` runs once per frame before the trees pass.
 
 - It measures the eye's distance to the tree's canopy box in asset space, so a long hedge is near where you stand. The distance is multiplied by `1.43 / proj[1][1]`, so zoomed optics keep detail further out.
-- **Thresholds** (m): near in at 10 and out at 12; mid in at 22 and out at 26. With grass quality Low or Off (the Low preset), `Renderer::leafLodScale` is 0.6, set in `settings.cpp`: near 6 m and mid 13 m, so Low is no slower than the ovals. `InstanceRT::leafLod` keeps the state for hysteresis.
+- **Thresholds** (m): near in at 10 and out at 12; mid in at 22 and out at 26. With grass quality Low or Off (the Low preset), `Renderer::leafLodScale` is 0.6, set in `settings.cpp`: near 6 m and mid 13 m. A chateau_town A/B with that setting measured Low's foliage cost at 3.72 / 3.48 ms (+0.24, down from +0.47). The remainder is the far shadow, 1.27 / 0.75 ms, which the LOD distances do not touch. `InstanceRT::leafLod` keeps the state for hysteresis.
 - The canopy depth prepass and the `GL_EQUAL` shading pass use the same LOD. The vertex shaders declare `invariant gl_Position`.
 
 ### Shadows
