@@ -620,6 +620,9 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(!propBroken(a, c) && !a.doc.find(c)->extra.contains("propBroken"), "Clear applied damage restores it");
       a.undo(); a.syncRuntime();
       check(propBroken(a, c), "undo brings the applied break back");
+      // GX2: the undo also brought back the lights Apply saved off (every farmhouse lamp sat in a room breached or a
+      // piece broken by the blasts above; with GX2's lights none was left lit); the lights step needs them on again
+      lightsClearApplied(a); a.syncRuntime();
       return true; });
 
     // ================================================================ every building
@@ -782,7 +785,8 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         ++eligible; lit += n > 0;
         if (!n) {   // why: the first light of the building
           std::string why = "no light pieces";
-          for (auto* c : childrenOf(a, i.id)) if (lightDef(a.assetFor(*c))) { why = c->assetId + " " + lightOffReason(a, *c); break; }
+          std::map<std::string, int> rs; for (auto* c : childrenOf(a, i.id)) if (lightDef(a.assetFor(*c))) ++rs[lightOffReason(a, *c) + (c->extra.contains("light") && c->extra["light"].value("applied", false) ? " (applied)" : "")];
+          if (!rs.empty()) { why.clear(); for (auto& [r, k] : rs) why += r + " x" + std::to_string(k) + ", "; }
           bad += " " + as->id + " #" + std::to_string(i.id) + " (" + why + ")";
         }
         if (lightsOnlyHost(as)) { ++bunkers; bunkersOk += n > 0 && !a.interior.hideBuiltin(i); }

@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <limits>
+#include <fstream>
 #if __has_include("settings.h")   // V2: graphics presets (particle / fragment budget)
 #include "settings.h"
 #define NMK_V4_SETTINGS 1
@@ -1032,7 +1033,8 @@ struct Planner {
   float rnd(uint32_t a, uint32_t b = 0) { return h01(seed, a, b); }
   std::string why; const char* cellWhy = "";   // GX2: why the last tryAt refused (debug log)
   bool zoneOn = false; vec2 zmn{0}, zmx{0};   // GX2: wall() / center() restricted to one zone of an oversized room
-  bool inZone(vec3 p) const { return !zoneOn || (p.x >= zmn.x && p.x <= zmx.x && p.z >= zmn.y && p.z <= zmx.y); }
+  bool inZone(vec3 p) const { return zoneDist(p) <= 2.5f; }   // a zone is soft: spots up to 2.5 m outside it rank behind those in it
+  float zoneDist(vec3 p) const { if (!zoneOn) return 0.0f; vec2 d = glm::max(glm::max(zmn - vec2(p.x, p.z), vec2(p.x, p.z) - zmx), vec2(0)); return glm::length(d); }
   const AssetDef* A(const char* id) { return app.lib.find(id); }
   vec3 world(vec3 lp) const { return host.pos + yawQuat(host.yaw) * lp; }
   bool rectCells(int s, int room, vec2 mn, vec2 mx, int mode) {   // mode 0: free; 1: not furniture (clearance); 2: room only
@@ -1082,7 +1084,7 @@ struct Planner {
     // dresser or a bench (3D boxes below), never in a door swing or over a stair
     // (a solid one -- a wall shelf, a plate rack -- also keeps out of the route corridors and doorway rings: it is at head height)
     {   // a hung piece's back lies in the 0.1 m cell the wall face cuts through: test the cells just in front of it
-      vec3 sh = hung ? yawQuat(yaw) * vec3(0, 0, 0.06f) : vec3(0);
+      vec3 sh = hung ? yawQuat(yaw) * vec3(0, 0, 0.06f) : wallBacked ? yawQuat(yaw) * vec3(0, 0, 0.12f) : vec3(0);
       if (!rectCells(R.storey, k, vec2(mn.x + sh.x, mn.z + sh.z), vec2(mx.x + sh.x, mx.z + sh.z), hung ? (pd->blocking ? 3 : 2) : mode)) { why = std::string("cells:") + cellWhy; return false; }
     }
     // the manual placement rule's exact tests (checkPlacement), so a generated piece never fails them: the keep cells
@@ -1122,13 +1124,22 @@ struct Planner {
   // GX2: the pose of a piece backed onto the wall next to cell (i, j) in direction d (0: the wall at -z, 1: -x, 2: +z,
   // 3: +x): its yaw faces into the room and its back stands `gap` off the real wall face (probed by a ray, cached), so
   // floor pieces stand on the skirting board's front and hung pieces sit on the plaster
+  bool wallBehind(int s, int i, int j, int d) const {
+    const auto& S = ri.storeys[s];
+    const int di[4] = {0, -1, 0, 1}, dj[4] = {-1, 0, 1, 0};
+    auto id = [&](int a, int b) { return a < 0 || b < 0 || a >= S.nx || b >= S.nz ? (int16_t)RoomInfo::NOFLOOR : S.id[(size_t)b * S.nx + a]; };
+    int16_t n1 = id(i + di[d], j + dj[d]);
+    return n1 == RoomInfo::WALL || (n1 == RoomInfo::NOFLOOR && id(i + 2 * di[d], j + 2 * dj[d]) == RoomInfo::WALL);
+  }
+  bool wallBacked = false;   // tryAt: the piece stands backed onto a wall (its back may overhang a no-floor strip)
   bool wallCand(int k, const PropDef* pd, int i, int j, int d, float lift, vec3& p, float& yaw) {
     const auto& R = ri.rooms[k]; const auto& S = ri.storeys[R.storey]; const float C = ri.cell;
     const int di[4] = {0, -1, 0, 1}, dj[4] = {-1, 0, 1, 0};
     const float yaws[4] = {0, 90, 180, 270};
     int ni = i + di[d], nj = j + dj[d];
     if (i < 0 || j < 0 || i >= S.nx || j >= S.nz || S.id[(size_t)j * S.nx + i] != k) return false;
-    if (ni < 0 || nj < 0 || ni >= S.nx || nj >= S.nz || S.id[(size_t)nj * S.nx + ni] != RoomInfo::WALL) return false;
+    (void)ni; (void)nj;
+    if (!wallBehind(R.storey, i, j, d)) return false;
     vec3 mn, mx; turnedBounds(pd->bmin, pd->bmax, yaws[d], mn, mx);
     p = vec3(S.o.x + (i + 0.5f) * C, R.y0 + lift, S.o.y + (j + 0.5f) * C);
     float face = d == 0 ? S.o.y + j * C : d == 2 ? S.o.y + (j + 1) * C : d == 1 ? S.o.x + i * C : S.o.x + (i + 1) * C;
@@ -1166,12 +1177,14 @@ struct Planner {
         if (!wallCand(k, pd, i, j, d, lift, p, yaw) || !inZone(p)) continue;
         vec2 cc = zoneOn ? (zmn + zmx) * 0.5f : (R.mn + R.mx) * 0.5f, he = zoneOn ? (zmx - zmn) * 0.5f : (R.mx - R.mn) * 0.5f;
         float edge = glm::length(glm::abs(vec2(p.x, p.z) - cc) / glm::max(he, vec2(0.5f)));   // ~1.41 in a corner
-        cs.push_back({p, yaw, -corner * edge + rnd((uint32_t)(i * 131 + j), strHash(slot)) * 0.8f});
+        cs.push_back({p, yaw, -corner * edge + rnd((uint32_t)(i * 131 + j), strHash(slot)) * 0.8f + zoneDist(p) * 4.0f});
       }
     }
     std::sort(cs.begin(), cs.end(), [](const Cand& a, const Cand& b) { return a.score < b.score; });
     std::map<std::string, int> whys;
-    for (auto& c : cs) { if (tryAt(k, asset, slot, c.p, c.yaw, true, true, 0, got)) return true; ++whys[why]; }
+    wallBacked = true;
+    for (auto& c : cs) { if (tryAt(k, asset, slot, c.p, c.yaw, true, true, 0, got)) { wallBacked = false; return true; } ++whys[why]; }
+    wallBacked = false;
     if (failed.size() < 900) failed += " " + slot;
     if (getenv("NMK_GX2_DEBUG")) { std::string w; for (auto& [r, n] : whys) w += " " + r + " " + std::to_string(n); logf("gx2 wall %s %s %s: %zu spots%s%s", ha->id.c_str(), slot.c_str(), asset, cs.size(), zoneOn ? " (zone)" : "", w.c_str()); }
     return false;
@@ -1182,7 +1195,10 @@ struct Planner {
     const PropDef* pd = sys.prop(fa);
     vec3 p; float yaw;
     if (!wallCand(k, pd, i, j, d, pd->mount, p, yaw)) { why = "nowall"; return false; }
-    return tryAt(k, asset, slot, p, yaw, true, pd->mount <= 0, 0, got);
+    wallBacked = true;
+    bool ok = tryAt(k, asset, slot, p, yaw, true, pd->mount <= 0, 0, got);
+    wallBacked = false;
+    return ok;
   }
   bool center(int k, const char* asset, const std::string& slot, float ring, PlanItem* got = nullptr) {
     const AssetDef* fa = A(asset); if (!fa) return false;
@@ -1198,7 +1214,7 @@ struct Planner {
       if (S.id[(size_t)j * S.nx + i] != k) continue;
       vec3 p(S.o.x + (i + 0.5f) * C, R.y0, S.o.y + (j + 0.5f) * C);
       if (!inZone(p)) continue;
-      cs.push_back({p, glm::length(vec2(p.x, p.z) - cc) + rnd((uint32_t)(i * 31 + j), strHash(slot)) * 0.7f});
+      cs.push_back({p, glm::length(vec2(p.x, p.z) - cc) + rnd((uint32_t)(i * 31 + j), strHash(slot)) * 0.7f + zoneDist(p) * 4.0f});
     }
     std::sort(cs.begin(), cs.end(), [](const Cand& a, const Cand& b) { return a.score < b.score; });
     for (float rg : {ring, ring * 0.45f}) {
@@ -1280,6 +1296,7 @@ struct Planner {
         if (rnd(strHash(it.slot), 1) >= chance) continue;
         it.asset = rnd(strHash(it.slot), 2) < half && A("furn_curtains_half") ? "furn_curtains_half" : "furn_curtains";
         out.push_back(it);
+        if (const AssetDef* ca = A(it.asset.c_str())) { vec3 mn, mx; bounds(sys.prop(ca), it.p, it.yaw, mn, mx); boxes.push_back({mn, mx}); }   // GX2: pictures keep off the curtains
       }
     }
   }
@@ -1525,7 +1542,8 @@ struct Planner {
       if (S.id[(size_t)j * S.nx + i] != k) continue;
       for (int d = 0; d < 4; ++d) {
         int ni = i + di[d], nj = j + dj[d];
-        if (ni < 0 || nj < 0 || ni >= S.nx || nj >= S.nz || S.id[(size_t)nj * S.nx + ni] != RoomInfo::WALL) continue;
+        (void)ni; (void)nj;
+        if (!wallBehind(R.storey, i, j, d)) continue;
         bool alongX = d == 0 || d == 2;
         v.push_back({i, j, d, alongX ? j : i, alongX ? S.o.x + (i + 0.5f) * C : S.o.y + (j + 0.5f) * C});
       }
@@ -1634,10 +1652,10 @@ struct Planner {
     auto id = [&](int i, int j) { return i < 0 || j < 0 || i >= S.nx || j >= S.nz ? (int16_t)RoomInfo::WALL : S.id[(size_t)j * S.nx + i]; };
     if (d == 0 || d == 2) {
       int i = (int)std::floor((along - S.o.x) / C); if (i < 0 || i >= S.nx) return false;
-      for (int s = 0; s < S.nz; ++s) { int j = d == 0 ? s : S.nz - 1 - s; if (id(i, j) != k) continue; if (id(i, d == 0 ? j - 1 : j + 1) != RoomInfo::WALL) return false; ci = i; cj = j; return true; }
+      for (int s = 0; s < S.nz; ++s) { int j = d == 0 ? s : S.nz - 1 - s; if (id(i, j) != k) continue; if (!wallBehind(R.storey, i, j, d)) return false; ci = i; cj = j; return true; }
     } else {
       int j = (int)std::floor((along - S.o.y) / C); if (j < 0 || j >= S.nz) return false;
-      for (int s = 0; s < S.nx; ++s) { int i = d == 1 ? s : S.nx - 1 - s; if (id(i, j) != k) continue; if (id(d == 1 ? i - 1 : i + 1, j) != RoomInfo::WALL) return false; ci = i; cj = j; return true; }
+      for (int s = 0; s < S.nx; ++s) { int i = d == 1 ? s : S.nx - 1 - s; if (id(i, j) != k) continue; if (!wallBehind(R.storey, i, j, d)) return false; ci = i; cj = j; return true; }
     }
     return false;
   }
@@ -1825,6 +1843,17 @@ struct Planner {
     const auto& R = ri.rooms[k];
     std::string r = "r" + std::to_string(k) + "/";
     json T = rules().contains("types") ? rules()["types"].value(roomTypeKey(R.type), json::object()) : json::object();
+    {   // a church's tower rooms (stair landings, the belfry) and rooms that are mostly stair or route: wall pieces only
+      const auto& S = ri.storeys[R.storey]; int cells = 0, keep = 0;
+      for (size_t c = 0; c < S.id.size(); ++c) if (S.id[c] == (int16_t)k) { ++cells; keep += S.keep[c] != 0; }
+      bool tower = R.type != ROOM_CHURCH && (ha->id.find("church") != std::string::npos || ha->id.find("chapel") != std::string::npos);
+      if (tower || (cells > 0 && keep * 2 > cells)) {
+        json W = T.value("wall", json::object()), flat = json::array(); W["floorItems"] = json::array();
+        for (auto& x : W.value("items", json::array())) { const AssetDef* xa = A(x.get<std::string>().c_str()); if (xa && !sys.prop(xa)->blocking) flat.push_back(x); }
+        W["items"] = flat;   // nothing that sticks out at head height beside a stair
+        T = json{{"wall", W}};
+      }
+    }
     for (auto& s : T.value("steps", json::array())) {
       if (!condOk(s, k)) continue;
       std::string sl = s.value("slot", std::string("piece"));
@@ -1954,6 +1983,23 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     };
     size_t n0 = li.size(); lightsPlanRooms(app, *this, *h, ha, *ri, seed, li, wallFix);
     for (size_t q = n0; q < li.size(); ++q) { PlanItem it; it.slot = li[q].slot; it.asset = li[q].asset; it.p = li[q].p; it.yaw = li[q].yaw; P.out.push_back(it); }
+  }
+  if (const char* g = getenv("NMK_GX2_GRID"); g && ha->id == g) {   // GX2 debug: each storey's grid as a PPM image
+    for (size_t s = 0; s < ri->storeys.size(); ++s) {
+      const auto& S = ri->storeys[s];
+      std::ofstream f(exeDir() / "selftest_out" / ("grid_" + ha->id + "_s" + std::to_string(s) + ".ppm"), std::ios::binary);
+      f << "P6\n" << S.nx << " " << S.nz << "\n255\n";
+      for (int j = S.nz - 1; j >= 0; --j) for (int i = 0; i < S.nx; ++i) {
+        size_t c = (size_t)j * S.nx + i; int id = S.id[c];
+        unsigned char px[3] = {40, 40, 40};
+        if (id == RoomInfo::WALL) px[0] = px[1] = px[2] = 0;
+        else if (id == RoomInfo::DOORWAY) { px[0] = 40; px[1] = 80; px[2] = 255; }
+        else if (id >= 0) { uint32_t h = hmix32((uint32_t)id * 7919u + 13u); px[0] = 90 + (h & 63); px[1] = 90 + ((h >> 8) & 63); px[2] = 90 + ((h >> 16) & 63); }
+        if (S.keep[c]) px[0] = 220;
+        if (P.occ[s][c] == 1) { px[0] = 30; px[1] = 200; px[2] = 30; } else if (P.occ[s][c] == 2) { px[1] = 220; }
+        f.write((const char*)px, 3);
+      }
+    }
   }
   lastStats.clear();
   if (!lightsOnly) {   // GX2: what each room ended up with
