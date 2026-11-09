@@ -162,7 +162,8 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       // a hedge past its cut still draws its bank (LOD2 at that range), darkened to its foliage: the field pattern reads from the air
       if (r.asset->tree.hedge && !r.treeFelled) {
         float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
-        if (cd < settings().renderDist()) op.push_back({&assetLodMesh(r, r.asset, r.asset->opaque, cd), M, vec4(0.6f, 0.75f, 0.5f, 1.0f)});
+        const AssetDef* ha = r.asset;   // LOD2 = the bank alone (LOD1 would keep the pollard stems without their canopy)
+        if (cd < settings().renderDist()) op.push_back({ha->lodMesh[1].count ? &ha->lodMesh[1] : &ha->opaque, M, vec4(0.6f, 0.75f, 0.5f, 1.0f)});
       }
       continue;
     }
