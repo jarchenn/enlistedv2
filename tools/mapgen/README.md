@@ -184,6 +184,21 @@ distance dominates the frame. In bocage the next hedge hides what lies beyond it
   everything; the template is not `playable`. It defines its own stamps (`stamp_escarpment`, `stamp_tor`,
   `stamp_quarry`, `stamp_cut`) and writes `views` (named cameras) into the template for `--selftest-maps`.
 
+- `maps/chateau_town.py`: Chateau town (M1), a dense 350 x 400 m town around B3's grand chateau, built in layers: the
+  walled chateau forecourt, a ring road and winding streets lined with the B2 / B3 houses (a weighted deck so every type
+  comes round; frontage placement keeps houses clear of every route and keep-out), the walled churchyard, the square,
+  a mill stream (`wat_stream_straight` in a sculpted valley) under B2's two stone bridges, sandbags and wooden X at the
+  four approaches; then a green ring of bocage sector fields (radial hedges from the town edge to the border) with
+  orchards, meadow, wheat and three farms, and sunken lanes on the south and west roads; beyond the border a
+  Beautify-style decor ring (houses facing inward, hedges and trees, `extra.decor` / `extra.beautify`). The layout runs
+  twice: pass 1 records the building footprints and levels the ground under them, pass 2 places everything on the
+  levelled, quantised grid. Assault A-D, TDM team spawns (`team` 0 / 1) and a supply crate at every spawn. It is a
+  `"userMap": true` template, so `--selftest-maps` runs the generic checks and reports (does not gate) its frame time,
+  and its `views` are the M1 screenshots. It also writes the "Chateau town" column of
+  `docs/asset-usage-default-maps.md`. Dev hooks: `NMK_MAPS_ONLY=chateau_town` limits `--selftest-maps` /
+  `--render-map-thumbs` to one template; `NMK_MODES_MAP=templates/chateau_town.nmap.json` runs `--selftest-modes`'
+  live matches on it.
+
 - `promote_map.py <map.nmap.json> <id> "<Name>" --order N [--description ...] [--thumb x,y,z,yaw,pitch]` turns a
   saved map into a New Map template on the same procedural ground (template seed and size), with its instances,
   scenario and cameras; `playable` when it has objectives. Shipped this way: `tank_range` (Tank Range, from

@@ -1,0 +1,135 @@
+{
+  "id": "chateau_town",
+  "version": 1,
+  "order": 5,
+  "name": "Chateau town",
+  "available": true,
+  "seed": 1944,
+  "description": "A dense Norman town around a grand chateau: the chateau on its gravel forecourt behind garden walls and an iron gate, a ring road and four winding streets of town houses, the church in its walled graveyard, the town square, a mill stream with two stone arched bridges, sandbags and wooden obstacles at the approaches; orchards, bocage, sunken lanes and farms out to the border. Assault (Allies attack the forecourt, church, bridge and square), Team Deathmatch and Solo. 350 x 400 m.",
+  "width": 350,
+  "depth": 400,
+  "margin": 100,
+  "camera": {
+    "pos": [
+      0.0,
+      150.0,
+      -330.0
+    ],
+    "yaw": 180.0,
+    "pitch": -26.0
+  },
+  "heightmap": {
+    "file": "chateau_town.height.png",
+    "nx": 181,
+    "nz": 196,
+    "min": 6,
+    "max": 14,
+    "org": [
+      -282.3529,
+      -305.8824
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "chateau_town.nmap.json",
+  "playable": true,
+  "thumbnail": "chateau_town.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      60.0,
+      95.0,
+      -250.0
+    ],
+    "yaw": 166.5042667192042,
+    "pitch": -20.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        170.0,
+        -250.0
+      ],
+      "yaw": 180.0,
+      "pitch": -38.0
+    },
+    {
+      "name": "forecourt_eye",
+      "pos": [
+        4.0,
+        13.21,
+        -46.0
+      ],
+      "yaw": 176.42366562500266,
+      "pitch": 6.0,
+      "gameplay": true
+    },
+    {
+      "name": "street_eye",
+      "pos": [
+        -14.37,
+        12.09,
+        -115.41
+      ],
+      "yaw": 171.17584132344632,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "churchyard_eye",
+      "pos": [
+        -89.0,
+        11.74,
+        15.0
+      ],
+      "yaw": 169.04593735660166,
+      "pitch": 7.0,
+      "gameplay": true
+    },
+    {
+      "name": "bridge_eye",
+      "pos": [
+        29.88,
+        11.85,
+        99.46
+      ],
+      "yaw": 80.53767779197439,
+      "pitch": -3.0,
+      "gameplay": true
+    },
+    {
+      "name": "square_eye",
+      "pos": [
+        24.0,
+        11.65,
+        128.0
+      ],
+      "yaw": -129.8055710922652,
+      "pitch": 3.0,
+      "gameplay": true
+    },
+    {
+      "name": "orchard_eye",
+      "pos": [
+        -145.1,
+        10.76,
+        140.4
+      ],
+      "yaw": -169.93821119331056,
+      "pitch": 1.0,
+      "gameplay": true
+    },
+    {
+      "name": "town_from_south",
+      "pos": [
+        30.0,
+        45.0,
+        -175.0
+      ],
+      "yaw": 170.2724214485984,
+      "pitch": -12.0
+    }
+  ]
+}

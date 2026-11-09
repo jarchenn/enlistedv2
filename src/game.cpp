@@ -102,9 +102,9 @@ bool Game::begin(std::string& err) {
   auto grow = [&](vec3 p, float r) { lo = glm::min(lo, p - vec3(r)); hi = glm::max(hi, p + vec3(r)); };
   for (auto& o : match.sc.objectives) { grow(o.pos, o.extent() + 35); for (auto& r : o.routes) for (auto& p : r.points) grow(p, 20); }
   for (auto& s : match.sc.spawns) grow(s.pos, 25);
-  float half = app.terrain.buildHalf;
-  if (match.mode() != GameMode::Assault) { lo = vec3(-half); hi = vec3(half); }   // G1: Solo / TDM fight anywhere: the whole build area
-  lo = glm::max(lo, vec3(-half)); hi = glm::min(hi, vec3(half));
+  const vec3 hv(app.terrain.buildHalfX, app.terrain.buildHalf, app.terrain.buildHalfZ);   // per axis: a 350 x 400 map is not 400 x 400
+  if (match.mode() != GameMode::Assault) { lo = -hv; hi = hv; }   // G1: Solo / TDM fight anywhere: the whole build area
+  lo = glm::max(lo, -hv); hi = glm::min(hi, hv);
   if (!isClient) aiMatchBegin(*this, lo, hi);   // W6: navmesh bake (Recast/Detour) and AI setup
   // soldiers per roster slot
   sold.clear(); sold.resize(match.slots.size());
@@ -199,9 +199,9 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
 const std::vector<vec3>& Game::spawnPool() {
   if (!poolBuilt) {
     poolBuilt = true; pool.clear();
-    float half = app.terrain.buildHalf * 0.94f; const int n = 28;
+    float hx = app.terrain.buildHalfX * 0.94f, hz = app.terrain.buildHalfZ * 0.94f; const int n = 28;   // inside the border on both axes
     for (int i = 0; i < n; ++i) for (int j = 0; j < n; ++j) {
-      float x = -half + (2 * half) * (i + 0.5f) / n, z = -half + (2 * half) * (j + 0.5f) / n;
+      float x = -hx + (2 * hx) * (i + 0.5f) / n, z = -hz + (2 * hz) * (j + 0.5f) / n;
       Physics::Hit h; float top = app.terrain.height(x, z) + 60;
       if (!Physics::castRayEx(vec3(x, top, z), vec3(0, -1, 0), 120.0f, h)) continue;
       if (h.pos.y < app.terrain.waterLevel + 0.2f) continue;                       // not in the sea / a pond

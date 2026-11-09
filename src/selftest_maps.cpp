@@ -30,7 +30,9 @@ double now() { return std::chrono::duration<double>(std::chrono::steady_clock::n
 
 std::vector<int> mapTemplates(App& app) {
   std::vector<int> v;
-  for (int k = 0; k < (int)app.templates.size(); ++k) if (app.templates[k].raw.contains("map")) v.push_back(k);
+  const char* only = std::getenv("NMK_MAPS_ONLY");   // dev hook: just this template id (e.g. chateau_town)
+  for (int k = 0; k < (int)app.templates.size(); ++k)
+    if (app.templates[k].raw.contains("map") && (!only || !*only || app.templates[k].id == only)) v.push_back(k);
   return v;
 }
 struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; };   // gate: gameplay view held to the frame target
