@@ -16,6 +16,7 @@
 #include <atomic>
 #include <functional>
 #include <set>
+#include <string>
 
 class dtNavMesh; class dtNavMeshQuery; class dtQueryFilter;
 using NavRef = uint64_t;                       // dtPolyRef (DT_POLYREF64)
@@ -63,6 +64,10 @@ public:
   NavConfig cfg;
   // ---- lifecycle (main thread)
   void build(vec3 lo, vec3 hi, int threads = 0);       // full bake of the tiles covering lo..hi (blocking, thread pool)
+  // build(): with cachePath set, the baked tiles are loaded from that file when it exists (seconds -> milliseconds),
+  // else written there after the bake; progress (0..1) is called from the main thread while the bake runs
+  std::string cachePath; bool fromCache = false;
+  std::function<void(float)> progress;
   void rebuildArea(vec3 lo, vec3 hi);                  // mark tiles dirty (+1 tile border): queued by update() on a budget
   void update();                                       // commit finished rebuilds; fills `changed`
   void clear();
@@ -110,6 +115,8 @@ private:
   mutable std::shared_mutex mtx_;
   mutable std::atomic<int> writers_{0};
   std::set<std::pair<int, int>> pending_;   // dirty tiles not yet snapshotted (deduplicated: craters overlap)
+  bool loadCache();
+  void saveCache(const std::vector<std::unique_ptr<NavBuildJob>>& jobs);
   void queueTile(int tx, int tz);
   std::unique_ptr<struct NavImpl> impl_;
   uint32_t stamp_ = 0;

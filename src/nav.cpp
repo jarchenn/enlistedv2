@@ -6,6 +6,9 @@
 #include <DetourNavMeshQuery.h>
 #include <DetourCommon.h>
 #include <thread>
+#include <DetourAlloc.h>
+#include <cstring>
+#include <fstream>
 #include <mutex>
 #include <condition_variable>
 #include <deque>
@@ -317,6 +320,61 @@ static void sampleWater(const Nav& nav, NavBuildJob& j, float pad) {
   if (!any) j.wgrid.clear();
 }
 
+// ---- bake cache: header, then per tile (tx, tz, Detour tile bytes, links). Machine-local: the caller's key (map,
+// content, nav settings, bounds, executable) names the file, so a stale file is never read.
+static const uint32_t kNavCacheMagic = 0x4E4D4B43u, kNavCacheVersion = 1;
+template <class T> static void wr(std::ofstream& f, const T& v) { f.write((const char*)&v, sizeof v); }
+template <class T> static bool rd(const std::vector<char>& b, size_t& p, T& v) { if (p + sizeof v > b.size()) return false; std::memcpy(&v, b.data() + p, sizeof v); p += sizeof v; return true; }
+
+void Nav::saveCache(const std::vector<std::unique_ptr<NavBuildJob>>& jobs) {
+  std::error_code ec; fs::create_directories(fs::path(cachePath).parent_path(), ec);
+  fs::path tmp = cachePath + ".tmp";
+  {
+    std::ofstream f(tmp, std::ios::binary);
+    if (!f) return;
+    wr(f, kNavCacheMagic); wr(f, kNavCacheVersion); wr(f, (int32_t)jobs.size());
+    for (auto& j : jobs) {
+      wr(f, (int32_t)j->tx); wr(f, (int32_t)j->tz); wr(f, (int32_t)(j->data ? j->size : 0));
+      if (j->data) f.write((const char*)j->data, j->size);
+      wr(f, (int32_t)j->links.size());
+      for (auto& l : j->links) { wr(f, l.a); wr(f, l.b); wr(f, (int32_t)l.kind); wr(f, (uint8_t)l.bidir); wr(f, l.top); wr(f, l.id); }
+    }
+    if (!f) { f.close(); fs::remove(tmp, ec); return; }
+  }
+  fs::rename(tmp, cachePath, ec);
+  if (ec) fs::remove(tmp, ec);
+}
+
+bool Nav::loadCache() {
+  std::ifstream f(cachePath, std::ios::binary);
+  if (!f) return false;
+  std::vector<char> b((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  size_t p = 0; uint32_t magic = 0, ver = 0; int32_t n = 0;
+  if (!rd(b, p, magic) || !rd(b, p, ver) || !rd(b, p, n) || magic != kNavCacheMagic || ver != kNavCacheVersion || n < 0 || n > 100000) return false;
+  struct T { int32_t tx = 0, tz = 0; std::vector<char> data; std::vector<NavLink> links; };
+  std::vector<T> tiles(n);
+  for (auto& t : tiles) {   // validate the whole file before touching the mesh
+    int32_t size = 0, nl = 0;
+    if (!rd(b, p, t.tx) || !rd(b, p, t.tz) || !rd(b, p, size) || size < 0 || p + (size_t)size > b.size()) return false;
+    if (t.tx < impl_->tx0 || t.tx > impl_->tx1 || t.tz < impl_->tz0 || t.tz > impl_->tz1) return false;
+    t.data.assign(b.begin() + p, b.begin() + p + size); p += size;
+    if (!rd(b, p, nl) || nl < 0 || nl > 1000000) return false;
+    t.links.resize(nl);
+    for (auto& l : t.links) {
+      int32_t kind = 0; uint8_t bd = 0;
+      if (!rd(b, p, l.a) || !rd(b, p, l.b) || !rd(b, p, kind) || !rd(b, p, bd) || !rd(b, p, l.top) || !rd(b, p, l.id)) return false;
+      l.kind = kind; l.bidir = bd != 0;
+    }
+  }
+  if (p != b.size()) return false;
+  for (auto& t : tiles) {
+    NavBuildJob j; j.tx = t.tx; j.tz = t.tz; j.gen = ++impl_->genIssued[{t.tx, t.tz}]; j.links = std::move(t.links);
+    if (!t.data.empty()) { j.data = (unsigned char*)dtAlloc((int)t.data.size(), DT_ALLOC_PERM); std::memcpy(j.data, t.data.data(), t.data.size()); j.size = (int)t.data.size(); }
+    commit(j);
+  }
+  return tilesBuilt > 0;
+}
+
 void Nav::build(vec3 blo, vec3 bhi, int threads) {
   clear();
   auto t0 = std::chrono::steady_clock::now();
@@ -324,8 +382,17 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
   lo = blo; hi = bhi;
   impl_->tx0 = tileOf(blo.x); impl_->tx1 = tileOf(bhi.x); impl_->tz0 = tileOf(blo.z); impl_->tz1 = tileOf(bhi.z);
   initMesh();
+  fromCache = !cachePath.empty() && loadCache();
+  if (fromCache) {
+    changed.clear();
+    buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    if (impl_->threads.empty()) for (int k = 0; k < std::max(1, cfg.workers); ++k) impl_->threads.emplace_back(workerLoop, impl_.get());
+    logf("nav: %d tiles, %d polygons, %d links from the bake cache %s in %.0f ms", tilesBuilt, usedNodes, links, fs::path(cachePath).filename().string().c_str(), buildMs);
+    return;
+  }
   std::vector<std::unique_ptr<NavBuildJob>> jobs;
   float pad = cfg.linkBorder + cfg.radius + 1.0f;
+  const size_t nTiles = (size_t)(impl_->tz1 - impl_->tz0 + 1) * (size_t)(impl_->tx1 - impl_->tx0 + 1);
   for (int tz = impl_->tz0; tz <= impl_->tz1; ++tz) for (int tx = impl_->tx0; tx <= impl_->tx1; ++tx) {
     auto j = std::make_unique<NavBuildJob>();
     j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
@@ -334,12 +401,18 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
     j->bodies = navCollectBodies(a, b, classify);
     if (areaMarks) areaMarks(tx, tz, j->marks);
     jobs.push_back(std::move(j));
+    if (progress) progress(0.25f * jobs.size() / std::max<size_t>(1, nTiles));   // collecting the physics input: ~1/4
   }
   if (threads <= 0) threads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
-  std::atomic<size_t> next{0};
+  std::atomic<size_t> next{0}, finished{0};
   std::vector<std::thread> T;
-  for (int k = 0; k < threads; ++k) T.emplace_back([&] { for (size_t i; (i = next++) < jobs.size();) buildTile(cfg, *jobs[i]); });
+  for (int k = 0; k < threads; ++k) T.emplace_back([&] { for (size_t i; (i = next++) < jobs.size();) { buildTile(cfg, *jobs[i]); ++finished; } });
+  while (progress && finished.load() < jobs.size()) {   // the main thread keeps the window alive meanwhile
+    progress(0.25f + 0.75f * finished.load() / std::max<size_t>(1, jobs.size()));
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+  }
   for (auto& t : T) t.join();
+  if (!cachePath.empty()) saveCache(jobs);
   int bodies = 0, tri = 0, kinds[4] = {0, 0, 0, 0}, polys = 0;
   for (auto& j : jobs) { bodies += navBodyCount(*j->bodies); tri += j->tris; for (int k = 0; k < 4; ++k) kinds[k] += j->kinds[k]; polys += j->polys; }
   logf("nav: input %d body refs, %d triangles (solid %d, wire %d, skip %d, carve %d), %d polygons", bodies, tri, kinds[0], kinds[1], kinds[2], kinds[3], polys);

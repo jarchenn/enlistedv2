@@ -5,6 +5,8 @@
 #include "app.h"
 #include "nav_geom.h"
 #include "crumb.h"
+#include <GLFW/glfw3.h>
+#include "net.h"
 #include "water_query.h"
 #include <DetourNavMesh.h>
 #include <algorithm>
@@ -212,7 +214,39 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     }
   };
   crumb("ai: navmesh bake");
+  // bake cache: the same map, content, nav settings, bounds and executable give the same tiles, so a repeat match start
+  // loads them (about 28 s -> well under 1 s for a whole-map Solo / TDM bake). Tests bake fresh unless NMK_NAV_CACHE.
+  nav.cachePath.clear();
+  const char* navCacheEnv = std::getenv("NMK_NAV_CACHE");
+  if (!G.app.selftest || (navCacheEnv && *navCacheEnv)) {
+    std::error_code ec;
+    std::string exe = __argv && __argv[0] ? __argv[0] : "";
+    auto stamp = fs::exists(exe, ec) ? (long long)fs::last_write_time(exe, ec).time_since_epoch().count() : 0LL;
+    char b[160]; std::snprintf(b, sizeof b, "|%.2f %.2f %.2f %.2f %.2f %.2f|%lld|%lld", lo.x, lo.y, lo.z, hi.x, hi.y, hi.z, stamp, fs::exists(exe, ec) ? (long long)fs::file_size(exe, ec) : 0LL);
+    std::string key = Net::mapHash(G.app) + "|" + Net::contentHash() + "|" + navj.dump() + b;
+    uint64_t h = 1469598103934665603ull; for (unsigned char c : key) { h ^= c; h *= 1099511628211ull; }
+    char name[40]; std::snprintf(name, sizeof name, "%016llx.bin", (unsigned long long)h);
+    fs::path dir = exeDir() / "cache" / "nav";
+    nav.cachePath = (dir / name).string();
+    // keep the 12 most recent bakes
+    std::vector<std::pair<fs::file_time_type, fs::path>> old;
+    for (auto& e : fs::directory_iterator(dir, ec)) if (e.path().extension() == ".bin") old.push_back({e.last_write_time(ec), e.path()});
+    if (old.size() > 12) { std::sort(old.begin(), old.end()); for (size_t k = 0; k + 12 < old.size(); ++k) fs::remove(old[k].second, ec); }
+  }
+  // while it bakes, keep the window responsive (Windows marks a window that stops reading its messages for 5 s as
+  // "Not responding") and show the progress in the title bar
+  nav.progress = [this](float f) {
+    static double last = 0; double now = glfwGetTime();
+    if (now - last < 0.05) return;
+    last = now;
+    if (!G.app.win) return;
+    glfwPollEvents();
+    char t[96]; std::snprintf(t, sizeof t, "Normandy Mapmaker - preparing the AI (navigation %d%%)", (int)(f * 100));
+    glfwSetWindowTitle(G.app.win, t);
+  };
   nav.build(lo, hi);
+  nav.progress = nullptr;
+  if (G.app.win) glfwSetWindowTitle(G.app.win, "Normandy Mapmaker");
   markNavTraps();
   logf("ai: %d navmesh polygons in dead-end pockets (no walk back to an objective or spawn)", navTraps);
   // ---- cover points for every tile (parallel: the physics world is idle while the match starts)

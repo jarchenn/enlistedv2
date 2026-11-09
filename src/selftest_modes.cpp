@@ -109,6 +109,31 @@ float minPairDist(const Game& G, bool sameTeamToo) {
 
 void build(App&) {
   push("headless rules", [](App&, float) { headless(); return true; });
+  // the navmesh bake cache: a repeat start of the same Solo map loads the tiles instead of baking them again
+  push("nav bake cache", [](App& a, float t) {
+    static int stage, tiles0, polys0, links0; static double ms0;
+    if (t == 0) {
+      std::error_code ec; fs::remove_all(exeDir() / "cache" / "nav", ec);
+      _putenv_s("NMK_NAV_CACHE", "1");
+      stage = 0;
+      chk(startMode(a, GameMode::Solo, 4, 99), "Solo start for the bake cache (%s)", gGame->setupError.c_str());
+      return false;
+    }
+    Game& G = *gGame;
+    if (stage == 0 && t > 1.0f) {
+      tiles0 = G.nav.tilesBuilt; polys0 = G.nav.usedNodes; links0 = G.nav.links; ms0 = G.nav.buildMs;
+      chk(!G.nav.fromCache && tiles0 > 0 && fs::exists(G.nav.cachePath), "first start bakes %d tiles in %.0f ms and writes %s", tiles0, ms0, fs::path(G.nav.cachePath).filename().string().c_str());
+      stage = 1;
+      chk(startMode(a, GameMode::Solo, 4, 99), "Solo restart on the same map (%s)", gGame->setupError.c_str());
+      return false;
+    }
+    if (stage == 1 && t > 2.5f) {
+      chk(G.nav.fromCache && G.nav.tilesBuilt == tiles0 && G.nav.usedNodes == polys0 && G.nav.links == links0 && G.nav.buildMs < ms0 * 0.5,
+          "second start loads the same navmesh from the cache: %d tiles, %d polygons, %d links in %.0f ms (baked: %.0f ms)", G.nav.tilesBuilt, G.nav.usedNodes, G.nav.links, G.nav.buildMs, ms0);
+      _putenv_s("NMK_NAV_CACHE", "");
+      return true;
+    }
+    return t > 60 ? (chk(false, "bake cache steps finished (stage %d)", stage), true) : false; });
   push("team spawn tool", [](App& a, float) {   // Scenario panel: "Team A spawn" / "Team B spawn"
     if (a.mode == Mode::Explore) a.exitExplore();
     a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
