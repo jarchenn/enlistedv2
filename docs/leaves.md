@@ -136,4 +136,48 @@ The sky-visibility, probe GI, lamp and fog terms are unchanged.
 
 ## Measurements
 
-See the L1 report in the coordinator notes and `Documents/MapMaker/screens/l1/`.
+Run with `NMK_MAPS=battle1,chateau_town NMK_PERF_AB=leaftex --selftest-maps`, on the BASE-28 views of battle1 and chateau_town, at revision 34d2010 with these LOD distances.
+
+- **Method:** interleaved A/B in 0.4 s blocks, so other sessions sharing the GPU hit both sides alike. The absolute ms are higher than BASE-28 for that reason; the on / off difference is what counts.
+- **Foliage cost:** trees (the main pass, including the canopy depth prepass) plus the near shadow, far shadow and sky-occlusion passes.
+
+| Preset (views) | trees | near shadow | far shadow | sky occlusion | foliage sum | GPU total |
+| --- | --- | --- | --- | --- | --- | --- |
+| Medium (44) | 2.72 / 2.00 | 2.31 / 4.49 | 1.98 / 1.22 | 0.15 / 0.13 | **7.16 / 7.84 (-0.69)** | 28.28 / 29.29 |
+| Low (16) | 1.31 / 0.74 | 0.87 / 1.38 | 1.06 / 0.65 | 0.11 / 0.11 | 3.35 / 2.88 (+0.47) | 15.41 / 14.93 |
+| High (16) | 5.98 / 5.13 | 2.32 / 4.18 | 3.20 / 2.58 | 0.13 / 0.12 | 11.64 / 12.01 (-0.38) | 44.66 / 45.02 |
+
+Values are ms, species leaves / ovals.
+
+### Medium views
+
+| View | Foliage sum, species / ovals (ms) |
+| --- | --- |
+| orchard_eye | 8.14 / 10.53 (-2.39) |
+| churchyard_eye | 8.27 / 8.11 |
+| forecourt_eye | 6.11 / 5.74 |
+| street_eye | 8.01 / 7.91 |
+
+### Where the cost moved
+
+- **Near shadow is about half.** One texture fetch replaces the six procedural ellipse tests per fragment.
+- **Trees pass rises 0.7 ms.** The near and mid leaf meshes add triangles. LOD near is 10 / 12 m and mid 22 / 26 m, tightened from 14 / 34 after a first run. That first run measured trees 2.57 / 1.55 ms at Medium.
+- **Far shadow rises 0.6-0.8 ms.** It draws the same cards with the texture alpha.
+- **Low:** net +0.47 ms. On Low the shadows are cheap, so the trees pass dominates.
+
+### Memory
+
+- Leaf array: about 20 MB (RGBA8, 46 × 288², full mips).
+- Instances: 64 B per canopy card.
+- Shared sprig meshes: 1316 vertices.
+
+### Shots and data
+
+`Documents/MapMaker/screens/l1/`:
+
+- `*_ab.png`: ovals on the left, species leaves on the right, from `NMK_LEAF_SHOTS=1 --selftest-nature`;
+- `raw/`: the full-size shots;
+- `contact_sheet.png`;
+- `ab_leaftex_final.txt`: every view.
+
+Whole-frame draws and triangles per shot are in `shots_draws_tris.txt`.
