@@ -234,6 +234,19 @@ function leanTo(A, sx, X, z0, z1, yWall, { depth = 2.4, yFront = 2.3, m = "tile"
   A.box([Math.min(xi + sx * 0.12, xi + sx * 1.0), 0, z0 + 0.35], [Math.max(xi + sx * 0.12, xi + sx * 1.0), 1.0, z1 - 0.35], "bark", { v: 0 });
 }
 
+// dormers are roof dressing: visual only, so their cheeks never hang into an attic at head height
+function dormerV(A, o) { const n = A.parts.length; dormer(A, o); for (const p of A.parts.slice(n)) p.k = 0; }
+// glazing on solid masonry (a cross gable over the roof, a solid tower) gets a dark backing, or it reads as a pale panel
+function gableWin(A, o) {
+  crossGable(A, o);
+  const w = o.w, ww = Math.min(0.55, w / 4), y0 = o.y0 + 0.35, y1 = Math.min(o.y0 + 1.6, o.y0 + o.rise * 0.4), s = o.s ?? 1;
+  fbox(A, { axis: "x", d: o.zf + s * 0.02, out: s }, o.x - ww, o.x + ww, y0, y1, -0.012, 0.02, "soot", { k: 0 });
+}
+function blindTurret(A, cx, cz, r, a, y, w, h) {
+  const ar = (a * Math.PI) / 180, dx = Math.cos(ar), dz = Math.sin(ar), yaw = (Math.atan2(dx, dz) * 180) / Math.PI;
+  A.obox([cx + dx * (r - 0.002), y, cz + dz * (r - 0.002)], [w - 0.02, h - 0.02, 0.02], [0, yaw, 0], "soot", { k: 0 });
+}
+
 // ============================================================================ sub-building placement
 // Copies asset B into A turned by rot (0, 90, 180 or 270 degrees about +Y; 90 turns B's front +Z to +X) and moved by
 // (dx, dz). Ids (interactables, panels, nav rooms, tour targets) get the prefix `pre`. Axis-aligned boxes and round
@@ -338,9 +351,9 @@ export function colombageAuge() {
     for (const sx of [-1, 1]) gableTimber(A, sx, X, Zr, EAVE, RIDGE);
     doorHood(A, fr, k.fdx, 1.1, GF + 2.25);
     for (const w of wins(c, 1).filter((w) => w.side === "front")) windowBox(A, face("front", X, Z, 0.3), w.c, w.w + 0.1, w.sill);
-    dormer(A, { x: 0, z: Zr - 0.9, y: RIDGE - (Zr - 0.9) * ((RIDGE - EAVE) / Zr) - 0.05, w: 1.0, h: 1.1, depth: 1.7, s: 1, roof: "tile", m: "render" });
+    dormerV(A, { x: 0, z: Zr - 0.9, y: RIDGE - (Zr - 0.9) * ((RIDGE - EAVE) / Zr) - 0.05, w: 1.0, h: 1.1, depth: 1.7, s: 1, roof: "tile", m: "render" });
     chimney(A, { x: 1.4, z: -0.3, y0: yAt(2) - 0.2, y1: RIDGE + 1.1, w: 0.62, d: 0.9, m: "brick", pots: 2 });
-    fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: 1.7, y: GF, top: yAt(1) - 0.2, w: 1.5 });
+    fireplace(A, { axis: "z", d: 0.075, s: 1, a: 1.6, y: GF, top: yAt(1) - 0.2, w: 1.5 });   // on the cross wall: the corridor wall has the doorways
     for (const sx of [-1, 1]) downpipe(A, face("front", X, Z, 0.3), sx * (X - 0.25), 0.05, EAVE - 0.3);
     A.box([-2.6, -0.3, Z + 0.6], [-0.8, 0.12, Z + 1.2], "stone_dressed", { bv: 0.02 });   // mounting stone by the door
   };
@@ -368,9 +381,9 @@ export function graniteFarmhouse() {
   c.dress = (A, k) => {
     const { EAVE, RIDGE, zA } = k, fr = face("front", X, Z), pitch = (RIDGE - EAVE) / Z;
     masonry(A, k, { sc: false });
-    for (const x of [-3.8, 2.3, 6.0]) dormer(A, { x, z: Z + 0.05, y: EAVE + 0.2, w: 1.15, h: 1.1, depth: 1.5, s: 1, roof: "slate", m: "stone_dressed" });   // stone eaves dormers
+    for (const x of [-3.8, 2.3, 6.0]) dormerV(A, { x, z: Z + 0.05, y: EAVE + 0.2, w: 1.15, h: 1.1, depth: 1.5, s: 1, roof: "slate", m: "stone_dressed" });   // stone eaves dormers
     for (const sx of [-1, 1]) chimney(A, { x: sx * (X - 0.45), z: 0, y0: EAVE - 0.3, y1: RIDGE + 1.3, w: 0.9, d: 1.15, m: "stone", pots: 2 });
-    fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: 0.3, y: GF, top: EAVE - 0.2, w: 1.9, deep: 0.55 });
+    fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: 1.55, y: GF, top: EAVE - 0.2, w: 1.2, deep: 0.55 });
     leanTo(A, 1, X, -Z + 0.1, Z - 0.1, EAVE - 0.6, { depth: 2.6, yFront: 2.2, m: "slate" });
     A.box([-1.3, 0.0, Z + 0.25], [-0.5, 0.45, Z + 0.7], "stone_dressed", { bv: 0.02 });   // stone bench
     A.box([-1.45, 0.45, Z + 0.2], [-0.35, 0.53, Z + 0.75], "stone_dressed", { bv: 0.02 });
@@ -409,7 +422,6 @@ export function brickTownhouse() {
     for (const sx of [-1, 1]) downpipe(A, fr, sx * (X - 0.12), 0.05, EAVE - 0.3);
     wallLantern(A, fr, 1.25, GF + 2.4);
     chimney(A, { x: -X + 0.45, z: -2.0, y0: EAVE, y1: EAVE + 0.42 + 4.0 + 0.4, w: 0.7, d: 0.55, m: "brick", pots: 3 });
-    fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: 0, y: GF, top: k.yAt(1) - 0.2, w: 1.3 });
     fbox(A, fr, 0.5, 0.75, GF + 0.02, GF + 0.12, -0.01, 0.12, "iron", L1);   // boot scraper
   };
   house(A, c);
@@ -479,7 +491,7 @@ export function cornerCafe() {
     A.cone([0, yb + H1 / 2, 0], [2 * Xo, H1, 2 * Zo], "slate", { n: 4, top: t });
     A.box([-Xo * t - 0.04, yb + H1 - 0.02, -Zo * t - 0.04], [Xo * t + 0.04, yb + H1 + 0.1, Zo * t + 0.04], "zinc", { bv: 0.03 });
     hipRoof(A, { X: Xo * t - 0.05, Z: Zo * t - 0.05, EAVE: yb + H1 + 0.08, RIDGE: yb + H1 + 1.1, ov: 0.08, m: "slate" });
-    for (const x of [-4.2, -1.5, 1.5, 4.2]) dormer(A, { x, z: Z + 0.3, y: yb + 0.35, w: 1.0, h: 1.2, depth: 1.2, s: 1, roof: "zinc", m: "render_white" });
+    for (const x of [-4.2, -1.5, 1.5, 4.2]) dormerV(A, { x, z: Z + 0.3, y: yb + 0.35, w: 1.0, h: 1.2, depth: 1.2, s: 1, roof: "zinc", m: "render_white" });
     for (const x of [-2.6, 2.6]) chimney(A, { x, z: -1.2, y0: yb + H1, y1: yb + H1 + 2.0, w: 0.75, d: 0.55, m: "brick", pots: 3 });
     // shopfront, awnings, balconettes
     shopFront(A, fr, -X + 0.25, X - 0.25, GF + 3.15, { word: "CAFE TABAC", stall: [[-4.9, -3.1, GF + 0.43], [-2.4, -1.1, GF + 0.43], [1.1, 2.4, GF + 0.43], [3.1, 4.9, GF + 0.43]] });
@@ -504,7 +516,7 @@ export function cornerCafe() {
     }
     A.obox([5.2, 0.55, Z + 1.1], [0.6, 1.1, 0.04], [-12, 30, 0], "blackboard", { k: 0 });
     A.obox([5.2, 0.55, Z + 1.32], [0.6, 1.1, 0.04], [12, 30, 0], "blackboard", { k: 0 });
-    fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: -1.0, y: k.yAt(1), top: k.yAt(2) - 0.2, w: 1.2 });
+    fireplace(A, { axis: "z", d: -0.075, s: -1, a: 1.5, y: k.yAt(1), top: k.yAt(2) - 0.2, w: 1.2 });
     for (const sx of [-1, 1]) downpipe(A, face("rear", X, Z), sx * (X - 0.12), 0.05, EAVE - 0.3);
   };
   house(A, c);
@@ -545,8 +557,8 @@ export function bakery() {
     A.cyl([ox, 1.6, oz], [2.4, 0.8, 1.85], "brick", { seg: 28 });
     A.cone([ox, 2.3, oz], [2.4, 0.6, 1.85], "tile", { top: 0.25, seg: 28 });
     chimney(A, { x: ox + 0.5, z: -Z - 0.35, y0: 1.5, y1: RIDGE + 0.6, w: 0.7, d: 0.55, m: "brick", pots: 1 });
-    fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: 1.4, y: GF, top: yAt(1) - 0.2, w: 1.3, deep: 0.55 });   // the oven mouth
-    A.box([1.05, GF + 0.55, zA + 0.14], [1.75, GF + 0.98, zA + 0.2], "cast_iron", { k: 0 });
+    fireplace(A, { axis: "z", d: 0.075, s: 1, a: 2.0, y: GF, top: yAt(1) - 0.2, w: 1.3, deep: 0.55 });   // the oven mouth
+    A.box([0.065, GF + 0.55, 1.65], [0.13, GF + 0.98, 2.35], "cast_iron", { k: 0 });
     for (const sx of [-1, 1]) downpipe(A, fr, sx * (X - 0.12), 0.05, EAVE - 0.3);
     chimney(A, { x: -X + 0.4, z: 0.6, y0: EAVE - 0.3, y1: RIDGE + 0.4, w: 0.55, d: 0.9, m: "brick", pots: 2 });
     A.cyl([-5.4, 0.2, Z + 0.6], [0.4, 0.4, 0.4], "sacking", { k: 0 });   // flour sacks by the door
@@ -604,8 +616,8 @@ export function relaisInn() {
     A.box([-X - 1.15, -0.4, -1.0], [-X + 0.05, EAVE - 0.6, 1.0], "stone", {});
     A.wedge([-X - 0.55, EAVE - 0.6 + 0.3, 0], [2.0, 0.6, 1.2], "stone", { r: [0, -90, 0], top: 0.45 });
     chimney(A, { x: -X - 0.55, z: 0, y0: EAVE - 0.35, y1: RIDGE + 1.0, w: 1.0, d: 1.3, m: "stone", pots: 2 });
-    fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: -3.2, y: GF, top: EAVE - 0.2, w: 2.0, deep: 0.55 });
-    for (const x of [-4.0, 4.0]) dormer(A, { x, z: -(Zr - 0.9), y: RIDGE + 0.14 - (Zr - 0.9) * pitch - 0.05, w: 1.0, h: 1.1, depth: 1.5, s: -1, roof: "slate", m: "plank_y" });
+    fireplace(A, { axis: "z", d: -0.575, s: -1, a: 1.2, y: GF, top: EAVE - 0.2, w: 2.0, deep: 0.55 });
+    for (const x of [-4.0, 4.0]) dormerV(A, { x, z: -(Zr - 0.9), y: RIDGE + 0.14 - (Zr - 0.9) * pitch - 0.05, w: 1.0, h: 1.1, depth: 1.5, s: -1, roof: "slate", m: "plank_y" });
     A.cyl([7.6, GF + 0.42, Z + 1.0], [0.62, 0.84, 0.62], "oak_y", {});   // a cask on the veranda
     for (const y of [GF + 0.15, GF + 0.7]) A.cyl([7.6, y, Z + 1.0], [0.65, 0.05, 0.65], "iron", L1);
   };
@@ -651,16 +663,16 @@ export function merchantHouse() {
     cornice(A, fr, -X, X, EAVE - 0.5, { h: 0.5, proj: 0.42 }); cornice(A, face("rear", X, Z), -X, X, EAVE - 0.4, { h: 0.4, proj: 0.3 });
     modillions(A, fr, -X + 0.1, X - 0.1, EAVE - 0.5, 0.42);
     for (const sx of [-1, 1]) steppedGable(A, sx, X, Z, EAVE, RIDGE, { n: 6 });
-    crossGable(A, { x: 0, w: 3.6, zf: Z, y0: EAVE, rise: 2.8, back: 2.8 / pitch + 0.6, m: "render_cream", roof: "slate", timber: false });
+    gableWin(A, { x: 0, w: 3.6, zf: Z, y0: EAVE, rise: 2.8, back: 2.8 / pitch + 0.6, m: "render_cream", roof: "slate", timber: false });
     for (const sx of [-1, 1]) {   // scroll volutes beside the central gable
       fpart(A, "arch", fr, sx * 2.05, EAVE + 0.32, 0.12, [0.7, 0.62, 0.22], "stone_dressed", { th: 0.18, k: 0 });
       fpart(A, "cone", fr, sx * 1.9, EAVE + 2.95, 0.1, [0.18, 0.45, 0.18], "stone_dressed", { ...L1, n: 8 });
     }
-    for (const x of [-4.6, 4.6]) dormer(A, { x, z: Z - 0.9, y: surf(Z - 0.9) - 0.05, w: 1.05, h: 1.25, depth: 1.7, s: 1, roof: "slate", m: "render_cream" });
-    for (const x of [-3.5, 0, 3.5]) dormer(A, { x, z: -(Z - 0.9), y: surf(Z - 0.9) - 0.05, w: 1.0, h: 1.15, depth: 1.6, s: -1, roof: "slate", m: "render_cream" });
+    for (const x of [-4.6, 4.6]) dormerV(A, { x, z: Z - 0.9, y: surf(Z - 0.9) - 0.05, w: 1.05, h: 1.25, depth: 1.7, s: 1, roof: "slate", m: "render_cream" });
+    for (const x of [-3.5, 0, 3.5]) dormerV(A, { x, z: -(Z - 0.9), y: surf(Z - 0.9) - 0.05, w: 1.0, h: 1.15, depth: 1.6, s: -1, roof: "slate", m: "render_cream" });
     for (const sx of [-1, 1]) for (const z of [-2.6, 2.6]) chimney(A, { x: sx * (X - 0.25), z, y0: EAVE + 1.0, y1: surf(z) + 1.4, w: 0.45, d: 0.8, m: "brick", pots: 2 });
     for (const sx of [-1, 1]) downpipe(A, face("rear", X, Z), sx * (X - 0.12), 0.05, EAVE - 0.3);
-    for (const f of [1, 2]) for (const x of [-3.0, 3.0]) fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: x, y: yAt(f), top: yAt(f + 1) - 0.2, w: 1.3 });
+    for (const f of [1, 2]) for (const x of [-3.25, 3.25]) fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: x, y: yAt(f), top: yAt(f + 1) - 0.2, w: 1.1 });
     wallLantern(A, fr, -1.25, GF + 2.5); wallLantern(A, fr, 1.25, GF + 2.5);
   };
   house(A, c);
@@ -690,7 +702,8 @@ export function notaryHouse() {
     quoins(A, X, Z, GF - 0.02, EAVE);
     for (const s of SIDES) {
       const isX = s === "front" || s === "rear", F = face(s, X, Z), a0 = isX ? -X - 0.06 : -Z, a1 = isX ? X + 0.06 : Z;
-      stringCourse(A, F, a0, a1, GF + 0.55, { h: 0.18 });
+      const gaps = s === "front" ? [[fdx - 0.8, fdx + 0.8]] : s === "rear" ? [[-0.7, 0.7]] : [];
+      let at = a0; for (const [g0, g1] of [...gaps, [a1, a1]]) { if (g0 - at > 0.2) stringCourse(A, F, at, g0, GF + 0.55, { h: 0.18 }); at = g1; }
       stringCourse(A, F, a0, a1, yAt(1) - 0.32, { h: 0.2, proj: 0.08 });
       fbox(A, F, a0 + 0.3, a1 - 0.3, yAt(1) + 0.55, yAt(1) + 0.7, -0.01, 0.006, "brick_dark", L1);   // polychrome band
       cornice(A, F, isX ? -X : -Z, isX ? X : Z, EAVE - 0.34, { h: 0.34, proj: 0.24, ext: isX, m: "brick" });
@@ -699,19 +712,19 @@ export function notaryHouse() {
     // entrance: perron, arched hood, cross gable
     for (let i = 0; i < 3; i++) A.box([fdx - 1.6 + i * 0.12, -0.3, Z + 0.55 + i * 0.32], [fdx + 1.6 - i * 0.12, 0.14 - i * 0.14, Z + 0.95 + i * 0.32], "stone_dressed", { bv: 0.02 });
     archOpening(A, fr, { a0: fdx - 0.6, a1: fdx + 0.6, y1: GF + 2.27, rise: 0.6, w: 0.24, proj: 0.08 });
-    crossGable(A, { x: fdx, w: 4.6, zf: Z, y0: EAVE, rise: 4.2, back: 4.2 / pitch + 0.6, m: "brick", roof: "slate", timber: true });
+    gableWin(A, { x: fdx, w: 4.6, zf: Z, y0: EAVE, rise: 4.2, back: 4.2 / pitch + 0.6, m: "brick", roof: "slate", timber: true });
     // corner tower: square, banded, a steep slate pyramid with a finial
     const tx = X + 1.0, tz = Z + 1.0, tr = 1.7;
     turret(A, { x: tx, z: tz, y0: -0.2, y1: EAVE + 2.6, r: tr, spire: 6.0, sides: 4, roof: "slate", m: "brick", band: "stone_dressed" });
     for (const y of [GF + 0.55, yAt(1) - 0.32, EAVE - 0.3]) A.cyl([tx, y, tz], [2 * tr + 0.1, 0.2, 2 * tr + 0.1], "stone_dressed", { n: 4, k: 0 });
-    for (const f of [0, 1, 2]) for (const a of [0, 90]) turretWindow(A, tx, tz, tr, a, yAt(f) + 1.5, 0.8, f < 2 ? 1.5 : 1.0);
+    for (const f of [0, 1, 2]) for (const a of [0, 90]) { const h = f < 2 ? 1.5 : 1.0; turretWindow(A, tx, tz, tr, a, yAt(f) + 1.5, 0.8, h); blindTurret(A, tx, tz, tr, a, yAt(f) + 1.5, 0.8, h); }
     // dormers with finials, tall stacks
     for (const [x, s] of [[-5.4, 1], [5.0, 1], [-4.5, -1], [0, -1], [4.5, -1]]) {
-      dormer(A, { x, z: s * (Z - 1.0), y: surf(Z - 1.0) - 0.05, w: 1.05, h: 1.25, depth: 1.9, s, roof: "slate", m: "brick" });
+      dormerV(A, { x, z: s * (Z - 1.0), y: surf(Z - 1.0) - 0.05, w: 1.05, h: 1.25, depth: 1.9, s, roof: "slate", m: "brick" });
       A.cone([x, surf(Z - 1.0) + 1.25 + 0.75, s * (Z - 1.0 + 0.05)], [0.08, 0.5, 0.08], "iron", { ...L1, n: 8 });
     }
     for (const x of [-5.6, 5.6]) chimney(A, { x, z: -1.6, y0: surf(1.6) - 1.0, y1: RIDGE + 1.6, w: 0.75, d: 0.6, m: "brick", pots: 2 });
-    for (const x of [-3.6, 3.6]) fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: x, y: GF, top: yAt(1) - 0.2, w: 1.4 });
+    for (const x of [-4.75, 4.75]) fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: x, y: GF, top: yAt(1) - 0.2, w: 1.2 });
     for (const sx of [-1, 1]) downpipe(A, face("rear", X, Z), sx * (X - 0.12), 0.05, EAVE - 0.3);
     downpipe(A, fr, -X + 0.12, 0.05, EAVE - 0.3);
     fbox(A, fr, fdx + 0.85, fdx + 1.15, GF + 1.5, GF + 1.75, -0.01, 0.025, "brass", L1);   // the notary's brass plate
@@ -742,8 +755,8 @@ export function farmCourtyard() {
   mc.dress = (B, k) => {
     masonry(B, k, { sc: true });
     for (const sx of [-1, 1]) chimney(B, { x: sx * (MX - 0.4), z: 0, y0: k.EAVE - 0.3, y1: k.RIDGE + 1.1, w: 0.75, d: 1.1, m: "stone", pots: 2 });
-    fireplace(B, { axis: "x", d: k.zA + 0.15, s: 1, a: -3.3, y: GF, top: k.yAt(1) - 0.2, w: 1.8, deep: 0.55 });
-    for (const x of [-4.2, 4.2]) dormer(B, { x, z: MZ - 0.9, y: k.RIDGE + 0.14 - (MZ - 0.9) * ((k.RIDGE - k.EAVE) / MZ) - 0.05, w: 1.0, h: 1.15, depth: 1.6, s: 1, roof: "slate", m: "stone_dressed" });
+    fireplace(B, { axis: "x", d: k.zA + 0.15, s: 1, a: -4.55, y: GF, top: k.yAt(1) - 0.2, w: 1.1, deep: 0.55 });
+    for (const x of [-4.2, 4.2]) dormerV(B, { x, z: MZ - 0.9, y: k.RIDGE + 0.14 - (MZ - 0.9) * ((k.RIDGE - k.EAVE) / MZ) - 0.05, w: 1.0, h: 1.15, depth: 1.6, s: 1, roof: "slate", m: "stone_dressed" });
     doorHood(B, face("front", MX, MZ), k.fdx, 1.1, GF + 2.25, { m: "slate" });
   };
   house(M, mc);
@@ -751,7 +764,7 @@ export function farmCourtyard() {
   // the two wings: single-storey ranges turned to face the yard, open to the rafters, earth floors
   const wing = (id, X, Z, names, hall, doors, dress) => {
     const W = subAsset(id);
-    house(W, {
+    const k = house(W, {
       X, Z, T: 0.55, h: 3.2, n: 1, shot: "gx_farm_" + id, ceilingTo: -(X - 0.55),
       floorMats: [[-X + 0.55, X - 0.55, "earth"]],
       style: () => ({ m: "stone", shutters: true }), wd: () => ({ w: 0.8, h: 0.9, sill: 1.2 }),
@@ -763,6 +776,9 @@ export function farmCourtyard() {
         dress?.(B, k);
       },
     });
+    // the tour leaves by the front door into the yard (not the back door), so the wings are walked from the yard
+    const st = W.meta.tour.steps, zD = -k.ZI + 1.1, cut = st.findIndex((q) => q.interact === "rear_door");
+    st.splice(cut - 1, st.length, { goto: [k.fdx, zD] }, { goto: [k.fdx, k.ZI - 1.4] }, { goto: [k.fdx, Z + 1.3], note: "back out into the yard" });
     return W;
   };
   const WX = 6.0, WZ = 3.0, wingX = MX + WZ - 1.0, wingZ = MZc + MZ + 0.4 + WX;
@@ -803,9 +819,7 @@ export function farmCourtyard() {
     { goto: [0, wallZ + 2.0] }, { goto: [0, wallZ - 1.5], note: "through the carriage arch" }, { look: [0, 2.0, yz0], hold: 0.5 }, { shot: "gx_farm_yard" },
     { goto: [0, yz0 + 1.6] }, ...mainSteps.slice(1),
     { goto: [wx, back] }, { goto: [wx, wallZ + 2.0] }, { goto: [0, wallZ + 2.0], note: "back to the carriage arch" }, { goto: [0, wallZ - 1.5] },
-    ...westSteps.slice(1),
-    { goto: [wx, wallZ + 2.0] }, { goto: [0, wallZ + 2.0] }, { goto: [0, wallZ - 1.5] },
-    ...eastSteps.slice(1)]);
+    ...westSteps.slice(1), ...eastSteps.slice(1)]);
   A.meta.companions = [comp("tree_apple", -15.5, 9.0), comp("tree_apple", 15.8, 10.0, 80), comp("tree_oak", 15.0, -12.0), comp("nat_nettle_clump", -14.5, -6.0), comp("shrub_bramble", 15.0, 1.0)];
   return A;
 }
@@ -840,11 +854,11 @@ export function pensionHotel() {
     sign(A, { ...fr, d: fr.d + fr.out * 0.06 }, -3.0, 3.0, yAt(1) - 0.86, 0.3, "HOTEL DE LA PLAGE", "sign_paint");
     balcony(A, fr, { a0: -3.1, a1: 3.1, y: yAt(1), depth: 0.9, t: 0.16 });
     for (const x of [-8.0, -5.4, 5.4, 8.0]) balcony(A, fr, { a0: x - 0.62, a1: x + 0.62, y: yAt(2) + 0.7, depth: 0.28, t: 0.1, h: 0.85 });
-    crossGable(A, { x: 0, w: 5.2, zf: Z, y0: EAVE, rise: 3.6, back: 3.6 / pitch + 0.6, m: W, roof: "slate", timber: false });
-    for (const x of [-7.4, -4.2, 4.2, 7.4]) dormer(A, { x, z: Z - 0.9, y: surf(Z - 0.9) - 0.05, w: 1.0, h: 1.2, depth: 1.8, s: 1, roof: "slate", m: W });
-    for (const x of [-5.0, 0, 5.0]) dormer(A, { x, z: -(Z - 0.9), y: surf(Z - 0.9) - 0.05, w: 1.0, h: 1.2, depth: 1.8, s: -1, roof: "slate", m: W });
+    gableWin(A, { x: 0, w: 5.2, zf: Z, y0: EAVE, rise: 3.6, back: 3.6 / pitch + 0.6, m: W, roof: "slate", timber: false });
+    for (const x of [-7.4, -4.2, 4.2, 7.4]) dormerV(A, { x, z: Z - 0.9, y: surf(Z - 0.9) - 0.05, w: 1.0, h: 1.2, depth: 1.8, s: 1, roof: "slate", m: W });
+    for (const x of [-5.0, 0, 5.0]) dormerV(A, { x, z: -(Z - 0.9), y: surf(Z - 0.9) - 0.05, w: 1.0, h: 1.2, depth: 1.8, s: -1, roof: "slate", m: W });
     for (const x of [-6.6, -2.3, 2.3, 6.6]) chimney(A, { x, z: -1.4, y0: surf(1.4) - 1.0, y1: RIDGE + 1.3, w: 0.8, d: 0.55, m: "brick_buff", pots: 3 });
-    for (const x of [-6.0, 6.0]) fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: x * 0.66, y: GF, top: yAt(1) - 0.2, w: 1.4 });
+    for (const x of [-5.7, 5.7]) fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: x, y: GF, top: yAt(1) - 0.2, w: 1.2 });
     for (const sx of [-1, 1]) { downpipe(A, fr, sx * (X - 0.12), 0.05, EAVE - 0.4); downpipe(A, face("rear", X, Z), sx * (X - 0.12), 0.05, EAVE - 0.4); }
     for (const x of [-1.6, 1.6]) { A.cyl([x, 0.32, Z + 0.7], [0.55, 0.64, 0.55], "faience_blue", { k: 0, top: 0.8 }); A.cone([x, 1.0, Z + 0.7], [0.75, 0.9, 0.75], "leaf", { k: 0, top: 0.0, n: 8 }); }   // potted bay trees
   };
@@ -1178,7 +1192,7 @@ export function stronghold() {
   setTour(S, { pos: [-3.8, 0, ZR - 11], yaw: 0 }, [
     { goto: [-3.8, ZR - 8.0], note: "into the sunken entrance" }, { goto: [-3.8, ZR - 1.0] },
     { interact: "entrance_door", aim: [-3.6, G + 1.1, ZRI - 0.06], expectOpen: true },
-    { goto: [-3.8, -9.6], expectY: G, note: "the gas lock" }, { look: [-3.8, G + 1.3, -7.4], hold: 0.4 }, { shot: "gx_strong_a_gaslock" },
+    { goto: [-3.8, -9.6], expectY: G, note: "the gas lock" }, { look: [-3.8, G + 1.3, -7.4], hold: 0.4 }, { shot: "gx_strong_a_gaslock" }, { goto: [-3.8, -8.4] },
     { interact: "gaslock_door", aim: [-3.6, G + 1.1, -7.26], expectOpen: true },
     { goto: [-3.8, -6.4], expectY: G, note: "the guard room" }, { goto: [-3.8, -4.4] }, { goto: [-3.8, -2.4], expectY: G, note: "the corridor" },
     { look: [12, G + 1.4, -2.4], hold: 0.5 }, { shot: "gx_strong_b_corridor" },

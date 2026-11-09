@@ -188,7 +188,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
-    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && (std::string(set) == "gx6" || std::string(set) == "gx6street")) {
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && (std::string(set) == "gx6" || std::string(set) == "gx6street" || std::string(set) == "b3street")) {
       // NMK_CAPTURE_SET=gx6: the GX6 houses, large houses and mil_stronghold (tools/catalog_gx_buildings.mjs),
       // furnished, with companions: front and rear three-quarter views and one view from every "look" step of the
       // tour. NMK_CAPTURE_SET=gx6street: the eleven houses in a furnished street; "perf_" cameras hold 150 frames and
@@ -196,10 +196,12 @@ void SelfTest::captureUpdate(App& app, float dt) {
       static std::deque<std::string> keep;
       static const char* ids[] = {"vil_colombage_auge", "vil_granite_longere", "vil_brick_townhouse", "vil_rendered_shutters", "vil_cafe_corner", "vil_bakery",
                                   "vil_relais_inn", "vil_merchant_house", "vil_notary_house", "vil_farm_courtyard", "vil_pension_hotel", "mil_stronghold"};
+      static const char* b3ids[] = {"vil_longhouse_thatched", "vil_townhouse_jettied", "vil_villa_deauville", "vil_manor_turret", "vil_corner_shop", "vil_gatehouse_chapel",
+                                    "vil_mill_house", "vil_terrace_pair", "vil_cottage_barn", "vil_rectory", "vil_rectory", "mil_stronghold"};   // b3street: the same street of B3 houses (baseline)
       cams.clear();
-      bool street = std::string(set) == "gx6street";
+      bool street = std::string(set) != "gx6";
       int n = 0; float sx = -150.0f;
-      for (const char* aid : ids) {
+      for (const char* aid : std::string(set) == "b3street" ? b3ids : ids) {
         const AssetDef* a = app.lib.find(aid);
         if (!a || (street && std::string(aid).rfind("mil_", 0) == 0)) continue;
         float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f, H = a->bmax.y - a->bmin.y;
@@ -230,6 +232,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
         cams.push_back({"perf_street_mid", vec3((x0 + x1) * 0.5f, 1.7f, 9.0f), vec3((x0 + x1) * 0.5f + 25.0f, 3.0f, -4.0f)});
         cams.push_back({"perf_street_far", vec3((x0 + x1) * 0.5f, 25.0f, 220.0f), vec3((x0 + x1) * 0.5f, 2.0f, -6.0f)});
         cams.push_back({"perf_empty_view", vec3((x0 + x1) * 0.5f, 1.7f, 9.0f), vec3((x0 + x1) * 0.5f, 3.0f, 60.0f)});   // the same spot facing away: the base cost
+        cams.push_back({"perf_street_eye_warm", vec3(x0 - 2.0f, 1.7f, 7.0f), vec3(x0 + 40.0f, 3.0f, -2.0f)});   // the eye view again, after warm-up
       }
       app.syncRuntime();
       app.hideEditorOverlays = true;

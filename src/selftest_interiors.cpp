@@ -661,11 +661,11 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(total >= 3 * was, b_);
       // a decorative border building (V8, extra.decor) and a building whose furniture the user removed stay as they are
       a.interior.autoOnPlace = false;
-      uint64_t dec = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-245.0f, 0, -240.0f), 0.0f);
+      uint64_t dec = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-245.0f, 0, 0), 0.0f);   // z = 0: the rows above sit at |z| >= 110 (z -240 is a third row once there are 33+ buildings)
       a.interior.autoOnPlace = true;
       if (Instance* d = a.doc.find(dec)) { d->extra = json::object(); d->extra["decor"] = true; }
       int dn = a.interior.autoFurnish(a, dec);
-      uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, -240.0f), 0.0f);
+      uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, 0), 0.0f);
       a.interior.unfurnish(a, rem);
       int rn = a.interior.autoFurnish(a, rem);
       check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), "extra.decor buildings and buildings with their template furniture removed are not auto-furnished");
