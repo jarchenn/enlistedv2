@@ -587,7 +587,7 @@ float crackPath(vec2 q, float seed, float w){   // q: x across (m), y along the 
 void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
   vec4 r = gRoom >= 0 && gIn == 1 ? roomDec(gRoom) : uExtDec;
   int first = int(r.x + 0.5), n = int(r.y + 0.5);
-  n = min(n, uMatLayer == 2 ? 40 : 24);   // the list is priority sorted: Medium keeps the most telling 24
+  n = min(n, uMatLayer == 2 ? 40 : 16);   // the list is priority sorted: Medium keeps the most telling 24
   for (int i = 0; i < 40; ++i) {
     if (i >= n) break;
     vec4 Db = gSD[first + i].b;                    // facing first, so the other two records are fetched only by decals on this wall
@@ -680,14 +680,14 @@ void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
 void gxLayer(int pat, vec3 an, inout vec3 alb, inout float rough, inout float ao){
   float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
   float wearK = clamp(gWear >= 0.0 ? gWear : uInst.y, 0.0, 2.0);
-  float rb = fbm2(vW*2.3 + 31.0), rb2 = uMatLayer == 2 ? vnF(vW*19.0 + 7.0, 19.0) : 0.5;   // High: a finer octave
+  float rb = uMatLayer == 2 ? fbm2(vW*2.3 + 31.0) : vnoise(vW*2.3 + 31.0), rb2 = uMatLayer == 2 ? vnF(vW*19.0 + 7.0, 19.0) : 0.5;   // High: a finer octave
   rough = clamp(rough*(0.8 + 0.34*rb + 0.12*(rb2 - 0.5)), 0.05, 1.0);   // specular breakup: nothing has uniform roughness
   bool wall = pat == 20 || pat == 17 || pat == 3 || pat == 18 || pat == 19 || pat == 22 || pat == 1 || pat == 9 || pat == 11 || pat == 15;
   if (uMatLayer == 2 && wall && vert > 0.0) gDetH = ((vnF(vW*170.0, 170.0) - 0.5)*0.00022 + (vnF(vW*52.0 + 3.0, 52.0) - 0.5)*0.0004)*vert;
   if (gIn != 1) return;
-  float n1 = vnoise(vW*1.7 + 2.0), n2 = fbm2(vW*0.9 + 5.0);
+  float n1 = vnoise(vW*1.7 + 2.0), n2 = uMatLayer == 2 ? fbm2(vW*0.9 + 5.0) : vnoise(vW*0.9 + 5.0);
   float y = gFloorY, cd = gCornerD, cl = gCeilD;
-  float blot = smoothstep(0.55, 0.85, fbm2(vW*0.45 + uInst.x*9.0));
+  float blot = smoothstep(0.55, 0.85, uMatLayer == 2 ? fbm2(vW*0.45 + uInst.x*9.0) : vnoise(vW*0.45 + uInst.x*9.0));
   float g;
   if (pat == 21) {   // floors: dirt along the skirting and into the corners; ceilings: smoke at the edges
     float edge = 1.0 - smoothstep(0.0, 0.18 + 0.3*n1, cd);
@@ -1236,7 +1236,7 @@ void main(){
       // seeded per wall plane so opposite walls never mirror.
       float plane = dot(vAp, abs(an)) * 1.37 + dot(an, vec3(3.1, 5.3, 7.7)) * 4.1;
       vec2 lu = uv + vec2(plane, 0.0);
-      float wearL = clamp((wear - 0.85) / 0.75, 0.0, 1.0);
+      float wearL = clamp((wear - 0.6) / 0.8, 0.0, 1.0);
       float lm = -1.0;
       if (wearL > 0.0) {
         float cellX = floor(lu.x / 6.0), hc = hash12(vec2(cellX, s + plane + 71.0));
@@ -1244,10 +1244,10 @@ void main(){
         float region = step(hc, 0.5) * (1.0 - smoothstep(0.5, 1.4, abs(lu.x - cx)));
         float broad = fbm2(vec3(lu * 1.15, s + 51.0)) * region;
         float foot = 1.0 - smoothstep(0.0, 1.0, y), corner = 1.0 - smoothstep(0.0, 0.8, gCornerD);
-        lm = 0.55 * broad + 0.3 * foot + 0.25 * corner + 0.3 * openingNear(vAp, an)
+        lm = 0.6 * broad + 0.32 * foot + 0.28 * corner + 0.3 * openingNear(vAp, an)
            + 0.1 * (vnoise(vec3(lu * 6.0, s + 52.0)) - 0.5) + (uMatLayer == 2 ? 0.05 * (vnoise(vec3(lu * 19.0, s + 53.0)) - 0.5) : 0.0);
       }
-      float thr = 0.78 - 0.1 * wearL, fw = max(0.006, fwidth(lm) * 1.5);
+      float thr = 0.74 - 0.12 * wearL, fw = max(0.006, fwidth(lm) * 1.5);
       float lost = smoothstep(thr, thr + fw, lm);
       float rimP = smoothstep(thr - 0.022, thr, lm) * (1.0 - lost);
       float tear = smoothstep(thr - 0.06, thr - 0.022, lm) * (1.0 - smoothstep(thr - 0.022, thr, lm));
