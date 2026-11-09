@@ -668,7 +668,9 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, -240.0f), 0.0f);
       a.interior.unfurnish(a, rem);
       int rn = a.interior.autoFurnish(a, rem);
-      check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), "extra.decor buildings and buildings with their template furniture removed are not auto-furnished");
+      std::snprintf(b_, sizeof b_, "extra.decor buildings and buildings with their template furniture removed are not auto-furnished (decor: placed %d, furnished %d, children %zu; removed: placed %d, furnished %d, children %zu)",
+                    dec != 0, dn, dec ? childrenOf(a, dec).size() : 0, rem != 0, rn, rem ? childrenOf(a, rem).size() : 0);
+      check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), b_);
       summary["allBuildings"] = all; summary["allBuildingsDensity"] = {{"before", was}, {"now", total}, {"ratio", total / (float)std::max(1, was)}};
       return true; });
     // ================================================================ L3 lights (docs/lights.md)
