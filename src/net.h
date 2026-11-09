@@ -31,6 +31,7 @@ public:
   bool matchRunning = false;
   // simulated network conditions (tests / tuning): one-way delay and loss on everything this process sends
   float simLagMs = 0, simLoss = 0;
+  bool simDeaf = false;   // tests: ignore every datagram from the host (a host that went silent)
   // stats
   uint64_t bytesOut = 0, bytesIn = 0, packetsOut = 0, packetsIn = 0, resends = 0, dropped = 0;
   int rejectedRequests = 0, acceptedShots = 0, acceptedGunShots = 0, refusedJoins = 0;

@@ -18,6 +18,7 @@ import { waterAssets } from "./catalog_water.mjs";   // V1 water features (docs/
 import { kitDemoAssets } from "./catalog_kitdemo.mjs";   // B1 geometry kit demo (docs/asset-format.md#b1-geometry-kit)
 import { ordnanceAssets } from "./catalog_ordnance.mjs";   // D1: gun_pak40 (ported from build_assets.mjs)
 import { props2Assets } from "./catalog_props2.mjs";   // P1: supply crates ported from build_assets.mjs (crate_*, rack_allied_crates)
+import { exterior } from "./exterior.mjs";   // GX4 exterior pass over the B2 / B3 buildings (docs/exterior-references.md)
 import { chateauAssets } from "./catalog_chateau.mjs";   // B3 grand chateau + ten houses
 import { houses2Assets } from "./catalog_houses2.mjs"; import { dressingAssets } from "./catalog_dressing.mjs";   // B2 reworked buildings + dressing
 import { gxHouseAssets } from "./catalog_gx_buildings.mjs";   // GX6: new houses, large houses, mil_stronghold
@@ -103,7 +104,7 @@ const BACKFILL = {
 };
 // ---------------------------------------------------------------- new assets (after the backfill table: B2's legacy houses use houseNav)
 const ids = new Set();
-for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets(), ...houses2Assets(), ...dressingAssets(), ...gxHouseAssets()]) {
+for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets().map((A) => exterior(A)), ...houses2Assets().map((A) => exterior(A)), ...dressingAssets(), ...gxHouseAssets().map((A) => exterior(A))]) {
   const j = A.json();
   if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
   ids.add(j.id);

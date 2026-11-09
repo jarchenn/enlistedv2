@@ -290,9 +290,23 @@ void SelfTest::netUpdate(App& app, float dt) {
           if (t > 20) { check(false, "expected a refusal, got: " + n.status); return true; }
           return false;
         }
-        if (n.connected) { check(true, std::string("connected to the host lobby") + (lag ? " with 60 ms simulated delay and 5 % loss" : "")); n.setReady(true); return true; }
+        if (n.connected) { check(true, std::string("connected to the host lobby") + (lag ? " with 60 ms simulated delay and 5 % loss" : "")); if (role == "e") n.simDeaf = true; else n.setReady(true); return true; }
         if (t > 30) { check(false, "could not connect: " + n.status); return true; }
         return false; });
+      // E: joins the lobby, then the host goes silent (it stops hearing every datagram). It must give up after the 6 s
+      // timeout with a usable message, leave the session cleanly, and keep running frames afterwards (no crash)
+      if (role == "e") {
+        push("host silent", [this](App& a, float t) {
+          Net& n = *gNet;
+          if (n.role == Net::NONE) {
+            check(n.status.find("lost") != std::string::npos, "the host went silent after the join: the client ends the session with \"" + n.status + "\"");
+            check(!n.connected && !n.matchRunning && !(gGame && gGame->active), "no connection and no match left behind");
+            return true;
+          }
+          if (t > 25) { check(false, "the client never gave up on a silent host (status \"" + n.status + "\")"); return true; }
+          return false; });
+        push("frames after the drop", [this](App&, float t) { if (t < 3.0f) return false; check(true, "3 s of frames after the drop ran without a crash"); return true; });
+      }
       if (role == "a" || role == "b") {
         push("in match", [this](App& a, float t) {
           if (gGame && gGame->active && gGame->isClient) {
@@ -472,6 +486,10 @@ void SelfTest::netUpdate(App& app, float dt) {
     return;
   }
   if (cur >= seq.size()) { app.useScripted = false; if (gNet && gNet->role != Net::NONE) gNet->leave("test done"); finish(app); return; }
+  if ((role == "a" || role == "b") && !gGame && seq[cur].name != "wait" && seq[cur].name != "join" && seq[cur].name != "in match") {
+    check(false, "never entered a match (the host dropped this client): step \"" + seq[cur].name + "\" and the ones after it skipped");   // they read gGame
+    finish(app); return;
+  }
   double t0 = glfwGetTime();
   bool done = seq[cur].fn(app, st);
   if (glfwGetTime() - t0 > 0.5) logf("net test: step '%s' took %.1f s in one frame", seq[cur].name.c_str(), glfwGetTime() - t0);   // peers time out at 6 s

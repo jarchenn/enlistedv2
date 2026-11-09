@@ -1231,8 +1231,15 @@ void main(){
     float nn = vnoise(vAp*1.3);
     float foot = (1.0 - smoothstep(0.0, 0.45 + 0.4*nn, vAp.y)) * vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
     alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
-    float moss = foot * smoothstep(0.5, 0.72, vnoise(vAp*2.3 + 7.0)) * (pat == 3 || pat == 17 ? 0.5 : 1.0);
-    alb = mix(alb, vec3(0.13, 0.17, 0.07), moss*0.6);
+    // GX4: the dirt gradient reaches ~1 m (warm earthy tint, densest at the ground), rain splash speckle in the lowest
+    // 0.35 m, moss patches climbing from the ground to ~0.6 m (greener on lime render and rubble, less on brick)
+    float g1 = (1.0 - smoothstep(0.1, 1.15 + 0.3*nn, vAp.y)) * vert;
+    alb = mix(alb, alb*vec3(0.55, 0.5, 0.42), g1*0.75);
+    float splash = (1.0 - smoothstep(0.05, 0.5 + 0.15*nn, vAp.y)) * vert * smoothstep(0.5, 0.72, vnoise(vAp*23.0 + 3.0));
+    alb *= 1.0 - 0.35*splash;
+    float moss = vert * (1.0 - smoothstep(0.0, 0.5 + 0.3*vnoise(vAp*1.9 + 5.0), vAp.y)) * smoothstep(0.36, 0.62, vnoise(vAp*2.3 + 7.0)) * (pat == 9 || pat == 18 ? 0.6 : 1.0);
+    alb = mix(alb, mix(vec3(0.05, 0.085, 0.025), vec3(0.13, 0.16, 0.06), vnoise(vAp*9.0)), moss*0.8);
+    rough = mix(rough, 0.95, moss*0.5);
     float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, vAp.y);
     alb *= 1.0 - 0.14*streak;
   }
@@ -2348,6 +2355,8 @@ static const char* kToneFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect; uniform int uTonemap;
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
+uniform vec4 uGrade;          // content/settings/grade.json: saturation, vignette, split-tone strength, pivot luminance
+uniform vec3 uGradeLo, uGradeHi;   // shadow / highlight tints (multipliers around 1)
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
 vec3 toSRGB(vec3 c){ return mix(c*12.92, 1.055*pow(c, vec3(1.0/2.4))-0.055, step(0.0031308, c)); }
@@ -2371,10 +2380,11 @@ void main(){
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
-  // subdued, slightly desaturated period grade
+  // subdued, slightly desaturated period grade (grade.json): saturation, cool shadows / warm highlights, vignette
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
-  c = mix(vec3(l), c, 0.93);
-  vec2 q = vUV - 0.5; c *= 1.0 - dot(q,q)*0.16;
+  c = mix(vec3(l), c, uGrade.x);
+  c *= mix(vec3(1.0), mix(uGradeLo, uGradeHi, smoothstep(0.0, 2.0*uGrade.w, l)), uGrade.z);
+  vec2 q = vUV - 0.5; c *= 1.0 - dot(q,q)*uGrade.y;
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
   oColor = vec4(toSRGB(c), 1.0);
 }
@@ -3400,6 +3410,19 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uFixedExpo"), v.autoExposure ? -1.0f : lightingFixedExposure(*this));   // 1 by Day
   glUniform1f(U(progTone, "uUnderTone"), v.underwater ? 1.0f : 0.0f);   // swim.cpp
+  {   // colour grade (content/settings/grade.json, read once; the defaults match the shipped file)
+    static vec4 g(0.91f, 0.21f, 1.0f, 0.18f); static vec3 lo(0.965f, 0.995f, 1.045f), hi(1.035f, 1.0f, 0.955f); static bool read = false;
+    if (!read) {
+      read = true;
+      try {
+        json j = json::parse(readTextFile(contentDir() / "settings" / "grade.json"));
+        auto v3 = [&](const char* k, vec3 d) { return j.contains(k) ? vec3(j[k][0].get<float>(), j[k][1].get<float>(), j[k][2].get<float>()) : d; };
+        g = vec4(j.value("saturation", g.x), j.value("vignette", g.y), j.value("splitTone", g.z), j.value("pivot", g.w));
+        lo = v3("shadowTint", lo); hi = v3("highlightTint", hi);
+      } catch (std::exception& e) { logf("render: settings/grade.json: %s (defaults)", e.what()); }
+    }
+    glUniform4f(U(progTone, "uGrade"), g.x, g.y, g.z, g.w); glUniform3f(U(progTone, "uGradeLo"), lo.x, lo.y, lo.z); glUniform3f(U(progTone, "uGradeHi"), hi.x, hi.y, hi.z);
+  }
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? q.bloomStrength : 0.0f);

@@ -7,6 +7,7 @@
 #   b     joins mid-match once A is done (late join: wall, smoke age, match state, A's gun, crate, rack weapon, sandbag)
 #   c     different map  -> refused with the map message
 #   d     lobby full     -> refused with the full message
+#   e     joins, then the host goes silent -> gives up after 6 s with a message and exits cleanly
 # Usage: tools/run_net_test.sh <build dir> [port]
 # Only processes this script started are stopped. Localhost cannot test discovery across machines or firewalls.
 set -u
@@ -18,15 +19,16 @@ rm -f selftest_out/report_net_*.txt selftest_out/net_*.flag   # B waits for A's 
 sleep 4
 "$EXE" --selftest-net a "$PORT" > net_a.log 2>&1 & A=$!
 "$EXE" --selftest-net c "$PORT" > net_c.log 2>&1 & C=$!
+"$EXE" --selftest-net e "$PORT" > net_e.log 2>&1 & E=$!
 sleep 22
 "$EXE" --selftest-net b "$PORT" > net_b.log 2>&1 & BB=$!
 sleep 8
 "$EXE" --selftest-net d "$PORT" > net_d.log 2>&1 & D=$!
 status=0
-for p in $H $A $BB $C $D; do
+for p in $H $A $BB $C $D $E; do
   for i in $(seq 1 720); do kill -0 $p 2>/dev/null || break; sleep 1; done
   kill -0 $p 2>/dev/null && { echo "process $p still running after 12 min: stopping it"; kill $p; status=1; }
   wait $p || status=1
 done
-for r in host a b c d; do printf 'net %-5s ' "$r"; tail -1 "selftest_out/report_net_$r.txt" 2>/dev/null || { echo "no report"; status=1; }; done
+for r in host a b c d e; do printf 'net %-5s ' "$r"; tail -1 "selftest_out/report_net_$r.txt" 2>/dev/null || { echo "no report"; status=1; }; done
 exit $status

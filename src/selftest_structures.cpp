@@ -103,6 +103,95 @@ std::vector<CutProbe> applyCuts(App& app, const Instance& in, const AssetDef* a)
 }
 #endif
 bool w2Owned(const std::string& id) { return id.rfind("bunker_", 0) == 0 || id == "gun_mg42_embrasure"; }
+// ---- coplanar overlaps (z-fighting), the rule of tools/zfight_check.mjs: two visible box faces of different parts
+// (static parts, every wall bay's intact state, the closed door / window leaves) that face the same way, lie within
+// 6 mm and overlap in area, unless a third solid sits within 3 mm in front of the whole overlap (never visible).
+struct ZBox { vec3 c, ax[3], h; };
+struct ZFace { int pi; vec3 n, fc, u, v; float d, hu, hv; };
+float zArea(const std::vector<vec2>& P) { float s = 0; for (size_t i = 0; i < P.size(); ++i) { vec2 a = P[i], b = P[(i + 1) % P.size()]; s += a.x * b.y - b.x * a.y; } return s / 2; }
+std::vector<vec2> zClip(const std::vector<vec2>& poly, vec2 a, vec2 b) {
+  std::vector<vec2> out; auto side = [&](vec2 p) { return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x); };
+  for (size_t i = 0; i < poly.size(); ++i) {
+    vec2 p = poly[i], q = poly[(i + 1) % poly.size()]; float sp = side(p), sq = side(q);
+    if (sp >= 0) out.push_back(p);
+    if ((sp >= 0) != (sq >= 0)) out.push_back(p + (q - p) * (sp / (sp - sq)));
+  }
+  return out;
+}
+int coplanarOverlaps(const json& j, std::string& why) {
+  std::vector<ZBox> B;
+  auto push = [&](const json& list) {
+    for (auto& p : list) {
+      std::string t = p.value("t", std::string("b"));
+      if (p.value("v", 1) == 0 || (t != "b" && t != "r")) continue;
+      quat q(1, 0, 0, 0);
+      if (p.contains("q")) q = glm::normalize(quat(p["q"][3].get<float>(), p["q"][0].get<float>(), p["q"][1].get<float>(), p["q"][2].get<float>()));
+      else if (p.contains("r")) q = quat(glm::radians(jvec3(p["r"])));
+      ZBox b; b.c = jvec3(p["c"]); b.h = jvec3(p["s"]) * 0.5f;
+      for (int i = 0; i < 3; ++i) { vec3 e(0); e[i] = 1; b.ax[i] = q * e; }
+      B.push_back(b);
+    }
+  };
+  push(j.value("parts", json::array()));
+  for (auto& pn : j.value("panels", json::array())) if (pn.contains("states") && !pn["states"].empty()) push(pn["states"][0]);
+  for (auto& it : j.value("interactables", json::array())) for (auto& L : it.value("leaves", json::array())) push(L.value("parts", json::array()));
+  std::vector<ZFace> F;
+  for (int pi = 0; pi < (int)B.size(); ++pi) for (int i = 0; i < 3; ++i) for (float s : {-1.0f, 1.0f}) {
+    const ZBox& b = B[pi]; ZFace f; f.pi = pi; f.n = b.ax[i] * s; f.fc = b.c + f.n * b.h[i]; f.d = glm::dot(f.n, f.fc);
+    f.u = b.ax[(i + 1) % 3]; f.v = b.ax[(i + 2) % 3]; f.hu = b.h[(i + 1) % 3]; f.hv = b.h[(i + 2) % 3]; F.push_back(f);
+  }
+  const float EPS = 0.006f;
+  std::map<std::string, std::vector<int>> buckets;
+  auto nkey = [](vec3 n) { char k[64]; std::snprintf(k, sizeof k, "%d,%d,%d", (int)std::lround(n.x * 200), (int)std::lround(n.y * 200), (int)std::lround(n.z * 200)); return std::string(k); };
+  for (int fi = 0; fi < (int)F.size(); ++fi) buckets[nkey(F[fi].n) + "|" + std::to_string((long)std::lround(F[fi].d / EPS))].push_back(fi);
+  auto inside = [&](const ZBox& b, vec3 p) { vec3 d = p - b.c; for (int i = 0; i < 3; ++i) if (std::fabs(glm::dot(d, b.ax[i])) >= b.h[i] - 1e-4f) return false; return true; };
+  std::set<std::pair<int, int>> seen; int n = 0;
+  for (auto& [key, list] : buckets) {
+    size_t bar = key.find('|'); std::string nk = key.substr(0, bar); long dk = std::stol(key.substr(bar + 1));
+    std::vector<int> cand = list;
+    for (long dd : {-1L, 1L}) { auto it = buckets.find(nk + "|" + std::to_string(dk + dd)); if (it != buckets.end()) cand.insert(cand.end(), it->second.begin(), it->second.end()); }
+    for (int fa : list) for (int fb : cand) {
+      if (fb <= fa) continue;
+      const ZFace &A = F[fa], &Bf = F[fb];
+      if (A.pi == Bf.pi || glm::dot(A.n, Bf.n) < 0.9999f || std::fabs(A.d - Bf.d) > EPS) continue;
+      auto pk = std::make_pair(std::min(A.pi, Bf.pi), std::max(A.pi, Bf.pi)); if (seen.count(pk)) continue;
+      auto to2 = [&](vec3 p) { vec3 d = p - A.fc; return vec2(glm::dot(d, A.u), glm::dot(d, A.v)); };
+      std::vector<vec2> poly;
+      for (auto [su, sv] : {std::pair{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}) poly.push_back(to2(Bf.fc + Bf.u * (su * Bf.hu) + Bf.v * (sv * Bf.hv)));
+      if (zArea(poly) < 0) std::reverse(poly.begin(), poly.end());
+      vec2 R[4] = {{-A.hu, -A.hv}, {A.hu, -A.hv}, {A.hu, A.hv}, {-A.hu, A.hv}};
+      for (int e = 0; e < 4 && !poly.empty(); ++e) poly = zClip(poly, R[e], R[(e + 1) % 4]);
+      if (poly.size() < 3 || std::fabs(zArea(poly)) < 2e-4f) continue;   // 2 cm2 (the JS check, which the resolver uses, flags from 1 cm2)
+      vec2 c(0); for (auto& p : poly) c += p; c /= (float)poly.size();
+      std::vector<vec2> pts{c};
+      for (auto& p : poly) { vec2 d = p - c; float l = std::max(glm::length(d), 1e-6f); pts.push_back(p - d / l * std::min(0.005f, l * 0.5f)); }
+      float front = std::max(A.d, Bf.d) - A.d + 0.003f;
+      bool hidden = true;
+      for (auto& q : pts) {
+        vec3 w = A.fc + A.u * q.x + A.v * q.y + A.n * front; bool in = false;
+        for (int pi = 0; pi < (int)B.size() && !in; ++pi) if (pi != A.pi && pi != Bf.pi && inside(B[pi], w)) in = true;
+        if (!in) { hidden = false; break; }
+      }
+      if (hidden) continue;
+      seen.insert(pk); ++n;
+      if (why.size() < 160) { char b[96]; vec3 at = A.fc + A.u * c.x + A.v * c.y; std::snprintf(b, sizeof b, " (%.2f,%.2f,%.2f)", at.x, at.y, at.z); why += b; }
+    }
+  }
+  return n;
+}
+// per asset: overlaps accepted today (assets this check found them in when it was added; GX4's exterior pass resolves
+// the B2 / B3 buildings in tools/exterior.mjs unfight()). Any asset above its number, or any other enterable asset with
+// one, fails.
+const std::map<std::string, int> kZAllowed = {
+  {"aw_dugout_personnel", 5}, {"aw_r612_unfinished", 11}, {"aw_r667_casemate", 8}, {"aw_tobruk_mg", 12}, {"aw_tobruk_turret", 4},
+  {"bch_lcvp_beached", 27}, {"bch_lcvp_intact", 27}, {"bch_lcvp_wrecked", 32}, {"bunker_command_shelter", 15}, {"bunker_field_shelter", 5},
+  {"bunker_large_casemate", 31}, {"bunker_mg_casemate", 18}, {"bunker_observation_post", 11}, {"bunker_pak_casemate", 20},
+  {"ruin_barn_burnt", 7}, {"ruin_cottage_corner", 18}, {"ruin_farmhouse_gutted", 35}, {"ruin_house_shelled", 81}, {"ruin_shop_row", 49},
+  {"ruin_townhouse_facade", 228}, {"vil_chateau_keep", 28}, {"vil_church_ruined", 22},
+  {"house_farmhouse_2story", 4}, {"large_stone_warehouse", 2}, {"large_village_inn", 5}, {"vil_chateau_grand", 17}, {"vil_longhouse_thatched", 9},
+  {"vil_rectory", 1}, {"vil_villa_deauville", 5},
+};
+
 const char* effName(NavEffect e) { static const char* n[] = {"auto", "block", "carve", "area", "none"}; return n[(int)e]; }
 float yawToCam(vec3 from, vec3 to) { vec3 d = to - from; return degrees(std::atan2(-d.x, -d.z)); }
 vec3 facing(float yawDeg) { return vec3(std::sin(radians(yawDeg)), 0, std::cos(radians(yawDeg))); }   // asset yaw convention
@@ -128,6 +217,19 @@ void SelfTest::structuresUpdate(App& app, float dt) {
       else check(false, a->id + ": has no nav metadata");
       const char* only = std::getenv("NMK_STRUCTURES_ONLY");   // comma-separated asset ids: walk only those (B3 dev runs)
       if (a->raw.contains("tour") && (!only || std::strstr(only, a->id.c_str()))) sIds.push_back(a->id);
+    }
+    {   // ---- no coplanar overlaps (z-fighting) on any enterable asset (GX4, tools/zfight_check.mjs)
+      int total = 0, bad = 0; std::string worst;
+      for (auto& up : app.lib.assets) {
+        const AssetDef* a = up.get();
+        if (!a->enterable) continue;
+        std::string why; int n = coplanarOverlaps(a->raw, why); total += n;
+        auto it = kZAllowed.find(a->id); int allow = it == kZAllowed.end() ? 0 : it->second;
+        if (n > allow) { ++bad; if (worst.size() < 400) worst += " " + a->id + " " + std::to_string(n) + " > " + std::to_string(allow) + why + ";"; }
+      }
+      summary["zfight"] = {{"overlaps", total}, {"assetsOver", bad}};
+      check(bad == 0, "no new coplanar overlaps (same-facing faces within 6 mm): " + std::to_string(total) + " in all enterable assets, all within the accepted list" + (bad ? ";" + worst : ""));
+      if (std::getenv("NMK_ZFIGHT_ONLY")) { finish(app); return; }
     }
     summary["catalogue"] = {{"assets", app.lib.assets.size()}, {"navAuthored", authored}, {"navPendingW2", pending}, {"w4Assets", sIds.size()}};
     check(sIds.size() >= 30, "W4 structure assets found: " + std::to_string(sIds.size()));

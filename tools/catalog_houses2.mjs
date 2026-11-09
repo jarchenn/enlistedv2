@@ -13,7 +13,7 @@
 // Regenerate with `node tools/build_mpu_assets.mjs` (never run build_assets.mjs).
 import { Asset, cutRect, wbox } from "./kit.mjs";
 import {
-  stdMaterials, wall, partition, window, door, stairs, railing, table, chair, bench, bed, armoire, dresser, chest, gableRoof, quoins,
+  extOf,   stdMaterials, wall, partition, window, door, stairs, railing, table, chair, bench, bed, armoire, dresser, chest, gableRoof, quoins,
   pilaster, stringCourse, cornice, surround, archOpening, colonnade, balcony, dormer, turret, timberFrame, chimney, chimneyCap, fbox, fpart, weather,
 } from "./parts.mjs";
 import { workshop, dairy, storehouse, office } from "./catalog_small.mjs";
@@ -93,6 +93,7 @@ function roofDormer(A, S, x, s = 1, w = 1.0, h = 1.0) {
 //      cornice: [faces], plinth, ivy, dormers: [[x, s, w, h]], chimneys: [{x, z, ...}], extra(A, ctx), pocks, yard }
 function dress(A, S) {
   const { X, Z, T, GF, EAVE } = S, Fs = FACES(X, Z), y0 = GF - 0.02;
+  extOf(A).body = { X, Z, T, GF, h: (S.floors?.[0] ?? EAVE) - GF, n: 1 + (S.floors || []).length, EAVE, jetty: 0 };   // GX4 exterior pass (tools/exterior.mjs)
   const ops = openingsOf(A, X, Z, T), on = (f) => ops.filter((o) => o.face === f);
   // bevel the legacy opening dressings (lintels, sills, thresholds, steps, the hearth jambs stay plain) and the quoins
   const legacy = [];

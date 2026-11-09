@@ -810,6 +810,7 @@ void Net::update(App& app, float dt) {
   for (int iter = 0; iter < 512; ++iter) {
     int got = recvfrom(d->s, buf, sizeof buf, 0, (sockaddr*)&from, &fl);
     if (got <= 0) break;
+    if (simDeaf) continue;
     bytesIn += got; ++packetsIn;
     R r(buf, got);
     if (r.u32() != kMagic) continue;

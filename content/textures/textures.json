@@ -83,7 +83,7 @@
     "earth": "soil", "earth_raw": "soil", "earth_dark": "soil", "spoil": "soil", "bank_soil": "soil",
     "turf": "turf", "grass_a": "turf", "grass_b": "turf", "grass_c": "turf", "moss": "turf",
     "mud": "mud", "sand": "sand", "shingle": "shingle",
-    "ridge_tile": "roof_tile",
+    "ridge_tile": "roof_tile", "tile": "roof_tile",
     "brick_rubble": "rubble_debris", "rubble_core": "stone_rubble", "stone_plinth": "stone_rubble",
     "rock": "stone_field", "rock_dark": "stone_field", "bank_stone": "stone_field", "field_stone": "stone_field", "hearthstone": "sandstone",
     "concrete_wash": "bunker_wash", "cement": "concrete_light",
