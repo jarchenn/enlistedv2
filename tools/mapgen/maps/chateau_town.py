@@ -642,7 +642,10 @@ def build(ctx):
     s1p, s1t = point_at(g["S1"], 70.0)
     orch = [e for e in b.tagged("orchard") if e["asset"] == "tree_apple"]
     # orchard view: between a tree and its nearest neighbour (half a row apart), looking down the gap between the rows
-    t0 = orch[len(orch) // 2]
+    hedges = [e for e in b.inst if e["asset"].startswith(("bcg_", "hedgerow"))]
+    near = lambda e, pool, r: sum(1 for o in pool if o is not e and math.hypot(o["pos"][0] - e["pos"][0], o["pos"][2] - e["pos"][2]) < r)
+    inside = [e for e in orch if near(e, orch, 11.0) >= 6 and near(e, hedges, 16.0) == 0]   # deep in a block, no hedge close by
+    t0 = (inside or orch)[len(inside or orch) // 2]
     t1 = min((e for e in orch if e is not t0), key=lambda e: math.hypot(e["pos"][0] - t0["pos"][0], e["pos"][2] - t0["pos"][2]))
     ox, oz = (t0["pos"][0] + t1["pos"][0]) / 2, (t0["pos"][2] + t1["pos"][2]) / 2
     ow = (-(t1["pos"][2] - t0["pos"][2]), t1["pos"][0] - t0["pos"][0])
