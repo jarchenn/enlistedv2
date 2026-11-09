@@ -121,7 +121,7 @@ public:
     bool skyLast = true;         // skylast: the sky after the opaque world (early-Z skips it under geometry)
     bool terrainLast = true;     // terrainlast: the terrain after solids, models and canopies (the ground they hide is never shaded)
     bool probeRefresh = true;    // proberefresh: full probe budget only while probes wait for a first capture, then 2 / 1 per frame
-    bool hlod = true;            // hlod: far buildings merged per 128 m cell (hlod.cpp)
+    bool hlod = false;           // hlod (--rq-on): buildings merged per 128 m cell (hlod.cpp); off: on a 2080 Ti it saved 4-12 % of draws but cost +0.2-0.5 ms (rendering.md 12.4)
     bool assetLod = true;        // assetlod: part-built assets drawn with their LOD meshes by screen size; sub-pixel props skipped
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false; return p; }
