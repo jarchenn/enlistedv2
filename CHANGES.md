@@ -78,7 +78,49 @@ parts, and none goes over 75 parts.
   version 2).
 
 ### Numbers
-(filled in below from the captures and suites)
+**Acceptance, from `--selftest-interiors`:**
+- **current_01 hallway.** The chateau's 38.7 m ground-floor corridor gets:
+  - 7 pendants, 4.8-5.5 m apart, each at least 2.25 m from a window's centre line (they hang between the windows);
+  - 8 runner rugs, 20 pictures and sconces at its doorways.
+- **current_02 room.** The chateau's largest ground-floor room (169 m2) has 95 pieces (gate ≥ 25), 21 of them
+  wall-mounted (gate ≥ 6), and 19 lights. Its longest bare wall is 4.0 m (gate ≤ 4).
+- **Every building.** All 24 furnishable building types have 134 / 134 rooms furnished and 134 / 134 with their own
+  light. 7 of 128 rooms still have a bare run over 4 m: schoolhouse halls, the inn, the mairie hall. Each is 4.1-4.8 m,
+  along walls that are mostly stair or doorway.
+- **Density.** 1702 pieces against 156 with the first templates, ×10.9. The chateau went from 369 to 989 pieces; its
+  furnish time went from 268 to 366 ms.
+
+**Frame time.** The GPU is shared with other sessions and two open game windows, so cross-build timings swing by
+±50 % and are not usable. The pendant budget was measured in one process instead: the same night hall view, with
+the hall pendants alternately on and off every 30 frames, 8 rounds each (`NMK_CAPTURE_AB=1`).
+
+| Hall | Pendants | Effect on GPU time, two runs |
+|---|---|---|
+| Chateau corridor | 7 | +0.7 to +2.1 % |
+| Rectory hall | | +0.8 to +2.5 % |
+| Mairie hall | | +1.0 to +1.7 % |
+| Schoolhouse hall | | +0.6 to +4.3 % |
+
+All are inside the brief's 5 % budget for a hallway with 6 pendants. The raw data is
+`screens/gx/gx2_pendant_ab_night.json`. Absolute GPU times were 40-65 ms under the shared load. Low turns the dust motes off (and L2 already
+drops light shadows and GI on Low).
+
+**Suites** (all through `tools/gpu_turn.sh`):
+
+| Suite | Result |
+|---|---|
+| `--selftest-lights` | 45 / 45 |
+| `--selftest-damage` | 0 failures |
+| `--selftest-interiors` | see the hand-over note (final run) |
+| `--selftest-structures` | see the hand-over note |
+
+`townhouse_facade` "up the rubble field" also fails on the batch2 base (GX1's before-run).
+
+**Test changes**, each explained in a comment at the change:
+- the decor / removed-furniture fixtures move clear of the grid;
+- the glazed-hutch check looks for a glazed hutch;
+- the persistence step restores the lights its undo brings back off;
+- the lights check now names each dark building's lights and their reasons.
 
 ### Deferred, and engine limits
 - **The chateau's 10 x 18.6 m rooms keep their volume.** They are furnished as zones rather than split by new
