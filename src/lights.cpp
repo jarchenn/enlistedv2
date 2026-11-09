@@ -237,6 +237,17 @@ Spot ceilingSpot(App& app, const Instance& host, const RoomInfo& ri, int k, cons
       vec3 he = glm::max((pd->bmax - pd->bmin) * 0.5f - vec3(0.02f, 0.04f, 0.02f), vec3(0.01f)) * 0.5f;
       vec3 top = host.pos + hq * vec3(c.x, cy - 0.004f, c.y);
       if (Physics::boxBlocked(top + q * ((pd->bmin + pd->bmax) * 0.5f) + vec3(0, 0.02f, 0), he, q)) continue;
+      // the keep-clear test of InteriorSys::checkPlacement on the lamp's whole box: the keep grid above only marks cell
+      // centres, so a lamp beside a stair box (keep extends 2.2 m above the flight) passed here and failed the re-check
+      quat lq = yawQuat(yaw); vec3 mn(1e9f), mx(-1e9f);
+      for (int k2 = 0; k2 < 8; ++k2) {
+        vec3 cc((k2 & 1) ? pd->bmax.x : pd->bmin.x, (k2 & 2) ? pd->bmax.y : pd->bmin.y, (k2 & 4) ? pd->bmax.z : pd->bmin.z);
+        vec3 lp = vec3(c.x, cy - 0.004f, c.y) + lq * cc; mn = glm::min(mn, lp); mx = glm::max(mx, lp);
+      }
+      mn += vec3(0.03f); mx -= vec3(0.03f);
+      bool keepHit = false;
+      for (auto& b : ri.keep) keepHit |= (pd->blocking || b.kind == 1) && mn.x < b.mx.x && mx.x > b.mn.x && mn.y < b.mx.y && mx.y > b.mn.y && mn.z < b.mx.z && mx.z > b.mn.z;
+      if (keepHit) continue;
     }
     if (!best.ok || cy > best.ceil + 0.05f) { best.ok = true; best.ceil = cy; best.p = vec3(c.x, cy, c.y); }
   }
