@@ -48,6 +48,9 @@ struct Soldier {
   int slot = -1; bool inUse = false, alive = false;
   Faction faction = Faction::Allies; CombatRole role = CombatRole::Defender;
   int team = 0;                              // friend / foe (G1): Assault / TDM = (int)role, Solo = own slot
+  bool zombie = false;                       // G2: AI type Zombies for its side (zombie.cpp): melee only, no weapon
+  float meleeWind = -1; double meleeReady = 0;   // G2: zombie strike wind-up (s, < 0 = none), next strike allowed at Game::t
+  int meleeCount = 0, meleeClip = 0; AnimPlayer anim;   // G2: strikes started, attack clip of the current one; clip state (zombie.cpp)
   bool localPlayer = false, human = false; int peer = -1;
   int agent = -1;                            // physics agent (bots, remote humans); the local player uses the explore character
   vec3 feet{0}, vel{0}; float yaw = 0, pitch = 0; int posture = 0; float speed = 0;
@@ -131,6 +134,7 @@ public:
   bool projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& tHit);   // true: a soldier was hit
   void explosionDamage(vec3 p, float dmg, float radius, int owner, bool grenade);
   void damage(int s, float dmg, int attacker, vec3 dir, const char* how);
+  bool meleeHit(int attacker, int victim, float dmg);   // G2 (zombie.cpp): a blow that landed (zombie strike, the knife)
   bool hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const;
   int soldierOfOwner(int owner) const;
   bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }

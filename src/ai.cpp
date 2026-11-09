@@ -51,6 +51,7 @@ void Game::aiStep(Soldier& s, float dt) {
     auto st = Physics::agent(s.agent); s.feet = st.pos; s.vel = vec3(0); s.speed = 0;
     return;
   }
+  if (s.zombie) { crumb("ai: zombie"); aiZombieStep(*this, s, dt); return; }   // G2: no perception, decisions, cover, aim or grenades
   float hd = A->nearestHumanDist(s.feet);
   bool lod = hd < 1e8f && hd > A->tj("budget", "lodDistance_m", 300.0f);
   // G1 crowds (up to 100 AI): beyond 60 m from every human, perception / decisions slow down with the bot count

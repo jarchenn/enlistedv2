@@ -84,6 +84,17 @@ std::string semanticKey(const std::string& raw) {
   if (u != std::string::npos && u + 1 < n.size() && std::all_of(n.begin() + u + 1, n.end(), ::isdigit)) n = n.substr(0, u);
   return n;
 }
+// G2 zombie (Sketchfab export, two numeric suffixes per name: hip_016_12): strip them all, then map the rig's names
+std::string aliasKey(const std::string& raw) {
+  std::string n = raw;
+  for (size_t u; (u = n.rfind('_')) != std::string::npos && u + 1 < n.size() && std::all_of(n.begin() + u + 1, n.end(), ::isdigit);) n = n.substr(0, u);
+  static const std::map<std::string, std::string> al = {{"hip", "Hips"}, {"spine01", "Spine"}, {"chest", "Spine2"}, {"neck", "Neck"}, {"head", "Head"},
+    {"shoulder_L", "LeftShoulder"}, {"upper_arm_L", "LeftArm"}, {"forearm_L", "LeftForeArm"}, {"hand_L", "LeftHand"},
+    {"shoulder_R", "RightShoulder"}, {"upper_arm_R", "RightArm"}, {"forearm_R", "RightForeArm"}, {"hand_R", "RightHand"},
+    {"thigh_L", "LeftUpLeg"}, {"shin_L", "LeftLeg"}, {"foot_L", "LeftFoot"}, {"toe_L", "LeftToeBase"},
+    {"thigh_R", "RightUpLeg"}, {"shin_R", "RightLeg"}, {"foot_R", "RightFoot"}, {"toe_R", "RightToeBase"}};
+  auto it = al.find(n); return it == al.end() ? std::string() : it->second;
+}
 const char* kSemanticNames[CJ_COUNT] = {"Hips", "Spine", "Spine1", "Spine2", "Neck", "Head",
   "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "RightShoulder", "RightArm", "RightForeArm", "RightHand",
   "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase", "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"};
@@ -123,7 +134,7 @@ bool initSkinning(std::string& err) {
   return true;
 }
 
-bool CharModel::load(const fs::path& path, std::string& err) {
+bool CharModel::load(const fs::path& path, std::string& err, float height) {
   Glb g;
   if (!readGlb(path, g, err)) return false;
   id = path.stem().string();
@@ -136,8 +147,11 @@ bool CharModel::load(const fs::path& path, std::string& err) {
     nodeName[k] = n.value("name", ""); nodeLocal[k] = localOf(n);
     if (n.contains("children")) for (auto& c : n["children"]) nodeParent[c.get<int>()] = (int)k;
   }
-  std::function<mat4(int)> world = [&](int k) -> mat4 { return nodeParent[k] < 0 ? nodeLocal[k] : world(nodeParent[k]) * nodeLocal[k]; };
+  std::function<mat4(int)> world = [&](int k) -> mat4 { return nodeParent[k] < 0 ? rootFix * nodeLocal[k] : world(nodeParent[k]) * nodeLocal[k]; };
   for (size_t k = 0; k < nn; ++k) nodeWorld[k] = world((int)k);
+  std::vector<int> depth(nn, 0); nodeOrder.clear();
+  for (size_t k = 0; k < nn; ++k) { for (int p = nodeParent[k]; p >= 0; p = nodeParent[p]) ++depth[k]; nodeOrder.push_back((int)k); }
+  std::stable_sort(nodeOrder.begin(), nodeOrder.end(), [&](int a, int b) { return depth[a] < depth[b]; });
   const json& sk = J["skins"][0];
   for (auto& x : sk["joints"]) jointNode.push_back(x.get<int>());
   int nj = (int)jointNode.size();
@@ -149,7 +163,8 @@ bool CharModel::load(const fs::path& path, std::string& err) {
     for (int p = nodeParent[jointNode[k]]; p >= 0; p = nodeParent[p]) if (nodeToJoint.count(p)) { jointParent[k] = nodeToJoint[p]; break; }
     jointHead[k] = vec3(nodeWorld[jointNode[k]][3]);
   }
-  for (int s = 0; s < CJ_COUNT; ++s) { semantic[s] = -1; for (int k = 0; k < nj; ++k) if (semanticKey(nodeName[jointNode[k]]) == kSemanticNames[s]) { semantic[s] = k; break; } }
+  for (int s = 0; s < CJ_COUNT; ++s) { semantic[s] = -1; for (int k = 0; k < nj; ++k) if (semanticKey(nodeName[jointNode[k]]) == kSemanticNames[s] || aliasKey(nodeName[jointNode[k]]) == kSemanticNames[s]) { semantic[s] = k; break; } }
+  if (semantic[CJ_SPINE1] < 0) semantic[CJ_SPINE1] = semantic[CJ_SPINE2] >= 0 ? semantic[CJ_SPINE2] : semantic[CJ_SPINE];   // a two-bone spine (zombie)
   for (int s : {CJ_HIPS, CJ_SPINE2, CJ_HEAD, CJ_LARM, CJ_LFOREARM, CJ_LHAND, CJ_RARM, CJ_RFOREARM, CJ_RHAND, CJ_LUPLEG, CJ_LLEG, CJ_LFOOT, CJ_RUPLEG, CJ_RLEG, CJ_RFOOT})
     if (semantic[s] < 0) { err = std::string("skeleton has no ") + kSemanticNames[s] + " joint"; return false; }
   // ---- geometry: every mesh primitive (skinned: model space; unskinned: node world, bound to its nearest joint)
@@ -219,6 +234,23 @@ bool CharModel::load(const fs::path& path, std::string& err) {
     }
   }
   if (verts.empty()) { err = "no geometry"; return false; }
+  if (height > 0) {
+    // an unbaked source (G2 zombie): scale the rest pose to the height, feet at 0, centred. The skinned vertices move
+    // into that model space (bind pose seen from the root joint) and the inverse binds compensate, so skin = world * invBind
+    // still holds; rootFix sits above the root nodes, so clips that animate the hierarchy keep it.
+    std::vector<mat4> S(nj); for (int k = 0; k < nj; ++k) S[k] = nodeWorld[jointNode[k]] * invBind[k];
+    vec3 lo(1e9f), hi(-1e9f);
+    for (auto& v : verts) { mat4 M(0.0f); for (int q = 0; q < 4; ++q) if (v.w[q] > 0) M += S[v.j[q]] * v.w[q]; vec3 p = vec3(M * vec4(v.pos, 1)); lo = glm::min(lo, p); hi = glm::max(hi, p); }
+    float sc = height / std::max(1e-4f, hi.y - lo.y);
+    rootFix = glm::scale(mat4(1), vec3(sc)) * glm::translate(mat4(1), -vec3((lo.x + hi.x) * 0.5f, lo.y, (lo.z + hi.z) * 0.5f));
+    mat4 A = rootFix * S[0], Ai = glm::inverse(A);
+    bmin = vec3(1e9f); bmax = vec3(-1e9f);
+    for (auto& v : verts) { v.pos = vec3(A * vec4(v.pos, 1)); v.nrm = glm::normalize(glm::mat3(A) * v.nrm); bmin = glm::min(bmin, v.pos); bmax = glm::max(bmax, v.pos); }
+    for (auto& ib : invBind) ib = ib * Ai;
+    for (size_t k = 0; k < nn; ++k) nodeWorld[k] = world((int)k);
+    for (int k = 0; k < nj; ++k) jointHead[k] = vec3(nodeWorld[jointNode[k]][3]);
+    for (auto& p : gpu.parts) { p.bmin = bmin; p.bmax = bmax; }
+  }
   // GPU: shared index buffer + rest vertices (SSBO for skinning; a bind-pose VBO for the shared vao)
   std::vector<TexVertex> tv(verts.size());
   for (size_t k = 0; k < verts.size(); ++k) tv[k] = {verts[k].pos, verts[k].nrm, vec4(1, 0, 0, 1), verts[k].uv};
@@ -232,7 +264,9 @@ bool CharModel::load(const fs::path& path, std::string& err) {
   auto attr = [&](GLuint vao, int loc, int n, size_t off) { glEnableVertexArrayAttrib(vao, loc); glVertexArrayAttribFormat(vao, loc, n, GL_FLOAT, GL_FALSE, (GLuint)off); glVertexArrayAttribBinding(vao, loc, 0); };
   attr(gpu.vao, 0, 3, offsetof(TexVertex, pos)); attr(gpu.vao, 1, 3, offsetof(TexVertex, nrm)); attr(gpu.vao, 2, 4, offsetof(TexVertex, tan)); attr(gpu.vao, 3, 2, offsetof(TexVertex, uv));
   gpu.bmin = bmin; gpu.bmax = bmax; gpu.tris = (int)I.size() / 3;
-  logf("character %s: %zu verts, %d tris, %d joints, %zu materials", id.c_str(), verts.size(), gpu.tris, nj, gpu.mats.size());
+  clipsFromGltf(J, [&](int a) { int c; return acc(g, a, c); }, clips);
+  analyzeClips(*this);
+  logf("character %s: %zu verts, %d tris, %d joints, %zu materials, %zu clips", id.c_str(), verts.size(), gpu.tris, nj, gpu.mats.size(), clips.size());
   return true;
 }
 

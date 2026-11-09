@@ -46,6 +46,7 @@ rule() {
     gore)       echo 'src/(gore|decals|render)' ;;
     structures) echo 'src/(assets|physics|terrain_cuts|nav_links|interior)|content/assets/' ;;
     aicourse)   echo 'src/(ai_|nav)|content/ai/' ;;
+    zombies)    echo 'src/(zombie|anim_clip|character|selftest_zombies|ai|game|pose|equipment|match|scenario|mpai|rules|nav)|content/(ai|characters)/' ;;
     nature)     echo 'src/(nature|grass|snap|terrain|app)\.|content/assets/nat_' ;;
     settings)   echo 'src/(settings|render|audio)' ;;
     autopath)   echo 'src/(autopath|paths)' ;;
