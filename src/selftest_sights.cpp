@@ -735,6 +735,8 @@ void SelfTest::sightsUpdate(App& app, float dt) {
                           id.c_str(), p.w, p.h, a.R.viewModel.size(), a.R.viewModelTex.size(), 100.0f * below / std::max(1, belowAll), inside, d.reticle.c_str(), vx, cx, hy, cy, mIn, mOut, c.rearErr);
             check(a.scopeView() && !(a.R.viewModel.empty() && a.R.viewModelTex.empty()) && below >= 0.03f * belowAll && nv == 3 && nh == 2 && std::fabs(vx - cx) <= 1.5f && std::fabs(hy - cy) <= 1.5f
                   && mIn > 2.0f * mOut && c.ok && c.rearErr < 0.5f, b);
+            int arms = 0; for (auto& it : a.R.viewModel) for (auto& m : a.armMesh) arms += it.mesh == &m;
+            check(arms == 0 && a.vm.showArms, id + " scope view: no arm boxes drawn (" + std::to_string(arms) + "; the support arm read as a plank beside the eyepiece), arms still on for irons / hip");
             summary[id]["scope"] = {{"belowWeaponPct", 100.0f * below / std::max(1, belowAll)}, {"postX", vx}, {"barY", hy}, {"centre", {cx, cy}}, {"eyepieceMean", mIn}, {"surroundMean", mOut}};
           }); });
       }

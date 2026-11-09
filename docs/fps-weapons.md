@@ -237,7 +237,7 @@ A readout gives the pixel errors, relief and weapon FOV. Self-test screenshots a
 2. **Eyepiece composite** into `dofTex`, copied back to `hdrColor`:
    - inside a circle of radius `App::kScopeEyepieceR` (0.35 of the frame height, so 70 % across), the sharp, magnified world with a slight edge falloff and the reticle ink;
    - outside it, the world blurred heavily (16 taps on a coarse `hdrColor` mip), darkened to 3.5 % (linear; about 20 % on screen), with a black tube rim just past the circle.
-3. **The view model** (weapon and arms), as before.
+3. **The view model**, without the IK arms while scoped (the support arm read as a flat plank beside the eyepiece).
 4. **Eyepiece restore**, blended `ONE, SRC_ALPHA`: the inside of the circle comes back from the composite, so the weapon shows only around the eyepiece (tube rim, receiver, bolt, stock below it). Outside, the weapon is shaded to 60 % (55 % of that toward the corners).
 
 **Exposure.** The exposure reads the `hdrColor` mips made before the eyepiece, so the dark surround does not brighten the view.

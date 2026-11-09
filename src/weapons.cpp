@@ -227,7 +227,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     float y = u < 0.6f ? 0.12f * (1 - u / 0.6f) : 0;
     if (u < 0.85f) add(WP_CLIP, M * glm::translate(mat4(1), vec3(0, y, 0)));
   }
-  armDrawItems(M, d, s);
+  if (!scopeView()) armDrawItems(M, d, s);   // scoped: no arms (the support arm read as a flat plank beside the eyepiece)
   (void)op;
 }
 
