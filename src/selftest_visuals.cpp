@@ -132,6 +132,7 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         bool gun = d->id == "bunker_pak_casemate" || d->id == "gun_flak18";
         if (d->category != "Bunkers" && !gun) continue;
         bunkers += d->category == "Bunkers";
+        if (d->id.rfind("mil_", 0) == 0) continue;   // mil_ complexes are furnished: their ammunition comes from the mil_ammo / mil_fighting room recipes (furn_mil_ammo_rack, furn_mil_crates)
         int small = countMat(d, {"ammo_steel_de", "ammo_steel_us"}), crates = countMat(d, {"ammo_wood", "ammo_wood_dark"}), band = countMat(d, {"ammo_canvas"});
         int shells = countMat(d, {"ammo_wicker"}), brass = countMat(d, {"ammo_brass"});
         bool ok = gun ? (shells >= 2 && brass >= 2 && crates >= 8) : (small >= 2 && crates >= 1 && band >= 1);
@@ -139,7 +140,7 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         check(ok, b);
         summary["bunkers"][d->id]["ammo"] = {{"mgBoxes", small}, {"crateParts", crates}, {"carriers", shells}};
       }
-      check(bunkers == 6, std::to_string(bunkers) + " bunker prefabs in the catalogue (MG, OP, field shelter, command, large, PaK)");
+      check(bunkers == 7, std::to_string(bunkers) + " bunker prefabs in the catalogue (MG, OP, field shelter, command, large, PaK, command stronghold)");
       // decorative: resupply stays on the existing crates (crate_pak40_he companion of the PaK casemate)
       const AssetDef* pak = a.lib.find("bunker_pak_casemate");
       bool he = false; if (pak) for (auto& c : pak->raw.value("companions", json::array())) he |= c.value("asset", "") == "crate_pak40_he";
