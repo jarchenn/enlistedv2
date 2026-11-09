@@ -1898,9 +1898,13 @@ void main(){
   if (ewK > 0.001) {   // GX1 trench cuts and spoil: dark packed mud (wetter low down), freshly turned crumbly earth
     TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist), tF = terrTex(7, p, tn0, tdx, tdy, tDist);
     float cl = fbm(vec3(p*2.4 + 60.0)), cg = vnoise(vec3(p*9.0 + 61.0));
-    vec3 pmud = mix(vec3(0.085,0.068,0.052), vec3(0.135,0.105,0.078), cl*0.7 + cg*0.3) * tM.alb;
-    vec3 turned = mix(vec3(0.07,0.054,0.04), vec3(0.155,0.118,0.085), smoothstep(0.3, 0.75, cl)) * (0.85 + 0.3*cg) * tF.alb;
+    // the ground-projected texture sets streak on the near-vertical cut walls: there, procedural earth with spade marks
+    float flatK = smoothstep(0.35, 0.75, tn0.y);
+    float spade = smoothstep(0.55, 0.75, vnoise(vec3(p.xz*1.1, p.y*7.0 + 62.0)))*(1.0 - flatK);   // horizontal cut lines
+    vec3 pmud = mix(vec3(0.085,0.068,0.052), vec3(0.135,0.105,0.078), cl*0.7 + cg*0.3) * mix(vec3(1.0), tM.alb, flatK) * (1.0 - 0.25*spade);
+    vec3 turned = mix(vec3(0.07,0.054,0.04), vec3(0.155,0.118,0.085), smoothstep(0.3, 0.75, cl)) * (0.85 + 0.3*cg) * mix(vec3(1.0), tF.alb, flatK);
     float mk = vEw.x/max(vEw.x + vEw.y, 1e-3);
+    tM.dn *= flatK; tF.dn *= flatK;
     alb = mix(alb, mix(turned, pmud, mk), ewK);
     alb *= mix(1.0, 0.72, vEw.z*ewK);
     tdn = mix(tdn, mix(tF.dn, tM.dn, mk), ewK); trr = mix(trr, mix(tF.r, tM.r*0.7, mk), ewK); tao = mix(tao, mix(tF.ao, tM.ao, mk), ewK);
