@@ -13,6 +13,7 @@
 #include "textures.h"   // L4: the capture shader samples the same texture arrays as progMain
 #include "app.h"
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <unordered_map>
 #if __has_include("lights.h")
@@ -278,6 +279,7 @@ struct Sys {
   mat4 view{1}, proj{1}; vec3 cam{0}; int frame = 0; float time = 0;
   std::vector<mat4> roomInv;
   bool resetAll = false;
+  float capHour = -100.0f;   // PF2: time of day of the last captures (a jump re-captures every probe)
 } L;
 
 GLuint compileCS(Renderer& R, const char* src, bool withCommon, const char* name, const char* kCommonSrc) {
@@ -581,6 +583,7 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   for (auto& rb : R.rooms) sig += (int)(rb.m[3].x * 13 + rb.m[3].z * 7 + rb.half.x * 101);
   bool roomsChanged = sig != L.roomsSig;
   if (roomsChanged) { L.roomsSig = sig; L.roomInv.resize(R.rooms.size()); for (size_t k = 0; k < R.rooms.size(); ++k) L.roomInv[k] = glm::inverse(R.rooms[k].m); }
+  if (R.perf.probeRefresh && std::fabs(R.lt.hour - L.capHour) > 0.1f) { L.resetAll = L.capHour > -50.0f || L.resetAll; L.capHour = R.lt.hour; }
   struct Cand { int c, i; float score; };
   std::vector<Cand> cand;
   for (int ci = 0; ci < 2; ++ci) {
@@ -608,6 +611,13 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   L.resetAll = false;
   int budget = R.lt.probeBudget > 0 ? R.lt.probeBudget : (R.lt.gi >= 2 ? 8 : 3);
   budget = std::min(budget, kMaxCap);
+  // PF2 probeRefresh: the full budget only while probes wait for their first capture (camera moved, rooms or time of day
+  // changed); once the volumes are converged, 2 (High) / 1 (Medium) re-captures per frame keep them fresh, oldest and
+  // nearest first. Tests that set probeBudget keep their rate.
+  if (R.perf.probeRefresh && R.lt.probeBudget <= 0) {
+    int pending = (int)std::count_if(cand.begin(), cand.end(), [](const Cand& c) { return c.score > 1e8f; });
+    budget = std::min(budget, std::max(pending, R.lt.gi >= 2 ? 2 : 1));
+  }
   if ((int)cand.size() > budget) std::partial_sort(cand.begin(), cand.begin() + budget, cand.end(), [](const Cand& a, const Cand& b) { return a.score > b.score; });
   cand.resize(std::min((int)cand.size(), budget));
   if (cand.empty()) return;
@@ -641,10 +651,14 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   for (auto& it : opaque) {
     if (!it.mesh || !it.mesh->count || it.tint.a < 0.999f) continue;
     vec3 lo, hi; worldBox(it, lo, hi);
+    // PF2 probecull: an item narrower than ~1 capture texel (90 deg / 16 = 0.098 rad) seen from the probe adds next to
+    // nothing to its L1 SH but costs six layers of geometry; the probe skips it (a probe inside the box never does)
+    const float minAng2 = R.perf.probeCull ? 0.098f * 0.098f : 0.0f, diag2 = glm::dot(hi - lo, hi - lo);
     int n = 0;
     for (int k = 0; k < K; ++k) {
       const Cascade& c = L.cas[cand[k].c]; const Probe& pr = c.p[cand[k].i];
-      if (boxDist2(pr.pos, lo, hi) > c.range * c.range) continue;
+      float d2 = boxDist2(pr.pos, lo, hi);
+      if (d2 > c.range * c.range || diag2 < minAng2 * d2) continue;
       for (int f = 0; f < 6; ++f) if (frs[k * 6 + f].visible(lo, hi)) layers[n++] = k * 6 + f;
     }
     if (!n) continue;
@@ -729,8 +743,12 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, L.lightBuf); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, L.clusterBuf);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, L.lsVPBuf); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, L.probeBuf);
   // ---- shadows of the nearest casters, then the probes (their captures use both)
-  shadowPass(R, opaque);
-  probePass(R, v, opaque, t);
+  R.gpuMark(GP_LightShadows); shadowPass(R, opaque);
+  R.gpuMark(GP_Probes);
+  { auto c0 = std::chrono::steady_clock::now();
+    if (R.perf.probeCapture) probePass(R, v, opaque, t); else L.captured = L.captureDraws = 0;   // PF2 A/B: GI frozen
+    R.stats.probeCpuMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c0).count(); R.stats.probes = L.captured; }
+  R.gpuMark(GP_Clusters);
   // ---- froxel clusters for the camera
   glUseProgram(L.progCluster);
   glUniformMatrix4fv(U(L.progCluster, "uViewM"), 1, GL_FALSE, glm::value_ptr(L.view));

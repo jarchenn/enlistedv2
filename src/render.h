@@ -46,7 +46,13 @@ struct RenderView {
   vec3 underFogCol{0.06f, 0.24f, 0.25f}; float underFogDens = 0.11f;   // movement.json "swim"
 };
 
-struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int culled = 0; };   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes)
+struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int culled = 0; double probeCpuMs = 0; int probes = 0; };   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
+// GPU time per render pass from timestamp queries (Renderer::gpuMark, docs/rendering.md#gpu-budget), in frame order:
+// a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
+enum GpuPass : int { GP_CloudShadow, GP_ShadowNear, GP_ShadowFar, GP_SkyOcc, GP_LightShadows, GP_Probes, GP_Clusters,
+                     GP_Clears, GP_Sky, GP_Terrain, GP_Opaque, GP_Models, GP_Trees, GP_Grass, GP_Nature, GP_MsaaResolve, GP_Water, GP_Gore,
+                     GP_Glass, GP_Composite, GP_Taa, GP_Bloom, GP_Fx, GP_Weapon, GP_Post, GP_UI, GP_Count };
+const char* gpuPassName(int p);
 // water surface of a placed asset (water.cpp): drawn by the water pass after the opaque world
 struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, tint{0}; };   // look: kind, clarity, waves
 #define NMK_REVZ 1   // the world pass is reverse-Z (docs/rendering.md#depth-convention)
@@ -98,6 +104,33 @@ public:
   void setResolutionScale(float s);                  // 0.5 .. 1
   void setSsaoFull(bool full);                       // SSAO at full instead of half resolution
   void setMsaa(int samples);                         // B1: 4 = 4x MSAA on the opaque world (High), 0 = off
+  // per-pass GPU timers: gpuMark(p) starts pass p (render() marks its passes, the app marks GP_UI's end with GP_Count).
+  // Results are read without stalling, 2-3 frames late. Off (all 0) when timestamp queries are unsupported.
+  void gpuMark(int pass);
+  double gpuPassMs[GP_Count] = {};
+  bool gpuTimers = true;
+  // PF2 GPU-cost switches (docs/rendering.md#gpu-budget). --rq-off <name> / --rq-on <name> flip one for A/B;
+  // legacy() is the pre-PF2 renderer (the maps suite's interleaved A/B, NMK_PERF_AB).
+  struct Perf {
+    bool syncGpuQuery = false;   // asyncq (off = true): read the frame's GL_TIME_ELAPSED query back next frame, waiting for the GPU
+    bool farCache = true;        // farcache: the far shadow cascade is redrawn every 2nd frame (or when its focus moves)
+    bool occCache = true;        // occcache: the sky-occlusion map is redrawn every 16 frames (or when the camera moves 4 m)
+    bool smallCasters = true;    // smallcasters: the far cascade and sky occlusion skip casters smaller than ~1 texel
+    bool probeCull = true;       // probecull: GI probe captures skip items under ~1 capture texel (lighting.cpp)
+    bool leafPrepass = true;     // leafprepass: canopy depth prepass, then GL_EQUAL shading (no overdraw shading)
+    bool skyLast = true;         // skylast: the sky after the opaque world (early-Z skips it under geometry)
+    bool terrainLast = true;     // terrainlast: the terrain after solids, models and canopies (the ground they hide is never shaded)
+    bool probeRefresh = true;    // proberefresh: full probe budget only while probes wait for a first capture, then 2 / 1 per frame
+    bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
+    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = false; return p; }
+    bool set(const std::string& n, bool on) {   // false: no such switch
+      bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : nullptr;
+      if (n == "asyncq") { syncGpuQuery = !on; return true; }
+      if (b) *b = on;
+      return b != nullptr;
+    }
+  } perf;
   int msaa() const { return msaaSamples; }
   bool msaaActive() const { return msFbo != 0; }   // the multisampled world target exists (complete)
   int shadowNearPx() const { return shadowSize; }
@@ -183,6 +216,9 @@ private:
   GLuint emptyVao = 0, lineVao = 0, lineVbo = 0;
   GLuint thumbHdrFbo = 0, thumbHdr = 0, thumbDepth = 0;
   GLuint queries[2]{}; int qidx = 0; bool qvalid = false;
+  int farFrame = -1000, occFrame = -1000; vec3 farFocus{0}, farSun{0}, occCam{0}; float minCaster = 0;   // PF2 depth-pass caches
+  GLuint gq[3][GP_Count + 1]{}; bool gqSet[3][GP_Count + 1]{}; int gqSlot = 0;
+  void gpuFrameBegin();
   mat4 lightVP{1}, occVP{1};
   float occTop = 0, occRange = 1;
   bool thumbMode = false;

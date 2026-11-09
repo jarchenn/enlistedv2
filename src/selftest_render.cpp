@@ -14,6 +14,7 @@
 #include "water.h"
 #define NMK_WATER 1
 #endif
+#include "settings.h"
 #include <stb_image_write.h>
 #include <cstdarg>
 #include <functional>
@@ -490,6 +491,31 @@ void build(App& app) {
     return t > 0.3f;
   });
 #endif
+  // PF2 GPU budget (docs/rendering.md#gpu-budget): per-pass GPU ms on one fixed elevated view over the facades and the
+  // water, at Medium then High. Reported only, never gated (the GPU is shared with other work).
+  push("gpu budget", [](App& a, float t) {
+    static double acc[GP_Count], probeCpu = 0; static int n = 0, phase = 0; static float t0 = 0;
+    if (t == 0) {
+      if (a.mode == Mode::Explore) a.exitExplore();
+      vec3 from(25, 0, 62), at(25, 0, -12); from.y = a.terrain.height(from.x, from.z) + 30; at.y = a.terrain.height(at.x, at.z);
+      vec3 d = at - from; a.camPos = from; a.camYaw = degrees(std::atan2(-d.x, -d.z)); a.camPitch = degrees(std::atan2(d.y, glm::length(vec2(d.x, d.z))));
+      settings().applyPreset(a, GfxPreset::Medium); a.R.resetTemporal(); std::fill(acc, acc + GP_Count, 0.0); n = 0; phase = 0; t0 = 0; probeCpu = 0;
+    }
+    if (t - t0 > 1.5f) { for (int i = 0; i < GP_Count; ++i) acc[i] += a.R.gpuPassMs[i]; probeCpu += a.R.stats.probeCpuMs; ++n; }
+    if (t - t0 < 3.5f) return false;
+    const char* pn = phase == 0 ? "Medium" : "High";
+    json j = json::object(); double tot = 0; std::string line;
+    for (int i = 0; i < GP_Count; ++i) {
+      double ms = acc[i] / std::max(1, n); tot += ms; j[gpuPassName(i)] = std::round(ms * 1000) / 1000;
+      if (ms >= 0.05) { char b[64]; std::snprintf(b, sizeof b, "%s%s %.2f", line.empty() ? "" : ", ", gpuPassName(i), ms); line += b; }
+    }
+    report["gpu_budget"][pn] = {{"passMs", j}, {"totalMs", tot}, {"frames", n}, {"timers", a.R.gpuTimers}, {"probeCpuMs", probeCpu / std::max(1, n)}};
+    note("GPU budget at %s (reported only, %d frames): %.2f ms total; %s; probe capture CPU %.2f ms", pn, n, tot, line.c_str(), probeCpu / std::max(1, n));
+    if (phase == 0) { phase = 1; t0 = t; std::fill(acc, acc + GP_Count, 0.0); n = 0; probeCpu = 0; settings().applyPreset(a, GfxPreset::High); a.R.resetTemporal(); return false; }
+    settings().applyPreset(a, GfxPreset::Medium);
+    chk(!a.R.gpuTimers || tot > 0, "GPU budget: the per-pass timers report (%.2f ms at High)", tot);
+    return true;
+  });
   push("finish", [](App& a, float t) {
     if (t < 0.3f) return false;
     std::ofstream(outDir() / "render_shimmer.json") << report.dump(2);
