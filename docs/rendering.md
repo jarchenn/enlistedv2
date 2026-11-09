@@ -536,3 +536,118 @@ Changes to probe behaviour:
   - SSAO is already half resolution on Medium.
   - `composite`, `taa` and `msaa_resolve` are each 0.15-0.5 ms in the exclusive baseline.
 - **Terrain shading** is still the largest real-shading pass: 2.7-4.7 ms at Medium after PF2, and 6.8 ms on the `--selftest-render` budget view, which is mostly ground. Most of it is the shared `shade()` (two-cascade PCF, probe GI, clustered lights) plus the fBm layers of `kTerrainFS`. Trimming either changes the look, so it is the next candidate, not done here.
+
+<a id="asset-lod"></a>
+## 12. Asset LOD, render distance and tile-GPU hints (PF2, part 2)
+
+### 12.1 Asset LOD for part-built assets
+
+Each part-built asset already draws as one merged opaque mesh, plus its wall panels, glass and door leaves. Its cost far away is triangles: the model pass gave houses hundreds of bevelled, rounded and trimmed parts. `AssetDef::lodMesh` holds two lighter variants of the opaque mesh, built at load (`buildAssetLods`, `assets.cpp`). They use the same parts, materials and vertex format, so patterns and lighting are unchanged.
+
+| Level | Contents | Used below | 1080p, 72° FOV |
+|---|---|---|---|
+| LOD0 | the opaque mesh (or the no-furniture one) | — | near |
+| LOD1 | no built-in furniture, no `"lod": 1` parts, no part under 0.35 m; bevels and rounded edges become plain boxes, smooth cylinders become octagons, arches use 6 segments | 10 px/m | from ≈ 75 m |
+| LOD2 | the main volumes only: parts of at least max(1.5 m, 12 % of the asset's size) | 2.5 px/m | from ≈ 300 m |
+
+A level is created only if it saves at least 25 % of the triangles of the finer one. The asset log line prints `(LOD1 n, LOD2 n)` triangles.
+
+Other rules:
+- **`"lod": 1` part key.** Purely visual detail: trim, relief courses, dressing. GX4 and GX6 mark their parts with it. It never goes on silhouette parts, wall bays or colliders.
+- **Selection** (`App::assetLodMesh`). Pixels per metre = `projM[1][1] x height / 2 / distance`, so ADS zoom keeps detail longer. A copy moves to a finer level only 15 % past the threshold (`InstanceRT::lod`), so it does not flicker at a boundary.
+- **Unchanged at every level:** wall panels (`panelsIntact`, and the damage-field meshes of damaged walls), glass, colliders, navigation and thumbnails. LOD is draw-only.
+- **Door and shutter leaves** are not drawn at LOD2 (a few pixels).
+- **Ivy** is drawn only above 4 px/m (≈ 185 m).
+- **Props under 1.5 px** on screen (whole-asset diagonal) are not drawn at all. Buildings always are.
+- **The Beautify decor ring** (`beautifyDecorDraw`) uses the same LOD meshes.
+- **Furniture** keeps its own batching and distance LOD (`interior.cpp`).
+- **Switch:** `--rq-off assetlod`.
+
+**Results** (interleaved A/B `NMK_PERF_AB=assetlod`, exclusive turn, 1080p, every other PF2 switch on in both sides):
+
+| View (battle1, `--selftest-terrain`, after Beautify) | Triangles, without → with LOD | Frame |
+|---|---|---|
+| obj_A_eye | 8.70 → 6.25 M (−28 %) | 15.6 → 15.3 ms |
+| obj_B_eye | 8.31 → 6.35 M (−24 %) | 19.8 → 19.6 ms |
+| obj_C_eye | 7.44 → 5.48 M (−26 %) | 15.6 → 15.0 ms |
+| obj_D_eye | 4.59 → 3.72 M (−19 %) | 15.2 → 15.4 ms |
+| north / east edge | 4.49 / 3.97 → 4.16 / 3.45 M | ±0.5 ms |
+
+- **Triangles drop by up to 29 %, and frame time stays level within noise.** The same holds on `--selftest-maps`: battle1 and village_assault at every preset are within ±3 %. On this GPU the frame is not limited by triangles; the gain is for vertex-limited GPUs (the Mac) and the shadow passes.
+- **Per-asset savings** are large where the model pass added the most. For example, `ruin_townhouse_facade` has 65 504 triangles; its LOD1 is 4 692 and its LOD2 552.
+- **Visual.** Deterministic maps frames with LOD on and off differ by at most 0.06/255 mean (battle1, village_assault, every preset). The render suite's 100 m facade crop changes by 0.26/255, and its shimmer index falls slightly (1.96 → 1.93).
+
+### 12.2 Render distance
+
+`GraphicsOpts::renderDist` is in metres: 300-5000, with stops Low 600, Medium 1200, High 2500, Ultra 5000 (Settings → Graphics). It drives:
+- the hard cut of every instance (`App::buildDrawLists`);
+- through `drawDist()` = metres / 1200, the nature (1200 m), tree (900 m), ivy (260 m) and decor (`w5CullDraw`) culls;
+- the far terrain LOD rings, ×0.6-1.5 (LOD0 is unchanged);
+- the Explore far plane: at least 4 km, and 1.2 × the distance;
+- the haze density: 0.001 / m × 1200 / distance, clamped 0.4-2, so the haze reaches the same depth at the cut.
+
+Medium is unchanged. **High changes:** 2.5 km instead of 1.68 km, with thinner haze. The old `drawDistance` multiplier key migrates on load (× 1200 m), and the settings suite checks this. Grass keeps its own quality radius: scaling grass blades by kilometres would multiply its cost.
+
+### 12.3 Tile-GPU hints, G-buffer and GPU-time queries (the Mac shim)
+
+`glInvalidateNamedFramebufferData` is now called on every target whose whole contents a pass rewrites, or that is dead until the next frame clears it. The Metal shim maps this to load/store DontCare.
+- Rewritten in full: SSAO, light shafts, the world composite, both TAA outputs, each bloom downsample level, and the tonemapped LDR colour.
+- Dead after the MSAA resolve: the whole multisampled world target.
+- Dead after the final blit: the HDR target's indirect-light, normal + roughness and motion attachments, and the world depth.
+- Kept: the LDR colour and the first-person distance texture, which screenshots and the sights tests read after `render()`.
+
+The indirect-light attachment (attachment 2, read only as `.rgb`, never negative) is now `GL_R11F_G11F_B10F` instead of `RGBA16F`, in the HDR target and the MSAA target alike. That halves its bytes, and with 4x MSAA the saving is per sample. Normal + roughness and motion stay `RGBA16F`: normals need signed precision for SSR, and motion uses its alpha as a valid flag. Slimming those needs an encoding change and visual checks.
+
+The frame GPU time no longer waits on the GPU in any configuration:
+- the per-pass timestamps (§11.1) are read only when available;
+- the fallback `GL_TIME_ELAPSED` path, used when `glQueryCounter` is missing, is now a 3-deep ring read only when `GL_QUERY_RESULT_AVAILABLE`;
+- only `--rq-off asyncq` (A/B) keeps the old waiting read-back.
+
+<a id="hlod"></a>
+### 12.4 HLOD: buildings merged per cell (Phase B, off by default)
+
+`src/hlod.cpp`. Buildings and walls are grouped into 128 m ground cells: enterable assets, or assets with wall panels, that are not snap chains, stations, trees or nature, and are not damaged, selected or furniture props.
+
+**When a cell is merged.** A cell is drawn merged when every point of its members' footprint is in the LOD1 range (pixels per metre under 10, plus the 15 % hysteresis band: about 85 m at 1080p / 72°) and part of it is inside the render distance. It is then one opaque draw plus one glass draw per pass, instead of 3-6 draws per building per pass. Otherwise its copies take the ordinary path.
+
+It starts at the LOD1 range, not LOD2, because on battle1 the Beautify ring's buildings stand 25-250 m from the camera, and that is where the draws are. This GPU is not triangle-bound (§12.1), so cells keep LOD1 geometry even far away.
+
+**What a cell mesh contains:**
+- each member's LOD1 geometry (or its full static mesh), its intact wall panels, and its door and shutter leaves at their current pose (a detached leaf is left out, as is glass that is broken), transformed to world space;
+- static and leaf glass, in a second mesh stored relative to the cell centre, so the glass pass sorts it by the cell.
+
+**The same shading as per copy.** A second vertex buffer (VAO binding 1) carries, per vertex:
+- attribute 7: the copy's `SurfaceParams::inst` (seed, wear, palette), with w = 2 marking a cell vertex;
+- attributes 8 and 9: the asset-local position and normal.
+
+`kMainVS` and the probe-capture VS take these when `aInst.w > 1.5`, so seed, wear, palette and pattern coordinates match the per-copy draw. Every other VAO leaves the attributes disabled; their default (0, 0, 0, 1), or 0 on the Metal shim, selects the uniforms.
+
+**What differs:**
+- Room interior finishes behind windows (room count 0), at 85 m or more.
+- Ivy is not part of a cell; it is still drawn per copy, under the same 4 px/m rule.
+
+**Rebuilds.** A cell's signature is a hash of its members' ids, revisions, assets, door progress and leaf flags. A cell rebuilds when the signature changes (placement, edit, deletion, a building damaged or repaired, a door moving) and the cell is wanted: at most 2 cells per frame, on the main thread. Until then its copies draw one by one.
+
+**Not done:**
+- The disk cache and worker threads: a rebuild is a CPU vertex transform; see the rebuild times below.
+- Impostor billboards beyond 600 m.
+
+**Results: off by default.** On battle1's Beautify views (`--selftest-terrain`, interleaved A/B `NMK_PERF_AB=hlod`, exclusive turn, everything else on), 11-12 of 16 cells were merged, with 151 eligible buildings:
+
+| View (after Beautify) | Draws, off → on | Triangles | Frame |
+|---|---|---|---|
+| obj_A_eye | 4040 → 3729 (−8 %) | 6.12 → 6.56 M | 14.49 → 14.29 ms |
+| obj_B_eye | 3496 → 3326 (−5 %) | 6.38 → 6.63 M | 19.14 → 19.39 ms |
+| obj_C_eye | 3153 → 2989 (−5 %) | 5.53 → 5.78 M | 14.52 → 15.07 ms |
+| obj_D_eye | 1040 → 996 (−4 %) | 3.79 → 4.09 M | 14.69 → 15.16 ms |
+| north edge | 1322 → 1303 | 3.96 → 4.27 M | 9.95 → 10.28 ms |
+| east edge | 1214 → 1072 (−12 %) | 3.43 → 3.75 M | 10.25 → 10.67 ms |
+
+Buildings are a minority of the draws: props, trees, grass chunks and four depth passes make up the rest. A cell is also culled as one box, so in the shadow passes it draws members that per-copy culling would skip.
+
+On a 2080 Ti it costs 0.2-0.5 ms per frame, so `Renderer::perf.hlod` defaults to **off**. `--rq-on hlod` turns it on, for draw-call-bound targets: the Metal shim pays per draw. Cell rebuild cost was not measurable on these maps; every cell was built within its first wanted frames.
+
+The real lever for the 3000-4000 draws per frame is GPU-driven submission (Phase C, not started; design in the PF2 hand-over note):
+- instance data in one SSBO;
+- compute frustum and Hi-Z culling writing the indirect commands;
+- glMultiDrawElementsIndirect per program.

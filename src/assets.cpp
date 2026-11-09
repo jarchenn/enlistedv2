@@ -447,6 +447,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   p.visible = j.value("v", 1) != 0;
   if (j.contains("q")) p.rot = glm::normalize(quat(j["q"][3].get<float>(), j["q"][0].get<float>(), j["q"][1].get<float>(), j["q"][2].get<float>()));   // explicit quaternion (x, y, z, w)
   p.collide = j.value("k", 1) != 0; p.playerOnly = j.value("k", 1) == 2; p.sec = j.value("sec", -1); p.grp = j.value("g", -1);
+  p.lodDetail = j.value("lod", 0) >= 1;
   if (t == "p") {
     p.shape = Part::PRISM;
     p.axis = j.value("axis", 0);
@@ -473,6 +474,43 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
 }
 
 static bool isGlass(const AssetDef& a, const Part& p) { return a.materials[p.mat].pattern == PAT_GLASS; }
+static void partCorners(const Part& p, std::vector<vec3>& out);
+// PF2 asset LOD meshes (AssetDef::lodMesh). Same parts, materials and vertex format as the opaque mesh, so the shaders
+// and patterns are unchanged; only what is drawn far away gets lighter. A level is kept only if it saves >= 25 % of the
+// triangles of the finer one.
+static void buildAssetLods(AssetDef& a, size_t fullTris, const MeshData& walls) {
+  if (a.path.on || a.model || a.parts.size() < 12) return;
+  const float aDiag = glm::length(a.bmax - a.bmin);
+  const size_t nStatic = a.furnitureNames.empty() ? a.parts.size() : std::min(a.furnFirst, a.parts.size());
+  MeshData m[2], full, glass; std::vector<vec3> cs;
+  for (size_t k = 0; k < nStatic; ++k) {
+    const Part& p = a.parts[k];
+    if (!p.visible) continue;
+    if (isGlass(a, p)) { appendPart(glass, p, a.materials[p.mat], mat4(1)); continue; }
+    appendPart(full, p, a.materials[p.mat], mat4(1));
+    cs.clear(); partCorners(p, cs);
+    vec3 lo(1e9f), hi(-1e9f); for (auto& c : cs) { lo = glm::min(lo, c); hi = glm::max(hi, c); }
+    float d = cs.empty() ? 0.0f : glm::length(hi - lo);
+    Part q = p;   // simplified: plain boxes instead of bevels / rounding, few curve segments
+    q.bv = 0; if (q.shape == Part::ROUND) q.shape = Part::BOX;
+    if (q.shape == Part::CYL && q.sides == 0) q.sides = 8;
+    if (q.shape == Part::ARCH) q.seg = std::min(q.seg > 0 ? q.seg : 6, 6);
+    if (!p.lodDetail && d >= 0.35f) appendPart(m[0], q, a.materials[p.mat], mat4(1));
+    if (!p.lodDetail && d >= std::max(1.5f, 0.12f * aDiag)) appendPart(m[1], q, a.materials[p.mat], mat4(1));
+  }
+  size_t t1 = m[0].i.size() / 3, t2 = m[1].i.size() / 3;
+  if (t1 > 0 && t1 * 4 <= fullTris * 3) a.lodMesh[0].upload(m[0]); else t1 = fullTris;
+  if (t2 > 0 && t2 * 4 <= t1 * 3) a.lodMesh[1].upload(m[1]);
+  // HLOD source (hlod.cpp): buildings and walls that draw on the ordinary path (no snap chains, stations, models)
+  if ((a.enterable || !a.panels.empty()) && a.station.kind.empty() && !a.tree.on && a.nature.kind == NatureDef::NONE && !a.raw.contains("snap")) {
+    auto farMesh = std::make_shared<MeshData>(a.lodMesh[0].count ? m[0] : full);   // LOD1: HLOD starts at the LOD1 range
+    uint32_t base = (uint32_t)farMesh->v.size();
+    farMesh->v.insert(farMesh->v.end(), walls.v.begin(), walls.v.end());
+    for (uint32_t k : walls.i) farMesh->i.push_back(base + k);
+    if (!farMesh->i.empty()) a.hlodOpaque = farMesh;
+    if (!glass.i.empty()) a.hlodGlass = std::make_shared<MeshData>(std::move(glass));
+  }
+}
 
 static void partCorners(const Part& p, std::vector<vec3>& out) {
   if (p.shape != Part::PRISM) {
@@ -902,7 +940,8 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   }
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
-  logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3));
+  buildAssetLods(*a, op.i.size() / 3, allIntact);
+  logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris (LOD1 %d, LOD2 %d)", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3), a->lodMesh[0].count / 3, a->lodMesh[1].count / 3);
   index_.emplace(a->id, a.get());   // the first asset of an id wins, as the old linear find did
   assets.push_back(std::move(a));
   return true;

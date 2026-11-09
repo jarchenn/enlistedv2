@@ -79,7 +79,7 @@ bool insideObb(vec2 p, vec2 c, vec2 h, float yaw, float pad) {
 
 // eye-level frame time over a set of views (editor camera, like the gated --selftest-maps views)
 struct View { std::string name; vec3 pos; float yaw, pitch; };
-struct Perf { double ms = 0, worst = 0; int frames = 0; };
+struct Perf { double ms = 0, worst = 0; int frames = 0; int abN[2] = {}; double abMs[2] = {}, abDraws[2] = {}, abTris[2] = {}; };   // ab: [0] PF2, [1] baseline (NMK_PERF_AB)
 std::vector<View> gViews; std::map<std::string, Perf> gPerf; double gLast = 0;
 void pushViews(const std::string& tag, std::function<std::vector<View>(App&)> make) {
   auto vi = std::make_shared<size_t>(0);
@@ -96,11 +96,34 @@ void pushViews(const std::string& tag, std::function<std::vector<View>(App&)> ma
     float e = s - t0;
     double tn = nowS();
     Perf& p = gPerf[tag + "/" + v.name];
-    if (e > 1.5f && e < 3.5f && gLast > 0) { double ms = (tn - gLast) * 1000.0; p.ms = (p.ms * p.frames + ms) / (p.frames + 1); p.worst = std::max(p.worst, ms); ++p.frames; }
+    // PF2 interleaved A/B (NMK_PERF_AB=all | <Renderer::perf switch>, like --selftest-maps): 1.5..5.5 s in 0.4 s blocks,
+    // even blocks the baseline, odd ones PF2; the first 5 frames of a block are skipped
+    static const char* abEnv = std::getenv("NMK_PERF_AB");
+    const float measEnd = abEnv ? 5.5f : 3.5f;
+    if (abEnv) {
+      static int lastBlk = -2, bf = 0;
+      int blk = e < 1.5f ? -1 : std::min(9, (int)((e - 1.5f) / 0.4f));
+      Renderer::Perf A, B = std::string(abEnv) == "all" ? Renderer::Perf::legacy() : A;
+      if (std::string(abEnv) != "all") { A.set(abEnv, true); B.set(abEnv, false); }
+      bool base = blk >= 0 && blk % 2 == 0;
+      if (blk != lastBlk) { lastBlk = blk; bf = 0; app.R.perf = base ? B : A; }
+      if (blk >= 0 && e < measEnd && gLast > 0 && ++bf > 5) {
+        int k = base ? 1 : 0; double ms = (tn - gLast) * 1000.0, n = p.abN[k];
+        p.abMs[k] = (p.abMs[k] * n + ms) / (n + 1); p.abDraws[k] = (p.abDraws[k] * n + app.R.stats.draws) / (n + 1); p.abTris[k] = (p.abTris[k] * n + app.R.stats.tris) / (n + 1); ++p.abN[k];
+      }
+    }
+    if (!abEnv && e > 1.5f && e < 3.5f && gLast > 0) { double ms = (tn - gLast) * 1000.0; p.ms = (p.ms * p.frames + ms) / (p.frames + 1); p.worst = std::max(p.worst, ms); ++p.frames; }
     gLast = tn;
-    if (e >= 3.6f) {
+    if (e >= measEnd + 0.1f) {
+      if (abEnv) {
+        app.R.perf = Renderer::Perf(); if (std::string(abEnv) != "all") app.R.perf.set(abEnv, true);
+        p.ms = p.abMs[0]; p.frames = p.abN[0];
+        note("%s view %s A/B %s: PF2 %.2f ms, %.0f draws, %.2f M tris vs baseline %.2f ms, %.0f draws, %.2f M tris (%d / %d frames)", tag.c_str(), v.name.c_str(), abEnv,
+             p.abMs[0], p.abDraws[0], p.abTris[0] / 1e6, p.abMs[1], p.abDraws[1], p.abTris[1] / 1e6, p.abN[0], p.abN[1]);
+      }
       note("%s view %s: %.2f ms avg (worst %.1f) over %d frames, %d draws", tag.c_str(), v.name.c_str(), p.ms, p.worst, p.frames, app.R.stats.draws);
       perf[tag + "/" + v.name] = {{"avgMs", p.ms}, {"worstMs", p.worst}, {"frames", p.frames}, {"draws", app.R.stats.draws}};
+      if (abEnv) perf[tag + "/" + v.name]["ab"] = {{"frameMs", {p.abMs[0], p.abMs[1]}}, {"draws", {p.abDraws[0], p.abDraws[1]}}, {"tris", {p.abTris[0], p.abTris[1]}}, {"frames", {p.abN[0], p.abN[1]}}};
       ++*vi;
     }
     return false;

@@ -121,11 +121,13 @@ public:
     bool skyLast = true;         // skylast: the sky after the opaque world (early-Z skips it under geometry)
     bool terrainLast = true;     // terrainlast: the terrain after solids, models and canopies (the ground they hide is never shaded)
     bool probeRefresh = true;    // proberefresh: full probe budget only while probes wait for a first capture, then 2 / 1 per frame
+    bool hlod = false;           // hlod (--rq-on): buildings merged per 128 m cell (hlod.cpp); off: on a 2080 Ti it saved 4-12 % of draws but cost +0.2-0.5 ms (rendering.md 12.4)
+    bool assetLod = true;        // assetlod: part-built assets drawn with their LOD meshes by screen size; sub-pixel props skipped
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
-    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = false; return p; }
+    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : nullptr;
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : nullptr;
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (b) *b = on;
       return b != nullptr;
@@ -215,7 +217,7 @@ private:
   GLuint expoFbo[2]{}, expoTex[2]{}; int expoIdx = 0; float expoReset = -1;
   GLuint emptyVao = 0, lineVao = 0, lineVbo = 0;
   GLuint thumbHdrFbo = 0, thumbHdr = 0, thumbDepth = 0;
-  GLuint queries[2]{}; int qidx = 0; bool qvalid = false;
+  GLuint queries[3]{}; int qidx = 0; bool qvalid = false; bool qUsed[3]{};   // GL_TIME_ELAPSED ring (fallback when timestamps are missing)
   int farFrame = -1000, occFrame = -1000; vec3 farFocus{0}, farSun{0}, occCam{0}; float minCaster = 0;   // PF2 depth-pass caches
   GLuint gq[3][GP_Count + 1]{}; bool gqSet[3][GP_Count + 1]{}; int gqSlot = 0;
   void gpuFrameBegin();

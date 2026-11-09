@@ -27,7 +27,7 @@ Every change applies immediately. Two sliders apply when you release them instea
 | Grass | `GrassQuality` Off / Low / Medium / High (`grassPreset`, `grass.cpp`). |
 | 4x MSAA | `Renderer::setMsaa`: the opaque world (sky, terrain, solids, models, foliage, grass) renders into a 4x multisampled copy of the HDR target's world attachments, resolved (colour averaged, depth one sample) before water, decals and TAA. `"msaa": 4 / 0`. |
 | Ivy on walls | `App::ivyOn` (`ivy.cpp`): the assets' `"ivy"` leaf cards. Their density follows Grass: none at Off, 60 % at Low. `"ivy"`. |
-| Draw distance | Multiplier on the decor cull distances (`w5CullDraw`, rules from `content/settings/maps.json`) and on the hard cuts in `App::buildDrawLists`: nature 1200 m, trees 900 m, everything else 1200 m. |
+| Render distance | Metres (PF2; 300-5000, stops Low 600 m, Medium 1.2 km, High 2.5 km, Ultra 5 km). Drives the hard cut of every instance in `App::buildDrawLists`, and x renderDistance / 1200 the nature (1200 m), tree (900 m), ivy (260 m) and decor (`w5CullDraw`, rules in `content/settings/maps.json`) culls; the far terrain LOD rings (x0.6-1.5, LOD0 unchanged); the Explore far plane (at least 4 km, 1.2 x the distance); and the haze density (0.001 / m x 1200 / distance, clamped 0.4-2, so the haze reaches the same depth at the cut). Files with the old `drawDistance` multiplier migrate to `renderDistance` = 1200 m x it.
 | Particle budget | Multiplier on the effect caps (`Fx` particles 900, streaks 160, debris 72). Other systems read it through `settings().particleBudget()`. |
 | Field of view | Vertical FOV on foot, 72° by default. ADS blends from it. Optics keep their real magnification of the 72° view. |
 | Vsync, FPS cap | Swap interval, and a sleep limiter after `SwapBuffers` (Unlimited, 30–240). |
@@ -80,7 +80,7 @@ Overrides are stored in `settings_user.json` and applied at the end of `App::loa
 | SSAO resolution | — | half | full |
 | TAA jitter phases | 8 | 8 | 16 |
 | Grass | Low | Medium | High |
-| Draw distance | ×0.6 | ×1 | ×1.4 |
+| Render distance | 600 m | 1.2 km | 2.5 km |
 | Particle budget | ×0.6 | ×1 | ×1.5 |
 | 4x MSAA | off | off | on |
 | Ivy on walls | off | on | on |
@@ -96,7 +96,7 @@ Measured by `--selftest-settings` (RTX 2080 Ti, 1920×1080, one farmhouse on Bla
   "version": 1,
   "graphics": { "preset": "Custom", "resolutionScale": 1.0, "shadowQuality": 1, "farCascade": true, "cloudShadows": true,
                 "lightShafts": true, "ssr": true, "ssao": true, "ssaoFullRes": false, "bloom": false, "taa": true, "taaPhases": 8,
-                "clouds": true, "grass": 2, "drawDistance": 1.0, "particleBudget": 1.0, "fov": 72, "vsync": true, "fpsCap": 0 },
+                "clouds": true, "grass": 2, "renderDistance": 1200, "particleBudget": 1.0, "fov": 72, "vsync": true, "fpsCap": 0 },
   "gameplay": { "mouseSensitivity": 0.1, "adsSensitivity": 1.0, "invertY": false, "reducedMotion": false, "showArms": true, "sightMarkers": false },
   "audio": { "master": 1, "effects": 1, "ui": 1, "ambience": 1 },
   "controls": { "grenade": "G" },

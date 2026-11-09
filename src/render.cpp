@@ -409,12 +409,17 @@ static const char* kMainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec3 aAlb;
 layout(location=3) in vec4 aPar; layout(location=4) in vec3 aPc; layout(location=5) in vec3 aPn;
 layout(location=6) in vec3 aEmi;   // material emission (L2); VAOs without the attribute read 0
+layout(location=7) in vec4 aInst;  // PF2 HLOD cells: per-vertex building seed / wear / palette (w = 2); disabled elsewhere (w 0 or 1: uInst)
+layout(location=8) in vec3 aLp; layout(location=9) in vec3 aLn;   // PF2 HLOD cells: the asset-local position / normal (patterns)
 uniform mat4 uModel, uVP; uniform vec4 uSnapAp;   // V6: w = 1 for snap chains, xz = the chain's texture origin
-out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye;
+uniform vec4 uInst;
+out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV;
 void main(){
+  vInstV = aInst.w > 1.5 ? vec4(aInst.xyz, 0.0) : uInst;
   vec4 w = uModel*vec4(aPos,1.0);
   vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi; vEye = uCamPos;
   if (uSnapAp.w > 0.5) { vAp = vec3(w.x - uSnapAp.x, aPos.y, w.z - uSnapAp.z); vAn = vN; }   // V6: patterns continue across snapped joints
+  if (aInst.w > 1.5) { vAp = aLp; vAn = aLn; }   // PF2 HLOD: world-space vertices, the copy's own pattern space
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -441,7 +446,8 @@ float vnF(vec3 p, float freq){ float w = res(freq); return w <= 0.0 ? 0.5 : mix(
 float fbmF(vec3 p, float f0){ float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ float w = res(f0); s += a*(w <= 0.0 ? 0.5 : mix(0.5, vnoise(p), w)); p *= 2.03; f0 *= 2.03; a *= 0.5; } return s; }
 float lineAA(float mask, float w, float mean){ return mix(mask, mean, smoothstep(0.6*w, 2.5*w, gPix)); }   // mask of feature width w (m)
 // ---- walls, interiors and furniture (docs/interiors.md): per building copy parameters (SurfaceParams)
-uniform vec4 uInst;                    // seed (0..1), wear (0..2), palette variation (0..1), room count
+flat in vec4 vInstV;                   // seed (0..1), wear (0..2), palette variation (0..1), room count: uInst, or per vertex (PF2 HLOD)
+#define uInst vInstV
 uniform vec4 uRoomA[16], uRoomB[16];   // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
 uniform vec4 uSillA[12], uSillB[12];   // (centre x, sill y, centre z, half width) / (outward normal x, z, -, -)
 uniform int uSills;
@@ -2359,7 +2365,7 @@ bool Renderer::init(int w, int h) {
     float one = 1.0f; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RED, GL_FLOAT, &one);
     glCreateFramebuffers(1, &expoFbo[k]); glNamedFramebufferTexture(expoFbo[k], GL_COLOR_ATTACHMENT0, expoTex[k], 0);
   }
-  glCreateQueries(GL_TIME_ELAPSED, 2, queries);
+  glCreateQueries(GL_TIME_ELAPSED, 3, queries);
   // thumbnails
   glCreateTextures(GL_TEXTURE_2D, 1, &thumbHdr); glTextureStorage2D(thumbHdr, 1, GL_RGBA16F, 256, 256);
   glCreateTextures(GL_TEXTURE_2D, 1, &thumbDepth); glTextureStorage2D(thumbDepth, 1, GL_DEPTH_COMPONENT32F, 256, 256);
@@ -2447,7 +2453,7 @@ void Renderer::createTargets() {
   glCreateFramebuffers(1, &shaftFbo); glNamedFramebufferTexture(shaftFbo, GL_COLOR_ATTACHMENT0, shaftTex, 0);
   // indirect light (attachment 2 of the HDR target, world pass only) and half-resolution AO (ao, view depth)
   if (ambTex) { glDeleteTextures(1, &ambTex); glDeleteTextures(1, &aoTex); glDeleteFramebuffers(1, &aoFbo); }
-  glCreateTextures(GL_TEXTURE_2D, 1, &ambTex); glTextureStorage2D(ambTex, 1, GL_RGBA16F, width, height);
+  glCreateTextures(GL_TEXTURE_2D, 1, &ambTex); glTextureStorage2D(ambTex, 1, GL_R11F_G11F_B10F, width, height);   // PF2: rgb only, never negative (half the bytes of RGBA16F)
   glTextureParameteri(ambTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(ambTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glNamedFramebufferTexture(hdrFbo, GL_COLOR_ATTACHMENT2, ambTex, 0);
   glCreateTextures(GL_TEXTURE_2D, 1, &aoTex); glTextureStorage2D(aoTex, 1, GL_RG16F, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
@@ -2500,7 +2506,7 @@ void Renderer::createMsaa() {
   int s = std::min(msaaSamples, (int)maxS);
   if (s < 2) return;
   glCreateFramebuffers(1, &msFbo); glCreateRenderbuffers(5, msRb);
-  const GLenum fmt[5] = {GL_RGBA16F, GL_RGBA16F, GL_RGBA16F, GL_RGBA16F, GL_DEPTH_COMPONENT32F};
+  const GLenum fmt[5] = {GL_RGBA16F, GL_R11F_G11F_B10F, GL_RGBA16F, GL_RGBA16F, GL_DEPTH_COMPONENT32F};   // indirect light as ambTex (the resolve blit needs equal formats)
   const GLenum att[5] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_DEPTH_ATTACHMENT};
   for (int k = 0; k < 5; ++k) {
     glNamedRenderbufferStorageMultisample(msRb[k], s, fmt[k], width, height);
@@ -2527,6 +2533,8 @@ void Renderer::resolveMsaa() {
   }
   glBlitNamedFramebuffer(msFbo, hdrFbo, 0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
   glNamedFramebufferReadBuffer(msFbo, GL_COLOR_ATTACHMENT0);
+  const GLenum all[5] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_DEPTH_ATTACHMENT};
+  glInvalidateNamedFramebufferData(msFbo, 5, all);   // resolved: the multisampled copy is dead until next frame's clear
 }
 
 void Renderer::resize(int w, int h) {
@@ -2788,6 +2796,10 @@ static mat4 stableOrtho(vec3 focus, vec3 dir, float radius, float depth, int res
 // plane maps to 1 and the far plane to 0. Float depth then keeps ~constant relative precision with distance (layers
 // millimetres apart no longer fight at 100 m, docs/rendering.md#depth-convention). x / y / w rows are unchanged, so jitter,
 // motion vectors and screen projection are unaffected. Built in double.
+// PF2 / Mac: glInvalidateNamedFramebufferData before a pass that rewrites every pixel of its target (and on targets that
+// are dead until the next frame clears them). A hint on desktop GL; on tile GPUs (the Metal shim) the old contents are
+// neither loaded nor stored.
+static const GLenum kInvC0[1] = {GL_COLOR_ATTACHMENT0};
 static mat4 reverseZ(const mat4& p) {
   glm::dmat4 d(p);
   for (int c = 0; c < 4; ++c) d[c][2] = 0.5 * d[c][3] - 0.5 * d[c][2];
@@ -2842,9 +2854,16 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   gpuFrameBegin(); gpuMark(GP_CloudShadow);   // stats.gpuMs from the timestamps: read 2-3 frames late, never waits
-  const bool elapsedQ = !gpuTimers || perf.syncGpuQuery;   // fallback / pre-PF2 A/B: GL_TIME_ELAPSED, read back (waiting) next frame
+  const bool elapsedQ = !gpuTimers || perf.syncGpuQuery;   // no timestamps: a GL_TIME_ELAPSED ring (never waits); asyncq A/B: the old waiting read-back
   if (elapsedQ) {
-    if (qvalid) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[qidx ^ 1], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
+    if (perf.syncGpuQuery) {   // the pre-PF2 read-back (A/B only): waits for last frame's GPU work
+      int prev = (qidx + 2) % 3;
+      if (qvalid && qUsed[prev]) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[prev], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
+    } else {                   // three in flight: the oldest is read only when its result is there (the last value stays otherwise)
+      int old = (qidx + 1) % 3; GLint av = 0;
+      if (qUsed[old]) glGetQueryObjectiv(queries[old], GL_QUERY_RESULT_AVAILABLE, &av);
+      if (av) { GLuint64 ns = 0; glGetQueryObjectui64v(queries[old], GL_QUERY_RESULT, &ns); stats.gpuMs = ns / 1e6; }
+    }
     glBeginQuery(GL_TIME_ELAPSED, queries[qidx]);
   }
 
@@ -3204,7 +3223,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   expoIdx ^= 1;
 
   // ---- tonemap into LDR (shares depth for overlays)
-  glBindFramebuffer(GL_FRAMEBUFFER, ldrFbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, ldrFbo); glInvalidateNamedFramebufferData(ldrFbo, 1, kInvC0);   // the tonemap writes every pixel (depth is shared: kept)
   glViewport(0, 0, width, height);
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
@@ -3241,12 +3260,17 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     int dw = displayW > 0 ? displayW : width, dh = displayH > 0 ? displayH : height;
     glBlitNamedFramebuffer(ldrFbo, 0, 0, 0, width, height, 0, 0, dw, dh, GL_COLOR_BUFFER_BIT, (dw == width && dh == height) ? GL_NEAREST : GL_LINEAR);
   }
+  if (!thumbMode) {   // indirect light, normal + roughness, motion and the world depth: dead until next frame's clears (the
+    // LDR colour and the first-person distance stay: screenshots and the sights tests read them after render())
+    const GLenum dead[4] = {GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_DEPTH_ATTACHMENT};
+    glInvalidateNamedFramebufferData(hdrFbo, 4, dead);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0); glDepthFunc(GL_LESS);   // back to standard GL
   water.clear();
   lightingEnd(*this);
   gpuMark(GP_UI);   // ends at the app's GP_Count mark after ImGui
-  if (elapsedQ) { glEndQuery(GL_TIME_ELAPSED); qidx ^= 1; qvalid = true; } else qvalid = false;
+  if (elapsedQ) { glEndQuery(GL_TIME_ELAPSED); qUsed[qidx] = true; qidx = (qidx + 1) % 3; qvalid = true; } else qvalid = false;
   stats.cpuMs = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - c0).count();
 }
 
@@ -3257,7 +3281,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glBindVertexArray(emptyVao);
   mat4 inv = glm::inverse(vp), invP = glm::inverse(v.proj);
   if (ao) {
-    glBindFramebuffer(GL_FRAMEBUFFER, aoFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, aoFbo); glInvalidateNamedFramebufferData(aoFbo, 1, kInvC0);
     glViewport(0, 0, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
     glUseProgram(progSsao);
     glUniform1i(U(progSsao, "uFrame"), frame);
@@ -3270,7 +3294,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   }
   // light shafts at half resolution
   if (shafts) {
-  glBindFramebuffer(GL_FRAMEBUFFER, shaftFbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, shaftFbo); glInvalidateNamedFramebufferData(shaftFbo, 1, kInvC0);
   glViewport(0, 0, std::max(1, width / 2), std::max(1, height / 2));
   setLighting(progShaft, v);
   glBindTextureUnit(7, depthTex);
@@ -3282,7 +3306,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   }
   // composite into hdrColor from a copy of it
   glCopyImageSubData(hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, sceneCopy, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
-  glBindFramebuffer(GL_FRAMEBUFFER, compFbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, compFbo); glInvalidateNamedFramebufferData(compFbo, 1, kInvC0);   // rebuilt from sceneCopy
   glViewport(0, 0, width, height);
   glUseProgram(progComposite);
   glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, shaftTex); glBindTextureUnit(10, ambTex); glBindTextureUnit(11, aoTex); glBindTextureUnit(7, depthTex);
@@ -3310,6 +3334,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   glCopyImageSubData(hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, sceneCopy, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
   int cur = histIdx ^ 1;
   glBindFramebuffer(GL_FRAMEBUFFER, taaFbo[cur]);
+  { const GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glInvalidateNamedFramebufferData(taaFbo[cur], 2, b2); }   // colour (from sceneCopy) and the new history
   glViewport(0, 0, width, height);
   glUseProgram(progTaa);
   glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, histTex[histIdx]); glBindTextureUnit(7, depthTex);
@@ -3337,7 +3362,7 @@ void Renderer::bloomPass() {
   for (int i = 0; i < kBloomLevels; ++i) {
     GLuint src = i == 0 ? hdrColor : bloomTex[i - 1];
     int sw = i == 0 ? width : bloomW[i - 1], sh = i == 0 ? height : bloomH[i - 1];
-    glBindFramebuffer(GL_FRAMEBUFFER, bloomFbo[i]); glViewport(0, 0, bloomW[i], bloomH[i]);
+    glBindFramebuffer(GL_FRAMEBUFFER, bloomFbo[i]); glViewport(0, 0, bloomW[i], bloomH[i]); glInvalidateNamedFramebufferData(bloomFbo[i], 1, kInvC0);
     glBindTextureUnit(0, src);
     if (i == 0) glTextureParameteri(hdrColor, GL_TEXTURE_MIN_FILTER, GL_LINEAR);   // read level 0 only
     glUniform2f(U(progBloomDown, "uSrcTexel"), 1.0f / sw, 1.0f / sh);

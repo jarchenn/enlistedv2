@@ -1,6 +1,7 @@
 // Chunked, streamed base terrain (SPEC 9.1): LOD meshes around the camera, one Jolt heightfield per chunk, the map
 // size rules and the New Map memory estimate. See terrain_chunks.h.
 #include "terrain.h"
+#include "settings.h"   // PF2: render distance scales the far LOD rings
 #include "physics.h"
 #include "frustum.h"
 #include <algorithm>
@@ -138,11 +139,14 @@ int TerrainStream::desiredLod(const Terrain& t, int idx, vec3 cam, int cur) cons
   float d = chunkDistance(t, idx, cam);
   float hy = cfg.hysteresis;
   if (d > cfg.maxDist * (cur >= 0 ? 1 + hy : 1)) return -1;
+  // PF2: the rings past LOD0 follow the render distance (Low 600 m: x0.6, High 2.5 km: x1.5; the close-up ground stays)
+  const float k = std::clamp(settings().drawDist(), 0.6f, 1.5f);
+  float ld[4]; for (int l = 0; l < 4; ++l) ld[l] = cfg.lodDist[l] * (l >= 1 ? k : 1.0f);
   int b = 4;
-  for (int l = 0; l < 4; ++l) if (d < cfg.lodDist[l]) { b = l; break; }
+  for (int l = 0; l < 4; ++l) if (d < ld[l]) { b = l; break; }
   if (cur < 0 || b == cur) return b;
-  if (b > cur) return d > cfg.lodDist[cur] * (1 + hy) ? b : cur;   // coarser only once clearly past the boundary
-  return d < cfg.lodDist[b] * (1 - hy) ? b : cur;                  // finer only once clearly inside
+  if (b > cur) return d > ld[cur] * (1 + hy) ? b : cur;   // coarser only once clearly past the boundary
+  return d < ld[b] * (1 - hy) ? b : cur;                  // finer only once clearly inside
 }
 
 void TerrainStream::ensurePool(int lod, int need) {

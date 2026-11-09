@@ -20,7 +20,7 @@ struct GraphicsOpts {
   int taaPhases = 8;           // Halton jitter sequence length
   bool clouds = true;
   int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High
-  float drawDist = 1.0f;       // decor cull distances (w5CullDraw) and the hard draw cuts (buildDrawLists)
+  float renderDist = 1200.0f;  // m (PF2): instance draw cut, decor / tree / nature / ivy culls (x renderDist / 1200), far terrain LOD, matching haze
   float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
   // L2 lighting (docs/lighting.md): local lights per frame, shadowed lights, probe GI 0 off / 1 near / 2 near + far
   int lightCount = 256, shadowLights = 4, gi = 1;
@@ -69,7 +69,8 @@ public:
   void capture(const App& app);
   void applyPreset(App& app, GfxPreset p) { if (p != GfxPreset::Custom) s.gfx = presetOpts(p); apply(app); }
   // getters for other systems
-  float drawDist() const { return s.gfx.drawDist; }
+  float drawDist() const { return s.gfx.renderDist / 1200.0f; }   // the old multiplier (1 = Medium's 1200 m), used by the cull sites
+  float renderDist() const { return s.gfx.renderDist; }
   float particleBudget() const { return s.gfx.particles; }   // multiplier on effect / fragment caps (1 = Medium)
   float fov() const { return s.fov; }
   float lookDegPerCount(float adsT) const { return s.mouseSens * (1.0f + (s.adsSens - 1.0f) * std::clamp(adsT, 0.0f, 1.0f)); }

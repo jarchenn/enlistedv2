@@ -1,4 +1,5 @@
 #include "app.h"
+#include "hlod.h"
 #include "crumb.h"
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
@@ -174,9 +175,19 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   if (mode == Mode::Explore) grenadeDrawItems();
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
   R.wind = grass.wind ? 1.0f : 0.0f;
+  lodPxPerM = projM[1][1] != 0.0f ? projM[1][1] * R.height * 0.5f : 0.0f; lodCount[0] = lodCount[1] = lodCount[2] = 0;
+  hlodFrame(*this);   // PF2 Phase B: far buildings merged per cell (hlod.cpp)
   const ActiveSet& act = activeSet();
   for (size_t idx = 0; idx < doc.instances.size(); ++idx) {
     auto& i = doc.instances[idx];
+    if (hlodSkip(i)) {   // drawn by its active HLOD cell; its ivy is still drawn per copy (cards, not in the cell)
+      InstanceRT* h = act.rtOf[idx];
+      if (h && h->asset->ivy.mode != IvyDef::NONE) {
+        float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
+        if (lodPxPerM >= 4.0f * cd) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, *h, instanceMatrix(i), cd); }
+      }
+      continue;
+    }
     if (!act.rtOf[idx]) continue;
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
@@ -266,13 +277,17 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     }
     if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }
     if (interior.propDraw(*this, i, r, M, op, gl)) continue;   // furniture: intact / glass gone / broken (interior.cpp)
+    // PF2: a prop under ~1.5 px on screen is not drawn (it would only shimmer); buildings always are
+    if (R.perf.assetLod && lodPxPerM > 0 && !r.asset->enterable && glm::length(r.asset->bmax - r.asset->bmin) * lodPxPerM < 1.5f * std::max(camDist, 1.0f)) continue;
     const SurfaceParams* surf = interior.surfaceFor(*this, i, r.asset); size_t opFirst = op.size();   // building finish parameters
     bool noFurn = interior.hideBuiltin(i) && r.asset->noFurnOpaque.count;   // furnished by room templates
     op.push_back({noFurn ? &r.asset->noFurnOpaque : &r.asset->opaque, M}); snapDraw(*this, i, op.back());   // V6: joined ends without caps (snap.cpp)
+    if (op.back().mesh == &r.asset->opaque || op.back().mesh == &r.asset->noFurnOpaque) op.back().mesh = &assetLodMesh(r, r.asset, *op.back().mesh, camDist);   // PF2 asset LOD
+    else r.lod = 0;
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
     if (noFurn) { if (r.asset->noFurnGlass.count) gl.push_back({&r.asset->noFurnGlass, M}); } else if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
-    for (size_t k = 0; k < r.asset->interactables.size(); ++k) {
+    for (size_t k = 0; k < r.asset->interactables.size() && r.lod < 2; ++k) {   // doors / shutters: not at LOD2 (a few pixels)
       auto& d = r.asset->interactables[k];
       for (size_t l = 0; l < d.leaves.size(); ++l) {
         auto& lf = d.leaves[l];
@@ -284,8 +299,24 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       }
     }
     for (size_t k = opFirst; k < op.size(); ++k) op[k].surf = surf;
-    { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // B1 ivy (ivy.cpp)
+    if (!R.perf.assetLod || lodPxPerM <= 0 || lodPxPerM >= 4.0f * camDist) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // B1 ivy (ivy.cpp); PF2: not under 4 px/m
   }
+  hlodDraw(op, gl);
+}
+
+const GpuMesh& App::assetLodMesh(InstanceRT& r, const AssetDef* a, const GpuMesh& full, float dist) {
+  if (!R.perf.assetLod || lodPxPerM <= 0 || (!a->lodMesh[0].count && !a->lodMesh[1].count)) { r.lod = 0; ++lodCount[0]; return full; }
+  // LOD1 below 10 px/m (a 0.35 m part under ~3.5 px), LOD2 below 2.5 px/m (a 1.5 m volume under ~4 px); a finer level
+  // comes back only 15 % past its threshold. 1080p at 72 deg: LOD1 from ~75 m, LOD2 from ~300 m (ADS zoom moves them out).
+  const float t[2] = {10.0f, 2.5f};
+  float ppm = lodPxPerM / std::max(dist, 1.0f);
+  int lvl = std::min<int>(r.lod, 2);
+  while (lvl > 0 && ppm >= t[lvl - 1] * 1.15f) --lvl;
+  while (lvl < 2 && ppm < t[lvl]) ++lvl;
+  r.lod = (uint8_t)lvl; ++lodCount[lvl];
+  if (lvl == 2 && a->lodMesh[1].count) return a->lodMesh[1];
+  if (lvl >= 1 && a->lodMesh[0].count) return a->lodMesh[0];
+  return full;
 }
 
 // ============================================================ documents
@@ -792,7 +823,7 @@ int App::run(int argc, char** argv) {
       if (!tanks.camera(*this, e, fv, fov) && !stationCamera(e, fv, fov)) weaponCamera(fov);
       mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
       viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke
-      projM = glm::perspective(radians(fov), aspect, 0.03f, 4000.0f);
+      projM = glm::perspective(radians(fov), aspect, 0.03f, std::max(4000.0f, settings().renderDist() * 1.2f));   // PF2: Ultra render distance (5 km)
       worldFov = fov;
       v.vmProj = glm::perspective(radians(vmFovNow()), aspect, 0.01f, 6.0f);
       dofParams(v.dofFocus, v.dofAmount);
