@@ -453,7 +453,7 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
   for (int k = 0; k < sp.sills; ++k) {
     const auto& s = ri->sills[k];
     sp.sillA[k] = vec4(s.c.x, s.c.y, s.c.z, s.halfW);
-    sp.sillB[k] = vec4(s.n.x, s.n.y, 0, 0);
+    sp.sillB[k] = vec4(s.n.x, s.n.y, s.top, 0);   // z: window head (GX5 openingNear)
   }
   return &sp;
 }

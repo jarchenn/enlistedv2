@@ -514,6 +514,23 @@ float sillRunoff(vec3 p){
   }
   return r;
 }
+// GX5: 1 at a window's interior jamb / head / sill, fading over 0.5 m (asset space; sills: centre, half width, top)
+float openingNear(vec3 p, vec3 an){
+  float r = 0.0;
+  for (int k = 0; k < 12; ++k) {
+    if (k >= uSills) break;
+    vec4 a = uSillA[k], b = uSillB[k];
+    vec2 n = b.xy, t = vec2(-n.y, n.x);
+    if (abs(dot(an.xz, n)) < 0.7) continue;
+    vec2 d = p.xz - a.xz;
+    if (abs(dot(d, n)) > 1.2) continue;
+    float top = b.z > a.y ? b.z : a.y + 1.3;
+    vec2 e = vec2(abs(dot(d, t)) - a.w, max(a.y - p.y, p.y - top));
+    float dist = length(max(e, vec2(0.0))) + min(max(e.x, e.y), 0.0);
+    r = max(r, 1.0 - smoothstep(0.0, 0.5, abs(dist)));
+  }
+  return r;
+}
 // herringbone: blocks N x 1 (in block widths); returns block-local coords (along, across) and an id
 // (tiling: H_k = [k, k+N) x [k, k+1), V_k = [N+k, N+k+1) x [k+1-N, k+1), translated by m (N, -N); the strips
 // overlap in x - y, so the neighbouring strip is tried too -- verified exact by sampling)
@@ -570,6 +587,7 @@ float crackPath(vec2 q, float seed, float w){   // q: x across (m), y along the 
 void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
   vec4 r = gRoom >= 0 && gIn == 1 ? roomDec(gRoom) : uExtDec;
   int first = int(r.x + 0.5), n = int(r.y + 0.5);
+  n = min(n, uMatLayer == 2 ? 40 : 24);   // the list is priority sorted: Medium keeps the most telling 24
   for (int i = 0; i < 40; ++i) {
     if (i >= n) break;
     vec4 Db = gSD[first + i].b;                    // facing first, so the other two records are fetched only by decals on this wall
@@ -662,10 +680,10 @@ void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
 void gxLayer(int pat, vec3 an, inout vec3 alb, inout float rough, inout float ao){
   float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
   float wearK = clamp(gWear >= 0.0 ? gWear : uInst.y, 0.0, 2.0);
-  float rb = fbm2(vW*2.3 + 31.0), rb2 = vnF(vW*19.0 + 7.0, 19.0);
+  float rb = fbm2(vW*2.3 + 31.0), rb2 = uMatLayer == 2 ? vnF(vW*19.0 + 7.0, 19.0) : 0.5;   // High: a finer octave
   rough = clamp(rough*(0.8 + 0.34*rb + 0.12*(rb2 - 0.5)), 0.05, 1.0);   // specular breakup: nothing has uniform roughness
   bool wall = pat == 20 || pat == 17 || pat == 3 || pat == 18 || pat == 19 || pat == 22 || pat == 1 || pat == 9 || pat == 11 || pat == 15;
-  if (wall && vert > 0.0) gDetH = ((vnF(vW*170.0, 170.0) - 0.5)*0.00022 + (vnF(vW*52.0 + 3.0, 52.0) - 0.5)*0.0004)*vert;
+  if (uMatLayer == 2 && wall && vert > 0.0) gDetH = ((vnF(vW*170.0, 170.0) - 0.5)*0.00022 + (vnF(vW*52.0 + 3.0, 52.0) - 0.5)*0.0004)*vert;
   if (gIn != 1) return;
   float n1 = vnoise(vW*1.7 + 2.0), n2 = fbm2(vW*0.9 + 5.0);
   float y = gFloorY, cd = gCornerD, cl = gCeilD;
@@ -680,7 +698,7 @@ void gxLayer(int pat, vec3 an, inout vec3 alb, inout float rough, inout float ao
     float corner = 1.0 - smoothstep(0.0, 0.25 + 0.45*n2, cd);
     float top = 1.0 - smoothstep(0.0, 0.25 + 0.35*n1, cl);
     g = clamp(max(max(foot*0.85, corner*0.75), top*0.8) + blot*0.3, 0.0, 1.0)*(0.3 + 0.42*wearK)*vert;
-    float hand = smoothstep(0.85, 1.0, y)*(1.0 - smoothstep(1.4, 1.7, y))*smoothstep(0.62, 0.85, vnoise(vW*vec3(3.0, 1.4, 3.0) + 11.0))*vert;
+    float hand = uMatLayer == 2 ? smoothstep(0.85, 1.0, y)*(1.0 - smoothstep(1.4, 1.7, y))*smoothstep(0.62, 0.85, vnoise(vW*vec3(3.0, 1.4, 3.0) + 11.0))*vert : 0.0;   // High
     rough = mix(rough, rough*0.72, hand*0.5*wearK); alb *= 1.0 - 0.05*hand*wearK;   // greasy hand-height smudges
     gSeam = (0.52 + 0.48*smoothstep(0.0, 0.5, cd))*(0.55 + 0.45*smoothstep(0.0, 0.45, y))*(0.6 + 0.4*smoothstep(0.0, 0.45, cl));
   }
@@ -1164,7 +1182,7 @@ void main(){
         }
       }
       m = mix(m, 0.18, 1.0 - res(40.0));   // motif strokes under a pixel: the paper's mean tone
-      float fib = vnF(vec3(uv * vec2(260.0, 90.0), s + 6.0), 260.0);   // GX5: paper fibre
+      float fib = uMatLayer == 2 ? vnF(vec3(uv * vec2(260.0, 90.0), s + 6.0), 260.0) : 0.5;   // GX5: paper fibre (High)
       vec3 motif = ground * mix(vec3(0.62, 0.55, 0.52), vec3(0.55, 0.6, 0.58), hash12(vec2(s, 9.0)));
       bool damask = code != 2 && uMatLayer > 0 && hash12(vec2(s, 21.0)) > 0.5;
       vec3 paper = mix(ground, damask ? ground * vec3(0.84, 0.82, 0.8) : motif, m * (damask ? 0.55 : 0.6));   // damask: printed tone on tone
@@ -1213,10 +1231,23 @@ void main(){
     if (uMatLayer > 0 && vert > 0.5 && !trimHere) {
       // GX5 two materials (target_08): plaster and its paper or paint fall away to the brick behind, more with the wear,
       // at the foot and where the noise mask says; a torn ring of bare plaster round each loss and a broken rim
-      vec2 lu = uv + vec2(dot(vAp, abs(an)) * 1.37 + dot(an, vec3(3.1, 5.3, 7.7)) * 4.1, 0.0);   // per wall plane: opposite walls never repeat
-      lu.x *= 0.8;   // loss runs a little wider than tall
-      float lm = fbm2(vec3(lu * 0.65, s + 51.0)) + 0.2 * (1.0 - smoothstep(0.0, 0.9, y)) + 0.14 * (1.0 - smoothstep(0.0, 0.7, gCornerD)) + 0.07 * (vnoise(vec3(lu * 6.0, s + 52.0)) - 0.5) + 0.04 * (vnoise(vec3(lu * 21.0, s + 53.0)) - 0.5);
-      float thr = 0.8 - 0.14 * wear, fw = max(0.006, fwidth(lm) * 1.5);
+      // where plaster really fails: the lower wall, corners and round windows; mid-wall at eye height only cracks and
+      // damp. Kept rooms (wear < 0.85) lose none; each 6 m of wall hosts at most one loss region (half the cells none),
+      // seeded per wall plane so opposite walls never mirror.
+      float plane = dot(vAp, abs(an)) * 1.37 + dot(an, vec3(3.1, 5.3, 7.7)) * 4.1;
+      vec2 lu = uv + vec2(plane, 0.0);
+      float wearL = clamp((wear - 0.85) / 0.75, 0.0, 1.0);
+      float lm = -1.0;
+      if (wearL > 0.0) {
+        float cellX = floor(lu.x / 6.0), hc = hash12(vec2(cellX, s + plane + 71.0));
+        float cx = (cellX + 0.2 + 0.6 * hash12(vec2(cellX, s + plane + 72.0))) * 6.0;
+        float region = step(hc, 0.5) * (1.0 - smoothstep(0.5, 1.4, abs(lu.x - cx)));
+        float broad = fbm2(vec3(lu * 1.15, s + 51.0)) * region;
+        float foot = 1.0 - smoothstep(0.0, 1.0, y), corner = 1.0 - smoothstep(0.0, 0.8, gCornerD);
+        lm = 0.55 * broad + 0.3 * foot + 0.25 * corner + 0.3 * openingNear(vAp, an)
+           + 0.1 * (vnoise(vec3(lu * 6.0, s + 52.0)) - 0.5) + (uMatLayer == 2 ? 0.05 * (vnoise(vec3(lu * 19.0, s + 53.0)) - 0.5) : 0.0);
+      }
+      float thr = 0.78 - 0.1 * wearL, fw = max(0.006, fwidth(lm) * 1.5);
       float lost = smoothstep(thr, thr + fw, lm);
       float rimP = smoothstep(thr - 0.022, thr, lm) * (1.0 - lost);
       float tear = smoothstep(thr - 0.06, thr - 0.022, lm) * (1.0 - smoothstep(thr - 0.022, thr, lm));
