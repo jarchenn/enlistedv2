@@ -276,11 +276,21 @@ bool waterDrawItems(App& app, const Instance& i, const InstanceRT& r, const mat4
   return true;
 }
 
+uint64_t placementSig(const std::vector<Instance>& v, bool withPose);   // app.cpp
 float waterSurfaceAt(const App& app, float x, float z) {
+  // the water instances only: this runs per AI agent per physics step (Physics::waterQuery) and walked the whole map.
+  // The list is checked against every instance's id / revision / pose once per frame, and again within a frame when
+  // an instance is added, removed or re-revisioned.
+  static std::vector<size_t> water; static uint64_t key = 1; static double frame = -1; static uint32_t rc = 0; static size_t n = ~(size_t)0;
+  if (frame != app.now || rc != app.revCounter || n != app.doc.instances.size()) {
+    frame = app.now; rc = app.revCounter; n = app.doc.instances.size();
+    uint64_t k = placementSig(app.doc.instances, true);
+    if (k != key) { key = k; water.clear(); for (size_t q = 0; q < app.doc.instances.size(); ++q) if (waterAsset(app.assetFor(app.doc.instances[q]))) water.push_back(q); }
+  }
   float best = -1e9f;
-  for (auto& inst : app.doc.instances) {
+  for (size_t q : water) {
+    const Instance& inst = app.doc.instances[q];
     const AssetDef* a = app.assetFor(inst);
-    if (!waterAsset(a)) continue;
     mat4 inv = glm::inverse(app.instanceMatrix(inst));
     vec3 l = vec3(inv * vec4(x, inst.pos.y, z, 1.0f));
     for (auto& s : parse(a).s) {

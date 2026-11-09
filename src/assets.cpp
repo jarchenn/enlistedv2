@@ -640,7 +640,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
   auto a = std::make_unique<AssetDef>();
   a->file = path.filename().string();
-  a->raw = j;
+  a->raw = j; a->vehicle = j.is_object() && j.contains("vehicle");
   a->id = j.value("id", path.stem().string());
   a->version = j.value("version", 1);
   a->name = j.value("name", a->id);
@@ -903,6 +903,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
   logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3));
+  index_.emplace(a->id, a.get());   // the first asset of an id wins, as the old linear find did
   assets.push_back(std::move(a));
   return true;
 }
@@ -925,7 +926,7 @@ bool AssetLibrary::loadAll(const fs::path& dir) {
   return !assets.empty();
 }
 
-const AssetDef* AssetLibrary::find(const std::string& id) const {
-  for (auto& a : assets) if (a->id == id) return a.get();
-  return nullptr;
+const AssetDef* AssetLibrary::find(const std::string& id) const {   // per instance per frame in several places: hashed
+  auto it = index_.find(id);
+  return it != index_.end() ? it->second : nullptr;
 }

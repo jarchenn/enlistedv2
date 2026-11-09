@@ -7,3 +7,5 @@ void crumbMark(const char* s);
 void crumbFrameEnd();                 // logs the frame's breakdown when it took over 150 ms
 inline void crumb(const char* s) { gCrumb = s; if (gCrumbProf) crumbMark(s); }
 void installCrashReporter();
+// map-load steps (PF3): with NMK_FRAME_PROF set, a scope logs "[loadprof] <step> <ms>" when it ends (app.cpp)
+struct LoadStep { const char* what; double t0; explicit LoadStep(const char* w); ~LoadStep(); };

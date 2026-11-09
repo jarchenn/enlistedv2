@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
 #include "navmeta.h"
+#include <unordered_map>
 struct GpuModel;
 
 // Surface pattern IDs understood by the main shader.
@@ -241,6 +242,7 @@ struct AssetDef {
   json walkthrough;               // scripted traversal test (asset-local)
   NavMeta navMeta;                // "nav" + "terrainCut" (navmeta.h): navmesh effect, area, room graph, cover, cuts
   json raw;
+  bool vehicle = false;   // raw has "vehicle" (isVehicleAsset, per instance per frame): set with raw at load
   bool placeholder = false;
   int findInteract(const std::string& id) const;
 };
@@ -254,6 +256,7 @@ public:
 private:
   bool loadOne(const fs::path& p);
   AssetDef placeholder_;
+  std::unordered_map<std::string, const AssetDef*> index_;   // id -> asset, filled by loadOne (assets only grow)
 };
 
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf);

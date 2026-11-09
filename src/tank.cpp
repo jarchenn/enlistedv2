@@ -6,7 +6,7 @@
 #include <stb_image_write.h>
 #include <algorithm>
 
-bool isVehicleAsset(const AssetDef* a) { return a && a->raw.is_object() && a->raw.contains("vehicle"); }
+bool isVehicleAsset(const AssetDef* a) { return a && a->vehicle; }
 const char* tankZoneName(int z) { static const char* n[] = {"front", "side", "rear", "roof", "underside"}; return z >= 0 && z < 5 ? n[z] : "?"; }
 
 namespace {

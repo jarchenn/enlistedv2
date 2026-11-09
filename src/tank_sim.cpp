@@ -101,9 +101,9 @@ static void initFromInstance(App& app, TankSys& sys, TankRT& t, const Instance& 
 
 void TankSys::sync(App& app) {
   std::set<uint64_t> live;
-  for (auto& i : app.doc.instances) {
-    auto it = app.rt.find(i.id); if (it == app.rt.end()) continue;
-    const TankDef* d = defFor(it->second.asset);
+  for (auto& [idx, rp] : app.activeSet().vehicles) {   // tanks only (app.cpp), not every instance
+    const Instance& i = app.doc.instances[idx]; InstanceRT* it = rp;
+    const TankDef* d = defFor(it->asset);
     if (!d) continue;
     live.insert(i.id);
     auto& t = tanks[i.id];
@@ -112,7 +112,7 @@ void TankSys::sync(App& app) {
       if (fresh || app.mode == Mode::Creative) initFromInstance(app, *this, t, i, *d);
       t.rev = i.rev;
     }
-    if (t.body != it->second.staticBody) { t.body = it->second.staticBody; t.shapeYaw = 1e9f; }
+    if (t.body != it->staticBody) { t.body = it->staticBody; t.shapeYaw = 1e9f; }
     updateBody(app, t, false);
   }
   for (auto it = tanks.begin(); it != tanks.end();) {

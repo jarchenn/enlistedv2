@@ -250,6 +250,7 @@ void Physics::remove(uint32_t body) {
 }
 int Physics::bodyCount() { return W->bodies; }
 void Physics::step(float dt) { W->sys->Update(dt, 1, W->temp.get(), W->jobs.get()); }
+void Physics::optimizeBroadPhase() { W->sys->OptimizeBroadPhase(); }
 
 namespace {
 class IgnoreUD final : public BodyFilter {

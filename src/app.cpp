@@ -111,7 +111,40 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
     }
   }
 }
+// every instance's id, revision and placement, hashed: the per-frame passes below skip their work while it holds.
+// O(N) with no lookups; a revision bumped by hand (i.rev++) or a moved instance changes it as well.
+uint64_t placementSig(const std::vector<Instance>& v, bool withPose) {
+  uint64_t h = 1469598103934665603ull;
+  auto mix = [&](uint64_t x) { h = (h ^ x) * 1099511628211ull; };
+  for (auto& i : v) {
+    mix(i.id * 0x9E3779B97F4A7C15ull + i.rev);
+    if (withPose) { uint32_t b[4]; std::memcpy(b, &i.pos, 12); std::memcpy(&b[3], &i.yaw, 4); mix(((uint64_t)b[0] << 32) | b[2]); mix(((uint64_t)b[1] << 32) | b[3]); }
+  }
+  return h ^ v.size();
+}
+// found again whenever an instance appears, goes away or changes revision, or the runtime is rebuilt
+const App::ActiveSet& App::activeSet() {
+  ActiveSet& s = active_;
+  uint64_t key = placementSig(doc.instances, false) ^ (syncSig_ * 0x9E3779B97F4A7C15ull) ^ ((uint64_t)rt.size() << 40);
+  if (key == s.key) return s;
+  s.key = key; s.inter.clear(); s.objs.clear(); s.vehicles.clear(); s.lights.clear(); s.slowWire.clear(); s.rtOf.assign(doc.instances.size(), nullptr);
+  for (size_t k = 0; k < doc.instances.size(); ++k) {
+    auto it = rt.find(doc.instances[k].id); if (it == rt.end()) continue;
+    s.rtOf[k] = &it->second;
+    if (!it->second.asset) continue;
+    const AssetDef* a = it->second.asset;
+    if (!a->interactables.empty()) s.inter.push_back({k, &it->second});
+    if (!a->station.kind.empty() || a->rack || (a->crate.is_object() && !a->crate.empty())) s.objs.push_back({k, &it->second});
+    if (isVehicleAsset(a)) s.vehicles.push_back({k, &it->second});
+    if (a->raw.is_object() && a->raw.contains("light")) s.lights.push_back({k, &it->second});   // lightDef (lights.cpp)
+    if (a->defense.kind == "wire" && a->defense.traversal == "slow") s.slowWire.push_back({k, &it->second});   // traversalFactor (builder.cpp)
+  }
+  return s;
+}
 void App::syncRuntime() {
+  uint64_t sig = placementSig(doc.instances, false);
+  if (sig == syncSig_ && rt.size() == doc.instances.size()) return;   // nothing appeared, went away or changed revision
+  syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
   std::set<uint64_t> live;
   for (auto& i : doc.instances) {
     live.insert(i.id);
@@ -140,9 +173,11 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   if (mode == Mode::Explore) grenadeDrawItems();
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
   R.wind = grass.wind ? 1.0f : 0.0f;
-  for (auto& i : doc.instances) {
-    auto it = rt.find(i.id); if (it == rt.end()) continue;
-    auto& r = it->second;
+  const ActiveSet& act = activeSet();
+  for (size_t idx = 0; idx < doc.instances.size(); ++idx) {
+    auto& i = doc.instances[idx];
+    if (!act.rtOf[idx]) continue;
+    auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (beautifyDecorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor, cheap at range (beautify.cpp)
     if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
@@ -262,6 +297,7 @@ void App::applyTemplate(const std::string& id) {
   if (!t) t = templates.empty() ? nullptr : &templates[0];
   TemplateInfo fallback; fallback.id = "blank_slate";
   if (!t) t = &fallback;
+  LoadStep ls("applyTemplate");
   removeGroundBodies();
   w3ApplyTerrain(*this, *t);   // map size + chunked terrain + chunk colliders (editor_nav.cpp)
   ++groundRev;
@@ -275,13 +311,14 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   camPos = t.camPos; camYaw = t.camYaw; camPitch = t.camPitch;
   docPath.clear(); dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   tool = Tool::Select; placing = nullptr;
-  w5NewMapContent(*this, t);   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
-  interior.autoFurnishAll(*this);   // V4: every building furnished (no undo step, not dirty; interior.cpp)
+  { LoadStep ls("newMap content"); w5NewMapContent(*this, t); }   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
+  { LoadStep ls("autoFurnishAll"); interior.autoFurnishAll(*this); }   // V4: every building furnished (no undo step, not dirty; interior.cpp)
   toast("New map from template: " + t.name);
   return true;
 }
 bool App::openMap(const fs::path& p) {
   MapDoc d; std::string err;
+  LoadStep lsAll("openMap");
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
@@ -314,8 +351,9 @@ bool App::openMap(const fs::path& p) {
   docPath = isContent ? fs::path() : p;  // built-in examples open as unsaved copies
   dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   std::snprintf(nameBuf, sizeof nameBuf, "%s", doc.name.c_str());
-  syncRuntime();
-  interior.autoFurnishAll(*this);   // V4: buildings without extra.interior get furnished (no undo step, not dirty; interior.cpp)
+  { LoadStep ls("syncRuntime"); syncRuntime(); }
+  { LoadStep ls("autoFurnishAll"); interior.autoFurnishAll(*this); }   // V4: buildings without extra.interior get furnished (no undo step, not dirty; interior.cpp)
+  Physics::optimizeBroadPhase();   // every body of the map was just added one by one
   toast("Opened " + doc.name + (isContent ? " (copy — Save As to keep)" : ""));
   return true;
 }
@@ -581,7 +619,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--selftest-zombies") runSelf = true;  // G2 zombie AI type, melee, knife v soldiers (selftest_zombies.cpp)
+    else if (a == "--selftest-zombies") runSelf = true;
+    else if (a == "--profile-map" && k + 3 < argc) { runSelf = true; k += 3; }   // PF3 CPU frame profile (selftest_perf.cpp)  // G2 zombie AI type, melee, knife v soldiers (selftest_zombies.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
@@ -676,7 +715,8 @@ int App::run(int argc, char** argv) {
 
   double last = glfwGetTime();
   bool confirmQuit = false;
-  // NMK_FRAME_PROF=1: a frame over 150 ms logs where its time went: time per phase / crumb, summed, top 8
+  // NMK_FRAME_PROF=1: a frame over 150 ms logs where its time went: time per phase / crumb, summed, top 8. A mark names
+  // the section that follows it (time to the next mark is charged to it), like crumb()
   auto mark = [&](const char* w) { if (gCrumbProf) crumbMark(w); };
   while (!quit) {
     if (gCrumbProf) crumbFrameEnd();
@@ -694,14 +734,17 @@ int App::run(int argc, char** argv) {
 
     platformImGuiNewFrame(); ImGui::NewFrame();
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
-    mark("selftest");
-    if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
-    else { updateExplore(frameDt); drawExploreUI(); }
     mark("update");
+    if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
+    else { updateExplore(frameDt); crumb("explore ui"); drawExploreUI(); }
+    mark("ui+sync");
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
     settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
+    crumb("syncRuntime");
     syncRuntime();
+    crumb("tanks sync");
     tanks.sync(*this);
+    crumb("interior sync");
     interior.sync(*this);   // generated furniture follows / leaves with its building
 
     if (confirmQuit) { ImGui::OpenPopup("Unsaved changes"); confirmQuit = false; }
@@ -713,18 +756,20 @@ int App::run(int argc, char** argv) {
       ImGui::EndPopup();
     }
 
-    mark("sync");
+    mark("drawlists");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
     buildDrawLists(op, gl);
-    mark("drawlists");
+    mark("view");
     op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {
       dynLeafDrawItems(op);
       interior.fragDrawItems(op);
       builderGhosts(ghosts);
+      crumb("view weapons");
       for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
       if (!tanks.occupied) weaponDrawItems(op);
     }
+    crumb("view camera");
     int ww, wh; glfwGetWindowSize(win, &ww, &wh);
     // minimized windows report a 0x0 framebuffer: keep the aspect of the targets we actually render into
     float aspect = (fbw > 0 && fbh > 0) ? (float)fbw / fbh : (float)R.width / std::max(1, R.height);
@@ -753,22 +798,22 @@ int App::run(int argc, char** argv) {
       audio.setListener(e, forward(eyeYaw, eyePitch));
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
-    mark("view");
-    mpaiFrame(*this, ov);   // soldiers, grenades, scenario overlay
     mark("mpai");
+    mpaiFrame(*this, ov);   // soldiers, grenades, scenario overlay
+    mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
-    mark("fx");
-    w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
     mark("w3");
-    updateGrass(v.camPos);
+    w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
     mark("grass");
+    updateGrass(v.camPos);
+    mark("lights");
     R.grass = &grass;
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
-    mark("lights");
-    R.render(v, terrain, op, gl, ghosts, ov);
     mark("render");
+    R.render(v, terrain, op, gl, ghosts, ov);
+    mark("imgui");
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
     if (!recCaption.empty()) {   // recording caption, over every other overlay
       ImDrawList* dl = ImGui::GetForegroundDrawList(); ImGuiIO& io = ImGui::GetIO();
@@ -781,7 +826,7 @@ int App::run(int argc, char** argv) {
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
     platformImGuiRender(ImGui::GetDrawData());
-    mark("imgui");
+    mark("present");
     if (rec.active() && (++recTick & 1)) {   // 30 fps from the fixed 60 Hz simulation, HUD included
       recPx.resize((size_t)fbw * fbh * 4);
       glReadBuffer(GL_BACK); glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -797,10 +842,11 @@ int App::run(int argc, char** argv) {
       logf("ui screenshot %s", uiShot.string().c_str()); uiShot.clear();
     }
     platformPresent(win);
-    mark("present");
+    mark("end");
     settingsEndFrame(*this);   // FPS cap
   }
   int code = selftest ? selftest->exitCode : 0;
+  if (gCrumbProf) { extern json crumbProfReport(const char*); crumbProfReport("exit"); }
   clearRuntime();
   Physics::destroyCharacter();
   audio.shutdown();
@@ -831,6 +877,13 @@ std::vector<GrassFootprint> App::grassFootprints() const {
 
 void App::updateSurface() {
   groundPaintSync(*this);   // lasso ground paint: the GPU copy follows the map (ground_paint.cpp)
+  // the full signature below walks every instance: only when an instance, the routes or the terrain changed
+  static uint64_t gPlace = 0, gGen = ~0ull, gSurf = 0; static json gRoutes;
+  const json noRoutes = json::array();
+  const json& routesNow = doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : noRoutes;
+  uint64_t place = placementSig(doc.instances, true);
+  if (gPlace == place && gGen == (uint64_t)terrain.generation && gSurf == terrain.surfSig && !terrain.surf.empty() && routesNow == gRoutes) return;
+  gPlace = place; gGen = (uint64_t)terrain.generation; gRoutes = routesNow;
   // structures (not guns, crates, trees or defences) get a foundation soil band; routes come from the map
   std::vector<SurfaceFootprint> feet;
   uint64_t sig = 1469598103934665603ull;
@@ -847,30 +900,74 @@ void App::updateSurface() {
   json routes = doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json::array();
   mix(std::hash<std::string>{}(routes.dump()));
   mix(terrain.generation);
+  gSurf = sig;
   if (sig == terrain.surfSig && !terrain.surf.empty()) return;
   terrain.buildSurface(routes, feet);
   terrain.surfSig = sig;
 }
 
 void App::updateGrass(vec3 cam) {
+  crumb("grass surface");
   updateSurface();
+  crumb("grass footprints");
   uint32_t seed = doc.seed * 2654435761u + (uint32_t)doc.templateVersion * 40503u + (uint32_t)std::hash<std::string>{}(doc.templateId);
-  grass.update(terrain, seed, grassFootprints(), cam, grassBudgetMs);
+  // rebuilt only when an instance appeared, went away, moved or changed revision, or the ground changed (path drape)
+  static std::vector<GrassFootprint> fp; static uint64_t fpSig = 0; static uint32_t fpGround = ~0u;
+  uint64_t place = placementSig(doc.instances, true);
+  if (fpSig != place || fpGround != groundRev) { fp = grassFootprints(); fpSig = place; fpGround = groundRev; }
+  crumb("grass update");
+  grass.update(terrain, seed, fp, cam, grassBudgetMs);
 }
 
 // ---- NMK_FRAME_PROF: crumbs as profile marks (crumb.h)
+//   NMK_FRAME_PROF_MS=<ms>       a frame slower than this logs its breakdown (default 150)
+//   NMK_FRAME_PROF_EVERY=<s>     per-section average / p95 CPU ms per frame logged every <s> seconds (default 10, 0 = only at exit)
 bool gCrumbProf = std::getenv("NMK_FRAME_PROF") != nullptr;
 static std::vector<std::pair<const char*, double>> gMarks;
+static const double kSlowFrame = std::getenv("NMK_FRAME_PROF_MS") ? std::atof(std::getenv("NMK_FRAME_PROF_MS")) / 1000.0 : 0.15;
+static const double kProfEvery = std::getenv("NMK_FRAME_PROF_EVERY") ? std::atof(std::getenv("NMK_FRAME_PROF_EVERY")) : 10.0;
+static std::map<std::string, std::vector<float>> gSecMs;   // section -> ms per frame (0 when it did not run) since the last report
+static std::vector<float> gFrameMs;
+static double gProfSince = -1;
 void crumbMark(const char* s) { gMarks.push_back({s, glfwGetTime()}); }
+LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0) {}
+LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); }
+json crumbProfReport(const char* tag) {
+  auto stat = [](std::vector<float> v) { double s = 0; for (float x : v) s += x; std::sort(v.begin(), v.end()); return std::pair<double, double>(v.empty() ? 0 : s / v.size(), v.empty() ? 0 : v[std::min(v.size() - 1, (size_t)(0.95 * v.size()))]); };
+  json out = json::object();
+  if (gFrameMs.empty()) return out;
+  auto [fa, fp] = stat(gFrameMs);
+  out["frames"] = gFrameMs.size(); out["frameMs"] = fa; out["frameP95"] = fp;
+  std::vector<std::tuple<double, double, std::string>> v;
+  for (auto& [n, s] : gSecMs) { s.resize(gFrameMs.size(), 0.0f); auto [a, p] = stat(s); v.push_back({a, p, n}); out["sections"][n] = {{"avg", a}, {"p95", p}}; }
+  std::sort(v.rbegin(), v.rend());
+  std::string b; char x[96];
+  for (size_t k = 0; k < v.size() && k < 14; ++k) { std::snprintf(x, sizeof x, " [%s] %.2f/%.2f", std::get<2>(v[k]).c_str(), std::get<0>(v[k]), std::get<1>(v[k])); b += x; }
+  logf("[frameprof] %s %zu frames, avg %.2f ms p95 %.2f ms; section avg/p95 ms:%s", tag, gFrameMs.size(), fa, fp, b.c_str());
+  gSecMs.clear(); gFrameMs.clear(); gProfSince = glfwGetTime();
+  return out;
+}
 void crumbFrameEnd() {
-  if (gMarks.size() > 1 && gMarks.back().second - gMarks.front().second > 0.15) {
-    std::map<std::string, double> per;   // time from a mark to the next, charged to the mark
-    for (size_t k = 0; k + 1 < gMarks.size(); ++k) per[gMarks[k].first] += gMarks[k + 1].second - gMarks[k].second;
-    std::vector<std::pair<double, std::string>> v; for (auto& [n, t] : per) v.push_back({t, n});
-    std::sort(v.rbegin(), v.rend());
-    std::string b; char x[96];
-    for (size_t k = 0; k < v.size() && k < 8; ++k) { std::snprintf(x, sizeof x, " [%s] %.0f", v[k].second.c_str(), v[k].first * 1000); b += x; }
-    logf("[frameprof] %.0f ms:%s", (gMarks.back().second - gMarks.front().second) * 1000, b.c_str());
+  if (gMarks.size() > 1) {
+    double total = gMarks.back().second - gMarks.front().second;
+    size_t f = gFrameMs.size();
+    for (size_t k = 0; k + 1 < gMarks.size(); ++k) {   // time from a mark to the next, charged to the mark
+      auto& s = gSecMs[gMarks[k].first];
+      if (s.size() < f + 1) s.resize(f + 1, 0.0f);
+      s[f] += (float)((gMarks[k + 1].second - gMarks[k].second) * 1000);
+    }
+    gFrameMs.push_back((float)(total * 1000));
+    if (total > kSlowFrame) {
+      std::map<std::string, double> per;
+      for (size_t k = 0; k + 1 < gMarks.size(); ++k) per[gMarks[k].first] += gMarks[k + 1].second - gMarks[k].second;
+      std::vector<std::pair<double, std::string>> v; for (auto& [n, t] : per) v.push_back({t, n});
+      std::sort(v.rbegin(), v.rend());
+      std::string b; char x[96];
+      for (size_t k = 0; k < v.size() && k < 8; ++k) { std::snprintf(x, sizeof x, " [%s] %.1f", v[k].second.c_str(), v[k].first * 1000); b += x; }
+      logf("[frameprof] %.0f ms:%s", total * 1000, b.c_str());
+    }
+    if (gProfSince < 0) gProfSince = gMarks.front().second;
+    if (kProfEvery > 0 && gMarks.back().second - gProfSince > kProfEvery) crumbProfReport("periodic");
   }
   gMarks.clear();
 }
