@@ -721,6 +721,8 @@ def rug(root, id, name, W, D, variant, col):
     m = f"rug_{id}"
     a.extra_mats[m] = (col, 0.97, "rug", grain)
     a.r([0, 0.002 + 0.005, 0], [W, 0.01, D], m, "rug", 0.004)
+    if id not in ENVELOPES:   # GX2 rugs (the hall runner): the envelope is the rug
+        a.prop["bounds"] = parts_bounds(a.parts)
     return a.write(root, [W, D], fragments=[], keep=[])
 
 
@@ -1402,6 +1404,452 @@ def potbelly_stove(root):
     return a.write(root, [0.42, 0.42], fragments=["flue"], keep=["body", "grate"])
 
 
+# ---------------------------------------------------------------- GX2: lived-in interiors (graphics brief section 3)
+# Iron bedstead, gramophone, wireless set, wall lamps (electric sconce, candle sconce, wall oil lamp), a single
+# candlestick, a hall pendant, coat stand and coat hooks, suitcases, half-drawn curtains, a pan rail, broken glass and
+# plaster debris, a hall runner and a set of framed paintings. Light colours here are placeholders: the fixtures'
+# colour temperature, intensity and radius come from content/settings/interior_lights.json (src/lights.cpp).
+GX2_MATS = {
+    "iron_enamel": ([0.035, 0.034, 0.033], 0.42, "metal", 1),
+    "leather_brown": ([0.16, 0.085, 0.045], 0.62, "fabric", 1),
+    "leather_tan": ([0.3, 0.19, 0.1], 0.6, "fabric", 1),
+    "walnut": ([0.13, 0.07, 0.04], 0.45, "joinery", -1),
+    "grille_cloth": ([0.36, 0.3, 0.2], 0.95, "textile", 1),
+    "bakelite": ([0.05, 0.03, 0.02], 0.3, "plain", 1),
+    "felt_green": ([0.06, 0.13, 0.07], 0.95, "textile", 0),
+    "record": ([0.012, 0.012, 0.012], 0.25, "plain", 1),
+    "opal_glass": ([0.86, 0.84, 0.78], 0.15, "glass", 1),
+    "gilt": ([0.55, 0.4, 0.17], 0.38, "metal", 1),
+    "canvas_sky": ([0.42, 0.47, 0.5], 0.85, "plain", 1),
+    "canvas_dusk": ([0.62, 0.45, 0.22], 0.85, "plain", 1),
+    "canvas_field": ([0.24, 0.27, 0.12], 0.9, "plain", 1),
+    "canvas_tree": ([0.08, 0.11, 0.05], 0.9, "plain", 1),
+    "canvas_sea": ([0.17, 0.24, 0.27], 0.8, "plain", 1),
+    "canvas_sand": ([0.5, 0.43, 0.3], 0.9, "plain", 1),
+    "canvas_dark": ([0.06, 0.05, 0.04], 0.9, "plain", 1),
+    "canvas_skin": ([0.55, 0.4, 0.3], 0.8, "plain", 1),
+    "plaster_chunk": ([0.6, 0.57, 0.5], 0.95, "plain", 1),
+    "plaster_dust": ([0.5, 0.48, 0.43], 0.98, "plain", 1),
+    "lath": ([0.36, 0.27, 0.17], 0.9, "joinery", -1),
+    "brick_red": ([0.33, 0.14, 0.08], 0.9, "plain", 1),
+    "shard": ([0.7, 0.76, 0.74], 0.04, "glass", 1),
+    "blanket_grey": ([0.24, 0.23, 0.21], 0.97, "textile", 3),
+    "felt_hat": ([0.1, 0.09, 0.08], 0.95, "textile", 0),
+    "scarf": ([0.32, 0.08, 0.06], 0.95, "textile", 2),
+    "umbrella": ([0.04, 0.04, 0.05], 0.7, "textile", 0),
+}
+MATS.update(GX2_MATS)
+EMISSIVE["opal_glass"] = [2.4, 1.85, 1.2]
+
+
+def quat_mat(r):
+    """glm::quat(glm::radians(r)) as a 3x3 row-major matrix (src/assets.cpp part rotation)."""
+    hx, hy, hz = (math.radians(v) * 0.5 for v in r)
+    cx, cy, cz, sx, sy, sz = math.cos(hx), math.cos(hy), math.cos(hz), math.sin(hx), math.sin(hy), math.sin(hz)
+    w = cx * cy * cz + sx * sy * sz
+    x = sx * cy * cz - cx * sy * sz
+    y = cx * sy * cz + sx * cy * sz
+    z = cx * cy * sz - sx * sy * cz
+    return [[1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]]
+
+
+def parts_bounds(parts):
+    """AABB of the visible parts, rotated parts by their rotated box (src/interior.cpp partAabb)."""
+    mn, mx = [1e9] * 3, [-1e9] * 3
+    for p in parts:
+        if p.get("v", 1) == 0:
+            continue
+        R = quat_mat(p["r"]) if "r" in p else [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        h = [v / 2 for v in p["s"]]
+        for i in range(3):
+            e = abs(R[i][0]) * h[0] + abs(R[i][1]) * h[1] + abs(R[i][2]) * h[2]
+            mn[i] = min(mn[i], p["c"][i] - e)
+            mx[i] = max(mx[i], p["c"][i] + e)
+    return [[round(v, 4) for v in mn], [round(v, 4) for v in mx]]
+
+
+def gx2_write(a, root, footprint, **kw):
+    """GX2 pieces: their furnishing envelope (prop.bounds) is the visible bounds as designed."""
+    a.prop["bounds"] = parts_bounds(a.parts)
+    return a.write(root, footprint, **kw)
+
+
+def tube(a, p0, p1, d, m, grp, seg=10):
+    """A round bar from p0 to p1 (any direction): a cylinder whose y axis is turned onto the segment (rot [pitch, yaw, 0])."""
+    dx, dy, dz = (p1[i] - p0[i] for i in range(3))
+    L = math.sqrt(dx * dx + dy * dy + dz * dz)
+    c = [(p0[i] + p1[i]) / 2 for i in range(3)]
+    return a.cyl(c, d, L, m, grp, seg=seg, rot=[math.degrees(math.atan2(math.hypot(dx, dz), dy)), math.degrees(math.atan2(dx, dz)), 0])
+
+
+def bed_iron(root):
+    a = A("furn_bed_iron", "Iron bedstead", "Single black-enamelled iron bedstead: tubular posts with brass knobs and collars, spindled head- and footboards "
+          "under bowed top rails, angle-iron side rails, a ticking mattress, a linen sheet turned down over a grey wool blanket draped over the sides, a plump pillow.",
+          "metal", 0, 70, wall=True, front=0.55)
+    W, L = 1.0, 2.0
+    for z, ph, grp in ((-L / 2 + 0.02, 1.18, "head"), (L / 2 - 0.02, 0.9, "foot")):
+        for sx in (-1, 1):
+            x = sx * (W / 2 - 0.02)
+            a.cyl([x, ph / 2, z], 0.034, ph, "iron_enamel", grp, seg=12)                      # post
+            a.cyl([x, 0.012, z], 0.05, 0.024, "iron_enamel", grp, top=0.7, seg=12)             # foot cup
+            a.r([x, ph + 0.025, z], [0.056, 0.056, 0.056], "brass", grp, 0.027)                # brass knob
+            a.cyl([x, ph - 0.01, z], 0.046, 0.02, "brass", grp, seg=12)                        # collar under it
+            a.cyl([x, ph * 0.52, z], 0.044, 0.026, "brass", grp, seg=12)                       # mid collar
+        top, low = ph - 0.1, 0.46 if grp == "head" else 0.44
+        a.cyl([0, top, z], 0.026, W - 0.04, "iron_enamel", grp, seg=10, rot=[0, 0, 90])     # top rail
+        a.cyl([0, low, z], 0.022, W - 0.04, "iron_enamel", grp, seg=10, rot=[0, 0, 90])     # lower rail
+        a.arch([0, top + 0.003, z], [W - 0.12, 0.12 if grp == "head" else 0.07, 0.022], "iron_enamel", grp, th=0.02)   # bowed top
+        n = 7 if grp == "head" else 6
+        for i in range(n):   # spindles, the middle ones with a brass ring
+            x = -W / 2 + 0.02 + (W - 0.04) * (i + 1) / (n + 1)
+            a.cyl([x, (top + low) / 2, z], 0.014, top - low, "iron_enamel", grp, seg=8)
+            if i in (n // 2 - 1, n // 2):
+                a.cyl([x, (top + low) / 2, z], 0.026, 0.03, "brass", grp, seg=8)
+        a.cyl([0, (top + low) / 2 + 0.05, z], 0.07, 0.012, "brass", grp, seg=14, rot=[90, 0, 0])   # centre medallion
+    for sx in (-1, 1):   # angle-iron side rails and spring links
+        a.b([sx * (W / 2 - 0.04), 0.4, 0], [0.035, 0.035, L - 0.06], "iron_enamel", "frame")
+        a.b([sx * (W / 2 - 0.06), 0.385, 0], [0.006, 0.006, L - 0.1], "iron", "frame")
+    for z in (-0.6, 0.0, 0.6):
+        a.b([0, 0.395, z], [W - 0.1, 0.008, 0.02], "iron", "frame")
+    # bedding: mattress with a rolled edge, sheet turned down over the blanket, the blanket's sides hanging in folds
+    a.r([0, 0.5, 0.02], [W - 0.08, 0.16, L - 0.1], "ticking", "mattress", 0.05)
+    a.r([0, 0.585, -0.1], [W - 0.06, 0.02, L - 0.4], "blanket_grey", "blanket", 0.01)
+    a.r([0, 0.598, -0.42], [W - 0.06, 0.016, 0.22], "linen", "blanket", 0.008)                  # sheet turn-down
+    a.cyl([0, 0.6, -0.31], 0.035, W - 0.05, "linen", "blanket", dz=0.025, seg=10, rot=[0, 0, 90])   # rolled edge of the turn-down
+    for sx in (-1, 1):
+        for i, (z, rx) in enumerate(((-0.5, 3), (-0.05, -2), (0.4, 4))):   # side drape: three hanging folds
+            a.r([sx * (W / 2 - 0.02), 0.47, z], [0.02, 0.24, 0.48], "blanket_grey", "blanket", 0.009, rot=[rx, 0, sx * 6])
+            a.cyl([sx * (W / 2 - 0.015), 0.47, z + 0.22], 0.03, 0.22, "blanket_grey", "blanket", dz=0.02, seg=8, rot=[0, 0, sx * 6])
+    for z, rz in ((0.15, 1.5), (0.45, -2.0), (0.65, 1.0)):   # creases across the blanket
+        a.cyl([0.03, 0.597, z], 0.016, W - 0.2, "blanket_grey", "blanket", dz=0.008, seg=6, rot=[0, rz, 90])
+    a.r([0, 0.64, -L / 2 + 0.24], [W - 0.22, 0.12, 0.34], "linen", "mattress", 0.055)            # pillow
+    a.r([0.04, 0.705, -L / 2 + 0.25], [W - 0.4, 0.02, 0.2], "linen", "mattress", 0.01, rot=[0, 4, 0])   # its dent
+    a.col([0, 0.3, 0], [W, 0.6, L])
+    a.col([0, 0.85, -L / 2 + 0.02], [W, 0.6, 0.05])
+    return gx2_write(a, root, [W, L], fragments=["foot", "blanket"], keep=["frame", "mattress", "head"])
+
+
+def gramophone(root):
+    a = A("furn_gramophone", "Gramophone", "Horn gramophone: an oak cabinet with a felt turntable, a shellac record, a nickel tonearm and soundbox, "
+          "a winding crank and a fluted brass horn on its elbow.", "wood", 3, 8, blocking=False, front=0.0)
+    a.r([0, 0.07, 0], [0.34, 0.14, 0.34], "oak", "case", 0.008)
+    a.r([0, 0.145, 0], [0.36, 0.014, 0.36], "oak", "case", 0.005)                               # moulded lid edge
+    a.r([0, 0.07, 0.172], [0.26, 0.08, 0.006], "oak_dark", "case", 0.003)                      # front panel
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            a.cyl([sx * 0.15, 0.009, sz * 0.15], 0.03, 0.018, "oak_dark", "case", top=0.7, seg=8, rot=[180, 0, 0])
+    a.cyl([0.02, 0.158, 0.02], 0.27, 0.012, "felt_green", "deck", seg=24)
+    a.cyl([0.02, 0.166, 0.02], 0.25, 0.004, "record", "deck", seg=24)
+    a.cyl([0.02, 0.169, 0.02], 0.08, 0.002, "cover_red", "deck", seg=16)                        # label
+    a.cyl([0.02, 0.175, 0.02], 0.008, 0.02, "zinc", "deck", seg=6)                               # spindle
+    a.cyl([-0.12, 0.17, -0.12], 0.04, 0.03, "zinc", "arm", seg=10)                               # tonearm pivot
+    tube(a, [-0.12, 0.185, -0.12], [0.05, 0.19, 0.05], 0.018, "zinc", "arm")
+    a.cyl([0.06, 0.18, 0.06], 0.05, 0.016, "zinc", "arm", seg=12, rot=[90, 45, 0])              # soundbox
+    a.cyl([0.19, 0.08, 0.0], 0.03, 0.03, "zinc", "case", seg=8, rot=[0, 0, 90])                   # crank
+    a.r([0.21, 0.06, 0.0], [0.012, 0.06, 0.012], "zinc", "case", 0.004)
+    a.cyl([0.21, 0.035, 0.025], 0.018, 0.04, "oak_dark", "case", seg=8, rot=[90, 0, 0])
+    # elbow from the back corner, then the horn flaring up and forward (axis tilted 52 degrees toward +z)
+    tube(a, [-0.12, 0.19, -0.13], [-0.12, 0.3, -0.13], 0.03, "brass", "horn")
+    ax, base = [0, math.sin(math.radians(52)), math.cos(math.radians(52))], [-0.12, 0.31, -0.12]
+    t, d = 0.0, 0.035
+    for i, (h, grow) in enumerate(((0.06, 1.6), (0.07, 1.5), (0.08, 1.45), (0.08, 1.4), (0.07, 1.35), (0.05, 1.25))):
+        c = [base[k] + ax[k] * (t + h / 2) for k in range(3)]
+        a.cyl(c, d * grow, h, "brass", "horn", top=1.0 / grow, n=12, rot=[180 + 52, 0, 0])
+        t += h
+        d *= grow
+    c = [base[k] + ax[k] * (t + 0.008) for k in range(3)]
+    a.cyl(c, d * 1.04, 0.012, "brass", "horn", n=12, rot=[52, 0, 0])                            # rolled rim
+    return gx2_write(a, root, [0.36, 0.36], fragments=["horn"], keep=["case", "deck"])
+
+
+def radio(root):
+    a = A("furn_radio", "Wireless set", "Walnut cathedral-top wireless receiver (1930s): arched cabinet, fretwork over the speaker cloth, "
+          "an amber dial and three bakelite knobs.", "wood", 2, 8, blocking=False, front=0.0)
+    W, D = 0.34, 0.2
+    a.r([0, 0.12, 0], [W, 0.24, D], "walnut", "case", 0.01)
+    a.arch([0, 0.24, 0], [W, 0.15, D], "walnut", "case", th=0.3, fill=True)                       # cathedral top
+    a.r([0, 0.012, 0], [W + 0.02, 0.024, D + 0.02], "walnut", "case", 0.006)                      # plinth
+    a.r([0, 0.22, D / 2 + 0.002], [0.22, 0.14, 0.004], "grille_cloth", "front", 0.002)
+    a.arch([0, 0.29, D / 2 + 0.002], [0.22, 0.09, 0.004], "grille_cloth", "front", th=0.3, fill=True)
+    for x in (-0.055, 0.0, 0.055):   # fretwork bars
+        a.r([x, 0.26, D / 2 + 0.006], [0.012, 0.2, 0.008], "walnut", "front", 0.003)
+    a.arch([0, 0.29, D / 2 + 0.006], [0.18, 0.07, 0.008], "walnut", "front", th=0.012)
+    a.r([0, 0.09, D / 2 + 0.003], [0.11, 0.04, 0.006], "dial", "front", 0.004)                   # dial window
+    a.r([0, 0.09, D / 2 + 0.006], [0.115, 0.045, 0.003], "glass", "glass", 0.004)
+    a.r([0.01, 0.092, D / 2 + 0.007], [0.002, 0.03, 0.002], "cover_red", "front", 0.0005)         # needle
+    for x in (-0.1, 0.0, 0.1):
+        a.cyl([x, 0.035, D / 2 + 0.012], 0.032, 0.02, "bakelite", "front", seg=12, rot=[90, 0, 0])
+    return gx2_write(a, root, [W + 0.02, D + 0.02], fragments=["front"], keep=["case"], glass="glass")
+
+
+def sconce(root):
+    a = A("furn_sconce", "Wall sconce", "Electric wall light: a brass back plate, a scrolled arm and a frosted tulip shade over one bulb.",
+          "glass", 1, 6, blocking=False, wall=True, front=0.0, mount=1.68)
+    a.prop["hang"] = False
+    a.cyl([0, 0.02, 0.008], 0.11, 0.016, "brass", "plate", seg=16, rot=[90, 0, 0])
+    a.cyl([0, 0.02, 0.018], 0.06, 0.012, "brass", "plate", seg=12, rot=[90, 0, 0])
+    tube(a, [0, 0.02, 0.02], [0, -0.04, 0.07], 0.014, "brass", "plate")
+    tube(a, [0, -0.04, 0.07], [0, 0.06, 0.13], 0.014, "brass", "plate")
+    a.cyl([0, 0.07, 0.13], 0.04, 0.03, "brass", "plate", top=0.75, seg=12, rot=[180, 0, 0])        # bulb holder cup
+    a.r([0, 0.1, 0.13], [0.045, 0.05, 0.045], "bulb", "glass", 0.02)
+    a.cyl([0, 0.135, 0.13], 0.14, 0.1, "opal_glass", "glass", top=0.45, n=10, rot=[180, 0, 0])     # fluted tulip, wide at the top
+    a.cyl([0, 0.186, 0.13], 0.142, 0.006, "opal_glass", "glass", n=10)                             # its crimped rim
+    a.light = {"color": [1.0, 0.72, 0.42], "intensity": 0.6, "radius": 4.5, "offset": [0, 0.11, 0.14], "group": "glass", "use": "interior"}
+    return gx2_write(a, root, [0.15, 0.2], fragments=[], keep=["plate"], glass="glass")
+
+
+def sconce_candle(root):
+    a = A("furn_sconce_candle", "Candle sconce", "Brass girandole: a repoussé back plate with two scrolled arms, drip pans and tallow candles.",
+          "metal", 0, 6, blocking=False, wall=True, front=0.0, mount=1.55)
+    a.r([0, 0.12, 0.006], [0.12, 0.26, 0.012], "brass", "plate", 0.05)
+    a.cyl([0, 0.12, 0.014], 0.08, 0.008, "brass", "plate", seg=14, rot=[90, 0, 0])
+    a.r([0, 0.24, 0.012], [0.05, 0.05, 0.016], "brass", "plate", 0.022)                            # crest
+    for sx in (-1, 1):
+        tube(a, [0, 0.07, 0.016], [sx * 0.11, 0.06, 0.08], 0.012, "brass", "plate")
+        tube(a, [sx * 0.11, 0.06, 0.08], [sx * 0.13, 0.11, 0.1], 0.012, "brass", "plate")
+        a.cyl([sx * 0.13, 0.118, 0.1], 0.06, 0.012, "brass", "plate", top=1.0, seg=12)               # drip pan
+        h = 0.11 if sx < 0 else 0.07
+        a.cyl([sx * 0.13, 0.124 + h / 2, 0.1], 0.022, h, "wax", "candles", seg=10)
+        a.r([sx * 0.13, 0.124 + h + 0.014, 0.1], [0.008, 0.026, 0.004], "flame", "candles", 0.0018)
+    a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.2, "radius": 3.0, "offset": [0, 0.25, 0.11], "flicker": 0.28, "group": "candles", "use": "interior"}
+    return gx2_write(a, root, [0.32, 0.12], fragments=[], keep=["plate"])
+
+
+def wall_oil_lamp(root):
+    a = A("furn_lamp_wall_oil", "Wall oil lamp", "Kerosene wall lamp: a cast-iron bracket holding a glass font with a brass burner and chimney "
+          "in front of a silvered reflector.", "glass", 1, 6, blocking=False, wall=True, front=0.0, mount=1.5)
+    a.cyl([0, 0.2, 0.012], 0.2, 0.012, "mirror", "reflector", seg=20, rot=[90, 0, 0])               # reflector disc
+    a.cyl([0, 0.2, 0.006], 0.215, 0.012, "brass", "reflector", seg=20, rot=[90, 0, 0])
+    a.wedge([0, 0.02, 0.05], [0.03, 0.06, 0.09], "cast_iron", "bracket", top=0.25, rot=[180, 180, 0])
+    a.cyl([0, 0.055, 0.12], 0.1, 0.014, "cast_iron", "bracket", seg=14)                             # holder ring
+    a.cyl([0, 0.1, 0.12], 0.09, 0.07, "glass", "glass", top=0.7, seg=14, rot=[180, 0, 0])          # font
+    a.cyl([0, 0.145, 0.12], 0.05, 0.016, "brass", "glass", seg=12)                                  # burner
+    a.r([0, 0.165, 0.12], [0.012, 0.03, 0.006], "flame", "glass", 0.002)
+    a.cyl([0, 0.2, 0.12], 0.055, 0.09, "glass", "glass", top=0.6, seg=14)                           # chimney bulb
+    a.cyl([0, 0.27, 0.12], 0.034, 0.06, "glass", "glass", seg=12)
+    a.col([0, 0.15, 0.1], [0.1, 0.25, 0.1])
+    a.light = {"color": [1.0, 0.66, 0.34], "intensity": 0.45, "radius": 4.0, "offset": [0, 0.18, 0.13], "flicker": 0.1, "group": "glass", "use": "interior"}
+    return gx2_write(a, root, [0.22, 0.2], fragments=[], keep=["bracket", "reflector"], glass="glass")
+
+
+def candlestick(root):
+    a = A("furn_candlestick", "Candlestick", "Tall turned brass candlestick with a half-burnt beeswax candle.", "metal", 0, 6, blocking=False, front=0.0)
+    a.cyl([0, 0.01, 0], 0.11, 0.02, "brass", "stick", top=0.7, seg=16)
+    a.cyl([0, 0.035, 0], 0.06, 0.03, "brass", "stick", top=0.6, seg=14)
+    for y, d in ((0.06, 0.04), (0.13, 0.036), (0.2, 0.034)):   # stem with knops
+        a.cyl([0, y + 0.035, 0], 0.02, 0.07, "brass", "stick", top=0.85, seg=10)
+        a.r([0, y, 0], [d, 0.026, d], "brass", "stick", 0.012)
+    a.cyl([0, 0.27, 0], 0.06, 0.012, "brass", "stick", seg=14)
+    a.cyl([0, 0.33, 0], 0.024, 0.12, "wax", "candle", seg=10)
+    a.r([0.009, 0.36, 0.01], [0.008, 0.04, 0.006], "wax", "candle", 0.003)
+    a.r([0, 0.404, 0], [0.008, 0.026, 0.004], "flame", "candle", 0.0018)
+    a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.14, "radius": 2.6, "offset": [0, 0.41, 0], "flicker": 0.3, "group": "candle", "use": "interior"}
+    return gx2_write(a, root, [0.11, 0.11], fragments=[], keep=["stick"])
+
+
+def hall_pendant(root):
+    a = A("furn_lamp_pendant_glass", "Hall pendant", "Hall pendant lamp: a brass ceiling cup, a short chain, a pierced brass gallery and an opal-glass "
+          "bowl round one bulb. Hangs from a ceiling or beam (origin at the top).", "glass", 0, 10, blocking=False, front=0.0)
+    a.prop["hang"] = True
+    a.cyl([0, -0.015, 0], 0.11, 0.03, "brass", "rose", top=0.6, seg=16, rot=[180, 0, 0])
+    for i in range(7):   # chain links, alternating planes
+        a.arch([0, -0.04 - i * 0.034, 0], [0.024, 0.04, 0.006], "brass", "rose", th=0.006, rot=[0, 90 * (i % 2), 0])
+    a.cyl([0, -0.29, 0], 0.05, 0.03, "brass", "gallery", top=0.6, seg=12, rot=[180, 0, 0])
+    a.cyl([0, -0.33, 0], 0.2, 0.05, "brass", "gallery", top=0.55, n=12)                             # pierced gallery (12 sides)
+    a.cyl([0, -0.36, 0], 0.26, 0.016, "brass", "gallery", seg=24)
+    a.cyl([0, -0.41, 0], 0.27, 0.09, "opal_glass", "glass", top=0.82, seg=24)                        # the bowl: upper...
+    a.cyl([0, -0.48, 0], 0.22, 0.05, "opal_glass", "glass", top=0.6, seg=24, rot=[180, 0, 0])        # ...and its rounded base
+    a.r([0, -0.405, 0], [0.06, 0.06, 0.06], "bulb", "glass", 0.026)
+    a.cyl([0, -0.515, 0], 0.03, 0.03, "brass", "gallery", top=0.4, seg=8, rot=[180, 0, 0])           # finial
+    a.col([0, -0.43, 0], [0.26, 0.14, 0.26])
+    a.light = {"color": [1.0, 0.75, 0.48], "intensity": 1.3, "radius": 7.0, "offset": [0, -0.43, 0], "cone": [75, 112], "dir": [0, -1, 0], "shadow": 1, "group": "glass", "use": "interior"}
+    return gx2_write(a, root, [0.27, 0.27], fragments=["glass"], keep=["rose", "gallery"], glass="glass")
+
+
+def coat_stand(root):
+    a = A("furn_coat_stand", "Coat stand", "Bentwood hall stand by the door: four splayed feet, a drip ring, a turned pole crowned with hooks; a greatcoat, "
+          "a jacket, a felt hat and a furled umbrella.", "wood", 10, 30, wall=True, front=0.3)
+    a.cyl([0, 0.95, 0], 0.045, 1.8, "walnut", "pole", top=0.75, seg=12)
+    a.r([0, 1.86, 0], [0.06, 0.06, 0.06], "walnut", "pole", 0.028)
+    for k in range(4):   # splayed bentwood feet and the drip ring
+        ang = math.radians(45 + 90 * k)
+        tube(a, [0, 0.3, 0], [math.cos(ang) * 0.27, 0.02, math.sin(ang) * 0.27], 0.03, "walnut", "pole")
+        a.r([math.cos(ang) * 0.28, 0.01, math.sin(ang) * 0.28], [0.04, 0.02, 0.04], "walnut", "pole", 0.009)
+    a.cyl([0, 0.42, 0], 0.4, 0.02, "walnut", "pole", seg=20)
+    a.cyl([0, 0.42, 0], 0.36, 0.022, "walnut", "pole", seg=20)
+    for k in range(4):   # bentwood hooks at the crown
+        yaw = 90 * k
+        a.arch([math.sin(math.radians(yaw)) * 0.1, 1.72, math.cos(math.radians(yaw)) * 0.1], [0.14, 0.1, 0.02], "walnut", "pole", th=0.02, rot=[0, yaw + 90, 0])
+    # greatcoat hanging off the front hook: shoulders, a long body in three folds, sleeves
+    a.r([0, 1.6, 0.16], [0.42, 0.14, 0.16], "coat_wool", "coats", 0.06)
+    for i, (x, rz) in enumerate(((-0.12, 3), (0.0, -1), (0.12, -3))):
+        a.r([x, 1.02, 0.17 + 0.012 * (i % 2)], [0.16, 1.05, 0.09], "coat_wool", "coats", 0.04, rot=[3, 0, rz])
+    for sx in (-1, 1):
+        a.r([sx * 0.2, 1.25, 0.15], [0.08, 0.6, 0.08], "coat_wool", "coats", 0.035, rot=[0, 0, sx * 4])
+    a.r([0.0, 1.58, 0.24], [0.1, 0.12, 0.04], "coat_wool", "coats", 0.018)                           # collar
+    # a jacket on the side hook
+    a.r([0.17, 1.38, -0.02], [0.12, 0.6, 0.3], "coat_blue", "coats", 0.04, rot=[0, 0, -5])
+    a.r([0.15, 1.6, -0.02], [0.13, 0.1, 0.3], "coat_blue", "coats", 0.04)
+    # felt hat on top, umbrella in the ring
+    a.cyl([0, 1.93, 0], 0.3, 0.012, "felt_hat", "hat", seg=20)
+    a.cyl([0, 1.98, 0], 0.17, 0.1, "felt_hat", "hat", top=0.85, seg=16)
+    a.cyl([0, 1.985, 0], 0.175, 0.025, "scarf", "hat", seg=16)
+    tube(a, [-0.12, 0.43, -0.1], [-0.17, 1.15, -0.13], 0.045, "umbrella", "umbrella")
+    a.arch([-0.175, 1.18, -0.13], [0.06, 0.05, 0.014], "walnut", "umbrella", th=0.014, rot=[0, 30, 0])
+    a.col([0, 0.95, 0], [0.5, 1.9, 0.5])
+    return gx2_write(a, root, [0.56, 0.56], fragments=["coats", "hat", "umbrella"], keep=["pole"])
+
+
+def coat_hooks(root):
+    a = A("furn_coat_hooks", "Coat hooks", "Oak hook board with three iron double hooks: a long greatcoat in folds, a work jacket and a knitted scarf.",
+          "cloth", 4, 10, blocking=False, wall=True, front=0.0, mount=1.6)
+    a.r([0, 0.0, 0.012], [0.8, 0.1, 0.024], "oak_dark", "board", 0.008)
+    a.r([0, 0.055, 0.016], [0.82, 0.016, 0.032], "oak_dark", "board", 0.004)                         # moulded top edge
+    for x in (-0.27, 0.0, 0.27):
+        a.cyl([x, 0.0, 0.026], 0.03, 0.006, "iron", "board", seg=10, rot=[90, 0, 0])
+        tube(a, [x, -0.01, 0.026], [x, 0.03, 0.09], 0.01, "iron", "board", seg=6)
+        tube(a, [x, -0.01, 0.026], [x, -0.03, 0.07], 0.01, "iron", "board", seg=6)
+        a.r([x, 0.032, 0.092], [0.016, 0.016, 0.016], "iron", "board", 0.007)
+    for i, (x, rz) in enumerate(((-0.33, 4), (-0.27, 0), (-0.2, -3))):   # greatcoat, three folds
+        a.r([x, -0.52, 0.065 + 0.012 * (i % 2)], [0.13, 0.95, 0.08], "coat_wool", "coats", 0.035, rot=[2, 0, rz])
+    a.r([-0.27, -0.06, 0.07], [0.3, 0.1, 0.1], "coat_wool", "coats", 0.04)
+    a.r([0.0, -0.38, 0.07], [0.32, 0.68, 0.09], "coat_blue", "coats", 0.04, rot=[0, 0, 2])          # jacket
+    a.r([0.0, -0.06, 0.07], [0.3, 0.1, 0.1], "coat_blue", "coats", 0.04)
+    for sx, h in ((-1, 0.55), (1, 0.4)):   # scarf over the right hook, both ends hanging
+        a.r([0.27 + sx * 0.035, -h / 2 + 0.02, 0.08], [0.06, h, 0.014], "scarf", "scarf", 0.006, rot=[0, 0, sx * 3])
+    a.cyl([0.27, 0.025, 0.08], 0.05, 0.08, "scarf", "scarf", dz=0.03, seg=8, rot=[0, 0, 90])
+    return gx2_write(a, root, [0.82, 0.12], fragments=["coats", "scarf"], keep=["board"])
+
+
+def suitcases(root):
+    a = A("furn_suitcases", "Suitcases", "Two leather suitcases stacked: brass corners, straps and handles; the smaller one set askew on the larger.",
+          "cloth", 6, 20, front=0.3)
+    for i, (W, H, D, y, yaw, m) in enumerate(((0.7, 0.2, 0.44, 0.1, 0, "leather_brown"), (0.56, 0.16, 0.36, 0.28, 11, "leather_tan"))):
+        g = f"case{i}"
+        R = [0, yaw, 0]
+        a.r([0, y, 0], [W, H, D], m, g, 0.025, rot=R)
+        q = quat_mat(R)
+        rotp = lambda v: [sum(q[r][c] * v[c] for c in range(3)) for r in range(3)]
+        for sx in (-1, 1):
+            o = rotp([sx * W * 0.28, 0, 0])
+            a.r([o[0], y, o[2]], [0.035, H + 0.006, D + 0.006], "leather_brown" if m == "leather_tan" else "leather_tan", g, 0.006, rot=R)   # strap
+            for sz in (-1, 1):
+                for sy in (-1, 1):
+                    o2 = rotp([sx * (W / 2 - 0.02), sy * (H / 2 - 0.02), sz * (D / 2 - 0.02)])
+                    a.r([o2[0], y + o2[1], o2[2]], [0.05, 0.05, 0.05], "brass", g, 0.012, rot=R)
+        oh = rotp([0, 0, D / 2 + 0.012])
+        a.arch([oh[0], y + 0.015, oh[2]], [0.12, 0.04, 0.02], "leather_brown", g, th=0.018, rot=[90, yaw, 0])   # handle
+        a.r([0, y + H / 2 - 0.02, 0], [W - 0.04, 0.004, D + 0.004], "brass" if i == 0 else "leather_brown", g, 0.002, rot=R)   # lid seam
+    a.col([0, 0.18, 0], [0.72, 0.36, 0.46])
+    return gx2_write(a, root, [0.72, 0.46], fragments=["case1"], keep=["case0"], surfaces=[[-0.2, -0.12, 0.2, 0.12, 0.36]])
+
+
+def curtains_half(root):
+    a = A("furn_curtains_half", "Curtains (half-drawn)", "Checked cotton curtains on an iron rod: one drawn half across the window in deep pleats, "
+          "the other gathered to the side with a tie-back.", "cloth", 0, 8, blocking=False, wall=True, front=0.0, mount=0.7)
+    a.cyl([0, 1.5, 0.06], 0.02, 1.5, "iron", "rod", seg=8, rot=[0, 0, 90])
+    for sx in (-1, 1):
+        a.r([sx * 0.765, 1.5, 0.06], [0.036, 0.036, 0.036], "iron", "rod", 0.017)
+        a.r([sx * 0.7, 1.5, 0.03], [0.012, 0.012, 0.06], "iron", "rod", 0.003)
+    for i in range(5):   # left: gathered with a tie-back
+        x = -(0.64 - i * 0.04)
+        a.cyl([x, 0.78, 0.06 + 0.01 * (i % 2)], 0.05, 1.44, "curtain", "side0", dz=0.022 + 0.004 * i, seg=8)
+    a.cyl([-0.56, 0.62, 0.075], 0.2, 0.025, "curtain", "side0", dz=0.05, seg=10)
+    for i in range(10):   # right: drawn across to the middle, loose pleats, the leading edge swinging out a little
+        x = 0.7 - i * 0.075
+        a.cyl([x, 0.775, 0.06 + 0.014 * (i % 2)], 0.085, 1.45, "curtain", "side1", dz=0.026 + 0.006 * (i % 3), seg=8, rot=[0, 0, 0.6 * (i - 5) * 0.3])
+        a.cyl([x, 1.47, 0.062], 0.02, 0.025, "iron", "rod", seg=6, rot=[0, 0, 90])                    # rod rings
+    return gx2_write(a, root, [1.5, 0.08], fragments=[], keep=["rod"])
+
+
+def pan_rail(root):
+    a = A("furn_pan_rail", "Pan rail", "Oak rail over the range with S-hooks: two cast-iron skillets, a saucepan, a copper stockpot lid, a ladle and a sieve.",
+          "metal", 0, 25, blocking=False, wall=True, front=0.0, mount=1.55)
+    W = 1.2
+    a.r([0, 0.0, 0.015], [W, 0.08, 0.03], "oak_dark", "rail", 0.008)
+    tube(a, [-W / 2 + 0.04, -0.02, 0.06], [W / 2 - 0.04, -0.02, 0.06], 0.016, "iron", "rail")
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.04), -0.02, 0.04], [0.02, 0.03, 0.04], "iron", "rail", 0.005)
+    items = [(-0.44, "skillet", 0.3), (-0.13, "skillet", 0.24), (0.14, "saucepan", 0.18), (0.36, "lid", 0.26), (0.52, "ladle", 0.0)]
+    for x, kind, d in items:
+        a.arch([x, -0.035, 0.06], [0.03, 0.03, 0.005], "iron", "pans", th=0.005, rot=[180, 0, 0])      # S-hook
+        if kind in ("skillet", "saucepan"):
+            hl = 0.22 if kind == "skillet" else 0.16
+            a.r([x, -0.06 - hl / 2, 0.06], [0.024, hl, 0.01], "cast_iron" if kind == "skillet" else "copper", "pans", 0.005)   # handle
+            cy = -0.06 - hl - d / 2
+            a.cyl([x, cy, 0.05], d, 0.045 if kind == "skillet" else 0.1, "cast_iron" if kind == "skillet" else "copper", "pans",
+                  top=0.82, seg=20, rot=[-90, 0, 0])
+        elif kind == "lid":
+            a.cyl([x, -0.06 - d / 2, 0.035], d, 0.02, "copper", "pans", top=0.4, seg=20, rot=[-90, 0, 0])
+            a.r([x, -0.06 - d / 2, 0.06], [0.05, 0.02, 0.02], "brass", "pans", 0.008)
+        else:
+            a.cyl([x, -0.2, 0.06], 0.014, 0.3, "zinc", "pans", seg=6)
+            bowl(a, x, -0.42, 0.06, 0.09, 0.05, "zinc", "pans")
+    return gx2_write(a, root, [W, 0.14], fragments=["pans"], keep=["rail"])
+
+
+def debris_glass(root):
+    a = A("furn_debris_glass", "Broken glass", "Shards of window glass and a split glazing bar on the floor.", "glass", 0, 1, blocking=False, front=0.0)
+    shards = [(0.0, 0.0, 10, 0.12), (0.15, 0.08, 75, 0.08), (-0.12, 0.1, 140, 0.1), (0.08, -0.14, 220, 0.07), (-0.2, -0.06, 300, 0.09),
+              (0.25, -0.05, 35, 0.05), (-0.05, 0.22, 190, 0.06), (0.3, 0.15, 260, 0.04), (-0.28, 0.18, 110, 0.05)]
+    for x, z, yaw, s in shards:
+        a.wedge([x, 0.003, z], [s, s * 0.7, 0.004], "shard", "glass", top=0.1, rot=[90, yaw, 0])
+    a.r([0.05, 0.012, -0.02], [0.32, 0.022, 0.03], "pine", "bar", 0.004, rot=[0, 28, 0])
+    return gx2_write(a, root, [0.6, 0.5], fragments=[], keep=[])
+
+
+def debris_plaster(root):
+    a = A("furn_debris_plaster", "Plaster debris", "Fallen ceiling plaster: chunks of lime plaster with the lath still in them, a broken brick and a "
+          "dust patch spread across the boards.", "masonry", 0, 1, blocking=False, front=0.0)
+    a.r([0, 0.002, 0], [1.1, 0.004, 0.8], "plaster_dust", "dust", 0.0015, rot=[0, 12, 0])
+    a.r([0.25, 0.002, 0.25], [0.5, 0.003, 0.4], "plaster_dust", "dust", 0.0012, rot=[0, -30, 0])
+    chunks = [(0.0, 0.0, 0.16, 0.025, 0.11, 15, 8), (0.18, 0.12, 0.1, 0.02, 0.08, 70, -6), (-0.2, 0.15, 0.13, 0.03, 0.09, 140, 4),
+              (-0.12, -0.18, 0.08, 0.018, 0.07, 200, 10), (0.3, -0.12, 0.07, 0.02, 0.05, 260, -3), (-0.35, -0.05, 0.06, 0.02, 0.05, 320, 6),
+              (0.1, 0.3, 0.05, 0.016, 0.04, 30, 12), (-0.05, 0.08, 0.04, 0.015, 0.035, 85, 0)]
+    for x, z, w, h, d, yaw, tilt in chunks:
+        a.r([x, h / 2 + 0.002 + 0.5 * d * abs(math.sin(math.radians(tilt))), z], [w, h, d], "plaster_chunk", "chunks", 0.006, rot=[tilt, yaw, 0])
+    for x, z, yaw in ((-0.02, 0.02, 20), (0.05, -0.04, 25), (-0.25, 0.1, 160)):   # lath strips
+        a.b([x, 0.02, z], [0.36, 0.008, 0.03], "lath", "chunks", rot=[0, yaw, 3])
+    a.r([0.22, 0.035, -0.22], [0.22, 0.065, 0.1], "brick_red", "chunks", 0.01, rot=[0, 35, 0])
+    a.r([0.1, 0.036, -0.3], [0.1, 0.05, 0.1], "brick_red", "chunks", 0.012, rot=[8, 70, 12])
+    return gx2_write(a, root, [1.1, 0.8], fragments=[], keep=[])
+
+
+def framed_painting(root, id, name, W, H, mount, scene, frame="gilt"):
+    """A framed oil painting W x H (outer) hung with its centre near 1.6 m: a moulded frame (outer bead, flat, inner
+    slip), the canvas, and the scene laid on it as thin painted shapes (sky, land or sea, trees, a figure)."""
+    a = A(id, name, f"Framed oil painting ({scene}), {W:.2f} x {H:.2f} m, hung on a wall.", "wood", 2, 6, blocking=False, wall=True, front=0.0, mount=mount)
+    cy = H / 2 + 0.02
+    fw = 0.06 if W > 0.6 else 0.045
+    for sy in (-1, 1):   # frame: outer bead, flat and inner slip on the four sides
+        a.r([0, cy + sy * (H / 2 - fw / 2), 0.02], [W, fw, 0.04], frame, "frame", 0.01)
+        a.r([0, cy + sy * (H / 2 - fw - 0.006), 0.026], [W - 2 * fw, 0.012, 0.02], "oak_dark" if frame == "gilt" else "gilt", "frame", 0.004)
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - fw / 2), cy, 0.02], [fw, H, 0.04], frame, "frame", 0.01)
+        a.r([sx * (W / 2 - fw - 0.006), cy, 0.026], [0.012, H - 2 * fw, 0.02], "oak_dark" if frame == "gilt" else "gilt", "frame", 0.004)
+    cw, ch = W - 2 * fw - 0.02, H - 2 * fw - 0.02
+    z0 = 0.012
+    sky = "canvas_dusk" if scene == "dusk" else "canvas_sky"
+    if scene == "portrait":
+        a.b([0, cy, z0], [cw, ch, 0.004], "canvas_dark", "canvas")
+        a.cyl([0, cy + ch * 0.14, z0 + 0.004], cw * 0.36, 0.004, "canvas_skin", "canvas", dz=ch * 0.3, seg=16, rot=[90, 0, 0])
+        a.arch([0, cy - ch / 2, z0 + 0.004], [cw * 0.8, ch * 0.32, 0.004], "coat_blue", "canvas", th=1.0, fill=True)
+    else:
+        a.b([0, cy + ch * 0.18, z0], [cw, ch * 0.64, 0.004], sky, "canvas")
+        low = "canvas_sea" if scene == "sea" else "canvas_field"
+        a.b([0, cy - ch * 0.32, z0], [cw, ch * 0.36, 0.004], low, "canvas")
+        if scene == "sea":
+            a.b([0, cy - ch * 0.44, z0 + 0.002], [cw, ch * 0.12, 0.004], "canvas_sand", "canvas")
+            a.wedge([cw * 0.15, cy - ch * 0.08, z0 + 0.003], [cw * 0.08, ch * 0.16, 0.003], "paper", "canvas", top=0.0)   # a sail
+        else:
+            for i, (u, s) in enumerate(((-0.3, 0.22), (-0.12, 0.3), (0.28, 0.26))):   # trees on the horizon
+                a.r([u * cw, cy - ch * 0.04 + s * ch * 0.25, z0 + 0.003], [s * cw * 0.6, s * ch * 0.8, 0.003], "canvas_tree", "canvas", 0.0012)
+            a.b([cw * 0.05, cy - ch * 0.36, z0 + 0.002], [cw * 0.5, ch * 0.05, 0.003], "canvas_sand", "canvas", rot=[0, 0, -6])   # a lane
+    return gx2_write(a, root, [W, 0.05], fragments=["frame"], keep=[])
+
+
 def main():
     root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parent.parent)
     outs = [
@@ -1424,6 +1872,16 @@ def main():
         jars(root), bucket(root), basket(root), pot(root), candlesticks(root),
         # L3 lights (docs/lights.md)
         table_lamp(root), candle(root), candelabra(root), ceiling_lamp(root), caged_lamp(root), hearth_fire(root), potbelly_stove(root),
+        # GX2 (graphics brief section 3: lived-in interiors)
+        bed_iron(root), gramophone(root), radio(root), sconce(root), sconce_candle(root), wall_oil_lamp(root), candlestick(root),
+        hall_pendant(root), coat_stand(root), coat_hooks(root), suitcases(root), curtains_half(root), pan_rail(root),
+        debris_glass(root), debris_plaster(root),
+        rug(root, "furn_rug_runner", "Hall runner", 0.85, 3.2, 1, [0.32, 0.11, 0.07]),
+        framed_painting(root, "furn_frame_landscape", "Painting (landscape)", 0.9, 0.62, 1.27, "field"),
+        framed_painting(root, "furn_frame_seascape", "Painting (seascape)", 0.7, 0.5, 1.33, "sea"),
+        framed_painting(root, "furn_frame_dusk", "Painting (evening)", 0.5, 0.75, 1.2, "dusk", "walnut"),
+        framed_painting(root, "furn_frame_portrait", "Painting (portrait)", 0.42, 0.55, 1.3, "portrait", "oak_dark"),
+        framed_painting(root, "furn_frame_small", "Painting (small)", 0.36, 0.28, 1.44, "field", "walnut"),
     ]
     for o in outs:
         print("wrote", o.name)

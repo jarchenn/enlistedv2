@@ -2806,6 +2806,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // ---- shadow map: tighter around the camera when walking, wider while flying
   float camH = std::max(0.0f, v.camPos.y - t.height(v.camPos.x, v.camPos.z));
   float radius = v.editor ? std::clamp(60.0f + camH * 1.2f, 60.0f, 260.0f) : (q.legacy ? 55.0f : 40.0f);
+  {   // GX2: inside a room the near cascade tightens to 24 m (about 1.2 cm texels at 4096) so window bars cast crisp shadows
+    bool indoor = false;
+    for (auto& b : rooms) { vec3 l = vec3(glm::inverse(b.m) * vec4(v.camPos, 1)); if (std::fabs(l.x) < b.half.x && std::fabs(l.y) < b.half.y && std::fabs(l.z) < b.half.z) { indoor = true; break; } }
+    if (indoor && !q.legacy) radius = 24.0f;
+  }
   ++frame;
   vec3 fwd = -vec3(glm::inverse(v.view)[2]);
   vec3 focus = v.camPos + vec3(fwd.x, 0, fwd.z) * radius * 0.5f;

@@ -187,6 +187,111 @@ function emitPanel(A, { axis, outer, inner, mid, stone, plaster, r, panel }) {
 }
 export function partition(A, { axis, d0, d1, a0, a1, y0, y1, holes, m = "plaster" }) {
   for (const [p0, p1, ya, yb] of cutRect(a0, a1, y0, y1, holes)) wbox(A, axis, p0, p1, ya, yb, d0, d1, m);
+  if (!PARTITION_HOLES.has(A)) PARTITION_HOLES.set(A, []);
+  for (const h of holes) PARTITION_HOLES.get(A).push({ axis, d0: Math.min(d0, d1), d1: Math.max(d0, d1), y0, y1, h });   // GX2: doorway jambs (interiorTrim)
+}
+const PARTITION_HOLES = new WeakMap();
+
+// --------------------------------------------------------------------------- GX2 interior trim
+// Real 3D joinery on the interior faces, added after a building is built (graphics brief section 1 / GX2):
+//  - a skirting board (board + moulded top, 2 cm proud) along every plastered wall face at each floor level, where a
+//    floor runs along it, stopping at door openings;
+//  - a dado / wainscot top rail as a lip at `rail` m (the interior shader's wainscot cap at 0.955 m), stopping at
+//    windows whose sill is below it;
+//  - jamb liners and architraves round the doorways of partition walls (unless the builder already framed them).
+// Interior faces: "plaster" boxes (the wall() lining, partitions, chimney breasts) whose face is not against another
+// solid. Trim pieces go in the same part list as the plaster they sit on (bay states included: they break with the
+// bay); visual only (k: 0), so colliders, panels and nav are unchanged. levels: walking surface heights (asset space).
+// Returns the number of pieces added.
+const TRIM = [0.13, 0.08, 0.045];
+export function interiorTrim(A, { levels, rail = 0.955, skirt = 0.15, plaster = ["plaster"], minLen = 0.12 } = {}) {
+  ensureMat(A, "trim_x", TRIM, 0.55, "wood", { grain: 0 });
+  ensureMat(A, "trim_y", TRIM, 0.55, "wood", { grain: 1 });
+  ensureMat(A, "trim_z", TRIM, 0.55, "wood", { grain: 2 });
+  const lists = [A.parts]; for (const p of A.panels) for (const st of p.states) lists.push(st);
+  const isBox = (p) => p.t === "b" && !p.r;
+  const lo = (p, i) => p.c[i] - p.s[i] / 2, hi = (p, i) => p.c[i] + p.s[i] / 2;
+  // faces of every other solid box, by axis and plane (1 cm buckets): a plaster face lying on one is not interior
+  const faces = new Map(), key = (i, v) => `${i}:${Math.round(v * 100)}`;
+  const addFace = (i, v, p) => { for (const d of [-1, 0, 1]) { const k = `${i}:${Math.round(v * 100) + d}`; if (!faces.has(k)) faces.set(k, []); faces.get(k).push(p); } };
+  for (const L of [A.parts, ...A.panels.map((p) => p.states[0])]) for (const p of L) {
+    if (!isBox(p) || plaster.includes(p.m) || p.m.startsWith("trim_") || p.k === 0 && p.v === 0) continue;
+    for (const i of [0, 2]) { addFace(i, lo(p, i), p); addFace(i, hi(p, i), p); }
+  }
+  const FLOOR = new Set(["floor_x", "floor_z", "terracotta", "concrete_floor", "plank_x", "plank_z"]), FLAG = new Set(["stone_dressed", "hearthstone", "earth"]);
+  const floors = A.parts.filter((p) => isBox(p) && p.s[0] > 0.5 && p.s[2] > 0.5 && ((FLOOR.has(p.m) && p.s[1] <= 0.4) || (FLAG.has(p.m) && p.s[1] <= 0.06 && p.s[0] > 1.5 && p.s[2] > 1.5)));   // as src/interior.cpp rooms()
+  const covered = (pl, i, v, out) => {   // is the face of plaster box pl at plane i = v (facing out) against a solid?
+    const j = 2 - i, a0 = lo(pl, j), a1 = hi(pl, j), y0 = lo(pl, 1), y1 = hi(pl, 1);
+    for (const q of faces.get(key(i, v)) || []) {
+      if (out > 0 ? hi(q, i) < v + 0.02 : lo(q, i) > v - 0.02) continue;   // q must lie beyond the face
+      const ov = Math.min(a1, hi(q, j)) - Math.max(a0, lo(q, j)), oy = Math.min(y1, hi(q, 1)) - Math.max(y0, lo(q, 1));
+      if (ov > 0.5 * (a1 - a0) && oy > 0.3 * (y1 - y0)) return true;
+    }
+    return false;
+  };
+  // where a floor at level L runs along the face (sampled 10 cm in front of it): [a0, a1] intervals
+  const floorRuns = (i, v, out, a0, a1, L) => {
+    const j = 2 - i, runs = []; let s = null;
+    for (let a = a0 + 0.05; a <= a1 - 0.05 + 1e-6; a += 0.1) {
+      const pt = []; pt[i] = v + out * 0.1; pt[j] = a;
+      const ok = floors.some((f) => Math.abs(hi(f, 1) - L) < 0.04 && pt[0] >= lo(f, 0) && pt[0] <= hi(f, 0) && pt[2] >= lo(f, 2) && pt[2] <= hi(f, 2));
+      if (ok && s === null) s = a - 0.05;
+      if (!ok && s !== null) { runs.push([s, a - 0.05]); s = null; }
+    }
+    if (s !== null) runs.push([s, a1]);
+    return runs.map(([p, q]) => [Math.max(p, a0), Math.min(q, a1)]).filter(([p, q]) => q - p >= minLen);
+  };
+  let n = 0;
+  const put = (L, i, v, out, a0, a1, y0, y1, e0, e1, bv) => {   // a trim box on face (axis i, plane v), e0..e1 out of it
+    const j = 2 - i, mn = [], mx = [];
+    mn[i] = Math.min(v + out * e0, v + out * e1); mx[i] = Math.max(v + out * e0, v + out * e1);
+    mn[j] = a0; mx[j] = a1; mn[1] = y0; mx[1] = y1;
+    if (A.box(mn, mx, j === 0 ? "trim_x" : "trim_z", { k: 0, into: L, bv })) ++n;
+  };
+  for (const L of lists) {
+    const pls = L.filter((p) => isBox(p) && plaster.includes(p.m) && p.s[1] > 0.5);   // walls, not plaster ceilings
+    for (const pl of pls) {
+      for (const i of [0, 2]) {
+        const j = 2 - i;
+        if (hi(pl, j) - lo(pl, j) < minLen || pl.s[i] > hi(pl, j) - lo(pl, j) + 0.3) continue;   // only along its length
+        for (const out of [-1, 1]) {
+          const v = out > 0 ? hi(pl, i) : lo(pl, i);
+          if (covered(pl, i, v, out)) continue;
+          for (const lv of levels) {
+            const by = lo(pl, 1), ty = hi(pl, 1);
+            if (by > lv + 0.03 || ty < lv + skirt) continue;
+            for (const [a0, a1] of floorRuns(i, v, out, lo(pl, j), hi(pl, j), lv)) {
+              put(L, i, v, out, a0, a1, lv, lv + skirt - 0.018, 0, 0.016, 0);                          // board
+              put(L, i, v, out, a0, a1, lv + skirt - 0.022, lv + skirt, 0, 0.021, 0);                  // moulded top edge
+              if (ty >= lv + rail + 0.05 && by <= lv + rail - 0.03) {
+                put(L, i, v, out, a0, a1, lv + rail - 0.012, lv + rail + 0.034, 0, 0.022, 0.006);     // dado rail lip
+                put(L, i, v, out, a0, a1, lv + rail - 0.026, lv + rail - 0.012, 0, 0.011, 0);         // its cove
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  // doorway jambs and architraves in partition walls (holes from the floor up), unless already framed
+  for (const { axis, d0, d1, y0, y1, h } of PARTITION_HOLES.get(A) || []) {
+    if (h.y0 > y0 + 0.05 || h.a1 - h.a0 < 0.55 || h.a1 - h.a0 > 2.4 || Math.min(h.y1, y1) - y0 < 1.8) continue;
+    const top = Math.min(h.y1, y1), w = 0.07, t = 0.022;
+    const framed = A.parts.some((p) => isBox(p) && !plaster.includes(p.m) && !p.m.startsWith("trim_") && [h.a0, h.a1].some((a) => {
+      const pa0 = axis === "x" ? lo(p, 0) : lo(p, 2), pa1 = axis === "x" ? hi(p, 0) : hi(p, 2);
+      const pd0 = axis === "x" ? lo(p, 2) : lo(p, 0), pd1 = axis === "x" ? hi(p, 2) : hi(p, 0);
+      return pa0 < a + 0.03 && pa1 > a - 0.03 && pd0 < d1 && pd1 > d0 && lo(p, 1) < y0 + 1.0 && hi(p, 1) > y0 + 1.0;
+    }));
+    if (framed) continue;
+    const m = "trim_y";
+    for (const [a, s] of [[h.a0, 1], [h.a1, -1]]) {
+      wbox(A, axis, a, a + s * t, y0, top, d0 - 0.01, d1 + 0.01, m, { k: 0 }); ++n;                       // jamb liner in the reveal
+      for (const [dd, o] of [[d0, -1], [d1, 1]]) { wbox(A, axis, a - s * w, a + s * 0.004, y0, top + w, dd, dd + o * 0.018, m, { k: 0, bv: 0.004 }); ++n; }   // architraves
+    }
+    wbox(A, axis, h.a0, h.a1, top - t, top, d0 - 0.01, d1 + 0.01, axis === "x" ? "trim_x" : "trim_z", { k: 0 }); ++n;   // head liner
+    for (const [dd, o] of [[d0, -1], [d1, 1]]) { wbox(A, axis, h.a0 - w, h.a1 + w, top, top + w, dd, dd + o * 0.018, axis === "x" ? "trim_x" : "trim_z", { k: 0, bv: 0.004 }); ++n; }
+  }
+  return n;
 }
 
 // --------------------------------------------------------------------------- windows

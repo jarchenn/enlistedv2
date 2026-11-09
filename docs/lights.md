@@ -234,3 +234,22 @@ A glass-only break is not otherwise persisted: a lamp that was only shot out kee
 - **`--selftest-net`** (host):
   - the host shoots a ceiling lamp's bulb with a real projectile;
   - clients A (live) and B (late join) report it in `lightsOut`.
+
+## 10. GX2: rules in `content/settings/interior_lights.json` (2026-11-09)
+
+- `fixtures`: per light asset a colour temperature (`kelvin`, lamps and candles 2700-3200 K; `kelvinToRgb` is a
+  blackbody fit decoded to linear, then blended toward white by `kelvinSaturation`), `intensity` and `radius`;
+  they override the asset's own light block (`lightDef`). `dayScale`: interior lamps' output by day.
+- `rooms`: per room type the ceiling fixture (none under `ceilingMinArea`) and the table light; `lowCeiling`.
+- `hallway`: halls at least `minLength` long get pendants (`furn_lamp_pendant_glass`) every `spacing` m (kept within
+  `minSpacing`-`maxSpacing`) along the long axis on its centre line, each slid to the middle between two windows
+  when it would hang within `windowClear` of a window's centre line: alternating pools between the window light.
+- `sconces`: rooms of `minArea` m2 and every hall get wall lights either side of their doorways (`fromDoor` m off
+  the opening, at most `perRoom`); electric sconces in town buildings (`electricIds`), candle sconces or wall oil
+  lamps elsewhere. They are placed through the room planner (`LightWallFn`), so they keep off doors, windows and
+  routes like any wall piece.
+- `dustMotes`: dust drifting in the sun shafts of the nearest lit windows (`lightsMotes`, every mode, stateless:
+  positions are a function of time, a ray toward the sun per window per second). The graphics setting
+  "Dust motes" (Off on Low, Low on Medium, High on High) picks `perWindow`.
+- Indoors the near sun cascade tightens to 24 m (render.cpp), about 1.2 cm per texel at 4096: window bars cast
+  crisp shadows on the floor.

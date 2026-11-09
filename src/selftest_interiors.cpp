@@ -671,6 +671,83 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), "extra.decor buildings and buildings with their template furniture removed are not auto-furnished");
       summary["allBuildings"] = all; summary["allBuildingsDensity"] = {{"before", was}, {"now", total}, {"ratio", total / (float)std::max(1, was)}};
       return true; });
+    // ================================================================ GX2 (graphics brief sections 2-3): dressing and interior lighting
+    push("GX2: hallway pendants between windows, a dressed big room, no bare walls, every room furnished and lit", [this](App& a, float) {
+      lightsSetDaylight(0.0f);
+      // the new props: loaded, with a furnishing envelope; the fixtures carry warm (2700-3200 K) light
+      int props = 0, envOk = 0, fix = 0, warm = 0;
+      for (const char* id : {"furn_bed_iron", "furn_gramophone", "furn_radio", "furn_sconce", "furn_sconce_candle", "furn_lamp_wall_oil", "furn_candlestick", "furn_lamp_pendant_glass",
+                             "furn_coat_stand", "furn_coat_hooks", "furn_suitcases", "furn_curtains_half", "furn_pan_rail", "furn_debris_glass", "furn_debris_plaster", "furn_rug_runner",
+                             "furn_frame_landscape", "furn_frame_seascape", "furn_frame_dusk", "furn_frame_portrait", "furn_frame_small"}) {
+        const AssetDef* as = a.lib.find(id); if (!as) continue;
+        ++props;
+        const PropDef* pd = a.interior.prop(as);
+        envOk += pd && as->raw["prop"].contains("bounds") && pd->bmax.x > pd->bmin.x && pd->bmax.y > pd->bmin.y;
+        if (const LightAssetDef* ld = lightDef(as)) { ++fix; const vec3 c = ld->lights[0].color; warm += c.r >= c.g && c.g > c.b && c.b < 0.8f; }
+      }
+      std::snprintf(b_, sizeof b_, "GX2 props: %d / 21 loaded, %d with a prop.bounds envelope; %d light fixtures, %d warm (Kelvin from interior_lights.json)", props, envOk, fix, warm);
+      check(props == 21 && envOk == props && fix >= 4 && warm == fix, b_);
+      vec3 k27 = kelvinToRgb(2700.0f), k32 = kelvinToRgb(3200.0f), k65 = kelvinToRgb(6500.0f);
+      std::snprintf(b_, sizeof b_, "colour temperature: 2700 K = (%.2f %.2f %.2f), 3200 K = (%.2f %.2f %.2f), 6500 K ~ white (%.2f %.2f %.2f)", k27.r, k27.g, k27.b, k32.r, k32.g, k32.b, k65.r, k65.g, k65.b);
+      check(k27.r == 1.0f && k27.g < k32.g && k27.b < k32.b && k65.g > 0.9f && k65.b > 0.85f, b_);
+      // the chateau (furnished by the step before): its rear corridor is a hall lit by pendants between the windows
+      Instance* ch = nullptr; for (auto& i : a.doc.instances) if (i.assetId == "vil_chateau_grand") { ch = &i; break; }
+      if (!ch) { check(false, "fixture: the grand chateau"); lightsSetDaylight(-1); return true; }
+      uint64_t cid = ch->id;
+      a.interior.furnish(a, cid, 0);
+      std::vector<InteriorSys::RoomStat> st = a.interior.lastStats;
+      const AssetDef* ca = a.lib.find("vil_chateau_grand"); const RoomInfo* ri = a.interior.rooms(ca);
+      int hk = -1; float hl = 0;
+      for (size_t k = 0; k < ri->rooms.size(); ++k) { const auto& R = ri->rooms[k]; vec2 e = R.mx - R.mn; if (R.storey == 0 && R.type == ROOM_HALL && std::max(e.x, e.y) > hl) { hl = std::max(e.x, e.y); hk = (int)k; } }
+      std::vector<float> pend; int runners = 0, pics = 0; std::string pr = "r" + std::to_string(hk) + "/";
+      for (auto* c : childrenOf(a, cid)) {
+        std::string slot = c->extra["furnish"].value("slot", std::string());
+        if (slot.rfind(pr, 0) != 0) continue;
+        vec3 l = glm::inverse(yawQuat(ch->yaw)) * (c->pos - ch->pos);
+        if (slot.find("pendant") != std::string::npos) pend.push_back(l.x);
+        runners += c->assetId == "furn_rug_runner"; pics += slot.find("hallpic") != std::string::npos;
+      }
+      std::sort(pend.begin(), pend.end());
+      float gmin = 99, gmax = 0, nearWin = 99;
+      for (size_t q = 1; q < pend.size(); ++q) { gmin = std::min(gmin, pend[q] - pend[q - 1]); gmax = std::max(gmax, pend[q] - pend[q - 1]); }
+      if (hk >= 0) for (auto& b : ri->keep) if (b.kind == 2 && b.mn.y < ri->rooms[hk].y1 && b.mn.y > ri->rooms[hk].y0 - 0.3f && b.mn.z < ri->rooms[hk].mx.y + 0.9f && b.mx.z > ri->rooms[hk].mn.y - 0.9f)
+        for (float x : pend) nearWin = std::min(nearWin, std::fabs(x - (b.mn.x + b.mx.x) * 0.5f));
+      std::snprintf(b_, sizeof b_, "chateau corridor (%.1f m, room %d): %zu pendants %.1f-%.1f m apart, nearest %.2f m from a window's centre line; %d runner rugs, %d pictures",
+                    hl, hk, pend.size(), gmin, gmax, nearWin, runners, pics);
+      check(hk >= 0 && hl >= 20.0f && pend.size() >= 5 && gmin >= 4.0f && gmax <= 6.6f && nearWin >= 0.6f && runners >= 3 && pics >= 5, b_);
+      // the current_02 room: the chateau's largest ground-floor room
+      const InteriorSys::RoomStat* big = nullptr;
+      for (auto& s : st) if (ri->rooms[s.room].storey == 0 && s.type != ROOM_HALL && (!big || s.area > big->area)) big = &s;
+      if (big) {
+        std::snprintf(b_, sizeof b_, "chateau's largest ground-floor room (%s, %.0f m2): %d pieces (>= 25), %d wall-mounted (>= 6), %d lights, longest bare wall %.1f m (<= 4)",
+                      roomTypeName(big->type), big->area, big->pieces, big->wallItems, big->lights, big->bare);
+        check(big->pieces >= 25 && big->wallItems >= 6 && big->bare <= 4.0f, b_);
+        summary["gx2BigRoom"] = {{"pieces", big->pieces}, {"wallItems", big->wallItems}, {"lights", big->lights}, {"bare", big->bare}, {"area", big->area}};
+      }
+      // every furnished building: every room furnished and lit, bare walls
+      int rooms = 0, dressed = 0, litR = 0, bareOver = 0, roomsWall = 0; std::string empty, dark, bare;
+      std::set<std::string> done;
+      for (auto& i : a.doc.instances) {
+        const AssetDef* as = a.lib.find(i.assetId);
+        if (!as || !as->enterable || as->category == "Furniture" || done.count(as->id) || !a.interior.autoFurnishable(a, i)) continue;
+        if (!i.extra.is_object() || !i.extra.contains("interior") || !i.extra["interior"].value("on", false) || lightsOnlyHost(as)) continue;
+        done.insert(as->id);
+        a.interior.furnish(a, i.id, 0);
+        for (auto& s : a.interior.lastStats) {
+          if (s.type == ROOM_RUIN || s.area < 4.0f) continue;
+          ++rooms; dressed += s.pieces > 0; litR += s.lights > 0;
+          if (!s.pieces && empty.size() < 300) empty += " " + as->id + "/r" + std::to_string(s.room);
+          if (!s.lights && dark.size() < 300) dark += " " + as->id + "/r" + std::to_string(s.room);
+          if (s.type != ROOM_CHURCH && s.type != ROOM_BARN) { ++roomsWall; if (s.bare > 4.0f) { ++bareOver; if (bare.size() < 400) { char t[96]; std::snprintf(t, sizeof t, " %s/r%d %.1fm", as->id.c_str(), s.room, s.bare); bare += t; } } }
+        }
+      }
+      std::snprintf(b_, sizeof b_, "every building (%zu types): %d / %d rooms furnished%s; %d / %d with their own light%s", done.size(), dressed, rooms, empty.c_str(), litR, rooms, dark.c_str());
+      check(rooms > 100 && dressed == rooms && litR == rooms, b_);
+      std::snprintf(b_, sizeof b_, "bare walls: %d / %d rooms have a wall over 4 m with nothing on it%s", bareOver, roomsWall, bare.c_str());
+      check(bareOver * 10 <= roomsWall, b_);
+      summary["gx2Rooms"] = {{"rooms", rooms}, {"furnished", dressed}, {"lit", litR}, {"bareOver4m", bareOver}};
+      lightsSetDaylight(-1);
+      return true; });
     // ================================================================ L3 lights (docs/lights.md)
     push("lights: every intact building lit, ruins dark, broken lamps out, breach, day / night, switch, apply", [this](App& a, float) {
       lightsSetDaylight(0.0f);   // night: every light at full output
@@ -746,8 +823,8 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       float nightI = 0; bool streetNight = false; for (auto& l : L) { if (l.id / 16 == CL) nightI = l.intensity; if (l.id / 16 == SL) streetNight = true; }
       lightsSetDaylight(1.0f); L = gather();
       float dayI = 0; bool streetDay = false; for (auto& l : L) { if (l.id / 16 == CL) dayI = l.intensity; if (l.id / 16 == SL) streetDay = true; }
-      std::snprintf(b_, sizeof b_, "time of day: street lamp lit at night %d, by day %d; ceiling lamp %.2f at night, %.2f by day (x%.2f, want %.2f)", (int)streetNight, (int)streetDay, nightI, dayI, nightI > 0 ? dayI / nightI : 0.0f, kInteriorDay);
-      check(streetNight && !streetDay && nightI > 0 && std::fabs(dayI / nightI - kInteriorDay) < 0.02f, b_);
+      std::snprintf(b_, sizeof b_, "time of day: street lamp lit at night %d, by day %d; ceiling lamp %.2f at night, %.2f by day (x%.2f, want %.2f)", (int)streetNight, (int)streetDay, nightI, dayI, nightI > 0 ? dayI / nightI : 0.0f, lightsDayScale());
+      check(streetNight && !streetDay && nightI > 0 && std::fabs(dayI / nightI - lightsDayScale()) < 0.02f, b_);
       lightsSetDaylight(0.0f);
       // ---- rounds: the iron post rings off, a round in the panes puts the lamp out; a shot table lamp; a blast
       {

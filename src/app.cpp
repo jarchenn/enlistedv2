@@ -15,6 +15,7 @@
 #include "nature.h"
 #include "autopath.h"
 #include "water_query.h"
+#include "lights.h"   // GX2: dust motes
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
@@ -759,6 +760,7 @@ int App::run(int argc, char** argv) {
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode)
     mark("fx");
     w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
     mark("w3");

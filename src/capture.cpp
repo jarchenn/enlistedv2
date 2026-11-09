@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
+#include <fstream>
+#include <map>
+#include "interior.h"
 
 namespace {
 struct Cam { const char* name; vec3 pos, target; };
@@ -11,6 +14,8 @@ std::vector<Cam> cams;
 size_t ci = 0; int frames = 0;
 std::string tag = "now";
 uint64_t FH = 0, CM = 0, WH = 0, PK = 0;
+bool gxTiming = false;                                  // gx2 set: hold each view and average its GPU time
+std::map<std::string, std::pair<double, int>> gxMs;
 // interiors set: houses are furnished by the room templates (seeded by the instance id, so every run matches)
 void captureHook(App& app, uint64_t id) {
   Instance* i = app.doc.find(id); if (!i) return;
@@ -160,6 +165,59 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "gx2") {
+      // NMK_CAPTURE_SET=gx2 (GX2 interior lighting + dressing): per building its longest hallway, looking down it from one
+      // end, and its largest room from a corner; NMK_CAPTURE_HOUR sets the time of day (default 14). Each view is held
+      // for 60 frames and its mean GPU time written to selftest_out/gx2_frametimes_<tag>.json.
+      static std::deque<std::string> keep;
+      static const char* ids[] = {"vil_chateau_grand", "large_village_inn", "large_municipal_building", "house_farmhouse_2story", "vil_rectory", "large_village_schoolhouse"};
+      cams.clear(); gxTiming = true; gxMs.clear();
+      if (const char* h = std::getenv("NMK_CAPTURE_HOUR")) app.R.lt.hour = (float)std::atof(h); else app.R.lt.hour = 14.0f;
+      int n = 0;
+      for (const char* aid : ids) {
+        const AssetDef* a = app.lib.find(aid);
+        if (!a) continue;
+        uint64_t id = app.placeInstance(a, vec3(-120.0f + (n % 3) * 110.0f, 0, -80.0f + (n / 3) * 110.0f), 0.0f); ++n;
+        if (!id) continue;
+        app.syncRuntime();
+        app.interior.furnish(app, id, 0);
+        vec3 o = app.doc.find(id)->pos;
+        const RoomInfo* ri = app.interior.rooms(a);
+        const RoomInfo::Room* hall = nullptr; const RoomInfo::Room* big = nullptr; float hl = 0;
+        for (auto& R : ri->rooms) {
+          vec2 e = R.mx - R.mn; float L = std::max(e.x, e.y);
+          bool corridor = R.type == ROOM_HALL || (std::min(e.x, e.y) <= 3.0f && L >= 3.5f * std::min(e.x, e.y));   // by shape, so before / after pick the same rooms
+          if (corridor && L > hl && L >= 6.0f) { hl = L; hall = &R; }
+          if (!corridor && R.type != ROOM_CHURCH && (!big || R.area > big->area)) big = &R;
+        }
+        // from 0.5 m inside one end of the room's long axis, on its centre line (stepped in until the eye stands in the
+        // room, clear of stairs), at eye height, looking down the length; and the same from the other end
+        auto view = [&](const RoomInfo::Room& R, const std::string& nm) {
+          vec2 e = R.mx - R.mn, c = (R.mn + R.mx) * 0.5f; bool ax = e.x >= e.y; float L = ax ? e.x : e.y;
+          int ri_k = (int)(&R - &ri->rooms[0]);
+          for (int end = 0; end < 2; ++end) {
+            for (float t = 0.5f; t < L * 0.5f; t += 0.25f) {
+              float a0 = end ? (ax ? R.mx.x : R.mx.y) - t : (ax ? R.mn.x : R.mn.y) + t;
+              vec3 p = ax ? vec3(a0, R.y0 + 1.65f, c.y) : vec3(c.x, R.y0 + 1.65f, a0);
+              if (ri->at(R.storey, vec3(p.x, R.y0 + 0.5f, p.z)) != ri_k) continue;
+              bool stair = false; for (auto& b : ri->keep) if (b.kind == 1 && p.x > b.mn.x && p.x < b.mx.x && p.z > b.mn.z && p.z < b.mx.z && p.y > b.mn.y && p.y < b.mx.y) stair = true;
+              if (stair) continue;
+              float far = end ? (ax ? R.mn.x : R.mn.y) + 0.3f : (ax ? R.mx.x : R.mx.y) - 0.3f;
+              vec3 t3 = ax ? vec3(far, R.y0 + 1.15f, c.y) : vec3(c.x, R.y0 + 1.15f, far);
+              keep.push_back(a->id + "_" + nm + (end ? "_b" : "_a")); cams.push_back({keep.back().c_str(), o + p, o + t3});
+              break;
+            }
+          }
+        };
+        if (hall) view(*hall, "hall");
+        if (big) view(*big, "room");
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "b2") {
       // NMK_CAPTURE_SET=b2: the B2 buildings with their companions (front corner and rear corner, framed from the
       // footprint) and every drs_* dressing piece close up (tools/catalog_houses2.mjs, catalog_dressing.mjs)
@@ -235,12 +293,26 @@ void SelfTest::captureUpdate(App& app, float) {
     if (std::sscanf(pose, "%f,%f,%f", &y, &e, &t) >= 2)
       for (auto& [id, r] : app.rt) if (r.asset && !r.asset->station.kind.empty()) { r.st.yaw = y; r.st.elev = e; r.st.recoilT = t; }
   }
-  if (ci >= cams.size()) { finish(app); return; }
+  if (ci >= cams.size()) {
+    if (gxTiming) {
+      json j = json::object();
+      for (auto& [k, v] : gxMs) j[k] = {{"gpuMs", v.first / std::max(1, v.second)}, {"frames", v.second}};
+      std::ofstream(exeDir() / "selftest_out" / ("gx2_frametimes_" + tag + ".json")) << j.dump(1);
+    }
+    finish(app); return;
+  }
   Cam& c = cams[ci];
   app.camPos = c.pos;
   vec3 d = glm::normalize(c.target - c.pos);
   app.camYaw = degrees(std::atan2(-d.x, -d.z));
   app.camPitch = degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f)));
+  if (gxTiming) {   // settle 30 frames, shoot, then average the GPU time of the next 60
+    ++frames;
+    if (frames == 30) shotQueue.push_back("mat_" + tag + "_" + c.name);
+    if (frames > 30) { auto& m = gxMs[c.name]; m.first += app.R.stats.gpuMs; ++m.second; }
+    if (frames >= 90) { ++ci; frames = 0; }
+    return;
+  }
   if (++frames == 4) shotQueue.push_back("mat_" + tag + "_" + c.name);
   if (frames >= 5) { ++ci; frames = 0; }
 }

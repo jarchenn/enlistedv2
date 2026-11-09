@@ -13,6 +13,7 @@
 #include "assets.h"
 #include <vector>
 #include <string>
+#include <functional>
 
 class App;
 class InteriorSys;
@@ -41,21 +42,35 @@ float lightsEmissiveScale(App& app, const Instance& i);
 // (kInteriorDay of their output); fires and electric bunker lamps burn day and night.
 void lightsSetDaylight(float d);
 float lightsDaylight(App& app);
-constexpr float kInteriorDay = 0.25f;
+constexpr float kInteriorDay = 0.25f;   // the default of interior_lights.json "dayScale"
+float lightsDayScale();                   // GX2: content/settings/interior_lights.json "dayScale"
+// GX2: colour temperature (K) -> linear RGB, brightest channel 1 (blackbody fit, sRGB decoded)
+vec3 kelvinToRgb(float kelvin);
+// GX2: content/settings/interior_lights.json (fixtures, room rules, hallway spacing, sconces, dust motes); read once
+const json& interiorLightsConfig();
 
 // ---- interiors: generated with the room templates (InteriorSys::furnish), no undo step
 bool lightsRuinedAsset(const AssetDef* a);    // ruin_*, rub_*, vil_church_ruined, vil_chateau_keep, aw_r612_unfinished, bch_lcvp_wrecked
 bool lightsOnlyHost(const AssetDef* a);       // bunkers / casemates: lit, built-in furniture kept, no room templates
 bool lightsLitBuilding(const AssetDef* a);    // an intact building that gets interior lights (not rubble, not landing craft)
 struct LightPlanItem { std::string slot, asset; vec3 p{0}; float yaw = 0; };   // host-local, like the room templates' items
-// appends the lights of every room: one ceiling or table light by room type and area, a fire glow on a hearth;
-// `items` holds the room template pieces already planned (tables and dressers carry the table lights)
-void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const AssetDef* ha, const RoomInfo& ri, uint32_t seed, std::vector<LightPlanItem>& items);
+// GX2: places a wall fixture in room k on the wall in direction d (0: wall at -z, 1: -x, 2: +z, 3: +x of the piece) at a
+// point along that wall, with the room planner's checks (doors, windows, routes, other pieces); fills `got` on success
+using LightWallFn = std::function<bool(int k, const std::string& asset, const std::string& slot, int d, float along, LightPlanItem& got)>;
+// appends the lights of every room (content/settings/interior_lights.json): a ceiling or table light by room type and
+// area, pendants every 5-6 m between the windows of a hallway, wall lights beside the doorways of larger rooms, a fire
+// glow on a hearth; `items` holds the room template pieces already planned (tables and dressers carry the table lights)
+void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const AssetDef* ha, const RoomInfo& ri, uint32_t seed, std::vector<LightPlanItem>& items,
+                     const LightWallFn& wallFix = {});
 bool lightsRoomBreached(App& app, uint64_t hostId, int room);   // a wall bay around the room is breached
 bool lightsRoofed(App& app, const Instance& host);              // some room has a ceiling (open-topped Tobruk pits have none: no lamp)
 
 // ---- per frame in Explore (InteriorSys::step): flame / smoke particles of lit fires near the camera
 void lightsStep(App& app, float dt);
+// ---- GX2, every frame and mode: dust motes drifting in the sun shafts of windows near the camera (additive quads,
+// stateless: positions are a function of time). Quality from the graphics settings (dustMotes 0 off, 1 low, 2 high).
+struct FxVert;
+int lightsMotes(App& app, const mat4& view, std::vector<FxVert>& add);
 // ---- Apply damage to map: lights put out this session are saved off (extra.light {on: false, applied: true})
 int lightsApplyToMap(App& app);
 void lightsClearApplied(App& app);
