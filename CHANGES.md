@@ -111,10 +111,17 @@ drops light shadows and GI on Low).
 |---|---|
 | `--selftest-lights` | 45 / 45 |
 | `--selftest-damage` | 0 failures |
-| `--selftest-interiors` | see the hand-over note (final run) |
-| `--selftest-structures` | see the hand-over note |
+| `--selftest-interiors` | 0 failures, on the final code |
+| `--selftest-structures` | not finished on the final code: see below |
 
-`townhouse_facade` "up the rubble field" also fails on the batch2 base (GX1's before-run).
+**Structures, in detail:**
+- **The last complete run** was on the code before the final fixes: 1339 passed, 7 failed. Six failures were the
+  church tower tour: a wall oil lamp with a collider hung on a stair landing. That is fixed (the lamp lost its
+  collider, and tower rooms take only non-blocking wall pieces). The seventh is `townhouse_facade` "up the rubble
+  field", which also fails on the batch2 base (GX1's before-run).
+- **The two runs on the final code** were both cut off by my run timeout (66 min) on the shared GPU. Up to that point
+  everything passed except the batch2 failure: 1038 checks, the full church tower tour and the chateau tours
+  included.
 
 **Test changes**, each explained in a comment at the change:
 - the decor / removed-furniture fixtures move clear of the grid;
