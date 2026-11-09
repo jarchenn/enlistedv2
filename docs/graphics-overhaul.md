@@ -127,3 +127,110 @@ This writes `selftest_out/mat_<tag>_<shot>.png` (1920 x 1080). Stream results ar
 | `current_07_trench` | above the trench corner's inner side, looking at the mitre | `current_07_trench_floating_slab_gaps_hard_edges` |
 
 Frame time on the scene: run the same capture with `GPU_TURN_EXCLUSIVE=1`; the log reports per-shot GPU ms.
+
+## GX1 terrain conformance
+
+Code: `src/terrain_blend.cpp` (stamps from the instances, placement, generated meshes, validation) and the stamp
+evaluation in `src/terrain_cuts.cpp`. Tunables: `content/settings/terrain_blend.json` (`"enabled": false` restores
+the batch2 behaviour exactly). The suite: `--selftest-terrain`, steps `gx1: ...`.
+
+The terrain representation is unchanged: a base grid plus 0.45 m fine tiles. GX1 adds one derived layer, the
+**stamps**, computed from `MapDoc::instances` on every change (`navSyncCuts` → `blendSyncStamps`). It is evaluated
+inside `Terrain::cutBase`, so `Tile::base` includes it. Crater deltas and the sculpt layer stay what they were, and
+nothing new is saved in the map: every client derives the same ground from the same instances.
+
+Composition per fine sample, in order:
+
+1. **Pad rings.** A pinned object's footprint is blended into the ground around it over a smoothstep ring.
+   The ring is 2-3.5 m wide, scaled by the largest height difference.
+2. **Berms.** Earth banks against a bunker's walls.
+3. **Trench parapets.** Spoil raised either side of the lip.
+4. **Pinned footprints.** Set exactly to their anchor, so a neighbour's ring or berm can never move a floor.
+5. **Trench carves.** The floor, then walls leaning back by `batter`.
+
+The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied after all of these, as before.
+
+### §6 placement and reform robustness
+
+- **Auto-levelling.** A pinned object stands on the median of a 5 x 5 grid plus perimeter samples
+  (`blendPlacement`, called from `App::checkPlacement`).
+  - Pinned objects: buildings (the snap `crush` categories, enterable assets with wall bays) and Atlantic Wall
+    emplacements without cuts.
+  - The ground under the footprint is raised or lowered to that level.
+  - Placement is refused only when the ground varies more than `placement.margin` (1.5 m). The message gives the
+    actual variance.
+  - The old flatten in `crushAndFlatten` (persisted crater deltas) is skipped for pinned objects.
+- **Retaining skirt.** Where a pad stands more than `skirtThreshold` (0.9 m) above the ground at its edge:
+  - the embankment is capped at that height;
+  - a stone retaining wall (`stone_plinth`) is generated along the footprint edge, from the floor down into the
+    ground (`buildSkirt`).
+- **Masks.** Raised or cut ground in the ring and footprint gets the soil mask (`Tile::sdirt`, read through
+  `Terrain::dirtAt`), fading to grass at the ring's edge.
+- **Preview.** The Place tool draws the levelled pad and the ring's outer edge on the ground: amber for a raise,
+  blue for a cut, plus a skirt line when one will be built.
+- **Pinned registry.** The pads are the registry: the footprint, anchor y and ring of every pinned object.
+  - A brush, lasso or generator reform re-bases the tiles under it. The pad then re-conforms the ground to the
+    footprint, and the ring blends the new ground into it.
+  - `terrainReseat` moves a pinned object only by the shift common to its whole footprint (a lasso plateau under
+    it), never by a reform next to it.
+  - Craters already spare footprints (`groundWeight`). In the editor, a crater now re-seats loose props near it.
+- **Validation** (`blendValidate`, after every brush stroke):
+  - pinned bases are checked at their corners and edge midpoints;
+  - loose props on open ground are checked at their pivot;
+  - floating more than 5 cm or buried more than 10 cm is logged;
+  - loose props are re-seated (pinned objects never move: the ground conforms to them).
+
+### §5 earthworks
+
+- An asset's `earthwork` block turns its earth cover into terrain:
+  - `core`: the walls' half-size;
+  - `banks`: ridge segments `[ax, az, bx, bz, crest height]` along the walls;
+  - `holes`: rectangles kept clear, such as entrance passages;
+  - `replace`: the prism parts it supersedes, dropped at load.
+- Profile:
+  - a 0.35 m crest shelf, then a cosine shoulder (steepest slope near `reposeDeg`, 33°, with the noise included), so the top is convex
+    and the toe concave;
+  - banks merged with a smooth max (no crease ridges);
+  - ±12 % low-frequency height noise and ±0.45 m outline jitter (no straight ridge line);
+  - a 3 m smoothing band past the toe into the natural ground.
+- Soil mask by slope: bare above `bareSlope` (24°), sparse dry grass from `sparseSlope` (12°), full grass below.
+  It is continuous because the profile is. A 0.8 m dirt contact band runs where the concrete meets the earth.
+- Done for `bunker_observation_post` and `bunker_field_shelter` (the two bunkers with earth banks). Their roof earth
+  stays a mesh.
+
+### §7 trenches
+
+- A trench piece's `trench` block:
+  - `path`: the centreline in asset space; the third value scales the depth, 0 at the entry ramp's mouth;
+  - `branches`: the ammunition niches;
+  - `replace`: the slab parts, meaning wattle, spoil, picket, earth and turf above -1 m. The firestep, floor and
+    duckboards stay.
+- Pieces whose path ends meet form one network and one stamp. Shared ends average their floor heights.
+- The carve:
+  - floor at the anchor minus `depth` (1.62 m); 2 x `floorHalf` = 1.36 m wide;
+  - walls lean back 0.12 m per metre;
+  - corners are mitred: the legs are boxes that overlap by the floor half-width.
+- Parapets:
+  - 0.45 m of spoil (±35 % noise) over 1.9 m from the lip, smoothstep in and out; half that on the fire side
+    (the piece's local +z), so a man on the firestep sees over it (`parapetFront`);
+  - rounded around the outside of corners and run ends;
+  - lip to floor is about 2.05 m.
+- The revetment is generated along the network for every piece (`buildTrench`), fitted to the carve:
+  - wattle panels from below the floor to just above the actual soil behind them (sampled over 0.7 m), leaning with
+    the wall;
+  - a top pole;
+  - pickets every 0.75 m driven 0.35 m into the floor;
+  - sandbags resting on the parados (bottom at the lowest ground under the bag), two courses with gaps; the fire
+    side stays clear;
+  - end walls where a run stops;
+  - openings where the ground behind is carved (junctions, the inner side of a corner, niches).
+- Masks: mud on the floor and walls (`sdirt` 1); turned earth on the parapet fading to sparse grass on its outer
+  slope, then full grass.
+- Collision: the carved heightfield is the trench wall (Jolt tile heightfields); the revetment mesh is visual.
+
+### For the other streams
+
+- GX3 grass: `Terrain::dirtAt` returns the larger of crater soil and stamp soil. Grass already thins on
+  `dirt > 0.02` and drops at `> 0.18`. `Terrain::stampSoilAt` gives the stamp mask alone.
+- GX6 new buildings: pinned automatically. Give an earth-covered stronghold an `earthwork` block instead of bank
+  prisms.

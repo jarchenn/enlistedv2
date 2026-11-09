@@ -33,7 +33,7 @@ void terrainClearHills(App& app);
 void terrainRegenerate(App& app);
 
 // placement seating (shared by the brush, hills and the ring)
-struct SeatRec { uint64_t id = 0; float h = 0; uint64_t host = 0; };
+struct SeatRec { uint64_t id = 0; float h = 0; uint64_t host = 0; std::vector<float> fp; };   // fp: GX1 pinned footprint samples (terrain_blend.cpp)
 std::vector<SeatRec> terrainSeats(const App& app, vec2 c, float radius);   // radius < 0: every placement
 int terrainReseat(App& app, const std::vector<SeatRec>& before);          // returns the number moved
 

@@ -8,6 +8,7 @@
 #include "snap.h"
 #include "app.h"
 #include "physics.h"
+#include "terrain_blend.h"
 #include <algorithm>
 #include <unordered_map>
 #include <functional>
@@ -68,8 +69,11 @@ const AssetSnap& assetSnap(const AssetDef* a) {
     s.partCap.assign(a->parts.size(), -1);
     if (a->raw.is_object() && a->raw.contains("parts")) {
       const json& pj = a->raw["parts"];
-      for (size_t k = 0; k < pj.size() && k < a->parts.size(); ++k)
-        if (pj[k].contains("cap")) { s.partCap[k] = pj[k]["cap"].get<int>(); s.anyCap = true; }
+      for (size_t j = 0, k = 0; j < pj.size() && k < a->parts.size(); ++j) {
+        if (blendReplacesPart(a->raw, pj[j])) continue;   // GX1: parts dropped at load (terrain_blend.cpp) keep the indices aligned
+        if (pj[j].contains("cap")) { s.partCap[k] = pj[j]["cap"].get<int>(); s.anyCap = true; }
+        ++k;
+      }
     }
   }
   return cache.emplace(a, std::move(s)).first->second;
@@ -388,7 +392,7 @@ int crushAndFlatten(App& app, uint64_t id) {
   }), v.end());
   // flatten: the ground under the footprint to the base, feathered over the skirt (dug-in assets keep their cuts;
   // Explore keeps its session ground)
-  if (app.mode == Mode::Creative && a->navMeta.terrainCuts.empty()) {
+  if (app.mode == Mode::Creative && a->navMeta.terrainCuts.empty() && !blendPinned(a)) {   // GX1: pinned objects get a pad instead (terrain_blend.cpp)
     Terrain& T = app.terrain;
     vec2 hf = a->footprint * 0.5f;
     float sk = std::max(0.1f, S.skirt), R = glm::length(hf) + sk, fs = T.fineSpacing(), ts = T.tileSize();

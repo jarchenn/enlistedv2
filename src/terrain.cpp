@@ -153,6 +153,7 @@ void Terrain::applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz) {
 void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   destroy();
   cuts.clear();
+  stamps.clear(); ++sculptRev;   // GX1: re-derived on the new grid (navSyncCuts)
   sculpt.clear();   // V8: the sculpt layer is the document's (App::resetGround reinstalls it on the new grid)
   clearTiles();
   ++generation;
@@ -239,8 +240,9 @@ float Terrain::dirtAt(float x, float z) const {
   float fs = fineSpacing();
   float fx = std::clamp((x - o.x) / fs, 0.0f, kFine - 0.0001f), fz = std::clamp((z - o.y) / fs, 0.0f, kFine - 0.0001f);
   int xi = (int)fx, zi = (int)fz; float u = fx - xi, v = fz - zi;
-  const auto& D = t->dirt;
-  float a = D[zi * kFineN + xi], b = D[zi * kFineN + xi + 1], c = D[(zi + 1) * kFineN + xi], d = D[(zi + 1) * kFineN + xi + 1];
+  const auto& D = t->dirt; const auto& S = t->sdirt;   // craters and GX1 stamp soil (mud, spoil, bare banks)
+  auto at = [&](int i, int j) { size_t k = (size_t)j * kFineN + i; return S.empty() ? D[k] : std::max(D[k], S[k]); };
+  float a = at(xi, zi), b = at(xi + 1, zi), c = at(xi, zi + 1), d = at(xi + 1, zi + 1);
   return glm::mix(glm::mix(a, b, u), glm::mix(c, d, u), v);
 }
 
@@ -285,16 +287,8 @@ Terrain::Tile* Terrain::activate(int tx, int tz) {
   auto it = tiles.find(key(tx, tz));
   if (it != tiles.end()) return &it->second;
   Tile t; t.tx = tx; t.tz = tz;
-  t.h.resize(kFineN * kFineN); t.base.resize(kFineN * kFineN); t.dirt.assign(kFineN * kFineN, 0.0f);
-  vec2 o = tileOrigin(tx, tz);
-  float fs = fineSpacing();
-  for (int j = 0; j < kFineN; ++j)
-    for (int i = 0; i < kFineN; ++i) {
-      float raw = groundBase(o.x + i * fs, o.y + j * fs);   // V8: base + sculpt
-      float b = cuts.empty() ? raw : cutBase(o.x + i * fs, o.y + j * fs);
-      t.base[j * kFineN + i] = b; t.h[j * kFineN + i] = b;
-      t.cut |= b < raw - 1e-5f;
-    }
+  t.h.assign(kFineN * kFineN, 0.0f); t.base.assign(kFineN * kFineN, 0.0f); t.dirt.assign(kFineN * kFineN, 0.0f); t.sdirt.assign(kFineN * kFineN, 0.0f);
+  recutTile(t);   // V8 sculpt + GX1 stamps + cuts: the authored base
   auto& ref = tiles[key(tx, tz)] = std::move(t);
   setMask(tx, tz, 1);
   ++revision;
@@ -370,7 +364,8 @@ void Terrain::rebuildMesh(Tile& t) {
   for (int j = 0; j < kFineN; ++j)
     for (int i = 0; i < kFineN; ++i) {
       float x = o.x + i * fs, z = o.y + j * fs;
-      v[j * kFineN + i] = {vec3(x, t.h[j * kFineN + i], z), normal(x, z), t.dirt[j * kFineN + i]};
+      size_t k = (size_t)j * kFineN + i;
+      v[k] = {vec3(x, t.h[k], z), normal(x, z), t.sdirt.empty() ? t.dirt[k] : std::max(t.dirt[k], t.sdirt[k])};
     }
   if (!t.vao) {
     std::vector<uint32_t> idx;
@@ -406,6 +401,7 @@ void Terrain::clearTiles() {
   ++revision;
   // the authored ground under terrain cuts lives in tiles: rebuild them from the cuts (no crater deltas)
   if (!cuts.empty()) { std::vector<WorldCut> keep; keep.swap(cuts); setCuts(std::move(keep)); }
+  if (!stamps.empty()) { std::vector<TerrainStamp> keep; keep.swap(stamps); setStamps(std::move(keep)); }   // GX1 stamps likewise
   // V8: sculpted ground lives in tiles too (no crater deltas)
   if (!sculpt.empty()) { std::vector<int> keys; for (auto& [k, v] : sculpt) keys.push_back(k); sculptChanged(keys); }
 }
