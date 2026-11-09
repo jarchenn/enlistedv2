@@ -10,7 +10,7 @@
 //  - rain-streak decal anchors under every sill nose (meta.decals, for GX5's static decal system).
 // Detail-only parts carry "lod": 1 (k: 0, never in a bay): a far LOD may drop them and keep a correct silhouette
 // (the slab under each course stays). The flag is ignored by the current loader.
-import { extOf, fbox } from "./parts.mjs";
+import { extOf, fbox, cornice } from "./parts.mjs";
 import { cutRect } from "./kit.mjs";
 
 const q4 = (v) => Math.round(v * 1e4) / 1e4;
@@ -218,11 +218,12 @@ function holesOn(A, F, pad) {
   return out;
 }
 // the wall face material at height y (the box whose outer face lies on the face plane)
-function faceMat(A, F, y) {
-  const n = F.axis === "x" ? 2 : 0, cnt = {};
+function faceMat(A, F, y, at = null) {
+  const n = F.axis === "x" ? 2 : 0, u = 2 - n, cnt = {};
   for (const p of [...A.parts, ...A.panels.flatMap((pn) => pn.states[0] || [])]) {   // the wall bays live in the panels
     if (p.t !== "b" || p.r || p.q || p.v === 0 || p.k === 0) continue;
     if (Math.abs(p.c[n] + (F.out * p.s[n]) / 2 - F.d) > 0.02 || p.c[1] - p.s[1] / 2 > y || p.c[1] + p.s[1] / 2 < y) continue;
+    if (at !== null && (p.c[u] - p.s[u] / 2 > at || p.c[u] + p.s[u] / 2 < at)) continue;
     cnt[p.m] = (cnt[p.m] || 0) + p.s[2 - n] * p.s[1];
   }
   return Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -267,12 +268,25 @@ function stoneBands(A, b, storeys) {
 }
 // tarred / painted soubassement on rendered fronts (P1-3: the dark painted plinth band)
 function paintedPlinth(A, b) {
-  if (!A.materials.some((m) => m.name === "plinth_paint")) A.mat("plinth_paint", [0.045, 0.055, 0.05], 0.58, "painted", { grain: 1 });
+  if (!A.materials.some((m) => m.name === "plinth_paint")) A.mat("plinth_paint", [0.04, 0.05, 0.047], 0.6, "plain");
+  const rendered = (m) => m === "render" || m === "render_cream" || m === "plaster";
   for (const F of FACE(b.X, b.Z)) {
-    const m = faceMat(A, F, b.GF + 0.5);
-    if (m !== "render" && m !== "render_cream" && m !== "plaster") continue;
     const holes = holesOn(A, F, 0.02).filter((h) => h.y0 < b.GF + 0.4);
-    strip(A, F, F.a0 + 0.02, F.a1 - 0.02, b.GF - 0.02, b.GF + 0.62, 0.012, "plinth_paint", holes, { bv: 0.004, lod: 0 });
+    // runs of rendered wall along the face (a brick neighbour in a terrace keeps its own base), sampled every 0.25 m
+    let run = null;
+    for (let a = F.a0 + 0.125; a < F.a1 + 0.125; a += 0.25) {
+      const on = a < F.a1 && rendered(faceMat(A, F, b.GF + 0.5, a) ?? faceMat(A, F, b.GF + 1.2, a));
+      if (on && run === null) run = Math.max(F.a0 + 0.02, a - 0.125);
+      if (!on && run !== null) { strip(A, F, run, Math.min(F.a1 - 0.02, a - 0.125), b.GF - 0.02, b.GF + 0.62, 0.012, "plinth_paint", holes, { bv: 0.004, lod: 0 }); run = null; }
+    }
+  }
+}
+// an eaves cornice where the reference has one (P1-4, P1-7): a stepped cornice on the long faces, clear of the top windows
+function eavesCornice(A, b) {
+  for (const F of FACE(b.X, b.Z).slice(0, 2)) {
+    const top = Math.max(...holesOn(A, F, 0).map((h) => h.y1), 0), y = b.EAVE - 0.56;
+    if (y < top + 0.12) continue;
+    cornice(A, { axis: F.axis, d: F.d, out: F.out }, F.a0, F.a1, y, { steps: 3, h: 0.42, proj: 0.26 });
   }
 }
 
@@ -295,8 +309,8 @@ const FEATURES = {
   large_municipal_building: { dentils: true, rustic: true },                     // P1-6 neoclassical town house
   large_village_inn: { rustic: true },                                           // P1-7 / Little Rock Inn: heavy base under the timbering
   vil_rectory: { dentils: true, rustic: true, plinth: true },                    // P1-6 / P1-3
-  vil_terrace_pair: { dentils: true, plinth: true, bands: [1, 2] },             // P1-4: a rendered and a brick town house side by side
-  vil_corner_shop: { dentils: true, bands: [1] },                               // P1-7 / P1-3 corner shop
+  vil_terrace_pair: { cornice: true, dentils: true, plinth: true, bands: [1, 2] },             // P1-4: a rendered and a brick town house side by side
+  vil_corner_shop: { cornice: true, dentils: true, bands: [1] },                               // P1-7 / P1-3 corner shop
   vil_villa_deauville: { dentils: true, bands: [0] },                           // P3 brick villa
   small_roadside_office: { plinth: true },
   // GX6 (tools/catalog_gx_buildings.mjs): they build their own reference trims; the generic pass only, and the
@@ -316,8 +330,9 @@ const sillInPlace = (A, pt) => A.parts.some((p) => p.t === "b" && p.m === "stone
 export function exterior(A, opt = {}) {
   const R = seeded(A.meta.id + ":gx4"), x = extOf(A), f = FEATURES[A.meta.id] || {};
   if (f.crow) for (const g of x.gables) crowSteps(A, g);
-  if (f.dentils) dentils(A);
   const b = x.body;
+  if (b && f.cornice) eavesCornice(A, b);
+  if (f.dentils) dentils(A);
   if (b && f.rustic) rusticate(A, b);
   if (b && f.bands) stoneBands(A, b, f.bands);
   if (b && f.plinth) paintedPlinth(A, b);
