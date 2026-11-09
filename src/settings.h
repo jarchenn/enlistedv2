@@ -20,6 +20,7 @@ struct GraphicsOpts {
   int taaPhases = 8;           // Halton jitter sequence length
   bool clouds = true;
   int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High
+  bool grassWind = true;       // GX3: vertex wind on the near grass clumps (Low: static grass)
   float drawDist = 1.0f;       // decor cull distances (w5CullDraw) and the hard draw cuts (buildDrawLists)
   float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
   // L2 lighting (docs/lighting.md): local lights per frame, shadowed lights, probe GI 0 off / 1 near / 2 near + far

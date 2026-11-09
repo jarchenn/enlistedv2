@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
+#include "ground_paint.h"
 
 namespace {
 struct Cam { const char* name; vec3 pos, target; };
@@ -11,6 +12,8 @@ std::vector<Cam> cams;
 size_t ci = 0; int frames = 0;
 std::string tag = "now";
 uint64_t FH = 0, CM = 0, WH = 0, PK = 0;
+// grass set: per camera, mean GPU ms with grass on (Medium) then off, and the blades drawn
+bool grassSet = false; double gOn = 0, gOff = 0; size_t gBlades = 0; int gN = 0;
 // interiors set: houses are furnished by the room templates (seeded by the instance id, so every run matches)
 void captureHook(App& app, uint64_t id) {
   Instance* i = app.doc.find(id); if (!i) return;
@@ -160,6 +163,34 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "grass") {
+      // NMK_CAPTURE_SET=grass (GX3): a 40 x 40 m pasture with a painted dirt path, a dry patch and a bunker, from
+      // fixed cameras; each camera also logs GPU ms with grass on and off (GPU_TURN_EXCLUSIVE=1 for real numbers)
+      auto Y = [&](float x, float z, float h) { return vec3(x, app.terrain.height(x, z) + h, z); };
+      std::vector<vec2> path, dry;
+      for (int k = 0; k <= 20; ++k) { float x = -24.0f + 2.4f * k; path.push_back({x, 4.0f + 2.5f * std::sin(x * 0.15f) - 0.8f}); }
+      for (int k = 20; k >= 0; --k) { float x = -24.0f + 2.4f * k; path.push_back({x, 4.0f + 2.5f * std::sin(x * 0.15f) + 0.8f}); }
+      for (int k = 0; k < 24; ++k) { float a = k * 6.2831853f / 24; dry.push_back({-9.0f + std::cos(a) * (5.0f + std::sin(a * 3) * 1.2f), -9.0f + std::sin(a) * 4.0f}); }
+      LassoRegion rp, rd; rp.add(path); rd.add(dry);
+      groundPaintRegion(app, rp, 2, 1.0f, 0.6f);   // dirt
+      groundPaintRegion(app, rd, 8, 1.0f, 1.5f);   // dry grass
+      CM = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(14, 0, -16), 200.0f);
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      app.grass.quality = GrassQuality::Medium;
+      cams = {
+        {"grass_wide", Y(0, 22, 1.7f), Y(0, -40, 0.9f)},
+        {"grass_close", Y(2.2f, -2.0f, 1.25f), Y(0.4f, -4.4f, 0.0f)},
+        {"grass_low", Y(-3, 10, 0.55f), Y(-3, -10, 0.35f)},
+        {"grass_high", Y(-18, 26, 9.0f), Y(6, -30, 0.0f)},
+        {"grass_path", Y(-14, 13, 1.7f), Y(0, 3, 0.0f)},
+        {"grass_bunker", Y(5, -3, 1.7f), Y(13, -14, 0.6f)},
+      };
+      grassSet = true;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "b2") {
       // NMK_CAPTURE_SET=b2: the B2 buildings with their companions (front corner and rear corner, framed from the
       // footprint) and every drs_* dressing piece close up (tools/catalog_houses2.mjs, catalog_dressing.mjs)
@@ -241,6 +272,25 @@ void SelfTest::captureUpdate(App& app, float) {
   vec3 d = glm::normalize(c.target - c.pos);
   app.camYaw = degrees(std::atan2(-d.x, -d.z));
   app.camPitch = degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f)));
+  if (grassSet) {   // frames 1-30 settle (TAA), 30 shot, 40-159 grass on, 160 off, 180-299 timed off
+    ++frames;
+    if (frames == 30) shotQueue.push_back(tag + "_" + c.name);
+    if (frames == 40) { gOn = gOff = 0; gBlades = 0; gN = 0; }
+    if (frames > 40 && frames <= 160) { gOn += app.R.stats.gpuMs; gBlades += app.grass.lastDrawnBlades; ++gN; }
+    if (frames == 160) app.grass.quality = GrassQuality::Off;
+    if (frames > 180 && frames <= 300) gOff += app.R.stats.gpuMs;
+    if (frames == 300) {
+      app.grass.quality = GrassQuality::Medium;
+      double on = gOn / gN, off = gOff / 120;
+      // drawn blades / cards per m^2 within 15 m of the eye: resident clumps there x the preset's drawn share x cards per clump
+      size_t near = 0; app.grass.forEachInstance([&](const GrassInstance& i) { if (glm::length(vec2(i.posYaw.x - c.pos.x, i.posYaw.z - c.pos.z)) < 15.0f) ++near; });
+      double nearD = near * (grassPreset(GrassQuality::Medium).density / Grass::kMaxDensity) * Grass::kBlades / (3.14159265 * 225.0);
+      summary[c.name] = {{"gpu_ms_grass_on", on}, {"gpu_ms_grass_off", off}, {"grass_ms", on - off}, {"blades_drawn", gBlades / gN}, {"near15_blades_per_m2", nearD}};
+      logf("grass capture %s: gpu %.3f ms on, %.3f off, grass %.3f ms, %zu blades, %.0f blades/m2 within 15 m", c.name, on, off, on - off, gBlades / gN, nearD);
+      ++ci; frames = 0;
+    }
+    return;
+  }
   if (++frames == 4) shotQueue.push_back("mat_" + tag + "_" + c.name);
   if (frames >= 5) { ++ci; frames = 0; }
 }

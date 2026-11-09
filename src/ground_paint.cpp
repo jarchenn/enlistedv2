@@ -156,6 +156,14 @@ float groundPaintGrass(float x, float z) {
   for (int k = 1; k < kPaintTypes; ++k) g += w[k] * T[k].grass;
   return std::clamp(g, 0.0f, 1.0f);
 }
+float groundPaintTint(float x, float z, vec3& col) {   // GX3: painted swatch under a grass clump (weight 0 = unpainted)
+  if (!gDoc || gDoc->groundPaint.empty()) return 0.0f;
+  float w[kPaintTypes]; groundPaintWeights(*gDoc, x, z, w);
+  const auto& T = groundPaintTypes(); vec3 c(0); float pw = 0;
+  for (int k = 1; k < kPaintTypes; ++k) { c += w[k] * T[k].swatch; pw += w[k]; }
+  if (pw > 0.001f) col = c / pw;
+  return std::min(pw, 1.0f);
+}
 bool groundPaintBlocksNature(float x, float z) {
   if (!gDoc || gDoc->groundPaint.empty()) return false;
   float w[kPaintTypes]; groundPaintWeights(*gDoc, x, z, w);

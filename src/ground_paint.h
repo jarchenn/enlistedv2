@@ -31,6 +31,7 @@ void groundPaintWeights(const MapDoc& doc, float x, float z, float w[kPaintTypes
 float groundPaintAt(const App& app, float x, float z, int* type = nullptr);   // the dominant painted type's weight
 // queries on the current map (App::doc, registered by groundPaintSync): grass, nature, navmesh, footsteps
 float groundPaintGrass(float x, float z);
+float groundPaintTint(float x, float z, vec3& col);   // painted swatch colour and its weight (grass clump bases)
 bool groundPaintBlocksNature(float x, float z);
 int groundPaintNavArea(float x, float z);       // -1 = none
 const std::string& groundPaintStep(float x, float z);

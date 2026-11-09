@@ -51,7 +51,7 @@
     "path_concrete":   {"set": "concrete_light",   "albedo": 0.45, "normal": 0.45, "rough": 0.3, "ao": 0.3},
     "rock":            {"set": "rock_cliff",       "space": "world", "albedo": 0.55, "normal": 0.6, "rough": 0.4, "ao": 0.4},
 
-    "terrain_grass":   {"set": "grass_lawn",       "space": "ground", "albedo": 0.55, "normal": 0.45, "rough": 0.3, "ao": 0.35, "fade": [40, 140]},
+    "terrain_grass":   {"set": "grass_forest",     "space": "ground", "albedo": 0.7,  "normal": 0.6,  "rough": 0.3, "ao": 0.45, "fade": [30, 110]},
     "terrain_soil":    {"set": "soil_brown",       "space": "ground", "albedo": 0.6,  "normal": 0.55, "rough": 0.3, "ao": 0.4, "fade": [50, 160]},
     "terrain_mud":     {"set": "mud_soil",         "space": "ground", "albedo": 0.6,  "normal": 0.55, "rough": 0.4, "ao": 0.4, "fade": [50, 160]},
     "terrain_gravel":  {"set": "gravel_fine",      "space": "ground", "albedo": 0.6,  "normal": 0.6,  "rough": 0.3, "ao": 0.45, "fade": [50, 160]},

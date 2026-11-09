@@ -18,7 +18,7 @@ GraphicsOpts presetOpts(GfxPreset p) {
   if (p == GfxPreset::Low) {
     g.resScale = 0.85f; g.shadowQuality = 0;
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
-    g.grass = 1; g.drawDist = 0.6f; g.particles = 0.6f; g.ivy = false;
+    g.grass = 1; g.grassWind = false; g.drawDist = 0.6f; g.particles = 0.6f; g.ivy = false;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
   } else if (p == GfxPreset::High) {
     g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;
@@ -42,7 +42,7 @@ json UserSettings::toJson() const {
     {"version", 1},
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
-                  {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass},
+                  {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass}, {"grassWind", g.grassWind},
                   {"drawDistance", g.drawDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
@@ -67,7 +67,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.farCascade = q.value("farCascade", g.farCascade); g.cloudShadows = q.value("cloudShadows", g.cloudShadows);
     g.shafts = q.value("lightShafts", g.shafts); g.ssr = q.value("ssr", g.ssr); g.ssao = q.value("ssao", g.ssao); g.ssaoFull = q.value("ssaoFullRes", g.ssaoFull);
     g.bloom = q.value("bloom", g.bloom); g.taa = q.value("taa", g.taa); g.taaPhases = std::clamp(q.value("taaPhases", g.taaPhases), 1, 64);
-    g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 3);
+    g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 3); g.grassWind = q.value("grassWind", g.grassWind);
     g.drawDist = std::clamp(q.value("drawDistance", g.drawDist), 0.3f, 3.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
@@ -185,7 +185,7 @@ void Settings::apply(App& app) {
   app.ivyOn = g.ivy;
   R.clouds = g.clouds;
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
-  app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3);
+  app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers;
@@ -206,7 +206,7 @@ void Settings::capture(const App& app) {
   g.farCascade = R.q.farCascade; g.cloudShadows = R.q.cloudShadows; g.shafts = R.q.shafts; g.ssr = R.q.ssr; g.ssao = R.q.ssao; g.bloom = R.q.bloom;
   g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds;
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
-  g.grass = (int)app.grass.quality;
+  g.grass = (int)app.grass.quality; g.grassWind = app.grass.nearWind;
   g.msaa = R.msaa(); g.ivy = app.ivyOn;
   s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers;
   s.editorFly = navState().speedMult;
@@ -286,6 +286,8 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Clouds", &g.clouds);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloud cover: Creative > View > Sky");
       { const char* gq[] = {"Off", "Low", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Grass", &g.grass, gq, 4); }
+      ImGui::SameLine(); ImGui::Checkbox("Grass wind", &g.grassWind);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Wind sway on the grass near you (within ~13 m; distant grass is always still). Off saves a little GPU time.");
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Draw distance", &g.drawDist, 0.4f, 2.0f, "x %.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Scales the small-decoration cull distances and the far draw cuts (nature, trees, buildings).");
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Particle budget", &g.particles, 0.25f, 2.5f, "x %.2f");
