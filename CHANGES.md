@@ -41,7 +41,7 @@
   - clumps keep fewer cards, 6 then 3 on Medium, and the remaining cards widen.
 
   Each clump and card fades by its rank at its own distance, in the vertex shader, so there is no per-chunk pop.
-  Medium's radius changes from 58 m to 54 m.
+  Medium's radius changes from 58 m to 48 m.
 - **Wind.** Wind is a vertex-shader effect only within 13 m (Medium) or 15 m (High); Low has none. Distant clumps keep a
   static lean. There is a new setting, Settings → Graphics → Grass wind (`grassWind`), and the Low preset turns it off.
 - **Suppression.** Grass reads GX1's earthwork and trench soil (`sdirt`, through `dirtAt`), slopes, ground paint, wear,

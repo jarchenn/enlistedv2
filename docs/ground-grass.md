@@ -58,8 +58,8 @@ keep their static lean. Settings → Graphics → Grass wind turns it off (`gras
 | Tier | Clumps / m² near | Near / mid / radius | Cards mid / far | Wind | Shadows |
 |---|---|---|---|---|---|
 | Low | 12 | 10 / 22 / 36 m | 5 / 3 | off | off |
-| Medium | 30 | 15 / 32 / 54 m | 6 / 3 | 13 m | 10 m |
-| High | 44 | 18 / 40 / 62 m | 8 / 4 | 15 m | 14 m |
+| Medium | 24 | 15 / 32 / 48 m | 6 / 3 | 13 m | 10 m |
+| High | 30 | 18 / 40 / 54 m | 8 / 4 | 15 m | 14 m |
 
 **Test field.** `NMK_CAPTURE_SET=grass --capture-materials <tag>`: a 40 x 40 m pasture with a painted dirt path, a dry
 patch and a bunker from six cameras; each logs GPU ms with grass on and off, blades drawn, cards per m² within 15 m

@@ -11,8 +11,8 @@ const GrassPreset& grassPreset(GrassQuality q) {
   static GrassPreset P[4] = {
     {"Off", 0, 0, 0, 0, 2, 0.1f, 0, 0, 0, 0},
     {"Low", 12, 36, 10, 22, 2.0f, 0.12f, 5, 3, 0, 0},
-    {"Medium", 30, 54, 15, 32, 1.6f, 0.14f, 6, 3, 13, 10},
-    {"High", 44, 62, 18, 40, 1.8f, 0.12f, 8, 4, 15, 14},
+    {"Medium", 24, 48, 15, 32, 1.6f, 0.14f, 6, 3, 13, 10},
+    {"High", 30, 54, 18, 40, 1.8f, 0.12f, 8, 4, 15, 14},
   };
   static bool loaded = false;
   if (!loaded) {
