@@ -1288,7 +1288,7 @@ struct Planner {
         vec3 mid = (ha->bmin + ha->bmax) * 0.5f;
         float in = ((mn[na] + mx[na]) * 0.5f > mid[na]) ? -1.0f : 1.0f;
         float face = in < 0 ? mn[na] : mx[na];
-        vec3 p = (mn + mx) * 0.5f; p[na] = face;
+        vec3 p = (mn + mx) * 0.5f; p[na] = face + in * 0.012f;   // GX2: 12 mm off the plaster, never on it
         p.y = mx.y + 0.05f - 1.5f;
         if (ri.at(R.storey, p + (na == 0 ? vec3(in * 0.3f, 0, 0) : vec3(0, 0, in * 0.3f))) != k) continue;
         float yaw = na == 2 ? (in < 0 ? 180.0f : 0.0f) : (in < 0 ? 270.0f : 90.0f);

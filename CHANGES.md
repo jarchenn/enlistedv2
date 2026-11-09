@@ -207,6 +207,17 @@ parts, and none goes over 75 parts.
   Colliders, panels and nav are unchanged.
 - **Applied by** B2 `dress()` (13 buildings at version 3) and B3 `house()` / `gatehouse()` (11 buildings at
   version 2).
+- **No coplanar faces (z-fight fix).** Every trim back is buried 2.8-5.2 mm in the plaster; fronts stand 16-34 mm
+  proud.
+  - Runs are merged per face plane across plaster pieces, so no two runs abut or overlap.
+  - Runs end 0.6 / 1.6 mm short of their span, x- and z-runs differ by 1.5 mm in height and depth, and runs stop
+    1.5-2.5 mm short of any solid in front of the face (stair treads, beams, a builder's casing) and of
+    architraves (31 mm proud).
+  - Faces back to back with another plaster lining, and doorway reveals, get no trim.
+  - A last pass shortens any run end still lying in another face's plane.
+  - Checked by a coplanar scan of all 24 regenerated buildings: faces within 0.5 mm of the same plane and
+    overlapping more than 1 mm give 0 hits (down from 39 760).
+  - Hung pieces (frames, sconces, mirrors) are placed 12 mm off the wall face, and floor pieces 30 mm off.
 
 ### Numbers
 **Acceptance, from `--selftest-interiors`:**

@@ -1573,10 +1573,8 @@ def gramophone(root):
         d *= grow
     c = [base[k] + ax[k] * (t + 0.008) for k in range(3)]
     a.cyl(c, d * 1.04, 0.012, "brass", "horn", n=12, rot=[52, 0, 0])                            # rolled rim
-    c2 = [base[k] + ax[k] * (t - 0.004) for k in range(3)]
-    a.cyl(c2, d * 0.9, 0.006, "record", "horn", n=12, rot=[52, 0, 0])                           # the dark throat inside the bell
-    c3 = [base[k] + ax[k] * (t - 0.03) for k in range(3)]
-    a.cyl(c3, d * 0.55, 0.006, "record", "horn", n=12, rot=[52, 0, 0])
+    c2 = [base[k] + ax[k] * (t + 0.0215) for k in range(3)]
+    a.cyl(c2, d * 0.86, 0.003, "record", "horn", n=12, rot=[52, 0, 0])                          # the dark throat, 6 mm in front of the rim
     return gx2_write(a, root, [0.36, 0.36], fragments=["horn"], keep=["case", "deck"])
 
 
@@ -1811,7 +1809,7 @@ def debris_glass(root):
     shards = [(0.0, 0.0, 10, 0.12), (0.15, 0.08, 75, 0.08), (-0.12, 0.1, 140, 0.1), (0.08, -0.14, 220, 0.07), (-0.2, -0.06, 300, 0.09),
               (0.25, -0.05, 35, 0.05), (-0.05, 0.22, 190, 0.06), (0.3, 0.15, 260, 0.04), (-0.28, 0.18, 110, 0.05)]
     for x, z, yaw, s in shards:
-        a.wedge([x, 0.003, z], [s, s * 0.7, 0.004], "shard", "glass", top=0.1, rot=[90, yaw, 0])
+        a.wedge([x, 0.005 + 0.0025 * (len(a.parts) % 3), z], [s, s * 0.7, 0.002], "shard", "glass", top=0.1, rot=[90, yaw, 0])
     a.r([0.05, 0.012, -0.02], [0.32, 0.022, 0.03], "pine", "bar", 0.004, rot=[0, 28, 0])
     return gx2_write(a, root, [0.6, 0.5], fragments=[], keep=[])
 
@@ -1819,8 +1817,8 @@ def debris_glass(root):
 def debris_plaster(root):
     a = A("furn_debris_plaster", "Plaster debris", "Fallen ceiling plaster: chunks of lime plaster with the lath still in them, a broken brick and a "
           "dust patch spread across the boards.", "masonry", 0, 1, blocking=False, front=0.0)
-    a.r([0, 0.002, 0], [1.1, 0.004, 0.8], "plaster_dust", "dust", 0.0015, rot=[0, 12, 0])
-    a.r([0.25, 0.002, 0.25], [0.5, 0.003, 0.4], "plaster_dust", "dust", 0.0012, rot=[0, -30, 0])
+    a.r([0, 0.004, 0], [1.1, 0.004, 0.8], "plaster_dust", "dust", 0.0015, rot=[0, 12, 0])
+    a.r([0.25, 0.0075, 0.25], [0.5, 0.003, 0.4], "plaster_dust", "dust", 0.0012, rot=[0, -30, 0])
     chunks = [(0.0, 0.0, 0.16, 0.025, 0.11, 15, 8), (0.18, 0.12, 0.1, 0.02, 0.08, 70, -6), (-0.2, 0.15, 0.13, 0.03, 0.09, 140, 4),
               (-0.12, -0.18, 0.08, 0.018, 0.07, 200, 10), (0.3, -0.12, 0.07, 0.02, 0.05, 260, -3), (-0.35, -0.05, 0.06, 0.02, 0.05, 320, 6),
               (0.1, 0.3, 0.05, 0.016, 0.04, 30, 12), (-0.05, 0.08, 0.04, 0.015, 0.035, 85, 0)]
@@ -1847,71 +1845,55 @@ def framed_painting(root, id, name, W, H, mount, scene, frame="gilt"):
         a.r([sx * (W / 2 - fw - 0.006), cy, 0.026], [0.012, H - 2 * fw, 0.02], "oak_dark" if frame == "gilt" else "gilt", "frame", 0.004)
     cw, ch = W - 2 * fw - 0.02, H - 2 * fw - 0.02
     z0 = 0.012
-    # the scene: layers of thin painted shapes, each a little in front of the last (brush texture from the canvas
-    # materials' fabric pattern): graded sky, clouds, distant hills, land or sea, tree clumps in two shades
-    L = [z0]
-    def lay():
-        L[0] += 0.00045   # every layer stays behind the frame slip (canvas at 1.2 cm, slip at 3.6 cm)
-        return L[0]
+    # the scene: thin painted shapes on separate layers 1.5 mm apart (canvas at 12 mm, the slip's face at 36 mm), and
+    # shapes that share a layer never overlap: no coplanar faces, nothing flickers at a distance
     x0, x1, y0, y1 = -cw / 2, cw / 2, cy - ch / 2, cy + ch / 2
     hz = cy - ch * 0.1   # the horizon
-    def band(ya, yb, m):
-        a.b([0, (ya + yb) / 2, lay()], [cw, yb - ya, 0.002], m, "canvas")
-    def blob(x, y, w, h, m):   # a soft elliptical dab, kept inside the canvas
+    Z = lambda k: z0 + 0.0015 * k
+    def band(ya, yb, m, k):
+        a.b([0, (ya + yb) / 2, Z(k)], [cw, yb - ya, 0.001], m, "canvas")
+    def blob(x, y, w, h, m, k):   # a soft elliptical dab, kept inside the canvas
         w = min(w, 2 * min(x - x0, x1 - x) - 0.004); h = min(h, 2 * min(y - y0, y1 - y) - 0.004)
         if w > 0.004 and h > 0.004:
-            a.cyl([x, y, lay()], w, 0.002, m, "canvas", dz=h, seg=16, rot=[90, 0, 0])
+            a.cyl([x, y, Z(k)], w, 0.001, m, "canvas", dz=h, seg=16, rot=[90, 0, 0])
     if scene == "portrait":
-        band(y0, y1, "canvas_dark")
-        blob(0, cy + ch * 0.08, cw * 0.8, ch * 0.75, "canvas_glow")                     # lit background behind the sitter
-        a.arch([0, y0, lay()], [cw * 0.86, ch * 0.34, 0.002], "coat_blue", "canvas", th=1.0, fill=True)   # shoulders
-        blob(0, y0 + ch * 0.33, cw * 0.18, ch * 0.08, "linen")                          # collar
-        blob(0, cy + ch * 0.12, cw * 0.34, ch * 0.34, "canvas_skin")                    # face
-        blob(0, cy + ch * 0.25, cw * 0.38, ch * 0.16, "canvas_hair")                    # hair
-        blob(-cw * 0.06, cy + ch * 0.14, cw * 0.04, ch * 0.025, "canvas_hair")         # eyes
-        blob(cw * 0.06, cy + ch * 0.14, cw * 0.04, ch * 0.025, "canvas_hair")
+        band(y0, y1, "canvas_dark", 0)
+        blob(0, cy + ch * 0.08, cw * 0.8, ch * 0.75, "canvas_glow", 1)                  # lit background behind the sitter
+        a.arch([0, y0, Z(2)], [cw * 0.86, ch * 0.34, 0.001], "coat_blue", "canvas", th=1.0, fill=True)   # shoulders
+        blob(0, cy + ch * 0.12, cw * 0.34, ch * 0.34, "canvas_skin", 3)                 # face
+        blob(0, y0 + ch * 0.33, cw * 0.18, ch * 0.08, "linen", 3)                       # collar (clear of the face)
+        blob(0, cy + ch * 0.25, cw * 0.38, ch * 0.16, "canvas_hair", 4)                 # hair over the brow
+        blob(-cw * 0.06, cy + ch * 0.14, cw * 0.04, ch * 0.025, "canvas_hair", 5)       # eyes
+        blob(cw * 0.06, cy + ch * 0.14, cw * 0.04, ch * 0.025, "canvas_hair", 5)
     elif scene == "dusk":
-        band(hz, y1, "canvas_dusk_hi"); band(hz, hz + ch * 0.38, "canvas_dusk"); band(hz, hz + ch * 0.14, "canvas_dusk_lo")
-        blob(cw * 0.12, hz + ch * 0.08, cw * 0.16, cw * 0.16, "canvas_sun")
-        for u, v, w in ((-0.25, 0.32, 0.5), (0.2, 0.4, 0.4)):
-            blob(u * cw, hz + v * ch, w * cw, ch * 0.05, "canvas_dusk_lo")
-        band(y0, hz + 0.004, "canvas_tree"); band(hz - ch * 0.1, hz + 0.004, "canvas_field")
-        blob(-cw * 0.2, hz, cw * 0.9, ch * 0.1, "canvas_hill")                           # a low hill
-        for u, s in ((-0.32, 0.26), (0.3, 0.2)):                                         # trees against the glow
-            a.b([u * cw, hz + s * ch * 0.05, lay()], [cw * 0.012, s * ch * 0.4, 0.002], "canvas_dark", "canvas")
-            blob(u * cw, hz + s * ch * 0.45, s * cw * 0.7, s * ch * 0.9, "canvas_tree")
-            blob(u * cw + s * cw * 0.12, hz + s * ch * 0.6, s * cw * 0.35, s * ch * 0.45, "canvas_dusk")
+        band(hz + ch * 0.38, y1, "canvas_dusk_hi", 0); band(hz + ch * 0.14, hz + ch * 0.38, "canvas_dusk", 0); band(hz, hz + ch * 0.14, "canvas_dusk_lo", 0)
+        band(hz - ch * 0.1, hz, "canvas_field", 0); band(y0, hz - ch * 0.1, "canvas_tree", 0)
+        blob(cw * 0.12, hz + ch * 0.08, cw * 0.16, cw * 0.16, "canvas_sun", 1)
+        blob(-cw * 0.25, hz + ch * 0.32, cw * 0.5, ch * 0.05, "canvas_dusk_lo", 2)
+        blob(cw * 0.2, hz + ch * 0.42, cw * 0.4, ch * 0.05, "canvas_dusk_lo", 2)
+        blob(-cw * 0.2, hz, cw * 0.9, ch * 0.1, "canvas_hill", 3)                        # a low hill
+        for u, sz in ((-0.32, 0.26), (0.3, 0.2)):                                        # trees against the glow
+            a.b([u * cw, hz + sz * ch * 0.05, Z(4)], [cw * 0.012, sz * ch * 0.4, 0.001], "canvas_dark", "canvas")
+            blob(u * cw, hz + sz * ch * 0.45, sz * cw * 0.7, sz * ch * 0.9, "canvas_tree", 5)
+            blob(u * cw + sz * cw * 0.12, hz + sz * ch * 0.6, sz * cw * 0.35, sz * ch * 0.45, "canvas_dusk", 6)
     else:
         sea = scene == "sea"
-        band(hz, y1, "canvas_sky_hi"); band(hz, hz + ch * 0.4, "canvas_sky"); band(hz, hz + ch * 0.15, "canvas_sky_lo")
-        for u, v, w in ((-0.25, 0.3, 0.42), (0.18, 0.38, 0.5), (0.3, 0.22, 0.3)):       # clouds
-            blob(u * cw, hz + v * ch, w * cw, ch * 0.08, "canvas_cloud")
+        band(hz + ch * 0.4, y1, "canvas_sky_hi", 0); band(hz + ch * 0.15, hz + ch * 0.4, "canvas_sky", 0); band(hz, hz + ch * 0.15, "canvas_sky_lo", 0)
+        for u, v, w in ((-0.25, 0.3, 0.42), (0.3, 0.22, 0.3)):                           # clouds (apart from each other)
+            blob(u * cw, hz + v * ch, w * cw, ch * 0.08, "canvas_cloud", 1)
+        blob(0.15 * cw, hz + 0.42 * ch, 0.36 * cw, ch * 0.07, "canvas_cloud", 2)
         if sea:
-            band(y0, hz, "canvas_sea"); band(hz - ch * 0.12, hz, "canvas_sea_lit")
-            band(y0, y0 + ch * 0.14, "canvas_sand")
-            a.wedge([cw * 0.16, hz - ch * 0.05, lay()], [cw * 0.14, ch * 0.04, 0.002], "canvas_dark", "canvas", top=0.6, rot=[0, 0, 180])   # hull
-            a.wedge([cw * 0.16, hz + ch * 0.06, lay()], [cw * 0.08, ch * 0.18, 0.002], "paper", "canvas", top=0.0)                          # sail
+            band(y0, y0 + ch * 0.14, "canvas_sand", 0); band(y0 + ch * 0.14, hz - ch * 0.12, "canvas_sea", 0); band(hz - ch * 0.12, hz, "canvas_sea_lit", 0)
+            a.wedge([cw * 0.16, hz - ch * 0.05, Z(3)], [cw * 0.14, ch * 0.04, 0.001], "canvas_dark", "canvas", top=0.6, rot=[0, 0, 180])   # hull
+            a.wedge([cw * 0.16, hz + ch * 0.06, Z(4)], [cw * 0.08, ch * 0.18, 0.001], "paper", "canvas", top=0.0)                       # sail
         else:
-            blob(-cw * 0.25, hz, cw * 0.8, ch * 0.18, "canvas_hill"); blob(cw * 0.3, hz, cw * 0.7, ch * 0.12, "canvas_hill")
-            band(y0, hz, "canvas_field"); band(y0 + ch * 0.12, hz - ch * 0.08, "canvas_field_lit")
-            a.b([cw * 0.06, y0 + ch * 0.18, lay()], [cw * 0.55, ch * 0.05, 0.002], "canvas_sand", "canvas", rot=[0, 0, -8])   # a lane
-            for u, s in ((-0.32, 0.24), (-0.14, 0.3), (0.3, 0.26)):                        # tree clumps: trunk, dark crown, lit side
-                a.b([u * cw, hz + s * ch * 0.08, lay()], [cw * 0.014, s * ch * 0.35, 0.002], "canvas_dark", "canvas")
-                blob(u * cw, hz + s * ch * 0.45, s * cw * 0.7, s * ch * 0.75, "canvas_tree")
-                blob(u * cw - s * cw * 0.12, hz + s * ch * 0.55, s * cw * 0.45, s * ch * 0.5, "canvas_tree")
-                blob(u * cw + s * cw * 0.1, hz + s * ch * 0.55, s * cw * 0.35, s * ch * 0.4, "canvas_tree_lit")
-    if scene != "portrait":   # brush strokes: small seeded dabs in the scene's own tones, more in the foreground
-        seed = sum(ord(c) for c in id)
-        tones_sky = ["canvas_sky_lo", "canvas_cloud"] if scene != "dusk" else ["canvas_dusk", "canvas_dusk_lo"]
-        tones_low = ["canvas_sea_lit", "canvas_sea"] if scene == "sea" else ["canvas_field_lit", "canvas_field"]
-        for k in range(14):   # long, flat strokes in tones next to the band under them (no dots)
-            r1 = ((seed * 9301 + k * 49297) % 233280) / 233280.0
-            r2 = ((seed * 4111 + k * 7919 + 17) % 104729) / 104729.0
-            sky = k % 2 == 0
-            x = (r1 - 0.5) * cw * 0.8
-            y = (hz + (y1 - hz) * (0.15 + 0.7 * r2)) if sky else (y0 + (hz - y0) * (0.1 + 0.7 * r2))
-            t = (tones_sky if sky else tones_low)[k % 2]
-            blob(x, y, cw * (0.12 + 0.1 * r2), ch * (0.01 + 0.008 * r1), t)
+            blob(-cw * 0.25, hz, cw * 0.8, ch * 0.18, "canvas_hill", 3); blob(cw * 0.3, hz, cw * 0.7, ch * 0.12, "canvas_hill", 4)
+            band(y0, hz - ch * 0.08, "canvas_field", 5); band(hz - ch * 0.08, hz, "canvas_field_lit", 5)   # covers the hills' lower halves
+            a.b([cw * 0.06, y0 + ch * 0.18, Z(6)], [cw * 0.55, ch * 0.05, 0.001], "canvas_sand", "canvas", rot=[0, 0, -8])   # a lane
+            for u, sz in ((-0.32, 0.24), (-0.1, 0.26), (0.3, 0.26)):                      # tree clumps: trunk, crown, lit side
+                a.b([u * cw, hz + sz * ch * 0.08, Z(7)], [cw * 0.014, sz * ch * 0.35, 0.001], "canvas_dark", "canvas")
+                blob(u * cw, hz + sz * ch * 0.45, sz * cw * 0.7, sz * ch * 0.75, "canvas_tree", 8)
+                blob(u * cw + sz * cw * 0.1, hz + sz * ch * 0.55, sz * cw * 0.35, sz * ch * 0.4, "canvas_tree_lit", 9)
     return gx2_write(a, root, [W, 0.05], fragments=["frame"], keep=[])
 
 
