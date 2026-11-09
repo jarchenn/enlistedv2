@@ -635,11 +635,16 @@ static void newMapDialog(App& app) {
   static int W = 600, D = 600;
   if (app.showNewMap) { ImGui::OpenPopup("New map"); app.showNewMap = false; W = 600; D = 600; }
   ImGui::SetNextWindowSize(ImVec2(780, 0), ImGuiCond_Appearing);
+  ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, ImGui::GetIO().DisplaySize.y - 40));   // never taller than the screen
   if (!ImGui::BeginPopupModal("New map", nullptr)) return;
   const MapSizeRules& r = mapSizeRules();
   ImGui::InputText("Map name", app.nameBuf, sizeof app.nameBuf);
   ImGui::Separator();
   bool createNow = false;
+  // the template list scrolls (one 100 px thumbnail row each), so the size fields and the buttons below stay on screen
+  const float rowH = 100 + ImGui::GetStyle().ItemSpacing.y;
+  const float listH = std::min(rowH * (float)app.templates.size() + 8, std::max(200.0f, ImGui::GetIO().DisplaySize.y - 330.0f));
+  ImGui::BeginChild("templates", ImVec2(0, listH), true);
   for (int k = 0; k < (int)app.templates.size(); ++k) {
     auto& t = app.templates[k];
     ImGui::PushID(k);
@@ -664,6 +669,7 @@ static void newMapDialog(App& app) {
     ImGui::EndDisabled();
     ImGui::PopID();
   }
+  ImGui::EndChild();
   ImGui::Separator();
   bool valid = app.newTemplateIdx < (int)app.templates.size();
   const TemplateInfo* t = valid ? &app.templates[app.newTemplateIdx] : nullptr;

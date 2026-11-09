@@ -660,15 +660,27 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::snprintf(b_, sizeof b_, "density over every building: %d pieces vs %d with the first templates = x%.2f (gate x3); lowest %s x%.1f", total, was, total / (float)std::max(1, was), lowest.c_str(), worst);
       check(total >= 3 * was, b_);
       // a decorative border building (V8, extra.decor) and a building whose furniture the user removed stay as they are
+      // free spots for the two test cottages: the asset grid above grows with every new building family
+      const AssetDef* cot = a.lib.find("house_stone_cottage");
+      auto freeSpot = [&](vec3 avoid) {
+        for (float z = -280; z <= 280; z += 35) for (float x = -280; x <= 280; x += 35) {
+          vec3 p(x, a.terrain.height(x, z), z);
+          if (glm::length(vec2(p.x - avoid.x, p.z - avoid.z)) > 30 && a.checkPlacement(cot, p, 0.0f, 0).ok) return p;
+        }
+        return vec3(1e9f);
+      };
+      vec3 decAt = freeSpot(vec3(1e9f));
       a.interior.autoOnPlace = false;
-      uint64_t dec = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-245.0f, 0, 0), 0.0f);   // z = 0: the rows above sit at |z| >= 110 (z -240 is a third row once there are 33+ buildings)
+      uint64_t dec = a.placeInstance(cot, decAt, 0.0f);
       a.interior.autoOnPlace = true;
       if (Instance* d = a.doc.find(dec)) { d->extra = json::object(); d->extra["decor"] = true; }
       int dn = a.interior.autoFurnish(a, dec);
-      uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, 0), 0.0f);
+      uint64_t rem = a.placeInstance(cot, freeSpot(decAt), 0.0f);
       a.interior.unfurnish(a, rem);
       int rn = a.interior.autoFurnish(a, rem);
-      check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), "extra.decor buildings and buildings with their template furniture removed are not auto-furnished");
+      std::snprintf(b_, sizeof b_, "extra.decor buildings and buildings with their template furniture removed are not auto-furnished (decor: placed %d, furnished %d, children %zu; removed: placed %d, furnished %d, children %zu)",
+                    dec != 0, dn, dec ? childrenOf(a, dec).size() : 0, rem != 0, rn, rem ? childrenOf(a, rem).size() : 0);
+      check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), b_);
       summary["allBuildings"] = all; summary["allBuildingsDensity"] = {{"before", was}, {"now", total}, {"ratio", total / (float)std::max(1, was)}};
       return true; });
     // ================================================================ L3 lights (docs/lights.md)
