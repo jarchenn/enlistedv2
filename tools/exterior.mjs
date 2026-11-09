@@ -282,7 +282,17 @@ const FEATURES = {
   vil_corner_shop: { dentils: true, bands: [1] },                               // P1-7 / P1-3 corner shop
   vil_villa_deauville: { dentils: true, bands: [0] },                           // P3 brick villa
   small_roadside_office: { plinth: true },
+  // GX6 (tools/catalog_gx_buildings.mjs): they build their own reference trims; the generic pass only, and the
+  // concrete stronghold keeps its shuttering (no courses, no quoin relief)
+  mil_stronghold: { roof: false, quoins: false },
 };
+// a recorded hip roof is still where hipRoof() put it (not turned afterwards): its middle prism is in the part list
+const hipInPlace = (A, h) => {
+  const alongX = h.X >= h.Z, run = (alongX ? h.X : h.Z) - (alongX ? h.Z : h.X);
+  return run <= 0.01 || A.parts.some((p) => p.t === "p" && p.axis === (alongX ? 0 : 2) && Math.abs(p.a[0] + run) < 0.01 && Math.abs(p.tri[2][1] - h.RIDGE) < 0.01);
+};
+// a recorded sill nose still has a dressed-stone part there (turned wings move their parts, not the record)
+const sillInPlace = (A, pt) => A.parts.some((p) => p.t === "b" && p.m === "stone_dressed" && [0, 1, 2].every((i) => Math.abs(pt[i] - p.c[i]) <= p.s[i] / 2 + 0.06));
 
 // ---------------------------------------------------------------- the pass
 export function exterior(A, opt = {}) {
@@ -295,16 +305,19 @@ export function exterior(A, opt = {}) {
   if (b && f.plinth) paintedPlinth(A, b);
   ridgeTiles(A);
   const roof = [];
-  for (const p of A.parts) roof.push(...slabCourses(A, p));
-  for (const h of x.hips) roof.push(...hipCourses(A, h));
+  if (f.roof !== false) {
+    for (const p of A.parts) roof.push(...slabCourses(A, p));
+    for (const h of x.hips) if (hipInPlace(A, h)) roof.push(...hipCourses(A, h));
+  }
   A.parts.push(...roof);
   timber(A, R);
-  if (opt.quoins !== false) quoins(A, R);
+  if (f.quoins !== false && opt.quoins !== false) quoins(A, R);
   // rain-streak anchors (GX5 decals): under each sill nose, on the wall face, streak length by storey height
-  A.meta.decals = x.sills.map((s) => {
+  A.meta.decals = x.sills.flatMap((s) => {
     const n = s.axis === "x" ? [0, 0, s.out] : [s.out, 0, 0], ac = (s.a0 + s.a1) / 2;
     const pos = s.axis === "x" ? [ac, s.y, s.d - s.out * 0.06 + s.out * 0.002] : [s.d - s.out * 0.06 + s.out * 0.002, s.y, ac];
-    return { kind: "rain_streak", pos: pos.map(q4), n, w: q4(s.a1 - s.a0 + 0.1), h: q4(Math.min(1.4, 0.5 + 0.6 * R())) };
+    const h = q4(Math.min(1.4, 0.5 + 0.6 * R()));
+    return sillInPlace(A, pos) ? [{ kind: "rain_streak", pos: pos.map(q4), n, w: q4(s.a1 - s.a0 + 0.1), h }] : [];
   });
   A.meta.version = (A.meta.version || 1) + 1;
   A.meta.description += opt.note ? " " + opt.note : "";
