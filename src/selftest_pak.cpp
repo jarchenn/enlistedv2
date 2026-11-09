@@ -63,6 +63,31 @@ void SelfTest::pakUpdate(App& app, float dt) {
       check(a.occupied == P && stP(a)->pos2 == ST_GUNNER && cam && fov < 15, "Aim: gunner at the ZF 3x8 eyepiece view (fov " + std::to_string((int)fov) + " deg)");
       shotQueue.push_back("40_pak_sight_empty_range");
       return true; }});
+    // W2 gunner sight fixture (TZF style): clear eyepiece, soft black surround, reticle centred; UI shot with the readout
+    seq.push_back({"gunner sight", [this](App& a, float t) {
+      if (t < 0.6f) return false;
+      if (t < 0.62f) { shotQueue.push_back("41_pak_gunner_sight"); a.uiShot = exeDir() / "selftest_out" / "41_pak_gunner_sight_ui.png"; return false; }
+      std::vector<uint8_t> px; int w, h; a.R.readPixels(px, w, h);
+      auto L = [&](int x, int y) { const uint8_t* q = &px[((size_t)(h - 1 - y) * w + x) * 4]; return 0.2126f * q[0] + 0.7152f * q[1] + 0.0722f * q[2]; };
+      int cx = w / 2, cy = h / 2; float R = h * App::kGunnerEyepieceR, u = R * 0.25f;
+      double sin = 0, sout = 0; int nin = 0, nout = 0;
+      for (int y = 0; y < h; y += 3) for (int x = 0; x < w; x += 3) {
+        float r = std::hypot(x + 0.5f - cx, y + 0.5f - cy);
+        if (r > 0.25f * R && r < 0.38f * R && y > cy) { sin += L(x, y); ++nin; }   // between the chevrons and the arcs, beside the post
+        else if (r > 1.15f * R) { sout += L(x, y); ++nout; }
+      }
+      float mIn = nin ? float(sin / nin) : 0, mOut = nout ? float(sout / nout) : 0;
+      // ink line centre: darkness-weighted centroid of the pixels under half the segment's mean (bloom lifts thin black lines)
+      auto inkX = [&](int y) { int x0 = cx - (int)u / 2, x1 = cx + (int)u / 2; double m = 0, s = 0, n = 0; for (int x = x0; x <= x1; ++x) m += L(x, y); m /= x1 - x0 + 1;
+        for (int x = x0; x <= x1; ++x) { double k = 0.5 * m - L(x, y); if (k > 0) { s += k * (x + 0.5); n += k; } } return n > 0 ? float(s / n) : -1.0f; };
+      float post = 0; int np = 0;
+      for (float f : {1.2f, 1.6f, 2.4f}) { float x = inkX(cy + int(f * u)); if (x >= 0) { post += x; ++np; } }
+      post = np ? post / np : -1;
+      int apex = 0;   // big chevron tip on the aim point; small range chevrons along the centre row
+      for (int k = -3; k <= 3; ++k) { bool hit = false; for (int dy = -1; dy <= 3 && !hit; ++dy) for (int dx = -2; dx <= 2 && !hit; ++dx) hit = L(cx + int(k * u) + dx, cy + dy) < 20; apex += hit; }
+      char b[300]; std::snprintf(b, sizeof b, "gunner sight: eyepiece mean %.0f vs soft black surround %.1f, post x %.1f (centre %d), %d / 7 chevron tips on the centre row, optic %s", mIn, mOut, post, cx, apex, a.gunnerOptic() ? "on" : "OFF");
+      check(a.gunnerOptic() && mOut < 20 && mIn > 4 * std::max(1.0f, mOut) && np == 3 && std::fabs(post - cx) <= 1.5f && apex == 7, b);
+      return true; }});
     // ---------------------------------------------------------------- breach the casemate with real shells
     seq.push_back({"engage casemate", [this](App& a, float t) {
       auto& in = a.scriptedInput;

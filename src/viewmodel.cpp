@@ -38,7 +38,7 @@ bool App::vmScoped(const WeaponDef& d) const { return d.hasScope && !(d.scopeIro
 static void sightFrame(const WeaponDef& d, bool scoped, quat& Q, vec3& Rp, vec3& Fp, float& relief) {
   Rp = scoped ? d.scopeEye : d.rear;
   Fp = scoped ? d.scopeEye + vec3(0, 0, 0.25f) : d.front;
-  relief = scoped ? 0.07f : d.eyeRelief;
+  relief = scoped ? d.scopeRelief : d.eyeRelief;
   vec3 L = glm::normalize(Fp - Rp);
   quat q = glm::rotation(L, vec3(0, 0, 1));
   Q = glm::angleAxis(3.14159265f, vec3(0, 1, 0)) * q;

@@ -42,6 +42,13 @@ StationRT* App::station(uint64_t id) {
   return &it->second.st;
 }
 
+bool App::gunnerOptic() const {
+  if (!occupied || mode != Mode::Explore) return false;
+  auto it = rt.find(occupied);
+  if (it == rt.end() || it->second.asset->station.kind.empty()) return false;
+  return it->second.st.pos2 == ST_GUNNER && !mgKind(it->second.asset->station.kind);
+}
+
 mat4 App::stationMatrix(const Instance& i, const InstanceRT& r) const {
   vec3 p = r.st.active ? r.st.pos : i.pos; float y = r.st.active ? r.st.carYaw : i.yaw;
   return glm::translate(mat4(1), p) * glm::mat4_cast(yawQuat(y));
@@ -504,29 +511,17 @@ void App::drawCombatUI() {
   bool irons = d.kind == "mg42" && mg42MountSight(*this, ie, ifr, ifov);   // aimed over the gun's own sights, as handheld: no dot
   if (s->pos2 == ST_GUNNER && mgKind(d.kind) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
   if (s->pos2 == ST_GUNNER && !mgKind(d.kind)) {
-    // eyepiece: dark surround, ZF 3x8 style reticle (central chevron, flanking chevrons, stadia)
-    float R = io.DisplaySize.y * 0.44f;
-    for (int k = 0; k < 64; ++k) {
-      float a0 = k * 6.2831853f / 64, a1 = (k + 1) * 6.2831853f / 64;
-      ImVec2 p0(c.x + std::cos(a0) * R, c.y + std::sin(a0) * R), p1(c.x + std::cos(a1) * R, c.y + std::sin(a1) * R);
-      ImVec2 q0(c.x + std::cos(a0) * io.DisplaySize.x, c.y + std::sin(a0) * io.DisplaySize.x), q1(c.x + std::cos(a1) * io.DisplaySize.x, c.y + std::sin(a1) * io.DisplaySize.x);
-      dl->AddQuadFilled(p0, q0, q1, p1, IM_COL32(4, 4, 3, 255));
-    }
-    dl->AddCircle(c, R, IM_COL32(20, 20, 18, 255), 96, 6);
-    ImU32 rc = IM_COL32(15, 12, 8, 235);
-    float u = R / 4.0f;   // one stadia unit (~1 deg at this field)
-    auto chev = [&](float x, float y, float sz) {
-      dl->AddLine(ImVec2(x - sz, y + sz * 1.4f), ImVec2(x, y), rc, 2.0f);
-      dl->AddLine(ImVec2(x, y), ImVec2(x + sz, y + sz * 1.4f), rc, 2.0f);
-    };
-    chev(c.x, c.y, u * 0.45f);
-    for (int k = 1; k <= 3; ++k) { chev(c.x - k * u, c.y, u * 0.28f); chev(c.x + k * u, c.y, u * 0.28f); }
-    dl->AddLine(ImVec2(c.x - R, c.y + u * 0.7f), ImVec2(c.x - 3.3f * u, c.y + u * 0.7f), rc, 1.5f);
-    dl->AddLine(ImVec2(c.x + 3.3f * u, c.y + u * 0.7f), ImVec2(c.x + R, c.y + u * 0.7f), rc, 1.5f);
-    for (int k = 1; k <= 3; ++k) dl->AddLine(ImVec2(c.x - 4, c.y + k * u), ImVec2(c.x + 4, c.y + k * u), rc, 1.5f);
+    // TZF-style optic: the eyepiece, its soft black surround and the reticle are drawn by the renderer (render.cpp
+    // eyepiece pass); the shell / traverse / elevation readout sits at the bottom right of the eyepiece
+    float R = io.DisplaySize.y * kGunnerEyepieceR;
+    const char* shell = s->loaded > 0 ? (s->loadedAT ? "AP" : "HE") : (s->selAT ? "AP (next)" : "HE (next)");
     char b[200];
-    std::snprintf(b, sizeof b, "TRAVERSE %+5.1f (%.1f/%.1f)   ELEVATION %+5.1f (%.0f/%.0f)", s->yaw, d.yawMin, d.yawMax, s->elev, d.elevMin, d.elevMax);
-    dl->AddText(ImVec2(c.x - R + 20, c.y + R - 44), IM_COL32(220, 210, 170, 255), b);
+    std::snprintf(b, sizeof b, "Shell %s  \xC2\xB7  Traverse %+.1f\xC2\xB0  \xC2\xB7  Elevation %+.0f mil", shell, s->yaw, s->elev * 6400.0f / 360.0f);   // German Strich: 6400 per turn
+    float fs = std::max(16.0f, io.DisplaySize.y / 48.0f);
+    ImVec2 ts = ImGui::GetFont()->CalcTextSizeA(fs, 1e9f, 0, b);
+    ImVec2 tp(c.x + R * 0.98f - ts.x, c.y + R * 0.80f);
+    tp.x = std::min(tp.x, io.DisplaySize.x - ts.x - 20);
+    dl->AddText(ImGui::GetFont(), fs, tp, IM_COL32(226, 200, 130, 235), b);
     bool blink = std::fmod(now, 0.6) < 0.35;
     if (s->atYawStop && blink) dl->AddText(ImVec2(c.x - 60, c.y - R + 30), IM_COL32(255, 120, 80, 255), "TRAVERSE STOP");
     if (s->atElevStop && blink) dl->AddText(ImVec2(c.x - 64, c.y - R + 48), IM_COL32(255, 120, 80, 255), "ELEVATION STOP");

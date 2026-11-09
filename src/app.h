@@ -425,6 +425,11 @@ public:
   void buildArmMeshes();
   void stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, const WeaponState& s);
   bool vmScoped(const WeaponDef& d) const;
+  // W2 eyepiece views (Renderer eyepiece pass): sniper scope at full ADS, crew-served AT gun optic in the gunner seat.
+  // Radius of the clear eyepiece circle as a fraction of the frame height.
+  static constexpr float kScopeEyepieceR = 0.35f, kGunnerEyepieceR = 0.44f;
+  bool scopeView() const;     // looking through the held weapon's optic (not irons mode)
+  bool gunnerOptic() const;   // in the gunner seat of a gun with an optic (PaK 40, Flak; not the MGs)
   mat4 vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural = true) const;   // weapon -> view space
   vec3 vmTarget(const WeaponDef& d) const;                                    // spring target (view space)
   void sightLineWorld(const WeaponDef& d, const WeaponState& s, vec3& rear, vec3& front) const;
