@@ -83,6 +83,18 @@ void SelfTest::captureUpdate(App& app, float) {
         app.placeCompanions(id);
         app.syncRuntime();
         app.interior.furnish(app, id, 0);
+        {   // the interiors suite's re-check ("every piece valid"): each generated floor piece against the manual placement rules
+          int pieces = 0, bad = 0; std::string why;
+          for (auto& c : app.doc.instances) {
+            if (!c.extra.is_object() || !c.extra.contains("furnish") || c.extra["furnish"].value("host", (uint64_t)0) != id) continue;
+            ++pieces;
+            const AssetDef* ca = app.assetFor(c); const PropDef* pd = app.interior.prop(ca);
+            if (!pd || pd->mount > 0 || c.assetId == "furn_curtains" || c.extra["furnish"].value("slot", std::string()).find("/top") != std::string::npos) continue;
+            vec3 p = c.pos; PlaceCheck pc = app.interior.checkPlacement(app, ca, p, c.yaw, c.id);
+            if (!pc.ok || std::fabs(pc.y - c.pos.y) > 0.03f) { ++bad; if (why.size() < 400) { vec3 l = glm::inverse(yawQuat(app.doc.find(id)->yaw)) * (c.pos - app.doc.find(id)->pos); char lp[64]; std::snprintf(lp, sizeof lp, "@(%.2f,%.2f,%.2f)", l.x, l.y, l.z); why += " " + c.assetId + lp + ":" + pc.reason; } }
+          }
+          std::printf("b3 recheck %s: %zu rooms, %d pieces, %d invalid%s\n", a->id.c_str(), app.interior.rooms(a)->rooms.size(), pieces, bad, why.c_str());
+        }
         vec3 o = app.doc.find(id)->pos;
         float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f, H = a->bmax.y - a->bmin.y;
         keep.push_back(a->id + "_ext_front"); cams.push_back({keep.back().c_str(), o + vec3(fx * 0.9f + 4, 1.7f + H * 0.25f, fz * 1.6f + 6), o + vec3(0, H * 0.35f, 0)});

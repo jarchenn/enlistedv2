@@ -24,6 +24,10 @@ function mats(A) {
   A.mat("tile", [0.30, 0.12, 0.065], 0.68, "slate", { grain: 2 });          // flat clay tiles (slate courses, tile colour)
   A.mat("render_cream", [0.66, 0.60, 0.47], 0.92, "limewash");
   A.mat("water", [0.035, 0.055, 0.06], 0.08, "plain");
+  // half-landings (as B2 catalog_large.mjs): boards that interior.cpp reads as neither a floor (a floor_x landing became a
+  // storey and hid the floors around it) nor a tread (tread_x joined the flights and swung the stair keep-clear box across
+  // the corridor)
+  A.mat("landing_x", [0.24, 0.16, 0.095], 0.62, "floorfin", { grain: 0 });
 }
 
 // wall frames: kit wall() frame (outer / inner) and B1 facade frame (d / out) of each side, with the jetty j
@@ -160,7 +164,7 @@ function house(A, c) {
     for (let f = 0; f < L - 1; f++) {
       const y = yAt(f);
       stairs(A, { x0: k.l1[0], x1: k.l1[1], z0: zA, dir: +1, y0: y, rise: h / 2, n: nr, run: R, openSide: 1, core: true });
-      A.box([k.xa, y + h / 2 - 0.2, zA + R], [k.xa + coreLen, y + h / 2, zEnd], "tread_x");   // not a floor material: room detection would take the landing for a storey
+      A.box([k.xa, y + h / 2 - 0.2, zA + R], [k.xa + coreLen, y + h / 2, zEnd], "landing_x");
       stairs(A, { x0: k.l2[0], x1: k.l2[1], z0: zA + R, dir: -1, y0: y + h / 2, rise: h / 2, n: nr, run: R, openSide: 1, core: true });
     }
     A.box([k.l1[1], GF, zA], [k.l2[0], coreTop, zA + R], "plaster");                 // spine
@@ -411,7 +415,8 @@ export function chateauGrand() {
       for (const x of [-8, 8]) chimney(A, { x, z: 0, y0: yAt(3), y1: RIDGE + 2.2, w: 1.1, d: 0.7, m: "brick", pots: 3 });
       // fireplaces (the kitchen's is the hearth room)
       for (const [x, w] of [[-15.4, 1.5], [-4.6, 1.5], [8.0, 1.5], [15.2, 2.0]]) fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: x, y: GF, top: yAt(1) - 0.2, w });
-      for (const x of [-15.0, 15.0]) for (const f of [1, 2]) fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: x, y: yAt(f), top: yAt(f + 1) - 0.2, w: 1.2 });
+      // stacked over the ground-floor hearths: the hearth fire looks for the nearest soot back at any height
+      for (const x of [-15.4, 15.2]) for (const f of [1, 2]) fireplace(A, { axis: "x", d: zA + 0.15, s: 1, a: x, y: yAt(f), top: yAt(f + 1) - 0.2, w: 1.5 });
     },
   });
   A.meta.companions = [comp("tree_oak", -27, 15), comp("tree_ash", 27, -15, 40), comp("shrub_hazel", -16, 14.8), comp("shrub_hazel", 16.5, 15.2, 90),
