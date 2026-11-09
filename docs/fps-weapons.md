@@ -238,7 +238,15 @@ A readout gives the pixel errors, relief and weapon FOV. Self-test screenshots a
 
 ### Recoil: no automatic recovery
 
-Each shot adds aim displacement: pitch `pitch × (0.85–1.15) + climb × min(burst, 12)` and a random yaw wander of up to `± yaw`, scaled by posture (standing ×1, crouched ×0.7, prone ×0.2), the deployed bipod factor and ×0.85 in ADS. The climb has no ceiling apart from the ±85° look clamp. While a burst runs, the displacement is held as `recoilP / recoilY` on top of the camera's own pitch and yaw.
+Each shot adds aim displacement: pitch `pitch × (0.85–1.15) + climb × min(burst, 12)` and a random yaw wander of up to `± yaw`, scaled by the stance (`content/weapons/handling.json` recoil: standing ×1, crouched ×0.85, prone ×0.6, mounted on a deployed bipod ×0.5) and ×0.85 in ADS. Standing still kicks pitch only; while moving the yaw wander is 25 % of the weapon's `yaw`. The climb has no ceiling apart from the ±85° look clamp. While a burst runs, the displacement is held as `recoilP / recoilY` on top of the camera's own pitch and yaw.
+
+**Dispersion by stance** (gunplay overhaul, 2026-11-08). Each shot leaves inside a cone: the weapon class's hip or ADS half-angle (rifle / sniper 0.15° / 0.03°, auto / lmg 3.0° / 0.45°; `handling.json` `classes`) × the stance (moving 1.0, standing still 0.8, crouched 0.4, prone 0.08, mounted 0.05, sprinting 1.6). The ADS sight-line path uses the same draw. Bots keep their own aim model.
+
+**ADS rate and bolt actions.** The blend runs at `ads.speed / move.adsTime` (StG 44, FG 42, BAR and M3: `ads.speed` 1.2). A Kar98k or ZF39 shot drops out of ADS at once (adsT 0); aiming waits for the bolt and the cooldown, then a held aim key re-enters. The iron-sight Kar98k zooms to `ads.worldFov` 45.
+
+**Tracers.** `tracerEvery` 3 on the MG 42 and BAR, and the MG 42 / M2HB emplacements: a bright red bolt about 6 m long every 3rd round, a short white-yellow streak (about 2 m) on the others (`Fx::bullet`, `Projectile::tracerKind`, the LAN `tr` field).
+
+**Suppression flinch.** A bullet hit on the local player (host: `dmBulletHit`; LAN client: the replicated gore event) moves the aim 0.6–1.2° in a random direction. Like settled recoil, it stays in the aim.
 
 **Nothing pulls it back.** Once the burst ends (no shot for 1.6 cycles + 0.06 s), `App::settleRecoil` folds the displacement into the camera's pitch and yaw in one step. The sight line does not move on that frame: the aim stays where the pattern ended, vertically and horizontally. A weapon swap folds it the same way, so the view never snaps back. The player pulls the mouse down to compensate, during the burst or after it. Until this change the offset decayed back toward the start pitch at `recoil.recover` per second once firing stopped. That field is still in the weapon JSON but is ignored.
 

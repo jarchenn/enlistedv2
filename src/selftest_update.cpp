@@ -108,7 +108,7 @@ void SelfTest::updateSuite(App& app, float dt) {
         if (t < 2.02f) { s0 = a.shotsFired; before = s.recoilP; }
         if (a.shotsFired == s0) { a.scriptedInput.fire = !a.scriptedInput.fire; return t > 5; }
         a.scriptedInput.fire = false;
-        float want = pose == 0 ? 1.0f : pose == 1 ? 0.7f : 0.2f;
+        float want = pose == 0 ? 1.0f : pose == 1 ? 0.85f : 0.6f;   // handling.json recoil: standing 1.0, crouched 0.85, prone 0.6
         const char* nm[3] = {"standing", "crouched", "prone"};
         char b[200]; std::snprintf(b, sizeof b, "%s shot: recoil x%.2f (wanted x%.2f), kick %.2f deg (Garand)", nm[pose], a.lastRecoilScale / (a.adsT > 0.85f ? 0.85f : 1.0f), want, s.recoilP - before);
         check(std::fabs(a.lastRecoilScale - want) < 1e-3f, b);
@@ -129,8 +129,8 @@ void SelfTest::updateSuite(App& app, float dt) {
       if (ph == 2 && t > 5.0f) { s0 = a.shotsFired; a.scriptedInput.fire = true; ph = 3; return false; }
       if (ph == 3 && a.shotsFired > s0) {
         a.scriptedInput.fire = false;
-        float want = 0.2f * 0.35f;
-        char b[200]; std::snprintf(b, sizeof b, "MG 42 prone and still: bipod deployed, recoil x%.3f = prone 0.20 x bipod 0.35 (composed once per shot)", a.lastRecoilScale);
+        float want = 0.5f;   // handling.json recoil.mounted
+        char b[200]; std::snprintf(b, sizeof b, "MG 42 prone and still: bipod deployed, recoil x%.3f = mounted 0.5 (applied once per shot)", a.lastRecoilScale);
         check(a.supported && std::fabs(a.lastRecoilScale - want) < 1e-3f, b);
         a.proneToggle = false;
         return true;

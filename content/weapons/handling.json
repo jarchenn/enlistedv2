@@ -1,0 +1,13 @@
+{
+  "_doc": "Player weapon handling (src/weapons.cpp stepWeapons). Dispersion: each shot leaves inside a cone of half-angle hip[class] or ads[class] (deg, ADS = adsT > 0.85; the sight-line path uses the same draw) x stance[stance]. Stance, first match wins: mounted (bipod deployed: a bipod weapon, prone or crouched, still), prone, crouched, sprinting (moving with Shift, not aiming), moving, standing (still). Recoil per shot: the weapon's own profile x recoil[stance] x 0.85 in ADS; standing still kicks pitch only, moving (any stance) adds movingYaw of the weapon's horizontal wander. classes: weapon id -> rifle / sniper / auto / lmg (unlisted: scope -> sniper, belt -> lmg, auto -> auto, else rifle). Bots keep their own aim model (content/ai).",
+  "hip": { "rifle": 0.15, "sniper": 0.15, "auto": 3.0, "lmg": 3.0 },
+  "ads": { "rifle": 0.03, "sniper": 0.03, "auto": 0.45, "lmg": 0.45 },
+  "stance": { "moving": 1.0, "standing": 0.8, "crouched": 0.4, "prone": 0.08, "mounted": 0.05, "sprinting": 1.6 },
+  "recoil": { "moving": 1.0, "standing": 1.0, "crouched": 0.85, "prone": 0.6, "mounted": 0.5, "sprinting": 1.0, "movingYaw": 0.25 },
+  "classes": {
+    "kar98k": "rifle", "m1_garand": "rifle", "m1_carbine": "rifle",
+    "kar98k_zf39": "sniper", "m1c_garand": "sniper",
+    "stg44": "auto", "mp40": "auto", "m1_thompson": "auto", "m3_grease_gun": "auto", "fg42": "auto",
+    "m1918a2_bar": "lmg", "mg42": "lmg"
+  }
+}

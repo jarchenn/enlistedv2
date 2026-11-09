@@ -22,20 +22,13 @@ bool parseRow(const json& r, const std::string& id, const DamageTable& T, const 
   if (!r.contains("near") || !r.contains("far")) { err = "row " + id + " needs near and far"; return false; }
   w.nearDmg = num(r, "near", 0); w.farDmg = num(r, "far", 0);
   w.falloffStart = num(r, "falloffStart_m", 0); w.falloffEnd = num(r, "falloffEnd_m", w.falloffStart);
-  w.headMult = num(r, "headMult", 2.0f); w.rpm = num(r, "rpm", 0);
+  w.rpm = num(r, "rpm", 0);
   w.dataOnly = r.value("dataOnly", false);
-  if (auto it = r.find("limbMult"); it != r.end()) {
-    if (it->is_number()) w.limbMult = it->get<float>();
-    else if (it->is_string()) {   // a [DECISION] reference into "decisions"
-      std::string k = it->get<std::string>();
-      if (!decisions.contains(k) || !decisions[k].is_number()) { err = "row " + id + ": limbMult refers to missing decisions." + k; return false; }
-      w.limbMult = decisions[k].get<float>();
-    }
-  }
+  (void)decisions;
   if (r.value("profileDecision", std::string()) == "springfieldProfile" && T.springfieldProfile == "kar98k") {
     w.farDmg = w.nearDmg; w.falloffStart = w.falloffEnd = 0;   // the Kar98k's no-falloff profile
   }
-  if (w.nearDmg <= 0 || w.farDmg <= 0 || w.headMult <= 0 || w.falloffEnd < w.falloffStart) { err = "row " + id + ": damage / headMult must be > 0 and falloffEnd >= falloffStart"; return false; }
+  if (w.nearDmg <= 0 || w.farDmg <= 0 || w.falloffEnd < w.falloffStart) { err = "row " + id + ": damage must be > 0 and falloffEnd >= falloffStart"; return false; }
   return true;
 }
 }
@@ -45,12 +38,12 @@ bool parseDamageTable(const json& j, DamageTable& T, std::string& err) {
   if (!j.is_object()) { err = "damage.json is not an object"; return false; }
   T.health = num(j, "health", 100);
   json z = j.value("zones", json::object());
-  T.upperTorso = num(z, "upperTorso", 1.0f); T.lowerTorso = num(z, "lowerTorso", 0.9f); T.limbs = num(z, "limbs", 0.65f);
+  T.head = num(z, "head", 1.3f); T.torso = num(z, "torso", 1.0f); T.arms = num(z, "arms", 1.0f); T.legs = num(z, "legs", 0.6f);
+  if (T.head <= 0 || T.torso <= 0 || T.arms <= 0 || T.legs <= 0) { err = "zones: multipliers must be > 0"; return false; }
   T.lowerTorsoSplit = num(j, "lowerTorsoSplit", 0.5f); T.neckFrom = num(j, "neckFrom", 0.9f); T.upperThighTo = num(j, "upperThighTo", 0.5f);
   T.helmetAbove = num(j, "helmetAboveHeadJoint_m", 0.12f);
   T.helmetReducesDamage = j.value("helmetReducesDamage", false);
   json dec = j.value("decisions", json::object());
-  T.kar98kLimbMult = num(dec, "kar98kLimbMult", 0.65f);
   T.springfieldProfile = dec.value("springfieldProfile", std::string("brief"));
   if (T.springfieldProfile != "brief" && T.springfieldProfile != "kar98k") { err = "decisions.springfieldProfile must be 'brief' or 'kar98k'"; return false; }
   if (j.contains("default") && !parseRow(j["default"], "default", T, dec, T.def, err)) return false;
@@ -89,21 +82,21 @@ float dmSmoothstep(float a, float b, float x) {
   return t * t * (3 - 2 * t);
 }
 float dmBaseDamage(const WeaponDamage& w, float r) { return w.nearDmg + (w.farDmg - w.nearDmg) * dmSmoothstep(w.falloffStart, w.falloffEnd, r); }
-float dmZoneMult(const DamageTable& T, const WeaponDamage& w, int zone) {
+float dmZoneMult(const DamageTable& T, int zone) {
   switch (zone) {
-    case DZ_HEAD: return w.headMult;
-    case DZ_UPPER_TORSO: case DZ_NECK: return T.upperTorso;
-    case DZ_LOWER_TORSO: return T.lowerTorso;
-    default: return w.limbMult >= 0 ? w.limbMult : T.limbs;   // limbs, upper thigh
+    case DZ_HEAD: return T.head;
+    case DZ_UPPER_TORSO: case DZ_LOWER_TORSO: case DZ_NECK: return T.torso;
+    case DZ_ARM: return T.arms;
+    default: return T.legs;   // legs below the hip, upper thigh, feet
   }
 }
-float dmDamage(const WeaponDamage& w, float r, int zone) { return dmBaseDamage(w, r) * dmZoneMult(damageTable(), w, zone); }
+float dmDamage(const WeaponDamage& w, float r, int zone) { return dmBaseDamage(w, r) * dmZoneMult(damageTable(), zone); }
 int dmShotsToKill(const WeaponDamage& w, float r, int zone) {
   float d = dmDamage(w, r, zone);
   return d <= 0 ? 9999 : (int)std::ceil(damageTable().health / d - 1e-4f);
 }
 
-static const char* zoneName(int z) { return z == DZ_HEAD ? "head" : z == DZ_UPPER_TORSO ? "upper torso" : z == DZ_LOWER_TORSO ? "lower torso" : z == DZ_NECK ? "neck" : z == DZ_UPPER_THIGH ? "upper thigh" : "limb"; }
+static const char* zoneName(int z) { return z == DZ_HEAD ? "head" : z == DZ_UPPER_TORSO ? "upper torso" : z == DZ_LOWER_TORSO ? "lower torso" : z == DZ_NECK ? "neck" : z == DZ_UPPER_THIGH ? "upper thigh" : z == DZ_ARM ? "arm" : "leg"; }
 
 bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, vec3 d, float tHit, int shooter) {
   if (victim < 0) { p.travelled += tHit; return false; }   // no soldier on this segment: the round flew on (or struck the world)
@@ -145,10 +138,11 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
       vec3 p0 = J(s[0]), ax = J(s[1]) - p0;
       float u = std::clamp(glm::dot(at - p0, ax) / std::max(glm::dot(ax, ax), 1e-6f), 0.0f, 1.0f);
       float dd = glm::length(at - (p0 + ax * u));
-      if (dd < best) { best = dd; normal = outward(p0 + ax * u); zone = (s[0] == CJ_LUPLEG || s[0] == CJ_RUPLEG) && u < T.upperThighTo ? DZ_UPPER_THIGH : DZ_LIMB; }
+      bool arm = s[0] == CJ_LARM || s[0] == CJ_LFOREARM || s[0] == CJ_RARM || s[0] == CJ_RFOREARM;
+      if (dd < best) { best = dd; normal = outward(p0 + ax * u); zone = arm ? DZ_ARM : (s[0] == CJ_LUPLEG || s[0] == CJ_RUPLEG) && u < T.upperThighTo ? DZ_UPPER_THIGH : DZ_LIMB; }
     }
   }
-  float dmg = dmBaseDamage(W, range) * dmZoneMult(T, W, zone);
+  float dmg = dmBaseDamage(W, range) * dmZoneMult(T, zone);
   bool prot = v.isProtected(g.t);
   ++g.hitsOnSoldiers;
   // ---- hit effect: the visuals (deflect puff, helmet sparks, blood / dust puff) are drawn by gore (gore.cpp, W7); the helmet sound stays here
@@ -165,6 +159,7 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
   float bd = 1e9f; for (int j = 0; j < CJ_COUNT; ++j) { float dd = glm::length(J(j) - at); if (dd < bd) { bd = dd; fh.bone = j; } }
   fh.seed = (uint32_t)(g.hitsOnSoldiers * 2654435761u) ^ (uint32_t)(victim * 40503u);
   goreFleshHit(app, fh);
+  if (v.localPlayer && !prot && fh.damage > 0) app.hitFlinch(fh.seed);   // suppression flinch (the LAN client: net.cpp "gore")
   gDmLastHit.fh = fh; gDmLastHit.range = range; gDmLastHit.weaponId = wid; gDmLastHit.valid = true;
   if (shooter == g.localSlot && !prot) g.hitMarker = 0.25f;
   return true;

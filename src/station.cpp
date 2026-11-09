@@ -208,8 +208,8 @@ void App::switchStationPosition() {
   }
 }
 
-void App::fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, bool tracer, const std::string& ammo) {
-  Projectile p; p.p = from; p.v = glm::normalize(dir) * speed; p.kind = kind; p.dmg = dmg; p.ignore = ignore; p.tracer = tracer; p.ammo = ammo;
+void App::fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, int tracerKind, const std::string& ammo) {
+  Projectile p; p.p = from; p.v = glm::normalize(dir) * speed; p.kind = kind; p.dmg = dmg; p.ignore = ignore; p.tracerKind = tracerKind; p.ammo = ammo;
   projectiles.push_back(p);
   ++shotsFired;
 }
@@ -245,8 +245,7 @@ void App::stepProjectiles(float dt) {
       // visible travel feedback along the actual path
       if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
       else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
-      else if (p.tracer) fx.streak(p.p, end, 0.025f, 0.06f, vec4(9.0f, 2.2f, 0.8f, 1));
-      else fx.streak(p.p, end, fx.rangeMode ? 0.012f : 0.007f, fx.rangeMode ? 0.05f : 0.025f, fx.rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1));
+      else fx.bullet(p.p, end, p.tracerKind);
       if (impact && (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && shellThroughGlass(*this, p, hit.pos, hit.ud)) continue;   // T7: thin glass breaks, the shell flies on
       if (impact) {
         // tanks (tank_sim.cpp): the damage matrix decides; small arms ricochet, a launcher on the front armour makes a
@@ -405,7 +404,7 @@ void App::stationShoot(uint64_t id, int owner) {
   bool mg42 = d.kind == "mg42";
   vec3 dir; vec3 muzzle = stationMuzzle(*inst, r, dir);
   mat4 b, y, e, rc; stationParts(*inst, r, b, y, e, rc);
-  vec3 start; bool tracer = false;
+  vec3 start; int tracer = 0;
   if (mgKind(d.kind)) {
     start = vec3(e * vec4(0, 0, 0, 1)); vec3 se, sf; float sfov;
     if (mg42 && mg42MountSight(*this, se, sf, sfov)) {   // the handheld's aimed fire: from the front post along the sight line, zeroed
@@ -414,7 +413,7 @@ void App::stationShoot(uint64_t id, int owner) {
       start = Physics::castRayEx(E, F - E, glm::length(F - E), hf, coreUD(inst->id)) ? E + glm::normalize(F - E) * std::max(0.0f, hf.t - 0.01f) : F;
       float tz = w.zero / w.velocity; dir = glm::normalize(glm::normalize(F - E) + vec3(0, 0.5f * 9.81f * tz * tz / w.zero, 0));
     }
-    tracer = (s->shots % 5) == 0;
+    tracer = tracerKindFor(3, s->shots + 1);   // MG 42 / M2HB: a red tracer every 3rd round, the others a short streak
     fireProjectile(start, dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), tracer, d.ammo);
     s->burst++;
     fx.flash(muzzle + dir * 0.08f, mg42 ? 0.18f : 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));

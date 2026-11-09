@@ -51,7 +51,7 @@ public:
   static std::string mapHash(const App& app);
   // game-layer hooks (called by Game / mpai)
   void hostWorldEvent(const json& ev);      // explosion, impact, door, cloud, kill, log -> all clients in order
-  void clientFire(vec3 from, vec3 dir, int weapon, bool tracer);
+  void clientFire(vec3 from, vec3 dir, int weapon, int tracer);   // tracer: tracerKindFor()
   void clientReload();
   void clientThrow(int kind, vec3 vel);
   void clientInteract(uint64_t inst, int idx);

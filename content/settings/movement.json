@@ -1,9 +1,9 @@
 {
- "_note": "Explore movement tuning (player only). Old values: run 2.3 m/s, sprint 4.6 m/s, crouch 1.2 m/s, no prone, gravity 9.81 m/s^2, jump 4.2 m/s, eyes 1.62 / 1.05 m. Speeds then x1.25 (run 2.875, sprint 5.75; crouch 1.2, prone 0.6), now all four x1.1 (run 3.1625, sprint 6.325, crouch 1.32, prone 0.66). Getting up was ~0.3 s (eye smoothing only); now timed: prone->stand 1.1 s, prone->crouch 0.75 s, crouch->stand 0.45 s, at the lower posture speed, no sprint until done (jumping is held back only while getting up from prone). Space when prone stands up. Jump: a press up to jumpBuffer_s before landing still jumps on touchdown, and up to coyote_s after leaving settled ground. SPEC 4 (MP update): jump apex x1.2, airtime x0.75 from the previous g 7.848 / jump 3.757 (apex 0.8993 m, airtime 0.9574 s): h 1.0791 m, t 0.7181 s, g = 8h/t^2 = 16.742 (x2.1333), v0 = sqrt(2gh) = 6.011 m/s. World physics (grenades, ragdolls, droplets, bots' agents) stays at 9.81. fallDamage: heights in data, converted at load to impact speeds with this gravity (v = sqrt(2 g h)): no damage below safeHeight_m, death at lethalHeight_m, linear in impact speed between.",
- "run_mps": 3.1625,
- "sprint_mps": 6.325,
- "crouch_mps": 1.32,
- "prone_mps": 0.66,
+ "_note": "Explore movement tuning (player only). Old values: run 2.3 m/s, sprint 4.6 m/s, crouch 1.2 m/s, no prone, gravity 9.81 m/s^2, jump 4.2 m/s, eyes 1.62 / 1.05 m. Speeds then x1.25 (run 2.875, sprint 5.75; crouch 1.2, prone 0.6), then all four x1.1 (run 3.1625, sprint 6.325, crouch 1.32, prone 0.66), now all four x0.85 (gunplay overhaul 2026-11-08: run 2.688, sprint 5.376, crouch 1.122, prone 0.561; the bots read these too, src/ai_core.cpp). Getting up was ~0.3 s (eye smoothing only); now timed: prone->stand 1.1 s, prone->crouch 0.75 s, crouch->stand 0.45 s, at the lower posture speed, no sprint until done (jumping is held back only while getting up from prone). Space when prone stands up. Jump: a press up to jumpBuffer_s before landing still jumps on touchdown, and up to coyote_s after leaving settled ground. SPEC 4 (MP update): jump apex x1.2, airtime x0.75 from the previous g 7.848 / jump 3.757 (apex 0.8993 m, airtime 0.9574 s): h 1.0791 m, t 0.7181 s, g = 8h/t^2 = 16.742 (x2.1333), v0 = sqrt(2gh) = 6.011 m/s. World physics (grenades, ragdolls, droplets, bots' agents) stays at 9.81. fallDamage: heights in data, converted at load to impact speeds with this gravity (v = sqrt(2 g h)): no damage below safeHeight_m, death at lethalHeight_m, linear in impact speed between.",
+ "run_mps": 2.688125,
+ "sprint_mps": 5.37625,
+ "crouch_mps": 1.122,
+ "prone_mps": 0.561,
  "gravity_mps2": 16.7424,
  "jumpVelocity_mps": 6.0112,
  "previous": {

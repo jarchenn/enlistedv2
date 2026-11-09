@@ -3,6 +3,19 @@
 #include "model.h"
 
 // ---------------------------------------------------------------- personal weapons
+// handling class (content/weapons/handling.json "classes"): picks the hip / ADS dispersion cone
+enum WeaponClass : int { WC_RIFLE = 0, WC_SNIPER = 1, WC_AUTO = 2, WC_LMG = 3 };
+// firing stance of the local player, best first by priority: mounted > prone > crouched > sprinting > moving > standing
+enum Stance : int { STANCE_MOVING = 0, STANCE_STANDING, STANCE_CROUCHED, STANCE_PRONE, STANCE_MOUNTED, STANCE_SPRINTING, STANCE_COUNT };
+struct Handling {   // content/weapons/handling.json (defaults = the file's values)
+  float hip[4] = {0.15f, 0.15f, 3.0f, 3.0f}, ads[4] = {0.03f, 0.03f, 0.45f, 0.45f};   // cone half-angle (deg) by WeaponClass
+  float stance[STANCE_COUNT] = {1.0f, 0.8f, 0.4f, 0.08f, 0.05f, 1.6f};               // cone multiplier by Stance
+  float recoil[STANCE_COUNT] = {1.0f, 1.0f, 0.85f, 0.6f, 0.5f, 1.0f};                // recoil multiplier by Stance
+  float movingYaw = 0.25f;   // share of the weapon's horizontal recoil while moving (still: pitch only)
+  float cone(int wclass, bool ads, int st) const { return (ads ? this->ads[wclass] : hip[wclass]) * stance[st]; }
+};
+// 0 untraced, 1 red tracer (every `every`-th round), 2 the short white-yellow streak of the guns' other rounds
+inline int tracerKindFor(int every, int shot) { return every <= 0 ? 0 : shot % every == 0 ? 1 : 2; }
 struct WeaponDef {
   std::string id, name, side, action, feed, container, caliber, note, reticle;
   int cap = 1, loaded = 1, reserve = 0, containerSize = 1, tracerEvery = 0;
@@ -40,6 +53,9 @@ struct WeaponDef {
   struct MeleeDef { bool on = false; float reach = 1.7f, arcDeg = 40; int rays = 5; float windup = 0.12f, strike = 0.1f, cooldown = 0.6f, damage = 35; } melee;
   bool equipment() const { return grenade.on || melee.on; }
   bool useModel() const { return model && model->vao; }
+  int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)
+  float adsSpeed = 1;                   // JSON ads.speed: ADS blend rate x this
+  int tracerKind(int shot) const { return tracerKindFor(tracerEvery, shot); }
 };
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
@@ -71,7 +87,7 @@ struct Projectile {
   float blastDmg = 0, blastR = 0, craterScale = 1, splashGun = 40, gravScale = 1;
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
   int owner = -1;               // firing soldier's roster slot (multiplayer + AI); -1 = the local player
-  bool tracer = false;
+  int tracerKind = 0;           // tracerKindFor(): 0 none, 1 red tracer, 2 white-yellow streak
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
 };
@@ -90,6 +106,7 @@ struct Fx {
   bool rangeMode = true;          // range presentation: every trajectory clearly visible
   void update(float dt, const Terrain& t);
   void clear() { parts.clear(); streaks.clear(); debris.clear(); }
+  void bullet(vec3 a, vec3 b, int tracerKind);   // one flight segment of a round, drawn by its tracer kind
   void smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow = 1.2f, float lift = 0.6f);
   void flash(vec3 p, float size, float life, vec4 col);
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);

@@ -20,7 +20,21 @@ void App::buildWeaponMeshes() {
   std::vector<fs::path> files;
   for (auto& e : fs::directory_iterator(dir)) if (e.path().extension() == ".json") files.push_back(e.path());
   std::sort(files.begin(), files.end());
+  // handling.json: dispersion cones by class, stance factors, and each weapon's class
+  handling = Handling{};
+  json classes = json::object();
+  try {
+    json h = json::parse(readTextFile(dir / "handling.json"));
+    static const char* cn[4] = {"rifle", "sniper", "auto", "lmg"};
+    static const char* sn[STANCE_COUNT] = {"moving", "standing", "crouched", "prone", "mounted", "sprinting"};
+    json hip = h.value("hip", json::object()), ads = h.value("ads", json::object()), st = h.value("stance", json::object()), rc = h.value("recoil", json::object());
+    for (int k = 0; k < 4; ++k) { handling.hip[k] = hip.value(cn[k], handling.hip[k]); handling.ads[k] = ads.value(cn[k], handling.ads[k]); }
+    for (int k = 0; k < STANCE_COUNT; ++k) { handling.stance[k] = st.value(sn[k], handling.stance[k]); handling.recoil[k] = rc.value(sn[k], handling.recoil[k]); }
+    handling.movingYaw = rc.value("movingYaw", handling.movingYaw);
+    classes = h.value("classes", json::object());
+  } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
   for (auto& f : files) {
+    if (f.filename() == "handling.json") continue;
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
     auto d = std::make_unique<WeaponDef>();
@@ -42,9 +56,15 @@ void App::buildWeaponMeshes() {
       d->adsPos = jvec3(a.value("posCorrection", json::array({0, 0, 0}))); d->adsRot = jvec3(a.value("rotCorrection", json::array({0, 0, 0})));
       if (a.contains("hipOffset")) d->hipOffset = jvec3(a["hipOffset"]);
       d->adsWorldFov = a.value("worldFov", 58.0f); d->sightLineOnly = a.value("virtualLine", false);
+      d->adsSpeed = a.value("speed", 1.0f);
     }
     d->laterWar = j.value("laterWar", false);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); }
+    {
+      std::string c = classes.value(d->id, std::string());
+      d->wclass = c == "sniper" ? WC_SNIPER : c == "lmg" ? WC_LMG : c == "auto" ? WC_AUTO : c == "rifle" ? WC_RIFLE
+                : d->hasScope ? WC_SNIPER : d->feed == "belt" ? WC_LMG : d->action == "auto" ? WC_AUTO : WC_RIFLE;
+    }
     std::map<std::string, int> mi;
     d->mats.push_back(Material{"default"});
     for (auto& mj : j.value("materials", json::array())) {
@@ -126,6 +146,16 @@ void App::settleRecoil(WeaponState& s) {
 }
 
 static float wrand(uint32_t& s) { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return (s % 100000u) / 100000.0f; }
+
+// suppression flinch: a bullet hit on the local player moves the aim 0.6-1.2 deg in a random direction. Like settled
+// recoil it stays in the aim (no automatic return); the player pulls back.
+void App::hitFlinch(uint32_t seed) {
+  seed |= 1u;   // xorshift needs a non-zero state
+  float a = wrand(seed) * 6.2831853f, m = 0.6f + 0.6f * wrand(seed);
+  eyePitch = std::clamp(eyePitch + m * std::sin(a), -85.0f, 85.0f);
+  eyeYaw = wrapDeg(eyeYaw + m * std::cos(a));
+  lastFlinch = m;
+}
 
 int App::weaponIndex(const std::string& id) const { for (size_t k = 0; k < weaponDefs.size(); ++k) if (weaponDefs[k]->id == id) return (int)k; return -1; }
 
@@ -297,14 +327,20 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     viewKickPitch = vm.breathPitch; viewKickYaw = vm.breathYaw;
     return;
   }
-  float adsRate = 1.0f / std::max(0.05f, move.adsTime);   // the only writer of adsT while a weapon is out
-  adsT = std::clamp(adsT + (in.aim && !modal ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
+  // bolt actions (Kar98k, ZF39): a shot drops out of ADS (adsT = 0 at the shot); aiming waits for the bolt and the
+  // cooldown, then a held aim key re-enters
+  bool aimBlocked = d.action == "bolt" && (s.bolt > 0 || s.cooldown > 0);
+  float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime);   // the only writer of adsT while a weapon is out
+  adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
   auto ch = Physics::character();
   // bipod deployed: a bipod weapon (belt MG, or a "supported" recoil factor) rested while prone or crouched and still.
   // A folded bipod (standing / moving) gives no benefit.
   bool hasBipod = d.feed == "belt" || d.rSupported < 0.999f;
-  supported = hasBipod && (ch.posture == Physics::PRONE || ch.crouched) && glm::length(in.move) < 0.01f;
+  bool moving = glm::length(in.move) >= 0.01f;
+  supported = hasBipod && (ch.posture == Physics::PRONE || ch.crouched) && !moving;
+  int stance = supported ? STANCE_MOUNTED : ch.posture == Physics::PRONE ? STANCE_PRONE : ch.crouched ? STANCE_CROUCHED
+             : !moving ? STANCE_STANDING : in.sprint && adsT < 0.5f ? STANCE_SPRINTING : STANCE_MOVING;
   s.cooldown = std::max(0.0f, s.cooldown - dt);
   float boltPrev = s.bolt;
   s.bolt = std::max(0.0f, s.bolt - dt);
@@ -374,8 +410,9 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (d.action == "bolt") s.bolt = d.boltTime;
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
-      float spread = radians(adsT > 0.85f ? 0.08f : (d.action == "auto" ? 1.6f : 1.0f));
-      if (d.feed == "belt" && !supported) spread *= 2.5f;
+      // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
+      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance);
+      float spread = radians(lastSpreadDeg);
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
       float a = wrand(s.seed) * 6.2831853f, r = std::sqrt(wrand(s.seed)) * std::tan(spread);
       aimDir = glm::normalize(aimDir + rt * std::cos(a) * r + up * std::sin(a) * r);
@@ -405,7 +442,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       float g = d.action == "launcher" ? 9.81f * 0.35f : 9.81f;   // rockets: reduced effective gravity (sustained motor)
       float tz = d.zero / d.velocity, drop = 0.5f * g * tz * tz;
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
-      bool tracer = d.tracerEvery > 0 && s.shotIdx % d.tracerEvery == 0;
+      int tracer = d.tracerKind(s.shotIdx);
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
         Projectile& rp = projectiles.back();
@@ -420,17 +457,18 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
       audio.play("shot_" + d.id, muzzle, 1.0f);
-      // recoil per shot = profile x posture x support (applied once per shot):
-      //   posture: standing 1.00, crouched 0.70, prone 0.20;  support: the weapon's bipod factor only while deployed
-      float post = ch.posture == Physics::PRONE ? 0.20f : ch.crouched ? 0.70f : 1.0f;
-      float sc = post * (supported ? d.rSupported : 1.0f);
+      // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6, mounted 0.5) x 0.85 in ADS.
+      // Standing still kicks pitch only; moving adds movingYaw (25 %) of the weapon's horizontal wander.
+      float sc = handling.recoil[stance];
       if (adsT > 0.85f) sc *= 0.85f;
+      float yawK = moving ? handling.movingYaw : 0.0f;
       lastRecoilScale = sc;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
       s.recoilP = std::min(s.recoilP, std::max(0.0f, 85.0f - eyePitch));   // only the camera's pitch bound (look clamp 85) limits the climb
-      s.recoilY = std::clamp(s.recoilY + sc * d.rYaw * (wrand(s.seed) * 2 - 1), -6.0f, 6.0f);   // restrained horizontal wander
+      s.recoilY = std::clamp(s.recoilY + sc * yawK * d.rYaw * (wrand(s.seed) * 2 - 1), -6.0f, 6.0f);   // restrained horizontal wander
       s.sinceShot = 0;
       s.kick = std::min(0.08f, s.kick + d.rVisual);
+      if (d.action == "bolt") adsT = 0;   // working the bolt takes the rifle off the shoulder
       if (d.feed == "enbloc" && s.loaded == 0) { audio.play("ping", muzzle, 0.8f); weaponMsg = "Clip ejected (ping)"; s.clipPings++; }
     }
   }
