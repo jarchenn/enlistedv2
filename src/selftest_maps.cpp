@@ -371,14 +371,15 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
     double tnow = now();
-    // PF2 interleaved A/B (NMK_PERF_AB=all | <Renderer::perf switch>): 2..6 s in 0.4 s blocks, alternating the baseline
-    // (odd blocks: pre-PF2 renderer, or that switch off) and the PF2 renderer, so other GPU load hits both sides alike.
+    // PF2 interleaved A/B (NMK_PERF_AB=all | <Renderer::perf switch>): 2..6 s (+ NMK_SETTLE) in 0.4 s blocks, alternating the
+    // baseline (even blocks: pre-PF2 renderer, or that switch off) and the PF2 renderer, so other GPU load hits both sides alike.
     // The first 5 frames of a block are skipped (the pass timers lag 2-3 frames; caches refill).
     static const char* abEnv = std::getenv("NMK_PERF_AB");
-    const float measEnd = abEnv ? 6.0f : 4.0f;
+    static const float abT0 = 2.0f + (std::getenv("NMK_SETTLE") ? (float)std::atof(std::getenv("NMK_SETTLE")) : 0.0f);   // NMK_SETTLE=<s>: A/B starts later (converged probe GI)
+    const float measEnd = abEnv ? abT0 + 4.0f : 4.0f;
     if (abEnv && sLast > 0) {
       static int lastBlk = -1, blkFrames = 0;
-      int blk = stageTime < 2.0f ? -1 : std::min(9, (int)((stageTime - 2.0f) / 0.4f));
+      int blk = stageTime < abT0 ? -1 : std::min(9, (int)((stageTime - abT0) / 0.4f));
       Renderer::Perf A, B = std::string(abEnv) == "all" ? Renderer::Perf::legacy() : A;
       if (std::string(abEnv) != "all") { A.set(abEnv, true); B.set(abEnv, false); }
       bool base = blk >= 0 && blk % 2 == 0;
