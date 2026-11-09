@@ -88,7 +88,8 @@ void headless() {
 
 bool startMode(App& a, GameMode m, int players, int cap, int teamA = 4, int teamB = 4) {
   if (a.mode == Mode::Explore) a.exitExplore();
-  a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
+  const char* mapOverride = std::getenv("NMK_MODES_MAP");   // dev hook: run the live matches on another map file (e.g. templates/chateau_town.nmap.json)
+  a.openMap(mapOverride && *mapOverride ? contentDir() / mapOverride : contentDir() / "examples" / "village_assault_3.nmap.json");
   json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
   Scenario sc = Scenario::fromJson(scj);
   sc.rules.mode = m; sc.rules.killCap = cap; sc.rules.soloPlayers = players; sc.rules.teamPlayers[0] = teamA; sc.rules.teamPlayers[1] = teamB;
@@ -130,7 +131,7 @@ void build(App&) {
     if (stage == 1 && t > 2.5f) {
       chk(G.nav.fromCache && G.nav.tilesBuilt == tiles0 && G.nav.usedNodes == polys0 && G.nav.links == links0 && G.nav.buildMs < ms0 * 0.5,
           "second start loads the same navmesh from the cache: %d tiles, %d polygons, %d links in %.0f ms (baked: %.0f ms)", G.nav.tilesBuilt, G.nav.usedNodes, G.nav.links, G.nav.buildMs, ms0);
-      _putenv_s("NMK_NAV_CACHE", "");
+      if (!std::getenv("NMK_MODES_MAP")) _putenv_s("NMK_NAV_CACHE", "");   // another map (dev hook): keep the bake for the matches below
       return true;
     }
     return t > 60 ? (chk(false, "bake cache steps finished (stage %d)", stage), true) : false; });
