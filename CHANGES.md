@@ -13,6 +13,9 @@
 - **Wall lights by doorways.** Rooms of 16 m2 or more, and every hall, get wall lights either side of their
   doorways: electric sconces in town buildings, candle sconces or wall oil lamps in rural ones. They are placed
   through the room planner, so they keep clear of doors, windows and walking routes.
+- **Ceiling lights by size.** Rooms of 20 m2 or more always get a ceiling light; oversized rooms get one per
+  4-5 m zone.
+- **Brighter by day.** Lamps run at 45 % of their output by day (was 25 %), so the pools still read in daylight.
 - **Long corridors are halls now.** A room at most 3 m wide and at least 3.5 times as long counts as a hall. The
   chateau's 2.2 x 36 m rear corridors used to be typed as sitting rooms, with one lamp each.
 - **New fixtures**, each a mesh with an emissive part and a light:

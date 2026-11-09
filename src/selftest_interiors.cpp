@@ -403,8 +403,8 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
     push("damage: small arms break wood, glass first, masonry stops rounds", [this](App& a, float t) {
       static uint64_t chair = 0, hutch = 0, fire = 0; static int fired = 0, stopped = 0;
       if (t == 0) {
-        Instance* c = childBy(a, FH, "chair"); Instance* hu = nullptr; for (auto* k : childrenOf(a, CT)) if (k->assetId.rfind("furn_hutch", 0) == 0) hu = k;
-        if (!hu) for (auto* k : childrenOf(a, FH)) if (k->assetId == "furn_hutch_glazed") hu = k;
+        Instance* c = childBy(a, FH, "chair"); Instance* hu = nullptr;
+        for (uint64_t hst : {CT, FH, INN, WS}) if (!hu) for (auto* k : childrenOf(a, hst)) if (k->assetId == "furn_hutch_glazed") hu = k;   // GX2: the seeded pick may give a fixture the plain hutch
         chair = c ? c->id : 0; hutch = hu ? hu->id : 0; fired = 0; stopped = 0;
         fire = a.placeInstance(a.lib.find("furn_fireplace"), vec3(20, 0, 30), 0);
         a.syncRuntime();
@@ -661,11 +661,11 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(total >= 3 * was, b_);
       // a decorative border building (V8, extra.decor) and a building whose furniture the user removed stay as they are
       a.interior.autoOnPlace = false;
-      uint64_t dec = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-245.0f, 0, -240.0f), 0.0f);
+      uint64_t dec = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-245.0f, 0, 45.0f), 0.0f);   // GX2: clear of the grid (the B3 manor stands at -245, -240)
       a.interior.autoOnPlace = true;
       if (Instance* d = a.doc.find(dec)) { d->extra = json::object(); d->extra["decor"] = true; }
       int dn = a.interior.autoFurnish(a, dec);
-      uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, -240.0f), 0.0f);
+      uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, 45.0f), 0.0f);
       a.interior.unfurnish(a, rem);
       int rn = a.interior.autoFurnish(a, rem);
       check(dec && dn == 0 && childrenOf(a, dec).empty() && rem && rn == 0 && childrenOf(a, rem).empty(), "extra.decor buildings and buildings with their template furniture removed are not auto-furnished");
@@ -691,7 +691,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::snprintf(b_, sizeof b_, "colour temperature: 2700 K = (%.2f %.2f %.2f), 3200 K = (%.2f %.2f %.2f), 6500 K ~ white (%.2f %.2f %.2f)", k27.r, k27.g, k27.b, k32.r, k32.g, k32.b, k65.r, k65.g, k65.b);
       check(k27.r == 1.0f && k27.g < k32.g && k27.b < k32.b && k65.g > 0.9f && k65.b > 0.85f, b_);
       // the chateau (furnished by the step before): its rear corridor is a hall lit by pendants between the windows
-      Instance* ch = nullptr; for (auto& i : a.doc.instances) if (i.assetId == "vil_chateau_grand") { ch = &i; break; }
+      Instance* ch = nullptr; for (auto& i : a.doc.instances) if (i.assetId == "vil_chateau_grand") ch = &i;   // the copy the step before placed
       if (!ch) { check(false, "fixture: the grand chateau"); lightsSetDaylight(-1); return true; }
       uint64_t cid = ch->id;
       a.interior.furnish(a, cid, 0);
@@ -727,12 +727,16 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       // every furnished building: every room furnished and lit, bare walls
       int rooms = 0, dressed = 0, litR = 0, bareOver = 0, roomsWall = 0; std::string empty, dark, bare;
       std::set<std::string> done;
-      for (auto& i : a.doc.instances) {
-        const AssetDef* as = a.lib.find(i.assetId);
-        if (!as || !as->enterable || as->category == "Furniture" || done.count(as->id) || !a.interior.autoFurnishable(a, i)) continue;
-        if (!i.extra.is_object() || !i.extra.contains("interior") || !i.extra["interior"].value("on", false) || lightsOnlyHost(as)) continue;
-        done.insert(as->id);
-        a.interior.furnish(a, i.id, 0);
+      std::vector<uint64_t> hosts;   // the copies the step before placed (the latest of each building), never the fixtures
+      for (auto it = a.doc.instances.rbegin(); it != a.doc.instances.rend(); ++it) {
+        const AssetDef* as = a.lib.find(it->assetId);
+        if (!as || !as->enterable || as->category == "Furniture" || done.count(as->id) || lightsOnlyHost(as) || isRuinedAsset(as->id)) continue;
+        if (!it->extra.is_object() || !it->extra.contains("interior") || !it->extra["interior"].value("on", false)) continue;
+        done.insert(as->id); hosts.push_back(it->id);
+      }
+      for (uint64_t hid : hosts) {
+        const AssetDef* as = a.assetFor(*a.doc.find(hid));
+        a.interior.furnish(a, hid, 0);
         for (auto& s : a.interior.lastStats) {
           if (s.type == ROOM_RUIN || s.area < 4.0f) continue;
           ++rooms; dressed += s.pieces > 0; litR += s.lights > 0;
@@ -775,7 +779,12 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         const RoomInfo* ri = a.interior.rooms(as);
         if (!gen || !lightsLitBuilding(as) || ri->rooms.empty()) continue;   // authored bare (auto-furnish off, decor, removed)
         if (!lightsRoofed(a, i)) { if (open.find(as->id) == std::string::npos) open += " " + as->id; openLit += n > 0; continue; }   // open-topped pits: nothing to hang a lamp from
-        ++eligible; lit += n > 0; if (!n) bad += " " + as->id;
+        ++eligible; lit += n > 0;
+        if (!n) {   // why: the first light of the building
+          std::string why = "no light pieces";
+          for (auto* c : childrenOf(a, i.id)) if (lightDef(a.assetFor(*c))) { why = c->assetId + " " + lightOffReason(a, *c); break; }
+          bad += " " + as->id + " #" + std::to_string(i.id) + " (" + why + ")";
+        }
         if (lightsOnlyHost(as)) { ++bunkers; bunkersOk += n > 0 && !a.interior.hideBuiltin(i); }
         int nr = 0; for (auto& R : ri->rooms) nr += R.type != ROOM_RUIN;
         rooms += nr; roomsWith += (int)roomsLit[i.id].size();

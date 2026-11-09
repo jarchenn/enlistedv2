@@ -241,6 +241,8 @@ A glass-only break is not otherwise persisted: a lamp that was only shot out kee
   blackbody fit decoded to linear, then blended toward white by `kelvinSaturation`), `intensity` and `radius`;
   they override the asset's own light block (`lightDef`). `dayScale`: interior lamps' output by day.
 - `rooms`: per room type the ceiling fixture (none under `ceilingMinArea`) and the table light; `lowCeiling`.
+- Rooms of `ceilingAlwaysArea` m2 (20) always get a ceiling light; rooms longer than `zoneOver` m (8) get one per
+  `zoneLength` m zone (4.5), the zones the dressing groups their furniture in.
 - `hallway`: halls at least `minLength` long get pendants (`furn_lamp_pendant_glass`) every `spacing` m (kept within
   `minSpacing`-`maxSpacing`) along the long axis on its centre line, each slid to the middle between two windows
   when it would hang within `windowClear` of a window's centre line: alternating pools between the window light.

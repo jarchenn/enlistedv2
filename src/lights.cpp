@@ -397,28 +397,50 @@ float acrossCentre(const RoomInfo& ri, int k, int ax, float at) {
   else { int j = (int)std::floor((at - S.o.y) / C); if (j >= 0 && j < S.nz) for (int i = 0; i < S.nx; ++i) if (S.id[(size_t)j * S.nx + i] == k) { lo = std::min(lo, S.o.x + i * C); hi = std::max(hi, S.o.x + (i + 1) * C); } }
   return lo < hi ? (lo + hi) * 0.5f : (ax == 0 ? (R.mn.y + R.mx.y) * 0.5f : (R.mn.x + R.mx.x) * 0.5f);
 }
-// hallway pendant positions along the long axis: about `spacing` apart (within [minS, maxS]), set between the windows
+// hallway pendant positions along the long axis: the midpoints between consecutive windows (a pool of lamp light
+// between two of window light), thinned to at least minS apart, gaps over maxS filled evenly; without windows, evenly
+// `spacing` apart
 std::vector<float> hallStops(float lo, float hi, const std::vector<float>& win, float spacing, float minS, float maxS, float clear) {
-  std::vector<float> pos;
-  if (hi - lo < minS * 0.6f) { pos.push_back((lo + hi) * 0.5f); return pos; }
-  int n = std::max(2, (int)std::round((hi - lo) / spacing) + 1);
-  while (n > 2 && (hi - lo) / (n - 1) < minS) --n;
-  while ((hi - lo) / (n - 1) > maxS) ++n;
-  float pitch = (hi - lo) / (n - 1);
-  for (int i = 0; i < n; ++i) {
-    float x = lo + i * pitch;
-    for (size_t w = 0; w < win.size(); ++w) {
-      if (std::fabs(x - win[w]) >= clear) continue;
-      bool up = x >= win[w];
-      float nb = up ? (w + 1 < win.size() ? win[w + 1] : 1e9f) : (w > 0 ? win[w - 1] : -1e9f);
-      float t = std::fabs(nb) < 1e8f ? (win[w] + nb) * 0.5f : win[w] + (up ? 1.0f : -1.0f) * (clear + 0.3f);
-      if (t < lo - 0.6f || t > hi + 0.6f) t = win[w] + (up ? -1.0f : 1.0f) * (clear + 0.3f);
-      x = std::clamp(t, lo - 0.6f, hi + 0.6f);
-      break;
-    }
-    if (pos.empty() || x - pos.back() > 2.5f) pos.push_back(x);
+  std::vector<float> c, pos;
+  for (size_t w = 0; w + 1 < win.size(); ++w) { float m = (win[w] + win[w + 1]) * 0.5f; if (m >= lo - 0.3f && m <= hi + 0.3f && win[w + 1] - win[w] > 2 * clear) c.push_back(m); }
+  if (c.empty()) {
+    if (hi - lo < minS * 0.6f) { pos.push_back((lo + hi) * 0.5f); return pos; }
+    int n = std::max(2, (int)std::round((hi - lo) / spacing) + 1);
+    while (n > 2 && (hi - lo) / (n - 1) < minS) --n;
+    while ((hi - lo) / (n - 1) > maxS) ++n;
+    for (int i = 0; i < n; ++i) c.push_back(lo + (hi - lo) * i / (n - 1));
   }
-  return pos;
+  for (float x : c) if (pos.empty() || x - pos.back() >= minS * 0.8f) pos.push_back(x);
+  auto nearWin = [&](float x) { for (float w : win) if (std::fabs(x - w) < clear) return true; return false; };
+  // the ends beyond the first / last stop, and long gaps: evenly spaced extra stops, slid off the windows
+  std::vector<float> ext{lo - 1e-3f}; ext.insert(ext.end(), pos.begin(), pos.end()); ext.push_back(hi + 1e-3f);
+  std::vector<float> out;
+  for (size_t i = 0; i + 1 < ext.size(); ++i) {
+    float a = ext[i], b = ext[i + 1];
+    bool first = i == 0, last = i + 2 == ext.size();
+    if (i > 0) out.push_back(a);
+    float gap = b - a;
+    if (first || last) {   // from the outer stop toward the hall's end
+      if (gap <= maxS * 0.55f) continue;
+      int add = (int)std::ceil((gap - maxS * 0.55f) / spacing);
+      for (int k = 1; k <= add; ++k) {
+        float x = first ? b - spacing * k : a + spacing * k;
+        if (x < lo - 0.01f || x > hi + 0.01f) continue;
+        for (float d : {0.0f, clear + 0.3f, -(clear + 0.3f)}) if (!nearWin(x + d)) { x += d; break; }
+        out.push_back(x);
+      }
+      continue;
+    }
+    if (gap <= maxS) continue;
+    int add = (int)std::ceil(gap / maxS) - 1;
+    for (int k = 1; k <= add; ++k) {
+      float x = a + gap * k / (add + 1);
+      for (float d : {0.0f, clear + 0.3f, -(clear + 0.3f)}) if (!nearWin(x + d)) { x += d; break; }
+      out.push_back(x);
+    }
+  }
+  std::sort(out.begin(), out.end());
+  return out;
 }
 std::string pickOne(const json& list, uint32_t h) {   // "a|b" -> one of them
   if (!list.is_array() || list.empty() || !list[0].is_string()) return std::string();
@@ -517,22 +539,42 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
       }
     }
     // the ceiling light; a room left without a lamp gets one hung from its ceiling as well
-    bool wantCeiling = !ceilingAsset.empty() && R.type != ROOM_BEDROOM && !hallway;
+    bool bigRoom = R.area >= C.value("ceilingAlwaysArea", 20.0f) && !bunker && !hallway;   // GX2: a large room always has a ceiling light
+    if (bigRoom && ceilingAsset.empty()) ceilingAsset = RR.contains("default") ? RR["default"].value("ceiling", std::string("furn_lamp_ceiling")) : "furn_lamp_ceiling";
+    bool wantCeiling = !ceilingAsset.empty() && (R.type != ROOM_BEDROOM || bigRoom) && !hallway;
     if (!wantCeiling && !tablePlaced && !lit) ceilingAsset = R.type == ROOM_UTILITY ? "lamp_hanging_lantern" : "furn_lamp_ceiling", wantCeiling = true;
     if (wantCeiling && !app.lib.find(ceilingAsset)) wantCeiling = false;
     if (wantCeiling) {
-      const AssetDef* ca = app.lib.find(ceilingAsset);
-      const PropDef* cp = sys.prop(ca);
+      const AssetDef* ca0 = app.lib.find(ceilingAsset);
+      const PropDef* cp0 = sys.prop(ca0);
       float cyaw = (R.mx.x - R.mn.x) >= (R.mx.y - R.mn.y) ? 0.0f : 90.0f;
-      Spot sp = ceilingSpot(app, host, ri, (int)k, cp, cyaw);
-      float drop = cp ? -cp->bmin.y : 0.5f;   // hung from its origin (the top): parts reach down to bmin.y
-      if (sp.ok && sp.ceil - drop < R.y0 + 2.05f && !bunker && ceilingAsset != lowCeil) {   // a low ceiling: a flush caged lamp instead
-        if (const AssetDef* fl = app.lib.find(lowCeil)) { ca = fl; cp = sys.prop(fl); drop = cp ? -cp->bmin.y : 0.2f; }
+      // GX2: an oversized room gets one lamp per 4-5 m zone (the zones its furniture is grouped in), else one central
+      std::vector<vec2> at;
+      vec2 e = R.mx - R.mn; float zl = C.value("zoneLength", 4.5f), maxSide = C.value("zoneOver", 8.0f);
+      if (std::max(e.x, e.y) > maxSide && !bunker) {
+        int ax = e.x >= e.y ? 0 : 1; float Lz = ax == 0 ? e.x : e.y, Wd = ax == 0 ? e.y : e.x;
+        int nz = (int)std::ceil(Lz / zl), nw = Wd > maxSide * 1.5f ? 2 : 1;   // one row down the middle unless very wide
+        for (int a = 0; a < nz; ++a) for (int b = 0; b < nw; ++b) {
+          float u = (a + 0.5f) / nz, w = (b + 0.5f) / nw;
+          at.push_back(ax == 0 ? vec2(R.mn.x + e.x * u, R.mn.y + e.y * w) : vec2(R.mn.x + e.x * w, R.mn.y + e.y * u));
+        }
       }
-      if (sp.ok && sp.ceil - drop >= R.y0 + 1.75f) {
-        items.push_back({r + "light", ca->id, vec3(sp.p.x, sp.ceil - 0.004f, sp.p.z), cyaw});
-        lit = true;
+      int n = 0;
+      auto hangAt = [&](Spot sp, const std::string& slot) {
+        const AssetDef* ca = ca0; const PropDef* cp = cp0;
+        float drop = cp ? -cp->bmin.y : 0.5f;   // hung from its origin (the top): parts reach down to bmin.y
+        if (sp.ok && sp.ceil - drop < R.y0 + 2.05f && !bunker && ceilingAsset != lowCeil) {   // a low ceiling: a flush caged lamp instead
+          if (const AssetDef* fl = app.lib.find(lowCeil)) { ca = fl; cp = sys.prop(fl); drop = cp ? -cp->bmin.y : 0.2f; }
+        }
+        if (sp.ok && sp.ceil - drop >= R.y0 + 1.75f) { items.push_back({slot, ca->id, vec3(sp.p.x, sp.ceil - 0.004f, sp.p.z), cyaw}); lit = true; ++n; }
+      };
+      for (size_t q = 0; q < at.size(); ++q) {
+        int qi = (int)std::floor((at[q].x - ri.storeys[R.storey].o.x) / ri.cell), qj = (int)std::floor((at[q].y - ri.storeys[R.storey].o.y) / ri.cell);
+        const auto& S = ri.storeys[R.storey];
+        if (qi < 0 || qj < 0 || qi >= S.nx || qj >= S.nz || S.id[(size_t)qj * S.nx + qi] != (int16_t)k) continue;   // over this room's floor
+        hangAt(ceilingAt(app, host, R, at[q], cp0, cyaw), q == 0 ? r + "light" : r + "light" + std::to_string(q));
       }
+      if (!n) hangAt(ceilingSpot(app, host, ri, (int)k, cp0, cyaw), r + "light");
     }
     // ---- wall lights either side of the doorways of larger rooms and halls (interior_lights.json "sconces")
     const json& SC = C.contains("sconces") ? C["sconces"] : noRules;
@@ -579,6 +621,17 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
             if (wallFix((int)k, fx, r + "sconce" + std::to_string(placed), d, along, got)) { items.push_back(got); ++placed; lit = true; }
           }
         }
+      }
+    }
+    // ---- a room still without a light (no ceiling within reach: a tower base, a stairwell): a lamp on a wall
+    if (!lit && wallFix && !bunker) {
+      vec2 cc = (R.mn + R.mx) * 0.5f;
+      std::vector<std::string> rustic; for (auto& x : SC.value("rustic", json::array())) rustic.push_back(x.get<std::string>());
+      std::string fx = rustic.empty() ? std::string("furn_lamp_wall_oil") : rustic.back();
+      for (int d = 0; d < 4 && !lit; ++d) for (float off : {0.0f, 0.6f, -0.6f, 1.2f, -1.2f}) {
+        LightPlanItem got;
+        float along = (d == 0 || d == 2 ? cc.x : cc.y) + off;
+        if (wallFix((int)k, fx, r + "walllamp", d, along, got)) { items.push_back(got); lit = true; break; }
       }
     }
     // ---- a fire on the hearth: in front of the sooted firebox back, on the hearthstone

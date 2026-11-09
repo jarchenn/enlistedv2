@@ -1030,7 +1030,7 @@ struct Planner {
   std::string failed;   // slots that found no place (the furnish log)
   std::unordered_map<uint64_t, float> faceCache;   // wall-face probes per (storey, cell, side, height): one ray each per furnish
   float rnd(uint32_t a, uint32_t b = 0) { return h01(seed, a, b); }
-  std::string why;   // GX2: why the last tryAt refused (debug log)
+  std::string why; const char* cellWhy = "";   // GX2: why the last tryAt refused (debug log)
   bool zoneOn = false; vec2 zmn{0}, zmx{0};   // GX2: wall() / center() restricted to one zone of an oversized room
   bool inZone(vec3 p) const { return !zoneOn || (p.x >= zmn.x && p.x <= zmx.x && p.z >= zmn.y && p.z <= zmx.y); }
   const AssetDef* A(const char* id) { return app.lib.find(id); }
@@ -1039,13 +1039,13 @@ struct Planner {
     const auto& S = ri.storeys[s]; const float C = ri.cell;
     int i0 = (int)std::floor((mn.x - S.o.x) / C), i1 = (int)std::ceil((mx.x - S.o.x) / C) - 1;
     int j0 = (int)std::floor((mn.y - S.o.y) / C), j1 = (int)std::ceil((mx.y - S.o.y) / C) - 1;
-    if (i0 < 0 || j0 < 0 || i1 >= S.nx || j1 >= S.nz) return false;
+    if (i0 < 0 || j0 < 0 || i1 >= S.nx || j1 >= S.nz) { cellWhy = "grid"; return false; }
     for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) {
       size_t c = (size_t)j * S.nx + i;
-      if (S.id[c] != room) return false;
-      if ((mode < 2 || mode == 3) && S.keep[c]) return false;   // 3: the room, clear of doors / stairs / routes, furniture below allowed
-      if (mode == 0 && occ[s][c]) return false;
-      if (mode == 1 && occ[s][c] == 1) return false;
+      if (S.id[c] != room) { cellWhy = "room"; return false; }
+      if ((mode < 2 || mode == 3) && S.keep[c]) { cellWhy = "keep"; return false; }   // 3: the room, clear of doors / stairs / routes, furniture below allowed
+      if (mode == 0 && occ[s][c]) { cellWhy = occ[s][c] == 1 ? "furniture" : "clearance"; return false; }
+      if (mode == 1 && occ[s][c] == 1) { cellWhy = "furniture"; return false; }
     }
     return true;
   }
@@ -1081,7 +1081,10 @@ struct Planner {
     // wall-hung pieces (pictures, racks, pegs, clocks) only need their own room and wall: they may hang above a
     // dresser or a bench (3D boxes below), never in a door swing or over a stair
     // (a solid one -- a wall shelf, a plate rack -- also keeps out of the route corridors and doorway rings: it is at head height)
-    if (!rectCells(R.storey, k, vec2(mn.x, mn.z), vec2(mx.x, mx.z), hung ? (pd->blocking ? 3 : 2) : mode)) { why = "cells"; return false; }
+    {   // a hung piece's back lies in the 0.1 m cell the wall face cuts through: test the cells just in front of it
+      vec3 sh = hung ? yawQuat(yaw) * vec3(0, 0, 0.06f) : vec3(0);
+      if (!rectCells(R.storey, k, vec2(mn.x + sh.x, mn.z + sh.z), vec2(mx.x + sh.x, mx.z + sh.z), hung ? (pd->blocking ? 3 : 2) : mode)) { why = std::string("cells:") + cellWhy; return false; }
+    }
     // the manual placement rule's exact tests (checkPlacement), so a generated piece never fails them: the keep cells
     // above are 0.1 m cells marked by their centres, and a stair box can reach a few cm into a cell it does not mark
     for (auto& b : ri.keep) {
@@ -1167,8 +1170,10 @@ struct Planner {
       }
     }
     std::sort(cs.begin(), cs.end(), [](const Cand& a, const Cand& b) { return a.score < b.score; });
-    for (auto& c : cs) if (tryAt(k, asset, slot, c.p, c.yaw, true, true, 0, got)) return true;
+    std::map<std::string, int> whys;
+    for (auto& c : cs) { if (tryAt(k, asset, slot, c.p, c.yaw, true, true, 0, got)) return true; ++whys[why]; }
     if (failed.size() < 900) failed += " " + slot;
+    if (getenv("NMK_GX2_DEBUG")) { std::string w; for (auto& [r, n] : whys) w += " " + r + " " + std::to_string(n); logf("gx2 wall %s %s %s: %zu spots%s%s", ha->id.c_str(), slot.c_str(), asset, cs.size(), zoneOn ? " (zone)" : "", w.c_str()); }
     return false;
   }
   // GX2: one piece at a given wall cell (hall pictures, wall fill, sconces by doors); hung pieces at their mount height
@@ -1427,7 +1432,9 @@ struct Planner {
           vec3 p = an.p + q * (off + jit); p.y = ri.rooms[k].y0;
           float yaw = wrapDeg(an.yaw + st.value("turn", 0.0f) + jy);
           PlanItem got;
-          bool ok = rugS ? tryAt(k, a.c_str(), slot, p, yaw, false, false, 2, &got) : tryAt(k, a.c_str(), slot, p, yaw, true, false, 1, &got);
+          // rugs lie anywhere in the room; chairs tucked at a desk may stand in its clearance; the rest keep every
+          // walkway free (the room stays walkable)
+          bool ok = rugS ? tryAt(k, a.c_str(), slot, p, yaw, false, false, 2, &got) : tryAt(k, a.c_str(), slot, p, yaw, true, false, st.value("tuck", false) ? 1 : 0, &got);
           if (!ok) continue;
           if (st.contains("top")) putTop(got, st["top"]);
           done = true; break;
@@ -1605,7 +1612,7 @@ struct Planner {
         const Edge e = E[(size_t)n];
         std::vector<std::string> tryList;
         if (!items.empty()) for (uint32_t q = 0; q < 3; ++q) tryList.push_back(items[(size_t)(rnd(strHash(slot), 600 + q) * items.size()) % items.size()]);
-        if (!floors.empty()) tryList.push_back(floors[(size_t)(rnd(strHash(slot), 650) * floors.size()) % floors.size()]);
+        if (!floors.empty() && ri.rooms[k].area >= 20.0f) tryList.push_back(floors[(size_t)(rnd(strHash(slot), 650) * floors.size()) % floors.size()]);   // small rooms stay walkable
         for (auto& a : tryList) if ((ok = wallCell(k, a.c_str(), slot, e.i, e.j, e.d))) break;
         if (ok) break;
       }
@@ -1755,6 +1762,65 @@ struct Planner {
       }
     }
   }
+  // the share of the room's free floor a 0.3 m body reaches from its doorways and routes, around the blocking pieces
+  // planned so far (the self-test's walkability rule, within the room)
+  float reachable(int k) {
+    const auto& R = ri.rooms[k]; const auto& S = ri.storeys[R.storey]; const float C = ri.cell;
+    std::vector<uint8_t> blk(S.id.size(), 0);
+    for (auto& it : out) {
+      if (it.broken) continue;
+      const AssetDef* fa = A(it.asset.c_str()); const PropDef* pd = fa ? sys.prop(fa) : nullptr;
+      if (!pd || !pd->blocking || pd->mount > 0 || std::fabs(it.p.y - R.y0) > 0.5f) continue;
+      vec3 mn, mx; bounds(pd, it.p, it.yaw, mn, mx); mn -= vec3(0.28f); mx += vec3(0.28f);
+      if (mx.x < R.mn.x - 0.5f || mn.x > R.mx.x + 0.5f || mx.z < R.mn.y - 0.5f || mn.z > R.mx.y + 0.5f) continue;
+      int i0 = std::max(0, (int)((mn.x - S.o.x) / C)), i1 = std::min(S.nx - 1, (int)((mx.x - S.o.x) / C));
+      int j0 = std::max(0, (int)((mn.z - S.o.y) / C)), j1 = std::min(S.nz - 1, (int)((mx.z - S.o.y) / C));
+      for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) {
+        float x = S.o.x + (i + 0.5f) * C, z = S.o.y + (j + 0.5f) * C;
+        if (x > mn.x && x < mx.x && z > mn.z && z < mx.z) blk[(size_t)j * S.nx + i] = 1;
+      }
+    }
+    auto inside = [&](size_t c) { return S.id[c] == (int16_t)k || S.id[c] == RoomInfo::DOORWAY; };
+    auto flood = [&](bool useBlk) {
+      std::vector<uint8_t> seen(S.id.size(), 0); std::vector<int> st;
+      int ri0 = std::max(0, (int)((R.mn.x - 1.0f - S.o.x) / C)), ri1 = std::min(S.nx - 1, (int)((R.mx.x + 1.0f - S.o.x) / C));
+      int rj0 = std::max(0, (int)((R.mn.y - 1.0f - S.o.y) / C)), rj1 = std::min(S.nz - 1, (int)((R.mx.y + 1.0f - S.o.y) / C));
+      for (int j = rj0; j <= rj1; ++j) for (int i = ri0; i <= ri1; ++i) {
+        size_t c = (size_t)j * S.nx + i;
+        if ((S.id[c] == RoomInfo::DOORWAY || (S.keep[c] && S.id[c] == (int16_t)k)) && !(useBlk && blk[c])) { seen[c] = 1; st.push_back((int)c); }
+      }
+      while (!st.empty()) {
+        int c = st.back(); st.pop_back(); int ci = c % S.nx, cj = c / S.nx;
+        const int di[4] = {1, -1, 0, 0}, dj[4] = {0, 0, 1, -1};
+        for (int d = 0; d < 4; ++d) {
+          int ni = ci + di[d], nj = cj + dj[d]; if (ni < ri0 || nj < rj0 || ni > ri1 || nj > rj1) continue;
+          size_t n = (size_t)nj * S.nx + ni;
+          if (seen[n] || (useBlk && blk[n]) || !inside(n)) continue;
+          seen[n] = 1; st.push_back((int)n);
+        }
+      }
+      return seen;
+    };
+    std::vector<uint8_t> base = flood(false), seen = flood(true);
+    int free = 0, ok = 0;
+    for (size_t c = 0; c < S.id.size(); ++c) if (S.id[c] == (int16_t)k && base[c] && !blk[c]) { ++free; ok += seen[c]; }
+    return free ? (float)ok / free : 1.0f;
+  }
+  // a room that a piece walls off: the latest blocking pieces (and what stands on or beside them) leave until it is walkable
+  void keepWalkable(int k, const std::string& r) {
+    for (int guard = 0; guard < 8 && reachable(k) < 0.88f; ++guard) {
+      int last = -1;
+      for (int q = (int)out.size() - 1; q >= 0; --q) {
+        if (out[q].slot.rfind(r, 0) != 0) continue;
+        const AssetDef* fa = A(out[q].asset.c_str()); const PropDef* pd = fa ? sys.prop(fa) : nullptr;
+        if (pd && pd->blocking && pd->mount <= 0) { last = q; break; }
+      }
+      if (last < 0) break;
+      std::string gone = out[last].slot;
+      out.erase(std::remove_if(out.begin(), out.end(), [&](const PlanItem& it) { return it.slot == gone || it.slot.rfind(gone + "/", 0) == 0; }), out.end());
+      if (getenv("NMK_GX2_DEBUG")) logf("gx2 walkable %s %s: removed %s", ha->id.c_str(), r.c_str(), gone.c_str());
+    }
+  }
   void room(int k) {
     const auto& R = ri.rooms[k];
     std::string r = "r" + std::to_string(k) + "/";
@@ -1775,6 +1841,7 @@ struct Planner {
     curtains(k, T.value("curtains", 0.0f), T.value("halfDrawn", 0.0f));
     debrisPass(k, T.value("debris", 0.0f), r);
     if (T.contains("wall")) wallFill(k, T["wall"], r);
+    keepWalkable(k, r);
   }
   // GX2: what a room ended up with (furnish log, self-tests, captures)
   InteriorSys::RoomStat stat(int k) {
