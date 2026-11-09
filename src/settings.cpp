@@ -18,11 +18,11 @@ GraphicsOpts presetOpts(GfxPreset p) {
   if (p == GfxPreset::Low) {
     g.resScale = 0.85f; g.shadowQuality = 0;
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
-    g.grass = 1; g.drawDist = 0.6f; g.particles = 0.6f; g.ivy = false;
+    g.grass = 1; g.renderDist = 600; g.particles = 0.6f; g.ivy = false;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
   } else if (p == GfxPreset::High) {
     g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;
-    g.grass = 3; g.drawDist = 1.4f; g.particles = 1.5f;
+    g.grass = 3; g.renderDist = 2500; g.particles = 1.5f;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
   }
   return g;
@@ -43,7 +43,7 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass},
-                  {"drawDistance", g.drawDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
+                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
@@ -68,7 +68,8 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.shafts = q.value("lightShafts", g.shafts); g.ssr = q.value("ssr", g.ssr); g.ssao = q.value("ssao", g.ssao); g.ssaoFull = q.value("ssaoFullRes", g.ssaoFull);
     g.bloom = q.value("bloom", g.bloom); g.taa = q.value("taa", g.taa); g.taaPhases = std::clamp(q.value("taaPhases", g.taaPhases), 1, 64);
     g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 3);
-    g.drawDist = std::clamp(q.value("drawDistance", g.drawDist), 0.3f, 3.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
+    if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
+    g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
@@ -184,6 +185,7 @@ void Settings::apply(App& app) {
   R.setMsaa(g.msaa);
   app.ivyOn = g.ivy;
   R.clouds = g.clouds;
+  R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3);
   app.fx.setBudget(g.particles);
@@ -286,8 +288,14 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Clouds", &g.clouds);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloud cover: Creative > View > Sky");
       { const char* gq[] = {"Off", "Low", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Grass", &g.grass, gq, 4); }
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Draw distance", &g.drawDist, 0.4f, 2.0f, "x %.2f");
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Scales the small-decoration cull distances and the far draw cuts (nature, trees, buildings).");
+      {   // PF2: render distance in metres, four named stops plus any value on the slider
+        const float stops[4] = {600, 1200, 2500, 5000}; const char* names[5] = {"Low (600 m)", "Medium (1.2 km)", "High (2.5 km)", "Ultra (5 km)", "Custom"};
+        int cur = 4; for (int k = 0; k < 4; ++k) if (std::fabs(g.renderDist - stops[k]) < 1) cur = k;
+        ImGui::SetNextItemWidth(200);
+        if (ImGui::Combo("Render distance", &cur, names, 5) && cur < 4) g.renderDist = stops[cur];
+        ImGui::SetNextItemWidth(200); ImGui::SliderFloat("##renderdist", &g.renderDist, 300.0f, 5000.0f, "%.0f m");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("How far buildings, props, trees and nature are drawn; also the far terrain detail and the haze (thinner haze for longer distances).");
+      }
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Particle budget", &g.particles, 0.25f, 2.5f, "x %.2f");
       ImGui::SeparatorText("Lighting");
       {   // L2 (docs/lighting.md): time of day is personal (kept when a preset is picked); the rest belongs to the presets

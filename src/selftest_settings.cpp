@@ -64,13 +64,13 @@ bool settingsSelfTest(App& app, float dt) {
     T->check(std::fabs(S.lookDegPerCount(0) - 0.1f) < 1e-6f && S.pitchSign() == 1.0f && S.fov() == 72.0f, "defaults: 0.1 deg per count, Y not inverted, FOV 72");
     // presets
     GraphicsOpts lo = presetOpts(GfxPreset::Low), hi = presetOpts(GfxPreset::High);
-    T->check(lo.shadowQuality == 0 && !lo.cloudShadows && !lo.shafts && !lo.ssr && !lo.ssao && lo.grass == 1 && lo.drawDist == 0.6f && lo.resScale == 0.85f && lo.particles < 1,
-             "Low: shadows 2048 / 1024, no cloud shadows / shafts / SSR / SSAO, grass Low, cull x0.6, resolution 0.85, smaller caps");
-    T->check(hi.shadowQuality == 2 && hi.ssaoFull && hi.grass == 3 && hi.drawDist == 1.4f && hi.particles > 1 && hi.taaPhases > 8,
-             "High: far shadows 4096, full-resolution AO, grass High, cull x1.4, bigger budgets, more jitter phases");
+    T->check(lo.shadowQuality == 0 && !lo.cloudShadows && !lo.shafts && !lo.ssr && !lo.ssao && lo.grass == 1 && lo.renderDist == 600.0f && lo.resScale == 0.85f && lo.particles < 1,
+             "Low: shadows 2048 / 1024, no cloud shadows / shafts / SSR / SSAO, grass Low, render distance 600 m, resolution 0.85, smaller caps");
+    T->check(hi.shadowQuality == 2 && hi.ssaoFull && hi.grass == 3 && hi.renderDist == 2500.0f && hi.particles > 1 && hi.taaPhases > 8,
+             "High: far shadows 4096, full-resolution AO, grass High, render distance 2.5 km, bigger budgets, more jitter phases");
     T->check(hi.msaa == 4 && GraphicsOpts{}.msaa == 0 && lo.msaa == 0 && !lo.ivy && GraphicsOpts{}.ivy && hi.ivy, "B1: 4x MSAA on High only; ivy off on Low, on at Medium / High");
     // file round trip
-    UserSettings u; u.gfx = presetOpts(GfxPreset::High); u.gfx.bloom = false; u.gfx.drawDist = 1.25f; u.fov = 84; u.vsync = false; u.fpsCap = 144;
+    UserSettings u; u.gfx = presetOpts(GfxPreset::High); u.gfx.bloom = false; u.gfx.renderDist = 1500.0f; u.fov = 84; u.vsync = false; u.fpsCap = 144;
     u.mouseSens = 0.135f; u.adsSens = 0.7f; u.invertY = true; u.reducedMotion = true; u.showArms = false; u.sightMarkers = true;
     u.master = 0.8f; u.effects = 0.6f; u.ui = 0.4f; u.ambience = 0.2f; u.keys["grenade"] = "G"; u.keys["prone"] = "LEFT_ALT";
     u.uiScale = 1.25f; u.editorFly = 2.5f; u.editorOrbit = 0.75f; u.editorZoom = 1.5f;
@@ -82,6 +82,9 @@ bool settingsSelfTest(App& app, float dt) {
     T->check(u.preset() == GfxPreset::Custom && b.s.toJson()["graphics"].value("preset", "") == "Custom", "a changed preset value is stored and reported as Custom");
     { std::ofstream(rt) << R"({"graphics":{"preset":"Low"}})"; Settings c; c.load(rt);
       T->check(c.s.preset() == GfxPreset::Low && c.s.fov == 72.0f && c.s.mouseSens == 0.1f, "a file naming only a preset loads that preset with default everything else"); }
+    { std::ofstream(rt) << R"({"graphics":{"preset":"Medium","drawDistance":1.5}})"; Settings c; c.load(rt);   // PF2: the old multiplier key
+      T->check(std::fabs(c.s.gfx.renderDist - 1800.0f) < 0.5f && c.s.toJson()["graphics"].value("renderDistance", 0.0f) == 1800.0f,
+               "render distance: an old file's drawDistance x1.5 migrates to 1800 m and is saved as renderDistance"); }
     { std::ofstream(rt) << "{ not json"; Settings c; c.s.fov = 90; c.load(rt);
       T->check(c.s == UserSettings{}, "a broken file falls back to the defaults"); }
     { Settings c; c.s.adsSens = 0.5f; c.s.invertY = true;
@@ -127,12 +130,12 @@ bool settingsSelfTest(App& app, float dt) {
       const Renderer& R = app.R;
       if (p == GfxPreset::Low)
         T->check(R.shadowNearPx() == 2048 && R.shadowFarPx() == 1024 && !R.q.ssao && !R.q.ssr && !R.q.shafts && !R.q.cloudShadows && app.grass.quality == GrassQuality::Low &&
-                 R.width == (int)std::lround(R.displayW * 0.85) && app.fx.maxParts == 540 && S.drawDist() == 0.6f && R.lt.gi == 0 && R.lt.shadowLights == 0,
+                 R.width == (int)std::lround(R.displayW * 0.85) && app.fx.maxParts == 540 && S.renderDist() == 600.0f && R.lt.gi == 0 && R.lt.shadowLights == 0,
                  fmt("Low applied live: shadows 2048 / 1024, effects off, grass Low, render %d x %d upscaled to %d x %d, %zu particles", R.width, R.height, R.displayW, R.displayH, app.fx.maxParts));
       if (p == GfxPreset::Medium) checkMediumIsDefault(app, "Medium applied after Low");
       if (p == GfxPreset::High)
         T->check(R.shadowNearPx() == 4096 && R.shadowFarPx() == 4096 && R.ssaoFull() && R.q.taaPhases == 16 && app.grass.quality == GrassQuality::High &&
-                 R.width == R.displayW && app.fx.maxParts == 1350 && S.drawDist() == 1.4f && R.lt.gi == 2 && R.lt.shadowLights == 8,
+                 R.width == R.displayW && app.fx.maxParts == 1350 && S.renderDist() == 2500.0f && R.lt.gi == 2 && R.lt.shadowLights == 8,
                  fmt("High applied live: shadows 4096 / 4096, full-resolution AO, 16 jitter phases, grass High, %zu particles", app.fx.maxParts));
       T->check(p == GfxPreset::High ? R.msaa() == 4 && R.msaaActive() : R.msaa() == 0 && !R.msaaActive(),
                fmt("%s: MSAA %s (world target %s)", presetName(p), R.msaa() ? "4x" : "off", R.msaaActive() ? "multisampled" : "single-sample"));
