@@ -104,7 +104,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
       // from fixed cameras that match the brief's current_01..07 framings. NMK_GX_REBUILD=1 rebuilds the scene from the
       // Blank Slate in code and writes selftest_out/gx_test_scene.nmap.json (copy it to content/templates/).
       const TemplateInfo* gt = app.findTemplate("gx_test_scene");
-      if (gt && !std::getenv("NMK_GX_REBUILD")) app.newMap(*gt, "GX test scene");
+      if (gt && !std::getenv("NMK_GX_REBUILD") && fs::exists(contentDir() / "templates" / gt->raw.value("map", std::string("-")))) app.newMap(*gt, "GX test scene");
       else gxBuildScene(app);
       auto I = [&](const char* id) -> Instance* { for (auto& i : app.doc.instances) if (i.assetId == id) return &i; return nullptr; };
       auto W = [&](Instance* i, vec3 l) { return i->pos + yawQuat(i->yaw) * l; };
