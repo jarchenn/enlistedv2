@@ -49,7 +49,20 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
   float maxH = 0.1f; for (auto& c : t.canopy) maxH = std::max(maxH, glm::length(vec2(c.x, c.z)) + c.w);
   std::vector<float> v;
   t.top = t.stumpH;
-  for (auto& c : t.canopy) {
+  // hedge banks: a skirt of leaf clusters over both bank faces, below the hedge on top, so the bank reads as overgrown
+  // instead of a bare earth slab (the clusters are card sources only; t.canopy, which sight and bullets use, is unchanged)
+  std::vector<vec4> spheres = t.canopy;
+  if (t.hedge && !t.canopy.empty()) {
+    float bankTop = 1e9f, x0 = 1e9f, x1 = -1e9f;
+    for (auto& c : t.canopy) { bankTop = std::min(bankTop, c.y - c.w); x0 = std::min(x0, c.x); x1 = std::max(x1, c.x); }
+    if (bankTop > 0.9f) {   // canopies that already reach the ground (older hedges) need none
+      float r = std::max(0.45f, bankTop * 0.38f), z = a.footprint.y * 0.5f * 0.62f;
+      std::mt19937 srng(tj.value("seed", 1u) + 7919u);   // own stream: the canopy's cards stay as they were
+      for (float x = x0; x <= x1 + 1e-3f; x += 0.9f)
+        for (float side : {-1.0f, 1.0f}) spheres.push_back(vec4(x + (U(srng) - 0.5f) * 0.4f, bankTop * 0.5f, side * z, r));
+    }
+  }
+  for (auto& c : spheres) {
     t.top = std::max(t.top, c.y + c.w);
     int cards = dens > 0 ? std::max(12, (int)(dens * c.w * c.w * 3.0f)) : per;
     for (int n = 0; n < cards; ++n) {

@@ -158,7 +158,14 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (beautifyDecorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor, cheap at range (beautify.cpp)
     if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
     if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
-    if (w5CullDraw(*this, i, r.asset)) continue;   // W5: small decorators beyond their draw distance (content/settings/maps.json)
+    if (w5CullDraw(*this, i, r.asset)) {   // W5: small decorators beyond their draw distance (content/settings/maps.json)
+      // a hedge past its cut still draws its bank (LOD2 at that range), darkened to its foliage: the field pattern reads from the air
+      if (r.asset->tree.hedge && !r.treeFelled) {
+        float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
+        if (cd < settings().renderDist()) op.push_back({&assetLodMesh(r, r.asset, r.asset->opaque, cd), M, vec4(0.6f, 0.75f, 0.5f, 1.0f)});
+      }
+      continue;
+    }
     if (r.asset->nature.kind != NatureDef::NONE) {   // boulders, stone / flower / tall-grass patches (nature.cpp)
       float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
       if (cd < 1200 * settings().drawDist()) natureDrawItems(*this, i, r, op, cd);
