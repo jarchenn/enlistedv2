@@ -10,6 +10,8 @@ OUT = os.path.join(os.path.dirname(__file__), '..', 'content', 'assets')
 # tools/nav_backfill.json, written by tools/build_mpu_assets.mjs (W4). Written as each asset's last key.
 _NAV_PATH = os.path.join(os.path.dirname(__file__), 'nav_backfill.json')
 NAV = json.load(open(_NAV_PATH, encoding='utf-8')) if os.path.exists(_NAV_PATH) else {}
+# P1: the lights' furnishing envelopes as their version 1 parts gave them (tools/prop_envelopes.json, see gen_furniture.py)
+ENVELOPES = json.load(open(os.path.join(os.path.dirname(__file__), 'prop_envelopes.json'), encoding='utf-8'))
 
 
 def box(c, s, m, r=None, k=1, v=1):
@@ -240,18 +242,10 @@ for i, base in enumerate([[0, 0, 0, 1], qaxis([0, 0, 1], 90), qaxis([0, 1, 0], 9
     q = qmul(stand, base)
     for sz in ([L, w, t], [L, t, w]):   # angle iron: two flanges
         p_ = bevel(box([0, cy, 0], sz, "steel" if i % 2 == 0 else "rust"), 0.005); p_["q"] = [round(x, 5) for x in q]; parts.append(p_)
-    for e in (-1, 1):   # P1: cut ends: a square end plate welded on each beam end (rolled-steel look)
-        c_ = qrot(q, [e * (L / 2 - 0.006), 0, 0])
-        p_ = bevel(box([c_[0], cy + c_[1], c_[2]], [0.012, w * 0.9, w * 0.9], "rust", k=0), 0.003); p_["q"] = [round(x, 5) for x in q]; parts.append(p_)
-    for d in (-0.3, 0.3):   # rivet heads along each flange either side of the crossing
-        for sz_ in ([0, w * 0.3, t * 0.5 + 0.003], [0, t * 0.5 + 0.003, w * 0.3]):
-            c_ = qrot(q, [d * L / 2 * 0.9, sz_[1], sz_[2]])
-            p_ = cyl([c_[0], cy + c_[1], c_[2]], 0.022, 0.008, "rust", seg=6, k=0)
-            p_["q"] = [round(x, 5) for x in qmul(q, qfromto([0, 1, 0], [0, 0, 1] if sz_[1] > sz_[2] else [0, 1, 0]))]
-            parts.append(p_)
 parts.append(bevel(box([0, cy, 0], [0.16 * TT, 0.16 * TT, 0.16 * TT], "rust"), 0.012))   # gusset plate block at the crossing
 parts.append(box([0, cy, 0], [1.1 * TT, 2 * cy, 1.1 * TT], "steel", k=1, v=0))  # collision hull (stops vehicles, cover for men)
-save({"id": "def_tank_trap", "version": 3, "name": "Tank trap (Czech hedgehog)", "category": "Defences",
+save({"id": "def_tank_trap", "version": 2,   # P1: chamfers only (mesh), the v2 size and collision are kept (v1->v2 migration)
+      "name": "Tank trap (Czech hedgehog)", "category": "Defences",
       "description": "Welded steel hedgehog, three 1.75 m angle-iron beams (about 1.1 m high). Immune to small arms; only HE / AT damage it.",
       "floors": 0, "enterable": False, "footprint": [1.75, 1.75], "plinthDepth": 0, "maxGrade": 0.6,
       "materials": [steel, rust], "parts": parts, "furniture": [], "interactables": [], "panels": [],
@@ -652,6 +646,7 @@ def light_asset(id_, name, desc, parts, mats, footprint, groups, prop, light):
     p["keep"] = [groups.index(g) for g in prop.get("keep", [])]
     if "glass" in prop: p["glass"] = groups.index(prop["glass"])
     p["surfaces"] = []
+    if id_ in ENVELOPES: p["bounds"] = ENVELOPES[id_]
     lt = dict(light)
     if isinstance(lt.get("group"), str): lt["group"] = groups.index(lt["group"])
     save({"id": id_, "version": 2, "name": name, "category": "Lighting", "description": desc, "floors": 0, "enterable": False,

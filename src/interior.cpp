@@ -92,6 +92,7 @@ const PropDef* InteriorSys::prop(const AssetDef* a) {
   d.bmin = vec3(1e9f); d.bmax = vec3(-1e9f);
   for (auto& p : a->parts) if (p.visible) { vec3 mn, mx; partAabb(p, mn, mx); d.bmin = glm::min(d.bmin, mn); d.bmax = glm::max(d.bmax, mx); }
   if (d.bmin.x > d.bmax.x) { d.bmin = vec3(-0.2f); d.bmax = vec3(0.2f); }
+  if (pj.contains("bounds")) { d.bmin = jvec3(pj["bounds"][0]); d.bmax = jvec3(pj["bounds"][1]); }   // P1: the furnishing envelope, fixed when the look changes
   d.hang = pj.value("hang", false);   // L3 lights (docs/lights.md)
   d.gmin = vec3(1e9f); d.gmax = vec3(-1e9f);
   for (auto& p : a->parts) if (p.visible && p.grp == d.glass && d.glass >= 0) { vec3 mn, mx; partAabb(p, mn, mx); d.gmin = glm::min(d.gmin, mn); d.gmax = glm::max(d.gmax, mx); }

@@ -124,6 +124,7 @@ Furniture assets (`content/assets/furn_*.json`, category "Furniture", generated 
           "surfaces": [[x0, z0, x1, z1, y]] }
 ```
 
+- `bounds` (optional, `[[x, y, z], [x, y, z]]`): the furnishing envelope used for placement, keep-clear volumes, ceiling spots and culling instead of the visible parts' bounds. The P1 restyle writes each piece's version 1 envelope (`tools/prop_envelopes.json`), so a new look never moves what auto-furnish places.
 - Material `"grain": -1` = the wood grain follows each part's longest axis.
 - New patterns (17-28): `limewash`, `brickwork`, `ashlar`, `interior`, `floorfin`, `rubble`, `rug`, `ceramic`, `joinery`, `paintwood`, `paper`, `textile`. For `interior` / `floorfin` the grain is the finish code used outside detected rooms; for `rug` it packs the variant and half size (variant + 4 * (half x cm + 256 * half z cm)).
 - Instance extras: `finish {wear, palette}` (any building), `interior {on, seed, density, clutter, gen, slots, removed}` (furnished building), `furnish {host, slot, loc, gen, hp, manual}` (a template piece), `propBroken` (applied damage).
