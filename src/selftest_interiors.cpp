@@ -660,12 +660,22 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::snprintf(b_, sizeof b_, "density over every building: %d pieces vs %d with the first templates = x%.2f (gate x3); lowest %s x%.1f", total, was, total / (float)std::max(1, was), lowest.c_str(), worst);
       check(total >= 3 * was, b_);
       // a decorative border building (V8, extra.decor) and a building whose furniture the user removed stay as they are
+      // free spots for the two test cottages: the asset grid above grows with every new building family
+      const AssetDef* cot = a.lib.find("house_stone_cottage");
+      auto freeSpot = [&](vec3 avoid) {
+        for (float z = -280; z <= 280; z += 35) for (float x = -280; x <= 280; x += 35) {
+          vec3 p(x, a.terrain.height(x, z), z);
+          if (glm::length(vec2(p.x - avoid.x, p.z - avoid.z)) > 30 && a.checkPlacement(cot, p, 0.0f, 0).ok) return p;
+        }
+        return vec3(1e9f);
+      };
+      vec3 decAt = freeSpot(vec3(1e9f));
       a.interior.autoOnPlace = false;
-      uint64_t dec = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-245.0f, 0, -240.0f), 0.0f);
+      uint64_t dec = a.placeInstance(cot, decAt, 0.0f);
       a.interior.autoOnPlace = true;
       if (Instance* d = a.doc.find(dec)) { d->extra = json::object(); d->extra["decor"] = true; }
       int dn = a.interior.autoFurnish(a, dec);
-      uint64_t rem = a.placeInstance(a.lib.find("house_stone_cottage"), vec3(-175.0f, 0, -240.0f), 0.0f);
+      uint64_t rem = a.placeInstance(cot, freeSpot(decAt), 0.0f);
       a.interior.unfurnish(a, rem);
       int rn = a.interior.autoFurnish(a, rem);
       std::snprintf(b_, sizeof b_, "extra.decor buildings and buildings with their template furniture removed are not auto-furnished (decor: placed %d, furnished %d, children %zu; removed: placed %d, furnished %d, children %zu)",
