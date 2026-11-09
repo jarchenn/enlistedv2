@@ -73,13 +73,59 @@ bool Viewshed::sees(vec3 p) const {
 int CrowdSnapshot::claims(vec3 p, int except) const {
   auto it = cells.find(key(p.x, p.z));
   if (it == cells.end()) return 0;
-  int n = 0; for (int8_t s : it->second) if (s >= 0 && s != except) ++n;
+  int n = 0; for (int16_t s : it->second) if (s >= 0 && s != except) ++n;
   return n;
 }
 
 // ---------------------------------------------------------------- lifecycle
 static json loadJson(const char* dir, const char* file) {
   try { return json::parse(readTextFile(contentDir() / dir / file)); } catch (std::exception& e) { logf("ai: %s/%s: %s", dir, file, e.what()); return json::object(); }
+}
+
+// ---- PF1 navmesh key and the map's sidecar (<map>.nav)
+// bump when the bake (nav*.cpp, terrain generation, geometry classes) changes its output for the same inputs: the key
+// is content-based (no executable stamp), so a shipped sidecar stays valid across builds
+static const int kNavBakeVersion = 1;
+static NavSidecarEntry gLastNav;   // the last match's tiles, carried into the sidecar by the next save
+static uint64_t fnv64(const std::string& s) { uint64_t h = 1469598103934665603ull; for (unsigned char c : s) { h ^= c; h *= 1099511628211ull; } return h; }
+// map, the assets the bake classifies, the template's terrain inputs, navigation.json (the bounds come on top)
+static std::string aiNavKeyPrefix(const App& app, const json& navj) {
+  std::string tpl;
+  if (!app.doc.templateId.empty()) {
+    fs::path d = contentDir() / "templates"; std::error_code ec;
+    if (fs::exists(d / (app.doc.templateId + ".json"), ec)) tpl = readTextFile(d / (app.doc.templateId + ".json"));
+    tpl.erase(std::remove(tpl.begin(), tpl.end(), '\r'), tpl.end());
+    fs::path png = d / (app.doc.templateId + ".height.png");
+    if (fs::exists(png, ec)) tpl += "#" + std::to_string(fs::file_size(png, ec));
+  }
+  // auto-furnished pieces (V4) collide but are left out of the map hash: their kind and place to the centimetre
+  for (auto& in : app.doc.instances) if (in.extra.is_object() && in.extra.contains("furnish")) {
+    char b[96]; std::snprintf(b, sizeof b, "|%ld %ld %ld %ld", std::lround(in.pos.x * 100), std::lround(in.pos.y * 100), std::lround(in.pos.z * 100), std::lround(in.yaw));
+    tpl += in.assetId + b;
+  }
+  return Net::mapHash(app) + "|" + Net::contentHashOf(contentDir(), {"assets"}, "nmk-nav-" + std::to_string(kNavBakeVersion)) + "|" + std::to_string(fnv64(tpl)) + "|" + navj.dump();
+}
+static uint64_t aiNavKey(const std::string& pre, vec3 lo, vec3 hi) {
+  char b[120]; std::snprintf(b, sizeof b, "|%.2f %.2f %.2f %.2f %.2f %.2f", lo.x, lo.y, lo.z, hi.x, hi.y, hi.z);
+  return fnv64(pre + b);
+}
+// one entry per bounds: a new bake of the same bounds replaces the older one (the map changed); 4 kept, newest first
+static void sidecarPut(std::vector<NavSidecarEntry>& E, const NavSidecarEntry& e) {
+  E.erase(std::remove_if(E.begin(), E.end(), [&](const NavSidecarEntry& x) { return x.key == e.key || (x.lo == e.lo && x.hi == e.hi); }), E.end());
+  E.insert(E.begin(), e);
+  if (E.size() > 4) E.resize(4);
+}
+void aiNavSidecarSave(App& app, const fs::path& from, const fs::path& to) {
+  std::vector<NavSidecarEntry> E, keep;
+  if (!from.empty()) navSidecarRead(from, E);
+  if (!gLastNav.blob.empty()) E.insert(E.begin(), gLastNav);
+  std::error_code ec;
+  if (E.empty() && !fs::exists(to, ec)) return;
+  if (!E.empty()) {
+    std::string pre = aiNavKeyPrefix(app, loadJson("ai", "navigation.json"));
+    for (auto& e : E) if (aiNavKey(pre, e.lo, e.hi) == e.key && std::none_of(keep.begin(), keep.end(), [&](const NavSidecarEntry& k) { return k.key == e.key; })) keep.push_back(e);
+  }
+  if (navSidecarWrite(to, keep)) logf("nav: sidecar %s: %zu of %zu entries still match the map", to.filename().string().c_str(), keep.size(), E.size());   // none: a stale sidecar is removed
 }
 
 // simple ear clipping (asset area outlines may be concave)
@@ -214,17 +260,22 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     }
   };
   crumb("ai: navmesh bake");
-  // bake cache: the same map, content, nav settings, bounds and executable give the same tiles, so a repeat match start
-  // loads them (about 28 s -> well under 1 s for a whole-map Solo / TDM bake). Tests bake fresh unless NMK_NAV_CACHE.
-  nav.cachePath.clear();
+  // the same map, content, nav settings and bounds give the same tiles, so a repeat match start loads them (about 28 s
+  // -> well under 1 s for a whole-map Solo / TDM bake): first from the map's sidecar <map>.nav (PF1, content-based key),
+  // then from the machine's bake cache (that key + the executable). Tests use neither unless NMK_NAV_CACHE.
+  nav.cachePath.clear(); nav.preload.clear();
   const char* navCacheEnv = std::getenv("NMK_NAV_CACHE");
-  if (!G.app.selftest || (navCacheEnv && *navCacheEnv)) {
+  const bool store = !G.app.selftest || (navCacheEnv && *navCacheEnv);
+  const uint64_t navKey = store ? aiNavKey(aiNavKeyPrefix(G.app, navj), lo, hi) : 0;
+  std::vector<NavSidecarEntry> side;
+  if (store && !G.app.navSidecar.empty() && navSidecarRead(G.app.navSidecar, side))
+    for (auto& e : side) if (e.key == navKey) { nav.preload = e.blob; break; }
+  if (store) {
     std::error_code ec;
     std::string exe = __argv && __argv[0] ? __argv[0] : "";
     auto stamp = fs::exists(exe, ec) ? (long long)fs::last_write_time(exe, ec).time_since_epoch().count() : 0LL;
-    char b[160]; std::snprintf(b, sizeof b, "|%.2f %.2f %.2f %.2f %.2f %.2f|%lld|%lld", lo.x, lo.y, lo.z, hi.x, hi.y, hi.z, stamp, fs::exists(exe, ec) ? (long long)fs::file_size(exe, ec) : 0LL);
-    std::string key = Net::mapHash(G.app) + "|" + Net::contentHash() + "|" + navj.dump() + b;
-    uint64_t h = 1469598103934665603ull; for (unsigned char c : key) { h ^= c; h *= 1099511628211ull; }
+    char b[80]; std::snprintf(b, sizeof b, "|%016llx|%lld|%lld", (unsigned long long)navKey, stamp, fs::exists(exe, ec) ? (long long)fs::file_size(exe, ec) : 0LL);
+    uint64_t h = 1469598103934665603ull; for (unsigned char c : std::string(b)) { h ^= c; h *= 1099511628211ull; }
     char name[40]; std::snprintf(name, sizeof name, "%016llx.bin", (unsigned long long)h);
     fs::path dir = exeDir() / "cache" / "nav";
     nav.cachePath = (dir / name).string();
@@ -239,6 +290,7 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     static double last = 0; double now = glfwGetTime();
     if (now - last < 0.05) return;
     last = now;
+    if (gNet) gNet->keepAlive();   // LAN peers time out after 6 s; a first whole-map bake takes 30 s and more
     if (!G.app.win) return;
     glfwPollEvents();
     char t[96]; std::snprintf(t, sizeof t, "Normandy Mapmaker - preparing the AI (navigation %d%%)", (int)(f * 100));
@@ -247,6 +299,17 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   nav.build(lo, hi);
   nav.progress = nullptr;
   if (G.app.win) glfwSetWindowTitle(G.app.win, "Normandy Mapmaker");
+  // PF1: the map's sidecar gets these tiles now for a saved, unchanged map file (a built-in map's only with
+  // NMK_NAV_PREBAKE), else on the next save (aiNavSidecarSave)
+  if (store && !nav.blob.empty()) {
+    gLastNav = {navKey, nav.lo, nav.hi, nav.blob};
+    const fs::path& sp = G.app.navSidecar;
+    bool content = sp.string().find(contentDir().string()) == 0, prebake = std::getenv("NMK_NAV_PREBAKE") != nullptr;
+    if (!nav.fromSidecar && !sp.empty() && !G.app.dirty && (!content || prebake)) {
+      sidecarPut(side, gLastNav);
+      if (navSidecarWrite(sp, side)) logf("nav: sidecar %s: %zu entries", sp.filename().string().c_str(), side.size());
+    }
+  }
   markNavTraps();
   logf("ai: %d navmesh polygons in dead-end pockets (no walk back to an objective or spawn)", navTraps);
   // ---- cover points for every tile (parallel: the physics world is idle while the match starts)
@@ -503,7 +566,7 @@ float AiCore::exposure(int role, vec3 p) const {
 void AiCore::updateCrowd(TeamBrain& tb) {
   auto snap = std::make_shared<CrowdSnapshot>();
   for (auto& s : G.sold) {
-    if (!s.alive || s.human || (int)s.role != tb.role || s.slot >= (int)minds.size() || !minds[s.slot]) continue;
+    if (!s.alive || s.human || s.zombie || (int)s.role != tb.role || s.slot >= (int)minds.size() || !minds[s.slot]) continue;   // PF1: zombie routes claim nothing (a horde does not spread out)
     BotMind& m = *minds[s.slot];
     if (!m.hasPath) continue;
     std::vector<vec3> pts;
@@ -518,9 +581,9 @@ void AiCore::updateCrowd(TeamBrain& tb) {
         vec3 p = glm::mix(a, b, i / (float)n);
         auto& cell = snap->cells[CrowdSnapshot::key(p.x, p.z)];
         if (cell[0] == 0 && cell[1] == 0 && cell[2] == 0 && cell[3] == 0) cell.fill(-1);
-        bool have = false; for (int8_t x : cell) if (x == s.slot) have = true;
+        bool have = false; for (int16_t x : cell) if (x == s.slot) have = true;
         if (have) continue;
-        for (auto& x : cell) if (x < 0) { x = (int8_t)s.slot; break; }
+        for (auto& x : cell) if (x < 0) { x = (int16_t)s.slot; break; }
       }
     }
   }

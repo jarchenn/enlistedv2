@@ -36,6 +36,7 @@ struct AnimPlayer {
   float fade = 1, fadeLen = 0.2f;
   NodeLocals last, from;
   float lastHp = 100; int strike = 0, life = -1;   // zombie.cpp: hit and attack triggers, the life they belong to
+  float lodAcc = 0;                                // zombie.cpp: time not yet sampled (far zombies sample at a lower rate)
   // same key: only the blend / rate change; a new key (or restart) starts at 0 and cross-fades
   void play(int key, int clipA, int clipB, float w, float rate, bool loop, bool restart = false);
   void update(const CharModel& m, float dt, PoseResult& out);

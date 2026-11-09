@@ -87,6 +87,7 @@ public:
   std::vector<TemplateInfo> templates;
   MapDoc doc;
   fs::path docPath;
+  fs::path navSidecar;   // PF1: <map>.nav beside the file the map came from (a template's too); empty for a blank new map
   bool dirty = false;
   Mode mode = Mode::Creative;
   std::map<uint64_t, InstanceRT> rt;

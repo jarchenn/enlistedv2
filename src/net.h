@@ -11,7 +11,7 @@
 class App;
 
 constexpr int kNetPort = 27960;
-constexpr int kNetVersion = 4;   // 4: G1 modes (team in START, u16 kills / deaths + score, Solo winner)
+constexpr int kNetVersion = 5;   // 4: G1 modes (team in START, u16 kills / deaths + score, Solo winner); 5: PF1 snapshot in parts (200 AI)
 // was 3:   // 3: station block in snapshots, gun / rack / crate / build requests (2 is the internet branch's)
 
 struct LobbyInfo { std::string addr, hostName, map, mapHash, contentHash; int humans = 0, maxHumans = 0, phase = 0, version = 0; double seen = 0; };
@@ -41,6 +41,7 @@ public:
   bool join(App& app, const std::string& ip, const std::string& name, std::string& err, int port = kNetPort);
   void discover();                          // send a broadcast query (results arrive in `found`)
   void update(App& app, float dt);          // every frame
+  void keepAlive();                         // PF1: during a long blocking step (the first navmesh bake): acks / keep-alives so peers do not time out
   void leave(const char* reason);           // client: disconnect; host: end the session (clients return to menu)
   int humanCount() const { return role == HOST ? (int)players.size() : 1; }
   bool allReady() const;
@@ -49,6 +50,7 @@ public:
   void returnToLobby(App& app);             // host: after the result
   static std::string contentHash();
   static std::string contentHashAt(const fs::path& contentRoot);   // contentHash() of another content folder (tests)
+  static std::string contentHashOf(const fs::path& contentRoot, std::initializer_list<const char*> subs, const std::string& seed);   // the same over chosen folders (PF1 nav key: assets)
   static std::string mapHash(const App& app);
   // game-layer hooks (called by Game / mpai)
   void hostWorldEvent(const json& ev);      // explosion, impact, door, cloud, kill, log -> all clients in order

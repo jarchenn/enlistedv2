@@ -61,7 +61,7 @@ struct Viewshed {             // what one known enemy position can see: max visi
 };
 struct ThreatSnapshot { std::vector<Viewshed> v; };
 struct CrowdSnapshot {        // teammates' claimed route cells (2 m), per owner
-  std::unordered_map<int64_t, std::array<int8_t, 4>> cells;   // up to 4 claimers per cell (slot, -1 empty)
+  std::unordered_map<int64_t, std::array<int16_t, 4>> cells;   // up to 4 claimers per cell (slot, -1 empty; int16: 200 AI)
   static int64_t key(float x, float z) { return ((int64_t)std::floor(x * 0.5f) << 32) ^ (int64_t)(uint32_t)(int)std::floor(z * 0.5f); }
   int claims(vec3 p, int except) const;
 };
@@ -152,6 +152,8 @@ struct BotMind {
   int clearSector = 0, clearCorner = 0; vec3 clearGoal{1e9f}; double clearGoalT = 0;
   // stats
   double underFireT = 0, exposedT = 0, lastAct = 0;
+  // PF1 zombie packs (zombie.cpp): followers steer along the mesh to a slot by the leader instead of path queries
+  int pack = -1; bool follower = false; float speedScale = 1; vec3 flockPush{0}; double flockT = 0, ownPathT = -100;
 };
 
 // ---------------------------------------------------------------- path service (ai_path.cpp)
@@ -225,6 +227,9 @@ public:
   bool frozen = false, stepRun = false; int stepFrames = 0; int follow = -1; bool overlayNav = true, overlayPaths = true, overlayCover = false, overlayThreats = true;
   int rayBudget = 200, raysUsed = 0, raysThisFrame = 0; long raysTotal = 0;
   int pathStartsPerFrame = 4;
+  // PF1 zombie packs (zombie.cpp): members[0] is the leader, the only one that picks targets and requests paths
+  struct ZPack { std::vector<int> members; };
+  std::vector<ZPack> packs; double packT = -100; int pathsLeader = 0, pathsFollower = 0;
   uint64_t lastFrameStep = ~0ull; double frameT = 0;
   std::map<uint64_t, std::pair<uint64_t, std::pair<vec3, vec3>>> instPrint;   // instance -> fingerprint, bounds
   std::map<int, uint32_t> terrainRev; uint32_t lastGroundRev = 0; double nextWorldPoll = 0;

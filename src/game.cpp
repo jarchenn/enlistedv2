@@ -551,7 +551,7 @@ void Game::posesStep(float dt) {
     pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz
     if (s.localPlayer) app.swimPose(pp);   // swim.cpp: the player's own stroke phase
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
-    if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else poseCharacter(m, pp, s.pose);   // G2: clips
+    if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
   }
@@ -601,13 +601,16 @@ void Game::drawItems() {
     float dist = glm::length(c - cam);
     if (dist > 300) continue;
     if (dist > 4 && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
-    if (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0) {}   // settled corpse: keep the last skin
+    // PF1: a far pack follower in step with its leader draws the leader's skinned mesh (zombie.cpp aiZombiePose)
+    Soldier* src = s.poseFrom >= 0 && s.poseFrom < (int)sold.size() && sold[s.poseFrom].ciReady && sold[s.poseFrom].ci.frameSkinned >= 0 ? &sold[s.poseFrom] : &s;
+    if (src != &s || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0)) {}   // settled corpse: keep the last skin
     else {
       if (!s.ciReady) { s.ci.create(*models[s.model]); s.ciReady = true; }
-      bool far = dist > 70;
-      if (!far || (frame + s.slot) % 3 == 0 || s.ci.frameSkinned < 0) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; }
+      int every = dist > 140 ? 6 : dist > 70 ? 3 : 1;   // far: skin less often
+      bool due = s.ci.frameSkinned < 0 || (s.skinRev != s.poseRev && (frame + s.slot) % every == 0);   // and never an unchanged pose
+      if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
-    for (int k = 0; k < (int)s.ci.view.parts.size(); ++k) app.R.worldModels.push_back({&s.ci.view, k, s.world, rulesTint(*this, s)});   // W1: protection shimmer
+    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) app.R.worldModels.push_back({&src->ci.view, k, s.world, rulesTint(*this, s)});   // W1: protection shimmer
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {

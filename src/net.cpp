@@ -94,6 +94,7 @@ struct Chan {
 struct Peer {
   int id = 0; sockaddr_in addr{}; std::string name; bool ready = false; double heard = 0; Chan ch;
   std::string unrel; int unrelType = 0;
+  std::vector<std::string> unrelMore;   // PF1: the snapshot's further parts, a datagram each
   double lastSent = 0;
   bool inMatch = false;
 };
@@ -169,6 +170,11 @@ struct Net::Impl {
       sendRaw(p.addr, w.b, n); p.lastSent = now; ++packets;
       if (n2 == 0) break;
     }
+    for (auto& u : p.unrelMore) {   // no reliable chunks, just the ack and the part
+      W w; header(w, 'D'); w.u32((uint32_t)myId); w.u32(p.ch.nextIn); w.u8(0); w.u8((uint8_t)p.unrelType); w.u16((uint16_t)u.size()); w.b += u;
+      sendRaw(p.addr, w.b, n);
+    }
+    p.unrelMore.clear();
     p.unrel.clear();
   }
 };
@@ -210,9 +216,12 @@ std::string Net::contentHash() { return contentHashAt(contentDir()); }
 std::string Net::contentHashAt(const fs::path& root) {
   // build protocol + gameplay content (assets, weapons, AI data, characters): binary files by size, JSON by text.
   // JSON is hashed with '\r' removed so CRLF (Windows checkout) and LF (macOS / Linux) copies cross-play.
-  uint64_t h = fnv("nmk-net-" + std::to_string(kNetVersion));
+  return contentHashOf(root, {"assets", "weapons", "ai", "characters"}, "nmk-net-" + std::to_string(kNetVersion));
+}
+std::string Net::contentHashOf(const fs::path& root, std::initializer_list<const char*> subs, const std::string& seed) {
+  uint64_t h = fnv(seed);
   std::vector<std::pair<std::string, fs::path>> files;   // sorted by relative path, the same order on every OS
-  for (const char* sub : {"assets", "weapons", "ai", "characters"}) {
+  for (const char* sub : subs) {
     std::error_code ec;
     for (auto& e : fs::recursive_directory_iterator(root / sub, ec)) if (e.is_regular_file()) { auto ext = e.path().extension().string(); if (ext == ".json" || ext == ".glb" || ext == ".bin") files.push_back({fs::relative(e.path(), root, ec).generic_string(), e.path()}); }
   }
@@ -331,15 +340,19 @@ void Net::clientRequest(const json& m) { if (role == CLIENT && connected) d->pee
 void Net::clientInteract(uint64_t inst, int idx) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "door"}, {"i", inst}, {"k", idx}}.dump()); }
 
 // ---------------------------------------------------------------- snapshots (host -> client, unreliable, 20 Hz)
-static std::string writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
+// PF1: one snapshot is several datagrams (a part per kSnapSlots soldiers, ~1 KB each: 200 soldiers do not fit one);
+// each part carries the match header, a slot range and, in the last, the grenades and guns
+static const int kSnapSlots = 24;
+static std::string snapshotPart(Game& g, int forPeer, int first, int count, const std::string* extras) {
   W w;
   Match& m = g.match;
   w.f32((float)g.t); w.u8((uint8_t)m.phase); w.u8((uint8_t)(m.winner == Winner::None ? 255 : (int)m.winner)); w.u8((uint8_t)m.active); w.u8((uint8_t)(m.winnerSlot < 0 ? 255 : m.winnerSlot));   // G1: Solo winner
   w.f32(m.attackerWaveIn); w.f32(m.defenderWaveIn); w.f32((float)m.time);
   w.u8((uint8_t)m.obj.size());
   for (auto& o : m.obj) { w.u8((uint8_t)o.state); w.f32(o.progress); w.u8((uint8_t)o.A); w.u8((uint8_t)o.D); }
-  w.u8((uint8_t)m.slots.size());
-  for (auto& r : m.slots) {
+  w.u8((uint8_t)m.slots.size()); w.u8((uint8_t)first); w.u8((uint8_t)count);
+  for (int i = first; i < first + count; ++i) {
+    const RosterSlot& r = m.slots[i];
     const Soldier& s = g.sold[r.id];
     uint8_t fl = (s.alive ? 1 : 0) | (s.swim ? 6 : s.posture == Physics::CROUCH ? 2 : s.posture == Physics::PRONE ? 4 : 0) | (r.human ? 8 : 0) | (r.pending ? 16 : 0) | (s.reload > 0 ? 32 : 0) | (s.throwT >= 0 ? 64 : 0) | (s.isProtected(g.t) ? 128 : 0);   // 2|4: swimming; 128: W1 spawn protection
     w.u8(fl); w.v3(s.feet); w.i16((int16_t)std::lround(wrapDeg(s.localPlayer || s.human ? s.yaw : s.yaw) * 100 - 18000));
@@ -354,8 +367,14 @@ static std::string writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
     w.u8(own ? 1 : 0);
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
   }
-  w.u8((uint8_t)std::min<size_t>(g.gren.live.size(), 32));
-  for (size_t k = 0; k < g.gren.live.size() && k < 32; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u8((uint8_t)(x.owner < 0 ? 255 : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
+  w.u8(extras ? 1 : 0);
+  if (extras) w.b += *extras;
+  return w.b;
+}
+static std::string snapshotExtras(App& app, Net::Impl& d, Game& g) {
+  W w;
+  w.u8((uint8_t)std::min<size_t>(g.gren.live.size(), 24));   // 24 x 36 B + the guns keep the part under 1.3 KB
+  for (size_t k = 0; k < g.gren.live.size() && k < 24; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u8((uint8_t)(x.owner < 0 ? 255 : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
   // crew-served guns: every crewed one, then the rest in turn (6 per snapshot keeps the packet small)
   auto& gl = gunList(app, d);
   std::vector<uint64_t> pick;
@@ -372,6 +391,20 @@ static std::string writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
   }
   return w.b;
 }
+static std::vector<std::string> writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
+  std::vector<std::string> parts;
+  std::string ex = snapshotExtras(app, d, g);
+  int n = (int)g.match.slots.size();
+  for (int k = 0; k < n; k += kSnapSlots) {
+    int c = std::min(kSnapSlots, n - k);
+    bool last = k + c >= n;
+    std::string p = snapshotPart(g, forPeer, k, c, nullptr);
+    if (last && p.size() + ex.size() < 1300) { p = snapshotPart(g, forPeer, k, c, &ex); ex.clear(); }
+    parts.push_back(std::move(p));
+  }
+  if (!ex.empty()) parts.push_back(snapshotPart(g, forPeer, n, 0, &ex));   // the grenades and guns on their own
+  return parts;
+}
 
 static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& app) {
   R r(data.data(), data.size());
@@ -383,8 +416,8 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
   m.attackerWaveIn = r.f32(); m.defenderWaveIn = r.f32(); m.time = r.f32();
   int no = r.u8();
   for (int k = 0; k < no && k < (int)m.obj.size(); ++k) { m.obj[k].state = (ObjState)r.u8(); m.obj[k].progress = r.f32(); m.obj[k].A = r.u8(); m.obj[k].D = r.u8(); }
-  int ns = r.u8();
-  for (int k = 0; k < ns && k < (int)g.sold.size() && r.ok; ++k) {
+  r.u8(); int first = r.u8(), ns = r.u8();   // all slots, this part's range (PF1)
+  for (int i = 0, k = first; i < ns && k < (int)g.sold.size() && r.ok; ++i, k = first + i) {
     Soldier& s = g.sold[k]; RosterSlot& rs = m.slots[k];
     uint8_t fl = r.u8(); vec3 feet = r.v3(); float yaw = r.i16() / 100.0f + 180.0f, pitch = r.i16() / 100.0f, aimYaw = r.i16() / 100.0f + 180.0f;
     float hp = r.u8(); int weapon = r.u8(); int life = r.u16();
@@ -426,6 +459,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     if (np.t[0] < 0) { np.feet[0] = feet; np.yaw[0] = yaw; np.t[0] = st - 0.05; }
     if (!alive) { s.feet = feet; s.yaw = yaw; }
   }
+  if (!r.ok || !r.u8()) return;   // grenades and guns ride in one part only
   int ngr = r.u8();
   g.gren.live.clear();
   for (int k = 0; k < ngr && r.ok; ++k) { GrenadeRT x; x.kind = r.u8(); x.def = r.u8(); x.p = r.v3(); x.rot.x = r.f32(); x.rot.y = r.f32(); x.rot.z = r.f32(); x.rot.w = r.f32(); int o = r.u8(); x.owner = o == 255 ? -1 : o; x.resting = r.u8() != 0; x.fuse = r.f32(); g.gren.live.push_back(x); }
@@ -760,6 +794,12 @@ void mpaiBuildChanged(App& app, const std::vector<uint64_t>& placed, const std::
 }
 
 // ---------------------------------------------------------------- per-frame update
+void Net::keepAlive() {
+  if (!d || d->s == INVALID_SOCKET) return;
+  d->now = glfwGetTime();
+  for (auto& p : d->peers) d->flushPeer(p, *this, role == HOST ? 0 : myPeer);
+}
+
 void Net::update(App& app, float dt) {
   if (!d || d->s == INVALID_SOCKET) return;
   (void)dt; double prevNow = d->now; d->now = glfwGetTime();   // real time: two processes simulate at their own frame rates
@@ -904,7 +944,10 @@ void Net::update(App& app, float dt) {
     if (gGame && gGame->active && !gGame->isClient && d->now - d->lastSnap >= 0.05) {
       d->lastSnap = d->now;
       crumb("net: snapshot");
-      for (auto& p : d->peers) if (p.inMatch) { p.unrel = writeSnapshot(app, *d, *gGame, p.id); p.unrelType = 1; }
+      for (auto& p : d->peers) if (p.inMatch) {
+        auto parts = writeSnapshot(app, *d, *gGame, p.id);
+        p.unrel = std::move(parts[0]); p.unrelMore.assign(std::make_move_iterator(parts.begin() + 1), std::make_move_iterator(parts.end())); p.unrelType = 1;
+      }
     }
     crumb("net: flush"); for (auto& p : d->peers) d->flushPeer(p, *this, 0);
   } else if (role == CLIENT) {

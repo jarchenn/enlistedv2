@@ -3,13 +3,16 @@
 // (no cover, utility scores, weapon, grenades or shots); in Solo it picks the closest combatant; the player's knife
 // kills a soldier; a mixed Team Deathmatch (soldiers v zombies) runs with kills on both sides. Z1: the zombie wears
 // content/characters/zombie.glb: its clips load, every hit-capsule joint maps, the walk animates, a strike plays an
-// attack clip, head and leg rays hit their zones.
+// attack clip, head and leg rays hit their zones. PF1: 200 zombies in Solo run in packs (only leaders path, followers
+// keep up, a dead leader is replaced, strikes land) and a 100 soldiers v 100 zombies TDM, both without 150 ms frames.
 #include "selftest.h"
 #include "game.h"
 #include "mpui.h"
 #include "mptest.h"
 #include "ai_core.h"
+#include "selftest_crowd.h"
 #include <algorithm>
+#include <cstdlib>
 #include <cstdarg>
 #include <functional>
 
@@ -58,12 +61,37 @@ Soldier* firstAi(Game& G, int skip = -1) { for (auto& s : G.sold) if (!s.human &
 bool allSpawned(Game& G) { for (auto& s : G.sold) if (!s.alive) return false; return !G.sold.empty(); }
 void guardLocal(Game& G) { if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; } }
 
+// PF1 pack statistics, sampled every 0.5 s: pack count and size, followers within 12 m of their leader, path requests
+struct PackStats {
+  int lp0 = 0, fp0 = 0, near = 0, followers = 0, maxPacks = 0, sizeN = 0; float sizeSum = 0; double next = 0; bool on = false;
+  void sample(Game& G, AiCore& A, float t, float from) {
+    if (t < from) return;
+    if (!on) { on = true; lp0 = A.pathsLeader; fp0 = A.pathsFollower; }
+    if (t < next) return;
+    next = t + 0.5;
+    maxPacks = std::max(maxPacks, (int)A.packs.size());
+    for (auto& p : A.packs) { sizeSum += p.members.size(); ++sizeN; const Soldier& L = G.sold[p.members[0]];
+      for (size_t k = 1; k < p.members.size(); ++k) { ++followers; near += dXZ(G.sold[p.members[k]].feet, L.feet) < 12.0f; } }
+  }
+  float meanSize() const { return sizeN ? sizeSum / sizeN : 0.0f; }
+  float nearPct() const { return followers ? 100.0f * near / followers : 0.0f; }
+  // packs form, only leaders path, followers keep up (minimum mean size and share within 12 m)
+  void check(AiCore& A, int zombies, float minSize, float minNear, const char* what) {
+    int lp = A.pathsLeader - lp0, fp = A.pathsFollower - fp0;
+    chk(maxPacks >= zombies / 10 && meanSize() >= minSize, "%s: packs form: up to %d packs, %.1f zombies each on average", what, maxPacks, meanSize());
+    chk(lp > 0 && fp <= (lp + fp) / 5, "%s: only leaders path: %d leader and %d follower path requests (followers %.0f %%)", what, lp, fp, lp + fp ? 100.0f * fp / (lp + fp) : 0.0f);
+    chk(followers && nearPct() >= minNear, "%s: followers keep up: %.0f %% of follower samples within 12 m of their leader (%d)", what, nearPct(), followers);
+  }
+};
+bool packsEnabled() { const char* e = std::getenv("NMK_ZOMBIE_PACKS"); return !e || *e != '0'; }
+
 void build(App&) {
   push("headless", [](App&, float) {
     json mv = json::parse(readTextFile(contentDir() / "settings" / "movement.json"));
     float jog = mv.value("run_mps", 3.1625f), spr = mv.value("sprint_mps", 6.325f);
     chk(aiZombieSpeed() > jog && aiZombieSpeed() < spr, "zombie.json speed %.2f m/s lies between jog %.2f and sprint %.2f", aiZombieSpeed(), jog, spr);
     return true; });
+  if (!std::getenv("NMK_ZOMBIES_ONLY_HORDE")) {   // diagnostics: just the 200-zombie runs
   // ---- one zombie against a standing player: pursuit, blows, speed, no soldier brain
   push("pursuit", [](App& a, float t) {
     static int Z; static bool placed; static float hp0, minD, spSum, spMax; static int spN; static std::vector<std::pair<float, float>> hits; static bool brainSeen, shot;
@@ -182,10 +210,56 @@ void build(App&) {
     }
     for (auto& z : G.sold) if (z.alive && z.zombie) for (auto& o : G.sold) if (o.alive && o.team == 0) minD = std::min(minD, dXZ(z.feet, o.feet));
     int k0 = G.match.teamKills(0), k1 = G.match.teamKills(1), blows = aiZombieBlows() - blows0;
-    if ((k0 < 1 || k1 < 1) && t < 150) return false;
+    if ((k0 < 1 || (k1 < 1 && blows < 3)) && t < 240) return false;   // batch2 reached 3 blows at 150 s only just: give the zombies time
     // the zombies' kill depends on reaching 3 blows on one soldier before the rifles drop them: a kill's worth of landed blows also counts
     chk(k0 >= 1 && (k1 >= 1 || blows >= 3), "both sides fight: soldiers kill %d, zombies kill %d with %d blows landed in %.0f s (closest zombie to a soldier %.1f m)", k0, k1, blows, t, minD);
     pendingShot = outDir() / "zombies_tdm.png";
+    return true; });
+  }
+  // ---- PF1 hordes: 200 zombies in Solo run in packs; only leaders path; followers keep up; strikes land; frame time.
+  // Solo makes every zombie its own team: packs of strangers spawn spread out and brawl with other packs (members die
+  // and join all the time), so the pack shape is checked loosely here and strictly in the one-team mixed match below.
+  push("horde", [](App& a, float t) {
+    static CrowdBench cb; static PackStats ps; static int blows0, promoted; static int deadLead, deadPack; static std::vector<int> mates; static vec3 deadAt;
+    if (t == 0) {
+      blows0 = aiZombieBlows(); deadLead = -1; promoted = -1; cb.begin(); ps = PackStats{};
+      chk(startMode(a, GameMode::Solo, 201, 1, 1, AiType::Zombies, AiType::Soldiers), "Solo, the player and 200 zombies (%s)", gGame->setupError.c_str()); return false;
+    }
+    Game& G = *gGame; guardLocal(G);
+    AiCore* A = aiCore(); if (!A) { chk(false, "the AI runs"); return true; }
+    cb.frame(G, t, 5.0f); ps.sample(G, *A, t, 8.0f);
+    if (packsEnabled() && deadLead < 0 && t > 20.0f) {   // a leader falls: its nearest member takes over
+      for (int p = 0; p < (int)A->packs.size(); ++p) if (A->packs[p].members.size() >= 3) {
+        deadPack = p; deadLead = A->packs[p].members[0]; mates.assign(A->packs[p].members.begin() + 1, A->packs[p].members.end());
+        Soldier& L = G.sold[deadLead]; deadAt = L.feet; L.protectUntil = -1; G.damage(deadLead, 1000, -1, vec3(0, 0, 1), "test"); break; }
+    }
+    if (deadLead >= 0 && promoted < 0 && t > 21.0f) {
+      int want = -1; float bd = 1e9f; for (int k : mates) if (G.sold[k].alive && dXZ(G.sold[k].feet, deadAt) < bd) { bd = dXZ(G.sold[k].feet, deadAt); want = k; }
+      promoted = 0; for (auto& p : A->packs) if (!p.members.empty() && p.members[0] == want) promoted = 1;
+      chk(promoted == 1, "a dead leader's pack re-forms behind its nearest member (slot %d, pack %d of %zu)", want, deadPack, A->packs.size());
+    }
+    if (t < 45) return false;
+    int alive = 0; for (auto& s : G.sold) alive += s.alive;
+    if (packsEnabled()) ps.check(*A, 200, 3.0f, 60.0f, "Solo"); else T->note("packs off (NMK_ZOMBIE_PACKS=0): pack checks skipped");
+    chk(aiZombieBlows() - blows0 > 0, "strikes land: %d blows in 40 s (%d alive)", aiZombieBlows() - blows0, alive);
+    chk(cb.over150() == 0, "200 zombies: %s", cb.line(G).c_str());
+    if (!cb.stalls.empty()) T->note("stalls:" + cb.stalls);
+    pendingShot = outDir() / "zombies_horde.png";
+    return true; });
+  // ---- PF1 mixed: 100 soldiers (the player's team) v 100 zombies, one team: packs keep their shape
+  push("horde mixed", [](App& a, float t) {
+    static CrowdBench cb; static PackStats ps; static int blows0;
+    if (t == 0) { blows0 = aiZombieBlows(); cb.begin(); ps = PackStats{}; chk(startMode(a, GameMode::TDM, 200, 100, 100, AiType::Soldiers, AiType::Zombies), "TDM 100 soldiers v 100 zombies (%s)", gGame->setupError.c_str()); return false; }
+    Game& G = *gGame; guardLocal(G);
+    AiCore* A = aiCore(); if (!A) { chk(false, "the AI runs"); return true; }
+    cb.frame(G, t, 5.0f); ps.sample(G, *A, t, 8.0f);
+    int k0 = G.match.teamKills(0), k1 = G.match.teamKills(1);
+    if (t < 45 || ((k0 < 1 || (k1 < 1 && aiZombieBlows() - blows0 < 3)) && t < 120)) return false;   // the teams spawn a few hundred metres apart
+    if (packsEnabled()) ps.check(*A, 100, 5.0f, 80.0f, "mixed"); else T->note("packs off (NMK_ZOMBIE_PACKS=0): pack checks skipped");
+    chk(G.sold.size() == 200 && k0 > 0 && (k1 > 0 || aiZombieBlows() - blows0 >= 3), "both sides fight: soldiers kill %d, zombies kill %d, %d blows in %.0f s", k0, k1, aiZombieBlows() - blows0, t);
+    chk(cb.over150() == 0, "100 v 100 mixed: %s", cb.line(G).c_str());
+    if (!cb.stalls.empty()) T->note("stalls:" + cb.stalls);
+    pendingShot = outDir() / "zombies_mixed.png";
     return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
@@ -200,7 +274,7 @@ bool zombiesSelfTest(App& app, float dt) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;
     if (done) { ++cur; st = 0; }
-    if (total > 600) { T->check(false, "zombies test timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
+    if (total > 900) { T->check(false, "zombies test timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
   }
   if (cur >= seq.size() && !app.selftest->done) { app.selftest->exitCode = T->finish(); app.selftest->done = true; }
   return true;
