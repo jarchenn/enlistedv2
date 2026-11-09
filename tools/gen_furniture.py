@@ -1573,6 +1573,10 @@ def gramophone(root):
         d *= grow
     c = [base[k] + ax[k] * (t + 0.008) for k in range(3)]
     a.cyl(c, d * 1.04, 0.012, "brass", "horn", n=12, rot=[52, 0, 0])                            # rolled rim
+    c2 = [base[k] + ax[k] * (t - 0.004) for k in range(3)]
+    a.cyl(c2, d * 0.9, 0.006, "record", "horn", n=12, rot=[52, 0, 0])                           # the dark throat inside the bell
+    c3 = [base[k] + ax[k] * (t - 0.03) for k in range(3)]
+    a.cyl(c3, d * 0.55, 0.006, "record", "horn", n=12, rot=[52, 0, 0])
     return gx2_write(a, root, [0.36, 0.36], fragments=["horn"], keep=["case", "deck"])
 
 
@@ -1705,9 +1709,9 @@ def coat_stand(root):
     a.r([0.17, 1.38, -0.02], [0.12, 0.6, 0.3], "coat_blue", "coats", 0.04, rot=[0, 0, -5])
     a.r([0.15, 1.6, -0.02], [0.13, 0.1, 0.3], "coat_blue", "coats", 0.04)
     # felt hat on top, umbrella in the ring
-    a.cyl([0, 1.93, 0], 0.3, 0.012, "felt_hat", "hat", seg=20)
-    a.cyl([0, 1.98, 0], 0.17, 0.1, "felt_hat", "hat", top=0.85, seg=16)
-    a.cyl([0, 1.985, 0], 0.175, 0.025, "scarf", "hat", seg=16)
+    a.cyl([0, 1.893, 0], 0.3, 0.012, "felt_hat", "hat", seg=20)
+    a.cyl([0, 1.945, 0], 0.17, 0.1, "felt_hat", "hat", top=0.85, seg=16)
+    a.cyl([0, 1.912, 0], 0.175, 0.025, "scarf", "hat", seg=16)
     tube(a, [-0.12, 0.43, -0.1], [-0.17, 1.15, -0.13], 0.045, "umbrella", "umbrella")
     a.arch([-0.175, 1.18, -0.13], [0.06, 0.05, 0.014], "walnut", "umbrella", th=0.014, rot=[0, 30, 0])
     a.col([0, 0.95, 0], [0.5, 1.9, 0.5])
