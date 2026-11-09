@@ -20,10 +20,12 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
     g.grass = 1; g.grassWind = false; g.renderDist = 600; g.particles = 0.6f; g.ivy = false;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
+    g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::High) {
     g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;
     g.grass = 3; g.renderDist = 2500; g.particles = 1.5f;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
+    g.materials = 2;                                     // GX5: + parallax on height-capable texture sets
   }
   return g;
 }
@@ -44,7 +46,7 @@ json UserSettings::toJson() const {
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass}, {"grassWind", g.grassWind},
                   {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
-                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy},
+                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}}},
@@ -68,6 +70,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.shafts = q.value("lightShafts", g.shafts); g.ssr = q.value("ssr", g.ssr); g.ssao = q.value("ssao", g.ssao); g.ssaoFull = q.value("ssaoFullRes", g.ssaoFull);
     g.bloom = q.value("bloom", g.bloom); g.taa = q.value("taa", g.taa); g.taaPhases = std::clamp(q.value("taaPhases", g.taaPhases), 1, 64);
     g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 3); g.grassWind = q.value("grassWind", g.grassWind);
+    g.materials = std::clamp(q.value("materialDetail", g.materials), 0, 2);
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
@@ -183,6 +186,7 @@ void Settings::apply(App& app) {
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
   R.setMsaa(g.msaa);
+  R.q.matLayer = g.materials;   // GX5 (docs/graphics-overhaul.md#gx5)
   app.ivyOn = g.ivy;
   R.clouds = g.clouds;
   R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
@@ -209,7 +213,7 @@ void Settings::capture(const App& app) {
   g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds;
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
   g.grass = (int)app.grass.quality; g.grassWind = app.grass.nearWind;
-  g.msaa = R.msaa(); g.ivy = app.ivyOn;
+  g.msaa = R.msaa(); g.ivy = app.ivyOn; g.materials = R.q.matLayer;
   s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers;
   s.editorFly = navState().speedMult;
 }
@@ -301,6 +305,8 @@ void settingsWindow(App& app) {
       }
       ImGui::SameLine(); ImGui::Checkbox("Grass wind", &g.grassWind);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Wind sway on the grass near you (within ~13 m; distant grass is always still). Off saves a little GPU time.");
+      { const char* mq[] = {"Low", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Material detail", &g.materials, mq, 3); }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium: wear and grime by room, corner shading, wall decals (stains, soot, cracks, scuffs).\nHigh: also parallax relief on textured walls. Low: the base materials.");
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Particle budget", &g.particles, 0.25f, 2.5f, "x %.2f");
       ImGui::SeparatorText("Lighting");
       {   // L2 (docs/lighting.md): time of day is personal (kept when a preset is picked); the rest belongs to the presets

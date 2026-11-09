@@ -430,6 +430,12 @@ uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world str
 uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
 uniform int uCapture;              // L2 probe capture: radiance + front-facing flag, no emission
 uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
+// uMatLayer (GX5 layered materials: 0 off (Low, probe captures), 1 on, 2 High) is declared with the L4 hooks (textures.cpp)
+struct SDec { vec4 a, b, c; };   // GX5 static decals (static_decals.h): centre + type, normal + seed, half size + strength + variant
+layout(std430, binding = 10) readonly buffer NmkStaticDecals { SDec gSD[]; };
+uniform vec4 uRoomDec[16]; uniform vec4 uExtDec; uniform int uSDecOn;
+uniform int uGxDebug;   // NMK_GX5_DEBUG=1: red = interior room found (green = past 16), blue = decals in its list
+uniform ivec2 uRoomX;   // GX5: rooms past the 16 in uniforms, as records in gSD (a = room A, b = room B, c = decal range): first, count
 layout(location=0) out vec4 oColor;
 layout(location=1) out float oDist;   // eye distance, only stored during the first-person pass (depth of field)
 layout(location=2) out vec4 oAmb;     // indirect light (screen-space AO), world pass only
@@ -458,8 +464,16 @@ int roomAt(vec3 p){
     vec4 a = uRoomA[k], b = uRoomB[k];
     if (p.x >= a.x && p.x <= a.z && p.z >= a.y && p.z <= a.w && p.y >= b.x - 0.08 && p.y <= b.y) return k;
   }
+  for (int j = 0; j < 96; ++j) {   // GX5: large buildings (the chateau): the rest from the decal buffer
+    if (j >= uRoomX.y) break;
+    vec4 a = gSD[uRoomX.x + j].a, b = gSD[uRoomX.x + j].b;
+    if (p.x >= a.x && p.x <= a.z && p.z >= a.y && p.z <= a.w && p.y >= b.x - 0.08 && p.y <= b.y) return 16 + j;
+  }
   return -1;
 }
+vec4 roomA(int k){ return k < 16 ? uRoomA[k] : gSD[uRoomX.x + k - 16].a; }
+vec4 roomB(int k){ return k < 16 ? uRoomB[k] : gSD[uRoomX.x + k - 16].b; }
+vec4 roomDec(int k){ return k < 16 ? uRoomDec[k] : gSD[uRoomX.x + k - 16].c; }
 // pattern 1's course / block layout (wallfield.cpp stoneId mirrors it, so breaches follow these joints)
 void stoneLayout(vec2 uv, out vec2 id, out float e, out float u, out float vr){
   float band = floor(uv.y / 0.62), fy = uv.y - band * 0.62;
@@ -506,6 +520,23 @@ float sillRunoff(vec3 p){
   }
   return r;
 }
+// GX5: 1 at a window's interior jamb / head / sill, fading over 0.5 m (asset space; sills: centre, half width, top)
+float openingNear(vec3 p, vec3 an){
+  float r = 0.0;
+  for (int k = 0; k < 12; ++k) {
+    if (k >= uSills) break;
+    vec4 a = uSillA[k], b = uSillB[k];
+    vec2 n = b.xy, t = vec2(-n.y, n.x);
+    if (abs(dot(an.xz, n)) < 0.7) continue;
+    vec2 d = p.xz - a.xz;
+    if (abs(dot(d, n)) > 1.2) continue;
+    float top = b.z > a.y ? b.z : a.y + 1.3;
+    vec2 e = vec2(abs(dot(d, t)) - a.w, max(a.y - p.y, p.y - top));
+    float dist = length(max(e, vec2(0.0))) + min(max(e.x, e.y), 0.0);
+    r = max(r, 1.0 - smoothstep(0.0, 0.5, abs(dist)));
+  }
+  return r;
+}
 // herringbone: blocks N x 1 (in block widths); returns block-local coords (along, across) and an id
 // (tiling: H_k = [k, k+N) x [k, k+1), V_k = [N+k, N+k+1) x [k+1-N, k+1), translated by m (N, -N); the strips
 // overlap in x - y, so the neighbouring strip is tried too -- verified exact by sampling)
@@ -533,6 +564,153 @@ float hexEdge(vec2 h){ h = abs(h); return 0.5 - max(dot(h, vec2(0.5, 0.8660254))
 float woodGrain(float along, float across, float seed){
   return vnoise(vec3(along * 1.4, across * 52.0, seed)) * 0.55 + vnoise(vec3(along * 0.35, across * 150.0, seed + 3.0)) * 0.3
        + 0.15 * smoothstep(0.3, 0.7, fract(across * 18.0 + vnoise(vec3(along * 0.8, across * 6.0, seed)) * 2.5));
+}
+// ---- GX5 layered materials: inputs the room finishes set (pattern 20 walls, 21 floors / ceilings), read by gxLayer.
+// gIn 1 = an interior surface with a known room: height above its floor, distance along the surface to the nearest room
+// corner (walls) or room edge (floors, ceilings), and to the ceiling.
+float fbm2(vec3 p){ return 0.66*vnoise(p) + 0.34*vnoise(p*2.03); }   // GX5: two octaves where four were too dear for a per-pixel mask
+int gIn = 0; float gFloorY = 9.0, gCornerD = 9.0, gCeilD = 9.0;
+float gWear = -1.0;   // per-room wear (pattern 20 sets it: rooms of one house range from kept to ruined); < 0 = the copy's
+float gSeam = 1.0;   // seam / corner occlusion (also dims the direct lamp light a little there)
+float gDetH = 0.0;   // detail relief (m), added to the derivative bump
+// Mask-driven wear and grime over the base material (brief section 1): grime gathers at the floor, in room corners and
+// under the ceiling (smoke), with world-space blotches, scaled by the building's wear, so one finish reads clean in one
+// house and grimy in the next; roughness breakup on every surface; a high-frequency detail relief on walls; ~0.5 m seam
+// occlusion at wall-wall, wall-floor and wall-ceiling joints (the flat lighting there made rooms read as boxes).
+vec3 gDbg = vec3(0.0);   // NMK_GX5_DEBUG=2: decal tests passed (facing, plane, box)
+int gRoom = -1;      // the room whose finish this fragment took (pattern 20 / 21), for its decal list
+float gDecH = 0.0;   // decal relief (m)
+// ---- GX5 static decals, evaluated in the material: each changes albedo, roughness, relief and occlusion of the surface
+// under it (asset space, box tested against the decal's plane; only surfaces facing the decal's normal take it)
+float crackPath(vec2 q, float seed, float w){   // q: x across (m), y along the crack (m); a wandering hairline with a branch
+  float x = (fbm(vec3(q.y*2.2, seed*7.0, 1.0)) - 0.5)*0.22 + (vnoise(vec3(q.y*9.0, seed*3.0, 2.0)) - 0.5)*0.035;
+  float d = abs(q.x - x);
+  float bx = x + (q.y - 0.35)*0.5*(seed - 0.5)*2.0 + (vnoise(vec3(q.y*11.0, seed*5.0, 4.0)) - 0.5)*0.03;
+  float br = (q.y > 0.35 + 0.3*seed) ? abs(q.x - bx) : 9.0;
+  float fw = max(w, gPix*0.7);
+  return max(1.0 - smoothstep(0.0, fw, d), (1.0 - smoothstep(0.0, fw*0.7, br))*0.8)*(w/fw);
+}
+void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
+  vec4 r = gRoom >= 0 && gIn == 1 ? roomDec(gRoom) : uExtDec;
+  int first = int(r.x + 0.5), n = int(r.y + 0.5);
+  n = min(n, uMatLayer == 2 ? 40 : 16);   // the list is priority sorted: Medium keeps the most telling 24
+  for (int i = 0; i < 40; ++i) {
+    if (i >= n) break;
+    vec4 Db = gSD[first + i].b;                    // facing first, so the other two records are fetched only by decals on this wall
+    vec3 nd = Db.xyz;
+    gDbg.x = max(gDbg.x, 0.3);
+    if (dot(an, nd) < 0.6) continue;
+    gDbg.x = 1.0;
+    vec4 Da = gSD[first + i].a;
+    vec3 d = vAp - Da.xyz;
+    if (abs(dot(d, nd)) > 0.25) continue;
+    gDbg.y = 1.0;
+    SDec D; D.a = Da; D.b = Db; D.c = gSD[first + i].c;
+    vec3 t = abs(nd.y) > 0.7 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), nd));
+    vec3 bt = cross(nd, t);
+    vec2 hs = D.c.xy;
+    vec2 q = vec2(dot(d, t), dot(d, bt));   // metres from the centre
+    if (abs(q.x) > hs.x || abs(q.y) > hs.y) continue;
+    gDbg.z = 1.0;
+    vec2 u = q/hs;                           // -1..1
+    int type = int(D.a.w + 0.5); float sd = D.b.w, k = D.c.z;
+    float edgeF = (1.0 - smoothstep(0.75, 1.0, abs(u.x)))*(1.0 - smoothstep(0.75, 1.0, abs(u.y)));
+    if (type == 0) {        // crack: a hairline down from its top end, plaster slightly lifted along it
+      vec2 c = vec2(q.x, hs.y - q.y);
+      float w = 0.0018*(1.0 - 0.55*smoothstep(0.0, 2.0*hs.y, c.y));
+      float along = smoothstep(0.0, 0.05, c.y)*(1.0 - smoothstep(1.6*hs.y, 2.0*hs.y, c.y));
+      float m = crackPath(c, sd, w)*along;
+      float halo = crackPath(c, sd, 0.007)*along*(1.0 - m);   // grime caught along the crack: reads at range
+      alb *= 1.0 - 0.65*m*k - 0.14*halo*k;
+      gDecH -= 0.002*m*k; gDecH += 0.0003*halo*k; ao *= 1.0 - 0.35*m*k;
+    } else if (type == 1) { // water stain: a blot with dark tide lines, yellowed inside, drips below on walls
+      float wall = 1.0 - step(0.7, abs(nd.y));
+      vec2 p = u*vec2(1.0, 1.0) + vec2(0.0, -0.25*wall);
+      float rr = length(p*vec2(1.0, 0.85 + 0.3*wall)) + (fbm(vec3(u*2.2, sd*13.0)) - 0.5)*0.55;
+      float body = 1.0 - smoothstep(0.62, 0.7, rr);
+      float tide = (1.0 - smoothstep(0.0, 0.045, abs(rr - 0.66)))*0.9 + (1.0 - smoothstep(0.0, 0.03, abs(rr - 0.45 - 0.08*sd)))*0.45 + (1.0 - smoothstep(0.0, 0.025, abs(rr - 0.27)))*0.25;
+      float drip = wall*(1.0 - smoothstep(0.0, 0.035 + 0.02*vnoise(vec3(q.x*7.0, sd, 1.0)), abs(fract(q.x*2.3 + sd*5.0) - 0.5)*0.43))
+                 *step(fract(floor(q.x*2.3 + sd*5.0)*0.618 + sd), 0.45)*smoothstep(0.2, -0.95, u.y)*(1.0 - smoothstep(-0.95, -1.0, u.y))*step(u.y, 0.1);
+      float m = clamp(max(body*0.7 + tide*body*0.7, drip*0.6)*edgeF, 0.0, 1.0);
+      alb = mix(alb, alb*vec3(0.6, 0.5, 0.32), m*k); rough = mix(rough, min(1.0, rough + 0.08), m*k);
+      gDecH += 0.0004*tide*body*k;
+    } else if (type == 2) { // soot over a hearth: a plume widening upward, streaky, densest at the mantel and the ceiling
+      float y = u.y*0.5 + 0.5;                // 0 bottom .. 1 top
+      float wdt = 0.35 + 0.6*y + (fbm(vec3(q*3.0, sd*9.0)) - 0.5)*0.35;
+      float plume = 1.0 - smoothstep(wdt*0.55, wdt, abs(u.x));
+      float streaks = 0.75 + 0.25*vnoise(vec3(q.x*14.0, q.y*1.2, sd*3.0));
+      float m = plume*streaks*(0.55 + 0.45*smoothstep(0.75, 1.0, y) + 0.4*(1.0 - smoothstep(0.0, 0.18, y)))*(1.0 - smoothstep(0.92, 1.0, abs(u.x)));
+      m *= smoothstep(-1.0, -0.8, u.y);
+      alb = mix(alb, alb*vec3(0.24, 0.22, 0.2), clamp(m*k, 0.0, 0.9)); rough = mix(rough, 0.97, m*k);
+    } else if (type == 3) { // scuffs: horizontal rubs and knocks above the skirting (furniture, boots, mops)
+      float rub = smoothstep(0.55, 0.85, vnoise(vec3(q.x*3.0, q.y*28.0, sd*11.0)))*smoothstep(0.4, 0.8, vnoise(vec3(q.x*1.2, sd*5.0, 3.0)));
+      float knock = smoothstep(0.78, 0.9, vnoise(vec3(q*vec2(9.0, 14.0), sd*7.0)));
+      float m = max(rub, knock)*edgeF;
+      alb = mix(alb, alb*vec3(0.72, 0.7, 0.66), m*0.8*k); rough = mix(rough, rough*0.8, rub*k*0.6);
+      gDecH -= 0.0006*knock*k;
+    } else if (type == 4) { // bullet pocks: craters with a spalled ring showing the coat underneath
+      float m = 0.0, ring = 0.0, hole = 0.0;
+      for (int j = 0; j < 6; ++j) {
+        vec2 c = (vec2(hash12(vec2(sd*31.0, float(j))), hash12(vec2(float(j), sd*17.0)))*2.0 - 1.0)*hs*0.75;
+        float rad = 0.012 + 0.018*hash12(vec2(float(j)*3.0, sd));
+        float dd = length(q - c) + (vnoise(vec3((q - c)*90.0, float(j))) - 0.5)*rad*0.6;
+        hole = max(hole, 1.0 - smoothstep(rad*0.35, rad*0.6, dd));
+        m = max(m, 1.0 - smoothstep(rad*0.6, rad, dd));
+        ring = max(ring, (1.0 - smoothstep(rad, rad*2.6, dd))*smoothstep(0.35, 0.7, vnoise(vec3(q*60.0, float(j)))));
+      }
+      alb = mix(alb, vec3(0.62, 0.6, 0.55)*mix(1.0, 0.85, sd), max(m, ring*0.5)*k);
+      alb *= 1.0 - 0.75*hole*k;
+      gDecH -= (0.006*m + 0.001*ring)*k; ao *= 1.0 - 0.5*hole*k; rough = mix(rough, 0.98, m*k);
+    } else if (type == 5) { // rain streaks below a sill
+      float y = 1.0 - (u.y*0.5 + 0.5);        // 0 at the sill .. 1 at the bottom
+      float s = smoothstep(0.45, 0.8, vnoise(vec3(q.x*16.0, y*0.6, sd*9.0)))*(0.6 + 0.4*vnoise(vec3(q.x*40.0, y*3.0, sd)));
+      float m = s*(1.0 - smoothstep(0.35 + 0.6*vnoise(vec3(q.x*6.0, sd, 2.0)), 1.0, y))*(1.0 - smoothstep(0.85, 1.0, abs(u.x)));
+      alb = mix(alb, alb*vec3(0.5, 0.5, 0.46), m*k); rough = mix(rough, rough*0.8, m*k);
+    } else if (type == 6) { // picture outline: the paper under a frame kept its colour (cleaner, less faded) + the nail
+      float frameM = (1.0 - smoothstep(0.88, 0.96, abs(u.x)))*(1.0 - smoothstep(0.88, 0.96, abs(u.y)));
+      vec2 nail = q - vec2(0.0, hs.y*1.18);
+      float nailH = 1.0 - smoothstep(0.0025, 0.004, length(nail));
+      alb *= 1.0 + 0.09*frameM*k; alb = mix(alb, alb*vec3(1.0, 0.98, 0.94), frameM*0.5*k);
+      alb *= 1.0 - 0.8*nailH; gDecH -= 0.002*nailH;
+    } else {                // damp: a mottled grey-green tide rising from the floor in a corner, flaking at its rim
+      float y = u.y*0.5 + 0.5;
+      float edge = 1.0 - y + (fbm(vec3(q*3.0, sd*11.0)) - 0.5)*0.6;
+      float m = smoothstep(0.15, 0.4, edge)*(1.0 - smoothstep(0.7, 1.0, abs(u.x)));
+      float rim = (1.0 - smoothstep(0.0, 0.06, abs(edge - 0.2)))*m;
+      float mould = smoothstep(0.62, 0.8, vnoise(vec3(q*45.0, sd)))*m;
+      alb = mix(alb, alb*vec3(0.66, 0.7, 0.6), m*0.75*k); alb *= 1.0 - 0.35*mould*k - 0.12*rim*k;
+      rough = mix(rough, 0.95, m*k); gDecH += 0.0005*rim*k;
+    }
+  }
+}
+void gxLayer(int pat, vec3 an, inout vec3 alb, inout float rough, inout float ao){
+  float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
+  float wearK = clamp(gWear >= 0.0 ? gWear : uInst.y, 0.0, 2.0);
+  float rb = uMatLayer == 2 ? fbm2(vW*2.3 + 31.0) : vnoise(vW*2.3 + 31.0), rb2 = uMatLayer == 2 ? vnF(vW*19.0 + 7.0, 19.0) : 0.5;   // High: a finer octave
+  rough = clamp(rough*(0.8 + 0.34*rb + 0.12*(rb2 - 0.5)), 0.05, 1.0);   // specular breakup: nothing has uniform roughness
+  bool wall = pat == 20 || pat == 17 || pat == 3 || pat == 18 || pat == 19 || pat == 22 || pat == 1 || pat == 9 || pat == 11 || pat == 15;
+  if (uMatLayer == 2 && wall && vert > 0.0) gDetH = ((vnF(vW*170.0, 170.0) - 0.5)*0.00022 + (vnF(vW*52.0 + 3.0, 52.0) - 0.5)*0.0004)*vert;
+  if (gIn != 1) return;
+  float n1 = vnoise(vW*1.7 + 2.0), n2 = uMatLayer == 2 ? fbm2(vW*0.9 + 5.0) : vnoise(vW*0.9 + 5.0);
+  float y = gFloorY, cd = gCornerD, cl = gCeilD;
+  float blot = smoothstep(0.55, 0.85, uMatLayer == 2 ? fbm2(vW*0.45 + uInst.x*9.0) : vnoise(vW*0.45 + uInst.x*9.0));
+  float g;
+  if (pat == 21) {   // floors: dirt along the skirting and into the corners; ceilings: smoke at the edges
+    float edge = 1.0 - smoothstep(0.0, 0.18 + 0.3*n1, cd);
+    g = clamp(edge*0.8 + blot*0.25, 0.0, 1.0)*(0.3 + 0.4*wearK);
+    gSeam = 0.62 + 0.38*smoothstep(0.0, 0.45, cd);
+  } else {
+    float foot = 1.0 - smoothstep(0.0, 0.22 + 0.35*n1, y);
+    float corner = 1.0 - smoothstep(0.0, 0.25 + 0.45*n2, cd);
+    float top = 1.0 - smoothstep(0.0, 0.25 + 0.35*n1, cl);
+    g = clamp(max(max(foot*0.85, corner*0.75), top*0.8) + blot*0.3, 0.0, 1.0)*(0.3 + 0.42*wearK)*vert;
+    float hand = uMatLayer == 2 ? smoothstep(0.85, 1.0, y)*(1.0 - smoothstep(1.4, 1.7, y))*smoothstep(0.62, 0.85, vnoise(vW*vec3(3.0, 1.4, 3.0) + 11.0))*vert : 0.0;   // High
+    rough = mix(rough, rough*0.72, hand*0.5*wearK); alb *= 1.0 - 0.05*hand*wearK;   // greasy hand-height smudges
+    gSeam = (0.52 + 0.48*smoothstep(0.0, 0.5, cd))*(0.55 + 0.45*smoothstep(0.0, 0.45, y))*(0.6 + 0.4*smoothstep(0.0, 0.45, cl));
+  }
+  alb = mix(alb, alb*vec3(0.6, 0.55, 0.46), g*0.75);
+  rough = mix(rough, min(1.0, rough + 0.14), g);
+  ao *= gSeam;
 }
 void main(){
   if (uCapture == 1) gEyeOv = vEye;
@@ -611,6 +789,22 @@ void main(){
     float dirt = 1.0 - smoothstep(0.0, 0.5, fract(vAp.y) * 0.0 + (vAp.y - floor(vAp.y/3.0)*3.0));
     alb *= mix(1.0, 0.86, dirt*0.0);
     h = fbm(vAp*14.0); bump = 0.0012;
+    if (uMatLayer > 0 && abs(normalize(vAn).y) < 0.5) {   // GX5 two materials: the render over half-timber infill falls off
+      // to the brick nogging behind (more on worn copies, at the foot and under the beams), with a broken rim
+      vec2 uv = faceUV(vAp, vAn);
+      float lm = fbm(vec3(uv * 0.8, uInst.x * 23.0 + 61.0)) + 0.14 * (1.0 - smoothstep(0.0, 1.2, vAp.y)) + 0.05 * (vnoise(vec3(uv * 8.0, 62.0)) - 0.5);
+      float thr = 0.86 - 0.12 * uInst.y, fw = max(0.006, fwidth(lm) * 1.5);
+      float lost = smoothstep(thr, thr + fw, lm), rimP = smoothstep(thr - 0.02, thr, lm) * (1.0 - lost);
+      if (lost + rimP > 0.0) {
+        float row = floor(uv.y / 0.075), xo = uv.x + mod(row, 2.0) * 0.1175, bi = floor(xo / 0.235);
+        vec2 f = vec2(fract(xo / 0.235) * 0.235, fract(uv.y / 0.075) * 0.075);
+        float e = min(min(f.x, 0.235 - f.x), min(f.y, 0.075 - f.y));
+        float mort = lineAA(1.0 - smoothstep(0.004, 0.01, e), 0.008, 0.2);
+        vec3 brick = mix(vec3(0.44, 0.22, 0.14) * (0.72 + 0.42 * hash12(vec2(bi, row) + uInst.x * 9.0)), vec3(0.52, 0.5, 0.45), mort);
+        alb = mix(mix(alb, alb * 1.05, rimP), brick, lost); rough = mix(rough, 0.95, max(lost, rimP));
+        h = mix(h, 0.0, lost); bump = 1.0; h = h * 0.0012 - 0.012 * lost - 0.003 * mort * lost + 0.001 * rimP; ao *= 1.0 - 0.25 * lost * mort;
+      }
+    }
   } else if (pat == 4) { // slate courses (part-local; grain axis = slope)
     int na = domAxis(vPn);
     if (na == 1) {
@@ -932,12 +1126,16 @@ void main(){
     vec3 an = normalize(vAn);
     float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
     int ri = roomAt(vAp + an * 0.12);
-    vec4 rb = ri >= 0 ? uRoomB[ri] : vec4(-100.0, 100.0, float(grain % 16), 0.0);
+    vec4 rb = ri >= 0 ? roomB(ri) : vec4(-100.0, 100.0, float(grain % 16), 0.0);
     int code = int(rb.z + 0.5);
     float y = vAp.y - rb.x;
     vec2 uv = faceUV(vAp, vAn);
     float s = uInst.x * 13.0 + float(ri) * 1.7;
-    float wear = uInst.y, pv = uInst.z;
+    if (ri >= 0) { vec4 ra = roomA(ri); gIn = 1; gRoom = ri; gFloorY = y; gCeilD = rb.y - vAp.y;
+      gCornerD = abs(an.x) > abs(an.z) ? min(vAp.z - ra.y, ra.w - vAp.z) : min(vAp.x - ra.x, ra.z - vAp.x); }   // GX5 layer inputs
+    float rwf = ri >= 0 && uMatLayer > 0 ? roomDec(ri).z : 0.0;
+    float wear = uInst.y * (rwf > 0.0 ? rwf : 1.0), pv = uInst.z;   // GX5: per-room wear (static_decals.cpp: 0.4 .. 1.6)
+    gWear = wear;
     vec3 tints[5] = vec3[5](vec3(0.71, 0.68, 0.6), vec3(0.68, 0.61, 0.46), vec3(0.56, 0.61, 0.62), vec3(0.6, 0.63, 0.53), vec3(0.69, 0.58, 0.52));
     vec3 tint = tints[int(hash12(vec2(s, 3.0)) * 4.99)];
     float n = fbm(vec3(uv * 1.4, s));
@@ -970,10 +1168,30 @@ void main(){
         float stem = (1.0 - smoothstep(0.01, 0.022, abs(f.x + 0.18 * (f.y + 0.3)))) * step(-0.36, f.y) * step(f.y, 0.0);
         float leaf = 1.0 - smoothstep(0.03, 0.05, length((f - vec2(-0.07, -0.2)) * vec2(1.0, 2.2)));
         m = max(flower, max(stem * 0.8, leaf * 0.7));
+        if (uMatLayer > 0 && hash12(vec2(s, 21.0)) > 0.5) {   // GX5: damask (target_02): a mirrored medallion, side scrolls and
+          // leaves on a half-drop lattice, printed tone on tone and embossed
+          vec2 dc = vec2(0.21, 0.3), dg = uv / dc; float dr = floor(dg.y); dg.x += mod(dr, 2.0) * 0.5;
+          vec2 p = fract(dg) - 0.5; float ax = abs(p.x) * 0.7;   // metres-like aspect (cell 0.21 x 0.3)
+          // palmette: petals fanning up from a low centre, an outline ring cut through them, a bud above, a stem below
+          vec2 cc = vec2(ax, p.y + 0.1);
+          float th = atan(cc.x, cc.y), rr = length(cc);
+          float petal = (1.0 - smoothstep(-0.012, 0.0, rr - (0.15 + 0.06 * abs(cos(th * 3.5))))) * (1.0 - smoothstep(1.35, 1.55, abs(th)));
+          float ring = 1.0 - smoothstep(0.004, 0.011, abs(rr - 0.075));
+          float eye = 1.0 - smoothstep(0.025, 0.032, rr);
+          float palm = max(petal * (1.0 - ring), eye);
+          float bud = 1.0 - smoothstep(0.022, 0.03, length(vec2(ax, (p.y - 0.29) * 0.75)));
+          float stem = (1.0 - smoothstep(0.006, 0.011, ax)) * step(-0.42, p.y) * step(p.y, -0.15);
+          // ogee lattice: two wavy scrolls meeting at the cell edges, with leaves where they cross
+          float vine = 1.0 - smoothstep(0.007, 0.014, abs(ax - 0.21 - 0.075 * cos(p.y * 6.2832)));
+          float lf = 1.0 - smoothstep(0.024, 0.036, length((vec2(ax, abs(p.y)) - vec2(0.3, 0.44)) * vec2(1.0, 1.6)));
+          m = max(max(palm, bud), max(max(vine * 0.9, lf), stem * 0.8));
+        }
       }
       m = mix(m, 0.18, 1.0 - res(40.0));   // motif strokes under a pixel: the paper's mean tone
+      float fib = uMatLayer == 2 ? vnF(vec3(uv * vec2(260.0, 90.0), s + 6.0), 260.0) : 0.5;   // GX5: paper fibre (High)
       vec3 motif = ground * mix(vec3(0.62, 0.55, 0.52), vec3(0.55, 0.6, 0.58), hash12(vec2(s, 9.0)));
-      vec3 paper = mix(ground, motif, m * 0.6);
+      bool damask = code != 2 && uMatLayer > 0 && hash12(vec2(s, 21.0)) > 0.5;
+      vec3 paper = mix(ground, damask ? ground * vec3(0.84, 0.82, 0.8) : motif, m * (damask ? 0.55 : 0.6));   // damask: printed tone on tone
       float fade = smoothstep(0.35, 0.8, fbm(vec3(uv * 0.22, s + 4.0)));
       paper = mix(paper, mix(paper, vec3(dot(paper, vec3(0.333))), 0.5) * 1.08, fade * 0.5);
       float sx = abs(fract(uv.x / 0.53 + 0.5) - 0.5) * 0.53;
@@ -985,7 +1203,10 @@ void main(){
       float peel = smoothstep(pthr, pthr + 0.01, peelM);
       float curl = smoothstep(pthr - 0.025, pthr, peelM) * (1.0 - peel);
       float top = code == 3 ? 1.0 : 0.0;
-      if (y > 0.98 * top) { c = mix(paper * (1.0 + 0.12 * curl), plaster * vec3(0.95, 0.94, 0.9), peel); hh = 0.4 + 0.3 * (1.0 - peel) + 0.25 * curl + seam * 0.2; aoW -= 0.2 * peel * curl; }
+      paper *= 0.97 + 0.05 * fib;
+      if (y > 0.98 * top) { c = mix(paper * (1.0 + 0.12 * curl), plaster * vec3(0.95, 0.94, 0.9), peel); hh = 0.4 + 0.3 * (1.0 - peel) + 0.25 * curl + seam * 0.2; aoW -= 0.2 * peel * curl;
+        if (uMatLayer > 0) {   // GX5: embossed print (0.5 mm) with its edges in shadow, fibre relief; the print a touch satin
+          hh += (0.16 * m + 0.03 * fib) * (1.0 - peel); aoW -= 0.06 * m * (1.0 - m) * 4.0 * (1.0 - peel); rough = mix(rough, rough * 0.82, m * (1.0 - peel)); } }
     }
     if ((code == 3 || code == 4) && vert > 0.5 && y < 1.03) {   // wainscot: vertical boards, dado rail, skirting
       float bx = uv.x / 0.105, bi = floor(bx), fb = fract(bx);
@@ -1011,6 +1232,46 @@ void main(){
       hh = 0.9 - 0.3 * smoothstep(0.1, 0.13, y); rough = 0.6;
       aoW -= 0.12 * (1.0 - smoothstep(0.0, 0.03, abs(y - 0.13)));
     }
+    float hLoss = 0.0;
+    bool trimHere = ((code == 3 || code == 4) && y < 1.03) || (ri >= 0 && y < 0.13 && code != 5);
+    if (uMatLayer > 0 && vert > 0.5 && !trimHere) {
+      // GX5 two materials (target_08): plaster and its paper or paint fall away to the brick behind, more with the wear,
+      // at the foot and where the noise mask says; a torn ring of bare plaster round each loss and a broken rim
+      // where plaster really fails: the lower wall, corners and round windows; mid-wall at eye height only cracks and
+      // damp. Kept rooms (wear < 0.85) lose none; each 6 m of wall hosts at most one loss region (half the cells none),
+      // seeded per wall plane so opposite walls never mirror.
+      float plane = dot(vAp, abs(an)) * 1.37 + dot(an, vec3(3.1, 5.3, 7.7)) * 4.1;
+      vec2 lu = uv + vec2(plane, 0.0);
+      float wearL = clamp((wear - 0.6) / 0.8, 0.0, 1.0);
+      float lm = -1.0;
+      if (wearL > 0.0) {
+        float cellX = floor(lu.x / 6.0), hc = hash12(vec2(cellX, s + plane + 71.0));
+        float cx = (cellX + 0.2 + 0.6 * hash12(vec2(cellX, s + plane + 72.0))) * 6.0;
+        float region = step(hc, 0.5) * (1.0 - smoothstep(0.5, 1.4, abs(lu.x - cx)));
+        float broad = fbm2(vec3(lu * 1.15, s + 51.0)) * region;
+        float foot = 1.0 - smoothstep(0.0, 1.0, y), corner = 1.0 - smoothstep(0.0, 0.8, gCornerD);
+        lm = 0.6 * broad + 0.32 * foot + 0.28 * corner + 0.3 * openingNear(vAp, an)
+           + 0.1 * (vnoise(vec3(lu * 6.0, s + 52.0)) - 0.5) + (uMatLayer == 2 ? 0.05 * (vnoise(vec3(lu * 19.0, s + 53.0)) - 0.5) : 0.0);
+      }
+      float thr = 0.74 - 0.12 * wearL, fw = max(0.006, fwidth(lm) * 1.5);
+      float lost = smoothstep(thr, thr + fw, lm);
+      float rimP = smoothstep(thr - 0.022, thr, lm) * (1.0 - lost);
+      float tear = smoothstep(thr - 0.06, thr - 0.022, lm) * (1.0 - smoothstep(thr - 0.022, thr, lm));
+      if (lost + rimP + tear > 0.0) {
+        float row = floor(uv.y / 0.075), xo = uv.x + mod(row, 2.0) * 0.1175, bi = floor(xo / 0.235);
+        vec2 f = vec2(fract(xo / 0.235) * 0.235, fract(uv.y / 0.075) * 0.075);
+        float e = min(min(f.x, 0.235 - f.x), min(f.y, 0.075 - f.y));
+        float mort = lineAA(1.0 - smoothstep(0.004, 0.01, e), 0.008, 0.2);
+        vec3 bc = vec3(0.42, 0.21, 0.13) * (0.72 + 0.42 * hash12(vec2(bi, row) + s)) * (0.88 + 0.2 * vnF(vec3(uv * 40.0, 3.0), 40.0));
+        vec3 brick = mix(bc, vec3(0.5, 0.47, 0.42) * (0.85 + 0.2 * n), mort);
+        brick = mix(brick, plaster * 0.9, smoothstep(0.55, 0.8, vnoise(vec3(uv * 9.0, s + 53.0))) * 0.45);   // plaster left in the joints
+        vec3 bare = plaster * vec3(0.96, 0.94, 0.88) * (0.9 + 0.1 * grn);
+        c = mix(c, bare, tear); c = mix(c, bare * 1.04, rimP); c = mix(c, brick, lost);
+        hLoss = -0.014 * lost - 0.0006 * tear + 0.0012 * rimP - 0.004 * mort * lost + 0.002 * (vnF(vec3(uv * 25.0, 4.0), 25.0) - 0.5) * lost;
+        aoW -= 0.28 * lost * mort + 0.12 * rimP;
+        rough = mix(rough, 0.95, max(lost, rimP));
+      }
+    }
     if (ri >= 0 && vert > 0.5) {   // contact shading at the floor and ceiling, damp band, restrained cracks
       float footD = 1.0 - smoothstep(0.0, 0.32 + 0.25 * vnoise(vAp * 2.0), y);
       c = mix(c, c * vec3(0.78, 0.76, 0.7), footD * 0.3 * wear * (code == 4 || code == 3 ? 0.4 : 1.0));
@@ -1023,13 +1284,15 @@ void main(){
     c = mix(c, c * vec3(1.03, 1.03, 1.04), patchM * 0.5 * plasterLike);
     c *= 1.0 - 0.06 * clamp((0.5 - bulge) * 2.0, 0.0, 1.0) * plasterLike;   // dust and smoke settle in the hollows
     // relief (m): the finish's own texture (3.2 mm scale), bulges +-6 mm, patches 2 mm proud, cracks
-    alb = c; h = (hh - crack * 0.4) * 0.0032 + (0.012 * (bulge - 0.5) + 0.002 * patchM) * plasterLike; bump = 1.0; ao = clamp(aoW, 0.4, 1.0);
+    alb = c; h = (hh - crack * 0.4) * 0.0032 + (0.012 * (bulge - 0.5) + 0.002 * patchM) * plasterLike + hLoss; bump = 1.0; ao = clamp(aoW, 0.4, 1.0);
     gCavity = 1.0 - 0.15 * clamp((0.5 - bulge) * 2.0, 0.0, 1.0) * plasterLike - 0.1 * crack;
   } else if (pat == 21) { // floor finish by room (docs/interiors.md): worn boards, herringbone parquet, hexagonal
     // terracotta tomettes, stone flags, beaten earth; dirt at the room's edges, traffic polish in the middle
     vec3 an = normalize(vAn);
     vec2 q = vAp.xz;
     if (an.y < -0.5 || abs(an.y) < 0.5) {   // ceiling of the room below / cut faces: plain boards along x
+      int rc = an.y < -0.5 ? roomAt(vAp - vec3(0.0, 0.12, 0.0)) : -1;
+      if (rc >= 0) { vec4 ra = roomA(rc); gIn = 1; gRoom = rc; gCornerD = min(min(q.x - ra.x, ra.z - q.x), min(q.y - ra.y, ra.w - q.y)); }   // GX5 layer inputs
       float bw = 0.16, bi = floor(q.y / bw), fb = fract(q.y / bw);
       float seam = 1.0 - smoothstep(0.0, 0.04, min(fb, 1.0 - fb));
       float gr = woodGrain(q.x, q.y, bi);
@@ -1038,9 +1301,10 @@ void main(){
       h = 1.0 - seam; bump = 0.002; ao = 1.0 - 0.25 * seam;
     } else {
       int ri = roomAt(vAp + vec3(0.0, 0.06, 0.0));
-      int code = ri >= 0 ? int(uRoomB[ri].w + 0.5) : grain % 16;
-      vec4 ra = ri >= 0 ? uRoomA[ri] : vec4(q - 50.0, q + 50.0);
+      int code = ri >= 0 ? int(roomB(ri).w + 0.5) : grain % 16;
+      vec4 ra = ri >= 0 ? roomA(ri) : vec4(q - 50.0, q + 50.0);
       float edgeD = min(min(q.x - ra.x, ra.z - q.x), min(q.y - ra.y, ra.w - q.y));
+      if (ri >= 0) { gIn = 1; gCornerD = edgeD; }   // GX5 layer inputs
       float edgeDirt = ri >= 0 ? (1.0 - smoothstep(0.0, 0.3 + 0.2 * vnoise(vec3(q * 3.0, 1.0)), edgeD)) : 0.0;
       vec2 rc = (ra.xy + ra.zw) * 0.5, rh = max((ra.zw - ra.xy) * 0.5, vec2(0.6));
       float traffic = ri >= 0 ? 1.0 - smoothstep(0.15, 0.85, length((q - rc) / rh)) : 0.3;
@@ -1224,6 +1488,8 @@ void main(){
     alb *= 0.94 + 0.08*vnoise(vAp*7.0);
   }
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
+  if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
+  if (uSDecOn == 1 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
   if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
@@ -1248,9 +1514,9 @@ void main(){
   if (pat >= 17 && pat <= 22 && pat != 21) gNg = N;   // rough walls: relief ambient term in shade()
   if (uNoWallRelief == 1 && pat >= 17 && pat <= 22 && pat != 21) { bump = 0.0; gCavity = 1.0; gTexH = 0.0; gTexBump = false; gTexDN = vec3(0.0); }
   else gCavity = 1.0;
-  if (bump > 0.0 || gTexBump) {
+  if (bump > 0.0 || gTexBump || gDetH != 0.0 || gDecH != 0.0) {
     vec3 dpdx = dFdxFine(vW), dpdy = dFdyFine(vW);
-    float hb = h*bump + gTexH;   // L4: + the set's height (m)
+    float hb = h*bump + gTexH + gDetH + gDecH;   // L4: + the set's height (m); GX5: + the detail relief and the decals
     float dhx = dFdxFine(hb), dhy = dFdyFine(hb);
     vec3 r1 = cross(dpdy, N), r2 = cross(N, dpdx);
     float det = dot(dpdx, r1);
@@ -1264,6 +1530,12 @@ void main(){
   }
   if (gl_FrontFacing) N = normalize(N + gTexDN);   // L4: the set's normal map
   vec3 c = shade(vW, N, alb, rough, metal, ao);
+  if (uGxDebug == 2 && uCapture == 0) c = gDbg*0.8 + 0.05;
+  if (uGxDebug == 1 && uCapture == 0) {
+    vec4 rr = gRoom >= 0 && gIn == 1 ? roomDec(gRoom) : uExtDec;
+    c = vec3(gIn == 1 ? 0.6 : 0.05, gRoom >= 16 ? 0.6 : 0.05, clamp(rr.y/8.0, 0.0, 1.0))*(0.5 + 0.5*max(dot(N, vec3(0.3, 0.8, 0.5)), 0.0));
+  }
+  c *= mix(1.0, gSeam, 0.45);   // GX5: corners and seams also see less of the lamps and the window light
   if (uCapture == 1) { oColor = vec4(c*uTint.rgb, gl_FrontFacing ? 1.0 : 0.0); return; }
   c += vEmi*(uGlow*uEmissiveK);   // emission: into the HDR target before bloom, never into the indirect (AO) buffer
   c = applyFog(c, vW);
@@ -2355,8 +2627,9 @@ static const char* kToneFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect; uniform int uTonemap;
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
-uniform vec4 uGrade;          // content/settings/grade.json: saturation, vignette, split-tone strength, pivot luminance
-uniform vec3 uGradeLo, uGradeHi;   // shadow / highlight tints (multipliers around 1)
+// GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
+// highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
+uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
 vec3 toSRGB(vec3 c){ return mix(c*12.92, 1.055*pow(c, vec3(1.0/2.4))-0.055, step(0.0031308, c)); }
@@ -2373,8 +2646,21 @@ vec3 filmic(vec3 x){
   c = pow(c, vec3(1.10));                 // toe: a little more depth in the shadows without crushing them
   return clamp(c, 0.0, 1.0);
 }
+vec3 hdrAt(vec2 uv){
+  if (uGradeOn == 0 || uGradeCA <= 0.0) return texture(uHdr, uv).rgb;
+  vec2 d = (uv - 0.5)*uGradeCA*0.004;   // lateral colour fringe toward the corners
+  return vec3(texture(uHdr, uv + d).r, texture(uHdr, uv).g, texture(uHdr, uv - d).b);
+}
 void main(){
-  vec3 c = texture(uHdr, vUV).rgb;
+  vec3 c = hdrAt(vUV);
+  if (uGradeOn == 1 && uGradeSharpen > 0.0) {   // luminance unsharp mask in a compressed space, held back on strong edges (no halos)
+    vec2 tx = 1.0/vec2(textureSize(uHdr, 0));
+    vec3 nb = texture(uHdr, vUV + vec2(tx.x, 0.0)).rgb + texture(uHdr, vUV - vec2(tx.x, 0.0)).rgb + texture(uHdr, vUV + vec2(0.0, tx.y)).rgb + texture(uHdr, vUV - vec2(0.0, tx.y)).rgb;
+    float L = dot(c, vec3(0.2126, 0.7152, 0.0722)), Lb = dot(nb*0.25, vec3(0.2126, 0.7152, 0.0722));
+    float y = L/(1.0 + L), yb = Lb/(1.0 + Lb), dy = y - yb;
+    float ys = clamp(y + dy*uGradeSharpen*(1.0 - smoothstep(0.03, 0.18, abs(dy))), 0.0, 0.999);
+    c *= (ys/(1.0 - ys))/max(L, 1e-5);
+  }
   float bAmt = uBloomAmt;   // optic eyepiece: no bloom over its dark surround (the bloom is taken from the whole lit view)
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
@@ -2382,9 +2668,17 @@ void main(){
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
   // subdued, slightly desaturated period grade (grade.json): saturation, cool shadows / warm highlights, vignette
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
-  c = mix(vec3(l), c, uGrade.x);
-  c *= mix(vec3(1.0), mix(uGradeLo, uGradeHi, smoothstep(0.0, 2.0*uGrade.w, l)), uGrade.z);
-  vec2 q = vUV - 0.5; c *= 1.0 - dot(q,q)*uGrade.y;
+  vec2 q = vUV - 0.5;
+  if (uGradeOn == 1) {   // GX5: the muted, cool-shadow / warm-light grading of the brief's targets
+    c = mix(vec3(l), c, uGradeSat);
+    float sh = 1.0 - smoothstep(0.0, 0.42, l), hi = smoothstep(0.3, 0.95, l);
+    c *= mix(vec3(1.0), uGradeShadow, sh)*mix(vec3(1.0), uGradeHigh, hi);
+    c = clamp(c, 0.0, 1.0); c = mix(c, c*c*(3.0 - 2.0*c), uGradeContrast);
+    c *= 1.0 - dot(q,q)*uGradeVig;
+  } else {
+    c = mix(vec3(l), c, 0.93);
+    c *= 1.0 - dot(q,q)*0.16;
+  }
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
   oColor = vec4(toSRGB(c), 1.0);
 }
@@ -2488,6 +2782,14 @@ bool Renderer::init(int w, int h) {
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
   progSky = compile(kSkyVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");
+  {   // GX5 grade parameters (content/settings/grade.json; defaults when missing)
+    json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "grade.json")); } catch (...) { logf("grade: content/settings/grade.json missing or invalid (defaults)"); }
+    if (j.is_object()) {
+      grade.on = j.value("enabled", grade.on); grade.saturation = j.value("saturation", grade.saturation); grade.contrast = j.value("contrast", grade.contrast);
+      grade.vignette = j.value("vignette", grade.vignette); grade.sharpen = j.value("sharpen", grade.sharpen); grade.chromatic = j.value("chromaticAberration", grade.chromatic);
+      grade.shadowTint = jvec3(j.value("shadowTint", json()), grade.shadowTint); grade.highlightTint = jvec3(j.value("highlightTint", json()), grade.highlightTint);
+    }
+  }
   progExpo = compile(kFullVS, kExpoFS, "expo");
   progLine = compile(kLineVS, kLineFS, "line");
   progFx = compile(kFxVS, kFxFS, "fx");
@@ -2791,6 +3093,7 @@ Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
   DrawLocs l;
   l.model = U(p, "uModel"); l.tint = U(p, "uTint"); l.inst = U(p, "uInst"); l.snapAp = U(p, "uSnapAp"); l.glow = U(p, "uGlow");   // snapAp: V6 snap-chain texture origin
   l.roomA = U(p, "uRoomA"); l.roomB = U(p, "uRoomB"); l.sills = U(p, "uSills"); l.sillA = U(p, "uSillA"); l.sillB = U(p, "uSillB");
+  l.roomDec = U(p, "uRoomDec"); l.extDec = U(p, "uExtDec"); l.roomX = U(p, "uRoomX");   // GX5 static decal ranges, rooms past 16
   l.vp = U(p, "uVP"); l.time = U(p, "uTime"); l.wind = U(p, "uWind"); l.leafCol = U(p, "uLeafCol");
   l.base = U(p, "uBase"); l.metal = U(p, "uMetal"); l.rough = U(p, "uRough"); l.thin = U(p, "uThin");
   l.alb = U(p, "uAlb"); l.mr = U(p, "uMR"); l.nrm = U(p, "uNrm"); l.ao = U(p, "uAO");
@@ -2809,6 +3112,16 @@ static float worldDiag(vec3 lo, vec3 hi, const mat4& m) {
   return glm::length(hi - lo) * sc;
 }
 
+// GX5 static decals and the rooms past 16 (static_decals.cpp): the whole list again when a building's block changed
+// (edits, map loads), bound at 10 for every main-shader program (camera pass and probe captures)
+void Renderer::uploadStaticDecals() {
+  if (sdecDirty) {
+    sdecDirty = false;
+    if (!sdecBuf) glCreateBuffers(1, &sdecBuf);
+    glNamedBufferData(sdecBuf, std::max<size_t>(1, sdec.size()) * sizeof(StaticDecal), sdec.empty() ? nullptr : sdec.data(), GL_STATIC_DRAW);
+  }
+  if (sdecBuf) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, sdecBuf);
+}
 void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr, bool sortSurf) {
   const DrawLocs L = drawLocs(p);
   GLint lm = L.model, lt = L.tint;
@@ -2844,6 +3157,8 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
         glUniform4fv(li, 1, glm::value_ptr(sp->inst));
         int nr = std::clamp((int)(sp->inst.w + 0.5f), 0, 16);
         if (nr) { glUniform4fv(L.roomA, nr, glm::value_ptr(sp->roomA[0])); glUniform4fv(L.roomB, nr, glm::value_ptr(sp->roomB[0])); }
+        if (L.roomDec >= 0) { glUniform4fv(L.roomDec, 16, glm::value_ptr(sp->roomDec[0])); glUniform4fv(L.extDec, 1, glm::value_ptr(sp->extDec)); }
+        if (L.roomX >= 0) glUniform2i(L.roomX, sp->roomX.x, sdecBuf ? sp->roomX.y : 0);
         int ns = std::clamp(sp->sills, 0, 12);
         glUniform1i(L.sills, ns);
         if (ns) { glUniform4fv(L.sillA, ns, glm::value_ptr(sp->sillA[0])); glUniform4fv(L.sillB, ns, glm::value_ptr(sp->sillB[0])); }
@@ -3025,6 +3340,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
   stats.draws = 0; stats.tris = 0; stats.culled = 0;
   time += v.dt;
+  uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   gpuFrameBegin(); gpuMark(GP_CloudShadow);   // stats.gpuMs from the timestamps: read 2-3 frames late, never waits
@@ -3195,6 +3511,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   setLighting(progMain, v);
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
+  glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
+  uploadStaticDecals();
+  { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), dbg); }
+  glUniform1i(U(progMain, "uSDecOn"), thumbMode || q.legacy || q.matLayer == 0 || !perf.staticDecals || !sdecBuf || sdec.empty() ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false, &frMain, true);
   gpuMark(GP_Models);
@@ -3427,6 +3747,14 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? q.bloomStrength : 0.0f);
   glUniform1f(U(progTone, "uEyeR"), eyepiece ? v.eyepieceR : 0.0f); glUniform1f(U(progTone, "uAspect"), (float)width / std::max(1, height));
+  {   // GX5 grade (content/settings/grade.json)
+    bool on = grade.on && perf.grade && !q.legacy && !thumbMode;
+    glUniform1i(U(progTone, "uGradeOn"), on ? 1 : 0);
+    glUniform1f(U(progTone, "uGradeSat"), grade.saturation); glUniform1f(U(progTone, "uGradeContrast"), grade.contrast);
+    glUniform1f(U(progTone, "uGradeVig"), grade.vignette); glUniform1f(U(progTone, "uGradeCA"), grade.chromatic);
+    glUniform1f(U(progTone, "uGradeSharpen"), q.taa ? grade.sharpen : 0.0f);
+    glUniform3fv(U(progTone, "uGradeShadow"), 1, glm::value_ptr(grade.shadowTint)); glUniform3fv(U(progTone, "uGradeHigh"), 1, glm::value_ptr(grade.highlightTint));
+  }
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   // ---- editor overlays (separate pass; never drawn in Explore)

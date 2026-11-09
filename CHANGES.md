@@ -210,3 +210,65 @@ of several interleaved samples is a clean reading; later runs (below) were 3-7x 
 - `content/settings/grass.json`
 - `content/textures/textures.json` (`terrain_grass`)
 - `docs/ground-grass.md`, `docs/settings.md`
+- **Grid resolution.** The terrain grid is 0.448 m. A near-vertical trench wall therefore spans one grid cell, and
+  diagonal trenches show a fine sawtooth at the lip.
+  - The revetment top is fitted to the highest soil within 0.7 m behind the wall, so no gap shows.
+  - The groove behind the revetment top is at most one cell wide.
+- **Shipped maps.** Pads raise or cut the ground under every pinned building inside the build area whose footprint
+  deviates more than 5 cm (the validation threshold for floating). That includes existing maps, where buildings were
+  placed on the highest sample: their floors now meet the ground. Decor beyond the border keeps its ground.
+  - This adds fine tiles: more draw calls on large maps.
+  - The maps / nav suites are left for the merge pass, as the plan asks.
+
+## GX5: materials, decals and post (§1 interior / material part, §8)
+
+Branch `gx5-materials` (pf2-gpu-perf + gx-base). Details: [docs/graphics-overhaul.md](docs/graphics-overhaul.md#gx5-materials-decals-and-post-1-interior--material-part-8).
+Screenshots: `screens/gx/gx5/<shot>_gx5_before.png` / `_gx5_after.png` (all iterations as `_d<n>.png`, High as `_h7.png`).
+
+### Done
+
+- **Layered materials (`gxLayer`, kMainFS).** Mask-driven grime and wear, not baked albedo:
+  - grime at the floor, in room corners and under the ceiling, plus world-space blotches;
+  - hand-height grease;
+  - roughness breakup on every surface;
+  - a high-frequency detail relief on walls.
+  - Wear is per room: each room scales the copy's wear by 0.4-1.6, so one house has kept and ruined rooms.
+- **Seam occlusion, about 0.5 m.** Wall-wall, wall-floor and wall-ceiling joints, and floor and ceiling edges, from the room rectangles. It darkens the indirect light, and the lamp and window light by 45 % of that.
+- **Two-material blends.**
+  - Interior plaster with its paper or paint falls away to the brick behind (target_08): a torn ring and a broken rim, recessed mortar, a 1.4 cm relief step, more at the foot and in corners, seeded per wall plane.
+  - Exterior lime render / infill falls off to the brick nogging.
+- **Wallpaper.** A damask variant (palmette on an ogee lattice, tone on tone), the print embossed 0.5 mm with shadowed edges, and paper fibre.
+- **Static decals** (`src/static_decals.cpp`, `content/settings/decals.json`).
+  - Eight types: cracks, water stains, soot, scuffs, bullet pocks, rain streaks, picture outlines, damp.
+  - Scattered per building from its rooms, hearths and windows, deterministic, prioritised under a per-room cap.
+  - Evaluated in the material, so they are lit and have relief.
+  - One SSBO for every building.
+- **Rooms past 16.** Large buildings (the chateau) now get finishes, seams and decals in every room, not only the first 16.
+- **Post.**
+  - SSAO retuned to 0.5 m / 0.95.
+  - The grade (`content/settings/grade.json`): saturation 0.91, cool shadows and warm highlights, an S-curve, vignette 0.22, an edge-aware sharpen against TAA softening, optional chromatic aberration (off).
+- **POM (High).** Replace-mode texture sets within 14 m.
+- **Tiers.** Settings > Material detail: Low (the batch2 look), Medium (default), High (+ POM).
+- **Measurement.**
+  - A/B switches `matlayer`, `sdecals`, `grade`, `gx5`.
+  - Capture environment variables: `NMK_CAPTURE_AB` (interleaved, wall clock), `NMK_CAPTURE_PRESET`, `NMK_GX5_CLOSE`, `NMK_GX5_DEBUG`.
+
+### Frame time (Medium, 1920 x 1080, paired interleaved A/B at the gx cameras, wall clock, shared GPU)
+
+| switch | interior cameras (corridor, hall, 3 close-ups) | exterior / field / bunker / trench |
+|---|---|---|
+| matlayer | +3.0 .. +3.7 %, one close wall view +10.6 % | +0.3 .. +2.7 % |
+| sdecals | +1.1 .. +5.0 % | -3 .. +2.6 % |
+| grade | -0.8 .. +0.7 % | +0.4 .. +5.8 % (noise under load) |
+
+- Summed, the interior cameras come to about +5..9 % and the outdoor ones +1..5 %, within the brief's +10 %.
+- The GPU was heavily shared during every run (absolute frame times 30-55 ms), so treat these as ratios.
+- The first pass measured +22 % at a close interior view; the noise masks were halved after that.
+
+### Deferred / limits
+
+- GTAO: not added. The analytic seam occlusion answers the brief's "flat lighting at seams", and SSAO was retuned instead.
+- Decals are procedural shapes in the shader, not a texture atlas: no new asset pack. A baked atlas would need art.
+- Exterior rain streaks come from the room analysis's sills. GX4's anchors can push `SD_STREAK` decals through `staticDecalsFor`.
+- The corridor's light level is GX2's (lamps). The new detail reads best under their light pools.
+- Texel density: unchanged (L4 1K sets). Procedural relief carries the close-up detail.

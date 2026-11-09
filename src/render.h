@@ -5,6 +5,7 @@
 #include "grass.h"
 #include "frustum.h"
 #include "light_types.h"
+#include <unordered_map>
 
 // Per building copy parameters of the wall / floor finish patterns 17-22 (docs/interiors.md): no shader edits needed
 // to vary wear, palette or room finishes. Rooms and sills are in asset space.
@@ -12,7 +13,10 @@ struct SurfaceParams {
   vec4 inst{0, 1, 1, 0};                 // seed (0..1), wear (0..2), palette variation (0..1), room count
   vec4 roomA[16]{}, roomB[16]{};         // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
   vec4 sillA[12]{}, sillB[12]{}; int sills = 0;   // (centre x, sill y, centre z, half width) / (outward normal x, z, -, -)
+  vec4 roomDec[16]{}; vec4 extDec{0};    // GX5 static decals: (first, count) in Renderer::sdec per room / on the exterior
+  glm::ivec2 roomX{0};                   // GX5: rooms past 16 (large buildings) as records in Renderer::sdec: first, count
 };
+struct StaticDecal { vec4 a, b, c; };    // GX5 (static_decals.h): centre + type, normal + seed, half size + strength + variant
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
 };
 struct TreeDef;
@@ -92,11 +96,12 @@ public:
     bool cloudShadows = true;
     bool shafts = true; float shaftStrength = 0.35f;
     float hazeDensity = 0.0010f, hazeHeight = 70.0f;   // aerial perspective (1/m at ground level, scale height m)
-    bool ssao = true; float ssaoStrength = 0.85f, ssaoRadius = 0.6f;
+    bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
     bool bloom = true; float bloomStrength = 0.045f;
     bool ssr = true; float ssrStrength = 1.0f;
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
     int taaPhases = 8;          // Halton (2,3) jitter phases (settings: High uses 16)
+    int matLayer = 1;           // GX5 layered materials: 0 off (Low), 1 wear / grime / seams / detail, 2 + High extras
   } q;
   // render targets set by the settings presets (settings.cpp, docs/settings.md). width / height are the internal
   // render size = display size x resolution scale; the final blit upscales to displayW x displayH.
@@ -124,15 +129,26 @@ public:
     bool hlod = false;           // hlod (--rq-on): buildings merged per 128 m cell (hlod.cpp); off: on a 2080 Ti it saved 4-12 % of draws but cost +0.2-0.5 ms (rendering.md 12.4)
     bool assetLod = true;        // assetlod: part-built assets drawn with their LOD meshes by screen size; sub-pixel props skipped
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
+    bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
+    bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
+    bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : nullptr;
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : nullptr;
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
+      if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
       if (b) *b = on;
       return b != nullptr;
     }
   } perf;
+  // GX5 grade (content/settings/grade.json): saturation, cool shadows / warm highlights, S-curve, vignette, sharpen
+  struct Grade { bool on = true; float saturation = 0.91f, contrast = 0.08f, vignette = 0.22f, sharpen = 0.22f, chromatic = 0.0f;
+                 vec3 shadowTint{0.96f, 0.99f, 1.05f}, highlightTint{1.04f, 1.0f, 0.95f}; } grade;
+  // GX5 static decals (static_decals.cpp): every building's list in one SSBO (binding 10), a block per copy
+  std::vector<StaticDecal> sdec; std::unordered_map<uint64_t, glm::ivec2> sdecRange; std::vector<glm::ivec2> sdecFree;
+  bool sdecDirty = false; GLuint sdecBuf = 0;
+  void uploadStaticDecals();   // before any main-shader pass of the frame (render.cpp)
   int msaa() const { return msaaSamples; }
   bool msaaActive() const { return msFbo != 0; }   // the multisampled world target exists (complete)
   int shadowNearPx() const { return shadowSize; }
@@ -186,7 +202,7 @@ private:
   void drawFoliage(GLuint prog, const mat4& vp, const Frustum* fr = nullptr);
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
-  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1,
+  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, roomDec = -1, extDec = -1, roomX = -1,
                     vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,
                     alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, snapAp = -1, glow = -1; };
   std::vector<std::pair<GLuint, DrawLocs>> locCache;
