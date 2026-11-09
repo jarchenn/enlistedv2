@@ -49,7 +49,7 @@ json UserSettings::toJson() const {
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
-                  {"showArms", showArms}, {"sightMarkers", sightMarkers}}},
+                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}}},
     {"controls", k},
     {"interface", {{"uiScale", uiScale}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
@@ -87,6 +87,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.mouseSens = std::clamp(q.value("mouseSensitivity", u.mouseSens), 0.01f, 1.0f); u.adsSens = std::clamp(q.value("adsSensitivity", u.adsSens), 0.2f, 2.0f);
     u.invertY = q.value("invertY", u.invertY); u.reducedMotion = q.value("reducedMotion", u.reducedMotion);
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
+    u.weaponList = q.value("weaponList", u.weaponList);
   }
   if (j.contains("audio") && j["audio"].is_object()) {
     const json& q = j["audio"];
@@ -194,7 +195,7 @@ void Settings::apply(App& app) {
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
-  app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers;
+  app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList;
   app.audio.setGains(s.master, s.effects, s.ui, s.ambience);
   if (ImGui::GetCurrentContext()) ImGui::GetIO().FontGlobalScale = s.uiScale;
   // editor camera: fly speed is the Alt+wheel multiplier; orbit / zoom scale the content/settings/editor.json values
@@ -214,7 +215,7 @@ void Settings::capture(const App& app) {
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
   g.grass = (int)app.grass.quality; g.grassWind = app.grass.nearWind;
   g.msaa = R.msaa(); g.ivy = app.ivyOn; g.materials = R.q.matLayer;
-  s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers;
+  s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers; s.weaponList = app.showWeaponList;
   s.editorFly = navState().speedMult;
 }
 
@@ -345,6 +346,7 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
       ImGui::Checkbox("Show arms", &u.showArms);
       ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
+      ImGui::Checkbox("Show weapon list", &u.weaponList);
       { extern void goreOptionsUI(); goreOptionsUI(); }   // gore_user.json (gore.cpp)
       ImGui::EndTabItem();
     }

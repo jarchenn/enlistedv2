@@ -360,7 +360,12 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
         shotQueue.push_back("g4_stack_list"); phase = 5; t0 = t; return false;
       }
       if (phase == 5 && t > t0 + 2.4f) {
-        check(a.lastStackAlpha == 0 && !a.lastReadout.empty(), "the list fades after ~1.5 s; the readout stays (" + a.lastReadout + ")");
+        check(a.lastStackAlpha > 0.9f && !a.lastReadout.empty(), "the list stays shown; the readout stays (" + a.lastReadout + ")");
+        a.showWeaponList = false; phase = 6; t0 = t; return false;
+      }
+      if (phase == 6 && t > t0 + 0.3f) {
+        check(a.lastStackAlpha == 0 && !a.lastReadout.empty(), "Show weapon list off hides the list; the readout stays (" + a.lastReadout + ")");
+        a.showWeaponList = true;
         shotQueue.push_back("g4_readout"); return true;
       }
       return t > 8; });

@@ -543,8 +543,8 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
   float yInfo = yBig - smSz - 4 * sc;
   if (!st.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, st.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 205, 130, 255), st.c_str(), 1); yInfo -= smSz + 2 * sc; }
   if (!weaponMsg.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, weaponMsg.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 210, 130, 230), weaponMsg.c_str(), 1); yInfo -= smSz + 2 * sc; }
-  // ---- the list: shown while switching, fading 1.5 s after the last switch
-  float age = (float)(now - stackShownAt), a = age < 1.5f ? 1.0f : std::max(0.0f, 1.0f - (age - 1.5f) / 0.4f);
+  // ---- the list: always shown unless hidden in Settings > Gameplay
+  float a = showWeaponList ? 1.0f : 0.0f;
   lastStackAlpha = a;
   if (a <= 0) return;
   std::vector<int> rows = stackRows();

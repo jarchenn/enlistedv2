@@ -277,7 +277,7 @@ public:
   int carryTake(std::vector<int>& c, int idx, int inHand) const;   // G4: add to a stack (2-slot rule); returns the weapon put back
   void capCarried(std::vector<int>& c) const;                      // G4: at most 2 main weapons, order main, knife, grenades
   std::vector<int> stackRows() const;                              // G4: [main 1 | -1, main 2 | -1, knife, grenades...]
-  double stackShownAt = -1e9;                                      // G4: the list shows for 1.5 s after a switch
+  double stackShownAt = -1e9;                                      // G4: time of the last switch
   std::map<std::string, unsigned> weaponSilhouette;                // G4: GL textures, white side views (makeWeaponSilhouettes)
   void makeWeaponSilhouettes();
   void drawStackUI(struct ImDrawList* dl, struct ImVec2 ds);       // G4 (weapons.cpp)
@@ -457,6 +457,7 @@ public:
   struct SightMark { vec2 px; uint32_t col; int kind; };   // kind: 0 rear, 1 front tip, 2 muzzle, 3 flash origin, 4 aim
   bool sightMarks(std::vector<SightMark>& out) const;
   bool sightMarkers = false;            // draw the calibration markers (HUD and screenshots)
+  bool showWeaponList = true;           // the carried weapon list (G4) in the lower right; Settings > Gameplay
   void armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s);
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot
   vec3 lastHandErr{0};                  // IK residual (right, left) for tests: x = right, y = left
