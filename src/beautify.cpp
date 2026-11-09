@@ -67,7 +67,7 @@ bool beautifyDecorDraw(App& app, const Instance& i, InstanceRT& r, const mat4& M
   }
   // near, damaged, furnished, modelled or non-building decor: the ordinary path
   if (dist < nearD || r.damaged || a->model || a->nature.kind != NatureDef::NONE || a->tree.on || a->path.on || app.interior.hideBuiltin(i)) return false;
-  op.push_back({&a->opaque, M});
+  op.push_back({&app.assetLodMesh(r, a, a->opaque, dist), M});   // PF2 asset LOD
   op.push_back({&a->panelsIntact, M});
   if (dist < glassD && a->glass.count) gl.push_back({&a->glass, M});
   return true;   // doors and shutters (separate leaf meshes) are skipped at range: 1-3 draws per building

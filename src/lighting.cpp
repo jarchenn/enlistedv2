@@ -82,15 +82,18 @@ const char* kCaptureVS = R"GLSL(
 #extension GL_ARB_shader_viewport_layer_array : require
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec3 aAlb;
 layout(location=3) in vec4 aPar; layout(location=4) in vec3 aPc; layout(location=5) in vec3 aPn; layout(location=6) in vec3 aEmi;
-uniform mat4 uModel;
+layout(location=7) in vec4 aInst; layout(location=8) in vec3 aLp; layout(location=9) in vec3 aLn;   // PF2 HLOD: as kMainVS
+uniform mat4 uModel; uniform vec4 uInst;
 layout(std430, binding = 9) readonly buffer NmkCapVP { mat4 gCapVP[]; };
 uniform int uLayer[96];
 uniform vec4 uCapEye[16];   // probe position per capture slot (view vector of the shading)
-out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye;
+out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV;
 void main(){
+  vInstV = aInst.w > 1.5 ? vec4(aInst.xyz, 0.0) : uInst;
   int L = uLayer[gl_InstanceID];
   vec4 w = uModel*vec4(aPos, 1.0);
   vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi;
+  if (aInst.w > 1.5) { vAp = aLp; vAn = aLn; }
   vEye = uCapEye[L/6].xyz;
   gl_Position = gCapVP[L]*w;
   gl_Layer = L;

@@ -47,6 +47,7 @@ struct Part {
   float th = 0.25f;  // ARCH "th": ring thickness (crown thickness when `fill`)
   bool fill = false; // ARCH "fill": the solid between the box's rectangle and the intrados (a spandrel over an opening)
   int seg = 0;     // CYL / ARCH "seg": curve segments, 0 = by size
+  bool lodDetail = false;   // "lod": 1 - purely visual detail (trim, relief, dressing): dropped from the asset's LOD meshes (PF2)
 };
 // Convex pieces of a CYL / ARCH / WEDGE part in its local frame (relative to center, before rot): its colliders.
 void partHulls(const Part& p, std::vector<std::vector<vec3>>& out);
@@ -235,6 +236,13 @@ struct AssetDef {
   GpuMesh noFurnOpaque, noFurnGlass; ShapePtr noFurnShape;   // the building without its built-in furniture (room templates)
   std::vector<InteractDef> interactables;
   GpuMesh opaque, glass;
+  // PF2 asset LOD (docs/rendering.md#asset-lod): [0] LOD1 = the opaque mesh without built-in furniture, "lod": 1 parts and
+  // parts under 0.35 m, bevels / rounding / curve segments simplified; [1] LOD2 = the main volumes only. count 0 = no
+  // variant (the asset is too small to gain): the finer mesh is used. Walls (panels), glass and colliders have no LOD.
+  GpuMesh lodMesh[2];
+  // PF2 Phase B (hlod.cpp): CPU copies for HLOD cells, buildings / walls only: the LOD1 opaque geometry (or the full
+  // static mesh) plus the intact wall panels, and the static glass. Null for everything else.
+  std::shared_ptr<MeshData> hlodOpaque, hlodGlass;
   ShapePtr shape;                 // static collision
   vec3 bmin{0}, bmax{0};
   GLuint thumbnail = 0;

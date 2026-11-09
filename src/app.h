@@ -47,6 +47,7 @@ struct InstanceRT {
   std::vector<std::vector<uint8_t>> leafSt;       // [interactable][leaf] LEAF_* flags (session overlay)
   std::vector<std::vector<float>> leafHits;       // bullet hits taken
   std::shared_ptr<TreeDef> ivy; uint64_t ivyKey = 0;   // B1 ivy cards for this instance (ivy.cpp), rebuilt when a bay breaks
+  uint8_t lod = 0;                                  // PF2: current asset LOD level (App::assetLodMesh, hysteresis)
   float treeHits = 0; bool treeFelled = false, trunkApplied = false; uint32_t trunkBody = 0xffffffffu;   // trees (foliage.cpp)
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
@@ -460,6 +461,11 @@ public:
   void applyDamageToMap();
   void clearAppliedDamage();
   void buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl);
+  // PF2 asset LOD (docs/rendering.md#asset-lod): the opaque mesh for a copy at `dist` m from the eye, chosen by its
+  // on-screen scale with 15 % hysteresis (updates r.lod). `full` is the asset's opaque or no-furniture mesh.
+  const GpuMesh& assetLodMesh(InstanceRT& r, const AssetDef* a, const GpuMesh& full, float dist);
+  float lodPxPerM = 0;   // pixels per metre at 1 m of the last frame's view (set by buildDrawLists); 0 = unknown
+  int lodCount[3] = {};  // copies drawn at each LOD level this frame
   void bump(Instance& i) { i.rev = ++revCounter; dirty = true; }
 
   bool newMap(const TemplateInfo& t, const std::string& name);
