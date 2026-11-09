@@ -85,7 +85,11 @@ int blendPartMode(const json& asset, const json& pj) {
     auto mats = r.value("materials", json::array());
     if (std::find(mats.begin(), mats.end(), m) == mats.end()) return 0;
     float top = pj.contains("c") && pj.contains("s") ? pj["c"][1].get<float>() + 0.5f * pj["s"][1].get<float>() : 1.0f;
-    if (top <= r.value("aboveY", -1.0f)) return 0;   // the firestep, floor and duckboards below stay
+    if (top <= r.value("aboveY", -1.0f)) {   // the firestep and floor below stay; "floorDrop": the generated duckboards replace these
+      const json& fd = asset["trench"].value("floorDrop", json::object());
+      auto fm = fd.value("materials", json::array());
+      return std::find(fm.begin(), fm.end(), m) != fm.end() && top <= fd.value("topBelow", -1.45f) ? 1 : 0;
+    }
     auto keep = r.value("keepCollision", json::array());
     return std::find(keep.begin(), keep.end(), m) != keep.end() && pj.value("k", 1) != 0 ? 2 : 1;
   }
@@ -228,7 +232,24 @@ constexpr float kTrenchMeshDrop = 3.0f;
 Part boxPart(vec3 c, vec3 s, quat q, Part::Shape sh = Part::BOX, float rad = 0) { Part p; p.shape = sh; p.center = c; p.size = s; p.rot = q; p.rad = rad; return p; }
 quat yawPitch(float yawRad, float tiltRad) { return glm::angleAxis(yawRad, vec3(0, 1, 0)) * glm::angleAxis(tiltRad, vec3(1, 0, 0)); }
 
-// revetment, pickets and sandbags along one trench piece's path, fitted to the carved network around it
+// --- vertex weathering for the generated timber (GX5's wear layer is not there yet: per-vertex albedo does it). The mesh
+// is built kTrenchMeshDrop below its draw position, so floorL is the trench floor in that dropped mesh space.
+struct Wx { float floorL = 0, wetH = 0.65f, mud = 0.6f; vec3 tint{1.0f}; };
+void weather(MeshData& m, size_t start, const Wx& w, uint32_t seed) {
+  const vec3 mudC(0.115f, 0.088f, 0.062f), wetDark(0.55f, 0.52f, 0.5f);
+  for (size_t k = start; k < m.v.size(); ++k) {
+    Vertex& v = m.v[k];
+    float h = v.pos.y - w.floorL;
+    float wet = 1.0f - sstep(0.08f, w.wetH, h);                                  // dark, wet wood low down
+    uint32_t hs = (uint32_t)(int32_t)std::floor(v.pos.x * 7.0f) * 73856093u ^ (uint32_t)(int32_t)std::floor(v.pos.z * 7.0f) * 19349663u ^ (uint32_t)(int32_t)std::floor(v.pos.y * 9.0f) * 83492791u;
+    float splash = wet * (0.35f + 0.65f * hash01(seed, hs)) * w.mud;           // mud thrown up from the floor, patchy
+    vec3 a = v.albedo * w.tint * glm::mix(vec3(1.0f), wetDark, wet);
+    v.albedo = glm::mix(a, mudC, std::clamp(splash, 0.0f, 0.85f));
+  }
+}
+
+// revetment (boards on posts against an earth backfill), a sandbag cap, duckboards and the firestep's earth fill along
+// one trench piece's path, fitted to the carved network around it
 void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   const Terrain& T = app.terrain;
   const BlendConfig& C = blendConfig(); const StampParams& sp = T.sp;
@@ -236,20 +257,30 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   if (!st) return;
   quat iq = glm::inverse(yawQuat(i.yaw));
   auto L = [&](vec3 w) { return iq * (w - i.pos) - vec3(0, kTrenchMeshDrop, 0); };   // world -> instance space (dropped)
-  const Material& wattle = matNamed(a, "wattle"); const Material& picket = matNamed(a, "picket"); const Material& bag = matNamed(a, "sacking");
-  const Material* clod[3] = {&matNamed(a, "spoil"), &matNamed(a, "earth"), &matNamed(a, "turf")};
-  const float thk = sp.carvePad + 0.06f;   // the panel fills the carve pad behind the revetment line: no slot between revetment and soil
+  const Material& board = matNamed(a, "wattle"); const Material& post = matNamed(a, "log_x"); const Material& bag = matNamed(a, "sacking");
+  const Material& earth = matNamed(a, "earth"); const Material& spoil = matNamed(a, "spoil");
+  const float thk = sp.carvePad + 0.06f;   // the backfill fills the carve pad behind the revetment line: soil, never a slot
   std::vector<vec2> P; std::vector<float> D;
   for (auto& q : a->raw["trench"].value("path", json::array())) { P.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); D.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
   if (P.size() < 2) return;
-  const float plane = sp.floorHalf + 0.02f, tilt = std::atan(sp.batter);
+  const float plane = sp.floorHalf + 0.02f, tilt = std::atan(sp.batter), boardT = 0.035f;
   uint32_t seed = idSeed(i.id);
-  auto lipAt = [&](vec2 q, vec2 n) {   // the soil the panel meets: the highest uncarved ground just past its back
+  auto R = [&](uint32_t k) { return hash01(seed, k); };
+  auto lipAt = [&](vec2 q, vec2 n) {   // the soil the revetment meets: the highest uncarved ground just past its back
     float y = -1e30f;
     for (float d : {thk + 0.05f, thk + 0.3f}) { vec2 w = q + n * d; y = std::max(y, T.trenchLipY(*st, w.x, w.y)); }
     return y;
   };
   auto floorAt = [&](vec2 q) { return T.height(q.x, q.y); };
+  auto floorL = [&](float fy) { return fy - i.pos.y - kTrenchMeshDrop; };
+  auto put = [&](const Part& p, const Material& mt, float fy, vec3 tint, float mud, uint32_t k, float wetH = 0.65f) {
+    size_t s0 = m.v.size(); appendPart(m, p, mt, mat4(1));
+    Wx w; w.floorL = floorL(fy); w.tint = tint; w.mud = mud; w.wetH = wetH; weather(m, s0, w, seed ^ (k * 2654435761u));
+  };
+  vec2 lz0 = toWorld(vec2(0, 1), i.yaw), d0 = glm::normalize(P[1] - P[0]);
+  float f0 = glm::dot(vec2(-d0.y, d0.x), lz0);
+  const int frontSide = f0 > 0.3f ? 1 : f0 < -0.3f ? -1 : 0;   // the fire side (local +z): low parapet, no sandbags on the lip
+  uint32_t uid = 0;   // running id for the per-element random numbers
   for (size_t s = 0; s + 1 < P.size(); ++s) {
     vec2 A = P[s], B = P[s + 1], dir = glm::normalize(B - A);
     vec2 nrm(-dir.y, dir.x);
@@ -257,74 +288,158 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
     if (std::min(D[s], D[s + 1]) < 0.25f && std::max(D[s], D[s + 1]) < 0.25f) continue;
     for (int side = -1; side <= 1; side += 2) {
       vec2 n = nrm * (float)side;
+      quat lean = iq * yawPitch(yawR, side > 0 ? tilt : -tilt);   // the wall leans back into the soil
       // mitred ends: shorten / lengthen this side at interior path vertices so the walls of two legs meet
       float t0 = 0, t1 = len;
-      if (s > 0) { vec2 pd = glm::normalize(P[s] - P[s - 1]); float cr = pd.x * dir.y - pd.y * dir.x, dt = glm::dot(pd, dir); t0 = plane * side * cr / std::max(0.2f, 1.0f + dt); }
-      if (s + 2 < P.size()) { vec2 nd = glm::normalize(P[s + 2] - P[s + 1]); float cr = dir.x * nd.y - dir.y * nd.x, dt = glm::dot(dir, nd); t1 = len - plane * side * cr / std::max(0.2f, 1.0f + dt); }
+      bool c0 = s > 0, c1 = s + 2 < P.size();
+      if (c0) { vec2 pd = glm::normalize(P[s] - P[s - 1]); float cr = pd.x * dir.y - pd.y * dir.x, dt = glm::dot(pd, dir); t0 = plane * side * cr / std::max(0.2f, 1.0f + dt); }
+      if (c1) { vec2 nd = glm::normalize(P[s + 2] - P[s + 1]); float cr = dir.x * nd.y - dir.y * nd.x, dt = glm::dot(dir, nd); t1 = len - plane * side * cr / std::max(0.2f, 1.0f + dt); }
       int steps = std::max(1, (int)std::ceil((t1 - t0) / 0.5f));
       float step = (t1 - t0) / steps;
+      // 0.5 m sub-columns: open behind (a junction, the niche, the ramp mouth) or not, floor and cap heights
+      struct Col { bool ok; float fy, cap; };
+      std::vector<Col> col(steps);
       for (int k = 0; k < steps; ++k) {
         float tm = t0 + (k + 0.5f) * step;
         vec2 c = A + dir * tm, q = c + n * plane;
         float fy = floorAt(c), lip = lipAt(q, n);
         float behind = T.height(q.x + n.x * (thk + 0.35f), q.y + n.y * (thk + 0.35f));
-        if (behind < fy + 0.6f || lip < fy + 0.45f) continue;   // open behind: a junction, the niche, the ramp mouth
-        if (C.revetment) {
-          float cap = lip + 0.02f + 0.03f * hash01(seed, (uint32_t)(s * 97 + k * 2 + (side > 0)));
-          float y0 = fy - 0.12f, y1 = cap - 0.08f;
-          float H = y1 - y0;
-          vec2 cc = q + n * (thk * 0.5f + sp.batter * H * 0.5f);
-          vec3 w(cc.x, (y0 + y1) * 0.5f, cc.y);
-          quat qw = yawPitch(yawR, side > 0 ? tilt : -tilt);   // the wall leans back into the soil
-          appendPart(m, boxPart(L(w), vec3(step + 0.03f, H, thk), iq * qw), wattle, mat4(1));
-          // heaped clods over the panel's top, flush with the soil behind it (spoil, dark earth, the odd turf)
-          for (int cl = 0; cl < 2; ++cl) {
-            uint32_t hs = (uint32_t)(s * 7919 + k * 31 + cl * 7 + (side > 0) * 3);
-            float r0 = hash01(seed, hs), r1 = hash01(seed, hs + 1), r2 = hash01(seed, hs + 2);
-            vec2 sc = q + dir * ((cl - 0.5f) * step * 0.5f + (r0 - 0.5f) * 0.1f) + n * ((thk + 0.1f) * 0.5f + sp.batter * H + (r1 - 0.5f) * 0.08f);
-            vec3 sz(step * (0.55f + 0.35f * r1), 0.12f + 0.08f * r2, thk * (0.75f + 0.4f * r0));
-            Part c = boxPart(L(vec3(sc.x, cap - sz.y * 0.45f, sc.y)), sz, iq * glm::angleAxis(yawR + (r2 - 0.5f) * 0.6f, vec3(0, 1, 0)) * glm::angleAxis((r0 - 0.5f) * 0.25f, vec3(1, 0, 0)));
-            c.bv = 0.045f;
-            appendPart(m, c, *clod[r1 < 0.45f ? 1 : 0], mat4(1));   // spoil and dark earth (no turf squares)
-          }
-          vec2 rc = q + n * (0.03f + sp.batter * H);
-          Part rail = boxPart(L(vec3(rc.x, y1 + 0.01f, rc.y)), vec3(0.08f, step + 0.04f, 0.08f), iq * glm::angleAxis(yawR, vec3(0, 1, 0)) * glm::angleAxis(1.5707963f, vec3(0, 0, 1)), Part::CYL);
-          rail.seg = 8; appendPart(m, rail, picket, mat4(1));
-        }
-        // pickets driven into the floor, every C.pickets metres
-        float pk = std::max(0.3f, C.pickets);
-        float a0 = std::floor((tm - step * 0.5f) / pk), a1 = std::floor((tm + step * 0.5f) / pk);
-        if (C.revetment && a1 > a0) {
-          float H = lip - 0.02f + 0.06f * hash01(seed, (uint32_t)(s * 131 + k)) - (fy - 0.35f);
-          vec2 pc = q - n * 0.01f + n * (sp.batter * H * 0.5f);
-          Part pp = boxPart(L(vec3(pc.x, fy - 0.35f + H * 0.5f, pc.y)), vec3(0.08f, H, 0.08f), iq * yawPitch(yawR, side > 0 ? tilt : -tilt), Part::CYL);
-          pp.seg = 8; appendPart(m, pp, picket, mat4(1));
-        }
-        // sandbags resting on the parapet: two courses on the fire side (local +z), one sparse course behind
-        if (C.sandbags) {
-          // the fire side stays clear (low parapet, the firestep sees over it); the parados gets two courses, with gaps
-          vec2 lz0 = toWorld(vec2(0, 1), i.yaw), d0 = glm::normalize(P[1] - P[0]);
-          float f0 = glm::dot(vec2(-d0.y, d0.x), lz0);
-          int frontSide = f0 > 0.3f ? 1 : f0 < -0.3f ? -1 : 0;
-          bool front = frontSide != 0 && side == frontSide;
-          float gap = terrainFbm((c.x + n.x) * 0.35f, (c.y + n.y) * 0.35f, seed + 21);
-          if (!front && gap > -0.35f) {
-            int courses = 2;
-            vec2 bc = q + n * (thk + 0.3f + 0.1f * hash01(seed, (uint32_t)(s * 31 + k * 7 + side)));
-            float by = 1e30f;
-            for (float dl : {-0.24f, 0.0f, 0.24f}) for (float dn : {-0.14f, 0.14f}) { vec2 w = bc + dir * dl + n * dn; by = std::min(by, T.height(w.x, w.y)); }
-            for (int cs = 0; cs < courses; ++cs) {
-              float jy = (hash01(seed, (uint32_t)(s * 53 + k * 5 + cs * 3 + side)) - 0.5f) * 0.16f;
-              vec2 o = bc + dir * (cs ? 0.25f : 0.0f) - n * (0.04f * cs);
-              Part sb = boxPart(L(vec3(o.x, by + 0.055f + cs * 0.145f, o.y)), vec3(0.5f, 0.16f, 0.3f), iq * glm::angleAxis(yawR + jy, vec3(0, 1, 0)), Part::ROUND, 0.065f);
-              appendPart(m, sb, bag, mat4(1));
+        bool corner = (k == 0 && c0) || (k == steps - 1 && c1);   // a mitred corner is always walled (the other leg is "behind" it)
+        col[k] = {lip >= fy + 0.45f && (corner || behind >= fy + 0.6f), fy, lip + 0.02f + 0.03f * R(++uid)};
+      }
+      if (!C.revetment) continue;
+      auto at = [&](float t, float off) { return A + dir * t + n * off; };
+      // earth backfill per sub-column: what shows through split or missing boards, and the soil right behind the lip
+      for (int k = 0; k < steps; ++k) {
+        if (!col[k].ok) continue;
+        float tm = t0 + (k + 0.5f) * step, y0 = col[k].fy - 0.12f, y1 = col[k].cap - 0.05f, H = y1 - y0;
+        vec2 cc = at(tm, plane + boardT + thk * 0.5f + sp.batter * H * 0.5f);
+        put(boxPart(L(vec3(cc.x, (y0 + y1) * 0.5f, cc.y)), vec3(step + 0.02f, H, thk), lean), earth, col[k].fy, vec3(0.8f), 0.3f, ++uid);
+      }
+      // runs of walled sub-columns, cut into bays of about 1.5 m between posts
+      for (int k = 0; k < steps;) {
+        if (!col[k].ok) { ++k; continue; }
+        int e = k; while (e + 1 < steps && col[e + 1].ok && e + 1 - k < 3) ++e;
+        float ta = t0 + k * step, tb = t0 + (e + 1) * step, blen = tb - ta, tmid = (ta + tb) * 0.5f;
+        float fy = 1e30f, top = 1e30f;
+        for (int j = k; j <= e; ++j) { fy = std::min(fy, col[j].fy); top = std::min(top, col[j].cap - 0.06f); }
+        // boards: rows from below the floor to the soil line, each with its own tone, offset, tilt; a few split,
+        // sagging or missing (the earth behind shows)
+        int row = 0;
+        for (float y = fy - 0.1f; y < top - 0.03f; ++row) {
+          float bh = std::min(0.17f + 0.07f * R(++uid), top - y);
+          float rr = R(++uid), tone = 0.62f + 0.42f * R(++uid);
+          vec3 tint(tone * (1.0f + 0.08f * (R(++uid) - 0.5f)), tone, tone * (0.92f + 0.1f * R(++uid)));
+          float out = boardT * 0.5f + 0.012f * (R(++uid) - 0.5f), yc = y + bh * 0.5f;
+          vec2 bc = at(tmid + 0.03f * (R(++uid) - 0.5f), plane + out + sp.batter * (yc - (fy - 0.1f)));
+          float roll = (R(++uid) - 0.5f) * 0.03f;   // slight tilt along the board
+          if (rr < 0.05f && row > 1) { y += bh; continue; }   // missing
+          if (rr < 0.11f) {   // split: two shorter pieces, the outer one sagging
+            float cut = blen * (0.35f + 0.3f * R(++uid));
+            for (int h = 0; h < 2; ++h) {
+              float l = h ? blen - cut - 0.05f : cut, tc = h ? ta + cut + 0.05f + l * 0.5f : ta + l * 0.5f;
+              vec2 pc = at(tc, plane + out + sp.batter * (yc - (fy - 0.1f)));
+              quat q = lean * glm::angleAxis(roll + (h ? -0.06f : 0.0f), vec3(0, 0, 1));
+              put(boxPart(L(vec3(pc.x, yc - (h ? 0.02f : 0.0f), pc.y)), vec3(l, bh - 0.012f, boardT), q), board, fy, tint, 0.7f, ++uid);
             }
+          } else {
+            float sag = rr < 0.16f ? (R(++uid) - 0.5f) * 0.12f : 0.0f;
+            put(boxPart(L(vec3(bc.x, yc, bc.y)), vec3(blen + 0.04f, bh - 0.012f, boardT), lean * glm::angleAxis(roll + sag, vec3(0, 0, 1))), board, fy, tint, 0.7f, ++uid);
+          }
+          y += bh;
+        }
+        // posts at both ends of the bay (darker than the boards), driven 0.35 m into the floor
+        for (float tp : {ta, tb}) {
+          float H = top + 0.14f + 0.06f * R(++uid) - (fy - 0.35f), d = 0.1f + 0.03f * R(++uid);
+          vec2 pc = at(tp, plane - d * 0.5f + sp.batter * H * 0.5f);
+          Part pp = boxPart(L(vec3(pc.x, fy - 0.35f + H * 0.5f, pc.y)), vec3(d, H, d), lean, Part::CYL);
+          pp.seg = 8; put(pp, post, fy, vec3(0.55f + 0.15f * R(++uid)), 0.8f, ++uid, 0.8f);
+        }
+        // the cap: burlap sandbags along the top of the backfill (hue and tone vary), the odd soil clod
+        for (float tb2 = ta + 0.24f; tb2 < tb; tb2 += 0.46f + 0.04f * R(++uid)) {
+          float rr = R(++uid), capY = top + 0.06f;
+          vec2 sc = at(tb2, plane + boardT + thk * 0.45f + sp.batter * (capY - fy) + (R(++uid) - 0.5f) * 0.08f);
+          float tone = 0.72f + 0.38f * R(++uid);
+          vec3 hue(tone * (1.0f + 0.1f * (R(++uid) - 0.4f)), tone * (0.97f + 0.06f * R(++uid)), tone * (0.85f + 0.1f * R(++uid)));
+          Part c = boxPart(L(vec3(sc.x, capY + 0.065f, sc.y)), vec3(0.44f + 0.06f * R(++uid), 0.14f + 0.03f * R(++uid), 0.27f + 0.06f * R(++uid)),
+                           iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.35f, vec3(0, 1, 0)) * glm::angleAxis((R(++uid) - 0.5f) * 0.12f, vec3(1, 0, 0)));
+          c.bv = 0.05f;
+          if (rr < 0.18f) put(c, spoil, fy, vec3(0.8f + 0.25f * R(++uid)), 0.0f, ++uid);
+          else put(c, bag, fy, hue, 0.0f, ++uid);
+        }
+        k = e + 1;
+      }
+      // corner posts on both mitre lines: they cover the seam where two legs' boards meet
+      if (c0) {
+        float fy = floorAt(A + dir * std::max(t0, 0.2f)), top = (col.front().ok ? col.front().cap : fy + 1.6f) + 0.1f, H = top - (fy - 0.35f);
+        vec2 pc = at(t0, plane - 0.04f + sp.batter * H * 0.5f);
+        Part pp = boxPart(L(vec3(pc.x, fy - 0.35f + H * 0.5f, pc.y)), vec3(0.15f, H, 0.15f), lean, Part::CYL);
+        pp.seg = 8; put(pp, post, fy, vec3(0.5f), 0.8f, ++uid, 0.8f);
+      }
+      // sandbags on the parados (two courses, with gaps); the fire side stays clear so the firestep sees over it
+      bool front = frontSide != 0 && side == frontSide;
+      if (C.sandbags && !front)
+        for (int k = 0; k < steps; ++k) {
+          if (!col[k].ok) continue;
+          float tm = t0 + (k + 0.5f) * step;
+          vec2 c = A + dir * tm, q = c + n * plane;
+          if (terrainFbm((c.x + n.x) * 0.35f, (c.y + n.y) * 0.35f, seed + 21) <= -0.35f) continue;
+          vec2 bc = q + n * (thk + 0.42f + 0.1f * R(++uid));
+          float by = 1e30f;
+          for (float dl : {-0.24f, 0.0f, 0.24f}) for (float dn : {-0.14f, 0.14f}) { vec2 w = bc + dir * dl + n * dn; by = std::min(by, T.height(w.x, w.y)); }
+          for (int cs = 0; cs < 2; ++cs) {
+            float tone = 0.72f + 0.38f * R(++uid);
+            vec3 hue(tone * (1.0f + 0.1f * (R(++uid) - 0.4f)), tone, tone * (0.85f + 0.1f * R(++uid)));
+            vec2 o = bc + dir * (cs ? 0.25f : 0.0f) - n * (0.04f * cs);
+            Part sb = boxPart(L(vec3(o.x, by + 0.06f + cs * 0.145f, o.y)), vec3(0.5f, 0.16f, 0.3f), iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.16f, vec3(0, 1, 0)));
+            sb.bv = 0.05f; put(sb, bag, col[k].fy, hue, 0.0f, ++uid);
           }
         }
+    }
+    // duckboards on the floor: two stringers, slats with uneven spacing, dark and muddy, the odd one missing
+    if (std::min(D[s], D[s + 1]) > 0.9f) {
+      float da = s > 0 ? -0.35f : 0.05f, db = s + 2 < P.size() ? len + 0.35f : len - 0.05f;   // overlap at a corner
+      for (int sgn = -1; sgn <= 1; sgn += 2) {
+        vec2 sc = A + dir * ((da + db) * 0.5f) + nrm * (sgn * 0.27f);
+        float fy = floorAt(A + dir * ((da + db) * 0.5f));
+        put(boxPart(L(vec3(sc.x, fy + 0.085f, sc.y)), vec3(db - da, 0.06f, 0.07f), iq * glm::angleAxis(yawR, vec3(0, 1, 0))), board, fy, vec3(0.55f), 1.0f, ++uid, 0.4f);
+      }
+      for (float t = da + 0.1f; t < db - 0.05f; t += 0.27f + 0.08f * R(++uid)) {
+        if (R(++uid) < 0.06f) continue;
+        vec2 c = A + dir * t + nrm * ((R(++uid) - 0.5f) * 0.04f);
+        float fy = floorAt(c), tone = 0.45f + 0.3f * R(++uid);
+        put(boxPart(L(vec3(c.x, fy + 0.13f, c.y)), vec3(0.1f + 0.03f * R(++uid), 0.028f, 0.74f + 0.06f * R(++uid)),
+                    iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.08f, vec3(0, 1, 0)) * glm::angleAxis((R(++uid) - 0.5f) * 0.05f, vec3(1, 0, 0))),
+            board, fy, vec3(tone, tone * 0.97f, tone * 0.9f), 1.0f, ++uid, 0.4f);
       }
     }
   }
-  // end walls where the network stops (not the ramp's shallow mouth)
+  // the firestep: the asset's earth step stops short of the revetment line (built for the old 0.65 m wattle);
+  // packed earth fills it to the wall, so it reads as a step cut against the fire-side wall, not a free slab
+  for (auto& pt : a->parts) {
+    if (pt.mat < 0 || pt.mat >= (int)a->materials.size() || a->materials[pt.mat].name != "spoil" || !pt.visible) continue;
+    float top = pt.center.y + pt.size.y * 0.5f;
+    if (top > -1.0f || pt.size.y > 0.6f) continue;
+    vec3 ax = pt.rot * vec3(1, 0, 0), az = pt.rot * vec3(0, 0, 1);
+    // the piece's path segment nearest the step (local coordinates)
+    vec2 cl(pt.center.x, pt.center.z); float best = 1e30f; vec2 sd(1, 0), sa(0);
+    for (size_t s = 0; s + 1 < P.size(); ++s) {
+      vec2 la = toWorld(P[s] - vec2(i.pos.x, i.pos.z), -i.yaw), lb = toWorld(P[s + 1] - vec2(i.pos.x, i.pos.z), -i.yaw);
+      vec2 ab = lb - la; float t = std::clamp(glm::dot(cl - la, ab) / std::max(1e-6f, glm::dot(ab, ab)), 0.0f, 1.0f);
+      float dd = glm::length(cl - (la + ab * t)); if (dd < best) { best = dd; sd = glm::normalize(ab); sa = la; }
+    }
+    vec2 nn(-sd.y, sd.x); float lat = glm::dot(cl - sa, nn); if (lat < 0) { nn = -nn; lat = -lat; }
+    float ext = 0.5f * (std::fabs(glm::dot(vec2(ax.x, ax.z), nn)) * pt.size.x + std::fabs(glm::dot(vec2(az.x, az.z), nn)) * pt.size.z);
+    float along = 0.5f * (std::fabs(glm::dot(vec2(ax.x, ax.z), sd)) * pt.size.x + std::fabs(glm::dot(vec2(az.x, az.z), sd)) * pt.size.z);
+    float gap = plane + 0.02f - (lat + ext);
+    if (gap <= 0.01f) continue;
+    vec2 fc = cl + nn * (ext + gap * 0.5f);   // from the step's outer face to the revetment line
+    vec3 wc = i.pos + yawQuat(i.yaw) * vec3(fc.x, pt.center.y, fc.y);
+    float yawL = std::atan2(sd.x, sd.y) - 1.5707963f;
+    float fy = floorAt(vec2(wc.x, wc.z));
+    put(boxPart(L(wc), vec3(along * 2.0f, pt.size.y, gap + 0.02f), iq * yawQuat(i.yaw) * glm::angleAxis(yawL, vec3(0, 1, 0))), spoil, fy, vec3(0.8f), 0.4f, ++uid);
+  }
+  // end walls where the network stops (not the ramp's shallow mouth): backfill, boards, a sandbag cap
   for (int e = 0; e < 2; ++e) {
     vec2 p = e ? P.back() : P.front(), q = e ? P[P.size() - 2] : P[1];
     float depth = e ? D.back() : D.front();
@@ -333,24 +448,30 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
     for (size_t k = 0; k < st->seg.size(); ++k) {
       vec4 sg = st->seg[k];
       for (vec2 x : {vec2(sg.x, sg.y), vec2(sg.z, sg.w)}) if (glm::length(x - p) < 0.3f && glm::length(x - q) > 0.3f) {
-        // another segment ends here: joined unless it is this piece's own segment
-        vec2 o = glm::length(x - vec2(sg.x, sg.y)) < 0.3f ? vec2(sg.z, sg.w) : vec2(sg.x, sg.y);
+        vec2 o = glm::length(x - vec2(sg.x, sg.y)) < 0.3f ? vec2(sg.z, sg.w) : vec2(sg.x, sg.y);   // joined unless it is this piece's own segment
         if (glm::length(o - q) > 0.3f) joined = true;
       }
     }
     if (joined || !C.revetment) continue;
-    vec2 dir = glm::normalize(p - q), n = dir;
+    vec2 dir = glm::normalize(p - q), n = dir, along(n.y, -n.x);
     vec2 pe = p + n * 0.03f;   // the asset's end wall line (its invisible collider stays there)
-    float fy = T.height(p.x - dir.x * 0.3f, p.y - dir.y * 0.3f), cap = lipAt(pe, n) + 0.02f, H = cap - 0.08f - (fy - 0.12f);
-    vec2 cc = pe + n * (thk * 0.5f + sp.batter * H * 0.5f);
+    float fy = T.height(p.x - dir.x * 0.3f, p.y - dir.y * 0.3f), cap = lipAt(pe, n) + 0.02f, y0 = fy - 0.1f, H = cap - 0.06f - y0;
     float yawR = std::atan2(n.x, n.y);
-    appendPart(m, boxPart(L(vec3(cc.x, fy - 0.12f + H * 0.5f, cc.y)), vec3(2 * plane + 0.1f, H, thk), iq * yawPitch(yawR, tilt)), wattle, mat4(1));
+    quat lean = iq * yawPitch(yawR, tilt);
+    vec2 cc = pe + n * (boardT + thk * 0.5f + sp.batter * H * 0.5f);
+    put(boxPart(L(vec3(cc.x, y0 + H * 0.5f, cc.y)), vec3(2 * plane + 0.1f, H, thk), lean), earth, fy, vec3(0.8f), 0.3f, ++uid);
+    for (float y = y0; y < cap - 0.09f;) {
+      float bh = std::min(0.17f + 0.07f * R(++uid), cap - 0.06f - y), tone = 0.62f + 0.42f * R(++uid);
+      vec2 bc = pe + n * (boardT * 0.5f + sp.batter * (y + bh * 0.5f - y0));
+      put(boxPart(L(vec3(bc.x, y + bh * 0.5f, bc.y)), vec3(2 * plane + 0.04f, bh - 0.012f, boardT), lean * glm::angleAxis((R(++uid) - 0.5f) * 0.03f, vec3(0, 0, 1))),
+          board, fy, vec3(tone, tone, tone * 0.93f), 0.7f, ++uid);
+      y += bh;
+    }
     for (int cl = -1; cl <= 1; ++cl) {
-      float r0 = hash01(seed, 9001 + cl + e * 5), r1 = hash01(seed, 9101 + cl + e * 5);
-      vec2 sc = pe + vec2(n.y, -n.x) * (cl * plane * 0.66f) + n * ((thk + 0.1f) * 0.5f + sp.batter * H);
-      Part c = boxPart(L(vec3(sc.x, cap - 0.07f, sc.y)), vec3(plane * 0.8f, 0.14f + 0.06f * r0, thk * (0.8f + 0.3f * r1)), iq * glm::angleAxis(yawR + (r1 - 0.5f) * 0.5f, vec3(0, 1, 0)));
-      c.bv = 0.045f;
-      appendPart(m, c, *clod[r0 < 0.4f ? 1 : 0], mat4(1));
+      float tone = 0.72f + 0.38f * R(++uid);
+      vec2 sc = pe + along * (cl * plane * 0.66f) + n * (boardT + thk * 0.45f + sp.batter * H);
+      Part c = boxPart(L(vec3(sc.x, cap + 0.065f, sc.y)), vec3(plane * 0.8f, 0.14f, 0.28f), iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.4f, vec3(0, 1, 0)));
+      c.bv = 0.05f; put(c, bag, fy, vec3(tone, tone * 0.97f, tone * 0.88f), 0.0f, ++uid);
     }
   }
 }
