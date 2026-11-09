@@ -107,9 +107,11 @@ public:
   bool isTrap(vec3 p, float r = 0.8f) const;
   vec3 lo{0}, hi{0};
   float waterLevel = -1000;                            // terrain water: shallow = water area, deep = forbidden
+  std::function<bool(vec2 lo, vec2 hi)> waterLocalIn;   // PF1b: may local water (water assets, lasso fills) lie in this xz box? Unset / false: only the global level, no per-metre samples
   std::function<float(float x, float z)> waterQuery;   // local water too (water_query.h waterAt): sampled per tile job on the calling thread
   // ---- statistics (tests / overlay)
   double buildMs = 0, lastRebuildMs = 0, rebuildMsMax = 0; int usedNodes = 0, links = 0, tilesBuilt = 0, rebuilds = 0, queued = 0;
+  double collectMs = 0; long inputTris = 0;            // the last full bake: main-thread input pass, Recast input triangles
   int linkCount[LINK_KINDS] = {0, 0, 0, 0};
   std::function<int(uint64_t ud)> classify;            // body user data -> 0 solid, 1 wire, 2 skip, 3 carve (set by the AI)
   std::function<void(int tx, int tz, struct NavAreaMarks&)> areaMarks;   // convex area volumes per tile (the AI)
