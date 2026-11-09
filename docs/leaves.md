@@ -116,7 +116,7 @@ Instances are grouped by sprig. One VAO per tree binds the shared mesh (binding 
 `Renderer::selectLeafLods` runs once per frame before the trees pass.
 
 - It measures the eye's distance to the tree's canopy box in asset space, so a long hedge is near where you stand. The distance is multiplied by `1.43 / proj[1][1]`, so zoomed optics keep detail further out.
-- **Thresholds** (m): near in at 10 and out at 12; mid in at 22 and out at 26. `InstanceRT::leafLod` keeps the state for hysteresis.
+- **Thresholds** (m): near in at 10 and out at 12; mid in at 22 and out at 26. With grass quality Low or Off (the Low preset), `Renderer::leafLodScale` is 0.6, set in `settings.cpp`: near 6 m and mid 13 m, so Low is no slower than the ovals. `InstanceRT::leafLod` keeps the state for hysteresis.
 - The canopy depth prepass and the `GL_EQUAL` shading pass use the same LOD. The vertex shaders declare `invariant gl_Position`.
 
 ### Shadows
@@ -161,6 +161,7 @@ Values are ms, species leaves / ovals.
 ### Where the cost moved
 
 - **Near shadow is about half.** One texture fetch replaces the six procedural ellipse tests per fragment.
+- **Why the shadow shift is not noise:** the old shadow `leafAlpha` evaluates 6 hashed, rotated ellipses for every card fragment. That costs the most in the near cascade, which has the most leaf fragments: 4.49 → 2.31 ms. The far cascade rises 1.22 → 1.98 ms. There, distant cards are small, so the old path's few fragments per card were cheap, while the instanced cards now sample a 46-layer texture array whose small mips are scattered across memory, and each tree issues one draw per sprig group. The shift appears in every Medium view of both runs, and its sign never flips.
 - **Trees pass rises 0.7 ms.** The near and mid leaf meshes add triangles. LOD near is 10 / 12 m and mid 22 / 26 m, tightened from 14 / 34 after a first run. That first run measured trees 2.57 / 1.55 ms at Medium.
 - **Far shadow rises 0.6-0.8 ms.** It draws the same cards with the texture alpha.
 - **Low:** net +0.47 ms. On Low the shadows are cheap, so the trees pass dominates.

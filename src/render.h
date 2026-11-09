@@ -144,6 +144,7 @@ public:
       return b != nullptr;
     }
   } perf;
+  float leafLodScale = 1.0f;   // L1 leaf LOD distances (kLeafNearIn ...) x this; settings.cpp: 0.6 at grass quality Low / Off (the Low preset)
   // GX5 grade (content/settings/grade.json): saturation, cool shadows / warm highlights, S-curve, vignette, sharpen
   struct Grade { bool on = true; float saturation = 0.91f, contrast = 0.08f, vignette = 0.22f, sharpen = 0.22f, chromatic = 0.0f;
                  vec3 shadowTint{0.96f, 0.99f, 1.05f}, highlightTint{1.04f, 1.0f, 0.95f}; } grade;

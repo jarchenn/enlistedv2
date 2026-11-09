@@ -3261,7 +3261,7 @@ void Renderer::selectLeafLods(const RenderView& v) {
   for (auto& f : foliage) {
     if (!f.tree || !f.tree->leafVao) continue;
     vec3 lc = vec3(glm::inverse(f.m) * vec4(v.camPos, 1.0f));
-    float d = glm::length(lc - glm::clamp(lc, f.tree->cardMin, f.tree->cardMax)) * zoom;
+    float d = glm::length(lc - glm::clamp(lc, f.tree->cardMin, f.tree->cardMax)) * zoom / std::max(0.1f, leafLodScale);
     uint8_t cur = f.lod ? *f.lod : 2, want = cur;
     if (cur == 0) { if (d > kLeafNearOut) want = d > kLeafMidOut ? 2 : 1; }
     else if (cur == 1) { if (d < kLeafNearIn) want = 0; else if (d > kLeafMidOut) want = 2; }
