@@ -687,6 +687,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--rq-on" && k + 1 < argc) rqOn.push_back(argv[++k]);   // PF2: switch one Renderer::perf feature on (A/B)
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
+    else if (a == "--bench-grass") { runSelf = true; bench = true; }   // G1: grass main + shadow per tier (selftest_grass.cpp)
     else if (a == "--selftest-visuals") runSelf = true;   // W2: thumbnails, footprint labels, bunker pass (selftest_visuals.cpp)
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];

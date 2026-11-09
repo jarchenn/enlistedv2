@@ -66,7 +66,7 @@ public:
   bool density(float x, float z, const Terrain& t, const std::vector<GrassFootprint>& fp) const; // would a blade grow here?
   double lastBuildMs = 0, peakBuildMs = 0;        // CPU build time of the last update / worst single update
   int lastBuilt = 0, pending = 0;
-  mutable int lastDrawnChunks = 0; mutable size_t lastDrawnBlades = 0, lastDrawnClumps = 0, lastShadowClumps = 0;
+  mutable int lastDrawnChunks = 0; mutable size_t lastDrawnBlades = 0, lastDrawnClumps = 0, lastShadowClumps = 0, lastShadowDraws = 0;
 
 private:
   std::map<int64_t, Chunk> chunks;

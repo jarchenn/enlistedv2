@@ -478,7 +478,7 @@ void Grass::drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, in
     glUniform1f(lCount, (float)c.count);
     glVertexArrayVertexBuffer(vao, 1, c.vbo, 0, sizeof(GrassInstance));
     glDrawElementsInstanced(GL_TRIANGLES, cardIndexEnd(blades), GL_UNSIGNED_SHORT, nullptr, n);
-    if (shadow) lastShadowClumps += (size_t)n;
+    if (shadow) { lastShadowClumps += (size_t)n; ++lastShadowDraws; }
     else { ++lastDrawnChunks; lastDrawnBlades += (size_t)n * blades; lastDrawnClumps += (size_t)n; }
   }
   glUniform1f(lCount, 0.0f);   // nature patches share the program: no rank fade for them
@@ -493,7 +493,7 @@ void Grass::draw(GLuint prog, const mat4& vp, vec3 cam) const {
 }
 
 void Grass::drawShadow(GLuint prog, const mat4& lightVP, const mat4& camVP, vec3 cam) const {
-  lastShadowClumps = 0;
+  lastShadowClumps = 0; lastShadowDraws = 0;
   const GrassPreset& P = grassPreset(quality);
   if (P.radius <= 0 || P.shadowR <= 0 || !vao || chunks.empty()) return;
   glUniformMatrix4fv(glGetUniformLocation(prog, "uVP"), 1, GL_FALSE, &lightVP[0][0]);

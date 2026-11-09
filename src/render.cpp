@@ -3398,7 +3398,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   Frustum frNear = Frustum::fromVP(lightVP);
   drawItems(progShadow, opaque, true, &frNear);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear);
-  if (grass && !thumbMode) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
+  if (grass && !thumbMode && perf.grassShadow) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
     glUseProgram(progGrassShadow);
     glUniform3fv(U(progGrassShadow, "uCamPos"), 1, glm::value_ptr(v.camPos)); glUniform1f(U(progGrassShadow, "uTime"), time);
     grass->drawShadow(progGrassShadow, lightVP, v0.proj * v.view, v.camPos);

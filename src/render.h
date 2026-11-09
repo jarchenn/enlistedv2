@@ -132,10 +132,11 @@ public:
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
+    bool grassShadow = true;     // grassshadow (G1, measurement): off = pasture grass casts no sun shadow; A/B = its share of the near cascade
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : nullptr;
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "grassshadow" ? &grassShadow : nullptr;
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
       if (b) *b = on;
