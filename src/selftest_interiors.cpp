@@ -140,7 +140,8 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         ++n;
         const PropDef* pd = a.interior.prop(as.get());
         if (!pd) { check(false, as->id + ": no prop block"); continue; }
-        int round = 0, cols = 0; for (auto& p : as->parts) { round += p.shape == Part::ROUND; cols += (!p.visible && p.collide); }
+        int round = 0, cols = 0;   // P1: chamfered boxes and the B1 curved parts (turnings, casks, arches, wedges) count as soft-edged
+        for (auto& p : as->parts) { round += p.shape == Part::ROUND || (p.shape == Part::BOX && p.bv > 0) || p.shape == Part::CYL || p.shape == Part::ARCH || p.shape == Part::WEDGE; cols += (!p.visible && p.collide); }
         if (round * 2 >= (int)as->parts.size() - cols || pd->flat()) ++bevelled;
         if (pd->blocking ? (cols >= 1 && cols <= 3 && as->shape) : ((!as->shape && cols == 0) || (lightDef(as.get()) && cols <= 1))) ++blockingOk;   // L3: a lamp keeps one invisible box so rounds can shoot it out
         cosmetic += !pd->blocking;
@@ -151,7 +152,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       }
       std::snprintf(b_, sizeof b_, "%d furniture assets in the Furniture category (tables, chairs, stool, hutches, armoire, commode, chest, bed, shelf, bench, fireplace, clock, small props, rugs)", n);
       check(n >= 25, b_);
-      std::snprintf(b_, sizeof b_, "%d/%d built from bevelled rounded boxes (small edge radii, smooth normals) or flat sheets", bevelled, n); check(bevelled == n, b_);
+      std::snprintf(b_, sizeof b_, "%d/%d built from bevelled / rounded boxes and turned or curved parts (smooth normals) or flat sheets", bevelled, n); check(bevelled == n, b_);
       std::snprintf(b_, sizeof b_, "%d/%d: blocking pieces have 1-3 simple collider boxes, %d cosmetic pieces have no blocking collision", blockingOk, n, cosmetic); check(blockingOk == n, b_);
       std::snprintf(b_, sizeof b_, "%d rigid fragment pieces defined (at most 4 per item); heaviest mesh %s %d tris", frags, worst.c_str(), maxTris); check(frags >= 20 && maxTris < 40000, b_);
       const PropDef* fp = a.interior.prop(a.lib.find("furn_fireplace"));

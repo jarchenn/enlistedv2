@@ -9,6 +9,10 @@ const CORE_W = 1.2, SPINE = 0.1, ENC = 0.15, LAND = 1.3;
 
 function largeBuilding(A, c) {
   const { X, Z, n, h } = c;
+  // half-landings: boards like floor_x, but a material interior.cpp reads as neither a floor (a floor_x landing became a
+  // storey and hid the floors around it) nor a stair tread (tread_x merged it into the flights and swung the stair
+  // keep-clear box across the corridor)
+  A.mat("landing_x", [0.24, 0.16, 0.095], 0.62, "floorfin", { grain: 0 });
   const T = c.T ?? 0.5, GF = 0.3, XI = X - T, ZI = Z - T, y0 = GF - 0.02;
   const EAVE = GF + n * h, RIDGE = EAVE + (c.roofRise ?? 3.2);
   const zA = -ZI + (c.corridor ?? 2.0);                    // corridor/core boundary
@@ -37,7 +41,7 @@ function largeBuilding(A, c) {
     for (let f = 0; f < n - 1; f++) {
       const y = yAt(f);
       stairs(A, { x0: k.l1[0], x1: k.l1[1], z0: zA, dir: +1, y0: y, rise: h / 2, n: nr, run: R, openSide: 1, core: true });
-      A.box([k.xa, y + h / 2 - 0.2, zA + R], [k.xa + coreLen, y + h / 2, zA + R + LAND], "tread_x");   // stair, not a floor: interior.cpp would read a floor_x landing as a storey and skip the floors around it
+      A.box([k.xa, y + h / 2 - 0.2, zA + R], [k.xa + coreLen, y + h / 2, zA + R + LAND], "landing_x");
       stairs(A, { x0: k.l2[0], x1: k.l2[1], z0: zA + R, dir: -1, y0: y + h / 2, rise: h / 2, n: nr, run: R, openSide: 1, core: true });
     }
     A.box([k.l1[1], GF, zA], [k.l2[0], EAVE - 0.2, zA + R], "plaster");                     // spine wall

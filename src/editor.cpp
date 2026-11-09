@@ -5,6 +5,7 @@
 #include "w3.h"
 #include "nature.h"
 #include "terrain_tools.h"
+#include "terrain_blend.h"
 #include "lasso.h"
 #include "palette.h"
 #include "snap.h"
@@ -155,6 +156,7 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
         ghosts.push_back({&lf.opaque, M * glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * (d.defaultOpen ? d.openAngle : 0)), d.axis)), tint});
     vec4 c = lastCheck.ok ? ok : bad;
     drapedRect(ov, terrain, p, placing->footprint * 0.5f, gyaw, p.y, c, true);
+    if (lastCheck.ok) blendPreview(*this, ov, placing, p, gyaw);   // GX1: the levelled pad and its blend ring (terrain_blend.cpp)
     vec3 front = yawQuat(gyaw) * vec3(0, 0, 1);
     arrow(ov, p + front * (placing->footprint.y * 0.5f) + vec3(0, 0.3f, 0), front, 3.0f, c, true);
   }

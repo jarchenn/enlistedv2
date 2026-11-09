@@ -1,0 +1,29 @@
+{
+  "id": "gx_test_scene",
+  "version": 1,
+  "order": 30,
+  "name": "GX Test Scene",
+  "available": true,
+  "seed": 1944,
+  "description": "Graphics-overhaul before / after scene (docs/graphics-overhaul.md): the timber-frame chateau with its corridors and furnished rooms, a ruin, villa and two earth-covered bunkers in a line, an L-shaped trench run with a corner, and a clear 40 x 40 m grass field. Fixed cameras: NMK_CAPTURE_SET=gx.",
+  "width": 600,
+  "depth": 600,
+  "margin": 100,
+  "size": 800,
+  "buildHalf": 300,
+  "camera": {
+    "pos": [10, 45, 120],
+    "yaw": 0,
+    "pitch": -22
+  },
+  "map": "gx_test_scene.nmap.json",
+  "playable": false,
+  "userMap": true,
+  "selftest": "authored",
+  "thumbnail": "gx_test_scene.thumb.png",
+  "thumbnailCamera": {
+    "pos": [70, 30, 95],
+    "yaw": 30,
+    "pitch": -18
+  }
+}

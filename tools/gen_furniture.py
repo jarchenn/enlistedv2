@@ -80,6 +80,9 @@ MATS = {
     "porcelain": ([0.76, 0.74, 0.68], 0.25, "ceramic", 0),
 }
 # L3: linear HDR emissive multipliers (the lighting engine, L2, scales them by the light's on / time-of-day state)
+# P1: each piece's furnishing envelope (placement, keep-clear, ceiling spots, culling) as its version 1 parts gave it,
+# written as prop.bounds so a new look never changes where auto-furnish puts things (src/interior.cpp PropDef)
+ENVELOPES = json.loads((pathlib.Path(__file__).resolve().parent / "prop_envelopes.json").read_text(encoding="utf-8"))
 EMISSIVE = {
     "lamp_glass": [1.6, 1.15, 0.62],
     "bulb": [6.0, 4.6, 2.9],
@@ -187,6 +190,8 @@ class A:
         if glass:
             self.prop["glass"] = self.groups.index(glass)
         self.prop["surfaces"] = [[round(v, 3) for v in s] for s in surfaces]
+        if self.id in ENVELOPES:
+            self.prop["bounds"] = ENVELOPES[self.id]
         doc = {"id": self.id, "version": 2, "name": self.name, "category": "Furniture", "description": self.desc,
                "floors": 0, "enterable": False, "footprint": [round(footprint[0], 3), round(footprint[1], 3)],
                "plinthDepth": 0, "maxGrade": 0.3, "noAutoPanels": True, "materials": materials,

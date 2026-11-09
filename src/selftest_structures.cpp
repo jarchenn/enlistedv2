@@ -11,6 +11,7 @@
 #include "physics.h"
 #include <cstdlib>
 #include <cstring>
+#include "terrain_blend.h"   // GX1: trench pieces carve to the configured depth
 #if __has_include("editor_nav.h")   // W3 terrain cuts present (claude/changes): the suite uses them, not its stand-in
 #include "editor_nav.h"
 #define W4_REAL_CUTS 1
@@ -60,7 +61,7 @@ std::vector<CutProbe> cutProbes(App& app, const Instance& in, const AssetDef* a)
         vec2 p(x, z);
         if (!inPoly(p, w)) continue;
         float d = edgeDist(p, w);
-        if (d > bestD) { bestD = d; best = {vec3(p.x, 0, p.y), in.pos.y - c.depth}; }
+        if (d > bestD) { bestD = d; best = {vec3(p.x, 0, p.y), in.pos.y - ((blendEnabled() && blendTrench(a)) ? blendConfig().sp.depth : c.depth)}; }   // GX1: trench pieces carve to the configured depth
       }
     if (bestD > 0.05f && bestD >= c.bank) probes.push_back(best);   // padded by fs: every grid sample within fs is at full depth
   }
