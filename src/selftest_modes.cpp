@@ -115,31 +115,29 @@ float minPairDist(const Game& G, bool sameTeamToo) {
 
 void build(App&) {
   push("headless rules", [](App&, float) { headless(); return true; });
-  // the navmesh bake cache: a repeat start of the same Solo map loads the tiles instead of baking them again
+  // the navmesh bake cache: a repeat start of the same Solo map loads the tiles instead of baking them again. The counts
+  // are taken right after each start: once the match runs, doors and late colliders rebuild tiles (PF1b: M1 saw
+  // 19,444 polygons loaded against 19,413 counted a second into the first match)
   push("nav bake cache", [](App& a, float t) {
-    static int stage, tiles0, polys0, links0; static double ms0;
+    static int tiles0, polys0, links0; static double ms0; static std::vector<char> blob0;
     if (t == 0) {
       std::error_code ec; fs::remove_all(exeDir() / "cache" / "nav", ec);
       _putenv_s("NMK_NAV_CACHE", "1");
-      stage = 0;
       chk(startMode(a, GameMode::Solo, 4, 99), "Solo start for the bake cache (%s)", gGame->setupError.c_str());
+      const Nav& N = gGame->nav;
+      tiles0 = N.tilesBuilt; polys0 = N.usedNodes; links0 = N.links; ms0 = N.buildMs; blob0 = N.blob;
+      chk(!N.fromCache && tiles0 > 0 && fs::exists(N.cachePath), "first start bakes %d tiles, %d polygons in %.0f ms and writes %s", tiles0, polys0, ms0, fs::path(N.cachePath).filename().string().c_str());
       return false;
     }
-    Game& G = *gGame;
-    if (stage == 0 && t > 1.0f) {
-      tiles0 = G.nav.tilesBuilt; polys0 = G.nav.usedNodes; links0 = G.nav.links; ms0 = G.nav.buildMs;
-      chk(!G.nav.fromCache && tiles0 > 0 && fs::exists(G.nav.cachePath), "first start bakes %d tiles in %.0f ms and writes %s", tiles0, ms0, fs::path(G.nav.cachePath).filename().string().c_str());
-      stage = 1;
-      chk(startMode(a, GameMode::Solo, 4, 99), "Solo restart on the same map (%s)", gGame->setupError.c_str());
-      return false;
-    }
-    if (stage == 1 && t > 2.5f) {
-      chk(G.nav.fromCache && G.nav.tilesBuilt == tiles0 && G.nav.usedNodes == polys0 && G.nav.links == links0 && G.nav.buildMs < ms0 * 0.5,
-          "second start loads the same navmesh from the cache: %d tiles, %d polygons, %d links in %.0f ms (baked: %.0f ms)", G.nav.tilesBuilt, G.nav.usedNodes, G.nav.links, G.nav.buildMs, ms0);
-      if (!std::getenv("NMK_MODES_MAP")) _putenv_s("NMK_NAV_CACHE", "");   // another map (dev hook): keep the bake for the matches below
-      return true;
-    }
-    return t > 60 ? (chk(false, "bake cache steps finished (stage %d)", stage), true) : false; });
+    if (t < 1.0f) return false;
+    chk(startMode(a, GameMode::Solo, 4, 99), "Solo restart on the same map (%s)", gGame->setupError.c_str());
+    const Nav& N = gGame->nav;
+    chk(N.fromCache && N.tilesBuilt == tiles0 && N.usedNodes == polys0 && N.links == links0 && N.blob == blob0 && N.buildMs < ms0 * 0.5,
+        "second start loads exactly the baked navmesh from the cache: %d tiles, %d polygons (baked %d), %d links, same %zu bytes, in %.0f ms (baked: %.0f ms)",
+        N.tilesBuilt, N.usedNodes, polys0, N.links, N.blob.size(), N.buildMs, ms0);
+    blob0.clear();
+    if (!std::getenv("NMK_MODES_MAP")) _putenv_s("NMK_NAV_CACHE", "");   // another map (dev hook): keep the bake for the matches below
+    return true; });
   // PF1: the navmesh saved with the map: <map>.nav beside a user map, one entry per bake bounds, never a stale one
   push("nav sidecar", [](App& a, float t) {
     static int stage; static int tiles0, polys0; static double ms0; static fs::path map, side;
@@ -195,18 +193,22 @@ void build(App&) {
   // content/templates/<map>.nav of this build (copy them to the repository's content/templates)
   if (std::getenv("NMK_NAV_PREBAKE")) push("prebake templates", [](App& a, float t) {
     _putenv_s("NMK_NAV_CACHE", "1");
+    const char* only = std::getenv("NMK_NAV_PREBAKE_ONLY");   // e.g. omaha_easy_red,chateau_town (timing runs)
     for (auto& tp : a.templates) {
       std::string mf = tp.raw.value("map", "");
-      if (mf.empty()) continue;
+      if (mf.empty() || (only && *only && ("," + std::string(only) + ",").find("," + tp.id + ",") == std::string::npos)) continue;
       if (a.mode == Mode::Explore) a.exitExplore();
       a.newMap(tp, tp.name);
       Scenario sc = Scenario::fromJson(a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object());
       for (GameMode m : {GameMode::Solo, GameMode::Assault}) {
         if (m == GameMode::Assault && sc.objectives.empty()) continue;
+        double t0 = glfwGetTime();
         bool ok = startMode(a, m, 2, 99, 1, 1, fs::path());
+        double startS = glfwGetTime() - t0;
         fs::path side = navSidecarOf(contentDir() / "templates" / mf); std::error_code ec;
-        chk(ok && gGame->nav.valid(), "%s %s: %d tiles (%s), %s %.1f MB", tp.id.c_str(), gameModeName(m), gGame->nav.tilesBuilt, gGame->nav.fromSidecar ? "sidecar" : "baked",
-            side.filename().string().c_str(), fs::exists(side, ec) ? fs::file_size(side, ec) / 1048576.0 : 0.0);
+        const Nav& N = gGame->nav;
+        chk(ok && N.valid(), "%s %s: match start %.1f s (bake %.1f s: input %.1f s, %ld triangles), %d tiles, %d polygons, %s %.1f MB", tp.id.c_str(), gameModeName(m),
+            startS, N.buildMs / 1000, N.collectMs / 1000, N.inputTris, N.tilesBuilt, N.usedNodes, side.filename().string().c_str(), fs::exists(side, ec) ? fs::file_size(side, ec) / 1048576.0 : 0.0);
       }
     }
     _putenv_s("NMK_NAV_CACHE", "");
@@ -308,6 +310,7 @@ bool modesSelfTest(App& app, float dt) {
   if (!started) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
+    else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
     else if (std::getenv("NMK_MODES_ONLY_100")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "100 ai" && s.name != "200 ai" && s.name != "done"; }), seq.end());   // just the crowds
   }
   if (cur < seq.size()) {

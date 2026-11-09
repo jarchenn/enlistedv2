@@ -54,6 +54,7 @@ struct NavBuildJob {
     return std::max(water, wgrid[(size_t)k * wn + i]);
   }
   unsigned char* data = nullptr; int size = 0; std::vector<NavLink> links; double ms = 0; int polys = 0, tris = 0, kinds[4] = {0, 0, 0, 0};
+  double phase[8] = {};   // PF1b bake profile: input, raster, filter + compact + erode, marks / water / paint, regions, contours + polys, detail, links + create
   ~NavBuildJob() { if (data) dtFree(data); }
 };
 
@@ -73,6 +74,7 @@ struct NavImpl {
 
 static void buildTile(const NavConfig& c, NavBuildJob& j) {
   auto t0 = std::chrono::steady_clock::now();
+  auto tp = t0; auto mark = [&](int k) { auto n = std::chrono::steady_clock::now(); j.phase[k] += std::chrono::duration<double, std::milli>(n - tp).count(); tp = n; };
   const float T = c.tile;
   float tminx = j.tx * T, tminz = j.tz * T;
   rcConfig rc{};
@@ -93,6 +95,7 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
   // geometry
   NavTris tris;
   navTriangles(*j.bodies, vec3(rc.bmin[0], -2000, rc.bmin[2]), vec3(rc.bmax[0], 2000, rc.bmax[2]), tris);
+  mark(0);
   int nt = (int)tris.kind.size(), nv = (int)tris.v.size() / 3;
   j.tris = nt; for (uint8_t k : tris.kind) j.kinds[k & 3]++;
   if (nt == 0) { j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); return; }
@@ -114,6 +117,7 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
     else if (ta[k]) ta[k] = navarea::fromNav(NavArea::Default);
   }
   if (!rcRasterizeTriangles(&ctx, tris.v.data(), nv, tris.t.data(), ta.data(), nt, *hf, rc.walkableClimb)) { cleanup(); return; }
+  mark(1);
   NavColumns cols; cols.fromHeightfield(*hf);
   rcFilterLowHangingWalkableObstacles(&ctx, rc.walkableClimb, *hf);
   rcFilterLedgeSpans(&ctx, rc.walkableHeight, rc.walkableClimb, *hf);
@@ -121,6 +125,7 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
   chf = rcAllocCompactHeightfield();
   if (!rcBuildCompactHeightfield(&ctx, rc.walkableHeight, rc.walkableClimb, *hf, *chf)) { cleanup(); return; }
   if (!rcErodeWalkableArea(&ctx, rc.walkableRadius, *chf)) { cleanup(); return; }
+  mark(2);
   // asset areas (marsh, road, trench, minefield, ...), then water, then crouch headroom
   for (auto& m : j.marks.marks) {
     if (m.poly.size() < 3) continue;
@@ -154,13 +159,17 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
       }
     }
   }
+  mark(3);
   if (!rcBuildDistanceField(&ctx, *chf) || !rcBuildRegions(&ctx, *chf, rc.borderSize, rc.minRegionArea, rc.mergeRegionArea)) { cleanup(); return; }
+  mark(4);
   cset = rcAllocContourSet();
   if (!rcBuildContours(&ctx, *chf, rc.maxSimplificationError, rc.maxEdgeLen, *cset) || cset->nconts == 0) { cleanup(); j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); return; }
   pm = rcAllocPolyMesh();
   if (!rcBuildPolyMesh(&ctx, *cset, rc.maxVertsPerPoly, *pm)) { cleanup(); return; }
+  mark(5);
   dm = rcAllocPolyMeshDetail();
   if (!rcBuildPolyMeshDetail(&ctx, *pm, *chf, rc.detailSampleDist, rc.detailSampleMaxError, *dm)) { cleanup(); return; }
+  mark(6);
   if (pm->npolys == 0) { cleanup(); return; }
   for (int i = 0; i < pm->npolys; ++i) {
     uint8_t a = pm->areas[i];
@@ -211,6 +220,7 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
   if (!dtCreateNavMeshData(&p, &j.data, &j.size)) { j.data = nullptr; j.size = 0; }
   j.polys = pm->npolys;
   cleanup();
+  mark(7);
   j.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
 }
 
@@ -309,6 +319,7 @@ static uint32_t linkIdBase(const NavImpl& I, int tx, int tz) {
 // local water over a tile and its border, 1 m samples taken here (the main thread), so the workers never touch the map
 static void sampleWater(const Nav& nav, NavBuildJob& j, float pad) {
   if (!nav.waterQuery) return;
+  if (nav.waterLocalIn && !nav.waterLocalIn(vec2(j.tx * nav.cfg.tile - pad - 3.0f, j.tz * nav.cfg.tile - pad - 3.0f), vec2((j.tx + 1) * nav.cfg.tile + pad + 3.0f, (j.tz + 1) * nav.cfg.tile + pad + 3.0f))) return;   // nothing local here (PF1b)
   const float T = nav.cfg.tile, P = pad + 3.0f, st = 1.0f;
   j.wx0 = j.tx * T - P; j.wz0 = j.tz * T - P; j.wstep = st; j.wn = (int)std::ceil((T + 2 * P) / st) + 1;
   j.wgrid.assign((size_t)j.wn * j.wn, -1e9f);
@@ -431,19 +442,27 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
   }
   blob.clear();
   std::vector<std::unique_ptr<NavBuildJob>> jobs;
+  double inputMs[4] = {};   // main-thread input: water samples, physics bodies, area marks, progress / window
   float pad = cfg.linkBorder + cfg.radius + 1.0f;
   const size_t nTiles = (size_t)(impl_->tz1 - impl_->tz0 + 1) * (size_t)(impl_->tx1 - impl_->tx0 + 1);
   for (int tz = impl_->tz0; tz <= impl_->tz1; ++tz) for (int tx = impl_->tx0; tx <= impl_->tx1; ++tx) {
     auto j = std::make_unique<NavBuildJob>();
     j->tx = tx; j->tz = tz; j->gen = ++impl_->genIssued[{tx, tz}]; j->idBase = linkIdBase(*impl_, tx, tz); j->water = waterLevel;
+    auto c0 = std::chrono::steady_clock::now();
     sampleWater(*this, *j, pad);
+    auto c1 = std::chrono::steady_clock::now();
     vec3 a(tx * cfg.tile - pad, -2000, tz * cfg.tile - pad), b((tx + 1) * cfg.tile + pad, 2000, (tz + 1) * cfg.tile + pad);
     j->bodies = navCollectBodies(a, b, classify);
+    auto c2 = std::chrono::steady_clock::now();
     if (areaMarks) areaMarks(tx, tz, j->marks);
+    auto c3 = std::chrono::steady_clock::now();
     jobs.push_back(std::move(j));
     if (progress) progress(0.25f * jobs.size() / std::max<size_t>(1, nTiles));   // collecting the physics input: ~1/4
+    auto ms = [](auto x, auto y) { return std::chrono::duration<double, std::milli>(y - x).count(); };
+    inputMs[0] += ms(c0, c1); inputMs[1] += ms(c1, c2); inputMs[2] += ms(c2, c3); inputMs[3] += ms(c3, std::chrono::steady_clock::now());
   }
   if (threads <= 0) threads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
+  collectMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();   // the main-thread input pass
   std::atomic<size_t> next{0}, finished{0};
   std::vector<std::thread> T;
   for (int k = 0; k < threads; ++k) T.emplace_back([&] { for (size_t i; (i = next++) < jobs.size();) { buildTile(cfg, *jobs[i]); ++finished; } });
@@ -456,7 +475,11 @@ void Nav::build(vec3 blo, vec3 bhi, int threads) {
   if (!cachePath.empty()) writeAtomic(cachePath, blob);
   int bodies = 0, tri = 0, kinds[4] = {0, 0, 0, 0}, polys = 0;
   for (auto& j : jobs) { bodies += navBodyCount(*j->bodies); tri += j->tris; for (int k = 0; k < 4; ++k) kinds[k] += j->kinds[k]; polys += j->polys; }
+  inputTris = tri;
   logf("nav: input %d body refs, %d triangles (solid %d, wire %d, skip %d, carve %d), %d polygons", bodies, tri, kinds[0], kinds[1], kinds[2], kinds[3], polys);
+  { double ph[8] = {}; for (auto& j : jobs) for (int k = 0; k < 8; ++k) ph[k] += j->phase[k];
+    logf("nav: bake profile (thread-seconds): main-thread input %.1f s (water %.1f, bodies %.1f, area marks %.1f, window %.1f); tiles: input %.1f, raster %.1f, filter/compact/erode %.1f, marks/water/paint %.1f, regions %.1f, contours/polys %.1f, detail %.1f, links/create %.1f",
+         collectMs / 1000, inputMs[0] / 1000, inputMs[1] / 1000, inputMs[2] / 1000, inputMs[3] / 1000, ph[0] / 1000, ph[1] / 1000, ph[2] / 1000, ph[3] / 1000, ph[4] / 1000, ph[5] / 1000, ph[6] / 1000, ph[7] / 1000); }
   for (auto& j : jobs) commit(*j);
   changed.clear();
   buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();

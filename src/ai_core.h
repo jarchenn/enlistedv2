@@ -230,6 +230,9 @@ public:
   // PF1 zombie packs (zombie.cpp): members[0] is the leader, the only one that picks targets and requests paths
   struct ZPack { std::vector<int> members; };
   std::vector<ZPack> packs; double packT = -100; int pathsLeader = 0, pathsFollower = 0;
+  // PF1b navmesh area marks: instances whose asset can mark (doc.instances indices), per placement signature; asset -> (can mark, lattice)
+  uint64_t waterBoxSig = 0; std::vector<std::pair<vec2, vec2>> waterBoxes;   // PF1b: Nav::waterLocalIn
+  uint64_t markSig = 0; std::vector<size_t> markCands; std::unordered_map<const AssetDef*, std::pair<bool, bool>> canMark;
   uint64_t lastFrameStep = ~0ull; double frameT = 0;
   std::map<uint64_t, std::pair<uint64_t, std::pair<vec3, vec3>>> instPrint;   // instance -> fingerprint, bounds
   std::map<int, uint32_t> terrainRev; uint32_t lastGroundRev = 0; double nextWorldPoll = 0;

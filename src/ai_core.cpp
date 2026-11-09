@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include "net.h"
 #include "water_query.h"
+#include "water.h"
 #include <DetourNavMesh.h>
 #include <algorithm>
 #include <cmath>
@@ -81,6 +82,8 @@ int CrowdSnapshot::claims(vec3 p, int except) const {
 static json loadJson(const char* dir, const char* file) {
   try { return json::parse(readTextFile(contentDir() / dir / file)); } catch (std::exception& e) { logf("ai: %s/%s: %s", dir, file, e.what()); return json::object(); }
 }
+
+uint64_t placementSig(const std::vector<Instance>& v, bool withPose);   // app.cpp (PF3)
 
 // ---- PF1 navmesh key and the map's sidecar (<map>.nav)
 // bump when the bake (nav*.cpp, terrain generation, geometry classes) changes its output for the same inputs: the key
@@ -168,7 +171,35 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   Nav& nav = G.nav;
   nav.cfg = NavConfig{}; nav.cfg.load(navj);
   nav.waterLevel = app.terrain.waterLevel;
-  nav.waterQuery = [ap = &app](float x, float z) { return waterAt(*ap, x, z); };   // lakes / ponds / water assets (water_query.h)
+  nav.waterQuery = [ap = &app](float x, float z) { return waterAt(*ap, x, z); };
+  // PF1b: boxes (world xz) that can hold local water: placed water assets (their surfaces' bounds, turned by the
+  // instance) and lasso fills. Sampling the map's water at 1 m over every tile was 35 of Omaha's 42 s start.
+  nav.waterLocalIn = [this](vec2 lo, vec2 hi) {
+    App& ap = G.app;
+    uint64_t sig = placementSig(ap.doc.instances, true) ^ ((uint64_t)ap.doc.waterBodies.size() << 48);
+    for (auto& w : ap.doc.waterBodies) sig = (sig ^ w.id ^ (uint64_t)w.outline.size()) * 1099511628211ull;
+    if (sig != waterBoxSig) {
+      waterBoxSig = sig; waterBoxes.clear();
+      for (auto& in : ap.doc.instances) {
+        const AssetDef* a = ap.assetFor(in);
+        if (!waterAsset(a)) continue;
+        quat q = yawQuat(in.yaw);
+        for (auto& s : waterSurfaces(a)) for (int c = 0; c < 4; ++c) {
+          vec3 w = in.pos + q * vec3((c & 1) ? s.bmax.x : s.bmin.x, 0, (c & 2) ? s.bmax.y : s.bmin.y);
+          if (c == 0) waterBoxes.push_back({vec2(w.x, w.z), vec2(w.x, w.z)});
+          else { auto& b = waterBoxes.back(); b.first = glm::min(b.first, vec2(w.x, w.z)); b.second = glm::max(b.second, vec2(w.x, w.z)); }
+        }
+      }
+      for (auto& w : ap.doc.waterBodies) {
+        if (w.outline.empty()) continue;
+        vec2 mn = w.outline[0], mx = w.outline[0];
+        for (auto& p : w.outline) { mn = glm::min(mn, p); mx = glm::max(mx, p); }
+        waterBoxes.push_back({mn, mx});
+      }
+    }
+    for (auto& b : waterBoxes) if (b.second.x >= lo.x && b.first.x <= hi.x && b.second.y >= lo.y && b.first.y <= hi.y) return true;
+    return false;
+  };   // lakes / ponds / water assets (water_query.h)
   nav.classify = [this](uint64_t ud) -> int {
     if (ud == 0 || (ud >> 60) == 0xF) return NT_SOLID;                 // terrain tiles and height patches
     auto it = G.app.rt.find(ud >> 16);
@@ -189,7 +220,28 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   nav.areaMarks = [this](int tx, int tz, NavAreaMarks& out) {
     const float T = G.nav.cfg.tile, pad = 4.0f;
     vec2 tlo(tx * T - pad, tz * T - pad), thi((tx + 1) * T + pad, (tz + 1) * T + pad);
-    for (auto& in : G.app.doc.instances) {
+    // PF1b: only the instances whose asset can mark an area, listed again when a placement changes (asking every
+    // instance per tile, with the footprintNull ids copied out of the json each time, was 43 s of Omaha's 47 s start)
+    const auto& insts = G.app.doc.instances;
+    uint64_t sig = placementSig(insts, true) ^ ((uint64_t)G.app.rt.size() << 40);
+    if (sig != markSig) {
+      markSig = sig; markCands.clear();
+      for (size_t k = 0; k < insts.size(); ++k) {
+        auto it = G.app.rt.find(insts[k].id);
+        if (it == G.app.rt.end() || !it->second.asset) continue;
+        const AssetDef* ap = it->second.asset;
+        auto c = canMark.find(ap);
+        if (c == canMark.end()) {
+          bool lat = false; if (navj.contains("footprintNull")) for (auto& id : navj["footprintNull"]) if (id.is_string() && id.get<std::string>() == ap->id) lat = true;
+          const NavMeta& nm = ap->navMeta;
+          bool hedgeA = ap->tree.on && ap->tree.hedge && resolveNavEffect(nm, ap->enterable, ap->bmin, ap->bmax) != NavEffect::None;
+          c = canMark.emplace(ap, std::make_pair(!nm.areas.empty() || nm.area != NavArea::Default || ap->defense.unsafeVault || hedgeA || lat, lat)).first;
+        }
+        if (c->second.first) markCands.push_back(k);
+      }
+    }
+    for (size_t k : markCands) {
+      const Instance& in = insts[k];
       auto it = G.app.rt.find(in.id);
       if (it == G.app.rt.end() || !it->second.asset) continue;
       const AssetDef& a = *it->second.asset;
@@ -197,7 +249,7 @@ void AiCore::begin(vec3 lo, vec3 hi) {
       bool wireSlow = a.defense.unsafeVault && !it->second.defDestroyed;   // every wire obstacle: its uncut stretches are forbidden ground
       bool hedge = a.tree.on && a.tree.hedge && resolveNavEffect(m, a.enterable, a.bmin, a.bmax) != NavEffect::None;   // bank + woody stems: a wall (AI_SPEC 3.1)
       // lattice obstacles (Belgian gates, hedgehogs, abatis): their struts rasterise as walkable ledges; the footprint is no-go
-      bool lattice = false; if (navj.contains("footprintNull")) for (auto& id : navj["footprintNull"]) if (id.is_string() && id.get<std::string>() == a.id) lattice = true;
+      bool lattice = canMark[&a].second;
       if (m.areas.empty() && m.area == NavArea::Default && !wireSlow && !hedge && !lattice) continue;
       float r = glm::length(vec2(std::max(std::fabs(a.bmin.x), std::fabs(a.bmax.x)), std::max(std::fabs(a.bmin.z), std::fabs(a.bmax.z)))) + 1;
       if (in.pos.x + r < tlo.x || in.pos.x - r > thi.x || in.pos.z + r < tlo.y || in.pos.z - r > thi.y) continue;
@@ -268,9 +320,10 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   const bool store = !G.app.selftest || (navCacheEnv && *navCacheEnv);
   const uint64_t navKey = store ? aiNavKey(aiNavKeyPrefix(G.app, navj), lo, hi) : 0;
   std::vector<NavSidecarEntry> side;
-  if (store && !G.app.navSidecar.empty() && navSidecarRead(G.app.navSidecar, side))
+  const bool prebakeRun = std::getenv("NMK_NAV_PREBAKE") != nullptr;   // always bakes afresh (and rewrites the sidecar)
+  if (store && !G.app.navSidecar.empty() && navSidecarRead(G.app.navSidecar, side) && !prebakeRun)
     for (auto& e : side) if (e.key == navKey) { nav.preload = e.blob; break; }
-  if (store) {
+  if (store && !prebakeRun) {
     std::error_code ec;
     std::string exe = __argv && __argv[0] ? __argv[0] : "";
     auto stamp = fs::exists(exe, ec) ? (long long)fs::last_write_time(exe, ec).time_since_epoch().count() : 0LL;
