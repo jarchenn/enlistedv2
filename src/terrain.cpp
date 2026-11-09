@@ -6,7 +6,7 @@ std::vector<TemplateInfo> loadTemplates(const fs::path& dir) {
   std::vector<TemplateInfo> out;
   if (!fs::exists(dir)) return out;
   for (auto& e : fs::directory_iterator(dir)) {
-    if (e.path().extension() != ".json") continue;
+    if (e.path().extension() != ".json" || e.path().stem().extension() == ".nmap") continue;   // <id>.nmap.json is a template's map data, not a template
     try {
       json j = json::parse(readTextFile(e.path()));
       TemplateInfo t;
