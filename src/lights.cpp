@@ -95,7 +95,7 @@ bool lightsRuinedAsset(const AssetDef* a) {   // one shared list: V4 isRuinedAss
   return a && isRuinedAsset(a->id);
 }
 bool lightsOnlyHost(const AssetDef* a) {
-  if (!a || !a->enterable || lightsRuinedAsset(a)) return false;
+  if (!a || !a->enterable || lightsRuinedAsset(a) || startsWith(a->id, "mil_")) return false;   // GX6: mil_ hosts are furnished (military rooms)
   return startsWith(a->id, "bunker_") || startsWith(a->id, "aw_") || a->category == "Bunkers" || a->category == "Atlantic Wall";
 }
 bool lightsLitBuilding(const AssetDef* a) {
@@ -264,7 +264,7 @@ int surfaceRank(const std::string& id) {   // tables first, then dressers and ch
 
 void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const AssetDef* ha, const RoomInfo& ri, uint32_t seed, std::vector<LightPlanItem>& items) {
   if (!lightsLitBuilding(ha)) return;
-  bool bunker = lightsOnlyHost(ha);
+  bool bunker = lightsOnlyHost(ha) || startsWith(ha->id, "mil_");   // caged electric lamps
   quat hq = yawQuat(host.yaw), iq = glm::inverse(hq);
   const size_t planned = items.size();
   for (size_t k = 0; k < ri.rooms.size(); ++k) {

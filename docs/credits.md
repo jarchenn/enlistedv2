@@ -55,6 +55,18 @@ BSL Shaders v10.1.8 by Capt Tatsu (https://capttatsu.com) was the visual referen
 
 Author, licence and source for the grenade, StG 44, M3, Kar 98k ZF39 and soldier rows come from each file's own glTF `asset.extras` (Sketchfab export fields). They were read from the files, not taken from the filenames.
 
+## Building design references (GX6)
+
+These five models were design references for the GX6 buildings (`tools/catalog_gx_buildings.mjs`): proportions, roof pitch, window rhythm, timber layout, trim depth, material zoning, concrete weathering and earth blending. **None of their meshes or textures ships or is in this repository.** The buildings are built procedurally from the B1 kit. Author, licence and source come from each file's glTF `asset.extras`.
+
+| File | Informs | Author | Licence | Source URL |
+|---|---|---|---|---|
+| european_buildings_asset_pack_1.glb | Townhouses (narrow brick townhouse, the merchant's house with its stepped gables, cornices and rusticated ground floor), the half-timbered house | EddyNL (https://sketchfab.com/EddyNL) | CC-BY-4.0 | https://sketchfab.com/3d-models/european-buildings-asset-pack-1-b35bb99dac624919b40fb3fdf59b438a |
+| european_buildings_asset_pack_3.glb | The notary's red-brick villa (cross gable, corner tower, segmental arches), the hotel-pension | EddyNL (https://sketchfab.com/EddyNL) | CC-BY-4.0 | https://sketchfab.com/3d-models/european-buildings-asset-pack-3-b4fe252345214a3ea1abc834af42944d |
+| little_rock_inn.glb | The roadside inn: long low body, veranda, sign board, rubble chimney | Beardmonkey (https://sketchfab.com/beardmonkey) | CC-BY-4.0 | https://sketchfab.com/3d-models/little-rock-inn-4a09cb8213f64cf7811c471d92c11058 |
+| shoeburyness_small_building.glb | `mil_stronghold`: slab lip, steel doors, concrete weathering, earth bank against the wall | artfletch (https://sketchfab.com/artfletch) | CC-BY-4.0 | https://sketchfab.com/3d-models/shoeburyness-small-building-40b8bd5d5702499091bfc25b2951cedd |
+| tilbury_fort_spigot_mortar_emplacement.glb | `mil_stronghold`: cracked roof deck, tube railings, steps in the bank, grassed earth blending into the concrete | artfletch (https://sketchfab.com/artfletch) | CC-BY-4.0 | https://sketchfab.com/3d-models/tilbury-fort-spigot-mortar-emplacement-379d16af6e2a44d8a6d98e81d307744f |
+
 ## Libraries: navigation
 
 **Recast & Detour** ([recastnavigation](https://github.com/recastnavigation/recastnavigation), v1.6.0, commit 6dc1667) builds and queries the bots' navigation mesh (`src/nav.*`, `src/ai_path.cpp`). It is fetched at configure time by `cmake/recast.cmake` and compiled as a static library. Its licence is zlib:

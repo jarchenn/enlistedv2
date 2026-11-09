@@ -206,6 +206,58 @@ void SelfTest::captureUpdate(App& app, float dt) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && (std::string(set) == "gx6" || std::string(set) == "gx6street" || std::string(set) == "b3street")) {
+      // NMK_CAPTURE_SET=gx6: the GX6 houses, large houses and mil_stronghold (tools/catalog_gx_buildings.mjs),
+      // furnished, with companions: front and rear three-quarter views and one view from every "look" step of the
+      // tour. NMK_CAPTURE_SET=gx6street: the eleven houses in a furnished street; "perf_" cameras hold 150 frames and
+      // write the mean frame / GPU time, triangles and draws to selftest_out/report_gx6_perf.txt.
+      static std::deque<std::string> keep;
+      static const char* ids[] = {"vil_colombage_auge", "vil_granite_longere", "vil_brick_townhouse", "vil_rendered_shutters", "vil_cafe_corner", "vil_bakery",
+                                  "vil_relais_inn", "vil_merchant_house", "vil_notary_house", "vil_farm_courtyard", "vil_pension_hotel", "mil_stronghold"};
+      static const char* b3ids[] = {"vil_longhouse_thatched", "vil_townhouse_jettied", "vil_villa_deauville", "vil_manor_turret", "vil_corner_shop", "vil_gatehouse_chapel",
+                                    "vil_mill_house", "vil_terrace_pair", "vil_cottage_barn", "vil_rectory", "vil_rectory", "mil_stronghold"};   // b3street: the same street of B3 houses (baseline)
+      cams.clear();
+      bool street = std::string(set) != "gx6";
+      int n = 0; float sx = -150.0f;
+      for (const char* aid : std::string(set) == "b3street" ? b3ids : ids) {
+        const AssetDef* a = app.lib.find(aid);
+        if (!a || (street && std::string(aid).rfind("mil_", 0) == 0)) continue;
+        float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f, H = a->bmax.y - a->bmin.y;
+        vec3 at3 = street ? vec3(sx + fx, 0, -fz) : vec3(-160.0f + (n % 4) * 105.0f, 0, -110.0f + (n / 4) * 105.0f);   // street: fronts on z = 0
+        if (street) sx += 2.0f * fx + 1.0f;
+        ++n;
+        uint64_t id = app.placeInstance(a, at3, 0.0f);
+        if (!id) continue;
+        app.placeCompanions(id);
+        app.syncRuntime();
+        app.interior.furnish(app, id, 0);
+        if (street) continue;
+        vec3 o = app.doc.find(id)->pos;
+        keep.push_back(a->id + "_ext_front"); cams.push_back({keep.back().c_str(), o + vec3(fx * 0.9f + 4, 1.7f + H * 0.25f, fz * 1.6f + 6), o + vec3(0, H * 0.35f, 0)});
+        keep.push_back(a->id + "_ext_rear"); cams.push_back({keep.back().c_str(), o + vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6), o + vec3(0, H * 0.35f, 0)});
+        keep.push_back(a->id + "_ext_eye"); cams.push_back({keep.back().c_str(), o + vec3(fx * 0.55f, 1.7f, fz + 7.0f), o + vec3(-fx * 0.2f, 1.6f + H * 0.18f, 0)});
+        vec2 at(0); float y = 0; int k = 0;
+        for (auto& st : a->raw["tour"].value("steps", json::array())) {
+          if (st.contains("goto")) { at = vec2(st["goto"][0].get<float>(), st["goto"][1].get<float>()); if (st.contains("expectY")) y = st["expectY"].get<float>(); }
+          if (st.contains("look")) { keep.push_back(a->id + "_int" + std::to_string(++k)); cams.push_back({keep.back().c_str(), o + vec3(at.x, y + 1.6f, at.y), o + jvec3(st["look"])}); }
+        }
+      }
+      if (street) {
+        float x0 = -150.0f, x1 = sx;
+        cams.push_back({"street_eye", vec3(x0 - 2.0f, 1.7f, 7.0f), vec3(x0 + 40.0f, 3.0f, -2.0f)});
+        cams.push_back({"street_mid", vec3((x0 + x1) * 0.5f, 1.7f, 9.0f), vec3((x0 + x1) * 0.5f + 25.0f, 3.0f, -4.0f)});
+        cams.push_back({"perf_street_eye", vec3(x0 - 2.0f, 1.7f, 7.0f), vec3(x0 + 40.0f, 3.0f, -2.0f)});
+        cams.push_back({"perf_street_mid", vec3((x0 + x1) * 0.5f, 1.7f, 9.0f), vec3((x0 + x1) * 0.5f + 25.0f, 3.0f, -4.0f)});
+        cams.push_back({"perf_street_far", vec3((x0 + x1) * 0.5f, 25.0f, 220.0f), vec3((x0 + x1) * 0.5f, 2.0f, -6.0f)});
+        cams.push_back({"perf_empty_view", vec3((x0 + x1) * 0.5f, 1.7f, 9.0f), vec3((x0 + x1) * 0.5f, 3.0f, 60.0f)});   // the same spot facing away: the base cost
+        cams.push_back({"perf_street_eye_warm", vec3(x0 - 2.0f, 1.7f, 7.0f), vec3(x0 + 40.0f, 3.0f, -2.0f)});   // the eye view again, after warm-up
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "interiors") {
       // NMK_CAPTURE_SET=interiors: walls, interiors and furniture (docs/interiors.md). The representative house is the
       // farmhouse (exterior wall, windows, doorway, two stairs, a dirt road and pasture in front); the inn shows the
@@ -367,6 +419,20 @@ void SelfTest::captureUpdate(App& app, float dt) {
       double nearD = near * (grassPreset(GrassQuality::Medium).density / Grass::kMaxDensity) * Grass::kBlades / (3.14159265 * 225.0);
       summary[c.name] = {{"gpu_ms_grass_on", on}, {"gpu_ms_grass_off", off}, {"grass_ms", on - off}, {"blades_drawn", gBlades / gN}, {"near15_blades_per_m2", nearD}, {"shadow_clumps", gShadowN}};
       logf("grass capture %s: gpu %.3f ms on, %.3f off, grass %.3f ms, %zu blades, %.0f blades/m2 within 15 m, %zu shadow clumps", c.name, on, off, on - off, gBlades / gN, nearD, gShadowN);
+      ++ci; frames = 0;
+    }
+    return;
+  }
+  if (std::string(c.name).rfind("perf_", 0) == 0) {   // GX6: hold the view, average the last 120 frames
+    static double t0 = 0, gpu = 0, cpu = 0, tris = 0, draws = 0; static int nf = 0;
+    double now = glfwGetTime();
+    if (++frames == 30) { t0 = now; gpu = cpu = tris = draws = 0; nf = 0; }
+    else if (frames > 30) { gpu += app.R.stats.gpuMs; cpu += app.R.stats.cpuMs; tris += app.R.stats.tris; draws += app.R.stats.draws; ++nf; }
+    if (frames >= 150) {
+      std::string line = std::string(c.name) + ": frame " + std::to_string((now - t0) * 1000.0 / std::max(1, nf)) + " ms, gpu " + std::to_string(gpu / std::max(1, nf)) + " ms, render cpu " +
+        std::to_string(cpu / std::max(1, nf)) + " ms, tris " + std::to_string((long long)(tris / std::max(1, nf))) + ", draws " + std::to_string((long long)(draws / std::max(1, nf)));
+      logf("gx6 perf %s", line.c_str());
+      if (FILE* f = std::fopen("selftest_out/report_gx6_perf.txt", "a")) { std::fprintf(f, "%s\n", line.c_str()); std::fclose(f); }
       ++ci; frames = 0;
     }
     return;

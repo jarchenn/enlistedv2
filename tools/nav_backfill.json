@@ -183,6 +183,45 @@
  "furn_lamp_table": {
   "effect": "none"
  },
+ "furn_mil_ammo_rack": {
+  "effect": "carve"
+ },
+ "furn_mil_bunk": {
+  "effect": "carve"
+ },
+ "furn_mil_crates": {
+  "effect": "carve"
+ },
+ "furn_mil_fusebox": {
+  "effect": "none"
+ },
+ "furn_mil_gasmask_hooks": {
+  "effect": "none"
+ },
+ "furn_mil_generator": {
+  "effect": "carve"
+ },
+ "furn_mil_jerrycans": {
+  "effect": "carve"
+ },
+ "furn_mil_locker": {
+  "effect": "carve"
+ },
+ "furn_mil_map": {
+  "effect": "none"
+ },
+ "furn_mil_phone": {
+  "effect": "none"
+ },
+ "furn_mil_radio": {
+  "effect": "carve"
+ },
+ "furn_mil_rifle_rack": {
+  "effect": "carve"
+ },
+ "furn_mil_table": {
+  "effect": "carve"
+ },
  "furn_mirror": {
   "effect": "none"
  },

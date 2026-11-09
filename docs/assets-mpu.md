@@ -96,6 +96,36 @@ Added by stream B3 in `tools/catalog_chateau.mjs` with the B1 geometry kit (`doc
 
 How they are built: one builder (`house()`) lays every multi-storey house out like `catalog_large.mjs` (rear corridor on every level, two switchback stair cores at its ends, rooms off the corridor, doorways at the room centres); single-storey houses are a row of rooms with doorways near the rear wall. Walls are built storey by storey (`parts.wall()`, one panel band each) so storeys can change material and jetty out; half-timbered storeys are rendered walls with `timberFrame()` on them and timber-family panels. The chateau's checkerwork is a post-pass: its ground-floor outer layer becomes a grid of brick and dressed-stone squares (the core keeps one invisible collider; bay states keep their squares as colliders, breached states are plain brick). `NMK_CAPTURE_SET=b3 --capture-materials <tag>` captures every one (front and rear views, then each tour viewpoint, furnished); `NMK_STRUCTURES_ONLY=<ids>` limits `--selftest-structures` to those ids for a quick walkthrough.
 
+### GX6 houses, large houses and the stronghold (palette categories *Houses*, *Bunkers*)
+
+Added by GX6 in `tools/catalog_gx_buildings.mjs`, on B3's `house()` builder and the B1 kit. The CC-BY design references are listed in `docs/credits.md`; none of their meshes ship. Every building is enterable and auto-furnished, with nav, damage panels, a tour and `companions`. The eleven houses are in the Beautify `decor.buildings` list.
+
+| Id | What | Size | Interior |
+|---|---|---|---|
+| `vil_colombage_auge` | Pays d'Auge house: rubble sill wall, rendered timbering below, close studding with brick nogging above, jettied on joist ends, timbered gables, tiled door hood, window boxes | 12.8 × 8.6 m | salle, kitchen (hearth); two chambers; two stairs |
+| `vil_granite_longere` | Long stone farmhouse: dressed surrounds and quoins, slate roof with three stone dormers, gable stacks, open woodshed lean-to, stone bench, water butt | 18.4 × 7.8 m | salle, kitchen (hearth), dairy; open attic; two stairs |
+| `vil_brick_townhouse` | Narrow three-bay brick townhouse (pack 1): architraves with keystones, modillion cornice, pedimented door case, pantiled hip roof, blind party walls | 9.4 × 11.2 m | a room on each floor; two stairs |
+| `vil_rendered_shutters` | Symmetrical rendered village house: painted shutters, glass-and-iron marquise, window boxes, rendered gable stacks | 12.4 × 9.2 m | one large ground-floor room, two bedrooms; two stairs |
+| `vil_cafe_corner` | Corner cafe-tabac: timber shopfront with lettered fascias, striped awnings, pavement tables, balconettes, modillion cornice, slate mansard with dormers | 12 × 10.4 m | cafe room (street and corner doors); two rooms above; two stairs |
+| `vil_bakery` | Boulangerie: ashlar shopfront, awning, iron sign bracket, rendered and shuttered upper floor, domed bread oven with its own stack at the back | 12 × 10 m | shop, bakehouse (oven mouth); two rooms; two stairs |
+| `vil_relais_inn` | Roadside inn (Little Rock Inn): rubble walls, boarded gables, full-length veranda on oak posts with a "RELAIS DE LA POSTE" board, outside rubble chimney | 18 × 9.2 m | kitchen (hearth), salle; open attic; two stairs |
+| `vil_merchant_house` | Merchant's townhouse (pack 1): rusticated ground floor with arched windows, pedimented piano nobile, balcony and balconettes, crow-stepped brick gables, central scrolled gable | 14.4 × 11.2 m, 3 storeys + attic | shop; salon, dining; two bedrooms; attic; two stairs |
+| `vil_notary_house` | Red-brick villa (pack 3): stone bands, segmental relieving arches, louvred shutters, cross gable over a perron, square corner tower with a slate pyramid | 17.2 × 11.2 m, 2 storeys + attic | study, hall, salon (fireplaces); three bedrooms; attic; two stairs |
+| `vil_farm_courtyard` | Courtyard farm: stone farmhouse, a stable-and-byre wing and a cider-press barn wing round a cobbled yard, front wall with a carriage arch and a door, roofed well | about 27 × 23 m | kitchen, salle, dairy, three bedrooms, attic; stable, byre; press barn, store |
+| `vil_pension_hotel` | Hotel-pension: buff brick with white dressings and cornice, long iron balcony over the entrance, "HOTEL DE LA PLAGE" band, rendered central gable, dormers, four stacks | 19.2 × 11.2 m, 3 storeys + attic | dining, reception, salon; six guest rooms; attic; two stairs |
+| `mil_stronghold` | Command stronghold: 41 × 21 m concrete block with stepped MG and gun embrasures under concrete hoods, rounded slab lips, shuttering lines, camouflage paint, a spalled corner with rebar, steel blast doors; earth banks to the roof on the flanks and rear, a grassed rear roof, a sunken rear entrance between retaining walls, a railed roof deck with an MG nest, an aerial and steps down the east bank | about 60 × 34 m with the earthworks | gas lock, guard room, 37 m corridor, command, radio, observation (periscope), generator, ammunition store, two crew quarters, three fighting rooms; a stair to the armoured observation cupola |
+
+How they are built:
+- **Houses** reuse `house()` from `catalog_chateau.mjs`, which is now exported.
+- **Facade helpers** (in the GX6 catalog): downpipes, window boxes, door cases and pediments, awnings, shopfronts, modillions, segmental arches, rustication, crow-stepped gables, gable timbering, door hoods, marquises, wall lanterns, lean-tos.
+  - Signs use a 14-segment stroke font (`sign()`), mirrored correctly on rear and east faces.
+- **The courtyard farm** is three `house()` buildings: `placeSub()` turns and moves each one into the asset with its walls, bays, doors, nav and tour.
+- **The stronghold's facade skin** (shuttering lines, camouflage, expansion joints) is split per damage bay: pieces over a bay join that bay's intact state, so they go when the bay breaks.
+- **Military rooms.** The stronghold names its rooms through the `roomTypes` key; `src/interior.cpp` then furnishes them with the `furn_mil_*` props (`tools/gen_furniture_mil.py`): bunk, locker, radio desk, situation map, ammunition rack, crates, map table, gas-mask pegs, rifle rack, generator, jerrycans, field telephone, fuse box. Its lamps are caged.
+- **Captures.**
+  - `NMK_CAPTURE_SET=gx6 --capture-materials <tag>`: every building, furnished, from the front, the rear, eye level and each tour viewpoint.
+  - `NMK_CAPTURE_SET=gx6street`: the eleven houses in a street, plus `perf_` views. These write `selftest_out/report_gx6_perf.txt`.
+
 ### Ruins and rubble (V3; palette categories *Ruins*, *Rubble*)
 
 Added by the Visual & Physics Overhaul, stream V3 (`docs/plan-visual-physics-overhaul.md`, items 0 and 0a), in `tools/catalog_ruins.mjs`. Every ruin is enterable and walkable, with nav (rooms, doors, entrances, corners, firing points, cover) and a tour.

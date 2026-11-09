@@ -61,6 +61,15 @@ These optional top-level keys are read into `AssetDef::navMeta`. They are the co
 
 Positions in both keys are asset-local, like parts.
 
+### `"roomTypes"` and `"earthworks"` (GX6)
+
+- `"roomTypes": {navRoomId: type}` names the room type of each detected room: the type of the `nav` room that holds the room's centre. Without it, types come from the asset id and the room's size.
+  - Types: `kitchen`, `sitting`, `bedroom`, `utility`, `workshop`, `hall`, `barn`, `office`, `tavern`, and the military `mil_command`, `mil_radio`, `mil_quarters`, `mil_ammo`, `mil_fighting`, `mil_plant`, `mil_passage` (`src/interior.cpp`, furnished with the `furn_mil_*` props).
+  - Assets whose id starts `mil_` are auto-furnished even in category Bunkers. Unmapped rooms there are `mil_passage`, and their lamps are caged.
+- `"earthworks": [{kind: berm | glacis, from, to, dir, crest, run, gap?}]` lists the earth banks an asset builds out of prisms (crest height, run to the toe, outward direction). Terrain berm stamps (GX1) can replace the prism banks with real terrain. Nothing reads this key yet.
+
+A part may carry `"lod": 1`: detail that can drop at distance (trims, glazing bars, brackets, lettering, rebar, cracks). Parts without it are the silhouette. The loader ignores the key today; it is there for building LOD (PF2). `tools/kit.mjs` writes it from the `lod` option.
+
 ## Snap sockets (`"snap"`, `src/snap.h`)
 
 `"snap": [{p: [x, y, z], dir: [x, z] or [x, 0, z], kind}]` marks the asset's joinable ends:

@@ -19,7 +19,7 @@ const PT = 0.03, GF = 0.3, CORE_W = 1.2, SPINE = 0.1, ENC = 0.15, LAND = 1.3;
 const q4 = (v) => Math.round(v * 1e4) / 1e4;
 const SIDES = ["front", "rear", "east", "west"];
 
-function mats(A) {
+export function mats(A) {
   stdMaterials(A);
   A.mat("tile", [0.30, 0.12, 0.065], 0.68, "slate", { grain: 2 });          // flat clay tiles (slate courses, tile colour)
   A.mat("render_cream", [0.66, 0.60, 0.47], 0.92, "limewash");
@@ -31,16 +31,16 @@ function mats(A) {
 }
 
 // wall frames: kit wall() frame (outer / inner) and B1 facade frame (d / out) of each side, with the jetty j
-const wframe = (side, X, Z, T, j = 0) => ({
+export const wframe = (side, X, Z, T, j = 0) => ({
   front: { axis: "x", outer: Z + j, inner: Z - T + j }, rear: { axis: "x", outer: -Z - j, inner: -Z + T - j },
   east: { axis: "z", outer: X, inner: X - T }, west: { axis: "z", outer: -X, inner: -X + T },
 }[side]);
-const face = (side, X, Z, j = 0) => ({
+export const face = (side, X, Z, j = 0) => ({
   front: { axis: "x", d: Z + j, out: 1 }, rear: { axis: "x", d: -Z - j, out: -1 }, east: { axis: "z", d: X, out: 1 }, west: { axis: "z", d: -X, out: -1 },
 }[side]);
 
 // fireplace against a wall face: axis "x" = the face runs along X at depth d (the room toward s along z); "z" = along Z
-function fireplace(A, { axis, d, s, a, y, top, w = 1.5, deep = 0.45 }) {
+export function fireplace(A, { axis, d, s, a, y, top, w = 1.5, deep = 0.45 }) {
   const B = (a0, a1, y0, y1, e0, e1, m, o) => wbox(A, axis, a0, a1, y0, y1, d + s * e0, d + s * e1, m, o);
   const hw = w / 2, ow = Math.min(0.5, hw - 0.25), oh = 0.95;
   B(a - hw, a - ow, y, top, -0.01, deep, "stone_dressed");
@@ -53,7 +53,7 @@ function fireplace(A, { axis, d, s, a, y, top, w = 1.5, deep = 0.45 }) {
 
 // Gable in the facade plane above the eaves (zf, facing s along z) with its own small roof running back into the main
 // roof: a triangular wall, two slabs, a ridge roll, barge boards; half-timbered (king post, collar) with a window
-function crossGable(A, { x, w, zf, s = 1, y0, rise, back, ov = 0.35, t = 0.12, m = "render", roof = "tile", timber = true, win = true }) {
+export function crossGable(A, { x, w, zf, s = 1, y0, rise, back, ov = 0.35, t = 0.12, m = "render", roof = "tile", timber = true, win = true }) {
   const za = zf - s * 0.4, zb = zf + s * 0.02;
   A.prism(2, Math.min(za, zb), Math.max(za, zb), [[x - w / 2, y0], [x + w / 2, y0], [x, y0 + rise]], m);
   const half = w / 2 + ov, th = Math.atan2(rise, w / 2), deg = (th * 180) / Math.PI, Ls = half / Math.cos(th) + 0.08;
@@ -80,7 +80,7 @@ function crossGable(A, { x, w, zf, s = 1, y0, rise, back, ov = 0.35, t = 0.12, m
 }
 
 // glazed windows on a round / polygonal turret: at angle a (degrees from +x toward +z), height y
-function turretWindow(A, cx, cz, r, a, y, w = 0.7, h = 1.2) {
+export function turretWindow(A, cx, cz, r, a, y, w = 0.7, h = 1.2) {
   const ar = (a * Math.PI) / 180, dx = Math.cos(ar), dz = Math.sin(ar), yaw = (Math.atan2(dx, dz) * 180) / Math.PI;
   A.obox([cx + dx * (r - 0.005), y, cz + dz * (r - 0.005)], [w + 0.18, h + 0.18, 0.06], [0, yaw, 0], "stone_dressed", { k: 0, bv: 0.01 });
   A.obox([cx + dx * (r + 0.012), y, cz + dz * (r + 0.012)], [w, h, 0.04], [0, yaw, 0], "glass", { k: 0 });
@@ -89,7 +89,7 @@ function turretWindow(A, cx, cz, r, a, y, w = 0.7, h = 1.2) {
 
 // Stone-and-brick checkerwork: every outer-layer wall box built with the material "chk" (intact and damaged states)
 // becomes an invisible collider plus a grid of visible brick / dressed-stone squares; breached states stay brick.
-function checker(A, { Z, y0, cell = [0.6, 0.45] }) {
+export function checker(A, { Z, y0, cell = [0.6, 0.45] }) {
   const conv = (list, plain, inPanel) => {
     const out = [];
     for (const p of list) {
@@ -124,7 +124,7 @@ function checker(A, { Z, y0, cell = [0.6, 0.45] }) {
 // ground-floor room with the front door), rdx (rear door x), doors: extra doors [{id, side, c, w, h, double, room}],
 // party: corridor walls at x with a doorway (terraced pairs), roof: { type: gable | hip | thatch, rise, m, gable },
 // ceilingTo (single storey: the ceiling only for x < this), floorMat(x0, x1) (ground floor), dress(A, ctx), cover.
-function house(A, c) {
+export function house(A, c) {
   const { X, Z, h } = c, T = c.T ?? 0.5, XI = X - T, ZI = Z - T, y0 = GF - 0.02;
   const n = c.n ?? 1, attic = !!c.attic, L = n + (attic ? 1 : 0), multi = L > 1;
   const yAt = (k) => GF + k * h, jet = (f) => (c.jetty ?? 0) * f;
@@ -249,7 +249,7 @@ function house(A, c) {
 
   // ---- roof
   const rf = c.roof, RIDGE = EAVE + rf.rise, gm = rf.gable ?? c.style(L - 1).m;
-  if (rf.type === "gable") gableRoof(A, { X, Z: Zr, XI: XI, EAVE, RIDGE, ov: rf.ov ?? 0.4, gableMat: gm === "chk" ? "brick" : gm, roofMat: rf.m ?? "tile" });
+  if (rf.type === "gable") gableRoof(A, { X, Z: Zr, XI: XI, EAVE, RIDGE, ov: rf.ov ?? 0.4, gov: rf.gov, gableMat: gm === "chk" ? "brick" : gm, roofMat: rf.m ?? "tile" });
   else if (rf.type === "thatch") thatchRoof(A, { X, Z: Zr, EAVE, RIDGE, gable: gm });
   else if (rf.type === "hip") {
     const ov = rf.ov ?? 0.45, E = EAVE + 0.42, Rh = E + rf.rise;
@@ -346,7 +346,7 @@ function house(A, c) {
 }
 
 // common masonry dressing: quoins, string courses at each floor (B1 frames), optional cornice under a hip roof
-function masonry(A, { X, Z, yAt, L, EAVE }, { q = true, upTo = EAVE, sc = true, cor = false, from = 1, to = L } = {}) {
+export function masonry(A, { X, Z, yAt, L, EAVE }, { q = true, upTo = EAVE, sc = true, cor = false, from = 1, to = L } = {}) {
   if (q) quoins(A, X, Z, GF - 0.02, upTo);
   if (sc) for (let f = from; f < to; f++) for (const s of SIDES) {
     const isX = s === "front" || s === "rear";
@@ -354,8 +354,8 @@ function masonry(A, { X, Z, yAt, L, EAVE }, { q = true, upTo = EAVE, sc = true, 
   }
   if (cor) for (const s of SIDES) { const isX = s === "front" || s === "rear"; cornice(A, face(s, X, Z), isX ? -X : -Z, isX ? X : Z, EAVE - 0.36, { ext: isX }); }
 }
-const comp = (asset, x, z, yaw = 0) => ({ asset, pos: [x, 0, z], yaw });
-function meta(id, name, category, description, floors, footprint, extra = {}) {
+export const comp = (asset, x, z, yaw = 0) => ({ asset, pos: [x, 0, z], yaw });
+export function meta(id, name, category, description, floors, footprint, extra = {}) {
   return new Asset({ id, version: 1, name, category, description, floors, enterable: true, footprint, plinthDepth: 1.2, maxGrade: 0.8, ...extra });
 }
 
