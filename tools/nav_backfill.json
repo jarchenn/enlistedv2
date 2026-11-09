@@ -93,6 +93,9 @@
  "furn_bed": {
   "effect": "carve"
  },
+ "furn_bed_iron": {
+  "effect": "carve"
+ },
  "furn_bench": {
   "effect": "carve"
  },
@@ -114,6 +117,9 @@
  "furn_candle": {
   "effect": "none"
  },
+ "furn_candlestick": {
+  "effect": "none"
+ },
  "furn_candlesticks": {
   "effect": "none"
  },
@@ -129,8 +135,14 @@
  "furn_clock": {
   "effect": "carve"
  },
+ "furn_coat_hooks": {
+  "effect": "none"
+ },
  "furn_coat_rack": {
   "effect": "none"
+ },
+ "furn_coat_stand": {
+  "effect": "carve"
  },
  "furn_commode": {
   "effect": "carve"
@@ -144,6 +156,15 @@
  "furn_curtains": {
   "effect": "none"
  },
+ "furn_curtains_half": {
+  "effect": "none"
+ },
+ "furn_debris_glass": {
+  "effect": "none"
+ },
+ "furn_debris_plaster": {
+  "effect": "none"
+ },
  "furn_desk": {
   "effect": "carve"
  },
@@ -155,6 +176,24 @@
  },
  "furn_fireplace": {
   "effect": "carve"
+ },
+ "furn_frame_dusk": {
+  "effect": "none"
+ },
+ "furn_frame_landscape": {
+  "effect": "none"
+ },
+ "furn_frame_portrait": {
+  "effect": "none"
+ },
+ "furn_frame_seascape": {
+  "effect": "none"
+ },
+ "furn_frame_small": {
+  "effect": "none"
+ },
+ "furn_gramophone": {
+  "effect": "none"
  },
  "furn_hay_bales": {
   "effect": "carve"
@@ -178,6 +217,9 @@
   "effect": "none"
  },
  "furn_lamp_ceiling": {
+  "effect": "none"
+ },
+ "furn_lamp_pendant_glass": {
   "effect": "none"
  },
  "furn_lamp_table": {
@@ -222,7 +264,13 @@
  "furn_mil_table": {
   "effect": "carve"
  },
+ "furn_lamp_wall_oil": {
+  "effect": "none"
+ },
  "furn_mirror": {
+  "effect": "none"
+ },
+ "furn_pan_rail": {
   "effect": "none"
  },
  "furn_pantry": {
@@ -246,16 +294,37 @@
  "furn_pot": {
   "effect": "none"
  },
+ "furn_radio": {
+  "effect": "none"
+ },
  "furn_rug_kilim": {
   "effect": "none"
  },
+ "furn_rug_large": {
+  "effect": "none"
+ },
  "furn_rug_medallion": {
+  "effect": "none"
+ },
+ "furn_rug_runner": {
   "effect": "none"
  },
  "furn_sacks": {
   "effect": "carve"
  },
  "furn_school_desk": {
+  "effect": "carve"
+ },
+ "furn_sconce": {
+  "effect": "none"
+ },
+ "furn_sconce_candle": {
+  "effect": "none"
+ },
+ "furn_screen_folding": {
+  "effect": "carve"
+ },
+ "furn_settee": {
   "effect": "carve"
  },
  "furn_shelf": {
@@ -276,7 +345,13 @@
  "furn_stove_potbelly": {
   "effect": "carve"
  },
+ "furn_suitcases": {
+  "effect": "carve"
+ },
  "furn_table_dining": {
+  "effect": "carve"
+ },
+ "furn_table_low": {
   "effect": "carve"
  },
  "furn_table_small": {

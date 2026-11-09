@@ -11,7 +11,7 @@ import { cutRect, wbox, Asset } from "./kit.mjs";
 import {
   extOf,   stdMaterials, wall, partition, window, door, stairs, railing, gableRoof, quoins, pilaster, stringCourse, cornice,
   surround, archOpening, archWindow, colonnade, balcony, dormer, hipRoof, thatchRoof, turret, timberFrame, chimney,
-  fbox, weather,
+  fbox, weather, interiorTrim,
 } from "./parts.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
 
@@ -343,6 +343,7 @@ export function house(A, c) {
   c.dress?.(A, ctx);
   if (c.checker) checker(A, { Z, y0 });
   weather(A, { keep: [plinth] });
+  interiorTrim(A, { levels: Array.from({ length: L }, (_, k) => yAt(k)) });   // GX2: skirting, dado rail, doorway jambs
   return ctx;
 }
 
@@ -357,7 +358,7 @@ export function masonry(A, { X, Z, yAt, L, EAVE }, { q = true, upTo = EAVE, sc =
 }
 export const comp = (asset, x, z, yaw = 0) => ({ asset, pos: [x, 0, z], yaw });
 export function meta(id, name, category, description, floors, footprint, extra = {}) {
-  return new Asset({ id, version: 1, name, category, description, floors, enterable: true, footprint, plinthDepth: 1.2, maxGrade: 0.8, ...extra });
+  return new Asset({ id, version: 2, name, category, description, floors, enterable: true, footprint, plinthDepth: 1.2, maxGrade: 0.8, ...extra });
 }
 
 // ============================================================================ vil_chateau_grand
@@ -639,6 +640,7 @@ export function gatehouse() {
     { goto: [3.9, Z + 1.6], note: "leave by the chapel front door" },
   ]);
   weather(A, { keep: [plinth] });
+  interiorTrim(A, { levels: [GF] });   // GX2
   A.meta.companions = [comp("tree_ash", -10, -5, 30), comp("shrub_hazel", 8.6, 3.2), comp("nat_flowers_foxglove", -4.5, 4.9), comp("nat_fern_clump", 8.2, -2.5)];
   return A;
 }

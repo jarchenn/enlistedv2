@@ -17,6 +17,7 @@
 #include "autopath.h"
 #include "water_query.h"
 #include "ai_hooks.h"
+#include "lights.h"   // GX2: dust motes
 #include "terrain_blend.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -849,6 +850,7 @@ int App::run(int argc, char** argv) {
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode)
     mark("w3");
     w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
     mark("grass");

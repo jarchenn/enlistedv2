@@ -28,6 +28,7 @@ struct GraphicsOpts {
   int msaa = 0;                // B1: 4 = 4x MSAA on the opaque world (High), 0 = off
   bool ivy = true;             // B1: ivy on stone walls (density follows the grass quality)
   int materials = 1;           // GX5 material detail: 0 Low (base materials), 1 wear / grime / seams / decals, 2 High (+ parallax)
+  int dustMotes = 1;           // GX2: dust motes in indoor sun shafts: 0 off (Low), 1 low (Medium), 2 high (High)
   bool operator==(const GraphicsOpts&) const = default;
 };
 GraphicsOpts presetOpts(GfxPreset p);

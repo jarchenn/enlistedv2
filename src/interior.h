@@ -34,7 +34,8 @@ struct PropDef {
 struct RoomInfo {
   enum Cell : int16_t { WALL = -1, DOORWAY = -2, NOFLOOR = -3 };
   struct Storey { float y = 0, ceil = 3; vec2 o{0}; int nx = 0, nz = 0; std::vector<int16_t> id; std::vector<uint8_t> keep; };   // keep: 1 door / stair clearance
-  struct Room { int storey = 0; vec2 mn{0}, mx{0}; float y0 = 0, y1 = 3, area = 0; int cells = 0; bool hearth = false; vec3 hearthPos{0}; int type = 0; };
+  struct Room { int storey = 0; vec2 mn{0}, mx{0}; float y0 = 0, y1 = 3, area = 0; int cells = 0; bool hearth = false; vec3 hearthPos{0}; int type = 0;
+                float headroom = 9; };   // GX2: lowest overhead part above the room (sampled at its centre and quarter points): attics
   struct Box { vec3 mn{0}, mx{0}; int kind = 0; std::string why; };   // kind 0 door swing, 1 stair, 2 window (from the sill up)
   struct Sill { vec3 c{0}; float halfW = 0.5f; vec2 n{0, 1}; float top = 0; };
   std::vector<Storey> storeys;
@@ -52,11 +53,12 @@ bool isFurnishPiece(const Instance& i);
 size_t authoredInstanceCount(const std::vector<Instance>& v);
 
 enum RoomType { ROOM_KITCHEN = 0, ROOM_SITTING, ROOM_BEDROOM, ROOM_UTILITY, ROOM_WORKSHOP, ROOM_HALL,
-                ROOM_CHURCH, ROOM_BARN, ROOM_CLASS, ROOM_OFFICE, ROOM_TAVERN, ROOM_RUIN,
+                ROOM_CHURCH, ROOM_BARN, ROOM_CLASS, ROOM_OFFICE, ROOM_TAVERN, ROOM_RUIN, ROOM_ATTIC, ROOM_CELLAR,
                 // GX6: military rooms (an asset's "roomTypes" names them per nav room; tools/catalog_gx_buildings.mjs)
                 ROOM_MIL_COMMAND, ROOM_MIL_RADIO, ROOM_MIL_QUARTERS, ROOM_MIL_AMMO, ROOM_MIL_FIGHTING, ROOM_MIL_PLANT, ROOM_MIL_PASSAGE,
                 ROOM_TYPES };
 const char* roomTypeName(int t);
+const char* roomTypeKey(int t);   // GX2: the room type's key in content/settings/room_dressing.json ("kitchen", "attic", ...)
 
 class InteriorSys {
 public:
@@ -118,6 +120,10 @@ public:
   float lastBlastMs = 0; int lastBlastBreaks = 0;
   std::string lastBreak;
   float lastFurnishMs = 0;
+  // GX2 dressing stats of the last furnish() per room: pieces, wall-mounted pieces, the longest bare wall run (m) and
+  // the wall length; the self-tests and captures read them
+  struct RoomStat { int room = -1, type = 0, pieces = 0, wallItems = 0, lights = 0; float bare = 0, wallLen = 0, area = 0; };
+  std::vector<RoomStat> lastStats;
 private:
   std::map<const AssetDef*, std::unique_ptr<PropDef>> props_;
   std::map<const AssetDef*, std::unique_ptr<RoomInfo>> rooms_;

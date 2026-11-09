@@ -1,0 +1,4134 @@
+{
+ "_doc": "GX2 room dressing (docs/interiors.md section 6, src/interior.cpp Planner). Read once at start-up; every random pick is seeded by the building's furnishing seed and the slot name, so a building dresses the same on every machine. Per room type: steps (the furniture recipe, run in order), zones (cluster groupings placed in each 4-5 m zone of an oversized room), centerZones (free-standing groupings in the middle of every other zone at least 5 m wide), centerFloor (rooms at least subdivide.centerMin m across: a cluster sized to each centerCell m cell down the middle of the floor, centerBand m clear of the walls each side, cycling through the list from a seeded start; replaces centerZones there), wall (wall-mounted items: target count per metre of wall, the longest bare wall allowed, the items, floor pieces used where nothing can hang), rug / curtains / halfDrawn / debris chances. Step fields: do = wall (a floor piece backed onto a wall) | hang (a wall-mounted piece at its mount height) | center (free-standing, kept off the walls by ring m; or area = [x0, z0, x1, z1], the whole group in the anchor frame, which needs its floor free and a 0.9 m walkway round it) | rug | rows (pews, school desks toward the far end) | farEnd (an altar or teacher's desk at the far end) | cluster (a named cluster from 'clusters'); assets = fallbacks tried in order, 'a|b' = one of them picked by seed; p = chance (x the building's density unless fixed); sure = hearth | noHearth: the step always runs in that case; if = {minArea, maxArea, hearth}; n = [base, per density] count; top = {from, n, clutter: n grows with clutter}: small pieces on the placed piece's top; chairs = [{assets, n: [base, per density], ends}] round a table; satellites = [{assets, at: [x, y, z] in the anchor's frame (+z is its front), turn deg, alt: a second spot, p, rug, top, jitter: [m, deg]}]; papers = {p, n} (x clutter); broken = chance it is left broken; corner > 0 prefers corners, < 0 mid-wall.",
+ "subdivide": {
+  "maxSide": 8.0,
+  "zone": 4.5,
+  "centerMin": 6.0,
+  "centerCell": 5.0,
+  "centerBand": 2.3,
+  "skip": [
+   "hall",
+   "barn",
+   "church",
+   "tavern",
+   "class"
+  ]
+ },
+ "debrisWear": 1.15,
+ "clusters": {
+  "desk": {
+   "do": "wall",
+   "assets": [
+    "furn_desk"
+   ],
+   "corner": 0.2,
+   "top": {
+    "from": [
+     "furn_papers",
+     "furn_books",
+     "furn_lamp_table|furn_lamp",
+     "furn_radio"
+    ],
+    "n": 1,
+    "clutter": true
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_chair_slat|furn_chair_ladder"
+     ],
+     "at": [
+      0,
+      0,
+      0.55
+     ],
+     "turn": 180,
+     "jitter": [
+      0.06,
+      14
+     ],
+     "tuck": true
+    },
+    {
+     "assets": [
+      "furn_basket|furn_bucket"
+     ],
+     "at": [
+      0.78,
+      0,
+      0.1
+     ],
+     "p": 0.5,
+     "jitter": [
+      0.05,
+      30
+     ]
+    }
+   ],
+   "hangAbove": [
+    "furn_frame_small|furn_portrait",
+    "furn_wall_clock"
+   ]
+  },
+  "reading": {
+   "do": "wall",
+   "assets": [
+    "furn_armchair"
+   ],
+   "corner": 0.9,
+   "satellites": [
+    {
+     "assets": [
+      "furn_side_table"
+     ],
+     "at": [
+      0.08,
+      0,
+      0.0
+     ],
+     "alt": [
+      -0.08,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "turn": 0,
+     "jitter": [
+      0.03,
+      6
+     ],
+     "top": {
+      "from": [
+       "furn_lamp_table",
+       "furn_books",
+       "furn_candlestick"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "assets": [
+      "furn_rug_kilim"
+     ],
+     "at": [
+      0,
+      0,
+      0.75
+     ],
+     "turn": 90,
+     "rug": true,
+     "p": 0.7
+    },
+    {
+     "assets": [
+      "furn_stool"
+     ],
+     "at": [
+      -0.1,
+      0,
+      0.85
+     ],
+     "p": 0.4,
+     "jitter": [
+      0.08,
+      25
+     ]
+    }
+   ],
+   "hangAbove": [
+    "furn_frame_landscape|furn_frame_seascape",
+    "furn_sconce"
+   ]
+  },
+  "music": {
+   "do": "wall",
+   "assets": [
+    "furn_sideboard",
+    "furn_commode",
+    "furn_dresser"
+   ],
+   "corner": -0.3,
+   "top": {
+    "from": [
+     "furn_gramophone"
+    ],
+    "n": 1
+   },
+   "top2": {
+    "from": [
+     "furn_candlesticks",
+     "furn_crockery",
+     "furn_books"
+    ],
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_chair_slat|furn_armchair"
+     ],
+     "at": [
+      0.75,
+      0,
+      0.75
+     ],
+     "turn": 210,
+     "jitter": [
+      0.1,
+      20
+     ]
+    }
+   ],
+   "hangAbove": [
+    "furn_frame_dusk|furn_frame_landscape",
+    "furn_mirror"
+   ]
+  },
+  "dining": {
+   "do": "center",
+   "assets": [
+    "furn_table_dining",
+    "furn_table_small"
+   ],
+   "ring": 0.75,
+   "chairs": [
+    {
+     "assets": [
+      "furn_chair_ladder|furn_chair_slat"
+     ],
+     "n": [
+      3,
+      2
+     ],
+     "ends": true
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_crockery",
+     "furn_candlesticks",
+     "furn_jug_bowl",
+     "furn_bottles",
+     "furn_lamp"
+    ],
+    "n": 1,
+    "clutter": true
+   }
+  },
+  "tea": {
+   "do": "center",
+   "assets": [
+    "furn_side_table"
+   ],
+   "ring": 0.55,
+   "chairs": [
+    {
+     "assets": [
+      "furn_armchair"
+     ],
+     "n": [
+      2,
+      0
+     ],
+     "ends": true
+    },
+    {
+     "assets": [
+      "furn_chair_slat"
+     ],
+     "n": [
+      0,
+      1
+     ]
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_books",
+     "furn_lamp",
+     "furn_crockery",
+     "furn_candlesticks",
+     "furn_radio"
+    ],
+    "n": 1,
+    "clutter": true
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_rug_medallion|furn_rug_kilim"
+     ],
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "turn": 0,
+     "rug": true,
+     "p": 0.8
+    }
+   ]
+  },
+  "bedside": {
+   "do": "wall",
+   "assets": [
+    "furn_bed_iron|furn_bed",
+    "furn_bed_iron"
+   ],
+   "corner": -0.2,
+   "satellites": [
+    {
+     "assets": [
+      "furn_side_table|furn_chest"
+     ],
+     "at": [
+      0.06,
+      0,
+      0
+     ],
+     "alt": [
+      -0.06,
+      0,
+      0
+     ],
+     "flush": true,
+     "turn": 0,
+     "jitter": [
+      0.02,
+      4
+     ],
+     "top": {
+      "from": [
+       "furn_candle|furn_candlestick",
+       "furn_lamp"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_rug_kilim"
+     ],
+     "at": [
+      1.05,
+      0,
+      0.1
+     ],
+     "alt": [
+      -1.05,
+      0,
+      0.1
+     ],
+     "turn": 90,
+     "rug": true
+    },
+    {
+     "assets": [
+      "furn_chest|furn_suitcases"
+     ],
+     "at": [
+      0,
+      0,
+      1.3
+     ],
+     "p": 0.7,
+     "jitter": [
+      0.04,
+      6
+     ]
+    }
+   ],
+   "hangAbove": [
+    "furn_frame_dusk|furn_portrait",
+    "furn_frame_small"
+   ]
+  },
+  "wash": {
+   "do": "wall",
+   "assets": [
+    "furn_washstand",
+    "furn_side_table",
+    "furn_stool"
+   ],
+   "corner": 0.5,
+   "top": {
+    "from": [
+     "furn_jug_bowl"
+    ],
+    "n": 1
+   },
+   "hangAbove": [
+    "furn_mirror"
+   ]
+  },
+  "kitchen_range": {
+   "do": "wall",
+   "assets": [
+    "furn_stove",
+    "furn_stove_potbelly"
+   ],
+   "corner": 0.2,
+   "satellites": [
+    {
+     "assets": [
+      "furn_wood_pile|furn_basket"
+     ],
+     "at": [
+      0.1,
+      0,
+      0.0
+     ],
+     "alt": [
+      -0.1,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "jitter": [
+      0.03,
+      10
+     ]
+    },
+    {
+     "assets": [
+      "furn_bucket"
+     ],
+     "at": [
+      -0.75,
+      0,
+      0.15
+     ],
+     "p": 0.6,
+     "jitter": [
+      0.06,
+      40
+     ]
+    }
+   ],
+   "hangAbove": [
+    "furn_pan_rail",
+    "furn_utensil_rack"
+   ]
+  },
+  "workbench": {
+   "do": "wall",
+   "assets": [
+    "furn_workbench",
+    "furn_bench"
+   ],
+   "corner": -0.3,
+   "top": {
+    "from": [
+     "furn_bottles",
+     "furn_pot",
+     "furn_jars",
+     "furn_lamp"
+    ],
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_stool"
+     ],
+     "at": [
+      0.2,
+      0,
+      0.6
+     ],
+     "turn": 15,
+     "jitter": [
+      0.08,
+      30
+     ],
+     "tuck": true
+    },
+    {
+     "assets": [
+      "furn_crate|furn_bucket"
+     ],
+     "at": [
+      0.1,
+      0,
+      0.0
+     ],
+     "alt": [
+      -0.1,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "p": 0.7
+    }
+   ],
+   "hangAbove": [
+    "furn_tool_rack"
+   ]
+  },
+  "stores": {
+   "do": "wall",
+   "assets": [
+    "furn_crate"
+   ],
+   "corner": 1.0,
+   "top": {
+    "from": [
+     "furn_bucket",
+     "furn_jars",
+     "furn_basket",
+     "furn_bottles"
+    ],
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_crate"
+     ],
+     "at": [
+      0.06,
+      0,
+      0.0
+     ],
+     "alt": [
+      -0.06,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "turn": 6,
+     "jitter": [
+      0.03,
+      8
+     ],
+     "p": 0.8
+    },
+    {
+     "assets": [
+      "furn_sacks"
+     ],
+     "at": [
+      -0.08,
+      0,
+      0.0
+     ],
+     "alt": [
+      0.08,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "p": 0.7,
+     "jitter": [
+      0.04,
+      20
+     ]
+    }
+   ]
+  },
+  "trunks": {
+   "do": "wall",
+   "assets": [
+    "furn_chest"
+   ],
+   "corner": 0.8,
+   "top": {
+    "from": [
+     "furn_suitcases"
+    ],
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_suitcases"
+     ],
+     "at": [
+      0.08,
+      0,
+      0.0
+     ],
+     "alt": [
+      -0.08,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "turn": 6,
+     "p": 0.8,
+     "jitter": [
+      0.04,
+      10
+     ]
+    },
+    {
+     "assets": [
+      "furn_crate"
+     ],
+     "at": [
+      -0.08,
+      0,
+      0.0
+     ],
+     "alt": [
+      0.08,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "p": 0.6
+    }
+   ]
+  },
+  "wine": {
+   "do": "wall",
+   "assets": [
+    "furn_barrel_rack",
+    "furn_barrel"
+   ],
+   "corner": 0.5,
+   "satellites": [
+    {
+     "assets": [
+      "furn_barrel"
+     ],
+     "at": [
+      0.06,
+      0,
+      0.0
+     ],
+     "alt": [
+      -0.06,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "p": 0.7
+    },
+    {
+     "assets": [
+      "furn_crate"
+     ],
+     "at": [
+      -0.08,
+      0,
+      0.0
+     ],
+     "alt": [
+      0.08,
+      0,
+      0.0
+     ],
+     "flush": true,
+     "p": 0.6,
+     "top": {
+      "from": [
+       "furn_bottles"
+      ],
+      "n": 1
+     }
+    }
+   ]
+  },
+  "office_desk": {
+   "do": "wall",
+   "assets": [
+    "furn_desk"
+   ],
+   "corner": -0.2,
+   "top": {
+    "from": [
+     "furn_papers",
+     "furn_books",
+     "furn_lamp_table",
+     "furn_radio"
+    ],
+    "n": 1,
+    "clutter": true
+   },
+   "papers": {
+    "p": 1.0,
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_chair_slat"
+     ],
+     "at": [
+      0,
+      0,
+      0.55
+     ],
+     "turn": 180,
+     "jitter": [
+      0.05,
+      10
+     ],
+     "tuck": true
+    },
+    {
+     "assets": [
+      "furn_chair_ladder"
+     ],
+     "at": [
+      0.4,
+      0,
+      1.15
+     ],
+     "turn": 10,
+     "p": 0.6,
+     "jitter": [
+      0.1,
+      25
+     ]
+    }
+   ],
+   "hangAbove": [
+    "furn_portrait|furn_frame_portrait",
+    "furn_wall_clock"
+   ]
+  },
+  "lounge": {
+   "do": "center",
+   "assets": [
+    "furn_table_low"
+   ],
+   "ring": 0,
+   "area": [
+    -2.0,
+    -1.5,
+    2.0,
+    1.6
+   ],
+   "top": {
+    "from": [
+     "furn_lamp_table",
+     "furn_books",
+     "furn_candlesticks|furn_crockery"
+    ],
+    "n": 2,
+    "clutter": true
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_rug_large"
+     ],
+     "at": [
+      0,
+      0,
+      0.05
+     ],
+     "turn": 0,
+     "rug": true
+    },
+    {
+     "assets": [
+      "furn_settee"
+     ],
+     "at": [
+      0,
+      0,
+      -1.02
+     ],
+     "turn": 0,
+     "jitter": [
+      0.03,
+      3
+     ]
+    },
+    {
+     "assets": [
+      "furn_armchair"
+     ],
+     "at": [
+      1.28,
+      0,
+      0.3
+     ],
+     "turn": 250,
+     "jitter": [
+      0.05,
+      8
+     ]
+    },
+    {
+     "assets": [
+      "furn_armchair"
+     ],
+     "at": [
+      -1.28,
+      0,
+      0.3
+     ],
+     "turn": 110,
+     "jitter": [
+      0.05,
+      8
+     ]
+    },
+    {
+     "assets": [
+      "furn_side_table"
+     ],
+     "at": [
+      1.35,
+      0,
+      -0.9
+     ],
+     "alt": [
+      -1.35,
+      0,
+      -0.9
+     ],
+     "turn": 0,
+     "p": 0.8,
+     "top": {
+      "from": [
+       "furn_lamp_table",
+       "furn_books|furn_candlestick"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_stool|furn_basket"
+     ],
+     "at": [
+      0.3,
+      0,
+      1.05
+     ],
+     "p": 0.4,
+     "jitter": [
+      0.1,
+      30
+     ]
+    }
+   ]
+  },
+  "dining_big": {
+   "do": "center",
+   "assets": [
+    "furn_table_dining"
+   ],
+   "ring": 0,
+   "area": [
+    -2.0,
+    -1.5,
+    2.0,
+    1.5
+   ],
+   "chairs": [
+    {
+     "assets": [
+      "furn_chair_ladder|furn_chair_slat"
+     ],
+     "n": [
+      4,
+      2
+     ],
+     "ends": true
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_candlesticks",
+     "furn_crockery",
+     "furn_jug_bowl",
+     "furn_bottles",
+     "furn_lamp"
+    ],
+    "n": 2,
+    "clutter": true
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_rug_large"
+     ],
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "turn": 0,
+     "rug": true,
+     "p": 0.85
+    }
+   ]
+  },
+  "work_table": {
+   "do": "center",
+   "assets": [
+    "furn_table_dining"
+   ],
+   "ring": 0,
+   "area": [
+    -2.0,
+    -1.5,
+    2.0,
+    1.5
+   ],
+   "chairs": [
+    {
+     "assets": [
+      "furn_chair_slat|furn_chair_ladder"
+     ],
+     "n": [
+      4,
+      0
+     ],
+     "ends": false
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_papers",
+     "furn_books",
+     "furn_lamp_table",
+     "furn_books"
+    ],
+    "n": 3,
+    "clutter": true
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_rug_large|furn_rug_medallion"
+     ],
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "turn": 0,
+     "rug": true,
+     "p": 0.7
+    }
+   ]
+  },
+  "screen_bed": {
+   "do": "center",
+   "assets": [
+    "furn_screen_folding"
+   ],
+   "ring": 0,
+   "area": [
+    -1.7,
+    -1.2,
+    1.7,
+    2.9
+   ],
+   "satellites": [
+    {
+     "assets": [
+      "furn_bed|furn_bed_iron",
+      "furn_bed_iron"
+     ],
+     "at": [
+      0,
+      0,
+      1.28
+     ],
+     "turn": 0
+    },
+    {
+     "assets": [
+      "furn_side_table|furn_chest"
+     ],
+     "at": [
+      0.95,
+      0,
+      0.55
+     ],
+     "alt": [
+      -0.95,
+      0,
+      0.55
+     ],
+     "turn": 0,
+     "top": {
+      "from": [
+       "furn_candlestick|furn_candle",
+       "furn_lamp_table",
+       "furn_books"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_rug_kilim"
+     ],
+     "at": [
+      -1.25,
+      0,
+      1.4
+     ],
+     "alt": [
+      1.25,
+      0,
+      1.4
+     ],
+     "turn": 90,
+     "rug": true
+    },
+    {
+     "assets": [
+      "furn_chest|furn_suitcases"
+     ],
+     "at": [
+      0,
+      0,
+      2.6
+     ],
+     "p": 0.7,
+     "jitter": [
+      0.03,
+      4
+     ]
+    },
+    {
+     "assets": [
+      "furn_armchair"
+     ],
+     "at": [
+      0.35,
+      0,
+      -0.8
+     ],
+     "turn": 195,
+     "p": 0.7,
+     "jitter": [
+      0.05,
+      10
+     ]
+    }
+   ]
+  },
+  "armoire_bed": {
+   "do": "center",
+   "assets": [
+    "furn_armoire"
+   ],
+   "ring": 0,
+   "area": [
+    -0.75,
+    -2.4,
+    2.15,
+    1.4
+   ],
+   "satellites": [
+    {
+     "assets": [
+      "furn_armoire"
+     ],
+     "at": [
+      0.02,
+      0,
+      0
+     ],
+     "flush": true,
+     "turn": 0
+    },
+    {
+     "assets": [
+      "furn_bed|furn_bed_iron",
+      "furn_bed_iron"
+     ],
+     "at": [
+      0.71,
+      0,
+      -1.37
+     ],
+     "turn": 180
+    },
+    {
+     "assets": [
+      "furn_side_table|furn_chest"
+     ],
+     "at": [
+      1.75,
+      0,
+      -0.62
+     ],
+     "alt": [
+      -0.35,
+      0,
+      -0.62
+     ],
+     "turn": 180,
+     "top": {
+      "from": [
+       "furn_candlestick|furn_candle",
+       "furn_lamp_table"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_rug_kilim"
+     ],
+     "at": [
+      0.71,
+      0,
+      0.95
+     ],
+     "turn": 0,
+     "rug": true,
+     "p": 0.8
+    },
+    {
+     "assets": [
+      "furn_chair_slat|furn_chair_ladder"
+     ],
+     "at": [
+      1.6,
+      0,
+      0.85
+     ],
+     "turn": 200,
+     "p": 0.6,
+     "jitter": [
+      0.06,
+      15
+     ]
+    }
+   ]
+  }
+ },
+ "types": {
+  "kitchen": {
+   "centerZones": [
+    "dining"
+   ],
+   "centerFloor": [
+    "dining_big",
+    "work_table"
+   ],
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "hutch",
+     "assets": [
+      "furn_hutch|furn_hutch_glazed",
+      "furn_dresser",
+      "furn_commode"
+     ],
+     "corner": -0.5,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_jug_bowl",
+       "furn_bottles",
+       "furn_crockery",
+       "furn_jars"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "center",
+     "slot": "table",
+     "assets": [
+      "furn_table_dining",
+      "furn_table_small"
+     ],
+     "if": {
+      "minArea": 11
+     },
+     "ring": 0.75,
+     "fixed": true,
+     "chairs": [
+      {
+       "assets": [
+        "furn_chair_ladder|furn_chair_slat"
+       ],
+       "n": [
+        3,
+        2
+       ],
+       "ends": true
+      }
+     ],
+     "top": {
+      "from": [
+       "furn_crockery",
+       "furn_jug_bowl",
+       "furn_bottles",
+       "furn_jars",
+       "furn_basket",
+       "furn_candlesticks",
+       "furn_lamp"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "center",
+     "slot": "table",
+     "assets": [
+      "furn_table_small"
+     ],
+     "if": {
+      "maxArea": 11
+     },
+     "ring": 0.6,
+     "fixed": true,
+     "chairs": [
+      {
+       "assets": [
+        "furn_chair_ladder|furn_chair_slat"
+       ],
+       "n": [
+        2,
+        2
+       ]
+      }
+     ],
+     "top": {
+      "from": [
+       "furn_crockery",
+       "furn_jug_bowl",
+       "furn_bottles",
+       "furn_jars",
+       "furn_basket",
+       "furn_candlesticks",
+       "furn_lamp"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "cluster",
+     "slot": "range",
+     "cluster": "kitchen_range",
+     "p": 0.5,
+     "sure": "noHearth"
+    },
+    {
+     "do": "wall",
+     "slot": "dresser",
+     "assets": [
+      "furn_dresser"
+     ],
+     "corner": -0.2,
+     "p": 1.0,
+     "top": {
+      "from": [
+       "furn_crockery",
+       "furn_jug_bowl",
+       "furn_bottles",
+       "furn_jars",
+       "furn_candlesticks",
+       "furn_lamp"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "pantry",
+     "assets": [
+      "furn_pantry",
+      "furn_shelf"
+     ],
+     "corner": 0.7,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "platerack",
+     "assets": [
+      "furn_plate_rack"
+     ],
+     "corner": -0.3,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_jars",
+       "furn_crockery",
+       "furn_bottles"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "top": {
+      "from": [
+       "furn_jars",
+       "furn_bottles",
+       "furn_crockery",
+       "furn_candlesticks"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "pans",
+     "assets": [
+      "furn_pan_rail"
+     ],
+     "corner": -0.1,
+     "p": 0.9
+    },
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf"
+     ],
+     "corner": 0.8,
+     "p": 1.0,
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_crockery",
+       "furn_books",
+       "furn_jars",
+       "furn_candlesticks"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "bench",
+     "assets": [
+      "furn_bench"
+     ],
+     "corner": -0.2,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "wood",
+     "assets": [
+      "furn_wood_pile"
+     ],
+     "corner": 0.9,
+     "p": 0.4,
+     "sure": "hearth"
+    },
+    {
+     "do": "hang",
+     "slot": "utensils",
+     "assets": [
+      "furn_utensil_rack"
+     ],
+     "corner": -0.1,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_hooks|furn_coat_rack"
+     ],
+     "corner": 0.4,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_wall_clock"
+     ],
+     "corner": -0.4,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "pail",
+     "assets": [
+      "furn_basket|furn_bucket"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      0,
+      1.2
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "stores",
+     "cluster": "stores",
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "cask",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "p": 0.3
+    }
+   ],
+   "zones": [
+    "dining",
+    "stores",
+    "workbench"
+   ],
+   "wall": {
+    "perMetre": 0.32,
+    "maxGap": 3.6,
+    "items": [
+     "furn_frame_small",
+     "furn_wall_shelf",
+     "furn_utensil_rack",
+     "furn_plate_rack",
+     "furn_coat_hooks",
+     "furn_picture",
+     "furn_lamp_wall_oil"
+    ],
+    "floorItems": [
+     "furn_bench",
+     "furn_crate",
+     "furn_basket",
+     "furn_sacks"
+    ]
+   },
+   "rug": 0.25,
+   "curtains": 1.0,
+   "halfDrawn": 0.35,
+   "debris": 0.05
+  },
+  "sitting": {
+   "centerZones": [
+    "tea",
+    "dining"
+   ],
+   "centerFloor": [
+    "lounge",
+    "dining_big",
+    "lounge",
+    "work_table"
+   ],
+   "steps": [
+    {
+     "do": "rug",
+     "slot": "rug",
+     "assets": [
+      "furn_rug_medallion|furn_rug_kilim"
+     ],
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "commode",
+     "assets": [
+      "furn_commode",
+      "furn_chest",
+      "furn_side_table"
+     ],
+     "corner": -0.3,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_lamp",
+       "furn_books",
+       "furn_candlesticks",
+       "furn_jug_bowl",
+       "furn_crockery",
+       "furn_radio"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "cluster",
+     "slot": "music",
+     "cluster": "music",
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "clock",
+     "assets": [
+      "furn_clock"
+     ],
+     "corner": 0.6,
+     "p": 1.0
+    },
+    {
+     "do": "cluster",
+     "slot": "tea",
+     "cluster": "tea",
+     "fixed": true
+    },
+    {
+     "do": "cluster",
+     "slot": "reading",
+     "cluster": "reading",
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "armchair",
+     "assets": [
+      "furn_armchair",
+      "furn_chair_slat"
+     ],
+     "corner": 0.9,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "bookcase",
+     "assets": [
+      "furn_bookcase",
+      "furn_shelf"
+     ],
+     "corner": 0.5,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      1,
+      0.8
+     ],
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_candlesticks",
+       "furn_crockery",
+       "furn_jug_bowl"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "cluster",
+     "slot": "desk",
+     "cluster": "desk",
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "picture",
+     "assets": [
+      "furn_frame_landscape|furn_frame_seascape",
+      "furn_picture"
+     ],
+     "corner": -0.6,
+     "fixed": true,
+     "n": [
+      1,
+      1.2
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "portrait",
+     "assets": [
+      "furn_frame_portrait|furn_portrait"
+     ],
+     "corner": -0.3,
+     "p": 0.7
+    },
+    {
+     "do": "hang",
+     "slot": "mirror",
+     "assets": [
+      "furn_mirror"
+     ],
+     "corner": -0.5,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "basket",
+     "assets": [
+      "furn_basket"
+     ],
+     "corner": 1.0,
+     "p": 0.4
+    }
+   ],
+   "zones": [
+    "dining",
+    "reading",
+    "music",
+    "desk",
+    "tea"
+   ],
+   "wall": {
+    "perMetre": 0.38,
+    "maxGap": 3.4,
+    "items": [
+     "furn_frame_landscape",
+     "furn_frame_seascape",
+     "furn_frame_dusk",
+     "furn_frame_portrait",
+     "furn_frame_small",
+     "furn_mirror",
+     "furn_wall_clock",
+     "furn_sconce"
+    ],
+    "floorItems": [
+     "furn_chair_slat",
+     "furn_side_table",
+     "furn_chest"
+    ]
+   },
+   "rug": 0.6,
+   "curtains": 1.0,
+   "halfDrawn": 0.4,
+   "debris": 0.04
+  },
+  "bedroom": {
+   "centerZones": [
+    "tea"
+   ],
+   "centerFloor": [
+    "screen_bed",
+    "lounge",
+    "armoire_bed"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "bed",
+     "cluster": "bedside",
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "armoire",
+     "assets": [
+      "furn_armoire",
+      "furn_commode",
+      "furn_chest"
+     ],
+     "corner": 0.6,
+     "p": 1.0,
+     "sure": "big"
+    },
+    {
+     "do": "wall",
+     "slot": "commode",
+     "assets": [
+      "furn_commode|furn_chest",
+      "furn_chest",
+      "furn_side_table"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_jug_bowl",
+       "furn_lamp",
+       "furn_books",
+       "furn_candlesticks",
+       "furn_radio"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "cluster",
+     "slot": "washstand",
+     "cluster": "wash",
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": -0.1,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_candlesticks",
+       "furn_jug_bowl"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "chair",
+     "assets": [
+      "furn_chair_ladder"
+     ],
+     "corner": 0.4,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "picture",
+     "assets": [
+      "furn_frame_landscape|furn_picture"
+     ],
+     "corner": -0.5,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "picture2",
+     "assets": [
+      "furn_frame_small|furn_picture"
+     ],
+     "corner": 0.3,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "portrait",
+     "assets": [
+      "furn_portrait|furn_frame_portrait"
+     ],
+     "corner": 0.0,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_hooks|furn_coat_rack"
+     ],
+     "corner": 0.5,
+     "p": 0.5
+    },
+    {
+     "do": "cluster",
+     "slot": "desk",
+     "cluster": "desk",
+     "p": 0.3
+    },
+    {
+     "do": "wall",
+     "slot": "suitcases",
+     "assets": [
+      "furn_suitcases"
+     ],
+     "corner": 1.0,
+     "p": 0.35
+    },
+    {
+     "do": "wall",
+     "slot": "basket",
+     "assets": [
+      "furn_basket"
+     ],
+     "corner": 1.0,
+     "p": 0.3
+    }
+   ],
+   "zones": [
+    "bedside",
+    "reading",
+    "desk",
+    "trunks"
+   ],
+   "wall": {
+    "perMetre": 0.32,
+    "maxGap": 3.6,
+    "items": [
+     "furn_frame_landscape",
+     "furn_frame_small",
+     "furn_frame_dusk",
+     "furn_portrait",
+     "furn_picture",
+     "furn_mirror",
+     "furn_coat_hooks",
+     "furn_sconce_candle"
+    ],
+    "floorItems": [
+     "furn_chair_ladder",
+     "furn_chest",
+     "furn_suitcases"
+    ]
+   },
+   "rug": 0.5,
+   "curtains": 1.0,
+   "halfDrawn": 0.5,
+   "debris": 0.04
+  },
+  "workshop": {
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "workbench",
+     "cluster": "workbench",
+     "fixed": true
+    },
+    {
+     "do": "hang",
+     "slot": "tools",
+     "assets": [
+      "furn_tool_rack"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      1,
+      0.6
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf",
+      "furn_chest"
+     ],
+     "corner": 0.6,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_books",
+       "furn_jars",
+       "furn_pot"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "crate",
+     "assets": [
+      "furn_crate"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      2.0
+     ],
+     "top": {
+      "from": [
+       "furn_bucket",
+       "furn_jars",
+       "furn_bottles",
+       "furn_pot"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": 0.3,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "top": {
+      "from": [
+       "furn_jars",
+       "furn_bottles",
+       "furn_pot",
+       "furn_books"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "basket",
+     "assets": [
+      "furn_basket"
+     ],
+     "corner": 1.0,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "sacks2",
+     "assets": [
+      "furn_sacks"
+     ],
+     "corner": 1.0,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "cask",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "sacks",
+     "assets": [
+      "furn_sacks"
+     ],
+     "corner": 1.0,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "wood",
+     "assets": [
+      "furn_wood_pile"
+     ],
+     "corner": 0.9,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "bucket",
+     "assets": [
+      "furn_bucket"
+     ],
+     "corner": 1.0,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "chest",
+     "assets": [
+      "furn_chest"
+     ],
+     "corner": 0.5,
+     "p": 0.4
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_hooks|furn_coat_rack"
+     ],
+     "corner": 0.4,
+     "p": 0.5
+    }
+   ],
+   "zones": [
+    "workbench",
+    "stores"
+   ],
+   "wall": {
+    "perMetre": 0.28,
+    "maxGap": 3.8,
+    "items": [
+     "furn_tool_rack",
+     "furn_wall_shelf",
+     "furn_coat_hooks",
+     "furn_lamp_wall_oil"
+    ],
+    "floorItems": [
+     "furn_crate",
+     "furn_sacks",
+     "furn_barrel",
+     "furn_wood_pile"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.3,
+   "halfDrawn": 0.5,
+   "debris": 0.12
+  },
+  "hall": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "bench",
+     "assets": [
+      "furn_bench"
+     ],
+     "corner": -0.4,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "mirror",
+     "assets": [
+      "furn_mirror"
+     ],
+     "corner": -0.3,
+     "p": 0.4
+    },
+    {
+     "do": "wall",
+     "slot": "chest",
+     "assets": [
+      "furn_chest"
+     ],
+     "corner": 0.4,
+     "p": 0.5,
+     "top": {
+      "from": [
+       "furn_lamp",
+       "furn_books",
+       "furn_candlesticks"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "clock",
+     "assets": [
+      "furn_clock"
+     ],
+     "corner": 0.6,
+     "p": 0.4,
+     "if": {
+      "minArea": 6
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "bucket",
+     "assets": [
+      "furn_bucket"
+     ],
+     "corner": 1.0,
+     "p": 0.3
+    }
+   ],
+   "hall": {
+    "runner": "furn_rug_runner",
+    "runnerGap": 0.6,
+    "minLength": 3.5,
+    "pictureEvery": [
+     3.0,
+     4.0
+    ],
+    "frames": [
+     "furn_frame_landscape",
+     "furn_frame_seascape",
+     "furn_frame_small",
+     "furn_frame_dusk",
+     "furn_frame_portrait",
+     "furn_picture",
+     "furn_portrait"
+    ],
+    "tablesEvery": 6.5,
+    "tables": [
+     "furn_side_table",
+     "furn_commode",
+     "furn_chest"
+    ],
+    "tableTop": [
+     "furn_lamp_table|furn_lamp",
+     "furn_candlestick",
+     "furn_books"
+    ],
+    "coat": [
+     "furn_coat_stand",
+     "furn_coat_hooks",
+     "furn_coat_rack"
+    ]
+   },
+   "wall": {
+    "perMetre": 0.28,
+    "maxGap": 4.0,
+    "items": [
+     "furn_frame_landscape",
+     "furn_frame_small",
+     "furn_picture",
+     "furn_portrait",
+     "furn_mirror",
+     "furn_coat_hooks"
+    ],
+    "floorItems": [
+     "furn_chair_ladder",
+     "furn_bench"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.8,
+   "halfDrawn": 0.3,
+   "debris": 0.04
+  },
+  "church": {
+   "steps": [
+    {
+     "do": "rows",
+     "slot": "pew",
+     "assets": [
+      "furn_pew"
+     ],
+     "pitch": 1.0,
+     "aisle": 1.1,
+     "back": 1.4,
+     "front": 2.6,
+     "brokenRuined": 0.55
+    },
+    {
+     "do": "farEnd",
+     "slot": "altar",
+     "assets": [
+      "furn_table_dining"
+     ],
+     "inset": 1.3,
+     "face": "along",
+     "brokenRuined": 0.6,
+     "top": {
+      "from": [
+       "furn_candlesticks"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "picture",
+     "assets": [
+      "furn_frame_dusk|furn_picture",
+      "furn_picture"
+     ],
+     "corner": -0.5,
+     "fixed": true,
+     "n": [
+      2,
+      2.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "bench",
+     "assets": [
+      "furn_bench"
+     ],
+     "corner": 0.6,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "chair",
+     "assets": [
+      "furn_chair_ladder"
+     ],
+     "corner": 0.7,
+     "fixed": true,
+     "n": [
+      0,
+      2.0
+     ],
+     "brokenRuined": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "chest",
+     "assets": [
+      "furn_chest"
+     ],
+     "corner": 0.8,
+     "p": 0.6
+    }
+   ],
+   "wall": {
+    "perMetre": 0.12,
+    "maxGap": 5.5,
+    "items": [
+     "furn_frame_dusk",
+     "furn_picture",
+     "furn_sconce_candle"
+    ],
+    "floorItems": [
+     "furn_bench",
+     "furn_chair_ladder"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.05
+  },
+  "barn": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "hay",
+     "assets": [
+      "furn_hay_bales"
+     ],
+     "corner": 0.8,
+     "fixed": true,
+     "n": [
+      2,
+      2.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "sacks",
+     "assets": [
+      "furn_sacks"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "cask",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "casks",
+     "assets": [
+      "furn_barrel_rack"
+     ],
+     "corner": 0.6,
+     "p": 0.5
+    },
+    {
+     "do": "cluster",
+     "slot": "stores",
+     "cluster": "stores",
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "wood",
+     "assets": [
+      "furn_wood_pile"
+     ],
+     "corner": 0.9,
+     "p": 1.0
+    },
+    {
+     "do": "cluster",
+     "slot": "workbench",
+     "cluster": "workbench",
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "tools",
+     "assets": [
+      "furn_tool_rack"
+     ],
+     "corner": -0.2,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "n": [
+      0,
+      1.0
+     ],
+     "top": {
+      "from": [
+       "furn_jars",
+       "furn_bottles",
+       "furn_pot"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "pail",
+     "assets": [
+      "furn_basket|furn_bucket"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      0,
+      1.6
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "stool",
+     "assets": [
+      "furn_stool"
+     ],
+     "corner": 0.3,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "chest",
+     "assets": [
+      "furn_chest"
+     ],
+     "corner": 0.6,
+     "p": 0.3
+    }
+   ],
+   "wall": {
+    "perMetre": 0.16,
+    "maxGap": 5.0,
+    "items": [
+     "furn_tool_rack",
+     "furn_coat_hooks",
+     "furn_lamp_wall_oil"
+    ],
+    "floorItems": [
+     "furn_hay_bales",
+     "furn_crate",
+     "furn_sacks",
+     "furn_barrel"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.1
+  },
+  "class": {
+   "steps": [
+    {
+     "do": "rows",
+     "slot": "desks",
+     "assets": [
+      "furn_school_desk"
+     ],
+     "pitch": 0.95,
+     "aisle": 0.8,
+     "back": 0.5,
+     "front": 1.9
+    },
+    {
+     "do": "farEnd",
+     "slot": "teacher",
+     "assets": [
+      "furn_desk"
+     ],
+     "inset": 1.0,
+     "face": "class",
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_papers",
+       "furn_lamp"
+      ],
+      "n": 2
+     },
+     "satellites": [
+      {
+       "assets": [
+        "furn_chair_slat"
+       ],
+       "at": [
+        0,
+        0,
+        -0.6
+       ],
+       "turn": 0,
+       "tuck": true
+      }
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "bookcase",
+     "assets": [
+      "furn_bookcase"
+     ],
+     "corner": 0.7,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "stove",
+     "assets": [
+      "furn_stove_potbelly",
+      "furn_stove"
+     ],
+     "corner": 0.9,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf"
+     ],
+     "corner": 0.8,
+     "p": 1.0,
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_jars"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_jars",
+       "furn_candlesticks"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_hooks|furn_coat_rack"
+     ],
+     "corner": 0.5,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "picture",
+     "assets": [
+      "furn_portrait|furn_picture"
+     ],
+     "corner": -0.4,
+     "fixed": true,
+     "n": [
+      0,
+      2.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "bucket",
+     "assets": [
+      "furn_bucket"
+     ],
+     "corner": 1.0,
+     "p": 0.5
+    }
+   ],
+   "wall": {
+    "perMetre": 0.26,
+    "maxGap": 4.0,
+    "items": [
+     "furn_frame_landscape",
+     "furn_portrait",
+     "furn_coat_hooks",
+     "furn_wall_shelf",
+     "furn_frame_small"
+    ],
+    "floorItems": [
+     "furn_chair_slat",
+     "furn_bench",
+     "furn_bookcase"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 1.0,
+   "halfDrawn": 0.3,
+   "debris": 0.04
+  },
+  "office": {
+   "centerZones": [
+    "tea",
+    "dining"
+   ],
+   "centerFloor": [
+    "work_table",
+    "lounge"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "desk",
+     "cluster": "office_desk",
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "desk2",
+     "assets": [
+      "furn_desk"
+     ],
+     "corner": 0.4,
+     "p": 1.0,
+     "if": {
+      "minArea": 12
+     },
+     "top": {
+      "from": [
+       "furn_papers",
+       "furn_books",
+       "furn_radio"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "bookcase",
+     "assets": [
+      "furn_bookcase",
+      "furn_shelf"
+     ],
+     "corner": 0.6,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "cabinet",
+     "assets": [
+      "furn_commode",
+      "furn_chest"
+     ],
+     "corner": 0.2,
+     "p": 0.7,
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_papers",
+       "furn_lamp",
+       "furn_radio"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_papers",
+       "furn_lamp"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf"
+     ],
+     "corner": 0.8,
+     "p": 0.7,
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_papers",
+       "furn_bottles"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "chair",
+     "assets": [
+      "furn_chair_ladder"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "picture",
+     "assets": [
+      "furn_frame_landscape|furn_picture"
+     ],
+     "corner": 0.0,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_hooks|furn_coat_rack"
+     ],
+     "corner": 0.5,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "chest",
+     "assets": [
+      "furn_chest"
+     ],
+     "corner": 0.9,
+     "p": 0.4
+    }
+   ],
+   "zones": [
+    "office_desk",
+    "tea",
+    "stores"
+   ],
+   "wall": {
+    "perMetre": 0.32,
+    "maxGap": 3.6,
+    "items": [
+     "furn_frame_landscape",
+     "furn_frame_portrait",
+     "furn_portrait",
+     "furn_wall_shelf",
+     "furn_frame_small",
+     "furn_wall_clock",
+     "furn_sconce"
+    ],
+    "floorItems": [
+     "furn_chair_ladder",
+     "furn_shelf",
+     "furn_chest"
+    ]
+   },
+   "rug": 0.45,
+   "curtains": 1.0,
+   "halfDrawn": 0.4,
+   "debris": 0.05
+  },
+  "tavern": {
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "table",
+     "cluster": "dining",
+     "fixed": true,
+     "n": [
+      1,
+      0
+     ],
+     "perArea": 11.0,
+     "max": 5
+    },
+    {
+     "do": "wall",
+     "slot": "casks",
+     "assets": [
+      "furn_barrel_rack",
+      "furn_barrel"
+     ],
+     "corner": -0.3,
+     "fixed": true
+    },
+    {
+     "do": "hang",
+     "slot": "platerack",
+     "assets": [
+      "furn_plate_rack"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_jars"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_crockery",
+       "furn_candlesticks"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "cask",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "sideboard",
+     "assets": [
+      "furn_sideboard",
+      "furn_dresser",
+      "furn_commode"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_crockery",
+       "furn_lamp",
+       "furn_radio",
+       "furn_gramophone"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf"
+     ],
+     "corner": 0.8,
+     "p": 1.0,
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_jars",
+       "furn_crockery"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "bench",
+     "assets": [
+      "furn_bench"
+     ],
+     "corner": 0.0,
+     "fixed": true,
+     "n": [
+      0,
+      1.5
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_hooks|furn_coat_rack"
+     ],
+     "corner": 0.5,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_wall_clock"
+     ],
+     "corner": -0.2,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "picture",
+     "assets": [
+      "furn_frame_landscape|furn_picture",
+      "furn_picture"
+     ],
+     "corner": -0.5,
+     "fixed": true,
+     "n": [
+      0,
+      2.0
+     ]
+    }
+   ],
+   "wall": {
+    "perMetre": 0.3,
+    "maxGap": 3.6,
+    "items": [
+     "furn_frame_landscape",
+     "furn_frame_seascape",
+     "furn_picture",
+     "furn_mirror",
+     "furn_wall_clock",
+     "furn_lamp_wall_oil",
+     "furn_wall_shelf"
+    ],
+    "floorItems": [
+     "furn_bench",
+     "furn_barrel",
+     "furn_chair_ladder"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 1.0,
+   "halfDrawn": 0.3,
+   "debris": 0.05
+  },
+  "ruin": {
+   "steps": [
+    {
+     "do": "center",
+     "slot": "table",
+     "assets": [
+      "furn_table_small"
+     ],
+     "ring": 0.6,
+     "fixed": true,
+     "broken": 0.6,
+     "chairs": [
+      {
+       "assets": [
+        "furn_chair_slat"
+       ],
+       "n": [
+        1,
+        0.9
+       ],
+       "broken": 0.7
+      }
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "crate",
+     "assets": [
+      "furn_crate"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "broken": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "commode",
+     "assets": [
+      "furn_commode"
+     ],
+     "corner": 0.3,
+     "p": 0.6,
+     "broken": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "sacks",
+     "assets": [
+      "furn_sacks"
+     ],
+     "corner": 1.0,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "cask",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "p": 0.5,
+     "broken": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "bucket",
+     "assets": [
+      "furn_bucket"
+     ],
+     "corner": 1.0,
+     "p": 0.5
+    }
+   ],
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.9
+  },
+  "attic": {
+   "centerZones": [
+    "tea"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "trunks",
+     "cluster": "trunks",
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "bed",
+     "assets": [
+      "furn_bed_iron"
+     ],
+     "corner": 0.5,
+     "p": 0.45
+    },
+    {
+     "do": "wall",
+     "slot": "chair",
+     "assets": [
+      "furn_chair_ladder|furn_chair_slat"
+     ],
+     "corner": 0.6,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "broken": 0.25
+    },
+    {
+     "do": "wall",
+     "slot": "crate",
+     "assets": [
+      "furn_crate"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.2
+     ],
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_jars",
+       "furn_basket",
+       "furn_candlestick"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "suitcases",
+     "assets": [
+      "furn_suitcases"
+     ],
+     "corner": 1.0,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "sacks",
+     "assets": [
+      "furn_sacks"
+     ],
+     "corner": 1.0,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "commode",
+     "assets": [
+      "furn_commode",
+      "furn_dresser"
+     ],
+     "corner": 0.3,
+     "p": 0.5,
+     "top": {
+      "from": [
+       "furn_gramophone",
+       "furn_radio",
+       "furn_jug_bowl",
+       "furn_books"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "basket",
+     "assets": [
+      "furn_basket"
+     ],
+     "corner": 1.0,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "chest2",
+     "assets": [
+      "furn_chest"
+     ],
+     "corner": 0.9,
+     "p": 0.5
+    }
+   ],
+   "zones": [
+    "trunks",
+    "stores"
+   ],
+   "wall": {
+    "perMetre": 0.22,
+    "maxGap": 4.0,
+    "items": [
+     "furn_frame_small",
+     "furn_coat_hooks",
+     "furn_portrait"
+    ],
+    "floorItems": [
+     "furn_crate",
+     "furn_suitcases",
+     "furn_chest",
+     "furn_sacks",
+     "furn_chair_ladder"
+    ]
+   },
+   "rug": 0.2,
+   "curtains": 0.3,
+   "halfDrawn": 0.6,
+   "debris": 0.15
+  },
+  "cellar": {
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "wine",
+     "cluster": "wine",
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf",
+      "furn_pantry"
+     ],
+     "corner": 0.6,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ],
+     "top": {
+      "from": [
+       "furn_jars",
+       "furn_bottles",
+       "furn_pot",
+       "furn_crockery"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "cluster",
+     "slot": "stores",
+     "cluster": "stores",
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "cask",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.5
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "sacks",
+     "assets": [
+      "furn_sacks"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "wood",
+     "assets": [
+      "furn_wood_pile"
+     ],
+     "corner": 0.9,
+     "p": 0.5
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": 0.3,
+     "fixed": true,
+     "n": [
+      1,
+      0.8
+     ],
+     "top": {
+      "from": [
+       "furn_jars",
+       "furn_bottles"
+      ],
+      "n": 2
+     }
+    }
+   ],
+   "zones": [
+    "wine",
+    "stores"
+   ],
+   "wall": {
+    "perMetre": 0.2,
+    "maxGap": 4.0,
+    "items": [
+     "furn_wall_shelf",
+     "furn_tool_rack",
+     "furn_lamp_wall_oil"
+    ],
+    "floorItems": [
+     "furn_barrel",
+     "furn_crate",
+     "furn_sacks",
+     "furn_shelf"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.08
+  },
+  "utility": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf",
+      "furn_chest"
+     ],
+     "corner": 0.8,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_crockery",
+       "furn_jars",
+       "furn_pot"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "pantry",
+     "assets": [
+      "furn_pantry",
+      "furn_shelf"
+     ],
+     "corner": 0.6,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "crate",
+     "assets": [
+      "furn_crate"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      2.0
+     ],
+     "top": {
+      "from": [
+       "furn_bucket",
+       "furn_jars",
+       "furn_basket",
+       "furn_bottles"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_wall_shelf"
+     ],
+     "corner": 0.3,
+     "fixed": true,
+     "n": [
+      1,
+      0.8
+     ],
+     "top": {
+      "from": [
+       "furn_jars",
+       "furn_bottles",
+       "furn_pot",
+       "furn_crockery"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "sacks",
+     "assets": [
+      "furn_sacks"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      0,
+      1.2
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "cask",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "casks",
+     "assets": [
+      "furn_barrel_rack"
+     ],
+     "corner": 0.5,
+     "p": 0.4
+    },
+    {
+     "do": "wall",
+     "slot": "chest",
+     "assets": [
+      "furn_chest"
+     ],
+     "corner": 0.5,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "stool",
+     "assets": [
+      "furn_stool"
+     ],
+     "corner": 0.3,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "pail",
+     "assets": [
+      "furn_basket|furn_bucket"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      0,
+      1.2
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "wood",
+     "assets": [
+      "furn_wood_pile"
+     ],
+     "corner": 0.9,
+     "p": 0.4
+    },
+    {
+     "do": "hang",
+     "slot": "tools",
+     "assets": [
+      "furn_tool_rack"
+     ],
+     "corner": -0.2,
+     "p": 0.4
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_hooks|furn_coat_rack"
+     ],
+     "corner": 0.4,
+     "p": 0.3
+    }
+   ],
+   "zones": [
+    "stores",
+    "workbench"
+   ],
+   "wall": {
+    "perMetre": 0.22,
+    "maxGap": 4.0,
+    "items": [
+     "furn_wall_shelf",
+     "furn_tool_rack",
+     "furn_coat_hooks",
+     "furn_frame_small"
+    ],
+    "floorItems": [
+     "furn_crate",
+     "furn_sacks",
+     "furn_barrel",
+     "furn_basket"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.5,
+   "halfDrawn": 0.5,
+   "debris": 0.08
+  },
+  "mil_quarters": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "bunk",
+     "assets": [
+      "furn_mil_bunk"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      2,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "locker",
+     "assets": [
+      "furn_mil_locker"
+     ],
+     "corner": 0.8,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "center",
+     "slot": "table",
+     "assets": [
+      "furn_table_small"
+     ],
+     "ring": 0.6,
+     "fixed": true,
+     "chairs": [
+      {
+       "assets": [
+        "furn_stool"
+       ],
+       "n": [
+        2,
+        0.6
+       ]
+      }
+     ],
+     "top": {
+      "from": [
+       "furn_lamp",
+       "furn_bottles",
+       "furn_papers",
+       "furn_jug_bowl"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "masks",
+     "assets": [
+      "furn_mil_gasmask_hooks"
+     ],
+     "corner": 0.2,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "rifles",
+     "assets": [
+      "furn_mil_rifle_rack"
+     ],
+     "corner": 0.5,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "stove",
+     "assets": [
+      "furn_stove_potbelly"
+     ],
+     "corner": 0.9,
+     "p": 0.7
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_rack"
+     ],
+     "corner": 0.3,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "pinup",
+     "assets": [
+      "furn_picture"
+     ],
+     "corner": -0.3,
+     "n": [
+      1,
+      0.8
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "crates",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "corner": 1.0,
+     "p": 0.6
+    }
+   ],
+   "wall": {
+    "perMetre": 0.2,
+    "maxGap": 4.0,
+    "items": [
+     "furn_mil_gasmask_hooks",
+     "furn_coat_rack",
+     "furn_mil_map",
+     "furn_mil_fusebox"
+    ],
+    "floorItems": [
+     "furn_mil_crates",
+     "furn_mil_jerrycans"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.1
+  },
+  "mil_command": {
+   "steps": [
+    {
+     "do": "center",
+     "slot": "maptable",
+     "assets": [
+      "furn_mil_table",
+      "furn_table_small"
+     ],
+     "ring": 0.7,
+     "fixed": true,
+     "chairs": [
+      {
+       "assets": [
+        "furn_chair_slat"
+       ],
+       "n": [
+        2,
+        1.0
+       ],
+       "ends": true
+      }
+     ],
+     "top": {
+      "from": [
+       "furn_mil_phone",
+       "furn_papers",
+       "furn_lamp"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "map",
+     "assets": [
+      "furn_mil_map"
+     ],
+     "corner": -0.4,
+     "fixed": true,
+     "n": [
+      2,
+      0.8
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "desk",
+     "cluster": "desk",
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "locker",
+     "assets": [
+      "furn_mil_locker"
+     ],
+     "corner": 0.9,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "shelf",
+     "assets": [
+      "furn_shelf"
+     ],
+     "corner": 0.7,
+     "p": 1.0,
+     "top": {
+      "from": [
+       "furn_books",
+       "furn_papers",
+       "furn_bottles"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_rack"
+     ],
+     "corner": 0.5,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "clock",
+     "assets": [
+      "furn_wall_clock"
+     ],
+     "corner": -0.2,
+     "p": 0.7
+    },
+    {
+     "do": "hang",
+     "slot": "fuses",
+     "assets": [
+      "furn_mil_fusebox"
+     ],
+     "corner": 0.8,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "crates",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "corner": 1.0,
+     "p": 0.5
+    },
+    {
+     "do": "hang",
+     "slot": "portrait",
+     "assets": [
+      "furn_portrait"
+     ],
+     "corner": 0.0,
+     "p": 0.5
+    }
+   ],
+   "wall": {
+    "perMetre": 0.25,
+    "maxGap": 4.0,
+    "items": [
+     "furn_mil_map",
+     "furn_wall_clock",
+     "furn_mil_fusebox",
+     "furn_coat_rack"
+    ],
+    "floorItems": [
+     "furn_mil_crates",
+     "furn_mil_locker"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.08
+  },
+  "mil_radio": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "radio",
+     "assets": [
+      "furn_mil_radio"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      1,
+      0.5
+     ],
+     "satellites": [
+      {
+       "assets": [
+        "furn_chair_slat"
+       ],
+       "at": [
+        -0.35,
+        0,
+        0.6
+       ],
+       "turn": 180,
+       "jitter": [
+        0.05,
+        12
+       ]
+      }
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "map",
+     "assets": [
+      "furn_mil_map"
+     ],
+     "corner": 0.0,
+     "fixed": true
+    },
+    {
+     "do": "hang",
+     "slot": "fuses",
+     "assets": [
+      "furn_mil_fusebox"
+     ],
+     "corner": 0.7,
+     "fixed": true
+    },
+    {
+     "do": "center",
+     "slot": "table",
+     "assets": [
+      "furn_table_small"
+     ],
+     "ring": 0.5,
+     "p": 1.0,
+     "chairs": [
+      {
+       "assets": [
+        "furn_stool"
+       ],
+       "n": [
+        1,
+        0
+       ]
+      }
+     ],
+     "top": {
+      "from": [
+       "furn_mil_phone",
+       "furn_papers",
+       "furn_lamp"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "batteries",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "corner": 1.0,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "locker",
+     "assets": [
+      "furn_mil_locker"
+     ],
+     "corner": 0.8,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "clock",
+     "assets": [
+      "furn_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 0.7
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_rack"
+     ],
+     "corner": 0.5,
+     "p": 0.6
+    }
+   ],
+   "wall": {
+    "perMetre": 0.25,
+    "maxGap": 3.5,
+    "items": [
+     "furn_mil_map",
+     "furn_mil_fusebox",
+     "furn_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mil_crates"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.08
+  },
+  "mil_ammo": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "rack",
+     "assets": [
+      "furn_mil_ammo_rack"
+     ],
+     "corner": -0.3,
+     "fixed": true,
+     "n": [
+      2,
+      2.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "crates",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "corner": 0.9,
+     "fixed": true,
+     "n": [
+      2,
+      2.0
+     ]
+    },
+    {
+     "do": "center",
+     "slot": "stack",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "ring": 0.4,
+     "p": 0.7
+    },
+    {
+     "do": "hang",
+     "slot": "fuses",
+     "assets": [
+      "furn_mil_fusebox"
+     ],
+     "corner": 0.6,
+     "fixed": true
+    }
+   ],
+   "wall": {
+    "perMetre": 0.1,
+    "maxGap": 5.0,
+    "items": [
+     "furn_mil_fusebox"
+    ],
+    "floorItems": [
+     "furn_mil_crates",
+     "furn_mil_ammo_rack"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.05
+  },
+  "mil_fighting": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "crates",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "corner": 0.9,
+     "fixed": true,
+     "n": [
+      1,
+      1.5
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "rack",
+     "assets": [
+      "furn_mil_ammo_rack"
+     ],
+     "corner": 0.6,
+     "p": 1.0
+    },
+    {
+     "do": "hang",
+     "slot": "masks",
+     "assets": [
+      "furn_mil_gasmask_hooks"
+     ],
+     "corner": 0.3,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "rifles",
+     "assets": [
+      "furn_mil_rifle_rack"
+     ],
+     "corner": 0.6,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "water",
+     "assets": [
+      "furn_mil_jerrycans"
+     ],
+     "corner": 1.0,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "stool",
+     "assets": [
+      "furn_stool"
+     ],
+     "corner": 0.3,
+     "p": 0.7
+    },
+    {
+     "do": "hang",
+     "slot": "rangecard",
+     "assets": [
+      "furn_mil_map"
+     ],
+     "corner": 0.2,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "bench",
+     "assets": [
+      "furn_bench"
+     ],
+     "corner": 0.2,
+     "p": 0.5
+    }
+   ],
+   "wall": {
+    "perMetre": 0.15,
+    "maxGap": 5.0,
+    "items": [
+     "furn_mil_gasmask_hooks",
+     "furn_mil_map"
+    ],
+    "floorItems": [
+     "furn_mil_crates",
+     "furn_mil_jerrycans"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.15
+  },
+  "mil_plant": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "generator",
+     "assets": [
+      "furn_mil_generator"
+     ],
+     "corner": -0.2,
+     "fixed": true
+    },
+    {
+     "do": "hang",
+     "slot": "fuses",
+     "assets": [
+      "furn_mil_fusebox"
+     ],
+     "corner": 0.4,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "fuel",
+     "assets": [
+      "furn_mil_jerrycans"
+     ],
+     "corner": 1.0,
+     "fixed": true,
+     "n": [
+      1,
+      1.0
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "drum",
+     "assets": [
+      "furn_barrel"
+     ],
+     "corner": 1.0,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "bench",
+     "assets": [
+      "furn_workbench"
+     ],
+     "corner": 0.3,
+     "p": 1.0,
+     "top": {
+      "from": [
+       "furn_bottles",
+       "furn_pot",
+       "furn_lamp"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "tools",
+     "assets": [
+      "furn_tool_rack"
+     ],
+     "corner": -0.1,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "spares",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "corner": 0.9,
+     "p": 0.6
+    }
+   ],
+   "wall": {
+    "perMetre": 0.15,
+    "maxGap": 5.0,
+    "items": [
+     "furn_tool_rack",
+     "furn_mil_fusebox"
+    ],
+    "floorItems": [
+     "furn_mil_jerrycans",
+     "furn_mil_crates"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.12
+  },
+  "mil_passage": {
+   "steps": [
+    {
+     "do": "hang",
+     "slot": "masks",
+     "assets": [
+      "furn_mil_gasmask_hooks"
+     ],
+     "corner": 0.2,
+     "p": 1.0
+    },
+    {
+     "do": "wall",
+     "slot": "bench",
+     "assets": [
+      "furn_bench"
+     ],
+     "corner": -0.3,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "pegs",
+     "assets": [
+      "furn_coat_rack"
+     ],
+     "corner": 0.4,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "rifles",
+     "assets": [
+      "furn_mil_rifle_rack"
+     ],
+     "corner": 0.6,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "fuses",
+     "assets": [
+      "furn_mil_fusebox"
+     ],
+     "corner": 0.7,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "crates",
+     "assets": [
+      "furn_mil_crates"
+     ],
+     "corner": 1.0,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "water",
+     "assets": [
+      "furn_mil_jerrycans"
+     ],
+     "corner": 1.0,
+     "p": 0.4
+    }
+   ],
+   "wall": {
+    "perMetre": 0.12,
+    "maxGap": 6.0,
+    "items": [
+     "furn_mil_gasmask_hooks",
+     "furn_mil_fusebox",
+     "furn_coat_rack"
+    ],
+    "floorItems": [
+     "furn_mil_crates"
+    ]
+   },
+   "rug": 0.0,
+   "curtains": 0.0,
+   "debris": 0.05
+  }
+ }
+}

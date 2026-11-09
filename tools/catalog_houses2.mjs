@@ -15,6 +15,7 @@ import { Asset, cutRect, wbox } from "./kit.mjs";
 import {
   extOf,   stdMaterials, wall, partition, window, door, stairs, railing, table, chair, bench, bed, armoire, dresser, chest, gableRoof, quoins,
   pilaster, stringCourse, cornice, surround, archOpening, colonnade, balcony, dormer, turret, timberFrame, chimney, chimneyCap, fbox, fpart, weather,
+  interiorTrim,
 } from "./parts.mjs";
 import { workshop, dairy, storehouse, office } from "./catalog_small.mjs";
 import { schoolhouse, inn, warehouse, municipal } from "./catalog_large.mjs";
@@ -141,11 +142,12 @@ function dress(A, S) {
   for (const [x, s, w, h] of S.dormers || []) roofDormer(A, S, x, s, w, h);
   for (const c of S.chimneys || []) chimney(A, { z: 0, y0: S.RIDGE - 0.6, y1: S.RIDGE + 1.3, w: 0.8, d: 0.55, ...c });
   if (S.ivy) A.meta.ivy = S.ivy;
-  A.meta.version = 2;
+  A.meta.version = 3;   // GX2: interior trim (skirting, dado rail, doorway jambs)
   A.meta.description += " " + (S.note || "Dressed-stone plinth, quoins, opening surrounds and cornice; ivy; capped chimney.");
   const tn = (S.RIDGE - EAVE) / Z;
   weather(A, { keep: legacy, pocks: S.pocks === false ? [] : [-1, 1].map((s) => ({ F: { axis: "z", d: s * X, out: s }, a0: -Z * 0.35, a1: Z * 0.35, y0: EAVE + 0.15, y1: EAVE + Math.min(0.42 * tn * Z, 3), n: 2 })) });
   A.meta.companions = yard(A, S, ops);
+  interiorTrim(A, { levels: [GF, ...(S.floors || [])] });   // GX2: after weather(), which jitters the facade trim
   return A;
 }
 

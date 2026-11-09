@@ -19,16 +19,17 @@ rm -f selftest_out/report_net_*.txt selftest_out/net_*.flag   # B waits for A's 
 sleep 4
 "$EXE" --selftest-net a "$PORT" > net_a.log 2>&1 & A=$!
 "$EXE" --selftest-net c "$PORT" > net_c.log 2>&1 & C=$!
-"$EXE" --selftest-net e "$PORT" > net_e.log 2>&1 & E=$!
+"$EXE" --selftest-net h2 $((PORT + 10)) > net_h2.log 2>&1 & H2=$!   # E's own lobby: E must not take peer id 1 from A
+(sleep 6; exec "$EXE" --selftest-net e $((PORT + 10)) > net_e.log 2>&1) & E=$!
 sleep 22
 "$EXE" --selftest-net b "$PORT" > net_b.log 2>&1 & BB=$!
 sleep 8
 "$EXE" --selftest-net d "$PORT" > net_d.log 2>&1 & D=$!
 status=0
-for p in $H $A $BB $C $D $E; do
+for p in $H $A $BB $C $D $H2 $E; do
   for i in $(seq 1 720); do kill -0 $p 2>/dev/null || break; sleep 1; done
   kill -0 $p 2>/dev/null && { echo "process $p still running after 12 min: stopping it"; kill $p; status=1; }
   wait $p || status=1
 done
-for r in host a b c d e; do printf 'net %-5s ' "$r"; tail -1 "selftest_out/report_net_$r.txt" 2>/dev/null || { echo "no report"; status=1; }; done
+for r in host a b c d h2 e; do printf 'net %-5s ' "$r"; tail -1 "selftest_out/report_net_$r.txt" 2>/dev/null || { echo "no report"; status=1; }; done
 exit $status

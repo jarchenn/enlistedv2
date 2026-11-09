@@ -316,3 +316,54 @@ slot and the slots that found no room).
 - **Opening a large map takes longer.** battle1 (19 buildings, 769 pieces) 0.5–0.9 s; Omaha (28 buildings, 1,169
   pieces) about 2.6 s, where each building costs more as the map fills (not profiled further).
 - **The pieces are saved with the map.** Undo snapshots and LAN map transfers carry them like any other instance.
+
+## 5. GX2: data-driven dressing, trim (2026-11-09, branch `gx2-interiors`)
+
+The graphics brief's section 3 ("life in each room"). Everything below is deterministic from the building's furnishing
+seed and the slot names, so every client of a match dresses a building the same way.
+
+- **Rules in `content/settings/room_dressing.json`** (read once). Per room type (`kitchen`, `sitting`, `bedroom`,
+  `utility`, `workshop`, `hall`, `church`, `barn`, `class`, `office`, `tavern`, `ruin`, plus the new `attic` and
+  `cellar`): `steps` (the furniture recipe that used to be hard-coded in `Planner::room`), `zones`, `wall`
+  (wall-mounted items per metre, the longest bare wall allowed, the items and floor fallbacks), `rug`, `curtains`,
+  `halfDrawn`, `debris` chances. The file's `_doc` lists every step field.
+- **Clusters** (`clusters` in the file): an anchor and its satellites in the anchor's frame with seeded jitter, a
+  second spot when the first is taken, `flush` satellites backed onto the same wall, pieces on its top and a wall
+  piece hung above it (`hangAbove`): desk + chair + lamp + basket + picture, bed + bedside table + candle + rug +
+  chest, armchair + side table + lamp + rug, sideboard + gramophone + chair + painting, range + wood + pan rail ...
+- **Oversized rooms** (> 8 m on a side, except halls, barns, naves, taverns, classrooms): one cluster grouping in
+  each 4-5 m zone (2 across when both sides are long), so a 10 x 18 m chateau room reads as several furnished areas.
+- **Open middle floor** (rooms at least 6 m across, types with a `centerFloor` list): a free-standing group in each
+  5 m cell down the middle, kept 2.3 m off the walls, the type cycling through the list from a seeded start.
+  - The groups:
+    - `lounge`: a settee, 2 armchairs and a low table on a 4 x 3 m rug;
+    - `dining_big`: a dining table with 4-6 chairs;
+    - `work_table`: a work table with papers and 4 chairs;
+    - `screen_bed`: a bed headed against a folding screen;
+    - `armoire_bed`: a bed behind a back-to-back pair of armoires.
+  - In those rooms they replace `centerZones`, and they still go through the walkway and walkability checks.
+- **Hallways**: a runner rug tiled down the centre line, side tables with lamps every 6.5 m (alternate walls,
+  a picture above), pictures every 3-4 m on both long walls (staggered, slid off doors and windows), a coat stand
+  or hooks beside the door to the outside. A long narrow room (<= 3 m wide, >= 3.5x as long) is a hall now (the
+  chateau's 2.2 x 36 m rear corridor was a "sitting room").
+- **Wall fill**: after the recipe, the room's wall edges (0.1 m cells against a wall) are scanned for bare runs
+  (no piece within 0.25 m, not a door or window); the longest is filled with a wall item from the type's list
+  (frames, mirrors, shelves, pan rails, coat hooks, sconces), a floor piece where nothing can hang, until no run is
+  over `maxGap` (4 m) and the room has its wall items per metre. Frames hang with their centre at 1.5-1.7 m.
+- **Attic / cellar**: rooms() samples the lowest part over each top-storey room (centre and quarter points): under
+  2.25 m somewhere is an attic (under the roof slopes); a floor below -0.8 m is a cellar.
+- **Debris**: plaster and broken glass in a few rooms, more in worn (`finish.wear`) and ruined buildings.
+- **Stats**: `InteriorSys::lastStats` (pieces, wall-mounted pieces, lights, longest bare wall per room) and the
+  `interior: dressed ...` log line after every furnish. `NMK_GX2_DEBUG=1` logs why a wall run could not be filled.
+- **Floor pieces stand 3 cm off the wall** (`wallCand`), on the front of the skirting board.
+
+**Trim geometry** (`tools/parts.mjs` `interiorTrim(A, { levels })`): a skirting board with a moulded top along every
+interior "plaster" face at each floor level where a floor runs along it, a dado-rail lip at 0.955 m (the interior
+shader's wainscot cap) that stops at low windows, and jamb liners + architraves round partition doorways the builder
+did not frame. Visual only (k: 0), in the same part list as the plaster (bay states included). Applied by
+`catalog_houses2.mjs` `dress()` (version 3) and `catalog_chateau.mjs` `house()` / `gatehouse()` (version 2).
+
+**New props** (`tools/gen_furniture.py`, each with a `prop.bounds` envelope computed from its parts): iron
+bedstead, gramophone, wireless set, wall sconce, candle sconce, wall oil lamp, candlestick, hall pendant, coat
+stand, coat hooks with coats, suitcases, half-drawn curtains, pan rail, broken glass, plaster debris, hall runner,
+five framed paintings (landscape, seascape, evening, portrait, small).

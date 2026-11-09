@@ -18,12 +18,12 @@ GraphicsOpts presetOpts(GfxPreset p) {
   if (p == GfxPreset::Low) {
     g.resScale = 0.85f; g.shadowQuality = 0;
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
-    g.grass = 1; g.grassWind = false; g.renderDist = 600; g.particles = 0.6f; g.ivy = false;
+    g.grass = 1; g.grassWind = false; g.renderDist = 600; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::High) {
     g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;
-    g.grass = 3; g.renderDist = 2500; g.particles = 1.5f;
+    g.grass = 3; g.renderDist = 2500; g.particles = 1.5f; g.dustMotes = 2;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
     g.materials = 2;                                     // GX5: + parallax on height-capable texture sets
   }
@@ -46,7 +46,7 @@ json UserSettings::toJson() const {
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass}, {"grassWind", g.grassWind},
                   {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
-                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials},
+                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}}},
@@ -76,7 +76,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
-    g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy);
+    g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
     // time of day: a preset name gives its hour; an explicit hour wins
     std::string tn = q.value("timeOfDay", std::string("Day"));
     for (TodPreset p : {TodPreset::Day, TodPreset::Dusk, TodPreset::Night, TodPreset::Dawn}) if (tn == todPresetName(p)) u.hour = todPresetHour(p);
@@ -292,6 +292,8 @@ void settingsWindow(App& app) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Multisampled world geometry (smoother building and roof edges), resolved before temporal AA. High turns it on.");
       ImGui::SameLine(220); ImGui::Checkbox("Ivy on walls", &g.ivy);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ivy on stone walls; its density follows the grass quality.");
+      { const char* dm[] = {"Off", "Low", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Dust motes", &g.dustMotes, dm, 3); }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Dust drifting in the sunlight that falls through windows indoors (a few dozen motes per lit window near you).");
       ImGui::Checkbox("Clouds", &g.clouds);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloud cover: Creative > View > Sky");
       { const char* gq[] = {"Off", "Low", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Grass", &g.grass, gq, 4); }

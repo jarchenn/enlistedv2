@@ -10,12 +10,16 @@
 #include <unordered_set>
 #include "app.h"
 #include "autopath.h"
+#include "settings.h"
+#include "combat.h"
+#include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
 #include <map>
 #include <cmath>
 
 bool gAutoPathLamps = false;
+std::string gLightsSkip;   // GX2 A/B timing: lights of this asset left out of the frame
 
 namespace {
 std::map<const AssetDef*, std::unique_ptr<LightAssetDef>> gDefs;
@@ -48,10 +52,108 @@ bool furnishRoom(const Instance& i, uint64_t& host, int& room) {
 }
 float useScale(const std::string& use, float day) {
   if (use == "street") return std::clamp((0.72f - day) / 0.42f, 0.0f, 1.0f);   // on at dusk, off by day
-  if (use == "interior") return glm::mix(1.0f, kInteriorDay, std::clamp(day, 0.0f, 1.0f));
+  if (use == "interior") return glm::mix(1.0f, lightsDayScale(), std::clamp(day, 0.0f, 1.0f));
   if (use == "fire") return glm::mix(1.0f, 0.8f, std::clamp(day, 0.0f, 1.0f));
   return 1.0f;   // electric (bunkers)
 }
+}
+
+// ============================================================ GX2: configuration, colour temperature
+const json& interiorLightsConfig() {
+  static const json j = [] {
+    try { return json::parse(readTextFile(contentDir() / "settings" / "interior_lights.json")); }
+    catch (...) { logf("lights: content/settings/interior_lights.json missing or invalid: the assets' own light blocks are used"); return json::object(); }
+  }();
+  return j;
+}
+float lightsDayScale() { static const float d = std::clamp(interiorLightsConfig().value("dayScale", kInteriorDay), 0.0f, 1.0f); return d; }
+vec3 kelvinToRgb(float kelvin) {
+  float t = std::clamp(kelvin, 1000.0f, 12000.0f) / 100.0f, r, g, b;
+  r = t <= 66 ? 255.0f : 329.698727446f * std::pow(t - 60, -0.1332047592f);
+  g = t <= 66 ? 99.4708025861f * std::log(t) - 161.1195681661f : 288.1221695283f * std::pow(t - 60, -0.0755148492f);
+  b = t >= 66 ? 255.0f : (t <= 19 ? 0.0f : 138.5177312231f * std::log(t - 10) - 305.0447927307f);
+  vec3 c = glm::clamp(vec3(r, g, b) / 255.0f, vec3(0), vec3(1));
+  c = glm::pow(c, vec3(2.2f));   // sRGB-encoded fit -> linear
+  return c / std::max({c.x, c.y, c.z, 1e-4f});
+}
+
+// ============================================================ GX2: dust motes in the sun shafts
+int lightsMotes(App& app, const mat4& view, std::vector<FxVert>& add) {
+  int q = std::clamp(settings().s.gfx.dustMotes, 0, 2);
+  static const json M = interiorLightsConfig().value("dustMotes", json::object());
+  int per = M.contains("perWindow") && M["perWindow"].is_array() && (int)M["perWindow"].size() > q ? M["perWindow"][q].get<int>() : (q == 0 ? 0 : q == 1 ? 18 : 40);
+  if (per <= 0 || lightsDaylight(app) < 0.35f) return 0;
+  vec3 sun = glm::normalize(app.R.sunDir);
+  if (sun.y < 0.08f) return 0;
+  const vec3 travel = -sun;
+  const float range = M.value("range", 14.0f), depth = M.value("depth", 3.2f), size = M.value("size", 0.006f), bright = M.value("brightness", 1.4f);
+  const int maxWin = M.value("maxWindows", 6);
+  vec3 cam = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
+  struct W { vec3 c, n, u; float w, h, floor, d; uint64_t key; };
+  std::vector<W> ws;
+  for (auto& i : app.doc.instances) {
+    if (std::fabs(i.pos.x - cam.x) > range + 40.0f || std::fabs(i.pos.z - cam.z) > range + 40.0f) continue;   // cheap reject first
+    auto it = app.rt.find(i.id);
+    if (it == app.rt.end() || !it->second.asset || !it->second.asset->enterable) continue;
+    const AssetDef* a = it->second.asset;
+    float reach = std::max(a->footprint.x, a->footprint.y) * 0.75f + range;
+    if (glm::length(vec2(i.pos.x - cam.x, i.pos.z - cam.z)) > reach) continue;
+    const RoomInfo* ri = app.interior.rooms(a);
+    if (!ri || ri->storeys.empty()) continue;
+    mat4 Mi = app.instanceMatrix(i); quat hq = yawQuat(i.yaw);
+    vec3 mid = (a->bmin + a->bmax) * 0.5f;
+    uint64_t wi = 0;
+    for (const auto& d : a->interactables) {
+      if (d.kind != "window") continue;
+      ++wi;
+      vec3 mn = d.apMin, mx = d.apMax;
+      int na = (mx.x - mn.x) < (mx.z - mn.z) ? 0 : 2, la = 2 - na;
+      float in = ((mn[na] + mx[na]) * 0.5f > mid[na]) ? -1.0f : 1.0f;   // toward the inside
+      vec3 c = (mn + mx) * 0.5f; c[na] = in < 0 ? mn[na] : mx[na];
+      vec3 n(0), u(0); n[na] = in; u[la] = 1;
+      W w; w.c = vec3(Mi * vec4(c, 1)); w.n = hq * n; w.u = hq * u; w.w = mx[la] - mn[la]; w.h = mx.y - mn.y;
+      if (glm::dot(travel, w.n) < 0.15f) continue;   // the sun is on the other side
+      w.d = glm::length(w.c - cam);
+      if (w.d > range) continue;
+      float fl = ri->storeys[0].y;
+      for (auto& S : ri->storeys) if (S.y <= mn.y + 0.05f) fl = S.y;
+      w.floor = (Mi * vec4(0, fl, 0, 1)).y;
+      w.key = i.id * 64 + wi;
+      ws.push_back(w);
+    }
+  }
+  std::sort(ws.begin(), ws.end(), [](const W& x, const W& y) { return x.d < y.d; });
+  if ((int)ws.size() > maxWin) ws.resize(maxWin);
+  // a window the sun cannot reach (another building, the eaves) has no shaft: a ray toward the sun, cached for a second
+  static std::map<uint64_t, std::pair<double, bool>> lit;
+  double now = glfwGetTime();
+  mat4 inv = glm::inverse(view);
+  vec3 right = vec3(inv[0]), up = vec3(inv[1]);
+  float T = (float)std::fmod(now, 10000.0);
+  int n = 0;
+  for (auto& w : ws) {
+    auto& L = lit[w.key];
+    if (now - L.first > 1.0) { Physics::Hit h; L.second = !Physics::castRayEx(w.c - w.n * 0.4f + sun * 0.2f, sun, 60.0f, h); L.first = now; }
+    if (!L.second) continue;
+    for (int m = 0; m < per; ++m) {
+      uint32_t hk = (uint32_t)(w.key * 977u) + (uint32_t)m * 131u;
+      float ph = h01(hk, 1) * 6.2831f, period = 7.0f + 6.0f * h01(hk, 2);
+      float f = std::fmod(T / period + h01(hk, 3), 1.0f);
+      float alpha = std::pow(std::sin(f * 3.14159f), 2.0f);
+      if (alpha < 0.02f) continue;
+      vec3 p = w.c + w.u * ((h01(hk, 4) - 0.5f) * w.w) + vec3(0, (h01(hk, 5) - 0.5f) * w.h, 0) + travel * (0.15f + depth * h01(hk, 6));
+      p += vec3(std::sin(T * 0.31f + ph), 0.6f * std::sin(T * 0.23f + ph * 1.7f) - f * 0.12f, std::cos(T * 0.27f + ph * 0.6f)) * 0.05f;
+      if (p.y < w.floor + 0.08f) continue;
+      float s = size * (0.6f + 0.8f * h01(hk, 7));
+      vec4 col(vec3(1.0f, 0.93f, 0.8f) * bright * alpha, 1);
+      vec3 rx = right * s, ry = up * s;
+      vec3 p0 = p - rx - ry, p1 = p + rx - ry, p2 = p + rx + ry, p3 = p - rx + ry;
+      add.push_back({p0, col, {0, 0}}); add.push_back({p1, col, {1, 0}}); add.push_back({p2, col, {1, 1}});
+      add.push_back({p0, col, {0, 0}}); add.push_back({p2, col, {1, 1}}); add.push_back({p3, col, {0, 1}});
+      ++n;
+    }
+  }
+  return n;
 }
 
 // ============================================================ definitions
@@ -86,6 +188,17 @@ const LightAssetDef* lightDef(const AssetDef* a) {
     s.use = l.value("use", std::string(s.flicker >= 0.3f ? "fire" : "interior"));
     s.fx = l.value("fx", std::string()); s.fxSize = l.value("fxSize", 0.2f);
     slot->lights.push_back(s);
+  }
+  // GX2: interior_lights.json "fixtures" override the asset's colour (from its colour temperature), intensity and radius
+  const json& F = interiorLightsConfig().contains("fixtures") ? interiorLightsConfig()["fixtures"] : json::object();
+  if (F.is_object() && F.contains(a->id)) {
+    const json& f = F[a->id];
+    float sat = std::clamp(interiorLightsConfig().value("kelvinSaturation", 0.72f), 0.0f, 1.0f);
+    for (auto& s : slot->lights) {
+      if (f.contains("kelvin")) s.color = glm::mix(vec3(1), kelvinToRgb(f["kelvin"].get<float>()), sat);
+      if (f.contains("intensity")) s.intensity = f["intensity"].get<float>();
+      if (f.contains("radius")) s.radius = f["radius"].get<float>();
+    }
   }
   return slot.get();
 }
@@ -185,7 +298,7 @@ void lightsGather(App& app, std::vector<LightDesc>& out) {
     const Instance& i = app.doc.instances[idx];
     const AssetDef* a = rp->asset;
     const LightAssetDef* d = lightDef(a);
-    if (!d || d->lights.empty()) continue;
+    if (!d || d->lights.empty() || (!gLightsSkip.empty() && a->id == gLightsSkip)) continue;
     const json* L = extraLight(i);
     float gain = L ? std::max(0.0f, L->value("gain", 1.0f)) : 1.0f;
     bool tint = L && L->contains("color");
@@ -262,11 +375,102 @@ int surfaceRank(const std::string& id) {   // tables first, then dressers and ch
 }
 }
 
-void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const AssetDef* ha, const RoomInfo& ri, uint32_t seed, std::vector<LightPlanItem>& items) {
+namespace {
+// a ceiling point above (c.x, c.y) host-local: the ceiling or beam straight above, clear of beams for the lamp's box
+Spot ceilingAt(App& app, const Instance& host, const RoomInfo::Room& R, vec2 c, const PropDef* pd, float yaw) {
+  quat hq = yawQuat(host.yaw);
+  Spot best;
+  for (float d : {0.0f, 0.25f, -0.25f, 0.5f, -0.5f}) {
+    for (int ax = 0; ax < 2; ++ax) {
+      vec2 q = c + (ax == 0 ? vec2(d, 0) : vec2(0, d));
+      vec3 o = host.pos + hq * vec3(q.x, R.y0 + 1.25f, q.y);
+      Physics::Hit h;
+      if (!Physics::castRayEx(o, vec3(0, 1, 0), std::max(1.0f, R.y1 - R.y0 + 1.5f), h)) continue;
+      float cy = R.y0 + 1.25f + h.t;
+      if (cy < R.y0 + 1.9f) continue;
+      if (pd) {
+        quat qq = yawQuat(host.yaw + yaw);
+        vec3 he = glm::max((pd->bmax - pd->bmin) * 0.5f - vec3(0.02f, 0.04f, 0.02f), vec3(0.01f)) * 0.5f;
+        vec3 top = host.pos + hq * vec3(q.x, cy - 0.004f, q.y);
+        if (Physics::boxBlocked(top + qq * ((pd->bmin + pd->bmax) * 0.5f) + vec3(0, 0.02f, 0), he, qq)) continue;
+      }
+      best.ok = true; best.ceil = cy; best.p = vec3(q.x, cy, q.y);
+      return best;
+    }
+  }
+  return best;
+}
+// the middle of a room across axis ax (0: the room runs along x) at a point along it (L-shaped halls)
+float acrossCentre(const RoomInfo& ri, int k, int ax, float at) {
+  const auto& R = ri.rooms[k]; const auto& S = ri.storeys[R.storey]; const float C = ri.cell;
+  float lo = 1e9f, hi = -1e9f;
+  if (ax == 0) { int i = (int)std::floor((at - S.o.x) / C); if (i >= 0 && i < S.nx) for (int j = 0; j < S.nz; ++j) if (S.id[(size_t)j * S.nx + i] == k) { lo = std::min(lo, S.o.y + j * C); hi = std::max(hi, S.o.y + (j + 1) * C); } }
+  else { int j = (int)std::floor((at - S.o.y) / C); if (j >= 0 && j < S.nz) for (int i = 0; i < S.nx; ++i) if (S.id[(size_t)j * S.nx + i] == k) { lo = std::min(lo, S.o.x + i * C); hi = std::max(hi, S.o.x + (i + 1) * C); } }
+  return lo < hi ? (lo + hi) * 0.5f : (ax == 0 ? (R.mn.y + R.mx.y) * 0.5f : (R.mn.x + R.mx.x) * 0.5f);
+}
+// hallway pendant positions along the long axis: the midpoints between consecutive windows (a pool of lamp light
+// between two of window light), thinned to at least minS apart, gaps over maxS filled evenly; without windows, evenly
+// `spacing` apart
+std::vector<float> hallStops(float lo, float hi, const std::vector<float>& win, float spacing, float minS, float maxS, float clear) {
+  std::vector<float> c, pos;
+  for (size_t w = 0; w + 1 < win.size(); ++w) { float m = (win[w] + win[w + 1]) * 0.5f; if (m >= lo - 0.3f && m <= hi + 0.3f && win[w + 1] - win[w] > 2 * clear) c.push_back(m); }
+  if (c.empty()) {
+    if (hi - lo < minS * 0.6f) { pos.push_back((lo + hi) * 0.5f); return pos; }
+    int n = std::max(2, (int)std::round((hi - lo) / spacing) + 1);
+    while (n > 2 && (hi - lo) / (n - 1) < minS) --n;
+    while ((hi - lo) / (n - 1) > maxS) ++n;
+    for (int i = 0; i < n; ++i) c.push_back(lo + (hi - lo) * i / (n - 1));
+  }
+  for (float x : c) if (pos.empty() || x - pos.back() >= minS * 0.8f) pos.push_back(x);
+  auto nearWin = [&](float x) { for (float w : win) if (std::fabs(x - w) < clear) return true; return false; };
+  // the ends beyond the first / last stop, and long gaps: evenly spaced extra stops, slid off the windows
+  std::vector<float> ext{lo - 1e-3f}; ext.insert(ext.end(), pos.begin(), pos.end()); ext.push_back(hi + 1e-3f);
+  std::vector<float> out;
+  for (size_t i = 0; i + 1 < ext.size(); ++i) {
+    float a = ext[i], b = ext[i + 1];
+    bool first = i == 0, last = i + 2 == ext.size();
+    if (i > 0) out.push_back(a);
+    float gap = b - a;
+    if (first || last) {   // from the outer stop toward the hall's end
+      if (gap <= maxS * 0.55f) continue;
+      int add = (int)std::ceil((gap - maxS * 0.55f) / spacing);
+      for (int k = 1; k <= add; ++k) {
+        float x = first ? b - spacing * k : a + spacing * k;
+        if (x < lo - 0.01f || x > hi + 0.01f) continue;
+        for (float d : {0.0f, clear + 0.3f, -(clear + 0.3f)}) if (!nearWin(x + d)) { x += d; break; }
+        out.push_back(x);
+      }
+      continue;
+    }
+    if (gap <= maxS) continue;
+    int add = (int)std::ceil(gap / maxS) - 1;
+    for (int k = 1; k <= add; ++k) {
+      float x = a + gap * k / (add + 1);
+      for (float d : {0.0f, clear + 0.3f, -(clear + 0.3f)}) if (!nearWin(x + d)) { x += d; break; }
+      out.push_back(x);
+    }
+  }
+  std::sort(out.begin(), out.end());
+  return out;
+}
+std::string pickOne(const json& list, uint32_t h) {   // "a|b" -> one of them
+  if (!list.is_array() || list.empty() || !list[0].is_string()) return std::string();
+  std::string e = list[0].get<std::string>(); std::vector<std::string> alt; size_t a = 0;
+  for (size_t b; (b = e.find('|', a)) != std::string::npos; a = b + 1) alt.push_back(e.substr(a, b - a));
+  alt.push_back(e.substr(a));
+  return alt[(size_t)(h01(h, 5) * alt.size()) % alt.size()];
+}
+}
+
+void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const AssetDef* ha, const RoomInfo& ri, uint32_t seed, std::vector<LightPlanItem>& items, const LightWallFn& wallFix) {
   if (!lightsLitBuilding(ha)) return;
   bool bunker = lightsOnlyHost(ha) || startsWith(ha->id, "mil_");   // caged electric lamps
   quat hq = yawQuat(host.yaw), iq = glm::inverse(hq);
   const size_t planned = items.size();
+  const json& C = interiorLightsConfig();
+  const json noRules = json::object();
+  const json& RR = C.contains("rooms") ? C["rooms"] : noRules;
+  const std::string lowCeil = C.value("lowCeiling", std::string("furn_lamp_caged"));
   for (size_t k = 0; k < ri.rooms.size(); ++k) {
     const auto& R = ri.rooms[k];
     if (R.type == ROOM_RUIN) continue;
@@ -274,24 +478,17 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
     auto inRoom = [&](const LightPlanItem& it) { return it.slot.rfind(r, 0) == 0; };
     bool lit = false;
     for (size_t q = 0; q < planned; ++q) if (inRoom(items[q]) && lightDef(app.lib.find(items[q].asset))) lit = true;   // an oil lamp or candles on a table already
-    // ---- ceiling light (by type and area)
-    const char* ceilingAsset = nullptr; const char* tableAsset = nullptr;
-    float pick = h01(seed, (uint32_t)k * 31u + 7u);
+    // ---- the room type's ceiling and table lights (interior_lights.json "rooms")
+    std::string ceilingAsset, tableAsset;
     if (bunker) ceilingAsset = "furn_lamp_caged";
-    else switch (R.type) {
-      case ROOM_KITCHEN: ceilingAsset = "furn_lamp_ceiling"; tableAsset = "furn_lamp"; break;
-      case ROOM_SITTING: if (R.area >= 12.0f) ceilingAsset = "furn_lamp_ceiling"; tableAsset = pick < 0.6f ? "furn_lamp_table" : "furn_lamp"; break;
-      case ROOM_BEDROOM: tableAsset = pick < 0.5f ? "furn_candle" : "furn_lamp"; break;
-      case ROOM_UTILITY: if (R.area >= 6.0f) ceilingAsset = "lamp_hanging_lantern"; tableAsset = "furn_candle"; break;
-      case ROOM_WORKSHOP: case ROOM_BARN: ceilingAsset = "lamp_hanging_lantern"; break;
-      case ROOM_HALL: ceilingAsset = "furn_lamp_ceiling"; tableAsset = "furn_candle"; break;
-      case ROOM_CHURCH: ceilingAsset = "lamp_hanging_lantern"; tableAsset = "furn_candelabra"; break;
-      case ROOM_CLASS: case ROOM_OFFICE: case ROOM_TAVERN: ceilingAsset = "furn_lamp_ceiling"; tableAsset = "furn_lamp"; break;
-      default: ceilingAsset = "furn_lamp_ceiling"; break;
+    else {
+      const json& rule = RR.contains(roomTypeKey(R.type)) ? RR[roomTypeKey(R.type)] : RR.contains("default") ? RR["default"] : noRules;
+      if (R.area >= rule.value("ceilingMinArea", 0.0f)) ceilingAsset = rule.value("ceiling", std::string());
+      tableAsset = pickOne(rule.value("table", json::array()), seed + (uint32_t)k * 31u + 7u);
     }
     // a table light where the room has a table / dresser and no lamp yet (the church: the candelabra on the altar)
     bool tablePlaced = false;
-    if (tableAsset && (!lit || R.type == ROOM_CHURCH) && app.lib.find(tableAsset)) {
+    if (!tableAsset.empty() && (!lit || R.type == ROOM_CHURCH) && app.lib.find(tableAsset)) {
       int bestRank = 99; int best = -1;
       for (size_t q = 0; q < planned; ++q) {
         if (!inRoom(items[q]) || items[q].slot.find("/top") != std::string::npos) continue;
@@ -302,7 +499,7 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
         if (rk < bestRank) { bestRank = rk; best = (int)q; }
       }
       if (best >= 0 && bestRank < 3) {   // tables, dressers, commodes, chests: never a shelf board or a hutch top
-        const LightPlanItem& base = items[best];
+        const LightPlanItem base = items[best];
         const PropDef* bp = sys.prop(app.lib.find(base.asset));
         const PropDef* lp = sys.prop(app.lib.find(tableAsset));
         vec4 s = bp->surfaces[0]; float sy = bp->surfY[0];
@@ -323,23 +520,129 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
         }
       }
     }
+    // ---- hallways: pendants every 5-6 m along the long axis, between the windows (interior_lights.json "hallway")
+    const json& HW = C.contains("hallway") ? C["hallway"] : noRules;
+    vec2 ext = R.mx - R.mn; int hax = ext.x >= ext.y ? 0 : 1; float hlen = hax == 0 ? ext.x : ext.y;
+    bool hallway = !bunker && R.type == ROOM_HALL && hlen >= HW.value("minLength", 4.5f) && app.lib.find(HW.value("fixture", std::string()));
+    if (hallway) {
+      float inset = HW.value("endInset", 1.2f);
+      float lo = (hax == 0 ? R.mn.x : R.mn.y) + inset, hi = (hax == 0 ? R.mx.x : R.mx.y) - inset;
+      std::vector<float> win;
+      for (auto& b : ri.keep) {
+        if (b.kind != 2 || b.mn.y < R.y0 - 0.3f || b.mn.y > R.y1) continue;
+        if (b.mx.x < R.mn.x - 0.9f || b.mn.x > R.mx.x + 0.9f || b.mx.z < R.mn.y - 0.9f || b.mn.z > R.mx.y + 0.9f) continue;
+        win.push_back(hax == 0 ? (b.mn.x + b.mx.x) * 0.5f : (b.mn.z + b.mx.z) * 0.5f);
+      }
+      std::sort(win.begin(), win.end());
+      std::vector<float> stops = hallStops(lo, hi, win, HW.value("spacing", 5.5f), HW.value("minSpacing", 5.0f), HW.value("maxSpacing", 6.0f), HW.value("windowClear", 0.7f));
+      int n = 0;
+      for (float x : stops) {
+        std::string fx = HW.value("fixture", std::string());
+        const AssetDef* ca = app.lib.find(fx); const PropDef* cp = sys.prop(ca);
+        float cyaw = hax == 0 ? 0.0f : 90.0f;
+        vec2 c = hax == 0 ? vec2(x, acrossCentre(ri, (int)k, 0, x)) : vec2(acrossCentre(ri, (int)k, 1, x), x);
+        Spot sp = ceilingAt(app, host, R, c, cp, cyaw);
+        float drop = cp ? -cp->bmin.y : 0.5f;
+        if (sp.ok && sp.ceil - drop < R.y0 + 2.05f) { if (const AssetDef* fl = app.lib.find(lowCeil)) { ca = fl; cp = sys.prop(fl); drop = cp ? -cp->bmin.y : 0.2f; } }
+        if (!sp.ok || sp.ceil - drop < R.y0 + 1.75f) continue;
+        items.push_back({r + "pendant" + std::to_string(n++), ca->id, vec3(sp.p.x, sp.ceil - 0.004f, sp.p.z), cyaw});
+        lit = true;
+      }
+    }
     // the ceiling light; a room left without a lamp gets one hung from its ceiling as well
-    bool wantCeiling = ceilingAsset && (R.type != ROOM_BEDROOM);
-    if (!wantCeiling && !tablePlaced && !lit) ceilingAsset = "furn_lamp_ceiling", wantCeiling = true;
-    if (R.type == ROOM_UTILITY && !ceilingAsset && !tablePlaced && !lit) ceilingAsset = "lamp_hanging_lantern", wantCeiling = true;
+    bool bigRoom = R.area >= C.value("ceilingAlwaysArea", 20.0f) && !bunker && !hallway;   // GX2: a large room always has a ceiling light
+    if (bigRoom && ceilingAsset.empty()) ceilingAsset = RR.contains("default") ? RR["default"].value("ceiling", std::string("furn_lamp_ceiling")) : "furn_lamp_ceiling";
+    bool wantCeiling = !ceilingAsset.empty() && (R.type != ROOM_BEDROOM || bigRoom) && !hallway;
+    if (!wantCeiling && !tablePlaced && !lit) ceilingAsset = R.type == ROOM_UTILITY ? "lamp_hanging_lantern" : "furn_lamp_ceiling", wantCeiling = true;
     if (wantCeiling && !app.lib.find(ceilingAsset)) wantCeiling = false;
     if (wantCeiling) {
-      const AssetDef* ca = app.lib.find(ceilingAsset);
-      const PropDef* cp = sys.prop(ca);
+      const AssetDef* ca0 = app.lib.find(ceilingAsset);
+      const PropDef* cp0 = sys.prop(ca0);
       float cyaw = (R.mx.x - R.mn.x) >= (R.mx.y - R.mn.y) ? 0.0f : 90.0f;
-      Spot sp = ceilingSpot(app, host, ri, (int)k, cp, cyaw);
-      float drop = cp ? -cp->bmin.y : 0.5f;   // hung from its origin (the top): parts reach down to bmin.y
-      if (sp.ok && sp.ceil - drop < R.y0 + 2.05f && !bunker && std::string(ceilingAsset) != "furn_lamp_caged") {   // a low ceiling: a flush caged lamp instead
-        if (const AssetDef* fl = app.lib.find("furn_lamp_caged")) { ca = fl; cp = sys.prop(fl); drop = cp ? -cp->bmin.y : 0.2f; }
+      // GX2: an oversized room gets one lamp per 4-5 m zone (the zones its furniture is grouped in), else one central
+      std::vector<vec2> at;
+      vec2 e = R.mx - R.mn; float zl = C.value("zoneLength", 4.5f), maxSide = C.value("zoneOver", 8.0f);
+      if (std::max(e.x, e.y) > maxSide && !bunker) {
+        int ax = e.x >= e.y ? 0 : 1; float Lz = ax == 0 ? e.x : e.y, Wd = ax == 0 ? e.y : e.x;
+        int nz = (int)std::ceil(Lz / zl), nw = Wd > maxSide * 1.5f ? 2 : 1;   // one row down the middle unless very wide
+        for (int a = 0; a < nz; ++a) for (int b = 0; b < nw; ++b) {
+          float u = (a + 0.5f) / nz, w = (b + 0.5f) / nw;
+          at.push_back(ax == 0 ? vec2(R.mn.x + e.x * u, R.mn.y + e.y * w) : vec2(R.mn.x + e.x * w, R.mn.y + e.y * u));
+        }
       }
-      if (sp.ok && sp.ceil - drop >= R.y0 + 1.75f) {
-        items.push_back({r + "light", ca->id, vec3(sp.p.x, sp.ceil - 0.004f, sp.p.z), cyaw});
-        lit = true;
+      int n = 0;
+      auto hangAt = [&](Spot sp, const std::string& slot) {
+        const AssetDef* ca = ca0; const PropDef* cp = cp0;
+        float drop = cp ? -cp->bmin.y : 0.5f;   // hung from its origin (the top): parts reach down to bmin.y
+        if (sp.ok && sp.ceil - drop < R.y0 + 2.05f && !bunker && ceilingAsset != lowCeil) {   // a low ceiling: a flush caged lamp instead
+          if (const AssetDef* fl = app.lib.find(lowCeil)) { ca = fl; cp = sys.prop(fl); drop = cp ? -cp->bmin.y : 0.2f; }
+        }
+        if (sp.ok && sp.ceil - drop >= R.y0 + 1.75f) { items.push_back({slot, ca->id, vec3(sp.p.x, sp.ceil - 0.004f, sp.p.z), cyaw}); lit = true; ++n; }
+      };
+      for (size_t q = 0; q < at.size(); ++q) {
+        int qi = (int)std::floor((at[q].x - ri.storeys[R.storey].o.x) / ri.cell), qj = (int)std::floor((at[q].y - ri.storeys[R.storey].o.y) / ri.cell);
+        const auto& S = ri.storeys[R.storey];
+        if (qi < 0 || qj < 0 || qi >= S.nx || qj >= S.nz || S.id[(size_t)qj * S.nx + qi] != (int16_t)k) continue;   // over this room's floor
+        hangAt(ceilingAt(app, host, R, at[q], cp0, cyaw), q == 0 ? r + "light" : r + "light" + std::to_string(q));
+      }
+      if (!n) hangAt(ceilingSpot(app, host, ri, (int)k, cp0, cyaw), r + "light");
+    }
+    // ---- wall lights either side of the doorways of larger rooms and halls (interior_lights.json "sconces")
+    const json& SC = C.contains("sconces") ? C["sconces"] : noRules;
+    if (wallFix && !bunker && R.type != ROOM_BARN && R.type != ROOM_CHURCH && (R.area >= SC.value("minArea", 16.0f) || (R.type == ROOM_HALL && SC.value("halls", true)))) {
+      bool electric = false;
+      for (auto& p : SC.value("electricIds", json::array())) if (startsWith(ha->id, p.get<std::string>().c_str())) electric = true;
+      std::vector<std::string> rustic; for (auto& x : SC.value("rustic", json::array())) rustic.push_back(x.get<std::string>());
+      std::string fx = electric || rustic.empty() ? SC.value("electric", std::string("furn_sconce")) : rustic[(size_t)(h01(seed + (uint32_t)k * 13u, 6) * rustic.size()) % rustic.size()];
+      const AssetDef* sa = app.lib.find(fx); const PropDef* spd = sa ? sys.prop(sa) : nullptr;
+      // doorway cells next to this room, grouped into openings
+      const auto& S = ri.storeys[R.storey]; const float Cc = ri.cell;
+      std::vector<uint8_t> seen((size_t)S.nx * S.nz, 0);
+      int placed = 0, perRoom = SC.value("perRoom", 2);
+      float fromDoor = SC.value("fromDoor", 0.35f), halfW = spd ? std::max(spd->bmax.x - spd->bmin.x, 0.1f) * 0.5f : 0.08f;
+      auto id = [&](int i, int j) { return i < 0 || j < 0 || i >= S.nx || j >= S.nz ? (int16_t)RoomInfo::WALL : S.id[(size_t)j * S.nx + i]; };
+      for (int j = 0; j < S.nz && spd && placed < perRoom; ++j) for (int i = 0; i < S.nx && placed < perRoom; ++i) {
+        if (id(i, j) != RoomInfo::DOORWAY || seen[(size_t)j * S.nx + i]) continue;
+        int i0 = i, i1 = i, j0 = j, j1 = j; bool touches = false;
+        std::vector<int> st{j * S.nx + i}; seen[(size_t)j * S.nx + i] = 1;
+        while (!st.empty()) {
+          int c = st.back(); st.pop_back(); int ci = c % S.nx, cj = c / S.nx;
+          i0 = std::min(i0, ci); i1 = std::max(i1, ci); j0 = std::min(j0, cj); j1 = std::max(j1, cj);
+          const int di[4] = {1, -1, 0, 0}, dj[4] = {0, 0, 1, -1};
+          for (int d = 0; d < 4; ++d) {
+            int ni = ci + di[d], nj = cj + dj[d];
+            if (id(ni, nj) == (int16_t)k) touches = true;
+            if (id(ni, nj) == RoomInfo::DOORWAY && !seen[(size_t)nj * S.nx + ni]) { seen[(size_t)nj * S.nx + ni] = 1; st.push_back(nj * S.nx + ni); }
+          }
+        }
+        if (!touches || ((i1 - i0 + 1) * Cc > 2.6f && (j1 - j0 + 1) * Cc > 2.6f)) continue;   // an open-plan gap, not a doorway
+        vec2 mn(S.o.x + i0 * Cc, S.o.y + j0 * Cc), mx(S.o.x + (i1 + 1) * Cc, S.o.y + (j1 + 1) * Cc);
+        bool thinX = (mx.x - mn.x) < (mx.y - mn.y);   // the opening runs along z: the wall is along z, crossed along x
+        for (float sg : {1.0f, -1.0f}) {
+          vec2 q = (mn + mx) * 0.5f;
+          if (thinX) q.x = sg > 0 ? mx.x + 0.25f : mn.x - 0.25f; else q.y = sg > 0 ? mx.y + 0.25f : mn.y - 0.25f;
+          int qi = (int)std::floor((q.x - S.o.x) / Cc), qj = (int)std::floor((q.y - S.o.y) / Cc);
+          if (id(qi, qj) != (int16_t)k) continue;
+          int d = thinX ? (sg > 0 ? 1 : 3) : (sg > 0 ? 0 : 2);
+          float a0 = thinX ? mn.y : mn.x, a1 = thinX ? mx.y : mx.x;
+          for (float side : {-1.0f, 1.0f}) {
+            if (placed >= perRoom) break;
+            float along = side > 0 ? a1 + fromDoor + halfW : a0 - fromDoor - halfW;
+            LightPlanItem got;
+            if (wallFix((int)k, fx, r + "sconce" + std::to_string(placed), d, along, got)) { items.push_back(got); ++placed; lit = true; }
+          }
+        }
+      }
+    }
+    // ---- a room still without a light (no ceiling within reach: a tower base, a stairwell): a lamp on a wall
+    if (!lit && wallFix && !bunker) {
+      vec2 cc = (R.mn + R.mx) * 0.5f;
+      std::vector<std::string> rustic; for (auto& x : SC.value("rustic", json::array())) rustic.push_back(x.get<std::string>());
+      std::string fx = rustic.empty() ? std::string("furn_lamp_wall_oil") : rustic.back();
+      for (int d = 0; d < 4 && !lit; ++d) for (float off : {0.0f, 0.6f, -0.6f, 1.2f, -1.2f}) {
+        LightPlanItem got;
+        float along = (d == 0 || d == 2 ? cc.x : cc.y) + off;
+        if (wallFix((int)k, fx, r + "walllamp", d, along, got)) { items.push_back(got); lit = true; break; }
       }
     }
     // ---- a fire on the hearth: in front of the sooted firebox back, on the hearthstone
@@ -570,7 +873,7 @@ void lightsEditorPanel(App& app, Instance& s) {
       ++n; on += lightOffReason(app, i).empty();
     }
     if (!n || !ImGui::CollapsingHeader("Lights")) return;
-    ImGui::TextDisabled("%d interior lights, %d lit (daylight %.2f: lamps at %.0f %% by day)", n, on, lightsDaylight(app), kInteriorDay * 100.0f);
+    ImGui::TextDisabled("%d interior lights, %d lit (daylight %.2f: lamps at %.0f %% by day)", n, on, lightsDaylight(app), lightsDayScale() * 100.0f);
     int set = -1;
     if (ImGui::Button("All lights on")) set = 1;
     ImGui::SameLine(); if (ImGui::Button("All lights off")) set = 0;

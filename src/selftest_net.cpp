@@ -81,7 +81,17 @@ void SelfTest::netUpdate(App& app, float dt) {
     check(app.openMap(map), "opened " + map.filename().string());
     gUi.loaded = false;
     stage = 2101; seq.clear(); cur = 0; st = total = 0;
-    if (role == "host") {
+    if (role == "h2") {   // E's own little lobby (port + 10): E must not take peer id 1 away from A in the main test
+      std::string err; check(n.host(app, err, port), "hosting E's lobby on port " + std::to_string(port) + " " + err);
+      push("E joins", [this](App&, float t) {
+        if (gNet->players.size() >= 2) { check(true, "client E joined this lobby"); return true; }
+        if (t > 60) { check(false, "client E never joined"); return true; }
+        return false; });
+      push("E leaves", [this](App&, float t) {   // E hears nothing, gives up after 6 s and says goodbye
+        if (gNet->players.size() < 2) { check(true, "client E left after the host went silent for it (" + std::to_string((int)t) + " s)"); return true; }
+        if (t > 30) { check(false, "client E never left"); return true; }
+        return false; });
+    } else if (role == "host") {
       ScenarioRules r = gUi.scenario(app).rules; r.defenderSlots = 3; r.attackerAI = 22; gUi.rules = r; gUi.rulesInit = true;   // host + A + B; D finds it full; 25 slots: the snapshot goes in 2 parts (PF1)
       std::string err; check(n.host(app, err, port), "hosting on port " + std::to_string(port) + " " + err);
       push("lobby", [this](App& a, float t) {
