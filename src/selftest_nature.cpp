@@ -416,6 +416,44 @@ void build(App& app) {
     if (t - t0 > 1.4f) { pendingShot = outDir() / (shots[si].name + ".png"); note("screenshot selftest_out/%s.png", shots[si].name.c_str()); ++si; armed = false; }
     return false;
   });
+  // L1 species leaves (docs/leaves.md), NMK_LEAF_SHOTS=1 only: every shot twice, species leaves (<name>.png) and the old
+  // oval cards (<name>_oval.png, perf switch leaftex off), into selftest_out/l1/
+  push("L1 leaf shots (NMK_LEAF_SHOTS)", [](App& a, float t) {
+    static std::vector<Shot> ls; static size_t li = 0; static int phase = 0; static float t0 = 0;
+    if (!std::getenv("NMK_LEAF_SHOTS")) return true;
+    if (t == 0) {
+      ls.clear(); li = 0; phase = 0;
+      const char* sp[] = {"tree_oak", "tree_ash", "tree_apple", "tree_poplar", "nat_hawthorn_bush", "nat_blackthorn_low", "nat_gorse_shrub", "shrub_hazel", "shrub_bramble", "bcg_hedgerow_straight"};
+      for (int k = 0; k < 10; ++k) {
+        vec3 p(-54.0f + 12.0f * k, 0, 80); place(a, sp[k], p, 20.0f * k);
+        const AssetDef* d = a.lib.find(sp[k]); float top = d ? std::max(1.5f, d->tree.top) : 6.0f, D = top * 1.25f + 3.0f;
+        p.y = a.terrain.height(p.x, p.z);
+        ls.push_back({std::string("l1_tree_") + sp[k], p + vec3(0, std::min(1.7f, top * 0.45f) + top * 0.2f, D), p + vec3(0, top * 0.5f, 0), nullptr});
+      }
+      vec3 oak(-54, a.terrain.height(-54, 80), 80), haw(-6, a.terrain.height(-6, 80), 80);
+      ls.push_back({"l1_close_oak_sky", oak + vec3(2.2f, 1.7f, 2.2f), oak + vec3(0.4f, 5.5f, 0.4f), nullptr});      // from under the crown, up at the sky
+      ls.push_back({"l1_close_hawthorn", haw + vec3(0.9f, 1.3f, 1.4f), haw + vec3(0, 1.1f, 0), nullptr});
+      ls.push_back({"l1_player_oak", oak + vec3(6.5f, 1.7f, 6.5f), oak + vec3(0, 4.5f, 0), nullptr});            // the dark flat oval case: standing near an oak
+      // against a dark wall: a farmhouse with an apple and a hazel in front of it
+      place(a, "house_farmhouse_2story", vec3(40, 0, 142), 0); place(a, "tree_apple", vec3(37, 0, 131), 40); place(a, "shrub_hazel", vec3(44, 0, 132), 0);
+      ls.push_back({"l1_dark_wall", vec3(40, a.terrain.height(40, 117) + 1.7f, 117), vec3(40, a.terrain.height(40, 135) + 2.5f, 135), nullptr});
+      // orchard: 4 x 4 apples, irregular
+      for (int i = 0; i < 4; ++i) for (int j = 0; j < 4; ++j) place(a, "tree_apple", vec3(-40 + 7.5f * i + (j % 2) * 2.0f, 0, 122 + 7.0f * j + (i % 2) * 1.5f), 37.0f * (i * 4 + j));
+      ls.push_back({"l1_orchard_eye", vec3(-45, a.terrain.height(-45, 116) + 1.7f, 116), vec3(-26, a.terrain.height(-26, 134) + 2.2f, 134), nullptr});
+      ls.push_back({"l1_orchard_over", vec3(-52, a.terrain.height(-52, 104) + 9.0f, 104), vec3(-26, 1.5f, 134), nullptr});
+      a.syncRuntime();
+      std::error_code ec; fs::create_directories(outDir() / "l1", ec);
+    }
+    if (li >= ls.size()) { a.R.perf.leafTex = true; return true; }
+    bool oval = phase >= 2;
+    if (phase % 2 == 0) { a.R.perf.leafTex = !oval; look(a, ls[li].from, ls[li].at); a.selected = 0; a.R.resetTemporal(); t0 = t; ++phase; return false; }
+    if (t - t0 > 1.6f) {
+      pendingShot = outDir() / "l1" / (ls[li].name + (oval ? "_oval" : "") + ".png");
+      note("L1 %s%s: draws %d, tris %.0fk", ls[li].name.c_str(), oval ? " (oval)" : "", (int)a.R.stats.draws, a.R.stats.tris / 1000.0);
+      if (++phase == 4) { phase = 0; ++li; }
+    }
+    return false;
+  });
   push("shader errors", [](App& a, float t) {
     if (t < 0.2f) return false;
     chk(a.R.shaderErrors == 0 && a.R.fboErrors == 0, "shader compile errors %d, incomplete framebuffers %d (after drawing every family)", a.R.shaderErrors, a.R.fboErrors);

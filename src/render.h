@@ -20,7 +20,8 @@ struct StaticDecal { vec4 a, b, c; };    // GX5 (static_decals.h): centre + type
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
 };
 struct TreeDef;
-struct FoliageDraw { const TreeDef* tree; mat4 m; };
+// lod: the instance's leaf LOD (InstanceRT::leafLod, kept for hysteresis); cur: this frame's (render.cpp selectLeafLods)
+struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; };
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
 struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; };
@@ -132,10 +133,11 @@ public:
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
+    bool leafTex = true;         // leaftex (L1): species leaf textures + leaf meshes with LOD (off = the procedural oval cards)
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : nullptr;
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "leaftex" ? &leafTex : nullptr;
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
       if (b) *b = on;
@@ -199,7 +201,10 @@ private:
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr = nullptr, bool sortSurf = false);
   void setLighting(GLuint prog, const RenderView& v);
   void drawModels(const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
-  void drawFoliage(GLuint prog, const mat4& vp, const Frustum* fr = nullptr);
+  void drawFoliage(GLuint prog, const mat4& vp, const Frustum* fr = nullptr, bool view = false);   // view: the main view's leaf LODs (else the cards)
+  void selectLeafLods(const RenderView& v);
+  // L1 leaf LOD distances (m at a 70 degree FOV): enter near / leave near, enter mid / leave mid (docs/leaves.md)
+  static constexpr float kLeafNearIn = 10, kLeafNearOut = 12, kLeafMidIn = 22, kLeafMidOut = 26;
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
   struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, roomDec = -1, extDec = -1, roomX = -1,
@@ -208,7 +213,7 @@ private:
   std::vector<std::pair<GLuint, DrawLocs>> locCache;
   DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
   std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call
-  GLuint progLeaf = 0, progLeafShadow = 0;
+  GLuint progLeaf = 0, progLeafShadow = 0, progLeafI = 0, progLeafIShadow = 0;   // I: L1 instanced species leaves
   GLuint progModel = 0, progDof = 0, progShaft = 0, progComposite = 0, progEyepiece = 0;
   GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)
   void worldComposite(const RenderView& v, const mat4& vp);
