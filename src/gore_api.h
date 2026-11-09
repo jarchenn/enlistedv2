@@ -15,7 +15,7 @@ struct FleshHit {
   int shooterSlot = -1;
   int weapon = -1;           // weapon registry index of the round (-1 unknown)
   int bone = -1;             // character joint nearest the hit (decals attach to it), -1 unknown
-  int zone = 1;              // 0 head, 1 upper torso, 2 limb, 3 lower torso (W1 adds 3), 4 neck, 5 upper thigh
+  int zone = 1;              // 0 head, 1 upper torso, 2 leg / foot, 3 lower torso (W1 adds 3), 4 neck, 5 upper thigh, 6 arm
   float damage = 0;          // applied damage (0 when ignored)
   float energy = 1;          // 0 pistol .. 1 rifle / MG: spray size and speed
   bool exits = false;        // the round passes through (rifles, MGs, BAR): exit wound + forward spray from the exit

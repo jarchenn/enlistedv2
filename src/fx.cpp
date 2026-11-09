@@ -19,6 +19,16 @@ void Fx::streak(vec3 a, vec3 b, float width, float life, vec4 col) {
   streaks.push_back({a, b, life, life, width, col});
 }
 
+// a round's flight segment a -> b (one frame). Tracer kinds (tracerKindFor): 1 a bright red bolt ~6 m long at the
+// head of the segment, 2 a short white-yellow streak ~2 m; 0 the faint trail (range presentation: clearly visible).
+void Fx::bullet(vec3 a, vec3 b, int kind) {
+  if (kind == 0) { streak(a, b, rangeMode ? 0.012f : 0.007f, rangeMode ? 0.05f : 0.025f, rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1)); return; }
+  float L = kind == 1 ? 6.0f : 2.0f, len = glm::length(b - a);
+  vec3 s = len > L ? b - (b - a) * (L / len) : a;
+  if (kind == 1) streak(s, b, 0.03f, 0.035f, vec4(14.0f, 1.1f, 0.5f, 1));
+  else streak(s, b, 0.012f, 0.03f, vec4(3.2f, 2.9f, 1.8f, 1));
+}
+
 void Fx::explosion(vec3 p, vec3 n, const std::string& family, bool ground) {
   flash(p + n * 0.3f, 3.5f, 0.12f, vec4(9.0f, 6.0f, 2.5f, 1));
   flash(p + n * 0.2f, 1.6f, 0.25f, vec4(5.0f, 2.6f, 0.8f, 1));

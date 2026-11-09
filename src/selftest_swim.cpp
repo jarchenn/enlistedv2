@@ -289,7 +289,9 @@ void build(App& app) {
     water(a, G0 + 4.0f);
     return true; });
 
-  push("reset", [](App& a, float) { water(a, -1000); a.exitExplore(); CHK(a.mode == Mode::Creative && a.audio.underwater == 0, "back to Creative, audio not muffled"); return true; });
+  push("reset", [](App& a, float t) {
+    if (t == 0) { water(a, -1000); return false; }   // one frame without water first: the muffle follows the last rendered frame
+    a.exitExplore(); CHK(a.mode == Mode::Creative && a.audio.underwater == 0, "back to Creative, audio not muffled"); return true; });
 }
 }  // namespace
 

@@ -652,6 +652,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
         if (a.shotsFired == s0) { a.scriptedInput.fire = true; return t > 4; }
         a.scriptedInput.fire = false;
         if (++frames < 3) return false;
+        if (WD(a).action == "bolt") { check(a.adsT == 0, id + " shot: out of ADS to work the bolt (gunplay overhaul), so no mid-recoil sight picture"); return true; }
         return probeThen(t, 0, [&] { Meas m = measure(a, probe); check(pass(m), id + " during recoil: " + fmt(m)); }); });
       push(id + " reload", [this, id, ads, measure, fmt, pass](App& a, float t) {
         static int phase; static float tDone;
@@ -724,7 +725,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
           if (dp->equipment() || dp->action == "heavy") continue;   // hand equipment; the carried M2HB has no sights (deploys)
           const std::string id = dp->id;
           push("sweep " + id + " " + std::to_string(sz.x), [this, id, sz](App& a, float t) {
-            if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }
+            if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.wstate[id].bolt = a.wstate[id].cooldown = 0; a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }   // a holstered bolt gun's cycle is frozen; aim waits for it
             a.scriptedInput.aim = true;
             return probeThen(t, 0.9f, [&] {
               SightCheck c = sightCheck(a);

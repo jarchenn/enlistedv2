@@ -1,11 +1,13 @@
 // --selftest-rules (W1, stages 2700+): gameplay rules of the MP & Creative update.
-//  1. damage table (pure math, SPEC 6.2): every row's shots to kill at 10/50/100/200 m torso and 10/100 m limbs,
-//     the [DECISION] rows as written, the repo RPMs, a row for every bullet weapon, the formula and zones;
+//  1. damage table (pure math, SPEC 6.2 + the gunplay overhaul): every row's shots to kill at 10/50/100/200 m torso and
+//     10/100 m legs, the one zone table (head 1.3, torso / neck / arms 1.0, legs 0.6), the StG 44 2-shot / 3-shot
+//     ranges, the [DECISION] row as written, the repo RPMs, a row for every bullet weapon, the formula;
 //  2. movement data (SPEC 4): g x2.133, v0 = sqrt(2 g h), fall thresholds kept as heights;
 //  3. jump on real physics: apex and airtime within 2 % of the target (h x1.2, t x0.75);
 //  4. a match on a blank map: spawn protection lasts 3.0 s +- one frame, blocks bullets / blasts / falls (deflected
 //     FleshHit, no damage), ends on firing and on throwing (and not when the option is off), shield icons / ring /
-//     tint; after it: fall damage by height, zones (upper / lower torso, limb, head, helmet), true travelled range;
+//     tint; after it: fall damage by height, a hit on the player flinches the aim, zones (upper / lower torso, leg,
+//     head, helmet), true travelled range;
 //     a respawn restarts protection and the local player's own shot ends it.
 #include "selftest.h"
 #include "game.h"
@@ -51,14 +53,20 @@ void SelfTest::rulesUpdate(App& app, float dt) {
     // ================================================================ 1. damage table (headless math)
     check(damageTableReload() && damageTable().error.empty(), "content/ai/damage.json loads (" + (damageTable().error.empty() ? std::string("ok") : damageTable().error) + ")");
     const DamageTable& T = damageTable();
-    check(T.health == 100 && T.upperTorso == 1.0f && T.lowerTorso == 0.9f && T.limbs == 0.65f && !T.helmetReducesDamage, "health 100; zones upper torso x1.0, lower torso x0.9, limbs x0.65; helmets do not reduce damage");
-    struct Row { const char* id; int torso[4]; int limbs[2]; bool dataOnly; };
+    check(T.health == 100 && T.head == 1.3f && T.torso == 1.0f && T.arms == 1.0f && T.legs == 0.6f && !T.helmetReducesDamage, "health 100; zones head x1.3, torso / neck / arms x1.0, legs x0.6 (every gun); helmets do not reduce damage");
+    {
+      int z[7] = {DZ_HEAD, DZ_UPPER_TORSO, DZ_LOWER_TORSO, DZ_NECK, DZ_ARM, DZ_UPPER_THIGH, DZ_LIMB};
+      float want[7] = {1.3f, 1, 1, 1, 1, 0.6f, 0.6f}; bool ok = true;
+      for (int k = 0; k < 7; ++k) ok &= dmZoneMult(T, z[k]) == want[k];
+      check(ok, "zone multipliers: head 1.3, upper / lower torso 1.0, neck 1.0, arm 1.0, upper thigh 0.6, leg / foot 0.6");
+    }
+    struct Row { const char* id; int torso[4]; int legs[2]; bool dataOnly; };
     const Row rows[] = {
       {"kar98k", {1, 1, 1, 1}, {2, 2}, false}, {"kar98k_zf39", {1, 1, 1, 1}, {2, 2}, false}, {"m1903a4", {1, 1, 1, 2}, {2, 2}, true},
-      {"m1_garand", {1, 1, 2, 2}, {2, 3}, false}, {"g43", {1, 1, 2, 2}, {2, 3}, true}, {"m1_carbine", {2, 2, 3, 3}, {3, 5}, false},
-      {"m1918a2_bar", {2, 2, 3, 3}, {3, 4}, false}, {"stg44", {3, 3, 4, 4}, {5, 6}, false}, {"m1_thompson", {4, 5, 5, 5}, {6, 7}, false},
-      {"m3_grease_gun", {3, 4, 4, 4}, {5, 7}, false}, {"mp40", {3, 5, 5, 5}, {5, 7}, false}, {"mg42", {3, 3, 3, 3}, {4, 4}, false},
-      {"m1919a6", {2, 2, 3, 3}, {4, 4}, true}, {"m1911a1", {3, 5, 5, 5}, {4, 7}, true}, {"walther_p38", {3, 5, 5, 5}, {5, 8}, true},
+      {"m1_garand", {1, 1, 2, 2}, {2, 3}, false}, {"g43", {1, 1, 2, 2}, {2, 3}, true}, {"m1_carbine", {2, 2, 3, 3}, {4, 5}, false},
+      {"m1918a2_bar", {2, 2, 3, 3}, {4, 4}, false}, {"stg44", {2, 2, 2, 3}, {4, 4}, false}, {"m1_thompson", {4, 5, 5, 5}, {7, 8}, false},
+      {"m3_grease_gun", {3, 4, 4, 4}, {5, 7}, false}, {"mp40", {3, 5, 5, 5}, {5, 8}, false}, {"mg42", {3, 3, 3, 3}, {4, 4}, false},
+      {"m1919a6", {2, 2, 3, 3}, {4, 4}, true}, {"m1911a1", {3, 5, 5, 5}, {5, 8}, true}, {"walther_p38", {3, 5, 5, 5}, {5, 9}, true},
       // repo weapons outside the SPEC table, documented in damage.json: the band they slot into
       {"m1c_garand", {1, 1, 2, 2}, {2, 3}, false}, {"fg42", {3, 3, 3, 3}, {4, 4}, false}, {"m2hb_carry", {1, 1, 1, 2}, {2, 2}, false},
     };
@@ -71,16 +79,16 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       int t[4], l[2];
       for (int k = 0; k < 4; ++k) t[k] = dmShotsToKill(w, R[k], DZ_UPPER_TORSO);
       l[0] = dmShotsToKill(w, 10, DZ_LIMB); l[1] = dmShotsToKill(w, 100, DZ_LIMB);
-      bool ok = true; for (int k = 0; k < 4; ++k) ok &= t[k] == r.torso[k]; ok &= l[0] == r.limbs[0] && l[1] == r.limbs[1];
+      bool ok = true; for (int k = 0; k < 4; ++k) ok &= t[k] == r.torso[k]; ok &= l[0] == r.legs[0] && l[1] == r.legs[1];
       int wi = app.weaponIndex(r.id);
       float rpm = wi >= 0 ? app.weaponDefs[wi]->rpm : w.rpm;
-      char b[300]; std::snprintf(b, sizeof b, "%-13s STK torso %d/%d/%d/%d (want %d/%d/%d/%d), limbs %d/%d (want %d/%d) | near %.0f far %.0f falloff %.0f-%.0f m, head x%.1f, %.0f rpm, close TTK %.0f ms%s",
-                                r.id, t[0], t[1], t[2], t[3], r.torso[0], r.torso[1], r.torso[2], r.torso[3], l[0], l[1], r.limbs[0], r.limbs[1], w.nearDmg, w.farDmg, w.falloffStart, w.falloffEnd, w.headMult, rpm,
+      char b[300]; std::snprintf(b, sizeof b, "%-13s STK torso %d/%d/%d/%d (want %d/%d/%d/%d), legs %d/%d (want %d/%d) | near %.0f far %.0f falloff %.0f-%.0f m, %.0f rpm, close TTK %.0f ms%s",
+                                r.id, t[0], t[1], t[2], t[3], r.torso[0], r.torso[1], r.torso[2], r.torso[3], l[0], l[1], r.legs[0], r.legs[1], w.nearDmg, w.farDmg, w.falloffStart, w.falloffEnd, rpm,
                                 (t[0] - 1) * 60000.0f / std::max(1.0f, rpm), w.dataOnly ? " [data only]" : "");
       check(ok, b);
       check(w.dataOnly == r.dataOnly && (wi >= 0) == !r.dataOnly, std::string(r.id) + (r.dataOnly ? ": data-only row, no weapon model in the repo" : ": weapon exists in the repo"));
       if (wi >= 0) check(std::fabs(w.rpm - app.weaponDefs[wi]->rpm) < 0.5f, std::string(r.id) + ": table rpm " + f2(w.rpm) + " = the repo's " + f2(app.weaponDefs[wi]->rpm));
-      stk[r.id] = {{"torso", {t[0], t[1], t[2], t[3]}}, {"limbs", {l[0], l[1]}}, {"rpm", rpm}};
+      stk[r.id] = {{"torso", {t[0], t[1], t[2], t[3]}}, {"legs", {l[0], l[1]}}, {"rpm", rpm}};
     }
     summary["stk"] = stk;
     // every bullet-firing weapon in the repo has its own row
@@ -90,27 +98,34 @@ void SelfTest::rulesUpdate(App& app, float dt) {
     }
     // [DECISION] rows as written, formula and zones
     const WeaponDamage& kar = dmRow("kar98k"); const WeaponDamage& spr = dmRow("m1903a4"); const WeaponDamage& gar = dmRow("m1_garand"); const WeaponDamage& tom = dmRow("m1_thompson");
-    check(T.kar98kLimbMult == 0.65f && dmShotsToKill(kar, 10, DZ_LIMB) == 2 && dmShotsToKill(dmRow("kar98k_zf39"), 300, DZ_LIMB) == 2 && dmShotsToKill(kar, 300, DZ_UPPER_TORSO) == 1 && dmShotsToKill(kar, 300, DZ_HEAD) == 1,
-          "[DECISION] decisions.kar98kLimbMult 0.65: Kar98k / Kar98k sniper limb hits take 2 shots (97.5), torso and head one shot at any range (300 m too)");
+    check(dmShotsToKill(kar, 10, DZ_LIMB) == 2 && dmShotsToKill(dmRow("kar98k_zf39"), 300, DZ_LIMB) == 2 && dmShotsToKill(kar, 300, DZ_UPPER_TORSO) == 1 && dmShotsToKill(kar, 300, DZ_HEAD) == 1 && dmShotsToKill(kar, 300, DZ_ARM) == 1,
+          "Kar98k / Kar98k sniper: leg hits take 2 shots (90), torso, arm and head one shot at any range (300 m too)");
+    {   // StG 44: 2 torso shots at medium to medium-long range, 3 at far range
+      const WeaponDamage& stg = dmRow("stg44");
+      float last2 = 0; for (float r = 100; r <= 300; r += 0.5f) if (dmShotsToKill(stg, r, DZ_UPPER_TORSO) == 2) last2 = r;
+      char b[220]; std::snprintf(b, sizeof b, "StG 44: 2 torso shots at 150 m (%.1f HP), 3 at 250 m (%.1f HP); 2 shots out to %.1f m", dmBaseDamage(stg, 150), dmBaseDamage(stg, 250), last2);
+      check(dmShotsToKill(stg, 150, DZ_UPPER_TORSO) == 2 && dmShotsToKill(stg, 250, DZ_UPPER_TORSO) == 3 && dmShotsToKill(stg, 10, DZ_HEAD) == 2 && last2 > 170 && last2 < 200, b);
+      summary["stg44_two_shot_m"] = last2;
+    }
     {
       float oneShot = 0; for (float r = 100; r <= 200; r += 0.5f) if (dmShotsToKill(spr, r, DZ_UPPER_TORSO) == 1) oneShot = r;
       check(T.springfieldProfile == "brief" && dmShotsToKill(spr, 100, DZ_UPPER_TORSO) == 1 && dmShotsToKill(spr, 150, DZ_UPPER_TORSO) == 2 && oneShot > 120 && oneShot < 150,
             "[DECISION] decisions.springfieldProfile 'brief': Springfield one torso shot up to " + f2(oneShot) + " m (falloff 100-150 m), 2 beyond");
     }
-    {   // the other value of each decision (parsed into a scratch table)
+    {   // the other value of the decision and a zone override (parsed into a scratch table)
       json j = json::parse(readTextFile(contentDir() / "ai" / "damage.json"));
-      j["decisions"]["kar98kLimbMult"] = 0.67; j["decisions"]["springfieldProfile"] = "kar98k";
+      j["decisions"]["springfieldProfile"] = "kar98k"; j["zones"]["legs"] = 0.7;
       DamageTable alt; std::string err; bool ok = parseDamageTable(j, alt, err);
       const WeaponDamage& k2 = alt.weapons["kar98k"]; const WeaponDamage& s2 = alt.weapons["m1903a4"];
-      check(ok && dmBaseDamage(k2, 50) * dmZoneMult(alt, k2, DZ_LIMB) >= 100 && dmBaseDamage(s2, 300) == 150,
-            "decision switches work: kar98kLimbMult 0.67 -> Kar98k limb " + f2(dmBaseDamage(k2, 50) * dmZoneMult(alt, k2, DZ_LIMB)) + " (one hit), springfieldProfile 'kar98k' -> 150 at 300 m");
+      check(ok && dmBaseDamage(k2, 50) * dmZoneMult(alt, DZ_LIMB) >= 100 && dmBaseDamage(s2, 300) == 150,
+            "switches work: zones.legs 0.7 -> Kar98k leg " + f2(dmBaseDamage(k2, 50) * dmZoneMult(alt, DZ_LIMB)) + " (one hit), springfieldProfile 'kar98k' -> 150 at 300 m");
     }
     check(dmBaseDamage(kar, 0) == 150 && dmBaseDamage(kar, 5000) == 150, "no falloff when start == end (Kar98k 150 at 0 and 5000 m)");
     check(std::fabs(dmBaseDamage(gar, 80) - 92.5f) < 1e-3f && dmBaseDamage(gar, 60) == 115 && dmBaseDamage(gar, 100) == 70,
           "smoothstep falloff: Garand 115 at 60 m, 92.5 at 80 m (midpoint), 70 at 100 m");
-    check(dmShotsToKill(gar, 10, DZ_LOWER_TORSO) == 1 && std::fabs(dmDamage(gar, 10, DZ_LOWER_TORSO) - 103.5f) < 1e-3f, "Garand lower-torso hit up close still kills (115 x 0.9 = 103.5)");
-    check(std::fabs(dmDamage(tom, 10, DZ_HEAD) - 54) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_NECK) - 27) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_UPPER_THIGH) - 17.55f) < 1e-3f,
-          "zones: Thompson head 54 (x2.0), neck counts as upper torso (27), upper thigh as limb (17.55)");
+    check(dmShotsToKill(gar, 10, DZ_LOWER_TORSO) == 1 && std::fabs(dmDamage(gar, 10, DZ_LOWER_TORSO) - 115) < 1e-3f, "Garand lower-torso hit up close kills (115 x 1.0)");
+    check(std::fabs(dmDamage(tom, 10, DZ_HEAD) - 35.1f) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_NECK) - 27) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_ARM) - 27) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_UPPER_THIGH) - 16.2f) < 1e-3f,
+          "zones: Thompson head 35.1 (x1.3), neck and arm count as torso (27), upper thigh as leg (16.2)");
     // ================================================================ 2. movement data
     {
       auto& m = app.move;
@@ -262,6 +277,23 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       float want = rulesFallDamage(rulesImpactSpeed(6.0f, a.move.gravity), a.move.gravity);
       char b[200]; std::snprintf(b, sizeof b, "6 m drop: %.1f HP (impact %.2f m/s; analytic %.1f HP at %.2f m/s)", hp0 - L.hp, gRulesStats.lastFallSpeed, want, rulesImpactSpeed(6.0f, a.move.gravity));
       check(L.alive && std::fabs((hp0 - L.hp) - want) < 3.0f, b);
+      L.hp = 100;
+      return true; });
+    // ---- after protection: a bullet hit on the player jolts the aim (suppression flinch)
+    push("hit flinch", [this](App& a, float t) {
+      Game& G = *gGame; Soldier& L = *G.local();
+      static float p0, y0;
+      if (t == 0) {
+        L.hp = 100; gDmLastHit.valid = false; a.lastFlinch = 0; a.scriptedInput = ExploreInput{}; p0 = a.eyePitch; y0 = a.eyeYaw;
+        int A = -1; for (auto& s : G.sold) if (!s.localPlayer && s.alive && A < 0) A = s.slot;
+        vec3 c = jointW(L, CJ_SPINE2); shoot(a, c + vec3(0, 0, 8), c, 285, "45_mag20", A);
+        return false;
+      }
+      if (!gDmLastHit.valid) return t > 3 ? (check(false, "flinch: the round hit the player"), true) : false;
+      float moved = glm::length(vec2(a.eyePitch - p0, wrapDeg(a.eyeYaw - y0)));
+      char b[200]; std::snprintf(b, sizeof b, "a Thompson hit on the player (%.1f HP) moves the aim %.2f deg (flinch %.2f; want 0.6-1.2)", gDmLastHit.fh.damage, moved, a.lastFlinch);
+      check(gDmLastHit.fh.victimSlot == L.slot && gDmLastHit.fh.damage > 0 && moved >= 0.59f && moved <= 1.21f && std::fabs(moved - a.lastFlinch) < 0.02f, b);
+      summary["flinch_deg"] = moved;
       L.hp = 100;
       return true; });
     // ---- after protection: zones, helmet, travelled range (bot B is the target, the player shoots)

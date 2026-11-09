@@ -401,7 +401,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   if (Physics::castRayEx(e, muzzle - e, glm::length(muzzle - e) + 1e-3f, hb)) start = e;   // muzzle inside a wall: fire from the eye
   float tz = d.zero / std::max(1.0f, d.velocity), drop = 0.5f * 9.81f * tz * tz;
   vec3 dd = glm::normalize(dir + vec3(0, drop / std::max(1.0f, d.zero), 0));
-  bool tracer = d.tracerEvery > 0 && w.shotIdx % d.tracerEvery == 0;
+  int tracer = d.tracerKind(w.shotIdx);
   app.fireProjectile(start, dd, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
   app.projectiles.back().mass = d.bulletMass * 0.001f;
   app.projectiles.back().owner = s.slot;
@@ -487,7 +487,7 @@ void Game::clientStep(float dt) {
     Ghost& g = ghosts[k]; vec3 seg = g.v * dt; Physics::Hit h;
     bool hit = Physics::castRayEx(g.p, seg, glm::length(seg), h);
     vec3 e = hit ? h.pos : g.p + seg;
-    app.fx.streak(g.p, e, g.tracer ? 0.025f : 0.007f, g.tracer ? 0.06f : 0.025f, g.tracer ? vec4(9.0f, 2.2f, 0.8f, 1) : vec4(0.7f, 0.68f, 0.62f, 1));
+    if (g.tracer) app.fx.bullet(g.p, e, g.tracer); else app.fx.streak(g.p, e, 0.007f, 0.025f, vec4(0.7f, 0.68f, 0.62f, 1));
     g.p = e; g.v.y -= 9.81f * dt; g.life += dt;
     if (hit || g.life > 3) { ghosts.erase(ghosts.begin() + k); continue; }
     ++k;

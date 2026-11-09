@@ -206,7 +206,7 @@ public:
   float leafHpFor(const InteractDef& d) const;
   // ---- movement (explore.cpp): data-driven tuning and the posture state machine
   struct MoveSettings {
-    float run = 2.3f * 1.25f * 1.1f, sprint = 4.6f * 1.25f * 1.1f, crouch = 1.2f * 1.1f, prone = 0.6f * 1.1f;   // m/s
+    float run = 2.3f * 1.25f * 1.1f * 0.85f, sprint = 4.6f * 1.25f * 1.1f * 0.85f, crouch = 1.2f * 1.1f * 0.85f, prone = 0.6f * 1.1f * 0.85f;   // m/s
     float eyeStand = 1.62f, eyeCrouch = 1.05f, eyeProne = 0.32f, eyeRate = 10.0f;    // m, 1/s (camera smoothing)
     float gravity = 9.81f * 0.8f, jumpVelocity = 4.2f * 0.894427f;                  // m/s^2, m/s (player only)
     float jumpBuffer = 0.15f, coyote = 0.12f;                                         // s: early press kept / late press after leaving ground
@@ -366,7 +366,7 @@ public:
   int shotsFired = 0;
   ImpactInfo lastImpact;
   void resetCombat();
-  void fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, bool tracer, const std::string& ammo);
+  void fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, int tracerKind, const std::string& ammo);
   void stepProjectiles(float dt);
   void stepStation(float dt, const ExploreInput& in);
   bool occupyStation(uint64_t id, int pos);
@@ -407,7 +407,11 @@ public:
   bool strictDDay = false, reducedMotion = false, scopeIronsMode = false, supported = false, showLoadout = false;
   std::string weaponMsg;
   vec3 lastShotStart{0}, lastShotDir{0}, lastShotMuzzle{0};
-  float lastRecoilScale = 1;      // posture x support factor of the last shot (tests / HUD)
+  float lastRecoilScale = 1;      // stance recoil factor of the last shot (x0.85 in ADS; tests / HUD)
+  Handling handling;              // content/weapons/handling.json: dispersion cones and stance factors
+  int lastStance = STANCE_STANDING; float lastSpreadDeg = 0;   // the last shot's stance and cone (tests)
+  float lastFlinch = 0;           // deg, the last hit flinch (tests)
+  void hitFlinch(uint32_t seed);  // a bullet hit on the local player jolts the aim 0.6-1.2 deg (host and LAN client)
   int weaponIndex(const std::string& id) const;
   void selectWeapon(int idx);
   mat4 viewModelMatrix(const WeaponDef& d, const WeaponState& s) const;

@@ -33,7 +33,7 @@ void mpaiImpact(App& app, const Projectile& p, vec3 hitPos, vec3 hitNormal, uint
 // (true = consumed); on the host the result replicates (snapshots for guns, reliable world events otherwise).
 bool mpaiStationRequest(App& app, uint64_t id, int pos);   // occupyStation
 void mpaiStationLeft(App& app, uint64_t id);                // end of leaveStation
-void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, bool tracer, int owner);   // stationShoot
+void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, int tracer, int owner);   // stationShoot
 bool mpaiRackRequest(App& app, uint64_t rack, int weapon);  // rackActivate
 bool mpaiCrateRequest(App& app, uint64_t crate);            // crateTransaction
 void mpaiCrateChanged(App& app, uint64_t crate);            // the crate's stock changed (host)

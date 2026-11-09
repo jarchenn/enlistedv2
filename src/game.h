@@ -106,7 +106,7 @@ public:
   // LAN (net.cpp)
   json clientStart;                          // client: START message (slots, scenario)
   std::vector<std::pair<int, std::string>> humanPeers;   // host: lobby players -> defender slots
-  struct Ghost { vec3 p, v; float life; bool tracer; };   // visual-only rounds (client tracers)
+  struct Ghost { vec3 p, v; float life; int tracer; };   // tracer: tracerKindFor()   // visual-only rounds (client tracers)
   std::vector<Ghost> ghosts;
   std::map<uint64_t, int> doorSeen;          // door direction last replicated ((inst << 8) | idx)
   int spectate = -1;                          // soldier the dead local player watches

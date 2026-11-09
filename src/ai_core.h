@@ -235,7 +235,7 @@ public:
   double lastCommitAt = -100; int committedTiles = 0, commitLogs = 0;
   std::string mapName;
   // speeds (movement.json) and tunables
-  float vSprint = 6.325f, vJog = 3.1625f, vWalk = 1.6f, vCrouch = 1.32f, vProne = 0.66f, gravity = 7.848f, jumpV = 3.757f;
+  float vSprint = 5.37625f, vJog = 2.688125f, vWalk = 1.6f, vCrouch = 1.122f, vProne = 0.561f, gravity = 7.848f, jumpV = 3.757f;
   int perceptionCursor = 0;
   class dtObstacleAvoidanceQuery* oaq = nullptr; dtObstacleAvoidanceParams oaParams{};
 

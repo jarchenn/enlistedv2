@@ -153,6 +153,34 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       if (t < 0.1f) { check(s.reloadKind == 1, "empty Kar98k reload strips a 5-round clip"); return false; }
       if (t < 2.6f) return false;
       check(s.loaded == 5, "clip stripped into the magazine: 5 loaded");
+      return true; });
+    // ---- Kar98k: a shot drops out of ADS; aim waits for the bolt and the cooldown, then the held key re-enters
+    push("kar ads drop", [this](App& a, float t) {
+      static int ph, s0; static float tShot, tReady;
+      auto& s = S(a, "kar98k");
+      if (t == 0) { a.selectWeapon(a.weaponIndex("kar98k")); a.scriptedInput = ExploreInput{}; ph = 0; }
+      a.scriptedInput.aim = true;
+      if (ph == 0) {
+        if (a.adsT < 1 || t < 0.8f) return t > 3 ? (check(false, "Kar98k reaches full ADS"), true) : false;
+        float fov = 0; a.weaponCamera(fov);
+        check(std::fabs(fov - 45) < 0.01f, "iron-sight Kar98k: ADS world FOV " + std::to_string(fov).substr(0, 5) + " (45, about x1.6 of 72)");
+        s0 = a.shotsFired; a.scriptedInput.fire = true; ph = 1; return false;
+      }
+      if (ph == 1) {
+        if (a.shotsFired == s0) return t > 4 ? (check(false, "Kar98k fired from ADS"), true) : false;
+        a.scriptedInput.fire = false; tShot = t;
+        check(a.adsT == 0 && s.bolt > 0, "Kar98k shot: out of ADS at once (adsT " + std::to_string(a.adsT).substr(0, 4) + ") while the bolt is worked");
+        ph = 2; return false;
+      }
+      if (ph == 2) {
+        if (s.bolt > 0 || s.cooldown > 0) { if (a.adsT > 0) { check(false, "aim held: ADS stays out until the bolt and the cooldown are done"); ph = 3; } return false; }
+        tReady = t; ph = 3; return false;
+      }
+      if (a.adsT < 1) return t - tShot > 4 ? (check(false, "Kar98k re-enters ADS"), true) : false;
+      char b[200]; std::snprintf(b, sizeof b, "aim held through the bolt: ADS stays out for %.2f s (bolt %.2f, cooldown %.2f), then the rifle comes back up (full ADS %.2f s after the shot)",
+                                tReady - tShot, a.weaponDefs[a.activeWeapon]->boltTime, 60.0f / a.weaponDefs[a.activeWeapon]->rpm, t - tShot);
+      check(tReady - tShot > 0.8f && t - tReady < 0.4f, b);
+      a.scriptedInput = ExploreInput{};
       a.selectWeapon(a.weaponIndex("mp40"));
       return true; });
     // ---- MP 40 vs Thompson cyclic rates; partial magazines kept
@@ -191,6 +219,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       return true; });
     push("mg42 settle", wait(1.5f));
     push("mg42 supported", [this](App& a, float t) {
+      if (t == 0) a.eyePitch = 0;
       a.scriptedInput.crouch = true;
       if (t < 0.6f) return false;
       a.scriptedInput.fire = true;
@@ -199,6 +228,15 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       summary["mg42_climb_supported_deg"] = sup;
       a.scriptedInput.fire = false;
       check(a.supported && sup < uns * 0.6f, "bipod-supported burst climbs far less (" + std::to_string(sup).substr(0, 4) + " vs " + std::to_string(uns).substr(0, 4) + " deg)");
+      check(a.lastStance == STANCE_MOUNTED && std::fabs(a.lastSpreadDeg - a.handling.cone(WC_LMG, false, STANCE_MOUNTED)) < 1e-5f,
+            "bipod deployed: mounted stance, hip cone " + std::to_string(a.lastSpreadDeg).substr(0, 5) + " deg (3.0 x 0.05)");
+      {
+        const WeaponDef& mg = *a.weaponDefs[a.weaponIndex("mg42")];
+        float want = 0.70f * mg.rSupported;   // pre-overhaul crouched 0.70 x the weapon's own bipod factor, not the 0.5 fallback
+        char b[200]; std::snprintf(b, sizeof b, "mounted recoil x%.4f = old crouched 0.70 x the MG 42's recoil.supported %.2f (handling.json mounted %.2f is only the fallback)",
+                                  a.lastRecoilScale, mg.rSupported, a.handling.recoil[STANCE_MOUNTED]);
+        check(mg.rSupported < 0.999f && std::fabs(a.lastRecoilScale - want) < 1e-5f, b);
+      }
       shotQueue.push_back("51_mg42_tracers");
       return true; });
     push("mg42 empty", [this](App& a, float t) {
@@ -215,6 +253,22 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       int rifleBefore = total(a, "m1_garand");
       std::string m = a.crateTransaction(K);
       check(s.reserveRounds() == 200 && s.loaded == 50 && total(a, "m1_garand") == rifleBefore, "one belt segment from the crate: MG 42 reserve 150 -> 200, rifle clips unchanged (" + m + ")");
+      return true; });
+    // ---- tracers: MG 42 / BAR a red tracer every 3rd round, a short white-yellow streak on the others
+    push("mg42 tracers", [this](App& a, float t) {
+      static int last; static std::vector<int> kinds;
+      if (t == 0) { kinds.clear(); last = a.shotsFired; a.scriptedInput = ExploreInput{}; }
+      a.scriptedInput.fire = true;
+      if (a.shotsFired != last) { if (a.shotsFired == last + 1 && !a.projectiles.empty()) kinds.push_back(a.projectiles.back().tracerKind); last = a.shotsFired; }
+      if (kinds.size() < 9) return t > 3 ? (check(false, "MG 42 fired 9 single rounds"), a.scriptedInput.fire = false, true) : false;
+      a.scriptedInput.fire = false;
+      int first = -1; for (int k = 0; k < 3; ++k) if (kinds[k] == 1 && first < 0) first = k;
+      bool ok = first >= 0; std::string seq;
+      for (int k = 0; k < 9; ++k) { ok &= kinds[k] == (k % 3 == first ? 1 : 2); seq += std::to_string(kinds[k]); }
+      const WeaponDef& bar = *a.weaponDefs[a.weaponIndex("m1918a2_bar")];
+      bool barOk = bar.tracerEvery == 3 && bar.tracerKind(3) == 1 && bar.tracerKind(4) == 2 && bar.tracerKind(5) == 2 && bar.tracerKind(6) == 1;
+      bool rifle = a.weaponDefs[a.weaponIndex("m1_garand")]->tracerKind(3) == 0;
+      check(ok && barOk && rifle, "MG 42 burst tracer kinds " + seq + " (1 red every 3rd round, 2 white-yellow streak); BAR the same cadence; the Garand untraced");
       return true; });
     // ---- scoped variants: real magnification, offset M1C scope, single-round ZF39 loading
     push("m1c scope", [this](App& a, float t) {
@@ -284,12 +338,68 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       a.scriptedInput.fire = false;
       check(std::abs(slow - norm) <= 1, "0.5 s burst: " + std::to_string(norm) + " rounds at 60 fps, " + std::to_string(slow) + " at 10 fps (no multiplied rounds)");
       return true; });
+    // ---- dispersion and recoil by stance (content/weapons/handling.json)
+    push("stance cones", [this](App& a, float) {
+      const Handling& h = a.handling; bool ok = true;
+      const int order[6] = {STANCE_SPRINTING, STANCE_MOVING, STANCE_STANDING, STANCE_CROUCHED, STANCE_PRONE, STANCE_MOUNTED};
+      for (int c = 0; c < 4; ++c) for (int ads = 0; ads < 2; ++ads) {
+        for (int k = 1; k < 6; ++k) ok &= h.cone(c, ads, order[k]) < h.cone(c, ads, order[k - 1]);
+        ok &= h.cone(c, true, STANCE_MOVING) < h.cone(c, false, STANCE_MOVING);
+      }
+      check(ok && h.hip[WC_RIFLE] == 0.15f && h.ads[WC_RIFLE] == 0.03f && h.hip[WC_AUTO] == 3.0f && h.ads[WC_AUTO] == 0.45f && h.stance[STANCE_STANDING] == 0.8f && h.stance[STANCE_PRONE] == 0.08f,
+            "cone order for every class, hip and ADS: sprinting > moving > standing > crouched > prone > mounted; ADS tighter than hip (rifle hip 0.15 / ADS 0.03, auto 3.0 / 0.45)");
+      auto cls = [&](const char* id) { return a.weaponDefs[a.weaponIndex(id)]->wclass; };
+      check(cls("kar98k") == WC_RIFLE && cls("m1_garand") == WC_RIFLE && cls("kar98k_zf39") == WC_SNIPER && cls("m1c_garand") == WC_SNIPER && cls("stg44") == WC_AUTO && cls("mp40") == WC_AUTO && cls("mg42") == WC_LMG && cls("m1918a2_bar") == WC_LMG,
+            "weapon classes: Kar98k / Garand rifle, ZF39 / M1C sniper, StG 44 / MP 40 auto, MG 42 / BAR lmg");
+      return true; });
+    auto stanceShot = [this](const char* nm, int want, vec2 mv, bool crouch, bool prone) {
+      return [this, nm, want, mv, crouch, prone](App& a, float t) {
+        static int s0;
+        auto& s = S(a, "mp40");
+        if (t == 0) { a.selectWeapon(a.weaponIndex("mp40")); s.loaded = 32; a.scriptedInput = ExploreInput{}; a.proneToggle = prone; }
+        a.scriptedInput.move = mv; a.scriptedInput.crouch = crouch;
+        if (t < 1.8f) { s0 = a.shotsFired; return false; }
+        a.scriptedInput.fire = true;
+        if (a.shotsFired - s0 < 4) return t > 5 ? (check(false, std::string(nm) + ": MP 40 fired"), a.scriptedInput.fire = false, true) : false;
+        float cone = a.handling.cone(WC_AUTO, false, want), yaw = s.recoilY;
+        char b[220]; std::snprintf(b, sizeof b, "MP 40 hip, %s: stance %d (want %d), cone %.3f deg (want %.3f), recoil x%.2f, horizontal recoil %.3f deg after %d rounds",
+                                  nm, a.lastStance, want, a.lastSpreadDeg, cone, a.lastRecoilScale, yaw, a.shotsFired - s0);
+        bool yawOk = want == STANCE_STANDING || want == STANCE_PRONE ? yaw == 0 : want == STANCE_MOVING ? std::fabs(yaw) > 1e-4f : true;
+        check(a.lastStance == want && std::fabs(a.lastSpreadDeg - cone) < 1e-5f && std::fabs(a.lastRecoilScale - a.handling.recoil[want]) < 1e-5f && yawOk, b);
+        summary[std::string("cone_") + nm] = a.lastSpreadDeg;
+        a.scriptedInput = ExploreInput{}; a.proneToggle = false;
+        return true; };
+    };
+    push("stance standing", stanceShot("standing still (pitch-only recoil)", STANCE_STANDING, vec2(0), false, false));
+    push("stance moving", stanceShot("moving (25 % of the yaw)", STANCE_MOVING, vec2(0, 1), false, false));
+    push("stance crouched", stanceShot("crouched", STANCE_CROUCHED, vec2(0), true, false));
+    push("stance prone", stanceShot("prone (laser-like)", STANCE_PRONE, vec2(0), false, true));
+    push("stand up", wait(1.8f));
+    // ---- ADS speed: StG 44 (and FG 42, BAR, M3) aim 1.2x faster than the default rate
+    push("stg44 ads speed", [this](App& a, float t) {
+      static int ph; static float t0, tG;
+      if (t == 0) { ph = 0; a.selectWeapon(a.weaponIndex("m1_garand")); a.scriptedInput = ExploreInput{}; t0 = 0; return false; }
+      if (ph == 0) { if (t < 0.5f) return false; a.scriptedInput.aim = true; t0 = t; ph = 1; return false; }
+      if (ph == 1) { if (a.adsT < 1) return t > 3; tG = t - t0; a.scriptedInput.aim = false; a.selectWeapon(a.weaponIndex("stg44")); ph = 2; return false; }
+      if (ph == 2) { a.scriptedInput.aim = true; t0 = t; ph = 3; return false; }
+      if (a.adsT < 1) return t > 6;
+      float tS = t - t0;
+      bool data = true; for (const char* id : {"stg44", "fg42", "m1918a2_bar", "m3_grease_gun"}) data &= a.weaponDefs[a.weaponIndex(id)]->adsSpeed == 1.2f;
+      data &= a.weaponDefs[a.weaponIndex("m1_garand")]->adsSpeed == 1.0f;
+      char b[200]; std::snprintf(b, sizeof b, "ADS entry: Garand %.3f s, StG 44 %.3f s (ads.speed 1.2 on StG 44, FG 42, BAR, M3)", tG, tS);
+      check(data && tS < tG * 0.9f && std::fabs(tG / tS - 1.2f) < 0.12f, b);
+      a.scriptedInput = ExploreInput{};
+      return true; });
     // ---- M2HB at the emplacement, .50 belts only there
     push("m2hb", [this](App& a, float t) {
-      if (t == 0) { a.selectWeapon(a.weaponIndex("m1_garand")); check(a.occupyStation(M2, ST_GUNNER), "crew the M2HB from its spade grips"); return false; }
+      static std::vector<int> kinds; static int last;
+      if (t == 0) { kinds.clear(); a.selectWeapon(a.weaponIndex("m1_garand")); check(a.occupyStation(M2, ST_GUNNER), "crew the M2HB from its spade grips"); last = a.station(M2)->loaded; return false; }
       StationRT* m = a.station(M2);
+      if (m->loaded != last) { if (m->loaded == last - 1 && kinds.size() < 9 && !a.projectiles.empty()) kinds.push_back(a.projectiles.back().tracerKind); last = m->loaded; }
       if (m->loaded > 0) { a.scriptedInput.fire = true; return t > 30; }
       a.scriptedInput.fire = false;
+      std::string seq; int red = 0; for (int k : kinds) { seq += std::to_string(k); red += k == 1; }
+      check(kinds.size() == 9 && red == 3 && kinds[2] == 1 && kinds[5] == 1 && kinds[8] == 1, "M2HB emplacement tracer kinds " + seq + " (a red tracer every 3rd round, the others the short streak)");
       check(m->loaded == 0 && m->reserve == 110, "M2HB fired out its 110-round increment");
       return true; });
     push("m2hb reload", [this](App& a, float t) {

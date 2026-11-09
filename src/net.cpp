@@ -322,7 +322,7 @@ void Net::hostWorldEvent(const json& ev) {
   std::string m = ev.dump();
   for (auto& p : d->peers) if (p.inMatch) p.ch.send(m);
 }
-void Net::clientFire(vec3 from, vec3 dir, int weapon, bool tracer) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "fire"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"tr", tracer}}.dump()); }
+void Net::clientFire(vec3 from, vec3 dir, int weapon, int tracer) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "fire"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"tr", tracer}}.dump()); }
 void Net::clientReload() { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "reload"}}.dump()); }
 void Net::clientThrow(int kind, vec3 vel) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "throw"}, {"k", kind}, {"v", tojson(vel)}}.dump()); }
 void Net::sendStats(const json& s) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "stats"}, {"s", s}}.dump()); }
@@ -502,12 +502,13 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     int w = ev.value("w", 0); vec3 p = jvec3(ev["p"]), dir = jvec3(ev["d"]);
     if (w >= 0 && w < (int)app.weaponDefs.size()) {
       const WeaponDef& d = *app.weaponDefs[w];
-      g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", false)});
+      g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", 0)});
       app.fx.flash(p + dir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       app.audio.play("shot_" + d.id, p, 1.0f);
     }
   } else if (t == "gore") {   // W7: one replicated FleshHit; droplets are simulated here from its seed
     if (!replay) { extern void goreNetEvent(App&, const json&); goreNetEvent(app, ev); }
+    if (!replay && ev.value("v", -1) == g.localSlot && g.localSlot >= 0 && !ev.value("df", false)) app.hitFlinch(ev.value("s", 1u));   // our soldier was hit: suppression flinch
   } else if (t == "log") {
     app.toast(ev.value("text", ""), 4);
   } else if (t == "gshot") {   // a crew-served gun fired on the host (our own rounds are drawn here already)
@@ -517,7 +518,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       vec3 p = jvec3(ev["p"]), dir = glm::normalize(jvec3(ev["d"], vec3(0, 0, 1)));
       bool mg = sd.kind == "mg42" || sd.kind == "m2hb";
       s->recoilT = 0; s->shots++;
-      g.ghosts.push_back({p, dir * (sd.kind == "mg42" ? 755.0f : mg ? 890.0f : sd.heVelocity), 0, ev.value("tr", false)});
+      g.ghosts.push_back({p, dir * (sd.kind == "mg42" ? 755.0f : mg ? 890.0f : sd.heVelocity), 0, ev.value("tr", 0)});
       if (mg) { app.fx.flash(p + dir * 0.08f, 0.18f, 0.04f, vec4(9, 6, 2.5f, 1)); app.audio.play(sd.kind == "mg42" ? "shot_mg42" : "shot_m2hb", p, 1.0f); }
       else { app.fx.muzzle(p, dir, sd.muzzleScale); app.audio.play(sd.fireSound, p, 1.0f); }
     }
@@ -585,11 +586,11 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
       ok = s.ws.loaded > 0 && s.reload <= 0 && n.d->now - s.lastShotReal >= minGap;   // requests arrive in real time
       if (ok) {
         s.ws.loaded--; s.lastShot = g.t; s.lastShotReal = n.d->now;
-        app.fireProjectile(from, dir, d.velocity, d.action == "launcher" ? PROJ_ROCKET : PROJ_BULLET, d.action == "launcher" ? d.rocketDmg : 0, ~0ull, m.value("tr", false), d.container);
+        app.fireProjectile(from, dir, d.velocity, d.action == "launcher" ? PROJ_ROCKET : PROJ_BULLET, d.action == "launcher" ? d.rocketDmg : 0, ~0ull, m.value("tr", 0), d.container);
         Projectile& pr = app.projectiles.back(); pr.owner = slot; pr.mass = d.bulletMass * 0.001f;
         if (d.action == "launcher") { pr.blastDmg = d.rocketDmg; pr.blastR = d.rocketR; pr.craterScale = d.rocketCrater; pr.splashGun = d.rocketSplashGun; pr.atKill = true; pr.gravScale = 0.35f; }
         g.hearSound(from, (int)s.role, 70, slot, 0);
-        n.hostWorldEvent(json{{"t", "shot"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", w}, {"tr", m.value("tr", false)}, {"by", slot}});
+        n.hostWorldEvent(json{{"t", "shot"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", w}, {"tr", m.value("tr", 0)}, {"by", slot}});
         ++n.acceptedShots;
       }
     }
@@ -741,7 +742,7 @@ void mpaiStationLeft(App& app, uint64_t id) {
   if (!id || !lanClient() || gNet->d->applying) return;
   if (Soldier* L = gGame->local(); L && L->alive) gNet->clientRequest(json{{"t", "gun"}, {"i", id}, {"on", false}, {"p", tojson(Physics::character().pos)}});
 }
-void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, bool tracer, int owner) {
+void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, int tracer, int owner) {
   (void)app;
   if (lanClient()) { if (owner < 0) { gNet->d->lastLocalGunShot = gNet->d->now; gNet->clientRequest(json{{"t", "gfire"}, {"i", id}}); } return; }
   if (lanHost()) gNet->hostWorldEvent(json{{"t", "gshot"}, {"i", id}, {"p", tojson(from)}, {"d", tojson(dir)}, {"tr", tracer}, {"by", owner < 0 ? gGame->localSlot : owner}});
