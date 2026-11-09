@@ -457,11 +457,12 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
       audio.play("shot_" + d.id, muzzle, 1.0f);
-      // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted = the
-      // posture's factor x the weapon's own bipod factor (recoil.supported; MG 42 0.35), handling.json mounted 0.5
-      // only for a bipod weapon without one. Standing still kicks pitch only; moving adds movingYaw (25 %) of the yaw.
+      // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
+      // pre-overhaul values: the old posture factor (prone 0.20, crouched 0.70) x the weapon's own bipod factor
+      // (recoil.supported; MG 42 prone 0.2 x 0.35 = 0.07), handling.json mounted 0.5 only for a bipod weapon without one.
+      // Standing still kicks pitch only; moving adds movingYaw (25 %) of the yaw.
       float sc = stance != STANCE_MOUNTED ? handling.recoil[stance]
-               : handling.recoil[ch.posture == Physics::PRONE ? STANCE_PRONE : STANCE_CROUCHED] * (d.rSupported < 0.999f ? d.rSupported : handling.recoil[STANCE_MOUNTED]);
+               : (ch.posture == Physics::PRONE ? 0.20f : 0.70f) * (d.rSupported < 0.999f ? d.rSupported : handling.recoil[STANCE_MOUNTED]);
       if (adsT > 0.85f) sc *= 0.85f;
       float yawK = moving ? handling.movingYaw : 0.0f;
       lastRecoilScale = sc;

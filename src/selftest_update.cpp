@@ -129,8 +129,8 @@ void SelfTest::updateSuite(App& app, float dt) {
       if (ph == 2 && t > 5.0f) { s0 = a.shotsFired; a.scriptedInput.fire = true; ph = 3; return false; }
       if (ph == 3 && a.shotsFired > s0) {
         a.scriptedInput.fire = false;
-        float want = 0.6f * 0.35f;   // handling.json recoil.prone x the MG 42's recoil.supported
-        char b[200]; std::snprintf(b, sizeof b, "MG 42 prone and still: bipod deployed, recoil x%.3f = prone 0.6 x bipod 0.35 (composed once per shot)", a.lastRecoilScale);
+        float want = 0.2f * 0.35f;   // mounted keeps the pre-overhaul value: prone 0.20 x the MG 42's recoil.supported
+        char b[200]; std::snprintf(b, sizeof b, "MG 42 prone and still: bipod deployed, recoil x%.3f = prone 0.20 x bipod 0.35 (composed once per shot)", a.lastRecoilScale);
         check(a.supported && std::fabs(a.lastRecoilScale - want) < 1e-3f, b);
         a.proneToggle = false;
         return true;
