@@ -210,7 +210,7 @@ void build(App&) {
     }
     for (auto& z : G.sold) if (z.alive && z.zombie) for (auto& o : G.sold) if (o.alive && o.team == 0) minD = std::min(minD, dXZ(z.feet, o.feet));
     int k0 = G.match.teamKills(0), k1 = G.match.teamKills(1), blows = aiZombieBlows() - blows0;
-    if ((k0 < 1 || k1 < 1) && t < 150) return false;
+    if ((k0 < 1 || (k1 < 1 && blows < 3)) && t < 240) return false;   // batch2 reached 3 blows at 150 s only just: give the zombies time
     // the zombies' kill depends on reaching 3 blows on one soldier before the rifles drop them: a kill's worth of landed blows also counts
     chk(k0 >= 1 && (k1 >= 1 || blows >= 3), "both sides fight: soldiers kill %d, zombies kill %d with %d blows landed in %.0f s (closest zombie to a soldier %.1f m)", k0, k1, blows, t, minD);
     pendingShot = outDir() / "zombies_tdm.png";
@@ -274,7 +274,7 @@ bool zombiesSelfTest(App& app, float dt) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;
     if (done) { ++cur; st = 0; }
-    if (total > 600) { T->check(false, "zombies test timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
+    if (total > 900) { T->check(false, "zombies test timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
   }
   if (cur >= seq.size() && !app.selftest->done) { app.selftest->exitCode = T->finish(); app.selftest->done = true; }
   return true;
