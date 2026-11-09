@@ -62,7 +62,8 @@ size_t authoredInstanceCount(const std::vector<Instance>& v) { size_t n = 0; for
 
 const char* roomTypeName(int t) {
   static const char* n[] = {"Kitchen / dining", "Sitting room", "Bedroom", "Utility / storage", "Workshop", "Hall / passage",
-                            "Church nave", "Barn", "Classroom", "Office", "Tavern room", "Ruined room"};
+                            "Church nave", "Barn", "Classroom", "Office", "Tavern room", "Ruined room",
+                            "Command room", "Radio room", "Crew quarters", "Ammunition store", "Fighting room", "Plant room", "Military passage"};
   return t >= 0 && t < ROOM_TYPES ? n[t] : "Room";
 }
 
@@ -333,6 +334,22 @@ int InteriorSys::roomType(const AssetDef* a, const RoomInfo& ri, int k) const {
     for (size_t q = 0; q < ri.rooms.size(); ++q) if (ri.rooms[q].storey == 0 && ri.rooms[q].area > area) { area = ri.rooms[q].area; best = (int)q; }
     return best;
   };
+  // GX6: an asset may name its rooms' types: "roomTypes": {navRoomId: type}; the nav room holding this room's centre
+  if (a->raw.is_object() && a->raw.contains("roomTypes") && a->raw.contains("nav")) {
+    static const std::pair<const char*, int> kTypes[] = {{"kitchen", ROOM_KITCHEN}, {"sitting", ROOM_SITTING}, {"bedroom", ROOM_BEDROOM}, {"utility", ROOM_UTILITY},
+      {"workshop", ROOM_WORKSHOP}, {"hall", ROOM_HALL}, {"barn", ROOM_BARN}, {"office", ROOM_OFFICE}, {"tavern", ROOM_TAVERN},
+      {"mil_command", ROOM_MIL_COMMAND}, {"mil_radio", ROOM_MIL_RADIO}, {"mil_quarters", ROOM_MIL_QUARTERS}, {"mil_ammo", ROOM_MIL_AMMO},
+      {"mil_fighting", ROOM_MIL_FIGHTING}, {"mil_plant", ROOM_MIL_PLANT}, {"mil_passage", ROOM_MIL_PASSAGE}};
+    vec2 c = (R.mn + R.mx) * 0.5f; float y = R.y0 + 0.5f;
+    for (auto& nr : a->raw["nav"].value("rooms", json::array())) {
+      if (!nr.contains("min") || !nr.contains("max")) continue;
+      vec3 mn = jvec3(nr["min"]), mx = jvec3(nr["max"]);
+      if (c.x < mn.x || c.x > mx.x || c.y < mn.z || c.y > mx.z || y < mn.y - 0.3f || y > mx.y) continue;
+      std::string t = a->raw["roomTypes"].value(nr.value("id", std::string()), std::string());
+      for (auto& [n, v] : kTypes) if (t == n) return v;
+    }
+    if (id.rfind("mil_", 0) == 0) return ROOM_MIL_PASSAGE;
+  }
   if (has("church") || has("chapel")) return k == largestOnGround() && R.area > 12.0f ? ROOM_CHURCH : ROOM_UTILITY;
   if (id.rfind("ruin_", 0) == 0) return ROOM_RUIN;   // V3 ruined buildings: sparse, mostly broken
   if (has("barn") || has("stable")) return ROOM_BARN;
@@ -365,7 +382,7 @@ bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
   const AssetDef* a = app.lib.find(i.assetId);
   if (!a || !a->enterable || isProp(a)) return false;
   const std::string& id = a->id;
-  bool lit = lightsOnlyHost(a);   // L3: bunkers and casemates get caged electric lamps only (their own furniture stays)
+  bool lit = lightsOnlyHost(a) || id.rfind("mil_", 0) == 0;   // L3: bunkers and casemates get caged electric lamps only (their own furniture stays); GX6: mil_ hosts get military rooms
   if (!lit && (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0)) return false;   // bunkers, Atlantic Wall, beach / landing craft
   if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built (V4)
   if (!lit && (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0)) return false;
@@ -1514,6 +1531,97 @@ struct Planner {
         if (maybe(base + 130, 0.5f * D)) wall(k, "furn_bucket", r + "bucket", 1.0f);
         break;
       }
+      // GX6: military rooms (furn_mil_*, tools/gen_furniture_mil.py): kit along the walls, a table or desk cluster, maps
+      // and pegs on the walls
+      case ROOM_MIL_QUARTERS: {
+        int bunks = std::max(1, std::min(6, (int)std::round(R.area / 7.0f * std::min(D, 1.4f))));
+        for (int c = 0; c < bunks; ++c) wall(k, "furn_mil_bunk", r + "bunk" + std::to_string(c), c % 2 ? 0.6f : -0.2f);
+        for (int c = 0; c < 1 + bunks / 2; ++c) wall(k, "furn_mil_locker", r + "locker" + std::to_string(c), 0.8f);
+        if (center(k, "furn_table_small", r + "table", 0.6f, &t)) {
+          chairsAround(k, t, "furn_stool", 2 + (D > 0.9f), false);
+          onTop(t, {"furn_lamp", "furn_bottles", "furn_papers", "furn_jug_bowl"}, tops(1));
+        }
+        hang(k, "furn_mil_gasmask_hooks", r + "masks", 0.2f);
+        if (maybe(base + 200, D)) wall(k, "furn_mil_rifle_rack", r + "rifles", 0.5f);
+        if (maybe(base + 201, 0.7f * D)) wall(k, "furn_stove_potbelly", r + "stove", 0.9f);
+        if (maybe(base + 202, 0.8f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.3f);
+        for (int c = 0; c < 1 + count(base + 203, 0.8f); ++c) hang(k, "furn_picture", r + "pinup" + std::to_string(c), -0.3f);
+        if (maybe(base + 204, 0.6f * D)) wall(k, "furn_mil_crates", r + "crates", 1.0f);
+        if (maybe(base + 205, 0.5f * D)) hangTop(k, "furn_wall_shelf", r + "shelf", 0.2f, {"furn_bottles", "furn_books", "furn_jars"}, 2);
+        break;
+      }
+      case ROOM_MIL_COMMAND: {
+        if (center(k, "furn_mil_table", r + "maptable", 0.7f, &t) || center(k, "furn_table_small", r + "maptable", 0.5f, &t)) {
+          chairsAround(k, t, "furn_chair_slat", 2 + (int)std::round(std::min(D, 1.5f)), true);
+          onTop(t, {"furn_mil_phone", "furn_papers", "furn_lamp"}, 1 + (C > 0.5f));
+        }
+        for (int c = 0; c < 2 + count(base + 210, 0.8f); ++c) hang(k, "furn_mil_map", r + "map" + std::to_string(c), -0.4f);
+        if (wall(k, "furn_desk", r + "desk", 0.4f, &w)) {
+          onTop(w, {"furn_papers", "furn_mil_phone", "furn_lamp", "furn_books"}, 2);
+          quat q = yawQuat(w.yaw);
+          tryAt(k, "furn_chair_slat", w.slot + "/chair", w.p + q * vec3(0, 0, 0.55f), wrapDeg(w.yaw + 180), true, false, 1, nullptr);
+        }
+        wall(k, "furn_mil_locker", r + "locker", 0.9f);
+        if (maybe(base + 211, D)) withTop(wall(k, "furn_shelf", r + "shelf", 0.7f, &w), {"furn_books", "furn_papers", "furn_bottles"}, tops(1));
+        if (maybe(base + 212, 0.8f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.5f);
+        if (maybe(base + 213, 0.7f * D)) hang(k, "furn_wall_clock", r + "clock", -0.2f);
+        if (maybe(base + 214, 0.6f * D)) hang(k, "furn_mil_fusebox", r + "fuses", 0.8f);
+        if (maybe(base + 215, 0.5f * D)) wall(k, "furn_mil_crates", r + "crates", 1.0f);
+        if (maybe(base + 216, 0.5f * D)) hang(k, "furn_portrait", r + "portrait", 0.0f);
+        break;
+      }
+      case ROOM_MIL_RADIO: {
+        for (int c = 0; c < 1 + (R.area > 14.0f || D > 1.2f); ++c) if (wall(k, "furn_mil_radio", r + "radio" + std::to_string(c), -0.2f, &w)) {
+          quat q = yawQuat(w.yaw);
+          tryAt(k, "furn_chair_slat", w.slot + "/chair", w.p + q * vec3(-0.35f, 0, 0.6f), wrapDeg(w.yaw + 180), true, false, 1, nullptr);
+        }
+        hang(k, "furn_mil_map", r + "map", 0.0f);
+        hang(k, "furn_mil_fusebox", r + "fuses", 0.7f);
+        if (center(k, "furn_table_small", r + "table", 0.5f, &t)) { chairsAround(k, t, "furn_stool", 1, false); onTop(t, {"furn_mil_phone", "furn_papers", "furn_lamp"}, 2); }
+        wall(k, "furn_mil_crates", r + "batteries", 1.0f);
+        if (maybe(base + 220, D)) wall(k, "furn_mil_locker", r + "locker", 0.8f);
+        if (maybe(base + 221, 0.7f * D)) hang(k, "furn_wall_clock", r + "clock", -0.3f);
+        if (maybe(base + 222, 0.6f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.5f);
+        break;
+      }
+      case ROOM_MIL_AMMO: {
+        for (int c = 0; c < 2 + count(base + 230, 2.0f); ++c) wall(k, "furn_mil_ammo_rack", r + "rack" + std::to_string(c), c % 2 ? 0.7f : -0.3f);
+        for (int c = 0; c < 2 + count(base + 231, 2.0f); ++c) wall(k, "furn_mil_crates", r + "crates" + std::to_string(c), 0.9f);
+        if (maybe(base + 232, 0.7f * D)) center(k, "furn_mil_crates", r + "stack", 0.4f);
+        hang(k, "furn_mil_fusebox", r + "fuses", 0.6f);
+        break;
+      }
+      case ROOM_MIL_FIGHTING: {
+        for (int c = 0; c < 1 + count(base + 240, 1.5f); ++c) wall(k, "furn_mil_crates", r + "crates" + std::to_string(c), 0.9f);
+        if (maybe(base + 241, D)) wall(k, "furn_mil_ammo_rack", r + "rack", 0.6f);
+        hang(k, "furn_mil_gasmask_hooks", r + "masks", 0.3f);
+        if (maybe(base + 242, D)) wall(k, "furn_mil_rifle_rack", r + "rifles", 0.6f);
+        if (maybe(base + 243, 0.8f * D)) wall(k, "furn_mil_jerrycans", r + "water", 1.0f);
+        if (maybe(base + 244, 0.7f * D)) wall(k, "furn_stool", r + "stool", 0.3f);
+        if (maybe(base + 245, 0.6f * D)) hang(k, "furn_mil_map", r + "rangecard", 0.2f);
+        if (maybe(base + 246, 0.5f * D)) wall(k, "furn_bench", r + "bench", 0.2f);
+        break;
+      }
+      case ROOM_MIL_PLANT: {
+        wall(k, "furn_mil_generator", r + "generator", -0.2f);
+        hang(k, "furn_mil_fusebox", r + "fuses", 0.4f);
+        for (int c = 0; c < 1 + count(base + 250, 1.0f); ++c) wall(k, "furn_mil_jerrycans", r + "fuel" + std::to_string(c), 1.0f);
+        if (maybe(base + 251, D)) wall(k, "furn_barrel", r + "drum", 1.0f);
+        if (maybe(base + 252, D)) withTop(wall(k, "furn_workbench", r + "bench", 0.3f, &w), {"furn_bottles", "furn_pot", "furn_lamp"}, 1);
+        if (maybe(base + 253, 0.8f * D)) hang(k, "furn_tool_rack", r + "tools", -0.1f);
+        if (maybe(base + 254, 0.6f * D)) wall(k, "furn_mil_crates", r + "spares", 0.9f);
+        break;
+      }
+      case ROOM_MIL_PASSAGE: {
+        if (maybe(base + 260, D)) hang(k, "furn_mil_gasmask_hooks", r + "masks", 0.2f);
+        if (maybe(base + 261, 0.8f * D)) wall(k, "furn_bench", r + "bench", -0.3f);
+        if (maybe(base + 262, 0.7f * D)) hang(k, "furn_coat_rack", r + "pegs", 0.4f);
+        if (maybe(base + 263, 0.6f * D)) wall(k, "furn_mil_rifle_rack", r + "rifles", 0.6f);
+        if (maybe(base + 264, 0.6f * D)) hang(k, "furn_mil_fusebox", r + "fuses", 0.7f);
+        if (maybe(base + 265, 0.5f * D)) wall(k, "furn_mil_crates", r + "crates", 1.0f);
+        if (maybe(base + 266, 0.4f * D)) wall(k, "furn_mil_jerrycans", r + "water", 1.0f);
+        break;
+      }
       default: {   // utility / storage
         withTop(wallAny(k, {"furn_shelf", "furn_chest"}, r + "shelf", 0.8f, &w), {"furn_bottles", "furn_crockery", "furn_jars", "furn_pot"}, tops(1));
         if (maybe(base + 131, 0.7f * D)) wallAny(k, {"furn_pantry", "furn_shelf"}, r + "pantry", 0.6f);
@@ -1532,7 +1640,7 @@ struct Planner {
       }
     }
     // lived-in rooms collect pictures and family portraits on whatever wall is left (they may hang beside a route)
-    if (R.type != ROOM_CHURCH && R.type != ROOM_RUIN && R.type != ROOM_BARN && R.type != ROOM_UTILITY)
+    if (R.type != ROOM_CHURCH && R.type != ROOM_RUIN && R.type != ROOM_BARN && R.type != ROOM_UTILITY && R.type < ROOM_MIL_COMMAND)
       for (int c = 0; c < count(base + 160, 1.0f); ++c) hang(k, c % 2 ? "furn_portrait" : "furn_picture", r + "art" + std::to_string(c), 0.1f);
   }
 };

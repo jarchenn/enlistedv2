@@ -15,9 +15,9 @@ import { rod, ventPipe, periscope, doorKnuckles, dmat } from "./defence_detail.m
 export const SLIT = { sill: 1.47, top: 1.77, w: 0.5, eye: 1.62 };
 // stepped reveal (Treppenscharte): the opening widens by dy (top and bottom) and da (each closed end) per depth band
 // toward the outside, so a slit is narrowest at the inner face
-const STEP = { dy: 0.065, da: 0.12 };
+export const STEP = { dy: 0.065, da: 0.12 };
 
-function bunkerMaterials(A, lip) {
+export function bunkerMaterials(A, lip) {
   stdMaterials(A);
   const set = (name, albedo, roughness, grain) => Object.assign(A.materials.find((m) => m.name === name), { albedo, roughness, pattern: "bunker", grain });
   set("concrete", [0.27, 0.26, 0.235], 0.93, Math.round(lip * 10));   // grain: roof-lip height (dm) for the run-off stains
@@ -27,7 +27,7 @@ function bunkerMaterials(A, lip) {
 // A slit through a wall of depth outer..inner, given by its throat (the inner-face opening). Adds the stepped liners
 // and returns the hole to cut through the full wall (the outermost, largest opening). open0/open1: that end runs on
 // through a corner (no end step). n depth bands share the wall thickness.
-function slit(A, { axis, outer, inner, a0, a1, y0, y1, open0 = false, open1 = false, n = 3, step = {} }) {
+export function slit(A, { axis, outer, inner, a0, a1, y0, y1, open0 = false, open1 = false, n = 3, step = {} }) {
   const st = { da: STEP.da, dyT: STEP.dy, dyB: STEP.dy, ...step };   // a gun embrasure widens more, mostly upward
   const out = Math.sign(outer - inner), t = Math.abs(outer - inner) / n, g = n - 1;
   const H = { a0: open0 ? a0 : a0 - g * st.da, a1: open1 ? a1 : a1 + g * st.da, y0: y0 - g * st.dyB, y1: y1 + g * st.dyT };
@@ -55,16 +55,16 @@ function shell(A, { X, Z, T, GF, CEIL, front = [], back = [], east = [], west = 
   return { XI, ZI };
 }
 // footing step at ground level, a little wider than the walls
-function footing(A, x0, x1, z0, z1, top = 0.22, out = 0.28) { A.rbox([x0 - out, -0.6, z0 - out], [x1 + out, top, z1 + out], 0.1, "concrete"); }
+export function footing(A, x0, x1, z0, z1, top = 0.22, out = 0.28) { A.rbox([x0 - out, -0.6, z0 - out], [x1 + out, top, z1 + out], 0.1, "concrete"); }
 // heavy roof slab with rounded arrises; ov = [west, east, rear, front] overhangs
-function roofSlab(A, x0, x1, z0, z1, y0, y1, ov, r = 0.2) { A.rbox([x0 - ov[0], y0, z0 - ov[2]], [x1 + ov[1], y1, z1 + ov[3]], r, "concrete"); }
+export function roofSlab(A, x0, x1, z0, z1, y0, y1, ov, r = 0.2) { A.rbox([x0 - ov[0], y0, z0 - ov[2]], [x1 + ov[1], y1, z1 + ov[3]], r, "concrete"); }
 // corner pier / pilaster / wing pier: a rounded block standing proud of the wall faces
-function pier(A, x0, x1, z0, z1, y0, y1, r = 0.12) { A.rbox([x0, y0, z0], [x1, y1, z1], r, "concrete"); }
+export function pier(A, x0, x1, z0, z1, y0, y1, r = 0.12) { A.rbox([x0, y0, z0], [x1, y1, z1], r, "concrete"); }
 
 // Camouflage netting (visual only: no collision, rounds and view rays pass): draped over a roof top in a few slightly
 // tilted sheets, hung from roof edges as skirts that flare out toward the ground, and short festoons along a firing
 // front's fascia. Never hung in front of a slit. hang: [side, a0, a1, edge, yTop, yBottom], side "x+"/"x-"/"z+"/"z-".
-function camoNet(A, { roof = null, hang = [] }) {
+export function camoNet(A, { roof = null, hang = [] }) {
   if (!A.materials.find((m) => m.name === "camo_net")) A.mat("camo_net", [0.12, 0.12, 0.06], 0.95, "net");
   const o = { k: 0 };
   if (roof) {
@@ -88,7 +88,7 @@ function camoNet(A, { roof = null, hang = [] }) {
 }
 // sand / earth drifted against a wall face at `w` (axis 0: wall along x at z = w; axis 2: along z at x = w), running
 // out `run` toward `dir`: a low wedge whose height tapers over the last metre at each end (no steep cut-off faces)
-function drift(A, axis, a0, a1, w, dir, h, run) {
+export function drift(A, axis, a0, a1, w, dir, h, run) {
   const seg = (b0, b1, f) => A.prism(axis, b0, b1, [[w, -0.2], [w, -0.2 + (h + 0.2) * f], [w + dir * run * (0.4 + 0.6 * f), -0.2]], "sand");
   const L = Math.min(1.6, (a1 - a0) / 4), N = 6;
   for (let i = 0; i < N; i++) { const f = (i + 1) / (N + 1); seg(a0 + (L * i) / N, a0 + (L * (i + 1)) / N, f); seg(a1 - (L * (i + 1)) / N, a1 - (L * i) / N, f); }
@@ -113,7 +113,7 @@ function berms(A, { X, Z, front, sideH, sideRun = 3.0, frontRun = 2.5, zr = null
 // on the roof; sandbag walls lining the entrance passage; netting over the exposed front; moss on the concrete.
 // Earth and sandbag parts collide, so rounds stop in the cover.
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-function earthMaterials(A) {
+export function earthMaterials(A) {
   if (A.materials.find((m) => m.name === "earth_raw")) return;
   A.mat("earth_raw", [0.115, 0.088, 0.06], 1.0, "plain");     // thrown-up soil on the shoulder
   A.mat("earth_dark", [0.09, 0.072, 0.05], 1.0, "plain");
@@ -128,7 +128,7 @@ const smooth = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 *
 // Earth bank against a wall face (axis 0: wall along x at z = w; axis 2: wall along z at x = w; dir = +-1 outward),
 // from a0 to a1, in 0.35 m facets. Crest height and run follow a smooth seeded wave along the bank (+-4 % / +-7 %) and
 // ease down over ~1.2 m at open ends; the shoulder (raw earth) rolls over at 35 % of the run into the grassed slope.
-function earthBank(A, axis, a0, a1, w, dir, h, run, seed, { taper = [true, true], y0 = -0.3 } = {}) {
+export function earthBank(A, axis, a0, a1, w, dir, h, run, seed, { taper = [true, true], y0 = -0.3 } = {}) {
   const r = rng(seed), L = Math.min(1.2, (a1 - a0) / 3);
   const ph = [r() * 6.28, r() * 6.28, r() * 6.28], grass = ["grass_a", "grass_b", "grass_a", "grass_c"];
   const cuts = [a0];   // 0.15 m facets on the tapering ends, 0.35 m elsewhere
@@ -153,7 +153,7 @@ function earthBank(A, axis, a0, a1, w, dir, h, run, seed, { taper = [true, true]
   }
 }
 // earth layer over a roof: a low rounded slab of earth with a grassed crown and a few raw patches
-function roofEarth(A, x0, x1, z0, z1, y, d, seed) {
+export function roofEarth(A, x0, x1, z0, z1, y, d, seed) {
   const r = rng(seed);
   A.rbox([x0, y, z0], [x1, y + d, z1], Math.min(0.22, d * 0.5), "earth_raw");
   const ix = 0.35, iz = 0.35;
@@ -165,7 +165,7 @@ function roofEarth(A, x0, x1, z0, z1, y, d, seed) {
 }
 // sandbag wall along axis (0: along x at depth d = z; 2: along z at d = x), a0..a1, from y0 up to y0 + h: running bond,
 // slight batter, jittered bags (k 0) over one invisible collider
-function sandbagWall(A, axis, a0, a1, d, y0, h, seed, { thick = 0.32 } = {}) {
+export function sandbagWall(A, axis, a0, a1, d, y0, h, seed, { thick = 0.32 } = {}) {
   const r = rng(seed), BL = 0.48, BH = 0.15, courses = Math.max(1, Math.round(h / BH));
   for (let c = 0; c < courses; c++) {
     const off = c % 2 ? BL / 2 : 0, inset = c * 0.012, y = y0 + c * BH + BH / 2;
@@ -183,7 +183,7 @@ function sandbagWall(A, axis, a0, a1, d, y0, h, seed, { thick = 0.32 } = {}) {
   else A.box([d - t, y0, a0], [d + t, y0 + courses * BH, a1], "hessian", { v: 0 });
 }
 // moss / lichen patch on a face (thin, visual)
-function mossPatch(A, c, s, r = [0, 0, 0]) { A.obox(c, s, r, "moss", { k: 0 }); }
+export function mossPatch(A, c, s, r = [0, 0, 0]) { A.obox(c, s, r, "moss", { k: 0 }); }
 
 // ----------------------------------------------------------------------------- W2: navigation annotations
 // src/navmeta.h "nav" block for the bot AI (AI_SPEC 3.1 / 5.1 / 8.1): every bunker blocks the navmesh (the interior

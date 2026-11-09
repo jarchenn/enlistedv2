@@ -36,6 +36,7 @@ export class Asset {
     if (o.bv > 0 && p.t === "b") p.bv = R3(o.bv);
     if (o.v === 0) p.v = 0;
     if (o.k === 0) p.k = 0;
+    if (o.lod) p.lod = 1;   // GX6: detail that may drop at distance (PF2 building LOD)
     (o.into || this._target).push(p);
     return p;
   }

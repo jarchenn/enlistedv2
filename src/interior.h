@@ -52,7 +52,10 @@ bool isFurnishPiece(const Instance& i);
 size_t authoredInstanceCount(const std::vector<Instance>& v);
 
 enum RoomType { ROOM_KITCHEN = 0, ROOM_SITTING, ROOM_BEDROOM, ROOM_UTILITY, ROOM_WORKSHOP, ROOM_HALL,
-                ROOM_CHURCH, ROOM_BARN, ROOM_CLASS, ROOM_OFFICE, ROOM_TAVERN, ROOM_RUIN, ROOM_TYPES };
+                ROOM_CHURCH, ROOM_BARN, ROOM_CLASS, ROOM_OFFICE, ROOM_TAVERN, ROOM_RUIN,
+                // GX6: military rooms (an asset's "roomTypes" names them per nav room; tools/catalog_gx_buildings.mjs)
+                ROOM_MIL_COMMAND, ROOM_MIL_RADIO, ROOM_MIL_QUARTERS, ROOM_MIL_AMMO, ROOM_MIL_FIGHTING, ROOM_MIL_PLANT, ROOM_MIL_PASSAGE,
+                ROOM_TYPES };
 const char* roomTypeName(int t);
 
 class InteriorSys {

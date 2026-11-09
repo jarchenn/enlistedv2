@@ -20,6 +20,7 @@ import { ordnanceAssets } from "./catalog_ordnance.mjs";   // D1: gun_pak40 (por
 import { props2Assets } from "./catalog_props2.mjs";   // P1: supply crates ported from build_assets.mjs (crate_*, rack_allied_crates)
 import { chateauAssets } from "./catalog_chateau.mjs";   // B3 grand chateau + ten houses
 import { houses2Assets } from "./catalog_houses2.mjs"; import { dressingAssets } from "./catalog_dressing.mjs";   // B2 reworked buildings + dressing
+import { gxHouseAssets } from "./catalog_gx_buildings.mjs";   // GX6: new houses, large houses, mil_stronghold
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "content", "assets");
@@ -102,7 +103,7 @@ const BACKFILL = {
 };
 // ---------------------------------------------------------------- new assets (after the backfill table: B2's legacy houses use houseNav)
 const ids = new Set();
-for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets(), ...houses2Assets(), ...dressingAssets()]) {
+for (const A of [...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets(), ...houses2Assets(), ...dressingAssets(), ...gxHouseAssets()]) {
   const j = A.json();
   if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
   ids.add(j.id);
