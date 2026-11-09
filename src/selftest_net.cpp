@@ -373,13 +373,17 @@ void SelfTest::netUpdate(App& app, float dt) {
             check(a.occupied == 0 && occ != gGame->localSlot, "left the gun; the host's snapshot shows it free (occupant " + std::to_string(occ) + ")");
             return true; });
           push("lan crate", [this](App& a, float t) {
-            static int phase = 0, stock0 = 0, r0 = 0; static float t1 = 0;
+            static int phase = 0, stock0 = 0, r0 = 0, rStart = 0; static float t1 = 0, tFired = 0;
             uint64_t C = tagged(a, "C");
-            if (t == 0) phase = 0;
-            if (t < 4) { a.scriptedInput.fire = !a.scriptedInput.fire; return false; }   // spend rounds (press / release every frame, any frame rate): room for a clip
-            a.scriptedInput = ExploreInput{};
             const WeaponDef& d = *a.weaponDefs[a.activeWeapon]; WeaponState& ws = a.wstate[d.id];
-            if (phase == 0) { if (t < 7) return false; stock0 = a.crateStock[C][d.container]; r0 = ws.reserveRounds(); a.crateTransaction(C); phase = 1; t1 = t; return false; }
+            if (t == 0) { phase = 0; rStart = ws.reserveRounds(); tFired = -1; }
+            // spend rounds (press / release every frame, any frame rate) until a reload has drawn on the reserve: room for a clip
+            if (tFired < 0) {
+              if ((t < 4 || ws.reserveRounds() >= rStart) && t < 15) { a.scriptedInput.fire = !a.scriptedInput.fire; return false; }
+              tFired = t;
+            }
+            a.scriptedInput = ExploreInput{};
+            if (phase == 0) { if (t < tFired + 3) return false; stock0 = a.crateStock[C][d.container]; r0 = ws.reserveRounds(); a.crateTransaction(C); phase = 1; t1 = t; return false; }
             if (phase == 1) {
               if (a.crateStock[C][d.container] >= stock0 && t - t1 < 10) return false;
               char b[200]; std::snprintf(b, sizeof b, "resupplied at the crate through the host: %s %d -> %d in the crate, reserve %d -> %d", d.container.c_str(), stock0, a.crateStock[C][d.container], r0, ws.reserveRounds());
