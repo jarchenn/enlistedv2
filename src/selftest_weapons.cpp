@@ -230,6 +230,13 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       check(a.supported && sup < uns * 0.6f, "bipod-supported burst climbs far less (" + std::to_string(sup).substr(0, 4) + " vs " + std::to_string(uns).substr(0, 4) + " deg)");
       check(a.lastStance == STANCE_MOUNTED && std::fabs(a.lastSpreadDeg - a.handling.cone(WC_LMG, false, STANCE_MOUNTED)) < 1e-5f,
             "bipod deployed: mounted stance, hip cone " + std::to_string(a.lastSpreadDeg).substr(0, 5) + " deg (3.0 x 0.05)");
+      {
+        const WeaponDef& mg = *a.weaponDefs[a.weaponIndex("mg42")];
+        float want = a.handling.recoil[STANCE_CROUCHED] * mg.rSupported;   // the weapon's own bipod factor, not the 0.5 fallback
+        char b[200]; std::snprintf(b, sizeof b, "mounted recoil x%.4f = crouched %.2f x the MG 42's recoil.supported %.2f (handling.json mounted %.2f is only the fallback)",
+                                  a.lastRecoilScale, a.handling.recoil[STANCE_CROUCHED], mg.rSupported, a.handling.recoil[STANCE_MOUNTED]);
+        check(mg.rSupported < 0.999f && std::fabs(a.lastRecoilScale - want) < 1e-5f, b);
+      }
       shotQueue.push_back("51_mg42_tracers");
       return true; });
     push("mg42 empty", [this](App& a, float t) {
