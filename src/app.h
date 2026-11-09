@@ -52,6 +52,7 @@ struct InstanceRT {
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
   GpuMesh pathMesh; uint32_t pathGround = ~0u, pathRev = 0; std::vector<uint8_t> slabCut;   // path entities (paths.cpp)
+  GpuMesh earthMesh; uint64_t earthKey = 0; uint32_t earthGround = ~0u;   // GX1: generated revetment / retaining skirt (terrain_blend.cpp)
   std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut
   // nature scatter patches (nature.cpp): stones as one merged mesh, plants as a grass-shader instance buffer
   GpuMesh natMesh; GLuint natVbo = 0; int natCount = 0; uint32_t natRev = 0, natGround = ~0u; uint64_t natFoot = 0;

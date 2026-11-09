@@ -17,6 +17,7 @@
 #include "autopath.h"
 #include "water_query.h"
 #include "ai_hooks.h"
+#include "terrain_blend.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
@@ -72,6 +73,7 @@ void App::destroyRT(InstanceRT& r) {
   Physics::remove(r.trunkBody); r.trunkBody = 0xffffffffu;
   Physics::remove(r.playerBody); r.playerBody = 0xffffffffu;
   r.pathMesh.destroy(); r.pathGround = ~0u;
+  r.earthMesh.destroy(); r.earthKey = 0; r.earthGround = ~0u;
   { extern void natureDestroyRT(InstanceRT&); natureDestroyRT(r); }
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
@@ -284,6 +286,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     op.push_back({noFurn ? &r.asset->noFurnOpaque : &r.asset->opaque, M}); snapDraw(*this, i, op.back());   // V6: joined ends without caps (snap.cpp)
     if (op.back().mesh == &r.asset->opaque || op.back().mesh == &r.asset->noFurnOpaque) op.back().mesh = &assetLodMesh(r, r.asset, *op.back().mesh, camDist);   // PF2 asset LOD
     else r.lod = 0;
+    blendDrawItems(*this, i, r, M, op);   // GX1: trench revetment fitted to the carve, retaining skirts (terrain_blend.cpp)
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
     if (noFurn) { if (r.asset->noFurnGlass.count) gl.push_back({&r.asset->noFurnGlass, M}); } else if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
@@ -386,6 +389,7 @@ bool App::openMap(const fs::path& p) {
   std::snprintf(nameBuf, sizeof nameBuf, "%s", doc.name.c_str());
   { LoadStep ls("syncRuntime"); syncRuntime(); }
   { LoadStep ls("autoFurnishAll"); interior.autoFurnishAll(*this); }   // V4: buildings without extra.interior get furnished (no undo step, not dirty; interior.cpp)
+  navSyncCuts(*this);   // GX1: cuts and terrain stamps on the opened ground now, not next frame
   Physics::optimizeBroadPhase();   // every body of the map was just added one by one
   toast("Opened " + doc.name + (isContent ? " (copy — Save As to keep)" : ""));
   return true;
@@ -472,6 +476,11 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     if (sl > a->defense.maxSlopeDeg) { char b[96]; std::snprintf(b, sizeof b, "Too steep: %.0f deg slope (limit %.0f deg).", sl, a->defense.maxSlopeDeg); c.ok = false; c.reason = b; return c; }
     c.y = terrain.height(pos.x, pos.z);
     grade = 0;
+  }
+  if (!sf.on && blendPinned(a)) {   // GX1: auto-levelling (terrain_blend.cpp): the median level, the pad and ring do the rest
+    float ly = 0;
+    if (!blendPlacement(*this, a, pos, yaw, ignoreId, ly, c.reason)) { c.ok = false; return c; }
+    c.y = ly; grade = 0;
   }
   if (grade > (a->plinthDepth > 0 ? std::min(a->maxGrade, a->plinthDepth) : a->maxGrade)) {
     char buf[160];

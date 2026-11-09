@@ -12,6 +12,7 @@
 #include "tank.h"
 #include "scenario.h"
 #include "editor_nav.h"
+#include "terrain_blend.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -37,25 +38,14 @@ float Terrain::sculptAt(float x, float z) const {
 }
 
 void Terrain::sculptChanged(const std::vector<int>& keys) {
+  ++sculptRev;
   std::set<int> remesh;
-  const float fs = fineSpacing();
   for (int k : keys) {
     if (k < 0 || k >= tilesX() * tilesZ()) continue;
     int tx = keyTx(k), tz = keyTz(k);
     auto it = tiles.find(k);
     if (it == tiles.end()) { if (activate(tx, tz)) remesh.insert(k); continue; }   // starts at the (sculpted, cut) base
-    Tile& t = it->second;
-    vec2 o = tileOrigin(tx, tz);
-    t.cut = false;
-    for (int j = 0; j < kFineN; ++j)
-      for (int i = 0; i < kFineN; ++i) {
-        float x = o.x + i * fs, z = o.y + j * fs, raw = groundBase(x, z);
-        float nb = cuts.empty() ? raw : cutBase(x, z);
-        size_t s = (size_t)j * kFineN + i;
-        float crater = t.h[s] - t.base[s];   // craters ride on the new ground
-        t.base[s] = nb; t.h[s] = nb + crater;
-        t.cut |= nb < raw - 1e-5f;
-      }
+    recutTile(it->second);   // craters ride on the new ground (terrain_cuts.cpp)
     physDirty.insert(k);
     remesh.insert(k);
   }
@@ -176,6 +166,14 @@ static float seatHeight(const App& app, const Instance& i, const AssetDef* a) {
   for (auto& l : loc) { vec3 w = i.pos + q * l; top = std::max(top, T.placementHeight(w.x, w.z, i.id)); }
   return top;
 }
+// GX1 pinned objects (terrain_blend.cpp): the ground conforms to them, so they only move when a reform shifts the
+// whole footprint (a lasso plateau or move under them): by the smallest change common to every footprint sample
+static std::vector<float> pinnedSamples(const App& app, const Instance& i, const AssetDef* a) {
+  vec2 hf = a->footprint * 0.5f; quat q = yawQuat(i.yaw);
+  std::vector<float> v;
+  for (int z = -1; z <= 1; ++z) for (int x = -1; x <= 1; ++x) { vec3 w = i.pos + q * vec3(hf.x * x * 0.9f, 0, hf.y * z * 0.9f); v.push_back(app.terrain.placementHeight(w.x, w.z, i.id)); }
+  return v;
+}
 static bool insideFootprint(const Instance& host, const AssetDef* a, vec3 p, float pad = 0.3f) {
   vec3 l = glm::inverse(yawQuat(host.yaw)) * (p - host.pos);
   return std::fabs(l.x) <= a->footprint.x * 0.5f + pad && std::fabs(l.z) <= a->footprint.y * 0.5f + pad;
@@ -189,6 +187,7 @@ std::vector<SeatRec> terrainSeats(const App& app, vec2 c, float radius) {
       if (glm::length(vec2(i.pos.x, i.pos.z) - c) > reach) continue;
     }
     SeatRec r; r.id = i.id; r.h = seatHeight(app, i, a);
+    if (blendPinned(a)) r.fp = pinnedSamples(app, i, a);
     if (a && app.interior.isProp(a)) {   // furniture rides with the building it stands in
       for (auto& h : app.doc.instances) {
         const AssetDef* ha = app.assetFor(h);
@@ -206,6 +205,13 @@ int terrainReseat(App& app, const std::vector<SeatRec>& before) {
   for (auto& b : before) {
     Instance* i = app.doc.find(b.id); if (!i) continue;
     if (b.host) continue;
+    if (!b.fp.empty()) {   // GX1 pinned: the common shift of the footprint, else stay (the pad re-conforms the ground)
+      std::vector<float> now = pinnedSamples(app, *i, app.assetFor(*i));
+      float lo = 1e30f, hi = -1e30f;
+      for (size_t k = 0; k < now.size() && k < b.fp.size(); ++k) { lo = std::min(lo, now[k] - b.fp[k]); hi = std::max(hi, now[k] - b.fp[k]); }
+      dy[b.id] = lo > 0 ? lo : hi < 0 ? hi : 0.0f;
+      continue;
+    }
     dy[b.id] = seatHeight(app, *i, app.assetFor(*i)) - b.h;
   }
   for (auto& b : before) {
@@ -308,6 +314,8 @@ void terrainStrokeEnd(App& app) {
   if (!app.undoStack.empty() && app.undoStack.back().sculpt == app.doc.terrainSculpt) app.undoStack.pop_back();   // nothing changed: no empty undo step
   ++app.groundRev;   // paths re-drape, nature patches re-check, the navmesh refreshes
   gT.strokeKeys.clear();
+  navSyncCuts(app);                     // GX1: pads re-derive from the new ground before the check
+  blendValidate(app, true, "brush");    // GX1: floating / buried report, loose props re-seat
 }
 void terrainToolUpdate(App& app, float dt, bool uiMouse) {
   bool down = glfwGetMouseButton(app.win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;

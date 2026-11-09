@@ -1229,7 +1229,7 @@ void main(){
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
     float vert = 1.0 - smoothstep(0.4, 0.7, abs(normalize(vN).y));
     float nn = vnoise(vAp*1.3);
-    float foot = (1.0 - smoothstep(0.0, 0.45 + 0.4*nn, vAp.y)) * vert;
+    float foot = (1.0 - smoothstep(0.0, 0.45 + 0.4*nn, vAp.y)) * vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
     alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
     float moss = foot * smoothstep(0.5, 0.72, vnoise(vAp*2.3 + 7.0)) * (pat == 3 || pat == 17 ? 0.5 : 1.0);
     alb = mix(alb, vec3(0.13, 0.17, 0.07), moss*0.6);
@@ -1788,13 +1788,13 @@ void main(){}
 )GLSL";
 
 static const char* kTerrainVS = R"GLSL(
-layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt;
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt; layout(location=3) in vec3 aEw;
 uniform mat4 uVP;
-out vec3 vW, vN; out float vDirt;
-void main(){ vW = aPos; vN = aNrm; vDirt = aDirt; gl_Position = uVP*vec4(aPos,1.0); }
+out vec3 vW, vN; out float vDirt; out vec3 vEw;
+void main(){ vW = aPos; vN = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(aPos,1.0); }
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
-in vec3 vW, vN; in float vDirt;
+in vec3 vW, vN; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
@@ -1862,10 +1862,12 @@ void main(){
   // World-space 3D noise, so vertical faces are textured, not stretched. Wear / route / rut / wet still apply below.
   float rockK = 0.0, screeK = 0.0, rCrack = 0.0; vec3 rBump = vec3(0.0);
   float sny = normalize(vN).y + (nM - 0.5)*0.07;                       // band edges wander
-  screeK = smoothstep(0.89, 0.75, sny);
+  float ewK = clamp(vEw.x + vEw.y, 0.0, 1.0);                           // GX1: dug earth is never rock or scree
+  float ewRock = 1.0 - smoothstep(0.0, 0.12, ewK);                       // (any earthworks weight at all suppresses it)
+  screeK = smoothstep(0.89, 0.75, sny)*ewRock;
   if (screeK > 0.001) {
     float rBreak = fbm(vec3(p.xz*0.21, p.y*0.21 + 40.0));
-    rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16);
+    rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16)*ewRock;
     float lith = smoothstep(0.35, 0.65, fbm(vec3(p.xz*0.018, p.y*0.03 + 41.0)));              // limestone <-> schist
     float warp = fbm(vec3(p.xz*0.06, p.y*0.02 + 42.0))*5.0;
     float bedY = p.y*0.42 + warp;                                                              // ~2.4 m beds
@@ -1901,11 +1903,26 @@ void main(){
   float dirtK = smoothstep(0.15, 0.75, dirt + (nM - 0.5)*0.35);
   if (dirtK > 0.01) { TerrT tC = terrTex(7, p, tn0, tdx, tdy, tDist); soil *= tC.alb; tdn = mix(tdn, tC.dn, dirtK); trr = mix(trr, tC.r, dirtK); tao = mix(tao, tC.ao, dirtK); }   // L4
   alb = mix(alb, soil, dirtK);
+  if (ewK > 0.001) {   // GX1 trench cuts and spoil: dark packed mud (wetter low down), freshly turned crumbly earth
+    TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist), tF = terrTex(7, p, tn0, tdx, tdy, tDist);
+    float cl = fbm(vec3(p*2.4 + 60.0)), cg = vnoise(vec3(p*9.0 + 61.0));
+    // the ground-projected texture sets streak on the near-vertical cut walls: there, procedural earth with spade marks
+    float flatK = smoothstep(0.35, 0.75, tn0.y);
+    float spade = smoothstep(0.55, 0.75, vnoise(vec3(p.xz*1.1, p.y*7.0 + 62.0)))*(1.0 - flatK);   // horizontal cut lines
+    vec3 pmud = mix(vec3(0.085,0.068,0.052), vec3(0.135,0.105,0.078), cl*0.7 + cg*0.3) * mix(vec3(1.0), tM.alb, flatK) * (1.0 - 0.25*spade);
+    vec3 turned = mix(vec3(0.07,0.054,0.04), vec3(0.155,0.118,0.085), smoothstep(0.3, 0.75, cl)) * (0.85 + 0.3*cg) * mix(vec3(1.0), tF.alb, flatK);
+    float mk = vEw.x/max(vEw.x + vEw.y, 1e-3);
+    tM.dn *= flatK; tF.dn *= flatK;
+    alb = mix(alb, mix(turned, pmud, mk), max(ewK, (1.0 - ewRock)*(1.0 - flatK)));   // steep earthworks faces fully earth
+    alb *= mix(1.0, 0.72, vEw.z*ewK);
+    tdn = mix(tdn, mix(tF.dn, tM.dn, mk), ewK); trr = mix(trr, mix(tF.r, tM.r*0.7, mk), ewK); tao = mix(tao, mix(tF.ao, tM.ao, mk), ewK);
+  }
   PaintOut po = paintApply(p, normalize(vN), alb, dirt, dFdx(p), dFdy(p), length(p - uCamPos));   // lasso ground paint: albedo (ground_paint.cpp)
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
+  rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, vnoise(vec3(p.xz*4.3, 5.0)) - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
                      + vec3(streak - 0.5, 0.0, vnoise(vec3(sw*0.7, 18.0)) - 0.5)*0.35*nearK*(1.0 - tw)*(1.0 - puddle));   // sward relief (shading only)
   float ao = (1.0 - 0.25*dirt) * (1.0 - 0.18*rut*tw);

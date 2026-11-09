@@ -5,6 +5,7 @@
 #include "app.h"
 #include "scenario.h"
 #include "snap.h"
+#include "terrain_blend.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -241,6 +242,7 @@ int navSyncCuts(App& app) {
   uint64_t sig = 1469598103934665603ull;
   auto mix = [&](uint64_t v) { sig = (sig ^ v) * 1099511628211ull; };
   mix(app.terrain.generation); mix(app.doc.instances.size()); mix((uint64_t)(uintptr_t)app.lib.assets.size());
+  mix(app.terrain.sculptRev);   // GX1: pads re-derive from the sculpted ground (terrain_blend.cpp)
   for (auto& i : app.doc.instances) { uint32_t b[4]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.y, 4); std::memcpy(&b[2], &i.pos.z, 4); std::memcpy(&b[3], &i.yaw, 4); mix(i.id); mix(i.rev); mix(b[0]); mix(b[1]); mix(b[2]); mix(b[3]); }
   if (sig == lastSig) { navState().cutsApplied = 0; return 0; }
   lastSig = sig;
@@ -248,6 +250,7 @@ int navSyncCuts(App& app) {
   for (auto& i : app.doc.instances) {
     const AssetDef* a = app.assetFor(i);
     if (!a || a->navMeta.terrainCuts.empty()) continue;
+    if (blendEnabled() && blendTrench(a)) continue;   // GX1: trench pieces carve as one network stamp instead
     quat q = yawQuat(i.yaw);
     for (auto& c : a->navMeta.terrainCuts) {
       WorldCut w; w.owner = i.id; w.topY = i.pos.y; w.pad = navSettings().cutEdgePad < 0 ? app.terrain.fineSpacing() : navSettings().cutEdgePad; w.floorY = i.pos.y - std::max(0.0f, c.depth); w.bank = std::max(0.0f, c.bank);
@@ -256,6 +259,7 @@ int navSyncCuts(App& app) {
     }
   }
   int n = app.terrain.setCuts(std::move(cuts));
+  n += blendSyncStamps(app);   // GX1: pads, berms, trench networks (terrain_blend.cpp)
   if (n) { ++app.groundRev; terrainPhysicsSync(app.terrain); }
   navState().cutsApplied = n;
   return n;

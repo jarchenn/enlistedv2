@@ -10,6 +10,7 @@
 #include "selftest.h"
 #include "mptest.h"
 #include "snap.h"
+#include "terrain_blend.h"
 #include "editor_nav.h"
 #include "physics.h"
 #include <cstdarg>
@@ -112,7 +113,7 @@ void build(App& app) {
     joint(ids.straight, 1, ids.zig); joint(ids.zig, 1, ids.corner);
     CHK(bad == 0, "no gap, no overlap at the joints: geometry reaches the joint planes to within 5 mm (%s m)", rep.c_str());
     // equal floors and cuts either side of each joint
-    float worst = 0; float floorY = A->pos.y - (1.5f + 0.25f);
+    float worst = 0; float floorY = A->pos.y - (blendEnabled() ? blendConfig().sp.depth : 1.5f + 0.25f);   // GX1: the trench carve depth (terrain_blend.json)
     for (auto [p, sp] : {std::pair<uint64_t, int>{ids.straight, 1}, {ids.zig, 1}}) {
       auto w = snapWorldSockets(a, *a.doc.find(p))[sp];
       for (float s : {-0.6f, 0.0f, 0.6f}) { vec3 q = w.p + w.dir * s; worst = std::max(worst, std::fabs(a.terrain.height(q.x, q.z) - floorY)); }
