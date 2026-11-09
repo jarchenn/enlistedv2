@@ -1902,16 +1902,16 @@ def framed_painting(root, id, name, W, H, mount, scene, frame="gilt"):
                 blob(u * cw + s * cw * 0.1, hz + s * ch * 0.55, s * cw * 0.35, s * ch * 0.4, "canvas_tree_lit")
     if scene != "portrait":   # brush strokes: small seeded dabs in the scene's own tones, more in the foreground
         seed = sum(ord(c) for c in id)
-        tones_sky = ["canvas_sky", "canvas_cloud", "canvas_sky_lo"] if scene != "dusk" else ["canvas_dusk", "canvas_dusk_lo", "canvas_dusk_hi"]
-        tones_low = ["canvas_sea", "canvas_sea_lit"] if scene == "sea" else ["canvas_field", "canvas_field_lit", "canvas_tree", "canvas_sand"]
-        for k in range(28):
+        tones_sky = ["canvas_sky_lo", "canvas_cloud"] if scene != "dusk" else ["canvas_dusk", "canvas_dusk_lo"]
+        tones_low = ["canvas_sea_lit", "canvas_sea"] if scene == "sea" else ["canvas_field_lit", "canvas_field"]
+        for k in range(14):   # long, flat strokes in tones next to the band under them (no dots)
             r1 = ((seed * 9301 + k * 49297) % 233280) / 233280.0
             r2 = ((seed * 4111 + k * 7919 + 17) % 104729) / 104729.0
-            sky = k % 3 == 0
-            x = (r1 - 0.5) * cw * 0.92
-            y = (hz + (y1 - hz) * (0.1 + 0.8 * r2)) if sky else (y0 + (hz - y0) * (0.08 + 0.85 * r2))
-            t = (tones_sky if sky else tones_low)[(k * 7 + seed) % 3 if sky else (k * 5 + seed) % len(tones_low)]
-            blob(x, y, cw * (0.05 + 0.06 * r2), ch * (0.012 + 0.018 * r1), t)
+            sky = k % 2 == 0
+            x = (r1 - 0.5) * cw * 0.8
+            y = (hz + (y1 - hz) * (0.15 + 0.7 * r2)) if sky else (y0 + (hz - y0) * (0.1 + 0.7 * r2))
+            t = (tones_sky if sky else tones_low)[k % 2]
+            blob(x, y, cw * (0.12 + 0.1 * r2), ch * (0.01 + 0.008 * r1), t)
     return gx2_write(a, root, [W, 0.05], fragments=["frame"], keep=[])
 
 

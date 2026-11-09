@@ -1754,7 +1754,7 @@ struct Planner {
       runStep(k, json{{"do", "cluster"}, {"cluster", Z[(z0 + (size_t)(a * nw + b)) % Z.size()]}}, r + "zone" + std::to_string(a) + "_" + std::to_string(b));
       // a wide zone also gets a free-standing grouping in its middle (a table with chairs, armchairs round a rug)
       json CZ = T.value("centerZones", json::array());
-      if (!CZ.empty() && std::min(hi2.x - lo2.x, hi2.y - lo2.y) >= 5.0f && (a + b) % 2 == 0)
+      if (!CZ.empty() && std::max(hi2.x - lo2.x, hi2.y - lo2.y) >= 5.0f && std::min(hi2.x - lo2.x, hi2.y - lo2.y) >= 3.5f && (a + b) % 2 == 0)
         runStep(k, json{{"do", "cluster"}, {"cluster", CZ[(z0 + (size_t)a) % CZ.size()]}}, r + "zonec" + std::to_string(a) + "_" + std::to_string(b));
     }
     zoneOn = false;
