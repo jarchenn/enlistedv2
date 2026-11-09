@@ -97,7 +97,8 @@ Colliders: cylinders, cones and wedges are one convex hull (round sections at up
 - `pilaster`, `stringCourse`, `cornice` (stepped; the walls along X own the corners), `surround` (architrave, sloped sill, keystone);
 - `archOpening` / `archWindow` / `archDoor` (voussoir ring, keystone, the spandrel closing a rectangular wall hole, jambs, fanlight);
 - `colonnade`, `balcony`, `timberFrame` (half-timbering 4 cm proud of the infill, cut around holes);
-- roofs and tops: `dormer`, `hipRoof`, `thatchRoof`, `turret` (round or polygonal, conical spire), `chimney` / `chimneyCap`.
+- roofs and tops: `dormer`, `hipRoof`, `thatchRoof`, `turret` (round or polygonal, conical spire), `chimney` / `chimneyCap`;
+- imperfections, called last: `weather(A, {jitter, chips, pocks, keep})`. It is seeded by the asset id. Bevelled trims slide up to 1.5 cm along their length, and 15 % lose a top corner (the end piece is lowered and a broken wedge fills the notch). `pocks: [{F, a0, a1, y0, y1, n}]` adds shell scars (a spalled stone patch ringed by dark pocks) to non-destructible cladding. The panel crater and breach states give the real holes.
 
 ### Defence, gun and ruin detail (`tools/defence_detail.mjs`, D1)
 
