@@ -1033,6 +1033,7 @@ struct Planner {
   float rnd(uint32_t a, uint32_t b = 0) { return h01(seed, a, b); }
   std::string why; const char* cellWhy = "";   // GX2: why the last tryAt refused (debug log)
   bool zoneOn = false; vec2 zmn{0}, zmx{0};   // GX2: wall() / center() restricted to one zone of an oversized room
+  static constexpr float walkway = 0.9f;   // GX2: kept clear round a centre-floor group
   bool inZone(vec3 p) const { return zoneDist(p) <= 2.5f; }   // a zone is soft: spots up to 2.5 m outside it rank behind those in it
   float zoneDist(vec3 p) const { if (!zoneOn) return 0.0f; vec2 d = glm::max(glm::max(zmn - vec2(p.x, p.z), vec2(p.x, p.z) - zmx), vec2(0)); return glm::length(d); }
   const AssetDef* A(const char* id) { return app.lib.find(id); }
@@ -1200,7 +1201,9 @@ struct Planner {
     wallBacked = false;
     return ok;
   }
-  bool center(int k, const char* asset, const std::string& slot, float ring, PlanItem* got = nullptr) {
+  // area (GX2 centre-floor groups): the whole group's footprint in the anchor's frame [x0, z0, x1, z1]; the spot needs it and
+  // a walkway round it clear of furniture, and nothing is reserved yet (the group's own pieces go there next)
+  bool center(int k, const char* asset, const std::string& slot, float ring, PlanItem* got = nullptr, const vec4* area = nullptr) {
     const AssetDef* fa = A(asset); if (!fa) return false;
     const PropDef* pd = sys.prop(fa);
     const auto& R = ri.rooms[k]; const auto& S = ri.storeys[R.storey]; const float C = ri.cell;
@@ -1219,6 +1222,13 @@ struct Planner {
     std::sort(cs.begin(), cs.end(), [](const Cand& a, const Cand& b) { return a.score < b.score; });
     for (float rg : {ring, ring * 0.45f}) {
       for (auto& c : cs) {
+        if (area) {
+          vec2 a0 = yaw == 0.0f ? vec2((*area)[0], (*area)[1]) : vec2((*area)[1], -(*area)[2]), a1 = yaw == 0.0f ? vec2((*area)[2], (*area)[3]) : vec2((*area)[3], -(*area)[0]);
+          vec2 lo = vec2(c.p.x, c.p.z) + glm::min(a0, a1) - vec2(walkway), hi = vec2(c.p.x, c.p.z) + glm::max(a0, a1) + vec2(walkway);
+          if (!rectCells(R.storey, k, lo + vec2(walkway), hi - vec2(walkway), 0) || !rectCells(R.storey, k, lo, hi, 1)) continue;   // the group's floor free, a walkway round it
+          if (tryAt(k, asset, slot, c.p, yaw, true, false, 0, got)) return true;
+          continue;
+        }
         vec3 mn, mx; bounds(pd, c.p, yaw, mn, mx);
         if (rg > 0 && !rectCells(R.storey, k, vec2(mn.x - rg, mn.z - rg), vec2(mx.x + rg, mx.z + rg), 1)) continue;
         if (tryAt(k, asset, slot, c.p, yaw, true, false, 0, got)) {
@@ -1497,7 +1507,10 @@ struct Planner {
         return false;
       }
     }
-    else if (d == "center") { for (auto& a : as) if ((ok = center(k, a.c_str(), slot, s.value("ring", 0.6f), &w))) break; }
+    else if (d == "center") {
+      vec4 ar(0); if (s.contains("area")) for (int c = 0; c < 4; ++c) ar[c] = s["area"][c].get<float>();
+      for (auto& a : as) if ((ok = center(k, a.c_str(), slot, s.value("ring", 0.6f), &w, s.contains("area") ? &ar : nullptr))) break;
+    }
     else if (d == "rug") {
       vec2 cc = zoneOn ? (zmn + zmx) * 0.5f : (R.mn + R.mx) * 0.5f, e = R.mx - R.mn;
       for (auto& a : as) if ((ok = rug(k, a.c_str(), slot, cc, e.x >= e.y ? 0.0f : 90.0f))) { w = out.back(); break; }
@@ -1527,6 +1540,11 @@ struct Planner {
       for (size_t q = n0; q < out.size(); ++q) if (cb > 0 && rnd(strHash(out[q].slot), 5) < cb) out[q].broken = true;
     }
     if (s.contains("satellites")) satellites(k, w, s["satellites"]);
+    if (d == "center" && s.contains("area")) {   // the group placed: its footprint and the walkway round it stay clear of later pieces
+      const auto& ar = s["area"]; quat q = yawQuat(w.yaw);
+      vec3 c0 = w.p + q * vec3(ar[0].get<float>(), 0, ar[1].get<float>()), c1 = w.p + q * vec3(ar[2].get<float>(), 0, ar[3].get<float>());
+      mark(R.storey, vec2(std::min(c0.x, c1.x), std::min(c0.z, c1.z)) - vec2(walkway), vec2(std::max(c0.x, c1.x), std::max(c0.z, c1.z)) + vec2(walkway), 2);
+    }
     if (s.contains("hangAbove")) hangAbove(k, w, s["hangAbove"]);
     if (s.contains("papers") && rnd(strHash(slot), 9) < s["papers"].value("p", 1.0f) * clutter) papers(k, w, s["papers"].value("n", 1));
     if (got) *got = w;
@@ -1754,8 +1772,35 @@ struct Planner {
       runStep(k, json{{"do", "cluster"}, {"cluster", Z[(z0 + (size_t)(a * nw + b)) % Z.size()]}}, r + "zone" + std::to_string(a) + "_" + std::to_string(b));
       // a wide zone also gets a free-standing grouping in its middle (a table with chairs, armchairs round a rug)
       json CZ = T.value("centerZones", json::array());
-      if (!CZ.empty() && std::max(hi2.x - lo2.x, hi2.y - lo2.y) >= 5.0f && std::min(hi2.x - lo2.x, hi2.y - lo2.y) >= 3.5f && (a + b) % 2 == 0)
+      if (!CZ.empty() && !centerFloorOn(k, T) && std::max(hi2.x - lo2.x, hi2.y - lo2.y) >= 5.0f && std::min(hi2.x - lo2.x, hi2.y - lo2.y) >= 3.5f && (a + b) % 2 == 0)
         runStep(k, json{{"do", "cluster"}, {"cluster", CZ[(z0 + (size_t)a) % CZ.size()]}}, r + "zonec" + std::to_string(a) + "_" + std::to_string(b));
+    }
+    zoneOn = false;
+  }
+  // GX2: a room wide enough to leave open floor far from its walls gets a free-standing group in each centerCell m
+  // cell down its middle (a seating group on a large rug, a dining or work table, a bed against a screen or a pair of
+  // wardrobes), the cluster type cycling through the type's list from a seeded start
+  bool centerFloorOn(int k, const json& T) {
+    static const json none = json::object();
+    const json& D = rules().contains("subdivide") ? rules()["subdivide"] : none;
+    vec2 e = ri.rooms[k].mx - ri.rooms[k].mn;
+    return !T.value("centerFloor", json::array()).empty() && std::min(e.x, e.y) >= D.value("centerMin", 6.0f);
+  }
+  void centerFloor(int k, const json& T, const std::string& r) {
+    if (!centerFloorOn(k, T)) return;
+    static const json none = json::object();
+    const json& D = rules().contains("subdivide") ? rules()["subdivide"] : none;
+    const json CF = T["centerFloor"];
+    const auto& R = ri.rooms[k]; vec2 e = R.mx - R.mn;
+    int ax = e.x >= e.y ? 0 : 1; float L = ax == 0 ? e.x : e.y, band = D.value("centerBand", 2.3f);
+    int n = std::max(1, (int)std::floor(L / D.value("centerCell", 5.0f)));
+    size_t c0 = (size_t)(rnd(strHash(r), 510) * CF.size());
+    for (int a = 0; a < n; ++a) {
+      vec2 lo2 = R.mn + vec2(band), hi2 = R.mx - vec2(band);
+      if (ax == 0) { lo2.x = R.mn.x + L * a / n; hi2.x = R.mn.x + L * (a + 1) / n; }
+      else { lo2.y = R.mn.y + L * a / n; hi2.y = R.mn.y + L * (a + 1) / n; }
+      zoneOn = true; zmn = lo2; zmx = hi2;
+      runStep(k, json{{"do", "cluster"}, {"cluster", CF[(c0 + (size_t)a) % CF.size()]}}, r + "floor" + std::to_string(a));
     }
     zoneOn = false;
   }
@@ -1873,6 +1918,7 @@ struct Planner {
       }
     }
     if (T.contains("hall")) hallRules(k, T["hall"], r);
+    centerFloor(k, T, r);   // before the zones: the middle of the floor first
     zones(k, T, r);
     rugPass(k, T.value("rug", 0.0f), r);
     curtains(k, T.value("curtains", 0.0f), T.value("halfDrawn", 0.0f));

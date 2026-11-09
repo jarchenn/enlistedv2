@@ -1,6 +1,6 @@
 {
-  "_doc": "GX2 room dressing (docs/interiors.md section 6, src/interior.cpp Planner). Read once at start-up; every random pick is seeded by the building's furnishing seed and the slot name, so a building dresses the same on every machine. Per room type: steps (the furniture recipe, run in order), zones (cluster groupings placed in each 4-5 m zone of an oversized room), centerZones (free-standing groupings in the middle of every other zone at least 5 m wide), wall (wall-mounted items: target count per metre of wall, the longest bare wall allowed, the items, floor pieces used where nothing can hang), rug / curtains / halfDrawn / debris chances. Step fields: do = wall (a floor piece backed onto a wall) | hang (a wall-mounted piece at its mount height) | center (free-standing, kept off the walls by ring m) | rug | rows (pews, school desks toward the far end) | farEnd (an altar or teacher's desk at the far end) | cluster (a named cluster from 'clusters'); assets = fallbacks tried in order, 'a|b' = one of them picked by seed; p = chance (x the building's density unless fixed); sure = hearth | noHearth: the step always runs in that case; if = {minArea, maxArea, hearth}; n = [base, per density] count; top = {from, n, clutter: n grows with clutter}: small pieces on the placed piece's top; chairs = [{assets, n: [base, per density], ends}] round a table; satellites = [{assets, at: [x, y, z] in the anchor's frame (+z is its front), turn deg, alt: a second spot, p, rug, top, jitter: [m, deg]}]; papers = {p, n} (x clutter); broken = chance it is left broken; corner > 0 prefers corners, < 0 mid-wall.",
-  "subdivide": {"maxSide": 8.0, "zone": 4.5, "skip": ["hall", "barn", "church", "tavern", "class"]},
+  "_doc": "GX2 room dressing (docs/interiors.md section 6, src/interior.cpp Planner). Read once at start-up; every random pick is seeded by the building's furnishing seed and the slot name, so a building dresses the same on every machine. Per room type: steps (the furniture recipe, run in order), zones (cluster groupings placed in each 4-5 m zone of an oversized room), centerZones (free-standing groupings in the middle of every other zone at least 5 m wide), centerFloor (rooms at least subdivide.centerMin m across: a cluster sized to each centerCell m cell down the middle of the floor, centerBand m clear of the walls each side, cycling through the list from a seeded start; replaces centerZones there), wall (wall-mounted items: target count per metre of wall, the longest bare wall allowed, the items, floor pieces used where nothing can hang), rug / curtains / halfDrawn / debris chances. Step fields: do = wall (a floor piece backed onto a wall) | hang (a wall-mounted piece at its mount height) | center (free-standing, kept off the walls by ring m; or area = [x0, z0, x1, z1], the whole group in the anchor frame, which needs its floor free and a 0.9 m walkway round it) | rug | rows (pews, school desks toward the far end) | farEnd (an altar or teacher's desk at the far end) | cluster (a named cluster from 'clusters'); assets = fallbacks tried in order, 'a|b' = one of them picked by seed; p = chance (x the building's density unless fixed); sure = hearth | noHearth: the step always runs in that case; if = {minArea, maxArea, hearth}; n = [base, per density] count; top = {from, n, clutter: n grows with clutter}: small pieces on the placed piece's top; chairs = [{assets, n: [base, per density], ends}] round a table; satellites = [{assets, at: [x, y, z] in the anchor's frame (+z is its front), turn deg, alt: a second spot, p, rug, top, jitter: [m, deg]}]; papers = {p, n} (x clutter); broken = chance it is left broken; corner > 0 prefers corners, < 0 mid-wall.",
+  "subdivide": {"maxSide": 8.0, "zone": 4.5, "centerMin": 6.0, "centerCell": 5.0, "centerBand": 2.3, "skip": ["hall", "barn", "church", "tavern", "class"]},
   "debrisWear": 1.15,
   "clusters": {
     "desk": {"do": "wall", "assets": ["furn_desk"], "corner": 0.2, "top": {"from": ["furn_papers", "furn_books", "furn_lamp_table|furn_lamp", "furn_radio"], "n": 1, "clutter": true},
@@ -51,11 +51,39 @@
                     "papers": {"p": 1.0, "n": 1},
                     "satellites": [{"assets": ["furn_chair_slat"], "at": [0, 0, 0.55], "turn": 180, "jitter": [0.05, 10], "tuck": true},
                                    {"assets": ["furn_chair_ladder"], "at": [0.4, 0, 1.15], "turn": 10, "p": 0.6, "jitter": [0.1, 25]}],
-                    "hangAbove": ["furn_portrait|furn_frame_portrait", "furn_wall_clock"]}
+                    "hangAbove": ["furn_portrait|furn_frame_portrait", "furn_wall_clock"]},
+    "lounge": {"do": "center", "assets": ["furn_table_low"], "ring": 0, "area": [-2.0, -1.5, 2.0, 1.6], "top": {"from": ["furn_lamp_table", "furn_books", "furn_candlesticks|furn_crockery"], "n": 2, "clutter": true},
+               "satellites": [{"assets": ["furn_rug_large"], "at": [0, 0, 0.05], "turn": 0, "rug": true},
+                              {"assets": ["furn_settee"], "at": [0, 0, -1.02], "turn": 0, "jitter": [0.03, 3]},
+                              {"assets": ["furn_armchair"], "at": [1.28, 0, 0.3], "turn": 250, "jitter": [0.05, 8]},
+                              {"assets": ["furn_armchair"], "at": [-1.28, 0, 0.3], "turn": 110, "jitter": [0.05, 8]},
+                              {"assets": ["furn_side_table"], "at": [1.35, 0, -0.9], "alt": [-1.35, 0, -0.9], "turn": 0, "p": 0.8, "top": {"from": ["furn_lamp_table", "furn_books|furn_candlestick"], "n": 1}},
+                              {"assets": ["furn_stool|furn_basket"], "at": [0.3, 0, 1.05], "p": 0.4, "jitter": [0.1, 30]}]},
+    "dining_big": {"do": "center", "assets": ["furn_table_dining"], "ring": 0, "area": [-2.0, -1.5, 2.0, 1.5],
+                   "chairs": [{"assets": ["furn_chair_ladder|furn_chair_slat"], "n": [4, 2], "ends": true}],
+                   "top": {"from": ["furn_candlesticks", "furn_crockery", "furn_jug_bowl", "furn_bottles", "furn_lamp"], "n": 2, "clutter": true},
+                   "satellites": [{"assets": ["furn_rug_large"], "at": [0, 0, 0], "turn": 0, "rug": true, "p": 0.85}]},
+    "work_table": {"do": "center", "assets": ["furn_table_dining"], "ring": 0, "area": [-2.0, -1.5, 2.0, 1.5],
+                   "chairs": [{"assets": ["furn_chair_slat|furn_chair_ladder"], "n": [4, 0], "ends": false}],
+                   "top": {"from": ["furn_papers", "furn_books", "furn_lamp_table", "furn_books"], "n": 3, "clutter": true},
+                   "satellites": [{"assets": ["furn_rug_large|furn_rug_medallion"], "at": [0, 0, 0], "turn": 0, "rug": true, "p": 0.7}]},
+    "screen_bed": {"do": "center", "assets": ["furn_screen_folding"], "ring": 0, "area": [-1.7, -1.2, 1.7, 2.9],
+                   "satellites": [{"assets": ["furn_bed|furn_bed_iron", "furn_bed_iron"], "at": [0, 0, 1.28], "turn": 0},
+                                  {"assets": ["furn_side_table|furn_chest"], "at": [0.95, 0, 0.55], "alt": [-0.95, 0, 0.55], "turn": 0, "top": {"from": ["furn_candlestick|furn_candle", "furn_lamp_table", "furn_books"], "n": 1}},
+                                  {"assets": ["furn_rug_kilim"], "at": [-1.25, 0, 1.4], "alt": [1.25, 0, 1.4], "turn": 90, "rug": true},
+                                  {"assets": ["furn_chest|furn_suitcases"], "at": [0, 0, 2.6], "p": 0.7, "jitter": [0.03, 4]},
+                                  {"assets": ["furn_armchair"], "at": [0.35, 0, -0.8], "turn": 195, "p": 0.7, "jitter": [0.05, 10]}]},
+    "armoire_bed": {"do": "center", "assets": ["furn_armoire"], "ring": 0, "area": [-0.75, -2.4, 2.15, 1.4],
+                    "satellites": [{"assets": ["furn_armoire"], "at": [0.02, 0, 0], "flush": true, "turn": 0},
+                                   {"assets": ["furn_bed|furn_bed_iron", "furn_bed_iron"], "at": [0.71, 0, -1.37], "turn": 180},
+                                   {"assets": ["furn_side_table|furn_chest"], "at": [1.75, 0, -0.62], "alt": [-0.35, 0, -0.62], "turn": 180, "top": {"from": ["furn_candlestick|furn_candle", "furn_lamp_table"], "n": 1}},
+                                   {"assets": ["furn_rug_kilim"], "at": [0.71, 0, 0.95], "turn": 0, "rug": true, "p": 0.8},
+                                   {"assets": ["furn_chair_slat|furn_chair_ladder"], "at": [1.6, 0, 0.85], "turn": 200, "p": 0.6, "jitter": [0.06, 15]}]}
   },
   "types": {
     "kitchen": {
       "centerZones": ["dining"],
+      "centerFloor": ["dining_big", "work_table"],
       "steps": [
         {"do": "wall", "slot": "hutch", "assets": ["furn_hutch|furn_hutch_glazed", "furn_dresser", "furn_commode"], "corner": -0.5, "fixed": true, "top": {"from": ["furn_jug_bowl", "furn_bottles", "furn_crockery", "furn_jars"], "n": 1, "clutter": true}},
         {"do": "center", "slot": "table", "assets": ["furn_table_dining", "furn_table_small"], "if": {"minArea": 11}, "ring": 0.75, "fixed": true,
@@ -84,6 +112,7 @@
     },
     "sitting": {
       "centerZones": ["tea", "dining"],
+      "centerFloor": ["lounge", "dining_big", "lounge", "work_table"],
       "steps": [
         {"do": "rug", "slot": "rug", "assets": ["furn_rug_medallion|furn_rug_kilim"], "fixed": true},
         {"do": "wall", "slot": "commode", "assets": ["furn_commode", "furn_chest", "furn_side_table"], "corner": -0.3, "fixed": true, "top": {"from": ["furn_lamp", "furn_books", "furn_candlesticks", "furn_jug_bowl", "furn_crockery", "furn_radio"], "n": 1, "clutter": true}},
@@ -106,6 +135,7 @@
     },
     "bedroom": {
       "centerZones": ["tea"],
+      "centerFloor": ["screen_bed", "lounge", "armoire_bed"],
       "steps": [
         {"do": "cluster", "slot": "bed", "cluster": "bedside", "fixed": true},
         {"do": "wall", "slot": "armoire", "assets": ["furn_armoire", "furn_commode", "furn_chest"], "corner": 0.6, "p": 1.0, "sure": "big"},
@@ -209,6 +239,7 @@
     },
     "office": {
       "centerZones": ["tea", "dining"],
+      "centerFloor": ["work_table", "lounge"],
       "steps": [
         {"do": "cluster", "slot": "desk", "cluster": "office_desk", "fixed": true},
         {"do": "wall", "slot": "desk2", "assets": ["furn_desk"], "corner": 0.4, "p": 1.0, "if": {"minArea": 12}, "top": {"from": ["furn_papers", "furn_books", "furn_radio"], "n": 1}},

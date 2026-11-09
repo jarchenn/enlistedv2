@@ -1449,6 +1449,7 @@ GX2_MATS = {
     "felt_hat": ([0.1, 0.09, 0.08], 0.95, "textile", 0),
     "scarf": ([0.32, 0.08, 0.06], 0.95, "textile", 2),
     "umbrella": ([0.04, 0.04, 0.05], 0.7, "textile", 0),
+    "toile": ([0.62, 0.58, 0.48], 0.95, "textile", 2),
 }
 MATS.update(GX2_MATS)
 EMISSIVE["opal_glass"] = [2.4, 1.85, 1.2]
@@ -1897,6 +1898,77 @@ def framed_painting(root, id, name, W, H, mount, scene, frame="gilt"):
     return gx2_write(a, root, [W, 0.05], fragments=["frame"], keep=[])
 
 
+# GX2 centre-of-room groupings (big rooms: a seating group on a large rug, a bed against a folding screen)
+def settee(root):
+    a = A("furn_settee", "Settee", "Three-seat settee: cherry show-wood frame on turned legs, three buttoned seat cushions, a high padded back "
+          "and scrolled arms in green check.", "wood", 18, 40, front=0.55)
+    W, D = 1.9, 0.82
+    for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1), (0, 1)]):
+        turned_leg(a, sx * (W / 2 - 0.05), sz * (D / 2 - 0.06), 0.3, 0.05, "cherry", "frame", block=0.06)
+    a.r([0, 0.32, 0.02], [W - 0.04, 0.07, D - 0.08], "cherry", "frame", 0.01)                     # seat rail
+    a.arch([0, 0.265, D / 2 - 0.035], [W - 0.3, 0.05, 0.025], "cherry", "frame", th=0.02, fill=True)   # carved apron
+    cw = (W - 0.2) / 3
+    for i in range(3):   # three seat cushions, slightly domed
+        x = -cw + i * cw
+        a.r([x, 0.42, 0.05], [cw - 0.012, 0.13, D - 0.2], "upholstery", f"seat{i}", 0.045)
+        a.r([x, 0.49, 0.06], [cw - 0.1, 0.02, D - 0.32], "upholstery", f"seat{i}", 0.01)
+    a.r([0, 0.76, -D / 2 + 0.09], [W - 0.18, 0.6, 0.13], "upholstery", "back", 0.05, rot=[-9, 0, 0])
+    for i in range(3):   # buttons on the back
+        for y in (0.7, 0.88):
+            a.cyl([-cw + i * cw, y, -D / 2 + 0.165 - (y - 0.7) * 0.15], 0.03, 0.02, "oak_dark", "back", seg=8, rot=[81, 0, 0])
+    a.r([0, 1.08, -D / 2 + 0.05], [W - 0.1, 0.05, 0.07], "cherry", "back", 0.016, rot=[-9, 0, 0])   # crest rail
+    a.arch([0, 1.12, -D / 2 + 0.045], [0.4, 0.07, 0.05], "cherry", "back", th=0.2, rot=[-9, 0, 0])
+    for i, sx in enumerate((-1, 1)):
+        a.r([sx * (W / 2 - 0.06), 0.55, 0.0], [0.11, 0.2, D - 0.12], "upholstery", f"arm{i}", 0.04)
+        a.r([sx * (W / 2 - 0.06), 0.665, 0.0], [0.09, 0.04, D - 0.1], "cherry", f"arm{i}", 0.015)
+        a.cyl([sx * (W / 2 - 0.06), 0.64, D / 2 - 0.05], 0.1, 0.13, "cherry", f"arm{i}", seg=14, rot=[0, 0, 90])   # scroll
+    a.col([0, 0.3, 0.02], [W, 0.6, D - 0.04])
+    a.col([0, 0.82, -D / 2 + 0.09], [W, 0.6, 0.16])
+    return gx2_write(a, root, [W, D], fragments=["back", "seat0", "seat2", "arm0", "arm1"], keep=["frame", "seat1"])
+
+
+def low_table(root):
+    a = A("furn_table_low", "Low table", "Oak low table with a moulded top, a shallow apron, turned legs and a slatted undershelf.", "wood", 12, 30)
+    W, D, H = 1.1, 0.6, 0.46
+    a.r([0, H - 0.015, 0], [W, 0.03, D], "oak", "top", 0.008)
+    a.r([0, H - 0.034, 0], [W - 0.03, 0.009, D - 0.03], "oak", "top", 0.003)
+    for sz in (-1, 1):
+        a.r([0, H - 0.07, sz * (D / 2 - 0.05)], [W - 0.12, 0.07, 0.02], "oak", "apron", 0.004)
+    for sx in (-1, 1):
+        a.r([sx * (W / 2 - 0.05), H - 0.07, 0], [0.02, 0.07, D - 0.12], "oak", "apron", 0.004)
+    for i, (sx, sz) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
+        turned_leg(a, sx * (W / 2 - 0.05), sz * (D / 2 - 0.05), H - 0.035, 0.045, "oak", f"leg{i}", block=0.06)
+    for i in range(5):
+        a.r([0, 0.12, -D / 2 + 0.1 + i * (D - 0.2) / 4], [W - 0.14, 0.014, 0.07], "oak", "shelf", 0.003)
+    a.col([0, H / 2, 0], [W, H, D])
+    return gx2_write(a, root, [W, D], fragments=["top", "leg0", "shelf"], keep=["leg2", "leg3"], surfaces=[[-W / 2 + 0.05, -D / 2 + 0.05, W / 2 - 0.05, D / 2 - 0.05, H]])
+
+
+def folding_screen(root):
+    a = A("furn_screen_folding", "Folding screen", "Three-leaf folding screen: walnut frames with a carved top rail, panels of faded toile "
+          "stretched in them, brass hinges; standing in a shallow zigzag.", "wood", 10, 25, front=0.3)
+    P, H, t = 0.56, 1.78, 0.03
+    for i, (x, yaw) in enumerate(((-0.53, -24), (0, 0), (0.53, 24))):
+        g = f"leaf{i}"
+        z = 0.11 if i != 1 else 0.0
+        R = [0, yaw, 0]
+        q = quat_mat(R)
+        loc = lambda dx, dy, dz: [x + q[0][0] * dx + q[0][2] * dz, dy, z + q[2][0] * dx + q[2][2] * dz]
+        for sx in (-1, 1):
+            a.r(loc(sx * (P / 2 - 0.02), H / 2 + 0.03, 0), [0.04, H, t], "walnut", g, 0.008, rot=R)          # stiles
+            a.cyl(loc(sx * (P / 2 - 0.02), 0.025, 0), 0.04, 0.05, "walnut", g, top=0.7, seg=10)            # feet
+        a.r(loc(0, 0.16, 0), [P - 0.06, 0.05, t - 0.004], "walnut", g, 0.006, rot=R)                         # bottom rail
+        a.r(loc(0, H - 0.03, 0), [P - 0.06, 0.06, t - 0.004], "walnut", g, 0.008, rot=R)                     # top rail
+        a.arch(loc(0, H + 0.0, 0), [P - 0.14, 0.09, t - 0.008], "walnut", g, th=0.03, rot=R)                 # carved crest
+        a.r(loc(0, (0.185 + H - 0.06) / 2, 0), [P - 0.07, H - 0.25, 0.012], "toile", g, 0.002, rot=R)     # stretched panel
+        a.r(loc(0, 1.0, 0), [P - 0.06, 0.035, t - 0.006], "walnut", g, 0.006, rot=R)                         # mid rail
+    for x in (-0.27, 0.27):   # hinges where the leaves meet
+        for y in (0.4, 1.0, 1.6):
+            a.cyl([x, y, 0.035], 0.022, 0.07, "brass", "leaf1", seg=8)
+    a.col([0, H / 2, 0.06], [1.62, H, 0.32])
+    return gx2_write(a, root, [1.62, 0.36], fragments=["leaf0", "leaf2"], keep=["leaf1"])
+
+
 def main():
     root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parent.parent)
     outs = [
@@ -1924,6 +1996,7 @@ def main():
         hall_pendant(root), coat_stand(root), coat_hooks(root), suitcases(root), curtains_half(root), pan_rail(root),
         debris_glass(root), debris_plaster(root),
         rug(root, "furn_rug_runner", "Hall runner", 0.85, 3.2, 1, [0.32, 0.11, 0.07]),
+        rug(root, "furn_rug_large", "Rug (large)", 4.0, 3.0, 0, [0.26, 0.13, 0.09]), settee(root), low_table(root), folding_screen(root),
         framed_painting(root, "furn_frame_landscape", "Painting (landscape)", 0.9, 0.62, 1.27, "field"),
         framed_painting(root, "furn_frame_seascape", "Painting (seascape)", 0.7, 0.5, 1.33, "sea"),
         framed_painting(root, "furn_frame_dusk", "Painting (evening)", 0.5, 0.75, 1.2, "dusk", "walnut"),

@@ -261,6 +261,9 @@
  "furn_rug_kilim": {
   "effect": "none"
  },
+ "furn_rug_large": {
+  "effect": "none"
+ },
  "furn_rug_medallion": {
   "effect": "none"
  },
@@ -278,6 +281,12 @@
  },
  "furn_sconce_candle": {
   "effect": "none"
+ },
+ "furn_screen_folding": {
+  "effect": "carve"
+ },
+ "furn_settee": {
+  "effect": "carve"
  },
  "furn_shelf": {
   "effect": "carve"
@@ -301,6 +310,9 @@
   "effect": "carve"
  },
  "furn_table_dining": {
+  "effect": "carve"
+ },
+ "furn_table_low": {
   "effect": "carve"
  },
  "furn_table_small": {

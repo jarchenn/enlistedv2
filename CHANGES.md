@@ -174,6 +174,11 @@ Suites (from frozen copies of this build):
   - cellar: floor below -0.8 m.
 - **Oversized rooms** (more than 8 m a side; halls, barns, naves, taverns and classrooms excepted) get one cluster
   grouping per 4-5 m zone.
+- **Open middle floor:** rooms at least 6 m across get a free-standing group in each 5 m cell down the middle,
+  2.3 m off the walls, with the group type cycling per cell.
+  - The groups: a seating group on a 4 x 3 m rug, a dining or work table with 4-6 chairs, or, in bedrooms, a bed
+    against a folding screen or a pair of armoires.
+  - New pieces: `furn_settee`, `furn_table_low`, `furn_screen_folding` and `furn_rug_large`.
 - **Hallways** get:
   - a runner rug tiled down the middle;
   - side tables with lamps;

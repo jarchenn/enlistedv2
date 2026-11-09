@@ -333,6 +333,15 @@ seed and the slot names, so every client of a match dresses a building the same 
   chest, armchair + side table + lamp + rug, sideboard + gramophone + chair + painting, range + wood + pan rail ...
 - **Oversized rooms** (> 8 m on a side, except halls, barns, naves, taverns, classrooms): one cluster grouping in
   each 4-5 m zone (2 across when both sides are long), so a 10 x 18 m chateau room reads as several furnished areas.
+- **Open middle floor** (rooms at least 6 m across, types with a `centerFloor` list): a free-standing group in each
+  5 m cell down the middle, kept 2.3 m off the walls, the type cycling through the list from a seeded start.
+  - The groups:
+    - `lounge`: a settee, 2 armchairs and a low table on a 4 x 3 m rug;
+    - `dining_big`: a dining table with 4-6 chairs;
+    - `work_table`: a work table with papers and 4 chairs;
+    - `screen_bed`: a bed headed against a folding screen;
+    - `armoire_bed`: a bed behind a back-to-back pair of armoires.
+  - In those rooms they replace `centerZones`, and they still go through the walkway and walkability checks.
 - **Hallways**: a runner rug tiled down the centre line, side tables with lamps every 6.5 m (alternate walls,
   a picture above), pictures every 3-4 m on both long walls (staggered, slid off doors and windows), a coat stand
   or hooks beside the door to the outside. A long narrow room (<= 3 m wide, >= 3.5x as long) is a hall now (the
