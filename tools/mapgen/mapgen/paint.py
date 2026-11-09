@@ -42,8 +42,9 @@ class GroundPaint:
         else:
             c[k + 2], c[k + 3], c[k], c[k + 1] = tt, tw, t, q
 
-    def poly(self, kind, poly, weight=1.0, edge=1.5, ragged=0.0, seed=0):
-        """Fill a polygon with `kind`, fading in over `edge` m inside its outline; `ragged` (m) wobbles the edge."""
+    def poly(self, kind, poly, weight=1.0, edge=1.5, ragged=0.0, seed=0, mask=None):
+        """Fill a polygon with `kind`, fading in over `edge` m inside its outline; `ragged` (m) wobbles the edge;
+        mask(x, z) -> False leaves a texel unpainted."""
         t = TYPES.index(kind)
         x0, z0, x1, z1 = poly_bounds(poly)
         n = len(poly)
@@ -51,7 +52,7 @@ class GroundPaint:
             z = (j + 0.5) * TEXEL
             for i in range(int(math.floor(x0 / TEXEL)), int(math.ceil(x1 / TEXEL)) + 1):
                 x = (i + 0.5) * TEXEL
-                if not in_poly((x, z), poly):
+                if not in_poly((x, z), poly) or (mask is not None and not mask(x, z)):
                     continue
                 w = weight
                 if edge > 0 or ragged > 0:
@@ -60,7 +61,7 @@ class GroundPaint:
                     w *= smoothstep(0.0, max(edge, 1e-3), d)
                 self.dab(i, j, t, w)
 
-    def line(self, kind, pts, width, weight=1.0, edge=0.8):
+    def line(self, kind, pts, width, weight=1.0, edge=0.8, mask=None):
         t = TYPES.index(kind)
         x0, z0, x1, z1 = poly_bounds(pts)
         h = width * 0.5
@@ -69,7 +70,7 @@ class GroundPaint:
             for i in range(int(math.floor((x0 - h) / TEXEL)), int(math.ceil((x1 + h) / TEXEL)) + 1):
                 x = (i + 0.5) * TEXEL
                 d = polyline_dist((x, z), pts)[0]
-                if d < h:
+                if d < h and (mask is None or mask(x, z)):
                     self.dab(i, j, t, weight * smoothstep(0.0, max(edge, 1e-3), h - d))
 
     def to_json(self):

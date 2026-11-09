@@ -17,7 +17,7 @@ import os
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, stamp_valley, stamp_flatten_poly, hedgerow,
                     sunken_lane, cut_gaps, slots_from_structures, catmull_rom, write_map, write_template, write_summary,
                     asset_usage, rect, rng, point_at, polyline_length, polyline_dist, offset_polyline, in_poly, poly_area,
-                    asset_yaw_facing, asset_yaw_along, look_yaw, local_to_world, fbm, circle_poly, dist, resample)
+                    asset_yaw_facing, asset_yaw_along, look_yaw, local_to_world, fbm, circle_poly, dist, resample, seg_dist)
 
 TID, NAME, VERSION, SEED = "chateau_town", "Chateau town", 1, 1944
 W, D, MARGIN = 350, 400, 100
@@ -125,11 +125,11 @@ def gaps_where(line, pred, step=2.0):
     return out
 
 
-def ring_fields(R, n=16):
+def ring_fields(R, n=20):
     """The green ring as bocage fields: sectors between jittered radial hedges from the town edge to the border, the
     wide ones (corners) split again by a cross hedge. Returns (field polygons, hedge lines)."""
     c = (0.0, 8.0)
-    inner = lambda a: (c[0] + 128.0 * 1.06 * math.cos(a), c[1] + 150.0 * 1.06 * math.sin(a))
+    inner = lambda a: (c[0] + 128.0 * 0.97 * math.cos(a), c[1] + 150.0 * 0.97 * math.sin(a))
 
     def outer(a):
         dx, dz = math.cos(a), math.sin(a)
@@ -149,9 +149,10 @@ def ring_fields(R, n=16):
         if math.hypot(q[0] - p[0], q[1] - p[1]) > 12:   # the radial hedge, bent a little at its middle
             m = ((p[0] + q[0]) / 2 + R.uniform(-4, 4), (p[1] + q[1]) / 2 + R.uniform(-4, 4))
             lines.append([p, m, q])
-        lines.append(ins)                               # the hedge along the town edge
+        lines.append(ins)                               # the hedge along the town edge (refused where houses stand)
+        lines.append(outs)                              # and along the border: every field is enclosed
         band = math.hypot(outs[4][0] - ins[4][0], outs[4][1] - ins[4][1])
-        if band > 80:
+        if band > 75:
             f = R.uniform(0.42, 0.58)
             mids = [(i_[0] + (o[0] - i_[0]) * f, i_[1] + (o[1] - i_[1]) * f) for i_, o in zip(ins, outs)]
             lines.append(mids)
@@ -360,12 +361,14 @@ def populate(ctx, grid, pads=None):
         r = R.random()
         if id(f) in farm_ids:
             kinds[id(f)] = "farm"
-        elif r < 0.4:
+        elif r < 0.32:
             kinds[id(f)] = "orchard"
-        elif r < 0.6:
+        elif r < 0.52:
             kinds[id(f)] = "meadow"
-        elif r < 0.82:
+        elif r < 0.70:
             kinds[id(f)] = "wheat"
+        elif r < 0.85:
+            kinds[id(f)] = "stubble"
         else:
             kinds[id(f)] = "ploughed"
     farms = []
@@ -411,8 +414,8 @@ def populate(ctx, grid, pads=None):
             nx_, nz_ = -nx_, -nz_
         c = (px + nx_ * R.uniform(-14, 18), pz + nz_ * R.uniform(-14, 18))
         r = R.random()
-        (hamlets if r < 0.55 else woods if r < 0.8 else plots).append((c, (nx_, nz_)))
-        s += R.uniform(62, 95)
+        (hamlets if r < 0.45 else woods if r < 0.68 else plots).append((c, (nx_, nz_)))
+        s += R.uniform(48, 72)
     ndecor = 0
     for c, nrm in hamlets:
         n = R.randint(3, 6)
@@ -437,8 +440,9 @@ def populate(ctx, grid, pads=None):
         paint.poly("leaf_litter", circle_poly(c[0], c[1], 20.0, 16), weight=0.7, edge=6.0, ragged=4.0, seed=int(c[1]))
     for c, nrm in plots:
         tx, tz = -nrm[1], nrm[0]
-        corners = [(c[0] + tx * u + nrm[0] * v, c[1] + tz * u + nrm[1] * v) for u, v in ((-30, -20), (30, -20), (30, 20), (-30, 20))]
-        paint.poly(R.choice(["ploughed", "dry_grass"]), corners, weight=0.9, edge=2.0, ragged=2.0, seed=int(c[0] + c[1]))
+        corners = [(c[0] + tx * u + nrm[0] * v + R.uniform(-5, 5), c[1] + tz * u + nrm[1] * v + R.uniform(-5, 5))   # irregular, not a rectangle
+                   for u, v in ((-32, -18), (0, -22), (31, -17), (34, 16), (-2, 23), (-30, 19))]
+        paint.poly(R.choice(["ploughed", "dry_grass"]), corners, weight=0.9, edge=5.0, ragged=2.5, seed=int(c[0] + c[1]))
         for u in range(-28, 29, 8):                      # a hedge along the field's town side
             decor("hedgerow_bocage", c[0] + tx * u - nrm[0] * 22, c[1] + tz * u - nrm[1] * 22, asset_yaw_along(tx, tz))
     rep["decorHouses"] = ndecor
@@ -513,6 +517,30 @@ def populate(ctx, grid, pads=None):
             b.place("tree_apple", xx, zz, R.uniform(0, 360), tags={"garden"}, cls="veg")
         b.place("furn_bench", sx * 3.0, 38.5, 180.0, tags={"garden"})
     b.place("drs_well", 0.0, 44.5, 0.0, tags={"garden"})
+    # kitchen gardens on any town lawn still open: a dug plot turned to the nearest lane, fruit trees and a fence
+    gardens = 0
+    pts = [(x, z) for x in range(-128, 129, 7) for z in range(-148, 160, 7) if town(x, z, 0.97)]
+    R.shuffle(pts)
+    for x, z in pts:
+        x, z = x + R.uniform(-1.5, 1.5), z + R.uniform(-1.5, 1.5)
+        if b.in_keepout(x, z) or in_yard(x, z) or b.near(x, z, 6.5, classes={"solid", "veg"}):
+            continue
+        (d, s, _), ln = min(((polyline_dist((x, z), l), l) for l in lanes), key=lambda r: r[0][0])
+        yaw = asset_yaw_along(*point_at(ln, s)[1])
+        Lg = lambda lx, lz: local_to_world((x, z), yaw, lx, lz)
+        plot = [Lg(-3.5, -2.6), Lg(3.5, -2.6), Lg(3.5, 2.6), Lg(-3.5, 2.6)]
+        if any(b.in_keepout(*p) for p in plot):
+            continue
+        paint.poly(R.choice(["ploughed", "ploughed", "dirt"]), plot, weight=0.95, edge=0.8)
+        for lx in (-3.0, 0.0, 3.0):
+            b.place("drs_picket_fence", *Lg(lx, -3.4), yaw, tags={"kitchen_garden"}, ok_with={"flat", "none", "veg"})
+        for lx in (-2.5, 2.5):
+            if R.random() < 0.7:
+                b.place(R.choice(["tree_apple", "tree_apple", "shrub_hazel"]), *Lg(lx, 4.6), R.uniform(0, 360), tags={"kitchen_garden"}, cls="veg")
+        if R.random() < 0.4:
+            b.place(R.choice(["furn_bucket", "furn_sacks", "drs_woodpile", "furn_barrel"]), *Lg(4.6, 0.0), yaw, tags={"kitchen_garden"})
+        gardens += 1
+    rep["kitchenGardens"] = gardens
     # churchyard: rows of graves before and behind the church, the cross by the path, yews (oaks) by the walls
     graves = ["drs_gravestone_round", "drs_gravestone_cross", "drs_tomb_chest", "drs_gravestone_round"]
     for zz, xs in ((31.0, range(-121, -68, 2)), (35.5, range(-121, -68, 2)), (60.0, range(-120, -69, 2)), (64.5, range(-120, -69, 2)),
@@ -574,43 +602,58 @@ def populate(ctx, grid, pads=None):
     roads = [g["S1"], g["S2"], g["S3"], g["S4"]]
     nhedge = 0
     for ln in lines:
-        gaps = cut_gaps(ln, roads, 6.0) + gaps_where(ln, lambda x, z: town(x, z, 1.0) or polyline_dist((x, z), stream)[0] < 9
+        gaps = cut_gaps(ln, roads, 6.0) + gaps_where(ln, lambda x, z: town(x, z, 0.93) or polyline_dist((x, z), stream)[0] < 9
                                                      or any(e is not None and math.hypot(x - e["pos"][0], z - e["pos"][2]) < 12 for e in bridges.values()))
-        pl, tr = hedgerow(b, ln, R, group=grp, gaps=gaps, gate_every=(45.0, 90.0), tree_every=(2.6, 4.4), tags={"green"})
+        pl, tr = hedgerow(b, ln, R, group=grp, gaps=gaps, gate_every=(45.0, 90.0),
+                          trees=(("tree_ash", 3.0), ("tree_oak", 1.0), ("tree_poplar", 0.6)), tags={"green"})   # ash: a third of an oak's triangles
         nhedge += len(pl)
+        for e in pl:   # brambles, hazel and blackthorn at the foot of the bank, both sides, so no bare bank shows
+            if R.random() < 0.3:
+                side = R.choice((-1, 1))
+                p = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], R.uniform(-4.0, 4.0), side * R.uniform(2.0, 2.6))
+                b.place(R.choice(["shrub_bramble", "shrub_hazel", "nat_blackthorn_low", "nat_bramble_thicket"]), *p, R.uniform(0, 360),
+                        tags={"hedge_foot"}, cls="veg")
+        if pl:   # the hedge's shade and leaf litter: the field pattern still reads where the hedges are culled
+            paint.line("leaf_litter", ln, 5.0, weight=0.55, edge=2.0, mask=lambda x, z: not town(x, z, 0.95))
     rep["hedgePieces"] = nhedge
+    for k_, ln in enumerate(l for l in lines if len(l) == 3):   # farm tracks along every third radial hedge
+        if k_ % 3 == 0:
+            paint.line("dirt", offset_polyline(ln, 4.0), 2.8, weight=0.75, edge=1.0,
+                       mask=lambda x, z: not town(x, z, 0.95) and polyline_dist((x, z), stream)[0] > 6)
     norch = 0
+    FLATKW = dict(cls="flat", ok_with={"flat", "none", "veg", "wire"})
     for f, c in green:
         k = kinds[id(f)]
-        inner = [(c[0] + (p[0] - c[0]) * 0.86, c[1] + (p[1] - c[1]) * 0.86) for p in f]
-        if k == "orchard":
+        field = lambda x, z, f=f: in_poly((x, z), f) and not town(x, z, 0.95)
+        bb = (min(p[0] for p in f), min(p[1] for p in f), max(p[0] for p in f), max(p[1] for p in f))
+        # the crop or grass fills the whole enclosure, fading in from the hedge with a ragged edge
+        tint = {"orchard": ("dry_grass", 0.3), "meadow": ("dry_grass", 0.18), "wheat": ("dry_grass", 0.85), "stubble": ("dry_grass", 0.7),
+                "ploughed": ("ploughed", 1.0), "farm": ("dry_grass", 0.25)}[k]
+        paint.poly(tint[0], f, weight=tint[1], edge=6.0, ragged=2.5, seed=int(c[0] * 7 + c[1]), mask=lambda x, z: not town(x, z, 0.95))
+        if k == "orchard":   # rows, kept 4 m off the hedges
             ang = math.radians(R.uniform(-15, 15))
             ca, sa = math.cos(ang), math.sin(ang)
-            for u in range(-60, 61, 8):
-                for v in range(-60, 61, 7):
-                    if R.random() < 0.12:
+            for u in range(-70, 71, 8):
+                for v in range(-70, 71, 7):
+                    if R.random() < 0.1:
                         continue
-                    x = c[0] + u * ca - v * sa + R.uniform(-0.8, 0.8)
-                    z = c[1] + u * sa + v * ca + R.uniform(-0.8, 0.8)
-                    if in_poly((x, z), inner) and not b.in_keepout(x, z) and not town(x, z):
+                    x = c[0] + u * ca - v * sa + R.uniform(-0.6, 0.6)
+                    z = c[1] + u * sa + v * ca + R.uniform(-0.6, 0.6)
+                    if field(x, z) and not b.in_keepout(x, z) and min(seg_dist((x, z), f[i], f[(i + 1) % len(f)])[0] for i in range(len(f))) > 4.0:
                         norch += b.place("tree_apple", x, z, R.uniform(0, 360), tags={"orchard"}) is not None
-            b.scatter([("nat_meadow_mixed", 2), ("nat_flowers_daisy", 1), ("nat_clover_tufts", 1)], inner, 1 / 400.0, R, tags={"orchard"},
-                      cls="flat", ok_with={"flat", "none", "veg", "wire"})
+            b.scatter([("nat_meadow_mixed", 2), ("nat_flowers_daisy", 1), ("nat_clover_tufts", 1)], field, 1 / 400.0, R, bounds=bb,
+                      tags={"orchard"}, **FLATKW)
         elif k == "meadow":
             b.scatter([("nat_meadow_mixed", 3), ("nat_flowers_meadow", 2), ("nat_flowers_buttercup", 1), ("nat_flowers_poppy", 1),
-                       ("nat_flowers_cowparsley", 1), ("nat_tallgrass_patch", 2)], inner, 1 / 160.0, R, tags={"meadow"}, cls="flat",
-                      ok_with={"flat", "none", "veg", "wire"})
-            b.scatter([("tree_oak", 2), ("tree_ash", 1), ("nat_hawthorn_bush", 2), ("nat_blackthorn_low", 1)], inner, 1 / 900.0, R,
-                      tags={"meadow"}, cls="veg")
-        elif k == "wheat":   # the stubble-gold ground under the wheat patches reads as a field from the air
-            paint.poly("dry_grass", inner, weight=0.9, edge=2.5, ragged=1.5, seed=int(c[0]))
-            b.scatter([("nat_wheat_field", 6), ("nat_wheat_trampled", 1)], inner, 1 / 70.0, R, tags={"wheat"}, min_dist=7.5, cls="flat",
-                      ok_with={"flat", "none", "veg", "wire"})
-        elif k == "ploughed":
-            paint.poly("ploughed", inner, weight=1.0, edge=2.0, ragged=1.5, seed=int(c[1]))
-        else:
-            b.scatter([("nat_drygrass_tufts", 1), ("nat_green_tufts", 1)], inner, 1 / 500.0, R, tags={"farm"}, cls="flat",
-                      ok_with={"flat", "none", "veg", "wire"})
+                       ("nat_flowers_cowparsley", 1), ("nat_tallgrass_patch", 2)], field, 1 / 160.0, R, bounds=bb, tags={"meadow"}, **FLATKW)
+            b.scatter([("tree_oak", 2), ("tree_ash", 1), ("nat_hawthorn_bush", 2)], field, 1 / 1200.0, R, bounds=bb, tags={"meadow"}, cls="veg")
+        elif k == "wheat":
+            b.scatter([("nat_wheat_field", 6), ("nat_wheat_trampled", 1)], field, 1 / 62.0, R, bounds=bb, tags={"wheat"}, min_dist=7.0, **FLATKW)
+        elif k == "stubble":   # cut wheat: stubble patches and the hay stacked where it was baled
+            b.scatter([("nat_wheat_stubble", 1)], field, 1 / 80.0, R, bounds=bb, tags={"stubble"}, min_dist=8.0, **FLATKW)
+            b.scatter([("drs_hay_bale_stack", 1), ("furn_hay_bales", 2)], field, 1 / 260.0, R, bounds=bb, tags={"stubble"}, min_dist=9.0)
+        elif k == "farm":
+            b.scatter([("nat_drygrass_tufts", 1), ("nat_green_tufts", 1)], field, 1 / 500.0, R, bounds=bb, tags={"farm"}, **FLATKW)
     for c, gp in farms:   # the farmyard: trodden dirt and mud, a low wall with a field gate, hay, carts, firewood, a well
         paint.poly("dirt", circle_poly(c[0], c[1], 17.0, 18), weight=0.9, edge=4.0, ragged=3.0, seed=int(c[0]))
         paint.poly("mud", circle_poly(c[0] + 4, c[1] - 3, 5.0, 10), weight=0.6, edge=2.0, ragged=1.5, seed=int(c[1]))
