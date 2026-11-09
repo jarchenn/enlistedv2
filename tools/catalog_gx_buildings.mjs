@@ -64,7 +64,7 @@ function windowBox(A, F, a, w, sill) {
   const R = rnd(`${A.meta.id}/wb/${a}/${sill}`);
   for (let x = a - w / 2 + 0.1; x < a + w / 2 - 0.05; x += 0.13) {
     fpart(A, "cyl", F, x, sill - 0.07, 0.19 + (R() - 0.5) * 0.06, [0.15, 0.12, 0.12], "leaf", L1);
-    if (R() < 0.75) fpart(A, "cyl", F, x + (R() - 0.5) * 0.05, sill + 0.0 + R() * 0.05, 0.19 + (R() - 0.5) * 0.08, [0.07, 0.06, 0.07], "geranium", L1);
+    if (R() < 0.75) fpart(A, "cyl", F, x + (R() - 0.5) * 0.04, sill - 0.035 + R() * 0.025, 0.19 + (R() - 0.5) * 0.06, [0.07, 0.06, 0.07], "geranium", L1);
   }
 }
 // triangular pediment in the facade plane (proud e0..e1)
@@ -234,6 +234,25 @@ function leanTo(A, sx, X, z0, z1, yWall, { depth = 2.4, yFront = 2.3, m = "tile"
   A.box([Math.min(xi + sx * 0.12, xi + sx * 1.0), 0, z0 + 0.35], [Math.max(xi + sx * 0.12, xi + sx * 1.0), 1.0, z1 - 0.35], "bark", { v: 0 });
 }
 
+// A blind side (party) wall that must still read as built brick: polychrome header courses every storey (thin skins,
+// cut per bay), a stone plinth band, a projecting chimney breast with stone offsets and a weathered top, optionally the
+// ghost roofline of a pulled-down neighbour (a dark brick gable outline with a lime-plaster scar under it)
+function partyWall(A, side, X, Z, { EAVE, yAt, L }, { breast = -2.0, ghost = false } = {}) {
+  const F = face(side, X, Z), ps = panelsOn(A, F);
+  stringCourse(A, F, -Z, Z, GF + 0.5, { h: 0.2, proj: 0.07 });
+  for (let f = 0; f < L; f++) for (const dy of [0.95, 2.05]) if (yAt(f) + dy < EAVE - 0.3)
+    skin(A, F, -Z + 0.62, Z - 0.62, yAt(f) + dy, yAt(f) + dy + 0.08, -0.01, 0.006, "brick_dark", L1, ps);
+  fbox(A, F, breast - 0.65, breast + 0.65, GF - 0.02, EAVE + 0.5, -0.01, 0.34, "brick", {});
+  for (let f = 1; f < L; f++) fbox(A, F, breast - 0.71, breast + 0.71, yAt(f) - 0.3, yAt(f) - 0.16, -0.01, 0.4, "stone_dressed", { k: 0, bv: 0.012 });
+  fpart(A, "wedge", F, breast, EAVE + 0.65, 0.18, [1.3, 0.3, 0.36], "stone_dressed", { k: 0 });
+  if (!ghost) return;
+  const yb = yAt(Math.max(1, L - 2)), apex = yb + 3.4, half = Math.min(Z - 1.0, 4.6), Lr = Math.hypot(half, apex - yb);
+  for (const [za, ya, zb, yb2] of [[-half, yb, 0, apex], [0, apex, half, yb]]) {   // in the wall plane (a = z): turned about x, as in sign()
+    const th = (Math.atan2(yb2 - ya, zb - za) * 180) / Math.PI;
+    A.obox([F.d + F.out * 0.006, (ya + yb2) / 2, (za + zb) / 2], [0.012, 0.16, Lr], [-th, 0, 0], "brick_dark", L1);
+  }
+  skin(A, F, -1.6, 1.6, yb + 0.3, yb + 2.2, -0.01, 0.004, "render", L1, ps);   // plaster scar of the lost rooms
+}
 // dormers are roof dressing: visual only, so their cheeks never hang into an attic at head height
 function dormerV(A, o) { const n = A.parts.length; dormer(A, o); for (const p of A.parts.slice(n)) p.k = 0; }
 // glazing on solid masonry (a cross gable over the roof, a solid tower) gets a dark backing, or it reads as a pale panel
@@ -409,13 +428,14 @@ export function brickTownhouse() {
     X, Z, T: 0.45, h: 3.2, n: 2, corridor: 2.2, shot: "gx_btown",
     style: () => ({ m: "brick", surround: true, key: true, shutters: false }),
     wd: (f) => (f === 0 ? { w: 1.2, h: 2.1, sill: 0.4 } : { w: 1.1, h: 1.75, sill: 0.7 }),
-    win: (f) => (f === 0 ? { front: [-3.0, 3.0], rear: [-3.0, 3.0] } : { front: [-3.0, 0, 3.0], rear: [-3.0, 0, 3.0] }),
+    win: (f) => (f === 0 ? { front: [-3.0, 3.0], rear: [-3.0, 3.0] } : { front: [-3.0, 0, 3.0], rear: [-3.0, 0, 3.0], east: [{ c: 3.6, w: 0.6, h: 0.9, sill: 1.0 }], west: [{ c: 3.6, w: 0.6, h: 0.9, sill: 1.0 }] }),
     parts: () => [], names: (f) => ["front_room", "bedroom"][f], doorW: 1.1,
     roof: { type: "hip", rise: 4.0, m: "tile_orange" },
   };
   c.dress = (A, k) => {
     const fr = face("front", X, Z), { EAVE } = k;
     masonry(A, k, { cor: true });
+    partyWall(A, "west", X, Z, k, { breast: -2.0 }); partyWall(A, "east", X, Z, k, { breast: -2.0, ghost: true });
     modillions(A, fr, -X + 0.2, X - 0.2, EAVE - 0.36, 0.55);
     doorCase(A, fr, 0, 1.1, GF + 2.25, { ped: "tri" });
     A.box([-1.0, -0.3, Z + 0.55], [1.0, 0.02, Z + 0.95], "stone_dressed", { bv: 0.02 });   // second step
@@ -638,7 +658,7 @@ export function merchantHouse() {
     style: (f) => (f === 0 ? { m: "stone_dressed", shutters: false, east: "brick", west: "brick" } : { m: "render_cream", shutters: false, east: "brick", west: "brick", panel: f < 3 ? undefined : false }),
     wd: (f) => (f === 0 ? { w: 1.4, h: 2.3, sill: 0.35 } : f === 1 ? { w: 1.15, h: 2.1, sill: 0.45 } : { w: 1.1, h: 1.7, sill: 0.7 }),
     win: (f) => (f === 3 ? {} : f === 0 ? { front: [-5.3, -2.6, 2.6, 5.3], rear: [-4.8, -2.4, 2.4, 4.8] }
-      : { front: [-5.3, -2.6, 0, 2.6, 5.3], rear: [-4.8, -2.4, 0, 2.4, 4.8] }),
+      : { front: [-5.3, -2.6, 0, 2.6, 5.3], rear: [-4.8, -2.4, 0, 2.4, 4.8], east: [{ c: 3.0, w: 0.7, h: 1.1, sill: 0.9 }], west: [{ c: 3.0, w: 0.7, h: 1.1, sill: 0.9 }] }),
     parts: (f) => (f === 0 ? [] : [0]), names: (f, r) => (f === 0 ? "shop" : f === 1 ? ["salon", "dining"][r] : `bedroom_${r + 1}`),
     doorW: 1.4, frontDouble: true,
     roof: { type: "gable", rise: 5.4, m: "slate", gable: "brick", ov: 0.35, gov: 0.02 },
@@ -646,10 +666,11 @@ export function merchantHouse() {
   c.dress = (A, k) => {
     const fr = face("front", X, Z), { EAVE, RIDGE, yAt } = k, pitch = (RIDGE - EAVE) / Z, surf = (z) => RIDGE + 0.14 - Math.abs(z) * pitch;
     const w0 = wins(c, 0).filter((w) => w.side === "front"), w1 = wins(c, 1).filter((w) => w.side === "front"), w2 = wins(c, 2).filter((w) => w.side === "front");
-    rustication(A, fr, -X, X, GF, yAt(1) - 0.36, [...w0.map((w) => ({ a0: w.c - w.w / 2 - 0.06, a1: w.c + w.w / 2 + 0.06, y0: -9, y1: w.top + 0.5 })), { a0: -0.95, a1: 0.95, y0: -9, y1: GF + 2.6 }]);
+    rustication(A, fr, -X + 0.58, X - 0.58, GF, yAt(1) - 0.36, [...w0.map((w) => ({ a0: w.c - w.w / 2 - 0.06, a1: w.c + w.w / 2 + 0.06, y0: -9, y1: w.top + 0.5 })), { a0: -0.95, a1: 0.95, y0: -9, y1: GF + 2.6 }]);
     for (const w of w0) archOpening(A, fr, { a0: w.c - w.w / 2, a1: w.c + w.w / 2, y1: w.top + 0.02, rise: 0.32, w: 0.2, proj: 0.06 });
     doorCase(A, fr, 0, 1.4, GF + 2.25, { ped: "none" });
-    quoins(A, X, Z, yAt(1) - 0.3, EAVE);
+    quoins(A, X, Z, GF - 0.02, EAVE);
+    partyWall(A, "west", X, Z, k, { breast: -2.6, ghost: true }); partyWall(A, "east", X, Z, k, { breast: -2.6 });
     for (const f of [1, 2]) for (const s of SIDES.slice(0, 2)) stringCourse(A, face(s, X, Z), -X - 0.06, X + 0.06, yAt(f) - 0.36, { h: 0.22, proj: 0.09 });
     for (const w of w1) {
       surround(A, fr, { a0: w.c - w.w / 2, a1: w.c + w.w / 2, y0: w.sill, y1: w.top, key: false });
@@ -666,7 +687,6 @@ export function merchantHouse() {
     gableWin(A, { x: 0, w: 3.6, zf: Z, y0: EAVE, rise: 2.8, back: 2.8 / pitch + 0.6, m: "render_cream", roof: "slate", timber: false });
     for (const sx of [-1, 1]) {   // scroll volutes beside the central gable
       fpart(A, "arch", fr, sx * 2.05, EAVE + 0.32, 0.12, [0.7, 0.62, 0.22], "stone_dressed", { th: 0.18, k: 0 });
-      fpart(A, "cone", fr, sx * 1.9, EAVE + 2.95, 0.1, [0.18, 0.45, 0.18], "stone_dressed", { ...L1, n: 8 });
     }
     for (const x of [-4.6, 4.6]) dormerV(A, { x, z: Z - 0.9, y: surf(Z - 0.9) - 0.05, w: 1.05, h: 1.25, depth: 1.7, s: 1, roof: "slate", m: "render_cream" });
     for (const x of [-3.5, 0, 3.5]) dormerV(A, { x, z: -(Z - 0.9), y: surf(Z - 0.9) - 0.05, w: 1.0, h: 1.15, depth: 1.6, s: -1, roof: "slate", m: "render_cream" });
@@ -904,13 +924,17 @@ function boardLines(A, F, a0, a1, y0, y1, holes = [], seed = "b") {
 function camo(A, F, a0, a1, y0, y1, n, seed, holes = []) {
   const R = rnd(A.meta.id + "/camo/" + seed), ps = panelsOn(A, F), M = ["camo_ochre", "camo_green", "camo_brown"];
   for (let i = 0; i < n; i++) {
-    const ac = a0 + R() * (a1 - a0), yc = y0 + R() * (y1 - y0), m = M[i % 3], rx = 0.7 + R() * 1.7, ry = 0.4 + R() * 0.8, e = 0.005 + 0.0007 * (i % 8);
-    const ph = R() * 6.28, sk = (R() - 0.5) * 0.8;
-    for (let y = yc - ry; y < yc + ry; ) {
-      const hs = 0.08 + R() * 0.04, v = (y + hs / 2 - yc) / ry, half = rx * Math.sqrt(Math.max(0, 1 - v * v)) * (0.8 + 0.35 * Math.sin(ph + v * 3.1));
-      const mid = ac + sk * v * rx + (R() - 0.5) * 0.08, b0 = Math.max(a0, mid - half), b1 = Math.min(a1, mid + half), c0 = Math.max(y0, y), c1 = Math.min(y1, y + hs);
-      if (b1 - b0 > 0.08 && c1 - c0 > 0.04) for (const [q0, q1, r0, r1] of cutRect(b0, b1, c0, c1, holes)) if (q1 - q0 > 0.04) skin(A, F, q0, q1, r0, r1, -0.01, e, m, {}, ps);
-      y += hs;
+    const ac = a0 + ((i + 0.2 + 0.6 * R()) / n) * (a1 - a0), yc = y0 + (0.25 + 0.5 * R()) * (y1 - y0), m = M[i % 3];
+    const rx = 1.1 + R() * 1.6, ry = Math.min(0.45 + R() * 0.7, (y1 - y0) * 0.55), ph = [R() * 6.28, R() * 6.28, R() * 6.28], sk = (R() - 0.5) * 0.6, e = 0.005 + 0.0006 * (i % 6);
+    // the outline: an ellipse whose half-width wobbles smoothly with height (two low harmonics), sheared a little
+    const halfAt = (v) => rx * Math.sqrt(Math.max(0, 1 - v * v)) * (0.86 + 0.12 * Math.sin(ph[0] + v * 2.3) + 0.06 * Math.sin(ph[1] + v * 5.1));
+    for (const [grow, mat, de] of [[1.0, m, e], [1.13, m + "_soft", e - 0.0015]]) {
+      const H = ry * grow;
+      for (let y = yc - H; y < yc + H - 1e-3; y += 0.04) {
+        const v = (y + 0.02 - yc) / H, half = halfAt(v) * grow + (grow > 1 ? 0.06 : 0), mid = ac + sk * v * rx + 0.05 * Math.sin(ph[2] + v * 3.7);
+        const b0 = Math.max(a0, mid - half), b1 = Math.min(a1, mid + half), c0 = Math.max(y0, y), c1 = Math.min(y1, y + 0.04);
+        if (b1 - b0 > 0.04 && c1 - c0 > 0.01) for (const [q0, q1, r0, r1] of cutRect(b0, b1, c0, c1, holes)) if (q1 - q0 > 0.03) skin(A, F, q0, q1, r0, r1, -0.01, de, mat, {}, ps);
+      }
     }
   }
 }
@@ -924,6 +948,29 @@ function tubeRail(A, x0, z0, x1, z1, y, h = 1.0) {
   A.obox([cx, y + 0.55, cz], [0.08, 1.1, L], [0, yaw, 0], "zinc", { v: 0 });
 }
 
+// bank profile: [u (fraction of the run out from the wall), v (fraction of the crest height)]; ~32 degrees on average
+const BANK = [[0, 1], [0.08, 0.99], [0.2, 0.93], [0.36, 0.76], [0.54, 0.5], [0.72, 0.25], [0.88, 0.08], [1, 0]];
+// Earth bank against a wall face (axis 0: wall along x at z = w; axis 2: along z at x = w; dir +-1 outward), a0..a1 in
+// 0.35 m facets, each a fan of prisms from the wall foot through the profile; run +-16 % and crest +-4 % by smooth noise
+// (none at an end that meets another bank: `fixed`), ends eased down over 1.6 m where `taper`
+function bank(A, axis, a0, a1, w, dir, h, run, seed, { taper = [false, false], fixed = [false, false], y0 = -0.3 } = {}) {
+  const R = rnd("bank" + seed), ph = [R() * 6.3, R() * 6.3, R() * 6.3, R() * 6.3], grass = ["grass_a", "grass_b", "grass_a", "grass_c"], smooth = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+  const n = Math.max(1, Math.round((a1 - a0) / 0.35));
+  for (let i = 0; i < n; i++) {
+    const b0 = a0 + ((a1 - a0) * i) / n, b1 = a0 + ((a1 - a0) * (i + 1)) / n, mid = (b0 + b1) / 2;
+    let f = 1, amp = 1;
+    if (taper[0]) f = Math.min(f, 0.15 + 0.85 * smooth((mid - a0) / 1.6));
+    if (taper[1]) f = Math.min(f, 0.15 + 0.85 * smooth((a1 - mid) / 1.6));
+    if (fixed[0]) amp = Math.min(amp, smooth((mid - a0) / 2.5));
+    if (fixed[1]) amp = Math.min(amp, smooth((a1 - mid) / 2.5));
+    const nr = 0.1 * Math.sin(mid * 0.61 + ph[0]) + 0.06 * Math.sin(mid * 1.37 + ph[1]), nh = 0.025 * Math.sin(mid * 0.83 + ph[2]) + 0.015 * Math.sin(mid * 2.1 + ph[3]);
+    const r = run * (0.45 + 0.55 * f) * (1 + amp * nr), hh = y0 + (h - y0) * f * (1 + amp * nh);
+    const pts = BANK.map(([u, v]) => [w + dir * u * r, y0 + v * (hh - y0)]), zone = Math.floor(mid / 2.3 + seed);
+    for (let k = 0; k + 1 < pts.length; k++)
+      A.prism(axis, b0, b1 + 0.015, [[w, y0], pts[k], pts[k + 1]], k < 2 ? (zone % 3 === 1 ? "earth_dark" : "earth_raw") : k < 3 ? "grass_c" : grass[(zone + k) % 4]);
+  }
+}
+
 export function stronghold() {
   const G = 0.4, CEIL = 3.4, ROOF = 5.0, XO = 20, ZF = 8, ZR = -12, XI = 18.6, ZFI = 6.4, ZRI = -10.8, CZ0 = -3.2, CZ1 = -1.6, CY = 7.8;
   const RW = [-3.7, CZ0], FW = [CZ1, -1.1], EYE = G + SLIT.eye, CF = ROOF + 0.04;
@@ -932,9 +979,10 @@ export function stronghold() {
     floors: 2, enterable: true, footprint: [60, 34], plinthDepth: 0.8, maxGrade: 0.6 });
   bunkerMaterials(S, ROOF); earthMaterials(S); dmat(S, "steel_dark");
   S.mat("concrete_board", [0.205, 0.198, 0.178], 0.94, "bunker", { grain: 50 });
-  S.mat("camo_ochre", [0.33, 0.27, 0.15], 0.93, "bunker", { grain: 50 });
-  S.mat("camo_green", [0.13, 0.15, 0.075], 0.93, "bunker", { grain: 50 });
-  S.mat("camo_brown", [0.17, 0.11, 0.065], 0.93, "bunker", { grain: 50 });
+  for (const [n, c] of [["camo_ochre", [0.31, 0.27, 0.18]], ["camo_green", [0.16, 0.17, 0.115]], ["camo_brown", [0.19, 0.145, 0.105]]]) {   // muted paint, and a half-tone toward the concrete for the soft edge
+    S.mat(n, c, 0.93, "bunker", { grain: 50 });
+    S.mat(n + "_soft", c.map((v, i) => (v + [0.27, 0.26, 0.235][i]) / 2), 0.93, "bunker", { grain: 50 });
+  }
   S.mat("crack", [0.05, 0.048, 0.044], 0.97, "plain");
   S.mat("lumi", [0.55, 0.58, 0.48], 0.6, "painted", { grain: 0 });   // luminous guide stripes
   const m = { stone: "concrete", plaster: "concrete_wash", pt: 0.02 };
@@ -1063,16 +1111,17 @@ export function stronghold() {
   // ---- earthworks: banks to the roof on the flanks and rear, a low glacis in front, grassed earth on the rear roof,
   // the sunken rear entrance between retaining walls, concrete steps down the east bank
   const H = ROOF + 0.4, RUN = 9.0;
-  earthBank(S, 0, -XO, -6.6, ZR, -1, H, RUN, 11, { taper: [false, false] });
-  earthBank(S, 0, -1.0, XO, ZR, -1, H, RUN, 12, { taper: [false, false] });
-  earthBank(S, 2, ZR, -1.5, -XO, -1, H, RUN, 13, { taper: [false, true] });
-  earthBank(S, 2, ZR, -3.76, XO, 1, H, RUN, 14, { taper: [false, false] });
-  earthBank(S, 2, -1.84, 1.2, XO, 1, H, RUN, 19, { taper: [false, true] });
+  bank(S, 0, -XO, -6.6, ZR, -1, H, RUN, 11, { fixed: [true, true] });
+  bank(S, 0, -1.0, XO, ZR, -1, H, RUN, 12, { fixed: [true, true] });
+  bank(S, 2, ZR, -1.5, -XO, -1, H, RUN, 13, { fixed: [true, false], taper: [false, true] });
+  bank(S, 2, ZR, -3.76, XO, 1, H, RUN, 14, { fixed: [true, true] });
+  bank(S, 2, -1.84, 1.2, XO, 1, H, RUN, 19, { fixed: [true, false], taper: [false, true] });
   for (const sx of [-1, 1]) for (let deg = 5; deg < 90; deg += 10) {   // rear corners: radial wedges with the banks' profile
-    const t = (deg * Math.PI) / 180, d = [sx * Math.cos(t), -Math.sin(t)], yaw = (Math.atan2(d[0], d[1]) * 180) / Math.PI, y0 = -0.3, yS = y0 + (H - y0) * 0.8;
-    const at = (r) => [sx * XO + d[0] * r, ZR + d[1] * r], r1 = RUN * 0.35, c1 = at(r1 / 2), c2 = at((r1 + RUN) / 2);
-    S.wedge([c1[0], (y0 + H) / 2, c1[1]], [1.6, H - y0, r1], "earth_raw", { r: [0, yaw, 0], top: (yS - y0) / (H - y0) });
-    S.wedge([c2[0], (y0 + yS) / 2, c2[1]], [1.6, yS - y0, RUN - r1], (deg / 10) % 2 ? "grass_a" : "grass_b", { r: [0, yaw, 0] });
+    const t = (deg * Math.PI) / 180, d = [sx * Math.cos(t), -Math.sin(t)], yaw = (Math.atan2(d[0], d[1]) * 180) / Math.PI, y0 = -0.3;
+    for (let k = 0; k + 1 < BANK.length; k++) {   // one wedge per profile segment: full height at its inner end
+      const [u0, v0] = BANK[k], [u1, v1] = BANK[k + 1], ya = y0 + v0 * (H - y0), yb = y0 + v1 * (H - y0), r0 = u0 * RUN, r1 = u1 * RUN, c = [sx * XO + d[0] * (r0 + r1) / 2, ZR + d[1] * (r0 + r1) / 2];
+      S.wedge([c[0], (y0 + ya) / 2, c[1]], [1.6, ya - y0, r1 - r0], k < 2 ? "earth_raw" : k < 3 ? "grass_c" : (deg / 10) % 2 ? "grass_a" : "grass_b", { r: [0, yaw, 0], top: (yb - y0) / (ya - y0) });
+    }
   }
   earthBank(S, 0, -XO - 1.2, XO + 1.2, ZF, 1, 0.85, 4.0, 15, { taper: [true, true] });
   roofEarth(S, -XO - 0.4, -2.3, ZR - 0.4, -4.0, ROOF, 0.5, 16);
@@ -1088,9 +1137,8 @@ export function stronghold() {
     const ZS0 = -3.6, ZS1 = -2.0, x0 = 19.9, xt = 29.7, slope = (ROOF + 0.4) / (xt - x0);
     S.prism(2, ZS0, ZS1, [[x0, -0.4], [x0, ROOF], [xt, -0.4]], "concrete", { v: 0 });
     for (const [a0, a1] of [[ZS0 - 0.16, ZS0], [ZS1, ZS1 + 0.16]]) {   // cheek walls, retaining the bank (its shoulder profile)
-      const xs = XO + RUN * 0.35, ys = -0.3 + (H + 0.3) * 0.8 + 0.15;
-      S.prism(2, a0, a1, [[x0, -0.4], [x0, H + 0.15], [xs, ys]], "concrete");
-      S.prism(2, a0, a1, [[x0, -0.4], [xs, ys], [XO + RUN + 0.3, -0.4]], "concrete");
+      const pts = BANK.map(([u, v]) => [XO + u * RUN, -0.3 + v * (H + 0.3) + 0.15 * (1 - u)]);
+      for (let k = 0; k + 1 < pts.length; k++) S.prism(2, a0, a1, [[x0, -0.4], k === 0 ? [x0, H + 0.15] : pts[k], pts[k + 1]], "concrete");
     }
     for (let x = XO + 0.6; x < xt - 0.2; x += 0.34) {
       const y = ROOF - (x + 0.17 - x0) * slope + 0.09;
@@ -1104,7 +1152,8 @@ export function stronghold() {
   // observation periscope, the gas-filter unit, embrasure frames and MG pintles
   S.box([-XI + 0.4, CEIL - 0.42, CZ0 + 0.12], [XI - 0.4, CEIL - 0.08, CZ0 + 0.52], "steel_plate", { k: 0 });
   for (let x = -XI + 2.0; x < XI - 1; x += 4.0) S.box([x - 0.25, CEIL - 0.44, CZ0 + 0.15], [x + 0.25, CEIL - 0.41, CZ0 + 0.49], "steel_dark", L1);
-  S.cyl([0, CEIL - 0.15, CZ1 - 0.12], [0.09, 2 * XI - 0.8, 0.09], "steel_dark", { r: [0, 0, 90], k: 0 });
+  S.cyl([0, CEIL - 0.05, CZ1 - 0.12], [0.09, 2 * XI - 0.8, 0.09], "steel_dark", { r: [0, 0, 90], k: 0 });   // cable run on the ceiling, clipped
+  for (let x = -XI + 1.0; x < XI - 0.5; x += 1.5) S.box([x - 0.02, CEIL - 0.1, CZ1 - 0.18], [x + 0.02, CEIL + 0.005, CZ1 - 0.06], "steel_dark", L1);
   for (const [d0, d1, hs] of [[CZ0 - 0.004, CZ0 + 0.006, rearHoles], [CZ1 - 0.006, CZ1 + 0.004, frontHoles]])   // luminous guide stripes
     for (const [a0, a1] of cutRect(-XI + 0.3, XI - 0.3, 0, 1, hs.map((h) => ({ a0: h.a0 - 0.05, a1: h.a1 + 0.05, y0: -1, y1: 2 }))).map((r) => [r[0], r[1]])) S.box([a0, G + 1.0, d0], [a1, G + 1.06, d1], "lumi", L1);
   S.cyl([-14.0, G + 0.7, -9.9], [0.95, 2.4, 0.95], "steel_plate", { r: [0, 0, 90], k: 0 });   // day tank on saddles
@@ -1117,7 +1166,7 @@ export function stronghold() {
   S.box([4.05, G + 1.25, 4.42], [4.35, G + 1.5, 4.78], "steel_dark", { k: 0, bv: 0.02 });
   for (const s of [-1, 1]) S.cyl([4.2 + s * 0.26, G + 1.36, 4.6], [0.05, 0.22, 0.05], "steel_dark", { r: [0, 0, 90], k: 0, lod: 1 });
   S.box([-5.75, G, -5.6], [-5.15, G + 1.35, -4.4], "steel_plate", { bv: 0.02 });   // gas-filter ventilator
-  S.cyl([-5.1, G + 0.9, -5.0], [0.3, 0.06, 0.3], "steel_dark", { r: [0, 0, 90], k: 0, lod: 1 });
+  S.cyl([-5.125, G + 0.9, -5.0], [0.3, 0.06, 0.3], "steel_dark", { r: [0, 0, 90], k: 0, lod: 1 });
   rod(S, [-5.45, G + 1.35, -5.0], [-5.45, CEIL, -5.0], 0.22, "steel_plate", { k: 0 });
   for (const t of throats) {   // steel liner frame round each throat on the inner face, an MG pintle post below it
     const F = t.f === "front" ? { axis: "x", d: ZFI, out: -1 } : t.f === "west" ? { axis: "z", d: -XI, out: 1 } : { axis: "z", d: XI, out: -1 };
@@ -1145,9 +1194,9 @@ export function stronghold() {
     else { const sx = t.f === "east" ? 1 : -1, x0 = sx * XO - (sx > 0 ? 0.05 : 0.42), x1 = sx * XO + (sx > 0 ? 0.42 : 0.05); S.rbox([x0, top, h.a0 - 0.45], [x1, top + 0.3, h.a1 + 0.45], 0.09, "concrete"); }
   }
   for (const x of [-12.0, -3.8, 1.6, 6.8, 12.2]) skin(S, Ff, x - 0.015, x + 0.015, 0.25, CEIL, -0.01, 0.004, "concrete_board", L1);   // expansion joints
-  camo(S, Ff, -XO, XO, 0.3, CEIL, 26, "f", outerHoles(front)); camo(S, { axis: "x", d: ZF + 0.6, out: 1 }, -XO - 0.4, XO + 0.4, CEIL + 0.1, ROOF - 0.12, 16, "lip");
-  camo(S, Fw, -1.6, ZF, 0.3, CEIL, 5, "w", outerHoles(west)); camo(S, Fe, -1.6, ZF, 0.3, CEIL, 5, "e", outerHoles(east));
-  camo(S, { axis: "x", d: 0.0, out: 1 }, -1.9, 2.9, ROOF + 0.1, CY, 4, "cf", outerHoles(cupF)); camo(S, { axis: "z", d: 2.9, out: 1 }, -5.15, 0, ROOF + 0.1, CY, 4, "ce", [{ a0: -3.05, a1: -1.95, y0: 0, y1: CF + 2.1 }]); camo(S, { axis: "z", d: -1.9, out: -1 }, -5.15, 0, ROOF + 0.1, CY, 4, "cw", outerHoles(cupW));
+  camo(S, Ff, -XO, XO, 0.3, CEIL, 13, "f", outerHoles(front)); camo(S, { axis: "x", d: ZF + 0.6, out: 1 }, -XO - 0.4, XO + 0.4, CEIL + 0.1, ROOF - 0.12, 9, "lip");
+  camo(S, Fw, -1.6, ZF, 0.3, CEIL, 3, "w", outerHoles(west)); camo(S, Fe, -1.6, ZF, 0.3, CEIL, 3, "e", outerHoles(east));
+  camo(S, { axis: "x", d: 0.0, out: 1 }, -1.9, 2.9, ROOF + 0.1, CY, 2, "cf", outerHoles(cupF)); camo(S, { axis: "z", d: 2.9, out: 1 }, -5.15, 0, ROOF + 0.1, CY, 2, "ce", [{ a0: -3.05, a1: -1.95, y0: 0, y1: CF + 2.1 }]); camo(S, { axis: "z", d: -1.9, out: -1 }, -5.15, 0, ROOF + 0.1, CY, 2, "cw", outerHoles(cupW));
   {
     const R = rnd("stronghold/moss");
     for (let i = 0; i < 16; i++) { const x = -XO + R() * 2 * XO; mossPatch(S, [x, ROOF + 0.004, ZF + 0.02 + R() * 0.2], [0.4 + R() * 1.4, 0.008, 0.2 + R() * 0.2], [0, R() * 8 - 4, 0]); }
