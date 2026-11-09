@@ -1952,6 +1952,10 @@ void pastureClump(){
   float vis = 1.0 - smoothstep(keep*0.8, keep, rank);
   float nb = d <= uLod.y ? 12.0 : d <= uLod.z ? mix(12.0, uLod2.y, smoothstep(uLod.y, uLod.z, d)) : mix(uLod2.y, uLod2.z, smoothstep(uLod.z, uRadius, d));
   float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp(nb - bl, 0.0, 1.0);
+  if (fade <= 0.0) {   // clump / card past its LOD cut: the whole card leaves the clip volume (no shading, no raster)
+    gl_Position = vec4(0.0, 0.0, -2.0, 1.0); vW = vAlb = vF = vec3(0.0); vUV = vec2(0.0); vWid = 0.0; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
+    vSp = 0; vPart = 10; vSeed = 0.0; return;
+  }
   float widen = min(3.2, pow(clamp(dens*nb/12.0, 0.05, 1.0), -0.6));   // fewer clumps / cards: the rest widen
   float H = iS.x, W = py.x*0.1;
   // card roles: 10 grass blade, 11 clover leaflet, 12 seed-head stem, 13 shrub twig, 14 broad leaf, 15 plantain spike

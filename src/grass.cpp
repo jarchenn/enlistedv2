@@ -87,21 +87,22 @@ static bool sampleTouched(const Terrain& t, const Terrain::Tile& tl, int i, int 
   float fs = t.fineSpacing();
   return tl.h[k] != t.baseHeight(o.x + i * fs, o.y + j * fs);
 }
-static float groundH(const Terrain& t, float x, float z) {
-  if (t.tiles.empty()) return t.baseHeight(x, z);
+static bool groundTouched(const Terrain& t, float x, float z) {   // the fine cell at (x, z) differs from the base ground
+  if (t.tiles.empty()) return false;
   float ts = t.tileSize();
   int tx = (int)std::floor((x - t.org.x) / ts), tz = (int)std::floor((z - t.org.y) / ts);
   const Terrain::Tile* tl = t.tileAt(tx, tz);
-  if (!tl) return t.baseHeight(x, z);
+  if (!tl) return false;
   vec2 o = t.tileOrigin(tx, tz);
   float fs = t.fineSpacing();
   int i = std::clamp((int)((x - o.x) / fs), 0, Terrain::kFine - 1), j = std::clamp((int)((z - o.y) / fs), 0, Terrain::kFine - 1);
-  if (!sampleTouched(t, *tl, i, j) && !sampleTouched(t, *tl, i + 1, j) && !sampleTouched(t, *tl, i, j + 1) && !sampleTouched(t, *tl, i + 1, j + 1))
-    return t.baseHeight(x, z);
-  return t.height(x, z);
+  return sampleTouched(t, *tl, i, j) || sampleTouched(t, *tl, i + 1, j) || sampleTouched(t, *tl, i, j + 1) || sampleTouched(t, *tl, i + 1, j + 1);
 }
+static float groundH(const Terrain& t, float x, float z) { return groundTouched(t, x, z) ? t.height(x, z) : t.baseHeight(x, z); }
 static vec3 groundN(const Terrain& t, float x, float z) {
-  float e = t.tiles.empty() ? t.cell() : t.fineSpacing();
+  // one fixed step whatever the tile state: untouched ground gives bit-identical normals (and clump tilt) whether or
+  // not deformation tiles exist, so undo / reset restore the same grass
+  float e = t.fineSpacing();
   return glm::normalize(vec3(groundH(t, x - e, z) - groundH(t, x + e, z), 2 * e, groundH(t, x, z - e) - groundH(t, x, z + e)));
 }
 
@@ -127,8 +128,27 @@ static vec2 rot(float x, float z) { return vec2(0.8f * x + 0.6f * z, -0.6f * x +
 static float bareField(float x, float z) { vec2 q = rot(x, z); return smooth(0.62f, 0.8f, fbm3(vec3(q.x * 0.8f, q.y * 0.8f, 17.0f))); }
 // the ground under a clump as kTerrainFS paints it (near field, before the L4 detail): the base of every card
 // blends into it, so grass and ground never disagree at the root
-static vec3 groundColour(const Terrain& t, float x, float z, float bare) {
-  float nB = fbm3(vec3(x * 0.012f, z * 0.012f, 1.0f)), nM = fbm3(vec3(x * 0.07f, z * 0.07f, 2.0f)), nF = vnoise3(vec3(x * 0.9f, z * 0.9f, 3.0f));
+// broad noise fields (metres-scale) sampled once per chunk on a 1 m lattice and interpolated (a crater rebuild stays cheap)
+struct BroadNoise {
+  static constexpr int N = (int)Grass::kChunk + 2;
+  float ox = 0, oz = 0, v[4][N * N];   // 0 nB, 1 nM (terrain palette), 2 n1, 3 n2 (clump palette)
+  void build(float x0, float z0) {
+    ox = x0; oz = z0;
+    for (int j = 0; j < N; ++j) for (int i = 0; i < N; ++i) {
+      float x = x0 + i, z = z0 + j; int k = j * N + i;
+      v[0][k] = fbm3(vec3(x * 0.012f, z * 0.012f, 1.0f)); v[1][k] = fbm3(vec3(x * 0.07f, z * 0.07f, 2.0f));
+      v[2][k] = fbm3(vec3(x * 0.025f, z * 0.025f, 1.0f)); v[3][k] = fbm3(vec3(x * 0.18f, z * 0.18f, 2.0f));
+    }
+  }
+  float at(int f, float x, float z) const {
+    float u = std::clamp(x - ox, 0.0f, N - 1.001f), w = std::clamp(z - oz, 0.0f, N - 1.001f);
+    int i = (int)u, j = (int)w; u -= i; w -= j;
+    const float* a = v[f] + j * N + i;
+    return glm::mix(glm::mix(a[0], a[1], u), glm::mix(a[N], a[N + 1], u), w);
+  }
+};
+static vec3 groundColour(const Terrain& t, const BroadNoise& bn, float x, float z, float bare) {
+  float nB = bn.at(0, x, z), nM = bn.at(1, x, z), nF = vnoise3(vec3(x * 0.9f, z * 0.9f, 3.0f));
   vec3 g = glm::mix(vec3(0.12f, 0.19f, 0.06f), vec3(0.21f, 0.26f, 0.085f), smooth(0.3f, 0.7f, nB));
   g = glm::mix(g, vec3(0.32f, 0.30f, 0.165f), smooth(0.6f, 0.82f, nM) * 0.5f);
   g *= 0.78f + 0.32f * nF;
@@ -138,7 +158,7 @@ static vec3 groundColour(const Terrain& t, float x, float z, float bare) {
   vec3 soil = glm::mix(vec3(0.20f, 0.155f, 0.10f), vec3(0.28f, 0.22f, 0.145f), nF);
   g = glm::mix(g, soil, bare * 0.65f);
   float wear = t.wearAt(x, z), dirt = t.dirtAt(x, z);
-  g = glm::mix(g, soil, std::clamp(std::max(wear * 1.6f, dirt * 2.5f), 0.0f, 1.0f));
+  g = glm::mix(g, soil, smooth(0.03f, 0.4f, std::max(wear * 1.6f, dirt * 2.5f)));   // exactly 0 for the traces an undo leaves
   vec3 pc; if (float pw = groundPaintTint(x, z, pc); pw > 0.001f) g = glm::mix(g, pc * 0.8f, pw);   // painted path, dry grass, mud...
   return g;
 }
@@ -147,9 +167,9 @@ static uint32_t packRGB(vec3 c, uint32_t top) {   // x2 so 0..0.5 albedo uses th
   return q(c.r) | (q(c.g) << 8) | (q(c.b) << 16) | (top << 24);
 }
 static float asFloat(uint32_t u) { float f; std::memcpy(&f, &u, 4); return f; }
-static float packAlbedo(float x, float z, float var, float tint, int species) {
+static float packAlbedo(const BroadNoise& bn, float x, float z, float var, float tint, int species) {
   // muted meadow palette by plant cluster (not per blade): broad fields, patches, then the species' own tint
-  float n1 = fbm3(vec3(x * 0.025f, z * 0.025f, 1.0f)), n2 = fbm3(vec3(x * 0.18f, z * 0.18f, 2.0f));
+  float n1 = bn.at(2, x, z), n2 = bn.at(3, x, z);
   vec3 g1(0.12f, 0.19f, 0.055f), g2(0.19f, 0.25f, 0.075f), dry(0.30f, 0.28f, 0.15f), olive(0.20f, 0.22f, 0.09f);
   vec3 alb = glm::mix(g1, g2, smooth(0.3f, 0.7f, n1));
   alb = glm::mix(alb, olive, smooth(0.45f, 0.7f, n2) * 0.35f);
@@ -293,6 +313,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
   for (auto& f : fp) if (glm::length(f.pos - cc) <= fpRadius(f) + kMargin + kChunk * 0.75f) near.push_back(f);
   int N = (int)(kMaxDensity * kChunk * kChunk);
   c.ymin = 1e9f; c.ymax = -1e9f;
+  static thread_local BroadNoise bn; bn.build(ox - 1, oz - 1);
   for (int i = 0; i < N; ++i) {
     Rng r{hcomb(hcomb(hcomb(seed_ * 7919ull, (uint32_t)c.cx), (uint32_t)c.cz), (uint64_t)i)};
     float x = ox + r.f() * kChunk, z = oz + r.f() * kChunk;
@@ -351,8 +372,8 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     // shape.y: width (0..0.1 m) and the ground normal's x / z (clumps lean with the slope); shape.w: the ground colour
     auto q8 = [](float v) { return (uint32_t)std::clamp((int)std::lround(v * 255.0f), 0, 255); };
     float sy = asFloat(q8(wid / 0.1f) | (q8(n.x * 0.5f + 0.5f) << 8) | (q8(n.z * 0.5f + 0.5f) << 16) | (0x3Cu << 24));
-    float sw = asFloat(packRGB(groundColour(t, x, z, bare), 0x3Cu));
-    c.inst.push_back({vec4(x, y, z, yaw), vec4(hgt, sy, packAlbedo(x, z, var, tint, sp), sw)});
+    float sw = asFloat(packRGB(groundColour(t, bn, x, z, bare), 0x3Cu));
+    c.inst.push_back({vec4(x, y, z, yaw), vec4(hgt, sy, packAlbedo(bn, x, z, var, tint, sp), sw)});
     c.ymin = std::min(c.ymin, y); c.ymax = std::max(c.ymax, y + hgt);
   }
   c.count = (int)c.inst.size();

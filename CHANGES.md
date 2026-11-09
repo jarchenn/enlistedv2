@@ -1,81 +1,102 @@
-# Changes: graphics and terrain overhaul
+# Graphics overhaul: changes per workstream
 
-The user's `GRAPHICS_OVERHAUL_BRIEF.md` (2026-11-09), one section per workstream. Engine summary, test scene and
-cameras: [docs/graphics-overhaul.md](docs/graphics-overhaul.md). Screenshots: `Documents/MapMaker/screens/gx/`.
+## GX3: grass and ground cover (brief §4), branch `gx3-grass`
 
-## GX1: test scene (§0), earthworks (§5), placement and reform robustness (§6), trenches (§7)
+**Done**
+- **Clumps instead of tufts.** Each instance is a clump of 12 crossed cards: tall in the middle, shorter and leaning
+  outward at the rim, so neighbouring clumps overlap into a sward. Cards per m² drawn within 15 m on Medium:
+  284, against about 73 blades per m² before (16 of 40 tufts × 7 blades × ~65 % kept), about 3.9x.
+- **Species layers.** There are 7 layers, each placed by its own noise mask and drawn with its own procedural card
+  texture:
+  - fine turf;
+  - meadow grass (the dominant layer);
+  - seed-head grass, with spikes or open panicles;
+  - clover, as trifoliate leaves with a pale chevron;
+  - plantain-type broadleaf rosettes;
+  - small leafy shrubs, more of them near walls;
+  - dry straw.
 
-### Done
+  The textures are procedural, so no new third-party asset was needed.
+- **Colour.**
+  - Each clump gets a tint along green → yellow-green → straw.
+  - Each card varies in value, and some cards are yellower.
+  - Each blade has a vertical gradient: a darker, saturated base and a lighter, drier tip.
+  - The lower 30 % of each blade blends into the ground colour under the clump. That colour is a CPU port of the
+    terrain palette, including bare soil, wear, craters and painted ground.
+- **Shading.**
+  - Base AO is darker inside the clump and under the canopy.
+  - Backlit cards glow (translucency).
+  - Clumps within the shadow radius (10 m on Medium) cast sun shadows into the near cascade (`Grass::drawShadow`).
+- **Placement.**
+  - Clumps lean with the terrain normal and sit on the slope plane.
+  - The sward thins toward the 0.8 slope cut-off.
+  - Bare-earth patches follow the terrain's `bare` field, which now shows 65 % soil instead of 30 %.
+  - Painted paths and ground thin the sward and colour the clump bases.
+  - Grass grows back from footprint edges over 2–3 m, short first, instead of stopping at a wall of tall weeds.
+- **Ground.** The near-field grass ground layer is now ambientCG Ground037 (`grass_forest`: moss, litter and soil,
+  albedo + normal + AO, CC0). It was already in `content/textures`. It fades to the meadow palette with distance, which
+  is the "tinted ground" beyond the grass.
+- **LOD without pops.** Clumps are generated at 44 per m² in a shuffled order. Beyond the near radius:
+  - the drawn share falls as (near / d)^falloff;
+  - clumps keep fewer cards, 6 then 3 on Medium, and the remaining cards widen.
 
-- **§0 test scene.**
-  - `content/templates/gx_test_scene` (New Map): the B3 chateau (timber-frame, corridors, furnished rooms), a ruin /
-    villa / two-bunker line-up, an L-shaped six-piece trench, and a clear 40 x 40 m field.
-  - `NMK_CAPTURE_SET=gx` cameras match `current_01..07`; `NMK_CAPTURE_PERF=<frames>` logs per-camera frame time.
-  - `docs/graphics-overhaul.md` holds the step-0 engine summary.
-- **Terrain stamps.** One derived layer in the existing terrain (`src/terrain_cuts.cpp`, `src/terrain_blend.cpp`):
-  - built from the instances on every change; nothing new is saved;
-  - deterministic, so no replication change;
-  - the heightmap + 0.45 m tile representation is unchanged.
-  - Config: `content/settings/terrain_blend.json`; `"enabled": false` gives the batch2 behaviour.
-- **§7 trenches.**
-  - Joined pieces carve as one network: floor 1.36 m wide, 1.62 m below the anchor, walls battered 0.12, mitred
-    corners.
-  - Spoil parapets of 0.45 m ±35 % noise either side (half on the fire side so the firestep sees over it), fading
-    to the field over 1.9 m; lip to floor about 2.05 m on the parados side.
-  - The slab-and-gap parts are removed at load: wattle, spoil, picket, earth and turf above -1 m.
-  - Generated along the cut:
-    - wattle revetment from below the floor to the actual soil behind it, leaning with the wall, with a top pole;
-    - pickets driven into the floor;
-    - sandbags resting on the parados;
-    - end walls where a run stops;
-    - openings at junctions, inner corners and niches.
-  - Masks: mud on the floor and walls, turned earth on the parapet fading to sparse grass, then full grass.
-  - Trench pieces belong to the pinned registry.
-- **§5 berms.** The observation post and field shelter banks are terrain (`earthwork` asset block):
-  - 33° angle-of-repose profile (convex shoulder, concave toe), banks merged with a smooth max;
-  - low-frequency height noise and outline jitter;
-  - a 3 m smoothing band;
-  - slope-driven bare / sparse / full grass mask and a contact dirt band at the concrete.
-  - The faceted bank prisms are removed at load.
-- **§6 placement.**
-  - Auto-levelling to the median of the footprint, refused only beyond ±1.5 m with the variance in the message.
-  - Pad plus a smoothstep blend ring of 2-3.5 m, scaled by the delta.
-  - A stone retaining skirt where the raise exceeds 0.9 m.
-  - Soil mask on the changed ground.
-  - Place-tool preview of the pad and ring.
-- **§6 reform robustness.**
-  - Pads are the pinned registry: footprint + anchor.
-  - Brush, lasso and generator reforms re-conform the ground to them.
-  - Pinned objects ride only a shift common to their whole footprint.
-  - Craters spare footprints as before and now re-seat loose props in the editor.
-  - A validation pass (after every brush stroke) logs floating (> 5 cm) and buried (> 10 cm) objects and re-seats
-    loose props.
-- **Tests.** `--selftest-terrain` steps `gx1: ...`:
-  - a house on 60 cm of variation: level floor, no gap, embankment slope / step;
-  - a raise, a lower and a crater next to it;
-  - the margin refusal;
-  - the trench network: depth, parapets, lip-to-floor, mitre, removed parts, masks;
-  - the berm: height, repose slope, irregular crest, clear passage, slope-blend band, removed prisms.
+  Each clump and card fades by its rank at its own distance, in the vertex shader, so there is no per-chunk pop.
+  Medium's radius changes from 58 m to 54 m.
+- **Wind.** Wind is a vertex-shader effect only within 13 m (Medium) or 15 m (High); Low has none. Distant clumps keep a
+  static lean. There is a new setting, Settings → Graphics → Grass wind (`grassWind`), and the Low preset turns it off.
+- **Suppression.** Grass reads GX1's earthwork and trench soil (`sdirt`, through `dirtAt`), slopes, ground paint, wear,
+  craters and footprints.
+- **Tiers.** `content/settings/grass.json` holds the tunables named in the brief: density, near / mid / draw radius,
+  falloff, cards per LOD, wind radius and shadow radius. Low is about the pre-GX3 Medium cost.
+- **Test field.** `NMK_CAPTURE_SET=grass --capture-materials <tag>` renders a 40 × 40 m pasture with a dirt path, a dry
+  patch and a bunker from six cameras. Each camera logs GPU ms with grass on and off, blades drawn, cards per m² within
+  15 m, and clumps in the sun map.
 
-### Deferred, and why
+**Measured** (RTX 2080 Ti, Medium, 1920 × 1080; before and after run interleaved in one exclusive GPU slot)
 
-- **Lasso.** The validation pass runs after brush strokes only. Lasso edits re-seat through `terrainReseat` (pinned
-  objects follow the GX1 rule), but do not run the report.
-- **Craters during play** leave placements alone. They are a session overlay that resets on return to the editor;
-  re-seating doc instances there would outlive the overlay.
-- **Optional dressing.** No debris (ammo crates, helmet, shovel) along the trench floor; the pieces' own duckboards
-  and ammunition niches remain.
-- **Other earth-covered assets.** Only the two bunkers with bank prisms are converted. Other assets with earth meshes
-  (hedgerow banks, the R667) are untouched.
+GPU ms per camera. The GPU was shared with other sessions' runs even inside the exclusive slot, so only the fastest
+of several interleaved samples is a clean reading; later runs (below) were 3-7x slower on the same cameras.
 
-### Engine limits hit
+| Camera (gx-base vs GX3, Medium) | before | after | change |
+|---|---|---|---|
+| current_04 lineup | 7.54 | 8.70 | +1.2 ms |
+| current_05 field (acceptance) | 5.70 | 6.92 | +1.2 ms (+21 %) |
+| current_06 bunker | 9.20 | 9.71 | +0.5 ms |
+| current_01 / 02 / 03 / 07 (no grass in view or little) | 20.4 / 18.6 / 11.1 / 11.3 | 20.8 / 19.1 / 11.4 / 12.4 | +0.3 to +1.1 ms |
 
-- **Grid resolution.** The terrain grid is 0.448 m. A near-vertical trench wall therefore spans one grid cell, and
-  diagonal trenches show a fine sawtooth at the lip.
-  - The revetment top is fitted to the highest soil within 0.7 m behind the wall, so no gap shows.
-  - The groove behind the revetment top is at most one cell wide.
-- **Shipped maps.** Pads raise or cut the ground under every pinned building inside the build area whose footprint
-  deviates more than 5 cm (the validation threshold for floating). That includes existing maps, where buildings were
-  placed on the highest sample: their floors now meet the ground. Decor beyond the border keeps its ground.
-  - This adds fine tiles: more draw calls on large maps.
-  - The maps / nav suites are left for the merge pass, as the plan asks.
+- **Medium is over the +10 % guardrail on the field camera** (+21 %, +1.2 ms on a 5.7 ms frame). The grass-on / grass-off
+  cost inside the grass test field is about the same before and after (1.5 ms vs 1.7 ms mean), so most of the field
+  delta is the denser sward being rasterised at the field camera's longer view.
+- Low is the cheap tier: in the noisy tier-tuning run (Low's numbers as Medium) it sat within ~1 ms of the gx-base on every camera.
+- Levers if Medium must come down, all in `content/settings/grass.json` with no rebuild: `density` (30 -> 24),
+  `radius` (54 -> 48), `shadowRadius` (10 -> 0). Shadows alone showed no measurable cost.
+- A vertex early-out for clumps and cards past their LOD cut was added after the A/B and has not been timed.
+- Placement build cost: full Medium build 260 ms (a 40 m field), crater rebuild 15 ms for 4 chunks, with the broad
+  noise sampled on a per-chunk 1 m lattice (without it the rebuild was 30 ms).
+- battle1 gameplay views (`--selftest-maps`, same slot, before -> after): A1_spawn 14.7 -> 13.8 ms, obj_A_eye 26.2 -> 23.0,
+  obj_B_eye 35.2 -> 31.3, obj_C_eye 23.7 -> 19.7, obj_D_eye 21.2 -> 17.6. battle1 has mostly short-sward and nature
+  grass, and these runs carried outside GPU load that differed between the two builds, so read them as "no
+  regression", not as a speed-up.
+
+**Deferred / limits**
+- The cards are procedural silhouettes, not photographed alpha cards. ambientCG has no grass-blade cutout sets, and the
+  brief requires asking before adding a new asset pack.
+- Grass casts into the near sun cascade only, at about 2 cm per texel. Single blades shadow faintly, so most of the
+  "internal shadowing" comes from the canopy AO and the darker clump bases.
+- The bunker berm footprint still clears a band of grass around the berm box. GX1's earthwork stamps replace the berm
+  boxes, and the grass follows GX1's stamp soil.
+
+**Files**
+- `src/grass.{h,cpp}`
+- the grass shaders in `src/render.cpp` (`kGrassVS` / `kGrassFS`, the new `kGrassShadowFS`), plus:
+  - the grass shadow call in the near cascade;
+  - the nature patch tier table;
+  - one line in `kTerrainFS` (the bare-soil blend).
+- `src/nature.cpp` (the plant mesh keeps 7 blades)
+- `src/ground_paint.{h,cpp}` (`groundPaintTint`)
+- `src/settings.{h,cpp}` (Grass wind)
+- `src/capture.cpp` (the grass set)
+- `src/selftest_grass.cpp` (species, density and tier checks)
+- `content/settings/grass.json`
+- `content/textures/textures.json` (`terrain_grass`)
+- `docs/ground-grass.md`, `docs/settings.md`
