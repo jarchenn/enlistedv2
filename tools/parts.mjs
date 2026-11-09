@@ -1,5 +1,7 @@
 // Reusable architectural and furniture components for Norman buildings.
 import { P, wbox, cutRect, swingSign } from "./kit.mjs";
+// GX4: geometry the exterior pass (tools/exterior.mjs) refines; not serialised (Asset.json() lists its own fields)
+export const extOf = (A) => (A._ext ??= { sills: [], timber: [], hips: [], gables: [], cornices: [] });
 
 export function stdMaterials(A) {
   // albedo values are linear-space
@@ -204,6 +206,7 @@ export function window(A, o) {
   // stone sill: interior ledge + protruding nose; lintel
   wbox(A, axis, a0, a1, sill - 0.08, sill, inner + out * 0.0, outer, "stone_dressed");
   wbox(A, axis, a0 - 0.08, a1 + 0.08, sill - 0.085, sill - 0.005, outer, outer + out * 0.06, "stone_dressed");
+  extOf(A).sills.push({ axis, d: outer + out * 0.06, out, a0, a1, y: sill - 0.085 });   // GX4: rain-streak anchor under the sill nose
   wbox(A, axis, a0 - 0.16, a1 + 0.16, top - 0.005, top + 0.24, outer - out * 0.12, outer + out * 0.02, "stone_dressed");
   wbox(A, axis, a0 - 0.12, a1 + 0.12, top - 0.004, top + 0.16, inner - out * 0.012, inner + out * 0.2, "oak_x");
 
@@ -561,6 +564,7 @@ export function chest(A, name, x0, x1, z0, z1, y, h = 0.6) {
 // Slate gable roof with clay ridge, fascia, gutters and barge boards; ridge along X.
 export function gableRoof(A, { X, Z, XI, EAVE, RIDGE, ov = 0.35, gov = 0.28, t = 0.14, gableMat = "stone", roofMat = "slate" }) {
   const th = Math.atan2(RIDGE - EAVE, Z), deg = (th * 180) / Math.PI;
+  extOf(A).gables.push({ x0: -X, x1: X, xi: XI + 0.03, Z, EAVE, RIDGE, ov, gov, t, gableMat, roofMat });   // GX4 (tools/exterior.mjs)
   for (const sx of [-1, 1]) A.prism(0, sx > 0 ? XI + 0.03 : -X, sx > 0 ? X : -XI - 0.03, [[-Z, EAVE], [Z, EAVE], [0, RIDGE]], gableMat);
   for (const s of [1, -1]) {
     const zA = -0.12 * s, zB = s * (Z + ov);
@@ -619,6 +623,7 @@ export function stringCourse(A, F, a0, a1, y, { h = 0.16, proj = 0.06, m = "ston
 // stepped cornice under the eaves: `steps` bevelled bands growing out to `proj`, topped by a weathering.
 // ext: the bands run past a0 / a1 by their projection (walls along X own the corners; the end walls pass ext: false)
 export function cornice(A, F, a0, a1, y, { steps = 3, h = 0.36, proj = 0.3, m = "stone_dressed", bv = 0.012, ext = true } = {}) {
+  extOf(A).cornices.push({ F, a0, a1, y, h, proj, steps, m });   // GX4: dentils (tools/exterior.mjs)
   for (let i = 0; i < steps; i++) {
     const p = (proj * (i + 1)) / steps, x = ext ? p : 0;
     fbox(A, F, a0 - x, a1 + x, y + (h * i) / steps, y + (h * (i + 1)) / steps, -0.01, p, m, { bv });
@@ -722,6 +727,7 @@ export function dormer(A, { x, z, y, w = 1.2, h = 1.3, depth = 1.6, s = 1, m = "
 export function hipRoof(A, { X, Z, EAVE, RIDGE, ov = 0.4, m = "slate", ridge = "ridge_tile" }) {
   const alongX = X >= Z, L = alongX ? X : Z, S = alongX ? Z : X;
   const pitch = (RIDGE - EAVE) / S, Lo = L + ov, So = S + ov, ye = EAVE - ov * pitch, run = Lo - So;
+  extOf(A).hips.push({ X, Z, EAVE, RIDGE, ov, m });   // GX4: tile courses (tools/exterior.mjs)
   const pt = (l, y, s) => (alongX ? [l, y, s] : [s, y, l]);
   if (run > 0.01) A.prism(alongX ? 0 : 2, -run, run, [[-So, ye], [So, ye], [0, RIDGE]], m);
   const Sp = So - 0.02, Hp = pitch * Sp;
@@ -755,6 +761,7 @@ export function turret(A, { x, z, y0, y1, r = 1.4, spire = 4.5, sides = 0, ov = 
 export function timberFrame(A, F, { a0, a1, y0, y1, holes = [], rails = [], t = 0.16, sp = 0.85, proj = 0.04, embed = 0.03, braces = true, m = "oak_y", mx = "oak_x" }) {
   const box = (aa0, aa1, ya, yb, mat) => fbox(A, F, aa0, aa1, ya, yb, -embed, proj, mat);
   const bands = [[y0, y0 + t], ...rails.map((r) => [r - t / 2, r + t / 2]), [y1 - t, y1]].sort((p, q) => p[0] - q[0]);
+  const n0 = A.parts.length, rec = () => { extOf(A).timber.push({ F, proj, embed, parts: A.parts.slice(n0) }); };   // GX4 exterior pass (tools/exterior.mjs)
   const hv = holes.map((h) => ({ ...h, c0: h.y0 - t * 0.8, c1: h.y1 + t * 0.8 }));
   const inWall = (a) => a > a0 + t / 2 - 1e-6 && a < a1 - t / 2 + 1e-6;
   for (const [b0, b1] of bands) {   // rails, cut where a hole crosses the band (over the hole and its jamb posts)
@@ -778,7 +785,7 @@ export function timberFrame(A, F, { a0, a1, y0, y1, holes = [], rails = [], t = 
     for (let i = 0; i + 1 < bands.length; i++)
       for (const [, , ya, yb] of cutRect(a - t / 2, a + t / 2, bands[i][1], bands[i + 1][0], cut)) if (yb - ya > 0.05) box(a - t / 2, a + t / 2, ya, yb, m);
   }
-  if (!braces) return;
+  if (!braces) return rec();
   for (let i = 0; i + 1 < bands.length; i++) {   // one brace in each end bay of each storey, unless a hole is there
     const g0 = bands[i][1], g1 = bands[i + 1][0], bw = Math.min(sp, (a1 - a0) / 3);
     for (const [p0, p1] of [[a0 + t, a0 + bw], [a1 - t, a1 - bw]]) {
@@ -789,6 +796,7 @@ export function timberFrame(A, F, { a0, a1, y0, y1, holes = [], rails = [], t = 
       A.obox(c, F.axis === "x" ? [t * 0.85, Lb, dep] : [dep, Lb, t * 0.85], F.axis === "x" ? [0, 0, ang] : [ang, 0, 0], m);
     }
   }
+  rec();
 }
 // cap on a chimney stack (x, z, top y, w x d): a bevelled oversailing course, a cap slab and clay pots
 export function chimneyCap(A, { x, z, y, w = 0.7, d = 0.5, m = "stone_dressed", pots = 2, pot = "terracotta" }) {

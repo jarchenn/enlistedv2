@@ -4,7 +4,7 @@
 // (two-layer rubble / plaster walls with real openings, destructible wall bays, hinged doors and casements, stairs
 // with a smooth collision ramp) and furnished like the existing houses.
 import { Asset, wbox } from "./kit.mjs";
-import { stdMaterials, wall, partition, window, door, stairs, railing, quoins, gableRoof, table, chair, bench, bed, armoire, dresser, chest } from "./parts.mjs";
+import { extOf, stdMaterials, wall, partition, window, door, stairs, railing, quoins, gableRoof, table, chair, bench, bed, armoire, dresser, chest } from "./parts.mjs";
 import { shelfX, shelfZ, crates, barrel, sacks, stool } from "./furniture2.mjs";
 import { mats, rng, fire, cover, room, corners, setNav, setTour, r3 } from "./catalog_atlantic.mjs";
 
@@ -23,6 +23,7 @@ function shell(A, { X, Z, T, GF, EAVE, front = [], back = [], east = [], west = 
 // slate gable roof over x0..x1 (ridge along X, symmetric in Z); gables: which end gables to build
 export function roofX(A, x0, x1, Z, EAVE, RIDGE, { ov = 0.35, gov = 0.28, t = 0.14, gables = [true, true], wallT = 0.6, gableMat = "stone" } = {}) {
   const xc = (x0 + x1) / 2, X = (x1 - x0) / 2, th = Math.atan2(RIDGE - EAVE, Z), deg = (th * 180) / Math.PI;
+  extOf(A).gables.push({ x0, x1, xi: null, Z, EAVE, RIDGE, ov, gov, t, gableMat, roofMat: "slate", gables });   // GX4 (tools/exterior.mjs)
   if (gables[0]) A.prism(0, x0, x0 + wallT, [[-Z, EAVE], [Z, EAVE], [0, RIDGE]], gableMat);
   if (gables[1]) A.prism(0, x1 - wallT, x1, [[-Z, EAVE], [Z, EAVE], [0, RIDGE]], gableMat);
   const gl = gables[0] ? gov : 0, gr = gables[1] ? gov : 0;

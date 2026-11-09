@@ -9,7 +9,7 @@
 // corridor. Single-storey houses are a row of rooms joined by doorways near the rear wall. The gatehouse is bespoke.
 import { cutRect, wbox, Asset } from "./kit.mjs";
 import {
-  stdMaterials, wall, partition, window, door, stairs, railing, gableRoof, quoins, pilaster, stringCourse, cornice,
+  extOf,   stdMaterials, wall, partition, window, door, stairs, railing, gableRoof, quoins, pilaster, stringCourse, cornice,
   surround, archOpening, archWindow, colonnade, balcony, dormer, hipRoof, thatchRoof, turret, timberFrame, chimney,
   fbox, weather,
 } from "./parts.mjs";
@@ -128,6 +128,7 @@ function house(A, c) {
   const Zr = Z + jet(L - 1);
   const topOf = (f) => (f === L - 1 ? EAVE - 0.2 : yAt(f + 1) - 0.2);
   const plinth = A.box([-X - 0.06, -(c.plinthDepth ?? 1.0), -Z - 0.06], [X + 0.06, y0, Z + 0.06], "stone_plinth");
+  extOf(A).body = { X, Z, T, GF, h, n: L, jetty: c.jetty ?? 0 };   // GX4 exterior pass (tools/exterior.mjs)
 
   // ---- layout: cores, corridor, rooms
   const nr = Math.round(h / 2 / 0.18), R = nr * 0.27, coreLen = 2 * CORE_W + SPINE;

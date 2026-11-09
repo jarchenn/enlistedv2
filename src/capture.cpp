@@ -160,6 +160,42 @@ void SelfTest::captureUpdate(App& app, float) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set).rfind("gx4", 0) == 0) {
+      // NMK_CAPTURE_SET=gx4[:id,id]: GX4 exteriors (docs/exterior-references.md), unfurnished, no companions: a front
+      // three-quarter view matching the GLB reference renders (tools/gx4_refs.py), a street-level corner, an eaves / roof
+      // close-up and a rear three-quarter. Names are <asset>_<view>.
+      static std::deque<std::string> keep;
+      static const char* all[] = {"vil_chateau_grand", "vil_longhouse_thatched", "vil_townhouse_jettied", "vil_villa_deauville", "vil_manor_turret", "vil_corner_shop",
+                                  "vil_gatehouse_chapel", "vil_mill_house", "vil_terrace_pair", "vil_cottage_barn", "vil_rectory", "house_farmhouse_2story",
+                                  "house_stone_cottage", "small_carpenter_workshop", "small_stone_dairy", "small_storehouse", "small_roadside_office",
+                                  "large_village_schoolhouse", "large_village_inn", "large_stone_warehouse", "large_municipal_building", "vil_norman_farmhouse",
+                                  "vil_stone_barn", "vil_church"};
+      std::vector<std::string> ids;
+      std::string s = set; size_t c = s.find(':');
+      if (c == std::string::npos) ids.assign(std::begin(all), std::end(all));
+      else for (size_t p = c + 1, q; p <= s.size(); p = q + 1) { q = s.find(',', p); if (q == std::string::npos) q = s.size(); if (q > p) ids.push_back(s.substr(p, q - p)); }
+      cams.clear();
+      int n = 0;
+      for (auto& aid : ids) {
+        const AssetDef* a = app.lib.find(aid);
+        if (!a) { logf("gx4 capture: no asset %s", aid.c_str()); continue; }
+        uint64_t id = app.placeInstance(a, vec3(-240.0f + 80.0f * (n % 7), 0, -220.0f + 80.0f * (n / 7)), 0.0f); ++n;
+        if (!id) { logf("gx4 capture: %s not placed", aid.c_str()); continue; }
+        vec3 o = app.doc.find(id)->pos;
+        float fx = 0.5f * (a->bmax.x - a->bmin.x), fz = 0.5f * (a->bmax.z - a->bmin.z), H = a->bmax.y, R = std::max({2 * fx, 2 * fz, H});
+        vec3 ctr = o + vec3(0.5f * (a->bmin.x + a->bmax.x), 0.45f * H, 0.5f * (a->bmin.z + a->bmax.z));
+        auto add = [&](const char* v, vec3 p, vec3 t) { keep.push_back(aid + "_" + v); cams.push_back({keep.back().c_str(), p, t}); };
+        add("34", ctr + vec3(-0.62f * R, 0.3f * R, 0.9f * R), ctr);
+        add("eye", o + vec3(fx + std::max(5.0f, 0.3f * fx), 1.7f, fz + std::max(5.0f, 0.3f * fz)), o + vec3(0, 0.4f * H, 0));
+        add("roof", o + vec3(0.35f * fx, 0.62f * H + 2.5f, fz + 5.5f), o + vec3(0.1f * fx, 0.62f * H, 0.3f * fz));
+        add("rear", ctr + vec3(0.62f * R, 0.3f * R, -0.9f * R), ctr);
+      }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "b2") {
       // NMK_CAPTURE_SET=b2: the B2 buildings with their companions (front corner and rear corner, framed from the
       // footprint) and every drs_* dressing piece close up (tools/catalog_houses2.mjs, catalog_dressing.mjs)
