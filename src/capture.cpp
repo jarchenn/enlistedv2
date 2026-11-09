@@ -145,6 +145,23 @@ void SelfTest::captureUpdate(App& app, float dt) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "town") {
+      // NMK_CAPTURE_SET=town: the Chateau town map from two fixed views (a street-level one toward the chateau, one from above);
+      // with NMK_CAPTURE_PERF=<frames> each logs its mean frame time (the Mac check of MetalFX and the final build)
+      const TemplateInfo* tt = app.findTemplate("chateau_town");
+      if (tt) app.newMap(*tt, "Chateau town");
+      cams.clear();
+      vec3 c(0, 0, 0);
+      for (auto& i : app.doc.instances) if (i.assetId == "vil_chateau_grand") { c = i.pos; break; }
+      auto Y = [&](float x, float z, float h) { return vec3(x, app.terrain.height(x, z) + h, z); };
+      cams.push_back({"town_street", Y(c.x - 6.0f, c.z + 70.0f, 1.7f), Y(c.x, c.z, 6.0f)});
+      cams.push_back({"town_high", Y(c.x + 40.0f, c.z + 110.0f, 38.0f), Y(c.x, c.z, 4.0f)});
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set).rfind("ids:", 0) == 0) {
       // NMK_CAPTURE_SET=ids:a,b,c (D1 model pass): each asset from a front-corner and a rear-corner camera sized to
       // its footprint; names are <id>_front / <id>_rear

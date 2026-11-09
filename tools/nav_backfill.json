@@ -225,6 +225,9 @@
  "furn_lamp_table": {
   "effect": "none"
  },
+ "furn_lamp_wall_oil": {
+  "effect": "none"
+ },
  "furn_mil_ammo_rack": {
   "effect": "carve"
  },
@@ -263,9 +266,6 @@
  },
  "furn_mil_table": {
   "effect": "carve"
- },
- "furn_lamp_wall_oil": {
-  "effect": "none"
  },
  "furn_mirror": {
   "effect": "none"
