@@ -696,10 +696,13 @@ void SelfTest::sightsUpdate(App& app, float dt) {
         return true; });
       for (std::string id : {"kar98k_zf39", "m1c_garand"}) {
         push(id + " scope view", [this, id](App& a, float t) {
+          static GrassQuality gq0 = GrassQuality::Off;
+          if (t == 0) { gq0 = a.grass.quality; a.grass.quality = GrassQuality::Off; }   // the reticle is measured by its dark ink: GX3's dense foreground grass put dark blades in the measuring window
           if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.scopeIronsMode = false; a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }
           a.scriptedInput.aim = true;
           if (t > 1.0f && t < 1.02f) shotQueue.push_back("sights_" + id + "_scope");
           return probeThen(t, 1.2f, [&] {
+            a.grass.quality = gq0;
             const Probe& p = probe;
             int cx = p.w / 2, cy = p.h / 2, R = (int)std::lround(p.h * App::kScopeEyepieceR);
             // weapon pixels around the eyepiece: below it (receiver, bolt, stock) and none drawn over it
