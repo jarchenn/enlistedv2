@@ -641,7 +641,7 @@ void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
       float y = 1.0 - (u.y*0.5 + 0.5);        // 0 at the sill .. 1 at the bottom
       float s = smoothstep(0.45, 0.8, vnoise(vec3(q.x*16.0, y*0.6, sd*9.0)))*(0.6 + 0.4*vnoise(vec3(q.x*40.0, y*3.0, sd)));
       float m = s*(1.0 - smoothstep(0.35 + 0.6*vnoise(vec3(q.x*6.0, sd, 2.0)), 1.0, y))*(1.0 - smoothstep(0.85, 1.0, abs(u.x)));
-      alb = mix(alb, alb*vec3(0.62, 0.62, 0.6), m*k); rough = mix(rough, rough*0.85, m*k);
+      alb = mix(alb, alb*vec3(0.5, 0.5, 0.46), m*k); rough = mix(rough, rough*0.8, m*k);
     } else if (type == 6) { // picture outline: the paper under a frame kept its colour (cleaner, less faded) + the nail
       float frameM = (1.0 - smoothstep(0.88, 0.96, abs(u.x)))*(1.0 - smoothstep(0.88, 0.96, abs(u.y)));
       vec2 nail = q - vec2(0.0, hs.y*1.18);
@@ -1213,7 +1213,9 @@ void main(){
     if (uMatLayer > 0 && vert > 0.5 && !trimHere) {
       // GX5 two materials (target_08): plaster and its paper or paint fall away to the brick behind, more with the wear,
       // at the foot and where the noise mask says; a torn ring of bare plaster round each loss and a broken rim
-      float lm = fbm2(vec3(uv * 0.65, s + 51.0)) + 0.2 * (1.0 - smoothstep(0.0, 0.9, y)) + 0.14 * (1.0 - smoothstep(0.0, 0.7, gCornerD)) + 0.05 * (vnoise(vec3(uv * 7.0, s + 52.0)) - 0.5);
+      vec2 lu = uv + vec2(dot(vAp, abs(an)) * 1.37 + dot(an, vec3(3.1, 5.3, 7.7)) * 4.1, 0.0);   // per wall plane: opposite walls never repeat
+      lu.x *= 0.8;   // loss runs a little wider than tall
+      float lm = fbm2(vec3(lu * 0.65, s + 51.0)) + 0.2 * (1.0 - smoothstep(0.0, 0.9, y)) + 0.14 * (1.0 - smoothstep(0.0, 0.7, gCornerD)) + 0.07 * (vnoise(vec3(lu * 6.0, s + 52.0)) - 0.5) + 0.04 * (vnoise(vec3(lu * 21.0, s + 53.0)) - 0.5);
       float thr = 0.8 - 0.14 * wear, fw = max(0.006, fwidth(lm) * 1.5);
       float lost = smoothstep(thr, thr + fw, lm);
       float rimP = smoothstep(thr - 0.022, thr, lm) * (1.0 - lost);
@@ -1450,7 +1452,7 @@ void main(){
   }
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
-  if (uSDecOn == 1 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 17 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
+  if (uSDecOn == 1 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
   if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
