@@ -831,7 +831,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
     // ---- Creative return restores authored geometry
     app.exitExplore();
     int dmg = 0; for (auto& [id, r] : app.rt) dmg += r.damaged;
-    check(dmg == 0 && app.terrain.tiles.empty(), "returning to Creative restores every wall and the ground");
+    check(dmg == 0 && app.terrain.deltas().empty(), "returning to Creative restores every wall and the ground");
     float qh = app.terrain.height(X.Q.x, X.Q.z);
     check(std::fabs(qh - app.terrain.baseHeight(X.Q.x, X.Q.z)) < 1e-4f, "crater removed from the canonical height after reset");
     // ---- explicit Apply damage -> persistence, undo, save/reload twice
@@ -844,17 +844,17 @@ void SelfTest::damageUpdate(App& app, float dt) {
     X.q2depth = X.Q2.y - app.terrain.height(X.Q2.x, X.Q2.z);
     app.applyDamageToMap();
     app.exitExplore();
-    check(app.rt[X.A].state[k] == PANEL_BREACHED && app.terrain.tiles.size() > 0, "applied damage survives the return to Creative");
+    check(app.rt[X.A].state[k] == PANEL_BREACHED && !app.terrain.deltas().empty(), "applied damage survives the return to Creative");
     { auto* ia = app.doc.find(X.A); auto* ib = app.doc.find(X.B);
       bool aHas = ia->extra.is_object() && ia->extra.contains("wallDamage") && ia->extra["wallDamage"].size() >= 2;
       bool bHas = ib->extra.is_object() && ib->extra.contains("wallDamage");
       check(aHas && !bHas && ia->panelHp.empty(), "only the damaged copy carries wall damage in the map (" + std::to_string(aHas ? ia->extra["wallDamage"].size() : 0) + " replayable impact events)"); }
     app.undo();
     app.syncRuntime();
-    check(app.rt[X.A].state[k] == PANEL_INTACT && app.terrain.tiles.empty(), "undo restores the wall, its collision and the ground together");
+    check(app.rt[X.A].state[k] == PANEL_INTACT && app.terrain.deltas().empty(), "undo restores the wall, its collision and the ground together");
     app.redo();
     app.syncRuntime();
-    check(app.rt[X.A].state[k] == PANEL_BREACHED && !app.terrain.tiles.empty(), "redo re-applies it");
+    check(app.rt[X.A].state[k] == PANEL_BREACHED && !app.terrain.deltas().empty(), "redo re-applies it");
     fs::path mp = userMapsDir() / "selftest_damage.nmap.json";
     check(app.saveMapTo(mp), "map with applied damage saved");
     float depths[2];

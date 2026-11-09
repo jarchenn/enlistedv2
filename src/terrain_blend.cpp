@@ -94,8 +94,11 @@ int blendPartMode(const json& asset, const json& pj) {
       bool wide = pj.contains("s") && pj["s"][2].get<float>() >= sd.value("minWidth", 0.3f) && pj["s"][1].get<float>() <= 0.08f;
       return std::find(sm.begin(), sm.end(), m) != sm.end() && wide && top >= sd.value("topAbove", -1.3f) ? 1 : 0;
     }
+    // kept as invisible colliders: the revetment and the earth fill behind it (the mantle ledge and the wall players
+    // meet), not the tilted parapet slabs (the terrain parapet replaces those)
     auto keep = r.value("keepCollision", json::array());
-    return std::find(keep.begin(), keep.end(), m) != keep.end() && pj.value("k", 1) != 0 ? 2 : 1;
+    bool tilted = pj.contains("r") && (std::fabs(pj["r"][0].get<float>()) > 1.0f || std::fabs(pj["r"][2].get<float>()) > 1.0f);
+    return std::find(keep.begin(), keep.end(), m) != keep.end() && pj.value("k", 1) != 0 && !tilted ? 2 : 1;
   }
   if (asset.contains("earthwork")) {
     const json& r = asset["earthwork"].value("replace", json::object());
