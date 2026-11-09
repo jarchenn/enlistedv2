@@ -47,7 +47,9 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
       check(ra->rackDisplay.size() >= 5 && rx->rackDisplay.size() >= 5, "each rack displays several real weapon models (" + std::to_string(ra->rackDisplay.size()) + " Allied, " + std::to_string(rx->rackDisplay.size()) + " Axis)");
       check(ra->rackDeploy.size() == 1 && rx->rackDeploy.size() == 1 && rx->rackDeploy[0] == "gun_pak40", "stationary guns listed as deployable equipment (M2HB tripod, PaK 40)");
       int smallArms = 0; for (auto& d : a.weaponDefs) smallArms += a.isSmallArm(*d);
-      check((int)a.carried.size() == smallArms, "sandbox loadout carries every small arm (" + std::to_string(a.carried.size()) + "), launchers and the M2 come from racks");
+      int mains = 0, equip = 0; for (int w : a.carried) (a.weaponDefs[w]->equipment() ? equip : mains)++;
+      (void)smallArms;
+      check(mains == 2 && equip >= 3, "sandbox loadout: two main weapons plus the knife and grenades (" + std::to_string(mains) + " + " + std::to_string(equip) + "), launchers and the M2 come from racks");
       return true; });
     push("rack screenshot", [this](App& a, float t) {
       if (t == 0) { standAt(a, vec3(3.5f, 0, 0.5f)); }
@@ -306,6 +308,62 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
         return true;
       }
       return t > 6; });
+    // ---------------------------------------------------------------- G4: two weapon slots, the stack, Q, keys, list
+    push("g4 stack", [this](App& a, float t) {
+      static int phase = 0; static float t0 = 0;
+      auto id = [&](int w) { return w < 0 ? std::string("(empty)") : a.weaponDefs[w]->id; };
+      if (t == 0) {
+        phase = 0; a.closeRack("g4"); a.resetLoadout(); a.selectWeapon(a.carried[0]);
+        std::vector<int> r = a.stackRows();
+        std::string order; for (int w : r) order += id(w) + " ";
+        bool ok = r.size() >= 4 && r[0] >= 0 && r[1] >= 0 && !a.weaponDefs[r[0]]->equipment() && !a.weaponDefs[r[1]]->equipment() && a.weaponDefs[r[2]]->melee.on;
+        for (size_t k = 3; k < r.size(); ++k) ok = ok && a.weaponDefs[r[k]]->grenade.on;
+        check(ok, "stack order: weapon 1, weapon 2, knife, grenades (" + order + ")");
+        int mains = 0; for (int w : a.carried) mains += !a.weaponDefs[w]->equipment();
+        check(mains == 2, "sandbox loadout: two main weapons (" + std::to_string(mains) + ")");
+        // a third weapon replaces the one in hand; the other slot and the equipment stay
+        int w0 = r[0], w1 = r[1]; std::string m;
+        a.equipWeapon(a.weaponIndex("m1_carbine"), m);
+        r = a.stackRows();
+        bool gone = std::find(a.carried.begin(), a.carried.end(), w0) == a.carried.end();
+        check(r[0] == a.weaponIndex("m1_carbine") && r[1] == w1 && gone && D(a).id == "m1_carbine" && m.find("put back") != std::string::npos,
+              "picking up a 3rd weapon replaces the one in hand (" + id(w0) + " -> m1_carbine, " + id(w1) + " kept): " + m);
+        // holding the knife: a new weapon takes weapon 2
+        a.selectWeapon(r[2]); a.equipWeapon(a.weaponIndex("mp40"), m); r = a.stackRows();
+        check(r[0] == a.weaponIndex("m1_carbine") && r[1] == a.weaponIndex("mp40"), "with the knife in hand a new weapon takes slot 2 (" + id(r[0]) + ", " + id(r[1]) + ")");
+        // the host applies the same rule to a LAN client's list
+        std::vector<int> c = a.carried; int back = a.carryTake(c, a.weaponIndex("kar98k"), a.weaponIndex("mp40"));
+        check(back == a.weaponIndex("mp40") && c[1] == a.weaponIndex("kar98k"), "host-side carryTake: a client's third weapon replaces its weapon in hand");
+        // Q with an empty slot 2 goes to the knife: one main weapon carried
+        a.carried = {a.weaponIndex("m1_carbine"), a.weaponIndex("knife_bayonet"), a.weaponIndex("mk2_grenade")}; a.capCarried(a.carried);
+        a.selectWeapon(a.weaponIndex("m1_carbine"));
+        a.scriptedInput.nextWeapon = true;
+        return false;
+      }
+      if (phase == 0 && t > 0.1f) {
+        check(D(a).melee.on, "Q with slot 2 empty goes to the knife (" + D(a).id + ")");
+        a.selectWeapon(a.weaponIndex("m1_carbine")); a.scriptedInput.choose2 = true; phase = 1; return false;
+      }
+      if (phase == 1 && t > 0.2f) { check(D(a).melee.on, "key 2 with slot 2 empty goes to the knife (" + D(a).id + ")"); a.scriptedInput.slot4 = true; phase = 2; return false; }
+      if (phase == 2 && t > 0.3f) { check(D(a).grenade.on, "key 4 selects the grenades (" + D(a).id + ")"); a.scriptedInput.choose1 = true; phase = 3; return false; }
+      if (phase == 3 && t > 0.4f) {
+        check(D(a).id == "m1_carbine", "key 1 selects weapon 1 (" + D(a).id + ")");
+        // the list + readout fixture: two weapons, switched a moment ago
+        a.resetLoadout(); a.selectWeapon(a.carried[0]); a.wstate[D(a).id].loaded = 5;
+        lookAt(a, a.eyePos() + vec3(0.3f, -0.15f, -1));
+        a.scriptedInput.choose2 = true; phase = 4; t0 = t; return false;
+      }
+      if (phase == 4 && t > t0 + 0.4f) {
+        const WeaponState& s = S(a);
+        std::string want = std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds());
+        check(a.lastStackAlpha > 0.9f && a.lastReadout.rfind(want + " | ", 0) == 0, "list shown while switching; the readout matches wstate (" + a.lastReadout + ", want " + want + ")");
+        shotQueue.push_back("g4_stack_list"); phase = 5; t0 = t; return false;
+      }
+      if (phase == 5 && t > t0 + 2.4f) {
+        check(a.lastStackAlpha == 0 && !a.lastReadout.empty(), "the list fades after ~1.5 s; the readout stays (" + a.lastReadout + ")");
+        shotQueue.push_back("g4_readout"); return true;
+      }
+      return t > 8; });
     push("reset", [this](App& a, float) { a.exitExplore(); check(a.mode == Mode::Creative, "back to Creative"); return true; });
   }
   stage = 1401;

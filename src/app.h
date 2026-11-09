@@ -66,6 +66,7 @@ struct ExploreInput {
   bool fireMode = false, prone = false, packUp = false, rackUp = false, rackDown = false, rackEquip = false, rackClose = false;
   bool jumpHeld = false;   // Space held (vault)
   bool quickGrenade = false;   // H (rebindable "grenade"): throw the side's grenade from any weapon
+  bool slot3 = false, slot4 = false;   // G4: number keys 3 (knife) and 4 (grenades); 1 / 2 arrive as choose1 / choose2
 };
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; json routes; std::map<int, std::vector<float>> sculpt; json terrainGen; std::vector<WaterBody> water; std::vector<uint64_t> selection; std::map<int64_t, std::vector<uint8_t>> paint; uint64_t paintSig = 0; };   // routes: MapDoc::extra["routes"] (auto paths)
@@ -271,8 +272,16 @@ public:
   // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
   struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0, smokeGrenade = 0; std::map<std::string, std::string> names; } binds;
   void loadBindings();
-  std::vector<int> carried;
+  std::vector<int> carried;   // G4: the stack, up to 2 main weapons (any gun / launcher / carried M2), then the knife, grenades
   bool isSmallArm(const WeaponDef& d) const;
+  int carryTake(std::vector<int>& c, int idx, int inHand) const;   // G4: add to a stack (2-slot rule); returns the weapon put back
+  void capCarried(std::vector<int>& c) const;                      // G4: at most 2 main weapons, order main, knife, grenades
+  std::vector<int> stackRows() const;                              // G4: [main 1 | -1, main 2 | -1, knife, grenades...]
+  double stackShownAt = -1e9;                                      // G4: the list shows for 1.5 s after a switch
+  std::map<std::string, unsigned> weaponSilhouette;                // G4: GL textures, white side views (makeWeaponSilhouettes)
+  void makeWeaponSilhouettes();
+  void drawStackUI(struct ImDrawList* dl, struct ImVec2 ds);       // G4 (weapons.cpp)
+  std::string lastReadout; float lastStackAlpha = 0;              // G4: the readout text / list opacity drawn last (tests)
   void resetLoadout();
   bool equipWeapon(int idx, std::string& msg);
   const char* fireModeName(const WeaponDef& d, const WeaponState& s) const;
