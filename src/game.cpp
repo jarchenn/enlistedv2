@@ -162,6 +162,7 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
     s.carried.clear();   // the same pool the client's own applyLoadout builds below
     for (auto& id : lo["player"]) { int w = app.weaponIndex(id.get<std::string>()); if (w >= 0) s.carried.push_back(w); }
     for (int d2 : {fragDef(s.faction), smokeDef(), app.weaponIndex("knife_bayonet")}) if (d2 >= 0) s.carried.push_back(d2);
+    app.capCarried(s.carried);   // G4: two main weapons (the pool's first two), the knife, the grenades
   } else if (s.localPlayer) {
     app.resetWeapons();
     std::vector<int> pool;
@@ -169,6 +170,7 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
     if (!pool.empty()) {
       // the side's grenades (E3 items) and the knife travel with the firearms; counts follow the match rules
       for (int d : {fragDef(s.faction), smokeDef(), app.weaponIndex("knife_bayonet")}) if (d >= 0) pool.push_back(d);
+      app.capCarried(pool);   // G4: two main weapons (the pool's first two), the knife, the grenades
       app.carried = pool; app.selectWeapon(pool[0]);
     }
     s.weapon = app.activeWeapon;

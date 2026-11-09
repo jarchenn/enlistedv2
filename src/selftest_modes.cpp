@@ -263,6 +263,19 @@ void build(App&) {
     Game& G = *gGame;
     if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
     if (t > 15 && t < 15.05f) pendingShot = outDir() / "modes_tdm_banner.png";
+    // G4: ally head markers: look at the nearest living teammate, then every marked soldier must be a friend
+    static bool g4done; if (t == 0) g4done = false;
+    if (Soldier* L = G.local(); L && L->alive && !g4done && t > 6) {
+      Soldier* best = nullptr; float bd = 1e9f;
+      for (auto& o : G.sold) if (o.alive && &o != L && !Game::hostile(*L, o)) { float d = glm::length(o.feet - L->feet); if (d < bd) { bd = d; best = &o; } }
+      if (best && t < 6.6f) { vec3 e = a.eyePos(), p = best->feet + vec3(0, 1.6f, 0); a.eyeYaw = degrees(std::atan2(-(p.x - e.x), -(p.z - e.z))); a.eyePitch = degrees(std::atan2(p.y - e.y, glm::length(vec2(p.x - e.x, p.z - e.z)))); }
+      if (t > 6.6f) {
+        int friends = 0, foes = 0;
+        for (int sl : G.markedSlots) for (auto& o : G.sold) if (o.slot == sl) (Game::hostile(*L, o) ? foes : friends)++;
+        chk(friends >= 1 && foes == 0, "G4: ally head markers on teammates (%d marked), none on enemies (%d)", friends, foes);
+        pendingShot = outDir() / "modes_g4_ally_markers.png"; g4done = true;
+      }
+    }
     if (G.match.phase != MatchPhase::Ended && t < 150) return false;
     int k0 = G.match.teamKills(0), k1 = G.match.teamKills(1);
     chk(k0 + k1 >= 3, "TDM: teams score (A %d, B %d) in %.0f s%s", k0, k1, t, G.match.phase == MatchPhase::Ended ? (" - " + G.match.result).c_str() : "");
@@ -276,6 +289,7 @@ void build(App&) {
     if (t > 3) { ++frames; sum += ft; worst = std::max(worst, ft); stalls += ft > 0.15f; if (ft > 0.15f && when.size() < 400) { char w[64]; std::snprintf(w, sizeof w, " t%.1f:%.0fms(%s)", t, ft * 1000, gCrumb ? gCrumb : "?"); when += w; } }
     Game& G = *gGame;
     if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
+    if (t > 10 && t < 10.05f) chk(G.markedSlots.empty(), "G4: no ally markers in Solo (%zu)", G.markedSlots.size());
     if (t < 40) return false;
     int alive = 0; for (auto& s : G.sold) alive += s.alive;
     int kills = 0; for (auto& s : G.match.slots) kills += s.kills;

@@ -701,10 +701,7 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
     else if (std::find(ars.begin(), ars.end(), w) == ars.end() || (app.strictDDay && app.weaponDefs[w]->laterWar)) refuse("weapon", "That weapon is not in this rack.");
     else if (gunOf(*n.d, slot)) refuse("on gun", "Leave the gun first.");
     else {
-      if (std::find(s.carried.begin(), s.carried.end(), w) == s.carried.end()) {
-        auto cur = std::find(s.carried.begin(), s.carried.end(), s.weapon);
-        if (cur == s.carried.end()) s.carried.push_back(w); else *cur = w;
-      }
+      app.carryTake(s.carried, w, s.weapon);   // G4: the 2-slot rule on the host (the client's equipWeapon applies the same)
       hostSwitch(app, s, w);
       p.ch.send(json{{"t", "rack"}, {"w", w}}.dump());
     }

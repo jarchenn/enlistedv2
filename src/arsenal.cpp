@@ -1,11 +1,13 @@
 // Arsenal: rebindable key bindings, the carried loadout, fire-mode selector, launchers, the carried M2
 // (deploy / pack up), faction weapon racks (display models, interaction panel) and the AT-gun wreck transition.
 //
-// Loadout policy (single player; there is no network layer in this engine):
-//  - Explore starts with the sandbox loadout: every small arm in the registry (launchers and heavy weapons
-//    excluded). Q cycles the carried list.
-//  - A rack equips any weapon of its faction. A weapon already carried is simply selected; otherwise it
-//    replaces the active slot. Every weapon keeps its own ammunition state for the whole session, so
+// Loadout policy (G4: two main-weapon slots):
+//  - The carried stack is weapon 1, weapon 2, the knife, the grenades. Any gun, launcher or the carried M2 takes a
+//    main slot. Explore starts with the M1 Garand, the Thompson, the knife and the grenades. Q cycles the stack; a
+//    step onto an empty weapon slot goes to the knife. Number keys 1-4 pick weapon 1, weapon 2, knife, grenades.
+//  - A rack (or the Loadout window) equips any weapon of its faction. A weapon already carried is simply selected; a
+//    third main weapon replaces the one in hand (weapon 2 when the hand holds the knife or a grenade). The replaced
+//    weapon goes back (there are no ground drops). Every weapon keeps its own ammunition state for the whole session, so
 //    swapping never refills or duplicates rounds; only ammunition crates restock (existing rule).
 //  - Returning to Creative (F5) resets the loadout, ammunition and fire modes (the existing session reset).
 #include "app.h"
@@ -67,9 +69,42 @@ void App::loadMoveSettings() {
 // ---------------------------------------------------------------- loadout
 bool App::isSmallArm(const WeaponDef& d) const { return d.action != "launcher" && d.action != "heavy"; }
 
+int App::carryTake(std::vector<int>& c, int idx, int inHand) const {
+  if (idx < 0 || std::find(c.begin(), c.end(), idx) != c.end()) return -1;
+  if (weaponDefs[idx]->equipment()) { c.push_back(idx); capCarried(c); return -1; }
+  std::vector<size_t> mains;
+  for (size_t k = 0; k < c.size(); ++k) if (!weaponDefs[c[k]]->equipment()) mains.push_back(k);
+  if (mains.size() < 2) { c.insert(c.begin() + (mains.empty() ? 0 : mains.back() + 1), idx); capCarried(c); return -1; }
+  size_t at = mains[1];
+  for (size_t k : mains) if (c[k] == inHand) at = k;   // the slot in hand, else weapon 2
+  int out = c[at]; c[at] = idx;
+  return out;
+}
+
+void App::capCarried(std::vector<int>& c) const {
+  std::vector<int> m, kn, gr;
+  for (int w : c) {
+    if (w < 0 || w >= (int)weaponDefs.size() || std::find(m.begin(), m.end(), w) != m.end() || std::find(kn.begin(), kn.end(), w) != kn.end() || std::find(gr.begin(), gr.end(), w) != gr.end()) continue;
+    const WeaponDef& d = *weaponDefs[w];
+    (d.melee.on ? kn : d.grenade.on ? gr : m).push_back(w);
+  }
+  if (m.size() > 2) m.resize(2);
+  c = m; c.insert(c.end(), kn.begin(), kn.end()); c.insert(c.end(), gr.begin(), gr.end());
+}
+
+std::vector<int> App::stackRows() const {
+  std::vector<int> r{-1, -1};
+  int n = 0;
+  for (int w : carried) if (!weaponDefs[w]->equipment() && n < 2) r[n++] = w;
+  for (int w : carried) if (weaponDefs[w]->equipment()) r.push_back(w);   // capCarried keeps the knife ahead of the grenades
+  return r;
+}
+
 void App::resetLoadout() {
   carried.clear();
-  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k])) carried.push_back((int)k);
+  for (const char* id : {"m1_garand", "m1_thompson"}) if (weaponIndex(id) >= 0) carried.push_back(weaponIndex(id));
+  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);
+  capCarried(carried);
   if (!carried.empty() && std::find(carried.begin(), carried.end(), activeWeapon) == carried.end()) activeWeapon = carried[0];
   closeRack("reset");
 }
@@ -79,15 +114,12 @@ bool App::equipWeapon(int idx, std::string& msg) {
   const WeaponDef& d = *weaponDefs[idx];
   if (strictDDay && d.laterWar) { msg = d.name + " is hidden by the strict 6 June 1944 preset."; return false; }
   if (occupied) { msg = "Leave the gun first."; return false; }
-  auto it = std::find(carried.begin(), carried.end(), idx);
-  if (it == carried.end()) {
-    auto cur = std::find(carried.begin(), carried.end(), activeWeapon);
-    if (cur == carried.end()) carried.push_back(idx); else *cur = idx;   // replaces the active slot
-  }
+  int back = carryTake(carried, idx, activeWeapon);   // G4: two main slots; a third replaces the one in hand
   selectWeapon(idx);
   WeaponState& s = wstate[d.id];
   s.triggerReleased = false;   // a held trigger never fires the newly equipped weapon
-  msg = "Equipped " + d.name + " (" + std::to_string(s.loaded) + " + " + std::to_string(s.reserveRounds()) + ")";
+  msg = "Equipped " + d.name + " (" + std::to_string(s.loaded) + " + " + std::to_string(s.reserveRounds()) + ")" + (back >= 0 ? ", " + weaponDefs[back]->name + " put back" : "");
+  stackShownAt = now;
   ++equips;
   return true;
 }

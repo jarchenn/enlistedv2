@@ -489,6 +489,41 @@ void MpUi::joinWindow(App& app) {
 }
 
 // ---------------------------------------------------------------- in-match HUD
+// G4: a small team-coloured chevron over each friendly soldier (AI and LAN teammates: alive, not the local player,
+// !hostile, not a zombie), in screen space: 13 px near shrinking to 7 px by 80 m, fading out from 70 to 90 m; drawn
+// through walls at 40 % when a ray from the eye is blocked. Solo has no friends (every other slot is hostile).
+void Game::drawAllyMarkers() {
+  markedSlots.clear();
+  Soldier* L = local();
+  if (!L) return;
+  ImGuiIO& io = ImGui::GetIO();
+  ImDrawList* dl = ImGui::GetBackgroundDrawList();   // under the HUD panels and the weapon list
+  vec3 eye = app.eyePos();
+  mat4 vp = app.projM * app.viewM;
+  static const float headY[3] = {1.85f, 1.35f, 0.55f};
+  for (auto& o : sold) {
+    if (!o.alive || o.localPlayer || o.zombie || hostile(*L, o) || &o == L) continue;
+    vec3 p = o.feet + vec3(0, headY[std::clamp(o.posture, 0, 2)] + 0.38f, 0);
+    float dist = glm::length(p - eye);
+    float a = 1.0f - std::clamp((dist - 70.0f) / 20.0f, 0.0f, 1.0f);
+    if (a <= 0) continue;
+    vec4 c = vp * vec4(p, 1);
+    if (c.w <= 0.05f) continue;   // behind the camera
+    vec2 n = vec2(c) / c.w;
+    if (std::fabs(n.x) > 1.1f || std::fabs(n.y) > 1.1f) continue;
+    ImVec2 q((n.x * 0.5f + 0.5f) * io.DisplaySize.x, (1 - (n.y * 0.5f + 0.5f)) * io.DisplaySize.y);
+    Physics::Hit h;
+    vec3 d = p - eye;
+    if (Physics::castRayEx(eye, d, glm::length(d) - 0.3f, h)) a *= 0.4f;   // occluded: dimmer, still drawn
+    float sz = glm::mix(13.0f, 7.0f, std::clamp((dist - 8.0f) / 72.0f, 0.0f, 1.0f)) * std::clamp(io.DisplaySize.y / 1080.0f, 0.75f, 2.0f);
+    ImU32 col = o.faction == Faction::Allies ? IM_COL32(120, 215, 110, (int)(235 * a)) : IM_COL32(110, 175, 240, (int)(235 * a));
+    ImVec2 t0(q.x - sz, q.y - sz * 0.9f), t1(q.x + sz, q.y - sz * 0.9f), t2(q.x, q.y + sz * 0.35f), t3(q.x, q.y - sz * 0.25f);
+    dl->AddTriangleFilled(t0, t3, t2, col); dl->AddTriangleFilled(t3, t1, t2, col);   // a chevron pointing down at the head (concave: two wings)
+    dl->AddQuad(t0, t3, t1, t2, IM_COL32(10, 12, 10, (int)(170 * a)), 1.2f);
+    markedSlots.push_back(o.slot);
+  }
+}
+
 void Game::drawHud() {
   if (!active) return;
   ImGuiIO& io = ImGui::GetIO();
@@ -499,6 +534,7 @@ void Game::drawHud() {
   const bool assault = match.mode() == GameMode::Assault;
   if (!assault) { drawModeBanner(); drawModePanel(); }   // G1: Solo / TDM banner, panel, respawn countdown (mpui_modes.cpp)
   drawScoreboardOverlay();                              // G1: held Tab, every mode
+  drawAllyMarkers();                                    // G4: a chevron over every friendly soldier's head
   // ---- objective sequence across the top: every point, in order, with permanent progress and live occupancy
   int n = (int)match.obj.size();
   float W = std::min(io.DisplaySize.x - 40.0f, 170.0f * n), x0 = (io.DisplaySize.x - W) * 0.5f, y0 = 10, cw = W / std::max(1, n);

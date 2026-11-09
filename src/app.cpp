@@ -749,6 +749,7 @@ int App::run(int argc, char** argv) {
     Part p; p.center = vec3(0); p.size = vec3(1);
     MeshData m; appendPart(m, p, rm, mat4(1)); debrisMesh.upload(m);
     buildWeaponMeshes();
+    makeWeaponSilhouettes();   // G4: the carried list (weapons.cpp)
     buildArmMeshes();
     loadBindings();
     loadMoveSettings();

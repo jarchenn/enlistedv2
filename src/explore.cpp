@@ -294,7 +294,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   }
   if (!occupied) stepBuilder(in);
   if (occupied) { stepStation(dt, in); }
-  else if (build.active || mantle.active || swim.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; if (swim.active) w.quickGrenade = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing / swimming
+  else if (build.active || mantle.active || swim.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; w.choose1 = w.choose2 = w.slot3 = w.slot4 = false; w.wheel = 0; if (swim.active) w.quickGrenade = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing / swimming
   else stepWeapons(dt, in);
   blastShake = std::max(0.0f, blastShake - dt * 1.5f);
   if (mpaiLocalFrozen(*this)) { stepProjectiles(dt); fx.update(dt, terrain); return; }   // dead in a match: spectating
@@ -419,7 +419,7 @@ void App::updateExplore(float dt) {
   if (useScripted) {
     in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false; scriptedInput.toggleAmmo = false; scriptedInput.build = false;
     scriptedInput.fireMode = scriptedInput.prone = scriptedInput.packUp = scriptedInput.rackUp = scriptedInput.rackDown = scriptedInput.rackEquip = scriptedInput.rackClose = false;
-    scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false; scriptedInput.quickGrenade = false;
+    scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false; scriptedInput.quickGrenade = false; scriptedInput.slot3 = scriptedInput.slot4 = false;
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
@@ -458,6 +458,7 @@ void App::updateExplore(float dt) {
     }
     { extern double gScrollY; in.wheel = io.WantCaptureMouse ? 0.0f : (float)gScrollY; gScrollY = 0; }
     in.choose1 = kp(win, GLFW_KEY_1); in.choose2 = kp(win, GLFW_KEY_2);
+    in.slot3 = kp(win, GLFW_KEY_3); in.slot4 = kp(win, GLFW_KEY_4);   // G4: knife, grenades
     in.nextWeapon = kp(win, GLFW_KEY_Q);
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
@@ -467,7 +468,7 @@ void App::updateExplore(float dt) {
   {
     static bool ExploreInput::* const kEdges[] = {&ExploreInput::interact, &ExploreInput::jump, &ExploreInput::reload, &ExploreInput::switchPos, &ExploreInput::toggleAmmo, &ExploreInput::build,
       &ExploreInput::fireMode, &ExploreInput::prone, &ExploreInput::packUp, &ExploreInput::rackUp, &ExploreInput::rackDown, &ExploreInput::rackEquip, &ExploreInput::rackClose,
-      &ExploreInput::choose1, &ExploreInput::choose2, &ExploreInput::nextWeapon, &ExploreInput::quickGrenade};
+      &ExploreInput::choose1, &ExploreInput::choose2, &ExploreInput::nextWeapon, &ExploreInput::quickGrenade, &ExploreInput::slot3, &ExploreInput::slot4};
     for (auto m : kEdges) in.*m = in.*m || edgeCarry.*m;
     in.dyaw += edgeCarry.dyaw; in.dpitch += edgeCarry.dpitch; in.wheel += edgeCarry.wheel;
     edgeCarry = ExploreInput{};
@@ -485,7 +486,7 @@ void App::updateExplore(float dt) {
     exploreStep(1.0f / 60.0f, in);
     crumb("match step");
     mpaiStep(*this, 1.0f / 60.0f);   // match: soldiers, AI, grenades, capture
-    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.quickGrenade = false; in.dyaw = in.dpitch = 0;
+    in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.quickGrenade = false; in.slot3 = in.slot4 = false; in.dyaw = in.dpitch = 0;
     in.wheel = 0;   // one scroll notch turns the build ghost once, however many steps run
     physAccum -= 1.0f / 60.0f; ++steps;
   }

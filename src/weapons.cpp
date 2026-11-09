@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <numeric>
+#include <stb_image.h>
 #include <stb_image_write.h>
 
 enum WPart { WP_BODY, WP_BOLT, WP_MAG, WP_COVER, WP_CLIP, WP_BIPOD, WP_SCOPE, WP_HANDLE, WP_COUNT };
@@ -288,12 +289,24 @@ std::string App::resupplyWeapon(uint64_t crateId, const WeaponDef& d, WeaponStat
 
 void App::stepWeapons(float dt, const ExploreInput& in) {
   if (weaponDefs.empty()) return;
-  if (in.nextWeapon) {   // Q cycles the carried loadout (sandbox loadout + rack swaps)
+  // G4 stack switching (arsenal.cpp): Q steps down the stack and an empty weapon slot falls to the knife; the wheel
+  // steps either way over the filled rows; 1 / 2 weapon slots (empty: the knife), 3 the knife, 4 the grenades in turn
+  bool pick = !(pauseMenu || showLoadout || choiceFor || rackOpen);
+  int slotKey = !pick ? 0 : in.choose1 ? 1 : in.choose2 ? 2 : in.slot3 ? 3 : in.slot4 ? 4 : 0;
+  int wheelStep = pick && in.wheel != 0 ? (in.wheel > 0 ? -1 : 1) : 0;
+  if (in.nextWeapon || slotKey || wheelStep) {
     if (carried.empty()) resetLoadout();
-    auto it = std::find(carried.begin(), carried.end(), activeWeapon);
-    size_t at = it == carried.end() ? 0 : (size_t)(it - carried.begin());
-    for (size_t k = 0; k < carried.size(); ++k) { at = (at + 1) % carried.size(); if (!(strictDDay && weaponDefs[carried[at]]->laterWar)) break; }
-    selectWeapon(carried[at]);
+    std::vector<int> rows = stackRows();
+    int n = (int)rows.size(), cur = -1, knife = -1, to = -1;
+    for (int k = 0; k < n; ++k) { if (rows[k] == activeWeapon) cur = k; if (knife < 0 && rows[k] >= 0 && weaponDefs[rows[k]]->melee.on) knife = k; }
+    auto usable = [&](int k) { return rows[k] >= 0 && !(strictDDay && weaponDefs[rows[k]]->laterWar); };
+    if (in.nextWeapon) { to = (cur + 1) % n; if (!usable(to)) to = knife >= 0 ? knife : to; }
+    else if (wheelStep) { to = cur < 0 ? 0 : cur; for (int k = 0; k < n; ++k) { to = (to + wheelStep + n) % n; if (usable(to)) break; } }
+    else if (slotKey <= 2) to = usable(slotKey - 1) ? slotKey - 1 : knife;
+    else if (slotKey == 3) to = knife;
+    else for (int k = 1; k <= n; ++k) { int j = ((cur < 2 ? 1 : cur) + k) % n; if (j >= 2 && usable(j) && weaponDefs[rows[j]]->grenade.on) { to = j; break; } }
+    if (to >= 0 && to < n && usable(to) && rows[to] != activeWeapon) selectWeapon(rows[to]);
+    stackShownAt = now;
   }
   const WeaponDef& d = *weaponDefs[activeWeapon];
   WeaponState& s = wstate[d.id];
@@ -481,6 +494,85 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   }
 }
 
+// ---------------------------------------------------------------- G4: carried list + ammo readout (lower right)
+// The reference (screens/refs/inventory_ref.png): right-aligned rows of white weapon silhouettes with the name across
+// their lower part, "loaded/reserve" to the right, a key column at the far right, the selected row in a thin
+// gold-brown box; white text with a soft shadow. The list shows while switching and fades 1.5 s later; the large
+// "loaded / reserve" and the fire mode under it stay.
+std::string stackAmmoText(App& a, int w) {
+  if (w < 0) return "";
+  const WeaponDef& d = *a.weaponDefs[w]; const WeaponState& s = a.wstate[d.id];
+  if (d.melee.on) return "";
+  if (d.grenade.on) return std::to_string(s.loaded + (int)s.containers.size());
+  return std::to_string(s.loaded) + "/" + std::to_string(s.reserveRounds());
+}
+static std::string readoutModeName(App& a, const WeaponDef& d, const WeaponState& s) {
+  if (d.melee.on) return "Melee";
+  if (d.grenade.on) return "Thrown";
+  std::string m = a.fireModeName(d, s);
+  if (m == "AUTO") return "Full-auto";
+  if (m == "SINGLE") return "Single-shot";
+  if (m == "CARRY") return "Carried (deploy)";
+  return d.action == "bolt" ? "Bolt-action" : "Semi-auto";
+}
+static void shadowText(ImDrawList* dl, ImFont* f, float sz, ImVec2 p, ImU32 col, const char* t, float a) {
+  for (ImVec2 o : {ImVec2(1.5f, 1.5f), ImVec2(0, 1.5f), ImVec2(1.5f, 0)}) dl->AddText(f, sz, ImVec2(p.x + o.x, p.y + o.y), IM_COL32(0, 0, 0, (int)(110 * a)), t);
+  dl->AddText(f, sz, p, (col & 0x00FFFFFF) | ((ImU32)(((col >> 24) & 0xFF) * a) << 24), t);
+}
+void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
+  const WeaponDef& d = *weaponDefs[activeWeapon];
+  const WeaponState& s = wstate[d.id];
+  ImFont* f = ImGui::GetFont(); float fs = ImGui::GetFontSize();
+  const float sc = std::clamp(ds.y / 1080.0f, 0.75f, 2.0f), right = ds.x - 28 * sc;
+  // ---- readout: large "loaded / reserve" (grenades: the count; the knife: none), the fire mode under it
+  std::string big = d.melee.on ? "" : d.grenade.on ? stackAmmoText(*this, activeWeapon) : std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds());
+  float bigSz = fs * 2.1f * sc, midSz = fs * 1.15f * sc, smSz = fs * 1.0f * sc;
+  std::string mode = readoutModeName(*this, d, s);
+  ImVec2 mt = f->CalcTextSizeA(midSz, 1e9f, 0, mode.c_str());
+  float yMode = ds.y - 26 * sc - mt.y;
+  shadowText(dl, f, midSz, ImVec2(right - mt.x, yMode), IM_COL32(235, 235, 230, 255), mode.c_str(), 1);
+  float yBig = yMode;
+  if (!big.empty()) {
+    ImVec2 bt = f->CalcTextSizeA(bigSz, 1e9f, 0, big.c_str());
+    yBig = yMode - bt.y + 2 * sc;
+    shadowText(dl, f, bigSz, ImVec2(right - bt.x, yBig), IM_COL32(245, 245, 240, 255), big.c_str(), 1);
+  }
+  lastReadout = big + " | " + mode;
+  std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "Loading rounds" : "Reloading") : s.bolt > 0 ? "Working the bolt" : (!d.equipment() && s.loaded == 0) ? "Empty - R to reload" : "";
+  if (d.feed == "belt") st += std::string(st.empty() ? "" : "   ") + (supported ? "Bipod supported" : "Unsupported: crouch and stand still");
+  float yInfo = yBig - smSz - 4 * sc;
+  if (!st.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, st.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 205, 130, 255), st.c_str(), 1); yInfo -= smSz + 2 * sc; }
+  if (!weaponMsg.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, weaponMsg.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 210, 130, 230), weaponMsg.c_str(), 1); yInfo -= smSz + 2 * sc; }
+  // ---- the list: shown while switching, fading 1.5 s after the last switch
+  float age = (float)(now - stackShownAt), a = age < 1.5f ? 1.0f : std::max(0.0f, 1.0f - (age - 1.5f) / 0.4f);
+  lastStackAlpha = a;
+  if (a <= 0) return;
+  std::vector<int> rows = stackRows();
+  const float rowH = 62 * sc, silW = 190 * sc, silH = 46 * sc, keyW = 30 * sc, gap = 14 * sc;
+  float y = yInfo - 10 * sc - rowH * rows.size();
+  for (size_t k = 0; k < rows.size(); ++k, y += rowH) {
+    int w = rows[k];
+    float kx = right - keyW, x1 = kx - gap, x0 = x1 - silW - 80 * sc;
+    // key column: a small rounded tag with the slot key (the grenades share 4)
+    char key[2] = {(char)('1' + std::min<size_t>(k, 3)), 0};
+    ImVec2 kc(kx + keyW * 0.5f, y + rowH * 0.45f);
+    dl->AddRect(ImVec2(kc.x - 11 * sc, kc.y - 11 * sc), ImVec2(kc.x + 11 * sc, kc.y + 11 * sc), IM_COL32(230, 230, 225, (int)(200 * a)), 4 * sc, 0, 1.5f * sc);
+    ImVec2 ks = f->CalcTextSizeA(smSz, 1e9f, 0, key);
+    shadowText(dl, f, smSz, ImVec2(kc.x - ks.x * 0.5f, kc.y - ks.y * 0.5f), IM_COL32(240, 240, 235, 255), key, a);
+    if (w < 0) continue;   // an empty weapon slot: just its key
+    const WeaponDef& wd = *weaponDefs[w];
+    // silhouette (white side view), the name across its lower part, the ammo to its right
+    auto it = weaponSilhouette.find(wd.id);
+    float sx0 = x0, sy0 = y + 4 * sc;
+    if (it != weaponSilhouette.end() && it->second)
+      dl->AddImage((ImTextureID)(intptr_t)it->second, ImVec2(sx0, sy0), ImVec2(sx0 + silW, sy0 + silH), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(235, 235, 232, (int)(225 * a)));
+    shadowText(dl, f, midSz, ImVec2(sx0 + 6 * sc, sy0 + silH * 0.55f), IM_COL32(250, 250, 248, 255), wd.name.c_str(), a);
+    std::string am = stackAmmoText(*this, w);
+    if (!am.empty()) { ImVec2 t = f->CalcTextSizeA(midSz, 1e9f, 0, am.c_str()); shadowText(dl, f, midSz, ImVec2(x1 - t.x, sy0 + 2 * sc), IM_COL32(245, 245, 240, 255), am.c_str(), a); }
+    if (w == activeWeapon) dl->AddRect(ImVec2(x0 - 6 * sc, y), ImVec2(x1 + 6 * sc, y + rowH - 4 * sc), IM_COL32(176, 138, 72, (int)(235 * a)), 2 * sc, 0, 1.6f * sc);
+  }
+}
+
 void App::drawWeaponUI() {
   if (occupied || weaponDefs.empty()) return;
   ImGuiIO& io = ImGui::GetIO();
@@ -506,16 +598,7 @@ void App::drawWeaponUI() {
     dl->AddText(ImVec2(20, io.DisplaySize.y - 60), IM_COL32(255, 255, 255, 230), cb);
   }
   drawSightOverlay(*this, dl, io.DisplaySize.x / std::max(1, R.width), io.DisplaySize.y / std::max(1, R.height));   // W2: centre, sight points, roll
-  char b[256];
-  std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "loading rounds" : "reloading") : s.bolt > 0 ? "working the bolt" : s.loaded == 0 ? "EMPTY - R" : "";
-  int nC = (int)s.containers.size();
-  std::snprintf(b, sizeof b, "%s  %s  [%s]%s\nloaded %d (incl. chamber) | reserve %d in %d x %s  (allowance %d)\n%s %s", d.name.c_str(), d.caliber.c_str(), fireModeName(d, s), d.modes.size() > 1 ? (" (" + binds.names["fireMode"] + " toggles)").c_str() : "", s.loaded, s.reserveRounds(), nC, d.container.c_str(), s.reserveMax,
-                st.c_str(), d.feed == "belt" ? (supported ? "[bipod supported]" : "[unsupported - crouch & stand still]") : "");
-  ImVec2 ts = ImGui::CalcTextSize(b);
-  ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30);
-  dl->AddRectFilled(ImVec2(p.x - 10, p.y - 8), ImVec2(p.x + ts.x + 10, p.y + ts.y + 8), IM_COL32(12, 12, 10, 190), 4);
-  dl->AddText(p, IM_COL32(235, 228, 200, 255), b);
-  if (!weaponMsg.empty()) dl->AddText(ImVec2(p.x, p.y - 26), IM_COL32(255, 210, 130, 230), weaponMsg.c_str());
+  drawStackUI(dl, io.DisplaySize);   // G4: the carried list (while switching) and the ammo / fire-mode readout
   if (showLoadout) {
     ImGui::SetNextWindowPos(c, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::Begin("Loadout / range (L)", &showLoadout, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
@@ -539,7 +622,7 @@ void App::drawWeaponUI() {
       if (strictDDay && w.laterWar) continue;
       auto& ws = wstate[w.id];
       char lbl[200]; std::snprintf(lbl, sizeof lbl, "%s%s  (%d + %d)", (int)k == activeWeapon ? "> " : "  ", w.name.c_str(), ws.loaded, ws.reserveRounds());
-      if (ImGui::Selectable(lbl, (int)k == activeWeapon)) selectWeapon((int)k);
+      if (ImGui::Selectable(lbl, (int)k == activeWeapon)) { std::string m; equipWeapon((int)k, m); toast(m, 3); }   // G4: the 2-slot rule
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", w.note.c_str());
     }
     if (ImGui::Selectable("  Browning M2HB (mounted) - go to a placed gun")) {
@@ -598,6 +681,52 @@ bool App::writeModelPreview(const fs::path& glb, const fs::path& outDir, const f
   for (auto& p : gm.parts) logf("  part %-40s tris %d  (%.3f %.3f %.3f)-(%.3f %.3f %.3f)", p.name.c_str(), (int)(p.count / 3), p.bmin.x, p.bmin.y, p.bmin.z, p.bmax.x, p.bmax.y, p.bmax.z);
   gm.destroy();
   return true;
+}
+
+// G4: one white silhouette per weapon for the carried list: an orthographic side view (muzzle to the right) of the
+// model (or its procedural parts), the background keyed out to alpha. Cached as PNG beside the exe
+// (cache/weapon_silhouettes/<id>.png, delete to rebuild) and uploaded once at start.
+void App::makeWeaponSilhouettes() {
+  const int W = 512, H = 128;
+  fs::path dir = exeDir() / "cache" / "weapon_silhouettes";
+  std::error_code ec; fs::create_directories(dir, ec);
+  for (auto& dp : weaponDefs) {
+    const WeaponDef& d = *dp;
+    fs::path p = dir / (d.id + ".png");
+    std::vector<uint8_t> px;
+    int w = 0, h = 0, ch = 0;
+    if (stbi_uc* img = stbi_load(p.string().c_str(), &w, &h, &ch, 4)) {
+      if (w == W && h == H) px.assign(img, img + (size_t)W * H * 4);
+      stbi_image_free(img);
+    }
+    if (px.empty()) {
+      std::vector<ModelDraw> md; std::vector<DrawItem> bx;
+      vec3 bmin(-0.05f, -0.1f, 0), bmax(0.05f, 0.1f, 1.0f);
+      if (d.useModel()) { for (int q = 0; q < WP_COUNT; ++q) for (int k : d.modelParts[q]) md.push_back({d.model.get(), k, mat4(1)}); bmin = d.model->bmin; bmax = d.model->bmax; }
+      else for (int q = 0; q < WP_COUNT; ++q) if (d.mesh[q].count) bx.push_back({&d.mesh[q], mat4(1)});
+      if (d.hasScope && !d.useModel()) bx.push_back({&d.mesh[WP_SCOPE], mat4(1)});
+      vec3 c = (bmin + bmax) * 0.5f, ext = bmax - bmin;
+      float hw = std::max(ext.z, 0.05f) * 0.52f, hh = hw * H / W;
+      if (ext.y * 0.55f > hh) { hh = ext.y * 0.55f; hw = hh * W / H; }
+      float D = glm::length(ext) + 1.0f;
+      vec3 eye = c - vec3(D, 0, 0);   // looking +x: screen right is +z, the muzzle
+      std::vector<uint8_t> rgba;
+      R.renderModelSheet(md, bx, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::ortho(-hw, hw, -hh, hh, 0.01f, D * 2), eye, W, H, rgba);
+      px.assign((size_t)W * H * 4, 255);
+      const uint8_t* bg = rgba.data();   // the corner: the clear colour after the sheet's tone curve
+      for (size_t k = 0; k < (size_t)W * H; ++k) {
+        int diff = 0; for (int c2 = 0; c2 < 3; ++c2) diff = std::max(diff, std::abs((int)rgba[k * 4 + c2] - (int)bg[c2]));
+        px[k * 4 + 3] = (uint8_t)std::clamp((diff - 4) * 12, 0, 255);
+      }
+      stbi_write_png(p.string().c_str(), W, H, 4, px.data(), W * 4);
+    }
+    GLuint tex = 0;
+    glCreateTextures(GL_TEXTURE_2D, 1, &tex); glTextureStorage2D(tex, 1, GL_RGBA8, W, H);
+    glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glTextureSubImage2D(tex, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, px.data());   // first row = the top (ImGui v = 0)
+    weaponSilhouette[d.id] = tex;
+  }
 }
 
 void App::writeWeaponSheets(const fs::path& outDir) {
