@@ -102,7 +102,7 @@ void SelfTest::villageUpdate(App& app, float dt) {
     double now = glfwGetTime();
     if (stageTime > 1.0) { vFrames.push_back((now - vLast) * 1000.0); vGpu.push_back(app.R.stats.gpuMs); vCpu.push_back(app.R.stats.cpuMs); }   // 1 s warm-up (grass streaming)
     vLast = now;
-    { static int shotCam = -1; if (stageTime > 2.4 && shotCam != vCam) { shotCam = vCam; shotQueue.push_back("village_" + vTag + "_" + c.name); } }   // once per camera, whatever the frame time
+    { static int shotCam = -1; if (stageTime > 2.4 && shotCam != vCam) { shotCam = vCam; shotQueue.push_back("village_" + vTag + "_" + c.name); if (std::getenv("NMK_UI_SHOT")) app.uiShot = exeDir() / "selftest_out" / ("ui_village_" + vTag + "_" + c.name + ".png"); } }   // once per camera, whatever the frame time
     if (stageTime < 5.0) return;
     auto pct = [](std::vector<double> v, double q) { if (v.empty()) return 0.0; std::sort(v.begin(), v.end()); return v[std::min(v.size() - 1, (size_t)(v.size() * q))]; };
     ProcMem pmc = processMemory();

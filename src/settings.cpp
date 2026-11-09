@@ -217,12 +217,15 @@ void settingsInit(App& app, bool selftest) {
   Settings& S = settings();
   gSelftest = selftest;
   S.persist = !selftest;
-  if (selftest) return;   // self-tests: Medium defaults, nothing read or written, nothing applied
+  if (selftest) {   // self-tests: Medium defaults, nothing read or written, nothing applied
+    if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale
+    return;
+  }
   if (!S.load(S.path())) {
 #ifdef __APPLE__
-    // first run on a Mac: start light (View > Settings raises it). The window is Retina-sized (2x pixels each way), so a
-    // 50 % scale renders the 3D scene at about the window's point size; the upscale and the UI stay at full sharpness
-    S.s.gfx = presetOpts(GfxPreset::Low); S.s.gfx.resScale = 0.5f;
+    // first run on a Mac: Medium with the 3D scene at 60 % of the Retina window (MetalFX upscales it on Metal: crisper
+    // than bilinear, and the UI stays at full sharpness). Saved settings are kept as they are
+    S.s.gfx = presetOpts(GfxPreset::Medium); S.s.gfx.resScale = 0.6f;
 #endif
   }
   S.apply(app);
