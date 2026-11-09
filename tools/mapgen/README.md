@@ -157,6 +157,13 @@ Linear features:
   map_file, camera, thumbnail, thumb_camera, playable)` writes the template.
 - `write_summary` and `asset_usage` produce the build report.
 
+### `paint.py`: `GroundPaint`
+
+Lasso ground paint for authored maps (MapDoc `groundPaint`): `poly(kind, poly, weight, edge, ragged)` and
+`line(kind, pts, width)` paint 0.5 m texels (kinds in `content/ground_paint.json` order: dirt, mud, gravel, ploughed,
+dry_grass, leaf_litter...); a partial weight goes over the old layer as the lasso stroke does. Pass
+`extra={"groundPaint": paint.to_json()}` to `write_map`.
+
 ## Engine side (`src/w5_maps.cpp`, `src/w5.h`)
 
 A template may carry these keys:
@@ -185,12 +192,15 @@ distance dominates the frame. In bocage the next hedge hides what lies beyond it
   `stamp_quarry`, `stamp_cut`) and writes `views` (named cameras) into the template for `--selftest-maps`.
 
 - `maps/chateau_town.py`: Chateau town (M1), a dense 350 x 400 m town around B3's grand chateau, built in layers: the
-  walled chateau forecourt, a ring road and winding streets lined with the B2 / B3 houses (a weighted deck so every type
-  comes round; frontage placement keeps houses clear of every route and keep-out), the walled churchyard, the square,
-  a mill stream (`wat_stream_straight` in a sculpted valley) under B2's two stone bridges, sandbags and wooden X at the
-  four approaches; then a green ring of bocage sector fields (radial hedges from the town edge to the border) with
-  orchards, meadow, wheat and three farms, and sunken lanes on the south and west roads; beyond the border a
-  Beautify-style decor ring (houses facing inward, hedges and trees, `extra.decor` / `extra.beautify`). The layout runs
+  walled chateau forecourt with its parterre garden, a ring road and winding streets lined with near-continuous
+  terraces of the B2 / B3 houses (a weighted deck so every type comes round; frontage placement keeps houses clear of
+  every route, keep-out and back yard), fenced back yards (vegetable plots in ground paint, fruit trees, firewood), a
+  walled and hedged back lane between the two house rings with outbuildings filling the gaps, the walled churchyard,
+  the square, a mill stream (`wat_stream_straight` in a sculpted valley) under B2's two stone bridges, sandbags and
+  wooden X at the four approaches; then a green ring of bocage sector fields (radial hedgerows lined with trees) with
+  orchards, meadow, wheat stubble and ploughed fields (ground paint), three farms with walled yards, and sunken lanes
+  on the south and west roads; beyond the border irregular hamlets of 3-6 houses, woods and fields (`extra.decor` /
+  `extra.beautify`: never furnished, outside the navmesh tiles). The layout runs
   twice: pass 1 records the building footprints and levels the ground under them, pass 2 places everything on the
   levelled, quantised grid. Assault A-D, TDM team spawns (`team` 0 / 1) and a supply crate at every spawn. It is a
   `"userMap": true` template, so `--selftest-maps` runs the generic checks and reports (does not gate) its frame time,

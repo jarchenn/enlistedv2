@@ -7,3 +7,4 @@ from .defense import site_mg_nests, interlock_report, build_mg_nest, slots_from_
 from .scenario import ScenarioBuilder, SPEC21  # noqa: F401
 from .bocage import split_fields, hedgerow, orchard, sunken_lane, cut_gaps  # noqa: F401
 from .output import write_map, write_template, write_summary, asset_usage  # noqa: F401
+from .paint import GroundPaint  # noqa: F401

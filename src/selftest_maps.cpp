@@ -189,6 +189,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
   case 4100: {   // ---------------------------------------------------------------- setup
     reportName = "maps";
     gUi.showOverlay = false;   // screenshots and previews without the scenario overlay
+    app.hideEditorOverlays = true;   // ... and without the build-area outline / editor gizmos (M1 review)
     for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--render-map-thumbs") thumbOnly = true;
     sTpl = mapTemplates(app); sTi = 0;
     if (const char* only = std::getenv("NMK_MAPS")) { std::string o = std::string(",") + only + ","; std::erase_if(sTpl, [&](int k) { return o.find("," + app.templates[k].id + ",") == std::string::npos; }); }   // measurement runs: only these map ids
