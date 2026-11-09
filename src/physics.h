@@ -28,6 +28,7 @@ public:
   static void remove(uint32_t body);
   static int bodyCount();
   static void step(float dt);
+  static void optimizeBroadPhase();   // after adding many bodies (map load, auto-furnish): rebalances the tree for queries
 
   static bool castRay(vec3 o, vec3 dir, float maxDist, float& t, uint64_t& userData);
   struct Hit { float t = 0; vec3 pos{0}, normal{0, 1, 0}; uint64_t ud = 0; };

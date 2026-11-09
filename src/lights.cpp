@@ -181,10 +181,9 @@ float lightsEmissiveScale(App& app, const Instance& i) {
 
 void lightsGather(App& app, std::vector<LightDesc>& out) {
   float day = lightsDaylight(app);
-  for (auto& i : app.doc.instances) {
-    auto it = app.rt.find(i.id);
-    if (it == app.rt.end() || !it->second.asset) continue;
-    const AssetDef* a = it->second.asset;
+  for (auto& [idx, rp] : app.activeSet().lights) {   // instances with a light asset only (app.cpp), not every instance
+    const Instance& i = app.doc.instances[idx];
+    const AssetDef* a = rp->asset;
     const LightAssetDef* d = lightDef(a);
     if (!d || d->lights.empty()) continue;
     const json* L = extraLight(i);

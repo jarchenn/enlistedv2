@@ -341,10 +341,9 @@ void App::rebuildSectionBodies(const Instance& i, InstanceRT& r) {
 
 float App::traversalFactor(vec3 feet) const {
   float f = 1.0f;
-  for (auto& i : doc.instances) {
-    auto it = rt.find(i.id); if (it == rt.end()) continue;
-    const InstanceRT& r = it->second; const DefenseDef& d = r.asset->defense;
-    if (d.kind != "wire" || d.traversal != "slow" || r.defDestroyed) continue;
+  for (auto& [idx, rp] : const_cast<App&>(*this).activeSet().slowWire) {   // slow wire only (app.cpp), not every instance
+    const Instance& i = doc.instances[idx]; const InstanceRT& r = *rp; const DefenseDef& d = r.asset->defense;
+    if (r.defDestroyed) continue;
     vec3 lp = glm::inverse(yawQuat(i.yaw)) * (feet - i.pos);
     for (auto& p : r.asset->parts) {   // inside any uncut player-only volume (axis-aligned in asset space)
       if (!p.playerOnly || (p.sec >= 0 && p.sec < (int)r.secCut.size() && r.secCut[p.sec])) continue;

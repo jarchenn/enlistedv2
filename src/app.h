@@ -91,6 +91,12 @@ public:
   Mode mode = Mode::Creative;
   std::map<uint64_t, InstanceRT> rt;
   uint32_t revCounter = 1;
+  uint64_t syncSig_ = 0;   // syncRuntime: placement hash of its last full pass (app.cpp)
+  // instances with doors / windows (inter), crewed guns, crates and racks (objs), tanks (vehicles) and light sources, with their
+  // runtime state: per-step / per-frame loops that walked every instance with a map lookup (app.cpp)
+  struct ActiveSet { uint64_t key = 1; std::vector<std::pair<size_t, InstanceRT*>> inter, objs, vehicles, lights, slowWire; std::vector<InstanceRT*> rtOf; };   // rtOf: per doc.instances index (null: no runtime yet)
+  ActiveSet active_;
+  const ActiveSet& activeSet();
   Audio audio;
   double now = 0;
   float frameDt = 0.016f;

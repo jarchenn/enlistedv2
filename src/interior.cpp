@@ -392,8 +392,10 @@ int InteriorSys::autoFurnishAll(App& app) {
   auto t0 = std::chrono::high_resolution_clock::now();
   std::vector<uint64_t> ids;
   for (auto& i : app.doc.instances) if (autoFurnishable(app, i)) ids.push_back(i.id);
+  if (!ids.empty()) { app.syncRuntime(); Physics::optimizeBroadPhase(); }   // the planner's ray / solid queries run on a balanced tree
   int pieces = 0;
   for (uint64_t id : ids) pieces += autoFurnish(app, id);
+  if (!ids.empty()) Physics::optimizeBroadPhase();   // the pieces' bodies
   lastAutoMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
   if (!ids.empty()) logf("interior: auto-furnished %zu buildings, %d pieces in %.0f ms", ids.size(), pieces, lastAutoMs);
   return pieces;

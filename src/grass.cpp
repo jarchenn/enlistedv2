@@ -299,6 +299,11 @@ void Grass::update(const Terrain& t, uint32_t seed, const std::vector<GrassFootp
   float camH = cam.y - t.height(cam.x, cam.z);
   if (camH > P.radius) { lastBuildMs = 0; return; }           // flying high: nothing visible to build
   float R = P.radius + kChunk;
+  // only footprints that can reach a chunk in range (the per-chunk tests below use this reach from the chunk centre,
+  // which is within R of the camera): the signatures walked every footprint of the map per chunk per frame
+  static std::vector<GrassFootprint> nearFp; nearFp.clear();
+  for (auto& f : fp) if (glm::length(f.pos - vec2(cam.x, cam.z)) <= R + fpRadius(f) + kMargin + kChunk) nearFp.push_back(f);
+  const std::vector<GrassFootprint>& fpIn = nearFp;
   int x0 = (int)std::floor((cam.x - R) / kChunk), x1 = (int)std::floor((cam.x + R) / kChunk);
   int z0 = (int)std::floor((cam.z - R) / kChunk), z1 = (int)std::floor((cam.z + R) / kChunk);
   struct Todo { float d; int cx, cz; uint64_t sig; };
@@ -308,12 +313,12 @@ void Grass::update(const Terrain& t, uint32_t seed, const std::vector<GrassFootp
     float d = glm::length(cc - vec2(cam.x, cam.z));
     if (d > R) continue;
     if (cc.x < t.org.x - kChunk || cc.y < t.org.y - kChunk || cc.x > t.org.x + t.size + kChunk || cc.y > t.org.y + t.sizeZ + kChunk) continue;
-    uint64_t sig = signature(cx, cz, t, fp);
+    uint64_t sig = signature(cx, cz, t, fpIn);
     auto it = chunks.find(ckey(cx, cz));
     if (it != chunks.end()) {
       it->second.lastUsed = frame;
       if (it->second.sig == sig) continue;
-      uint64_t content = contentSignature(cx, cz, t, fp);
+      uint64_t content = contentSignature(cx, cz, t, fpIn);
       if (content == it->second.content) { it->second.sig = sig; continue; }   // tiles remeshed, ground unchanged here
     }
     todo.push_back({d, cx, cz, sig});
@@ -323,8 +328,8 @@ void Grass::update(const Terrain& t, uint32_t seed, const std::vector<GrassFootp
     double el = std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
     if (budgetMs >= 0 && lastBuilt > 0 && el > budgetMs) { ++pending; continue; }
     Chunk& c = chunks[ckey(w.cx, w.cz)];
-    c.cx = w.cx; c.cz = w.cz; c.sig = w.sig; c.content = contentSignature(w.cx, w.cz, t, fp); c.lastUsed = frame;
-    build(c, t, fp);
+    c.cx = w.cx; c.cz = w.cz; c.sig = w.sig; c.content = contentSignature(w.cx, w.cz, t, fpIn); c.lastUsed = frame;
+    build(c, t, fpIn);
     ++lastBuilt;
   }
   // evict chunks that have been out of range for a while

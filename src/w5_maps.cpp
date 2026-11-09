@@ -161,13 +161,19 @@ bool w5CullDraw(const App& app, const Instance& i, const AssetDef* a) {
     return m;
   }();
   if (!a || rules.empty()) return false;
-  auto it = rules.find("#" + a->id);
-  if (it == rules.end()) it = rules.find(a->category);
-  if (it == rules.end()) return false;
+  static std::unordered_map<const AssetDef*, const Rule*> ruleOf;   // per instance per frame: no string keys (assets never move)
+  auto ro = ruleOf.find(a);
+  if (ro == ruleOf.end()) {
+    auto it = rules.find("#" + a->id);
+    if (it == rules.end()) it = rules.find(a->category);
+    ro = ruleOf.emplace(a, it == rules.end() ? nullptr : &it->second).first;
+  }
+  if (!ro->second) return false;
+  const Rule& rule = *ro->second;
   vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
   float d2 = glm::dot(i.pos - eye, i.pos - eye);
   vec3 ext = a->bmax - a->bmin;
   float size = std::max({ext.x, ext.y, ext.z, 0.3f});
-  float cut = std::clamp(it->second.perMetre * size, it->second.minD, it->second.maxD) * settings().drawDist();   // Settings draw distance (rules stay cached)
+  float cut = std::clamp(rule.perMetre * size, rule.minD, rule.maxD) * settings().drawDist();   // Settings draw distance (rules stay cached)
   return d2 > cut * cut;
 }

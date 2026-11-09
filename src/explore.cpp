@@ -1,5 +1,6 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "crumb.h"
 #include "settings.h"
 #include "mpai.h"
 #include "rules.h"
@@ -32,7 +33,7 @@ vec3 App::eyePos() const {
 
 bool App::enterExplore() {
   if (mode == Mode::Explore) return true;
-  syncRuntime();
+  { LoadStep ls("enterExplore syncRuntime"); syncRuntime(); Physics::optimizeBroadPhase(); }   // bodies added since load: balanced tree for play
   if (!doc.start.set) {
     // No marker yet: start on the ground at the centre of the view (or under the camera), facing the same way.
     vec3 hit;
@@ -74,7 +75,7 @@ bool App::enterExplore() {
   if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   R.resetExposure(1.2f);
   mode = Mode::Explore;
-  mpaiEnterExplore(*this);   // starts a match when the Play menu asked for one
+  { LoadStep ls("enterExplore match start"); mpaiEnterExplore(*this); }   // starts a match when the Play menu asked for one
   return true;
 }
 
@@ -119,6 +120,7 @@ bool App::leafBlocked(const Instance& i, const InteractDef& d, float p) const {
 }
 
 InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
+  const App::ActiveSet& act = const_cast<App&>(*this).activeSet();
   InteractTarget best;
   const float reach = kInteractReach;            // doors / windows: 2.0 -> 2.5 m (+25 %)
   float tWall = reach + 0.5f; uint64_t ud = 0;
@@ -126,10 +128,8 @@ InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
   bool rayHit = Physics::castRay(eye, dir, reach + 0.5f, th, ud);
   if (rayHit) tWall = th;
   float bestT = 1e9f;
-  for (auto& i : doc.instances) {
-    auto it = rt.find(i.id); if (it == rt.end()) continue;
-    auto& r = it->second;
-    if (r.asset->interactables.empty()) continue;
+  for (auto& [idx, rp] : act.inter) {
+    const Instance& i = doc.instances[idx]; const InstanceRT& r = *rp;
     if (glm::length(i.pos - eye) > glm::length(r.asset->bmax - r.asset->bmin) + 4) continue;
     quat iq = yawQuat(i.yaw);
     mat4 M = instanceMatrix(i);
@@ -167,9 +167,8 @@ InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
     if (it != rt.end() && owner != occupied && kindOf(it->second)) { tObj = th; objId = owner; objKind = kindOf(it->second); }
   }
   if (!objId)
-    for (auto& i : doc.instances) {
-      auto it = rt.find(i.id); if (it == rt.end()) continue;
-      auto& r = it->second;
+    for (auto& [idx, rp] : act.objs) {
+      const Instance& i = doc.instances[idx]; const InstanceRT& r = *rp;
       int kind = kindOf(r);
       if (!kind || i.id == occupied) continue;
       bool isStation = kind == 1;
@@ -269,9 +268,8 @@ void App::stepVault(float dt) {
 
 void App::exploreStep(float dt, const ExploreInput& in) {
   // ---- animate interactables (only those moving)
-  for (auto& i : doc.instances) {
-    auto it = rt.find(i.id); if (it == rt.end()) continue;
-    auto& r = it->second;
+  for (auto& [idx, rp] : activeSet().inter) {
+    const Instance& i = doc.instances[idx]; InstanceRT& r = *rp;
     for (size_t k = 0; k < r.dir.size(); ++k) {
       if (!r.dir[k]) continue;
       auto& d = r.asset->interactables[k];
@@ -483,14 +481,18 @@ void App::updateExplore(float dt) {
   physAccum += dt;
   int steps = 0;
   while (physAccum >= 1.0f / 60.0f && steps < 8) {
+    crumb("explore step");
     exploreStep(1.0f / 60.0f, in);
+    crumb("match step");
     mpaiStep(*this, 1.0f / 60.0f);   // match: soldiers, AI, grenades, capture
     in.interact = false; in.jump = false; in.reload = false; in.switchPos = false; in.toggleAmmo = false; in.build = false; in.fireMode = in.prone = in.packUp = in.rackUp = in.rackDown = in.rackEquip = in.rackClose = false; in.choose1 = in.choose2 = false; in.nextWeapon = false; in.quickGrenade = false; in.dyaw = in.dpitch = 0;
     in.wheel = 0;   // one scroll notch turns the build ghost once, however many steps run
     physAccum -= 1.0f / 60.0f; ++steps;
   }
   if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral
+  crumb("physics step");
   Physics::step(dt);
+  crumb("explore leaves / interior / grenades");
   stepDynLeaves(dt);
   interior.step(*this, dt);
   stepGrenades(dt);

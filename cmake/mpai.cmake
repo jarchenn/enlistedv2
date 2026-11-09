@@ -7,4 +7,4 @@ target_sources(NormandyMapmaker PRIVATE
 if(WIN32)
   target_link_libraries(NormandyMapmaker PRIVATE ws2_32)
 endif()
-target_sources(NormandyMapmaker PRIVATE src/zombie.cpp src/anim_clip.cpp src/selftest_zombies.cpp)   # G2 zombies
+target_sources(NormandyMapmaker PRIVATE src/zombie.cpp src/anim_clip.cpp src/selftest_zombies.cpp src/selftest_perf.cpp)   # G2 zombies
