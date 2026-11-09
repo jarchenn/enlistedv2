@@ -222,6 +222,35 @@ void SelfTest::captureUpdate(App& app, float dt) {
       ci = 0; frames = 0; stage = 801;
       return;
     }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set).rfind("gx4zf:", 0) == 0) {
+      // NMK_CAPTURE_SET=gx4zf:id,id (GX4 z-fighting close-ups): per building a stairwell (from the top tread of the
+      // highest flight down it) and an interior door header (from 1.3 m inside the door up at its lintel)
+      static std::deque<std::string> keep;
+      std::string s = std::string(set).substr(6) + ",";
+      cams.clear(); int k = 0;
+      for (size_t p = 0, q; (q = s.find(',', p)) != std::string::npos; p = q + 1) {
+        std::string id = s.substr(p, q - p); const AssetDef* a = id.empty() ? nullptr : app.lib.find(id);
+        if (!a) continue;
+        uint64_t iid = app.placeInstance(a, vec3(-200.0f + 70.0f * k++, 0, 0), 0.0f);
+        if (!iid) continue;
+        vec3 o = app.doc.find(iid)->pos;
+        vec3 hi(0, -1e9f, 0), lo(0, 1e9f, 0);   // the highest tread and the lowest tread under it (same flight: within 4 m)
+        for (auto& pj : a->raw.value("parts", json::array())) if (pj.value("m", std::string()) == "tread_x" && !pj.contains("r")) { vec3 c = jvec3(pj["c"]); if (c.y > hi.y) hi = c; }
+        for (auto& pj : a->raw.value("parts", json::array())) if (pj.value("m", std::string()) == "tread_x" && !pj.contains("r")) { vec3 c = jvec3(pj["c"]); if (c.y < lo.y && c.y > hi.y - 3.2f && glm::length(vec2(c.x - hi.x, c.z - hi.z)) < 5.0f) lo = c; }
+        if (hi.y > -1e8f) { keep.push_back(id + "_stair"); cams.push_back({keep.back().c_str(), o + hi + vec3(0, 1.65f, 0) + (hi - lo) * vec3(0.25f, 0, 0.25f), o + lo + vec3(0, 0.6f, 0)}); }
+        for (auto& it : a->raw.value("interactables", json::array())) {
+          if (it.value("kind", std::string()) != "door" || !it.contains("aperture")) continue;
+          vec3 mn = jvec3(it["aperture"]["min"]), mx = jvec3(it["aperture"]["max"]), c = (mn + mx) * 0.5f;
+          bool alongX = mx.x - mn.x > mx.z - mn.z;
+          vec3 in = alongX ? vec3(0, 0, c.z > 0 ? -1.0f : 1.0f) : vec3(c.x > 0 ? -1.0f : 1.0f, 0, 0);   // toward the building centre
+          keep.push_back(id + "_door"); cams.push_back({keep.back().c_str(), o + vec3(c.x, 1.55f, c.z) + in * 1.3f, o + vec3(c.x, mx.y + 0.05f, c.z)});
+          break;
+        }
+      }
+      app.syncRuntime(); app.hideEditorOverlays = true; app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
     if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set).rfind("gx4", 0) == 0) {
       // NMK_CAPTURE_SET=gx4[:id,id]: GX4 exteriors (docs/exterior-references.md), unfurnished, no companions: a front
       // three-quarter view matching the GLB reference renders (tools/gx4_refs.py), a street-level corner, an eaves / roof

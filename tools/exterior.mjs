@@ -12,6 +12,7 @@
 // (the slab under each course stays). The flag is ignored by the current loader.
 import { extOf, fbox, cornice } from "./parts.mjs";
 import { cutRect } from "./kit.mjs";
+import { overlaps, boxOf, EPS } from "./zfight_check.mjs";
 
 const q4 = (v) => Math.round(v * 1e4) / 1e4;
 // L4 texture rows (content/textures/textures.json slots; tools/exterior.mjs measured the joint phase from the image
@@ -68,7 +69,7 @@ function seeded(str) {
 function courses(A, { eave, dn, n, ac, Ls, half, m, tk = 0.14 }) {
   const T = ROOF_TEX[ROOF_MATS[m]], e = T.row, up = dn.map((v) => -v), q0 = qBasis(ac, n, up), out = [];
   for (let k = 0, u = 0; u < Ls - 0.05; k++, u += e) {
-    const L = 2 * (T.phase + 1 + (k & 1)) * e, len = Math.min(L, Ls - u), w = 2 * half(Math.min(u + len, Ls)) - 0.012;
+    const L = 2 * (T.phase + 1 + (k & 1)) * e, len = Math.min(L, Ls - u), w = 2 * half(Math.min(u + len, Ls)) - 0.012 - 0.014 * ((k * 5) % 6);
     if (w < 0.15 || len < 0.06) continue;
     const s = Math.min(T.lift, (tk - 0.02 + T.th / 2) / Math.max(1, len / e - 1)), d = Math.atan(s / e);
     const q = qMul(q0, qAxis([1, 0, 0], (d * 180) / Math.PI)), dir = add(up.map((v) => v * Math.cos(d)), n, -Math.sin(d));
@@ -117,12 +118,15 @@ function hipCourses(A, { X, Z, EAVE, RIDGE, ov, m }) {
 
 // ---------------------------------------------------------------- timber, quoins
 function timber(A, R) {
-  for (const { F, proj, parts } of extOf(A).timber) {
+  for (const { F, embed, parts } of extOf(A).timber) {
     const di = F.axis === "x" ? 2 : 0;
     for (const p of parts) {
       if (p.t !== "b" || !/^oak_/.test(p.m)) continue;
-      const want = 0.03 + 0.012 * R(), dp = Math.max(0, want - proj);   // deeper members (>= 3 cm proud, under the shutters' 3.5 cm)
-      p.s[di] = q4(p.s[di] + dp); p.c[di] = q4(p.c[di] + (F.out * dp) / 2);
+      // each kind of member at its own depth, >= 6 mm from the others (posts and rails cross at the joints: one shared
+      // face plane z-fights): rails 3.5 cm, posts 2.7 cm, braces 2.0 cm proud (the open shutters fold at 3.5 cm); the back
+      // stays `embed` into the wall
+      const vert = p.s[1] > Math.max(p.s[0], p.s[2]), want = p.r || p.q ? 0.02 : vert ? 0.027 : 0.035;
+      p.s[di] = q4(want + embed); p.c[di] = q4(F.d + (F.out * (want - embed)) / 2);
       const wi = [0, 1, 2].filter((i) => i !== di).sort((a, b) => p.s[a] - p.s[b])[0];   // adzed width variation
       if (p.s[wi] < 0.4) p.s[wi] = q4(p.s[wi] + (R() - 0.5) * 0.022);
       p.bv = q4(Math.min(0.016, p.s[di] / 2 - 0.004, p.s[wi] / 2 - 0.004));
@@ -138,9 +142,9 @@ function quoins(A, R) {
     const e = 0.008 + 0.03 * R(), sx = Math.sign(p.c[0]) || 1, sz = Math.sign(p.c[2]) || 1;
     p.s[0] = q4(p.s[0] + e); p.c[0] = q4(p.c[0] + (sx * e) / 2);
     p.s[2] = q4(p.s[2] + e); p.c[2] = q4(p.c[2] + (sz * e) / 2);
-    const dh = 0.01 + 0.02 * R();   // deeper bed joints, the stone's own height
-    p.s[1] = q4(p.s[1] - dh); p.c[1] = q4(p.c[1] - dh / 2 + 0.004);
-    p.bv = q4(0.014 + 0.012 * R());
+    // deeper V joints from a larger chamfer; the height stays (quoins are colliders reaching 5 cm into the rooms, and
+    // room detection / auto-furnish read them)
+    p.bv = q4(Math.min(0.018 + 0.012 * R(), p.s[1] / 2 - 0.01));
   }
 }
 
@@ -326,6 +330,59 @@ const hipInPlace = (A, h) => {
 // a recorded sill nose still has a dressed-stone part there (turned wings move their parts, not the record)
 const sillInPlace = (A, pt) => A.parts.some((p) => p.t === "b" && p.m === "stone_dressed" && [0, 1, 2].every((i) => Math.abs(pt[i] - p.c[i]) <= p.s[i] / 2 + 0.06));
 
+// ---------------------------------------------------------------- z-fighting (tools/zfight_check.mjs)
+// Every pair of same-facing faces closer than 6 mm that overlap in area and show: one of the two parts grows along that
+// normal until its face stands 7 mm clear (its back face stays where it was, embedded). Grown first: visual-only trim,
+// then static parts over bay parts, then trim materials over wall materials, then the smaller face; never a door / window
+// leaf when the other can move.
+const WALLM = new Set(["stone", "stone_plinth", "brick", "plaster", "plaster_smoke", "render", "render_cream", "rubble_core", "concrete"]);
+function grow(p, n, delta) {
+  const b = boxOf(p), i = [0, 1, 2].reduce((bi, k) => (Math.abs(b.ax[k][0] * n[0] + b.ax[k][1] * n[1] + b.ax[k][2] * n[2]) > Math.abs(b.ax[bi][0] * n[0] + b.ax[bi][1] * n[1] + b.ax[bi][2] * n[2]) ? k : bi), 0);
+  p.s[i] = q4(p.s[i] + delta); p.c = p.c.map((v, k) => q4(v + (n[k] * delta) / 2));
+  if (p.bv) p.bv = q4(Math.min(p.bv, ...p.s.map((v) => v / 2 - 0.001)));
+}
+// two parts that overlap only by a thin sliver along a tangent t (band pieces jittered into each other, stacked cells):
+// trim the sliver off one of them, so their coplanar faces only touch. Returns false when that does not apply.
+const D3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const ext = (b, t) => { const c = D3(b.c, t), h = [0, 1, 2].reduce((s, k) => s + Math.abs(D3(b.ax[k], t)) * b.h[k], 0); return [c - h, c + h]; };
+function trimSliver(pa, pb, x, sa, sb) {
+  const A = boxOf(pa), B = boxOf(pb);
+  for (const t of [x.fu, x.fv]) {
+    const [a0, a1] = ext(A, t), [b0, b1] = ext(B, t), ov = Math.min(a1, b1) - Math.max(a0, b0);
+    if (ov <= 0 || ov > 0.04 || ov >= Math.min(a1 - a0, b1 - b0) - 0.005) continue;
+    if (!((a0 < b0 - 1e-4 && a1 < b1 - 1e-4) || (b0 < a0 - 1e-4 && b1 < a1 - 1e-4))) continue;   // ends crossing, not one range inside the other
+    // trim the one that scores lower (the trim rather than the wall), on the side facing the other
+    const [p, P, lo] = sa <= sb ? [pa, A, a0 < b0 ? false : true] : [pb, B, b0 < a0 ? false : true];
+    const k = [0, 1, 2].find((i) => Math.abs(D3(P.ax[i], t)) > 0.9999);
+    if (k === undefined || p.s[k] < 0.1) continue;   // never the embed of a thin trim into its wall
+    const d = ov + 0.0001, sg = D3(P.ax[k], t) > 0 ? 1 : -1, dir = lo ? 1 : -1;   // lo: remove from the low end (move the centre up t)
+    p.s[k] = q4(p.s[k] - d); p.c = p.c.map((v, i) => q4(v + (t[i] * dir * d) / 2));
+    if (p.bv) p.bv = q4(Math.min(p.bv, ...p.s.map((v) => v / 2 - 0.001)));
+    void sg;
+    return true;
+  }
+  return false;
+}
+export function unfight(A, passes = 40) {
+  let fixed = 0;
+  for (let it = 0; it < passes; it++) {
+    const o = overlaps(A.json());
+    if (!o.length) break;
+    const done = new Set();
+    for (const x of o) {
+      if (done.has(x.pa) || done.has(x.pb)) continue;
+      const score = (p, tag, d, dOther) => (tag.startsWith("leaf") ? 50 : 0) + (p.k === 0 ? 0 : 4) + (tag.startsWith("bay") ? 2 : 0) + (WALLM.has(p.m) ? 8 : 0)
+        + Math.min(1, (p.s[0] * p.s[1] + p.s[1] * p.s[2] + p.s[0] * p.s[2]) / 10);
+      const sa = score(x.pa, x.ta, x.da, x.db), sb = score(x.pb, x.tb, x.db, x.da);
+      if (trimSliver(x.pa, x.pb, x, sa, sb)) { done.add(x.pa); done.add(x.pb); fixed++; continue; }
+      const [p, d, dOther] = sa <= sb ? [x.pa, x.da, x.db] : [x.pb, x.db, x.da];
+      grow(p, x.nf, Math.max(0.001, dOther + EPS + 0.001 - d));
+      done.add(p); fixed++;
+    }
+  }
+  return fixed;
+}
+
 // ---------------------------------------------------------------- the pass
 export function exterior(A, opt = {}) {
   const R = seeded(A.meta.id + ":gx4"), x = extOf(A), f = FEATURES[A.meta.id] || {};
@@ -353,6 +410,7 @@ export function exterior(A, opt = {}) {
     const h = q4(Math.min(1.4, 0.5 + 0.6 * R()));
     return sillInPlace(A, pos) ? [{ kind: "rain_streak", pos: pos.map(q4), n, w: q4(s.a1 - s.a0 + 0.1), h }] : [];
   });
+  unfight(A);
   A.meta.version = (A.meta.version || 1) + 1;
   A.meta.description += opt.note ? " " + opt.note : "";
   return A;

@@ -51,13 +51,14 @@ Heights are above the building's lowest point. Pitch is the dominant roof-slope 
 | `large_village_schoolhouse` (houses2 / large) | P1-0 | crow-stepped gables with stone copings, stone bands at the sill and head lines of every storey, a dentil course |
 | `large_municipal_building` | P1-6 | rusticated ground floor (channelled courses), dentil course |
 | `vil_rectory` (chateau) | P1-6, P1-3 | rusticated ground floor, dentils, dark painted plinth |
-| `vil_terrace_pair` | P1-4 | painted plinth on the rendered house, stone bands on the brick house, dentils |
-| `vil_corner_shop` | P1-7, P1-3 | stone bands on the brick upper storey, dentils |
+| `vil_terrace_pair` | P1-4 | an eaves cornice with dentils, a painted plinth on the rendered house only, stone bands on the brick house |
+| `vil_corner_shop` | P1-7, P1-3 | an eaves cornice with dentils, stone bands on the brick upper storey |
 | `vil_villa_deauville` | P3-2 | stone bands on the brick ground floor, dentils, red tile courses |
 | `large_village_inn` | Little Rock Inn, P1-7 | a heavy channelled base under the timbering |
 | `small_roadside_office` | P1-3 | dark painted plinth |
 | `large_stone_warehouse`, `small_storehouse`, `small_carpenter_workshop`, `small_stone_dairy` | Shoeburyness, P3-1 | wall-foot weathering, roof courses, quoin relief |
-| `vil_chateau_grand`, `vil_manor_turret`, `vil_gatehouse_chapel` | P1-2, P3-2 | steep tile / slate courses, ridge tiles, timber relief |
+| `vil_chateau_grand` | P1-2, P3-2 | steep tile courses, ridge tiles, timber relief, the stone squares of the checkerwork 0.8-1.8 cm proud of the brick |
+| `vil_manor_turret`, `vil_gatehouse_chapel` | P1-2, P3-2 | steep slate courses, ridge tiles, timber relief |
 | `house_farmhouse_2story`, `vil_norman_farmhouse`, `vil_longhouse_thatched`, `vil_townhouse_jettied`, `vil_cottage_barn`, `vil_mill_house`, `house_stone_cottage`, `vil_stone_barn` | (rural Norman: no direct GLB; P1/P3 for trim depth, Shoeburyness for weathering) | roof courses, ridge tiles, deeper chamfered timbers, rusticated quoins, wall-foot weathering |
 | `vil_church` | P1-1 | slate courses and ridge tiles |
 | bunkers (D1) | Tilbury Fort | concrete weathering and earthwork blending belong to GX1 / GX5 |
@@ -75,13 +76,14 @@ Run last on every B2 / B3 building (`tools/build_mpu_assets.mjs` maps `chateauAs
 - **Roof courses.** Every pitched roof slab (gable roofs, cross gables, dormer roofs) and every hip roof gets real
   courses: thin strips tilted so each lower edge stands proud of the course below (2.4 cm tile, 1.3 cm slate). The
   strip pitch is one L4 texture row (tile 0.264 m, slate 0.208 m) and each strip is sized so a texture joint falls on
-  its lower edge (the row phase was measured from the images). Hip roofs get the same on both trapezoids and both hip
+  its lower edge (the row phase was measured from the images). Consecutive courses show alternate texture rows, so the
+  vertical joints stagger; each strip climbs one course depth into the slab (never through it). Hip roofs get the same on both trapezoids and both hip
   triangles, plus half-round hip rolls. The material `tile` now uses the `roof_tile` slot (RoofingTiles014B) instead of
   the slate set.
 - **Ridge tiles.** The ridge bar or roll is overlaid with a run of tapered half-round tiles (0.4 m), flared ends lapping.
 - **Timber framing.** Members from `parts.timberFrame` stand 3.0-4.2 cm proud (was 1.8 cm; the open shutters fold at
   3.5 cm), with a 1.6 cm chamfer and +-1.1 cm adzed width variation.
-- **Quoins.** Each stone projects its own 0.8-3.8 cm, with deeper bed joints and a 1.4-2.6 cm chamfer.
+- **Quoins.** Each stone projects its own 0.8-3.8 cm, with a 1.8-3.0 cm chamfer (the height and the inner end stay: quoins are colliders).
 - **Reference features** (table above): crow steps, dentils, refends, stone bands, painted plinths. Facade strips over a
   destructible wall bay are put in that bay's intact state, so they fall with the wall.
 - **Wall foot** (`kMainFS`, `uWeather`): the dirt gradient now reaches ~1 m, with rain-splash speckle in the lowest
@@ -94,3 +96,33 @@ Run last on every B2 / B3 building (`tools/build_mpu_assets.mjs` maps `chateauAs
 Parts that are pure exterior relief carry `"lod": 1` (always `k: 0`, never in a bay): roof courses, hip rolls, ridge
 tiles, dentils, refends outside the bays. The slab or wall under each one stays, so a far LOD may drop every `lod: 1`
 part and keep the silhouette. The current loader ignores the key.
+
+## Cost
+
+Visible triangles of the 23 changed buildings (boxes 12, cylinders / cones ~40), batch2 -> GX4:
+
+| | batch2 | GX4 near | GX4 without `lod: 1` |
+|---|---|---|---|
+| all 23 | 279 k | 375 k (+35 %) | 290 k (+4 %) |
+| vil_chateau_grand | 75.1 k | 87.2 k | 75.1 k |
+| large_municipal_building | 25.5 k | 35.2 k | 27.0 k |
+| vil_rectory | 9.8 k | 20.7 k | 11.5 k |
+| house_farmhouse_2story | 10.3 k | 13.2 k | 10.3 k |
+
+The non-`lod` growth is the facade strips that sit in wall bays (they must fall with the bay) and the crow steps.
+
+## Screenshots
+
+`Documents/MapMaker/screens/gx/exteriors/<family>_<reference>.png`: per building family, the GLB reference render
+(left) next to the in-game building before (batch2, middle) and after (right), from the `NMK_CAPTURE_SET=gx4` cameras
+(three-quarter, street corner, roof close-up). The test scene's `current_03` / `current_04` are
+`screens/gx/current_03_exterior_gx4.png` and `current_04_lineup_gx4.png`.
+
+## Not done / limits
+
+- Rain streaks are anchors only (`meta.decals`); GX5's static decal system draws them.
+- Roof pitches are unchanged (see above); no coyau (eave kick) on the Norman roofs.
+- Cones (turret spires, the GX6 cafe mansard) and thatch get no courses.
+- A strip shortened at a ridge keeps its lower edge on a texture joint; its top row is off-phase (under the ridge tiles).
+- Timber members, string courses and other static facade trims over a breached wall bay still hang in the air (as
+  before GX4); the GX4 strips over bays do not.
