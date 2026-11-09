@@ -121,6 +121,9 @@ void SelfTest::captureUpdate(App& app, float dt) {
       cams.push_back({"current_05_field", vec3(0.0f, 1.65f, 38.0f), vec3(0.0f, 1.2f, 140.0f)});
       if (op) cams.push_back({"current_06_bunker", W(op, vec3(-6.4f, 1.7f, 6.2f)), W(op, vec3(0.6f, 1.7f, -0.4f))});
       if (tc) cams.push_back({"current_07_trench", W(tc, vec3(-3.8f, 2.9f, 3.8f)), W(tc, vec3(1.6f, -0.6f, -1.6f))});
+      // standing on the trench floor (1.62 m down, eye 1.65 m) 9 m back along the corner's first leg, looking along it
+      // to the corner: the floor, both revetment walls and the lip against the sky
+      if (tc) cams.push_back({"gx_trench_floor", W(tc, vec3(-9.0f, 0.03f, 0.05f)), W(tc, vec3(0.0f, 0.25f, 0.0f))});
       app.syncRuntime();
       app.hideEditorOverlays = true;
       app.grassBudgetMs = -1;

@@ -125,6 +125,7 @@ This writes `selftest_out/mat_<tag>_<shot>.png` (1920 x 1080). Stream results ar
 | `current_05_field` | eye height over the grass field toward the horizon | `current_05_grass_field_flat_wide` |
 | `current_06_bunker` | the observation post, low from the front-left | `current_06_bunker_hard_terrain_edges` |
 | `current_07_trench` | above the trench corner's inner side, looking at the mitre | `current_07_trench_floating_slab_gaps_hard_edges` |
+| `gx_trench_floor` | on the trench floor at eye height, along the corner's first leg toward the corner (floor, both revetments, the lip against the sky) | (extra: the trench criteria from inside) |
 
 Frame time on the scene: run the same capture with `GPU_TURN_EXCLUSIVE=1`; the log reports per-shot GPU ms.
 
