@@ -604,10 +604,11 @@ def populate(ctx, grid, pads=None):
     for ln in lines:
         gaps = cut_gaps(ln, roads, 6.0) + gaps_where(ln, lambda x, z: town(x, z, 0.93) or polyline_dist((x, z), stream)[0] < 9
                                                      or any(e is not None and math.hypot(x - e["pos"][0], z - e["pos"][2]) < 12 for e in bridges.values()))
-        pl, tr = hedgerow(b, ln, R, group=grp, gaps=gaps, gate_every=(45.0, 90.0), tree_every=(2.6, 4.4), tags={"green"})
+        pl, tr = hedgerow(b, ln, R, group=grp, gaps=gaps, gate_every=(45.0, 90.0),
+                          trees=(("tree_ash", 3.0), ("tree_oak", 1.0), ("tree_poplar", 0.6)), tags={"green"})   # ash: a third of an oak's triangles
         nhedge += len(pl)
         for e in pl:   # brambles, hazel and blackthorn at the foot of the bank, both sides, so no bare bank shows
-            if R.random() < 0.55:
+            if R.random() < 0.3:
                 side = R.choice((-1, 1))
                 p = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], R.uniform(-4.0, 4.0), side * R.uniform(2.0, 2.6))
                 b.place(R.choice(["shrub_bramble", "shrub_hazel", "nat_blackthorn_low", "nat_bramble_thicket"]), *p, R.uniform(0, 360),
