@@ -160,7 +160,7 @@ int coplanarOverlaps(const json& j, std::string& why) {
       if (zArea(poly) < 0) std::reverse(poly.begin(), poly.end());
       vec2 R[4] = {{-A.hu, -A.hv}, {A.hu, -A.hv}, {A.hu, A.hv}, {-A.hu, A.hv}};
       for (int e = 0; e < 4 && !poly.empty(); ++e) poly = zClip(poly, R[e], R[(e + 1) % 4]);
-      if (poly.size() < 3 || std::fabs(zArea(poly)) < 1e-4f) continue;
+      if (poly.size() < 3 || std::fabs(zArea(poly)) < 2e-4f) continue;   // 2 cm2 (the JS check, which the resolver uses, flags from 1 cm2)
       vec2 c(0); for (auto& p : poly) c += p; c /= (float)poly.size();
       std::vector<vec2> pts{c};
       for (auto& p : poly) { vec2 d = p - c; float l = std::max(glm::length(d), 1e-6f); pts.push_back(p - d / l * std::min(0.005f, l * 0.5f)); }
