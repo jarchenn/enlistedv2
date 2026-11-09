@@ -18,8 +18,8 @@ const q4 = (v) => Math.round(v * 1e4) / 1e4;
 // L4 texture rows (content/textures/textures.json slots; tools/exterior.mjs measured the joint phase from the image
 // top as a fraction of a row): row = set size / scale / rows per tile
 export const ROOF_TEX = {
-  tile: { row: 2.9 / 11, phase: 0.586, th: 0.022, lift: 0.024 },    // roof_tile slot: roof_clay_old (RoofingTiles014B), 11 rows
-  slate: { row: 2.0 / 0.6 / 16, phase: 0.477, th: 0.014, lift: 0.013 },   // slate slot: slate_square (RoofingTiles003) at scale 0.6, 16 rows
+  tile: { row: 2.9 / 11, phase: 0.586, th: 0.022, lift: 0.018 },   // lift: the course step (kept small: deeper steps moire at 40-75 m)    // roof_tile slot: roof_clay_old (RoofingTiles014B), 11 rows
+  slate: { row: 2.0 / 0.6 / 16, phase: 0.477, th: 0.014, lift: 0.01 },   // slate slot: slate_square (RoofingTiles003) at scale 0.6, 16 rows
 };
 const ROOF_MATS = { slate: "slate", tile: "tile" };
 
