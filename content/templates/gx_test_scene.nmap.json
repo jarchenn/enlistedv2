@@ -1,0 +1,913 @@
+{
+  "editorCamera": {
+    "pitch": -22.0,
+    "position": [
+      10.0,
+      45.0,
+      120.0
+    ],
+    "yaw": 0.0
+  },
+  "exploreStart": {
+    "position": [
+      0.0,
+      -0.0020492244511842728,
+      36.0
+    ],
+    "yaw": 0.0
+  },
+  "format": "normandy-mapmaker-map",
+  "instances": [
+    {
+      "asset": {
+        "id": "vil_chateau_grand",
+        "version": 1
+      },
+      "id": 1,
+      "interior": {
+        "gen": 1,
+        "on": true,
+        "removed": [],
+        "seed": 5388048,
+        "slots": [
+          "r0/rug",
+          "r0/wallshelf0",
+          "r0/curtains0",
+          "r0/curtains1",
+          "r0/curtains2",
+          "r0/curtains3",
+          "r0/curtains4",
+          "r0/curtains5",
+          "r0/curtains6",
+          "r0/curtains7",
+          "r1/hutch",
+          "r1/hutch/top1",
+          "r1/hutch/top2",
+          "r1/table",
+          "r1/table/chair0",
+          "r1/table/chair1",
+          "r1/table/chair2",
+          "r1/table/chair3",
+          "r1/table/top0",
+          "r1/table/top1",
+          "r1/table/top3",
+          "r1/stove",
+          "r1/dresser",
+          "r1/dresser/top0",
+          "r1/dresser/top1",
+          "r1/dresser/top2",
+          "r1/pantry",
+          "r1/platerack",
+          "r1/wallshelf0",
+          "r1/wallshelf0/top0",
+          "r1/wallshelf0/top3",
+          "r1/wallshelf1",
+          "r1/wallshelf1/top0",
+          "r1/wallshelf1/top5",
+          "r1/shelf",
+          "r1/shelf/top0",
+          "r1/shelf/top4",
+          "r1/bench",
+          "r1/wood",
+          "r1/utensils",
+          "r1/pegs",
+          "r1/pail0",
+          "r1/pail1",
+          "r1/crate",
+          "r1/sacks",
+          "r1/cask",
+          "r1/curtains0",
+          "r1/curtains1",
+          "r1/curtains2",
+          "r1/curtains3",
+          "r1/curtains4",
+          "r1/curtains5",
+          "r1/art0",
+          "r2/rug",
+          "r2/commode",
+          "r2/commode/top0",
+          "r2/commode/top1",
+          "r2/sideboard",
+          "r2/sideboard/top0",
+          "r2/sideboard/top1",
+          "r2/sideboard/top6",
+          "r2/clock",
+          "r2/table",
+          "r2/table/chair0",
+          "r2/table/chair1",
+          "r2/table/top0",
+          "r2/armchair0",
+          "r2/armchair1",
+          "r2/bookcase",
+          "r2/wallshelf0",
+          "r2/wallshelf0/top0",
+          "r2/wallshelf0/top2",
+          "r2/wallshelf1",
+          "r2/wallshelf1/top0",
+          "r2/desk",
+          "r2/desk/top0",
+          "r2/desk/chair",
+          "r2/picture0",
+          "r2/picture1",
+          "r2/basket",
+          "r2/curtains0",
+          "r2/curtains1",
+          "r2/art0",
+          "r3/rug",
+          "r3/commode",
+          "r3/commode/top0",
+          "r3/commode/top2",
+          "r3/sideboard",
+          "r3/sideboard/top0",
+          "r3/sideboard/top2",
+          "r3/sideboard/top5",
+          "r3/clock",
+          "r3/table",
+          "r3/table/chair0",
+          "r3/table/chair1",
+          "r3/table/top0",
+          "r3/armchair0",
+          "r3/armchair1",
+          "r3/bookcase",
+          "r3/wallshelf0",
+          "r3/wallshelf0/top0",
+          "r3/wallshelf0/top1",
+          "r3/wallshelf1",
+          "r3/wallshelf1/top0",
+          "r3/shelf",
+          "r3/shelf/top0",
+          "r3/picture0",
+          "r3/picture1",
+          "r3/portrait",
+          "r3/curtains0",
+          "r3/curtains1",
+          "r3/art0",
+          "r4/rug",
+          "r4/commode",
+          "r4/commode/top0",
+          "r4/commode/top2",
+          "r4/sideboard",
+          "r4/sideboard/top0",
+          "r4/sideboard/top1",
+          "r4/sideboard/top4",
+          "r4/clock",
+          "r4/table",
+          "r4/table/chair0",
+          "r4/table/chair1",
+          "r4/table/top0",
+          "r4/armchair0",
+          "r4/armchair1",
+          "r4/wallshelf0",
+          "r4/wallshelf0/top2",
+          "r4/wallshelf0/top4",
+          "r4/wallshelf1",
+          "r4/wallshelf1/top1",
+          "r4/picture0",
+          "r4/picture1",
+          "r4/basket",
+          "r4/curtains0",
+          "r4/curtains1",
+          "r4/art0",
+          "r5/rug",
+          "r5/commode",
+          "r5/commode/top0",
+          "r5/commode/top1",
+          "r5/sideboard",
+          "r5/sideboard/top0",
+          "r5/sideboard/top1",
+          "r5/sideboard/top2",
+          "r5/clock",
+          "r5/table",
+          "r5/table/chair0",
+          "r5/table/chair1",
+          "r5/table/top0",
+          "r5/armchair0",
+          "r5/armchair1",
+          "r5/bookcase",
+          "r5/wallshelf0",
+          "r5/wallshelf0/top1",
+          "r5/wallshelf0/top3",
+          "r5/wallshelf1",
+          "r5/wallshelf1/top1",
+          "r5/shelf",
+          "r5/shelf/top0",
+          "r5/shelf/top3",
+          "r5/desk",
+          "r5/desk/top1",
+          "r5/desk/top4",
+          "r5/desk/chair",
+          "r5/picture0",
+          "r5/picture1",
+          "r5/portrait",
+          "r5/curtains0",
+          "r5/curtains1",
+          "r5/curtains2",
+          "r5/curtains3",
+          "r5/curtains4",
+          "r5/curtains5",
+          "r5/art0",
+          "r6/wallshelf",
+          "r6/curtains0",
+          "r6/curtains1",
+          "r6/curtains2",
+          "r6/curtains3",
+          "r6/curtains4",
+          "r6/curtains5",
+          "r6/curtains6",
+          "r6/curtains7",
+          "r6/curtains8",
+          "r7/bed",
+          "r7/armoire",
+          "r7/commode",
+          "r7/commode/top0",
+          "r7/commode/top2",
+          "r7/washstand",
+          "r7/wallshelf",
+          "r7/wallshelf/top0",
+          "r7/wallshelf/top1",
+          "r7/chair",
+          "r7/picture",
+          "r7/picture2",
+          "r7/pegs",
+          "r7/basket",
+          "r7/curtains0",
+          "r7/curtains1",
+          "r7/curtains2",
+          "r7/curtains3",
+          "r7/curtains4",
+          "r7/curtains5",
+          "r7/art0",
+          "r8/bed",
+          "r8/armoire",
+          "r8/commode",
+          "r8/commode/top0",
+          "r8/commode/top1",
+          "r8/washstand",
+          "r8/wallshelf",
+          "r8/wallshelf/top0",
+          "r8/wallshelf/top3",
+          "r8/chair",
+          "r8/picture",
+          "r8/picture2",
+          "r8/mirror",
+          "r8/desk",
+          "r8/desk/top0",
+          "r8/basket",
+          "r8/curtains0",
+          "r8/curtains1",
+          "r8/art0",
+          "r9/bed",
+          "r9/armoire",
+          "r9/commode",
+          "r9/commode/top0",
+          "r9/commode/top1",
+          "r9/washstand",
+          "r9/wallshelf",
+          "r9/wallshelf/top0",
+          "r9/chair",
+          "r9/picture",
+          "r9/picture2",
+          "r9/mirror",
+          "r9/pegs",
+          "r9/curtains0",
+          "r9/curtains1",
+          "r9/art0",
+          "r10/bed",
+          "r10/armoire",
+          "r10/commode",
+          "r10/commode/top0",
+          "r10/commode/top1",
+          "r10/washstand",
+          "r10/wallshelf",
+          "r10/wallshelf/top1",
+          "r10/wallshelf/top3",
+          "r10/chair",
+          "r10/picture",
+          "r10/picture2",
+          "r10/mirror",
+          "r10/portrait",
+          "r10/pegs",
+          "r10/curtains0",
+          "r10/curtains1",
+          "r10/curtains2",
+          "r10/curtains3",
+          "r10/curtains4",
+          "r10/curtains5",
+          "r10/art0",
+          "r11/wallshelf",
+          "r11/curtains0",
+          "r11/curtains1",
+          "r11/curtains2",
+          "r11/curtains3",
+          "r11/curtains4",
+          "r11/curtains5",
+          "r11/curtains6",
+          "r11/curtains7",
+          "r11/curtains8",
+          "r12/bed",
+          "r12/armoire",
+          "r12/commode",
+          "r12/commode/top0",
+          "r12/commode/top1",
+          "r12/washstand",
+          "r12/wallshelf",
+          "r12/wallshelf/top0",
+          "r12/wallshelf/top2",
+          "r12/chair",
+          "r12/picture2",
+          "r12/mirror",
+          "r12/portrait",
+          "r12/basket",
+          "r12/curtains0",
+          "r12/curtains1",
+          "r12/curtains2",
+          "r12/curtains3",
+          "r12/curtains4",
+          "r12/curtains5",
+          "r12/art0",
+          "r13/bed",
+          "r13/armoire",
+          "r13/commode",
+          "r13/commode/top0",
+          "r13/commode/top3",
+          "r13/washstand",
+          "r13/wallshelf",
+          "r13/wallshelf/top2",
+          "r13/wallshelf/top3",
+          "r13/chair",
+          "r13/picture",
+          "r13/picture2",
+          "r13/mirror",
+          "r13/portrait",
+          "r13/basket",
+          "r13/curtains0",
+          "r13/curtains1",
+          "r13/art0",
+          "r14/bed",
+          "r14/armoire",
+          "r14/commode",
+          "r14/commode/top0",
+          "r14/commode/top1",
+          "r14/washstand",
+          "r14/wallshelf",
+          "r14/wallshelf/top0",
+          "r14/wallshelf/top1",
+          "r14/chair",
+          "r14/picture2",
+          "r14/portrait",
+          "r14/basket",
+          "r14/curtains0",
+          "r14/curtains1",
+          "r14/art0",
+          "r15/bed",
+          "r15/armoire",
+          "r15/commode",
+          "r15/commode/top0",
+          "r15/commode/top4",
+          "r15/washstand",
+          "r15/wallshelf",
+          "r15/wallshelf/top1",
+          "r15/wallshelf/top4",
+          "r15/chair",
+          "r15/picture",
+          "r15/picture2",
+          "r15/mirror",
+          "r15/portrait",
+          "r15/curtains0",
+          "r15/curtains1",
+          "r15/curtains2",
+          "r15/curtains3",
+          "r15/curtains4",
+          "r15/curtains5",
+          "r15/art0",
+          "r0/light",
+          "r0/hearthfire",
+          "r1/light",
+          "r1/hearthfire",
+          "r2/light",
+          "r2/hearthfire",
+          "r3/light",
+          "r4/light",
+          "r4/hearthfire",
+          "r5/light",
+          "r5/hearthfire",
+          "r6/light",
+          "r6/hearthfire",
+          "r7/hearthfire",
+          "r10/hearthfire",
+          "r11/light",
+          "r11/hearthfire",
+          "r12/hearthfire",
+          "r15/hearthfire"
+        ]
+      },
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        0.0,
+        0.0017821002984419465,
+        0.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "tree_oak",
+        "version": 3
+      },
+      "id": 371,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -27.0,
+        0.0017821002984419465,
+        15.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "tree_ash",
+        "version": 3
+      },
+      "id": 372,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        27.0,
+        0.0017821002984419465,
+        -15.0
+      ],
+      "yaw": 40.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 2
+      },
+      "id": 373,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -16.0,
+        0.0017821002984419465,
+        14.800000190734863
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 2
+      },
+      "id": 374,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        16.5,
+        0.0017821002984419465,
+        15.199999809265137
+      ],
+      "yaw": 90.0
+    },
+    {
+      "asset": {
+        "id": "nat_flowers_poppy",
+        "version": 1
+      },
+      "id": 375,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -8.0,
+        0.0017821002984419465,
+        15.199999809265137
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "nat_flowers_cornflower",
+        "version": 1
+      },
+      "id": 376,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        8.0,
+        0.0017821002984419465,
+        15.199999809265137
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "nat_hawthorn_bush",
+        "version": 2
+      },
+      "id": 377,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -24.0,
+        0.0017821002984419465,
+        -6.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "nat_flowers_foxglove",
+        "version": 1
+      },
+      "id": 378,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        25.0,
+        0.0017821002984419465,
+        4.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "ruin_house_shelled",
+        "version": 2
+      },
+      "id": 379,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -52.0,
+        -0.11950182914733887,
+        -80.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "vil_villa_deauville",
+        "version": 1
+      },
+      "id": 380,
+      "interior": {
+        "gen": 380,
+        "on": true,
+        "removed": [],
+        "seed": 7318131,
+        "slots": [
+          "r0/rug",
+          "r0/wallshelf0",
+          "r0/wallshelf0/top2",
+          "r0/wallshelf0/top3",
+          "r0/wallshelf1",
+          "r0/wallshelf1/top3",
+          "r0/picture0",
+          "r0/picture1",
+          "r0/basket",
+          "r0/curtains0",
+          "r0/curtains1",
+          "r0/curtains2",
+          "r0/art0",
+          "r1/hutch",
+          "r1/hutch/top3",
+          "r1/hutch/top4",
+          "r1/table",
+          "r1/table/chair0",
+          "r1/table/chair1",
+          "r1/table/chair2",
+          "r1/table/top0",
+          "r1/table/top2",
+          "r1/table/top3",
+          "r1/platerack",
+          "r1/wallshelf0",
+          "r1/bench",
+          "r1/pail0",
+          "r1/crate",
+          "r1/curtains0",
+          "r1/curtains1",
+          "r1/curtains2",
+          "r2/rug",
+          "r2/clock",
+          "r2/armchair0",
+          "r2/portrait",
+          "r3/commode",
+          "r3/commode/top0",
+          "r3/commode/top4",
+          "r3/clock",
+          "r3/table",
+          "r3/table/chair0",
+          "r3/table/chair1",
+          "r3/table/top0",
+          "r3/armchair0",
+          "r3/wallshelf0",
+          "r3/wallshelf0/top1",
+          "r3/wallshelf1",
+          "r3/picture0",
+          "r3/picture1",
+          "r3/portrait",
+          "r3/curtains0",
+          "r3/curtains1",
+          "r3/curtains2",
+          "r4/armoire",
+          "r4/commode",
+          "r4/commode/top0",
+          "r4/commode/top5",
+          "r4/washstand",
+          "r4/wallshelf",
+          "r4/wallshelf/top1",
+          "r4/chair",
+          "r4/picture",
+          "r4/picture2",
+          "r4/mirror",
+          "r4/pegs",
+          "r4/curtains0",
+          "r4/curtains1",
+          "r4/curtains2",
+          "r4/curtains3",
+          "r4/art0",
+          "r5/bed",
+          "r5/armoire",
+          "r5/commode",
+          "r5/commode/top0",
+          "r5/commode/top1",
+          "r5/washstand",
+          "r5/wallshelf",
+          "r5/wallshelf/top1",
+          "r5/chair",
+          "r5/picture",
+          "r5/picture2",
+          "r5/portrait",
+          "r5/curtains0",
+          "r5/curtains1",
+          "r5/curtains2",
+          "r6/bed",
+          "r6/armoire",
+          "r6/commode",
+          "r6/commode/top0",
+          "r6/commode/top1",
+          "r6/washstand",
+          "r6/wallshelf",
+          "r6/wallshelf/top1",
+          "r6/wallshelf/top4",
+          "r6/chair",
+          "r6/picture2",
+          "r6/portrait",
+          "r6/basket",
+          "r6/curtains0",
+          "r6/curtains1",
+          "r6/curtains2",
+          "r6/art0",
+          "r0/light",
+          "r0/hearthfire",
+          "r1/light",
+          "r1/hearthfire",
+          "r2/light",
+          "r3/light",
+          "r4/commode/light"
+        ]
+      },
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -24.0,
+        -0.13946542143821716,
+        -80.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "shrub_hazel",
+        "version": 2
+      },
+      "id": 490,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -33.599998474121094,
+        -0.13946542143821716,
+        -76.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "nat_flowers_poppy",
+        "version": 1
+      },
+      "id": 491,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -20.399999618530273,
+        -0.13946542143821716,
+        -73.5999984741211
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "nat_flowers_daisy",
+        "version": 1
+      },
+      "id": 492,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -27.799999237060547,
+        -0.13946542143821716,
+        -73.5999984741211
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "tree_poplar",
+        "version": 3
+      },
+      "id": 493,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        -13.0,
+        -0.13946542143821716,
+        -85.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "bunker_observation_post",
+        "version": 4
+      },
+      "id": 494,
+      "interior": {
+        "gen": 494,
+        "lightsOnly": true,
+        "on": true,
+        "removed": [],
+        "seed": 5555570,
+        "slots": [
+          "r0/light"
+        ]
+      },
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        8.0,
+        -0.19842225313186646,
+        -80.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "bunker_field_shelter",
+        "version": 4
+      },
+      "id": 496,
+      "interior": {
+        "gen": 496,
+        "lightsOnly": true,
+        "on": true,
+        "removed": [],
+        "seed": 8486306,
+        "slots": [
+          "r0/light"
+        ]
+      },
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        26.0,
+        -0.23515179753303528,
+        -80.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "aw_trench_entry",
+        "version": 2
+      },
+      "id": 498,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        53.0,
+        -0.10138405114412308,
+        0.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "aw_trench_straight",
+        "version": 2
+      },
+      "id": 499,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        60.0,
+        -0.10138405114412308,
+        0.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "aw_trench_straight",
+        "version": 2
+      },
+      "id": 500,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        68.0,
+        -0.10138405114412308,
+        0.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "aw_trench_corner",
+        "version": 2
+      },
+      "id": 501,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        76.0,
+        -0.10138405114412308,
+        0.0
+      ],
+      "yaw": 0.0
+    },
+    {
+      "asset": {
+        "id": "aw_trench_straight",
+        "version": 2
+      },
+      "id": 502,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        76.0,
+        -0.10138405114412308,
+        8.0
+      ],
+      "yaw": 270.0
+    },
+    {
+      "asset": {
+        "id": "aw_trench_straight",
+        "version": 2
+      },
+      "id": 503,
+      "overrides": {
+        "interactables": {}
+      },
+      "position": [
+        76.0,
+        -0.10138405114412308,
+        16.0
+      ],
+      "yaw": 270.0
+    }
+  ],
+  "name": "GX test scene",
+  "nextId": 504,
+  "removedTemplateVegetation": [],
+  "schemaVersion": 1,
+  "template": {
+    "id": "blank_slate",
+    "seed": 1944,
+    "version": 1
+  }
+}

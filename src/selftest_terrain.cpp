@@ -16,7 +16,9 @@
 #include "editor_nav.h"
 #include "physics.h"
 #include "scenario.h"
+#include "terrain_blend.h"
 #include <cstdarg>
+#include <numeric>
 #include <functional>
 #include <chrono>
 #include <fstream>
@@ -71,6 +73,23 @@ float seatRule(const App& app, const Instance& i) {   // the editor's footprint 
   const vec3 loc[] = {{0, 0, 0}, {-hf.x, 0, -hf.y}, {hf.x, 0, -hf.y}, {-hf.x, 0, hf.y}, {hf.x, 0, hf.y}, {0, 0, -hf.y}, {0, 0, hf.y}, {-hf.x, 0, 0}, {hf.x, 0, 0}};
   float top = -1e9f; for (auto& l : loc) { vec3 w = i.pos + q * l; top = std::max(top, app.terrain.height(w.x, w.z)); }
   return top;
+}
+// GX1: worst |ground - floor| over a 7 x 7 grid inside the footprint (0.1 m in from the edge)
+float footprintDev(const App& app, const Instance& i) {
+  const AssetDef* a = app.assetFor(i); vec2 hf = a->footprint * 0.5f - vec2(0.1f); quat q = yawQuat(i.yaw);
+  float w = 0;
+  for (int z = 0; z < 7; ++z) for (int x = 0; x < 7; ++x) { vec3 p = i.pos + q * vec3(-hf.x + hf.x * x / 3.0f, 0, -hf.y + hf.y * z / 3.0f); w = std::max(w, std::fabs(app.terrain.height(p.x, p.z) - i.pos.y)); }
+  return w;
+}
+// GX1: steepest slope (deg) and biggest step (m) along a straight line, sampled every 0.25 m
+void profileStats(const App& app, vec2 a, vec2 b, float& slopeDeg, float& step) {
+  slopeDeg = 0; step = 0;
+  int n = std::max(2, (int)(glm::length(b - a) / 0.25f));
+  float prev = app.terrain.height(a.x, a.y), d = glm::length(b - a) / n;
+  for (int k = 1; k <= n; ++k) {
+    vec2 p = glm::mix(a, b, (float)k / n); float h = app.terrain.height(p.x, p.y);
+    step = std::max(step, std::fabs(h - prev)); slopeDeg = std::max(slopeDeg, degrees(std::atan(std::fabs(h - prev) / d))); prev = h;
+  }
 }
 bool insideObb(vec2 p, vec2 c, vec2 h, float yaw, float pad) {
   vec3 l = glm::inverse(yawQuat(yaw)) * vec3(p.x - c.x, 0, p.y - c.y);
@@ -221,9 +240,12 @@ void build(App& app) {
     commitAll(app);
     Instance* tr = app.doc.find(gTree); h = app.doc.find(gHouse);
     float te = tr ? std::fabs(tr->pos.y - app.terrain.height(tr->pos.x, tr->pos.z)) : 9, he = h ? std::fabs(h->pos.y - seatRule(app, *h)) : 9;
-    chk(tr && h && te < 0.01f && he < 0.01f && h->pos.y > hy0 + 0.5f, "tree on its pivot (err %.3f m), house on its footprint rule (err %.3f m, rose %.2f m)", te, he, h ? h->pos.y - hy0 : 0.0f);
+    // GX1: a pinned house rides only the shift common to its whole footprint, and its pad re-conforms the ground to it
+    navSyncCuts(app);
+    if (blendEnabled()) he = h ? footprintDev(app, *h) : 9;
+    chk(tr && h && te < 0.01f && he < 0.02f && h->pos.y > hy0 + 0.5f, "tree on its pivot (err %.3f m), house on level ground (worst footprint deviation %.3f m, rose %.2f m)", te, he, h ? h->pos.y - hy0 : 0.0f);
     PlaceCheck c = app.checkPlacement(app.assetFor(*h), h->pos, h->yaw, h->id);
-    chk(c.ok && std::fabs(c.y - h->pos.y) < 0.01f, "the re-seated house is a valid placement at its height (%s)", c.reason.c_str());
+    chk(c.ok && (blendEnabled() || std::fabs(c.y - h->pos.y) < 0.01f), "the re-seated house is a valid placement (%s)", c.reason.c_str());
     return true;
   });
   push("craters on sculpted ground", [](App& app, float) {
@@ -327,6 +349,117 @@ void build(App& app) {
     return true;
   });
   // ================================================================ Beautify on battle1
+  // ================================================================ GX1 terrain conformance (docs/graphics-overhaul.md)
+  push("gx1: house on 60 cm of variation", [](App& app, float) {
+    if (!blendEnabled()) { note("GX1 disabled in content/settings/terrain_blend.json: conformance checks skipped"); return true; }
+    app.newMap(*tpl(app, "blank_slate"), "GX1 selftest");
+    // a mound beside the plot gives ~0.6 m of fall across the cottage footprint
+    const vec2 c(40, 40);
+    const AssetDef* cot = app.lib.find("house_stone_cottage");
+    auto spread = [&] { float lo = 1e9f, hi = -1e9f; vec2 h = cot->footprint * 0.5f; for (int z = 0; z < 5; ++z) for (int x = 0; x < 5; ++x) { float y = app.terrain.height(c.x - h.x + h.x * x * 0.5f, c.y - h.y + h.y * z * 0.5f); lo = std::min(lo, y); hi = std::max(hi, y); } return hi - lo; };
+    BrushParams p; p.mode = BR_RAISE; p.radius = 14; p.strength = 1.0f; p.falloff = 1.0f;
+    for (int k = 0; k < 400 && spread() < 0.6f; ++k) terrainBrushDab(app, p, c + vec2(9, 2), 1 / 30.0f);
+    commitAll(app);
+    float sp0 = spread();
+    gHouse = place(app, "house_stone_cottage", vec3(c.x, 0, c.y), 0);
+    navSyncCuts(app);
+    Instance* h = app.doc.find(gHouse);
+    chk(h && sp0 > 0.55f, "a cottage is placed on %.2f m of ground variation (auto-levelled, not refused)", sp0);
+    if (!h) return true;
+    float dev = footprintDev(app, *h);
+    chk(dev < 0.02f, "level floor: the ground under the footprint is within %.3f m of the floor at %.2f m", dev, h->pos.y);
+    // no gap under the walls: just outside each edge the ground meets the floor (or a retaining skirt stands there)
+    vec2 hf = cot->footprint * 0.5f; float worstGap = 0, worstSlope = 0, worstStep = 0;
+    for (int e = 0; e < 4; ++e) for (int k = -4; k <= 4; ++k) {
+      vec2 l = e < 2 ? vec2(hf.x * k / 4.0f, e ? hf.y : -hf.y) : vec2(e == 2 ? hf.x : -hf.x, hf.y * k / 4.0f);
+      vec2 n = e < 2 ? vec2(0, e ? 1 : -1) : vec2(e == 2 ? 1 : -1, 0);
+      vec2 o = c + l + n * 0.06f; worstGap = std::max(worstGap, h->pos.y - app.terrain.height(o.x, o.y));
+      float sl, st; profileStats(app, c + l, c + l + n * 6.0f, sl, st); worstSlope = std::max(worstSlope, sl); worstStep = std::max(worstStep, st);
+    }
+    chk(worstGap < 0.05f, "no gap under the walls: worst drop just outside the footprint %.3f m", worstGap);
+    chk(worstSlope < 38.0f && worstStep < 0.2f, "the blend ring is an embankment / cut, never a step: steepest %.1f deg, biggest step %.3f m per 0.25 m", worstSlope, worstStep);
+    BlendIssues vi = blendValidate(app, false, "selftest placement");
+    chk(vi.floating == 0 && vi.buried == 0, "validation pass: %d pinned, %d floating, %d buried", vi.pinned, vi.floating, vi.buried);
+    return true;
+  });
+  push("gx1: reform next to the house", [](App& app, float) {
+    if (!blendEnabled()) return true;
+    Instance* h = app.doc.find(gHouse); if (!h) return true;
+    float y0 = h->pos.y; vec2 c(h->pos.x, h->pos.z);
+    const AssetDef* cot = app.assetFor(*h); vec2 hf = cot->footprint * 0.5f;
+    BrushParams p; p.mode = BR_RAISE; p.radius = 5; p.strength = 2.0f; p.falloff = 0.7f;
+    for (int k = 0; k < 30; ++k) terrainBrushDab(app, p, c + vec2(hf.x + 2.5f, 0), 1 / 30.0f);   // overlaps the footprint edge
+    p.mode = BR_LOWER; for (int k = 0; k < 30; ++k) terrainBrushDab(app, p, c + vec2(-hf.x - 2.5f, 1), 1 / 30.0f);
+    commitAll(app); navSyncCuts(app);
+    float dev = footprintDev(app, *h);
+    chk(std::fabs(h->pos.y - y0) < 1e-3f && dev < 0.02f, "a raise and a lower next to the house: it neither moved (%.4f m) nor floats / sinks (worst footprint deviation %.3f m)", h->pos.y - y0, dev);
+    app.mode = Mode::Creative;
+    app.craterAt(vec3(c.x, 0, c.y + hf.y + 1.2f) + vec3(0, app.terrain.height(c.x, c.y + hf.y + 1.2f), 0), 2.0f, 0.6f, true);
+    dev = footprintDev(app, *h);
+    BlendIssues vi = blendValidate(app, false, "selftest reform");
+    chk(std::fabs(h->pos.y - y0) < 1e-3f && dev < 0.02f && vi.floating == 0 && vi.buried == 0, "a crater beside the house: floor deviation %.3f m, validation %d floating / %d buried", dev, vi.floating, vi.buried);
+    return true;
+  });
+  push("gx1: placement margin", [](App& app, float) {
+    if (!blendEnabled()) return true;
+    const vec2 c(-60, 60);
+    BrushParams p; p.mode = BR_RAISE; p.radius = 4; p.strength = 4.0f; p.falloff = 0.3f;
+    for (int k = 0; k < 40; ++k) terrainBrushDab(app, p, c + vec2(2.5f, 0), 1 / 30.0f);
+    commitAll(app);
+    PlaceCheck pc = app.checkPlacement(app.lib.find("house_stone_cottage"), vec3(c.x, 0, c.y), 0, 0);
+    chk(!pc.ok && pc.reason.find("varies") != std::string::npos, "beyond the margin placement is refused with the variance: \"%s\"", pc.reason.c_str());
+    return true;
+  });
+  push("gx1: trench network", [](App& app, float) {
+    if (!blendEnabled()) return true;
+    app.newMap(*tpl(app, "blank_slate"), "GX1 trench");
+    uint64_t ids[6] = {place(app, "aw_trench_entry", vec3(53, 0, 0)), place(app, "aw_trench_straight", vec3(60, 0, 0)), place(app, "aw_trench_straight", vec3(68, 0, 0)),
+                       place(app, "aw_trench_corner", vec3(76, 0, 0)), place(app, "aw_trench_straight", vec3(76, 0, 8), -90), place(app, "aw_trench_straight", vec3(76, 0, 16), -90)};
+    navSyncCuts(app);
+    int nets = 0; size_t members = 0; for (auto& s : app.terrain.stamps) if (s.kind == TerrainStamp::TRENCH) { ++nets; members = s.members.size(); }
+    chk(nets == 1 && members == 6, "six joined pieces carve as one network (%d networks, %zu pieces)", nets, members);
+    const StampParams& sp = blendConfig().sp;
+    Instance* s1 = app.doc.find(ids[1]);
+    if (!s1) return true;
+    float nat = app.terrain.groundBase(60, 0), fl = app.terrain.height(60, 0);
+    chk(std::fabs(fl - (s1->pos.y - sp.depth)) < 0.06f, "trench floor %.2f m below the anchor (config %.2f m)", s1->pos.y - fl, sp.depth);
+    float lipL = app.terrain.height(60, sp.floorHalf + 0.12f + 0.5f) - app.terrain.groundBase(60, sp.floorHalf + 0.62f);
+    float lipR = app.terrain.height(60, -sp.floorHalf - 0.62f) - app.terrain.groundBase(60, -sp.floorHalf - 0.62f);
+    float far = std::fabs(app.terrain.height(60, 4.5f) - app.terrain.groundBase(60, 4.5f));
+    chk(lipL > 0.1f && lipR > 0.25f && far < 0.03f, "spoil parapets: fire side +%.2f m (kept low for the firestep), parados +%.2f m, back to the field by 4.5 m (%.3f m)", lipL, lipR, far);
+    float depthToLip = std::max(app.terrain.height(60, 1.3f), app.terrain.height(60, -1.3f)) - fl;
+    chk(depthToLip > 1.8f && depthToLip < 2.4f, "lip to floor %.2f m (brief: 1.8-2.2 m)", depthToLip);
+    // the corner: the floor turns, the outer mitre is soil (not carved), no overlapping slabs (parts replaced)
+    float cf = app.terrain.height(76, 0), outer = app.terrain.height(76 + 1.5f, -1.5f);
+    chk(std::fabs(cf - fl) < 0.25f && outer > cf + 1.4f, "mitred corner: floor at the corner %.2f m, soil outside the mitre %.2f m above it", cf - fl, outer - cf);
+    int slabs = 0; for (auto& pt : app.lib.find("aw_trench_straight")->parts) slabs += pt.center.y + pt.size.y * 0.5f > -1.0f;
+    chk(slabs == 0, "the slab-and-gap parts are gone from the piece mesh (%d above -1 m left)", slabs);
+    float dFloor = app.terrain.dirtAt(60, 0), dPar = app.terrain.dirtAt(60, sp.floorHalf + 0.5f), dOut = app.terrain.dirtAt(60, 4.2f);
+    chk(dFloor > 0.9f && dPar > 0.3f && dOut < 0.18f, "masks: mud on the floor %.2f, turned earth on the parapet %.2f, grass beyond %.2f", dFloor, dPar, dOut);
+    (void)nat;
+    return true;
+  });
+  push("gx1: bunker berm", [](App& app, float) {
+    if (!blendEnabled()) return true;
+    uint64_t id = place(app, "bunker_observation_post", vec3(-40, 0, -40));
+    navSyncCuts(app);
+    Instance* b = app.doc.find(id); if (!b) return true;
+    vec2 c(b->pos.x, b->pos.z);
+    float raised = app.terrain.height(c.x + 2.25f + 2.0f, c.y) - b->pos.y;
+    float sl, st; profileStats(app, c + vec2(2.6f, 0), c + vec2(16, 0), sl, st);
+    chk(raised > 1.2f && sl < 36.0f && st < 0.2f, "berm as terrain: +%.2f m 2 m from the wall, steepest %.1f deg (repose %.0f), biggest step %.3f m", raised, sl, blendConfig().sp.reposeDeg, st);
+    // no straight ridge line: the bank's height 3 m out varies along the wall
+    std::vector<float> hs; for (int k = -8; k <= 8; ++k) hs.push_back(app.terrain.height(c.x + 5.25f, c.y + k * 0.35f));
+    float mean = std::accumulate(hs.begin(), hs.end(), 0.0f) / hs.size(), var = 0; for (float h : hs) var += (h - mean) * (h - mean);
+    chk(std::sqrt(var / hs.size()) > 0.02f, "irregular bank: height 3 m out varies by %.3f m (sd) along the wall", std::sqrt(var / hs.size()));
+    float passage = app.terrain.height(c.x + 0.6f, c.y - 3.6f) - b->pos.y;
+    chk(std::fabs(passage) < 0.3f, "the rear entrance passage stays clear (ground %.2f m from the floor)", passage);
+    float bare = 0, sparse = 0; for (float x = 3.0f; x < 12.0f; x += 0.25f) { float d = app.terrain.dirtAt(c.x + x, c.y); bare = std::max(bare, d); if (d > 0.02f && d < 0.18f) sparse += 0.25f; }
+    chk(bare > 0.3f && sparse >= 1.5f, "slope blend: bare earth on the steep face (soil %.2f), a sparse-grass band %.2f m wide (brief: >= 1.5 m)", bare, sparse);
+    int prisms = 0; for (auto& pt : app.lib.find("bunker_observation_post")->parts) prisms += pt.shape == Part::PRISM;
+    chk(prisms == 0, "the faceted bank prisms are gone from the bunker mesh (%d left)", prisms);
+    return true;
+  });
   push("battle1", [](App& app, float s) {
     if (s == 0) { const TemplateInfo* t = tpl(app, "battle1"); if (t) app.newMap(*t, "Beautify selftest"); return false; }
     return s > 1.0f;
