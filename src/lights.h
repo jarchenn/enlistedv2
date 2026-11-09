@@ -83,6 +83,7 @@ int lightsLineRoutes(App& app, const std::vector<LampLine>& lines, const std::st
 std::vector<LampLine> lightsRoutesOf(const json& routes);   // MapDoc::extra["routes"]-style array -> polylines
 std::vector<LampLine> lightsPathLines(App& app);            // every path instance's centre line plus the map's routes
 extern bool gAutoPathLamps;                                  // Paths menu: line auto paths with lamp posts
+extern std::string gLightsSkip;                              // GX2 A/B timing (capture): this asset's lights are left out
 
 // ---- editor: the Light section of the Selection panel (colour, intensity, on / off)
 void lightsEditorPanel(App& app, Instance& s);

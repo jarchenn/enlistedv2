@@ -7,6 +7,7 @@
 #include <fstream>
 #include <map>
 #include "interior.h"
+#include "lights.h"
 
 namespace {
 struct Cam { const char* name; vec3 pos, target; };
@@ -306,6 +307,16 @@ void SelfTest::captureUpdate(App& app, float) {
   vec3 d = glm::normalize(c.target - c.pos);
   app.camYaw = degrees(std::atan2(-d.x, -d.z));
   app.camPitch = degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f)));
+  if (gxTiming && std::getenv("NMK_CAPTURE_AB") && std::string(c.name).find("_hall") != std::string::npos) {
+    // A/B in one process: the hall pendants on / off every 30 frames for 8 rounds (other load on the GPU cancels out)
+    ++frames;
+    if (frames == 30) shotQueue.push_back("mat_" + tag + "_" + c.name);
+    int ph = frames > 30 ? ((frames - 31) / 30) % 2 : 0;
+    gLightsSkip = ph ? "furn_lamp_pendant_glass" : "";
+    if (frames > 30 && (frames - 31) % 30 >= 10) { auto& m = gxMs[std::string(c.name) + (ph ? "_pendants_off" : "_pendants_on")]; m.first += app.R.stats.gpuMs; ++m.second; }
+    if (frames >= 30 + 30 * 16) { ++ci; frames = 0; gLightsSkip.clear(); }
+    return;
+  }
   if (gxTiming) {   // settle 30 frames, shoot, then average the GPU time of the next 60
     ++frames;
     if (frames == 30) shotQueue.push_back("mat_" + tag + "_" + c.name);

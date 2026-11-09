@@ -1641,7 +1641,7 @@ def wall_oil_lamp(root):
     a.r([0, 0.165, 0.12], [0.012, 0.03, 0.006], "flame", "glass", 0.002)
     a.cyl([0, 0.2, 0.12], 0.055, 0.09, "glass", "glass", top=0.6, seg=14)                           # chimney bulb
     a.cyl([0, 0.27, 0.12], 0.034, 0.06, "glass", "glass", seg=12)
-    a.col([0, 0.15, 0.1], [0.1, 0.25, 0.1])
+    # no collider: it hangs beside stairs and doorways at head height (cosmetic, like the sconces)
     a.light = {"color": [1.0, 0.66, 0.34], "intensity": 0.45, "radius": 4.0, "offset": [0, 0.18, 0.13], "flicker": 0.1, "group": "glass", "use": "interior"}
     return gx2_write(a, root, [0.22, 0.2], fragments=[], keep=["bracket", "reflector"], glass="glass")
 
@@ -1847,7 +1847,7 @@ def framed_painting(root, id, name, W, H, mount, scene, frame="gilt"):
     # materials' fabric pattern): graded sky, clouds, distant hills, land or sea, tree clumps in two shades
     L = [z0]
     def lay():
-        L[0] += 0.0012
+        L[0] += 0.00045   # every layer stays behind the frame slip (canvas at 1.2 cm, slip at 3.6 cm)
         return L[0]
     x0, x1, y0, y1 = -cw / 2, cw / 2, cy - ch / 2, cy + ch / 2
     hz = cy - ch * 0.1   # the horizon
@@ -1871,11 +1871,12 @@ def framed_painting(root, id, name, W, H, mount, scene, frame="gilt"):
         blob(cw * 0.12, hz + ch * 0.08, cw * 0.16, cw * 0.16, "canvas_sun")
         for u, v, w in ((-0.25, 0.32, 0.5), (0.2, 0.4, 0.4)):
             blob(u * cw, hz + v * ch, w * cw, ch * 0.05, "canvas_dusk_lo")
-        band(y0, hz + 0.004, "canvas_dark")
-        blob(-cw * 0.2, hz, cw * 0.9, ch * 0.1, "canvas_dark")                           # a low hill
-        for u, s in ((-0.32, 0.26), (0.3, 0.2)):                                         # tree silhouettes
-            blob(u * cw, hz + s * ch * 0.45, s * cw * 0.7, s * ch * 0.9, "canvas_dark")
+        band(y0, hz + 0.004, "canvas_tree"); band(hz - ch * 0.1, hz + 0.004, "canvas_field")
+        blob(-cw * 0.2, hz, cw * 0.9, ch * 0.1, "canvas_hill")                           # a low hill
+        for u, s in ((-0.32, 0.26), (0.3, 0.2)):                                         # trees against the glow
             a.b([u * cw, hz + s * ch * 0.05, lay()], [cw * 0.012, s * ch * 0.4, 0.002], "canvas_dark", "canvas")
+            blob(u * cw, hz + s * ch * 0.45, s * cw * 0.7, s * ch * 0.9, "canvas_tree")
+            blob(u * cw + s * cw * 0.12, hz + s * ch * 0.6, s * cw * 0.35, s * ch * 0.45, "canvas_dusk")
     else:
         sea = scene == "sea"
         band(hz, y1, "canvas_sky_hi"); band(hz, hz + ch * 0.4, "canvas_sky"); band(hz, hz + ch * 0.15, "canvas_sky_lo")
@@ -1895,6 +1896,18 @@ def framed_painting(root, id, name, W, H, mount, scene, frame="gilt"):
                 blob(u * cw, hz + s * ch * 0.45, s * cw * 0.7, s * ch * 0.75, "canvas_tree")
                 blob(u * cw - s * cw * 0.12, hz + s * ch * 0.55, s * cw * 0.45, s * ch * 0.5, "canvas_tree")
                 blob(u * cw + s * cw * 0.1, hz + s * ch * 0.55, s * cw * 0.35, s * ch * 0.4, "canvas_tree_lit")
+    if scene != "portrait":   # brush strokes: small seeded dabs in the scene's own tones, more in the foreground
+        seed = sum(ord(c) for c in id)
+        tones_sky = ["canvas_sky", "canvas_cloud", "canvas_sky_lo"] if scene != "dusk" else ["canvas_dusk", "canvas_dusk_lo", "canvas_dusk_hi"]
+        tones_low = ["canvas_sea", "canvas_sea_lit"] if scene == "sea" else ["canvas_field", "canvas_field_lit", "canvas_tree", "canvas_sand"]
+        for k in range(28):
+            r1 = ((seed * 9301 + k * 49297) % 233280) / 233280.0
+            r2 = ((seed * 4111 + k * 7919 + 17) % 104729) / 104729.0
+            sky = k % 3 == 0
+            x = (r1 - 0.5) * cw * 0.92
+            y = (hz + (y1 - hz) * (0.1 + 0.8 * r2)) if sky else (y0 + (hz - y0) * (0.08 + 0.85 * r2))
+            t = (tones_sky if sky else tones_low)[(k * 7 + seed) % 3 if sky else (k * 5 + seed) % len(tones_low)]
+            blob(x, y, cw * (0.05 + 0.06 * r2), ch * (0.012 + 0.018 * r1), t)
     return gx2_write(a, root, [W, 0.05], fragments=["frame"], keep=[])
 
 

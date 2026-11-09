@@ -1752,6 +1752,10 @@ struct Planner {
       else { lo2.y = R.mn.y + L * a / nz; hi2.y = R.mn.y + L * (a + 1) / nz; lo2.x = R.mn.x + Wd * b / nw; hi2.x = R.mn.x + Wd * (b + 1) / nw; }
       zoneOn = true; zmn = lo2; zmx = hi2;
       runStep(k, json{{"do", "cluster"}, {"cluster", Z[(z0 + (size_t)(a * nw + b)) % Z.size()]}}, r + "zone" + std::to_string(a) + "_" + std::to_string(b));
+      // a wide zone also gets a free-standing grouping in its middle (a table with chairs, armchairs round a rug)
+      json CZ = T.value("centerZones", json::array());
+      if (!CZ.empty() && std::min(hi2.x - lo2.x, hi2.y - lo2.y) >= 5.0f && (a + b) % 2 == 0)
+        runStep(k, json{{"do", "cluster"}, {"cluster", CZ[(z0 + (size_t)a) % CZ.size()]}}, r + "zonec" + std::to_string(a) + "_" + std::to_string(b));
     }
     zoneOn = false;
   }
@@ -1843,6 +1847,10 @@ struct Planner {
     const auto& R = ri.rooms[k];
     std::string r = "r" + std::to_string(k) + "/";
     json T = rules().contains("types") ? rules()["types"].value(roomTypeKey(R.type), json::object()) : json::object();
+    if (R.hearth) {   // the hearth and the fire laid on it later (lights) keep their space
+      vec3 hp = R.hearthPos; vec3 mn(hp.x - 0.9f, R.y0, hp.z - 0.9f), mx(hp.x + 0.9f, R.y0 + 1.3f, hp.z + 0.9f);
+      boxes.push_back({mn, mx}); mark(R.storey, vec2(mn.x, mn.z), vec2(mx.x, mx.z), 1);
+    }
     {   // a church's tower rooms (stair landings, the belfry) and rooms that are mostly stair or route: wall pieces only
       const auto& S = ri.storeys[R.storey]; int cells = 0, keep = 0;
       for (size_t c = 0; c < S.id.size(); ++c) if (S.id[c] == (int16_t)k) { ++cells; keep += S.keep[c] != 0; }

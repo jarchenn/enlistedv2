@@ -1,5 +1,5 @@
 {
-  "_doc": "GX2 room dressing (docs/interiors.md section 6, src/interior.cpp Planner). Read once at start-up; every random pick is seeded by the building's furnishing seed and the slot name, so a building dresses the same on every machine. Per room type: steps (the furniture recipe, run in order), zones (cluster groupings placed in each extra 4-5 m zone of an oversized room), wall (wall-mounted items: target count per metre of wall, the longest bare wall allowed, the items, floor pieces used where nothing can hang), rug / curtains / halfDrawn / debris chances. Step fields: do = wall (a floor piece backed onto a wall) | hang (a wall-mounted piece at its mount height) | center (free-standing, kept off the walls by ring m) | rug | rows (pews, school desks toward the far end) | farEnd (an altar or teacher's desk at the far end) | cluster (a named cluster from 'clusters'); assets = fallbacks tried in order, 'a|b' = one of them picked by seed; p = chance (x the building's density unless fixed); sure = hearth | noHearth: the step always runs in that case; if = {minArea, maxArea, hearth}; n = [base, per density] count; top = {from, n, clutter: n grows with clutter}: small pieces on the placed piece's top; chairs = [{assets, n: [base, per density], ends}] round a table; satellites = [{assets, at: [x, y, z] in the anchor's frame (+z is its front), turn deg, alt: a second spot, p, rug, top, jitter: [m, deg]}]; papers = {p, n} (x clutter); broken = chance it is left broken; corner > 0 prefers corners, < 0 mid-wall.",
+  "_doc": "GX2 room dressing (docs/interiors.md section 6, src/interior.cpp Planner). Read once at start-up; every random pick is seeded by the building's furnishing seed and the slot name, so a building dresses the same on every machine. Per room type: steps (the furniture recipe, run in order), zones (cluster groupings placed in each 4-5 m zone of an oversized room), centerZones (free-standing groupings in the middle of every other zone at least 5 m wide), wall (wall-mounted items: target count per metre of wall, the longest bare wall allowed, the items, floor pieces used where nothing can hang), rug / curtains / halfDrawn / debris chances. Step fields: do = wall (a floor piece backed onto a wall) | hang (a wall-mounted piece at its mount height) | center (free-standing, kept off the walls by ring m) | rug | rows (pews, school desks toward the far end) | farEnd (an altar or teacher's desk at the far end) | cluster (a named cluster from 'clusters'); assets = fallbacks tried in order, 'a|b' = one of them picked by seed; p = chance (x the building's density unless fixed); sure = hearth | noHearth: the step always runs in that case; if = {minArea, maxArea, hearth}; n = [base, per density] count; top = {from, n, clutter: n grows with clutter}: small pieces on the placed piece's top; chairs = [{assets, n: [base, per density], ends}] round a table; satellites = [{assets, at: [x, y, z] in the anchor's frame (+z is its front), turn deg, alt: a second spot, p, rug, top, jitter: [m, deg]}]; papers = {p, n} (x clutter); broken = chance it is left broken; corner > 0 prefers corners, < 0 mid-wall.",
   "subdivide": {"maxSide": 8.0, "zone": 4.5, "skip": ["hall", "barn", "church", "tavern", "class"]},
   "debrisWear": 1.15,
   "clusters": {
@@ -55,6 +55,7 @@
   },
   "types": {
     "kitchen": {
+      "centerZones": ["dining"],
       "steps": [
         {"do": "wall", "slot": "hutch", "assets": ["furn_hutch|furn_hutch_glazed", "furn_dresser", "furn_commode"], "corner": -0.5, "fixed": true, "top": {"from": ["furn_jug_bowl", "furn_bottles", "furn_crockery", "furn_jars"], "n": 1, "clutter": true}},
         {"do": "center", "slot": "table", "assets": ["furn_table_dining", "furn_table_small"], "if": {"minArea": 11}, "ring": 0.75, "fixed": true,
@@ -82,6 +83,7 @@
       "rug": 0.25, "curtains": 1.0, "halfDrawn": 0.35, "debris": 0.05
     },
     "sitting": {
+      "centerZones": ["tea", "dining"],
       "steps": [
         {"do": "rug", "slot": "rug", "assets": ["furn_rug_medallion|furn_rug_kilim"], "fixed": true},
         {"do": "wall", "slot": "commode", "assets": ["furn_commode", "furn_chest", "furn_side_table"], "corner": -0.3, "fixed": true, "top": {"from": ["furn_lamp", "furn_books", "furn_candlesticks", "furn_jug_bowl", "furn_crockery", "furn_radio"], "n": 1, "clutter": true}},
@@ -103,6 +105,7 @@
       "rug": 0.6, "curtains": 1.0, "halfDrawn": 0.4, "debris": 0.04
     },
     "bedroom": {
+      "centerZones": ["tea"],
       "steps": [
         {"do": "cluster", "slot": "bed", "cluster": "bedside", "fixed": true},
         {"do": "wall", "slot": "armoire", "assets": ["furn_armoire", "furn_commode", "furn_chest"], "corner": 0.6, "p": 1.0, "sure": "big"},
@@ -205,6 +208,7 @@
       "rug": 0.0, "curtains": 1.0, "halfDrawn": 0.3, "debris": 0.04
     },
     "office": {
+      "centerZones": ["tea", "dining"],
       "steps": [
         {"do": "cluster", "slot": "desk", "cluster": "office_desk", "fixed": true},
         {"do": "wall", "slot": "desk2", "assets": ["furn_desk"], "corner": 0.4, "p": 1.0, "if": {"minArea": 12}, "top": {"from": ["furn_papers", "furn_books", "furn_radio"], "n": 1}},
@@ -251,6 +255,7 @@
       "rug": 0.0, "curtains": 0.0, "debris": 0.9
     },
     "attic": {
+      "centerZones": ["tea"],
       "steps": [
         {"do": "cluster", "slot": "trunks", "cluster": "trunks", "fixed": true},
         {"do": "wall", "slot": "bed", "assets": ["furn_bed_iron"], "corner": 0.5, "p": 0.45},

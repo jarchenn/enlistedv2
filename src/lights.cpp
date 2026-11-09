@@ -19,6 +19,7 @@
 #include <cmath>
 
 bool gAutoPathLamps = false;
+std::string gLightsSkip;   // GX2 A/B timing: lights of this asset left out of the frame
 
 namespace {
 std::map<const AssetDef*, std::unique_ptr<LightAssetDef>> gDefs;
@@ -298,7 +299,7 @@ void lightsGather(App& app, std::vector<LightDesc>& out) {
     if (it == app.rt.end() || !it->second.asset) continue;
     const AssetDef* a = it->second.asset;
     const LightAssetDef* d = lightDef(a);
-    if (!d || d->lights.empty()) continue;
+    if (!d || d->lights.empty() || (!gLightsSkip.empty() && a->id == gLightsSkip)) continue;
     const json* L = extraLight(i);
     float gain = L ? std::max(0.0f, L->value("gain", 1.0f)) : 1.0f;
     bool tint = L && L->contains("color");
