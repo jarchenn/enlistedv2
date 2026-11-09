@@ -21,6 +21,7 @@ struct GraphicsOpts {
   bool clouds = true;
   int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High
   float renderDist = 1200.0f;  // m (PF2): instance draw cut, decor / tree / nature / ivy culls (x renderDist / 1200), far terrain LOD, matching haze
+  bool grassWind = true;       // GX3: vertex wind on the near grass clumps (Low: static grass)
   float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
   // L2 lighting (docs/lighting.md): local lights per frame, shadowed lights, probe GI 0 off / 1 near / 2 near + far
   int lightCount = 256, shadowLights = 4, gi = 1;

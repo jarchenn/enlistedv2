@@ -1831,7 +1831,7 @@ void main(){
   grass *= mix(1.0, 0.88 + 0.24*streak, nearK);
   grass = mix(grass, grass*vec3(1.18, 1.12, 0.95) + vec3(0.015, 0.012, 0.0), flat_*0.6);
   grass = mix(grass, vec3(0.11, 0.085, 0.055), litter*0.25*nearK);
-  grass = mix(grass, mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF), bare*0.3);
+  grass = mix(grass, mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF), bare*0.65);   // GX3: bare-earth patches (grass.cpp bareField thins the clumps there)
   vec3 soil = mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF) * (0.85 + 0.3*nX);
   vec3 mud = mix(vec3(0.12,0.095,0.07), vec3(0.17,0.135,0.10), nX);
   float stone = step(0.6, vnoise(vec3(p.xz*9.0, 7.0)));
@@ -1950,15 +1950,107 @@ void main(){
 )GLSL";
 
 
-// ---- instanced grass: one tapered blade per instance, alpha-tested silhouette, rooted wind bend
+// ---- instanced grass: pasture clumps of up to 12 cards (GX3, grass.cpp) and nature-patch plants (nature.cpp);
+// alpha-tested procedural silhouettes, rooted wind bend
 static const char* kGrassVS = R"GLSL(
 layout(location=0) in vec3 aB; layout(location=1) in vec4 iP; layout(location=2) in vec4 iS;
 uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
+uniform float uCount, uShadowPass;   // pasture: clumps in this chunk (0 = nature patch plants); sun-shadow pass (radius)
+uniform vec4 uLod, uLod2;            // pasture LOD: drawn share, near r, mid r, falloff | floor, mid cards, far cards, wind r
 out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid;
 out vec4 vCC, vPC;
-flat out int vSp; flat out int vPart; flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf
-void main(){
+flat out int vSp; flat out int vPart; flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf; pasture 10+
+// GX3 pasture clump: cards pre-arranged around the root (tall centre, short outward-leaning rim), leaning with the
+// slope, the base blended into the ground colour, base AO, wind only near the eye; LOD fades by rank (no pop)
+void pastureClump(){
+  vec3 base = iP.xyz;
+  float d = length(base - uCamPos);
+  float bl = aB.z, v = aB.y, k = bl/11.0;
+  vec4 pk = unpackUnorm4x8(floatBitsToUint(iS.z)), py = unpackUnorm4x8(floatBitsToUint(iS.y)), pg = unpackUnorm4x8(floatBitsToUint(iS.w));
+  int sp = clamp(int(pk.a*255.0 + 0.5) - 56, 0, 23);
+  float ph = fract(sin(dot(base.xz, vec2(12.9898, 78.233)))*43758.5453);
+  float r1 = fract(sin(ph*91.7 + bl*78.233)*43758.5453), r2 = fract(sin(ph*39.35 + bl*11.135)*24634.6345), r3 = fract(sin(ph*17.13 + bl*53.71)*9631.77);
+  float dens = d <= uLod.y ? 1.0 : max(uLod2.x, pow(uLod.y/d, uLod.w));
+  float keep = uLod.x*dens, rank = (float(gl_InstanceID) + 0.5)/uCount;
+  float vis = 1.0 - smoothstep(keep*0.8, keep, rank);
+  float nb = d <= uLod.y ? 12.0 : d <= uLod.z ? mix(12.0, uLod2.y, smoothstep(uLod.y, uLod.z, d)) : mix(uLod2.y, uLod2.z, smoothstep(uLod.z, uRadius, d));
+  float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp(nb - bl, 0.0, 1.0);
+  if (fade <= 0.0) {   // clump / card past its LOD cut: the whole card leaves the clip volume (no shading, no raster)
+    gl_Position = vec4(0.0, 0.0, -2.0, 1.0); vW = vAlb = vF = vec3(0.0); vUV = vec2(0.0); vWid = 0.0; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
+    vSp = 0; vPart = 10; vSeed = 0.0; return;
+  }
+  float widen = min(3.2, pow(clamp(dens*nb/12.0, 0.05, 1.0), -0.6));   // fewer clumps / cards: the rest widen
+  float H = iS.x, W = py.x*0.1;
+  // card roles: 10 grass blade, 11 clover leaflet, 12 seed-head stem, 13 shrub twig, 14 broad leaf, 15 plantain spike
+  int part = 10;
+  float spread = 0.15, hf = mix(1.0, 0.5, k)*(0.75 + 0.45*r2), w = W*(0.8 + 0.4*r1), curve = 0.2 + 0.4*r1 + 0.7*k, lift = 1.0, windAmp = 1.0;
+  float ang = iP.w + bl*2.39996 + r1*0.6, taper = 1.0 - v*0.65;
+  if (sp == 0) { curve = 0.3 + 0.4*r1 + 0.6*k; spread = 0.12; windAmp = 0.35; }
+  else if (sp == 4) { curve = 0.5 + 0.5*r1; windAmp = 0.8; }
+  else if (sp == 2) {
+    if (bl < 2.5) { part = 12; hf = 0.88 + 0.14*r2; w = v > 0.7 ? 0.011 + 0.004*r1 : 0.004; curve = 0.04 + 0.10*r1; spread = 0.03; windAmp = 1.8; taper = 1.0; }
+    else { hf = mix(0.62, 0.36, k)*(0.8 + 0.4*r2); curve = 0.4 + 0.4*r1; spread = 0.06; windAmp = 1.2; }
+  } else if (sp == 3) {
+    if (bl < 8.5) { part = 11; float leaf = floor(bl/3.0); ang = iP.w + leaf*2.1 + (bl - leaf*3.0 - 1.0)*0.95 + r3*0.2; windAmp = 0.15; taper = 1.0; }
+    else { hf = 1.5*(0.8 + 0.4*r2); w = 0.007; windAmp = 0.35; }
+  } else if (sp == 17) {
+    if (bl < 6.5) { part = 14; hf = 0.8 + 0.4*r2; lift = 0.65; curve = 0.6 + 0.4*r1; spread = 0.02; windAmp = 0.2; taper = 1.0; }
+    else if (bl < 8.5) { part = 15; hf = 2.2*(0.85 + 0.3*r2); w = v > 0.6 ? 0.010 : 0.0035; curve = 0.08 + 0.1*r1; spread = 0.02; windAmp = 1.2; taper = 1.0; }
+    else { hf = 1.8*(0.8 + 0.4*r2); w = 0.007; windAmp = 0.5; }
+  } else if (sp == 16) {
+    part = 13; spread = 0.14; hf = mix(1.0, 0.6, k)*(0.8 + 0.4*r2); curve = 0.12 + 0.55*k; windAmp = 0.25; taper = 1.0 - v*0.25; ang += r3*1.2;
+  } else curve = 0.12 + 0.4*r1 + 0.8*k;   // medium meadow grass: the rim droops
+  float h = H*hf*fade;
+  w *= widen*taper;
+  vec3 fwd = vec3(sin(ang), 0.0, cos(ang)), side = vec3(cos(ang), 0.0, -sin(ang));
+  if (part == 13) side = normalize(side + fwd*(r3 - 0.5)*1.4);
+  vec2 nxz = py.yz*2.0 - 1.0; float ny = sqrt(max(0.1, 1.0 - dot(nxz, nxz)));
+  float rad = spread*sqrt((bl + 0.5)/12.0)*(0.6 + 0.8*r2);
+  vec3 root = base + fwd*rad; root.y -= dot(nxz, fwd.xz*rad)/ny;   // on the slope plane
+  vec2 lean = nxz/ny*0.55;                                         // and leaning with it
+  float windK = uLod2.w > 0.0 ? 1.0 - smoothstep(uLod2.w*0.75, uLod2.w, d) : 0.0;
+  int nk = (windK > 0.0 && uShadowPass == 0.0) ? 2 : 1;
+  vec3 pos[2];
+  for (int f = 0; f < nk; ++f) {   // f 0: this frame, 1: previous frame (motion vectors)
+    float t = f == 0 ? uTime : uPrevTime;
+    float gust = sin(t*1.5 + ph*6.28 + dot(base.xz, vec2(0.13, 0.07)))*0.55 + sin(t*0.63 + dot(base.xz, vec2(0.045, 0.11)))*0.45;
+    vec3 wv = vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.22*windK)*uWind*windAmp;
+    vec3 p;
+    if (part == 11) {   // clover leaflet: out from the petiole top, nearly flat
+      float L = W*(0.85 + 0.3*r1)*fade;
+      p = root + vec3(0.0, h*(0.55 + 0.45*r2), 0.0) + fwd*(v*L*1.1) + side*(aB.x*W*widen*0.5*fade) + vec3(0.0, v*L*0.25, 0.0) + wv*0.3*h;
+    } else {
+      vec3 bend = fwd*curve + wv;
+      p = root + side*(aB.x*w*0.5) + vec3(0.0, v*h*lift, 0.0) + bend*(v*v)*h;
+      p.y -= (v*v)*h*dot(bend, bend)*0.35*lift;
+    }
+    p.xz += lean*(p.y - root.y);
+    pos[f] = p;
+  }
+  if (nk == 1) pos[1] = pos[0];
+  vec3 p = pos[0];
+  vW = p; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp; vPart = part; vWid = w; vSeed = r1; vF = fwd;
+  gl_Position = uVP*vec4(p, 1.0);
+  if (uShadowPass > 0.0) { vAlb = vec3(0.0); vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0); return; }
+  vCC = uVPU*vec4(p, 1.0); vPC = uPrevVP*vec4(pos[1], 1.0);
+  // colour: per-card value, darker saturated base -> lighter drier tip, the lower 30 % takes the ground colour,
+  // base AO darker inside the clump and under the canopy
+  float r4 = fract(r3*57.3 + r1*13.1);
+  vec3 alb = pk.rgb*0.5*(0.74 + 0.5*r3)*mix(vec3(1.0), vec3(1.12, 1.04, 0.78), step(0.82, r4)*0.8), gnd = pg.rgb*0.5;   // per card: value, some yellower
+  float dryTip = (sp == 4 ? 0.7 : sp == 2 ? 0.45 : sp == 1 ? 0.14 : sp == 0 ? 0.08 : 0.05)*(0.4 + 1.2*r1*r1);
+  vec3 col = mix(alb*vec3(0.78, 0.88, 0.72), mix(alb*vec3(1.12, 1.14, 0.9), vec3(0.42, 0.37, 0.21), dryTip), smoothstep(0.2, 1.0, v));
+  bool flatLeaf = part == 11 || part == 14;
+  if (flatLeaf) col = alb*(0.9 + 0.2*v);
+  else if (part != 13) col = mix(gnd, col, smoothstep(0.0, 0.3, v));
+  float above = p.y - base.y;
+  float ao = mix(0.24 + 0.3*k, 1.0, smoothstep(0.0, flatLeaf ? 0.2 : 0.6, v))*mix(0.55, 1.0, smoothstep(0.0, 0.45, above));   // base and canopy depth
+  if (part == 13) ao = mix(0.45, 1.0, smoothstep(0.0, 0.8, v))*(0.75 + 0.25*k);   // shrub: dark interior, lit dome
+  vAlb = col*ao;
+}
+void plantMain();
+void main(){ if (uCount > 0.0) pastureClump(); else plantMain(); }
+void plantMain(){
   float d = length(iP.xyz - uCamPos);
   float fade = 1.0 - smoothstep(uRadius*0.72, uRadius, d);
   bool head = aB.z > 9.5;                                  // patch plants (nature.cpp) carry a head quad per blade
@@ -2053,9 +2145,49 @@ layout(location=3) out vec4 oNR;
 void main(){
   float e = abs(vUV.x*2.0 - 1.0), v = vUV.y, lv = v;
   vec3 F = gl_FrontFacing ? vF : -vF;
-  vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*0.45);
+  bool past = vPart >= 10;
+  vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*((vPart == 11 || vPart == 14) ? 0.15 : past ? 0.8 : 0.45));
   vec3 alb;
-  if (vPart == 1) {   // flower head: disc in [-1, 1]^2 (nature.cpp patches)
+  if (past) {   // GX3 pasture cards: each species' procedural texture (detail fades where a card is under a pixel wide)
+    float dk = 1.0 - smoothstep(0.3, 0.9, fwidth(e));
+    float s = vUV.x*2.0 - 1.0;
+    alb = vAlb;
+    if (vPart == 10) {          // grass blade: pointed tip, light midrib, darker margins, fine veins, some browned tips
+      if (e > 1.0 - pow(v, 3.0)*0.95) discard;
+      alb *= 1.0 + dk*(0.12*(1.0 - smoothstep(0.0, 0.2, e)) - 0.18*smoothstep(0.55, 1.0, e) - 0.05*step(0.5, fract(e*2.5 + 0.25)));
+      if (vSeed > 0.8) alb = mix(alb, vec3(0.30, 0.24, 0.13), smoothstep(0.78, 1.0, v)*0.75);
+    } else if (vPart == 11) {   // clover leaflet: obcordate (notched tip), pale chevron
+      float y = v*2.0 - 1.0;
+      if (e > sqrt(max(0.0, 1.0 - y*y)) || (v > 0.86 && e < (v - 0.86)*2.5)) discard;
+      float chev = 1.0 - smoothstep(0.03, 0.09, abs(v - 0.32 - e*0.3));
+      alb = mix(alb, alb*1.7 + vec3(0.03, 0.04, 0.02), chev*0.5*dk*step(e, 0.75));
+      alb *= 1.0 + 0.12*dk*(1.0 - smoothstep(0.0, 0.08, e));
+    } else if (vPart == 12) {   // seed-head stem: a dense spike or an open panicle above the culm
+      if (v > 0.74) {
+        float y = (v - 0.74)/0.26;
+        float lobe = 0.72 + 0.28*smoothstep(0.3, 0.7, fract(y*9.0 + vSeed*5.0));
+        if (e > pow(max(0.0, 1.0 - (2.0*y - 1.0)*(2.0*y - 1.0)), 0.6)*lobe) discard;
+        alb = mix(vec3(0.46, 0.42, 0.27), vec3(0.38, 0.32, 0.21), vSeed)*(0.9 + 0.2*fract(y*9.0 + vSeed*5.0));
+      } else if (e > 0.85) discard;
+    } else if (vPart == 13) {   // shrub twig: woody stem with alternate oval leaves and a leafy tip
+      float yy = v*6.0 + vSeed*3.0, cell = fract(yy), idx = floor(yy);
+      float sd = mod(idx, 2.0)*2.0 - 1.0;
+      vec2 q = vec2((s - sd*0.46)/0.54, (cell - 0.5)/0.46);
+      bool leaf = dot(q, q) < 1.0 && v > 0.12;
+      vec2 qt = vec2(s/0.6, (v - 0.9)/0.12);
+      leaf = leaf || dot(qt, qt) < 1.0;
+      bool twig = abs(s) < 0.08 && v < 0.9;
+      if (!leaf && !twig) discard;
+      float lh = fract(sin(idx*12.9898 + vSeed*78.233)*43758.5453);
+      alb = leaf ? alb*(0.75 + 0.5*lh)*(1.0 + 0.25*dk*(1.0 - dot(q, q))) : vec3(0.16, 0.12, 0.08)*(0.6 + 0.6*v);
+    } else if (vPart == 14) {   // plantain leaf: lanceolate, parallel veins
+      if (e > sin(3.14159*pow(v, 0.75))*0.95) discard;
+      alb *= 1.0 + dk*(0.16*(1.0 - smoothstep(0.0, 0.07, e)) + 0.08*(1.0 - smoothstep(0.0, 0.05, abs(e - 0.45))) - 0.15*smoothstep(0.7, 1.0, e));
+    } else {                    // plantain spike: brown seed head over a bare stem
+      if (v > 0.62) { if (e > 0.9) discard; alb = vec3(0.24, 0.19, 0.11)*(0.75 + 0.5*step(0.55, fract(v*45.0 + e)) ); }
+      else if (e > 0.8) discard;
+    }
+  } else if (vPart == 1) {   // flower head: disc in [-1, 1]^2 (nature.cpp patches)
     vec2 q = vUV; float r = length(q), th = atan(q.y, q.x);
     float aa = fwidth(r)*1.5;   // distant heads fill in instead of sparkling
     vec3 petal, ctr; float rim, cr;
@@ -2106,11 +2238,12 @@ void main(){
     if (e > 0.9) discard;
     alb = vAlb*(v > 0.9 ? 1.15 : 1.0);
   } else alb = vAlb;   // flower stems
-  alb *= mix(0.62, 1.12, lv);   // shaded roots, sunlit (not bleached) tips
+  if (!past) alb *= mix(0.62, 1.12, lv);   // shaded roots, sunlit (not bleached) tips (pasture: gradient + AO per vertex)
   if (vPart == 1) alb *= 0.85;
   // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
   float sh = 1.0;
-  if (uShadowSoft > 0.0) sh = sunShadowT(vW + vec3(0.0, 0.04, 0.0), vec3(0.0, 1.0, 0.0), 0.6, 4) * cloudShadow(vW);
+  vec3 shP = past ? vW + uSunDir*0.05 + vec3(0.0, 0.02, 0.0) : vW + vec3(0.0, 0.04, 0.0);   // pasture cards cast: step off their own shadow
+  if (uShadowSoft > 0.0) sh = sunShadowT(shP, vec3(0.0, 1.0, 0.0), 0.6, 4) * cloudShadow(vW);
   else if (uShadowOn == 1) {
     vec4 lp = uLightVP*vec4(vW + vec3(0.0, 0.06, 0.0), 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
     if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.xy, sc.z - 0.0015));
@@ -2123,15 +2256,28 @@ void main(){
   float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
   irr = giAmbient(vW, N, sv, irr);   // L2: probe light by night / under cover
-  vec3 c = (alb/PI*uSunCol*ndl*sh + irr*alb) * mix(0.72, 1.0, lv);
-  if (uLightCount > 0) { vec3 ld, ls; localLights(vW, vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), -1.0, vec3(0.04), ld, ls); c += alb/PI*ld*mix(0.72, 1.0, lv); }   // lamps: blades lit as the ground under them
+  float lk = past ? 1.0 : mix(0.72, 1.0, lv);
+  vec3 c = (alb/PI*uSunCol*ndl*sh + irr*alb) * lk;
+  if (uLightCount > 0) { vec3 ld, ls; localLights(vW, vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), -1.0, vec3(0.04), ld, ls); c += alb/PI*ld*lk; }   // lamps: blades lit as the ground under them
   vec3 V = normalize(uCamPos - vW);
-  c += alb * uSunCol * 0.10 * pow(max(dot(-V, uSunDir), 0.0), 3.0) * lv * sh;   // thin-leaf transmission
+  if (past) c += alb * uSunCol * vec3(1.0, 1.08, 0.62) * (0.05 + 0.34*pow(max(dot(-V, uSunDir), 0.0), 2.0)) * (vPart == 13 ? 0.4 : 0.4 + 0.6*v) * sh * sv;   // backlit cards glow (translucency)
+  else c += alb * uSunCol * 0.10 * pow(max(dot(-V, uSunDir), 0.0), 3.0) * lv * sh;   // thin-leaf transmission
   c = applyFog(c, vW);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
-  oAmb = vec4(irr*alb*mix(0.72, 1.0, lv)*gFogT*0.6, 1.0);   // blades: reduced weight (thin, sparse occluders)
+  oAmb = vec4(irr*alb*lk*gFogT*0.6, 1.0);   // blades: reduced weight (thin, sparse occluders)
   oNR = vec4(N, 1.0);
   oVel = vec4(vPC.xy/vPC.w*0.5 - vCC.xy/vCC.w*0.5, 0.0, 1.0);
+}
+)GLSL";
+// GX3: near pasture clumps into the sun shadow map (Grass::drawShadow); coarse silhouettes of the cards
+static const char* kGrassShadowFS = R"GLSL(
+in vec2 vUV; in float vWid;
+flat in int vSp; flat in int vPart; flat in float vSeed;
+void main(){
+  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y;
+  if (vPart == 11 || vPart == 14) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
+  else if (vPart == 13) { if (e > 0.12 && fract(v*6.0 + vSeed*3.0 + e*0.4) > 0.75) discard; }
+  else if (e > 1.0 - pow(v, 3.0)*0.95) discard;
 }
 )GLSL";
 
@@ -2336,6 +2482,7 @@ bool Renderer::init(int w, int h) {
   progLine = compile(kLineVS, kLineFS, "line");
   progFx = compile(kFxVS, kFxFS, "fx");
   progGrass = compile(kGrassVS, kGrassFS, "grass");
+  progGrassShadow = compile(kGrassVS, kGrassShadowFS, "grass_shadow");
   progModel = compile(kModelVS, kModelFS, "model");
   progDof = compile(kFullVS, kDofFS, "dof");
   progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
@@ -2920,6 +3067,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   Frustum frNear = Frustum::fromVP(lightVP);
   drawItems(progShadow, opaque, true, &frNear);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear);
+  if (grass && !thumbMode) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
+    glUseProgram(progGrassShadow);
+    glUniform3fv(U(progGrassShadow, "uCamPos"), 1, glm::value_ptr(v.camPos)); glUniform1f(U(progGrassShadow, "uTime"), time);
+    grass->drawShadow(progGrassShadow, lightVP, v0.proj * v.view, v.camPos);
+  }
   glUseProgram(progShadow);
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
   gpuMark(GP_ShadowFar);
@@ -3084,9 +3236,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progGrass, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
     glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
-    const GrassPreset& gp = grassPreset(grass->quality);
-    float frac = gp.radius <= 0 ? 0.0f : gp.density <= 8 ? 0.6f : gp.density <= 16 ? 0.8f : 1.0f;   // Low / Medium / High share of each patch
-    if (frac > 0) natureDrawPatches(progGrass, natPatches, vp, v.camPos, gp.radius * 1.1f, frac, wind, natDraws, natTufts);
+    // Low / Medium / High share of each patch and reach (the pre-GX3 grass radii: patches keep their own LOD)
+    int gq = std::clamp((int)grass->quality, 0, 3);
+    const float natFrac[4] = {0.0f, 0.6f, 0.8f, 1.0f}, natR[4] = {0.0f, 38.0f, 58.0f, 85.0f};
+    if (natFrac[gq] > 0) natureDrawPatches(progGrass, natPatches, vp, v.camPos, natR[gq] * 1.1f, natFrac[gq], wind, natDraws, natTufts);
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);
   }

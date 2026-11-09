@@ -205,7 +205,7 @@ private:
   mat4 prevVP{1}; vec3 prevCam{0}; vec2 jitterPx{0};
   void taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v);
   GLuint vmDistTex = 0, dofTex = 0, dofFbo = 0;
-  GLuint progGrass = 0;
+  GLuint progGrass = 0, progGrassShadow = 0;   // GX3: near pasture clumps into the sun map
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   GLuint progMain = 0, progShadow = 0, progTerrain = 0, progSky = 0, progGlass = 0, progLine = 0, progTone = 0, progExpo = 0;
   GLuint shadowFbo = 0, shadowTex = 0, occFbo = 0, occTex = 0;

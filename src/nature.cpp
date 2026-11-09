@@ -722,12 +722,12 @@ void natureDrawPatches(GLuint prog, const std::vector<NatPatchDraw>& items, cons
   if (items.empty() || radius <= 0) return;
   if (!vao) {   // one plant: 7 blades (5 rows x 2) + 7 head quads (z = 10 + blade)
     std::vector<vec3> b; std::vector<uint16_t> idx;
-    for (int bl = 0; bl < Grass::kBlades; ++bl) {
+    for (int bl = 0; bl < Grass::kPlantBlades; ++bl) {
       uint16_t base = (uint16_t)b.size();
       for (int r = 0; r <= 4; ++r) { float v = r / 4.0f; b.push_back({-1, v, (float)bl}); b.push_back({1, v, (float)bl}); }
       for (int r = 0; r < 4; ++r) { uint16_t a = base + r * 2; idx.insert(idx.end(), {a, (uint16_t)(a + 1), (uint16_t)(a + 2), (uint16_t)(a + 1), (uint16_t)(a + 3), (uint16_t)(a + 2)}); }
     }
-    for (int bl = 0; bl < Grass::kBlades; ++bl) {
+    for (int bl = 0; bl < Grass::kPlantBlades; ++bl) {
       uint16_t a = (uint16_t)b.size();
       b.push_back({-1, 0, 10.0f + bl}); b.push_back({1, 0, 10.0f + bl}); b.push_back({-1, 1, 10.0f + bl}); b.push_back({1, 1, 10.0f + bl});
       idx.insert(idx.end(), {a, (uint16_t)(a + 1), (uint16_t)(a + 2), (uint16_t)(a + 1), (uint16_t)(a + 3), (uint16_t)(a + 2)});

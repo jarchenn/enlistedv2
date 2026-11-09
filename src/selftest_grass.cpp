@@ -97,6 +97,22 @@ void SelfTest::grassUpdate(App& app, float dt) {
     app.grass.quality = GrassQuality::Medium;
     t0 = std::chrono::high_resolution_clock::now(); syncGrass(); summary["medium_rebuild_after_off_ms"] = ms(t0);
     check(app.grass.layoutHash() == g.H0, "Off -> Medium restores the identical layout");
+    {   // GX3: species layers, clump density near the eye, tunables
+      int spc[24] = {0};
+      app.grass.forEachInstance([&](const GrassInstance& i) { int s = Grass::speciesOf(i); if (s >= 0 && s < 24) ++spc[s]; });
+      int fine = spc[0] + spc[1], tall = spc[2], broad = spc[3] + spc[17], shrub = spc[16];
+      summary["species"] = {{"fine", fine}, {"seed_head", tall}, {"clover", spc[3]}, {"broadleaf", spc[17]}, {"straw", spc[4]}, {"shrub", shrub}};
+      check(fine > tall && tall > 0 && broad > 0 && shrub > 0 && spc[4] > 0,
+            "4+ species layers: fine " + std::to_string(fine) + ", seed-head " + std::to_string(tall) + ", clover / broadleaf " + std::to_string(broad) + ", shrub " + std::to_string(shrub) + ", straw " + std::to_string(spc[4]));
+      const GrassPreset& M = grassPreset(GrassQuality::Medium);
+      size_t near = countNear(app.grass, g.cam, 15.0f);
+      double cards = near * (M.density / Grass::kMaxDensity) * Grass::kBlades / (3.14159265 * 225.0);
+      summary["medium_cards_per_m2_within_15m"] = cards;
+      // pre-GX3 Medium: 16 of 40 tufts per m^2 drawn x 7 blades, ~65 % of candidates kept = ~73 blades per m^2
+      check(cards > 3.0 * 73.0, "Medium draws 3x+ the pre-GX3 blade density within 15 m (" + std::to_string((int)cards) + " cards per m^2)");
+      check(M.windR > 0 && M.windR <= 15 && M.shadowR > 0 && grassPreset(GrassQuality::Low).windR == 0 && M.radius < 58,
+            "tiers: Medium wind <= 15 m, near clumps cast shadows, Low static, Medium trades radius for density");
+    }
     // crater site in open pasture; a far chunk for the 'untouched' check
     g.P = vec3(16, 0, 24); g.P.y = app.terrain.height(g.P.x, g.P.z);
     g.pcx = (int)std::floor(g.P.x / Grass::kChunk); g.pcz = (int)std::floor(g.P.z / Grass::kChunk);

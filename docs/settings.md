@@ -24,7 +24,8 @@ Every change applies immediately. Two sliders apply when you release them instea
 | Shadow quality | Near / far shadow-map sizes: Low 2048 / 1024, Medium 4096 / 2048, High 4096 / 4096. |
 | Far shadow cascade, Cloud shadows, Ambient occlusion, Full-resolution AO, Screen-space reflections, Bloom, Light shafts, Temporal AA | `Renderer::Quality` flags and the AO target size. |
 | Clouds | The cloud layer. Cloud cover is under Creative > View > Sky. |
-| Grass | `GrassQuality` Off / Low / Medium / High (`grassPreset`, `grass.cpp`). |
+| Grass | `GrassQuality` Off / Low / Medium / High (`grassPreset`, `grass.cpp`; tiers in `content/settings/grass.json`, docs/ground-grass.md#gx3). |
+| Grass wind | `grassWind`: vertex wind on the near grass clumps (within 13–15 m). Low turns it off. |
 | 4x MSAA | `Renderer::setMsaa`: the opaque world (sky, terrain, solids, models, foliage, grass) renders into a 4x multisampled copy of the HDR target's world attachments, resolved (colour averaged, depth one sample) before water, decals and TAA. `"msaa": 4 / 0`. |
 | Ivy on walls | `App::ivyOn` (`ivy.cpp`): the assets' `"ivy"` leaf cards. Their density follows Grass: none at Off, 60 % at Low. `"ivy"`. |
 | Render distance | Metres (PF2; 300-5000, stops Low 600 m, Medium 1.2 km, High 2.5 km, Ultra 5 km). Drives the hard cut of every instance in `App::buildDrawLists`, and x renderDistance / 1200 the nature (1200 m), tree (900 m), ivy (260 m) and decor (`w5CullDraw`, rules in `content/settings/maps.json`) culls; the far terrain LOD rings (x0.6-1.5, LOD0 unchanged); the Explore far plane (at least 4 km, 1.2 x the distance); and the haze density (0.001 / m x 1200 / distance, clamped 0.4-2, so the haze reaches the same depth at the cut). Files with the old `drawDistance` multiplier migrate to `renderDistance` = 1200 m x it.
