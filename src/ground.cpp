@@ -1,6 +1,7 @@
 // Deformable ground: craters on the canonical height field, foundation protection, physics patch sync,
 // session reset and explicit "apply damage to map" persistence.
 #include "app.h"
+#include "terrain_tools.h"   // GX1: re-seat after editor craters
 #include <algorithm>
 
 float App::groundWeight(float x, float z) const {
@@ -32,7 +33,11 @@ bool App::craterAt(vec3 p, float radius, float depth, bool irregular) {
   float gh = terrain.height(p.x, p.z);
   if (p.y - gh > 0.9f) return false;                         // airburst: no ground contact
   if (gh < terrain.waterLevel + 0.05f) return false;         // open water: nothing to deform
+  // GX1: in the editor a crater is a reform like a brush stroke: loose props near it re-seat (pinned footprints are
+  // protected by groundWeight). In play the crater is a session overlay, so placements are left alone.
+  std::vector<SeatRec> seats; if (mode == Mode::Creative) seats = terrainSeats(*this, vec2(p.x, p.z), radius * 1.8f + 1.0f);
   auto touched = terrain.crater(vec3(p.x, gh, p.z), radius, depth, [this](float x, float z) { return groundWeight(x, z); }, 1.6f, irregular);
+  if (!seats.empty() && !touched.empty()) terrainReseat(*this, seats);
   syncGroundTiles(touched);
   if (!touched.empty()) {
     ++groundRev;

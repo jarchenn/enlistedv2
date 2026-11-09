@@ -61,7 +61,7 @@ float fpRadius(const GrassFootprint& f) { return glm::length(glm::max(glm::abs(f
 // alters grass placement by even one bit.
 static bool sampleTouched(const Terrain& t, const Terrain::Tile& tl, int i, int j) {
   size_t k = (size_t)j * Terrain::kFineN + i;
-  if (tl.dirt[k] != 0.0f) return true;
+  if (tl.dirt[k] != 0.0f || (!tl.sdirt.empty() && tl.sdirt[k] != 0.0f)) return true;   // GX1 stamp soil too
   vec2 o = t.tileOrigin(tl.tx, tl.tz);
   float fs = t.fineSpacing();
   return tl.h[k] != t.baseHeight(o.x + i * fs, o.y + j * fs);
@@ -224,7 +224,7 @@ uint64_t Grass::contentSignature(int cx, int cz, const Terrain& t, const std::ve
     for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) {
       if (!sampleTouched(t, *tl, i, j)) continue;          // untouched samples read as base ground
       size_t k = (size_t)j * Terrain::kFineN + i;
-      h = hcomb(hcomb(h, ((uint64_t)t.key(tx, tz) << 16) ^ k), ((uint64_t)fbits(tl->h[k]) << 32) | fbits(tl->dirt[k]));
+      h = hcomb(hcomb(h, ((uint64_t)t.key(tx, tz) << 16) ^ k), ((uint64_t)fbits(tl->h[k]) << 32) | fbits(tl->sdirt.empty() ? tl->dirt[k] : std::max(tl->dirt[k], tl->sdirt[k])));
     }
   }
   return h;

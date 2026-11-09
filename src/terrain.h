@@ -31,6 +31,42 @@ struct WorldCut {
   bool operator==(const WorldCut& o) const { return owner == o.owner && poly == o.poly && floorY == o.floorY && topY == o.topY && bank == o.bank && pad == o.pad; }
 };
 
+// GX1 terrain stamp (terrain_cuts.cpp, built from the instances by terrain_blend.cpp): deformations that conform the
+// ground to what is placed on it. Applied over the sculpted ground, before the polygon cuts and crater deltas:
+//   PAD    pinned footprint levelled to y, blended into the surroundings over a smoothstep ring (raise or cut)
+//   BERM   earth banks against a bunker's walls: repose profile from ridge segments, noise, smoothing band
+//   TRENCH one joined trench network: spoil parapets raised either side, then the carve (floor, battered walls)
+struct TerrainStamp {
+  enum Kind : uint8_t { PAD = 0, BERM = 1, TRENCH = 2 };
+  uint8_t kind = PAD;
+  uint64_t owner = 0;                 // instance id (TRENCH: the network's lowest id)
+  std::vector<uint64_t> members;      // every instance it belongs to (TRENCH: all pieces of the network)
+  vec2 c{0}; float yaw = 0; vec2 half{0};   // PAD / BERM: oriented footprint (BERM: the walls' outline)
+  float y = 0;                        // anchor: the instance's y
+  float ring = 2.5f, skirt = 0;       // PAD: blend ring, max raise at the edge before the retaining skirt (0 = no cap)
+  float grow = 0;                     // PAD: the level region reaches this far past the footprint (one grid step: no slope under the walls)
+  std::vector<vec4> banks;            // BERM: ridge segments along the walls, local (ax, az, bx, bz)
+  std::vector<vec2> bankH;            // BERM: crest height above y at each end of the segment (a flank tapers toward an open face)
+  std::vector<vec4> holes;            // BERM: local rectangles kept clear (x0, z0, x1, z1): passages, embrasures
+  std::vector<vec4> seg;              // TRENCH: centreline segments, world (x0, z0, x1, z1)
+  std::vector<vec2> segY;             // TRENCH: floor y at both ends
+  std::vector<uint8_t> segJoin;       // TRENCH: bit 0 start continues into another segment, bit 1 the end does
+  std::vector<int8_t> segFront;       // TRENCH: the fire side, +1 left of the segment, -1 right, 0 none (a lower parapet there)
+  uint32_t seed = 0;
+  vec2 bmin{0}, bmax{0};              // world bounds of everything the stamp touches
+  bool operator==(const TerrainStamp& o) const {
+    return kind == o.kind && owner == o.owner && members == o.members && c == o.c && yaw == o.yaw && half == o.half && y == o.y && ring == o.ring && skirt == o.skirt && grow == o.grow &&
+           banks == o.banks && bankH == o.bankH && holes == o.holes && seg == o.seg && segY == o.segY && segJoin == o.segJoin && segFront == o.segFront && seed == o.seed;
+  }
+};
+struct StampParams {                  // content/settings/terrain_blend.json (terrain_blend.cpp fills it)
+  float reposeDeg = 33, crest = 0.35f, smoothing = 3, noise = 0.12f, noiseScale = 7, edgeJitter = 0.45f, blendK = 1.2f;
+  float sparseSlope = 14, bareSlope = 31, contactBand = 0.8f, holeEdge = 1.2f;
+  float soilMax = 0.55f, soilPerMetre = 1.4f, skirtEmbed = 0.15f;
+  float carvePad = 0.45f;   // trench floor reaches this far past the revetment line (one grid step: the wall slope stays behind it)
+  float depth = 1.62f, floorHalf = 0.68f, batter = 0.12f, parapetH = 0.45f, parapetW = 1.9f, parapetNoise = 0.35f, parapetFront = 0.5f;
+};
+
 // Ground = coarse base heightfield + sparse high-resolution deformation tiles.
 // height() is the single canonical query used by rendering, physics patches, placement and grass.
 // The base grid is rectangular (nx x nz vertices, kCell spacing, min corner `org`). It is drawn and collided as
@@ -47,6 +83,8 @@ public:
     std::vector<float> h;      // total height per fine sample (authored base + delta)
     std::vector<float> base;   // authored base per fine sample: base heightfield lowered by terrain cuts
     std::vector<float> dirt;   // disturbed-soil blend 0..1
+    std::vector<float> sdirt;  // GX1 stamp soil mask 0..1 (trench mud, spoil, bare berm faces, pad embankments); derived, never saved
+    std::vector<float> sew;    // GX1 stamp material per sample, 3 floats: packed mud (cut walls / floor), freshly turned earth (spoil), wet
     GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
     uint32_t body = 0xffffffffu;
     uint32_t rev = 0;          // bumped on every remesh (grass / cache invalidation)
@@ -64,6 +102,7 @@ public:
   float sculptAt(float x, float z) const;
   float groundBase(float x, float z) const { return baseHeight(x, z) + (sculpt.empty() ? 0.0f : sculptAt(x, z)); }
   void sculptChanged(const std::vector<int>& keys);   // re-bases those tiles (craters kept) and remeshes them + neighbours
+  uint32_t sculptRev = 0;                             // bumps with every sculpt change (GX1: pads re-derive, revetments refit)
   // ---- V8 generator layers (terrain_brush.cpp / beautify.cpp): MapDoc::terrainGen, applied by generate()
   //   {"ring": {"tiles": k, "seed": s, "amp": m}}   outer ring: k whole tiles of extra margin on every side (the inner
   //                                                 grid keeps its world positions, so tile keys remap exactly)
@@ -111,6 +150,14 @@ public:
   float placementHeight(float x, float z, uint64_t owner) const;
   int setCuts(std::vector<WorldCut> next);   // re-cuts the tiles under old and new outlines; returns tiles touched
   uint32_t cutRev = 0;
+  // ---- GX1 stamps (terrain_cuts.cpp): pads, berms, trench networks; applied inside cutBase (Tile::base includes them)
+  std::vector<TerrainStamp> stamps;
+  StampParams sp;
+  int setStamps(std::vector<TerrainStamp> next);   // re-bases the tiles under old and new stamps; returns tiles touched
+  // stamped ground at a point from groundBase g (no polygon cuts); mask (optional): soil (grass), mud, fresh earth, wet
+  float stampHeight(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t excludeOwner, vec4* mask) const;
+  float stampSoilAt(float x, float z) const;   // the stamp soil mask (0 off-tile)
+  float trenchLipY(const TerrainStamp& s, float x, float z) const;   // the uncarved ground (with parapet) at a point
   // ---- base edits (map tools): bump the chunk revisions over a rectangle so meshes and colliders rebuild
   void baseEdited(vec2 lo, vec2 hi);
   // ground surface mask (surface.cpp): worn routes, ruts, foundation soil, wetness
@@ -148,6 +195,9 @@ private:
   void applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz);   // V8: ring + hill stamps over the base grid (terrain.cpp)
   void setMask(int tx, int tz, uint8_t v);
   void recutTile(Tile& t);
+  int recutRegions(const std::vector<std::pair<vec2, vec2>>& regions);   // shared by setCuts / setStamps
+  float stampEval(float x, float z, float g, const std::vector<const TerrainStamp*>& list, uint64_t excludeOwner, vec4* mask, bool carve) const;
+  void stampsNear(vec2 lo, vec2 hi, std::vector<const TerrainStamp*>& out) const;
   friend struct TerrainStream;
 };
 

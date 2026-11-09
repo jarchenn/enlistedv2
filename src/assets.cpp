@@ -1,6 +1,7 @@
 #include "assets.h"
 #include "model.h"
 #include "textures.h"
+int blendPartMode(const json& asset, const json& pj);   // GX1 (terrain_blend.cpp)
 #include <functional>
 #include "physics.h"
 #include "nature.h"
@@ -666,7 +667,12 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     mats[m.name] = (int)a->materials.size();
     a->materials.push_back(m);
   }
-  for (auto& pj : j.value("parts", json::array())) a->parts.push_back(parsePart(pj, mats));
+  for (auto& pj : j.value("parts", json::array())) {   // GX1: slabs the terrain / revetment replace (terrain_blend.cpp)
+    int mode = blendPartMode(j, pj);
+    if (mode == 1) continue;
+    a->parts.push_back(parsePart(pj, mats));
+    if (mode == 2) a->parts.back().visible = false;   // the generated revetment is drawn; this stays the collider
+  }
   std::vector<Panel> autoPanels;
   if (!j.value("noAutoPanels", false)) extractWallPanels(*a, autoPanels, j);   // piers, corners, lintels, upper floors, opening trim: destructible too
   a->furnFirst = a->parts.size();

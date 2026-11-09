@@ -24,9 +24,43 @@ void captureHook(App& app, uint64_t id) {
   app.syncRuntime();
   app.interior.furnish(app, id, 0);
 }
+// The GX test scene (brief §0): the B3 chateau (timber-frame, hallways, furnished rooms), a line-up of a ruin, a villa
+// and two bunkers (the observation post is the brief's "bunker on a mound"), an L-shaped trench run with a corner, and
+// a clear 40 x 40 m grass field at x -20..20, z 40..80. Positions are fixed so every run and every stream matches.
+void gxBuildScene(App& app) {
+  app.newMap(*app.findTemplate("blank_slate"), "GX test scene");
+  auto P = [&](const char* id, vec3 p, float yaw, bool comp = false) -> uint64_t {
+    const AssetDef* a = app.lib.find(id);
+    uint64_t iid = a ? app.placeInstance(a, p, yaw) : 0;
+    if (!iid) logf("gx scene: %s at (%.1f, %.1f) not placed", id, p.x, p.z);
+    else if (comp) app.placeCompanions(iid);
+    return iid;
+  };
+  P("vil_chateau_grand", vec3(0, 0, 0), 0.0f, true);
+  P("ruin_house_shelled", vec3(-52, 0, -80), 0.0f);
+  P("vil_villa_deauville", vec3(-24, 0, -80), 0.0f, true);
+  P("bunker_observation_post", vec3(8, 0, -80), 0.0f, true);
+  P("bunker_field_shelter", vec3(26, 0, -80), 0.0f, true);
+  // trench: entry, two straights and a corner along +X, then two straights along +Z (pieces join at their sockets)
+  P("aw_trench_entry", vec3(53, 0, 0), 0.0f);
+  P("aw_trench_straight", vec3(60, 0, 0), 0.0f);
+  P("aw_trench_straight", vec3(68, 0, 0), 0.0f);
+  P("aw_trench_corner", vec3(76, 0, 0), 0.0f);
+  P("aw_trench_straight", vec3(76, 0, 8), -90.0f);
+  P("aw_trench_straight", vec3(76, 0, 16), -90.0f);
+  app.doc.camera.set = true; app.doc.camera.pos = vec3(10, 45, 120); app.doc.camera.yaw = 0; app.doc.camera.pitch = -22;
+  app.doc.start.set = true; app.doc.start.pos = vec3(0, app.terrain.height(0, 36), 36); app.doc.start.yaw = 0;
+  app.syncRuntime();
+  app.interior.autoFurnishAll(app);
+  MapDoc d = app.doc;   // the file holds the authored instances only (furniture is re-added on load)
+  d.instances.erase(std::remove_if(d.instances.begin(), d.instances.end(), [](const Instance& i) { return isFurnishPiece(i); }), d.instances.end());
+  std::string err;
+  fs::path out = exeDir() / "selftest_out" / "gx_test_scene.nmap.json";
+  logf("gx scene: %zu instances, saved %s: %s", d.instances.size(), out.string().c_str(), saveMap(out, d, err) ? "ok" : err.c_str());
+}
 }
 
-void SelfTest::captureUpdate(App& app, float) {
+void SelfTest::captureUpdate(App& app, float dt) {
   if (stage == 800) {
     reportName = "capture";
     for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-materials" && k + 1 < __argc) tag = __argv[k + 1];
@@ -65,6 +99,37 @@ void SelfTest::captureUpdate(App& app, float) {
         for (auto& v : b.views) { keep.push_back(n + "_" + v.name); cams.push_back({keep.back().c_str(), o + v.pos, o + v.tgt}); }
         x += 50;
       }
+      app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "gx") {
+      // NMK_CAPTURE_SET=gx (docs/graphics-overhaul.md): the graphics-overhaul test scene, content/templates/gx_test_scene,
+      // from fixed cameras that match the brief's current_01..07 framings. NMK_GX_REBUILD=1 rebuilds the scene from the
+      // Blank Slate in code and writes selftest_out/gx_test_scene.nmap.json (copy it to content/templates/).
+      const TemplateInfo* gt = app.findTemplate("gx_test_scene");
+      if (gt && !std::getenv("NMK_GX_REBUILD") && fs::exists(contentDir() / "templates" / gt->raw.value("map", std::string("-")))) app.newMap(*gt, "GX test scene");
+      else gxBuildScene(app);
+      auto I = [&](const char* id) -> Instance* { for (auto& i : app.doc.instances) if (i.assetId == id) return &i; return nullptr; };
+      auto W = [&](Instance* i, vec3 l) { return i->pos + yawQuat(i->yaw) * l; };
+      cams.clear();
+      Instance* ch = I("vil_chateau_grand"); Instance* op = I("bunker_observation_post"); Instance* tc = I("aw_trench_corner");
+      if (ch) {
+        const AssetDef* a = app.lib.find(ch->assetId);
+        float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f, H = a->bmax.y - a->bmin.y;
+        cams.push_back({"current_01_hallway", W(ch, vec3(-17.5f, 5.5f, -8.8f)), W(ch, vec3(-14.5f, 5.1f, -8.8f))});   // level-1 corridor (B3 tour look 2)
+        cams.push_back({"current_02_room", W(ch, vec3(0.0f, 1.9f, 9.0f)), W(ch, vec3(0.0f, 1.5f, -8.2f))});           // entrance hall (B3 tour look 1)
+        cams.push_back({"current_03_exterior", W(ch, vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6)), W(ch, vec3(0, H * 0.35f, 0))});
+      }
+      if (op) cams.push_back({"current_04_lineup", W(op, vec3(-16.0f, 1.7f, 46.0f)), W(op, vec3(-16.0f, 3.2f, 0.0f))});
+      cams.push_back({"current_05_field", vec3(0.0f, 1.65f, 38.0f), vec3(0.0f, 1.2f, 140.0f)});
+      if (op) cams.push_back({"current_06_bunker", W(op, vec3(-6.4f, 1.7f, 6.2f)), W(op, vec3(0.6f, 1.7f, -0.4f))});
+      if (tc) cams.push_back({"current_07_trench", W(tc, vec3(-3.8f, 2.9f, 3.8f)), W(tc, vec3(1.6f, -0.6f, -1.6f))});
+      // standing on the trench floor (1.62 m down, eye 1.65 m) 9 m back along the corner's first leg, looking along it
+      // to the corner: the floor, both revetment walls and the lip against the sky
+      if (tc) cams.push_back({"gx_trench_floor", W(tc, vec3(-9.0f, 0.03f, 0.05f)), W(tc, vec3(0.0f, 0.25f, 0.0f))});
       app.syncRuntime();
       app.hideEditorOverlays = true;
       app.grassBudgetMs = -1;
@@ -325,5 +390,13 @@ void SelfTest::captureUpdate(App& app, float) {
     return;
   }
   if (++frames == 4) shotQueue.push_back("mat_" + tag + "_" + c.name);
-  if (frames >= 5) { ++ci; frames = 0; }
+  // NMK_CAPTURE_PERF=<frames>: hold each camera that long and log its mean GPU / CPU frame time (after 60 warm-up frames)
+  static const int hold = std::getenv("NMK_CAPTURE_PERF") ? std::max(90, std::atoi(std::getenv("NMK_CAPTURE_PERF"))) : 5;
+  static double gpuSum = 0, dtSum = 0, cpuSum = 0; static int n = 0;
+  if (hold > 5 && frames > 60) { gpuSum += app.R.stats.gpuMs; dtSum += dt * 1000.0; cpuSum += app.R.stats.cpuMs; ++n; }
+  if (frames >= hold) {
+    if (n) logf("capture perf %s: gpu %.3f ms, cpu %.3f ms, frame %.3f ms (%d frames), %d draws, %d tris, %zu terrain tiles", c.name, gpuSum / n, cpuSum / n, dtSum / n, n, app.R.stats.draws, app.R.stats.tris, app.terrain.tiles.size());
+    gpuSum = dtSum = cpuSum = 0; n = 0;
+    ++ci; frames = 0;
+  }
 }

@@ -1,0 +1,44 @@
+{
+  "_doc": "GX1 terrain conformance (docs/graphics-overhaul.md#gx1-terrain-conformance). Every deformation here is derived from the placed instances (no map data), so all clients compute the same ground. Lengths in metres, angles in degrees.",
+  "enabled": true,
+  "placement": {
+    "_doc": "Auto-levelling pads (brief §6). A pinned object (building, bunker, emplacement with a footprint) stands on the median of its footprint samples; the ground under the footprint is raised or lowered to that level and blended into the surroundings over a smoothstep ring. Placement is refused when the ground varies more than `margin` from the level.",
+    "margin": 1.5,
+    "ringMin": 2.0,
+    "ringMax": 3.5,
+    "ringPerMetre": 1.5,
+    "minDelta": 0.05,
+    "skirtThreshold": 0.9,
+    "skirtEmbed": 0.15,
+    "soilMax": 0.55,
+    "_doc_soil": "packed soil shown on raised / cut ground next to the pad (dirt mask, 0..1) at 1 m of change, fading to grass at the ring edge",
+    "soilPerMetre": 1.4
+  },
+  "earthwork": {
+    "_doc": "Bunker earth banks as terrain stamps (brief §5): crest heights from the asset's `earthwork` block, an angle-of-repose profile (convex shoulder, concave toe), low-frequency noise, and a smoothing band past the toe. Slope-driven soil mask: bare above `bareSlope`, sparse grass from `sparseSlope`.",
+    "reposeDeg": 33.0,
+    "crest": 0.35,
+    "smoothing": 3.0,
+    "noise": 0.12,
+    "noiseScale": 7.0,
+    "edgeJitter": 0.45,
+    "blendK": 1.2,
+    "sparseSlope": 14.0,
+    "bareSlope": 31.0,
+    "contactBand": 0.8,
+    "holeEdge": 1.2
+  },
+  "trench": {
+    "_doc": "Trench carve along the pieces' joined paths (brief §7). depth = floor below the anchor (the parapet crest adds parapetHeight, so lip to floor is depth + parapet), floor width = 2 x floorHalf, the walls lean back by `batter` (horizontal per vertical). The parapet (spoil) is raised either side within parapetWidth of the lip.",
+    "depth": 1.62,
+    "floorHalf": 0.68,
+    "batter": 0.12,
+    "parapetHeight": 0.45,
+    "parapetWidth": 1.9,
+    "parapetNoise": 0.35,
+    "parapetFront": 0.5,
+    "revetment": true,
+    "pickets": 0.75,
+    "sandbags": true
+  }
+}
