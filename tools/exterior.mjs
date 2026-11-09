@@ -62,15 +62,19 @@ function seeded(str) {
 // face's up normal, ac = across (unit), Ls = slope length eave -> top, half(u) = the half width of the face u metres up
 // from the eave (constant on a gable slab, shrinking on hips). Each course is a strip whose visible part is one texture
 // row; strips run on up under the next (the texture-phased length), the top one stops at the face's top edge.
-function courses(A, { eave, dn, n, ac, Ls, half, m }) {
-  const T = ROOF_TEX[ROOF_MATS[m]], e = T.row, H = (T.phase + 1) * e, L = 2 * H, up = dn.map((v) => -v);
-  const q0 = qBasis(ac, n, up), dl = Math.atan(T.lift / L) * 180 / Math.PI, q = qMul(q0, qAxis([1, 0, 0], dl));
-  const out = [];
+// Strips alternate between two texture rows (lengths (phase + 1) and (phase + 2) rows): one fixed row would line every
+// course's vertical joints up into continuous stripes. Each strip rises `step` per course width, so its lower edge stands
+// a step proud of the next course up and its upper end dives into the slab (never deeper than the slab: tk).
+function courses(A, { eave, dn, n, ac, Ls, half, m, tk = 0.14 }) {
+  const T = ROOF_TEX[ROOF_MATS[m]], e = T.row, up = dn.map((v) => -v), q0 = qBasis(ac, n, up), out = [];
   for (let k = 0, u = 0; u < Ls - 0.05; k++, u += e) {
-    const len = Math.min(L, Ls - u), w = 2 * half(Math.min(u + len, Ls)) - 0.012;
+    const L = 2 * (T.phase + 1 + (k & 1)) * e, len = Math.min(L, Ls - u), w = 2 * half(Math.min(u + len, Ls)) - 0.012;
     if (w < 0.15 || len < 0.06) continue;
-    // a strip shortened at the top keeps its lower edge on the texture joint: shift the centre, not the phase
-    const c = add(add(eave, up, u + len / 2), n, T.th / 2 + T.lift / 2 - 0.004);
+    const s = Math.min(T.lift, (tk - 0.02 + T.th / 2) / Math.max(1, len / e - 1)), d = Math.atan(s / e);
+    const q = qMul(q0, qAxis([1, 0, 0], (d * 180) / Math.PI)), dir = add(up.map((v) => v * Math.cos(d)), n, -Math.sin(d));
+    // the lower edge's mid-plane s above the slab (the eave course just clears it); the strip runs up and in from there
+    const lift = k === 0 ? T.th / 2 + 0.002 : s;
+    const c = add(add(eave, up, u), n, lift).map((v, i) => v + dir[i] * len / 2);
     out.push({ t: "b", c: c.map(q4), s: [w, T.th, len].map(q4), q: q.map((v) => Math.round(v * 1e6) / 1e6), m, k: 0, lod: 1 });
   }
   return out;
@@ -87,7 +91,7 @@ function slabCourses(A, p) {
   const Ls = p.s[si], W = p.s[ci];
   if (Ls < 0.6 || W < 0.4) return [];
   const top = add(p.c, n, p.s[ti] / 2), eave = add(top, dn, Ls / 2);
-  return courses(A, { eave, dn: unit(dn), n: unit(n), ac: unit(ax[ci]), Ls, half: () => W / 2, m: p.m });
+  return courses(A, { eave, dn: unit(dn), n: unit(n), ac: unit(ax[ci]), Ls, half: () => W / 2, m: p.m, tk: p.s[ti] });
 }
 // hip roof (parts.hipRoof, centred on the origin): the two long trapezoids and the two hip triangles, plus hip rolls
 function hipCourses(A, { X, Z, EAVE, RIDGE, ov, m }) {
@@ -272,6 +276,19 @@ function paintedPlinth(A, b) {
   }
 }
 
+// stone-and-brick checkerwork (catalog_chateau checker()): each dressed-stone square stands 0.8-1.8 cm proud of the brick
+// (P1-2 / P3-2: stone dressings read proud of the brickwork); in the core and in the bays' intact states
+function checkerRelief(A, R) {
+  const lists = [A.parts, ...A.panels.map((pn) => pn.states[0] || [])];
+  for (const L of lists) for (const p of L) {
+    if (p.t !== "b" || p.r || p.q || p.m !== "stone_dressed" || p.s[1] < 0.1 || p.s[1] > 0.451) continue;
+    const di = p.s[0] <= 0.601 && p.s[2] >= 0.3 && p.s[2] <= 0.6 ? 2 : p.s[2] <= 0.601 && p.s[0] >= 0.3 && p.s[0] <= 0.6 ? 0 : -1;
+    if (di < 0) continue;
+    const e = 0.008 + 0.01 * R(), sg = Math.sign(p.c[di]) || 1;
+    p.s[di] = q4(p.s[di] + e); p.c[di] = q4(p.c[di] + (sg * e) / 2);
+  }
+}
+
 // per building: the reference-driven features (docs/exterior-references.md)
 const FEATURES = {
   large_village_schoolhouse: { crow: true, dentils: true, bands: [0, 1, 2] },   // P1-0 stepped-gable brick hall
@@ -285,6 +302,7 @@ const FEATURES = {
   // GX6 (tools/catalog_gx_buildings.mjs): they build their own reference trims; the generic pass only, and the
   // concrete stronghold keeps its shuttering (no courses, no quoin relief)
   mil_stronghold: { roof: false, quoins: false },
+  vil_chateau_grand: { checker: true },                                         // P1-2 / P3-2 stone dressings proud of the brick
 };
 // a recorded hip roof is still where hipRoof() put it (not turned afterwards): its middle prism is in the part list
 const hipInPlace = (A, h) => {
@@ -303,6 +321,7 @@ export function exterior(A, opt = {}) {
   if (b && f.rustic) rusticate(A, b);
   if (b && f.bands) stoneBands(A, b, f.bands);
   if (b && f.plinth) paintedPlinth(A, b);
+  if (f.checker) checkerRelief(A, R);
   ridgeTiles(A);
   const roof = [];
   if (f.roof !== false) {

@@ -1227,12 +1227,12 @@ void main(){
     alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
     // GX4: the dirt gradient reaches ~1 m (warm earthy tint, densest at the ground), rain splash speckle in the lowest
     // 0.35 m, moss patches climbing from the ground to ~0.6 m (greener on lime render and rubble, less on brick)
-    float g1 = (1.0 - smoothstep(0.0, 0.9 + 0.3*nn, vAp.y)) * vert;
-    alb = mix(alb, alb*vec3(0.66, 0.6, 0.5), g1*g1*0.85);
-    float splash = (1.0 - smoothstep(0.05, 0.35 + 0.1*nn, vAp.y)) * vert * smoothstep(0.55, 0.75, vnoise(vAp*23.0 + 3.0));
-    alb *= 1.0 - 0.3*splash;
-    float moss = vert * (1.0 - smoothstep(0.0, 0.35 + 0.3*vnoise(vAp*1.9 + 5.0), vAp.y)) * smoothstep(0.42, 0.68, vnoise(vAp*2.3 + 7.0)) * (pat == 9 || pat == 18 ? 0.6 : 1.0);
-    alb = mix(alb, mix(vec3(0.07, 0.10, 0.035), vec3(0.15, 0.17, 0.08), vnoise(vAp*9.0)), moss*0.7);
+    float g1 = (1.0 - smoothstep(0.1, 1.15 + 0.3*nn, vAp.y)) * vert;
+    alb = mix(alb, alb*vec3(0.55, 0.5, 0.42), g1*0.75);
+    float splash = (1.0 - smoothstep(0.05, 0.5 + 0.15*nn, vAp.y)) * vert * smoothstep(0.5, 0.72, vnoise(vAp*23.0 + 3.0));
+    alb *= 1.0 - 0.35*splash;
+    float moss = vert * (1.0 - smoothstep(0.0, 0.5 + 0.3*vnoise(vAp*1.9 + 5.0), vAp.y)) * smoothstep(0.36, 0.62, vnoise(vAp*2.3 + 7.0)) * (pat == 9 || pat == 18 ? 0.6 : 1.0);
+    alb = mix(alb, mix(vec3(0.05, 0.085, 0.025), vec3(0.13, 0.16, 0.06), vnoise(vAp*9.0)), moss*0.8);
     rough = mix(rough, 0.95, moss*0.5);
     float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, vAp.y);
     alb *= 1.0 - 0.14*streak;
