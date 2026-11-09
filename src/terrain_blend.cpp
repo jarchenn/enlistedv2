@@ -88,7 +88,11 @@ int blendPartMode(const json& asset, const json& pj) {
     if (top <= r.value("aboveY", -1.0f)) {   // the firestep and floor below stay; "floorDrop": the generated duckboards replace these
       const json& fd = asset["trench"].value("floorDrop", json::object());
       auto fm = fd.value("materials", json::array());
-      return std::find(fm.begin(), fm.end(), m) != fm.end() && top <= fd.value("topBelow", -1.45f) ? 1 : 0;
+      if (std::find(fm.begin(), fm.end(), m) != fm.end() && top <= fd.value("topBelow", -1.45f)) return 1;
+      const json& sd = asset["trench"].value("stepDrop", json::object());   // the firestep's full-width top plank: earth covers it
+      auto sm = sd.value("materials", json::array());
+      bool wide = pj.contains("s") && pj["s"][2].get<float>() >= sd.value("minWidth", 0.3f) && pj["s"][1].get<float>() <= 0.08f;
+      return std::find(sm.begin(), sm.end(), m) != sm.end() && wide && top >= sd.value("topAbove", -1.3f) ? 1 : 0;
     }
     auto keep = r.value("keepCollision", json::array());
     return std::find(keep.begin(), keep.end(), m) != keep.end() && pj.value("k", 1) != 0 ? 2 : 1;
@@ -258,7 +262,9 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   quat iq = glm::inverse(yawQuat(i.yaw));
   auto L = [&](vec3 w) { return iq * (w - i.pos) - vec3(0, kTrenchMeshDrop, 0); };   // world -> instance space (dropped)
   const Material& board = matNamed(a, "wattle"); const Material& post = matNamed(a, "log_x"); const Material& bag = matNamed(a, "sacking");
-  const Material& earth = matNamed(a, "earth"); const Material& spoil = matNamed(a, "spoil");
+  const Material& spoil = matNamed(a, "spoil");
+  Material earth = matNamed(a, "mud"); earth.texCode = 1; earth.pattern = PAT_PLAIN; earth.albedo = vec3(0.09f, 0.072f, 0.055f);   // damp packed earth, as the floor
+  const vec3 burlap(0.5f, 0.54f, 0.62f);   // x the sacking albedo: weathered grey-brown burlap
   const float thk = sp.carvePad + 0.06f;   // the backfill fills the carve pad behind the revetment line: soil, never a slot
   std::vector<vec2> P; std::vector<float> D;
   for (auto& q : a->raw["trench"].value("path", json::array())) { P.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); D.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
@@ -314,13 +320,16 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
         if (!col[k].ok) continue;
         float tm = t0 + (k + 0.5f) * step, y0 = col[k].fy - 0.12f, y1 = col[k].cap - 0.05f, H = y1 - y0;
         vec2 cc = at(tm, plane + boardT + thk * 0.5f + sp.batter * H * 0.5f);
-        put(boxPart(L(vec3(cc.x, (y0 + y1) * 0.5f, cc.y)), vec3(step + 0.02f, H, thk), lean), earth, col[k].fy, vec3(0.8f), 0.3f, ++uid);
+        put(boxPart(L(vec3(cc.x, (y0 + y1) * 0.5f, cc.y)), vec3(step + 0.02f, H, thk), lean), earth, col[k].fy, vec3(0.9f + 0.2f * R(++uid)), 0.3f, ++uid);
       }
       // runs of walled sub-columns, cut into bays of about 1.5 m between posts
       for (int k = 0; k < steps;) {
         if (!col[k].ok) { ++k; continue; }
         int e = k; while (e + 1 < steps && col[e + 1].ok && e + 1 - k < 3) ++e;
-        float ta = t0 + k * step, tb = t0 + (e + 1) * step, blen = tb - ta, tmid = (ta + tb) * 0.5f;
+        float ta = t0 + k * step, tb = t0 + (e + 1) * step;
+        if (k == 0 && c0) ta -= 0.12f;            // into the shared corner post: no slit at the mitre
+        if (e == steps - 1 && c1) tb += 0.12f;
+        float blen = tb - ta, tmid = (ta + tb) * 0.5f;
         float fy = 1e30f, top = 1e30f;
         for (int j = k; j <= e; ++j) { fy = std::min(fy, col[j].fy); top = std::min(top, col[j].cap - 0.06f); }
         // boards: rows from below the floor to the soil line, each with its own tone, offset, tilt; a few split,
@@ -328,7 +337,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
         int row = 0;
         for (float y = fy - 0.1f; y < top - 0.03f; ++row) {
           float bh = std::min(0.17f + 0.07f * R(++uid), top - y);
-          float rr = R(++uid), tone = 0.62f + 0.42f * R(++uid);
+          float rr = R(++uid), tone = 0.5f + 0.36f * R(++uid);
           vec3 tint(tone * (1.0f + 0.08f * (R(++uid) - 0.5f)), tone, tone * (0.92f + 0.1f * R(++uid)));
           float out = boardT * 0.5f + 0.012f * (R(++uid) - 0.5f), yc = y + bh * 0.5f;
           vec2 bc = at(tmid + 0.03f * (R(++uid) - 0.5f), plane + out + sp.batter * (yc - (fy - 0.1f)));
@@ -350,31 +359,37 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
         }
         // posts at both ends of the bay (darker than the boards), driven 0.35 m into the floor
         for (float tp : {ta, tb}) {
+          if ((tp == ta && k == 0 && c0) || (tp == tb && e == steps - 1 && c1)) continue;   // the corner post stands there
           float H = top + 0.14f + 0.06f * R(++uid) - (fy - 0.35f), d = 0.1f + 0.03f * R(++uid);
           vec2 pc = at(tp, plane - d * 0.5f + sp.batter * H * 0.5f);
           Part pp = boxPart(L(vec3(pc.x, fy - 0.35f + H * 0.5f, pc.y)), vec3(d, H, d), lean, Part::CYL);
           pp.seg = 8; put(pp, post, fy, vec3(0.55f + 0.15f * R(++uid)), 0.8f, ++uid, 0.8f);
         }
-        // the cap: burlap sandbags along the top of the backfill (hue and tone vary), the odd soil clod
-        for (float tb2 = ta + 0.24f; tb2 < tb; tb2 += 0.46f + 0.04f * R(++uid)) {
-          float rr = R(++uid), capY = top + 0.06f;
-          vec2 sc = at(tb2, plane + boardT + thk * 0.45f + sp.batter * (capY - fy) + (R(++uid) - 0.5f) * 0.08f);
-          float tone = 0.72f + 0.38f * R(++uid);
-          vec3 hue(tone * (1.0f + 0.1f * (R(++uid) - 0.4f)), tone * (0.97f + 0.06f * R(++uid)), tone * (0.85f + 0.1f * R(++uid)));
-          Part c = boxPart(L(vec3(sc.x, capY + 0.065f, sc.y)), vec3(0.44f + 0.06f * R(++uid), 0.14f + 0.03f * R(++uid), 0.27f + 0.06f * R(++uid)),
-                           iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.35f, vec3(0, 1, 0)) * glm::angleAxis((R(++uid) - 0.5f) * 0.12f, vec3(1, 0, 0)));
-          c.bv = 0.05f;
-          if (rr < 0.18f) put(c, spoil, fy, vec3(0.8f + 0.25f * R(++uid)), 0.0f, ++uid);
-          else put(c, bag, fy, hue, 0.0f, ++uid);
-        }
+        // the cap: flat weathered burlap sandbags along the top of the backfill, laid in a running bond (one course on
+        // the fire side so the firestep sees over it, two behind), sagging a little; the odd soil clod
+        bool fireSide = frontSide != 0 && side == frontSide;
+        for (int cs = 0; cs < (fireSide ? 1 : 2); ++cs)
+          for (float tb2 = ta + 0.3f + (cs ? 0.3f : 0.0f) + 0.06f * (R(++uid) - 0.5f); tb2 < tb + (cs ? -0.1f : 0.1f); tb2 += 0.6f + 0.03f * R(++uid)) {
+            float rr = R(++uid), capY = top + 0.06f + cs * 0.14f;
+            vec2 sc = at(tb2, plane + boardT + thk * 0.45f + sp.batter * (capY - fy) + 0.04f * cs + (R(++uid) - 0.5f) * 0.05f);
+            float tone = 0.8f + 0.3f * R(++uid);
+            vec3 hue = burlap * vec3(tone * (1.0f + 0.08f * (R(++uid) - 0.4f)), tone, tone * (0.92f + 0.12f * R(++uid)));
+            Part c = boxPart(L(vec3(sc.x, capY + 0.07f, sc.y)), vec3(0.58f + 0.05f * R(++uid), 0.14f + 0.02f * R(++uid), 0.33f + 0.04f * R(++uid)),
+                             iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.12f, vec3(0, 1, 0)) * glm::angleAxis((R(++uid) - 0.5f) * 0.1f, vec3(0, 0, 1)) * glm::angleAxis((R(++uid) - 0.5f) * 0.08f, vec3(1, 0, 0)));
+            c.bv = 0.035f;
+            if (rr < 0.12f) put(c, spoil, fy, vec3(0.7f + 0.2f * R(++uid)), 0.0f, ++uid);
+            else put(c, bag, fy, hue, 0.0f, ++uid);
+          }
         k = e + 1;
       }
       // corner posts on both mitre lines: they cover the seam where two legs' boards meet
       if (c0) {
-        float fy = floorAt(A + dir * std::max(t0, 0.2f)), top = (col.front().ok ? col.front().cap : fy + 1.6f) + 0.1f, H = top - (fy - 0.35f);
-        vec2 pc = at(t0, plane - 0.04f + sp.batter * H * 0.5f);
-        Part pp = boxPart(L(vec3(pc.x, fy - 0.35f + H * 0.5f, pc.y)), vec3(0.15f, H, 0.15f), lean, Part::CYL);
-        pp.seg = 8; put(pp, post, fy, vec3(0.5f), 0.8f, ++uid, 0.8f);
+        vec2 pd = glm::normalize(P[s] - P[s - 1]), np(-pd.y * side, pd.x * side);   // the previous leg's wall normal on this side
+        vec2 mitre = at(t0, plane), in = -glm::normalize(n + np);                     // into the trench along the bisector
+        float fy = floorAt(A + dir * std::max(t0, 0.2f)), top = (col.front().ok ? col.front().cap : fy + 1.6f) + 0.12f, H = top - (fy - 0.35f);
+        vec2 pc = mitre + in * 0.1f + (n + np) * (sp.batter * H * 0.25f);
+        Part pp = boxPart(L(vec3(pc.x, fy - 0.35f + H * 0.5f, pc.y)), vec3(0.24f, H, 0.24f), iq, Part::CYL);
+        pp.seg = 10; put(pp, post, fy, vec3(0.5f), 0.8f, ++uid, 0.8f);
       }
       // sandbags on the parados (two courses, with gaps); the fire side stays clear so the firestep sees over it
       bool front = frontSide != 0 && side == frontSide;
@@ -388,11 +403,12 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
           float by = 1e30f;
           for (float dl : {-0.24f, 0.0f, 0.24f}) for (float dn : {-0.14f, 0.14f}) { vec2 w = bc + dir * dl + n * dn; by = std::min(by, T.height(w.x, w.y)); }
           for (int cs = 0; cs < 2; ++cs) {
-            float tone = 0.72f + 0.38f * R(++uid);
-            vec3 hue(tone * (1.0f + 0.1f * (R(++uid) - 0.4f)), tone, tone * (0.85f + 0.1f * R(++uid)));
-            vec2 o = bc + dir * (cs ? 0.25f : 0.0f) - n * (0.04f * cs);
-            Part sb = boxPart(L(vec3(o.x, by + 0.06f + cs * 0.145f, o.y)), vec3(0.5f, 0.16f, 0.3f), iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.16f, vec3(0, 1, 0)));
-            sb.bv = 0.05f; put(sb, bag, col[k].fy, hue, 0.0f, ++uid);
+            float tone = 0.8f + 0.3f * R(++uid);
+            vec3 hue = burlap * vec3(tone * (1.0f + 0.08f * (R(++uid) - 0.4f)), tone, tone * (0.92f + 0.12f * R(++uid)));
+            vec2 o = bc + dir * (cs ? 0.3f : 0.0f) - n * (0.04f * cs);   // running bond: the upper course straddles the joint
+            Part sb = boxPart(L(vec3(o.x, by + 0.065f + cs * 0.14f, o.y)), vec3(0.6f, 0.15f, 0.35f),
+                              iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.12f, vec3(0, 1, 0)) * glm::angleAxis((R(++uid) - 0.5f) * 0.1f, vec3(0, 0, 1)));
+            sb.bv = 0.035f; put(sb, bag, col[k].fy, hue, 0.0f, ++uid);
           }
         }
     }
@@ -431,13 +447,14 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
     vec2 nn(-sd.y, sd.x); float lat = glm::dot(cl - sa, nn); if (lat < 0) { nn = -nn; lat = -lat; }
     float ext = 0.5f * (std::fabs(glm::dot(vec2(ax.x, ax.z), nn)) * pt.size.x + std::fabs(glm::dot(vec2(az.x, az.z), nn)) * pt.size.z);
     float along = 0.5f * (std::fabs(glm::dot(vec2(ax.x, ax.z), sd)) * pt.size.x + std::fabs(glm::dot(vec2(az.x, az.z), sd)) * pt.size.z);
-    float gap = plane + 0.02f - (lat + ext);
+    float gap = plane + 0.02f - (lat - ext);   // from the step's inner face (its plank-edged front) to the revetment line
     if (gap <= 0.01f) continue;
-    vec2 fc = cl + nn * (ext + gap * 0.5f);   // from the step's outer face to the revetment line
+    vec2 fc = cl + nn * (gap * 0.5f - ext);
     vec3 wc = i.pos + yawQuat(i.yaw) * vec3(fc.x, pt.center.y, fc.y);
     float yawL = std::atan2(sd.x, sd.y) - 1.5707963f;
     float fy = floorAt(vec2(wc.x, wc.z));
-    put(boxPart(L(wc), vec3(along * 2.0f, pt.size.y, gap + 0.02f), iq * yawQuat(i.yaw) * glm::angleAxis(yawL, vec3(0, 1, 0))), spoil, fy, vec3(0.8f), 0.4f, ++uid);
+    wc.y += 0.02f;   // a little proud of the asset's step: packed earth on top
+    put(boxPart(L(wc), vec3(along * 2.0f, pt.size.y + 0.04f, gap + 0.02f), iq * yawQuat(i.yaw) * glm::angleAxis(yawL, vec3(0, 1, 0))), earth, fy, vec3(1.0f), 0.5f, ++uid);
   }
   // end walls where the network stops (not the ramp's shallow mouth): backfill, boards, a sandbag cap
   for (int e = 0; e < 2; ++e) {
@@ -459,19 +476,19 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
     float yawR = std::atan2(n.x, n.y);
     quat lean = iq * yawPitch(yawR, tilt);
     vec2 cc = pe + n * (boardT + thk * 0.5f + sp.batter * H * 0.5f);
-    put(boxPart(L(vec3(cc.x, y0 + H * 0.5f, cc.y)), vec3(2 * plane + 0.1f, H, thk), lean), earth, fy, vec3(0.8f), 0.3f, ++uid);
+    put(boxPart(L(vec3(cc.x, y0 + H * 0.5f, cc.y)), vec3(2 * plane + 0.1f, H, thk), lean), earth, fy, vec3(1.0f), 0.3f, ++uid);
     for (float y = y0; y < cap - 0.09f;) {
-      float bh = std::min(0.17f + 0.07f * R(++uid), cap - 0.06f - y), tone = 0.62f + 0.42f * R(++uid);
+      float bh = std::min(0.17f + 0.07f * R(++uid), cap - 0.06f - y), tone = 0.5f + 0.36f * R(++uid);
       vec2 bc = pe + n * (boardT * 0.5f + sp.batter * (y + bh * 0.5f - y0));
       put(boxPart(L(vec3(bc.x, y + bh * 0.5f, bc.y)), vec3(2 * plane + 0.04f, bh - 0.012f, boardT), lean * glm::angleAxis((R(++uid) - 0.5f) * 0.03f, vec3(0, 0, 1))),
           board, fy, vec3(tone, tone, tone * 0.93f), 0.7f, ++uid);
       y += bh;
     }
     for (int cl = -1; cl <= 1; ++cl) {
-      float tone = 0.72f + 0.38f * R(++uid);
+      float tone = 0.8f + 0.3f * R(++uid);
       vec2 sc = pe + along * (cl * plane * 0.66f) + n * (boardT + thk * 0.45f + sp.batter * H);
-      Part c = boxPart(L(vec3(sc.x, cap + 0.065f, sc.y)), vec3(plane * 0.8f, 0.14f, 0.28f), iq * glm::angleAxis(yawR + (R(++uid) - 0.5f) * 0.4f, vec3(0, 1, 0)));
-      c.bv = 0.05f; put(c, bag, fy, vec3(tone, tone * 0.97f, tone * 0.88f), 0.0f, ++uid);
+      Part c = boxPart(L(vec3(sc.x, cap + 0.07f, sc.y)), vec3(0.58f, 0.14f, 0.33f), iq * glm::angleAxis(yawR + 1.5707963f + (R(++uid) - 0.5f) * 0.15f, vec3(0, 1, 0)));
+      c.bv = 0.035f; put(c, bag, fy, burlap * tone, 0.0f, ++uid);
     }
   }
 }

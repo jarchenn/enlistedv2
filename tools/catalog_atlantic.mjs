@@ -595,6 +595,7 @@ export const tobrukTurret = () => tobruk("turret");
 // `path` (x, z, depth scale), with the niches as `branches`, and generates the revetment along the cut; the slab parts
 // listed in `replace` are dropped at load while content/settings/terrain_blend.json is enabled
 export const TRENCH_FLOOR_DROP = { materials: ["plank_x"], topBelow: -1.45 };
+export const TRENCH_STEP_DROP = { materials: ["plank_x"], topAbove: -1.3, minWidth: 0.3 };   // the firestep's full-width top plank
 export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0, keepCollision: ["wattle"] };
 // GX1: the trench floor reads as dug soil (the default mud texture set has a green cast)
 // and its plank edges are dark, worn field timber (the generated duckboards replace the asset's, "floorDrop")
@@ -622,7 +623,7 @@ function trenchPiece(id, name, desc, pts, opt, footprint, tourPts) {
   setNav(A, { effect: "area", area: "trench", areas: [{ outline: r.floor, area: "trench" }], firingPoints: fps,
     cover: pts.slice(0, -1).map((p, i) => { const q = pts[i + 1], L = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / L, uz = (q[1] - p[1]) / L; return cover([(p[0] + q[0]) / 2 + uz * 0.2, -D, (p[1] + q[1]) / 2 - ux * 0.2], (Math.atan2(-uz, ux) * 180) / Math.PI, "high", ["over"]); }) },
     [{ outline: r.cut, depth: D + 0.25, bank: 0.2 }]);
-  A.meta.trench = { path: pts.map((p) => [p[0], p[1], 1]), branches: opt.niche ? [trenchNiche(pts, opt.niche)] : [], replace: TRENCH_REPLACE, floorDrop: TRENCH_FLOOR_DROP };
+  A.meta.trench = { path: pts.map((p) => [p[0], p[1], 1]), branches: opt.niche ? [trenchNiche(pts, opt.niche)] : [], replace: TRENCH_REPLACE, floorDrop: TRENCH_FLOOR_DROP, stepDrop: TRENCH_STEP_DROP };
   return { A, D };
 }
 function trenchTour(A, D, x0, route, shot) {
@@ -675,7 +676,7 @@ export function trenchEntry() {
   A.box([x0 - CUT_APRON, -0.25, -2.3], [x0, 0.03, 2.3], "spoil");   // trampled apron at grade over the cut's open end
   setNav(A, { effect: "area", area: "trench", areas: [{ outline: band([[x0, 0], [3, 0]], TR.HW), area: "trench" }], firingPoints: [], cover: [cover([1.6, -D, 0], 0, "high", ["over"])] },
     [{ outline: band([[x0 + CUT_SETBACK, 0], [3.8, 0]], TR.HW + TR.RV + TR.FILL + 0.1), depth: D + 0.25, bank: 0.2 }]);
-  A.meta.trench = { path: [[x0, 0, 0], [0.6, 0, 1], [3, 0, 1]], branches: [trenchNiche([[0.4, 0], [3, 0]], [0, 0.5])], replace: TRENCH_REPLACE, floorDrop: TRENCH_FLOOR_DROP };   // GX1: the ramp shallows to grade at x0
+  A.meta.trench = { path: [[x0, 0, 0], [0.6, 0, 1], [3, 0, 1]], branches: [trenchNiche([[0.4, 0], [3, 0]], [0, 0.5])], replace: TRENCH_REPLACE, floorDrop: TRENCH_FLOOR_DROP, stepDrop: TRENCH_STEP_DROP };   // GX1: the ramp shallows to grade at x0
   setTour(A, { pos: [-5.0, 0, 0], yaw: 270 }, [
     { goto: [-3.6, 0], note: "top of the ramp" }, { goto: [0.6, 0], expectY: -D, note: "down the ramp" }, { goto: [2.6, -0.1], expectY: -D },
     { look: [-3, 0.5, 0], hold: 0.5 }, { shot: "mpu_trench_entry" }, { goto: [0.6, 0] }, { goto: [-3.8, 0], expectY: 0, note: "back up the ramp" },

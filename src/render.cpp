@@ -1856,10 +1856,11 @@ void main(){
   float rockK = 0.0, screeK = 0.0, rCrack = 0.0; vec3 rBump = vec3(0.0);
   float sny = normalize(vN).y + (nM - 0.5)*0.07;                       // band edges wander
   float ewK = clamp(vEw.x + vEw.y, 0.0, 1.0);                           // GX1: dug earth is never rock or scree
-  screeK = smoothstep(0.89, 0.75, sny)*(1.0 - ewK);
+  float ewRock = 1.0 - smoothstep(0.0, 0.12, ewK);                       // (any earthworks weight at all suppresses it)
+  screeK = smoothstep(0.89, 0.75, sny)*ewRock;
   if (screeK > 0.001) {
     float rBreak = fbm(vec3(p.xz*0.21, p.y*0.21 + 40.0));
-    rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16)*(1.0 - ewK);
+    rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16)*ewRock;
     float lith = smoothstep(0.35, 0.65, fbm(vec3(p.xz*0.018, p.y*0.03 + 41.0)));              // limestone <-> schist
     float warp = fbm(vec3(p.xz*0.06, p.y*0.02 + 42.0))*5.0;
     float bedY = p.y*0.42 + warp;                                                              // ~2.4 m beds
@@ -1905,7 +1906,7 @@ void main(){
     vec3 turned = mix(vec3(0.07,0.054,0.04), vec3(0.155,0.118,0.085), smoothstep(0.3, 0.75, cl)) * (0.85 + 0.3*cg) * mix(vec3(1.0), tF.alb, flatK);
     float mk = vEw.x/max(vEw.x + vEw.y, 1e-3);
     tM.dn *= flatK; tF.dn *= flatK;
-    alb = mix(alb, mix(turned, pmud, mk), ewK);
+    alb = mix(alb, mix(turned, pmud, mk), max(ewK, (1.0 - ewRock)*(1.0 - flatK)));   // steep earthworks faces fully earth
     alb *= mix(1.0, 0.72, vEw.z*ewK);
     tdn = mix(tdn, mix(tF.dn, tM.dn, mk), ewK); trr = mix(trr, mix(tF.r, tM.r*0.7, mk), ewK); tao = mix(tao, mix(tF.ao, tM.ao, mk), ewK);
   }

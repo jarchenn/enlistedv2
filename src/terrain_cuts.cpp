@@ -175,7 +175,7 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
       if (!th.any) continue;
       // the floor runs carvePad past the revetment line, so on the 0.45 m grid the wall slope never comes in front of it
       float target = th.floorY + std::max(0.0f, th.lat - sp.floorHalf - sp.carvePad) / std::max(0.02f, sp.batter);
-      if (target < h || th.lat < sp.floorHalf + sp.carvePad + 0.3f) {   // floor and cut walls: packed mud, wetter low down
+      if (target < h + 0.02f || th.lat < sp.floorHalf + sp.carvePad + 0.5f) {   // floor and cut walls (to the top edge): packed mud, wetter low down
         h = std::min(h, target); so = 1.0f; mud = 1.0f;
         wet = std::max(wet, 1.0f - sstep(0.1f, 1.3f, h - th.floorY));
       }
