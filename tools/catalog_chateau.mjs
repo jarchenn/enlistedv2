@@ -738,8 +738,9 @@ export function cottageBarn() {
       const { EAVE, RIDGE, ZI } = k;
       quoins(A, X, Z, GF - 0.02, EAVE);
       A.prism(0, -0.08, 0.08, [[-ZI, EAVE], [ZI, EAVE], [0, RIDGE - 0.2]], "stone");   // gable wall between cottage loft and barn
-      fireplace(A, { axis: "z", d: -(X - T), s: 1, a: -1.4, y: GF, top: EAVE - 0.2, w: 1.7 });
-      chimney(A, { x: -X + 0.2, z: -1.4, y0: EAVE - 0.4, y1: RIDGE + 0.9, w: 0.6, d: 0.8 });
+      // hearth on the kitchen side of the partition, not the gable: behind a gable bay it blocked the breach (--selftest-damage)
+      fireplace(A, { axis: "z", d: -4.675, s: -1, a: 1.0, y: GF, top: EAVE - 0.2, w: 1.7 });
+      chimney(A, { x: -4.6, z: 1.0, y0: EAVE - 0.2, y1: RIDGE + 0.9, w: 0.6, d: 0.8 });
       for (let x = 0.5; x < X - T - 0.2; x += 1.0) A.box([x - 0.08, EAVE - 0.3, -ZI], [x + 0.08, EAVE - 0.12, ZI], "oak_z", { k: 0 });   // barn tie beams
       turret(A, { x: tx, z: tz, y0: 0, y1: EAVE + 3.2, r: tr, spire: 3.4, roof: "tile", m: "stone" });
       for (let i = 0; i < 14; i++) {   // pigeon holes and their landing ledge
