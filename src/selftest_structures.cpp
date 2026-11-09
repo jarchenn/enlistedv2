@@ -185,8 +185,8 @@ const std::map<std::string, int> kZAllowed = {
   {"aw_dugout_personnel", 5}, {"aw_r612_unfinished", 11}, {"aw_r667_casemate", 8}, {"aw_tobruk_mg", 12}, {"aw_tobruk_turret", 4},
   {"bch_lcvp_beached", 27}, {"bch_lcvp_intact", 27}, {"bch_lcvp_wrecked", 32}, {"bunker_command_shelter", 15}, {"bunker_field_shelter", 5},
   {"bunker_large_casemate", 31}, {"bunker_mg_casemate", 18}, {"bunker_observation_post", 11}, {"bunker_pak_casemate", 20},
-  {"ruin_barn_burnt", 7}, {"ruin_cottage_corner", 18}, {"ruin_farmhouse_gutted", 35}, {"ruin_house_shelled", 79}, {"ruin_shop_row", 47},
-  {"ruin_townhouse_facade", 228}, {"vil_chateau_keep", 28}, {"vil_church_ruined", 21},
+  {"ruin_barn_burnt", 7}, {"ruin_cottage_corner", 18}, {"ruin_farmhouse_gutted", 35}, {"ruin_house_shelled", 81}, {"ruin_shop_row", 49},
+  {"ruin_townhouse_facade", 228}, {"vil_chateau_keep", 28}, {"vil_church_ruined", 22},
   {"house_farmhouse_2story", 4}, {"large_stone_warehouse", 2}, {"large_village_inn", 5}, {"vil_chateau_grand", 17}, {"vil_longhouse_thatched", 9},
   {"vil_rectory", 1}, {"vil_villa_deauville", 5},
 };

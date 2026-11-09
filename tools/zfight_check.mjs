@@ -81,7 +81,7 @@ export function overlaps(j) {
     for (const fa of list) for (const fb of cand) {
       if (fb <= fa) continue;
       const A = faces[fa], B = faces[fb];
-      if (A.pi === B.pi || dot(A.n, B.n) < 0.9999 || Math.abs(A.d - B.d) > EPS) continue;
+      if (A.pi === B.pi || dot(A.n, B.n) < 0.9999 || Math.abs(A.d - B.d) > EPS + 2e-4) continue;   // +0.2 mm: the float selftest flags pairs at exactly 6 mm
       const pk = Math.min(A.pi, B.pi) + ":" + Math.max(A.pi, B.pi);
       if (seen.has(pk)) continue;
       // B's rectangle in A's (u, v) frame, clipped by A's rectangle
