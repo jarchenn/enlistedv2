@@ -64,7 +64,11 @@ function heap(A, R, { cx, cz, rx, rz, h, y = 0, step = 0.25, ft = 0.16, mix = MI
     const ex = rx * Math.min(1, f), ez = rz * Math.min(1, f);
     for (const [hx, hz, top] of [[ex, ez * 0.72, t], [ex * 0.72, ez, t - 0.02]]) {
       // free-standing heaps: each tier box a little off-centre and turned, so the steps don't read as a ziggurat
-      const jx = clip ? 0 : (R() - 0.5) * 0.08 * hx, jz = clip ? 0 : (R() - 0.5) * 0.08 * hz, yaw = clip ? 0 : (R() - 0.5) * 14;
+      // jitter and yaw move a tier corner by at most a quarter of the tier spacing, so each tier stays nested in the one
+      // below (bigger offsets on wide heaps made 0.45 m double steps the character cannot climb); same R() draws as before
+      const lim = (0.72 * Math.min(rx, rz) * (1 - ft)) / n / 4;   // 0.72: the narrow arm of each cross
+      const jx = clip ? 0 : (R() - 0.5) * Math.min(0.08 * hx, lim), jz = clip ? 0 : (R() - 0.5) * Math.min(0.08 * hz, lim);
+      const yaw = clip ? 0 : (R() - 0.5) * Math.min(14, (2 * lim / Math.max(hx, hz)) / D2R);
       const bb = clipBox([cx + jx - hx, y - 0.15, cz + jz - hz], [cx + jx + hx, y + top, cz + jz + hz], clip);
       if (!bb) continue;
       const rad = Math.min(0.2, step * 0.8), c = [0, 1, 2].map((i) => (bb[0][i] + bb[1][i]) / 2), sz = [0, 1, 2].map((i) => bb[1][i] - bb[0][i]);
