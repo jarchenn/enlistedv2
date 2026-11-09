@@ -964,7 +964,7 @@ function bank(A, axis, a0, a1, w, dir, h, run, seed, { taper = [false, false], f
     if (fixed[0]) amp = Math.min(amp, smooth((mid - a0) / 2.5));
     if (fixed[1]) amp = Math.min(amp, smooth((a1 - mid) / 2.5));
     const nr = 0.1 * Math.sin(mid * 0.61 + ph[0]) + 0.06 * Math.sin(mid * 1.37 + ph[1]), nh = 0.025 * Math.sin(mid * 0.83 + ph[2]) + 0.015 * Math.sin(mid * 2.1 + ph[3]);
-    const r = run * (0.45 + 0.55 * f) * (1 + amp * nr), hh = y0 + (h - y0) * f * (1 + amp * nh);
+    const r = run * (0.45 + 0.55 * f) * Math.min(1.08, 1 + amp * nr),   /* toes stay inside the 60 m asset limit */ hh = y0 + (h - y0) * f * (1 + amp * nh);
     const pts = BANK.map(([u, v]) => [w + dir * u * r, y0 + v * (hh - y0)]), zone = Math.floor(mid / 2.3 + seed);
     for (let k = 0; k + 1 < pts.length; k++)
       A.prism(axis, b0, b1 + 0.015, [[w, y0], pts[k], pts[k + 1]], k < 2 ? (zone % 3 === 1 ? "earth_dark" : "earth_raw") : k < 3 ? "grass_c" : grass[(zone + k) % 4]);
@@ -1037,7 +1037,7 @@ export function stronghold() {
   partition(S, { axis: "x", d0: FW[0], d1: FW[1], a0: -XI, a1: XI, y0: G, y1: CEIL, holes: frontHoles, m: "concrete_wash" });
   for (const [x0, x1] of [[-12.6, -12.2], [-6.2, -5.8], [-1.8, -1.4], [2.4, 2.8], [10.2, 10.6]]) S.box([x0, G, ZRI], [x1, CEIL, RW[0]], "concrete_wash");
   for (const [x0, x1] of [[-12.0, -11.6], [-4.0, -3.6], [1.4, 1.8], [6.6, 7.0], [12.0, 12.4]]) S.box([x0, G, FW[1]], [x1, CEIL, ZFI], "concrete_wash");
-  const gas = sd("gaslock_door", "x", -7.6, -7.2, -3.8, G, { h: 1.9, label: "gas-tight door" });
+  const gas = sd("gaslock_door", "x", -7.6, -7.2, -3.8, G, { label: "gas-tight door" });
   partition(S, { axis: "x", d0: -7.6, d1: -7.2, a0: -5.8, a1: -1.8, y0: G, y1: CEIL, holes: [gas], m: "concrete_wash" });
 
   // ---- roof slab (four rounded slabs round the stair shaft), stair, the shaft housing and the observation cupola
@@ -1223,9 +1223,10 @@ export function stronghold() {
     nav.doors.push({ a: id, b: "corridor", p: [c, G, z0 < CZ0 ? -3.45 : -1.35] });
   }
   addRoom("cupola", -1.4, 2.4, -5.15, -0.5, CF, CY);   // with the stair head under the housing
+  addRoom("roof_deck", -XO - 0.3, XO + 0.3, -4.2, ZF + 0.2, ROOF, ROOF + 2.4);   // the railed deck (MG nest, cupola door, steps)
   nav.doors.push({ a: "gaslock", b: "outside", p: [-3.8, G, ZR + 0.6] }, { a: "gaslock", b: "guard_room", p: [-3.8, G, -7.4] },
-    { a: "stair_hall", b: "cupola", p: [1.65, CF, -5.15] }, { a: "cupola", b: "outside", p: [2.65, CF, -2.5] });
-  nav.entrances.push({ p: [-3.8, 0.26, ZR - 0.9], dir: [0, 0, 1], room: "gaslock" }, { p: [3.8, ROOF, -2.5], dir: [-1, 0, 0], room: "cupola" });
+    { a: "stair_hall", b: "cupola", p: [1.65, CF, -5.15] }, { a: "cupola", b: "roof_deck", p: [2.65, CF, -2.5] }, { a: "roof_deck", b: "outside", p: [XO + 0.6, ROOF, -2.8] });
+  nav.entrances.push({ p: [-3.8, 0.26, ZR - 0.9], dir: [0, 0, 1], room: "gaslock" }, { p: [31.0, 0, -2.8], dir: [-1, 0, 0], room: "roof_deck" });   // at the foot of the steps in the east bank
   nav.firingPoints.push(fire([-15.7, G, ZFI - 0.6], 0, "mg"), fire([-XI + 0.6, G, 2.5], 270, "mg"), fire([4.2, G, ZFI - 0.6], 0, "embrasure"),
     fire([9.5, G, ZFI - 0.6], 0, "embrasure"), fire([15.5, G, ZFI - 0.6], 0, "mg"), fire([XI - 0.6, G, 2.5], 90, "mg"), fire([-5.2, G, ZRI + 0.6], 180, "embrasure"),
     fire([-0.45, CF, -1.1], 0, "embrasure"), fire([0.5, CF, -1.1], 0, "embrasure"), fire([1.45, CF, -1.1], 0, "embrasure"), fire([-0.8, CF, -2.5], 270, "embrasure"),

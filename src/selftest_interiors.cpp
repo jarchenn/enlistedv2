@@ -635,7 +635,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::string bad, lowest; float worst = 1e9f;
       for (auto& as : a.lib.assets) {
         if (!as->enterable || as->category == "Furniture") continue;
-        vec3 at(-245.0f + (k % 8) * 70.0f, 0, (k / 8 % 2 ? -1.0f : 1.0f) * (110.0f + (k / 16) * 65.0f)); ++k;
+        vec3 at(-245.0f + (k % 8) * 70.0f, 0, (k / 8 % 2 ? -1.0f : 1.0f) * (105.0f + (k / 16) * 50.0f)); ++k;   // 64 slots inside the 600 m Blank Slate (65 m rows ran off it past 48 buildings)
         uint64_t id = a.placeInstance(as.get(), at, 0.0f);
         if (!id) { all[as->id] = {{"placed", false}}; bad += " " + as->id + "(not placed)"; continue; }
         const RoomInfo* ri = a.interior.rooms(as.get());
