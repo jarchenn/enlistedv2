@@ -595,7 +595,7 @@ function municipal2() {
   return dress(municipal(), { X: 8, Z: 4.5, T: 0.5, GF: 0.3, EAVE: 16.8, RIDGE: 20.2, floors: [3.6, 6.9, 10.2, 13.5], yard: "town", sandbags: true,
     dormers: [[-4.5, 1], [4.5, 1], [-4.5, -1], [4.5, -1]], chimneys: [{ x: -6.4 }, { x: 6.4 }],
     extra: (A, { Fs }) => {
-      for (const f of ["+z", "-z"]) for (const a of f === "+z" ? [-5.6, -2.2, 2.2, 5.6] : [-4.0, 0, 4.0]) pilaster(A, Fs[f], a, 0.3, 16.3, { w: 0.46, proj: 0.08 });
+      for (const f of ["+z", "-z"]) for (const a of f === "+z" ? [-5.6, -2.2, 2.2, 5.6] : [-4.0, 4.0]) pilaster(A, Fs[f], a, 0.3, 16.3, { w: 0.46, proj: 0.08 });
       // portico: four columns in front of the door carrying the council chamber's balcony
       const d = 4.5 + 1.4, top = yAt(1) - 0.14;
       for (let i = 0; i < 4; i++) A.box([-2.4 + 1.6 * i - 0.3, -0.8, d - 0.3], [-2.4 + 1.6 * i + 0.3, 0.02, d + 0.3], "stone_plinth");
