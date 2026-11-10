@@ -141,6 +141,40 @@ void GpuMesh::upload(const MeshData& m) {
     glVertexArrayAttribBinding(vao, k, 0);
   }
 }
+// P2 leafmerge: every leaf of the asset at rest - interactable k closed (open[k] = 0) or fully open (1) - as one opaque
+// and one glass mesh in asset space (the matrix App::leafMatrix gives at progress 0 / 1, without the copy's own). Each
+// vertex keeps its leaf-local position / normal in attributes 8 / 9 (attribute 7 w = 1.3), so kMainVS gives the patterns
+// the same coordinates as the per-leaf draw.
+void buildLeafPose(const AssetDef& a, const std::vector<uint8_t>& open, LeafPose& out) {
+  struct LX { vec4 inst; vec3 lp, ln; };
+  MeshData mo, mg; std::vector<LX> xo, xg;
+  for (size_t k = 0; k < a.interactables.size(); ++k) {
+    const InteractDef& d = a.interactables[k];
+    for (auto& l : d.leaves) {
+      float ang = k < open.size() && open[k] ? l.sign * d.openAngle : 0.0f;
+      mat4 M = glm::translate(mat4(1), l.hinge) * glm::mat4_cast(glm::angleAxis(radians(ang), d.axis)); glm::mat3 N(M);
+      auto add = [&](const MeshData* s, MeshData& dst, std::vector<LX>& x) {
+        if (!s) return;
+        uint32_t base = (uint32_t)dst.v.size();
+        for (Vertex v : s->v) { x.push_back({vec4(0, 0, 0, 1.3f), v.pos, v.nrm}); v.pos = vec3(M * vec4(v.pos, 1.0f)); v.nrm = N * v.nrm; dst.v.push_back(v); }
+        for (uint32_t i : s->i) dst.i.push_back(base + i);
+      };
+      add(l.cpuO.get(), mo, xo); add(l.cpuG.get(), mg, xg);
+    }
+  }
+  auto local = [&](GpuMesh& m, const std::vector<LX>& x, GLuint& buf) {   // attributes 7-9 from a second buffer (binding 1), as the HLOD cells do
+    if (!m.vao || x.empty()) return;
+    glCreateBuffers(1, &buf); glNamedBufferData(buf, x.size() * sizeof(LX), x.data(), GL_STATIC_DRAW);
+    glVertexArrayVertexBuffer(m.vao, 1, buf, 0, sizeof(LX));
+    const int n[3] = {4, 3, 3}; const size_t off[3] = {offsetof(LX, inst), offsetof(LX, lp), offsetof(LX, ln)};
+    for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(m.vao, 7 + k); glVertexArrayAttribFormat(m.vao, 7 + k, n[k], GL_FLOAT, GL_FALSE, (GLuint)off[k]); glVertexArrayAttribBinding(m.vao, 7 + k, 1); }
+  };
+  out.destroy();
+  out.opaque.upload(mo); out.glass.upload(mg);
+  local(out.opaque, xo, out.xbuf[0]); local(out.glass, xg, out.xbuf[1]);
+}
+void LeafPose::destroy() { opaque.destroy(); glass.destroy(); for (GLuint& b : xbuf) { if (b) glDeleteBuffers(1, &b); b = 0; } }
+
 void GpuMesh::destroy() {
   if (vao) glDeleteVertexArrays(1, &vao);
   if (ivao) glDeleteVertexArrays(1, &ivao);
@@ -815,6 +849,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
       }
       l.opaque.upload(lo); l.glass.upload(lg);
       l.shape = Physics::buildShape(l.colliders);
+      l.cpuO = std::make_shared<MeshData>(std::move(lo)); l.cpuG = std::make_shared<MeshData>(std::move(lg));   // P2 leafmerge (buildLeafPose)
     }
   // destructible wall panels: per-state meshes and shapes, plus a merged intact mesh/compound
   MeshData allIntact;

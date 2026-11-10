@@ -80,6 +80,7 @@ struct Leaf {
   float sign = 1;           // rotation direction multiplier
   std::vector<Part> parts;  // in hinge-relative space
   GpuMesh opaque, glass;
+  std::shared_ptr<MeshData> cpuO, cpuG;   // P2 leafmerge: CPU copies of opaque / glass (buildLeafPose)
   ShapePtr shape;           // collision, hinge-relative
   std::vector<Part> colliders; // hinge-relative boxes (also used for obstruction tests)
 };
@@ -283,5 +284,8 @@ private:
 };
 
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf);
+// P2 leafmerge (assets.cpp): all leaves of an asset at rest, interactable k closed (0) or fully open (1), asset space
+struct LeafPose { GpuMesh opaque, glass; GLuint xbuf[2] = {0, 0}; void destroy(); };
+void buildLeafPose(const AssetDef& a, const std::vector<uint8_t>& open, LeafPose& out);
 void buildTreeAsset(AssetDef& a, const json& tj);   // foliage.cpp
 void buildPlaceholder(AssetDef& a);

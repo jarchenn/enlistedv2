@@ -488,7 +488,8 @@ public:
   // on-screen scale with 15 % hysteresis (updates r.lod). `full` is the asset's opaque or no-furniture mesh.
   const GpuMesh& assetLodMesh(InstanceRT& r, const AssetDef* a, const GpuMesh& full, float dist);
   float lodPxPerM = 0;   // pixels per metre at 1 m of the last frame's view (set by buildDrawLists); 0 = unknown
-  double drawListMs = 0;  // R2: CPU time of the last frame's buildDrawLists (the main loop's call; --selftest-maps reports it)
+  double drawListMs = 0;
+  int leafMergeHit = 0, leafMergeMiss = 0;   // P2 leafmerge: buildings drawn with merged closed leaves / leaf by leaf, this frame  // R2: CPU time of the last frame's buildDrawLists (the main loop's call; --selftest-maps reports it)
   int lodCount[3] = {};  // copies drawn at each LOD level this frame
   void bump(Instance& i) { i.rev = ++revCounter; dirty = true; }
 
