@@ -2512,9 +2512,9 @@ void pastureClump(){
     if (gs.y > 0 && !(sp == 2 && bl < 2.5) && sp != 3 && sp != 16 && sp != 17) {
       bool inner = d < 5.0;
       int nPl = inner ? gs.w : 1;
-      if (bl > float(gs.z + nPl) - 0.5) { if (inner || bl < 5.5 + float(gs.z)) fade = 0.0; }   // band: the outer blade cards stay
+      if (bl > float(gs.z + nPl) - 0.5) { }   // every other blade card stays: dropping them left a bare circle round the player
       else if (bl > float(gs.z) - 0.5) ga = uGAIdx[gs.x + min(gs.y - 1, int(r3*float(gs.y)))];
-      else if (inner) fade = 0.0;
+
     }
   }
   if (fade <= 0.0) {   // clump / card past its LOD cut: the whole card leaves the clip volume (no shading, no raster)
