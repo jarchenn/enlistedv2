@@ -178,7 +178,11 @@ public:
     bool zPrepass = false;       // zprepass (R1 experiment): depth-only pass of the building groups, then shading at equal depth
     bool grassShadow = true;     // grassshadow (G1, measurement): off = pasture grass casts no sun shadow; A/B = its share of the near cascade
     bool leafTex = true;         // leaftex (L1): species leaf textures + leaf meshes with LOD (off = the procedural oval cards)
+#ifdef __APPLE__
+    bool grassAtlas = false;     // shortcut: the atlas plant cards draw as untextured blobs on Metal (cause not found); procedural blades there until fixed
+#else
     bool grassAtlas = true;      // grassatlas (GT1): pasture blade cards show Poly Haven grass plants (off = the procedural blades)
+#endif
     bool imgMat = true;          // imgmat (MA1): the image-material slot table of textures.json (replace sets, macro variation, substrates, floor finishes); off = the pre-MA1 slots
     bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
     bool farLeaf = true;         // farleaf (DR1): canopies past 80 / 180 / 400 m draw 40 / 15 / 6 % of their leaf cards, grown to keep the leaf area
