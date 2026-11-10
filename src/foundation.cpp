@@ -54,10 +54,10 @@ const KindDef kKinds[K_COUNT] = {
 struct Mix { float w[K_COUNT]; };
 // [style][zone]: zone 0 at the wall (first 0.3 m), 1 the band, 2 corner clusters
 const Mix kMix[FS_COUNT][3] = {
-  {{{.45f, .20f, .30f, .05f, 0, 0, 0, 0, 0, 0, 0}}, {{0, .03f, .55f, .30f, .10f, .02f, 0, 0, 0, 0, 0}}, {{.05f, .05f, .35f, .2f, .2f, .1f, .05f, 0, 0, 0, 0}}},          // maintained
+  {{{.10f, .05f, .50f, .35f, 0, 0, 0, 0, 0, 0, 0}}, {{0, .03f, .55f, .30f, .10f, .02f, 0, 0, 0, 0, 0}}, {{.15f, .10f, .30f, .2f, .15f, .05f, .05f, 0, 0, 0, 0}}},          // maintained: a low continuous turf / clover layer at the wall
   {{{.15f, .20f, 0, .05f, .25f, .15f, .15f, .05f, 0, 0, 0}}, {{0, .05f, .05f, .05f, .30f, .22f, .20f, .06f, .07f, 0, 0}}, {{0, .05f, 0, 0, .15f, .20f, .30f, .15f, .15f, 0, 0}}},   // neglected
   {{{.15f, .30f, 0, 0, .10f, .10f, .10f, 0, .05f, .20f, 0}}, {{0, .10f, .05f, .05f, .20f, .25f, .15f, 0, .08f, .12f, 0}}, {{0, .10f, 0, 0, .10f, .25f, .25f, .05f, .15f, .10f, 0}}},   // damaged
-  {{{0, .10f, 0, 0, .30f, .20f, .05f, 0, .20f, .15f, 0}}, {{0, .05f, .05f, 0, .30f, .25f, .10f, 0, .15f, .10f, 0}}, {{0, 0, 0, 0, .15f, .15f, .25f, 0, .45f, 0, 0}}},             // bunker
+  {{{0, .05f, 0, 0, .30f, .20f, .10f, 0, .25f, .10f, 0}}, {{0, .05f, .05f, 0, .30f, .25f, .10f, 0, .15f, .10f, 0}}, {{0, 0, 0, 0, .15f, .15f, .25f, 0, .45f, 0, 0}}},             // bunker: rough grass and scrub at the concrete
   {{{0, .10f, .10f, 0, .05f, .15f, 0, 0, 0, .30f, .30f}}, {{0, .03f, .15f, 0, .15f, .12f, 0, 0, 0, .25f, .30f}}, {{0, 0, .05f, 0, .10f, .15f, 0, 0, .10f, .20f, .40f}}},           // coastal
 };
 const float kBare[FS_COUNT] = {0.42f, 0.24f, 0.30f, 0.18f, 0.34f};     // share of the perimeter left bare (value-noise threshold)
@@ -185,6 +185,10 @@ void generate(App& app, Instance& h, HostRec& rec, const std::vector<GrassFootpr
   rec.style = style;
   if (style < 0) return;
   Ctx c{app, h, a, yawQuat(h.yaw), glm::inverse(yawQuat(h.yaw)), vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), style, {}, spawns};
+  if (a->raw.is_object() && a->raw.contains("earthwork") && a->raw["earthwork"].contains("core")) {   // earth-covered: plant against the exposed concrete core, not the bank toe
+    vec2 core(a->raw["earthwork"]["core"][0].get<float>(), a->raw["earthwork"]["core"][1].get<float>());
+    c.lo = -core; c.hi = core;
+  }
   rec.centre = h.pos; rec.radius = glm::length(c.hi - c.lo) * 0.5f + 3.0f;
   vec2 hc(h.pos.x, h.pos.z);
   for (auto& f : fpAll) {
@@ -209,7 +213,8 @@ void generate(App& app, Instance& h, HostRec& rec, const std::vector<GrassFootpr
     vec3 col = kd.col * (0.88f + 0.24f * r3);
     float sun = std::clamp(0.5f + 0.5f * glm::dot(glm::normalize(c.q * vec3(l.x - (c.lo.x + c.hi.x) * 0.5f, 0, l.y - (c.lo.y + c.hi.y) * 0.5f)), vec3(0, 0, -1)), 0.0f, 1.0f);   // north faces (world -z) darker, mossier
     if (k == K_TURF || k == K_TUSSOCK) col = glm::mix(col, col * vec3(0.85f, 0.92f, 0.85f), sun * 0.5f);
-    rec.inst.push_back(naturePlant(kd.sp, w, col, glm::mix(kd.h0, kd.h1, r1), r0, r1, r2, r3));
+    float hs = zone == 0 && kd.h1 > 0.2f ? 1.25f : 1.0f;   // the wall-foot pockets stand a little proud of the field grass
+    rec.inst.push_back(naturePlant(kd.sp, w, col, glm::mix(kd.h0, kd.h1, r1) * hs, r0, r1, r2, r3));
     rec.mn = glm::min(rec.mn, w - vec3(0.3f, 0, 0.3f)); rec.mx = glm::max(rec.mx, w + vec3(0.3f, kd.h1 + 0.2f, 0.3f));
   };
   // ---- the band along each wall
@@ -227,6 +232,9 @@ void generate(App& app, Instance& h, HostRec& rec, const std::vector<GrassFootpr
         vec2 l = p + n * d + T * (rng.f() - 0.5f) * 0.3f;
         addPlant(l, d < 0.3f ? 0 : 1);
       }
+      // the wall foot: a dense layer right against the masonry (about 3x the band)
+      int foot = (int)std::round(0.45f * 0.3f * kDensity * kDens[style] * 2.0f);
+      for (int j = 0; j < foot; ++j) addPlant(p + n * (0.04f + 0.4f * rng.f() * rng.f()) + T * (rng.f() - 0.5f) * 0.3f, 0);
     }
   }
   // ---- corner clusters (garden edges, the angle of two walls)
@@ -259,13 +267,29 @@ void generate(App& app, Instance& h, HostRec& rec, const std::vector<GrassFootpr
   // the patch draw thins far plants by drawing a prefix of the buffer: a seeded shuffle spreads that thinning evenly
   for (size_t k = rec.inst.size(); k > 1; --k) std::swap(rec.inst[k - 1], rec.inst[(size_t)(rng.f() * k) % k]);
   if (!rec.inst.empty()) { glCreateBuffers(1, &rec.vbo); glNamedBufferData(rec.vbo, rec.inst.size() * sizeof(GrassInstance), rec.inst.data(), GL_STATIC_DRAW); }
+  // ---- bunker: a worn dirt path straight out of each ground-level entrance (a path_dirt piece of the dressing)
+  int k = 0;
+  if (style == FS_BUNKER && h.id < (1ull << 38)) if (const AssetDef* pd = app.lib.find("path_dirt"); pd && pd->path.on) {
+    for (auto& e : a->navMeta.entrances) {
+      if (e.p.y > 1.2f || k >= 4) continue;
+      vec2 out = -vec2(e.dir.x, e.dir.z); float ol = glm::length(out); if (ol < 1e-3f) continue; out /= ol;
+      float L = 4.5f + 2.0f * rng.f();
+      vec2 l = vec2(e.p.x, e.p.z) + out * (L * 0.5f + 0.2f);
+      vec3 w = c.world(l); w.y = t.height(w.x, w.z);
+      vec3 ow = c.q * vec3(out.x, 0, out.y);
+      Instance i; i.id = propId(h.id, k++); i.assetId = pd->id; i.assetVersion = pd->version; i.pos = w; i.yaw = wrapDeg(degrees(std::atan2(ow.x, ow.z)));
+      i.extra = json::object(); i.extra["dressing"] = {{"host", h.id}, {"sig", rec.sig}}; i.extra["path"] = {{"length", L}, {"width", 1.2f + 0.3f * rng.f()}};
+      if (app.doc.find(i.id)) continue;
+      i.rev = ++app.revCounter;
+      app.doc.instances.push_back(i); rec.props.push_back(i.id);
+    }
+  }
   // ---- props: 0-3 arrangements against the walls
   static const int kMin[FS_COUNT] = {1, 1, 1, 0, 0}, kMax[FS_COUNT] = {2, 3, 2, 2, 2};
   int want = kMin[style] + (int)(rng.f() * (kMax[style] - kMin[style] + 1));
   if (h.id >= (1ull << 38)) want = 0;   // the id space for its pieces (propId)
   const auto& arrs = arrangements();
   std::vector<GrassFootprint> placed;   // this host's accepted pieces
-  int k = 0;
   for (int n = 0, tries = 0; n < want && tries < 14; ++tries) {
     float tw = 0; for (auto& ar : arrs) tw += ar.w[style];
     if (tw <= 0) break;

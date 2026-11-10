@@ -90,7 +90,11 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
         float dist = glm::length(glm::max(q, vec2(0))) + std::min(std::max(q.x, q.y), 0.0f);
         if (dist < -0.2f || dist > 1.8f) continue;
         float n = vnoise(w.x * 0.8f, w.y * 0.8f, 5);
-        float soil = std::clamp(1.0f - (dist - 0.1f) / (0.9f + 0.6f * n), 0.0f, 1.0f) * f.strength;
+        // MA3: no uniform ring - a thin damp strip at the wall foot, worn wider only in seeded patches (corners,
+        // thresholds by chance), so field grass and the foundation dressing grow into most of the band
+        float wornM = vnoise(w.x * 0.33f, w.y * 0.33f, 9), worn = std::clamp((wornM - 0.6f) / 0.25f, 0.0f, 1.0f);
+        float reachS = 0.18f + 0.22f * n + 1.0f * worn;
+        float soil = std::clamp(1.0f - (dist - 0.05f) / reachS, 0.0f, 1.0f) * f.strength * (0.6f + 0.4f * worn);
         float wet = std::clamp(1.0f - dist / 0.6f, 0.0f, 1.0f) * 0.55f * f.strength;
         size_t i = idx(x, y);
         surf[i + 0] = std::max<uint8_t>(surf[i + 0], (uint8_t)(soil * 0.75f * 255));
