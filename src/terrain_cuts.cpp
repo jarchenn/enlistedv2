@@ -158,6 +158,10 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
       float beyond = std::max(0.0f, along - L), wallH = glm::mix(s.cutP[k].y, s.cutP[k].z, std::min(1.0f, along / L));
       float allowed = s.y + G * beyond + (lat > s.cutP[k].x ? wallH + G * (lat - s.cutP[k].x) : 0.0f);
       if (h > allowed) h = allowed;
+      if (lat <= s.cutP[k].x) {   // the lane floor is held at the anchor on falling ground too, easing down past its end
+        float floor = s.y - G * beyond;
+        if (h < floor) h = floor;
+      }
       if (lat <= s.cutP[k].x + 0.3f && beyond < 1.0f) so = std::max(so, 0.75f);   // trodden earth on the lane floor
     }
   }

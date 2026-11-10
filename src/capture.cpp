@@ -288,7 +288,7 @@ void ddayChecks(App& app) {
   for (size_t k = 1; k < pts.size(); ++k) {
     std::vector<vec3> P; float len = 0;
     bool r = nav->pathSync(pts[0].second, pts[k].second, P, nullptr, nullptr, &len) && !P.empty() && glm::length(P.back() - pts[k].second) < 1.5f;
-    if (r) { ++ok; worstLen = std::max(worstLen, len); } else bad += " " + pts[k].first;
+    if (r) { ++ok; worstLen = std::max(worstLen, len); } else { char b[96]; std::snprintf(b, sizeof b, "(%s, start poly %d, end poly %d)", P.empty() ? "no path" : "short", nav->nearest(pts[0].second, 2.0f), nav->nearest(pts[k].second, 2.0f)); bad += " " + pts[k].first + b; }
   }
   out("trench_paths", std::to_string(ok) + " of " + std::to_string(pts.size() - 1) + " trench points reached on the navmesh from " + (pts.empty() ? "-" : pts[0].first) +
       " (longest " + std::to_string((int)worstLen) + " m)" + (bad.empty() ? " (PASS)" : "; not reached:" + bad + " (FAIL)"));
@@ -312,7 +312,7 @@ void ddayChecks(App& app) {
         std::vector<vec3> pp; float len = 0; ++spN;
         bool r = nav->pathSync(a, P(o["pos"]), pp, nullptr, nullptr, &len) && !pp.empty() && glm::length(vec2(pp.back().x - o["pos"][0].get<float>(), pp.back().z - o["pos"][2].get<float>())) < o.value("radius", 10.0f);
         spOk += r;
-        if (!r) sp += " " + s.value("label", std::string("?")) + "->" + o.value("displayName", std::string("?"));
+        if (!r) { char b[120]; std::snprintf(b, sizeof b, " (ends %.0f m off, goal poly %d)", pp.empty() ? -1.0f : glm::length(vec2(pp.back().x - o["pos"][0].get<float>(), pp.back().z - o["pos"][2].get<float>())), nav->nearest(P(o["pos"]), 2.0f)); sp += " " + s.value("label", std::string("?")) + "->" + o.value("displayName", std::string("?")) + b; }
       }
     }
   }
