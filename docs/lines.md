@@ -10,7 +10,7 @@ palette). Its geometry is plain data in `Instance::extra["line"]`:
 
 | Key | Meaning |
 |---|---|
-| `pts` | `[[x, z], [x, z, d], ...]`: world xz control points; `d` (default 1) scales the type's depth or height there (trench: 0 = ground level, an entry ramp) |
+| `pts` | `[[x, z], [x, z, d], [x, z, d, y], ...]`: world xz control points; `d` (default 1) scales the type's depth or height there (trench: 0 = ground level, an entry ramp); `y` (optional) a fixed floor height there (a ramp topping out at a door or a sunken entrance), eased back to the ground-relative floor by the neighbouring points |
 | `seed` | per-line random seed |
 | `params` | per-line overrides of the type's `params` |
 | `spans` | gates and gaps by arc length: `{"s", "w", "kind": "gap" \| "field_gate" \| "gate_piers"}` (LN2) |
@@ -37,7 +37,7 @@ Types so far:
 
 | id | builder | What it is |
 |---|---|---|
-| `trench` | `trench` | Fed straight into the GX1 trench network (`terrain_blend.cpp`): carve, parapets, revetment, sandbags, duckboards, firestep, entry ramps at free ends. Lines that touch or cross form one network; end walls only at real ends. |
+| `trench` | `trench` | Fed straight into the GX1 trench network (`terrain_blend.cpp`): carve, parapets, revetment, sandbags, duckboards, firestep, entry ramps at free ends (6 m long, no parapet across the mouth). Lines that touch or cross form one network; end walls only at real ends. |
 
 LN2 adds the fence, wire, wall and hedge types.
 

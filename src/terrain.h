@@ -53,7 +53,7 @@ struct TerrainStamp {
   std::vector<vec3> cutP;             // BERM: per cut (half width, retaining wall height at a, at b): floor at y, a ramp past b
   std::vector<vec4> seg;              // TRENCH: centreline segments, world (x0, z0, x1, z1)
   std::vector<vec2> segY;             // TRENCH: floor y at both ends
-  std::vector<uint8_t> segJoin;       // TRENCH: bit 0 start continues into another segment, bit 1 the end does
+  std::vector<uint8_t> segJoin;       // TRENCH: bit 0 start continues into another segment, bit 1 the end does; bits 2 / 3: that end is a ramp mouth (no parapet across it)
   std::vector<int8_t> segFront;       // TRENCH: the fire side, +1 left of the segment, -1 right, 0 none (a lower parapet there)
   uint32_t seed = 0;
   vec2 bmin{0}, bmax{0};              // world bounds of everything the stamp touches

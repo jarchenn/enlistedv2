@@ -147,11 +147,12 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
 // A user's saved map promoted to a template (tools/mapgen/promote_map.py, "selftest": "authored"): it loads whole on
 // the template ground, its scenario as authored (reported, not held to the SPEC 2.1 default-map bands), saves and
 // reopens; views from the preview camera, first person at the explore start, and the template camera.
-static size_t authoredCount(const App& app) { return authoredInstanceCount(app.doc.instances); }   // V4: openMap / newMap add furniture pieces (extra.furnish) to every building
+static size_t authoredCount(const App& app) { size_t n = authoredInstanceCount(app.doc.instances); for (auto& i : app.doc.instances) n -= i.extra.is_object() && i.extra.contains("lineGate"); return n; }   // V4: openMap / newMap add furniture pieces (extra.furnish); LN2 line gates are made by their lines
+static size_t fileCount(const json& mj) { size_t n = 0; for (auto& j : mj.value("instances", json::array())) n += j.dump().find("\"lineGate\"") == std::string::npos; return n; }
 
 void SelfTest::authoredChecks(App& app, const TemplateInfo& t, const json& mj) {
   const std::string id = t.id;
-  size_t fileN = mj.value("instances", json::array()).size();
+  size_t fileN = fileCount(mj);
   check(authoredCount(app) == fileN && fileN > 0, fmt("%s: all %zu authored instances loaded, %zu furniture pieces added (working set %+.0f MB)", id.c_str(), fileN, app.doc.instances.size() - authoredCount(app), sMemAfter - sMemBefore));
   size_t missing = 0; for (auto& i : app.doc.instances) if (!app.lib.find(i.assetId)) ++missing;
   check(missing == 0, fmt("%s: every instance names a catalogue asset (%zu missing)", id.c_str(), missing));
@@ -223,7 +224,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     check(t.thumbnail != 0 && fs::exists(th) && bl < 0.95, fmt("%s: New Map preview rendered from the fixed camera (%s, %.0f %% background)", id.c_str(), th.filename().string().c_str(), bl * 100));
     // file content vs loaded document
     json mj; try { mj = json::parse(readTextFile(contentDir() / "templates" / t.raw.value("map", std::string()))); } catch (...) {}
-    size_t fileN = mj.value("instances", json::array()).size();
+    size_t fileN = fileCount(mj);
     const bool authored = t.raw.value("selftest", std::string()) == "authored";   // a user's saved map promoted to a template
     const bool terrainBase = !authored && !mj.contains("scenario");   // W5b: a terrain-only starting map (Mont-Castre): the user authors the rest
     if (authored) {

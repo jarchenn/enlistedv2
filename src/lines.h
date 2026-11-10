@@ -5,8 +5,10 @@
 // Data model: a line is an ordinary Instance of a line asset, an asset whose "line" block names its line type
 // (content/assets/line_<type>.json, {"line": {"type": "<type id>"}}). Its geometry is plain data in
 // Instance::extra["line"]:
-//   {"pts": [[x, z], [x, z, d], ...],   world xz control points; d (optional, default 1) scales the type's depth / height
-//                                       at that point (a trench's 0 = ground level: an entry ramp)
+//   {"pts": [[x, z], [x, z, d], [x, z, d, y], ...],   world xz control points; d (optional, default 1) scales the
+//                                       type's depth / height at that point (a trench's 0 = ground level: an entry ramp);
+//                                       y (optional) a fixed floor height there (a trench ramp topping out at a door or a
+//                                       sunken entrance), eased back to the ground-relative floor by the next point
 //    "seed": n,                         per-line random seed (builders vary bays from it)
 //    "params": {...},                   per-line overrides of the type's "params" in content/settings/line_types.json
 //    "spans": [{"s": m, "w": m, "kind": "gap" | "field_gate" | "gate_piers"}]}   gates and gaps by arc length (LN2)
@@ -15,7 +17,7 @@
 // per bay) all come with the Instance, so damage events, save and replication need nothing new.
 #include "app.h"
 
-struct LinePoint { vec2 p{0}; float d = 1.0f; };
+struct LinePoint { vec2 p{0}; float d = 1.0f; float y = NAN; };   // y: a fixed floor height there (NaN: the ground less the depth x d)
 struct LineSpan { float s = 0, w = 3.6f; std::string kind = "gap"; };
 struct LineData {
   std::vector<LinePoint> pts;
@@ -42,7 +44,7 @@ json lineParams(const LineType& t, const LineData& d);   // type defaults merged
 
 // The line as a smooth curve: centripetal Catmull-Rom through the control points (corners kept where `sharp`),
 // resampled every `step` m; each sample carries its arc length s and the interpolated d. World xz.
-struct LineSample { vec2 p{0}; float s = 0, d = 1; vec2 t{1, 0}; };
+struct LineSample { vec2 p{0}; float s = 0, d = 1; vec2 t{1, 0}; float u = 0; };   // u: control-point parameter (span k + t)
 std::vector<LineSample> lineSpline(const LineData& d, float step = 0.5f, bool sharp = false);
 float lineLength(const std::vector<LineSample>& sp);
 uint64_t lineCutSig(const std::vector<uint8_t>& cut);   // LN2: signature of a line's cut bays

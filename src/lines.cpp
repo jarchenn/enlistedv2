@@ -38,7 +38,7 @@ bool lineGet(const Instance& i, LineData& out) {
   const json& L = i.extra["line"];
   out = LineData();
   for (auto& p : L.value("pts", json::array()))
-    if (p.is_array() && p.size() >= 2) out.pts.push_back({vec2(p[0].get<float>(), p[1].get<float>()), p.size() > 2 ? p[2].get<float>() : 1.0f});
+    if (p.is_array() && p.size() >= 2) out.pts.push_back({vec2(p[0].get<float>(), p[1].get<float>()), p.size() > 2 ? p[2].get<float>() : 1.0f, p.size() > 3 && p[3].is_number() ? p[3].get<float>() : NAN});
   out.seed = L.value("seed", 1u);
   out.params = L.value("params", json::object());
   for (auto& s : L.value("spans", json::array())) out.spans.push_back({s.value("s", 0.0f), s.value("w", 3.6f), s.value("kind", std::string("gap"))});
@@ -47,7 +47,7 @@ bool lineGet(const Instance& i, LineData& out) {
 void lineSet(Instance& i, const LineData& d) {
   json pts = json::array();
   auto r3 = [](float v) { return std::round(v * 1000.0f) / 1000.0f; };
-  for (auto& p : d.pts) { json q = {r3(p.p.x), r3(p.p.y)}; if (p.d != 1.0f) q.push_back(r3(p.d)); pts.push_back(q); }
+  for (auto& p : d.pts) { json q = {r3(p.p.x), r3(p.p.y)}; if (p.d != 1.0f || !std::isnan(p.y)) q.push_back(r3(p.d)); if (!std::isnan(p.y)) q.push_back(r3(p.y)); pts.push_back(q); }
   json spans = json::array();
   for (auto& s : d.spans) spans.push_back({{"s", r3(s.s)}, {"w", r3(s.w)}, {"kind", s.kind}});
   if (!i.extra.is_object()) i.extra = json::object();
@@ -68,14 +68,16 @@ std::vector<LineSample> lineSpline(const LineData& d, float step, bool sharp) {
   std::vector<LineSample> out;
   const size_t n = d.pts.size();
   if (n < 2) return out;
-  std::vector<std::pair<vec2, float>> dense;   // fine polyline (20 per span), then resampled at `step`
+  std::vector<float> du;   // control-point parameter of each dense point
+  std::vector<std::pair<vec2, float>> dense;   // fine polyline (a quarter step or finer, 20 per span at least), then resampled at `step`
   for (size_t k = 0; k + 1 < n; ++k) {
     vec2 p1 = d.pts[k].p, p2 = d.pts[k + 1].p;
     vec2 p0 = k > 0 ? d.pts[k - 1].p : p1 * 2.0f - p2, p3 = k + 2 < n ? d.pts[k + 2].p : p2 * 2.0f - p1;
     if (sharp) { p0 = p1 * 2.0f - p2; p3 = p2 * 2.0f - p1; }   // straight spans between the control points
-    for (int s = 0; s < 20; ++s) { float t = s / 20.0f; dense.push_back({cr(p0, p1, p2, p3, t), glm::mix(d.pts[k].d, d.pts[k + 1].d, t)}); }
+    const int N = std::clamp((int)std::ceil(glm::length(p2 - p1) / std::max(0.05f, step * 0.25f)), 20, 4000);
+    for (int s = 0; s < N; ++s) { float t = s / float(N); dense.push_back({cr(p0, p1, p2, p3, t), glm::mix(d.pts[k].d, d.pts[k + 1].d, t)}); du.push_back(k + t); }
   }
-  dense.push_back({d.pts.back().p, d.pts.back().d});
+  dense.push_back({d.pts.back().p, d.pts.back().d}); du.push_back(float(n - 1));
   float acc = 0, next = 0;
   for (size_t k = 0; k < dense.size(); ++k) {
     if (k) acc += glm::length(dense[k].first - dense[k - 1].first);
@@ -83,7 +85,7 @@ std::vector<LineSample> lineSpline(const LineData& d, float step, bool sharp) {
     if (acc + 1e-4f >= next || last) {
       vec2 a = dense[k > 0 ? k - 1 : 0].first, b = dense[last ? k : k + 1].first;
       vec2 t = glm::length(b - a) > 1e-6f ? glm::normalize(b - a) : vec2(1, 0);
-      out.push_back({dense[k].first, acc, dense[k].second, t});
+      out.push_back({dense[k].first, acc, dense[k].second, t, du[k]});
       next = acc + step;
     }
   }

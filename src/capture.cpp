@@ -285,7 +285,8 @@ void ddayChecks(App& app) {
     LineData ld;   // LN1 trench lines: both ends and the middle of each, on the carved floor
     if (i.assetId != "line_trench" || !lineGet(i, ld)) continue;
     auto sp = lineSpline(ld, 1.0f);
-    for (size_t k : {(size_t)0, sp.size() / 2, sp.size() - 1}) { vec2 q = sp[k].p; pts.push_back({"line" + std::to_string(i.id) + "@" + std::to_string((int)q.x) + "," + std::to_string((int)q.y), vec3(q.x, T.height(q.x, q.y) + 0.05f, q.y)}); }
+    const size_t in = std::min<size_t>(2, sp.size() / 2);   // 2 m in from each end: an end wall foot is off the navmesh (agent radius)
+    for (size_t k : {in, sp.size() / 2, sp.size() - 1 - in}) { vec2 q = sp[k].p; pts.push_back({"line" + std::to_string(i.id) + "@" + std::to_string((int)q.x) + "," + std::to_string((int)q.y), vec3(q.x, T.height(q.x, q.y) + 0.05f, q.y)}); }
   }
   int ok = 0; std::string bad; float worstLen = 0;
   for (size_t k = 1; k < pts.size(); ++k) {

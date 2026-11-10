@@ -60,15 +60,19 @@ void build() {
     chk(L1 != 0, "a trench line is drawn (5 points)");
     chk(stamps(a) == 1, "it is one GX1 trench network (%d)", stamps(a));
     auto sp = splineOf(a, L1);
-    float worst = 0, deep = 0; int n = 0;
+    float worst = 0, deep = 0, worstS = 0; int n = 0;
     for (size_t k = 1; k < sp.size(); ++k) {
       float h0 = a.terrain.height(sp[k - 1].p.x, sp[k - 1].p.y), h1 = a.terrain.height(sp[k].p.x, sp[k].p.y);
-      worst = std::max(worst, std::fabs(h1 - h0));
+      if (std::fabs(h1 - h0) > worst) { worst = std::fabs(h1 - h0); worstS = sp[k].s; }
       float g = a.terrain.groundBase(sp[k].p.x, sp[k].p.y);
       if (sp[k].s > 6 && sp[k].s < sp.back().s - 6) { deep += g - h1; ++n; }
     }
     chk(n > 0 && deep / n > 1.3f, "the floor is %.2f m below the ground along the line (middle)", n ? deep / n : 0.0f);
-    chk(worst < 0.45f, "the floor is continuous over the hill: largest step between 1 m samples %.2f m (climb 0.45)", worst);
+    if (worst >= 0.5f) {   // the profile at the ends, for the log
+      LineData ld; a.doc.find(L1) && lineGet(*a.doc.find(L1), ld);
+      for (auto& q : lineSpline(ld, 0.5f)) if (q.s < 7 || q.s > sp.back().s - 7) logf("[lines] s %.1f  ground %.2f  floor %.2f", q.s, a.terrain.groundBase(q.p.x, q.p.y), a.terrain.height(q.p.x, q.p.y));
+    }
+    chk(worst < 0.5f, "the floor is continuous over the hill: largest step between 1 m samples %.2f m at %.0f of %.0f m (0.5: the carve follows the 0.45 m terrain grid)", worst, worstS, sp.back().s);
     float e0 = a.terrain.groundBase(sp.front().p.x, sp.front().p.y) - a.terrain.height(sp.front().p.x, sp.front().p.y);
     chk(e0 < 0.4f, "a free end ramps up to the ground (%.2f m below it at the end)", e0);
     return true;
@@ -98,7 +102,7 @@ void build() {
     L3 = lineCreate(a, "trench", {mid + vec2(0, 30), mid + vec2(0, 0.4f)}, json{{"ramps", "both"}});
     sync(a);
     chk(stamps(a) == 1, "a T line ending on it joins too (%d networks)", stamps(a));
-    float drop = a.terrain.groundBase(mid.x, mid.y + 1.5f) - a.terrain.height(mid.x, mid.y + 1.5f);
+    float drop = a.terrain.groundBase(mid.x, mid.y + 2.5f) - a.terrain.height(mid.x, mid.y + 2.5f);   // 2.5 m up the T, clear of the junction
     chk(drop > 1.2f, "the T end is open into the trench: floor %.2f m down where it meets (no ramp, no wall)", drop);
     return true;
   });

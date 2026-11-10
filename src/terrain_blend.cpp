@@ -137,7 +137,7 @@ int blendSyncStamps(App& app) {
   const StampParams& sp = C.sp;
   std::vector<TerrainStamp> out;
   const float tanR = std::tan(radians(std::clamp(sp.reposeDeg, 15.0f, 45.0f)));
-  struct Piece { uint64_t id; std::vector<vec3> path; std::vector<std::vector<vec3>> branches; int8_t front = 0; bool line = false; std::string ramps; };   // world x, floor y, z; front: the fire side (+1 left of the path)
+  struct Piece { uint64_t id; std::vector<vec3> path; std::vector<std::vector<vec3>> branches; int8_t front = 0; bool line = false; std::string ramps; bool mouth[2] = {false, false}; std::vector<float> u, off; };   // lines: each sample's control-point parameter; each control point's fixed-floor offset   // world x, floor y, z; front: the fire side (+1 left of the path)
   std::vector<Piece> pieces;
   for (auto& i : app.doc.instances) {
     const AssetDef* a = app.assetFor(i);
@@ -146,7 +146,8 @@ int blendSyncStamps(App& app) {
       LineData d; if (!lineGet(i, d)) continue;
       json prm = lineParams(*lineTypeOf(a), d);
       Piece p; p.id = i.id; p.line = true;
-      for (auto& q : lineSpline(d, 2.0f, prm.value("sharp", false))) p.path.push_back(vec3(q.p.x, q.d, q.p.y));   // y: the depth scale for now
+      for (auto& q : lineSpline(d, 2.0f, prm.value("sharp", false))) { p.path.push_back(vec3(q.p.x, q.d, q.p.y)); p.u.push_back(q.u); }   // y: the depth scale for now
+      for (auto& c : d.pts) p.off.push_back(std::isnan(c.y) ? 0.0f : c.y - (T.groundBase(c.p.x, c.p.y) - sp.depth * c.d));   // a fixed floor, eased out over the span
       std::string fs = prm.value("fire", std::string("left"));
       p.front = fs == "left" ? 1 : fs == "right" ? -1 : 0;
       p.ramps = prm.value("ramps", std::string("both"));
@@ -246,19 +247,23 @@ int blendSyncStamps(App& app) {
         for (size_t k = 0; k + 1 < B.size(); ++k) if (segDist2(pe, vec2(B[k].x, B[k].z), vec2(B[k + 1].x, B[k + 1].z)) < sp.floorHalf + 0.6f) { endJoined[a][e] = true; break; }
       }
     }
-    // entry ramps at the free ends the line asks for: the depth eases from 0 at the end over 3.9 m; then the floor heights
+    // entry ramps at the free ends the line asks for: the depth eases from 0 at the end over 6 m (slope ~0.28: a man walks it); then the floor heights
     float L = 0; std::vector<float> sAt(A.size(), 0);
     for (size_t k = 1; k < A.size(); ++k) { L += glm::length(vec2(A[k].x - A[k - 1].x, A[k].z - A[k - 1].z)); sAt[k] = L; }
     bool r0 = !endJoined[a][0] && (pieces[a].ramps == "both" || pieces[a].ramps == "start"), r1 = !endJoined[a][1] && (pieces[a].ramps == "both" || pieces[a].ramps == "end");
     LinePath lp; lp.front = pieces[a].front;
     for (size_t k = 0; k < A.size(); ++k) {
       float d = A[k].y;
-      if (r0) d = std::min(d, sAt[k] / 3.9f);
-      if (r1) d = std::min(d, (L - sAt[k]) / 3.9f);
+      if (r0) d = std::min(d, sAt[k] / 6.0f);
+      if (r1) d = std::min(d, (L - sAt[k]) / 6.0f);
       d = std::clamp(d, 0.0f, 1.0f);
       lp.P.push_back(vec2(A[k].x, A[k].z)); lp.D.push_back(d);
-      A[k].y = T.groundBase(A[k].x, A[k].z) - sp.depth * d;
+      float off = 0;
+      if (!pieces[a].off.empty()) { float u = pieces[a].u[k]; size_t j = std::min((size_t)u, pieces[a].off.size() - 1), j1 = std::min(j + 1, pieces[a].off.size() - 1); off = glm::mix(pieces[a].off[j], pieces[a].off[j1], u - (float)j); }
+      A[k].y = T.groundBase(A[k].x, A[k].z) - sp.depth * d + off;
     }
+    pieces[a].mouth[0] = r0 || lp.D.front() < 0.05f; pieces[a].mouth[1] = r1 || lp.D.back() < 0.05f;   // any ground-level end is a way in: no spoil across it
+    pend[a][0] = A.front(); pend[a][1] = A.back();   // the ends now carry floor heights (they held the depth scale)
     gLinePaths[pieces[a].id] = std::move(lp);
   }
   std::map<size_t, std::vector<size_t>> nets;
@@ -278,14 +283,14 @@ int blendSyncStamps(App& app) {
       return c > 1;
     };
     vec2 lo(1e30f), hi(-1e30f);
-    auto add = [&](vec3 a, vec3 b, bool j0, bool j1, int8_t fr) {
-      t.seg.push_back(vec4(a.x, a.z, b.x, b.z)); t.segY.push_back(vec2(a.y, b.y)); t.segJoin.push_back((uint8_t)((j0 ? 1 : 0) | (j1 ? 2 : 0))); t.segFront.push_back(fr);
+    auto add = [&](vec3 a, vec3 b, bool j0, bool j1, int8_t fr, bool m0 = false, bool m1 = false) {
+      t.seg.push_back(vec4(a.x, a.z, b.x, b.z)); t.segY.push_back(vec2(a.y, b.y)); t.segJoin.push_back((uint8_t)((j0 ? 1 : 0) | (j1 ? 2 : 0) | (m0 ? 4 : 0) | (m1 ? 8 : 0))); t.segFront.push_back(fr);
       lo = glm::min(lo, glm::min(vec2(a.x, a.z), vec2(b.x, b.z))); hi = glm::max(hi, glm::max(vec2(a.x, a.z), vec2(b.x, b.z)));
     };
     for (size_t k : members) {
       auto P = pieces[k].path;
       bool j0 = shared(P.front(), P.front().y), j1 = shared(P.back(), P.back().y);
-      for (size_t s = 0; s + 1 < P.size(); ++s) add(P[s], P[s + 1], s > 0 || j0, s + 2 < P.size() || j1, pieces[k].front);
+      for (size_t s = 0; s + 1 < P.size(); ++s) add(P[s], P[s + 1], s > 0 || j0, s + 2 < P.size() || j1, pieces[k].front, s == 0 && pieces[k].mouth[0], s + 2 == P.size() && pieces[k].mouth[1]);
       for (auto& br : pieces[k].branches) for (size_t s = 0; s + 1 < br.size(); ++s) add(br[s], br[s + 1], true, s + 2 < br.size(), 0);
     }
     float r = sp.floorHalf + 0.12f + sp.parapetW * 1.3f + 1.5f;
