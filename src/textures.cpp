@@ -444,6 +444,12 @@ vec4 texMacro(vec3 w, vec3 n, vec3 dwx, vec3 dwy){
   vec2 uv = fl ? w.xz : xw ? w.zy : w.xy, gx = fl ? dwx.xz : xw ? dwx.zy : dwx.xy, gy = fl ? dwy.xz : xw ? dwy.zy : dwy.xy;
   return textureGrad(uTexMacro, uv/32.0, gx/32.0, gy/32.0);
 }
+// MA1 / MA2: the macro damp channel (B, broad patches ~10 m, 0..1) at world w with normal n; pix = metres per pixel (kMainFS
+// gPix). No derivatives (callable in divergent code); the texture is bound whether imgmat is on or off
+float macroDamp(vec3 w, vec3 n, float pix){
+  vec3 a = abs(n); vec2 uv = a.y > max(a.x, a.z) ? w.xz : a.x > a.z ? w.zy : w.xy;
+  return textureLod(uTexMacro, uv/32.0, max(0.0, log2(pix*256.0/32.0))).b;
+}
 void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, int grain, float pix,
                  inout vec3 alb, inout float rough, inout float ao){
   vec3 dwx = dFdx(w), dwy = dFdy(w), dax = dFdx(ap), day = dFdy(ap), dcx = dFdx(pc), dcy = dFdy(pc);
