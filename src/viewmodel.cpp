@@ -212,16 +212,26 @@ void App::buildArmMeshes() {
 }
 
 void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s) {
+  lastArmDraws = 0;
   if (!vm.showArms || !armMesh[0].count) return;
   mat4 cam = weaponWorld * glm::inverse(vmLocal(d, s));   // camera (view -> world)
   mat4 Mv = vmLocal(d, s);
-  vec3 tR = vec3(Mv * vec4(d.gripR, 1)), tL = vec3(Mv * vec4(d.gripL, 1));
+  // FA2: ONE generated support arm (fps_arms.cpp): the hand under the fore-end where the weapon's mesh is, the sleeve
+  // from the lower left; one-handed items (knife, grenades: both sockets on the handle) are held by that one hand
+  bool rig = fpsArmsReady();
+  vec3 gR = d.gripR, gL = d.gripL; float gRad = 0.022f;
+  if (rig) fpsArmsGrip(d, gL, gRad);
+  vec3 tR = vec3(Mv * vec4(gR, 1)), tL = vec3(Mv * vec4(gL, 1));
+  bool oneHand = glm::length(d.gripL - d.gripR) < 0.03f;
+  float relW = 0;   // 0..1: the support hand off the weapon (reload)
+  if (oneHand && !rig) tL = vec3(-0.24f, -0.34f, -0.22f);
   // during a magazine / clip reload the support hand goes to the feed
-  if (s.reload > 0 && s.reloadKind != 3) {
+  if (s.reload > 0 && s.reloadKind != 3 && !oneHand) {
     float u = 1 - s.reload / std::max(0.01f, s.reloadTotal);
     vec3 feed = d.feed == "enbloc" || d.feed == "stripper" ? (d.rear + vec3(0, 0.04f, 0.08f)) : vec3(0, -0.12f, (d.rear.z + d.front.z) * 0.5f);
     float w = std::sin(std::clamp(u, 0.0f, 1.0f) * 3.14159f);
     tL = glm::mix(tL, vec3(Mv * vec4(feed, 1)), w);
+    relW = w;
   }
   vec3 gl, gr; float gw = 0;   // swimming: hands-only breaststroke (camera space, swim.cpp)
   if (swimHands(gl, gr, gw)) { tR = glm::mix(tR, gr, gw); tL = glm::mix(tL, gl, gw); }
@@ -230,6 +240,19 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
   if (mantleGrips(gl, gr, gw)) { mat4 ci = glm::inverse(cam); tR = glm::mix(tR, vec3(ci * vec4(gr, 1)), gw); tL = glm::mix(tL, vec3(ci * vec4(gl, 1)), gw); }
   gw = std::max(gw, sw);
   vec3 SR(0.17f, -0.24f, 0.02f), SL(-0.17f, -0.24f, 0.02f);
+  if (rig) {   // FA2: the generated support arm; the boxes below are the fallback when its assets are missing
+    // the held point in weapon space (the fore-end; the feed in a reload; the stroke / ledge target, camera space -> weapon)
+    vec3 target = oneHand ? tR : tL;
+    vec3 anchor = vec3(glm::inverse(Mv) * vec4(target, 1));
+    float curl = (1.0f - 0.7f * relW) * (1.0f - 0.65f * gw);
+    float rad = oneHand ? 0.014f : gRad;   // knife / grenade: a handle
+    vec3 wrist(0);
+    bool drawn = fpsSupportHandDraw(*this, cam, Mv, anchor, rad, curl, oneHand, d.side == "DE", &wrist);
+    lastHandL = wrist; lastHandR = vec3(0); lastShoulderL = SL; lastShoulderR = SR; lastElbowL = glm::mix(SL, wrist, 0.5f) + vec3(0, -0.05f, 0); lastElbowR = SR + vec3(0, -0.1f, 0);
+    lastHandErr = vec3(0, glm::length(vec3(Mv * vec4(anchor, 1)) - target), 0);
+    lastArmsShown[0] = false; lastArmsShown[1] = drawn; ++lastArmDraws;
+    return;
+  }
   vec3 eR, hR, eL, hL;
   solveTwoBone(SR, tR, kUpperArm, kForearm, vec3(0.4f, -1, 0), eR, hR);
   solveTwoBone(SL, tL, kUpperArm, kForearm, vec3(-0.4f, -1, 0), eL, hL);
@@ -250,6 +273,7 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
     seg(E, cuff, 0.078f, 0.075f, sleeve);
     seg(cuff, H, 0.055f, 0.05f, 2);   // wrist
   };
+  ++lastArmDraws;
   arm(SR, eR, hR);
   arm(SL, eL, hL);
   // hands: blocks wrapped round the grip / under the handguard, aligned with the weapon so they stay below the

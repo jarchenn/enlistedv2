@@ -29,6 +29,15 @@ constexpr float kBreathAmpDeg = 0.08f;    // idle aim wander amplitude
 constexpr float kBreathHz = 0.22f;
 constexpr float kBreathHoldMax = 5.0f, kBreathRecover = 3.0f;
 constexpr float kUpperArm = 0.32f, kForearm = 0.30f;
+bool fpsArmsReady();   // FA1 (fps_arms.cpp): the rigged first-person arms loaded (else the box arms draw)
+struct GpuModel; bool fpsArmsIsModel(const GpuModel* g);   // a Renderer::viewModelTex draw of the arm (self-tests)
+int fpsArmsFaction(const GpuModel* g);                      // the arm model's sleeve: 0 Allies (olive drab), 1 Axis (charcoal), -1 not the arm
+struct WeaponDef; void fpsArmsGrip(const WeaponDef& d, vec3& grip, float& radius);   // FA2: a weapon's support grip (weapon space) and section radius
+// FA2: draw the one support arm (fps_arms.cpp) holding a section of radius "radius" whose bottom is at "grip" (weapon space,
+// section axis = weapon +z) for the weapon->camera transform weaponToCam; cam = camera->world. curl 1 = wrapped round
+// it, 0 relaxed; rightHand = the mirrored hand with its sleeve from the lower right; axis = the Axis (charcoal) sleeve.
+// For a new weapon (a flamethrower's tube): call it from its viewmodel draw with its support grip and tube radius.
+class App; bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, vec3 grip, float radius, float curl, bool rightHand, bool axis, vec3* wristOut = nullptr);
 
 float smoothDamp(float cur, float target, float& vel, float smoothTime, float dt);
 

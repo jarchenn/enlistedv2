@@ -38,7 +38,7 @@ struct CharModel {
   GpuModel gpu;                             // shared index buffer, textures, parts (vao/vbo hold the bind pose)
   GLuint restSsbo = 0;
   vec3 bmin{0}, bmax{0};
-  bool load(const fs::path& glb, std::string& err, float height = 0);   // height > 0: scaled to it, feet at 0, centred
+  bool load(const fs::path& glb, std::string& err, float height = 0, bool body = true);   // height > 0: scaled to it, feet at 0, centred; body false: no humanoid joints required (FA1 first-person arms)
   void destroy();
   int joints() const { return (int)jointNode.size(); }
 };

@@ -134,7 +134,7 @@ bool initSkinning(std::string& err) {
   return true;
 }
 
-bool CharModel::load(const fs::path& path, std::string& err, float height) {
+bool CharModel::load(const fs::path& path, std::string& err, float height, bool body) {
   Glb g;
   if (!readGlb(path, g, err)) return false;
   id = path.stem().string();
@@ -165,7 +165,7 @@ bool CharModel::load(const fs::path& path, std::string& err, float height) {
   }
   for (int s = 0; s < CJ_COUNT; ++s) { semantic[s] = -1; for (int k = 0; k < nj; ++k) if (semanticKey(nodeName[jointNode[k]]) == kSemanticNames[s] || aliasKey(nodeName[jointNode[k]]) == kSemanticNames[s]) { semantic[s] = k; break; } }
   if (semantic[CJ_SPINE1] < 0) semantic[CJ_SPINE1] = semantic[CJ_SPINE2] >= 0 ? semantic[CJ_SPINE2] : semantic[CJ_SPINE];   // a two-bone spine (zombie)
-  for (int s : {CJ_HIPS, CJ_SPINE2, CJ_HEAD, CJ_LARM, CJ_LFOREARM, CJ_LHAND, CJ_RARM, CJ_RFOREARM, CJ_RHAND, CJ_LUPLEG, CJ_LLEG, CJ_LFOOT, CJ_RUPLEG, CJ_RLEG, CJ_RFOOT})
+  if (body) for (int s : {CJ_HIPS, CJ_SPINE2, CJ_HEAD, CJ_LARM, CJ_LFOREARM, CJ_LHAND, CJ_RARM, CJ_RFOREARM, CJ_RHAND, CJ_LUPLEG, CJ_LLEG, CJ_LFOOT, CJ_RUPLEG, CJ_RLEG, CJ_RFOOT})
     if (semantic[s] < 0) { err = std::string("skeleton has no ") + kSemanticNames[s] + " joint"; return false; }
   // ---- geometry: every mesh primitive (skinned: model space; unskinned: node world, bound to its nearest joint)
   std::vector<uint32_t> I;
