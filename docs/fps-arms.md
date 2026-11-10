@@ -25,8 +25,8 @@ The hand is real size: the palm 8.5 cm wide and about 9 cm from the wrist crease
 
 `content/settings/fps_arms.json` → `weapons` → `"<id>"` takes:
 
-- `gripZ`: measure the section that far along the weapon. Low-held guns (Kar 98k, MG 42, MP 40, FG 42, M1C) hold further forward, so the hand, the cuff and 15 cm of sleeve stay in view at the hip.
-- `grip` [x, y, z] and `section` [half width, half height]: override the measurement (the M2 carry, which has no mesh; the M3, held on the upper magazine housing and the receiver above it).
+- `gripZ`: measure the section that far along the weapon. Low-held guns (Kar 98k, MG 42, MP 40, FG 42, M1C, Panzerschreck) hold further forward, so the hand, the cuff and 15 cm of sleeve stay in view at the hip.
+- `grip` [x, y, z] and `section` [half width, half height]: override the measurement (the M2 carry, which has no mesh; the M3, held on the upper magazine housing and the receiver above it; the two flamethrowers, held on the tube just ahead of the rod under it, which the measurement would otherwise take for the section).
 
 **No mesh:** the socket and a 2.2 cm circle.
 
@@ -80,4 +80,4 @@ A flamethrower passes its tube's support grip and the tube radius twice.
 - in ADS the arm stays clear of the sight cone and visible for most weapons;
 - "Show arms" off and the scoped M1C draw no arm.
 
-`NMK_ARMS_SHOTS=1 --selftest-fps` captures hip / ADS / mid-reload shots of the Garand, Kar 98k, Thompson, MP 40, BAR, MG 42, bazooka and knife (`selftest_out/fa2_*`).
+`NMK_ARMS_SHOTS=1 --selftest-fps` captures hip / ADS / mid-reload shots of the Garand, Kar 98k, Thompson, MP 40, BAR, MG 42, bazooka, knife and M2 flamethrower (no reload: hip and ADS only; its hand holds the tube at its `leftSupport` socket, no flamethrower-specific code) (`selftest_out/fa2_*`).

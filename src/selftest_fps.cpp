@@ -24,7 +24,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
     app.useScripted = true;
     fseq.clear(); fcur = 0; ft = 0;
     if (std::getenv("NMK_ARMS_SHOTS")) {   // FA2: only the first-person arm shots (hip, ADS, mid-reload; selftest_out/fa2_*)
-      for (const char* id : {"m1_garand", "kar98k", "m1_thompson", "mp40", "m1918a2_bar", "mg42", "bazooka_m9", "knife_bayonet"}) {
+      for (const char* id : {"m1_garand", "kar98k", "m1_thompson", "mp40", "m1918a2_bar", "mg42", "bazooka_m9", "knife_bayonet", "m2_flamethrower"}) {
         std::string sid = id;
         push("arms " + sid, [this, sid](App& a, float t) {
           static bool shot = false;
