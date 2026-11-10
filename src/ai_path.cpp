@@ -106,7 +106,7 @@ void PathService::loop() {
       std::shared_lock<std::shared_mutex> rl(nav_->sharedLock());
       dtNavMesh* mesh = nav_->mesh();
       if (!mesh) break;
-      if (mesh != bound) { q->init(mesh, 8192); bound = mesh; }
+      if (mesh != bound) { q->init(mesh, 16384); bound = mesh; }   // whole routes across a 265 m map in one search
       uint32_t stamp = nav_->stamp();
       if (!mesh->isValidPolyRef(r.s) || !mesh->isValidPolyRef(r.e)) break;
       dtStatus st = q->initSlicedFindPath(r.s, r.e, &r.sp.x, &r.ep.x, r.f.get());
