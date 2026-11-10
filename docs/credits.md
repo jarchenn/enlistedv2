@@ -91,6 +91,15 @@ The photo texture sets in `content/textures/` (L4, `docs/textures.md`) come from
 - Each set's `meta.json` names its ambientCG asset and source URL (`https://ambientcg.com/a/<id>`).
 - Fetched with `tools/fetch_ambientcg.py` through the official API.
 
+## Grass plant atlas: Poly Haven (CC0)
+
+The pasture grass cards (GT1, `docs/grass-atlas.md`) draw plants from two **[Poly Haven](https://polyhaven.com)** atlases. Both are released under **CC0 1.0 Universal**; attribution is given anyway.
+
+- [grass_bermuda_01](https://polyhaven.com/a/grass_bermuda_01): color and alpha, 2K.
+- [grass_medium_01](https://polyhaven.com/a/grass_medium_01): color, color_dry and alpha, 1K. Only its five bottom clumps and three seed plumes are used.
+
+`tools/pack_grass_atlas.mjs` repacks them into `content/textures/grass_atlas/`: one 256 px layer per plant, dilated, with a JSON of cell rectangles and species. They are listed under `polyhaven` in `tools/texture_sets.json`.
+
 ## Building design references (CC-BY-4.0, not shipped)
 
 The GX4 exterior pass (`tools/exterior.mjs`, `docs/exterior-references.md`) rebuilt the game's own part-built houses toward these Sketchfab models. They were used only as **design references**: their silhouettes, proportions, roof pitches, window rhythm, trim and material zoning were measured from renders. No mesh, texture or other data from them is in the repository or in a build.

@@ -24,7 +24,7 @@ static std::map<std::string, LeafSpecies> gLeafSpecies;
 static json gLeafAssets;
 bool leafLibReady() { return gLeafTex != 0; }
 
-static void leafMips(GLuint tex, int layer, int S, int levels, std::vector<uint8_t> px) {
+void leafMips(GLuint tex, int layer, int S, int levels, std::vector<uint8_t> px) {
   int cov0 = 0; for (int k = 0; k < S * S; ++k) cov0 += px[k * 4 + 3] > 127;
   std::vector<float> raw(S * S); for (int k = 0; k < S * S; ++k) raw[k] = px[k * 4 + 3] / 255.0f;
   glTextureSubImage3D(tex, 0, 0, 0, layer, S, S, 1, GL_RGBA, GL_UNSIGNED_BYTE, px.data());

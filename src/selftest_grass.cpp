@@ -307,7 +307,8 @@ void SelfTest::grassUpdate(App& app, float dt) {
     if (g.bv != 2 && t > 0.8f && g.blk == -1 && g.pass != 100) { shotQueue.push_back(std::string("g1_") + views[g.bv] + "_" + tier); g.pass = 100; }
     if (t >= 1.0f) {
       int blk = std::min(9, (int)((t - 1.0f) / 0.4f));
-      if (blk != g.blk) { g.blk = blk; g.blkFrames = 0; app.R.perf.grassShadow = blk % 2 == 0; }
+      static const bool gaAB = std::getenv("NMK_GA_AB") != nullptr;   // GT1: alternate the grass plant atlas instead of the grass shadow (same-run A/B)
+      if (blk != g.blk) { g.blk = blk; g.blkFrames = 0; if (gaAB) app.R.perf.grassAtlas = blk % 2 == 0; else app.R.perf.grassShadow = blk % 2 == 0; }
       if (++g.blkFrames > 5) {   // the pass timers lag 2-3 frames
         G::Acc& a = g.acc[blk % 2];
         a.grass += app.R.gpuPassMs[GP_Grass]; a.shadow += app.R.gpuPassMs[GP_ShadowNear]; a.gpu += app.R.stats.gpuMs;
@@ -323,6 +324,8 @@ void SelfTest::grassUpdate(App& app, float dt) {
       s["grass_shadow_ms"] = on.shadow / n0 - off.shadow / n1; s["grass_total_ms"] = on.grass / n0 + on.shadow / n0 - off.shadow / n1;
       s["gpu_ms"] = on.gpu / n0; s["clumps"] = on.clumps / n0; s["cards"] = on.blades / n0; s["main_draws"] = on.chunks / n0;
       s["shadow_clumps"] = on.sclumps / n0; s["shadow_draws"] = on.sdraws / n0; s["frames"] = {on.n, off.n};
+      s["grass_main_off_ms"] = off.grass / n1; s["gpu_off_ms"] = off.gpu / n1;   // NMK_GA_AB: the blocks without the atlas
+      app.R.perf.grassAtlas = true;
       benchOut[views[g.bv]][tier] = s;
       check(true, fmt("%s %s: grass main %.3f + shadow %.3f ms (near cascade %.3f vs %.3f without grass), %.0f clumps, %.0f + %.0f draws",
                       views[g.bv], tier, on.grass / n0, on.shadow / n0 - off.shadow / n1, on.shadow / n0, off.shadow / n1, on.clumps / n0, on.chunks / n0, on.sdraws / n0));

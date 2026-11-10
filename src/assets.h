@@ -171,6 +171,8 @@ constexpr int kLeafUnit = 26;
 struct LeafMeshRange { int baseVertex = 0, firstIndex = 0, count = 0; };
 extern std::vector<LeafMeshRange> gLeafSprigMesh;   // [sprig * 3 + lod]
 bool leafLibReady();
+// coverage-preserving mips for one square RGBA8 layer (alpha scaled per level so the share over 0.5 stays; foliage.cpp)
+void leafMips(GLuint tex, int layer, int S, int levels, std::vector<uint8_t> px);
 // Buildable defence: tank trap / sandbags (builder.cpp, ballistics.cpp).
 struct DefenseSocket { vec3 p{0}, t{1, 0, 0}; };
 // path entity (paths.cpp): length / width per instance (extra.path), draped on the terrain

@@ -75,5 +75,9 @@
     {"set": "ground_burnt",         "id": "Ground051",           "family": "ground paint",       "size": [2.0, 2.0]},
     {"set": "pebbles_river",        "id": "Gravel008",           "family": "ground paint",       "size": [1.5, 1.5]},
     {"set": "marsh_bog",            "id": "Ground024",           "family": "ground paint",       "size": [2.0, 2.0]}
+  ],
+  "polyhaven": [
+    {"set": "grass_atlas", "id": "grass_bermuda_01", "source": "https://polyhaven.com/a/grass_bermuda_01", "license": "CC0 1.0 Universal", "family": "grass plant atlas (GT1)", "files": "color, alpha (2K)", "packed": "tools/pack_grass_atlas.mjs -> content/textures/grass_atlas/"},
+    {"set": "grass_atlas", "id": "grass_medium_01", "source": "https://polyhaven.com/a/grass_medium_01", "license": "CC0 1.0 Universal", "family": "grass plant atlas (GT1)", "files": "color, color_dry, alpha (1K): the five bottom clumps and three seed plumes", "packed": "tools/pack_grass_atlas.mjs -> content/textures/grass_atlas/"}
   ]
 }
