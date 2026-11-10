@@ -109,6 +109,13 @@ public:
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
     int taaPhases = 8;          // Halton (2,3) jitter phases (settings: High uses 16)
     int matLayer = 1;           // GX5 layered materials: 0 off (Low), 1 wear / grime / seams / detail, 2 + High extras
+    // P3 per-preset costs (settings.cpp apply, by shadowQuality / gi). Defaults = Medium; High: 40 m, 16, 2, 12 m
+    float shadowNearR = 32.0f;  // near sun cascade radius while walking (m)
+    int shadowTaps = 6;         // cap on the sun PCF taps per cascade lookup (the shaders ask for 4-8)
+    int farEvery = 4;           // the far cascade is redrawn every n-th frame (perf.farCache; or when its focus moves)
+    float leafShadowLodM = 8;   // R2 leaf shadow LOD: full cards inside this distance from the eye (near cascade)
+    int ssaoDiv = 4;            // SSAO resolution divisor when not full resolution
+    bool probeHalf = true;      // probe GI capture budget halved (Medium, near-probe GI)
   } q;
   // render targets set by the settings presets (settings.cpp, docs/settings.md). width / height are the internal
   // render size = display size x resolution scale; the final blit upscales to displayW x displayH.
@@ -175,6 +182,7 @@ public:
   int msaa() const { return msaaSamples; }
   bool msaaActive() const { return msFbo != 0; }   // the multisampled world target exists (complete)
   int shadowNearPx() const { return shadowSize; }
+  int shadowTier = 1;         // P3: the settings' shadowQuality the maps were sized for (Settings::capture reads it back)
   int shadowFarPx() const { return shadowFarSize; }
   float resolutionScale() const { return resScale; }
   bool ssaoFull() const { return aoDiv == 1; }
@@ -187,7 +195,7 @@ public:
   struct LightQ {
     float hour = 14.0f;         // time of day, 0..24 (14:00 = Day: exactly the pre-L2 sun, sky and exposure)
     int maxLights = 256;        // local lights uploaded per frame (nearest first)
-    int shadowLights = 4;       // nearest spot / point lights with a shadow map (0, 4, 8)
+    int shadowLights = 2;       // nearest spot / point lights with a shadow map (Low 0, Medium 2, High 8)
     int gi = 1;                 // probe GI: 0 off (the old fill term), 1 near volume, 2 near + far volumes, faster updates
     float emissive = 1.0f;      // global multiplier on material emission
     int probeBudget = 0;        // > 0: probes captured per frame (tests); 0 = the preset rate
@@ -216,7 +224,7 @@ private:
   void createTargets();
   void createMsaa(); void resolveMsaa();   // B1 MSAA world target (render.cpp)
   void createShadowTargets();
-  float resScale = 1.0f; int aoDiv = 2;
+  float resScale = 1.0f; int aoDiv = 4;   // P3: Medium AO at quarter resolution
   // fr: the pass's own frustum (src/frustum.h, docs/rendering.md#frustum-culling); null = draw everything (thumbnails,
   // model sheets, the first-person weapon). sortSurf: stable sort by building finish parameters (main opaque pass)
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr = nullptr, bool sortSurf = false);
@@ -274,5 +282,5 @@ private:
   bool thumbMode = false;
   float pxAngle = 0.001f;   // radians per framebuffer pixel of the current main view (thin-line widening)
   float time = 0;
-  int shadowSize = 4096, occSize = 2048;
+  int shadowSize = 2048, occSize = 2048;   // P3: Medium near cascade 2048
 };
