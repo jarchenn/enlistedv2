@@ -146,8 +146,9 @@ int blendSyncStamps(App& app) {
       LineData d; if (!lineGet(i, d)) continue;
       json prm = lineParams(*lineTypeOf(a), d);
       Piece p; p.id = i.id; p.line = true;
-      for (auto& q : lineSpline(d, 2.0f, prm.value("sharp", false))) { p.path.push_back(vec3(q.p.x, q.d, q.p.y)); p.u.push_back(q.u); }   // y: the depth scale for now
-      for (auto& c : d.pts) p.off.push_back(std::isnan(c.y) ? 0.0f : c.y - (T.groundBase(c.p.x, c.p.y) - sp.depth * c.d));   // a fixed floor, eased out over the span
+      float ds = std::clamp(prm.value("depth", sp.depth), 0.5f, 3.0f) / sp.depth;   // the player's depth for this line
+      for (auto& q : lineSpline(d, 2.0f, prm.value("sharp", false))) { p.path.push_back(vec3(q.p.x, q.d * ds, q.p.y)); p.u.push_back(q.u); }   // y: the depth scale for now
+      for (auto& c : d.pts) p.off.push_back(std::isnan(c.y) ? 0.0f : c.y - (T.groundBase(c.p.x, c.p.y) - sp.depth * c.d * ds));   // a fixed floor, eased out over the span
       std::string fs = prm.value("fire", std::string("left"));
       p.front = fs == "left" ? 1 : fs == "right" ? -1 : 0;
       p.ramps = prm.value("ramps", std::string("both"));

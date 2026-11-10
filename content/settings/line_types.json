@@ -8,10 +8,11 @@
       "builder": "trench",
       "spacing": 8,
       "params": {
-        "_doc": "fire: the parapet's low fire side (left | right | none, along the drawing direction); ramps: entry ramps at the line's ends (both | start | end | none; an end that joins another line never gets one); traverse: a dogleg every N m (0 = none)",
+        "_doc": "depth: how deep the trench is dug, in metres (0.5 to 3); fire: the parapet's low fire side (left | right | none, along the drawing direction); ramps: entry ramps at the line's ends (both | start | end | none; an end that joins another line never gets one); traverse: a dogleg every N m (0 = none)",
         "fire": "left",
         "ramps": "both",
-        "traverse": 0
+        "traverse": 0,
+        "depth": 1.62
       }
     },
     {
