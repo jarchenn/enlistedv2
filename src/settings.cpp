@@ -276,9 +276,10 @@ bool settingsMenuItem() {
 void settingsWindow(App& app) {
   Settings& S = settings();
   static bool wasOpen = false, pendingSave = false;
+  static UserSettings applied;   // what is in effect: edits wait for Apply, closing without it drops them
   if (S.open && app.mode == Mode::Explore && !app.pauseMenu && !app.showLoadout) S.open = false;   // back in play: the cursor is captured
-  if (!S.open) { S.rebinding.clear(); if (wasOpen || pendingSave) S.save(); wasOpen = pendingSave = false; return; }
-  if (!wasOpen) S.capture(app);   // on opening: the editor View menu / Loadout may have changed something
+  if (!S.open) { S.rebinding.clear(); if (wasOpen) S.s = applied; if (wasOpen || pendingSave) S.save(); wasOpen = pendingSave = false; return; }
+  if (!wasOpen) { S.capture(app); applied = S.s; }   // on opening: the editor View menu / Loadout may have changed something
   wasOpen = true;
   UserSettings& u = S.s;
   const UserSettings before = u;
@@ -416,17 +417,23 @@ void settingsWindow(App& app) {
     ImGui::EndTabBar();
   }
   ImGui::Separator();
-  if (ImGui::Button("Defaults (Medium)")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; applyNow = true; }
+  const bool dirty = !(u == applied);
+  if (ImGui::Button("Defaults (Medium)")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; }
+  ImGui::SameLine();
+  ImGui::BeginDisabled(!dirty);
+  if (ImGui::Button("Apply")) applyNow = true;
+  ImGui::EndDisabled();
   ImGui::SameLine();
   if (ImGui::Button("Close")) S.open = false;
   ImGui::SameLine();
-  ImGui::TextDisabled(S.persist ? "saved to settings_user.json" : "self-test: not saved");
+  ImGui::TextDisabled(dirty ? "changes not applied yet" : S.persist ? "saved to settings_user.json" : "self-test: not saved");
   ImGui::End();
-  // apply: immediately for everything except the two sliders that rebuild targets / the UI (on release)
-  UserSettings cmp = u; cmp.gfx.resScale = before.gfx.resScale; cmp.uiScale = before.uiScale;
-  if (!(cmp == before)) applyNow = true;
-  if (u.keys != before.keys) { app.loadBindings(); saveNow = true; }   // re-reads bindings.json, then the overrides (settingsApplyKeys)
-  if (applyNow) { S.apply(app); saveNow = true; }
+  (void)before;
+  // apply: only on the Apply button; closing the window without it drops the edits
+  if (applyNow) {
+    if (u.keys != applied.keys) app.loadBindings();   // re-reads bindings.json, then the overrides (settingsApplyKeys)
+    S.apply(app); applied = u; saveNow = true;
+  }
   pendingSave = pendingSave || saveNow;
   if (pendingSave && !ImGui::IsAnyItemActive()) { S.save(); pendingSave = false; }   // not every frame of a slider drag
 }

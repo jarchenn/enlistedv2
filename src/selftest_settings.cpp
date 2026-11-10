@@ -62,7 +62,8 @@ bool settingsSelfTest(App& app, float dt) {
     T->check(!S.persist, "self-test run: the user's settings_user.json is neither read nor written");
     T->check(presetOpts(GfxPreset::Medium) == GraphicsOpts{} && UserSettings{}.preset() == GfxPreset::Medium, "the Medium preset is exactly the built-in defaults");
     UserSettings cap; Settings tmp; tmp.capture(app); cap = tmp.s;
-    T->check(cap.gfx == presetOpts(GfxPreset::Medium), "a fresh game (nothing applied) captures as Medium");
+    { GraphicsOpts m = presetOpts(GfxPreset::Medium); m.resScale = 1.0f;   // P1: the renderer starts native; Medium's 0.67 arrives when settings apply
+      T->check(cap.gfx == m, "a fresh game (nothing applied) captures as Medium at native resolution"); }
     checkMediumIsDefault(app, "start-up");
     T->check(std::fabs(S.lookDegPerCount(0) - 0.1f) < 1e-6f && S.pitchSign() == 1.0f && S.fov() == 72.0f, "defaults: 0.1 deg per count, Y not inverted, FOV 72");
     // presets
@@ -152,7 +153,7 @@ bool settingsSelfTest(App& app, float dt) {
       const Renderer& R = app.R;
       if (p == GfxPreset::Low)
         T->check(R.shadowNearPx() == 1024 && R.shadowFarPx() == 1024 && R.q.farEvery == 8 && R.q.shadowTaps == 4 && !R.q.bloom && !R.q.ssao && !R.q.ssr && !R.q.shafts && !R.q.cloudShadows && app.grass.quality == GrassQuality::Low &&
-                 R.width == (int)std::lround(R.displayW * 0.85) && app.fx.maxParts == 540 && S.renderDist() == 450.0f && R.lt.gi == 0 && R.lt.shadowLights == 0,
+                 R.width == (int)std::lround(R.displayW * 0.5) && app.fx.maxParts == 540 && S.renderDist() == 450.0f && R.lt.gi == 0 && R.lt.shadowLights == 0,
                  fmt("Low applied live: shadows 1024 / 1024 (far every 8th frame, 4 taps), effects and bloom off, grass Low, render %d x %d upscaled to %d x %d, %zu particles", R.width, R.height, R.displayW, R.displayH, app.fx.maxParts));
       if (p == GfxPreset::Medium) checkMediumIsDefault(app, "Medium applied after Low");
       if (p == GfxPreset::High)
