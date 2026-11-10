@@ -97,6 +97,15 @@ public:
   void beginFrame() { ++visFrame_; roomHidden = roomTested = propDistCulled = 0; }   // App::buildDrawLists
   int roomHidden = 0, roomTested = 0, propDistCulled = 0;   // this frame (tests / reports)
   float lodDist = 18.0f, cullBig = 75.0f, cullSmall = 32.0f;
+  // P2 furniture rules. Furniture and interior props take no damage: rounds and blasts change nothing (ballistics still
+  // stop at / pass through a piece as before); a piece whose floor or wall is destroyed, or that a tank drives over, is
+  // removed (PropRT::gone). Tests of the old break machinery turn furnDestructible on.
+  bool furnDestructible = false; int removed = 0;
+  bool fixedPiece(const Instance& i) const { return !furnDestructible && isFurnishPiece(i); }   // room-template furniture; hand-placed props (street lamps, crates outdoors) stay destructible
+  // furndist (Renderer::Perf): this frame's distances for small pieces / large silhouettes (updateBatches): per preset
+  // (Low 24 / 50, Medium and High 32 / 75 as before), x the zoom; a building's batch switches tier with hysteresis
+  float curSmall = 32.0f, curBig = 75.0f;
+  bool clutterHidden(const Instance& i, const PropDef& pd, const AssetDef* a) const;
   int batchDraws = 0, batchedPieces = 0, batchRebuilds = 0, soloDraws = 0, culledPieces = 0, batchPasses = 0, syncPasses = 0; size_t batchVerts = 0;
   // ---- damage (session overlay)
   int bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::string& surface);   // 0 not a prop, 1 stops the round, 2 penetrable
@@ -121,7 +130,7 @@ public:
   void sync(App& app);                                 // Creative: generated pieces follow / leave with their host
   void editorPanel(App& app, Instance& s);
   // ---- state
-  struct PropRT { bool broken = false, glassBroken = false, applied = false, crushed = false; float hits = 0; };
+  struct PropRT { bool broken = false, glassBroken = false, applied = false, crushed = false, gone = false, lightOut = false; float hits = 0; };   // lightOut: a fixed room lamp shot out (dark, mesh unchanged)   // gone: removed (lost its support / crushed) while furniture is not destructible
   std::map<uint64_t, PropRT> st;
   struct Frag { uint64_t inst = 0; const GpuMesh* mesh = nullptr; uint32_t body = 0xffffffffu; mat4 m{1}; float age = 0; bool frozen = false; };
   std::deque<Frag> frags;
@@ -152,7 +161,8 @@ private:
   std::unordered_map<uint64_t, HostVis> hostVis_;
   std::unordered_map<uint64_t, std::pair<uint32_t, uint64_t>> hostOf_;   // piece -> (rev, host)
   uint32_t visFrame_ = 1;
-  struct Batch { GpuMesh lop, slop; uint64_t sig = 0; std::vector<uint64_t> members; vec3 c{0}; float r = 0; bool built = false; size_t verts = 0; };
+  bool lowClutter_ = false;
+  struct Batch { uint8_t tier = 2; GpuMesh lop, slop; uint64_t sig = 0; std::vector<uint64_t> members; vec3 c{0}; float r = 0; bool built = false; size_t verts = 0; };
   std::map<uint64_t, Batch> batches_;                       // by host
   std::map<uint64_t, uint64_t> member_;                     // piece -> host while it is drawn by the batch
   struct CpuMesh { MeshData lod; bool small = false; };

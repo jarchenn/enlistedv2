@@ -1,7 +1,13 @@
 // --selftest-weapons: Milestone 4 — eight weapon entries, ammunition accounting, sights, recoil, crates.
 #include "selftest.h"
 #include <GLFW/glfw3.h>
+#include "settings.h"
+#include "game.h"
+#include "mpui.h"
+#include "ai_core.h"
+#include "scenario.h"
 #include <functional>
+#include <cstdlib>
 
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
@@ -28,6 +34,30 @@ std::function<bool(App&, float)> fireN(int n, float timeout = 20) {
     return t > timeout;
   };
 }
+// FT1: a Solo match on the village (the player + one AI, a soldier or a zombie) for the flame damage tests
+bool flameMatch(App& a, AiType ai) {
+  if (a.mode == Mode::Explore) a.exitExplore();
+  a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
+  Scenario sc = Scenario::fromJson(a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object());
+  sc.rules.mode = GameMode::Solo; sc.rules.killCap = 999; sc.rules.soloPlayers = 2; sc.rules.respawnDelay = 2.0f; sc.rules.aiType[0] = ai;
+  gUi.loaded = false; gUi.matchScenario = sc.toJson();
+  if (!gGame) gGame = new Game(a);
+  gGame->pendingStart = true; a.doc.start = {true, vec3(0, 0, 30), 180};
+  bool ok = a.enterExplore() && gGame->active;
+  a.useScripted = true; a.scriptedInput = ExploreInput{};
+  return ok;
+}
+bool flameOpenPoint(Game& G, vec3 from, float dist, vec3& out) {
+  for (int k = 0; k < 24; ++k) {
+    float an = k * 0.2618f; vec3 p = from + vec3(std::cos(an), 0, std::sin(an)) * dist; NavRef r; vec3 on;
+    if (!G.nav.closest(p, 2.0f, r, on) || glm::length(vec2(on.x - p.x, on.z - p.z)) > 1.0f || std::fabs(on.y - from.y) > 2.0f) continue;
+    if (!G.lineOfSight(from + vec3(0, 1.4f, 0), on + vec3(0, 1.4f, 0))) continue;
+    out = on; return true;
+  }
+  return false;
+}
+void flamePlace(Soldier& s, vec3 p) { if (s.localPlayer) Physics::setCharacterPos(p); else if (s.agent >= 0) Physics::setAgentPos(s.agent, p); s.feet = p; s.vel = vec3(0); }
+Soldier* flameOther(Game& G) { for (auto& s : G.sold) if (!s.human && s.alive) return &s; return nullptr; }
 std::function<bool(App&, float)> wait(float s) { return [s](App& a, float t) { a.scriptedInput = ExploreInput{}; return t >= s; }; }
 }
 
@@ -418,12 +448,150 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       check(s->reserve == 110 && a.crateStock[K]["50bmg_belt"] == 5,
             std::string(rifleFirst ? "after the rifle refill, " : "") + ".50 belt from the crate goes to the M2HB reserve only (" + m + ")");
       return true; });
+    // ---- FT1 flamethrower (docs/flamethrower.md): data, ADS, fuel, reach, wall; NMK_FT1_SHOTS=1 also queues the look shots
+    push("flame data", [this](App& a, float) {
+      int us = a.weaponIndex("m2_flamethrower"), de = a.weaponIndex("flammenwerfer41");
+      check(us >= 0 && de >= 0 && a.weaponDefs[us]->side == "US" && a.weaponDefs[de]->side == "DE" && a.weaponDefs[us]->name == "M2 flamethrower" && a.weaponDefs[de]->name == "Flammenwerfer 41",
+            "both sides have a flamethrower: M2 flamethrower (US) and Flammenwerfer 41 (DE)");
+      const WeaponDef& d = *a.weaponDefs[us];
+      check(d.flame.on && d.action == "flame" && d.useModel() && d.model->tris < 12000 && d.cap == 100 && S(a, "m2_flamethrower").loaded == 100 && std::string(a.fireModeName(d, S(a, "m2_flamethrower"))) == "FLAME",
+            "the flame gun: imported model (" + std::to_string(d.model ? d.model->tris : 0) + " tris, no tanks or hose), tank 100 %, fire mode text Flame");
+      a.selectWeapon(us);
+      return true; });
+    push("flame ads", [this](App& a, float t) {
+      const WeaponDef& d = D(a); auto& s = S(a, "m2_flamethrower");
+      a.scriptedInput.aim = true;
+      if (t < 1.0f) return false;
+      float fov = 0; bool cam = a.weaponCamera(fov);
+      float hip = settings().fov(), want = hip * (1.0f - d.adsZoom);
+      float adsAt1 = a.adsT; vec3 pose1 = a.vmTarget(d); a.adsT = 0; vec3 pose0 = a.vmTarget(d); a.adsT = adsAt1;
+      char b[200]; std::snprintf(b, sizeof b, "flamethrower ADS: world FOV %.1f -> %.1f deg (-%.0f %%), the weapon pose moves %.4f m, vm FOV unchanged", hip, fov, 100.0f * (1 - fov / hip), glm::length(pose1 - pose0));
+      check(cam && std::fabs(fov - want) < 0.3f && std::fabs(d.adsZoom - 0.12f) < 1e-4f && glm::length(pose1 - pose0) < 1e-4f && a.vmFovNow() == a.vm.vmFov, b);
+      (void)s; a.scriptedInput = ExploreInput{};
+      return true; });
+    if (std::getenv("NMK_FT1_SHOTS")) {
+      push("flame shot hip idle", [this](App& a, float t) { face(a, vec3(0, 1.4f, 40)); if (t == 0) a.adsT = 0; if (t > 1.0f) { shotQueue.push_back("ft1_hip_idle"); return true; } return false; });
+      push("flame shot hip fire", [this](App& a, float t) { face(a, vec3(0, 1.4f, 40)); a.scriptedInput.fire = true; if (t > 0.9f) { shotQueue.push_back("ft1_hip_fire"); return true; } return false; });
+      push("flame shot ads fire", [this](App& a, float t) { face(a, vec3(0, 1.4f, 40)); a.scriptedInput.fire = true; a.scriptedInput.aim = true; if (t > 1.4f) { shotQueue.push_back("ft1_ads_fire"); a.scriptedInput = ExploreInput{}; return true; } return false; });
+      push("flame shot settle", [this](App& a, float t) { a.scriptedInput = ExploreInput{}; S(a, "m2_flamethrower").loaded = 100; return t > 2.5f; });
+    }
+    push("flame fuel", [this](App& a, float t) {
+      static float tEmpty; static int emitted0;
+      auto& s = S(a, "m2_flamethrower");
+      if (t == 0) { s.loaded = 100; s.flameFrac = 0; tEmpty = -1; a.flame.clear(&a); a.scriptedInput = ExploreInput{}; }
+      face(a, vec3(0, 1.6f, 40));
+      a.scriptedInput.fire = true;
+      if (s.loaded <= 0 && tEmpty < 0) { tEmpty = t; emitted0 = a.flame.emitted; }
+      if (tEmpty >= 0 && t < tEmpty + 1.0f) return false;
+      if (tEmpty < 0) return t > 40;
+      char b[200]; std::snprintf(b, sizeof b, "fuel: 100 %% lasts %.1f s of continuous fire (about 20 s), then the stream stops (%d parcels after empty, %d emitted)", tEmpty, a.flame.emitted - emitted0, a.flame.emitted);
+      check(tEmpty > 18.5f && tEmpty < 21.5f && a.flame.emitted == emitted0 && a.flame.emitted > 400, b);
+      a.scriptedInput = ExploreInput{};
+      return true; });
+    push("flame reach", [this](App& a, float t) {
+      auto& s = S(a, "m2_flamethrower");
+      if (t == 0) { s.loaded = 100; a.flame.clear(&a); }
+      a.eyeYaw = 180; a.eyePitch = 3;   // open ground behind the start: nothing within 30 m
+      a.scriptedInput.fire = true;
+      if (t < 2.0f) return false;
+      a.scriptedInput = ExploreInput{};
+      float r = a.flame.farthest;
+      char b[160]; std::snprintf(b, sizeof b, "the stream reaches %.1f m (20 m yes, 30 m no): %d parcels", r, a.flame.emitted);
+      check(r >= 20.0f && r < 25.0f, b);
+      return true; });
+    push("flame wall", [this](App& a, float t) {
+      static float dWall;
+      auto& s = S(a, "m2_flamethrower");
+      if (t == 0) {   // 12 m from the farmhouse wall
+        Instance* f = a.doc.find(F); Physics::Hit h; vec3 from(0, a.terrain.height(0, 0) + 1.6f, 0);
+        face(a, vec3(f->pos.x, f->pos.y + 1.6f, f->pos.z + 4.5f));
+        Physics::castRayEx(from, App::forward(a.eyeYaw, 0), 80, h); dWall = h.t;
+        vec3 at = from + App::forward(a.eyeYaw, 0) * (h.t - 12.0f); Physics::setCharacterPos(vec3(at.x, a.terrain.height(at.x, at.z), at.z));
+        s.loaded = 100; a.flame.clear(&a);
+        return false;
+      }
+      a.eyePitch = 0;
+      a.scriptedInput.fire = true;
+      if (t < 2.0f) return false;
+      a.scriptedInput = ExploreInput{};
+      float r = a.flame.farthest;
+      char b[200]; std::snprintf(b, sizeof b, "a wall blocks the stream: the wall is 12 m away, the farthest parcel got %.1f m (%d stopped on it)", r, a.flame.wallStops);
+      check(r > 10.0f && r < 12.7f && a.flame.wallStops > 20, b);
+      return true; });
     push("reset", [this](App& a, float) {
       a.exitExplore();
       check(S(a, "m1_garand").loaded == 8 && total(a, "m1_garand") == 80 && a.station(M2)->loaded == 110 && a.crateStock[K]["30-06_clip"] == 30, "return to Creative resets weapons, the M2HB and crate stock (test consumption not persisted)");
       return true; });
+    // ---- FT1 in a match: the stream burns a soldier and a zombie, the burn outlasts the stream and ends; a bot carrying one closes in and fires bursts
+    for (int zombie = 0; zombie < 2; ++zombie) {
+      push(zombie ? "flame burn zombie" : "flame burn soldier", [this, zombie](App& a, float t) {
+        static int ph; static float t0, hpAfter, hpLate; static int ti; static vec3 tp;
+        if (t == 0) { ph = 0; ti = -1; check(flameMatch(a, zombie ? AiType::Zombies : AiType::Soldiers) && gGame->active, std::string("Solo match: the player and one ") + (zombie ? "zombie" : "soldier")); return false; }
+        Game& G = *gGame; Soldier* L = G.local();
+        if (L && L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
+        if (ph == 0) {
+          if (t < 1.5f || !L || !L->alive || !flameOther(G)) return t > 25;
+          Soldier* o = flameOther(G); ti = o->slot; if (!flameOpenPoint(G, L->feet, 9.0f, tp)) { check(false, "an open point 9 m from the player"); return true; }
+          if (aiCore()) aiCore()->frozen = true;
+          flamePlace(*o, tp); o->protectUntil = -1; o->hp = 100;
+          a.selectWeapon(a.weaponIndex("m2_flamethrower")); S(a, "m2_flamethrower").loaded = 100;
+          ph = 1; t0 = t; return false;
+        }
+        Soldier& o = G.sold[ti];
+        vec3 c = G.chest(o); vec3 e = a.eyePos();
+        a.eyeYaw = degrees(std::atan2(-(c.x - e.x), -(c.z - e.z))); a.eyePitch = degrees(std::atan2(c.y - e.y, glm::length(vec2(c.x - e.x, c.z - e.z)))) + 1.0f;
+        a.scriptedInput.fire = ph == 1 && t - t0 < 0.3f;   // a 0.3 s burst
+        if (ph == 1 && t - t0 > 1.2f) { hpAfter = o.hp; check(o.hp < 100.0f && o.burnT > 0.5f && o.alive, "the stream burns a " + std::string(zombie ? "zombie" : "soldier") + ": " + std::to_string((int)o.hp) + " hp left and " + std::to_string(o.burnT).substr(0, 3) + " s of burn to go"); ph = 2; t0 = t; return false; }
+        if (ph == 2 && t - t0 > 1.5f) { hpLate = o.hp; check(hpLate < hpAfter - 8.0f && o.alive, "the burn keeps damaging after it left the stream: " + std::to_string((int)hpAfter) + " -> " + std::to_string((int)hpLate) + " hp with the trigger released"); ph = 3; t0 = t; return false; }
+        if (ph == 3 && t - t0 > 2.0f) {   // the burn is over (3 s): no more damage
+          float h0 = o.hp; ph = 4; t0 = t; hpAfter = h0; return false;
+        }
+        if (ph == 4 && t - t0 > 1.0f) { check(std::fabs(o.hp - hpAfter) < 1.0f && o.burnT <= 0.0f, "the burn ends after about 3 s (hp steady at " + std::to_string((int)o.hp) + ")"); a.scriptedInput = ExploreInput{}; return true; }
+        return t > 40;
+      });
+    }
+    push("flame bot", [this](App& a, float t) {   // a bot with the flame gun closes inside ~18 m and fires a burst; third-person look
+      static int ph; static float t0, d0; static int bi; static vec3 fwd;
+      if (t == 0) { ph = 0; d0 = -1; check(flameMatch(a, AiType::Soldiers) && gGame->active, "Solo match: the player and a soldier carrying the flame gun"); return false; }
+      Game& G = *gGame; Soldier* L = G.local();
+      if (L && L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
+      if (ph == 0) {
+        Soldier* b = flameOther(G);
+        if (t < 1.5f || !L || !L->alive || !b) return t > 25;
+        bi = b->slot; vec3 p; if (!flameOpenPoint(G, L->feet, 30.0f, p)) { check(false, "an open point 30 m from the player"); return true; }
+        flamePlace(*b, p); b->protectUntil = -1;
+        b->weapon = a.weaponIndex(b->faction == Faction::Allies ? "m2_flamethrower" : "flammenwerfer41"); b->ws = WeaponState{}; b->ws.loaded = 100; b->ws.seed = 7;
+        a.scriptedInput = ExploreInput{}; ph = 1; t0 = t; return false;
+      }
+      Soldier& b = G.sold[bi];
+      vec3 c = G.chest(b), e = a.eyePos();
+      a.eyeYaw = degrees(std::atan2(-(c.x - e.x), -(c.z - e.z))); a.eyePitch = degrees(std::atan2(c.y - e.y, glm::length(vec2(c.x - e.x, c.z - e.z))));
+      if (ph == 1) {
+        if (a.flame.open(b.slot) && d0 < 0) { d0 = glm::length(vec2(b.feet.x - L->feet.x, b.feet.z - L->feet.z)); t0 = t; if (std::getenv("NMK_FT1_SHOTS")) { ph = 2; if (aiCore()) aiCore()->frozen = true; fwd = glm::normalize(vec3(L->feet.x - b.feet.x, 0, L->feet.z - b.feet.z)); } else ph = 3; }
+        return t > 60 ? (check(false, "the bot never opened its flame gun within 60 s"), true) : false;
+      }
+      if (ph == 2) {   // the bot (AI frozen) sprays along `fwd`; the player stands 5 m to its right, 3 m behind its nozzle
+        vec3 right = glm::normalize(glm::cross(fwd, vec3(0, 1, 0)));
+        if (t - t0 > 0.05f && t - t0 < 0.1f) { vec3 p = b.feet - fwd * 3.0f + right * 5.0f; flamePlace(*L, vec3(p.x, G.nav.valid() ? p.y : b.feet.y, p.z)); }
+        b.br.aimYaw = degrees(std::atan2(-fwd.x, -fwd.z)); b.yaw = b.br.aimYaw; b.br.aimPitch = 0; b.ws.loaded = std::max(b.ws.loaded, 60);
+        G.soldierFlame(b, fwd + vec3(0, 0.03f, 0), 1.0f / 60);
+        vec3 c2 = G.chest(b) + fwd * 1.5f, e2 = a.eyePos();
+        a.eyeYaw = degrees(std::atan2(-(c2.x - e2.x), -(c2.z - e2.z))); a.eyePitch = degrees(std::atan2(c2.y - e2.y, glm::length(vec2(c2.x - e2.x, c2.z - e2.z))));
+        if (t - t0 > 0.9f) { shotQueue.push_back("ft1_third_person"); ph = 3; t0 = t; }
+        return false;
+      }
+      if (ph == 3 && t - t0 > 0.8f) {
+        char bs[200]; std::snprintf(bs, sizeof bs, "the bot closed to %.1f m before it opened fire (reach 18 m), spent %d %% of its fuel in the burst, %d parcels", d0, 100 - b.ws.loaded, a.flame.emitted);
+        check(d0 > 0 && d0 < 19.5f && b.ws.loaded < 100, bs);
+        if (aiCore()) aiCore()->frozen = false;
+        return true;
+      }
+      return false;
+    });
+    push("flame match end", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
   }
   stage = 701;
+  if (std::getenv("NMK_FT1_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("flame", 0) != 0; }), wseq.end());   // dev: just the flamethrower steps
   if (wcur >= wseq.size()) { finish(app); return; }
   if (wt == 0) logf("[selftest] step: %s", wseq[wcur].name.c_str());
   bool d2 = wseq[wcur].fn(app, wt);

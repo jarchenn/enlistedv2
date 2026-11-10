@@ -222,6 +222,7 @@ void App::fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, 
 }
 
 void App::stepProjectiles(float dt) {
+  flame.step(*this, dt);   // FT1: the flame stream, ground fire (flame.cpp)
   const int sub = 2;
   float h = dt / sub;
   for (int sI = 0; sI < sub; ++sI)

@@ -415,14 +415,14 @@ layout(location=7) in vec4 aInst;  // PF2 HLOD cells: per-vertex building seed /
 layout(location=8) in vec3 aLp; layout(location=9) in vec3 aLn;   // PF2 HLOD cells: the asset-local position / normal (patterns)
 uniform mat4 uModel, uVP; uniform vec4 uSnapAp;   // V6: w = 1 for snap chains, xz = the chain's texture origin
 uniform vec4 uInst;
-out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV;
+out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV; flat out vec3 vPcF;   // MA1b: a box-face corner (edge wear)
 invariant gl_Position;   // R1 zprepass: kDepthVS computes the same depth
 void main(){
   vInstV = aInst.w > 1.5 ? vec4(aInst.xyz, 0.0) : uInst;
   vec4 w = uModel*vec4(aPos,1.0);
-  vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi; vEye = uCamPos;
+  vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi; vPcF = aPc; vEye = uCamPos;
   if (uSnapAp.w > 0.5) { vAp = vec3(w.x - uSnapAp.x, aPos.y, w.z - uSnapAp.z); vAn = vN; }   // V6: patterns continue across snapped joints
-  if (aInst.w > 1.5) { vAp = aLp; vAn = aLn; }   // PF2 HLOD: world-space vertices, the copy's own pattern space
+  if (aInst.w > 1.2) { vAp = aLp; vAn = aLn; }   // PF2 HLOD (w = 2): world-space vertices, the copy's own pattern space; P2 merged leaves (w = 1.3): leaf-local
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -2967,7 +2967,22 @@ void main(){ vC = aCol; vUV = aUV; gl_Position = uVP*vec4(aPos,1.0); }
 static const char* kFxFS = R"GLSL(
 #version 450 core
 in vec4 vC; in vec2 vUV; uniform int uAdd; out vec4 o;
+float fxH(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
+float fxN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
+  return mix(mix(fxH(i), fxH(i + vec2(1,0)), f.x), mix(fxH(i + vec2(0,1)), fxH(i + vec2(1,1)), f.x), f.y); }
 void main(){
+  if (uAdd == 1 && vC.a > 50.0) {   // FT1 flame sprite: alpha carries 100 + id + age; a noise-eroded, rotated body, hot core
+    float id = floor(vC.a - 100.0), u = fract(vC.a - 100.0);
+    vec2 p = vUV*2.0 - 1.0; float ang = id*2.399, cs = cos(ang), sn = sin(ang);
+    p = vec2(cs*p.x - sn*p.y, sn*p.x + cs*p.y);
+    float d = length(p);
+    float n = fxN(p*2.6 + id*1.7)*0.6 + fxN(p*5.2 - id*0.9 + u*2.0)*0.4;
+    float body = 1.0 - d + (n - 0.5)*(0.9 + 0.8*u);
+    float a = smoothstep(0.05, 0.55, body)*smoothstep(1.0, 0.72, d);   // never to the quad edge
+    float core = pow(clamp(1.0 - d, 0.0, 1.0), 1.5);
+    o = vec4(vC.rgb*a*(0.5 + 1.2*core), 1.0);
+    return;
+  }
   float d = length(vUV*2.0-1.0);
   float a = smoothstep(1.0, 0.15, d);
   if (uAdd == 1) o = vec4(vC.rgb*a, 1.0);
@@ -3448,6 +3463,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
       vec3 c = vec3(it.model * vec4((it.mesh->bmin + it.mesh->bmax) * 0.5f, 1.0f)) - castEye;
       if (glm::dot(c, c) > it.castR * it.castR) { stats.casterCulled++; continue; }
     }
+    if (shadowPass && farPass && it.noFarCast) { stats.casterCulled++; continue; }   // P2 furndist
     if (!shadowPass && it.mainHidden) { stats.roomCulled++; continue; }   // R2 roomcull (only ever set for the camera pass's lists)
     if (depthSurfOnly && !it.surf) continue;
     drawIdx.push_back(k);
@@ -3934,7 +3950,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const vec3 ffw = v.camPos + vec3(fwd.x, 0, fwd.z) * fR * 0.6f;
   const bool farRedo = !perf.farCache || frame - farFrame >= std::max(1, q.farEvery) || fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
   if (!q.legacy && q.farCascade && !thumbMode && farRedo) {
-    farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir;
+    farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir; farPass = true;
     vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
     minCaster = perf.smallCasters ? 2.0f * (2 * farR / shadowFarSize) : 0.0f;   // PF2: casters under ~1 texel
@@ -3950,7 +3966,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
     minCaster = 0;
   }
-  castCull = false; stats.shadowDraws = stats.draws - shDraws0;
+  castCull = false; farPass = false; stats.shadowDraws = stats.draws - shDraws0;
   gpuMark(GP_SkyOcc);
   // ---- sky occlusion (top down). PF2 occcache: redrawn every 16 frames, or at once when the camera moves 4 m across
   // or 8 m up / down (the map covers +-90 m, so the camera stays >= 86 m inside it); thumbnails always redraw.
@@ -3971,14 +3987,14 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glViewport(0, 0, occSize, occSize);
   glClear(GL_DEPTH_BUFFER_BIT);
   glUseProgram(progShadow);
-  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP)); depthVP = occVP; depthVPSet = true;
+  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP)); depthVP = occVP; depthVPSet = true; farPass = true;
   Frustum frOcc = Frustum::fromVP(occVP);
   minCaster = perf.smallCasters ? std::max(0.3f, 2.0f * (2 * occR / occSize)) : 0.0f;   // PF2: props too small to shade the sky
   drawItems(progShadow, opaque, true, &frOcc);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP, &frOcc, false, perf.leafShadowLod ? 0.0f : -1.0f);
   glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frOcc);
-  minCaster = 0;
+  minCaster = 0; farPass = false;
   }
   glDisable(GL_POLYGON_OFFSET_FILL);
   lightingPrepass(*this, v, opaque, t);   // L2: light upload, light shadow atlas, probe captures, froxel clusters (standard Z)
@@ -4045,6 +4061,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
   tex::setImgMat(perf.imgMat);   // MA1: the image-material slot table (re-uploads only when it flips)
   glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
+  glUniform1i(U(progMain, "uRelief"), thumbMode || q.legacy || !perf.relief || !perf.matLayer || q.matLayer == 0 ? 0 : 1);   // MA1b: Medium and up
   uploadStaticDecals();
   { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), gxDebug ? gxDebug : dbg); }
   glUniform1i(U(progMain, "uSDecOn"), thumbMode || q.legacy || q.matLayer == 0 || !perf.staticDecals || !sdecBuf || sdec.empty() ? 0 : 1);

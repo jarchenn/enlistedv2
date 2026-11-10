@@ -11,6 +11,7 @@
 #include "tank.h"
 #include "interior.h"   // walls, interiors and furniture (docs/interiors.md)
 #include "swim.h"       // swimming state (swim.cpp)
+#include "flame.h"      // flamethrower stream, burning, ground fire (flame.cpp)
 
 struct GLFWwindow;
 
@@ -376,6 +377,7 @@ public:
   json treeApplyState(const Instance& i, const InstanceRT& r) const;
   // ---- combat (station.cpp / fx.cpp / weapons.cpp)
   Fx fx;
+  FlameSys flame;   // FT1
   Grass grass;
   double grassBudgetMs = 2.5;        // per-frame chunk build budget (< 0: build synchronously)
   std::vector<GrassFootprint> grassFootprints() const;
@@ -412,6 +414,8 @@ public:
   // personal weapons (weapons.cpp)
   void resetWeapons();
   void stepWeapons(float dt, const ExploreInput& in);
+  void stepFlameLocal(float dt, const ExploreInput& in, const WeaponDef& d, WeaponState& s, bool fireHeld);   // FT1 (weapons.cpp)
+  float flameNetT = 0;   // FT1: LAN client: time since the last flame request
   void settleRecoil(WeaponState& s);   // fold a finished burst's recoil into the aim (no automatic return)
   void drawWeaponUI();
   void weaponDrawItems(std::vector<DrawItem>& op);
@@ -490,7 +494,8 @@ public:
   // on-screen scale with 15 % hysteresis (updates r.lod). `full` is the asset's opaque or no-furniture mesh.
   const GpuMesh& assetLodMesh(InstanceRT& r, const AssetDef* a, const GpuMesh& full, float dist);
   float lodPxPerM = 0;   // pixels per metre at 1 m of the last frame's view (set by buildDrawLists); 0 = unknown
-  double drawListMs = 0;  // R2: CPU time of the last frame's buildDrawLists (the main loop's call; --selftest-maps reports it)
+  double drawListMs = 0;
+  int leafMergeHit = 0, leafMergeMiss = 0;   // P2 leafmerge: buildings drawn with merged closed leaves / leaf by leaf, this frame  // R2: CPU time of the last frame's buildDrawLists (the main loop's call; --selftest-maps reports it)
   int lodCount[3] = {};  // copies drawn at each LOD level this frame
   void bump(Instance& i) { i.rev = ++revCounter; dirty = true; }
 

@@ -563,7 +563,15 @@ void InteriorSys::updateBatches(App& app) {
     batches_.clear(); member_.clear(); batchLeads.clear(); batchedPieces = 0; batchSig_ = 0;
     return;
   }
-  uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full);
+  {   // furndist: this frame's furniture distances (m from the eye to the building's furniture, x the zoom so a scope keeps them)
+    GfxPreset ps = settings().s.preset();
+    float zoom = app.R.height > 0 ? std::clamp(app.lodPxPerM / (app.R.height * 0.5f * 1.43f), 1.0f, 8.0f) : 1.0f;   // 1 at a 70 degree FOV
+    // High keeps Medium's distances: 45 / 100 m measured +1.4 ms of buildDrawLists on chateau_town for no visible gain
+    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low ? 24.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low ? 50.0f : cullBig) * zoom; }
+    else { curSmall = cullSmall; curBig = cullBig; }
+    lowClutter_ = app.R.perf.furnClutter && ps == GfxPreset::Low;
+  }
+  uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full) ^ (lowClutter_ ? 0x5bd1e995ull : 0);
   if (sig == batchSig_) return;
   batchSig_ = sig; ++batchPasses;
   // which pieces each building's batch holds: intact, unselected, unmoved template pieces (cached per instance revision)
@@ -581,6 +589,7 @@ void InteriorSys::updateBatches(App& app) {
     if (rit == app.rt.end() || !prop(rit->second.asset)) continue;
     auto s = st.find(i.id);
     if (s != st.end() && (s->second.broken || s->second.glassBroken || s->second.crushed)) continue;
+    if (clutterHidden(i, *prop(rit->second.asset), rit->second.asset)) continue;
     auto& w = want[ho.host];
     w.first = (w.first ^ (i.id * 0x9E3779B97F4A7C15ull + i.rev)) * 0x100000001B3ull + 7;
     w.second.push_back(&i);
@@ -606,7 +615,10 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
   if (!pd) return false;
   auto it = st.find(i.id);
   PropRT s = it == st.end() ? PropRT{} : it->second;
+  if (s.gone) return true;   // lost its floor / wall, or under a tank's tracks: removed (furniture is not destructible)
+  if (clutterHidden(i, *pd, r.asset)) { ++culledPieces; return true; }   // Low preset: half the clutter is not drawn (colliders stay)
   vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
+  const bool nfc = app.R.perf.furnDist;   // furniture never casts in the far cascade / sky occlusion
   if (batching && !s.broken && !s.glassBroken && !s.crushed && i.id != app.selected) {
     auto m = member_.find(i.id);
     if (m != member_.end()) {
@@ -615,12 +627,16 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
         Batch& b = bt->second;
         float d = std::max(0.0f, glm::length(eye - b.c) - b.r);
         if (d >= lodDist) {   // far: the merged box LOD, drawn once with the batch's first piece
-          if (b.members.front() == i.id && d < cullBig) {
-            if (b.lop.count) op.push_back({&b.lop, mat4(1)});
-            if (d < cullSmall && b.slop.count) op.push_back({&b.slop, mat4(1)});
-            ++batchDraws;
+          // furndist tiers with 10 % hysteresis per building: 0 = every piece, 1 = the large silhouettes only, 2 = none
+          if (b.members.front() == i.id) {
+            b.tier = d < curSmall * (nfc && b.tier == 0 ? 1.1f : 1.0f) ? 0 : d < curBig * (nfc && b.tier <= 1 ? 1.1f : 1.0f) ? 1 : 2;
+            if (b.tier <= 1) {
+              if (b.lop.count) { op.push_back({&b.lop, mat4(1)}); op.back().noFarCast = nfc; }
+              if (b.tier == 0 && b.slop.count) { op.push_back({&b.slop, mat4(1)}); op.back().noFarCast = nfc; op.back().castR = 1.0f; }   // small pieces: no sun shadow from the batch
+              ++batchDraws;
+            }
           }
-          if (d >= cullBig) ++culledPieces;
+          if (b.tier == 2) ++culledPieces;
           return true;
         }
       }
@@ -630,7 +646,7 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
   float d = glm::length(eye - i.pos);
   bool small = !pd->blocking && pd->mount <= 0;
   bool furnished = i.extra.is_object() && i.extra.contains("furnish");
-  if (furnished && d > (small ? cullSmall : cullBig)) { ++culledPieces; return true; }
+  if (furnished && d > (small ? curSmall : curBig)) { ++culledPieces; return true; }
   // a stable per-piece factor 0.85..1.15: the distance limits below never cut a synchronised ring
   const float jit = 0.85f + 0.3f * (float)((i.id * 0x9E3779B97F4A7C15ull) >> 40 & 0xFFFF) / 65535.0f;
   // R2 propdist: a small decorative piece (non-blocking: never cover) is drawn while it spans >= ~3 px
@@ -643,9 +659,9 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
   }
   const float castR = pd->smallCaster ? 14.0f * jit : 0.0f;   // R2 castercull: small props cast within ~14 m of the eye
   struct Tag {   // stamps the items this piece pushes below (every return path)
-    std::vector<DrawItem>& op; std::vector<DrawItem>& gl; size_t o, g; float c; bool h;
-    ~Tag() { for (size_t k = o; k < op.size(); ++k) { op[k].castR = c; op[k].mainHidden = h; } for (size_t k = g; k < gl.size(); ++k) gl[k].mainHidden = h; }
-  } tag{op, gl, op.size(), gl.size(), castR, hidden};
+    std::vector<DrawItem>& op; std::vector<DrawItem>& gl; size_t o, g; float c; bool h, n;
+    ~Tag() { for (size_t k = o; k < op.size(); ++k) { op[k].castR = c; op[k].mainHidden = h; op[k].noFarCast = n; } for (size_t k = g; k < gl.size(); ++k) gl[k].mainHidden = h; }
+  } tag{op, gl, op.size(), gl.size(), castR, hidden, nfc && furnished};
   ++soloDraws;
   if (s.broken) {
     if (!pd->brokenMesh.count) return true;
@@ -776,6 +792,12 @@ bool InteriorSys::interiorHidden(App& app, uint64_t host, vec3 eye, const PropDe
   return true;
 }
 
+// Low preset (furnclutter): every second small non-blocking room-template piece is not drawn. Draw side only: its collider,
+// cover and nav stay, so the game state is the same on every preset (LAN). Lamps are never hidden (their light stays).
+bool InteriorSys::clutterHidden(const Instance& i, const PropDef& pd, const AssetDef* a) const {
+  return lowClutter_ && pd.smallCaster && ((i.id * 0x9E3779B97F4A7C15ull) >> 33 & 1) && isFurnishPiece(i) && !lightDef(a);
+}
+
 void InteriorSys::fragDrawItems(std::vector<DrawItem>& op) {
   for (auto& f : frags) {
     if (!f.mesh) continue;
@@ -803,6 +825,19 @@ int InteriorSys::bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::strin
   if (!inst) return 0;
   PropRT& s = st[iid];
   surface = surfaceOf(pd);
+  if (fixedPiece(*inst)) {   // rounds stop at / pass through furniture exactly as before; the piece takes no damage
+    bool stops = pd->family == "masonry" || pd->family == "metal";
+    // a room lamp can still be shot out (LAN peers replay the round, so they agree): the light goes dark, the mesh and
+    // the building's furniture batch are untouched (PropRT::lightOut, not glassBroken)
+    if (pd->glass >= 0 && !s.lightOut && lightDef(it->second.asset)) {
+      vec3 lp = glm::inverse(yawQuat(inst->yaw)) * (at - inst->pos);
+      if (!stops || (glm::all(glm::greaterThan(lp, pd->gmin - vec3(0.04f))) && glm::all(glm::lessThan(lp, pd->gmax + vec3(0.04f))))) {
+        s.lightOut = true; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); return 2;
+      }
+    }
+    app.fx.impact(at, -dir, stops ? pd->family : surface == "wood" ? "wood" : surface);
+    return stops ? 1 : 2;
+  }
   if ((pd->family == "masonry" || pd->family == "metal") && pd->glass >= 0 && !s.broken && !s.glassBroken) {   // L3: a lantern's glass panes in an iron frame
     vec3 lp = glm::inverse(yawQuat(inst->yaw)) * (at - inst->pos);
     if (glm::all(glm::greaterThan(lp, pd->gmin - vec3(0.04f))) && glm::all(glm::lessThan(lp, pd->gmax + vec3(0.04f)))) {
@@ -849,6 +884,7 @@ bool InteriorSys::breakProp(App& app, Instance& i, InstanceRT& r, vec3 push, con
   s.broken = true; s.glassBroken = true; ++breaks; ++epoch_;
   lastBreak = r.asset->id + " #" + std::to_string(i.id) + " (" + why + ")";
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
+  if (fixedPiece(i)) { s.gone = true; ++removed; (void)push; (void)violence; return true; }   // no fragments, no broken mesh: the piece is gone
   if (pd->brokenShape) r.staticBody = Physics::addStatic(pd->brokenShape, i.pos, yawQuat(i.yaw), i.id << 16);
   mat4 M = app.instanceMatrix(i);
   quat q = yawQuat(i.yaw);
@@ -924,6 +960,7 @@ void InteriorSys::tankContact(App& app, Instance& i, InstanceRT& r, vec3 at, vec
   // what is left goes flat under the tracks: no collision, drawn squashed
   s.crushed = true; ++crushed; ++epoch_;
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
+  if (fixedPiece(i)) return;
   app.fx.splinters(at, d * 2.0f + vec3(0, 1.5f, 0), 10, vec4(0.36f, 0.28f, 0.19f, 0.9f), 0.02f);
 }
 
@@ -999,6 +1036,7 @@ void InteriorSys::blast(App& app, vec3 p, vec3 dir, float dmg, float radius, int
     vec3 lp = glm::inverse(q) * (p - i.pos);
     float dist = glm::length(glm::clamp(lp, pd->bmin, pd->bmax) - lp);
     if (dist > R) continue;
+    if (fixedPiece(i)) continue;   // room furniture takes no blast damage (the support check below still removes what lost its floor)
     // occlusion: walls, floors and ground shield completely, other furniture by half
     vec3 c = i.pos + q * ((pd->bmin + pd->bmax) * 0.5f), top = i.pos + q * vec3((pd->bmin.x + pd->bmax.x) * 0.5f, pd->bmax.y - 0.03f, (pd->bmin.z + pd->bmax.z) * 0.5f);
     float vis = dist < 0.15f ? 1.0f : 0.0f;
@@ -1062,11 +1100,11 @@ void InteriorSys::reset(App& app) {
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !prop(it->second.asset)) continue;
     auto s = st.find(i.id);
     bool applied = i.extra.is_object() && i.extra.value("propBroken", false);
-    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
+    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.lightOut || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
   }
   // pieces that went away this session (MA3 dressing props pruned beside a breached wall, regenerated on the reset)
   // take their session state with them: a stale broken entry would outlive the reset
-  for (auto it = st.begin(); it != st.end();) { if (!live.count(it->first)) it = st.erase(it); else ++it; }
+  for (auto it = st.begin(); it != st.end();) { if (!live.count(it->first)) { it = st.erase(it); ++epoch_; } else ++it; }
 }
 
 int InteriorSys::applyToMap(App& app) {

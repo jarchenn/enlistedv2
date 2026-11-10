@@ -51,14 +51,14 @@ vec3 App::vmTarget(const WeaponDef& d) const {
   sightFrame(d, scoped, Q, Rp, Fp, relief);
   vec3 ads = vec3(0, 0, -relief) - Q * Rp + (scoped ? vec3(0) : d.adsPos);
   vec3 hip = vec3(0, 0, scoped ? -relief : -0.21f) - Q * Rp + d.hipOffset;
-  float t = adsT * adsT * (3 - 2 * adsT);
+  float t = d.adsZoom > 0 ? 0.0f : adsT * adsT * (3 - 2 * adsT);   // zoom-only aiming (flamethrower): the weapon stays in the hip pose
   return glm::mix(hip, ads, t);
 }
 
 float App::vmFovNow() const {
   if (weaponDefs.empty()) return vm.vmFov;
   const WeaponDef& d = *weaponDefs[activeWeapon];
-  if (d.adsVmFov <= 0 || vmScoped(d)) return vm.vmFov;
+  if (d.adsVmFov <= 0 || vmScoped(d) || d.adsZoom > 0) return vm.vmFov;
   float t = adsT * adsT * (3 - 2 * adsT);
   return glm::mix(vm.vmFov, d.adsVmFov, t);
 }
@@ -213,7 +213,7 @@ void App::buildArmMeshes() {
 
 void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s) {
   lastArmDraws = 0;
-  if (!vm.showArms || !armMesh[0].count) return;
+  if (!vm.showArms || !d.showArms || !armMesh[0].count) return;
   mat4 cam = weaponWorld * glm::inverse(vmLocal(d, s));   // camera (view -> world)
   mat4 Mv = vmLocal(d, s);
   // FA2: ONE generated support arm (fps_arms.cpp): the hand under the fore-end where the weapon's mesh is, the sleeve

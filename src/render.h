@@ -22,6 +22,7 @@ struct StaticDecal { vec4 a, b, c; };    // GX5 (static_decals.h): centre + type
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;
   const vec4* contact = nullptr;   // MA2: the copy's ground-contact grid (InstanceRT::contact: box + 4 rows), null = asset ground   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
   float castR = 0;          // R2 castercull: > 0 = casts sun shadows only within this many metres of the eye (small props; interior.cpp)
+  bool noFarCast = false;   // P2 furndist: not drawn in the far sun cascade or the sky-occlusion map (furniture inside buildings)
   bool mainHidden = false;  // R2 roomcull: not drawn in the camera pass (an interior seen through no opening); shadows and probes keep it
 };
 struct TreeDef;
@@ -148,10 +149,8 @@ public:
     bool assetLod = true;        // assetlod: part-built assets drawn with their LOD meshes by screen size; sub-pixel props skipped
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
+    bool relief = true;          // relief (MA1b): parallax on Medium, per-family depth, crevices, detail grain, worn edges
     bool foundWx = true;         // foundwx (MA2): foundation weathering by height above the local ground (off = above the asset ground)
-    bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
-    bool folBatch = true;        // folbatch (P2): standing trees' species leaves drawn per 64 m cell, runs of visible trees at one LOD per draw
-    bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
     bool casterCull = true;      // castercull (R2): small props cast sun shadows only near the eye (DrawItem::castR)
@@ -167,14 +166,21 @@ public:
     bool leafTex = true;         // leaftex (L1): species leaf textures + leaf meshes with LOD (off = the procedural oval cards)
     bool grassAtlas = true;      // grassatlas (GT1): pasture blade cards show Poly Haven grass plants (off = the procedural blades)
     bool imgMat = true;          // imgmat (MA1): the image-material slot table of textures.json (replace sets, macro variation, substrates, floor finishes); off = the pre-MA1 slots
+    bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
+    bool folBatch = true;        // folbatch (P2): standing trees' species leaves drawn per 64 m cell, runs of visible trees at one LOD per draw
+    bool leafMerge = true;       // leafmerge (P2): a building whose doors / shutters / sashes are all closed and intact draws them as one merged mesh (+ one glass)
+    bool furnDist = true;        // furndist (P2): furniture distance tiers per preset with hysteresis and zoom; no furniture in the far cascade / sky occlusion
+    bool furnClutter = true;     // furnclutter (P2): on the Low preset half the small room-template clutter is not drawn (colliders stay)
+    bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
-                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = false; return p; }
+                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : nullptr;
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
+      if (n == "p2") { dlCache = instDepth = folBatch = on; return true; }   // P2: every draw-submission switch together
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
@@ -331,6 +337,7 @@ private:
   GLuint thumbHdrFbo = 0, thumbHdr = 0, thumbDepth = 0;
   GLuint queries[3]{}; int qidx = 0; bool qvalid = false; bool qUsed[3]{};   // GL_TIME_ELAPSED ring (fallback when timestamps are missing)
   int farFrame = -1000, occFrame = -1000; vec3 farFocus{0}, farSun{0}, occCam{0}; float minCaster = 0;   // PF2 depth-pass caches
+  bool farPass = false;   // P2: the far cascade / sky occlusion is being drawn (DrawItem::noFarCast)
   bool castCull = false; vec3 castEye{0};   // R2 castercull: on during the sun cascades; castEye: the eye the caster ranges are measured from
   GLuint gq[3][GP_Count + 1]{}; bool gqSet[3][GP_Count + 1]{}; int gqSlot = 0;
   void gpuFrameBegin();

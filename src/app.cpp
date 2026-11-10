@@ -187,6 +187,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
   R.wind = grass.wind ? 1.0f : 0.0f;
   lodPxPerM = projM[1][1] != 0.0f ? projM[1][1] * R.height * 0.5f : 0.0f; lodCount[0] = lodCount[1] = lodCount[2] = 0;
+  leafMergeHit = leafMergeMiss = 0;
   hlodFrame(*this);   // PF2 Phase B: far buildings merged per cell (hlod.cpp)
   const ActiveSet& act = activeSet();
   // P2 measurement (NMK_DLPROF=1): items per source category, logged every 240 frames
@@ -196,7 +197,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   // until an edit, an add or a removal; the distance test runs every frame.
   static std::vector<uint8_t> furn; static uint64_t furnSig = 0;
   const vec3 dlEye = mode == Mode::Explore ? eyePos() : camPos;
-  const float farFurn2 = (interior.cullBig + 1.0f) * (interior.cullBig + 1.0f);
+  const float farFurn2 = (interior.curBig + 1.0f) * (interior.curBig + 1.0f);
   if (R.perf.dlCache) {
     uint64_t fs = ((uint64_t)revCounter << 32) ^ ((uint64_t)doc.instances.size() << 1) ^ (uint64_t)(uintptr_t)&doc;
     if (fs != furnSig || furn.size() != doc.instances.size()) { furnSig = fs; furn.resize(doc.instances.size()); for (size_t k = 0; k < furn.size(); ++k) furn[k] = isFurnishPiece(doc.instances[k]); }
@@ -327,7 +328,33 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
     if (noFurn) { if (r.asset->noFurnGlass.count) gl.push_back({&r.asset->noFurnGlass, M}); } else if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
     const mat4 IM = r.asset->interactables.empty() ? mat4(1) : instanceMatrix(i);   // P2: once per copy (leafMatrix rebuilt it per leaf)
-    for (size_t k = 0; k < r.asset->interactables.size() && r.lod < 2; ++k) {   // doors / shutters: not at LOD2 (a few pixels)
+    // P2 leafmerge: every leaf closed, at rest and intact -> the asset's merged closed-leaf meshes (2 draws, not 2 per leaf);
+    // a door opening, a shutter shot off or a pane broken puts this copy back on the per-leaf path the same frame
+    // (one cached mesh pair per asset and open / closed combination, built on first use: buildLeafPose, assets.cpp)
+    bool leavesMerged = R.perf.leafMerge && r.lod < 2 && !r.asset->interactables.empty() && r.progress.size() == r.asset->interactables.size();
+    uint64_t poseKey = (uint64_t)(uintptr_t)r.asset * 0x9E3779B97F4A7C15ull;
+    for (size_t k = 0; leavesMerged && k < r.progress.size(); ++k) {
+      leavesMerged = (r.progress[k] == 0.0f || r.progress[k] == 1.0f) && (k >= r.dir.size() || r.dir[k] == 0);
+      poseKey = (poseKey ^ (r.progress[k] == 1.0f ? 0x2545F4914F6CDD1Dull : 0x1ull)) * 0x100000001B3ull;
+    }
+    for (size_t k = 0; leavesMerged && k < r.leafSt.size(); ++k) for (uint8_t b : r.leafSt[k]) if (b) { leavesMerged = false; break; }
+    if (leavesMerged) {
+      static std::unordered_map<uint64_t, std::unique_ptr<LeafPose>> poses;
+      auto& pp = poses[poseKey];
+      if (!pp) {
+        if (poses.size() > 2048) { for (auto& [k, q] : poses) if (q) q->destroy(); poses.clear(); }   // door toggling over a long session: start over
+        auto& np = poses[poseKey]; np = std::make_unique<LeafPose>();
+        std::vector<uint8_t> open(r.progress.size()); for (size_t k = 0; k < open.size(); ++k) open[k] = r.progress[k] == 1.0f;
+        buildLeafPose(*r.asset, open, *np);
+        if (np->opaque.count) op.push_back({&np->opaque, M});
+        if (np->glass.count) gl.push_back({&np->glass, M});
+      } else {
+        if (pp->opaque.count) op.push_back({&pp->opaque, M});
+        if (pp->glass.count) gl.push_back({&pp->glass, M});
+      }
+      ++leafMergeHit;
+    } else if (!r.asset->interactables.empty() && r.lod < 2) ++leafMergeMiss;
+    for (size_t k = 0; !leavesMerged && k < r.asset->interactables.size() && r.lod < 2; ++k) {   // doors / shutters: not at LOD2 (a few pixels)
       auto& d = r.asset->interactables[k];
       for (size_t l = 0; l < d.leaves.size(); ++l) {
         auto& lf = d.leaves[l];
@@ -347,7 +374,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   if (dlProf && ++dlFrame % 30 == 0) {
     static const char* nm[6] = {"trees", "nature", "props", "buildings", "models", "other"};
     std::string s; for (int c = 0; c < 6; ++c) { char b[96]; std::snprintf(b, sizeof b, " %s op %.0f gl %.0f fol %.0f %.2fms |", nm[c], dlCat[c][0] / 30, dlCat[c][1] / 30, dlCat[c][2] / 30, dlCat[c][3] / 30); s += b; }
-    logf("[dlprof] per frame:%s total op %zu gl %zu foliage %zu worldModels %zu, draws %d (foliage %d, shadow %d)", s.c_str(), op.size(), gl.size(), R.foliage.size(), R.worldModels.size(), R.stats.draws, R.stats.foliageDraws, R.stats.shadowDraws);
+    logf("[dlprof] per frame:%s total op %zu gl %zu foliage %zu worldModels %zu, draws %d (foliage %d, shadow %d), leaves merged %d / per-leaf %d buildings", s.c_str(), op.size(), gl.size(), R.foliage.size(), R.worldModels.size(), R.stats.draws, R.stats.foliageDraws, R.stats.shadowDraws, leafMergeHit, leafMergeMiss);
     std::memset(dlCat, 0, sizeof dlCat);
     std::string cp; for (int k = 0; k < GP_Count; ++k) if (R.cpuPassMs[k] / 30 > 0.05) { char b[64]; std::snprintf(b, sizeof b, " %s %.2f", gpuPassName(k), R.cpuPassMs[k] / 30); cp += b; }
     logf("[dlprof] render CPU per pass (ms):%s", cp.c_str()); std::memset(R.cpuPassMs, 0, sizeof R.cpuPassMs);

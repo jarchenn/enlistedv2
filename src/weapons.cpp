@@ -57,9 +57,17 @@ void App::buildWeaponMeshes() {
       d->adsPos = jvec3(a.value("posCorrection", json::array({0, 0, 0}))); d->adsRot = jvec3(a.value("rotCorrection", json::array({0, 0, 0})));
       if (a.contains("hipOffset")) d->hipOffset = jvec3(a["hipOffset"]);
       d->adsWorldFov = a.value("worldFov", 58.0f); d->sightLineOnly = a.value("virtualLine", false);
-      d->adsSpeed = a.value("speed", 1.0f);
+      d->adsSpeed = a.value("speed", 1.0f); d->adsZoom = a.value("zoom", 0.0f);
     }
-    d->laterWar = j.value("laterWar", false);
+    if (j.contains("flame")) {   // FT1 flamethrower tuning (data; docs/flamethrower.md)
+      const json& f = j["flame"]; auto& fd = d->flame;
+      fd.on = true; fd.fuelSeconds = f.value("fuelSeconds", fd.fuelSeconds); fd.range = f.value("range", fd.range); fd.speed = f.value("speed", fd.speed);
+      fd.coneDeg = f.value("coneDeg", fd.coneDeg); fd.parcelsPerSec = f.value("parcelsPerSec", fd.parcelsPerSec); fd.parcelDamage = f.value("parcelDamage", fd.parcelDamage);
+      fd.burnSeconds = f.value("burnSeconds", fd.burnSeconds); fd.burnDps = f.value("burnDps", fd.burnDps);
+      fd.patchSeconds = f.value("patchSeconds", fd.patchSeconds); fd.patchRadius = f.value("patchRadius", fd.patchRadius); fd.patchDps = f.value("patchDps", fd.patchDps);
+      fd.botRange = f.value("botRange", fd.botRange); fd.botBurst = f.value("botBurstSeconds", fd.botBurst); fd.botPause = f.value("botPauseSeconds", fd.botPause);
+    }
+    d->laterWar = j.value("laterWar", false); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
     {
@@ -190,7 +198,7 @@ bool App::weaponCamera(float& fov) const {
   float t = adsT * adsT * (3 - 2 * adsT);
   const float hip = settings().fov();   // 72 unless changed in Settings; optics keep their real magnification of the 72 deg view
   if (d.hasScope && !(d.scopeIrons && scopeIronsMode)) { fov = adsT > 0.85f ? 72.0f / d.scopeMag : glm::mix(hip, 58.0f, t); return true; }
-  fov = glm::mix(hip, d.adsWorldFov, t);
+  fov = d.adsZoom > 0 ? hip * (1.0f - d.adsZoom * t) : glm::mix(hip, d.adsWorldFov, t);   // zoom-only weapons narrow the hip FOV by a fraction
   return true;
 }
 
@@ -379,6 +387,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     s.triggerReleased = true; s.burst = 0;
   }
   viewKickPitch = s.recoilP + vm.breathPitch; viewKickYaw = s.recoilY + vm.breathYaw;   // breathing moves the whole sight picture
+  if (d.flame.on) { stepFlameLocal(dt, in, d, s, fireHeld); return; }   // FT1: hold to spray; fuel by the second, no reload
   // ---- reload start
   if (in.reload && s.reload <= 0) {
     if (s.loaded >= d.cap) weaponMsg = "Already full";
@@ -504,12 +513,14 @@ std::string stackAmmoText(App& a, int w) {
   const WeaponDef& d = *a.weaponDefs[w]; const WeaponState& s = a.wstate[d.id];
   if (d.melee.on) return "";
   if (d.grenade.on) return std::to_string(s.loaded + (int)s.containers.size());
+  if (d.flame.on) return std::to_string(s.loaded) + " %";   // fuel: the tank in percent
   return std::to_string(s.loaded) + "/" + std::to_string(s.reserveRounds());
 }
 static std::string readoutModeName(App& a, const WeaponDef& d, const WeaponState& s) {
   if (d.melee.on) return "Melee";
   if (d.grenade.on) return "Thrown";
   std::string m = a.fireModeName(d, s);
+  if (m == "FLAME") return "Flame";
   if (m == "AUTO") return "Full-auto";
   if (m == "SINGLE") return "Single-shot";
   if (m == "CARRY") return "Carried (deploy)";
@@ -525,7 +536,7 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
   ImFont* f = ImGui::GetFont(); float fs = ImGui::GetFontSize();
   const float sc = std::clamp(ds.y / 1080.0f, 0.75f, 2.0f), right = ds.x - 28 * sc;
   // ---- readout: large "loaded / reserve" (grenades: the count; the knife: none), the fire mode under it
-  std::string big = d.melee.on ? "" : d.grenade.on ? stackAmmoText(*this, activeWeapon) : std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds());
+  std::string big = d.melee.on ? "" : d.grenade.on || d.flame.on ? stackAmmoText(*this, activeWeapon) : std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds());
   float bigSz = fs * 2.1f * sc, midSz = fs * 1.15f * sc, smSz = fs * 1.0f * sc;
   std::string mode = readoutModeName(*this, d, s);
   ImVec2 mt = f->CalcTextSizeA(midSz, 1e9f, 0, mode.c_str());
@@ -538,7 +549,7 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
     shadowText(dl, f, bigSz, ImVec2(right - bt.x, yBig), IM_COL32(245, 245, 240, 255), big.c_str(), 1);
   }
   lastReadout = big + " | " + mode;
-  std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "Loading rounds" : "Reloading") : s.bolt > 0 ? "Working the bolt" : (!d.equipment() && s.loaded == 0) ? "Empty - R to reload" : "";
+  std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "Loading rounds" : "Reloading") : s.bolt > 0 ? "Working the bolt" : (!d.equipment() && s.loaded == 0) ? (d.flame.on ? "Out of fuel - refill at an ammo crate" : "Empty - R to reload") : "";
   if (d.feed == "belt") st += std::string(st.empty() ? "" : "   ") + (supported ? "Bipod supported" : "Unsupported: crouch and stand still");
   float yInfo = yBig - smSz - 4 * sc;
   if (!st.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, st.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 205, 130, 255), st.c_str(), 1); yInfo -= smSz + 2 * sc; }
@@ -621,7 +632,9 @@ void App::drawWeaponUI() {
       auto& w = *weaponDefs[k];
       if (strictDDay && w.laterWar) continue;
       auto& ws = wstate[w.id];
-      char lbl[200]; std::snprintf(lbl, sizeof lbl, "%s%s  (%d + %d)", (int)k == activeWeapon ? "> " : "  ", w.name.c_str(), ws.loaded, ws.reserveRounds());
+      char lbl[200];
+      if (w.flame.on) std::snprintf(lbl, sizeof lbl, "%s%s  (fuel %d %%)", (int)k == activeWeapon ? "> " : "  ", w.name.c_str(), ws.loaded);
+      else std::snprintf(lbl, sizeof lbl, "%s%s  (%d + %d)", (int)k == activeWeapon ? "> " : "  ", w.name.c_str(), ws.loaded, ws.reserveRounds());
       if (ImGui::Selectable(lbl, (int)k == activeWeapon)) { std::string m; equipWeapon((int)k, m); toast(m, 3); }   // G4: the 2-slot rule
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", w.note.c_str());
     }

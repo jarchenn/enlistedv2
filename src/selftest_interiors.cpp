@@ -299,6 +299,50 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       int hid2 = 0, bad2 = 0; sweep(hid2, bad2); r.state = st0;
       check(hid2 < hid, "roomcull: with the bays breached fewer piece views stay hidden (" + std::to_string(hid2) + " of " + std::to_string(hid) + ")");
       return true; });
+    push("P2 furniture is fixed: room furniture takes no damage; a piece without support is removed", [this](App& a, float) {
+      // a room-template piece of the farmhouse that small arms used to break
+      Instance* c = nullptr; const PropDef* pd = nullptr;
+      for (auto* k : childrenOf(a, FH)) { const PropDef* q = a.interior.prop(a.assetFor(*k)); if (q && q->rounds > 0 && q->blocking && q->family == "wood" && !propBroken(a, k->id)) { c = k; pd = q; break; } }
+      if (!c) { check(false, "fixed furniture: a wooden room-template piece in the farmhouse"); return true; }
+      uint64_t id = c->id; int b0 = a.interior.breaks, f0 = a.interior.fragsSpawned, g0 = a.interior.glassBreaks;
+      vec3 at = vec3(a.instanceMatrix(*c) * vec4((pd->bmin + pd->bmax) * 0.5f, 1)); std::string surf; int ret = 0;
+      for (int k = 0; k < pd->rounds * 4 + 8; ++k) ret = a.interior.bulletHit(a, id, at, vec3(0, 0, -1), surf);
+      check(ret == 2 && !propBroken(a, id) && a.interior.breaks == b0, "fixed furniture: " + std::to_string(pd->rounds * 4 + 8) + " rounds into " + c->assetId + " (rating " + std::to_string(pd->rounds) + ") pass through (" + std::to_string(ret) + ") and break nothing");
+      a.interior.blast(a, at + vec3(0, 0.3f, 0), vec3(0, -1, 0), 600.0f, 3.5f, WALL_HE);
+      a.interior.blast(a, at + vec3(0.2f, 0.3f, 0), vec3(0, -1, 0), 300.0f, 3.0f, WALL_GRENADE);
+      int broke = 0; for (auto* k : childrenOf(a, FH)) broke += propBroken(a, k->id);
+      check(a.interior.breaks == b0 && a.interior.fragsSpawned == f0 && a.interior.glassBreaks == g0 && broke == 0,
+            "fixed furniture: an HE shell and a grenade beside it break no room furniture (" + std::to_string(a.interior.breaks - b0) + " breaks, " + std::to_string(a.interior.fragsSpawned - f0) + " fragments, " + std::to_string(a.interior.glassBreaks - g0) + " panes, " + std::to_string(broke) + " pieces broken)");
+      // support lost (its floor or wall destroyed) -> the piece is removed: no fragments, no broken mesh, no collider, no draw
+      InstanceRT& r = a.rt[id];
+      bool did = a.interior.breakProp(a, *a.doc.find(id), r, vec3(0, -1.5f, 0), "lost its support");
+      std::vector<DrawItem> op, gl; a.interior.updateBatches(a);
+      bool handled = a.interior.propDraw(a, *a.doc.find(id), r, a.instanceMatrix(*a.doc.find(id)), op, gl);
+      auto st = a.interior.st.find(id);
+      check(did && st != a.interior.st.end() && st->second.gone && a.interior.fragsSpawned == f0 && r.staticBody == 0xffffffffu && handled && op.empty() && gl.empty(),
+            "fixed furniture: a piece that lost its support is removed (gone " + std::to_string(st != a.interior.st.end() && st->second.gone) + ", " + std::to_string(a.interior.fragsSpawned - f0) + " fragments, " + std::to_string(op.size() + gl.size()) + " draw items, collider " + (r.staticBody == 0xffffffffu ? "removed" : "left") + ")");
+      a.interior.reset(a);   // the session overlay goes: the piece stands again
+      check(!propBroken(a, id) && a.rt[id].staticBody != 0xffffffffu, "fixed furniture: reset puts the removed piece back with its collider");
+      // a room lamp can still be shot out, without any mesh or batch change
+      Instance* lamp = nullptr; const PropDef* lpd = nullptr;
+      for (auto* k : childrenOf(a, FH)) { const PropDef* q = a.interior.prop(a.assetFor(*k)); if (q && q->glass >= 0 && lightDef(a.assetFor(*k)) && lightOffReason(a, *k).empty()) { lamp = k; lpd = q; break; } }
+      if (lamp) {
+        vec3 g = vec3(a.instanceMatrix(*lamp) * vec4((lpd->gmin + lpd->gmax) * 0.5f, 1)); int gb = a.interior.glassBreaks;
+        a.interior.updateBatches(a);   // the rebuild the reset above caused, before the baseline
+        int bp = a.interior.batchRebuilds;
+        a.interior.bulletHit(a, lamp->id, g, vec3(0, 0, -1), surf);
+        a.interior.updateBatches(a);
+        auto ls = a.interior.st.find(lamp->id);
+        check(a.interior.glassBreaks == gb && ls != a.interior.st.end() && !ls->second.glassBroken && !ls->second.broken && a.interior.batchRebuilds == bp && lightOffReason(a, *a.doc.find(lamp->id)) == "glass broken",
+              "fixed furniture: a round in a room lamp's glass (" + lamp->assetId + ") puts the light out (" + lightOffReason(a, *a.doc.find(lamp->id)) + ") with no glass / mesh change and no batch rebuild (" + std::to_string(a.interior.batchRebuilds - bp) + ")");
+        a.interior.reset(a);
+        check(lightOffReason(a, *a.doc.find(lamp->id)).empty(), "fixed furniture: reset lights the lamp again");
+      } else check(true, "fixed furniture: no lit glazed room lamp in the farmhouse to shoot (skipped)");
+      // The steps below test the break machinery itself (rounds, blasts, fragments, support, crushing, lamps shot out) on
+      // room pieces. Hand-placed and outdoor props still use it in the game; room furniture does not, so from here on the
+      // suite turns the old rule on explicitly.
+      a.interior.furnDestructible = true;
+      return true; });
     push("templates: deterministic, non-duplicating, overrides and deletions kept", [this](App& a, float) {
       size_t n0 = childrenOf(a, FH).size(), all0 = a.doc.instances.size();
       a.interior.furnish(a, FH, 0);
@@ -647,8 +691,9 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       a.applyDamageToMap();
       check(c && a.doc.find(c)->extra.value("propBroken", false), "Apply session changes stores broken furniture (extra.propBroken)");
       a.exitExplore();
-      int after = 0; for (auto& [id, s] : a.interior.st) after += s.broken && !s.applied;
-      check(after == 0 && a.interior.frags.empty(), "back to Creative: session breaks and fragments are reset (" + std::to_string(broken) + " were broken)");
+      int after = 0; std::string left;
+      for (auto& [id, s] : a.interior.st) if (s.broken && !s.applied) { ++after; if (left.size() < 160) { const Instance* li = a.doc.find(id); left += " " + (li ? li->assetId + (isFurnishPiece(*li) ? "(room)" : "(placed)") : std::string("gone#") + std::to_string(id)); } }
+      check(after == 0 && a.interior.frags.empty(), "back to Creative: session breaks and fragments are reset (" + std::to_string(broken) + " were broken; still broken " + std::to_string(after) + ":" + left + "; fragments " + std::to_string(a.interior.frags.size()) + ")");
       check(propBroken(a, c), "an applied break stays broken");
       a.clearAppliedDamage(); a.syncRuntime();
       check(!propBroken(a, c) && !a.doc.find(c)->extra.contains("propBroken"), "Clear applied damage restores it");
