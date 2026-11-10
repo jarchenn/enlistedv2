@@ -149,6 +149,9 @@ public:
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
     bool foundWx = true;         // foundwx (MA2): foundation weathering by height above the local ground (off = above the asset ground)
+    bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
+    bool folBatch = true;        // folbatch (P2): standing trees' species leaves drawn per 64 m cell, runs of visible trees at one LOD per draw
+    bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
     bool casterCull = true;      // castercull (R2): small props cast sun shadows only near the eye (DrawItem::castR)
