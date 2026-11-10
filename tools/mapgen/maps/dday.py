@@ -21,7 +21,7 @@ import os
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, Profile, stamp_valley, stamp_flatten_poly,
                     stamp_crater, stamp_bank, slots_from_structures, catmull_rom, write_map, write_template, write_summary,
                     asset_usage, rect, rng, point_at, polyline_length, polyline_dist, in_poly, asset_yaw_facing,
-                    asset_yaw_along, look_yaw, local_to_world, fbm, vnoise, circle_poly, dist, smoothstep, resample)
+                    asset_yaw_along, look_yaw, local_to_world, fbm, vnoise, circle_poly, dist, smoothstep, resample, offset_polyline)
 
 TID, NAME, VERSION, SEED = "dday", "D-day", 1, 19440606
 W = D = 265.0                     # sqrt(0.5 x 350 x 400) = 264.6 m
@@ -59,12 +59,14 @@ FLAK = [(-104.0, -2.0, 160.0), (92.5, -21.0, 210.0)]                            
 ALLIED = [(U(1 / 6), 106.0), (U(0.5), 106.0), (U(5 / 6), 106.0)]                     # v = 0.10, equal spacing
 AXIS_HOUSES = [("vil_granite_longere", -53.0, -101.0, 0.0), ("vil_rectory", 0.0, -111.0, 0.0), ("vil_colombage_auge", 79.5, -101.0, 0.0)]
 SQUARE = (0.0, -80.0)
-VILLAGE = [   # (id, x, z, yaw): fronts on the main street (x = 0), the cross street (z ~ -80) and the lanes
-    ("vil_church", -38.0, -63.0, 180.0), ("vil_cafe_corner", 15.0, -64.0, 180.0), ("vil_terrace_pair", -13.0, -58.0, 90.0),
-    ("vil_bakery", -17.0, -97.0, 0.0), ("vil_merchant_house", 20.0, -98.0, 0.0), ("vil_townhouse_jettied", 43.0, -93.0, 0.0),
-    ("vil_brick_townhouse", -22.0, -120.0, 0.0), ("vil_rendered_shutters", 44.0, -63.0, 180.0), ("house_stone_cottage", -84.0, -92.0, 25.0),
-    ("vil_stone_barn", -100.0, -112.0, 90.0), ("small_storehouse", 58.0, -114.0, -20.0), ("vil_norman_farmhouse", 104.0, -82.0, 12.0),
-    ("vil_cottage_barn", -100.0, -68.0, 90.0), ("small_stone_dairy", 108.0, -110.0, -90.0),
+VILLAGE = [   # (id, x, z, yaw): a row facing the square's cross street from the south, a row from the north, the main street,
+    # and two farm hamlets at the ends (front = local +Z toward the street)
+    ("vil_church", -40.0, -64.0, 180.0), ("vil_terrace_pair", -13.5, -60.0, 90.0), ("vil_cafe_corner", 15.0, -64.0, 180.0),
+    ("vil_rendered_shutters", 32.5, -63.0, 180.0), ("vil_corner_shop", 50.0, -62.0, 180.0), ("house_stone_cottage", -62.0, -66.0, 160.0),
+    ("vil_brick_townhouse", -32.0, -96.0, 0.0), ("vil_bakery", -16.0, -96.0, 0.0), ("vil_merchant_house", 18.0, -95.0, 0.0),
+    ("vil_townhouse_jettied", 35.0, -93.0, 0.0), ("vil_villa_deauville", 54.5, -100.0, 0.0), ("small_storehouse", 60.0, -119.0, -20.0),
+    ("vil_cottage_barn", -100.0, -70.0, 90.0), ("vil_stone_barn", -98.0, -108.0, 90.0),
+    ("vil_norman_farmhouse", 100.0, -84.0, 12.0), ("small_stone_dairy", 106.0, -108.0, -90.0),
 ]
 
 
@@ -554,8 +556,15 @@ def build(ctx):
     for x, z, yaw in ((-6, -52, 10), (7, -52, -10), (-64, -62, 30), (78, -62, -25)):   # barricades at the village edge
         b.place("def_sandbag_straight", x, z, yaw, tags={"barricade", "cover"})
     town = lambda x, z: -132 < z < -46 and abs(x) < HX - 4
-    b.scatter([("tree_oak", 3), ("tree_ash", 3), ("tree_apple", 2), ("tree_poplar", 1)], town, 1 / 240.0, R, bounds=(-HX, -HZ, HX, -46),
-              tags={"village_green"}, min_dist=7.0)
+    b.scatter([("tree_oak", 3), ("tree_ash", 3), ("tree_apple", 2), ("tree_poplar", 1)], town, 1 / 150.0, R, bounds=(-HX, -HZ, HX, -46),
+              tags={"village_green"}, min_dist=6.0)
+    # stone walls along the lanes and the main street's south end (refused where a building or a crossing stands)
+    for k in ("west_lane", "east_lane", "alley_w", "alley_e"):
+        for off in (2.6, -2.6):
+            b.chain(R.choice(["stone_wall_low", "drs_garden_wall"]), offset_polyline(streets[k], off), along="x", tags={"lane_wall"},
+                    ok_with={"flat", "none", "veg", "wire"}, gaps=[(0, 4)])
+    for off in (3.4, -3.4):
+        b.chain("stone_wall_low", offset_polyline([(0, -48), (1.0, -56)], off), along="x", tags={"lane_wall"}, ok_with={"flat", "none", "veg", "wire"})
     b.scatter([("shrub_hazel", 3), ("nat_hawthorn_bush", 2), ("shrub_bramble", 1), ("nat_fern_clump", 1), ("nat_nettle_clump", 1)], town, 1 / 160.0, R,
               bounds=(-HX, -HZ, HX, -46), tags={"village_green"}, cls="veg")
     b.scatter([("nat_meadow_mixed", 3), ("nat_flowers_cowparsley", 1), ("nat_tallgrass_verge", 2), ("nat_flowers_poppy", 1), ("nat_flowers_daisy", 1)], town,
@@ -585,6 +594,20 @@ def build(ctx):
         if nd >= 900:
             break
     rep["decorForest"] = nd
+    # beyond them, two staggered rows of far treeline masses (never culled: the horizon stays wooded), ending in scrub
+    # toward the coast at the southern corners
+    nf = 0
+    for off in (68.0, 92.0):
+        perim = [(-HX - off, 70.0 - off * 0.3), (-HX - off, -HZ - off), (HX + off, -HZ - off), (HX + off, 70.0 - off * 0.3)]
+        Lp, sx = polyline_length(perim), R.uniform(0, 12)
+        while sx < Lp:
+            (px, pz), t = point_at(perim, sx)
+            nx, nz = t[1], -t[0]
+            j = R.uniform(-7, 7)
+            nf += b.place("scn_treeline_" + R.choice("abc"), px + nx * j, pz + nz * j, asset_yaw_along(*t) + R.uniform(-8, 8), check=False, extra=DECOR,
+                          tags={"decor", "far_forest"}, cls="none") is not None
+            sx += R.uniform(22, 30)
+    rep["farTreeline"] = nf
 
     # ------------------------------------------------------------------ 7. smoke and fire at a few wrecks and impacts
     fires = 0
