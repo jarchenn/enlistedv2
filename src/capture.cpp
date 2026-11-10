@@ -378,6 +378,12 @@ void SelfTest::captureUpdate(App& app, float dt) {
       app.syncRuntime(); navSyncCuts(app);
       ddayAnnotate(app);
       cams = {{"dday_overview_annotated", vec3(0, 330, 0.5f), vec3(0, 0, 0)}, {"dday_overview_oblique", vec3(0, 200, 230), vec3(0, 0, -10)}};
+      static std::deque<std::string> keep;   // then the template's views, clean (player height and the overviews)
+      for (auto& v : dt->raw.value("views", json::array())) {
+        keep.push_back("dday_" + v.value("name", std::string("view")));
+        vec3 p = jvec3(v["pos"]);
+        cams.push_back({keep.back().c_str(), p, p + App::forward(v.value("yaw", 0.0f), v.value("pitch", 0.0f)) * 10.0f});
+      }
       app.hideEditorOverlays = false; app.gridOverlay = false;
       app.grassBudgetMs = -1;
       ddaySet = true;
@@ -850,6 +856,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
     }
     finish(app); return;
   }
+  if (ddaySet && ci >= 2) { app.hideEditorOverlays = true; gAnnotOverlay.clear(); }
   Cam& c = cams[ci];
   app.camPos = c.pos;
   vec3 d = glm::normalize(c.target - c.pos);

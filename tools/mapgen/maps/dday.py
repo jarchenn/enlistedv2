@@ -374,10 +374,12 @@ def build(ctx):
     for k in ("alley_w", "alley_e"):
         b.route("footpath", streets[k], 2.4)
     # beach surfaces: the sea's wet margin, the wet sand (standing water), the dry beach and dune sand
-    b.route("sand", [(-HX - 120, 125), (HX + 120, 125)], 40, wet=0.9, keepout=False)
-    b.route("sand", [(-HX - 120, 106), (HX + 120, 106)], 22, wet=0.5, keepout=False)
-    b.route("sand", [(-HX - 120, 78), (HX + 120, 78)], 36, keepout=False)
-    b.route("sand", [(-HX - 120, 55), (HX + 120, 55)], 18, strength=0.55, keepout=False)
+    # (bands follow the shoreline and wander, so no straight material strips)
+    band = lambda off, amp, sd: [(x, V(shore_v(x)) + off + amp * fbm(x / 37.0, 0.7 * sd, 50 + sd, 2)) for x in range(-int(HX) - 120, int(HX) + 121, 6)]
+    b.route("sand", band(14, 2.0, 1), 34, wet=0.9, keepout=False)
+    b.route("sand", band(-6, 3.5, 2), 18, wet=0.5, keepout=False)
+    b.route("sand", band(-35, 5.0, 3), 40, keepout=False)
+    b.route("sand", band(-58, 6.0, 4), 16, strength=0.55, keepout=False)
     for k, pts in LANES.items():   # worn routes inland: footpaths of the attack (sparse grass on them)
         b.route("footpath", catmull_rom(pts, 6)[1:], 1.8, strength=0.6, keepout=False)
     for x, z in ALLIED:
