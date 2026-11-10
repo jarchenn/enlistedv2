@@ -172,6 +172,48 @@ void build(App& app) {
     push("ma1: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); return t > 0.2f; });
     return;
   }
+  // MA1b relief capture (NMK_MA1B_SHOTS=1 runs only this): the chateau's brick chimney breast and roof at 3 / 15 / 35 m,
+  // then stone, brick, timber, rock, sandbags and bark at 1 and 5 m, lit from the side (the Day sun rakes the +z faces
+  // from the left). Editor camera (no viewmodel), Medium's 0.67 scale -> selftest_out/ma1b_<view>.png
+  if (std::getenv("NMK_MA1B_SHOTS")) {
+    static const vec3 C(-100.0f, 0, 40.0f), R0(40.0f, 0, 60.0f);
+    static const char* ids[5] = {"drs_garden_wall", "vil_colombage_auge", "drs_sandbag_wall", "nat_boulder_granite_l", "tree_oak"};
+    static uint64_t got[5];
+    push("ma1b: the scene", [](App& a, float t) {
+      if (t == 0) { place(a, "vil_chateau_grand", C); for (int k = 0; k < 5; ++k) got[k] = place(a, ids[k], R0 + vec3(k * 22.0f, 0, 0)); a.syncRuntime(); }
+      return t > 0.5f; });
+    struct V { std::string name; int obj; float d, camY, aimY, dx; };   // obj -1: chateau (dx / d absolute, from its back / front face)
+    static std::vector<V> vs = {{"chimney_3m", -1, -3.0f, 1.7f, 6.0f, -5.5f}, {"roof_15m", -1, -15.0f, 1.7f, 12.0f, -5.5f}, {"roof_35m", -1, -35.0f, 1.7f, 12.0f, -5.5f},
+                                {"brick_1m", -1, 1.0f, 1.6f, 1.4f, -3.0f}, {"brick_5m", -1, 5.0f, 1.6f, 1.6f, -3.0f}};
+    for (int k = 0; k < 5; ++k) for (float d : {1.0f, 5.0f}) {
+      static const char* nm[5] = {"stone", "timber", "sandbag", "rock", "bark"};
+      static const float aim[5] = {0.6f, 1.4f, 0.5f, 0.8f, 1.3f};
+      vs.push_back({std::string(nm[k]) + (d < 2 ? "_1m" : "_5m"), k, d, aim[k] + (d < 2 ? 0.25f : 0.6f), aim[k], 0.0f});
+    }
+    for (size_t k = 0; k < vs.size(); ++k) push("ma1b_" + vs[k].name, [k](App& a, float t) {
+      const V& v = vs[k];
+      if (t == 0) {
+        a.R.setResolutionScale(0.67f); a.R.resetTemporal(); a.hideEditorOverlays = true;
+        vec3 at;
+        if (v.obj < 0) at = C + vec3(v.dx, 0, v.d < 0 ? -11.0f + v.d : 11.5f + v.d);
+        else {
+          const Instance* in = nullptr; for (auto& i : a.doc.instances) if (i.id == got[v.obj]) in = &i;
+          const AssetDef* ad = in ? a.lib.find(in->assetId) : nullptr;
+          float face = v.obj == 4 ? 0.45f : ad ? ad->bmax.z : 0.5f;   // the oak: its trunk, not the canopy
+          at = (in ? in->pos : R0) + vec3(0, 0, face + v.d);
+        }
+        float gy = a.terrain.height(at.x, at.z), dist = std::fabs(v.d);
+        a.camPos = vec3(at.x, gy + v.camY, at.z); a.camYaw = v.d < 0 ? 180.0f : 0.0f;
+        a.camPitch = glm::degrees(std::atan2(v.aimY - v.camY, dist));
+      }
+      std::string nm = "ma1b_" + v.name;
+      if (t > 1.2f && t < 1.2f + 1.5f / 60.0f) pendingShot = outDir() / (nm + ".png");
+      if (t > 1.5f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png", nm.c_str(), nm.c_str()); return true; }
+      return false;
+    });
+    push("ma1b: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; return t > 0.2f; });
+    return;
+  }
   // P1 TAAU capture set (NMK_TAAU_SHOTS=1 runs only this, rendering.md 14): still, turning (100 deg/s), foliage and Kar98k
   // sights at Medium's 0.67 scale, native (taau off) then TAAU, from identical cameras -> selftest_out/taau_<view>_<mode>.png
   if (std::getenv("NMK_TAAU_SHOTS")) {
