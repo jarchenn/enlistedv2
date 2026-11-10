@@ -471,6 +471,7 @@ public:
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot
   vec3 lastHandErr{0};                  // IK residual (right, left) for tests: x = right, y = left
   vec3 lastElbowR{0}, lastElbowL{0}, lastHandR{0}, lastHandL{0}, lastShoulderR{0}, lastShoulderL{0};
+  float vmDebugYaw = 0;                 // FA2: debug side view of the first-person rig (deg about the camera's up; 0 = off; self-test shots)
   int lastArmDraws = 0;                 // FA1: arm pairs drawn this frame (rigged model or boxes; self-tests)
   bool lastArmsShown[2] = {false, false};   // FA1: right / left arm drawn (the sight-line and near-eye safety may hide one)
   void dofParams(float& focus, float& amount) const;

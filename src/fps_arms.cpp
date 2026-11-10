@@ -19,12 +19,13 @@
 #include <stb_image.h>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <map>
 
 namespace {
 constexpr float kPi = 3.14159265f;
 constexpr int kTex = 512;              // sleeve texture: one turn round the sleeve (u) x kTexLen metres of its length (v)
-constexpr float kTexLen = 0.28f;
+constexpr float kTexLen = 0.25f;       // the cloth source repeats once per tile (seamless): a fine wool weave
 
 struct ArmGen {
   bool tried = false, ok = false;
@@ -32,6 +33,9 @@ struct ArmGen {
   std::vector<uint32_t> I; size_t nV = 0;
   uint32_t partFirst[3] = {0, 0, 0}, partCount[3] = {0, 0, 0};
   vec2 handLo{0}, handHi{0}, sleeve15{0};   // the last drawn arm's framing (NDC): hand bounds, 15 cm up the sleeve past the cuff
+  vec3 jS{0}, jE{0}, jW{0}, jT{0};          // the last drawn arm's joints (camera space): shoulder, elbow, wrist, wrist target
+  size_t sleeveV0 = 0, sleeveV1 = 0, handV1 = 0; uint32_t sleeveI1 = 0, handI1 = 0;   // smoothed-normal ranges
+  std::vector<std::pair<uint32_t, uint32_t>> weld;   // the sleeve's uv seam vertex pairs
   json cfg = json::object();
 };
 ArmGen gA;
@@ -41,12 +45,14 @@ vec3 jv3(const json& j, const char* k, vec3 d) { return j.contains(k) && j[k].is
 // ---------------------------------------------------------------- mesh builder (fixed topology)
 struct Builder {
   std::vector<TexVertex> V; std::vector<uint32_t> I; bool idx = true;
+  std::vector<std::pair<uint32_t, uint32_t>>* weld = nullptr;   // when set: record each ring's uv seam pair (same position)
+  using RMod = std::function<float(size_t, float, vec3)>;      // radius factor for (ring, angle round it, its direction)
   // a tube through P (rings of N + 1 vertices, the seam duplicated for the uv), elliptical cross-section rx along the
   // reference axis ref (projected off the tangent: no roll), ry across; uv: u = round the tube x uRep, v = length / vLen
   // cap0 / cap1: close that end with a rounded cap (three rings of a half ellipsoid, normals leaning along the tube),
   // so no open tube end shows its inside
-  void sweep(const std::vector<vec3>& P, const std::vector<vec2>& R, vec3 ref, int N, float uRep, float v0, float vLen, bool cap0 = false, bool cap1 = false) {
-    struct Ring { vec3 c, t, e1, e2; vec2 r; float v, lean; };
+  void sweep(const std::vector<vec3>& P, const std::vector<vec2>& R, vec3 ref, int N, float uRep, float v0, float vLen, bool cap0 = false, bool cap1 = false, const RMod& rmod = nullptr) {
+    struct Ring { vec3 c, t, e1, e2; vec2 r; float v, lean; int src; };
     std::vector<Ring> rings;
     float s = 0;
     for (size_t i = 0; i < P.size(); ++i) {
@@ -55,26 +61,29 @@ struct Builder {
       if (glm::dot(e1, e1) < 1e-8f) e1 = glm::cross(t, std::fabs(t.y) < 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0));
       e1 = glm::normalize(e1);
       if (i > 0) s += glm::length(P[i] - P[i - 1]);
-      rings.push_back({P[i], t, e1, glm::cross(t, e1), R[i], v0 + s / vLen, 0});
+      rings.push_back({P[i], t, e1, glm::cross(t, e1), R[i], v0 + s / vLen, 0, (int)i});
     }
     auto cap = [&](const Ring& e, float sign) {
       std::vector<Ring> out; float L = std::min(e.r.x, e.r.y) * 0.9f;
-      for (float a : {0.75f, 1.25f, 1.5707f}) { Ring q = e; q.c = e.c + e.t * (sign * L * std::sin(a)); q.r = e.r * std::cos(a); q.lean = sign * a; out.push_back(q); }
+      for (float a : {0.75f, 1.25f, 1.5707f}) { Ring q = e; q.c = e.c + e.t * (sign * L * std::sin(a)); q.r = e.r * std::cos(a); q.lean = sign * a; q.src = -1; out.push_back(q); }
       return out;
     };
     if (cap0) { auto c = cap(rings.front(), -1); rings.insert(rings.begin(), c.rbegin(), c.rend()); }
     if (cap1) { auto c = cap(rings.back(), 1); rings.insert(rings.end(), c.begin(), c.end()); }
     uint32_t base = (uint32_t)V.size();
-    for (const Ring& q : rings)
+    for (const Ring& q : rings) {
+      if (weld) weld->push_back({(uint32_t)V.size(), (uint32_t)(V.size() + N)});
       for (int k = 0; k <= N; ++k) {
         float a = 2 * kPi * k / N, c = std::cos(a), sn = std::sin(a);
-        vec3 p = q.c + q.e1 * (c * q.r.x) + q.e2 * (sn * q.r.y);
+        float km = rmod && q.src >= 0 ? rmod((size_t)q.src, a, q.e1 * c + q.e2 * sn) : 1.0f;
+        vec3 p = q.c + q.e1 * (c * q.r.x * km) + q.e2 * (sn * q.r.y * km);
         vec3 ne = glm::normalize(q.e1 * (c / std::max(q.r.x, 1e-4f)) + q.e2 * (sn / std::max(q.r.y, 1e-4f)));
         vec3 n = glm::normalize(ne * std::cos(q.lean) + q.t * std::sin(q.lean));
         vec3 tu = -q.e1 * sn + q.e2 * c;
         float w = glm::dot(glm::cross(ne, tu), q.t) > 0 ? 1.0f : -1.0f;
         V.push_back({p, n, vec4(tu, w), vec2(uRep * k / N, q.v)});
       }
+    }
     if (!idx) return;
     for (size_t i = 0; i + 1 < rings.size(); ++i)
       for (int k = 0; k < N; ++k) {
@@ -111,7 +120,12 @@ void sleeveTex(const Img& wc, const Img& wn, vec3 cloth, vec3 thread, bool cuff,
   const int S = kTex;
   std::vector<uint8_t> alb((size_t)S * S * 4), nrm((size_t)S * S * 4);
   std::vector<float> hgt((size_t)S * S, 0.0f);
-  const float wScale = kTexLen / 0.3f;   // wool_woven tile: 0.3 m; this tile: kTexLen along v (and about one sleeve turn along u)
+  // the cloth source tiles once per texture tile (seamless round the sleeve and along it), bilinearly sampled
+  auto bil = [](const Img& im, float u, float v, int ch) {
+    float x = u * im.w - 0.5f, y = v * im.h - 0.5f; int x0 = (int)std::floor(x), y0 = (int)std::floor(y); float fx = x - x0, fy = y - y0;
+    auto P = [&](int xx, int yy) { xx = ((xx % im.w) + im.w) % im.w; yy = ((yy % im.h) + im.h) % im.h; return (float)im.px[((size_t)yy * im.w + xx) * 4 + ch]; };
+    return glm::mix(glm::mix(P(x0, y0), P(x0 + 1, y0), fx), glm::mix(P(x0, y0 + 1), P(x0 + 1, y0 + 1), fx), fy);
+  };
   double mean = 0; for (size_t k = 0; k < wc.px.size(); k += 4) mean += 0.2126 * wc.px[k] + 0.7152 * wc.px[k + 1] + 0.0722 * wc.px[k + 2];
   mean = std::max(1.0, mean / std::max<size_t>(1, wc.px.size() / 4));
   const float seamU = 0.10f, px = 1.0f / S;
@@ -123,10 +137,8 @@ void sleeveTex(const Img& wc, const Img& wn, vec3 cloth, vec3 thread, bool cuff,
   };
   for (int y = 0; y < S; ++y) for (int x = 0; x < S; ++x) {
     float u = (x + 0.5f) * px, v = (y + 0.5f) * px;
-    int sx = (int)(u * wScale * wc.w) % wc.w, sy = (int)(v * wScale * wc.h) % wc.h;
-    const uint8_t* c = &wc.px[((size_t)sy * wc.w + sx) * 4];
-    float L = (float)((0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / mean);
-    L = std::pow(std::clamp(L, 0.2f, 2.5f), 0.9f);
+    float L = (float)((0.2126 * bil(wc, u, v, 0) + 0.7152 * bil(wc, u, v, 1) + 0.0722 * bil(wc, u, v, 2)) / mean);
+    L = std::pow(std::clamp(L, 0.2f, 2.5f), 1.3f);   // a little more contrast: the fine weave still reads
     // metres on the sleeve: across = round the tube (u x circumference ~ kTexLen), along = v x kTexLen
     float mu = (u - seamU) * kTexLen, mv = v * kTexLen;
     float h = 0, st = 0, fold = 0;
@@ -148,9 +160,7 @@ void sleeveTex(const Img& wc, const Img& wn, vec3 cloth, vec3 thread, bool cuff,
   }
   for (int y = 0; y < S; ++y) for (int x = 0; x < S; ++x) {   // the wool's own normal map, plus the stitch / fold relief
     float u = (x + 0.5f) * px, v = (y + 0.5f) * px;
-    int sx = (int)(u * wScale * wn.w) % wn.w, sy = (int)(v * wScale * wn.h) % wn.h;
-    const uint8_t* c = &wn.px[((size_t)sy * wn.w + sx) * 4];
-    vec3 n(c[0] / 127.5f - 1, c[1] / 127.5f - 1, c[2] / 127.5f - 1);
+    vec3 n(bil(wn, u, v, 0) / 127.5f - 1, bil(wn, u, v, 1) / 127.5f - 1, bil(wn, u, v, 2) / 127.5f - 1);
     auto H = [&](int xx, int yy) { return hgt[(size_t)((yy + S) % S) * S + (xx + S) % S]; };
     float dx = H(x + 1, y) - H(x - 1, y), dy = H(x, y + 1) - H(x, y - 1);
     n = glm::normalize(vec3(n.x - dx * 3.0f, n.y - dy * 3.0f, std::max(0.2f, n.z)));
@@ -187,8 +197,8 @@ void skinTex(vec3 skin, GpuModel::MatTex& m) {
       float f = (v - 0.5f) * 2;
       shade *= glm::mix(0.62f, 1.0f, glm::smoothstep(0.0f, 0.12f, f));   // the root, between the fingers
       crease = line(f, 0.44f, 0.012f) * 0.7f + line(f, 0.73f, 0.010f) * 0.55f;
-      float side = std::min({std::fabs(u), std::fabs(u - 0.5f), std::fabs(u - 1)});   // u 0 / 0.5: the sides facing the next finger
-      shade *= 1.0f - 0.22f * std::exp(-std::pow(side / 0.07f, 2.0f));
+      float side = std::fabs(u * 4 - std::round(u * 4)) / 4;   // u runs across the hand, a finger per quarter: its sides face the next finger
+      shade *= 1.0f - 0.22f * std::exp(-std::pow(side / 0.03f, 2.0f));
     } else if (v > 0.15f) {
       crease = line(v, 0.44f, 0.006f) * 0.5f;   // the knuckle line at the palm's far end
     }
@@ -209,119 +219,230 @@ void skinTex(vec3 skin, GpuModel::MatTex& m) {
 }
 
 // ---------------------------------------------------------------- the arm's shape
+// The arm is a fixed body: upper arm and forearm never change length. A farther or nearer grip changes the pose (a
+// two-bone solve from a shoulder below-left of the eye, the elbow on a pole), never the bones.
+constexpr float kUpper = 0.30f, kFore = 0.27f;   // shoulder - elbow, elbow - wrist (m)
+constexpr int kMf = 3, kRW = 2 * (4 * kMf + 1);   // hand ring: 4 finger blocks of kMf segments across, dorsal + palmar
+constexpr int kFR = 8, kFN = 2 * kMf + 2;         // per finger: rings after its root, vertices per finger ring
+
 struct Pose {
   mat4 Mv{1};               // weapon -> camera
-  vec3 anchor{0};           // weapon space: the bottom of the held section (the fore-end, a handle)
-  vec2 sec{0.022f, 0.022f}; // the held section's half width, half height (an ellipse round the weapon axis)
-  float curl = 1;           // 1 wrapped round it, 0 relaxed
-  bool right = false;       // mirrored: a right hand (knife / grenade), its sleeve from the lower right
-  vec2 tanHalf{1.026f, 0.577f};   // the view's half extent per metre of depth (x, y): the sleeve aims at its lower corner
+  ArmGrip g;                // the grip profile (weapon space): held section, its axis / up, hand shaping, elbow pole
+  float curl = 1;           // 1 wrapped round it, 0 relaxed (times the profile's curl)
+  bool right = false;       // mirrored: a right hand (knife / grenade), its arm from the lower right
 };
-struct ArmOut { vec3 wrist{0}, sleeve15{0}; size_t handV0 = 0; };
+struct ArmOut { vec3 shoulder{0}, elbow{0}, wrist{0}, target{0}, sleeve15{0}; size_t handV0 = 0; bool reached = true; };
 float plen(const std::vector<vec3>& P) { float s = 0; for (size_t i = 1; i < P.size(); ++i) s += glm::length(P[i] - P[i - 1]); return std::max(s, 1e-4f); }
-// builds all pieces into B in camera space. Real sizes: palm 8.5 cm wide, about 9 cm wrist crease to knuckles, fingers
-// 6-8 cm and 1.5-1.8 cm thick (so they show gaps), thumb 6.5 cm; overall about 18 cm wrist to middle fingertip
+float sgn(float v) { return v < 0 ? -1.0f : 1.0f; }
+
+// builds all pieces into B in camera space (fixed topology); records index / vertex ranges on the indexed build
 void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   const glm::mat3 R3(p.Mv);
   auto W = [&](vec3 w) { return vec3(p.Mv * vec4(w, 1)); };
-  const float m = p.right ? -1.0f : 1.0f;   // weapon +x is the shooter's left
-  const float rx = p.sec.x, ry = p.sec.y;
-  const vec3 C = p.anchor + vec3(0, ry, 0);
-  // a point d metres off the section's surface at angle deg round it (0 the near side, -90 the bottom, +-180 the far
-  // side, 90 the top), z metres along the weapon axis from the grip
-  auto S = [&](float deg, float d, float z) { float a = radians(deg); return W(C + vec3(m * (rx + d) * std::cos(a), (ry + d) * std::sin(a), z)); };
-  const vec3 Ac = glm::normalize(R3 * vec3(0, 0, 1));
-  // the heel of the hand, and the forearm aimed on screen from it toward the lower left (lower right for the mirrored
-  // hand), a little nearer the eye, so the sleeve always enters from the lower left: about 30 degrees below the
-  // horizontal, raised (continuously: a bisection on the slant) as far as needed to keep the cuff and 15 cm of sleeve
-  // in view (to about 13 degrees)
-  vec3 heelC = S(-18, 0.021f, -0.004f);
-  vec2 hN(heelC.x / (-heelC.z * p.tanHalf.x), heelC.y / (-heelC.z * p.tanHalf.y));
-  float kx = 1.4f * std::clamp((hN.x * m + 0.75f) / 0.65f, 0.35f, 1.0f);   // a hand already toward the left edge: the sleeve runs steeper, not off the side
-  auto aimAt = [&](float k) { return vec3((hN.x - kx * m) * p.tanHalf.x, (hN.y - k) * p.tanHalf.y, -1.0f) * (-heelC.z * 0.85f); };
-  auto s15y = [&](float k) { vec3 q = heelC + glm::normalize(aimAt(k) - heelC) * 0.215f; return q.y / (std::max(1e-3f, -q.z) * p.tanHalf.y); };
-  float kLo = 0.55f, kHi = 1.4f;
-  if (s15y(kHi) < -0.9f) { for (int it = 0; it < 10; ++it) { float k = 0.5f * (kLo + kHi); (s15y(k) < -0.9f ? kHi : kLo) = k; } } else kLo = kHi;
-  vec3 aim = aimAt(kLo), dC = glm::normalize(aim - heelC);
-  float sleeveLen = std::max(0.25f, glm::length(aim - heelC) + 0.08f);   // ends well outside the view, never at the eye
-  o.wrist = heelC;
-  // ---- sleeve (parts 0 body, 1 cuff): cuff edge 2.5 cm up the wrist, cuff 4 cm, then the body off the view
-  vec3 up = vec3(0, 1, 0);
-  vec3 cuffEdge = heelC + dC * 0.025f, cuffStart = cuffEdge + dC * 0.04f, Send = heelC + dC * sleeveLen;
-  o.sleeve15 = cuffStart + dC * 0.15f;
-  {   // body: tapered, 0.044 m at the cuff to 0.053 m off-screen
-    std::vector<vec3> P; std::vector<vec2> Rr;
-    for (int i = 0; i <= 12; ++i) { float t = i / 12.0f; P.push_back(glm::mix(cuffStart, Send, t)); float rr = 0.044f + 0.009f * t; Rr.push_back(vec2(rr, rr * 0.94f)); }
-    B.sweep(P, Rr, up, 20, 1.0f, 0.04f / kTexLen, kTexLen);
+  const float m = p.right ? -1.0f : 1.0f;
+  const ArmGrip& g = p.g;
+  // the held section's frame (weapon space): A its axis (the index finger's side), U its "top" (where the fingertips
+  // end), Nw the near side (the thumb's side, mirrored for the right hand); an ellipse rx along Nw, ry along U
+  const vec3 A = glm::normalize(g.axis), U = glm::normalize(g.up - A * glm::dot(g.up, A)), Nw = glm::cross(U, A) * m;
+  const float rx = g.section.x, ry = g.section.y, curl = std::clamp(p.curl * g.curl, 0.0f, 1.0f);
+  const vec3 C = g.grip + U * ry;
+  // a point d metres off the section at angle deg round it (0 near side, -90 the bottom / palm side, +-180 far side,
+  // 90 the top), z metres along its axis
+  auto S = [&](float deg, float d, float z) { float a = radians(deg); return W(C + Nw * ((rx + d) * std::cos(a)) + U * ((ry + d) * std::sin(a)) + A * z); };
+  auto outward = [&](float deg) { float a = radians(deg); return glm::normalize(R3 * (Nw * (std::cos(a) / std::max(rx, 1e-3f)) + U * (std::sin(a) / std::max(ry, 1e-3f)))); };
+  const vec3 Ac = glm::normalize(R3 * A);
+
+  // ---- the palm path (heel on the near side round the bottom to the knuckle line under the far edge), the wrist
+  // point behind the heel, then the arm: a two-bone solve to that wrist
+  const int nP = 7;
+  float phH = -16.0f + g.palm, phK = -140.0f;
+  vec3 PP[nP]; float pw[nP], pt[nP];
+  for (int i = 0; i < nP; ++i) {
+    float t = i / float(nP - 1);
+    pt[i] = glm::mix(0.0135f, 0.0105f, t); pw[i] = glm::mix(0.037f, 0.0425f, t);
+    PP[i] = S(glm::mix(phH, phK, t), pt[i] + 0.008f * (1 - glm::smoothstep(0.0f, 0.5f, t)), 0.0f);
   }
+  vec3 heelOut = outward(phH);
+  vec3 wdir = glm::normalize(glm::normalize(PP[0] - PP[1]) + heelOut * 0.5f);   // back from the heel and off the section
+  vec3 wristT = PP[0] + wdir * 0.035f;
+  vec3 Sh = vec3(-0.19f * m, -0.25f, 0.05f) + vec3(g.shoulder.x * m, g.shoulder.y, g.shoulder.z);
+  const float maxR = (kUpper + kFore) * 0.985f;   // a small bend is always kept: no straight-arm flip
+  float L = glm::length(wristT - Sh);
+  if (L > maxR) Sh += (wristT - Sh) / L * std::min(L - maxR, 0.07f);   // the shoulder reaches forward (protraction), up to 7 cm
+  L = glm::length(wristT - Sh);
+  o.reached = L <= maxR + 1e-4f;
+  vec3 E, Wr;
+  solveTwoBone(Sh, wristT, kUpper, kFore, vec3(g.elbow.x * m, g.elbow.y, g.elbow.z), E, Wr);
+  if (!o.reached) { vec3 u = glm::normalize(wristT - Sh); Wr = Sh + u * maxR; }
+  o.shoulder = Sh; o.elbow = E; o.wrist = Wr; o.target = wristT;
+  const vec3 f = glm::normalize(E - Wr), uDir = glm::normalize(Sh - E);   // forearm (wrist -> elbow), upper arm (elbow -> shoulder)
+  vec3 bendN = glm::cross(f, uDir); bendN = glm::dot(bendN, bendN) > 1e-6f ? glm::normalize(bendN) : glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+  vec3 inner = glm::normalize(uDir + f);   // the inside of the elbow bend (where the cloth compresses)
+
+  // ---- sleeve (part 0 body, part 1 cuff): one path from the cuff's inner lip up the forearm, round the elbow, up the
+  // upper arm past the shoulder; shaped (wider toward the elbow, irregular ellipse) with a few broad folds
+  vec3 cuffEdge = Wr + f * 0.008f;
+  std::vector<vec3> P; std::vector<float> sAt;
+  // cuff (part 1): inner lip (the cloth turns in: thickness), the edge, 4.5 cm of cuff
+  std::vector<vec3> Pc = {cuffEdge + f * 0.014f, cuffEdge + f * 0.002f, cuffEdge, cuffEdge + f * 0.015f, cuffEdge + f * 0.030f, cuffEdge + f * 0.045f};
+  std::vector<vec2> Rc = {{0.0405f, 0.035f}, {0.0445f, 0.0385f}, {0.0465f, 0.040f}, {0.0475f, 0.041f}, {0.0478f, 0.0412f}, {0.048f, 0.0414f}};
+  vec3 cuffEnd = Pc.back();
+  o.sleeve15 = cuffEnd + f * 0.15f;
+  // body (part 0)
+  float lenF = glm::length(E - cuffEnd);
+  for (int i = 0; i <= 8; ++i) P.push_back(glm::mix(cuffEnd, E - f * 0.07f, i / 8.0f));
+  for (int i = 1; i <= 6; ++i) { float t = i / 7.0f; vec3 a = E - f * 0.07f, c = E + uDir * 0.07f; P.push_back((1 - t) * (1 - t) * a + 2 * (1 - t) * t * E + t * t * c); }
+  for (int i = 0; i <= 5; ++i) P.push_back(glm::mix(E + uDir * 0.07f, Sh + uDir * 0.06f, i / 5.0f));
+  float sE = lenF + 0.0f;   // arc length from the cuff end to the elbow (about)
+  std::vector<vec2> Rb;
+  { float s = 0; for (size_t i = 0; i < P.size(); ++i) {
+      if (i) s += glm::length(P[i] - P[i - 1]); sAt.push_back(s);
+      float r = 0.048f + 0.013f * glm::smoothstep(0.03f, 0.20f, s) + 0.003f * glm::smoothstep(sE - 0.05f, sE + 0.05f, s);
+      Rb.push_back(vec2(r, r * 0.87f));
+  } }
+  // radius modulation round each ring: an irregular ellipse, soft long folds on the forearm, compression folds on the
+  // inside of the elbow, a soft roll above the cuff (geometry only where it changes the silhouette)
+  const vec3 refS = bendN;
+  auto foldBody = [&](size_t i, float th, vec3 dir) {
+    float s = sAt[i], k = 1 + 0.022f * std::sin(2 * th + 0.7f) + 0.014f * std::sin(3 * th + 2.1f);
+    k += 0.018f * std::sin(5 * th + 1.3f + s * 9.0f) * glm::smoothstep(0.02f, 0.10f, s) * (1 - glm::smoothstep(sE - 0.12f, sE - 0.04f, s));
+    float in = std::max(0.0f, glm::dot(dir, inner)), near = std::exp(-std::pow((s - sE) / 0.07f, 2.0f));
+    k += 0.07f * in * in * near * (0.55f + 0.45f * std::sin((s - sE) / 0.022f * kPi));
+    k += 0.03f * std::exp(-std::pow((s - 0.035f) / 0.018f, 2.0f));   // the roll above the cuff
+    return k;
+  };
+  auto foldCuff = [&](size_t i, float th, vec3) { return 1 + 0.015f * std::sin(2 * th + 0.7f) + (i >= 3 ? 0.012f * std::sin(4 * th + 0.3f) : 0.0f); };
+  if (B.idx) gA.sleeveV0 = B.V.size();
+  B.sweep(P, Rb, refS, 24, 1.0f, 0.045f / kTexLen, kTexLen, false, false, foldBody);
   if (B.idx) { gA.partCount[0] = (uint32_t)B.I.size(); gA.partFirst[1] = (uint32_t)B.I.size(); }
-  {   // cuff: a slightly fuller band, v from its edge
-    std::vector<vec3> P; std::vector<vec2> Rr;
-    for (int i = 0; i <= 3; ++i) { float t = i / 3.0f; P.push_back(glm::mix(cuffEdge, cuffStart, t)); float rr = 0.0465f - 0.0025f * t; Rr.push_back(vec2(rr, rr * 0.94f)); }
-    B.sweep(P, Rr, up, 20, 1.0f, 0.0f, kTexLen);
-  }
-  if (B.idx) { gA.partCount[1] = (uint32_t)B.I.size() - gA.partFirst[1]; gA.partFirst[2] = (uint32_t)B.I.size(); }
-  // ---- skin (part 2): wrist, palm, fingers, thumb; every end capped. Cross-sections keep the weapon axis as their
-  // reference (wide along it for the palm and fingers), so nothing rolls
-  {   // wrist: from inside the cuff to the heel of the hand (v 0-0.15)
-    vec3 w0 = heelC + dC * 0.065f;
-    std::vector<vec3> P = {w0, glm::mix(w0, heelC, 0.5f), heelC}; std::vector<vec2> Rr = {{0.027f, 0.020f}, {0.027f, 0.019f}, {0.030f, 0.017f}};
-    B.sweep(P, Rr, Ac, 12, 1, 0, plen(P) / 0.15f, false, true);
-  }
-  o.handV0 = B.V.size();   // the hand proper (the framing check): palm, fingers, thumb
-  {   // palm (v 0.15-0.45): from the heel on the near side round the bottom to the knuckle line at the far-bottom edge,
-      // 8.5 cm wide along the weapon axis, 2.5 cm thick at the heel to 2 cm at the knuckles
-    std::vector<vec3> P; std::vector<vec2> Rr;
-    for (int i = 0; i <= 6; ++i) {
-      float t = i / 6.0f;
-      P.push_back(S(glm::mix(-18.0f, -146.0f, t), glm::mix(0.021f, 0.0105f, glm::smoothstep(0.0f, 0.6f, t)), -0.004f + 0.004f * t));
-      Rr.push_back(vec2(glm::mix(0.037f, 0.0425f, t), glm::mix(0.0125f, 0.0102f, t)));
+  B.sweep(Pc, Rc, refS, 24, 1.0f, -0.016f / kTexLen, kTexLen, false, false, foldCuff);
+  if (B.idx) { gA.partCount[1] = (uint32_t)B.I.size() - gA.partFirst[1]; gA.partFirst[2] = (uint32_t)B.I.size(); gA.sleeveV1 = B.V.size(); gA.sleeveI1 = (uint32_t)B.I.size(); }
+
+  // ---- hand (part 2): ONE continuous surface: forearm end (inside the cuff) -> wrist -> heel -> palm -> knuckle ring,
+  // which splits into four finger tubes (each finger's root loop is a block of the knuckle ring, neighbours share the
+  // web edge between them); rounded fingertips; the thumb is a separate capped tube rooted inside the thenar pad
+  o.handV0 = B.V.size();
+  // ring frames: e1 along the weapon axis (the hand's width), eR outward; sA keeps (e1, eR, t) right-handed with eR
+  // pointing away from the section, the same for every hand ring (so finger blocks map to the same fingers)
+  vec3 tMid = glm::normalize(PP[4] - PP[2]);
+  float sA = sgn(glm::dot(glm::cross(tMid, Ac), outward(glm::mix(phH, phK, 0.5f))));
+  auto frame = [&](vec3 t, vec3& e1, vec3& eR) { e1 = Ac - t * glm::dot(Ac, t); e1 = glm::dot(e1, e1) > 1e-8f ? glm::normalize(e1) * sA : glm::normalize(glm::cross(t, vec3(0, 1, 0))); eR = glm::normalize(glm::cross(t, e1)); };
+  auto prof = [](float u) { return std::sqrt(std::max(0.02f, 1.0f - std::pow(std::fabs(u) / 1.04f, 2.4f))); };
+  auto put = [&](vec3 pos, vec3 n, vec3 tu, vec3 t, float u, float v) { float w = glm::dot(glm::cross(n, tu), t) > 0 ? 1.0f : -1.0f; B.V.push_back({pos, n, vec4(tu, w), vec2(u, v)}); return (uint32_t)(B.V.size() - 1); };
+  auto quads = [&](const std::vector<uint32_t>& L0, const std::vector<uint32_t>& L1) {
+    if (!B.idx) return; size_t n = L0.size();
+    for (size_t q = 0; q < n; ++q) { uint32_t a = L0[q], b = L0[(q + 1) % n], c2 = L1[q], d = L1[(q + 1) % n]; B.I.insert(B.I.end(), {a, b, c2, b, d, c2}); }
+  };
+  // a hand ring of kRW vertices: dorsal (j 0..4kMf: x from +w to -w, outward) then palmar (back to +w); arch: the palm hollows
+  auto handRing = [&](vec3 c, vec3 t, float w, float th, float arch, float v) {
+    vec3 e1, eR; frame(t, e1, eR); std::vector<uint32_t> L;
+    const int J = 4 * kMf;
+    for (int k = 0; k < kRW; ++k) {
+      bool dors = k <= J; int j = dors ? k : J - (k - J - 1);
+      float x = w * (1 - 2.0f * j / J), y = dors ? th * prof(x / w) : -th * prof(x / w) + arch * th * (1 - (x / w) * (x / w));
+      L.push_back(put(c + e1 * x + eR * y, glm::normalize(e1 * (x / w) * 0.3f + eR * (dors ? 1.0f : -1.0f)), e1, t, (float)j / J, v));
     }
-    B.sweep(P, Rr, Ac, 14, 1, 0.15f, plen(P) / 0.30f, true, true);
+    return L;
+  };
+  std::vector<std::vector<uint32_t>> rings;
+  vec3 R0 = Wr + f * 0.055f;
+  vec3 ctr[2 + nP] = {R0, Wr}; for (int i = 0; i < nP; ++i) ctr[2 + i] = PP[i];
+  for (int i = 0; i < 2 + nP; ++i) {
+    vec3 t = glm::normalize(ctr[std::min(i + 1, 1 + nP)] - ctr[std::max(i - 1, 0)]);
+    float w = i == 0 ? 0.030f : i == 1 ? 0.029f : pw[i - 2], th = i == 0 ? 0.022f : i == 1 ? 0.020f : pt[i - 2];
+    float v = i < 2 ? 0.06f * i + 0.02f : 0.15f + 0.30f * (i - 2) / float(nP - 1);
+    rings.push_back(handRing(ctr[i], t, w, th, i >= 3 ? 0.18f : 0.0f, v));
   }
-  // fingers (v 0.5-1): index (toward the muzzle) to little finger, from the knuckle line under the far-bottom edge up the
-  // far side, the tips curling over the top-far edge (stopped at 112 degrees, over the top). Relaxed: shorter span, lifted.
-  const float fz[4] = {0.0310f, 0.0105f, -0.0105f, -0.0300f}, fl[4] = {0.074f, 0.081f, 0.076f, 0.060f}, fw[4] = {0.0087f, 0.0091f, 0.0086f, 0.0075f}, splay[4] = {0.004f, 0.0012f, -0.0012f, -0.004f};
-  for (int f = 0; f < 4; ++f) {
-    // march round the section at the finger's own offset until its length is used (or the top-far stop is reached)
-    float want = fl[f] * glm::mix(0.55f, 1.0f, p.curl), arc = 0, ph0 = -136.0f, ph1 = ph0;
-    auto at = [&](float deg) { float a = radians(deg); return vec2((rx + fw[f]) * std::cos(a), (ry + fw[f]) * std::sin(a)); };
+  for (size_t i = 0; i + 1 < rings.size(); ++i) quads(rings[i], rings[i + 1]);
+  const std::vector<uint32_t>& KR = rings.back();   // the knuckle ring
+  // fingers: lengths / radii by finger (index .. little); block b of the knuckle ring -> finger (sA > 0 ? b : 3 - b)
+  const float fl[4] = {0.074f, 0.081f, 0.076f, 0.060f}, fw[4] = {0.0087f, 0.0091f, 0.0086f, 0.0075f}, splay[4] = {0.004f, 0.0012f, -0.0012f, -0.004f};
+  for (int b = 0; b < 4; ++b) {
+    int fi = sA > 0 ? b : 3 - b;
+    float fr = fw[fi], zc = sA * pw[nP - 1] * (1 - 2.0f * (kMf * b + kMf * 0.5f) / (4 * kMf)), spread = splay[fi] * (1 + g.spread);
+    std::vector<uint32_t> root;
+    for (int q = 0; q <= kMf; ++q) root.push_back(KR[kMf * b + q]);
+    for (int q = kMf; q >= 0; --q) root.push_back(KR[4 * kMf + 1 + (4 * kMf - (kMf * b + q))]);
+    // march round the section at the finger's own offset until its length is used (or the top-far stop)
+    float want = fl[fi] * glm::mix(0.55f, 1.0f, curl), arc = 0, ph0 = phK, ph1 = ph0;
+    auto at = [&](float deg) { float a = radians(deg); return vec2((rx + fr) * std::cos(a), (ry + fr) * std::sin(a)); };
     while (arc < want && ph1 > -248.0f) { arc += glm::length(at(ph1 - 1) - at(ph1)); ph1 -= 1; }
-    std::vector<vec3> P; std::vector<vec2> Rr;
-    for (int i = 0; i <= 7; ++i) {
-      float t = i / 7.0f;
-      P.push_back(S(glm::mix(ph0, ph1, t), fw[f] + (1 - p.curl) * 0.03f * t * t, fz[f] + splay[f] * t));
-      float rr = glm::mix(fw[f], fw[f] * 0.80f, t);
-      Rr.push_back(vec2(rr, rr * 0.86f));
+    std::vector<vec3> FP;
+    for (int i = 0; i <= kFR; ++i) {
+      float t = i / float(kFR);
+      FP.push_back(S(glm::mix(ph0, ph1, t), glm::mix(pt[nP - 1], fr, glm::smoothstep(0.0f, 0.3f, t)) + (1 - curl) * 0.03f * t * t, zc + spread * t));
     }
-    B.sweep(P, Rr, Ac, 8, 1, 0.5f, plen(P) / 0.5f, true, true);
+    std::vector<uint32_t> prev = root; vec3 tLast(0); float rLast = fr;
+    for (int i = 1; i <= kFR; ++i) {
+      float t = i / float(kFR);
+      vec3 tt = glm::normalize(FP[std::min(i + 1, kFR)] - FP[i - 1]), e1, eR; frame(tt, e1, eR);
+      float hw = glm::mix(pw[nP - 1] / 4, fr, std::min(1.0f, t * 3)) * glm::mix(1.0f, 0.80f, t), ht = glm::mix(pt[nP - 1], fr * 0.85f, std::min(1.0f, t * 3)) * glm::mix(1.0f, 0.82f, t);
+      std::vector<uint32_t> L;
+      for (int q = 0; q < kFN; ++q) {
+        bool dors = q <= kMf; float x = dors ? hw * (1 - 2.0f * q / kMf) : hw * (-1 + 2.0f * (q - kMf - 1) / kMf);
+        float y = (dors ? 1.0f : -1.0f) * ht * prof(x / hw);
+        float u = (b + (dors ? (float)q : (float)(kFN - 1 - q)) / kMf) / 4.0f;
+        L.push_back(put(FP[i] + e1 * x + eR * y, glm::normalize(e1 * (x / hw) * 0.5f + eR * (dors ? 1.0f : -1.0f)), e1, tt, u, 0.5f + 0.5f * t * 0.97f));
+      }
+      quads(prev, L); prev = L; tLast = tt; rLast = hw;
+    }
+    // the rounded tip: one more small ring and a tip vertex
+    { vec3 e1, eR; frame(tLast, e1, eR); std::vector<uint32_t> L; vec3 c = FP[kFR] + tLast * (rLast * 0.45f);
+      for (int q = 0; q < kFN; ++q) { bool dors = q <= kMf; float x = dors ? rLast * 0.6f * (1 - 2.0f * q / kMf) : rLast * 0.6f * (-1 + 2.0f * (q - kMf - 1) / kMf);
+        float y = (dors ? 1.0f : -1.0f) * rLast * 0.5f * prof(x / (rLast * 0.6f));
+        L.push_back(put(c + e1 * x + eR * y, glm::normalize(e1 * x + eR * y + tLast * rLast * 0.5f), e1, tLast, (b + 0.5f) / 4.0f, 0.99f)); }
+      quads(prev, L);
+      uint32_t tip = put(FP[kFR] + tLast * (rLast * 0.80f), tLast, e1, tLast, (b + 0.5f) / 4.0f, 1.0f);
+      if (B.idx) for (int q = 0; q < kFN; ++q) B.I.insert(B.I.end(), {L[q], L[(q + 1) % kFN], tip});
+    }
   }
-  {   // thumb (v 0.5-1): short, from the heel forward along the near side, lying on it a little below mid height
-    std::vector<vec3> P; std::vector<vec2> Rr;
+  if (B.idx) { gA.handI1 = (uint32_t)B.I.size(); gA.handV1 = B.V.size(); }
+  B.weld = nullptr;   // (the sleeve's seams only)
+  {   // thumb (v 0.5-1): rooted inside the thenar pad at the heel's index side, forward along the near side, opposing
+      // the fingers across the section
+    std::vector<vec3> TP; std::vector<vec2> TR;
     for (int i = 0; i <= 6; ++i) {
       float t = i / 6.0f;
-      P.push_back(S(glm::mix(-36.0f, glm::mix(-24.0f, -12.0f, p.curl), t), glm::mix(0.015f, 0.0088f, t) + (1 - p.curl) * 0.012f * t, glm::mix(0.006f, 0.054f, t)));
-      float tr = glm::mix(0.0108f, 0.0082f, t);
-      Rr.push_back(vec2(tr * 0.88f, tr));
+      TP.push_back(S(glm::mix(-30.0f, glm::mix(-24.0f, -12.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
+      float tr = glm::mix(0.0118f, 0.0084f, t);
+      TR.push_back(vec2(tr * 0.88f, tr));
     }
-    B.sweep(P, Rr, glm::normalize(R3 * vec3(m * std::cos(radians(-10.0f)), std::sin(radians(-10.0f)), 0)), 8, 1, 0.5f, plen(P) / 0.5f, true, true);
+    B.sweep(TP, TR, outward(-14.0f), 10, 1, 0.5f, plen(TP) / 0.5f, true, true);
   }
   if (B.idx) gA.partCount[2] = (uint32_t)B.I.size() - gA.partFirst[2];
+}
+
+// smooth normals (area-weighted face normals) over an index range; the sleeve's uv seam vertices are welded
+void smoothNormals(std::vector<TexVertex>& V, uint32_t i0, uint32_t i1, size_t v0, size_t v1, const std::vector<std::pair<uint32_t, uint32_t>>& weld) {
+  for (size_t v = v0; v < v1; ++v) V[v].nrm = vec3(0);
+  for (uint32_t t = i0; t + 3 <= i1 && t + 3 <= gA.I.size(); t += 3) {
+    uint32_t a = gA.I[t], b = gA.I[t + 1], c = gA.I[t + 2];
+    vec3 n = glm::cross(V[b].pos - V[a].pos, V[c].pos - V[a].pos);
+    V[a].nrm += n; V[b].nrm += n; V[c].nrm += n;
+  }
+  for (auto& w : weld) { vec3 s = V[w.first].nrm + V[w.second].nrm; V[w.first].nrm = V[w.second].nrm = s; }
+  for (size_t v = v0; v < v1; ++v) {
+    vec3 n = V[v].nrm; n = glm::dot(n, n) > 1e-20f ? glm::normalize(n) : vec3(0, 0, 1); V[v].nrm = n;
+    vec3 tu = vec3(V[v].tan); tu -= n * glm::dot(n, tu); if (glm::dot(tu, tu) > 1e-12f) V[v].tan = vec4(glm::normalize(tu), V[v].tan.w);
+  }
 }
 
 bool armsLoad() {
   if (gA.tried) return gA.ok;
   gA.tried = true;
   try { gA.cfg = json::parse(readTextFile(contentDir() / "settings" / "fps_arms.json")); } catch (...) { gA.cfg = json::object(); }
-  Img wc = loadImg(contentDir() / "textures" / "wool_woven" / "color.jpg"), wn = loadImg(contentDir() / "textures" / "wool_woven" / "normal.jpg");
+  const std::string cloth = gA.cfg.value("cloth", std::string("cloth_grey"));
+  Img wc = loadImg(contentDir() / "textures" / cloth / "color.jpg"), wn = loadImg(contentDir() / "textures" / cloth / "normal.jpg");
   if (wc.px.empty() || wn.px.empty()) {   // no cloth set: flat 2x2 stand-ins (the stitches still paint)
     wc.w = wc.h = wn.w = wn.h = 2; wc.px.assign(16, 128); wn.px.assign(16, 128); for (int k = 0; k < 4; ++k) wn.px[k * 4 + 2] = 255;
   }
   Builder B; Pose p; ArmOut w;
+  B.weld = &gA.weld;
   buildArm(B, p, w);
+  B.weld = nullptr;
   gA.I = B.I; gA.nV = B.V.size(); gA.partFirst[0] = 0;
   const json& col = gA.cfg.value("sleeve", json::object());
-  vec3 cloth[2] = {jv3(col, "allies", vec3(0.105f, 0.100f, 0.048f)), jv3(col, "axis", vec3(0.030f, 0.030f, 0.032f))};          // linear: olive drab, charcoal
+  vec3 clothC[2] = {jv3(col, "allies", vec3(0.105f, 0.100f, 0.048f)), jv3(col, "axis", vec3(0.030f, 0.030f, 0.032f))};          // linear: olive drab, charcoal
   vec3 thread[2] = {jv3(col, "alliesThread", vec3(0.42f, 0.38f, 0.22f)), jv3(col, "axisThread", vec3(0.24f, 0.24f, 0.25f))};   // a clear step lighter than the cloth
   vec3 skin = jv3(gA.cfg, "skin", vec3(0.44f, 0.25f, 0.155f));
   for (int f = 0; f < 2; ++f) {
@@ -333,24 +454,25 @@ bool armsLoad() {
     auto attr = [&](int loc, int n, size_t off) { glEnableVertexArrayAttrib(g.vao, loc); glVertexArrayAttribFormat(g.vao, loc, n, GL_FLOAT, GL_FALSE, (GLuint)off); glVertexArrayAttribBinding(g.vao, loc, 0); };
     attr(0, 3, offsetof(TexVertex, pos)); attr(1, 3, offsetof(TexVertex, nrm)); attr(2, 4, offsetof(TexVertex, tan)); attr(3, 2, offsetof(TexVertex, uv));
     GpuModel::MatTex body, cuff; body.name = "sleeve"; cuff.name = "cuff";
-    sleeveTex(wc, wn, cloth[f], thread[f], false, body); sleeveTex(wc, wn, cloth[f], thread[f], true, cuff);
+    sleeveTex(wc, wn, clothC[f], thread[f], false, body); sleeveTex(wc, wn, clothC[f], thread[f], true, cuff);
     GpuModel::MatTex hand; hand.name = "skin"; skinTex(skin, hand);
     g.mats = {body, cuff, hand}; g.texAlb = body.alb; g.texN = body.n; g.textureCount = 4;
     const char* names[3] = {"sleeve", "cuff", "hand"};
     for (int k = 0; k < 3; ++k) {
       ModelPart pt; pt.name = names[k]; pt.role = "arm"; pt.first = gA.partFirst[k]; pt.count = gA.partCount[k];
-      pt.metal = 0; pt.rough = k < 2 ? 0.9f : 0.82f; pt.textured = true; pt.mat = k;
+      pt.metal = 0; pt.rough = k < 2 ? 0.9f : 0.78f; pt.textured = true; pt.mat = k;
       pt.base = vec4(1);
       g.parts.push_back(pt);
     }
     g.tris = (int)gA.I.size() / 3;
   }
-  logf("fps arms: generated support arm (%zu verts, %zu tris; sleeve, cuff, hand)", gA.nV, gA.I.size() / 3);
+  logf("fps arms: generated support arm (%zu verts, %zu tris; sleeve %u, cuff %u, hand %u tris; 3 draws, 3 materials)", gA.nV, gA.I.size() / 3,
+       gA.partCount[0] / 3, gA.partCount[1] / 3, gA.partCount[2] / 3);
   return gA.ok = true;
 }
 
-// The weapon's cross-section at its support socket, from its baked mesh (weapon space; as FA1): the bottom of the
-// fore-end under the socket, centred, and the section's width
+// The weapon's cross-section at its support socket (or gripZ), from its baked mesh (weapon space): the bottom of the
+// fore-end under the socket, centred, the width of its lowest 4 cm and its height
 struct GripGeo { bool ok = false; vec3 gL{0}; float wL = 0.044f, hL = 0.044f; };
 const GripGeo& gripGeo(const WeaponDef& d) {
   static std::map<std::string, GripGeo> cache;
@@ -386,39 +508,54 @@ const GripGeo& gripGeo(const WeaponDef& d) {
   logf("fps arms: %s support grip (%.3f, %.3f, %.3f) section %.3f x %.3f%s", d.id.c_str(), g.gL.x, g.gL.y, g.gL.z, g.wL, g.hL, g.ok ? "" : " (socket: no mesh)");
   return cache.emplace(d.id, g).first->second;
 }
+// a grip profile's fields from json (any subset)
+void applyProfile(const json& j, ArmGrip& g) {
+  auto v2 = [&](const char* k, vec2 d) { return j.contains(k) && j[k].is_array() && j[k].size() == 2 ? vec2(j[k][0].get<float>(), j[k][1].get<float>()) : d; };
+  g.grip = jv3(j, "grip", g.grip); g.axis = jv3(j, "axis", g.axis); g.up = jv3(j, "up", g.up); g.section = v2("section", g.section);
+  g.palm = j.value("palm", g.palm); g.curl = j.value("curl", g.curl); g.spread = j.value("spread", g.spread); g.thumb = j.value("thumb", g.thumb);
+  g.elbow = jv3(j, "elbow", g.elbow); g.shoulder = jv3(j, "shoulder", g.shoulder); g.ads = jv3(j, "ads", g.ads); g.slide = j.value("slide", g.slide);
+}
 }   // namespace
 
 bool fpsArmsReady() { return armsLoad(); }
 bool fpsArmsIsModel(const GpuModel* g) { return g && (g == &gA.model[0] || g == &gA.model[1]); }   // self-tests: an arm draw
 int fpsArmsFaction(const GpuModel* g) { return g == &gA.model[0] ? 0 : g == &gA.model[1] ? 1 : -1; }   // 0 Allies, 1 Axis
-// the support grip of a weapon (weapon space): the bottom of the held section and its half width / half height
-// (fps_arms.json "weapons": {"<id>": {"gripZ": z}} measures the fore-end further along; "grip": [x, y, z] and
-// "section": [half width, half height] win over the measurement; the socket when unmeasured)
-void fpsArmsGrip(const WeaponDef& d, vec3& grip, vec2& section) {
+// a weapon's grip profile: the measured fore-end (its bottom, the width of its lowest 4 cm, its height; the section
+// axis is the weapon's +z), then fps_arms.json "default", then fps_arms.json "weapons"."<id>" (docs/fps-arms.md)
+void fpsArmsGrip(const WeaponDef& d, ArmGrip& g) {
   armsLoad();
-  const GripGeo& g = gripGeo(d);
-  float hw = std::clamp(g.wL * 0.5f, 0.012f, 0.045f);
-  grip = g.gL; section = vec2(hw, std::clamp(g.hL * 0.5f, hw, 0.04f));
+  const GripGeo& m = gripGeo(d);
+  float hw = std::clamp(m.wL * 0.5f, 0.012f, 0.045f);
+  g = ArmGrip{}; g.grip = m.gL; g.section = vec2(hw, std::clamp(m.hL * 0.5f, hw, 0.04f));
+  if (gA.cfg.contains("default")) applyProfile(gA.cfg["default"], g);
   const json& w = gA.cfg.value("weapons", json::object());
-  if (w.contains(d.id)) { grip = jv3(w[d.id], "grip", grip); if (w[d.id].contains("section")) section = vec2(w[d.id]["section"][0].get<float>(), w[d.id]["section"][1].get<float>()); }
+  if (w.contains(d.id)) applyProfile(w[d.id], g);
 }
 void fpsArmsLastFraming(vec2& handLo, vec2& handHi, vec2& sleeve15) { handLo = gA.handLo; handHi = gA.handHi; sleeve15 = gA.sleeve15; }
+void fpsArmsLastJoints(vec3& shoulder, vec3& elbow, vec3& wrist, vec3& target) { shoulder = gA.jS; elbow = gA.jE; wrist = gA.jW; target = gA.jT; }
 
-// Draws the support arm holding a section of radius `radius` whose bottom is at `grip` (weapon space; the section's
-// axis is weapon +z), for the weapon-to-camera transform weaponToCam; cam = camera-to-world. curl 1 = wrapped round
-// it, 0 relaxed. rightHand: the mirrored hand, its sleeve from the lower right (knife / grenades). Any weapon may call
-// this (a flamethrower's tube: its support grip and tube radius). Out: the wrist (camera space). False: not drawn
-// (no generated arm, or the safety hid it: in the ADS sight cone / at the eye).
-bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, vec3 grip, vec2 section, float curl, bool rightHand, bool axis, vec3* wristOut) {
+// Draws the support arm holding the grip profile g (weapon space) for the weapon-to-camera transform weaponToCam;
+// cam = camera-to-world. curl 1 = wrapped round the section, 0 relaxed. rightHand: the mirrored hand, its arm from the
+// lower right (knife / grenades). Out: the wrist (camera space). False: not drawn (no generated arm, or the safety hid
+// it: in the ADS sight cone / at the eye).
+bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, const ArmGrip& grip, float curl, bool rightHand, bool axis, vec3* wristOut) {
   if (!armsLoad()) return false;
   float ads = app.adsT * app.adsT * (3 - 2 * app.adsT);
   const float cone = std::tan(radians(gA.cfg.value("sightConeDeg", 6.0f))), nearZ = gA.cfg.value("nearClear", 0.12f), nearAds = gA.cfg.value("nearClearAds", 0.25f);
-  Pose p; p.Mv = weaponToCam; p.anchor = grip; p.sec = section; p.curl = std::clamp(curl, 0.0f, 1.0f); p.right = rightHand;
-  float ty = std::tan(radians(app.vmFovNow()) * 0.5f); p.tanHalf = vec2(ty * app.R.width / std::max(1, app.R.height), ty);
-  Builder B; B.idx = false; ArmOut wrist;
+  Pose p; p.Mv = weaponToCam; p.g = grip; p.g.grip += grip.ads * ads; p.curl = std::clamp(curl, 0.0f, 1.0f); p.right = rightHand;
+  const vec3 A = glm::normalize(grip.axis);
+  Builder B; B.idx = false; ArmOut out;
+  // out of reach: the hand slides back along the held section (toward the shooter) up to the profile's slide
+  for (int it = 0; it < 4; ++it) {
+    B.V.clear(); buildArm(B, p, out);
+    if (out.reached) break;
+    float miss = glm::length(out.target - out.wrist), slid = glm::length(p.g.grip - grip.grip - grip.ads * ads);
+    if (slid >= grip.slide - 1e-4f) break;
+    p.g.grip -= A * std::min(miss * 1.3f + 0.005f, grip.slide - slid);
+  }
   int inCone = 0, tooNear = 0;
   for (int it = 0; it < 7; ++it) {
-    B.V.clear(); buildArm(B, p, wrist);
+    if (it) { B.V.clear(); buildArm(B, p, out); }
     inCone = tooNear = 0;
     for (size_t v = 0; v < B.V.size(); v += 3) {
       vec3 q = B.V[v].pos; float fwd = -q.z, rr = glm::length(vec2(q.x, q.y));
@@ -427,14 +564,18 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, vec3
       if (fwd < (ads > 0.3f ? nearAds : nearZ) && rr < fwd * 0.5f) ++tooNear;   // a sleeve end-on / a wrist at the cheek
     }
     if (inCone == 0) break;
-    p.anchor.y -= 0.012f;   // the hand drops below the sight line
+    p.g.grip.y -= 0.012f;   // the hand drops below the sight line
   }
-  if (wristOut) *wristOut = wrist.wrist;
-  auto ndc = [&](vec3 q) { float z = std::max(1e-3f, -q.z); return vec2(q.x / (z * p.tanHalf.x), q.y / (z * p.tanHalf.y)); };
+  gA.jS = out.shoulder; gA.jE = out.elbow; gA.jW = out.wrist; gA.jT = out.target;
+  if (wristOut) *wristOut = out.wrist;
+  float ty = std::tan(radians(app.vmFovNow()) * 0.5f); vec2 tanHalf(ty * app.R.width / std::max(1, app.R.height), ty);
+  auto ndc = [&](vec3 q) { float z = std::max(1e-3f, -q.z); return vec2(q.x / (z * tanHalf.x), q.y / (z * tanHalf.y)); };
   gA.handLo = vec2(1e9f); gA.handHi = vec2(-1e9f);
-  for (size_t v = wrist.handV0; v < B.V.size(); ++v) { vec2 c = ndc(B.V[v].pos); gA.handLo = glm::min(gA.handLo, c); gA.handHi = glm::max(gA.handHi, c); }
-  gA.sleeve15 = ndc(wrist.sleeve15);
+  for (size_t v = out.handV0; v < B.V.size(); ++v) { vec2 c = ndc(B.V[v].pos); gA.handLo = glm::min(gA.handLo, c); gA.handHi = glm::max(gA.handHi, c); }
+  gA.sleeve15 = ndc(out.sleeve15);
   if (inCone > 0 || tooNear > 0 || B.V.size() != gA.nV) return false;
+  smoothNormals(B.V, 0, gA.sleeveI1, gA.sleeveV0, gA.sleeveV1, gA.weld);              // the folded sleeve and cuff
+  smoothNormals(B.V, gA.partFirst[2], gA.handI1, gA.sleeveV1, gA.handV1, {});         // the continuous hand
   GpuModel& g = gA.model[axis ? 1 : 0];
   glNamedBufferSubData(g.vbo, 0, B.V.size() * sizeof(TexVertex), B.V.data());
   for (int k = 0; k < 3; ++k) app.R.viewModelTex.push_back({&g, k, cam});
