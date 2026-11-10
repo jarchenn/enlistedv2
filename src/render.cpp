@@ -2108,6 +2108,14 @@ layout(location=0) in vec3 aPos;
 uniform mat4 uModel, uVP;
 void main(){ gl_Position = uVP*uModel*vec4(aPos,1.0); }
 )GLSL";
+// P2 instdepth: kShadowVS with the model matrix per instance (VAO binding 3, attributes 12-15, divisor 1)
+static const char* kShadowIVS = R"GLSL(
+#version 450 core
+layout(location=0) in vec3 aPos;
+layout(location=12) in vec4 iM0; layout(location=13) in vec4 iM1; layout(location=14) in vec4 iM2; layout(location=15) in vec4 iM3;
+uniform mat4 uVP;
+void main(){ gl_Position = uVP*mat4(iM0, iM1, iM2, iM3)*vec4(aPos,1.0); }
+)GLSL";
 static const char* kDepthVS = R"GLSL(   // R1 zprepass experiment: kMainVS's exact transform
 layout(location=0) in vec3 aPos;
 uniform mat4 uModel, uVP;
@@ -2917,6 +2925,7 @@ bool Renderer::init(int w, int h) {
   progMain = compile(kMainVS, (std::string(tex::glslCommon()) + tex::glslMain() + kMainFS).c_str(), "main");   // L4 texture hooks first
   progGlass = compile(kMainVS, kGlassFS, "glass");
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
+  progShadowI = compile(kShadowIVS, kShadowFS, "shadow_inst");
   progDepth = compile(kDepthVS, kShadowFS, "depth prepass");
   { extern const char* groundPaintGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
@@ -3311,6 +3320,44 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
   }
   const SurfaceParams* lastSurf = nullptr;
   GLuint boundVao = 0;
+  // P2 instdepth: a depth-only pass (progShadow: sun cascades, sky occlusion, light shadows) draws every mesh that occurs
+  // more than once as one instanced draw (matrices streamed to instBuf); single meshes keep the per-item draw below
+  const bool vpKnown = depthVPSet; depthVPSet = false;   // set by the caller right before this call (sun cascades, sky occlusion); others: per-item draws
+  if (shadowPass && p == progShadow && progShadowI && perf.instDepth && vpKnown && drawIdx.size() > 1) {
+    std::stable_sort(drawIdx.begin(), drawIdx.end(), [&](uint32_t a, uint32_t b) { return std::less<const GpuMesh*>()(items[a].mesh, items[b].mesh); });
+    instMats.clear(); instRuns.clear();
+    std::vector<uint32_t> single; single.reserve(drawIdx.size());
+    for (size_t a = 0; a < drawIdx.size();) {
+      size_t b = a; while (b < drawIdx.size() && items[drawIdx[b]].mesh == items[drawIdx[a]].mesh) ++b;
+      if (b - a < 2 || !items[drawIdx[a]].mesh->vbo || !items[drawIdx[a]].mesh->ebo) for (size_t k = a; k < b; ++k) single.push_back(drawIdx[k]);   // meshes without their own buffers: per item
+      else { instRuns.push_back({items[drawIdx[a]].mesh, (uint32_t)instMats.size(), (uint32_t)(b - a)}); for (size_t k = a; k < b; ++k) instMats.push_back(items[drawIdx[k]].model); }
+      a = b;
+    }
+    if (!instRuns.empty()) {
+      if (!instBuf) glCreateBuffers(1, &instBuf);
+      glNamedBufferData(instBuf, instMats.size() * sizeof(mat4), instMats.data(), GL_STREAM_DRAW);   // orphaned per pass
+      glUseProgram(progShadowI);
+      glUniformMatrix4fv(drawLocs(progShadowI).vp, 1, GL_FALSE, glm::value_ptr(depthVP));
+      for (auto& r : instRuns) {
+        // the mesh's own instancing VAO (GpuMesh::ivao, freed with the mesh, so a rebuilt damaged bay never inherits a
+        // stale setup): position from its vertex buffer, attributes 12-15 = one matrix per instance from instBuf
+        GLuint& iv = const_cast<GpuMesh*>(r.mesh)->ivao;
+        if (!iv) {
+          glCreateVertexArrays(1, &iv);
+          glVertexArrayVertexBuffer(iv, 0, r.mesh->vbo, 0, sizeof(Vertex)); glVertexArrayElementBuffer(iv, r.mesh->ebo);
+          glEnableVertexArrayAttrib(iv, 0); glVertexArrayAttribFormat(iv, 0, 3, GL_FLOAT, GL_FALSE, (GLuint)offsetof(Vertex, pos)); glVertexArrayAttribBinding(iv, 0, 0);
+          for (int c = 0; c < 4; ++c) { glEnableVertexArrayAttrib(iv, 12 + c); glVertexArrayAttribFormat(iv, 12 + c, 4, GL_FLOAT, GL_FALSE, c * 16); glVertexArrayAttribBinding(iv, 12 + c, 1); }
+          glVertexArrayBindingDivisor(iv, 1, 1);
+          glVertexArrayVertexBuffer(iv, 1, instBuf, 0, sizeof(mat4));
+        }
+        glBindVertexArray(iv);
+        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.mesh->count, GL_UNSIGNED_INT, nullptr, (GLsizei)r.count, 0, r.first);   // the call the leaf path (and the Mac shim) already uses
+        stats.draws++; stats.instDrawn += r.count; stats.tris += r.mesh->count / 3 * r.count;
+      }
+      glUseProgram(p);
+    }
+    drawIdx.swap(single);
+  }
   for (uint32_t k : drawIdx) {
     const DrawItem& it = items[k];
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.model));
@@ -3340,6 +3387,60 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
 // Trees with L1 species leaves (perf.leafTex) draw their cards as instances of the shared sprig meshes with the
 // instanced twin of p (progLeafI / progLeafIShadow): LOD f.cur in the main view (view), the sprig cards elsewhere
 // (sun / sky-occlusion shadows: same layers, same alpha). Everything else (ivy, ferns, oval A/B) draws the card VBO.
+// P2 folbatch: per-frame cell membership; a cell whose member set changed (a tree felled, placed, moved, in or out of
+// the draw distance) is rebuilt, at most 8 a frame; until then its trees draw one by one
+void Renderer::prepFoliageBatches() {
+  for (auto& [k, c] : folCells) { c.sig = 0; c.want.clear(); }
+  for (auto& f : foliage) f.batched = false;
+  if (!perf.folBatch || !perf.leafTex || !leafLibReady() || thumbMode) return;
+  auto mix = [](uint64_t h, uint64_t v) { h ^= v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2); return h * 0x100000001B3ull; };
+  for (int k = 0; k < (int)foliage.size(); ++k) {
+    const FoliageDraw& f = foliage[k];
+    if (!f.id || !f.tree || !f.tree->leafVao || f.tree->leafInstCpu.empty() || f.tree->leafGroups.empty()) continue;
+    int64_t cx = (int64_t)std::floor(f.m[3].x / 64.0f), cz = (int64_t)std::floor(f.m[3].z / 64.0f);
+    FolCell& c = folCells[mix(mix((uint64_t)(uintptr_t)f.tree, (uint64_t)cx), (uint64_t)cz)];
+    uint32_t pb[5]; const float pf[5] = {f.m[3].x, f.m[3].y, f.m[3].z, f.m[0].x, f.m[0].z}; std::memcpy(pb, pf, sizeof pb);   // a moved / turned tree rebuilds its cell
+    c.tree = f.tree; c.sig = mix(c.sig, f.id * 0x9E3779B97F4A7C15ull);
+    c.sig = mix(mix(mix(c.sig, ((uint64_t)pb[0] << 32) | pb[1]), ((uint64_t)pb[2] << 32) | pb[3]), ((uint64_t)pb[4] << 32) | f.tree->leafInst);
+    c.want.push_back(k);
+  }
+  int rebuilt = 0;
+  for (auto it = folCells.begin(); it != folCells.end();) {
+    FolCell& c = it->second;
+    if (c.want.empty()) { if (c.vao) glDeleteVertexArrays(1, &c.vao); if (c.vbo) glDeleteBuffers(1, &c.vbo); it = folCells.erase(it); continue; }
+    if (c.sig != c.builtSig) {
+      if (rebuilt >= 8) { c.fol.clear(); ++it; continue; }
+      ++rebuilt;
+      std::vector<int> ord = c.want;   // neighbours next to each other: runs of visible trees stay long
+      std::sort(ord.begin(), ord.end(), [&](int a, int b) { const vec4 &p = foliage[a].m[3], &q = foliage[b].m[3]; return p.x != q.x ? p.x < q.x : p.z < q.z; });
+      const TreeDef& td = *c.tree;
+      const size_t T = ord.size(), G = td.leafGroups.size();
+      const bool hasShad = td.leafShadowGroups.size() == G;
+      c.ids.resize(T); c.slot.clear(); for (size_t t = 0; t < T; ++t) { c.ids[t] = foliage[ord[t]].id; c.slot[c.ids[t]] = (int)t; }
+      c.full.assign(G * T, glm::ivec2(0)); c.shad.assign(G * T, glm::ivec2(0));
+      std::vector<float> buf;
+      auto put = [&](const TreeDef::LeafGroup& g, const mat4& M, std::vector<glm::ivec2>& rng, size_t at) {
+        glm::mat3 R(M);
+        rng[at] = glm::ivec2((int)(buf.size() / 16), g.count);
+        for (int n = 0; n < g.count; ++n) {
+          const float* s = &td.leafInstCpu[(size_t)(g.first + n) * 16];
+          vec3 ctr = vec3(M * vec4(s[0], s[1], s[2], 1)), T3 = R * vec3(s[3], s[4], s[5]), B3 = R * vec3(s[6], s[7], s[8]), D = glm::normalize(R * vec3(s[9], s[10], s[11]));
+          buf.insert(buf.end(), {ctr.x, ctr.y, ctr.z, T3.x, T3.y, T3.z, B3.x, B3.y, B3.z, D.x, D.y, D.z, s[12], s[13], s[14], s[15]});
+        }
+      };
+      for (size_t g = 0; g < G; ++g) for (size_t t = 0; t < T; ++t) put(td.leafGroups[g], foliage[ord[t]].m, c.full, g * T + t);
+      for (size_t g = 0; g < G; ++g) for (size_t t = 0; t < T; ++t) put(hasShad ? td.leafShadowGroups[g] : td.leafGroups[g], foliage[ord[t]].m, c.shad, g * T + t);
+      if (c.vao) glDeleteVertexArrays(1, &c.vao); if (c.vbo) glDeleteBuffers(1, &c.vbo);
+      glCreateBuffers(1, &c.vbo); glNamedBufferStorage(c.vbo, std::max<size_t>(buf.size(), 16) * 4, buf.empty() ? nullptr : buf.data(), 0);
+      c.vao = leafInstVao(c.vbo);
+      c.builtSig = c.sig;
+    }
+    c.fol.assign(c.ids.size(), -1);
+    for (int k : c.want) { auto s = c.slot.find(foliage[k].id); if (s != c.slot.end()) { c.fol[s->second] = k; foliage[k].batched = true; } }
+    ++it;
+  }
+}
+
 void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool view, float lodFrom) {
   float sway = 0.14f * std::max(0.0f, wind) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
   bool tex = perf.leafTex && leafLibReady();
@@ -3353,7 +3454,7 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
     glUniform1f(L.time, time); glUniform1f(L.wind, wind);
     GLint lm = L.model, lc = L.leafCol;
     for (auto& f : foliage) {
-      if (!mine(f)) continue;
+      if (!mine(f) || (pass == 1 && f.batched)) continue;   // batched: drawn from its cell below
       if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway + (pass ? 0.05f : 0.0f))) { stats.culled++; continue; }   // leaf fold: a few cm off the card
       glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
       // R2 leafshadowlod: a depth pass past lodFrom metres from the eye casts from the shadow LOD (foliage.cpp): half the
@@ -3365,7 +3466,7 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
         bool cl = slod && f.tree->shadowVerts > 0;
         int first = cl ? f.tree->shadowFirst : 0, n = cl ? f.tree->shadowVerts : f.tree->cardVerts;
         glDrawArrays(GL_TRIANGLES, first, n);
-        stats.draws++; stats.tris += n / 3;
+        stats.draws++; stats.foliageDraws++; stats.tris += n / 3;
         continue;
       }
       int lod = view ? f.cur : 2;
@@ -3374,7 +3475,39 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
         const LeafMeshRange& r = gLeafSprigMesh[g.sprig * 3 + lod];
         if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(g.tint));
         glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), g.count, r.baseVertex, g.first);
-        stats.draws++; stats.tris += (size_t)r.count / 3 * g.count;
+        stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * g.count;
+      }
+    }
+    if (pass == 1 && !folCells.empty()) {   // P2 folbatch: each cell's visible trees, per leaf group, in runs of equal LOD
+      const mat4 I(1); glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(I));
+      std::vector<int> st;
+      for (auto& [key, c] : folCells) {
+        if (c.fol.empty() || !c.vao) continue;
+        const TreeDef& td = *c.tree; const size_t T = c.ids.size(), G = td.leafGroups.size();
+        st.assign(T, -1); bool any = false;
+        for (size_t t = 0; t < T; ++t) {
+          int k = c.fol[t];
+          if (k < 0 || k >= (int)foliage.size() || !foliage[k].batched || foliage[k].id != c.ids[t] || foliage[k].tree != c.tree) continue;   // only this frame's list (thumbnails swap it)
+          const FoliageDraw& f = foliage[k];
+          if (fr && !fr->visible(td.cardMin, td.cardMax, f.m, sway + 0.05f)) { stats.culled++; continue; }
+          bool slod = !view && lodFrom >= 0 && (lodFrom == 0 || glm::length(vec3(f.m[3]) - castEye) > lodFrom) && !td.leafShadowGroups.empty();
+          st[t] = (view ? f.cur : 2) * 2 + (slod ? 1 : 0); any = true;
+        }
+        if (!any) continue;
+        glBindVertexArray(c.vao);
+        for (size_t g = 0; g < G; ++g) {
+          if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(td.leafGroups[g].tint));
+          for (size_t t = 0; t < T;) {
+            if (st[t] < 0) { ++t; continue; }
+            const int s = st[t]; const std::vector<glm::ivec2>& rg = (s & 1) ? c.shad : c.full;
+            int first = rg[g * T + t].x, n = 0;
+            while (t < T && st[t] == s) { n += rg[g * T + t].y; ++t; }
+            if (!n) continue;
+            const LeafMeshRange& r = gLeafSprigMesh[td.leafGroups[g].sprig * 3 + (s >> 1)];
+            glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), n, r.baseVertex, first);
+            stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * n;
+          }
+        }
       }
     }
   }
@@ -3534,6 +3667,11 @@ void Renderer::gpuFrameBegin() {
   std::fill(set, set + GP_Count + 1, false);
 }
 void Renderer::gpuMark(int p) {
+  {   // P2: CPU time from this mark to the next one (NMK_DLPROF reports it per pass)
+    auto now = std::chrono::steady_clock::now();
+    if (cpuMarkP >= 0 && cpuMarkP < GP_Count) cpuPassMs[cpuMarkP] += std::chrono::duration<double, std::milli>(now - cpuMarkT).count();
+    cpuMarkP = p; cpuMarkT = now;
+  }
   if (!gpuTimers || !gq[0][0] || p < 0 || p > GP_Count) return;
   glQueryCounter(gq[gqSlot][p], GL_TIMESTAMP); gqSet[gqSlot][p] = true;
 }
@@ -3546,7 +3684,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   RenderView v = v0;
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
-  stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0;   // roomCulled: counted from here too
+  stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0; stats.foliageDraws = 0; stats.instDrawn = 0;
+  prepFoliageBatches();   // P2 folbatch   // roomCulled: counted from here too
   stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
   time += v.dt;
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
@@ -3601,7 +3740,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(1.5f, 2.0f);
   glDisable(GL_CULL_FACE);
   glUseProgram(progShadow);
-  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
+  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVP)); depthVP = lightVP; depthVPSet = true;
   // every depth / colour pass culls against its own view-projection (docs/rendering.md#frustum-culling): a cascade keeps
   // the casters inside its ortho box even when they are behind the camera
   Frustum frNear = Frustum::fromVP(lightVP);
@@ -3633,7 +3772,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glViewport(0, 0, shadowFarSize, shadowFarSize);
     glClear(GL_DEPTH_BUFFER_BIT);
     glUseProgram(progShadow);
-    glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
+    glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar)); depthVP = lightVPFar; depthVPSet = true;
     Frustum frFar = Frustum::fromVP(lightVPFar);
     drawItems(progShadow, opaque, true, &frFar);
     if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
@@ -3662,7 +3801,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glViewport(0, 0, occSize, occSize);
   glClear(GL_DEPTH_BUFFER_BIT);
   glUseProgram(progShadow);
-  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
+  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP)); depthVP = occVP; depthVPSet = true;
   Frustum frOcc = Frustum::fromVP(occVP);
   minCaster = perf.smallCasters ? std::max(0.3f, 2.0f * (2 * occR / occSize)) : 0.0f;   // PF2: props too small to shade the sky
   drawItems(progShadow, opaque, true, &frOcc);

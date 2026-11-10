@@ -65,6 +65,7 @@ struct MeshData { std::vector<Vertex> v; std::vector<uint32_t> i; };
 
 struct GpuMesh {
   GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
+  GLuint ivao = 0;   // P2 instdepth: position + per-instance matrix VAO, made on first instanced depth draw (render.cpp)
   vec3 bmin{0}, bmax{0};   // mesh-space bounds of the uploaded vertices (frustum culling, src/frustum.h); empty mesh: 0, 0
   void upload(const MeshData& m);
   void destroy();
@@ -163,6 +164,7 @@ struct TreeDef {
   // shade, seed) of the shared sprig meshes, grouped by sprig; tint = leafCol / the species mean colour
   struct LeafGroup { int sprig, first, count; vec3 tint; };
   GLuint leafVao = 0, leafInst = 0; std::vector<LeafGroup> leafGroups; int leafCards = 0;
+  std::vector<float> leafInstCpu;            // P2: leafInst's contents (full set, then the shadow LOD), for the per-cell batches
   std::vector<LeafGroup> leafShadowGroups;   // R2: the shadow LOD instances (every 2nd sprig, 1.25x) after the full set in leafInst
 };
 // L1 leaf library (foliage.cpp): texture array content/textures/leaves (unit kLeafUnit) and one mesh per sprig and LOD
@@ -171,6 +173,7 @@ constexpr int kLeafUnit = 26;
 struct LeafMeshRange { int baseVertex = 0, firstIndex = 0, count = 0; };
 extern std::vector<LeafMeshRange> gLeafSprigMesh;   // [sprig * 3 + lod]
 bool leafLibReady();
+GLuint leafInstVao(GLuint inst);   // foliage.cpp: VAO over the sprig meshes + an instance buffer in the card layout
 // Buildable defence: tank trap / sandbags (builder.cpp, ballistics.cpp).
 struct DefenseSocket { vec3 p{0}, t{1, 0, 0}; };
 // path entity (paths.cpp): length / width per instance (extra.path), draped on the terrain

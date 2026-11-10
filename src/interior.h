@@ -5,6 +5,7 @@
 #include "assets.h"
 #include "render.h"
 #include <deque>
+#include <unordered_set>
 
 class App;
 struct Instance;
@@ -88,6 +89,7 @@ public:
   // A piece that breaks, moves or is selected leaves the batch (rebuilt next frame) and draws on its own.
   void updateBatches(App& app);
   bool batching = true;
+  std::unordered_set<uint64_t> batchLeads;   // P2 dlcache: first member of each built batch (it pushes the batch's draw)
   // R2 roomcull (docs/r2-shadows-culling.md): a furnished piece inside a closed, roofed building is skipped in the camera
   // pass when no opening of its building (door / window apertures, glass, doorway cells, damaged or breached bays) can
   // show it from the eye; the eye inside the building, an open-topped or wrecked building, or any doubt: drawn

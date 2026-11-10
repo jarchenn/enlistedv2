@@ -4,6 +4,7 @@
 #include "app.h"
 #include "physics.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
@@ -433,10 +434,10 @@ void buildNatureAsset(AssetDef& a, const json& j, std::vector<vec3>& pts) {
 // ---------------------------------------------------------------- runtime
 int gNatRebuilds = 0;
 namespace {
-std::vector<GrassFootprint> gFp; uint32_t gFpRev = 0, gFpGround = 0; size_t gFpN = 0; const void* gFpDoc = nullptr;
+std::vector<GrassFootprint> gFp; uint32_t gFpRev = 0, gFpGround = 0; size_t gFpN = 0; const void* gFpDoc = nullptr; uint64_t gFpGen = 1;   // gFpGen: bumped on every rebuild (P2)
 const std::vector<GrassFootprint>& footprints(App& app) {
   if (gFpRev != app.revCounter || gFpGround != app.groundRev || gFpDoc != &app.doc || gFpN != app.doc.instances.size() || gFp.empty()) {   // deletes do not bump revs
-    gFp = app.grassFootprints(); gFpRev = app.revCounter; gFpGround = app.groundRev; gFpDoc = &app.doc; gFpN = app.doc.instances.size();
+    ++gFpGen; gFp = app.grassFootprints(); gFpRev = app.revCounter; gFpGround = app.groundRev; gFpDoc = &app.doc; gFpN = app.doc.instances.size();
     gFp.erase(std::remove_if(gFp.begin(), gFp.end(), [](const GrassFootprint& f) { return f.soft; }), gFp.end());   // crop tiles clear pasture grass only
   }
   return gFp;
@@ -630,7 +631,13 @@ void natureDrawItems(App& app, const Instance& i, InstanceRT& r, std::vector<Dra
   float meshReach = (wheat ? 480.0f : 160.0f) + R, plantReach = 140.0f + R;
   if (camDist > std::max(meshReach, stones ? 0.0f : plantReach)) return;
   const auto& fp = footprints(app);
-  uint64_t fh = footHash(fp, vec2(i.pos.x, i.pos.z), R);
+  uint64_t fh;   // P2 dlcache: the footprint hash scans every footprint of the map; reused until the list or the patch changes
+  {
+    static std::unordered_map<const void*, std::array<uint64_t, 3>> fc;
+    auto& e = fc[&r]; uint64_t key = ((uint64_t)i.rev << 32) ^ fbits(R);
+    if (app.R.perf.dlCache && e[0] == gFpGen && e[1] == key) fh = e[2];
+    else { fh = footHash(fp, vec2(i.pos.x, i.pos.z), R); e = {gFpGen, key, fh}; }
+  }
   bool stale = r.natRev != i.rev || r.natFoot != fh;
   {   // lasso paint / water: re-check only when they changed somewhere, rebuild only when they changed here
     static std::unordered_map<const void*, std::pair<uint64_t, uint64_t>> lsig;

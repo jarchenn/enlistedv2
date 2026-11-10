@@ -183,8 +183,26 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   lodPxPerM = projM[1][1] != 0.0f ? projM[1][1] * R.height * 0.5f : 0.0f; lodCount[0] = lodCount[1] = lodCount[2] = 0;
   hlodFrame(*this);   // PF2 Phase B: far buildings merged per cell (hlod.cpp)
   const ActiveSet& act = activeSet();
+  // P2 measurement (NMK_DLPROF=1): items per source category, logged every 240 frames
+  static const bool dlProf = std::getenv("NMK_DLPROF") != nullptr; static int dlFrame = 0; static double dlCat[6][4] = {};
+  // P2 dlcache: room-template furniture past InteriorSys::cullBig draws nothing (propDraw culls it, except the piece that
+  // pushes its building's merged batch), so those pieces skip the whole per-instance path. The furnished flags are cached
+  // until an edit, an add or a removal; the distance test runs every frame.
+  static std::vector<uint8_t> furn; static uint64_t furnSig = 0;
+  const vec3 dlEye = mode == Mode::Explore ? eyePos() : camPos;
+  const float farFurn2 = (interior.cullBig + 1.0f) * (interior.cullBig + 1.0f);
+  if (R.perf.dlCache) {
+    uint64_t fs = ((uint64_t)revCounter << 32) ^ ((uint64_t)doc.instances.size() << 1) ^ (uint64_t)(uintptr_t)&doc;
+    if (fs != furnSig || furn.size() != doc.instances.size()) { furnSig = fs; furn.resize(doc.instances.size()); for (size_t k = 0; k < furn.size(); ++k) furn[k] = isFurnishPiece(doc.instances[k]); }
+  }
   for (size_t idx = 0; idx < doc.instances.size(); ++idx) {
     auto& i = doc.instances[idx];
+    if (R.perf.dlCache && furn[idx]) { vec3 d = i.pos - dlEye; if (glm::dot(d, d) > farFurn2 && !interior.batchLeads.count(i.id)) continue; }
+    struct DlTag { std::vector<DrawItem>& op; std::vector<DrawItem>& gl; std::vector<FoliageDraw>& fo; InstanceRT* r; size_t o, g, f; bool on; std::chrono::steady_clock::time_point t0 = on ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+      ~DlTag() { if (!on || !r || !r->asset) return; const AssetDef* a = r->asset;
+        int c = a->tree.on ? 0 : a->nature.kind != NatureDef::NONE ? 1 : a->raw.is_object() && a->raw.contains("prop") ? 2 : a->enterable ? 3 : a->model ? 4 : 5;
+        dlCat[c][0] += op.size() - o; dlCat[c][1] += gl.size() - g; dlCat[c][2] += fo.size() - f; dlCat[c][3] += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); } }
+      dlTag{op, gl, R.foliage, act.rtOf[idx], op.size(), gl.size(), R.foliage.size(), dlProf};
     if (hlodSkip(i)) {   // drawn by its active HLOD cell; its ivy is still drawn per copy (cards, not in the cell)
       InstanceRT* h = act.rtOf[idx];
       if (h && h->asset->ivy.mode != IvyDef::NONE) {
@@ -301,13 +319,14 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
     if (noFurn) { if (r.asset->noFurnGlass.count) gl.push_back({&r.asset->noFurnGlass, M}); } else if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
+    const mat4 IM = r.asset->interactables.empty() ? mat4(1) : instanceMatrix(i);   // P2: once per copy (leafMatrix rebuilt it per leaf)
     for (size_t k = 0; k < r.asset->interactables.size() && r.lod < 2; ++k) {   // doors / shutters: not at LOD2 (a few pixels)
       auto& d = r.asset->interactables[k];
       for (size_t l = 0; l < d.leaves.size(); ++l) {
         auto& lf = d.leaves[l];
         uint8_t st = k < r.leafSt.size() && l < r.leafSt[k].size() ? r.leafSt[k][l] : 0;
         if (st & 2) continue;                                  // detached: drawn from its rigid body
-        mat4 L = leafMatrix(i, lf, d, r.progress[k]);
+        mat4 L = IM * glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * leafAngle(d, r.progress[k])), d.axis));   // = leafMatrix
         op.push_back({&lf.opaque, L});
         if (lf.glass.count && !(st & 1)) gl.push_back({&lf.glass, L});
       }
@@ -316,6 +335,14 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (!R.perf.assetLod || lodPxPerM <= 0 || lodPxPerM >= 4.0f * camDist) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // B1 ivy (ivy.cpp); PF2: not under 4 px/m
   }
   hlodDraw(op, gl);
+  if (dlProf && ++dlFrame % 30 == 0) {
+    static const char* nm[6] = {"trees", "nature", "props", "buildings", "models", "other"};
+    std::string s; for (int c = 0; c < 6; ++c) { char b[96]; std::snprintf(b, sizeof b, " %s op %.0f gl %.0f fol %.0f %.2fms |", nm[c], dlCat[c][0] / 30, dlCat[c][1] / 30, dlCat[c][2] / 30, dlCat[c][3] / 30); s += b; }
+    logf("[dlprof] per frame:%s total op %zu gl %zu foliage %zu worldModels %zu, draws %d (foliage %d, shadow %d)", s.c_str(), op.size(), gl.size(), R.foliage.size(), R.worldModels.size(), R.stats.draws, R.stats.foliageDraws, R.stats.shadowDraws);
+    std::memset(dlCat, 0, sizeof dlCat);
+    std::string cp; for (int k = 0; k < GP_Count; ++k) if (R.cpuPassMs[k] / 30 > 0.05) { char b[64]; std::snprintf(b, sizeof b, " %s %.2f", gpuPassName(k), R.cpuPassMs[k] / 30); cp += b; }
+    logf("[dlprof] render CPU per pass (ms):%s", cp.c_str()); std::memset(R.cpuPassMs, 0, sizeof R.cpuPassMs);
+  }
 }
 
 const GpuMesh& App::assetLodMesh(InstanceRT& r, const AssetDef* a, const GpuMesh& full, float dist) {
