@@ -9,6 +9,7 @@
 constexpr float kPaintTexel = 0.5f;
 constexpr int kPaintChunk = 32;          // texels per chunk edge (16 m)
 constexpr int kPaintTypes = 13;          // 0 = grass (the default ground; painting it erases)
+constexpr int kPaintSand = 5;            // content/ground_paint.json order (fixed)
 inline int64_t groundPaintKey(int cx, int cz) { return (int64_t)((uint64_t)(uint32_t)cx << 32 | (uint32_t)cz); }
 inline int groundPaintKeyX(int64_t k) { return (int)(int32_t)(uint32_t)((uint64_t)k >> 32); }
 inline int groundPaintKeyZ(int64_t k) { return (int)(int32_t)(uint32_t)((uint64_t)k & 0xffffffffu); }
@@ -32,6 +33,7 @@ float groundPaintAt(const App& app, float x, float z, int* type = nullptr);   //
 // queries on the current map (App::doc, registered by groundPaintSync): grass, nature, navmesh, footsteps
 float groundPaintGrass(float x, float z);
 float groundPaintTint(float x, float z, vec3& col);   // painted swatch colour and its weight (grass clump bases)
+float groundPaintWeight(float x, float z, int type);  // that type's weight (G1: sand grows dune grass)
 bool groundPaintBlocksNature(float x, float z);
 int groundPaintNavArea(float x, float z);       // -1 = none
 const std::string& groundPaintStep(float x, float z);

@@ -16,11 +16,12 @@
 
 struct GrassFootprint { vec2 pos; float yaw; vec2 bmin, bmax; float margin = -1; bool soft = false; };   // asset-local XZ bounds, world placement; margin < 0 = kMargin; soft: a crop tile (pasture grass only, nature patches ignore it)
 
-enum class GrassQuality : int { Off = 0, Low = 1, Medium = 2, High = 3 };
+enum class GrassQuality : int { Off = 0, Low = 1, Medium = 2, High = 3, Ultra = 4 };   // saved as int: append only
 // density: clumps per m^2 inside nearR; beyond it the drawn share falls as (nearR / d)^falloff down to floor,
-// and clumps keep fewer cards (midBlades by midR, farBlades by radius). windR: vertex wind only inside it.
-// shadowR: clumps inside it cast sun shadows (0 = none).
-struct GrassPreset { const char* name; float density, radius, nearR, midR, falloff, floor; int midBlades, farBlades; float windR, shadowR; };
+// and clumps keep fewer cards: blades = near / mid (by midR) / far (by radius) cards of the coarse species (meadow,
+// seed-head, straw, shrub, broadleaf, dune), fine = the same for short turf and clover. windR: vertex wind only inside
+// it. shadowR: coarse clumps inside it cast sun shadows (0 = none) with shadowBlades cards, shadowShare of them.
+struct GrassPreset { const char* name; float density, radius, nearR, midR, falloff, floor; int blades[3], fine[3]; float windR, shadowR; int shadowBlades; float shadowShare; };
 const GrassPreset& grassPreset(GrassQuality q);
 
 struct GrassInstance { vec4 posYaw; vec4 shape; };   // xyz root, yaw | height, width (+ tilt), packed RGBA8 albedo (bits), wind phase (pasture: ground colour bits)
@@ -33,15 +34,16 @@ public:
   static constexpr int kPlantBlades = 7;          // blades per nature-patch plant (nature.cpp)
   // species per clump, chosen from correlated noise fields so patches grade into each other:
   // 0 short fine turf, 1 medium meadow grass, 2 tall seed-head grass, 3 clover, 4 dry straw, 16 small shrub,
-  // 17 broadleaf weed rosette (plantain / dock). Stored in the packed albedo's top byte (0x38 + species: never a
+  // 17 broadleaf weed rosette (plantain / dock), 18 dune grass (marram, on partly sanded ground). Stored in the packed albedo's top byte (0x38 + species: never a
   // NaN / denormal float pattern). Nature patches use 5-15 (nature.h).
-  enum Species { TURF = 0, MEDIUM = 1, TALL = 2, CLOVER = 3, STRAW = 4, SHRUB = 16, BROADLEAF = 17 };
+  enum Species { TURF = 0, MEDIUM = 1, TALL = 2, CLOVER = 3, STRAW = 4, SHRUB = 16, BROADLEAF = 17, DUNE = 18 };
+  static bool fineSpecies(int sp) { return sp == TURF || sp == CLOVER; }   // G1: fewer cards, no sun shadow
   static constexpr float kMargin = 0.45f;         // clear band around footprint bounds (thresholds, steps)
   struct Chunk {
     int cx = 0, cz = 0;
     uint64_t sig = 0, content = 0;
-    GLuint vbo = 0; int count = 0;
-    float ymin = 0, ymax = 0;
+    GLuint vbo = 0; int count = 0, coarse = 0;    // G1: instances [0, coarse) coarse species, [coarse, count) fine (each keeps the shuffled order)
+    float ymin = 0, ymax = 0, hmax = 0;           // hmax: tallest clump (cull bounds grow by its lean / bend / wind)
     std::vector<GrassInstance> inst;              // CPU copy (determinism checks, memory report)
     uint32_t lastUsed = 0;
   };
@@ -61,6 +63,7 @@ public:
   uint64_t chunkHash(int cx, int cz) const;
   int chunkCount() const { return (int)chunks.size(); }
   template <class F> void forEachInstance(F f) const { for (auto& kv : chunks) for (auto& g : kv.second.inst) f(g); }
+  template <class F> void forEachChunk(F f) const { for (auto& kv : chunks) f(kv.second); }
   static float footprintDistance(const GrassFootprint& f, float x, float z);   // metres to bounds, < 0 inside
   static int speciesOf(const GrassInstance& g);   // decoded from the packed albedo
   bool density(float x, float z, const Terrain& t, const std::vector<GrassFootprint>& fp) const; // would a blade grow here?
@@ -74,7 +77,7 @@ private:
   uint32_t seed_ = 0, frame = 0;
   float terrainSize = 0, terrainSizeZ = 0;
   void ensureGL();
-  void drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, int maxBlades, bool shadow) const;
+  void drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, bool shadow) const;
   uint64_t signature(int cx, int cz, const Terrain& t, const std::vector<GrassFootprint>& fp) const;
   uint64_t contentSignature(int cx, int cz, const Terrain& t, const std::vector<GrassFootprint>& fp) const;
   void build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>& fp);

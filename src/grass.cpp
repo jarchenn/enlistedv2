@@ -8,11 +8,13 @@
 const GrassPreset& grassPreset(GrassQuality q) {
   // GX3 tiers (content/settings/grass.json overrides): Low is about the pre-GX3 Medium cost, Medium the same frame
   // time at ~3.5x the near blade density, bought with a shorter radius and sparse mid / far clumps.
-  static GrassPreset P[4] = {
-    {"Off", 0, 0, 0, 0, 2, 0.1f, 0, 0, 0, 0},
-    {"Low", 12, 36, 10, 22, 2.0f, 0.12f, 5, 3, 0, 0},
-    {"Medium", 24, 48, 15, 32, 1.6f, 0.14f, 6, 3, 13, 10},
-    {"High", 30, 54, 18, 40, 1.8f, 0.12f, 8, 4, 15, 14},
+  // G1: species-dependent cards (turf / clover fewer), shadows from coarse clumps only within a per-clump radius, Ultra.
+  static GrassPreset P[5] = {
+    {"Off", 0, 0, 0, 0, 2, 0.1f, {0, 0, 0}, {0, 0, 0}, 0, 0, 0, 0},
+    {"Low", 12, 36, 10, 22, 2.0f, 0.12f, {12, 5, 3}, {12, 5, 3}, 0, 0, 0, 0},
+    {"Medium", 24, 48, 15, 32, 1.6f, 0.14f, {8, 4, 2}, {6, 3, 2}, 13, 7, 3, 1.0f},
+    {"High", 30, 54, 18, 40, 1.8f, 0.12f, {10, 6, 3}, {7, 4, 2}, 15, 9, 4, 1.0f},
+    {"Ultra", 38, 62, 20, 44, 1.8f, 0.13f, {10, 6, 3}, {7, 4, 2}, 19, 11, 3, 0.8f},
   };
   static bool loaded = false;
   if (!loaded) {
@@ -21,7 +23,7 @@ const GrassPreset& grassPreset(GrassQuality q) {
       fs::path p = contentDir() / "settings" / "grass.json";
       if (fs::exists(p)) {
         json j = json::parse(readTextFile(p));
-        for (int k = 1; k < 4; ++k) {
+        for (int k = 1; k < 5; ++k) {
           if (!j.contains("tiers") || !j["tiers"].contains(P[k].name)) continue;
           const json& t = j["tiers"][P[k].name]; GrassPreset& g = P[k];
           g.density = std::clamp(t.value("density", g.density), 0.0f, Grass::kMaxDensity);
@@ -30,15 +32,20 @@ const GrassPreset& grassPreset(GrassQuality q) {
           g.midR = std::clamp(t.value("midRadius", g.midR), g.nearR, g.radius);
           g.falloff = std::clamp(t.value("falloff", g.falloff), 0.5f, 4.0f);
           g.floor = std::clamp(t.value("floor", g.floor), 0.02f, 1.0f);
-          g.midBlades = std::clamp(t.value("midBlades", g.midBlades), 1, Grass::kBlades);
-          g.farBlades = std::clamp(t.value("farBlades", g.farBlades), 1, g.midBlades);
+          auto cards = [&](const char* key, int* c) {   // [near, mid, far], each no more than the one before
+            if (!t.contains(key) || !t[key].is_array() || t[key].size() != 3) return;
+            for (int i = 0; i < 3; ++i) c[i] = std::clamp(t[key][i].get<int>(), 1, i ? c[i - 1] : Grass::kBlades);
+          };
+          cards("cards", g.blades); cards("fineCards", g.fine);
           g.windR = std::clamp(t.value("windRadius", g.windR), 0.0f, g.radius);
           g.shadowR = std::clamp(t.value("shadowRadius", g.shadowR), 0.0f, g.radius);
+          g.shadowBlades = std::clamp(t.value("shadowCards", g.shadowBlades), 1, 8);
+          g.shadowShare = std::clamp(t.value("shadowShare", g.shadowShare), 0.0f, 1.0f);
         }
       }
     } catch (std::exception& e) { logf("grass: settings/grass.json: %s (defaults)", e.what()); }
   }
-  return P[std::clamp((int)q, 0, 3)];
+  return P[std::clamp((int)q, 0, 4)];
 }
 
 namespace {
@@ -184,6 +191,7 @@ static float packAlbedo(const BroadNoise& bn, float x, float z, float var, float
   if (species == 4) alb = glm::mix(alb, vec3(0.40f, 0.35f, 0.19f), 0.75f); // dry straw
   if (species == 16) alb = glm::mix(alb, vec3(0.08f, 0.14f, 0.05f), 0.65f); // shrub: dark leathery leaves
   if (species == 17) alb = glm::mix(alb, vec3(0.11f, 0.18f, 0.07f), 0.55f); // plantain / dock: dark broad leaves
+  if (species == 18) alb = glm::mix(alb, vec3(0.27f, 0.30f, 0.20f), 0.65f); // marram: glaucous grey-green
   alb *= 0.82f + 0.36f * var;
   return asFloat(packRGB(alb, 0x38u + (uint32_t)species));
 }
@@ -312,7 +320,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
   vec2 cc(ox + kChunk * 0.5f, oz + kChunk * 0.5f);
   for (auto& f : fp) if (glm::length(f.pos - cc) <= fpRadius(f) + kMargin + kChunk * 0.75f) near.push_back(f);
   int N = (int)(kMaxDensity * kChunk * kChunk);
-  c.ymin = 1e9f; c.ymax = -1e9f;
+  c.ymin = 1e9f; c.ymax = -1e9f; c.hmax = 0;
   static thread_local BroadNoise bn; bn.build(ox - 1, oz - 1);
   for (int i = 0; i < N; ++i) {
     Rng r{hcomb(hcomb(hcomb(seed_ * 7919ull, (uint32_t)c.cx), (uint32_t)c.cz), (uint64_t)i)};
@@ -341,6 +349,11 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float wall = 0, fdMin = 1e9f; for (auto& f : near) { float fd = fpDist(f, x, z) - fpMargin(f); fdMin = std::min(fdMin, fd); if (fd < 2.2f) wall = std::max(wall, 1.0f - fd / 2.2f); }
     float y = groundH(t, x, z);
     float paintG = groundPaintGrass(x, z);   // < 1 on painted dry grass / litter / marsh: drier, sparser species
+    // G1 sand (docs/ground-grass.md#regions): partly sanded ground grows sparse dune-grass tussocks; sand within 1.5 m of
+    // the water line (the wet beach, the surf) stays bare. Full-weight sand keeps no grass (its paint share is 0).
+    float sand = groundPaintWeight(x, z, kPaintSand), dune = smooth(0.1f, 0.45f, sand);
+    if (sand > 0.1f && (y < t.waterLevel + 1.5f || vn2(x * 0.3f, z * 0.3f, seed_ + 81) < 0.3f + 0.3f * dune)) continue;
+    float rough = smooth(0.96f, 0.86f, n.y);   // banks, berms and bunker slopes: rough grass and scrub, little turf
     // species layers from correlated noise masks: fine grass everywhere, seed-head grass in clumpy broad patches (and
     // on verges / wall feet), clover and broadleaf rosettes in small colonies, straw where the sward dries out,
     // occasional small shrubs (more against walls)
@@ -351,9 +364,10 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float pClo = 0.12f * smooth(0.55f, 0.8f, nClo), pBroad = 0.015f + 0.05f * smooth(0.5f, 0.8f, nBroad);
     float pShrub = 0.010f * smooth(0.55f, 0.8f, nShrub) + 0.03f * wall;
     float pStraw = 0.07f * smooth(0.62f, 0.82f, nDry) + 0.6f * (1.0f - paintG), pTurf = 0.30f * (1.0f - 0.6f * smooth(0.55f, 0.82f, nTall));
+    pTall += 0.18f * rough; pShrub += 0.035f * rough; pStraw += 0.10f * rough; pTurf *= 1.0f - 0.5f * rough; pClo *= 1.0f - 0.7f * rough;
     if (wear > 0.05f) { pTall *= 0.2f; pShrub = 0; pTurf = 0.8f; }   // trodden: cropped short
     float acc = 0; int sp = 1;
-    const std::pair<float, int> layers[] = {{pShrub, 16}, {pTall, 2}, {pClo, 3}, {pBroad, 17}, {pStraw, 4}, {pTurf, 0}};
+    const std::pair<float, int> layers[] = {{dune, 18}, {pShrub, 16}, {pTall, 2}, {pClo, 3}, {pBroad, 17}, {pStraw, 4}, {pTurf, 0}};
     for (auto [p, s] : layers) { acc += p; if (rs < acc) { sp = s; break; } }
     float hgt, wid;
     switch (sp) {
@@ -363,6 +377,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
       case 4: hgt = 0.30f + 0.26f * r1; wid = 0.015f + 0.005f * r2; break;
       case 16: hgt = 0.28f + 0.30f * r1; wid = 0.075f + 0.025f * r2; break;
       case 17: hgt = 0.13f + 0.08f * r1; wid = 0.036f + 0.014f * r2; break;
+      case 18: hgt = 0.45f + 0.40f * r1; wid = 0.010f + 0.003f * r2; break;   // marram: tall, narrow rolled leaves
       default: hgt = (0.34f + 0.28f * r1) * (0.75f + 0.5f * patch); wid = 0.018f + 0.007f * r2; break;
     }
     hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch) * (0.45f + 0.55f * smooth(0.0f, 3.0f, fdMin));   // grass grows back from a footprint edge
@@ -374,8 +389,10 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float sy = asFloat(q8(wid / 0.1f) | (q8(n.x * 0.5f + 0.5f) << 8) | (q8(n.z * 0.5f + 0.5f) << 16) | (0x3Cu << 24));
     float sw = asFloat(packRGB(groundColour(t, bn, x, z, bare), 0x3Cu));
     c.inst.push_back({vec4(x, y, z, yaw), vec4(hgt, sy, packAlbedo(bn, x, z, var, tint, sp), sw)});
-    c.ymin = std::min(c.ymin, y); c.ymax = std::max(c.ymax, y + hgt);
+    c.ymin = std::min(c.ymin, y); c.ymax = std::max(c.ymax, y + hgt); c.hmax = std::max(c.hmax, hgt);
   }
+  // G1: coarse species first, then turf / clover; each group keeps the shuffled order, so its prefixes stay nested
+  c.coarse = (int)(std::stable_partition(c.inst.begin(), c.inst.end(), [](const GrassInstance& g) { return !fineSpecies(speciesOf(g)); }) - c.inst.begin());
   c.count = (int)c.inst.size();
   if (!c.vbo) glCreateBuffers(1, &c.vbo);
   glNamedBufferData(c.vbo, std::max<size_t>(1, c.inst.size()) * sizeof(GrassInstance), c.inst.empty() ? nullptr : c.inst.data(), GL_STATIC_DRAW);
@@ -437,23 +454,28 @@ void Grass::update(const Terrain& t, uint32_t seed, const std::vector<GrassFootp
 // LOD per chunk from its nearest point (an upper bound for every clump in it): the drawn prefix of the shuffled list
 // and the cards per clump. The vertex shader applies the same curves per clump with a soft edge at the cut (rank =
 // instance index / count), so neither clumps nor cards pop as the eye moves.
-void Grass::drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, int maxBlades, bool shadow) const {
+// G1: two draws per chunk, the coarse species and the fine (turf / clover) range, each with its own card budget; the
+// shadow pass draws only the coarse range, shadowShare of it, shadowBlades cards (the shader fades it out by shadowR).
+void Grass::drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, bool shadow) const {
   const GrassPreset& P = grassPreset(quality);
   glBindVertexArray(vao);
-  GLint lCount = glGetUniformLocation(prog, "uCount");
+  GLint lCount = glGetUniformLocation(prog, "uCount"), lCards = glGetUniformLocation(prog, "uCards");
   glUniform1f(glGetUniformLocation(prog, "uRadius"), P.radius);
   glUniform1f(glGetUniformLocation(prog, "uWind"), wind ? 1.0f : 0.0f);
   glUniform1f(glGetUniformLocation(prog, "uWidthScale"), 1.0f);
-  float frac = P.density / kMaxDensity;
+  float frac = P.density / kMaxDensity * (shadow ? P.shadowShare : 1.0f);
   glUniform4f(glGetUniformLocation(prog, "uLod"), frac, P.nearR, P.midR, P.falloff);
-  glUniform4f(glGetUniformLocation(prog, "uLod2"), P.floor, (float)P.midBlades, (float)P.farBlades, wind && nearWind ? P.windR : 0.0f);
+  glUniform4f(glGetUniformLocation(prog, "uLod2"), P.floor, 0.0f, 0.0f, wind && nearWind ? P.windR : 0.0f);
   struct D { float d; const Chunk* c; };
   std::vector<D> list; list.reserve(chunks.size());
   for (auto& [k, c] : chunks) {
-    if (!c.count) continue;
-    vec3 mn(c.cx * kChunk, c.ymin, c.cz * kChunk), mx(mn.x + kChunk, c.ymax + 0.3f, mn.z + kChunk);
-    float d = glm::length(glm::clamp(cam, mn, mx) - cam);
+    if (!c.count || (shadow && !c.coarse)) continue;
+    vec3 r0(c.cx * kChunk, c.ymin, c.cz * kChunk), r1(r0.x + kChunk, c.ymax, r0.z + kChunk);   // the roots' box: LOD distance
+    float d = glm::length(glm::clamp(cam, r0, r1) - cam);
     if (d > maxD) continue;
+    // cull box: grown by the tallest clump's lean, bend and wind sway (and in the shadow pass by its casting reach)
+    float pad = 1.2f * c.hmax + 0.2f + (shadow ? 3.0f : 0.0f);
+    vec3 mn = r0 - vec3(pad, 0.3f, pad), mx = r1 + vec3(pad, 0.3f, pad);
     // frustum: reject when all 8 corners are outside one clip plane
     bool out = false;
     for (int pl = 0; pl < 6 && !out; ++pl) {
@@ -470,16 +492,21 @@ void Grass::drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, in
   for (auto& [d, cp] : list) {
     const Chunk& c = *cp;
     float dens = d <= P.nearR ? 1.0f : std::max(P.floor, std::pow(P.nearR / d, P.falloff));
-    int n = std::min(c.count, (int)std::ceil(c.count * frac * dens) + 1);
-    float nb = d <= P.nearR ? kBlades : d <= P.midR ? glm::mix((float)kBlades, (float)P.midBlades, smooth(P.nearR, P.midR, d))
-                                                    : glm::mix((float)P.midBlades, (float)P.farBlades, smooth(P.midR, P.radius, d));
-    int blades = std::min(maxBlades, (int)std::ceil(nb));
-    if (n <= 0 || blades <= 0) continue;
-    glUniform1f(lCount, (float)c.count);
-    glVertexArrayVertexBuffer(vao, 1, c.vbo, 0, sizeof(GrassInstance));
-    glDrawElementsInstanced(GL_TRIANGLES, cardIndexEnd(blades), GL_UNSIGNED_SHORT, nullptr, n);
-    if (shadow) { lastShadowClumps += (size_t)n; ++lastShadowDraws; }
-    else { ++lastDrawnChunks; lastDrawnBlades += (size_t)n * blades; lastDrawnClumps += (size_t)n; }
+    for (int gi = 0; gi < (shadow ? 1 : 2); ++gi) {
+      int off = gi ? c.coarse : 0, cnt = gi ? c.count - c.coarse : c.coarse;
+      if (cnt <= 0) continue;
+      const int* cd = gi ? P.fine : P.blades;
+      float nb = shadow ? (float)P.shadowBlades : d <= P.nearR ? (float)cd[0] : d <= P.midR ? glm::mix((float)cd[0], (float)cd[1], smooth(P.nearR, P.midR, d))
+                                                                                            : glm::mix((float)cd[1], (float)cd[2], smooth(P.midR, P.radius, d));
+      int n = std::min(cnt, (int)std::ceil(cnt * frac * dens) + 1), blades = std::min(kBlades, (int)std::ceil(nb));
+      if (n <= 0 || blades <= 0) continue;
+      glUniform1f(lCount, (float)cnt);
+      glUniform4f(lCards, (float)cd[0], (float)cd[1], (float)cd[2], shadow ? (float)P.shadowBlades : 0.0f);
+      glVertexArrayVertexBuffer(vao, 1, c.vbo, (GLintptr)off * sizeof(GrassInstance), sizeof(GrassInstance));
+      glDrawElementsInstanced(GL_TRIANGLES, cardIndexEnd(blades), GL_UNSIGNED_SHORT, nullptr, n);
+      if (shadow) { lastShadowClumps += (size_t)n; ++lastShadowDraws; }
+      else { ++lastDrawnChunks; lastDrawnBlades += (size_t)n * blades; lastDrawnClumps += (size_t)n; }
+    }
   }
   glUniform1f(lCount, 0.0f);   // nature patches share the program: no rank fade for them
 }
@@ -489,7 +516,7 @@ void Grass::draw(GLuint prog, const mat4& vp, vec3 cam) const {
   const GrassPreset& P = grassPreset(quality);
   if (P.radius <= 0 || !vao || chunks.empty()) return;
   glUniform1f(glGetUniformLocation(prog, "uShadowPass"), 0.0f);
-  drawChunks(prog, vp, cam, P.radius, kBlades, false);
+  drawChunks(prog, vp, cam, P.radius, false);
 }
 
 void Grass::drawShadow(GLuint prog, const mat4& lightVP, const mat4& camVP, vec3 cam) const {
@@ -498,7 +525,7 @@ void Grass::drawShadow(GLuint prog, const mat4& lightVP, const mat4& camVP, vec3
   if (P.radius <= 0 || P.shadowR <= 0 || !vao || chunks.empty()) return;
   glUniformMatrix4fv(glGetUniformLocation(prog, "uVP"), 1, GL_FALSE, &lightVP[0][0]);
   glUniform1f(glGetUniformLocation(prog, "uShadowPass"), P.shadowR);
-  drawChunks(prog, camVP, cam, P.shadowR, 8, true);   // chunks in the eye's view; the 8 tall centre cards cast
+  drawChunks(prog, camVP, cam, P.shadowR, true);   // chunks in (or casting into) the eye's view; the tall centre cards cast
 }
 
 size_t Grass::instanceCount() const { size_t n = 0; for (auto& [k, c] : chunks) n += c.count; return n; }

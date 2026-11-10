@@ -69,7 +69,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.farCascade = q.value("farCascade", g.farCascade); g.cloudShadows = q.value("cloudShadows", g.cloudShadows);
     g.shafts = q.value("lightShafts", g.shafts); g.ssr = q.value("ssr", g.ssr); g.ssao = q.value("ssao", g.ssao); g.ssaoFull = q.value("ssaoFullRes", g.ssaoFull);
     g.bloom = q.value("bloom", g.bloom); g.taa = q.value("taa", g.taa); g.taaPhases = std::clamp(q.value("taaPhases", g.taaPhases), 1, 64);
-    g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 3); g.grassWind = q.value("grassWind", g.grassWind);
+    g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 4); g.grassWind = q.value("grassWind", g.grassWind);
     g.materials = std::clamp(q.value("materialDetail", g.materials), 0, 2);
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
@@ -192,7 +192,7 @@ void Settings::apply(App& app) {
   R.clouds = g.clouds;
   R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
-  app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 3); app.grass.nearWind = g.grassWind;
+  app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList;
@@ -297,7 +297,8 @@ void settingsWindow(App& app) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Dust drifting in the sunlight that falls through windows indoors (a few dozen motes per lit window near you).");
       ImGui::Checkbox("Clouds", &g.clouds);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloud cover: Creative > View > Sky");
-      { const char* gq[] = {"Off", "Low", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Grass", &g.grass, gq, 4); }
+      { const char* gq[] = {"Off", "Low", "Medium", "High", "Ultra"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Grass", &g.grass, gq, 5); }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ultra: denser, longer-reaching grass (grass only: no preset sets it, and it leaves shadows, probes and MSAA alone).");
       {   // PF2: render distance in metres, four named stops plus any value on the slider
         const float stops[4] = {600, 1200, 2500, 5000}; const char* names[5] = {"Low (600 m)", "Medium (1.2 km)", "High (2.5 km)", "Ultra (5 km)", "Custom"};
         int cur = 4; for (int k = 0; k < 4; ++k) if (std::fabs(g.renderDist - stops[k]) < 1) cur = k;

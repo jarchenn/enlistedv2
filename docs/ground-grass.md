@@ -53,17 +53,66 @@ far: `terrain_grass` = `grass_forest`, ambientCG Ground037, CC0).
 **Wind.** Vertex-shader wind only within `windRadius` (13 m Medium, 15 m High, none on Low); further out the clumps
 keep their static lean. Settings → Graphics → Grass wind turns it off (`grassWind`).
 
-**Tiers** (`content/settings/grass.json`, read at start-up):
-
-| Tier | Clumps / m² near | Near / mid / radius | Cards mid / far | Wind | Shadows |
-|---|---|---|---|---|---|
-| Low | 12 | 10 / 22 / 36 m | 5 / 3 | off | off |
-| Medium | 24 | 15 / 32 / 48 m | 6 / 3 | 13 m | 10 m |
-| High | 30 | 18 / 40 / 54 m | 8 / 4 | 15 m | 14 m |
+**Tiers:** see [G1](#g1-species-cards-shadows-ultra-and-regions) below (GX3 drew 12 cards near; mid / far 5 / 3, 6 / 3, 8 / 4; shadows 10 / 14 m cut per chunk).
 
 **Test field.** `NMK_CAPTURE_SET=grass --capture-materials <tag>`: a 40 x 40 m pasture with a painted dirt path, a dry
 patch and a bunker from six cameras; each logs GPU ms with grass on and off, blades drawn, cards per m² within 15 m
 and the clumps drawn into the sun map.
+
+## G1: species cards, shadows, Ultra and regions (2026-11)
+
+**Species groups.** Each chunk stores its clumps in two ranges, each in the original shuffled order: the coarse species
+(meadow 1, seed-head 2, straw 4, shrub 16, broadleaf 17, dune grass 18) first, then short turf (0) and clover (3)
+(`Grass::fineSpecies`, `Chunk::coarse`). Each range is one instanced draw with its own card budget (`cards` /
+`fineCards`), so a chunk costs two draws in the main pass and one in the shadow pass. Thinning stays a nested prefix
+of each range, so raising the tier only adds clumps and nothing reshuffles; the vertex shader still fades every clump
+and card by its own rank and distance (no pop, no hysteresis needed: the per-chunk counts are only upper bounds).
+
+**Cards.** Blade cards (role 10) follow the pointed blade silhouette in the vertex shader (`tap`), so the transparent
+corners of the old rectangular cards are no longer rasterised; the fragment shader rescales its across-blade
+coordinate (`vTap`) and keeps the same midrib / margin texture. The alpha test already runs first in every card branch,
+before the shadow, occlusion, probe and lamp work.
+
+**Shadows.** Only coarse clumps cast, `shadowShare` of the drawn ones (a nested prefix), with `shadowCards` cards, and
+they shrink away over the last 30 % of `shadowRadius` per clump. (GX3 cut the shadow radius per chunk, so a chunk whose
+nearest corner was inside 10 m cast all of its clumps out to ~27 m.) Every clump still receives shadows. Chunks are
+culled against the eye frustum with bounds grown by their tallest clump's bend and wind (+3 m in the shadow pass for
+the casting reach).
+
+**Tiers** (`content/settings/grass.json`, read at start-up):
+
+| Tier | Clumps / m² near | Near / mid / radius | Floor | Cards coarse | Cards turf / clover | Wind | Shadows (cards, share) |
+|---|---|---|---|---|---|---|---|
+| Low | 12 | 10 / 22 / 36 m | 12 % | 12 / 5 / 3 | 12 / 5 / 3 | off | off |
+| Medium | 24 | 15 / 32 / 48 m | 14 % | 8 / 4 / 2 | 6 / 3 / 2 | 13 m | 7 m (3, all) |
+| High | 30 | 18 / 40 / 54 m | 12 % | 10 / 6 / 3 | 7 / 4 / 2 | 15 m | 9 m (4, all) |
+| Ultra | 38 | 20 / 44 / 62 m | 13 % | 10 / 6 / 3 | 7 / 4 / 2 | 19 m | 11 m (3, 80 %) |
+
+**Ultra** is `GrassQuality` 4, appended so saved settings 0-3 keep their meaning (Settings → Graphics → Grass, `--grass
+ultra`, the editor's View menu). It is grass only: no graphics preset selects it and it changes no shadow map size,
+probe rate, MSAA or light budget; nature patches draw as on High. Placement is the same for every tier (instances are
+generated at 44 / m²), so gameplay and networked state never depend on it.
+
+**Measuring.** `--bench-grass`: an open pasture, standing (1.7 m), prone (0.35 m) and a 4.5 m/s walk at every tier from
+Medium; per view it alternates `Renderer::perf.grassShadow` (`NMK_PERF_AB=grassshadow` elsewhere) so the grass share of
+the near cascade is the on - off difference. Writes `selftest_out/benchmark_grassbench.json` and standing / prone shots.
+
+### Regions (D-day and other maps)
+
+Grass follows ground paint, surface wear, disturbed soil, footprints and slope; no hand-placed exemptions:
+- **Beach:** paint the wet beach and dry sand with `sand` at full weight: no grass. Sand within 1.5 m above the water
+  line stays bare even where the paint is partial, so the surf and wet sand never grow grass on any tier.
+- **Dunes / upper sand:** paint `sand` at weight ~0.4-0.7 (`paint.poly("sand", ..., weight=0.6)`, or a route with
+  `strength=0.6`): the remaining share grows sparse, clumped marram tussocks (species 18, 0.45-0.85 m, grey-green, stiff).
+- **Bunker slopes, berms, banks:** ground steeper than ~16° (normal y < 0.96) shifts the mix to rough grass: more
+  seed-head grass, straw and small shrubs, less turf and clover; it thins out toward the 37° cut-off (normal y 0.8).
+  Earthwork stamps and walls also grow taller weeds at their feet (the GX3 `wall` term).
+- **Village meadow / gardens:** unpainted ground is the full meadow mix; `dry_grass` gives drier, sparser straw;
+  nature patches add flowers and tall meadow.
+- **Keep clear:** trench floors (GX1 trench soil counts as disturbed soil: no grass), roads and tracks (`route` wear,
+  or `cobbles` / `gravel` / `dirt` paint), doorways and steps (footprint margins), gun platforms (their footprints).
+  Spawn exits and other open ground that must stay clear: paint `dirt`, `gravel` or `mud` there (grass 0), or
+  `leaf_litter` (10 % grass) to keep it sparse.
 
 ## Grass (`src/grass.{h,cpp}`, `kGrassVS/FS` in `src/render.cpp`)
 
