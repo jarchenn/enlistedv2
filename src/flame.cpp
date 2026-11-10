@@ -60,13 +60,13 @@ float segDist(vec3 a, vec3 b, vec3 p0, vec3 p1) {   // closest distance between 
 }
 }
 
-void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage) {
+void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore) {
   if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || glm::length(dir) < 0.5f) return;
   const WeaponDef& d = *app.weaponDefs[weapon];
   if (!d.flame.on) return;
   dir = glm::normalize(dir);
   FlameNozzle& n = nz_[key];
-  n.o = origin; n.d = dir; n.lastOn = t_; n.weapon = weapon;
+  n.o = origin; n.d = dir; n.lastOn = t_; n.weapon = weapon; n.bore = glm::length(bore) > 0.5f ? glm::normalize(bore) : vec3(0);
   int owner = key < 0 ? (gGame && gGame->active ? gGame->localSlot : -1) : key;
   n.acc += dt * d.flame.parcelsPerSec;
   float cone = glm::radians(d.flame.coneDeg);
@@ -103,12 +103,24 @@ void FlameSys::step(App& app, float dt) {
   for (auto& [key, n] : nz_) {
     bool on = n.lastOn >= t_ - 0.12;
     if (on && roomForFlame) {
-      float k = key < 0 ? 0.45f : 1.0f;   // the player's own nozzle is a metre from the eye: smaller flare
-      fx.flash(n.o + n.d * 0.12f, (0.6f + 0.4f * fx.rnd()) * k, 0.05f, vec4(7, 4.2f, 1.4f, 1));
-      for (int i = 0; i < 2; ++i) {
-        Particle q; q.p = n.o + n.d * (0.1f + 0.3f * fx.rnd()); q.v = n.d * (5.0f + 6.0f * fx.rnd()) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.4f, fx.rnd() - 0.5f) * 1.2f;
-        q.size = (0.3f + 0.25f * fx.rnd()) * k; q.life = q.maxLife = 0.12f + 0.12f * fx.rnd(); q.col = vec4(5.5f, 3.0f, 0.9f, 1); q.additive = true; q.grow = -q.size * 2.0f; q.drag = 1.0f;
+      float k = key < 0 ? 0.6f : 1.0f;   // the player's own nozzle is a metre from the eye: smaller sprites
+      vec3 axis = glm::length(n.bore) > 0.5f ? n.bore : n.d;   // the player's view: the flame tongue follows the gun's bore, the stream bends to the crosshair
+      for (int i = 0; i < 3; ++i) {   // the flame tongue billowing forward of the nozzle: hot white-yellow at the lip, orange and dark red further out
+        float t = fx.rnd() * fx.rnd() * 1.9f;   // more sprites near the nozzle
+        Particle q; q.p = n.o + axis * (0.05f + t) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.04f + 0.1f * t);
+        q.v = axis * (3.0f + 4.0f * fx.rnd()) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.6f + t);
+        q.size = (0.1f + 0.24f * t) * k * (0.8f + 0.5f * fx.rnd()); q.life = q.maxLife = 0.16f + 0.12f * fx.rnd() + 0.05f * t;
+        q.col = vec4(3.2f, 0, 0, 1); q.additive = true; q.flame = std::floor(fx.rnd() * 255.0f); q.grow = q.size * 1.2f; q.drag = 0.6f; q.lift = 0.1f;
         fx.parts.push_back(q);
+      }
+      if (fx.rnd() < 0.4f) {   // the soft outer body of the tongue: translucent orange-red
+        float t = 0.3f + 1.2f * fx.rnd();
+        Particle q; q.p = n.o + axis * t; q.v = axis * 3.0f + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * 0.8f; q.size = (0.25f + 0.3f * t) * k; q.life = q.maxLife = 0.28f + 0.2f * fx.rnd();
+        q.col = vec4(0.8f, 0.22f, 0.04f, 0.5f); q.grow = q.size * 0.8f; q.drag = 0.8f; q.lift = 0.15f; fx.parts.push_back(q);
+      }
+      if (roomForSmoke && fx.rnd() < 0.18f) {   // grey smoke curling off the tip of the tongue
+        vec3 tip = n.o + axis * (1.2f + 0.8f * fx.rnd());
+        fx.smoke(tip, vec3(fx.rnd() - 0.5f, 0.25f + 0.4f * fx.rnd(), fx.rnd() - 0.5f) * 1.4f + axis * 2.0f, (0.35f + 0.25f * fx.rnd()) * k, 1.5f + fx.rnd(), vec4(0.2f, 0.19f, 0.18f, 0.42f), 0.8f, 0.45f);
       }
     }
     if (on && host && G && n.weapon >= 0) {   // bots near the stream are suppressed, as by a near miss (4 times a second)
@@ -152,14 +164,19 @@ void FlameSys::step(App& app, float dt) {
     farthest = std::max(farthest, glm::length(end - q.o));
     float u = std::clamp(q.age / q.life, 0.0f, 1.0f);
     float eyeD = glm::length(end - app.eyePos());   // particles beside the player's own eye would fill the screen: fade them in with distance
-    if (roomForFlame && eyeD > 1.2f && fx.rnd() < 0.3f) {   // the burning stream: bright core fading to orange, widening
+    float near = (q.owner >= 0 && q.owner == (G ? G->localSlot : -2)) || q.owner < 0 ? std::clamp((eyeD - 1.2f) / 6.0f, 0.15f, 1.0f) : 1.0f;
+    if (roomForFlame && eyeD > 1.2f && fx.rnd() < 0.35f) {   // the burning stream: flame sprites, white-yellow -> orange -> dark red, noise-eroded, widening
       Particle f; f.p = end; f.v = q.v * 0.1f + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.3f, fx.rnd() - 0.5f) * 0.9f; f.v.y += 0.4f;
-      float near = q.owner >= 0 && q.owner == (G ? G->localSlot : -2) || q.owner < 0 ? std::clamp((eyeD - 1.2f) / 6.0f, 0.15f, 1.0f) : 1.0f;
-      f.size = (0.22f + 0.4f * u) * near; f.life = f.maxLife = 0.2f + 0.22f * fx.rnd();
-      f.col = glm::mix(vec4(5.2f, 2.8f, 0.8f, 1), vec4(2.8f, 0.9f, 0.18f, 1), u) * glm::mix(0.3f, 1.0f, near); f.col.a = 1; f.additive = true; f.grow = -f.size * 0.8f; f.drag = 0.8f; f.lift = 0.8f;
+      f.size = (0.2f + 0.5f * u) * near; f.life = f.maxLife = 0.26f + 0.26f * fx.rnd();
+      f.col = vec4(2.6f * glm::mix(0.4f, 1.0f, near), 0, 0, 1); f.additive = true; f.flame = std::floor(fx.rnd() * 255.0f); f.grow = f.size * 0.7f; f.drag = 0.8f; f.lift = 0.8f;
       fx.parts.push_back(f);
     }
-    if (roomForSmoke && u > 0.35f && fx.rnd() < 0.05f) fx.smoke(end, q.v * 0.05f + vec3(0, 0.9f, 0), 0.5f, 1.6f, vec4(0.24f, 0.23f, 0.21f, 0.4f), 0.9f, 0.9f);
+    if (roomForFlame && eyeD > 1.2f && fx.rnd() < 0.12f) {   // the soft body round the core
+      Particle f; f.p = end; f.v = q.v * 0.08f + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.2f, fx.rnd() - 0.5f) * 0.7f; f.size = (0.35f + 0.7f * u) * near; f.life = f.maxLife = 0.35f + 0.3f * fx.rnd();
+      f.col = vec4(0.8f, 0.24f, 0.05f, 0.4f); f.grow = f.size * 0.5f; f.drag = 0.9f; f.lift = 0.7f; fx.parts.push_back(f);
+    }
+    if (roomForSmoke && u > 0.3f && eyeD > 1.2f && fx.rnd() < 0.07f)   // smoke wisps curling off the stream
+      fx.smoke(end, q.v * 0.06f + vec3(fx.rnd() - 0.5f, 0.5f + 0.7f * fx.rnd(), fx.rnd() - 0.5f) * 1.2f, (0.4f + 0.4f * fx.rnd()) * near, 1.6f + 0.8f * fx.rnd(), vec4(0.19f, 0.18f, 0.17f, 0.4f), 0.9f, 0.8f);
     if (stopped) {
       if (nrm.y > 0.45f && q.age > 0.03f) {   // landed on ground: a short fire patch (merged with a nearby one)
         FlamePatch* near = nullptr; float nd = 1e9f;
@@ -235,8 +252,9 @@ void App::stepFlameLocal(float dt, const ExploreInput& in, const WeaponDef& d, W
   vec3 fxs = vmApparent(start);   // the nozzle as the world projection draws it
   Physics::Hit h; float reach = Physics::castRayEx(eye, aimDir, 20.0f, h) ? h.t : 20.0f;
   vec3 dir = reach > 3.0f ? glm::normalize(eye + aimDir * reach - fxs) : aimDir;
+  vec3 boreDir = glm::normalize(vmApparent(vec3(viewModelMatrix(d, s) * vec4(d.muzzle + d.muzzleDir, 1))) - fxs);   // the bore through the world projection (the gun is drawn with its own FOV)
   bool host = gGame && gGame->active && !gGame->isClient;
-  flame.spray(*this, -1, activeWeapon, fxs, dir, dt, host);
+  flame.spray(*this, -1, activeWeapon, fxs, dir, dt, host, boreDir);
   flameDrain(s, d, dt);
   s.sinceShot = 0; s.kick = std::max(s.kick, d.rVisual);
   if (host && gGame->localSlot >= 0 && (++s.burst % 24) == 1) gGame->hearSound(fxs, (int)gGame->sold[gGame->localSlot].role, 70, gGame->localSlot, 0);

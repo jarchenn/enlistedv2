@@ -212,7 +212,7 @@ void App::buildArmMeshes() {
 }
 
 void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s) {
-  if (!vm.showArms || !armMesh[0].count) return;
+  if (!vm.showArms || !d.showArms || !armMesh[0].count) return;
   mat4 cam = weaponWorld * glm::inverse(vmLocal(d, s));   // camera (view -> world)
   mat4 Mv = vmLocal(d, s);
   vec3 tR = vec3(Mv * vec4(d.gripR, 1)), tL = vec3(Mv * vec4(d.gripL, 1));
