@@ -30,6 +30,7 @@ struct Slot {
   float scale = 1, kAlb = 0.8f, kN = 0.8f, kR = 0.5f, kAO = 0.5f, kH = 0, fadeA = 0, fadeB = 0;
   int layer = -1;
   std::string under; int underIdx = -1; float expo = 0.6f, contrast = 1.0f, macro = 0;   // MA1: substrate slot behind the macro exposure mask; macro variation strength
+  float relD = 0, crev = 0, edge = 0, lumps = 0;   // MA1b relief (Perf relief): parallax depth (m), crevice darkening, edge wear, fill lumps (m)
 };
 struct SetInfo { std::string name; vec2 size{2, 2}; int layer = -1; vec3 meanLin{0.5f}; float meanAO = 1, meanR = 0.7f, meanH = 0.5f; };
 
@@ -67,6 +68,7 @@ Slot parseSlot(const std::string& name, const json& j) {
   s.kAO = j.value("ao", s.kAO); s.kH = j.value("height", s.kH);
   if (j.contains("fade") && j["fade"].is_array() && j["fade"].size() == 2) { s.fadeA = j["fade"][0]; s.fadeB = j["fade"][1]; }
   s.under = j.value("under", ""); s.expo = j.value("exposure", s.expo); s.macro = j.value("macro", 0.0f); s.contrast = j.value("contrast", 1.0f);
+  s.relD = j.value("relief", s.mode == 1 ? 0.012f : 0.0f); s.crev = j.value("crevice", s.mode == 1 ? 0.4f : 0.0f); s.edge = j.value("edge", s.mode == 1 ? 0.6f : 0.0f); s.lumps = j.value("lumps", 0.0f);   // MA1b: replace sets (their own structure) get relief by default
   return s;
 }
 int slotFromJson(const std::string& name, const json& j) {   // a slot of both tables
@@ -238,15 +240,16 @@ void upload(GLuint p) {
   glProgramUniform1i(p, U("uImgMat"), wantImg ? 1 : 0); glProgramUniform1i(p, U("uTexSkipFar"), wantImg ? 1 : 0);
   glProgramUniform1iv(p, U("uFloorSlot"), 8, floorSlotImg);
   glProgramUniform1i(p, U("uTexMacro"), kUnitBase + 5);   // unit 25 (23 ground paint, 24 terrain cache)
-  vec4 lod(3.0f, 2.0f, 16.0f, 0.95f), lod2(8.0f, 48.0f, 0.7f, 0.0f);   // tuned on --selftest-render (docs/textures.md#shimmer); NMK_TEX_LOD="a,b,c,d" overrides (A/B)
+  vec4 lod(3.0f, 2.0f, 16.0f, 0.95f), lod2(8.0f, 48.0f, 0.7f, 1.6f);   // lod2.w (MA1b): replace sets' gradient scale under relief   // tuned on --selftest-render (docs/textures.md#shimmer); NMK_TEX_LOD="a,b,c,d" overrides (A/B)
   if (const char* e = std::getenv("NMK_TEX_LOD")) std::sscanf(e, "%f,%f,%f,%f", &lod.x, &lod.y, &lod.z, &lod.w);
-  if (const char* e = std::getenv("NMK_TEX_LOD2")) std::sscanf(e, "%f,%f,%f", &lod2.x, &lod2.y, &lod2.z);
+  if (const char* e = std::getenv("NMK_TEX_LOD2")) std::sscanf(e, "%f,%f,%f,%f", &lod2.x, &lod2.y, &lod2.z, &lod2.w);
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
   glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlot);
 }
 void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arrays, no padding)
-  std::vector<vec4> d((size_t)kMaxSlots * 4 + (size_t)kMaxLayers * 2);
+  std::vector<vec4> d((size_t)kMaxSlots * 5 + (size_t)kMaxLayers * 2);
   vec4 *A = &d[0], *B = A + kMaxSlots, *C = B + kMaxSlots, *Uu = C + kMaxSlots, *Ly = Uu + kMaxSlots, *M = Ly + kMaxLayers;
+  vec4* R = M + kMaxLayers;   // MA1b: after the layers (std140 order of NmkTexTables)
   for (int i = 0; i < kMaxSlots; ++i) { A[i] = vec4(-1, 0, 0, 1); Uu[i] = vec4(-1, 0, 0, 0); }
   for (int i = 0; i < kMaxLayers; ++i) { Ly[i] = vec4(0.5f, 0.5f, 0.7f, 0.5f); M[i] = vec4(0.5f); }
   const std::vector<Slot>& tbl = wantImg ? slotsImg : slots;
@@ -255,6 +258,7 @@ void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arra
     A[i] = vec4((float)s.layer, (float)s.mode, (float)s.space, s.scale);
     B[i] = vec4(s.kAlb, s.kN, s.kR, s.kAO); C[i] = vec4(s.kH, (float)s.rot, s.fadeA, s.fadeB);
     Uu[i] = vec4((float)s.underIdx, s.expo, s.contrast, s.macro);
+    R[i] = vec4(s.relD, s.crev, s.edge, s.lumps);
   }
   for (auto& s : sets) if (s.layer >= 0 && s.layer < kMaxLayers) { Ly[s.layer] = vec4(1.0f / s.size.x, 1.0f / s.size.y, s.meanR, s.meanH); M[s.layer] = vec4(s.meanLin, s.meanAO); }
   if (!tableUbo) { glCreateBuffers(1, &tableUbo); glNamedBufferStorage(tableUbo, (GLsizeiptr)(d.size() * sizeof(vec4)), nullptr, GL_DYNAMIC_STORAGE_BIT); }
@@ -321,32 +325,44 @@ layout(std140, binding = 3) uniform NmkTexTables {
   vec4 uTexU[160];   // MA1 per slot: substrate ("under") slot (-1 none), exposure threshold, contrast (replace sets), macro variation strength
   vec4 uTexL[128];   // per layer: 1/size u, 1/size v (1/m), mean roughness, mean height
   vec4 uTexM[128];   // per layer: mean linear colour, mean ao
+  vec4 uTexR[160];   // MA1b per slot: relief depth (m), crevice darkening, edge wear, fill lumps (m) (Perf relief)
 };
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
 #define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
 uniform int uPaintSlot[12];
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
-struct TexS { vec3 col; float ao, r, h; vec3 n; };
+struct TexS { vec3 col; float ao, r, h; vec3 n; float d; };   // d: MA1b detail height (0-centred) near the eye
 // GX5 parallax occlusion (High): the eye direction (world, toward the eye) and the height in uv units; 0 = off. Set by
 // texMaterial for slots with a height, near the eye; the taps march the height map before sampling (docs/textures.md)
 vec3 gPomV = vec3(0.0); float gPomK = 0.0;
+int gPomN = 10;          // MA1b: parallax steps (High 10, Medium 4 under Perf relief)
+float gTexGS = 0.0;      // MA1b: gradient scale for this slot's taps (0 = uTexLod.x); replace sets under relief: uTexLod2.w
+float gDetF = 0.0;       // MA1b: detail height tap near the eye (0 = off)
 bool texOn(){ return uTexOn == 1 && uLook == 1; }
 void texFrame(int q, inout vec3 T, inout vec3 B){ vec3 t = T; if (q == 1) { T = B; B = -t; } else if (q == 2) { T = -T; B = -B; } else if (q == 3) { T = -B; B = t; } }
 // one planar tap: frame T (u), B (v), Nf (out of the plane); explicit gradients (taps sit in divergent branches);
 // the tangent-space normal is whiteout-blended with the surface normal ns
 void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 Nf, vec3 ns, float w, inout TexS s){
   vec3 q = vec3(dot(p, T)*inv.x, dot(p, B)*inv.y, L);
-  vec2 gx = vec2(dot(dpx, T), dot(dpx, B))*inv*uTexLod.x, gy = vec2(dot(dpy, T), dot(dpy, B))*inv*uTexLod.x;
+  float gs = gTexGS > 0.0 ? gTexGS : uTexLod.x;
+  vec2 gx = vec2(dot(dpx, T), dot(dpx, B))*inv*gs, gy = vec2(dot(dpy, T), dot(dpy, B))*inv*gs;
   if (gPomK > 0.0 && w > 0.3) {   // GX5 POM: march from the top of the relief down until the height map is above the ray
     vec3 Vt = vec3(dot(gPomV, T), dot(gPomV, B), max(dot(gPomV, Nf), 0.2));
-    vec2 step = Vt.xy/Vt.z*gPomK*vec2(1.0, 1.0)/10.0;
-    float depth = 0.0, hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g;
-    for (int i = 0; i < 10 && depth < hd; ++i) { q.xy -= step; depth += 0.1; hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g; }
+    if (gPomN == 1) q.xy -= Vt.xy*gPomK*(1.0 - textureGrad(uTexRH, q, gx, gy).g);   // MA1b Medium: single offset, offset limiting (one tap; a 4-step march cost +1.6 ms in chateau_town)
+    else {
+      float n = float(gPomN);
+      vec2 step = Vt.xy/Vt.z*gPomK/n;
+      float depth = 0.0, hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g, pd = 0.0, ph = hd; vec2 pq = q.xy;
+      for (int i = 0; i < 10 && i < gPomN && depth < hd; ++i) { pq = q.xy; pd = depth; ph = hd; q.xy -= step; depth += 1.0/n; hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g; }
+      float a = depth - hd, b = ph - pd;   // MA1b: refine linearly between the last two steps (no stair lines)
+      if (a >= 0.0 && a + b > 1e-4) q.xy = mix(q.xy, pq, a/(a + b));
+    }
   }
+  if (gDetF > 0.0 && w > 0.3) s.d += (textureGrad(uTexRH, vec3(q.xy*3.7 + vec2(0.37, 0.61), q.z), gx*3.7, gy*3.7).g - 0.5)*w;   // MA1b: the set's own grain / pores at 3.7x
   vec4 c = textureGrad(uTexCol, q, gx, gy);
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
-  float fp = max(length(gx), length(gy))*1024.0/max(uTexLod.x, 1e-3);
+  float fp = max(length(gx), length(gy))*1024.0/max(gs, 1e-3);
   float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
   vec2 nx = (uTexSkipFar == 1 && nfk < 0.06) ? vec2(0.0) : (textureGrad(uTexNrm, q, gx, gy).rg*2.0 - 1.0)*nfk;   // MA1 imgmat: far, no normal tap
   vec2 rh = textureGrad(uTexRH, q, gx, gy).rg;
@@ -356,7 +372,7 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
 }
 // triplanar: sharpened weights, taps under 4 % dropped (box faces take one tap); walls keep texture up = +y
 TexS texTri(float L, vec3 p, vec3 n, vec3 dpx, vec3 dpy, vec2 inv, int rot){
-  TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0));
+  TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0);
   vec3 a = abs(n), w = a*a; w *= w; w /= max(dot(w, vec3(1.0)), 1e-6);
   w = max(w - 0.04, 0.0); w /= max(dot(w, vec3(1.0)), 1e-6);
   vec3 sg = vec3(n.x < 0.0 ? -1.0 : 1.0, n.y < 0.0 ? -1.0 : 1.0, n.z < 0.0 ? -1.0 : 1.0);
@@ -379,7 +395,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
   if (f <= 0.0) return o;
   vec2 inv = Lp.xy*A.w; int rot = int(C.y + 0.5);
-  TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0));
+  TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0);
   if (int(A.z + 0.5) == 3) {
     vec3 T = vec3(1.0, 0.0, 0.0), B = vec3(0.0, 0.0, -1.0); texFrame(rot, T, B);
     texTap(A.x, p, dpx, dpy, inv, T, B, vec3(0.0, 1.0, 0.0), n, 1.0, s); s.n = normalize(s.n);
@@ -416,6 +432,8 @@ uniform int uPatSlot[32];
 uniform int uMatLayer;   // GX5 layered materials (render.cpp kMainFS, docs/graphics-overhaul.md#gx5): 0 off, 1 on, 2 High (+ POM)
 vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world normal delta, height (m) for the derivative bump
 uniform int uFloorSlot[8]; // MA1: room floor finish code -> slot (imgmat)
+uniform int uRelief;       // MA1b (Perf relief): parallax on Medium, per-family depth, crevices, detail grain, worn edges
+flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
 float gTexWear = 1.0;      // the copy's wear (kMainFS sets uInst.y before texMaterial): more substrate on worn buildings
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
 bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 160 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
@@ -427,8 +445,10 @@ TexS texSlotTaps(int slot, vec3 w, vec3 ng, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
                  vec3 dwx, vec3 dwy, vec3 dax, vec3 day, vec3 dcx, vec3 dcy, out vec3 dn){
   vec4 A = uTexA[slot], C = uTexC[slot];
   vec2 inv = uTexL[int(A.x + 0.5)].xy*A.w; int sp = int(A.z + 0.5), rot = int(C.y + 0.5);
-  TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0)); dn = vec3(0.0);
+  TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0); dn = vec3(0.0);
   gTexNFade = (uImgMat == 1 && A.y > 0.5) ? 0.5 : 1.0;
+  gTexGS = uRelief == 1 && A.y > 0.5 ? uTexLod2.w : 0.0;   // MA1b: the image is the structure; less LOD bias keeps courses and tiles at 15-35 m
+  vec3 pv = gPomV;   // the eye direction (world): each space below takes its own copy
   if (sp == 2) { s = texTri(A.x, w, ng, dwx, dwy, inv, rot); dn = s.n - ng; }
   else if (sp == 1) {
     // part space, dominant face only, texture v along the part's grain axis (planks, slates); the tangent frame is
@@ -440,17 +460,21 @@ TexS texSlotTaps(int slot, vec3 w, vec3 ng, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
     vec3 B = na == 1 ? vec3(0.0, 0.0, -sg) : vec3(0.0, 1.0, 0.0);
     int bAxis = na == 1 ? 2 : 1;
     texFrame(((grain != na && grain != bAxis) ? 1 : 0) + rot & 3, T, B);
-    texTap(A.x, pc, dcx, dcy, inv, T, B, Nf, Nf, 1.0, s);
-    vec3 tn = vec3(dot(s.n, T), dot(s.n, B), dot(s.n, Nf));
     vec2 ux = vec2(dot(dcx, T), dot(dcx, B)), uy = vec2(dot(dcy, T), dot(dcy, B));
     vec3 p1 = cross(dwy, ng), p2 = cross(ng, dwx);
     vec3 Tw = p1*ux.x + p2*uy.x, Bw = p1*ux.y + p2*uy.y;
+    // MA1b: parallax in part space: the eye direction in the part's (T, B, Nf) frame via the cotangent frame
+    if (gPomK > 0.0) gPomV = T*dot(pv, Tw*inversesqrt(max(dot(Tw, Tw), 1e-30))) + B*dot(pv, Bw*inversesqrt(max(dot(Bw, Bw), 1e-30))) + Nf*dot(pv, ng);
+    texTap(A.x, pc, dcx, dcy, inv, T, B, Nf, Nf, 1.0, s);
+    gPomV = pv;
+    vec3 tn = vec3(dot(s.n, T), dot(s.n, B), dot(s.n, Nf));
     float m = max(dot(Tw, Tw), dot(Bw, Bw));
     if (m > 1e-30) { float im = inversesqrt(m); dn = normalize(Tw*im*tn.x + Bw*im*tn.y + ng*tn.z) - ng; }
   } else {
     vec3 na = normalize(an);
-    if (gPomK > 0.0) gPomV = normalize(transpose(mat3(uModel))*gPomV);   // asset space (rotation only)
+    if (gPomK > 0.0) gPomV = normalize(transpose(mat3(uModel))*pv);   // asset space (rotation only)
     s = texTri(A.x, ap, na, dax, day, inv, rot);
+    gPomV = pv;
     mat3 mm = mat3(uModel); vec3 nw = mm*na; float sc = max(length(nw), 1e-6);
     dn = (mm*s.n - nw)/sc;
   }
@@ -480,8 +504,16 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   vec3 ng = normalize(nW);
   float eyeD = length(w - uCamPos);
   gPomK = 0.0;
-  float pomD = max(C.x, A.y > 0.5 ? 0.015 : 0.0);   // GX5: replace-mode sets (their own structure: brick, slates, cobbles) get 1.5 cm
-  if (uMatLayer == 2 && pomD > 0.0 && sp != 1 && eyeD < 14.0) { gPomV = normalize(uCamPos - w); gPomK = pomD*max(inv.x, inv.y)*(1.0 - smoothstep(8.0, 14.0, eyeD)); }
+  vec4 R = uTexR[slot];
+  bool rel = uRelief == 1 && R.x + R.y + R.z > 0.0;   // MA1b: this slot's family has relief (textures.json "relief" / "crevice" / "edge")
+  float pomD = rel ? R.x : max(C.x, A.y > 0.5 ? 0.015 : 0.0);   // GX5: replace-mode sets (their own structure: brick, slates, cobbles) get 1.5 cm
+  float pomR = uMatLayer == 2 ? 14.0 : 8.0;   // MA1b: Medium one offset within 8 m, High a 10-step march within 14 m
+  gPomN = uMatLayer == 2 ? 10 : 1;
+  if ((uMatLayer == 2 || rel) && pomD > 0.0 && (sp != 1 || rel) && eyeD < pomR) {
+    gPomV = normalize(uCamPos - w);
+    gPomK = pomD*max(inv.x, inv.y)*(1.0 - smoothstep(pomR*0.6, pomR, eyeD))*(rel ? smoothstep(0.08, 0.3, abs(dot(ng, gPomV))) : 1.0);   // MA1b: off at grazing angles (swim)
+  }
+  gDetF = rel ? 1.0 - smoothstep(2.5, 7.0, eyeD) : 0.0;
   vec3 dn; TexS s = texSlotTaps(slot, w, ng, ap, an, pc, pn, grain, dwx, dwy, dax, day, dcx, dcy, dn);
   gPomK = 0.0;
   // detail at the pixel scale: fade (shimmer). MA1 imgmat: not in replace mode, where the image is the structure (mips filter it)
@@ -490,9 +522,29 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   if (uImgMat == 1 && uTexU[slot].z != 1.0) { float l = max(dot(ratio, vec3(0.2126, 0.7152, 0.0722)), 1e-3); ratio *= pow(l, uTexU[slot].z - 1.0); }   // MA1: per-set contrast
   vec3 a2 = alb*mix(vec3(1.0), ratio, K.x*fa);
   float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, K.w*f);
-  vec3 dn2 = dn*K.y*f;
+  vec3 dn2 = dn*(rel && A.y > 0.5 ? max(K.y, 1.0) : K.y)*f*(rel ? 1.5 - 0.5*smoothstep(6.0, 16.0, eyeD) : 1.0);   // MA1b: replace sets at full strength, x1.5 near the eye
   float fr = 128.0*max(inv.x, inv.y);   // the height map's features: ~8 texels
   float h2 = (s.h - Lp.w)*C.x*f*(1.0 - smoothstep(0.18, 0.5, fr*pix));
+  if (rel) {
+    // crevices: below the set's mean height (mortar, joints, tile laps, fissures, bark furrows) sees less light; in the
+    // albedo too, so the courses still read where the relief is under a pixel (15-35 m)
+    float crev = smoothstep(0.02, 0.3, Lp.w - s.h)*R.y*f;
+    ao2 *= 1.0 - 1.1*crev; a2 *= 1.0 - 0.55*crev;
+    h2 += s.d*0.006*gDetF*(1.0 - smoothstep(0.18, 0.5, fr*3.7*pix));   // the set's grain / pores at 3.7x, near the eye (derivative bump)
+    // worn edges on box parts (assets.cpp pushQuad: |pnrm| = 2): distance to the face's edges from its corner (vPcF);
+    // the band is broken by the set's height, lighter and rougher, and rounded into the derivative bump
+    vec3 e3 = abs(vPcF) - abs(pc); vec3 ap3 = abs(pn); int na = ap3.x >= ap3.y && ap3.x >= ap3.z ? 0 : ap3.y >= ap3.z ? 1 : 2; e3[na] = 1e3;
+    float ed = min(min(e3.x, e3.y), e3.z);
+    if (R.w > 0.0 && pix < 0.06) {   // fill lumps (sandbags): broad bulges and creases in part space, into the derivative bump
+      float lu = vnoise(pc*4.5 + 3.1)*0.7 + vnoise(pc*11.0 + 7.7)*0.3;
+      h2 += (lu - 0.5)*R.w*(1.0 - smoothstep(0.02, 0.06, pix)); ao2 *= 0.8 + 0.2*lu;
+    }
+    if (R.z > 0.0 && dot(pn, pn) > 2.0 && ed > -0.005 && pix < 0.03) {
+      float em = (1.0 - smoothstep(0.0, 0.015 + 0.05*s.h, ed))*(1.0 - smoothstep(0.012, 0.03, pix))*R.z;
+      a2 *= 1.0 + 0.22*em*(0.4 + s.h); r2 = mix(r2, min(r2*1.2, 1.0), em);
+      h2 -= em*em*0.01;
+    }
+  }
   vec4 Uu = uTexU[slot];
   if (uImgMat == 1 && (Uu.w > 0.0 || Uu.x >= 0.0)) {   // MA1: large-scale variation and a substrate, one macro tap
     vec4 mac = texMacro(w, ng, dwx, dwy);
@@ -506,8 +558,8 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
     if (m > 0.001 && uTexA[u].x >= 0.0) {   // the substrate (masonry under render, brick behind plaster): its own image colour
       vec3 dnu; TexS su = texSlotTaps(u, w, ng, ap, an, pc, pn, grain, dwx, dwy, dax, day, dcx, dcy, dnu);
       float rim = m*(1.0 - m)*4.0;   // the broken render edge: a thin shadowed lip
-      a2 = mix(a2, su.col, m)*(1.0 - 0.25*rim); r2 = mix(r2, su.r, m); ao2 = mix(ao2, su.ao, m);
-      dn2 = mix(dn2, dnu*uTexB[u].y, m); h2 -= 0.006*m;
+      a2 = mix(a2, su.col, m)*(1.0 - (rel ? 0.4 : 0.25)*rim); r2 = mix(r2, su.r, m); ao2 = mix(ao2, su.ao, m);
+      dn2 = mix(dn2, dnu*uTexB[u].y, m); h2 -= (rel ? 0.014 : 0.006)*m;   // MA1b: a visible step down to the substrate
     }
   }
   alb = a2; rough = clamp(r2, 0.04, 1.0); ao *= ao2;

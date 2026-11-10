@@ -157,3 +157,35 @@ All sets are CC0 1.0 from ambientCG.com (see `docs/credits.md`). Each set's `met
   binding 3 (14 KB): as plain uniforms they passed the 1024 constant registers of the main fragment program.
 - **Memory.** Only the active table's sets are uploaded: imgmat on, 76 sets, 304 MB (BC3/BC5 with mips), about 1.2-1.3 s
   to load (threaded). `NMK_TEX_ALL=1` uploads both tables' sets (the A/B); switching the table otherwise reloads.
+
+## relief: close-up surface relief (MA1b)
+
+Perf switch `relief` (`Renderer::Perf::relief`, `--rq-off relief`, `NMK_PERF_AB=relief`). It is on at Medium and above (`uMatLayer` > 0). Off gives the MA1 look exactly.
+
+- **Per-family values.** Each slot can carry `relief` (parallax depth, m), `crevice` (darkening of the low parts of the set's height map) and `edge` (worn box edges); sandbags also have `lumps` (fill bulges, m). Replace sets default to 0.012 / 0.4 / 0.6; detail sets default to none. The values live in `uTexR`, a fifth per-slot array in the `NmkTexTables` uniform buffer.
+
+  | Family | relief (m) | crevice | edge |
+  |---|---|---|---|
+  | rock | 0.04 | 0.5 | – |
+  | rubble | 0.03–0.035 | 0.55 | 0.6 |
+  | bark | 0.025 | 0.6 | – |
+  | coursed stone | 0.02 | 0.5 | 0.7 |
+  | ashlar | 0.015 | – | 0.8 |
+  | roof tile | 0.015 | 0.55 | – |
+  | brick | 0.012 | 0.55 | 0.7 |
+  | sacking | 0.012 | – | – (lumps 0.06) |
+  | beams, boards | 0.008 | 0.45 | 0.8 |
+  | slate | 0.008 | 0.5 | – |
+  | concrete | 0.006–0.012 | – | – |
+  | render | 0.004 | 0.25 | – |
+
+  Earth slots have no edge wear.
+- **Parallax.** Medium takes a single offset (offset limiting, one height tap) within 8 m. A 4-step march cost +1.6 ms median in chateau_town. High marches 10 steps within 14 m (GX5's POM) and refines linearly between the last two. Parallax fades with distance and at grazing angles. Part space (roofs, beams, slates) is included: the eye direction is carried into the part frame by the cotangent frame.
+- **Crevices.** Mortar, laps and furrows get less ambient light and a darker albedo. Because it is in the albedo, courses and tile rows still read where the relief is under a pixel.
+- **Normals.** Replace sets use their normal maps at full strength, boosted 1.5x inside 6 m (fading by 16 m). The sets are NormalGL and loaded flipped (texture v up = image up). The triplanar and part frames are right-handed and not mirrored.
+- **Detail grain.** Within 2.5–7 m, a second height tap of the same set at 3.7x frequency goes into the derivative bump (pores, grain, pitting).
+- **Gradient scale.** Replace sets sample with a gradient scale of 1.6 instead of 3.0 (`NMK_TEX_LOD2` 4th value). The old bias blurred brick courses and tile rows away by 15 m.
+- **Worn edges.** Box faces are marked with `|pnrm| = 2` (assets.cpp `pushQuad`). The flat varying `vPcF` is the triangle's provoking vertex, which is a corner of the face, so `|vPcF| - |pc|` is the distance to the face's edges. The band is a few centimetres wide, broken by the set's height map, lighter and rougher, and rounded into the derivative bump. It fades by 3 cm per pixel. Prisms, cylinders and bevelled parts get none.
+- **Plaster flaking.** Under relief, the step from render down to the substrate is deeper (14 mm) and its lip shadow darker.
+- **Scale fix.** `brick_worn` (Bricks074) was declared 2 m, but it holds about 46 courses: about 3.3 m of brickwork. Chimneys and the checkerwork drew bricks at 60 % size, about 4 px tall at 5 m on Medium.
+- **Shots.** `NMK_MA1B_SHOTS=1 --selftest-render` writes the chimney and roof at 3 / 15 / 35 m, then stone, brick, timber, rock, sandbags and bark at 1 and 5 m, side-lit, to `selftest_out/ma1b_*.png`.

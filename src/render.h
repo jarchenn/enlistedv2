@@ -149,6 +149,7 @@ public:
     bool assetLod = true;        // assetlod: part-built assets drawn with their LOD meshes by screen size; sub-pixel props skipped
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
+    bool relief = true;          // relief (MA1b): parallax on Medium, per-family depth, crevices, detail grain, worn edges
     bool foundWx = true;         // foundwx (MA2): foundation weathering by height above the local ground (off = above the asset ground)
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
@@ -176,7 +177,7 @@ public:
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
       if (n == "p2") { dlCache = instDepth = folBatch = on; return true; }   // P2: every draw-submission switch together

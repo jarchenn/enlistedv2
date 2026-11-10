@@ -208,7 +208,7 @@ static void pushQuad(MeshData& m, const Part& p, const Material& mat, const mat4
     v.albedo = mat.albedo;
     v.params = vec4((float)(mat.pattern + 100 * mat.texCode), mat.roughness, mat.metallic, grainOf(p, mat)); v.emis = mat.emissive;
     v.pcoord = lp[k];
-    v.pnrm = ln;
+    v.pnrm = prismSpace ? ln : ln * 2.0f;   // MA1b: |pnrm| = 2 marks a box face (kMainFS: edge distance from the provoking corner)
     m.v.push_back(v);
   }
   // ensure CCW winding w.r.t. normal

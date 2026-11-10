@@ -415,12 +415,12 @@ layout(location=7) in vec4 aInst;  // PF2 HLOD cells: per-vertex building seed /
 layout(location=8) in vec3 aLp; layout(location=9) in vec3 aLn;   // PF2 HLOD cells: the asset-local position / normal (patterns)
 uniform mat4 uModel, uVP; uniform vec4 uSnapAp;   // V6: w = 1 for snap chains, xz = the chain's texture origin
 uniform vec4 uInst;
-out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV;
+out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV; flat out vec3 vPcF;   // MA1b: a box-face corner (edge wear)
 invariant gl_Position;   // R1 zprepass: kDepthVS computes the same depth
 void main(){
   vInstV = aInst.w > 1.5 ? vec4(aInst.xyz, 0.0) : uInst;
   vec4 w = uModel*vec4(aPos,1.0);
-  vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi; vEye = uCamPos;
+  vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi; vPcF = aPc; vEye = uCamPos;
   if (uSnapAp.w > 0.5) { vAp = vec3(w.x - uSnapAp.x, aPos.y, w.z - uSnapAp.z); vAn = vN; }   // V6: patterns continue across snapped joints
   if (aInst.w > 1.2) { vAp = aLp; vAn = aLn; }   // PF2 HLOD (w = 2): world-space vertices, the copy's own pattern space; P2 merged leaves (w = 1.3): leaf-local
   gl_Position = uVP*w;
@@ -4061,6 +4061,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
   tex::setImgMat(perf.imgMat);   // MA1: the image-material slot table (re-uploads only when it flips)
   glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
+  glUniform1i(U(progMain, "uRelief"), thumbMode || q.legacy || !perf.relief || !perf.matLayer || q.matLayer == 0 ? 0 : 1);   // MA1b: Medium and up
   uploadStaticDecals();
   { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), gxDebug ? gxDebug : dbg); }
   glUniform1i(U(progMain, "uSDecOn"), thumbMode || q.legacy || q.matLayer == 0 || !perf.staticDecals || !sdecBuf || sdec.empty() ? 0 : 1);
