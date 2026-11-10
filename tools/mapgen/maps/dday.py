@@ -395,6 +395,13 @@ def build(ctx):
     b.route("sand", band(-6, 3.5, 2), 18, wet=0.5, keepout=False)
     b.route("sand", band(-35, 5.0, 3), 40, keepout=False)
     b.route("sand", band(-58, 6.0, 4), 16, strength=0.55, keepout=False)
+    # G1 grass regions (docs/ground-grass.md): sand paint at full weight on the wet and dry beach (no grass), partial on the
+    # dunes (sparse marram tussocks); the edges wander with the shoreline and the dune belt
+    xs = list(range(-int(HX) - 110, int(HX) + 111, 5))
+    dry_edge = [(x, 66.0 + 4.0 * fbm(x / 33.0, 3.3, 71, 2)) for x in xs]
+    dune_edge = [(x, 43.0 + 5.0 * fbm(x / 29.0, 4.4, 72, 2)) for x in xs]
+    paint.poly("sand", dry_edge + [(xs[-1], 245.0), (xs[0], 245.0)], weight=1.0, edge=4.0, ragged=2.0, seed=7)
+    paint.poly("sand", dune_edge + list(reversed(dry_edge)), weight=0.55, edge=5.0, ragged=3.0, seed=8)
     for k, pts in LANES.items():   # worn routes inland: footpaths of the attack (sparse grass on them)
         b.route("footpath", catmull_rom(pts, 6)[1:], 1.8, strength=0.6, keepout=False)
     for x, z in ALLIED:
@@ -669,6 +676,25 @@ def build(ctx):
                         exposed.append((e["asset"], f.get("kind"), round(sx), ox))
     rep["spawnExposure"] = exposed
     rep["trenchEnds"] = [(round(p[0], 1), round(p[1], 1)) for p in T.ends]
+    # trench graph: pieces joined where their sockets coincide (as GX1 unions them); one component = one network
+    socks = []
+    for i, e in enumerate(T.inst):
+        for lp, _ in SOCK[e["asset"]]:
+            socks.append((i, local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lp[0], lp[1])))
+    root = list(range(len(T.inst)))
+    def find(a):
+        while root[a] != a:
+            root[a] = root[root[a]]
+            a = root[a]
+        return a
+    for i in range(len(socks)):
+        for j in range(i + 1, len(socks)):
+            if socks[i][0] != socks[j][0] and close(socks[i][1], socks[j][1], 0.3):
+                root[find(socks[i][0])] = find(socks[j][0])
+    comps = len({find(i) for i in range(len(T.inst))})
+    loose = sum(1 for i, p in socks if sum(1 for k, q in socks if k != i and close(p, q, 0.3)) == 0)
+    rep["trenchGraph"] = {"pieces": len(T.inst), "components": comps, "openSockets": loose}
+    assert comps == 1, "trench network splits into %d parts" % comps
     # how far each bunker's rear door is from its spur's ramp top
     doors = {}
     for (aid, x, z, yaw, role), key in zip(BUNKERS, ("FW", "FC", "FE", "RW", "RE")):
@@ -717,5 +743,5 @@ def build(ctx):
                 "objectives": [(o["label"], o["displayName"], o["pos"], len(o["linkedStructures"]), len(o["defenseSlots"])) for o in sc.objectives],
                 "spawns": [(m["label"], m["pos"]) for m in sc.spawns]})
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
-    print("instances %d | trench pieces %d | village %d (refused %s) | errors %s | warnings %d | exposed %d" %
-          (len(b.inst), rep["trenchPieces"], rep["villageBuildings"], refused, err, len(warn), len(exposed)))
+    print("instances %d | trench pieces %d in %d network(s), %d open sockets | village %d (refused %s) | errors %s | warnings %d | exposed %d" %
+          (len(b.inst), rep["trenchPieces"], rep["trenchGraph"]["components"], rep["trenchGraph"]["openSockets"], rep["villageBuildings"], refused, err, len(warn), len(exposed)))
