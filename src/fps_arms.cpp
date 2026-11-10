@@ -222,7 +222,9 @@ void sleeveTex(const Img& wc, const Img& wn, const Img& wr, vec3 cloth, vec3 thr
     float wear = cuff ? (1 - glm::smoothstep(0.0f, 0.014f, mv)) * (0.55f + 0.45f * n2)                      // the cuff's edge
                       : std::exp(-std::pow((mv - kElbowS) / 0.05f, 2.0f)) * glm::smoothstep(0.35f, 0.7f, n2);   // the elbow
     wear = std::max(wear, glm::smoothstep(0.78f, 0.95f, n2) * 0.35f);   // a few scuffs anywhere
-    vec3 col = cloth * L * (1.0f - 0.45f * fold) * (1.0f - grime);
+    float wsh = cuff ? 0.0f : glm::smoothstep(0.25f, 1.0f, std::sin(2 * kPi * (2 * u + sv * 3) + 5.0f * n1)) * 0.3f + glm::smoothstep(0.4f, 1.0f, std::sin(2 * kPi * (3 * u - sv * 2) + 4.0f * n2)) * 0.18f;
+    ao *= 1.0f - wsh;
+    vec3 col = cloth * L * (1.0f - 0.45f * fold) * (1.0f - grime) * (1.0f - wsh);
     col = glm::mix(col, col * 1.7f + vec3(0.008f), wear * 0.55f);   // worn: faded, lighter
     col = glm::mix(col, thread * (0.95f + 0.1f * L), st * 0.75f);
     float rough = std::clamp(rough0 * (0.85f + 0.3f * n2) - wear * 0.12f + grime * 0.08f, 0.35f, 1.0f);
@@ -281,7 +283,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   // ---- the palm path (heel on the near side round the bottom to the knuckle line under the far edge), the wrist
   // point behind the heel, then the arm: a two-bone solve to that wrist
   const int nP = 7;
-  float phH = -34.0f + g.palm, phK = -166.0f;   // heel low on the near side (its near face and thenar show from the eye), knuckles low on the far side   // heel under the near-bottom edge, knuckles low on the far side: the hand under the fore-end
+  float phH = -34.0f + g.palm, phK = -128.0f;   // heel low on the near side (its near face and thenar show from the eye), knuckles low on the far side   // heel under the near-bottom edge, knuckles low on the far side: the hand under the fore-end
   vec3 PP[nP]; float pw[nP], pt[nP];
   for (int i = 0; i < nP; ++i) {
     float t = i / float(nP - 1);
@@ -325,14 +327,14 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   // body (part 0)
   float lenF = glm::length(E - cuffEnd);
   vec3 bodyStart = cuffEnd - f * 0.012f;   // tucked inside the cuff: the cuff overlaps it, nothing shows between them
-  for (int i = 0; i <= 8; ++i) P.push_back(glm::mix(bodyStart, E - f * 0.07f, i / 8.0f));
+  for (int i = 0; i <= 16; ++i) P.push_back(glm::mix(bodyStart, E - f * 0.07f, i / 16.0f));
   for (int i = 1; i <= 6; ++i) { float t = i / 7.0f; vec3 a = E - f * 0.07f, c = E + uDir * 0.07f; P.push_back((1 - t) * (1 - t) * a + 2 * (1 - t) * t * E + t * t * c); }
   for (int i = 0; i <= 5; ++i) P.push_back(glm::mix(E + uDir * 0.07f, Sh + uDir * 0.06f, i / 5.0f));
   float sE = lenF + 0.012f;   // arc length from the body's start to the elbow (about)
   std::vector<vec2> Rb;
   { float s = 0; for (size_t i = 0; i < P.size(); ++i) {
       if (i) s += glm::length(P[i] - P[i - 1]); sAt.push_back(s);
-      float r = glm::mix(0.0405f, 0.0442f, glm::smoothstep(0.010f, 0.024f, s)) + 0.0095f * glm::smoothstep(0.04f, 0.21f, s) + 0.003f * glm::smoothstep(sE - 0.05f, sE + 0.05f, s);
+      float r = glm::mix(0.0405f, 0.0442f, glm::smoothstep(0.010f, 0.024f, s)) + 0.016f * glm::smoothstep(0.03f, 0.19f, s) + 0.003f * glm::smoothstep(sE - 0.05f, sE + 0.05f, s);
       Rb.push_back(vec2(r, r * 0.87f));
   } }
   // radius modulation round each ring: an irregular ellipse, soft long folds on the forearm, compression folds on the
@@ -340,10 +342,11 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   const vec3 refS = bendN;
   auto foldBody = [&](size_t i, float th, vec3 dir) {
     float s = sAt[i], k = 1 + (0.022f * std::sin(2 * th + 0.7f) + 0.014f * std::sin(3 * th + 2.1f)) * glm::smoothstep(0.0f, 0.02f, s);
-    k += 0.018f * std::sin(5 * th + 1.3f + s * 9.0f) * glm::smoothstep(0.02f, 0.10f, s) * (1 - glm::smoothstep(sE - 0.12f, sE - 0.04f, s));
+    float fm = glm::smoothstep(0.02f, 0.07f, s);   // broad diagonal wrinkles spiralling up the forearm (two crossing sets, uneven)
+    k += fm * (0.045f * std::sin(2 * th + s * 62.0f + 0.9f) + 0.03f * std::sin(3 * th - s * 47.0f + 2.3f) + 0.02f * std::sin(th + s * 95.0f));
     float in = std::max(0.0f, glm::dot(dir, inner)), near = std::exp(-std::pow((s - sE) / 0.07f, 2.0f));
-    k += 0.07f * in * in * near * (0.55f + 0.45f * std::sin((s - sE) / 0.022f * kPi));
-    k += 0.03f * std::exp(-std::pow((s - 0.047f) / 0.018f, 2.0f));   // the roll above the cuff
+    k += 0.12f * in * in * near * (0.5f + 0.5f * std::sin((s - sE) / 0.024f * kPi));
+    k += 0.07f * std::exp(-std::pow((s - 0.05f) / 0.02f, 2.0f));   // the cloth bunching above the cuff
     return k;
   };
   auto foldCuff = [&](size_t i, float th, vec3) { return 1 + 0.015f * std::sin(2 * th + 0.7f) + (i >= 3 ? 0.012f * std::sin(4 * th + 0.3f) : 0.0f); };
@@ -406,7 +409,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     // march round the section at the finger's own offset until its length is used (or the top-far stop)
     float want = fl[fi] * glm::mix(0.55f, 1.0f, curl), arc = 0, ph0 = phK, ph1 = ph0;
     auto at = [&](float deg) { float a = radians(deg); return vec2((rx + fr) * std::cos(a), (ry + fr) * std::sin(a)); };
-    while (arc < want && ph1 > -244.0f) { arc += glm::length(at(ph1 - 1) - at(ph1)); ph1 -= 1; }
+    while (arc < want && ph1 > -176.0f) { arc += glm::length(at(ph1 - 1) - at(ph1)); ph1 -= 1; }
     std::vector<vec3> FP;
     for (int i = 0; i <= kFR; ++i) {
       float t = i / float(kFR);
@@ -443,7 +446,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     std::vector<vec3> TP; std::vector<vec2> TR;
     for (int i = 0; i <= 6; ++i) {
       float t = i / 6.0f;
-      TP.push_back(S(glm::mix(-40.0f, glm::mix(-16.0f, -6.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
+      TP.push_back(S(glm::mix(-44.0f, glm::mix(-30.0f, -24.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
       float tr = glm::mix(0.0135f, 0.0094f, t);
       TR.push_back(vec2(tr * 0.88f, tr));
     }
