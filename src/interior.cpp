@@ -14,6 +14,7 @@
 #include <array>
 #include <chrono>
 #include <algorithm>
+#include <set>
 #include <unordered_map>
 #include <limits>
 #include <fstream>
@@ -1054,12 +1055,17 @@ void InteriorSys::step(App& app, float dt) {
 void InteriorSys::reset(App& app) {
   for (auto& f : frags) if (!f.frozen) Physics::remove(f.body);
   frags.clear();
+  std::set<uint64_t> live;
   for (auto& i : app.doc.instances) {
+    live.insert(i.id);
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !prop(it->second.asset)) continue;
     auto s = st.find(i.id);
     bool applied = i.extra.is_object() && i.extra.value("propBroken", false);
     if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
   }
+  // pieces that went away this session (MA3 dressing props pruned beside a breached wall, regenerated on the reset)
+  // take their session state with them: a stale broken entry would outlive the reset
+  for (auto it = st.begin(); it != st.end();) { if (!live.count(it->first)) it = st.erase(it); else ++it; }
 }
 
 int InteriorSys::applyToMap(App& app) {
