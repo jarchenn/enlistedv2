@@ -13,12 +13,16 @@
 #include <thread>
 
 // ---------------------------------------------------------------- presets
+// P3 A/B: NMK_PRESET_OLD=1 gives the pre-P3 Low / Medium values (presets, the shadow / probe / SSAO knobs, grass Low radius)
+bool presetsOld() { static const bool o = std::getenv("NMK_PRESET_OLD") != nullptr; return o; }
 GraphicsOpts presetOpts(GfxPreset p) {
   GraphicsOpts g;   // Medium: the built-in defaults (Renderer::Quality, Grass, Fx, the cull rules in maps.json)
+  if (presetsOld() && p != GfxPreset::High) g.shadowLights = 4;
   if (p == GfxPreset::Low) {
     g.resScale = 0.5f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output (was 0.85 bilinear)
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
-    g.grass = 1; g.grassWind = false; g.renderDist = 600; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
+    g.bloom = presetsOld();                              // P3: no bloom on Low
+    g.grass = 1; g.grassWind = false; g.renderDist = presetsOld() ? 600 : 450; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::High) {
@@ -181,7 +185,17 @@ void Settings::apply(App& app) {
   const GraphicsOpts& g = s.gfx;
   Renderer& R = app.R;
   R.setResolutionScale(g.resScale);
-  R.setShadowSizes(g.shadowQuality == 0 ? 2048 : 4096, g.shadowQuality == 0 ? 1024 : g.shadowQuality == 2 ? 4096 : 2048);
+  // P3 per-tier shadow / post costs (docs/settings.md): shadowQuality 0 Low, 1 Medium, 2 High (High = the pre-P3 values)
+  const int sq = std::clamp(g.shadowQuality, 0, 2);
+  const bool old = presetsOld();
+  R.setShadowSizes(old ? (sq == 0 ? 2048 : 4096) : (sq == 0 ? 1024 : sq == 1 ? 2048 : 4096), sq == 0 ? 1024 : sq == 2 ? 4096 : 2048);
+  R.shadowTier = sq;
+  R.q.shadowNearR = old || sq == 2 ? 40.0f : sq == 1 ? 32.0f : 28.0f;   // texels: Low 5.5 cm, Medium 3.1 cm, High 2.0 cm
+  R.q.shadowTaps = old || sq == 2 ? 16 : sq == 1 ? 6 : 4;
+  R.q.farEvery = old || sq == 2 ? 2 : sq == 1 ? 4 : 8;
+  R.q.leafShadowLodM = old || sq == 2 ? 12.0f : sq == 1 ? 8.0f : 4.0f;
+  R.q.ssaoDiv = old || g.ssaoFull ? 2 : 4;                              // not full resolution: quarter (Medium)
+  R.q.probeHalf = !old && g.gi == 1;                                    // near-probe GI (Medium): half the capture budget
   R.setSsaoFull(g.ssaoFull);
   R.q.farCascade = g.farCascade; R.q.cloudShadows = g.cloudShadows; R.q.shafts = g.shafts; R.q.ssr = g.ssr; R.q.ssao = g.ssao; R.q.bloom = g.bloom;
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
@@ -210,7 +224,7 @@ void Settings::apply(App& app) {
 void Settings::capture(const App& app) {
   GraphicsOpts& g = s.gfx; const Renderer& R = app.R;
   g.resScale = R.resolutionScale();
-  g.shadowQuality = R.shadowNearPx() < 4096 ? 0 : R.shadowFarPx() >= 4096 ? 2 : 1;
+  g.shadowQuality = R.shadowTier;
   g.farCascade = R.q.farCascade; g.cloudShadows = R.q.cloudShadows; g.shafts = R.q.shafts; g.ssr = R.q.ssr; g.ssao = R.q.ssao; g.bloom = R.q.bloom;
   g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds;
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;

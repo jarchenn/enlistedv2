@@ -160,8 +160,8 @@ void build(App&) {
     chk(r.s == u && r.s.toJson()["graphics"].value("timeOfDay", "") == "Night", "settings file: time of day Night, hour, light count, shadowed lights, GI round trip");
     { std::ofstream(rt) << R"({"graphics":{"timeOfDay":"Dusk"}})"; Settings c; c.load(rt); chk(std::fabs(c.s.hour - 18.6f) < 1e-4f, "a file naming only \"Dusk\" loads 18:36"); }
     GraphicsOpts lo = presetOpts(GfxPreset::Low), md = presetOpts(GfxPreset::Medium), hi = presetOpts(GfxPreset::High);
-    chk(lo.gi == 0 && lo.shadowLights == 0 && md.gi == 1 && md.shadowLights == 4 && md.lightCount == 256 && hi.gi == 2 && hi.shadowLights == 8,
-        "presets: Low GI off / no light shadows, Medium near GI / 4 / 256 lights, High full GI / 8");
+    chk(lo.gi == 0 && lo.shadowLights == 0 && md.gi == 1 && md.shadowLights == 2 && md.lightCount == 256 && hi.gi == 2 && hi.shadowLights == 8,
+        "presets: Low GI off / no light shadows, Medium near GI / 2 (P3) / 256 lights, High full GI / 8");
     UserSettings keep = S.s;
     S.s.hour = todPresetHour(TodPreset::Dusk); S.s.gfx = presetOpts(GfxPreset::High); S.apply(a);
     chk(a.R.lt.hour == S.s.hour && a.R.lt.gi == 2 && a.R.lt.shadowLights == 8 && a.R.lt.maxLights == 512, "Settings::apply drives the renderer (hour, GI, shadowed lights, light count)");

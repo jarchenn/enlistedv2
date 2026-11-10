@@ -37,6 +37,7 @@ uniform vec2 uShadowTexelFar;
 uniform vec2 uShadowWorldTexel;   // metres per shadow texel: near, far cascade
 uniform float uShadowDepthRange;  // metres covered by the [0,1] light-space depth
 uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = legacy 3x3 grid)
+uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
@@ -80,6 +81,7 @@ float sunShadowT(vec3 w, vec3 n, float soft, int taps){
     for (int y=-1;y<=1;y++) for (int x=-1;x<=1;x++) sum += texture(uShadow, vec3(s.xy + vec2(x,y)*uShadowTexel*1.2, s.z - 0.0006));
     return sum/9.0;
   }
+  if (uShadowTaps > 0) taps = min(taps, uShadowTaps);
   float eN, eF;
   float sN = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, n, uShadowSoft*(1.0 + 2.5*soft), taps, eN);
   if (uShadowFarOn == 0) return sN;
@@ -3056,7 +3058,7 @@ void Renderer::setResolutionScale(float sc) {
   if (displayW > 0) { int w = displayW, h = displayH; displayW = 0; resize(w, h); }
 }
 void Renderer::setSsaoFull(bool full) {
-  int d = full ? 1 : 2;
+  int d = full ? 1 : std::clamp(q.ssaoDiv, 1, 4);
   if (d == aoDiv) return;
   aoDiv = d;
   if (hdrFbo) createTargets();
@@ -3244,6 +3246,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft);
+  glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCover); glUniform1f(U(p, "uCloudT"), time);
@@ -3610,7 +3613,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   gpuMark(GP_ShadowNear);
   // ---- shadow map: tighter around the camera when walking, wider while flying
   float camH = std::max(0.0f, v.camPos.y - t.height(v.camPos.x, v.camPos.z));
-  float radius = v.editor ? std::clamp(60.0f + camH * 1.2f, 60.0f, 260.0f) : (q.legacy ? 55.0f : 40.0f);
+  float radius = v.editor ? std::clamp(60.0f + camH * 1.2f, 60.0f, 260.0f) : (q.legacy ? 55.0f : q.shadowNearR);
   {   // GX2: inside a room the near cascade tightens to 24 m (about 1.2 cm texels at 4096) so window bars cast crisp shadows
     bool indoor = false;
     for (auto& b : rooms) { vec3 l = vec3(glm::inverse(b.m) * vec4(v.camPos, 1)); if (std::fabs(l.x) < b.half.x && std::fabs(l.y) < b.half.y && std::fabs(l.z) < b.half.z) { indoor = true; break; } }
@@ -3636,7 +3639,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // the casters inside its ortho box even when they are behind the camera
   Frustum frNear = Frustum::fromVP(lightVP);
   castCull = perf.casterCull && !thumbMode; castEye = v.camPos;   // R2: on for the two sun cascades only
-  const float leafLod = perf.leafShadowLod && !thumbMode ? 12.0f : -1.0f;   // R2: full cards under / beside the eye, the LOD past 12 m
+  const float leafLod = perf.leafShadowLod && !thumbMode ? q.leafShadowLodM : -1.0f;   // R2: full cards under / beside the eye, the LOD past 12 m
   const int shDraws0 = stats.draws;
   drawItems(progShadow, opaque, true, &frNear);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear, false, leafLod);
@@ -3653,7 +3656,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // in between the shaders keep sampling the last map with the matrix it was drawn with (moving casters lag <= 1 frame)
   const float fR = std::max(240.0f, radius * 2.5f);
   const vec3 ffw = v.camPos + vec3(fwd.x, 0, fwd.z) * fR * 0.6f;
-  const bool farRedo = !perf.farCache || frame - farFrame >= 2 || fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
+  const bool farRedo = !perf.farCache || frame - farFrame >= std::max(1, q.farEvery) || fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
   if (!q.legacy && q.farCascade && !thumbMode && farRedo) {
     farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir;
     vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);

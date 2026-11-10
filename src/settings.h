@@ -24,7 +24,7 @@ struct GraphicsOpts {
   bool grassWind = true;       // GX3: vertex wind on the near grass clumps (Low: static grass)
   float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
   // L2 lighting (docs/lighting.md): local lights per frame, shadowed lights, probe GI 0 off / 1 near / 2 near + far
-  int lightCount = 256, shadowLights = 4, gi = 1;
+  int lightCount = 256, shadowLights = 2, gi = 1;   // P3: Medium 2 shadowed lights (was 4)
   int msaa = 0;                // B1: 4 = 4x MSAA on the opaque world (High), 0 = off
   bool ivy = true;             // B1: ivy on stone walls (density follows the grass quality)
   int materials = 1;           // GX5 material detail: 0 Low (base materials), 1 wear / grime / seams / decals, 2 High (+ parallax)
@@ -32,6 +32,7 @@ struct GraphicsOpts {
   bool operator==(const GraphicsOpts&) const = default;
 };
 GraphicsOpts presetOpts(GfxPreset p);
+bool presetsOld();   // P3 A/B (NMK_PRESET_OLD): the pre-P3 Low / Medium values
 const char* presetName(GfxPreset p);
 
 struct UserSettings {

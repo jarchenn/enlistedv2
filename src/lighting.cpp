@@ -623,13 +623,16 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   }
   L.resetAll = false; L.inval.clear();
   int budget = R.lt.probeBudget > 0 ? R.lt.probeBudget : (R.lt.gi >= 2 ? 8 : 3);
+  static int halfTick = 0;
+  const bool half = R.q.probeHalf && R.lt.probeBudget <= 0;   // P3 Medium: half the capture rate (1.5 / frame filling, 0.5 / frame converged)
+  if (half) { halfTick ^= 1; budget = (budget + halfTick) / 2; }
   budget = std::min(budget, kMaxCap);
   // PF2 probeRefresh: the full budget only while probes wait for their first capture (camera moved, rooms or time of day
   // changed); once the volumes are converged, 2 (High) / 1 (Medium) re-captures per frame keep them fresh, oldest and
   // nearest first. Tests that set probeBudget keep their rate.
   if (R.perf.probeRefresh && R.lt.probeBudget <= 0) {
     int pending = (int)std::count_if(cand.begin(), cand.end(), [](const Cand& c) { return c.score > 1e8f; });
-    budget = std::min(budget, std::max(pending, R.lt.gi >= 2 ? 2 : 1));
+    budget = std::min(budget, std::max(pending, R.lt.gi >= 2 ? 2 : half ? halfTick : 1));
   }
   if (R.perf.probeBudgetOn && R.lt.probeBudget <= 0) {
     // R2 probebudget: the budget is in cost units (near probe 1, far probe 4); unused units carry over (capped), so a far
