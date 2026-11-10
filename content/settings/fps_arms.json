@@ -1,6 +1,6 @@
 {
   "_doc": "FA2 first-person support arm (src/fps_arms.cpp, docs/fps-arms.md): one generated arm (sleeve tube + hand) for every weapon. sleeve / skin: linear colours (Allies olive drab, Axis charcoal; thread = the stitching). weapons: optional per weapon: gripZ (measure the held section that far along the weapon instead of at its gripL socket: low-held guns move the hand forward so the hand, cuff and 15 cm of sleeve stay in view at the hip), or grip [x, y, z] (weapon space: the bottom of the held section) and section [half width, half height] in metres; without them the section is measured on the weapon's mesh at its gripL socket. sightConeDeg / nearClear / nearClearAds: the ADS sight cone and the near-eye clearance the arm is kept out of.",
-  "sleeve": {"allies": [0.105, 0.100, 0.048], "alliesThread": [0.42, 0.38, 0.22], "axis": [0.030, 0.030, 0.032], "axisThread": [0.24, 0.24, 0.25]},
+  "sleeve": {"allies": [0.105, 0.100, 0.048], "alliesThread": [0.15, 0.14, 0.075], "axis": [0.030, 0.030, 0.032], "axisThread": [0.065, 0.065, 0.07]},
   "skin": [0.44, 0.25, 0.155],
   "sightConeDeg": 6.0,
   "nearClear": 0.12,

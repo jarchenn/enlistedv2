@@ -207,7 +207,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         a.R.viewModelTex.clear(); std::vector<DrawItem> tmp; a.weaponDrawItems(tmp);
         int fac = -1, c = armCount(fac); ++n;
         worst = std::max(worst, a.lastHandErr.y);
-        one += a.lastArmDraws == 1 && !a.lastArmsShown[0] && a.lastArmsShown[1] && c == 3;
+        one += a.lastArmDraws == 1 && !a.lastArmsShown[0] && a.lastArmsShown[1] && c == 5;
         faction += fac == (D(a).side == "DE" ? 1 : 0);
         vec2 hLo, hHi, sl; fpsArmsLastFraming(hLo, hHi, sl);   // at the hip: the whole hand and 15 cm of sleeve past the cuff in view
         bool inView = a.lastArmsShown[1] && hLo.x > -0.99f && hLo.y > -0.99f && hHi.x < 0.99f && hHi.y < 0.99f && std::fabs(sl.x) < 1 && std::fabs(sl.y) < 1;
@@ -254,7 +254,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       check(std::fabs(glm::length(e - S) - kUpperArm) < 1e-4f && std::fabs(glm::length(h - e) - kForearm) < 1e-3f && glm::length(h - T) > 1.3f, "out of reach: the arm straightens toward the target without stretching");
       int armItems = 0; for (auto& it : a.R.viewModel) for (auto& m : a.armMesh) armItems += it.mesh == &m;
       int armModel = 0; for (auto& it : a.R.viewModelTex) armModel += fpsArmsIsModel(it.model);   // FA2: the generated arm
-      check(a.lastArmDraws == 1 && (fpsArmsReady() ? armModel == 3 && armItems == 0 : armItems == 8),
+      check(a.lastArmDraws == 1 && (fpsArmsReady() ? armModel == 5 && armItems == 0 : armItems == 8),
             fpsArmsReady() ? "the generated support arm is drawn in the first-person textured pass (sleeve, cuff, hand; no box arms)" : "box arms drawn in the first-person pass (2 x upper arm, forearm, wrist, hand): " + std::to_string(armItems));
       a.selectWeapon(a.weaponIndex("m1_garand"));
       return true; });

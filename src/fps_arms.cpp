@@ -26,12 +26,14 @@ namespace {
 constexpr float kPi = 3.14159265f;
 constexpr int kTex = 512;              // sleeve texture: one turn round the sleeve (u) x kTexLen metres of its length (v)
 constexpr float kTexLen = 0.25f;       // the cloth source repeats once per tile (seamless): a fine wool weave
+constexpr float kBodyLen = 0.75f;      // the sleeve body's tile: 3 x kTexLen along the arm (elbow wear at a fixed place)
+constexpr float kElbowS = 0.229f;      // the elbow's distance from the body tube's start (forearm 0.27 m, fixed)
 
 struct ArmGen {
   bool tried = false, ok = false;
   GpuModel model[2];                   // 0 Allies (olive drab), 1 Axis (charcoal): parts 0 sleeve, 1 cuff, 2 hand / wrist
   std::vector<uint32_t> I; size_t nV = 0;
-  uint32_t partFirst[3] = {0, 0, 0}, partCount[3] = {0, 0, 0};
+  uint32_t partFirst[5] = {0, 0, 0, 0, 0}, partCount[5] = {0, 0, 0, 0, 0};
   vec2 handLo{0}, handHi{0}, sleeve15{0};   // the last drawn arm's framing (NDC): hand bounds, 15 cm up the sleeve past the cuff
   vec3 jS{0}, jE{0}, jW{0}, jT{0};          // the last drawn arm's joints (camera space): shoulder, elbow, wrist, wrist target
   size_t sleeveV0 = 0, sleeveV1 = 0, handV1 = 0; uint32_t sleeveI1 = 0, handI1 = 0;   // smoothed-normal ranges
@@ -113,62 +115,6 @@ GLuint upload(const std::vector<uint8_t>& px, int w, int h, bool srgb) {
   glTextureParameterf(t, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
   return t;
 }
-// albedo + tangent-space normal of one sleeve tile: woven wool (luminance x the faction colour, its own normal map),
-// a stitched seam along v at u = seamU (two rows of short stitches either side of a darker fold), and for the cuff a
-// stitched hem: two rows of stitches round the sleeve near its edge (v = 0). Stitches: lighter thread, raised a little.
-void sleeveTex(const Img& wc, const Img& wn, vec3 cloth, vec3 thread, bool cuff, GpuModel::MatTex& m) {
-  const int S = kTex;
-  std::vector<uint8_t> alb((size_t)S * S * 4), nrm((size_t)S * S * 4);
-  std::vector<float> hgt((size_t)S * S, 0.0f);
-  // the cloth source tiles once per texture tile (seamless round the sleeve and along it), bilinearly sampled
-  auto bil = [](const Img& im, float u, float v, int ch) {
-    float x = u * im.w - 0.5f, y = v * im.h - 0.5f; int x0 = (int)std::floor(x), y0 = (int)std::floor(y); float fx = x - x0, fy = y - y0;
-    auto P = [&](int xx, int yy) { xx = ((xx % im.w) + im.w) % im.w; yy = ((yy % im.h) + im.h) % im.h; return (float)im.px[((size_t)yy * im.w + xx) * 4 + ch]; };
-    return glm::mix(glm::mix(P(x0, y0), P(x0 + 1, y0), fx), glm::mix(P(x0, y0 + 1), P(x0 + 1, y0 + 1), fx), fy);
-  };
-  double mean = 0; for (size_t k = 0; k < wc.px.size(); k += 4) mean += 0.2126 * wc.px[k] + 0.7152 * wc.px[k + 1] + 0.0722 * wc.px[k + 2];
-  mean = std::max(1.0, mean / std::max<size_t>(1, wc.px.size() / 4));
-  const float seamU = 0.10f, px = 1.0f / S;
-  auto stitch = [&](float along, float across, float pitch, float len, float width) {   // 0..1: inside a stitch dash
-    float f = along / pitch; f -= std::floor(f);
-    float inA = 1.0f - glm::smoothstep(len * 0.5f - 0.0012f, len * 0.5f, std::fabs(f - 0.5f) * pitch);   // a dash with rounded ends
-    float inW = 1.0f - glm::smoothstep(width * 0.25f, width * 0.5f + 0.0003f, std::fabs(across));
-    return inA * inW * (0.75f + 0.25f * std::sqrt(std::max(0.0f, 1.0f - std::pow(across / (width * 0.5f + 1e-4f), 2.0f))));   // thread: rounded across
-  };
-  for (int y = 0; y < S; ++y) for (int x = 0; x < S; ++x) {
-    float u = (x + 0.5f) * px, v = (y + 0.5f) * px;
-    float L = (float)((0.2126 * bil(wc, u, v, 0) + 0.7152 * bil(wc, u, v, 1) + 0.0722 * bil(wc, u, v, 2)) / mean);
-    L = std::pow(std::clamp(L, 0.2f, 2.5f), 1.3f);   // a little more contrast: the fine weave still reads
-    // metres on the sleeve: across = round the tube (u x circumference ~ kTexLen), along = v x kTexLen
-    float mu = (u - seamU) * kTexLen, mv = v * kTexLen;
-    float h = 0, st = 0, fold = 0;
-    // the seam: a darker fold, a stitch row 6 mm either side (stitch 8 mm, pitch 11 mm, thread 2 mm)
-    fold = 1.0f - glm::smoothstep(0.0006f, 0.0022f, std::fabs(mu));
-    for (float off : {-0.006f, 0.006f}) st = std::max(st, stitch(mv, mu - off, 0.011f, 0.008f, 0.002f));
-    if (cuff) {   // the hem: two rows round the cuff, 6 and 13 mm from its edge
-      float mvE = v * kTexLen;   // the cuff part starts its v at the edge
-      for (float row : {0.007f, 0.016f}) st = std::max(st, stitch(u * kTexLen, mvE - row, 0.011f, 0.008f, 0.002f));
-      fold = std::max(fold, 1.0f - glm::smoothstep(0.0008f, 0.0024f, std::fabs(mvE - 0.023f)));   // the turned-up hem's fold
-    }
-    h = st * 1.6f - fold * 0.9f;
-    vec3 col = cloth * L * (1.0f - 0.45f * fold);
-    col = glm::mix(col, thread * (0.9f + 0.2f * L), st);
-    size_t o = ((size_t)y * S + x) * 4;
-    for (int q = 0; q < 3; ++q) alb[o + q] = (uint8_t)std::clamp(std::lround(std::pow(std::clamp(col[q], 0.0f, 1.0f), 1.0f / 2.2f) * 255.0f), 0L, 255L);
-    alb[o + 3] = 255;
-    hgt[(size_t)y * S + x] = h;
-  }
-  for (int y = 0; y < S; ++y) for (int x = 0; x < S; ++x) {   // the wool's own normal map, plus the stitch / fold relief
-    float u = (x + 0.5f) * px, v = (y + 0.5f) * px;
-    vec3 n(bil(wn, u, v, 0) / 127.5f - 1, bil(wn, u, v, 1) / 127.5f - 1, bil(wn, u, v, 2) / 127.5f - 1);
-    auto H = [&](int xx, int yy) { return hgt[(size_t)((yy + S) % S) * S + (xx + S) % S]; };
-    float dx = H(x + 1, y) - H(x - 1, y), dy = H(x, y + 1) - H(x, y - 1);
-    n = glm::normalize(vec3(n.x - dx * 3.0f, n.y - dy * 3.0f, std::max(0.2f, n.z)));
-    size_t o = ((size_t)y * S + x) * 4;
-    nrm[o] = (uint8_t)std::lround((n.x * 0.5f + 0.5f) * 255); nrm[o + 1] = (uint8_t)std::lround((n.y * 0.5f + 0.5f) * 255); nrm[o + 2] = (uint8_t)std::lround((n.z * 0.5f + 0.5f) * 255); nrm[o + 3] = 255;
-  }
-  m.alb = upload(alb, S, S, true); m.n = upload(nrm, S, S, false); m.mr = 0;
-}
 
 // skin: one 256 px tile shared by every skin piece, each mapped to a band of v (wrist 0-0.15, palm 0.15-0.45,
 // fingers and thumb 0.5 root - 1 tip): a little colour variation (two octaves of value noise, redder in places),
@@ -218,6 +164,71 @@ void skinTex(vec3 skin, GpuModel::MatTex& m) {
   m.alb = upload(alb, S, S, true); m.n = upload(nrm, S, S, false); m.mr = 0;
 }
 
+// one sleeve tile from the cloth set (cloth_grey: ambientCG Fabric030 1K, colour / normal / rma = roughness, AO): the
+// weave's luminance x the faction colour, a low-frequency grime mask, lighter worn patches (the cuff's edge; the elbow on
+// the body tile), uneven roughness; a stitched seam along v and, on the cuff, a stitched hem near its edge (v = 0).
+// Stitches: thin thread a little lighter than the cloth, low relief. The cuff tile is kTexLen long; the body tile covers
+// kBodyLen (the whole forearm and elbow: the elbow sits at a fixed distance, the bones never change length).
+void sleeveTex(const Img& wc, const Img& wn, const Img& wr, vec3 cloth, vec3 thread, bool cuff, GpuModel::MatTex& m) {
+  const int SW = kTex, SH = cuff ? kTex : kTex * 3;
+  const float len = cuff ? kTexLen : kBodyLen, reps = len / kTexLen;   // the cloth source repeats once per kTexLen
+  std::vector<uint8_t> alb((size_t)SW * SH * 4), nrm((size_t)SW * SH * 4), mr((size_t)SW * SH * 4);
+  std::vector<float> hgt((size_t)SW * SH, 0.0f);
+  auto bil = [](const Img& im, float u, float v, int ch) {
+    float x = u * im.w - 0.5f, y = v * im.h - 0.5f; int x0 = (int)std::floor(x), y0 = (int)std::floor(y); float fx = x - x0, fy = y - y0;
+    auto P = [&](int xx, int yy) { xx = ((xx % im.w) + im.w) % im.w; yy = ((yy % im.h) + im.h) % im.h; return (float)im.px[((size_t)yy * im.w + xx) * 4 + ch]; };
+    return glm::mix(glm::mix(P(x0, y0), P(x0 + 1, y0), fx), glm::mix(P(x0, y0 + 1), P(x0 + 1, y0 + 1), fx), fy);
+  };
+  double mean = 0; for (size_t k = 0; k < wc.px.size(); k += 4) mean += 0.2126 * wc.px[k] + 0.7152 * wc.px[k + 1] + 0.0722 * wc.px[k + 2];
+  mean = std::max(1.0, mean / std::max<size_t>(1, wc.px.size() / 4));
+  const float seamU = 0.10f;
+  auto stitch = [&](float along, float across, float pitch, float sl, float width) {   // 0..1: inside a stitch dash
+    float f = along / pitch; f -= std::floor(f);
+    float inA = 1.0f - glm::smoothstep(sl * 0.5f - 0.001f, sl * 0.5f, std::fabs(f - 0.5f) * pitch);
+    float inW = 1.0f - glm::smoothstep(width * 0.3f, width * 0.5f + 0.0002f, std::fabs(across));
+    return inA * inW;
+  };
+  for (int y = 0; y < SH; ++y) for (int x = 0; x < SW; ++x) {
+    float u = (x + 0.5f) / SW, v = (y + 0.5f) / SH, sv = v * reps;   // sv: source v
+    float L = (float)((0.2126 * bil(wc, u, sv, 0) + 0.7152 * bil(wc, u, sv, 1) + 0.0722 * bil(wc, u, sv, 2)) / mean);
+    L = std::pow(std::clamp(L, 0.2f, 2.5f), 1.3f);
+    float rough0 = bil(wr, u, sv, 0) / 255.0f, ao = bil(wr, u, sv, 1) / 255.0f;
+    float mu = (u - seamU) * kTexLen, mv = v * len;
+    float st = 0, fold = 1.0f - glm::smoothstep(0.0006f, 0.002f, std::fabs(mu));
+    for (float off : {-0.005f, 0.005f}) st = std::max(st, stitch(mv, mu - off, 0.009f, 0.006f, 0.0012f));
+    if (cuff) {   // the hem: two rows round the cuff, 7 and 15 mm from its edge; the turned-up hem's fold
+      for (float row : {0.007f, 0.015f}) st = std::max(st, stitch(u * kTexLen, mv - row, 0.009f, 0.006f, 0.0012f));
+      fold = std::max(fold, 1.0f - glm::smoothstep(0.0008f, 0.0022f, std::fabs(mv - 0.021f)));
+    }
+    // low-frequency masks (tile with the texture): grime, roughness breakup, wear
+    float n1 = vnoise(u * 4, sv * 4, 4) * 0.65f + vnoise(u * 11 + 3, sv * 11 + 7, 11) * 0.35f;
+    float n2 = vnoise(u * 7 + 5, sv * 7 + 2, 7);
+    float grime = glm::smoothstep(0.5f, 0.85f, n1) * 0.28f;
+    float wear = cuff ? (1 - glm::smoothstep(0.0f, 0.014f, mv)) * (0.55f + 0.45f * n2)                      // the cuff's edge
+                      : std::exp(-std::pow((mv - kElbowS) / 0.05f, 2.0f)) * glm::smoothstep(0.35f, 0.7f, n2);   // the elbow
+    wear = std::max(wear, glm::smoothstep(0.78f, 0.95f, n2) * 0.35f);   // a few scuffs anywhere
+    vec3 col = cloth * L * (1.0f - 0.45f * fold) * (1.0f - grime);
+    col = glm::mix(col, col * 1.7f + vec3(0.008f), wear * 0.55f);   // worn: faded, lighter
+    col = glm::mix(col, thread * (0.95f + 0.1f * L), st * 0.75f);
+    float rough = std::clamp(rough0 * (0.85f + 0.3f * n2) - wear * 0.12f + grime * 0.08f, 0.35f, 1.0f);
+    size_t o = ((size_t)y * SW + x) * 4;
+    for (int q = 0; q < 3; ++q) alb[o + q] = (uint8_t)std::clamp(std::lround(std::pow(std::clamp(col[q], 0.0f, 1.0f), 1.0f / 2.2f) * 255.0f), 0L, 255L);
+    alb[o + 3] = 255;
+    mr[o] = (uint8_t)std::lround(std::clamp(ao * (1 - 0.3f * fold), 0.0f, 1.0f) * 255); mr[o + 1] = (uint8_t)std::lround(rough * 255); mr[o + 2] = 0; mr[o + 3] = 255;
+    hgt[(size_t)y * SW + x] = st * 0.6f - fold * 0.6f;
+  }
+  for (int y = 0; y < SH; ++y) for (int x = 0; x < SW; ++x) {   // the cloth's own normal map, plus the stitch / fold relief
+    float u = (x + 0.5f) / SW, sv = (y + 0.5f) / SH * reps;
+    vec3 n(bil(wn, u, sv, 0) / 127.5f - 1, bil(wn, u, sv, 1) / 127.5f - 1, bil(wn, u, sv, 2) / 127.5f - 1);
+    auto H = [&](int xx, int yy) { return hgt[(size_t)((yy + SH) % SH) * SW + (xx + SW) % SW]; };
+    float dx = H(x + 1, y) - H(x - 1, y), dy = H(x, y + 1) - H(x, y - 1);
+    n = glm::normalize(vec3(n.x - dx * 1.5f, n.y - dy * 1.5f, std::max(0.2f, n.z)));
+    size_t o = ((size_t)y * SW + x) * 4;
+    nrm[o] = (uint8_t)std::lround((n.x * 0.5f + 0.5f) * 255); nrm[o + 1] = (uint8_t)std::lround((n.y * 0.5f + 0.5f) * 255); nrm[o + 2] = (uint8_t)std::lround((n.z * 0.5f + 0.5f) * 255); nrm[o + 3] = 255;
+  }
+  m.alb = upload(alb, SW, SH, true); m.n = upload(nrm, SW, SH, false); m.mr = upload(mr, SW, SH, false); m.aoInMR = true;
+}
+
 // ---------------------------------------------------------------- the arm's shape
 // The arm is a fixed body: upper arm and forearm never change length. A farther or nearer grip changes the pose (a
 // two-bone solve from a shoulder below-left of the eye, the elbow on a pole), never the bones.
@@ -262,17 +273,20 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     pt[i] = glm::mix(0.0135f, 0.0105f, t); pw[i] = glm::mix(0.037f, 0.0425f, t);
     PP[i] = S(glm::mix(phH, phK, t), pt[i] + 0.008f * (1 - glm::smoothstep(0.0f, 0.5f, t)), 0.0f);
   }
-  vec3 heelOut = outward(phH);
-  vec3 wdir = glm::normalize(glm::normalize(PP[0] - PP[1]) + heelOut * 0.5f);   // back from the heel and off the section
+  // the hand's long axis at the heel (from the knuckles through the heel, and the palm's last turn): the wrist stays
+  // near neutral, the forearm continuing straight into the back of the hand
+  vec3 wdir = glm::normalize(glm::normalize(PP[0] - PP[nP - 1]) + glm::normalize(PP[0] - PP[1]));
   vec3 wristT = PP[0] + wdir * 0.035f;
-  vec3 Sh = vec3(-0.19f * m, -0.25f, 0.05f) + vec3(g.shoulder.x * m, g.shoulder.y, g.shoulder.z);
+  vec3 Sh = vec3(-0.19f * m, -0.31f, 0.04f) + vec3(g.shoulder.x * m, g.shoulder.y, g.shoulder.z);   // below-left of the eye: the sleeve enters low
   const float maxR = (kUpper + kFore) * 0.985f;   // a small bend is always kept: no straight-arm flip
   float L = glm::length(wristT - Sh);
   if (L > maxR) Sh += (wristT - Sh) / L * std::min(L - maxR, 0.07f);   // the shoulder reaches forward (protraction), up to 7 cm
   L = glm::length(wristT - Sh);
   o.reached = L <= maxR + 1e-4f;
   vec3 E, Wr;
-  solveTwoBone(Sh, wristT, kUpper, kFore, vec3(g.elbow.x * m, g.elbow.y, g.elbow.z), E, Wr);
+  // elbow pole: toward where the forearm would put it in line with the hand (wrist neutral), biased by the profile
+  vec3 Ed = wristT + wdir * kFore;
+  solveTwoBone(Sh, wristT, kUpper, kFore, glm::normalize(Ed - Sh) + vec3(g.elbow.x * m, g.elbow.y, g.elbow.z) * 0.25f, E, Wr);
   if (!o.reached) { vec3 u = glm::normalize(wristT - Sh); Wr = Sh + u * maxR; }
   o.shoulder = Sh; o.elbow = E; o.wrist = Wr; o.target = wristT;
   const vec3 f = glm::normalize(E - Wr), uDir = glm::normalize(Sh - E);   // forearm (wrist -> elbow), upper arm (elbow -> shoulder)
@@ -290,30 +304,31 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   o.sleeve15 = cuffEnd + f * 0.15f;
   // body (part 0)
   float lenF = glm::length(E - cuffEnd);
-  for (int i = 0; i <= 8; ++i) P.push_back(glm::mix(cuffEnd, E - f * 0.07f, i / 8.0f));
+  vec3 bodyStart = cuffEnd - f * 0.012f;   // tucked inside the cuff: the cuff overlaps it, nothing shows between them
+  for (int i = 0; i <= 8; ++i) P.push_back(glm::mix(bodyStart, E - f * 0.07f, i / 8.0f));
   for (int i = 1; i <= 6; ++i) { float t = i / 7.0f; vec3 a = E - f * 0.07f, c = E + uDir * 0.07f; P.push_back((1 - t) * (1 - t) * a + 2 * (1 - t) * t * E + t * t * c); }
   for (int i = 0; i <= 5; ++i) P.push_back(glm::mix(E + uDir * 0.07f, Sh + uDir * 0.06f, i / 5.0f));
-  float sE = lenF + 0.0f;   // arc length from the cuff end to the elbow (about)
+  float sE = lenF + 0.012f;   // arc length from the body's start to the elbow (about)
   std::vector<vec2> Rb;
   { float s = 0; for (size_t i = 0; i < P.size(); ++i) {
       if (i) s += glm::length(P[i] - P[i - 1]); sAt.push_back(s);
-      float r = 0.048f + 0.013f * glm::smoothstep(0.03f, 0.20f, s) + 0.003f * glm::smoothstep(sE - 0.05f, sE + 0.05f, s);
+      float r = glm::mix(0.0442f, 0.048f, glm::smoothstep(0.010f, 0.024f, s)) + 0.013f * glm::smoothstep(0.04f, 0.21f, s) + 0.003f * glm::smoothstep(sE - 0.05f, sE + 0.05f, s);
       Rb.push_back(vec2(r, r * 0.87f));
   } }
   // radius modulation round each ring: an irregular ellipse, soft long folds on the forearm, compression folds on the
   // inside of the elbow, a soft roll above the cuff (geometry only where it changes the silhouette)
   const vec3 refS = bendN;
   auto foldBody = [&](size_t i, float th, vec3 dir) {
-    float s = sAt[i], k = 1 + 0.022f * std::sin(2 * th + 0.7f) + 0.014f * std::sin(3 * th + 2.1f);
+    float s = sAt[i], k = 1 + (0.022f * std::sin(2 * th + 0.7f) + 0.014f * std::sin(3 * th + 2.1f)) * glm::smoothstep(0.0f, 0.02f, s);
     k += 0.018f * std::sin(5 * th + 1.3f + s * 9.0f) * glm::smoothstep(0.02f, 0.10f, s) * (1 - glm::smoothstep(sE - 0.12f, sE - 0.04f, s));
     float in = std::max(0.0f, glm::dot(dir, inner)), near = std::exp(-std::pow((s - sE) / 0.07f, 2.0f));
     k += 0.07f * in * in * near * (0.55f + 0.45f * std::sin((s - sE) / 0.022f * kPi));
-    k += 0.03f * std::exp(-std::pow((s - 0.035f) / 0.018f, 2.0f));   // the roll above the cuff
+    k += 0.03f * std::exp(-std::pow((s - 0.047f) / 0.018f, 2.0f));   // the roll above the cuff
     return k;
   };
   auto foldCuff = [&](size_t i, float th, vec3) { return 1 + 0.015f * std::sin(2 * th + 0.7f) + (i >= 3 ? 0.012f * std::sin(4 * th + 0.3f) : 0.0f); };
   if (B.idx) gA.sleeveV0 = B.V.size();
-  B.sweep(P, Rb, refS, 24, 1.0f, 0.045f / kTexLen, kTexLen, false, false, foldBody);
+  B.sweep(P, Rb, refS, 24, 1.0f, 0.0f, kBodyLen, false, false, foldBody);
   if (B.idx) { gA.partCount[0] = (uint32_t)B.I.size(); gA.partFirst[1] = (uint32_t)B.I.size(); }
   B.sweep(Pc, Rc, refS, 24, 1.0f, -0.016f / kTexLen, kTexLen, false, false, foldCuff);
   if (B.idx) { gA.partCount[1] = (uint32_t)B.I.size() - gA.partFirst[1]; gA.partFirst[2] = (uint32_t)B.I.size(); gA.sleeveV1 = B.V.size(); gA.sleeveI1 = (uint32_t)B.I.size(); }
@@ -409,7 +424,24 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     }
     B.sweep(TP, TR, outward(-14.0f), 10, 1, 0.5f, plen(TP) / 0.5f, true, true);
   }
-  if (B.idx) gA.partCount[2] = (uint32_t)B.I.size() - gA.partFirst[2];
+  if (B.idx) { gA.partCount[2] = (uint32_t)B.I.size() - gA.partFirst[2]; gA.partFirst[3] = (uint32_t)B.I.size(); }
+  // ---- cuff tab (part 3, cuff cloth) and its button (part 4): a flap with thickness lying along the cuff on its
+  // upper / near side, buttoned near the edge
+  vec3 want = glm::normalize(vec3(0, 1, 0.5f)), dT = want - f * glm::dot(want, f);
+  dT = glm::dot(dT, dT) > 1e-6f ? glm::normalize(dT) : bendN;
+  vec3 across = glm::normalize(glm::cross(f, dT));
+  {
+    std::vector<vec3> TP; std::vector<vec2> TR;
+    for (int i = 0; i <= 4; ++i) { float t = i / 4.0f; TP.push_back(cuffEdge + f * glm::mix(0.006f, 0.052f, t) + dT * 0.0518f); TR.push_back(vec2(glm::mix(0.0105f, 0.012f, t), 0.0026f)); }
+    B.sweep(TP, TR, across, 12, 1, 0.0f, kTexLen, true, true);
+  }
+  if (B.idx) { gA.partCount[3] = (uint32_t)B.I.size() - gA.partFirst[3]; gA.partFirst[4] = (uint32_t)B.I.size(); }
+  {
+    vec3 bc = cuffEdge + f * 0.016f + dT * 0.0538f;
+    std::vector<vec3> BP = {bc, bc + dT * 0.0015f, bc + dT * 0.003f}; std::vector<vec2> BR = {{0.0068f, 0.0068f}, {0.0072f, 0.0072f}, {0.0066f, 0.0066f}};
+    B.sweep(BP, BR, f, 14, 1, 0, 1, true, true);
+  }
+  if (B.idx) gA.partCount[4] = (uint32_t)B.I.size() - gA.partFirst[4];
 }
 
 // smooth normals (area-weighted face normals) over an index range; the sleeve's uv seam vertices are welded
@@ -432,7 +464,8 @@ bool armsLoad() {
   gA.tried = true;
   try { gA.cfg = json::parse(readTextFile(contentDir() / "settings" / "fps_arms.json")); } catch (...) { gA.cfg = json::object(); }
   const std::string cloth = gA.cfg.value("cloth", std::string("cloth_grey"));
-  Img wc = loadImg(contentDir() / "textures" / cloth / "color.jpg"), wn = loadImg(contentDir() / "textures" / cloth / "normal.jpg");
+  Img wc = loadImg(contentDir() / "textures" / cloth / "color.jpg"), wn = loadImg(contentDir() / "textures" / cloth / "normal.jpg"), wr = loadImg(contentDir() / "textures" / cloth / "rma.jpg");
+  if (wr.px.empty()) { wr.w = wr.h = 2; wr.px.assign(16, 255); for (int k = 0; k < 4; ++k) wr.px[k * 4] = 210; }   // no rma: roughness 0.82, AO 1
   if (wc.px.empty() || wn.px.empty()) {   // no cloth set: flat 2x2 stand-ins (the stitches still paint)
     wc.w = wc.h = wn.w = wn.h = 2; wc.px.assign(16, 128); wn.px.assign(16, 128); for (int k = 0; k < 4; ++k) wn.px[k * 4 + 2] = 255;
   }
@@ -443,7 +476,7 @@ bool armsLoad() {
   gA.I = B.I; gA.nV = B.V.size(); gA.partFirst[0] = 0;
   const json& col = gA.cfg.value("sleeve", json::object());
   vec3 clothC[2] = {jv3(col, "allies", vec3(0.105f, 0.100f, 0.048f)), jv3(col, "axis", vec3(0.030f, 0.030f, 0.032f))};          // linear: olive drab, charcoal
-  vec3 thread[2] = {jv3(col, "alliesThread", vec3(0.42f, 0.38f, 0.22f)), jv3(col, "axisThread", vec3(0.24f, 0.24f, 0.25f))};   // a clear step lighter than the cloth
+  vec3 thread[2] = {jv3(col, "alliesThread", vec3(0.15f, 0.14f, 0.075f)), jv3(col, "axisThread", vec3(0.065f, 0.065f, 0.07f))};   // a little lighter than the cloth
   vec3 skin = jv3(gA.cfg, "skin", vec3(0.44f, 0.25f, 0.155f));
   for (int f = 0; f < 2; ++f) {
     GpuModel& g = gA.model[f];
@@ -454,20 +487,21 @@ bool armsLoad() {
     auto attr = [&](int loc, int n, size_t off) { glEnableVertexArrayAttrib(g.vao, loc); glVertexArrayAttribFormat(g.vao, loc, n, GL_FLOAT, GL_FALSE, (GLuint)off); glVertexArrayAttribBinding(g.vao, loc, 0); };
     attr(0, 3, offsetof(TexVertex, pos)); attr(1, 3, offsetof(TexVertex, nrm)); attr(2, 4, offsetof(TexVertex, tan)); attr(3, 2, offsetof(TexVertex, uv));
     GpuModel::MatTex body, cuff; body.name = "sleeve"; cuff.name = "cuff";
-    sleeveTex(wc, wn, clothC[f], thread[f], false, body); sleeveTex(wc, wn, clothC[f], thread[f], true, cuff);
+    sleeveTex(wc, wn, wr, clothC[f], thread[f], false, body); sleeveTex(wc, wn, wr, clothC[f], thread[f], true, cuff);
     GpuModel::MatTex hand; hand.name = "skin"; skinTex(skin, hand);
     g.mats = {body, cuff, hand}; g.texAlb = body.alb; g.texN = body.n; g.textureCount = 4;
-    const char* names[3] = {"sleeve", "cuff", "hand"};
-    for (int k = 0; k < 3; ++k) {
+    const char* names[5] = {"sleeve", "cuff", "hand", "cuff tab", "button"};
+    for (int k = 0; k < 5; ++k) {
       ModelPart pt; pt.name = names[k]; pt.role = "arm"; pt.first = gA.partFirst[k]; pt.count = gA.partCount[k];
-      pt.metal = 0; pt.rough = k < 2 ? 0.9f : 0.78f; pt.textured = true; pt.mat = k;
+      pt.metal = 0; pt.rough = k == 2 ? 0.78f : 1.0f; pt.textured = k < 4; pt.mat = k == 3 ? 1 : k < 3 ? k : -1;   // cloth roughness: its MR texture
       pt.base = vec4(1);
+      if (k == 4) { pt.base = f ? vec4(0.11f, 0.11f, 0.115f, 1) : vec4(0.06f, 0.045f, 0.025f, 1); pt.metal = f ? 0.6f : 0.0f; pt.rough = f ? 0.45f : 0.35f; }   // Axis: grey metal; Allies: brown plastic
       g.parts.push_back(pt);
     }
     g.tris = (int)gA.I.size() / 3;
   }
-  logf("fps arms: generated support arm (%zu verts, %zu tris; sleeve %u, cuff %u, hand %u tris; 3 draws, 3 materials)", gA.nV, gA.I.size() / 3,
-       gA.partCount[0] / 3, gA.partCount[1] / 3, gA.partCount[2] / 3);
+  logf("fps arms: generated support arm (%zu verts, %zu tris; sleeve %u, cuff %u, hand %u, tab %u, button %u tris; 5 draws)", gA.nV, gA.I.size() / 3,
+       gA.partCount[0] / 3, gA.partCount[1] / 3, gA.partCount[2] / 3, gA.partCount[3] / 3, gA.partCount[4] / 3);
   return gA.ok = true;
 }
 
@@ -578,6 +612,6 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
   smoothNormals(B.V, gA.partFirst[2], gA.handI1, gA.sleeveV1, gA.handV1, {});         // the continuous hand
   GpuModel& g = gA.model[axis ? 1 : 0];
   glNamedBufferSubData(g.vbo, 0, B.V.size() * sizeof(TexVertex), B.V.data());
-  for (int k = 0; k < 3; ++k) app.R.viewModelTex.push_back({&g, k, cam});
+  for (int k = 0; k < 5; ++k) app.R.viewModelTex.push_back({&g, k, cam});
   return true;
 }
