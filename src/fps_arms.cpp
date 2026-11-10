@@ -299,7 +299,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   // steeply from the bottom centre-left alongside the weapon (the same for every weapon: relative to its axis)
   vec3 nearC = glm::normalize(R3 * Nw);
   vec3 dirF = glm::normalize(-Ac * 0.75f + vec3(0, -0.78f, 0) + nearC * 0.28f);
-  vec3 wdir = glm::normalize(dirF * 0.75f + handAx * 0.25f);   // the wrist nearly straight: the hand continues the forearm
+  vec3 wdir = glm::normalize(dirF * 0.92f + handAx * 0.08f);   // the forearm leads straight to the base of the hand   // the wrist nearly straight: the hand continues the forearm
   vec3 wristT = PP[0] + wdir * 0.035f + vec3(0, -0.035f, 0);   // the wrist well below the fore-end: the hand reaches up to the grip from underneath
   vec3 Sh = vec3(-0.15f * m, -0.36f, -0.02f) + vec3(g.shoulder.x * m, g.shoulder.y, g.shoulder.z);   // below, a little left of the eye, not at the cheek
   const float maxR = (kUpper + kFore) * 0.985f;   // a small bend is always kept: no straight-arm flip
@@ -319,7 +319,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
 
   // ---- sleeve (part 0 body, part 1 cuff): one path from the cuff's inner lip up the forearm, round the elbow, up the
   // upper arm past the shoulder; shaped (wider toward the elbow, irregular ellipse) with a few broad folds
-  vec3 cuffEdge = Wr - f * 0.062f;   // the cuff reaches past the wrist to the heel of the hand: no bare wrist shows
+  vec3 cuffEdge = Wr - f * 0.05f;   // the cuff covers the skin up to the base of the hand   // the cuff reaches past the wrist to the heel of the hand: no bare wrist shows
   std::vector<vec3> P; std::vector<float> sAt;
   // cuff (part 1): inner lip (the cloth turns in: thickness), the edge, 4.5 cm of cuff
   std::vector<vec3> Pc = {cuffEdge + f * 0.014f, cuffEdge + f * 0.002f, cuffEdge, cuffEdge + f * 0.015f, cuffEdge + f * 0.030f, cuffEdge + f * 0.045f};
@@ -386,12 +386,12 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     return L;
   };
   std::vector<std::vector<uint32_t>> rings;
-  vec3 R0 = Wr + f * 0.055f;
+  vec3 R0 = Wr + f * 0.10f;   // deep inside the sleeve
   // forearm end, wrist, a blended ring half way to the heel (no ledge: width / thickness / direction change smoothly
   // from the round wrist into the flat palm), then the palm
   const int nW = 3;
-  vec3 ctr[nW + nP] = {R0, Wr, glm::mix(Wr, PP[0], 0.5f) + (PP[0] - PP[1]) * 0.15f}; for (int i = 0; i < nP; ++i) ctr[nW + i] = PP[i];
-  const float wW[nW] = {0.0355f, 0.034f, glm::mix(0.034f, pw[0], 0.5f)}, tW[nW] = {0.026f, 0.0237f, glm::mix(0.0237f, pt[0], 0.5f)}, vW[nW] = {0.02f, 0.08f, 0.115f};
+  vec3 ctr[nW + nP] = {R0, Wr, Wr - f * 0.022f};   // on the forearm's own line: the skin never leaves the sleeve's axis for (int i = 0; i < nP; ++i) ctr[nW + i] = PP[i];
+  const float wW[nW] = {0.029f, 0.029f, 0.031f}, tW[nW] = {0.022f, 0.022f, 0.0235f}, vW[nW] = {0.02f, 0.08f, 0.115f};
   for (int i = 0; i < nW + nP; ++i) {
     vec3 t = glm::normalize(ctr[std::min(i + 1, nW + nP - 1)] - ctr[std::max(i - 1, 0)]);
     float w = i < nW ? wW[i] : pw[i - nW], th = i < nW ? tW[i] : pt[i - nW];
