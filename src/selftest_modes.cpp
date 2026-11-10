@@ -9,6 +9,7 @@
 #include "crumb.h"
 #include "selftest_crowd.h"
 #include "nav.h"
+#include "physics.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <set>
@@ -263,16 +264,29 @@ void build(App&) {
     Game& G = *gGame;
     if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
     if (t > 15 && t < 15.05f) pendingShot = outDir() / "modes_tdm_banner.png";
-    // G4: ally head markers: look at the nearest living teammate, then every marked soldier must be a friend
-    static bool g4done; if (t == 0) g4done = false;
+    // G4: ally head markers: stand 6 m from the nearest living teammate (this map has no TDM team markers, so the
+    // far-from-the-enemy fallback spawns teammates up to ~300 m apart, beyond the markers' 90 m), look at it, then
+    // every marked soldier must be a friend
+    static bool g4done, g4moved; if (t == 0) g4done = g4moved = false;
     if (Soldier* L = G.local(); L && L->alive && !g4done && t > 6) {
       Soldier* best = nullptr; float bd = 1e9f;
       for (auto& o : G.sold) if (o.alive && &o != L && !Game::hostile(*L, o)) { float d = glm::length(o.feet - L->feet); if (d < bd) { bd = d; best = &o; } }
-      if (best && t < 6.6f) { vec3 e = a.eyePos(), p = best->feet + vec3(0, 1.6f, 0); a.eyeYaw = degrees(std::atan2(-(p.x - e.x), -(p.z - e.z))); a.eyePitch = degrees(std::atan2(p.y - e.y, glm::length(vec2(p.x - e.x, p.z - e.z)))); }
-      if (t > 6.6f) {
+      if (best && !g4moved) {
+        vec2 dir = glm::length(vec2(L->feet.x - best->feet.x, L->feet.z - best->feet.z)) > 0.1f ? glm::normalize(vec2(L->feet.x - best->feet.x, L->feet.z - best->feet.z)) : vec2(0, 1);
+        vec3 q(best->feet.x + dir.x * 6, 0, best->feet.z + dir.y * 6); q.y = a.terrain.height(q.x, q.z) + 0.05f;
+        Physics::setCharacterPos(q); L->feet = q; g4moved = true;
+      }
+      if (best && t < 7.0f) { vec3 e = a.eyePos(), p = best->feet + vec3(0, 1.6f, 0); a.eyeYaw = degrees(std::atan2(-(p.x - e.x), -(p.z - e.z))); a.eyePitch = degrees(std::atan2(p.y - e.y, glm::length(vec2(p.x - e.x, p.z - e.z)))); }
+      if (t > 7.0f) {
         int friends = 0, foes = 0;
         for (int sl : G.markedSlots) for (auto& o : G.sold) if (o.slot == sl) (Game::hostile(*L, o) ? foes : friends)++;
-        chk(friends >= 1 && foes == 0, "G4: ally head markers on teammates (%d marked), none on enemies (%d)", friends, foes);
+        int nearN = 0; float bdEye = 1e9f; vec2 ndc(9); float w = 0;
+        for (auto& o : G.sold) if (o.alive && &o != L && !Game::hostile(*L, o)) {
+          float d = glm::length(o.feet + vec3(0, 2.2f, 0) - a.eyePos()); nearN += d < 90;
+          if (d < bdEye) { bdEye = d; vec4 c = a.projM * a.viewM * vec4(o.feet + vec3(0, 2.2f, 0), 1); w = c.w; ndc = c.w > 0 ? vec2(c) / c.w : vec2(9); }
+        }
+        chk(friends >= 1 && foes == 0, "G4: ally head markers on teammates (%d marked), none on enemies (%d); teammates within 90 m: %d, nearest %.0f m at ndc %.2f, %.2f (w %.1f), eye yaw %.0f pitch %.0f",
+            friends, foes, nearN, bdEye, ndc.x, ndc.y, w, a.eyeYaw, a.eyePitch);
         pendingShot = outDir() / "modes_g4_ally_markers.png"; g4done = true;
       }
     }
