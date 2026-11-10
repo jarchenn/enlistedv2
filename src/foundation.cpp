@@ -415,7 +415,13 @@ void foundationSync(App& app) {
     destroyRec(app, id, rec, true);   // erases its pieces: host pointers are re-found below
     if (!fpBuilt) {
       fp = app.grassFootprints(); fpBuilt = true;
-      fp.erase(std::remove_if(fp.begin(), fp.end(), [](const GrassFootprint& f) { return f.soft; }), fp.end());
+      // other buildings' dressing pieces are not obstacles: a building's dressing must not depend on whether its
+      // neighbours were dressed before or after it (a lone rebuild after a move / undo reproduces the first layout)
+      std::vector<vec2> dress; for (auto& i : app.doc.instances) if (isDressingPiece(i)) dress.push_back(vec2(i.pos.x, i.pos.z));
+      fp.erase(std::remove_if(fp.begin(), fp.end(), [&](const GrassFootprint& f) {
+        if (f.soft) return true;
+        for (auto& d : dress) if (glm::length(d - f.pos) < 1e-4f) return true;
+        return false; }), fp.end());
     }
     if (!spBuilt) {
       spBuilt = true;
