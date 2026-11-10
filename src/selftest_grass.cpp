@@ -2,6 +2,7 @@
 // --benchmark-stress: dense-grass low flyover (Off vs High on one path) and repeated HE impacts with smoke.
 #include "selftest.h"
 #include "ground_paint.h"
+#include "foundation.h"   // MA3: the foundation dressing is part of the reference layout
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <fstream>
@@ -144,6 +145,9 @@ void SelfTest::grassUpdate(App& app, float dt) {
     g.cam = vec3(g.P.x + 3.5f, g.P.y + 1.8f, g.P.z + 4.5f);
     app.camPos = g.cam; app.camYaw = degrees(std::atan2(3.5f, 4.5f)); app.camPitch = -24;
     syncGrass();
+    // MA3: the buildings' foundation dressing (props clear grass under them) is synced now, as a frame would, so the
+    // reference layout is the dressed one the later reset / undo / move-back comparisons see
+    foundationSync(app); app.syncRuntime();
     app.grass.clear(); syncGrass();
     g.H0 = app.grass.layoutHash();
     go(901);
