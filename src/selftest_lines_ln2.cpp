@@ -60,13 +60,18 @@ void SelfTest::linesLn2Update(App& app, float dt) {
           fmtL("fence line: %zu triangles, %zu colliders, none inside the gate span", rf.line->mesh.i.size() / 3, rf.line->colliders.size()));
     check(rw.line && rw.line->sections >= 4 && rw.secCut.size() == (size_t)rw.line->sections && !rw.line->rigid.empty(),
           fmtL("wire line: %d bays (damage sections), %zu model bays", rw.line ? rw.line->sections : 0, rw.line ? rw.line->rigid.size() : 0));
-    app.toggleInteract(g2.gate, 0);   // open the gate (the door animates)
     go(4601);
     break;
   }
   case 4601: {
-    if (stageTime < 2.5f) break;
+    if (stageTime < 0.5f) break;
+    vec3 shut = walk(app, vec2(0, 6), vec2(0, 14));
+    {   // open the gate (Explore animates doors; here the leaf is set open directly)
+      Instance* gi = app.doc.find(g2.gate); auto& rg = app.rt[g2.gate];
+      rg.progress[0] = 1.0f; rg.dir[0] = 0; app.updateLeafBodies(*gi, rg, 0);
+    }
     vec3 through = walk(app, vec2(0, 6), vec2(0, 14)), blocked = walk(app, vec2(15.5f, 6), vec2(15.5f, 14));
+    check(shut.z < 10.0f, fmtL("the closed gate stops an agent (reached z %.2f)", shut.z));
     check(through.z > 13.0f, fmtL("an agent walks through the open gate (z %.2f -> %.2f)", 6.0f, through.z));
     check(blocked.z < 10.0f, fmtL("the fence stops an agent beside the gate (reached z %.2f, the fence is at z 10)", blocked.z));
     // a blast on the wire line's middle bay
