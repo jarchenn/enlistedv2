@@ -100,13 +100,27 @@ public:
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.62f;
+  // WX1 weather (docs/rendering.md#weather): one world-space cloud field (seed, wind in 600 m cells / s, clock) drawn by the
+  // sky, baked into the cloud-shadow map (direct sun only) and read by the sun shafts. k = the Clear -> Cloudy mix (8 s ramp);
+  // clock = the shared match time (LAN: every machine places the clouds alike), -1 = the local render time
+  struct Weather { int target = 0, forced = -1, quality = 1, fog = 1, fogForced = -1; float k = 0, seed = 0, fogNow = -1; vec2 wind{0.012f, 0.0075f}; double clock = -1;
+                   int fogWant() const { return fogForced >= 0 ? fogForced : fog; }
+                   float fogDens() const { static const float d[4] = {0.0f, 0.0035f, 0.008f, 0.018f}; return d[std::clamp(fogWant(), 0, 3)] * (1.0f + 0.25f * k); }   // env fog (1/m at the ground, field 1): Off / Light / Moderate / Dense, a little more under cloud
+                   int want() const { return forced >= 0 ? forced : target; } void snap() { k = (float)want(); } } wx;
+  float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
+  // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
+  // shore), G drift noise (scrolls on the wind), B smoothed ground height (m). Rebuilt when the terrain changes.
+  GLuint fogTex = 0; std::vector<vec4> fogCpu; vec4 fogBox{0, 0, 1, 1}; float fogSig = 0; bool camIndoor = false;
+  void bakeFog(const Terrain& t);
+  float fogT(vec3 a, vec3 b) const;   // CPU fog transmittance a -> b (AI sight; 1 before the first bake)
+  float cloudClock() const { return wx.clock >= 0 ? (float)std::fmod(wx.clock, 86400.0) : time; }
   // render quality / look (docs/rendering.md). legacy = the pre-BSL-pass look (fallback)
   struct Quality {
     bool legacy = false;
     bool farCascade = true;     // second shadow cascade out to ~240 m
     float shadowSoft = 2.2f;    // PCF radius (near texels); 0 = legacy 3x3
     bool cloudShadows = true;
-    bool shafts = true; float shaftStrength = 0.35f;
+    bool shafts = false; float shaftStrength = 0.35f;   // WX1: High only (presets)
     float hazeDensity = 0.0010f, hazeHeight = 70.0f;   // aerial perspective (1/m at ground level, scale height m)
     bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
     bool bloom = true; float bloomStrength = 0.045f;
@@ -177,12 +191,14 @@ public:
     bool furnDist = true;        // furndist (P2): furniture distance tiers per preset with hysteresis and zoom; no furniture in the far cascade / sky occlusion
     bool furnClutter = true;     // furnclutter (P2): on the Low preset half the small room-template clutter is not drawn (colliders stay)
     bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
+    bool clouds = true, cloudShadow = true, shafts = true, envFog = true;   // WX1 clouds / cloudshadow / shafts / envfog: the sky deck, the cloud-shadow map, the sun shafts, the environmental fog
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = p.shadowCache = p.occCull = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
+      if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
       if (n == "dr1") { farLeaf = wallLod = on; return true; }   // DR1: the distant-object switches together

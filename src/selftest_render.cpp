@@ -214,6 +214,25 @@ void build(App& app) {
     push("ma1b: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; return t > 0.2f; });
     return;
   }
+  // WX1 weather capture (NMK_WX1_SHOTS=1 runs only this; NMK_WEATHER=clear | cloudy): the chateau and an oak from 60 m,
+  // toward and away from the Day sun, editor camera at Medium's 0.67 scale -> selftest_out/wx1_<toward|away>.png
+  if (std::getenv("NMK_WX1_SHOTS")) {
+    static const vec3 C(-100.0f, 0, 40.0f);
+    push("wx1: the scene", [](App& a, float t) { if (t == 0) { place(a, "vil_chateau_grand", C); place(a, "tree_oak", C + vec3(30.0f, 0, 30.0f)); a.syncRuntime(); } return t > 0.5f; });
+    static const char* nm[2] = {"wx1_toward", "wx1_away"};
+    for (int k = 0; k < 2; ++k) push(nm[k], [k](App& a, float t) {
+      if (t == 0) {   // the Day sun's azimuth is (-0.76, 0.64) in xz: yaw 130 looks toward it, -50 away
+        a.R.setResolutionScale(0.67f); a.R.resetTemporal(); a.hideEditorOverlays = true;
+        vec3 at = C + (k == 0 ? vec3(55.0f, 0, -45.0f) : vec3(-50.0f, 0, 45.0f));
+        a.camPos = vec3(at.x, a.terrain.height(at.x, at.z) + 1.7f, at.z); a.camYaw = k == 0 ? 130.0f : -50.0f; a.camPitch = 9.0f;
+      }
+      if (t > 2.5f && t < 2.5f + 1.5f / 60.0f) pendingShot = outDir() / (std::string(nm[k]) + ".png");   // exposure and probes settle
+      if (t > 2.8f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s (weather %d, mix %.2f)", nm[k], a.R.wx.want(), a.R.wx.k); return true; }
+      return false;
+    });
+    push("wx1: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; return t > 0.2f; });
+    return;
+  }
   // P1 TAAU capture set (NMK_TAAU_SHOTS=1 runs only this, rendering.md 14): still, turning (100 deg/s), foliage and Kar98k
   // sights at Medium's 0.67 scale, native (taau off) then TAAU, from identical cameras -> selftest_out/taau_<view>_<mode>.png
   if (std::getenv("NMK_TAAU_SHOTS")) {

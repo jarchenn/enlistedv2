@@ -44,7 +44,8 @@ void AiCore::perceive(Soldier& s) {
     bool inFov = dist < 6.0f || glm::dot(glm::normalize(vec3(dir.x, 0, dir.z) + vec3(1e-5f)), look) >= cosHalf;
     float T = 0; bool los = false;
     if (inFov) { raysThisFrame += 1; los = G.lineOfSight(e, tc, &T); if (!los) { raysThisFrame += 1; los = G.lineOfSight(e, th, &T); } }
-    if (los && T > 0.35f) {
+    float Tf = los ? G.app.R.fogT(e, tc) : 1.0f;   // WX1: environmental fog along the sight line (separate from smoke): too thick, unseen
+    if (los && T > 0.35f && Tf > 0.06f) {
       if (!mm) { b.mem.push_back({o.slot}); mm = &b.mem.back(); }
       float base = dist < 15 ? 4.0f : dist < 50 ? 1.8f : 0.9f;
       float rate = base * std::max(0.12f, 1.0f - dist / range);
@@ -54,6 +55,7 @@ void AiCore::perceive(Soldier& s) {
       NavArea ar = navarea::toNav(G.nav.areaAt(o.feet, 0.8f));
       if (ar == NavArea::Brush || ar == NavArea::Marsh) rate *= tj("perception", "vegetationFactor", 0.55f);
       rate *= std::clamp((T - 0.35f) / 0.4f, 0.15f, 1.0f);              // thin smoke slows detection, dense smoke stops it
+      rate *= std::clamp((Tf - 0.06f) / 0.3f, 0.15f, 1.0f);             // WX1: fog slows detection the same way
       mm->awareness = std::min(1.0f, mm->awareness + rate * dtp);
       if (mm->awareness >= 1.0f) { mm->visible = true; mm->lastPos = o.feet; mm->lastSeen = G.t; mm->heardOnly = false; }
     } else if (mm) mm->awareness = std::max(0.0f, mm->awareness - dtp * 0.5f);
