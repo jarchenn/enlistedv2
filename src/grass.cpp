@@ -399,7 +399,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     if (thin < bare * 0.85f) continue;
     if (!density(x, z, t, near)) continue;
     vec3 n = groundN(t, x, z);
-    if (n.y < 0.86f && thin < (0.86f - n.y) / 0.06f) continue;   // the sward thins toward the 0.8 cut-off
+    if (n.y < 0.80f && thin < (0.80f - n.y) / 0.10f) continue;   // grass on hills and bunker banks: the sward thins from 37 deg to a 45 deg cut-off
     // thinning band next to footprints and around craters
     float d = t.dirtAt(x, z);
     if (d > 0.02f && thin < d * 5.5f) continue;

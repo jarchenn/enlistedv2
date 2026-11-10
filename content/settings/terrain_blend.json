@@ -23,8 +23,8 @@
     "noiseScale": 7.0,
     "edgeJitter": 0.45,
     "blendK": 1.2,
-    "sparseSlope": 14.0,
-    "bareSlope": 31.0,
+    "sparseSlope": 30.0,
+    "bareSlope": 44.0,
     "contactBand": 0.8,
     "holeEdge": 1.2
   },
