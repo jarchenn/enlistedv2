@@ -434,6 +434,11 @@ void SelfTest::captureUpdate(App& app, float dt) {
         }
         cams.push_back({"current_03_exterior", W(ch, vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6)), W(ch, vec3(0, H * 0.35f, 0))});
       }
+      if (Instance* vl = I("vil_villa_deauville"); vl && std::getenv("NMK_MA2_HOUSE")) {   // MA2: a house at ~10 m, its front corner and foot
+        const AssetDef* a = app.lib.find(vl->assetId);
+        float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f;
+        cams.push_back({"ma2_house_10m", W(vl, vec3(fx + 4.0f, 1.7f, fz + 8.5f)), W(vl, vec3(fx * 0.2f, 1.0f, fz))});
+      }
       if (op) cams.push_back({"current_04_lineup", W(op, vec3(-16.0f, 1.7f, 46.0f)), W(op, vec3(-16.0f, 3.2f, 0.0f))});
       cams.push_back({"current_05_field", vec3(0.0f, 1.65f, 38.0f), vec3(0.0f, 1.2f, 140.0f)});
       if (op) cams.push_back({"current_06_bunker", W(op, vec3(-6.4f, 1.7f, 6.2f)), W(op, vec3(0.6f, 1.7f, -0.4f))});

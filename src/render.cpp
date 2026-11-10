@@ -595,6 +595,7 @@ float gDetH = 0.0;   // detail relief (m), added to the derivative bump
 // house and grimy in the next; roughness breakup on every surface; a high-frequency detail relief on walls; ~0.5 m seam
 // occlusion at wall-wall, wall-floor and wall-ceiling joints (the flat lighting there made rooms read as boxes).
 float gFootDbg = -1.0;   // MA2 debug 3: 1 under 0.5 m above the local ground on a foundation surface, -1 = not one
+vec3 gWxDbg = vec3(0.0);   // MA2 debug 4: (damp, moss, splash) masks
 vec3 gDbg = vec3(0.0);   // NMK_GX5_DEBUG=2: decal tests passed (facing, plane, box)
 int gRoom = -1;      // the room whose finish this fragment took (pattern 20 / 21), for its decal list
 float gDecH = 0.0;   // decal relief (m)
@@ -872,8 +873,6 @@ void main(){
     float agg = smoothstep(0.72, 0.85, vnL(vAp*70.0, 70.0));
     alb *= 0.8 + 0.28*n; alb *= 1.0 - board*0.12 - grainB*0.05;
     alb = mix(alb, alb*vec3(1.15,1.12,1.05), agg*0.5);
-    float damp = 1.0 - smoothstep(-0.3, 0.9, groundH());   // MA2: above the local ground
-    alb *= mix(1.0, 0.72, damp); rough = mix(rough, rough*0.8, damp);
     h = n*0.4 - board*0.6 + agg*0.2 + grainB*0.1; bump = 0.0045;
   } else if (pat == 12 || pat == 13 || pat == 14) {
     // path surfaces in path coordinates (x across, z along, metres): fixed texel density at any length / width.
@@ -956,11 +955,7 @@ void main(){
     alb *= mix(1.0, tone, vert) * (0.93 + 0.1 * hash12(vec2(lift, 9.0))) * (0.68 + 0.6 * mott);
     alb *= 1.0 - joint * 0.22 - grainB * 0.06 - liftLine * 0.18 - tie * 0.5;
     float nn = vnL(vAp * 1.1, 1.1);
-    float hg = groundH();   // MA2: the foot and the soil follow the berm / the real ground, not the asset ground
-    float foot = (1.0 - smoothstep(0.0, 0.7 + 0.5 * nn, hg)) * vert;
-    alb = mix(alb, alb * vec3(0.4, 0.4, 0.31), foot);
-    float soil = (1.0 - smoothstep(0.0, 0.18 + 0.22 * vnL(vAp * 4.3 + 2.0, 4.3), hg)) * vert * float(uFoundWx);   // earth packed against the concrete
-    alb = mix(alb, vec3(0.2, 0.17, 0.12) * (0.8 + 0.4 * nn), soil * 0.8); rough = mix(rough, 0.97, soil);
+    // MA2: the foot and the packed soil are in the shared weathering block (L4 replace slots skip this body)
     float lip = float(grain) * 0.1;
     if (lip > 0.5) {
       float d = lip - vAp.y;
@@ -971,7 +966,7 @@ void main(){
     float top = smoothstep(0.6, 0.9, an.y);
     float lichen = top * smoothstep(0.45, 0.75, vnL(vAp * 1.7 + 3.0, 1.7));
     alb = mix(alb, vec3(0.2, 0.21, 0.15), lichen * 0.45);
-    rough = clamp(rough + joint * 0.06 - foot * 0.08, 0.3, 1.0);
+    rough = clamp(rough + joint * 0.06, 0.3, 1.0);
     h = mott * 0.3 - joint * 0.6 + grainB * 0.15 - tie * 0.8 - liftLine * 0.3; bump = 0.004;
     ao = 1.0 - joint * 0.15 - tie * 0.4;
   } else if (pat == 16) { // camouflage net (docs/bunkers.md#camouflage): disruptive olive / brown / dark blotches,
@@ -1511,7 +1506,7 @@ void main(){
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
   if (uSDecOn == 1 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
-  if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
+  if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 15 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
     // MA2: all of it by height above the LOCAL ground (groundH: the terrain under this wall), so on a slope the band
@@ -1523,26 +1518,51 @@ void main(){
     float sd = fract(dot(uModel[3].xz, vec2(0.131, 0.217)));   // the copy's seed
     float shadeF = uFoundWx == 1 ? clamp(0.5 - 0.5*dot(normalize(nW.xz + 1e-4), normalize(uSunDir.xz + 1e-4)), 0.0, 1.0) : 0.5;   // faces turned from the sun stay damp
     float cornerK = uFoundWx == 1 ? 1.0 - smoothstep(0.0, 1.2, cornerDist()) : 0.0;   // dirt and damp climb at the corners
-    float matK = pat == 9 || pat == 18 ? 0.7 : pat == 19 || pat == 1 ? 0.85 : 1.0;   // brick and dressed stone shed water better than render
-    float reach = (0.35 + 0.5*nn + 0.25*sd + 0.3*shadeF + 0.35*cornerK)*matK;
-    float foot = (1.0 - smoothstep(0.0, reach, hg)) * vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
-    alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
+    // MA2 review: has to read at 10-30 m. A damp zone with a visible, irregular top edge (0.2-0.9 m, broken by clean
+    // stretches at a 2-6 m scale with the seed), soil splash at the ground, algae on shaded faces and corners, run-off
+    // under ground-storey sills; tinted by material; darkening capped at ~35 % on screen (no near-black, no uniform band).
+    // Lives here, not in the pattern bodies: L4 replace slots (MA1) skip those, concrete 11 / 15 included.
+    vec3 alb0 = alb;
+    int mc = pat == 11 || pat == 15 ? 3 : pat == 9 || pat == 18 ? 2 : pat == 1 || pat == 19 || pat == 22 ? 1 : 0;   // render / wood, stone, brick, concrete
+    float matK = mc == 2 ? 0.9 : mc == 1 ? 0.95 : 1.0;   // brick and dressed stone shed water better than render
+    vec3 dampC = mc == 0 ? vec3(0.45, 0.34, 0.22) : mc == 1 ? vec3(0.34, 0.40, 0.29) : mc == 2 ? vec3(0.40, 0.33, 0.28) : vec3(0.33, 0.35, 0.38);   // brown soil, green-grey, dark wet
+    float dug = vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
+    // value noise sits near 0.5: remap so the zone really spans its range along the wall
+    float lv = smoothstep(0.25, 0.75, vnL(vec3(vAp.x*0.22, sd*17.0, vAp.z*0.22), 0.22));   // zone height along the wall, ~4 m
+    float lc = vnL(vec3(vAp.x*0.3 + sd*7.0, 4.0, vAp.z*0.3), 0.3);         // clean stretches, ~3 m
+    float edge = vnL(vAp*2.1 + sd*9.0, 2.1);                                // irregular top edge, ~0.5 m
+    float on = max(smoothstep(0.3, 0.38, lc), cornerK);
+    float zh = clamp((0.35 + 0.65*lv + 0.3*(edge - 0.5) + 0.3*cornerK + 0.12*shadeF)*matK, 0.2, 1.2);
+    float k = 0.85 + 0.1*shadeF + 0.05*sd;
+    float damp = (1.0 - smoothstep(zh - 0.12, zh + 0.04, hg)) * dug * on;
+    float tide = smoothstep(zh - 0.2, zh - 0.05, hg) * damp;                // the darker tide line at the top of the damp
+    alb *= mix(vec3(1.0), dampC, min(damp*k + tide*0.2, 1.0));
+    rough = mix(rough, rough*0.94, damp*k);   // only a little: a shinier foot reflects the sky at grazing views and cancels the darkening
     gFootDbg = step(hg, 0.5);   // debug 3: white below 0.5 m above the local ground (selftest_visuals reads this line)
-    // GX4: the dirt gradient reaches ~1 m (warm earthy tint, densest at the ground), rain splash speckle in the lowest
-    // 0.35 m, moss patches climbing from the ground to ~0.6 m (greener on lime render and rubble, less on brick)
-    float g1 = (1.0 - smoothstep(0.1, (0.8 + 0.3*nn + 0.3*sd + 0.4*cornerK)*matK + 0.2*shadeF, hg)) * vert;
-    alb = mix(alb, alb*vec3(0.55, 0.5, 0.42), g1*(0.55 + 0.25*sd));
+    float g1 = (1.0 - smoothstep(0.0, 0.35 + 0.15*nn, hg)) * dug * max(on, 0.5);   // always some grime right at the ground
+    alb *= mix(1.0, 0.75, g1);
     float sn = vnL(vAp*23.0 + 3.0, 23.0);
-    float splash = (1.0 - smoothstep(0.05, 0.5 + 0.15*nn, hg)) * vert * smoothstep(0.5, 0.72, sn);
-    alb *= 1.0 - 0.35*splash;
+    float spl = (1.0 - smoothstep(0.02, 0.14 + 0.16*nn, hg)) * dug * (0.55 + 0.45*smoothstep(0.4, 0.7, sn));   // soil splash
+    alb = mix(alb, (mc == 3 ? vec3(0.27, 0.24, 0.20) : vec3(0.36, 0.29, 0.21))*(0.85 + 0.3*nn), spl*0.6);
     // small exposed-substrate patches just above the ground: the finish is gone and the core shows, darker and rough
-    float sub = uFoundWx == 1 ? (1.0 - smoothstep(0.1, 0.45 + 0.2*nn, hg)) * vert * smoothstep(0.78, 0.86, sn*0.4 + nn*0.6 + 0.08*cornerK) * (pat == 17 || pat == 3 || pat == 11 ? 1.0 : 0.5) : 0.0;
+    float sub = uFoundWx == 1 ? (1.0 - smoothstep(0.1, 0.45 + 0.2*nn, hg)) * dug * smoothstep(0.78, 0.86, sn*0.4 + nn*0.6 + 0.08*cornerK) * (pat == 17 || pat == 3 || pat == 11 ? 1.0 : 0.5) : 0.0;
     alb = mix(alb, alb*vec3(0.6, 0.56, 0.5), sub); rough = mix(rough, 0.96, sub);
-    float moss = vert * (1.0 - smoothstep(0.0, 0.5 + 0.3*vnL(vAp*1.9 + 5.0, 1.9) + 0.25*shadeF, hg)) * smoothstep(0.36 + 0.18*(1.0 - shadeF), 0.62, vnL(vAp*2.3 + 7.0, 2.3)) * (pat == 9 || pat == 18 ? 0.6 : 1.0) * (0.5 + shadeF);
-    alb = mix(alb, mix(vec3(0.05, 0.085, 0.025), vec3(0.13, 0.16, 0.06), vnL(vAp*9.0, 9.0)), clamp(moss, 0.0, 1.0)*0.8);
+    float moss = dug * on * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
+    alb = mix(alb, (mc == 0 ? vec3(0.36, 0.38, 0.24) : vec3(0.30, 0.34, 0.22))*(0.8 + 0.4*vnL(vAp*9.0, 9.0)), clamp(moss, 0.0, 1.0)*0.7);
     rough = mix(rough, 0.95, moss*0.5);
+    if (uSills > 0 && vert > 0.5 && hg < 3.4) {   // run-off under the ground-storey sills
+      float ro = sillRunoff(vAp) * (1.0 - smoothstep(2.6, 3.4, hg));
+      alb *= mix(vec3(1.0), dampC, ro*0.8);
+    }
+    gWxDbg = vec3(damp*k, moss, spl);
     float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, hg);
     alb *= 1.0 - 0.14*streak;
+    float l0 = dot(alb0, vec3(0.3, 0.59, 0.11)), l1 = dot(alb, vec3(0.3, 0.59, 0.11));
+    if (l1 < 0.4*l0) alb *= 0.4*l0/max(l1, 1e-4);   // the cap: 0.4 linear = ~35 % darker on screen (sRGB), never near-black
+    if (pat == 15) {   // earth packed against the bunker concrete (a different surface, so past the cap)
+      float soil = (1.0 - smoothstep(0.0, 0.18 + 0.22*vnL(vAp*4.3 + 2.0, 4.3), hg)) * vert * float(uFoundWx);
+      alb = mix(alb, vec3(0.2, 0.17, 0.12)*(0.8 + 0.4*nn), soil*0.8); rough = mix(rough, 0.97, soil);
+    }
   }
   vec3 N = dot(vN, vN) > 1e-12 ? normalize(vN) : vec3(0.0, 1.0, 0.0);
   if (!gl_FrontFacing) N = -N;
@@ -1566,6 +1586,7 @@ void main(){
   if (gl_FrontFacing) N = normalize(N + gTexDN);   // L4: the set's normal map
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   if (uGxDebug == 2 && uCapture == 0) c = gDbg*0.8 + 0.05;
+  if (uGxDebug == 4 && uCapture == 0) c = gWxDbg;
   if (uGxDebug == 3 && uCapture == 0) c = gFootDbg < 0.0 ? vec3(0.0, 0.0, 0.4) : vec3(gFootDbg);   // MA2: the local ground line (white = within 0.5 m of it)
   if (uGxDebug == 1 && uCapture == 0) {
     vec4 rr = gRoom >= 0 && gIn == 1 ? roomDec(gRoom) : uExtDec;

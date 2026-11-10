@@ -364,7 +364,9 @@ Weathering at the foot of walls follows the ground each wall actually stands on,
   - the foundation block: damp foot, dirt gradient, splash, moss, streaks;
   - the poured-concrete foot (pattern 11);
   - the bunker-concrete foot (pattern 15).
-  On a slope the band follows the ground. Under a GX1 pad the ground at the walls is level, and so is the band.
+  On a slope the band follows the ground. Under a GX1 pad the ground at the walls is level; the zone height then varies with the seed, the corners and sun exposure, so it is still not a level stripe.
+- **Where it lives.** All of it is in the shared block after `texMaterial`, keyed on `pat` (concrete 11 / 15 included), because L4 replace slots (MA1) skip the pattern bodies.
+- **Strength (review round).** Damp zone 0.2-1.2 m with an irregular top edge and a tide line. Clean stretches every few metres, set by the seed (~3-4 m noise). Soil splash at the ground; algae on shaded faces and corners; run-off under ground-storey sills (`sillRunoff`, below 3 m). Tinted by material: brown on render / wood, green-grey on stone, dark wet on concrete. Darkening is capped at 0.4 of the clean wall's linear luminance, about 35 % darker on screen. The wet foot barely lowers roughness: a shinier foot reflects the sky at grazing views and cancels the darkening.
 - **Variation.** Reach and strength vary by:
   - material (brick and dressed stone shed water);
   - the copy's seed;
@@ -372,7 +374,7 @@ Weathering at the foot of walls follows the ground each wall actually stands on,
   - footprint corners.
   Small exposed-substrate patches appear just above the ground. Bunker concrete gets packed soil where the earthworks meet it. No extra noise: the same samples as before, plus one 4 x 4 lookup.
 - **Switch:** `foundwx` (off = the old asset-ground band).
-- **Debug view:** `NMK_GX5_DEBUG=3` / `Renderer::gxDebug = 3` paints white up to 0.5 m above the local ground.
+- **Debug view:** `NMK_GX5_DEBUG=3` / `Renderer::gxDebug = 3` paints white up to 0.5 m above the local ground. `NMK_GX5_DEBUG=4` shows the masks: damp as red, moss as green, splash as blue. `NMK_MA2_HOUSE=1` adds a house at 10 m to `NMK_CAPTURE_SET=gx`.
 - **Test (`--selftest-visuals`):** a garden wall (no pad) across a 15° ramp. At both ends the ground line must sit 0.5 ± 0.15 m above the terrain, with the ends 0.83 m apart in height.
 - **Limits.**
   - 4 x 4 samples miss ground detail finer than the grid spacing (13 m on the 40 m chateau).
