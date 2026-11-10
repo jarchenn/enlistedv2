@@ -4,7 +4,8 @@ You supplied these five GLB files and confirmed you own or have licensed them. A
 
 | File | Used for | Sketchfab exporter | Author | Licence | Source URL |
 |---|---|---|---|---|---|
-| realistic_m1_garand.glb | M1 Garand, M1C Garand | 12.68.0 | _fill in_ | _fill in_ | _fill in_ |
+| m1_garand_asset.glb | M1 Garand (replaces realistic_m1_garand.glb; model dir `garand2`) | Sketchfab 15.55.0 | lennur (https://sketchfab.com/lennur) | CC-BY-4.0 (from the GLB `asset.extras`) | https://sketchfab.com/3d-models/m1-garand-asset-4a1ddbdef4a14fad8944f0c2e73ae50c |
+| realistic_m1_garand.glb | M1C Garand only | 12.68.0 | _fill in_ | _fill in_ | _fill in_ |
 | thompson_1928_smg.glb | M1 Thompson (replaces low-poly_thompson_m1a1.glb) | 12.67.0 | Michal Cavrnoch (https://sketchfab.com/MichalCavrnoch) | CC-BY-4.0 (from the GLB `asset.extras`) | https://sketchfab.com/3d-models/thompson-1928-smg-ef4ac1bd043d446a8660047d67362334 |
 | mp40.glb | MP 40 | 16.72.0 | _fill in_ | _fill in_ | _fill in_ |
 | mg42.glb | MG 42 | 16.60.0 | _fill in_ | _fill in_ | _fill in_ |
