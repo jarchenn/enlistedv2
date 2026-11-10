@@ -16,9 +16,10 @@ enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3 };
 struct GraphicsOpts {
   float resScale = 0.67f;      // internal render resolution (0.5 .. 1); below 1 TAA reconstructs at output size (P1 TAAU). Medium 0.67, Low 0.5, High 1
   int shadowQuality = 1;       // 0: near 2048 / far 1024, 1: 4096 / 2048 (default), 2: 4096 / 4096
-  bool farCascade = true, cloudShadows = true, shafts = true, ssr = true, ssao = true, ssaoFull = false, bloom = true, taa = true;
+  bool farCascade = true, cloudShadows = true, shafts = false, ssr = true, ssao = true, ssaoFull = false, bloom = true, taa = true;
   int taaPhases = 8;           // Halton jitter sequence length
   bool clouds = true;
+  int cloudQuality = 1;        // WX1: 0 Low (3-octave deck, no self-shadow, 8 shaft samples), 1 Medium, 2 High (+ a high thin layer)
   int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High, 4 Ultra (grass only; no GfxPreset uses it)
   float renderDist = 1200.0f;  // m (PF2): instance draw cut, decor / tree / nature / ivy culls (x renderDist / 1200), far terrain LOD, matching haze
   bool grassWind = true;       // GX3: vertex wind on the near grass clumps (Low: static grass)
@@ -42,6 +43,8 @@ struct UserSettings {
   bool vsync = true;
   int fpsCap = 0;              // 0 = unlimited
   float hour = 14.0f;          // time of day (L2): 14:00 Day, 18:36 Dusk, 00:00 Night, 05:00 Dawn, or any hour
+  int envFog = 1;              // WX1: environmental fog 0 Off, 1 Light, 2 Moderate, 3 Dense (a match follows the host's)
+  int weather = 0;             // WX1: 0 Clear, 1 Cloudy (a match follows the host's; switches live with an 8 s transition)
 #ifdef __APPLE__
   int upscale = 1;             // 0 temporal, 1 spatial, 2 off (Renderer::upscaleMode). Mac: spatial (MetalFX temporal at Retina costs ~25 ms)
 #else

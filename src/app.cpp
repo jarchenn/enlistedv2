@@ -980,6 +980,7 @@ int App::run(int argc, char** argv) {
     R.grass = &grass;
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
     mark("render");
+    { extern void weatherAppFrame(App&); weatherAppFrame(*this); }   // WX1: the shared cloud clock, the host's weather on LAN clients
     R.render(v, terrain, op, gl, ghosts, ov);
     mark("imgui");
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)

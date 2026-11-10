@@ -934,7 +934,7 @@ void Net::update(App& app, float dt) {
         for (auto& m : msgs) {
           json j; try { j = json::parse(m); } catch (...) { continue; }
           std::string t = j.value("t", "");
-          if (t == "lobby") { players.clear(); for (auto& p : j["players"]) players.push_back({p["id"], p["name"], p["ready"]}); lobbyRules = j["rules"]; hostMapName = j.value("map", ""); matchRunning = j.value("running", false); }
+          if (t == "lobby") { players.clear(); for (auto& p : j["players"]) players.push_back({p["id"], p["name"], p["ready"]}); lobbyRules = j["rules"]; hostMapName = j.value("map", ""); matchRunning = j.value("running", false); app.R.wx.forced = j.value("weather", app.R.wx.forced); app.R.wx.fogForced = j.value("fog", app.R.wx.fogForced); }
           else if (t == "start") d->pendingStart = j;
           else if (t == "world") d->pendingWorld.push_back(j);
           else if (t == "lobbyReturn") d->wantLobbyReturn = true;
@@ -957,10 +957,11 @@ void Net::update(App& app, float dt) {
       }
       ++k;
     }
+    { static int lastWx = -2; int wx = app.R.wx.want() * 8 + app.R.wx.fogWant(); if (role == HOST && wx != lastWx) { lastWx = wx; d->lobbyDirty = true; } }   // WX1: the host's weather is match state
     if (d->lobbyDirty) {
       d->lobbyDirty = false;
       json pl = json::array(); for (auto& p : players) pl.push_back({{"id", p.peer}, {"name", p.name}, {"ready", p.ready}});
-      std::string m = json{{"t", "lobby"}, {"players", pl}, {"rules", gUi.rules.toJson()}, {"map", app.doc.name}, {"running", matchRunning}}.dump();
+      std::string m = json{{"t", "lobby"}, {"players", pl}, {"rules", gUi.rules.toJson()}, {"map", app.doc.name}, {"running", matchRunning}, {"weather", app.R.wx.want()}, {"fog", app.R.wx.fogWant()}}.dump();
       for (auto& p : d->peers) p.ch.send(m);
     }
     if (gGame && gGame->active && !gGame->isClient) hostGuns(app, *this, app.frameDt);
@@ -1097,4 +1098,15 @@ void MpUi::netJoin(App& app) {
     if (!n.status.empty()) ImGui::TextWrapped("%s", n.status.c_str());
     ImGui::TextDisabled("Both PCs need the same build, content and map file. Internet play is not supported.");
   }
+}
+
+// WX1 (docs/rendering.md#weather): the weather field's clock is the match time (LAN: g.t is the host's clock on every
+// client, so the clouds and their shadows sit alike); a LAN client shows the host's weather (lobby "weather")
+void weatherAppFrame(App& app) {
+  app.R.wx.clock = gGame && gGame->active ? gGame->t : -1.0;
+  if (!gNet || gNet->role != Net::CLIENT) app.R.wx.forced = app.R.wx.fogForced = -1;
+  static const char* ew = std::getenv("NMK_WEATHER");   // tests / A/B: force clear | cloudy, no ramp
+  if (ew) { app.R.wx.target = std::string(ew) == "cloudy" ? 1 : 0; app.R.wx.snap(); }
+  static const char* ef = std::getenv("NMK_FOG");   // tests / A/B: 0..3
+  if (ef) { app.R.wx.fog = std::clamp(std::atoi(ef), 0, 3); app.R.wx.fogNow = app.R.wx.fogDens(); }
 }

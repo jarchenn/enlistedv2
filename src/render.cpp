@@ -40,6 +40,8 @@ uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = lega
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
+uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;   // WX1: Clear -> Cloudy mix, the field's seed and wind (600 m cells / s)
+uniform float uEnvFog, uEnvFogH, uFogIndoor; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
 // ---- L2 lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, probe GI
 uniform vec3 uSkyZen, uSkyHor;    // sky model zenith / horizon colour (time of day; Day = the BSL-pass constants)
@@ -94,7 +96,7 @@ float sunShadowT(vec3 w, vec3 n, float soft, int taps){
 float shadowPCF(vec3 w, vec3 n){ return sunShadowT(w, n, 0.0, 8); }   // 8 rotated taps; TAA integrates the rotation over frames
 // cloud deck at 1500 m: the same field the sky draws, in world xz (so the shadows on the ground match the sky)
 float cloudField(vec2 xz){
-  vec3 q = vec3(xz/600.0 + uCloudT*vec2(0.012, 0.0075), uCloudT*0.002);
+  vec3 q = vec3(xz/600.0 + uCloudSeed + uCloudT*uCloudWind, uCloudT*0.002);
   float n = 0.0, a = 0.5;
   for (int i = 0; i < 5; ++i) { n += a*vnoise(q); q = q*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }
   return n;
@@ -102,7 +104,7 @@ float cloudField(vec2 xz){
 float cloudThreshold(){ return mix(0.72, 0.38, uCloudCov); }
 // low-octave version for the clouds' self-shadowing (only the broad optical depth matters)
 float cloudFieldLo(vec2 xz){
-  vec3 q = vec3(xz/600.0 + uCloudT*vec2(0.012, 0.0075), uCloudT*0.002);
+  vec3 q = vec3(xz/600.0 + uCloudSeed + uCloudT*uCloudWind, uCloudT*0.002);
   float n = 0.0, a = 0.5;
   for (int i = 0; i < 3; ++i) { n += a*vnoise(q); q = q*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }
   return n + 0.0625;   // the two missing octaves average ~a/2 each
@@ -113,7 +115,7 @@ uniform sampler2D uCloudShadowMap; uniform vec3 uCloudShadowBox;   // centre x, 
 float cloudShadowAt(vec2 xz, float y){
   vec2 q = xz + uSunDir.xz/uSunDir.y*(1500.0 - y);
   float th = cloudThreshold();
-  return 1.0 - 0.62*smoothstep(th - 0.02, th + 0.30, cloudField(q));
+  return 1.0 - mix(0.62, 0.9, uCloudK)*smoothstep(th - 0.02, th + 0.30, cloudField(q));   // WX1: heavy cloud takes up to 90 % of the direct sun
 }
 float cloudShadow(vec3 w){
   if (uCloudShadowOn == 0 || uSunDir.y < 0.05) return 1.0;
@@ -190,6 +192,26 @@ vec3 applyFog(vec3 col, vec3 w){
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
   float sd = max(dot(dir, uSkySun), 0.0);
   fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
+  if (uEnvFog > 0.0) {
+    // WX1 environmental fog: height + distance extinction over the cached field (taken at the ray's midpoint; the drift
+    // noise slides downwind), and a cheap sun glow toward the sun, dimmed by the cloud transmittance at the camera and
+    // one shadow lookup at the surface. High adds the marched shafts on top (same density, kShaftFS)
+    float Lw = length(w - uCamPos);
+    vec3 m = 0.5*(w + uCamPos);
+    vec2 uv = (m.xz - uFogBox.xy)*uFogBox.zw;
+    vec4 F = texture(uFogField, uv);
+    float drift = texture(uFogField, uv + uCloudWind*uCloudT*0.0004 + 0.37).g;
+    float k2 = (w.y - uCamPos.y)/uEnvFogH;
+    float hf2 = abs(k2) > 1e-3 ? (1.0 - exp(-k2))/k2 : 1.0 - 0.5*k2;
+    float tauE = uEnvFog*uFogIndoor*F.r*(0.6 + 0.8*drift)*Lw*exp(-max(uCamPos.y - F.b, 0.0)/uEnvFogH)*hf2;
+    float e; float sh = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, uSunDir, 0.0, 1, e);
+    if (e > 0.95) sh = 1.0;
+    float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
+    vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh);
+    float tt = tau + tauE;
+    f = 1.0 - exp(-tt);
+    fc = mix(fc, fcE, tauE/max(tt, 1e-6));
+  }
   gFogT = 1.0 - f;
   return mix(col, fc, f);
 }
@@ -1788,7 +1810,7 @@ void main(){
 // Henyey-Greenstein phase. Restrained: it adds light only where the haze is sunlit between occluders.
 static const char* kShaftFS = R"GLSL(
 in vec2 vUV;
-uniform sampler2D uDepth; uniform mat4 uInvVP; uniform float uMaxDist, uDensity;
+uniform sampler2D uDepth; uniform mat4 uInvVP; uniform float uMaxDist, uDensity; uniform int uShaftN;   // WX1: samples (Low cloud quality 8)
 out vec4 oColor;
 float hgPhase(float c, float g){ float g2 = g*g; return (1.0 - g2)/(4.0*PI*pow(1.0 + g2 - 2.0*g*c, 1.5)); }
 void main(){
@@ -1796,13 +1818,15 @@ void main(){
   vec4 p = uInvVP*vec4(vUV*2.0 - 1.0, z, 1.0); vec3 w = p.xyz/p.w;   // reverse-Z: ndc z = depth (sky 0 = far plane)
   vec3 rd = w - uCamPos; float L = length(rd); rd /= max(L, 1e-4);
   L = min(L, uMaxDist);
-  const int N = 14;
+  int N = uShaftN;
   float dt = L/float(N), jit = pixelNoise(), lit = 0.0, T = 1.0;
   for (int i = 0; i < N; ++i) {
     vec3 q = uCamPos + rd*(dt*(float(i) + jit));
     float e; float s = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, q, uSunDir, 0.0, 1, e);
     if (e > 0.95 && uShadowFarOn == 1) s = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, q, uSunDir, 0.0, 1, e);
-    float rho = uDensity*exp(-max(q.y, 0.0)/uHazeH);
+    s *= cloudShadow(q);   // WX1: the cloud transmittance at the sample itself: beams only through the gaps, none when the sun is covered
+    vec4 F = texture(uFogField, (q.xz - uFogBox.xy)*uFogBox.zw);
+    float rho = uDensity*exp(-max(q.y, 0.0)/uHazeH) + uEnvFog*uFogIndoor*F.r*exp(-max(q.y - F.b, 0.0)/uEnvFogH);   // WX1: + the environmental fog
     lit += T*rho*s*dt; T *= exp(-rho*dt);
   }
   float c = dot(rd, uSunDir);
@@ -2834,7 +2858,7 @@ void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUV = p; gl_Posit
 )GLSL";
 static const char* kSkyFS = R"GLSL(
 in vec2 vUV;
-uniform mat4 uInvVP; uniform int uCloudOn; uniform float uCloudCover, uTime;
+uniform mat4 uInvVP; uniform int uCloudOn, uCloudQ; uniform float uCloudCover, uTime;   // WX1: uCloudQ = cloud quality 0..2
 uniform vec3 uMoonDir, uMoonCol, uCloudLit; uniform float uStars;   // L2 time of day (Day: no moon / stars, clouds x1)
 out vec4 oColor;
 void main(){
@@ -2856,13 +2880,20 @@ void main(){
   if (uCloudOn == 1 && d.y > 0.0) {
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
     vec2 cpw = uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells)
-    float n = cloudField(cpw);
+    if (uCloudQ == 2) {   // WX1 High: a thin high layer (4500 m, streaked along the wind, slower); not in the shadow map
+      vec2 hp = uCamPos.xz + d.xz/(d.y + 0.03)*(4500.0 - uCamPos.y);
+      vec2 wd = normalize(uCloudWind);
+      vec2 sp = vec2(dot(hp, wd)/2600.0, dot(hp, vec2(-wd.y, wd.x))/700.0) + uCloudSeed*1.7 + uCloudT*0.004;
+      float ci = smoothstep(0.55, 0.85, vnoise(vec3(sp, 3.0))*0.65 + vnoise(vec3(sp*2.7, 7.0))*0.35);
+      c = mix(c, mix(skyColor(d), vec3(1.0)*1.3, 0.55)*uCloudLit, ci*mix(0.35, 0.55, uCloudK)*smoothstep(0.02, 0.2, d.y));
+    }
+    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : cloudField(cpw);
     float th = mix(0.72, 0.38, uCloudCover);
     float cl = smoothstep(th, th + 0.22, n);
     float sd = max(dot(d, uSunDir), 0.0);
     float thick = smoothstep(th + 0.05, th + 0.45, n);
     vec3 lit = vec3(0.95, 0.95, 0.96)*1.35*mix(1.0, 0.5, thick) + uSunCol*0.35*pow(sd, 6.0)*(1.0 - thick);   // grey bases, silver lining at thin edges
-    if (uLook == 1) {
+    if (uLook == 1 && uCloudQ > 0) {
       // self-shadowing: optical depth toward the sun from three samples of the same field (Beer), plus a
       // forward-scattering lobe that brightens thin edges near the sun; bases are blue-grey, never black
       vec2 toSun = normalize(uSunDir.xz + 1e-4)*160.0;
@@ -2875,7 +2906,9 @@ void main(){
       float far = 1.0 - smoothstep(0.02, 0.25, d.y);           // distant cloud fades into the horizon haze
       lit = mix(lit, skyColor(d), far*0.65);
     }
-    c = mix(c, lit*uCloudLit, cl*0.9*smoothstep(0.0, 0.12, d.y));
+    lit *= mix(1.0, 0.72, uCloudK*thick);   // WX1 Cloudy: heavier, darker undersides
+    // WX1: thick cloud is opaque (the HDR sun disc behind it no longer leaks through as a sprite); thin edges stay translucent
+    c = mix(c, lit*uCloudLit, cl*mix(0.9, 1.0, thick)*smoothstep(0.0, 0.12, d.y));
   }
   if (uUnder > 0.5) c = uFogCol*(0.75 + 0.45*max(d.y, 0.0));   // under water: the fog, a little lighter toward the surface
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? skyColor(d) : c, 1.0);
@@ -3401,8 +3434,11 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft);
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
-  glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && !thumbMode ? 1 : 0);
-  glUniform1f(U(p, "uCloudCov"), cloudCover); glUniform1f(U(p, "uCloudT"), time);
+  glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
+  glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
+  glUniform1f(U(p, "uEnvFog"), thumbMode || q.legacy || !perf.envFog || fogTex == 0 ? 0.0f : std::max(wx.fogNow, 0.0f)); glUniform1f(U(p, "uEnvFogH"), 22.0f); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex); glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
+  glUniform1f(U(p, "uCloudK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uCloudSeed"), wx.seed); glUniform2fv(U(p, "uCloudWind"), 1, glm::value_ptr(wx.wind));
   glUniform1i(U(p, "uCloudShadowMap"), 13); glBindTextureUnit(13, cloudShTex);
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
@@ -3897,6 +3933,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   prepFoliageBatches();   // P2 folbatch   // roomCulled: counted from here too
   stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
   time += v.dt;
+  wx.k += glm::clamp((float)wx.want() - wx.k, -v.dt / 8.0f, v.dt / 8.0f);   // WX1: Clear <-> Cloudy over 8 s (sun, sky, cover, exposure follow)
+  if (wx.fogNow < 0) wx.fogNow = wx.fogDens(); else wx.fogNow += glm::clamp(wx.fogDens() - wx.fogNow, -v.dt * 0.002f, v.dt * 0.002f);   // the fog level ramps too
+  if (!thumbMode) bakeFog(t);
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
@@ -3915,7 +3954,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
 
   // ---- cloud shadow map (once per frame, texel-snapped so it does not swim as the camera moves)
-  if (!thumbMode && !q.legacy && q.cloudShadows && clouds) {
+  if (!thumbMode && !q.legacy && q.cloudShadows && clouds && perf.cloudShadow) {
     float tex = 2 * cloudShBox.z / 512;
     cloudShBox.x = std::floor(v.camPos.x / tex) * tex; cloudShBox.y = std::floor(v.camPos.z / tex) * tex;
     glBindFramebuffer(GL_FRAMEBUFFER, cloudShFbo); glViewport(0, 0, 512, 512);
@@ -3932,6 +3971,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   {   // GX2: inside a room the near cascade tightens to 24 m (about 1.2 cm texels at 4096) so window bars cast crisp shadows
     bool indoor = false;
     for (auto& b : rooms) { vec3 l = vec3(glm::inverse(b.m) * vec4(v.camPos, 1)); if (std::fabs(l.x) < b.half.x && std::fabs(l.y) < b.half.y && std::fabs(l.z) < b.half.z) { indoor = true; break; } }
+    camIndoor = indoor;   // WX1: environmental fog thins inside rooms
     if (indoor && !q.legacy) radius = 24.0f;
   }
   ++frame;
@@ -4057,7 +4097,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0);
     setLighting(progSky, v);
     glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
-    glUniform1i(U(progSky, "uCloudOn"), clouds ? 1 : 0); glUniform1f(U(progSky, "uCloudCover"), cloudCover);
+    glUniform1i(U(progSky, "uCloudOn"), clouds && perf.clouds ? 1 : 0); glUniform1f(U(progSky, "uCloudCover"), cloudCoverNow()); glUniform1i(U(progSky, "uCloudQ"), wx.quality);
     glDepthFunc(zLEqual()); glDepthMask(GL_FALSE);   // a front-facing triangle: the cull state does not matter
     glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
     glDepthMask(GL_TRUE); glDepthFunc(zLess());
@@ -4385,7 +4425,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 }
 
 void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
-  bool shafts = q.shafts && q.shaftStrength > 0, ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
+  bool shafts = q.shafts && perf.shafts && q.shaftStrength > 0, ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
   if (!shafts && !ao && !ssr) return;
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
@@ -4412,6 +4452,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniformMatrix4fv(U(progShaft, "uInvVP"), 1, GL_FALSE, glm::value_ptr(inv));
   glUniform1f(U(progShaft, "uMaxDist"), 150.0f);
   glUniform1f(U(progShaft, "uDensity"), q.hazeDensity * 1.6f);
+  glUniform1i(U(progShaft, "uShaftN"), wx.quality == 0 ? 8 : 14);   // WX1: the cheaper variant at Low cloud quality
   glDrawArrays(GL_TRIANGLES, 0, 3);
   }
   // composite into hdrColor from a copy of it
@@ -4600,3 +4641,55 @@ void Renderer::swapUp() {
 }
 
 // Renderer::renderThumbnail moved to thumbs.cpp (W2: build-menu thumbnails)
+
+// ---- WX1 environmental fog field (docs/rendering.md#weather): generated from the heightmap only, cached on the GPU
+// (unit 27) and on the CPU (AI sight). R = where ground fog pools (hollows below the smoothed ground, low ground, the
+// shore), G = static drift noise (the shader scrolls it on the weather wind), B = the smoothed ground the layer sits on.
+void Renderer::bakeFog(const Terrain& t) {
+  const int N = 256;
+  vec2 ext(t.tilesX() * t.tileSize(), t.tilesZ() * t.tileSize());
+  float sig = t.org.x + t.org.y * 3.1f + ext.x * 7.3f + ext.y * 11.7f + t.height(t.org.x + ext.x * 0.31f, t.org.y + ext.y * 0.57f) + t.height(t.org.x + ext.x * 0.73f, t.org.y + ext.y * 0.21f) * 1.37f;
+  if (fogTex && sig == fogSig) return;
+  fogSig = sig;
+  std::vector<float> h((size_t)N * N), s, tmp((size_t)N * N);
+  float hmin = 1e9f;
+  for (int j = 0; j < N; ++j) for (int i = 0; i < N; ++i) { float v = t.height(t.org.x + (i + 0.5f) * ext.x / N, t.org.y + (j + 0.5f) * ext.y / N); h[(size_t)j * N + i] = v; hmin = std::min(hmin, v); }
+  s = h;
+  for (int it = 0; it < 3; ++it) for (int pass = 0; pass < 2; ++pass) {   // ~3 box blurs of radius 8 texels: the broad ground
+    for (int j = 0; j < N; ++j) for (int i = 0; i < N; ++i) {
+      float a = 0; int n = 0;
+      for (int k = -8; k <= 8; ++k) { int x = pass == 0 ? std::clamp(i + k, 0, N - 1) : i, y = pass == 1 ? std::clamp(j + k, 0, N - 1) : j; a += s[(size_t)y * N + x]; ++n; }
+      tmp[(size_t)j * N + i] = a / n;
+    }
+    s.swap(tmp);
+  }
+  auto hash = [](int x, int y) { uint32_t v = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u; v = (v ^ (v >> 13)) * 1274126177u; return ((v ^ (v >> 16)) & 0xffff) / 65535.0f; };
+  auto vn = [&](float x, float y) { int x0 = (int)std::floor(x), y0 = (int)std::floor(y); float fx = x - x0, fy = y - y0; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+    float a = hash(x0, y0), b = hash(x0 + 1, y0), c = hash(x0, y0 + 1), d = hash(x0 + 1, y0 + 1); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
+  fogCpu.assign((size_t)N * N, vec4(0));
+  for (int j = 0; j < N; ++j) for (int i = 0; i < N; ++i) {
+    size_t k = (size_t)j * N + i; float v = h[k];
+    float basin = std::clamp((s[k] - v) / 6.0f, 0.0f, 1.0f);            // hollows, valley floors between rises
+    float low = std::clamp(1.0f - (v - hmin) / 35.0f, 0.0f, 1.0f);      // the lowest ground of the map
+    float shore = hmin < 2.0f ? std::clamp(1.0f - std::fabs(v - 1.0f) / 6.0f, 0.0f, 1.0f) : 0.0f;   // coastal haze
+    float r = std::clamp(0.3f + 0.8f * basin + 0.45f * low + 0.6f * shore, 0.0f, 1.8f);
+    fogCpu[k] = vec4(r, vn(i / 24.0f, j / 24.0f) * 0.65f + vn(i / 9.0f + 31.0f, j / 9.0f) * 0.35f, s[k], 0);
+  }
+  if (!fogTex) {
+    glCreateTextures(GL_TEXTURE_2D, 1, &fogTex); glTextureStorage2D(fogTex, 1, GL_RGBA16F, N, N);
+    glTextureParameteri(fogTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(fogTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(fogTex, GL_TEXTURE_WRAP_S, GL_REPEAT); glTextureParameteri(fogTex, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  }
+  glTextureSubImage2D(fogTex, 0, 0, 0, N, N, GL_RGBA, GL_FLOAT, fogCpu.data());
+  fogBox = vec4(t.org.x, t.org.y, 1.0f / ext.x, 1.0f / ext.y);
+}
+// the shader's optical depth with the field taken at the segment's midpoint (no drift noise): bot sight in fog
+float Renderer::fogT(vec3 a, vec3 b) const {
+  float dens = wx.fogNow >= 0 ? wx.fogNow : wx.fogDens();
+  if (fogCpu.empty() || dens <= 0) return 1.0f;
+  const int N = 256; vec3 m = (a + b) * 0.5f;
+  int i = std::clamp((int)((m.x - fogBox.x) * fogBox.z * N), 0, N - 1), j = std::clamp((int)((m.z - fogBox.y) * fogBox.w * N), 0, N - 1);
+  const vec4& F = fogCpu[(size_t)j * N + i];
+  float hm = std::max(m.y - F.z, 0.0f);
+  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f));
+}

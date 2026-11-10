@@ -283,6 +283,7 @@ struct Sys {
   std::vector<mat4> roomInv;
   bool resetAll = false;
   float capHour = -100.0f;   // PF2: time of day of the last captures (a jump re-captures every probe)
+  float capWx = 0.0f;        // WX1: the weather mix of the last captures (a change of 0.25 re-captures, within the probe budget)
   float credit = 0;          // R2 probebudget: capture cost units carried between frames (a far-volume probe costs 4)
   std::vector<std::pair<vec3, vec3>> inval;   // R2: world boxes invalidated since the last probe pass
 } L;
@@ -457,10 +458,23 @@ void LightingPass::begin(Renderer& R, const RenderView& v) {
 
 void LightingPass::todColors(const Renderer& R, vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySun, vec3& skySunCol) {
   const Tod& t = L.tod;
-  if (R.thumbMode || t.day) return;   // thumbnails and model sheets always render at Day
-  vec3 daySunCol = sun;
-  sun *= t.keyMul; sky *= t.skyMul; ground *= t.groundMul; fog *= t.fogMul; fill *= t.groundMul;
-  zen = t.zen; hor = t.hor; skySun = t.sunTrue; skySunCol = daySunCol * t.skySunMul;
+  if (R.thumbMode) return;   // thumbnails and model sheets always render at Day
+  if (!t.day) {
+    vec3 daySunCol = sun;
+    sun *= t.keyMul; sky *= t.skyMul; ground *= t.groundMul; fog *= t.fogMul; fill *= t.groundMul;
+    zen = t.zen; hor = t.hor; skySun = t.sunTrue; skySunCol = daySunCol * t.skySunMul;
+  }
+  // WX1 Cloudy (k = the 8 s ramp): softer, less direct sun (the cloud-shadow map takes the rest where the deck is thick),
+  // an overcast grey sky that stays bright enough to light the ground, greyer haze, a weaker sun glow in the sky
+  float k = R.wx.k;
+  if (k <= 0.0f) return;
+  auto grey = [](vec3 c, vec3 tint, float s) { return vec3(lum(c)) * tint * s; };
+  sun *= glm::mix(1.0f, 0.82f, k);
+  zen = glm::mix(zen, grey(zen * 0.5f + hor * 0.5f, vec3(0.93f, 0.96f, 1.0f), 1.0f), 0.8f * k);
+  hor = glm::mix(hor, grey(hor, vec3(0.95f, 0.97f, 1.0f), 0.92f), 0.6f * k);
+  sky = glm::mix(sky, grey(sky, vec3(0.95f, 0.98f, 1.0f), 1.12f), 0.6f * k);
+  fog = glm::mix(fog, grey(fog, vec3(0.96f, 0.98f, 1.0f), 0.95f), 0.6f * k);
+  skySunCol *= glm::mix(1.0f, 0.35f, k);
 }
 
 void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
@@ -589,6 +603,7 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   bool roomsChanged = sig != L.roomsSig;
   if (roomsChanged) { L.roomsSig = sig; L.roomInv.resize(R.rooms.size()); for (size_t k = 0; k < R.rooms.size(); ++k) L.roomInv[k] = glm::inverse(R.rooms[k].m); }
   if (R.perf.probeRefresh && std::fabs(R.lt.hour - L.capHour) > 0.1f) { L.resetAll = L.capHour > -50.0f || L.resetAll; L.capHour = R.lt.hour; }
+  if (R.perf.probeRefresh && std::fabs(R.wx.k - L.capWx) > 0.25f) { L.resetAll = true; L.capWx = R.wx.k; }
   struct Cand { int c, i; float score; };
   std::vector<Cand> cand;
   for (int ci = 0; ci < 2; ++ci) {

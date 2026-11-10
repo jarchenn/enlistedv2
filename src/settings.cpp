@@ -20,16 +20,19 @@ GraphicsOpts presetOpts(GfxPreset p) {
   if (presetsOld() && p != GfxPreset::High) g.shadowLights = 4;
   if (p == GfxPreset::Low) {
     g.resScale = 0.5f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output (was 0.85 bilinear)
-    g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
+    g.shafts = false; g.ssr = false; g.ssao = false;   // WX1: cloud shadows stay on (every preset sees the same sun patches)
+    g.cloudQuality = 0;
     g.bloom = presetsOld();                              // P3: no bloom on Low
     g.grass = 1; g.grassWind = false; g.renderDist = presetsOld() ? 600 : 450; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::High) {
     g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;   // P1: High stays native
+    g.shafts = true;                                     // WX1: the marched sun shafts are High only (Low / Medium: the fog's sun glow)
     g.grass = 3; g.renderDist = 2500; g.particles = 1.5f; g.dustMotes = 2;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
     g.materials = 2;                                     // GX5: + parallax on height-capable texture sets
+    g.cloudQuality = 2;                                  // WX1: + the high thin cloud layer
   }
   return g;
 }
@@ -48,10 +51,10 @@ json UserSettings::toJson() const {
     {"version", 1},
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
-                  {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass}, {"grassWind", g.grassWind},
+                  {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"cloudQuality", g.cloudQuality}, {"grass", g.grass}, {"grassWind", g.grassWind},
                   {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
-                  {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
+                  {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}}},
@@ -73,7 +76,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.farCascade = q.value("farCascade", g.farCascade); g.cloudShadows = q.value("cloudShadows", g.cloudShadows);
     g.shafts = q.value("lightShafts", g.shafts); g.ssr = q.value("ssr", g.ssr); g.ssao = q.value("ssao", g.ssao); g.ssaoFull = q.value("ssaoFullRes", g.ssaoFull);
     g.bloom = q.value("bloom", g.bloom); g.taa = q.value("taa", g.taa); g.taaPhases = std::clamp(q.value("taaPhases", g.taaPhases), 1, 64);
-    g.clouds = q.value("clouds", g.clouds); g.grass = std::clamp(q.value("grass", g.grass), 0, 4); g.grassWind = q.value("grassWind", g.grassWind);
+    g.clouds = q.value("clouds", g.clouds); g.cloudQuality = std::clamp(q.value("cloudQuality", g.cloudQuality), 0, 2); u.weather = q.value("weather", std::string("Clear")) == "Cloudy" ? 1 : 0; u.envFog = std::clamp(q.value("envFog", u.envFog), 0, 3); g.grass = std::clamp(q.value("grass", g.grass), 0, 4); g.grassWind = q.value("grassWind", g.grassWind);
     g.materials = std::clamp(q.value("materialDetail", g.materials), 0, 2);
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
@@ -207,7 +210,7 @@ void Settings::apply(App& app) {
   app.ivyOn = g.ivy;
   R.grassAtlasTier = g.grass >= 2;   // GT1 grass plant atlas: Medium, High, Ultra (Low keeps the procedural blades)
   R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
-  R.clouds = g.clouds;
+  R.clouds = g.clouds; R.wx.quality = g.cloudQuality; R.wx.target = s.weather; R.wx.fog = s.envFog;   // WX1 (a LAN client takes the host's: Renderer::Weather::forced)
   R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
@@ -229,7 +232,7 @@ void Settings::capture(const App& app) {
   g.resScale = R.resolutionScale();
   g.shadowQuality = R.shadowTier;
   g.farCascade = R.q.farCascade; g.cloudShadows = R.q.cloudShadows; g.shafts = R.q.shafts; g.ssr = R.q.ssr; g.ssao = R.q.ssao; g.bloom = R.q.bloom;
-  g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds;
+  g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds; g.cloudQuality = R.wx.quality;
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
   g.grass = (int)app.grass.quality; g.grassWind = app.grass.nearWind;
   g.msaa = R.msaa(); g.ivy = app.ivyOn; g.materials = R.q.matLayer;
@@ -343,6 +346,10 @@ void settingsWindow(App& app) {
         int hh = (int)u.hour, mm = (int)std::lround((u.hour - hh) * 60); if (mm == 60) { ++hh; mm = 0; }
         char hl[32]; std::snprintf(hl, sizeof hl, "%02d:%02d", hh % 24, mm);
         ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl);
+        { const char* wn[] = {"Clear", "Cloudy"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Weather", &u.weather, wn, 2); }   // WX1
+        { const char* fn[] = {"Off", "Light", "Moderate", "Dense"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Environmental fog", &u.envFog, fn, 4); }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ground fog in hollows, low ground and along the shore, drifting on the wind. Limits how far bots see. A LAN match uses the host's.");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloudy: broken to heavy cloud, moving cloud shadows, sun breaking through the gaps. In a LAN match the host's weather applies.");
         ImGui::SetNextItemWidth(200); ImGui::SliderInt("Light count", &g.lightCount, 0, 1024);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lamps, lanterns and fires lit each frame (nearest first).");
         { int sl[] = {0, 2, 4, 8}; const char* sn[] = {"Off", "2", "4", "8"}; int si = 0; for (int k = 0; k < 4; ++k) if (sl[k] == g.shadowLights) si = k;
