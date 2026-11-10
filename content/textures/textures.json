@@ -128,7 +128,7 @@
       "path_gravel":    {"set": "gravel_coarse",       "albedo": 0.6, "normal": 0.6, "rough": 0.35, "ao": 0.35},
       "path_dirt":      {"set": "dirt_compacted",      "albedo": 0.6, "normal": 0.55, "rough": 0.35, "ao": 0.35},
       "path_concrete":  {"set": "concrete_stained",    "albedo": 0.55, "normal": 0.5, "rough": 0.35, "ao": 0.35},
-      "terrain_soil":   {"set": "dirt_compacted",      "space": "ground", "albedo": 0.6, "normal": 0.55, "rough": 0.3, "ao": 0.4, "fade": [50, 160]},
+      "terrain_soil":   {"set": "ph_forest_ground_01", "space": "ground", "albedo": 0.8, "normal": 0.55, "rough": 0.3, "ao": 0.4, "fade": [50, 160]},
       "paint_dirt":     {"set": "dirt_compacted",      "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
       "paint_gravel":   {"set": "gravel_coarse",       "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
       "paint_leaf_litter": {"set": "ph_forest_ground_01", "space": "ground", "albedo": 0.8, "normal": 0.65, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
