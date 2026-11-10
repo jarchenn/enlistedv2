@@ -31,6 +31,7 @@ struct InstanceRT {
   uint64_t id = 0; uint32_t rev = 0;
   const AssetDef* asset = nullptr;
   uint32_t staticBody = 0xffffffffu;
+  mutable uint8_t leafLod = 2;                    // L1 tree leaf LOD (0 near .. 2 cards), kept across frames for hysteresis
   std::vector<std::vector<uint32_t>> leafBodies; // [interactable][leaf]
   std::vector<float> progress;                    // 0 closed .. 1 open
   std::vector<int> dir;                           // -1 closing, 0 idle, +1 opening

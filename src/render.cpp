@@ -1963,23 +1963,58 @@ layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(locatio
 uniform mat4 uModel, uVP; uniform float uTime, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;   // motion vectors (TAA): unjittered current / previous
 out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
+flat out float vLayer; out vec3 vLN;   // L1: leaf texture layer (-1: the procedural ovals), the leaf plane's normal
 out vec4 vCC, vPC;
 invariant gl_Position;
-vec3 leafSway(vec3 w, float t){
+vec3 leafSway(vec3 w, float t, float m){
   const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
   float s = sin(f*t + kx*w.x + kz*w.z) + 0.3*sin(2.9*t + 0.8*w.x - 0.5*w.y);
-  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * aMask * uWind;
+  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * uWind;
 }
 void main(){
   vec4 w0 = uModel*vec4(aPos, 1.0), w = w0;
-  w.xyz += leafSway(w0.xyz, uTime);
+  w.xyz += leafSway(w0.xyz, uTime, aMask);
   vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask; vShade = aShade;
   vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
-  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime), 1.0);
+  vLayer = -1.0; vLN = vN;
+  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, aMask), 1.0);
   gl_Position = uVP*w;   // invariant: the PF2 canopy depth prepass (leaf_shadow) and the GL_EQUAL shading pass must agree
 }
 )GLSL";
+// L1 species leaves (foliage.cpp, docs/leaves.md): instanced sprig meshes. Per vertex: card-space position (x, y in
+// [-1, 1] over the card's T / B half extents, z along its normal), leaf normal in the same frame, layer uv, layer.
+// Per instance (one canopy card): centre, T*s, B*s, cluster direction, mask / shade / seed. Same sway and outputs as kLeafVS.
+static const char* kLeafInstVS = R"GLSL(
+layout(location=0) in vec3 aC; layout(location=1) in vec3 aN; layout(location=2) in vec2 aUV; layout(location=3) in float aLayer;
+layout(location=4) in vec3 iCtr; layout(location=5) in vec3 iT; layout(location=6) in vec3 iB; layout(location=7) in vec3 iDir; layout(location=8) in vec3 iMSS;
+uniform mat4 uModel, uVP; uniform float uTime, uWind;
+uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
+out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
+flat out float vLayer; out vec3 vLN;
+out vec4 vCC, vPC;
+invariant gl_Position;
+vec3 leafSway(vec3 w, float t, float m){
+  const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
+  float s = sin(f*t + kx*w.x + kz*w.z) + 0.3*sin(2.9*t + 0.8*w.x - 0.5*w.y);
+  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * uWind;
+}
+void main(){
+  vec3 n = cross(iT, iB)/max(length(iT), 1e-6);   // card normal, same length as iT / iB
+  vec4 w0 = uModel*vec4(iCtr + iT*aC.x + iB*aC.y + n*aC.z, 1.0), w = w0;
+  w.xyz += leafSway(w0.xyz, uTime, iMSS.x);
+  vec3 ln = normalize(iT*aN.x + iB*aN.y + n*aN.z);
+  if (dot(ln, iDir) < 0.0) ln = -ln;               // two-sided: the face toward the cluster's outside
+  vW = w.xyz; vLN = normalize(mat3(uModel)*ln);
+  vN = normalize(mat3(uModel)*normalize(iDir*0.7 + ln*0.3));   // the crown's volume first, the leaf's own tilt second
+  vUV = aUV; vM = iMSS.x; vShade = iMSS.y; vSeed = iMSS.z; vLayer = aLayer;
+  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, iMSS.x), 1.0);
+  gl_Position = uVP*w;   // invariant: the canopy depth prepass and the GL_EQUAL shading pass must agree
+}
+)GLSL";
 static const char* kLeafAlpha = R"GLSL(
+uniform sampler2DArray uLeaves;   // L1: unit kLeafUnit (foliage.cpp); mips keep the alpha-tested coverage
+float leafAlpha(vec2 uv, float seed);
+float leafCut(vec2 uv, float seed, float layer){ return layer < 0.0 ? leafAlpha(uv, seed) : texture(uLeaves, vec3(uv, layer)).a; }
 float leafAlpha(vec2 uv, float seed){
   // leaves grow slightly once a card covers few pixels (fwidth of the uv), so distant canopies keep their
   // coverage instead of breaking into single-pixel sparkles that crawl as the camera moves
@@ -2011,6 +2046,7 @@ float leafAlpha(vec2 uv, float seed){
 )GLSL";
 static const char* kLeafFS = R"GLSL(
 in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
+flat in float vLayer; in vec3 vLN;
 in vec4 vCC, vPC;
 uniform vec3 uLeafCol;
 layout(location=4) out vec4 oVel;     // screen motion (previous uv - current uv), a = 1: valid
@@ -2019,10 +2055,12 @@ layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 float leafAlpha(vec2 uv, float seed);
 void main(){
-  if (leafAlpha(vUV, vSeed) < 0.5) discard;
+  vec4 tx = vLayer < 0.0 ? vec4(1.0) : texture(uLeaves, vec3(vUV, vLayer));
+  if ((vLayer < 0.0 ? leafAlpha(vUV, vSeed) : tx.a) < 0.5) discard;
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
-  vec3 alb = uLeafCol*(0.72 + 0.56*var)*vShade;
+  // textured: uLeafCol is the asset's leafColor / the species mean, so the crown keeps its authored colour
+  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.72 + 0.56*var)*vShade : tx.rgb*uLeafCol*(0.86 + 0.28*var)*vShade;
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
   // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
   // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
@@ -2042,6 +2080,10 @@ void main(){
   float VoL = max(dot(-V, uSunDir), 0.0);
   vec3 sss = alb*normalize(alb + 1e-4)*uSunCol*(0.05 + 0.22*pow(VoL, 6.0))*sh;
   vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7*vShade + (uShadowSoft > 0.0 ? sss : alb*uSunCol*0.08*pow(VoL, 4.0)*sh);
+  if (vLayer >= 0.0) {   // thin-leaf backlight: sun on the far face of the leaf as seen from here (warmer, still shadowed)
+    vec3 LN = normalize(vLN); if (dot(LN, V) < 0.0) LN = -LN;
+    c += alb*vec3(1.0, 1.05, 0.6)*uSunCol*0.12*max(dot(-LN, uSunDir), 0.0)*sh;
+  }
   if (uLightCount > 0) {   // lamps: wrapped diffuse, both faces of the card (thin leaves)
     vec3 ld, ls, lb; localLights(vW, N, N, V, -1.0, vec3(0.04), ld, ls); localLights(vW, -N, -N, V, -1.0, vec3(0.04), lb, ls);
     c += alb/PI*(ld + lb*0.6)*vShade;
@@ -2055,8 +2097,9 @@ void main(){
 )GLSL";
 static const char* kLeafShadowFS = R"GLSL(
 in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
-float leafAlpha(vec2 uv, float seed);
-void main(){ if (leafAlpha(vUV, vSeed) < 0.5) discard; }
+flat in float vLayer;
+float leafCut(vec2 uv, float seed, float layer);
+void main(){ if (leafCut(vUV, vSeed, vLayer) < 0.5) discard; }   // the same cutout as the shaded leaves
 )GLSL";
 
 static const char* kShadowVS = R"GLSL(
@@ -2911,6 +2954,9 @@ bool Renderer::init(int w, int h) {
     std::string fs1 = std::string(kLeafAlpha) + kLeafFS, fs2 = std::string(kLeafAlpha) + kLeafShadowFS;
     progLeaf = compile(kLeafVS, fs1.c_str(), "leaf");
     progLeafShadow = compile(kLeafVS, fs2.c_str(), "leaf_shadow");
+    progLeafI = compile(kLeafInstVS, fs1.c_str(), "leaf_i");
+    progLeafIShadow = compile(kLeafInstVS, fs2.c_str(), "leaf_i_shadow");
+    for (GLuint p : {progLeaf, progLeafShadow, progLeafI, progLeafIShadow}) glProgramUniform1i(p, glGetUniformLocation(p, "uLeaves"), kLeafUnit);
   }
   glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
   glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
@@ -3286,21 +3332,57 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
   }
 }
 
-void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr) {
-  glUseProgram(p);
-  const DrawLocs L = drawLocs(p);
-  glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(vp));
-  glUniform1f(L.time, time); glUniform1f(L.wind, wind);
-  GLint lm = L.model, lc = L.leafCol;
+// Trees with L1 species leaves (perf.leafTex) draw their cards as instances of the shared sprig meshes with the
+// instanced twin of p (progLeafI / progLeafIShadow): LOD f.cur in the main view (view), the sprig cards elsewhere
+// (sun / sky-occlusion shadows: same layers, same alpha). Everything else (ivy, ferns, oval A/B) draws the card VBO.
+void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool view) {
   float sway = 0.14f * std::max(0.0f, wind) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
+  bool tex = perf.leafTex && leafLibReady();
+  for (int pass = 0; pass < 2; ++pass) {
+    auto mine = [&](const FoliageDraw& f) { bool inst = tex && f.tree && f.tree->leafVao; return f.tree && inst == (pass == 1) && (inst || f.tree->cardVao); };
+    if (std::none_of(foliage.begin(), foliage.end(), mine)) continue;
+    GLuint q = pass == 0 ? p : p == progLeaf ? progLeafI : progLeafIShadow;
+    glUseProgram(q);
+    const DrawLocs L = drawLocs(q);
+    glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(vp));
+    glUniform1f(L.time, time); glUniform1f(L.wind, wind);
+    GLint lm = L.model, lc = L.leafCol;
+    for (auto& f : foliage) {
+      if (!mine(f)) continue;
+      if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway + (pass ? 0.05f : 0.0f))) { stats.culled++; continue; }   // leaf fold: a few cm off the card
+      glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
+      if (pass == 0) {
+        if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(f.tree->leafCol));
+        glBindVertexArray(f.tree->cardVao);
+        glDrawArrays(GL_TRIANGLES, 0, f.tree->cardVerts);
+        stats.draws++; stats.tris += f.tree->cardVerts / 3;
+        continue;
+      }
+      int lod = view ? f.cur : 2;
+      glBindVertexArray(f.tree->leafVao);
+      for (auto& g : f.tree->leafGroups) {
+        const LeafMeshRange& r = gLeafSprigMesh[g.sprig * 3 + lod];
+        if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(g.tint));
+        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), g.count, r.baseVertex, g.first);
+        stats.draws++; stats.tris += (size_t)r.count / 3 * g.count;
+      }
+    }
+  }
+}
+
+// L1 leaf LOD per tree for the main view: near (fitted folded leaves) / mid (2-triangle leaves) / far (sprig cards) by
+// the eye's distance to the canopy box, scaled by the zoom (scopes keep detail further out), with hysteresis.
+void Renderer::selectLeafLods(const RenderView& v) {
+  const float zoom = 1.43f / std::max(0.1f, v.proj[1][1]);   // 1 at a 70 degree vertical FOV
   for (auto& f : foliage) {
-    if (!f.tree || !f.tree->cardVao) continue;
-    if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway)) { stats.culled++; continue; }
-    glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
-    if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(f.tree->leafCol));
-    glBindVertexArray(f.tree->cardVao);
-    glDrawArrays(GL_TRIANGLES, 0, f.tree->cardVerts);
-    stats.draws++; stats.tris += f.tree->cardVerts / 3;
+    if (!f.tree || !f.tree->leafVao) continue;
+    vec3 lc = vec3(glm::inverse(f.m) * vec4(v.camPos, 1.0f));
+    float d = glm::length(lc - glm::clamp(lc, f.tree->cardMin, f.tree->cardMax)) * zoom / std::max(0.1f, leafLodScale);
+    uint8_t cur = f.lod ? *f.lod : 2, want = cur;
+    if (cur == 0) { if (d > kLeafNearOut) want = d > kLeafMidOut ? 2 : 1; }
+    else if (cur == 1) { if (d < kLeafNearIn) want = 0; else if (d > kLeafMidOut) want = 2; }
+    else { if (d < kLeafNearIn) want = 0; else if (d < kLeafMidIn) want = 1; }
+    f.cur = want; if (f.lod) *f.lod = want;
   }
 }
 
@@ -3662,18 +3744,21 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
     glDisable(GL_CULL_FACE);
-    setLighting(progLeaf, v);
-    glUniformMatrix4fv(U(progLeaf, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
-    glUniformMatrix4fv(U(progLeaf, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
-    glUniform1f(U(progLeaf, "uPrevTime"), time - v.dt);
+    selectLeafLods(v);
+    for (GLuint lp : {progLeaf, progLeafI}) {
+      setLighting(lp, v);
+      glUniformMatrix4fv(U(lp, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
+      glUniformMatrix4fv(U(lp, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
+      glUniform1f(U(lp, "uPrevTime"), time - v.dt);
+    }
     if (perf.leafPrepass) {   // PF2: canopy depth first (alpha test only), then each covered pixel is shaded once at GL_EQUAL
       glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
-      drawFoliage(progLeafShadow, vp, &frMain);
+      drawFoliage(progLeafShadow, vp, &frMain, true);
       if (thumbMode) glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0); else glNamedFramebufferDrawBuffers(worldFbo, 5, b5);
       glDepthFunc(GL_EQUAL); glDepthMask(GL_FALSE);
-      drawFoliage(progLeaf, vp, &frMain);
+      drawFoliage(progLeaf, vp, &frMain, true);
       glDepthFunc(zLess()); glDepthMask(GL_TRUE);
-    } else drawFoliage(progLeaf, vp, &frMain);
+    } else drawFoliage(progLeaf, vp, &frMain, true);
     glEnable(GL_CULL_FACE);
   }
   if (perf.terrainLast) drawTerrain();   // PF2: after solids / models / canopies, so the ground they hide is never shaded

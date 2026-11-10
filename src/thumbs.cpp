@@ -124,7 +124,7 @@ GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std:
   setLighting(progMain, v);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   drawItems(progMain, opaque, false);
-  if (!foliage.empty()) { setLighting(progLeaf, v); drawFoliage(progLeaf, vp); }
+  if (!foliage.empty()) { setLighting(progLeaf, v); setLighting(progLeafI, v); drawFoliage(progLeaf, vp); }
   glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glDepthMask(GL_FALSE);
   setLighting(progGlass, v);
   glUniformMatrix4fv(U(progGlass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
@@ -189,7 +189,7 @@ GLuint Renderer::renderAssetThumbnail(const std::vector<DrawItem>& opaqueIn, con
     glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     drawItems(progMain, opaque, false);
     if (!models.empty()) { setLighting(progModel, v); glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); drawModels(models); }
-    if (!foliage.empty()) { setLighting(progLeaf, v); drawFoliage(progLeaf, vp); }
+    if (!foliage.empty()) { setLighting(progLeaf, v); setLighting(progLeafI, v); drawFoliage(progLeaf, vp); }
     glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glDepthMask(GL_FALSE);
     setLighting(progGlass, v);
     glUniformMatrix4fv(U(progGlass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
