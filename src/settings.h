@@ -14,7 +14,7 @@ enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3 };
 // The part of the graphics options a preset sets. Everything else (FOV, vsync, FPS cap, cloud cover) is personal and
 // kept when a preset is picked.
 struct GraphicsOpts {
-  float resScale = 1.0f;       // internal render resolution, upscaled at the final blit (0.5 .. 1)
+  float resScale = 0.67f;      // internal render resolution (0.5 .. 1); below 1 TAA reconstructs at output size (P1 TAAU). Medium 0.67, Low 0.5, High 1
   int shadowQuality = 1;       // 0: near 2048 / far 1024, 1: 4096 / 2048 (default), 2: 4096 / 4096
   bool farCascade = true, cloudShadows = true, shafts = true, ssr = true, ssao = true, ssaoFull = false, bloom = true, taa = true;
   int taaPhases = 8;           // Halton jitter sequence length

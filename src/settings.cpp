@@ -16,13 +16,13 @@
 GraphicsOpts presetOpts(GfxPreset p) {
   GraphicsOpts g;   // Medium: the built-in defaults (Renderer::Quality, Grass, Fx, the cull rules in maps.json)
   if (p == GfxPreset::Low) {
-    g.resScale = 0.85f; g.shadowQuality = 0;
+    g.resScale = 0.5f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output (was 0.85 bilinear)
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
     g.grass = 1; g.grassWind = false; g.renderDist = 600; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::High) {
-    g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;
+    g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;   // P1: High stays native
     g.grass = 3; g.renderDist = 2500; g.particles = 1.5f; g.dustMotes = 2;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
     g.materials = 2;                                     // GX5: + parallax on height-capable texture sets

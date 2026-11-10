@@ -1875,6 +1875,7 @@ void main(){
 static const char* kTaaFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uCur, uHist, uDepth, uVel; uniform mat4 uInvVP, uPrevVP; uniform vec2 uTexel; uniform int uValid; uniform float uSharpen;
+uniform int uUp; uniform vec2 uInTexel, uJit;   // P1 TAAU: 1 = this pass runs at output size; the internal texel; the frame's jitter (internal px)
 layout(location=0) out vec4 oColor;
 layout(location=1) out vec4 oHist;
 vec3 toYC(vec3 c){ return vec3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
@@ -1892,19 +1893,39 @@ vec3 histCR(vec2 uv){
   return max(r/wsum, vec3(0.0));
 }
 void main(){
-  vec3 cur = tm(texture(uCur, vUV).rgb);
-  vec3 m1 = vec3(0.0), m2 = vec3(0.0), sum = vec3(0.0);
-  for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) {
-    vec3 s = tm(texture(uCur, vUV + vec2(x, y)*uTexel).rgb);
-    vec3 yc = toYC(s); m1 += yc; m2 += yc*yc;
-    if (x != 0 || y != 0) sum += s;
+  vec3 cur, m1 = vec3(0.0), m2 = vec3(0.0), sum = vec3(0.0);
+  vec2 dUV = vUV; float conf = 1.0;
+  if (uUp == 1) {
+    // TAAU: the internal texel c holds the scene at the unjittered screen position c + jitter (projJ moves the image by -jitter). This output pixel takes a
+    // Gaussian of the 3x3 internal samples by their distance to it; conf = how close the nearest sample fell (history
+    // carries the rest). The clip box and the sharpen reference are the same 3x3 internal samples.
+    vec2 p = vUV/uInTexel; ivec2 b = ivec2(floor(p - uJit)); ivec2 mx = textureSize(uCur, 0) - 1;
+    vec3 acc = vec3(0.0); float wsum = 0.0, wmax = 0.0;
+    for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) {
+      ivec2 t = clamp(b + ivec2(x, y), ivec2(0), mx);
+      vec3 s = tm(texelFetch(uCur, t, 0).rgb);
+      vec2 d = vec2(b + ivec2(x, y)) + 0.5 + uJit - p;
+      float w = exp(-2.0*dot(d, d));
+      acc += s*w; wsum += w; wmax = max(wmax, w);
+      vec3 yc = toYC(s); m1 += yc; m2 += yc*yc; sum += s;
+    }
+    cur = acc/max(wsum, 1e-4); sum *= 8.0/9.0; conf = wmax;
+    dUV = (vec2(clamp(b, ivec2(0), mx)) + 0.5)*uInTexel;   // depth / motion of the nearest internal sample
+  } else {
+    cur = tm(texture(uCur, vUV).rgb);
+    for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) {
+      vec3 s = tm(texture(uCur, vUV + vec2(x, y)*uTexel).rgb);
+      vec3 yc = toYC(s); m1 += yc; m2 += yc*yc;
+      if (x != 0 || y != 0) sum += s;
+    }
   }
   m1 /= 9.0; vec3 sig = sqrt(max(m2/9.0 - m1*m1, 0.0));
-  float z = texture(uDepth, vUV).r;
+  float z = texture(uDepth, dUV).r;
+  gl_FragDepth = z;   // TAAU: the output depth for effects and overlays (no depth test in the internal-size pass)
   vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, z, 1.0);   // reverse-Z: ndc z = depth; the sky (0) lands on the far plane
   vec3 w = wp.xyz/wp.w;
   vec4 pc = uPrevVP*vec4(w, 1.0); vec2 puv = pc.xy/pc.w*0.5 + 0.5;
-  vec4 mv = texture(uVel, vUV);
+  vec4 mv = texture(uVel, dUV);
   if (mv.a > 0.5) puv = vUV + mv.xy;   // animated foliage / grass: their own motion, not the depth reprojection
   vec3 res = cur;
   if (uValid == 1 && puv.x > 0.0 && puv.x < 1.0 && puv.y > 0.0 && puv.y < 1.0) {
@@ -1915,6 +1936,10 @@ void main(){
     if (mx > 1.0) h = ctr + d/mx;
     float motion = length((puv - vUV)/uTexel);
     float alpha = mix(0.08, 0.30, clamp(motion/16.0, 0.0, 1.0));
+    if (uUp == 1) {   // TAAU: a sample far from this pixel counts less; wind-animated pixels (approximate motion) keep less history
+      alpha *= 0.25 + 1.5*conf;
+      if (mv.a > 0.5) alpha = max(alpha, 0.2);
+    }
     res = mix(fromYC(h), cur, alpha);
   }
   vec3 hst = itm(res);
@@ -3162,7 +3187,7 @@ void Renderer::resize(int w, int h) {
   w = std::max(w, 16); h = std::max(h, 16);
   if (w == displayW && h == displayH) return;
   displayW = w; displayH = h;
-  int iw = std::max(16, (int)std::lround(w * resScale)), ih = std::max(16, (int)std::lround(h * resScale));
+  int iw = std::max(16, (int)std::lround(w * effScale())), ih = std::max(16, (int)std::lround(h * effScale()));
   if (iw == width && ih == height) return;
   width = iw; height = ih; createTargets();
 }
@@ -3541,6 +3566,11 @@ void Renderer::gpuMark(int p) {
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
+  if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
+    int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
+    if (iw != width || ih != height) { width = iw; height = ih; createTargets(); }
+  }
+  upActive = false;
   // shadow cascades and sky occlusion: standard depth; the camera passes below switch to reverse-Z
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
   RenderView v = v0;
@@ -3677,13 +3707,16 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   gpuMark(GP_Clears);
   // ---- main HDR pass. With TAA the world is rendered with a sub-pixel jitter (Halton 2,3, 8 phases); effects,
   // the weapon and overlays use the unjittered matrices.
-  bool taaOn = q.taa && !q.legacy && !thumbMode;
+  // P1 TAAU: below the output size the TAA resolve reconstructs at output size (TAA is then always on: it is the upscaler)
+  const bool taau = !q.legacy && !thumbMode && displayW > 0 && (width < displayW || height < displayH);
+  bool taaOn = (q.taa || taau) && !q.legacy && !thumbMode;
+  if (taau != histUp) { taaValid = false; histUp = taau; }   // the two histories have different sizes
   mat4 vpU = v.proj * v.view;
   mat4 projJ = v.proj;
   if (taaOn) {
     auto halton = [](int i, int b) { float f = 1, r = 0; while (i > 0) { f /= b; r += f * (i % b); i /= b; } return r; };
     int ph = frame % std::clamp(q.taaPhases, 1, 64) + 1;
-    jitterPx = vec2(halton(ph, 2) - 0.5f, halton(ph, 3) - 0.5f) * q.taaJitter;   // +-0.25 px default: edges stay crisp
+    jitterPx = vec2(halton(ph, 2) - 0.5f, halton(ph, 3) - 0.5f) * (taau ? 1.0f : q.taaJitter);   // +-0.25 px default: edges stay crisp; TAAU: a whole internal pixel
     projJ[2][0] += jitterPx.x * 2.0f / width; projJ[2][1] += jitterPx.y * 2.0f / height;
     // camera cut: teleport / mode switch / respawn (a fast flick is fine; reprojection handles it)
     if (glm::length(v.camPos - prevCam) > 4.0f) taaValid = false;
@@ -4019,6 +4052,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     const GLenum dead[4] = {GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_DEPTH_ATTACHMENT};
     glInvalidateNamedFramebufferData(hdrFbo, 4, dead);
   }
+  if (upActive) swapUp();   // P1: back to the internal set for the next frame (upActive stays: readPixels reads the output set)
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0); glDepthFunc(GL_LESS);   // back to standard GL
   water.clear();
@@ -4087,23 +4121,42 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   glBindVertexArray(emptyVao);
   glCopyImageSubData(hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, sceneCopy, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
   int cur = histIdx ^ 1;
-  glBindFramebuffer(GL_FRAMEBUFFER, taaFbo[cur]);
-  { const GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glInvalidateNamedFramebufferData(taaFbo[cur], 2, b2); }   // colour (from sceneCopy) and the new history
-  glViewport(0, 0, width, height);
+  if (histUp) {   // P1 TAAU: reconstruct at output size into the output-size set, then continue the frame there
+    if (up.w != displayW || up.h != displayH) { createUpTargets(); taaValid = false; }
+    if (temporalUpscaler && temporalUpscaler({sceneCopy, depthTex, velTex, up.hdrColor, up.depthTex, width, height, up.w, up.h, jitterPx,
+                                              glm::inverse(vpU), prevVP, !taaValid})) {
+      taaValid = true; prevVP = vpU; prevCam = v.camPos;
+      swapUp(); upActive = true;
+      glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo); glViewport(0, 0, width, height);
+      glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE); glDepthFunc(zLess());
+      return;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, up.taaFbo[cur]);
+    glViewport(0, 0, up.w, up.h);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);   // the output depth (fx, overlays) from gl_FragDepth
+  } else {
+    glBindFramebuffer(GL_FRAMEBUFFER, taaFbo[cur]);
+    { const GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glInvalidateNamedFramebufferData(taaFbo[cur], 2, b2); }   // colour (from sceneCopy) and the new history
+    glViewport(0, 0, width, height);
+  }
   glUseProgram(progTaa);
-  glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, histTex[histIdx]); glBindTextureUnit(7, depthTex);
+  glUniform1i(U(progTaa, "uUp"), histUp ? 1 : 0);
+  glUniform2f(U(progTaa, "uInTexel"), 1.0f / width, 1.0f / height);
+  glUniform2f(U(progTaa, "uJit"), jitterPx.x, jitterPx.y);
+  glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, histUp ? up.hist[histIdx] : histTex[histIdx]); glBindTextureUnit(7, depthTex);
   glUniform1i(U(progTaa, "uCur"), 8); glUniform1i(U(progTaa, "uHist"), 9); glUniform1i(U(progTaa, "uDepth"), 7);
   glBindTextureUnit(10, velTex); glUniform1i(U(progTaa, "uVel"), 10);
   // reproject with the *unjittered* matrices: a still camera then fetches history at exactly the same pixel (the
   // jittered inverse would resample history half a pixel off every frame and accumulate blur)
   (void)vpJ; glUniformMatrix4fv(U(progTaa, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vpU)));
   glUniformMatrix4fv(U(progTaa, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(prevVP));
-  glUniform2f(U(progTaa, "uTexel"), 1.0f / width, 1.0f / height);
+  glUniform2f(U(progTaa, "uTexel"), histUp ? 1.0f / up.w : 1.0f / width, histUp ? 1.0f / up.h : 1.0f / height);   // output (history) texel
   glUniform1i(U(progTaa, "uValid"), taaValid ? 1 : 0);
-  glUniform1f(U(progTaa, "uSharpen"), q.taaSharpen);
+  glUniform1f(U(progTaa, "uSharpen"), histUp ? 0.5f * q.taaSharpen : q.taaSharpen);   // TAAU: its blur reference is the coarser internal neighbourhood
   glDrawArrays(GL_TRIANGLES, 0, 3);
   histIdx = cur; taaValid = true;
   prevVP = vpU; prevCam = v.camPos;
+  if (histUp) { glDepthFunc(zLess()); swapUp(); upActive = true; }
   glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo); glViewport(0, 0, width, height);
   glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
 }
@@ -4139,18 +4192,60 @@ void Renderer::bloomPass() {
 }
 
 bool Renderer::readPixels(std::vector<uint8_t>& rgba, int& w, int& h) {
-  w = width; h = height; rgba.resize((size_t)w * h * 4);
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, ldrFbo);
+  w = upActive ? up.w : width; h = upActive ? up.h : height; rgba.resize((size_t)w * h * 4);   // P1: the frame's final (output-size) image
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, upActive ? up.ldrFbo : ldrFbo);
   glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
   glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   return true;
 }
 
 bool Renderer::readVmDist(std::vector<float>& d, int& w, int& h) {
-  w = width; h = height; d.assign((size_t)w * h, 0.0f);
-  if (!vmDistTex) return false;
-  glGetTextureImage(vmDistTex, 0, GL_RED, GL_FLOAT, (GLsizei)(d.size() * sizeof(float)), d.data());
+  w = upActive ? up.w : width; h = upActive ? up.h : height; d.assign((size_t)w * h, 0.0f);
+  GLuint t = upActive ? up.vmDistTex : vmDistTex;
+  if (!t) return false;
+  glGetTextureImage(t, 0, GL_RED, GL_FLOAT, (GLsizei)(d.size() * sizeof(float)), d.data());
   return true;
+}
+
+// P1 TAAU output-size post targets (formats as createTargets; the history ping-pong at output size)
+void Renderer::createUpTargets() {
+  if (up.hdrFbo) {
+    GLuint f[5] = {up.hdrFbo, up.dofFbo, up.ldrFbo, up.taaFbo[0], up.taaFbo[1]}; glDeleteFramebuffers(5, f);
+    GLuint t[7] = {up.hdrColor, up.depthTex, up.vmDistTex, up.dofTex, up.ldrColor, up.hist[0], up.hist[1]}; glDeleteTextures(7, t);
+  }
+  int w = up.w = displayW, h = up.h = displayH;
+  auto tex = [&](GLenum fmt, int lv, GLenum filt) {
+    GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t); glTextureStorage2D(t, lv, fmt, w, h);
+    glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, filt); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, filt == GL_NEAREST ? GL_NEAREST : GL_LINEAR);
+    glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    return t;
+  };
+  up.hdrColor = tex(GL_RGBA16F, 1 + (int)std::floor(std::log2((float)std::max(w, h))), GL_LINEAR_MIPMAP_LINEAR);   // exposure / eyepiece read its mips
+  up.depthTex = tex(GL_DEPTH_COMPONENT32F, 1, GL_NEAREST);
+  up.vmDistTex = tex(GL_R16F, 1, GL_NEAREST);
+  up.dofTex = tex(GL_RGBA16F, 1, GL_LINEAR);
+  up.ldrColor = tex(GL_RGBA8, 1, GL_LINEAR);
+  glCreateFramebuffers(1, &up.hdrFbo);
+  glNamedFramebufferTexture(up.hdrFbo, GL_COLOR_ATTACHMENT0, up.hdrColor, 0); glNamedFramebufferTexture(up.hdrFbo, GL_COLOR_ATTACHMENT1, up.vmDistTex, 0);
+  glNamedFramebufferTexture(up.hdrFbo, GL_DEPTH_ATTACHMENT, up.depthTex, 0); glNamedFramebufferDrawBuffer(up.hdrFbo, GL_COLOR_ATTACHMENT0);
+  glCreateFramebuffers(1, &up.dofFbo); glNamedFramebufferTexture(up.dofFbo, GL_COLOR_ATTACHMENT0, up.dofTex, 0);
+  glCreateFramebuffers(1, &up.ldrFbo);
+  glNamedFramebufferTexture(up.ldrFbo, GL_COLOR_ATTACHMENT0, up.ldrColor, 0); glNamedFramebufferTexture(up.ldrFbo, GL_DEPTH_ATTACHMENT, up.depthTex, 0);
+  for (int k = 0; k < 2; ++k) {
+    up.hist[k] = tex(GL_RGBA16F, 1, GL_LINEAR);
+    glCreateFramebuffers(1, &up.taaFbo[k]);
+    glNamedFramebufferTexture(up.taaFbo[k], GL_COLOR_ATTACHMENT0, up.hdrColor, 0); glNamedFramebufferTexture(up.taaFbo[k], GL_COLOR_ATTACHMENT1, up.hist[k], 0);
+    glNamedFramebufferTexture(up.taaFbo[k], GL_DEPTH_ATTACHMENT, up.depthTex, 0);
+    GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glNamedFramebufferDrawBuffers(up.taaFbo[k], 2, b2);
+  }
+  for (GLuint f : {up.hdrFbo, up.dofFbo, up.ldrFbo, up.taaFbo[0], up.taaFbo[1]})
+    if (glCheckNamedFramebufferStatus(f, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("TAAU framebuffer %u incomplete at %dx%d", f, w, h); ++fboErrors; }
+}
+
+void Renderer::swapUp() {
+  std::swap(hdrFbo, up.hdrFbo); std::swap(hdrColor, up.hdrColor); std::swap(depthTex, up.depthTex); std::swap(vmDistTex, up.vmDistTex);
+  std::swap(dofTex, up.dofTex); std::swap(dofFbo, up.dofFbo); std::swap(ldrFbo, up.ldrFbo); std::swap(ldrColor, up.ldrColor);
+  std::swap(width, up.w); std::swap(height, up.h);
 }
 
 // Renderer::renderThumbnail moved to thumbs.cpp (W2: build-menu thumbnails)
