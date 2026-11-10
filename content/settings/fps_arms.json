@@ -1,27 +1,9 @@
 {
-  "_doc": "FA1 first-person arms (src/fps_arms.cpp, docs/fps-arms.md). Where the hands go is measured on each weapon's mesh at its grip sockets (the trigger hand's palm on the right face of the stock wrist / pistol grip, the support hand's palm under the fore-end, knuckles at the far edge). Each hand's orientation in weapon space (x toward the shooter's LEFT (the viewmodel turns the weapon 180 degrees about y), y up, z toward the muzzle): pinky = the grip axis from the index finger toward the little finger (the line the fingers curl about), palm = the palm's outward normal. curl: degrees toward the palm [proximal, distal] for the fingers (middle to pinky) and the index finger, thumb one angle. contact (optional): the grip point in the hand frame [along the fingers from the wrist, toward the pinky, out of the palm] (m). soften (optional, 0..1): turn the hand toward the forearm. styles: shared specs a weapon names with \"style\". weapons: per weapon id, keys replacing the default; left \"free\": true keeps the support hand off the weapon. shoulderR / shoulderL: the shoulders in camera space (x right, y up, -z forward), behind and below the eye. sightConeDeg: in ADS nothing of the arms may sit within this angle of the sight line (the support hand is lowered, else the arm is not drawn); nearClear: an arm with any part closer than this (m) to the eye within 27 degrees of the view centre is not drawn (nearClearAds in ADS: the trigger arm sits at the cheek).",
-  "shoulderR": [0.2, -0.32, 0.16],
-  "shoulderL": [-0.2, -0.32, 0.16],
-  "sightConeDeg": 6,
+  "_doc": "FA2 first-person support arm (src/fps_arms.cpp, docs/fps-arms.md): one generated arm (sleeve tube + hand) for every weapon. sleeve / skin: linear colours (Allies olive drab, Axis charcoal; thread = the stitching). weapons: optional per-weapon support grip (weapon space: the bottom of the held section) and section radius in metres; without one the fore-end is measured on the weapon's mesh at its gripL socket. sightConeDeg / nearClear / nearClearAds: the ADS sight cone and the near-eye clearance the arm is kept out of.",
+  "sleeve": {"allies": [0.105, 0.100, 0.048], "alliesThread": [0.24, 0.22, 0.12], "axis": [0.030, 0.030, 0.032], "axisThread": [0.10, 0.10, 0.105]},
+  "skin": [0.44, 0.25, 0.155],
+  "sightConeDeg": 6.0,
   "nearClear": 0.12,
   "nearClearAds": 0.25,
-  "default": {
-    "right": {"pinky": [0, -0.6, -0.8], "palm": [1, 0, 0], "curl": {"fingers": [80, 70], "index": [30, 20], "thumb": 35}},
-    "left": {"pinky": [0, 0, -1], "palm": [0, 1, 0], "curl": {"fingers": [55, 45], "index": [50, 40], "thumb": 20}}
-  },
-  "styles": {
-    "pistolgrip": {"right": {"pinky": [0, -0.93, -0.35]}}
-  },
-  "weapons": {
-    "m1_thompson": {"style": "pistolgrip"},
-    "m3_grease_gun": {"style": "pistolgrip"},
-    "mp40": {"style": "pistolgrip"},
-    "stg44": {"style": "pistolgrip"},
-    "fg42": {"style": "pistolgrip"},
-    "mg42": {"style": "pistolgrip"},
-    "knife_bayonet": {"right": {"pinky": [0, 0, -1], "palm": [1, 0, 0], "curl": {"fingers": [90, 80], "index": [85, 75], "thumb": 50}}},
-    "mk2_grenade": {"right": {"pinky": [0, -1, 0], "palm": [1, 0, 0], "curl": {"fingers": [60, 50], "index": [60, 50], "thumb": 45}}},
-    "smoke_grenade": {"right": {"pinky": [0, -1, 0], "palm": [1, 0, 0], "curl": {"fingers": [60, 50], "index": [60, 50], "thumb": 45}}},
-    "m24_grenade": {"right": {"pinky": [0, 0, -1], "palm": [1, 0, 0], "curl": {"fingers": [90, 80], "index": [85, 75], "thumb": 50}}}
-  }
+  "weapons": {}
 }
