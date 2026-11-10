@@ -103,7 +103,7 @@ public:
   bool furnDestructible = false; int removed = 0;
   bool fixedPiece(const Instance& i) const { return !furnDestructible && isFurnishPiece(i); }   // room-template furniture; hand-placed props (street lamps, crates outdoors) stay destructible
   // furndist (Renderer::Perf): this frame's distances for small pieces / large silhouettes (updateBatches): per preset
-  // (Low 24 / 50, Medium 32 / 75 as before, High 45 / 100), x the zoom; a building's batch switches tier with hysteresis
+  // (Low 24 / 50, Medium and High 32 / 75 as before), x the zoom; a building's batch switches tier with hysteresis
   float curSmall = 32.0f, curBig = 75.0f;
   bool clutterHidden(const Instance& i, const PropDef& pd, const AssetDef* a) const;
   int batchDraws = 0, batchedPieces = 0, batchRebuilds = 0, soloDraws = 0, culledPieces = 0, batchPasses = 0, syncPasses = 0; size_t batchVerts = 0;
@@ -130,7 +130,7 @@ public:
   void sync(App& app);                                 // Creative: generated pieces follow / leave with their host
   void editorPanel(App& app, Instance& s);
   // ---- state
-  struct PropRT { bool broken = false, glassBroken = false, applied = false, crushed = false, gone = false; float hits = 0; };   // gone: removed (lost its support / crushed) while furniture is not destructible
+  struct PropRT { bool broken = false, glassBroken = false, applied = false, crushed = false, gone = false, lightOut = false; float hits = 0; };   // lightOut: a fixed room lamp shot out (dark, mesh unchanged)   // gone: removed (lost its support / crushed) while furniture is not destructible
   std::map<uint64_t, PropRT> st;
   struct Frag { uint64_t inst = 0; const GpuMesh* mesh = nullptr; uint32_t body = 0xffffffffu; mat4 m{1}; float age = 0; bool frozen = false; };
   std::deque<Frag> frags;

@@ -565,7 +565,8 @@ void InteriorSys::updateBatches(App& app) {
   {   // furndist: this frame's furniture distances (m from the eye to the building's furniture, x the zoom so a scope keeps them)
     GfxPreset ps = settings().s.preset();
     float zoom = app.R.height > 0 ? std::clamp(app.lodPxPerM / (app.R.height * 0.5f * 1.43f), 1.0f, 8.0f) : 1.0f;   // 1 at a 70 degree FOV
-    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low ? 24.0f : ps == GfxPreset::High ? 45.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low ? 50.0f : ps == GfxPreset::High ? 100.0f : cullBig) * zoom; }
+    // High keeps Medium's distances: 45 / 100 m measured +1.4 ms of buildDrawLists on chateau_town for no visible gain
+    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low ? 24.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low ? 50.0f : cullBig) * zoom; }
     else { curSmall = cullSmall; curBig = cullBig; }
     lowClutter_ = app.R.perf.furnClutter && ps == GfxPreset::Low;
   }
@@ -825,6 +826,14 @@ int InteriorSys::bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::strin
   surface = surfaceOf(pd);
   if (fixedPiece(*inst)) {   // rounds stop at / pass through furniture exactly as before; the piece takes no damage
     bool stops = pd->family == "masonry" || pd->family == "metal";
+    // a room lamp can still be shot out (LAN peers replay the round, so they agree): the light goes dark, the mesh and
+    // the building's furniture batch are untouched (PropRT::lightOut, not glassBroken)
+    if (pd->glass >= 0 && !s.lightOut && lightDef(it->second.asset)) {
+      vec3 lp = glm::inverse(yawQuat(inst->yaw)) * (at - inst->pos);
+      if (!stops || (glm::all(glm::greaterThan(lp, pd->gmin - vec3(0.04f))) && glm::all(glm::lessThan(lp, pd->gmax + vec3(0.04f))))) {
+        s.lightOut = true; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); return 2;
+      }
+    }
     app.fx.impact(at, -dir, stops ? pd->family : surface == "wood" ? "wood" : surface);
     return stops ? 1 : 2;
   }
@@ -1088,7 +1097,7 @@ void InteriorSys::reset(App& app) {
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !prop(it->second.asset)) continue;
     auto s = st.find(i.id);
     bool applied = i.extra.is_object() && i.extra.value("propBroken", false);
-    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
+    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.lightOut || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
   }
   // state of pieces that were deleted since (a removed building's furniture, test props): gone with them
   std::unordered_set<uint64_t> live; live.reserve(app.doc.instances.size());

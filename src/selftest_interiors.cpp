@@ -323,13 +323,20 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
             "fixed furniture: a piece that lost its support is removed (gone " + std::to_string(st != a.interior.st.end() && st->second.gone) + ", " + std::to_string(a.interior.fragsSpawned - f0) + " fragments, " + std::to_string(op.size() + gl.size()) + " draw items, collider " + (r.staticBody == 0xffffffffu ? "removed" : "left") + ")");
       a.interior.reset(a);   // the session overlay goes: the piece stands again
       check(!propBroken(a, id) && a.rt[id].staticBody != 0xffffffffu, "fixed furniture: reset puts the removed piece back with its collider");
-      // a room lamp is fixed too: a round in its glass leaves it lit (its switch still works)
+      // a room lamp can still be shot out, without any mesh or batch change
       Instance* lamp = nullptr; const PropDef* lpd = nullptr;
       for (auto* k : childrenOf(a, FH)) { const PropDef* q = a.interior.prop(a.assetFor(*k)); if (q && q->glass >= 0 && lightDef(a.assetFor(*k)) && lightOffReason(a, *k).empty()) { lamp = k; lpd = q; break; } }
       if (lamp) {
         vec3 g = vec3(a.instanceMatrix(*lamp) * vec4((lpd->gmin + lpd->gmax) * 0.5f, 1)); int gb = a.interior.glassBreaks;
+        a.interior.updateBatches(a);   // the rebuild the reset above caused, before the baseline
+        int bp = a.interior.batchRebuilds;
         a.interior.bulletHit(a, lamp->id, g, vec3(0, 0, -1), surf);
-        check(a.interior.glassBreaks == gb && lightOffReason(a, *a.doc.find(lamp->id)).empty(), "fixed furniture: a round in a room lamp's glass (" + lamp->assetId + ") breaks nothing and leaves it lit");
+        a.interior.updateBatches(a);
+        auto ls = a.interior.st.find(lamp->id);
+        check(a.interior.glassBreaks == gb && ls != a.interior.st.end() && !ls->second.glassBroken && !ls->second.broken && a.interior.batchRebuilds == bp && lightOffReason(a, *a.doc.find(lamp->id)) == "glass broken",
+              "fixed furniture: a round in a room lamp's glass (" + lamp->assetId + ") puts the light out (" + lightOffReason(a, *a.doc.find(lamp->id)) + ") with no glass / mesh change and no batch rebuild (" + std::to_string(a.interior.batchRebuilds - bp) + ")");
+        a.interior.reset(a);
+        check(lightOffReason(a, *a.doc.find(lamp->id)).empty(), "fixed furniture: reset lights the lamp again");
       } else check(true, "fixed furniture: no lit glazed room lamp in the farmhouse to shoot (skipped)");
       // The steps below test the break machinery itself (rounds, blasts, fragments, support, crushing, lamps shot out) on
       // room pieces. Hand-placed and outdoor props still use it in the game; room furniture does not, so from here on the

@@ -276,7 +276,7 @@ std::string offReason(App& app, const Instance& i, const AssetDef* a, const Ligh
       bool kept = s.group >= 0 && std::find(pd->keep.begin(), pd->keep.end(), s.group) != pd->keep.end() && s.group != pd->glass;
       if (st->second.crushed) return "broken";
       if (st->second.broken && !kept) return "broken";
-      if (st->second.glassBroken && s.group >= 0 && s.group == pd->glass) return "glass broken";
+      if ((st->second.glassBroken || st->second.lightOut) && s.group >= 0 && s.group == pd->glass) return "glass broken";
     }
   }
   if (gen && room >= 0 && lightsRoomBreached(app, host, room)) return "room breached";
