@@ -127,15 +127,28 @@ float vnoise(float x, float y, int per) {   // tileable value noise, period per 
   auto h = [&](int a, int b) { return hash2(((a % per) + per) % per, ((b % per) + per) % per); };
   return glm::mix(glm::mix(h(ix, iy), h(ix + 1, iy), fx), glm::mix(h(ix, iy + 1), h(ix + 1, iy + 1), fx), fy);
 }
-void skinTex(vec3 skin, GpuModel::MatTex& m) {
-  const int S = 256;
-  std::vector<uint8_t> alb((size_t)S * S * 4), nrm((size_t)S * S * 4);
+// sa / sn / sr: the photographic skin set (content/textures/skin_hand: albedo, OpenGL normal, rma = roughness + AO),
+// tiled at pore scale over the hand's bands; its albedo is normalised to its mean and tinted to `skin`, so the tone
+// stays the configured one while the pores, blotches and fine lines come from the photo
+void skinTex(vec3 skin, const Img& sa, const Img& sn, const Img& sr, GpuModel::MatTex& m) {
+  const int S = 1024;
+  std::vector<uint8_t> alb((size_t)S * S * 4), nrm((size_t)S * S * 4), mr((size_t)S * S * 4);
   std::vector<float> hgt((size_t)S * S, 0.0f);
+  auto bil = [](const Img& im, float u, float v, int ch) {
+    float x = u * im.w - 0.5f, y = v * im.h - 0.5f; int x0 = (int)std::floor(x), y0 = (int)std::floor(y); float fx = x - x0, fy = y - y0;
+    auto P = [&](int xx, int yy) { xx = ((xx % im.w) + im.w) % im.w; yy = ((yy % im.h) + im.h) % im.h; return (float)im.px[((size_t)yy * im.w + xx) * 4 + ch]; };
+    return glm::mix(glm::mix(P(x0, y0), P(x0 + 1, y0), fx), glm::mix(P(x0, y0 + 1), P(x0 + 1, y0 + 1), fx), fy);
+  };
+  auto lin = [](float c) { return std::pow(c / 255.0f, 2.2f); };
+  vec3 mean(0); { size_t n = 0; for (size_t k = 0; k + 3 < sa.px.size(); k += 4 * 13, ++n) mean += vec3(lin(sa.px[k]), lin(sa.px[k + 1]), lin(sa.px[k + 2])); mean = glm::max(mean / float(std::max<size_t>(n, 1)), vec3(1e-3f)); }
+  const float ku = 0.57f, kv = 1.5f;   // hand uv -> source tiles: the source tile is about 15 cm of skin (pore scale)
   auto line = [](float v, float at, float w) { return std::exp(-std::pow((v - at) / w, 2.0f)); };
   for (int y = 0; y < S; ++y) for (int x = 0; x < S; ++x) {
     float u = (x + 0.5f) / S, v = (y + 0.5f) / S;
     float n1 = vnoise(u * 8, v * 8, 8) * 0.6f + vnoise(u * 32, v * 32, 32) * 0.4f, n2 = vnoise(u * 5 + 17, v * 5 + 3, 5);
-    float shade = 0.90f + 0.16f * n1, crease = 0;
+    float shade = 0.96f + 0.06f * n1, crease = 0;
+    float su = u * ku, sv = v * kv;
+    vec3 photo = glm::clamp(vec3(lin(bil(sa, su, sv, 0)), lin(bil(sa, su, sv, 1)), lin(bil(sa, su, sv, 2))) / mean, vec3(0.5f), vec3(1.6f));
     if (v < 0.15f) {   // wrist: from inside the cuff (v 0) to the heel of the hand (0.15)
       shade *= glm::mix(0.55f, 1.0f, glm::smoothstep(0.0f, 0.07f, v));
       crease = line(v, 0.125f, 0.004f) * 0.8f;
@@ -149,19 +162,22 @@ void skinTex(vec3 skin, GpuModel::MatTex& m) {
       crease = line(v, 0.44f, 0.006f) * 0.5f;   // the knuckle line at the palm's far end
     }
     shade *= 1.0f - 0.35f * crease;
-    vec3 col = skin * shade * vec3(1.0f + 0.07f * (n2 - 0.5f), 1.0f - 0.03f * (n2 - 0.5f), 1.0f - 0.04f * (n2 - 0.5f));
+    vec3 col = skin * shade * photo * vec3(1.0f + 0.04f * (n2 - 0.5f), 1.0f, 1.0f);
     size_t o = ((size_t)y * S + x) * 4;
+    mr[o] = (uint8_t)std::lround(std::clamp(bil(sr, su, sv, 1) / 255.0f * (1 - 0.3f * crease), 0.0f, 1.0f) * 255); mr[o + 1] = (uint8_t)std::lround(bil(sr, su, sv, 0)); mr[o + 2] = 0; mr[o + 3] = 255;
     for (int q = 0; q < 3; ++q) alb[o + q] = (uint8_t)std::clamp(std::lround(std::pow(std::clamp(col[q], 0.0f, 1.0f), 1.0f / 2.2f) * 255.0f), 0L, 255L);
     alb[o + 3] = 255;
     hgt[(size_t)y * S + x] = n1 * 0.15f - crease;
   }
   for (int y = 0; y < S; ++y) for (int x = 0; x < S; ++x) {
     auto H = [&](int xx, int yy) { return hgt[(size_t)std::clamp(yy, 0, S - 1) * S + (xx + S) % S]; };
-    vec3 n = glm::normalize(vec3(-(H(x + 1, y) - H(x - 1, y)) * 1.2f, -(H(x, y + 1) - H(x, y - 1)) * 1.2f, 1.0f));
+    float su = (x + 0.5f) / S * ku, sv = (y + 0.5f) / S * kv;
+    vec3 np(bil(sn, su, sv, 0) / 127.5f - 1, bil(sn, su, sv, 1) / 127.5f - 1, bil(sn, su, sv, 2) / 127.5f - 1);   // the photo's pores (OpenGL normal)
+    vec3 n = glm::normalize(vec3(np.x - (H(x + 1, y) - H(x - 1, y)) * 4.8f, np.y - (H(x, y + 1) - H(x, y - 1)) * 4.8f, std::max(0.2f, np.z)));
     size_t o = ((size_t)y * S + x) * 4;
     nrm[o] = (uint8_t)std::lround((n.x * 0.5f + 0.5f) * 255); nrm[o + 1] = (uint8_t)std::lround((n.y * 0.5f + 0.5f) * 255); nrm[o + 2] = (uint8_t)std::lround((n.z * 0.5f + 0.5f) * 255); nrm[o + 3] = 255;
   }
-  m.alb = upload(alb, S, S, true); m.n = upload(nrm, S, S, false); m.mr = 0;
+  m.alb = upload(alb, S, S, true); m.n = upload(nrm, S, S, false); m.mr = upload(mr, S, S, false); m.aoInMR = true;
 }
 
 // one sleeve tile from the cloth set (cloth_grey: ambientCG Fabric030 1K, colour / normal / rma = roughness, AO): the
@@ -465,6 +481,10 @@ bool armsLoad() {
   try { gA.cfg = json::parse(readTextFile(contentDir() / "settings" / "fps_arms.json")); } catch (...) { gA.cfg = json::object(); }
   const std::string cloth = gA.cfg.value("cloth", std::string("cloth_grey"));
   Img wc = loadImg(contentDir() / "textures" / cloth / "color.jpg"), wn = loadImg(contentDir() / "textures" / cloth / "normal.jpg"), wr = loadImg(contentDir() / "textures" / cloth / "rma.jpg");
+  Img sa = loadImg(contentDir() / "textures" / "skin_hand" / "albedo.png"), sn = loadImg(contentDir() / "textures" / "skin_hand" / "normal.png"), sr = loadImg(contentDir() / "textures" / "skin_hand" / "rma.png");
+  if (sa.px.empty()) { sa.w = sa.h = 2; sa.px.assign(16, 180); }   // no skin set: flat stand-ins (the generated creases still paint)
+  if (sn.px.empty()) { sn.w = sn.h = 2; sn.px.assign(16, 128); for (int k = 0; k < 4; ++k) sn.px[k * 4 + 2] = 255; }
+  if (sr.px.empty()) { sr.w = sr.h = 2; sr.px.assign(16, 255); for (int k = 0; k < 4; ++k) sr.px[k * 4] = 150; }
   if (wr.px.empty()) { wr.w = wr.h = 2; wr.px.assign(16, 255); for (int k = 0; k < 4; ++k) wr.px[k * 4] = 210; }   // no rma: roughness 0.82, AO 1
   if (wc.px.empty() || wn.px.empty()) {   // no cloth set: flat 2x2 stand-ins (the stitches still paint)
     wc.w = wc.h = wn.w = wn.h = 2; wc.px.assign(16, 128); wn.px.assign(16, 128); for (int k = 0; k < 4; ++k) wn.px[k * 4 + 2] = 255;
@@ -488,12 +508,12 @@ bool armsLoad() {
     attr(0, 3, offsetof(TexVertex, pos)); attr(1, 3, offsetof(TexVertex, nrm)); attr(2, 4, offsetof(TexVertex, tan)); attr(3, 2, offsetof(TexVertex, uv));
     GpuModel::MatTex body, cuff; body.name = "sleeve"; cuff.name = "cuff";
     sleeveTex(wc, wn, wr, clothC[f], thread[f], false, body); sleeveTex(wc, wn, wr, clothC[f], thread[f], true, cuff);
-    GpuModel::MatTex hand; hand.name = "skin"; skinTex(skin, hand);
+    GpuModel::MatTex hand; hand.name = "skin"; skinTex(skin, sa, sn, sr, hand);
     g.mats = {body, cuff, hand}; g.texAlb = body.alb; g.texN = body.n; g.textureCount = 4;
     const char* names[5] = {"sleeve", "cuff", "hand", "cuff tab", "button"};
     for (int k = 0; k < 5; ++k) {
       ModelPart pt; pt.name = names[k]; pt.role = "arm"; pt.first = gA.partFirst[k]; pt.count = gA.partCount[k];
-      pt.metal = 0; pt.rough = k == 2 ? 0.78f : 1.0f; pt.textured = k < 4; pt.mat = k == 3 ? 1 : k < 3 ? k : -1;   // cloth roughness: its MR texture
+      pt.metal = 0; pt.rough = 1.0f; pt.textured = k < 4; pt.mat = k == 3 ? 1 : k < 3 ? k : -1;   // cloth roughness: its MR texture
       pt.base = vec4(1);
       if (k == 4) { pt.base = f ? vec4(0.11f, 0.11f, 0.115f, 1) : vec4(0.06f, 0.045f, 0.025f, 1); pt.metal = f ? 0.6f : 0.0f; pt.rough = f ? 0.45f : 0.35f; }   // Axis: grey metal; Allies: brown plastic
       g.parts.push_back(pt);
