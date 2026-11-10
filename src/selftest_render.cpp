@@ -9,6 +9,7 @@
 //    stream straight / bend / end, sea shallows), stream pieces carry stream snap sockets, placement checks still refuse
 //    a pond on a footprint and accept it on open ground, the pass draws, and screenshots of each.
 #include "selftest.h"
+#include <chrono>
 #include "mptest.h"
 #if __has_include("water.h")   // the same file builds against the pre-V1 tree for the before numbers
 #include "water.h"
@@ -155,24 +156,33 @@ void build(App& app) {
   if (std::getenv("NMK_TAAU_SHOTS")) {
     push("taau: an oak for the foliage view", [](App& a, float t) { if (t == 0) { place(a, "tree_oak", F0 + vec3(-8.0f, 0, 30.0f)); a.syncRuntime(); } return t > 0.5f; });
     static const char* vn[4] = {"still", "turning", "foliage", "sights"};
-    for (int m = 0; m < 2; ++m) for (int k = 0; k < 4; ++k) {
-      std::string nm = std::string("taau_") + vn[k] + (m ? "_taau" : "_native");
+    // with an upscale hook (Mac MetalFX): 2 = GL TAAU, 3 = hook, 4 = hook with the jitter sign flipped, 5 = motion y flipped
+    static const char* mn[6] = {"_native", "_taau", "_gltaau", "_hook", "_hook_jitflip", "_hook_motflip"};
+    const int m1 = Renderer::temporalUpscaler ? 6 : 2;
+    for (int m = 0; m < m1; ++m) for (int k = 0; k < 4; ++k) {
+      if (m == 1 && m1 == 6) continue;   // with a hook, "taau" is the hook (3)
+      if (m >= 4 && k >= 2) continue;    // sign checks: still and turning only
+      std::string nm = std::string("taau_") + vn[k] + mn[m];
       push(nm, [m, k, nm](App& a, float t) {
         vec3 at = k == 2 ? F0 + vec3(-8.0f, 0, 38.0f) : F0 + vec3(0, 0, 24.0f);
         float yaw = k == 1 ? -50.0f + 100.0f * t : 0.0f, pitch = k == 2 ? 10.0f : 2.0f;
         if (t == 0) {
-          a.R.perf.taau = m == 1; a.R.setResolutionScale(0.67f); a.R.resetTemporal();
+          a.R.perf.taau = m != 0; a.R.setResolutionScale(0.67f); a.R.resetTemporal();
+          a.R.hookOn = m >= 3; a.R.hookSign = vec2(m == 4 ? -1.0f : 1.0f, m == 5 ? -1.0f : 1.0f);
           firstPerson(a, at, yaw, pitch);
           if (k == 3) a.selectWeapon(a.weaponIndex("kar98k"));
         }
         a.eyeYaw = yaw; a.eyePitch = pitch;
         if (k == 3) a.scriptedInput.aim = true;
         if (t > 1.0f && t < 1.0f + 1.5f / 60.0f) pendingShot = outDir() / (nm + ".png");
-        if (t > 1.3f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png", nm.c_str(), nm.c_str()); return true; }
+        static double acc = 0, last = 0; static int n = 0;   // frame time (wall clock) over the settled half
+        double now = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        if (t < 0.01f) { acc = 0; n = 0; } else if (t > 0.5f) { acc += now - last; ++n; } last = now;
+        if (t > 1.3f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png (frame %.2f ms, gpu %.2f ms)", nm.c_str(), nm.c_str(), n ? acc / n : 0.0, a.R.stats.gpuMs); return true; }
         return false;
       });
     }
-    push("taau: back to native", [](App& a, float t) { a.R.perf.taau = true; a.R.setResolutionScale(1.0f); a.scriptedInput.aim = false;
+    push("taau: back to native", [](App& a, float t) { a.R.perf.taau = true; a.R.setResolutionScale(1.0f); a.scriptedInput.aim = false; a.R.hookOn = true; a.R.hookSign = vec2(1.0f);
       if (t > 0.2f) chk(a.R.fboErrors == 0 && a.R.shaderErrors == 0, "TAAU capture: framebuffer errors %d, shader errors %d", a.R.fboErrors, a.R.shaderErrors);
       return t > 0.2f; });
     return;

@@ -1952,6 +1952,29 @@ void main(){
   oColor = vec4(o, 1.0); oHist = vec4(hst, 1.0);
 }
 )GLSL";
+// P1 Mac hook helpers. kMotionFS: full motion in input pixels toward the previous position (uv delta x size); animated
+// foliage / grass (velTex a = 1) carry their own, the rest is the camera reprojection of the depth with the unjittered
+// matrices (as kTaaFS). kDepthUpFS: the nearest internal depth into the output-size target (effects, overlays).
+static const char* kMotionFS = R"GLSL(
+in vec2 vUV;
+uniform sampler2D uDepth, uVel; uniform mat4 uInvVP, uPrevVP; uniform vec2 uSize; uniform float uSignY;
+layout(location=0) out vec4 oMotion;
+void main(){
+  vec4 mv = texture(uVel, vUV); vec2 puv;
+  if (mv.a > 0.5) puv = vUV + mv.xy;
+  else {
+    vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, texture(uDepth, vUV).r, 1.0);
+    vec4 pc = uPrevVP*vec4(wp.xyz/wp.w, 1.0); puv = pc.xy/pc.w*0.5 + 0.5;
+  }
+  vec2 d = (puv - vUV)*uSize; d.y *= uSignY;
+  oMotion = vec4((any(isnan(d)) || any(isinf(d))) ? vec2(0.0) : d, 0.0, 1.0);
+}
+)GLSL";
+static const char* kDepthUpFS = R"GLSL(
+in vec2 vUV;
+uniform sampler2D uDepth; uniform vec2 uInSize;
+void main(){ gl_FragDepth = texelFetch(uDepth, clamp(ivec2(vUV*uInSize), ivec2(0), ivec2(uInSize) - 1), 0).r; }
+)GLSL";
 // ---- bloom: a downsample chain (first level de-fireflied by a luminance-weighted average) and a tent upsample
 // accumulated back up; the tonemap adds a small fraction. Wide and faint: a soft glow, no threshold streaks.
 static const char* kBloomDownFS = R"GLSL(
@@ -2970,6 +2993,7 @@ bool Renderer::init(int w, int h) {
   progBloomDown = compile(kFullVS, kBloomDownFS, "bloom_down");
   progBloomUp = compile(kFullVS, kBloomUpFS, "bloom_up");
   progTaa = compile(kFullVS, kTaaFS, "taa");
+  progMotion = compile(kFullVS, kMotionFS, "upscale motion"); progDepthUp = compile(kFullVS, kDepthUpFS, "upscale depth");
   progCloudSh = compile(kFullVS, kCloudShadowFS, "cloud_shadow");
   glCreateTextures(GL_TEXTURE_2D, 1, &cloudShTex); glTextureStorage2D(cloudShTex, 1, GL_R16F, 512, 512);
   glTextureParameteri(cloudShTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(cloudShTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -4126,8 +4150,33 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   int cur = histIdx ^ 1;
   if (histUp) {   // P1 TAAU: reconstruct at output size into the output-size set, then continue the frame there
     if (up.w != displayW || up.h != displayH) { createUpTargets(); taaValid = false; }
-    if (temporalUpscaler && temporalUpscaler({sceneCopy, depthTex, velTex, up.hdrColor, up.depthTex, width, height, up.w, up.h, jitterPx,
-                                              glm::inverse(vpU), prevVP, !taaValid})) {
+    const bool hook = temporalUpscaler && hookOn;
+    if (hook != hookWas) { taaValid = false; hookWas = hook; }   // the GL history and the hook's do not carry over
+    if (hook) {   // full motion for the hook (input pixels toward the previous position)
+      if (motionW != width || motionH != height) {
+        if (motionTex) { glDeleteTextures(1, &motionTex); glDeleteFramebuffers(1, &motionFbo); }
+        glCreateTextures(GL_TEXTURE_2D, 1, &motionTex); glTextureStorage2D(motionTex, 1, GL_RG16F, width, height);
+        glTextureParameteri(motionTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(motionTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glCreateFramebuffers(1, &motionFbo); glNamedFramebufferTexture(motionFbo, GL_COLOR_ATTACHMENT0, motionTex, 0);
+        motionW = width; motionH = height;
+      }
+      glBindFramebuffer(GL_FRAMEBUFFER, motionFbo); glViewport(0, 0, width, height);
+      glUseProgram(progMotion);
+      glBindTextureUnit(7, depthTex); glBindTextureUnit(10, velTex);
+      glUniform1i(U(progMotion, "uDepth"), 7); glUniform1i(U(progMotion, "uVel"), 10);
+      glUniformMatrix4fv(U(progMotion, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vpU)));
+      glUniformMatrix4fv(U(progMotion, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
+      glUniform2f(U(progMotion, "uSize"), (float)width, (float)height); glUniform1f(U(progMotion, "uSignY"), hookSign.y);
+      glDrawArrays(GL_TRIANGLES, 0, 3);
+    }
+    if (hook && temporalUpscaler({sceneCopy, depthTex, motionTex, up.hdrColor, up.depthTex, width, height, up.w, up.h, jitterPx * hookSign.x,
+                                  glm::inverse(vpU), prevVP, !taaValid})) {
+      glBindFramebuffer(GL_FRAMEBUFFER, up.hdrFbo); glNamedFramebufferDrawBuffer(up.hdrFbo, GL_NONE); glViewport(0, 0, up.w, up.h);
+      glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);
+      glUseProgram(progDepthUp); glBindTextureUnit(7, depthTex);
+      glUniform1i(U(progDepthUp, "uDepth"), 7); glUniform2f(U(progDepthUp, "uInSize"), (float)width, (float)height);
+      glDrawArrays(GL_TRIANGLES, 0, 3);
+      glNamedFramebufferDrawBuffer(up.hdrFbo, GL_COLOR_ATTACHMENT0);
       taaValid = true; prevVP = vpU; prevCam = v.camPos;
       swapUp(); upActive = true;
       glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo); glViewport(0, 0, width, height);
