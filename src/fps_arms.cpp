@@ -150,8 +150,7 @@ void skinTex(vec3 skin, const Img& sa, const Img& sn, const Img& sr, GpuModel::M
     float su = u * ku, sv = v * kv;
     vec3 photo = glm::clamp(vec3(lin(bil(sa, su, sv, 0)), lin(bil(sa, su, sv, 1)), lin(bil(sa, su, sv, 2))) / mean, vec3(0.5f), vec3(1.6f));
     if (v < 0.15f) {   // wrist: from inside the cuff (v 0) to the heel of the hand (0.15)
-      shade *= glm::mix(0.55f, 1.0f, glm::smoothstep(0.0f, 0.07f, v));
-      crease = line(v, 0.125f, 0.004f) * 0.8f;
+      shade *= glm::mix(0.7f, 1.0f, glm::smoothstep(0.0f, 0.06f, v));   // inside the cuff only; no crease line at the wrist (one continuous surface)
     } else if (v >= 0.5f) {   // a finger / the thumb, root (0.5) to tip (1)
       float f = (v - 0.5f) * 2;
       shade *= glm::mix(0.88f, 1.0f, glm::smoothstep(0.0f, 0.12f, f));   // the root, between the fingers (soft)
@@ -382,12 +381,17 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   };
   std::vector<std::vector<uint32_t>> rings;
   vec3 R0 = Wr + f * 0.055f;
-  vec3 ctr[2 + nP] = {R0, Wr}; for (int i = 0; i < nP; ++i) ctr[2 + i] = PP[i];
-  for (int i = 0; i < 2 + nP; ++i) {
-    vec3 t = glm::normalize(ctr[std::min(i + 1, 1 + nP)] - ctr[std::max(i - 1, 0)]);
-    float w = i == 0 ? 0.0355f : i == 1 ? 0.034f : pw[i - 2], th = i == 0 ? 0.026f : i == 1 ? 0.0237f : pt[i - 2];
-    float v = i < 2 ? 0.06f * i + 0.02f : 0.15f + 0.30f * (i - 2) / float(nP - 1);
-    rings.push_back(handRing(ctr[i], t, w, th, i >= 3 ? 0.18f : 0.0f, v));
+  // forearm end, wrist, a blended ring half way to the heel (no ledge: width / thickness / direction change smoothly
+  // from the round wrist into the flat palm), then the palm
+  const int nW = 3;
+  vec3 ctr[nW + nP] = {R0, Wr, glm::mix(Wr, PP[0], 0.5f) + (PP[0] - PP[1]) * 0.15f}; for (int i = 0; i < nP; ++i) ctr[nW + i] = PP[i];
+  const float wW[nW] = {0.0355f, 0.034f, glm::mix(0.034f, pw[0], 0.5f)}, tW[nW] = {0.026f, 0.0237f, glm::mix(0.0237f, pt[0], 0.5f)}, vW[nW] = {0.02f, 0.08f, 0.115f};
+  for (int i = 0; i < nW + nP; ++i) {
+    vec3 t = glm::normalize(ctr[std::min(i + 1, nW + nP - 1)] - ctr[std::max(i - 1, 0)]);
+    float w = i < nW ? wW[i] : pw[i - nW], th = i < nW ? tW[i] : pt[i - nW];
+    float v = i < nW ? vW[i] : 0.15f + 0.30f * (i - nW) / float(nP - 1);
+    float arch = 0.18f * glm::smoothstep(float(nW), float(nW + 2), float(i));   // the palm's hollow fades in after the heel
+    rings.push_back(handRing(ctr[i], t, w, th, arch, v));
   }
   for (size_t i = 0; i + 1 < rings.size(); ++i) quads(rings[i], rings[i + 1]);
   const std::vector<uint32_t>& KR = rings.back();   // the knuckle ring
