@@ -14,13 +14,15 @@
 #include <cstdarg>
 #include <functional>
 
+int lineMigrateTrenches(App& app);   // lines.cpp
+
 namespace {
-App* gApp = nullptr;   // checks go into the SelfTest report (LN2's stages 4600+ run after these and finish it)
+App* gLinesApp = nullptr;   // checks go into the SelfTest report (LN2's stages 4600+ run after these and finish it)
 int mode = -1; bool started = false;
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> seq; size_t cur = 0; float st = 0, total = 0;
 char B[900];
-bool chk(bool ok, const char* f, ...) { va_list a; va_start(a, f); std::vsnprintf(B, sizeof B, f, a); va_end(a); gApp->selftest->check(ok, B); return ok; }
+bool chk(bool ok, const char* f, ...) { va_list a; va_start(a, f); std::vsnprintf(B, sizeof B, f, a); va_end(a); gLinesApp->selftest->extCheck(ok, B); return ok; }
 void push(const std::string& n, std::function<bool(App&, float)> f) { seq.push_back({n, f}); }
 uint64_t L1 = 0, L2 = 0, L3 = 0;
 int stamps(const App& a) { int n = 0; for (auto& s : a.terrain.stamps) n += s.kind == TerrainStamp::TRENCH; return n; }
@@ -131,7 +133,7 @@ void build() {
     if (!e || !s) { chk(false, "trench piece assets exist"); return true; }
     auto add = [&](const AssetDef* d, vec3 p) { Instance i; i.id = a.doc.newId(); i.assetId = d->id; i.assetVersion = d->version; i.pos = p; i.yaw = 0; a.doc.instances.push_back(i); };
     add(e, vec3(-3, 0, 50)); add(s, vec3(4, 0, 50)); add(s, vec3(12, 0, 50));   // joined at x = 0 and 8
-    extern int lineMigrateTrenches(App&);
+
     int n = lineMigrateTrenches(a);
     int pieces = 0, lines = 0; for (auto& i : a.doc.instances) { pieces += i.assetId.rfind("aw_trench_", 0) == 0; lines += i.assetId == "line_trench"; }
     LineData d; for (auto& i : a.doc.instances) if (i.assetId == "line_trench") lineGet(i, d);
@@ -146,13 +148,13 @@ bool linesSelfTest(App& app, float dt) {
   if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--selftest-lines") mode = 1; }
   if (mode != 1) return false;
   if (dt < 0) return false;
-  if (!started) { started = true; gApp = &app; build(); cur = 0; st = 0; }
+  if (!started) { started = true; gLinesApp = &app; build(); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = false;
-    try { done = seq[cur].fn(app, st); } catch (std::exception& e) { app.selftest->check(false, "step '" + seq[cur].name + "' threw: " + e.what()); done = true; }
+    try { done = seq[cur].fn(app, st); } catch (std::exception& e) { app.selftest->extCheck(false, "step '" + seq[cur].name + "' threw: " + e.what()); done = true; }
     st += dt; total += dt;
     if (done) { logf("[lines] step done: %s (%.1f s)", seq[cur].name.c_str(), total); ++cur; st = 0; }
-    if (total > 300) { app.selftest->check(false, "lines test (LN1) timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
+    if (total > 300) { app.selftest->extCheck(false, "lines test (LN1) timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
     return true;
   }
   mode = 2;   // LN1's part is done: SelfTest's stages 4600+ (LN2, selftest_lines_ln2.cpp) run next and write report_lines.txt

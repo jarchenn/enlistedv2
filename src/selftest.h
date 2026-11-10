@@ -11,6 +11,7 @@ public:
   bool slowFrames = false;   // simulate 10 fps frames (frame-drop tests)
   bool realTime = false;     // wall-clock frame time (LAN tests: processes must share one clock)
   int exitCode = 0;
+  void extCheck(bool ok, const std::string& what) { check(ok, what); }   // suites outside the stage machine (selftest_lines.cpp) report here
 private:
   bool bench;
   int stage = 0;
