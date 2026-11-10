@@ -460,7 +460,8 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   if (uMatLayer == 2 && pomD > 0.0 && sp != 1 && eyeD < 14.0) { gPomV = normalize(uCamPos - w); gPomK = pomD*max(inv.x, inv.y)*(1.0 - smoothstep(8.0, 14.0, eyeD)); }
   vec3 dn; TexS s = texSlotTaps(slot, w, ng, ap, an, pc, pn, grain, dwx, dwy, dax, day, dcx, dcy, dn);
   gPomK = 0.0;
-  float fa = f*(1.0 - uTexLod2.z*smoothstep(uTexLod2.x, uTexLod2.y, pix*1024.0*max(inv.x, inv.y)));   // detail at the pixel scale: fade (shimmer)
+  // detail at the pixel scale: fade (shimmer). MA1 imgmat: not in replace mode, where the image is the structure (mips filter it)
+  float fa = (uImgMat == 1 && A.y > 0.5) ? f : f*(1.0 - uTexLod2.z*smoothstep(uTexLod2.x, uTexLod2.y, pix*1024.0*max(inv.x, inv.y)));
   vec3 a2 = alb*mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*fa);
   float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, K.w*f);
   vec3 dn2 = dn*K.y*f;

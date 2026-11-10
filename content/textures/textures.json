@@ -107,12 +107,12 @@
   "imgmat": {
     "_doc": "MA1 image materials (Renderer::Perf imgmat, docs/textures.md#imgmat). slots: an existing name changes that slot only while imgmat is on; a new name is empty (procedural) with imgmat off. Extra slot fields: under = substrate slot shown where the macro exposure mask (A) passes exposure (+ the copy's wear); macro = strength of the world macro variation (tint, roughness, damp). patterns / floors (room floor finish codes 0 boards, 1 parquet, 2 tomettes, 3 flags, 4 earth) switch with the table; materials: rules for materials that have no base rule (resolved per pattern, so imgmat off is the old look).",
     "slots": {
-      "stone_coursed":  {"set": "limestone_coursed",   "mode": "replace", "albedo": 0.9, "normal": 0.85, "rough": 0.55, "ao": 0.55, "macro": 0.7},
-      "stone_field":    {"set": "fieldstone_irregular","mode": "replace", "albedo": 0.9, "normal": 0.85, "rough": 0.55, "ao": 0.6, "macro": 0.7},
-      "stone_rubble":   {"set": "rubble_grey",         "mode": "replace", "albedo": 0.9, "normal": 0.85, "rough": 0.55, "ao": 0.6, "macro": 0.7},
-      "ashlar":         {"set": "limestone_dressed",   "mode": "replace", "albedo": 0.9, "normal": 0.8,  "rough": 0.5,  "ao": 0.5, "macro": 0.7},
-      "limewash":       {"set": "render_lime",         "mode": "replace", "albedo": 0.85, "normal": 0.7, "rough": 0.5,  "ao": 0.4, "macro": 0.9, "under": "sub_rubble", "exposure": 0.64},
-      "plaster":        {"set": "render_aged",         "mode": "replace", "albedo": 0.85, "normal": 0.7, "rough": 0.5,  "ao": 0.4, "macro": 0.9, "under": "sub_brick", "exposure": 0.66},
+      "stone_coursed":  {"set": "limestone_dressed",   "mode": "replace", "albedo": 0.9, "normal": 0.85, "rough": 0.55, "ao": 0.55, "macro": 0.7},
+      "stone_field":    {"set": "rubble_grey",         "mode": "replace", "albedo": 0.9, "normal": 0.85, "rough": 0.55, "ao": 0.6, "macro": 0.7},
+      "stone_rubble":   {"set": "limestone_coursed",   "mode": "replace", "albedo": 0.9, "normal": 0.85, "rough": 0.55, "ao": 0.6, "macro": 0.7},
+      "ashlar":         {"set": "ashlar_large",        "mode": "replace", "albedo": 0.9, "normal": 0.8,  "rough": 0.5,  "ao": 0.5, "macro": 0.7},
+      "limewash":       {"set": "render_lime",         "mode": "replace", "albedo": 0.85, "normal": 0.7, "rough": 0.5,  "ao": 0.4, "macro": 0.9, "under": "sub_rubble", "exposure": 0.68},
+      "plaster":        {"set": "render_aged",         "mode": "replace", "albedo": 0.85, "normal": 0.7, "rough": 0.5,  "ao": 0.4, "macro": 0.9, "under": "sub_brick", "exposure": 0.70},
       "brick":          {"set": "brick_muted",         "mode": "replace", "albedo": 0.9, "normal": 0.8,  "rough": 0.5,  "ao": 0.6, "macro": 0.6},
       "brickwork":      {"set": "brick_worn",          "mode": "replace", "albedo": 0.9, "normal": 0.8,  "rough": 0.5,  "ao": 0.6, "macro": 0.6},
       "concrete":       {"set": "concrete_aged",       "mode": "replace", "albedo": 0.85, "normal": 0.75, "rough": 0.5, "ao": 0.5, "macro": 0.9},
