@@ -65,7 +65,7 @@ bool App::enterExplore() {
   resetDamage();           // ...including walls (authored/applied damage only)
   resetGround();           // ...and ground
   resetCombat();           // guns at authored positions/ammo, crates at authored stock
-  resetWeapons();
+  resetWeapons(); flame.clear(this);   // FT1: no stream, parcels or roar left over
   Physics::createCharacter(p);
   exploreStartPos = p; exploreStartYaw = doc.start.yaw;
   eyeYaw = doc.start.yaw; eyePitch = 0; eyeHeight = 1.62f; riseT = riseDur = 0;
@@ -91,7 +91,7 @@ void App::exitExplore() {
   resetDamage();
   resetGround();
   resetCombat();
-  resetWeapons();
+  resetWeapons(); flame.clear(this);   // FT1: no stream, parcels or roar left over
   removeSessionPlacements();   // defences built in Explore are a playtest overlay unless applied
   camPos = savedCam.pos; camYaw = savedCam.yaw; camPitch = savedCam.pitch;
   glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);

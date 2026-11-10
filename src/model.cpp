@@ -39,6 +39,7 @@ ImportSpec importSpecFromJson(const json& j) {
     }
     s.meshEdits.push_back(m);
   }
+  { json kb = j.value("keepIslandsIn", json::array()); if (kb.size() == 2) { s.keepOn = true; s.keepLo = jvec3(kb[0], vec3(0)); s.keepHi = jvec3(kb[1], vec3(0)); } }
   s.simplify = j.value("simplify", 1.0f); s.lod1 = j.value("lod1", 0.0f);
   if (j.contains("sections")) { s.sectionAxis = j["sections"].value("axis", 2); s.sectionCount = std::max(1, j["sections"].value("count", 1)); }
   return s;
@@ -270,6 +271,35 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
 
   // ---- import transform: rotate, measure, scale to real length, place butt at z = 0, centre x/y
   quat R = glm::quat(glm::radians(spec.rot));
+  if (spec.keepOn) {
+    int kept = 0, dropped = 0;
+    for (auto& q : prims) {
+      std::vector<int> par(q.v.size()); for (size_t k = 0; k < par.size(); ++k) par[k] = (int)k;
+      std::function<int(int)> find = [&](int a) { while (par[a] != a) { par[a] = par[par[a]]; a = par[a]; } return a; };
+      auto uni = [&](int a, int b) { a = find(a); b = find(b); if (a != b) par[a] = b; };
+      for (size_t t = 0; t + 2 < q.i.size(); t += 3) { uni(q.i[t], q.i[t + 1]); uni(q.i[t], q.i[t + 2]); }
+      std::map<std::tuple<long, long, long>, int> at;   // coincident positions join islands (split UV seams)
+      for (size_t k = 0; k < q.v.size(); ++k) {
+        auto key = std::make_tuple(std::lround(q.v[k].pos.x * 1e5f), std::lround(q.v[k].pos.y * 1e5f), std::lround(q.v[k].pos.z * 1e5f));
+        auto it = at.find(key); if (it == at.end()) at[key] = (int)k; else uni((int)k, it->second);
+      }
+      std::vector<char> bad(q.v.size(), 0);   // per island root: a vertex outside the box
+      for (size_t k = 0; k < q.v.size(); ++k) {
+        vec3 p = R * q.v[k].pos;
+        if (!(glm::all(glm::greaterThanEqual(p, spec.keepLo)) && glm::all(glm::lessThanEqual(p, spec.keepHi)))) bad[find((int)k)] = 1;
+      }
+      std::vector<int> remap(q.v.size(), -1); std::vector<TexVertex> nv; std::vector<uint32_t> ni;
+      for (size_t t = 0; t + 2 < q.i.size(); t += 3) {
+        if (bad[find(q.i[t])]) { ++dropped; continue; }
+        ++kept;
+        for (int c = 0; c < 3; ++c) { int& r = remap[q.i[t + c]]; if (r < 0) { r = (int)nv.size(); nv.push_back(q.v[q.i[t + c]]); } ni.push_back((uint32_t)r); }
+      }
+      q.v = std::move(nv); q.i = std::move(ni);
+    }
+    prims.erase(std::remove_if(prims.begin(), prims.end(), [](const Prim& q) { return q.i.empty(); }), prims.end());
+    logf("  keepIslandsIn: %d triangles kept, %d dropped", kept, dropped);
+    if (prims.empty()) { err = "keepIslandsIn left no triangles"; return false; }
+  }
   vec3 lmin(1e9f), lmax(-1e9f), amin(1e9f), amax(-1e9f);
   for (auto& q : prims) {
     bool lengthPart = spec.lengthNode.empty() || chainHas(q.node, spec.lengthNode) || q.name == spec.lengthNode;

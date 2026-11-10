@@ -51,14 +51,14 @@ vec3 App::vmTarget(const WeaponDef& d) const {
   sightFrame(d, scoped, Q, Rp, Fp, relief);
   vec3 ads = vec3(0, 0, -relief) - Q * Rp + (scoped ? vec3(0) : d.adsPos);
   vec3 hip = vec3(0, 0, scoped ? -relief : -0.21f) - Q * Rp + d.hipOffset;
-  float t = adsT * adsT * (3 - 2 * adsT);
+  float t = d.adsZoom > 0 ? 0.0f : adsT * adsT * (3 - 2 * adsT);   // zoom-only aiming (flamethrower): the weapon stays in the hip pose
   return glm::mix(hip, ads, t);
 }
 
 float App::vmFovNow() const {
   if (weaponDefs.empty()) return vm.vmFov;
   const WeaponDef& d = *weaponDefs[activeWeapon];
-  if (d.adsVmFov <= 0 || vmScoped(d)) return vm.vmFov;
+  if (d.adsVmFov <= 0 || vmScoped(d) || d.adsZoom > 0) return vm.vmFov;
   float t = adsT * adsT * (3 - 2 * adsT);
   return glm::mix(vm.vmFov, d.adsVmFov, t);
 }

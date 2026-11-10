@@ -127,6 +127,7 @@ bool App::equipWeapon(int idx, std::string& msg) {
 // ---------------------------------------------------------------- fire modes
 const char* App::fireModeName(const WeaponDef& d, const WeaponState& s) const {
   if (d.action == "launcher") return "SINGLE";
+  if (d.action == "flame") return "FLAME";
   if (d.modes.empty()) return d.action == "auto" ? "AUTO" : d.action == "heavy" ? "CARRY" : "SEMI";
   return d.modes[s.mode % d.modes.size()] == "semi" ? "SEMI" : "AUTO";
 }

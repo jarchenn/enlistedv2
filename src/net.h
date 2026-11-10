@@ -11,7 +11,7 @@
 class App;
 
 constexpr int kNetPort = 27960;
-constexpr int kNetVersion = 5;   // 4: G1 modes (team in START, u16 kills / deaths + score, Solo winner); 5: PF1 snapshot in parts (200 AI)
+constexpr int kNetVersion = 6;   // 4: G1 modes (team in START, u16 kills / deaths + score, Solo winner); 5: PF1 snapshot in parts (200 AI); 6: FT1 flame / burn events
 // was 3:   // 3: station block in snapshots, gun / rack / crate / build requests (2 is the internet branch's)
 
 struct LobbyInfo { std::string addr, hostName, map, mapHash, contentHash; int humans = 0, maxHumans = 0, phase = 0, version = 0; double seen = 0; };
@@ -56,6 +56,7 @@ public:
   // game-layer hooks (called by Game / mpai)
   void hostWorldEvent(const json& ev);      // explosion, impact, door, cloud, kill, log -> all clients in order
   void clientFire(vec3 from, vec3 dir, int weapon, int tracer);   // tracer: tracerKindFor()
+  void clientFlame(vec3 from, vec3 dir, int weapon, float dt);    // FT1: the flamethrower's nozzle was open for dt (10 Hz while firing)
   void clientReload();
   void clientThrow(int kind, vec3 vel);
   void clientInteract(uint64_t inst, int idx);

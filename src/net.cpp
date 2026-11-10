@@ -14,6 +14,7 @@ constexpr SOCKET INVALID_SOCKET = -1;
 static int closesocket(SOCKET s) { return close(s); }
 #endif
 #include "net.h"
+#include "flame.h"
 #include "game.h"
 #include "mpui.h"
 #include "app.h"
@@ -332,6 +333,7 @@ void Net::hostWorldEvent(const json& ev) {
   for (auto& p : d->peers) if (p.inMatch) p.ch.send(m);
 }
 void Net::clientFire(vec3 from, vec3 dir, int weapon, int tracer) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "fire"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"tr", tracer}}.dump()); }
+void Net::clientFlame(vec3 from, vec3 dir, int weapon, float dt) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "flame"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"dt", dt}}.dump()); }
 void Net::clientReload() { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "reload"}}.dump()); }
 void Net::clientThrow(int kind, vec3 vel) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "throw"}, {"k", kind}, {"v", tojson(vel)}}.dump()); }
 void Net::sendStats(const json& s) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "stats"}, {"s", s}}.dump()); }
@@ -532,6 +534,12 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     SmokeCloud c; c.id = g.gren.nextId++; c.p = jvec3(ev["p"]); c.start = ev["st"].get<double>(); c.seed = ev["seed"].get<uint32_t>();
     c.radius = ev.value("r", 5.0f); c.build = ev.value("b", 2.0f); c.dense = ev.value("dn", 15.0f); c.fade = ev.value("f", 5.0f);
     g.gren.addCloud(c);
+  } else if (t == "flame") {   // FT1: another nozzle's stream (ours is predicted locally)
+    int by = ev.value("by", -1);
+    if (!replay && by >= 0 && by != g.localSlot) app.flame.spray(app, by, ev.value("w", 0), jvec3(ev["p"]), jvec3(ev["d"]), std::clamp(ev.value("dt", 0.1f), 0.0f, 0.3f), false);
+  } else if (t == "burn") {   // FT1: a soldier the host set alight (the look; the damage is the host's)
+    int sl = ev.value("s", -1);
+    if (!replay && sl >= 0 && sl < (int)g.sold.size()) g.sold[sl].burnT = std::max(g.sold[sl].burnT, ev.value("d", 3.0f));
   } else if (t == "shot") {
     int w = ev.value("w", 0); vec3 p = jvec3(ev["p"]), dir = jvec3(ev["d"]);
     if (w >= 0 && w < (int)app.weaponDefs.size()) {
@@ -625,6 +633,23 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
         if (d.action == "launcher") { pr.blastDmg = d.rocketDmg; pr.blastR = d.rocketR; pr.craterScale = d.rocketCrater; pr.splashGun = d.rocketSplashGun; pr.atKill = true; pr.gravScale = 0.35f; }
         g.hearSound(from, (int)s.role, 70, slot, 0);
         n.hostWorldEvent(json{{"t", "shot"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", w}, {"tr", m.value("tr", 0)}, {"by", slot}});
+        ++n.acceptedShots;
+      }
+    }
+    if (!ok) ++n.rejectedRequests;
+  } else if (t == "flame") {   // FT1: fuel by real time (never faster than the weapon burns it), the host runs the stream
+    int w = m.value("w", -1); vec3 from = jvec3(m["p"]), dir = jvec3(m["d"]);
+    bool ok = w >= 0 && w < (int)app.weaponDefs.size() && app.weaponDefs[w]->flame.on && carries(s, w) && !gunOf(*n.d, slot) && glm::length(dir) > 0.5f && glm::length(from - (s.feet + vec3(0, 1.3f, 0))) < 2.2f;
+    if (ok) {
+      hostSwitch(app, s, w);
+      const WeaponDef& d = *app.weaponDefs[w];
+      double gap = n.d->now - s.lastShotReal;
+      ok = s.ws.loaded > 0 && s.reload <= 0 && gap >= 0.04;
+      if (ok) {
+        float use = (float)std::min(gap, 0.25);
+        flameDrain(s.ws, d, use); s.lastShot = g.t; s.lastShotReal = n.d->now;
+        app.flame.spray(app, slot, w, from, glm::normalize(dir), use, true);
+        g.hearSound(from, (int)s.role, 70, slot, 0);
         ++n.acceptedShots;
       }
     }
