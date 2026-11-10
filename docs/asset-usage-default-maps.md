@@ -19,13 +19,13 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `aw_tobruk_mg` | Atlantic Wall | 1: A: WN65 MG ringstand | terrain-only base map | not used | 2 |
 | `aw_tobruk_mortar` | Atlantic Wall | 2: A: WN65; B: WN64 mortar Tobruk | terrain-only base map | not used | not used |
 | `aw_tobruk_turret` | Atlantic Wall | 1: A: WN65 tank-turret Tobruk (ref photo 6) | terrain-only base map | not used | not used |
-| `aw_trench_bend` | Atlantic Wall | not used: added with D-day (45-degree trench bend) | terrain-only base map | not used | 18 |
-| `aw_trench_corner` | Atlantic Wall | 2: D: trench line across the hedgerow fields | terrain-only base map | not used | 4 |
-| `aw_trench_cross` | Atlantic Wall | not used: added with D-day (trench crossroads) | terrain-only base map | not used | 2 |
-| `aw_trench_entry` | Atlantic Wall | 9: Ends of every trench run (A, B, D) | terrain-only base map | not used | 11 |
-| `aw_trench_straight` | Atlantic Wall | 22: A; B (crest line over the beach); D | terrain-only base map | not used | 20 |
-| `aw_trench_tee` | Atlantic Wall | not used: added with D-day (trench T-junction) | terrain-only base map | not used | 9 |
-| `aw_trench_zigzag` | Atlantic Wall | 20: A, B and D trench runs | terrain-only base map | not used | 23 |
+| `aw_trench_bend` | Atlantic Wall | not used: added with D-day (45-degree trench bend) | terrain-only base map | not used | not used |
+| `aw_trench_corner` | Atlantic Wall | 2: D: trench line across the hedgerow fields | terrain-only base map | not used | not used |
+| `aw_trench_cross` | Atlantic Wall | not used: added with D-day (trench crossroads) | terrain-only base map | not used | not used |
+| `aw_trench_entry` | Atlantic Wall | 9: Ends of every trench run (A, B, D) | terrain-only base map | not used | not used |
+| `aw_trench_straight` | Atlantic Wall | 22: A; B (crest line over the beach); D | terrain-only base map | not used | not used |
+| `aw_trench_tee` | Atlantic Wall | not used: added with D-day (trench T-junction) | terrain-only base map | not used | not used |
+| `aw_trench_zigzag` | Atlantic Wall | 20: A, B and D trench runs | terrain-only base map | not used | not used |
 | `bcg_abatis` | Bocage | 45: Plateau: felled trees across the flank lanes; attack-path cover fill above the bluff | terrain-only base map | not used | not used |
 | `bcg_hedgerow_corner` | Bocage | 2: C: MG positions in hedgerow corners | terrain-only base map | not used | not used |
 | `bcg_hedgerow_gap` | Bocage | 55: Field gates in the bocage network | terrain-only base map | 34 | not used |
@@ -199,6 +199,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `large_stone_warehouse` | Large buildings | 1: Saint-Laurent | terrain-only base map | 3 | not used |
 | `large_village_inn` | Large buildings | 1: Saint-Laurent crossroads | terrain-only base map | 3 | not used |
 | `large_village_schoolhouse` | Large buildings | 1: Saint-Laurent | terrain-only base map | 3 | not used |
+| `line_trench` | Lines | not used: LN1 trench line (old maps' trench pieces migrate to it on load) | terrain-only base map | not used | 10 |
 | `mil_stronghold` | Bunkers | excluded: GX6 Atlantic Wall command stronghold (60 x 34 m with earthworks); larger than any Omaha strongpoint, for hand-built maps | terrain-only base map | not used | 1 |
 | `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 |
 | `nat_boulder_granite_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used |
