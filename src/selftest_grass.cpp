@@ -325,7 +325,7 @@ void SelfTest::grassUpdate(App& app, float dt) {
       s["gpu_ms"] = on.gpu / n0; s["clumps"] = on.clumps / n0; s["cards"] = on.blades / n0; s["main_draws"] = on.chunks / n0;
       s["shadow_clumps"] = on.sclumps / n0; s["shadow_draws"] = on.sdraws / n0; s["frames"] = {on.n, off.n};
       s["grass_main_off_ms"] = off.grass / n1; s["gpu_off_ms"] = off.gpu / n1;   // NMK_GA_AB: the blocks without the atlas
-      app.R.perf.grassAtlas = true;
+      if (std::getenv("NMK_GA_AB")) app.R.perf.grassAtlas = true;   // only the A/B mode toggles it (--rq-off grassatlas stays off)
       benchOut[views[g.bv]][tier] = s;
       check(true, fmt("%s %s: grass main %.3f + shadow %.3f ms (near cascade %.3f vs %.3f without grass), %.0f clumps, %.0f + %.0f draws",
                       views[g.bv], tier, on.grass / n0, on.shadow / n0 - off.shadow / n1, on.shadow / n0, off.shadow / n1, on.clumps / n0, on.chunks / n0, on.sdraws / n0));

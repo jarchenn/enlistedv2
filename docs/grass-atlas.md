@@ -47,4 +47,19 @@ The pasture grass clumps (G1 / GX3, `kGrassVS` and `kGrassFS` in `src/render.cpp
 
 ## Measurements
 
-The bench (`--bench-grass`, open field, prone and moving, Medium / High / Ultra) is run once with `--rq-off grassatlas` and once without, in one GPU turn. Shots and numbers are in `Documents/MapMaker/screens/gt1/`.
+One exclusive GPU turn: `--bench-grass` with `--rq-off grassatlas`, then without it. Mean GPU was 5.32 vs 5.89 ms over all views; no other load. Values are ms, before → after.
+
+| View | Tier | Grass main | Grass shadow | GPU |
+| --- | --- | --- | --- | --- |
+| open field | Medium | 0.92 → 1.32 | 0.084 → 0.104 | 4.51 → 4.97 |
+| open field | High | 1.51 → 1.98 | 0.117 → 0.120 | 5.18 → 5.72 |
+| open field | Ultra | 2.16 → 2.76 | 0.135 → 0.125 | 5.93 → 6.44 |
+| prone | Medium | 1.02 → 1.79 | 0.058 → 0.068 | 4.32 → 5.12 |
+| prone | Ultra | 2.31 → 2.90 | 0.108 → 0.107 | 5.73 → 6.11 |
+| moving | Medium | 0.91 → 1.37 | 0.052 → 0.052 | 5.02 → 5.45 |
+
+- **Unchanged:** clumps, cards and draws.
+- **Cost:** the cost **rises** by 0.4-0.8 ms of grass main, about +10 % GPU in these grass-only views. It is fill: plant rectangles carry transparent, alpha-tested area that the tapered blades do not.
+- **Look:** in open field the atlas zone, within about 6 m, reads darker and bushier than the procedural blades beyond it. A soft ring is visible.
+
+Shots: `Documents/MapMaker/screens/gt1/*_before_after.png`, with procedural on the left and atlas on the right. The numbers are in `gt1_bench.txt`.
