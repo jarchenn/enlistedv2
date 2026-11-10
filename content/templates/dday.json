@@ -80,12 +80,12 @@
     {
       "name": "forward_trench_eye",
       "pos": [
-        -35.0,
-        7.8,
+        69.25,
+        6.48,
         28.0
       ],
       "yaw": -90.0,
-      "pitch": 2.0,
+      "pitch": 1.0,
       "gameplay": true
     },
     {
