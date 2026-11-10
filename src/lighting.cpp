@@ -87,7 +87,7 @@ uniform mat4 uModel; uniform vec4 uInst;
 layout(std430, binding = 9) readonly buffer NmkCapVP { mat4 gCapVP[]; };
 uniform int uLayer[96];
 uniform vec4 uCapEye[16];   // probe position per capture slot (view vector of the shading)
-out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV; flat out vec3 vPcF;   // MA1b: a box-face corner (edge wear)
+out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV; layout(location=11) flat out vec3 vPcF;   // MA1b: a box-face corner (edge wear)
 void main(){
   vInstV = aInst.w > 1.5 ? vec4(aInst.xyz, 0.0) : uInst;
   int L = uLayer[gl_InstanceID];

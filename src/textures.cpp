@@ -433,7 +433,7 @@ uniform int uMatLayer;   // GX5 layered materials (render.cpp kMainFS, docs/grap
 vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world normal delta, height (m) for the derivative bump
 uniform int uFloorSlot[8]; // MA1: room floor finish code -> slot (imgmat)
 uniform int uRelief;       // MA1b (Perf relief): parallax on Medium, per-family depth, crevices, detail grain, worn edges
-flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
+layout(location=11) flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
 float gTexWear = 1.0;      // the copy's wear (kMainFS sets uInst.y before texMaterial): more substrate on worn buildings
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
 bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 160 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }

@@ -437,7 +437,7 @@ layout(location=7) in vec4 aInst;  // PF2 HLOD cells: per-vertex building seed /
 layout(location=8) in vec3 aLp; layout(location=9) in vec3 aLn;   // PF2 HLOD cells: the asset-local position / normal (patterns)
 uniform mat4 uModel, uVP; uniform vec4 uSnapAp;   // V6: w = 1 for snap chains, xz = the chain's texture origin
 uniform vec4 uInst;
-out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV; flat out vec3 vPcF;   // MA1b: a box-face corner (edge wear)
+out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV; layout(location=11) flat out vec3 vPcF;   // MA1b: a box-face corner (edge wear)
 invariant gl_Position;   // R1 zprepass: kDepthVS computes the same depth
 void main(){
   vInstV = aInst.w > 1.5 ? vec4(aInst.xyz, 0.0) : uInst;
