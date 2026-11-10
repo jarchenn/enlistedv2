@@ -67,7 +67,7 @@ void App::buildWeaponMeshes() {
       fd.patchSeconds = f.value("patchSeconds", fd.patchSeconds); fd.patchRadius = f.value("patchRadius", fd.patchRadius); fd.patchDps = f.value("patchDps", fd.patchDps);
       fd.botRange = f.value("botRange", fd.botRange); fd.botBurst = f.value("botBurstSeconds", fd.botBurst); fd.botPause = f.value("botPauseSeconds", fd.botPause);
     }
-    d->laterWar = j.value("laterWar", false);
+    d->laterWar = j.value("laterWar", false); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
     {

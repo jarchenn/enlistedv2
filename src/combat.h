@@ -56,6 +56,7 @@ struct WeaponDef {
   bool useModel() const { return model && model->vao; }
   int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)
   float adsSpeed = 1;                   // JSON ads.speed: ADS blend rate x this
+  bool showArms = true;                 // JSON "arms": false hides the placeholder first-person arms (until a weapon-specific arm model lands)
   float adsZoom = 0;                    // JSON ads.zoom (> 0): ADS only narrows the world FOV by this fraction; the weapon keeps its hip pose, no sight alignment (flamethrower)
   // flamethrower (FT1, action "flame", JSON "flame"; docs/flamethrower.md): game tuning, not real data
   struct FlameDef { bool on = false; float fuelSeconds = 20, range = 22, speed = 30, coneDeg = 3.5f, parcelsPerSec = 30, parcelDamage = 3.5f,
@@ -97,7 +98,8 @@ struct Projectile {
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
 };
-struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0; };   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
+struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0;
+                  float flame = -1; };   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };
 struct Debris { vec3 p{0}, v{0}, w{0}, size{0.1f}; quat r{1, 0, 0, 0}; float life = 0; bool resting = false; };
 struct FxVert { vec3 p; vec4 c; vec2 uv; };
