@@ -188,6 +188,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   R.wind = grass.wind ? 1.0f : 0.0f;
   lodPxPerM = projM[1][1] != 0.0f ? projM[1][1] * R.height * 0.5f : 0.0f; lodCount[0] = lodCount[1] = lodCount[2] = 0;
   leafMergeHit = leafMergeMiss = 0;
+  static int dlFrameNo = 0; ++dlFrameNo; R.stats.occCulled = 0;   // GP1 occcull
   hlodFrame(*this);   // PF2 Phase B: far buildings merged per cell (hlod.cpp)
   const ActiveSet& act = activeSet();
   // P2 measurement (NMK_DLPROF=1): items per source category, logged every 240 frames
@@ -325,6 +326,26 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     // PF2: a prop under ~1.5 px on screen is not drawn (it would only shimmer); buildings always are
     if (R.perf.assetLod && lodPxPerM > 0 && !r.asset->enterable && glm::length(r.asset->bmax - r.asset->bmin) * lodPxPerM < 1.5f * std::max(camDist, 1.0f)) continue;
     const SurfaceParams* surf = interior.surfaceFor(*this, i, r.asset); size_t opFirst = op.size();   // building finish parameters
+    const size_t glFirst = gl.size();
+    // GP1 occcull: a building whose whole box lies behind terrain (every corner's sight line blocked with 2.5 m to spare,
+    // more than any far-LOD ring flattens a ridge) is not drawn in the camera pass. Re-tested when the eye has moved
+    // 1.5 m or after 30 frames (cratering), a quarter of the buildings a frame. Buildings never occlude each other here:
+    // they can be seen through (windows, doors, breaches).
+    if (R.perf.occCull && camDist > 40.0f && (r.asset->enterable || !r.asset->panels.empty())) {
+      const vec3 eye = mode == Mode::Explore ? eyePos() : camPos;
+      if ((glm::distance(eye, r.occEye) > 1.5f || dlFrameNo - r.occFrame > 30) && ((i.id + dlFrameNo) & 3) == 0) {
+        r.occEye = eye; r.occFrame = dlFrameNo;
+        bool hid = true; const vec3 lo = r.asset->bmin, hi = r.asset->bmax;
+        for (int c = 0; c < 9 && hid; ++c) {
+          vec3 lp = c == 8 ? vec3((lo.x + hi.x) * 0.5f, hi.y, (lo.z + hi.z) * 0.5f) : vec3((c & 1) ? hi.x : lo.x, (c & 2) ? hi.y : lo.y, (c & 4) ? hi.z : lo.z);
+          vec3 p = vec3(M * vec4(lp, 1.0f)), d = p - eye; float len = glm::length(d); bool blocked = false;
+          for (float s = 6.0f; s < len - 3.0f && !blocked; s += 3.0f) { vec3 q = eye + d * (s / len); blocked = terrain.height(q.x, q.z) > q.y + 2.5f; }
+          hid = blocked;
+        }
+        r.occ = hid;
+      }
+    } else r.occ = false;
+    if (r.occ) ++R.stats.occCulled;
     bool noFurn = interior.hideBuiltin(i) && r.asset->noFurnOpaque.count;   // furnished by room templates
     op.push_back({noFurn ? &r.asset->noFurnOpaque : &r.asset->opaque, M}); snapDraw(*this, i, op.back());   // V6: joined ends without caps (snap.cpp)
     if (op.back().mesh == &r.asset->opaque || op.back().mesh == &r.asset->noFurnOpaque) op.back().mesh = &assetLodMesh(r, r.asset, *op.back().mesh, camDist);   // PF2 asset LOD
@@ -379,7 +400,8 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     }
     // MA2: foundation weathering follows the ground under anything that stands on it (buildings, bunkers, garden walls)
     const vec4* contact = r.asset->footprint.x * r.asset->footprint.y >= 1.0f ? contactProfile(i, r) : nullptr;
-    for (size_t k = opFirst; k < op.size(); ++k) { op[k].surf = surf; op[k].contact = contact; }
+    for (size_t k = opFirst; k < op.size(); ++k) { op[k].surf = surf; op[k].contact = contact; op[k].mainHidden |= r.occ; }
+    for (size_t k = glFirst; k < gl.size(); ++k) gl[k].mainHidden |= r.occ;
     if (!R.perf.assetLod || lodPxPerM <= 0 || lodPxPerM >= 4.0f * camDist) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // B1 ivy (ivy.cpp); PF2: not under 4 px/m
   }
   hlodDraw(op, gl);
@@ -921,7 +943,7 @@ int App::run(int argc, char** argv) {
 
     mark("drawlists");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
-    { auto t0 = std::chrono::steady_clock::now(); buildDrawLists(op, gl); drawListMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
+    { auto t0 = std::chrono::steady_clock::now(); buildDrawLists(op, gl); R.opaqueStatic = op.size(); drawListMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
     mark("view");
     op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {

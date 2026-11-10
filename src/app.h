@@ -50,6 +50,7 @@ struct InstanceRT {
   std::vector<std::vector<uint8_t>> leafSt;       // [interactable][leaf] LEAF_* flags (session overlay)
   std::vector<std::vector<float>> leafHits;       // bullet hits taken
   std::shared_ptr<TreeDef> ivy; uint64_t ivyKey = 0;   // B1 ivy cards for this instance (ivy.cpp), rebuilt when a bay breaks
+  bool occ = false; int occFrame = -1000; vec3 occEye{1e9f};   // GP1 occcull: hidden behind terrain from occEye (App::buildDrawLists)
   uint8_t lod = 0;                                  // PF2: current asset LOD level (App::assetLodMesh, hysteresis)
   float treeHits = 0; bool treeFelled = false, trunkApplied = false; uint32_t trunkBody = 0xffffffffu;   // trees (foliage.cpp)
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)

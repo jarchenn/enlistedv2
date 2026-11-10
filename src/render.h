@@ -62,7 +62,7 @@ struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int cu
                     // R2: sun-cascade casters skipped by castercull, camera-pass items hidden by roomcull, sun-cascade draws; GI probes
                     // waiting for a first capture / invalidated, the oldest capture among probes within 12 m (frames)
                     int casterCulled = 0, roomCulled = 0, shadowDraws = 0, probePending = 0, probeDirty = 0, probeStaleMax = 0;
-                    int foliageDraws = 0, instDrawn = 0; };   // instDrawn: items drawn inside instanced depth draws (P2 instdepth)   // P2: draws by drawFoliage (all passes)   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
+                    int foliageDraws = 0, instDrawn = 0, farStatic = -1, occCulled = 0; };   // farStatic: the far cascade's static layer was redrawn this frame (1), reused (0), no cache (-1); occCulled: buildings hidden by terrain   // instDrawn: items drawn inside instanced depth draws (P2 instdepth)   // P2: draws by drawFoliage (all passes)   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
 // GPU time per render pass from timestamp queries (Renderer::gpuMark, docs/rendering.md#gpu-budget), in frame order:
 // a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
 enum GpuPass : int { GP_CloudShadow, GP_ShadowNear, GP_ShadowFar, GP_SkyOcc, GP_LightShadows, GP_Probes, GP_Clusters,
@@ -169,6 +169,9 @@ public:
     bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
     bool farLeaf = true;         // farleaf (DR1): canopies past 80 / 180 / 400 m draw 40 / 15 / 6 % of their leaf cards, grown to keep the leaf area
     bool wallLod = false;        // walllod (DR1): undamaged buildings at asset LOD 1 / 2 draw their walls without small parts / opening trim
+    bool shadowCache = true;     // shadowcache (GP1): the far cascade's static layer is redrawn only when it changes; the live map = that layer + movers
+    bool occCull = false;        // occcull (GP1): buildings the terrain hides completely are skipped in the camera pass (shadows and probes keep them)
+    bool treeFar = true;         // treefar (GP1, measurement): off = canopies past ~180 m are not drawn; its A/B is the most a far-tree impostor could save
     bool folBatch = true;        // folbatch (P2): standing trees' species leaves drawn per 64 m cell, runs of visible trees at one LOD per draw
     bool leafMerge = true;       // leafmerge (P2): a building whose doors / shutters / sashes are all closed and intact draws them as one merged mesh (+ one glass)
     bool furnDist = true;        // furndist (P2): furniture distance tiers per preset with hysteresis and zoom; no furniture in the far cascade / sky occlusion
@@ -176,12 +179,12 @@ public:
     bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
-                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = false; return p; }
+                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = p.shadowCache = p.occCull = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
       if (n == "dr1") { farLeaf = wallLod = on; return true; }   // DR1: the distant-object switches together
       if (n == "p2") { dlCache = instDepth = folBatch = on; return true; }   // P2: every draw-submission switch together
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
@@ -278,6 +281,7 @@ private:
   DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
   std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call
 public:
+  size_t opaqueStatic = SIZE_MAX;   // GP1 shadowcache: render()'s opaque[0 .. opaqueStatic) is the world (buildDrawLists); the rest moves every frame (weapons, debris, fragments)
   size_t folBatchBytes = 0, folBatchTrees = 0, folBatchCells = 0;   // folbatch: instance buffer bytes / trees / cells this frame
   double cpuPassMs[64] = {};   // P2: CPU ms per GpuPass mark span, summed since the last reset (app.cpp NMK_DLPROF)
 private:
@@ -342,6 +346,8 @@ private:
   GLuint thumbHdrFbo = 0, thumbHdr = 0, thumbDepth = 0;
   GLuint queries[3]{}; int qidx = 0; bool qvalid = false; bool qUsed[3]{};   // GL_TIME_ELAPSED ring (fallback when timestamps are missing)
   int farFrame = -1000, occFrame = -1000; vec3 farFocus{0}, farSun{0}, occCam{0}; float minCaster = 0;   // PF2 depth-pass caches
+  uint32_t itemLo = 0, itemHi = UINT32_MAX;   // GP1: drawItems draws items [itemLo, itemHi) of its list
+  GLuint farStaticFbo = 0, farStaticTex = 0; uint64_t farSig = ~0ull; bool farHadDyn = false;   // GP1 shadowcache
   bool farPass = false;   // P2: the far cascade / sky occlusion is being drawn (DrawItem::noFarCast)
   bool castCull = false; vec3 castEye{0};   // R2 castercull: on during the sun cascades; castEye: the eye the caster ranges are measured from
   GLuint gq[3][GP_Count + 1]{}; bool gqSet[3][GP_Count + 1]{}; int gqSlot = 0;
