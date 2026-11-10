@@ -175,6 +175,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--capture-materials") { go(800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-grass") { go(900); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-stress") { go(950); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--bench-grass") { go(960); return; }   // G1 grass bench (selftest_grass.cpp)
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--build-range-map") { go(980); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--record-range") { go(990); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-fps") { go(1100); return; }

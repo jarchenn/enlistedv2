@@ -19,7 +19,7 @@ struct GraphicsOpts {
   bool farCascade = true, cloudShadows = true, shafts = true, ssr = true, ssao = true, ssaoFull = false, bloom = true, taa = true;
   int taaPhases = 8;           // Halton jitter sequence length
   bool clouds = true;
-  int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High
+  int grass = 2;               // GrassQuality: 0 Off, 1 Low, 2 Medium, 3 High, 4 Ultra (grass only; no GfxPreset uses it)
   float renderDist = 1200.0f;  // m (PF2): instance draw cut, decor / tree / nature / ivy culls (x renderDist / 1200), far terrain LOD, matching haze
   bool grassWind = true;       // GX3: vertex wind on the near grass clumps (Low: static grass)
   float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
