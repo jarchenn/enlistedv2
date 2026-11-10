@@ -20,7 +20,7 @@
     "slot_spacing_m": 1.6,
     "leader_pace": 0.9,
     "catch_up": 1.25,
-    "separation_m": 1.3,
+    "separation_m": 2.0,
     "separation_gain": 2.0,
     "alignment": 0.35,
     "lost_m": 18

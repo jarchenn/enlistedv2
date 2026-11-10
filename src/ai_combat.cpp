@@ -107,6 +107,9 @@ void AiCore::perceive(Soldier& s) {
     if (G.sold[x.enemy].isProtected(G.t)) sc *= 60.0f;
     if (sc < bs) { bs = sc; best = x.enemy; }
   }
+  // target lock: the first target is kept until it is dead (or unseen for 3 s), however the others move
+  if (b.target >= 0 && G.sold[b.target].alive && !G.sold[b.target].isProtected(G.t))
+    for (auto& x : b.mem) if (x.enemy == b.target && (x.visible || G.t - x.lastSeen < 3.0)) return;
   if (best != b.target) { b.target = best; b.targetTime = 0; b.aimSteady = 0; }
 }
 
@@ -207,7 +210,7 @@ void AiCore::aim(Soldier& s, float dt) {
     return;
   }
   bool rifle = d.action != "auto";
-  if (rifle && s.speed > 1.2f && !suppress) return;                         // rifles stop and shoot
+  if (rifle && s.speed > 4.0f && !suppress) return;                         // rifles fire on the move (the aim error grows with movement); not while sprinting                         // rifles stop and shoot
   if (b.targetTime < diff.reaction && !suppress) return;
   if (turnErr > 4.0f) return;
   if (b.burstPause > 0) { b.burstPause -= dt; return; }
