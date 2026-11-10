@@ -27,9 +27,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `aw_trench_tee` | Atlantic Wall | not used: added with D-day (trench T-junction) | terrain-only base map | not used | not used |
 | `aw_trench_zigzag` | Atlantic Wall | 20: A, B and D trench runs | terrain-only base map | not used | not used |
 | `bcg_abatis` | Bocage | 45: Plateau: felled trees across the flank lanes; attack-path cover fill above the bluff | terrain-only base map | not used | not used |
-| `bcg_hedgerow_corner` | Bocage | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | as `line_hedgerow` |
-| `bcg_hedgerow_gap` | Bocage | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | as `line_hedgerow` |
-| `bcg_hedgerow_straight` | Bocage | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | as `line_hedgerow` |
+| `bcg_hedgerow_corner` | Bocage | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | not used |
+| `bcg_hedgerow_gap` | Bocage | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | not used |
+| `bcg_hedgerow_straight` | Bocage | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | not used |
 | `bcg_marsh_patch` | Bocage | 8: Marsh pools on the sand shelf | terrain-only base map | not used | not used |
 | `bcg_quarry_face` | Bocage | excluded: No quarry at E-1 (a Mont-Castre feature) | terrain-only base map | not used | not used |
 | `bcg_rampart` | Bocage | excluded: The Roman / medieval earthworks belong to Mont-Castre | terrain-only base map | not used | not used |
@@ -41,7 +41,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bch_lcvp_wrecked` | Landing craft | 5: Wrecks on the tidal flat (cover) | terrain-only base map | not used | 6 |
 | `bch_log_ramp_mined` | Beach obstacles | 72: Belt 3 (ramps) | terrain-only base map | not used | 13 |
 | `bch_log_stake_mine` | Beach obstacles | 253: Belt 2 (two staggered rows of stakes) | terrain-only base map | not used | 40 |
-| `bch_minefield_fence` | Beach obstacles | as `line_minefield_fence` | terrain-only base map | as `line_minefield_fence` | as `line_minefield_fence` |
+| `bch_minefield_fence` | Beach obstacles | as `line_minefield_fence` | terrain-only base map | as `line_minefield_fence` | not used |
 | `bch_minen_sign` | Beach obstacles | 19: Achtung Minen boards along the minefields | terrain-only base map | not used | not used |
 | `bch_roadblock` | Beach obstacles | 1: C: across the draw road | terrain-only base map | not used | not used |
 | `bch_seawall_wood` | Beach | 55: East half of the beach behind the shingle | terrain-only base map | not used | not used |
@@ -54,8 +54,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bunker_pak_casemate` | Bunkers | excluded: WN65's gun casemate is the R667 (`aw_r667_casemate`) | terrain-only base map | not used | 1 |
 | `crate_mixed_supply` | Supply | 14: Ammunition dump at D; dressing at every objective | terrain-only base map | 10 | 15 |
 | `crate_pak40_he` | Supply | 7: A: behind the R667; D: ammunition dump | terrain-only base map | not used | 9 |
-| `def_sandbag_curved` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | as `line_sandbag_low` |
-| `def_sandbag_straight` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | as `line_sandbag_low` |
+| `def_sandbag_curved` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | not used |
+| `def_sandbag_straight` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | not used |
 | `def_tank_trap` | Defences | 233: Belt 4 (hedgehogs); beach cover fill | terrain-only base map | not used | 58 |
 | `drs_barrels` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 90 | 11 |
 | `drs_bridge_stone_large` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 1 | not used |
@@ -63,20 +63,20 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `drs_cart` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 62 | 5 |
 | `drs_churchyard_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 2 | 1 |
 | `drs_flower_bed` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 233 | 22 |
-| `drs_garden_wall` | Dressing | as `line_garden_wall` | terrain-only base map | as `line_garden_wall` | as `line_garden_wall` |
-| `drs_gate_piers` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 17 | 2 |
+| `drs_garden_wall` | Dressing | as `line_garden_wall` | terrain-only base map | as `line_garden_wall` | not used |
+| `drs_gate_piers` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 17 | not used |
 | `drs_gravestone_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 34 | 8 |
 | `drs_gravestone_round` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 64 | 15 |
 | `drs_hay_bale_stack` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 77 | 13 |
-| `drs_picket_fence` | Dressing | as `line_picket_fence` | terrain-only base map | as `line_picket_fence` | as `line_picket_fence` |
+| `drs_picket_fence` | Dressing | as `line_picket_fence` | terrain-only base map | as `line_picket_fence` | not used |
 | `drs_sandbag_ring` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 7 | not used |
-| `drs_sandbag_wall` | Defences | as `line_sandbag_wall` | terrain-only base map | as `line_sandbag_wall` | as `line_sandbag_wall` |
+| `drs_sandbag_wall` | Defences | as `line_sandbag_wall` | terrain-only base map | as `line_sandbag_wall` | not used |
 | `drs_tomb_chest` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 22 | 7 |
 | `drs_well` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 19 | 3 |
 | `drs_wooden_x_obstacle` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 32 | 30 |
 | `drs_woodpile` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 86 | 11 |
 | `env_sea_shallows` | Beach | 87: The sea (s < 50): shallow water surface | terrain-only base map | not used | 20 |
-| `fence_post_wire` | Dressing | as `line_post_wire_fence` | terrain-only base map | as `line_post_wire_fence` | as `line_post_wire_fence` |
+| `fence_post_wire` | Dressing | as `line_post_wire_fence` | terrain-only base map | as `line_post_wire_fence` | not used |
 | `field_gate` | Dressing | 6: Bocage field gates | terrain-only base map | 1 | not used |
 | `fire_brazier` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used |
 | `fire_campfire` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used |
@@ -187,7 +187,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `gun_m2hb_tripod` | Field guns | 1: US .50 set up on the shingle near A2 | terrain-only base map | not used | not used |
 | `gun_mg42_embrasure` | Field guns | 16: Every sandbag MG nest | terrain-only base map | not used | 2 |
 | `gun_pak40` | Field guns | 1: A: in the R667 (stands in for the 5 cm gun) | terrain-only base map | not used | 2 |
-| `hedgerow_bocage` | Vegetation | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | as `line_hedgerow` |
+| `hedgerow_bocage` | Vegetation | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | not used |
 | `house_farmhouse_2story` | Houses | 4: Saint-Laurent | terrain-only base map | 9 | not used |
 | `house_stone_cottage` | Houses | 7: Saint-Laurent; the beach house on the sand shelf | terrain-only base map | 11 | 1 |
 | `kit_demo_folly` | Landmarks | excluded: the B1 geometry-kit demonstration piece (docs/asset-format.md#b1-geometry-kit), not a period building | terrain-only base map | not used | not used |
@@ -286,7 +286,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `small_roadside_office` | Small buildings | 1: Saint-Laurent crossroads | terrain-only base map | 7 | not used |
 | `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 |
 | `small_storehouse` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 14 | 1 |
-| `stone_wall_low` | Dressing | as `line_stone_wall` | terrain-only base map | as `line_stone_wall` | as `line_stone_wall` |
+| `stone_wall_low` | Dressing | as `line_stone_wall` | terrain-only base map | as `line_stone_wall` | not used |
 | `tank_sherman_firefly` | Vehicles | excluded: The Firefly (17-pdr) was British, not at Omaha; no DD Sherman asset exists; player vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used |
 | `tank_tiger_i` | Vehicles | excluded: No Tigers at Omaha; vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used |
 | `tree_apple` | Vegetation | 396: Orchards (D battery, A5, two more) | terrain-only base map | 305 | 58 |
@@ -328,9 +328,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `wat_stream_bend` | Water | not placed: V1 stream piece (snaps with V6) added after the map was built | terrain-only base map | not used | not used |
 | `wat_stream_end` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | not used | not used |
 | `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used |
-| `wire_concertina` | Defences | as `line_concertina` | terrain-only base map | as `line_concertina` | as `line_concertina` |
-| `wire_fence` | Defences | as `line_wire_fence` | terrain-only base map | as `line_wire_fence` | as `line_wire_fence` |
-| `wire_knife_rest` | Defences | as `line_knife_rest` (3 single) | terrain-only base map | as `line_knife_rest` | as `line_knife_rest` (3 single) |
+| `wire_concertina` | Defences | as `line_concertina` | terrain-only base map | as `line_concertina` | not used |
+| `wire_fence` | Defences | as `line_wire_fence` | terrain-only base map | as `line_wire_fence` | not used |
+| `wire_knife_rest` | Defences | as `line_knife_rest` (3 single) | terrain-only base map | as `line_knife_rest` | 3 |
 
 ## Notes
 
