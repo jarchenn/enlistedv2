@@ -150,13 +150,14 @@ public:
     bool zPrepass = false;       // zprepass (R1 experiment): depth-only pass of the building groups, then shading at equal depth
     bool grassShadow = true;     // grassshadow (G1, measurement): off = pasture grass casts no sun shadow; A/B = its share of the near cascade
     bool leafTex = true;         // leaftex (L1): species leaf textures + leaf meshes with LOD (off = the procedural oval cards)
+    bool imgMat = true;          // imgmat (MA1): the image-material slot table of textures.json (replace sets, macro variation, substrates, floor finishes); off = the pre-MA1 slots
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
-              : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau
+              : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : nullptr;
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
