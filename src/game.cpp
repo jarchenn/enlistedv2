@@ -363,6 +363,12 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
   if (rulesIgnoreDamage(*this, i)) return;   // W1: spawn-protected (bullets, blasts, falls)
+  // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
+  // Head out of the hatch stays exposed.
+  if (s.localPlayer && app.tanks.occupied) {
+    auto it = app.tanks.tanks.find(app.tanks.occupied);
+    if (it != app.tanks.tanks.end() && !it->second.wrecked && it->second.station == TS_GUNNER && it->second.hatchT == 0) return;
+  }
   if (attacker >= 0 && attacker != i && sameTeam(attacker, i) && !match.rules.friendlyFire) return;
   s.hp -= dmg;
   s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
