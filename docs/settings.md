@@ -71,20 +71,39 @@ Overrides are stored in `settings_user.json` and applied at the end of `App::loa
 
 ## Presets
 
-**Medium is exactly the built-in defaults.** A missing, deleted or broken settings file renders exactly as the game did before V2.
+**Medium is exactly the built-in defaults.** A missing, deleted or broken settings file renders as Medium. Since P3, Medium is cheaper than the pre-P3 look; High is unchanged.
 
 | | Low | Medium | High |
 |---|---|---|---|
-| Resolution scale | 0.85 | 1.0 | 1.0 |
+| Resolution scale | 0.5 (TAAU) | 0.67 (TAAU) | 1.0 |
 | Shadows (near / far) | 2048 / 1024 | 4096 / 2048 | 4096 / 4096 |
+| Resolution scale | 0.85 | 1.0 | 1.0 |
+| Shadow maps, near / far (px) | 1024 / 1024 | 2048 / 2048 | 4096 / 4096 |
+| Near cascade radius while walking | 28 m | 32 m | 40 m |
+| Far cascade redrawn every | 8th frame | 4th frame | 2nd frame |
+| Sun PCF taps (cap) | 4 | 6 | 8 (no cap) |
+| Leaf shadow LOD from (R2) | 4 m | 8 m | 12 m |
+| Shadowed local lights | 0 | 2 | 8 |
+| Probe GI | off | near, half the capture budget | near + far |
 | Cloud shadows, light shafts, SSR, SSAO | off | on | on |
-| SSAO resolution | — | half | full |
+| SSAO resolution | — | quarter | full |
+| Bloom | off | on | on |
 | TAA jitter phases | 8 | 8 | 16 |
-| Grass | Low | Medium | High |
-| Render distance | 600 m | 1.2 km | 2.5 km |
+| Grass (Low radius 30 m) | Low | Medium | High |
+| Render distance | 450 m | 1.2 km | 2.5 km |
 | Particle budget | ×0.6 | ×1 | ×1.5 |
 | 4x MSAA | off | off | on |
 | Ivy on walls | off | on | on |
+
+### P3 per-preset costs
+
+The settings fields stay the same. The per-tier knobs follow fields that already exist:
+
+- **`shadowQuality` 0 / 1 / 2:** near radius, PCF tap cap, far cascade cadence, leaf shadow LOD (`Renderer::Quality`: `shadowNearR`, `shadowTaps`, `farEvery`, `leafShadowLodM`) and the shadow map sizes. `Settings::capture` reads the tier back from `Renderer::shadowTier`.
+- **`gi` 1:** `q.probeHalf`. Captures run at half rate: 1.5 per frame while filling, 0.5 per frame once converged.
+- **SSAO not at full resolution:** `q.ssaoDiv` 4.
+
+For an A/B, `NMK_PRESET_OLD=1` restores the pre-P3 Low / Medium values. Measurements are in `Documents/MapMaker/screens/p3`.
 
 Measured by `--selftest-settings` (RTX 2080 Ti, 1920×1080, one farmhouse on Blank Slate, reported only): Low 2.96 ms, Medium 3.77 ms, High 6.23 ms. `--selftest-maps` reports Low / Medium / High for every eye-level view of the shipped maps; only Medium is gated.
 

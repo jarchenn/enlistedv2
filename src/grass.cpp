@@ -11,7 +11,7 @@ const GrassPreset& grassPreset(GrassQuality q) {
   // G1: species-dependent cards (turf / clover fewer), shadows from coarse clumps only within a per-clump radius, Ultra.
   static GrassPreset P[5] = {
     {"Off", 0, 0, 0, 0, 2, 0.1f, {0, 0, 0}, {0, 0, 0}, 0, 0, 0, 0},
-    {"Low", 12, 36, 10, 22, 2.0f, 0.12f, {12, 5, 3}, {12, 5, 3}, 0, 0, 0, 0},
+    {"Low", 12, 30, 10, 22, 2.0f, 0.12f, {12, 5, 3}, {12, 5, 3}, 0, 0, 0, 0},
     {"Medium", 24, 48, 15, 32, 1.6f, 0.14f, {8, 4, 2}, {6, 3, 2}, 13, 7, 3, 1.0f},
     {"High", 30, 54, 18, 40, 1.8f, 0.12f, {10, 6, 3}, {7, 4, 2}, 15, 9, 4, 1.0f},
     {"Ultra", 38, 62, 20, 44, 1.8f, 0.13f, {10, 6, 3}, {7, 4, 2}, 19, 11, 3, 0.8f},
@@ -44,6 +44,7 @@ const GrassPreset& grassPreset(GrassQuality q) {
         }
       }
     } catch (std::exception& e) { logf("grass: settings/grass.json: %s (defaults)", e.what()); }
+    if (std::getenv("NMK_PRESET_OLD")) P[1].radius = 36;   // P3 A/B (settings.cpp presetsOld): the pre-P3 Low radius
   }
   return P[std::clamp((int)q, 0, 4)];
 }
@@ -380,7 +381,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
       case 18: hgt = 0.45f + 0.40f * r1; wid = 0.010f + 0.003f * r2; break;   // marram: tall, narrow rolled leaves
       default: hgt = (0.34f + 0.28f * r1) * (0.75f + 0.5f * patch); wid = 0.018f + 0.007f * r2; break;
     }
-    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch) * (0.45f + 0.55f * smooth(0.0f, 3.0f, fdMin));   // grass grows back from a footprint edge
+    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch) * (0.6f + 0.4f * smooth(0.0f, 1.2f, fdMin));   // grass grows back from a footprint edge (MA3: within 1.2 m, was 3 m: no short ring round buildings)
     if (verge > 0.2f || wall > 0.3f) var = std::min(1.0f, var * 0.6f);
     float tint = std::clamp(std::pow(r.f(), 3.0f) * 0.55f + smooth(0.55f, 0.85f, nDry) * 0.35f + (1.0f - paintG) * 0.4f, 0.0f, 1.0f);
     float yaw = r.f() * 6.2831853f;

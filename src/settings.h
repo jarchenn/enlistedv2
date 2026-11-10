@@ -14,7 +14,7 @@ enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3 };
 // The part of the graphics options a preset sets. Everything else (FOV, vsync, FPS cap, cloud cover) is personal and
 // kept when a preset is picked.
 struct GraphicsOpts {
-  float resScale = 1.0f;       // internal render resolution, upscaled at the final blit (0.5 .. 1)
+  float resScale = 0.67f;      // internal render resolution (0.5 .. 1); below 1 TAA reconstructs at output size (P1 TAAU). Medium 0.67, Low 0.5, High 1
   int shadowQuality = 1;       // 0: near 2048 / far 1024, 1: 4096 / 2048 (default), 2: 4096 / 4096
   bool farCascade = true, cloudShadows = true, shafts = true, ssr = true, ssao = true, ssaoFull = false, bloom = true, taa = true;
   int taaPhases = 8;           // Halton jitter sequence length
@@ -24,7 +24,7 @@ struct GraphicsOpts {
   bool grassWind = true;       // GX3: vertex wind on the near grass clumps (Low: static grass)
   float particles = 1.0f;      // effect budgets (Fx caps) and, through particleBudget(), fragment caps
   // L2 lighting (docs/lighting.md): local lights per frame, shadowed lights, probe GI 0 off / 1 near / 2 near + far
-  int lightCount = 256, shadowLights = 4, gi = 1;
+  int lightCount = 256, shadowLights = 2, gi = 1;   // P3: Medium 2 shadowed lights (was 4)
   int msaa = 0;                // B1: 4 = 4x MSAA on the opaque world (High), 0 = off
   bool ivy = true;             // B1: ivy on stone walls (density follows the grass quality)
   int materials = 1;           // GX5 material detail: 0 Low (base materials), 1 wear / grime / seams / decals, 2 High (+ parallax)
@@ -32,6 +32,7 @@ struct GraphicsOpts {
   bool operator==(const GraphicsOpts&) const = default;
 };
 GraphicsOpts presetOpts(GfxPreset p);
+bool presetsOld();   // P3 A/B (NMK_PRESET_OLD): the pre-P3 Low / Medium values
 const char* presetName(GfxPreset p);
 
 struct UserSettings {
@@ -41,6 +42,11 @@ struct UserSettings {
   bool vsync = true;
   int fpsCap = 0;              // 0 = unlimited
   float hour = 14.0f;          // time of day (L2): 14:00 Day, 18:36 Dusk, 00:00 Night, 05:00 Dawn, or any hour
+#ifdef __APPLE__
+  int upscale = 1;             // 0 temporal, 1 spatial, 2 off (Renderer::upscaleMode). Mac: spatial (MetalFX temporal at Retina costs ~25 ms)
+#else
+  int upscale = 0;             // 0 temporal (TAAU), 1 spatial (bilinear final blit), 2 off (Renderer::upscaleMode)
+#endif
   // gameplay
   float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
   float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)

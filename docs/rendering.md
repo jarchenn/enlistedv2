@@ -696,3 +696,71 @@ GX5 stays on. Measured: GPU −0.45 ms, opaque −0.41 ms (−5.7 %), 25/28 view
   (inside the noise).
 - **`zprepass`.** Building items depth-only (`kDepthVS`, `invariant gl_Position` shared with `kMainVS`), then shading at
   LEQUAL. Its A/B was cancelled before it ran, so it is unmeasured and off.
+
+## 14. Temporal upscaling (TAAU, P1)
+
+### 14.1 What it does
+- **When it applies.** Below a resolution scale of 1, the world renders at `width = display x scale` with a jitter of ±0.5 internal pixels:
+  Halton (2,3), `taaPhases` phases. The TAA resolve (`kTaaFS`, `uUp = 1`) then runs **at output size**.
+- **Each output pixel:**
+  - takes a Gaussian (`exp(-2 d²)`, d in internal pixels) of the 3x3 internal samples around it. The internal texel `c` holds
+    the scene at the unjittered position `c + jitter`, because `projJ` moves the image by `-jitter`;
+  - reprojects the output-size history with the nearest sample's depth (unjittered matrices), or with the sample's own motion
+    where `velTex.a = 1` (wind-animated foliage and grass);
+  - clips the history to the YCoCg box of the same 3x3 samples;
+  - blends with `alpha = mix(0.08, 0.30, motion) x (0.25 + 1.5 x conf)`, where `conf` is the weight of the nearest sample. A pixel
+    with no sample close to it keeps more history.
+- **Reactive pixels.** Wind-animated pixels (`velTex.a = 1`) keep less history (alpha ≥ 0.2), because their motion is approximate.
+- **Output.** The pass writes the output colour, the output history and `gl_FragDepth`, the nearest internal depth. That depth is
+  used by effects and editor overlays.
+- **Sharpening.** The unsharp mask runs at output size against the internal 3x3 mean, at half the TAA sharpen; the grade's sharpen
+  also runs at output size now.
+- **Everything after the resolve runs at output size.** `render()` swaps in `Renderer::up`: output-size HDR (with mips),
+  depth, first-person distance, DoF, LDR and the history ping-pong. Effects, the weapon and arms, sights and eyepiece,
+  DoF, exposure, the bloom source and the tonemap all run there, and the end of `render()` swaps back. `readPixels` /
+  `readVmDist` return the output-size frame. ImGui was already at window size.
+- **At scale 1 (High)** the old path runs unchanged (`uUp = 0`).
+
+### 14.2 Presets and switch
+- **Presets.** Low 0.5, Medium 0.67 (the `GraphicsOpts` default), High 1.0 (native, MSAA as before). The resolution slider
+  stays (0.5–1). Below 1, TAA is on even when the TAA checkbox is off: it is the upscaler.
+- **Saved settings.** A saved settings file keeps its own scale: an old Medium file at 1.0 now reads as Custom.
+- **Switch.** `taau` (`Renderer::Perf`, `--rq-off taau`, `NMK_PERF_AB=taau`). Off = native resolution, whatever the scale, so the
+  A/B compares TAAU against native.
+- **Maps suite.** It applies the Medium preset at its start, so every Medium view uses the preset's scale.
+
+### 14.3 Measured
+See the P1 report (`screens\p1\ab_taau.json`, BASE-28, exclusive GPU turn). Capture set:
+`NMK_TAAU_SHOTS=1 --selftest-render` writes `taau_{still,turning,foliage,sights}_{native,taau}.png` at 0.67 from identical cameras.
+Turning is 100 deg/s.
+
+### 14.4 Mac: MetalFX temporal scaler hook
+`Renderer::temporalUpscaler` is a function pointer. When it is set and returns true, it has done the resolve, and `render()` continues in the
+output-size set.
+
+The call receives `TemporalUpscale`:
+
+| Field | Contents |
+|---|---|
+| `color` | Internal-size scene, RGBA16F, linear HDR (GL name) |
+| `depth` | Internal-size depth, D32F, **reverse-Z** (1 near, 0 far / sky) |
+| `motion` | Internal-size RGBA16F. Where `a = 1` (animated foliage and grass), `rg` = UV delta from the current to the previous frame. Elsewhere `a = 0`, and motion comes from the camera: `prevVP x invVP` applied to the pixel's depth (both unjittered) |
+| `outColor`, `outDepth` | Output-size targets to fill. `outDepth` must receive the upsampled depth (nearest), because effects depth-test against it |
+| `inW/inH`, `outW/outH`, `jitterPx`, `reset` | Sizes, jitter and history reset. The image is shifted by **−jitterPx** internal pixels |
+
+Shim calls needed:
+- **Once per size:** `MTLFXTemporalScalerDescriptor` with:
+  - `inputWidth/Height`, `outputWidth/Height`;
+  - `colorTextureFormat = RGBA16Float`, `depthTextureFormat = Depth32Float`, `motionTextureFormat = RG16Float`,
+    `outputTextureFormat = RGBA16Float`.
+  Then `newTemporalScalerWithDevice:`.
+- **Per frame:**
+  - map the GL names to their `MTLTexture`s;
+  - a small pass that writes full RG16F motion in **input pixels**: `velTex.rg` where `a = 1`, else the camera reprojection above;
+  - `setColorTexture`, `setDepthTexture`, `setMotionTexture`, `setOutputTexture`;
+  - `setJitterOffsetX/Y`. Check the sign: the image moves by −jitterPx;
+  - `setMotionVectorScaleX/Y` (1 if the motion is in input pixels), `setDepthReversed:YES`, `setReset:` and
+    `encodeToCommandBuffer:`;
+  - a nearest depth upsample into `outDepth`.
+
+No new GL feature is required: the GL path uses only `texelFetch`, `gl_FragDepth` and a depth attachment on the TAA target.

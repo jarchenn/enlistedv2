@@ -19,7 +19,8 @@ struct SurfaceParams {
   glm::ivec2 roomX{0};                   // GX5: rooms past 16 (large buildings) as records in Renderer::sdec: first, count
 };
 struct StaticDecal { vec4 a, b, c; };    // GX5 (static_decals.h): centre + type, normal + seed, half size + strength + variant
-struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
+struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;
+  const vec4* contact = nullptr;   // MA2: the copy's ground-contact grid (InstanceRT::contact: box + 4 rows), null = asset ground   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
   float castR = 0;          // R2 castercull: > 0 = casts sun shadows only within this many metres of the eye (small props; interior.cpp)
   bool mainHidden = false;  // R2 roomcull: not drawn in the camera pass (an interior seen through no opening); shadows and probes keep it
 };
@@ -112,6 +113,13 @@ public:
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
     int taaPhases = 8;          // Halton (2,3) jitter phases (settings: High uses 16)
     int matLayer = 1;           // GX5 layered materials: 0 off (Low), 1 wear / grime / seams / detail, 2 + High extras
+    // P3 per-preset costs (settings.cpp apply, by shadowQuality / gi). Defaults = Medium; High: 40 m, 16, 2, 12 m
+    float shadowNearR = 32.0f;  // near sun cascade radius while walking (m)
+    int shadowTaps = 6;         // cap on the sun PCF taps per cascade lookup (the shaders ask for 4-8)
+    int farEvery = 4;           // the far cascade is redrawn every n-th frame (perf.farCache; or when its focus moves)
+    float leafShadowLodM = 8;   // R2 leaf shadow LOD: full cards inside this distance from the eye (near cascade)
+    int ssaoDiv = 4;            // SSAO resolution divisor when not full resolution
+    bool probeHalf = true;      // probe GI capture budget halved (Medium, near-probe GI)
   } q;
   // render targets set by the settings presets (settings.cpp, docs/settings.md). width / height are the internal
   // render size = display size x resolution scale; the final blit upscales to displayW x displayH.
@@ -140,6 +148,7 @@ public:
     bool assetLod = true;        // assetlod: part-built assets drawn with their LOD meshes by screen size; sub-pixel props skipped
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
+    bool foundWx = true;         // foundwx (MA2): foundation weathering by height above the local ground (off = above the asset ground)
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
     bool casterCull = true;      // castercull (R2): small props cast sun shadows only near the eye (DrawItem::castR)
@@ -156,13 +165,14 @@ public:
     bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
     bool folBatch = true;        // folbatch (P2): standing trees' species leaves drawn per 64 m cell, runs of visible trees at one LOD per draw
     bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
+    bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
-                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = false; p.dlCache = p.instDepth = p.folBatch = false; return p; }
+                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
-              : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : nullptr;
+              : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : nullptr;
       if (n == "p2") { dlCache = instDepth = folBatch = on; return true; }   // P2: every draw-submission switch together
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
@@ -182,11 +192,25 @@ public:
   int msaa() const { return msaaSamples; }
   bool msaaActive() const { return msFbo != 0; }   // the multisampled world target exists (complete)
   int shadowNearPx() const { return shadowSize; }
+  int shadowTier = 1;         // P3: the settings' shadowQuality the maps were sized for (Settings::capture reads it back)
   int shadowFarPx() const { return shadowFarSize; }
   float resolutionScale() const { return resScale; }
   bool ssaoFull() const { return aoDiv == 1; }
   int displayW = 0, displayH = 0;
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
+  // Mac hook (MetalFX temporal scaler, rendering.md 14.4): when set and it returns true, it replaced the GL TAAU shader
+  // exposure: the engine's 1x1 R32F exposure (last frame's; the tonemap multiplies the HDR colour by it)
+  struct TemporalUpscale { GLuint color, depth, motion, outColor, outDepth, exposure; int inW, inH, outW, outH; vec2 jitterPx; mat4 invVP, prevVP; bool reset; };
+  // The platform installs it at start-up (normandy-mac mac_window.mm: the MetalFX temporal scaler); hookOn switches it
+  // per renderer (A/B, captures). With a hook, motion is the full per-pixel motion in input pixels toward the previous
+  // position (RG16F, motionTex: velTex where animated, else the camera reprojection), and the engine writes outDepth.
+  static inline bool (*temporalUpscaler)(const TemporalUpscale&) = nullptr;
+  bool hookOn = true, hookWas = false;
+  vec2 hookSign{1.0f, 1.0f};   // sign checks (NMK_TAAU_SHOTS): x multiplies the jitter handed over, y the motion's y
+  // Upscaling (settings "upscaling"): 0 Temporal (TAAU, or the platform's temporal hook), 1 Spatial (the pre-P1 path:
+  // everything at the internal size, then the final blit upscales; MetalFX spatial on the Mac), 2 Off (native)
+  int upscaleMode = 0;
+  GLuint progMotion = 0, progDepthUp = 0, motionTex = 0, motionFbo = 0; int motionW = 0, motionH = 0;
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
   bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));   // the Day sun; inside render() the key light of the time of day (lighting.cpp)
@@ -194,7 +218,7 @@ public:
   struct LightQ {
     float hour = 14.0f;         // time of day, 0..24 (14:00 = Day: exactly the pre-L2 sun, sky and exposure)
     int maxLights = 256;        // local lights uploaded per frame (nearest first)
-    int shadowLights = 4;       // nearest spot / point lights with a shadow map (0, 4, 8)
+    int shadowLights = 2;       // nearest spot / point lights with a shadow map (Low 0, Medium 2, High 8)
     int gi = 1;                 // probe GI: 0 off (the old fill term), 1 near volume, 2 near + far volumes, faster updates
     float emissive = 1.0f;      // global multiplier on material emission
     int probeBudget = 0;        // > 0: probes captured per frame (tests); 0 = the preset rate
@@ -211,6 +235,7 @@ public:
   // Depth convention (docs/rendering.md#depth-convention). The world camera passes of render() are reverse-Z: clip depth
   // 0..1 (glClipControl), near = 1, far = 0, cleared to 0, GL_GREATER. Shadow cascades, sky occlusion, thumbnails and
   // offscreen sheets keep the standard GL convention. Code drawing inside render() picks its depth state from these.
+  int gxDebug = 0;                      // MA2 / GX5 debug views (as NMK_GX5_DEBUG; 3 = foundation mask), set by tests
   int wallRelief = 1;                   // A/B (--selftest-render): 0 = wall patterns 17-22 without their relief bump / light term
   bool revZ = false;                    // true once render() ran: the world camera passes are reverse-Z
   GLenum zLess() const { return revZ ? GL_GREATER : GL_LESS; }
@@ -223,7 +248,7 @@ private:
   void createTargets();
   void createMsaa(); void resolveMsaa();   // B1 MSAA world target (render.cpp)
   void createShadowTargets();
-  float resScale = 1.0f; int aoDiv = 2;
+  float resScale = 1.0f; int aoDiv = 4;   // P3: Medium AO at quarter resolution
   // fr: the pass's own frustum (src/frustum.h, docs/rendering.md#frustum-culling); null = draw everything (thumbnails,
   // model sheets, the first-person weapon). sortSurf: stable sort by building finish parameters (main opaque pass)
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr = nullptr, bool sortSurf = false);
@@ -235,7 +260,7 @@ private:
   static constexpr float kLeafNearIn = 10, kLeafNearOut = 12, kLeafMidIn = 22, kLeafMidOut = 26;
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
-  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, roomDec = -1, extDec = -1, roomX = -1,
+  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, contactBox = -1, contact = -1, foundWx = -1, roomDec = -1, extDec = -1, roomX = -1,
                     vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,
                     alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, snapAp = -1, glow = -1; };
   std::vector<std::pair<GLuint, DrawLocs>> locCache;
@@ -274,6 +299,16 @@ private:
   mat4 prevVP{1}; vec3 prevCam{0}; vec2 jitterPx{0};
   void taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v);
   GLuint vmDistTex = 0, dofTex = 0, dofFbo = 0;
+  // P1 TAAU (rendering.md 14): the post targets at output size. After the TAA resolve, render() swaps them with the
+  // internal ones (hdr, depth, first-person distance, DoF, LDR, history), so fx, the weapon, DoF, exposure, the bloom
+  // source and the tonemap run at output resolution; the end of render() swaps back.
+  struct UpTargets { GLuint hdrFbo = 0, hdrColor = 0, depthTex = 0, vmDistTex = 0, dofTex = 0, dofFbo = 0, ldrFbo = 0, ldrColor = 0, hist[2]{}, taaFbo[2]{}; int w = 0, h = 0; } up;
+  bool upActive = false;     // the last frame ended in the output-size set (readPixels reads it)
+  bool histUp = false;       // the TAA history holds output-size (TAAU) frames
+  void createUpTargets();
+  void swapUp();
+  void upDepth();            // TAAU output depth (kDepthUpFS): the nearest internal depth, for effects and overlays             // exchanges the internal and output-size post targets (and width / height)
+  float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
   GLuint progGrass = 0, progGrassShadow = 0;   // GX3: near pasture clumps into the sun map
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped
@@ -301,5 +336,5 @@ private:
   bool thumbMode = false;
   float pxAngle = 0.001f;   // radians per framebuffer pixel of the current main view (thin-line widening)
   float time = 0;
-  int shadowSize = 4096, occSize = 2048;
+  int shadowSize = 2048, occSize = 2048;   // P3: Medium near cascade 2048
 };

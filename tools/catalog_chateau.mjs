@@ -79,14 +79,6 @@ export function crossGable(A, { x, w, zf, s = 1, y0, rise, back, ov = 0.35, t = 
   }
 }
 
-// glazed windows on a round / polygonal turret: at angle a (degrees from +x toward +z), height y
-export function turretWindow(A, cx, cz, r, a, y, w = 0.7, h = 1.2) {
-  const ar = (a * Math.PI) / 180, dx = Math.cos(ar), dz = Math.sin(ar), yaw = (Math.atan2(dx, dz) * 180) / Math.PI;
-  A.obox([cx + dx * (r - 0.005), y, cz + dz * (r - 0.005)], [w + 0.18, h + 0.18, 0.06], [0, yaw, 0], "stone_dressed", { k: 0, bv: 0.01 });
-  A.obox([cx + dx * (r + 0.012), y, cz + dz * (r + 0.012)], [w, h, 0.04], [0, yaw, 0], "glass", { k: 0 });
-  A.obox([cx + dx * (r + 0.02), y, cz + dz * (r + 0.02)], [0.05, h, 0.05], [0, yaw, 0], "window_paint", { k: 0 });
-}
-
 // Stone-and-brick checkerwork: every outer-layer wall box built with the material "chk" (intact and damaged states)
 // becomes an invisible collider plus a grid of visible brick / dressed-stone squares; breached states stay brick.
 export function checker(A, { Z, y0, cell = [0.6, 0.45] }) {
@@ -370,7 +362,7 @@ export function chateauGrand() {
   const X = 20, Z = 11;
   const A = meta("vil_chateau_grand", "Grand chateau (Deauville villa)", "Landmarks",
     "Norman seaside chateau in the style of the Villa Strassburger at Deauville, 40 x 22 m: a stone-and-brick checkerwork ground floor under two half-timbered storeys and a steep 45 degree tiled roof with three cross gables and dormers, a round corner tower with an 11 m conical spire and a slim octagonal turret, an arcaded gallery along the front carrying a balcony, railed balconies, tall brick chimney stacks and ivy. Enterable: entrance hall, salon, library, dining room and kitchen off a rear corridor, two stair cores to eight bedrooms on two floors and an open attic.",
-    4, [49, 29], { ivy: [{ face: "+x", a0: -7, a1: 6, y0: 0.4, y1: 3.6 }, { face: "-z", a0: -19, a1: -8, y0: 0.4, y1: 7.0, density: 0.8 }, { face: "-x", a0: -3, a1: 9, y0: 0.4, y1: 5.5 }, { face: "+z", a0: 13, a1: 18.5, y0: 0.4, y1: 3.4, density: 0.6 }] });
+    4, [49, 29], { version: 3, ivy: [{ face: "+x", a0: -7, a1: 6, y0: 0.4, y1: 3.6 }, { face: "-z", a0: -19, a1: -8, y0: 0.4, y1: 7.0, density: 0.8 }, { face: "-x", a0: -3, a1: 9, y0: 0.4, y1: 5.5 }, { face: "+z", a0: 13, a1: 18.5, y0: 0.4, y1: 3.4, density: 0.6 }] });
   mats(A);
   const big = { w: 1.3, h: 2.1, sill: 0.65 }, up = { w: 1.2, h: 1.75, sill: 0.8 };
   const ctx = house(A, {
@@ -401,10 +393,11 @@ export function chateauGrand() {
       colonnade(A, { axis: "x", a0: -12, a1: 12, d: Z + 2.5, y0: GF - 0.02, y1: 3.73, n: 14, r: 0.2, depth: 0.5 });
       balcony(A, fr, { a0: -12.6, a1: 12.6, y: 3.92, depth: 2.9, t: 0.2 });
       // corner tower (round, tall conical spire) and the slim octagonal turret
-      turret(A, { x: X + 1.8, z: Z + 1.8, y0: 0, y1: EAVE + 2.6, r: 2.6, spire: 11, roof: "tile", m: "stone" });
-      for (let f = 0; f < 4; f++) for (const a of [10, 45, 80]) turretWindow(A, X + 1.8, Z + 1.8, 2.6, a, yAt(f) + 1.6, 0.6, f < 3 ? 1.3 : 0.9);
-      turret(A, { x: -X - 1.0, z: -Z - 1.0, y0: 0, y1: EAVE + 4.5, r: 1.5, spire: 6.5, sides: 8, roof: "slate", m: "stone_dressed" });
-      for (let f = 1; f < 4; f++) turretWindow(A, -X - 1.0, -Z - 1.0, 1.5, 225, yAt(f) + 1.5, 0.4, 0.9);
+      const storeys = [0, 1, 2, 3];
+      turret(A, { x: X + 1.8, z: Z + 1.8, y0: 0, y1: EAVE + 2.6, r: 2.6, spire: 11, roof: "tile", m: "stone", floors: [1, 2, 3].map(yAt),
+        windows: storeys.flatMap((f) => [10, 45, 80].map((a) => ({ a, y: yAt(f) + 1.6, w: 0.6, h: f < 3 ? 1.3 : 0.9 }))) });
+      turret(A, { x: -X - 1.0, z: -Z - 1.0, y0: 0, y1: EAVE + 4.5, r: 1.5, spire: 6.5, sides: 8, roof: "slate", m: "stone_dressed", floors: [1, 2, 3].map(yAt),
+        windows: [1, 2, 3].map((f) => ({ a: 225, y: yAt(f) + 1.5, w: 0.44, h: 0.9 })) });
       // balconies
       for (const a of [-6.0, 6.0]) balcony(A, fr, { a0: a - 1.0, a1: a + 1.0, y: yAt(2), depth: 0.8 });
       balcony(A, face("east", X, Z), { a0: 2.3, a1: 4.7, y: yAt(1), depth: 0.85 });
@@ -514,7 +507,7 @@ export function manorTurret() {
   const X = 8.5, Z = 5.0;
   const A = meta("vil_manor_turret", "Stone manor with stair turret", "Houses",
     "Norman manor house (manoir), 17 x 10 m, of dressed rubble stone with quoins, string course and architrave windows, under a steep slate roof between stone gables with tall chimneys; a round stair turret with slit windows and a conical spire stands against the front. Hall, salon and dining room with fireplaces; three bedrooms; two stairs; ivy.",
-    2, [18.2, 14], { ivy: "auto" });
+    2, [18.2, 14], { version: 3, ivy: "auto" });
   mats(A);
   const tx = -6.5, tz = Z + 1.15, tr = 1.45;
   house(A, {
@@ -525,8 +518,9 @@ export function manorTurret() {
     roof: { type: "gable", rise: 5.5, m: "slate", gable: "stone" },
     dress: (A, k) => {
       masonry(A, k);
-      turret(A, { x: tx, z: tz, y0: 0, y1: k.EAVE + 2.2, r: tr, spire: 4.8, roof: "slate" });
-      for (const [a, y] of [[60, 1.6], [90, 3.4], [120, 5.2], [90, 7.4]]) turretWindow(A, tx, tz, tr, a, y, 0.18, 0.8);
+      // stair turret: narrow lights climbing round with the stair
+      turret(A, { x: tx, z: tz, y0: 0, y1: k.EAVE + 2.2, r: tr, spire: 4.8, roof: "slate",
+        windows: [[50, 1.6], [90, 3.4], [130, 5.2], [90, 7.4]].map(([a, y]) => ({ a, y, w: 0.46, h: 0.95 })) });
       for (const sx of [-1, 1]) chimney(A, { x: sx * (X - 0.17), z: -1.5, y0: k.EAVE - 0.5, y1: k.RIDGE + 1.0, w: 0.55, d: 0.9, m: "stone" });
       for (const x of [-4.6, 4.6]) fireplace(A, { axis: "x", d: k.zA + 0.15, s: 1, a: x, y: GF, top: k.yAt(1) - 0.2, w: 1.6 });
     },

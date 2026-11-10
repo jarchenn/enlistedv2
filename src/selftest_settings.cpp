@@ -29,10 +29,13 @@ void checkMediumIsDefault(App& app, const char* when) {
   bool q = R.q.farCascade == d.farCascade && R.q.cloudShadows == d.cloudShadows && R.q.shafts == d.shafts && R.q.ssr == d.ssr && R.q.ssao == d.ssao &&
            R.q.bloom == d.bloom && R.q.taa == d.taa && R.q.taaPhases == d.taaPhases && R.q.shadowSoft == d.shadowSoft && R.q.taaJitter == d.taaJitter;
   T->check(q, fmt("%s: renderer quality flags equal Renderer::Quality defaults", when));
-  T->check(R.shadowNearPx() == 4096 && R.shadowFarPx() == 2048, fmt("%s: shadow maps %d / %d (defaults 4096 / 2048)", when, R.shadowNearPx(), R.shadowFarPx()));
-  T->check(R.resolutionScale() == 1.0f && R.width == R.displayW && R.height == R.displayH && !R.ssaoFull(), fmt("%s: full resolution %d x %d, half-resolution AO", when, R.width, R.height));
+  T->check(R.shadowNearPx() == 2048 && R.shadowFarPx() == 2048 && R.q.shadowNearR == 32.0f && R.q.farEvery == 4 && R.q.shadowTaps == 6 && R.q.leafShadowLodM == 8.0f,
+           fmt("%s: P3 Medium shadows: maps %d / %d, near radius 32 m, far every 4th frame, 6 PCF taps, leaf shadow LOD from 8 m", when, R.shadowNearPx(), R.shadowFarPx()));
+  { float sc = R.resolutionScale();   // P1: start-up (nothing applied) native; Medium applied: its 0.67 with TAAU
+    T->check((sc == 1.0f || sc == GraphicsOpts{}.resScale) && R.width == std::max(16, (int)std::lround(R.displayW * sc)) && R.height == std::max(16, (int)std::lround(R.displayH * sc)) && !R.ssaoFull() && R.q.ssaoDiv == 4 && R.q.probeHalf,
+             fmt("%s: resolution scale %.2f (%d x %d of %d x %d), quarter-resolution AO, half the probe capture budget", when, sc, R.width, R.height, R.displayW, R.displayH)); }
   T->check(app.grass.quality == GrassQuality::Medium && R.clouds, fmt("%s: grass Medium, clouds on", when));
-  T->check(R.lt.gi == 1 && R.lt.shadowLights == 4 && R.lt.maxLights == 256 && R.lt.hour == 14.0f, fmt("%s: L2 lighting: near probe GI, 4 shadowed lights, 256 lights, Day (14:00)", when));
+  T->check(R.lt.gi == 1 && R.lt.shadowLights == 2 && R.lt.maxLights == 256 && R.lt.hour == 14.0f, fmt("%s: L2 lighting: near probe GI, 2 shadowed lights (P3), 256 lights, Day (14:00)", when));
   T->check(app.fx.maxParts == 900 && app.fx.maxStreaks == 160 && app.fx.maxDebris == 72 && settings().particleBudget() == 1.0f && settings().drawDist() == 1.0f,
            fmt("%s: effect caps 900 / 160 / 72, particle budget and draw distance x1", when));
 }
@@ -59,13 +62,14 @@ bool settingsSelfTest(App& app, float dt) {
     T->check(!S.persist, "self-test run: the user's settings_user.json is neither read nor written");
     T->check(presetOpts(GfxPreset::Medium) == GraphicsOpts{} && UserSettings{}.preset() == GfxPreset::Medium, "the Medium preset is exactly the built-in defaults");
     UserSettings cap; Settings tmp; tmp.capture(app); cap = tmp.s;
-    T->check(cap.gfx == presetOpts(GfxPreset::Medium), "a fresh game (nothing applied) captures as Medium");
+    { GraphicsOpts m = presetOpts(GfxPreset::Medium); m.resScale = 1.0f;   // P1: the renderer starts native; Medium's 0.67 arrives when settings apply
+      T->check(cap.gfx == m, "a fresh game (nothing applied) captures as Medium at native resolution"); }
     checkMediumIsDefault(app, "start-up");
     T->check(std::fabs(S.lookDegPerCount(0) - 0.1f) < 1e-6f && S.pitchSign() == 1.0f && S.fov() == 72.0f, "defaults: 0.1 deg per count, Y not inverted, FOV 72");
     // presets
     GraphicsOpts lo = presetOpts(GfxPreset::Low), hi = presetOpts(GfxPreset::High);
-    T->check(lo.shadowQuality == 0 && !lo.cloudShadows && !lo.shafts && !lo.ssr && !lo.ssao && lo.grass == 1 && lo.renderDist == 600.0f && lo.resScale == 0.85f && lo.particles < 1,
-             "Low: shadows 2048 / 1024, no cloud shadows / shafts / SSR / SSAO, grass Low, render distance 600 m, resolution 0.85, smaller caps");
+    T->check(lo.shadowQuality == 0 && !lo.cloudShadows && !lo.shafts && !lo.ssr && !lo.ssao && !lo.bloom && lo.grass == 1 && lo.renderDist == 450.0f && lo.resScale == 0.5f && hi.resScale == 1.0f && GraphicsOpts{}.resScale == 0.67f && lo.particles < 1,
+             "Low: shadows 1024 / 1024, no cloud shadows / shafts / SSR / SSAO / bloom, grass Low, render distance 450 m, resolution 0.5 (TAAU), smaller caps; High native, Medium 0.67");
     T->check(hi.shadowQuality == 2 && hi.ssaoFull && hi.grass == 3 && hi.renderDist == 2500.0f && hi.particles > 1 && hi.taaPhases > 8,
              "High: far shadows 4096, full-resolution AO, grass High, render distance 2.5 km, bigger budgets, more jitter phases");
     T->check(hi.msaa == 4 && GraphicsOpts{}.msaa == 0 && lo.msaa == 0 && !lo.ivy && GraphicsOpts{}.ivy && hi.ivy, "B1: 4x MSAA on High only; ivy off on Low, on at Medium / High");
@@ -148,14 +152,14 @@ bool settingsSelfTest(App& app, float dt) {
     if (gT >= 3.0f) {
       const Renderer& R = app.R;
       if (p == GfxPreset::Low)
-        T->check(R.shadowNearPx() == 2048 && R.shadowFarPx() == 1024 && !R.q.ssao && !R.q.ssr && !R.q.shafts && !R.q.cloudShadows && app.grass.quality == GrassQuality::Low &&
-                 R.width == (int)std::lround(R.displayW * 0.85) && app.fx.maxParts == 540 && S.renderDist() == 600.0f && R.lt.gi == 0 && R.lt.shadowLights == 0,
-                 fmt("Low applied live: shadows 2048 / 1024, effects off, grass Low, render %d x %d upscaled to %d x %d, %zu particles", R.width, R.height, R.displayW, R.displayH, app.fx.maxParts));
+        T->check(R.shadowNearPx() == 1024 && R.shadowFarPx() == 1024 && R.q.farEvery == 8 && R.q.shadowTaps == 4 && !R.q.bloom && !R.q.ssao && !R.q.ssr && !R.q.shafts && !R.q.cloudShadows && app.grass.quality == GrassQuality::Low &&
+                 R.width == (int)std::lround(R.displayW * 0.5) && app.fx.maxParts == 540 && S.renderDist() == 450.0f && R.lt.gi == 0 && R.lt.shadowLights == 0,
+                 fmt("Low applied live: shadows 1024 / 1024 (far every 8th frame, 4 taps), effects and bloom off, grass Low, render %d x %d upscaled to %d x %d, %zu particles", R.width, R.height, R.displayW, R.displayH, app.fx.maxParts));
       if (p == GfxPreset::Medium) checkMediumIsDefault(app, "Medium applied after Low");
       if (p == GfxPreset::High)
         T->check(R.shadowNearPx() == 4096 && R.shadowFarPx() == 4096 && R.ssaoFull() && R.q.taaPhases == 16 && app.grass.quality == GrassQuality::High &&
-                 R.width == R.displayW && app.fx.maxParts == 1350 && S.renderDist() == 2500.0f && R.lt.gi == 2 && R.lt.shadowLights == 8,
-                 fmt("High applied live: shadows 4096 / 4096, full-resolution AO, 16 jitter phases, grass High, %zu particles", app.fx.maxParts));
+                 R.width == R.displayW && app.fx.maxParts == 1350 && S.renderDist() == 2500.0f && R.lt.gi == 2 && R.lt.shadowLights == 8 && R.q.shadowNearR == 40.0f && R.q.farEvery == 2 && R.q.shadowTaps == 16 && !R.q.probeHalf,
+                 fmt("High applied live (P3: unchanged): shadows 4096 / 4096, 40 m, far every 2nd frame, full PCF, full-resolution AO, 16 jitter phases, grass High, %zu particles", app.fx.maxParts));
       T->check(p == GfxPreset::High ? R.msaa() == 4 && R.msaaActive() : R.msaa() == 0 && !R.msaaActive(),
                fmt("%s: MSAA %s (world target %s)", presetName(p), R.msaa() ? "4x" : "off", R.msaaActive() ? "multisampled" : "single-sample"));
       T->check(R.fboErrors == 0 && R.shaderErrors == 0, fmt("%s: every framebuffer complete, every shader compiled", presetName(p)));

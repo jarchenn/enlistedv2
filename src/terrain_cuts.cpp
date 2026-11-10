@@ -59,7 +59,7 @@ bool excluded(const TerrainStamp& s, uint64_t ex, const std::vector<uint64_t>* i
 // two boxes meeting) and past an end the wall rises at once; otherwise (the parapet) the distance to the segment,
 // so the spoil rounds the outside of a corner and the end of a run.
 struct TrenchHit { float lat = 1e30f, floorY = 0; bool any = false, front = false; };
-TrenchHit trenchAt(const TerrainStamp& s, vec2 p, float ext, bool square, float floorHalf) {
+TrenchHit trenchAt(const TerrainStamp& s, vec2 p, float ext, bool square, float floorHalf, bool openMouths = false) {
   TrenchHit r;
   for (size_t k = 0; k < s.seg.size(); ++k) {
     vec2 a(s.seg[k].x, s.seg[k].y), b(s.seg[k].z, s.seg[k].w);
@@ -69,6 +69,7 @@ TrenchHit trenchAt(const TerrainStamp& s, vec2 p, float ext, bool square, float 
     float t = glm::dot(p - a, u), lat = std::fabs(u.x * (p.y - a.y) - u.y * (p.x - a.x));
     float e0 = (s.segJoin[k] & 1) ? ext : 0.0f, e1 = (s.segJoin[k] & 2) ? ext : 0.0f;
     float beyond = t < -e0 ? -e0 - t : t > L + e1 ? t - L - e1 : 0.0f;
+    if (openMouths && beyond > 0 && ((t < 0 && (s.segJoin[k] & 4)) || (t > L && (s.segJoin[k] & 8)))) continue;   // a ramp mouth: no spoil across the way out
     float le = beyond <= 0 ? lat : square ? std::max(lat, beyond + floorHalf) : glm::length(vec2(lat, beyond));
     if (le < r.lat) {
       r.lat = le; r.floorY = glm::mix(s.segY[k].x, s.segY[k].y, std::clamp(t / L, 0.0f, 1.0f)); r.any = true;
@@ -170,7 +171,7 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
   for (auto* sp_ : list) {
     const TerrainStamp& s = *sp_;
     if (s.kind != TerrainStamp::TRENCH || !in(s)) continue;
-    TrenchHit th = trenchAt(s, p, 0.0f, false, sp.floorHalf);
+    TrenchHit th = trenchAt(s, p, 0.0f, false, sp.floorHalf, true);
     if (!th.any) continue;
     float nn = terrainFbm(x / 2.6f, z / 2.6f, s.seed + 3), nw = terrainFbm(x / 4.1f, z / 4.1f, s.seed + 7);
     float r = (th.lat - lip) / (sp.parapetW * (1.0f + 0.22f * nw));

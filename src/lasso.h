@@ -10,7 +10,7 @@
 #include "lasso_water.h"
 #include <functional>
 
-enum LassoMode : int { LM_OBJECTS = 0, LM_ELEVATION, LM_PAINT, LM_MOVELAND, LM_COUNT };
+enum LassoMode : int { LM_OBJECTS = 0, LM_ELEVATION, LM_PAINT, LM_MOVELAND, LM_LINE, LM_COUNT };   // LM_LINE: LN1 line features (lasso_line.cpp)
 const char* lassoModeName(int m);
 
 struct LassoShape { std::vector<vec2> poly; bool subtract = false; };
@@ -89,5 +89,16 @@ void lassoToolbar(App& app);
 void lassoToolUpdate(App& app, float dt, bool uiMouse);
 void lassoOverlay(App& app, Overlay& ov);
 void lassoEditorUI(App& app);
+// ---------------------------------------------------------------- Line mode (LN1, lasso_line.cpp; docs/lines.md): one undo step each
+uint64_t lineCreate(App& app, const std::string& typeId, std::vector<vec2> pts, const json& params, uint32_t seed = 0);   // ends snap onto a line of the same type within 2 m
+struct LineData;
+bool lineSetData(App& app, uint64_t id, const LineData& d, bool undo);
+bool lineInsertPoint(App& app, uint64_t id, vec2 at);
+bool lineDeletePoint(App& app, uint64_t id, int k);
+uint64_t lineSplit(App& app, uint64_t id, int k);   // at inner control point k: returns the new second line
+bool lineDelete(App& app, uint64_t id);
+void lassoLineUpdate(App& app, bool uiMouse);
+void lassoLineOverlay(App& app, Overlay& ov);
+void lassoLinePanel(App& app);
 bool lassoOwnsKeys(const App& app);   // the lasso handles Z / X / Del / Ctrl+D for a group
 void lassoGroupKeys(App& app, float dt);   // Z / X turn the group (editor.cpp shortcut block, when lassoOwnsKeys)

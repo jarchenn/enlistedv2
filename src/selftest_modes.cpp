@@ -281,6 +281,26 @@ void build(App&) {
     chk(k0 + k1 >= 3, "TDM: teams score (A %d, B %d) in %.0f s%s", k0, k1, t, G.match.phase == MatchPhase::Ended ? (" - " + G.match.result).c_str() : "");
     return true; });
   }
+  // ---- D-day sides: the Allies land on the beach (z ~ 106) and attack, the Axis hold the village houses (z < -85)
+  for (GameMode gm : {GameMode::Assault, GameMode::TDM})
+    push(gm == GameMode::TDM ? "dday sides tdm" : "dday sides assault", [gm](App& a, float t) {
+      const char* nm = gm == GameMode::TDM ? "TDM" : "Assault";
+      if (t == 0) { chk(startMode(a, gm, 8, 99, 4, 4, contentDir() / "templates" / "dday.nmap.json"), "D-day %s starts (%s)", nm, gGame->setupError.c_str()); return false; }
+      Game& G = *gGame;
+      int beach = 0, house = 0, wrong = 0;
+      for (auto& s : G.sold) {
+        if (!s.alive) continue;
+        bool allies = s.faction == Faction::Allies;
+        if (allies && s.role == CombatRole::Attacker && s.feet.z > 80) ++beach;
+        else if (!allies && s.role == CombatRole::Defender && s.feet.z < -85) ++house;
+        else ++wrong;
+      }
+      if ((!beach || !house) && t < 20) return false;
+      const auto& r = G.match.rules;
+      bool names = gm == GameMode::TDM ? r.teamFaction[0] == Faction::Axis && r.teamFaction[1] == Faction::Allies : r.defendingFaction == Faction::Axis;
+      chk(names && beach >= 1 && house >= 1 && wrong == 0, "D-day %s: Axis defend (%s), %d Allied attackers on the beach, %d Axis defenders in the village houses, %d elsewhere",
+          nm, gm == GameMode::TDM ? "team A Axis, team B Allies" : "defending side Axis", beach, house, wrong);
+      return true; });
   // ---- 100 AI: Solo, 101 combatants, 40 s; frame-time stalls
   push("100 ai", [](App& a, float t) {
     static double last; static int frames, stalls; static float worst, sum; static std::string when;

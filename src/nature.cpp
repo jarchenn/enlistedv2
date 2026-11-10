@@ -621,6 +621,21 @@ void rebuildPatch(App& app, const Instance& i, InstanceRT& r, const std::vector<
 }
 }  // namespace
 
+// MA3 foundation dressing (foundation.cpp): one plant in the patch instance format, one small stone into a world-space mesh
+GrassInstance naturePlant(int sp, vec3 w, vec3 albedo, float h, float r0, float r1, float r2, float r3) {
+  const SpeciesDef& d = spDef(sp);
+  return {vec4(w, r0 * 6.2831853f), vec4(h, glm::mix(d.w0, d.w1, r2), packPlant(glm::min(albedo, vec3(0.5f)), sp), r3 * 6.2831853f + r1)};
+}
+void natureStone(MeshData& m, vec3 w, vec3 groundNrm, float size, float r0, float r1, float r2, float r3, int lith) {
+  vec3 up = glm::normalize(glm::mix(vec3(0, 1, 0), groundNrm, 0.75f));
+  vec3 ax = glm::cross(vec3(0, 1, 0), up); float sa = glm::length(ax);
+  quat align = sa > 1e-5f ? glm::angleAxis(std::asin(std::min(1.0f, sa)), ax / sa) : quat(1, 0, 0, 0);
+  quat tilt = glm::angleAxis(radians((r2 - 0.5f) * 24.0f), vec3(1, 0, 0));
+  float asp = 0.75f + 0.5f * r0;
+  mat4 M = glm::translate(mat4(1), w - vec3(0, size * 0.12f * r3, 0)) * glm::mat4_cast(align * yawQuat(r0 * 360.0f) * tilt) * glm::scale(mat4(1), vec3(size, size * asp, size));
+  appendStone(m, (int)(r2 * 8), M, lithTint(lith, r1), lith);
+}
+
 void natureDrawItems(App& app, const Instance& i, InstanceRT& r, std::vector<DrawItem>& op, float camDist) {
   const AssetDef& a = *r.asset; const NatureDef& n = a.nature;
   if (n.kind == NatureDef::ROCK) { op.push_back({&a.opaque, app.instanceMatrix(i)}); return; }

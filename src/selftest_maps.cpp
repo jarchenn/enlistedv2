@@ -154,6 +154,7 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
   check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain slope material included (%d errors)", app.R.shaderErrors));
   sViews.clear(); templateViews(t);
   sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
+  if (const char* only = std::getenv("NMK_MAPS_VIEW")) std::erase_if(sViews, [&](const View& w) { return w.name != only; });   // timing runs: one view, Medium only
   sVi = 0; sPerf.clear(); sViewInit = false;
   sSum[id] = {{"heights", {lo, hi}}, {"maxSlopeDeg", maxS}, {"over60", n60}, {"over50", n50}, {"reachableTop", reachHi}, {"workingSetMB", sMemAfter}};
   check(sViews.size() >= 4, fmt("%s: %zu screenshot views", id.c_str(), sViews.size()));
@@ -163,11 +164,12 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
 // A user's saved map promoted to a template (tools/mapgen/promote_map.py, "selftest": "authored"): it loads whole on
 // the template ground, its scenario as authored (reported, not held to the SPEC 2.1 default-map bands), saves and
 // reopens; views from the preview camera, first person at the explore start, and the template camera.
-static size_t authoredCount(const App& app) { return authoredInstanceCount(app.doc.instances); }   // V4: openMap / newMap add furniture pieces (extra.furnish) to every building
+static size_t authoredCount(const App& app) { size_t n = authoredInstanceCount(app.doc.instances); for (auto& i : app.doc.instances) n -= i.extra.is_object() && i.extra.contains("lineGate"); return n; }   // V4: openMap / newMap add furniture pieces (extra.furnish); LN2 line gates are made by their lines
+static size_t fileCount(const json& mj) { size_t n = 0; for (auto& j : mj.value("instances", json::array())) n += j.dump().find("\"lineGate\"") == std::string::npos; return n; }
 
 void SelfTest::authoredChecks(App& app, const TemplateInfo& t, const json& mj) {
   const std::string id = t.id;
-  size_t fileN = mj.value("instances", json::array()).size();
+  size_t fileN = fileCount(mj);
   check(authoredCount(app) == fileN && fileN > 0, fmt("%s: all %zu authored instances loaded, %zu furniture pieces added (working set %+.0f MB)", id.c_str(), fileN, app.doc.instances.size() - authoredCount(app), sMemAfter - sMemBefore));
   size_t missing = 0; for (auto& i : app.doc.instances) if (!app.lib.find(i.assetId)) ++missing;
   check(missing == 0, fmt("%s: every instance names a catalogue asset (%zu missing)", id.c_str(), missing));
@@ -211,6 +213,9 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     if (const char* only = std::getenv("NMK_MAPS")) { std::string o = std::string(",") + only + ","; std::erase_if(sTpl, [&](int k) { return o.find("," + app.templates[k].id + ",") == std::string::npos; }); }   // measurement runs: only these map ids
     check(!sTpl.empty(), fmt("authored default-map templates found: %zu", sTpl.size()));
     if (sTpl.empty()) { finish(app); return; }
+    settings().applyPreset(app, GfxPreset::Medium);   // P1: every Medium view at the Medium preset (resolution 0.67 + TAAU), as after a Low / High pass
+    if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale (Mac: 0.6)
+    if (const char* e = std::getenv("NMK_UPSCALE")) settings().s.upscale = app.R.upscaleMode = e[0] == 's' ? 1 : e[0] == 'o' ? 2 : 0;
     go(4101);
     break;
   }
@@ -239,7 +244,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     check(t.thumbnail != 0 && fs::exists(th) && bl < 0.95, fmt("%s: New Map preview rendered from the fixed camera (%s, %.0f %% background)", id.c_str(), th.filename().string().c_str(), bl * 100));
     // file content vs loaded document
     json mj; try { mj = json::parse(readTextFile(contentDir() / "templates" / t.raw.value("map", std::string()))); } catch (...) {}
-    size_t fileN = mj.value("instances", json::array()).size();
+    size_t fileN = fileCount(mj);
     const bool authored = t.raw.value("selftest", std::string()) == "authored";   // a user's saved map promoted to a template
     const bool terrainBase = !authored && !mj.contains("scenario");   // W5b: a terrain-only starting map (Mont-Castre): the user authors the rest
     if (authored) {
@@ -430,7 +435,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
-      if (v.gate && sPresetPass < 3) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
+      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW")) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
         if (sPresetPass == 3) app.R.lt.hour = 0.0f;   // Night (docs/lighting.md)
