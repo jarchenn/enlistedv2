@@ -169,7 +169,7 @@ void SelfTest::visualsUpdate(App& app, float dt) {
     // 3 paints white up to 0.5 m above the local ground (groundH, App::contactProfile). At both wall ends, scan up the
     // face: the white top must sit 0.5 m above the terrain there, though the ends stand ~0.9 m apart in height.
     push("MA2: foundation weathering follows the ground on a 15 deg slope", [this](App& a, float t) {
-      static vec3 pos; static float halfX = 2.0f, faceZ = 0.35f; static bool measured = false;
+      static vec3 pos; static float halfX = 2.0f, faceZ = 0.35f, topY = 1.0f; static bool measured = false;
       const float slope = std::tan(glm::radians(15.0f));
       if (t == 0) {
         const TemplateInfo* tb = a.findTemplate("blank_slate");
@@ -190,7 +190,7 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         Instance in; in.id = a.doc.newId(); in.assetId = w->id; in.assetVersion = w->version;
         pos = vec3(0, a.terrain.height(0, 0), 0); in.pos = pos; in.yaw = 0;
         a.bump(in); a.doc.instances.push_back(in);
-        halfX = std::max(w->bmax.x, -w->bmin.x); faceZ = w->bmax.z;
+        halfX = std::max(w->bmax.x, -w->bmin.x); faceZ = w->bmax.z; topY = pos.y + w->bmax.y - 0.08f;
         a.camPos = pos + vec3(0, 1.0f, faceZ + 6.5f); a.camYaw = 0; a.camPitch = -4;
         a.hideEditorOverlays = true; a.R.gxDebug = 3; measured = false;
         return false;
@@ -216,7 +216,7 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         float x = (e == 0 ? -1.0f : 1.0f) * (halfX - 0.45f);
         g[e] = a.terrain.height(x, faceZ + 0.4f);
         float top = -1e9f; bool seen = false;
-        for (float y = g[e] - 0.2f; y < g[e] + 1.6f && got; y += 0.01f) {
+        for (float y = g[e] - 0.2f; y < std::min(g[e] + 1.6f, topY) && got; y += 0.01f) {   // on the face only (sky above is white too)
           int wv = white(vec3(x, y, faceZ + 0.01f));
           if (wv == 1) { top = y; seen = true; }   // the highest white sample: grass blades crossing the scan are ignored
         }
