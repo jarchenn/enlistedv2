@@ -64,7 +64,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         char b[220]; std::snprintf(b, sizeof b, "%s: imported model %s, %d tris, %zu parts, length %.3f m vs real %.3f m (%.2f%%)",
                                    d.id.c_str(), j["model"].value("dir", "").c_str(), ok ? d.model->tris : 0, ok ? d.model->parts.size() : 0, L, want, ok ? 100 * std::fabs(L - want) / want : 100.0f);
         check(ok && std::fabs(L - want) / want < 0.01f, b);
-        bool texExpected = d.id != "m1_thompson" && d.id != "bazooka_m9";   // both sources are factor-only
+        bool texExpected = true;   // every imported weapon is textured now (bazooka: Metal046B set)
         bool nrmExpected = d.id != "panzerschreck";                          // the pickup mesh ships no normal map
         if (ok) check(!texExpected || (d.model->texAlb && d.model->texMR && (d.model->texN || !nrmExpected)), d.id + (texExpected ? (nrmExpected ? ": albedo, metal-rough and normal textures bound" : ": albedo and metal-rough bound (source has no normal map)") : ": factor-only materials (source has no textures)"));
       }

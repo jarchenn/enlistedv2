@@ -5,13 +5,13 @@ You supplied these five GLB files and confirmed you own or have licensed them. A
 | File | Used for | Sketchfab exporter | Author | Licence | Source URL |
 |---|---|---|---|---|---|
 | realistic_m1_garand.glb | M1 Garand, M1C Garand | 12.68.0 | _fill in_ | _fill in_ | _fill in_ |
-| low-poly_thompson_m1a1.glb | M1 Thompson | 12.67.0 | _fill in_ | _fill in_ | _fill in_ |
+| thompson_1928_smg.glb | M1 Thompson (replaces low-poly_thompson_m1a1.glb) | 12.67.0 | Michal Cavrnoch (https://sketchfab.com/MichalCavrnoch) | CC-BY-4.0 (from the GLB `asset.extras`) | https://sketchfab.com/3d-models/thompson-1928-smg-ef4ac1bd043d446a8660047d67362334 |
 | mp40.glb | MP 40 | 16.72.0 | _fill in_ | _fill in_ | _fill in_ |
 | mg42.glb | MG 42 | 16.60.0 | _fill in_ | _fill in_ | _fill in_ |
 | browning_m1918a2_bar.glb | M1918A2 BAR | 12.67.0 | _fill in_ | _fill in_ | _fill in_ |
 | m1_carbine.glb (expansion) | M1 Carbine | 12.68.0 | **unknown** | **unknown** | **unknown** |
 | fg42.glb (expansion) | FG 42 | 12.66.0 | **unknown** | **unknown** | **unknown** |
-| bazooka.glb (expansion) | M9 Bazooka (two-piece tube, reads as M9/M9A1; factor-only material repainted OD in the weapon JSON) | 12.65.0 | **unknown** | **unknown** | **unknown** |
+| bazooka.glb (expansion) | M9 Bazooka (two-piece tube, reads as M9/M9A1; tube textured with the CC0 Metal046B set (see below), painted parts repainted OD in the weapon JSON) | 12.65.0 | **unknown** | **unknown** | **unknown** |
 | panzerschreck_pickup.glb (expansion) | Panzerschreck (pickup-grade mesh, 2.9k tris, no normal map) | 12.68.0 | **unknown** | **unknown** | **unknown** |
 | m2_browning_machine_gun.glb (expansion) | Carried M2HB and the M2HB tripod station | 12.68.0 | **unknown** | **unknown** | **unknown** |
 | kar98k (1).glb (expansion) | Kar 98k (iron sights; replaces the box model) | 14.39.1 | **unknown** | **unknown** | **unknown** |
@@ -112,3 +112,7 @@ The GX4 exterior pass (`tools/exterior.mjs`, `docs/exterior-references.md`) rebu
 | Little Rock Inn | Beardmonkey (https://sketchfab.com/beardmonkey) | CC-BY-4.0 | https://sketchfab.com/3d-models/little-rock-inn-4a09cb8213f64cf7811c471d92c11058 | the inn |
 | Shoeburyness Small Building | artfletch (https://sketchfab.com/artfletch) | CC-BY-4.0 | https://sketchfab.com/3d-models/shoeburyness-small-building-40b8bd5d5702499091bfc25b2951cedd | utility buildings, wall-foot weathering |
 | Tilbury Fort Spigot Mortar Emplacement | artfletch (https://sketchfab.com/artfletch) | CC-BY-4.0 | https://sketchfab.com/3d-models/tilbury-fort-spigot-mortar-emplacement-379d16af6e2a44d8a6d98e81d307744f | concrete weathering and earthwork blending (GX1) |
+
+## Textures
+
+- **Metal046B** (2K colour, normal, roughness, metalness): CC0, from ambientCG (https://ambientcg.com/a/Metal046B). Used on the M9 bazooka tube; no attribution required.

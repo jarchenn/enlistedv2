@@ -587,18 +587,24 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
     if (slid >= grip.slide - 1e-4f) break;
     p.g.grip -= A * std::min(miss * 1.3f + 0.005f, grip.slide - slid);
   }
+  // WP1: the drop below the sight line is the smallest that clears the cone (bisection), and the cone / near-clear tests ease in
+  // with the ADS blend. Before: 12 mm steps behind an on/off switch at ads 0.3, so the hand fell in three visible jumps.
   int inCone = 0, tooNear = 0;
-  for (int it = 0; it < 7; ++it) {
-    if (it) { B.V.clear(); buildArm(B, p, out); }
+  const float ae = std::clamp(ads / 0.3f, 0.0f, 1.0f), coneE = cone * ae, nearE = glm::mix(nearZ, nearAds, ae), baseY = p.g.grip.y;
+  auto scan = [&](float drop) {
+    p.g.grip.y = baseY - drop; B.V.clear(); buildArm(B, p, out);
     inCone = tooNear = 0;
     for (size_t v = 0; v < B.V.size(); v += 3) {
       vec3 q = B.V[v].pos; float fwd = -q.z, rr = glm::length(vec2(q.x, q.y));
       if (fwd <= 0.005f) continue;
-      if (ads > 0.3f && rr < fwd * cone) ++inCone;
-      if (fwd < (ads > 0.3f ? nearAds : nearZ) && rr < fwd * 0.5f) ++tooNear;   // a sleeve end-on / a wrist at the cheek
+      if (rr < fwd * coneE) ++inCone;
+      if (fwd < nearE && rr < fwd * 0.5f) ++tooNear;   // a sleeve end-on / a wrist at the cheek
     }
-    if (inCone == 0) break;
-    p.g.grip.y -= 0.012f;   // the hand drops below the sight line
+  };
+  scan(0);
+  if (inCone > 0) {
+    float lo = 0, hi = 0.084f; scan(hi);
+    if (inCone == 0) { for (int it = 0; it < 6; ++it) { float mid = 0.5f * (lo + hi); scan(mid); if (inCone > 0) lo = mid; else hi = mid; } scan(hi); }
   }
   gA.jS = out.shoulder; gA.jE = out.elbow; gA.jW = out.wrist; gA.jT = out.target;
   if (wristOut) *wristOut = out.wrist;

@@ -3017,6 +3017,14 @@ void main(){
     o = vec4(vC.rgb*a*(0.5 + 1.2*core), 1.0);
     return;
   }
+  if (uAdd == 0 && vUV.y > 3.0) {   // WP1 firing smoke: uv carries 2*id + (0..1) and 4 + (0..1); a noise-eroded, irregular wisp, not a disc
+    float id = floor(vUV.x*0.5); vec2 p = (vUV - vec2(2.0*id, 4.0))*2.0 - 1.0;
+    float d = length(p);
+    float n = fxN(p*2.2 + id*1.7)*0.6 + fxN(p*4.7 - id*0.9)*0.4;
+    float a = smoothstep(0.0, 0.55, 1.0 - d + (n - 0.5)*1.15)*smoothstep(1.0, 0.7, d);
+    o = vec4(vC.rgb, vC.a*a);
+    return;
+  }
   float d = length(vUV*2.0-1.0);
   float a = smoothstep(1.0, 0.15, d);
   if (uAdd == 1) o = vec4(vC.rgb*a, 1.0);
