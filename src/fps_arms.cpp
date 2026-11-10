@@ -319,7 +319,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
 
   // ---- sleeve (part 0 body, part 1 cuff): one path from the cuff's inner lip up the forearm, round the elbow, up the
   // upper arm past the shoulder; shaped (wider toward the elbow, irregular ellipse) with a few broad folds
-  vec3 cuffEdge = Wr - f * 0.03f;   // the cuff reaches past the wrist to the heel of the hand: no bare wrist shows
+  vec3 cuffEdge = Wr - f * 0.062f;   // the cuff reaches past the wrist to the heel of the hand: no bare wrist shows
   std::vector<vec3> P; std::vector<float> sAt;
   // cuff (part 1): inner lip (the cloth turns in: thickness), the edge, 4.5 cm of cuff
   std::vector<vec3> Pc = {cuffEdge + f * 0.014f, cuffEdge + f * 0.002f, cuffEdge, cuffEdge + f * 0.015f, cuffEdge + f * 0.030f, cuffEdge + f * 0.045f};
@@ -367,7 +367,8 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   vec3 tMid = glm::normalize(PP[4] - PP[2]);
   float sA = sgn(glm::dot(glm::cross(tMid, Ac), outward(glm::mix(phH, phK, 0.5f))));
   auto frame = [&](vec3 t, vec3& e1, vec3& eR) { e1 = Ac - t * glm::dot(Ac, t); e1 = glm::dot(e1, e1) > 1e-8f ? glm::normalize(e1) * sA : glm::normalize(glm::cross(t, vec3(0, 1, 0))); eR = glm::normalize(glm::cross(t, e1)); };
-  auto prof = [](float u) { return std::sqrt(std::max(0.02f, 1.0f - std::pow(std::fabs(u) / 1.04f, 2.4f))); };
+  float profE = 2.4f;   // cross-section squareness: 2 = an ellipse (the wrist rings), 2.4 = a little fuller (palm, fingers)
+  auto prof = [&](float u) { return std::sqrt(std::max(0.02f, 1.0f - std::pow(std::fabs(u) / 1.04f, profE))); };
   auto put = [&](vec3 pos, vec3 n, vec3 tu, vec3 t, float u, float v) { float w = glm::dot(glm::cross(n, tu), t) > 0 ? 1.0f : -1.0f; B.V.push_back({pos, n, vec4(tu, w), vec2(u, v)}); return (uint32_t)(B.V.size() - 1); };
   auto quads = [&](const std::vector<uint32_t>& L0, const std::vector<uint32_t>& L1) {
     if (!B.idx) return; size_t n = L0.size();
@@ -395,6 +396,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     vec3 t = glm::normalize(ctr[std::min(i + 1, nW + nP - 1)] - ctr[std::max(i - 1, 0)]);
     float w = i < nW ? wW[i] : pw[i - nW], th = i < nW ? tW[i] : pt[i - nW];
     float v = i < nW ? vW[i] : 0.15f + 0.30f * (i - nW) / float(nP - 1);
+    profE = i < nW ? 1.9f : 2.0f + 0.4f * glm::smoothstep(float(nW), float(nW + 2), float(i));   // round wrist, no boxy block
     float arch = 0.18f * glm::smoothstep(float(nW), float(nW + 2), float(i));   // the palm's hollow fades in after the heel
     rings.push_back(handRing(ctr[i], t, w, th, arch, v));
   }
