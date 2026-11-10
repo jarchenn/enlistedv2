@@ -271,7 +271,8 @@ bool lineReplacedPiece(const std::string& id) {
   return ids.count(id) > 0;
 }
 
-// insert a gate / gap on a line at the point nearest `w` (lasso Line mode click); returns false when no line is close
+// toggle a gate / gap on a line at the point nearest `w` (lasso Line mode Alt+click): a span already there is removed,
+// otherwise one of `kind` and `width` is added; false when the point is more than 3 m off the line
 bool lineInsertSpan(App& app, uint64_t lineId, vec2 w, const std::string& kind, float width) {
   for (auto& i : app.doc.instances) {
     if (i.id != lineId) continue;
@@ -282,8 +283,12 @@ bool lineInsertSpan(App& app, uint64_t lineId, vec2 w, const std::string& kind, 
     if (best > 3.0f) return false;
     float L = lineLength(sp), hw = width * 0.5f;
     s = std::clamp(s, hw, std::max(hw, L - hw));
-    for (auto& o : d.spans) if (std::fabs(o.s - s) < (o.w + width) * 0.5f) return false;   // overlaps a span
-    d.spans.push_back({s, width, kind});
+    auto hit = std::find_if(d.spans.begin(), d.spans.end(), [&](const LineSpan& o) { return std::fabs(o.s - s) < o.w * 0.5f + 0.5f; });
+    if (hit != d.spans.end()) d.spans.erase(hit);   // clicked on a span: remove it
+    else {
+      for (auto& o : d.spans) if (std::fabs(o.s - s) < (o.w + width) * 0.5f) return false;   // would overlap a span
+      d.spans.push_back({s, width, kind});
+    }
     std::sort(d.spans.begin(), d.spans.end(), [](const LineSpan& a, const LineSpan& b) { return a.s < b.s; });
     lineSet(i, d); i.rev = ++app.revCounter;
     lineSyncGates(app);

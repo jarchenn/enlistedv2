@@ -157,6 +157,7 @@ void SelfTest::update(App& app, float dt) {
   if (stage >= 2700 && stage < 2800) { rulesUpdate(app, dt); return; }   // W1 gameplay rules (selftest_rules.cpp)
   if (stage >= 3250 && stage < 3300) { visualsUpdate(app, dt); return; }   // W2 (selftest_visuals.cpp)
   if (stage >= 3800 && stage < 3900) { structuresUpdate(app, dt); return; }   // W4 structures (selftest_structures.cpp)
+  if (stage >= 4600 && stage < 4700) { linesLn2Update(app, dt); return; }   // LN2 lines (selftest_lines_ln2.cpp)
   if (stage >= 3300 && stage < 3400) { editorUpdate(app, dt); return; }  // editor & terrain (selftest_editor.cpp)
   if (stage >= 4100 && stage < 4200) { mapsUpdate(app, dt); return; }   // W5 default maps (selftest_maps.cpp)
   if (stage >= 500) { damageUpdate(app, dt); return; }
@@ -195,6 +196,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-net") { go(2100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--ai-harness") { go(2900); return; }   // W6b AI tuning harness
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(3800); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-lines") { go(4600); return; }   // LN2 part (LN1 chains its own checks in)
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-maps" || std::string(argv[k]) == "--render-map-thumbs") { go(4100); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }

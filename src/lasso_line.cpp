@@ -15,6 +15,7 @@ struct LineUi {
   int dragPt = -1;                // the control point being dragged (-1 none)
   bool dragMoved = false;
   std::string type = "trench";
+  int spanKind = 0; float spanW[3] = {3.0f, 3.8f, 3.8f};   // LN2: Alt+click on the selected line: 0 gap, 1 its gate
   json params = json::object();   // the panel's params for new lines
   double lastClick = 0;
 } gL;
@@ -151,6 +152,14 @@ void lassoLineUpdate(App& app, bool uiMouse) {
       if (i && lineGet(*i, d)) {
         for (size_t k = 0; k < d.pts.size(); ++k) if (glm::length(d.pts[k].p - at) < 1.2f) { gL.dragPt = (int)k; gL.dragMoved = false; return; }
         if (io.KeyCtrl && polyDist(at, lineSpline(d)) < 1.5f) { lineInsertPoint(app, gL.sel, at); return; }
+        if (io.KeyAlt && polyDist(at, lineSpline(d)) < 1.5f) {   // LN2: a gate or gap there (or remove the one clicked)
+          extern bool lineInsertSpan(App&, uint64_t, vec2, const std::string&, float);
+          const LineType* t = lineTypeOf(app.assetFor(*i)); std::string gk = "gap";
+          if (gL.spanKind == 1 && t) for (auto& g : t->raw.value("gates", json::array())) gk = g == "drs_gate_piers" ? "gate_piers" : "field_gate";
+          app.pushUndo();
+          if (!lineInsertSpan(app, gL.sel, at, gk, gL.spanW[gk == "gap" ? 0 : 1])) app.toast("No room for a gate or gap there.", 2);
+          return;
+        }
       }
     }
     for (auto& o : app.doc.instances) {
@@ -246,6 +255,14 @@ void lassoLinePanel(App& app) {
     if (ImGui::Button("Delete point")) { lineDeletePoint(app, gL.sel, gL.dragPt); gL.dragPt = -1; }
     ImGui::EndDisabled();
     ImGui::SameLine(); if (ImGui::Button("Delete line")) lineDelete(app, gL.sel);
+    if (cur->builder == "bays") {   // LN2 gates and gaps
+      bool gate = cur->raw.contains("gates") && !cur->raw["gates"].empty();
+      if (!gate) gL.spanKind = 0;
+      ImGui::RadioButton("Gap", &gL.spanKind, 0);
+      if (gate) { ImGui::SameLine(); ImGui::RadioButton(cur->raw["gates"][0] == "drs_gate_piers" ? "Gate piers" : "Field gate", &gL.spanKind, 1); }
+      if (gL.spanKind == 0) { ImGui::SetNextItemWidth(120); ImGui::DragFloat("Gap width", &gL.spanW[0], 0.1f, 1.0f, 12.0f, "%.1f m"); }
+      ImGui::TextDisabled("Alt+click on the line: add a %s there (Alt+click a gate or gap removes it). %zu on this line.", gL.spanKind ? "gate" : "gap", sd.spans.size());
+    }
   }
   ImGui::TextDisabled("Click points, or hold and drag to sketch.\nDouble-click / Enter finish, Esc cancel,\nBackspace removes the last point. Click a line\nto edit: drag its handles, Ctrl+click inserts,\nBackspace / Del delete. An end on another\nline of the same type joins into it.");
 }
