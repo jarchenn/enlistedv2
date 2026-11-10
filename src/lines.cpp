@@ -139,8 +139,47 @@ bool lineDrawItems(App& app, const Instance& i, InstanceRT& r, const mat4& M, st
   return true;
 }
 
-// the trench type: GX1 (terrain_blend.cpp) carves and dresses trench lines from their points; nothing to emit here
-static void trenchLineBuilder(const LineBuildCtx&, LineBuildOut&) {}
+// the trench type: GX1 (terrain_blend.cpp) carves and dresses trench lines (floor, walls, parapets, revetment, sandbags,
+// duckboards, end walls, ramps). The builder adds what a heightfield cannot hold: the firestep, a 0.45 m packed-earth
+// step 0.33 m high against the fire-side wall (render and collision), wherever the trench is at full depth and clear of
+// any other trench line it meets.
+static void trenchLineBuilder(const LineBuildCtx& c, LineBuildOut& out) {
+  std::string fire = c.params.value("fire", std::string("left"));
+  if (fire != "left" && fire != "right") return;
+  const float side = fire == "left" ? 1.0f : -1.0f, half = c.app.terrain.sp.floorHalf;
+  const AssetDef* a = c.app.lib.find(c.type.asset);
+  Material earth; if (a) for (auto& m : a->materials) if (m.name == "mud") earth = m;
+  earth.albedo = vec3(0.11f, 0.088f, 0.066f);
+  std::vector<std::vector<vec2>> others;   // the other trench lines' centrelines (no step across a junction)
+  for (auto& o : c.app.doc.instances) {
+    if (o.id == c.inst.id) continue;
+    const LineType* t = lineTypeOf(c.app.assetFor(o)); LineData od;
+    if (!t || t->builder != "trench" || !lineGet(o, od)) continue;
+    std::vector<vec2> pl; for (auto& q : lineSpline(od, 2.0f)) pl.push_back(q.p);
+    others.push_back(pl);
+  }
+  auto nearOther = [&](vec2 p) {
+    for (auto& pl : others) for (size_t k = 0; k + 1 < pl.size(); ++k) {
+      vec2 ab = pl[k + 1] - pl[k]; float L2 = glm::dot(ab, ab), t = L2 > 1e-9f ? std::clamp(glm::dot(p - pl[k], ab) / L2, 0.0f, 1.0f) : 0.0f;
+      if (glm::length(p - (pl[k] + ab * t)) < half + 2.2f) return true;
+    }
+    return false;
+  };
+  for (size_t k = 0; k + 1 < c.spline.size(); k += 2) {   // ~1 m pieces
+    const LineSample &s0 = c.spline[k], &s1 = c.spline[std::min(k + 2, c.spline.size() - 1)];
+    if (s0.d < 0.95f || s1.d < 0.95f || s0.s < 4.5f || lineLength(c.spline) - s1.s < 4.5f) continue;   // not on the ramps, not at the ends
+    vec2 mid = (s0.p + s1.p) * 0.5f, t = s1.p - s0.p; float len = glm::length(t);
+    if (len < 0.2f) continue;
+    t /= len; vec2 n(-t.y, t.x);
+    if (nearOther(mid)) continue;
+    vec2 cxz = mid + n * side * (half - 0.24f);
+    float floorY = c.ground(mid.x, mid.y);
+    Part p; p.shape = Part::BOX; p.center = c.local(cxz, floorY + 0.15f); p.size = vec3(len + 0.04f, 0.48f, 0.45f);
+    p.rot = glm::angleAxis(std::atan2(t.x, t.y) - 1.5707963f, vec3(0, 1, 0));   // local +x along the trench
+    appendPart(out.mesh, p, earth, mat4(1));
+    out.colliders.push_back({p, -1, false});
+  }
+}
 LINE_BUILDER("trench", trenchLineBuilder);
 
 // ---------------------------------------------------------------- migration: trench pieces -> trench lines
