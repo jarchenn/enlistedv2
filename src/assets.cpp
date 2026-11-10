@@ -853,6 +853,18 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     }
   // destructible wall panels: per-state meshes and shapes, plus a merged intact mesh/compound
   MeshData allIntact;
+  // DR1 walllod: the intact walls again without their small parts, for copies drawn at asset LOD 1 / 2 (App::buildDrawLists).
+  // [0]: parts under 0.35 m dropped (the rule of the opaque LOD1: under ~3.5 px where LOD1 starts); [1]: the opening
+  // trim (frames, sills, lintels: under a pixel wide where LOD2 starts, ~300 m) dropped as well. Wall bays always stay.
+  MeshData wallLod[2];
+  auto addWallLod = [&](const Part& p, bool trim) {
+    if (!p.visible) return;
+    std::vector<vec3> cs; partCorners(p, cs);
+    vec3 lo(1e9f), hi(-1e9f); for (auto& c : cs) { lo = glm::min(lo, c); hi = glm::max(hi, c); }
+    if (cs.empty() || glm::length(hi - lo) < 0.35f) return;
+    appendPart(wallLod[0], p, a->materials[p.mat], mat4(1));
+    if (!trim) appendPart(wallLod[1], p, a->materials[p.mat], mat4(1));
+  };
   std::vector<ShapePtr> intactShapes;
   for (auto& pj : j.value("panels", json::array())) {
     Panel pn;
@@ -867,7 +879,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
         Part p = parsePart(qj, mats); p.bv = 0;   // wall bays stay plain boxes (the damage field re-meshes them)
         pn.parts[s].push_back(p);
         appendPart(m, p, a->materials[p.mat], mat4(1));
-        if (s == 0) { appendPart(allIntact, p, a->materials[p.mat], mat4(1)); if (p.visible) partCorners(p, pts); }
+        if (s == 0) { appendPart(allIntact, p, a->materials[p.mat], mat4(1)); addWallLod(p, false); if (p.visible) partCorners(p, pts); }
         if (p.collide) c.push_back(p);
       }
       pn.mesh[s].upload(m);
@@ -880,6 +892,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     MeshData m; std::vector<Part> c;
     for (auto& p : pn.parts[0]) {
       appendPart(m, p, a->materials[p.mat], mat4(1)); appendPart(allIntact, p, a->materials[p.mat], mat4(1));
+      addWallLod(p, pn.trim >= 0);
       if (p.visible) partCorners(p, pts);
       if (p.collide) c.push_back(p);
     }
@@ -890,6 +903,8 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   }
   for (size_t k = 0; k < a->panels.size(); ++k) if (a->panels[k].trim >= 0) a->trims[a->panels[k].trim].panel = (int)k;
   a->panelsIntact.upload(allIntact);
+  if (wallLod[0].i.size() * 10 <= allIntact.i.size() * 9) a->panelsLod[0].upload(wallLod[0]);   // only where it saves >= 10 %
+  if (wallLod[1].i.size() * 10 <= (a->panelsLod[0].count ? wallLod[0].i.size() : allIntact.i.size()) * 9) a->panelsLod[1].upload(wallLod[1]);
   a->wallsIntact = Physics::buildCompound(intactShapes);
   a->bmin = vec3(1e9f); a->bmax = vec3(-1e9f);
   if (j.contains("ivy")) {   // B1 ivy (src/ivy.cpp)
@@ -984,7 +999,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
   buildAssetLods(*a, op.i.size() / 3, allIntact);
-  logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris (LOD1 %d, LOD2 %d)", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3), a->lodMesh[0].count / 3, a->lodMesh[1].count / 3);
+  logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris, walls %d / %d / %d (LOD1 %d, LOD2 %d)", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3), (int)(allIntact.i.size() / 3), a->panelsLod[0].count / 3, a->panelsLod[1].count / 3, a->lodMesh[0].count / 3, a->lodMesh[1].count / 3);
   index_.emplace(a->id, a.get());   // the first asset of an id wins, as the old linear find did
   assets.push_back(std::move(a));
   return true;

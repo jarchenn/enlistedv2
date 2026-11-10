@@ -191,7 +191,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   hlodFrame(*this);   // PF2 Phase B: far buildings merged per cell (hlod.cpp)
   const ActiveSet& act = activeSet();
   // P2 measurement (NMK_DLPROF=1): items per source category, logged every 240 frames
-  static const bool dlProf = std::getenv("NMK_DLPROF") != nullptr; static int dlFrame = 0; static double dlCat[6][4] = {};
+  static const bool dlProf = std::getenv("NMK_DLPROF") != nullptr; static int dlFrame = 0; static double dlCat[6][4] = {}; static double dlBand[3][4][2] = {}; static double dlLeafT[4] = {};
   // P2 dlcache: room-template furniture past InteriorSys::cullBig draws nothing (propDraw culls it, except the piece that
   // pushes its building's merged batch), so those pieces skip the whole per-instance path. The furnished flags are cached
   // until an edit, an add or a removal; the distance test runs every frame.
@@ -205,11 +205,17 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   for (size_t idx = 0; idx < doc.instances.size(); ++idx) {
     auto& i = doc.instances[idx];
     if (R.perf.dlCache && furn[idx]) { vec3 d = i.pos - dlEye; if (glm::dot(d, d) > farFurn2 && !interior.batchLeads.count(i.id)) continue; }
-    struct DlTag { std::vector<DrawItem>& op; std::vector<DrawItem>& gl; std::vector<FoliageDraw>& fo; InstanceRT* r; size_t o, g, f; bool on; std::chrono::steady_clock::time_point t0 = on ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    struct DlTag { std::vector<DrawItem>& op; std::vector<DrawItem>& gl; std::vector<FoliageDraw>& fo; InstanceRT* r; size_t o, g, f; bool on; float dist; std::chrono::steady_clock::time_point t0 = on ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
       ~DlTag() { if (!on || !r || !r->asset) return; const AssetDef* a = r->asset;
+        {   // DR1 audit: items and triangles per distance band (0-60, 60-150, 150-400, 400+ m), structures / trees apart
+          int b = dist < 60 ? 0 : dist < 150 ? 1 : dist < 400 ? 2 : 3, k = a->tree.on ? 1 : 0;
+          double tr = 0; for (size_t q = o; q < op.size(); ++q) if (op[q].mesh) tr += op[q].mesh->count / 3;
+          dlBand[k][b][0] += op.size() - o; dlBand[k][b][1] += tr;
+          for (size_t q = f; q < fo.size(); ++q) if (fo[q].tree) { dlBand[2][b][0] += 1; dlBand[2][b][1] += fo[q].tree->leafCards ? fo[q].tree->leafCards * 2.0 : fo[q].tree->cardVerts / 3.0; }
+        }
         int c = a->tree.on ? 0 : a->nature.kind != NatureDef::NONE ? 1 : a->raw.is_object() && a->raw.contains("prop") ? 2 : a->enterable ? 3 : a->model ? 4 : 5;
         dlCat[c][0] += op.size() - o; dlCat[c][1] += gl.size() - g; dlCat[c][2] += fo.size() - f; dlCat[c][3] += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); } }
-      dlTag{op, gl, R.foliage, act.rtOf[idx], op.size(), gl.size(), R.foliage.size(), dlProf};
+      dlTag{op, gl, R.foliage, act.rtOf[idx], op.size(), gl.size(), R.foliage.size(), dlProf, dlProf ? glm::length(i.pos - dlEye) : 0.0f};
     if (hlodSkip(i)) {   // drawn by its active HLOD cell; its ivy is still drawn per copy (cards, not in the cell)
       InstanceRT* h = act.rtOf[idx];
       if (h && h->asset->ivy.mode != IvyDef::NONE) {
@@ -324,7 +330,12 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (op.back().mesh == &r.asset->opaque || op.back().mesh == &r.asset->noFurnOpaque) op.back().mesh = &assetLodMesh(r, r.asset, *op.back().mesh, camDist);   // PF2 asset LOD
     else r.lod = 0;
     blendDrawItems(*this, i, r, M, op);   // GX1: trench revetment fitted to the carve, retaining skirts (terrain_blend.cpp)
-    if (!r.damaged) op.push_back({&r.asset->panelsIntact, M});
+    if (!r.damaged) {   // DR1 walllod: an undamaged copy at asset LOD 1 / 2 draws the walls' LOD (a damaged one keeps its per-bay meshes)
+      const AssetDef* wa = r.asset; const bool wl = R.perf.wallLod;
+      // the trim (frames ~8 cm wide) goes below 5 px/m (~150 m at 1080p / 72 degrees: under half a pixel wide), or at LOD 2
+      const bool noTrim = r.lod >= 2 || (r.lod >= 1 && lodPxPerM > 0 && lodPxPerM < 5.0f * camDist);
+      op.push_back({wl && noTrim && wa->panelsLod[1].count ? &wa->panelsLod[1] : wl && r.lod >= 1 && wa->panelsLod[0].count ? &wa->panelsLod[0] : &wa->panelsIntact, M});
+    }
     else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
     if (noFurn) { if (r.asset->noFurnGlass.count) gl.push_back({&r.asset->noFurnGlass, M}); } else if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
     const mat4 IM = r.asset->interactables.empty() ? mat4(1) : instanceMatrix(i);   // P2: once per copy (leafMatrix rebuilt it per leaf)
@@ -352,6 +363,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         if (pp->opaque.count) op.push_back({&pp->opaque, M});
         if (pp->glass.count) gl.push_back({&pp->glass, M});
       }
+      if (dlProf && !op.empty() && op.back().mesh) dlLeafT[camDist < 60 ? 0 : camDist < 150 ? 1 : camDist < 400 ? 2 : 3] += op.back().mesh->count / 3;   // DR1 audit (the opaque pose mesh, when it has one)
       ++leafMergeHit;
     } else if (!r.asset->interactables.empty() && r.lod < 2) ++leafMergeMiss;
     for (size_t k = 0; !leavesMerged && k < r.asset->interactables.size() && r.lod < 2; ++k) {   // doors / shutters: not at LOD2 (a few pixels)
@@ -377,6 +389,11 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     logf("[dlprof] per frame:%s total op %zu gl %zu foliage %zu worldModels %zu, draws %d (foliage %d, shadow %d), leaves merged %d / per-leaf %d buildings", s.c_str(), op.size(), gl.size(), R.foliage.size(), R.worldModels.size(), R.stats.draws, R.stats.foliageDraws, R.stats.shadowDraws, leafMergeHit, leafMergeMiss);
     std::memset(dlCat, 0, sizeof dlCat);
     std::string cp; for (int k = 0; k < GP_Count; ++k) if (R.cpuPassMs[k] / 30 > 0.05) { char b[64]; std::snprintf(b, sizeof b, " %s %.2f", gpuPassName(k), R.cpuPassMs[k] / 30); cp += b; }
+    { static const char* bn[3] = {"structures+props", "tree trunks", "canopies (cards x2 tris at far LOD)"}; std::string bs;
+      for (int k = 0; k < 3; ++k) { char b[200]; std::snprintf(b, sizeof b, " %s: 0-60 m %.0f items %.0fk tris, 60-150 %.0f / %.0fk, 150-400 %.0f / %.0fk, 400+ %.0f / %.0fk |", bn[k], dlBand[k][0][0] / 30, dlBand[k][0][1] / 30e3, dlBand[k][1][0] / 30, dlBand[k][1][1] / 30e3, dlBand[k][2][0] / 30, dlBand[k][2][1] / 30e3, dlBand[k][3][0] / 30, dlBand[k][3][1] / 30e3); bs += b; }
+      logf("[dlprof] by distance:%s", bs.c_str()); std::memset(dlBand, 0, sizeof dlBand);
+      logf("[dlprof] merged door / shutter / sash leaves (opaque tris, part of structures): 0-60 m %.0fk, 60-150 %.0fk, 150-400 %.0fk, 400+ %.0fk", dlLeafT[0] / 30e3, dlLeafT[1] / 30e3, dlLeafT[2] / 30e3, dlLeafT[3] / 30e3); std::memset(dlLeafT, 0, sizeof dlLeafT); }
+    logf("[dlprof] folbatch: %zu cells, %zu trees, %.1f MB of instance buffers", R.folBatchCells, R.folBatchTrees, R.folBatchBytes / 1048576.0);
     logf("[dlprof] render CPU per pass (ms):%s", cp.c_str()); std::memset(R.cpuPassMs, 0, sizeof R.cpuPassMs);
   }
 }
