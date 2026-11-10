@@ -212,7 +212,7 @@ void FlameSys::step(App& app, float dt) {
     if (pt.tick >= 0.25f) {
       pt.tick = 0;
       if (pt.dmg && host && G) for (auto& s : G->sold) {
-        if (!s.alive || s.slot == pt.owner) continue;
+        if (!s.alive) continue;   // ground fire burns whoever walks through it, its owner too
         if (glm::length(vec2(s.feet.x - pt.p.x, s.feet.z - pt.p.z)) > pt.radius || std::fabs(s.feet.y - pt.p.y) > 1.5f) continue;
         if (G->flameHit(s.slot, pt.owner, pt.dps * 0.25f, vec3(0, 1, 0), pt.burnSeconds, pt.burnDps)) ++soldierHits;
       }

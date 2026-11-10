@@ -2,8 +2,8 @@
   "note": "Game balance values for soldiers (not real-world data). Damage per hit = caliber base x zone multiplier; 100 HP per life. Loadout pools include sandbox / later-war weapons (StG 44, M3, FG 42): they are not a claim about 6 June 1944 issue.",
   "health": 100,
   "zones": {
-    "head": 3.0,
-    "torso": 1.0,
+    "head": 3,
+    "torso": 1,
     "limb": 0.55
   },
   "caliber": {
@@ -22,8 +22,8 @@
     "minFactor": 0.6
   },
   "explosion": {
-    "personnelRadiusFactor": 3.0,
-    "scale": 1.0
+    "personnelRadiusFactor": 3,
+    "scale": 1
   },
   "loadouts": {
     "Allies": {
@@ -54,10 +54,6 @@
         [
           "m3_grease_gun",
           1
-        ],
-        [
-          "m2_flamethrower",
-          1
         ]
       ]
     },
@@ -84,10 +80,6 @@
         [
           "stg44",
           2
-        ],
-        [
-          "flammenwerfer41",
-          1
         ]
       ]
     }
