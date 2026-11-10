@@ -93,7 +93,7 @@ void main(){
   int L = uLayer[gl_InstanceID];
   vec4 w = uModel*vec4(aPos, 1.0);
   vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi;
-  if (aInst.w > 1.5) { vAp = aLp; vAn = aLn; }
+  if (aInst.w > 1.2) { vAp = aLp; vAn = aLn; }
   vEye = uCapEye[L/6].xyz;
   gl_Position = gCapVP[L]*w;
   gl_Layer = L;

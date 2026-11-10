@@ -422,7 +422,7 @@ void main(){
   vec4 w = uModel*vec4(aPos,1.0);
   vW = w.xyz; vN = mat3(uModel)*aNrm; vAlb = aAlb; vPar = aPar; vPc = aPc; vPn = aPn; vAp = aPos; vAn = aNrm; vEmi = aEmi; vEye = uCamPos;
   if (uSnapAp.w > 0.5) { vAp = vec3(w.x - uSnapAp.x, aPos.y, w.z - uSnapAp.z); vAn = vN; }   // V6: patterns continue across snapped joints
-  if (aInst.w > 1.5) { vAp = aLp; vAn = aLn; }   // PF2 HLOD: world-space vertices, the copy's own pattern space
+  if (aInst.w > 1.2) { vAp = aLp; vAn = aLn; }   // PF2 HLOD (w = 2): world-space vertices, the copy's own pattern space; P2 merged leaves (w = 1.3): leaf-local
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -3448,6 +3448,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
       vec3 c = vec3(it.model * vec4((it.mesh->bmin + it.mesh->bmax) * 0.5f, 1.0f)) - castEye;
       if (glm::dot(c, c) > it.castR * it.castR) { stats.casterCulled++; continue; }
     }
+    if (shadowPass && farPass && it.noFarCast) { stats.casterCulled++; continue; }   // P2 furndist
     if (!shadowPass && it.mainHidden) { stats.roomCulled++; continue; }   // R2 roomcull (only ever set for the camera pass's lists)
     if (depthSurfOnly && !it.surf) continue;
     drawIdx.push_back(k);
@@ -3934,7 +3935,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const vec3 ffw = v.camPos + vec3(fwd.x, 0, fwd.z) * fR * 0.6f;
   const bool farRedo = !perf.farCache || frame - farFrame >= std::max(1, q.farEvery) || fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
   if (!q.legacy && q.farCascade && !thumbMode && farRedo) {
-    farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir;
+    farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir; farPass = true;
     vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
     minCaster = perf.smallCasters ? 2.0f * (2 * farR / shadowFarSize) : 0.0f;   // PF2: casters under ~1 texel
@@ -3950,7 +3951,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
     minCaster = 0;
   }
-  castCull = false; stats.shadowDraws = stats.draws - shDraws0;
+  castCull = false; farPass = false; stats.shadowDraws = stats.draws - shDraws0;
   gpuMark(GP_SkyOcc);
   // ---- sky occlusion (top down). PF2 occcache: redrawn every 16 frames, or at once when the camera moves 4 m across
   // or 8 m up / down (the map covers +-90 m, so the camera stays >= 86 m inside it); thumbnails always redraw.
@@ -3971,14 +3972,14 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glViewport(0, 0, occSize, occSize);
   glClear(GL_DEPTH_BUFFER_BIT);
   glUseProgram(progShadow);
-  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP)); depthVP = occVP; depthVPSet = true;
+  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP)); depthVP = occVP; depthVPSet = true; farPass = true;
   Frustum frOcc = Frustum::fromVP(occVP);
   minCaster = perf.smallCasters ? std::max(0.3f, 2.0f * (2 * occR / occSize)) : 0.0f;   // PF2: props too small to shade the sky
   drawItems(progShadow, opaque, true, &frOcc);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP, &frOcc, false, perf.leafShadowLod ? 0.0f : -1.0f);
   glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frOcc);
-  minCaster = 0;
+  minCaster = 0; farPass = false;
   }
   glDisable(GL_POLYGON_OFFSET_FILL);
   lightingPrepass(*this, v, opaque, t);   // L2: light upload, light shadow atlas, probe captures, froxel clusters (standard Z)
