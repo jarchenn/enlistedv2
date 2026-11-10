@@ -1,5 +1,5 @@
 // Reusable architectural and furniture components for Norman buildings.
-import { P, wbox, cutRect, swingSign } from "./kit.mjs";
+import { P, wbox, cutRect, swingSign, rotY } from "./kit.mjs";
 // GX4: geometry the exterior pass (tools/exterior.mjs) refines; not serialised (Asset.json() lists its own fields)
 export const extOf = (A) => (A._ext ??= { sills: [], timber: [], hips: [], gables: [], cornices: [] });
 
@@ -913,14 +913,61 @@ export function thatchRoof(A, { X, Z, EAVE, RIDGE, ov = 0.5, t = 0.45, gov = 0.3
   }
   A.cyl([0, RIDGE + t / Math.cos(th) - 0.12, 0], [t * 1.3, 2 * X + 2 * gov + 0.1, t * 1.3], m, { r: [0, 0, 90] });
 }
-// Round (sides 0) or polygonal turret: plinth ring, body, a cornice band and a conical spire with an iron finial
-export function turret(A, { x, z, y0, y1, r = 1.4, spire = 4.5, sides = 0, ov = 0.25, m = "stone", band = "stone_dressed", roof = "slate", finial = "iron" }) {
-  A.cyl([x, (y0 + y1 - 0.01) / 2, z], [2 * r, y1 - 0.01 - y0, 2 * r], m, { n: sides });
+// Round (sides 0) or polygonal turret: plinth ring, body, a cornice band and a conical spire with an iron finial.
+// windows [{a, y, w, h}] (a: degrees from +x toward +z, y: the window's centre) make the body a hollow ring (wall t)
+// with real openings; floors: visual floor discs inside at those heights.
+export function turret(A, { x, z, y0, y1, r = 1.4, spire = 4.5, sides = 0, ov = 0.25, m = "stone", band = "stone_dressed", roof = "slate", finial = "iron", windows = [], t = Math.min(0.45, r * 0.25), floors = [] }) {
+  if (windows.length) turretRing(A, { x, z, y0, y1: y1 - 0.01, r, sides, m, t, windows, floors });
+  else A.cyl([x, (y0 + y1 - 0.01) / 2, z], [2 * r, y1 - 0.01 - y0, 2 * r], m, { n: sides });
   A.cyl([x, y0 + 0.18, z], [2 * r + 0.12, 0.36, 2 * r + 0.12], band, { n: sides });
   A.cyl([x, y1 - 0.125, z], [2 * r + 0.18, 0.24, 2 * r + 0.18], band, { n: sides });
   A.cone([x, y1 - 0.02 + spire / 2, z], [2 * (r + ov), spire, 2 * (r + ov)], roof, { n: sides });   // base 1.5 cm into the band
   A.cyl([x, y1 + spire + 0.35, z], [0.05, 1.0, 0.05], finial, { n: 8, k: 0 });
   A.cyl([x, y1 + spire + 0.3, z], [0.14, 0.14, 0.14], finial, { n: 8, k: 0 });
+}
+// The hollow turret body: flat wall facets (a polygon's faces; round: facets of <= 9 degrees, inscribed in r), each
+// built in a local frame (a wall along x facing +z) and turned into place. A facet with windows gets the kit window
+// (fixed casements: a turned aperture box cannot be an opening, so the leaves stay closed as static parts, no
+// shutters) and a dressed surround, its wall cut round the reveals.
+function turretRing(A, { x, z, y0, y1, r, sides, m, t, windows, floors }) {
+  const wrap = (a) => ((a % 360) + 540) % 360 - 180, need = (w) => w.w / 2 + 0.22;   // lintel / surround + a pier
+  let facets = [];
+  if (sides) for (let i = 0; i < sides; i++) facets.push([(i - 0.5) * (360 / sides), (i + 0.5) * (360 / sides)]);
+  else {
+    const at = new Map();   // window facets: one per angle, as wide as its widest window needs
+    for (const w of windows) { const a = wrap(w.a), h = (Math.asin(Math.min(1, need(w) / r)) * 180) / Math.PI; at.set(a, Math.max(at.get(a) ?? 0, h)); }
+    const ws = [...at].sort((p, q) => p[0] - q[0]).map(([a, h]) => [a - h, a + h]);
+    ws.forEach((f, i) => { const nx = ws[(i + 1) % ws.length][0] + (i + 1 === ws.length ? 360 : 0); if (f[1] > nx + 1e-6) throw new Error(`turret windows at ${f} overlap`); });
+    ws.forEach((f, i) => {
+      facets.push(f);
+      const g0 = f[1], g1 = ws[(i + 1) % ws.length][0] + (i + 1 === ws.length ? 360 : 0), n = Math.ceil((g1 - g0) / 9 - 1e-6);
+      for (let k = 0; k < n; k++) facets.push([g0 + ((g1 - g0) * k) / n, g0 + ((g1 - g0) * (k + 1)) / n]);
+    });
+  }
+  const Rv = sides ? r / Math.cos(Math.PI / sides) : r;   // vertex radius (a polygon's faces stand at r, as the cylinder's)
+  let ri = 1e9, id = 0;
+  for (const [f0, f1] of facets) {
+    const mid = (f0 + f1) / 2, hf = ((f1 - f0) * Math.PI) / 360, ap = Rv * Math.cos(hf), hl = Rv * Math.sin(hf);
+    ri = Math.min(ri, ap - t);
+    const n0 = A.parts.length, i0 = A.interactables.length, s0 = extOf(A).sills.length, holes = [];
+    for (const w of windows.filter((q) => Math.abs(wrap(q.a - mid)) < 1e-3 * (f1 - f0) + 1e-6)) {
+      if (need(w) > hl + 1e-6) throw new Error(`turret window ${w.w} m too wide for a ${(2 * hl).toFixed(2)} m facet`);
+      const sill = w.y - w.h / 2;
+      holes.push(window(A, { id: `turret_${id++}`, axis: "x", c: 0, sill, w: w.w, h: w.h, outer: ap, inner: ap - t, shutters: false }));
+      surround(A, { axis: "x", d: ap, out: 1 }, { a0: -w.w / 2, a1: w.w / 2, y0: sill, y1: sill + w.h });
+    }
+    for (const it of A.interactables.splice(i0)) for (const L of it.leaves) A.parts.push(...L.parts);   // leaves closed, fixed
+    extOf(A).sills.splice(s0);   // GX4 rain-streak anchors are axis-aligned wall faces: none on a turned facet
+    for (const [a0, a1, ya, yb] of cutRect(-hl, hl, y0, y1, holes)) wbox(A, "x", a0, a1, ya, yb, ap - t, ap, m);
+    const yaw = 90 - mid;   // local +z onto the facet's outward direction (cos mid, sin mid)
+    for (const p of A.parts.slice(n0)) {
+      if (p.r && (p.r[0] || p.r[2])) throw new Error("turretRing: only parts turned about y can be turned into place");
+      const c = rotY(p.c, [0, 0, 0], yaw);
+      p.c = [x + c[0], c[1], z + c[2]].map((v) => Math.round(v * 10000) / 10000);
+      p.r = [0, Math.round(((p.r?.[1] ?? 0) + yaw) * 10000) / 10000, 0];
+    }
+  }
+  for (const fy of floors) A.cyl([x, fy - 0.06, z], [2 * ri + 0.04, 0.12, 2 * ri + 0.04], "oak_x", { n: sides, k: 0 });   // 2 cm into the walls
 }
 // Half-timbering on a wall face (Norman colombage): rails at y0 (sill), y1 (plate) and each `rails` height, posts
 // every `sp` between them and beside each hole {a0, a1, y0, y1}, head and sill rails over and under the holes, braces
