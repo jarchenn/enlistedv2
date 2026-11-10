@@ -154,7 +154,8 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
   check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain slope material included (%d errors)", app.R.shaderErrors));
   sViews.clear(); templateViews(t);
   sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
-  if (const char* only = std::getenv("NMK_MAPS_VIEW")) std::erase_if(sViews, [&](const View& w) { return w.name != only; });   // timing runs: one view, Medium only
+  if (const char* only = std::getenv("NMK_MAPS_VIEW"))   // capture runs: only these views (comma list), Medium only
+    std::erase_if(sViews, [&](const View& w) { return (std::string(",") + only + ",").find("," + w.name + ",") == std::string::npos; });
   sVi = 0; sPerf.clear(); sViewInit = false;
   sSum[id] = {{"heights", {lo, hi}}, {"maxSlopeDeg", maxS}, {"over60", n60}, {"over50", n50}, {"reachableTop", reachHi}, {"workingSetMB", sMemAfter}};
   check(sViews.size() >= 4, fmt("%s: %zu screenshot views", id.c_str(), sViews.size()));

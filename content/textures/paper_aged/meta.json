@@ -1,0 +1,19 @@
+{
+ "set": "paper_aged",
+ "id": "Paper005",
+ "family": "paper (MA1)",
+ "size": [
+  0.5,
+  0.5
+ ],
+ "source": "https://ambientcg.com/a/Paper005",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

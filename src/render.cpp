@@ -1328,7 +1328,11 @@ void main(){
       float traffic = ri >= 0 ? 1.0 - smoothstep(0.15, 0.85, length((q - rc) / rh)) : 0.3;
       float wear = uInst.y, s = uInst.x * 11.0 + float(ri);
       vec3 c; float hh = 0.5, r = rough, aoF = 1.0;
-      if (code == 1) {   // herringbone parquet: 7 x 35 cm oak blocks
+      int fsl = uImgMat == 1 ? uFloorSlot[clamp(code, 0, 7)] : -1;   // MA1 imgmat: the finish's image set replaces its pattern
+      if (fsl >= 0 && texReplace(fsl)) {   // base colour per finish (boards, parquet, tomettes, flags, earth); the set brings the structure
+        vec3 fcol[5] = vec3[5](vec3(0.24, 0.16, 0.095), vec3(0.24, 0.15, 0.085), vec3(0.42, 0.21, 0.12), vec3(0.32, 0.30, 0.26), vec3(0.30, 0.27, 0.22));
+        c = fcol[clamp(code, 0, 4)]*(0.9 + 0.2*hash12(vec2(s, 5.0))); tslot = fsl;
+      } else if (code == 1) {   // herringbone parquet: 7 x 35 cm oak blocks
         vec3 bid; vec2 l = herring(q / 0.07, 5.0, bid);
         float e = min(min(l.x, 5.0 - l.x) * 0.07, min(l.y, 1.0 - l.y) * 0.07);
         float joint = 1.0 - smoothstep(0.0008, 0.0025, e);
@@ -1505,6 +1509,7 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0);
   }
+  gTexWear = uInst.y;   // MA1: worn copies show more substrate
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
   if (uSDecOn == 1 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
@@ -4038,6 +4043,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
+  tex::setImgMat(perf.imgMat);   // MA1: the image-material slot table (re-uploads only when it flips)
   glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
   uploadStaticDecals();
   { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), gxDebug ? gxDebug : dbg); }
