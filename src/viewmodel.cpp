@@ -219,8 +219,8 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
   // FA2: ONE generated support arm (fps_arms.cpp): the hand under the fore-end where the weapon's mesh is, the sleeve
   // from the lower left; one-handed items (knife, grenades: both sockets on the handle) are held by that one hand
   bool rig = fpsArmsReady();
-  vec3 gR = d.gripR, gL = d.gripL; float gRad = 0.022f;
-  if (rig) fpsArmsGrip(d, gL, gRad);
+  vec3 gR = d.gripR, gL = d.gripL; vec2 gSec(0.022f);
+  if (rig) fpsArmsGrip(d, gL, gSec);
   vec3 tR = vec3(Mv * vec4(gR, 1)), tL = vec3(Mv * vec4(gL, 1));
   bool oneHand = glm::length(d.gripL - d.gripR) < 0.03f;
   float relW = 0;   // 0..1: the support hand off the weapon (reload)
@@ -245,9 +245,9 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
     vec3 target = oneHand ? tR : tL;
     vec3 anchor = vec3(glm::inverse(Mv) * vec4(target, 1));
     float curl = (1.0f - 0.7f * relW) * (1.0f - 0.65f * gw);
-    float rad = oneHand ? 0.014f : gRad;   // knife / grenade: a handle
+    vec2 sec = oneHand ? vec2(0.014f) : gSec;   // knife / grenade: a handle
     vec3 wrist(0);
-    bool drawn = fpsSupportHandDraw(*this, cam, Mv, anchor, rad, curl, oneHand, d.side == "DE", &wrist);
+    bool drawn = fpsSupportHandDraw(*this, cam, Mv, anchor, sec, curl, oneHand, d.side == "DE", &wrist);
     lastHandL = wrist; lastHandR = vec3(0); lastShoulderL = SL; lastShoulderR = SR; lastElbowL = glm::mix(SL, wrist, 0.5f) + vec3(0, -0.05f, 0); lastElbowR = SR + vec3(0, -0.1f, 0);
     lastHandErr = vec3(0, glm::length(vec3(Mv * vec4(anchor, 1)) - target), 0);
     lastArmsShown[0] = false; lastArmsShown[1] = drawn; ++lastArmDraws;
