@@ -312,11 +312,13 @@ export function interiorTrim(A, { levels, rail = 0.955, skirt = 0.15, plaster = 
     const q = i === 2 ? 0 : 0.0015;   // z-runs sit 1.5 mm off the x-runs (no coplanar faces at corners)
     for (const [a0, a1] of merged) {
       if (kind === 0) {
-        put(L, i, v, out, a0, a1, lv - 0.003 - q, lv + skirt - 0.018 + q, -0.004, 0.016 + q, 0);      // board (back and foot buried)
-        put(L, i, v, out, a0, a1, lv + skirt - 0.024 + q, lv + skirt + q, -0.0028, 0.022 + q, 0, 0.0016); // moulded top edge
+        // board: back and foot buried 7-9 mm, so where a run ends at an open edge (a stair opening, a door post) neither
+        // lies within 6 mm of the wall's or the floor slab's own faces; the moulding stops 7 mm short of the board's ends
+        put(L, i, v, out, a0, a1, lv - 0.009 - q, lv + skirt - 0.018 + q, -0.007, 0.016 + q, 0);      // board (back and foot buried)
+        put(L, i, v, out, a0, a1, lv + skirt - 0.024 + q, lv + skirt + q, -0.0028, 0.022 + q, 0, 0.0076); // moulded top edge
       } else {
         put(L, i, v, out, a0, a1, lv + rail - 0.012 + q, lv + rail + 0.034 + q, -0.0052, 0.024 + q, 0.006);   // dado rail lip
-        put(L, i, v, out, a0, a1, lv + rail - 0.027 + q, lv + rail - 0.009 + q, -0.0028, 0.012 + q, 0, 0.0016);     // its cove (into the lip)
+        put(L, i, v, out, a0, a1, lv + rail - 0.027 + q, lv + rail - 0.009 + q, -0.0028, 0.012 + q, 0, 0.0076);     // its cove (into the lip, 7 mm short of its ends)
       }
     }
   }
