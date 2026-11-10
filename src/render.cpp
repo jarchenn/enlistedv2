@@ -466,6 +466,7 @@ layout(location=1) out float oDist;   // eye distance, only stored during the fi
 layout(location=2) out vec4 oAmb;     // indirect light (screen-space AO), world pass only
 layout(location=3) out vec4 oNR;      // world normal + roughness (screen-space reflections), world pass only
 layout(location=4) out vec4 oVel;     // motion: static geometry leaves a = 0 (TAA reprojects it from depth)
+uniform float uVmVel;                // 1 while the first-person weapon is drawn
 vec2 faceUV(vec3 p, vec3 n){ vec3 a=abs(n); if (a.y>a.x && a.y>a.z) return p.xz; if (a.x>a.z) return vec2(p.z,p.y); return vec2(p.x,p.y); }
 int domAxis(vec3 n){ vec3 a=abs(n); if (a.x>=a.y && a.x>=a.z) return 0; if (a.y>=a.z) return 1; return 2; }
 // ---- detail filtering (docs/rendering.md#facade-shimmer). gPix = metres covered by this pixel. Procedural detail finer
@@ -1630,7 +1631,7 @@ void main(){
   oColor = vec4(c * uTint.rgb, 1.0);   // opaque tint multiplies (white = unchanged; wrecks are blackened)
   oAmb = vec4(gInd*gFogT*uTint.rgb, 1.0);
   oNR = vec4(N, rough + (1.0 - gFogT));   // hazed-out surfaces never reflect
-  oVel = vec4(0.0);
+  oVel = vec4(0.0, 0.0, 0.0, uVmVel);   // first-person weapon: a = 1, zero motion (TAA keeps its own pixel, not the world reprojection)
 }
 )GLSL";
 
@@ -1688,7 +1689,7 @@ layout(location=0) out vec4 oColor;
 layout(location=1) out float oDist;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
-layout(location=4) out vec4 oVel;
+layout(location=4) out vec4 oVel; uniform float uVmVel;
 void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
@@ -1714,7 +1715,7 @@ void main(){
   oDist = length(vW - uCamPos);
   oAmb = vec4(gInd*gFogT, 1.0);
   oNR = vec4(N, clamp(rough, 0.04, 1.0) + (1.0 - gFogT));
-  oVel = vec4(0.0);
+  oVel = vec4(0.0, 0.0, 0.0, uVmVel);   // first-person weapon: a = 1, zero motion (TAA keeps its own pixel, not the world reprojection)
 }
 )GLSL";
 
@@ -4353,20 +4354,24 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     // First-person weapon (and arms): drawn over a cleared depth buffer so it never clips into walls, lit at its
     // world position, with its own fixed-FOV projection so the world FOV can zoom while the weapon keeps its size.
     glClear(GL_DEPTH_BUFFER_BIT);
-    GLenum bufs[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-    glNamedFramebufferDrawBuffers(hdrFbo, 2, bufs);
+    GLenum bufs[5] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_NONE, GL_NONE, GL_COLOR_ATTACHMENT4};   // + motion: the weapon has its own projection, so the depth reprojection is wrong for it (shimmer)
+    glNamedFramebufferDrawBuffers(hdrFbo, 5, bufs);
     float zero[4] = {0, 0, 0, 0}; glClearNamedFramebufferfv(hdrFbo, GL_COLOR, 1, zero);
     mat4 vvp = (v.vmProj[2][3] != 0.0f ? v.vmProj : v.proj) * v.view;
     glEnable(GL_CULL_FACE);
     setLighting(progMain, v);
     glUniform1i(U(progMain, "uWeather"), 0);
     glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
+    glUniform1f(U(progMain, "uVmVel"), 1.0f);
     drawItems(progMain, viewModel, false);
+    glUniform1f(U(progMain, "uVmVel"), 0.0f);
     if (!viewModelTex.empty()) {
       glDisable(GL_CULL_FACE);
       setLighting(progModel, v);
+      glUniform1f(U(progModel, "uVmVel"), 1.0f);
       glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
       drawModels(viewModelTex);
+      glUniform1f(U(progModel, "uVmVel"), 0.0f);
       glEnable(GL_CULL_FACE);
     }
     glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);
