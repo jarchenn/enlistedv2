@@ -684,6 +684,52 @@ export function trenchEntry() {
   return A;
 }
 
+// D-day: trench junctions and a 45-degree bend, so one network can branch and loop. The arms (4 m each from the centre,
+// a socket with an end cap at each) are short trench runs that start at the floor's half width, so their revetments
+// meet at the corners of the open crossing; a tee closes its fourth side with a wall. GX1 carves the arms from the
+// trench block's `branches` and generates their revetment too (terrain_blend.cpp: a branch 3 m or longer is an arm).
+function trenchJunction(id, name, desc, dirs) {
+  const A = new Asset({ id, version: 1, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint: [9.6, 9.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  stdMaterials(A);
+  trenchMud(A);
+  const { D, HW, RV, FILL, PARADOS } = TR;
+  const floors = [], cuts = [];
+  dirs.forEach((d, k) => {
+    const r = trenchRun(A, [[d[0] * HW, d[1] * HW], [d[0] * 4, d[1] * 4]], { firestep: [], endExt: [0, 0] });
+    floors.push({ outline: r.floor, area: "trench" }); cuts.push({ outline: r.cut, depth: D + 0.25, bank: 0.2 });
+    trenchCap(A, [d[0] * 4, d[1] * 4], d, k);
+  });
+  setSnap(A, dirs.map((d) => sock([d[0] * 4, 0, d[1] * 4], d, "trench")));
+  A.box([-HW, -D - 0.2, -HW], [HW, -D, HW], "mud", { v: 0 });                     // the crossing's floor
+  A.box([-HW, -D - 0.2, -HW], [HW, -D - 0.07, HW], "mud", { k: 0 });
+  for (const s of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {                            // a closed side (tee): wall and fill
+    if (dirs.some((d) => d[0] === s[0] && d[1] === s[1])) continue;
+    const n = [s[1], -s[0]], w = HW + RV;
+    segBox(A, [s[0] * (HW + RV / 2) + n[0] * w, s[1] * (HW + RV / 2) + n[1] * w], [s[0] * (HW + RV / 2) - n[0] * w, s[1] * (HW + RV / 2) - n[1] * w], 0, -D - 0.2, PARADOS - 0.03, RV, "wattle");
+    segBox(A, [s[0] * (HW + RV + FILL / 2) + n[0] * w, s[1] * (HW + RV + FILL / 2) + n[1] * w], [s[0] * (HW + RV + FILL / 2) - n[0] * w, s[1] * (HW + RV + FILL / 2) - n[1] * w], 0, -D - 0.25, PARADOS, FILL, "spoil");
+  }
+  setNav(A, { effect: "area", area: "trench", areas: floors.concat([{ outline: band([[-HW, 0], [HW, 0]], HW), area: "trench" }]), firingPoints: [], cover: [] }, cuts);
+  const P = (d) => [d[0] * 4, d[1] * 4, 1];
+  A.meta.trench = { path: [P(dirs[0]), [0, 0, 1], P(dirs[1])], branches: dirs.slice(2).map((d) => [[0, 0, 1], P(d)]), replace: TRENCH_REPLACE, floorDrop: TRENCH_FLOOR_DROP, stepDrop: TRENCH_STEP_DROP };
+  trenchTour(A, D, -4, [[-0.1, -0.1], [0.1, 3.4]], "mpu_" + id.slice(3));
+  return A;
+}
+export function trenchTee() {
+  return trenchJunction("aw_trench_tee", "Trench, T-junction (wattle)", "T-junction of three trench arms (along -X, +X and +Z), floor 1.5 m down, wattle revetment meeting at the corners of the crossing, a closed wall on the fourth side. Joins the other trench pieces at all three ends; an unjoined arm stays closed.",
+    [[-1, 0], [1, 0], [0, 1]]);
+}
+export function trenchCross() {
+  return trenchJunction("aw_trench_cross", "Trench, crossroads (wattle)", "Crossing of four trench arms, floor 1.5 m down, wattle revetment meeting at the corners of the crossing. Joins the other trench pieces at all four ends; an unjoined arm stays closed.",
+    [[-1, 0], [1, 0], [0, 1], [0, -1]]);
+}
+export function trenchBend() {
+  const c = 4 * Math.SQRT1_2, pts = [[-4, 0], [0, 0], [r3(c), r3(c)]];
+  const { A, D } = trenchPiece("aw_trench_bend", "Trench, bend (45 deg, wattle)", "Trench bend of 45 degrees: enters along +X and turns toward +Z, floor 1.5 m down, wattle revetment, duckboards, a firestep on the first leg. Joins end to end with the other trench pieces, so a run can follow the ground.",
+    pts, { firestep: [0] }, [7.4, 6.6]);
+  trenchTour(A, D, -4, [[-0.1, -0.1], [2.2, 2.0]], "mpu_trench_bend");
+  return A;
+}
+
 // ============================================================================ dugouts and foxhole
 // Personnel dugout (Mannschaftsunterstand): a timber-lined chamber 2.3 m down under a log roof and an earth mound,
 // entered down a stepped trench from the rear through a plank door. Bunks, stove, table, cache.
@@ -813,5 +859,5 @@ export function foxhole() {
 }
 
 export function atlanticAssets() {
-  return [r667(), r612Unfinished(), tobrukTurret(), tobrukMg(), tobrukMortar(), trenchStraight(), trenchZigzag(), trenchCorner(), trenchEntry(), dugoutPersonnel(), dugoutLog(), foxhole()].map(flushD1);
+  return [r667(), r612Unfinished(), tobrukTurret(), tobrukMg(), tobrukMortar(), trenchStraight(), trenchZigzag(), trenchCorner(), trenchEntry(), trenchTee(), trenchCross(), trenchBend(), dugoutPersonnel(), dugoutLog(), foxhole()].map(flushD1);
 }

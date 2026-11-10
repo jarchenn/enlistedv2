@@ -6,7 +6,7 @@
 // An asset carries its lights in a "light" block (one object, or an array of up to 16):
 //   {"color": [r,g,b] linear, "intensity": 1 (= a 60 W bulb at 1 m), "radius": m, "cone": [inner, outer] deg (absent: point),
 //    "dir": [x,y,z] asset space, "flicker": 0..1, "offset": [x,y,z] asset space, "group": prop group (index or name),
-//    "shadow": 0/1, "use": "street" | "interior" | "electric" | "fire", "fx": "" | "flame" | "flame_smoke", "fxSize": m}
+//    "shadow": 0/1, "use": "street" | "interior" | "electric" | "fire", "fx": "" | "flame" | "flame_smoke" | "smoke_column" (D-day: a tall drifting smoke column), "fxSize": m}
 // A light goes out when its prop breaks (unless its group is a kept group), when its group is the prop's glass and the
 // glass breaks, when a wall bay of the generated room it lights is breached, or when switched off (extra.light.on).
 #include "light_types.h"

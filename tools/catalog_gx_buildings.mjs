@@ -1112,10 +1112,6 @@ export function stronghold() {
       const y = ROOF - (x + 0.17 - x0) * slope + 0.09;
       S.box([x, y - 0.25, ZS0], [x + 0.37, y, ZS1], "concrete", { k: 0, bv: 0.015 });
     }
-    {   // wing wall: closes the east bank in front of the steps, so the flank embrasure ahead of it stays clear
-      const pts = BANK.map(([u, v]) => [XO + u * RUN, -0.3 + v * (H + 0.3) + 0.15 * (1 - u)]);
-      for (let k = 0; k + 1 < pts.length; k++) S.prism(2, 0.3, 0.6, [[x0, -0.4], k === 0 ? [x0, H + 0.15] : pts[k], pts[k + 1]], "concrete");
-    }
     rod(S, [XO + 0.7, ROOF + 0.95, ZS1 + 0.08], [xt - 0.2, 0.3 + 0.95, ZS1 + 0.08], 0.045, "zinc", { k: 0 });
     for (let x = XO + 0.7; x < xt; x += 2.2) rod(S, [x, ROOF - (x - x0) * slope + 0.4, ZS1 + 0.08], [x, ROOF - (x - x0) * slope + 1.0, ZS1 + 0.08], 0.04, "zinc", L1);
   }
@@ -1253,8 +1249,8 @@ export function stronghold() {
   A.meta.earthwork = {
     core: [XO, (ZF - ZR) / 2, 0, z((ZF + ZR) / 2)],
     banks: [[-XO - 0.6, z(ZR), XO + 0.6, z(ZR), H], [-XO, z(ZR - 0.6), -XO, z(-5.0), H], [-XO, z(-5.0), -XO, z(0.6), H, 1.0],
-      [XO, z(ZR - 0.6), XO, z(0.45), H], [-XO - 0.6, z(ZF), XO + 0.6, z(ZF), 0.85]],
-    holes: [[-XO - 12, z(0.7), -XO, z(4.3)], [XO, z(0.6), 29.7, z(4.3), 0.3]],   // the east one sharp, behind the wing wall
+      [XO, z(ZR - 0.6), XO, z(-3.8), H], [XO, z(-3.8), XO, z(1.5), H, 1.0], [-XO - 0.6, z(ZF), XO + 0.6, z(ZF), 0.85]],
+    holes: [[-XO - 12, z(0.7), -XO, z(4.3)], [XO, z(1.6), XO + 12, z(4.3)]],
     cuts: [[-3.8, z(ZR), -3.8, z(ZR - RUN - 0.4), 2.8, r3(H + 0.3), 0], [XO, z(-2.8), 29.7, z(-2.8), 0.96, r3(H + 0.15), 0]],
   };
   A.meta.companions = [comp("nat_hawthorn_bush", -31, -2), comp("nat_drygrass_tall", 26, 9), comp("nat_bracken_clump", -26, -16), comp("nat_nettle_clump", 3.5, -18.5)];

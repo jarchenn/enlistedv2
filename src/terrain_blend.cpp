@@ -189,10 +189,17 @@ int blendSyncStamps(App& app) {
   std::vector<size_t> root(n); std::iota(root.begin(), root.end(), 0);
   auto find = [&](size_t x) { while (root[x] != x) x = root[x] = root[root[x]]; return x; };
   auto near2 = [](vec3 a, vec3 b) { return glm::length(vec2(a.x - b.x, a.z - b.z)) < 0.3f; };
+  auto isArm = [](const std::vector<vec3>& br) { return br.size() >= 2 && glm::length(vec2(br.back().x - br.front().x, br.back().z - br.front().z)) >= 3.0f; };
+  std::vector<std::vector<vec3>> pend(n);   // every open end: the path's two, and each junction arm's outer end
+  for (size_t k = 0; k < n; ++k) {
+    pend[k] = {pieces[k].path.front(), pieces[k].path.back()};
+    for (auto& br : pieces[k].branches) if (isArm(br)) pend[k].push_back(br.back());
+  }
   for (size_t a = 0; a < n; ++a)
     for (size_t b = a + 1; b < n; ++b) {
-      const auto& A = pieces[a].path; const auto& B = pieces[b].path;
-      if (near2(A.front(), B.front()) || near2(A.front(), B.back()) || near2(A.back(), B.front()) || near2(A.back(), B.back())) root[find(a)] = find(b);
+      bool hit = false;
+      for (auto& p : pend[a]) for (auto& q : pend[b]) hit = hit || near2(p, q);
+      if (hit) root[find(a)] = find(b);
     }
   std::map<size_t, std::vector<size_t>> nets;
   for (size_t k = 0; k < n; ++k) nets[find(k)].push_back(k);
@@ -201,7 +208,7 @@ int blendSyncStamps(App& app) {
     TerrainStamp t; t.kind = TerrainStamp::TRENCH;
     t.owner = ~0ull;
     std::vector<vec3> ends;   // every piece end, for joins and shared floor heights
-    for (size_t k : members) { t.owner = std::min(t.owner, pieces[k].id); t.members.push_back(pieces[k].id); ends.push_back(pieces[k].path.front()); ends.push_back(pieces[k].path.back()); }
+    for (size_t k : members) { t.owner = std::min(t.owner, pieces[k].id); t.members.push_back(pieces[k].id); ends.insert(ends.end(), pend[k].begin(), pend[k].end()); }
     std::sort(t.members.begin(), t.members.end());
     t.seed = idSeed(t.owner);
     auto shared = [&](vec3 p, float& y) {   // the mean floor of every piece end at p; true when more than one meets there
@@ -305,6 +312,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   float f0 = glm::dot(vec2(-d0.y, d0.x), lz0);
   const int frontSide = f0 > 0.3f ? 1 : f0 < -0.3f ? -1 : 0;   // the fire side (local +z): low parapet, no sandbags on the lip
   uint32_t uid = 0;   // running id for the per-element random numbers
+  auto layRun = [&](const std::vector<vec2>& P, const std::vector<float>& D, const int frontSide) {   // the path, then each junction arm
   for (size_t s = 0; s + 1 < P.size(); ++s) {
     vec2 A = P[s], B = P[s + 1], dir = glm::normalize(B - A);
     vec2 nrm(-dir.y, dir.x);
@@ -448,6 +456,14 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
       }
     }
   }
+  };
+  layRun(P, D, frontSide);
+  std::vector<std::pair<std::vector<vec2>, std::vector<float>>> arms;   // junction arms (branches 3 m or longer): outward from the crossing
+  for (auto& br : a->raw["trench"].value("branches", json::array())) {
+    std::vector<vec2> Pa; std::vector<float> Da;
+    for (auto& q : br) { Pa.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); Da.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
+    if (Pa.size() >= 2 && glm::length(Pa.back() - Pa.front()) >= 3.0f) { layRun(Pa, Da, 0); arms.push_back({Pa, Da}); }
+  }
   // the firestep: the asset's earth step stops short of the revetment line (built for the old 0.65 m wattle);
   // packed earth fills it to the wall, so it reads as a step cut against the fire-side wall, not a free slab
   for (auto& pt : a->parts) {
@@ -475,7 +491,8 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
     put(boxPart(L(wc), vec3(along * 2.0f, pt.size.y + 0.04f, gap + 0.02f), iq * yawQuat(i.yaw) * glm::angleAxis(yawL, vec3(0, 1, 0))), earth, fy, vec3(1.0f), 0.5f, ++uid);
   }
   // end walls where the network stops (not the ramp's shallow mouth): backfill, boards, a sandbag cap
-  for (int e = 0; e < 2; ++e) {
+  auto endWalls = [&](const std::vector<vec2>& P, const std::vector<float>& D, int e0) {
+  for (int e = e0; e < 2; ++e) {
     vec2 p = e ? P.back() : P.front(), q = e ? P[P.size() - 2] : P[1];
     float depth = e ? D.back() : D.front();
     if (depth < 0.4f) continue;
@@ -509,6 +526,9 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
       c.bv = 0.035f; put(c, bag, fy, burlap * tone, 0.0f, ++uid);
     }
   }
+  };
+  endWalls(P, D, 0);
+  for (auto& [Pa, Da] : arms) endWalls(Pa, Da, 1);   // only the arm's outer end (its inner end is the crossing)
 }
 
 // stone retaining skirt along the footprint edges where the pad stands higher than the cap allows

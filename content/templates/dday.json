@@ -1,0 +1,135 @@
+{
+  "id": "dday",
+  "version": 1,
+  "order": 6,
+  "name": "D-day",
+  "available": true,
+  "seed": 19440606,
+  "description": "A compact Normandy landing, 265 x 265 m: landing craft and obstacle belts on a broad beach, a dune belt, then rolling bunker country with two staggered belts of casemates, tobruks and flak around an earth-covered command stronghold, all joined by one trench network; behind it a walled French village with gardens, a church and a crossroads square. Open sea to the south, forest to the west, north and east. Assault (Allies land and take the forward belt, the stronghold and the square), Team Deathmatch and Solo.",
+  "width": 265.0,
+  "depth": 265.0,
+  "margin": 110,
+  "camera": {
+    "pos": [
+      0.0,
+      120.0,
+      230.0
+    ],
+    "yaw": 0.0,
+    "pitch": -30.0
+  },
+  "heightmap": {
+    "file": "dday.height.png",
+    "nx": 156,
+    "nz": 156,
+    "min": -7,
+    "max": 23,
+    "org": [
+      -243.1373,
+      -243.1373
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": 0.0,
+  "map": "dday.nmap.json",
+  "playable": true,
+  "thumbnail": "dday.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -70.0,
+      85.0,
+      200.0
+    ],
+    "yaw": -19.290046219188735,
+    "pitch": -24.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        175.0,
+        150.0
+      ],
+      "yaw": 0.0,
+      "pitch": -50.0
+    },
+    {
+      "name": "landing_eye",
+      "pos": [
+        3.0,
+        1.96,
+        107.0
+      ],
+      "yaw": 5.710593137499643,
+      "pitch": 3.0,
+      "gameplay": true
+    },
+    {
+      "name": "dune_eye",
+      "pos": [
+        -53.0,
+        4.46,
+        60.0
+      ],
+      "yaw": -14.036243467926479,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "forward_trench_eye",
+      "pos": [
+        -30.0,
+        4.62,
+        28.0
+      ],
+      "yaw": -92.86240522611176,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "stronghold_eye",
+      "pos": [
+        33.8,
+        7.09,
+        14.0
+      ],
+      "yaw": 46.97493401088198,
+      "pitch": 4.0,
+      "gameplay": true
+    },
+    {
+      "name": "stronghold_over_beach",
+      "pos": [
+        3.8,
+        16.69260700389105,
+        -7.0
+      ],
+      "yaw": 180.0,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "village_eye",
+      "pos": [
+        6.0,
+        13.65,
+        -64.0
+      ],
+      "yaw": 11.309932474020215,
+      "pitch": 3.0,
+      "gameplay": true
+    },
+    {
+      "name": "beach_from_sea",
+      "pos": [
+        20.0,
+        14.0,
+        175.0
+      ],
+      "yaw": 5.710593137499643,
+      "pitch": -6.0
+    }
+  ]
+}
