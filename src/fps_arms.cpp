@@ -27,7 +27,7 @@ constexpr float kPi = 3.14159265f;
 constexpr int kTex = 512;              // sleeve texture: one turn round the sleeve (u) x kTexLen metres of its length (v)
 constexpr float kTexLen = 0.25f;       // the cloth source repeats once per tile (seamless): a fine wool weave
 constexpr float kBodyLen = 0.75f;      // the sleeve body's tile: 3 x kTexLen along the arm (elbow wear at a fixed place)
-constexpr float kElbowS = 0.229f;      // the elbow's distance from the body tube's start (forearm 0.27 m, fixed)
+constexpr float kElbowS = 0.267f;      // the elbow's distance from the body tube's start (forearm 0.27 m, fixed)
 
 struct ArmGen {
   bool tried = false, ok = false;
@@ -149,6 +149,7 @@ void skinTex(vec3 skin, const Img& sa, const Img& sn, const Img& sr, GpuModel::M
     float shade = 0.96f + 0.06f * n1, crease = 0;
     float su = u * ku, sv = v * kv;
     vec3 photo = glm::clamp(vec3(lin(bil(sa, su, sv, 0)), lin(bil(sa, su, sv, 1)), lin(bil(sa, su, sv, 2))) / mean, vec3(0.5f), vec3(1.6f));
+    photo = glm::pow(photo, vec3(1.8f));   // more of the photo's blotches, pores and lines
     if (v < 0.15f) {   // wrist: from inside the cuff (v 0) to the heel of the hand (0.15)
       shade *= glm::mix(0.7f, 1.0f, glm::smoothstep(0.0f, 0.06f, v));   // inside the cuff only; no crease line at the wrist (one continuous surface)
     } else if (v >= 0.5f) {   // a finger / the thumb, root (0.5) to tip (1)
@@ -163,7 +164,7 @@ void skinTex(vec3 skin, const Img& sa, const Img& sn, const Img& sr, GpuModel::M
     shade *= 1.0f - 0.25f * crease;
     vec3 col = skin * shade * photo * vec3(1.0f + 0.04f * (n2 - 0.5f), 1.0f, 1.0f);
     size_t o = ((size_t)y * S + x) * 4;
-    mr[o] = (uint8_t)std::lround(std::clamp(bil(sr, su, sv, 1) / 255.0f * (1 - 0.3f * crease), 0.0f, 1.0f) * 255); mr[o + 1] = (uint8_t)std::lround(bil(sr, su, sv, 0)); mr[o + 2] = 0; mr[o + 3] = 255;
+    mr[o] = (uint8_t)std::lround(std::clamp(bil(sr, su, sv, 1) / 255.0f * (1 - 0.3f * crease), 0.0f, 1.0f) * 255); mr[o + 1] = (uint8_t)std::lround((0.74f + 0.26f * bil(sr, su, sv, 0) / 255.0f) * 255);   // matte skin: roughness 0.74-1 mr[o + 2] = 0; mr[o + 3] = 255;
     for (int q = 0; q < 3; ++q) alb[o + q] = (uint8_t)std::clamp(std::lround(std::pow(std::clamp(col[q], 0.0f, 1.0f), 1.0f / 2.2f) * 255.0f), 0L, 255L);
     alb[o + 3] = 255;
     hgt[(size_t)y * S + x] = n1 * 0.15f - crease;
@@ -172,6 +173,7 @@ void skinTex(vec3 skin, const Img& sa, const Img& sn, const Img& sr, GpuModel::M
     auto H = [&](int xx, int yy) { return hgt[(size_t)std::clamp(yy, 0, S - 1) * S + (xx + S) % S]; };
     float su = (x + 0.5f) / S * ku, sv = (y + 0.5f) / S * kv;
     vec3 np(bil(sn, su, sv, 0) / 127.5f - 1, bil(sn, su, sv, 1) / 127.5f - 1, bil(sn, su, sv, 2) / 127.5f - 1);   // the photo's pores (OpenGL normal)
+    np.x *= 2.0f; np.y *= 2.0f;   // stronger pore relief
     vec3 n = glm::normalize(vec3(np.x - (H(x + 1, y) - H(x - 1, y)) * 2.0f, np.y - (H(x, y + 1) - H(x, y - 1)) * 2.0f, std::max(0.2f, np.z)));
     size_t o = ((size_t)y * S + x) * 4;
     nrm[o] = (uint8_t)std::lround((n.x * 0.5f + 0.5f) * 255); nrm[o + 1] = (uint8_t)std::lround((n.y * 0.5f + 0.5f) * 255); nrm[o + 2] = (uint8_t)std::lround((n.z * 0.5f + 0.5f) * 255); nrm[o + 3] = 255;
@@ -317,7 +319,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
 
   // ---- sleeve (part 0 body, part 1 cuff): one path from the cuff's inner lip up the forearm, round the elbow, up the
   // upper arm past the shoulder; shaped (wider toward the elbow, irregular ellipse) with a few broad folds
-  vec3 cuffEdge = Wr + f * 0.008f;
+  vec3 cuffEdge = Wr - f * 0.03f;   // the cuff reaches past the wrist to the heel of the hand: no bare wrist shows
   std::vector<vec3> P; std::vector<float> sAt;
   // cuff (part 1): inner lip (the cloth turns in: thickness), the edge, 4.5 cm of cuff
   std::vector<vec3> Pc = {cuffEdge + f * 0.014f, cuffEdge + f * 0.002f, cuffEdge, cuffEdge + f * 0.015f, cuffEdge + f * 0.030f, cuffEdge + f * 0.045f};
