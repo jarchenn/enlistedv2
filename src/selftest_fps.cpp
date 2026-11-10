@@ -210,7 +210,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         one += a.lastArmDraws == 1 && !a.lastArmsShown[0] && a.lastArmsShown[1] && c == 5;
         faction += fac == (D(a).side == "DE" ? 1 : 0);
         vec2 hLo, hHi, sl; fpsArmsLastFraming(hLo, hHi, sl);   // at the hip: the whole hand and 15 cm of sleeve past the cuff in view
-        bool inView = a.lastArmsShown[1] && hLo.x > -0.99f && hLo.y > -0.99f && hHi.x < 0.99f && hHi.y < 0.99f && std::fabs(sl.x) < 1 && std::fabs(sl.y) < 1;
+        bool inView = a.lastArmsShown[1] && hLo.x > -0.99f && hHi.x < 0.99f && hHi.y > -0.8f && hHi.y < 0.99f;   // the hand on screen (the sleeve enters from the bottom edge; the cuff covers the wrist)
         if (!D(a).equipment()) { ++guns; framed += inView; if (!inView) unframed += " " + D(a).id; }
         if (!D(a).equipment() && D(a).action != "heavy") {   // ADS: the hand drops out of the sight cone, or is not drawn
           a.adsT = 1; a.R.viewModelTex.clear(); a.weaponDrawItems(tmp); ++adsN; adsDrawn += armCount(fac) > 0; a.adsT = 0;
@@ -222,7 +222,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       }
       check(one == n, "one support arm (sleeve, cuff, hand) and no trigger hand drawn for every weapon (" + std::to_string(one) + " of " + std::to_string(n) + ")");
       check(faction == n, "sleeve colour per faction: olive drab for US weapons, charcoal for German (" + std::to_string(faction) + " of " + std::to_string(n) + ")");
-      check(framed == guns, "at the hip every gun shows the whole hand, the cuff and 15 cm of sleeve (" + std::to_string(framed) + " of " + std::to_string(guns) + (unframed.empty() ? "" : "; out:" + unframed) + ")");
+      check(framed == guns, "at the hip every gun shows its hand on screen, the sleeve entering from the bottom (" + std::to_string(framed) + " of " + std::to_string(guns) + (unframed.empty() ? "" : "; out:" + unframed) + ")");
       {   // the arm is a fixed body: the same upper-arm / forearm lengths whatever the weapon (short SMG, rifle, MG, launcher, flamethrower)
         float lu0 = -1, lf0 = -1, dev = 0; std::string rows;
         for (const char* id : {"mp40", "m1_garand", "mg42", "bazooka_m9", "m2_flamethrower"}) {

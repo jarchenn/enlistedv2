@@ -308,10 +308,10 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   L = glm::length(wristT - Sh);
   o.reached = L <= maxR + 1e-4f;
   vec3 E, Wr;
+  if (!o.reached) { vec3 u = glm::normalize(wristT - Sh); wristT = Sh + u * maxR; }   // out of reach: the wrist stops at full reach (bones never stretch)
   // elbow pole: toward where the forearm would put it in line with the hand (wrist neutral), biased by the profile
   vec3 Ed = wristT + dirF * kFore;
   solveTwoBone(Sh, wristT, kUpper, kFore, glm::normalize(Ed - Sh) + vec3(g.elbow.x * m, g.elbow.y, g.elbow.z) * 0.25f, E, Wr);
-  if (!o.reached) { vec3 u = glm::normalize(wristT - Sh); Wr = Sh + u * maxR; }
   o.shoulder = Sh; o.elbow = E; o.wrist = Wr; o.target = wristT;
   const vec3 f = glm::normalize(E - Wr), uDir = glm::normalize(Sh - E);   // forearm (wrist -> elbow), upper arm (elbow -> shoulder)
   vec3 bendN = glm::cross(f, uDir); bendN = glm::dot(bendN, bendN) > 1e-6f ? glm::normalize(bendN) : glm::normalize(glm::cross(f, vec3(0, 1, 0)));
@@ -391,7 +391,8 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   // forearm end, wrist, a blended ring half way to the heel (no ledge: width / thickness / direction change smoothly
   // from the round wrist into the flat palm), then the palm
   const int nW = 3;
-  vec3 ctr[nW + nP] = {R0, Wr, Wr - f * 0.022f};   // on the forearm's own line: the skin never leaves the sleeve's axis for (int i = 0; i < nP; ++i) ctr[nW + i] = PP[i];
+  vec3 ctr[nW + nP] = {R0, Wr, Wr - f * 0.022f};   // on the forearm's own line: the skin never leaves the sleeve's axis
+  for (int i = 0; i < nP; ++i) ctr[nW + i] = PP[i];
   const float wW[nW] = {0.029f, 0.029f, 0.031f}, tW[nW] = {0.022f, 0.022f, 0.0235f}, vW[nW] = {0.02f, 0.08f, 0.115f};
   for (int i = 0; i < nW + nP; ++i) {
     vec3 t = glm::normalize(ctr[std::min(i + 1, nW + nP - 1)] - ctr[std::max(i - 1, 0)]);
@@ -646,7 +647,11 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
   gA.sleeve15 = ndc(out.sleeve15);
   bool bad = false;   // a non-finite vertex, or any of the hand / sleeve near the eye or behind it: not drawn (never a smear)
   for (size_t v = 0; v < B.V.size() && !bad; ++v) { const vec3& q = B.V[v].pos; bad = !std::isfinite(q.x + q.y + q.z) || (v >= out.handV0 && -q.z < 0.06f); }
-  if (inCone > 0 || tooNear > 0 || bad || B.V.size() != gA.nV) return false;
+  if (inCone > 0 || tooNear > 0 || bad || B.V.size() != gA.nV) {
+    static int lastWhy = -1; int why = (inCone > 0) + 2 * (tooNear > 0) + 4 * bad + 8 * (B.V.size() != gA.nV);
+    if (why != lastWhy) { lastWhy = why; logf("fps arms: not drawn (cone %d, near %d, bad %d, size %d) wrist (%.2f %.2f %.2f) elbow (%.2f %.2f %.2f) shoulder (%.2f %.2f %.2f)", inCone, tooNear, (int)bad, (int)(B.V.size() != gA.nV), out.wrist.x, out.wrist.y, out.wrist.z, out.elbow.x, out.elbow.y, out.elbow.z, out.shoulder.x, out.shoulder.y, out.shoulder.z); }
+    return false;
+  }
   smoothNormals(B.V, 0, gA.sleeveI1, gA.sleeveV0, gA.sleeveV1, gA.weld);              // the folded sleeve and cuff
   smoothNormals(B.V, gA.partFirst[2], gA.handI1, gA.sleeveV1, gA.handV1, {});         // the continuous hand
   GpuModel& g = gA.model[axis ? 1 : 0];
