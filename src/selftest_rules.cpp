@@ -236,7 +236,7 @@ void SelfTest::rulesUpdate(App& app, float dt) {
         check(L.alive && L.hp == hpFall && gRulesStats.lastFallDamage >= 99 && L.isProtected(G.t), b);
       }
       if (ph == 2 && fallChecked && t > 1.7f && !bulletChecked) {   // a .45 round at the protected player's chest
-        if (hpBullet == 0) { hpBullet = L.hp; gDmLastHit.valid = false; vec3 c = jointW(L, CJ_SPINE2); shoot(a, c + vec3(0, 0, 8), c, 285, "45_mag20", A); return false; }
+        if (hpBullet == 0) { hpBullet = L.hp; gDmLastHit.valid = false; vec3 c = jointW(L, CJ_SPINE2); shoot(a, c + vec3(0, 0, 8), c, 285, "45_mag50", A); return false; }
         if (!gDmLastHit.valid) return false;
         bulletChecked = true;
         const FleshHit& fh = gDmLastHit.fh;
@@ -286,7 +286,7 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       if (t == 0) {
         L.hp = 100; gDmLastHit.valid = false; a.lastFlinch = 0; a.scriptedInput = ExploreInput{}; p0 = a.eyePitch; y0 = a.eyeYaw;
         int A = -1; for (auto& s : G.sold) if (!s.localPlayer && s.alive && A < 0) A = s.slot;
-        vec3 c = jointW(L, CJ_SPINE2); shoot(a, c + vec3(0, 0, 8), c, 285, "45_mag20", A);
+        vec3 c = jointW(L, CJ_SPINE2); shoot(a, c + vec3(0, 0, 8), c, 285, "45_mag50", A);
         return false;
       }
       if (!gDmLastHit.valid) return t > 3 ? (check(false, "flinch: the round hit the player"), true) : false;
@@ -310,11 +310,11 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       Soldier& V = G.sold[B];
       struct Shot { const char* what; int target; float u; float up; float range; const char* ammo; float speed; const char* wid; int zone; bool helmet; bool side = false; };
       static const Shot shots[] = {
-        {"upper torso, Thompson 10 m", 1, 0.75f, 0, 10, "45_mag20", 285, "m1_thompson", DZ_UPPER_TORSO, false},
-        {"lower torso, Thompson 10 m", 1, 0.25f, 0, 10, "45_mag20", 285, "m1_thompson", DZ_LOWER_TORSO, false},
-        {"thigh, Thompson 10 m", 2, 0.65f, 0, 10, "45_mag20", 285, "m1_thompson", DZ_LIMB, false},
-        {"helmet (back of the head), Thompson 10 m", 0, 0, 0.20f, 10, "45_mag20", 285, "m1_thompson", DZ_HEAD, true},
-        {"head below the helmet rim (side, ear level), Thompson 10 m", 0, 0, 0.05f, 10, "45_mag20", 285, "m1_thompson", DZ_HEAD, false, true},
+        {"upper torso, Thompson 10 m", 1, 0.75f, 0, 10, "45_mag50", 285, "m1_thompson", DZ_UPPER_TORSO, false},
+        {"lower torso, Thompson 10 m", 1, 0.25f, 0, 10, "45_mag50", 285, "m1_thompson", DZ_LOWER_TORSO, false},
+        {"thigh, Thompson 10 m", 2, 0.65f, 0, 10, "45_mag50", 285, "m1_thompson", DZ_LIMB, false},
+        {"helmet (back of the head), Thompson 10 m", 0, 0, 0.20f, 10, "45_mag50", 285, "m1_thompson", DZ_HEAD, true},
+        {"head below the helmet rim (side, ear level), Thompson 10 m", 0, 0, 0.05f, 10, "45_mag50", 285, "m1_thompson", DZ_HEAD, false, true},
         {"upper torso, Garand 80 m", 1, 0.75f, 0, 80, "30-06_clip", 853, "m1_garand", DZ_UPPER_TORSO, false},
         {"upper torso, Garand 150 m", 1, 0.75f, 0, 150, "30-06_clip", 853, "m1_garand", DZ_UPPER_TORSO, false},
       };

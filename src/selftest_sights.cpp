@@ -266,10 +266,10 @@ bool measureById(App& a, const std::string& id, const Probe& p, Meas& m, bool& r
   if (id == "fg42") m = measureAperture(p, 0.32f, 0.55f, 1.2f);
   else if (id == "mg42") { m = measureNotch(p, 0.32f); front = false; }
   else if (id == "kar98k") m = measureVNotch(p, 0.32f, 0.5f, 1.4f, drop(0.0012f));
-  else if (id == "m1_carbine" || id == "m1_thompson" || id == "m1_garand") m = measureAperture(p, 0.32f, 0.5f, 1.3f);
+  else if (id == "m1_carbine" || id == "m1_garand") m = measureAperture(p, 0.32f, 0.5f, 1.3f);
   else if (id == "m3_grease_gun") m = measureAperture(p, 0.25f, 0.35f, 0.9f);
   else if (id == "stg44") m = measureUNotch(p, 0.32f, 0.5f, 1.4f, drop(0.0013f));
-  else if (id == "m1918a2_bar") { m = measureFrontPost(p, 0.5f, 1.4f, rsi(p, 8)); rear = false; }
+  else if (id == "m1918a2_bar" || id == "m1_thompson") { m = measureFrontPost(p, 0.5f, 1.4f, rsi(p, 8)); rear = false; }   // front tip only (Thompson: two rear posts); the carried M2 is analytic only (its 2 mm post is too thin for the measure)
   else { rear = front = false; return false; }
   return true;
 }
@@ -487,7 +487,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
     const W1 w1[] = {
       {"kar98k", VN, {{0, 0.082f, 0.6f}, {0, 0.081f, 1.085f}, {0, 0.06f, 1.11f}, {0, 0.02f, 0.27f}, {0, 0.045f, 0.72f}, 0.21f}, 0, 0},
       {"m1_carbine", AP, {{0, 0.079f, 0.33f}, {0, 0.0805f, 0.87f}, {0, 0.06f, 0.904f}, {0, 0.0f, 0.27f}, {0, 0.04f, 0.6f}, 0.21f}, 2.2f, 3.4f},
-      {"m1_thompson", AP, {{0.003f, 0.107f, 0.25f}, {0.003f, 0.1068f, 0.805f}, {0.003f, 0.082f, 0.813f}, {0, -0.02f, 0.36f}, {0, 0.055f, 0.57f}, 0.21f}, 1.10f, 1.15f},
+      
       {"m1_garand", AP, {{-0.0012f, 0.111f, 0.306f}, {-0.0008f, 0.113f, 1.069f}, {0, 0.086f, 1.107f}, {0, 0.03f, 0.25f}, {0, 0.045f, 0.62f}, 0.21f}, 1.30f, 1.50f},
       {"m1918a2_bar", HOOD, {{0, 0.112f, 0.285f}, {0, 0.1075f, 1.09f}, {0, 0.079f, 1.214f}, {0, 0.0f, 0.27f}, {0, 0.035f, 0.64f}, 0.21f}, 0, 0},
       {"panzerschreck", LAUNCH, {{-0.1f, 0.06f, 1.0f}, {-0.1f, 0.06f, 1.55f}, {0, 0, 1.64f}, {0, -0.13f, 0.86f}, {0, -0.06f, 1.3f}, 0.21f}, 0, 0},
@@ -817,7 +817,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       for (glm::ivec2 sz : {glm::ivec2(1920, 1080), glm::ivec2(2560, 1440), glm::ivec2(3440, 1440)}) {
         push("sweep size " + std::to_string(sz.x), [sz](App& a, float t) { (void)a; forceRes = sz; return t > 0.6f; });
         for (auto& dp : app.weaponDefs) {
-          if (dp->equipment() || dp->action == "heavy" || dp->flame.on) continue;   // hand equipment; the carried M2HB (deploys) and the flamethrowers (zoom only) have no sights
+          if (dp->equipment() || dp->flame.on) continue;   // hand equipment and the flamethrowers (zoom only) have no sights; the carried M2HB aims (WP1)
           const std::string id = dp->id;
           push("sweep " + id + " " + std::to_string(sz.x), [this, id, sz](App& a, float t) {
             if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.wstate[id].bolt = a.wstate[id].cooldown = 0; a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }   // a holstered bolt gun's cycle is frozen; aim waits for it
@@ -852,7 +852,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       int n = 0, bad = 0; std::string list;
       for (auto& dp : a.weaponDefs) {
         const WeaponDef& d = *dp;
-        static const std::set<std::string> cal = {"fg42", "mg42", "kar98k", "m1_carbine", "m1_thompson", "m1_garand", "m1918a2_bar", "panzerschreck", "stg44", "m3_grease_gun"};
+        static const std::set<std::string> cal = {"fg42", "mg42", "kar98k", "m1_carbine", "m1_thompson", "m1_garand", "m1918a2_bar", "panzerschreck", "stg44", "m3_grease_gun", "m2hb_carry"};
         if (cal.count(d.id) || d.equipment() || d.flame.on) continue;   // calibrated above / hand equipment (no sights; hand pose in "ads.hipOffset") / flamethrowers (no sights: zoom only)
         ++n;
         bool def = d.eyeRelief == 0.21f && d.adsVmFov == 0 && d.adsPos == vec3(0) && d.adsRot == vec3(0) && d.muzzleDir == vec3(0, 0, 1);
@@ -860,7 +860,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
         if (!def || j.contains("ads") || j.contains("muzzleDir")) { ++bad; list += " " + d.id; }
       }
       int equip = 0; for (auto& dp : a.weaponDefs) equip += dp->equipment() || dp->flame.on;
-      check(bad == 0 && n == (int)a.weaponDefs.size() - 10 - equip && n >= 5, std::to_string(n) + " other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)" + (bad ? ": changed" + list : ""));
+      check(bad == 0 && n == (int)a.weaponDefs.size() - 11 - equip && n >= 4, std::to_string(n) + " other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)" + (bad ? ": changed" + list : ""));
       return true; });
     push("reset", [this](App& a, float) {
       a.sightMarkers = false; a.vm.procedural = true;

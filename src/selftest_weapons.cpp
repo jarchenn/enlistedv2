@@ -77,14 +77,14 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     wseq.clear(); wcur = 0; wt = 0;
     // ---- inventories from the brief's table
     push("inventories", [this](App& a, float) {
-      struct E { const char* id; int l, r; } tab[] = {{"m1_garand", 8, 72}, {"kar98k", 5, 55}, {"mp40", 32, 160}, {"m1_thompson", 20, 80}, {"m1c_garand", 8, 72}, {"kar98k_zf39", 5, 55}, {"mg42", 50, 200}};
+      struct E { const char* id; int l, r; } tab[] = {{"m1_garand", 8, 72}, {"kar98k", 5, 55}, {"mp40", 32, 160}, {"m1_thompson", 50, 150}, {"m1c_garand", 8, 72}, {"kar98k_zf39", 5, 55}, {"mg42", 50, 200}};
       for (auto& e : tab) {
         auto& s = S(a, e.id);
         check(a.weaponIndex(e.id) >= 0 && s.loaded == e.l && s.reserveRounds() == e.r, std::string(e.id) + " starts " + std::to_string(s.loaded) + " + " + std::to_string(s.reserveRounds()) + " (table " + std::to_string(e.l) + " + " + std::to_string(e.r) + ")");
       }
       StationRT* m = a.station(M2);
       check(m && m->loaded == 110 && m->reserve == 110, "M2HB emplacement starts 110 + 110 = 220");
-      check(S(a, "mp40").containers.size() == 5 && S(a, "m1_thompson").containers.size() == 4 && S(a, "mg42").containers.size() == 4, "reserve held as real containers (MP 40 5 mags, Thompson 4 mags, MG 42 4 belts)");
+      check(S(a, "mp40").containers.size() == 5 && S(a, "m1_thompson").containers.size() == 3 && S(a, "mg42").containers.size() == 4, "reserve held as real containers (MP 40 5 mags, Thompson 3 mags, MG 42 4 belts)");
       return true; });
     // ---- iron sights line up with the aim; shot lands under the sight line at the declared zero
     push("garand ads", [this](App& a, float t) {
@@ -235,8 +235,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       if (t == 0) { a.scriptedInput.reload = true; return false; }
       if (t < 2.9f) return false;
       auto& s = S(a, "m1_thompson");
-      bool kept = std::find(s.containers.begin(), s.containers.end(), 20 - (int)summary["thompson_rounds_per_s"]) != s.containers.end();
-      check(s.loaded == 20 && kept && total(a, "m1_thompson") == 100 - (int)summary["thompson_rounds_per_s"], "partial Thompson magazine goes back to the pouch with its rounds");
+      bool kept = std::find(s.containers.begin(), s.containers.end(), 50 - (int)summary["thompson_rounds_per_s"]) != s.containers.end();
+      check(s.loaded == 50 && kept && total(a, "m1_thompson") == 200 - (int)summary["thompson_rounds_per_s"], "partial Thompson magazine goes back to the pouch with its rounds");
       a.selectWeapon(a.weaponIndex("mg42"));
       return true; });
     // ---- MG 42 bipod: supported bursts are easier to control

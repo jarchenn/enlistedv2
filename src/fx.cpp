@@ -152,10 +152,10 @@ void Fx::update(float dt, const Terrain& t) {
 void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>& add) const {
   mat4 inv = glm::inverse(view);
   vec3 right = vec3(inv[0]), up = vec3(inv[1]), eye = vec3(inv[3]);
-  auto quad = [](std::vector<FxVert>& out, vec3 c, vec3 rx, vec3 ry, vec4 col) {
+  auto quad = [](std::vector<FxVert>& out, vec3 c, vec3 rx, vec3 ry, vec4 col, vec2 o = vec2(0)) {   // o: uv offset (the shader reads firing-smoke id / flag from it)
     vec3 p0 = c - rx - ry, p1 = c + rx - ry, p2 = c + rx + ry, p3 = c - rx + ry;
-    out.push_back({p0, col, {0, 0}}); out.push_back({p1, col, {1, 0}}); out.push_back({p2, col, {1, 1}});
-    out.push_back({p0, col, {0, 0}}); out.push_back({p2, col, {1, 1}}); out.push_back({p3, col, {0, 1}});
+    out.push_back({p0, col, o + vec2(0, 0)}); out.push_back({p1, col, o + vec2(1, 0)}); out.push_back({p2, col, o + vec2(1, 1)});
+    out.push_back({p0, col, o + vec2(0, 0)}); out.push_back({p2, col, o + vec2(1, 1)}); out.push_back({p3, col, o + vec2(0, 1)});
   };
   for (auto& q : parts) {
     float f = std::clamp(q.life / q.maxLife, 0.0f, 1.0f);
@@ -171,7 +171,15 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
       continue;
     }
     if (q.additive) c *= f;
-    else if (q.fade > 0) c.a *= std::pow(f, q.fade) * std::min(1.0f, (1 - f) * 10.0f + 0.25f);   // firing smoke: thins out from the start
+    else if (q.fade > 0) {   // firing smoke: thins out from the start; an eroded wisp stretched along its screen-space drift (muzzle direction, then wind)
+      c.a *= std::pow(f, q.fade) * std::min(1.0f, (1 - f) * 10.0f + 0.25f);
+      float a = glm::dot(q.v, right), b = glm::dot(q.v, up), l = std::sqrt(a * a + b * b);
+      vec3 ax = l > 0.05f ? (right * a + up * b) / l : right, pr = l > 0.05f ? (up * a - right * b) / l : up;
+      float st = 1.0f + 0.7f * std::min(1.0f, l / 3.0f);
+      int id = (int)(std::fmod(q.maxLife * 97.13f, 1.0f) * 64.0f);
+      quad(alpha, q.p, ax * (q.size * st), pr * (q.size * 0.85f), c, vec2(2.0f * id, 4.0f));
+      continue;
+    }
     else c.a *= std::min(1.0f, f * 2.0f) * std::min(1.0f, (1 - f) * 8.0f + 0.2f);
     quad(q.additive ? add : alpha, q.p, right * q.size, up * q.size, c);
   }

@@ -56,6 +56,7 @@ struct WeaponDef {
   bool useModel() const { return model && model->vao; }
   int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)
   float adsSpeed = 1;                   // JSON ads.speed: ADS blend rate x this
+  bool magReload = false;               // JSON "reloadStyle":"magazine": an en-bloc rifle reloads with the magazine-style hand motion (support hand to the magwell, no handle pull)
   bool showArms = true;                 // JSON "arms": false hides the placeholder first-person arms (until a weapon-specific arm model lands)
   float adsZoom = 0;                    // JSON ads.zoom (> 0): ADS only narrows the world FOV by this fraction; the weapon keeps its hip pose, no sight alignment (flamethrower)
   // flamethrower (FT1, action "flame", JSON "flame"; docs/flamethrower.md): game tuning, not real data

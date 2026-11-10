@@ -228,7 +228,7 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
   // during a magazine / clip reload the support hand goes to the feed
   if (s.reload > 0 && s.reloadKind != 3 && !oneHand) {
     float u = 1 - s.reload / std::max(0.01f, s.reloadTotal);
-    vec3 feed = d.feed == "enbloc" || d.feed == "stripper" ? (d.rear + vec3(0, 0.04f, 0.08f)) : vec3(0, -0.12f, (d.rear.z + d.front.z) * 0.5f);
+    vec3 feed = (d.feed == "enbloc" || d.feed == "stripper") && !d.magReload ? (d.rear + vec3(0, 0.04f, 0.08f)) : vec3(0, -0.12f, (d.rear.z + d.front.z) * 0.5f);
     float w = std::sin(std::clamp(u, 0.0f, 1.0f) * 3.14159f);
     tL = glm::mix(tL, vec3(Mv * vec4(feed, 1)), w);
     relW = w;

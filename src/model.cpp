@@ -169,7 +169,8 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   auto hidden = [&](int k) { for (auto& h : spec.hide) if (chainHas(k, h)) return true; return false; };
 
   // ---- materials
-  struct Mat { vec4 base{1}; float metal = 1, rough = 1; int alb = -1, mr = -1, nrm = -1, ao = -1; std::string name; };
+  struct Mat { vec4 base{1}; float metal = 1, rough = 1; int alb = -1, mr = -1, nrm = -1, ao = -1; std::string name;
+               std::string eBase, eNrm, eRough, eMetal; float uvScale = 1; };   // e*: external texture files (matOverride "textures", relative to the GLB), packed at bake time
   std::vector<Mat> mats;
   auto texImage = [&](const json& t) -> int { if (!t.is_object() || !t.contains("index")) return -1; return J["textures"][t["index"].get<int>()].value("source", -1); };
   for (auto& m : J.value("materials", json::array())) {
@@ -198,6 +199,11 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
       if (o.contains("base")) x.base = vec4(o["base"][0], o["base"][1], o["base"][2], o["base"].size() > 3 ? o["base"][3].get<float>() : 1.0f);
       x.metal = o.value("metal", x.metal); x.rough = o.value("rough", x.rough) * o.value("roughScale", 1.0f);
       if (o.value("dropTextures", false)) x.alb = x.mr = x.nrm = x.ao = -1;
+      if (o.contains("textures")) {   // a GLB without images: an external PBR set (colour / normal GL / roughness / metalness), tiled by uvScale
+        const json& t = o["textures"];
+        x.eBase = t.value("base", ""); x.eNrm = t.value("normal", ""); x.eRough = t.value("rough", ""); x.eMetal = t.value("metal", ""); x.uvScale = t.value("uvScale", 1.0f);
+        x.alb = x.mr = x.nrm = x.ao = -1; if (!o.contains("base")) x.base = vec4(1); x.metal = o.value("metal", 1.0f); x.rough = o.value("rough", 1.0f);
+      }
     }
     x.base = vec4(vec3(x.base) * spec.tint, x.base.a);
     mats.push_back(x);
@@ -251,12 +257,24 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
         v.nrm = N.empty() ? vec3(0, 1, 0) : glm::normalize(Nm * vec3(N[e * 3], N[e * 3 + 1], N[e * 3 + 2]));
         if (!T.empty()) { vec3 t = glm::normalize(glm::mat3(M) * vec3(T[e * 4], T[e * 4 + 1], T[e * 4 + 2])); v.tan = vec4(t, T[e * 4 + 3] * (glm::determinant(glm::mat3(M)) < 0 ? -1.0f : 1.0f)); }
         else v.tan = vec4(1, 0, 0, 1);
-        v.uv = UV.empty() ? vec2(0) : vec2(UV[e * 2], UV[e * 2 + 1]);
+        v.uv = UV.empty() ? vec2(0) : vec2(UV[e * 2], UV[e * 2 + 1]) * (q.mat >= 0 ? mats[q.mat].uvScale : 1.0f);
         q.v.push_back(v);
       }
       if (pr.contains("indices")) q.i = readIndices(g, pr["indices"].get<int>());
       else { q.i.resize(nv); for (size_t e = 0; e < nv; ++e) q.i[e] = (uint32_t)e; }
       if (glm::determinant(glm::mat3(W)) < 0 && JN.empty()) for (size_t e = 0; e + 2 < q.i.size(); e += 3) std::swap(q.i[e + 1], q.i[e + 2]);
+      if (T.empty() && !UV.empty()) {   // no TANGENT attribute: derive it from the UVs (glTF v runs down the image) so a normal map works
+        std::vector<vec3> ta(q.v.size(), vec3(0)); std::vector<float> sg(q.v.size(), 1.0f);
+        for (size_t e = 0; e + 2 < q.i.size(); e += 3) {
+          const TexVertex &a = q.v[q.i[e]], &b = q.v[q.i[e + 1]], &c = q.v[q.i[e + 2]];
+          vec3 e1 = b.pos - a.pos, e2 = c.pos - a.pos; vec2 u1(b.uv.x - a.uv.x, a.uv.y - b.uv.y), u2(c.uv.x - a.uv.x, a.uv.y - c.uv.y);
+          float det = u1.x * u2.y - u2.x * u1.y; if (std::fabs(det) < 1e-12f) continue;
+          vec3 t = (e1 * u2.y - e2 * u1.y) / det, bt = (e2 * u1.x - e1 * u2.x) / det;
+          float s = glm::dot(glm::cross(a.nrm, t), bt) < 0 ? -1.0f : 1.0f;
+          for (int k = 0; k < 3; ++k) { ta[q.i[e + k]] += t; sg[q.i[e + k]] = s; }
+        }
+        for (size_t k = 0; k < q.v.size(); ++k) if (glm::dot(ta[k], ta[k]) > 1e-18f) q.v[k].tan = vec4(glm::normalize(ta[k]), sg[k]);
+      }
       int roleNode = k;
       if (!jointWeight.empty()) roleNode = std::max_element(jointWeight.begin(), jointWeight.end(), [](auto& a, auto& b) { return a.second < b.second; })->first;
       q.role = roleOf(roleNode);
@@ -453,20 +471,27 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   json tex = json::object(), matsJ = json::array();
   size_t texBytes = 0; int texFiles = 0;
   std::map<std::pair<int, int>, std::string> written;
-  auto save = [&](int imgIdx, int role) -> std::string {   // role 0 albedo (sRGB JPEG), 1 metal-rough, 2 normal, 3 AO (linear PNG)
-    if (imgIdx < 0) return "";
-    auto key = std::make_pair(imgIdx, role);
-    if (written.count(key)) return written[key];
-    Img a; if (!decodeImage(g, imgIdx, a)) { logf("import: image %d failed to decode", imgIdx); return ""; }
+  static const char* pre[4] = {"albedo", "mr", "normal", "ao"};
+  auto emit = [&](const Img& a, int role, const std::string& file) -> std::string {   // downsize + write one map
     Img d = downsize(a, spec.maxTex);
-    static const char* pre[4] = {"albedo", "mr", "normal", "ao"};
-    std::string file = std::string(pre[role]) + "_" + std::to_string(imgIdx) + (role == 0 ? ".jpg" : ".png");
     fs::path pth = outDir / file;
     if (role == 0) { std::vector<uint8_t> rgb((size_t)d.w * d.h * 3); for (size_t k = 0; k < (size_t)d.w * d.h; ++k) std::memcpy(&rgb[k * 3], &d.px[k * 4], 3);
                      stbi_write_jpg(pth.string().c_str(), d.w, d.h, 3, rgb.data(), 92); }
     else stbi_write_png(pth.string().c_str(), d.w, d.h, 4, d.px.data(), d.w * 4);
     texBytes += fs::file_size(pth, ec); ++texFiles;
-    return written[key] = file;
+    return file;
+  };
+  auto loadExt = [&](const std::string& rel, Img& out) -> bool {   // external texture file next to the GLB
+    int w, h, c; stbi_uc* p = stbi_load((glbPath.parent_path() / rel).string().c_str(), &w, &h, &c, 4);
+    if (!p) { logf("import: external texture %s not found", rel.c_str()); return false; }
+    out.w = w; out.h = h; out.c = 4; out.px.assign(p, p + (size_t)w * h * 4); stbi_image_free(p); return true;
+  };
+  auto save = [&](int imgIdx, int role) -> std::string {   // role 0 albedo (sRGB JPEG), 1 metal-rough, 2 normal, 3 AO (linear PNG)
+    if (imgIdx < 0) return "";
+    auto key = std::make_pair(imgIdx, role);
+    if (written.count(key)) return written[key];
+    Img a; if (!decodeImage(g, imgIdx, a)) { logf("import: image %d failed to decode", imgIdx); return ""; }
+    return written[key] = emit(a, role, std::string(pre[role]) + "_" + std::to_string(imgIdx) + (role == 0 ? ".jpg" : ".png"));
   };
   std::set<int> usedMats; for (auto& q : prims) usedMats.insert(q.mat);   // only materials a kept part uses get textures
   for (size_t mi = 0; mi < mats.size(); ++mi) {
@@ -477,6 +502,17 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     if (!fa.empty()) mj["albedo"] = fa;
     if (!fm.empty()) mj["mr"] = fm;
     if (!fn.empty()) mj["normal"] = fn;
+    if (!m.eBase.empty()) { Img a; if (loadExt(m.eBase, a)) mj["albedo"] = emit(a, 0, "albedo_x" + std::to_string(mi) + ".jpg"); }
+    if (!m.eNrm.empty()) { Img a; if (loadExt(m.eNrm, a)) mj["normal"] = emit(a, 2, "normal_x" + std::to_string(mi) + ".png"); }
+    if (!m.eRough.empty() || !m.eMetal.empty()) {   // glTF packing: G = roughness, B = metalness (R = 1, no AO)
+      Img r, mt; bool hr = !m.eRough.empty() && loadExt(m.eRough, r), hm = !m.eMetal.empty() && loadExt(m.eMetal, mt);
+      const Img& ref = hr ? r : mt; Img o; o.w = ref.w; o.h = ref.h; o.c = 4; o.px.assign((size_t)o.w * o.h * 4, 255);
+      for (size_t k = 0; k < (size_t)o.w * o.h; ++k) {
+        if (hr && r.px.size() == o.px.size()) o.px[k * 4 + 1] = r.px[k * 4]; else if (!hr) o.px[k * 4 + 1] = 255;
+        if (hm && mt.px.size() == o.px.size()) o.px[k * 4 + 2] = mt.px[k * 4]; else if (!hm) o.px[k * 4 + 2] = 255;
+      }
+      mj["mr"] = emit(o, 1, "mr_x" + std::to_string(mi) + ".png");
+    }
     if (m.ao >= 0 && m.ao == m.mr) mj["aoInMR"] = true;
     else { std::string fo = save(m.ao, 3); if (!fo.empty()) mj["ao"] = fo; }
     matsJ.push_back(mj);

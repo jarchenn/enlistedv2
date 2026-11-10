@@ -40,7 +40,7 @@ void App::buildWeaponMeshes() {
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
     auto d = std::make_unique<WeaponDef>();
     d->id = j.value("id", ""); d->name = j.value("name", d->id); d->side = j.value("side", "");
-    d->action = j.value("action", "semi"); d->feed = j.value("feed", "magazine"); d->container = j.value("container", "");
+    d->action = j.value("action", "semi"); d->feed = j.value("feed", "magazine"); d->magReload = j.value("reloadStyle", "") == "magazine"; d->container = j.value("container", "");
     d->caliber = j.value("caliber", ""); d->note = j.value("note", "");
     d->cap = j.value("cap", 1); d->loaded = j.value("loaded", 1); d->reserve = j.value("reserve", 0); d->containerSize = j.value("containerSize", 1);
     d->tracerEvery = j.value("tracerEvery", 0);
@@ -119,6 +119,7 @@ void App::buildWeaponMeshes() {
           for (int p = 0; p < WP_COUNT; ++p) if (r == kPartNames[p]) role = p;
           d->modelParts[role].push_back((int)k);
         }
+        for (auto& hp : j["model"].value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) d->modelParts[p].clear();   // e.g. the Garand clip: never drawn
       }
     }
     logf("weapon %-14s %s %s feed %-8s %d+%d", d->id.c_str(), d->action.c_str(), d->caliber.c_str(), d->feed.c_str(), d->loaded, d->reserve);
@@ -242,7 +243,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     add(WP_BOLT, M * glm::translate(mat4(1), vec3(0, 0, -0.05f * std::sin(cyc * 3.14159f))));
   }
   float hz = s.cooldown > 0 && d.action == "semi" ? 0.08f * std::sin(std::clamp(s.cooldown * (d.rpm / 60.0f), 0.0f, 1.0f) * 3.14159f) : 0;
-  if (s.reload > 0 && d.feed == "enbloc") hz = 0.09f;
+  if (s.reload > 0 && d.feed == "enbloc" && !d.magReload) hz = 0.09f;
   add(WP_HANDLE, M * glm::translate(mat4(1), vec3(0, 0, -hz)));
   // magazine: drops out and a fresh one comes up during a magazine reload
   if (d.feed == "magazine") {
@@ -326,8 +327,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   WeaponState& s = wstate[d.id];
   bool modal = pauseMenu || showLoadout || choiceFor || rackOpen;
   if (in.fireMode && !modal) toggleFireMode(d, s);
-  if (d.action == "heavy") {   // carried M2: no firing, no sights; LMB deploys it on its tripod
-    adsT = 0;
+  if (d.action == "heavy") {   // carried M2: no firing; LMB deploys it on its tripod; RMB brings the rear ring over the front post
+    adsT = std::clamp(adsT + (in.aim && !modal ? d.adsSpeed / std::max(0.05f, move.adsTime) : -d.adsSpeed / std::max(0.05f, move.adsTime)) * dt, 0.0f, 1.0f);
     stepViewModel(dt, in, d, s);
     if (in.fire && !modal && s.triggerReleased) { s.triggerReleased = false; deployHeavy(d, s); }
     if (!in.fire) s.triggerReleased = true;
@@ -487,7 +488,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
       fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
-      fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
+      fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
       // pre-overhaul values: the old posture factor (prone 0.20, crouched 0.70) x the weapon's own bipod factor
