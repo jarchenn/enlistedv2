@@ -102,7 +102,7 @@ static std::string aiNavKeyPrefix(const App& app, const json& navj) {
     if (fs::exists(png, ec)) tpl += "#" + std::to_string(fs::file_size(png, ec));
   }
   // auto-furnished pieces (V4) collide but are left out of the map hash: their kind and place to the centimetre
-  for (auto& in : app.doc.instances) if (in.extra.is_object() && in.extra.contains("furnish")) {
+  for (auto& in : app.doc.instances) if (in.extra.is_object() && (in.extra.contains("furnish") || in.extra.contains("dressing"))) {   // MA3: foundation dressing props too
     char b[96]; std::snprintf(b, sizeof b, "|%ld %ld %ld %ld", std::lround(in.pos.x * 100), std::lround(in.pos.y * 100), std::lround(in.pos.z * 100), std::lround(in.yaw));
     tpl += in.assetId + b;
   }

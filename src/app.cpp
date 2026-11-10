@@ -22,6 +22,7 @@
 #include "terrain_blend.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include "foundation.h"       // MA3 foundation dressing
 #include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
 #include <stb_image_write.h>
 #include <algorithm>
@@ -176,6 +177,7 @@ void App::resetInteractStates() {
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear(); R.natPatches.clear();
+  foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) grenadeDrawItems();
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
@@ -804,6 +806,8 @@ int App::run(int argc, char** argv) {
     tanks.sync(*this);
     crumb("interior sync");
     interior.sync(*this);   // generated furniture follows / leaves with its building
+    crumb("foundation sync");
+    foundationSync(*this);   // MA3: grass, weeds, stones and prop arrangements round building bases (foundation.cpp)
 
     if (confirmQuit) { ImGui::OpenPopup("Unsaved changes"); confirmQuit = false; }
     if (ImGui::BeginPopupModal("Unsaved changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -956,7 +960,7 @@ void App::updateSurface() {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a) || a->nature.kind != NatureDef::NONE) continue;
     { extern bool waterAsset(const AssetDef*); if (waterAsset(a)) continue; }   // V1: ponds / streams / the sea have no foundation band
-    if (isFurnishPiece(i)) continue;   // V4: furniture inside a building has no foundation band of its own
+    if (isFurnishPiece(i) || isDressingPiece(i)) continue;   // V4 / MA3: furniture and foundation dressing have no foundation band of their own
     if (a->raw.is_object() && a->raw.contains("earthwork")) continue;   // GX1 earth-covered: the berm's contact band hugs the walls (the bounds would draw a line across the banks)
     feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
     uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);

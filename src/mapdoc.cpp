@@ -44,6 +44,7 @@ json mapToJson(const MapDoc& d) {
   j["nextId"] = d.nextId;
   json inst = json::array();
   for (auto& i : d.instances) {
+    if (i.extra.is_object() && i.extra.contains("dressing")) continue;   // MA3 foundation dressing: derived on load, never stored
     json o = i.extra.is_object() ? i.extra : json::object();
     o["id"] = i.id;
     o["asset"] = {{"id", i.assetId}, {"version", i.assetVersion}};
