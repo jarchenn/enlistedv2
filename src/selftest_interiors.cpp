@@ -6,6 +6,7 @@
 //   routes), reachability of every room, small arms, blast shielding by walls, a shell through an open window,
 //   support loss (tables, floors), fragment budgets, reset / Apply, and frame time in a furnished room and a blast.
 #include "selftest.h"
+#include "foundation.h"   // MA3: dressing pieces are not saved
 #include "lights.h"   // L3 (docs/lights.md)
 #include <set>
 #include <unordered_map>
@@ -376,13 +377,15 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       return true; });
     push("save / load: furniture, overrides and seeds round-trip without duplicates", [this](App& a, float) {
       fs::path p = outDirI() / "interiors_roundtrip.nmap.json";
-      auto before = layoutOf(a, FH); size_t n = a.doc.instances.size();
+      // MA3 foundation dressing is derived on load and never saved: count everything else
+      auto count = [&]() { size_t c = 0; for (auto& i : a.doc.instances) c += !isDressingPiece(i); return c; };
+      auto before = layoutOf(a, FH); size_t n = count();
       json in0 = a.doc.find(FH)->extra["interior"];
       bool saved = a.saveMapTo(p), opened = a.openMap(p);
       a.syncRuntime(); a.interior.sync(a); a.syncRuntime();
-      check(saved && opened && a.doc.instances.size() == n && layoutOf(a, FH) == before && a.doc.find(FH)->extra["interior"] == in0, "save + reopen: same pieces, poses, seeds and slot lists; sync after load adds nothing");
+      check(saved && opened && count() == n && layoutOf(a, FH) == before && a.doc.find(FH)->extra["interior"] == in0, "save + reopen: same pieces, poses, seeds and slot lists; sync after load adds nothing");
       a.interior.furnish(a, FH, 0);
-      check(a.doc.instances.size() == n && layoutOf(a, FH) == before, "regenerate after load reproduces the saved layout");
+      check(count() == n && layoutOf(a, FH) == before, "regenerate after load reproduces the saved layout");
       return true; });
 
     // ================================================================ routes in Explore: the buildings' own walkthroughs
