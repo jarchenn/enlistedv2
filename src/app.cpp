@@ -661,7 +661,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-reopen") { runSelf = true; ++k; }
     else if (a == "--selftest-damage" || a == "--selftest-pak" || a == "--selftest-weapons") runSelf = true;
     else if (a == "--capture-materials") { runSelf = true; ++k; }
-    else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : GrassQuality::Medium; }
+    else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : q == "ultra" ? GrassQuality::Ultra : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
@@ -687,6 +687,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--rq-on" && k + 1 < argc) rqOn.push_back(argv[++k]);   // PF2: switch one Renderer::perf feature on (A/B)
     else if (a == "--benchmark-village") { runSelf = true; bench = true; if (k + 1 < argc && argv[k + 1][0] != '-') ++k; }
     else if (a == "--benchmark-stress") { runSelf = true; bench = true; }
+    else if (a == "--bench-grass") { runSelf = true; bench = true; }   // G1: grass main + shadow per tier (selftest_grass.cpp)
     else if (a == "--selftest-visuals") runSelf = true;   // W2: thumbnails, footprint labels, bunker pass (selftest_visuals.cpp)
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];

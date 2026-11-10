@@ -2286,8 +2286,9 @@ layout(location=0) in vec3 aB; layout(location=1) in vec4 iP; layout(location=2)
 uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
 uniform float uCount, uShadowPass;   // pasture: clumps in this chunk (0 = nature patch plants); sun-shadow pass (radius)
-uniform vec4 uLod, uLod2;            // pasture LOD: drawn share, near r, mid r, falloff | floor, mid cards, far cards, wind r
-out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid;
+uniform vec4 uLod, uLod2;            // pasture LOD: drawn share, near r, mid r, falloff | floor, -, -, wind r
+uniform vec4 uCards;                 // G1: this species group's near / mid / far cards | shadow-pass cards (0 = main pass)
+out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid, vTap;   // vTap: G1 blade card width / full card width (trimmed padding)
 out vec4 vCC, vPC;
 flat out int vSp; flat out int vPart; flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf; pasture 10+
 // GX3 pasture clump: cards pre-arranged around the root (tall centre, short outward-leaning rim), leaning with the
@@ -2303,10 +2304,11 @@ void pastureClump(){
   float dens = d <= uLod.y ? 1.0 : max(uLod2.x, pow(uLod.y/d, uLod.w));
   float keep = uLod.x*dens, rank = (float(gl_InstanceID) + 0.5)/uCount;
   float vis = 1.0 - smoothstep(keep*0.8, keep, rank);
-  float nb = d <= uLod.y ? 12.0 : d <= uLod.z ? mix(12.0, uLod2.y, smoothstep(uLod.y, uLod.z, d)) : mix(uLod2.y, uLod2.z, smoothstep(uLod.z, uRadius, d));
-  float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp(nb - bl, 0.0, 1.0);
+  float nb = d <= uLod.y ? uCards.x : d <= uLod.z ? mix(uCards.x, uCards.y, smoothstep(uLod.y, uLod.z, d)) : mix(uCards.y, uCards.z, smoothstep(uLod.z, uRadius, d));
+  float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp((uShadowPass > 0.0 ? uCards.w : nb) - bl, 0.0, 1.0);
+  if (uShadowPass > 0.0) fade *= 1.0 - smoothstep(uShadowPass*0.7, uShadowPass, d);   // G1: casters shrink away toward the shadow radius (no ring)
   if (fade <= 0.0) {   // clump / card past its LOD cut: the whole card leaves the clip volume (no shading, no raster)
-    gl_Position = vec4(0.0, 0.0, -2.0, 1.0); vW = vAlb = vF = vec3(0.0); vUV = vec2(0.0); vWid = 0.0; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
+    gl_Position = vec4(0.0, 0.0, -2.0, 1.0); vW = vAlb = vF = vec3(0.0); vUV = vec2(0.0); vWid = 0.0; vTap = 1.0; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
     vSp = 0; vPart = 10; vSeed = 0.0; return;
   }
   float widen = min(3.2, pow(clamp(dens*nb/12.0, 0.05, 1.0), -0.6));   // fewer clumps / cards: the rest widen
@@ -2329,9 +2331,11 @@ void pastureClump(){
     else { hf = 1.8*(0.8 + 0.4*r2); w = 0.007; windAmp = 0.5; }
   } else if (sp == 16) {
     part = 13; spread = 0.14; hf = mix(1.0, 0.6, k)*(0.8 + 0.4*r2); curve = 0.12 + 0.55*k; windAmp = 0.25; taper = 1.0 - v*0.25; ang += r3*1.2;
-  } else curve = 0.12 + 0.4*r1 + 0.8*k;   // medium meadow grass: the rim droops
+  } else if (sp == 18) { curve = 0.08 + 0.22*r1 + 0.45*k; spread = 0.10; windAmp = 1.1; }   // marram: stiff, upright tussock
+  else curve = 0.12 + 0.4*r1 + 0.8*k;   // medium meadow grass: the rim droops
   float h = H*hf*fade;
-  w *= widen*taper;
+  float tap = part == 10 ? max(1.0 - 0.95*v*v*v, 0.1) : 1.0;   // G1: blade cards follow the pointed silhouette (no transparent padding)
+  w *= widen*taper*tap;
   vec3 fwd = vec3(sin(ang), 0.0, cos(ang)), side = vec3(cos(ang), 0.0, -sin(ang));
   if (part == 13) side = normalize(side + fwd*(r3 - 0.5)*1.4);
   vec2 nxz = py.yz*2.0 - 1.0; float ny = sqrt(max(0.1, 1.0 - dot(nxz, nxz)));
@@ -2359,7 +2363,7 @@ void pastureClump(){
   }
   if (nk == 1) pos[1] = pos[0];
   vec3 p = pos[0];
-  vW = p; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp; vPart = part; vWid = w; vSeed = r1; vF = fwd;
+  vW = p; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp; vPart = part; vWid = w; vTap = tap; vSeed = r1; vF = fwd;
   gl_Position = uVP*vec4(p, 1.0);
   if (uShadowPass > 0.0) { vAlb = vec3(0.0); vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0); return; }
   vCC = uVPU*vec4(p, 1.0); vPC = uPrevVP*vec4(pos[1], 1.0);
@@ -2367,13 +2371,13 @@ void pastureClump(){
   // base AO darker inside the clump and under the canopy
   float r4 = fract(r3*57.3 + r1*13.1);
   vec3 alb = pk.rgb*0.5*(0.74 + 0.5*r3)*mix(vec3(1.0), vec3(1.12, 1.04, 0.78), step(0.82, r4)*0.8), gnd = pg.rgb*0.5;   // per card: value, some yellower
-  float dryTip = (sp == 4 ? 0.7 : sp == 2 ? 0.45 : sp == 1 ? 0.14 : sp == 0 ? 0.08 : 0.05)*(0.4 + 1.2*r1*r1);
+  float dryTip = (sp == 4 ? 0.7 : sp == 2 ? 0.45 : sp == 18 ? 0.35 : sp == 1 ? 0.14 : sp == 0 ? 0.08 : 0.05)*(0.4 + 1.2*r1*r1);
   vec3 col = mix(alb*vec3(0.78, 0.88, 0.72), mix(alb*vec3(1.12, 1.14, 0.9), vec3(0.42, 0.37, 0.21), dryTip), smoothstep(0.2, 1.0, v));
   bool flatLeaf = part == 11 || part == 14;
   if (flatLeaf) col = alb*(0.9 + 0.2*v);
   else if (part != 13) col = mix(gnd, col, smoothstep(0.0, 0.3, v));
   float above = p.y - base.y;
-  float ao = mix(0.24 + 0.3*k, 1.0, smoothstep(0.0, flatLeaf ? 0.2 : 0.6, v))*mix(0.55, 1.0, smoothstep(0.0, 0.45, above));   // base and canopy depth
+  float ao = mix(0.40 + 0.25*k, 1.0, smoothstep(0.0, flatLeaf ? 0.2 : 0.6, v))*mix(0.68, 1.0, smoothstep(0.0, 0.45, above));   // base and canopy depth (G1: lighter floor, roots are not black)
   if (part == 13) ao = mix(0.45, 1.0, smoothstep(0.0, 0.8, v))*(0.75 + 0.25*k);   // shrub: dark interior, lit dome
   vAlb = col*ao;
 }
@@ -2458,12 +2462,12 @@ void plantMain(){
   vec3 alb = pk.rgb*0.5;   // meadow palette baked per tuft on the CPU (cluster colour + species tint)
   if (sp == 2) alb = mix(alb, vec3(0.36, 0.32, 0.18), smoothstep(0.72, 0.9, v));   // straw-coloured seed heads
   vAlb = alb; vW = p; vF = head ? nH : fwd; vUV = head ? vec2(aB.x, aB.y*2.0 - 1.0) : vec2(aB.x*0.5 + 0.5, v); vSp = sp;
-  vPart = head ? 1 : isLeaf ? 2 : 0; vWid = w; vSeed = r1;
+  vPart = head ? 1 : isLeaf ? 2 : 0; vWid = w; vTap = 1.0; vSeed = r1;
   gl_Position = uVP*vec4(p, 1.0);
 }
 )GLSL";
 static const char* kGrassFS = R"GLSL(
-in vec3 vW, vAlb, vF; in vec2 vUV; in float vWid;
+in vec3 vW, vAlb, vF; in vec2 vUV; in float vWid, vTap;
 in vec4 vCC, vPC;
 flat in int vSp; flat in int vPart; flat in float vSeed;
 uniform float uWidthScale;
@@ -2472,7 +2476,7 @@ layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 void main(){
-  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y, lv = v;
+  float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y, lv = v;   // e across the full (untrimmed) card
   vec3 F = gl_FrontFacing ? vF : -vF;
   bool past = vPart >= 10;
   vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*((vPart == 11 || vPart == 14) ? 0.15 : past ? 0.8 : 0.45));
@@ -2600,10 +2604,10 @@ void main(){
 )GLSL";
 // GX3: near pasture clumps into the sun shadow map (Grass::drawShadow); coarse silhouettes of the cards
 static const char* kGrassShadowFS = R"GLSL(
-in vec2 vUV; in float vWid;
+in vec2 vUV; in float vWid, vTap;
 flat in int vSp; flat in int vPart; flat in float vSeed;
 void main(){
-  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y;
+  float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y;
   if (vPart == 11 || vPart == 14) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
   else if (vPart == 13) { if (e > 0.12 && fract(v*6.0 + vSeed*3.0 + e*0.4) > 0.75) discard; }
   else if (e > 1.0 - pow(v, 3.0)*0.95) discard;
@@ -3510,7 +3514,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   Frustum frNear = Frustum::fromVP(lightVP);
   drawItems(progShadow, opaque, true, &frNear);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear);
-  if (grass && !thumbMode) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
+  if (grass && !thumbMode && perf.grassShadow) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
     glUseProgram(progGrassShadow);
     glUniform3fv(U(progGrassShadow, "uCamPos"), 1, glm::value_ptr(v.camPos)); glUniform1f(U(progGrassShadow, "uTime"), time);
     grass->drawShadow(progGrassShadow, lightVP, v0.proj * v.view, v.camPos);
@@ -3696,8 +3700,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
     // Low / Medium / High share of each patch and reach (the pre-GX3 grass radii: patches keep their own LOD)
-    int gq = std::clamp((int)grass->quality, 0, 3);
-    const float natFrac[4] = {0.0f, 0.6f, 0.8f, 1.0f}, natR[4] = {0.0f, 38.0f, 58.0f, 85.0f};
+    int gq = std::clamp((int)grass->quality, 0, 4);
+    const float natFrac[5] = {0.0f, 0.6f, 0.8f, 1.0f, 1.0f}, natR[5] = {0.0f, 38.0f, 58.0f, 85.0f, 85.0f};   // G1 Ultra: patches as High
     if (natFrac[gq] > 0) natureDrawPatches(progGrass, natPatches, vp, v.camPos, natR[gq] * 1.1f, natFrac[gq], wind, natDraws, natTufts);
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);

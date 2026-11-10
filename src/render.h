@@ -136,11 +136,12 @@ public:
     bool matLod = true;          // matlod (R1): base kMainFS pattern noise fades to its mean by projected footprint (near / mid / far detail)
     bool opqSort = true;         // opqsort (R1): opaque building groups submitted front to back (by their nearest copy)
     bool zPrepass = false;       // zprepass (R1 experiment): depth-only pass of the building groups, then shading at equal depth
+    bool grassShadow = true;     // grassshadow (G1, measurement): off = pasture grass casts no sun shadow; A/B = its share of the near cascade
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
-              : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : nullptr;
+              : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : nullptr;
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
       if (b) *b = on;

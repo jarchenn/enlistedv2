@@ -1,10 +1,12 @@
 // --selftest-grass: deterministic placement, exclusion masks, rebuild on crater / reset / undo / apply.
 // --benchmark-stress: dense-grass low flyover (Off vs High on one path) and repeated HE impacts with smoke.
 #include "selftest.h"
+#include "ground_paint.h"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <fstream>
 #include <algorithm>
+#include <cstdarg>
 
 namespace {
 struct G {
@@ -18,8 +20,13 @@ struct G {
   int impacts = 0; double impactMax = 0, impactSum = 0, grassPeak = 0;
   size_t bladesSum = 0; int bladeFrames = 0;
   int pass = 0;
+  // G1 grass bench
+  std::vector<int> tiers; int bv = 0, bt = 0, blk = -1, blkFrames = 0;
+  struct Acc { int n = 0; double grass = 0, shadow = 0, gpu = 0, clumps = 0, blades = 0, chunks = 0, sclumps = 0, sdraws = 0; std::vector<double> ft; } acc[2];   // [0] grass shadows on, [1] off
 };
 G g;
+LassoRegion rectRegion(vec2 lo, vec2 hi) { LassoRegion r; r.add({lo, vec2(hi.x, lo.y), hi, vec2(lo.x, hi.y)}); return r; }
+std::string fmt(const char* f, ...) { char b[600]; va_list a; va_start(a, f); std::vsnprintf(b, sizeof b, f, a); va_end(a); return b; }
 
 double ms(std::chrono::high_resolution_clock::time_point a) {
   return std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - a).count();
@@ -105,13 +112,26 @@ void SelfTest::grassUpdate(App& app, float dt) {
       check(fine > tall && tall > 0 && broad > 0 && shrub > 0 && spc[4] > 0,
             "4+ species layers: fine " + std::to_string(fine) + ", seed-head " + std::to_string(tall) + ", clover / broadleaf " + std::to_string(broad) + ", shrub " + std::to_string(shrub) + ", straw " + std::to_string(spc[4]));
       const GrassPreset& M = grassPreset(GrassQuality::Medium);
-      size_t near = countNear(app.grass, g.cam, 15.0f);
-      double cards = near * (M.density / Grass::kMaxDensity) * Grass::kBlades / (3.14159265 * 225.0);
+      size_t nearC = 0, nearF = 0;   // G1: turf / clover keep fewer cards than the coarse species
+      app.grass.forEachInstance([&](const GrassInstance& i) { if (glm::length(vec2(i.posYaw.x - g.cam.x, i.posYaw.z - g.cam.z)) < 15.0f) ++(Grass::fineSpecies(Grass::speciesOf(i)) ? nearF : nearC); });
+      double cards = (nearC * M.blades[0] + nearF * M.fine[0]) * (M.density / Grass::kMaxDensity) / (3.14159265 * 225.0);
       summary["medium_cards_per_m2_within_15m"] = cards;
       // pre-GX3 Medium: 16 of 40 tufts per m^2 drawn x 7 blades, ~65 % of candidates kept = ~73 blades per m^2
-      check(cards > 3.0 * 73.0, "Medium draws 3x+ the pre-GX3 blade density within 15 m (" + std::to_string((int)cards) + " cards per m^2)");
+      // G1: fewer cards per clump, each widened by (cards / 12)^-0.6 (the shader's widen): blade coverage ~ cards^0.4
+      double gx3 = (nearC + nearF) * 12.0 * (M.density / Grass::kMaxDensity) / (3.14159265 * 225.0);
+      double cover = (nearC * std::pow((double)M.blades[0], 0.4) + nearF * std::pow((double)M.fine[0], 0.4)) * std::pow(12.0, 0.6) * (M.density / Grass::kMaxDensity) / (3.14159265 * 225.0);
+      summary["medium_cover_vs_gx3"] = cover / gx3;
+      check(gx3 > 3.0 * 73.0 && cover > 0.8 * gx3, fmt("Medium within 15 m: %.0f cards per m^2 (GX3 %.0f, pre-GX3 73), blade coverage %.0f %% of GX3's", cards, gx3, 100.0 * cover / gx3));
       check(M.windR > 0 && M.windR <= 15 && M.shadowR > 0 && grassPreset(GrassQuality::Low).windR == 0 && M.radius < 58,
             "tiers: Medium wind <= 15 m, near clumps cast shadows, Low static, Medium trades radius for density");
+      // G1: per chunk the coarse species come first, turf / clover after (two ranges, each a nested shuffled prefix)
+      size_t bad = 0, nCoarse = 0, nFine = 0;
+      app.grass.forEachChunk([&](const Grass::Chunk& c) { for (int k = 0; k < c.count; ++k) { bool f = Grass::fineSpecies(Grass::speciesOf(c.inst[k])); bad += f != (k >= c.coarse); ++(f ? nFine : nCoarse); } });
+      check(bad == 0 && nCoarse > 0 && nFine > 0, fmt("species ranges: coarse first in every chunk (%zu nCoarse, %zu turf / clover, %zu out of place)", nCoarse, nFine, bad));
+      const GrassPreset& H = grassPreset(GrassQuality::High); const GrassPreset& U = grassPreset(GrassQuality::Ultra);
+      check(U.density > H.density && H.density >= M.density && U.radius > H.radius && H.radius > M.radius && U.nearR > H.nearR && U.windR > H.windR && U.shadowR > 0 &&
+            M.fine[0] < M.blades[0] && H.fine[0] < H.blades[0] && M.shadowBlades < M.blades[0] && U.density <= Grass::kMaxDensity,
+            fmt("tiers: Ultra %.0f clumps/m2 to %.0f m > High %.0f to %.0f m >= Medium %.0f to %.0f m; turf / clover and shadows use fewer cards", U.density, U.radius, H.density, H.radius, M.density, M.radius));
     }
     // crater site in open pasture; a far chunk for the 'untouched' check
     g.P = vec3(16, 0, 24); g.P.y = app.terrain.height(g.P.x, g.P.z);
@@ -187,6 +207,21 @@ void SelfTest::grassUpdate(App& app, float dt) {
       bool otherOk = app.openMap(tmp) && app.doc.terrainDeltas.empty() && app.terrain.tiles.empty();
       check(sameOk && otherOk, "applied ground damage reloads on its own template version and is dropped (with a notice) on another");
       app.hideEditorOverlays = false;
+      {   // G1 regions: partly sanded ground grows sparse dune-grass tussocks, full sand none, sand near the water line none
+        vec2 a(-44, 16), b(-30, 30), c(-44, -30), d(-30, -16);
+        auto inRect = [](const GrassInstance& i, vec2 lo, vec2 hi) { return i.posYaw.x > lo.x + 2 && i.posYaw.x < hi.x - 2 && i.posYaw.z > lo.y + 2 && i.posYaw.z < hi.y - 2; };
+        size_t before = 0; app.grass.forEachInstance([&](const GrassInstance& i) { before += inRect(i, a, b); });
+        groundPaintRegion(app, rectRegion(a, b), kPaintSand, 0.6f, 1.0f);
+        groundPaintRegion(app, rectRegion(c, d), kPaintSand, 1.0f, 1.0f);
+        groundPaintSync(app); app.grass.clear(); syncGrass();
+        size_t part = 0, dune = 0, full = 0;
+        app.grass.forEachInstance([&](const GrassInstance& i) { if (inRect(i, a, b)) { ++part; dune += Grass::speciesOf(i) == Grass::DUNE; } full += inRect(i, c, d); });
+        float wl = app.terrain.waterLevel; app.terrain.waterLevel = app.terrain.height(-37, 23) - 1.0f; app.grass.clear(); syncGrass();
+        size_t wet = 0; app.grass.forEachInstance([&](const GrassInstance& i) { wet += inRect(i, a, b); });
+        app.terrain.waterLevel = wl; app.grass.clear(); syncGrass();
+        check(before > 500 && part > 0 && part * 3 < before && dune * 10 >= part * 9 && full == 0 && wet == 0,
+              fmt("sand: %zu clumps unpainted -> %zu on 60 %% sand (%zu dune grass), %zu on full sand, %zu on sand 1 m above the water", before, part, dune, full, wet));
+      }
       check(app.R.shaderErrors == 0, "all shaders compiled, terrain and grass included (" + std::to_string(app.R.shaderErrors) + " errors)");
       finish(app);
     }
@@ -236,6 +271,66 @@ void SelfTest::grassUpdate(App& app, float dt) {
     check(app.grass.instanceCount() > 1000, "the grassy plot is grassed");
     app.exitExplore();
     finish(app);
+    break;
+  }
+
+  // ---------------------------------------------------------------- G1 grass bench (--bench-grass)
+  // Open pasture: standing, prone and walking views at each tier from Medium up. Per (view, tier): 1 s settle, then
+  // 4 s of 0.4 s blocks alternating the grass sun shadow on / off (Renderer::perf.grassShadow), so the grass share of
+  // the near cascade is the on - off difference of GP_ShadowNear. Shots of the static views go to selftest_out.
+  case 960: {
+    reportName = "grassbench";
+    app.newMap(*app.findTemplate("blank_slate"), "Grass bench");
+    app.syncRuntime(); app.hideEditorOverlays = true;
+    g.tiers.clear();
+    for (int q = 2; q <= 4; ++q) if (q == 2 || std::string(grassPreset((GrassQuality)q).name) != grassPreset((GrassQuality)(q - 1)).name) g.tiers.push_back(q);
+    g.bv = 0; g.bt = 0; g.blk = -2; g.lastT = glfwGetTime();
+    benchOut["resolution"] = {app.R.width, app.R.height};
+    benchOut["gl_renderer"] = (const char*)glGetString(GL_RENDERER);
+    go(961);
+    break;
+  }
+  case 961: {
+    static const char* views[] = {"open_field", "prone", "moving"};
+    int q = g.tiers[g.bt];
+    const char* tier = grassPreset((GrassQuality)q).name;
+    float t = (float)stageTime;
+    float x = g.bv == 2 ? -40.0f + 4.5f * t : 0.0f, z = 20.0f;   // moving: a 4.5 m/s jog
+    app.camPos = vec3(x, app.terrain.height(x, z) + (g.bv == 1 ? 0.35f : 1.7f), z);
+    app.camYaw = g.bv == 2 ? -90.0f + 20.0f * std::sin(t * 0.9f) : 30.0f; app.camPitch = g.bv == 1 ? -3.0f : -8.0f;
+    if (g.blk == -2) {   // first frame of this (view, tier)
+      app.grass.quality = (GrassQuality)q; app.R.perf.grassShadow = true;
+      if (g.bv != 2) syncGrass();
+      g.blk = -1; g.acc[0] = G::Acc(); g.acc[1] = G::Acc();
+    }
+    double nowT = glfwGetTime(), fms = (nowT - g.lastT) * 1000.0; g.lastT = nowT;
+    if (g.bv != 2 && t > 0.8f && g.blk == -1 && g.pass != 100) { shotQueue.push_back(std::string("g1_") + views[g.bv] + "_" + tier); g.pass = 100; }
+    if (t >= 1.0f) {
+      int blk = std::min(9, (int)((t - 1.0f) / 0.4f));
+      if (blk != g.blk) { g.blk = blk; g.blkFrames = 0; app.R.perf.grassShadow = blk % 2 == 0; }
+      if (++g.blkFrames > 5) {   // the pass timers lag 2-3 frames
+        G::Acc& a = g.acc[blk % 2];
+        a.grass += app.R.gpuPassMs[GP_Grass]; a.shadow += app.R.gpuPassMs[GP_ShadowNear]; a.gpu += app.R.stats.gpuMs;
+        a.clumps += app.grass.lastDrawnClumps; a.blades += app.grass.lastDrawnBlades; a.chunks += app.grass.lastDrawnChunks;
+        a.sclumps += app.grass.lastShadowClumps; a.sdraws += app.grass.lastShadowDraws; a.ft.push_back(fms); ++a.n;
+      }
+    }
+    if (t >= 5.0f) {
+      G::Acc& on = g.acc[0]; G::Acc& off = g.acc[1];
+      double n0 = std::max(1, on.n), n1 = std::max(1, off.n);
+      json s = stats(on.ft);
+      s["grass_main_ms"] = on.grass / n0; s["shadow_near_ms"] = on.shadow / n0; s["shadow_near_no_grass_ms"] = off.shadow / n1;
+      s["grass_shadow_ms"] = on.shadow / n0 - off.shadow / n1; s["grass_total_ms"] = on.grass / n0 + on.shadow / n0 - off.shadow / n1;
+      s["gpu_ms"] = on.gpu / n0; s["clumps"] = on.clumps / n0; s["cards"] = on.blades / n0; s["main_draws"] = on.chunks / n0;
+      s["shadow_clumps"] = on.sclumps / n0; s["shadow_draws"] = on.sdraws / n0; s["frames"] = {on.n, off.n};
+      benchOut[views[g.bv]][tier] = s;
+      check(true, fmt("%s %s: grass main %.3f + shadow %.3f ms (near cascade %.3f vs %.3f without grass), %.0f clumps, %.0f + %.0f draws",
+                      views[g.bv], tier, on.grass / n0, on.shadow / n0 - off.shadow / n1, on.shadow / n0, off.shadow / n1, on.clumps / n0, on.chunks / n0, on.sdraws / n0));
+      app.R.perf.grassShadow = true; g.pass = 0; g.blk = -2;
+      if (++g.bt >= (int)g.tiers.size()) { g.bt = 0; ++g.bv; }
+      if (g.bv >= 3) { app.grass.quality = GrassQuality::Medium; app.hideEditorOverlays = false; finish(app); }
+      else stageTime = 0;
+    }
     break;
   }
 
