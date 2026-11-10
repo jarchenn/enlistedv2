@@ -9,7 +9,7 @@
 
 // ================================================================ region
 const char* lassoModeName(int m) {
-  static const char* n[] = {"Objects", "Elevation", "Paint", "Move land"};
+  static const char* n[] = {"Objects", "Elevation", "Paint", "Move land", "Line"};
   return m >= 0 && m < LM_COUNT ? n[m] : "?";
 }
 LassoParams& lassoParams() { static LassoParams p; return p; }

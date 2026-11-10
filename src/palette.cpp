@@ -16,7 +16,9 @@ std::string assetFootText(const AssetDef* a) {
 const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* active) {
   const AssetDef* picked = nullptr;
   std::vector<std::string> cats = {"All"};
-  for (auto& a : app.lib.assets) if (std::find(cats.begin(), cats.end(), a->category) == cats.end()) cats.push_back(a->category);
+  extern bool lineReplacedPiece(const std::string&);
+  auto hidden = [](const AssetDef* a) { return (a->raw.is_object() && a->raw.value("hidden", false)) || lineReplacedPiece(a->id); };   // LN2: pieces now drawn as lines   // LN1: lines and the pieces they replace
+  for (auto& a : app.lib.assets) if (!hidden(a.get()) && std::find(cats.begin(), cats.end(), a->category) == cats.end()) cats.push_back(a->category);
   st.category = std::clamp(st.category, 0, (int)cats.size() - 1);
   if (ImGui::BeginCombo("Category", cats[st.category].c_str())) {
     for (int k = 0; k < (int)cats.size(); ++k) if (ImGui::Selectable(cats[k].c_str(), k == st.category)) st.category = k;
@@ -34,6 +36,7 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
   std::string lf = st.filter; std::transform(lf.begin(), lf.end(), lf.begin(), ::tolower);
   int n = 0;
   for (auto& a : app.lib.assets) {
+    if (hidden(a.get())) continue;
     if (st.category > 0 && a->category != cats[st.category]) continue;
     if (st.buildingFilters && st.enterableOnly && !a->enterable) continue;
     if (st.buildingFilters && a->floors < st.minFloors) continue;

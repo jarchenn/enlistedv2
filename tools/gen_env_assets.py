@@ -542,9 +542,9 @@ print("racks ok")
 
 
 # ---------------------------------------------------------------- farm dressing (restrained, snag-free collision)
-def dressing(id_, name, desc, parts, mats, footprint, version=1):
+def dressing(id_, name, desc, parts, mats, footprint, version=1, inter=None):
     save({"id": id_, "version": version, "name": name, "category": "Dressing", "description": desc, "floors": 0, "enterable": False,
-          "footprint": footprint, "plinthDepth": 0, "maxGrade": 0.8, "materials": mats, "parts": parts, "furniture": [], "interactables": [], "panels": []})
+          "footprint": footprint, "plinthDepth": 0, "maxGrade": 0.8, "materials": mats, "parts": parts, "furniture": [], "interactables": inter or [], "panels": []})
 
 post = {"name": "post_wood", "albedo": [0.27, 0.22, 0.16], "roughness": 0.92, "pattern": "wood", "metallic": 0, "grain": 1}
 wire = {"name": "wire", "albedo": [0.30, 0.29, 0.27], "roughness": 0.6, "pattern": "metal", "metallic": 0.6, "grain": 1}
@@ -583,7 +583,11 @@ for y in (0.3, 1.0):   # P1: strap hinges on the hanging post, a latch on the sh
         parts.append(cyl([x, y, 0.149], 0.018, 0.008, "gate_iron", top=0.6, seg=6, r=[90, 0, 0], k=0))
 parts.append(bevel(box([1.6, 0.98, 0.15], [0.22, 0.03, 0.012], "gate_iron", k=0), 0.003))
 parts.append(arch([1.75, 0.95, 0.15], [0.08, 0.05, 0.012], "gate_iron", th=0.012, r=[0, 0, -90]))
-dressing("field_gate", "Field gate", "Five-bar style timber field gate between two posts on iron strap hinges, with a latch (closed; walk round or vault the hedge).", parts, [post, P_IRON], [3.8, 0.4], 2)
+# LN2: the leaf (rails, brace, stiles, straps, latch) is a door hung on the left post: open = passable, closed = blocked (AI / nav as house doors)
+leaf, parts = parts[4:], parts[:4]
+dressing("field_gate", "Field gate", "Five-bar style timber field gate between two posts on iron strap hinges, with a latch; it opens like a door.", parts, [post, P_IRON], [3.8, 0.4], 2,
+         inter=[{"id": "gate", "kind": "door", "label": "gate", "sound": "wood", "axis": [0, 1, 0], "openAngle": 95, "duration": 1.6, "defaultOpen": False,
+                 "leaves": [{"parts": leaf, "hinge": [-1.66, 0, 0.12], "sign": 1}], "aperture": {"min": [-1.66, 0.05, -0.1], "max": [1.66, 1.3, 0.2]}}])
 # telegraph pole: the old box stays the collider; drawn as a tapered round pole with a tarred foot, a bevelled cross-arm on
 # two raking braces, a roof cap, step bolts and porcelain insulators on iron pins
 parts = [box([0, 4.0, 0], [0.24, 8.0, 0.24], "post_wood", v=0), bevel(box([0, 7.5, 0], [1.6, 0.1, 0.1], "post_wood", k=0), 0.012)]

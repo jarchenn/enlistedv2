@@ -2,6 +2,7 @@
 // evaluated in terrain_cuts.cpp; this file derives them from the instances, levels placements, generates the
 // revetment / skirt meshes and validates seating after reforms.
 #include "terrain_blend.h"
+#include "lines.h"
 #include "snap.h"
 #include "render.h"
 #include <algorithm>
@@ -75,7 +76,20 @@ const Material& matNamed(const AssetDef* a, const char* n) {
 const BlendConfig& blendConfig() { static BlendConfig c = loadConfig(); return c; }
 bool blendEnabled() { return blendConfig().enabled; }
 
-bool blendTrench(const AssetDef* a) { return a && a->raw.is_object() && a->raw.contains("trench"); }
+static bool lineTrench(const AssetDef* a) { const LineType* t = lineTypeOf(a); return t && t->builder == "trench"; }
+bool blendTrench(const AssetDef* a) { return a && a->raw.is_object() && (a->raw.contains("trench") || lineTrench(a)); }
+namespace {
+// LN1 trench lines: each line's centreline as GX1 carves and dresses it (world xz, depth scale after the entry ramps),
+// and its fire side; filled by blendSyncStamps, read by buildTrench
+struct LinePath { std::vector<vec2> P; std::vector<float> D; int front = 0; };
+std::map<uint64_t, LinePath> gLinePaths;
+float segDist2(vec2 p, vec2 a, vec2 b) { vec2 ab = b - a; float L2 = glm::dot(ab, ab); float t = L2 > 1e-9f ? std::clamp(glm::dot(p - a, ab) / L2, 0.0f, 1.0f) : 0.0f; return glm::length(p - (a + ab * t)); }
+bool segCross(vec2 a, vec2 b, vec2 c, vec2 d) {
+  auto cr = [](vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; };
+  float d1 = cr(b - a, c - a), d2 = cr(b - a, d - a), d3 = cr(d - c, a - c), d4 = cr(d - c, b - c);
+  return ((d1 > 0) != (d2 > 0)) && ((d3 > 0) != (d4 > 0));
+}
+}
 bool blendPinned(const AssetDef* a) {
   if (!a || !blendEnabled() || a->path.on || blendTrench(a)) return false;
   if (a->raw.is_object() && a->raw.contains("prop")) return false;   // furniture
@@ -123,11 +137,23 @@ int blendSyncStamps(App& app) {
   const StampParams& sp = C.sp;
   std::vector<TerrainStamp> out;
   const float tanR = std::tan(radians(std::clamp(sp.reposeDeg, 15.0f, 45.0f)));
-  struct Piece { uint64_t id; std::vector<vec3> path; std::vector<std::vector<vec3>> branches; int8_t front = 0; };   // world x, floor y, z; front: the fire side (+1 left of the path)
+  struct Piece { uint64_t id; std::vector<vec3> path; std::vector<std::vector<vec3>> branches; int8_t front = 0; bool line = false; std::string ramps; bool mouth[2] = {false, false}; std::vector<float> u, off; };   // lines: each sample's control-point parameter; each control point's fixed-floor offset   // world x, floor y, z; front: the fire side (+1 left of the path)
   std::vector<Piece> pieces;
   for (auto& i : app.doc.instances) {
     const AssetDef* a = app.assetFor(i);
     if (!a) continue;
+    if (lineTrench(a)) {   // LN1: a trench line's spline (2 m samples), its floor the ground less the depth; ramps after the joins
+      LineData d; if (!lineGet(i, d)) continue;
+      json prm = lineParams(*lineTypeOf(a), d);
+      Piece p; p.id = i.id; p.line = true;
+      for (auto& q : lineSpline(d, 2.0f, prm.value("sharp", false))) { p.path.push_back(vec3(q.p.x, q.d, q.p.y)); p.u.push_back(q.u); }   // y: the depth scale for now
+      for (auto& c : d.pts) p.off.push_back(std::isnan(c.y) ? 0.0f : c.y - (T.groundBase(c.p.x, c.p.y) - sp.depth * c.d));   // a fixed floor, eased out over the span
+      std::string fs = prm.value("fire", std::string("left"));
+      p.front = fs == "left" ? 1 : fs == "right" ? -1 : 0;
+      p.ramps = prm.value("ramps", std::string("both"));
+      if (p.path.size() >= 2) pieces.push_back(std::move(p));
+      continue;
+    }
     if (blendTrench(a)) {
       Piece p; p.id = i.id;
       auto pt = [&](const json& q) { vec2 w = vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw); return vec3(w.x, i.pos.y - sp.depth * (q.size() > 2 ? q[2].get<float>() : 1.0f), w.y); };
@@ -195,12 +221,51 @@ int blendSyncStamps(App& app) {
     pend[k] = {pieces[k].path.front(), pieces[k].path.back()};
     for (auto& br : pieces[k].branches) if (isArm(br)) pend[k].push_back(br.back());
   }
+  // LN1 lines also join where an end meets another trench's centreline (a T) or two centrelines cross (an X)
+  auto touches = [&](size_t a, size_t b) {
+    const auto& A = pieces[a].path; const auto& B = pieces[b].path;
+    for (vec3 e : {A.front(), A.back()}) for (size_t k = 0; k + 1 < B.size(); ++k) if (segDist2(vec2(e.x, e.z), vec2(B[k].x, B[k].z), vec2(B[k + 1].x, B[k + 1].z)) < sp.floorHalf + 0.6f) return true;
+    for (size_t j = 0; j + 1 < A.size(); ++j) for (size_t k = 0; k + 1 < B.size(); ++k) if (segCross(vec2(A[j].x, A[j].z), vec2(A[j + 1].x, A[j + 1].z), vec2(B[k].x, B[k].z), vec2(B[k + 1].x, B[k + 1].z))) return true;
+    return false;
+  };
+  std::vector<std::array<bool, 2>> endJoined(n, {false, false});   // a line end that meets another trench gets no ramp
   for (size_t a = 0; a < n; ++a)
     for (size_t b = a + 1; b < n; ++b) {
       bool hit = false;
       for (auto& p : pend[a]) for (auto& q : pend[b]) hit = hit || near2(p, q);
+      if (!hit && (pieces[a].line || pieces[b].line)) hit = touches(a, b) || touches(b, a);
       if (hit) root[find(a)] = find(b);
     }
+  for (size_t a = 0; a < n; ++a) {
+    if (!pieces[a].line) continue;
+    auto& A = pieces[a].path;
+    for (int e = 0; e < 2; ++e) {
+      vec2 pe = e ? vec2(A.back().x, A.back().z) : vec2(A.front().x, A.front().z);
+      for (size_t b = 0; b < n && !endJoined[a][e]; ++b) {
+        if (b == a) continue;
+        const auto& B = pieces[b].path;
+        for (size_t k = 0; k + 1 < B.size(); ++k) if (segDist2(pe, vec2(B[k].x, B[k].z), vec2(B[k + 1].x, B[k + 1].z)) < sp.floorHalf + 0.6f) { endJoined[a][e] = true; break; }
+      }
+    }
+    // entry ramps at the free ends the line asks for: the depth eases from 0 at the end over 6 m (slope ~0.28: a man walks it); then the floor heights
+    float L = 0; std::vector<float> sAt(A.size(), 0);
+    for (size_t k = 1; k < A.size(); ++k) { L += glm::length(vec2(A[k].x - A[k - 1].x, A[k].z - A[k - 1].z)); sAt[k] = L; }
+    bool r0 = !endJoined[a][0] && (pieces[a].ramps == "both" || pieces[a].ramps == "start"), r1 = !endJoined[a][1] && (pieces[a].ramps == "both" || pieces[a].ramps == "end");
+    LinePath lp; lp.front = pieces[a].front;
+    for (size_t k = 0; k < A.size(); ++k) {
+      float d = A[k].y;
+      if (r0) d = std::min(d, sAt[k] / 6.0f);
+      if (r1) d = std::min(d, (L - sAt[k]) / 6.0f);
+      d = std::clamp(d, 0.0f, 1.0f);
+      lp.P.push_back(vec2(A[k].x, A[k].z)); lp.D.push_back(d);
+      float off = 0;
+      if (!pieces[a].off.empty()) { float u = pieces[a].u[k]; size_t j = std::min((size_t)u, pieces[a].off.size() - 1), j1 = std::min(j + 1, pieces[a].off.size() - 1); off = glm::mix(pieces[a].off[j], pieces[a].off[j1], u - (float)j); }
+      A[k].y = T.groundBase(A[k].x, A[k].z) - sp.depth * d + off;
+    }
+    pieces[a].mouth[0] = r0 || lp.D.front() < 0.05f; pieces[a].mouth[1] = r1 || lp.D.back() < 0.05f;   // any ground-level end is a way in: no spoil across it
+    pend[a][0] = A.front(); pend[a][1] = A.back();   // the ends now carry floor heights (they held the depth scale)
+    gLinePaths[pieces[a].id] = std::move(lp);
+  }
   std::map<size_t, std::vector<size_t>> nets;
   for (size_t k = 0; k < n; ++k) nets[find(k)].push_back(k);
   for (auto& [rootIdx, members] : nets) {
@@ -218,14 +283,14 @@ int blendSyncStamps(App& app) {
       return c > 1;
     };
     vec2 lo(1e30f), hi(-1e30f);
-    auto add = [&](vec3 a, vec3 b, bool j0, bool j1, int8_t fr) {
-      t.seg.push_back(vec4(a.x, a.z, b.x, b.z)); t.segY.push_back(vec2(a.y, b.y)); t.segJoin.push_back((uint8_t)((j0 ? 1 : 0) | (j1 ? 2 : 0))); t.segFront.push_back(fr);
+    auto add = [&](vec3 a, vec3 b, bool j0, bool j1, int8_t fr, bool m0 = false, bool m1 = false) {
+      t.seg.push_back(vec4(a.x, a.z, b.x, b.z)); t.segY.push_back(vec2(a.y, b.y)); t.segJoin.push_back((uint8_t)((j0 ? 1 : 0) | (j1 ? 2 : 0) | (m0 ? 4 : 0) | (m1 ? 8 : 0))); t.segFront.push_back(fr);
       lo = glm::min(lo, glm::min(vec2(a.x, a.z), vec2(b.x, b.z))); hi = glm::max(hi, glm::max(vec2(a.x, a.z), vec2(b.x, b.z)));
     };
     for (size_t k : members) {
       auto P = pieces[k].path;
       bool j0 = shared(P.front(), P.front().y), j1 = shared(P.back(), P.back().y);
-      for (size_t s = 0; s + 1 < P.size(); ++s) add(P[s], P[s + 1], s > 0 || j0, s + 2 < P.size() || j1, pieces[k].front);
+      for (size_t s = 0; s + 1 < P.size(); ++s) add(P[s], P[s + 1], s > 0 || j0, s + 2 < P.size() || j1, pieces[k].front, s == 0 && pieces[k].mouth[0], s + 2 == P.size() && pieces[k].mouth[1]);
       for (auto& br : pieces[k].branches) for (size_t s = 0; s + 1 < br.size(); ++s) add(br[s], br[s + 1], true, s + 2 < br.size(), 0);
     }
     float r = sp.floorHalf + 0.12f + sp.parapetW * 1.3f + 1.5f;
@@ -292,7 +357,9 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   const vec3 burlap(0.5f, 0.54f, 0.62f);   // x the sacking albedo: weathered grey-brown burlap
   const float thk = sp.carvePad + 0.06f;   // the backfill fills the carve pad behind the revetment line: soil, never a slot
   std::vector<vec2> P; std::vector<float> D;
-  for (auto& q : a->raw["trench"].value("path", json::array())) { P.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); D.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
+  const bool isLine = lineTrench(a);
+  if (isLine) { auto it = gLinePaths.find(i.id); if (it == gLinePaths.end()) return; P = it->second.P; D = it->second.D; }
+  else for (auto& q : a->raw["trench"].value("path", json::array())) { P.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); D.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
   if (P.size() < 2) return;
   const float plane = sp.floorHalf + 0.02f, tilt = std::atan(sp.batter), boardT = 0.035f;
   uint32_t seed = idSeed(i.id);
@@ -310,7 +377,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   };
   vec2 lz0 = toWorld(vec2(0, 1), i.yaw), d0 = glm::normalize(P[1] - P[0]);
   float f0 = glm::dot(vec2(-d0.y, d0.x), lz0);
-  const int frontSide = f0 > 0.3f ? 1 : f0 < -0.3f ? -1 : 0;   // the fire side (local +z): low parapet, no sandbags on the lip
+  const int frontSide = isLine ? gLinePaths[i.id].front : f0 > 0.3f ? 1 : f0 < -0.3f ? -1 : 0;   // the fire side (local +z; a line's "fire"): low parapet, no sandbags on the lip
   uint32_t uid = 0;   // running id for the per-element random numbers
   auto layRun = [&](const std::vector<vec2>& P, const std::vector<float>& D, const int frontSide) {   // the path, then each junction arm
   for (size_t s = 0; s + 1 < P.size(); ++s) {
@@ -459,7 +526,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   };
   layRun(P, D, frontSide);
   std::vector<std::pair<std::vector<vec2>, std::vector<float>>> arms;   // junction arms (branches 3 m or longer): outward from the crossing
-  for (auto& br : a->raw["trench"].value("branches", json::array())) {
+  for (auto& br : isLine ? json::array() : a->raw["trench"].value("branches", json::array())) {
     std::vector<vec2> Pa; std::vector<float> Da;
     for (auto& q : br) { Pa.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); Da.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
     if (Pa.size() >= 2 && glm::length(Pa.back() - Pa.front()) >= 3.0f) { layRun(Pa, Da, 0); arms.push_back({Pa, Da}); }
@@ -504,6 +571,13 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
         if (glm::length(o - q) > 0.3f) joined = true;
       }
     }
+    if (!joined && isLine)   // a line end on another trench's centreline (a T): open into it
+      for (size_t k = 0; k < st->seg.size() && !joined; ++k) {
+        vec2 a0(st->seg[k].x, st->seg[k].y), a1(st->seg[k].z, st->seg[k].w);
+        bool own = false;
+        for (size_t j = 0; j + 1 < P.size() && !own; ++j) own = (glm::length(a0 - P[j]) < 0.05f && glm::length(a1 - P[j + 1]) < 0.05f) || (glm::length(a1 - P[j]) < 0.05f && glm::length(a0 - P[j + 1]) < 0.05f);
+        if (!own && segDist2(p, a0, a1) < sp.floorHalf + 0.6f) joined = true;
+      }
     if (joined || !C.revetment) continue;
     vec2 dir = glm::normalize(p - q), n = dir, along(n.y, -n.x);
     vec2 pe = p + n * 0.03f;   // the asset's end wall line (its invisible collider stays there)

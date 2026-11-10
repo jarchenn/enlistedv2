@@ -77,6 +77,7 @@ void App::destroyRT(InstanceRT& r) {
   Physics::remove(r.playerBody); r.playerBody = 0xffffffffu;
   r.pathMesh.destroy(); r.pathGround = ~0u;
   r.earthMesh.destroy(); r.earthKey = 0; r.earthGround = ~0u;
+  r.lineMesh.destroy(); r.line.reset(); r.lineGround = ~0u;
   { extern void natureDestroyRT(InstanceRT&); natureDestroyRT(r); }
   for (auto& v : r.leafBodies) for (auto b : v) Physics::remove(b);
   r.leafBodies.clear();
@@ -90,7 +91,9 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   if (r.asset->tree.on) buildTreeRT(i, r);
   r.defHp = r.asset->defense.hp; r.defDestroyed = false;
   r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0);
-  if (r.asset->defense.sections > 0) rebuildSectionBodies(i, r);
+  extern bool lineBuildRT(App&, const Instance&, InstanceRT&);
+  if (lineBuildRT(*this, i, r)) rebuildSectionBodies(i, r);   // LN1: a line's mesh, bays (sections) and colliders
+  else if (r.asset->defense.sections > 0) rebuildSectionBodies(i, r);
   else if (r.asset->playerShape && r.asset->defense.traversal != "slow") r.playerBody = Physics::addPlayerOnly(r.asset->playerShape, i.pos, yawQuat(i.yaw), base);
   size_t n = r.asset->interactables.size();
   r.progress.assign(n, 0); r.dir.assign(n, 0); r.leafBodies.assign(n, {});
@@ -151,6 +154,7 @@ const App::ActiveSet& App::activeSet() {
 void App::syncRuntime() {
   uint64_t sig = placementSig(doc.instances, false);
   if (sig == syncSig_ && rt.size() == doc.instances.size()) return;   // nothing appeared, went away or changed revision
+  { extern int lineSyncGates(App&); if (lineSyncGates(*this)) sig = placementSig(doc.instances, false); }   // LN2: line gates follow their spans
   syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
   std::set<uint64_t> live;
   for (auto& i : doc.instances) {
@@ -266,6 +270,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       op.push_back({&r.asset->station.recoilMesh, rc});
       continue;
     }
+    { extern bool lineDrawItems(App&, const Instance&, InstanceRT&, const mat4&, std::vector<DrawItem>&); if (lineDrawItems(*this, i, r, M, op)) continue; }   // LN1 lines
     if (r.asset->path.on) {   // draped on the current ground; re-draped after any terrain change or edit
       if (r.pathRev != i.rev) rebuildPathMesh(i, r);
       else if (r.pathGround != groundRev) {   // a crater only re-drapes the paths it reaches (100 AI throw a lot of frags)
@@ -380,6 +385,8 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   docPath.clear(); navSidecar.clear(); dirty = false; selected = 0; undoStack.clear(); redoStack.clear();
   tool = Tool::Select; placing = nullptr;
   { LoadStep ls("newMap content"); w5NewMapContent(*this, t); }   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
+  { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
+  { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
   { LoadStep ls("autoFurnishAll"); interior.autoFurnishAll(*this); }   // V4: every building furnished (no undo step, not dirty; interior.cpp)
   toast("New map from template: " + t.name);
   return true;
@@ -391,6 +398,8 @@ bool App::openMap(const fs::path& p) {
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
   doc = std::move(d);
+  { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
+  { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
   int migrated = 0;
   for (auto& i : doc.instances) {
     i.rev = ++revCounter;
@@ -700,6 +709,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
+    else if (a == "--selftest-lines") runSelf = true;   // LN1 / LN2 line features (selftest_lines_ln2.cpp)
     else if (a == "--selftest-maps" || a == "--render-map-thumbs") runSelf = true;   // W5 default maps (selftest_maps.cpp)
     else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities" || a == "--selftest-editor") runSelf = true;
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
