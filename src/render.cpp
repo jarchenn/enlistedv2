@@ -2412,13 +2412,18 @@ void pastureClump(){
   if (uShadowPass > 0.0) fade *= 1.0 - smoothstep(uShadowPass*0.7, uShadowPass, d);   // G1: casters shrink away toward the shadow radius (no ring)
   // GT1: plant cards of the atlas on this species' leading blade cards; its other blade cards collapse
   int ga = -1;
-  // plant cards only near the eye, where the photo detail reads (dithered per clump over 5-6.5 m, no line): their
-  // rectangles carry much more transparent fill than tapered blades, so beyond that the clump keeps its blades
-  if (uGAOn == 1 && d < 5.0 + 1.5*ph) {
+  // plant cards near the eye, where the photo detail reads. Inside 5 m every clump shows 2 plants and drops its other
+  // blade cards; across 5-10.5 m a falling share of clumps (stable per-clump hash) shows 1 plant and keeps its outer
+  // blade cards, so density and silhouette change gradually; beyond, blades only (plant rectangles cost fill)
+  float gaBand = 1.0 - clamp((d - 5.0)/5.5, 0.0, 1.0);
+  if (uGAOn == 1 && ph < gaBand) {
     ivec4 gs = uGASp[sp];   // first cell, cell count, first plant card, plant cards
     if (gs.y > 0 && !(sp == 2 && bl < 2.5) && sp != 3 && sp != 16 && sp != 17) {
-      if (bl < float(gs.z) - 0.5 || bl > float(gs.z + gs.w) - 0.5) fade = 0.0;
-      else ga = uGAIdx[gs.x + min(gs.y - 1, int(r3*float(gs.y)))];
+      bool inner = d < 5.0;
+      int nPl = inner ? gs.w : 1;
+      if (bl > float(gs.z + nPl) - 0.5) { if (inner || bl < 5.5 + float(gs.z)) fade = 0.0; }   // band: the outer blade cards stay
+      else if (bl > float(gs.z) - 0.5) ga = uGAIdx[gs.x + min(gs.y - 1, int(r3*float(gs.y)))];
+      else if (inner) fade = 0.0;
     }
   }
   if (fade <= 0.0) {   // clump / card past its LOD cut: the whole card leaves the clip volume (no shading, no raster)
@@ -2451,7 +2456,9 @@ void pastureClump(){
   float tap = part == 10 ? max(1.0 - 0.95*v*v*v, 0.1) : 1.0;   // G1: blade cards follow the pointed silhouette (no transparent padding)
   w *= widen*taper*tap;
   if (ga >= 0) {   // GT1: the card is the plant's rectangle: its aspect, a gentle lean instead of a blade's curve
-    h = H*mix(0.95, 0.75, k)*(0.8 + 0.4*r2)*fade; w = h*uGACell[ga].w; tap = 1.0; curve *= 0.3; spread *= 1.6;
+    h = H*mix(0.8, 0.65, k)*(0.8 + 0.4*r2)*fade;   // the plants' apparent height matches the blade clumps around them
+    h *= mix(0.5, 1.0, smoothstep(0.3, 1.1, d));      // prone: no giant smooth leaf right in front of the eye
+    w = h*uGACell[ga].w; tap = 1.0; curve *= 0.3; spread *= 1.6;
   }
   vec3 fwd = vec3(sin(ang), 0.0, cos(ang)), side = vec3(cos(ang), 0.0, -sin(ang));
   if (part == 13) side = normalize(side + fwd*(r3 - 0.5)*1.4);
@@ -2608,7 +2615,11 @@ void main(){
     if (vGA >= 0) {             // GT1 atlas plant: its own colour detail, scaled to the clump's palette (root blend kept)
       vec4 tx = texture(uGATex, vec3(vUV, float(vGA)));
       if (tx.a < 0.5) discard;
-      alb = tx.rgb*vAlb/max(uGAMean[vGA], vec3(0.01));
+      // one palette across the atlas / blade boundary: the clump's own colour (as the blades), modulated by the plant's
+      // luminance detail, with a little of the photo's hue kept
+      vec3 m = max(uGAMean[vGA], vec3(0.01));
+      float lt = dot(tx.rgb, vec3(0.2126, 0.7152, 0.0722)), lm = dot(m, vec3(0.2126, 0.7152, 0.0722));
+      alb = mix(vAlb*clamp(lt/lm, 0.4, 1.8), tx.rgb*vAlb/m, 0.3);
     } else if (vPart == 10) {   // grass blade: pointed tip, light midrib, darker margins, fine veins, some browned tips
       if (e > 1.0 - pow(v, 3.0)*0.95) discard;
       alb *= 1.0 + dk*(0.12*(1.0 - smoothstep(0.0, 0.2, e)) - 0.18*smoothstep(0.55, 1.0, e) - 0.05*step(0.5, fract(e*2.5 + 0.25)));
@@ -3705,7 +3716,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (grass && !thumbMode && perf.grassShadow) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
     glUseProgram(progGrassShadow);
     glUniform3fv(U(progGrassShadow, "uCamPos"), 1, glm::value_ptr(v.camPos)); glUniform1f(U(progGrassShadow, "uTime"), time);
-    glUniform1i(U(progGrassShadow, "uGAOn"), perf.grassAtlas && grassAtlasReady);
+    glUniform1i(U(progGrassShadow, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);
     grass->drawShadow(progGrassShadow, lightVP, v0.proj * v.view, v.camPos);
   }
   glUseProgram(progShadow);
@@ -3882,7 +3893,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progGrass, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
     glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
-    glUniform1i(U(progGrass, "uGAOn"), perf.grassAtlas && grassAtlasReady);   // GT1 grass plant atlas
+    glUniform1i(U(progGrass, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);   // GT1 grass plant atlas (off at Low)
     grass->draw(progGrass, vp, v.camPos);
     stats.draws += grass->lastDrawnChunks; stats.tris += (int)grass->lastDrawnBlades * 8;
     glEnable(GL_CULL_FACE);

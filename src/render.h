@@ -173,6 +173,7 @@ public:
       return b != nullptr;
     }
   } perf;
+  bool grassAtlasTier = true;     // GT1 grass plant atlas used by the grass tier (settings.cpp: Medium / High / Ultra, not Low)
   float leafLodScale = 1.0f;   // L1 leaf LOD distances (kLeafNearIn ...) x this; settings.cpp: 0.6 at grass quality Low / Off (the Low preset)
   // GX5 grade (content/settings/grade.json): saturation, cool shadows / warm highlights, S-curve, vignette, sharpen
   struct Grade { bool on = true; float saturation = 0.91f, contrast = 0.08f, vignette = 0.22f, sharpen = 0.22f, chromatic = 0.0f;

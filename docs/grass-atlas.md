@@ -38,28 +38,27 @@ The pasture grass clumps (G1 / GX3, `kGrassVS` and `kGrassFS` in `src/render.cpp
 ### Per card
 
 - **Shape:** the card is the plant's rectangle. Height comes from the clump height; width is height × aspect, times √widen for the G1 LOD widening, capped. It keeps a gentle lean and the clump's wind.
-- **Plant cards:** only clumps within 5-6.5 m of the eye use them (dithered per clump, so there is no line). There, each carries several blades, so only the first 2 blade cards of a clump show a plant, and the rest collapse before raster through the same out-of-clip path as the LOD cut. Beyond that range the clump keeps its procedural blades. Submitted cards and LOD are unchanged.
+- **Plant cards:** inside 5 m every clump shows 2 plants on its first blade cards and drops its other blade cards. Across 5-10.5 m a falling share of clumps (a stable per-clump hash) shows 1 plant and keeps its outer blade cards. Beyond that, blades only. Plants are scaled to the height of the blade clumps around them, and shrink within about 1 m of the eye, so there is no giant leaf when prone. Low keeps the procedural blades (`Renderer::grassAtlasTier`, set from the grass quality). Submitted cards and LOD are unchanged.
 - **Cost:** a plant rectangle carries much more transparent, alpha-tested area than a tapered blade. Within 9 m with 3-4 cards, the grass main pass roughly doubled (same-run A/B, Medium open field 1.00 → 1.93 ms), so the range and card count were cut to the values above. The final numbers are under Measurements.
-- **Colour:** `tex.rgb × clump albedo / cell mean`. The clump's palette, its dry tips and the root blend into the terrain colour (the per-vertex `vAlb`) are kept.
+- **Colour:** one palette across the boundary: 70 % the clump colour (as on the blades) × the texel luminance relative to the cell mean, 30 % `tex.rgb × clump albedo / cell mean`. The clump's palette, its dry tips and the root blend into the terrain colour (the per-vertex `vAlb`) are kept.
 - **Lighting and shadows:** same as before. The alpha test is at 0.5, and the shadow program uses the same cut-out.
 - **Cost:** one texture sample per fragment replaces the procedural blade maths.
 - **Normal map:** not used. The plants are thin cards seen at grazing angles under the existing wrapped diffuse and backlight, and a normal sample would be a second texture fetch.
 
 ## Measurements
 
-One exclusive GPU turn: `--bench-grass` with `--rq-off grassatlas`, then without it. Mean GPU was 5.32 vs 5.89 ms over all views; no other load. Values are ms, before → after.
+One exclusive GPU turn: `--bench-grass` with `--rq-off grassatlas`, then without it. Mean GPU was 5.32 vs 5.82 ms over all views; no other load. Values are ms, before → after.
 
 | View | Tier | Grass main | Grass shadow | GPU |
 | --- | --- | --- | --- | --- |
-| open field | Medium | 0.92 → 1.32 | 0.084 → 0.104 | 4.51 → 4.97 |
-| open field | High | 1.51 → 1.98 | 0.117 → 0.120 | 5.18 → 5.72 |
-| open field | Ultra | 2.16 → 2.76 | 0.135 → 0.125 | 5.93 → 6.44 |
-| prone | Medium | 1.02 → 1.79 | 0.058 → 0.068 | 4.32 → 5.12 |
-| prone | Ultra | 2.31 → 2.90 | 0.108 → 0.107 | 5.73 → 6.11 |
-| moving | Medium | 0.91 → 1.37 | 0.052 → 0.052 | 5.02 → 5.45 |
+| open field | Medium | 0.89 → 1.21 | 0.077 → 0.059 | 4.51 → 4.84 |
+| open field | High | 1.51 → 1.85 | 0.145 → 0.164 | 5.20 → 5.55 |
+| open field | Ultra | 2.17 → 2.57 | 0.111 → 0.125 | 5.89 → 6.33 |
+| prone | Medium | 1.00 → 1.54 | 0.058 → 0.060 | 4.31 → 4.94 |
+| prone | Ultra | 2.25 → 3.21 | 0.108 → 0.135 | 5.70 → 6.67 |
+| moving | Medium | 0.94 → 1.22 | 0.052 → 0.073 | 5.02 → 5.32 |
 
 - **Unchanged:** clumps, cards and draws.
-- **Cost:** the cost **rises** by 0.4-0.8 ms of grass main, about +10 % GPU in these grass-only views. It is fill: plant rectangles carry transparent, alpha-tested area that the tapered blades do not.
-- **Look:** in open field the atlas zone, within about 6 m, reads darker and bushier than the procedural blades beyond it. A soft ring is visible.
+- **Cost:** a rise of 0.3-0.5 ms of grass main at Medium / High (accepted for GT1), and about 1 ms prone at Ultra. It is fill: plant rectangles carry transparent, alpha-tested area that the tapered blades do not.
 
 Shots: `Documents/MapMaker/screens/gt1/*_before_after.png`, with procedural on the left and atlas on the right. The numbers are in `gt1_bench.txt`.
