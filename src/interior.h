@@ -100,7 +100,8 @@ public:
   // P2 furniture rules. Furniture and interior props take no damage: rounds and blasts change nothing (ballistics still
   // stop at / pass through a piece as before); a piece whose floor or wall is destroyed, or that a tank drives over, is
   // removed (PropRT::gone). Tests of the old break machinery turn furnDestructible on.
-  bool furnDestructible = true; int removed = 0;   // true until the furniture step lands (tests)
+  bool furnDestructible = false; int removed = 0;
+  bool fixedPiece(const Instance& i) const { return !furnDestructible && isFurnishPiece(i); }   // room-template furniture; hand-placed props (street lamps, crates outdoors) stay destructible
   // furndist (Renderer::Perf): this frame's distances for small pieces / large silhouettes (updateBatches): per preset
   // (Low 24 / 50, Medium 32 / 75 as before, High 45 / 100), x the zoom; a building's batch switches tier with hysteresis
   float curSmall = 32.0f, curBig = 75.0f;
