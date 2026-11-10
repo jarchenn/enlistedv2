@@ -1,0 +1,20 @@
+{
+ "set": "floor_boards_old",
+ "id": "WoodFloor043",
+ "family": "floor (MA1)",
+ "size": [
+  2,
+  2
+ ],
+ "source": "https://ambientcg.com/a/WoodFloor043",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}
