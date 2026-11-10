@@ -407,7 +407,7 @@ bool Game::flameHit(int victim, int owner, float dmg, vec3 dir, float burnSec, f
   // catching fire takes 0.4 s of continuous exposure (was instant); a gap of 0.5 s starts the count again
   static std::unordered_map<int, std::pair<double, double>> heat;   // victim -> first hit, last hit
   auto& h = heat[victim]; if (t - h.second > 0.5 || t < h.first) h.first = t; h.second = t;
-  if (hurt && v.alive && (v.burnT > 0.05f || t - h.first >= 0.4)) {
+  if (hurt && v.alive && (v.burnT > 0.05f || t - h.first >= (dir.y > 0.99f ? 0.8 : 0.4))) {   // straight up = a ground fire patch (flame.cpp): twice as long to catch
     bool fresh = v.burnT <= 0.05f;
     v.burnT = std::max(v.burnT, burnSec); v.burnDps = burnDps; v.burnBy = owner;
     if (fresh && gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "burn"}, {"s", victim}, {"d", burnSec}});
