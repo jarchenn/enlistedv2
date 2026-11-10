@@ -13,7 +13,7 @@ import {
   stdMaterials, wall, partition, door, stairs, railing, quoins, pilaster, stringCourse, cornice, surround, archOpening,
   balcony, dormer, hipRoof, chimney, chimneyCap, fbox, fpart, weather, timberFrame, turret, hinged, aabb,
 } from "./parts.mjs";
-import { mats, face, fireplace, crossGable, house, masonry, comp, meta, turretWindow } from "./catalog_chateau.mjs";
+import { mats, face, fireplace, crossGable, house, masonry, comp, meta } from "./catalog_chateau.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
 import { SLIT, bunkerMaterials, slit, camoNet, earthMaterials, sandbagWall, mossPatch, roofEarth, pier } from "./catalog_bunkers.mjs";
 import { rod, rebar, ventPipe, periscope, doorKnuckles, dmat } from "./defence_detail.mjs";
@@ -261,11 +261,6 @@ function gableWin(A, o) {
   const w = o.w, ww = Math.min(0.55, w / 4), y0 = o.y0 + 0.35, y1 = Math.min(o.y0 + 1.6, o.y0 + o.rise * 0.4), s = o.s ?? 1;
   fbox(A, { axis: "x", d: o.zf + s * 0.02, out: s }, o.x - ww, o.x + ww, y0, y1, -0.012, 0.02, "soot", { k: 0 });
 }
-function blindTurret(A, cx, cz, r, a, y, w, h) {
-  const ar = (a * Math.PI) / 180, dx = Math.cos(ar), dz = Math.sin(ar), yaw = (Math.atan2(dx, dz) * 180) / Math.PI;
-  A.obox([cx + dx * (r - 0.002), y, cz + dz * (r - 0.002)], [w - 0.02, h - 0.02, 0.02], [0, yaw, 0], "soot", { k: 0 });
-}
-
 // ============================================================================ sub-building placement
 // Copies asset B into A turned by rot (0, 90, 180 or 270 degrees about +Y; 90 turns B's front +Z to +X) and moved by
 // (dx, dz). Ids (interactables, panels, nav rooms, tour targets) get the prefix `pre`. Axis-aligned boxes and round
@@ -705,7 +700,7 @@ export function notaryHouse() {
   const X = 8.6, Z = 5.6;
   const A = meta("vil_notary_house", "Notary's house", "Houses",
     "Notary's villa, 17.2 x 11.2 m, two storeys and an attic, after the reference pack's red-brick villa: brick walls with dressed-stone quoins, plinth and bands, segmental relieving arches and keystones over the windows, louvred green shutters above, a brick cross gable over the entrance with a stone perron and an arched door hood, a square corner tower with a steep slate pyramid, a steep slate roof with finialed dormers and tall stone-capped stacks, ivy. Study, hall and salon; three bedrooms; an attic; two stairs.",
-    3, [21.6, 15.4], { ivy: [{ face: "-x", a0: -5.0, a1: 2.0, y0: 0.4, y1: 6.0 }, { face: "-z", a0: -8.0, a1: -3.5, y0: 0.4, y1: 4.0, density: 0.7 }] });
+    3, [21.6, 15.4], { version: 3, ivy: [{ face: "-x", a0: -5.0, a1: 2.0, y0: 0.4, y1: 6.0 }, { face: "-z", a0: -8.0, a1: -3.5, y0: 0.4, y1: 4.0, density: 0.7 }] });
   gxMats(A);
   shutterColour(A, [0.12, 0.20, 0.13]);
   const c = {
@@ -735,9 +730,9 @@ export function notaryHouse() {
     gableWin(A, { x: fdx, w: 4.6, zf: Z, y0: EAVE, rise: 4.2, back: 4.2 / pitch + 0.6, m: "brick", roof: "slate", timber: true });
     // corner tower: square, banded, a steep slate pyramid with a finial
     const tx = X + 1.0, tz = Z + 1.0, tr = 1.7;
-    turret(A, { x: tx, z: tz, y0: -0.2, y1: EAVE + 2.6, r: tr, spire: 6.0, sides: 4, roof: "slate", m: "brick", band: "stone_dressed" });
+    turret(A, { x: tx, z: tz, y0: -0.2, y1: EAVE + 2.6, r: tr, spire: 6.0, sides: 4, roof: "slate", m: "brick", band: "stone_dressed", floors: [1, 2].map(yAt),
+      windows: [0, 1, 2].flatMap((f) => [0, 90].map((a) => ({ a, y: yAt(f) + 1.5, w: 0.8, h: f < 2 ? 1.5 : 1.0 }))) });
     for (const y of [GF + 0.55, yAt(1) - 0.32, EAVE - 0.3]) A.cyl([tx, y, tz], [2 * tr + 0.1, 0.2, 2 * tr + 0.1], "stone_dressed", { n: 4, k: 0 });
-    for (const f of [0, 1, 2]) for (const a of [0, 90]) { const h = f < 2 ? 1.5 : 1.0; turretWindow(A, tx, tz, tr, a, yAt(f) + 1.5, 0.8, h); blindTurret(A, tx, tz, tr, a, yAt(f) + 1.5, 0.8, h); }
     // dormers with finials, tall stacks
     for (const [x, s] of [[-5.4, 1], [5.0, 1], [-4.5, -1], [0, -1], [4.5, -1]]) {
       dormerV(A, { x, z: s * (Z - 1.0), y: surf(Z - 1.0) - 0.05, w: 1.05, h: 1.25, depth: 1.9, s, roof: "slate", m: "brick" });
