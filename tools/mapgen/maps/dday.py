@@ -493,6 +493,12 @@ def build(ctx):
     T = build_trenches(b, strong, theights)
     rep["trenchMaxStep"] = round(tstep, 3)
     rep["trenchPieces"] = len(T.inst)
+    # keep scatter (rough grass, scrub, rock) off the trench lips and parapets: turned earth and sandbags there (GX1)
+    for e in T.inst:
+        socks = [local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lp[0], lp[1]) for lp, _ in SOCK[e["asset"]]]
+        c = (e["pos"][0], e["pos"][2])
+        for q in socks:
+            b.keepout_line([c, q], 3.4)
     rep["trenchJunctions"] = len(T.junctions)
     rep["bunkers"] = 1 + len(bunkers)
     rep["mgPositions"] = sum(1 for e in bunkers + tobruks + [strong] for f in cat[e["asset"]].firing_points if f.get("kind") == "mg")
@@ -554,6 +560,37 @@ def build(ctx):
               bounds=(-HX, 44, HX, 66), tags={"dune_grass"}, **FLATKW)
     b.scatter([("nat_drygrass_sparse", 2), ("nat_stones_patch", 1), ("rub_debris_patch", 1), ("furn_crate", 1), ("furn_barrel", 1)], beach, 1 / 240.0, R,
               bounds=(-HX, 46, HX, 98), tags={"beach_detail"}, ok_with={"flat", "none", "veg", "wire"})
+
+    # the landings' foreground (within ~40 m of each spawn): a second craft beached alongside, obstacle groups on the
+    # dune flanks and beyond (the two exits round the dune's ends stay clear), wreckage and spilled stores, churned wet
+    # sand at the ramps, boot tracks up both exits, a smouldering impact in the dunes behind
+    exit_x = lambda sx: (sx - 19.0, sx + 19.0)
+    def in_exit(px, pz, sx, sz):
+        return pz < sz + 2 and pz > sz - 30 and any(abs(px - ex) < 4.5 for ex in exit_x(sx))
+    for k, (sx, sz) in enumerate(ALLIED):
+        side = 1 if k % 2 == 0 else -1
+        b.place("bch_lcvp_beached", sx + side * 13.0, sz + 9.5 + R.uniform(-1, 1), 180 + side * R.uniform(6, 14), check=False, water_ok=True, tags={"lcvp", "cover", "landing"})
+        b.place("bch_lcvp_wrecked", sx - side * 24.0, sz + 13.0, 180 - side * R.uniform(20, 40), check=False, water_ok=True, tags={"lcvp", "cover", "landing"})
+        for gx, gz, n in ((-30, -6, 3), (31, -9, 3), (-8, -21, 2), (9, -24, 3), (-36, -22, 2), (35, -26, 2), (-22, 4, 2), (24, 6, 2)):
+            cx, cz, ga = sx + gx + R.uniform(-2, 2), sz + gz + R.uniform(-2, 2), math.radians(R.uniform(-40, 40))
+            for j in range(n):
+                t = (j - (n - 1) / 2) * R.uniform(2.8, 4.2)
+                px, pz = cx + t * math.cos(ga), cz + t * math.sin(ga)
+                if in_exit(px, pz, sx, sz) or dist((px, pz), (sx, sz)) < 8:
+                    continue
+                aid = R.choice(["def_tank_trap", "def_tank_trap", "bch_belgian_gate", "bch_log_stake_mine", "bch_log_ramp_mined", "drs_wooden_x_obstacle"])
+                b.place(aid, px, pz, R.uniform(0, 360) if aid != "bch_log_ramp_mined" else 180 + R.uniform(-20, 20), tags={"obstacle", "cover", "landing"}, water_ok=True)
+        for _ in range(9):   # wreckage and spilled stores, mostly toward the waterline
+            a, r = R.uniform(0, 2 * math.pi), R.uniform(6, 26)
+            px, pz = sx + r * math.cos(a), sz + abs(r * math.sin(a)) * 0.6 + R.uniform(-4, 8)
+            if in_exit(px, pz, sx, sz) or dist((px, pz), (sx, sz)) < 6:
+                continue
+            b.place(R.choice(["rub_debris_patch", "rub_beam_tile_heap", "furn_crate", "furn_barrel", "drs_barrels", "crate_mixed_supply", "nat_stones_patch"]),
+                    px, pz, R.uniform(0, 360), tags={"wreckage", "landing"}, water_ok=True)
+        paint.poly("mud", circle_poly(sx, sz + 6.0, 9.0, 16), weight=0.55, edge=4.0, ragged=2.5, seed=k + 90)   # churned wet sand by the ramps
+        for ex in exit_x(sx):   # boot tracks from the ramp up and round the dune's end
+            paint.line("mud", [(sx, sz + 3), (sx + 0.55 * (ex - sx), sz - 2), (ex, sz - 12), (ex + 0.3 * (ex - sx), sz - 26)], 2.2, weight=0.35, edge=1.0)
+        b.place("fx_impact_smoke", sx - side * 30.0, sz - 38.0, R.uniform(0, 360), check=False, tags={"fx", "landing"})
 
     # ------------------------------------------------------------------ 4. bunker country: scrub, rock, sandbags
     land = lambda x, z: -46 < z < 44 and abs(x) < HX - 3
@@ -776,6 +813,7 @@ def build(ctx):
     # ------------------------------------------------------------------ output
     tdir = ctx.templates
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
+    ft = min((e for e in T.inst if e["asset"] == "aw_trench_straight" and abs(e["pos"][2] - 28.0) < 0.5), key=lambda e: abs(e["pos"][0] + 30.0))   # a straight of the forward line
     eye = lambda x, z, h=1.7: [round(x, 2), round(b.ground(x, z) + h, 2), round(z, 2)]
     cam = ([0.0, 120.0, 230.0], 0.0, -30.0)
     thumb_cam = ([-70.0, 85.0, 200.0], look_yaw(70.0, -200.0), -24.0)
@@ -783,7 +821,7 @@ def build(ctx):
         {"name": "overview_high", "pos": [0.0, 175.0, 150.0], "yaw": 0.0, "pitch": -50.0},
         {"name": "landing_eye", "pos": eye(ALLIED[1][0] + 4.0, ALLIED[1][1] + 2.0), "yaw": look_yaw(0.55, -1.0), "pitch": 4.0, "gameplay": True},
         {"name": "dune_eye", "pos": eye(U(0.3), 60.0), "yaw": look_yaw(0.25, -1.0), "pitch": 2.0, "gameplay": True},
-        {"name": "forward_trench_eye", "pos": eye(-35.0, 28.0, -0.05), "yaw": look_yaw(1.0, 0.0), "pitch": 2.0, "gameplay": True},
+        {"name": "forward_trench_eye", "pos": [round(ft["pos"][0], 2), round(ft["pos"][1] - 1.62 + 1.65, 2), round(ft["pos"][2], 2)], "yaw": look_yaw(1.0, 0.0), "pitch": 1.0, "gameplay": True},   # on the floor, standing
         {"name": "stronghold_eye", "pos": eye(STRONG[0] + 30.0, 14.0), "yaw": look_yaw(-30.0, -28.0), "pitch": 4.0, "gameplay": True},
         {"name": "stronghold_over_beach", "pos": [STRONG[0], strong["pos"][1] + 7.0, STRONG[1] + 9.0], "yaw": look_yaw(0.0, 1.0), "pitch": -4.0, "gameplay": True},
         {"name": "village_eye", "pos": eye(SQUARE[0] + 6.0, SQUARE[1] + 16.0), "yaw": look_yaw(-0.2, -1.0), "pitch": 3.0, "gameplay": True},

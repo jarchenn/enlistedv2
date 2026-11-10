@@ -113,7 +113,9 @@ std::vector<WorldSocket> snapWorldSockets(const App& app, const Instance& i) {
 }
 
 static bool joined(const WorldSocket& a, const WorldSocket& b, float tol) {
-  bool drape = a.kind == "path" && b.kind == "path";   // paths drape on the ground: their ends need not share a height
+  // paths drape on the ground: their ends need not share a height. Nor do trench pieces: GX1 carves one floor through
+  // the joint (shared ends average), so on a slope two pieces still join (their end caps drop), as GX1 unions them on x / z
+  bool drape = (a.kind == "path" && b.kind == "path") || (a.kind == "trench" && b.kind == "trench");
   return glm::length(vec2(a.p.x - b.p.x, a.p.z - b.p.z)) < tol && (drape || std::fabs(a.p.y - b.p.y) < 0.08f) && glm::dot(a.dir, b.dir) < -0.95f && snapCompatible(a.kind, b.kind);
 }
 
