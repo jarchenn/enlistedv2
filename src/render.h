@@ -169,8 +169,8 @@ public:
     bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
     bool folBatch = true;        // folbatch (P2): standing trees' species leaves drawn per 64 m cell, runs of visible trees at one LOD per draw
     bool leafMerge = true;       // leafmerge (P2): a building whose doors / shutters / sashes are all closed and intact draws them as one merged mesh (+ one glass)
-    bool furnDist = false;       // furndist (P2): furniture distance tiers per preset with hysteresis and zoom; no furniture in the far cascade / sky occlusion
-    bool furnClutter = false;    // furnclutter (P2): on the Low preset half the small room-template clutter is not drawn (colliders stay)
+    bool furnDist = true;        // furndist (P2): furniture distance tiers per preset with hysteresis and zoom; no furniture in the far cascade / sky occlusion
+    bool furnClutter = true;     // furnclutter (P2): on the Low preset half the small room-template clutter is not drawn (colliders stay)
     bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;

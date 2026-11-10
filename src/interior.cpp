@@ -566,7 +566,8 @@ void InteriorSys::updateBatches(App& app) {
   {   // furndist: this frame's furniture distances (m from the eye to the building's furniture, x the zoom so a scope keeps them)
     GfxPreset ps = settings().s.preset();
     float zoom = app.R.height > 0 ? std::clamp(app.lodPxPerM / (app.R.height * 0.5f * 1.43f), 1.0f, 8.0f) : 1.0f;   // 1 at a 70 degree FOV
-    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low ? 24.0f : ps == GfxPreset::High ? 45.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low ? 50.0f : ps == GfxPreset::High ? 100.0f : cullBig) * zoom; }
+    // High keeps Medium's distances: 45 / 100 m measured +1.4 ms of buildDrawLists on chateau_town for no visible gain
+    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low ? 24.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low ? 50.0f : cullBig) * zoom; }
     else { curSmall = cullSmall; curBig = cullBig; }
     lowClutter_ = app.R.perf.furnClutter && ps == GfxPreset::Low;
   }
@@ -824,8 +825,16 @@ int InteriorSys::bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::strin
   if (!inst) return 0;
   PropRT& s = st[iid];
   surface = surfaceOf(pd);
-  if (!furnDestructible) {   // rounds stop at / pass through furniture exactly as before; the piece takes no damage
+  if (fixedPiece(*inst)) {   // rounds stop at / pass through furniture exactly as before; the piece takes no damage
     bool stops = pd->family == "masonry" || pd->family == "metal";
+    // a room lamp can still be shot out (LAN peers replay the round, so they agree): the light goes dark, the mesh and
+    // the building's furniture batch are untouched (PropRT::lightOut, not glassBroken)
+    if (pd->glass >= 0 && !s.lightOut && lightDef(it->second.asset)) {
+      vec3 lp = glm::inverse(yawQuat(inst->yaw)) * (at - inst->pos);
+      if (!stops || (glm::all(glm::greaterThan(lp, pd->gmin - vec3(0.04f))) && glm::all(glm::lessThan(lp, pd->gmax + vec3(0.04f))))) {
+        s.lightOut = true; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); return 2;
+      }
+    }
     app.fx.impact(at, -dir, stops ? pd->family : surface == "wood" ? "wood" : surface);
     return stops ? 1 : 2;
   }
@@ -875,7 +884,7 @@ bool InteriorSys::breakProp(App& app, Instance& i, InstanceRT& r, vec3 push, con
   s.broken = true; s.glassBroken = true; ++breaks; ++epoch_;
   lastBreak = r.asset->id + " #" + std::to_string(i.id) + " (" + why + ")";
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
-  if (!furnDestructible) { s.gone = true; ++removed; (void)push; (void)violence; return true; }   // no fragments, no broken mesh: the piece is gone
+  if (fixedPiece(i)) { s.gone = true; ++removed; (void)push; (void)violence; return true; }   // no fragments, no broken mesh: the piece is gone
   if (pd->brokenShape) r.staticBody = Physics::addStatic(pd->brokenShape, i.pos, yawQuat(i.yaw), i.id << 16);
   mat4 M = app.instanceMatrix(i);
   quat q = yawQuat(i.yaw);
@@ -951,7 +960,7 @@ void InteriorSys::tankContact(App& app, Instance& i, InstanceRT& r, vec3 at, vec
   // what is left goes flat under the tracks: no collision, drawn squashed
   s.crushed = true; ++crushed; ++epoch_;
   Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
-  if (!furnDestructible) return;
+  if (fixedPiece(i)) return;
   app.fx.splinters(at, d * 2.0f + vec3(0, 1.5f, 0), 10, vec4(0.36f, 0.28f, 0.19f, 0.9f), 0.02f);
 }
 
@@ -1019,7 +1028,7 @@ void InteriorSys::blast(App& app, vec3 p, vec3 dir, float dmg, float radius, int
   vec3 d = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, -1, 0);
   vec3 from = p - d * 0.06f;   // just in front of the struck surface
   bool any = false;
-  if (furnDestructible) for (auto& i : app.doc.instances) {
+  for (auto& i : app.doc.instances) {
     auto it = app.rt.find(i.id); if (it == app.rt.end()) continue;
     const PropDef* pd = prop(it->second.asset);
     if (!pd || st[i.id].broken) continue;
@@ -1027,6 +1036,7 @@ void InteriorSys::blast(App& app, vec3 p, vec3 dir, float dmg, float radius, int
     vec3 lp = glm::inverse(q) * (p - i.pos);
     float dist = glm::length(glm::clamp(lp, pd->bmin, pd->bmax) - lp);
     if (dist > R) continue;
+    if (fixedPiece(i)) continue;   // room furniture takes no blast damage (the support check below still removes what lost its floor)
     // occlusion: walls, floors and ground shield completely, other furniture by half
     vec3 c = i.pos + q * ((pd->bmin + pd->bmax) * 0.5f), top = i.pos + q * vec3((pd->bmin.x + pd->bmax.x) * 0.5f, pd->bmax.y - 0.03f, (pd->bmin.z + pd->bmax.z) * 0.5f);
     float vis = dist < 0.15f ? 1.0f : 0.0f;
@@ -1090,11 +1100,11 @@ void InteriorSys::reset(App& app) {
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !prop(it->second.asset)) continue;
     auto s = st.find(i.id);
     bool applied = i.extra.is_object() && i.extra.value("propBroken", false);
-    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
+    if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.lightOut || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
   }
   // pieces that went away this session (MA3 dressing props pruned beside a breached wall, regenerated on the reset)
   // take their session state with them: a stale broken entry would outlive the reset
-  for (auto it = st.begin(); it != st.end();) { if (!live.count(it->first)) it = st.erase(it); else ++it; }
+  for (auto it = st.begin(); it != st.end();) { if (!live.count(it->first)) { it = st.erase(it); ++epoch_; } else ++it; }
 }
 
 int InteriorSys::applyToMap(App& app) {
