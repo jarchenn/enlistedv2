@@ -154,14 +154,14 @@ void skinTex(vec3 skin, const Img& sa, const Img& sn, const Img& sr, GpuModel::M
       crease = line(v, 0.125f, 0.004f) * 0.8f;
     } else if (v >= 0.5f) {   // a finger / the thumb, root (0.5) to tip (1)
       float f = (v - 0.5f) * 2;
-      shade *= glm::mix(0.62f, 1.0f, glm::smoothstep(0.0f, 0.12f, f));   // the root, between the fingers
-      crease = line(f, 0.44f, 0.012f) * 0.7f + line(f, 0.73f, 0.010f) * 0.55f;
+      shade *= glm::mix(0.88f, 1.0f, glm::smoothstep(0.0f, 0.12f, f));   // the root, between the fingers (soft)
+      crease = line(f, 0.44f, 0.014f) * 0.3f + line(f, 0.73f, 0.012f) * 0.22f;
       float side = std::fabs(u * 4 - std::round(u * 4)) / 4;   // u runs across the hand, a finger per quarter: its sides face the next finger
-      shade *= 1.0f - 0.22f * std::exp(-std::pow(side / 0.03f, 2.0f));
+      shade *= 1.0f - 0.07f * std::exp(-std::pow(side / 0.03f, 2.0f));
     } else if (v > 0.15f) {
-      crease = line(v, 0.44f, 0.006f) * 0.5f;   // the knuckle line at the palm's far end
+      crease = line(v, 0.44f, 0.008f) * 0.2f;   // the knuckle line at the palm's far end
     }
-    shade *= 1.0f - 0.35f * crease;
+    shade *= 1.0f - 0.25f * crease;
     vec3 col = skin * shade * photo * vec3(1.0f + 0.04f * (n2 - 0.5f), 1.0f, 1.0f);
     size_t o = ((size_t)y * S + x) * 4;
     mr[o] = (uint8_t)std::lround(std::clamp(bil(sr, su, sv, 1) / 255.0f * (1 - 0.3f * crease), 0.0f, 1.0f) * 255); mr[o + 1] = (uint8_t)std::lround(bil(sr, su, sv, 0)); mr[o + 2] = 0; mr[o + 3] = 255;
@@ -173,7 +173,7 @@ void skinTex(vec3 skin, const Img& sa, const Img& sn, const Img& sr, GpuModel::M
     auto H = [&](int xx, int yy) { return hgt[(size_t)std::clamp(yy, 0, S - 1) * S + (xx + S) % S]; };
     float su = (x + 0.5f) / S * ku, sv = (y + 0.5f) / S * kv;
     vec3 np(bil(sn, su, sv, 0) / 127.5f - 1, bil(sn, su, sv, 1) / 127.5f - 1, bil(sn, su, sv, 2) / 127.5f - 1);   // the photo's pores (OpenGL normal)
-    vec3 n = glm::normalize(vec3(np.x - (H(x + 1, y) - H(x - 1, y)) * 4.8f, np.y - (H(x, y + 1) - H(x, y - 1)) * 4.8f, std::max(0.2f, np.z)));
+    vec3 n = glm::normalize(vec3(np.x - (H(x + 1, y) - H(x - 1, y)) * 2.0f, np.y - (H(x, y + 1) - H(x, y - 1)) * 2.0f, std::max(0.2f, np.z)));
     size_t o = ((size_t)y * S + x) * 4;
     nrm[o] = (uint8_t)std::lround((n.x * 0.5f + 0.5f) * 255); nrm[o + 1] = (uint8_t)std::lround((n.y * 0.5f + 0.5f) * 255); nrm[o + 2] = (uint8_t)std::lround((n.z * 0.5f + 0.5f) * 255); nrm[o + 3] = 255;
   }
@@ -282,12 +282,12 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   // ---- the palm path (heel on the near side round the bottom to the knuckle line under the far edge), the wrist
   // point behind the heel, then the arm: a two-bone solve to that wrist
   const int nP = 7;
-  float phH = -58.0f + g.palm, phK = -166.0f;   // heel under the near-bottom edge, knuckles low on the far side: the hand under the fore-end
+  float phH = -34.0f + g.palm, phK = -166.0f;   // heel low on the near side (its near face and thenar show from the eye), knuckles low on the far side   // heel under the near-bottom edge, knuckles low on the far side: the hand under the fore-end
   vec3 PP[nP]; float pw[nP], pt[nP];
   for (int i = 0; i < nP; ++i) {
     float t = i / float(nP - 1);
-    pt[i] = glm::mix(0.0135f, 0.0105f, t); pw[i] = glm::mix(0.037f, 0.0425f, t);
-    PP[i] = S(glm::mix(phH, phK, t), pt[i] + 0.008f * (1 - glm::smoothstep(0.0f, 0.5f, t)), 0.0f);
+    pt[i] = glm::mix(0.0168f, 0.0108f, glm::smoothstep(0.0f, 0.8f, t)); pw[i] = glm::mix(0.040f, 0.0425f, t);
+    PP[i] = S(glm::mix(phH, phK, t), pt[i] + 0.010f * (1 - glm::smoothstep(0.0f, 0.5f, t)), 0.0f);
   }
   // the hand's long axis at the heel (from the knuckles through the heel, and the palm's last turn): the wrist stays
   // near neutral, the forearm continuing straight into the back of the hand
@@ -385,7 +385,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   vec3 ctr[2 + nP] = {R0, Wr}; for (int i = 0; i < nP; ++i) ctr[2 + i] = PP[i];
   for (int i = 0; i < 2 + nP; ++i) {
     vec3 t = glm::normalize(ctr[std::min(i + 1, 1 + nP)] - ctr[std::max(i - 1, 0)]);
-    float w = i == 0 ? 0.030f : i == 1 ? 0.029f : pw[i - 2], th = i == 0 ? 0.022f : i == 1 ? 0.020f : pt[i - 2];
+    float w = i == 0 ? 0.0355f : i == 1 ? 0.034f : pw[i - 2], th = i == 0 ? 0.026f : i == 1 ? 0.0237f : pt[i - 2];
     float v = i < 2 ? 0.06f * i + 0.02f : 0.15f + 0.30f * (i - 2) / float(nP - 1);
     rings.push_back(handRing(ctr[i], t, w, th, i >= 3 ? 0.18f : 0.0f, v));
   }
@@ -395,7 +395,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   const float fl[4] = {0.074f, 0.081f, 0.076f, 0.060f}, fw[4] = {0.0087f, 0.0091f, 0.0086f, 0.0075f}, splay[4] = {0.004f, 0.0012f, -0.0012f, -0.004f};
   for (int b = 0; b < 4; ++b) {
     int fi = sA > 0 ? b : 3 - b;
-    float fr = fw[fi], zc = sA * pw[nP - 1] * (1 - 2.0f * (kMf * b + kMf * 0.5f) / (4 * kMf)), spread = splay[fi] * (1 + g.spread);
+    float fr = fw[fi] * 1.12f, zc = sA * pw[nP - 1] * (1 - 2.0f * (kMf * b + kMf * 0.5f) / (4 * kMf)), spread = splay[fi] * 0.4f * (1 + g.spread);
     std::vector<uint32_t> root;
     for (int q = 0; q <= kMf; ++q) root.push_back(KR[kMf * b + q]);
     for (int q = kMf; q >= 0; --q) root.push_back(KR[4 * kMf + 1 + (4 * kMf - (kMf * b + q))]);
@@ -439,8 +439,8 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     std::vector<vec3> TP; std::vector<vec2> TR;
     for (int i = 0; i <= 6; ++i) {
       float t = i / 6.0f;
-      TP.push_back(S(glm::mix(-52.0f, glm::mix(-20.0f, -8.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
-      float tr = glm::mix(0.0118f, 0.0084f, t);
+      TP.push_back(S(glm::mix(-40.0f, glm::mix(-16.0f, -6.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
+      float tr = glm::mix(0.0135f, 0.0094f, t);
       TR.push_back(vec2(tr * 0.88f, tr));
     }
     B.sweep(TP, TR, outward(-14.0f), 10, 1, 0.5f, plen(TP) / 0.5f, true, true);
