@@ -10,6 +10,7 @@
 #include "thumbs.h"
 #include "textures.h"
 #include "selftest.h"
+#include <chrono>
 #include "mpai.h"
 #include "w5.h"
 #include "w3.h"
@@ -175,6 +176,7 @@ void App::resetInteractStates() {
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear(); R.natPatches.clear();
+  interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) grenadeDrawItems();
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
   R.wind = grass.wind ? 1.0f : 0.0f;
@@ -813,7 +815,7 @@ int App::run(int argc, char** argv) {
 
     mark("drawlists");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
-    buildDrawLists(op, gl);
+    { auto t0 = std::chrono::steady_clock::now(); buildDrawLists(op, gl); drawListMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
     mark("view");
     op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {

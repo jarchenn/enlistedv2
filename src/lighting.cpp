@@ -260,7 +260,7 @@ Tod todCompute(float hour) {
 
 // ============================================================== state
 struct GpuLight { vec4 posR, colI, dirC, misc; };
-struct Probe { ivec3 cell{INT32_MIN}; vec3 pos{0}; float groundY = 0; bool live = false, under = false, interior = false; int stamp = -1000000; };   // under: below the ground (never captured)
+struct Probe { ivec3 cell{INT32_MIN}; vec3 pos{0}; float groundY = 0; bool live = false, under = false, interior = false, dirty = false; int stamp = -1000000; };   // R2 dirty: invalidated (lightingInvalidate), re-captured next, blended   // under: below the ground (never captured)
 struct Cascade { bool on = false; float s = 1.5f, range = 24.0f; ivec3 n{16, 8, 16}; ivec3 org{0}; int first = 0; std::vector<Probe> p; };
 struct Slot { bool used = false; uint32_t id = 0; vec3 pos{0}, dir{0}; float radius = 0, cosO = -2; bool spot = false; bool dirty = true; int light = -1; int age = 0; };
 const int kMaxSlots = 8, kTile = 512, kCapN = 16, kMaxCap = 16;
@@ -283,6 +283,8 @@ struct Sys {
   std::vector<mat4> roomInv;
   bool resetAll = false;
   float capHour = -100.0f;   // PF2: time of day of the last captures (a jump re-captures every probe)
+  float credit = 0;          // R2 probebudget: capture cost units carried between frames (a far-volume probe costs 4)
+  std::vector<std::pair<vec3, vec3>> inval;   // R2: world boxes invalidated since the last probe pass
 } L;
 
 GLuint compileCS(Renderer& R, const char* src, bool withCommon, const char* name, const char* kCommonSrc) {
@@ -607,11 +609,19 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
       }
       if (p.under) continue;   // below the ground: never captured (stays invalid on the GPU)
       float d = glm::length(p.pos - v.camPos);
-      float score = !p.live ? 1e9f - d * 1000.0f : (float)(L.frame - p.stamp) * (p.interior ? 2.0f : 1.0f) / (1.0f + d * 0.05f);
+      for (auto& b : L.inval) if (p.live && glm::all(glm::greaterThanEqual(p.pos, b.first - vec3(c.s))) && glm::all(glm::lessThanEqual(p.pos, b.second + vec3(c.s)))) p.dirty = true;
+      // R2 probebudget: a far-volume probe costs ~4 near ones (60 m vs 24 m capture range), so its priority is divided by
+      // that; invalidated probes come right after the never-captured ones (nearest first), ahead of the age refresh
+      const float cw = R.perf.probeBudgetOn && ci == 1 ? 4.0f : 1.0f;
+      float score = !p.live ? 1e9f - d * 1000.0f * cw
+                  : p.dirty && R.perf.probeBudgetOn ? 5e8f - d * 1000.0f * cw
+                  : (float)(L.frame - p.stamp) * (p.interior ? 2.0f : 1.0f) / ((1.0f + d * 0.05f) * cw);
       cand.push_back({ci, i, score});
+      if (!p.live) ++R.stats.probePending; else if (p.dirty) ++R.stats.probeDirty;
+      if (p.live && ci == 0 && d < 12.0f) R.stats.probeStaleMax = std::max(R.stats.probeStaleMax, L.frame - p.stamp);
     }
   }
-  L.resetAll = false;
+  L.resetAll = false; L.inval.clear();
   int budget = R.lt.probeBudget > 0 ? R.lt.probeBudget : (R.lt.gi >= 2 ? 8 : 3);
   budget = std::min(budget, kMaxCap);
   // PF2 probeRefresh: the full budget only while probes wait for their first capture (camera moved, rooms or time of day
@@ -621,8 +631,20 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
     int pending = (int)std::count_if(cand.begin(), cand.end(), [](const Cand& c) { return c.score > 1e8f; });
     budget = std::min(budget, std::max(pending, R.lt.gi >= 2 ? 2 : 1));
   }
-  if ((int)cand.size() > budget) std::partial_sort(cand.begin(), cand.begin() + budget, cand.end(), [](const Cand& a, const Cand& b) { return a.score > b.score; });
-  cand.resize(std::min((int)cand.size(), budget));
+  if (R.perf.probeBudgetOn && R.lt.probeBudget <= 0) {
+    // R2 probebudget: the budget is in cost units (near probe 1, far probe 4); unused units carry over (capped), so a far
+    // probe waits a frame or two instead of the whole batch costing 4x. Highest priority first; stops at the first that
+    // does not fit, so a far probe is never starved by cheaper ones behind it.
+    L.credit = std::min(L.credit + (float)budget, (float)std::max(budget, 4));
+    int n = std::min((int)cand.size(), kMaxCap);
+    std::partial_sort(cand.begin(), cand.begin() + n, cand.end(), [](const Cand& a, const Cand& b) { return a.score > b.score; });
+    int k = 0;
+    for (; k < n; ++k) { float cost = cand[k].c == 1 ? 4.0f : 1.0f; if (cost > L.credit) break; L.credit -= cost; }
+    cand.resize(k);
+  } else {
+    if ((int)cand.size() > budget) std::partial_sort(cand.begin(), cand.begin() + budget, cand.end(), [](const Cand& a, const Cand& b) { return a.score > b.score; });
+    cand.resize(std::min((int)cand.size(), budget));
+  }
   if (cand.empty()) return;
   std::stable_sort(cand.begin(), cand.end(), [](const Cand& a, const Cand& b) { return a.c < b.c; });   // one projection dispatch per cascade
   int K = (int)cand.size();
@@ -691,7 +713,7 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   for (int k = 0; k < K; ++k) {
     Cascade& c = L.cas[cand[k].c]; Probe& pr = c.p[cand[k].i];
     idx[k] = c.first + cand[k].i; pos[k] = vec4(pr.pos, pr.groundY); blend[k] = pr.live ? 0.6f : 1.0f;
-    pr.live = true; pr.stamp = L.frame;
+    pr.live = true; pr.stamp = L.frame; pr.dirty = false;
   }
   mat4 rot[6]; for (int f = 0; f < 6; ++f) rot[f] = glm::transpose(mat4(mat3(faceView(vec3(0), f))));
   glUniformMatrix4fv(U(q, "uFaceRot"), 6, GL_FALSE, glm::value_ptr(rot[0]));
@@ -797,6 +819,7 @@ LightingStats lightingStats() {
   return s;
 }
 void lightingResetProbes() { L.resetAll = true; }
+void lightingInvalidate(vec3 lo, vec3 hi) { if (L.inval.size() < 256) L.inval.push_back({lo, hi}); }
 
 bool lightingClusterCounts(std::vector<int>& gpu, std::vector<int>& cpu, glm::ivec3& dims) {
   dims = kCluster;

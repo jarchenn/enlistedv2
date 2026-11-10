@@ -267,6 +267,37 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::snprintf(b_, sizeof b_, "every room stays walkable: worst room has %.0f%% of its free floor reachable from its doors / landings with a 0.3 m body clearance (%s)", f * 100, reachWhy.c_str());
       check(f > 0.85f, b_);
       return true; });
+    push("R2 roomcull: furnished interiors hidden only where no opening shows them", [this](App& a, float) {
+      // ring of eyes around the farmhouse at 25 m, 1.7 m and 9 m up: every piece the test hides must have something solid
+      // on the ray from the eye to its centre (physics); the eye inside sees everything; breached bays hide no more
+      Instance* h = a.doc.find(FH); auto kids = childrenOf(a, FH);
+      if (!h || kids.empty()) { check(false, "roomcull: farmhouse furnished"); return true; }
+      vec3 c0 = h->pos + vec3(0, 1.5f, 0);
+      auto sweep = [&](int& hidden, int& bad) {
+        hidden = 0; bad = 0;
+        for (int k = 0; k < 48; ++k) {
+          vec3 eye = c0 + vec3(std::cos(k * 0.2618f) * 25.0f, k < 24 ? 0.2f : 7.5f, std::sin(k * 0.2618f) * 25.0f);
+          a.interior.beginFrame();
+          for (auto* c : kids) {
+            const PropDef* pd = a.interior.prop(a.assetFor(*c)); if (!pd) continue;
+            mat4 M = a.instanceMatrix(*c);
+            if (!a.interior.interiorHidden(a, FH, eye, *pd, M)) continue;
+            ++hidden;
+            vec3 p = vec3(M * vec4((pd->bmin + pd->bmax) * 0.5f, 1)), d = p - eye; float L = glm::length(d); Physics::Hit ht;
+            if (!Physics::castRayEx(eye, d / L, L, ht) || ht.t > L - 0.35f) ++bad;   // nothing solid in between: it would show
+          }
+        }
+      };
+      int hid = 0, bad = 0; sweep(hid, bad);
+      check(hid > 0 && bad == 0, "roomcull: from 48 eyes around the farmhouse " + std::to_string(hid) + " piece views hidden, " + std::to_string(bad) + " with a clear line of sight (must be 0)");
+      a.interior.beginFrame(); int in = 0;
+      for (auto* c : kids) if (const PropDef* pd = a.interior.prop(a.assetFor(*c))) in += a.interior.interiorHidden(a, FH, c0, *pd, a.instanceMatrix(*c));
+      check(in == 0, "roomcull: the eye inside the building hides nothing (" + std::to_string(in) + ")");
+      InstanceRT& r = a.rt[FH]; auto st0 = r.state;
+      r.state.assign(r.asset->panels.size(), PANEL_BREACHED);   // every bay an opening (read by the visibility test only)
+      int hid2 = 0, bad2 = 0; sweep(hid2, bad2); r.state = st0;
+      check(hid2 < hid, "roomcull: with the bays breached fewer piece views stay hidden (" + std::to_string(hid2) + " of " + std::to_string(hid) + ")");
+      return true; });
     push("templates: deterministic, non-duplicating, overrides and deletions kept", [this](App& a, float) {
       size_t n0 = childrenOf(a, FH).size(), all0 = a.doc.instances.size();
       a.interior.furnish(a, FH, 0);

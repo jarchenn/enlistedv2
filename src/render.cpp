@@ -3135,6 +3135,11 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
     if (!it.mesh || !it.mesh->count) continue;
     if (fr && !fr->visible(it.mesh->bmin, it.mesh->bmax, it.model, kCullEps)) { stats.culled++; continue; }
     if (shadowPass && minCaster > 0 && worldDiag(it.mesh->bmin, it.mesh->bmax, it.model) < minCaster) { stats.culled++; continue; }
+    if (shadowPass && castCull && it.castR > 0) {   // R2 castercull: a small prop's sun shadow only near the eye
+      vec3 c = vec3(it.model * vec4((it.mesh->bmin + it.mesh->bmax) * 0.5f, 1.0f)) - castEye;
+      if (glm::dot(c, c) > it.castR * it.castR) { stats.casterCulled++; continue; }
+    }
+    if (!shadowPass && it.mainHidden) { stats.roomCulled++; continue; }   // R2 roomcull (only ever set for the camera pass's lists)
     drawIdx.push_back(k);
   }
   // main pass: copies sharing finish parameters are grouped so the parameter block uploads once per building. Stable,
@@ -3170,7 +3175,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
   }
 }
 
-void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr) {
+void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, float lodFrom) {
   glUseProgram(p);
   const DrawLocs L = drawLocs(p);
   glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(vp));
@@ -3183,8 +3188,11 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr) {
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
     if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(f.tree->leafCol));
     glBindVertexArray(f.tree->cardVao);
-    glDrawArrays(GL_TRIANGLES, 0, f.tree->cardVerts);
-    stats.draws++; stats.tris += f.tree->cardVerts / 3;
+    // R2 leafshadowlod: past lodFrom metres from the eye a depth pass draws the shadow card LOD (foliage.cpp)
+    bool lod = lodFrom >= 0 && f.tree->shadowVerts > 0 && (lodFrom == 0 || glm::length(vec3(f.m[3]) - castEye) > lodFrom);
+    int first = lod ? f.tree->shadowFirst : 0, n = lod ? f.tree->shadowVerts : f.tree->cardVerts;
+    glDrawArrays(GL_TRIANGLES, first, n);
+    stats.draws++; stats.tris += n / 3;
   }
 }
 
@@ -3338,7 +3346,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   RenderView v = v0;
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
-  stats.draws = 0; stats.tris = 0; stats.culled = 0;
+  stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0;   // roomCulled: counted from here too
+  stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
   time += v.dt;
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
@@ -3396,8 +3405,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // every depth / colour pass culls against its own view-projection (docs/rendering.md#frustum-culling): a cascade keeps
   // the casters inside its ortho box even when they are behind the camera
   Frustum frNear = Frustum::fromVP(lightVP);
+  castCull = perf.casterCull && !thumbMode; castEye = v.camPos;   // R2: on for the two sun cascades only
+  const float leafLod = perf.leafShadowLod && !thumbMode ? 12.0f : -1.0f;   // R2: full cards under / beside the eye, the LOD past 12 m
+  const int shDraws0 = stats.draws;
   drawItems(progShadow, opaque, true, &frNear);
-  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear);
+  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear, leafLod);
   if (grass && !thumbMode) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
     glUseProgram(progGrassShadow);
     glUniform3fv(U(progGrassShadow, "uCamPos"), 1, glm::value_ptr(v.camPos)); glUniform1f(U(progGrassShadow, "uTime"), time);
@@ -3424,11 +3436,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
     Frustum frFar = Frustum::fromVP(lightVPFar);
     drawItems(progShadow, opaque, true, &frFar);
-    if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar);
+    if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar, perf.leafShadowLod ? 0.0f : -1.0f);
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
     minCaster = 0;
   }
+  castCull = false; stats.shadowDraws = stats.draws - shDraws0;
   gpuMark(GP_SkyOcc);
   // ---- sky occlusion (top down). PF2 occcache: redrawn every 16 frames, or at once when the camera moves 4 m across
   // or 8 m up / down (the map covers +-90 m, so the camera stays >= 86 m inside it); thumbnails always redraw.
@@ -3453,7 +3466,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   Frustum frOcc = Frustum::fromVP(occVP);
   minCaster = perf.smallCasters ? std::max(0.3f, 2.0f * (2 * occR / occSize)) : 0.0f;   // PF2: props too small to shade the sky
   drawItems(progShadow, opaque, true, &frOcc);
-  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP, &frOcc);
+  if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, occVP, &frOcc, perf.leafShadowLod ? 0.0f : -1.0f);
   glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frOcc);
   minCaster = 0;

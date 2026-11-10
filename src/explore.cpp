@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "mpai.h"
 #include "rules.h"
+#include "lighting.h"
 #include "w3.h"
 #include "water_query.h"
 #include <GLFW/glfw3.h>
@@ -285,6 +286,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
         audio.play(d.sound + "_close", vec3(instanceMatrix(i) * vec4((d.apMin + d.apMax) * 0.5f, 1)));
       } else if (np >= 1.0f && r.dir[k] > 0) r.dir[k] = 0;
       updateLeafBodies(i, r, (int)k);
+      if (!r.dir[k]) { vec3 c = vec3(instanceMatrix(i) * vec4((d.apMin + d.apMax) * 0.5f, 1)); lightingInvalidate(c - vec3(4.0f), c + vec3(4.0f)); }   // R2: a door / shutter opened or closed: the GI around it is re-captured first
     }
   }
   {   // tanks (tank_sim.cpp): every tank steps (crew loader, engines, wrecks); the occupied one takes all input

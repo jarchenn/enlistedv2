@@ -30,6 +30,9 @@ bool lightingClusterCounts(std::vector<int>& gpu, std::vector<int>& cpu, glm::iv
 // probe irradiance / pi at p for normal n (CPU replica of giSample over the probe read-back); returns the coverage
 float lightingGiAt(glm::vec3 p, glm::vec3 n, glm::vec3& irr);
 void lightingResetProbes();   // every probe recaptured (tests: toggled a light)
+// R2: probes inside this world box (grown by a probe spacing) are re-captured first, blended into their old value:
+// a breach, a blast, a door that opened or closed (damage.cpp, explore.cpp). Under probebudget they jump the queue.
+void lightingInvalidate(glm::vec3 lo, glm::vec3 hi);
 
 // ---- app hook (app.cpp, before Renderer::render): gathers the frame's lights (src/lights.h when present) and the
 // room volumes near the camera for probe placement

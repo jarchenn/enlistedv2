@@ -36,7 +36,8 @@ std::vector<int> mapTemplates(App& app) {
   return v;
 }
 struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; };   // gate: gameplay view held to the frame target
-struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}; };   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
+struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {};
+              double x[10] = {}, abX[2][10] = {}; };   // R2: the frame counters below (kXName), plain run and A/B sides   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
 bool thumbOnly = false;
 std::vector<int> sTpl; size_t sTi = 0;
@@ -73,11 +74,26 @@ double blankFraction(const fs::path& p) {
   stbi_image_free(d);
   return tot ? (double)same / tot : 1.0;
 }
+// R2: per-frame counters averaged per view (CPU: render() submission, buildDrawLists; draws: all passes / the two sun cascades)
+const char* kXName[10] = {"draws", "shadowDraws", "renderCpuMs", "drawListMs", "roomCulled", "casterCulled", "probePending", "probeDirty", "probeStaleMax", "tris"};
+void sampleX(App& app, double* x, int n) {
+  const FrameStats& s = app.R.stats;
+  double v[10] = {(double)s.draws, (double)s.shadowDraws, s.cpuMs, app.drawListMs, (double)s.roomCulled, (double)s.casterCulled, (double)s.probePending, (double)s.probeDirty, (double)s.probeStaleMax, (double)s.tris};
+  for (int i = 0; i < 10; ++i) x[i] = (x[i] * n + v[i]) / (n + 1);
+}
+json xJson(const double* x) { json j = json::object(); for (int i = 0; i < 10; ++i) j[kXName[i]] = std::round(x[i] * 100) / 100; return j; }
 json passJson(const double* ms) { json j = json::object(); for (int i = 0; i < GP_Count; ++i) j[gpuPassName(i)] = std::round(ms[i] * 1000) / 1000; return j; }
 // Views authored in the template ("views": [{name, pos, yaw, pitch, gameplay}]), e.g. the terrain base's cliff shots.
 void templateViews(const TemplateInfo& t) {
   for (auto& v : t.raw.value("views", json::array()))
     sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), false, v.value("gameplay", false)});
+  // R2 measurement views (NMK_EXTRA_VIEWS=<file.json>: {"<map id>": [{"name", "pos", "yaw", "pitch", "explore"}]}): orchards,
+  // interiors through windows, damaged houses. "explore": first person on the ground at pos (x, z), else a free camera.
+  if (const char* xf = std::getenv("NMK_EXTRA_VIEWS")) {
+    json xj; try { xj = json::parse(readTextFile(xf)); } catch (...) {}
+    if (xj.is_object()) for (auto& v : xj.value(t.id, json::array()))
+      sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true});
+  }
 }
 }  // namespace
 
@@ -341,8 +357,8 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       if (app.mode == Mode::Explore) app.exitExplore();
       json pj = json::array(); double worstAvg = 0, worstEd = 0, worstPre[3] = {0, 0, 0}, worstNight = 0;
       for (auto& p : sPerf) {
-        pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"preset", presetName((GfxPreset)p.preset)}, {"night", p.night}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}, {"gpuMs", p.gpu}, {"gpuPassMs", passJson(p.pass)}});
-        if (p.abN[0] && p.abN[1]) pj.back()["ab"] = {{"frames", {p.abN[0], p.abN[1]}}, {"frameMs", {p.abMs[0], p.abMs[1]}}, {"gpuPassMs", {passJson(p.abPass[0]), passJson(p.abPass[1])}}, {"probeCpuMs", {p.abProbeCpu[0], p.abProbeCpu[1]}}, {"probesPerFrame", {p.abProbes[0], p.abProbes[1]}}};
+        pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"preset", presetName((GfxPreset)p.preset)}, {"night", p.night}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}, {"gpuMs", p.gpu}, {"gpuPassMs", passJson(p.pass)}, {"x", xJson(p.x)}});
+        if (p.abN[0] && p.abN[1]) pj.back()["ab"] = {{"frames", {p.abN[0], p.abN[1]}}, {"frameMs", {p.abMs[0], p.abMs[1]}}, {"gpuPassMs", {passJson(p.abPass[0]), passJson(p.abPass[1])}}, {"probeCpuMs", {p.abProbeCpu[0], p.abProbeCpu[1]}}, {"probesPerFrame", {p.abProbes[0], p.abProbes[1]}}, {"x", {xJson(p.abX[0]), xJson(p.abX[1])}}};
         if (p.night) { worstNight = std::max(worstNight, p.ms); continue; }   // L2: Night is reported, never gated
         if (p.gate) worstPre[p.preset] = std::max(worstPre[p.preset], p.ms);
         if (p.preset != (int)GfxPreset::Medium) continue;   // Low / High: reported below, never gated
@@ -393,6 +409,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         for (int i = 0; i < GP_Count; ++i) p.abPass[s][i] = (p.abPass[s][i] * p.abN[s] + app.R.gpuPassMs[i]) / (p.abN[s] + 1);
         p.abProbeCpu[s] = (p.abProbeCpu[s] * p.abN[s] + app.R.stats.probeCpuMs) / (p.abN[s] + 1);
         p.abProbes[s] = (p.abProbes[s] * p.abN[s] + app.R.stats.probes) / (p.abN[s] + 1);
+        sampleX(app, p.abX[s], p.abN[s]);
         ++p.abN[s];
       }
     }
@@ -401,7 +418,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       p.ms = (p.ms * p.frames + ms) / (p.frames + 1); p.worst = std::max(p.worst, ms);
       p.draws = (p.draws * p.frames + app.R.stats.draws) / (p.frames + 1); p.tris = (p.tris * p.frames + app.R.stats.tris) / (p.frames + 1);
       double g = 0; for (int i = 0; i < GP_Count; ++i) { p.pass[i] = (p.pass[i] * p.frames + app.R.gpuPassMs[i]) / (p.frames + 1); g += app.R.gpuPassMs[i]; }
-      p.gpu = (p.gpu * p.frames + g) / (p.frames + 1); ++p.frames;
+      p.gpu = (p.gpu * p.frames + g) / (p.frames + 1); sampleX(app, p.x, p.frames); ++p.frames;
     }
     sLast = tnow;
     if (stageTime >= measEnd) {

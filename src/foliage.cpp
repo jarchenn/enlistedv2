@@ -82,6 +82,7 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
       for (int k : idx) { v.insert(v.end(), {q[k].x, q[k].y, q[k].z, dir.x, dir.y, dir.z, uv[k].x, uv[k].y, mask, shadeV}); }
     }
   }
+  const size_t sphereEnd = v.size();   // R2 shadow LOD: the cluster cards end here (styled cards follow)
   // ---- styled cards (docs/nature.md): fern / bracken fronds and nettle stems with paired leaves. The card's uv.x is
   // offset by 2 (frond), 4 (nettle leaf) or 6 (plain stem strip) so leafAlpha (render.cpp) draws that silhouette.
   auto quad = [&](vec3 a, vec3 b, vec3 c, vec3 d, vec3 n, float u0, float v0, float v1, float m0, float m1, float shade) {
@@ -140,7 +141,27 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
     }
   }
   t.cardVerts = (int)v.size() / 10;
-  t.cardMin = vec3(FLT_MAX); t.cardMax = vec3(-FLT_MAX);   // culling bounds (render.cpp drawFoliage)
+  // R2 shadow card LOD, appended after the full set (render.cpp drawFoliage, Perf::leafShadowLod): every 2nd cluster card,
+  // grown 1.25x about its centre (same uv, so the depth pass cuts the same leaf alpha) - half the cards, ~80 % of the leaf
+  // area, so the canopy still casts dappled light rather than a blob; styled cards (fronds, nettles) are kept as they are
+  {
+    const size_t q = 60, nq = sphereEnd / q, full = v.size();
+    if (nq >= 8) {
+      t.shadowFirst = t.cardVerts;
+      for (size_t c = 0; c < nq; c += 2) {
+        vec3 m(0); for (int k = 0; k < 6; ++k) m += vec3(v[c * q + k * 10], v[c * q + k * 10 + 1], v[c * q + k * 10 + 2]) / 6.0f;
+        for (int k = 0; k < 6; ++k) {
+          size_t o = c * q + k * 10; float w[10]; std::copy(v.begin() + o, v.begin() + o + 10, w);
+          vec3 p = m + (vec3(w[0], w[1], w[2]) - m) * 1.25f; w[0] = p.x; w[1] = p.y; w[2] = p.z;
+          v.insert(v.end(), w, w + 10);
+        }
+      }
+      std::vector<float> styled(v.begin() + sphereEnd, v.begin() + full);
+      v.insert(v.end(), styled.begin(), styled.end());
+      t.shadowVerts = (int)v.size() / 10 - t.shadowFirst;
+    }
+  }
+  t.cardMin = vec3(FLT_MAX); t.cardMax = vec3(-FLT_MAX);   // culling bounds (render.cpp drawFoliage): the full set and the shadow LOD
   for (size_t k = 0; k + 2 < v.size(); k += 10) { vec3 p(v[k], v[k + 1], v[k + 2]); t.cardMin = glm::min(t.cardMin, p); t.cardMax = glm::max(t.cardMax, p); }
   if (t.cardMin.x > t.cardMax.x) t.cardMin = t.cardMax = vec3(0);
   glCreateVertexArrays(1, &t.cardVao); glCreateBuffers(1, &t.cardVbo);

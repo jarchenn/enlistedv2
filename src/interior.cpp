@@ -11,6 +11,7 @@
 #include "app.h"
 #include "lights.h"   // L3: light assets, interior lighting (docs/lights.md)
 #include <imgui.h>
+#include <array>
 #include <chrono>
 #include <algorithm>
 #include <unordered_map>
@@ -101,6 +102,8 @@ const PropDef* InteriorSys::prop(const AssetDef* a) {
   if (d.bmin.x > d.bmax.x) { d.bmin = vec3(-0.2f); d.bmax = vec3(0.2f); }
   if (pj.contains("bounds")) { d.bmin = jvec3(pj["bounds"][0]); d.bmax = jvec3(pj["bounds"][1]); }   // P1: the furnishing envelope, fixed when the look changes
   d.hang = pj.value("hang", false);   // L3 lights (docs/lights.md)
+  { std::string cc = pj.value("caster", std::string());   // R2 caster class (interior.h)
+    d.smallCaster = cc == "small" || (cc != "full" && !d.blocking && (d.flat() || glm::length(d.bmax - d.bmin) < 1.6f)); }
   d.gmin = vec3(1e9f); d.gmax = vec3(-1e9f);
   for (auto& p : a->parts) if (p.visible && p.grp == d.glass && d.glass >= 0) { vec3 mn, mx; partAabb(p, mn, mx); d.gmin = glm::min(d.gmin, mn); d.gmax = glm::max(d.gmax, mx); }
   // broken state: the keep groups stay (static), with one collider box over them when the prop blocks
@@ -626,6 +629,21 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
   bool small = !pd->blocking && pd->mount <= 0;
   bool furnished = i.extra.is_object() && i.extra.contains("furnish");
   if (furnished && d > (small ? cullSmall : cullBig)) { ++culledPieces; return true; }
+  // a stable per-piece factor 0.85..1.15: the distance limits below never cut a synchronised ring
+  const float jit = 0.85f + 0.3f * (float)((i.id * 0x9E3779B97F4A7C15ull) >> 40 & 0xFFFF) / 65535.0f;
+  // R2 propdist: a small decorative piece (non-blocking: never cover) is drawn while it spans >= ~3 px
+  if (app.R.perf.propDist && !pd->blocking && app.lodPxPerM > 0 && glm::length(pd->bmax - pd->bmin) * app.lodPxPerM < 3.0f * jit * std::max(d, 1.0f)) { ++culledPieces; ++propDistCulled; return true; }
+  bool hidden = false;   // R2 roomcull: furnished pieces only (their host is known)
+  if (app.R.perf.roomCull && furnished && !s.broken) {
+    auto& ho = hostOf_[i.id];
+    if (ho.first != i.rev || !ho.second) { ho.first = i.rev; auto f = i.extra.find("furnish"); ho.second = f != i.extra.end() && f->is_object() ? f->value("host", (uint64_t)0) : 0; }
+    hidden = ho.second && interiorHidden(app, ho.second, eye, *pd, M);
+  }
+  const float castR = pd->smallCaster ? 14.0f * jit : 0.0f;   // R2 castercull: small props cast within ~14 m of the eye
+  struct Tag {   // stamps the items this piece pushes below (every return path)
+    std::vector<DrawItem>& op; std::vector<DrawItem>& gl; size_t o, g; float c; bool h;
+    ~Tag() { for (size_t k = o; k < op.size(); ++k) { op[k].castR = c; op[k].mainHidden = h; } for (size_t k = g; k < gl.size(); ++k) gl[k].mainHidden = h; }
+  } tag{op, gl, op.size(), gl.size(), castR, hidden};
   ++soloDraws;
   if (s.broken) {
     if (!pd->brokenMesh.count) return true;
@@ -637,6 +655,122 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
   }
   op.push_back({&r.asset->opaque, M});
   if (r.asset->glass.count && !s.glassBroken) gl.push_back({&r.asset->glass, M});
+  return true;
+}
+
+// ============================================================ R2 room culling
+const InteriorSys::Openings& InteriorSys::openings(const AssetDef* a) {
+  Openings& o = openings_[a];
+  if (o.built) return o;
+  o.built = true;
+  const RoomInfo* ri = rooms(a);
+  o.closed = a->enterable && ri && !ri->rooms.empty() && !isRuinedAsset(a->id);
+  // roofed: above the centre and quarter points of every room some visible part (the floor above, the roof) covers it;
+  // a room open to the sky anywhere there leaves the building uncullable
+  if (ri && o.closed) for (auto& R : ri->rooms) {
+    for (vec2 f : {vec2(0.5f), vec2(0.25f), vec2(0.75f), vec2(0.25f, 0.75f), vec2(0.75f, 0.25f)}) {
+      vec2 q = glm::mix(R.mn, R.mx, f); bool cover = false;
+      for (auto& p : a->parts) {
+        if (!p.visible || a->materials[p.mat].pattern == PAT_GLASS) continue;
+        vec3 mn, mx; partAabb(p, mn, mx);
+        if (q.x >= mn.x && q.x <= mx.x && q.y >= mn.z && q.y <= mx.z && mn.y > R.y0 + 1.0f) { cover = true; break; }
+      }
+      if (!cover) for (auto& pn : a->panels) for (auto& p : pn.parts[0]) {
+        vec3 mn, mx; partAabb(p, mn, mx);
+        if (q.x >= mn.x && q.x <= mx.x && q.y >= mn.z && q.y <= mx.z && mn.y > R.y0 + 1.0f) { cover = true; break; }
+      }
+      if (!cover) { o.closed = false; break; }
+    }
+    if (!o.closed) break;
+  }
+  const vec3 pad(0.05f);
+  for (auto& d : a->interactables) o.boxes.push_back({d.apMin - pad, d.apMax + pad});   // doors, gates, windows, shutters
+  for (auto& p : a->parts) if (a->materials[p.mat].pattern == PAT_GLASS) { vec3 mn, mx; partAabb(p, mn, mx); o.boxes.push_back({mn - pad, mx + pad}); }
+  for (auto& tg : a->trims) { vec3 mn, mx; int u = 2 - tg.an; mn[tg.an] = tg.d0; mx[tg.an] = tg.d1; mn[u] = tg.u0; mx[u] = tg.u1; mn.y = tg.v0; mx.y = tg.v1; o.boxes.push_back({mn - pad, mx + pad}); }
+  // doorway cells of the occupancy grid (gaps under a lintel, with or without a door): each connected run, floor to ceiling
+  if (ri) for (auto& S : ri->storeys) {
+    std::vector<uint8_t> seen(S.id.size(), 0); std::vector<int> st;
+    for (size_t c0 = 0; c0 < S.id.size(); ++c0) {
+      if (S.id[c0] != RoomInfo::DOORWAY || seen[c0]) continue;
+      int i0 = S.nx, i1 = -1, j0 = S.nz, j1 = -1; st.assign(1, (int)c0); seen[c0] = 1;
+      while (!st.empty()) {
+        int c = st.back(); st.pop_back(); int ci = c % S.nx, cj = c / S.nx;
+        i0 = std::min(i0, ci); i1 = std::max(i1, ci); j0 = std::min(j0, cj); j1 = std::max(j1, cj);
+        const int di[4] = {1, -1, 0, 0}, dj[4] = {0, 0, 1, -1};
+        for (int k = 0; k < 4; ++k) {
+          int ni = ci + di[k], nj = cj + dj[k];
+          if (ni < 0 || nj < 0 || ni >= S.nx || nj >= S.nz) continue;
+          size_t n = (size_t)nj * S.nx + ni;
+          if (!seen[n] && S.id[n] == RoomInfo::DOORWAY) { seen[n] = 1; st.push_back((int)n); }
+        }
+      }
+      o.boxes.push_back({vec3(S.o.x + i0 * ri->cell, S.y, S.o.y + j0 * ri->cell) - vec3(0.1f), vec3(S.o.x + (i1 + 1) * ri->cell, S.ceil + 0.2f, S.o.y + (j1 + 1) * ri->cell) + vec3(0.1f)});
+    }
+  }
+  logf("roomcull: %s %s, %zu openings", a->id.c_str(), o.closed ? "closed" : "open (never culled)", o.boxes.size());
+  return o;
+}
+
+bool InteriorSys::interiorHidden(App& app, uint64_t host, vec3 eye, const PropDef& pd, const mat4& M) {
+  HostVis& hv = hostVis_[host];
+  if (hv.frame != visFrame_) {   // once per building and frame: the eye's projection and every opening's footprint in it
+    hv.frame = visFrame_; hv.all = true; hv.rects.clear();
+    auto it = app.rt.find(host);
+    const InstanceRT* r = it == app.rt.end() ? nullptr : &it->second;
+    const Openings* o = r && r->asset ? &openings(r->asset) : nullptr;
+    if (o && o->closed && !r->defDestroyed && hv.rev != r->rev) {   // the building's matrix, again only after an edit
+      const Instance* hi = app.doc.find(host);
+      if (hi) { hv.rev = r->rev; hv.inv = glm::inverse(app.instanceMatrix(*hi)); } else o = nullptr;
+    }
+    if (o && o->closed && !r->defDestroyed) {
+      hv.ri = rooms(r->asset);
+      vec3 le = vec3(hv.inv * vec4(eye, 1)), am = r->asset->bmin, ax = r->asset->bmax;
+      // the eye outside the building's (asset-space) box: its largest gap picks a projection axis along which every
+      // point of the building lies in front of the eye (in asset space: the building's own axes)
+      float best = 0.3f; int bax = -1; float bs = 1;
+      for (int k = 0; k < 3; ++k) {
+        if (am[k] - le[k] > best) { best = am[k] - le[k]; bax = k; bs = 1; }
+        if (le[k] - ax[k] > best) { best = le[k] - ax[k]; bax = k; bs = -1; }
+      }
+      if (bax >= 0) {
+        hv.ax = bax; hv.sgn = bs; hv.all = false;
+        std::vector<std::pair<vec3, vec3>> boxes = o->boxes;
+        for (size_t k = 0; k < r->asset->panels.size(); ++k)   // damaged / breached bays (roof bays too) are openings
+          if ((k < r->state.size() && r->state[k] != PANEL_INTACT) || (k < r->wf.size() && r->wf[k].active)) boxes.push_back({r->asset->panels[k].bmin - vec3(0.1f), r->asset->panels[k].bmax + vec3(0.1f)});
+        for (auto& b : boxes) {
+          vec4 rc(1e9f, 1e9f, -1e9f, -1e9f); bool ok = true;
+          for (int c = 0; c < 8; ++c) {
+            vec3 p((c & 1) ? b.second.x : b.first.x, (c & 2) ? b.second.y : b.first.y, (c & 4) ? b.second.z : b.first.z);
+            vec3 d = p - le; float z = d[bax] * bs;
+            if (z < 0.02f) { ok = false; break; }
+            vec2 q(d[(bax + 1) % 3] / z, d[(bax + 2) % 3] / z);
+            rc = vec4(glm::min(vec2(rc), q), glm::max(vec2(rc.z, rc.w), q));
+          }
+          if (!ok) { hv.all = true; break; }   // an opening reaching past the eye's plane: no doubt allowed
+          hv.rects.push_back(rc);
+        }
+      }
+    }
+  }
+  if (hv.all) return false;
+  ++roomTested;
+  mat4 L = hv.inv * M;   // piece -> building space
+  vec3 c = vec3(L * vec4((pd.bmin + pd.bmax) * 0.5f, 1));
+  bool inRoom = false;   // only a piece standing inside one of the building's rooms
+  for (size_t s = 0; s < hv.ri->storeys.size() && !inRoom; ++s) { auto& S = hv.ri->storeys[s]; if (c.y > S.y - 0.1f && c.y < S.ceil + 0.3f) inRoom = hv.ri->at((int)s, c) >= 0; }
+  if (!inRoom) return false;
+  vec3 le = vec3(hv.inv * vec4(eye, 1));
+  vec4 rc(1e9f, 1e9f, -1e9f, -1e9f);
+  for (int k = 0; k < 8; ++k) {
+    vec3 p = vec3(L * vec4((k & 1) ? pd.bmax.x : pd.bmin.x, (k & 2) ? pd.bmax.y : pd.bmin.y, (k & 4) ? pd.bmax.z : pd.bmin.z, 1)) - le;
+    float z = p[hv.ax] * hv.sgn;
+    if (z < 0.02f) return false;
+    vec2 q(p[(hv.ax + 1) % 3] / z, p[(hv.ax + 2) % 3] / z);
+    rc = vec4(glm::min(vec2(rc), q), glm::max(vec2(rc.z, rc.w), q));
+  }
+  // every ray from the eye into the closed building passes an opening: the piece's footprint must overlap one
+  for (auto& o : hv.rects) if (rc.x <= o.z && o.x <= rc.z && rc.y <= o.w && o.y <= rc.w) return false;
+  ++roomHidden;
   return true;
 }
 

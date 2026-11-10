@@ -2,6 +2,7 @@
 // explosion resolution in each building's local frame.
 #include "app.h"
 #include "mpai.h"
+#include "lighting.h"
 #include <imgui.h>
 #include <chrono>
 #include <algorithm>
@@ -38,6 +39,11 @@ void App::rebuildWalls(const Instance& i, InstanceRT& r) {
   else if (s) Physics::setShape(r.wallBody, s);
   else { Physics::remove(r.wallBody); r.wallBody = 0xffffffffu; }   // every bay fully destroyed
   r.lastRebuildMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
+  {   // R2: a breach / repair changes how light gets in: the GI probes over the building are re-captured first
+    mat4 M = instanceMatrix(i); vec3 lo(1e9f), hi(-1e9f);
+    for (int c = 0; c < 8; ++c) { vec3 p = vec3(M * vec4((c & 1) ? a->bmax.x : a->bmin.x, (c & 2) ? a->bmax.y : a->bmin.y, (c & 4) ? a->bmax.z : a->bmin.z, 1)); lo = glm::min(lo, p); hi = glm::max(hi, p); }
+    lightingInvalidate(lo - vec3(1.5f), hi + vec3(1.5f));
+  }
 }
 
 void App::resetDamage() {
@@ -94,6 +100,7 @@ App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float cra
     if (stampWall(r, e, true, &ex.hits, &ex.breached) > 0) { r.wallEvents.push_back(e); rebuildWalls(i, r); }
   }
   interior.blast(*this, p, d, dmg, radius, wallKind);   // furniture: shielded by walls, supports re-checked after the stamp
+  lightingInvalidate(p - vec3(radius + 2.0f), p + vec3(radius + 2.0f));   // R2: crater, felled trees, blown shutters: GI probes around re-captured first
   if (craterScale > 0.0f) ex.crater = deformGround(p, craterScale);
   mpaiExplosion(*this, p, dir, dmg, radius, craterScale, wallKind, ex.breached, ex.hits.size());   // soldiers, AI hearing, nav update, LAN
   lastExplosion = ex;

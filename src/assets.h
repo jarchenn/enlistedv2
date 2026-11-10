@@ -157,6 +157,7 @@ struct TreeDef {
   GpuMesh stumpMesh, trunkMesh;             // trunkMesh / trunkShape relative to the cut (0, stumpH, 0)
   ShapePtr stumpShape, trunkShape;
   GLuint cardVao = 0, cardVbo = 0; int cardVerts = 0;   // leaf cards (asset space): pos, normal, uv, mask
+  int shadowFirst = 0, shadowVerts = 0;                 // R2: the shadow card LOD in the same buffer (0 verts: none, cast from the full set)
   vec3 cardMin{0}, cardMax{0};                          // leaf card bounds (asset space, before wind sway): frustum culling
 };
 // Buildable defence: tank trap / sandbags (builder.cpp, ballistics.cpp).

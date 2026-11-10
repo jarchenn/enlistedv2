@@ -28,6 +28,9 @@ struct PropDef {
   bool flat() const { return bmax.y - bmin.y < 0.06f; }   // rugs, papers
   bool hang = false;                      // L3 lights: hung from a ceiling / beam by its origin (top), supported from above
   vec3 gmin{0}, gmax{0};                  // L3: bounds of the glass group (a round there shatters a metal lantern's panes)
+  // R2 caster class: "caster": "small" | "full" in the prop block; by default a non-blocking piece (never cover) under 1.6 m,
+  // or a flat one (rugs, papers), is small: it casts sun shadows only near the eye (Renderer::Perf::casterCull)
+  bool smallCaster = false;
 };
 
 // Rooms of an enterable building (asset space), from a 0.1 m occupancy grid per storey
@@ -85,6 +88,12 @@ public:
   // A piece that breaks, moves or is selected leaves the batch (rebuilt next frame) and draws on its own.
   void updateBatches(App& app);
   bool batching = true;
+  // R2 roomcull (docs/r2-shadows-culling.md): a furnished piece inside a closed, roofed building is skipped in the camera
+  // pass when no opening of its building (door / window apertures, glass, doorway cells, damaged or breached bays) can
+  // show it from the eye; the eye inside the building, an open-topped or wrecked building, or any doubt: drawn
+  bool interiorHidden(App& app, uint64_t host, vec3 eye, const PropDef& pd, const mat4& M);
+  void beginFrame() { ++visFrame_; roomHidden = roomTested = propDistCulled = 0; }   // App::buildDrawLists
+  int roomHidden = 0, roomTested = 0, propDistCulled = 0;   // this frame (tests / reports)
   float lodDist = 18.0f, cullBig = 75.0f, cullSmall = 32.0f;
   int batchDraws = 0, batchedPieces = 0, batchRebuilds = 0, soloDraws = 0, culledPieces = 0, batchPasses = 0, syncPasses = 0; size_t batchVerts = 0;
   // ---- damage (session overlay)
@@ -134,6 +143,13 @@ private:
   // per-frame work is skipped while nothing changed: the edit revision, the instance count, the selection, or a
   // furniture state (epoch_: breaks, glass, crushing, resets)
   uint64_t epoch_ = 1, batchSig_ = 0, syncSig_ = 0;
+  struct Openings { bool built = false, closed = false; std::vector<std::pair<vec3, vec3>> boxes; };   // asset space
+  std::map<const AssetDef*, Openings> openings_;
+  const Openings& openings(const AssetDef* a);
+  struct HostVis { uint32_t frame = 0, rev = ~0u; bool all = true; int ax = 0; float sgn = 1; std::vector<vec4> rects; mat4 inv{1}; const RoomInfo* ri = nullptr; };
+  std::unordered_map<uint64_t, HostVis> hostVis_;
+  std::unordered_map<uint64_t, std::pair<uint32_t, uint64_t>> hostOf_;   // piece -> (rev, host)
+  uint32_t visFrame_ = 1;
   struct Batch { GpuMesh lop, slop; uint64_t sig = 0; std::vector<uint64_t> members; vec3 c{0}; float r = 0; bool built = false; size_t verts = 0; };
   std::map<uint64_t, Batch> batches_;                       // by host
   std::map<uint64_t, uint64_t> member_;                     // piece -> host while it is drawn by the batch

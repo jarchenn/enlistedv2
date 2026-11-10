@@ -18,6 +18,8 @@ struct SurfaceParams {
 };
 struct StaticDecal { vec4 a, b, c; };    // GX5 (static_decals.h): centre + type, normal + seed, half size + strength + variant
 struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
+  float castR = 0;          // R2 castercull: > 0 = casts sun shadows only within this many metres of the eye (small props; interior.cpp)
+  bool mainHidden = false;  // R2 roomcull: not drawn in the camera pass (an interior seen through no opening); shadows and probes keep it
 };
 struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; };
@@ -50,7 +52,10 @@ struct RenderView {
   vec3 underFogCol{0.06f, 0.24f, 0.25f}; float underFogDens = 0.11f;   // movement.json "swim"
 };
 
-struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int culled = 0; double probeCpuMs = 0; int probes = 0; };   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
+struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int culled = 0; double probeCpuMs = 0; int probes = 0;
+                    // R2: sun-cascade casters skipped by castercull, camera-pass items hidden by roomcull, sun-cascade draws; GI probes
+                    // waiting for a first capture / invalidated, the oldest capture among probes within 12 m (frames)
+                    int casterCulled = 0, roomCulled = 0, shadowDraws = 0, probePending = 0, probeDirty = 0, probeStaleMax = 0; };   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
 // GPU time per render pass from timestamp queries (Renderer::gpuMark, docs/rendering.md#gpu-budget), in frame order:
 // a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
 enum GpuPass : int { GP_CloudShadow, GP_ShadowNear, GP_ShadowFar, GP_SkyOcc, GP_LightShadows, GP_Probes, GP_Clusters,
@@ -132,10 +137,18 @@ public:
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
-    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false; return p; }
+    bool casterCull = true;      // castercull (R2): small props cast sun shadows only near the eye (DrawItem::castR)
+    bool leafShadowLod = true;   // leafshadowlod (R2): canopies past 12 m (all in the far cascade / sky occlusion) cast from their shadow card LOD
+    bool probeBudgetOn = true;   // probebudget (R2): GI captures budgeted by cost (a far-volume probe = 4 near ones), near / invalidated first
+    bool roomCull = false;       // roomcull (R2, off: hid ~20 draws a view for +0.15 ms of buildDrawLists, A/B 2026-11-09): furnished interiors seen through no opening are skipped in the camera pass (interior.cpp)
+    bool propDist = false;       // propdist (R2, off until its A/B is in): small decorative (non-blocking) props drawn to a size-aware distance (interior.cpp)
+    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
+                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : nullptr;
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : nullptr;
+      if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
       if (b) *b = on;
@@ -199,7 +212,7 @@ private:
   void drawItems(GLuint prog, const std::vector<DrawItem>& items, bool shadowPass, const Frustum* fr = nullptr, bool sortSurf = false);
   void setLighting(GLuint prog, const RenderView& v);
   void drawModels(const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
-  void drawFoliage(GLuint prog, const mat4& vp, const Frustum* fr = nullptr);
+  void drawFoliage(GLuint prog, const mat4& vp, const Frustum* fr = nullptr, float lodFrom = -1);   // R2: lodFrom >= 0 = trees this far from castEye draw their shadow card LOD
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
   struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, roomDec = -1, extDec = -1, roomX = -1,
@@ -235,6 +248,7 @@ private:
   GLuint thumbHdrFbo = 0, thumbHdr = 0, thumbDepth = 0;
   GLuint queries[3]{}; int qidx = 0; bool qvalid = false; bool qUsed[3]{};   // GL_TIME_ELAPSED ring (fallback when timestamps are missing)
   int farFrame = -1000, occFrame = -1000; vec3 farFocus{0}, farSun{0}, occCam{0}; float minCaster = 0;   // PF2 depth-pass caches
+  bool castCull = false; vec3 castEye{0};   // R2 castercull: on during the sun cascades; castEye: the eye the caster ranges are measured from
   GLuint gq[3][GP_Count + 1]{}; bool gqSet[3][GP_Count + 1]{}; int gqSlot = 0;
   void gpuFrameBegin();
   mat4 lightVP{1}, occVP{1};
