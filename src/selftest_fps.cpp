@@ -24,7 +24,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
     app.useScripted = true;
     fseq.clear(); fcur = 0; ft = 0;
     if (std::getenv("NMK_ARMS_SHOTS")) {   // FA1: only the first-person arms shots (hip, ADS, mid-reload; selftest_out/fa1_*)
-      for (const char* id : {"m1_garand", "kar98k", "stg44", "mg42", "knife_bayonet", "mk2_grenade"}) {
+      for (const char* id : {"m1_garand", "kar98k", "m1_thompson", "stg44", "mg42", "knife_bayonet"}) {
         std::string sid = id;
         push("arms " + sid, [this, sid](App& a, float t) {
           static bool shot = false;
@@ -37,9 +37,9 @@ void SelfTest::fpsUpdate(App& app, float dt) {
           a.scriptedInput.reload = t > 2.1f && t < 2.15f;
           if (!shot && s.reload > 0 && s.reload < s.reloadTotal * 0.55f) { shot = true; shotQueue.push_back("fa1_" + sid + "_reload"); }
           if (t < 2.2f || (s.reload > 0 && t < 8.0f)) return false;
-          char b[200]; std::snprintf(b, sizeof b, "%s: arms drawn %d, elbows R (%.2f, %.2f, %.2f) L (%.2f, %.2f, %.2f)%s", sid.c_str(), a.lastArmDraws,
+          char b[200]; std::snprintf(b, sizeof b, "%s: arms drawn %d (right %d, left %d), elbows R (%.2f, %.2f, %.2f) L (%.2f, %.2f, %.2f)%s", sid.c_str(), a.lastArmDraws, (int)a.lastArmsShown[0], (int)a.lastArmsShown[1],
                                      a.lastElbowR.x, a.lastElbowR.y, a.lastElbowR.z, a.lastElbowL.x, a.lastElbowL.y, a.lastElbowL.z, shot ? "" : " (no reload)");
-          check(a.lastArmDraws == 1, b);
+          check(a.lastArmDraws == 1 && a.lastArmsShown[0] && (a.lastArmsShown[1] || sid == "knife_bayonet"), b);
           a.scriptedInput = ExploreInput{};
           return true; });
       }

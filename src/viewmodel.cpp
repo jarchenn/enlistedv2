@@ -216,10 +216,14 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
   if (!vm.showArms || !armMesh[0].count) return;
   mat4 cam = weaponWorld * glm::inverse(vmLocal(d, s));   // camera (view -> world)
   mat4 Mv = vmLocal(d, s);
-  vec3 tR = vec3(Mv * vec4(d.gripR, 1)), tL = vec3(Mv * vec4(d.gripL, 1));
-  // FA1: one-handed (knife, grenades: both sockets on the handle): the free hand waits low at the side, mostly off-screen
+  // FA1: the rigged arms hold the weapon where its mesh is (fps_arms.cpp: the stock's right face, under the fore-end)
   extern json fpsArmsSpec(const std::string&, bool);
+  extern void fpsArmsGrips(const WeaponDef&, vec3&, vec3&);
   bool rig = fpsArmsReady();
+  vec3 gR = d.gripR, gL = d.gripL;
+  if (rig) fpsArmsGrips(d, gR, gL);
+  vec3 tR = vec3(Mv * vec4(gR, 1)), tL = vec3(Mv * vec4(gL, 1));
+  // one-handed (knife, grenades: both sockets on the handle): the free hand waits low at the side, mostly off-screen
   json specR = rig ? fpsArmsSpec(d.id, false) : json(), specL = rig ? fpsArmsSpec(d.id, true) : json();
   bool oneHand = glm::length(d.gripL - d.gripR) < 0.03f || (rig && specL.value("free", false));
   float relW = 0;   // 0..1: the support hand off the weapon (reload)
@@ -241,20 +245,20 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
   vec3 SR(0.17f, -0.24f, 0.02f), SL(-0.17f, -0.24f, 0.02f);
   if (rig) {   // FA1: the rigged arms model (fps_arms.cpp); the boxes below are the fallback
     extern glm::mat3 fpsArmsBasis(const json&, const glm::mat3&, bool);
-    extern bool fpsArmsDraw(App&, const mat4&, bool, vec3[2], const vec3[2], const glm::mat3[2], const json[2], float[2], vec3[2], vec3[2], vec3);
+    extern bool fpsArmsDraw(App&, const mat4&, const WeaponDef&, vec3[2], const vec3[2], const glm::mat3[2], const json[2], float[2], vec3[2], vec3[2], bool[2]);
     glm::mat3 Wr = glm::mat3(Mv), I3(1.0f);
-    // off the weapon (free hand, reload, stroke, ledge): a relaxed hand, fingers forward, palm in / down
-    json freeL = {{"fwd", {0.15, -0.1, -1}}, {"palm", {0.8, -0.5, 0}}}, flat = {{"fwd", {0, -0.15, -1}}, {"palm", {0, -1, 0}}};
+    // off the weapon (camera space): the free hand relaxed low at the side (thumb up, palm in), palms flat on a ledge / in the stroke
+    json freeL = {{"pinky", {0, -1, 0.1}}, {"palm", {1, 0.2, 0}}}, flatR = {{"pinky", {1, 0, 0}}, {"palm", {0, -1, 0}}}, flatL = {{"pinky", {-1, 0, 0}}, {"palm", {0, -1, 0}}};
     glm::mat3 hB[2] = {fpsArmsBasis(specR, Wr, false), oneHand ? fpsArmsBasis(freeL, I3, true) : fpsArmsBasis(specL, Wr, true)};
     auto blend = [](const glm::mat3& a, const glm::mat3& b, float t) { return glm::mat3_cast(glm::slerp(glm::quat_cast(a), glm::quat_cast(b), t)); };
     if (relW > 0) hB[1] = blend(hB[1], fpsArmsBasis(freeL, I3, true), relW * 0.8f);
-    if (gw > 0) { hB[0] = blend(hB[0], fpsArmsBasis(flat, I3, false), gw); hB[1] = blend(hB[1], fpsArmsBasis(flat, I3, true), gw); }
+    if (gw > 0) { hB[0] = blend(hB[0], fpsArmsBasis(flatR, I3, false), gw); hB[1] = blend(hB[1], fpsArmsBasis(flatL, I3, true), gw); }
     json sp[2] = {specR, specL};
     float grip[2] = {1.0f - gw, (oneHand ? 0.35f : 1.0f - relW) * (1.0f - gw)};
-    vec3 Sh[2] = {SR, SL}, T[2] = {tR, tL}, E[2], Wr2[2];
-    if (fpsArmsDraw(*this, cam, d.side == "DE", Sh, T, hB, sp, grip, E, Wr2, vec3(0))) {
+    vec3 Sh[2] = {SR, SL}, T[2] = {tR, tL}, E[2], Wr2[2]; bool drawn[2] = {false, false};
+    if (fpsArmsDraw(*this, cam, d, Sh, T, hB, sp, grip, E, Wr2, drawn)) {
       lastElbowR = E[0]; lastElbowL = E[1]; lastHandR = Wr2[0]; lastHandL = Wr2[1]; lastShoulderR = Sh[0]; lastShoulderL = Sh[1];
-      lastHandErr = vec3(0); ++lastArmDraws;
+      lastHandErr = vec3(0); lastArmsShown[0] = drawn[0]; lastArmsShown[1] = drawn[1]; ++lastArmDraws;
       return;
     }
   }

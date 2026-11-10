@@ -3,13 +3,14 @@
 // The source is one static mesh (both arms, no skeleton). This tool, deterministically:
 //  1. bakes the node transforms and converts to metres (source units are cm); arms lie along +z (hand forward),
 //     palms facing each other, thumbs up / inward;
-//  2. splits the two arms (the two connected components, right at x > 0 after the node transforms);
+//  2. splits the two arms (the two connected components; the right arm is the one at x < 0: see SIDES);
 //  3. per arm, builds 9 bones and smooth weights along the arm:
 //       0 upper arm (stub up to the elbow), 1 forearm, 2 forearm twist (weight rising elbow -> wrist), 3 hand,
 //       4 / 5 fingers (proximal / distal, middle-ring-pinky), 6 / 7 index finger, 8 thumb;
 //     the elbow sits one forearm length (0.26 m) behind the wrist (the skin strip between cuff and glove);
-//  4. recolours the sleeve per faction (US olive drab, German field grey) keeping the cloth detail; the gloves and the
-//     bare skin at the wrist keep their texture;
+//  4. recolours the sleeve per faction (US olive drab, German field grey) keeping the cloth detail, and the gloves to the
+//     skin tone of the bare strip at the wrist (bare hands, as most soldiers); no metallic-roughness texture (the source's
+//     reads as metallic 1): matte, roughness 0.85; one primitive per arm (right, left);
 //  5. writes fps_arms_us.glb / fps_arms_de.glb (skinned: 18 joints, inverse binds = the rest frames) and
 //     fps_arms.json (rest landmarks the viewmodel poses from; src/fps_arms.cpp).
 import fs from "fs";
@@ -84,7 +85,9 @@ const inv = m => {   // rigid inverse
 };
 
 // ---------------------------------------------------------------- per arm: landmarks, bones, weights
-const SIDES = { R: { pick: p => p[0] > 0, inward: -1, off: 0 }, L: { pick: p => p[0] <= 0, inward: 1, off: 9 } };   // the two components sit either side of x = 0
+// The source points its arms along +z, the camera looks along -z: the arm at x < 0 is the RIGHT arm (looking down +z,
+// -x is on the right; its palm faces +x, thumb up). Inward = toward the other arm.
+const SIDES = { R: { pick: p => p[0] <= 0, inward: 1, off: 0 }, L: { pick: p => p[0] > 0, inward: -1, off: 9 } };   // the two components sit either side of x = 0
 const WRIST_Z = 0.195, FOREARM = 0.26, KNUCKLE_Z = 0.34, MID_Z = 0.395;
 const joints = new Array(P.length).fill(null).map(() => []);
 const rest = {}, frames = new Array(18);
@@ -151,14 +154,33 @@ const lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 let lsum = 0, ln = 0;
 for (let k = 0; k < mask.length; k++) if (mask[k]) { const o = k * 4; lsum += lum(alb.data[o], alb.data[o + 1], alb.data[o + 2]); ++ln; }
 const lmean = lsum / Math.max(1, ln);
+// the gloves become bare hands: the hand triangles' texels take the skin tone of the strip at the wrist (the glove's
+// seams and folds kept faintly as luminance)
+const hmask = new Uint8Array(alb.w * alb.h);
+for (let t = 0; t < IDX.length; t += 3) {
+  const v = [IDX[t], IDX[t + 1], IDX[t + 2]];
+  if (!v.every(i => P[i][2] >= WRIST_Z + 0.004)) continue;
+  const q = v.map(i => [UV[i][0] * alb.w, UV[i][1] * alb.h]);
+  const d = (q[1][0] - q[0][0]) * (q[2][1] - q[0][1]) - (q[2][0] - q[0][0]) * (q[1][1] - q[0][1]); if (Math.abs(d) < 1e-9) continue;
+  const x0 = Math.max(0, Math.floor(Math.min(...q.map(a => a[0])) - 1)), x1 = Math.min(alb.w - 1, Math.ceil(Math.max(...q.map(a => a[0])) + 1));
+  const y0 = Math.max(0, Math.floor(Math.min(...q.map(a => a[1])) - 1)), y1 = Math.min(alb.h - 1, Math.ceil(Math.max(...q.map(a => a[1])) + 1));
+  const e = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const w0 = e(q[1], q[2], x + 0.5, y + 0.5) / d, w1 = e(q[2], q[0], x + 0.5, y + 0.5) / d, w2 = e(q[0], q[1], x + 0.5, y + 0.5) / d;
+    if (w0 >= -0.02 && w1 >= -0.02 && w2 >= -0.02) hmask[y * alb.w + x] = 1;
+  }
+}
+const sat = o => Math.max(alb.data[o], alb.data[o + 1], alb.data[o + 2]) - Math.min(alb.data[o], alb.data[o + 1], alb.data[o + 2]);
+let skin = [0, 0, 0], sn = 0, hsum = 0, hn = 0;
+for (let k = 0; k < hmask.length; k++) { const o = k * 4; if (sat(o) > 60) { for (let c = 0; c < 3; c++) skin[c] += alb.data[o + c]; ++sn; } else if (hmask[k]) { hsum += lum(alb.data[o], alb.data[o + 1], alb.data[o + 2]); ++hn; } }
+skin = skin.map(v => v / Math.max(1, sn)); const hmean = hsum / Math.max(1, hn);
 const recolour = target => {   // target: linear-ish albedo the sleeve's mean maps to (detail kept as luminance ratio)
   const out = Buffer.from(alb.data);
   for (let k = 0; k < mask.length; k++) {
-    if (!mask[k]) continue;
     const o = k * 4, r = alb.data[o], g = alb.data[o + 1], b = alb.data[o + 2];
-    if (Math.max(r, g, b) - Math.min(r, g, b) > 40) continue;   // saturated texels (the skin strip) stay
-    const f = Math.min(2.2, lum(r, g, b) / lmean);
-    for (let c = 0; c < 3; c++) out[o + c] = Math.min(255, Math.round(Math.pow(target[c], 1 / 2.2) * 255 * Math.pow(f, 0.8)));
+    if (sat(o) > 40) continue;   // saturated texels (the skin strip) stay
+    if (mask[k]) { const f = Math.min(2.2, lum(r, g, b) / lmean); for (let c = 0; c < 3; c++) out[o + c] = Math.min(255, Math.round(Math.pow(target[c], 1 / 2.2) * 255 * Math.pow(f, 0.8))); }
+    else if (hmask[k]) { const f = Math.min(1.6, lum(r, g, b) / hmean); for (let c = 0; c < 3; c++) out[o + c] = Math.min(255, Math.round(skin[c] * 0.92 * Math.pow(f, 0.3))); }
   }
   return pngEncodeRGB(alb.w, alb.h, out);
 };
@@ -176,9 +198,12 @@ function writeGlb(file, albedoPng) {
   const JN = [], WT = [];
   for (const j of joints) { for (let q = 0; q < 4; q++) { JN.push(j[q] ? j[q][0] : 0); WT.push(j[q] ? j[q][1] : 0); } }
   const aJ = accessor(u16(JN), "VEC4", 5123, P.length, 34962), aW = accessor(f32(WT), "VEC4", 5126, P.length, 34962);
-  const aI = accessor(u32(IDX), "SCALAR", 5125, IDX.length, 34963);
+  // one primitive per arm (right first): the viewmodel can hide one arm
+  const side = [[], []]; for (let t = 0; t < IDX.length; t += 3) side[P[IDX[t]][0] <= 0 ? 0 : 1].push(IDX[t], IDX[t + 1], IDX[t + 2]);
+  const aI = side.map(s => accessor(u32(s), "SCALAR", 5125, s.length, 34963));
   const aIB = accessor(f32(frames.map(inv).flat()), "MAT4", 5126, 18);
-  const imgs = [albedoPng, image(J.materials[0].pbrMetallicRoughness.metallicRoughnessTexture.index), image(J.materials[0].normalTexture.index)].map(b => ({ bufferView: view(b), mimeType: "image/png" }));
+  // no metallic-roughness texture: the source's has metallic 1 everywhere (blue 255), which made glossy black metal arms
+  const imgs = [albedoPng, image(J.materials[0].normalTexture.index)].map(b => ({ bufferView: view(b), mimeType: "image/png" }));
   const names = ["UpperArm", "ForeArm", "ForeArmTwist", "Hand", "Fingers1", "Fingers2", "Index1", "Index2", "Thumb"];
   const jointNodes = frames.map((m, k) => ({ name: (k < 9 ? "Right" : "Left") + names[k % 9], matrix: m }));
   const nodes = [{ name: "fps_arms", children: jointNodes.map((_, k) => k + 2) }, { name: "fps_arms_mesh", mesh: 0, skin: 0 }, ...jointNodes];
@@ -186,9 +211,9 @@ function writeGlb(file, albedoPng) {
     asset: { version: "2.0", generator: "tools/rig_fps_arms.mjs", extras: J.asset.extras },
     scene: 0, scenes: [{ nodes: [0, 1] }], nodes,
     skins: [{ joints: jointNodes.map((_, k) => k + 2), inverseBindMatrices: aIB }],
-    meshes: [{ name: "fps_arms", primitives: [{ attributes: { POSITION: aP, NORMAL: aN, TEXCOORD_0: aUV, JOINTS_0: aJ, WEIGHTS_0: aW }, indices: aI, material: 0, mode: 4 }] }],
-    materials: [{ name: "fps_arms", pbrMetallicRoughness: { baseColorTexture: { index: 0 }, metallicRoughnessTexture: { index: 1 }, metallicFactor: 0 }, normalTexture: { index: 2 } }],
-    textures: [{ source: 0, sampler: 0 }, { source: 1, sampler: 0 }, { source: 2, sampler: 0 }], samplers: [J.samplers[0]], images: imgs,
+    meshes: [{ name: "fps_arms", primitives: aI.map(ai => ({ attributes: { POSITION: aP, NORMAL: aN, TEXCOORD_0: aUV, JOINTS_0: aJ, WEIGHTS_0: aW }, indices: ai, material: 0, mode: 4 })) }],
+    materials: [{ name: "fps_arms", pbrMetallicRoughness: { baseColorTexture: { index: 0 }, metallicFactor: 0, roughnessFactor: 0.85 }, normalTexture: { index: 1 } }],
+    textures: [{ source: 0, sampler: 0 }, { source: 1, sampler: 0 }], samplers: [J.samplers[0]], images: imgs,
     accessors: accs, bufferViews: views, buffers: [{ byteLength: off }],
   };
   let js = Buffer.from(JSON.stringify(gj)); js = Buffer.concat([js, Buffer.alloc((4 - js.length % 4) % 4, 0x20)]);
@@ -198,8 +223,8 @@ function writeGlb(file, albedoPng) {
   fs.writeFileSync(file, Buffer.concat([hdr, ch(js, 0x4E4F534A), ch(bin, 0x004E4942)]));
 }
 fs.mkdirSync(OUT, { recursive: true });
-writeGlb(path.join(OUT, "fps_arms_us.glb"), recolour([0.25, 0.23, 0.14]));
-writeGlb(path.join(OUT, "fps_arms_de.glb"), recolour([0.29, 0.30, 0.27]));
+writeGlb(path.join(OUT, "fps_arms_us.glb"), recolour([0.11, 0.10, 0.055]));   // olive drab wool
+writeGlb(path.join(OUT, "fps_arms_de.glb"), recolour([0.12, 0.13, 0.11]));   // field grey
 const r3 = v => v.map(x => Math.round(x * 1e4) / 1e4);
 const side = s => Object.fromEntries(Object.entries(rest[s]).map(([k, v]) => [k, Array.isArray(v) ? r3(v) : Math.round(v * 1e4) / 1e4]));
 fs.writeFileSync(path.join(OUT, "fps_arms.json"), JSON.stringify({
