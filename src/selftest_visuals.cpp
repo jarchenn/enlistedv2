@@ -209,7 +209,7 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         int x = (int)((c.x / c.w * 0.5f + 0.5f) * W), y = (int)((c.y / c.w * 0.5f + 0.5f) * H);
         if (x < 0 || y < 0 || x >= W || y >= H) return -1;
         const uint8_t* q = &px[((size_t)y * W + x) * 4];
-        return q[0] > 80 && q[1] > 80 ? 1 : 0;
+        return q[0] > 150 && q[1] > 150 && q[2] > 150 ? 1 : 0;   // neutral white only (sunlit grass tips are not)
       };
       float rel[2] = {-9, -9}, g[2] = {0, 0};
       for (int e = 0; e < 2; ++e) {
@@ -218,7 +218,7 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         float top = -1e9f; bool seen = false;
         for (float y = g[e] - 0.2f; y < g[e] + 1.6f && got; y += 0.01f) {
           int wv = white(vec3(x, y, faceZ + 0.01f));
-          if (wv == 1) { top = y; seen = true; } else if (wv == 0 && seen) break;
+          if (wv == 1) { top = y; seen = true; }   // the highest white sample: grass blades crossing the scan are ignored
         }
         if (seen) rel[e] = top - g[e];
       }
