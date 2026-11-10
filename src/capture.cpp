@@ -18,6 +18,7 @@
 #include <cstdarg>
 #include <functional>
 
+Overlay gAnnotOverlay;
 namespace {
 struct Cam { const char* name; vec3 pos, target; };
 std::vector<Cam> cams;
@@ -166,7 +167,7 @@ void strongholdChecks(App& app) {
     Nav* nav = new Nav();
     nav->classify = [](uint64_t) { return (int)NT_SOLID; };
     vec3 c = i.pos; nav->build(c - vec3(50, 40, 50), c + vec3(50, 40, 50), 2);
-    auto at = [&](vec3 l) { vec3 w = Wp(l); w.y = std::max(T.height(w.x, w.z), w.y); return w; };
+    auto at = [&](vec3 l) { vec3 w = Wp(l); w.y = T.height(w.x, w.z) + l.y; return w; };   // on the ground (l.y above it)
     vec3 from = at(vec3(-30, 0, 30));
     vec3 flank = at(vec3(36, 0, 14));   // the round-the-flank leg starts off the east front corner (a shorter search)
     struct Goal { const char* n; vec3 p; const vec3* from = nullptr; } goals[] = {{"entrance lane", at(vec3(-3.8f, 0.3f, -9.0f))}, {"east steps foot", at(vec3(31.0f, 0, 1.7f))},
@@ -208,6 +209,116 @@ void strongholdChecks(App& app) {
   float m = bareMax(pts);
   out("delete", "all removed: %zu stamps left, the %zu points within %.3f m of the authored ground (%s)", T.stamps.size(), pts.size(), m, m < 0.02f ? "PASS" : "FAIL");
   std::ofstream(exeDir() / "selftest_out" / "report_stronghold.json") << rep.dump(1);
+}
+
+// ---- D-day set (D1): the annotated overview (regions, the playable square, the trench network, every fixed gun's
+// firing sector, spawns, objectives) and the map checks: one GX1 trench network, nav paths along the trenches and from
+// the spawns to the objectives
+bool ddaySet = false;
+json ddayDoc;   // the template's map file (scenario, positions)
+void ddayAnnotate(App& app) {
+  Terrain& T = app.terrain;
+  Overlay& O = gAnnotOverlay; O.clear();
+  auto at = [&](float x, float z, float up = 0.6f) { return vec3(x, T.height(x, z) + up, z); };
+  auto drape = [&](vec2 a, vec2 b, vec4 c, float up = 0.6f) {   // a line following the ground, 2 m segments
+    int n = std::max(1, (int)(glm::length(b - a) / 2.0f));
+    for (int k = 0; k < n; ++k) { vec2 p = glm::mix(a, b, (float)k / n), q = glm::mix(a, b, (float)(k + 1) / n); O.line(at(p.x, p.y, up), at(q.x, q.y, up), c, true); }
+  };
+  auto ring = [&](vec2 c, float r, vec4 col) { for (int k = 0; k < 32; ++k) { float a0 = k * 6.2831853f / 32, a1 = (k + 1) * 6.2831853f / 32; drape(c + r * vec2(std::cos(a0), std::sin(a0)), c + r * vec2(std::cos(a1), std::sin(a1)), col, 1.0f); } };
+  const float H = 132.5f;
+  const vec4 white(1, 1, 1, 1), yellow(1, 0.85f, 0.2f, 1), orange(1, 0.5f, 0.1f, 1), red(1, 0.15f, 0.1f, 1), blue(0.3f, 0.6f, 1, 1), grey(0.75f, 0.75f, 0.75f, 1);
+  for (auto [a, b] : {std::pair{vec2(-H, -H), vec2(H, -H)}, {vec2(H, -H), vec2(H, H)}, {vec2(H, H), vec2(-H, H)}, {vec2(-H, H), vec2(-H, -H)}}) drape(a, b, white, 0.8f);
+  for (float z : {H / 3 * 1.0f, -H / 3 * 1.0f}) for (float x = -H; x < H; x += 8.0f) drape(vec2(x, z), vec2(std::min(H, x + 4.0f), z), yellow);   // region thirds (dashed)
+  for (auto& i : app.doc.instances) {   // trench centrelines (path and arms)
+    const AssetDef* a = app.assetFor(i);
+    if (!a || !a->raw.is_object() || !a->raw.contains("trench")) continue;
+    auto poly = [&](const json& P) {
+      for (size_t k = 0; k + 1 < P.size(); ++k) {
+        vec3 p = i.pos + yawQuat(i.yaw) * vec3(P[k][0].get<float>(), 0, P[k][1].get<float>()), q = i.pos + yawQuat(i.yaw) * vec3(P[k + 1][0].get<float>(), 0, P[k + 1][1].get<float>());
+        drape(vec2(p.x, p.z), vec2(q.x, q.z), orange, 0.4f);
+      }
+    };
+    poly(a->raw["trench"]["path"]);
+    for (auto& br : a->raw["trench"].value("branches", json::array())) if (br.size() >= 2 && std::hypot(br[1][0].get<float>() - br[0][0].get<float>(), br[1][1].get<float>() - br[0][1].get<float>()) >= 3.0f) poly(br);
+  }
+  for (auto& i : app.doc.instances) {   // firing sectors: +-30 degrees, 70 m, from every fixed gun's firing point
+    const AssetDef* a = app.assetFor(i);
+    if (!a || a->navMeta.firingPoints.empty() || (a->category != "Bunkers" && a->category != "Atlantic Wall") || (a->raw.is_object() && a->raw.contains("trench"))) continue;
+    for (auto& f : a->navMeta.firingPoints) {
+      vec3 o = i.pos + yawQuat(i.yaw) * f.p;
+      float y0 = radians(i.yaw + f.yaw);
+      vec3 prev;
+      for (int k = -6; k <= 6; ++k) {
+        float y = y0 + radians(5.0f * k);
+        vec3 e = o + vec3(std::sin(y), 0, std::cos(y)) * 70.0f; e.y = T.height(e.x, e.z) + 1.0f;
+        if (k == -6 || k == 6) O.line(o + vec3(0, 1.5f, 0), e, red, true);
+        if (k > -6) O.line(prev, e, vec4(1, 0.3f, 0.2f, 0.7f), true);
+        prev = e;
+      }
+    }
+  }
+  if (ddayDoc.contains("scenario")) {
+    for (auto& o : ddayDoc["scenario"]["objectives"]) ring(vec2(o["pos"][0].get<float>(), o["pos"][2].get<float>()), o.value("radius", 15.0f), yellow);
+    for (auto& s : ddayDoc["scenario"]["spawns"]) {
+      if (s.contains("team")) continue;
+      vec2 p(s["pos"][0].get<float>(), s["pos"][2].get<float>());
+      bool att = s.value("role", std::string()) == "attacker";
+      ring(p, 3.0f, att ? blue : grey); ring(p, 5.0f, att ? blue : grey);
+      O.line(at(p.x, p.y, 1.0f), at(p.x, p.y, 1.0f) + vec3(0, 30, 0), att ? blue : grey, true);
+    }
+  }
+}
+void ddayChecks(App& app) {
+  Terrain& T = app.terrain;
+  json rep = json::object();
+  auto out = [&](const std::string& k, const std::string& v) { logf("dday check %s: %s", k.c_str(), v.c_str()); rep[k] = v; };
+  int nets = 0, pieces = 0;
+  for (auto& s : T.stamps) if (s.kind == TerrainStamp::TRENCH) { ++nets; pieces += (int)s.members.size(); }
+  out("trench_networks", std::to_string(nets) + " GX1 trench network(s) from " + std::to_string(pieces) + " pieces (" + (nets == 1 ? "PASS: one network" : "FAIL") + ")");
+  Nav* nav = new Nav();
+  nav->classify = [](uint64_t) { return (int)NT_SOLID; };
+  nav->build(vec3(-140, -40, -140), vec3(140, 60, 140), 4);
+  // trench floor points: every junction's crossing (its y less the trench depth), every entry ramp's top
+  std::vector<std::pair<std::string, vec3>> pts;
+  for (auto& i : app.doc.instances) {
+    if (i.assetId == "aw_trench_tee" || i.assetId == "aw_trench_cross") pts.push_back({i.assetId.substr(9) + "@" + std::to_string((int)i.pos.x) + "," + std::to_string((int)i.pos.z), vec3(i.pos.x, i.pos.y - 1.55f, i.pos.z)});
+    if (i.assetId == "aw_trench_entry") { vec3 p = i.pos + yawQuat(i.yaw) * vec3(-2.9f, 0, 0); p.y = T.height(p.x, p.z); pts.push_back({"ramp@" + std::to_string((int)p.x) + "," + std::to_string((int)p.z), p}); }
+  }
+  int ok = 0; std::string bad; float worstLen = 0;
+  for (size_t k = 1; k < pts.size(); ++k) {
+    std::vector<vec3> P; float len = 0;
+    bool r = nav->pathSync(pts[0].second, pts[k].second, P, nullptr, nullptr, &len) && !P.empty() && glm::length(P.back() - pts[k].second) < 1.5f;
+    if (r) { ++ok; worstLen = std::max(worstLen, len); } else bad += " " + pts[k].first;
+  }
+  out("trench_paths", std::to_string(ok) + " of " + std::to_string(pts.size() - 1) + " trench points reached on the navmesh from " + (pts.empty() ? "-" : pts[0].first) +
+      " (longest " + std::to_string((int)worstLen) + " m)" + (bad.empty() ? " (PASS)" : "; not reached:" + bad + " (FAIL)"));
+  // spawns to objectives (attackers to every objective; defenders' house entrances to the square and the stronghold)
+  std::string sp; int spOk = 0, spN = 0;
+  if (ddayDoc.contains("scenario")) {
+    auto P = [&](const json& p) { return vec3(p[0].get<float>(), p[1].get<float>(), p[2].get<float>()); };
+    for (auto& s : ddayDoc["scenario"]["spawns"]) {
+      if (s.contains("team")) continue;
+      vec3 a = P(s["pos"]);
+      bool att = s.value("role", std::string()) == "attacker";
+      if (!att) {   // indoors: start from the house's nearest entrance (doors are closed on this navmesh)
+        float best = 1e30f;
+        for (auto& i : app.doc.instances) {
+          const AssetDef* h = app.assetFor(i);
+          if (!h || !h->enterable || glm::length(vec2(i.pos.x - a.x, i.pos.z - a.z)) > 25) continue;
+          for (auto& e : h->navMeta.entrances) { vec3 w = i.pos + yawQuat(i.yaw) * e.p; float d = glm::length(w - a); if (d < best) { best = d; a = w - yawQuat(i.yaw) * e.dir * 1.5f; a.y = T.height(a.x, a.z); } }
+        }
+      }
+      for (auto& o : ddayDoc["scenario"]["objectives"]) {
+        std::vector<vec3> pp; float len = 0; ++spN;
+        bool r = nav->pathSync(a, P(o["pos"]), pp, nullptr, nullptr, &len) && !pp.empty() && glm::length(vec2(pp.back().x - o["pos"][0].get<float>(), pp.back().z - o["pos"][2].get<float>())) < o.value("radius", 10.0f);
+        spOk += r;
+        if (!r) sp += " " + s.value("label", std::string("?")) + "->" + o.value("displayName", std::string("?"));
+      }
+    }
+  }
+  out("spawn_paths", std::to_string(spOk) + " of " + std::to_string(spN) + " spawn-to-objective paths" + (sp.empty() ? " (PASS)" : "; missing:" + sp + " (FAIL)"));
+  delete nav;
+  std::ofstream(exeDir() / "selftest_out" / "report_dday.json") << rep.dump(1);
 }
 }
 
@@ -253,6 +364,23 @@ void SelfTest::captureUpdate(App& app, float dt) {
       app.syncRuntime();
       app.hideEditorOverlays = true;
       app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "dday") {
+      // NMK_CAPTURE_SET=dday (D1): the D-day map from its template; an annotated top view (overlay lines: the playable
+      // square white, region thirds yellow, trenches orange, firing sectors red, Allied spawns blue, Axis grey,
+      // objectives yellow rings), the same view clean, then ddayChecks (one trench network, nav paths)
+      const TemplateInfo* dt = app.findTemplate("dday");
+      if (!dt) { logf("dday capture: no dday template"); finish(app); return; }
+      app.newMap(*dt, "D-day");
+      try { ddayDoc = json::parse(readTextFile(contentDir() / "templates" / "dday.nmap.json")); } catch (...) { ddayDoc = json::object(); }
+      app.syncRuntime(); navSyncCuts(app);
+      ddayAnnotate(app);
+      cams = {{"dday_overview_annotated", vec3(0, 330, 0.5f), vec3(0, 0, 0)}, {"dday_overview_oblique", vec3(0, 200, 230), vec3(0, 0, -10)}};
+      app.hideEditorOverlays = false; app.gridOverlay = false;
+      app.grassBudgetMs = -1;
+      ddaySet = true;
       ci = 0; frames = 0; stage = 801;
       return;
     }
@@ -714,6 +842,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
     if (!presetDone) { presetDone = true; if (const char* ps = std::getenv("NMK_CAPTURE_PRESET")) { std::string q = ps; settings().applyPreset(app, q == "Low" ? GfxPreset::Low : q == "High" ? GfxPreset::High : GfxPreset::Medium); } } }
   if (ci >= cams.size()) {
     if (!shSites.empty()) { if (++frames < 30) return; strongholdChecks(app); shSites.clear(); }   // after the physics settled
+    if (ddaySet) { if (++frames < 30) return; ddayChecks(app); ddaySet = false; }
     if (gxTiming) {
       json j = json::object();
       for (auto& [k, v] : gxMs) j[k] = {{"gpuMs", v.first / std::max(1, v.second)}, {"frames", v.second}};

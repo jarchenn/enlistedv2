@@ -209,6 +209,13 @@ distance dominates the frame. In bocage the next hedge hides what lies beyond it
   `--render-map-thumbs` to one template; `NMK_MODES_MAP=templates/chateau_town.nmap.json` runs `--selftest-modes`'
   live matches on it.
 
+- `maps/dday.py`: D-day (D1), a 265 x 265 m landing (half the Chateau town's area): sea and beach (landing craft,
+  staggered obstacle groups, dunes), bunker country (two belts, flak, `mil_stronghold` with GX1 earthworks) and a
+  village (three Axis spawn houses). The trench network is laid piece by piece from junction sockets (`Trenches`):
+  every run must land exactly on its target socket, so the pieces join into one GX1 network. The build report checks
+  terrain line of sight from every fixed gun to the three landings. Assault A-C, TDM, Solo. NMK_CAPTURE_SET=dday
+  renders the annotated overview and checks the network and the spawn paths in the engine.
+
 - `promote_map.py <map.nmap.json> <id> "<Name>" --order N [--description ...] [--thumb x,y,z,yaw,pitch]` turns a
   saved map into a New Map template on the same procedural ground (template seed and size), with its instances,
   scenario and cameras; `playable` when it has objectives. Shipped this way: `tank_range` (Tank Range, from

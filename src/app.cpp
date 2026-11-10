@@ -834,6 +834,10 @@ int App::run(int argc, char** argv) {
       projM = w3EditorProjection(*this, aspect);   // 60 deg; near / far follow height and map size (editor_nav.cpp)
       v.editor = !hideEditorOverlays; v.grid = gridOverlay; v.autoExposure = false; v.camPos = camPos;
       if (!hideEditorOverlays) drawCreativeOverlay(ov, ghosts);
+      for (auto* p : {&gAnnotOverlay.lines, &gAnnotOverlay.linesTop, &gAnnotOverlay.tris}) {   // capture annotations
+        auto& to = p == &gAnnotOverlay.lines ? ov.lines : p == &gAnnotOverlay.linesTop ? ov.linesTop : ov.tris;
+        to.insert(to.end(), p->begin(), p->end());
+      }
       audio.setListener(camPos, forward(camYaw, camPitch));
     } else {
       float shk = reducedMotion ? 0.0f : blastShake * blastShake * 1.6f;   // concussion shake (deg)

@@ -1249,7 +1249,7 @@ export function stronghold() {
   A.meta.earthwork = {
     core: [XO, (ZF - ZR) / 2, 0, z((ZF + ZR) / 2)],
     banks: [[-XO - 0.6, z(ZR), XO + 0.6, z(ZR), H], [-XO, z(ZR - 0.6), -XO, z(-5.0), H], [-XO, z(-5.0), -XO, z(0.6), H, 1.0],
-      [XO, z(ZR - 0.6), XO, z(-3.8), H], [XO, z(-3.8), XO, z(1.5), H, 1.0], [-XO - 0.6, z(ZF), XO + 0.6, z(ZF), 0.85]],
+      [XO, z(ZR - 0.6), XO, z(-6.5), H], [XO, z(-6.5), XO, z(1.5), H, 0.8], [-XO - 0.6, z(ZF), XO + 0.6, z(ZF), 0.85]],
     holes: [[-XO - 12, z(0.7), -XO, z(4.3)], [XO, z(1.6), XO + 12, z(4.3)]],
     cuts: [[-3.8, z(ZR), -3.8, z(ZR - RUN - 0.4), 2.8, r3(H + 0.3), 0], [XO, z(-2.8), 29.7, z(-2.8), 0.96, r3(H + 0.15), 0]],
   };

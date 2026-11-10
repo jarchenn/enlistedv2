@@ -123,6 +123,8 @@ Placement rules:
 | `lamp_hanging_lantern` | Paraffin storm lantern (`hang`): porches, barns, workshops | interior, 1.0, 7 m |
 | `fire_brazier` | Iron fire basket on three legs; flames and smoke | fire, 2.5, 9 m |
 | `fire_campfire` | Stone ring, log teepee, embers (cosmetic); flames and smoke | fire, 3.0, 10 m |
+| `fx_wreck_fire` | Burning debris by a wreck (D-day, `tools/gen_dday_fx.mjs`): flames and a `smoke_column` | fire, 4.0, 14 m |
+| `fx_impact_smoke` | Smouldering impact: embers and a thin `smoke_column` (D-day) | fire, 1.2, 6 m |
 
 **Indoor** (`tools/gen_furniture.py`, class `A`, category **Furniture**):
 
