@@ -17,7 +17,8 @@ struct SurfaceParams {
   glm::ivec2 roomX{0};                   // GX5: rooms past 16 (large buildings) as records in Renderer::sdec: first, count
 };
 struct StaticDecal { vec4 a, b, c; };    // GX5 (static_decals.h): centre + type, normal + seed, half size + strength + variant
-struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
+struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const SurfaceParams* surf = nullptr; vec4 apWorld{0}; float glow = 1.0f;
+  const vec4* contact = nullptr;   // MA2: the copy's ground-contact grid (InstanceRT::contact: box + 4 rows), null = asset ground   // apWorld.w = 1: world-space pattern coordinates (V6 snap.cpp); glow: emissive multiplier (0 = lamp off, L2)
   float castR = 0;          // R2 castercull: > 0 = casts sun shadows only within this many metres of the eye (small props; interior.cpp)
   bool mainHidden = false;  // R2 roomcull: not drawn in the camera pass (an interior seen through no opening); shadows and probes keep it
 };
@@ -144,6 +145,7 @@ public:
     bool assetLod = true;        // assetlod: part-built assets drawn with their LOD meshes by screen size; sub-pixel props skipped
     bool probeCapture = true;    // probecapture (measurement): off = no probe captures this frame (GI frozen); A/B = the live capture cost
     bool matLayer = true;        // matlayer (GX5): the wear / grime / seam / detail material layer
+    bool foundWx = true;         // foundwx (MA2): foundation weathering by height above the local ground (off = above the asset ground)
     bool staticDecals = true;    // sdecals (GX5): the static wall decals (stains, soot, cracks, scuffs, ...)
     bool grade = true;           // grade (GX5): the parameterised grade, vignette, sharpen (off = the old fixed grade)
     bool casterCull = true;      // castercull (R2): small props cast sun shadows only near the eye (DrawItem::castR)
@@ -164,7 +166,7 @@ public:
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : nullptr;
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : nullptr;
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
@@ -226,6 +228,7 @@ public:
   // Depth convention (docs/rendering.md#depth-convention). The world camera passes of render() are reverse-Z: clip depth
   // 0..1 (glClipControl), near = 1, far = 0, cleared to 0, GL_GREATER. Shadow cascades, sky occlusion, thumbnails and
   // offscreen sheets keep the standard GL convention. Code drawing inside render() picks its depth state from these.
+  int gxDebug = 0;                      // MA2 / GX5 debug views (as NMK_GX5_DEBUG; 3 = foundation mask), set by tests
   int wallRelief = 1;                   // A/B (--selftest-render): 0 = wall patterns 17-22 without their relief bump / light term
   bool revZ = false;                    // true once render() ran: the world camera passes are reverse-Z
   GLenum zLess() const { return revZ ? GL_GREATER : GL_LESS; }
@@ -250,7 +253,7 @@ private:
   static constexpr float kLeafNearIn = 10, kLeafNearOut = 12, kLeafMidIn = 22, kLeafMidOut = 26;
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
-  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, roomDec = -1, extDec = -1, roomX = -1,
+  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, contactBox = -1, contact = -1, foundWx = -1, roomDec = -1, extDec = -1, roomX = -1,
                     vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,
                     alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, snapAp = -1, glow = -1; };
   std::vector<std::pair<GLuint, DrawLocs>> locCache;

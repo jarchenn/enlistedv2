@@ -314,7 +314,9 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         if (lf.glass.count && !(st & 1)) gl.push_back({&lf.glass, L});
       }
     }
-    for (size_t k = opFirst; k < op.size(); ++k) op[k].surf = surf;
+    // MA2: foundation weathering follows the ground under anything that stands on it (buildings, bunkers, garden walls)
+    const vec4* contact = r.asset->footprint.x * r.asset->footprint.y >= 1.0f ? contactProfile(i, r) : nullptr;
+    for (size_t k = opFirst; k < op.size(); ++k) { op[k].surf = surf; op[k].contact = contact; }
     if (!R.perf.assetLod || lodPxPerM <= 0 || lodPxPerM >= 4.0f * camDist) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // B1 ivy (ivy.cpp); PF2: not under 4 px/m
   }
   hlodDraw(op, gl);
@@ -333,6 +335,24 @@ const GpuMesh& App::assetLodMesh(InstanceRT& r, const AssetDef* a, const GpuMesh
   if (lvl == 2 && a->lodMesh[1].count) return a->lodMesh[1];
   if (lvl >= 1 && a->lodMesh[0].count) return a->lodMesh[0];
   return full;
+}
+
+// MA2: the real terrain under a pinned copy's walls, as a 4x4 grid of ground heights (asset space, relative to the
+// copy's y) over its footprint grown by 0.4 m, so the samples on the box edges sit just outside the walls. Rebuilt when
+// the copy or the ground changes (placement, moves, sculpting, craters). kMainFS reads it as the local ground line.
+// shortcut: 4 x 4 samples (13 m apart on the 40 m chateau) miss ground detail finer than that; a perimeter list would not.
+const vec4* App::contactProfile(const Instance& i, InstanceRT& r) {
+  if (r.contactRev == i.rev && r.contactGround == groundRev) return r.contact;
+  r.contactRev = i.rev; r.contactGround = groundRev;
+  vec2 mn = vec2(r.asset->bmin.x, r.asset->bmin.z) - 0.4f, mx = vec2(r.asset->bmax.x, r.asset->bmax.z) + 0.4f;
+  r.contact[0] = vec4(mn, mx);
+  quat q = yawQuat(i.yaw);
+  for (int z = 0; z < 4; ++z) for (int x = 0; x < 4; ++x) {
+    vec2 a = glm::mix(mn, mx, vec2(x, z) / 3.0f);
+    vec3 w = i.pos + q * vec3(a.x, 0, a.y);
+    r.contact[1 + z][x] = terrain.height(w.x, w.z) - i.pos.y;
+  }
+  return r.contact;
 }
 
 // ============================================================ documents
