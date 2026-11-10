@@ -480,8 +480,29 @@ void SelfTest::captureUpdate(App& app, float dt) {
       cams.clear();
       static std::deque<std::string> keep;
       int k = 0;
+      if (const char* tp = std::getenv("NMK_CAPTURE_TEMPLATE"); tp && *tp)   // a default map first (inst:<id> entries look at its instances)
+        if (const TemplateInfo* t = app.findTemplate(tp)) app.newMap(*t, t->name);
       for (size_t p = 0, q; (q = s.find(',', p)) != std::string::npos; p = q + 1) {
         std::string id = s.substr(p, q - p);
+        if (id.rfind("inst:", 0) == 0) {   // inst:<id>: an instance of the loaded map (a line: its middle point), near and far
+          const Instance* in = app.doc.find(std::stoull(id.substr(5)));
+          if (!in) continue;
+          vec2 o(in->pos.x, in->pos.z); LineData ld;
+          if (lineGet(*in, ld)) { auto sp = lineSpline(ld, 1.0f); if (!sp.empty()) o = sp[sp.size() / 2].p; }
+          vec3 t(o.x, app.terrain.height(o.x, o.y) + 0.8f, o.y);
+          keep.push_back(id.substr(5) + "_near"); cams.push_back({keep.back().c_str(), t + vec3(3.5f, 1.6f, 5.0f), t});
+          keep.push_back(id.substr(5) + "_far"); cams.push_back({keep.back().c_str(), t + vec3(-9.0f, 4.0f, 12.0f), t});
+          continue;
+        }
+        if (id.rfind("line:", 0) == 0) {   // line:<type>: a gently curved 14 m line of that type, drawn as Line mode draws it
+          vec2 o(-125.0f + 50.0f * (k % 6), -125.0f + 50.0f * (k / 6)); ++k;
+          extern uint64_t lineCreate(App&, const std::string&, std::vector<vec2>, const json&, uint32_t);
+          if (!lineCreate(app, id.substr(5), {o + vec2(-7, 0), o + vec2(0, 1.2f), o + vec2(7, 0)}, json::object(), 0)) continue;
+          vec3 t(o.x, app.terrain.height(o.x, o.y) + 0.8f, o.y);
+          keep.push_back(id.substr(5) + "_line_near"); cams.push_back({keep.back().c_str(), t + vec3(3.5f, 1.6f, 5.0f), t});
+          keep.push_back(id.substr(5) + "_line_far"); cams.push_back({keep.back().c_str(), t + vec3(-9.0f, 4.0f, 12.0f), t});
+          continue;
+        }
         const AssetDef* a = id.empty() ? nullptr : app.lib.find(id);
         if (!a) continue;
         uint64_t iid = app.placeInstance(a, vec3(-125.0f + 50.0f * (k % 6), 0, -125.0f + 50.0f * (k / 6)), 0.0f);
