@@ -309,6 +309,8 @@ const char* kCommonGLSL = R"GLSL(
 uniform sampler2DArray uTexCol, uTexNrm, uTexRH;   // colour (sRGB) + ao, normal xy, roughness + height
 uniform int uTexOn;
 uniform int uTexSkipFar;
+uniform int uImgMat;       // MA1 imgmat table active (render.cpp: room floor finishes take uFloorSlot; terrain layers alternate sets)
+uniform sampler2D uTexMacro;   // MA1 macro variation (unit 25): R tint, G roughness, B damp, A substrate / alternate-set mask; one tile = 32 m
 float gTexNFade = 1.0;     // MA1: share of the far normal fade (texSlotTaps: 0.5 for replace sets under imgmat)   // MA1 imgmat: 1 = skip normal taps whose detail is faded out (far)
 // MA1: the slot / layer tables live in one uniform buffer (binding 3, 14 KB): as plain uniforms they passed the 1024
 // constant registers of a fragment program once the tables grew (160 slots, 128 layers)
@@ -369,7 +371,7 @@ TexS texTri(float L, vec3 p, vec3 n, vec3 dpx, vec3 dpy, vec2 inv, int rot){
 struct TerrT { vec3 alb; float r, ao; vec3 dn; };
 // any slot (terrain layers, painted ground: terrTexSlot(uPaintSlot[k], ...)); dpx / dpy = dFdx / dFdy of p taken in
 // uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
-TerrT terrTexSlot(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
+TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   TerrT o = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0));
   if (!texOn() || slot < 0 || slot >= 160) return o;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return o;
@@ -388,6 +390,22 @@ TerrT terrTexSlot(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   o.dn = (s.n - n)*K.y*f;
   return o;
 }
+// MA1 imgmat: a slot with an "under" set alternates with it by the world macro mask (A), patches of a few metres, so
+// two ground sets break each other's tiling; both are sampled only in the narrow transition band
+TerrT terrTexSlot(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
+  if (uImgMat == 1 && slot >= 0 && slot < 160 && uTexU[slot].x >= 0.0) {
+    vec3 a = abs(n); bool fl = a.y > max(a.x, a.z), xw = a.x > a.z;
+    vec2 uv = fl ? p.xz : xw ? p.zy : p.xy;
+    float lod = log2(max(max(length(dpx), length(dpy)), 1e-4)*256.0/32.0);
+    float m = smoothstep(uTexU[slot].y, uTexU[slot].y + 0.12, textureLod(uTexMacro, uv/32.0 + 0.37, max(lod, 0.0)).a);
+    int u = int(uTexU[slot].x + 0.5);
+    if (m <= 0.001) return terrTexOne(slot, p, n, dpx, dpy, dist);
+    if (m >= 0.999) return terrTexOne(u, p, n, dpx, dpy, dist);
+    TerrT x = terrTexOne(slot, p, n, dpx, dpy, dist), y = terrTexOne(u, p, n, dpx, dpy, dist);
+    return TerrT(mix(x.alb, y.alb, m), mix(x.r, y.r, m), mix(x.ao, y.ao, m), mix(x.dn, y.dn, m));
+  }
+  return terrTexOne(slot, p, n, dpx, dpy, dist);
+}
 TerrT terrTex(int layer, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){ return terrTexSlot(uTerrSlot[layer], p, n, dpx, dpy, dist); }
 )GLSL";
 
@@ -397,9 +415,7 @@ uniform mat4 uModel;
 uniform int uPatSlot[32];
 uniform int uMatLayer;   // GX5 layered materials (render.cpp kMainFS, docs/graphics-overhaul.md#gx5): 0 off, 1 on, 2 High (+ POM)
 vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world normal delta, height (m) for the derivative bump
-uniform int uImgMat;       // MA1 imgmat table active (render.cpp: room floor finishes take uFloorSlot)
 uniform int uFloorSlot[8]; // MA1: room floor finish code -> slot (imgmat)
-uniform sampler2D uTexMacro;   // MA1 macro variation (unit 25): R tint, G roughness, B damp, A substrate exposure; one tile = 32 m
 float gTexWear = 1.0;      // the copy's wear (kMainFS sets uInst.y before texMaterial): more substrate on worn buildings
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
 bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 160 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }

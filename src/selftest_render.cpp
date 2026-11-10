@@ -150,6 +150,27 @@ void build(App& app) {
     }
     return t > 0.5f;
   });
+  // MA1 material capture (NMK_MA1_SHOTS=1 runs only this): the chateau's brick chimney breast in shade at 5 m, its sunlit
+  // front at 5 m, the roof at 10 and 30 m, the farmhouse front at 20 and 50 m; Medium's 0.67 scale with TAAU ->
+  // selftest_out/ma1_<view>.png (run once with --rq-off imgmat for the before set)
+  if (std::getenv("NMK_MA1_SHOTS")) {
+    static const vec3 C(-100.0f, 0, 40.0f);   // clear of the facades, the kit folly and the ponds
+    push("ma1: the chateau", [](App& a, float t) { if (t == 0) { place(a, "vil_chateau_grand", C); a.syncRuntime(); } return t > 0.5f; });
+    struct V { const char* name; vec3 at; float yaw, pitch; };
+    static const V vs[6] = {{"chimney_shade_5m", C + vec3(-5.5f, 0, -16.0f), 180.0f, 22.0f}, {"chateau_sun_5m", C + vec3(-3.0f, 0, 16.5f), 0.0f, 18.0f},
+                            {"roof_10m", C + vec3(-2.0f, 0, -21.0f), 180.0f, 38.0f}, {"roof_30m", C + vec3(-2.0f, 0, -41.0f), 180.0f, 16.0f},
+                            {"facade_20m", F0 + vec3(0, 0, kFacadeZ + 20.0f), 0.0f, 4.0f}, {"facade_50m", F0 + vec3(0, 0, kFacadeZ + 50.0f), 0.0f, 2.0f}};
+    for (int k = 0; k < 6; ++k) push(std::string("ma1_") + vs[k].name, [k](App& a, float t) {
+      if (t == 0) { a.R.setResolutionScale(0.67f); a.R.resetTemporal(); firstPerson(a, vs[k].at, vs[k].yaw, vs[k].pitch); }
+      a.eyeYaw = vs[k].yaw; a.eyePitch = vs[k].pitch;
+      std::string nm = std::string("ma1_") + vs[k].name;
+      if (t > 1.2f && t < 1.2f + 1.5f / 60.0f) pendingShot = outDir() / (nm + ".png");
+      if (t > 1.5f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png", nm.c_str(), nm.c_str()); return true; }
+      return false;
+    });
+    push("ma1: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); return t > 0.2f; });
+    return;
+  }
   // P1 TAAU capture set (NMK_TAAU_SHOTS=1 runs only this, rendering.md 14): still, turning (100 deg/s), foliage and Kar98k
   // sights at Medium's 0.67 scale, native (taau off) then TAAU, from identical cameras -> selftest_out/taau_<view>_<mode>.png
   if (std::getenv("NMK_TAAU_SHOTS")) {
