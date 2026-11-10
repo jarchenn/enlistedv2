@@ -75,7 +75,7 @@ Overrides are stored in `settings_user.json` and applied at the end of `App::loa
 
 | | Low | Medium | High |
 |---|---|---|---|
-| Resolution scale | 0.85 | 1.0 | 1.0 |
+| Resolution scale | 0.5 (TAAU) | 0.67 (TAAU) | 1.0 |
 | Shadows (near / far) | 2048 / 1024 | 4096 / 2048 | 4096 / 4096 |
 | Cloud shadows, light shafts, SSR, SSAO | off | on | on |
 | SSAO resolution | — | half | full |

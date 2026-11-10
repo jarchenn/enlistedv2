@@ -211,6 +211,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     if (const char* only = std::getenv("NMK_MAPS")) { std::string o = std::string(",") + only + ","; std::erase_if(sTpl, [&](int k) { return o.find("," + app.templates[k].id + ",") == std::string::npos; }); }   // measurement runs: only these map ids
     check(!sTpl.empty(), fmt("authored default-map templates found: %zu", sTpl.size()));
     if (sTpl.empty()) { finish(app); return; }
+    settings().applyPreset(app, GfxPreset::Medium);   // P1: every Medium view at the Medium preset (resolution 0.67 + TAAU), as after a Low / High pass
     go(4101);
     break;
   }

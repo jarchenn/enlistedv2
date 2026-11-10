@@ -150,6 +150,33 @@ void build(App& app) {
     }
     return t > 0.5f;
   });
+  // P1 TAAU capture set (NMK_TAAU_SHOTS=1 runs only this, rendering.md 14): still, turning (100 deg/s), foliage and Kar98k
+  // sights at Medium's 0.67 scale, native (taau off) then TAAU, from identical cameras -> selftest_out/taau_<view>_<mode>.png
+  if (std::getenv("NMK_TAAU_SHOTS")) {
+    push("taau: an oak for the foliage view", [](App& a, float t) { if (t == 0) { place(a, "tree_oak", F0 + vec3(-8.0f, 0, 30.0f)); a.syncRuntime(); } return t > 0.5f; });
+    static const char* vn[4] = {"still", "turning", "foliage", "sights"};
+    for (int m = 0; m < 2; ++m) for (int k = 0; k < 4; ++k) {
+      std::string nm = std::string("taau_") + vn[k] + (m ? "_taau" : "_native");
+      push(nm, [m, k, nm](App& a, float t) {
+        vec3 at = k == 2 ? F0 + vec3(-8.0f, 0, 38.0f) : F0 + vec3(0, 0, 24.0f);
+        float yaw = k == 1 ? -50.0f + 100.0f * t : 0.0f, pitch = k == 2 ? 10.0f : 2.0f;
+        if (t == 0) {
+          a.R.perf.taau = m == 1; a.R.setResolutionScale(0.67f); a.R.resetTemporal();
+          firstPerson(a, at, yaw, pitch);
+          if (k == 3) a.selectWeapon(a.weaponIndex("kar98k"));
+        }
+        a.eyeYaw = yaw; a.eyePitch = pitch;
+        if (k == 3) a.scriptedInput.aim = true;
+        if (t > 1.0f && t < 1.0f + 1.5f / 60.0f) pendingShot = outDir() / (nm + ".png");
+        if (t > 1.3f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png", nm.c_str(), nm.c_str()); return true; }
+        return false;
+      });
+    }
+    push("taau: back to native", [](App& a, float t) { a.R.perf.taau = true; a.R.setResolutionScale(1.0f); a.scriptedInput.aim = false;
+      if (t > 0.2f) chk(a.R.fboErrors == 0 && a.R.shaderErrors == 0, "TAAU capture: framebuffer errors %d, shader errors %d", a.R.fboErrors, a.R.shaderErrors);
+      return t > 0.2f; });
+    return;
+  }
   // ---------------------------------------------------------------- facades at 20 / 50 / 100 m
   // the last two runs are a TAA A/B at 50 m (report only): output sharpening 0.40 -> 0.20, jitter 0.5 -> 0.35 px span
   // (and, in the V1 tree, the rough-wall relief switched off at 20 and 50 m, and the old sharpening at 20 m)
