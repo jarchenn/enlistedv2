@@ -347,7 +347,7 @@ def socket_pairs(inst):
 
 def trench_heights(grid, strong_y, pins):
     """Lay the network out on the sculpted ground, then relax the pieces' heights so joined floors differ by 0.25 m at
-    most (each piece's floor collider is flat: steps between pieces must stay under the 0.45 m climb), and flatten the
+    most where the pins allow (the carved floor slopes between joints, so this only keeps the runs smooth), and flatten the
     ground along every piece to its height so the trench stays its designed depth."""
     T = build_trenches(_Layout(grid), {"pos": [0.0, strong_y, 0.0]}, pins=pins)
     y = [e["pos"][1] for e in T.inst]
