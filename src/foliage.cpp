@@ -318,6 +318,15 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
   if (t.cardMin.x > t.cardMax.x) t.cardMin = t.cardMax = vec3(0);
   if (!species.empty()) {   // L1 instanced leaves: one VAO over the shared sprig meshes (binding 0) and this tree's cards (binding 1)
     std::vector<float> all;
+    // DR1 farleaf: each sprig group in a fixed random order, so the first n cards of a group are an even sample of the
+    // whole crown (the far tiers draw a prefix; render.cpp leafFarCount). The full set is the same cards as before.
+    for (size_t sg = 0; sg < inst.size(); ++sg) {
+      std::mt19937 sh(tj.value("seed", 1u) * 2654435761u + (uint32_t)sg * 40503u + 977u);
+      for (size_t n = inst[sg].size() / 16; n > 1; --n) {
+        size_t k = sh() % n;
+        if (k != n - 1) std::swap_ranges(inst[sg].begin() + (n - 1) * 16, inst[sg].begin() + n * 16, inst[sg].begin() + k * 16);
+      }
+    }
     for (size_t sg = 0; sg < inst.size(); ++sg) if (!inst[sg].empty()) {
       t.leafGroups.push_back({(int)sg, (int)(all.size() / 16), (int)(inst[sg].size() / 16), sprigTint[sg]});
       all.insert(all.end(), inst[sg].begin(), inst[sg].end());

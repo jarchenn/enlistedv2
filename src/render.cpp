@@ -2101,6 +2101,7 @@ static const char* kLeafInstVS = R"GLSL(
 layout(location=0) in vec3 aC; layout(location=1) in vec3 aN; layout(location=2) in vec2 aUV; layout(location=3) in float aLayer;
 layout(location=4) in vec3 iCtr; layout(location=5) in vec3 iT; layout(location=6) in vec3 iB; layout(location=7) in vec3 iDir; layout(location=8) in vec3 iMSS;
 uniform mat4 uModel, uVP; uniform float uTime, uWind;
+uniform float uCardScale;   // DR1 farleaf: the far tiers keep a share of the cards and grow them (1 near)
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
 out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
 flat out float vLayer; out vec3 vLN;
@@ -2113,7 +2114,7 @@ vec3 leafSway(vec3 w, float t, float m){
 }
 void main(){
   vec3 n = cross(iT, iB)/max(length(iT), 1e-6);   // card normal, same length as iT / iB
-  vec4 w0 = uModel*vec4(iCtr + iT*aC.x + iB*aC.y + n*aC.z, 1.0), w = w0;
+  vec4 w0 = uModel*vec4(iCtr + (iT*aC.x + iB*aC.y)*uCardScale + n*aC.z, 1.0), w = w0;
   w.xyz += leafSway(w0.xyz, uTime, iMSS.x);
   vec3 ln = normalize(iT*aN.x + iB*aN.y + n*aN.z);
   if (dot(ln, iDir) < 0.0) ln = -ln;               // two-sided: the face toward the cluster's outside
@@ -3567,12 +3568,21 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
 // Trees with L1 species leaves (perf.leafTex) draw their cards as instances of the shared sprig meshes with the
 // instanced twin of p (progLeafI / progLeafIShadow): LOD f.cur in the main view (view), the sprig cards elsewhere
 // (sun / sky-occlusion shadows: same layers, same alpha). Everything else (ivy, ferns, oval A/B) draws the card VBO.
+// DR1 farleaf: far canopy tiers. Leaf LOD 3 / 4 / 5 (selectLeafLods: from 80 / 180 / 400 m) keeps 40 / 15 / 6 % of every
+// leaf group's cards and grows them 1.5 / 2.4 / 3.5 x (uCardScale), so the leaf area stays about the same. The kept
+// cards are a prefix of the group, which foliage.cpp shuffles once at load: the subsets are nested, so a tree never
+// swaps one random set for another when its tier changes.
+static const float kLeafFarKeep[3] = {0.40f, 0.15f, 0.06f}, kLeafFarScale[3] = {1.5f, 2.4f, 3.5f};
+static int leafFarCount(int n, int tier) { return std::max(1, (int)(n * kLeafFarKeep[tier] + 0.5f)); }
+
 // P2 folbatch: per-frame cell membership; a cell whose member set changed (a tree felled, placed, moved, in or out of
-// the draw distance) is rebuilt, at most 8 a frame; until then its trees draw one by one
+// the draw distance) is rebuilt, at most 8 a frame; until then its trees draw one by one. DR1: a cell holds only the
+// two farthest tiers (15 % + 6 % of the cards, in world space); nearer trees draw from their asset's own buffer.
 void Renderer::prepFoliageBatches() {
-  for (auto& [k, c] : folCells) { c.sig = 0; c.want.clear(); }
+  folBatchBytes = folBatchTrees = 0; folBatchCells = folCells.size();
+  for (auto& [k, c] : folCells) { c.sig = 0; c.want.clear(); folBatchBytes += c.bytes; folBatchTrees += c.ids.size(); }
   for (auto& f : foliage) f.batched = false;
-  if (!perf.folBatch || !perf.leafTex || !leafLibReady() || thumbMode) return;
+  if (!perf.folBatch || !perf.farLeaf || !perf.leafTex || !leafLibReady() || thumbMode) return;
   auto mix = [](uint64_t h, uint64_t v) { h ^= v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2); return h * 0x100000001B3ull; };
   for (int k = 0; k < (int)foliage.size(); ++k) {
     const FoliageDraw& f = foliage[k];
@@ -3595,23 +3605,23 @@ void Renderer::prepFoliageBatches() {
       std::sort(ord.begin(), ord.end(), [&](int a, int b) { const vec4 &p = foliage[a].m[3], &q = foliage[b].m[3]; return p.x != q.x ? p.x < q.x : p.z < q.z; });
       const TreeDef& td = *c.tree;
       const size_t T = ord.size(), G = td.leafGroups.size();
-      const bool hasShad = td.leafShadowGroups.size() == G;
       c.ids.resize(T); c.slot.clear(); for (size_t t = 0; t < T; ++t) { c.ids[t] = foliage[ord[t]].id; c.slot[c.ids[t]] = (int)t; }
-      c.full.assign(G * T, glm::ivec2(0)); c.shad.assign(G * T, glm::ivec2(0));
+      c.farR[0].assign(G * T, glm::ivec2(0)); c.farR[1].assign(G * T, glm::ivec2(0));
       std::vector<float> buf;
-      auto put = [&](const TreeDef::LeafGroup& g, const mat4& M, std::vector<glm::ivec2>& rng, size_t at) {
+      auto put = [&](const TreeDef::LeafGroup& g, int count, const mat4& M, std::vector<glm::ivec2>& rng, size_t at) {
         glm::mat3 R(M);
-        rng[at] = glm::ivec2((int)(buf.size() / 16), g.count);
-        for (int n = 0; n < g.count; ++n) {
+        rng[at] = glm::ivec2((int)(buf.size() / 16), count);
+        for (int n = 0; n < count; ++n) {
           const float* s = &td.leafInstCpu[(size_t)(g.first + n) * 16];
           vec3 ctr = vec3(M * vec4(s[0], s[1], s[2], 1)), T3 = R * vec3(s[3], s[4], s[5]), B3 = R * vec3(s[6], s[7], s[8]), D = glm::normalize(R * vec3(s[9], s[10], s[11]));
           buf.insert(buf.end(), {ctr.x, ctr.y, ctr.z, T3.x, T3.y, T3.z, B3.x, B3.y, B3.z, D.x, D.y, D.z, s[12], s[13], s[14], s[15]});
         }
       };
-      for (size_t g = 0; g < G; ++g) for (size_t t = 0; t < T; ++t) put(td.leafGroups[g], foliage[ord[t]].m, c.full, g * T + t);
-      for (size_t g = 0; g < G; ++g) for (size_t t = 0; t < T; ++t) put(hasShad ? td.leafShadowGroups[g] : td.leafGroups[g], foliage[ord[t]].m, c.shad, g * T + t);
+      for (int k = 0; k < 2; ++k)   // leaf LOD 4 and 5
+        for (size_t g = 0; g < G; ++g) for (size_t t = 0; t < T; ++t) put(td.leafGroups[g], leafFarCount(td.leafGroups[g].count, k + 1), foliage[ord[t]].m, c.farR[k], g * T + t);
       if (c.vao) glDeleteVertexArrays(1, &c.vao); if (c.vbo) glDeleteBuffers(1, &c.vbo);
       glCreateBuffers(1, &c.vbo); glNamedBufferStorage(c.vbo, std::max<size_t>(buf.size(), 16) * 4, buf.empty() ? nullptr : buf.data(), 0);
+      c.bytes = buf.size() * 4;
       c.vao = leafInstVao(c.vbo);
       c.builtSig = c.sig;
     }
@@ -3633,8 +3643,16 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
     glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1f(L.time, time); glUniform1f(L.wind, wind);
     GLint lm = L.model, lc = L.leafCol;
+    GLint lcs = pass == 1 ? U(q, "uCardScale") : -1; float curScale = -1.0f;
+    auto setScale = [&](float sc) { if (lcs >= 0 && sc != curScale) { curScale = sc; glUniform1f(lcs, sc); } };
+    setScale(1.0f);
+    // the canopy tier of a tree in this pass: its leaf LOD in the main view; in the far cascade and the sky-occlusion map
+    // (lodFrom == 0) at least the first far tier; the sprig cards in the near cascade
+    auto tierOf = [&](const FoliageDraw& f) -> int { return view ? f.cur : perf.farLeaf && lodFrom == 0.0f ? std::max<int>(f.cur, 3) : 2; };
     for (auto& f : foliage) {
-      if (!mine(f) || (pass == 1 && f.batched)) continue;   // batched: drawn from its cell below
+      if (!mine(f)) continue;
+      const int tier = pass == 1 ? tierOf(f) : 2;
+      if (pass == 1 && f.batched && tier >= 4) continue;   // drawn from its cell below
       if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway + (pass ? 0.05f : 0.0f))) { stats.culled++; continue; }   // leaf fold: a few cm off the card
       glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
       // R2 leafshadowlod: a depth pass past lodFrom metres from the eye casts from the shadow LOD (foliage.cpp): half the
@@ -3649,16 +3667,18 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
         stats.draws++; stats.foliageDraws++; stats.tris += n / 3;
         continue;
       }
-      int lod = view ? f.cur : 2;
+      const int lod = std::min(tier, 2); const bool farT = tier >= 3;
+      setScale(farT ? kLeafFarScale[tier - 3] : 1.0f);
       glBindVertexArray(f.tree->leafVao);
-      for (auto& g : slod && !f.tree->leafShadowGroups.empty() ? f.tree->leafShadowGroups : f.tree->leafGroups) {
+      for (auto& g : !farT && slod && !f.tree->leafShadowGroups.empty() ? f.tree->leafShadowGroups : f.tree->leafGroups) {
         const LeafMeshRange& r = gLeafSprigMesh[g.sprig * 3 + lod];
+        const int n = farT ? leafFarCount(g.count, tier - 3) : g.count;   // a far tier: the first share of the (shuffled) group
         if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(g.tint));
-        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), g.count, r.baseVertex, g.first);
-        stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * g.count;
+        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), n, r.baseVertex, g.first);
+        stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * n;
       }
     }
-    if (pass == 1 && !folCells.empty()) {   // P2 folbatch: each cell's visible trees, per leaf group, in runs of equal LOD
+    if (pass == 1 && !folCells.empty()) {   // P2 folbatch: each cell's visible far-tier trees, per leaf group, in runs of one tier
       const mat4 I(1); glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(I));
       std::vector<int> st;
       for (auto& [key, c] : folCells) {
@@ -3670,8 +3690,9 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
           if (k < 0 || k >= (int)foliage.size() || !foliage[k].batched || foliage[k].id != c.ids[t] || foliage[k].tree != c.tree) continue;   // only this frame's list (thumbnails swap it)
           const FoliageDraw& f = foliage[k];
           if (fr && !fr->visible(td.cardMin, td.cardMax, f.m, sway + 0.05f)) { stats.culled++; continue; }
-          bool slod = !view && lodFrom >= 0 && (lodFrom == 0 || glm::length(vec3(f.m[3]) - castEye) > lodFrom) && !td.leafShadowGroups.empty();
-          st[t] = (view ? f.cur : 2) * 2 + (slod ? 1 : 0); any = true;
+          const int tier = tierOf(f);
+          if (tier < 4) continue;   // nearer tiers drew above, from the asset's buffer
+          st[t] = tier; any = true;
         }
         if (!any) continue;
         glBindVertexArray(c.vao);
@@ -3679,11 +3700,12 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
           if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(td.leafGroups[g].tint));
           for (size_t t = 0; t < T;) {
             if (st[t] < 0) { ++t; continue; }
-            const int s = st[t]; const std::vector<glm::ivec2>& rg = (s & 1) ? c.shad : c.full;
+            const int s = st[t]; const std::vector<glm::ivec2>& rg = c.farR[s - 4];
+            setScale(kLeafFarScale[s - 3]);
             int first = rg[g * T + t].x, n = 0;
             while (t < T && st[t] == s) { n += rg[g * T + t].y; ++t; }
             if (!n) continue;
-            const LeafMeshRange& r = gLeafSprigMesh[td.leafGroups[g].sprig * 3 + (s >> 1)];
+            const LeafMeshRange& r = gLeafSprigMesh[td.leafGroups[g].sprig * 3 + 2];   // the sprig card
             glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), n, r.baseVertex, first);
             stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * n;
           }
@@ -3701,11 +3723,13 @@ void Renderer::selectLeafLods(const RenderView& v) {
     if (!f.tree || !f.tree->leafVao) continue;
     vec3 lc = vec3(glm::inverse(f.m) * vec4(v.camPos, 1.0f));
     float d = glm::length(lc - glm::clamp(lc, f.tree->cardMin, f.tree->cardMax)) * zoom / std::max(0.1f, leafLodScale);
-    uint8_t cur = f.lod ? *f.lod : 2, want = cur;
-    if (cur == 0) { if (d > kLeafNearOut) want = d > kLeafMidOut ? 2 : 1; }
-    else if (cur == 1) { if (d < kLeafNearIn) want = 0; else if (d > kLeafMidOut) want = 2; }
-    else { if (d < kLeafNearIn) want = 0; else if (d < kLeafMidIn) want = 1; }
-    f.cur = want; if (f.lod) *f.lod = want;
+    // levels 0 / 1 / 2 as before (near, mid, sprig cards); DR1 farleaf adds 3 / 4 / 5 from 80 / 180 / 400 m, each with hysteresis
+    static const float in[5] = {kLeafNearIn, kLeafMidIn, 80.0f, 180.0f, 400.0f}, out[5] = {kLeafNearOut, kLeafMidOut, 92.0f, 205.0f, 450.0f};
+    const int top = perf.farLeaf ? 5 : 2;
+    int cur = std::min<int>(f.lod ? *f.lod : 2, top);
+    while (cur < top && d > out[cur]) ++cur;
+    while (cur > 0 && d < in[cur - 1]) --cur;
+    f.cur = (uint8_t)cur; if (f.lod) *f.lod = (uint8_t)cur;
   }
 }
 

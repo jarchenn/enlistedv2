@@ -167,6 +167,8 @@ public:
     bool grassAtlas = true;      // grassatlas (GT1): pasture blade cards show Poly Haven grass plants (off = the procedural blades)
     bool imgMat = true;          // imgmat (MA1): the image-material slot table of textures.json (replace sets, macro variation, substrates, floor finishes); off = the pre-MA1 slots
     bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
+    bool farLeaf = true;         // farleaf (DR1): canopies past 80 / 180 / 400 m draw 40 / 15 / 6 % of their leaf cards, grown to keep the leaf area
+    bool wallLod = false;        // walllod (DR1): undamaged buildings at asset LOD 1 / 2 draw their walls without small parts / opening trim
     bool folBatch = true;        // folbatch (P2): standing trees' species leaves drawn per 64 m cell, runs of visible trees at one LOD per draw
     bool leafMerge = true;       // leafmerge (P2): a building whose doors / shutters / sashes are all closed and intact draws them as one merged mesh (+ one glass)
     bool furnDist = true;        // furndist (P2): furniture distance tiers per preset with hysteresis and zoom; no furniture in the far cascade / sky occlusion
@@ -174,12 +176,13 @@ public:
     bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
-                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = false; return p; }
+                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
+      if (n == "dr1") { farLeaf = wallLod = on; return true; }   // DR1: the distant-object switches together
       if (n == "p2") { dlCache = instDepth = folBatch = on; return true; }   // P2: every draw-submission switch together
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
@@ -275,6 +278,7 @@ private:
   DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
   std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call
 public:
+  size_t folBatchBytes = 0, folBatchTrees = 0, folBatchCells = 0;   // folbatch: instance buffer bytes / trees / cells this frame
   double cpuPassMs[64] = {};   // P2: CPU ms per GpuPass mark span, summed since the last reset (app.cpp NMK_DLPROF)
 private:
   int cpuMarkP = -1; std::chrono::steady_clock::time_point cpuMarkT;
@@ -287,10 +291,11 @@ private:
   // same LOD as one instanced draw; per-tree culling and LOD stay exactly as before
   struct FolCell {
     const TreeDef* tree = nullptr; uint64_t sig = 0, builtSig = ~0ull; GLuint vbo = 0, vao = 0;
-    std::vector<uint64_t> ids; std::vector<glm::ivec2> full, shad;   // [group * ids.size() + t]: (first instance, count)
+    std::vector<uint64_t> ids; std::vector<glm::ivec2> farR[2];   // leaf LOD 4 / 5, [group * ids.size() + t]: (first instance, count)
     std::vector<int> fol;                                           // this frame: foliage index of member t (-1: absent)
     std::vector<int> want;                                          // this frame: foliage indices in the cell
     std::unordered_map<uint64_t, int> slot;                         // tree id -> t (built order)
+    size_t bytes = 0;                                               // instance buffer size
   };
   std::unordered_map<uint64_t, FolCell> folCells;
   void prepFoliageBatches();   // render() start: membership, rebuilds (bounded), FoliageDraw::batched

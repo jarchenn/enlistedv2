@@ -242,6 +242,7 @@ struct AssetDef {
   std::vector<Panel> panels;
   std::vector<TrimGroup> trims;  // opening trim bound to its bays (wallfield.cpp)
   GpuMesh panelsIntact;         // all panels intact, merged (fast path for undamaged copies)
+  GpuMesh panelsLod[2];         // DR1 walllod: panelsIntact without small parts ([0], asset LOD 1) and without opening trim ([1], LOD 2); empty: no gain
   ShapePtr wallsIntact;          // shared compound of all intact panel shapes
   std::string id, name, category, description, file;
   int version = 1, floors = 1;
