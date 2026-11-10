@@ -3195,6 +3195,13 @@ void Renderer::createShadowTargets() {
   glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
   glCreateFramebuffers(1, &shadowFarFbo); glNamedFramebufferTexture(shadowFarFbo, GL_DEPTH_ATTACHMENT, shadowFarTex, 0);
   glNamedFramebufferDrawBuffer(shadowFarFbo, GL_NONE); glNamedFramebufferReadBuffer(shadowFarFbo, GL_NONE);
+  // GP1 shadowcache: the far cascade's static layer (buildings, props, terrain-standing trees); copied into shadowFarTex
+  if (farStaticFbo) { glDeleteFramebuffers(1, &farStaticFbo); glDeleteTextures(1, &farStaticTex); }
+  glCreateTextures(GL_TEXTURE_2D, 1, &farStaticTex);
+  glTextureStorage2D(farStaticTex, 1, GL_DEPTH_COMPONENT32F, shadowFarSize, shadowFarSize);
+  glCreateFramebuffers(1, &farStaticFbo); glNamedFramebufferTexture(farStaticFbo, GL_DEPTH_ATTACHMENT, farStaticTex, 0);
+  glNamedFramebufferDrawBuffer(farStaticFbo, GL_NONE); glNamedFramebufferReadBuffer(farStaticFbo, GL_NONE);
+  farSig = ~0ull; farFrame = -1000;
   if (glCheckNamedFramebufferStatus(shadowFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE || glCheckNamedFramebufferStatus(shadowFarFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("shadow framebuffer incomplete"); ++fboErrors; }
 }
 
@@ -3455,7 +3462,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
   static const SurfaceParams kDefaultSurf;
   // visible set: the mesh's bounds under its model matrix against this pass's frustum
   drawIdx.clear();
-  for (uint32_t k = 0; k < (uint32_t)items.size(); ++k) {
+  for (uint32_t k = itemLo; k < (uint32_t)std::min<size_t>(items.size(), itemHi); ++k) {   // GP1: a layer of the list, or all of it
     const DrawItem& it = items[k];
     if (!it.mesh || !it.mesh->count) continue;
     if (fr && !fr->visible(it.mesh->bmin, it.mesh->bmax, it.model, kCullEps)) { stats.culled++; continue; }
@@ -3652,7 +3659,7 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
     for (auto& f : foliage) {
       if (!mine(f)) continue;
       const int tier = pass == 1 ? tierOf(f) : 2;
-      if (pass == 1 && f.batched && tier >= 4) continue;   // drawn from its cell below
+      if (pass == 1 && tier >= 4 && (f.batched || !perf.treeFar)) continue;   // drawn from its cell below (treefar off, measurement: not at all)
       if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway + (pass ? 0.05f : 0.0f))) { stats.culled++; continue; }   // leaf fold: a few cm off the card
       glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
       // R2 leafshadowlod: a depth pass past lodFrom metres from the eye casts from the shadow LOD (foliage.cpp): half the
@@ -3678,7 +3685,7 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
         stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * n;
       }
     }
-    if (pass == 1 && !folCells.empty()) {   // P2 folbatch: each cell's visible far-tier trees, per leaf group, in runs of one tier
+    if (pass == 1 && !folCells.empty() && perf.treeFar) {   // P2 folbatch: each cell's visible far-tier trees, per leaf group, in runs of one tier
       const mat4 I(1); glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(I));
       std::vector<int> st;
       for (auto& [key, c] : folCells) {
@@ -3972,20 +3979,62 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // in between the shaders keep sampling the last map with the matrix it was drawn with (moving casters lag <= 1 frame)
   const float fR = std::max(240.0f, radius * 2.5f);
   const vec3 ffw = v.camPos + vec3(fwd.x, 0, fwd.z) * fR * 0.6f;
-  const bool farRedo = !perf.farCache || frame - farFrame >= std::max(1, q.farEvery) || fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
+  // GP1 shadowcache: the list's static part (opaque[0 .. opaqueStatic) and the canopies) is drawn into its own map only
+  // when it changes - the cascade re-centres (> 8 m), the key light or radius changes, or the signature of what is in the
+  // list does (a breached bay's rebuilt mesh, a door or turret moving, a placed / removed / LOD-switched item, a felled
+  // tree) - and at most every farEvery frames, as before. The live map is that layer copied, with the dynamic part
+  // (opaque[opaqueStatic ..): weapons, debris, fragments; and the models: soldiers, vehicles) drawn on top every
+  // farEvery frames. Far canopy sway is not re-drawn (under a far texel). Depth only: the sun's colour / cloud
+  // transmittance changing over time does not touch it.
+  const size_t nStat = std::min(opaqueStatic, opaque.size());
+  const bool cacheOn = perf.shadowCache && perf.farCache && farStaticFbo;
+  uint64_t fsig = 1469598103934665603ull;
+  if (cacheOn) {
+    auto mix = [&](uint64_t x) { fsig = (fsig ^ x) * 1099511628211ull; };
+    auto fb = [](float f) { uint32_t u; std::memcpy(&u, &f, 4); return (uint64_t)u; };
+    for (size_t k = 0; k < nStat; ++k) {
+      const DrawItem& it = opaque[k]; if (!it.mesh) continue;
+      mix((uint64_t)(uintptr_t)it.mesh); mix(((uint64_t)it.mesh->vao << 32) | (uint32_t)it.mesh->count);
+      mix((fb(it.model[3].x) << 32) | fb(it.model[3].z)); mix((fb(it.model[3].y) << 32) | fb(it.model[0].x)); mix((fb(it.model[1].y) << 32) | fb(it.model[2].x));
+    }
+    for (auto& f : foliage) { mix((uint64_t)(uintptr_t)f.tree); mix((fb(f.m[3].x) << 32) | fb(f.m[3].z)); mix((fb(f.m[3].y) << 32) | (uint64_t)std::max<int>(f.cur, 3)); }
+    mix((uint64_t)nStat); mix(perf.casterCull | perf.smallCasters << 1 | perf.farLeaf << 2 | perf.leafShadowLod << 3 | perf.instDepth << 4);
+  }
+  const bool farCadence = frame - farFrame >= std::max(1, q.farEvery);
+  const bool farMoved = fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
+  const bool farDyn = opaque.size() > nStat || !worldModels.empty();
+  const bool staticRedo = cacheOn && (farMoved || (farCadence && fsig != farSig));
+  const bool farRedo = cacheOn ? staticRedo || (farCadence && (farDyn || farHadDyn))
+                               : !perf.farCache || farCadence || farMoved;
+  stats.farStatic = cacheOn ? (staticRedo ? 1 : 0) : -1;
   if (!q.legacy && q.farCascade && !thumbMode && farRedo) {
     farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir; farPass = true;
     vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
     minCaster = perf.smallCasters ? 2.0f * (2 * farR / shadowFarSize) : 0.0f;   // PF2: casters under ~1 texel
-    glBindFramebuffer(GL_FRAMEBUFFER, shadowFarFbo);
-    glViewport(0, 0, shadowFarSize, shadowFarSize);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glUseProgram(progShadow);
-    glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar)); depthVP = lightVPFar; depthVPSet = true;
     Frustum frFar = Frustum::fromVP(lightVPFar);
-    drawItems(progShadow, opaque, true, &frFar);
-    if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
+    glViewport(0, 0, shadowFarSize, shadowFarSize);
+    if (!cacheOn || staticRedo) {   // the static layer (everything, without the cache)
+      glBindFramebuffer(GL_FRAMEBUFFER, cacheOn ? farStaticFbo : shadowFarFbo);
+      glClear(GL_DEPTH_BUFFER_BIT);
+      glUseProgram(progShadow);
+      glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar)); depthVP = lightVPFar; depthVPSet = true;
+      if (cacheOn) itemHi = (uint32_t)nStat;
+      drawItems(progShadow, opaque, true, &frFar);
+      itemHi = UINT32_MAX;
+      if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
+      farSig = fsig;
+    }
+    if (cacheOn) {   // the live map: the static layer, then what moves
+      glCopyImageSubData(farStaticTex, GL_TEXTURE_2D, 0, 0, 0, 0, shadowFarTex, GL_TEXTURE_2D, 0, 0, 0, 0, shadowFarSize, shadowFarSize, 1);
+      glBindFramebuffer(GL_FRAMEBUFFER, shadowFarFbo);
+      if (opaque.size() > nStat) {
+        glUseProgram(progShadow);
+        glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
+        itemLo = (uint32_t)nStat; drawItems(progShadow, opaque, true, &frFar); itemLo = 0;
+      }
+      farHadDyn = farDyn;
+    }
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
     minCaster = 0;
