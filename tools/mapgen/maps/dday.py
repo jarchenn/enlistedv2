@@ -145,9 +145,9 @@ def close(a, b, e=0.05):
 class Trenches:
     """Lays the network piece by piece from junction sockets, checking that every run lands on its target socket."""
 
-    def __init__(self, b, heights=None):
+    def __init__(self, b, heights=None, pins=None):
         self.b, self.inst, self.junctions, self.edges, self.ends, self.ramps = b, [], {}, [], [], {}
-        self.heights, self.pinned = heights, set()
+        self.heights, self.pinned, self.pins = heights, set(), pins or {}
 
     def put(self, aid, c, yaw, y=None):
         if y is None:   # the relaxed heights from the layout pass (trench_heights), else the ground at the centre
@@ -214,6 +214,9 @@ class Trenches:
                     e["pos"][1] = m[1]
                     self.pinned.add(len(self.inst) - 1)
                 self.ends.append(p)
+                if name in self.pins:   # the ramp tops out at the floor of the door it serves
+                    e["pos"][1] = self.pins[name]
+                    self.pinned.add(len(self.inst) - 1)
                 if name:   # the ramp's top, where the trench meets the ground (bunker doors are set against it)
                     self.ramps[name] = ((p[0] + 6.3 * d[0], p[1] + 6.3 * d[1]), d)
                 return None
@@ -225,11 +228,11 @@ class Trenches:
         return p, d
 
 
-def build_trenches(b, strong, heights=None):
+def build_trenches(b, strong, heights=None, pins=None):
     """One network: the forward line and the rear branches bulge out and back in 45-degree doglegs (paired, so every
     loop still closes exactly), zig-zag bays and traverses along every run; junctions sit where their runs land (the
     pieces fix the lengths), and the two loop-closing runs are checked onto their target sockets."""
-    T = Trenches(b, heights)
+    T = Trenches(b, heights, pins)
     J = T.junctions
     S_, N_ = DIRS["S"], DIRS["N"]
     r2 = math.sqrt(0.5)
@@ -342,11 +345,11 @@ def socket_pairs(inst):
     return [(socks[a][0], socks[c][0]) for a in range(len(socks)) for c in range(a + 1, len(socks)) if socks[a][0] != socks[c][0] and close(socks[a][1], socks[c][1], 0.3)]
 
 
-def trench_heights(grid, strong_y):
+def trench_heights(grid, strong_y, pins):
     """Lay the network out on the sculpted ground, then relax the pieces' heights so joined floors differ by 0.25 m at
     most (each piece's floor collider is flat: steps between pieces must stay under the 0.45 m climb), and flatten the
     ground along every piece to its height so the trench stays its designed depth."""
-    T = build_trenches(_Layout(grid), {"pos": [0.0, strong_y, 0.0]})
+    T = build_trenches(_Layout(grid), {"pos": [0.0, strong_y, 0.0]}, pins=pins)
     y = [e["pos"][1] for e in T.inst]
     pairs = socket_pairs(T.inst)
     for _ in range(600):
@@ -410,7 +413,10 @@ def sculpt(ctx, grid, R):
     for x, z, _ in FLAK:
         stamp_flatten_poly(grid, circle_poly(x, z, 5.5, 16), height=grid.sample(x, z), falloff=4.0)
     sy = grid.sample(STRONG[0] + ew[2], STRONG[1] + ew[3])
-    theights, tstep = trench_heights(grid, sy + 0.1)   # the trench corridors at relaxed, smooth floor heights
+    pins = {"steps": sy}
+    for (aid, x, z, yaw, role), key in zip(BUNKERS, ("FW", "FC", "FE", "RW", "RE")):   # each spur's ramp meets its bunker's door floor
+        pins[key] = grid.sample(x, z) + cat[aid].nav["entrances"][0]["p"][1]
+    theights, tstep = trench_heights(grid, sy + 0.1, pins)   # the trench corridors at relaxed, smooth floor heights
     for x, z in ALLIED:   # the spawn pocket itself: firm, level wet sand
         stamp_flatten_poly(grid, circle_poly(x, z + 1.5, 3.2, 16), height=0.5, falloff=1.5)
     stamp_flatten_poly(grid, circle_poly(SQUARE[0], SQUARE[1], 16.0, 20), height=grid.sample(*SQUARE), falloff=10.0)
@@ -759,8 +765,12 @@ def build(ctx):
     for (aid, x, z, yaw, role), key in zip(BUNKERS, ("FW", "FC", "FE", "RW", "RE")):
         ent = cat[aid].nav["entrances"][0]["p"]
         dp = local_to_world((x, z), yaw, ent[0], ent[2])
-        doors[role] = round(dist(dp, T.ramps[key][0]), 1)
+        e = next(q for q in bunkers if role in q["tags"])
+        rt = T.ramps[key][0]
+        doors[role] = {"m": round(dist(dp, rt), 1), "rise": round(e["pos"][1] + ent[1] - b.ground(*rt), 2)}   # door floor over the ramp top
     rep["doorToRamp"] = doors
+    st = T.ramps["steps"][0]
+    rep["stepsFootRise"] = round(strong["pos"][1] - b.ground(*st), 2)   # the steps' lane floor (stronghold anchor) over the ramp top
     rep["junctions"] = {k: [round(v["_e"]["pos"][0], 2), round(v["_e"]["pos"][2], 2)] for k, v in T.junctions.items()}
 
     # ------------------------------------------------------------------ output

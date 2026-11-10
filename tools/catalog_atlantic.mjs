@@ -594,9 +594,11 @@ export const tobrukTurret = () => tobruk("turret");
 // GX1 (docs/graphics-overhaul.md#gx1-terrain-conformance): the engine carves joined pieces as one terrain network along
 // `path` (x, z, depth scale), with the niches as `branches`, and generates the revetment along the cut; the slab parts
 // listed in `replace` are dropped at load while content/settings/terrain_blend.json is enabled
-export const TRENCH_FLOOR_DROP = { materials: ["plank_x"], topBelow: -1.45 };
+// D-day: the flat mud floor slabs go too (each piece's was level at its own height, so a run up a slope stepped between
+// pieces): the carved ground is the floor, sloping from joint to joint (shared ends average), ramps included
+export const TRENCH_FLOOR_DROP = { materials: ["plank_x", "mud"], topBelow: -1.45 };
 export const TRENCH_STEP_DROP = { materials: ["plank_x"], topAbove: -1.3, minWidth: 0.3 };   // the firestep's full-width top plank
-export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0, keepCollision: ["wattle", "spoil"] };
+export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x", "mud"], aboveY: -1.0, keepCollision: ["wattle", "spoil"] };
 // GX1: the trench floor reads as dug soil (the default mud texture set has a green cast)
 // and its plank edges are dark, worn field timber (the generated duckboards replace the asset's, "floorDrop")
 function trenchMud(A) {

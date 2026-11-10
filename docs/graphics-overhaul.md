@@ -215,6 +215,8 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
 
 ### §7 trenches
 
+- Floors (D-day): the pieces' flat mud floor slabs are dropped with the duckboards (`floorDrop`), so the carved ground is the
+  floor, sloping from joint to joint (shared ends average): a run can climb between belts without a step at each joint.
 - Junctions (D-day): `aw_trench_tee` and `aw_trench_cross` carry their extra arms as trench `branches` 3 m or longer;
   networks also join at an arm's outer end, and the revetment and end walls are generated along arms as along the path.
 
