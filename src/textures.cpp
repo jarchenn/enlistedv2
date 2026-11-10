@@ -29,7 +29,7 @@ struct Slot {
   int mode = 0, space = 0, rot = 0;   // mode 0 detail, 1 replace; space 0 asset, 1 part, 2 world, 3 ground (planar xz)
   float scale = 1, kAlb = 0.8f, kN = 0.8f, kR = 0.5f, kAO = 0.5f, kH = 0, fadeA = 0, fadeB = 0;
   int layer = -1;
-  std::string under; int underIdx = -1; float expo = 0.6f, expoSoft = 0.08f, macro = 0;   // MA1: substrate slot behind the macro exposure mask; macro variation strength
+  std::string under; int underIdx = -1; float expo = 0.6f, contrast = 1.0f, macro = 0;   // MA1: substrate slot behind the macro exposure mask; macro variation strength
 };
 struct SetInfo { std::string name; vec2 size{2, 2}; int layer = -1; vec3 meanLin{0.5f}; float meanAO = 1, meanR = 0.7f, meanH = 0.5f; };
 
@@ -66,7 +66,7 @@ Slot parseSlot(const std::string& name, const json& j) {
   s.kAlb = j.value("albedo", s.kAlb); s.kN = j.value("normal", s.kN); s.kR = j.value("rough", s.kR);
   s.kAO = j.value("ao", s.kAO); s.kH = j.value("height", s.kH);
   if (j.contains("fade") && j["fade"].is_array() && j["fade"].size() == 2) { s.fadeA = j["fade"][0]; s.fadeB = j["fade"][1]; }
-  s.under = j.value("under", ""); s.expo = j.value("exposure", s.expo); s.macro = j.value("macro", 0.0f);
+  s.under = j.value("under", ""); s.expo = j.value("exposure", s.expo); s.macro = j.value("macro", 0.0f); s.contrast = j.value("contrast", 1.0f);
   return s;
 }
 int slotFromJson(const std::string& name, const json& j) {   // a slot of both tables
@@ -254,7 +254,7 @@ void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arra
     const Slot& s = tbl[i];
     A[i] = vec4((float)s.layer, (float)s.mode, (float)s.space, s.scale);
     B[i] = vec4(s.kAlb, s.kN, s.kR, s.kAO); C[i] = vec4(s.kH, (float)s.rot, s.fadeA, s.fadeB);
-    Uu[i] = vec4((float)s.underIdx, s.expo, s.expoSoft, s.macro);
+    Uu[i] = vec4((float)s.underIdx, s.expo, s.contrast, s.macro);
   }
   for (auto& s : sets) if (s.layer >= 0 && s.layer < kMaxLayers) { Ly[s.layer] = vec4(1.0f / s.size.x, 1.0f / s.size.y, s.meanR, s.meanH); M[s.layer] = vec4(s.meanLin, s.meanAO); }
   if (!tableUbo) { glCreateBuffers(1, &tableUbo); glNamedBufferStorage(tableUbo, (GLsizeiptr)(d.size() * sizeof(vec4)), nullptr, GL_DYNAMIC_STORAGE_BIT); }
@@ -308,14 +308,15 @@ const char* kCommonGLSL = R"GLSL(
 // ---- L4 texture layer (src/textures.cpp, docs/textures.md): ambientCG sets in three 2D arrays (units 20-22)
 uniform sampler2DArray uTexCol, uTexNrm, uTexRH;   // colour (sRGB) + ao, normal xy, roughness + height
 uniform int uTexOn;
-uniform int uTexSkipFar;   // MA1 imgmat: 1 = skip normal taps whose detail is faded out (far)
+uniform int uTexSkipFar;
+float gTexNFade = 1.0;     // MA1: share of the far normal fade (texSlotTaps: 0.5 for replace sets under imgmat)   // MA1 imgmat: 1 = skip normal taps whose detail is faded out (far)
 // MA1: the slot / layer tables live in one uniform buffer (binding 3, 14 KB): as plain uniforms they passed the 1024
 // constant registers of a fragment program once the tables grew (160 slots, 128 layers)
 layout(std140, binding = 3) uniform NmkTexTables {
   vec4 uTexA[160];   // per slot: layer (-1 none), mode (0 detail, 1 replace), space (0 asset, 1 part, 2 world, 3 ground), scale
   vec4 uTexB[160];   // per slot: albedo, normal, roughness, ao strength
   vec4 uTexC[160];   // per slot: height (m), quarter turns, distance fade start, end (m; end 0 = no fade)
-  vec4 uTexU[160];   // MA1 per slot: substrate ("under") slot (-1 none), exposure threshold, edge softness, macro variation strength
+  vec4 uTexU[160];   // MA1 per slot: substrate ("under") slot (-1 none), exposure threshold, contrast (replace sets), macro variation strength
   vec4 uTexL[128];   // per layer: 1/size u, 1/size v (1/m), mean roughness, mean height
   vec4 uTexM[128];   // per layer: mean linear colour, mean ao
 };
@@ -344,7 +345,7 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
   vec4 c = textureGrad(uTexCol, q, gx, gy);
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
   float fp = max(length(gx), length(gy))*1024.0/max(uTexLod.x, 1e-3);
-  float nfk = 1.0 - uTexLod.w*smoothstep(uTexLod.y, uTexLod.z, fp);
+  float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
   vec2 nx = (uTexSkipFar == 1 && nfk < 0.06) ? vec2(0.0) : (textureGrad(uTexNrm, q, gx, gy).rg*2.0 - 1.0)*nfk;   // MA1 imgmat: far, no normal tap
   vec2 rh = textureGrad(uTexRH, q, gx, gy).rg;
   float nz = sqrt(max(1.0 - dot(nx, nx), 0.0));
@@ -411,6 +412,7 @@ TexS texSlotTaps(int slot, vec3 w, vec3 ng, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   vec4 A = uTexA[slot], C = uTexC[slot];
   vec2 inv = uTexL[int(A.x + 0.5)].xy*A.w; int sp = int(A.z + 0.5), rot = int(C.y + 0.5);
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0)); dn = vec3(0.0);
+  gTexNFade = (uImgMat == 1 && A.y > 0.5) ? 0.5 : 1.0;
   if (sp == 2) { s = texTri(A.x, w, ng, dwx, dwy, inv, rot); dn = s.n - ng; }
   else if (sp == 1) {
     // part space, dominant face only, texture v along the part's grain axis (planks, slates); the tangent frame is
@@ -468,7 +470,9 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   gPomK = 0.0;
   // detail at the pixel scale: fade (shimmer). MA1 imgmat: not in replace mode, where the image is the structure (mips filter it)
   float fa = (uImgMat == 1 && A.y > 0.5) ? f : f*(1.0 - uTexLod2.z*smoothstep(uTexLod2.x, uTexLod2.y, pix*1024.0*max(inv.x, inv.y)));
-  vec3 a2 = alb*mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*fa);
+  vec3 ratio = clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5);
+  if (uImgMat == 1 && uTexU[slot].z != 1.0) { float l = max(dot(ratio, vec3(0.2126, 0.7152, 0.0722)), 1e-3); ratio *= pow(l, uTexU[slot].z - 1.0); }   // MA1: per-set contrast
+  vec3 a2 = alb*mix(vec3(1.0), ratio, K.x*fa);
   float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, K.w*f);
   vec3 dn2 = dn*K.y*f;
   float fr = 128.0*max(inv.x, inv.y);   // the height map's features: ~8 texels
@@ -482,7 +486,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
       a2 *= 1.0 - 0.16*Uu.w*smoothstep(0.58, 0.82, mac.b);
     }
     int u = int(Uu.x + 0.5);
-    float m = Uu.x >= 0.0 ? smoothstep(Uu.y, Uu.y + Uu.z, mac.a + (gTexWear - 1.0)*0.12) : 0.0;
+    float m = Uu.x >= 0.0 ? smoothstep(Uu.y, Uu.y + 0.08, mac.a + (gTexWear - 1.0)*0.12) : 0.0;
     if (m > 0.001 && uTexA[u].x >= 0.0) {   // the substrate (masonry under render, brick behind plaster): its own image colour
       vec3 dnu; TexS su = texSlotTaps(u, w, ng, ap, an, pc, pn, grain, dwx, dwy, dax, day, dcx, dcy, dnu);
       float rim = m*(1.0 - m)*4.0;   // the broken render edge: a thin shadowed lip
