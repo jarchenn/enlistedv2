@@ -267,6 +267,12 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     if (u < 0.85f) add(WP_CLIP, M * glm::translate(mat4(1), vec3(0, y, 0)));
   }
   if (!scopeView()) armDrawItems(M, d, s);   // scoped: no arms (the support arm read as a flat plank beside the eyepiece)
+  if (vmDebugYaw != 0) {   // FA2 debug side view (self-test shots): the whole first-person rig, weapon and arm together, turned about a point ahead of the eye
+    mat4 camW = M * glm::inverse(vmLocal(d, s)); vec3 piv(0.05f, -0.15f, -0.45f);
+    mat4 X = camW * glm::translate(mat4(1), piv + vec3(-0.05f, 0.08f, -0.35f)) * glm::rotate(mat4(1), radians(vmDebugYaw), vec3(0, 1, 0)) * glm::translate(mat4(1), -piv) * glm::inverse(camW);
+    for (auto& it : R.viewModel) it.model = X * it.model;
+    for (auto& it : R.viewModelTex) it.m = X * it.m;
+  }
   (void)op;
 }
 

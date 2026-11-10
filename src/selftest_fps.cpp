@@ -24,11 +24,14 @@ void SelfTest::fpsUpdate(App& app, float dt) {
     app.useScripted = true;
     fseq.clear(); fcur = 0; ft = 0;
     if (std::getenv("NMK_ARMS_SHOTS")) {   // FA2: only the first-person arm shots (hip, ADS, mid-reload; selftest_out/fa2_*)
-      for (const char* id : {"m1_garand", "kar98k", "m1_thompson", "mp40", "m1918a2_bar", "mg42", "bazooka_m9", "knife_bayonet"}) {
+      for (const char* id : {"m1_garand", "kar98k", "m1_thompson", "mp40", "m1918a2_bar", "mg42", "bazooka_m9", "knife_bayonet", "m2_flamethrower"}) {
         std::string sid = id;
         push("arms " + sid, [this, sid](App& a, float t) {
           static bool shot = false;
           if (t == 0) { a.selectWeapon(a.weaponIndex(sid)); a.vm.procedural = false; a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = -2; shot = false; }
+          bool side = sid == "m1_garand" || sid == "m2_flamethrower" || sid == "mp40";   // debug side view of the rig (weapon and arm turned together)
+          a.vmDebugYaw = side && t > 0.25f && t < 0.5f ? 70.0f : 0.0f;
+          if (side && t > 0.4f && t < 0.42f) shotQueue.push_back("fa2_" + sid + "_side");
           if (t > 0.6f && t < 0.62f) shotQueue.push_back("fa2_" + sid + "_hip");
           a.scriptedInput.aim = t > 0.7f && t < 2.0f;
           if (t > 1.8f && t < 1.82f) shotQueue.push_back("fa2_" + sid + "_ads");
@@ -197,7 +200,7 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       if (t == 0) { a.selectWeapon(a.weaponIndex("m1_garand")); a.scriptedInput = ExploreInput{}; return false; }
       if (t < 0.5f) return false;
       // FA2: one generated support arm for every weapon: no trigger hand, the hand on its grip, the faction's sleeve
-      float worst = 0; int one = 0, faction = 0, n = 0, adsDrawn = 0, adsN = 0;
+      float worst = 0; int one = 0, faction = 0, n = 0, adsDrawn = 0, adsN = 0, guns = 0, framed = 0; std::string unframed;
       auto armCount = [&](int& fac) { int c = 0; fac = -1; for (auto& it : a.R.viewModelTex) if (fpsArmsIsModel(it.model)) { ++c; fac = fpsArmsFaction(it.model); } return c; };
       for (size_t k = 0; k < a.weaponDefs.size(); ++k) {
         a.selectWeapon((int)k); a.adsT = 0;
@@ -206,15 +209,35 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         worst = std::max(worst, a.lastHandErr.y);
         one += a.lastArmDraws == 1 && !a.lastArmsShown[0] && a.lastArmsShown[1] && c == 3;
         faction += fac == (D(a).side == "DE" ? 1 : 0);
+        vec2 hLo, hHi, sl; fpsArmsLastFraming(hLo, hHi, sl);   // at the hip: the whole hand and 15 cm of sleeve past the cuff in view
+        bool inView = a.lastArmsShown[1] && hLo.x > -0.99f && hLo.y > -0.99f && hHi.x < 0.99f && hHi.y < 0.99f && std::fabs(sl.x) < 1 && std::fabs(sl.y) < 1;
+        if (!D(a).equipment()) { ++guns; framed += inView; if (!inView) unframed += " " + D(a).id; }
         if (!D(a).equipment() && D(a).action != "heavy") {   // ADS: the hand drops out of the sight cone, or is not drawn
           a.adsT = 1; a.R.viewModelTex.clear(); a.weaponDrawItems(tmp); ++adsN; adsDrawn += armCount(fac) > 0; a.adsT = 0;
         }
-        char b[200]; std::snprintf(b, sizeof b, "  arm %-14s %s, sleeve %s, %d parts, hand %.1f mm from its grip", D(a).id.c_str(), a.lastArmsShown[1] ? "shown" : "HIDDEN", fac == 1 ? "axis" : fac == 0 ? "allies" : "-", c, a.lastHandErr.y * 1000);
+        vec3 ax = glm::normalize(glm::mat3(a.vmLocal(D(a), a.wstate[D(a).id])) * vec3(0, 0, 1));   // the barrel axis (camera space)
+        char b[260]; std::snprintf(b, sizeof b, "  arm %-14s %s, sleeve %s, %d parts, hand %.1f mm from its grip; hip NDC hand (%.2f, %.2f)-(%.2f, %.2f) sleeve+15cm (%.2f, %.2f)%s heel (%.3f %.3f %.3f) axis (%.3f %.3f %.3f)", D(a).id.c_str(), a.lastArmsShown[1] ? "shown" : "HIDDEN", fac == 1 ? "axis" : fac == 0 ? "allies" : "-", c, a.lastHandErr.y * 1000,
+                                     hLo.x, hLo.y, hHi.x, hHi.y, sl.x, sl.y, inView ? "" : " OUT OF VIEW", a.lastHandL.x, a.lastHandL.y, a.lastHandL.z, ax.x, ax.y, ax.z);
         results.push_back(b);
       }
       check(one == n, "one support arm (sleeve, cuff, hand) and no trigger hand drawn for every weapon (" + std::to_string(one) + " of " + std::to_string(n) + ")");
       check(faction == n, "sleeve colour per faction: olive drab for US weapons, charcoal for German (" + std::to_string(faction) + " of " + std::to_string(n) + ")");
-      check(worst < 0.001f, "at the hip the hand sits on its grip for every weapon (worst " + std::to_string(worst * 1000).substr(0, 5) + " mm)");
+      check(framed == guns, "at the hip every gun shows the whole hand, the cuff and 15 cm of sleeve (" + std::to_string(framed) + " of " + std::to_string(guns) + (unframed.empty() ? "" : "; out:" + unframed) + ")");
+      {   // the arm is a fixed body: the same upper-arm / forearm lengths whatever the weapon (short SMG, rifle, MG, launcher, flamethrower)
+        float lu0 = -1, lf0 = -1, dev = 0; std::string rows;
+        for (const char* id : {"mp40", "m1_garand", "mg42", "bazooka_m9", "m2_flamethrower"}) {
+          int wi = a.weaponIndex(id); if (wi < 0) continue;
+          a.selectWeapon(wi); a.adsT = 0; a.R.viewModelTex.clear(); std::vector<DrawItem> tmp; a.weaponDrawItems(tmp);
+          vec3 S, E, W, T; fpsArmsLastJoints(S, E, W, T);
+          float lu = glm::length(E - S), lf = glm::length(W - E);
+          if (lu0 < 0) { lu0 = lu; lf0 = lf; }
+          dev = std::max({dev, std::fabs(lu - lu0), std::fabs(lf - lf0)});
+          char b[200]; std::snprintf(b, sizeof b, "  bones %-16s upper arm %.4f m, forearm %.4f m, shoulder-wrist %.3f m, wrist %.1f mm from its target, elbow (%.2f %.2f %.2f)", id, lu, lf, glm::length(W - S), glm::length(W - T) * 1000, E.x, E.y, E.z);
+          results.push_back(b);
+        }
+        check(lu0 > 0 && dev < 1e-4f, "arm segment lengths identical across SMG / rifle / MG / launcher / flamethrower (upper " + std::to_string(lu0).substr(0, 5) + " m, forearm " + std::to_string(lf0).substr(0, 5) + " m, worst deviation " + std::to_string(dev * 1000).substr(0, 5) + " mm)");
+      }
+      check(worst < 0.001f, "at the hip the support hand reaches its grip for every weapon: the wrist on its target, no stretch (worst " + std::to_string(worst * 1000).substr(0, 5) + " mm)");
       results.push_back("  ADS: the arm stays drawn (clear of the 6 deg sight cone) for " + std::to_string(adsDrawn) + " of " + std::to_string(adsN) + " sighted weapons; the rest hide it");
       check(adsN > 0 && adsDrawn * 2 >= adsN, "ADS: the support hand is lowered out of the sight cone and stays visible for most weapons (" + std::to_string(adsDrawn) + " / " + std::to_string(adsN) + ")");
       {   // the setting off: no arm; a scoped weapon in ADS: no arm (weapons.cpp skips it in the scope view)

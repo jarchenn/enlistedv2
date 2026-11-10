@@ -817,7 +817,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       for (glm::ivec2 sz : {glm::ivec2(1920, 1080), glm::ivec2(2560, 1440), glm::ivec2(3440, 1440)}) {
         push("sweep size " + std::to_string(sz.x), [sz](App& a, float t) { (void)a; forceRes = sz; return t > 0.6f; });
         for (auto& dp : app.weaponDefs) {
-          if (dp->equipment() || dp->action == "heavy") continue;   // hand equipment; the carried M2HB has no sights (deploys)
+          if (dp->equipment() || dp->action == "heavy" || dp->flame.on) continue;   // hand equipment; the carried M2HB (deploys) and the flamethrowers (zoom only) have no sights
           const std::string id = dp->id;
           push("sweep " + id + " " + std::to_string(sz.x), [this, id, sz](App& a, float t) {
             if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.wstate[id].bolt = a.wstate[id].cooldown = 0; a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }   // a holstered bolt gun's cycle is frozen; aim waits for it
@@ -853,13 +853,13 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       for (auto& dp : a.weaponDefs) {
         const WeaponDef& d = *dp;
         static const std::set<std::string> cal = {"fg42", "mg42", "kar98k", "m1_carbine", "m1_thompson", "m1_garand", "m1918a2_bar", "panzerschreck", "stg44", "m3_grease_gun"};
-        if (cal.count(d.id) || d.equipment()) continue;   // calibrated above / hand equipment (no sights; hand pose in "ads.hipOffset")
+        if (cal.count(d.id) || d.equipment() || d.flame.on) continue;   // calibrated above / hand equipment (no sights; hand pose in "ads.hipOffset") / flamethrowers (no sights: zoom only)
         ++n;
         bool def = d.eyeRelief == 0.21f && d.adsVmFov == 0 && d.adsPos == vec3(0) && d.adsRot == vec3(0) && d.muzzleDir == vec3(0, 0, 1);
         json j; try { j = json::parse(readTextFile(d.file)); } catch (...) {}
         if (!def || j.contains("ads") || j.contains("muzzleDir")) { ++bad; list += " " + d.id; }
       }
-      int equip = 0; for (auto& dp : a.weaponDefs) equip += dp->equipment();
+      int equip = 0; for (auto& dp : a.weaponDefs) equip += dp->equipment() || dp->flame.on;
       check(bad == 0 && n == (int)a.weaponDefs.size() - 10 - equip && n >= 5, std::to_string(n) + " other weapons keep the shared calibration (relief 0.21 m, weapon FOV 60, no corrections)" + (bad ? ": changed" + list : ""));
       return true; });
     push("reset", [this](App& a, float) {
