@@ -294,9 +294,9 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   // the forearm runs back along the weapon and down from under it, a little to the near side: on screen it rises
   // steeply from the bottom centre-left alongside the weapon (the same for every weapon: relative to its axis)
   vec3 nearC = glm::normalize(R3 * Nw);
-  vec3 dirF = glm::normalize(-Ac * 0.75f + vec3(0, -0.62f, 0) + nearC * 0.28f);
+  vec3 dirF = glm::normalize(-Ac * 0.75f + vec3(0, -0.78f, 0) + nearC * 0.28f);
   vec3 wdir = glm::normalize(dirF * 0.75f + handAx * 0.25f);   // the wrist nearly straight: the hand continues the forearm
-  vec3 wristT = PP[0] + wdir * 0.035f;
+  vec3 wristT = PP[0] + wdir * 0.035f + vec3(0, -0.035f, 0);   // the wrist well below the fore-end: the hand reaches up to the grip from underneath
   vec3 Sh = vec3(-0.15f * m, -0.36f, -0.02f) + vec3(g.shoulder.x * m, g.shoulder.y, g.shoulder.z);   // below, a little left of the eye, not at the cheek
   const float maxR = (kUpper + kFore) * 0.985f;   // a small bend is always kept: no straight-arm flip
   float L = glm::length(wristT - Sh);
