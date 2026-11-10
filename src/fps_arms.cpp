@@ -353,6 +353,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   };
   auto foldCuff = [&](size_t i, float th, vec3) { return 1 + 0.015f * std::sin(2 * th + 0.7f) + (i >= 3 ? 0.012f * std::sin(4 * th + 0.3f) : 0.0f); };
   if (B.idx) gA.sleeveV0 = B.V.size();
+  for (vec3& q : P) q.z = std::min(q.z, -0.12f);   // the upper arm never comes behind or onto the near plane (it would smear across the view)
   B.sweep(P, Rb, refS, 24, 1.0f, 0.0f, kBodyLen, false, false, foldBody);
   if (B.idx) { gA.partCount[0] = (uint32_t)B.I.size(); gA.partFirst[1] = (uint32_t)B.I.size(); }
   B.sweep(Pc, Rc, refS, 24, 1.0f, -0.016f / kTexLen, kTexLen, false, false, foldCuff);
@@ -643,7 +644,9 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
   gA.handLo = vec2(1e9f); gA.handHi = vec2(-1e9f);
   for (size_t v = out.handV0; v < B.V.size(); ++v) { vec2 c = ndc(B.V[v].pos); gA.handLo = glm::min(gA.handLo, c); gA.handHi = glm::max(gA.handHi, c); }
   gA.sleeve15 = ndc(out.sleeve15);
-  if (inCone > 0 || tooNear > 0 || B.V.size() != gA.nV) return false;
+  bool bad = false;   // a non-finite vertex, or any of the hand / sleeve near the eye or behind it: not drawn (never a smear)
+  for (size_t v = 0; v < B.V.size() && !bad; ++v) { const vec3& q = B.V[v].pos; bad = !std::isfinite(q.x + q.y + q.z) || (v >= out.handV0 && -q.z < 0.06f); }
+  if (inCone > 0 || tooNear > 0 || bad || B.V.size() != gA.nV) return false;
   smoothNormals(B.V, 0, gA.sleeveI1, gA.sleeveV0, gA.sleeveV1, gA.weld);              // the folded sleeve and cuff
   smoothNormals(B.V, gA.partFirst[2], gA.handI1, gA.sleeveV1, gA.handV1, {});         // the continuous hand
   GpuModel& g = gA.model[axis ? 1 : 0];
