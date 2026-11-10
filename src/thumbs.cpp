@@ -118,7 +118,7 @@ GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std:
   if (terr) {
     setLighting(progTerrain, v);
     glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-    glUniform1i(U(progTerrain, "uGrid"), 0);
+    glUniform1i(U(progTerrain, "uGrid"), 0); glUniform1i(U(progTerrain, "uTCOn"), 0);   // R1: the terrain cache belongs to the main view's terrain
     terr->draw(progTerrain, vec3(glm::inverse(v.view)[3]), vp);   // W3 chunked terrain
   }
   setLighting(progMain, v);

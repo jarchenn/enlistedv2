@@ -651,3 +651,48 @@ The real lever for the 3000-4000 draws per frame is GPU-driven submission (Phase
 - instance data in one SSBO;
 - compute frustum and Hi-Z culling writing the indirect commands;
 - glMultiDrawElementsIndirect per program.
+
+## 13. Terrain material cache and building material LOD (R1)
+
+Switches (`Renderer::Perf`, `--rq-off <name>`, `NMK_PERF_AB=<name>` or a comma list): `terraincache`, `matlod` and
+`opqsort` are on by default; `zprepass` is an experiment and stays off.
+
+### 13.1 Terrain material cache (`terraincache`)
+- **What is cached.** `kTerrainFS` fields that depend only on world xz and a fixed seed: the broad field `nB` and the patch field `nM`
+  (4-octave fbm each), `nF`, clover, the two lowest octaves of `flat_` and the lowest octave of `bare`. That is 13 of the
+  ~31 value-noise evaluations on flat grass.
+- **Format.** One `GL_TEXTURE_2D_ARRAY`, 2 layers of RGBA8 (8 B per texel), 0.5 m texels (2 / m; coarser past 2 km a side,
+  4096 cap), full mip chain (+33 %), trilinear and 8x anisotropic, clamp to edge. Unit 24. It is one texture over the
+  whole terrain, not per chunk, so there are no chunk seams and no gutters to keep.
+  The 2 spare channels of layer 1 are unused.
+- **Memory and bake.** battle1 1004 x 1224: 13.1 MB. 800 m blank slate: 27.3 MB. 990 m: 41.7 MB. The bake is one compute dispatch
+  plus `glGenerateTextureMipmap`, 5-14 ms on a 2080 Ti. It runs once at map load, or when the terrain extent changes.
+- **No invalidation.** The cached fields are pure functions of world xz, so craters, paint, trenches, wear and sculpting
+  cannot make them stale. Everything those change stays live: vDirt, vEw, uSurf, ground paint, height, normal and the
+  3D slope-rock / scree branch. That is why there is no dirty-chunk queue, and no per-frame bake work at all.
+- **Crater walls.** The cached fields were already planar in xz in the live shader, so the mapping is unchanged. The
+  steep-face rock and scree stay 3D world-space and live.
+- **Live residual.** The fbm octaves finer than the cache, plus grit, clumps, stones, pebbles, the track and the normal noise, use
+  `vn2`, which is exact: `vnoise` at a whole-number z needs 4 hashes, not 8. The near-only sward detail (streaks, litter,
+  sward normal) is skipped past 70 m, where every use is already scaled by `nearK` to 0.
+  Far sand takes the streak mean (≤ 0.01 albedo).
+- **Measured (BASE-28, Medium, interleaved A/B).** GPU −0.94 ms (−5.0 %), terrain pass −1.02 ms (−28 %), 25/28 views faster,
+  CPU unchanged. Frames: ≤ 0.64/255 mean difference against the pre-R1 renderer.
+
+### 13.2 Building material LOD (`matlod`)
+108 base `kMainFS` pattern noise calls with a known world frequency now go through `vnL` / `fbmL`. These fade each
+octave to its mean as it nears pixel size (the existing `res()` / `vnF` / `fbmF` rule, rendering.md 9). The result:
+- near surfaces are exact;
+- at mid distance the fine octaves drop;
+- far away only the layout (courses, joints, hash colours) and the coarse noise remain.
+
+The control is continuous per pixel, so there are no variants to compile. The anisotropic calls (wood grain) are left as they were.
+GX5 stays on. Measured: GPU −0.45 ms, opaque −0.41 ms (−5.7 %), 25/28 views faster. Facade shimmer is equal or slightly lower
+(render suite).
+
+### 13.3 Opaque submission order (`opqsort`, `zprepass`)
+- **`opqsort`.** After the per-building grouping, each building's run moves front to back by its nearest part. A run keeps its
+  inner order, so coplanar ties never depend on the camera. Measured: GPU −0.42 ms, opaque −0.41 ms (−7.4 %), CPU +0.04 ms
+  (inside the noise).
+- **`zprepass`.** Building items depth-only (`kDepthVS`, `invariant gl_Position` shared with `kMainVS`), then shading at
+  LEQUAL. Its A/B was cancelled before it ran, so it is unmeasured and off.
