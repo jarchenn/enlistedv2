@@ -7,6 +7,7 @@
 #include "mpui.h"
 #include "net.h"
 #include "crumb.h"
+#include "flame.h"
 #include "ai_hooks.h"
 void netInterpolate(Game& g, double t);
 #include <GLFW/glfw3.h>
@@ -394,6 +395,62 @@ void Game::explosionDamage(vec3 p, float dmg, float radius, int owner, bool gren
   }
 }
 
+// FT1: damage plus ignition from the flame stream / ground fire. The burn (burnSec at burnDps) keeps damaging after the
+// soldier leaves the stream; clients get a "burn" event for the look. Refused hits (spawn protection, own team) ignite nothing.
+bool Game::flameHit(int victim, int owner, float dmg, vec3 dir, float burnSec, float burnDps) {
+  if (!active || isClient || victim < 0 || victim >= (int)sold.size()) return false;
+  Soldier& v = sold[victim];
+  if (!v.alive) return false;
+  float hp0 = v.hp;
+  damage(victim, dmg, owner, dir, "flame");
+  bool hurt = v.hp < hp0;
+  if (hurt && v.alive) {
+    bool fresh = v.burnT <= 0.05f;
+    v.burnT = std::max(v.burnT, burnSec); v.burnDps = burnDps; v.burnBy = owner;
+    if (fresh && gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "burn"}, {"s", victim}, {"d", burnSec}});
+  }
+  return hurt;
+}
+
+void Game::burnStep(float dt) {
+  for (auto& s : sold) {
+    if (!s.inUse || s.burnT <= 0) continue;
+    if (!s.alive) { s.burnT = 0; continue; }
+    s.burnT -= dt;
+    Fx& fx = app.fx;
+    if (!s.localPlayer && fx.parts.size() < fx.maxParts * 0.85f) {   // flames on the body (the local player's own view stays clear)
+      for (int i = 0; i < 2; ++i) {
+        Particle q; q.p = s.feet + vec3(fx.rnd() - 0.5f, 0.15f + 1.5f * fx.rnd(), fx.rnd() - 0.5f) * vec3(0.5f, 1, 0.5f);
+        q.v = vec3(fx.rnd() - 0.5f, 1.0f + fx.rnd() * 1.4f, fx.rnd() - 0.5f) * 0.7f; q.size = 0.3f + 0.25f * fx.rnd(); q.life = q.maxLife = 0.25f + 0.25f * fx.rnd();
+        q.col = vec4(7.0f + 2.0f * fx.rnd(), 2.6f + 1.2f * fx.rnd(), 0.6f, 1); q.additive = true; q.grow = -q.size * 0.9f; q.drag = 0.8f; q.lift = 1.8f;
+        fx.parts.push_back(q);
+      }
+      if (fx.rnd() < 0.08f) fx.smoke(s.feet + vec3(0, 1.7f, 0), vec3(0.1f, 1.2f, 0.1f), 0.5f, 1.6f, vec4(0.2f, 0.19f, 0.18f, 0.4f), 0.9f, 0.9f);
+    }
+    if (!isClient) {
+      s.burnTick += dt;
+      if (s.burnTick >= 0.25f) { s.burnTick = 0; damage(s.slot, s.burnDps * 0.25f, s.burnBy, vec3(0, 1, 0), "burn"); }
+    }
+  }
+}
+
+// FT1: a bot's flame gun: the nozzle open for dt (fuel by the second), fired from the muzzle like a rifle's round
+bool Game::soldierFlame(Soldier& s, vec3 dir, float dt) {
+  if (s.weapon < 0 || s.throwT >= 0) return false;
+  const WeaponDef& d = *app.weaponDefs[s.weapon];
+  WeaponState& w = s.ws;
+  if (!d.flame.on || w.loaded <= 0) return false;
+  flameDrain(w, d, dt);
+  vec3 e = eye(s), muzzle = vec3(s.world * s.pose.weapon * vec4(d.muzzle, 1)), start = muzzle;
+  Physics::Hit hb;
+  if (Physics::castRayEx(e, muzzle - e, glm::length(muzzle - e) + 1e-3f, hb)) start = e;   // muzzle inside a wall: from the eye
+  app.flame.spray(app, s.slot, s.weapon, start, dir, dt, true);
+  s.recoil = 0.25f; s.lastShot = t; ++s.shots;
+  w.sinceShot += dt;
+  if (w.sinceShot >= 0.4f) { w.sinceShot = 0; hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0); ++shotsByBots; }
+  return true;
+}
+
 // ---------------------------------------------------------------- soldier weapons
 bool Game::soldierFire(Soldier& s, vec3 dir) {
   if (s.weapon < 0 || s.throwT >= 0) return false;
@@ -480,6 +537,7 @@ void Game::throwStep(Soldier& s, float dt) {
 void Game::clientStep(float dt) {
   // mirror only: the host owns spawning, damage, AI, grenades and capture
   ++steps;
+  burnStep(dt);   // FT1: the look of the soldiers the host set alight
   netInterpolate(*this, t);
   if (Soldier* L = local(); L && L->alive) {
     auto c = Physics::character();
@@ -536,6 +594,7 @@ void Game::step(float dt) {
     crumb("game: throw"); throwStep(s, dt);
     crumb("game: ai"); if (!s.human) aiStep(s, dt);
   }
+  crumb("game: burn"); burnStep(dt);
   crumb("game: rest"); stepRest(dt); crumb("game: done");
 }
 

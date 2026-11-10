@@ -327,6 +327,9 @@ void AiCore::act(Soldier& s, float dt) {
       bool mobile = (wd.action == "auto" && wd.feed != "belt") && close;   // SMGs / BAR fire on the move at close range
       if (!mobile) m.speed = SPD_STOP;
       else m.speed = SPD_JOG;
+      if (wd.flame.on && b.target >= 0 && lenXZ(G.sold[b.target].feet - s.feet) > wd.flame.botRange * 0.8f) {   // FT1: a flame gun closes to the nozzle's reach
+        requestPath(s, G.sold[b.target].feet, 1.0f, 6.0f); m.speed = SPD_JOG;
+      }
       m.posture = atCover ? Physics::STAND : (wd.feed == "belt" ? Physics::CROUCH : Physics::STAND);
       if (atCover && attacker && !cover[m.cover].high) {   // low cover: peek and fire for a burst, then duck behind it (AI_SPEC 5)
         float ex = tj("combat", "peekExpose_s", 2.0f), du = tj("combat", "peekDuck_s", 1.5f) * (1.0f + b.suppressed);

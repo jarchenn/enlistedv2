@@ -56,6 +56,10 @@ struct WeaponDef {
   bool useModel() const { return model && model->vao; }
   int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)
   float adsSpeed = 1;                   // JSON ads.speed: ADS blend rate x this
+  float adsZoom = 0;                    // JSON ads.zoom (> 0): ADS only narrows the world FOV by this fraction; the weapon keeps its hip pose, no sight alignment (flamethrower)
+  // flamethrower (FT1, action "flame", JSON "flame"; docs/flamethrower.md): game tuning, not real data
+  struct FlameDef { bool on = false; float fuelSeconds = 20, range = 22, speed = 30, coneDeg = 3.5f, parcelsPerSec = 30, parcelDamage = 3.5f,
+                    burnSeconds = 3, burnDps = 14, patchSeconds = 3, patchRadius = 1.3f, patchDps = 12, botRange = 18, botBurst = 1.6f, botPause = 1.4f; } flame;
   int tracerKind(int shot) const { return tracerKindFor(tracerEvery, shot); }
 };
 struct WeaponState {
@@ -68,6 +72,7 @@ struct WeaponState {
   float recoilP = 0, recoilY = 0, kick = 0;
   float sinceShot = 99;           // s since the last shot (a burst ends, and its recoil is folded into the aim, once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
+  float flameFrac = 0;            // flamethrower: fuel used since the last whole percent
   int mode = 0;                   // index into WeaponDef::modes (AUTO first); reset with the session
   float throwT = -1;              // grenade wind-up / knife swing progress (s), -1 = idle
   bool struck = false;            // knife: this swing's sweep has happened

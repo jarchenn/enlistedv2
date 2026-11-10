@@ -195,6 +195,17 @@ void AiCore::aim(Soldier& s, float dt) {
   m.onTarget += dt;
   if (!shoot || blockedAct || s.throwT >= 0 || s.reload > 0 || s.weapon < 0) return;
   const WeaponDef& d = *G.app.weaponDefs[s.weapon];
+  if (d.flame.on) {   // FT1 flame gun: a burst of a second or two, only inside the nozzle's reach; the stream drops, so aim a little high
+    float fdist = glm::length(aimPoint - e);
+    if (b.targetTime < diff.reaction || fdist > d.flame.botRange || turnErr > 12.0f) { b.burstLeft = 0; return; }
+    if (b.burstLeft <= 0) { if (b.burstPause > 0) { b.burstPause -= dt; return; } b.burstLeft = d.flame.botBurst; }
+    float drop = 0.5f * 3.9f * (fdist / d.flame.speed) * (fdist / d.flame.speed);
+    if (G.soldierFlame(s, App::forward(b.aimYaw, b.aimPitch + glm::degrees(std::atan2(drop, std::max(1.0f, fdist)))), dt)) {
+      b.burstLeft -= dt;
+      if (b.burstLeft <= 0) { b.burstLeft = 0; b.burstPause = d.flame.botPause * (0.7f + 0.6f * G.rnd(s)); }
+    }
+    return;
+  }
   bool rifle = d.action != "auto";
   if (rifle && s.speed > 1.2f && !suppress) return;                         // rifles stop and shoot
   if (b.targetTime < diff.reaction && !suppress) return;

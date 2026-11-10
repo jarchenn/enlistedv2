@@ -39,8 +39,8 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
       auto names = [&](const std::string& f) { std::string s; for (int k : a.rackArsenal(f)) s += a.weaponDefs[k]->id + " "; return s; };
       std::string us = names("US"), de = names("DE");
       auto has = [](const std::string& l, const char* id) { return l.find(std::string(id) + " ") != std::string::npos; };
-      bool okUS = has(us, "m1_garand") && has(us, "m1c_garand") && has(us, "m1_carbine") && has(us, "m1_thompson") && has(us, "m1918a2_bar") && has(us, "bazooka_m9") && has(us, "m2hb_carry");
-      bool okDE = has(de, "kar98k") && has(de, "kar98k_zf39") && has(de, "mp40") && has(de, "mg42") && has(de, "fg42") && has(de, "panzerschreck");
+      bool okUS = has(us, "m1_garand") && has(us, "m1c_garand") && has(us, "m1_carbine") && has(us, "m1_thompson") && has(us, "m1918a2_bar") && has(us, "bazooka_m9") && has(us, "m2hb_carry") && has(us, "m2_flamethrower");
+      bool okDE = has(de, "kar98k") && has(de, "kar98k_zf39") && has(de, "mp40") && has(de, "mg42") && has(de, "fg42") && has(de, "panzerschreck") && has(de, "flammenwerfer41");
       check(okUS, "Allied rack lists the whole US registry: " + us);
       check(okDE, "Axis rack lists the whole German registry: " + de);
       const AssetDef* ra = a.lib.find("rack_allied"); const AssetDef* rx = a.lib.find("rack_axis");

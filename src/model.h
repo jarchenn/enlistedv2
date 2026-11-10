@@ -47,6 +47,9 @@ struct ImportSpec {
   struct MeshEdit { vec3 lo{0}, hi{0}, axis{1, 0, 0}, pivot{0}, move{0}; float deg = 0; bool hide = false;
                     bool radial = false; vec2 centre{0}; float rMax = 0, scale = 1; std::string note; };
   std::vector<MeshEdit> meshEdits;
+  // keepIslandsIn [lo, hi] (FT1): in the rotated source space, before measuring and scaling, only the connected islands
+  // lying entirely inside the box stay (a flamethrower's gun out of a scene with its tanks, hose and ground plane)
+  bool keepOn = false; vec3 keepLo{0}, keepHi{0};
   // Runtime budget (map assets from heavy sources): simplify keeps this fraction of each part's triangles
   // (quadric error, src/simplify.cpp); lod1 > 0 also bakes <dir>/lod1 at simplify * lod1 with 256 px textures.
   float simplify = 1, lod1 = 0;

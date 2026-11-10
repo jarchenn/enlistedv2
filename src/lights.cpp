@@ -326,6 +326,7 @@ void lightsGather(App& app, std::vector<LightDesc>& out) {
       out.push_back(o);
     }
   }
+  app.flame.gatherLights(out);   // FT1: a moving light per open flame nozzle, ground fire glow
 }
 
 // ============================================================ interior plan (with the room templates)

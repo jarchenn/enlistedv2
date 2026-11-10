@@ -66,6 +66,7 @@ struct Soldier {
   uint32_t rng = 1;
   int lifeId = 0;                            // increments per spawn (net / tests)
   double lastShot = -100;
+  float burnT = 0, burnDps = 0, burnTick = 0; int burnBy = -1;   // FT1: on fire (s left, damage per s, tick timer, who lit it)
   double protectUntil = -1;                  // spawn protection (SPEC 2.2): Game::t until which damage is ignored (W1 sets it)
   bool isProtected(double now) const { return alive && now < protectUntil; }
   std::map<int, WeaponState> wsBy;          // remote human: ammo per carried weapon (host)
@@ -137,6 +138,9 @@ public:
   bool projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& tHit);   // true: a soldier was hit
   void explosionDamage(vec3 p, float dmg, float radius, int owner, bool grenade);
   void damage(int s, float dmg, int attacker, vec3 dir, const char* how);
+  bool flameHit(int victim, int owner, float dmg, vec3 dir, float burnSec, float burnDps);   // FT1 (flame.cpp): damage + ignite; false when refused
+  void burnStep(float dt);                                  // FT1: burning soldiers: flames on the body (all), damage ticks (host)
+  bool soldierFlame(Soldier& s, vec3 dir, float dt);        // FT1: a bot holds its nozzle open for dt
   bool meleeHit(int attacker, int victim, float dmg);   // G2 (zombie.cpp): a blow that landed (zombie strike, the knife)
   bool hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const;
   int soldierOfOwner(int owner) const;
