@@ -212,6 +212,8 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     check(!sTpl.empty(), fmt("authored default-map templates found: %zu", sTpl.size()));
     if (sTpl.empty()) { finish(app); return; }
     settings().applyPreset(app, GfxPreset::Medium);   // P1: every Medium view at the Medium preset (resolution 0.67 + TAAU), as after a Low / High pass
+    if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale (Mac: 0.6)
+    if (const char* e = std::getenv("NMK_UPSCALE")) settings().s.upscale = app.R.upscaleMode = e[0] == 's' ? 1 : e[0] == 'o' ? 2 : 0;
     go(4101);
     break;
   }

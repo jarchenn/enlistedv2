@@ -1877,7 +1877,8 @@ void main(){
 static const char* kTaaFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uCur, uHist, uDepth, uVel; uniform mat4 uInvVP, uPrevVP; uniform vec2 uTexel; uniform int uValid; uniform float uSharpen;
-uniform int uUp; uniform vec2 uInTexel, uJit;   // P1 TAAU: 1 = this pass runs at output size; the internal texel; the frame's jitter (internal px)
+uniform int uUp; uniform vec2 uInTexel, uJit;
+uniform int uTaaDbg;   // NMK_TAA_DEBUG: 1 uv, 2 texelFetch(uCur), 3 uInTexel x 1000 / uUp, 4 texture(uCur) (Metal shim checks)   // P1 TAAU: 1 = this pass runs at output size; the internal texel; the frame's jitter (internal px)
 layout(location=0) out vec4 oColor;
 layout(location=1) out vec4 oHist;
 vec3 toYC(vec3 c){ return vec3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
@@ -1895,6 +1896,12 @@ vec3 histCR(vec2 uv){
   return max(r/wsum, vec3(0.0));
 }
 void main(){
+  if (uTaaDbg > 0) {
+    gl_FragDepth = texture(uDepth, vUV).r;
+    vec4 d = uTaaDbg == 1 ? vec4(vUV*4.0, 0.0, 1.0) : uTaaDbg == 2 ? texelFetch(uCur, ivec2(vUV*vec2(textureSize(uCur, 0))), 0)
+           : uTaaDbg == 3 ? vec4(uInTexel*1000.0, float(uUp), 1.0) : texture(uCur, vUV);
+    oColor = d; oHist = d; return;
+  }
   vec3 cur, m1 = vec3(0.0), m2 = vec3(0.0), sum = vec3(0.0);
   vec2 dUV = vUV; float conf = 1.0;
   if (uUp == 1) {
@@ -3735,7 +3742,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // ---- main HDR pass. With TAA the world is rendered with a sub-pixel jitter (Halton 2,3, 8 phases); effects,
   // the weapon and overlays use the unjittered matrices.
   // P1 TAAU: below the output size the TAA resolve reconstructs at output size (TAA is then always on: it is the upscaler)
-  const bool taau = !q.legacy && !thumbMode && displayW > 0 && (width < displayW || height < displayH);
+  const bool taau = upscaleMode == 0 && !q.legacy && !thumbMode && displayW > 0 && (width < displayW || height < displayH);
   bool taaOn = (q.taa || taau) && !q.legacy && !thumbMode;
   if (taau != histUp) { taaValid = false; histUp = taau; }   // the two histories have different sizes
   mat4 vpU = v.proj * v.view;
@@ -4169,7 +4176,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
       glUniform2f(U(progMotion, "uSize"), (float)width, (float)height); glUniform1f(U(progMotion, "uSignY"), hookSign.y);
       glDrawArrays(GL_TRIANGLES, 0, 3);
     }
-    if (hook && temporalUpscaler({sceneCopy, depthTex, motionTex, up.hdrColor, up.depthTex, width, height, up.w, up.h, jitterPx * hookSign.x,
+    if (hook && temporalUpscaler({sceneCopy, depthTex, motionTex, up.hdrColor, up.depthTex, expoTex[expoIdx], width, height, up.w, up.h, jitterPx * hookSign.x,
                                   glm::inverse(vpU), prevVP, !taaValid})) {
       glBindFramebuffer(GL_FRAMEBUFFER, up.hdrFbo); glNamedFramebufferDrawBuffer(up.hdrFbo, GL_NONE); glViewport(0, 0, up.w, up.h);
       glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);
@@ -4193,6 +4200,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   }
   glUseProgram(progTaa);
   glUniform1i(U(progTaa, "uUp"), histUp ? 1 : 0);
+  { static const int dbg = std::getenv("NMK_TAA_DEBUG") ? std::atoi(std::getenv("NMK_TAA_DEBUG")) : 0; glUniform1i(U(progTaa, "uTaaDbg"), dbg); }
   glUniform2f(U(progTaa, "uInTexel"), 1.0f / width, 1.0f / height);
   glUniform2f(U(progTaa, "uJit"), jitterPx.x, jitterPx.y);
   glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, histUp ? up.hist[histIdx] : histTex[histIdx]); glBindTextureUnit(7, depthTex);

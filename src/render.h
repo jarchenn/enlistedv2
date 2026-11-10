@@ -190,13 +190,17 @@ public:
   int displayW = 0, displayH = 0;
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // Mac hook (MetalFX temporal scaler, rendering.md 14.4): when set and it returns true, it replaced the GL TAAU shader
-  struct TemporalUpscale { GLuint color, depth, motion, outColor, outDepth; int inW, inH, outW, outH; vec2 jitterPx; mat4 invVP, prevVP; bool reset; };
+  // exposure: the engine's 1x1 R32F exposure (last frame's; the tonemap multiplies the HDR colour by it)
+  struct TemporalUpscale { GLuint color, depth, motion, outColor, outDepth, exposure; int inW, inH, outW, outH; vec2 jitterPx; mat4 invVP, prevVP; bool reset; };
   // The platform installs it at start-up (normandy-mac mac_window.mm: the MetalFX temporal scaler); hookOn switches it
   // per renderer (A/B, captures). With a hook, motion is the full per-pixel motion in input pixels toward the previous
   // position (RG16F, motionTex: velTex where animated, else the camera reprojection), and the engine writes outDepth.
   static inline bool (*temporalUpscaler)(const TemporalUpscale&) = nullptr;
   bool hookOn = true, hookWas = false;
   vec2 hookSign{1.0f, 1.0f};   // sign checks (NMK_TAAU_SHOTS): x multiplies the jitter handed over, y the motion's y
+  // Upscaling (settings "upscaling"): 0 Temporal (TAAU, or the platform's temporal hook), 1 Spatial (the pre-P1 path:
+  // everything at the internal size, then the final blit upscales; MetalFX spatial on the Mac), 2 Off (native)
+  int upscaleMode = 0;
   GLuint progMotion = 0, progDepthUp = 0, motionTex = 0, motionFbo = 0; int motionW = 0, motionH = 0;
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
   bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
@@ -273,7 +277,7 @@ private:
   bool histUp = false;       // the TAA history holds output-size (TAAU) frames
   void createUpTargets();
   void swapUp();             // exchanges the internal and output-size post targets (and width / height)
-  float effScale() const { return perf.taau ? resScale : 1.0f; }   // taau off: native resolution (the A/B baseline)
+  float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
   GLuint progGrass = 0, progGrassShadow = 0;   // GX3: near pasture clumps into the sun map
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped
