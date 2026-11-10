@@ -269,7 +269,7 @@ bool measureById(App& a, const std::string& id, const Probe& p, Meas& m, bool& r
   else if (id == "m1_carbine" || id == "m1_garand") m = measureAperture(p, 0.32f, 0.5f, 1.3f);
   else if (id == "m3_grease_gun") m = measureAperture(p, 0.25f, 0.35f, 0.9f);
   else if (id == "stg44") m = measureUNotch(p, 0.32f, 0.5f, 1.4f, drop(0.0013f));
-  else if (id == "m1918a2_bar") { m = measureFrontPost(p, 0.5f, 1.4f, rsi(p, 8)); rear = false; }
+  else if (id == "m1918a2_bar" || id == "m1_thompson") { m = measureFrontPost(p, 0.5f, 1.4f, rsi(p, 8)); rear = false; }   // front tip only (Thompson: two rear posts); the carried M2 is analytic only (its 2 mm post is too thin for the measure)
   else { rear = front = false; return false; }
   return true;
 }
@@ -817,7 +817,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
       for (glm::ivec2 sz : {glm::ivec2(1920, 1080), glm::ivec2(2560, 1440), glm::ivec2(3440, 1440)}) {
         push("sweep size " + std::to_string(sz.x), [sz](App& a, float t) { (void)a; forceRes = sz; return t > 0.6f; });
         for (auto& dp : app.weaponDefs) {
-          if (dp->equipment() || dp->action == "heavy" || dp->flame.on) continue;   // hand equipment; the carried M2HB (deploys) and the flamethrowers (zoom only) have no sights
+          if (dp->equipment() || dp->flame.on) continue;   // hand equipment and the flamethrowers (zoom only) have no sights; the carried M2HB aims (WP1)
           const std::string id = dp->id;
           push("sweep " + id + " " + std::to_string(sz.x), [this, id, sz](App& a, float t) {
             if (t == 0) { a.selectWeapon(a.weaponIndex(id)); a.wstate[id].bolt = a.wstate[id].cooldown = 0; a.vm.procedural = false; a.vm.snap = true; a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.sightMarkers = false; }   // a holstered bolt gun's cycle is frozen; aim waits for it
