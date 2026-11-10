@@ -2482,10 +2482,10 @@ uniform vec4 uCards;                 // G1: this species group's near / mid / fa
 // first / count of its cells in uGAIdx and how many of its blade cards show a plant (the rest collapse: each plant
 // card carries several blades, so the clump keeps about its blade count at a fraction of the fill)
 uniform int uGAOn; uniform vec4 uGACell[32]; uniform float uGAV0; uniform ivec4 uGASp[24]; uniform int uGAIdx[48];
-out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid, vTap;   // vTap: G1 blade card width / full card width (trimmed padding)
-out vec4 vCC, vPC;
-flat out int vSp; flat out int vPart; flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf; pasture 10+
-flat out int vGA;                    // GT1: atlas layer of this card, -1 = procedural
+layout(location=0) out vec3 vW; layout(location=1) out vec3 vAlb; layout(location=2) out vec3 vF; layout(location=3) out vec2 vUV; layout(location=4) out float vWid; layout(location=5) out float vTap;   // vTap: G1 blade card width / full card width (trimmed padding)
+layout(location=6) out vec4 vCC; layout(location=7) out vec4 vPC;
+layout(location=8) flat out int vSp; layout(location=9) flat out int vPart; layout(location=10) flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf; pasture 10+
+layout(location=11) flat out int vGA;                    // GT1: atlas layer of this card, -1 = procedural
 // GX3 pasture clump: cards pre-arranged around the root (tall centre, short outward-leaning rim), leaning with the
 // slope, the base blended into the ground colour, base AO, wind only near the eye; LOD fades by rank (no pop)
 void pastureClump(){
@@ -2684,10 +2684,10 @@ void plantMain(){
 }
 )GLSL";
 static const char* kGrassFS = R"GLSL(
-in vec3 vW, vAlb, vF; in vec2 vUV; in float vWid, vTap;
-in vec4 vCC, vPC;
-flat in int vSp; flat in int vPart; flat in float vSeed;
-flat in int vGA;
+layout(location=0) in vec3 vW; layout(location=1) in vec3 vAlb; layout(location=2) in vec3 vF; layout(location=3) in vec2 vUV; layout(location=4) in float vWid; layout(location=5) in float vTap;
+layout(location=6) in vec4 vCC; layout(location=7) in vec4 vPC;
+layout(location=8) flat in int vSp; layout(location=9) flat in int vPart; layout(location=10) flat in float vSeed;
+layout(location=11) flat in int vGA;
 uniform sampler2DArray uGATex; uniform vec3 uGAMean[32];   // GT1: unit 27, coverage-preserving mips; linear mean colour per cell
 uniform float uWidthScale;
 layout(location=4) out vec4 oVel;
@@ -2831,9 +2831,9 @@ void main(){
 )GLSL";
 // GX3: near pasture clumps into the sun shadow map (Grass::drawShadow); coarse silhouettes of the cards
 static const char* kGrassShadowFS = R"GLSL(
-in vec2 vUV; in float vWid, vTap;
-flat in int vSp; flat in int vPart; flat in float vSeed;
-flat in int vGA;
+layout(location=3) in vec2 vUV; layout(location=4) in float vWid; layout(location=5) in float vTap;
+layout(location=8) flat in int vSp; layout(location=9) flat in int vPart; layout(location=10) flat in float vSeed;
+layout(location=11) flat in int vGA;
 uniform sampler2DArray uGATex;
 void main(){
   float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y;
