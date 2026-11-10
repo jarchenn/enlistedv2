@@ -282,7 +282,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   // ---- the palm path (heel on the near side round the bottom to the knuckle line under the far edge), the wrist
   // point behind the heel, then the arm: a two-bone solve to that wrist
   const int nP = 7;
-  float phH = -16.0f + g.palm, phK = -140.0f;
+  float phH = -58.0f + g.palm, phK = -166.0f;   // heel under the near-bottom edge, knuckles low on the far side: the hand under the fore-end
   vec3 PP[nP]; float pw[nP], pt[nP];
   for (int i = 0; i < nP; ++i) {
     float t = i / float(nP - 1);
@@ -291,9 +291,14 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   }
   // the hand's long axis at the heel (from the knuckles through the heel, and the palm's last turn): the wrist stays
   // near neutral, the forearm continuing straight into the back of the hand
-  vec3 wdir = glm::normalize(glm::normalize(PP[0] - PP[nP - 1]) + glm::normalize(PP[0] - PP[1]));
+  vec3 handAx = glm::normalize(glm::normalize(PP[0] - PP[nP - 1]) + glm::normalize(PP[0] - PP[1]));
+  // the forearm runs back along the weapon and down from under it, a little to the near side: on screen it rises
+  // steeply from the bottom centre-left alongside the weapon (the same for every weapon: relative to its axis)
+  vec3 nearC = glm::normalize(R3 * Nw);
+  vec3 dirF = glm::normalize(-Ac * 0.75f + vec3(0, -0.62f, 0) + nearC * 0.28f);
+  vec3 wdir = glm::normalize(dirF * 0.75f + handAx * 0.25f);   // the wrist nearly straight: the hand continues the forearm
   vec3 wristT = PP[0] + wdir * 0.035f;
-  vec3 Sh = vec3(-0.19f * m, -0.31f, 0.04f) + vec3(g.shoulder.x * m, g.shoulder.y, g.shoulder.z);   // below-left of the eye: the sleeve enters low
+  vec3 Sh = vec3(-0.15f * m, -0.36f, -0.02f) + vec3(g.shoulder.x * m, g.shoulder.y, g.shoulder.z);   // below, a little left of the eye, not at the cheek
   const float maxR = (kUpper + kFore) * 0.985f;   // a small bend is always kept: no straight-arm flip
   float L = glm::length(wristT - Sh);
   if (L > maxR) Sh += (wristT - Sh) / L * std::min(L - maxR, 0.07f);   // the shoulder reaches forward (protraction), up to 7 cm
@@ -301,7 +306,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   o.reached = L <= maxR + 1e-4f;
   vec3 E, Wr;
   // elbow pole: toward where the forearm would put it in line with the hand (wrist neutral), biased by the profile
-  vec3 Ed = wristT + wdir * kFore;
+  vec3 Ed = wristT + dirF * kFore;
   solveTwoBone(Sh, wristT, kUpper, kFore, glm::normalize(Ed - Sh) + vec3(g.elbow.x * m, g.elbow.y, g.elbow.z) * 0.25f, E, Wr);
   if (!o.reached) { vec3 u = glm::normalize(wristT - Sh); Wr = Sh + u * maxR; }
   o.shoulder = Sh; o.elbow = E; o.wrist = Wr; o.target = wristT;
@@ -315,7 +320,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   std::vector<vec3> P; std::vector<float> sAt;
   // cuff (part 1): inner lip (the cloth turns in: thickness), the edge, 4.5 cm of cuff
   std::vector<vec3> Pc = {cuffEdge + f * 0.014f, cuffEdge + f * 0.002f, cuffEdge, cuffEdge + f * 0.015f, cuffEdge + f * 0.030f, cuffEdge + f * 0.045f};
-  std::vector<vec2> Rc = {{0.0405f, 0.035f}, {0.0445f, 0.0385f}, {0.0465f, 0.040f}, {0.0475f, 0.041f}, {0.0478f, 0.0412f}, {0.048f, 0.0414f}};
+  std::vector<vec2> Rc = {{0.0372f, 0.0322f}, {0.041f, 0.0355f}, {0.0428f, 0.0368f}, {0.0437f, 0.0377f}, {0.044f, 0.0379f}, {0.0442f, 0.0381f}};
   vec3 cuffEnd = Pc.back();
   o.sleeve15 = cuffEnd + f * 0.15f;
   // body (part 0)
@@ -328,7 +333,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   std::vector<vec2> Rb;
   { float s = 0; for (size_t i = 0; i < P.size(); ++i) {
       if (i) s += glm::length(P[i] - P[i - 1]); sAt.push_back(s);
-      float r = glm::mix(0.0442f, 0.048f, glm::smoothstep(0.010f, 0.024f, s)) + 0.013f * glm::smoothstep(0.04f, 0.21f, s) + 0.003f * glm::smoothstep(sE - 0.05f, sE + 0.05f, s);
+      float r = glm::mix(0.0405f, 0.0442f, glm::smoothstep(0.010f, 0.024f, s)) + 0.0095f * glm::smoothstep(0.04f, 0.21f, s) + 0.003f * glm::smoothstep(sE - 0.05f, sE + 0.05f, s);
       Rb.push_back(vec2(r, r * 0.87f));
   } }
   // radius modulation round each ring: an irregular ellipse, soft long folds on the forearm, compression folds on the
@@ -397,7 +402,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     // march round the section at the finger's own offset until its length is used (or the top-far stop)
     float want = fl[fi] * glm::mix(0.55f, 1.0f, curl), arc = 0, ph0 = phK, ph1 = ph0;
     auto at = [&](float deg) { float a = radians(deg); return vec2((rx + fr) * std::cos(a), (ry + fr) * std::sin(a)); };
-    while (arc < want && ph1 > -248.0f) { arc += glm::length(at(ph1 - 1) - at(ph1)); ph1 -= 1; }
+    while (arc < want && ph1 > -244.0f) { arc += glm::length(at(ph1 - 1) - at(ph1)); ph1 -= 1; }
     std::vector<vec3> FP;
     for (int i = 0; i <= kFR; ++i) {
       float t = i / float(kFR);
@@ -434,7 +439,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     std::vector<vec3> TP; std::vector<vec2> TR;
     for (int i = 0; i <= 6; ++i) {
       float t = i / 6.0f;
-      TP.push_back(S(glm::mix(-30.0f, glm::mix(-24.0f, -12.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
+      TP.push_back(S(glm::mix(-52.0f, glm::mix(-20.0f, -8.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
       float tr = glm::mix(0.0118f, 0.0084f, t);
       TR.push_back(vec2(tr * 0.88f, tr));
     }
@@ -448,12 +453,12 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   vec3 across = glm::normalize(glm::cross(f, dT));
   {
     std::vector<vec3> TP; std::vector<vec2> TR;
-    for (int i = 0; i <= 4; ++i) { float t = i / 4.0f; TP.push_back(cuffEdge + f * glm::mix(0.006f, 0.052f, t) + dT * 0.0518f); TR.push_back(vec2(glm::mix(0.0105f, 0.012f, t), 0.0026f)); }
+    for (int i = 0; i <= 4; ++i) { float t = i / 4.0f; TP.push_back(cuffEdge + f * glm::mix(0.006f, 0.052f, t) + dT * 0.0478f); TR.push_back(vec2(glm::mix(0.0105f, 0.012f, t), 0.0026f)); }
     B.sweep(TP, TR, across, 12, 1, 0.0f, kTexLen, true, true);
   }
   if (B.idx) { gA.partCount[3] = (uint32_t)B.I.size() - gA.partFirst[3]; gA.partFirst[4] = (uint32_t)B.I.size(); }
   {
-    vec3 bc = cuffEdge + f * 0.016f + dT * 0.0538f;
+    vec3 bc = cuffEdge + f * 0.016f + dT * 0.0498f;
     std::vector<vec3> BP = {bc, bc + dT * 0.0015f, bc + dT * 0.003f}; std::vector<vec2> BR = {{0.0068f, 0.0068f}, {0.0072f, 0.0072f}, {0.0066f, 0.0066f}};
     B.sweep(BP, BR, f, 14, 1, 0, 1, true, true);
   }
