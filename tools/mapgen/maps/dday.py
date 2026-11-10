@@ -315,9 +315,12 @@ def sculpt(ctx, grid, R):
     gl = [grid.sample(*point_at(GULLY, polyline_length(GULLY) * i / 100.0)[0]) for i in range(101)]
     stamp_valley(grid, GULLY, floor=lambda u: gl[min(100, int(round(u * 100)))] - 2.2 * math.sin(math.pi * min(1.0, u * 1.3)),
                  top_half=lambda u: 13.0, floor_half=lambda u: 3.0)
-    # spawn cover: a curved sand bar 3.4 m high 7-8 m inland of each Allied landing, open at both ends (two ways out)
+    # spawn cover: a broad curved dune 3.3 m high, its crest 9-11 m inland of each Allied landing, open at both ends (two ways out)
     for x, z in ALLIED:
-        stamp_bank(grid, [(x - 15, z - 2.0), (x - 10, z - 6.5), (x - 3, z - 8.0), (x + 3, z - 8.0), (x + 10, z - 6.5), (x + 15, z - 2.0)], 4.0, 3.4)
+        stamp_bank(grid, [(x - 17, z - 3.0), (x - 11, z - 9.0), (x - 3, z - 11.0), (x + 4, z - 10.5), (x + 11, z - 8.5), (x + 17, z - 2.5)], 8.0, 3.3)
+        sg = 1 if x > STRONG[0] + 10 else -1 if x < STRONG[0] - 10 else 0   # a dune tail toward the stronghold's side
+        if sg:
+            stamp_bank(grid, [(x - sg * 24, z - 5.0), (x - sg * 14, z - 13.0), (x - sg * 5, z - 14.5)], 6.5, 3.1)
     # bombardment craters: the dry beach and dunes, the bunker slopes (cover on the lanes inland)
     craters = []
     for n, z0, z1, r0, r1, d0, d1 in ((10, 52, 92, 2.4, 3.6, 0.6, 1.1), (16, -40, 50, 2.6, 4.4, 0.8, 1.5)):
@@ -454,6 +457,9 @@ def build(ctx):
     b.chain("wire_concertina", [(-128, 64), (-64, 62), (0, 63), (64, 61), (128, 63)], along="z", gaps=[(36, 50), (124, 140), (208, 224)],
             jitter_yaw=6, rng=R, tags={"wire"}, check=False)
     beach = lambda x, z: 46 < z < 98 and abs(x) < HX - 3
+    on_cover_dune = lambda x, z: any(8.0 < dist((x, z), (sx, sz)) < 24.0 and z < sz - 3.0 for sx, sz in ALLIED)   # grass on the landing dunes
+    b.scatter([("nat_drygrass_tall", 3), ("nat_drygrass_sparse", 2), ("nat_drygrass_tufts", 1)], on_cover_dune, 1 / 14.0, R, bounds=(-HX, 78, HX, 104),
+              tags={"dune_grass"}, cls="flat", ok_with={"flat", "none", "veg", "wire"})
     dunes = lambda x, z: 44 < z < 66 and abs(x) < HX - 3
     FLATKW = dict(cls="flat", ok_with={"flat", "none", "veg", "wire"})
     b.scatter([("nat_drygrass_tall", 3), ("nat_drygrass_sparse", 3), ("nat_drygrass_tufts", 2), ("nat_gorse_shrub", 1)], dunes, 1 / 26.0, R,
@@ -566,10 +572,6 @@ def build(ctx):
             break
     rep["decorForest"] = nd
 
-    # far out at sea: more landing craft waiting offshore (decor silhouettes beyond the playable edge)
-    for x, z, yaw in ((-95, 168, 186), (-30, 182, 176), (40, 160, 190), (105, 190, 172), (-140, 210, 182), (150, 175, 196)):
-        b.place(R.choice(["bch_lcvp_intact", "bch_lcvp_intact", "bch_lcvp_wrecked"]), x, z, yaw, check=False, water_ok=True, y=WATER - 0.3,
-                extra=DECOR, tags={"decor", "offshore"}, cls="none")
     # ------------------------------------------------------------------ 7. smoke and fire at a few wrecks and impacts
     fires = 0
     for x, z, aid in ((-62, 117, "fx_wreck_fire"), (62, 94, "fx_wreck_fire"), (-104, 30, "fx_impact_smoke"), (52, 24, "fx_impact_smoke"),
@@ -638,9 +640,9 @@ def build(ctx):
     thumb_cam = ([-70.0, 85.0, 200.0], look_yaw(70.0, -200.0), -24.0)
     views = [
         {"name": "overview_high", "pos": [0.0, 175.0, 150.0], "yaw": 0.0, "pitch": -50.0},
-        {"name": "landing_eye", "pos": eye(ALLIED[1][0] + 3.0, ALLIED[1][1] + 1.0), "yaw": look_yaw(-0.1, -1.0), "pitch": 3.0, "gameplay": True},
+        {"name": "landing_eye", "pos": eye(ALLIED[1][0] + 4.0, ALLIED[1][1] + 2.0), "yaw": look_yaw(0.55, -1.0), "pitch": 4.0, "gameplay": True},
         {"name": "dune_eye", "pos": eye(U(0.3), 60.0), "yaw": look_yaw(0.25, -1.0), "pitch": 2.0, "gameplay": True},
-        {"name": "forward_trench_eye", "pos": eye(-30.0, 28.0, 0.1), "yaw": look_yaw(1.0, 0.05), "pitch": 0.0, "gameplay": True},
+        {"name": "forward_trench_eye", "pos": eye(-35.0, 28.0, -0.05), "yaw": look_yaw(1.0, 0.0), "pitch": 2.0, "gameplay": True},
         {"name": "stronghold_eye", "pos": eye(STRONG[0] + 30.0, 14.0), "yaw": look_yaw(-30.0, -28.0), "pitch": 4.0, "gameplay": True},
         {"name": "stronghold_over_beach", "pos": [STRONG[0], strong["pos"][1] + 7.0, STRONG[1] + 9.0], "yaw": look_yaw(0.0, 1.0), "pitch": -4.0, "gameplay": True},
         {"name": "village_eye", "pos": eye(SQUARE[0] + 6.0, SQUARE[1] + 16.0), "yaw": look_yaw(-0.2, -1.0), "pitch": 3.0, "gameplay": True},
