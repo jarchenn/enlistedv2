@@ -53,7 +53,7 @@ struct Builder {
   // reference axis ref (projected off the tangent: no roll), ry across; uv: u = round the tube x uRep, v = length / vLen
   // cap0 / cap1: close that end with a rounded cap (three rings of a half ellipsoid, normals leaning along the tube),
   // so no open tube end shows its inside
-  void sweep(const std::vector<vec3>& P, const std::vector<vec2>& R, vec3 ref, int N, float uRep, float v0, float vLen, bool cap0 = false, bool cap1 = false, const RMod& rmod = nullptr) {
+  void sweep(const std::vector<vec3>& P, const std::vector<vec2>& R, vec3 ref, int N, float uRep, float v0, float vLen, bool cap0 = false, bool cap1 = false, const RMod& rmod = nullptr, const RMod& smod = nullptr) {
     struct Ring { vec3 c, t, e1, e2; vec2 r; float v, lean; int src; };
     std::vector<Ring> rings;
     float s = 0;
@@ -79,6 +79,7 @@ struct Builder {
         float a = 2 * kPi * k / N, c = std::cos(a), sn = std::sin(a);
         float km = rmod && q.src >= 0 ? rmod((size_t)q.src, a, q.e1 * c + q.e2 * sn) : 1.0f;
         vec3 p = q.c + q.e1 * (c * q.r.x * km) + q.e2 * (sn * q.r.y * km);
+        if (smod && q.src >= 0) p += q.t * smod((size_t)q.src, a, q.e1 * c + q.e2 * sn);
         vec3 ne = glm::normalize(q.e1 * (c / std::max(q.r.x, 1e-4f)) + q.e2 * (sn / std::max(q.r.y, 1e-4f)));
         vec3 n = glm::normalize(ne * std::cos(q.lean) + q.t * std::sin(q.lean));
         vec3 tu = -q.e1 * sn + q.e2 * c;
@@ -289,7 +290,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   vec3 PP[nP]; float pw[nP], pt[nP];
   for (int i = 0; i < nP; ++i) {
     float t = i / float(nP - 1);
-    pt[i] = glm::mix(0.0168f, 0.0108f, glm::smoothstep(0.0f, 0.8f, t)); pw[i] = glm::mix(0.040f, 0.0425f, t);
+    pt[i] = glm::mix(0.0148f, 0.0105f, glm::smoothstep(0.0f, 0.8f, t)); pw[i] = glm::mix(0.034f, 0.039f, t);
     PP[i] = S(glm::mix(phH, phK, t), pt[i] + 0.010f * (1 - glm::smoothstep(0.0f, 0.5f, t)) + 0.006f, 0.0f);   // +6 mm: the bend round the stock stays wider than the palm is thick (no fold)
   }
   // the hand's long axis at the heel (from the knuckles through the heel, and the palm's last turn): the wrist stays
@@ -319,7 +320,8 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
 
   // ---- sleeve (part 0 body, part 1 cuff): one path from the cuff's inner lip up the forearm, round the elbow, up the
   // upper arm past the shoulder; shaped (wider toward the elbow, irregular ellipse) with a few broad folds
-  vec3 cuffEdge = Wr - f * 0.02f;   // the cuff covers the wrist up to the base of the hand (the heel shows)   // the cuff reaches past the wrist to the heel of the hand: no bare wrist shows
+  vec3 cuffEdge = Wr - f * 0.012f;   // the cuff covers the wrist up to the heel
+  vec3 backC = vec3(-0.4f, 1, -0.2f) - f * glm::dot(vec3(-0.4f, 1, -0.2f), f); backC = glm::dot(backC, backC) > 1e-6f ? glm::normalize(backC) : bendN;   // the back of the hand's side
   std::vector<vec3> P; std::vector<float> sAt;
   // cuff (part 1): inner lip (the cloth turns in: thickness), the edge, 4.5 cm of cuff
   std::vector<vec3> Pc = {cuffEdge + f * 0.014f, cuffEdge + f * 0.002f, cuffEdge, cuffEdge + f * 0.015f, cuffEdge + f * 0.030f, cuffEdge + f * 0.045f};
@@ -356,7 +358,8 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   for (vec3& q : P) q.z = std::min(q.z, -0.12f);   // the upper arm never comes behind or onto the near plane (it would smear across the view)
   B.sweep(P, Rb, refS, 24, 1.0f, 0.0f, kBodyLen, false, false, foldBody);
   if (B.idx) { gA.partCount[0] = (uint32_t)B.I.size(); gA.partFirst[1] = (uint32_t)B.I.size(); }
-  B.sweep(Pc, Rc, refS, 24, 1.0f, -0.016f / kTexLen, kTexLen, false, false, foldCuff);
+  auto slant = [&](size_t i, float, vec3 dir) { float w = glm::smoothstep(-0.4f, 1.0f, glm::dot(dir, backC)); float fade = i <= 2 ? 1.0f : i == 3 ? 0.55f : i == 4 ? 0.2f : 0.0f; return -0.022f * w * fade; };   // the opening cut on a slant: 2.2 cm longer over the back of the hand
+  B.sweep(Pc, Rc, refS, 24, 1.0f, -0.016f / kTexLen, kTexLen, false, false, foldCuff, slant);
   if (B.idx) { gA.partCount[1] = (uint32_t)B.I.size() - gA.partFirst[1]; gA.partFirst[2] = (uint32_t)B.I.size(); gA.sleeveV1 = B.V.size(); gA.sleeveI1 = (uint32_t)B.I.size(); }
 
   // ---- hand (part 2): ONE continuous surface: forearm end (inside the cuff) -> wrist -> heel -> palm -> knuckle ring,
@@ -455,11 +458,14 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
     std::vector<vec3> TP; std::vector<vec2> TR;
     for (int i = 0; i <= 6; ++i) {
       float t = i / 6.0f;
-      TP.push_back(S(glm::mix(-44.0f, glm::mix(-30.0f, -24.0f, curl) + g.thumb, t), glm::mix(0.012f, 0.0088f, t) + (1 - curl) * 0.012f * t, glm::mix(0.016f, 0.062f, t)));
-      float tr = glm::mix(0.0135f, 0.0094f, t);
+      TP.push_back(S(glm::mix(-44.0f, glm::mix(-30.0f, -24.0f, curl) + g.thumb, t), glm::mix(0.011f, 0.0084f, t) + (1 - curl) * 0.012f * t, glm::mix(0.006f, 0.080f, t)));
+      float tr = glm::mix(0.0118f, 0.0083f, t) * (t < 0.2f ? 1.0f + (0.2f - t) * 1.5f : 1.0f);   // a wider root buried in the palm
       TR.push_back(vec2(tr * 0.88f, tr));
     }
-    B.sweep(TP, TR, outward(-14.0f), 10, 1, 0.5f, plen(TP) / 0.5f, true, true);
+    size_t tv0 = B.V.size();
+    B.sweep(TP, TR, outward(-14.0f), 10, 1, 0.62f, plen(TP) / 0.38f, true, true);   // v from 0.62: no finger-root darkening at its base
+    vec3 nb = outward(-40.0f);   // the root (cap and first rings) takes the palm's normal there: no dark crease where it enters the palm
+    for (size_t v = tv0; v < std::min(B.V.size(), tv0 + 5 * 11); ++v) { float k = 1.0f - float(v - tv0) / (5 * 11); B.V[v].nrm = glm::normalize(glm::mix(B.V[v].nrm, nb, 0.8f * k)); }
   }
   if (B.idx) { gA.partCount[2] = (uint32_t)B.I.size() - gA.partFirst[2]; gA.partFirst[3] = (uint32_t)B.I.size(); }
   // ---- cuff tab (part 3, cuff cloth) and its button (part 4): a flap with thickness lying along the cuff on its
