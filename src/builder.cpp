@@ -334,6 +334,7 @@ void App::rebuildSectionBodies(const Instance& i, InstanceRT& r) {
     if (p.sec >= 0 && p.sec < (int)r.secCut.size() && r.secCut[p.sec]) continue;
     (p.playerOnly ? player : solid).push_back(p);
   }
+  { extern void lineColliders(const InstanceRT&, std::vector<Part>&, std::vector<Part>&); lineColliders(r, solid, player); }   // LN1: a line's uncut bays
   uint64_t base = i.id << 16;
   if (!solid.empty()) r.staticBody = Physics::addStatic(Physics::buildShape(solid), i.pos, yawQuat(i.yaw), base);
   if (!player.empty() && r.asset->defense.traversal != "slow") r.playerBody = Physics::addPlayerOnly(Physics::buildShape(player), i.pos, yawQuat(i.yaw), base);

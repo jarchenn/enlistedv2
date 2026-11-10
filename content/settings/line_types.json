@@ -1,0 +1,18 @@
+{
+  "_doc": "LN1 line types (src/lines.h, docs/lines.md). A line is an Instance of `asset` (content/assets/line_<id>.json, a \"line\" block naming this type) with its points in extra.line. `builder` names a LINE_BUILDER (\"trench\": the GX1 trench network in terrain_blend.cpp). `spacing`: nominal bay length (m); `params`: per-type defaults a line may override. LN2 appends fence, wire, wall and hedge types here.",
+  "types": [
+    {
+      "id": "trench",
+      "name": "Trench",
+      "asset": "line_trench",
+      "builder": "trench",
+      "spacing": 8.0,
+      "params": {
+        "_doc": "fire: the parapet's low fire side (left | right | none, along the drawing direction); ramps: entry ramps at the line's ends (both | start | end | none; an end that joins another line never gets one); traverse: a dogleg every N m (0 = none)",
+        "fire": "left",
+        "ramps": "both",
+        "traverse": 0
+      }
+    }
+  ]
+}
