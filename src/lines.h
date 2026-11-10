@@ -45,6 +45,7 @@ json lineParams(const LineType& t, const LineData& d);   // type defaults merged
 struct LineSample { vec2 p{0}; float s = 0, d = 1; vec2 t{1, 0}; };
 std::vector<LineSample> lineSpline(const LineData& d, float step = 0.5f, bool sharp = false);
 float lineLength(const std::vector<LineSample>& sp);
+uint64_t lineCutSig(const std::vector<uint8_t>& cut);   // LN2: signature of a line's cut bays
 
 // ---------------------------------------------------------------- builders (one per line type family)
 // A builder turns a line into instance-space geometry. The engine draws `mesh`, builds one static compound from
@@ -53,8 +54,13 @@ float lineLength(const std::vector<LineSample>& sp);
 // LN2's: `gates` lists their bays for the door system to come.
 struct LineCollider { Part part; int section = -1; bool playerOnly = false; };
 struct LineGate { float s = 0, w = 3.6f; std::string kind; vec2 a{0}, b{0}; };   // a gate's posts, instance space
+struct LineRigid { const AssetDef* src = nullptr; mat4 m{1}; int section = -1; uint8_t lod = 2; };   // LN2: a whole piece on a bay (model / canopy), instance space
 struct LineBuildOut {
   MeshData mesh;                          // all materials batched (per-vertex albedo), instance space
+  std::vector<glm::uvec2> secIdx;         // LN2: per section, its index range in `mesh` (cut sections drop out of the draw)
+  std::vector<int> areaSec;               // LN2: per area, its section (-1 = always)
+  std::vector<LineRigid> rigid;           // LN2: supplied models (wire) and canopies (hedges) placed per bay
+  uint64_t cutSig = 0;                    // LN2: secCut signature the uploaded mesh reflects
   std::vector<LineCollider> colliders;    // instance space
   std::vector<NavAreaPoly> areas;         // instance space outlines
   std::vector<NavCoverPoint> cover;       // instance space

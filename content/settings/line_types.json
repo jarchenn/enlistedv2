@@ -1,17 +1,269 @@
 {
-  "_doc": "LN1 line types (src/lines.h, docs/lines.md). A line is an Instance of `asset` (content/assets/line_<id>.json, a \"line\" block naming this type) with its points in extra.line. `builder` names a LINE_BUILDER (\"trench\": the GX1 trench network in terrain_blend.cpp). `spacing`: nominal bay length (m); `params`: per-type defaults a line may override. LN2 appends fence, wire, wall and hedge types here.",
+  "_doc": "LN1 line types (src/lines.h, docs/lines.md). A line is an Instance of `asset` (content/assets/line_<id>.json, a \"line\" block naming this type) with its points in extra.line. `builder` names a LINE_BUILDER (\"trench\": the GX1 trench network in terrain_blend.cpp). `spacing`: nominal bay length (m); `params`: per-type defaults a line may override. LN2 appends fence, wire, wall and hedge types here. LN2 types (builder \"bays\", src/lines_ln2.cpp): `pieces` [[asset id, weight]] laid as bays along the line (stretched to fit); `sectionHp`: each bay is a damage section (wire / sandbags: a blast cuts it out); `hedge`: nav marks the banks as walls; `gates`: gate pieces that join the type's chains in migration and the gate kinds its spans take; `minChain`: fewest joined pieces migrated (single knife rests stay obstacles); `migrate`: pieces turned into this type on map load (also hidden from the Assets palette), with an optional asset-space `path` and a `gap` [s0, s1] (a gateway inside the piece). Spans: {s: centre arc length, w: width, kind: gap | field_gate | gate_piers}.",
   "types": [
     {
       "id": "trench",
       "name": "Trench",
       "asset": "line_trench",
       "builder": "trench",
-      "spacing": 8.0,
+      "spacing": 8,
       "params": {
         "_doc": "fire: the parapet's low fire side (left | right | none, along the drawing direction); ramps: entry ramps at the line's ends (both | start | end | none; an end that joins another line never gets one); traverse: a dogleg every N m (0 = none)",
         "fire": "left",
         "ramps": "both",
         "traverse": 0
+      }
+    },
+    {
+      "id": "wire_fence",
+      "name": "Wire fence (pickets and strands)",
+      "asset": "line_wire_fence",
+      "builder": "bays",
+      "spacing": 4.7,
+      "pieces": [
+        [
+          "wire_fence",
+          1
+        ]
+      ],
+      "params": {},
+      "sectionHp": 60,
+      "migrate": {
+        "wire_fence": {}
+      }
+    },
+    {
+      "id": "concertina",
+      "name": "Concertina wire",
+      "asset": "line_concertina",
+      "builder": "bays",
+      "spacing": 3.9,
+      "pieces": [
+        [
+          "wire_concertina",
+          1
+        ]
+      ],
+      "params": {},
+      "sectionHp": 60,
+      "migrate": {
+        "wire_concertina": {}
+      }
+    },
+    {
+      "id": "knife_rest",
+      "name": "Knife-rest run",
+      "asset": "line_knife_rest",
+      "builder": "bays",
+      "spacing": 2.3,
+      "pieces": [
+        [
+          "wire_knife_rest",
+          1
+        ]
+      ],
+      "params": {},
+      "sectionHp": 60,
+      "minChain": 2,
+      "migrate": {
+        "wire_knife_rest": {}
+      }
+    },
+    {
+      "id": "minefield_fence",
+      "name": "Minefield fence",
+      "asset": "line_minefield_fence",
+      "builder": "bays",
+      "spacing": 10,
+      "pieces": [
+        [
+          "bch_minefield_fence",
+          1
+        ]
+      ],
+      "params": {},
+      "migrate": {
+        "bch_minefield_fence": {}
+      }
+    },
+    {
+      "id": "post_wire_fence",
+      "name": "Post-and-wire fence",
+      "asset": "line_post_wire_fence",
+      "builder": "bays",
+      "spacing": 8,
+      "pieces": [
+        [
+          "fence_post_wire",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ],
+      "migrate": {
+        "fence_post_wire": {}
+      }
+    },
+    {
+      "id": "picket_fence",
+      "name": "Picket fence",
+      "asset": "line_picket_fence",
+      "builder": "bays",
+      "spacing": 3,
+      "pieces": [
+        [
+          "drs_picket_fence",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ],
+      "migrate": {
+        "drs_picket_fence": {}
+      }
+    },
+    {
+      "id": "stone_wall",
+      "name": "Low stone wall",
+      "asset": "line_stone_wall",
+      "builder": "bays",
+      "spacing": 6,
+      "pieces": [
+        [
+          "stone_wall_low",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ],
+      "migrate": {
+        "stone_wall_low": {}
+      }
+    },
+    {
+      "id": "garden_wall",
+      "name": "Garden wall",
+      "asset": "line_garden_wall",
+      "builder": "bays",
+      "spacing": 4,
+      "pieces": [
+        [
+          "drs_garden_wall",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "drs_gate_piers"
+      ],
+      "migrate": {
+        "drs_garden_wall": {}
+      }
+    },
+    {
+      "id": "sandbag_wall",
+      "name": "Sandbag wall (breastwork)",
+      "asset": "line_sandbag_wall",
+      "builder": "bays",
+      "spacing": 3,
+      "pieces": [
+        [
+          "drs_sandbag_wall",
+          1
+        ]
+      ],
+      "params": {},
+      "sectionHp": 360,
+      "migrate": {
+        "drs_sandbag_wall": {}
+      }
+    },
+    {
+      "id": "sandbag_low",
+      "name": "Sandbag wall (low)",
+      "asset": "line_sandbag_low",
+      "builder": "bays",
+      "spacing": 2,
+      "pieces": [
+        [
+          "def_sandbag_straight",
+          1
+        ]
+      ],
+      "params": {},
+      "sectionHp": 300,
+      "migrate": {
+        "def_sandbag_straight": {},
+        "def_sandbag_curved": {
+          "path": [
+            [
+              -0.9567,
+              -0.1903
+            ],
+            [
+              0,
+              -0.024
+            ],
+            [
+              0.9567,
+              -0.1903
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "hedgerow",
+      "name": "Bocage hedgerow",
+      "asset": "line_hedgerow",
+      "builder": "bays",
+      "spacing": 10,
+      "pieces": [
+        [
+          "bcg_hedgerow_straight",
+          0.85
+        ],
+        [
+          "hedgerow_bocage",
+          0.15
+        ]
+      ],
+      "params": {},
+      "hedge": true,
+      "gates": [
+        "field_gate"
+      ],
+      "migrate": {
+        "bcg_hedgerow_straight": {},
+        "hedgerow_bocage": {},
+        "bcg_hedgerow_gap": {
+          "gap": [
+            3.2,
+            6.8
+          ]
+        },
+        "bcg_hedgerow_corner": {
+          "path": [
+            [
+              -6,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              6
+            ]
+          ]
+        }
       }
     }
   ]

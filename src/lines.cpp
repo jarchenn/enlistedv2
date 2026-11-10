@@ -89,6 +89,7 @@ std::vector<LineSample> lineSpline(const LineData& d, float step, bool sharp) {
   }
   return out;
 }
+uint64_t lineCutSig(const std::vector<uint8_t>& cut) { uint64_t h = 1469598103934665603ull ^ cut.size(); for (uint8_t c : cut) h = (h ^ c) * 1099511628211ull; return h; }
 float lineLength(const std::vector<LineSample>& sp) { return sp.empty() ? 0.0f : sp.back().s; }
 
 float LineBuildCtx::ground(float x, float z) const { return app.terrain.height(x, z); }
@@ -116,6 +117,7 @@ bool lineBuildRT(App& app, const Instance& i, InstanceRT& r) {
   r.secHp.assign(out->sections, hp); r.secCut.assign(out->sections, 0);
   r.lineMesh.destroy();
   if (!out->mesh.i.empty()) r.lineMesh.upload(out->mesh);
+  out->cutSig = lineCutSig(r.secCut);
   r.lineGround = app.groundRev;
   return true;
 }
@@ -132,8 +134,21 @@ bool lineDrawItems(App& app, const Instance& i, InstanceRT& r, const mat4& M, st
     LineData d;
     float reach = 0;
     if (lineGet(i, d)) for (auto& p : d.pts) reach = std::max(reach, glm::length(p.p - vec2(i.pos.x, i.pos.z)));
-    if (app.groundChangedNear(r.lineGround, vec2(i.pos.x, i.pos.z), reach + 4.0f)) { app.buildRT(i, r); } else r.lineGround = app.groundRev;
+    if (app.groundChangedNear(r.lineGround, vec2(i.pos.x, i.pos.z), reach + 4.0f)) {
+      auto hp = r.secHp; auto cut = r.secCut;   // LN2: the bays a blast cut stay cut (the same layout)
+      app.buildRT(i, r);
+      if (cut.size() == r.secCut.size() && lineCutSig(cut) != r.line->cutSig) { r.secHp = hp; r.secCut = cut; app.rebuildSectionBodies(i, r); }
+    } else r.lineGround = app.groundRev;
   }
+  if (!r.line->secIdx.empty() && lineCutSig(r.secCut) != r.line->cutSig) {   // LN2: cut bays leave the mesh
+    r.line->cutSig = lineCutSig(r.secCut);
+    MeshData m; m.v = r.line->mesh.v;
+    std::vector<uint8_t> drop(r.line->mesh.i.size(), 0);
+    for (size_t s = 0; s < r.line->secIdx.size() && s < r.secCut.size(); ++s) if (r.secCut[s]) std::fill_n(drop.begin() + r.line->secIdx[s].x, r.line->secIdx[s].y, 1);
+    for (size_t k = 0; k < drop.size(); ++k) if (!drop[k]) m.i.push_back(r.line->mesh.i[k]);
+    r.lineMesh.destroy(); if (!m.i.empty()) r.lineMesh.upload(m);
+  }
+  { extern void lineDrawRigid(App&, const Instance&, InstanceRT&, const mat4&); lineDrawRigid(app, i, r, M); }   // LN2 wire models, hedge canopies
   if (r.lineMesh.count) op.push_back({&r.lineMesh, M});
   blendDrawItems(app, i, r, M, op);   // a trench line's generated revetment (GX1)
   return true;

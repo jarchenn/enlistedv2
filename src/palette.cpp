@@ -16,7 +16,8 @@ std::string assetFootText(const AssetDef* a) {
 const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* active) {
   const AssetDef* picked = nullptr;
   std::vector<std::string> cats = {"All"};
-  auto hidden = [](const AssetDef* a) { return a->raw.is_object() && a->raw.value("hidden", false); };   // LN1: lines and the pieces they replace
+  extern bool lineReplacedPiece(const std::string&);
+  auto hidden = [](const AssetDef* a) { return (a->raw.is_object() && a->raw.value("hidden", false)) || lineReplacedPiece(a->id); };   // LN2: pieces now drawn as lines   // LN1: lines and the pieces they replace
   for (auto& a : app.lib.assets) if (!hidden(a.get()) && std::find(cats.begin(), cats.end(), a->category) == cats.end()) cats.push_back(a->category);
   st.category = std::clamp(st.category, 0, (int)cats.size() - 1);
   if (ImGui::BeginCombo("Category", cats[st.category].c_str())) {

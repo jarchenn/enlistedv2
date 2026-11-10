@@ -152,6 +152,7 @@ const App::ActiveSet& App::activeSet() {
 void App::syncRuntime() {
   uint64_t sig = placementSig(doc.instances, false);
   if (sig == syncSig_ && rt.size() == doc.instances.size()) return;   // nothing appeared, went away or changed revision
+  { extern int lineSyncGates(App&); if (lineSyncGates(*this)) sig = placementSig(doc.instances, false); }   // LN2: line gates follow their spans
   syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
   std::set<uint64_t> live;
   for (auto& i : doc.instances) {
@@ -361,6 +362,7 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   tool = Tool::Select; placing = nullptr;
   { LoadStep ls("newMap content"); w5NewMapContent(*this, t); }   // W5: authored template content (instances, scenario, routes; w5_maps.cpp)
   { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
+  { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
   { LoadStep ls("autoFurnishAll"); interior.autoFurnishAll(*this); }   // V4: every building furnished (no undo step, not dirty; interior.cpp)
   toast("New map from template: " + t.name);
   return true;
@@ -373,6 +375,7 @@ bool App::openMap(const fs::path& p) {
   clearRuntime();
   doc = std::move(d);
   { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
+  { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
   int migrated = 0;
   for (auto& i : doc.instances) {
     i.rev = ++revCounter;

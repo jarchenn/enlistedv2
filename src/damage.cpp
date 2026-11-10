@@ -1,6 +1,7 @@
 // Local wall damage: per-copy panel health (Explore session overlay), replaceable wall collision,
 // explosion resolution in each building's local frame.
 #include "app.h"
+#include "lines.h"
 #include "mpai.h"
 #include <imgui.h>
 #include <chrono>
@@ -50,6 +51,10 @@ void App::resetDamage() {
     auto& r = it->second;
     if (!r.slabCut.empty()) { std::fill(r.slabCut.begin(), r.slabCut.end(), 0); r.pathGround = ~0u; }
     if (r.asset->defense.sections > 0) { r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0); r.defDestroyed = false; rebuildSectionBodies(i, r); }
+    else if (r.line && !r.secCut.empty()) {   // LN2: a line's cut bays stand again
+      const LineType* lt = lineTypeOf(r.asset);
+      r.secHp.assign(r.secHp.size(), lt ? lt->raw.value("sectionHp", 60.0f) : 60.0f); r.secCut.assign(r.secCut.size(), 0); r.defDestroyed = false; rebuildSectionBodies(i, r);
+    }
   }
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
