@@ -129,3 +129,31 @@ Thumbnail cache keys include `tex::stateKey()`: the slot file, the set files and
 ## Credits
 
 All sets are CC0 1.0 from ambientCG.com (see `docs/credits.md`). Each set's `meta.json` names its source asset.
+
+## imgmat: image-based materials (MA1)
+
+`textures.json` has a second slot table, `"imgmat"`. It is active by default (`Renderer::Perf imgmat`;
+`--rq-off imgmat` or `NMK_PERF_AB=imgmat` for A/B). Coverage per asset family: `docs/materials-coverage.md`; the sets:
+`docs/textures-manifest.md`.
+
+- **Tables.** `imgmat.slots` overrides a slot of the same name (only while imgmat is on) or adds an imgmat-only slot (empty, i.e.
+  procedural, in the base table). `imgmat.patterns` and `imgmat.floors` (room floor finish code → slot: 0 boards, 2 tomettes,
+  3 flags, 4 beaten earth) switch with the table. `imgmat.materials` gives a rule to a material that has no base rule; it
+  is resolved per (material, pattern) into an alias slot whose base content is the pattern's old slot, so the codes
+  baked into the vertices stay valid and imgmat off is exactly the pre-MA1 look.
+- **Replace by default for structure.** Masonry, render, brick, concrete, roofs, beams and boards use `replace`: the
+  image is the surface (tinted by the material colour through the set's mean, so per-building palettes stay) and the
+  pattern's procedural noise is not evaluated. Replace slots keep their image at mid distance (the pixel-scale albedo
+  fade is for detail mode only); mips and 8x anisotropy filter it.
+- **Three scales.** Large: the macro texture, one world-space tap planar on the dominant axis (unit 25, 256² RGBA8
+  generated at load, one tile = 32 m: R broad tint / fading, G roughness drift, B damp patches), scaled by the slot's
+  `macro`. Medium: the set. Small: the set's normal and roughness, whose normal tap is skipped where its detail is faded
+  out (far).
+- **Two materials and one mask.** A slot's `under` names a substrate slot (render over field masonry, plaster over brick)
+  shown where the macro texture's A channel passes `exposure` (lower on worn copies: `gTexWear`). The substrate uses its
+  own image colour; normals blend as world-space deltas (lerp, then the shader's single normalize), never by adding RGB;
+  a thin darkened lip marks the broken render edge. The second set is only sampled where the mask is above 0.
+- **Uniform buffer.** The slot and layer tables (160 slots, 128 layers) are a std140 uniform block `NmkTexTables` at
+  binding 3 (14 KB): as plain uniforms they passed the 1024 constant registers of the main fragment program.
+- **Memory.** Only the active table's sets are uploaded: imgmat on, 76 sets, 304 MB (BC3/BC5 with mips), about 1.2-1.3 s
+  to load (threaded). `NMK_TEX_ALL=1` uploads both tables' sets (the A/B); switching the table otherwise reloads.
