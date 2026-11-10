@@ -276,7 +276,8 @@ private:
   bool upActive = false;     // the last frame ended in the output-size set (readPixels reads it)
   bool histUp = false;       // the TAA history holds output-size (TAAU) frames
   void createUpTargets();
-  void swapUp();             // exchanges the internal and output-size post targets (and width / height)
+  void swapUp();
+  void upDepth();            // TAAU output depth (kDepthUpFS): the nearest internal depth, for effects and overlays             // exchanges the internal and output-size post targets (and width / height)
   float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
   GLuint progGrass = 0, progGrassShadow = 0;   // GX3: near pasture clumps into the sun map
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;

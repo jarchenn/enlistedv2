@@ -154,6 +154,7 @@ bool SelfTest::terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj
   check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain slope material included (%d errors)", app.R.shaderErrors));
   sViews.clear(); templateViews(t);
   sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
+  if (const char* only = std::getenv("NMK_MAPS_VIEW")) std::erase_if(sViews, [&](const View& w) { return w.name != only; });   // timing runs: one view, Medium only
   sVi = 0; sPerf.clear(); sViewInit = false;
   sSum[id] = {{"heights", {lo, hi}}, {"maxSlopeDeg", maxS}, {"over60", n60}, {"over50", n50}, {"reachableTop", reachHi}, {"workingSetMB", sMemAfter}};
   check(sViews.size() >= 4, fmt("%s: %zu screenshot views", id.c_str(), sViews.size()));
@@ -433,7 +434,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
-      if (v.gate && sPresetPass < 3) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
+      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW")) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
         if (sPresetPass == 3) app.R.lt.hour = 0.0f;   // Night (docs/lighting.md)

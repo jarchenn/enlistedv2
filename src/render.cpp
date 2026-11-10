@@ -1897,7 +1897,6 @@ vec3 histCR(vec2 uv){
 }
 void main(){
   if (uTaaDbg > 0) {
-    gl_FragDepth = texture(uDepth, vUV).r;
     vec4 d = uTaaDbg == 1 ? vec4(vUV*4.0, 0.0, 1.0) : uTaaDbg == 2 ? texelFetch(uCur, ivec2(vUV*vec2(textureSize(uCur, 0))), 0)
            : uTaaDbg == 3 ? vec4(uInTexel*1000.0, float(uUp), 1.0) : texture(uCur, vUV);
     oColor = d; oHist = d; return;
@@ -1929,8 +1928,7 @@ void main(){
     }
   }
   m1 /= 9.0; vec3 sig = sqrt(max(m2/9.0 - m1*m1, 0.0));
-  float z = texture(uDepth, dUV).r;
-  gl_FragDepth = z;   // TAAU: the output depth for effects and overlays (no depth test in the internal-size pass)
+  float z = texture(uDepth, dUV).r;   // (TAAU's output depth: kDepthUpFS after this pass; a depth write here broke the Metal pipeline)
   vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, z, 1.0);   // reverse-Z: ndc z = depth; the sky (0) lands on the far plane
   vec3 w = wp.xyz/wp.w;
   vec4 pc = uPrevVP*vec4(w, 1.0); vec2 puv = pc.xy/pc.w*0.5 + 0.5;
@@ -4150,6 +4148,16 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
 }
 
+// TAAU: the nearest internal depth into the output-size depth (effects, overlays); depth only, colour untouched
+void Renderer::upDepth() {
+  glBindFramebuffer(GL_FRAMEBUFFER, up.hdrFbo); glNamedFramebufferDrawBuffer(up.hdrFbo, GL_NONE); glViewport(0, 0, up.w, up.h);
+  glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);
+  glUseProgram(progDepthUp); glBindTextureUnit(7, depthTex);
+  glUniform1i(U(progDepthUp, "uDepth"), 7); glUniform2f(U(progDepthUp, "uInSize"), (float)width, (float)height);
+  glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+  glNamedFramebufferDrawBuffer(up.hdrFbo, GL_COLOR_ATTACHMENT0);
+}
+
 void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v) {
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
@@ -4178,12 +4186,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
     }
     if (hook && temporalUpscaler({sceneCopy, depthTex, motionTex, up.hdrColor, up.depthTex, expoTex[expoIdx], width, height, up.w, up.h, jitterPx * hookSign.x,
                                   glm::inverse(vpU), prevVP, !taaValid})) {
-      glBindFramebuffer(GL_FRAMEBUFFER, up.hdrFbo); glNamedFramebufferDrawBuffer(up.hdrFbo, GL_NONE); glViewport(0, 0, up.w, up.h);
-      glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);
-      glUseProgram(progDepthUp); glBindTextureUnit(7, depthTex);
-      glUniform1i(U(progDepthUp, "uDepth"), 7); glUniform2f(U(progDepthUp, "uInSize"), (float)width, (float)height);
-      glDrawArrays(GL_TRIANGLES, 0, 3);
-      glNamedFramebufferDrawBuffer(up.hdrFbo, GL_COLOR_ATTACHMENT0);
+      upDepth();
       taaValid = true; prevVP = vpU; prevCam = v.camPos;
       swapUp(); upActive = true;
       glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo); glViewport(0, 0, width, height);
@@ -4192,7 +4195,6 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
     }
     glBindFramebuffer(GL_FRAMEBUFFER, up.taaFbo[cur]);
     glViewport(0, 0, up.w, up.h);
-    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);   // the output depth (fx, overlays) from gl_FragDepth
   } else {
     glBindFramebuffer(GL_FRAMEBUFFER, taaFbo[cur]);
     { const GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glInvalidateNamedFramebufferData(taaFbo[cur], 2, b2); }   // colour (from sceneCopy) and the new history
@@ -4216,7 +4218,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   glDrawArrays(GL_TRIANGLES, 0, 3);
   histIdx = cur; taaValid = true;
   prevVP = vpU; prevCam = v.camPos;
-  if (histUp) { glDepthFunc(zLess()); swapUp(); upActive = true; }
+  if (histUp) { upDepth(); glDepthFunc(zLess()); swapUp(); upActive = true; }
   glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo); glViewport(0, 0, width, height);
   glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
 }
@@ -4295,7 +4297,6 @@ void Renderer::createUpTargets() {
     up.hist[k] = tex(GL_RGBA16F, 1, GL_LINEAR);
     glCreateFramebuffers(1, &up.taaFbo[k]);
     glNamedFramebufferTexture(up.taaFbo[k], GL_COLOR_ATTACHMENT0, up.hdrColor, 0); glNamedFramebufferTexture(up.taaFbo[k], GL_COLOR_ATTACHMENT1, up.hist[k], 0);
-    glNamedFramebufferTexture(up.taaFbo[k], GL_DEPTH_ATTACHMENT, up.depthTex, 0);
     GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glNamedFramebufferDrawBuffers(up.taaFbo[k], 2, b2);
   }
   for (GLuint f : {up.hdrFbo, up.dofFbo, up.ldrFbo, up.taaFbo[0], up.taaFbo[1]})
