@@ -278,7 +278,7 @@ void Nav::initMesh() {
   p.maxTiles = pw; p.maxPolys = 1 << 16;
   mesh_->init(&p);
   query_ = dtAllocNavMeshQuery();
-  query_->init(mesh_, 4096);
+  query_->init(mesh_, 16384);   // long routes over a dense mesh (D-day: west landing to the stronghold) ran out of nodes at 4096
   dtQueryFilter& f = impl_->filter;
   f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID | NF_TRAPLINK | NF_BADLINK);
   for (int a = 0; a < DT_MAX_AREAS; ++a) f.setAreaCost(a, 1.0f);
