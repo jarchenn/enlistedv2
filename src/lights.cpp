@@ -256,8 +256,15 @@ bool lightsRoomBreached(App& app, uint64_t hostId, int room) {
 namespace {
 std::string offReason(App& app, const Instance& i, const AssetDef* a, const LightAssetDef* d, int k) {
   if (const json* L = extraLight(i)) if (!L->value("on", true)) return "switched off";
-  uint64_t host = 0; int room = -1;
-  bool gen = furnishRoom(i, host, room);
+  // P2: the piece's host / room come from its extra.furnish JSON (string parse); memoised per instance revision. The lamp,
+  // glass and breach state below are read live every call (damage must put a lamp out the frame it happens).
+  struct FR { uint32_t rev = 0; const void* ex = nullptr; bool gen = false; uint64_t host = 0; int room = -1; };
+  static std::unordered_map<uint64_t, FR> frc;
+  if (frc.size() > 65536) frc.clear();
+  FR& fc = frc[i.id];
+  if (fc.rev != i.rev || fc.ex != &i.extra) { fc.rev = i.rev; fc.ex = &i.extra; fc.host = 0; fc.room = -1; fc.gen = furnishRoom(i, fc.host, fc.room); }
+  uint64_t host = fc.host; int room = fc.room;
+  bool gen = fc.gen;
   if (gen) {
     auto ht = app.rt.find(host);
     if (ht != app.rt.end() && lightsRuinedAsset(ht->second.asset)) return "ruin";

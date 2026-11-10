@@ -6,6 +6,8 @@
 #include "frustum.h"
 #include "light_types.h"
 #include <unordered_map>
+#include <unordered_set>
+#include <chrono>
 
 // Per building copy parameters of the wall / floor finish patterns 17-22 (docs/interiors.md): no shader edits needed
 // to vary wear, palette or room finishes. Rooms and sills are in asset space.
@@ -24,7 +26,7 @@ struct DrawItem { const GpuMesh* mesh; mat4 model; vec4 tint{1, 1, 1, 1}; const 
 };
 struct TreeDef;
 // lod: the instance's leaf LOD (InstanceRT::leafLod, kept for hysteresis); cur: this frame's (render.cpp selectLeafLods)
-struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; };
+struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; uint64_t id = 0; bool batched = false; };   // id: a standing tree copy (P2 folbatch); batched: drawn from its cell this frame
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
 struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; };
@@ -58,7 +60,8 @@ struct RenderView {
 struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int culled = 0; double probeCpuMs = 0; int probes = 0;
                     // R2: sun-cascade casters skipped by castercull, camera-pass items hidden by roomcull, sun-cascade draws; GI probes
                     // waiting for a first capture / invalidated, the oldest capture among probes within 12 m (frames)
-                    int casterCulled = 0, roomCulled = 0, shadowDraws = 0, probePending = 0, probeDirty = 0, probeStaleMax = 0; };   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
+                    int casterCulled = 0, roomCulled = 0, shadowDraws = 0, probePending = 0, probeDirty = 0, probeStaleMax = 0;
+                    int foliageDraws = 0, instDrawn = 0; };   // instDrawn: items drawn inside instanced depth draws (P2 instdepth)   // P2: draws by drawFoliage (all passes)   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
 // GPU time per render pass from timestamp queries (Renderer::gpuMark, docs/rendering.md#gpu-budget), in frame order:
 // a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
 enum GpuPass : int { GP_CloudShadow, GP_ShadowNear, GP_ShadowFar, GP_SkyOcc, GP_LightShadows, GP_Probes, GP_Clusters,
@@ -162,12 +165,12 @@ public:
     bool grassAtlas = true;      // grassatlas (GT1): pasture blade cards show Poly Haven grass plants (off = the procedural blades)
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
-                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; return p; }
+                           p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : nullptr;
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : nullptr;
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
@@ -261,6 +264,26 @@ private:
   std::vector<std::pair<GLuint, DrawLocs>> locCache;
   DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
   std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call
+public:
+  double cpuPassMs[64] = {};   // P2: CPU ms per GpuPass mark span, summed since the last reset (app.cpp NMK_DLPROF)
+private:
+  int cpuMarkP = -1; std::chrono::steady_clock::time_point cpuMarkT;
+  // P2 instdepth (drawItems): instanced depth draws - matrices of this pass, runs of one mesh, VAOs given binding 3
+  struct InstRun { const GpuMesh* mesh; uint32_t first, count; };
+  std::vector<mat4> instMats; std::vector<InstRun> instRuns; GLuint instBuf = 0, progShadowI = 0;
+  mat4 depthVP{1}; bool depthVPSet = false;   // the depth pass's view-projection, set with its uVP right before drawItems (one use)
+  // P2 folbatch: standing trees of one species in one 64 m cell share a world-space instance buffer, laid out per leaf
+  // group then per tree (full set, then the R2 shadow LOD), so a pass draws a run of neighbouring visible trees at the
+  // same LOD as one instanced draw; per-tree culling and LOD stay exactly as before
+  struct FolCell {
+    const TreeDef* tree = nullptr; uint64_t sig = 0, builtSig = ~0ull; GLuint vbo = 0, vao = 0;
+    std::vector<uint64_t> ids; std::vector<glm::ivec2> full, shad;   // [group * ids.size() + t]: (first instance, count)
+    std::vector<int> fol;                                           // this frame: foliage index of member t (-1: absent)
+    std::vector<int> want;                                          // this frame: foliage indices in the cell
+    std::unordered_map<uint64_t, int> slot;                         // tree id -> t (built order)
+  };
+  std::unordered_map<uint64_t, FolCell> folCells;
+  void prepFoliageBatches();   // render() start: membership, rebuilds (bounded), FoliageDraw::batched
   GLuint progLeaf = 0, progLeafShadow = 0, progLeafI = 0, progLeafIShadow = 0;   // I: L1 instanced species leaves
   GLuint progModel = 0, progDof = 0, progShaft = 0, progComposite = 0, progEyepiece = 0;
   GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)

@@ -339,12 +339,8 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
     t.leafCards = (int)full / 16;   // the full set (the shadow LOD follows it in the buffer)
     if (t.leafCards) {
       glCreateBuffers(1, &t.leafInst); glNamedBufferStorage(t.leafInst, all.size() * 4, all.data(), 0);
-      glCreateVertexArrays(1, &t.leafVao);
-      glVertexArrayVertexBuffer(t.leafVao, 0, gLeafVbo, 0, 36); glVertexArrayVertexBuffer(t.leafVao, 1, t.leafInst, 0, 64);
-      glVertexArrayBindingDivisor(t.leafVao, 1, 1); glVertexArrayElementBuffer(t.leafVao, gLeafIbo);
-      const int mc[4] = {3, 3, 2, 1}, mo[4] = {0, 3, 6, 8}, io[5] = {0, 3, 6, 9, 12};
-      for (int k = 0; k < 4; ++k) { glEnableVertexArrayAttrib(t.leafVao, k); glVertexArrayAttribFormat(t.leafVao, k, mc[k], GL_FLOAT, GL_FALSE, mo[k] * 4); glVertexArrayAttribBinding(t.leafVao, k, 0); }
-      for (int k = 0; k < 5; ++k) { glEnableVertexArrayAttrib(t.leafVao, 4 + k); glVertexArrayAttribFormat(t.leafVao, 4 + k, 3, GL_FLOAT, GL_FALSE, io[k] * 4); glVertexArrayAttribBinding(t.leafVao, 4 + k, 1); }
+      t.leafVao = leafInstVao(t.leafInst);
+      t.leafInstCpu = std::move(all);   // P2 folbatch: world-space copies per cell (render.cpp)
     }
   }
   glCreateVertexArrays(1, &t.cardVao); glCreateBuffers(1, &t.cardVbo);
@@ -429,12 +425,23 @@ void App::resetTrees() {
   }
 }
 
+// a VAO over the shared sprig meshes (binding 0) and an instance buffer in the 16-float card layout (binding 1)
+GLuint leafInstVao(GLuint inst) {
+  GLuint vao = 0; glCreateVertexArrays(1, &vao);
+  glVertexArrayVertexBuffer(vao, 0, gLeafVbo, 0, 36); glVertexArrayVertexBuffer(vao, 1, inst, 0, 64);
+  glVertexArrayBindingDivisor(vao, 1, 1); glVertexArrayElementBuffer(vao, gLeafIbo);
+  const int mc[4] = {3, 3, 2, 1}, mo[4] = {0, 3, 6, 8}, io[5] = {0, 3, 6, 9, 12};
+  for (int k = 0; k < 4; ++k) { glEnableVertexArrayAttrib(vao, k); glVertexArrayAttribFormat(vao, k, mc[k], GL_FLOAT, GL_FALSE, mo[k] * 4); glVertexArrayAttribBinding(vao, k, 0); }
+  for (int k = 0; k < 5; ++k) { glEnableVertexArrayAttrib(vao, 4 + k); glVertexArrayAttribFormat(vao, 4 + k, 3, GL_FLOAT, GL_FALSE, io[k] * 4); glVertexArrayAttribBinding(vao, 4 + k, 1); }
+  return vao;
+}
+
 void App::treeDrawItems(const Instance& i, const InstanceRT& r, std::vector<DrawItem>& op) {
   const TreeDef& t = r.asset->tree;
   mat4 M = instanceMatrix(i);
   if (!r.treeFelled) {
     op.push_back({&r.asset->opaque, M}); snapDraw(*this, i, op.back());   // V6: hedgerow banks: joined ends without caps (snap.cpp)
-    R.foliage.push_back({&t, M, &r.leafLod});
+    R.foliage.push_back({&t, M, &r.leafLod, 2, i.id});   // id: a standing copy (P2 folbatch may draw it from its cell)
     return;
   }
   op.push_back({&t.stumpMesh, M});
