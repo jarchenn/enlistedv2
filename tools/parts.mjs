@@ -1069,3 +1069,71 @@ export function weather(A, { jitter = 0.015, chips = 0.15, pocks = [], seed = A.
     }
   }
 }
+
+// --------------------------------------------------------------------------- VF1 facade trim on wall bays
+// A facade trim box (built into A.parts) that stands on a wall bay's outer face moves into that bay's intact state,
+// cut at the bay's edges along y: it is drawn with the bay and goes when the bay is damaged, so it never floats over a
+// breach. The pieces between bays (a floor band, a static corner) stay static. side: "front" (+z) or "rear" (-z).
+export function bindToBays(A, p, side) {
+  const s = side === "front" ? 1 : -1, back = p.c[2] - (s * p.s[2]) / 2, a0 = p.c[0] - p.s[0] / 2, a1 = p.c[0] + p.s[0] / 2;
+  let y0 = p.c[1] - p.s[1] / 2;
+  const y1 = p.c[1] + p.s[1] / 2;
+  const bays = A.panels.filter((b) => b.normal && b.normal[2] === s && b.states?.[0]?.length && Math.abs((s > 0 ? b.max[2] : b.min[2]) - back) < 0.08
+    && b.min[0] <= a0 + 1e-4 && b.max[0] >= a1 - 1e-4 && b.max[1] > y0 && b.min[1] < y1).sort((q, r) => q.min[1] - r.min[1]);
+  if (!bays.length) return 0;
+  const i = A.parts.indexOf(p); if (i >= 0) A.parts.splice(i, 1);
+  const piece = (ya, yb, into) => { if (yb - ya > 0.02) A.box([a0, ya, p.c[2] - p.s[2] / 2], [a1, yb, p.c[2] + p.s[2] / 2], p.m, { k: 0, lod: p.lod, into }); };
+  for (const b of bays) {
+    const ya = Math.max(y0, b.min[1]), yb = Math.min(y1, b.max[1]);
+    if (ya > y0 + 1e-4) piece(y0, ya, A.parts);   // the gap below this bay stays static
+    piece(ya, yb, b.states[0]);
+    y0 = Math.max(y0, yb);
+  }
+  if (y1 > y0 + 1e-4) piece(y0, y1, A.parts);
+  return bays.length;
+}
+// Zinc downpipes from the eaves gutters of a gable roof (gableRoof) to the plinth, square section, one toward each end
+// of the front and rear facades: at the outermost x where wall bays run unbroken from the pipe's foot to its head (the
+// piers between openings; the corners are static slabs that become bays only at load), so every length of pipe is bound
+// to the bay behind it and goes with it. A swan neck from the gutter outlet back to the wall, brackets, a shoe over the
+// plinth; all far-LOD detail (lod 1). Skipped on a facade that already has a downpipe. Returns the number of pipes.
+export function downpipes(A, { X, Z, Zr, y0, EAVE, RIDGE, ov = 0.4, openings = [], m = "zinc" }) {
+  const th = Math.atan2(RIDGE - EAVE, Zr), ye = EAVE - ov * Math.tan(th), gy = ye - 0.2, w = 0.08, D = { k: 0, lod: 1 };
+  const has = (s) => A.parts.some((p) => (p.m === "zinc" || p.m === "iron") && (p.t === "b" || p.t === "c") && p.s[1] > 2 && p.s[0] < 0.16 && p.s[2] < 0.16 && Math.sign(p.c[2]) === s && Math.abs(Math.abs(p.c[2]) - Z) < 0.3);
+  let n = 0;
+  for (const [side, s] of [["front", 1], ["rear", -1]]) {
+    if (has(s)) continue;
+    const ops = openings.filter((o) => o.side === side);
+    const zf = s * Z, zp = zf + s * (0.035 + w / 2), zg = s * (Zr + ov + 0.065);   // wall face, pipe centre, gutter outlet
+    const top = gy - 0.32, bot = y0 + 0.2;
+    if (top - bot < 1.5) continue;
+    const bays = A.panels.filter((b) => b.normal && b.normal[2] === s && Math.abs((s > 0 ? b.max[2] : b.min[2]) - zf) < 0.05);
+    const covered = (a) => {   // bays under [a - 0.1, a + 0.1] from bot to top, with no gap
+      const rows = bays.filter((b) => b.min[0] <= a - 0.1 && b.max[0] >= a + 0.1).map((b) => [b.min[1], b.max[1]]).sort((p, q) => p[0] - q[0]);
+      let y = bot;
+      for (const [r0, r1] of rows) { if (r0 > y + 0.01) return false; y = Math.max(y, r1); }
+      return y >= top - 0.01;
+    };
+    for (const e of [-1, 1]) {
+      let a = null;
+      for (let c = e * (X - 0.3); e * c > 0.6 && a === null; c -= e * 0.05) if (covered(c) && ops.every((o) => Math.abs(c - o.c) > o.w / 2 + 0.2)) a = c;
+      if (a === null) continue;
+      const pipe = A.box([a - w / 2, bot, zp - w / 2], [a + w / 2, top, zp + w / 2], m, D);
+      bindToBays(A, pipe, side);
+      // swan neck: outlet drop, the sloped offset back to the wall, the head of the pipe
+      A.box([a - w / 2, gy - 0.1, zg - w / 2], [a + w / 2, gy + 0.005, zg + w / 2], m, D);
+      const dz = zp - zg, dy = -0.22, L = Math.hypot(dz, dy), ang = (Math.atan2(dz, -dy) * 180) / Math.PI;
+      A.obox([a, gy - 0.1 + dy / 2, zg + dz / 2], [w, L + 0.04, w], [-ang, 0, 0], m, D);
+      A.box([a - w / 2, top - 0.005, zp - w / 2], [a + w / 2, gy - 0.3, zp + w / 2], m, D);
+      // shoe over the plinth
+      A.obox([a, bot - 0.06, zp + s * 0.04], [w, 0.16, w], [-s * 40, 0, 0], m, D);
+      // brackets into the wall, every ~1.7 m
+      for (let y = bot + 0.5; y < top - 0.2; y += 1.7) {
+        const b = A.box([a - w / 2 - 0.015, y - 0.02, Math.min(zf - s * 0.006, zp - s * w / 2 + s * 0.004)], [a + w / 2 + 0.015, y + 0.02, Math.max(zf - s * 0.006, zp - s * w / 2 + s * 0.004)], m, D);
+        if (b) bindToBays(A, b, side);
+      }
+      ++n;
+    }
+  }
+  return n;
+}

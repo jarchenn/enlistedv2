@@ -11,7 +11,7 @@ import { cutRect, wbox, Asset } from "./kit.mjs";
 import {
   extOf,   stdMaterials, wall, partition, window, door, stairs, railing, gableRoof, quoins, pilaster, stringCourse, cornice,
   surround, archOpening, archWindow, colonnade, balcony, dormer, hipRoof, thatchRoof, turret, timberFrame, chimney,
-  fbox, weather, interiorTrim,
+  fbox, weather, interiorTrim, downpipes,
 } from "./parts.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
 
@@ -336,6 +336,8 @@ export function house(A, c) {
   if (c.checker) checker(A, { Z, y0 });
   weather(A, { keep: [plinth] });
   interiorTrim(A, { levels: Array.from({ length: L }, (_, k) => yAt(k)) });   // GX2: skirting, dado rail, doorway jambs
+  if (rf.type === "gable" && !c.jetty && c.downpipes !== false)   // VF1: downpipes from the eaves gutters, bound to the wall bays
+    downpipes(A, { X, Z, Zr, y0, EAVE, RIDGE, ov: rf.ov ?? 0.4, openings: [...doorList, ...winInfo] });
   return ctx;
 }
 
