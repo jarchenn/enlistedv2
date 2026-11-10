@@ -16,6 +16,7 @@
 #include "physics.h"
 #include <cstring>
 #include "thumbs.h"
+#include "foundation.h"   // MA3 foundation dressing
 #include <cstdarg>
 #include <functional>
 #include <chrono>
@@ -452,6 +453,103 @@ void build(App& app) {
       note("L1 %s%s: draws %d, tris %.0fk", ls[li].name.c_str(), oval ? " (oval)" : "", (int)a.R.stats.draws, a.R.stats.tris / 1000.0);
       if (++phase == 4) { phase = 0; ++li; }
     }
+    return false;
+  });
+  // MA3 foundation dressing (foundation.cpp): a cottage with a path past its front door
+  push("MA3 foundation dressing: zones, determinism, move, delete", [](App& a, float t) {
+    if (t < 0.3f) return false;
+    if (a.terrain.surf.empty()) { chk(false, "MA3: the surface mask exists"); return true; }
+    const AssetDef* ca = a.lib.find("house_stone_cottage"); if (!ca) { chk(false, "MA3: house_stone_cottage exists"); return true; }
+    vec3 hp(70, 0, -70);
+    uint64_t house = place(a, "house_stone_cottage", hp, 0);
+    // a dirt path across the ground in front of the house, 1 m beyond its bounds
+    uint64_t path = place(a, "path_dirt", vec3(hp.x, 0, hp.z + ca->bmax.z + 1.6f), 90);
+    if (Instance* h = a.doc.find(house)) a.doc.find(house)->extra["dressingStyle"] = "neglected";   // the densest style: the strictest test
+    if (Instance* h = a.doc.find(house)) a.bump(*h);
+    a.syncRuntime(); foundationSync(a);
+    auto pieces = [&](uint64_t host) { std::vector<const Instance*> v; for (auto& i : a.doc.instances) if (isDressingPiece(i) && i.extra["dressing"].value("host", (uint64_t)0) == host) v.push_back(&i); return v; };
+    std::vector<vec3> plants, stones; int style = -1;
+    bool rec = foundationHostInfo(house, plants, stones, style);
+    auto pv = pieces(house);
+    chk(rec && plants.size() > 40, "MA3: dressing round the cottage: %zu plants, %zu stones, %zu props, style %s", plants.size(), stones.size(), pv.size(), foundationStyleName(style));
+    // nothing inside the building, in front of its doors or on the path
+    const Instance* h = a.doc.find(house);
+    GrassFootprint pf{}; bool havePath = false;
+    if (const Instance* p = a.doc.find(path)) for (auto& f : a.grassFootprints()) if (glm::length(f.pos - vec2(p->pos.x, p->pos.z)) < 1e-3f) { pf = f; havePath = true; }
+    int inside = 0, inDoor = 0, onPath = 0, n = 0;
+    auto test = [&](vec3 w, float pad) {
+      ++n; vec3 l = glm::inverse(yawQuat(h->yaw)) * (w - h->pos);
+      if (l.x > ca->bmin.x + 0.02f && l.x < ca->bmax.x - 0.02f && l.z > ca->bmin.z + 0.02f && l.z < ca->bmax.z - 0.02f) ++inside;
+      for (auto& e : ca->navMeta.entrances) {
+        vec2 out = -glm::normalize(vec2(e.dir.x, e.dir.z)), v = vec2(l.x, l.z) - vec2(e.p.x, e.p.z);
+        float along = glm::dot(v, out), lat = std::fabs(v.x * out.y - v.y * out.x);
+        if (along > 0 && along < 2.4f && lat < 1.0f - pad) { ++inDoor; break; }
+      }
+      if (havePath && Grass::footprintDistance(pf, w.x, w.z) < -pad) ++onPath;
+    };
+    for (auto& w : plants) test(w, 0.0f);
+    for (auto& w : stones) test(w, 0.0f);
+    for (auto* p : pv) test(p->pos, 0.0f);
+    chk(n > 0 && inside == 0 && inDoor == 0 && onPath == 0, "MA3: nothing in the building (%d), its door lanes (%d) or on the path (%d) of %d items (path placed: %s)", inside, inDoor, onPath, n, havePath ? "yes" : "no");
+    // deterministic: the same dressing after every record is dropped (what a reload does), and none of it is saved
+    auto hashOf = [&]() {
+      std::vector<vec3> pl, st; int s; foundationHostInfo(house, pl, st, s);
+      uint64_t hh = 1469598103934665603ull;
+      auto f = [&](float x) { hh = (hh ^ (uint64_t)std::llround(x * 1000)) * 1099511628211ull; };
+      for (auto& w : pl) { f(w.x); f(w.y); f(w.z); }
+      for (auto& w : st) { f(w.x); f(w.z); }
+      for (auto* p : pieces(house)) { for (char c : p->assetId) hh = (hh ^ (uint64_t)c) * 1099511628211ull; f(p->pos.x); f(p->pos.z); f(p->yaw); }
+      return hh;
+    };
+    uint64_t h1 = hashOf(); size_t np1 = pieces(house).size();
+    foundationReset(a); foundationSync(a);
+    uint64_t h2 = hashOf();
+    chk(h1 == h2 && pieces(house).size() == np1, "MA3: deterministic after a reload (hash %016llx / %016llx, %zu props)", (unsigned long long)h1, (unsigned long long)h2, np1);
+    int saved = 0; for (auto& o : mapToJson(a.doc)["instances"]) saved += o.contains("dressing");
+    chk(saved == 0, "MA3: the map file stores no dressing (%d)", saved);
+    // move: one set at the new place, none left at the old one
+    if (Instance* hm = a.doc.find(house)) { hm->pos.x += 14.0f; a.bump(*hm); }
+    a.syncRuntime(); foundationSync(a);
+    const Instance* hm = a.doc.find(house);
+    int far = 0; auto pm = pieces(house);
+    for (auto* p : pm) if (glm::length(vec2(p->pos.x - hm->pos.x, p->pos.z - hm->pos.z)) > glm::length(vec2(ca->bmax.x - ca->bmin.x, ca->bmax.z - ca->bmin.z)) * 0.5f + 5.0f) ++far;
+    std::set<uint64_t> ids; for (auto* p : pm) ids.insert(p->id);
+    int dressAll = 0; for (auto& i : a.doc.instances) dressAll += isDressingPiece(i) && i.extra["dressing"].value("host", (uint64_t)0) == house;
+    chk(far == 0 && ids.size() == pm.size() && dressAll == (int)pm.size(), "MA3: moved: %zu props, none left behind (%d), no duplicate ids", pm.size(), far);
+    // delete: everything goes
+    a.doc.instances.erase(std::remove_if(a.doc.instances.begin(), a.doc.instances.end(), [&](const Instance& i) { return i.id == house || i.id == path; }), a.doc.instances.end());
+    a.syncRuntime(); foundationSync(a);
+    chk(pieces(house).empty() && !foundationHostInfo(house, plants, stones, style), "MA3: deleted: no props and no plants left (%zu)", pieces(house).size());
+    FoundationStats fs = foundationStats();
+    note("MA3 stats: %d hosts, %d props, %d plants, %d stones, %d rebuilds, last pass %.1f ms", fs.hosts, fs.props, fs.plants, fs.stones, fs.rebuilds, fs.lastMs);
+    return true;
+  });
+  // MA3 style shots (NMK_MA3_SHOTS=1): each style close and at medium range, into selftest_out/ma3/
+  push("MA3 style shots (NMK_MA3_SHOTS)", [](App& a, float t) {
+    static std::vector<Shot> ms; static size_t mi = 0; static bool armed = false; static float t0 = 0;
+    if (!std::getenv("NMK_MA3_SHOTS")) return true;
+    if (t == 0) {
+      ms.clear(); mi = 0; armed = false;
+      struct S { const char* asset; const char* style; };
+      const S set[] = {{"house_stone_cottage", "maintained"}, {"house_stone_cottage", "neglected"}, {"ruin_cottage_corner", nullptr}, {"bunker_field_shelter", nullptr}, {"house_stone_cottage", "coastal"}};
+      for (int k = 0; k < 5; ++k) {
+        vec3 p(-60.0f + 30.0f * k, 0, -120);
+        uint64_t id = place(a, set[k].asset, p, 0);
+        Instance* i = a.doc.find(id); if (!i) continue;
+        if (set[k].style) { i->extra["dressingStyle"] = set[k].style; a.bump(*i); }
+        const AssetDef* d = a.assetFor(*i);
+        float y = a.terrain.height(p.x, p.z);
+        vec3 c(p.x + d->bmax.x, y, p.z + d->bmax.z);   // front-right corner
+        std::string name = std::string("ma3_") + (set[k].style ? set[k].style : k == 2 ? "damaged" : "bunker");
+        ms.push_back({name + "_close", c + vec3(2.6f, 1.6f, 2.8f), c + vec3(-1.2f, 0.2f, -1.0f), nullptr});
+        ms.push_back({name + "_medium", vec3(p.x + 9.0f, y + 1.7f, p.z + d->bmax.z + 11.0f), vec3(p.x, y + 1.2f, p.z), nullptr});
+      }
+      a.syncRuntime(); foundationSync(a);
+      std::error_code ec; fs::create_directories(outDir() / "ma3", ec);
+    }
+    if (mi >= ms.size()) return true;
+    if (!armed) { look(a, ms[mi].from, ms[mi].at); a.selected = 0; a.R.resetTemporal(); t0 = t; armed = true; return false; }
+    if (t - t0 > 1.6f) { pendingShot = outDir() / "ma3" / (ms[mi].name + ".png"); note("MA3 shot %s", ms[mi].name.c_str()); ++mi; armed = false; }
     return false;
   });
   push("shader errors", [](App& a, float t) {

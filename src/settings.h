@@ -42,6 +42,11 @@ struct UserSettings {
   bool vsync = true;
   int fpsCap = 0;              // 0 = unlimited
   float hour = 14.0f;          // time of day (L2): 14:00 Day, 18:36 Dusk, 00:00 Night, 05:00 Dawn, or any hour
+#ifdef __APPLE__
+  int upscale = 1;             // 0 temporal, 1 spatial, 2 off (Renderer::upscaleMode). Mac: spatial (MetalFX temporal at Retina costs ~25 ms)
+#else
+  int upscale = 0;             // 0 temporal (TAAU), 1 spatial (bilinear final blit), 2 off (Renderer::upscaleMode)
+#endif
   // gameplay
   float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
   float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)

@@ -49,7 +49,7 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass}, {"grassWind", g.grassWind},
-                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
+                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
@@ -77,6 +77,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.materials = std::clamp(q.value("materialDetail", g.materials), 0, 2);
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
+    { std::string m = q.value("upscaling", std::string()); if (m == "temporal") u.upscale = 0; else if (m == "spatial") u.upscale = 1; else if (m == "off") u.upscale = 2; }
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
@@ -185,6 +186,7 @@ void Settings::apply(App& app) {
   const GraphicsOpts& g = s.gfx;
   Renderer& R = app.R;
   R.setResolutionScale(g.resScale);
+  if (R.upscaleMode != s.upscale) { R.upscaleMode = s.upscale; R.resetTemporal(); }   // render() re-derives the internal size
   // P3 per-tier shadow / post costs (docs/settings.md): shadowQuality 0 Low, 1 Medium, 2 High (High = the pre-P3 values)
   const int sq = std::clamp(g.shadowQuality, 0, 2);
   const bool old = presetsOld();
@@ -203,6 +205,7 @@ void Settings::apply(App& app) {
   R.setMsaa(g.msaa);
   R.q.matLayer = g.materials;   // GX5 (docs/graphics-overhaul.md#gx5)
   app.ivyOn = g.ivy;
+  R.grassAtlasTier = g.grass >= 2;   // GT1 grass plant atlas: Medium, High, Ultra (Low keeps the procedural blades)
   R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds;
   R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
@@ -241,6 +244,7 @@ void settingsInit(App& app, bool selftest) {
   S.persist = !selftest;
   if (selftest) {   // self-tests: Medium defaults, nothing read or written, nothing applied
     if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale
+    if (const char* e = std::getenv("NMK_UPSCALE")) S.s.upscale = app.R.upscaleMode = e[0] == 's' ? 1 : e[0] == 'o' ? 2 : 0;   // temporal | spatial | off (kept by preset applies)
     return;
   }
   if (!S.load(S.path())) {
@@ -300,6 +304,8 @@ void settingsWindow(App& app) {
       ImGui::Separator();
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
+      { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Upscaling", &u.upscale, um, 3);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Below 100 %% resolution: Temporal rebuilds full detail over several frames (sharpest),\nSpatial upscales each frame (fastest on the Mac), Off renders at full resolution."); }
       { const char* sq[] = {"Low (2048 / 1024)", "Medium (4096 / 2048)", "High (4096 / 4096)"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Shadow quality", &g.shadowQuality, sq, 3); }
       ImGui::Checkbox("Far shadow cascade", &g.farCascade); ImGui::SameLine(220); ImGui::Checkbox("Cloud shadows", &g.cloudShadows);
       ImGui::Checkbox("Ambient occlusion", &g.ssao); ImGui::SameLine(220); ImGui::BeginDisabled(!g.ssao); ImGui::Checkbox("Full-resolution AO", &g.ssaoFull); ImGui::EndDisabled();

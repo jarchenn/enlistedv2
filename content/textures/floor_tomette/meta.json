@@ -1,0 +1,19 @@
+{
+ "set": "floor_tomette",
+ "id": "Tiles144",
+ "family": "floor (MA1)",
+ "size": [
+  1.2,
+  1.2
+ ],
+ "source": "https://ambientcg.com/a/Tiles144",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

@@ -1,79 +1,1056 @@
 {
-  "_doc": "Curated ambientCG (CC0 1.0) material sets for the engine's triplanar texture layer (docs/textures.md). tools/fetch_ambientcg.py downloads the 1K-JPG zip of each id, keeps Color / NormalGL / Roughness / AmbientOcclusion / Displacement and writes content/textures/<set>/{color,normal,rma}.jpg + meta.json. size = metres covered by one tile [u, v]. How the engine uses each set: content/textures/textures.json.",
-  "source": "https://ambientcg.com",
-  "license": "CC0 1.0 Universal",
-  "resolution": "1K-JPG",
-  "sets": [
-    {"set": "plaster_old",          "id": "Plaster007",          "family": "limewash / plaster", "size": [2.0, 2.0]},
-    {"set": "plaster_painted",      "id": "PaintedPlaster017",   "family": "limewash / plaster", "size": [2.0, 2.0]},
-    {"set": "plaster_rough",        "id": "Plaster003",          "family": "limewash / plaster", "size": [2.0, 2.0]},
-    {"set": "sandstone_wall",       "id": "Concrete012",         "family": "ashlar",             "size": [2.0, 2.0]},
-
-    {"set": "brick_old",            "id": "Bricks094",           "family": "brick",              "size": [1.8, 0.9]},
-    {"set": "brick_factory",        "id": "Bricks085",           "family": "brick",              "size": [2.4, 1.2]},
-    {"set": "brick_damaged",        "id": "Bricks097",           "family": "brick",              "size": [2.0, 2.0]},
-
-    {"set": "limestone_smooth",     "id": "Rock042S",            "family": "ashlar",             "size": [1.2, 1.2]},
-    {"set": "limestone_light",      "id": "Rock019",             "family": "rubble stone",       "size": [2.0, 2.0]},
-    {"set": "rock_grey",            "id": "Rock026",             "family": "rubble stone",       "size": [2.0, 2.0]},
-    {"set": "cobbles_grey",         "id": "PavingStones046",     "family": "cobbles",            "size": [2.0, 2.0]},
-    {"set": "cobbles_old",          "id": "PavingStones138",     "family": "cobbles",            "size": [1.25, 2.5]},
-
-    {"set": "slate_roof",           "id": "RoofingTiles001",     "family": "slate",              "size": [2.0, 2.0]},
-    {"set": "slate_square",         "id": "RoofingTiles003",     "family": "slate",              "size": [2.0, 2.0]},
-    {"set": "roof_clay_old",        "id": "RoofingTiles014B",    "family": "terracotta",         "size": [2.9, 2.9]},
-    {"set": "roof_clay",            "id": "RoofingTiles013A",    "family": "terracotta",         "size": [2.9, 2.9]},
-    {"set": "clay_flat",            "id": "Clay005",             "family": "terracotta",         "size": [0.4, 0.4]},
-
-    {"set": "wood_old_planks",      "id": "Wood080",             "family": "planks",             "size": [1.5, 1.5]},
-    {"set": "planks_raw",           "id": "Planks021",           "family": "planks",             "size": [1.4, 1.4]},
-    {"set": "wood_oak",             "id": "Wood049",             "family": "planks",             "size": [0.8, 0.8]},
-    {"set": "wood_dark",            "id": "Wood051",             "family": "planks",             "size": [0.8, 0.8]},
-    {"set": "paint_wood_old",       "id": "PaintedWood005",      "family": "painted wood",       "size": [1.0, 1.0]},
-    {"set": "paint_wood_scratched", "id": "PaintedWood009B",     "family": "painted wood",       "size": [1.0, 1.0]},
-    {"set": "bark_fir",             "id": "Bark014",             "family": "planks",             "size": [1.2, 1.2]},
-
-    {"set": "concrete_bunker",      "id": "Concrete028",         "family": "concrete",           "size": [2.0, 2.0]},
-    {"set": "concrete_bunker_mold", "id": "Concrete032",         "family": "concrete",           "size": [2.0, 2.0]},
-    {"set": "concrete_rough",       "id": "Concrete037",         "family": "concrete",           "size": [2.0, 2.0]},
-    {"set": "concrete_light",       "id": "Concrete025",         "family": "concrete",           "size": [2.0, 2.0]},
-
-    {"set": "steel_rusty",          "id": "Metal021",            "family": "rusty steel",        "size": [1.0, 1.0]},
-    {"set": "iron_rusted",          "id": "Metal053C",           "family": "rusty steel",        "size": [1.0, 1.0]},
-    {"set": "iron_rust",            "id": "Metal041B",           "family": "rusty steel",        "size": [1.0, 1.0]},
-    {"set": "steel_scratched",      "id": "Metal038",            "family": "rusty steel",        "size": [1.0, 1.0]},
-    {"set": "paint_metal_green",    "id": "PaintedMetal006",     "family": "rusty steel",        "size": [1.5, 1.5]},
-    {"set": "paint_metal_grey",     "id": "PaintedMetal014",     "family": "rusty steel",        "size": [1.5, 1.5]},
-    {"set": "rust_heavy",           "id": "Rust009",             "family": "rusty steel",        "size": [1.0, 1.0]},
-
-    {"set": "cloth_grey",           "id": "Fabric030",           "family": "fabric",             "size": [0.5, 0.5]},
-    {"set": "canvas_rough",         "id": "Fabric061",           "family": "fabric",             "size": [0.4, 0.4]},
-    {"set": "wool_woven",           "id": "Fabric019",           "family": "fabric",             "size": [0.3, 0.3]},
-    {"set": "rug_rough",            "id": "Fabric045",           "family": "fabric",             "size": [0.6, 0.6]},
-    {"set": "leather_brown",        "id": "Leather030",          "family": "fabric",             "size": [0.45, 0.45]},
-    {"set": "wicker_old",           "id": "Wicker010B",          "family": "fabric",             "size": [0.4, 0.4]},
-    {"set": "straw_thatch",         "id": "ThatchedRoof001A",    "family": "fabric",             "size": [1.5, 1.5]},
-
-    {"set": "grass_lawn",           "id": "Grass004",            "family": "grass",              "size": [1.4, 1.4]},
-    {"set": "grass_forest",         "id": "Ground037",           "family": "grass",              "size": [2.1, 2.1]},
-    {"set": "soil_brown",           "id": "Ground048",           "family": "dirt",               "size": [1.4, 1.4]},
-    {"set": "soil_dry",             "id": "Ground103",           "family": "dirt",               "size": [2.0, 2.0]},
-    {"set": "mud_wet",              "id": "Ground025",           "family": "mud",                "size": [2.0, 2.0]},
-    {"set": "mud_soil",             "id": "Ground036",           "family": "mud",                "size": [2.0, 2.0]},
-    {"set": "gravel_fine",          "id": "Gravel043",           "family": "gravel",             "size": [1.6, 1.6]},
-    {"set": "gravel_path",          "id": "Ground081",           "family": "gravel",             "size": [2.0, 2.0]},
-    {"set": "sand_beach",           "id": "Ground055S",          "family": "sand",               "size": [1.5, 1.5]},
-    {"set": "sand_dirty",           "id": "Ground080",           "family": "sand",               "size": [2.0, 2.0]},
-    {"set": "rock_cliff",           "id": "Rock051",             "family": "rock",               "size": [3.0, 3.0]},
-    {"set": "rock_wall",            "id": "Rock022",             "family": "rock",               "size": [3.0, 3.0]},
-    {"set": "rock_mossy",           "id": "Rock057",             "family": "rock",               "size": [3.0, 3.0]},
-    {"set": "ground_rubble",        "id": "Ground110",           "family": "dirt",               "size": [2.1, 2.1]},
-    {"set": "debris_brick",         "id": "Ground111",           "family": "rubble stone",       "size": [2.8, 2.8]},
-
-    {"set": "leaves_forest",        "id": "Ground070",           "family": "ground paint",       "size": [2.6, 2.6]},
-    {"set": "soil_ploughed",        "id": "Ground104",           "family": "ground paint",       "size": [2.0, 2.0]},
-    {"set": "ground_burnt",         "id": "Ground051",           "family": "ground paint",       "size": [2.0, 2.0]},
-    {"set": "pebbles_river",        "id": "Gravel008",           "family": "ground paint",       "size": [1.5, 1.5]},
-    {"set": "marsh_bog",            "id": "Ground024",           "family": "ground paint",       "size": [2.0, 2.0]}
-  ]
+ "_doc": "Curated ambientCG (CC0 1.0) material sets for the engine's triplanar texture layer (docs/textures.md). tools/fetch_ambientcg.py downloads the 1K-JPG zip of each id, keeps Color / NormalGL / Roughness / AmbientOcclusion / Displacement and writes content/textures/<set>/{color,normal,rma}.jpg + meta.json. size = metres covered by one tile [u, v]. How the engine uses each set: content/textures/textures.json.",
+ "source": "https://ambientcg.com",
+ "license": "CC0 1.0 Universal",
+ "resolution": "1K-JPG",
+ "sets": [
+  {
+   "set": "plaster_old",
+   "id": "Plaster007",
+   "family": "limewash / plaster",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "plaster_painted",
+   "id": "PaintedPlaster017",
+   "family": "limewash / plaster",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "plaster_rough",
+   "id": "Plaster003",
+   "family": "limewash / plaster",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "sandstone_wall",
+   "id": "Concrete012",
+   "family": "ashlar",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "brick_old",
+   "id": "Bricks094",
+   "family": "brick",
+   "size": [
+    1.8,
+    0.9
+   ]
+  },
+  {
+   "set": "brick_factory",
+   "id": "Bricks085",
+   "family": "brick",
+   "size": [
+    2.4,
+    1.2
+   ]
+  },
+  {
+   "set": "brick_damaged",
+   "id": "Bricks097",
+   "family": "brick",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "limestone_smooth",
+   "id": "Rock042S",
+   "family": "ashlar",
+   "size": [
+    1.2,
+    1.2
+   ]
+  },
+  {
+   "set": "limestone_light",
+   "id": "Rock019",
+   "family": "rubble stone",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "rock_grey",
+   "id": "Rock026",
+   "family": "rubble stone",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "cobbles_grey",
+   "id": "PavingStones046",
+   "family": "cobbles",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "cobbles_old",
+   "id": "PavingStones138",
+   "family": "cobbles",
+   "size": [
+    1.25,
+    2.5
+   ]
+  },
+  {
+   "set": "slate_roof",
+   "id": "RoofingTiles001",
+   "family": "slate",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "slate_square",
+   "id": "RoofingTiles003",
+   "family": "slate",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "roof_clay_old",
+   "id": "RoofingTiles014B",
+   "family": "terracotta",
+   "size": [
+    2.9,
+    2.9
+   ]
+  },
+  {
+   "set": "roof_clay",
+   "id": "RoofingTiles013A",
+   "family": "terracotta",
+   "size": [
+    2.9,
+    2.9
+   ]
+  },
+  {
+   "set": "clay_flat",
+   "id": "Clay005",
+   "family": "terracotta",
+   "size": [
+    0.4,
+    0.4
+   ]
+  },
+  {
+   "set": "wood_old_planks",
+   "id": "Wood080",
+   "family": "planks",
+   "size": [
+    1.5,
+    1.5
+   ]
+  },
+  {
+   "set": "planks_raw",
+   "id": "Planks021",
+   "family": "planks",
+   "size": [
+    1.4,
+    1.4
+   ]
+  },
+  {
+   "set": "wood_oak",
+   "id": "Wood049",
+   "family": "planks",
+   "size": [
+    0.8,
+    0.8
+   ]
+  },
+  {
+   "set": "wood_dark",
+   "id": "Wood051",
+   "family": "planks",
+   "size": [
+    0.8,
+    0.8
+   ]
+  },
+  {
+   "set": "paint_wood_old",
+   "id": "PaintedWood005",
+   "family": "painted wood",
+   "size": [
+    1,
+    1
+   ]
+  },
+  {
+   "set": "paint_wood_scratched",
+   "id": "PaintedWood009B",
+   "family": "painted wood",
+   "size": [
+    1,
+    1
+   ]
+  },
+  {
+   "set": "bark_fir",
+   "id": "Bark014",
+   "family": "planks",
+   "size": [
+    1.2,
+    1.2
+   ]
+  },
+  {
+   "set": "concrete_bunker",
+   "id": "Concrete028",
+   "family": "concrete",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "concrete_bunker_mold",
+   "id": "Concrete032",
+   "family": "concrete",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "concrete_rough",
+   "id": "Concrete037",
+   "family": "concrete",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "concrete_light",
+   "id": "Concrete025",
+   "family": "concrete",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "steel_rusty",
+   "id": "Metal021",
+   "family": "rusty steel",
+   "size": [
+    1,
+    1
+   ]
+  },
+  {
+   "set": "iron_rusted",
+   "id": "Metal053C",
+   "family": "rusty steel",
+   "size": [
+    1,
+    1
+   ]
+  },
+  {
+   "set": "iron_rust",
+   "id": "Metal041B",
+   "family": "rusty steel",
+   "size": [
+    1,
+    1
+   ]
+  },
+  {
+   "set": "steel_scratched",
+   "id": "Metal038",
+   "family": "rusty steel",
+   "size": [
+    1,
+    1
+   ]
+  },
+  {
+   "set": "paint_metal_green",
+   "id": "PaintedMetal006",
+   "family": "rusty steel",
+   "size": [
+    1.5,
+    1.5
+   ]
+  },
+  {
+   "set": "paint_metal_grey",
+   "id": "PaintedMetal014",
+   "family": "rusty steel",
+   "size": [
+    1.5,
+    1.5
+   ]
+  },
+  {
+   "set": "rust_heavy",
+   "id": "Rust009",
+   "family": "rusty steel",
+   "size": [
+    1,
+    1
+   ]
+  },
+  {
+   "set": "cloth_grey",
+   "id": "Fabric030",
+   "family": "fabric",
+   "size": [
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "set": "canvas_rough",
+   "id": "Fabric061",
+   "family": "fabric",
+   "size": [
+    0.4,
+    0.4
+   ]
+  },
+  {
+   "set": "wool_woven",
+   "id": "Fabric019",
+   "family": "fabric",
+   "size": [
+    0.3,
+    0.3
+   ]
+  },
+  {
+   "set": "rug_rough",
+   "id": "Fabric045",
+   "family": "fabric",
+   "size": [
+    0.6,
+    0.6
+   ]
+  },
+  {
+   "set": "leather_brown",
+   "id": "Leather030",
+   "family": "fabric",
+   "size": [
+    0.45,
+    0.45
+   ]
+  },
+  {
+   "set": "wicker_old",
+   "id": "Wicker010B",
+   "family": "fabric",
+   "size": [
+    0.4,
+    0.4
+   ]
+  },
+  {
+   "set": "straw_thatch",
+   "id": "ThatchedRoof001A",
+   "family": "fabric",
+   "size": [
+    1.5,
+    1.5
+   ]
+  },
+  {
+   "set": "grass_lawn",
+   "id": "Grass004",
+   "family": "grass",
+   "size": [
+    1.4,
+    1.4
+   ]
+  },
+  {
+   "set": "grass_forest",
+   "id": "Ground037",
+   "family": "grass",
+   "size": [
+    2.1,
+    2.1
+   ]
+  },
+  {
+   "set": "soil_brown",
+   "id": "Ground048",
+   "family": "dirt",
+   "size": [
+    1.4,
+    1.4
+   ]
+  },
+  {
+   "set": "soil_dry",
+   "id": "Ground103",
+   "family": "dirt",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "mud_wet",
+   "id": "Ground025",
+   "family": "mud",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "mud_soil",
+   "id": "Ground036",
+   "family": "mud",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "gravel_fine",
+   "id": "Gravel043",
+   "family": "gravel",
+   "size": [
+    1.6,
+    1.6
+   ]
+  },
+  {
+   "set": "gravel_path",
+   "id": "Ground081",
+   "family": "gravel",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "sand_beach",
+   "id": "Ground055S",
+   "family": "sand",
+   "size": [
+    1.5,
+    1.5
+   ]
+  },
+  {
+   "set": "sand_dirty",
+   "id": "Ground080",
+   "family": "sand",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "rock_cliff",
+   "id": "Rock051",
+   "family": "rock",
+   "size": [
+    3,
+    3
+   ]
+  },
+  {
+   "set": "rock_wall",
+   "id": "Rock022",
+   "family": "rock",
+   "size": [
+    3,
+    3
+   ]
+  },
+  {
+   "set": "rock_mossy",
+   "id": "Rock057",
+   "family": "rock",
+   "size": [
+    3,
+    3
+   ]
+  },
+  {
+   "set": "ground_rubble",
+   "id": "Ground110",
+   "family": "dirt",
+   "size": [
+    2.1,
+    2.1
+   ]
+  },
+  {
+   "set": "debris_brick",
+   "id": "Ground111",
+   "family": "rubble stone",
+   "size": [
+    2.8,
+    2.8
+   ]
+  },
+  {
+   "set": "leaves_forest",
+   "id": "Ground070",
+   "family": "ground paint",
+   "size": [
+    2.6,
+    2.6
+   ]
+  },
+  {
+   "set": "soil_ploughed",
+   "id": "Ground104",
+   "family": "ground paint",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "ground_burnt",
+   "id": "Ground051",
+   "family": "ground paint",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "pebbles_river",
+   "id": "Gravel008",
+   "family": "ground paint",
+   "size": [
+    1.5,
+    1.5
+   ]
+  },
+  {
+   "set": "marsh_bog",
+   "id": "Ground024",
+   "family": "ground paint",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "limestone_coursed",
+   "id": "Bricks099",
+   "family": "stone (MA1)",
+   "size": [
+    3,
+    3
+   ],
+   "ma1": true
+  },
+  {
+   "set": "limestone_dressed",
+   "id": "Bricks084",
+   "family": "stone (MA1)",
+   "size": [
+    3,
+    3
+   ],
+   "ma1": true
+  },
+  {
+   "set": "fieldstone_irregular",
+   "id": "Bricks096",
+   "family": "stone (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "rubble_grey",
+   "id": "Rock023",
+   "family": "stone (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "stone_grey_coursed",
+   "id": "Bricks108A",
+   "family": "stone (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "ashlar_large",
+   "id": "Bricks063",
+   "family": "stone (MA1)",
+   "size": [
+    3,
+    3
+   ],
+   "ma1": true
+  },
+  {
+   "set": "brick_muted",
+   "id": "Bricks101",
+   "family": "brick (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "brick_worn",
+   "id": "Bricks074",
+   "family": "brick (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "render_lime",
+   "id": "Concrete034",
+   "family": "plaster (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "render_aged",
+   "id": "PaintedPlaster006",
+   "family": "plaster (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "plaster_flaking",
+   "id": "PaintedPlaster016",
+   "family": "plaster (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "plaster_flaking_b",
+   "id": "PaintedPlaster014",
+   "family": "plaster (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "plaster_old_b",
+   "id": "Plaster006",
+   "family": "plaster (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "render_stained",
+   "id": "Concrete036",
+   "family": "plaster (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "concrete_aggregate",
+   "id": "Concrete049",
+   "family": "concrete (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "bunker_weathered",
+   "id": "Concrete044B",
+   "family": "concrete (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "concrete_stained",
+   "id": "Concrete044D",
+   "family": "concrete (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "concrete_aged",
+   "id": "Concrete047A",
+   "family": "concrete (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "concrete_formwork",
+   "id": "Concrete031",
+   "family": "concrete (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "slate_weathered",
+   "id": "RoofingTiles013C",
+   "family": "roof (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "slate_grey",
+   "id": "RoofingTiles015B",
+   "family": "roof (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "clay_tile_aged",
+   "id": "RoofingTiles012C",
+   "family": "roof (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "clay_tile_mossy",
+   "id": "RoofingTiles014D",
+   "family": "roof (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "beam_weathered",
+   "id": "Wood062",
+   "family": "timber (MA1)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "oak_aged",
+   "id": "Wood060",
+   "family": "timber (MA1)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "boards_weathered",
+   "id": "Planks023A",
+   "family": "timber (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "paint_wood_bluegrey",
+   "id": "PaintedWood008B",
+   "family": "timber (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "paint_wood_white",
+   "id": "PaintedWood009C",
+   "family": "timber (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "paint_wood_blue",
+   "id": "PaintedWood007A",
+   "family": "timber (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "floor_boards_old",
+   "id": "WoodFloor043",
+   "family": "floor (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "floor_boards_worn",
+   "id": "WoodFloor041",
+   "family": "floor (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "floor_cement_tile",
+   "id": "Tiles131",
+   "family": "floor (MA1)",
+   "size": [
+    1,
+    1
+   ],
+   "ma1": true
+  },
+  {
+   "set": "floor_stone_flags",
+   "id": "Tiles130",
+   "family": "floor (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "floor_tomette",
+   "id": "Tiles144",
+   "family": "floor (MA1)",
+   "size": [
+    1.2,
+    1.2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "iron_worn",
+   "id": "Metal062C",
+   "family": "metal (MA1)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "steel_rust_light",
+   "id": "Metal053B",
+   "family": "metal (MA1)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "corrugated_galv",
+   "id": "CorrugatedSteel009",
+   "family": "metal (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "paint_metal_worn_white",
+   "id": "PaintedMetal012",
+   "family": "metal (MA1)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "dirt_compacted",
+   "id": "Ground112",
+   "family": "ground (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "ground_mossy",
+   "id": "Ground068",
+   "family": "ground (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "leaf_litter",
+   "id": "ScatteredLeaves009",
+   "family": "ground (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "gravel_coarse",
+   "id": "Gravel041",
+   "family": "ground (MA1)",
+   "size": [
+    2,
+    2
+   ],
+   "ma1": true
+  },
+  {
+   "set": "paving_worn",
+   "id": "PavingStones130",
+   "family": "ground (MA1)",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "ma1": true
+  },
+  {
+   "set": "canvas_olive",
+   "id": "Fabric066",
+   "family": "fabric (MA1)",
+   "size": [
+    1,
+    1
+   ],
+   "ma1": true
+  },
+  {
+   "set": "rug_beige",
+   "id": "Carpet016",
+   "family": "fabric (MA1)",
+   "size": [
+    1,
+    1
+   ],
+   "ma1": true
+  },
+  {
+   "set": "wallpaper_aged",
+   "id": "Wallpaper002C",
+   "family": "interior (MA1)",
+   "size": [
+    1,
+    1
+   ],
+   "ma1": true
+  },
+  {
+   "set": "paper_aged",
+   "id": "Paper005",
+   "family": "paper (MA1)",
+   "size": [
+    0.5,
+    0.5
+   ],
+   "ma1": true
+  }
+ ],
+ "polyhaven": [
+  {
+   "set": "grass_atlas",
+   "id": "grass_bermuda_01",
+   "source": "https://polyhaven.com/a/grass_bermuda_01",
+   "license": "CC0 1.0 Universal",
+   "family": "grass plant atlas (GT1)",
+   "files": "color, alpha (2K)",
+   "packed": "tools/pack_grass_atlas.mjs -> content/textures/grass_atlas/"
+  },
+  {
+   "set": "grass_atlas",
+   "id": "grass_medium_01",
+   "source": "https://polyhaven.com/a/grass_medium_01",
+   "license": "CC0 1.0 Universal",
+   "family": "grass plant atlas (GT1)",
+   "files": "color, color_dry, alpha (1K): the five bottom clumps and three seed plumes",
+   "packed": "tools/pack_grass_atlas.mjs -> content/textures/grass_atlas/"
+  }
+ ]
 }

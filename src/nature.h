@@ -33,6 +33,10 @@ NatPatchParams naturePatchParams(const Instance& i, const AssetDef& a);
 void setNaturePatchParams(Instance& i, const AssetDef& a, NatPatchParams p);   // clamped; bumps rev
 void natureLayout(const NatureDef& n, const std::string& assetId, const NatPatchParams& pp, std::vector<NatScatterPt>& out);
 uint64_t natureLayoutHash(const std::vector<NatScatterPt>& pts);
+// MA3 foundation dressing (foundation.cpp): a plant in the patch instance format (species, world root, linear albedo,
+// height, four 0..1 randoms) and a small stone appended to a world-space mesh (lith 0 granite, 1 limestone, 2 schist)
+GrassInstance naturePlant(int sp, vec3 w, vec3 albedo, float h, float r0, float r1, float r2, float r3);
+void natureStone(MeshData& m, vec3 w, vec3 groundNrm, float size, float r0, float r1, float r2, float r3, int lith);
 
 // runtime (App side)
 void natureDrawItems(App& app, const Instance& i, InstanceRT& r, std::vector<DrawItem>& op, float camDist);

@@ -9,6 +9,7 @@
 //    stream straight / bend / end, sea shallows), stream pieces carry stream snap sockets, placement checks still refuse
 //    a pond on a footprint and accept it on open ground, the pass draws, and screenshots of each.
 #include "selftest.h"
+#include <chrono>
 #include "mptest.h"
 #if __has_include("water.h")   // the same file builds against the pre-V1 tree for the before numbers
 #include "water.h"
@@ -150,29 +151,65 @@ void build(App& app) {
     }
     return t > 0.5f;
   });
+  // MA1 material capture (NMK_MA1_SHOTS=1 runs only this): the chateau's brick chimney breast in shade at 5 m, its sunlit
+  // front at 5 m, the roof at 10 and 30 m, the farmhouse front at 20 and 50 m; Medium's 0.67 scale with TAAU ->
+  // selftest_out/ma1_<view>.png (run once with --rq-off imgmat for the before set)
+  if (std::getenv("NMK_MA1_SHOTS")) {
+    static const vec3 C(-100.0f, 0, 40.0f);   // clear of the facades, the kit folly and the ponds
+    push("ma1: the chateau", [](App& a, float t) { if (t == 0) { place(a, "vil_chateau_grand", C); a.syncRuntime(); } return t > 0.5f; });
+    struct V { const char* name; vec3 at; float yaw, pitch; };
+    static const V vs[6] = {{"chimney_shade_5m", C + vec3(-5.5f, 0, -16.0f), 180.0f, 22.0f}, {"chateau_sun_5m", C + vec3(-3.0f, 0, 16.5f), 0.0f, 18.0f},
+                            {"roof_10m", C + vec3(-2.0f, 0, -21.0f), 180.0f, 38.0f}, {"roof_30m", C + vec3(-2.0f, 0, -41.0f), 180.0f, 16.0f},
+                            {"facade_20m", F0 + vec3(0, 0, kFacadeZ + 20.0f), 0.0f, 4.0f}, {"facade_50m", F0 + vec3(0, 0, kFacadeZ + 50.0f), 0.0f, 2.0f}};
+    for (int k = 0; k < 6; ++k) push(std::string("ma1_") + vs[k].name, [k](App& a, float t) {
+      if (t == 0) { a.R.setResolutionScale(0.67f); a.R.resetTemporal(); firstPerson(a, vs[k].at, vs[k].yaw, vs[k].pitch); }
+      a.eyeYaw = vs[k].yaw; a.eyePitch = vs[k].pitch;
+      std::string nm = std::string("ma1_") + vs[k].name;
+      if (t > 1.2f && t < 1.2f + 1.5f / 60.0f) pendingShot = outDir() / (nm + ".png");
+      if (t > 1.5f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png", nm.c_str(), nm.c_str()); return true; }
+      return false;
+    });
+    push("ma1: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); return t > 0.2f; });
+    return;
+  }
   // P1 TAAU capture set (NMK_TAAU_SHOTS=1 runs only this, rendering.md 14): still, turning (100 deg/s), foliage and Kar98k
   // sights at Medium's 0.67 scale, native (taau off) then TAAU, from identical cameras -> selftest_out/taau_<view>_<mode>.png
   if (std::getenv("NMK_TAAU_SHOTS")) {
     push("taau: an oak for the foliage view", [](App& a, float t) { if (t == 0) { place(a, "tree_oak", F0 + vec3(-8.0f, 0, 30.0f)); a.syncRuntime(); } return t > 0.5f; });
-    static const char* vn[4] = {"still", "turning", "foliage", "sights"};
-    for (int m = 0; m < 2; ++m) for (int k = 0; k < 4; ++k) {
-      std::string nm = std::string("taau_") + vn[k] + (m ? "_taau" : "_native");
+    // views 4 / 5 (pitching 50 deg/s, strafing right) check the motion's y and the jitter: temporal modes only
+    static const char* vn[6] = {"still", "turning", "foliage", "sights", "pitching", "strafe"};
+    // with an upscale hook (Mac MetalFX): 2 = GL TAAU, 3 = hook, 4 = hook with the jitter sign flipped, 5 = motion y flipped;
+    // 6 = spatial (the pre-P1 path). NMK_TAAU_ONLY=<substring> keeps only the shots whose name contains it
+    static const char* mn[7] = {"_native", "_taau", "_gltaau", "_hook", "_hook_jitflip", "_hook_motflip", "_spatial"};
+    const int m1 = Renderer::temporalUpscaler ? 7 : 2;
+    const char* only = std::getenv("NMK_TAAU_ONLY");
+    for (int m = 0; m < m1; ++m) for (int k = 0; k < 6; ++k) {
+      if (m == 1 && m1 == 7) continue;   // with a hook, "taau" is the hook (3)
+      if (k >= 4 && (m == 0 || m == 6)) continue;            // pitch / strafe: temporal modes
+      if ((m == 4 || m == 5) && (k == 2 || k == 3)) continue;   // sign checks: still, turning, pitching, strafe
+      std::string nm = std::string("taau_") + vn[k] + mn[m];
+      if (only && *only && nm.find(only) == std::string::npos) continue;
       push(nm, [m, k, nm](App& a, float t) {
         vec3 at = k == 2 ? F0 + vec3(-8.0f, 0, 38.0f) : F0 + vec3(0, 0, 24.0f);
-        float yaw = k == 1 ? -50.0f + 100.0f * t : 0.0f, pitch = k == 2 ? 10.0f : 2.0f;
+        float yaw = k == 1 ? -50.0f + 100.0f * t : 0.0f, pitch = k == 2 ? 10.0f : k == 4 ? -25.0f + 50.0f * t : 2.0f;
         if (t == 0) {
-          a.R.perf.taau = m == 1; a.R.setResolutionScale(0.67f); a.R.resetTemporal();
+          a.R.perf.taau = m != 0; a.R.setResolutionScale(0.67f); a.R.resetTemporal(); a.R.upscaleMode = m == 6 ? 1 : 0;
+          a.R.hookOn = m >= 3; a.R.hookSign = vec2(m == 4 ? -1.0f : 1.0f, m == 5 ? -1.0f : 1.0f);
           firstPerson(a, at, yaw, pitch);
           if (k == 3) a.selectWeapon(a.weaponIndex("kar98k"));
         }
         a.eyeYaw = yaw; a.eyePitch = pitch;
         if (k == 3) a.scriptedInput.aim = true;
+        a.scriptedInput.move = k == 5 ? vec2(1.0f, 0.0f) : vec2(0.0f);   // strafe right
         if (t > 1.0f && t < 1.0f + 1.5f / 60.0f) pendingShot = outDir() / (nm + ".png");
-        if (t > 1.3f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png", nm.c_str(), nm.c_str()); return true; }
+        static double acc = 0, last = 0; static int n = 0;   // frame time (wall clock) over the settled half
+        double now = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        if (t < 0.01f) { acc = 0; n = 0; } else if (t > 0.5f) { acc += now - last; ++n; } last = now;
+        if (t > 1.3f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "%s -> selftest_out/%s.png (frame %.2f ms, gpu %.2f ms)", nm.c_str(), nm.c_str(), n ? acc / n : 0.0, a.R.stats.gpuMs); return true; }
         return false;
       });
     }
-    push("taau: back to native", [](App& a, float t) { a.R.perf.taau = true; a.R.setResolutionScale(1.0f); a.scriptedInput.aim = false;
+    push("taau: back to native", [](App& a, float t) { a.R.perf.taau = true; a.R.setResolutionScale(1.0f); a.scriptedInput.aim = false; a.scriptedInput.move = vec2(0.0f); a.R.hookOn = true; a.R.hookSign = vec2(1.0f); a.R.upscaleMode = settings().s.upscale;
       if (t > 0.2f) chk(a.R.fboErrors == 0 && a.R.shaderErrors == 0, "TAAU capture: framebuffer errors %d, shader errors %d", a.R.fboErrors, a.R.shaderErrors);
       return t > 0.2f; });
     return;

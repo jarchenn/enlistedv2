@@ -15,6 +15,7 @@
 #include "nav_geom.h"
 #include "physics.h"
 #include "terrain_tools.h"
+#include "lines.h"
 #include <cstdarg>
 #include <functional>
 
@@ -281,8 +282,11 @@ void ddayChecks(App& app) {
   // trench floor points: every junction's crossing (its y less the trench depth), every entry ramp's top
   std::vector<std::pair<std::string, vec3>> pts;
   for (auto& i : app.doc.instances) {
-    if (i.assetId == "aw_trench_tee" || i.assetId == "aw_trench_cross") pts.push_back({i.assetId.substr(9) + "@" + std::to_string((int)i.pos.x) + "," + std::to_string((int)i.pos.z), vec3(i.pos.x, i.pos.y - 1.55f, i.pos.z)});
-    if (i.assetId == "aw_trench_entry") { vec3 p = i.pos + yawQuat(i.yaw) * vec3(-2.9f, 0, 0); p.y = T.height(p.x, p.z); pts.push_back({"ramp@" + std::to_string((int)p.x) + "," + std::to_string((int)p.z), p}); }
+    LineData ld;   // LN1 trench lines: both ends and the middle of each, on the carved floor
+    if (i.assetId != "line_trench" || !lineGet(i, ld)) continue;
+    auto sp = lineSpline(ld, 1.0f);
+    const size_t in = std::min<size_t>(2, sp.size() / 2);   // 2 m in from each end: an end wall foot is off the navmesh (agent radius)
+    for (size_t k : {in, sp.size() / 2, sp.size() - 1 - in}) { vec2 q = sp[k].p; pts.push_back({"line" + std::to_string(i.id) + "@" + std::to_string((int)q.x) + "," + std::to_string((int)q.y), vec3(q.x, T.height(q.x, q.y) + 0.05f, q.y)}); }
   }
   int ok = 0; std::string bad; float worstLen = 0;
   for (size_t k = 1; k < pts.size(); ++k) {
@@ -433,6 +437,11 @@ void SelfTest::captureUpdate(App& app, float dt) {
           cams.push_back({"gx5_hall_corner", W(ch, vec3(-2.0f, 1.7f, 8.0f)), W(ch, vec3(-6.0f, 1.2f, 3.0f))});
         }
         cams.push_back({"current_03_exterior", W(ch, vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6)), W(ch, vec3(0, H * 0.35f, 0))});
+      }
+      if (Instance* vl = I("vil_villa_deauville"); vl && std::getenv("NMK_MA2_HOUSE")) {   // MA2: a house at ~10 m, its front corner and foot
+        const AssetDef* a = app.lib.find(vl->assetId);
+        float fx = a->footprint.x * 0.5f, fz = a->footprint.y * 0.5f;
+        cams.push_back({"ma2_house_10m", W(vl, vec3(fx + 4.0f, 1.7f, fz + 8.5f)), W(vl, vec3(fx * 0.2f, 1.0f, fz))});
       }
       if (op) cams.push_back({"current_04_lineup", W(op, vec3(-16.0f, 1.7f, 46.0f)), W(op, vec3(-16.0f, 3.2f, 0.0f))});
       cams.push_back({"current_05_field", vec3(0.0f, 1.65f, 38.0f), vec3(0.0f, 1.2f, 140.0f)});

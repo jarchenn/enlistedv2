@@ -116,6 +116,7 @@ void lassoToolUpdate(App& app, float dt, bool uiMouse) {
   vec3 ro, rd; app.cursorRay(ro, rd);
   vec3 gp; bool g = app.terrain.raycast(ro, rd, 20000, gp);
   lassoSanitize(app);
+  if (P.mode == LM_LINE) { gU.prevDown = down; lassoLineUpdate(app, uiMouse); return; }   // LN1: drawing and editing lines
   if (!io.WantCaptureKeyboard) {
     if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) && lassoElevActive()) lassoElevApply(app, P.fillWater && P.amount < 0);
     if (ImGui::IsKeyPressed(ImGuiKey_Backspace, false) && gU.gesture == 0) { if (lassoElevActive()) lassoElevCancel(app); R.clear(); }
@@ -207,6 +208,7 @@ void lassoOverlay(App& app, Overlay& ov) {
 #endif
   if (app.tool != Tool::Lasso) return;
   const LassoParams& P = lassoParams(); const LassoRegion& R = lassoRegion();
+  if (P.mode == LM_LINE) { lassoLineOverlay(app, ov); return; }
   for (auto& s : R.shapes) drapedLoop(app, ov, s.poly, s.subtract ? vec4(1, 0.35f, 0.3f, 0.95f) : vec4(0.35f, 0.9f, 1.0f, 0.95f));
   for (auto& w : app.doc.waterBodies) drapedLoop(app, ov, w.outline, vec4(0.3f, 0.55f, 1.0f, 0.8f), 0.05f);
   if (gU.gesture == 1) {
@@ -303,6 +305,8 @@ void lassoEditorUI(App& app) {
 #else
     ImGui::TextDisabled("Ground paint is not in this build.");
 #endif
+  } else if (P.mode == LM_LINE) {
+    lassoLinePanel(app);
   } else if (P.mode == LM_MOVELAND) {
     ImGui::SliderFloat("Blend width (m)", &P.moveFalloff, 0.0f, 30.0f, "%.1f");
     ImGui::TextDisabled("Draw a region, then drag inside it to slide the\nground (with its objects, paint and water) to a\nnew spot. Z / X turn it while dragging.");

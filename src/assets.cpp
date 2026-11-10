@@ -143,6 +143,8 @@ void GpuMesh::upload(const MeshData& m) {
 }
 void GpuMesh::destroy() {
   if (vao) glDeleteVertexArrays(1, &vao);
+  if (ivao) glDeleteVertexArrays(1, &ivao);
+  ivao = 0;
   if (vbo) glDeleteBuffers(1, &vbo);
   if (ebo) glDeleteBuffers(1, &ebo);
   vao = vbo = ebo = 0; count = 0; bmin = bmax = vec3(0);

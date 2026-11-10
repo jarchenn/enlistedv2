@@ -4,6 +4,7 @@
 #include "app.h"
 #include "physics.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
@@ -433,10 +434,10 @@ void buildNatureAsset(AssetDef& a, const json& j, std::vector<vec3>& pts) {
 // ---------------------------------------------------------------- runtime
 int gNatRebuilds = 0;
 namespace {
-std::vector<GrassFootprint> gFp; uint32_t gFpRev = 0, gFpGround = 0; size_t gFpN = 0; const void* gFpDoc = nullptr;
+std::vector<GrassFootprint> gFp; uint32_t gFpRev = 0, gFpGround = 0; size_t gFpN = 0; const void* gFpDoc = nullptr; uint64_t gFpGen = 1;   // gFpGen: bumped on every rebuild (P2)
 const std::vector<GrassFootprint>& footprints(App& app) {
   if (gFpRev != app.revCounter || gFpGround != app.groundRev || gFpDoc != &app.doc || gFpN != app.doc.instances.size() || gFp.empty()) {   // deletes do not bump revs
-    gFp = app.grassFootprints(); gFpRev = app.revCounter; gFpGround = app.groundRev; gFpDoc = &app.doc; gFpN = app.doc.instances.size();
+    ++gFpGen; gFp = app.grassFootprints(); gFpRev = app.revCounter; gFpGround = app.groundRev; gFpDoc = &app.doc; gFpN = app.doc.instances.size();
     gFp.erase(std::remove_if(gFp.begin(), gFp.end(), [](const GrassFootprint& f) { return f.soft; }), gFp.end());   // crop tiles clear pasture grass only
   }
   return gFp;
@@ -620,6 +621,21 @@ void rebuildPatch(App& app, const Instance& i, InstanceRT& r, const std::vector<
 }
 }  // namespace
 
+// MA3 foundation dressing (foundation.cpp): one plant in the patch instance format, one small stone into a world-space mesh
+GrassInstance naturePlant(int sp, vec3 w, vec3 albedo, float h, float r0, float r1, float r2, float r3) {
+  const SpeciesDef& d = spDef(sp);
+  return {vec4(w, r0 * 6.2831853f), vec4(h, glm::mix(d.w0, d.w1, r2), packPlant(glm::min(albedo, vec3(0.5f)), sp), r3 * 6.2831853f + r1)};
+}
+void natureStone(MeshData& m, vec3 w, vec3 groundNrm, float size, float r0, float r1, float r2, float r3, int lith) {
+  vec3 up = glm::normalize(glm::mix(vec3(0, 1, 0), groundNrm, 0.75f));
+  vec3 ax = glm::cross(vec3(0, 1, 0), up); float sa = glm::length(ax);
+  quat align = sa > 1e-5f ? glm::angleAxis(std::asin(std::min(1.0f, sa)), ax / sa) : quat(1, 0, 0, 0);
+  quat tilt = glm::angleAxis(radians((r2 - 0.5f) * 24.0f), vec3(1, 0, 0));
+  float asp = 0.75f + 0.5f * r0;
+  mat4 M = glm::translate(mat4(1), w - vec3(0, size * 0.12f * r3, 0)) * glm::mat4_cast(align * yawQuat(r0 * 360.0f) * tilt) * glm::scale(mat4(1), vec3(size, size * asp, size));
+  appendStone(m, (int)(r2 * 8), M, lithTint(lith, r1), lith);
+}
+
 void natureDrawItems(App& app, const Instance& i, InstanceRT& r, std::vector<DrawItem>& op, float camDist) {
   const AssetDef& a = *r.asset; const NatureDef& n = a.nature;
   if (n.kind == NatureDef::ROCK) { op.push_back({&a.opaque, app.instanceMatrix(i)}); return; }
@@ -630,7 +646,13 @@ void natureDrawItems(App& app, const Instance& i, InstanceRT& r, std::vector<Dra
   float meshReach = (wheat ? 480.0f : 160.0f) + R, plantReach = 140.0f + R;
   if (camDist > std::max(meshReach, stones ? 0.0f : plantReach)) return;
   const auto& fp = footprints(app);
-  uint64_t fh = footHash(fp, vec2(i.pos.x, i.pos.z), R);
+  uint64_t fh;   // P2 dlcache: the footprint hash scans every footprint of the map; reused until the list or the patch changes
+  {
+    static std::unordered_map<const void*, std::array<uint64_t, 3>> fc;
+    auto& e = fc[&r]; uint64_t key = ((uint64_t)i.rev << 32) ^ fbits(R);
+    if (app.R.perf.dlCache && e[0] == gFpGen && e[1] == key) fh = e[2];
+    else { fh = footHash(fp, vec2(i.pos.x, i.pos.z), R); e = {gFpGen, key, fh}; }
+  }
   bool stale = r.natRev != i.rev || r.natFoot != fh;
   {   // lasso paint / water: re-check only when they changed somewhere, rebuild only when they changed here
     static std::unordered_map<const void*, std::pair<uint64_t, uint64_t>> lsig;

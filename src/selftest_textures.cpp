@@ -147,7 +147,7 @@ void run(App& a) {
   }
   chk(same == (int)P.size(), "missing sets fall back to the procedural patterns (%d of %d tiles identical)", same, (int)P.size());
   // one placeholder set: only its slots go live
-  tex::writePlaceholders(miss, {"plaster_old"});
+  tex::writePlaceholders(miss, {tex::imgMat() ? "render_lime" : "plaster_old"});   // MA1: limewash's set in the active table
   tex::init(miss);
   int live = tex::info().slotsLive, expect = tex::slotLayer(tex::slotIndex("limewash")) >= 0;
   chk(tex::info().sets == 1 && live >= 1 && expect, "a lone set brings only its slots live (%d live)", live);

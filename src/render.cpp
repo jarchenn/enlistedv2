@@ -461,6 +461,19 @@ float lineAA(float mask, float w, float mean){ return mix(mask, mean, smoothstep
 flat in vec4 vInstV;                   // seed (0..1), wear (0..2), palette variation (0..1), room count: uInst, or per vertex (PF2 HLOD)
 #define uInst vInstV
 uniform vec4 uRoomA[16], uRoomB[16];   // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
+uniform vec4 uContactBox; uniform vec4 uContact[4]; uniform int uFoundWx;   // MA2: ground-contact grid (App::contactProfile)
+// MA2: height above the LOCAL ground: the copy's terrain grid under its walls (bilinear), or the asset ground (y 0)
+float groundH(){
+  if (uFoundWx == 0) return vAp.y;
+  vec2 t = clamp((vAp.xz - uContactBox.xy)/max(uContactBox.zw - uContactBox.xy, vec2(1e-3)), 0.0, 1.0)*3.0;
+  ivec2 i = ivec2(min(floor(t), vec2(2.0))); vec2 f = t - vec2(i);
+  return vAp.y - mix(mix(uContact[i.y][i.x], uContact[i.y][i.x + 1], f.x), mix(uContact[i.y + 1][i.x], uContact[i.y + 1][i.x + 1], f.x), f.y);
+}
+// MA2: 0 at a footprint corner (the contact box less its 0.4 m margin), metres away from it otherwise
+float cornerDist(){
+  vec2 c = (uContactBox.xy + uContactBox.zw)*0.5, he = (uContactBox.zw - uContactBox.xy)*0.5 - 0.4;
+  return length(he - abs(vAp.xz - c));
+}
 uniform vec4 uSillA[12], uSillB[12];   // (centre x, sill y, centre z, half width) / (outward normal x, z, -, -)
 uniform int uSills;
 int roomAt(vec3 p){
@@ -583,6 +596,8 @@ float gDetH = 0.0;   // detail relief (m), added to the derivative bump
 // under the ceiling (smoke), with world-space blotches, scaled by the building's wear, so one finish reads clean in one
 // house and grimy in the next; roughness breakup on every surface; a high-frequency detail relief on walls; ~0.5 m seam
 // occlusion at wall-wall, wall-floor and wall-ceiling joints (the flat lighting there made rooms read as boxes).
+float gFootDbg = -1.0;   // MA2 debug 3: 1 under 0.5 m above the local ground on a foundation surface, -1 = not one
+vec3 gWxDbg = vec3(0.0);   // MA2 debug 4: (damp, moss, splash) masks
 vec3 gDbg = vec3(0.0);   // NMK_GX5_DEBUG=2: decal tests passed (facing, plane, box)
 int gRoom = -1;      // the room whose finish this fragment took (pattern 20 / 21), for its decal list
 float gDecH = 0.0;   // decal relief (m)
@@ -860,8 +875,6 @@ void main(){
     float agg = smoothstep(0.72, 0.85, vnL(vAp*70.0, 70.0));
     alb *= 0.8 + 0.28*n; alb *= 1.0 - board*0.12 - grainB*0.05;
     alb = mix(alb, alb*vec3(1.15,1.12,1.05), agg*0.5);
-    float damp = 1.0 - smoothstep(-0.3, 0.9, vAp.y);
-    alb *= mix(1.0, 0.72, damp); rough = mix(rough, rough*0.8, damp);
     h = n*0.4 - board*0.6 + agg*0.2 + grainB*0.1; bump = 0.0045;
   } else if (pat == 12 || pat == 13 || pat == 14) {
     // path surfaces in path coordinates (x across, z along, metres): fixed texel density at any length / width.
@@ -944,8 +957,7 @@ void main(){
     alb *= mix(1.0, tone, vert) * (0.93 + 0.1 * hash12(vec2(lift, 9.0))) * (0.68 + 0.6 * mott);
     alb *= 1.0 - joint * 0.22 - grainB * 0.06 - liftLine * 0.18 - tie * 0.5;
     float nn = vnL(vAp * 1.1, 1.1);
-    float foot = (1.0 - smoothstep(0.0, 0.7 + 0.5 * nn, vAp.y)) * vert;
-    alb = mix(alb, alb * vec3(0.4, 0.4, 0.31), foot);
+    // MA2: the foot and the packed soil are in the shared weathering block (L4 replace slots skip this body)
     float lip = float(grain) * 0.1;
     if (lip > 0.5) {
       float d = lip - vAp.y;
@@ -956,7 +968,7 @@ void main(){
     float top = smoothstep(0.6, 0.9, an.y);
     float lichen = top * smoothstep(0.45, 0.75, vnL(vAp * 1.7 + 3.0, 1.7));
     alb = mix(alb, vec3(0.2, 0.21, 0.15), lichen * 0.45);
-    rough = clamp(rough + joint * 0.06 - foot * 0.08, 0.3, 1.0);
+    rough = clamp(rough + joint * 0.06, 0.3, 1.0);
     h = mott * 0.3 - joint * 0.6 + grainB * 0.15 - tie * 0.8 - liftLine * 0.3; bump = 0.004;
     ao = 1.0 - joint * 0.15 - tie * 0.4;
   } else if (pat == 16) { // camouflage net (docs/bunkers.md#camouflage): disruptive olive / brown / dark blotches,
@@ -1316,7 +1328,11 @@ void main(){
       float traffic = ri >= 0 ? 1.0 - smoothstep(0.15, 0.85, length((q - rc) / rh)) : 0.3;
       float wear = uInst.y, s = uInst.x * 11.0 + float(ri);
       vec3 c; float hh = 0.5, r = rough, aoF = 1.0;
-      if (code == 1) {   // herringbone parquet: 7 x 35 cm oak blocks
+      int fsl = uImgMat == 1 ? uFloorSlot[clamp(code, 0, 7)] : -1;   // MA1 imgmat: the finish's image set replaces its pattern
+      if (fsl >= 0 && texReplace(fsl)) {   // base colour per finish (boards, parquet, tomettes, flags, earth); the set brings the structure
+        vec3 fcol[5] = vec3[5](vec3(0.24, 0.16, 0.095), vec3(0.24, 0.15, 0.085), vec3(0.42, 0.21, 0.12), vec3(0.32, 0.30, 0.26), vec3(0.30, 0.27, 0.22));
+        c = fcol[clamp(code, 0, 4)]*(0.9 + 0.2*hash12(vec2(s, 5.0))); tslot = fsl;
+      } else if (code == 1) {   // herringbone parquet: 7 x 35 cm oak blocks
         vec3 bid; vec2 l = herring(q / 0.07, 5.0, bid);
         float e = min(min(l.x, 5.0 - l.x) * 0.07, min(l.y, 1.0 - l.y) * 0.07);
         float joint = 1.0 - smoothstep(0.0008, 0.0025, e);
@@ -1493,27 +1509,67 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0);
   }
+  gTexWear = uInst.y;   // MA1: worn copies show more substrate
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
   if (uSDecOn == 1 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
-  if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
+  if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 15 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
-    float vert = 1.0 - smoothstep(0.4, 0.7, abs(normalize(vN).y));
+    // MA2: all of it by height above the LOCAL ground (groundH: the terrain under this wall), so on a slope the band
+    // follows the ground instead of a level stripe; heights and strength vary by material, exposure and the copy's seed
+    vec3 nW = normalize(vN);
+    float vert = 1.0 - smoothstep(0.4, 0.7, abs(nW.y));
     float nn = vnL(vAp*1.3, 1.3);
-    float foot = (1.0 - smoothstep(0.0, 0.45 + 0.4*nn, vAp.y)) * vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
-    alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
-    // GX4: the dirt gradient reaches ~1 m (warm earthy tint, densest at the ground), rain splash speckle in the lowest
-    // 0.35 m, moss patches climbing from the ground to ~0.6 m (greener on lime render and rubble, less on brick)
-    float g1 = (1.0 - smoothstep(0.1, 1.15 + 0.3*nn, vAp.y)) * vert;
-    alb = mix(alb, alb*vec3(0.55, 0.5, 0.42), g1*0.75);
-    float splash = (1.0 - smoothstep(0.05, 0.5 + 0.15*nn, vAp.y)) * vert * smoothstep(0.5, 0.72, vnL(vAp*23.0 + 3.0, 23.0));
-    alb *= 1.0 - 0.35*splash;
-    float moss = vert * (1.0 - smoothstep(0.0, 0.5 + 0.3*vnL(vAp*1.9 + 5.0, 1.9), vAp.y)) * smoothstep(0.36, 0.62, vnL(vAp*2.3 + 7.0, 2.3)) * (pat == 9 || pat == 18 ? 0.6 : 1.0);
-    alb = mix(alb, mix(vec3(0.05, 0.085, 0.025), vec3(0.13, 0.16, 0.06), vnL(vAp*9.0, 9.0)), moss*0.8);
+    float hg = groundH();
+    float sd = fract(dot(uModel[3].xz, vec2(0.131, 0.217)));   // the copy's seed
+    float shadeF = uFoundWx == 1 ? clamp(0.5 - 0.5*dot(normalize(nW.xz + 1e-4), normalize(uSunDir.xz + 1e-4)), 0.0, 1.0) : 0.5;   // faces turned from the sun stay damp
+    float cornerK = uFoundWx == 1 ? 1.0 - smoothstep(0.0, 1.2, cornerDist()) : 0.0;   // dirt and damp climb at the corners
+    // MA2 review: has to read at 10-30 m. A damp zone with a visible, irregular top edge (0.2-0.9 m, broken by clean
+    // stretches at a 2-6 m scale with the seed), soil splash at the ground, algae on shaded faces and corners, run-off
+    // under ground-storey sills; tinted by material; darkening capped at ~35 % on screen (no near-black, no uniform band).
+    // Lives here, not in the pattern bodies: L4 replace slots (MA1) skip those, concrete 11 / 15 included.
+    vec3 alb0 = alb;
+    int mc = pat == 11 || pat == 15 ? 3 : pat == 9 || pat == 18 ? 2 : pat == 1 || pat == 19 || pat == 22 ? 1 : 0;   // render / wood, stone, brick, concrete
+    float matK = mc == 2 ? 0.9 : mc == 1 ? 0.95 : 1.0;   // brick and dressed stone shed water better than render
+    vec3 dampC = mc == 0 ? vec3(0.45, 0.34, 0.22) : mc == 1 ? vec3(0.34, 0.40, 0.29) : mc == 2 ? vec3(0.40, 0.33, 0.28) : vec3(0.33, 0.35, 0.38);   // brown soil, green-grey, dark wet
+    float dug = vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
+    // value noise sits near 0.5: remap so the zone really spans its range along the wall
+    float lv = smoothstep(0.25, 0.75, vnL(vec3(vAp.x*0.22, sd*17.0, vAp.z*0.22), 0.22));   // zone height along the wall, ~4 m
+    float lc = vnL(vec3(vAp.x*0.3 + sd*7.0, 4.0, vAp.z*0.3), 0.3);         // clean stretches, ~3 m
+    float edge = vnL(vAp*2.1 + sd*9.0, 2.1);                                // irregular top edge, ~0.5 m
+    float on = max(smoothstep(0.3, 0.38, lc), cornerK);
+    float zh = clamp((0.35 + 0.65*lv + 0.3*(edge - 0.5) + 0.3*cornerK + 0.12*shadeF)*matK, 0.2, 1.2);
+    float k = 0.85 + 0.1*shadeF + 0.05*sd;
+    float damp = (1.0 - smoothstep(zh - 0.12, zh + 0.04, hg)) * dug * on;
+    float tide = smoothstep(zh - 0.2, zh - 0.05, hg) * damp;                // the darker tide line at the top of the damp
+    alb *= mix(vec3(1.0), dampC, min(damp*k + tide*0.2, 1.0));
+    rough = mix(rough, rough*0.94, damp*k);   // only a little: a shinier foot reflects the sky at grazing views and cancels the darkening
+    gFootDbg = step(hg, 0.5);   // debug 3: white below 0.5 m above the local ground (selftest_visuals reads this line)
+    float g1 = (1.0 - smoothstep(0.0, 0.35 + 0.15*nn, hg)) * dug * max(on, 0.5);   // always some grime right at the ground
+    alb *= mix(1.0, 0.75, g1);
+    float sn = vnL(vAp*23.0 + 3.0, 23.0);
+    float spl = (1.0 - smoothstep(0.02, 0.14 + 0.16*nn, hg)) * dug * (0.55 + 0.45*smoothstep(0.4, 0.7, sn));   // soil splash
+    alb = mix(alb, (mc == 3 ? vec3(0.27, 0.24, 0.20) : vec3(0.36, 0.29, 0.21))*(0.85 + 0.3*nn), spl*0.6);
+    // small exposed-substrate patches just above the ground: the finish is gone and the core shows, darker and rough
+    float sub = uFoundWx == 1 ? (1.0 - smoothstep(0.1, 0.45 + 0.2*nn, hg)) * dug * smoothstep(0.78, 0.86, sn*0.4 + nn*0.6 + 0.08*cornerK) * (pat == 17 || pat == 3 || pat == 11 ? 1.0 : 0.5) : 0.0;
+    alb = mix(alb, alb*vec3(0.6, 0.56, 0.5), sub); rough = mix(rough, 0.96, sub);
+    float moss = dug * on * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
+    alb = mix(alb, (mc == 0 ? vec3(0.36, 0.38, 0.24) : vec3(0.30, 0.34, 0.22))*(0.8 + 0.4*vnL(vAp*9.0, 9.0)), clamp(moss, 0.0, 1.0)*0.7);
     rough = mix(rough, 0.95, moss*0.5);
-    float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, vAp.y);
+    if (uSills > 0 && vert > 0.5 && hg < 3.4) {   // run-off under the ground-storey sills
+      float ro = sillRunoff(vAp) * (1.0 - smoothstep(2.6, 3.4, hg));
+      alb *= mix(vec3(1.0), dampC, ro*0.8);
+    }
+    gWxDbg = vec3(damp*k, moss, spl);
+    float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, hg);
     alb *= 1.0 - 0.14*streak;
+    float l0 = dot(alb0, vec3(0.3, 0.59, 0.11)), l1 = dot(alb, vec3(0.3, 0.59, 0.11));
+    if (l1 < 0.4*l0) alb *= 0.4*l0/max(l1, 1e-4);   // the cap: 0.4 linear = ~35 % darker on screen (sRGB), never near-black
+    if (pat == 15) {   // earth packed against the bunker concrete (a different surface, so past the cap)
+      float soil = (1.0 - smoothstep(0.0, 0.18 + 0.22*vnL(vAp*4.3 + 2.0, 4.3), hg)) * vert * float(uFoundWx);
+      alb = mix(alb, vec3(0.2, 0.17, 0.12)*(0.8 + 0.4*nn), soil*0.8); rough = mix(rough, 0.97, soil);
+    }
   }
   vec3 N = dot(vN, vN) > 1e-12 ? normalize(vN) : vec3(0.0, 1.0, 0.0);
   if (!gl_FrontFacing) N = -N;
@@ -1537,6 +1593,8 @@ void main(){
   if (gl_FrontFacing) N = normalize(N + gTexDN);   // L4: the set's normal map
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   if (uGxDebug == 2 && uCapture == 0) c = gDbg*0.8 + 0.05;
+  if (uGxDebug == 4 && uCapture == 0) c = gWxDbg;
+  if (uGxDebug == 3 && uCapture == 0) c = gFootDbg < 0.0 ? vec3(0.0, 0.0, 0.4) : vec3(gFootDbg);   // MA2: the local ground line (white = within 0.5 m of it)
   if (uGxDebug == 1 && uCapture == 0) {
     vec4 rr = gRoom >= 0 && gIn == 1 ? roomDec(gRoom) : uExtDec;
     c = vec3(gIn == 1 ? 0.6 : 0.05, gRoom >= 16 ? 0.6 : 0.05, clamp(rr.y/8.0, 0.0, 1.0))*(0.5 + 0.5*max(dot(N, vec3(0.3, 0.8, 0.5)), 0.0));
@@ -1877,7 +1935,8 @@ void main(){
 static const char* kTaaFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uCur, uHist, uDepth, uVel; uniform mat4 uInvVP, uPrevVP; uniform vec2 uTexel; uniform int uValid; uniform float uSharpen;
-uniform int uUp; uniform vec2 uInTexel, uJit;   // P1 TAAU: 1 = this pass runs at output size; the internal texel; the frame's jitter (internal px)
+uniform int uUp; uniform vec2 uInTexel, uJit;
+uniform int uTaaDbg;   // NMK_TAA_DEBUG: 1 uv, 2 texelFetch(uCur), 3 uInTexel x 1000 / uUp, 4 texture(uCur) (Metal shim checks)   // P1 TAAU: 1 = this pass runs at output size; the internal texel; the frame's jitter (internal px)
 layout(location=0) out vec4 oColor;
 layout(location=1) out vec4 oHist;
 vec3 toYC(vec3 c){ return vec3(0.25*c.r + 0.5*c.g + 0.25*c.b, 0.5*c.r - 0.5*c.b, -0.25*c.r + 0.5*c.g - 0.25*c.b); }
@@ -1895,6 +1954,11 @@ vec3 histCR(vec2 uv){
   return max(r/wsum, vec3(0.0));
 }
 void main(){
+  if (uTaaDbg > 0) {
+    vec4 d = uTaaDbg == 1 ? vec4(vUV*4.0, 0.0, 1.0) : uTaaDbg == 2 ? texelFetch(uCur, ivec2(vUV*vec2(textureSize(uCur, 0))), 0)
+           : uTaaDbg == 3 ? vec4(uInTexel*1000.0, float(uUp), 1.0) : texture(uCur, vUV);
+    oColor = d; oHist = d; return;
+  }
   vec3 cur, m1 = vec3(0.0), m2 = vec3(0.0), sum = vec3(0.0);
   vec2 dUV = vUV; float conf = 1.0;
   if (uUp == 1) {
@@ -1922,8 +1986,7 @@ void main(){
     }
   }
   m1 /= 9.0; vec3 sig = sqrt(max(m2/9.0 - m1*m1, 0.0));
-  float z = texture(uDepth, dUV).r;
-  gl_FragDepth = z;   // TAAU: the output depth for effects and overlays (no depth test in the internal-size pass)
+  float z = texture(uDepth, dUV).r;   // (TAAU's output depth: kDepthUpFS after this pass; a depth write here broke the Metal pipeline)
   vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, z, 1.0);   // reverse-Z: ndc z = depth; the sky (0) lands on the far plane
   vec3 w = wp.xyz/wp.w;
   vec4 pc = uPrevVP*vec4(w, 1.0); vec2 puv = pc.xy/pc.w*0.5 + 0.5;
@@ -1951,6 +2014,29 @@ void main(){
   o = (any(isnan(o)) || any(isinf(o))) ? hst : o;
   oColor = vec4(o, 1.0); oHist = vec4(hst, 1.0);
 }
+)GLSL";
+// P1 Mac hook helpers. kMotionFS: full motion in input pixels toward the previous position (uv delta x size); animated
+// foliage / grass (velTex a = 1) carry their own, the rest is the camera reprojection of the depth with the unjittered
+// matrices (as kTaaFS). kDepthUpFS: the nearest internal depth into the output-size target (effects, overlays).
+static const char* kMotionFS = R"GLSL(
+in vec2 vUV;
+uniform sampler2D uDepth, uVel; uniform mat4 uInvVP, uPrevVP; uniform vec2 uSize; uniform float uSignY;
+layout(location=0) out vec4 oMotion;
+void main(){
+  vec4 mv = texture(uVel, vUV); vec2 puv;
+  if (mv.a > 0.5) puv = vUV + mv.xy;
+  else {
+    vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, texture(uDepth, vUV).r, 1.0);
+    vec4 pc = uPrevVP*vec4(wp.xyz/wp.w, 1.0); puv = pc.xy/pc.w*0.5 + 0.5;
+  }
+  vec2 d = (puv - vUV)*uSize; d.y *= uSignY;
+  oMotion = vec4((any(isnan(d)) || any(isinf(d))) ? vec2(0.0) : d, 0.0, 1.0);
+}
+)GLSL";
+static const char* kDepthUpFS = R"GLSL(
+in vec2 vUV;
+uniform sampler2D uDepth; uniform vec2 uInSize;
+void main(){ gl_FragDepth = texelFetch(uDepth, clamp(ivec2(vUV*uInSize), ivec2(0), ivec2(uInSize) - 1), 0).r; }
 )GLSL";
 // ---- bloom: a downsample chain (first level de-fireflied by a luminance-weighted average) and a tent upsample
 // accumulated back up; the tonemap adds a small fraction. Wide and faint: a soft glow, no threshold streaks.
@@ -2134,6 +2220,14 @@ static const char* kShadowVS = R"GLSL(
 layout(location=0) in vec3 aPos;
 uniform mat4 uModel, uVP;
 void main(){ gl_Position = uVP*uModel*vec4(aPos,1.0); }
+)GLSL";
+// P2 instdepth: kShadowVS with the model matrix per instance (VAO binding 3, attributes 12-15, divisor 1)
+static const char* kShadowIVS = R"GLSL(
+#version 450 core
+layout(location=0) in vec3 aPos;
+layout(location=12) in vec4 iM0; layout(location=13) in vec4 iM1; layout(location=14) in vec4 iM2; layout(location=15) in vec4 iM3;
+uniform mat4 uVP;
+void main(){ gl_Position = uVP*mat4(iM0, iM1, iM2, iM3)*vec4(aPos,1.0); }
 )GLSL";
 static const char* kDepthVS = R"GLSL(   // R1 zprepass experiment: kMainVS's exact transform
 layout(location=0) in vec3 aPos;
@@ -2358,9 +2452,14 @@ uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
 uniform float uCount, uShadowPass;   // pasture: clumps in this chunk (0 = nature patch plants); sun-shadow pass (radius)
 uniform vec4 uLod, uLod2;            // pasture LOD: drawn share, near r, mid r, falloff | floor, -, -, wind r
 uniform vec4 uCards;                 // G1: this species group's near / mid / far cards | shadow-pass cards (0 = main pass)
+// GT1 grass plant atlas (grass.cpp grassAtlasInit): per cell (u0, u1, v1, width / height), v0; per pasture species the
+// first / count of its cells in uGAIdx and how many of its blade cards show a plant (the rest collapse: each plant
+// card carries several blades, so the clump keeps about its blade count at a fraction of the fill)
+uniform int uGAOn; uniform vec4 uGACell[32]; uniform float uGAV0; uniform ivec4 uGASp[24]; uniform int uGAIdx[48];
 out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid, vTap;   // vTap: G1 blade card width / full card width (trimmed padding)
 out vec4 vCC, vPC;
 flat out int vSp; flat out int vPart; flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf; pasture 10+
+flat out int vGA;                    // GT1: atlas layer of this card, -1 = procedural
 // GX3 pasture clump: cards pre-arranged around the root (tall centre, short outward-leaning rim), leaning with the
 // slope, the base blended into the ground colour, base AO, wind only near the eye; LOD fades by rank (no pop)
 void pastureClump(){
@@ -2377,9 +2476,25 @@ void pastureClump(){
   float nb = d <= uLod.y ? uCards.x : d <= uLod.z ? mix(uCards.x, uCards.y, smoothstep(uLod.y, uLod.z, d)) : mix(uCards.y, uCards.z, smoothstep(uLod.z, uRadius, d));
   float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp((uShadowPass > 0.0 ? uCards.w : nb) - bl, 0.0, 1.0);
   if (uShadowPass > 0.0) fade *= 1.0 - smoothstep(uShadowPass*0.7, uShadowPass, d);   // G1: casters shrink away toward the shadow radius (no ring)
+  // GT1: plant cards of the atlas on this species' leading blade cards; its other blade cards collapse
+  int ga = -1;
+  // plant cards near the eye, where the photo detail reads. Inside 5 m every clump shows 2 plants and drops its other
+  // blade cards; across 5-10.5 m a falling share of clumps (stable per-clump hash) shows 1 plant and keeps its outer
+  // blade cards, so density and silhouette change gradually; beyond, blades only (plant rectangles cost fill)
+  float gaBand = 1.0 - clamp((d - 5.0)/5.5, 0.0, 1.0);
+  if (uGAOn == 1 && ph < gaBand) {
+    ivec4 gs = uGASp[sp];   // first cell, cell count, first plant card, plant cards
+    if (gs.y > 0 && !(sp == 2 && bl < 2.5) && sp != 3 && sp != 16 && sp != 17) {
+      bool inner = d < 5.0;
+      int nPl = inner ? gs.w : 1;
+      if (bl > float(gs.z + nPl) - 0.5) { if (inner || bl < 5.5 + float(gs.z)) fade = 0.0; }   // band: the outer blade cards stay
+      else if (bl > float(gs.z) - 0.5) ga = uGAIdx[gs.x + min(gs.y - 1, int(r3*float(gs.y)))];
+      else if (inner) fade = 0.0;
+    }
+  }
   if (fade <= 0.0) {   // clump / card past its LOD cut: the whole card leaves the clip volume (no shading, no raster)
     gl_Position = vec4(0.0, 0.0, -2.0, 1.0); vW = vAlb = vF = vec3(0.0); vUV = vec2(0.0); vWid = 0.0; vTap = 1.0; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
-    vSp = 0; vPart = 10; vSeed = 0.0; return;
+    vSp = 0; vPart = 10; vSeed = 0.0; vGA = -1; return;
   }
   float widen = min(3.2, pow(clamp(dens*nb/12.0, 0.05, 1.0), -0.6));   // fewer clumps / cards: the rest widen
   float H = iS.x, W = py.x*0.1;
@@ -2406,6 +2521,11 @@ void pastureClump(){
   float h = H*hf*fade;
   float tap = part == 10 ? max(1.0 - 0.95*v*v*v, 0.1) : 1.0;   // G1: blade cards follow the pointed silhouette (no transparent padding)
   w *= widen*taper*tap;
+  if (ga >= 0) {   // GT1: the card is the plant's rectangle: its aspect, a gentle lean instead of a blade's curve
+    h = H*mix(0.8, 0.65, k)*(0.8 + 0.4*r2)*fade;   // the plants' apparent height matches the blade clumps around them
+    h *= mix(0.5, 1.0, smoothstep(0.3, 1.1, d));      // prone: no giant smooth leaf right in front of the eye
+    w = h*uGACell[ga].w; tap = 1.0; curve *= 0.3; spread *= 1.6;
+  }
   vec3 fwd = vec3(sin(ang), 0.0, cos(ang)), side = vec3(cos(ang), 0.0, -sin(ang));
   if (part == 13) side = normalize(side + fwd*(r3 - 0.5)*1.4);
   vec2 nxz = py.yz*2.0 - 1.0; float ny = sqrt(max(0.1, 1.0 - dot(nxz, nxz)));
@@ -2433,7 +2553,8 @@ void pastureClump(){
   }
   if (nk == 1) pos[1] = pos[0];
   vec3 p = pos[0];
-  vW = p; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp; vPart = part; vWid = w; vTap = tap; vSeed = r1; vF = fwd;
+  vW = p; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp; vPart = part; vWid = w; vTap = tap; vSeed = r1; vF = fwd; vGA = ga;
+  if (ga >= 0) vUV = vec2(mix(uGACell[ga].x, uGACell[ga].y, aB.x*0.5 + 0.5), mix(uGAV0, uGACell[ga].z, v));
   gl_Position = uVP*vec4(p, 1.0);
   if (uShadowPass > 0.0) { vAlb = vec3(0.0); vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0); return; }
   vCC = uVPU*vec4(p, 1.0); vPC = uPrevVP*vec4(pos[1], 1.0);
@@ -2532,7 +2653,7 @@ void plantMain(){
   vec3 alb = pk.rgb*0.5;   // meadow palette baked per tuft on the CPU (cluster colour + species tint)
   if (sp == 2) alb = mix(alb, vec3(0.36, 0.32, 0.18), smoothstep(0.72, 0.9, v));   // straw-coloured seed heads
   vAlb = alb; vW = p; vF = head ? nH : fwd; vUV = head ? vec2(aB.x, aB.y*2.0 - 1.0) : vec2(aB.x*0.5 + 0.5, v); vSp = sp;
-  vPart = head ? 1 : isLeaf ? 2 : 0; vWid = w; vTap = 1.0; vSeed = r1;
+  vPart = head ? 1 : isLeaf ? 2 : 0; vWid = w; vTap = 1.0; vSeed = r1; vGA = -1;
   gl_Position = uVP*vec4(p, 1.0);
 }
 )GLSL";
@@ -2540,6 +2661,8 @@ static const char* kGrassFS = R"GLSL(
 in vec3 vW, vAlb, vF; in vec2 vUV; in float vWid, vTap;
 in vec4 vCC, vPC;
 flat in int vSp; flat in int vPart; flat in float vSeed;
+flat in int vGA;
+uniform sampler2DArray uGATex; uniform vec3 uGAMean[32];   // GT1: unit 27, coverage-preserving mips; linear mean colour per cell
 uniform float uWidthScale;
 layout(location=4) out vec4 oVel;
 layout(location=0) out vec4 oColor;
@@ -2555,7 +2678,15 @@ void main(){
     float dk = 1.0 - smoothstep(0.3, 0.9, fwidth(e));
     float s = vUV.x*2.0 - 1.0;
     alb = vAlb;
-    if (vPart == 10) {          // grass blade: pointed tip, light midrib, darker margins, fine veins, some browned tips
+    if (vGA >= 0) {             // GT1 atlas plant: its own colour detail, scaled to the clump's palette (root blend kept)
+      vec4 tx = texture(uGATex, vec3(vUV, float(vGA)));
+      if (tx.a < 0.5) discard;
+      // one palette across the atlas / blade boundary: the clump's own colour (as the blades), modulated by the plant's
+      // luminance detail, with a little of the photo's hue kept
+      vec3 m = max(uGAMean[vGA], vec3(0.01));
+      float lt = dot(tx.rgb, vec3(0.2126, 0.7152, 0.0722)), lm = dot(m, vec3(0.2126, 0.7152, 0.0722));
+      alb = mix(vAlb*clamp(lt/lm, 0.4, 1.8), tx.rgb*vAlb/m, 0.3);
+    } else if (vPart == 10) {   // grass blade: pointed tip, light midrib, darker margins, fine veins, some browned tips
       if (e > 1.0 - pow(v, 3.0)*0.95) discard;
       alb *= 1.0 + dk*(0.12*(1.0 - smoothstep(0.0, 0.2, e)) - 0.18*smoothstep(0.55, 1.0, e) - 0.05*step(0.5, fract(e*2.5 + 0.25)));
       if (vSeed > 0.8) alb = mix(alb, vec3(0.30, 0.24, 0.13), smoothstep(0.78, 1.0, v)*0.75);
@@ -2676,9 +2807,12 @@ void main(){
 static const char* kGrassShadowFS = R"GLSL(
 in vec2 vUV; in float vWid, vTap;
 flat in int vSp; flat in int vPart; flat in float vSeed;
+flat in int vGA;
+uniform sampler2DArray uGATex;
 void main(){
   float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y;
-  if (vPart == 11 || vPart == 14) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
+  if (vGA >= 0) { if (texture(uGATex, vec3(vUV, float(vGA))).a < 0.5) discard; }   // GT1: the plant's own cut-out
+  else if (vPart == 11 || vPart == 14) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
   else if (vPart == 13) { if (e > 0.12 && fract(v*6.0 + vSeed*3.0 + e*0.4) > 0.75) discard; }
   else if (e > 1.0 - pow(v, 3.0)*0.95) discard;
 }
@@ -2944,6 +3078,7 @@ bool Renderer::init(int w, int h) {
   progMain = compile(kMainVS, (std::string(tex::glslCommon()) + tex::glslMain() + kMainFS).c_str(), "main");   // L4 texture hooks first
   progGlass = compile(kMainVS, kGlassFS, "glass");
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
+  progShadowI = compile(kShadowIVS, kShadowFS, "shadow_inst");
   progDepth = compile(kDepthVS, kShadowFS, "depth prepass");
   { extern const char* groundPaintGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
@@ -2962,6 +3097,7 @@ bool Renderer::init(int w, int h) {
   progFx = compile(kFxVS, kFxFS, "fx");
   progGrass = compile(kGrassVS, kGrassFS, "grass");
   progGrassShadow = compile(kGrassVS, kGrassShadowFS, "grass_shadow");
+  { extern bool grassAtlasInit(GLuint, GLuint); grassAtlasReady = grassAtlasInit(progGrass, progGrassShadow); }   // GT1 (grass.cpp)
   progModel = compile(kModelVS, kModelFS, "model");
   progDof = compile(kFullVS, kDofFS, "dof");
   progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
@@ -2970,6 +3106,7 @@ bool Renderer::init(int w, int h) {
   progBloomDown = compile(kFullVS, kBloomDownFS, "bloom_down");
   progBloomUp = compile(kFullVS, kBloomUpFS, "bloom_up");
   progTaa = compile(kFullVS, kTaaFS, "taa");
+  progMotion = compile(kFullVS, kMotionFS, "upscale motion"); progDepthUp = compile(kFullVS, kDepthUpFS, "upscale depth");
   progCloudSh = compile(kFullVS, kCloudShadowFS, "cloud_shadow");
   glCreateTextures(GL_TEXTURE_2D, 1, &cloudShTex); glTextureStorage2D(cloudShTex, 1, GL_R16F, 512, 512);
   glTextureParameteri(cloudShTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(cloudShTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -3264,6 +3401,7 @@ Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
   DrawLocs l;
   l.model = U(p, "uModel"); l.tint = U(p, "uTint"); l.inst = U(p, "uInst"); l.snapAp = U(p, "uSnapAp"); l.glow = U(p, "uGlow");   // snapAp: V6 snap-chain texture origin
   l.roomA = U(p, "uRoomA"); l.roomB = U(p, "uRoomB"); l.sills = U(p, "uSills"); l.sillA = U(p, "uSillA"); l.sillB = U(p, "uSillB");
+  l.contactBox = U(p, "uContactBox"); l.contact = U(p, "uContact"); l.foundWx = U(p, "uFoundWx");   // MA2
   l.roomDec = U(p, "uRoomDec"); l.extDec = U(p, "uExtDec"); l.roomX = U(p, "uRoomX");   // GX5 static decal ranges, rooms past 16
   l.vp = U(p, "uVP"); l.time = U(p, "uTime"); l.wind = U(p, "uWind"); l.leafCol = U(p, "uLeafCol");
   l.base = U(p, "uBase"); l.metal = U(p, "uMetal"); l.rough = U(p, "uRough"); l.thin = U(p, "uThin");
@@ -3338,7 +3476,46 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
     drawIdx.swap(sorted);
   }
   const SurfaceParams* lastSurf = nullptr;
+  const vec4* lastContact = reinterpret_cast<const vec4*>(1);   // MA2: forces the first upload
   GLuint boundVao = 0;
+  // P2 instdepth: a depth-only pass (progShadow: sun cascades, sky occlusion, light shadows) draws every mesh that occurs
+  // more than once as one instanced draw (matrices streamed to instBuf); single meshes keep the per-item draw below
+  const bool vpKnown = depthVPSet; depthVPSet = false;   // set by the caller right before this call (sun cascades, sky occlusion); others: per-item draws
+  if (shadowPass && p == progShadow && progShadowI && perf.instDepth && vpKnown && drawIdx.size() > 1) {
+    std::stable_sort(drawIdx.begin(), drawIdx.end(), [&](uint32_t a, uint32_t b) { return std::less<const GpuMesh*>()(items[a].mesh, items[b].mesh); });
+    instMats.clear(); instRuns.clear();
+    std::vector<uint32_t> single; single.reserve(drawIdx.size());
+    for (size_t a = 0; a < drawIdx.size();) {
+      size_t b = a; while (b < drawIdx.size() && items[drawIdx[b]].mesh == items[drawIdx[a]].mesh) ++b;
+      if (b - a < 2 || !items[drawIdx[a]].mesh->vbo || !items[drawIdx[a]].mesh->ebo) for (size_t k = a; k < b; ++k) single.push_back(drawIdx[k]);   // meshes without their own buffers: per item
+      else { instRuns.push_back({items[drawIdx[a]].mesh, (uint32_t)instMats.size(), (uint32_t)(b - a)}); for (size_t k = a; k < b; ++k) instMats.push_back(items[drawIdx[k]].model); }
+      a = b;
+    }
+    if (!instRuns.empty()) {
+      if (!instBuf) glCreateBuffers(1, &instBuf);
+      glNamedBufferData(instBuf, instMats.size() * sizeof(mat4), instMats.data(), GL_STREAM_DRAW);   // orphaned per pass
+      glUseProgram(progShadowI);
+      glUniformMatrix4fv(drawLocs(progShadowI).vp, 1, GL_FALSE, glm::value_ptr(depthVP));
+      for (auto& r : instRuns) {
+        // the mesh's own instancing VAO (GpuMesh::ivao, freed with the mesh, so a rebuilt damaged bay never inherits a
+        // stale setup): position from its vertex buffer, attributes 12-15 = one matrix per instance from instBuf
+        GLuint& iv = const_cast<GpuMesh*>(r.mesh)->ivao;
+        if (!iv) {
+          glCreateVertexArrays(1, &iv);
+          glVertexArrayVertexBuffer(iv, 0, r.mesh->vbo, 0, sizeof(Vertex)); glVertexArrayElementBuffer(iv, r.mesh->ebo);
+          glEnableVertexArrayAttrib(iv, 0); glVertexArrayAttribFormat(iv, 0, 3, GL_FLOAT, GL_FALSE, (GLuint)offsetof(Vertex, pos)); glVertexArrayAttribBinding(iv, 0, 0);
+          for (int c = 0; c < 4; ++c) { glEnableVertexArrayAttrib(iv, 12 + c); glVertexArrayAttribFormat(iv, 12 + c, 4, GL_FLOAT, GL_FALSE, c * 16); glVertexArrayAttribBinding(iv, 12 + c, 1); }
+          glVertexArrayBindingDivisor(iv, 1, 1);
+          glVertexArrayVertexBuffer(iv, 1, instBuf, 0, sizeof(mat4));
+        }
+        glBindVertexArray(iv);
+        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.mesh->count, GL_UNSIGNED_INT, nullptr, (GLsizei)r.count, 0, r.first);   // the call the leaf path (and the Mac shim) already uses
+        stats.draws++; stats.instDrawn += r.count; stats.tris += r.mesh->count / 3 * r.count;
+      }
+      glUseProgram(p);
+    }
+    drawIdx.swap(single);
+  }
   for (uint32_t k : drawIdx) {
     const DrawItem& it = items[k];
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.model));
@@ -3358,6 +3535,12 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
         glUniform1i(L.sills, ns);
         if (ns) { glUniform4fv(L.sillA, ns, glm::value_ptr(sp->sillA[0])); glUniform4fv(L.sillB, ns, glm::value_ptr(sp->sillB[0])); }
       }
+      if (L.foundWx >= 0 && it.contact != lastContact) {   // MA2: the copy's ground-contact grid, when it changes
+        lastContact = it.contact;
+        bool on = it.contact && perf.foundWx && !q.legacy;
+        glUniform1i(L.foundWx, on ? 1 : 0);
+        if (on) { glUniform4fv(L.contactBox, 1, glm::value_ptr(it.contact[0])); glUniform4fv(L.contact, 4, glm::value_ptr(it.contact[1])); }
+      }
     }
     if (it.mesh->vao != boundVao) { boundVao = it.mesh->vao; glBindVertexArray(boundVao); }
     glDrawElements(GL_TRIANGLES, it.mesh->count, GL_UNSIGNED_INT, nullptr);
@@ -3368,6 +3551,60 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
 // Trees with L1 species leaves (perf.leafTex) draw their cards as instances of the shared sprig meshes with the
 // instanced twin of p (progLeafI / progLeafIShadow): LOD f.cur in the main view (view), the sprig cards elsewhere
 // (sun / sky-occlusion shadows: same layers, same alpha). Everything else (ivy, ferns, oval A/B) draws the card VBO.
+// P2 folbatch: per-frame cell membership; a cell whose member set changed (a tree felled, placed, moved, in or out of
+// the draw distance) is rebuilt, at most 8 a frame; until then its trees draw one by one
+void Renderer::prepFoliageBatches() {
+  for (auto& [k, c] : folCells) { c.sig = 0; c.want.clear(); }
+  for (auto& f : foliage) f.batched = false;
+  if (!perf.folBatch || !perf.leafTex || !leafLibReady() || thumbMode) return;
+  auto mix = [](uint64_t h, uint64_t v) { h ^= v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2); return h * 0x100000001B3ull; };
+  for (int k = 0; k < (int)foliage.size(); ++k) {
+    const FoliageDraw& f = foliage[k];
+    if (!f.id || !f.tree || !f.tree->leafVao || f.tree->leafInstCpu.empty() || f.tree->leafGroups.empty()) continue;
+    int64_t cx = (int64_t)std::floor(f.m[3].x / 64.0f), cz = (int64_t)std::floor(f.m[3].z / 64.0f);
+    FolCell& c = folCells[mix(mix((uint64_t)(uintptr_t)f.tree, (uint64_t)cx), (uint64_t)cz)];
+    uint32_t pb[5]; const float pf[5] = {f.m[3].x, f.m[3].y, f.m[3].z, f.m[0].x, f.m[0].z}; std::memcpy(pb, pf, sizeof pb);   // a moved / turned tree rebuilds its cell
+    c.tree = f.tree; c.sig = mix(c.sig, f.id * 0x9E3779B97F4A7C15ull);
+    c.sig = mix(mix(mix(c.sig, ((uint64_t)pb[0] << 32) | pb[1]), ((uint64_t)pb[2] << 32) | pb[3]), ((uint64_t)pb[4] << 32) | f.tree->leafInst);
+    c.want.push_back(k);
+  }
+  int rebuilt = 0;
+  for (auto it = folCells.begin(); it != folCells.end();) {
+    FolCell& c = it->second;
+    if (c.want.empty()) { if (c.vao) glDeleteVertexArrays(1, &c.vao); if (c.vbo) glDeleteBuffers(1, &c.vbo); it = folCells.erase(it); continue; }
+    if (c.sig != c.builtSig) {
+      if (rebuilt >= 8) { c.fol.clear(); ++it; continue; }
+      ++rebuilt;
+      std::vector<int> ord = c.want;   // neighbours next to each other: runs of visible trees stay long
+      std::sort(ord.begin(), ord.end(), [&](int a, int b) { const vec4 &p = foliage[a].m[3], &q = foliage[b].m[3]; return p.x != q.x ? p.x < q.x : p.z < q.z; });
+      const TreeDef& td = *c.tree;
+      const size_t T = ord.size(), G = td.leafGroups.size();
+      const bool hasShad = td.leafShadowGroups.size() == G;
+      c.ids.resize(T); c.slot.clear(); for (size_t t = 0; t < T; ++t) { c.ids[t] = foliage[ord[t]].id; c.slot[c.ids[t]] = (int)t; }
+      c.full.assign(G * T, glm::ivec2(0)); c.shad.assign(G * T, glm::ivec2(0));
+      std::vector<float> buf;
+      auto put = [&](const TreeDef::LeafGroup& g, const mat4& M, std::vector<glm::ivec2>& rng, size_t at) {
+        glm::mat3 R(M);
+        rng[at] = glm::ivec2((int)(buf.size() / 16), g.count);
+        for (int n = 0; n < g.count; ++n) {
+          const float* s = &td.leafInstCpu[(size_t)(g.first + n) * 16];
+          vec3 ctr = vec3(M * vec4(s[0], s[1], s[2], 1)), T3 = R * vec3(s[3], s[4], s[5]), B3 = R * vec3(s[6], s[7], s[8]), D = glm::normalize(R * vec3(s[9], s[10], s[11]));
+          buf.insert(buf.end(), {ctr.x, ctr.y, ctr.z, T3.x, T3.y, T3.z, B3.x, B3.y, B3.z, D.x, D.y, D.z, s[12], s[13], s[14], s[15]});
+        }
+      };
+      for (size_t g = 0; g < G; ++g) for (size_t t = 0; t < T; ++t) put(td.leafGroups[g], foliage[ord[t]].m, c.full, g * T + t);
+      for (size_t g = 0; g < G; ++g) for (size_t t = 0; t < T; ++t) put(hasShad ? td.leafShadowGroups[g] : td.leafGroups[g], foliage[ord[t]].m, c.shad, g * T + t);
+      if (c.vao) glDeleteVertexArrays(1, &c.vao); if (c.vbo) glDeleteBuffers(1, &c.vbo);
+      glCreateBuffers(1, &c.vbo); glNamedBufferStorage(c.vbo, std::max<size_t>(buf.size(), 16) * 4, buf.empty() ? nullptr : buf.data(), 0);
+      c.vao = leafInstVao(c.vbo);
+      c.builtSig = c.sig;
+    }
+    c.fol.assign(c.ids.size(), -1);
+    for (int k : c.want) { auto s = c.slot.find(foliage[k].id); if (s != c.slot.end()) { c.fol[s->second] = k; foliage[k].batched = true; } }
+    ++it;
+  }
+}
+
 void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool view, float lodFrom) {
   float sway = 0.14f * std::max(0.0f, wind) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
   bool tex = perf.leafTex && leafLibReady();
@@ -3381,7 +3618,7 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
     glUniform1f(L.time, time); glUniform1f(L.wind, wind);
     GLint lm = L.model, lc = L.leafCol;
     for (auto& f : foliage) {
-      if (!mine(f)) continue;
+      if (!mine(f) || (pass == 1 && f.batched)) continue;   // batched: drawn from its cell below
       if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway + (pass ? 0.05f : 0.0f))) { stats.culled++; continue; }   // leaf fold: a few cm off the card
       glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
       // R2 leafshadowlod: a depth pass past lodFrom metres from the eye casts from the shadow LOD (foliage.cpp): half the
@@ -3393,7 +3630,7 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
         bool cl = slod && f.tree->shadowVerts > 0;
         int first = cl ? f.tree->shadowFirst : 0, n = cl ? f.tree->shadowVerts : f.tree->cardVerts;
         glDrawArrays(GL_TRIANGLES, first, n);
-        stats.draws++; stats.tris += n / 3;
+        stats.draws++; stats.foliageDraws++; stats.tris += n / 3;
         continue;
       }
       int lod = view ? f.cur : 2;
@@ -3402,7 +3639,39 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
         const LeafMeshRange& r = gLeafSprigMesh[g.sprig * 3 + lod];
         if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(g.tint));
         glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), g.count, r.baseVertex, g.first);
-        stats.draws++; stats.tris += (size_t)r.count / 3 * g.count;
+        stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * g.count;
+      }
+    }
+    if (pass == 1 && !folCells.empty()) {   // P2 folbatch: each cell's visible trees, per leaf group, in runs of equal LOD
+      const mat4 I(1); glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(I));
+      std::vector<int> st;
+      for (auto& [key, c] : folCells) {
+        if (c.fol.empty() || !c.vao) continue;
+        const TreeDef& td = *c.tree; const size_t T = c.ids.size(), G = td.leafGroups.size();
+        st.assign(T, -1); bool any = false;
+        for (size_t t = 0; t < T; ++t) {
+          int k = c.fol[t];
+          if (k < 0 || k >= (int)foliage.size() || !foliage[k].batched || foliage[k].id != c.ids[t] || foliage[k].tree != c.tree) continue;   // only this frame's list (thumbnails swap it)
+          const FoliageDraw& f = foliage[k];
+          if (fr && !fr->visible(td.cardMin, td.cardMax, f.m, sway + 0.05f)) { stats.culled++; continue; }
+          bool slod = !view && lodFrom >= 0 && (lodFrom == 0 || glm::length(vec3(f.m[3]) - castEye) > lodFrom) && !td.leafShadowGroups.empty();
+          st[t] = (view ? f.cur : 2) * 2 + (slod ? 1 : 0); any = true;
+        }
+        if (!any) continue;
+        glBindVertexArray(c.vao);
+        for (size_t g = 0; g < G; ++g) {
+          if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(td.leafGroups[g].tint));
+          for (size_t t = 0; t < T;) {
+            if (st[t] < 0) { ++t; continue; }
+            const int s = st[t]; const std::vector<glm::ivec2>& rg = (s & 1) ? c.shad : c.full;
+            int first = rg[g * T + t].x, n = 0;
+            while (t < T && st[t] == s) { n += rg[g * T + t].y; ++t; }
+            if (!n) continue;
+            const LeafMeshRange& r = gLeafSprigMesh[td.leafGroups[g].sprig * 3 + (s >> 1)];
+            glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), n, r.baseVertex, first);
+            stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * n;
+          }
+        }
       }
     }
   }
@@ -3562,6 +3831,11 @@ void Renderer::gpuFrameBegin() {
   std::fill(set, set + GP_Count + 1, false);
 }
 void Renderer::gpuMark(int p) {
+  {   // P2: CPU time from this mark to the next one (NMK_DLPROF reports it per pass)
+    auto now = std::chrono::steady_clock::now();
+    if (cpuMarkP >= 0 && cpuMarkP < GP_Count) cpuPassMs[cpuMarkP] += std::chrono::duration<double, std::milli>(now - cpuMarkT).count();
+    cpuMarkP = p; cpuMarkT = now;
+  }
   if (!gpuTimers || !gq[0][0] || p < 0 || p > GP_Count) return;
   glQueryCounter(gq[gqSlot][p], GL_TIMESTAMP); gqSet[gqSlot][p] = true;
 }
@@ -3579,7 +3853,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   RenderView v = v0;
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
-  stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0;   // roomCulled: counted from here too
+  stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0; stats.foliageDraws = 0; stats.instDrawn = 0;
+  prepFoliageBatches();   // P2 folbatch   // roomCulled: counted from here too
   stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
   time += v.dt;
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
@@ -3634,7 +3909,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(1.5f, 2.0f);
   glDisable(GL_CULL_FACE);
   glUseProgram(progShadow);
-  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
+  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVP)); depthVP = lightVP; depthVPSet = true;
   // every depth / colour pass culls against its own view-projection (docs/rendering.md#frustum-culling): a cascade keeps
   // the casters inside its ortho box even when they are behind the camera
   Frustum frNear = Frustum::fromVP(lightVP);
@@ -3646,6 +3921,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (grass && !thumbMode && perf.grassShadow) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
     glUseProgram(progGrassShadow);
     glUniform3fv(U(progGrassShadow, "uCamPos"), 1, glm::value_ptr(v.camPos)); glUniform1f(U(progGrassShadow, "uTime"), time);
+    glUniform1i(U(progGrassShadow, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);
     grass->drawShadow(progGrassShadow, lightVP, v0.proj * v.view, v.camPos);
   }
   glUseProgram(progShadow);
@@ -3666,7 +3942,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glViewport(0, 0, shadowFarSize, shadowFarSize);
     glClear(GL_DEPTH_BUFFER_BIT);
     glUseProgram(progShadow);
-    glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
+    glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar)); depthVP = lightVPFar; depthVPSet = true;
     Frustum frFar = Frustum::fromVP(lightVPFar);
     drawItems(progShadow, opaque, true, &frFar);
     if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
@@ -3695,7 +3971,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glViewport(0, 0, occSize, occSize);
   glClear(GL_DEPTH_BUFFER_BIT);
   glUseProgram(progShadow);
-  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP));
+  glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(occVP)); depthVP = occVP; depthVPSet = true;
   Frustum frOcc = Frustum::fromVP(occVP);
   minCaster = perf.smallCasters ? std::max(0.3f, 2.0f * (2 * occR / occSize)) : 0.0f;   // PF2: props too small to shade the sky
   drawItems(progShadow, opaque, true, &frOcc);
@@ -3711,7 +3987,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // ---- main HDR pass. With TAA the world is rendered with a sub-pixel jitter (Halton 2,3, 8 phases); effects,
   // the weapon and overlays use the unjittered matrices.
   // P1 TAAU: below the output size the TAA resolve reconstructs at output size (TAA is then always on: it is the upscaler)
-  const bool taau = !q.legacy && !thumbMode && displayW > 0 && (width < displayW || height < displayH);
+  const bool taau = upscaleMode == 0 && !q.legacy && !thumbMode && displayW > 0 && (width < displayW || height < displayH);
   bool taaOn = (q.taa || taau) && !q.legacy && !thumbMode;
   if (taau != histUp) { taaValid = false; histUp = taau; }   // the two histories have different sizes
   mat4 vpU = v.proj * v.view;
@@ -3767,9 +4043,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
+  tex::setImgMat(perf.imgMat);   // MA1: the image-material slot table (re-uploads only when it flips)
   glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
   uploadStaticDecals();
-  { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), dbg); }
+  { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), gxDebug ? gxDebug : dbg); }
   glUniform1i(U(progMain, "uSDecOn"), thumbMode || q.legacy || q.matLayer == 0 || !perf.staticDecals || !sdecBuf || sdec.empty() ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   sortEye = v.camPos;
@@ -3822,6 +4099,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progGrass, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
     glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
+    glUniform1i(U(progGrass, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);   // GT1 grass plant atlas (off at Low)
     grass->draw(progGrass, vp, v.camPos);
     stats.draws += grass->lastDrawnChunks; stats.tris += (int)grass->lastDrawnBlades * 8;
     glEnable(GL_CULL_FACE);
@@ -4119,6 +4397,16 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
 }
 
+// TAAU: the nearest internal depth into the output-size depth (effects, overlays); depth only, colour untouched
+void Renderer::upDepth() {
+  glBindFramebuffer(GL_FRAMEBUFFER, up.hdrFbo); glNamedFramebufferDrawBuffer(up.hdrFbo, GL_NONE); glViewport(0, 0, up.w, up.h);
+  glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);
+  glUseProgram(progDepthUp); glBindTextureUnit(7, depthTex);
+  glUniform1i(U(progDepthUp, "uDepth"), 7); glUniform2f(U(progDepthUp, "uInSize"), (float)width, (float)height);
+  glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+  glNamedFramebufferDrawBuffer(up.hdrFbo, GL_COLOR_ATTACHMENT0);
+}
+
 void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v) {
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
@@ -4126,8 +4414,28 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   int cur = histIdx ^ 1;
   if (histUp) {   // P1 TAAU: reconstruct at output size into the output-size set, then continue the frame there
     if (up.w != displayW || up.h != displayH) { createUpTargets(); taaValid = false; }
-    if (temporalUpscaler && temporalUpscaler({sceneCopy, depthTex, velTex, up.hdrColor, up.depthTex, width, height, up.w, up.h, jitterPx,
-                                              glm::inverse(vpU), prevVP, !taaValid})) {
+    const bool hook = temporalUpscaler && hookOn;
+    if (hook != hookWas) { taaValid = false; hookWas = hook; }   // the GL history and the hook's do not carry over
+    if (hook) {   // full motion for the hook (input pixels toward the previous position)
+      if (motionW != width || motionH != height) {
+        if (motionTex) { glDeleteTextures(1, &motionTex); glDeleteFramebuffers(1, &motionFbo); }
+        glCreateTextures(GL_TEXTURE_2D, 1, &motionTex); glTextureStorage2D(motionTex, 1, GL_RG16F, width, height);
+        glTextureParameteri(motionTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(motionTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glCreateFramebuffers(1, &motionFbo); glNamedFramebufferTexture(motionFbo, GL_COLOR_ATTACHMENT0, motionTex, 0);
+        motionW = width; motionH = height;
+      }
+      glBindFramebuffer(GL_FRAMEBUFFER, motionFbo); glViewport(0, 0, width, height);
+      glUseProgram(progMotion);
+      glBindTextureUnit(7, depthTex); glBindTextureUnit(10, velTex);
+      glUniform1i(U(progMotion, "uDepth"), 7); glUniform1i(U(progMotion, "uVel"), 10);
+      glUniformMatrix4fv(U(progMotion, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vpU)));
+      glUniformMatrix4fv(U(progMotion, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
+      glUniform2f(U(progMotion, "uSize"), (float)width, (float)height); glUniform1f(U(progMotion, "uSignY"), hookSign.y);
+      glDrawArrays(GL_TRIANGLES, 0, 3);
+    }
+    if (hook && temporalUpscaler({sceneCopy, depthTex, motionTex, up.hdrColor, up.depthTex, expoTex[expoIdx], width, height, up.w, up.h, jitterPx * hookSign.x,
+                                  glm::inverse(vpU), prevVP, !taaValid})) {
+      upDepth();
       taaValid = true; prevVP = vpU; prevCam = v.camPos;
       swapUp(); upActive = true;
       glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo); glViewport(0, 0, width, height);
@@ -4136,7 +4444,6 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
     }
     glBindFramebuffer(GL_FRAMEBUFFER, up.taaFbo[cur]);
     glViewport(0, 0, up.w, up.h);
-    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_ALWAYS); glDepthMask(GL_TRUE);   // the output depth (fx, overlays) from gl_FragDepth
   } else {
     glBindFramebuffer(GL_FRAMEBUFFER, taaFbo[cur]);
     { const GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glInvalidateNamedFramebufferData(taaFbo[cur], 2, b2); }   // colour (from sceneCopy) and the new history
@@ -4144,6 +4451,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   }
   glUseProgram(progTaa);
   glUniform1i(U(progTaa, "uUp"), histUp ? 1 : 0);
+  { static const int dbg = std::getenv("NMK_TAA_DEBUG") ? std::atoi(std::getenv("NMK_TAA_DEBUG")) : 0; glUniform1i(U(progTaa, "uTaaDbg"), dbg); }
   glUniform2f(U(progTaa, "uInTexel"), 1.0f / width, 1.0f / height);
   glUniform2f(U(progTaa, "uJit"), jitterPx.x, jitterPx.y);
   glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, histUp ? up.hist[histIdx] : histTex[histIdx]); glBindTextureUnit(7, depthTex);
@@ -4159,7 +4467,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   glDrawArrays(GL_TRIANGLES, 0, 3);
   histIdx = cur; taaValid = true;
   prevVP = vpU; prevCam = v.camPos;
-  if (histUp) { glDepthFunc(zLess()); swapUp(); upActive = true; }
+  if (histUp) { upDepth(); glDepthFunc(zLess()); swapUp(); upActive = true; }
   glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo); glViewport(0, 0, width, height);
   glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
 }
@@ -4238,7 +4546,6 @@ void Renderer::createUpTargets() {
     up.hist[k] = tex(GL_RGBA16F, 1, GL_LINEAR);
     glCreateFramebuffers(1, &up.taaFbo[k]);
     glNamedFramebufferTexture(up.taaFbo[k], GL_COLOR_ATTACHMENT0, up.hdrColor, 0); glNamedFramebufferTexture(up.taaFbo[k], GL_COLOR_ATTACHMENT1, up.hist[k], 0);
-    glNamedFramebufferTexture(up.taaFbo[k], GL_DEPTH_ATTACHMENT, up.depthTex, 0);
     GLenum b2[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glNamedFramebufferDrawBuffers(up.taaFbo[k], 2, b2);
   }
   for (GLuint f : {up.hdrFbo, up.dofFbo, up.ldrFbo, up.taaFbo[0], up.taaFbo[1]})

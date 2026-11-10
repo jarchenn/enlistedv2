@@ -14,7 +14,7 @@
 
 namespace tex {
 
-constexpr int kMaxSlots = 80, kMaxLayers = 64, kUnitBase = 20;
+constexpr int kMaxSlots = 160, kMaxLayers = 128, kUnitBase = 20;   // MA1: 64 -> 128 layers (111 sets on disk), 80 -> 160 slots (imgmat)
 // painted ground types (lasso ground paint, ground_paint.cpp): uPaintSlot[k] in the terrain shader, "paint" in textures.json
 constexpr int kPaintTypes = 12;
 inline const char* const kPaintTypeNames[kPaintTypes] = {"marsh", "dirt", "mud", "gravel", "sand", "cobbles", "rock", "dry_grass", "ploughed", "leaf_litter", "scorched", "pebbles"};
@@ -35,6 +35,9 @@ int materialCode(const std::string& matName, int pattern, const std::string& exp
 bool active();                     // at least one set on the GPU
 void setEnabled(bool on);          // A/B and tests: off = procedural everywhere (uniform uTexOn)
 bool enabled();
+// MA1 imgmat (Renderer::Perf imgmat): the image-material slot table ("imgmat" in textures.json) instead of the base one
+void setImgMat(bool on);
+bool imgMat();
 struct Info { int sets = 0, slots = 0, slotsLive = 0, unused = 0; size_t bytes = 0; double ms = 0; bool compressed = false; std::vector<std::string> missing; };
 const Info& info();
 int slotIndex(const std::string& slotName);   // -1 if unknown

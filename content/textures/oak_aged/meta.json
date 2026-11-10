@@ -1,0 +1,20 @@
+{
+ "set": "oak_aged",
+ "id": "Wood060",
+ "family": "timber (MA1)",
+ "size": [
+  1.5,
+  1.5
+ ],
+ "source": "https://ambientcg.com/a/Wood060",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "set": "ph_forest_ground_01",
+ "id": "forrest_ground_01",
+ "family": "ground (MA1, Poly Haven)",
+ "size": [2.0, 2.0],
+ "source": "https://polyhaven.com/a/forrest_ground_01",
+ "license": "CC0 1.0 Universal",
+ "credit": "Poly Haven (CC0)",
+ "resolution": "1K (downsampled from the 4K release; OpenGL normals)",
+ "maps": ["color.png", "normal.png", "roughness.png", "height.png"]
+}

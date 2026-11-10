@@ -14,6 +14,7 @@
 #include <array>
 #include <chrono>
 #include <algorithm>
+#include <set>
 #include <unordered_map>
 #include <limits>
 #include <fstream>
@@ -559,7 +560,7 @@ void InteriorSys::updateBatches(App& app) {
   batchDraws = soloDraws = culledPieces = 0;
   if (!batching) {
     for (auto& [h, b] : batches_) { b.lop.destroy(); b.slop.destroy(); }
-    batches_.clear(); member_.clear(); batchedPieces = 0; batchSig_ = 0;
+    batches_.clear(); member_.clear(); batchLeads.clear(); batchedPieces = 0; batchSig_ = 0;
     return;
   }
   uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full);
@@ -589,12 +590,13 @@ void InteriorSys::updateBatches(App& app) {
     if (!want.count(it->first)) { it->second.lop.destroy(); it->second.slop.destroy(); it = batches_.erase(it); }
     else ++it;
   }
-  member_.clear(); batchedPieces = 0; batchVerts = 0;
+  member_.clear(); batchLeads.clear(); batchedPieces = 0; batchVerts = 0;
   for (auto& [host, w] : want) {
     if (w.second.size() < 2) continue;   // a lone piece draws on its own
     Batch& b = batches_[host];
     if (!b.built || b.sig != w.first) { b.sig = w.first; b.members.clear(); for (auto* pi : w.second) b.members.push_back(pi->id); rebuildBatch(app, host, b, w.second); }
     for (uint64_t id : b.members) member_[id] = host;
+    if (!b.members.empty()) batchLeads.insert(b.members.front());   // P2: the piece that draws its batch (never skipped by distance)
     batchedPieces += (int)b.members.size(); batchVerts += b.verts;
   }
 }
@@ -1054,12 +1056,17 @@ void InteriorSys::step(App& app, float dt) {
 void InteriorSys::reset(App& app) {
   for (auto& f : frags) if (!f.frozen) Physics::remove(f.body);
   frags.clear();
+  std::set<uint64_t> live;
   for (auto& i : app.doc.instances) {
+    live.insert(i.id);
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !prop(it->second.asset)) continue;
     auto s = st.find(i.id);
     bool applied = i.extra.is_object() && i.extra.value("propBroken", false);
     if (s != st.end() && (s->second.broken != applied || s->second.glassBroken || s->second.crushed || s->second.hits > 0)) app.buildRT(i, it->second);
   }
+  // pieces that went away this session (MA3 dressing props pruned beside a breached wall, regenerated on the reset)
+  // take their session state with them: a stale broken entry would outlive the reset
+  for (auto it = st.begin(); it != st.end();) { if (!live.count(it->first)) it = st.erase(it); else ++it; }
 }
 
 int InteriorSys::applyToMap(App& app) {
