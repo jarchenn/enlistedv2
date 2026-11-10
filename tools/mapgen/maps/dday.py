@@ -516,6 +516,19 @@ def build(ctx):
         a = 2 * math.pi * k / 7 + 0.3
         b.try_place(["drs_cart", "drs_barrels", "furn_bench", "drs_hay_bale_stack", "drs_flower_bed", "furn_bench", "drs_barrels"][k], SQUARE[0] + 12.5 * math.cos(a),
                     SQUARE[1] + 12.5 * math.sin(a), math.degrees(-a), R, tags={"square"})
+    # restrained war damage: three houses hit (rubble against a wall, scorched ground, a broken garden wall); the
+    # rest intact
+    hit = [e for e in houses if "spawn_house" not in e["tags"]]
+    R.shuffle(hit)
+    for e in hit[:3]:
+        a = cat[e["asset"]]
+        hx, hz = a.half
+        x, z, yaw = e["pos"][0], e["pos"][2], e["yaw"]
+        sx = R.choice((-1, 1))
+        for k, aid in enumerate(R.sample(["rub_stone_pile_m", "rub_brick_pile_m", "rub_beam_tile_heap", "rub_stone_pile_s", "rub_debris_patch"], 3)):
+            b.try_place(aid, *local_to_world((x, z), yaw, sx * (hx + 1.2 + k * 0.8), R.uniform(-hz + 1, hz - 1)), R.uniform(0, 360), R, tags={"damage"}, radius=1.5)
+        paint.poly("scorched", circle_poly(*local_to_world((x, z), yaw, sx * (hx + 2.0), 0.0), 3.5, 10), weight=0.7, edge=1.5, ragged=1.0, seed=int(x))
+    rep["damagedHouses"] = min(3, len(hit))
     for x, z, yaw in ((-6, -52, 10), (7, -52, -10), (-64, -62, 30), (78, -62, -25)):   # barricades at the village edge
         b.place("def_sandbag_straight", x, z, yaw, tags={"barricade", "cover"})
     town = lambda x, z: -132 < z < -46 and abs(x) < HX - 4
@@ -551,6 +564,10 @@ def build(ctx):
             break
     rep["decorForest"] = nd
 
+    # far out at sea: more landing craft waiting offshore (decor silhouettes beyond the playable edge)
+    for x, z, yaw in ((-95, 168, 186), (-30, 182, 176), (40, 160, 190), (105, 190, 172), (-140, 210, 182), (150, 175, 196)):
+        b.place(R.choice(["bch_lcvp_intact", "bch_lcvp_intact", "bch_lcvp_wrecked"]), x, z, yaw, check=False, water_ok=True, y=WATER - 0.3,
+                extra=DECOR, tags={"decor", "offshore"}, cls="none")
     # ------------------------------------------------------------------ 7. smoke and fire at a few wrecks and impacts
     fires = 0
     for x, z, aid in ((-62, 117, "fx_wreck_fire"), (62, 94, "fx_wreck_fire"), (-104, 30, "fx_impact_smoke"), (52, 24, "fx_impact_smoke"),
