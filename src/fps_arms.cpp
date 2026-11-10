@@ -290,7 +290,7 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   for (int i = 0; i < nP; ++i) {
     float t = i / float(nP - 1);
     pt[i] = glm::mix(0.0168f, 0.0108f, glm::smoothstep(0.0f, 0.8f, t)); pw[i] = glm::mix(0.040f, 0.0425f, t);
-    PP[i] = S(glm::mix(phH, phK, t), pt[i] + 0.010f * (1 - glm::smoothstep(0.0f, 0.5f, t)), 0.0f);
+    PP[i] = S(glm::mix(phH, phK, t), pt[i] + 0.010f * (1 - glm::smoothstep(0.0f, 0.5f, t)) + 0.006f, 0.0f);   // +6 mm: the bend round the stock stays wider than the palm is thick (no fold)
   }
   // the hand's long axis at the heel (from the knuckles through the heel, and the palm's last turn): the wrist stays
   // near neutral, the forearm continuing straight into the back of the hand
@@ -388,19 +388,22 @@ void buildArm(Builder& B, const Pose& p, ArmOut& o) {
   };
   std::vector<std::vector<uint32_t>> rings;
   vec3 R0 = Wr + f * 0.10f;   // deep inside the sleeve
-  // forearm end, wrist, a blended ring half way to the heel (no ledge: width / thickness / direction change smoothly
-  // from the round wrist into the flat palm), then the palm
-  const int nW = 3;
-  vec3 ctr[nW + nP] = {R0, Wr, glm::mix(Wr, PP[0], 0.5f)};   // half way to the heel (the heel is on the forearm's line)
-  for (int i = 0; i < nP; ++i) ctr[nW + i] = PP[i];
-  const float wW[nW] = {0.029f, 0.029f, 0.031f}, tW[nW] = {0.022f, 0.022f, 0.0235f}, vW[nW] = {0.02f, 0.08f, 0.115f};
-  for (int i = 0; i < nW + nP; ++i) {
-    vec3 t = glm::normalize(ctr[std::min(i + 1, nW + nP - 1)] - ctr[std::max(i - 1, 0)]);
-    float w = i < nW ? wW[i] : pw[i - nW], th = i < nW ? tW[i] : pt[i - nW];
-    float v = i < nW ? vW[i] : 0.15f + 0.30f * (i - nW) / float(nP - 1);
-    profE = i < nW ? 1.9f : 2.0f + 0.4f * glm::smoothstep(float(nW), float(nW + 2), float(i));   // round wrist, no boxy block
-    float arch = 0.18f * glm::smoothstep(float(nW), float(nW + 2), float(i));   // the palm's hollow fades in after the heel
-    rings.push_back(handRing(ctr[i], t, w, th, arch, v));
+  // ONE lofted surface: forearm end, wrist, then a smooth curve (quadratic Bezier through the heel) into the palm
+  // path, with every ring's width / thickness / v blended along it: the frames turn gradually (no seam), the
+  // sections are ellipses (no boxy block), and the back of the hand arches between the cuff and the gun
+  std::vector<vec3> ctr = {R0, Wr}; std::vector<float> rw = {0.029f, 0.029f}, rt = {0.022f, 0.022f}, rv = {0.02f, 0.08f};
+  for (int k = 1; k <= 3; ++k) {
+    float s = k / 4.0f, b = glm::smoothstep(0.0f, 1.0f, s);
+    ctr.push_back((1 - s) * (1 - s) * Wr + 2 * (1 - s) * s * PP[0] + s * s * PP[2]);
+    rw.push_back(glm::mix(0.029f, pw[2], b)); rt.push_back(glm::mix(0.022f, pt[2], b) + 0.003f * std::sin(kPi * s)); rv.push_back(glm::mix(0.08f, 0.15f + 0.10f, s));
+  }
+  for (int i = 2; i < nP; ++i) { ctr.push_back(PP[i]); rw.push_back(pw[i]); rt.push_back(pt[i]); rv.push_back(0.15f + 0.30f * i / float(nP - 1)); }
+  const int nR = (int)ctr.size();
+  for (int i = 0; i < nR; ++i) {
+    vec3 t = glm::normalize(ctr[std::min(i + 1, nR - 1)] - ctr[std::max(i - 1, 0)]);
+    profE = 2.0f;   // elliptical sections throughout
+    float arch = 0.18f * glm::smoothstep(4.0f, 7.0f, float(i));   // the palm's hollow fades in under the fingers
+    rings.push_back(handRing(ctr[i], t, rw[i], rt[i], arch, rv[i]));
   }
   for (size_t i = 0; i + 1 < rings.size(); ++i) quads(rings[i], rings[i + 1]);
   const std::vector<uint32_t>& KR = rings.back();   // the knuckle ring
