@@ -145,11 +145,14 @@ def close(a, b, e=0.05):
 class Trenches:
     """Lays the network piece by piece from junction sockets, checking that every run lands on its target socket."""
 
-    def __init__(self, b):
+    def __init__(self, b, heights=None):
         self.b, self.inst, self.junctions, self.edges, self.ends, self.ramps = b, [], {}, [], [], {}
+        self.heights, self.pinned = heights, set()
 
     def put(self, aid, c, yaw, y=None):
-        e = self.b.place(aid, c[0], c[1], yaw, check=False, cls="flat", tags={"trench"}, y=self.b.ground(*c) if y is None else y)
+        if y is None:   # the relaxed heights from the layout pass (trench_heights), else the ground at the centre
+            y = self.heights[len(self.inst)] if self.heights else self.b.ground(*c)
+        e = self.b.place(aid, c[0], c[1], yaw, check=False, cls="flat", tags={"trench"}, y=y)
         self.inst.append(e)
         return e
 
@@ -209,6 +212,7 @@ class Trenches:
                 e, _, _ = self.attach("aw_trench_entry", p, d)
                 if isinstance(m, tuple):   # the ramp tops out at a given level (the stronghold's entrance floor)
                     e["pos"][1] = m[1]
+                    self.pinned.add(len(self.inst) - 1)
                 self.ends.append(p)
                 if name:   # the ramp's top, where the trench meets the ground (bunker doors are set against it)
                     self.ramps[name] = ((p[0] + 6.3 * d[0], p[1] + 6.3 * d[1]), d)
@@ -221,11 +225,11 @@ class Trenches:
         return p, d
 
 
-def build_trenches(b, strong):
+def build_trenches(b, strong, heights=None):
     """One network: the forward line and the rear branches bulge out and back in 45-degree doglegs (paired, so every
     loop still closes exactly), zig-zag bays and traverses along every run; junctions sit where their runs land (the
     pieces fix the lengths), and the two loop-closing runs are checked onto their target sockets."""
-    T = Trenches(b)
+    T = Trenches(b, heights)
     J = T.junctions
     S_, N_ = DIRS["S"], DIRS["N"]
     r2 = math.sqrt(0.5)
@@ -320,6 +324,58 @@ def update_usage_doc(path, use):
 
 
 # ------------------------------------------------------------------------------------------------ build
+class _Layout:
+    """A stand-in builder for the trench layout pass: records the pieces, places nothing."""
+    def __init__(self, grid):
+        self.grid = grid
+
+    def ground(self, x, z):
+        return self.grid.sample(x, z)
+
+    def place(self, aid, x, z, yaw, y=None, **kw):
+        return {"asset": aid, "pos": [x, y, z], "yaw": yaw, "tags": set()}
+
+
+def socket_pairs(inst):
+    """Index pairs of pieces whose sockets coincide (joined, as GX1 and the snapping join them)."""
+    socks = [(i, local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lp[0], lp[1])) for i, e in enumerate(inst) for lp, _ in SOCK[e["asset"]]]
+    return [(socks[a][0], socks[c][0]) for a in range(len(socks)) for c in range(a + 1, len(socks)) if socks[a][0] != socks[c][0] and close(socks[a][1], socks[c][1], 0.3)]
+
+
+def trench_heights(grid, strong_y):
+    """Lay the network out on the sculpted ground, then relax the pieces' heights so joined floors differ by 0.25 m at
+    most (each piece's floor collider is flat: steps between pieces must stay under the 0.45 m climb), and flatten the
+    ground along every piece to its height so the trench stays its designed depth."""
+    T = build_trenches(_Layout(grid), {"pos": [0.0, strong_y, 0.0]})
+    y = [e["pos"][1] for e in T.inst]
+    pairs = socket_pairs(T.inst)
+    for _ in range(600):
+        worst = 0.0
+        for i, j in pairs:
+            d = y[i] - y[j]
+            ex = abs(d) - 0.25
+            if ex <= 0:
+                continue
+            worst = max(worst, ex)
+            sgn = 1.0 if d > 0 else -1.0
+            if i in T.pinned:
+                y[j] += sgn * ex
+            elif j in T.pinned:
+                y[i] -= sgn * ex
+            else:
+                y[i] -= sgn * ex * 0.5
+                y[j] += sgn * ex * 0.5
+        if worst < 1e-3:
+            break
+    for e, h in zip(T.inst, y):
+        a = SOCK[e["asset"]]
+        hx = max(abs(p[0]) for p, _ in a) + 1.5
+        hz = max(abs(p[1]) for p, _ in a) + 2.2
+        poly = [local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lx, lz) for lx, lz in ((-hx, -hz), (hx, -hz), (hx, hz), (-hx, hz))]
+        stamp_flatten_poly(grid, poly, height=h, falloff=3.0)
+    return y, max((abs(y[i] - y[j]) for i, j in pairs), default=0.0)
+
+
 def sculpt(ctx, grid, R):
     cat = ctx.catalog
     grid.apply(lambda x, z, h: base_height(x, z))
@@ -353,18 +409,20 @@ def sculpt(ctx, grid, R):
     stamp_flatten_poly(grid, core, height=grid.sample(STRONG[0] + ew[2], STRONG[1] + ew[3]), falloff=7.0)
     for x, z, _ in FLAK:
         stamp_flatten_poly(grid, circle_poly(x, z, 5.5, 16), height=grid.sample(x, z), falloff=4.0)
+    sy = grid.sample(STRONG[0] + ew[2], STRONG[1] + ew[3])
+    theights, tstep = trench_heights(grid, sy + 0.1)   # the trench corridors at relaxed, smooth floor heights
     for x, z in ALLIED:   # the spawn pocket itself: firm, level wet sand
         stamp_flatten_poly(grid, circle_poly(x, z + 1.5, 3.2, 16), height=0.5, falloff=1.5)
     stamp_flatten_poly(grid, circle_poly(SQUARE[0], SQUARE[1], 16.0, 20), height=grid.sample(*SQUARE), falloff=10.0)
     grid.quantise()
-    return craters
+    return craters, theights, tstep
 
 
 def build(ctx):
     R = rng(SEED)
     cat = ctx.catalog
     grid = Grid(W, D, margin=MARGIN)
-    craters = sculpt(ctx, grid, R)
+    craters, theights, tstep = sculpt(ctx, grid, R)
     b = MapBuilder(cat, grid, Frame(W, D), seed=SEED, water_level=WATER)
     for x, z in craters:
         b.cover_points.append((x, z, "crater"))
@@ -426,7 +484,8 @@ def build(ctx):
         for k in range(3):
             b.place(R.choice(["crate_mixed_supply", "furn_crate", "crate_pak40_he"]), x + R.uniform(-3, 3), z + R.uniform(-3, 3),
                     R.uniform(0, 360), tags={"flak"})
-    T = build_trenches(b, strong)
+    T = build_trenches(b, strong, theights)
+    rep["trenchMaxStep"] = round(tstep, 3)
     rep["trenchPieces"] = len(T.inst)
     rep["trenchJunctions"] = len(T.junctions)
     rep["bunkers"] = 1 + len(bunkers)
