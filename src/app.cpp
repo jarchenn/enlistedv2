@@ -837,6 +837,10 @@ int App::run(int argc, char** argv) {
       projM = w3EditorProjection(*this, aspect);   // 60 deg; near / far follow height and map size (editor_nav.cpp)
       v.editor = !hideEditorOverlays; v.grid = gridOverlay; v.autoExposure = false; v.camPos = camPos;
       if (!hideEditorOverlays) drawCreativeOverlay(ov, ghosts);
+      for (auto* p : {&gAnnotOverlay.lines, &gAnnotOverlay.linesTop, &gAnnotOverlay.tris}) {   // capture annotations
+        auto& to = p == &gAnnotOverlay.lines ? ov.lines : p == &gAnnotOverlay.linesTop ? ov.linesTop : ov.tris;
+        to.insert(to.end(), p->begin(), p->end());
+      }
       audio.setListener(camPos, forward(camYaw, camPitch));
     } else {
       float shk = reducedMotion ? 0.0f : blastShake * blastShake * 1.6f;   // concussion shake (deg)
@@ -953,6 +957,7 @@ void App::updateSurface() {
     if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a) || a->nature.kind != NatureDef::NONE) continue;
     { extern bool waterAsset(const AssetDef*); if (waterAsset(a)) continue; }   // V1: ponds / streams / the sea have no foundation band
     if (isFurnishPiece(i)) continue;   // V4: furniture inside a building has no foundation band of its own
+    if (a->raw.is_object() && a->raw.contains("earthwork")) continue;   // GX1 earth-covered: the berm's contact band hugs the walls (the bounds would draw a line across the banks)
     feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
     uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);
     mix(b[0]); mix(b[1]); mix(b[2]); mix(std::hash<std::string>{}(i.assetId));

@@ -28,6 +28,9 @@ Below grade means the asset carries a `terrainCut`. Each screenshot is written b
 | `aw_trench_zigzag` | Zig-zag trench: fire bay between traverses | 12 m | 1.5 m | area: trench |
 | `aw_trench_corner` | Trench corner, 90° | 4 + 4 m | 1.5 m | area: trench |
 | `aw_trench_entry` | Trench end with a ramp from grade | 6 m | 1.5 m | area: trench |
+| `aw_trench_tee` | Trench T-junction: three 4 m arms, a closed fourth side (D-day) | 4 + 4 + 4 m | 1.5 m | area: trench |
+| `aw_trench_cross` | Trench crossroads: four 4 m arms (D-day) | 4 x 4 m | 1.5 m | area: trench |
+| `aw_trench_bend` | Trench bend, 45 deg (D-day) | 4 + 4 m | 1.5 m | area: trench; firestep |
 | `aw_dugout_personnel` | Personnel dugout (Mannschaftsunterstand), bunks for 6 | 4 × 3 m chamber | 2.3 m | block; chamber |
 | `aw_dugout_log` | Log-roofed dugout, half sunk, with a firing slit | 4 × 3.2 m | 1.0 m | block; chamber; embrasure |
 | `aw_foxhole` | Two-man foxhole | 1.9 × 0.8 m | 1.2 m | area: trench; 2 firestep points |

@@ -707,6 +707,16 @@ void lightsStep(App& app, float dt) {
       vec3 base = vec3(M * vec4(s.offset - vec3(0, s.fxSize * 0.6f, 0), 1));
       float sz = s.fxSize, k2 = sz / 0.55f;
       float& acc = gFxAcc[i.id * 16 + k];
+      if (s.fx == "smoke_column") {   // D-day: a burning wreck's dark column, drifting downwind (no flames of its own)
+        acc += dt * 2.2f * std::max(1.0f, k2);
+        while (acc >= 1.0f) {
+          acc -= 1.0f;
+          float g = 0.09f + 0.1f * app.fx.rnd();
+          app.fx.smoke(base + vec3(app.fx.rnd() - 0.5f, 0, app.fx.rnd() - 0.5f) * sz, vec3(0.45f + 0.3f * app.fx.rnd(), 1.5f + 0.9f * app.fx.rnd(), 0.15f * app.fx.rnd()),
+                       sz * (1.3f + app.fx.rnd()), 9.0f + 5.0f * app.fx.rnd(), vec4(g, g, g * 0.95f, 0.5f), 0.9f, 0.7f);
+        }
+        continue;
+      }
       acc += dt * 30.0f * std::clamp(k2 * 1.6f, 0.35f, 1.0f);
       while (acc >= 1.0f) {
         acc -= 1.0f;

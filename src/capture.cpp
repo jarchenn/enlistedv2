@@ -10,7 +10,15 @@
 #include <map>
 #include "interior.h"
 #include "lights.h"
+#include "editor_nav.h"
+#include "nav.h"
+#include "nav_geom.h"
+#include "physics.h"
+#include "terrain_tools.h"
+#include <cstdarg>
+#include <functional>
 
+Overlay gAnnotOverlay;
 namespace {
 struct Cam { const char* name; vec3 pos, target; };
 std::vector<Cam> cams;
@@ -62,6 +70,256 @@ void gxBuildScene(App& app) {
   fs::path out = exeDir() / "selftest_out" / "gx_test_scene.nmap.json";
   logf("gx scene: %zu instances, saved %s: %s", d.instances.size(), out.string().c_str(), saveMap(out, d, err) ? "ok" : err.c_str());
 }
+
+// ---- stronghold set (D-day S0): four placements of mil_stronghold on sculpted ground, then the checks
+struct ShSite { const char* name; vec2 c; float yaw; bool shelter; uint64_t id = 0; };
+std::vector<ShSite> shSites;
+float sstep01(float e0, float e1, float x) { float t = std::clamp((x - e0) / (e1 - e0), 0.0f, 1.0f); return t * t * (3 - 2 * t); }
+// adds f(x, z) (metres) to the sculpt layer over lo..hi (f must fade to 0 at the edges)
+void shSculpt(App& app, vec2 lo, vec2 hi, const std::function<float(float, float)>& f) {
+  Terrain& T = app.terrain;
+  const float ts = T.tileSize(), fs = T.fineSpacing();
+  const int N = Terrain::kFineN;
+  std::vector<int> keys;
+  for (int tz = (int)std::floor((lo.y - T.org.y) / ts); tz <= (int)std::floor((hi.y - T.org.y) / ts); ++tz)
+    for (int tx = (int)std::floor((lo.x - T.org.x) / ts); tx <= (int)std::floor((hi.x - T.org.x) / ts); ++tx) {
+      if (tx < 0 || tz < 0 || tx >= T.tilesX() || tz >= T.tilesZ()) continue;
+      int k = T.key(tx, tz);
+      auto& S = T.sculpt[k];
+      if (S.empty()) S.assign((size_t)N * N, 0.0f);
+      vec2 o = T.tileOrigin(tx, tz);
+      for (int j = 0; j < N; ++j) for (int i = 0; i < N; ++i) S[(size_t)j * N + i] += f(o.x + i * fs, o.y + j * fs);
+      keys.push_back(k);
+    }
+  T.sculptChanged(keys);
+  terrainCommitSculpt(app, keys);   // into the map document, so a save keeps it
+}
+void shBuild(App& app) {
+  shSites = {{"flat", vec2(-200, 0), 0.0f, true}, {"slope", vec2(-70, 0), 0.0f, false}, {"ridge", vec2(60, 0), 0.0f, false}, {"rotated", vec2(190, 0), 35.0f, false}};
+  auto win = [](float d) { return 1.0f - sstep01(52.0f, 62.0f, d); };   // each site's ground fades back to the pasture
+  // slope: rises 1 m in 10 toward the rear (-z, the stronghold's buried back); ridge: a 5 m crest along x through the
+  // site; rolling: two long waves and a cross-fall, under the stronghold turned 35 degrees
+  shSculpt(app, vec2(-135, -65), vec2(-5, 65), [&](float x, float z) { return -0.10f * z * win(std::fabs(x + 70)) * win(std::fabs(z)); });
+  shSculpt(app, vec2(-5, -65), vec2(125, 65), [&](float x, float z) { return 5.0f * std::exp(-(z * z) / 256.0f) * win(std::fabs(x - 60)); });
+  shSculpt(app, vec2(125, -65), vec2(255, 65), [&](float x, float z) { float dx = x - 190; return (0.4f * std::sin(dx / 14.0f) + 0.3f * std::cos(z / 15.0f) - 0.04f * z) * win(std::fabs(dx)) * win(std::fabs(z)); });
+  const AssetDef* a = app.lib.find("mil_stronghold");
+  for (auto& s : shSites) {
+    s.id = a ? app.placeInstance(a, vec3(s.c.x, 0, s.c.y), s.yaw) : 0;
+    logf("stronghold set: %s at (%.0f, %.0f) yaw %.0f: %s", s.name, s.c.x, s.c.y, s.yaw, s.id ? "placed" : "NOT PLACED");
+    if (s.shelter) if (const AssetDef* fsh = app.lib.find("bunker_field_shelter")) app.placeInstance(fsh, vec3(s.c.x + 40, 0, s.c.y + 2), 0.0f);
+  }
+  shSites.erase(std::remove_if(shSites.begin(), shSites.end(), [](const ShSite& s) { return !s.id; }), shSites.end());
+  app.syncRuntime();
+  navSyncCuts(app);
+}
+void strongholdChecks(App& app) {
+  Terrain& T = app.terrain;
+  json rep = json::object();
+  auto out = [&](const std::string& k, const char* fmt, ...) {
+    char b[600]; va_list va; va_start(va, fmt); std::vsnprintf(b, sizeof b, fmt, va); va_end(va);
+    logf("stronghold check %s: %s", k.c_str(), b); rep[k] = b;
+  };
+  const AssetDef* a = app.lib.find("mil_stronghold");
+  if (!a) return;
+  auto grid = [&](const Instance& i, const std::function<void(vec2 local, vec3 world)>& fn, float r = 45.0f, float step = 1.5f) {
+    for (float z = -r; z <= r; z += step) for (float x = -r; x <= r; x += step) { vec3 w = i.pos + yawQuat(i.yaw) * vec3(x, 0, z); fn(vec2(x, z), w); }
+  };
+  for (auto& s : shSites) {
+    Instance* ip = app.doc.find(s.id); if (!ip) continue;
+    const Instance& i = *ip;
+    auto Wp = [&](vec3 l) { return i.pos + yawQuat(i.yaw) * l; };
+    // 1. the block's footprint (rooms): no terrain above the floor anchor
+    float over = -1e9f, lane = -1e9f, steps = -1e9f;
+    grid(i, [&](vec2 l, vec3 w) {
+      float d = T.height(w.x, w.z) - i.pos.y;
+      if (std::fabs(l.x) < 18.5f && l.y > -6.2f && l.y < 10.8f) over = std::max(over, d);   // the rooms (inside the walls)
+      if (std::fabs(l.x + 3.8f) < 2.1f && l.y < -7.6f && l.y > -16.7f) lane = std::max(lane, d);   // the sunken entrance floor
+      if (l.x > 20.2f && l.x < 29.6f && std::fabs(l.y - 1.7f) < 0.75f) steps = std::max(steps, d - 5.0f * (1.0f - (l.x - 20.0f) / 9.7f) - 0.05f);   // above the step slope
+    }, 45.0f, 0.4f);
+    out(std::string(s.name) + "_clearance", "ground over the block footprint max %+.2f m, over the sunken entrance floor max %+.2f m, over the east steps max %+.2f m (each <= 0.05 passes: %s)",
+        over, lane, steps, over <= 0.05f && lane <= 0.05f && steps <= 0.05f ? "PASS" : "FAIL");
+    // 2. embrasures: terrain rays across each firing point's arc (+-25 degrees; the rear loophole straight down its lane)
+    int rays = 0, blocked = 0;
+    for (auto& fp : a->navMeta.firingPoints) {
+      bool rear = std::fabs(fp.yaw - 180.0f) < 1.0f;
+      // front: +-25 degrees; flank (yaw 90 / 270): square out to 25 degrees toward the front (the buried flank and the east wing wall are behind); rear loophole: down its lane
+      bool flank = std::fabs(std::fabs(fp.yaw - 180.0f) - 90.0f) < 1.0f;
+      int k0 = rear ? 0 : flank ? (fp.yaw < 180 ? -5 : 0) : -5, k1 = rear ? 0 : flank ? (fp.yaw < 180 ? 0 : 5) : 5;
+      for (int k = k0; k <= k1; ++k) {
+        float yw = radians(fp.yaw + k * 5.0f);
+        vec3 o = Wp(fp.p + vec3(0, 1.62f, 0)), d = glm::normalize(yawQuat(i.yaw) * vec3(std::sin(yw), -0.05f, std::cos(yw))), hit;
+        ++rays; if (T.raycast(o, d, rear ? 8.0f : 12.0f, hit)) ++blocked;
+      }
+    }
+    out(std::string(s.name) + "_embrasures", "%d of %d terrain rays from %zu firing points blocked within 12 m (%s)", blocked, rays, a->navMeta.firingPoints.size(), blocked == 0 ? "PASS" : "FAIL");
+    // 3. collision: physics rays down around the block agree with the drawn terrain (or hit the asset's own parts)
+    int tm = 0, part = 0, below = 0, miss = 0;
+    grid(i, [&](vec2 l, vec3 w) {
+      if (std::fabs(l.x) < 21.0f && l.y > -8.5f && l.y < 13.5f) return;
+      float t; uint64_t ud;
+      if (!Physics::castRay(vec3(w.x, T.height(w.x, w.z) + 40.0f, w.z), vec3(0, -1, 0), 80.0f, t, ud)) { ++miss; return; }
+      float d = (T.height(w.x, w.z) + 40.0f - t) - T.height(w.x, w.z);
+      if (std::fabs(d) < 0.08f) ++tm; else if (d > 0) ++part; else ++below;
+    }, 40.0f, 2.0f);
+    out(std::string(s.name) + "_collision", "%d rays on the terrain, %d on parts (walls, steps, sandbags), %d under the drawn ground, %d missed (%s)", tm, part, below, miss, below == 0 && miss == 0 ? "PASS" : "FAIL");
+    // 4. nav: a local navmesh over the site; paths from the open ground in front to the entrance lane, the foot of the
+    // east steps and the roof deck, and round the flank to the rear
+    Nav* nav = new Nav();
+    nav->classify = [](uint64_t) { return (int)NT_SOLID; };
+    vec3 c = i.pos; nav->build(c - vec3(50, 40, 50), c + vec3(50, 40, 50), 2);
+    auto at = [&](vec3 l) { vec3 w = Wp(l); w.y = T.height(w.x, w.z) + l.y; return w; };   // on the ground (l.y above it)
+    vec3 from = at(vec3(-30, 0, 30));
+    vec3 flank = at(vec3(36, 0, 14));   // the round-the-flank leg starts off the east front corner (a shorter search)
+    struct Goal { const char* n; vec3 p; const vec3* from = nullptr; } goals[] = {{"entrance lane", at(vec3(-3.8f, 0.3f, -9.0f))}, {"east steps foot", at(vec3(31.0f, 0, 1.7f))},
+                                                     {"roof deck", Wp(vec3(10.0f, 5.0f, 6.0f))}, {"rear (round the flank)", at(vec3(10.0f, 0, -30.0f)), &flank}};
+    std::string np; int okN = 0;
+    for (auto& g : goals) {
+      std::vector<vec3> pts; float len = 0;
+      bool ok = nav->pathSync(g.from ? *g.from : from, g.p, pts, nullptr, nullptr, &len) && !pts.empty() && glm::length(pts.back() - g.p) < 1.2f;
+      okN += ok; char b[160]; std::snprintf(b, sizeof b, "%s %s (%.0f m%s); ", g.n, ok ? "ok" : "NO PATH", len, ok || pts.empty() ? "" : (", ends " + std::to_string(glm::length(pts.back() - g.p)) + " m short").c_str()); np += b;
+    }
+    { vec3 g = goals[3].p, nn = T.normal(g.x, g.z); np += "rear goal slope " + std::to_string((int)degrees(std::acos(std::clamp(nn.y, -1.0f, 1.0f)))) + " deg, nearest poly " + std::to_string(nav->nearest(g, 3.0f)) + "; "; }
+    out(std::string(s.name) + "_nav", "%s(%s)", np.c_str(), okN == 4 ? "PASS" : "FAIL");
+    delete nav;
+  }
+  // 5. save / reload: the same ground after the map is written and opened again (terrain stamps re-derived)
+  std::vector<vec3> pts; std::vector<float> h0;
+  for (auto& s : shSites) if (Instance* i = app.doc.find(s.id)) grid(*i, [&](vec2, vec3 w) { pts.push_back(w); h0.push_back(T.height(w.x, w.z)); });
+  size_t st0 = T.stamps.size();
+  fs::path mp = exeDir() / "selftest_out" / "s0_stronghold.nmap.json";
+  bool saved = app.saveMapTo(mp), opened = saved && app.openMap(mp);   // saveMapTo: with the sculpt layer
+  float dmax = 0;
+  for (size_t k = 0; k < pts.size(); ++k) dmax = std::max(dmax, std::fabs(T.height(pts[k].x, pts[k].z) - h0[k]));
+  out("save_reload", "saved %d, opened %d, %zu -> %zu stamps, max height change over %zu points %.3f m (%s)", saved, opened, st0, T.stamps.size(), pts.size(), dmax, opened && dmax < 0.01f && st0 == T.stamps.size() ? "PASS" : "FAIL");
+  // 6. move the slope stronghold 12 m east: the ground it left goes back to the authored ground; then delete every
+  // stronghold and the shelter: no mound, cut or lane is left anywhere
+  auto bareMax = [&](const std::vector<vec3>& ps) { float m = 0; for (auto& p : ps) m = std::max(m, std::fabs(T.height(p.x, p.z) - T.groundBase(p.x, p.z))); return m; };
+  for (auto& s : shSites) {
+    if (std::string(s.name) != "slope") continue;
+    Instance* i = app.doc.find(s.id); if (!i) break;
+    vec2 old(i->pos.x, i->pos.z);
+    i->pos.x += 12.0f; app.bump(*i); app.syncRuntime(); navSyncCuts(app);
+    std::vector<vec3> left;
+    for (float z = -40; z <= 40; z += 1.5f) for (float x = -45; x <= -31; x += 1.5f) left.push_back(vec3(old.x + x, 0, old.y + z));
+    float m = bareMax(left);
+    out("move", "moved 12 m: the ground it left (%zu points) is within %.3f m of the authored ground (%s)", left.size(), m, m < 0.02f ? "PASS" : "FAIL");
+  }
+  app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [](const Instance& i) { return i.assetId == "mil_stronghold" || i.assetId == "bunker_field_shelter"; }), app.doc.instances.end());
+  app.syncRuntime(); navSyncCuts(app);
+  float m = bareMax(pts);
+  out("delete", "all removed: %zu stamps left, the %zu points within %.3f m of the authored ground (%s)", T.stamps.size(), pts.size(), m, m < 0.02f ? "PASS" : "FAIL");
+  std::ofstream(exeDir() / "selftest_out" / "report_stronghold.json") << rep.dump(1);
+}
+
+// ---- D-day set (D1): the annotated overview (regions, the playable square, the trench network, every fixed gun's
+// firing sector, spawns, objectives) and the map checks: one GX1 trench network, nav paths along the trenches and from
+// the spawns to the objectives
+bool ddaySet = false;
+json ddayDoc;   // the template's map file (scenario, positions)
+void ddayAnnotate(App& app) {
+  Terrain& T = app.terrain;
+  Overlay& O = gAnnotOverlay; O.clear();
+  auto at = [&](float x, float z, float up = 0.6f) { return vec3(x, T.height(x, z) + up, z); };
+  auto drape = [&](vec2 a, vec2 b, vec4 c, float up = 0.6f) {   // a line following the ground, 2 m segments
+    int n = std::max(1, (int)(glm::length(b - a) / 2.0f));
+    for (int k = 0; k < n; ++k) { vec2 p = glm::mix(a, b, (float)k / n), q = glm::mix(a, b, (float)(k + 1) / n); O.line(at(p.x, p.y, up), at(q.x, q.y, up), c, true); }
+  };
+  auto ring = [&](vec2 c, float r, vec4 col) { for (int k = 0; k < 32; ++k) { float a0 = k * 6.2831853f / 32, a1 = (k + 1) * 6.2831853f / 32; drape(c + r * vec2(std::cos(a0), std::sin(a0)), c + r * vec2(std::cos(a1), std::sin(a1)), col, 1.0f); } };
+  const float H = 132.5f;
+  const vec4 white(1, 1, 1, 1), yellow(1, 0.85f, 0.2f, 1), orange(1, 0.5f, 0.1f, 1), red(1, 0.15f, 0.1f, 1), blue(0.3f, 0.6f, 1, 1), grey(0.75f, 0.75f, 0.75f, 1);
+  for (auto [a, b] : {std::pair{vec2(-H, -H), vec2(H, -H)}, {vec2(H, -H), vec2(H, H)}, {vec2(H, H), vec2(-H, H)}, {vec2(-H, H), vec2(-H, -H)}}) drape(a, b, white, 0.8f);
+  for (float z : {H / 3 * 1.0f, -H / 3 * 1.0f}) for (float x = -H; x < H; x += 8.0f) drape(vec2(x, z), vec2(std::min(H, x + 4.0f), z), yellow);   // region thirds (dashed)
+  for (auto& i : app.doc.instances) {   // trench centrelines (path and arms)
+    const AssetDef* a = app.assetFor(i);
+    if (!a || !a->raw.is_object() || !a->raw.contains("trench")) continue;
+    auto poly = [&](const json& P) {
+      for (size_t k = 0; k + 1 < P.size(); ++k) {
+        vec3 p = i.pos + yawQuat(i.yaw) * vec3(P[k][0].get<float>(), 0, P[k][1].get<float>()), q = i.pos + yawQuat(i.yaw) * vec3(P[k + 1][0].get<float>(), 0, P[k + 1][1].get<float>());
+        drape(vec2(p.x, p.z), vec2(q.x, q.z), orange, 0.4f);
+      }
+    };
+    poly(a->raw["trench"]["path"]);
+    for (auto& br : a->raw["trench"].value("branches", json::array())) if (br.size() >= 2 && std::hypot(br[1][0].get<float>() - br[0][0].get<float>(), br[1][1].get<float>() - br[0][1].get<float>()) >= 3.0f) poly(br);
+  }
+  for (auto& i : app.doc.instances) {   // firing sectors: +-30 degrees, 70 m, from every fixed gun's firing point
+    const AssetDef* a = app.assetFor(i);
+    if (!a || a->navMeta.firingPoints.empty() || (a->category != "Bunkers" && a->category != "Atlantic Wall") || (a->raw.is_object() && a->raw.contains("trench"))) continue;
+    for (auto& f : a->navMeta.firingPoints) {
+      vec3 o = i.pos + yawQuat(i.yaw) * f.p;
+      float y0 = radians(i.yaw + f.yaw);
+      vec3 prev;
+      for (int k = -6; k <= 6; ++k) {
+        float y = y0 + radians(5.0f * k);
+        vec3 e = o + vec3(std::sin(y), 0, std::cos(y)) * 70.0f; e.y = T.height(e.x, e.z) + 1.0f;
+        if (k == -6 || k == 6) O.line(o + vec3(0, 1.5f, 0), e, red, true);
+        if (k > -6) O.line(prev, e, vec4(1, 0.3f, 0.2f, 0.7f), true);
+        prev = e;
+      }
+    }
+  }
+  if (ddayDoc.contains("scenario")) {
+    for (auto& o : ddayDoc["scenario"]["objectives"]) ring(vec2(o["pos"][0].get<float>(), o["pos"][2].get<float>()), o.value("radius", 15.0f), yellow);
+    for (auto& s : ddayDoc["scenario"]["spawns"]) {
+      if (s.contains("team")) continue;
+      vec2 p(s["pos"][0].get<float>(), s["pos"][2].get<float>());
+      bool att = s.value("role", std::string()) == "attacker";
+      ring(p, 3.0f, att ? blue : grey); ring(p, 5.0f, att ? blue : grey);
+      O.line(at(p.x, p.y, 1.0f), at(p.x, p.y, 1.0f) + vec3(0, 30, 0), att ? blue : grey, true);
+    }
+  }
+}
+void ddayChecks(App& app) {
+  Terrain& T = app.terrain;
+  json rep = json::object();
+  auto out = [&](const std::string& k, const std::string& v) { logf("dday check %s: %s", k.c_str(), v.c_str()); rep[k] = v; };
+  int nets = 0, pieces = 0;
+  for (auto& s : T.stamps) if (s.kind == TerrainStamp::TRENCH) { ++nets; pieces += (int)s.members.size(); }
+  out("trench_networks", std::to_string(nets) + " GX1 trench network(s) from " + std::to_string(pieces) + " pieces (" + (nets == 1 ? "PASS: one network" : "FAIL") + ")");
+  Nav* nav = new Nav();
+  nav->classify = [](uint64_t) { return (int)NT_SOLID; };
+  nav->build(vec3(-140, -40, -140), vec3(140, 60, 140), 4);
+  // trench floor points: every junction's crossing (its y less the trench depth), every entry ramp's top
+  std::vector<std::pair<std::string, vec3>> pts;
+  for (auto& i : app.doc.instances) {
+    if (i.assetId == "aw_trench_tee" || i.assetId == "aw_trench_cross") pts.push_back({i.assetId.substr(9) + "@" + std::to_string((int)i.pos.x) + "," + std::to_string((int)i.pos.z), vec3(i.pos.x, i.pos.y - 1.55f, i.pos.z)});
+    if (i.assetId == "aw_trench_entry") { vec3 p = i.pos + yawQuat(i.yaw) * vec3(-2.9f, 0, 0); p.y = T.height(p.x, p.z); pts.push_back({"ramp@" + std::to_string((int)p.x) + "," + std::to_string((int)p.z), p}); }
+  }
+  int ok = 0; std::string bad; float worstLen = 0;
+  for (size_t k = 1; k < pts.size(); ++k) {
+    std::vector<vec3> P; float len = 0;
+    bool r = nav->pathSync(pts[0].second, pts[k].second, P, nullptr, nullptr, &len) && !P.empty() && glm::length(P.back() - pts[k].second) < 1.5f;
+    if (r) { ++ok; worstLen = std::max(worstLen, len); } else { char b[96]; std::snprintf(b, sizeof b, "(%s, start poly %d, end poly %d)", P.empty() ? "no path" : "short", nav->nearest(pts[0].second, 2.0f), nav->nearest(pts[k].second, 2.0f)); bad += " " + pts[k].first + b; }
+  }
+  out("trench_paths", std::to_string(ok) + " of " + std::to_string(pts.size() - 1) + " trench points reached on the navmesh from " + (pts.empty() ? "-" : pts[0].first) +
+      " (longest " + std::to_string((int)worstLen) + " m)" + (bad.empty() ? " (PASS)" : "; not reached:" + bad + " (FAIL)"));
+  // spawns to objectives (attackers to every objective; defenders' house entrances to the square and the stronghold)
+  std::string sp; int spOk = 0, spN = 0;
+  if (ddayDoc.contains("scenario")) {
+    auto P = [&](const json& p) { return vec3(p[0].get<float>(), p[1].get<float>(), p[2].get<float>()); };
+    for (auto& s : ddayDoc["scenario"]["spawns"]) {
+      if (s.contains("team")) continue;
+      vec3 a = P(s["pos"]);
+      bool att = s.value("role", std::string()) == "attacker";
+      if (!att) {   // indoors: start from the house's nearest entrance (doors are closed on this navmesh)
+        float best = 1e30f;
+        for (auto& i : app.doc.instances) {
+          const AssetDef* h = app.assetFor(i);
+          if (!h || !h->enterable || glm::length(vec2(i.pos.x - a.x, i.pos.z - a.z)) > 25) continue;
+          for (auto& e : h->navMeta.entrances) { vec3 w = i.pos + yawQuat(i.yaw) * e.p; float d = glm::length(w - a); if (d < best) { best = d; a = w - yawQuat(i.yaw) * e.dir * 1.5f; a.y = T.height(a.x, a.z); } }
+        }
+      }
+      for (auto& o : ddayDoc["scenario"]["objectives"]) {
+        std::vector<vec3> pp; float len = 0; ++spN;
+        bool r = nav->pathSync(a, P(o["pos"]), pp, nullptr, nullptr, &len) && !pp.empty() && glm::length(vec2(pp.back().x - o["pos"][0].get<float>(), pp.back().z - o["pos"][2].get<float>())) < o.value("radius", 10.0f);
+        spOk += r;
+        if (!r) { char b[120]; std::snprintf(b, sizeof b, " (ends %.0f m off, goal poly %d)", pp.empty() ? -1.0f : glm::length(vec2(pp.back().x - o["pos"][0].get<float>(), pp.back().z - o["pos"][2].get<float>())), nav->nearest(P(o["pos"]), 2.0f)); sp += " " + s.value("label", std::string("?")) + "->" + o.value("displayName", std::string("?")) + b; }
+      }
+    }
+  }
+  out("spawn_paths", std::to_string(spOk) + " of " + std::to_string(spN) + " spawn-to-objective paths" + (sp.empty() ? " (PASS)" : "; missing:" + sp + " (FAIL)"));
+  delete nav;
+  std::ofstream(exeDir() / "selftest_out" / "report_dday.json") << rep.dump(1);
+}
 }
 
 void SelfTest::captureUpdate(App& app, float dt) {
@@ -104,6 +362,50 @@ void SelfTest::captureUpdate(App& app, float dt) {
         x += 50;
       }
       app.syncRuntime();
+      app.hideEditorOverlays = true;
+      app.grassBudgetMs = -1;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "dday") {
+      // NMK_CAPTURE_SET=dday (D1): the D-day map from its template; an annotated top view (overlay lines: the playable
+      // square white, region thirds yellow, trenches orange, firing sectors red, Allied spawns blue, Axis grey,
+      // objectives yellow rings), the same view clean, then ddayChecks (one trench network, nav paths)
+      const TemplateInfo* dt = app.findTemplate("dday");
+      if (!dt) { logf("dday capture: no dday template"); finish(app); return; }
+      app.newMap(*dt, "D-day");
+      try { ddayDoc = json::parse(readTextFile(contentDir() / "templates" / "dday.nmap.json")); } catch (...) { ddayDoc = json::object(); }
+      app.syncRuntime(); navSyncCuts(app);
+      ddayAnnotate(app);
+      cams = {{"dday_overview_annotated", vec3(0, 330, 0.5f), vec3(0, 0, 0)}, {"dday_overview_oblique", vec3(0, 200, 230), vec3(0, 0, -10)}};
+      static std::deque<std::string> keep;   // then the template's views, clean (player height and the overviews)
+      for (auto& v : dt->raw.value("views", json::array())) {
+        keep.push_back("dday_" + v.value("name", std::string("view")));
+        vec3 p = jvec3(v["pos"]);
+        cams.push_back({keep.back().c_str(), p, p + App::forward(v.value("yaw", 0.0f), v.value("pitch", 0.0f)) * 10.0f});
+      }
+      app.hideEditorOverlays = false; app.gridOverlay = false;
+      app.grassBudgetMs = -1;
+      ddaySet = true;
+      ci = 0; frames = 0; stage = 801;
+      return;
+    }
+    if (const char* set = std::getenv("NMK_CAPTURE_SET"); set && std::string(set) == "stronghold") {
+      // NMK_CAPTURE_SET=stronghold (D-day S0): mil_stronghold on flat ground beside bunker_field_shelter, on a slope, on
+      // a ridge and turned 35 degrees on rolling ground; per site eye / top / side / rear views. The checks run after
+      // the last view (strongholdChecks): pad, entrance lanes, embrasure arcs, collision, nav, save / reload, move, delete.
+      shBuild(app);
+      cams.clear();
+      static std::deque<std::string> keep;
+      auto W = [&](uint64_t id, vec3 l, float up = -1) { Instance* i = app.doc.find(id); vec3 w = i->pos + yawQuat(i->yaw) * l; if (up >= 0) w.y = app.terrain.height(w.x, w.z) + up; return w; };
+      for (auto& s : shSites) {
+        auto add = [&](const char* v, vec3 p, vec3 t) { keep.push_back(std::string(s.name) + "_" + v); cams.push_back({keep.back().c_str(), p, t}); };
+        add("eye", W(s.id, vec3(34, 0, 32), 1.7f), W(s.id, vec3(0, 3.0f, 2.0f)));
+        add("top", W(s.id, vec3(2, 85, 8)), W(s.id, vec3(0, 0, 0)));
+        add("side", W(s.id, vec3(62, 0, -2), 1.2f), W(s.id, vec3(20, 2.5f, -2)));
+        add("rear", W(s.id, vec3(-16, 0, -40), 1.7f), W(s.id, vec3(-3.8f, 1.5f, -8)));
+        if (s.shelter) add("beside_shelter", W(s.id, vec3(31, 0, 27), 2.2f), W(s.id, vec3(26, 1.8f, 0)));
+      }
       app.hideEditorOverlays = true;
       app.grassBudgetMs = -1;
       ci = 0; frames = 0; stage = 801;
@@ -545,6 +847,8 @@ void SelfTest::captureUpdate(App& app, float dt) {
   { static bool presetDone = false;   // NMK_CAPTURE_PRESET=Low|Medium|High (GX5: the High-only material extras)
     if (!presetDone) { presetDone = true; if (const char* ps = std::getenv("NMK_CAPTURE_PRESET")) { std::string q = ps; settings().applyPreset(app, q == "Low" ? GfxPreset::Low : q == "High" ? GfxPreset::High : GfxPreset::Medium); } } }
   if (ci >= cams.size()) {
+    if (!shSites.empty()) { if (++frames < 30) return; strongholdChecks(app); shSites.clear(); }   // after the physics settled
+    if (ddaySet) { if (++frames < 30) return; ddayChecks(app); ddaySet = false; }
     if (gxTiming) {
       json j = json::object();
       for (auto& [k, v] : gxMs) j[k] = {{"gpuMs", v.first / std::max(1, v.second)}, {"frames", v.second}};
@@ -552,6 +856,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
     }
     finish(app); return;
   }
+  if (ddaySet && ci >= 2) { app.hideEditorOverlays = true; gAnnotOverlay.clear(); }
   Cam& c = cams[ci];
   app.camPos = c.pos;
   vec3 d = glm::normalize(c.target - c.pos);

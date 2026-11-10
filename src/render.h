@@ -38,6 +38,7 @@ struct Overlay {
   void box(const mat4& m, vec3 mn, vec3 mx, vec4 c, bool top = false);
   void capsule(vec3 feet, float h, float r, vec4 c);
 };
+extern Overlay gAnnotOverlay;   // capture annotations (capture.cpp: the D-day overview), drawn with the editor overlay
 
 struct RenderView {
   mat4 view, proj; vec3 camPos;

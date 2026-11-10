@@ -111,7 +111,9 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
     if (dCore <= 0) continue;   // under the bunker: its pad
     float n = terrainFbm(x / sp.noiseScale, z / sp.noiseScale, s.seed + 5);
     float jit = sp.edgeJitter * terrainFbm(x / (sp.noiseScale * 0.6f), z / (sp.noiseScale * 0.6f), s.seed + 9);
-    float B = 0, toe = 1e30f, slope = 0;
+    // on ground falling away from the anchor the face runs on down to the natural ground (no step at the toe)
+    const float fl = std::min(0.0f, h - s.y);
+    float B = fl, toe = 1e30f, slope = 0;
     // repose profile per bank: a flat crest, a rounded shoulder, a straight face at the repose slope (less a margin for
     // the noise and the outline jitter), and a wide concave toe (the sparse-grass band); crest height interpolated along
     // the bank, so a flank tapers down toward an open face
@@ -122,13 +124,16 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
       float H = glm::mix(s.bankH[k].x, s.bankH[k].y, t) * (1.0f + sp.noise * n);
       if (H <= 0.01f) continue;
       float lin = H - sl * (dist - sp.crest), kc = 0.3f * H, kt = 0.5f * H;
-      float hk = smax(smin(lin, H, kc), 0.0f, kt);
+      float hk = smax(smin(lin, H, kc), fl, kt);
       float dk = sl * std::clamp(std::min(lin + kt * 0.5f, H + kc * 0.5f - lin) / std::max(0.05f, std::min(kt, kc)), 0.0f, 1.0f);
       if (hk > B - sp.blendK) slope = std::max(slope, dk);
       B = k ? smax(B, hk, sp.blendK) : hk;
-      toe = std::min(toe, dist - sp.crest - H / sl - kt * 0.5f / sl);
+      toe = std::min(toe, dist - sp.crest - (H - fl) / sl - kt * 0.5f / sl);
     }
-    for (auto& hr : s.holes) B *= sstep(0.0f, sp.holeEdge, rectOut(l, hr));   // passages and embrasures stay clear
+    for (size_t k = 0; k < s.holes.size(); ++k) {   // passages and embrasures stay clear
+      float e = k < s.holeEdge.size() && s.holeEdge[k] > 0 ? s.holeEdge[k] : sp.holeEdge;
+      B = fl + (B - fl) * sstep(0.0f, e, rectOut(l, s.holes[k]));
+    }
     float W = 1.0f - sstep(0.0f, sp.smoothing, std::max(0.0f, toe));
     float T = s.y + B;
     if (T > h && W > 0) {
@@ -140,6 +145,25 @@ float Terrain::stampEval(float x, float z, float g, const std::vector<const Terr
       so = std::max(so, sb * W);
     }
     so = std::max(so, 0.7f * (1.0f - sstep(0.0f, sp.contactBand, dCore)));   // dirt band where the concrete meets the earth
+    // entrance cuts (a sunken entrance, steps down a bank): the lane is held at the anchor between its retaining walls,
+    // the ground beside it no higher than the wall top, and past the open end it ramps up to the natural ground
+    for (size_t k = 0; k < s.cuts.size() && k < s.cutP.size(); ++k) {
+      vec2 a(s.cuts[k].x, s.cuts[k].y), b(s.cuts[k].z, s.cuts[k].w), ab = b - a;
+      float L = glm::length(ab);
+      if (L < 1e-3f) continue;
+      vec2 u = ab / L;
+      float along = glm::dot(l - a, u), lat = std::fabs(u.x * (l.y - a.y) - u.y * (l.x - a.x));
+      if (along < 0) continue;   // behind the wall face: the pad and the banks
+      const float G = 0.55f;     // ramp and cut-side gradient (~29 degrees, walkable)
+      float beyond = std::max(0.0f, along - L), wallH = glm::mix(s.cutP[k].y, s.cutP[k].z, std::min(1.0f, along / L));
+      float allowed = s.y + G * beyond + (lat > s.cutP[k].x ? wallH + G * (lat - s.cutP[k].x) : 0.0f);
+      if (h > allowed) h = allowed;
+      if (lat <= s.cutP[k].x) {   // the lane floor is held at the anchor on falling ground too, easing down past its end
+        float floor = s.y - G * beyond;
+        if (h < floor) h = floor;
+      }
+      if (lat <= s.cutP[k].x + 0.3f && beyond < 1.0f) so = std::max(so, 0.75f);   // trodden earth on the lane floor
+    }
   }
   // 3. trench parapets: spoil heaped either side of the lip, lumpy, fading to the field
   const float lip = sp.floorHalf + sp.carvePad + 0.05f;   // the parapet rises where the carved wall reaches the surface

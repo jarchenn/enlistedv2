@@ -15,7 +15,7 @@ import {
 } from "./parts.mjs";
 import { mats, face, fireplace, crossGable, house, masonry, comp, meta, turretWindow } from "./catalog_chateau.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
-import { SLIT, bunkerMaterials, slit, camoNet, earthMaterials, earthBank, sandbagWall, mossPatch, roofEarth, pier } from "./catalog_bunkers.mjs";
+import { SLIT, bunkerMaterials, slit, camoNet, earthMaterials, sandbagWall, mossPatch, roofEarth, pier } from "./catalog_bunkers.mjs";
 import { rod, rebar, ventPipe, periscope, doorKnuckles, dmat } from "./defence_detail.mjs";
 
 const GF = 0.3, SIDES = ["front", "rear", "east", "west"];
@@ -948,34 +948,14 @@ function tubeRail(A, x0, z0, x1, z1, y, h = 1.0) {
   A.obox([cx, y + 0.55, cz], [0.08, 1.1, L], [0, yaw, 0], "zinc", { v: 0 });
 }
 
-// bank profile: [u (fraction of the run out from the wall), v (fraction of the crest height)]; ~32 degrees on average
+// bank profile: [u (fraction of the run out from the wall), v (fraction of the crest height)]; ~32 degrees on average.
+// The step cheek walls follow it; the banks themselves are terrain (the `earthwork` block at the end of stronghold())
 const BANK = [[0, 1], [0.08, 0.99], [0.2, 0.93], [0.36, 0.76], [0.54, 0.5], [0.72, 0.25], [0.88, 0.08], [1, 0]];
-// Earth bank against a wall face (axis 0: wall along x at z = w; axis 2: along z at x = w; dir +-1 outward), a0..a1 in
-// 0.35 m facets, each a fan of prisms from the wall foot through the profile; run +-16 % and crest +-4 % by smooth noise
-// (none at an end that meets another bank: `fixed`), ends eased down over 1.6 m where `taper`
-function bank(A, axis, a0, a1, w, dir, h, run, seed, { taper = [false, false], fixed = [false, false], y0 = -0.3 } = {}) {
-  const R = rnd("bank" + seed), ph = [R() * 6.3, R() * 6.3, R() * 6.3, R() * 6.3], grass = ["grass_a", "grass_b", "grass_a", "grass_c"], smooth = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
-  const n = Math.max(1, Math.round((a1 - a0) / 0.35));
-  for (let i = 0; i < n; i++) {
-    const b0 = a0 + ((a1 - a0) * i) / n, b1 = a0 + ((a1 - a0) * (i + 1)) / n, mid = (b0 + b1) / 2;
-    let f = 1, amp = 1;
-    if (taper[0]) f = Math.min(f, 0.15 + 0.85 * smooth((mid - a0) / 1.6));
-    if (taper[1]) f = Math.min(f, 0.15 + 0.85 * smooth((a1 - mid) / 1.6));
-    if (fixed[0]) amp = Math.min(amp, smooth((mid - a0) / 2.5));
-    if (fixed[1]) amp = Math.min(amp, smooth((a1 - mid) / 2.5));
-    const nr = 0.1 * Math.sin(mid * 0.61 + ph[0]) + 0.06 * Math.sin(mid * 1.37 + ph[1]), nh = 0.025 * Math.sin(mid * 0.83 + ph[2]) + 0.015 * Math.sin(mid * 2.1 + ph[3]);
-    const r = run * (0.45 + 0.55 * f) * Math.min(1.08, 1 + amp * nr),   /* toes stay inside the 60 m asset limit */ hh = y0 + (h - y0) * f * (1 + amp * nh);
-    const pts = BANK.map(([u, v]) => [w + dir * u * r, y0 + v * (hh - y0)]), zone = Math.floor(mid / 2.3 + seed);
-    for (let k = 0; k + 1 < pts.length; k++)
-      A.prism(axis, b0, b1 + 0.015, [[w, y0], pts[k], pts[k + 1]], k < 2 ? (zone % 3 === 1 ? "earth_dark" : "earth_raw") : k < 3 ? "grass_c" : grass[(zone + k) % 4]);
-  }
-}
-
 export function stronghold() {
   const G = 0.4, CEIL = 3.4, ROOF = 5.0, XO = 20, ZF = 8, ZR = -12, XI = 18.6, ZFI = 6.4, ZRI = -10.8, CZ0 = -3.2, CZ1 = -1.6, CY = 7.8;
   const RW = [-3.7, CZ0], FW = [CZ1, -1.1], EYE = G + SLIT.eye, CF = ROOF + 0.04;
-  const desc = "Atlantic Wall command stronghold, a 41 x 21 m reinforced-concrete block (about 60 x 34 m with its earthworks): 1.6 m front and 1.2-1.4 m side and rear walls with stepped MG and gun embrasures, a 1.6 m roof slab with rounded lips, shuttering-board imprint and lift joints, ochre-green-brown camouflage paint, run-off stains, a spalled corner with bent rebar. Earth banks bury the flanks and the rear to the roof and grass the rear half of the roof; a sunken rear entrance between retaining walls. Inside: gas lock and guard room behind two steel doors, a 37 m corridor, command room, radio room, observation post with a periscope, generator room, ammunition store, two crew quarters and three fighting rooms (west and east MG casemates with front and flank embrasures, a central gun room); a stair rises to the armoured observation cupola on the roof, whose steel door opens onto a railed roof deck with an MG nest, an aerial mast and concrete steps down the east bank.";
-  const S = new Asset({ id: "mil_stronghold", version: 1, name: "Command stronghold (Atlantic Wall)", category: "Bunkers", description: desc,
+  const desc = "Atlantic Wall command stronghold, a 41 x 21 m reinforced-concrete block (about 60 x 34 m with its earthworks): 1.6 m front and 1.2-1.4 m side and rear walls with stepped MG and gun embrasures, a 1.6 m roof slab with rounded lips, shuttering-board imprint and lift joints, ochre-green-brown camouflage paint, run-off stains, a spalled corner with bent rebar. Earth banks (terrain, shaped to the ground it stands on) bury the flanks and the rear to the roof, a low glacis runs under the front, grassed earth covers the rear half of the roof; a sunken rear entrance between retaining walls. Inside: gas lock and guard room behind two steel doors, a 37 m corridor, command room, radio room, observation post with a periscope, generator room, ammunition store, two crew quarters and three fighting rooms (west and east MG casemates with front and flank embrasures, a central gun room); a stair rises to the armoured observation cupola on the roof, whose steel door opens onto a railed roof deck with an MG nest, an aerial mast and concrete steps down the east bank.";
+  const S = new Asset({ id: "mil_stronghold", version: 2, name: "Command stronghold (Atlantic Wall)", category: "Bunkers", description: desc,
     floors: 2, enterable: true, footprint: [60, 34], plinthDepth: 0.8, maxGrade: 0.6 });
   bunkerMaterials(S, ROOF); earthMaterials(S); dmat(S, "steel_dark");
   S.mat("concrete_board", [0.205, 0.198, 0.178], 0.94, "bunker", { grain: 50 });
@@ -1108,22 +1088,10 @@ export function stronghold() {
   ventPipe(S, -16.4, ROOF + 0.5, -8.6, { h: 1.3, dia: 0.24 });   // generator exhaust
   camoNet(S, { hang: [["z+", -XO - 0.6, -6.0, ZF + 0.6, ROOF - 0.02, ROOF - 0.55], ["z+", 12.0, XO + 0.6, ZF + 0.6, ROOF - 0.02, ROOF - 0.5]] });
 
-  // ---- earthworks: banks to the roof on the flanks and rear, a low glacis in front, grassed earth on the rear roof,
-  // the sunken rear entrance between retaining walls, concrete steps down the east bank
+  // ---- earthworks: the banks (to the roof on the flanks and rear, a low glacis in front) are terrain, from the
+  // `earthwork` block below; here grassed earth on the rear roof, the sunken rear entrance between retaining walls,
+  // concrete steps down the east bank between cheek walls
   const H = ROOF + 0.4, RUN = 9.0;
-  bank(S, 0, -XO, -6.6, ZR, -1, H, RUN, 11, { fixed: [true, true] });
-  bank(S, 0, -1.0, XO, ZR, -1, H, RUN, 12, { fixed: [true, true] });
-  bank(S, 2, ZR, -1.5, -XO, -1, H, RUN, 13, { fixed: [true, false], taper: [false, true] });
-  bank(S, 2, ZR, -3.76, XO, 1, H, RUN, 14, { fixed: [true, true] });
-  bank(S, 2, -1.84, 1.2, XO, 1, H, RUN, 19, { fixed: [true, false], taper: [false, true] });
-  for (const sx of [-1, 1]) for (let deg = 5; deg < 90; deg += 10) {   // rear corners: radial wedges with the banks' profile
-    const t = (deg * Math.PI) / 180, d = [sx * Math.cos(t), -Math.sin(t)], yaw = (Math.atan2(d[0], d[1]) * 180) / Math.PI, y0 = -0.3;
-    for (let k = 0; k + 1 < BANK.length; k++) {   // one wedge per profile segment: full height at its inner end
-      const [u0, v0] = BANK[k], [u1, v1] = BANK[k + 1], ya = y0 + v0 * (H - y0), yb = y0 + v1 * (H - y0), r0 = u0 * RUN, r1 = u1 * RUN, c = [sx * XO + d[0] * (r0 + r1) / 2, ZR + d[1] * (r0 + r1) / 2];
-      S.wedge([c[0], (y0 + ya) / 2, c[1]], [1.6, ya - y0, r1 - r0], k < 2 ? "earth_raw" : k < 3 ? "grass_c" : (deg / 10) % 2 ? "grass_a" : "grass_b", { r: [0, yaw, 0], top: (yb - y0) / (ya - y0) });
-    }
-  }
-  earthBank(S, 0, -XO - 1.2, XO + 1.2, ZF, 1, 0.85, 4.0, 15, { taper: [true, true] });
   roofEarth(S, -XO - 0.4, -2.3, ZR - 0.4, -4.0, ROOF, 0.5, 16);
   roofEarth(S, 3.3, XO + 0.4, ZR - 0.4, -4.0, ROOF, 0.5, 17);
   for (const [x0, x1] of [[-6.6, -6.0], [-1.6, -1.0]]) {
@@ -1271,13 +1239,20 @@ export function stronghold() {
   const OZ = 4.5, steps = placeSub(A, S, { dz: OZ });
   A.meta.roomTypes = S.meta.roomTypes;
   setTour(A, { pos: [S.meta.tour.start.pos[0], 0, S.meta.tour.start.pos[2] + OZ], yaw: 0 }, steps.slice(1));
-  // earthwork lines for terrain berm stamps (GX1): the toe and crest of each bank, asset space
-  A.meta.earthworks = [
-    { kind: "berm", from: [-XO - RUN, ZR + OZ], to: [XO + RUN, ZR + OZ], dir: [0, -1], crest: H, run: RUN, gap: [-6.6, -1.0] },
-    { kind: "berm", from: [-XO, ZR - RUN + OZ], to: [-XO, -1.5 + OZ], dir: [-1, 0], crest: H, run: RUN },
-    { kind: "berm", from: [XO, ZR - RUN + OZ], to: [XO, -3.75 + OZ], dir: [1, 0], crest: H, run: RUN },
-    { kind: "glacis", from: [-XO - 1.2, ZF + OZ], to: [XO + 1.2, ZF + OZ], dir: [0, 1], crest: 0.85, run: 4.0 },
-  ];
+  // GX1 terrain earthworks (docs/graphics-overhaul.md §5), asset space (the block spans z ZR+OZ..ZF+OZ): the engine raises
+  // the banks as terrain against the walls, conformed to the ground the stronghold stands on (repose profile, noise,
+  // smoothing into the natural ground; craters and reloads re-derive them), and removes them with the instance.
+  //   banks: rear and flanks to the roof (H), the flanks easing down toward the exposed fighting front, a low glacis
+  //          under the front embrasures; holes: the flank embrasures' fields of fire; cuts: the sunken rear entrance
+  //          and the steps down the east bank, held at floor level between their retaining walls, ramping out at the end
+  const r3 = (v) => Math.round(v * 1000) / 1000, z = (v) => r3(v + OZ);
+  A.meta.earthwork = {
+    core: [XO, (ZF - ZR) / 2, 0, z((ZF + ZR) / 2)],
+    banks: [[-XO - 0.6, z(ZR), XO + 0.6, z(ZR), H], [-XO, z(ZR - 0.6), -XO, z(-5.0), H], [-XO, z(-5.0), -XO, z(0.6), H, 1.0],
+      [XO, z(ZR - 0.6), XO, z(-6.5), H], [XO, z(-6.5), XO, z(1.5), H, 0.8], [-XO - 0.6, z(ZF), XO + 0.6, z(ZF), 0.85]],
+    holes: [[-XO - 12, z(0.7), -XO, z(4.3)], [XO, z(1.6), XO + 12, z(4.3)]],
+    cuts: [[-3.8, z(ZR), -3.8, z(ZR - RUN - 0.4), 2.8, r3(H + 0.3), 0], [XO, z(-2.8), 29.7, z(-2.8), 0.96, r3(H + 0.15), 0]],
+  };
   A.meta.companions = [comp("nat_hawthorn_bush", -31, -2), comp("nat_drygrass_tall", 26, 9), comp("nat_bracken_clump", -26, -16), comp("nat_nettle_clump", 3.5, -18.5)];
   return A;
 }

@@ -594,9 +594,11 @@ export const tobrukTurret = () => tobruk("turret");
 // GX1 (docs/graphics-overhaul.md#gx1-terrain-conformance): the engine carves joined pieces as one terrain network along
 // `path` (x, z, depth scale), with the niches as `branches`, and generates the revetment along the cut; the slab parts
 // listed in `replace` are dropped at load while content/settings/terrain_blend.json is enabled
-export const TRENCH_FLOOR_DROP = { materials: ["plank_x"], topBelow: -1.45 };
+// D-day: the flat mud floor slabs go too (each piece's was level at its own height, so a run up a slope stepped between
+// pieces): the carved ground is the floor, sloping from joint to joint (shared ends average), ramps included
+export const TRENCH_FLOOR_DROP = { materials: ["plank_x", "mud"], topBelow: -1.45 };
 export const TRENCH_STEP_DROP = { materials: ["plank_x"], topAbove: -1.3, minWidth: 0.3 };   // the firestep's full-width top plank
-export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x"], aboveY: -1.0, keepCollision: ["wattle", "spoil"] };
+export const TRENCH_REPLACE = { materials: ["wattle", "spoil", "earth", "turf", "picket", "plank_x", "mud"], aboveY: -1.0, keepCollision: ["wattle", "spoil"] };
 // GX1: the trench floor reads as dug soil (the default mud texture set has a green cast)
 // and its plank edges are dark, worn field timber (the generated duckboards replace the asset's, "floorDrop")
 function trenchMud(A) {
@@ -681,6 +683,52 @@ export function trenchEntry() {
     { goto: [-3.6, 0], note: "top of the ramp" }, { goto: [0.6, 0], expectY: -D, note: "down the ramp" }, { goto: [2.6, -0.1], expectY: -D },
     { look: [-3, 0.5, 0], hold: 0.5 }, { shot: "mpu_trench_entry" }, { goto: [0.6, 0] }, { goto: [-3.8, 0], expectY: 0, note: "back up the ramp" },
   ], { cut: true });
+  return A;
+}
+
+// D-day: trench junctions and a 45-degree bend, so one network can branch and loop. The arms (4 m each from the centre,
+// a socket with an end cap at each) are short trench runs that start at the floor's half width, so their revetments
+// meet at the corners of the open crossing; a tee closes its fourth side with a wall. GX1 carves the arms from the
+// trench block's `branches` and generates their revetment too (terrain_blend.cpp: a branch 3 m or longer is an arm).
+function trenchJunction(id, name, desc, dirs) {
+  const A = new Asset({ id, version: 1, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint: [9.6, 9.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  stdMaterials(A);
+  trenchMud(A);
+  const { D, HW, RV, FILL, PARADOS } = TR;
+  const floors = [], cuts = [];
+  dirs.forEach((d, k) => {
+    const r = trenchRun(A, [[d[0] * HW, d[1] * HW], [d[0] * 4, d[1] * 4]], { firestep: [], endExt: [0, 0] });
+    floors.push({ outline: r.floor, area: "trench" }); cuts.push({ outline: r.cut, depth: D + 0.25, bank: 0.2 });
+    trenchCap(A, [d[0] * 4, d[1] * 4], d, k);
+  });
+  setSnap(A, dirs.map((d) => sock([d[0] * 4, 0, d[1] * 4], d, "trench")));
+  A.box([-HW, -D - 0.2, -HW], [HW, -D, HW], "mud", { v: 0 });                     // the crossing's floor
+  A.box([-HW, -D - 0.2, -HW], [HW, -D - 0.07, HW], "mud", { k: 0 });
+  for (const s of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {                            // a closed side (tee): wall and fill
+    if (dirs.some((d) => d[0] === s[0] && d[1] === s[1])) continue;
+    const n = [s[1], -s[0]], w = HW + RV;
+    segBox(A, [s[0] * (HW + RV / 2) + n[0] * w, s[1] * (HW + RV / 2) + n[1] * w], [s[0] * (HW + RV / 2) - n[0] * w, s[1] * (HW + RV / 2) - n[1] * w], 0, -D - 0.2, PARADOS - 0.03, RV, "wattle");
+    segBox(A, [s[0] * (HW + RV + FILL / 2) + n[0] * w, s[1] * (HW + RV + FILL / 2) + n[1] * w], [s[0] * (HW + RV + FILL / 2) - n[0] * w, s[1] * (HW + RV + FILL / 2) - n[1] * w], 0, -D - 0.25, PARADOS, FILL, "spoil");
+  }
+  setNav(A, { effect: "area", area: "trench", areas: floors.concat([{ outline: band([[-HW, 0], [HW, 0]], HW), area: "trench" }]), firingPoints: [], cover: [] }, cuts);
+  const P = (d) => [d[0] * 4, d[1] * 4, 1];
+  A.meta.trench = { path: [P(dirs[0]), [0, 0, 1], P(dirs[1])], branches: dirs.slice(2).map((d) => [[0, 0, 1], P(d)]), replace: TRENCH_REPLACE, floorDrop: TRENCH_FLOOR_DROP, stepDrop: TRENCH_STEP_DROP };
+  trenchTour(A, D, -4, [[-0.1, -0.1], [0.1, 3.4]], "mpu_" + id.slice(3));
+  return A;
+}
+export function trenchTee() {
+  return trenchJunction("aw_trench_tee", "Trench, T-junction (wattle)", "T-junction of three trench arms (along -X, +X and +Z), floor 1.5 m down, wattle revetment meeting at the corners of the crossing, a closed wall on the fourth side. Joins the other trench pieces at all three ends; an unjoined arm stays closed.",
+    [[-1, 0], [1, 0], [0, 1]]);
+}
+export function trenchCross() {
+  return trenchJunction("aw_trench_cross", "Trench, crossroads (wattle)", "Crossing of four trench arms, floor 1.5 m down, wattle revetment meeting at the corners of the crossing. Joins the other trench pieces at all four ends; an unjoined arm stays closed.",
+    [[-1, 0], [1, 0], [0, 1], [0, -1]]);
+}
+export function trenchBend() {
+  const c = 4 * Math.SQRT1_2, pts = [[-4, 0], [0, 0], [r3(c), r3(c)]];
+  const { A, D } = trenchPiece("aw_trench_bend", "Trench, bend (45 deg, wattle)", "Trench bend of 45 degrees: enters along +X and turns toward +Z, floor 1.5 m down, wattle revetment, duckboards, a firestep on the first leg. Joins end to end with the other trench pieces, so a run can follow the ground.",
+    pts, { firestep: [0] }, [7.4, 6.6]);
+  trenchTour(A, D, -4, [[-0.1, -0.1], [2.2, 2.0]], "mpu_trench_bend");
   return A;
 }
 
@@ -813,5 +861,5 @@ export function foxhole() {
 }
 
 export function atlanticAssets() {
-  return [r667(), r612Unfinished(), tobrukTurret(), tobrukMg(), tobrukMortar(), trenchStraight(), trenchZigzag(), trenchCorner(), trenchEntry(), dugoutPersonnel(), dugoutLog(), foxhole()].map(flushD1);
+  return [r667(), r612Unfinished(), tobrukTurret(), tobrukMg(), tobrukMortar(), trenchStraight(), trenchZigzag(), trenchCorner(), trenchEntry(), trenchTee(), trenchCross(), trenchBend(), dugoutPersonnel(), dugoutLog(), foxhole()].map(flushD1);
 }

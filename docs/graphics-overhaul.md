@@ -199,8 +199,26 @@ The polygon `terrainCut`s of other assets (foxholes, ditches, ponds) are applied
   It is continuous because the profile is. A 0.8 m dirt contact band runs where the concrete meets the earth.
 - Done for `bunker_observation_post` and `bunker_field_shelter` (the two bunkers with earth banks). Their roof earth
   stays a mesh.
+- D-day S0 extended the block for `mil_stronghold`, whose banks were prism fans and radial corner wedges on a flat
+  60 x 34 m pad (its old `earthworks` key was never read):
+  - `core`: [hx, hz, cx, cz]: the walls' outline may sit off the asset origin (pad, berm and placement use it);
+  - `holes`: an optional fifth value, the bank's fade width past that hole (default `holeEdge`);
+  - `cuts`: [ax, az, bx, bz, half width, wall height at a, at b]: an entrance lane from a wall face outward, held at
+    the floor between its retaining walls, the ground beside it no higher than the wall top, ramping out past b at
+    about 29 degrees (the sunken rear entrance, the steps down the east bank);
+  - on ground falling away from the anchor, a bank face runs on down to the natural ground (no step at the toe).
+  The stronghold's banks: rear and flanks to the roof, the flanks easing down toward the exposed fighting front, a low
+  glacis under the front embrasures, holes for the flank embrasures' fields of fire. The asset origin is unchanged, so
+  existing placements keep their position (no migration). Earth-covered assets get no foundation band round their
+  bounds (the berm's contact band hugs the walls). NMK_CAPTURE_SET=stronghold checks flat, slope, ridge and rotated
+  placements: clearance, embrasure arcs, collision, nav, save / reload, move, delete.
 
 ### §7 trenches
+
+- Floors (D-day): the pieces' flat mud floor slabs are dropped with the duckboards (`floorDrop`), so the carved ground is the
+  floor, sloping from joint to joint (shared ends average): a run can climb between belts without a step at each joint.
+- Junctions (D-day): `aw_trench_tee` and `aw_trench_cross` carry their extra arms as trench `branches` 3 m or longer;
+  networks also join at an arm's outer end, and the revetment and end walls are generated along arms as along the path.
 
 - A trench piece's `trench` block:
   - `path`: the centreline in asset space; the third value scales the depth, 0 at the entry ramp's mouth;

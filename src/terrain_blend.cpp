@@ -56,6 +56,12 @@ vec2 padHalf(const AssetDef* a) {
   if (ew.is_object() && ew.contains("core")) return vec2(ew["core"][0].get<float>(), ew["core"][1].get<float>());   // the walls: the banks start there
   return a->footprint * 0.5f;
 }
+// the walls' centre in asset space: an earthwork core may sit off the asset origin ("core": [hx, hz, cx, cz])
+vec2 padOff(const AssetDef* a) {
+  const json& ew = a->raw.is_object() && a->raw.contains("earthwork") ? a->raw["earthwork"] : json();
+  if (ew.is_object() && ew.contains("core") && ew["core"].size() >= 4) return vec2(ew["core"][2].get<float>(), ew["core"][3].get<float>());
+  return vec2(0);
+}
 const TerrainStamp* stampOf(const Terrain& T, uint64_t id, uint8_t kind) {
   for (auto& s : T.stamps) if (s.kind == kind && std::find(s.members.begin(), s.members.end(), id) != s.members.end()) return &s;
   return nullptr;
@@ -139,7 +145,7 @@ int blendSyncStamps(App& app) {
     if (!blendPinned(a) || !T.inBuildArea(i.pos.x, i.pos.z)) continue;   // decor beyond the border keeps the old ground
     const json ew = a->raw.value("earthwork", json());
     TerrainStamp s; s.kind = TerrainStamp::PAD; s.owner = i.id; s.members = {i.id};
-    s.c = vec2(i.pos.x, i.pos.z); s.yaw = i.yaw; s.y = i.pos.y; s.half = padHalf(a); s.seed = idSeed(i.id);
+    s.c = vec2(i.pos.x, i.pos.z) + toWorld(padOff(a), i.yaw); s.yaw = i.yaw; s.y = i.pos.y; s.half = padHalf(a); s.seed = idSeed(i.id);
     float dmax = 0;
     for (vec2 l : footprintSamples(s.half, false)) { vec2 w = s.c + toWorld(l, s.yaw); dmax = std::max(dmax, std::fabs(T.groundBase(w.x, w.y) - s.y)); }
     if (dmax >= C.minDelta || ew.is_object()) {   // ground already within minDelta of the floor: nothing to level
@@ -154,16 +160,25 @@ int blendSyncStamps(App& app) {
       TerrainStamp b; b.kind = TerrainStamp::BERM; b.owner = i.id; b.members = {i.id};
       b.c = s.c; b.yaw = s.yaw; b.y = s.y; b.seed = s.seed;
       b.half = ew.contains("core") ? vec2(ew["core"][0].get<float>(), ew["core"][1].get<float>()) : a->footprint * 0.25f;
+      const vec2 o = padOff(a);   // banks, holes and cuts are given in asset space: make them core-relative
       float reach = 0;
       for (auto& k : ew["banks"]) {
         if (k.size() < 5) continue;
-        b.banks.push_back(vec4(k[0].get<float>(), k[1].get<float>(), k[2].get<float>(), k[3].get<float>()));
+        b.banks.push_back(vec4(k[0].get<float>() - o.x, k[1].get<float>() - o.y, k[2].get<float>() - o.x, k[3].get<float>() - o.y));
         float Ha = k[4].get<float>(), Hb = k.size() > 5 ? k[5].get<float>() : Ha, H = std::max(Ha, Hb);   // [ax, az, bx, bz, crest at a(, crest at b)]
         b.bankH.push_back(vec2(Ha, Hb));
-        reach = std::max(reach, std::max(glm::length(vec2(k[0].get<float>(), k[1].get<float>())), glm::length(vec2(k[2].get<float>(), k[3].get<float>()))) +
+        reach = std::max(reach, std::max(glm::length(vec2(k[0].get<float>(), k[1].get<float>()) - o), glm::length(vec2(k[2].get<float>(), k[3].get<float>()) - o)) +
                                     sp.crest + 1.3f * H * (1 + sp.noise) * 1.15f / tanR + 1.0f);
       }
-      for (auto& h : ew.value("holes", json::array())) if (h.size() >= 4) b.holes.push_back(vec4(h[0].get<float>(), h[1].get<float>(), h[2].get<float>(), h[3].get<float>()));
+      for (auto& h : ew.value("holes", json::array())) if (h.size() >= 4) {   // [x0, z0, x1, z1(, fade width)]
+        b.holes.push_back(vec4(h[0].get<float>() - o.x, h[1].get<float>() - o.y, h[2].get<float>() - o.x, h[3].get<float>() - o.y));
+        b.holeEdge.push_back(h.size() > 4 ? h[4].get<float>() : 0.0f);
+      }
+      for (auto& c : ew.value("cuts", json::array())) if (c.size() >= 7) {   // [ax, az, bx, bz, half width, wall height at a, at b]
+        b.cuts.push_back(vec4(c[0].get<float>() - o.x, c[1].get<float>() - o.y, c[2].get<float>() - o.x, c[3].get<float>() - o.y));
+        b.cutP.push_back(vec3(c[4].get<float>(), c[5].get<float>(), c[6].get<float>()));
+        reach = std::max(reach, glm::length(vec2(c[2].get<float>(), c[3].get<float>()) - o) + c[4].get<float>() + 12.0f);   // the ramp past the open end
+      }
       float r = reach + sp.smoothing + sp.edgeJitter + 1.0f;
       b.bmin = b.c - vec2(r); b.bmax = b.c + vec2(r);
       out.push_back(std::move(b));
@@ -174,10 +189,17 @@ int blendSyncStamps(App& app) {
   std::vector<size_t> root(n); std::iota(root.begin(), root.end(), 0);
   auto find = [&](size_t x) { while (root[x] != x) x = root[x] = root[root[x]]; return x; };
   auto near2 = [](vec3 a, vec3 b) { return glm::length(vec2(a.x - b.x, a.z - b.z)) < 0.3f; };
+  auto isArm = [](const std::vector<vec3>& br) { return br.size() >= 2 && glm::length(vec2(br.back().x - br.front().x, br.back().z - br.front().z)) >= 3.0f; };
+  std::vector<std::vector<vec3>> pend(n);   // every open end: the path's two, and each junction arm's outer end
+  for (size_t k = 0; k < n; ++k) {
+    pend[k] = {pieces[k].path.front(), pieces[k].path.back()};
+    for (auto& br : pieces[k].branches) if (isArm(br)) pend[k].push_back(br.back());
+  }
   for (size_t a = 0; a < n; ++a)
     for (size_t b = a + 1; b < n; ++b) {
-      const auto& A = pieces[a].path; const auto& B = pieces[b].path;
-      if (near2(A.front(), B.front()) || near2(A.front(), B.back()) || near2(A.back(), B.front()) || near2(A.back(), B.back())) root[find(a)] = find(b);
+      bool hit = false;
+      for (auto& p : pend[a]) for (auto& q : pend[b]) hit = hit || near2(p, q);
+      if (hit) root[find(a)] = find(b);
     }
   std::map<size_t, std::vector<size_t>> nets;
   for (size_t k = 0; k < n; ++k) nets[find(k)].push_back(k);
@@ -186,7 +208,7 @@ int blendSyncStamps(App& app) {
     TerrainStamp t; t.kind = TerrainStamp::TRENCH;
     t.owner = ~0ull;
     std::vector<vec3> ends;   // every piece end, for joins and shared floor heights
-    for (size_t k : members) { t.owner = std::min(t.owner, pieces[k].id); t.members.push_back(pieces[k].id); ends.push_back(pieces[k].path.front()); ends.push_back(pieces[k].path.back()); }
+    for (size_t k : members) { t.owner = std::min(t.owner, pieces[k].id); t.members.push_back(pieces[k].id); ends.insert(ends.end(), pend[k].begin(), pend[k].end()); }
     std::sort(t.members.begin(), t.members.end());
     t.seed = idSeed(t.owner);
     auto shared = [&](vec3 p, float& y) {   // the mean floor of every piece end at p; true when more than one meets there
@@ -218,7 +240,7 @@ int blendSyncStamps(App& app) {
 // ================================================================ placement
 bool blendPlacement(const App& app, const AssetDef* a, vec3 pos, float yaw, uint64_t ignoreId, float& y, std::string& reason) {
   const BlendConfig& C = blendConfig();
-  vec2 c(pos.x, pos.z), half = padHalf(a);
+  vec2 c = vec2(pos.x, pos.z) + toWorld(padOff(a), yaw), half = padHalf(a);
   std::vector<float> hs;
   for (vec2 l : footprintSamples(half, false)) { vec2 w = c + toWorld(l, yaw); hs.push_back(app.terrain.placementHeight(w.x, w.y, ignoreId)); }
   float m = median(hs), dev = 0;
@@ -290,6 +312,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   float f0 = glm::dot(vec2(-d0.y, d0.x), lz0);
   const int frontSide = f0 > 0.3f ? 1 : f0 < -0.3f ? -1 : 0;   // the fire side (local +z): low parapet, no sandbags on the lip
   uint32_t uid = 0;   // running id for the per-element random numbers
+  auto layRun = [&](const std::vector<vec2>& P, const std::vector<float>& D, const int frontSide) {   // the path, then each junction arm
   for (size_t s = 0; s + 1 < P.size(); ++s) {
     vec2 A = P[s], B = P[s + 1], dir = glm::normalize(B - A);
     vec2 nrm(-dir.y, dir.x);
@@ -433,6 +456,14 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
       }
     }
   }
+  };
+  layRun(P, D, frontSide);
+  std::vector<std::pair<std::vector<vec2>, std::vector<float>>> arms;   // junction arms (branches 3 m or longer): outward from the crossing
+  for (auto& br : a->raw["trench"].value("branches", json::array())) {
+    std::vector<vec2> Pa; std::vector<float> Da;
+    for (auto& q : br) { Pa.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); Da.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
+    if (Pa.size() >= 2 && glm::length(Pa.back() - Pa.front()) >= 3.0f) { layRun(Pa, Da, 0); arms.push_back({Pa, Da}); }
+  }
   // the firestep: the asset's earth step stops short of the revetment line (built for the old 0.65 m wattle);
   // packed earth fills it to the wall, so it reads as a step cut against the fire-side wall, not a free slab
   for (auto& pt : a->parts) {
@@ -460,7 +491,8 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
     put(boxPart(L(wc), vec3(along * 2.0f, pt.size.y + 0.04f, gap + 0.02f), iq * yawQuat(i.yaw) * glm::angleAxis(yawL, vec3(0, 1, 0))), earth, fy, vec3(1.0f), 0.5f, ++uid);
   }
   // end walls where the network stops (not the ramp's shallow mouth): backfill, boards, a sandbag cap
-  for (int e = 0; e < 2; ++e) {
+  auto endWalls = [&](const std::vector<vec2>& P, const std::vector<float>& D, int e0) {
+  for (int e = e0; e < 2; ++e) {
     vec2 p = e ? P.back() : P.front(), q = e ? P[P.size() - 2] : P[1];
     float depth = e ? D.back() : D.front();
     if (depth < 0.4f) continue;
@@ -494,6 +526,9 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
       c.bv = 0.035f; put(c, bag, fy, burlap * tone, 0.0f, ++uid);
     }
   }
+  };
+  endWalls(P, D, 0);
+  for (auto& [Pa, Da] : arms) endWalls(Pa, Da, 1);   // only the arm's outer end (its inner end is the crossing)
 }
 
 // stone retaining skirt along the footprint edges where the pad stands higher than the cap allows
@@ -553,7 +588,7 @@ void blendPreview(const App& app, Overlay& ov, const AssetDef* a, vec3 pos, floa
   if (!blendPinned(a)) return;
   const BlendConfig& C = blendConfig();
   const Terrain& T = app.terrain;
-  vec2 c(pos.x, pos.z), half = padHalf(a);
+  vec2 c = vec2(pos.x, pos.z) + toWorld(padOff(a), yaw), half = padHalf(a);
   float dmax = 0, up = 0, down = 0;
   for (vec2 l : footprintSamples(half, false)) { vec2 w = c + toWorld(l, yaw); float d = pos.y - T.height(w.x, w.y); dmax = std::max(dmax, std::fabs(d)); up = std::max(up, d); down = std::max(down, -d); }
   if (dmax < C.minDelta) return;
@@ -604,7 +639,7 @@ BlendIssues blendValidate(App& app, bool fix, const char* why) {
       const TerrainStamp* s = stampOf(T, i.id, TerrainStamp::PAD);
       vec2 h = padHalf(a) - vec2(0.15f);
       for (vec2 l : {vec2(-h.x, -h.y), vec2(h.x, -h.y), vec2(h.x, h.y), vec2(-h.x, h.y), vec2(0, -h.y), vec2(0, h.y), vec2(-h.x, 0), vec2(h.x, 0)}) {
-        vec2 w = vec2(i.pos.x, i.pos.z) + toWorld(l, i.yaw);
+        vec2 w = vec2(i.pos.x, i.pos.z) + toWorld(padOff(a) + l, i.yaw);
         float d = i.pos.y - T.height(w.x, w.y);   // > 0: the base floats over the ground
         if (d > 0.05f && !(s && s->skirt > 0)) { ++r.floating; r.worst = std::max(r.worst, d); logf("gx1 validate (%s): %s #%llu floats %.2f m at a base corner", why, a->id.c_str(), (unsigned long long)i.id, d); break; }
         if (d < -0.10f) { ++r.buried; r.worst = std::max(r.worst, -d); logf("gx1 validate (%s): %s #%llu buried %.2f m at a base corner", why, a->id.c_str(), (unsigned long long)i.id, -d); break; }
