@@ -3,6 +3,7 @@
 // viewsheds, route claims, metrics and the stuck-event log. See ai_core.h.
 #include "ai_core.h"
 #include "app.h"
+#include "lines.h"
 #include "nav_geom.h"
 #include "crumb.h"
 #include <GLFW/glfw3.h>
@@ -235,7 +236,7 @@ void AiCore::begin(vec3 lo, vec3 hi) {
           bool lat = false; if (navj.contains("footprintNull")) for (auto& id : navj["footprintNull"]) if (id.is_string() && id.get<std::string>() == ap->id) lat = true;
           const NavMeta& nm = ap->navMeta;
           bool hedgeA = ap->tree.on && ap->tree.hedge && resolveNavEffect(nm, ap->enterable, ap->bmin, ap->bmax) != NavEffect::None;
-          c = canMark.emplace(ap, std::make_pair(!nm.areas.empty() || nm.area != NavArea::Default || ap->defense.unsafeVault || hedgeA || lat, lat)).first;
+          c = canMark.emplace(ap, std::make_pair(!nm.areas.empty() || nm.area != NavArea::Default || ap->defense.unsafeVault || hedgeA || lat || isLineAsset(ap), lat)).first;   // LN2: lines mark their own bays
         }
         if (c->second.first) markCands.push_back(k);
       }
@@ -245,6 +246,31 @@ void AiCore::begin(vec3 lo, vec3 hi) {
       auto it = G.app.rt.find(in.id);
       if (it == G.app.rt.end() || !it->second.asset) continue;
       const AssetDef& a = *it->second.asset;
+      if (const LineBuildOut* lo = it->second.line.get()) {   // LN2: a line's bays: wire footprints, hedge banks, piece areas (cut bays are gaps)
+        const auto& cut = it->second.secCut;
+        auto isCut = [&](int s) { return s >= 0 && s < (int)cut.size() && cut[s]; };
+        const LineType* lt = lineTypeOf(&a);
+        bool hedgeL = lt && lt->raw.value("hedge", false), wireL = a.defense.unsafeVault;
+        float pad = navj.value("hedgePad_m", 0.1f) + G.nav.cfg.radius;
+        auto mark = [&](const std::vector<vec2>& w, NavArea ar, bool nul) {   // world outline
+          std::vector<std::array<vec2, 3>> tris; triangulate(w, tris);
+          for (auto& t : tris) { NavAreaMark mk; mk.poly = {t[0], t[1], t[2]}; mk.hmin = in.pos.y - 30.0f; mk.hmax = in.pos.y + 30.0f; if (nul) mk.nullify = true; else mk.area = navarea::fromNav(ar); out.marks.push_back(mk); }
+        };
+        for (auto& c : lo->colliders) {
+          if (isCut(c.section) || !((wireL && c.playerOnly) || (hedgeL && !c.playerOnly && c.part.center.y - c.part.size.y * 0.5f < 2.0f))) continue;
+          vec3 h = c.part.size * 0.5f + (hedgeL ? vec3(pad, 0, pad) : vec3(0.15f, 0, 0.15f)); std::vector<vec2> w;
+          for (vec2 q : {vec2(-1, -1), vec2(1, -1), vec2(1, 1), vec2(-1, 1)}) { vec3 l = in.pos + c.part.center + c.part.rot * vec3(q.x * h.x, 0, q.y * h.z); w.push_back(vec2(l.x, l.z)); }
+          vec2 mn = glm::min(glm::min(w[0], w[1]), glm::min(w[2], w[3])), mx = glm::max(glm::max(w[0], w[1]), glm::max(w[2], w[3]));
+          if (mx.x < tlo.x || mn.x > thi.x || mx.y < tlo.y || mn.y > thi.y) continue;
+          mark(w, NavArea::Wire, hedgeL);
+        }
+        for (size_t k = 0; k < lo->areas.size(); ++k) {
+          if (k < lo->areaSec.size() && isCut(lo->areaSec[k])) continue;
+          std::vector<vec2> w; for (vec2 o : lo->areas[k].outline) w.push_back(vec2(in.pos.x + o.x, in.pos.z + o.y));
+          if (w.size() >= 3) mark(w, lo->areas[k].area, false);
+        }
+        continue;
+      }
       const NavMeta& m = a.navMeta;
       bool wireSlow = a.defense.unsafeVault && !it->second.defDestroyed;   // every wire obstacle: its uncut stretches are forbidden ground
       bool hedge = a.tree.on && a.tree.hedge && resolveNavEffect(m, a.enterable, a.bmin, a.bmax) != NavEffect::None;   // bank + woody stems: a wall (AI_SPEC 3.1)

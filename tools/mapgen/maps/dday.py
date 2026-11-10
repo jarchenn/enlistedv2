@@ -339,6 +339,91 @@ class _Layout:
         return {"asset": aid, "pos": [x, y, z], "yaw": yaw, "tags": set()}
 
 
+def trench_lines(b, pieces, pinned=()):
+    """LN1: the laid trench pieces become trench lines (docs/lines.md), chained exactly as the engine migrates old maps
+    (src/lines.cpp lineMigrateTrenches): every piece's centreline (a junction's arms too) is a polyline, polylines whose
+    ends meet are chained through every two-way joint, the pieces are removed. Returns {piece id: line id}."""
+    cat = b.cat
+    polys = []   # (points [(x, z, d, y)], piece id, fire +1 left / -1 right / 0); y: a pinned piece's fixed floor
+    depth = 1.62   # content/settings/terrain_blend.json trench depth
+    for e in pieces:
+        tj = cat[e["asset"]].raw["trench"]
+        W = lambda q: (*local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], q[0], q[1]), q[2] if len(q) > 2 else 1.0,
+                       e["pos"][1] - depth * (q[2] if len(q) > 2 else 1.0) if e["id"] in pinned else None)
+        P = [W(q) for q in tj["path"]]
+        dx, dz = P[1][0] - P[0][0], P[1][1] - P[0][1]
+        L = math.hypot(dx, dz)
+        lz = (math.sin(math.radians(e["yaw"])), math.cos(math.radians(e["yaw"])))
+        f = (-dz / L) * lz[0] + (dx / L) * lz[1]
+        polys.append((P, e["id"], 1 if f > 0.3 else -1 if f < -0.3 else 0))
+        for br in tj.get("branches", []):
+            a, z = W(br[0]), W(br[-1])
+            if math.hypot(z[0] - a[0], z[1] - a[1]) >= 3.0:
+                polys.append(([a, z], e["id"], 0))
+    nodes, deg = [], []
+
+    def node(p):
+        for k, q in enumerate(nodes):
+            if math.hypot(q[0] - p[0], q[1] - p[1]) < 0.3:
+                return k
+        nodes.append((p[0], p[1]))
+        deg.append(0)
+        return len(nodes) - 1
+    ends = []
+    for P, _, _ in polys:
+        a, z = node(P[0]), node(P[-1])
+        deg[a] += 1
+        deg[z] += 1
+        ends.append((a, z))
+    used, remap, lines = [False] * len(polys), {}, []
+    for k0 in range(len(polys)):
+        if used[k0]:
+            continue
+        k, rev = k0, False
+        for _ in range(len(polys)):   # back to a chain end
+            n = ends[k][1] if rev else ends[k][0]
+            if deg[n] != 2:
+                break
+            nk = next((m for m in range(len(polys)) if m != k and n in ends[m]), None)
+            if nk is None or nk == k0:
+                break
+            rev = ends[nk][0] == n
+            k = nk
+        pts, srcs, fire = [], [], 0
+        for _ in range(len(polys)):
+            used[k] = True
+            seg = list(reversed(polys[k][0])) if rev else list(polys[k][0])
+            if not fire and polys[k][2]:
+                fire = -polys[k][2] if rev else polys[k][2]
+            pts += seg if not pts else seg[1:]
+            srcs.append(polys[k][1])
+            n = ends[k][0] if rev else ends[k][1]
+            if deg[n] != 2:
+                break
+            nk = next((m for m in range(len(polys)) if m != k and not used[m] and n in ends[m]), None)
+            if nk is None:
+                break
+            rev = ends[nk][1] == n
+            k = nk
+        clean = []
+        for p in pts:
+            if not clean or math.hypot(p[0] - clean[-1][0], p[1] - clean[-1][1]) > 0.05:
+                clean.append(p)
+        if len(clean) < 2:
+            continue
+        line = {"pts": [[round(p[0], 3), round(p[1], 3)] + ([round(p[2], 3)] if p[2] != 1.0 or p[3] is not None else []) + ([round(p[3], 3)] if p[3] is not None else []) for p in clean],
+                "seed": int(srcs[0]) * 7919 % 100000 + 1,
+                "params": {"fire": "left" if fire > 0 else "right" if fire < 0 else "none", "ramps": "none", "sharp": True}}
+        e = b.place("line_trench", clean[0][0], clean[0][1], 0.0, check=False, cls="none", extra={"line": line}, tags={"trench", "trench_line"},
+                    y=b.ground(clean[0][0], clean[0][1]))
+        lines.append(e)
+        for s in srcs:
+            remap[s] = e["id"]
+    for e in pieces:
+        b.remove(e)
+    return remap, lines
+
+
 def socket_pairs(inst):
     """Index pairs of pieces whose sockets coincide (joined, as GX1 and the snapping join them)."""
     socks = [(i, local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lp[0], lp[1])) for i, e in enumerate(inst) for lp, _ in SOCK[e["asset"]]]
@@ -749,8 +834,11 @@ def build(ctx):
         m["pos"][1] = round(e["pos"][1] + r0["min"][1], 3)
         rk = b.place("rack_axis", *local_to_world((x, z), e["yaw"], lx + 1.2, lz), e["yaw"] + 90, check=False, cls="none", y=m["pos"][1], tags={"rack"})
         m["rack"] = rk["id"]
-    for team, (x, z), fac, lab in ((0, ALLIED[1], "Allies", "Team A spawn"), (1, (0.0, -96.0), "Axis", "Team B spawn")):
-        m = sc.spawn("attacker" if team == 0 else "defender", [0], x, z, face=(0.0, 0.0), faction=fac, label=lab, rack="auto")
+    # TDM: team A plays the Defender role (src/match.cpp setupDeathmatch), so the Axis are team A in the village and the
+    # Allies team B on the beach, as in Assault
+    sc.rules["teamFaction"] = ["Axis", "Allies"]
+    for team, (x, z), fac, lab in ((0, (0.0, -96.0), "Axis", "Team A spawn (Axis)"), (1, ALLIED[1], "Allies", "Team B spawn (Allies)")):
+        m = sc.spawn("defender" if team == 0 else "attacker", [0], x, z, face=(0.0, 0.0), faction=fac, label=lab, rack="auto")
         m["team"], m["phases"] = team, []
     crates = 0
     for m in sc.spawns:
@@ -759,6 +847,11 @@ def build(ctx):
         x, z, yw = m["pos"][0], m["pos"][2], math.radians(m["yaw"])
         crates += b.try_place("crate_mixed_supply", x + math.sin(yw) * 3.0, z + math.cos(yw) * 3.0, m["yaw"], R, tags={"supply"}, radius=3.0) is not None
     rep["crates"] = crates
+    # LN1: the network becomes trench lines (no pieces, no joints); objectives link the lines
+    tremap, tlines = trench_lines(b, list(T.inst), pinned={T.inst[i]["id"] for i in T.pinned})   # ramps topping out at doors / the stronghold entrance keep their floor
+    for o in sc.objectives:
+        o["linkedStructures"] = sorted({tremap.get(i, i) for i in o["linkedStructures"]})
+    rep["trenchLines"] = len(tlines)
     err, warn = sc.validate()
 
     # ------------------------------------------------------------------ 9. checks: spawn exposure to the fixed guns

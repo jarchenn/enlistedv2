@@ -611,7 +611,7 @@ export function trenchNiche(pts, niche) {   // from the centreline into the rear
   return [[r3(c[0]), r3(c[1]), 1], [r3(c[0] + uz * 1.25), r3(c[1] - ux * 1.25), 1]];
 }
 function trenchPiece(id, name, desc, pts, opt, footprint, tourPts) {
-  const A = new Asset({ id, version: 3, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  const A = new Asset({ id, version: 3, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint, plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true, hidden: true });   // LN1: trenches are drawn as lines (docs/lines.md); pieces only load old maps (migrated)
   stdMaterials(A);
   trenchMud(A);
   const r = trenchRun(A, pts, opt);
@@ -659,7 +659,7 @@ export function trenchCorner() {
 }
 // entry: a 3.6 m ramp from grade down to the trench floor, then 2.4 m of trench; joins at local (+3, 0)
 export function trenchEntry() {
-  const A = new Asset({ id: "aw_trench_entry", version: 3, name: "Trench, entry ramp (wattle)", description: "Trench end with a log-stepped ramp from the ground down to the 1.5 m trench floor, wattle revetment and a small-arms cache in a niche. Joins a trench run at its +X end.", category: "Atlantic Wall", floors: 0, enterable: false, footprint: [6, 6.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  const A = new Asset({ id: "aw_trench_entry", version: 3, name: "Trench, entry ramp (wattle)", description: "Trench end with a log-stepped ramp from the ground down to the 1.5 m trench floor, wattle revetment and a small-arms cache in a niche. Joins a trench run at its +X end.", category: "Atlantic Wall", floors: 0, enterable: false, footprint: [6, 6.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true, hidden: true });
   stdMaterials(A);
   trenchMud(A);
   const D = TR.D;
@@ -691,7 +691,7 @@ export function trenchEntry() {
 // meet at the corners of the open crossing; a tee closes its fourth side with a wall. GX1 carves the arms from the
 // trench block's `branches` and generates their revetment too (terrain_blend.cpp: a branch 3 m or longer is an arm).
 function trenchJunction(id, name, desc, dirs) {
-  const A = new Asset({ id, version: 1, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint: [9.6, 9.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
+  const A = new Asset({ id, version: 1, name, category: "Atlantic Wall", description: desc, floors: 0, enterable: false, footprint: [9.6, 9.6], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true, hidden: true });
   stdMaterials(A);
   trenchMud(A);
   const { D, HW, RV, FILL, PARADOS } = TR;

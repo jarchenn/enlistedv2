@@ -27,6 +27,7 @@ struct WallField {
 };
 
 // Runtime (non-saved) state for one placed instance. Rebuilt whenever Instance::rev changes.
+struct LineBuildOut;   // lines.h (LN1)
 struct InstanceRT {
   uint64_t id = 0; uint32_t rev = 0;
   const AssetDef* asset = nullptr;
@@ -53,8 +54,10 @@ struct InstanceRT {
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
   GpuMesh pathMesh; uint32_t pathGround = ~0u, pathRev = 0; std::vector<uint8_t> slabCut;   // path entities (paths.cpp)
+  vec4 contact[5]{}; uint32_t contactRev = 0, contactGround = ~0u;   // MA2: ground under the walls (App::contactProfile)
   GpuMesh earthMesh; uint64_t earthKey = 0; uint32_t earthGround = ~0u;   // GX1: generated revetment / retaining skirt (terrain_blend.cpp)
-  std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut
+  std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut; a line's bays (LN1)
+  std::shared_ptr<LineBuildOut> line; GpuMesh lineMesh; uint32_t lineGround = ~0u;   // LN1 line features (lines.cpp): the builder's output
   // nature scatter patches (nature.cpp): stones as one merged mesh, plants as a grass-shader instance buffer
   GpuMesh natMesh; GLuint natVbo = 0; int natCount = 0; uint32_t natRev = 0, natGround = ~0u; uint64_t natFoot = 0;
   vec3 natMin{0}, natMax{0}; std::vector<GrassInstance> natInst; std::vector<vec4> natPos; std::vector<vec3> natGy; float natCy = 0;   // natGy: item xz + ground y
@@ -156,6 +159,7 @@ public:
   // ---- runtime/doc management
   const AssetDef* assetFor(const Instance& i) const;
   mat4 instanceMatrix(const Instance& i) const;
+  const vec4* contactProfile(const Instance& i, InstanceRT& r);   // MA2: ground-contact grid (app.cpp)
   void syncRuntime();
   void destroyRT(InstanceRT& r);
   void buildRT(const Instance& i, InstanceRT& r);

@@ -18,6 +18,7 @@
 // In a session entered from Creative (drop-in, Explore from start) placements and removals are real map edits
 // (placeInstance, the editor's undo stack, the map marked dirty); otherwise they stay a session overlay.
 #include "app.h"
+#include "lines.h"
 #include "editor_nav.h"
 #include "palette.h"
 #include "snap.h"
@@ -334,6 +335,7 @@ void App::rebuildSectionBodies(const Instance& i, InstanceRT& r) {
     if (p.sec >= 0 && p.sec < (int)r.secCut.size() && r.secCut[p.sec]) continue;
     (p.playerOnly ? player : solid).push_back(p);
   }
+  { extern void lineColliders(const InstanceRT&, std::vector<Part>&, std::vector<Part>&); lineColliders(r, solid, player); }   // LN1: a line's uncut bays
   uint64_t base = i.id << 16;
   if (!solid.empty()) r.staticBody = Physics::addStatic(Physics::buildShape(solid), i.pos, yawQuat(i.yaw), base);
   if (!player.empty() && r.asset->defense.traversal != "slow") r.playerBody = Physics::addPlayerOnly(Physics::buildShape(player), i.pos, yawQuat(i.yaw), base);
@@ -373,6 +375,26 @@ void App::blastDefenses(vec3 p, float dmg, float radius) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     InstanceRT& r = it->second;
     if (r.asset->defense.kind.empty() || r.defDestroyed) continue;
+    if (r.line) {   // LN2: a line's bays (wire, sandbags) each take the blast by their own distance; a cut bay opens a gap
+      if (r.secHp.empty()) continue;
+      vec3 lp = p - i.pos;   // lines have yaw 0: instance space
+      std::vector<float> near(r.secHp.size(), 1e9f);
+      for (auto& c : r.line->colliders) {
+        if (c.section < 0 || c.section >= (int)near.size() || r.secCut[c.section]) continue;
+        vec3 q = glm::inverse(c.part.rot) * (lp - c.part.center), h = c.part.size * 0.5f;
+        near[c.section] = std::min(near[c.section], glm::length(glm::clamp(q, -h, h) - q));
+      }
+      bool any = false, all = true;
+      for (size_t s = 0; s < near.size(); ++s) {
+        if (r.secCut[s] || near[s] > radius) continue;
+        r.secHp[s] -= dmg * (1.0f - near[s] / radius);
+        if (r.secHp[s] <= 0) { r.secCut[s] = 1; any = true; fx.impact(p, vec3(0, 1, 0), r.asset->defense.kind == "wire" ? "metal" : "dirt"); }
+      }
+      for (uint8_t c : r.secCut) if (!c) all = false;
+      if (any) { rebuildSectionBodies(i, r); audio.play(r.asset->defense.kind == "wire" ? "ping" : "explosion", i.pos, 0.5f); }
+      if (all) r.defDestroyed = true;
+      continue;
+    }
     vec3 lp = glm::inverse(yawQuat(i.yaw)) * (p - i.pos);
     float dist = glm::length(glm::clamp(lp, r.asset->bmin, r.asset->bmax) - lp);
     if (dist > radius) continue;

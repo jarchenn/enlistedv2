@@ -13,16 +13,20 @@
 #include <thread>
 
 // ---------------------------------------------------------------- presets
+// P3 A/B: NMK_PRESET_OLD=1 gives the pre-P3 Low / Medium values (presets, the shadow / probe / SSAO knobs, grass Low radius)
+bool presetsOld() { static const bool o = std::getenv("NMK_PRESET_OLD") != nullptr; return o; }
 GraphicsOpts presetOpts(GfxPreset p) {
   GraphicsOpts g;   // Medium: the built-in defaults (Renderer::Quality, Grass, Fx, the cull rules in maps.json)
+  if (presetsOld() && p != GfxPreset::High) g.shadowLights = 4;
   if (p == GfxPreset::Low) {
-    g.resScale = 0.85f; g.shadowQuality = 0;
+    g.resScale = 0.5f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output (was 0.85 bilinear)
     g.cloudShadows = false; g.shafts = false; g.ssr = false; g.ssao = false;
-    g.grass = 1; g.grassWind = false; g.renderDist = 600; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
+    g.bloom = presetsOld();                              // P3: no bloom on Low
+    g.grass = 1; g.grassWind = false; g.renderDist = presetsOld() ? 600 : 450; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::High) {
-    g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;
+    g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;   // P1: High stays native
     g.grass = 3; g.renderDist = 2500; g.particles = 1.5f; g.dustMotes = 2;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
     g.materials = 2;                                     // GX5: + parallax on height-capable texture sets
@@ -45,7 +49,7 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"grass", g.grass}, {"grassWind", g.grassWind},
-                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap},
+                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
@@ -73,6 +77,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.materials = std::clamp(q.value("materialDetail", g.materials), 0, 2);
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
+    { std::string m = q.value("upscaling", std::string()); if (m == "temporal") u.upscale = 0; else if (m == "spatial") u.upscale = 1; else if (m == "off") u.upscale = 2; }
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
@@ -181,7 +186,18 @@ void Settings::apply(App& app) {
   const GraphicsOpts& g = s.gfx;
   Renderer& R = app.R;
   R.setResolutionScale(g.resScale);
-  R.setShadowSizes(g.shadowQuality == 0 ? 2048 : 4096, g.shadowQuality == 0 ? 1024 : g.shadowQuality == 2 ? 4096 : 2048);
+  if (R.upscaleMode != s.upscale) { R.upscaleMode = s.upscale; R.resetTemporal(); }   // render() re-derives the internal size
+  // P3 per-tier shadow / post costs (docs/settings.md): shadowQuality 0 Low, 1 Medium, 2 High (High = the pre-P3 values)
+  const int sq = std::clamp(g.shadowQuality, 0, 2);
+  const bool old = presetsOld();
+  R.setShadowSizes(old ? (sq == 0 ? 2048 : 4096) : (sq == 0 ? 1024 : sq == 1 ? 2048 : 4096), sq == 0 ? 1024 : sq == 2 ? 4096 : 2048);
+  R.shadowTier = sq;
+  R.q.shadowNearR = old || sq == 2 ? 40.0f : sq == 1 ? 32.0f : 28.0f;   // texels: Low 5.5 cm, Medium 3.1 cm, High 2.0 cm
+  R.q.shadowTaps = old || sq == 2 ? 16 : sq == 1 ? 6 : 4;
+  R.q.farEvery = old || sq == 2 ? 2 : sq == 1 ? 4 : 8;
+  R.q.leafShadowLodM = old || sq == 2 ? 12.0f : sq == 1 ? 8.0f : 4.0f;
+  R.q.ssaoDiv = old || g.ssaoFull ? 2 : 4;                              // not full resolution: quarter (Medium)
+  R.q.probeHalf = !old && g.gi == 1;                                    // near-probe GI (Medium): half the capture budget
   R.setSsaoFull(g.ssaoFull);
   R.q.farCascade = g.farCascade; R.q.cloudShadows = g.cloudShadows; R.q.shafts = g.shafts; R.q.ssr = g.ssr; R.q.ssao = g.ssao; R.q.bloom = g.bloom;
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
@@ -210,7 +226,7 @@ void Settings::apply(App& app) {
 void Settings::capture(const App& app) {
   GraphicsOpts& g = s.gfx; const Renderer& R = app.R;
   g.resScale = R.resolutionScale();
-  g.shadowQuality = R.shadowNearPx() < 4096 ? 0 : R.shadowFarPx() >= 4096 ? 2 : 1;
+  g.shadowQuality = R.shadowTier;
   g.farCascade = R.q.farCascade; g.cloudShadows = R.q.cloudShadows; g.shafts = R.q.shafts; g.ssr = R.q.ssr; g.ssao = R.q.ssao; g.bloom = R.q.bloom;
   g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds;
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
@@ -227,6 +243,7 @@ void settingsInit(App& app, bool selftest) {
   S.persist = !selftest;
   if (selftest) {   // self-tests: Medium defaults, nothing read or written, nothing applied
     if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale
+    if (const char* e = std::getenv("NMK_UPSCALE")) S.s.upscale = app.R.upscaleMode = e[0] == 's' ? 1 : e[0] == 'o' ? 2 : 0;   // temporal | spatial | off (kept by preset applies)
     return;
   }
   if (!S.load(S.path())) {
@@ -262,9 +279,10 @@ bool settingsMenuItem() {
 void settingsWindow(App& app) {
   Settings& S = settings();
   static bool wasOpen = false, pendingSave = false;
+  static UserSettings applied;   // what is in effect: edits wait for Apply, closing without it drops them
   if (S.open && app.mode == Mode::Explore && !app.pauseMenu && !app.showLoadout) S.open = false;   // back in play: the cursor is captured
-  if (!S.open) { S.rebinding.clear(); if (wasOpen || pendingSave) S.save(); wasOpen = pendingSave = false; return; }
-  if (!wasOpen) S.capture(app);   // on opening: the editor View menu / Loadout may have changed something
+  if (!S.open) { S.rebinding.clear(); if (wasOpen) S.s = applied; if (wasOpen || pendingSave) S.save(); wasOpen = pendingSave = false; return; }
+  if (!wasOpen) { S.capture(app); applied = S.s; }   // on opening: the editor View menu / Loadout may have changed something
   wasOpen = true;
   UserSettings& u = S.s;
   const UserSettings before = u;
@@ -285,6 +303,8 @@ void settingsWindow(App& app) {
       ImGui::Separator();
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
+      { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Upscaling", &u.upscale, um, 3);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Below 100 %% resolution: Temporal rebuilds full detail over several frames (sharpest),\nSpatial upscales each frame (fastest on the Mac), Off renders at full resolution."); }
       { const char* sq[] = {"Low (2048 / 1024)", "Medium (4096 / 2048)", "High (4096 / 4096)"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Shadow quality", &g.shadowQuality, sq, 3); }
       ImGui::Checkbox("Far shadow cascade", &g.farCascade); ImGui::SameLine(220); ImGui::Checkbox("Cloud shadows", &g.cloudShadows);
       ImGui::Checkbox("Ambient occlusion", &g.ssao); ImGui::SameLine(220); ImGui::BeginDisabled(!g.ssao); ImGui::Checkbox("Full-resolution AO", &g.ssaoFull); ImGui::EndDisabled();
@@ -402,17 +422,23 @@ void settingsWindow(App& app) {
     ImGui::EndTabBar();
   }
   ImGui::Separator();
-  if (ImGui::Button("Defaults (Medium)")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; applyNow = true; }
+  const bool dirty = !(u == applied);
+  if (ImGui::Button("Defaults (Medium)")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; }
+  ImGui::SameLine();
+  ImGui::BeginDisabled(!dirty);
+  if (ImGui::Button("Apply")) applyNow = true;
+  ImGui::EndDisabled();
   ImGui::SameLine();
   if (ImGui::Button("Close")) S.open = false;
   ImGui::SameLine();
-  ImGui::TextDisabled(S.persist ? "saved to settings_user.json" : "self-test: not saved");
+  ImGui::TextDisabled(dirty ? "changes not applied yet" : S.persist ? "saved to settings_user.json" : "self-test: not saved");
   ImGui::End();
-  // apply: immediately for everything except the two sliders that rebuild targets / the UI (on release)
-  UserSettings cmp = u; cmp.gfx.resScale = before.gfx.resScale; cmp.uiScale = before.uiScale;
-  if (!(cmp == before)) applyNow = true;
-  if (u.keys != before.keys) { app.loadBindings(); saveNow = true; }   // re-reads bindings.json, then the overrides (settingsApplyKeys)
-  if (applyNow) { S.apply(app); saveNow = true; }
+  (void)before;
+  // apply: only on the Apply button; closing the window without it drops the edits
+  if (applyNow) {
+    if (u.keys != applied.keys) app.loadBindings();   // re-reads bindings.json, then the overrides (settingsApplyKeys)
+    S.apply(app); applied = u; saveNow = true;
+  }
   pendingSave = pendingSave || saveNow;
   if (pendingSave && !ImGui::IsAnyItemActive()) { S.save(); pendingSave = false; }   // not every frame of a slider drag
 }

@@ -90,6 +90,7 @@ include(cmake/lt4.cmake)    # L4: ambientCG texture layer, --selftest-textures
 include(cmake/lasso.cmake)  # Lasso tool: multi-select, elevation, water fill, ground paint, move land
 include(cmake/swim.cmake)   # swimming, underwater view, breath (swim.cpp)
 include(cmake/gx1.cmake)    # GX1: terrain conformance (terrain_blend.cpp)
+include(cmake/ln1.cmake)    # LN1: line features (lines.cpp), lasso Line mode
 if(MINGW)
   target_link_options(NormandyMapmaker PRIVATE -static -mwindows -s)
   target_link_libraries(NormandyMapmaker PRIVATE winmm ole32)

@@ -6,6 +6,7 @@
 //     exposure to known threats, spacing to teammates (8 m), reservations, and a firing position on the threats.
 #include "ai_core.h"
 #include "app.h"
+#include "lines.h"
 #include <algorithm>
 #include <cmath>
 
@@ -68,7 +69,7 @@ void AiCore::addAuthoredCover() {
     auto it = G.app.rt.find(in.id);
     if (it == G.app.rt.end() || !it->second.asset) continue;
     quat q = yawQuat(in.yaw);
-    for (auto& cp : it->second.asset->navMeta.cover) {
+    for (auto& cp : it->second.line ? it->second.line->cover : it->second.asset->navMeta.cover) {   // LN2: a line's bays carry their pieces' cover
       CoverPoint c; c.p = in.pos + q * cp.p; c.n = q * App::forward(cp.yaw, 0) * -1.0f; c.n.y = 0;
       if (glm::length(c.n) > 0.1f) c.n = glm::normalize(c.n);
       c.high = cp.high; c.peekL = cp.peekLeft; c.peekR = cp.peekRight; c.peekOver = cp.peekOver; c.authored = true;

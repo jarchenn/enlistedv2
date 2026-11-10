@@ -17,6 +17,10 @@ def instance_json(e, cat):
 
 def write_map(path, *, name, template_id, template_version, seed, width, depth, builder, scenario_json,
               explore_start=None, camera=None, bookmarks=None, extra=None):
+    from .lines import pieces_to_lines   # LN2: fence / wire / wall / hedge pieces become lines (as the engine migrates)
+    n_pieces, n_lines = pieces_to_lines(builder, scenario_json)
+    if n_pieces:
+        print("lines: %d pieces -> %d lines" % (n_pieces, n_lines))
     j = dict(extra or {})
     j.update({
         "format": "normandy-mapmaker-map", "schemaVersion": 1, "name": name,

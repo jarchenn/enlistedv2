@@ -11,6 +11,7 @@ public:
   bool slowFrames = false;   // simulate 10 fps frames (frame-drop tests)
   bool realTime = false;     // wall-clock frame time (LAN tests: processes must share one clock)
   int exitCode = 0;
+  void extCheck(bool ok, const std::string& what) { check(ok, what); }   // suites outside the stage machine (selftest_lines.cpp) report here
 private:
   bool bench;
   int stage = 0;
@@ -58,6 +59,7 @@ private:
   void editorUpdate(App& app, float dt);    // selftest_editor.cpp (3300): map size, chunks, cuts, camera, drop-in
   void villageUpdate(App& app, float dt);   // selftest_village.cpp (1300 build, 1350 benchmark)
   void structuresUpdate(App& app, float dt);   // selftest_structures.cpp (3800): W4 structure assets
+  void linesLn2Update(App& app, float dt);    // selftest_lines_ln2.cpp (4600): LN2 fence / wire / wall / hedge lines
   void mapsUpdate(App& app, float dt);         // selftest_maps.cpp (4100): W5 default maps
   bool terrainBaseChecks(App& app, const TemplateInfo& t, const json& mj);   // selftest_maps.cpp: W5b terrain-only template
   void authoredChecks(App& app, const TemplateInfo& t, const json& mj);     // selftest_maps.cpp: a saved map promoted to a template
