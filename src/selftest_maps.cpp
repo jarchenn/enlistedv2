@@ -36,7 +36,7 @@ std::vector<int> mapTemplates(App& app) {
   return v;
 }
 struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; };   // gate: gameplay view held to the frame target
-struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}; };   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
+struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}, abCpu[2] = {}; };   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
 bool thumbOnly = false;
 std::vector<int> sTpl; size_t sTi = 0;
@@ -342,7 +342,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       json pj = json::array(); double worstAvg = 0, worstEd = 0, worstPre[3] = {0, 0, 0}, worstNight = 0;
       for (auto& p : sPerf) {
         pj.push_back({{"view", p.name}, {"gameplay", p.gate}, {"preset", presetName((GfxPreset)p.preset)}, {"night", p.night}, {"frames", p.frames}, {"avgMs", p.ms}, {"worstMs", p.worst}, {"draws", p.draws}, {"tris", p.tris}, {"gpuMs", p.gpu}, {"gpuPassMs", passJson(p.pass)}});
-        if (p.abN[0] && p.abN[1]) pj.back()["ab"] = {{"frames", {p.abN[0], p.abN[1]}}, {"frameMs", {p.abMs[0], p.abMs[1]}}, {"gpuPassMs", {passJson(p.abPass[0]), passJson(p.abPass[1])}}, {"probeCpuMs", {p.abProbeCpu[0], p.abProbeCpu[1]}}, {"probesPerFrame", {p.abProbes[0], p.abProbes[1]}}};
+        if (p.abN[0] && p.abN[1]) pj.back()["ab"] = {{"frames", {p.abN[0], p.abN[1]}}, {"frameMs", {p.abMs[0], p.abMs[1]}}, {"gpuPassMs", {passJson(p.abPass[0]), passJson(p.abPass[1])}}, {"probeCpuMs", {p.abProbeCpu[0], p.abProbeCpu[1]}}, {"probesPerFrame", {p.abProbes[0], p.abProbes[1]}}, {"cpuMs", {p.abCpu[0], p.abCpu[1]}}};
         if (p.night) { worstNight = std::max(worstNight, p.ms); continue; }   // L2: Night is reported, never gated
         if (p.gate) worstPre[p.preset] = std::max(worstPre[p.preset], p.ms);
         if (p.preset != (int)GfxPreset::Medium) continue;   // Low / High: reported below, never gated
@@ -384,7 +384,8 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       static int lastBlk = -1, blkFrames = 0;
       int blk = stageTime < abT0 ? -1 : std::min(9, (int)((stageTime - abT0) / 0.4f));
       Renderer::Perf A, B = std::string(abEnv) == "all" ? Renderer::Perf::legacy() : A;
-      if (std::string(abEnv) != "all") { A.set(abEnv, true); B.set(abEnv, false); }
+      if (std::string(abEnv) != "all")   // one switch, or a comma list (R1: the combination)
+        for (std::string l = abEnv; !l.empty();) { size_t c = l.find(','); std::string n = l.substr(0, c); A.set(n, true); B.set(n, false); l = c == std::string::npos ? "" : l.substr(c + 1); }
       bool base = blk >= 0 && blk % 2 == 0;
       if (blk != lastBlk) { lastBlk = blk; blkFrames = 0; app.R.perf = base ? B : A; }
       if (blk >= 0 && stageTime < measEnd && ++blkFrames > 5) {
@@ -393,6 +394,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         for (int i = 0; i < GP_Count; ++i) p.abPass[s][i] = (p.abPass[s][i] * p.abN[s] + app.R.gpuPassMs[i]) / (p.abN[s] + 1);
         p.abProbeCpu[s] = (p.abProbeCpu[s] * p.abN[s] + app.R.stats.probeCpuMs) / (p.abN[s] + 1);
         p.abProbes[s] = (p.abProbes[s] * p.abN[s] + app.R.stats.probes) / (p.abN[s] + 1);
+        p.abCpu[s] = (p.abCpu[s] * p.abN[s] + app.R.stats.cpuMs) / (p.abN[s] + 1);   // R1: render() CPU time
         ++p.abN[s];
       }
     }

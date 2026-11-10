@@ -85,6 +85,16 @@ bool settingsSelfTest(App& app, float dt) {
     { std::ofstream(rt) << R"({"graphics":{"preset":"Medium","drawDistance":1.5}})"; Settings c; c.load(rt);   // PF2: the old multiplier key
       T->check(std::fabs(c.s.gfx.renderDist - 1800.0f) < 0.5f && c.s.toJson()["graphics"].value("renderDistance", 0.0f) == 1800.0f,
                "render distance: an old file's drawDistance x1.5 migrates to 1800 m and is saved as renderDistance"); }
+    {   // G1: Ultra grass is GrassQuality 4, appended; saved 0..3 keep their meaning, Ultra survives a save and a fresh load
+      bool old = true;
+      for (int q = 0; q <= 3; ++q) { std::ofstream(rt) << "{\"graphics\":{\"preset\":\"Medium\",\"grass\":" << q << "}}"; Settings c; c.load(rt); old = old && c.s.gfx.grass == q; }
+      Settings c; c.s.gfx = presetOpts(GfxPreset::Medium); c.s.gfx.grass = 4; bool w4 = c.save(rt);
+      Settings d; bool r4 = d.load(rt);   // as on the next start
+      std::ofstream(rt) << R"({"graphics":{"preset":"Medium","grass":9}})"; Settings e; e.load(rt);
+      bool noPreset = true; for (GfxPreset p : {GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) noPreset = noPreset && presetOpts(p).grass != 4;
+      T->check(old && w4 && r4 && d.s.gfx.grass == 4 && d.s.preset() == GfxPreset::Custom && e.s.gfx.grass == 4 && noPreset && std::string(grassPreset(GrassQuality::Ultra).name) == "Ultra",
+               "grass Ultra (4): saved Off / Low / Medium / High (0-3) load unchanged, Ultra saves and reloads as 4 (Custom), out-of-range clamps to Ultra, no graphics preset sets it");
+    }
     { std::ofstream(rt) << "{ not json"; Settings c; c.s.fov = 90; c.load(rt);
       T->check(c.s == UserSettings{}, "a broken file falls back to the defaults"); }
     { Settings c; c.s.adsSens = 0.5f; c.s.invertY = true;
@@ -119,6 +129,15 @@ bool settingsSelfTest(App& app, float dt) {
     const AssetDef* h = app.lib.find("house_farmhouse_2story");
     if (h) app.placeInstance(h, vec3(0, 0, -20), 20.0f);
     app.camPos = vec3(14, 6, 6); app.camYaw = 25; app.camPitch = -8;
+    {   // G1: Ultra grass on top of Medium changes the grass only (no shadow map size, probes, MSAA, lights, jitter)
+      S.applyPreset(app, GfxPreset::Medium);
+      const Renderer& R = app.R;
+      int sn = R.shadowNearPx(), sf = R.shadowFarPx(), ms = R.msaa(), gi = R.lt.gi, sl = R.lt.shadowLights, tp = R.q.taaPhases;
+      S.s.gfx.grass = 4; S.apply(app);
+      T->check(app.grass.quality == GrassQuality::Ultra && R.shadowNearPx() == sn && R.shadowFarPx() == sf && R.msaa() == ms && R.lt.gi == gi && R.lt.shadowLights == sl && R.q.taaPhases == tp,
+               fmt("Ultra grass applied live over Medium: grass Ultra; shadows %d / %d, MSAA %d, GI %d, %d shadowed lights, %d jitter phases unchanged", sn, sf, ms, gi, sl, tp));
+      S.applyPreset(app, GfxPreset::Medium);
+    }
     next(); break;
   }
   case 1: case 2: case 3: {   // ---- Low, Medium, High live: targets, flags, a frame, frame time

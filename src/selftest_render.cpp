@@ -361,6 +361,24 @@ void build(App& app) {
       return false;
     });
   }
+  // R1 terrain material cache shots (rendering.md 13): close ground, a steep fresh crater, a diagonal across a chunk corner
+  for (int k = 0; k < 3; ++k) {
+    static const char* names[3] = {"render_r1_terrain_close", "render_r1_crater", "render_r1_chunk_diag"};
+    push(names[k], [k](App& a, float t) {
+      const float cs = Terrain::kChunkCells * Terrain::kCell;
+      vec2 c = a.terrain.org + glm::round((vec2(-40.0f, 60.0f) - a.terrain.org) / cs) * cs;   // a chunk corner
+      vec3 at = k == 0 ? vec3(-30.0f, 0, 8.0f) : k == 1 ? vec3(-10.0f, 0, 31.0f) : vec3(c.x + 4.5f, 0, c.y + 4.5f);
+      float yaw = k == 2 ? 45.0f : 0.0f, pitch = k == 0 ? -40.0f : k == 1 ? -32.0f : -14.0f;
+      if (t == 0) {
+        if (k == 1) { vec3 p(-10.0f, 0, 25.0f); p.y = a.terrain.height(p.x, p.z); a.craterAt(p, 3.0f, 1.6f, false); }
+        firstPerson(a, at, yaw, pitch);
+      }
+      a.eyeYaw = yaw; a.eyePitch = pitch;
+      if (t > 2.0f && t < 2.0f + 1.5f / 60.0f) pendingShot = outDir() / (std::string(names[k]) + ".png");
+      if (t > 2.3f && pendingShot.empty()) { chk(true, "%s -> selftest_out/%s.png", names[k], names[k]); return true; }
+      return false;
+    });
+  }
   push("leave first person", [](App& a, float t) {
     if (t == 0 && a.mode == Mode::Explore) a.exitExplore();
     return t > 0.3f;

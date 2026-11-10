@@ -414,6 +414,7 @@ layout(location=8) in vec3 aLp; layout(location=9) in vec3 aLn;   // PF2 HLOD ce
 uniform mat4 uModel, uVP; uniform vec4 uSnapAp;   // V6: w = 1 for snap chains, xz = the chain's texture origin
 uniform vec4 uInst;
 out vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; out vec4 vPar; flat out vec3 vEye; flat out vec4 vInstV;
+invariant gl_Position;   // R1 zprepass: kDepthVS computes the same depth
 void main(){
   vInstV = aInst.w > 1.5 ? vec4(aInst.xyz, 0.0) : uInst;
   vec4 w = uModel*vec4(aPos,1.0);
@@ -450,6 +451,9 @@ float gPix = 0.001;
 float res(float freq){ return 1.0 - smoothstep(0.18, 0.5, freq*gPix); }                       // 1 resolved .. 0 sub-pixel
 float vnF(vec3 p, float freq){ float w = res(freq); return w <= 0.0 ? 0.5 : mix(0.5, vnoise(p), w); }
 float fbmF(vec3 p, float f0){ float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ float w = res(f0); s += a*(w <= 0.0 ? 0.5 : mix(0.5, vnoise(p), w)); p *= 2.03; f0 *= 2.03; a *= 0.5; } return s; }
+uniform int uMatLod;   // R1 matlod: 1 = base pattern noise fades with the footprint of its world frequency (0: as before)
+float vnL(vec3 p, float freq){ return uMatLod == 1 ? vnF(p, freq) : vnoise(p); }
+float fbmL(vec3 p, float f0){ return uMatLod == 1 ? fbmF(p, f0) : fbm(p); }
 float lineAA(float mask, float w, float mean){ return mix(mask, mean, smoothstep(0.6*w, 2.5*w, gPix)); }   // mask of feature width w (m)
 // ---- walls, interiors and furniture (docs/interiors.md): per building copy parameters (SurfaceParams)
 flat in vec4 vInstV;                   // seed (0..1), wear (0..2), palette variation (0..1), room count: uInst, or per vertex (PF2 HLOD)
@@ -718,7 +722,7 @@ void main(){
   int pat = int(vPar.x + 0.5) % 100, tslot = texSlot(vPar.x, pat);   // L4: x = pattern + 100 * texture code (textures.cpp)
   vec3 alb = vAlb; float rough = vPar.y, metal = vPar.z; int grain = int(vPar.w+0.5);
   float h = 0.0, bump = 0.0, ao = 1.0;
-  if (texReplace(tslot)) { alb *= 0.94 + 0.08*vnoise(vAp*7.0); }   // L4: the set replaces the pattern (textures.json mode "replace")
+  if (texReplace(tslot)) { alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0); }   // L4: the set replaces the pattern (textures.json mode "replace")
   else if (pat == 1) { // coursed limestone: courses of varying height, irregular joints, pillowed faces
     vec2 uv = faceUV(vAp, vAn);
     float band = floor(uv.y / 0.62), fy = uv.y - band * 0.62;
@@ -737,19 +741,19 @@ void main(){
     else if (x > right) { left = right; k += 1.0; right = (k + 1.0) * L + (hash12(vec2(k + 1.0, row)) - 0.5) * 0.45 * L; }
     vec2 id = vec2(k, row);
     float ex = min(x - left, right - x), ey = min(fy - cy0, cy1 - fy);
-    float e = min(ex, ey) + (vnoise(vec3(uv * 9.0, 3.0)) - 0.5) * 0.018;
+    float e = min(ex, ey) + (vnL(vec3(uv * 9.0, 3.0), 9.0) - 0.5) * 0.018;
     float mortar = 1.0 - smoothstep(0.005, 0.02, e);
     float pillow = smoothstep(0.0, 0.06, e);
     float u = clamp((x - left) / max(right - left, 1e-3), 0.0, 1.0);
     float tilt = (hash12(id + 3.0) - 0.5) * (u - 0.5) + (hash12(id + 9.0) - 0.5) * ((fy - cy0) / max(rowH, 1e-3) - 0.5);
-    float pit = smoothstep(0.62, 0.8, vnoise(vec3(uv * 22.0, id.x)));
+    float pit = smoothstep(0.62, 0.8, vnL(vec3(uv * 22.0, id.x), 22.0));
     vec3 sc = alb * (0.74 + 0.4 * hash12(id));
     sc = mix(sc, sc * vec3(1.1, 0.98, 0.8), hash12(id + 11.0) * 0.85);          // ochre Caen limestone
     sc = mix(sc, sc * vec3(0.84, 0.88, 0.93), step(0.86, hash12(id + 5.0)) * 0.7);   // occasional grey stone
-    sc *= 0.8 + 0.38 * fbm(vec3(uv * 0.3, 9.0));                                     // macro variation along the wall
-    sc *= 0.9 + 0.16 * fbm(vec3(uv * 16.0, 5.0));
+    sc *= 0.8 + 0.38 * fbmL(vec3(uv * 0.3, 9.0), 0.3);                                     // macro variation along the wall
+    sc *= 0.9 + 0.16 * fbmL(vec3(uv * 16.0, 5.0), 16.0);
     sc *= 1.0 - 0.18 * pit;
-    vec3 mcol = vec3(0.50, 0.48, 0.43) * (0.85 + 0.22 * fbm(vec3(uv * 11.0, 2.0)));
+    vec3 mcol = vec3(0.50, 0.48, 0.43) * (0.85 + 0.22 * fbmL(vec3(uv * 11.0, 2.0), 11.0));
     alb = mix(sc, mcol, mortar);
     float damp = 1.0 - smoothstep(-0.2, 1.0, vAp.y);
     alb *= mix(1.0, 0.7, damp);
@@ -767,14 +771,14 @@ void main(){
     vec3 wc = alb * (0.82 + 0.28*hash12(vec2(pid, float(g)))) * (0.8 + 0.35*gr);
     if (pat == 10) {
       float wear = smoothstep(0.58, 0.72, fbm(vPc*9.0 + pid));
-      vec3 paint = alb * (0.9 + 0.1*fbm(vPc*3.0));
+      vec3 paint = alb * (0.9 + 0.1*fbmL(vPc*3.0, 3.0));
       vec3 bare = vec3(0.42,0.37,0.30)*(0.8+0.35*gr);
       wc = mix(paint, bare, wear);
       rough = mix(rough, 0.85, wear);
     }
     if (endGrain) {   // cut end: growth rings, darker, more absorbent
       vec2 q = vec2(vPc[(na+1)%3], vPc[(na+2)%3]) + vec2(hash12(vec2(pid, 1.0)), hash12(vec2(pid, 2.0))) * 0.3;
-      float ring = fract(length(q) * 55.0 + vnoise(vec3(q * 30.0, 1.0)) * 1.5);
+      float ring = fract(length(q) * 55.0 + vnL(vec3(q * 30.0, 1.0), 30.0) * 1.5);
       wc = alb * (0.62 + 0.18 * smoothstep(0.3, 0.6, ring));
       seam = 0.0; rough = min(1.0, rough + 0.15);
     }
@@ -782,17 +786,17 @@ void main(){
     rough = clamp(rough + (gr-0.5)*0.12, 0.2, 1.0);
     h = (1.0-seam) + gr*0.1; bump = 0.0025; ao = 1.0 - seam*0.3;
   } else if (pat == 3) { // lime plaster / whitewash
-    float n = fbm(vAp*1.7);
+    float n = fbmL(vAp*1.7, 1.7);
     float trowel = vnoise(vec3(faceUV(vAp, vAn) * vec2(3.0, 9.0), 7.0));
     alb *= 0.9 + 0.12*n + 0.05*trowel;
-    alb = mix(alb, alb*1.06, smoothstep(0.55, 0.7, fbm(vAp*0.6 + 3.0)));
+    alb = mix(alb, alb*1.06, smoothstep(0.55, 0.7, fbmL(vAp*0.6 + 3.0, 0.6)));
     float dirt = 1.0 - smoothstep(0.0, 0.5, fract(vAp.y) * 0.0 + (vAp.y - floor(vAp.y/3.0)*3.0));
     alb *= mix(1.0, 0.86, dirt*0.0);
-    h = fbm(vAp*14.0); bump = 0.0012;
+    h = fbmL(vAp*14.0, 14.0); bump = 0.0012;
     if (uMatLayer > 0 && abs(normalize(vAn).y) < 0.5) {   // GX5 two materials: the render over half-timber infill falls off
       // to the brick nogging behind (more on worn copies, at the foot and under the beams), with a broken rim
       vec2 uv = faceUV(vAp, vAn);
-      float lm = fbm(vec3(uv * 0.8, uInst.x * 23.0 + 61.0)) + 0.14 * (1.0 - smoothstep(0.0, 1.2, vAp.y)) + 0.05 * (vnoise(vec3(uv * 8.0, 62.0)) - 0.5);
+      float lm = fbmL(vec3(uv * 0.8, uInst.x * 23.0 + 61.0), 0.8) + 0.14 * (1.0 - smoothstep(0.0, 1.2, vAp.y)) + 0.05 * (vnL(vec3(uv * 8.0, 62.0), 8.0) - 0.5);
       float thr = 0.86 - 0.12 * uInst.y, fw = max(0.006, fwidth(lm) * 1.5);
       float lost = smoothstep(thr, thr + fw, lm), rimP = smoothstep(thr - 0.02, thr, lm) * (1.0 - lost);
       if (lost + rimP > 0.0) {
@@ -814,7 +818,7 @@ void main(){
       float edge = min(fx, 1.0-fx)*0.26;
       float gap = 1.0 - smoothstep(0.004, 0.012, edge);
       float v = hash12(vec2(tid, course));
-      alb *= (0.75 + 0.45*v) * (0.9+0.15*vnoise(vPc*12.0));
+      alb *= (0.75 + 0.45*v) * (0.9+0.15*vnL(vPc*12.0, 12.0));
       alb = mix(alb, alb*0.35, gap);
       h = fs*0.6 + (1.0-gap)*0.4; bump = 0.01;
       rough = clamp(rough - 0.15*v + 0.1, 0.3, 1.0);
@@ -825,16 +829,16 @@ void main(){
     vec2 id = floor(uv), f = fract(uv);
     float e = min(min(f.x,1.0-f.x), min(f.y,1.0-f.y))*0.3;
     float grout = 1.0 - smoothstep(0.004, 0.01, e);
-    alb *= (0.8 + 0.35*hash12(id)) * (0.9 + 0.15*fbm(vec3(uv*3.0,1.0)));
+    alb *= (0.8 + 0.35*hash12(id)) * (0.9 + 0.15*fbmL(vec3(uv*3.0,1.0), 10.0));
     alb = mix(alb, vec3(0.45,0.42,0.38), grout);
     rough = mix(rough - 0.15*hash12(id+3.0), 0.95, grout);
     h = 1.0-grout; bump = 0.002; ao = 1.0 - grout*0.3;
   } else if (pat == 6) { // iron / steel
-    float n = fbm(vAp*6.0);
+    float n = fbmL(vAp*6.0, 6.0);
     alb *= 0.8 + 0.3*n; rough = clamp(rough + (n-0.5)*0.3, 0.2, 1.0);
     h = n; bump = 0.0008;
   } else if (pat == 8) { // fabric
-    float n = vnoise(vAp*140.0)*0.5 + vnoise(vAp*9.0)*0.5;
+    float n = vnL(vAp*140.0, 140.0)*0.5 + vnL(vAp*9.0, 9.0)*0.5;
     alb *= 0.86 + 0.18*n; h = n; bump = 0.0006;
   } else if (pat == 9) { // brick
     vec2 uv = faceUV(vAp, vAn);
@@ -847,11 +851,11 @@ void main(){
     alb = mix(alb, vec3(0.55,0.53,0.5), mortar);
     h = 1.0-mortar; bump = 0.006;
   } else if (pat == 11) { // poured concrete: board formwork, aggregate, damp foot
-    float n = fbm(vAp*1.6);
+    float n = fbmL(vAp*1.6, 1.6);
     float bj = abs(fract(vAp.y/0.22 + hash12(floor(vAp.xz*0.5))*0.0)-0.5)*0.22;
     float board = 1.0 - smoothstep(0.004, 0.012, 0.11 - bj);
     float grainB = vnoise(vec3(faceUV(vAp, vAn).x*2.0, vAp.y*40.0, 3.0));
-    float agg = smoothstep(0.72, 0.85, vnoise(vAp*70.0));
+    float agg = smoothstep(0.72, 0.85, vnL(vAp*70.0, 70.0));
     alb *= 0.8 + 0.28*n; alb *= 1.0 - board*0.12 - grainB*0.05;
     alb = mix(alb, alb*vec3(1.15,1.12,1.05), agg*0.5);
     float damp = 1.0 - smoothstep(-0.3, 0.9, vAp.y);
@@ -861,8 +865,8 @@ void main(){
     // path surfaces in path coordinates (x across, z along, metres): fixed texel density at any length / width.
     // vPar.w = edge factor (0 at the border, 1 from 0.45 m in): soil / verge transition at the margins.
     vec2 q = vAp.xz; float edge = clamp(vPar.w, 0.0, 1.0);
-    vec3 soil = vec3(0.17, 0.135, 0.095) * (0.8 + 0.4 * fbm(vec3(q * 0.9, 4.0)));
-    vec3 verge = vec3(0.16, 0.21, 0.09) * (0.8 + 0.4 * vnoise(vec3(q * 3.0, 8.0)));
+    vec3 soil = vec3(0.17, 0.135, 0.095) * (0.8 + 0.4 * fbmL(vec3(q * 0.9, 4.0), 0.9));
+    vec3 verge = vec3(0.16, 0.21, 0.09) * (0.8 + 0.4 * vnL(vec3(q * 3.0, 8.0), 3.0));
     if (pat == 12) {
       // gravel: Voronoi stones 1.5-4 cm (two scales), grey / ochre / flint, soil showing between, pillowed tops
       float best = 9.0, second = 9.0; vec2 id = vec2(0.0);
@@ -879,36 +883,36 @@ void main(){
       float tint = hash12(id + 3.0);
       vec3 sc = tint < 0.45 ? vec3(0.40, 0.39, 0.37) : tint < 0.8 ? vec3(0.44, 0.39, 0.31) : vec3(0.27, 0.27, 0.29);
       sc *= 0.75 + 0.45 * hash12(id + 9.0);
-      float coarse = smoothstep(0.55, 0.75, vnoise(vec3(q * 1.3, 2.0)));   // patches of coarser / thinner stone
+      float coarse = smoothstep(0.55, 0.75, vnL(vec3(q * 1.3, 2.0), 1.3));   // patches of coarser / thinner stone
       vec3 between = mix(vec3(0.22, 0.2, 0.17), soil, 0.5);
       alb = mix(between, sc, stone * (0.7 + 0.3 * coarse));
-      alb *= 0.88 + 0.22 * fbm(vec3(q * 0.35, 6.0));
+      alb *= 0.88 + 0.22 * fbmL(vec3(q * 0.35, 6.0), 0.35);
       rough = mix(0.95, 0.78 + 0.12 * hash12(id), stone);
       h = stone * (0.6 + 0.4 * hash12(id + 5.0)) + 0.25 * coarse; bump = 0.012;
       ao = mix(0.75, 1.0, stone);
-      alb = mix(mix(soil, verge, smoothstep(0.35, 0.0, edge) * vnoise(vec3(q * 2.0, 1.0))), alb, smoothstep(0.0, 0.55, edge + 0.25 * (vnoise(vec3(q * 4.0, 3.0)) - 0.5)));
+      alb = mix(mix(soil, verge, smoothstep(0.35, 0.0, edge) * vnL(vec3(q * 2.0, 1.0), 2.0)), alb, smoothstep(0.0, 0.55, edge + 0.25 * (vnL(vec3(q * 4.0, 3.0), 4.0) - 0.5)));
     } else if (pat == 13) {
       // dirt: compacted soil, two worn wheel ruts 1.5 m apart, fine crumb, damp patches, patchy grass at the margin
       float rutA = exp(-pow((abs(q.x) - 0.75) / 0.18, 2.0));
       float crown = exp(-pow(q.x / 0.35, 2.0));
-      float crumb = vnoise(vec3(q * 38.0, 2.0)), clod = smoothstep(0.62, 0.8, vnoise(vec3(q * 9.0, 5.0)));
-      float damp = smoothstep(0.55, 0.78, fbm(vec3(q * 0.25, 7.0))) * (0.4 + 0.6 * rutA);
-      alb = soil * (0.82 + 0.3 * crumb) * (1.0 - 0.22 * rutA) * (1.0 + 0.1 * crown) * (0.85 + 0.3 * fbm(vec3(q * 0.18, 3.0)));
+      float crumb = vnL(vec3(q * 38.0, 2.0), 38.0), clod = smoothstep(0.62, 0.8, vnL(vec3(q * 9.0, 5.0), 9.0));
+      float damp = smoothstep(0.55, 0.78, fbmL(vec3(q * 0.25, 7.0), 0.25)) * (0.4 + 0.6 * rutA);
+      alb = soil * (0.82 + 0.3 * crumb) * (1.0 - 0.22 * rutA) * (1.0 + 0.1 * crown) * (0.85 + 0.3 * fbmL(vec3(q * 0.18, 3.0), 0.18));
       alb = mix(alb, alb * vec3(0.62, 0.6, 0.58), damp);
-      vec3 grassTint = mix(alb, verge, smoothstep(0.5, 0.8, vnoise(vec3(q * 1.6, 9.0))) * 0.6);
+      vec3 grassTint = mix(alb, verge, smoothstep(0.5, 0.8, vnL(vec3(q * 1.6, 9.0), 1.6)) * 0.6);
       alb = mix(alb, grassTint, crown * 0.6);   // grass in the centre strip between the ruts
       rough = mix(0.97, 0.8, damp);
       h = crumb * 0.25 + clod * 0.4 - rutA * 0.6 + crown * 0.2; bump = 0.008;
-      alb = mix(mix(soil, verge, smoothstep(0.5, 0.0, edge)), alb, smoothstep(0.0, 0.7, edge + 0.35 * (vnoise(vec3(q * 3.0, 4.0)) - 0.5)));
+      alb = mix(mix(soil, verge, smoothstep(0.5, 0.0, edge)), alb, smoothstep(0.0, 0.7, edge + 0.35 * (vnL(vec3(q * 3.0, 4.0), 3.0) - 0.5)));
     } else {
       // concrete slabs (2 m along the path): expansion seams, exposed aggregate, chipped seam edges, staining
       float sz = q.y / 2.0; float seamD = abs(fract(sz + 0.5) - 0.5) * 2.0;
       float seam = 1.0 - smoothstep(0.006, 0.014, seamD);
       float slabId = floor(sz + 0.5);
-      float n = fbm(vec3(q * 0.8, slabId));
-      float agg = smoothstep(0.7, 0.86, vnoise(vec3(q * 55.0, 1.0)));
-      float chip = smoothstep(0.62, 0.8, vnoise(vec3(q * 7.0, slabId + 3.0))) * (1.0 - smoothstep(0.01, 0.06, seamD));
-      float stain = smoothstep(0.58, 0.8, fbm(vec3(q * 0.4, 11.0)));
+      float n = fbmL(vec3(q * 0.8, slabId), 0.8);
+      float agg = smoothstep(0.7, 0.86, vnL(vec3(q * 55.0, 1.0), 55.0));
+      float chip = smoothstep(0.62, 0.8, vnL(vec3(q * 7.0, slabId + 3.0), 7.0)) * (1.0 - smoothstep(0.01, 0.06, seamD));
+      float stain = smoothstep(0.58, 0.8, fbmL(vec3(q * 0.4, 11.0), 0.4));
       alb = vec3(0.40, 0.39, 0.37) * (0.86 + 0.22 * n) * (0.92 + 0.12 * hash12(vec2(slabId, 7.0)));
       alb = mix(alb, alb * vec3(1.12, 1.08, 1.0), agg * 0.5);
       alb = mix(alb, alb * vec3(0.78, 0.76, 0.7), stain * 0.6);
@@ -934,10 +938,10 @@ void main(){
     float liftLine = (1.0 - smoothstep(0.004, 0.02, abs(fract(vAp.y / 1.2 + 0.5) - 0.5) * 1.2)) * vert;
     vec2 tp = vec2(fract(along / 0.9 + 0.5) - 0.5, fract(vAp.y / 0.72 + 0.5) - 0.5) * vec2(0.9, 0.72);
     float tie = (1.0 - smoothstep(0.009, 0.016, length(tp))) * vert;
-    float mott = fbm(vAp * 0.45);
+    float mott = fbmL(vAp * 0.45, 0.45);
     alb *= mix(1.0, tone, vert) * (0.93 + 0.1 * hash12(vec2(lift, 9.0))) * (0.68 + 0.6 * mott);
     alb *= 1.0 - joint * 0.22 - grainB * 0.06 - liftLine * 0.18 - tie * 0.5;
-    float nn = vnoise(vAp * 1.1);
+    float nn = vnL(vAp * 1.1, 1.1);
     float foot = (1.0 - smoothstep(0.0, 0.7 + 0.5 * nn, vAp.y)) * vert;
     alb = mix(alb, alb * vec3(0.4, 0.4, 0.31), foot);
     float lip = float(grain) * 0.1;
@@ -948,7 +952,7 @@ void main(){
       alb *= 1.0 - vert * (0.5 * band + 0.55 * streak);
     }
     float top = smoothstep(0.6, 0.9, an.y);
-    float lichen = top * smoothstep(0.45, 0.75, vnoise(vAp * 1.7 + 3.0));
+    float lichen = top * smoothstep(0.45, 0.75, vnL(vAp * 1.7 + 3.0, 1.7));
     alb = mix(alb, vec3(0.2, 0.21, 0.15), lichen * 0.45);
     rough = clamp(rough + joint * 0.06 - foot * 0.08, 0.3, 1.0);
     h = mott * 0.3 - joint * 0.6 + grainB * 0.15 - tie * 0.8 - liftLine * 0.3; bump = 0.004;
@@ -956,12 +960,12 @@ void main(){
   } else if (pat == 16) { // camouflage net (docs/bunkers.md#camouflage): disruptive olive / brown / dark blotches,
     // leafy scrim lumps with darker gaps, garnish tufts; part-local so the pattern follows each draped sheet
     vec2 uv = faceUV(vPc, vPn);
-    float b = fbm(vec3(uv * 0.7, 7.0));
+    float b = fbmL(vec3(uv * 0.7, 7.0), 0.7);
     vec3 c = mix(vec3(0.075, 0.085, 0.035), vec3(0.15, 0.125, 0.06), smoothstep(0.42, 0.55, b));
     c = mix(c, vec3(0.045, 0.045, 0.03), smoothstep(0.62, 0.7, b));
-    float strand = smoothstep(0.3, 0.62, vnoise(vec3(uv * 16.0, 5.0)));   // leafy scrim lumps, no regular grid (aliases)
-    float garn = smoothstep(0.55, 0.8, vnoise(vec3(uv * 5.0, 2.0)));
-    alb = c * (0.45 + 0.55 * max(strand, garn)) * (0.85 + 0.3 * vnoise(vec3(uv * 40.0, 1.0)));
+    float strand = smoothstep(0.3, 0.62, vnL(vec3(uv * 16.0, 5.0), 16.0));   // leafy scrim lumps, no regular grid (aliases)
+    float garn = smoothstep(0.55, 0.8, vnL(vec3(uv * 5.0, 2.0), 5.0));
+    alb = c * (0.45 + 0.55 * max(strand, garn)) * (0.85 + 0.3 * vnL(vec3(uv * 40.0, 1.0), 40.0));
     rough = 0.95; h = max(strand, garn); bump = 0.003; ao = 0.75 + 0.25 * h;
   } else if (pat == 17) { // lime render over rubble (docs/interiors.md, docs/rendering.md#rough-walls): broad drift, mineral
     // grain, pits, hairline cracks, uneven coats; mid-scale relief: the render bulging over the rubble behind it, trowel
@@ -971,17 +975,17 @@ void main(){
     vec3 an = normalize(vAn);
     float vert = 1.0 - smoothstep(0.45, 0.75, abs(an.y));
     float pv = uInst.z, wear = uInst.y, sd = uInst.x * 17.0;
-    float broad = fbm(vec3(uv * 0.33, sd));
+    float broad = fbmL(vec3(uv * 0.33, sd), 0.33);
     float coat = fbmF(vec3(uv * 1.3, 4.0 + sd), 1.3);
     float grn = vnF(vec3(uv * 85.0, 1.0), 85.0) * 0.6 + vnF(vec3(uv * 230.0, 2.0), 230.0) * 0.4;
-    float pit = lineAA(smoothstep(0.72, 0.88, vnoise(vec3(uv * 38.0, 5.0))), 0.008, 0.08);
+    float pit = lineAA(smoothstep(0.72, 0.88, vnL(vec3(uv * 38.0, 5.0), 38.0)), 0.008, 0.08);
     float crack = hairline(uv + sd, wear) * vert;
     float bulge = fbm(vec3(uv * vec2(0.9, 1.2), 40.0 + sd));
     float lump = fbmF(vec3(uv * 4.0, 41.0 + sd), 4.0);
-    float pm = fbm(vec3(uv * 0.6, 33.0 + sd)) + 0.04 * (lump - 0.5);
+    float pm = fbmL(vec3(uv * 0.6, 33.0 + sd), 0.6) + 0.04 * (lump - 0.5);
     float patchM = smoothstep(0.62, 0.62 + max(0.008, fwidth(pm) * 1.5), pm) * vert;
     float patchLip = smoothstep(0.595, 0.62, pm) * (1.0 - patchM) * vert;
-    float sp = fbm(vec3(uv * 0.85, 21.0 + sd)) + 0.16 * (1.0 - smoothstep(0.0, 1.3, vAp.y)) + 0.05 * vnoise(vec3(uv * 9.0, 6.0));
+    float sp = fbmL(vec3(uv * 0.85, 21.0 + sd), 0.85) + 0.16 * (1.0 - smoothstep(0.0, 1.3, vAp.y)) + 0.05 * vnL(vec3(uv * 9.0, 6.0), 9.0);
     float thr = 0.83 - 0.06 * wear;
     float spall = smoothstep(thr, thr + max(0.012, fwidth(sp) * 1.5), sp) * vert;
     float rim = smoothstep(thr - 0.035, thr, sp) * (1.0 - spall) * vert;
@@ -998,7 +1002,7 @@ void main(){
     float hollow = clamp((0.5 - bulge) * 2.2, 0.0, 1.0) * (1.0 - patchM);
     float streak = smoothstep(0.55, 0.86, vnF(vec3(uv.x * 7.0, uv.y * 0.35, 13.0 + sd), 7.0)) * vert * (1.0 - spall);
     alb *= 1.0 - 0.16 * rim - 0.2 * crack - 0.08 * hollow - 0.1 * streak * (0.5 + 0.5 * wear) - 0.05 * patchLip;
-    float nn = vnoise(vAp * 1.3);
+    float nn = vnL(vAp * 1.3, 1.3);
     float damp = (1.0 - smoothstep(0.0, 0.45 + 0.5 * nn, vAp.y)) * vert;
     alb = mix(alb, alb * vec3(0.7, 0.71, 0.64), damp * 0.85);
     float ro = sillRunoff(vAp) * vert;
@@ -1032,12 +1036,12 @@ void main(){
     bc = mix(bc, bc * vec3(0.72, 0.68, 0.72), hdr * step(0.62, hash12(id + 5.0)) * 0.75 * (1.0 - aaB));
     bc = mix(bc, bc * vec3(1.08, 1.03, 0.92), step(0.86, hash12(id + 9.0)) * 0.5 * pv * (1.0 - aaB));
     bc *= 0.9 + 0.14 * fbmF(vec3(uv * 18.0, id.x), 18.0);
-    bc *= 0.9 + 0.12 * fbm(vec3(uv * 0.4, 3.0 + uInst.x * 7.0));
+    bc *= 0.9 + 0.12 * fbmL(vec3(uv * 0.4, 3.0 + uInst.x * 7.0), 0.4);
     vec3 mcol = mix(alb * 0.95, vec3(0.6, 0.57, 0.51), 0.55) * (0.9 + 0.1 * vnF(vec3(uv * 60.0, 1.0), 60.0));
-    float chip = smoothstep(0.74, 0.88, vnoise(vec3(uv * 30.0, v * 7.0))) * (1.0 - smoothstep(0.0, 0.012, e)) * (1.0 - aa);
+    float chip = smoothstep(0.74, 0.88, vnL(vec3(uv * 30.0, v * 7.0), 30.0)) * (1.0 - smoothstep(0.0, 0.012, e)) * (1.0 - aa);
     alb = mix(bc, mcol, max(mortar, chip * 0.55));
     float streak = smoothstep(0.58, 0.86, vnF(vec3(uv.x * 6.0, uv.y * 0.3, 19.0), 6.0)) * smoothstep(0.5, 2.5, vAp.y);
-    float soot = smoothstep(0.55, 0.8, fbm(vec3(uv * 0.7, 23.0 + uInst.x * 3.0)));
+    float soot = smoothstep(0.55, 0.8, fbmL(vec3(uv * 0.7, 23.0 + uInst.x * 3.0), 0.7));
     alb *= (1.0 - 0.12 * streak) * (1.0 - 0.1 * soot * uInst.y) * (1.0 - 0.06 * mortar);
     rough = mix(clamp(rough + (v - 0.5) * 0.1, 0.5, 1.0), 0.95, mortar);
     // relief (m): mortar recessed 6 mm, brick faces pillowed 2 mm with 4 mm arris rounding, chips 3 mm, fired texture
@@ -1055,7 +1059,7 @@ void main(){
     float joint = lineAA(1.0 - smoothstep(0.002, 0.007, e), 0.004, 0.03);
     float arris = lineAA(1.0 - smoothstep(0.004, 0.022, e), 0.012, 0.08);
     float pv = uInst.z;
-    vec3 sc = alb * (1.0 + 0.12 * pv * (hash12(id) - 0.5)) * (0.92 + 0.12 * fbm(vec3(uv * 0.5, 4.0)));
+    vec3 sc = alb * (1.0 + 0.12 * pv * (hash12(id) - 0.5)) * (0.92 + 0.12 * fbmL(vec3(uv * 0.5, 4.0), 0.5));
     sc = mix(sc, sc * vec3(1.05, 1.0, 0.9), hash12(id + 11.0) * 0.35 * pv);
     float tool = vnF(vec3((uv.x + uv.y * 0.35) * 180.0, uv.y * 4.0, id.x), 180.0);
     float patina = fbmF(vec3(uv * 3.0, id.y), 3.0);
@@ -1091,13 +1095,13 @@ void main(){
     float pillow = lineAA(smoothstep(0.0, 0.07, e), 0.05, 0.75);
     float dome = sin(u * PI) * sin(vr * PI);
     float tilt = (hash12(id + 3.0) - 0.5) * (u - 0.5) + (hash12(id + 9.0) - 0.5) * (vr - 0.5);
-    float pit = lineAA(smoothstep(0.72, 0.86, vnoise(vec3(uv * 55.0, id.x))), 0.006, 0.06);
+    float pit = lineAA(smoothstep(0.72, 0.86, vnL(vec3(uv * 55.0, id.x), 55.0)), 0.006, 0.06);
     float face = fbmF(vec3(uv * 6.0, id.x * 1.3 + id.y), 6.0);
     float pv = uInst.z;
     vec3 sc = alb * 0.84 * (1.0 + 0.24 * pv * (hash12(id + uInst.x * 13.0) - 0.5));
     sc = mix(sc, sc * vec3(1.06, 0.99, 0.86), hash12(id + 11.0) * 0.55 * pv);
     sc = mix(sc, sc * vec3(0.9, 0.93, 0.97), step(0.88, hash12(id + 5.0)) * 0.45);
-    sc *= 0.86 + 0.26 * fbm(vec3(uv * 0.3, 9.0 + uInst.x * 5.0));
+    sc *= 0.86 + 0.26 * fbmL(vec3(uv * 0.3, 9.0 + uInst.x * 5.0), 0.3);
     sc *= 0.92 + 0.12 * fbmF(vec3(uv * 16.0, 5.0), 16.0);
     sc *= (1.0 - 0.08 * pit) * (0.95 + 0.1 * face);
     vec3 mcol = mix(alb * 0.78, vec3(0.44, 0.42, 0.37), 0.5) * (0.88 + 0.18 * fbmF(vec3(uv * 11.0, 2.0), 11.0));
@@ -1138,18 +1142,18 @@ void main(){
     gWear = wear;
     vec3 tints[5] = vec3[5](vec3(0.71, 0.68, 0.6), vec3(0.68, 0.61, 0.46), vec3(0.56, 0.61, 0.62), vec3(0.6, 0.63, 0.53), vec3(0.69, 0.58, 0.52));
     vec3 tint = tints[int(hash12(vec2(s, 3.0)) * 4.99)];
-    float n = fbm(vec3(uv * 1.4, s));
+    float n = fbmL(vec3(uv * 1.4, s), 1.4);
     float grn = vnF(vec3(uv * 70.0, 2.0), 70.0);
     float bulge = fbm(vec3(uv * vec2(1.0, 1.3), s + 40.0));                     // hand-plastered wall: gentle bulges
-    float pm = fbm(vec3(uv * 0.8, s + 33.0));
+    float pm = fbmL(vec3(uv * 0.8, s + 33.0), 0.8);
     float patchM = smoothstep(0.64, 0.64 + max(0.008, fwidth(pm) * 1.5), pm) * vert;   // replastered patches
     vec3 plaster = alb * (0.92 + 0.1 * n) * (0.96 + 0.05 * grn);
-    float mott = fbm(vec3(uv * 0.7, s + 3.0)), trow = vnoise(vec3(uv * vec2(2.5, 7.0), s + 5.0));
+    float mott = fbmL(vec3(uv * 0.7, s + 3.0), 0.7), trow = vnoise(vec3(uv * vec2(2.5, 7.0), s + 5.0));
     vec3 paint = mix(alb, tint, 0.65 * pv + 0.2) * (0.84 + 0.2 * n + 0.1 * (mott - 0.5)) * (0.96 + 0.05 * grn) * (0.97 + 0.04 * trow);
     vec3 c = paint;
     float hh = n * 0.3 + grn * 0.12 + trow * 0.25;
     float aoW = 1.0;
-    if (code == 5) { c = plaster * vec3(1.02, 1.01, 0.98) * (0.9 + 0.14 * fbm(vec3(uv * 3.0, s + 2.0))); }
+    if (code == 5) { c = plaster * vec3(1.02, 1.01, 0.98) * (0.9 + 0.14 * fbmL(vec3(uv * 3.0, s + 2.0), 3.0)); }
     if (code == 6) { c = plaster * mix(vec3(0.62, 0.58, 0.52), vec3(0.85, 0.82, 0.76), smoothstep(0.0, 1.6, vAp.y - 1.2 + n)); }
     if ((code == 1 || code == 2 || code == 3) && vert > 0.5) {   // wallpaper
       vec3 ground = mix(vec3(0.74, 0.69, 0.56), tint * 1.05, 0.45 * pv + 0.15);
@@ -1192,13 +1196,13 @@ void main(){
       vec3 motif = ground * mix(vec3(0.62, 0.55, 0.52), vec3(0.55, 0.6, 0.58), hash12(vec2(s, 9.0)));
       bool damask = code != 2 && uMatLayer > 0 && hash12(vec2(s, 21.0)) > 0.5;
       vec3 paper = mix(ground, damask ? ground * vec3(0.84, 0.82, 0.8) : motif, m * (damask ? 0.55 : 0.6));   // damask: printed tone on tone
-      float fade = smoothstep(0.35, 0.8, fbm(vec3(uv * 0.22, s + 4.0)));
+      float fade = smoothstep(0.35, 0.8, fbmL(vec3(uv * 0.22, s + 4.0), 0.22));
       paper = mix(paper, mix(paper, vec3(dot(paper, vec3(0.333))), 0.5) * 1.08, fade * 0.5);
       float sx = abs(fract(uv.x / 0.53 + 0.5) - 0.5) * 0.53;
       float seam = lineAA(1.0 - smoothstep(0.0007, 0.0018, sx), 0.0015, 0.004);
       paper *= 1.0 - 0.18 * seam;
       float footD = 1.0 - smoothstep(0.0, 0.7, y);
-      float peelM = fbm(vec3(uv * 1.9, s + 11.0)) + 0.22 * footD + 0.18 * seam * smoothstep(0.4, 0.7, fbm(vec3(uv.y * 3.0, uv.x * 0.5, s)));
+      float peelM = fbmL(vec3(uv * 1.9, s + 11.0), 1.9) + 0.22 * footD + 0.18 * seam * smoothstep(0.4, 0.7, fbm(vec3(uv.y * 3.0, uv.x * 0.5, s)));
       float pthr = 0.86 - 0.08 * wear;
       float peel = smoothstep(pthr, pthr + 0.01, peelM);
       float curl = smoothstep(pthr - 0.025, pthr, peelM) * (1.0 - peel);
@@ -1215,7 +1219,7 @@ void main(){
       vec3 wood = vec3(0.2, 0.125, 0.07) * (0.86 + 0.25 * hash12(vec2(bi, s))) * (0.8 + 0.32 * gr);
       if (code == 4) {
         vec3 wp = mix(vec3(0.33, 0.37, 0.31), vec3(0.42, 0.37, 0.3), hash12(vec2(s, 5.0))) * (0.92 + 0.08 * n);
-        float thru = smoothstep(0.66 - 0.06 * wear, 0.74 - 0.06 * wear, fbm(vec3(uv * 6.0, bi)) + 0.25 * (1.0 - smoothstep(0.0, 0.25, y)));
+        float thru = smoothstep(0.66 - 0.06 * wear, 0.74 - 0.06 * wear, fbmL(vec3(uv * 6.0, bi), 6.0) + 0.25 * (1.0 - smoothstep(0.0, 0.25, y)));
         wood = mix(wp, wood, thru);
       }
       float cap = smoothstep(0.955, 0.96, y), skirt = 1.0 - smoothstep(0.15, 0.155, y);
@@ -1251,7 +1255,7 @@ void main(){
         float broad = fbm2(vec3(lu * 1.15, s + 51.0)) * region;
         float foot = 1.0 - smoothstep(0.0, 1.0, y), corner = 1.0 - smoothstep(0.0, 0.8, gCornerD);
         lm = 0.6 * broad + 0.32 * foot + 0.28 * corner + 0.3 * openingNear(vAp, an)
-           + 0.1 * (vnoise(vec3(lu * 6.0, s + 52.0)) - 0.5) + (uMatLayer == 2 ? 0.05 * (vnoise(vec3(lu * 19.0, s + 53.0)) - 0.5) : 0.0);
+           + 0.1 * (vnL(vec3(lu * 6.0, s + 52.0), 6.0) - 0.5) + (uMatLayer == 2 ? 0.05 * (vnL(vec3(lu * 19.0, s + 53.0), 19.0) - 0.5) : 0.0);
       }
       float thr = 0.74 - 0.12 * wearL, fw = max(0.006, fwidth(lm) * 1.5);
       float lost = smoothstep(thr, thr + fw, lm);
@@ -1264,7 +1268,7 @@ void main(){
         float mort = lineAA(1.0 - smoothstep(0.004, 0.01, e), 0.008, 0.2);
         vec3 bc = vec3(0.42, 0.21, 0.13) * (0.72 + 0.42 * hash12(vec2(bi, row) + s)) * (0.88 + 0.2 * vnF(vec3(uv * 40.0, 3.0), 40.0));
         vec3 brick = mix(bc, vec3(0.5, 0.47, 0.42) * (0.85 + 0.2 * n), mort);
-        brick = mix(brick, plaster * 0.9, smoothstep(0.55, 0.8, vnoise(vec3(uv * 9.0, s + 53.0))) * 0.45);   // plaster left in the joints
+        brick = mix(brick, plaster * 0.9, smoothstep(0.55, 0.8, vnL(vec3(uv * 9.0, s + 53.0), 9.0)) * 0.45);   // plaster left in the joints
         vec3 bare = plaster * vec3(0.96, 0.94, 0.88) * (0.9 + 0.1 * grn);
         c = mix(c, bare, tear); c = mix(c, bare * 1.04, rimP); c = mix(c, brick, lost);
         hLoss = -0.014 * lost - 0.0006 * tear + 0.0012 * rimP - 0.004 * mort * lost + 0.002 * (vnF(vec3(uv * 25.0, 4.0), 25.0) - 0.5) * lost;
@@ -1273,7 +1277,7 @@ void main(){
       }
     }
     if (ri >= 0 && vert > 0.5) {   // contact shading at the floor and ceiling, damp band, restrained cracks
-      float footD = 1.0 - smoothstep(0.0, 0.32 + 0.25 * vnoise(vAp * 2.0), y);
+      float footD = 1.0 - smoothstep(0.0, 0.32 + 0.25 * vnL(vAp * 2.0, 2.0), y);
       c = mix(c, c * vec3(0.78, 0.76, 0.7), footD * 0.3 * wear * (code == 4 || code == 3 ? 0.4 : 1.0));
       aoW *= 0.82 + 0.18 * smoothstep(0.0, 0.3, y);
       aoW *= 0.88 + 0.12 * smoothstep(0.0, 0.35, rb.y - vAp.y);
@@ -1305,7 +1309,7 @@ void main(){
       vec4 ra = ri >= 0 ? roomA(ri) : vec4(q - 50.0, q + 50.0);
       float edgeD = min(min(q.x - ra.x, ra.z - q.x), min(q.y - ra.y, ra.w - q.y));
       if (ri >= 0) { gIn = 1; gCornerD = edgeD; }   // GX5 layer inputs
-      float edgeDirt = ri >= 0 ? (1.0 - smoothstep(0.0, 0.3 + 0.2 * vnoise(vec3(q * 3.0, 1.0)), edgeD)) : 0.0;
+      float edgeDirt = ri >= 0 ? (1.0 - smoothstep(0.0, 0.3 + 0.2 * vnL(vec3(q * 3.0, 1.0), 3.0), edgeD)) : 0.0;
       vec2 rc = (ra.xy + ra.zw) * 0.5, rh = max((ra.zw - ra.xy) * 0.5, vec2(0.6));
       float traffic = ri >= 0 ? 1.0 - smoothstep(0.15, 0.85, length((q - rc) / rh)) : 0.3;
       float wear = uInst.y, s = uInst.x * 11.0 + float(ri);
@@ -1323,20 +1327,20 @@ void main(){
         float e = hexEdge(hx.xy) * 0.165;
         float grout = 1.0 - smoothstep(0.002, 0.005, e);
         float v = hash12(hx.zw + s);
-        c = vec3(0.36, 0.15, 0.08) * (0.82 + 0.3 * v) * (0.9 + 0.14 * fbm(vec3(q * 9.0, v * 5.0)));
+        c = vec3(0.36, 0.15, 0.08) * (0.82 + 0.3 * v) * (0.9 + 0.14 * fbmL(vec3(q * 9.0, v * 5.0), 9.0));
         c = mix(c, c * vec3(0.8, 0.84, 0.9), step(0.85, hash12(hx.zw + 7.0)) * 0.5);
-        float chip = smoothstep(0.72, 0.88, vnoise(vec3(q * 25.0, v * 3.0))) * (1.0 - smoothstep(0.0, 0.012, e));
+        float chip = smoothstep(0.72, 0.88, vnL(vec3(q * 25.0, v * 3.0), 25.0)) * (1.0 - smoothstep(0.0, 0.012, e));
         c = mix(c, vec3(0.34, 0.31, 0.27), max(grout, chip * 0.5));
         hh = (1.0 - grout) * (0.8 + 0.2 * smoothstep(0.0, 0.01, e)) - chip * 0.3; r = mix(0.62 - 0.12 * traffic, 0.95, grout); aoF = 1.0 - 0.3 * grout;
       } else if (code == 3) {   // stone flags (local limestone), worn smooth
         vec2 id; float e, u, vr; stoneLayout(q * 1.2, id, e, u, vr);
         float joint = 1.0 - smoothstep(0.003, 0.012, e);
-        c = vec3(0.26, 0.245, 0.215) * (0.86 + 0.22 * hash12(id + s)) * (0.84 + 0.24 * fbm(vec3(q * 2.5, id.x)));
-        c *= 0.92 + 0.12 * vnoise(vec3(q * 40.0, id.y));
+        c = vec3(0.26, 0.245, 0.215) * (0.86 + 0.22 * hash12(id + s)) * (0.84 + 0.24 * fbmL(vec3(q * 2.5, id.x), 2.5));
+        c *= 0.92 + 0.12 * vnL(vec3(q * 40.0, id.y), 40.0);
         c = mix(c, c * 0.72 + vec3(0.02), joint);
-        hh = (1.0 - joint) * 0.9 + 0.1 * fbm(vec3(q * 6.0, 2.0)); r = mix(0.6 - 0.15 * traffic, 0.95, joint); aoF = 1.0 - 0.3 * joint;
+        hh = (1.0 - joint) * 0.9 + 0.1 * fbmL(vec3(q * 6.0, 2.0), 6.0); r = mix(0.6 - 0.15 * traffic, 0.95, joint); aoF = 1.0 - 0.3 * joint;
       } else if (code == 4) {   // beaten earth / lime screed (workshop, store)
-        float n1 = fbm(vec3(q * 1.5, s)), n2 = vnoise(vec3(q * 30.0, 3.0));
+        float n1 = fbmL(vec3(q * 1.5, s), 1.5), n2 = vnL(vec3(q * 30.0, 3.0), 30.0);
         c = vec3(0.3, 0.27, 0.22) * (0.8 + 0.3 * n1) * (0.92 + 0.12 * n2);
         hh = n1 * 0.6 + n2 * 0.2; r = 0.92;
       } else {   // boards along x: 16 cm, staggered butt joints, nail heads, grain, gaps
@@ -1355,7 +1359,7 @@ void main(){
       // traffic polish and edge dirt (restrained, scaled by the building's wear)
       c = mix(c, c * 1.08, traffic * 0.35 * min(wear, 1.5));
       r = clamp(r - traffic * 0.12 * wear, 0.3, 1.0);
-      vec3 dirt = vec3(0.17, 0.15, 0.12) * (0.8 + 0.3 * vnoise(vec3(q * 6.0, 2.0)));
+      vec3 dirt = vec3(0.17, 0.15, 0.12) * (0.8 + 0.3 * vnL(vec3(q * 6.0, 2.0), 6.0));
       c = mix(c, dirt, edgeDirt * (0.25 + 0.2 * wear));
       aoF *= 0.85 + 0.15 * smoothstep(0.0, 0.12, edgeD);
       alb = c; rough = mix(r, 0.95, edgeDirt * 0.5); h = hh; bump = 0.0025; ao = aoF;
@@ -1378,23 +1382,23 @@ void main(){
       vec2 r = p / max(hs - vec2(0.2), vec2(0.1));
       float med = 1.0 - smoothstep(0.42, 0.46, abs(r.x) + abs(r.y));
       float ring = 1.0 - smoothstep(0.0, 0.03, abs(abs(r.x) + abs(r.y) - 0.55));
-      float flor = smoothstep(0.55, 0.75, vnoise(vec3(p * 9.0, 2.0)));
+      float flor = smoothstep(0.55, 0.75, vnL(vec3(p * 9.0, 2.0), 9.0));
       c = mix(base, acc, max(med * 0.6, ring * 0.8)) * (0.92 + 0.12 * flor);
     }
     c = mix(c, acc * 0.8, max(b1, b2));
     c = mix(c, base * 0.6, step(edge, 0.05) * step(0.02, edge));
-    float weave = vnoise(vec3(p * 260.0, 1.0)) * 0.5 + 0.5 * step(0.5, fract(p.x * 180.0 + step(0.5, fract(p.y * 180.0)) * 0.5));
-    float worn = smoothstep(0.55, 0.8, fbm(vec3(p * 2.0, 4.0))) * (1.0 - smoothstep(0.1, 0.3, edge) * 0.3) * uInst.y;
+    float weave = vnL(vec3(p * 260.0, 1.0), 260.0) * 0.5 + 0.5 * step(0.5, fract(p.x * 180.0 + step(0.5, fract(p.y * 180.0)) * 0.5));
+    float worn = smoothstep(0.55, 0.8, fbmL(vec3(p * 2.0, 4.0), 2.0)) * (1.0 - smoothstep(0.1, 0.3, edge) * 0.3) * uInst.y;
     c = mix(c, mix(c, vec3(0.42, 0.38, 0.3), 0.45), worn * 0.6);
     alb = c * (0.88 + 0.16 * weave); rough = 0.97; h = weave * 0.5 - worn * 0.3; bump = 0.0012;
   } else if (pat == 24) { // glazed faience: smooth glaze, colour band (grain variant), fine crackle, chipped rims
-    float n = vnoise(vAp * 40.0);
+    float n = vnL(vAp * 40.0, 40.0);
     vec2 uv = faceUV(vPc, vPn);
     vec3 band = grain == 1 ? vec3(0.12, 0.2, 0.42) : grain == 2 ? vec3(0.42, 0.12, 0.08) : vec3(0.22, 0.32, 0.18);
     float stripe = step(0.82, fract(vAp.y * 32.0 + 0.3)) * float(grain > 0);
     float dots = (1.0 - smoothstep(0.25, 0.35, length(fract(uv * 28.0) - 0.5))) * float(grain == 3);
     alb = mix(alb * (0.95 + 0.06 * n), band, max(stripe, dots * 0.8));
-    float cr = 1.0 - smoothstep(0.0, 0.03, abs(vnoise(vec3(uv * 26.0, 7.0)) - 0.5));
+    float cr = 1.0 - smoothstep(0.0, 0.03, abs(vnL(vec3(uv * 26.0, 7.0), 26.0) - 0.5));
     alb *= 1.0 - 0.06 * cr;
     rough = 0.18 + 0.12 * n; h = n * 0.2 - cr * 0.3; bump = 0.0006;
   } else if (pat == 25 || pat == 26) { // furniture wood / painted wood (docs/interiors.md): continuous grain along the
@@ -1412,14 +1416,14 @@ void main(){
     wc *= 1.0 - 0.1 * dent - 0.08 * scratch;
     if (endGrain) {
       vec2 qq = vec2(vPc[(na + 1) % 3], vPc[(na + 2) % 3]) + vec2(hash12(vec2(seed, 1.0)), hash12(vec2(seed, 2.0))) * 0.3;
-      float ring = fract(length(qq) * 60.0 + vnoise(vec3(qq * 30.0, 1.0)) * 1.5);
+      float ring = fract(length(qq) * 60.0 + vnL(vec3(qq * 30.0, 1.0), 30.0) * 1.5);
       wc = alb * (0.6 + 0.16 * smoothstep(0.3, 0.6, ring)); rough = min(1.0, rough + 0.15);
     }
     vec3 an = normalize(vAn);
     float feet = 1.0 - smoothstep(0.0, 0.1, vAp.y);
     float top = smoothstep(0.85, 0.95, an.y);
     if (pat == 26) {
-      vec3 paint = mix(alb, vec3(dot(alb, vec3(0.33))), 0.1) * (0.94 + 0.06 * fbm(vPc * 3.0));
+      vec3 paint = mix(alb, vec3(dot(alb, vec3(0.33))), 0.1) * (0.94 + 0.06 * fbmL(vPc * 3.0, 3.0));
       vec3 bare = vec3(0.3, 0.22, 0.14) * (0.8 + 0.3 * gr);
       float thru = smoothstep(0.72 - 0.06 * uInst.y, 0.8 - 0.06 * uInst.y, fbm(vPc * 7.0 + seed) + 0.25 * feet);
       wc = mix(paint * (1.0 - 0.06 * dent), bare, thru);
@@ -1434,58 +1438,58 @@ void main(){
   } else if (pat == 27) { // paper: off-white sheets / page edges, faint printed rows, foxing
     vec2 uv = faceUV(vPc, vPn);
     float rows = step(0.55, fract(uv.y * 160.0)) * step(0.3, vnoise(vec3(uv * vec2(90.0, 160.0), 1.0))) * float(abs(vPn.y) > 0.5);
-    float fox = smoothstep(0.7, 0.85, vnoise(vec3(uv * 40.0, 3.0)));
-    alb *= (1.0 - 0.18 * rows) * (1.0 - 0.12 * fox) * (0.95 + 0.06 * vnoise(vec3(uv * 300.0, 2.0)));
-    rough = 0.9; h = vnoise(vec3(uv * 120.0, 5.0)); bump = 0.0004;
+    float fox = smoothstep(0.7, 0.85, vnL(vec3(uv * 40.0, 3.0), 40.0));
+    alb *= (1.0 - 0.18 * rows) * (1.0 - 0.12 * fox) * (0.95 + 0.06 * vnL(vec3(uv * 300.0, 2.0), 300.0));
+    rough = 0.9; h = vnL(vec3(uv * 120.0, 5.0), 120.0); bump = 0.0004;
   } else if (pat == 28) { // textiles (grain variant): 0 plain weave, 1 ticking stripes, 2 woven check, 3 blanket bands
     vec2 uv = faceUV(vPc, vPn);
     vec3 c = alb;
     if (grain == 1) c = mix(alb, alb * vec3(0.35, 0.4, 0.55), step(0.82, fract(uv.x * 22.0)));
     else if (grain == 2) { float a = step(0.5, fract(uv.x * 12.0)), b = step(0.5, fract(uv.y * 12.0)); c = alb * (0.62 + 0.19 * (a + b)); }
     else if (grain == 3) c = mix(alb, alb * vec3(0.55, 0.45, 0.4), step(0.88, fract(uv.y * 4.0)));
-    float weave = vnoise(vec3(uv * 300.0, 1.0)) * 0.5 + 0.5 * step(0.5, fract(uv.x * 220.0 + step(0.5, fract(uv.y * 220.0)) * 0.5));
-    float fold = fbm(vec3(uv * 4.0, 3.0));
+    float weave = vnL(vec3(uv * 300.0, 1.0), 300.0) * 0.5 + 0.5 * step(0.5, fract(uv.x * 220.0 + step(0.5, fract(uv.y * 220.0)) * 0.5));
+    float fold = fbmL(vec3(uv * 4.0, 3.0), 4.0);
     alb = c * (0.86 + 0.14 * weave) * (0.88 + 0.16 * fold); rough = 0.95; h = weave * 0.3 + fold * 0.7; bump = 0.0015;
   } else if (pat == 29) { // natural rock (docs/nature.md): kTerrainFS's slope-rock lithologies, in world space so boulders
     // share the cliffs' bed tones, bedding lines, joints, iron staining and lichen; grain 0 granite, 1 limestone, 2 schist.
     // Vertex albedo is a per-rock tint (~1). Moss and damp at the foot (asset y ~ 0 is the ground line).
     vec3 p = vW; float up = normalize(vN).y;
-    float grn = vnoise(p*3.1 + 44.0), mott = fbm(p*0.6 + 45.0);
+    float grn = vnL(p*3.1 + 44.0, 3.1), mott = fbmL(p*0.6 + 45.0, 0.6);
     vec3 rock; float crack = 0.0, bedLine = 0.0;
     if (grain == 0) {   // granite: grey-pink, feldspar flecks, dark mica specks, rounded weathering, no beds
-      float speck = vnoise(p*23.0 + 3.0), feld = smoothstep(0.62, 0.75, vnoise(p*9.0 + 5.0));
+      float speck = vnL(p*23.0 + 3.0, 23.0), feld = smoothstep(0.62, 0.75, vnL(p*9.0 + 5.0, 9.0));
       rock = mix(vec3(0.40, 0.39, 0.38), vec3(0.53, 0.49, 0.46), mott) * (0.86 + 0.24*speck);
       rock = mix(rock, vec3(0.60, 0.50, 0.46), feld*0.45);
-      rock *= 1.0 - 0.4*smoothstep(0.72, 0.9, vnoise(p*31.0 + 9.0));
+      rock *= 1.0 - 0.4*smoothstep(0.72, 0.9, vnL(p*31.0 + 9.0, 31.0));
       h = speck*0.35 + mott*0.65; bump = 0.010;
     } else {
       float lith = grain == 2 ? 1.0 : 0.0;
-      float warp = fbm(vec3(p.xz*0.06, p.y*0.02 + 42.0))*5.0;
+      float warp = fbmL(vec3(p.xz*0.06, p.y*0.02 + 42.0), 0.06)*5.0;
       float bedY = p.y*0.42*2.0 + warp;                                                         // boulder scale: ~1.2 m beds
       float bedV = fract(sin(floor(bedY)*91.7)*4375.85);
       bedLine = 1.0 - smoothstep(0.0, 0.07, min(fract(bedY), 1.0 - fract(bedY)));
       float thin = smoothstep(0.82, 0.97, sin((p.y + warp*0.4)*7.5)*0.5 + 0.5);
-      float jx = (p.x*0.62 + p.z*0.78)*0.58 + (vnoise(vec3(p.xz*0.1, p.y*0.14 + 43.0)) - 0.5)*0.7;
+      float jx = (p.x*0.62 + p.z*0.78)*0.58 + (vnL(vec3(p.xz*0.1, p.y*0.14 + 43.0), 0.1) - 0.5)*0.7;
       crack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.45, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)));
       vec3 lime = mix(vec3(0.44, 0.40, 0.33), vec3(0.57, 0.52, 0.43), bedV) * (0.74 + 0.42*mott);
       vec3 schist = mix(vec3(0.24, 0.23, 0.21), vec3(0.34, 0.31, 0.27), bedV) * (0.78 + 0.36*mott) * (1.0 - 0.25*thin*lith);
       rock = mix(lime, schist, lith) * (0.9 + 0.2*grn);
       rock *= 1.0 - 0.4*bedLine - 0.42*crack;
-      rock = mix(rock, vec3(0.30, 0.22, 0.15), 0.25*smoothstep(0.55, 0.8, fbm(p*0.25 + 46.0)));   // iron staining
+      rock = mix(rock, vec3(0.30, 0.22, 0.15), 0.25*smoothstep(0.55, 0.8, fbmL(p*0.25 + 46.0, 0.25)));   // iron staining
       h = grn*0.4 + mott*0.4 - bedLine*0.5 - crack*0.6 + thin*lith*0.3; bump = 0.018;
     }
     // weathering at hand scale: blotchy tone, solution pits / vesicles, fine grit relief
-    float blot = vnoise(p*1.7 + 70.0), pit = smoothstep(0.72, 0.88, vnoise(p*7.0 + 71.0)), grit = vnoise(p*11.0 + 72.0);
+    float blot = vnL(p*1.7 + 70.0, 1.7), pit = smoothstep(0.72, 0.88, vnL(p*7.0 + 71.0, 7.0)), grit = vnL(p*11.0 + 72.0, 11.0);
     rock *= (0.80 + 0.40*blot) * (1.0 - 0.32*pit) * (0.92 + 0.16*grit);
     h += grit*0.35 - pit*0.6; bump = max(bump, 0.035);
-    float lichen = smoothstep(0.62, 0.8, vnoise(p*0.9 + 47.0)) * smoothstep(0.1, 0.7, up + 0.25);
+    float lichen = smoothstep(0.62, 0.8, vnL(p*0.9 + 47.0, 0.9)) * smoothstep(0.1, 0.7, up + 0.25);
     rock = mix(rock, mix(vec3(0.16, 0.19, 0.09), vec3(0.42, 0.41, 0.30), grn), lichen*0.55);     // moss / grey lichen
-    rock = mix(rock, vec3(0.55, 0.50, 0.26), smoothstep(0.78, 0.86, vnoise(p*5.5 + 61.0))*smoothstep(0.0, 0.6, up)*0.45);   // crusty yellow lichen
-    float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnoise(vAp*1.7), vAp.y);
-    rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnoise(vAp*2.3 + 7.0))*0.6) * mix(1.0, 0.75, foot);   // damp foot
+    rock = mix(rock, vec3(0.55, 0.50, 0.26), smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45);   // crusty yellow lichen
+    float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnL(vAp*1.7, 1.7), vAp.y);
+    rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnL(vAp*2.3 + 7.0, 2.3))*0.6) * mix(1.0, 0.75, foot);   // damp foot
     alb = rock * vAlb * 0.8; rough = 0.86 + 0.08*grn; ao *= 1.0 - 0.3*crack;   // 0.8: matches the cliff faces' in-game brightness
   } else {
-    alb *= 0.94 + 0.08*vnoise(vAp*7.0);
+    alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0);
   }
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
@@ -1494,17 +1498,17 @@ void main(){
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
     float vert = 1.0 - smoothstep(0.4, 0.7, abs(normalize(vN).y));
-    float nn = vnoise(vAp*1.3);
+    float nn = vnL(vAp*1.3, 1.3);
     float foot = (1.0 - smoothstep(0.0, 0.45 + 0.4*nn, vAp.y)) * vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
     alb *= mix(1.0, 0.7, foot); rough = mix(rough, rough*0.75, foot);
     // GX4: the dirt gradient reaches ~1 m (warm earthy tint, densest at the ground), rain splash speckle in the lowest
     // 0.35 m, moss patches climbing from the ground to ~0.6 m (greener on lime render and rubble, less on brick)
     float g1 = (1.0 - smoothstep(0.1, 1.15 + 0.3*nn, vAp.y)) * vert;
     alb = mix(alb, alb*vec3(0.55, 0.5, 0.42), g1*0.75);
-    float splash = (1.0 - smoothstep(0.05, 0.5 + 0.15*nn, vAp.y)) * vert * smoothstep(0.5, 0.72, vnoise(vAp*23.0 + 3.0));
+    float splash = (1.0 - smoothstep(0.05, 0.5 + 0.15*nn, vAp.y)) * vert * smoothstep(0.5, 0.72, vnL(vAp*23.0 + 3.0, 23.0));
     alb *= 1.0 - 0.35*splash;
-    float moss = vert * (1.0 - smoothstep(0.0, 0.5 + 0.3*vnoise(vAp*1.9 + 5.0), vAp.y)) * smoothstep(0.36, 0.62, vnoise(vAp*2.3 + 7.0)) * (pat == 9 || pat == 18 ? 0.6 : 1.0);
-    alb = mix(alb, mix(vec3(0.05, 0.085, 0.025), vec3(0.13, 0.16, 0.06), vnoise(vAp*9.0)), moss*0.8);
+    float moss = vert * (1.0 - smoothstep(0.0, 0.5 + 0.3*vnL(vAp*1.9 + 5.0, 1.9), vAp.y)) * smoothstep(0.36, 0.62, vnL(vAp*2.3 + 7.0, 2.3)) * (pat == 9 || pat == 18 ? 0.6 : 1.0);
+    alb = mix(alb, mix(vec3(0.05, 0.085, 0.025), vec3(0.13, 0.16, 0.06), vnL(vAp*9.0, 9.0)), moss*0.8);
     rough = mix(rough, 0.95, moss*0.5);
     float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, vAp.y);
     alb *= 1.0 - 0.14*streak;
@@ -1959,23 +1963,58 @@ layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(locatio
 uniform mat4 uModel, uVP; uniform float uTime, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;   // motion vectors (TAA): unjittered current / previous
 out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
+flat out float vLayer; out vec3 vLN;   // L1: leaf texture layer (-1: the procedural ovals), the leaf plane's normal
 out vec4 vCC, vPC;
 invariant gl_Position;
-vec3 leafSway(vec3 w, float t){
+vec3 leafSway(vec3 w, float t, float m){
   const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
   float s = sin(f*t + kx*w.x + kz*w.z) + 0.3*sin(2.9*t + 0.8*w.x - 0.5*w.y);
-  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * aMask * uWind;
+  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * uWind;
 }
 void main(){
   vec4 w0 = uModel*vec4(aPos, 1.0), w = w0;
-  w.xyz += leafSway(w0.xyz, uTime);
+  w.xyz += leafSway(w0.xyz, uTime, aMask);
   vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask; vShade = aShade;
   vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
-  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime), 1.0);
+  vLayer = -1.0; vLN = vN;
+  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, aMask), 1.0);
   gl_Position = uVP*w;   // invariant: the PF2 canopy depth prepass (leaf_shadow) and the GL_EQUAL shading pass must agree
 }
 )GLSL";
+// L1 species leaves (foliage.cpp, docs/leaves.md): instanced sprig meshes. Per vertex: card-space position (x, y in
+// [-1, 1] over the card's T / B half extents, z along its normal), leaf normal in the same frame, layer uv, layer.
+// Per instance (one canopy card): centre, T*s, B*s, cluster direction, mask / shade / seed. Same sway and outputs as kLeafVS.
+static const char* kLeafInstVS = R"GLSL(
+layout(location=0) in vec3 aC; layout(location=1) in vec3 aN; layout(location=2) in vec2 aUV; layout(location=3) in float aLayer;
+layout(location=4) in vec3 iCtr; layout(location=5) in vec3 iT; layout(location=6) in vec3 iB; layout(location=7) in vec3 iDir; layout(location=8) in vec3 iMSS;
+uniform mat4 uModel, uVP; uniform float uTime, uWind;
+uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
+out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
+flat out float vLayer; out vec3 vLN;
+out vec4 vCC, vPC;
+invariant gl_Position;
+vec3 leafSway(vec3 w, float t, float m){
+  const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
+  float s = sin(f*t + kx*w.x + kz*w.z) + 0.3*sin(2.9*t + 0.8*w.x - 0.5*w.y);
+  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * uWind;
+}
+void main(){
+  vec3 n = cross(iT, iB)/max(length(iT), 1e-6);   // card normal, same length as iT / iB
+  vec4 w0 = uModel*vec4(iCtr + iT*aC.x + iB*aC.y + n*aC.z, 1.0), w = w0;
+  w.xyz += leafSway(w0.xyz, uTime, iMSS.x);
+  vec3 ln = normalize(iT*aN.x + iB*aN.y + n*aN.z);
+  if (dot(ln, iDir) < 0.0) ln = -ln;               // two-sided: the face toward the cluster's outside
+  vW = w.xyz; vLN = normalize(mat3(uModel)*ln);
+  vN = normalize(mat3(uModel)*normalize(iDir*0.7 + ln*0.3));   // the crown's volume first, the leaf's own tilt second
+  vUV = aUV; vM = iMSS.x; vShade = iMSS.y; vSeed = iMSS.z; vLayer = aLayer;
+  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, iMSS.x), 1.0);
+  gl_Position = uVP*w;   // invariant: the canopy depth prepass and the GL_EQUAL shading pass must agree
+}
+)GLSL";
 static const char* kLeafAlpha = R"GLSL(
+uniform sampler2DArray uLeaves;   // L1: unit kLeafUnit (foliage.cpp); mips keep the alpha-tested coverage
+float leafAlpha(vec2 uv, float seed);
+float leafCut(vec2 uv, float seed, float layer){ return layer < 0.0 ? leafAlpha(uv, seed) : texture(uLeaves, vec3(uv, layer)).a; }
 float leafAlpha(vec2 uv, float seed){
   // leaves grow slightly once a card covers few pixels (fwidth of the uv), so distant canopies keep their
   // coverage instead of breaking into single-pixel sparkles that crawl as the camera moves
@@ -2007,6 +2046,7 @@ float leafAlpha(vec2 uv, float seed){
 )GLSL";
 static const char* kLeafFS = R"GLSL(
 in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
+flat in float vLayer; in vec3 vLN;
 in vec4 vCC, vPC;
 uniform vec3 uLeafCol;
 layout(location=4) out vec4 oVel;     // screen motion (previous uv - current uv), a = 1: valid
@@ -2015,10 +2055,12 @@ layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 float leafAlpha(vec2 uv, float seed);
 void main(){
-  if (leafAlpha(vUV, vSeed) < 0.5) discard;
+  vec4 tx = vLayer < 0.0 ? vec4(1.0) : texture(uLeaves, vec3(vUV, vLayer));
+  if ((vLayer < 0.0 ? leafAlpha(vUV, vSeed) : tx.a) < 0.5) discard;
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
-  vec3 alb = uLeafCol*(0.72 + 0.56*var)*vShade;
+  // textured: uLeafCol is the asset's leafColor / the species mean, so the crown keeps its authored colour
+  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.72 + 0.56*var)*vShade : tx.rgb*uLeafCol*(0.86 + 0.28*var)*vShade;
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
   // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
   // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
@@ -2038,6 +2080,10 @@ void main(){
   float VoL = max(dot(-V, uSunDir), 0.0);
   vec3 sss = alb*normalize(alb + 1e-4)*uSunCol*(0.05 + 0.22*pow(VoL, 6.0))*sh;
   vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7*vShade + (uShadowSoft > 0.0 ? sss : alb*uSunCol*0.08*pow(VoL, 4.0)*sh);
+  if (vLayer >= 0.0) {   // thin-leaf backlight: sun on the far face of the leaf as seen from here (warmer, still shadowed)
+    vec3 LN = normalize(vLN); if (dot(LN, V) < 0.0) LN = -LN;
+    c += alb*vec3(1.0, 1.05, 0.6)*uSunCol*0.12*max(dot(-LN, uSunDir), 0.0)*sh;
+  }
   if (uLightCount > 0) {   // lamps: wrapped diffuse, both faces of the card (thin leaves)
     vec3 ld, ls, lb; localLights(vW, N, N, V, -1.0, vec3(0.04), ld, ls); localLights(vW, -N, -N, V, -1.0, vec3(0.04), lb, ls);
     c += alb/PI*(ld + lb*0.6)*vShade;
@@ -2051,8 +2097,9 @@ void main(){
 )GLSL";
 static const char* kLeafShadowFS = R"GLSL(
 in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
-float leafAlpha(vec2 uv, float seed);
-void main(){ if (leafAlpha(vUV, vSeed) < 0.5) discard; }
+flat in float vLayer;
+float leafCut(vec2 uv, float seed, float layer);
+void main(){ if (leafCut(vUV, vSeed, vLayer) < 0.5) discard; }   // the same cutout as the shaded leaves
 )GLSL";
 
 static const char* kShadowVS = R"GLSL(
@@ -2060,6 +2107,12 @@ static const char* kShadowVS = R"GLSL(
 layout(location=0) in vec3 aPos;
 uniform mat4 uModel, uVP;
 void main(){ gl_Position = uVP*uModel*vec4(aPos,1.0); }
+)GLSL";
+static const char* kDepthVS = R"GLSL(   // R1 zprepass experiment: kMainVS's exact transform
+layout(location=0) in vec3 aPos;
+uniform mat4 uModel, uVP;
+invariant gl_Position;
+void main(){ vec4 w = uModel*vec4(aPos,1.0); gl_Position = uVP*w; }
 )GLSL";
 static const char* kShadowFS = R"GLSL(
 #version 450 core
@@ -2077,6 +2130,11 @@ in vec3 vW, vN; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_c
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
+uniform int uTCOn; uniform sampler2DArray uTC; uniform vec4 uTCMap;   // R1 terrain cache: on, texture (unit 24), xy = origin, zw = 1 / extent
+float vn2(vec2 q, float z){   // == vnoise(vec3(q, z)) for a whole-number z (f.z = 0): the 4 hashes that matter
+  vec2 i = floor(q), f = fract(q); f = f*f*(3.0-2.0*f);
+  return mix(mix(hash13(vec3(i, z)), hash13(vec3(i + vec2(1,0), z)), f.x), mix(hash13(vec3(i + vec2(0,1), z)), hash13(vec3(i + vec2(1,1), z)), f.x), f.y);
+}
 layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
@@ -2091,34 +2149,54 @@ void main(){
   vec4 S = texture(uSurf, (p.xz - uTerrainOrg)/uTerrainExt);
   float wear = S.r, wet = S.g, kind = S.b, rut = S.a;
   // four scales so nothing tiles: broad fields (80 m), patches (14 m), clumps (1 m), grit (0.2 m)
-  float nB = fbm(vec3(p.xz*0.012, 1.0)), nM = fbm(vec3(p.xz*0.07, 2.0)), nF = vnoise(vec3(p.xz*0.9, 3.0)), nX = vnoise(vec3(p.xz*4.3, 4.0));
+  float dCam = length(p - uCamPos), nearK = 1.0 - smoothstep(25.0, 70.0, dCam);
+  vec2 rq = mat2(0.8, -0.6, 0.6, 0.8)*p.xz;                                         // rotated: no lattice alignment
+  float nB, nM, nF, nX, nClov, clump, streak, litN, flatN, bareN, stoneN, pebN, trkN, nZ, swN;
+  if (uTCOn == 1) {   // R1 terrain cache (rendering.md 13): the stable xz-only fields come baked, the rest live and 2D
+    vec2 tuv = (p.xz - uTCMap.xy)*uTCMap.zw, gx = tdx.xz*uTCMap.zw, gy = tdy.xz*uTCMap.zw;
+    vec4 c0 = textureGrad(uTC, vec3(tuv, 0.0), gx, gy), c1 = textureGrad(uTC, vec3(tuv, 1.0), gx, gy);
+    nB = c0.r; nM = c0.g; nF = c0.b; nClov = c0.a;
+    vec3 fq = vec3(p.xz*0.35, 16.0)*2.03*2.03, bq = vec3(rq*0.8, 17.0)*2.03;          // the fbm octaves finer than the cache
+    flatN = c1.r + 0.125*vnoise(fq) + 0.0625*vnoise(fq*2.03);
+    bareN = c1.g + 0.25*vnoise(bq) + 0.125*vnoise(bq*2.03) + 0.0625*vnoise(bq*2.03*2.03);
+    nX = vn2(p.xz*4.3, 4.0); clump = vn2(rq*3.1, 19.0); stoneN = vn2(p.xz*9.0, 7.0); pebN = vn2(p.xz*6.5, 11.0); trkN = vn2(p.xz*1.7, 12.0); nZ = vn2(p.xz*4.3, 5.0);
+    streak = 0.5; litN = 0.0; swN = 0.5;   // near-only sward detail: every use is scaled by nearK (sand takes the mean)
+    if (nearK > 0.0) {
+      vec2 sw = p.xz*vec2(13.0, 38.0) + vec2(vn2(p.xz*1.3, 13.0)*6.0, 0.0);
+      vec3 lq = vec3(rq*7.0, 15.0)*2.03;
+      streak = vn2(sw, 14.0); swN = vn2(sw*0.7, 18.0); litN = 0.5*vn2(rq*7.0, 15.0) + 0.25*vnoise(lq) + 0.125*vnoise(lq*2.03) + 0.0625*vnoise(lq*2.03*2.03);
+    }
+  } else {   // the live pre-R1 fields (terraincache off)
+    nB = fbm(vec3(p.xz*0.012, 1.0)); nM = fbm(vec3(p.xz*0.07, 2.0)); nF = vnoise(vec3(p.xz*0.9, 3.0)); nX = vnoise(vec3(p.xz*4.3, 4.0));
+    nClov = vnoise(vec3(p.xz*0.9, 9.0)); clump = vnoise(vec3(mat2(0.8, -0.6, 0.6, 0.8)*p.xz*3.1, 19.0));
+    vec2 sw = p.xz*vec2(13.0, 38.0) + vec2(vnoise(vec3(p.xz*1.3, 13.0))*6.0, 0.0);   // streaks along a meandering lay
+    streak = vnoise(vec3(sw, 14.0)); litN = fbm(vec3(rq*7.0, 15.0)); flatN = fbm(vec3(p.xz*0.35, 16.0)); bareN = fbm(vec3(rq*0.8, 17.0));
+    stoneN = vnoise(vec3(p.xz*9.0, 7.0)); pebN = vnoise(vec3(p.xz*6.5, 11.0)); trkN = vnoise(vec3(p.xz*1.7, 12.0));
+    nZ = vnoise(vec3(p.xz*4.3, 5.0)); swN = vnoise(vec3(sw*0.7, 18.0));
+  }
   vec3 g1 = vec3(0.12,0.19,0.06), g2 = vec3(0.21,0.26,0.085), dry = vec3(0.32,0.30,0.165);
   vec3 grass = mix(g1, g2, smoothstep(0.3, 0.7, nB));
   grass = mix(grass, dry, smoothstep(0.6, 0.82, nM)*0.5);
   grass *= 0.78 + 0.32*nF;
-  grass *= 1.0 - 0.16*smoothstep(0.65, 0.8, vnoise(vec3(p.xz*0.9, 9.0)));   // clover / darker tufts
-  float clump = vnoise(vec3(mat2(0.8, -0.6, 0.6, 0.8)*p.xz*3.1, 19.0));
-  grass *= mix(1.0, mix(0.5, 0.85, clump), 0.5 + 0.5*(1.0 - smoothstep(25.0, 70.0, length(p - uCamPos))));                                             // shadowed sward depth between plants
+  grass *= 1.0 - 0.16*smoothstep(0.65, 0.8, nClov);   // clover / darker tufts
+  grass *= mix(1.0, mix(0.5, 0.85, clump), 0.5 + 0.5*nearK);                                             // shadowed sward depth between plants
   // near-field sward texture (fades with distance so it never shimmers): blade-scale streaks, flattened grass,
   // organic litter and exposed soil between plants - the ground reads as turf even where grass is culled
-  float dCam = length(p - uCamPos), nearK = 1.0 - smoothstep(25.0, 70.0, dCam);
-  vec2 sw = p.xz*vec2(13.0, 38.0) + vec2(vnoise(vec3(p.xz*1.3, 13.0))*6.0, 0.0);   // streaks along a meandering lay
-  vec2 rq = mat2(0.8, -0.6, 0.6, 0.8)*p.xz;                                         // rotated: no lattice alignment
-  float streak = vnoise(vec3(sw, 14.0)), litter = smoothstep(0.62, 0.8, fbm(vec3(rq*7.0, 15.0)));
-  float flat_ = smoothstep(0.6, 0.78, fbm(vec3(p.xz*0.35, 16.0)));                  // flattened, lighter patches
-  float bare = smoothstep(0.62, 0.8, fbm(vec3(rq*0.8, 17.0)));
+  float litter = smoothstep(0.62, 0.8, litN);
+  float flat_ = smoothstep(0.6, 0.78, flatN);                  // flattened, lighter patches
+  float bare = smoothstep(0.62, 0.8, bareN);
   grass *= mix(1.0, 0.88 + 0.24*streak, nearK);
   grass = mix(grass, grass*vec3(1.18, 1.12, 0.95) + vec3(0.015, 0.012, 0.0), flat_*0.6);
   grass = mix(grass, vec3(0.11, 0.085, 0.055), litter*0.25*nearK);
   grass = mix(grass, mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF), bare*0.65);   // GX3: bare-earth patches (grass.cpp bareField thins the clumps there)
   vec3 soil = mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), nF) * (0.85 + 0.3*nX);
   vec3 mud = mix(vec3(0.12,0.095,0.07), vec3(0.17,0.135,0.10), nX);
-  float stone = step(0.6, vnoise(vec3(p.xz*9.0, 7.0)));
+  float stone = step(0.6, stoneN);
   vec3 grav = mix(vec3(0.34,0.32,0.28), vec3(0.46,0.43,0.38), stone) * (0.8 + 0.3*nX);
   vec3 track = mix(soil, grav, smoothstep(0.75, 1.0, kind));
   // compacted earth: trodden patches, small stones and wheel-polished strips break the track up at 0.2-2 m
-  float pebble = smoothstep(0.78, 0.9, vnoise(vec3(p.xz*6.5, 11.0)));
-  track = mix(track * (0.82 + 0.3*vnoise(vec3(p.xz*1.7, 12.0))), track*1.25 + vec3(0.03), pebble*0.45);
+  float pebble = smoothstep(0.78, 0.9, pebN);
+  track = mix(track * (0.82 + 0.3*trkN), track*1.25 + vec3(0.03), pebble*0.45);
   track = mix(track, mix(vec3(0.40,0.345,0.24), vec3(0.47,0.41,0.29), nF)*(0.9 + 0.2*nX) + vec3(0.02,0.018,0.012)*streak, 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)));   // W5: beach sand (route kind "sand", surface.cpp)
   // grass breaks up into the track along a noisy edge; ruts and damp lows turn to mud
   float tw = smoothstep(0.25, 0.75, wear + (nF - 0.5)*0.35 + (nX - 0.5)*0.15);
@@ -2202,8 +2280,8 @@ void main(){
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
   rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
-  vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, vnoise(vec3(p.xz*4.3, 5.0)) - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
-                     + vec3(streak - 0.5, 0.0, vnoise(vec3(sw*0.7, 18.0)) - 0.5)*0.35*nearK*(1.0 - tw)*(1.0 - puddle));   // sward relief (shading only)
+  vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, nZ - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
+                     + vec3(streak - 0.5, 0.0, swN - 0.5)*0.35*nearK*(1.0 - tw)*(1.0 - puddle));   // sward relief (shading only)
   float ao = (1.0 - 0.25*dirt) * (1.0 - 0.18*rut*tw);
   if (screeK > 0.001) {   // W5b: rock relief and joint shadow (shading only)
     N = normalize(mix(N, normalize(normalize(vN) + rBump), max(rockK, screeK*0.4)));
@@ -2228,6 +2306,21 @@ void main(){
 }
 )GLSL";
 
+// R1 terrain material cache bake (rendering.md 13): kTerrainFS's xz-only noise fields at texel centres, the same
+// expressions as its live path. Layer 0: nB, nM, nF, clover; layer 1: the cache-resolved octaves of flat_ and bare.
+static const char* kTerrainCacheCS = R"GLSL(
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(rgba8, binding = 0) uniform writeonly image2DArray uOut;
+uniform vec2 uOrg; uniform float uTexel;
+void main(){
+  ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+  if (any(greaterThanEqual(id, imageSize(uOut).xy))) return;
+  vec2 xz = uOrg + (vec2(id) + 0.5)*uTexel, rq = mat2(0.8, -0.6, 0.6, 0.8)*xz;
+  vec3 fq = vec3(xz*0.35, 16.0);
+  imageStore(uOut, ivec3(id, 0), vec4(fbm(vec3(xz*0.012, 1.0)), fbm(vec3(xz*0.07, 2.0)), vnoise(vec3(xz*0.9, 3.0)), vnoise(vec3(xz*0.9, 9.0))));
+  imageStore(uOut, ivec3(id, 1), vec4(0.5*vnoise(fq) + 0.25*vnoise(fq*2.03), 0.5*vnoise(vec3(rq*0.8, 17.0)), 0.0, 0.0));
+}
+)GLSL";
 
 // ---- instanced grass: pasture clumps of up to 12 cards (GX3, grass.cpp) and nature-patch plants (nature.cpp);
 // alpha-tested procedural silhouettes, rooted wind bend
@@ -2236,8 +2329,9 @@ layout(location=0) in vec3 aB; layout(location=1) in vec4 iP; layout(location=2)
 uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
 uniform float uCount, uShadowPass;   // pasture: clumps in this chunk (0 = nature patch plants); sun-shadow pass (radius)
-uniform vec4 uLod, uLod2;            // pasture LOD: drawn share, near r, mid r, falloff | floor, mid cards, far cards, wind r
-out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid;
+uniform vec4 uLod, uLod2;            // pasture LOD: drawn share, near r, mid r, falloff | floor, -, -, wind r
+uniform vec4 uCards;                 // G1: this species group's near / mid / far cards | shadow-pass cards (0 = main pass)
+out vec3 vW, vAlb, vF; out vec2 vUV; out float vWid, vTap;   // vTap: G1 blade card width / full card width (trimmed padding)
 out vec4 vCC, vPC;
 flat out int vSp; flat out int vPart; flat out float vSeed;   // part: 0 blade / stem, 1 flower head (disc), 2 basal leaf; pasture 10+
 // GX3 pasture clump: cards pre-arranged around the root (tall centre, short outward-leaning rim), leaning with the
@@ -2253,10 +2347,11 @@ void pastureClump(){
   float dens = d <= uLod.y ? 1.0 : max(uLod2.x, pow(uLod.y/d, uLod.w));
   float keep = uLod.x*dens, rank = (float(gl_InstanceID) + 0.5)/uCount;
   float vis = 1.0 - smoothstep(keep*0.8, keep, rank);
-  float nb = d <= uLod.y ? 12.0 : d <= uLod.z ? mix(12.0, uLod2.y, smoothstep(uLod.y, uLod.z, d)) : mix(uLod2.y, uLod2.z, smoothstep(uLod.z, uRadius, d));
-  float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp(nb - bl, 0.0, 1.0);
+  float nb = d <= uLod.y ? uCards.x : d <= uLod.z ? mix(uCards.x, uCards.y, smoothstep(uLod.y, uLod.z, d)) : mix(uCards.y, uCards.z, smoothstep(uLod.z, uRadius, d));
+  float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp((uShadowPass > 0.0 ? uCards.w : nb) - bl, 0.0, 1.0);
+  if (uShadowPass > 0.0) fade *= 1.0 - smoothstep(uShadowPass*0.7, uShadowPass, d);   // G1: casters shrink away toward the shadow radius (no ring)
   if (fade <= 0.0) {   // clump / card past its LOD cut: the whole card leaves the clip volume (no shading, no raster)
-    gl_Position = vec4(0.0, 0.0, -2.0, 1.0); vW = vAlb = vF = vec3(0.0); vUV = vec2(0.0); vWid = 0.0; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
+    gl_Position = vec4(0.0, 0.0, -2.0, 1.0); vW = vAlb = vF = vec3(0.0); vUV = vec2(0.0); vWid = 0.0; vTap = 1.0; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
     vSp = 0; vPart = 10; vSeed = 0.0; return;
   }
   float widen = min(3.2, pow(clamp(dens*nb/12.0, 0.05, 1.0), -0.6));   // fewer clumps / cards: the rest widen
@@ -2279,9 +2374,11 @@ void pastureClump(){
     else { hf = 1.8*(0.8 + 0.4*r2); w = 0.007; windAmp = 0.5; }
   } else if (sp == 16) {
     part = 13; spread = 0.14; hf = mix(1.0, 0.6, k)*(0.8 + 0.4*r2); curve = 0.12 + 0.55*k; windAmp = 0.25; taper = 1.0 - v*0.25; ang += r3*1.2;
-  } else curve = 0.12 + 0.4*r1 + 0.8*k;   // medium meadow grass: the rim droops
+  } else if (sp == 18) { curve = 0.08 + 0.22*r1 + 0.45*k; spread = 0.10; windAmp = 1.1; }   // marram: stiff, upright tussock
+  else curve = 0.12 + 0.4*r1 + 0.8*k;   // medium meadow grass: the rim droops
   float h = H*hf*fade;
-  w *= widen*taper;
+  float tap = part == 10 ? max(1.0 - 0.95*v*v*v, 0.1) : 1.0;   // G1: blade cards follow the pointed silhouette (no transparent padding)
+  w *= widen*taper*tap;
   vec3 fwd = vec3(sin(ang), 0.0, cos(ang)), side = vec3(cos(ang), 0.0, -sin(ang));
   if (part == 13) side = normalize(side + fwd*(r3 - 0.5)*1.4);
   vec2 nxz = py.yz*2.0 - 1.0; float ny = sqrt(max(0.1, 1.0 - dot(nxz, nxz)));
@@ -2309,7 +2406,7 @@ void pastureClump(){
   }
   if (nk == 1) pos[1] = pos[0];
   vec3 p = pos[0];
-  vW = p; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp; vPart = part; vWid = w; vSeed = r1; vF = fwd;
+  vW = p; vUV = vec2(aB.x*0.5 + 0.5, v); vSp = sp; vPart = part; vWid = w; vTap = tap; vSeed = r1; vF = fwd;
   gl_Position = uVP*vec4(p, 1.0);
   if (uShadowPass > 0.0) { vAlb = vec3(0.0); vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0); return; }
   vCC = uVPU*vec4(p, 1.0); vPC = uPrevVP*vec4(pos[1], 1.0);
@@ -2317,13 +2414,13 @@ void pastureClump(){
   // base AO darker inside the clump and under the canopy
   float r4 = fract(r3*57.3 + r1*13.1);
   vec3 alb = pk.rgb*0.5*(0.74 + 0.5*r3)*mix(vec3(1.0), vec3(1.12, 1.04, 0.78), step(0.82, r4)*0.8), gnd = pg.rgb*0.5;   // per card: value, some yellower
-  float dryTip = (sp == 4 ? 0.7 : sp == 2 ? 0.45 : sp == 1 ? 0.14 : sp == 0 ? 0.08 : 0.05)*(0.4 + 1.2*r1*r1);
+  float dryTip = (sp == 4 ? 0.7 : sp == 2 ? 0.45 : sp == 18 ? 0.35 : sp == 1 ? 0.14 : sp == 0 ? 0.08 : 0.05)*(0.4 + 1.2*r1*r1);
   vec3 col = mix(alb*vec3(0.78, 0.88, 0.72), mix(alb*vec3(1.12, 1.14, 0.9), vec3(0.42, 0.37, 0.21), dryTip), smoothstep(0.2, 1.0, v));
   bool flatLeaf = part == 11 || part == 14;
   if (flatLeaf) col = alb*(0.9 + 0.2*v);
   else if (part != 13) col = mix(gnd, col, smoothstep(0.0, 0.3, v));
   float above = p.y - base.y;
-  float ao = mix(0.24 + 0.3*k, 1.0, smoothstep(0.0, flatLeaf ? 0.2 : 0.6, v))*mix(0.55, 1.0, smoothstep(0.0, 0.45, above));   // base and canopy depth
+  float ao = mix(0.40 + 0.25*k, 1.0, smoothstep(0.0, flatLeaf ? 0.2 : 0.6, v))*mix(0.68, 1.0, smoothstep(0.0, 0.45, above));   // base and canopy depth (G1: lighter floor, roots are not black)
   if (part == 13) ao = mix(0.45, 1.0, smoothstep(0.0, 0.8, v))*(0.75 + 0.25*k);   // shrub: dark interior, lit dome
   vAlb = col*ao;
 }
@@ -2408,12 +2505,12 @@ void plantMain(){
   vec3 alb = pk.rgb*0.5;   // meadow palette baked per tuft on the CPU (cluster colour + species tint)
   if (sp == 2) alb = mix(alb, vec3(0.36, 0.32, 0.18), smoothstep(0.72, 0.9, v));   // straw-coloured seed heads
   vAlb = alb; vW = p; vF = head ? nH : fwd; vUV = head ? vec2(aB.x, aB.y*2.0 - 1.0) : vec2(aB.x*0.5 + 0.5, v); vSp = sp;
-  vPart = head ? 1 : isLeaf ? 2 : 0; vWid = w; vSeed = r1;
+  vPart = head ? 1 : isLeaf ? 2 : 0; vWid = w; vTap = 1.0; vSeed = r1;
   gl_Position = uVP*vec4(p, 1.0);
 }
 )GLSL";
 static const char* kGrassFS = R"GLSL(
-in vec3 vW, vAlb, vF; in vec2 vUV; in float vWid;
+in vec3 vW, vAlb, vF; in vec2 vUV; in float vWid, vTap;
 in vec4 vCC, vPC;
 flat in int vSp; flat in int vPart; flat in float vSeed;
 uniform float uWidthScale;
@@ -2422,7 +2519,7 @@ layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 void main(){
-  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y, lv = v;
+  float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y, lv = v;   // e across the full (untrimmed) card
   vec3 F = gl_FrontFacing ? vF : -vF;
   bool past = vPart >= 10;
   vec3 N = normalize(vec3(0.0, 1.0, 0.0) + F*((vPart == 11 || vPart == 14) ? 0.15 : past ? 0.8 : 0.45));
@@ -2550,10 +2647,10 @@ void main(){
 )GLSL";
 // GX3: near pasture clumps into the sun shadow map (Grass::drawShadow); coarse silhouettes of the cards
 static const char* kGrassShadowFS = R"GLSL(
-in vec2 vUV; in float vWid;
+in vec2 vUV; in float vWid, vTap;
 flat in int vSp; flat in int vPart; flat in float vSeed;
 void main(){
-  float e = abs(vUV.x*2.0 - 1.0), v = vUV.y;
+  float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y;
   if (vPart == 11 || vPart == 14) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
   else if (vPart == 13) { if (e > 0.12 && fract(v*6.0 + vSeed*3.0 + e*0.4) > 0.75) discard; }
   else if (e > 1.0 - pow(v, 3.0)*0.95) discard;
@@ -2774,10 +2871,53 @@ GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
 
 static GLint U(GLuint p, const char* n) { return glGetUniformLocation(p, n); }
 
+// R1 terrain material cache. Its content is a pure function of world xz (fixed seeds), so craters, paint, trenches,
+// wear and editor sculpting never invalidate it: those inputs (vDirt, vEw, uSurf, ground paint, height, normal) stay
+// live in kTerrainFS. Only a new terrain extent (map load / resize) re-bakes, once, in one dispatch.
+void Renderer::terrainCacheBind(const Terrain& t, GLuint prog) {
+  bool on = perf.terrainCache && !t.h.empty();
+  if (on && (!tcTex || tcOrg != t.org || tcExt != vec2(t.size, t.sizeZ))) {
+    if (!tcProg) {   // compute program: kCommon (vnoise / fbm) + the bake
+      GLuint s = glCreateShader(GL_COMPUTE_SHADER);
+      const char* parts[3] = {"#version 450 core\n#define NMK_CS 1\n", kCommon, kTerrainCacheCS};
+      glShaderSource(s, 3, parts, nullptr); glCompileShader(s);
+      GLint ok; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+      if (!ok) { char log[4096]; glGetShaderInfoLog(s, sizeof log, nullptr, log); logf("shader terrain cache (cs) error:\n%s", log); ++shaderErrors; }
+      tcProg = glCreateProgram(); glAttachShader(tcProg, s); glLinkProgram(tcProg); glDeleteShader(s);
+    }
+    if (tcTex) glDeleteTextures(1, &tcTex);
+    tcTexel = std::max(0.5f, std::max(t.size, t.sizeZ) / 4096.0f);   // 2 texels / m; past 2 km a side, coarser (4096 cap)
+    tcW = (int)std::ceil(t.size / tcTexel); tcH = (int)std::ceil(t.sizeZ / tcTexel);
+    int lv = 1 + (int)std::floor(std::log2((float)std::max(tcW, tcH)));
+    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &tcTex);
+    glTextureStorage3D(tcTex, lv, GL_RGBA8, tcW, tcH, 2);
+    glTextureParameteri(tcTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(tcTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(tcTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(tcTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameterf(tcTex, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+    auto t0 = std::chrono::steady_clock::now();
+    glUseProgram(tcProg);
+    glUniform2f(U(tcProg, "uOrg"), t.org.x, t.org.y); glUniform1f(U(tcProg, "uTexel"), tcTexel);
+    glBindImageTexture(0, tcTex, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    glDispatchCompute((tcW + 7) / 8, (tcH + 7) / 8, 1);
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+    glGenerateTextureMipmap(tcTex);
+    glFinish();   // one stall per bake (map load / resize) so the cost is measured; never per frame
+    tcBakeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    tcOrg = t.org; tcExt = vec2(t.size, t.sizeZ); tcMB = tcW * (double)tcH * 8.0 * 4.0 / 3.0 / 1e6;
+    logf("terrain cache: %d x %d x 2 RGBA8 + mips, %.1f MB, %.3f m texels, baked in %.2f ms", tcW, tcH, tcMB, tcTexel, tcBakeMs);
+    glUseProgram(prog);
+  }
+  glUniform1i(U(prog, "uTCOn"), on ? 1 : 0);
+  if (!on) return;
+  glUniform1i(U(prog, "uTC"), 24); glBindTextureUnit(24, tcTex);
+  glUniform4f(U(prog, "uTCMap"), tcOrg.x, tcOrg.y, 1.0f / (tcW * tcTexel), 1.0f / (tcH * tcTexel));
+}
+
 bool Renderer::init(int w, int h) {
   progMain = compile(kMainVS, (std::string(tex::glslCommon()) + tex::glslMain() + kMainFS).c_str(), "main");   // L4 texture hooks first
   progGlass = compile(kMainVS, kGlassFS, "glass");
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
+  progDepth = compile(kDepthVS, kShadowFS, "depth prepass");
   { extern const char* groundPaintGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
   progSky = compile(kSkyVS, kSkyFS, "sky");
@@ -2814,6 +2954,9 @@ bool Renderer::init(int w, int h) {
     std::string fs1 = std::string(kLeafAlpha) + kLeafFS, fs2 = std::string(kLeafAlpha) + kLeafShadowFS;
     progLeaf = compile(kLeafVS, fs1.c_str(), "leaf");
     progLeafShadow = compile(kLeafVS, fs2.c_str(), "leaf_shadow");
+    progLeafI = compile(kLeafInstVS, fs1.c_str(), "leaf_i");
+    progLeafIShadow = compile(kLeafInstVS, fs2.c_str(), "leaf_i_shadow");
+    for (GLuint p : {progLeaf, progLeafShadow, progLeafI, progLeafIShadow}) glProgramUniform1i(p, glGetUniformLocation(p, "uLeaves"), kLeafUnit);
   }
   glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
   glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
@@ -3135,6 +3278,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
     if (!it.mesh || !it.mesh->count) continue;
     if (fr && !fr->visible(it.mesh->bmin, it.mesh->bmax, it.model, kCullEps)) { stats.culled++; continue; }
     if (shadowPass && minCaster > 0 && worldDiag(it.mesh->bmin, it.mesh->bmax, it.model) < minCaster) { stats.culled++; continue; }
+    if (depthSurfOnly && !it.surf) continue;
     drawIdx.push_back(k);
   }
   // main pass: copies sharing finish parameters are grouped so the parameter block uploads once per building. Stable,
@@ -3142,6 +3286,24 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
   auto surfOf = [&](uint32_t k) -> const SurfaceParams* { return items[k].surf ? items[k].surf : &kDefaultSurf; };
   if (sortSurf && li >= 0)
     std::stable_sort(drawIdx.begin(), drawIdx.end(), [&](uint32_t a, uint32_t b) { return std::less<const SurfaceParams*>()(surfOf(a), surfOf(b)); });
+  if (sortSurf && li >= 0 && perf.opqSort && drawIdx.size() > 1) {
+    // R1 opqsort: each building's run (one finish block) moves front to back by its nearest part, so early-Z rejects the
+    // walls, rooms and props it hides. A run keeps its inner order (coplanar ties never depend on the camera).
+    struct Run { float d; uint32_t a, b; };
+    std::vector<Run> runs; runs.reserve(256);
+    for (uint32_t a = 0; a < drawIdx.size();) {
+      const SurfaceParams* s = surfOf(drawIdx[a]); uint32_t b = a; float d = 1e30f;
+      for (; b < drawIdx.size() && surfOf(drawIdx[b]) == s; ++b) {
+        const DrawItem& it = items[drawIdx[b]];
+        d = std::min(d, glm::distance(vec3(it.model * vec4(0.5f * (it.mesh->bmin + it.mesh->bmax), 1.0f)), sortEye));
+      }
+      runs.push_back({d, a, b}); a = b;
+    }
+    std::stable_sort(runs.begin(), runs.end(), [](const Run& x, const Run& y) { return x.d < y.d; });
+    std::vector<uint32_t> sorted; sorted.reserve(drawIdx.size());
+    for (const Run& r : runs) sorted.insert(sorted.end(), drawIdx.begin() + r.a, drawIdx.begin() + r.b);
+    drawIdx.swap(sorted);
+  }
   const SurfaceParams* lastSurf = nullptr;
   GLuint boundVao = 0;
   for (uint32_t k : drawIdx) {
@@ -3170,21 +3332,57 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
   }
 }
 
-void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr) {
-  glUseProgram(p);
-  const DrawLocs L = drawLocs(p);
-  glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(vp));
-  glUniform1f(L.time, time); glUniform1f(L.wind, wind);
-  GLint lm = L.model, lc = L.leafCol;
+// Trees with L1 species leaves (perf.leafTex) draw their cards as instances of the shared sprig meshes with the
+// instanced twin of p (progLeafI / progLeafIShadow): LOD f.cur in the main view (view), the sprig cards elsewhere
+// (sun / sky-occlusion shadows: same layers, same alpha). Everything else (ivy, ferns, oval A/B) draws the card VBO.
+void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool view) {
   float sway = 0.14f * std::max(0.0f, wind) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
+  bool tex = perf.leafTex && leafLibReady();
+  for (int pass = 0; pass < 2; ++pass) {
+    auto mine = [&](const FoliageDraw& f) { bool inst = tex && f.tree && f.tree->leafVao; return f.tree && inst == (pass == 1) && (inst || f.tree->cardVao); };
+    if (std::none_of(foliage.begin(), foliage.end(), mine)) continue;
+    GLuint q = pass == 0 ? p : p == progLeaf ? progLeafI : progLeafIShadow;
+    glUseProgram(q);
+    const DrawLocs L = drawLocs(q);
+    glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(vp));
+    glUniform1f(L.time, time); glUniform1f(L.wind, wind);
+    GLint lm = L.model, lc = L.leafCol;
+    for (auto& f : foliage) {
+      if (!mine(f)) continue;
+      if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway + (pass ? 0.05f : 0.0f))) { stats.culled++; continue; }   // leaf fold: a few cm off the card
+      glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
+      if (pass == 0) {
+        if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(f.tree->leafCol));
+        glBindVertexArray(f.tree->cardVao);
+        glDrawArrays(GL_TRIANGLES, 0, f.tree->cardVerts);
+        stats.draws++; stats.tris += f.tree->cardVerts / 3;
+        continue;
+      }
+      int lod = view ? f.cur : 2;
+      glBindVertexArray(f.tree->leafVao);
+      for (auto& g : f.tree->leafGroups) {
+        const LeafMeshRange& r = gLeafSprigMesh[g.sprig * 3 + lod];
+        if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(g.tint));
+        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, r.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(r.firstIndex * 4u), g.count, r.baseVertex, g.first);
+        stats.draws++; stats.tris += (size_t)r.count / 3 * g.count;
+      }
+    }
+  }
+}
+
+// L1 leaf LOD per tree for the main view: near (fitted folded leaves) / mid (2-triangle leaves) / far (sprig cards) by
+// the eye's distance to the canopy box, scaled by the zoom (scopes keep detail further out), with hysteresis.
+void Renderer::selectLeafLods(const RenderView& v) {
+  const float zoom = 1.43f / std::max(0.1f, v.proj[1][1]);   // 1 at a 70 degree vertical FOV
   for (auto& f : foliage) {
-    if (!f.tree || !f.tree->cardVao) continue;
-    if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway)) { stats.culled++; continue; }
-    glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(f.m));
-    if (lc >= 0) glUniform3fv(lc, 1, glm::value_ptr(f.tree->leafCol));
-    glBindVertexArray(f.tree->cardVao);
-    glDrawArrays(GL_TRIANGLES, 0, f.tree->cardVerts);
-    stats.draws++; stats.tris += f.tree->cardVerts / 3;
+    if (!f.tree || !f.tree->leafVao) continue;
+    vec3 lc = vec3(glm::inverse(f.m) * vec4(v.camPos, 1.0f));
+    float d = glm::length(lc - glm::clamp(lc, f.tree->cardMin, f.tree->cardMax)) * zoom / std::max(0.1f, leafLodScale);
+    uint8_t cur = f.lod ? *f.lod : 2, want = cur;
+    if (cur == 0) { if (d > kLeafNearOut) want = d > kLeafMidOut ? 2 : 1; }
+    else if (cur == 1) { if (d < kLeafNearIn) want = 0; else if (d > kLeafMidOut) want = 2; }
+    else { if (d < kLeafNearIn) want = 0; else if (d < kLeafMidIn) want = 1; }
+    f.cur = want; if (f.lod) *f.lod = want;
   }
 }
 
@@ -3398,7 +3596,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   Frustum frNear = Frustum::fromVP(lightVP);
   drawItems(progShadow, opaque, true, &frNear);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear);
-  if (grass && !thumbMode) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
+  if (grass && !thumbMode && perf.grassShadow) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
     glUseProgram(progGrassShadow);
     glUniform3fv(U(progGrassShadow, "uCamPos"), 1, glm::value_ptr(v.camPos)); glUniform1f(U(progGrassShadow, "uTime"), time);
     grass->drawShadow(progGrassShadow, lightVP, v0.proj * v.view, v.camPos);
@@ -3506,6 +3704,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     setLighting(progTerrain, v);
     glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
+    terrainCacheBind(t, progTerrain);
     glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
     t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
   };
@@ -3516,12 +3715,23 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   setLighting(progMain, v);
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
+  glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
   glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
   uploadStaticDecals();
   { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), dbg); }
   glUniform1i(U(progMain, "uSDecOn"), thumbMode || q.legacy || q.matLayer == 0 || !perf.staticDecals || !sdecBuf || sdec.empty() ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+  sortEye = v.camPos;
+  bool zpre = perf.zPrepass && !thumbMode;
+  if (zpre) {   // R1 zprepass experiment: building copies (items with finish parameters) depth-only first
+    glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
+    glUseProgram(progDepth); glUniformMatrix4fv(U(progDepth, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    depthSurfOnly = true; drawItems(progDepth, opaque, true, &frMain); depthSurfOnly = false;
+    glNamedFramebufferDrawBuffers(worldFbo, 5, b5);
+    glUseProgram(progMain); glDepthFunc(zLEqual());
+  }
   drawItems(progMain, opaque, false, &frMain, true);
+  if (zpre) glDepthFunc(zLess());
   gpuMark(GP_Models);
   if (!worldModels.empty()) {   // imported models placed in the world
     glDisable(GL_CULL_FACE);
@@ -3534,18 +3744,21 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
     glDisable(GL_CULL_FACE);
-    setLighting(progLeaf, v);
-    glUniformMatrix4fv(U(progLeaf, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
-    glUniformMatrix4fv(U(progLeaf, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
-    glUniform1f(U(progLeaf, "uPrevTime"), time - v.dt);
+    selectLeafLods(v);
+    for (GLuint lp : {progLeaf, progLeafI}) {
+      setLighting(lp, v);
+      glUniformMatrix4fv(U(lp, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
+      glUniformMatrix4fv(U(lp, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
+      glUniform1f(U(lp, "uPrevTime"), time - v.dt);
+    }
     if (perf.leafPrepass) {   // PF2: canopy depth first (alpha test only), then each covered pixel is shaded once at GL_EQUAL
       glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
-      drawFoliage(progLeafShadow, vp, &frMain);
+      drawFoliage(progLeafShadow, vp, &frMain, true);
       if (thumbMode) glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0); else glNamedFramebufferDrawBuffers(worldFbo, 5, b5);
       glDepthFunc(GL_EQUAL); glDepthMask(GL_FALSE);
-      drawFoliage(progLeaf, vp, &frMain);
+      drawFoliage(progLeaf, vp, &frMain, true);
       glDepthFunc(zLess()); glDepthMask(GL_TRUE);
-    } else drawFoliage(progLeaf, vp, &frMain);
+    } else drawFoliage(progLeaf, vp, &frMain, true);
     glEnable(GL_CULL_FACE);
   }
   if (perf.terrainLast) drawTerrain();   // PF2: after solids / models / canopies, so the ground they hide is never shaded
@@ -3572,8 +3785,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
     // Low / Medium / High share of each patch and reach (the pre-GX3 grass radii: patches keep their own LOD)
-    int gq = std::clamp((int)grass->quality, 0, 3);
-    const float natFrac[4] = {0.0f, 0.6f, 0.8f, 1.0f}, natR[4] = {0.0f, 38.0f, 58.0f, 85.0f};
+    int gq = std::clamp((int)grass->quality, 0, 4);
+    const float natFrac[5] = {0.0f, 0.6f, 0.8f, 1.0f, 1.0f}, natR[5] = {0.0f, 38.0f, 58.0f, 85.0f, 85.0f};   // G1 Ultra: patches as High
     if (natFrac[gq] > 0) natureDrawPatches(progGrass, natPatches, vp, v.camPos, natR[gq] * 1.1f, natFrac[gq], wind, natDraws, natTufts);
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);

@@ -225,7 +225,7 @@ void App::drawCreativeUI() {
       ImGui::MenuItem("Grid overlay", "H", &gridOverlay);
       ImGui::MenuItem("Performance stats", "F3", &showStats);
       if (ImGui::BeginMenu("Grass")) {
-        for (int q = 0; q < 4; ++q) if (ImGui::MenuItem(grassPreset((GrassQuality)q).name, nullptr, (int)grass.quality == q)) grass.quality = (GrassQuality)q;
+        for (int q = 0; q < 5; ++q) if (ImGui::MenuItem(grassPreset((GrassQuality)q).name, nullptr, (int)grass.quality == q)) grass.quality = (GrassQuality)q;
         ImGui::Separator(); ImGui::MenuItem("Wind (grass and trees)", nullptr, &grass.wind);
         ImGui::EndMenu();
       }

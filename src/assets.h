@@ -158,7 +158,17 @@ struct TreeDef {
   ShapePtr stumpShape, trunkShape;
   GLuint cardVao = 0, cardVbo = 0; int cardVerts = 0;   // leaf cards (asset space): pos, normal, uv, mask
   vec3 cardMin{0}, cardMax{0};                          // leaf card bounds (asset space, before wind sway): frustum culling
+  // L1 species leaves (foliage.cpp, docs/leaves.md): the canopy cards as instances (centre, T*s, B*s, cluster dir, mask,
+  // shade, seed) of the shared sprig meshes, grouped by sprig; tint = leafCol / the species mean colour
+  struct LeafGroup { int sprig, first, count; vec3 tint; };
+  GLuint leafVao = 0, leafInst = 0; std::vector<LeafGroup> leafGroups; int leafCards = 0;
 };
+// L1 leaf library (foliage.cpp): texture array content/textures/leaves (unit kLeafUnit) and one mesh per sprig and LOD
+// (0 near: fitted, midrib-folded leaves, 6 triangles each; 1 mid: 2-triangle leaves; 2 far: the sprig card)
+constexpr int kLeafUnit = 26;
+struct LeafMeshRange { int baseVertex = 0, firstIndex = 0, count = 0; };
+extern std::vector<LeafMeshRange> gLeafSprigMesh;   // [sprig * 3 + lod]
+bool leafLibReady();
 // Buildable defence: tank trap / sandbags (builder.cpp, ballistics.cpp).
 struct DefenseSocket { vec3 p{0}, t{1, 0, 0}; };
 // path entity (paths.cpp): length / width per instance (extra.path), draped on the terrain
