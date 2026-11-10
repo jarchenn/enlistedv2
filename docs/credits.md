@@ -112,3 +112,9 @@ The GX4 exterior pass (`tools/exterior.mjs`, `docs/exterior-references.md`) rebu
 | Little Rock Inn | Beardmonkey (https://sketchfab.com/beardmonkey) | CC-BY-4.0 | https://sketchfab.com/3d-models/little-rock-inn-4a09cb8213f64cf7811c471d92c11058 | the inn |
 | Shoeburyness Small Building | artfletch (https://sketchfab.com/artfletch) | CC-BY-4.0 | https://sketchfab.com/3d-models/shoeburyness-small-building-40b8bd5d5702499091bfc25b2951cedd | utility buildings, wall-foot weathering |
 | Tilbury Fort Spigot Mortar Emplacement | artfletch (https://sketchfab.com/artfletch) | CC-BY-4.0 | https://sketchfab.com/3d-models/tilbury-fort-spigot-mortar-emplacement-379d16af6e2a44d8a6d98e81d307744f | concrete weathering and earthwork blending (GX1) |
+
+## First-person hand skin
+
+| Set | Author | Licence | Source | Used for |
+|---|---|---|---|---|
+| human-skin1 (FreePBR set; albedo variant 3, normal-ogl, roughness, AO; downscaled to 1K in `content/textures/skin_hand`) | FreePBR (freepbr.com) | **to be confirmed by the user** (supplied in `incoming/hand_skin/human-skin1-bl`) | https://freepbr.com | the first-person support hand (`src/fps_arms.cpp`) |

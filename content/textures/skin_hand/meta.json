@@ -1,0 +1,17 @@
+{
+ "set": "skin_hand",
+ "id": "human-skin1 (albedo_3)",
+ "family": "skin",
+ "size": [
+  0.15,
+  0.15
+ ],
+ "source": "FreePBR (freepbr.com) human-skin1, supplied by the user (incoming/hand_skin)",
+ "license": "unconfirmed: the user must confirm the FreePBR licence",
+ "resolution": "1K PNG (downscaled from 2K)",
+ "maps": [
+  "albedo.png",
+  "normal.png",
+  "rma.png (R roughness, G AO, B 128)"
+ ]
+}
