@@ -6,7 +6,7 @@
   "nearClear": 0.12,
   "nearClearAds": 0.25,
   "weapons": {
-    "kar98k": {"gripZ": 0.78}, "m1c_garand": {"gripZ": 0.74}, "mg42": {"gripZ": 0.82}, "mp40": {"gripZ": 0.60}, "fg42": {"gripZ": 0.54}, "panzerschreck": {"gripZ": 1.30},
+    "kar98k": {"gripZ": 0.88, "shoulder": [-0.10, 0.02, -0.06]}, "m1c_garand": {"gripZ": 0.74}, "mg42": {"gripZ": 0.94, "shoulder": [-0.12, 0.04, -0.08]}, "mp40": {"gripZ": 0.68, "shoulder": [-0.10, 0.02, -0.06]}, "fg42": {"gripZ": 0.58, "shoulder": [-0.10, 0.02, -0.06]}, "stg44": {"shoulder": [-0.08, 0.02, -0.04]}, "panzerschreck": {"gripZ": 1.30},
     "m2hb_carry": {"grip": [0.0, -0.02, 0.70]},
     "m2_flamethrower": {"grip": [0.031, -0.115, 0.600], "axis": [0, 0.906, 0.423], "up": [-1, 0, 0], "section": [0.043, 0.029], "slide": 0, "shoulder": [0.06, 0.04, -0.2]},
     "flammenwerfer41": {"grip": [0.031, -0.115, 0.600], "axis": [0, 0.906, 0.423], "up": [-1, 0, 0], "section": [0.043, 0.029], "slide": 0, "shoulder": [0.06, 0.04, -0.2]},
