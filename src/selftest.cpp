@@ -135,7 +135,8 @@ void SelfTest::update(App& app, float dt) {
   { extern bool modesSelfTest(App&, float); if (modesSelfTest(app, dt)) return; }   // G1: --selftest-modes (selftest_modes.cpp)
   { extern bool natureSelfTest(App&, float); if (natureSelfTest(app, dt)) return; }   // --selftest-nature (selftest_nature.cpp)
   { extern bool terrainSelfTest(App&, float); if (terrainSelfTest(app, dt)) return; }   // V8: --selftest-terrain (selftest_terrain.cpp)
-  { extern bool lassoSelfTest(App&, float); if (lassoSelfTest(app, dt)) return; }   // lasso tool: --selftest-lasso (selftest_lasso.cpp)
+  { extern bool lassoSelfTest(App&, float); if (lassoSelfTest(app, dt)) return; }
+  { extern bool linesSelfTest(App&, float); if (linesSelfTest(app, dt)) return; }   // LN1: --selftest-lines (selftest_lines.cpp)   // lasso tool: --selftest-lasso (selftest_lasso.cpp)
   { extern bool settingsSelfTest(App&, float); if (settingsSelfTest(app, dt)) return; }   // V2: --selftest-settings (selftest_settings.cpp)
   { extern bool autopathSelfTest(App&, float); if (autopathSelfTest(app, dt)) return; }   // --selftest-autopath (selftest_autopath.cpp)
   { extern bool snapSelfTest(App&, float); if (snapSelfTest(app, dt)) return; }   // V6: --selftest-snap (selftest_snap.cpp)

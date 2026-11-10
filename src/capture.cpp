@@ -15,6 +15,7 @@
 #include "nav_geom.h"
 #include "physics.h"
 #include "terrain_tools.h"
+#include "lines.h"
 #include <cstdarg>
 #include <functional>
 
@@ -281,8 +282,10 @@ void ddayChecks(App& app) {
   // trench floor points: every junction's crossing (its y less the trench depth), every entry ramp's top
   std::vector<std::pair<std::string, vec3>> pts;
   for (auto& i : app.doc.instances) {
-    if (i.assetId == "aw_trench_tee" || i.assetId == "aw_trench_cross") pts.push_back({i.assetId.substr(9) + "@" + std::to_string((int)i.pos.x) + "," + std::to_string((int)i.pos.z), vec3(i.pos.x, i.pos.y - 1.55f, i.pos.z)});
-    if (i.assetId == "aw_trench_entry") { vec3 p = i.pos + yawQuat(i.yaw) * vec3(-2.9f, 0, 0); p.y = T.height(p.x, p.z); pts.push_back({"ramp@" + std::to_string((int)p.x) + "," + std::to_string((int)p.z), p}); }
+    LineData ld;   // LN1 trench lines: both ends and the middle of each, on the carved floor
+    if (i.assetId != "line_trench" || !lineGet(i, ld)) continue;
+    auto sp = lineSpline(ld, 1.0f);
+    for (size_t k : {(size_t)0, sp.size() / 2, sp.size() - 1}) { vec2 q = sp[k].p; pts.push_back({"line" + std::to_string(i.id) + "@" + std::to_string((int)q.x) + "," + std::to_string((int)q.y), vec3(q.x, T.height(q.x, q.y) + 0.05f, q.y)}); }
   }
   int ok = 0; std::string bad; float worstLen = 0;
   for (size_t k = 1; k < pts.size(); ++k) {
