@@ -56,6 +56,12 @@ vec2 padHalf(const AssetDef* a) {
   if (ew.is_object() && ew.contains("core")) return vec2(ew["core"][0].get<float>(), ew["core"][1].get<float>());   // the walls: the banks start there
   return a->footprint * 0.5f;
 }
+// the walls' centre in asset space: an earthwork core may sit off the asset origin ("core": [hx, hz, cx, cz])
+vec2 padOff(const AssetDef* a) {
+  const json& ew = a->raw.is_object() && a->raw.contains("earthwork") ? a->raw["earthwork"] : json();
+  if (ew.is_object() && ew.contains("core") && ew["core"].size() >= 4) return vec2(ew["core"][2].get<float>(), ew["core"][3].get<float>());
+  return vec2(0);
+}
 const TerrainStamp* stampOf(const Terrain& T, uint64_t id, uint8_t kind) {
   for (auto& s : T.stamps) if (s.kind == kind && std::find(s.members.begin(), s.members.end(), id) != s.members.end()) return &s;
   return nullptr;
@@ -139,7 +145,7 @@ int blendSyncStamps(App& app) {
     if (!blendPinned(a) || !T.inBuildArea(i.pos.x, i.pos.z)) continue;   // decor beyond the border keeps the old ground
     const json ew = a->raw.value("earthwork", json());
     TerrainStamp s; s.kind = TerrainStamp::PAD; s.owner = i.id; s.members = {i.id};
-    s.c = vec2(i.pos.x, i.pos.z); s.yaw = i.yaw; s.y = i.pos.y; s.half = padHalf(a); s.seed = idSeed(i.id);
+    s.c = vec2(i.pos.x, i.pos.z) + toWorld(padOff(a), i.yaw); s.yaw = i.yaw; s.y = i.pos.y; s.half = padHalf(a); s.seed = idSeed(i.id);
     float dmax = 0;
     for (vec2 l : footprintSamples(s.half, false)) { vec2 w = s.c + toWorld(l, s.yaw); dmax = std::max(dmax, std::fabs(T.groundBase(w.x, w.y) - s.y)); }
     if (dmax >= C.minDelta || ew.is_object()) {   // ground already within minDelta of the floor: nothing to level
@@ -154,16 +160,25 @@ int blendSyncStamps(App& app) {
       TerrainStamp b; b.kind = TerrainStamp::BERM; b.owner = i.id; b.members = {i.id};
       b.c = s.c; b.yaw = s.yaw; b.y = s.y; b.seed = s.seed;
       b.half = ew.contains("core") ? vec2(ew["core"][0].get<float>(), ew["core"][1].get<float>()) : a->footprint * 0.25f;
+      const vec2 o = padOff(a);   // banks, holes and cuts are given in asset space: make them core-relative
       float reach = 0;
       for (auto& k : ew["banks"]) {
         if (k.size() < 5) continue;
-        b.banks.push_back(vec4(k[0].get<float>(), k[1].get<float>(), k[2].get<float>(), k[3].get<float>()));
+        b.banks.push_back(vec4(k[0].get<float>() - o.x, k[1].get<float>() - o.y, k[2].get<float>() - o.x, k[3].get<float>() - o.y));
         float Ha = k[4].get<float>(), Hb = k.size() > 5 ? k[5].get<float>() : Ha, H = std::max(Ha, Hb);   // [ax, az, bx, bz, crest at a(, crest at b)]
         b.bankH.push_back(vec2(Ha, Hb));
-        reach = std::max(reach, std::max(glm::length(vec2(k[0].get<float>(), k[1].get<float>())), glm::length(vec2(k[2].get<float>(), k[3].get<float>()))) +
+        reach = std::max(reach, std::max(glm::length(vec2(k[0].get<float>(), k[1].get<float>()) - o), glm::length(vec2(k[2].get<float>(), k[3].get<float>()) - o)) +
                                     sp.crest + 1.3f * H * (1 + sp.noise) * 1.15f / tanR + 1.0f);
       }
-      for (auto& h : ew.value("holes", json::array())) if (h.size() >= 4) b.holes.push_back(vec4(h[0].get<float>(), h[1].get<float>(), h[2].get<float>(), h[3].get<float>()));
+      for (auto& h : ew.value("holes", json::array())) if (h.size() >= 4) {   // [x0, z0, x1, z1(, fade width)]
+        b.holes.push_back(vec4(h[0].get<float>() - o.x, h[1].get<float>() - o.y, h[2].get<float>() - o.x, h[3].get<float>() - o.y));
+        b.holeEdge.push_back(h.size() > 4 ? h[4].get<float>() : 0.0f);
+      }
+      for (auto& c : ew.value("cuts", json::array())) if (c.size() >= 7) {   // [ax, az, bx, bz, half width, wall height at a, at b]
+        b.cuts.push_back(vec4(c[0].get<float>() - o.x, c[1].get<float>() - o.y, c[2].get<float>() - o.x, c[3].get<float>() - o.y));
+        b.cutP.push_back(vec3(c[4].get<float>(), c[5].get<float>(), c[6].get<float>()));
+        reach = std::max(reach, glm::length(vec2(c[2].get<float>(), c[3].get<float>()) - o) + c[4].get<float>() + 12.0f);   // the ramp past the open end
+      }
       float r = reach + sp.smoothing + sp.edgeJitter + 1.0f;
       b.bmin = b.c - vec2(r); b.bmax = b.c + vec2(r);
       out.push_back(std::move(b));
@@ -218,7 +233,7 @@ int blendSyncStamps(App& app) {
 // ================================================================ placement
 bool blendPlacement(const App& app, const AssetDef* a, vec3 pos, float yaw, uint64_t ignoreId, float& y, std::string& reason) {
   const BlendConfig& C = blendConfig();
-  vec2 c(pos.x, pos.z), half = padHalf(a);
+  vec2 c = vec2(pos.x, pos.z) + toWorld(padOff(a), yaw), half = padHalf(a);
   std::vector<float> hs;
   for (vec2 l : footprintSamples(half, false)) { vec2 w = c + toWorld(l, yaw); hs.push_back(app.terrain.placementHeight(w.x, w.y, ignoreId)); }
   float m = median(hs), dev = 0;
@@ -553,7 +568,7 @@ void blendPreview(const App& app, Overlay& ov, const AssetDef* a, vec3 pos, floa
   if (!blendPinned(a)) return;
   const BlendConfig& C = blendConfig();
   const Terrain& T = app.terrain;
-  vec2 c(pos.x, pos.z), half = padHalf(a);
+  vec2 c = vec2(pos.x, pos.z) + toWorld(padOff(a), yaw), half = padHalf(a);
   float dmax = 0, up = 0, down = 0;
   for (vec2 l : footprintSamples(half, false)) { vec2 w = c + toWorld(l, yaw); float d = pos.y - T.height(w.x, w.y); dmax = std::max(dmax, std::fabs(d)); up = std::max(up, d); down = std::max(down, -d); }
   if (dmax < C.minDelta) return;
@@ -604,7 +619,7 @@ BlendIssues blendValidate(App& app, bool fix, const char* why) {
       const TerrainStamp* s = stampOf(T, i.id, TerrainStamp::PAD);
       vec2 h = padHalf(a) - vec2(0.15f);
       for (vec2 l : {vec2(-h.x, -h.y), vec2(h.x, -h.y), vec2(h.x, h.y), vec2(-h.x, h.y), vec2(0, -h.y), vec2(0, h.y), vec2(-h.x, 0), vec2(h.x, 0)}) {
-        vec2 w = vec2(i.pos.x, i.pos.z) + toWorld(l, i.yaw);
+        vec2 w = vec2(i.pos.x, i.pos.z) + toWorld(padOff(a) + l, i.yaw);
         float d = i.pos.y - T.height(w.x, w.y);   // > 0: the base floats over the ground
         if (d > 0.05f && !(s && s->skirt > 0)) { ++r.floating; r.worst = std::max(r.worst, d); logf("gx1 validate (%s): %s #%llu floats %.2f m at a base corner", why, a->id.c_str(), (unsigned long long)i.id, d); break; }
         if (d < -0.10f) { ++r.buried; r.worst = std::max(r.worst, -d); logf("gx1 validate (%s): %s #%llu buried %.2f m at a base corner", why, a->id.c_str(), (unsigned long long)i.id, -d); break; }

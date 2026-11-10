@@ -48,6 +48,9 @@ struct TerrainStamp {
   std::vector<vec4> banks;            // BERM: ridge segments along the walls, local (ax, az, bx, bz)
   std::vector<vec2> bankH;            // BERM: crest height above y at each end of the segment (a flank tapers toward an open face)
   std::vector<vec4> holes;            // BERM: local rectangles kept clear (x0, z0, x1, z1): passages, embrasures
+  std::vector<float> holeEdge;        // BERM: per hole, the bank's fade width past its edge (<= 0: StampParams::holeEdge)
+  std::vector<vec4> cuts;             // BERM: entrance cuts, local centreline (ax, az, bx, bz) from the wall face outward
+  std::vector<vec3> cutP;             // BERM: per cut (half width, retaining wall height at a, at b): floor at y, a ramp past b
   std::vector<vec4> seg;              // TRENCH: centreline segments, world (x0, z0, x1, z1)
   std::vector<vec2> segY;             // TRENCH: floor y at both ends
   std::vector<uint8_t> segJoin;       // TRENCH: bit 0 start continues into another segment, bit 1 the end does
@@ -56,7 +59,7 @@ struct TerrainStamp {
   vec2 bmin{0}, bmax{0};              // world bounds of everything the stamp touches
   bool operator==(const TerrainStamp& o) const {
     return kind == o.kind && owner == o.owner && members == o.members && c == o.c && yaw == o.yaw && half == o.half && y == o.y && ring == o.ring && skirt == o.skirt && grow == o.grow &&
-           banks == o.banks && bankH == o.bankH && holes == o.holes && seg == o.seg && segY == o.segY && segJoin == o.segJoin && segFront == o.segFront && seed == o.seed;
+           banks == o.banks && bankH == o.bankH && holes == o.holes && holeEdge == o.holeEdge && cuts == o.cuts && cutP == o.cutP && seg == o.seg && segY == o.segY && segJoin == o.segJoin && segFront == o.segFront && seed == o.seed;
   }
 };
 struct StampParams {                  // content/settings/terrain_blend.json (terrain_blend.cpp fills it)
