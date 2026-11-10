@@ -46,15 +46,16 @@ def uv(x, z):
 
 # ------------------------------------------------------------------------------------------------ the layout
 STRONG = (3.8, -16.0)             # mil_stronghold (0.514, 0.560): front (+Z) to the sea; its rear passage ends on x = 0
-BUNKERS = [                       # (id, x, z, yaw, role)
-    ("bunker_mg_casemate", -92.0, 40.0, 45.0, "forward west MG"),          # (0.15, 0.35) south-east across the beach
-    ("bunker_pak_casemate", 0.0, 44.0, 0.0, "forward central"),            # (0.50, 0.33) the central dry-beach approach
-    ("bunker_mg_casemate", 82.7, 43.6, -45.0, "forward east MG"),          # (0.81, 0.34) south-west
-    ("aw_r667_casemate", -54.6, -17.9, 0.0, "rear west"),                  # (0.29, 0.57) gun east across the valley gap
-    ("bunker_large_casemate", 66.0, -32.0, -12.0, "rear east"),            # (0.75, 0.61) the eastern inland approach
+TW_POS = (-88.0, 28.0)            # the forward line's west junction; the rest of the network follows from the pieces
+BUNKERS = [                       # (id, x, z, yaw, role): each rear door a few metres past its trench spur's ramp
+    ("bunker_mg_casemate", -75.3, 46.4, 45.0, "forward west MG"),        # (0.22, 0.33) low by the dunes, south-east across the beach
+    ("bunker_pak_casemate", -9.37, 44.0, 0.0, "forward central"),        # (0.46, 0.33) the central dry-beach approach
+    ("bunker_mg_casemate", 75.94, 43.87, -45.0, "forward east MG"),      # (0.79, 0.33) south-west across the east of the beach
+    ("aw_r667_casemate", -76.0, -18.4, 0.0, "rear west"),               # (0.21, 0.57) gun east across the valley gap
+    ("bunker_large_casemate", 58.25, -28.9, 0.0, "rear east"),          # (0.72, 0.61) the eastern inland approach
 ]
-TOBRUKS = [("aw_tobruk_mg", -38.0, 39.5, 12.0), ("aw_tobruk_mg", 40.0, 40.5, -14.0)]   # MG nests ahead of the forward line
-FLAK = [(-104.0, -2.0, 160.0), (99.0, -22.0, 210.0)]                                 # west (0.11, 0.51), east (0.87, 0.58)
+TOBRUKS = [("aw_tobruk_mg", -48.7, 50.0, 10.0), ("aw_tobruk_mg", 29.9, 50.0, -12.0)]   # MG nests ahead of the forward line's bulges
+FLAK = [(-104.0, -2.0, 160.0), (92.5, -21.0, 210.0)]                                  # west (0.11, 0.51), east (0.85, 0.58)
 ALLIED = [(U(1 / 6), 106.0), (U(0.5), 106.0), (U(5 / 6), 106.0)]                     # v = 0.10, equal spacing
 AXIS_HOUSES = [("vil_granite_longere", -53.0, -101.0, 0.0), ("vil_rectory", 0.0, -111.0, 0.0), ("vil_colombage_auge", 79.5, -101.0, 0.0)]
 SQUARE = (0.0, -80.0)
@@ -95,6 +96,11 @@ def base_height(x, z):
     if bc > 0:
         east = smoothstep(0.55, 0.72, u)
         h += bc * (1.8 * fbm(x / 42.0, z / 42.0, 21, 3) + east * 0.7 * fbm(x / 9.0, z / 9.0, 22, 2))
+    # knolls under the positions (forward 3-6 m over the beach, rear 6-12 m), a saddle between the belts
+    for kx, kz, kh, kr in ((-75.0, 44.0, 2.6, 22.0), (-9.0, 44.0, 2.0, 20.0), (76.0, 44.0, 2.6, 22.0), (-48.0, 40.0, 1.4, 16.0), (30.0, 40.0, 1.4, 16.0),
+                           (-76.0, -18.0, 2.2, 22.0), (58.0, -28.0, 2.2, 24.0), (3.8, -18.0, 2.4, 38.0)):
+        h += kh * math.exp(-((x - kx) ** 2 + (z - kz) ** 2) / (2 * kr * kr))
+    h -= 1.2 * math.exp(-((v - 0.465) / 0.035) ** 2) * (0.6 + 0.4 * math.cos(x / 31.0))   # the saddle, deepest in places
     # village plateau: gentle undulation only
     vil = smoothstep(0.64, 0.72, v)
     h += vil * 0.45 * fbm(x / 70.0, z / 70.0, 31, 2)
@@ -138,7 +144,7 @@ class Trenches:
     """Lays the network piece by piece from junction sockets, checking that every run lands on its target socket."""
 
     def __init__(self, b):
-        self.b, self.inst, self.junctions, self.edges, self.ends = b, [], {}, [], []
+        self.b, self.inst, self.junctions, self.edges, self.ends, self.ramps = b, [], {}, [], [], {}
 
     def put(self, aid, c, yaw, y=None):
         e = self.b.place(aid, c[0], c[1], yaw, check=False, cls="flat", tags={"trench"}, y=self.b.ground(*c) if y is None else y)
@@ -188,7 +194,7 @@ class Trenches:
         _, c, yaw, q, do = best
         return self.put(aid, c, yaw), q, do
 
-    def run(self, start, moves, end=None, front=(0, 1)):
+    def run(self, start, moves, end=None, front=(0, 1), name=None):
         """Lay moves from socket start (point, outward dir): "S" 8 m, "Z" 12 m zig-zag, ("C"|"B", out dir) a corner /
         45-degree bend, "E" an entry ramp (end of the run). end: the socket it must land on."""
         p, d = start
@@ -202,6 +208,8 @@ class Trenches:
                 if isinstance(m, tuple):   # the ramp tops out at a given level (the stronghold's entrance floor)
                     e["pos"][1] = m[1]
                 self.ends.append(p)
+                if name:   # the ramp's top, where the trench meets the ground (bunker doors are set against it)
+                    self.ramps[name] = ((p[0] + 6.3 * d[0], p[1] + 6.3 * d[1]), d)
                 return None
             else:
                 kind, o = m
@@ -212,50 +220,52 @@ class Trenches:
 
 
 def build_trenches(b, strong):
+    """One network: the forward line and the rear branches bulge out and back in 45-degree doglegs (paired, so every
+    loop still closes exactly), zig-zag bays and traverses along every run; junctions sit where their runs land (the
+    pieces fix the lengths), and the two loop-closing runs are checked onto their target sockets."""
     T = Trenches(b)
     J = T.junctions
-    # forward line (z = 28) and its three junctions; the rear branches and their junctions
-    T.junction("TW", (-72, 28), "WEN")
-    T.junction("TC", (0, 28), "WENS")
-    T.junction("TE", (84, 28), "WNS")
-    T.junction("FWJ", (-72, -4), "NSW")
-    T.junction("RWJ", (-72, -44), "SEN")
-    T.junction("RWS", (-56, -44), "WES")
-    T.junction("W2", (-40, -44), "WES")
-    T.junction("CJ", (0, 8), "WES")
-    T.junction("SE", (44, -16), "WES")
-    T.junction("REJ", (84, -16), "WENS")
-    T.junction("REN", (84, -40), "SNW")
-    sea = (0, 1)
-    # forward line: zig-zag bays and straights toward the sea
-    T.run(J["TW"]["E"], ["Z", "S", "Z", "S", "Z", "Z"], end=J["TC"]["W"], front=sea)
-    T.run(J["TC"]["E"], ["Z", "S", "Z", "Z", "S", "Z", "Z"], end=J["TE"]["W"], front=sea)
-    # communication trenches: west (u 0.23), central (u 0.50, round the stronghold's front), east (u 0.78)
-    T.run(J["TW"]["N"], ["Z", "Z"], end=J["FWJ"]["S"], front=(1, 0))
-    T.run(J["FWJ"]["N"], ["S", "Z", "Z"], end=J["RWJ"]["S"], front=(1, 0))
-    T.run(J["TC"]["N"], ["Z"], end=J["CJ"]["S"], front=sea)
-    T.run(J["CJ"]["E"], ["Z", "Z", "Z", ("C", DIRS["N"]), "S", "S"], end=J["SE"]["S"], front=sea)
-    T.run(J["CJ"]["W"], ["Z", "S", "Z", ("C", DIRS["N"]), "Z", "Z", "Z", "S"], end=J["W2"]["S"], front=(-1, 0))
-    T.run(J["TE"]["N"], ["Z", "Z", "Z"], end=J["REJ"]["S"], front=(-1, 0))
-    # rear branches: west along z = -44 to the stronghold's sunken entrance, east along z = -16 from its steps
-    T.run(J["RWJ"]["E"], ["S"], end=J["RWS"]["W"], front=sea)
-    T.run(J["RWS"]["E"], ["S"], end=J["W2"]["W"], front=sea)
-    T.run(J["W2"]["E"], ["Z", "S", "Z", ("C", DIRS["S"]), ("E", strong["pos"][1] + 0.1)], front=sea)   # up into the sunken entrance
-    T.run(J["SE"]["E"], ["Z", "S", "Z"], end=J["REJ"]["W"], front=sea)
-    T.run(J["REJ"]["N"], ["S", "S"], end=J["REN"]["S"], front=(-1, 0))
-    # spurs to the bunkers, the flak positions, the stronghold and the rear exits toward the village (entry ramps)
-    T.run(J["TW"]["W"], ["S", ("B", (-math.sqrt(0.5), math.sqrt(0.5))), "E"])           # forward west MG casemate (rear door)
-    T.run(J["TC"]["S"], ["E"])                                                            # forward central casemate
-    T.run(J["TE"]["S"], ["E"])                                                            # forward east MG casemate
-    T.run(J["RWS"]["S"], ["S", "E"])                                                      # rear west R667
-    T.run(J["REN"]["W"], ["E"])                                                           # rear east casemate
-    T.run(J["FWJ"]["W"], ["S", "S", "E"])                                                 # west flak
-    T.run(J["REJ"]["E"], ["E"])                                                           # east flak
-    T.run(J["SE"]["W"], ["E"])                                                            # the stronghold's east steps
-    T.run(J["RWJ"]["N"], ["E"])                                                           # rear exit west
-    T.run(J["REN"]["N"], ["E"])                                                           # rear exit east
-    return T
+    S_, N_ = DIRS["S"], DIRS["N"]
+    r2 = math.sqrt(0.5)
 
+    def out(d, n):    # a 45-degree dogleg out toward n: 19.3 m along d, 11.3 m across
+        return [("B", (r2 * (d[0] + n[0]), r2 * (d[1] + n[1]))), "S", ("B", d)]
+
+    def back(d, n):   # and back
+        return [("B", (r2 * (d[0] - n[0]), r2 * (d[1] - n[1]))), "S", ("B", d)]
+
+    def at(name, end, arms):
+        p, d = end
+        return T.junction(name, (p[0] + 4 * d[0], p[1] + 4 * d[1]), arms)
+
+    E_, W_ = DIRS["E"], DIRS["W"]
+    sea = (0, 1)
+    T.junction("TW", TW_POS, "ENS")
+    at("TC", T.run(J["TW"]["E"], ["Z"] + out(E_, S_) + ["S"] + back(E_, S_) + ["Z"], front=sea), "WENS")      # forward line, west half
+    at("TE", T.run(J["TC"]["E"], ["Z"] + out(E_, S_) + ["S"] + back(E_, S_) + ["Z", "S"], front=sea), "WNS")  # east half
+    at("CJ", T.run(J["TC"]["N"], ["Z"], front=sea), "WES")                                                   # central communication
+    at("W2", T.run(J["CJ"]["W"], ["S"] + out(W_, S_) + back(W_, S_) + [("C", N_), "Z", "Z", "Z", "S"], front=sea), "WES")   # round the stronghold, west
+    at("SE", T.run(J["CJ"]["E"], ["S"] + out(E_, S_) + back(E_, S_) + [("C", N_), "S", "S"], front=sea), "WES")            # and east, to its steps
+    at("RWS", T.run(J["W2"]["W"], [], front=sea), "WES")                                                     # rear line, west
+    at("RWJ", T.run(J["RWS"]["W"], ["S"], front=sea), "SEN")
+    at("REJ", T.run(J["SE"]["E"], ["Z", "Z"], front=sea), "WENS")                                            # rear line, east
+    at("FWJ", T.run(J["TW"]["N"], ["Z", "Z"], front=(1, 0)), "NSW")                                          # western communication
+    T.run(J["FWJ"]["N"], ["S", "Z", "Z"], end=J["RWJ"]["S"], front=(1, 0))                                   # closes the west loop
+    T.run(J["TE"]["N"], ["Z", "Z", "Z"], end=J["REJ"]["S"], front=(-1, 0))                                   # eastern communication: the east loop
+    at("REN", T.run(J["REJ"]["N"], ["Z", "Z"], front=(-1, 0)), "SNW")
+    T.run(J["W2"]["E"], ["Z", "Z", "Z", "Z", "S", ("C", S_), ("E", strong["pos"][1] + 0.1)], front=sea)       # up into the sunken entrance
+    # spurs to the bunkers, the flak positions, the stronghold's steps and the rear exits toward the village (entry ramps)
+    T.run(J["TW"]["S"], [("B", (r2, r2)), "E"], name="FW")                                                  # forward west MG casemate (rear door)
+    T.run(J["TC"]["S"], ["E"], name="FC")
+    T.run(J["TE"]["S"], ["E"], name="FE")
+    T.run(J["RWS"]["S"], [("B", (-r2, r2)), "E"], name="RW")
+    T.run(J["REN"]["W"], ["S", ("C", S_), "E"], name="RE")
+    T.run(J["FWJ"]["W"], ["E"], name="flakW")
+    T.run(J["REJ"]["E"], ["E"], name="flakE")
+    T.run(J["SE"]["W"], ["E"], name="steps")
+    T.run(J["RWJ"]["N"], ["E"], name="exitW")
+    T.run(J["REN"]["N"], ["E"], name="exitE")
+    return T
 
 
 # ------------------------------------------------------------------------------------------------ helpers
@@ -317,8 +327,8 @@ def sculpt(ctx, grid, R):
                  top_half=lambda u: 13.0, floor_half=lambda u: 3.0)
     # spawn cover: a broad curved dune 3.3 m high, its crest 9-11 m inland of each Allied landing, open at both ends (two ways out)
     for x, z in ALLIED:
-        stamp_bank(grid, [(x - 17, z - 3.0), (x - 11, z - 9.0), (x - 3, z - 11.0), (x + 4, z - 10.5), (x + 11, z - 8.5), (x + 17, z - 2.5)], 8.0, 3.3)
         sg = 1 if x > STRONG[0] + 10 else -1 if x < STRONG[0] - 10 else 0   # a dune tail toward the stronghold's side
+        stamp_bank(grid, [(x - 17, z - 3.0), (x - 11, z - 9.0), (x - 3, z - 11.0), (x + 4, z - 10.5), (x + 11, z - 8.5), (x + 17, z - 2.5)], 8.0, 3.3 if sg else 3.8)
         if sg:
             stamp_bank(grid, [(x - sg * 24, z - 5.0), (x - sg * 14, z - 13.0), (x - sg * 5, z - 14.5)], 6.5, 3.1)
     # bombardment craters: the dry beach and dunes, the bunker slopes (cover on the lanes inland)
@@ -438,17 +448,21 @@ def build(ctx):
     # wooden X on the dry beach; open lanes up from each landing
     lane_x = [x for x, _ in ALLIED]
     groups = 0
-    for z0, assets, n, w in ((114, ["bch_belgian_gate"], 9, 9.0), (100, ["bch_log_stake_mine", "bch_log_ramp_mined", "bch_log_stake_mine"], 16, 6.0),
-                             (84, ["def_tank_trap", "def_tank_trap", "drs_wooden_x_obstacle"], 18, 5.0), (68, ["def_tank_trap", "drs_wooden_x_obstacle"], 12, 7.0)):
+    # (groups of 1-5 laid along their own skewed line, the depth of each belt wandering 20 m: no stamped rows)
+    for z0, assets, n, w in ((114, ["bch_belgian_gate", "bch_belgian_gate", "bch_log_stake_mine"], 11, 9.0), (100, ["bch_log_stake_mine", "bch_log_ramp_mined", "bch_log_stake_mine"], 18, 6.0),
+                             (84, ["def_tank_trap", "def_tank_trap", "drs_wooden_x_obstacle"], 20, 5.0), (68, ["def_tank_trap", "drs_wooden_x_obstacle", "bch_log_stake_mine"], 14, 7.0)):
         for _ in range(n):
-            cx, cz = R.uniform(-HX + 10, HX - 10), z0 + R.uniform(-5, 5)
+            cx = R.uniform(-HX + 10, HX - 10)
+            cz = z0 + 7.0 * fbm(cx / 40.0, z0 * 0.1, 60, 2) + R.uniform(-6, 6)
             if any(abs(cx - lx) < w + 5 for lx in lane_x):
                 continue
-            k = R.randint(2, 4)
+            k = R.choice((1, 2, 2, 3, 3, 4, 5))
+            ga = math.radians(R.uniform(-35, 35))
             for j in range(k):
                 aid = R.choice(assets)
-                yw = 180 + R.uniform(-15, 15) if aid == "bch_log_ramp_mined" else R.uniform(0, 360)
-                b.place(aid, cx + j * R.uniform(2.6, 4.5) - k * 1.8, cz + R.uniform(-2.2, 2.2), yw, tags={"obstacle", "cover"}, water_ok=True)
+                t = (j - (k - 1) / 2) * R.uniform(2.6, 5.0)
+                yw = 180 + R.uniform(-20, 20) if aid == "bch_log_ramp_mined" else R.uniform(0, 360)
+                b.place(aid, cx + t * math.cos(ga) + R.uniform(-1, 1), cz + t * math.sin(ga) + R.uniform(-1.5, 1.5), yw, tags={"obstacle", "cover"}, water_ok=True)
             groups += 1
     rep["obstacleGroups"] = groups
     for x, z in ALLIED:   # hard cover on the open flanks of each landing pocket
@@ -582,8 +596,9 @@ def build(ctx):
 
     # ------------------------------------------------------------------ 8. scenario: Assault A-C, TDM, Solo
     sc = ScenarioBuilder(b, defending="Axis")
-    fwd = [bunkers[1]] + tobruks + [e for e in T.inst if dist((e["pos"][0], e["pos"][2]), (0, 28)) < 40]
-    sc.objective("Forward belt", 0.0, 30.0, radius=16.0, capture_time=45.0, attack_from=(0, 106), linked=[e["id"] for e in fwd],
+    tc = T.junctions["TC"]["_e"]["pos"]
+    fwd = [bunkers[1]] + tobruks + [e for e in T.inst if dist((e["pos"][0], e["pos"][2]), (tc[0], tc[2])) < 40]
+    sc.objective("Forward belt", tc[0], 31.0, radius=16.0, capture_time=45.0, attack_from=(0, 106), linked=[e["id"] for e in fwd],
                  slots=slots_from_structures(b, fwd)[:16])
     sc.objective("The stronghold", STRONG[0], STRONG[1] - 1.0, radius=20.0, capture_time=55.0, attack_from=(STRONG[0], 30),
                  linked=[strong["id"]], slots=slots_from_structures(b, [strong]))
@@ -631,6 +646,14 @@ def build(ctx):
                         exposed.append((e["asset"], f.get("kind"), round(sx), ox))
     rep["spawnExposure"] = exposed
     rep["trenchEnds"] = [(round(p[0], 1), round(p[1], 1)) for p in T.ends]
+    # how far each bunker's rear door is from its spur's ramp top
+    doors = {}
+    for (aid, x, z, yaw, role), key in zip(BUNKERS, ("FW", "FC", "FE", "RW", "RE")):
+        ent = cat[aid].nav["entrances"][0]["p"]
+        dp = local_to_world((x, z), yaw, ent[0], ent[2])
+        doors[role] = round(dist(dp, T.ramps[key][0]), 1)
+    rep["doorToRamp"] = doors
+    rep["junctions"] = {k: [round(v["_e"]["pos"][0], 2), round(v["_e"]["pos"][2], 2)] for k, v in T.junctions.items()}
 
     # ------------------------------------------------------------------ output
     tdir = ctx.templates
