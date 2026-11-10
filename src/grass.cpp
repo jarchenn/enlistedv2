@@ -4,6 +4,70 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <stb_image.h>
+#include "assets.h"   // leafMips (foliage.cpp)
+
+// GT1 grass plant atlas (docs/grass-atlas.md): content/textures/grass_atlas (tools/pack_grass_atlas.mjs, Poly Haven
+// grass_bermuda_01 / grass_medium_01, CC0) as one sRGB GL_TEXTURE_2D_ARRAY on unit 27 with coverage-preserving mips,
+// and the per-cell / per-species tables of kGrassVS. false: the procedural blades stay (missing or invalid files).
+bool grassAtlasInit(GLuint progMain, GLuint progShadow) {
+  constexpr int kUnit = 27, kMaxCells = 32, kMaxIdx = 48;
+  fs::path dir = contentDir() / "textures" / "grass_atlas";
+  json j;
+  try { j = json::parse(readTextFile(dir / "grass_atlas.json")); } catch (...) { logf("grass atlas: %s missing or invalid: procedural blades", (dir / "grass_atlas.json").string().c_str()); return false; }
+  int S = j.value("layerSize", 0), cols = j.value("cols", 0), n = j.value("layers", 0);
+  if (S <= 0 || cols <= 0 || n <= 0 || n > kMaxCells) { logf("grass atlas: bad header"); return false; }
+  int w, h, c;
+  stbi_uc* d = stbi_load((dir / j.value("atlas", std::string("grass_atlas.png"))).string().c_str(), &w, &h, &c, 4);
+  if (!d || w < cols * S || h < (n + cols - 1) / cols * S) { if (d) stbi_image_free(d); logf("grass atlas: image missing or too small"); return false; }
+  int levels = 1; while ((S >> levels) > 0) ++levels;
+  GLuint tex = 0;
+  glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &tex);
+  glTextureStorage3D(tex, levels, GL_SRGB8_ALPHA8, S, S, n);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  std::vector<uint8_t> px((size_t)S * S * 4);
+  for (int l = 0; l < n; ++l) {
+    int cx = l % cols * S, cy = l / cols * S;
+    for (int r = 0; r < S; ++r) std::memcpy(&px[(size_t)r * S * 4], d + ((size_t)(cy + S - 1 - r) * w + cx) * 4, (size_t)S * 4);   // rows top-down in the file; texel row 0 = plant base
+    leafMips(tex, l, S, levels, px);
+  }
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  stbi_image_free(d);
+  glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTextureParameterf(tex, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 4.0f);
+  glBindTextureUnit(kUnit, tex);
+  std::vector<float> cell(kMaxCells * 4, 0.0f), mean(kMaxCells * 3, 0.2f);
+  float v0 = 0;
+  for (int k = 0; k < n; ++k) {
+    const json& e = j["cells"][k];
+    cell[k * 4 + 0] = e["u0"]; cell[k * 4 + 1] = e["u1"]; cell[k * 4 + 2] = e["v1"]; cell[k * 4 + 3] = e["aspect"]; v0 = e["v0"];
+    for (int q = 0; q < 3; ++q) mean[k * 3 + q] = e["mean"][q];
+  }
+  // species: cells, and which blade cards show a plant (first, count): low tufts 3, fuller tufts and stems 4, the
+  // seed-head grass's leafy cards after its two stems, marram 4
+  std::vector<int> sp(24 * 4, 0), idx(kMaxIdx, 0);
+  int ni = 0;
+  for (auto& [key, v] : j["species"].items()) {
+    int s = std::atoi(key.c_str()); if (s < 0 || s >= 24 || !v.is_array()) continue;
+    int first = ni;
+    for (auto& x : v) if (ni < kMaxIdx && x.get<int>() >= 0 && x.get<int>() < n) idx[ni++] = x.get<int>();
+    int cards0 = s == 2 ? 3 : 0, cards = 2;   // fill budget: 2 plants stand in for a clump's 12 blades
+    sp[s * 4 + 0] = first; sp[s * 4 + 1] = ni - first; sp[s * 4 + 2] = cards0; sp[s * 4 + 3] = cards;
+  }
+  for (GLuint p : {progMain, progShadow}) {
+    if (!p) continue;
+    glProgramUniform1i(p, glGetUniformLocation(p, "uGATex"), kUnit);
+    glProgramUniform4fv(p, glGetUniformLocation(p, "uGACell"), kMaxCells, cell.data());
+    glProgramUniform1f(p, glGetUniformLocation(p, "uGAV0"), v0);
+    glProgramUniform4iv(p, glGetUniformLocation(p, "uGASp"), 24, sp.data());
+    glProgramUniform1iv(p, glGetUniformLocation(p, "uGAIdx"), kMaxIdx, idx.data());
+    glProgramUniform3fv(p, glGetUniformLocation(p, "uGAMean"), kMaxCells, mean.data());
+  }
+  logf("grass atlas: %d cells (%d px, %d mips), %d species", n, S, levels, (int)j["species"].size());
+  return true;
+}
 
 const GrassPreset& grassPreset(GrassQuality q) {
   // GX3 tiers (content/settings/grass.json overrides): Low is about the pre-GX3 Medium cost, Medium the same frame

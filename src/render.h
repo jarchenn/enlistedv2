@@ -159,6 +159,7 @@ public:
     bool zPrepass = false;       // zprepass (R1 experiment): depth-only pass of the building groups, then shading at equal depth
     bool grassShadow = true;     // grassshadow (G1, measurement): off = pasture grass casts no sun shadow; A/B = its share of the near cascade
     bool leafTex = true;         // leaftex (L1): species leaf textures + leaf meshes with LOD (off = the procedural oval cards)
+    bool grassAtlas = true;      // grassatlas (GT1): pasture blade cards show Poly Haven grass plants (off = the procedural blades)
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; return p; }
@@ -166,7 +167,7 @@ public:
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : nullptr;
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : nullptr;
       if (n == "r2") { casterCull = leafShadowLod = probeBudgetOn = roomCull = propDist = on; return true; }   // R2: every switch together
       if (n == "asyncq") { syncGpuQuery = !on; return true; }
       if (n == "gx5") { matLayer = staticDecals = grade = on; return true; }   // GX5: every material / decal / grade switch together
@@ -174,6 +175,7 @@ public:
       return b != nullptr;
     }
   } perf;
+  bool grassAtlasTier = true;     // GT1 grass plant atlas used by the grass tier (settings.cpp: Medium / High / Ultra, not Low)
   float leafLodScale = 1.0f;   // L1 leaf LOD distances (kLeafNearIn ...) x this; settings.cpp: 0.6 at grass quality Low / Off (the Low preset)
   // GX5 grade (content/settings/grade.json): saturation, cool shadows / warm highlights, S-curve, vignette, sharpen
   struct Grade { bool on = true; float saturation = 0.91f, contrast = 0.08f, vignette = 0.22f, sharpen = 0.22f, chromatic = 0.0f;
@@ -282,6 +284,7 @@ private:
   void swapUp();
   void upDepth();            // TAAU output depth (kDepthUpFS): the nearest internal depth, for effects and overlays             // exchanges the internal and output-size post targets (and width / height)
   float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
+  bool grassAtlasReady = false;   // GT1: content/textures/grass_atlas loaded (grass.cpp grassAtlasInit)
   GLuint progGrass = 0, progGrassShadow = 0;   // GX3: near pasture clumps into the sun map
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped

@@ -205,6 +205,7 @@ void Settings::apply(App& app) {
   R.setMsaa(g.msaa);
   R.q.matLayer = g.materials;   // GX5 (docs/graphics-overhaul.md#gx5)
   app.ivyOn = g.ivy;
+  R.grassAtlasTier = g.grass >= 2;   // GT1 grass plant atlas: Medium, High, Ultra (Low keeps the procedural blades)
   R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds;
   R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
