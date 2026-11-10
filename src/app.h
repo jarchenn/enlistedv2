@@ -53,6 +53,7 @@ struct InstanceRT {
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
   GpuMesh pathMesh; uint32_t pathGround = ~0u, pathRev = 0; std::vector<uint8_t> slabCut;   // path entities (paths.cpp)
+  vec4 contact[5]{}; uint32_t contactRev = 0, contactGround = ~0u;   // MA2: ground under the walls (App::contactProfile)
   GpuMesh earthMesh; uint64_t earthKey = 0; uint32_t earthGround = ~0u;   // GX1: generated revetment / retaining skirt (terrain_blend.cpp)
   std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut
   // nature scatter patches (nature.cpp): stones as one merged mesh, plants as a grass-shader instance buffer
@@ -156,6 +157,7 @@ public:
   // ---- runtime/doc management
   const AssetDef* assetFor(const Instance& i) const;
   mat4 instanceMatrix(const Instance& i) const;
+  const vec4* contactProfile(const Instance& i, InstanceRT& r);   // MA2: ground-contact grid (app.cpp)
   void syncRuntime();
   void destroyRT(InstanceRT& r);
   void buildRT(const Instance& i, InstanceRT& r);

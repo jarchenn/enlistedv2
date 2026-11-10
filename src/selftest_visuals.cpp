@@ -165,6 +165,69 @@ void SelfTest::visualsUpdate(App& app, float dt) {
         summary["bunkers"][d->id]["nav"] = navMetaToJson(n);
       }
       return true; });
+    // MA2 (brief section 8): weathering follows the real ground. A garden wall (no pad) across a 15 deg ramp; debug view
+    // 3 paints white up to 0.5 m above the local ground (groundH, App::contactProfile). At both wall ends, scan up the
+    // face: the white top must sit 0.5 m above the terrain there, though the ends stand ~0.9 m apart in height.
+    push("MA2: foundation weathering follows the ground on a 15 deg slope", [this](App& a, float t) {
+      static vec3 pos; static float halfX = 2.0f, faceZ = 0.35f; static bool measured = false;
+      const float slope = std::tan(glm::radians(15.0f));
+      if (t == 0) {
+        const TemplateInfo* tb = a.findTemplate("blank_slate");
+        if (tb) a.newMap(*tb, "MA2 slope");
+        Terrain& T = a.terrain;
+        std::map<int, std::vector<float>> d;
+        const float ts = T.tileSize(), fs = ts / Terrain::kFine;
+        for (int tz = 0; tz < T.tilesZ(); ++tz) for (int tx = 0; tx < T.tilesX(); ++tx) {
+          float x0 = T.org.x + tx * ts, z0 = T.org.y + tz * ts;
+          if (x0 > 30 || x0 + ts < -30 || z0 > 30 || z0 + ts < -30) continue;
+          std::vector<float> v((size_t)Terrain::kFineN * Terrain::kFineN);
+          for (int j = 0; j < Terrain::kFineN; ++j) for (int i = 0; i < Terrain::kFineN; ++i) v[(size_t)j * Terrain::kFineN + i] = slope * std::clamp(x0 + i * fs + 30.0f, 0.0f, 60.0f);
+          d[T.key(tx, tz)] = v;
+        }
+        a.doc.terrainDeltas = d; a.resetGround();
+        const AssetDef* w = a.lib.find("drs_garden_wall");
+        if (!w) { check(false, "MA2: drs_garden_wall missing"); return true; }
+        Instance in; in.id = a.doc.newId(); in.assetId = w->id; in.assetVersion = w->version;
+        pos = vec3(0, a.terrain.height(0, 0), 0); in.pos = pos; in.yaw = 0;
+        a.bump(in); a.doc.instances.push_back(in);
+        halfX = std::max(w->bmax.x, -w->bmin.x); faceZ = w->bmax.z;
+        a.camPos = pos + vec3(0, 1.0f, faceZ + 6.5f); a.camYaw = 0; a.camPitch = -4;
+        a.hideEditorOverlays = true; a.R.gxDebug = 3; measured = false;
+        return false;
+      }
+      if (measured) {   // the same view, normally shaded: selftest_out/ma2_slope.png
+        if (t < 2.4f) return false;
+        a.screenshot(outDirV() / "ma2_slope.png"); a.hideEditorOverlays = false;
+        return true;
+      }
+      if (t < 1.2f) return false;   // TAA settles
+      std::vector<uint8_t> px; int W = 0, H = 0;
+      bool got = a.R.readPixels(px, W, H);
+      mat4 vp = a.projM * a.viewM;
+      auto white = [&](vec3 p) {
+        vec4 c = vp * vec4(p, 1); if (c.w <= 0) return -1;
+        int x = (int)((c.x / c.w * 0.5f + 0.5f) * W), y = (int)((c.y / c.w * 0.5f + 0.5f) * H);
+        if (x < 0 || y < 0 || x >= W || y >= H) return -1;
+        const uint8_t* q = &px[((size_t)y * W + x) * 4];
+        return q[0] > 80 && q[1] > 80 ? 1 : 0;
+      };
+      float rel[2] = {-9, -9}, g[2] = {0, 0};
+      for (int e = 0; e < 2; ++e) {
+        float x = (e == 0 ? -1.0f : 1.0f) * (halfX - 0.45f);
+        g[e] = a.terrain.height(x, faceZ + 0.4f);
+        float top = -1e9f; bool seen = false;
+        for (float y = g[e] - 0.2f; y < g[e] + 1.6f && got; y += 0.01f) {
+          int wv = white(vec3(x, y, faceZ + 0.01f));
+          if (wv == 1) { top = y; seen = true; } else if (wv == 0 && seen) break;
+        }
+        if (seen) rel[e] = top - g[e];
+      }
+      char b[260]; std::snprintf(b, sizeof b, "MA2: on a 15 deg slope the foundation line stays %.2f / %.2f m above the local ground at the wall's two ends (want 0.5 +- 0.15; the ends' ground differs by %.2f m)", rel[0], rel[1], g[1] - g[0]);
+      check(got && std::fabs(rel[0] - 0.5f) < 0.15f && std::fabs(rel[1] - 0.5f) < 0.15f && std::fabs(g[1] - g[0]) > 0.6f, b);
+      summary["ma2"] = {{"relLow", rel[0]}, {"relHigh", rel[1]}, {"groundDelta", g[1] - g[0]}};
+      a.screenshot(outDirV() / "ma2_slope_debug.png");
+      a.R.gxDebug = 0; measured = true;
+      return false; });
     push("bunkers: OP and field shelter treatment", [this, countMat](App& a, float) {
       for (const char* id : {"bunker_observation_post", "bunker_field_shelter"}) {
         const AssetDef* d = a.lib.find(id);
