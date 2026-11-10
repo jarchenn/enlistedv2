@@ -463,6 +463,7 @@ public:
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot
   vec3 lastHandErr{0};                  // IK residual (right, left) for tests: x = right, y = left
   vec3 lastElbowR{0}, lastElbowL{0}, lastHandR{0}, lastHandL{0}, lastShoulderR{0}, lastShoulderL{0};
+  int lastArmDraws = 0;                 // FA1: arm pairs drawn this frame (rigged model or boxes; self-tests)
   void dofParams(float& focus, float& amount) const;
   vec3 weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const;
   bool deformGround(vec3 p, float scale);   // ground.cpp

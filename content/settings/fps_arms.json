@@ -1,0 +1,79 @@
+{
+ "_doc": "FA1 first-person arms (src/fps_arms.cpp, docs/fps-arms.md). Each hand's pose on the weapon, in weapon space (x right, y up, z toward the muzzle): fwd = the direction from the wrist to the knuckles, palm = the palm's outward normal, contact = where the grip socket sits in the hand frame [along the fingers, toward the pinky, out of the palm] (m), curl = degrees toward the palm [proximal, distal] for fingers (middle to pinky) and index, thumb a single angle, soften = 0..1 how far the hand turns toward the forearm to keep the wrist straight. \"weapons\": per weapon id, keys replacing the default; left \"free\": true keeps the support hand off the weapon (one-handed). shoulderR / shoulderL: the shoulders (camera space: x right, y up, -z forward), behind and below the view so the arms reach out.",
+ "shoulderR": [0.2, -0.32, 0.16],
+ "shoulderL": [-0.2, -0.32, 0.16],
+ "default": {
+  "right": {
+   "fwd": [0, 0.3, 0.95],
+   "palm": [-1, 0, 0],
+   "contact": [0.07, 0.01, 0.03],
+   "curl": {
+    "fingers": [75, 70],
+    "index": [35, 30],
+    "thumb": 30
+   },
+   "soften": 0.25
+  },
+  "left": {
+   "fwd": [0.85, 0.15, 0.5],
+   "palm": [-0.15, 1, 0],
+   "contact": [0.07, 0, 0.075],
+   "curl": {
+    "fingers": [70, 55],
+    "index": [65, 50],
+    "thumb": 20
+   },
+   "soften": 0.3
+  }
+ },
+ "weapons": {
+  "mg42": {
+   "left": {
+    "fwd": [0.2, -0.2, 0.96],
+    "palm": [1, 0.2, 0],
+    "curl": {
+     "fingers": [70, 60],
+     "index": [70, 60],
+     "thumb": 40
+    }
+   }
+  },
+  "knife_bayonet": {
+   "right": {
+    "fwd": [-0.3, 0.3, 0.9],
+    "curl": {
+     "fingers": [85, 80],
+     "index": [85, 75],
+     "thumb": 45
+    }
+   }
+  },
+  "mk2_grenade": {
+   "right": {
+    "curl": {
+     "fingers": [65, 60],
+     "index": [65, 60],
+     "thumb": 45
+    }
+   }
+  },
+  "m24_grenade": {
+   "right": {
+    "curl": {
+     "fingers": [80, 70],
+     "index": [80, 70],
+     "thumb": 45
+    }
+   }
+  },
+  "smoke_grenade": {
+   "right": {
+    "curl": {
+     "fingers": [65, 60],
+     "index": [65, 60],
+     "thumb": 45
+    }
+   }
+  }
+ }
+}

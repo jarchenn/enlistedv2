@@ -41,7 +41,7 @@ void water(App& a, float level) { a.terrain.waterLevel = level; }
 bool armsOnly(App& a, int& arms, int& other) {
   arms = other = 0;
   for (auto& d : a.R.viewModel) { bool arm = d.mesh == &a.armMesh[0] || d.mesh == &a.armMesh[1] || d.mesh == &a.armMesh[2]; (arm ? arms : other)++; }
-  other += (int)a.R.viewModelTex.size();
+  for (auto& d : a.R.viewModelTex) (fpsArmsIsModel(d.model) ? arms : other)++;   // FA1: the rigged arms model
   return arms > 0 && other == 0;
 }
 

@@ -29,6 +29,8 @@ constexpr float kBreathAmpDeg = 0.08f;    // idle aim wander amplitude
 constexpr float kBreathHz = 0.22f;
 constexpr float kBreathHoldMax = 5.0f, kBreathRecover = 3.0f;
 constexpr float kUpperArm = 0.32f, kForearm = 0.30f;
+bool fpsArmsReady();   // FA1 (fps_arms.cpp): the rigged first-person arms loaded (else the box arms draw)
+struct GpuModel; bool fpsArmsIsModel(const GpuModel* g);   // a Renderer::viewModelTex draw of the arms (self-tests)
 
 float smoothDamp(float cur, float target, float& vel, float smoothTime, float dt);
 

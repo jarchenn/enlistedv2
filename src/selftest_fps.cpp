@@ -23,6 +23,30 @@ void SelfTest::fpsUpdate(App& app, float dt) {
     check(WALL != 0 && app.enterExplore(), "range: stone dairy 30 m downrange, F5 into Explore");
     app.useScripted = true;
     fseq.clear(); fcur = 0; ft = 0;
+    if (std::getenv("NMK_ARMS_SHOTS")) {   // FA1: only the first-person arms shots (hip, ADS, mid-reload; selftest_out/fa1_*)
+      for (const char* id : {"m1_garand", "kar98k", "stg44", "mg42", "knife_bayonet", "mk2_grenade"}) {
+        std::string sid = id;
+        push("arms " + sid, [this, sid](App& a, float t) {
+          static bool shot = false;
+          if (t == 0) { a.selectWeapon(a.weaponIndex(sid)); a.vm.procedural = false; a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = -2; shot = false; }
+          if (t > 0.6f && t < 0.62f) shotQueue.push_back("fa1_" + sid + "_hip");
+          a.scriptedInput.aim = t > 0.7f && t < 2.0f;
+          if (t > 1.8f && t < 1.82f) shotQueue.push_back("fa1_" + sid + "_ads");
+          auto& s = a.wstate[sid];
+          if (t > 2.0f && t < 2.05f) s.loaded = 0;
+          a.scriptedInput.reload = t > 2.1f && t < 2.15f;
+          if (!shot && s.reload > 0 && s.reload < s.reloadTotal * 0.55f) { shot = true; shotQueue.push_back("fa1_" + sid + "_reload"); }
+          if (t < 2.2f || (s.reload > 0 && t < 8.0f)) return false;
+          char b[200]; std::snprintf(b, sizeof b, "%s: arms drawn %d, elbows R (%.2f, %.2f, %.2f) L (%.2f, %.2f, %.2f)%s", sid.c_str(), a.lastArmDraws,
+                                     a.lastElbowR.x, a.lastElbowR.y, a.lastElbowR.z, a.lastElbowL.x, a.lastElbowL.y, a.lastElbowL.z, shot ? "" : " (no reload)");
+          check(a.lastArmDraws == 1, b);
+          a.scriptedInput = ExploreInput{};
+          return true; });
+      }
+      push("reset", [this](App& a, float) { a.vm.procedural = true; a.exitExplore(); return true; });
+      stage = 1101;
+      return;
+    }
 
     // ---- F1 import
     push("import", [this](App& a, float) {
@@ -190,7 +214,9 @@ void SelfTest::fpsUpdate(App& app, float dt) {
       solveTwoBone(S, T, kUpperArm, kForearm, vec3(0, -1, 0), e, h);
       check(std::fabs(glm::length(e - S) - kUpperArm) < 1e-4f && std::fabs(glm::length(h - e) - kForearm) < 1e-3f && glm::length(h - T) > 1.3f, "out of reach: the arm straightens toward the target without stretching");
       int armItems = 0; for (auto& it : a.R.viewModel) for (auto& m : a.armMesh) armItems += it.mesh == &m;
-      check(armItems == 8, "arms drawn in the first-person pass (2 x upper arm, forearm, wrist, hand): " + std::to_string(armItems));
+      int armModel = 0; for (auto& it : a.R.viewModelTex) armModel += fpsArmsIsModel(it.model);   // FA1: the rigged arms
+      check(a.lastArmDraws == 1 && (fpsArmsReady() ? armModel == 1 && armItems == 0 : armItems == 8),
+            fpsArmsReady() ? "the rigged arms model is drawn in the first-person textured pass (no box arms)" : "box arms drawn in the first-person pass (2 x upper arm, forearm, wrist, hand): " + std::to_string(armItems));
       a.selectWeapon(a.weaponIndex("m1_garand"));
       return true; });
 
