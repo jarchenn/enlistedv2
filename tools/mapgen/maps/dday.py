@@ -339,15 +339,17 @@ class _Layout:
         return {"asset": aid, "pos": [x, y, z], "yaw": yaw, "tags": set()}
 
 
-def trench_lines(b, pieces):
+def trench_lines(b, pieces, pinned=()):
     """LN1: the laid trench pieces become trench lines (docs/lines.md), chained exactly as the engine migrates old maps
     (src/lines.cpp lineMigrateTrenches): every piece's centreline (a junction's arms too) is a polyline, polylines whose
     ends meet are chained through every two-way joint, the pieces are removed. Returns {piece id: line id}."""
     cat = b.cat
-    polys = []   # (points [(x, z, d)], piece id, fire +1 left / -1 right / 0)
+    polys = []   # (points [(x, z, d, y)], piece id, fire +1 left / -1 right / 0); y: a pinned piece's fixed floor
+    depth = 1.62   # content/settings/terrain_blend.json trench depth
     for e in pieces:
         tj = cat[e["asset"]].raw["trench"]
-        W = lambda q: (*local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], q[0], q[1]), q[2] if len(q) > 2 else 1.0)
+        W = lambda q: (*local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], q[0], q[1]), q[2] if len(q) > 2 else 1.0,
+                       e["pos"][1] - depth * (q[2] if len(q) > 2 else 1.0) if e["id"] in pinned else None)
         P = [W(q) for q in tj["path"]]
         dx, dz = P[1][0] - P[0][0], P[1][1] - P[0][1]
         L = math.hypot(dx, dz)
@@ -409,7 +411,7 @@ def trench_lines(b, pieces):
                 clean.append(p)
         if len(clean) < 2:
             continue
-        line = {"pts": [[round(p[0], 3), round(p[1], 3)] + ([round(p[2], 3)] if p[2] != 1.0 else []) for p in clean],
+        line = {"pts": [[round(p[0], 3), round(p[1], 3)] + ([round(p[2], 3)] if p[2] != 1.0 or p[3] is not None else []) + ([round(p[3], 3)] if p[3] is not None else []) for p in clean],
                 "seed": int(srcs[0]) * 7919 % 100000 + 1,
                 "params": {"fire": "left" if fire > 0 else "right" if fire < 0 else "none", "ramps": "none", "sharp": True}}
         e = b.place("line_trench", clean[0][0], clean[0][1], 0.0, check=False, cls="none", extra={"line": line}, tags={"trench", "trench_line"},
@@ -832,8 +834,11 @@ def build(ctx):
         m["pos"][1] = round(e["pos"][1] + r0["min"][1], 3)
         rk = b.place("rack_axis", *local_to_world((x, z), e["yaw"], lx + 1.2, lz), e["yaw"] + 90, check=False, cls="none", y=m["pos"][1], tags={"rack"})
         m["rack"] = rk["id"]
-    for team, (x, z), fac, lab in ((0, ALLIED[1], "Allies", "Team A spawn"), (1, (0.0, -96.0), "Axis", "Team B spawn")):
-        m = sc.spawn("attacker" if team == 0 else "defender", [0], x, z, face=(0.0, 0.0), faction=fac, label=lab, rack="auto")
+    # TDM: team A plays the Defender role (src/match.cpp setupDeathmatch), so the Axis are team A in the village and the
+    # Allies team B on the beach, as in Assault
+    sc.rules["teamFaction"] = ["Axis", "Allies"]
+    for team, (x, z), fac, lab in ((0, (0.0, -96.0), "Axis", "Team A spawn (Axis)"), (1, ALLIED[1], "Allies", "Team B spawn (Allies)")):
+        m = sc.spawn("defender" if team == 0 else "attacker", [0], x, z, face=(0.0, 0.0), faction=fac, label=lab, rack="auto")
         m["team"], m["phases"] = team, []
     crates = 0
     for m in sc.spawns:
@@ -843,7 +848,7 @@ def build(ctx):
         crates += b.try_place("crate_mixed_supply", x + math.sin(yw) * 3.0, z + math.cos(yw) * 3.0, m["yaw"], R, tags={"supply"}, radius=3.0) is not None
     rep["crates"] = crates
     # LN1: the network becomes trench lines (no pieces, no joints); objectives link the lines
-    tremap, tlines = trench_lines(b, list(T.inst))
+    tremap, tlines = trench_lines(b, list(T.inst), pinned={T.inst[i]["id"] for i in T.pinned})   # ramps topping out at doors / the stronghold entrance keep their floor
     for o in sc.objectives:
         o["linkedStructures"] = sorted({tremap.get(i, i) for i in o["linkedStructures"]})
     rep["trenchLines"] = len(tlines)
