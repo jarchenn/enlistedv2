@@ -381,7 +381,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
       case 18: hgt = 0.45f + 0.40f * r1; wid = 0.010f + 0.003f * r2; break;   // marram: tall, narrow rolled leaves
       default: hgt = (0.34f + 0.28f * r1) * (0.75f + 0.5f * patch); wid = 0.018f + 0.007f * r2; break;
     }
-    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch) * (0.45f + 0.55f * smooth(0.0f, 3.0f, fdMin));   // grass grows back from a footprint edge
+    hgt *= (1.0f - 0.6f * std::min(wear * 2.0f, 1.0f)) * (1.0f + 0.5f * verge + 0.4f * wall * patch) * (0.6f + 0.4f * smooth(0.0f, 1.2f, fdMin));   // grass grows back from a footprint edge (MA3: within 1.2 m, was 3 m: no short ring round buildings)
     if (verge > 0.2f || wall > 0.3f) var = std::min(1.0f, var * 0.6f);
     float tint = std::clamp(std::pow(r.f(), 3.0f) * 0.55f + smooth(0.55f, 0.85f, nDry) * 0.35f + (1.0f - paintG) * 0.4f, 0.0f, 1.0f);
     float yaw = r.f() * 6.2831853f;
