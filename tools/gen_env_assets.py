@@ -633,7 +633,7 @@ def wire_model(keep, dir_, simplify, sections, extra=None):
     return m
 
 
-def wire_asset(id_, name, desc, model, parts, footprint, sections, traversal="block", hp_note=""):
+def wire_asset(id_, name, desc, model, parts, footprint, sections, traversal="slow", hp_note=""):
     return {"id": id_, "version": 1, "name": name, "category": "Defences", "description": desc, "floors": 0, "enterable": False,
             "footprint": footprint, "plinthDepth": 0, "maxGrade": 0.6, "noAutoPanels": True,
             "materials": [{"name": "wire_post", "albedo": [0.3, 0.24, 0.17], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1}],
