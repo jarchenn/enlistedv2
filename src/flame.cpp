@@ -102,7 +102,8 @@ void FlameSys::step(App& app, float dt) {
   int voices = 0;
   for (auto& [key, n] : nz_) {
     bool on = n.lastOn >= t_ - 0.12;
-    if (on && roomForFlame) {
+    if (on) {   // the nozzle flame is never starved by the particle budget (ground fire and smoke filled it during long bursts)
+      if (fx.parts.size() + 6 > fx.maxParts) fx.parts.erase(fx.parts.begin(), fx.parts.begin() + 12);
       float k = key < 0 ? 0.6f : 1.0f;   // the player's own nozzle is a metre from the eye: smaller sprites
       vec3 axis = n.d;   // the flame leaves the nozzle straight along the stream (it used to follow the raised bore and arc over to the crosshair)
       for (int i = 0; i < 3; ++i) {   // the flame tongue billowing forward of the nozzle: hot white-yellow at the lip, orange and dark red further out
@@ -118,7 +119,7 @@ void FlameSys::step(App& app, float dt) {
         Particle q; q.p = n.o + axis * t; q.v = axis * 3.0f + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * 0.8f; q.size = (0.25f + 0.3f * t) * k; q.life = q.maxLife = 0.28f + 0.2f * fx.rnd();
         q.col = vec4(0.8f, 0.22f, 0.04f, 0.5f); q.grow = q.size * 0.8f; q.drag = 0.8f; q.lift = 0.15f; fx.parts.push_back(q);
       }
-      if (roomForSmoke && fx.rnd() < 0.18f) {   // grey smoke curling off the tip of the tongue
+      if (roomForSmoke && fx.rnd() < 0.03f) {   // grey smoke curling off the tip of the tongue
         vec3 tip = n.o + axis * (1.2f + 0.8f * fx.rnd());
         fx.smoke(tip, vec3(fx.rnd() - 0.5f, 0.25f + 0.4f * fx.rnd(), fx.rnd() - 0.5f) * 1.4f + axis * 2.0f, (0.35f + 0.25f * fx.rnd()) * k, 1.5f + fx.rnd(), vec4(0.2f, 0.19f, 0.18f, 0.42f), 0.8f, 0.45f);
       }
@@ -175,7 +176,7 @@ void FlameSys::step(App& app, float dt) {
       Particle f; f.p = end; f.v = q.v * 0.08f + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.2f, fx.rnd() - 0.5f) * 0.7f; f.size = (0.35f + 0.7f * u) * near; f.life = f.maxLife = 0.35f + 0.3f * fx.rnd();
       f.col = vec4(0.8f, 0.24f, 0.05f, 0.4f); f.grow = f.size * 0.5f; f.drag = 0.9f; f.lift = 0.7f; fx.parts.push_back(f);
     }
-    if (roomForSmoke && u > 0.3f && eyeD > 1.2f && fx.rnd() < 0.07f)   // smoke wisps curling off the stream
+    if (roomForSmoke && u > 0.3f && eyeD > 1.2f && fx.rnd() < 0.015f)   // smoke wisps curling off the stream
       fx.smoke(end, q.v * 0.06f + vec3(fx.rnd() - 0.5f, 0.5f + 0.7f * fx.rnd(), fx.rnd() - 0.5f) * 1.2f, (0.4f + 0.4f * fx.rnd()) * near, 1.6f + 0.8f * fx.rnd(), vec4(0.19f, 0.18f, 0.17f, 0.4f), 0.9f, 0.8f);
     if (stopped) {
       if (nrm.y > 0.45f && q.age > 0.03f) {   // landed on ground: a short fire patch (merged with a nearby one)
@@ -202,14 +203,15 @@ void FlameSys::step(App& app, float dt) {
   for (size_t k = 0; k < patches_.size();) {
     FlamePatch& pt = patches_[k];
     pt.t -= dt; pt.tick += dt;
-    if (roomForFlame && fx.rnd() < 0.6f) {
-      Particle f; f.p = pt.p + vec3(fx.rnd() - 0.5f, 0, fx.rnd() - 0.5f) * (pt.radius * 1.6f); f.v = vec3(fx.rnd() - 0.5f, 1.2f + 1.6f * fx.rnd(), fx.rnd() - 0.5f) * 0.6f; f.v.y += 0.8f;
-      f.size = 0.4f + 0.3f * fx.rnd(); f.life = f.maxLife = 0.3f + 0.3f * fx.rnd();
-      f.col = vec4(6.5f + 2.5f * fx.rnd(), 2.4f + 1.2f * fx.rnd(), 0.5f, 1); f.additive = true; f.grow = -f.size * 0.9f; f.drag = 0.8f; f.lift = 2.0f;
+    if (roomForFlame && fx.rnd() < 0.75f) {   // the campfire's flames (lights.cpp): tongues rising from a bed, tapering as they climb
+      const float sz = 0.5f; float h = fx.rnd(), life = glm::clamp(pt.t / 1.5f, 0.35f, 1.0f);   // dying down in its last seconds
+      Particle f; f.p = pt.p + vec3(fx.rnd() - 0.5f, 0, fx.rnd() - 0.5f) * (pt.radius * 1.5f); f.v = vec3(fx.rnd() * 0.5f - 0.25f, 1.6f + 1.4f * fx.rnd(), fx.rnd() * 0.5f - 0.25f) * life;
+      f.size = sz * (0.7f + 0.6f * fx.rnd()) * life; f.life = f.maxLife = 0.35f + 0.45f * fx.rnd();
+      f.col = vec4(6.0f + 3.0f * h, 2.2f + 1.6f * h, 0.5f + 0.4f * h, 1); f.additive = true; f.grow = -f.size * 0.9f; f.drag = 0.8f; f.lift = 2.5f;
       fx.parts.push_back(f);
     }
     // a rising smoke column: dark and dense just above the flames, thinning, greying and spreading as it climbs and drifts
-    if (roomForSmoke && fx.rnd() < 0.22f) {
+    if (roomForSmoke && fx.rnd() < 0.015f) {
       float dark = fx.rnd();
       fx.smoke(pt.p + vec3((fx.rnd() - 0.5f) * pt.radius, 0.5f + 0.4f * fx.rnd(), (fx.rnd() - 0.5f) * pt.radius), vec3(0.35f + 0.3f * fx.rnd(), 1.3f + 0.9f * fx.rnd(), 0.15f * (fx.rnd() - 0.5f)),
                0.45f + 0.35f * fx.rnd(), 3.0f + 2.0f * fx.rnd(), vec4(vec3(0.10f + 0.12f * dark), 0.30f + 0.16f * (1.0f - dark)), 1.5f, 0.9f);
