@@ -107,9 +107,9 @@ void FlameSys::step(App& app, float dt) {
       vec3 axis = n.d;   // the flame leaves the nozzle straight along the stream (it used to follow the raised bore and arc over to the crosshair)
       for (int i = 0; i < 3; ++i) {   // the flame tongue billowing forward of the nozzle: hot white-yellow at the lip, orange and dark red further out
         float t = fx.rnd() * fx.rnd() * 1.9f;   // more sprites near the nozzle
-        Particle q; q.p = n.o + axis * (0.05f + t) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.04f + 0.1f * t);
-        q.v = axis * (3.0f + 4.0f * fx.rnd()) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.6f + t);
-        q.size = (0.1f + 0.24f * t) * k * (0.8f + 0.5f * fx.rnd()); q.life = q.maxLife = 0.16f + 0.12f * fx.rnd() + 0.05f * t;
+        Particle q; q.p = n.o + axis * (0.05f + t) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.008f + 0.07f * t);   // a tight jet at the lip, opening into a cone
+        q.v = axis * (3.0f + 4.0f * fx.rnd()) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.12f + 0.55f * t);
+        q.size = (0.035f + 0.2f * t) * k * (0.8f + 0.5f * fx.rnd()); q.life = q.maxLife = 0.16f + 0.12f * fx.rnd() + 0.05f * t;
         q.col = vec4(3.2f, 0, 0, 1); q.additive = true; q.flame = std::floor(fx.rnd() * 255.0f); q.grow = q.size * 1.2f; q.drag = 0.6f; q.lift = 0.1f;
         fx.parts.push_back(q);
       }
@@ -208,7 +208,12 @@ void FlameSys::step(App& app, float dt) {
       f.col = vec4(6.5f + 2.5f * fx.rnd(), 2.4f + 1.2f * fx.rnd(), 0.5f, 1); f.additive = true; f.grow = -f.size * 0.9f; f.drag = 0.8f; f.lift = 2.0f;
       fx.parts.push_back(f);
     }
-    if (roomForSmoke && fx.rnd() < 0.05f) fx.smoke(pt.p + vec3(0, 0.6f, 0), vec3(0.2f, 1.0f, 0.1f), 0.6f, 1.8f, vec4(0.2f, 0.19f, 0.18f, 0.35f), 0.9f, 0.8f);
+    // a rising smoke column: dark and dense just above the flames, thinning, greying and spreading as it climbs and drifts
+    if (roomForSmoke && fx.rnd() < 0.22f) {
+      float dark = fx.rnd();
+      fx.smoke(pt.p + vec3((fx.rnd() - 0.5f) * pt.radius, 0.5f + 0.4f * fx.rnd(), (fx.rnd() - 0.5f) * pt.radius), vec3(0.35f + 0.3f * fx.rnd(), 1.3f + 0.9f * fx.rnd(), 0.15f * (fx.rnd() - 0.5f)),
+               0.45f + 0.35f * fx.rnd(), 3.0f + 2.0f * fx.rnd(), vec4(vec3(0.10f + 0.12f * dark), 0.30f + 0.16f * (1.0f - dark)), 1.5f, 0.9f);
+    }
     if (pt.tick >= 0.25f) {
       pt.tick = 0;
       if (pt.dmg && host && G) for (auto& s : G->sold) {
