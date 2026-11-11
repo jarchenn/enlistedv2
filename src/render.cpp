@@ -73,7 +73,7 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   }
   return sum/float(taps);
 }
-float sunShadowT(vec3 w, vec3 n, float soft, int taps){
+float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
   if (uShadowOn == 0) return 1.0;
   if (uShadowSoft <= 0.0) {   // legacy fallback: 3x3 grid, fixed offsets
     float ndl = clamp(dot(n, uSunDir), 0.0, 1.0);
@@ -94,6 +94,7 @@ float sunShadowT(vec3 w, vec3 n, float soft, int taps){
   sF = mix(sF, 1.0, smoothstep(0.85, 0.98, eF));   // fade out at the far edge instead of a hard line
   return mix(sN, sF, tB);
 }
+float sunShadowT(vec3 w, vec3 n, float soft, int taps){ return mix(1.0, sunShadowRaw(w, n, soft, taps), 0.7); }   // sun shadows 30 % lighter (user request)
 float shadowPCF(vec3 w, vec3 n){ return sunShadowT(w, n, 0.0, 8); }   // 8 rotated taps; TAA integrates the rotation over frames
 // cloud deck at 1500 m: the same field the sky draws, in world xz (so the shadows on the ground match the sky)
 float cloudField(vec2 xz){
