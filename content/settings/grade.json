@@ -4,7 +4,7 @@
   "saturation": 0.91,
   "shadowTint": [0.96, 0.99, 1.05],
   "highlightTint": [1.04, 1.0, 0.95],
-  "contrast": 1.0,
+  "contrast": 0.50,
   "vignette": 0.22,
   "sharpen": 0.22,
   "chromaticAberration": 0.0
