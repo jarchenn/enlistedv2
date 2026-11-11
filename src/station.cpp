@@ -261,10 +261,10 @@ void App::stepProjectiles(float dt) {
         TankHitResult th = tanks.projectileHit(*this, p, hit.pos, hit.normal, hit.ud);
         if (th.tank) {
           if (!th.consumed && p.kind != PROJ_BULLET) {   // detonation on the armour: the shared blast, but no crater under the tank
-            blastAT = false; blastSplashGun = p.splashGun;
+            blastAT = false; blastSplashGun = p.splashGun; blastPersonnel = p.kind == PROJ_ROCKET ? 1.6f : p.at ? 1.0f : 2.0f;
             auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, 0.0f, p.ignore, WALL_ROCKET)
                     : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 0.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 0.0f, p.ignore, WALL_HE);
-            blastSplashGun = 40;
+            blastSplashGun = 40; blastPersonnel = 1;
             fx.explosion(hit.pos, hit.normal, "metal", false);
             audio.play("explosion", hit.pos, 1.0f);
             lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), ex.breached};
@@ -293,9 +293,11 @@ void App::stepProjectiles(float dt) {
           if (p.atKill && hitInst) { auto hr = rt.find(hitInst); if (hr != rt.end() && isAtGun(hr->second.asset) && !hr->second.st.wrecked) { wreckStation(hitInst, p.kind == PROJ_ROCKET ? "rocket direct hit" : "shell direct hit"); ++directHits; } }
           blastAT = p.at;   // AT: concentrated wall damage, deep crater (ground.cpp)
           blastSplashGun = p.splashGun;
+          blastPersonnel = p.kind == PROJ_ROCKET ? 1.6f : p.at ? 1.0f : 2.0f;   // HE against soldiers: launchers +60 %, tank / AT gun shells +100 %
+          const float gk = 0.5f;   // tank / AT gun shells dig half the crater (walls unchanged)
           auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore, WALL_ROCKET)
-                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, p.craterScale > 0 ? p.craterScale : 1.0f, p.ignore, WALL_HE);
-          blastAT = false; blastSplashGun = 40;
+                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f * gk, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, (p.craterScale > 0 ? p.craterScale : 1.0f) * gk, p.ignore, WALL_HE);
+          blastAT = false; blastSplashGun = 40; blastPersonnel = 1;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
           audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, 1.0f);
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};
