@@ -639,7 +639,7 @@ def wire_asset(id_, name, desc, model, parts, footprint, sections, traversal="sl
             "materials": [{"name": "wire_post", "albedo": [0.3, 0.24, 0.17], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1}],
             "parts": parts, "furniture": [], "interactables": [], "panels": [], "model": model,
             "defense": {"kind": "wire", "hp": 200, "smallArmsMultiplier": 0.0, "unsafeVault": True, "maxSlopeDeg": 30,
-                        "traversal": traversal, "slowFactor": 0.35, "sections": sections, "sectionHp": 60}}
+                        "traversal": traversal, "slowFactor": 0.5, "sections": sections, "sectionHp": 60}}
 
 
 def wire_volume(x0, x1, y1, z0, z1, n):

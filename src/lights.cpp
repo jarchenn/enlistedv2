@@ -736,10 +736,10 @@ void lightsStep(App& app, float dt) {
         q.col = vec4(6.0f + 3.0f * h, 2.2f + 1.6f * h, 0.5f + 0.4f * h, 1); q.additive = true; q.grow = -q.size * 0.9f; q.drag = 0.8f; q.lift = 2.5f * k2;
         app.fx.parts.push_back(q);
         if (app.fx.rnd() < 0.02f) app.fx.flash(base + vec3(0, sz * 0.5f, 0), sz * 2.2f, 0.12f, vec4(7, 3, 1, 1));
-        if (s.fx == "flame_smoke" && app.fx.rnd() < 0.06f) {
+        if (s.fx == "flame_smoke" && app.fx.rnd() < 0.12f) {   // a thin column: small puffs, little sideways drift, rising far before they fade
           float g = 0.22f + 0.15f * app.fx.rnd();
-          app.fx.smoke(base + vec3(0, sz * 1.5f, 0), vec3(app.fx.rnd() * 0.4f - 0.2f + 0.2f, 0.8f + 0.4f * app.fx.rnd(), app.fx.rnd() * 0.4f - 0.2f),
-                       sz * (1.4f + app.fx.rnd()), 2.5f + 1.5f * app.fx.rnd(), vec4(g, g, g * 0.95f, 0.35f), 0.6f, 0.5f);
+          app.fx.smoke(base + vec3(0, sz * 1.5f, 0), vec3(0.06f + (app.fx.rnd() - 0.5f) * 0.12f, 1.5f + 0.6f * app.fx.rnd(), (app.fx.rnd() - 0.5f) * 0.12f),
+                       sz * (0.55f + 0.35f * app.fx.rnd()), 5.0f + 2.0f * app.fx.rnd(), vec4(g, g, g * 0.95f, 0.35f), 0.35f, 0.8f);
         }
       }
     }
