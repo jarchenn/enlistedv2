@@ -2923,6 +2923,7 @@ uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEye
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
+uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
@@ -2967,7 +2968,7 @@ void main(){
     c = mix(vec3(l), c, uGradeSat);
     float sh = 1.0 - smoothstep(0.0, 0.42, l), hi = smoothstep(0.3, 0.95, l);
     c *= mix(vec3(1.0), uGradeShadow, sh)*mix(vec3(1.0), uGradeHigh, hi);
-    c = clamp(c, 0.0, 1.0); c = mix(c, c*c*(3.0 - 2.0*c), uGradeContrast);
+    c = clamp(c, 0.0, 1.0); c = pow(c, vec3(uNightGamma)); c = mix(c, c*c*(3.0 - 2.0*c), uGradeContrast);
     c *= 1.0 - dot(q,q)*uGradeVig;
   } else {
     c = mix(vec3(l), c, 0.93);
@@ -4441,6 +4442,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   {   // GX5 grade (content/settings/grade.json)
     bool on = grade.on && perf.grade && !q.legacy && !thumbMode;
     glUniform1i(U(progTone, "uGradeOn"), on ? 1 : 0);
+    glUniform1f(U(progTone, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK));   // night: gamma +30 % (user request)
     glUniform1f(U(progTone, "uGradeSat"), grade.saturation); glUniform1f(U(progTone, "uGradeContrast"), grade.contrast);
     glUniform1f(U(progTone, "uGradeVig"), grade.vignette); glUniform1f(U(progTone, "uGradeCA"), grade.chromatic);
     glUniform1f(U(progTone, "uGradeSharpen"), q.taa ? grade.sharpen : 0.0f);
