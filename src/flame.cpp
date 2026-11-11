@@ -104,7 +104,7 @@ void FlameSys::step(App& app, float dt) {
     bool on = n.lastOn >= t_ - 0.12;
     if (on && roomForFlame) {
       float k = key < 0 ? 0.6f : 1.0f;   // the player's own nozzle is a metre from the eye: smaller sprites
-      vec3 axis = glm::length(n.bore) > 0.5f ? n.bore : n.d;   // the player's view: the flame tongue follows the gun's bore, the stream bends to the crosshair
+      vec3 axis = n.d;   // the flame leaves the nozzle straight along the stream (it used to follow the raised bore and arc over to the crosshair)
       for (int i = 0; i < 3; ++i) {   // the flame tongue billowing forward of the nozzle: hot white-yellow at the lip, orange and dark red further out
         float t = fx.rnd() * fx.rnd() * 1.9f;   // more sprites near the nozzle
         Particle q; q.p = n.o + axis * (0.05f + t) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.04f + 0.1f * t);
