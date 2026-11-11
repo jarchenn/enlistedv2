@@ -1,4 +1,5 @@
 #include "render.h"
+#include "lighting.h"
 #include "nature.h"
 #include "textures.h"
 #include <chrono>
@@ -4525,7 +4526,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, shaftTex); glBindTextureUnit(10, ambTex); glBindTextureUnit(11, aoTex); glBindTextureUnit(7, depthTex);
   glUniform1i(U(progComposite, "uScene"), 8); glUniform1i(U(progComposite, "uShafts"), 9);
   glUniform1i(U(progComposite, "uAmb"), 10); glUniform1i(U(progComposite, "uAO"), 11); glUniform1i(U(progComposite, "uDepth"), 7);
-  glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength : 0.0f);
+  glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength * (1.0f - 0.75f * lightingTod(lt.hour).nightK) : 0.0f);   // moon shafts at a quarter strength: the night exposure made them glare
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);

@@ -228,7 +228,7 @@ Tod todCompute(float hour) {
   vec3 sunMul = keyframes(e, {{-1, vec3(0)}, {0, vec3(0.22f, 0.10f, 0.04f)}, {2, vec3(0.55f, 0.30f, 0.12f)}, {5, vec3(0.80f, 0.55f, 0.30f)},
                               {12, vec3(0.95f, 0.86f, 0.70f)}, {25, vec3(1.0f)}});
   float moonK = smooth(0.0f, 10.0f, t.moonEl);
-  vec3 moonMul = vec3(0.0175f, 0.021f, 0.029f) * moonK;
+  vec3 moonMul = vec3(0.0175f, 0.021f, 0.029f) * moonK * 0.55f;   // dimmer moonlight (user request)
   if (e > -1.0f) { t.key = t.sunTrue; t.keyMul = sunMul; }
   else { t.key = t.moon; t.keyMul = moonMul; t.keyIsMoon = true; }
   if (t.key.y < 0.05f) t.key = glm::normalize(vec3(t.key.x, 0.05f, t.key.z));   // the cascades never look up from below
@@ -245,7 +245,7 @@ Tod todCompute(float hour) {
   t.fogMul = t.hor / dh;
   t.skySunMul = e >= 0 ? sunMul : keyframes(0, {{0, vec3(0.22f, 0.10f, 0.04f)}}) * smooth(-10.0f, 0.0f, e);   // twilight glow after sunset
   t.cloudLit = glm::mix(t.skyMul, glm::max(sunMul, moonMul * 3.0f), 0.4f);
-  t.moonCol = vec3(0.55f, 0.6f, 0.7f) * smooth(-2.0f, 4.0f, t.moonEl) * smooth(2.0f, -6.0f, e);
+  t.moonCol = vec3(0.55f, 0.6f, 0.7f) * 0.6f * smooth(-2.0f, 4.0f, t.moonEl) * smooth(2.0f, -6.0f, e);
   t.stars = smooth(-6.0f, -14.0f, e);
   t.nightK = smooth(4.0f, -12.0f, e);
   t.expoKey = glm::mix(0.24f, 0.11f, t.nightK);
