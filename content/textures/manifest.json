@@ -1102,7 +1102,6 @@
    "family": "dirt",
    "ma1": false,
    "slots": [
-    "paint_dirt",
     "soil",
     "terrain_soil"
    ]
@@ -1129,7 +1128,6 @@
    "family": "dirt",
    "ma1": false,
    "slots": [
-    "path_dirt",
     "terrain_crater"
    ]
   },
@@ -1257,10 +1255,7 @@
    "sizeSource": "L4 curation",
    "family": "sand",
    "ma1": false,
-   "slots": [
-    "paint_sand",
-    "sand"
-   ]
+   "slots": []
   },
   {
    "set": "sand_dirty",
@@ -1283,9 +1278,7 @@
    "sizeSource": "L4 curation",
    "family": "sand",
    "ma1": false,
-   "slots": [
-    "terrain_sand"
-   ]
+   "slots": []
   },
   {
    "set": "rock_cliff",
@@ -1309,6 +1302,7 @@
    "family": "rock",
    "ma1": false,
    "slots": [
+    "imgmat:rock_cliff_b",
     "rock",
     "terrain_rock"
    ]
@@ -1558,9 +1552,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "stone (MA1)",
    "ma1": true,
-   "slots": [
-    "imgmat:stone_rubble"
-   ]
+   "slots": []
   },
   {
    "set": "limestone_dressed",
@@ -1609,6 +1601,7 @@
    "family": "stone (MA1)",
    "ma1": true,
    "slots": [
+    "imgmat:stone_rubble",
     "imgmat:sub_rubble"
    ]
   },
@@ -1725,8 +1718,8 @@
     "roughness.jpg"
    ],
    "sizeM": [
-    2,
-    2
+    3.3,
+    3.3
    ],
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "brick (MA1)",
@@ -2494,10 +2487,7 @@
    "family": "ground (MA1)",
    "ma1": true,
    "slots": [
-    "imgmat:floor_earth",
-    "imgmat:paint_dirt",
-    "imgmat:path_dirt",
-    "imgmat:terrain_soil"
+    "imgmat:floor_earth"
    ]
   },
   {
@@ -2521,7 +2511,12 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "ground (MA1)",
    "ma1": true,
-   "slots": []
+   "slots": [
+    "imgmat:paint_dirt",
+    "imgmat:path_dirt",
+    "paint_dirt",
+    "path_dirt"
+   ]
   },
   {
    "set": "leaf_litter",
@@ -2544,9 +2539,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "ground (MA1)",
    "ma1": true,
-   "slots": [
-    "imgmat:paint_leaf_litter"
-   ]
+   "slots": []
   },
   {
    "set": "gravel_coarse",
@@ -2696,6 +2689,83 @@
    "ma1": true,
    "slots": [
     "imgmat:paper_img"
+   ]
+  },
+  {
+   "set": "planks_038",
+   "id": "Planks038",
+   "url": "https://ambientcg.com/a/Planks038",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.6,
+    1.6
+   ],
+   "sizeSource": "L4 curation",
+   "family": "planks (user, 2026-11-10)",
+   "ma1": false,
+   "slots": [
+    "imgmat:planks_038"
+   ]
+  },
+  {
+   "set": "sand_079",
+   "id": "Ground079S",
+   "url": "https://ambientcg.com/a/Ground079S",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "sand (user, 2026-11-10)",
+   "ma1": false,
+   "slots": [
+    "paint_sand",
+    "sand",
+    "terrain_sand"
+   ]
+  },
+  {
+   "set": "sand_054",
+   "id": "Ground054",
+   "url": "https://ambientcg.com/a/Ground054",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "sand (user, 2026-11-10)",
+   "ma1": false,
+   "slots": [
+    "sand_b"
    ]
   }
  ]

@@ -1031,6 +1031,33 @@
     0.5
    ],
    "ma1": true
+  },
+  {
+   "set": "planks_038",
+   "id": "Planks038",
+   "family": "planks (user, 2026-11-10)",
+   "size": [
+    1.6,
+    1.6
+   ]
+  },
+  {
+   "set": "sand_079",
+   "id": "Ground079S",
+   "family": "sand (user, 2026-11-10)",
+   "size": [
+    2,
+    2
+   ]
+  },
+  {
+   "set": "sand_054",
+   "id": "Ground054",
+   "family": "sand (user, 2026-11-10)",
+   "size": [
+    2,
+    2
+   ]
   }
  ],
  "polyhaven": [
