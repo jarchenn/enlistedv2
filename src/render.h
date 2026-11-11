@@ -176,7 +176,7 @@ public:
     bool matLod = true;          // matlod (R1): base kMainFS pattern noise fades to its mean by projected footprint (near / mid / far detail)
     bool opqSort = true;         // opqsort (R1): opaque building groups submitted front to back (by their nearest copy)
     bool zPrepass = false;       // zprepass (R1 experiment): depth-only pass of the building groups, then shading at equal depth
-    bool grassShadow = true;     // grassshadow (G1, measurement): off = pasture grass casts no sun shadow; A/B = its share of the near cascade
+    bool grassShadow = false;    // grassshadow (G1, measurement): off = pasture grass casts no sun shadow; A/B = its share of the near cascade
     bool leafTex = true;         // leaftex (L1): species leaf textures + leaf meshes with LOD (off = the procedural oval cards)
 #ifdef __APPLE__
     bool grassAtlas = false;     // shortcut: the atlas plant cards draw as untextured blobs on Metal (cause not found); procedural blades there until fixed
