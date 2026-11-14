@@ -135,6 +135,7 @@ public:
   void killSoldier(int s, int killer, vec3 dir);
   void applyLoadout(Soldier& s, bool newLife);
   // damage (server)
+  bool shellSegment(const Projectile& p, vec3 a, vec3 seg, float len, float& tHit);   // GM3: a tank / AT gun shell striking a soldier (kills; tHit = the strike)
   bool projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& tHit);   // true: a soldier was hit
   void explosionDamage(vec3 p, float dmg, float radius, int owner, bool grenade);
   void damage(int s, float dmg, int attacker, vec3 dir, const char* how);

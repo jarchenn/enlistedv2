@@ -185,7 +185,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `fx_wreck_fire` | Lighting | not used: added with D-day (burning wreckage, smoke column) | terrain-only base map | not used | 2 |
 | `gun_flak18` | Ordnance | 1: D: 8.8 cm Flak 18 in the orchard (representative, SPEC 3.3) | terrain-only base map | not used | 2 |
 | `gun_m2hb_tripod` | Field guns | 1: US .50 set up on the shingle near A2 | terrain-only base map | not used | not used |
-| `gun_mg42_embrasure` | Field guns | 16: Every sandbag MG nest | terrain-only base map | not used | 2 |
+| `gun_mg42_embrasure` | Field guns | 16: Every sandbag MG nest | terrain-only base map | not used | 10 |
 | `gun_pak40` | Field guns | 1: A: in the R667 (stands in for the 5 cm gun) | terrain-only base map | not used | 2 |
 | `hedgerow_bocage` | Vegetation | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | not used |
 | `house_farmhouse_2story` | Houses | 4: Saint-Laurent | terrain-only base map | 9 | not used |

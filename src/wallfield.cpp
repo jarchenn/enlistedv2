@@ -42,9 +42,10 @@ int64_t stoneId(float u, float v) {
   return (int64_t)row * 100003 + (int64_t)k;
 }
 
-struct Frame { int an, au, av; float ns, T, front; float u0, v0; int nu, nv; float cu, cv; };
-Frame panelFrame(const Panel& p, float cell) {
-  Frame f{};
+struct Frame { int an, au, av; float ns, T, front; float u0, v0; int nu, nv; float cu, cv; const Panel* P; };   // P: frame -> asset (rotated bays)
+Frame panelFrame(const Panel& pn, float cell) {
+  Frame f{}; f.P = &pn;
+  struct { vec3 normal, bmin, bmax; } p{panelFrameNormal(pn), panelFrameMin(pn), panelFrameMax(pn)};   // GM3: a rotated bay in its own frame
   vec3 n = p.normal, an = glm::abs(n);
   f.an = an.x > an.y && an.x > an.z ? 0 : an.y > an.z ? 1 : 2;
   f.ns = n[f.an] >= 0 ? 1.0f : -1.0f;
@@ -119,9 +120,10 @@ static WallField& fieldFor(InstanceRT& r, size_t k, const Frame& f) {
 static std::vector<size_t> coplanarBays(const AssetDef* a, size_t k, int ank, float cell) {
   std::vector<size_t> out;
   const Panel& pk = a->panels[k];
+  if (pk.rot) return out;   // GM3: a roof slab has no coplanar neighbours
   for (size_t j = 0; j < a->panels.size(); ++j) {
     const Panel& pj = a->panels[j];
-    if (j == k || pj.trim >= 0 || panelFrame(pj, cell).an != ank) continue;
+    if (j == k || pj.trim >= 0 || pj.rot || panelFrame(pj, cell).an != ank) continue;
     float ov = std::min(pk.bmax[ank], pj.bmax[ank]) - std::max(pk.bmin[ank], pj.bmin[ank]);
     if (ov < 0.5f * std::min(pk.bmax[ank] - pk.bmin[ank], pj.bmax[ank] - pj.bmin[ank])) continue;   // not the same wall slab
     out.push_back(j);
@@ -330,7 +332,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     if (!effects || removedAt.size() >= 64) return;
     int iu = idx % f.nu, iv = idx / f.nu;
     vec3 pa(0); pa[f.au] = f.u0 + (iu + 0.5f) * f.cu; pa[f.av] = f.v0 + (iv + 0.5f) * f.cv; pa[f.an] = coordOf(f, f.T * 0.5f);
-    removedAt.push_back(pa);
+    removedAt.push_back(f.P ? panelToAsset(*f.P, pa) : pa);
   };
   for (size_t k = 0; k < a->panels.size() && e.kind != WALL_RAM; ++k) {   // a ram against trim stamps nothing
     const Panel& pn = a->panels[k];
@@ -340,11 +342,12 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     float resist = std::max(0.2f, pn.family == "concrete" ? 1.2f * pn.hp / 450.0f : pn.hp / 200.0f);
     bool timber = pn.family == "timber", masonry = pn.family == "masonry";
     vec3 n(0); n[f.an] = f.ns;
-    float dN = std::max({pn.bmin[f.an] - e.p[f.an], e.p[f.an] - pn.bmax[f.an], 0.0f});   // stand-off from the bay's slab
-    vec3 dn = dn0;
+    const vec3 ep = panelToLocal(pn, e.p), bmn = panelFrameMin(pn), bmx = panelFrameMax(pn);   // GM3: the bay's own frame (roof slabs)
+    float dN = std::max({bmn[f.an] - ep[f.an], ep[f.an] - bmx[f.an], 0.0f});   // stand-off from the bay's slab
+    vec3 dn = panelDirLocal(pn, dn0);
     float standoff = 1.0f;
     if (blast) {   // omnidirectional: the bay is struck square on from the side the charge lies on, weaker with distance
-      dn = vec3(0); dn[f.an] = e.p[f.an] >= 0.5f * (pn.bmin[f.an] + pn.bmax[f.an]) ? -1.0f : 1.0f;
+      dn = vec3(0); dn[f.an] = ep[f.an] >= 0.5f * (bmn[f.an] + bmx[f.an]) ? -1.0f : 1.0f;
       standoff = std::clamp(1.0f - dN / 0.75f, 0.0f, 1.0f);
     }
     float cosI = std::fabs(glm::dot(dn, n));
@@ -355,14 +358,14 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     // within the stamp's reach in its plane -- so a corner hit also bites the edge of the wall around the corner,
     // but walls in other parallel planes are never touched
     {
-      float du = std::max({pn.bmin[f.au] - e.p[f.au], e.p[f.au] - pn.bmax[f.au], 0.0f}), dv = std::max({pn.bmin[f.av] - e.p[f.av], e.p[f.av] - pn.bmax[f.av], 0.0f});
+      float du = std::max({bmn[f.au] - ep[f.au], ep[f.au] - bmx[f.au], 0.0f}), dv = std::max({bmn[f.av] - ep[f.av], ep[f.av] - bmx[f.av], 0.0f});
       if (dN > (blast ? 0.6f : 0.2f) || std::sqrt(du * du + dv * dv) > rad * elong * 1.3f) continue;
     }
     float D = pr.depth * strength * (0.55f + 0.45f * cosI) / resist * (blast ? 0.35f + 0.65f * standoff : 1.0f);
     bool fromFront = glm::dot(dn, n) <= 0.0f;   // travelling against the normal: struck the front face
     // tangential direction of travel in the bay's (u, v) plane
     vec2 t(dn[f.au], dn[f.av]); float tl = glm::length(t); t = tl > 1e-4f ? t / tl : vec2(1, 0);
-    float pu = e.p[f.au], pv = e.p[f.av];
+    float pu = ep[f.au], pv = ep[f.av];
     int iu0 = std::max(0, (int)std::floor((pu - reach - f.u0) / f.cu)), iu1 = std::min(f.nu - 1, (int)std::floor((pu + reach - f.u0) / f.cu));
     int iv0 = std::max(0, (int)std::floor((pv - reach - f.v0) / f.cv)), iv1 = std::min(f.nv - 1, (int)std::floor((pv + reach - f.v0) / f.cv));
     if (iu0 > iu1 || iv0 > iv1) continue;
@@ -716,11 +719,13 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
   struct Layer { float s0, s1, u0, u1, v0, v1; const Part* p; };
   std::vector<Layer> layers;
   for (auto& p : pn.parts[0]) {
-    if (p.shape != Part::BOX) continue;
-    float c0 = p.center[f.an] - p.size[f.an] * 0.5f, c1 = p.center[f.an] + p.size[f.an] * 0.5f;
+    if (p.shape != Part::BOX && !(pn.rot && p.shape == Part::ROUND)) continue;   // a thatch slab is a rounded box
+    const vec3 pc = panelToLocal(pn, p.center);   // GM3: a roof slab's layers in its frame (the slab and the courses on it)
+    float c0 = pc[f.an] - p.size[f.an] * 0.5f, c1 = pc[f.an] + p.size[f.an] * 0.5f;
     float s0 = std::min(depthOf(f, c0), depthOf(f, c1)), s1 = std::max(depthOf(f, c0), depthOf(f, c1));
-    layers.push_back({s0, s1, p.center[f.au] - p.size[f.au] * 0.5f, p.center[f.au] + p.size[f.au] * 0.5f, p.center[f.av] - p.size[f.av] * 0.5f, p.center[f.av] + p.size[f.av] * 0.5f, &p});
+    layers.push_back({s0, s1, pc[f.au] - p.size[f.au] * 0.5f, pc[f.au] + p.size[f.au] * 0.5f, pc[f.av] - p.size[f.av] * 0.5f, pc[f.av] + p.size[f.av] * 0.5f, &p});
   }
+  const mat4 xf = pn.rot ? glm::translate(mat4(1), pn.o) * glm::mat4_cast(pn.q) * glm::translate(mat4(1), -pn.o) : mat4(1);   // frame -> asset
   const float qd = destruction.depthStep;
   MeshData md; std::vector<Part> boxes;
   int open = 0, chamfers = 0; double removed = 0;
@@ -768,8 +773,9 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
         p.center[f.au] = 0.5f * (ua + ub); p.size[f.au] = ub - ua;
         p.center[f.av] = 0.5f * (va + vb); p.size[f.av] = vb - va;
         p.center[f.an] = 0.5f * (xa + xb); p.size[f.an] = std::fabs(xb - xa);
-        appendPart(md, p, a->materials[p.mat], mat4(1));
-        if (p.collide) boxes.push_back(p);
+        if (pn.rot) { p.rot = quat(1, 0, 0, 0); p.shape = Part::BOX; }   // frame-aligned: xf turns it into place
+        appendPart(md, p, a->materials[p.mat], xf);
+        if (p.collide) { Part c = p; if (pn.rot) { c.center = panelToAsset(pn, p.center); c.rot = pn.q; } boxes.push_back(c); }
       }
     // broken edges, not stair-steps: where a cell stands back from two adjacent neighbours (and the cell between
     // them) -- missing entirely, or broken deeper on the front or back face -- it is the inner corner of a 4 cm step.
@@ -813,7 +819,7 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
           p.tri[0] = vec2(uc, vc); p.tri[1] = vec2(uo, vc); p.tri[2] = vec2(uc, vo);
           p.center = vec3(0); p.center[f.an] = 0.5f * (xa + xb); p.center[f.au] = 0.5f * (ua + ub); p.center[f.av] = 0.5f * (va + vb);
           p.size = vec3(0); p.size[f.an] = p.a1 - p.a0; p.size[f.au] = f.cu; p.size[f.av] = f.cv;
-          appendPart(md, p, a->materials[p.mat], mat4(1));
+          appendPart(md, p, a->materials[p.mat], xf);
           ++chamfers;
         }
       }
@@ -852,6 +858,7 @@ void App::authoredWallEvents(const Instance& i, const AssetDef* a, std::vector<W
     if (ov == i.panelHp.end() || ov->second >= p.hp) continue;
     int hits = ov->second <= 0 ? std::max(2, (int)std::ceil(p.hp / 120.0f)) : 1;
     vec3 c = (p.bmin + p.bmax) * 0.5f, n = glm::normalize(p.normal);
+    if (p.rot) c = p.o;   // GM3: a roof slab's centre
     for (int h = 0; h < hits; ++h) out.push_back({c + n * 0.5f * glm::dot(p.bmax - p.bmin, glm::abs(n)), -n, WALL_HE, 120.0f, (uint32_t)(k * 131 + h + 1)});
   }
 }

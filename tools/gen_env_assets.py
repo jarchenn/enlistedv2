@@ -719,7 +719,7 @@ print("paths ok")
 # no time fuzes), reload 5 s, 1.0 m recoil.
 def vb(c, s, r=None):
     p = box(c, s, "steel", r=r, v=0); return p
-flak = {"id": "gun_flak18", "version": 1, "name": "8.8 cm Flak 18 (emplacement)", "category": "Ordnance", "faction": "DE",
+flak = {"id": "gun_flak18", "version": 1, "name": "8.8 cm Flak 18 (emplacement)", "category": "Field guns", "faction": "DE",
         "description": "German 8.8 cm Flak 18 on its cruciform platform, dug in as a ground-target emplacement. Crew it from the gunner's position (Aim): 360 deg traverse, -3 to +85 deg elevation, HE or AP (X). It is not moved once emplaced. Values are game tuning.",
         "floors": 0, "enterable": False, "footprint": [5.3, 5.3], "plinthDepth": 0, "maxGrade": 0.5, "noAutoPanels": True,
         "materials": [{"name": "steel", "albedo": [0.25, 0.26, 0.22], "roughness": 0.6, "pattern": "metal", "metallic": 0.5, "grain": 1}],

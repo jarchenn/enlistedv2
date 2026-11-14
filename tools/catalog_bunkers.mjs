@@ -777,7 +777,7 @@ export function mg42Mount() {
   const rel = (parts, p) => parts.map((q) => ({ ...q, c: [q.c[0] - p[0], q.c[1] - p[1], q.c[2] - p[2]] }));
   A.meta.station = {
     kind: "mg42", yawPivot: YP, elevPivot: EP, muzzle: [0, EP[1], 0.77], optic: [0, EP[1] + 0.036, -0.2],   // fallback only: with the GLB the eye is the handheld ADS eye (src/station.cpp mg42MountSight)
-    gunner: [0, 0, -0.85], handler: [0, 0, -0.85], traverse: [-55, 55], elevation: [-5, 7], traverseRate: 90, elevateRate: 60,
+    gunner: [0, 0, -0.85], handler: [0, 0, -0.85], traverse: [-55, 55], elevation: [-18, 10], traverseRate: 90, elevateRate: 60,
     recoil: 0.015, reloadTime: 4.6, loaded: 200, reserve: 250, ammo: "792_belt50", moveHalf: [0.3, 0.8, 0.3], serviceRadius: 4,
     yawParts: rel(Y.into, YP), elevParts: rel(E.into, EP), recoilParts: [],
   };
