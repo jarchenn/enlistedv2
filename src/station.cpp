@@ -3,6 +3,7 @@
 #include "app.h"
 #include "crumb.h"
 #include "mpai.h"
+#include "net.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -128,6 +129,17 @@ void App::resetStation(const Instance& i) {
 
 void App::resetCombat() {
   projectiles.clear(); fx.clear();
+  // GM3: tanks and field guns the player drove or pushed keep that place: their pose goes into the document before the
+  // reset (the next Explore or match starts them there). Not during a LAN session: the map hash (LAN identity) would move.
+  if (!gNet || gNet->role == Net::NONE) {
+    for (auto& i : doc.instances) {
+      auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset) continue;
+      vec3 p = i.pos; float y = i.yaw;
+      if (!it->second.asset->station.kind.empty() && it->second.st.active) { p = it->second.st.pos; y = it->second.st.carYaw; }
+      else if (auto tk = tanks.tanks.find(i.id); tk != tanks.tanks.end() && tk->second.def) { p = tk->second.pos; y = tk->second.yaw; }
+      if (glm::length(p - i.pos) > 0.05f || std::fabs(wrapDeg(y - i.yaw)) > 0.5f) { i.pos = p; i.yaw = wrapDeg(y); bump(i); }
+    }
+  }
   tanks.reset(*this);   // tank_sim.cpp: authored / applied tank state
   occupied = 0; choiceFor = 0;
   crateStock.clear(); crateUnlimited.clear();
@@ -247,6 +259,11 @@ void App::stepProjectiles(float dt) {
             impact = true; tMax = tt; hit.t = tt; hit.pos = p.p + seg / len * tt; hit.normal = -seg / len; hit.ud = gi.id << 16;
           }
         }
+      }
+      {   // GM3: a shell striking a soldier bursts on him (the direct hit kills; the blast below is the sphere round it)
+        extern bool mpaiShellHit(App&, const Projectile&, vec3, float, float&);
+        float ts = impact ? hit.t : len;
+        if (p.kind == PROJ_HE && mpaiShellHit(*this, p, seg, len, ts)) { impact = true; hit.t = ts; hit.pos = p.p + seg / len * ts; hit.normal = -seg / len; hit.ud = 0; }
       }
       if (mpaiProjectile(*this, p, seg, len, impact ? hit.t : len)) { projectiles.erase(projectiles.begin() + k); continue; }   // hit a soldier
       vec3 end = impact ? hit.pos : p.p + seg;

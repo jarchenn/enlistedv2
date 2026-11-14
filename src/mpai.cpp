@@ -131,6 +131,14 @@ bool mpaiLocalFrozen(App& app) {
 void mpaiIdleSmoke(App& app, float dt);
 void mpaiStep(App& app, float dt) { if (gGame && gGame->active) gGame->step(dt); else mpaiIdleSmoke(app, dt); goreStep(app, dt); }
 
+// GM3: a tank / AT gun shell on its way: the first soldier on the segment before tWorld is struck (killed) and the shell
+// bursts there (the caller turns tWorld into its impact). Host / singleplayer only; clients see the burst through "ex".
+bool mpaiShellHit(App& app, const Projectile& p, vec3 seg, float len, float& tWorld) {
+  (void)app;
+  gProjOwner = p.owner;
+  return gGame && gGame->active && gGame->shellSegment(p, p.p, seg, len, tWorld);
+}
+
 bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) {
   gProjOwner = p.owner;
   if (!gGame || !gGame->active || len <= 1e-5f) return false;

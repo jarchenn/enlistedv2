@@ -106,7 +106,16 @@ struct Panel {
   GpuMesh mesh[3];
   ShapePtr shape[3];
   int trim = -1;   // >= 0: the trim of opening AssetDef::trims[trim] (frames, jambs, sills, lintels): never stamped, breaks whole
+  // GM3: a rotated bay (a pitched roof slab). bmin / bmax / normal stay asset space (an AABB and the slab's normal); the
+  // damage field works in the slab's own frame: asset = o + q * (local - o), local box lmin..lmax, local normal +y
+  bool rot = false; quat q{1, 0, 0, 0}; vec3 o{0}, lmin{0}, lmax{0};
 };
+inline vec3 panelToLocal(const Panel& p, vec3 a) { return p.rot ? p.o + glm::inverse(p.q) * (a - p.o) : a; }
+inline vec3 panelToAsset(const Panel& p, vec3 l) { return p.rot ? p.o + p.q * (l - p.o) : l; }
+inline vec3 panelDirLocal(const Panel& p, vec3 d) { return p.rot ? glm::inverse(p.q) * d : d; }
+inline vec3 panelFrameMin(const Panel& p) { return p.rot ? p.lmin : p.bmin; }
+inline vec3 panelFrameMax(const Panel& p) { return p.rot ? p.lmax : p.bmax; }
+inline vec3 panelFrameNormal(const Panel& p) { return p.rot ? vec3(0, 1, 0) : p.normal; }
 
 // The trim around one opening (a door or window interactable): frame, jambs, sills, lintels, hood moulds and threshold,
 // bound to the wall bays around it at load (docs/destruction.md#trim). Asset-space opening rectangle in the wall plane.

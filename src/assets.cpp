@@ -568,6 +568,7 @@ int AssetDef::findInteract(const std::string& iid) const {
 // Parts sharing one face rectangle and touching along the thin axis are stacked as the layers of one bay
 // (stone + plaster skin). Furniture and foundations are left alone.
 static void extractTrim(AssetDef& a, const json& j, std::vector<Panel>& out, vec3 mid);
+static void extractRoofPanels(AssetDef& a, std::vector<Panel>& out);
 static void extractWallPanels(AssetDef& a, std::vector<Panel>& out, const json& j) {
   auto matName = [&](const Part& p) { return p.mat >= 0 && p.mat < (int)a.materials.size() ? a.materials[p.mat].name : std::string(); };
   auto isWallMat = [](const std::string& m) {
@@ -628,7 +629,50 @@ static void extractWallPanels(AssetDef& a, std::vector<Panel>& out, const json& 
   std::vector<Part> keep;
   for (size_t i = 0; i < a.parts.size(); ++i) if (!remove[i]) keep.push_back(a.parts[i]);
   a.parts.swap(keep);
+  extractRoofPanels(a, out);
   extractTrim(a, j, out, mid);
+}
+
+// GM3: pitched roofs are destructible from above. Every pitched roof slab (a tilted box or rounded box of a roof
+// material, thin and broad) becomes a rotated bay (Panel::rot): the damage field works in the slab's own frame
+// (wallfield.cpp), so shells and blasts landing on a roof punch through it like a wall. The roof courses laid on the
+// slab (the GX4 tile / slate strips, detail only) go into the same bay and are cut with it, so nothing floats over a
+// hole. Hip roofs (pyramids) and spires stay static.
+static void extractRoofPanels(AssetDef& a, std::vector<Panel>& out) {
+  auto matName = [&](const Part& p) { return p.mat >= 0 && p.mat < (int)a.materials.size() ? a.materials[p.mat].name : std::string(); };
+  auto roofMat = [&](const Part& p) { std::string m = matName(p); return m == "slate" || m == "tile" || m == "thatch" || m.rfind("roof", 0) == 0; };
+  std::vector<bool> remove(a.parts.size(), false);
+  for (size_t i = 0; i < a.parts.size(); ++i) {
+    const Part& s = a.parts[i];
+    if ((s.shape != Part::BOX && s.shape != Part::ROUND) || !s.collide || !s.visible || !roofMat(s)) continue;
+    vec3 up = s.rot * vec3(0, 1, 0);
+    if (std::fabs(std::fabs(s.rot.w) - 1.0f) < 1e-4f || up.y < 0.2f || up.y > 0.985f) continue;   // pitched, not flat or vertical
+    if (s.size.y > 0.6f || s.size.x < 0.8f || s.size.z < 0.8f) continue;                          // a slab: thin, broad
+    Panel pn;
+    pn.id = "roof/" + std::to_string(i); pn.family = "timber"; pn.hp = 90.0f;
+    pn.rot = true; pn.q = s.rot; pn.o = s.center;
+    pn.lmin = s.center - s.size * 0.5f; pn.lmax = s.center + s.size * 0.5f;
+    pn.parts[0].push_back(s); remove[i] = true;
+    for (size_t k = 0; k < a.parts.size(); ++k) {   // the courses on it: same material, detail only, on its top face
+      const Part& c = a.parts[k];
+      if (k == i || remove[k] || c.collide || c.shape != Part::BOX || matName(c) != matName(s)) continue;
+      if (std::fabs(glm::dot(c.rot, s.rot)) < 0.98f) continue;
+      vec3 l = panelToLocal(pn, c.center);
+      if (l.x < pn.lmin.x || l.x > pn.lmax.x || l.z < pn.lmin.z || l.z > pn.lmax.z || l.y < pn.lmax.y - 0.06f || l.y > pn.lmax.y + 0.15f) continue;
+      pn.parts[0].push_back(c); remove[k] = true;
+      pn.lmax.y = std::max(pn.lmax.y, l.y + c.size.y * 0.5f);
+    }
+    pn.normal = s.rot * vec3(0, 1, 0);
+    pn.bmin = vec3(1e9f); pn.bmax = vec3(-1e9f);
+    for (int c = 0; c < 8; ++c) {
+      vec3 l((c & 1) ? pn.lmax.x : pn.lmin.x, (c & 2) ? pn.lmax.y : pn.lmin.y, (c & 4) ? pn.lmax.z : pn.lmin.z), w = panelToAsset(pn, l);
+      pn.bmin = glm::min(pn.bmin, w); pn.bmax = glm::max(pn.bmax, w);
+    }
+    out.push_back(std::move(pn));
+  }
+  std::vector<Part> keep;
+  for (size_t i = 0; i < a.parts.size(); ++i) if (!remove[i]) keep.push_back(a.parts[i]);
+  a.parts.swap(keep);
 }
 
 // Opening trim (docs/destruction.md#trim): the frame, jambs, head, sills, lintels, hood moulds and threshold of every
