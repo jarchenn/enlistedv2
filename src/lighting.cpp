@@ -637,7 +637,7 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
     }
   }
   L.resetAll = false; L.inval.clear();
-  int budget = R.lt.probeBudget > 0 ? R.lt.probeBudget : (R.lt.gi >= 2 ? 8 : 3);
+  int budget = R.lt.probeBudget > 0 ? R.lt.probeBudget : (R.lt.gi >= 2 ? 8 : R.perf.probeMed ? 2 : 3);   // PERF1 probemed: Medium catches up at 2 a frame (was 3)
   static int halfTick = 0;
   const bool half = R.q.probeHalf && R.lt.probeBudget <= 0;   // P3 Medium: half the capture rate (1.5 / frame filling, 0.5 / frame converged)
   if (half) { halfTick ^= 1; budget = (budget + halfTick) / 2; }

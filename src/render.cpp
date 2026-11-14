@@ -758,9 +758,11 @@ void gxLayer(int pat, vec3 an, inout vec3 alb, inout float rough, inout float ao
   rough = mix(rough, min(1.0, rough + 0.14), g);
   ao *= gSeam;
 }
+uniform float uMatFar;   // PERF1 matfar: > 0 = from this distance (m) to 1.4x it the wear / grime layer, static decals and relief fade out; 0 = off
 void main(){
   if (uCapture == 1) gEyeOv = vEye;
   gPix = max(length(dFdx(vW)), length(dFdy(vW)));
+  float farK = uMatFar > 0.0 && uCapture == 0 ? smoothstep(uMatFar, uMatFar * 1.4, length(vW - uCamPos)) : 0.0;
   int pat = int(vPar.x + 0.5) % 100, tslot = texSlot(vPar.x, pat);   // L4: x = pattern + 100 * texture code (textures.cpp)
   vec3 alb = vAlb; float rough = vPar.y, metal = vPar.z; int grain = int(vPar.w+0.5);
   float h = 0.0, bump = 0.0, ao = 1.0;
@@ -1536,8 +1538,12 @@ void main(){
   }
   gTexWear = uInst.y;   // MA1: worn copies show more substrate
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
-  if (uMatLayer > 0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
-  if (uSDecOn == 1 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
+  {   // PERF1 matfar: both GX5 layers fade out over the far band and are skipped beyond it
+    vec3 a0 = alb; float r0 = rough, o0 = ao;
+    if (uMatLayer > 0 && farK < 1.0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
+    if (uSDecOn == 1 && farK < 1.0 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
+    if (farK > 0.0) { alb = mix(alb, a0, farK); rough = mix(rough, r0, farK); ao = mix(ao, o0, farK); gSeam = mix(gSeam, 1.0, farK); }
+  }
   if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 15 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
     // faces, moss patches in that damp band, faint run-off streaks higher up. Not a uniform dirt overlay.
@@ -1601,6 +1607,10 @@ void main(){
   if (pat >= 17 && pat <= 22 && pat != 21) gNg = N;   // rough walls: relief ambient term in shade()
   if (uNoWallRelief == 1 && pat >= 17 && pat <= 22 && pat != 21) { bump = 0.0; gCavity = 1.0; gTexH = 0.0; gTexBump = false; gTexDN = vec3(0.0); }
   else gCavity = 1.0;
+  if (farK > 0.0) {   // PERF1 matfar: relief and the texture normal fade out; past the band no derivative bump at all
+    float kf = 1.0 - farK; bump *= kf; gTexH *= kf; gDetH *= kf; gDecH *= kf; gTexDN *= kf;
+    if (farK >= 1.0) { bump = 0.0; gTexBump = false; gDetH = 0.0; gDecH = 0.0; }
+  }
   if (bump > 0.0 || gTexBump || gDetH != 0.0 || gDecH != 0.0) {
     vec3 dpdx = dFdxFine(vW), dpdy = dFdyFine(vW);
     float hb = h*bump + gTexH + gDetH + gDecH;   // L4: + the set's height (m); GX5: + the detail relief and the decals
@@ -4187,6 +4197,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
   tex::setImgMat(perf.imgMat);   // MA1: the image-material slot table (re-uploads only when it flips)
   glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
+  // PERF1 matfar: Medium / Low (material detail 0-1) from 25 m (x the zoom, so scopes keep the detail); High keeps its look
+  glUniform1f(U(progMain, "uMatFar"), thumbMode || q.legacy || !perf.matFar || q.matLayer >= 2 ? 0.0f : 25.0f * std::max(1.0f, 1.43f / std::max(0.1f, v.proj[1][1])));
   glUniform1i(U(progMain, "uRelief"), thumbMode || q.legacy || !perf.relief || !perf.matLayer || q.matLayer == 0 ? 0 : 1);   // MA1b: Medium and up
   uploadStaticDecals();
   { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), gxDebug ? gxDebug : dbg); }
