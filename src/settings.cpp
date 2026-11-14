@@ -157,19 +157,23 @@ int keyCode(const std::string& n) { for (auto& k : keyNames()) if (n == k.name) 
 // keys the game reads directly (explore.cpp, weapons, tanks, the editor): shown in the Controls tab, refused as bindings
 struct FixedKey { const char* name; const char* what; };
 const FixedKey kFixed[] = {
-  {"W", "forward (rack: up)"}, {"A", "left"}, {"S", "back (rack: down)"}, {"D", "right"}, {"LEFT_SHIFT", "sprint"}, {"SPACE", "jump / stand up from prone (tank: bow MG)"},
-  {"C", "crouch (with the crouch binding)"}, {"E", "interact / enter"}, {"R", "reload"}, {"Q", "next weapon"}, {"T", "switch gun position"},
-  {"X", "AT / HE ammunition"}, {"V", "scope irons"}, {"B", "build (Explore)"}, {"L", "loadout / range"}, {"P", "pause (drop-in)"},
-  {"1", "choose 1"}, {"2", "choose 2"}, {"UP", "rack up"}, {"DOWN", "rack down"}, {"ENTER", "rack: equip"}, {"BACKSPACE", "return to start"},
+  // UI1: movement, jump, interact, reload, build, loadout, weapon slots and next weapon are rebindable now
+  {"C", "crouch (with the crouch binding)"}, {"T", "switch gun position"},
+  {"X", "AT / HE ammunition"}, {"V", "scope irons"}, {"P", "pause (drop-in)"},
+  {"UP", "rack up"}, {"DOWN", "rack down"}, {"ENTER", "rack: equip"}, {"BACKSPACE", "return to start"},
   {"F3", "performance stats"}, {"F4", "damage debug"}, {"F5", "Explore / Creative"}, {"F6", "match debug overlay"}, {"ESCAPE", "menu / back"},
 };
 const char* fixedUse(const std::string& n) { for (auto& f : kFixed) if (n == f.name) return f.what; return nullptr; }
 struct Action { const char* id; const char* label; };
 const Action kActions[] = {{"fireMode", "Fire mode"}, {"prone", "Prone"}, {"crouch", "Crouch"}, {"packUp", "Deploy / pack up heavy weapon"},
-                           {"grenade", "Throw grenade"}, {"smokeGrenade", "Smoke grenade (match)"}};
+                           {"grenade", "Throw grenade"}, {"smokeGrenade", "Smoke grenade (match)"},
+                           {"forward", "Move forward"}, {"back", "Move back"}, {"left", "Move left"}, {"right", "Move right"}, {"sprint", "Sprint"}, {"jump", "Jump"},
+                           {"leanLeft", "Lean left"}, {"leanRight", "Lean right"}, {"interact", "Interact / enter"}, {"reload", "Reload"}, {"nextWeapon", "Next weapon"},
+                           {"slot1", "Weapon slot 1"}, {"slot2", "Weapon slot 2"}, {"slot3", "Weapon slot 3 (knife)"}, {"slot4", "Weapon slot 4 (grenades)"},
+                           {"build", "Build"}, {"loadout", "Loadout / range"}, {"map", "Map"}, {"artillery", "Artillery"}, {"scoreboard", "Scoreboard"}};   // UI1
 int* bindSlot(App& app, const std::string& a) {
   auto& b = app.binds;
-  return a == "fireMode" ? &b.fireMode : a == "prone" ? &b.prone : a == "crouch" ? &b.crouch : a == "packUp" ? &b.packUp : a == "grenade" ? &b.grenade : a == "smokeGrenade" ? &b.smokeGrenade : nullptr;
+  return a == "fireMode" ? &b.fireMode : a == "prone" ? &b.prone : a == "crouch" ? &b.crouch : a == "packUp" ? &b.packUp : a == "grenade" ? &b.grenade : a == "smokeGrenade" ? &b.smokeGrenade : b.key.count(a) ? &b.key[a] : nullptr;
 }
 bool gSelftest = false;
 NavCamSettings gNavBase; bool gNavBaseSet = false;

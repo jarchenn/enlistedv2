@@ -8,6 +8,7 @@
 #include "terrain_blend.h"
 #include "lasso.h"
 #include "palette.h"
+#include "editor_nav.h"
 #include "snap.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -413,7 +414,7 @@ void App::drawCreativeUI() {
   if (showOpen) { ImGui::OpenPopup("Open map"); showOpen = false; }
   ImGui::SetNextWindowSize(ImVec2(620, 420), ImGuiCond_Appearing);
   if (ImGui::BeginPopupModal("Open map", nullptr)) {
-    struct Entry { fs::path p; std::string name, when; bool example; };
+    struct Entry { fs::path p; std::string name, when; bool example; };   // example: unused since UI1 (scan keeps its signature)
     std::vector<Entry> list;
     auto scan = [&](const fs::path& dir, bool ex) {
       if (!fs::exists(dir)) return;
@@ -429,13 +430,23 @@ void App::drawCreativeUI() {
         list.push_back(en);
       }
     };
-    scan(userMapsDir(), false);
-    scan(contentDir() / "examples", true);
+    scan(userMapsDir(), false);   // UI1: the content examples and the other templates are hidden (kept on disk)
     ImGui::BeginChild("##list", ImVec2(0, -40), true);
+    // UI1: the two shipped maps first, with their thumbnails (opened as an editable copy), then the user's saved maps
+    for (const char* id : {"dday", "chateau_town"}) {
+      const TemplateInfo* t = findTemplate(id);
+      if (!t || !t->available) continue;
+      ImGui::PushID(id);
+      if (t->thumbnail) ImGui::Image((ImTextureID)(intptr_t)t->thumbnail, ImVec2(96, 60), ImVec2(0, 0.8f), ImVec2(1, 0.2f)); else ImGui::Dummy(ImVec2(96, 60));
+      ImGui::SameLine();
+      if (ImGui::Selectable(t->name.c_str(), false, ImGuiSelectableFlags_DontClosePopups, ImVec2(0, 60))) { navNewMapSized(*this, *t, t->name, vec2(t->width, t->depth)); ImGui::CloseCurrentPopup(); }
+      ImGui::SameLine(420); ImGui::TextDisabled("%.0f x %.0f m  (built-in)", t->width, t->depth);
+      ImGui::PopID();
+    }
     if (list.empty()) ImGui::TextDisabled("No saved maps yet in %s", userMapsDir().string().c_str());
     for (auto& e : list) {
-      std::string lbl = (e.example ? "[example] " : "") + e.name + "##" + e.p.string();
-      if (ImGui::Selectable(lbl.c_str(), false, ImGuiSelectableFlags_DontClosePopups)) { openMap(e.p); ImGui::CloseCurrentPopup(); }
+      ImGui::Dummy(ImVec2(96, 1)); ImGui::SameLine();
+      if (ImGui::Selectable((e.name + "##" + e.p.string()).c_str(), false, ImGuiSelectableFlags_DontClosePopups)) { openMap(e.p); ImGui::CloseCurrentPopup(); }
       ImGui::SameLine(420); ImGui::TextDisabled("%s  %s", e.when.c_str(), e.p.filename().string().c_str());
     }
     ImGui::EndChild();

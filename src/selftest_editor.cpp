@@ -67,12 +67,12 @@ void SelfTest::editorUpdate(App& app, float dt) {
     if (!blank) { check(false, "Blank Slate template present"); finish(app); return; }
     for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--editor-shots") { reportName = "editor_shots"; gPerfFrame = 0; go(3370); return; }   // screenshots only (render A/B)
     const MapSizeRules& r = mapSizeRules();
-    check(r.minSide == 400 && r.maxSide == 4000 && r.step == 100, fmt("size rules 400-4000 m in 100 m steps (got %.0f-%.0f / %.0f)", r.minSide, r.maxSide, r.step));
-    vec2 c1 = r.clampSize(vec2(350, 4120)), c2 = r.clampSize(vec2(1234, 2449));
-    check(c1 == vec2(400, 4000) && c2 == vec2(1200, 2400), fmt("sizes clamp and snap: 350x4120 -> %.0fx%.0f, 1234x2449 -> %.0fx%.0f", c1.x, c1.y, c2.x, c2.y));
-    bool presets = r.presets.size() == 4 && r.presets[0] == vec2(600, 600) && r.presets[1] == vec2(1000, 2000) && r.presets[2] == vec2(1200, 2400) && r.presets[3] == vec2(2000, 4000);
-    check(presets, "presets 600x600, 1000x2000, 1200x2400, 2000x4000");
-    check(blank->width == 600 && blank->depth == 600, fmt("Blank Slate defaults to 600 x 600 (template %.0f x %.0f)", blank->width, blank->depth));
+    check(r.minSide == 100 && r.maxSide == 4000 && r.step == 100, fmt("size rules 100-4000 m in 100 m steps (got %.0f-%.0f / %.0f)", r.minSide, r.maxSide, r.step));
+    vec2 c1 = r.clampSize(vec2(50, 4120)), c2 = r.clampSize(vec2(1234, 2449));
+    check(c1 == vec2(100, 4000) && c2 == vec2(1200, 2400), fmt("sizes clamp and snap: 50x4120 -> %.0fx%.0f, 1234x2449 -> %.0fx%.0f", c1.x, c1.y, c2.x, c2.y));
+    bool presets = r.presets.size() == 4 && r.presets[0] == vec2(300, 300) && r.presets[1] == vec2(600, 600) && r.presets[2] == vec2(1000, 1000) && r.presets[3] == vec2(1000, 2000);
+    check(presets, "presets 300x300, 600x600, 1000x1000, 1000x2000");
+    check(blank->width == 600 && blank->depth == 600, fmt("Blank template stays 600 x 600 for scripted maps; New map defaults to 300 x 300 (template %.0f x %.0f)", blank->width, blank->depth));
     check(blank->description.find("about 600 x 600") == std::string::npos && blank->description.find("size you choose") != std::string::npos, "Blank Slate description no longer says 'about 600 x 600 m'");
     // estimate + warning
     TerrainEstimate e6 = estimateTerrain(600, 600), e12 = estimateTerrain(1200, 2400), e24 = estimateTerrain(2000, 4000);

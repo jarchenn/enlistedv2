@@ -619,10 +619,22 @@ void Game::drawHud() {
       int caps = 0; for (auto& o : match.obj) caps += o.state == ObjState::Captured;
       ImGui::Text("Objectives captured: %d / %zu   Attacker lives left: %d", caps, match.obj.size(), match.unusedAttackerLives());
     }
+    {   // UI1: match statistics: your line, the best player, then every player by team (scrollable)
+      const RosterSlot* best = nullptr;
+      for (auto& s : match.slots) if (!best || s.score > best->score || (s.score == best->score && s.kills > best->kills)) best = &s;
+      if (L) { const RosterSlot& me = match.slots[L->slot];
+        ImGui::Text("You: %d kills, %d deaths (K/D %.2f), score %d", me.kills, me.deaths, me.deaths ? (float)me.kills / me.deaths : (float)me.kills, me.score); }
+      if (best) ImGui::Text("Best: %s - %d kills, score %d", best->name.c_str(), best->kills, best->score);
+      ImGui::Text("Duration %d:%02d   Players %zu", (int)match.time / 60, (int)match.time % 60, match.slots.size());
+    }
     ImGui::Separator();
-    scoreboardTable();   // G1: name, kills, deaths, score for everyone
+    scoreboardTable(true);   // G1 / UI1: everyone, per team with totals
     if (isClient) ImGui::TextDisabled("Waiting for the host to return everyone to the lobby...");
-    else if (ImGui::Button("Return to lobby", ImVec2(220, 0))) gUi.wantExit = true;
+    else {
+      if (ImGui::Button("Return to lobby", ImVec2(220, 0))) gUi.wantExit = true;
+      ImGui::SameLine();
+      if (ImGui::Button("Exit", ImVec2(160, 0))) { gUi.wantExit = true; gUi.exitToEditor = true; }   // UI1: back to the editor
+    }
     ImGui::End();
     app.uiCursor = true;
     if (!app.selftest) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);

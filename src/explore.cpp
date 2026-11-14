@@ -21,7 +21,7 @@ float App::lookScaleFor(float fovDeg) {
   return std::tan(radians(fovDeg) * 0.5f) / std::tan(radians(72.0f) * 0.5f);
 }
 
-static bool kd(GLFWwindow* w, int k) { return glfwGetKey(w, k) == GLFW_PRESS; }
+static bool kd(GLFWwindow* w, int k) { return k >= 0 && glfwGetKey(w, k) == GLFW_PRESS; }   // UI1: -1 = an unbound action
 static bool kp(GLFWwindow* w, int k) {
   static std::map<int, bool> prev;
   bool d = kd(w, k), p = prev[k]; prev[k] = d; return d && !p;
@@ -408,7 +408,7 @@ void App::updateExplore(float dt) {
     if (kp(win, GLFW_KEY_F5)) { exitExplore(); return; }
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
     if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
-    if (kp(win, GLFW_KEY_L) && !pauseMenu) { showLoadout = !showLoadout; glfwSetInputMode(win, GLFW_CURSOR, showLoadout ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED); }
+    if (kp(win, bk("loadout")) && !pauseMenu) { showLoadout = !showLoadout; glfwSetInputMode(win, GLFW_CURSOR, showLoadout ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED); }
     if (kp(win, GLFW_KEY_V)) scopeIronsMode = !scopeIronsMode;
   }
   // the cursor is captured unless a menu needs it: every look delta below assumes GLFW_CURSOR_DISABLED (a free cursor
@@ -432,36 +432,36 @@ void App::updateExplore(float dt) {
       else { float k = settings().lookDegPerCount(adsT) * lookScaleFor(worldFov); in.lookYaw = -(float)(mx - lmx) * k; in.lookPitch = -(float)(my - lmy) * k * settings().pitchSign(); eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }
     lmx = mx; lmy = my;
-    if (kd(win, GLFW_KEY_W)) in.move.y += 1;
-    if (kd(win, GLFW_KEY_S)) in.move.y -= 1;
-    if (kd(win, GLFW_KEY_D)) in.move.x += 1;
-    if (kd(win, GLFW_KEY_A)) in.move.x -= 1;
-    in.sprint = kd(win, GLFW_KEY_LEFT_SHIFT);
+    if (kd(win, bk("forward"))) in.move.y += 1;
+    if (kd(win, bk("back"))) in.move.y -= 1;
+    if (kd(win, bk("right"))) in.move.x += 1;
+    if (kd(win, bk("left"))) in.move.x -= 1;
+    in.sprint = kd(win, bk("sprint"));
     in.crouch = kd(win, binds.crouch) || kd(win, GLFW_KEY_C);
     if (!glfwGetWindowAttrib(win, GLFW_FOCUSED)) { in = ExploreInput{}; }   // focus loss clears held input (crouch, fire, sprint)
-    in.jump = kp(win, GLFW_KEY_SPACE);
-    in.jumpHeld = glfwGetKey(win, GLFW_KEY_SPACE) == GLFW_PRESS;
-    in.interact = kp(win, GLFW_KEY_E);
+    in.jump = kp(win, bk("jump"));
+    in.jumpHeld = bk("jump") >= 0 && glfwGetKey(win, bk("jump")) == GLFW_PRESS;
+    in.interact = kp(win, bk("interact"));
     in.fire = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !io.WantCaptureMouse;
     in.aim = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS && !io.WantCaptureMouse;
-    in.reload = kp(win, GLFW_KEY_R);
+    in.reload = kp(win, bk("reload"));
     in.switchPos = kp(win, GLFW_KEY_T);
     in.toggleAmmo = kp(win, GLFW_KEY_X);
-    in.build = kp(win, GLFW_KEY_B);
+    in.build = kp(win, bk("build"));
     in.fireMode = kp(win, binds.fireMode);
     in.prone = kp(win, binds.prone);
     in.packUp = kp(win, binds.packUp);
     in.quickGrenade = kp(win, binds.grenade);
     builderKeys(in);   // build mode: Z / X rotate (not prone / ammo), Del, Ctrl+Z, Tab (builder.cpp)
     if (rackOpen) {   // the panel owns the keyboard: no movement, fire or look leaks through
-      in.rackUp = kp(win, GLFW_KEY_UP) || kp(win, GLFW_KEY_W); in.rackDown = kp(win, GLFW_KEY_DOWN) || kp(win, GLFW_KEY_S); in.rackEquip = kp(win, GLFW_KEY_ENTER);
+      in.rackUp = kp(win, GLFW_KEY_UP) || kp(win, bk("forward")); in.rackDown = kp(win, GLFW_KEY_DOWN) || kp(win, bk("back")); in.rackEquip = kp(win, GLFW_KEY_ENTER);
       in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = false;
       in.dyaw = in.dpitch = in.lookYaw = in.lookPitch = 0;
     }
     { extern double gScrollY; in.wheel = io.WantCaptureMouse ? 0.0f : (float)gScrollY; gScrollY = 0; }
-    in.choose1 = kp(win, GLFW_KEY_1); in.choose2 = kp(win, GLFW_KEY_2);
-    in.slot3 = kp(win, GLFW_KEY_3); in.slot4 = kp(win, GLFW_KEY_4);   // G4: knife, grenades
-    in.nextWeapon = kp(win, GLFW_KEY_Q);
+    in.choose1 = kp(win, bk("slot1")); in.choose2 = kp(win, bk("slot2"));
+    in.slot3 = kp(win, bk("slot3")); in.slot4 = kp(win, bk("slot4"));   // G4: knife, grenades
+    in.nextWeapon = kp(win, bk("nextWeapon"));
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
   // Edge presses (kp: Space, E, R, ...) and station hand-wheel deltas seen on a frame that runs no fixed step (any

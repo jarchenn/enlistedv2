@@ -277,7 +277,9 @@ public:
   static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)
   bool proneToggle = false;       // Z state: prone requested
   // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
-  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0, smokeGrenade = 0; std::map<std::string, std::string> names; } binds;
+  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0, smokeGrenade = 0; std::map<std::string, std::string> names;
+                   std::map<std::string, int> key; } binds;   // UI1: key = every other rebindable action by name (bk())
+  int bk(const char* action) const { auto it = binds.key.find(action); return it == binds.key.end() ? -1 : it->second; }   // -1 = GLFW_KEY_UNKNOWN
   void loadBindings();
   std::vector<int> carried;   // G4: the stack, up to 2 main weapons (any gun / launcher / carried M2), then the knife, grenades
   bool isSmallArm(const WeaponDef& d) const;
