@@ -1,5 +1,6 @@
 #include "app.h"
 #include "hlod.h"
+#include "abilities.h"
 #include "crumb.h"
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
@@ -183,7 +184,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
-  if (mode == Mode::Explore) grenadeDrawItems();
+  if (mode == Mode::Explore) { grenadeDrawItems(); gm2DrawItems(*this, op); }   // GM2: placed packs
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
   R.wind = grass.wind ? 1.0f : 0.0f;
   lodPxPerM = projM[1][1] != 0.0f ? projM[1][1] * R.height * 0.5f : 0.0f; lodCount[0] = lodCount[1] = lodCount[2] = 0;

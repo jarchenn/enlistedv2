@@ -1,6 +1,7 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
 #include "minimap.h"
+#include "abilities.h"
 #include "crumb.h"
 #include "settings.h"
 #include "mpai.h"
@@ -393,6 +394,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     else toggleInteract(target.inst, target.idx);
   }
   stepProjectiles(dt);
+  gm2NearMisses(*this, dt);   // GM2: enemy rounds past the eye (suppression vignette)
   fx.update(dt, terrain);
   if (c.pos.y < -60) { returnToStart(); toast("Fell out of the world: returned to start."); }
 }
@@ -464,6 +466,7 @@ void App::updateExplore(float dt) {
     in.slot3 = kp(win, GLFW_KEY_3); in.slot4 = kp(win, GLFW_KEY_4);   // G4: knife, grenades
     in.nextWeapon = kp(win, GLFW_KEY_Q);
     if (kp(win, GLFW_KEY_M)) mapLarge = !mapLarge;   // GM2: the large map
+    if (kp(win, GLFW_KEY_7)) gm2ToggleArtyMap(*this);   // GM2: artillery (ability)
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
   // Edge presses (kp: Space, E, R, ...) and station hand-wheel deltas seen on a frame that runs no fixed step (any
@@ -501,6 +504,7 @@ void App::updateExplore(float dt) {
   stepDynLeaves(dt);
   interior.step(*this, dt);
   stepGrenades(dt);
+  gm2Step(*this, dt);   // GM2: packs, artillery, near misses
 }
 
 void App::drawExploreUI() {
@@ -532,7 +536,8 @@ void App::drawExploreUI() {
     dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
     if (tanks.occupied) tanks.drawUI(*this);
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
-    if (showMinimap || mapLarge) minimapHud(*this, mapLarge);   // GM2
+    if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2
+    gm2Hud(*this);   // GM2: suppression vignette, the artillery map
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
   drawDamageDebug();

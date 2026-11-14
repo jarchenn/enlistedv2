@@ -26,6 +26,7 @@ bool mpaiMeleeRay(App& app, vec3 o, vec3 d, float& t, float dmg);   // knife ray
 bool mpaiGrenadeSpawn(App& app, int def, vec3 pos, vec3 vel, int owner);   // true: handled (LAN client request), no local body
 // grenade fuse ran out: phase 0 before the blast (returns true when it handled it: smoke), phase 1 after explode()
 bool mpaiGrenadeDetonate(App& app, int def, vec3 pos, int owner, int phase);
+void mpaiSetBlastOwner(int owner);   // GM2: the owner the next explode() attributes soldier damage to
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits);
 struct PhysicsHitFwd;
 void mpaiImpact(App& app, const Projectile& p, vec3 hitPos, vec3 hitNormal, uint64_t hitUd, float hitT, const std::string& surface);   // after bulletImpact (LAN replication)

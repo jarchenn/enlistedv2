@@ -6,6 +6,8 @@
 #include "mpui.h"
 #include "ai_core.h"
 #include "scenario.h"
+#include "abilities.h"
+#include "minimap.h"
 #include <functional>
 #include <cstdlib>
 
@@ -517,6 +519,84 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       float r = a.flame.farthest;
       char b[200]; std::snprintf(b, sizeof b, "a wall blocks the stream: the wall is 12 m away, the farthest parcel got %.1f m (%d stopped on it)", r, a.flame.wallStops);
       check(r > 10.0f && r < 12.7f && a.flame.wallStops > 20, b);
+      return true; });
+    // ---- GM2 (docs/abilities.md, docs/minimap.md): explosion pack, artillery, suppression vignette, minimap mapping
+    push("gm2 pack grant", [this](App& a, float) {
+      int w = a.weaponIndex("explosion_pack");
+      bool inDefault = w >= 0 && std::find(a.carried.begin(), a.carried.end(), w) != a.carried.end();
+      bool ok = gm2Grant(a, "explosion_pack", 2);
+      const WeaponDef* d = w >= 0 ? a.weaponDefs[w].get() : nullptr;
+      check(d && d->pack.on && d->equipment() && d->pack.fuse == 10.0f && !inDefault && ok && S(a, "explosion_pack").loaded + (int)S(a, "explosion_pack").containers.size() == 2,
+            "explosion pack: a weapon id (equipment, 10 s fuse), not in the default loadout, a grant gives 2");
+      a.selectWeapon(w); a.scriptedInput = ExploreInput{};
+      return true; });
+    push("gm2 pack no surface", [this](App& a, float t) {
+      static int placed0;
+      if (t == 0) { placed0 = gm2Stats().packsPlaced; a.eyeYaw = 0; a.eyePitch = 60; }   // up at the sky: nothing in reach
+      a.scriptedInput.fire = t > 0.1f && t < 0.2f;
+      if (t < 0.5f) return false;
+      a.scriptedInput = ExploreInput{};
+      check(gm2Stats().packsPlaced == placed0 && S(a, "explosion_pack").loaded + (int)S(a, "explosion_pack").containers.size() == 2, "explosion pack: nothing in reach (sky) places nothing and keeps the count");
+      return true; });
+    push("gm2 pack place", [this](App& a, float t) {
+      static int placed0, ex0; static vec3 at; static uint32_t rev0;
+      if (t == 0) { placed0 = gm2Stats().packsPlaced; ex0 = gm2Stats().packsExploded; a.eyeYaw = 0; a.eyePitch = -55; rev0 = a.groundRev; }   // down at the ground in front
+      a.scriptedInput.fire = t > 0.1f && t < 0.2f;
+      if (t < 0.4f) return false;
+      a.scriptedInput.fire = false;
+      if (gm2Stats().packsPlaced == placed0 + 1 && !gm2Packs().empty() && at == vec3(0)) at = gm2Packs().back().pos;
+      if (t < 9.9f) {   // still ticking
+        if (gm2Stats().packsExploded != ex0) { check(false, "explosion pack: went off before its 10 s fuse"); return true; }
+        return false;
+      }
+      if (t < 10.6f) return false;
+      const LivePack* none = gm2Packs().empty() ? nullptr : &gm2Packs().back(); (void)none;
+      float gy = a.terrain.height(at.x, at.z);
+      char b[240]; std::snprintf(b, sizeof b, "explosion pack: placed on the ground in reach (%.2f m above the ground, %.1f m away), one left; went off once 10 s later (packs %d, blasts %d), crater (ground rev %u -> %u)",
+                                 at.y - gy, glm::length(vec2(at.x, at.z) - vec2(a.eyePos().x, a.eyePos().z)), gm2Stats().packsPlaced - placed0, gm2Stats().packsExploded - ex0, rev0, a.groundRev);
+      check(gm2Stats().packsPlaced == placed0 + 1 && gm2Stats().packsExploded == ex0 + 1 && std::fabs(at.y - gy) < 0.35f && gm2Packs().empty() && a.groundRev != rev0 &&
+            S(a, "explosion_pack").loaded + (int)S(a, "explosion_pack").containers.size() == 1, b);
+      a.eyePitch = 0;
+      return true; });
+    push("gm2 artillery", [this](App& a, float t) {
+      static int land0; static bool second;
+      if (t == 0) {
+        std::string why;
+        bool refused = !gm2CallArtillery(a, vec2(0, -40), -1, &why);
+        gm2Grant(a, "artillery");
+        land0 = gm2Stats().shellsLanded;
+        bool called = gm2CallArtillery(a, vec2(0, -40), -1, &why);
+        second = gm2CallArtillery(a, vec2(0, -40), -1, &why);
+        check(refused && called && !second && gm2ArtyCooldownLeft(a) > 89.0f, "artillery: refused without the ability; granted, a call is accepted; a second call is refused (90 s cooldown)");
+        return false;
+      }
+      const ArtyConfig& c = gm2Arty();
+      if (t < c.delay - 0.2f) { if (gm2Stats().shellsLanded != land0) { check(false, "artillery: a shell landed before the delay"); return true; } return false; }
+      if (t < c.delay + c.gap * c.shells + 0.6f) return false;
+      vec3 lb = gm2Stats().lastBlast;
+      char b[200]; std::snprintf(b, sizeof b, "artillery: %d shells landed after the %.0f s delay; the last %.1f m from the target (spread %.0f m)", gm2Stats().shellsLanded - land0, c.delay, glm::length(vec2(lb.x, lb.z) - vec2(0, -40)), c.spread);
+      check(gm2Stats().shellsLanded - land0 == c.shells && glm::length(vec2(lb.x, lb.z) - vec2(0, -40)) <= c.spread + 0.5f, b);
+      return true; });
+    push("gm2 suppression", [this](App& a, float t) {
+      static int nm0; static float one, burst; static bool shotBurst;
+      auto shoot = [&](float side) {   // an enemy round passing the eye `side` m to the right, flying +z
+        vec3 e = a.eyePos(); Projectile p; p.kind = PROJ_BULLET; p.owner = 7; p.p = e + vec3(side, 0, -25); p.v = vec3(0, 0, 400); p.life = 0.001f; a.projectiles.push_back(p);
+      };
+      if (t == 0) { nm0 = gm2Stats().nearMisses; one = burst = 0; shotBurst = false; shoot(0.8f); return false; }
+      if (!shotBurst && t > 0.3f) { shotBurst = true; one = gm2Suppression(); for (int k = 0; k < 4; ++k) shoot(0.6f + 0.2f * k); return false; }
+      if (burst == 0 && t > 0.6f) { burst = std::max(1e-4f, gm2Suppression()); return false; }
+      if (t < 2.8f) return false;
+      char b[220]; std::snprintf(b, sizeof b, "suppression: near misses %d (5 rounds past the eye); one round -> vignette %.2f, then a burst of 4 -> %.2f; 2 s after the fire stops %.2f",
+                                 gm2Stats().nearMisses - nm0, one, burst, gm2Suppression());
+      check(gm2Stats().nearMisses - nm0 == 5 && one > 0.1f && one < 0.5f && burst > one + 0.3f && gm2Suppression() < 0.05f, b);
+      return true; });
+    push("gm2 minimap", [this](App& a, float) {
+      MinimapView v = drawMinimap(a, nullptr, vec2(100, 100), vec2(300, 300), vec2(10, -20), 200.0f);
+      vec2 w(35, -60), back = v.toWorld(v.toScreen(w));
+      MinimapView f = drawMinimap(a, nullptr, vec2(0, 0), vec2(400, 400), vec2(0), 0);
+      vec2 c0 = f.toScreen(a.terrain.org), c1 = f.toScreen(a.terrain.org + vec2(a.terrain.size, a.terrain.sizeZ));
+      check(glm::length(back - w) < 1e-3f && std::fabs(v.scale - 1.0f) < 1e-4f && glm::length(v.toScreen(vec2(10, -20)) - vec2(200, 200)) < 1e-3f && c0.x >= -0.5f && c1.x <= 400.5f && c1.y <= 400.5f,
+            "minimap: 200 m across a 200 px rect = 1 px/m, centred; screen <-> world round trip; metres <= 0 fits the whole terrain");
       return true; });
     push("reset", [this](App& a, float) {
       a.exitExplore();
