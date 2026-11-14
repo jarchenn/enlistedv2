@@ -7,6 +7,7 @@
 #include "ai_core.h"
 #include "scenario.h"
 #include "abilities.h"
+#include "classes.h"
 #include "minimap.h"
 #include <functional>
 #include <cstdlib>
@@ -521,6 +522,19 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       check(r > 10.0f && r < 12.7f && a.flame.wallStops > 20, b);
       return true; });
     // ---- GM2 (docs/abilities.md, docs/minimap.md): explosion pack, artillery, suppression vignette, minimap mapping
+    push("gm2 classes", [this](App& a, float) {
+      const ClassDef* heavy = classById("heavy"); const ClassDef* ranger = classById("ranger"); const ClassDef* recon = classById("recon");
+      bool ok = heavy && ranger && recon;
+      int hp = 0; bool rArty = false, hArty = true, recPack = true;
+      if (ok) {
+        gm2ApplyClass(a, *heavy); hp = S(a, "explosion_pack").loaded + (int)S(a, "explosion_pack").containers.size(); hArty = gm2HasAbility("artillery");
+        gm2ApplyClass(a, *ranger); rArty = gm2HasAbility("artillery");
+        gm2ApplyClass(a, *recon); recPack = std::find(a.carried.begin(), a.carried.end(), a.weaponIndex("explosion_pack")) != a.carried.end();
+        gm2Reset(a);
+      }
+      check(ok && heavy->packs == 2 && hp == 2 && !hArty && rArty && ranger->ability == "artillery" && !recPack,
+            "classes.json drives GM2: Heavy gets 2 explosion packs and no artillery; Ranger gets artillery; Recon carries no pack");
+      return true; });
     push("gm2 pack grant", [this](App& a, float) {
       int w = a.weaponIndex("explosion_pack");
       bool inDefault = w >= 0 && std::find(a.carried.begin(), a.carried.end(), w) != a.carried.end();

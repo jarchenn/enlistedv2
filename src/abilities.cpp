@@ -6,6 +6,7 @@
 #include "mpai.h"
 #include "net.h"
 #include "physics.h"
+#include "classes.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -79,6 +80,25 @@ bool gm2Grant(App& app, const std::string& id, int count) {
   WeaponState& s = app.wstate[id];
   s.loaded = count > 0 ? 1 : 0; s.containers.assign(std::max(0, count - 1), 1); s.throwT = -1; s.cooldown = 0;
   return std::find(app.carried.begin(), app.carried.end(), w) != app.carried.end();
+}
+
+// a class's GM2 items at spawn: its explosion packs (none: the pack leaves the stack) and its ability (only that one)
+void gm2ApplyClass(App& app, const ClassDef& c) {
+  gS.abilities.erase("artillery");
+  if (!c.ability.empty()) gS.abilities.insert(c.ability);
+  int w = app.weaponIndex("explosion_pack");
+  if (w < 0) return;
+  if (c.packs > 0) gm2Grant(app, "explosion_pack", c.packs);
+  else { app.carried.erase(std::remove(app.carried.begin(), app.carried.end(), w), app.carried.end()); WeaponState& s = app.wstate["explosion_pack"]; s.loaded = 0; s.containers.clear(); }
+}
+void gm2ApplyClassSoldier(App& app, int slot, Soldier& s, const ClassDef& c) {
+  gS.slotAbilities[slot].clear();
+  if (!c.ability.empty()) gS.slotAbilities[slot].insert(c.ability);
+  int w = app.weaponIndex("explosion_pack");
+  if (w < 0) return;
+  s.carried.erase(std::remove(s.carried.begin(), s.carried.end(), w), s.carried.end());
+  WeaponState& ws = s.wsBy[w]; ws.loaded = 0; ws.containers.clear();
+  if (c.packs > 0) { s.carried.push_back(w); ws.loaded = 1; ws.containers.assign(c.packs - 1, 1); }
 }
 
 // ---------------------------------------------------------------- explosion pack

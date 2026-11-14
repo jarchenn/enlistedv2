@@ -2,12 +2,12 @@
   "_doc": "Creative editor and terrain tuning (SPEC 9.1-9.3). Read once at start-up by terrain_chunks.cpp and editor_nav.cpp.",
   "mapSize": {
     "_doc": "Buildable area per side in metres; the terrain extends `margin` beyond it. Above comfortableKm2 the New Map dialog warns ([DECISION] 3.0 km2: the 1200 x 2400 default maps are the largest comfortable size on min spec).",
-    "min": 400,
+    "min": 100,
     "max": 4000,
     "step": 100,
     "margin": 100,
     "comfortableKm2": 3.0,
-    "presets": [[600, 600], [1000, 2000], [1200, 2400], [2000, 4000]]
+    "presets": [[300, 300], [600, 600], [1000, 1000], [1000, 2000]]
   },
   "terrainStream": {
     "_doc": "Chunk LOD distances (m, 3D distance to the chunk box) for vertex steps 1/2/4/10 cells; beyond the last, 20. Meshes farther than maxDist are evicted.",

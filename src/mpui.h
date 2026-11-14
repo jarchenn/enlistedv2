@@ -6,7 +6,7 @@ class App;
 struct Overlay;
 
 struct MpUi {
-  bool showSetup = false, showJoin = false, showPanel = false, showOverlay = true, wantExit = false;
+  bool showSetup = false, showJoin = false, showPanel = false, showOverlay = true, wantExit = false, exitToEditor = false;   // UI1: exitToEditor: the end screen's Exit (no setup dialog)
   int setupMode = 0;                       // 0 singleplayer, 1 host LAN
   Scenario sc; json lastSaved; bool loaded = false;
   std::vector<std::string> migration, worldIssues;

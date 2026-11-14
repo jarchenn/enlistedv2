@@ -25,6 +25,7 @@
 #include <imgui.h>
 #include "foundation.h"       // MA3 foundation dressing
 #include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
+#include "classes.h"
 #include <stb_image_write.h>
 #include <algorithm>
 
@@ -880,6 +881,11 @@ int App::run(int argc, char** argv) {
     buildArmMeshes();
     loadBindings();
     loadMoveSettings();
+    { std::string err; if (!loadClasses(contentDir() / "settings" / "classes.json", err)) logf("classes: %s", err.c_str());
+      for (auto& c : classDefs()) for (const ClassSide* s : {&c.us, &c.de}) {   // a class naming a weapon that is not loaded is a content error
+        std::vector<std::string> ids = s->primary; ids.insert(ids.end(), s->secondary.begin(), s->secondary.end()); if (!s->pistol.empty()) ids.push_back(s->pistol);
+        for (auto& w : ids) if (weaponIndex(w) < 0) logf("classes: %s (%s) names unknown weapon %s", c.id.c_str(), s->name.c_str(), w.c_str()); }
+      logf("classes: %zu loaded", classDefs().size()); }
     layoutRackDisplays();
     resetLoadout();
   }

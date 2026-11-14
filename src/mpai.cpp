@@ -61,7 +61,8 @@ void mpaiUI(App& app) {
     bool host = gNet && gNet->role == Net::HOST;
     if (host) gNet->returnToLobby(app);
     app.exitExplore();
-    if (gNet && gNet->role == Net::CLIENT) gUi.showJoin = true; else { gUi.showSetup = true; gUi.setupMode = host ? 1 : 0; }
+    if (gUi.exitToEditor) gUi.exitToEditor = false;   // UI1: straight back to the editor
+    else if (gNet && gNet->role == Net::CLIENT) gUi.showJoin = true; else { gUi.showSetup = true; gUi.setupMode = host ? 1 : 0; }
   }
 }
 

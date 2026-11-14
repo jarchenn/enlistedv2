@@ -1,0 +1,26 @@
+{
+  "_doc": "GM1 player classes (src/classes.cpp). Per faction: name, primary choices (first = default), secondary (second slot) choices, pistol (\"\" = none). frags / smokes / explosionPacks at spawn; ability \"artillery\" (GM2, every 90 s); builds = Engineer build menu (GM3); drivesTanks = only class allowed to enter tanks; hpMul / staminaMul; botWeight = share among bots. Assumed (user's list unfinished): Axis Machine Gunner MG 42, Axis Assaulter second option StG 44.",
+  "classes": [
+    {"id": "ranger", "US": {"name": "Ranger", "primary": ["m1_carbine", "m1_garand"], "pistol": "m1911a1"},
+                     "DE": {"name": "Fallschirmjäger", "primary": ["fg42", "kar98k"], "pistol": "luger"},
+     "frags": 2, "ability": "artillery", "botWeight": 3},
+    {"id": "recon", "US": {"name": "Recon", "primary": ["m1c_garand"], "pistol": "m1911a1"},
+                    "DE": {"name": "Recon", "primary": ["kar98k_zf39"], "pistol": "luger"},
+     "frags": 2, "smokes": 2, "botWeight": 1},
+    {"id": "heavy", "US": {"name": "Heavy", "primary": ["m1_garand"], "secondary": ["bazooka_m9", "m2_flamethrower"]},
+                    "DE": {"name": "Heavy", "primary": ["kar98k"], "secondary": ["panzerschreck", "flammenwerfer41"]},
+     "explosionPacks": 2, "botWeight": 1},
+    {"id": "engineer", "US": {"name": "Engineer", "primary": ["m1_carbine"]},
+                       "DE": {"name": "Engineer", "primary": ["kar98k"]},
+     "smokes": 2, "builds": true, "botWeight": 1},
+    {"id": "mg", "US": {"name": "Machine Gunner", "primary": ["m2hb_carry", "m1918a2_bar"]},
+                 "DE": {"name": "Machine Gunner", "primary": ["mg42"]},
+     "smokes": 2, "botWeight": 1.5},
+    {"id": "assault", "US": {"name": "Assaulter", "primary": ["m3_grease_gun", "m1_thompson"]},
+                      "DE": {"name": "Assaulter", "primary": ["mp40", "stg44"]},
+     "frags": 4, "smokes": 2, "hpMul": 1.25, "staminaMul": 1.5, "botWeight": 2},
+    {"id": "tanker", "US": {"name": "Tanker", "pistol": "m1911a1"},
+                     "DE": {"name": "Tanker", "pistol": "luger"},
+     "drivesTanks": true, "botWeight": 0}
+  ]
+}

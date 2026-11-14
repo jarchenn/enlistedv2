@@ -15,6 +15,9 @@ struct DrawItem;
 bool gm2Grant(App& app, const std::string& id, int count = 2);   // a weapon id (added to the stack, `count` of it) or an ability id
 bool gm2HasAbility(const std::string& id);
 void gm2GrantSlot(int slot, const std::string& ability);   // host: another soldier's ability (GM1 class data), checked on its LAN requests
+// GM1 class data (classes.h): ClassDef::packs explosion packs and ClassDef::ability; call at each spawn
+void gm2ApplyClass(App& app, const struct ClassDef& c);                       // the local player
+void gm2ApplyClassSoldier(App& app, int slot, Soldier& s, const struct ClassDef& c);   // host: another soldier (remote human / bot)
 void gm2Reset(App& app);                                        // a new Explore session: no live packs, no strikes, no grants
 
 // ---- explosion pack: placed on the surface in reach (walls, vehicles, ground), it goes off `fuse` s later through explode()
