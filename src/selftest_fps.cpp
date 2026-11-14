@@ -68,14 +68,14 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         bool nrmExpected = d.id != "panzerschreck";                          // the pickup mesh ships no normal map
         if (ok) check(!texExpected || (d.model->texAlb && d.model->texMR && (d.model->texN || !nrmExpected)), d.id + (texExpected ? (nrmExpected ? ": albedo, metal-rough and normal textures bound" : ": albedo and metal-rough bound (source has no normal map)") : ": factor-only materials (source has no textures)"));
       }
-      check(models == 21, "twenty-one weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck, Mk 2, M24, knife, StG 44, M3, smoke grenade, two flamethrowers); " + std::to_string(models) + " found");
+      check(models == 23, "twenty-three weapon entries use imported models (Garand, M1C, Carbine, Thompson, BAR, bazooka, carried M2, Kar 98k, ZF39, MP 40, FG 42, MG 42, Panzerschreck, Mk 2, M24, knife, StG 44, M3, smoke grenade, two flamethrowers, M1911, Luger); " + std::to_string(models) + " found");
       GpuModel g; std::string err;
       check(!g.load(contentDir() / "weapons" / "models" / "does_not_exist", err), "a missing bake fails cleanly (" + err + ") and the weapon keeps its box parts");
       int box = a.weaponIndex("kar98k");
       check(box >= 0 && a.weaponDefs[box]->useModel() && a.weaponDefs[box]->mesh[0].count > 0, "Kar 98k uses the supplied model; its box parts remain as the fallback");
       const WeaponDef* g1 = a.weaponDefs[a.weaponIndex("m1_garand")].get();
       int clip = 0, anim = 0; for (auto& p : g1->model->parts) { clip += p.role == "clip"; anim += !p.anim.empty(); }
-      check(clip == 2 && anim >= 5 && g1->model->animDuration > 6.0f, "Garand: clip + rounds mapped to the clip role, " + std::to_string(anim) + " parts carry the 6.3 s reload clip");
+      check(clip == 0, "Garand (WP1 one-mesh model): magazine-style reload, no clip part (" + std::to_string(clip) + " clip, " + std::to_string(anim) + " animated parts)");
       return true; });
 
     // ---- F2 ADS alignment for every weapon at both world FOVs
@@ -86,12 +86,12 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         a.scriptedInput.aim = true;
         if (t < 0.9f) return false;
         const WeaponDef& d = D(a); auto& s = a.wstate[d.id];
-        if (a.vmScoped(d)) {   // W2: the weapon stays drawn under the eyepiece, the scope eye on the centre
+        if (a.vmScoped(d)) {   // GM1b: no weapon drawn under the eyepiece, the scope eye on the centre
           vec3 r, f; a.sightLineWorld(d, s, r, f);
           mat4 vp = glm::perspective(radians(a.vm.vmFov), 16.0f / 9.0f, 0.03f, 100.0f) * a.viewM;
           float worst = std::max(pxFromCentre(vp, r), pxFromCentre(vp, f));
-          char b[200]; std::snprintf(b, sizeof b, "%s: scoped, the weapon stays drawn (%zu + %zu items) with the scope eye on the screen centre (%.2f px), eyepiece view %s", d.id.c_str(), a.R.viewModel.size(), a.R.viewModelTex.size(), worst, a.scopeView() ? "on" : "OFF");
-          check(a.scopeView() && !(a.R.viewModel.empty() && a.R.viewModelTex.empty()) && worst < 0.5f, b);
+          char b[200]; std::snprintf(b, sizeof b, "%s: scoped, no weapon drawn (%zu + %zu items) with the scope eye on the screen centre (%.2f px), eyepiece view %s", d.id.c_str(), a.R.viewModel.size(), a.R.viewModelTex.size(), worst, a.scopeView() ? "on" : "OFF");
+          check(a.scopeView() && a.R.viewModel.empty() && a.R.viewModelTex.empty() && worst < 0.5f, b);
           return true;
         }
         if (d.action == "heavy") { check(a.adsT == 0, d.id + ": carried heavy weapon has no sights (deploy it to aim)"); return true; }
@@ -211,7 +211,8 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         faction += fac == (D(a).side == "DE" ? 1 : 0);
         vec2 hLo, hHi, sl; fpsArmsLastFraming(hLo, hHi, sl);   // at the hip: the whole hand and 15 cm of sleeve past the cuff in view
         bool inView = a.lastArmsShown[1] && hLo.x > -0.99f && hHi.x < 0.99f && hHi.y > -0.8f && hHi.y < 0.99f;   // the hand on screen (the sleeve enters from the bottom edge; the cuff covers the wrist)
-        if (!D(a).equipment()) { ++guns; framed += inView; if (!inView) unframed += " " + D(a).id; }
+        if (!D(a).equipment() && D(a).action != "heavy") { ++guns; framed += inView;   // carried M2: WP1 waist carry, hand below the frame by design
+          if (!inView) unframed += " " + D(a).id; }
         if (!D(a).equipment() && D(a).action != "heavy") {   // ADS: the hand drops out of the sight cone, or is not drawn
           a.adsT = 1; a.R.viewModelTex.clear(); a.weaponDrawItems(tmp); ++adsN; adsDrawn += armCount(fac) > 0; a.adsT = 0;
         }

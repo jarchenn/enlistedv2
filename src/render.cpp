@@ -4366,6 +4366,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glCopyImageSubData(dofTex, GL_TEXTURE_2D, 0, 0, 0, 0, hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
     glBindFramebuffer(GL_FRAMEBUFFER, hdrFbo);
   }
+  if (viewModel.empty() && viewModelTex.empty()) { float z[4] = {0, 0, 0, 0}; glClearTexImage(vmDistTex, 0, GL_RED, GL_FLOAT, z); }   // no weapon (scoped, GM1b): no stale eye distances for DOF / probes
   if (!viewModel.empty() || !viewModelTex.empty()) {
     // First-person weapon (and arms): drawn over a cleared depth buffer so it never clips into walls, lit at its
     // world position, with its own fixed-FOV projection so the world FOV can zoom while the weapon keeps its size.
