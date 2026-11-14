@@ -23,7 +23,7 @@ const A = {
     clips: { fire: [1, 9], reload_empty: [9, 101], reload: [101, 153], inspect: [153, 201], idle: [201, 221], draw: [221, 244] },
     mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png" }, arms: c4dArms() } },
   modern_m4: { src: "fps-animated-carbine/source/arms@carbine.fbx", tex: "fps-animated-carbine", stat: "modern_carbine",
-    cutLens: [{ a: [0.0018, 0.11, 0.28], b: [0.0018, 0.11, 0.39], r: 0.0135, all: true, black: true, blackR: 0.016 }],   // MG3 / MG4: lenses and inner rims (axis-facing) inside 13.5 mm deleted; the tube and housing walls there kept, flat black
+    cutLens: [{ a: [0.0018, 0.11, 0.28], b: [0.0018, 0.11, 0.39], r: 0.0135, all: true, black: true, blackR: 0.016, widen: 1.2, widenMax: 0.0145 }],   // MG3 / MG4: lenses and inner rims (axis-facing) inside 13.5 mm deleted; the tube and housing walls there kept, flat black
     keep: ["armmesh", "base", "bolt", "boltcatch", "bullet", "clip", "handle", "handle2", "lid", "release", "scope", "trigger"], rigidify: ["base", "bolt", "boltcatch", "bullet", "clip", "handle", "handle2", "lid", "release", "scope", "trigger"], gun: "base", timeline: [1, 223],
     clips: { fire: [1, 9], reload_empty: [9, 69], reload: [69, 135], inspect: [135, 177], idle: [177, 205], draw: [205, 223] },
     mats: { carbine: { albedo: "carbineColor.png", normal: "carbineNormal.png", metal: "carbineMetallic.png", smooth: "carbinespecular.png" }, arms: c4dArms() } },
@@ -71,7 +71,7 @@ const A = {
     // the set has no idle and no fire clip: the idle is the draw's last frame (held), a shot is a procedural kick
     clips: { idle: { action: "root|Draw", range: [117, 118] }, reload: "root|Reload", reload_empty: "root|Full_Reload" },
     mats: { "texture set 1": { albedo: "texture_set_1_Base_color.png", rough: "texture_set_1_Roughness.png" }, "texture set 2": { albedo: "texture_set_2_Base_color.png", rough: "texture_set_2_Roughness.png", metal: "texture_set_2_Metallic.png" }, ...manny } },
-  modern_mp7: { src: X + "mp7/MP7A1_Animations/model/MP7A1.fbx", abs: true, tex: "mp7a1-animations", stat: "modern_mp7", keep: ["mp7a1_Object", "SK_Mannequin_Arms"], gun: "mp7a1_Object", cutLens: [{ a: [0.002, 0.141, 0.27], b: [0.002, 0.141, 0.39], r: 0.016, islands: true, black: true, blackR: 0.017 }],
+  modern_mp7: { src: X + "mp7/MP7A1_Animations/model/MP7A1.fbx", abs: true, tex: "mp7a1-animations", stat: "modern_mp7", keep: ["mp7a1_Object", "SK_Mannequin_Arms"], gun: "mp7a1_Object", cutLens: [{ a: [0.002, 0.141, 0.27], b: [0.002, 0.141, 0.39], r: 0.016, islands: true, black: true, blackR: 0.017, widen: 1.2, widenMax: 0.0165 }],
     clips: { idle: "root|root|MC_MP7_static_pose", fire: "root|root|MC_MP7_shoot", reload: "root|root|MC_MP7_reload", reload_empty: "root|root|MC_MP7_full_reload" },
     mats: { ...Object.fromEntries([["Slot_1", "Slot_1"], ["slot_2", "slot_2"], ["slot_3", "slot_3"]].map(([m, f]) => [m, { albedo: `mp7_low_${f}_BaseColor.png`, rough: `mp7_low_${f}_Roughness.png`, metal: `mp7_low_${f}_Metallic.png` }])), ...manny } },
   modern_rpg7: { src: X + "rpg7/RPG7_Animations/model/RPG_7.fbx", abs: true, tex: "rpg-7-animations", stat: "modern_rpg7", keep: ["rpg_low", "SK_Mannequin_Arms"], gun: "rpg_low",

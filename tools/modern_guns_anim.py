@@ -178,6 +178,13 @@ if cfg.get("cutLens"):
                     if rad.length <= c.get("blackR", c["r"]) / s and (m3 @ f.normal).dot(rad) < 0:   # inward-facing (the bore; "blackR" may reach wider than the cut); the outer housing keeps its finish
                         f.material_index = bi; nb += 1
                 log.setdefault("blackFaces", []).append([ob.name, nb])
+                if c.get("widen"):   # MG5: the bore (every vertex of a black face; the rims' inner edges move with it) pushed out radially: a thinner black rim, a larger clear circle; capped at widenMax, the outer housing's own vertices untouched
+                    bset = set(f for f in bm.faces if f.material_index == bi); mwi = mw.inverted(); nv = 0
+                    for v in set(v for f in bset for v in f.verts):
+                        w = mw @ v.co; t = max(0.0, min(1.0, (w - A_).dot(ab) / L2)); o = A_ + ab * t; rv = w - o
+                        if rv.length < 1e-9: continue
+                        rn = min(rv.length * c["widen"], c.get("widenMax", 1.0) / s); v.co = mwi @ (o + rv.normalized() * rn); nv += 1
+                    log.setdefault("widened", []).append([ob.name, nv])
             bmesh.ops.delete(bm, geom=cut, context="FACES"); bm.to_mesh(ob.data); bm.free()
 # ---------------------------------------------------------------- MG2: decimate heavy meshes (before the armature; weights kept)
 for name, ratio in cfg.get("decimate", {}).items():
