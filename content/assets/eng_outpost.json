@@ -1,0 +1,15 @@
+{"id":"eng_outpost","version":1,"name":"Engineer outpost (spawn point)","category":"Defences","hidden":true,"description":"A forward outpost built by an Engineer (GM3): a field radio on its crate behind a short sandbag wall, a canvas lean-to and a team pennant. Teammates can deploy here.","floors":0,"enterable":false,"footprint":[2.6,2.2],"plinthDepth":0,"maxGrade":0.8,"noAutoPanels":true,
+"materials":[{"name":"canvas","albedo":[0.29,0.27,0.18],"roughness":0.95,"pattern":"fabric","metallic":0,"grain":1},{"name":"sandbag","albedo":[0.43,0.37,0.27],"roughness":0.97,"pattern":"fabric","metallic":0,"grain":0},{"name":"oak_y","albedo":[0.15,0.095,0.055],"roughness":0.72,"pattern":"wood","metallic":0,"grain":1},{"name":"olive","albedo":[0.18,0.19,0.12],"roughness":0.6,"pattern":"metal","metallic":0.1,"grain":0},{"name":"iron","albedo":[0.05,0.048,0.046],"roughness":0.55,"pattern":"metal","metallic":0.15,"grain":1},{"name":"pennant","albedo":[0.55,0.12,0.08],"roughness":0.9,"pattern":"fabric","metallic":0,"grain":0}],
+"parts":[
+{"t":"b","c":[0,0.18,0.85],"s":[2.2,0.36,0.45],"m":"sandbag","bv":0.04},
+{"t":"b","c":[0,0.5,0.88],"s":[1.9,0.28,0.4],"m":"sandbag","bv":0.04},
+{"t":"b","c":[-0.35,0.25,0.1],"s":[0.7,0.5,0.45],"m":"oak_y","bv":0.01},
+{"t":"b","c":[-0.35,0.66,0.1],"s":[0.5,0.32,0.3],"m":"olive","bv":0.01,"k":0},
+{"t":"b","c":[-0.18,1.15,0.06],"s":[0.012,0.7,0.012],"m":"iron","k":0},
+{"t":"b","c":[0.6,0.4,0.15],"s":[0.06,0.8,0.06],"m":"oak_y","k":0},
+{"t":"b","c":[0.6,1.0,-0.85],"s":[0.06,2.0,0.06],"m":"oak_y","k":0},
+{"t":"b","c":[0.6,1.25,-0.36],"s":[0.04,0.04,1.1],"m":"oak_y","k":0},
+{"t":"b","c":[0.95,0.95,-0.36],"s":[0.7,0.02,1.15],"m":"canvas","r":[0,0,-55],"k":0},
+{"t":"b","c":[0.6,1.85,-0.75],"s":[0.02,0.22,0.32],"m":"pennant","k":0}
+],
+"furniture":[],"interactables":[],"panels":[]}

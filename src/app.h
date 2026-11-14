@@ -318,7 +318,8 @@ public:
   // ---- buildable defences (builder.cpp)
   struct BuildAction { std::vector<uint64_t> placed; std::vector<Instance> removed; size_t undoDepth = 0; bool real = false; };
   struct BuildState { std::string forceAsset, pick; bool active = false, valid = false, snapped = false, fireHeld = true, palette = false, realEdits = false; int item = 1; float yaw = 0, ghostYaw = 0, slopeDeg = 0; vec3 pos{0}; std::string reason; const AssetDef* asset = nullptr;
-                      uint64_t aimId = 0; bool pendDel = false, pendUndo = false, pendPalette = false; float pendRot = 0; std::vector<BuildAction> history; int removed = 0, undone = 0; };
+                      uint64_t aimId = 0; bool pendDel = false, pendUndo = false, pendPalette = false; float pendRot = 0; std::vector<BuildAction> history; int removed = 0, undone = 0;
+                      bool engineer = false, delHeld = false; int engItem = 0; float holdT = 0, dismT = 0, dt = 0.016f; };   // GM3: the Engineer menu in a match (engineer.cpp)
   BuildState build;
   void builderKeys(ExploreInput& in);       // first-person build keys (Z / X rotate, Del, Ctrl+Z, Tab): read each frame (builder.cpp)
   void setBuildPalette(bool open);          // the Assets palette in build mode (frees / captures the cursor)

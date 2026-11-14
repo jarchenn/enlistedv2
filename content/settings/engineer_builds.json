@@ -1,0 +1,11 @@
+{
+  "_doc": "GM3 Engineer build menu (src/engineer.cpp, docs/builder.md#engineer). time: seconds holding the fire button; limit: pieces per life (per: life) or standing at a time (per: active); dismantle: the engineer can remove his own by holding Del for dismantleTime.",
+  "dismantleTime": 10,
+  "items": [
+    {"id": "outpost",  "name": "Outpost (spawn point)", "asset": "eng_outpost",          "time": 10, "limit": 1,  "per": "active", "dismantle": true},
+    {"id": "at_gun",   "name": "AT gun",                "asset": "gun_pak40",            "time": 10, "limit": 1,  "per": "active", "dismantle": true},
+    {"id": "wire",     "name": "Barbed wire",           "asset": "wire_concertina",      "time": 5,  "limit": 5,  "per": "life"},
+    {"id": "sandbags", "name": "Sandbags",              "asset": "def_sandbag_straight", "time": 3,  "limit": 10, "per": "life"},
+    {"id": "ammo",     "name": "Ammo box",              "asset": "crate_mixed_supply",   "time": 5,  "limit": 3,  "per": "life"}
+  ]
+}

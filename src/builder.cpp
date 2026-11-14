@@ -23,6 +23,7 @@
 #include "palette.h"
 #include "snap.h"
 #include "mpai.h"
+#include "engineer.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -100,6 +101,10 @@ void App::builderKeys(ExploreInput& in) {
   auto edge = [&](int k) { bool d = glfwGetKey(win, k) == GLFW_PRESS, p = prev[k]; prev[k] = d; return d && !p; };
   bool z = edge(GLFW_KEY_Z), x = edge(GLFW_KEY_X), del = edge(GLFW_KEY_DELETE), tab = edge(GLFW_KEY_TAB);
   if (!build.active) return;
+  if (build.engineer) {   // GM3: 1-5 pick the Engineer item; Del is held to dismantle (not a tap to remove)
+    for (int d = 0; d < 5; ++d) if (glfwGetKey(win, GLFW_KEY_1 + d) == GLFW_PRESS && d < (int)engItems().size()) build.engItem = d;
+    build.delHeld = glfwGetKey(win, GLFW_KEY_DELETE) == GLFW_PRESS;
+  }
   if (build.palette && ImGui::GetIO().WantCaptureKeyboard) {   // typing in the palette search: no keys reach the player
     in.move = vec2(0); in.jump = in.jumpHeld = in.crouch = in.sprint = in.interact = in.reload = in.build = in.nextWeapon = false;
     in.choose1 = in.choose2 = in.prone = in.toggleAmmo = in.fireMode = in.packUp = in.quickGrenade = in.switchPos = false;
@@ -159,14 +164,19 @@ void App::stepBuilder(const ExploreInput& in) {
       setBuildPalette(!useScripted);
       toast(std::string(build.realEdits ? "Build mode (map edits)" : "Build mode") + ": Tab assets, 1 tank trap, 2 sandbags, wheel / Z / X rotate, LMB place, Del remove, Ctrl+Z undo, RMB or B leave", 5);
     } else setBuildPalette(false);
+    // GM3: in a match the Engineer gets his build menu instead of the sandbox palette; other classes cannot build
+    build.engineer = build.active && engMatchActive();
+    if (build.engineer && !engineerCanBuild(*this)) { build.active = build.engineer = false; toast("Only the Engineer can build", 3); return; }
+    if (build.engineer) { setBuildPalette(false); build.holdT = build.dismT = 0; build.pick.clear(); toast("Engineer: 1-5 pick, hold LMB to build, hold Del on your outpost / AT gun to dismantle, wheel / Z / X rotate, RMB or B leave", 5); }
   }
   if (!build.active) { build.aimId = 0; return; }
   if (in.aim && !build.palette) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); return; }
   if (build.pendPalette) { build.pendPalette = false; setBuildPalette(!build.palette); }
   bool quick = in.choose1 || in.choose2 || in.nextWeapon;
-  if (in.choose1) build.item = 0;
-  if (in.choose2) build.item = build.item == 1 ? 2 : 1;
-  if (in.nextWeapon) build.item = (build.item + 1) % 3;
+  if (build.engineer) quick = false;   // GM3: digits pick the Engineer item (builderKeys)
+  if (in.choose1 && !build.engineer) build.item = 0;
+  if (in.choose2 && !build.engineer) build.item = build.item == 1 ? 2 : 1;
+  if (in.nextWeapon && !build.engineer) build.item = (build.item + 1) % 3;
   if (quick) { build.pick.clear(); build.forceAsset.clear(); }
   if (in.reload) build.yaw += 15.0f;
   build.yaw += in.wheel * 15.0f + build.pendRot; build.pendRot = 0;
@@ -174,9 +184,15 @@ void App::stepBuilder(const ExploreInput& in) {
   vec3 eye = eyePos(), f = forward(eyeYaw, eyePitch);
   build.aimId = 0;   // Del target: the instance under the crosshair
   { Physics::Hit h; if (Physics::castRayEx(eye, f, kBuildReach, h) && h.ud != 0 && (h.ud >> 60) != 0xF) if (const Instance* t = doc.find(h.ud >> 16); t && buildRemovable(*this, *t)) build.aimId = t->id; }
-  if (build.pendDel) { build.pendDel = false; buildRemoveAimed(); }
+  if (build.pendDel) { build.pendDel = false; if (!build.engineer) buildRemoveAimed(); }
+  if (build.engineer) {   // GM3: hold Del on your own outpost / AT gun to dismantle it (so a new one can be built)
+    const Instance* ai = build.aimId ? doc.find(build.aimId) : nullptr;
+    if (ai && build.delHeld && engOwnDismantlable(*this, *ai)) { build.dismT += build.dt; if (build.dismT >= engDismantleTime()) { build.dismT = 0; buildRemoveAimed(); } }
+    else build.dismT = 0;
+  }
   // the asset in hand: a rack deployment, the palette pick, or a quick defence
-  const AssetDef* a = lib.find(!build.forceAsset.empty() ? build.forceAsset : !build.pick.empty() ? build.pick : std::string(kBuildItems[build.item]));
+  const AssetDef* a = build.engineer ? (build.engItem < (int)engItems().size() ? lib.find(engItems()[build.engItem].asset) : nullptr)
+                     : lib.find(!build.forceAsset.empty() ? build.forceAsset : !build.pick.empty() ? build.pick : std::string(kBuildItems[build.item]));
   build.asset = a;
   build.valid = false; build.snapped = false;
   if (!a) { build.reason = "missing asset"; return; }
@@ -212,9 +228,22 @@ void App::stepBuilder(const ExploreInput& in) {
   }
   if (std::string why = buildCheckAt(a, build.pos, build.ghostYaw, build.snapped, vec3(1e9f)); !why.empty()) { build.reason = why; return; }
   build.valid = true; build.reason = build.snapped ? (a->defense.kind == "sandbag" ? "Snaps to the sandbag run" : "Snaps to the joint") : "Valid";
-  bool firePress = in.fire && !build.fireHeld;
-  build.fireHeld = in.fire;
-  if (!firePress || build.palette) return;
+  if (build.engineer) {   // GM3: the item's limit, then its build time (hold fire; released before the next one)
+    const EngItem& it = engItems()[build.engItem];
+    if (int n = engCount(*this, build.engItem); n >= it.limit) {
+      char b[96]; std::snprintf(b, sizeof b, "%s: limit reached (%d %s)", it.name.c_str(), it.limit, it.perLife ? "per life" : "at a time");
+      build.valid = false; build.reason = b; build.holdT = 0; return;
+    }
+    if (!in.fire) { build.holdT = 0; build.fireHeld = false; return; }
+    if (build.fireHeld) return;
+    build.holdT += build.dt;
+    if (build.holdT < it.time) return;
+    build.holdT = 0; build.fireHeld = true;
+  } else {
+    bool firePress = in.fire && !build.fireHeld;
+    build.fireHeld = in.fire;
+    if (!firePress || build.palette) return;
+  }
   if (mpaiBuildRequest(*this, a, build.pos, build.ghostYaw)) {   // LAN client: the host re-checks and places it on every PC
     if (!build.forceAsset.empty()) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); }
     return;
@@ -234,6 +263,7 @@ void App::stepBuilder(const ExploreInput& in) {
     id = buildSessionPiece(a, build.pos, build.ghostYaw, build.forceAsset.empty(), &act)[0];
     if (!act.real) mpaiBuildChanged(*this, act.placed, {});   // LAN host: every PC creates the same pieces
   }
+  if (build.engineer && id) engPlaced(*this, build.engItem, id);   // GM3: owner tag (outposts, dismantling) and the per-life count
   build.history.push_back(std::move(act));
   ++buildPlaced;
   if (!a->station.kind.empty()) { syncRuntime(); if (Instance* si = doc.find(id)) resetStation(*si); if (!build.forceAsset.empty()) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); } }
@@ -469,6 +499,22 @@ void App::drawBuilderUI() {
     ImVec2 pp(io.DisplaySize.x * 0.5f - ts.x * 0.5f, io.DisplaySize.y * 0.78f);
     dl->AddRectFilled(ImVec2(pp.x - 10, pp.y - 6), ImVec2(pp.x + ts.x + 10, pp.y + ts.y + 6), IM_COL32(10, 10, 8, 190), 5);
     dl->AddText(pp, build.valid ? IM_COL32(120, 240, 140, 255) : IM_COL32(255, 120, 100, 255), b);
+  }
+  if (build.active && build.engineer) {   // GM3: the Engineer menu (items, time, used / limit) and the progress bar
+    const auto& its = engItems();
+    float y = io.DisplaySize.y * 0.55f, x = 18;
+    dl->AddRectFilled(ImVec2(x - 8, y - 8), ImVec2(x + 300, y + 22.0f * (float)its.size() + 6), IM_COL32(10, 10, 8, 170), 5);
+    for (size_t k = 0; k < its.size(); ++k) {
+      char b[128]; std::snprintf(b, sizeof b, "%zu  %-22s %2.0f s   %d / %d%s", k + 1, its[k].name.c_str(), its[k].time, engCount(*this, (int)k), its[k].limit, its[k].perLife ? "" : " standing");
+      dl->AddText(ImVec2(x, y + 22.0f * (float)k), (int)k == build.engItem ? IM_COL32(255, 230, 140, 255) : IM_COL32(210, 210, 200, 220), b);
+    }
+    float t = build.dismT > 0 ? build.dismT / engDismantleTime() : build.holdT > 0 && build.engItem < (int)its.size() ? build.holdT / its[build.engItem].time : 0.0f;
+    if (t > 0) {
+      ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.62f);
+      dl->AddRectFilled(ImVec2(c.x - 120, c.y), ImVec2(c.x + 120, c.y + 10), IM_COL32(20, 20, 18, 200), 3);
+      dl->AddRectFilled(ImVec2(c.x - 120, c.y), ImVec2(c.x - 120 + 240 * std::min(1.0f, t), c.y + 10), build.dismT > 0 ? IM_COL32(230, 110, 80, 230) : IM_COL32(140, 220, 120, 230), 3);
+      dl->AddText(ImVec2(c.x - 120, c.y - 18), IM_COL32(230, 230, 220, 230), build.dismT > 0 ? "Dismantling" : "Building");
+    }
   }
   if (now - lastBlast.time < 4.0 && lastBlast.raw > 0) {
     char b[160]; std::snprintf(b, sizeof b, "Blast exposure %.0f (raw %.0f x %.2f%s)", lastBlast.value, lastBlast.raw, lastBlast.mult, lastBlast.mult < 0.99f ? " sheltered" : "");

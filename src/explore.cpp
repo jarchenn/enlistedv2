@@ -296,7 +296,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     tanks.stepAll(*this, dt, in);
     if (wasInTank || tanks.occupied) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }
   }
-  if (!occupied) stepBuilder(in);
+  if (!occupied) { build.dt = dt; stepBuilder(in); }
   if (occupied) { stepStation(dt, in); }
   else if (build.active || mantle.active || swim.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; w.choose1 = w.choose2 = w.slot3 = w.slot4 = false; w.wheel = 0; if (swim.active) w.quickGrenade = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing / swimming
   else stepWeapons(dt, in);

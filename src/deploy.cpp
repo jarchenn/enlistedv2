@@ -6,6 +6,7 @@
 #include "classes.h"
 #include "net.h"
 #include "minimap.h"
+#include "engineer.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -17,6 +18,7 @@ std::vector<Game::SpawnOption> Game::spawnOptions(int slot) const {
   if (match.mode() == GameMode::Assault) { for (auto* m : match.sc.spawnsFor(s.role, match.active)) out.push_back({m->pos, m->yaw, m->label.empty() ? m->id : m->label}); }
   else for (auto& m : match.sc.spawns) if (m.team == s.team) out.push_back({m.pos, m.yaw, m.label.empty() ? m.id : m.label});
   for (auto& o : outposts) if (o.team == s.team) out.push_back(o);   // GM3: team-built outposts
+  for (auto& o : engOutposts(app, s.team)) out.push_back({o.pos + yawQuat(o.yaw) * vec3(0, 0, -2.2f), o.yaw, "Outpost", o.team});   // GM3: Engineer outposts standing on the map (spawn behind the sandbags)
   return out;
 }
 
