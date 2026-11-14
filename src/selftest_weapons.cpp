@@ -594,7 +594,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     push("gm2 suppression", [this](App& a, float t) {
       static int nm0; static float one, burst; static bool shotBurst;
       auto shoot = [&](float side) {   // an enemy round passing the eye `side` m to the right, flying +z
-        vec3 e = a.eyePos(); Projectile p; p.kind = PROJ_BULLET; p.owner = 7; p.p = e + vec3(side, 0, -25); p.v = vec3(0, 0, 400); p.life = 0.001f; a.projectiles.push_back(p);
+        vec3 e = a.eyePos(); Projectile p; p.kind = PROJ_BULLET; p.owner = 7; p.p = e + vec3(side, 0, -6); p.v = vec3(0, 0, 400); p.life = 0.001f; a.projectiles.push_back(p);
       };
       if (t == 0) { nm0 = gm2Stats().nearMisses; one = burst = 0; shotBurst = false; shoot(0.8f); return false; }
       if (!shotBurst && t > 0.3f) { shotBurst = true; one = gm2Suppression(); for (int k = 0; k < 4; ++k) shoot(0.6f + 0.2f * k); return false; }

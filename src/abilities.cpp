@@ -196,6 +196,8 @@ void gm2NearMisses(App& app, float dt) {
       float d = glm::length(a + ab * u - e);
       if (d < 2.5f && d > 0.05f) gm2AddNearMiss(1.0f - d / 2.5f);
     };
+    static int dbg = 0;   // shortcut: diagnostics for the near-miss self-test (enemy rounds within 10 m only), remove once it passes in the combined batch
+    for (auto& q : app.projectiles) if (q.owner != -1 && dbg < 30 && glm::length(q.p - e) < 10.0f) { ++dbg; logf("gm2 nm: owner %d kind %d at (%.2f %.2f %.2f) v (%.0f %.0f %.0f) eye (%.2f %.2f %.2f) me %d dt %.4f", q.owner, q.kind, q.p.x, q.p.y, q.p.z, q.v.x, q.v.y, q.v.z, e.x, e.y, e.z, me, dt); }
     for (auto& p : app.projectiles) if (p.kind == PROJ_BULLET && p.owner != -1 && p.owner != me) test(p.p, p.v);
     if (gGame && gGame->isClient) for (auto& g : gGame->ghosts) test(g.p, g.v);
   }
