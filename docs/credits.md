@@ -128,7 +128,7 @@ The GX4 exterior pass (`tools/exterior.mjs`, `docs/exterior-references.md`) rebu
 
 ## Modern guns (MG1)
 
-Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm rigs; only the gun meshes are used (converted in Blender, arms, armatures and animations dropped). No licence files came with them.
+Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm rigs. The static gun meshes serve third person, the racks and the icons; the arms, guns and clips together are the animated first-person rigs (MG1 animated, MG2). No licence files came with them except the Uzi archive's readme.
 
 | Folder (source) | Used for | Author | Licence |
 |---|---|---|---|
@@ -142,4 +142,11 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | sniper-animated (arms@sniper.fbx) | M24 bolt-action sniper rifle (`modern_sniper_bolt`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-animations-sniper-rifle (BoltActionRifle.fbx) | Semi-automatic marksman rifle (`modern_sniper_semi`; sling dropped) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | animatedpistol (rig.blend) | Springfield XD pistol (`modern_pistol`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| ar-15-animations-miniset (Base_Rig_Test_Scetc.fbx) | AR-15 (`modern_ar15`, MG2): gun and mannequin arms with their clips | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| mp7a1-animations (MP7A1_Animations.rar → MP7A1.fbx) | HK MP7A1 (`modern_mp7`, MG2) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| rpg-7-animations (RPG7_Animations.rar → RPG_7.fbx) | RPG-7 (`modern_rpg7`, MG2) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| scorpion-first-person-animations-2026-remake (CZ_Scorpion_Evo3_A1_Anim.rar → .blend) | CZ Scorpion EVO 3 A1 (`modern_scorpion`, MG2) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| uzi-first-person-animations-2026-remake (Uzi_Anim.rar → 1Matzh_Uzi_Animations.blend) | Uzi (`modern_uzi`, MG2) | supplied by the user; the archive's readme names 1Matzh (https://skfb.ly/pwxEF, CC-BY-4.0, attribution required) | redistribution allowed (confirmed by the user, 2026-11-14); CC-BY-4.0 per the readme |
+| shotgun-animated (shotgunAnimated.fbx) | Pump-action shotgun (`modern_shotgun2`, MG2) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| animatedpistol-2 (rig.blend) | **Not used**: byte-identical to `animatedpistol` | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |

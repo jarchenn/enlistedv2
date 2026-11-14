@@ -526,7 +526,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     // ---- GM2 (docs/abilities.md, docs/minimap.md): explosion pack, artillery, suppression vignette, minimap mapping
     // ---- MG1: each modern gun's animated rig (its own arms + clips): draw -> idle, ADS puts the posed sights on the view
     // axis, a shot plays the fire clip, a reload plays its clip and moves the rounds, the generated arm is not drawn
-    for (const char* mid : {"modern_scar", "modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol"}) {
+    for (const char* mid : {"modern_scar", "modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol",
+                            "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2"}) {
       const std::string id = mid;
       push(("mg1 rig " + id).c_str(), [this, id](App& a, float t) {
         static std::string draw0, idle1, fire1, rel1; static float axisDeg, tShot; static int shots0, arms; static bool phase[6];
@@ -562,7 +563,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
         bool scoped = d.hasScope;
         char b[400]; std::snprintf(b, sizeof b, "%s rig: clips on equip '%s' (no draw clip) -> idle '%s', fire '%s', reload '%s'; ADS sights %.3f deg off the view axis%s; loaded %d / %d after the reload (%.2f s clip); generated arm draws %d",
                                    id.c_str(), draw0.c_str(), idle1.c_str(), fire1.c_str(), rel1.c_str(), axisDeg, scoped ? " (scope: n/a)" : "", s.loaded, d.cap, d.feed == "single" ? d.reloadRound : d.reloadPartial, arms);
-        check(draw0 == "idle" && idle1 == "idle" && fire1 == "fire" && rel1.rfind("reload", 0) == 0 && (scoped || (axisDeg >= 0 && axisDeg < 0.05f)) && s.loaded == d.cap && arms == 0 && !d.showArms, b);
+        bool fireClip = animVmClipDur(*d.anim, "fire") > 0;   // the AR-15 set has none: a procedural kick, the idle stays
+        check(draw0.rfind("idle", 0) == 0 && idle1.rfind("idle", 0) == 0 && (fire1 == "fire" || (!fireClip && fire1.rfind("idle", 0) == 0)) && rel1.rfind("reload", 0) == 0 && (scoped || (axisDeg >= 0 && axisDeg < 0.05f)) && s.loaded == d.cap && arms == 0 && !d.showArms, b);
         return true; });
     }
     // ---- MG2 dev look (NMK_MG_LOOK=id,id,... or all): screenshots of each modern rig at the hip, strafing right / left,

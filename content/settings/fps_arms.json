@@ -18,6 +18,12 @@
     "modern_shotgun": {"gripZ": 0.618, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_m4": {"gripZ": 0.469, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_sniper_bolt": {"gripZ": 0.793, "shoulder": [-0.08, 0.02, -0.04]},
-    "modern_sniper_semi": {"gripZ": 0.828, "shoulder": [-0.08, 0.02, -0.04]}
+    "modern_sniper_semi": {"gripZ": 0.828, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_ar15": {"gripZ": 0.55, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_mp7": {"gripZ": 0.47, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_scorpion": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_uzi": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_rpg7": {"gripZ": 0.68, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_shotgun2": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]}
   }
 }

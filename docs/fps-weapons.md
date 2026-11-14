@@ -522,7 +522,7 @@ The silhouettes are rendered from the models like every other weapon's.
 
 **Runtime** (`src/vm_anim.{h,cpp}`). It uses the zombie clip player (`AnimPlayer`) and the character compute skinning (`CharInstance`). The skinned buffer is drawn through the existing textured first-person pass: own FOV, cleared depth, zero motion. `render.cpp` is unchanged.
 - **Clips:**
-  - Equipping plays draw, and firing waits for 80 % of it.
+  - Equipping goes straight to the idle (MG2: the sources' draw clips start from odd poses; none is mapped).
   - Every shot restarts fire, so automatics retrigger it at the cyclic rate.
   - Each reload plays reload_empty (from empty, when the source has it) or reload, stretched to the reload time. One shell per clip for the shotgun.
   - Idle loops otherwise. Cross-fades are about 0.1 s (0.04 s into fire).
@@ -538,3 +538,58 @@ The silhouettes are rendered from the models like every other weapon's.
   - The muzzle flash, tracer origin and aimed-fire sight line come from the same posed points.
 - **Arms:** the generated support arm is not drawn (`showArms` off).
 - **Scopes:** the scoped rifles switch to the existing scope view.
+
+### MG2: playtest fixes and five more guns
+
+**Fixes (from the user's playtest).**
+- **The weapons case was invisible.** The rack draw path drew only the asset's box parts; `rack_modern`'s one box is an invisible collider. It now also draws the supplied model. Collider and thumbnail were already right.
+- **Shimmer when panning.** The rig matrix was built in the weapon step, before the look, view kick and breathing of that frame. It trailed the camera by a frame, and TAA smeared the difference. The camera is now applied when the rig is drawn (`animVmDraw`, `animVmPoint`). The zero-motion TAA flag was already written: the skinned rig goes through the textured first-person pass with `uVmVel` = 1.
+- **Equip:** no draw clip; the rig starts in its standing idle.
+- **Movement:** no walk, run or strafe clip is mapped. All movement uses the idle with the procedural bob. Scripted strafe screenshots show the idle unchanged.
+- **Still idles:** `animated.idleHold` (seconds) holds one frame of the idle clip; the M4 uses frame 0, so its support hand does not squeeze.
+- **Shell loop.** A single-feed rig with `reload_start`, `reload_insert` and `reload_end` loads like this:
+  - the start plays before the first round;
+  - the insert plays once per round, and the round goes in at `animated.shellInsert` (0.7) of it (reload kind 5 while the segment plays out);
+  - the end plays after the last round;
+  - firing interrupts the loop, start, insert or end.
+
+  Remington 870 cuts, in source frames at 30 fps: start 30-38 (the hand leaves the pump), insert 38-62 (hand out, shell into the port, hand out), end 62-74 (hand back on the pump). The source's 74-106 (a drop out of view, then a pump stroke) is not used.
+- **Sights measured on the rigs.** `animated.points` holds rig-space rear / front / muzzle points that override `vm.json`, measured at the idle pose by offline ADS renders from the eye:
+  - SCAR: the post is centred in the aperture.
+  - M16: the eye is closer (`ads.eyeRelief` 0.08, `ads.vmFov` 40, `ads.worldFov` 45), so the aperture ring fills the centre with the front post in it.
+  - M249: the line runs level through the post tip inside the hooded ring. The eye sits ahead of the rear sight (`eyeRelief` −0.16), so only the front sight and barrel are in view. The test skips a rear point behind the eye.
+- **Red dots** (`animated.redDot`, rig point, and `redDotRadius`): a small emissive disc at the front lens centre, facing back along the sight line, drawn from adsT 0.6. The tube hides it off the axis. Used on the M4, AR-15 and MP7.
+- **Depth of field** focuses on the rig's posed front sight.
+- **Marksman rifle:** 2× scope.
+
+**New guns** (all in the modern case; ammunition in the mixed supply crate).
+- AR-15 (suppressed, holographic sight, semi): 5.56 mm, 30 rounds.
+- HK MP7A1 (suppressed, red dot): 4.6x30 mm, 40 rounds, 950 rpm.
+- CZ Scorpion EVO 3 A1: 9 mm, 30 rounds, 1150 rpm.
+- Uzi: 9 mm, 32 rounds, 600 rpm.
+- RPG-7: the rocket path, as the bazooka, with the GM1b impact reticle. PG-7V, one per reload.
+- Pump-action shotgun (`shotgun-animated`): 12 gauge, 6-shell tube, loaded shell by shell like the 870, 9 pellets.
+
+`animatedpistol-2` is skipped: its `rig.blend` is byte-identical to `animatedpistol` (same SHA-256), which is already `modern_pistol`.
+
+Each gun has a static model (third person, racks, icons) and an animated rig. The RPG-7 sources, the MP7, the Scorpion and the Uzi ship as .rar: `tools/modern_guns_config.cjs` and `tools/modern_guns_anim_config.cjs` take an extract directory (default `incoming/modern_guns/_extracted`) holding `rpg7/`, `mp7/`, `scorpion/` and `uzi/`. Windows' own `tar.exe` (libarchive) extracts them.
+
+New exporter options:
+- `decimate` (per mesh, applied before the armature);
+- `cutLens` (opaque lens discs inside an optic tube deleted; the renderer has no glass on rigs);
+- `defOnly` (Rigify rigs: deform bones only);
+- a clip can be a frame range of a named action, or several actions back to back;
+- parents dropped with the unused objects keep the rig's world transform.
+
+| Weapon | Source clips → states (seconds) |
+|---|---|
+| AR-15 | no idle and no fire clip in the set: idle = the last frame of `Draw` (held), a shot is a procedural kick (15 mm back, 2° up, 0.12 s); `Reload` → reload 2.5, `Full_Reload` → reload_empty 2.6; `Draw`, `Draw_2` not used |
+| MP7A1 | `MC_MP7_static_pose` → idle, `MC_MP7_shoot` → fire 0.55, `MC_MP7_reload` → reload 2.32, `MC_MP7_full_reload` → reload_empty 2.72; idle (breathing), walk / run, show, hide, inspect, safety, shoot_dry not used |
+| RPG-7 | `MC_RPG7_static_pose` → idle, `MC_RPG7_static_pose_empty` → idle_empty (no rocket: shown while empty), `MC_RPG7_shoot` → fire 0.55, `MC_RPG7_reload` → reload 3.77; walk, show, hide, inspect not used |
+| Scorpion EVO | `Idle` → idle (frame 0 held), `Fire` → fire 0.43, `Reload` → reload 3.5, `Reload_Empty` → reload_empty 4.03; Equip, Unequip, Walk, Run, Inspect not used |
+| Pump shotgun | no idle clip: idle = the first frame of `Fire`, held; fire = `Fire` + `PostFire` played back to back (shot and pump, 1.23 s, `cycleInFire`); `PriorToReload` → reload_start 0.33, `ReloadOne` → reload_insert 0.53 (once per shell), `ReloadLastOne` → reload_end 0.27; Weild, Hide, Unhide not used |
+| Uzi | `Idle` → idle (frame 0 held), `Fire` → fire 0.27, `Reload` → reload 2.03, `Reload_Empty` → reload_empty 3.7; Idle_2, Aim_In / Out, Equip, Unequip, Firemode, Walk, Run, Inspect not used |
+
+The Scorpion's gun texture (`RGB.png`) is in neither the archive nor the folder, so its gun has a flat dark polymer finish. The Uzi's loose cartridge by the stock is hidden in the static model.
+
+**Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.

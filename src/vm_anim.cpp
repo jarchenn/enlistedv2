@@ -50,7 +50,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   a->pt[0] = jv(P.contains("eye") ? P["eye"] : P["rear"]); a->pt[1] = jv(P["front"]); a->pt[2] = jv(P["muzzle"]);
   // state -> clip name (defaults: the same name). No draw clip (equip goes straight to the idle) and no movement clips.
   json map = block.value("clips", json::object());
-  for (const char* k : {"idle", "fire", "reload", "reload_empty", "reload_start", "reload_insert", "reload_end"}) {
+  for (const char* k : {"idle", "idle_empty", "fire", "reload", "reload_empty", "reload_start", "reload_insert", "reload_end"}) {
     int c = findClip(a->model, map.value(k, std::string(k)));
     if (c >= 0) a->clip[k] = c;
   }
@@ -81,8 +81,9 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   St& st = gSt[&d];
   if (!st.inst.model && !st.inst.create(a.model)) return;
   auto clip = [&](const std::string& n) { auto it = a.clip.find(n); return it == a.clip.end() ? -1 : it->second; };
-  auto idle = [&](float fade) {
-    st.pl.fadeLen = fade; st.pl.play(K_IDLE, clip("idle"), -1, 0, a.idleHold >= 0 ? 0.0f : 1.0f, true, true); st.clipName = "idle";
+  auto idle = [&](float fade) {   // idle_empty: the launcher without its rocket
+    const char* n = s.loaded == 0 && clip("idle_empty") >= 0 ? "idle_empty" : "idle";
+    st.pl.fadeLen = fade; st.pl.play(K_IDLE, clip(n), -1, 0, a.idleHold >= 0 ? 0.0f : 1.0f, true, true); st.clipName = n;
     if (a.idleHold >= 0) st.pl.time = a.idleHold;
   };
   auto play = [&](int key, const std::string& name, float fade, float rate = 1) {

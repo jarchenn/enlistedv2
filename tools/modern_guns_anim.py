@@ -77,9 +77,9 @@ idle = cfg["clips"]["idle"]
 ad0 = arm.animation_data or arm.animation_data_create()
 if isinstance(idle, list): fr = idle[0]
 else:
-    act = bpy.data.actions[idle]; ad0.action = act
+    act = bpy.data.actions[idle["action"] if isinstance(idle, dict) else idle]; ad0.action = act
     if hasattr(ad0, "action_slot") and act.slots: ad0.action_slot = act.slots[0]
-    fr = act.frame_range[0]
+    fr = idle["range"][0] if isinstance(idle, dict) else act.frame_range[0]
 sc.frame_set(int(fr)); bpy.context.view_layer.update()
 pb = arm.pose.bones[gunBone]
 D = (arm.matrix_world @ pb.matrix) @ (arm.matrix_world @ pb.bone.matrix_local).inverted()
@@ -113,7 +113,29 @@ if cfg.get("dropLow"):
         bm.free()
     arm.data.pose_position = "POSE"
 
+# ---------------------------------------------------------------- MG2: cut opaque optic lenses (the engine has no glass on rigs)
+# cfg "cutLens": [{"a": [x,y,z], "b": [x,y,z], "r": m}] in static weapon space: gun faces whose vertices all lie within r
+# of the segment a-b (the lens discs inside the tube) are deleted; the tube walls lie outside r
+if cfg.get("cutLens"):
+    import bmesh
+    for c in cfg["cutLens"]:
+        A_, B_ = w2b(c["a"]), w2b(c["b"]); ab = B_ - A_; L2 = ab.dot(ab); r = c["r"] / s
+        def near(p):
+            t = max(0.0, min(1.0, (p - A_).dot(ab) / L2)); return (p - (A_ + ab * t)).length <= r
+        bm = bmesh.new(); bm.from_mesh(gun.data); mw = gun.matrix_world
+        cut = [f for f in bm.faces if all(near(mw @ v.co) for v in f.verts)]
+        log.setdefault("lensFaces", []).append(len(cut)); bmesh.ops.delete(bm, geom=cut, context="FACES"); bm.to_mesh(gun.data); bm.free()
+# ---------------------------------------------------------------- MG2: decimate heavy meshes (before the armature; weights kept)
+for name, ratio in cfg.get("decimate", {}).items():
+    ob = bpy.data.objects[name]; bpy.context.view_layer.objects.active = ob
+    md = ob.modifiers.new("mg2_dec", "DECIMATE"); md.ratio = ratio
+    while ob.modifiers[0] != md: bpy.ops.object.modifier_move_up(modifier=md.name)
+    n0 = len(ob.data.polygons); bpy.ops.object.modifier_apply(modifier=md.name); log.setdefault("decimated", {})[name] = [n0, len(ob.data.polygons)]
 # ---------------------------------------------------------------- drop everything else, move the rig
+for ob in [arm] + keep:   # MG2: a parent about to go (the Unreal sets' armature under an empty) must not move the rig
+    if ob.parent is not None and ob.parent != arm and ob.parent not in keep:
+        mw = ob.matrix_world.copy(); ob.parent = None; ob.matrix_world = mw
+bpy.context.view_layer.update()
 for ob in list(bpy.data.objects):
     if ob != arm and ob not in keep: bpy.data.objects.remove(ob, do_unlink=True)
 for ob in keep:
@@ -177,7 +199,21 @@ base = ad.action
 for tr in list(ad.nla_tracks): ad.nla_tracks.remove(tr)
 clips = {}
 for name, c in cfg["clips"].items():
+    if isinstance(c, list) and c and isinstance(c[0], dict):   # MG2: actions played back to back in one clip (fire + pump)
+        tr = ad.nla_tracks.new(); tr.name = name; t0 = None; tot = 0
+        for k, part in enumerate(c):
+            act = bpy.data.actions.get(part["action"])
+            if act is None: log["warn"].append("no action " + part["action"]); continue
+            a0, a1 = part.get("range", act.frame_range)
+            if t0 is None: t0 = a0
+            stp = tr.strips.new(name + str(k), int(t0 + tot), act)
+            if hasattr(stp, "action_slot") and act.slots: stp.action_slot = act.slots[0]
+            stp.action_frame_start = a0; stp.action_frame_end = a1; tot += a1 - a0
+        clips[name] = round(tot / fps, 4); continue
     if isinstance(c, list): act, (a0, a1) = base, c
+    elif isinstance(c, dict):   # MG2: a frame range of a named action (the AR-15 set: its idle = the draw's last frame)
+        act = bpy.data.actions.get(c["action"]); a0, a1 = c["range"]
+        if act is None: log["warn"].append("no action " + c["action"]); continue
     else:
         act = bpy.data.actions.get(c)
         if act is None: log["warn"].append("no action " + c); continue
@@ -196,7 +232,7 @@ arm.select_set(True); rootObj.select_set(True)
 for ob in keep: ob.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_skins=True, export_animations=True,
                           export_animation_mode="NLA_TRACKS", export_force_sampling=True, export_apply=False,
-                          export_cameras=False, export_lights=False, export_image_format="AUTO")
+                          export_cameras=False, export_lights=False, export_image_format="AUTO", export_def_bones=cfg.get("defOnly", False))   # MG2: Rigify rigs keep only their deform bones
 meta = {"gunJoint": gunBone, "clips": clips, "fps": fps, "points": {k: b2g(v) for k, v in pts.items()}, "log": log,
         "tris": sum(len(p.vertices) - 2 for ob in keep for p in ob.data.polygons)}
 json.dump(meta, open(os.path.splitext(out)[0] + ".json", "w"), indent=1)
