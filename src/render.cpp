@@ -4353,7 +4353,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glBindTextureUnit(0, mode == 0 ? hdrColor : dofTex); glUniform1i(U(progEyepiece, "uSrc"), 0);
     glUniform2f(U(progEyepiece, "uRes"), (float)width, (float)height);
     glUniform1f(U(progEyepiece, "uR"), v.eyepieceR);
-    glUniform1f(U(progEyepiece, "uDark"), v.reticle == 3 ? 0.006f : 0.035f);   // linear: gunner sight soft black; scopes the world dimly (~20 % on screen)
+    glUniform1f(U(progEyepiece, "uDark"), v.reticle == 3 ? 0.006f : 0.0f);   // linear: gunner sight soft black; rifle scopes completely black outside the circle (GM1b)
     glUniform1f(U(progEyepiece, "uShade"), 0.6f);
     glUniform1i(U(progEyepiece, "uReticle"), v.reticle); glUniform1i(U(progEyepiece, "uMode"), mode);
     glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);

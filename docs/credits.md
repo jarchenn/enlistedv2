@@ -7,6 +7,8 @@ You supplied these five GLB files and confirmed you own or have licensed them. A
 | m1_garand_asset.glb | M1 Garand (replaces realistic_m1_garand.glb; model dir `garand2`) | Sketchfab 15.55.0 | lennur (https://sketchfab.com/lennur) | CC-BY-4.0 (from the GLB `asset.extras`) | https://sketchfab.com/3d-models/m1-garand-asset-4a1ddbdef4a14fad8944f0c2e73ae50c |
 | realistic_m1_garand.glb | M1C Garand only | 12.68.0 | _fill in_ | _fill in_ | _fill in_ |
 | thompson_1928_smg.glb | M1 Thompson (replaces low-poly_thompson_m1a1.glb) | 12.67.0 | Michal Cavrnoch (https://sketchfab.com/MichalCavrnoch) | CC-BY-4.0 (from the GLB `asset.extras`) | https://sketchfab.com/3d-models/thompson-1928-smg-ef4ac1bd043d446a8660047d67362334 |
+| m1911.glb | M1911A1 pistol (supplied by the user, incoming/pistols) | 12.68.0 | DelthorGames (https://sketchfab.com/DelthorGames) | CC-BY-NC-ND-4.0 (from the GLB `asset.extras`): non-commercial, no derivatives | https://sketchfab.com/3d-models/m1911-59773eeb714c4018a56be37a80f2176d |
+| p08_luger.glb | Luger P08 pistol (supplied by the user, incoming/pistols) | 12.66.0 | ARIA (https://sketchfab.com/I_Live) | CC-BY-4.0 (from the GLB `asset.extras`) | https://sketchfab.com/3d-models/p08-luger-stsndard-a6911ae4e07947f492e177396aae7979 |
 | mp40.glb | MP 40 | 16.72.0 | _fill in_ | _fill in_ | _fill in_ |
 | mg42.glb | MG 42 | 16.60.0 | _fill in_ | _fill in_ | _fill in_ |
 | browning_m1918a2_bar.glb | M1918A2 BAR | 12.67.0 | _fill in_ | _fill in_ | _fill in_ |
