@@ -8,7 +8,7 @@
 //     FleshHit, no damage), ends on firing and on throwing (and not when the option is off), shield icons / ring /
 //     tint; after it: fall damage by height, a hit on the player flinches the aim, zones (upper / lower torso, leg,
 //     head, helmet), true travelled range;
-//     a respawn restarts protection and the local player's own shot ends it.
+//     a respawn restarts protection, which the local player's own shot keeps (GM1: 5 s regardless of firing).
 #include "selftest.h"
 #include "game.h"
 #include "mpui.h"
@@ -381,7 +381,7 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       check(zoneOk && fh.helmet == wantHelmet && !fh.deflected && (gDmLastHit.weaponId == wid || a.weaponDefs[a.weaponIndex(gDmLastHit.weaponId)]->container == a.weaponDefs[a.weaponIndex(wid)]->container) && std::fabs(fh.damage - formula) < 0.01f && std::fabs(fh.damage - expect) < 0.6f && std::fabs(gDmLastHit.range / dist - 1) < 0.01f, b);
       V.hp = 100;
       ++ph; return false; });
-    // ---- a respawn restarts protection; the player's own shot ends it (real input path)
+    // ---- a respawn restarts protection; the player's own shot keeps it (real input path, GM1)
     push("respawn + own shot", [this](App& a, float t) {
       Game& G = *gGame; Soldier& L = *G.local();
       static int life, ph, shots0, fired0; static double tStart;
@@ -389,7 +389,7 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       if (ph == 0) {
         if (!(L.alive && L.lifeId != life)) return t > 25 ? (check(false, "player respawned"), true) : false;
         tStart = G.t;
-        check(L.isProtected(G.t) && std::fabs(L.protectUntil - G.t - 3.0) < 1e-6, "respawn: protection starts again (3.0 s)");
+        check(L.isProtected(G.t) && std::fabs(L.protectUntil - G.t - rulesConfig().protectSeconds) < 1e-6, "respawn: protection starts again (5.0 s)");
         ph = 1; return false;
       }
       if (ph == 1) { if (G.t - tStart < 0.5) return false; shots0 = a.shotsFired; fired0 = gRulesStats.endedByFire; ph = 2; }
@@ -398,8 +398,8 @@ void SelfTest::rulesUpdate(App& app, float dt) {
         if (a.shotsFired == shots0) return G.t - tStart > 2.8 ? (check(false, "the player's weapon fired"), a.scriptedInput.fire = false, true) : false;
         a.scriptedInput.fire = false; ph = 3; return false;   // the round's first segment runs on this frame's step
       }
-      check(!L.isProtected(G.t) && gRulesStats.endedByFire > fired0 && G.t - tStart < 2.9,
-            "the player's own shot (" + a.weaponDefs[a.activeWeapon]->id + ", real input path) ended protection " + f2((float)(L.protectUntil - tStart)) + " s after the respawn");
+      check(L.isProtected(G.t) && gRulesStats.endedByFire == fired0,   // GM1: protection is kept while firing (rules.json protectionEndsOnFire false)
+            "the player's own shot (" + a.weaponDefs[a.activeWeapon]->id + ", real input path) keeps the 5 s protection (" + f2((float)(L.protectUntil - tStart)) + " s)");
       return true; });
     push("exit", [this](App& a, float t) { if (t < 0.2f) return false; a.exitExplore(); return true; });
   }
