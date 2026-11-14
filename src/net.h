@@ -11,7 +11,7 @@
 class App;
 
 constexpr int kNetPort = 27960;
-constexpr int kNetVersion = 6;   // 4: G1 modes (team in START, u16 kills / deaths + score, Solo winner); 5: PF1 snapshot in parts (200 AI); 6: FT1 flame / burn events
+constexpr int kNetVersion = 7;   // 7: EN1 u16 hp + enemy type per soldier;   // 4: G1 modes (team in START, u16 kills / deaths + score, Solo winner); 5: PF1 snapshot in parts (200 AI); 6: FT1 flame / burn events
 // was 3:   // 3: station block in snapshots, gun / rack / crate / build requests (2 is the internet branch's)
 
 struct LobbyInfo { std::string addr, hostName, map, mapHash, contentHash; int humans = 0, maxHumans = 0, phase = 0, version = 0; double seen = 0; };

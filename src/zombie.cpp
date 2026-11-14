@@ -15,15 +15,17 @@
 #include "app.h"
 #include "mpai.h"
 #include "crumb.h"
+#include "enemy_types.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <set>
 
 namespace {
 float zLenXZ(vec3 v) { return glm::length(vec2(v.x, v.z)); }
 struct ZombieCfg {
-  float speed = 4.0f, repath = 0.5f, reach = 1.6f, damage = 35, cooldown = 0.9f, windup = 0.25f;
-  std::string model = "zombie"; float height = 1.85f, attackRate = 1.4f, flinch = 0.6f;
+  float repath = 0.5f, flinch = 0.6f;
+  std::vector<EnemyType> types;   // EN1: [0] the plain zombie
   // PF1 packs and LOD
   bool packs = true; int packMin = 20, packSize = 8; float join = 35, breakOff = 4, spacing = 1.6f, leaderPace = 0.9f, catchUp = 1.25f;
   float sepR = 1.3f, sepGain = 2.0f, align = 0.35f, lost = 18;
@@ -35,10 +37,24 @@ const ZombieCfg& zcfg() {
     loaded = true;
     try {
       json j = json::parse(readTextFile(contentDir() / "ai" / "zombie.json"));
-      c.speed = j.value("speed_mps", c.speed); c.repath = j.value("repath_s", c.repath); c.reach = j.value("reach_m", c.reach);
-      c.damage = j.value("damage", c.damage); c.cooldown = j.value("cooldown_s", c.cooldown); c.windup = j.value("windup_s", c.windup);
-      c.model = j.value("model", c.model); c.height = j.value("height_m", c.height);
-      c.attackRate = std::clamp(j.value("attack_rate", c.attackRate), 0.25f, 4.0f); c.flinch = j.value("flinch_s", c.flinch);
+      c.repath = j.value("repath_s", c.repath); c.flinch = j.value("flinch_s", c.flinch);
+      auto strs = [](const json& e, const char* k, std::vector<std::string>& v) { if (e.contains(k) && e[k].is_array() && !e[k].empty()) { v.clear(); for (auto& s : e[k]) v.push_back(s.get<std::string>()); } };
+      for (auto& e : j.value("types", json::array())) {   // EN1 enemy types; a missing field keeps the plain zombie's value
+        EnemyType t;
+        t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
+        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 4.0f); t.lean = e.value("lean_deg", t.lean);
+        t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 4.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
+        if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
+        t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
+        t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
+        t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin);
+        t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 3.0f);
+        t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
+        json cl = e.value("clips", json::object());
+        strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
+        t.runClip = cl.value("run", t.runClip); t.damageClip = cl.value("damage", t.damageClip); t.deathClip = cl.value("death", t.deathClip);
+        c.types.push_back(t);
+      }
       json p = j.value("pack", json::object());
       c.packs = p.value("on", c.packs); c.packMin = p.value("min_zombies", c.packMin); c.packSize = std::clamp(p.value("size", c.packSize), 2, 16);
       c.join = p.value("join_m", c.join); c.breakOff = p.value("break_off_m", c.breakOff); c.spacing = p.value("slot_spacing_m", c.spacing);
@@ -48,6 +64,7 @@ const ZombieCfg& zcfg() {
       c.lod = l.value("on", c.lod); c.animNear = l.value("anim_near_m", c.animNear); c.animFar = l.value("anim_far_m", c.animFar);
       c.animHzNear = std::max(1.0f, l.value("anim_hz_near", c.animHzNear)); c.animHzFar = std::max(1.0f, l.value("anim_hz_far", c.animHzFar)); c.shareM = l.value("share_pose_m", c.shareM);
     } catch (std::exception& e) { logf("zombie: content/ai/zombie.json: %s", e.what()); }
+    if (c.types.empty()) c.types.push_back(EnemyType{});   // no table: the plain zombie
     if (const char* e = std::getenv("NMK_ZOMBIE_PACKS")) c.packs = *e != '0';   // A/B measurements
     if (const char* e = std::getenv("NMK_ZOMBIE_LOD")) c.lod = *e != '0';
   }
@@ -56,13 +73,15 @@ const ZombieCfg& zcfg() {
 bool inReach(const Game& G, const Soldier& z, const Soldier& v, float reach) {
   return v.alive && zLenXZ(v.feet - z.feet) < reach && std::fabs(v.feet.y - z.feet.y) < 1.2f && G.lineOfSight(G.chest(z), G.chest(v));
 }
-int attackClip(const CharModel& m, int k) { return findClip(m, k ? "attack02" : "attack01"); }
+const EnemyType& typeOf(const Soldier& s) { return enemyType(s.etype); }
+const EnemyType& clipsOf(const Soldier& s) { return s.eFallback ? enemyType(0) : enemyType(s.etype); }   // clip names: the zombie's on the fallback rig
+int attackClip(const CharModel& m, const EnemyType& e, int k) { return findClip(m, e.attackClips[k % e.attackClips.size()].c_str()); }
 // strike wind-up: the attack clip's swing frame at attack_rate (the json fallback without clips)
 float windupOf(const Game& G, const Soldier& s) {
-  const ZombieCfg& c = zcfg();
-  if (s.model < 0 || s.model >= (int)G.models.size()) return c.windup;
-  int k = attackClip(*G.models[s.model], s.meleeClip);
-  return k >= 0 && G.models[s.model]->clips[k].swing > 0 ? G.models[s.model]->clips[k].swing / c.attackRate : c.windup;
+  const EnemyType& e = typeOf(s);
+  if (s.model < 0 || s.model >= (int)G.models.size()) return e.windup;
+  int k = attackClip(*G.models[s.model], clipsOf(s), s.meleeClip);
+  return k >= 0 && G.models[s.model]->clips[k].swing > 0 ? G.models[s.model]->clips[k].swing / e.attackRate : e.windup;
 }
 BotMind* mindAt(AiCore& A, int slot) { return slot >= 0 && slot < (int)A.minds.size() ? A.minds[slot].get() : nullptr; }
 bool packMate(AiCore& A, const Soldier& o, int pack) { if (pack < 0) return false; BotMind* m = mindAt(A, o.slot); return m && m->life == o.lifeId && m->pack == pack; }
@@ -176,29 +195,53 @@ void followerStep(Game& G, AiCore& A, Soldier& s, BotMind& m, const Soldier& L) 
       if (l < c.sepR && l > 1e-3f) push += dd / l * (1.0f - l / c.sepR) * c.sepGain;
     }
     if (d < 3.0f && !v) push += vec3(L.vel.x - s.vel.x, 0, L.vel.z - s.vel.z) * c.align;
-    float pl = glm::length(push), cap = c.speed * 0.6f;
+    float pl = glm::length(push), cap = typeOf(s).run * 0.6f;
     m.flockPush = pl > cap ? push / pl * cap : push;
   }
 }
 }   // namespace
 
-float aiZombieSpeed() { return zcfg().speed; }
+const std::vector<EnemyType>& enemyTypes() { return zcfg().types; }
+const EnemyType& enemyType(int k) { const auto& T = zcfg().types; return T[std::clamp(k, 0, (int)T.size() - 1)]; }
+int enemyTypePick(uint32_t seed) {
+  const auto& T = zcfg().types;
+  float tot = 0; for (auto& t : T) tot += t.weight;
+  if (tot <= 0) return 0;
+  float u = ((seed * 2654435761u) >> 8) / 16777216.0f * tot;   // deterministic per slot: host and LAN clients agree
+  for (int k = 0; k < (int)T.size(); ++k) { u -= T[k].weight; if (u < 0) return k; }
+  return (int)T.size() - 1;
+}
+float aiZombieSpeed() { return enemyType(0).run; }
 static int gBlows = 0;
+static std::vector<ZombieBlow> gBlowLog;
 int aiZombieBlows() { return gBlows; }
+const std::vector<ZombieBlow>& aiZombieBlowLog() { return gBlowLog; }
 
-int aiZombieModel(Game& G) {
-  const ZombieCfg& c = zcfg();
-  auto it = G.modelIdx.find(c.model); if (it != G.modelIdx.end()) return it->second;
-  static bool failed = false; if (failed) return -1;
+int aiZombieModel(Game& G, int type) {
+  const EnemyType& t = enemyType(type);
+  std::string key = t.model + "@" + std::to_string(t.height);
+  auto it = G.modelIdx.find(key); if (it != G.modelIdx.end()) return it->second;
+  static std::set<std::string> failed; if (failed.count(key)) return -1;
   auto cm = std::make_unique<CharModel>(); std::string e;
-  if (!cm->load(contentDir() / "characters" / (c.model + ".glb"), e, c.height)) { failed = true; logf("zombie: model %s: %s (soldier model kept)", c.model.c_str(), e.c_str()); return -1; }
-  G.modelIdx[c.model] = (int)G.models.size(); G.models.push_back(std::move(cm));
-  return G.modelIdx[c.model];
+  if (!cm->load(contentDir() / "characters" / (t.model + ".glb"), e, t.height)) { failed.insert(key); logf("zombie: model %s: %s (soldier model kept)", t.model.c_str(), e.c_str()); return -1; }
+  G.modelIdx[key] = (int)G.models.size(); G.models.push_back(std::move(cm));
+  return G.modelIdx[key];
+}
+void aiZombieAssign(Game& G, Soldier& s) {
+  const EnemyType& t = enemyType(s.etype);
+  int m = aiZombieModel(G, s.etype);
+  bool own = m >= 0 && findClip(*G.models[m], t.walkClips[0]) >= 0;   // clips usable: at least its walk
+  if (!own && s.etype != 0) { m = aiZombieModel(G, 0); logf("zombie: type %s falls back to the zombie rig", t.id.c_str()); }
+  if (m >= 0) s.model = m;
+  s.eFallback = !own && s.etype != 0;
+  s.eScale = s.eFallback ? t.fallbackScale : t.scale; s.eLean = s.eFallback ? t.fallbackLean : t.lean;
+  s.eBody = s.eFallback ? t.fallbackScale : t.scale * t.height / 1.85f;   // chest / eye heights and hit sphere vs the 1.85 m zombie
 }
 void aiZombieStep(Game& G, Soldier& s, float dt) {
   AiCore* A = aiCore();
   if (!A) return;
   const ZombieCfg& c = zcfg();
+  const EnemyType& e = typeOf(s);
   if (G.t >= A->packT) { crumb("zombie: packs"); maintainPacks(G, *A); }
   BotMind& m = A->mind(s);
   Brain& b = s.br;
@@ -222,6 +265,9 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
       if (G.t >= b.repathT && (!m.hasPath || zLenXZ(best->feet - m.goal) > 0.75f)) { A->requestPath(s, best->feet, 0.5f, 6.0f, true); b.repathT = (float)G.t + c.repath; }
     } else { m.speed = SPD_STOP; b.why = "zombie: no one left"; }
   }
+  // EN1: its own pace: run near the target, walk (lumber) beyond run_within_m; a stagger stops it
+  m.zSpeed = L || (best && zLenXZ(best->feet - s.feet) < e.runWithin) ? e.run : e.walk;   // a pack follower keeps the pack's pace
+  if (G.t < s.staggerUntil) { m.speed = SPD_STOP; b.why = "zombie: staggered"; }
   if (best || L) {
     vec3 d = best ? best->feet - s.feet : vec3(0);
     vec3 look = best && zLenXZ(d) < 4.0f ? d : m.moveDir;   // close: face the victim; else the way the path goes (no sideways walk round corners)
@@ -230,12 +276,20 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   }
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
-  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && inReach(G, s, *best, c.reach)) { s.meleeWind = 0; s.meleeClip = G.rnd(s) < 0.5f ? 0 : 1; ++s.meleeCount; }
+  // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes
+  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && inReach(G, s, *best, std::max(e.reach, e.lunge))) { s.meleeWind = 0; s.meleeClip = G.rnd(s) < 0.5f ? 0 : 1; ++s.meleeCount; }
   if (s.meleeWind >= 0) {
+    float wu = windupOf(G, s);
+    if (best && e.lunge > e.reach) { float gap = zLenXZ(best->feet - s.feet) - 0.8f * e.reach; if (gap > 0) { m.zSpeed = std::max(m.zSpeed, gap / std::max(0.1f, wu - s.meleeWind)); m.speed = SPD_ZOMBIE; } }
     s.meleeWind += dt;
-    if (s.meleeWind >= windupOf(G, s)) {
-      if (best && inReach(G, s, *best, c.reach + 0.2f) && G.meleeHit(s.slot, best->slot, c.damage)) ++gBlows;
-      s.meleeWind = -1; s.meleeReady = G.t + c.cooldown;
+    if (s.meleeWind >= wu) {
+      float hp0 = best ? best->hp : 0;
+      if (best && inReach(G, s, *best, e.reach + 0.2f) && G.meleeHit(s.slot, best->slot, e.damage)) {
+        ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - best->hp});
+        if (gBlowLog.size() > 4096) gBlowLog.erase(gBlowLog.begin(), gBlowLog.begin() + 2048);
+        if (e.knock > 0 && best->localPlayer) { vec3 d = best->feet - s.feet; d.y = 0; if (glm::length(d) > 1e-3f) G.app.knockVel = glm::normalize(d) * e.knock; }   // shortcut: only the local player is shoved; bots and LAN clients are not
+      }
+      s.meleeWind = -1; s.meleeReady = G.t + e.cooldown;
     }
   }
   crumb("zombie: move"); A->move(s, dt);
@@ -246,20 +300,23 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   enum { K_LOCO, K_IDLE, K_ATTACK, K_DAMAGE, K_DEATH };
   const CharModel& m = *G.models[s.model];
   const ZombieCfg& c = zcfg();
+  const EnemyType& e = typeOf(s);
+  const EnemyType& ce = clipsOf(s);
   AnimPlayer& A = s.anim;
   if (A.life != s.lifeId) { A = AnimPlayer{}; A.life = s.lifeId; A.lastHp = s.hp; A.strike = s.meleeCount; }   // new life: no fade from the corpse
   int key0 = A.key, a0 = A.a;
   auto clip = [&](const char* a, const char* b) { int k = findClip(m, a); return k >= 0 ? k : findClip(m, b); };
-  bool alt = s.slot & 1;   // per zombie: walk01 / walk02, idle01 / idle02
-  int walk = clip(alt ? "walk02" : "walk01", "walk01"), run = findClip(m, "run"), idle = clip(alt ? "idle02" : "idle01", "idle01");
-  auto gs = [&](int k, float def) { return k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def; };
+  int alt = s.slot & 1;   // per zombie: the type's first / second walk and idle clip
+  auto pick = [&](const std::vector<std::string>& v) { return clip(v[alt % v.size()].c_str(), v[0].c_str()); };
+  int walk = pick(ce.walkClips), run = findClip(m, ce.runClip.c_str()), idle = pick(ce.idleClips);
+  auto gs = [&](int k, float def) { return (k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def) * s.eScale; };   // a bigger body takes longer strides
   float vw = gs(walk, 1.2f), vr = std::max(vw + 0.5f, gs(run, 4.0f));
-  bool hurt = s.alive && s.hp < A.lastHp - 0.5f; A.lastHp = s.hp;
+  bool hurt = s.alive && s.hp < A.lastHp - std::max(0.5f, e.staggerMin); A.lastHp = s.hp;   // EN1: a brute flinches only from heavy hits
   auto playing = [&](float limit) { return A.a >= 0 && A.time < std::min(limit, m.clips[A.a].dur); };
-  if (!s.alive) A.play(K_DEATH, findClip(m, "death"), -1, 0, 1, false);   // holds its end pose (no ragdoll in this game)
-  else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, s.meleeClip), -1, 0, c.attackRate, false, true); }
+  if (!s.alive) A.play(K_DEATH, findClip(m, ce.deathClip.c_str()), -1, 0, 1, false);   // holds its end pose (no ragdoll in this game)
+  else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }
   else if (A.key == K_ATTACK && playing(1e9f)) {}   // the swing plays out
-  else if (hurt) A.play(K_DAMAGE, findClip(m, "damage"), -1, 0, 1, false, true);
+  else if (hurt) A.play(K_DAMAGE, findClip(m, ce.damageClip.c_str()), -1, 0, 1, false, true);
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
   else if (s.speed > 0.3f && walk >= 0) {
     float w = run >= 0 ? std::clamp((s.speed - vw) / (vr - vw), 0.0f, 1.0f) : 0.0f;

@@ -140,6 +140,7 @@ public:
   // ---- explore
   float eyeYaw = 0, eyePitch = 0, eyeHeight = 1.62f;
   bool pauseMenu = false;
+  vec3 knockVel{0};        // EN1: a brute's shove on the player (m/s, decays in updateExplore)
   bool uiCursor = false;   // set each frame by a HUD window that needs the mouse (match result)
   // GM1b: THE list of "a UI wants the mouse" conditions (Explore). Add a new menu here, never call glfwSetInputMode.
   bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor || artyMapOpen; }

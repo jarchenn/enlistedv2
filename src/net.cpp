@@ -14,6 +14,7 @@ constexpr SOCKET INVALID_SOCKET = -1;
 static int closesocket(SOCKET s) { return close(s); }
 #endif
 #include "net.h"
+#include "ai_hooks.h"
 #include "flame.h"
 #include "game.h"
 #include "classes.h"
@@ -363,11 +364,11 @@ static std::string snapshotPart(Game& g, int forPeer, int first, int count, cons
     w.u8(fl); w.v3(s.feet); w.i16((int16_t)std::lround(wrapDeg(s.localPlayer || s.human ? s.yaw : s.yaw) * 100 - 18000));
     w.i16((int16_t)std::lround(std::clamp(s.human ? s.pitch : s.br.aimPitch, -89.0f, 89.0f) * 100));
     w.i16((int16_t)std::lround(wrapDeg(s.br.aimYaw) * 100 - 18000));
-    w.u8((uint8_t)std::clamp(s.hp, 0.0f, 255.0f)); w.u8((uint8_t)std::max(0, s.weapon)); w.u16((uint16_t)s.lifeId);
+    w.u16((uint16_t)std::clamp(s.hp, 0.0f, 65535.0f)); w.u8((uint8_t)std::max(0, s.weapon)); w.u16((uint16_t)s.lifeId);
     w.u8((uint8_t)std::clamp(s.recoil * 255.0f, 0.0f, 255.0f)); w.u8((uint8_t)std::clamp(s.throwT < 0 ? 0.0f : s.throwT * 255.0f, 0.0f, 255.0f));
     w.u8((uint8_t)std::clamp(s.reloadTotal > 0 ? s.reload / s.reloadTotal * 255.0f : 0.0f, 0.0f, 255.0f));
     w.u8((uint8_t)(r.livesLeft < 0 ? 255 : r.livesLeft)); w.u8((uint8_t)std::min(250.0f, r.deadFor * 10)); w.u16((uint16_t)std::max(0, r.kills)); w.u16((uint16_t)std::max(0, r.deaths)); w.u16((uint16_t)(int16_t)std::clamp(r.score, -32000, 32000));
-    w.u8((uint8_t)(s.killer < 0 ? 255 : s.killer)); w.u8((uint8_t)s.deathStyle);
+    w.u8((uint8_t)(s.killer < 0 ? 255 : s.killer)); w.u8((uint8_t)s.deathStyle); w.u8((uint8_t)s.etype);   // EN1
     bool own = r.human && r.peer == forPeer;
     w.u8(own ? 1 : 0);
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
@@ -425,14 +426,15 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
   for (int i = 0, k = first; i < ns && k < (int)g.sold.size() && r.ok; ++i, k = first + i) {
     Soldier& s = g.sold[k]; RosterSlot& rs = m.slots[k];
     uint8_t fl = r.u8(); vec3 feet = r.v3(); float yaw = r.i16() / 100.0f + 180.0f, pitch = r.i16() / 100.0f, aimYaw = r.i16() / 100.0f + 180.0f;
-    float hp = r.u8(); int weapon = r.u8(); int life = r.u16();
+    float hp = r.u16(); int weapon = r.u8(); int life = r.u16();
     float recoil = r.u8() / 255.0f, thr = r.u8() / 255.0f, rel = r.u8() / 255.0f;
-    int lives = r.u8(); float deadFor = r.u8() / 10.0f; int kills = r.u16(), deaths = r.u16(); int score = (int16_t)r.u16(); int killer = r.u8(); int dstyle = r.u8();
+    int lives = r.u8(); float deadFor = r.u8() / 10.0f; int kills = r.u16(), deaths = r.u16(); int score = (int16_t)r.u16(); int killer = r.u8(); int dstyle = r.u8(); int etype = r.u8();
     bool own = r.u8() != 0;
     int frags = 0, smokes = 0, loaded = 0; if (own) { frags = r.u8(); smokes = r.u8(); loaded = r.u16(); }
     rs.livesLeft = lives == 255 ? -1 : lives; rs.deadFor = deadFor; rs.kills = kills; rs.deaths = deaths; rs.score = score; rs.human = fl & 8; rs.pending = fl & 16; rs.alive = fl & 1;
     bool alive = fl & 1;
     rulesNetProtect(g, s, fl & 128);   // W1: spawn protection (shimmer, shield icon, ring)
+    if (s.zombie && etype != s.etype) { s.etype = etype; aiZombieAssign(g, s); }   // EN1: the host's enemy type
     s.hp = hp; s.weapon = s.zombie ? -1 : weapon < (int)app.weaponDefs.size() ? weapon : 0;   // G2: zombies carry nothing
     s.killer = killer == 255 ? -1 : killer; s.deathStyle = dstyle;
     s.recoil = recoil; s.throwT = (fl & 64) ? thr : -1.0f; s.reload = (fl & 32) ? rel : 0; s.reloadTotal = (fl & 32) ? 1 : 0;

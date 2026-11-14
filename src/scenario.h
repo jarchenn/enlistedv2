@@ -18,7 +18,7 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 // code keeps working; friend / foe is always the roster team (Game::hostile).
 enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2 };
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : "Assault"; }
-enum class AiType : int { Soldiers = 0, Zombies = 1 };   // per side (G2 implements the zombie brain)
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2 };   // EN1: 2 mixes the enemy types by weight   // per side (G2 implements the zombie brain)
 
 constexpr int kScenarioVersion = 2;
 constexpr int kMinObjectives = 1, kMaxObjectives = 10;
