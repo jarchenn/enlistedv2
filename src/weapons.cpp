@@ -4,6 +4,7 @@
 #include "app.h"
 #include "settings.h"
 #include "sight_overlay.h"
+#include "vm_anim.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -67,6 +68,7 @@ void App::buildWeaponMeshes() {
       fd.patchSeconds = f.value("patchSeconds", fd.patchSeconds); fd.patchRadius = f.value("patchRadius", fd.patchRadius); fd.patchDps = f.value("patchDps", fd.patchDps);
       fd.botRange = f.value("botRange", fd.botRange); fd.botBurst = f.value("botBurstSeconds", fd.botBurst); fd.botPause = f.value("botPauseSeconds", fd.botPause);
     }
+    d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
@@ -122,6 +124,21 @@ void App::buildWeaponMeshes() {
         for (auto& hp : j["model"].value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) d->modelParts[p].clear();   // e.g. the Garand clip: never drawn
       }
     }
+    if (j.contains("animated") && useImportedModels) {   // MG1: the source's own arms and clips (vm_anim.h); a failure keeps the static path
+      const json& ab = j["animated"]; std::string err;
+      d->anim = animVmLoad(dir / "models" / ab.value("dir", j.value("model", json::object()).value("dir", std::string())), ab, err);
+      if (!d->anim) logf("weapon %s: animated viewmodel not used (%s): static model + generated arm", d->id.c_str(), err.c_str());
+      else {
+        d->showArms = false;   // the rig has its own arms
+        float r = animVmClipDur(*d->anim, "reload"), re = animVmClipDur(*d->anim, "reload_empty"), fd = animVmClipDur(*d->anim, "fire");
+        if (d->feed == "single") { if (r > 0) d->reloadRound = r; }   // one shell per clip
+        else if (r > 0) { d->reloadPartial = r; d->reloadEmpty = re > 0 ? re : r; d->reloadInsert = ab.value("insert", 0.65f); }
+        if (ab.value("cycleInFire", false) && fd > 0) {   // the fire clip includes the pump / bolt stroke: the next shot waits for it
+          if (d->action == "bolt") d->boltTime = std::max(d->boltTime, 0.9f * fd); else d->rpm = std::min(d->rpm, 60.0f / (0.9f * fd));
+        }
+        logf("weapon %s: animated viewmodel (reload %.2f / %.2f s, fire %.2f s)", d->id.c_str(), d->reloadPartial, d->reloadEmpty, fd);
+      }
+    }
     logf("weapon %-14s %s %s feed %-8s %d+%d", d->id.c_str(), d->action.c_str(), d->caliber.c_str(), d->feed.c_str(), d->loaded, d->reserve);
     weaponDefs.push_back(std::move(d));
   }
@@ -175,7 +192,7 @@ void App::selectWeapon(int idx) {
   if (strictDDay && weaponDefs[idx]->laterWar) { toast(weaponDefs[idx]->name + " is hidden by the strict 6 June 1944 preset."); return; }
   WeaponState& cur = wstate[weaponDefs[activeWeapon]->id];
   settleRecoil(cur);   // the old weapon's climb stays in the aim (no snap back on the swap)
-  if (cur.reload > 0) { cur.reload = 0; cur.reloadKind = 0; weaponMsg = "Reload interrupted (no rounds moved)"; }   // nothing is committed until a reload completes
+  if (cur.reload > 0) { if (cur.reloadKind != 4) weaponMsg = "Reload interrupted (no rounds moved)"; cur.reload = 0; cur.reloadKind = 0; }   // MG1 kind 4: rounds already in   // nothing is committed until a reload completes
   if (cur.throwT >= 0 && weaponDefs[activeWeapon]->equipment()) { cur.throwT = -1; cur.struck = false; }   // wind-up cancelled: nothing thrown, nothing used
   activeWeapon = idx; adsT = 0; vm.snap = true;
   wstate[weaponDefs[idx]->id].triggerReleased = false;   // a trigger held through the swap never fires the new weapon
@@ -187,7 +204,10 @@ mat4 App::viewModelMatrix(const WeaponDef& d, const WeaponState& s) const {
   return cam * vmLocal(d, s);   // viewmodel.cpp: ADS alignment, spring, sway, bob, kick, reload dip
 }
 
-vec3 App::weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const { return vec3(viewModelMatrix(d, s) * vec4(d.muzzle, 1)); }
+vec3 App::weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const {
+  vec3 w; if (d.anim && animVmPoint(*this, d, 2, w)) return w;   // MG1: the animated rig's muzzle
+  return vec3(viewModelMatrix(d, s) * vec4(d.muzzle, 1));
+}
 
 bool App::weaponCamera(float& fov) const {
   if (occupied || weaponDefs.empty() || mode != Mode::Explore) return false;
@@ -214,6 +234,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   const WeaponDef& d = *weaponDefs[activeWeapon];
   const WeaponState& s = wstate[d.id];
   if (scopeView()) return;   // GM1b: scoped, only the eyepiece shows (black outside the circle, no weapon)
+  if (d.anim && animVmDraw(*this, d)) return;   // MG1: the animated rig (its own arms; no static weapon, no generated arm)
   mat4 M = viewModelMatrix(d, s);
   if (swimLower() >= 0.999f) { armDrawItems(M, d, s); return; }   // swimming (swim.cpp): weapon slung, hands-only stroke
   bool tex = d.useModel();
@@ -366,6 +387,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime);   // the only writer of adsT while a weapon is out
   adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
+  if (d.anim) animVmStep(*this, d, s, dt); else animVmNotActive();   // MG1: clips, pose, rig placement
   auto ch = Physics::character();
   // bipod deployed: a bipod weapon (belt MG, or a "supported" recoil factor) rested while prone or crouched and still.
   // A folded bipod (standing / moving) gives no benefit.
@@ -407,7 +429,10 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   if (s.reload > 0) {
     if (s.reloadKind == 3 && fireHeld && s.loaded > 0) { s.reload = 0; s.reloadKind = 0; }   // fire interrupts single-round loading
     s.reload -= dt;
-    if (s.reload <= 0 && s.reloadKind) {
+    bool insertNow = (s.reloadKind == 1 || s.reloadKind == 2) && d.reloadInsert > 0 && s.reloadTotal > 0 && s.reload <= s.reloadTotal * (1 - d.reloadInsert);   // MG1
+    if (s.reloadKind == 4 && s.reload <= 0) { s.reload = 0; s.reloadKind = 0; }   // MG1: the clip after the insert has ended
+    else if ((s.reload <= 0 || insertNow) && s.reloadKind) {
+      float rest = std::max(0.0f, s.reload);
       auto fullest = [&]() { return std::max_element(s.containers.begin(), s.containers.end()); };
       if (s.reloadKind == 3) {
         auto it = std::min_element(s.containers.begin(), s.containers.end(), [](int a, int b) { return (a == 0 ? 1 << 30 : a) < (b == 0 ? 1 << 30 : b); });
@@ -427,6 +452,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         if (retained > 0) { s.containers.push_back(retained); weaponMsg = std::to_string(retained) + (d.feed == "enbloc" ? " rounds in the ejected clip kept in reserve" : " rounds in the partial " + d.container + " kept"); }
         s.loaded = n;
         s.reload = 0; s.reloadKind = 0;
+        if (rest > 0) { s.reload = rest; s.reloadKind = 4; }   // MG1: rounds in; the clip plays out before the next shot
         audio.play(audio.hasEvent("clip_" + d.id) ? "clip_" + d.id : audio.hasEvent("reload_" + d.id) ? "reload_" + d.id : d.feed == "enbloc" ? "clip_in" : d.feed == "belt" ? "belt" : "mag_in", eyePos(), 0.8f);
       }
     }
@@ -483,8 +509,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = true; rp.gravScale = 0.35f;
         fx.backblast(weaponMuzzleWorld(d, s) - aimDir * 1.4f, -aimDir);   // content/settings/fx.json
       } else {
-        fireProjectile(start, dir, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
-        if (!projectiles.empty()) projectiles.back().mass = d.bulletMass * 0.001f;
+        fireRounds(d, start, dir, tracer, s.seed ^ (uint32_t)s.shotIdx * 7919u, -1);   // MG1: a shotgun's pellets
       }
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
@@ -639,7 +664,7 @@ void App::drawWeaponUI() {
     ImGui::Separator();
     for (size_t k = 0; k < weaponDefs.size(); ++k) {
       auto& w = *weaponDefs[k];
-      if (strictDDay && w.laterWar) continue;
+      if ((strictDDay && w.laterWar) || w.modern) continue;   // MG1: the modern guns come only from their case
       auto& ws = wstate[w.id];
       char lbl[200];
       if (w.flame.on) std::snprintf(lbl, sizeof lbl, "%s%s  (fuel %d %%)", (int)k == activeWeapon ? "> " : "  ", w.name.c_str(), ws.loaded);

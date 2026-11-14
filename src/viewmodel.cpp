@@ -1,6 +1,7 @@
 // First-person weapon handling. View space here is the camera frame: +x right, +y up, -z forward.
 // Weapon space: butt at z = 0, muzzle toward +z, top +y (the import pipeline and the box parts share it).
 #include "app.h"
+#include "vm_anim.h"
 #include "settings.h"
 #include <algorithm>
 #include <glm/gtx/quaternion.hpp>
@@ -101,6 +102,7 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
 }
 
 void App::sightLineWorld(const WeaponDef& d, const WeaponState& s, vec3& rear, vec3& front) const {
+  if (d.anim && !vmScoped(d) && animVmPoint(*this, d, 0, rear) && animVmPoint(*this, d, 1, front)) return;   // MG1: the posed rig's sights
   quat Q; vec3 Rp, Fp; float relief;
   sightFrame(d, vmScoped(d), Q, Rp, Fp, relief);
   mat4 M = viewModelMatrix(d, s);

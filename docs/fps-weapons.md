@@ -439,3 +439,102 @@ The self-test (`--selftest-tanks`, "sensitivity") checks every view against the 
 - Penetration is limited to openings. Walls stay impenetrable to small arms, as in the destruction update.
 - Clouds don't appear in reflections, and they cast no shadows.
 - The reference images in the package were placeholders and were never supplied.
+
+<a id="mg1"></a>
+## MG1: modern guns and the modern weapons case
+
+The user supplied ten first-person arm rigs (`incoming/modern_guns/<folder>`, FBX / one `.blend`) and a hard case GLB. Credits and licences: [credits](credits.md#modern-guns-mg1).
+
+**Conversion.** `tools/modern_guns_config.cjs` writes one config per source; `tools/modern_guns_convert.py` runs in Blender 5.2 in background mode (`blender -b --factory-startup --python tools/modern_guns_convert.py -- <config>.json`). Per source it:
+- keeps only the gun meshes (arms, gloves, sleeves, armatures, cameras and animations are dropped), with armatures at rest;
+- bakes the world transforms, so the muzzle points down glTF +z;
+- splits a skinned gun by its dominant vertex groups where the bolt or magazine has its own bone (the marksman rifle);
+- rebuilds each material from the folder's textures at 1K or less: albedo, normal (DirectX maps flipped), and one ORM image (AO, roughness = 1 − smoothness or gloss, metallic; spec-gloss converted: metallic where the specular luminance is over 0.5);
+- writes `assets_src/weapons/modern_<name>.glb`, which stays out of git.
+
+`--import-weapon-models assets_src/weapons` then bakes them as usual. These static models are what other soldiers carry, what the case and racks would display, and what the icons are drawn from. In first person each gun uses its source's own arms and clips instead ([animated viewmodels](#mg1-animated)); the static model with the generated arm is the fallback when a rig cannot load.
+
+| Weapon (`id`) | Source folder | Triangles | Textures | Parts → roles |
+|---|---|---|---|---|
+| FN SCAR 7.62 mm (`modern_scar`) | scar | 16 795 (simplify 0.6 of 28 k) | 1 set, 1K | magazine → mag |
+| AK-74 (`modern_ak`) | fps-ak-animated | 8 389 | 1 set, 1K | bolt → bolt; magazine and round → mag |
+| M4 carbine, red dot (`modern_m4`) | fps-animated-carbine | 11 363 | 1 set, 1K | bolt → bolt; magazine → mag; charging handle → handle; the red dot's lens is dropped (ADS looks through the tube) |
+| M16A3 (`modern_m16`) | animated-assault-rifle | 17 348 (simplify 0.8) | 1 set, 1K | magazine → mag |
+| M249 LMG (`modern_lmg`) | lmg-animated | 15 958 (simplify 0.7) | 1 set, 1K | bolt → bolt; belt box, belt and feed cover stay on the body |
+| Remington 870 (`modern_shotgun`) | remington-870-shotgun-animated | 6 202 | 1 set, 1K | pump → handle (slides back on each shot); the loose shell is dropped |
+| M24 sniper (`modern_sniper_bolt`) | sniper-animated | 11 122 | 1 set, 1K | bolt and bolt rear → bolt (lift about the bore); magazine → mag |
+| Marksman rifle, semi (`modern_sniper_semi`) | fps-animations-sniper-rifle | 19 516 | 2 sets, 1K | Bolt / Mag vertex groups → bolt / mag; the hanging sling is dropped |
+| Springfield XD (`modern_pistol`) | animatedpistol | 14 362 | 1 set, 1K (from spec-gloss) | slide → bolt; magazine → mag |
+| Modern weapons case (`rack_modern`) | hardcase_for_weapons.glb | 14 343 (simplify 0.5 of 28.7 k) | 1 set, 1K | the dirty duplicate is dropped; scaled ×1.27 to 1.06 × 0.40 × 0.20 m |
+
+The second Remington source (`fps-arms-remington-shotgun`) is not used: it is one skinned mesh, and its pump cannot be separated without guessing.
+
+**Defs.** `content/weapons/modern_*.json` have `side` `"modern"` and `"modern": true`. They are only offered by the case: not in the Allied / Axis racks, the default loadout, the Loadout window, classes or bot pools. The stats are real-world rounded figures (rate, velocity, magazine).
+
+| Data | Where |
+|---|---|
+| Damage rows | `content/ai/damage.json` |
+| Sounds: the nearest existing weapon's recordings | `content/audio/manifest.json`, `tools/audio_manifest.py` |
+| Support-hand grip stations | `content/settings/fps_arms.json` |
+| Ammunition, stocked by the mixed supply crate | `crate_mixed_supply` |
+
+The silhouettes are rendered from the models like every other weapon's.
+
+**Pellets.** `pellets` and `spreadDeg` in a weapon JSON make each shot fire that many rounds (`App::fireRounds`). The first goes along the aimed line and the rest fall evenly over the cone's area, deterministic from the shot. The Remington fires 9 pellets of 00 buckshot in 2.2°, with the damage per pellet. The first pellet carries the tracer.
+- **Player and bots:** both fire every pellet locally.
+- **LAN client:** sends one request per shell (extra pellets are flagged `extraPellet`). The host fires the whole shell.
+- **LAN host:** its own pellets send one `shot` event.
+
+**Sights** (measured on the baked meshes, rear-view slabs; each JSON's `sights.note` says what):
+- **Iron sights:** each line passes from the rear aperture or notch to the front post tip.
+- **M249:** the hooded front ring shows no post on this mesh, so its line runs level through the ring.
+- **M4:** the line is the red-dot tube axis.
+- **Scoped rifles:** use the existing scope view. The eye sits at the ocular lens face.
+- **ADS calibration:** eye relief is 0.19 m (M4 0.17 m, pistol 0.4 m), with no corrections.
+
+**The case** is placeable in Creative (Supply, beside the racks). E opens the same arsenal panel as the racks, titled "Modern", for either side. Equipping follows the rack rules (two main slots, own ammunition, LAN requests checked against the case's list).
+- **LAN:** weapons replicate by index, sent as `u8`. There are 34 defs, well under 255.
+
+<a id="mg1-animated"></a>
+### MG1: animated first-person viewmodels
+
+**Export.** `tools/modern_guns_anim_config.cjs` writes the configs and `tools/modern_guns_anim.py` runs per source in Blender 5.2 in background mode. Each source becomes `content/weapons/models/<dir>/vm.glb`, holding:
+- the source's arms and gun as one skin, with textures at 1K or less;
+- one glTF animation per clip.
+
+`vm.json` beside it holds the clip lengths, the gun joint, and the rear sight (or scope eye), front sight and muzzle in rig space. The weapon-space anchors measured for the static model are carried over through the shared rest pose.
+
+**Cinema 4D exports.** They animate the gun parts as objects, so each part becomes a bone, baked per frame. Their single timeline is cut into clips at the rest frames between the actions; the cuts were found from the part and arm motion.
+
+**Framing.** Rig space is the camera frame: eye at the origin, −z forward, metres. At the first idle frame the sight line looks straight ahead, and the rear sight sits at the engine's hip pose, view (0.12, −0.07, −0.15), with `hipRear` overriding it. The sources' own cameras disagree and the Cinema 4D files have none, so they are not used. `tools/modern_guns_anim_preview.py` re-imports a GLB and renders its clips from the eye.
+
+| Weapon | Source clips → states (seconds) |
+|---|---|
+| FN SCAR | Idle → idle (one pose), Shoot → fire 0.42, Reload 4.58, Take → draw 0.83, Hide → holster, Walk, Run |
+| AK-74 | one 8.1 s timeline: fire 0.27, reload_empty 3.07, reload 1.73, inspect 1.6, idle 0.67, draw 0.77 |
+| M4 | one 7.4 s timeline: fire 0.27, reload_empty 2.0, reload 2.2, inspect 1.4, idle 0.93, draw 0.6 |
+| M16A3 | Idle (one pose), Shoot 0.42, Reload 5.63, Take 0.83, Hide, Watch → inspect 5.0 |
+| M249 | one 15.6 s timeline: fire 0.4, reload 5.07, reload_empty 5.07, inspect 2.13, idle 1.47, draw 0.93 |
+| Remington 870 | one 4.7 s timeline: fire 0.93 (shot and pump), reload 1.47 (one shell), reload_end 1.07 (not played), idle 0.67, draw 0.6 |
+| M24 | one 6.7 s timeline: fire 1.6 (shot and bolt), reload 1.73, inspect 1.6, idle 1.07, draw 0.67 |
+| Marksman rifle | SRifle_Idle 3.0, FPS_Pistol_Fire → fire 0.23, SRifle_Shot_nosight / _sight (shot and bolt, not played: the gun is semi-automatic here), SRifle_Reload 3.17, SRifle_Reload_Full → reload_empty 4.75, SRifle_Walk; no draw clip |
+| Springfield XD | Idle (one pose), Shoot 0.42, Reload 1.88, Take 0.5, Hide, Run |
+
+**Runtime** (`src/vm_anim.{h,cpp}`). It uses the zombie clip player (`AnimPlayer`) and the character compute skinning (`CharInstance`). The skinned buffer is drawn through the existing textured first-person pass: own FOV, cleared depth, zero motion. `render.cpp` is unchanged.
+- **Clips:**
+  - Equipping plays draw, and firing waits for 80 % of it.
+  - Every shot restarts fire, so automatics retrigger it at the cyclic rate.
+  - Each reload plays reload_empty (from empty, when the source has it) or reload, stretched to the reload time. One shell per clip for the shotgun.
+  - Idle loops otherwise. Cross-fades are about 0.1 s (0.04 s into fire).
+  - Walk, run, inspect and holster are exported but not played.
+- **Reload timing:**
+  - The clip lengths set the reload times.
+  - The rounds move at `animated.insert` (0.6) of the clip. Swapping weapons after that keeps them.
+  - The weapon fires again only when the clip ends (reload kind 4).
+  - `cycleInFire` (shotgun, M24): the fire clip holds the pump / bolt stroke, so the cyclic rate or the bolt time waits for it.
+- **Placement:**
+  - camera × mantle / swim lowering × sway and bob (procedural, as for the static weapons) × ADS.
+  - ADS turns and moves the rig so the posed rear and front sights land on the view axis at the eye relief. They are posed each frame through the gun joint.
+  - The muzzle flash, tracer origin and aimed-fire sight line come from the same posed points.
+- **Arms:** the generated support arm is not drawn (`showArms` off).
+- **Scopes:** the scoped rifles switch to the existing scope view.

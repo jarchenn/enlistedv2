@@ -23,12 +23,16 @@ struct WeaponDef {
   float rPitch = 1, rYaw = 0.4f, rRecover = 8 /*unused: recoil no longer recovers*/, rClimb = 0, rVisual = 0.05f, rSupported = 1;
   vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
   bool hasScope = false, scopeIrons = false, laterWar = false;
+  bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
+  int pellets = 1; float spreadDeg = 0;  // MG1: a shot fires `pellets` rounds, the extra ones inside a cone of half-angle spreadDeg (shotgun)
   float scopeMag = 1, scopeRelief = 0.07f;   // scope.relief: eye to the ocular lens in the scoped pose (m)
   vec3 boltPivot{0, 0.028f, 0}; float boltLift = 70;   // bolt action: handle lift about the z-parallel axis through the pivot (deg)
   std::vector<Material> mats;
   GpuMesh mesh[8];
   // imported textured model (content/weapons/models/<dir>); the box parts above stay as the fallback
   std::shared_ptr<GpuModel> model;
+  std::shared_ptr<struct AnimVM> anim;   // MG1: animated first-person rig (arms + gun + clips, vm_anim.h); null = the static path
+  float reloadInsert = 0;                // MG1: animated reloads move the rounds at this fraction of the clip (0 = at its end)
   std::vector<int> modelParts[8];       // model part indices per WPart role
   fs::path file;                        // source JSON (calibration panel saves back into it)
   vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)
@@ -99,6 +103,7 @@ struct Projectile {
   uint64_t ignore = ~0ull;      // body user data to ignore (the firing gun)
   int owner = -1;               // firing soldier's roster slot (multiplayer + AI); -1 = the local player
   int tracerKind = 0;           // tracerKindFor(): 0 none, 1 red tracer, 2 white-yellow streak
+  bool extraPellet = false;     // MG1: a shotgun's 2nd..nth pellet (a LAN client sends one request per shot; the host fires them all)
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
 };

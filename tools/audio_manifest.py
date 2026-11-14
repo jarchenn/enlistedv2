@@ -140,6 +140,14 @@ ev('smoke_pop', 'blast', 0.8, family(FX, 'smoke_grenade_expl', 8, U), 'named', '
 # ---- footsteps: the banks hold only deep-water wading strides (no dry-ground surface sets)
 ev('step_water', 'step', 0.8, family(AM, 'footstep_waterdeep', 8, U), 'named', 'one wading stride each (~1.2 s plus a water tail); only used below the water level')
 
+# ---- MG1 modern guns (content/weapons/modern_*.json): no recordings of their own; each reuses the nearest weapon's events
+for w, src in (('modern_scar', 'fg42'), ('modern_ak', 'stg44'), ('modern_m4', 'm3_grease_gun'), ('modern_m16', 'stg44'), ('modern_lmg', 'm1918a2_bar'),
+               ('modern_shotgun', 'kar98k'), ('modern_sniper_bolt', 'kar98k_zf39'), ('modern_sniper_semi', 'kar98k_zf39'), ('modern_pistol', 'm1_carbine')):
+    for pre, suf in (('shot', ''), ('shot', '_far'), ('tail', ''), ('reload', '')):
+        f = '%s_%s%s' % (pre, src, suf)
+        if f not in events and pre == 'reload' and src == 'kar98k_zf39': f = 'reload_kar98k'
+        if f in events: events['%s_%s%s' % (pre, w, suf)] = dict(events[f], status='approx', note='MG1 modern gun: no recording of its own; reuses ' + f)
+
 
 man = {'note': __doc__.strip().splitlines()[0], 'redistribution': 'NOT cleared: Enlisted sound-mod banks supplied without reuse permission; samples are git-ignored (content/audio/samples) and extracted locally from the user\'s banks',
        'banks': sorted(cache.keys()), 'events': events}
