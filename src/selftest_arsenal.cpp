@@ -390,19 +390,22 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
       if (t == 0) { a.closeRack("mg1"); standAt(a, r->pos + vec3(0, 0, 1.3f)); return false; }
       lookAt(a, r->pos + vec3(0, 0.1f, 0));
       if (t < 0.3f) return false;
-      if (t < 0.32f) { a.scriptedInput.interact = true; return false; }
+      static bool asked; if (t < 0.31f) asked = false;
+      if (!a.rackOpen && t < 1.2f) { a.scriptedInput.interact = !a.scriptedInput.interact; return false; }   // E pressed (edges) until the panel opens
       a.scriptedInput.interact = false;
-      if (t < 0.5f) return false;
-      if (t < 0.52f) {
-        check(a.rackOpen && a.rackId == RM, "E at the modern case opens the arsenal panel");
+      static float tOpen; if (!asked) {
+        asked = true; tOpen = t;
+        check(a.rackOpen && a.rackId == RM, "E at the modern case opens the arsenal panel (target valid " + std::to_string(a.target.valid) + ", kind " + std::to_string(a.target.kind) + ", is the case " + std::to_string(a.target.inst == RM) + ")");
         auto ars = a.rackArsenal("modern");
         for (size_t k = 0; k < ars.size(); ++k) if (a.weaponDefs[ars[k]]->id == "modern_ak") a.rackSel = (int)k;
-        a.scriptedInput.rackEquip = true; return false;
+        return false;
       }
-      a.scriptedInput.rackEquip = false;
-      if (t < 0.9f) return false;
+      a.scriptedInput.rackEquip = a.rackOpen && t > tOpen + 0.15f;   // a clean frame after the opening press, then Equip held until it closes
+      if (a.rackOpen && t < tOpen + 1.5f) return false;
+      a.scriptedInput = ExploreInput{};
       auto& s = a.wstate["modern_ak"];
-      check(D(a).id == "modern_ak" && !a.rackOpen && a.lastRackClose == "equipped" && s.loaded == 30, "Equip from the case selects the AK-74 (30 loaded) and closes the panel, as at a rack");
+      check(D(a).id == "modern_ak" && !a.rackOpen && a.lastRackClose == "equipped" && s.loaded == 30,
+            "Equip from the case selects the AK-74 (30 loaded) and closes the panel, as at a rack (in hand " + D(a).id + ", panel " + (a.rackOpen ? "open" : "closed") + ", last close '" + a.lastRackClose + "', loaded " + std::to_string(s.loaded) + ")");
       return true; });
     push("mg1 crate refill", [this](App& a, float) {
       auto& s = a.wstate["modern_ak"];

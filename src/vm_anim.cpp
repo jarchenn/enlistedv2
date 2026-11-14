@@ -63,10 +63,9 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
     int c = clip(name); if (c < 0) { name = "idle"; c = clip("idle"); loop = true; key = K_IDLE; }
     st.pl.fadeLen = fade; st.pl.play(key, c, -1, 0, rate, loop, true); st.clipName = name;
   };
-  if (gActive != &d) {   // just equipped: the draw clip (firing waits for most of it), then idle
+  if (gActive != &d) {   // just equipped: the draw clip, then idle (a shot cuts it short with the fire clip)
     gActive = &d;
     play(K_DRAW, "draw", false, 0.0f);
-    if (clip("draw") >= 0) s.cooldown = std::max(s.cooldown, 0.8f * a.model.clips[clip("draw")].dur);
     st.lastShot = s.shotIdx; st.lastReload = s.reload;
   }
   if (s.shotIdx != st.lastShot) { st.lastShot = s.shotIdx; play(K_FIRE, "fire", false, 0.04f); }   // automatics restart it at the cyclic rate
