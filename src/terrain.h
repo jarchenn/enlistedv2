@@ -206,9 +206,9 @@ private:
 
 // Map-size rules and the New Map estimate (SPEC 9.1; values from content/settings/editor.json)
 struct MapSizeRules {
-  float minSide = 400, maxSide = 4000, step = 100, margin = 100;
+  float minSide = 100, maxSide = 4000, step = 100, margin = 100;   // UI1: any size 100 m - 4 km a side
   float comfortableKm2 = 3.0f;      // [DECISION] above this buildable area the dialog warns (min-spec comfort)
-  std::vector<vec2> presets{{600, 600}, {1000, 2000}, {1200, 2400}, {2000, 4000}};
+  std::vector<vec2> presets{{300, 300}, {600, 600}, {1000, 1000}, {1000, 2000}};   // UI1: up to 1000 x 2000
   vec2 clampSize(vec2 wd) const;
 };
 const MapSizeRules& mapSizeRules();

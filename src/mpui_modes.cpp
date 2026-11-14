@@ -54,41 +54,52 @@ void Game::drawModeBanner() {
 
 // the scoreboard: name, kills, deaths, score; sorted by score, then kills; TDM shows each team under its total.
 // Drawn inside the current ImGui window (the end-of-match window) or as its own overlay window (held Tab).
-void Game::scoreboardTable() {
+// UI1: per team with the team's totals on top; compact (top 8 + your own row) while many are playing, the full list
+// (scrollable) at the end of the match. Solo is one list.
+void Game::scoreboardTable(bool full) {
   const Soldier* L = local();
+  const int kTop = 8;
   auto rows = [&](int team) {   // team -1: everyone (Solo)
     std::vector<const RosterSlot*> v;
     for (auto& s : match.slots) if (team < 0 || s.team == team) v.push_back(&s);
     std::sort(v.begin(), v.end(), [](auto* a, auto* b) { return a->score != b->score ? a->score > b->score : a->kills != b->kills ? a->kills > b->kills : a->deaths < b->deaths; });
-    if (!ImGui::BeginTable(team < 0 ? "sb" : team == 0 ? "sbA" : "sbB", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingFixedFit)) return;
-    ImGui::TableSetupColumn("#", 0, 28); ImGui::TableSetupColumn("Player", 0, 220); ImGui::TableSetupColumn("Kills", 0, 56);
-    ImGui::TableSetupColumn("Deaths", 0, 56); ImGui::TableSetupColumn("Score", 0, 64);
-    ImGui::TableHeadersRow();
-    int rank = 0;
-    for (auto* s : v) {
-      ImGui::TableNextRow();
-      bool me = L && s->id == L->slot;
-      if (me) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(90, 80, 40, 150));
-      ImGui::TableNextColumn(); ImGui::Text("%d", ++rank);
-      ImGui::TableNextColumn(); ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(teamCol(s->faction)), "%s%s", s->name.c_str(), s->human ? "" : "  (AI)");
-      ImGui::TableNextColumn(); ImGui::Text("%d", s->kills);
-      ImGui::TableNextColumn(); ImGui::Text("%d", s->deaths);
-      ImGui::TableNextColumn(); ImGui::Text("%d", s->score);
+    if (team >= 0 && !v.empty()) {
+      int k = 0, d = 0, sc = 0; for (auto* s : v) { k += s->kills; d += s->deaths; sc += s->score; }
+      ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(teamCol(v[0]->faction)), "%s %s - %zu players   kills %d   deaths %d   score %d",
+                         match.mode() == GameMode::TDM ? (team == 0 ? "Team A" : "Team B") : (v[0]->role == CombatRole::Defender ? "Defenders" : "Attackers"),
+                         factionName(v[0]->faction), v.size(), k, d, sc);
     }
-    ImGui::EndTable();
+    bool scroll = full && v.size() > 12;
+    if (scroll) ImGui::BeginChild(team < 0 ? "sbS" : team == 0 ? "sbSA" : "sbSB", ImVec2(460, 12 * ImGui::GetTextLineHeightWithSpacing() + 30), false);
+    if (ImGui::BeginTable(team < 0 ? "sb" : team == 0 ? "sbA" : "sbB", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingFixedFit)) {
+      ImGui::TableSetupColumn("#", 0, 28); ImGui::TableSetupColumn("Player", 0, 220); ImGui::TableSetupColumn("Kills", 0, 56);
+      ImGui::TableSetupColumn("Deaths", 0, 56); ImGui::TableSetupColumn("Score", 0, 64);
+      ImGui::TableHeadersRow();
+      int rank = 0, hiddenN = 0;
+      for (auto* s : v) {
+        ++rank;
+        bool me = L && s->id == L->slot;
+        if (!full && rank > kTop && !me) { ++hiddenN; continue; }
+        ImGui::TableNextRow();
+        if (me) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(90, 80, 40, 150));
+        ImGui::TableNextColumn(); ImGui::Text("%d", rank);
+        ImGui::TableNextColumn(); ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(teamCol(s->faction)), "%s%s", s->name.c_str(), s->human ? "" : "  (AI)");
+        ImGui::TableNextColumn(); ImGui::Text("%d", s->kills);
+        ImGui::TableNextColumn(); ImGui::Text("%d", s->deaths);
+        ImGui::TableNextColumn(); ImGui::Text("%d", s->score);
+      }
+      ImGui::EndTable();
+      if (hiddenN) ImGui::TextDisabled("+ %d more", hiddenN);
+    }
+    if (scroll) ImGui::EndChild();
   };
-  if (match.mode() == GameMode::TDM) {
-    for (int t = 0; t < 2; ++t) {
-      ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(teamCol(match.rules.teamFaction[t])), "Team %c - %s: %d kills", t == 0 ? 'A' : 'B', factionName(match.rules.teamFaction[t]), match.teamKills(t));
-      rows(t);
-      if (t == 0) ImGui::Spacing();
-    }
-  } else rows(-1);
+  if (match.mode() == GameMode::Solo) rows(-1);
+  else for (int t = 0; t < 2; ++t) { rows(t); if (t == 0) ImGui::Spacing(); }
 }
 
 // held Tab during a match (not while building: build mode owns Tab for its palette)
 void Game::drawScoreboardOverlay() {
-  bool held = showScoreboard || (!app.selftest && app.win && !app.build.active && glfwGetKey(app.win, GLFW_KEY_TAB) == GLFW_PRESS);
+  bool held = showScoreboard || (!app.selftest && app.win && !app.build.active && app.bk("scoreboard") >= 0 && glfwGetKey(app.win, app.bk("scoreboard")) == GLFW_PRESS);
   if (!held || match.phase == MatchPhase::Ended) return;
   ImGuiIO& io = ImGui::GetIO();
   ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.42f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
