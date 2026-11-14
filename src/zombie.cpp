@@ -38,7 +38,9 @@ const ZombieCfg& zcfg() {
     try {
       json j = json::parse(readTextFile(contentDir() / "ai" / "zombie.json"));
       c.repath = j.value("repath_s", c.repath); c.flinch = j.value("flinch_s", c.flinch);
-      auto strs = [](const json& e, const char* k, std::vector<std::string>& v) { if (e.contains(k) && e[k].is_array() && !e[k].empty()) { v.clear(); for (auto& s : e[k]) v.push_back(s.get<std::string>()); } };
+      auto strs = [](const json& e, const char* k, std::vector<std::string>& v) {   // a name or a list of names
+        if (e.contains(k) && e[k].is_string()) v = {e[k].get<std::string>()};
+        else if (e.contains(k) && e[k].is_array() && !e[k].empty()) { v.clear(); for (auto& s : e[k]) v.push_back(s.get<std::string>()); } };
       for (auto& e : j.value("types", json::array())) {   // EN1 enemy types; a missing field keeps the plain zombie's value
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
@@ -48,11 +50,13 @@ const ZombieCfg& zcfg() {
         t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
         t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin);
-        t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 3.0f);
+        t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 4.0f);
+        t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult));
+        t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
-        t.runClip = cl.value("run", t.runClip); t.damageClip = cl.value("damage", t.damageClip); t.deathClip = cl.value("death", t.deathClip);
+        t.runClip = cl.value("run", t.runClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
         c.types.push_back(t);
       }
       json p = j.value("pack", json::object());
@@ -277,7 +281,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
   // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes
-  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && inReach(G, s, *best, std::max(e.reach, e.lunge))) { s.meleeWind = 0; s.meleeClip = G.rnd(s) < 0.5f ? 0 : 1; ++s.meleeCount; }
+  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && inReach(G, s, *best, std::max(e.reach, e.lunge))) { s.meleeWind = 0; int n = (int)clipsOf(s).attackClips.size(); s.meleeClip = std::min(n - 1, (int)(G.rnd(s) * n)); ++s.meleeCount; }   // EN2: any of the type's attacks
   if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
     if (best && e.lunge > e.reach) { float gap = zLenXZ(best->feet - s.feet) - 0.8f * e.reach; if (gap > 0) { m.zSpeed = std::max(m.zSpeed, gap / std::max(0.1f, wu - s.meleeWind)); m.speed = SPD_ZOMBIE; } }
@@ -306,17 +310,17 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   if (A.life != s.lifeId) { A = AnimPlayer{}; A.life = s.lifeId; A.lastHp = s.hp; A.strike = s.meleeCount; }   // new life: no fade from the corpse
   int key0 = A.key, a0 = A.a;
   auto clip = [&](const char* a, const char* b) { int k = findClip(m, a); return k >= 0 ? k : findClip(m, b); };
-  int alt = s.slot & 1;   // per zombie: the type's first / second walk and idle clip
-  auto pick = [&](const std::vector<std::string>& v) { return clip(v[alt % v.size()].c_str(), v[0].c_str()); };
+  auto pickAt = [&](const std::vector<std::string>& v, int k) { return clip(v[(size_t)std::max(0, k) % v.size()].c_str(), v[0].c_str()); };
+  auto pick = [&](const std::vector<std::string>& v) { return pickAt(v, s.slot); };   // per zombie: one of the type's walk / idle clips
   int walk = pick(ce.walkClips), run = findClip(m, ce.runClip.c_str()), idle = pick(ce.idleClips);
   auto gs = [&](int k, float def) { return (k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def) * s.eScale; };   // a bigger body takes longer strides
   float vw = gs(walk, 1.2f), vr = std::max(vw + 0.5f, gs(run, 4.0f));
   bool hurt = s.alive && s.hp < A.lastHp - std::max(0.5f, e.staggerMin); A.lastHp = s.hp;   // EN1: a brute flinches only from heavy hits
   auto playing = [&](float limit) { return A.a >= 0 && A.time < std::min(limit, m.clips[A.a].dur); };
-  if (!s.alive) A.play(K_DEATH, findClip(m, ce.deathClip.c_str()), -1, 0, 1, false);   // holds its end pose (no ragdoll in this game)
+  if (!s.alive) A.play(K_DEATH, pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }
   else if (A.key == K_ATTACK && playing(1e9f)) {}   // the swing plays out
-  else if (hurt) A.play(K_DAMAGE, findClip(m, ce.damageClip.c_str()), -1, 0, 1, false, true);
+  else if (hurt) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
   else if (s.speed > 0.3f && walk >= 0) {
     float w = run >= 0 ? std::clamp((s.speed - vw) / (vr - vw), 0.0f, 1.0f) : 0.0f;

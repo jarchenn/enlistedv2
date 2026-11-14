@@ -571,7 +571,7 @@ Physics::CharState Physics::character() {
 
 // ============================================================ physics_agents (multiplayer + AI)
 namespace {
-struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false, ghost = false, swim = false; };
+struct AgentRec { Ref<CharacterVirtual> c; int posture = Physics::STAND; float bodyYaw = 0; bool used = false, ghost = false, swim = false; RefConst<Shape> own; };
 std::vector<AgentRec> gAgents;
 // PF1: Jolt's simple character-vs-character list tests a mover against every character in each of a move's several
 // collision queries (O(n^2): 200 AI). This one hands the base class only the characters in the 3 x 3 grid cells (4 m)
@@ -622,10 +622,13 @@ void syncCvcPlayer() {
 const Shape* agentShape(int posture) { return posture == Physics::PRONE ? W->proneShape.GetPtr() : posture == Physics::CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr(); }
 }
 
-int Physics::createAgent(vec3 feet) {
+int Physics::createAgent(vec3 feet, float standH, float rad) {
   syncCvcPlayer();
   Ref<CharacterVirtualSettings> s = new CharacterVirtualSettings();
-  s->mShape = W->standShape;
+  RefConst<Shape> own;
+  if (standH > 0) { float r = std::clamp(rad > 0 ? rad : radius(), 0.1f, standH * 0.5f - 0.01f);
+    own = RefConst<Shape>(RotatedTranslatedShapeSettings(Vec3(0, standH * 0.5f, 0), Quat::sIdentity(), new CapsuleShape(standH * 0.5f - r, r)).Create().Get()); }
+  s->mShape = own ? own : W->standShape;
   s->mMaxSlopeAngle = DegreesToRadians(50.0f);
   s->mSupportingVolume = Plane(Vec3::sAxisY(), -radius());
   s->mCharacterPadding = 0.02f; s->mPenetrationRecoverySpeed = 1.0f; s->mPredictiveContactDistance = 0.1f;
@@ -637,7 +640,7 @@ int Physics::createAgent(vec3 feet) {
   a.c = new CharacterVirtual(s, jr(feet), Quat::sIdentity(), 0, W->sys.get());
   a.c->SetCharacterVsCharacterCollision(&gCvc);
   gCvc.Add(a.c.GetPtr());
-  a.posture = STAND; a.bodyYaw = 0; a.used = true; a.swim = false;
+  a.posture = STAND; a.bodyYaw = 0; a.used = true; a.swim = false; a.own = own;
   return h;
 }
 void Physics::destroyAgent(int h) {
@@ -679,7 +682,7 @@ void Physics::updateAgent(int h, float dt, vec3 hv, bool jump, int want, float y
   if (want != a.posture) {
     float y = want == PRONE ? yawWanted : a.bodyYaw;
     if (want == PRONE) c->SetRotation(Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(y)));
-    if (c->SetShape(agentShape(want), 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp)) { a.posture = want; a.bodyYaw = y; if (want != PRONE) c->SetRotation(Quat::sIdentity()); }
+    if (c->SetShape(want == STAND && a.own ? a.own.GetPtr() : agentShape(want), 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp)) { a.posture = want; a.bodyYaw = y; if (want != PRONE) c->SetRotation(Quat::sIdentity()); }
     else if (a.posture != PRONE) c->SetRotation(Quat::sIdentity());
   }
   c->UpdateGroundVelocity();

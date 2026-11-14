@@ -331,7 +331,8 @@ bool Game::trySpawn(int slot, std::string& why) {
           Physics::setCharacterPos(feet); app.eyeYaw = m.yaw; app.eyePitch = 0; app.exploreStartPos = feet; app.R.resetTemporal();
         } else {
           if (s.agent >= 0) Physics::destroyAgent(s.agent);
-          s.agent = Physics::createAgent(feet);
+          const EnemyType* et = s.zombie ? &enemyType(s.etype) : nullptr;   // EN2: a heavy's own capsule
+          s.agent = et && et->capsuleH > 0 ? Physics::createAgent(feet, et->capsuleH, et->capsuleR) : Physics::createAgent(feet);
         }
         chooseClass(s);
         applyLoadout(s, true);
@@ -493,6 +494,7 @@ void Game::explosionDamage(vec3 p, float dmg, float radius, int owner, bool gren
       occ = 0.5f * vis(c) + 0.5f * vis(h);
     }
     raw *= occ * combat["explosion"].value("scale", 1.0f);
+    if (s.zombie) raw *= enemyType(s.etype).explosiveMult;   // EN2: heavies take x5 from every blast
     if (raw > 1) damage((int)i, raw, owner, glm::normalize(c - p + vec3(0, 1e-3f, 0)), "blast");
   }
 }
