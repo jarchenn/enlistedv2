@@ -636,8 +636,11 @@ bool navNewMapSized(App& app, const TemplateInfo& t, const std::string& name, ve
 }
 
 static void newMapDialog(App& app) {
-  static int W = 600, D = 600;
-  if (app.showNewMap) { ImGui::OpenPopup("New map"); app.showNewMap = false; W = 600; D = 600; }
+  static int W = 300, D = 300;   // UI1: 300 x 300 by default
+  if (app.showNewMap) {
+    ImGui::OpenPopup("New map"); app.showNewMap = false; W = 300; D = 300;
+    for (int k = 0; k < (int)app.templates.size(); ++k) if (app.templates[k].id == "blank_slate") app.newTemplateIdx = k;
+  }
   ImGui::SetNextWindowSize(ImVec2(780, 0), ImGuiCond_Appearing);
   ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, ImGui::GetIO().DisplaySize.y - 40));   // never taller than the screen
   if (!ImGui::BeginPopupModal("New map", nullptr)) return;
@@ -645,34 +648,13 @@ static void newMapDialog(App& app) {
   ImGui::InputText("Map name", app.nameBuf, sizeof app.nameBuf);
   ImGui::Separator();
   bool createNow = false;
-  // the template list scrolls (one 100 px thumbnail row each), so the size fields and the buttons below stay on screen
-  const float rowH = 100 + ImGui::GetStyle().ItemSpacing.y;
-  const float listH = std::min(rowH * (float)app.templates.size() + 8, std::max(200.0f, ImGui::GetIO().DisplaySize.y - 330.0f));
-  ImGui::BeginChild("templates", ImVec2(0, listH), true);
-  for (int k = 0; k < (int)app.templates.size(); ++k) {
-    auto& t = app.templates[k];
-    ImGui::PushID(k);
-    ImGui::BeginDisabled(!t.available);
-    bool sel = app.newTemplateIdx == k;
-    if (t.thumbnail) ImGui::Image((ImTextureID)(intptr_t)t.thumbnail, ImVec2(160, 100), ImVec2(0, 0.8f), ImVec2(1, 0.2f));
-    else ImGui::Dummy(ImVec2(160, 100));
-    ImGui::SameLine();
-    ImGui::BeginGroup();
-    // NoAutoClosePopups: a Selectable inside a popup closes it by default, which shut this dialog on the first click
-    // without creating anything. Double-click creates the map at once.
-    if (ImGui::Selectable(t.name.c_str(), sel, ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_AllowDoubleClick, ImVec2(560, 0))) {
-      app.newTemplateIdx = k; if (t.id != "blank_slate") { W = (int)t.width; D = (int)t.depth; }
-      if (t.available && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) createNow = true;
-    }
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 560);
-    ImGui::TextDisabled("%s", t.description.c_str());
-    ImGui::TextDisabled("%s %.0f x %.0f m", t.id == "blank_slate" ? "Default size" : "Size", t.width, t.depth);
-    if (!t.available) ImGui::TextColored(ImVec4(1, 0.7f, 0.3f, 1), "Not included in this build yet.");
-    ImGui::PopTextWrapPos();
-    ImGui::EndGroup();
-    ImGui::EndDisabled();
-    ImGui::PopID();
-  }
+  // UI1: no template menu: "Blank map" plus four empty slots (future starting maps); the authored maps open from File -> Open
+  ImGui::BeginChild("templates", ImVec2(0, 5 * ImGui::GetFrameHeightWithSpacing() + 8), true);
+  // NoAutoClosePopups: a Selectable inside a popup closes it by default; double-click creates the map at once
+  if (ImGui::Selectable("Blank map", true, ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_AllowDoubleClick) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) createNow = true;
+  ImGui::BeginDisabled();
+  for (int k = 0; k < 4; ++k) { ImGui::PushID(k); ImGui::Selectable("(empty)", false); ImGui::PopID(); }
+  ImGui::EndDisabled();
   ImGui::EndChild();
   ImGui::Separator();
   bool valid = app.newTemplateIdx < (int)app.templates.size();

@@ -174,7 +174,7 @@ public:
   void drawHud();
   void drawDebug();
   // G1 HUD (mpui_modes.cpp)
-  void drawModeBanner(); void drawModePanel(); void drawScoreboardOverlay(); void scoreboardTable();
+  void drawModeBanner(); void drawModePanel(); void drawScoreboardOverlay(); void scoreboardTable(bool full = false);   // UI1: full = the end screen (every row, scrollable)
   bool showScoreboard = false;               // tests: hold the Tab scoreboard open
   bool camera(vec3& eye, vec3& fwd, float& fov);
   Soldier* local() { return localSlot >= 0 && localSlot < (int)sold.size() ? &sold[localSlot] : nullptr; }
