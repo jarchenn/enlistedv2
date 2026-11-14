@@ -364,13 +364,63 @@ void build(App&) {
     return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
+// EN2 --capture-heavies: no checks, a look. The player is a fixed camera 6 m behind a soldier bot (the target and the
+// size reference, with a plain 1.85 m zombie); a brute and a stalker come at the soldier from 10 m beyond him. Frames
+// while they walk in and early / late in each heavy's first strike (selftest_out/heavies_*.png), with the playing clip
+// and head height logged. Nobody falls (hp topped up every frame).
+std::vector<std::pair<fs::path, std::string>> shotQ;
+void buildCapture(App&) {
+  push("capture", [](App& a, float t) {
+    static int z3[3], atk[3], mc0[3], sol; static double t0, atkAt[3]; static float yaw, prev;
+    Game& G = *gGame;
+    if (t == 0) {
+      t0 = -1; prev = 0; for (int k = 0; k < 3; ++k) { z3[k] = -1; atk[k] = 0; atkAt[k] = -1; }
+      chk(startMode(a, GameMode::TDM, 5, 2, 3, AiType::Soldiers, AiType::ZombiesHeavies), "TDM: the player and a soldier v a zombie, a brute, a stalker (%s)", gGame->setupError.c_str());
+      return false;
+    }
+    Soldier* L = G.local();
+    if (!L || !L->alive || !allSpawned(G)) return t > 20 ? (chk(false, "everyone spawns"), true) : false;
+    L->protectUntil = -1; if (L->hp < 3000) L->hp = 5000;
+    if (t0 < 0) {
+      int k = 0; for (auto& s : G.sold) if (s.zombie && k < 3) { s.etype = k; aiZombieAssign(G, s); s.hp = enemyType(k).hp; z3[k++] = s.slot;
+        const EnemyType& e = enemyType(s.etype); if (s.agent >= 0 && e.capsuleH > 0) { Physics::destroyAgent(s.agent); s.agent = Physics::createAgent(s.feet, e.capsuleH, e.capsuleR); } }
+      sol = -1; for (auto& s : G.sold) if (!s.zombie && !s.localPlayer && s.alive) sol = s.slot;
+      vec3 sp; if (sol < 0 || !openPoint(G, L->feet, 6.0f, sp, 0.0f)) { chk(false, "the soldier placed"); return true; }
+      place(G, G.sold[sol], sp);
+      float ang = std::atan2(sp.z - L->feet.z, sp.x - L->feet.x);
+      int ok = 0;
+      for (int j = 0; j < 3; ++j) { vec3 p; if (z3[j] >= 0 && openPoint(G, sp, 10.0f, p, ang + 0.45f * (j - 1))) { place(G, G.sold[z3[j]], p); G.sold[z3[j]].protectUntil = -1; ++ok; } }
+      if (ok < 3) { chk(false, "the three placed (%d)", ok); return true; }
+      for (int j = 0; j < 3; ++j) mc0[j] = G.sold[z3[j]].meleeCount;
+      vec3 d = sp + (sp - L->feet) * 0.35f - L->feet; yaw = glm::degrees(std::atan2(-d.x, -d.z)); t0 = G.t; return false;
+    }
+    a.eyeYaw = yaw; a.eyePitch = -2;   // fixed
+    if (sol >= 0) { G.sold[sol].hp = 5000; G.sold[sol].protectUntil = -1; }
+    for (int k = 0; k < 3; ++k) if (G.sold[z3[k]].alive) G.sold[z3[k]].hp = std::max(G.sold[z3[k]].hp, enemyType(k).hp);
+    float since = (float)(G.t - t0);
+    char line[400]; int n = std::snprintf(line, sizeof line, "t %.2f", since);
+    for (int k = 0; k < 3; ++k) {
+      Soldier& z = G.sold[z3[k]]; const CharModel& m = *G.models[z.model];
+      float hy = vec3(z.world * vec4(z.pose.joint[CJ_HEAD], 1)).y - z.feet.y;
+      n += std::snprintf(line + n, sizeof line - n, " | %s %s %.2fm d%.1f v%.1f", enemyType(k).id.c_str(), z.anim.a >= 0 ? m.clips[z.anim.a].name.c_str() : "-", hy, dXZ(z.feet, sol >= 0 ? G.sold[sol].feet : L->feet), z.speed);
+      if (k > 0 && atkAt[k] < 0 && z.meleeCount > mc0[k]) atkAt[k] = G.t;   // its first strike: frames 0.35 s and 0.8 s in
+      if (k > 0 && atkAt[k] >= 0) { float in = (float)(G.t - atkAt[k]); int stage = in > 0.8f ? 2 : in > 0.35f ? 1 : 0;
+        if (stage > atk[k] && atk[k] < 2) { atk[k] = stage; char nm[64]; std::snprintf(nm, sizeof nm, "heavies_%s_attack%d.png", enemyType(k).id.c_str(), stage); shotQ.push_back({outDir() / nm, line}); } }
+    }
+    for (float w : {0.6f, 1.2f, 1.8f}) if (since >= w && prev < w) { char nm[64]; std::snprintf(nm, sizeof nm, "heavies_walk_%.1f.png", w); shotQ.push_back({outDir() / nm, line}); }
+    if ((int)(since * 4) != (int)(prev * 4)) T->note(line);
+    prev = since;
+    if (pendingShot.empty() && !shotQ.empty()) { pendingShot = shotQ.front().first; T->note("shot " + pendingShot.filename().string() + ": " + shotQ.front().second); shotQ.erase(shotQ.begin()); }
+    return (atk[1] >= 2 && atk[2] >= 2 && shotQ.empty() && pendingShot.empty()) || since > 40; });
+  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+}
 }   // namespace
 
 bool zombiesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--selftest-zombies") mode = 1; }
-  if (mode != 1) return false;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; } }
+  if (mode != 1 && mode != 2) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; T = new MpTest("zombies"); build(app); cur = 0; st = 0; }
+  if (!started) { started = true; T = new MpTest(mode == 2 ? "heavies" : "zombies"); if (mode == 2) buildCapture(app); else build(app); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

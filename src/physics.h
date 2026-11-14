@@ -85,7 +85,7 @@ public:
 
   // ---- agents (multiplayer + AI, physics_agents block in physics.cpp): one CharacterVirtual per bot / remote player
   // with the player's shapes and step rules; agents and the player collide with each other.
-  static int createAgent(vec3 feet);
+  static int createAgent(vec3 feet, float standH = 0, float radius = 0);   // EN2: standH > 0: its own standing capsule (it never crouches)
   static void destroyAgent(int h);
   static void destroyAllAgents();
   static void updateAgent(int h, float dt, vec3 desiredHorizVel, bool jump, int wantPosture, float bodyYaw);
