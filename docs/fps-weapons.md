@@ -639,6 +639,13 @@ The sight is aligned through the zero tilt (`weapons.cpp`), so the round lands o
 - **Sources:** WW2 sources were found in Downloads, `%TEMP%/nmk/mpai_src` and the incoming folders. `kar98k_new.glb` is Downloads' `kar98k (1).glb`, and the bazooka also needs `incoming/weapons_batch/metal046b`.
 - **Rigs load on first equip** (`vm_anim.cpp`): textures are uploaded uncompressed (RGBA8), so all 18 rigs at 2048 would take about 1.7 GB of video memory at start. Only the rigs a player equips now take memory; clip lengths come from `vm.json`.
 
+**Optic rims (M4, MP7).** MG3's M4 cut deleted every face centred near the axis, which opened a wedge in the housing wall and left lit tube faces around the window. `cutLens` now works like this:
+- axis-facing faces are deleted (lenses, plus the inner rims with `all`);
+- with `black`, the inward-facing faces of the bore (within `blackR`) are kept and given a flat black material (`mg1_black`);
+- with `islands`, only whole connected pieces inside the radius are deleted (the MP7's lens discs), leaving its tube intact.
+
+Both optics are now closed from every side, with a solid black rim around the clear window. The M4's clear circle is as large as in MG3.
+
 **AK:** `fps-ak-animated-2` is byte-identical to `fps-ak-animated` (the current `modern_ak`); nothing to replace.
 
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.

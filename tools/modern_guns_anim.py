@@ -149,8 +149,35 @@ if cfg.get("cutLens"):
             bm = bmesh.new(); bm.from_mesh(ob.data); mw = ob.matrix_world
             axn = ab.normalized(); m3 = mw.to_3x3()
             # lens discs only: faces facing along the sight line (the tube walls and hoods face sideways and stay)
-            cut = [f for f in bm.faces if near(mw @ f.calc_center_median())] if c.get("all") else [f for f in bm.faces if abs((m3 @ f.normal).normalized().dot(axn)) > 0.85 and all(near(mw @ v.co) for v in f.verts)]   # "all" (the M4): every face centred inside r (inner tube walls and rims too)
+            facing = lambda f: abs((m3 @ f.normal).normalized().dot(axn)) > 0.85
+            centred = lambda f: near(mw @ f.calc_center_median())
+            # lens discs (and with "all": the inner rims) facing along the line are deleted; with "black" the sideways faces
+            # inside r (tube walls, lens edges) are kept, flat black: the rim reads solid black and the housing stays closed
+            if c.get("islands"):   # MG4 (the MP7): whole connected pieces inside r only (the lens discs); nothing attached to the tube
+                bm.faces.ensure_lookup_table(); seen, cut = set(), []
+                for f0 in bm.faces:
+                    if f0.index in seen: continue
+                    isl, stk = [], [f0]; seen.add(f0.index)
+                    while stk:
+                        g = stk.pop(); isl.append(g)
+                        for e in g.edges:
+                            for h in e.link_faces:
+                                if h.index not in seen: seen.add(h.index); stk.append(h)
+                    if all(near(mw @ v.co) for g in isl for v in g.verts): cut += isl
+            else: cut = [f for f in bm.faces if facing(f) and (centred(f) if c.get("all") else all(near(mw @ v.co) for v in f.verts))]
             if cut: log.setdefault("lensFaces", []).append([ob.name, len(cut)])
+            if c.get("black"):
+                blk = bpy.data.materials.get("mg1_black") or bpy.data.materials.new("mg1_black")
+                blk.use_nodes = True; bs = blk.node_tree.nodes["Principled BSDF"]
+                bs.inputs["Base Color"].default_value = (0.004, 0.004, 0.004, 1); bs.inputs["Roughness"].default_value = 1.0; bs.inputs["Metallic"].default_value = 0.0
+                if blk.name not in [m.name for m in ob.data.materials if m]: ob.data.materials.append(blk)
+                bi = [m.name if m else "" for m in ob.data.materials].index(blk.name); cs = set(cut); nb = 0
+                for f in bm.faces:
+                    if f in cs or facing(f): continue
+                    cw = mw @ f.calc_center_median(); t = max(0.0, min(1.0, (cw - A_).dot(ab) / L2)); rad = cw - (A_ + ab * t)
+                    if rad.length <= c.get("blackR", c["r"]) / s and (m3 @ f.normal).dot(rad) < 0:   # inward-facing (the bore; "blackR" may reach wider than the cut); the outer housing keeps its finish
+                        f.material_index = bi; nb += 1
+                log.setdefault("blackFaces", []).append([ob.name, nb])
             bmesh.ops.delete(bm, geom=cut, context="FACES"); bm.to_mesh(ob.data); bm.free()
 # ---------------------------------------------------------------- MG2: decimate heavy meshes (before the armature; weights kept)
 for name, ratio in cfg.get("decimate", {}).items():
