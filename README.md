@@ -1,8 +1,6 @@
 # Normandy Mapmaker
 
-A first-person WWII map builder, starting with Normandy in 1944. In **Creative** mode you fly over the terrain and place furnished buildings. Press **F5** for **Explore** mode, where you walk through the same buildings at human scale: you can open doors, casements and shutters and climb both staircases.
-
-This build is **milestone 1** of the spec: Blank Slate, a furnished two-storey farmhouse, placement, hinge animation, two independent staircases, first-person collision, and save/load. The catalog now has 14 enterable assets: 2 houses, 4 small buildings, 4 bunkers and 4 large buildings of 3-5 floors. Each one was added only as an asset definition, with no changes to the editor or movement code. See [docs/STATUS.md](docs/STATUS.md) for what's done and what's left.
+A first-person WWII map editor and shooter, set in Normandy in 1944. Build a battlefield in **Creative** mode, press **F5** to walk it in first person, then fight over it alone against bots or with friends over LAN. Written from scratch in C++20 on OpenGL 4.5 (Windows), with a Metal port for macOS.
 
 ![Creative](docs/screenshots/00_creative_ui.png)
 
@@ -10,13 +8,55 @@ This build is **milestone 1** of the spec: Blank Slate, a furnished two-storey f
 |---|---|---|
 | ![](docs/screenshots/03_explore_front_door.png) | ![](docs/screenshots/05_furnished_kitchen.png) | ![](docs/screenshots/06_upper_floor_view.png) |
 
-## Run it
+## Main features
 
-1. Build it (see below) or unzip `dist/NormandyMapmaker-win64.zip`.
-2. Run `NormandyMapmaker.exe`. You need Windows 10/11 and a GPU driver that supports OpenGL 4.5.
-3. The app opens on a new **Blank Slate** map. Choose the farmhouse in the asset browser, click the grass to place it, press **M** and click outside the front door, then press **F5**.
+**Map editor**
+- Hundreds of placeable assets: enterable, furnished houses and large buildings, bunkers, ruins, vehicles, field guns and scenery.
+- Terrain sculpting, hills and biome generators, ground paint, water, and a lasso tool for selecting, moving and painting regions.
+- Trenches, fences, barbed wire, walls and hedgerows are drawn as lines; trenches are dug into the terrain.
+- Ready-made maps, including a D-day beach landing and a Chateau town.
 
-Saved maps go in `maps/` next to the executable. **File > Open** also lists the built-in example, `content/examples/farmhouse_regression.nmap.json`, which opens as an unsaved copy so the original is never overwritten.
+**Combat**
+- Game modes: Assault (objectives), Team Deathmatch and Solo, against bots or over LAN, with a zombie AI option.
+- Seven soldier classes (Ranger, Recon, Heavy, Engineer, Machine Gunner, Assaulter, Tanker) with their own weapons and abilities, chosen on a deploy screen with a choice of spawn point.
+- Period weapons with calibrated iron sights and scopes, launchers, a flamethrower, grenades, sticky explosion packs and called-in artillery.
+- Drivable tanks, crewed anti-tank guns and machine-gun emplacements.
+- Destructible walls, roofs, doors and windows; craters; barbed wire that slows you down.
+- Bots that use cover, flank, suppress and clear buildings.
+
+**Rendering**
+- Image-based materials, time of day with a moon and night lighting, cloudy weather with moving cloud shadows, environmental fog and light shafts.
+- Dense grass and foliage, global illumination from light probes, temporal upscaling.
+- Graphics presets from Ultra Low to Ultra.
+
+## Download and install
+
+There are no packaged releases yet, so you build the game from source. It takes a few minutes.
+
+**Windows 10 / 11** (a GPU driver with OpenGL 4.5)
+
+1. Install [CMake](https://cmake.org/download/) 3.24 or newer, [Ninja](https://ninja-build.org/) and a C++20 compiler. The reference toolchain is [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw/releases) (UCRT).
+2. Get the code: press **Code > Download ZIP** on GitHub and unzip it, or clone it:
+
+   ```bash
+   git clone https://github.com/jarchenn/enlistedv2.git
+   ```
+
+3. Configure and build from the project folder (all libraries are downloaded by CMake):
+
+   ```bash
+   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+   ```
+
+   ```bash
+   cmake --build build
+   ```
+
+4. Run `build/NormandyMapmaker.exe`. The `content/` folder is copied next to it; keep them together if you move the game.
+
+**macOS** (Apple silicon): the game runs through a Metal layer kept in a separate repository; it is built the same way with CMake and packaged as an app bundle with `tools/package_mac.sh`.
+
+**First steps:** the game opens in the editor. Use **File > Open** to load D-day or Chateau town, or **File > New** for a blank map; pick an asset and click the ground to place it; press **F5** to walk around; use the **Play** menu to start a match. Saved maps go in `maps/` next to the executable. More build details are under [Build from source](#build-from-source).
 
 ## Controls
 
