@@ -141,7 +141,7 @@ public:
   std::vector<Drop> drops;                   // GM1: weapons AI soldiers dropped on death (host / singleplayer); E picks one up
   std::vector<SpawnOption> outposts;         // GM3 hook: team-built outposts (team = Soldier::team), listed as spawn points
   std::vector<SpawnOption> spawnOptions(int slot) const;   // the slot's markers (role / team) + its team's outposts
-  static constexpr double kDeployAuto = 5.0;
+  static constexpr double kDeployAuto = 10.0;   // GM1b: was 5 s
   double deployOpenedAt = 0; bool deployReady = false; int deploySpawn = -1;   // deploySpawn: index into spawnOptions, -1 = random
   void deployNow();
   void drawDeploy();

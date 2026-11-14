@@ -910,6 +910,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
+    syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     if (glfwWindowShouldClose(win)) {
       if (dirty && !selftest) { confirmQuit = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }
       else break;

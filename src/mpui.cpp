@@ -650,8 +650,7 @@ void Game::drawHud() {
       if (ImGui::Button("Exit", ImVec2(160, 0))) { gUi.wantExit = true; gUi.exitToEditor = true; }   // UI1: back to the editor
     }
     ImGui::End();
-    app.uiCursor = true;
-    if (!app.selftest) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    app.uiCursor = true; app.syncCursor();
   }
   drawDeploy();   // GM1
   if (debugOverlay) drawDebug();

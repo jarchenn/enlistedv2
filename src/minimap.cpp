@@ -82,7 +82,11 @@ MinimapView drawMinimap(App& app, ImDrawList* dl, vec2 p0, vec2 p1, vec2 centre,
   if (layers & (MM_STRUCTURES | MM_CRATES)) {
     for (auto& i : app.doc.instances) {
       const AssetDef* a = app.assetFor(i);
-      if (!a || a->tree.on || !onMap(vec2(i.pos.x, i.pos.z))) continue;
+      if (!a || !onMap(vec2(i.pos.x, i.pos.z))) continue;
+      if (a->tree.on) {   // trees are part of the ground picture: a soft green blot, no outline
+        if (layers & MM_STRUCTURES) dl->AddCircleFilled(iv(v.toScreen(vec2(i.pos.x, i.pos.z))), std::max(1.5f, 2.6f * v.scale), IM_COL32(52, 78, 44, 120), 10);
+        continue;
+      }
       bool crate = !a->crate.is_null() && !a->crate.empty();
       if (crate) {
         if (layers & MM_CRATES) shape(dl, v.toScreen(vec2(i.pos.x, i.pos.z)), 1, 3.5f, 0, IM_COL32(230, 200, 60, 240));
@@ -94,6 +98,7 @@ MinimapView drawMinimap(App& app, ImDrawList* dl, vec2 p0, vec2 p1, vec2 centre,
       quat q = yawQuat(i.yaw);
       ImVec2 p[4]; vec2 cn[4] = {{-hf.x, -hf.y}, {hf.x, -hf.y}, {hf.x, hf.y}, {-hf.x, hf.y}};
       for (int k = 0; k < 4; ++k) { vec3 r = q * vec3(cn[k].x, 0, cn[k].y); p[k] = iv(v.toScreen(vec2(i.pos.x + r.x, i.pos.z + r.z))); }
+      if (!a->enterable) { dl->AddConvexPolyFilled(p, 4, IM_COL32(92, 96, 78, 105)); continue; }   // only buildings and bunkers are drawn as objects; walls, wire, rocks, props blend in as ground features
       dl->AddConvexPolyFilled(p, 4, IM_COL32(170, 165, 150, 220));
       dl->AddPolyline(p, 4, IM_COL32(60, 58, 50, 220), ImDrawFlags_Closed, 1.0f);
     }
@@ -151,6 +156,6 @@ void minimapHud(App& app, bool large) {
     return;
   }
   float s = std::clamp(io.DisplaySize.y * 0.22f, 140.0f, 320.0f);   // the corner map: 200 m across, centred on the player
-  vec2 p0(14, io.DisplaySize.y - s - 14);
+  vec2 p0(io.DisplaySize.x - s - 10, 26 + std::max(12.0f, io.DisplaySize.y / 72.0f) + 8);   // top right, under the FPS counter (app.cpp draws it at y = 26)
   drawMinimap(app, dl, p0, p0 + vec2(s), vec2(e.x, e.z), 200.0f, MM_HUD);
 }

@@ -37,6 +37,29 @@ void SelfTest::moveUpdate(App& app, float dt) {
             std::fabs(m.gravity - 9.81f) < 1e-3f && std::fabs(m.jumpVelocity - 3.1f) < 2e-3f && m.jumpBuffer >= 0.1f && m.jumpBuffer <= 0.2f && m.coyote >= 0.08f && m.coyote <= 0.15f, b);
       summary["movement"] = {{"run", m.run}, {"sprint", m.sprint}, {"crouch", m.crouch}, {"prone", m.prone}, {"gravity", m.gravity}, {"jump", m.jumpVelocity}};
       return true; });
+    // GM1b: one cursor rule. Each UI that needs the mouse frees it and gives it back when closed; unfocused frees it;
+    // then a scripted 400 deg left pan turns all the way (the look path never stops at a screen edge)
+    push("cursor rule + 400 deg pan", [this](App& a, float t) {
+      static float turned, last;
+      if (t == 0) {
+        struct U { const char* name; bool* flag; } uis[] = {{"pause menu", &a.pauseMenu}, {"loadout", &a.showLoadout}, {"weapon rack", &a.rackOpen},
+                                                           {"build palette", &a.build.palette}, {"HUD window (deploy / end screen)", &a.uiCursor}, {"artillery map", &a.artyMapOpen}};
+        std::string bad;
+        for (auto& u : uis) {
+          *u.flag = true; bool freed = a.cursorWanted() == GLFW_CURSOR_NORMAL;
+          *u.flag = false; bool back = a.cursorWanted() == GLFW_CURSOR_DISABLED;
+          if (!freed || !back) bad += std::string(" ") + u.name;
+        }
+        check(bad.empty() && a.cursorWanted(false) == GLFW_CURSOR_NORMAL && a.cursorWanted(true) == GLFW_CURSOR_DISABLED,
+              "cursor: every menu frees it and closing it captures it again; unfocused frees it" + (bad.empty() ? std::string() : ": wrong for" + bad));
+        turned = 0; last = a.eyeYaw; a.scriptedInput = ExploreInput{}; return false;
+      }
+      a.scriptedInput.dyaw = 4.0f;   // left
+      float d = a.eyeYaw - last; while (d > 180) d -= 360; while (d < -180) d += 360; turned += d; last = a.eyeYaw;
+      if (turned < 400 && t < 6) return false;
+      a.scriptedInput = ExploreInput{};
+      check(turned >= 400, "scripted left pan after the menus: turned " + std::to_string((int)turned) + " deg (want 400)");
+      return true; });
     auto speedTest = [this](const char* name, vec2 mv, bool sprint, int pose, float want, bool slow) {
       return [this, name, mv, sprint, pose, want, slow](App& a, float t) {
         static vec3 p0;

@@ -93,7 +93,7 @@ bool App::snapDefense(const AssetDef* a, vec3& pos, float& yaw, int* matchedSock
 void App::setBuildPalette(bool open) {
   if (build.palette == open) return;
   build.palette = open;
-  if (!selftest && win && mode == Mode::Explore && !pauseMenu) glfwSetInputMode(win, GLFW_CURSOR, open ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+  syncCursor();
 }
 
 void App::builderKeys(ExploreInput& in) {
@@ -481,7 +481,7 @@ void App::drawBuilderUI() {
   ImDrawList* dl = ImGui::GetForegroundDrawList(); ImGuiIO& io = ImGui::GetIO();
   if (!build.active && build.palette) setBuildPalette(false);   // left build mode some other way (tank, mode change)
   if (build.active && build.palette && !pauseMenu) {   // the editor's Assets palette (palette.cpp)
-    if (!selftest && glfwGetInputMode(win, GLFW_CURSOR) != GLFW_CURSOR_NORMAL) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);   // e.g. after the pause menu
+    syncCursor();   // e.g. after the pause menu
     ImGui::SetNextWindowPos(ImVec2(10, 54), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(340, std::max(300.0f, io.DisplaySize.y - 140)), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Build: assets", nullptr, ImGuiWindowFlags_NoCollapse)) {

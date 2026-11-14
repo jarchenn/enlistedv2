@@ -141,7 +141,11 @@ public:
   float eyeYaw = 0, eyePitch = 0, eyeHeight = 1.62f;
   bool pauseMenu = false;
   bool uiCursor = false;   // set each frame by a HUD window that needs the mouse (match result)
+  // GM1b: THE list of "a UI wants the mouse" conditions (Explore). Add a new menu here, never call glfwSetInputMode.
   bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor || artyMapOpen; }
+  int cursorWanted(bool focused = true) const;   // GLFW_CURSOR_NORMAL / _DISABLED for the current mode and UI state
+  bool syncCursor();                             // the only place the cursor mode is set; each frame (main loop) and on UI changes
+  int cursorSettle = 0, cursorChanges = 0;       // frames whose look delta is dropped after a mode / focus change; count
   vec3 exploreStartPos{0}; float exploreStartYaw = 0;
   InteractTarget target;
   float physAccum = 0;

@@ -213,7 +213,8 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   if (occupied || weaponDefs.empty() || mode != Mode::Explore) return;
   const WeaponDef& d = *weaponDefs[activeWeapon];
   const WeaponState& s = wstate[d.id];
-  mat4 M = viewModelMatrix(d, s);   // scoped too: the receiver, bolt and stock show around the eyepiece (render.cpp eyepiece pass)
+  if (scopeView()) return;   // GM1b: scoped, only the eyepiece shows (black outside the circle, no weapon)
+  mat4 M = viewModelMatrix(d, s);
   if (swimLower() >= 0.999f) { armDrawItems(M, d, s); return; }   // swimming (swim.cpp): weapon slung, hands-only stroke
   bool tex = d.useModel();
   // reload progress drives an imported reload clip (Garand: clip seats, follower and operating rod cycle)
