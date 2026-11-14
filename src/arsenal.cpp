@@ -66,6 +66,7 @@ void App::loadMoveSettings() {
     move.staminaJump = s.value("jumpCost", move.staminaJump); move.staminaRegen = s.value("regen_per_s", move.staminaRegen);
     move.staminaDelay = s.value("regenDelay_s", move.staminaDelay);
     move.staminaLowRegen = s.value("crouchProneRegen_x", move.staminaLowRegen);
+    if (s.contains("regenFull_s")) move.staminaRegen = move.staminaMax / std::max(0.5f, s.value("regenFull_s", 10.0f));   // GM1: "whole bar in X s" wins over regen_per_s
   }
   loadClimbSettings(j);   // vault + mantle (mantle.cpp)
   loadSwimSettings(j);    // swimming, breath (swim.cpp)
@@ -91,7 +92,7 @@ void App::capCarried(std::vector<int>& c) const {
   for (int w : c) {
     if (w < 0 || w >= (int)weaponDefs.size() || std::find(m.begin(), m.end(), w) != m.end() || std::find(kn.begin(), kn.end(), w) != kn.end() || std::find(gr.begin(), gr.end(), w) != gr.end()) continue;
     const WeaponDef& d = *weaponDefs[w];
-    (d.melee.on ? kn : d.grenade.on ? gr : m).push_back(w);
+    (d.melee.on ? kn : d.grenade.on || d.pack.on ? gr : m).push_back(w);
   }
   if (m.size() > 2) m.resize(2);
   c = m; c.insert(c.end(), kn.begin(), kn.end()); c.insert(c.end(), gr.begin(), gr.end());
@@ -108,7 +109,7 @@ std::vector<int> App::stackRows() const {
 void App::resetLoadout() {
   carried.clear();
   for (const char* id : {"m1_garand", "m1_thompson"}) if (weaponIndex(id) >= 0) carried.push_back(weaponIndex(id));
-  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);
+  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && !weaponDefs[k]->pack.on && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);   // GM2: packs only by grant
   capCarried(carried);
   if (!carried.empty() && std::find(carried.begin(), carried.end(), activeWeapon) == carried.end()) activeWeapon = carried[0];
   closeRack("reset");

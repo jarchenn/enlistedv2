@@ -16,6 +16,7 @@
 // and defences register), so it can never pass through anything. There is no actor health in this engine.
 #include "app.h"
 #include "mpai.h"
+#include "abilities.h"
 #include <algorithm>
 #include <glm/gtx/quaternion.hpp>
 
@@ -30,6 +31,11 @@ void App::loadEquipment(WeaponDef& d, const json& j) {
     d.grenade.linDamp = gf(g, "linearDamping", 0.4f); d.grenade.rollDamp = gf(g, "rollingDamping", 3.0f);
     d.grenade.windup = gf(g, "windup", 0.32f); d.grenade.ready = gf(g, "ready", 0.9f); d.grenade.volume = gf(g, "volume", 0.8f);
     d.grenade.smoke = g.is_object() && g.value("smoke", false);
+  }
+  if (j.contains("pack")) {   // GM2 explosion pack
+    const json& p = j["pack"]; d.pack.on = true;
+    d.pack.fuse = gf(p, "fuse", 10.0f); d.pack.damage = gf(p, "damage", 450.0f); d.pack.radius = gf(p, "radius", 6.0f);
+    d.pack.crater = gf(p, "crater", 0.4f); d.pack.reach = gf(p, "reach", 2.2f);
   }
   if (j.contains("melee")) {
     const json& m = j["melee"]; d.melee.on = true;
@@ -104,6 +110,7 @@ void App::stepGrenades(float dt) {
 void App::clearGrenades() {
   for (auto& g : grenades) Physics::remove(g.body);
   grenades.clear(); quickReturn = -1;
+  gm2Reset(*this);   // GM2: live packs, strikes, grants
 }
 
 void App::grenadeDrawItems() {
@@ -131,6 +138,15 @@ void App::stepEquipment(float dt, const ExploreInput& in, const WeaponDef& d, We
       }
     }
     if (s.loaded == 0 && s.containers.empty() && s.throwT < 0) weaponMsg = d.name + ": none left";
+  }
+  if (d.pack.on) {   // GM2: LMB places one on the surface in reach (abilities.cpp); the next comes out of the pouch
+    if (s.loaded == 0 && s.cooldown <= 0 && !s.containers.empty()) { s.containers.pop_back(); s.loaded = 1; }
+    if (fireHeld && s.triggerReleased && s.loaded > 0 && s.cooldown <= 0) {
+      s.triggerReleased = false; std::string why;
+      if (gm2PlacePack(*this, weaponIndex(d.id), eyePos(), forward(eyeYaw, eyePitch), -1, &why)) { s.loaded -= 1; s.cooldown = 0.8f; }
+      else weaponMsg = why;
+    }
+    if (s.loaded == 0 && s.containers.empty()) weaponMsg = d.name + ": none left";
   }
   if (d.melee.on) {
     if (s.throwT < 0 && fireHeld && s.triggerReleased && s.cooldown <= 0) { s.throwT = 0; s.triggerReleased = false; meleeHits.clear(); s.struck = false; }

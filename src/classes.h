@@ -21,7 +21,7 @@ struct ClassDef {
   bool drivesTanks = false;              // only these may enter / drive tanks
   float hpMul = 1, staminaMul = 1;       // Assaulter 1.25 / 1.5
   float botWeight = 1;                   // relative share among bots
-  const ClassSide& side(const std::string& faction) const { return faction == "DE" ? de : us; }
+  const ClassSide& side(const std::string& faction) const { return faction == "DE" || faction == "Axis" ? de : us; }   // "US"/"Allies", "DE"/"Axis"
 };
 
 bool loadClasses(const fs::path& file, std::string& err);   // replaces the table; false (table kept empty) on a bad file

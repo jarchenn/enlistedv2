@@ -26,6 +26,13 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.grass = 1; g.grassWind = false; g.renderDist = presetsOld() ? 600 : 450; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
+  } else if (p == GfxPreset::UltraLow) {   // PERF1: below Low - no reflections / AO / bloom / shafts / cloud shadows, static vegetation, shortest distances, lowest scale
+    g.resScale = 0.5f; g.shadowQuality = 0;
+    g.shafts = false; g.ssr = false; g.ssao = false; g.bloom = false; g.cloudShadows = false;
+    g.cloudQuality = 0;
+    g.grass = 1; g.grassWind = false; g.renderDist = 300; g.particles = 0.4f; g.ivy = false; g.dustMotes = 0;
+    g.lightCount = 32; g.shadowLights = 0; g.gi = 0;
+    g.materials = 0;
   } else if (p == GfxPreset::High) {
     g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;   // P1: High stays native
     g.shafts = true;                                     // WX1: the marched sun shafts are High only (Low / Medium: the fog's sun glow)
@@ -36,10 +43,10 @@ GraphicsOpts presetOpts(GfxPreset p) {
   }
   return g;
 }
-const char* presetName(GfxPreset p) { return p == GfxPreset::Low ? "Low" : p == GfxPreset::Medium ? "Medium" : p == GfxPreset::High ? "High" : "Custom"; }
+const char* presetName(GfxPreset p) { return p == GfxPreset::UltraLow ? "Ultra Low" : p == GfxPreset::Low ? "Low" : p == GfxPreset::Medium ? "Medium" : p == GfxPreset::High ? "High" : "Custom"; }
 
 GfxPreset UserSettings::preset() const {
-  for (GfxPreset p : {GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) if (gfx == presetOpts(p)) return p;
+  for (GfxPreset p : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) if (gfx == presetOpts(p)) return p;
   return GfxPreset::Custom;
 }
 
@@ -56,7 +63,7 @@ json UserSettings::toJson() const {
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
-                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}}},
+                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}}},
     {"controls", k},
     {"interface", {{"uiScale", uiScale}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
@@ -70,7 +77,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     const json& q = j["graphics"]; GraphicsOpts& g = u.gfx;
     // a named preset is the starting point; explicit values on top make it Custom when they differ
     std::string pn = q.value("preset", std::string("Medium"));
-    g = presetOpts(pn == "Low" ? GfxPreset::Low : pn == "High" ? GfxPreset::High : GfxPreset::Medium);
+    g = presetOpts(pn == "Ultra Low" ? GfxPreset::UltraLow : pn == "Low" ? GfxPreset::Low : pn == "High" ? GfxPreset::High : GfxPreset::Medium);
     g.resScale = std::clamp(q.value("resolutionScale", g.resScale), 0.5f, 1.0f);
     g.shadowQuality = std::clamp(q.value("shadowQuality", g.shadowQuality), 0, 2);
     g.farCascade = q.value("farCascade", g.farCascade); g.cloudShadows = q.value("cloudShadows", g.cloudShadows);
@@ -95,7 +102,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.mouseSens = std::clamp(q.value("mouseSensitivity", u.mouseSens), 0.01f, 1.0f); u.adsSens = std::clamp(q.value("adsSensitivity", u.adsSens), 0.2f, 2.0f);
     u.invertY = q.value("invertY", u.invertY); u.reducedMotion = q.value("reducedMotion", u.reducedMotion);
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
-    u.weaponList = q.value("weaponList", u.weaponList);
+    u.weaponList = q.value("weaponList", u.weaponList); u.friendlyMarkers = q.value("friendlyMarkers", u.friendlyMarkers);
   }
   if (j.contains("audio") && j["audio"].is_object()) {
     const json& q = j["audio"];
@@ -220,7 +227,7 @@ void Settings::apply(App& app) {
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
-  app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList;
+  app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList; app.friendlyMarkers = s.friendlyMarkers;
   app.audio.setGains(s.master, s.effects, s.ui, s.ambience);
   if (ImGui::GetCurrentContext()) ImGui::GetIO().FontGlobalScale = s.uiScale;
   // editor camera: fly speed is the Alt+wheel multiplier; orbit / zoom scale the content/settings/editor.json values
@@ -240,7 +247,7 @@ void Settings::capture(const App& app) {
   g.lightCount = R.lt.maxLights; g.shadowLights = R.lt.shadowLights; g.gi = R.lt.gi; s.hour = R.lt.hour;
   g.grass = (int)app.grass.quality; g.grassWind = app.grass.nearWind;
   g.msaa = R.msaa(); g.ivy = app.ivyOn; g.materials = R.q.matLayer;
-  s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers; s.weaponList = app.showWeaponList;
+  s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers; s.weaponList = app.showWeaponList; s.friendlyMarkers = app.friendlyMarkers;
   s.editorFly = navState().speedMult;
 }
 
@@ -304,9 +311,12 @@ void settingsWindow(App& app) {
     // ------------------------------------------------ graphics
     if (ImGui::BeginTabItem("Graphics")) {
       GraphicsOpts& g = u.gfx;
-      int pr = (int)u.preset(); const char* pn[] = {"Low", "Medium", "High", "Custom"};
+      // the list in quality order; GfxPreset keeps its stored values (Ultra Low was appended as 4)
+      const GfxPreset order[5] = {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High, GfxPreset::Custom};
+      const char* pn[] = {"Ultra Low", "Low", "Medium", "High", "Custom"};
+      int pr = 4; for (int k = 0; k < 5; ++k) if (order[k] == u.preset()) pr = k;
       ImGui::SetNextItemWidth(200);
-      if (ImGui::Combo("Preset", &pr, pn, 4) && pr != (int)GfxPreset::Custom) g = presetOpts((GfxPreset)pr);
+      if (ImGui::Combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 85 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
       ImGui::Separator();
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
@@ -381,6 +391,7 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Show arms", &u.showArms);
       ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
       ImGui::Checkbox("Show weapon list", &u.weaponList);
+      ImGui::Checkbox("Friendly markers over teammates", &u.friendlyMarkers);
       { extern void goreOptionsUI(); goreOptionsUI(); }   // gore_user.json (gore.cpp)
       ImGui::EndTabItem();
     }

@@ -160,6 +160,8 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   return true;
 }
 
+void mpaiSetBlastOwner(int owner) { gProjOwner = owner; }   // GM2: packs / artillery (owner -1 = the local player)
+
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits) {
   if (gNet && gNet->role == Net::HOST && gGame && gGame->active)
     gNet->hostWorldEvent(json{{"t", "ex"}, {"p", tojson(p)}, {"d", tojson(dir)}, {"dmg", dmg}, {"r", radius}, {"cs", craterScale}, {"wk", wallKind}, {"at", app.blastAT}, {"sg", app.blastSplashGun}, {"fx", !gInGrenadeBlast || true}});

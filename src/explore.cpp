@@ -1,6 +1,7 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
 #include "minimap.h"
+#include "abilities.h"
 #include "crumb.h"
 #include "settings.h"
 #include "mpai.h"
@@ -331,6 +332,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   bool rising = riseT < riseDur;
   bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising && stamina > 1.0f;   // Shift while aiming holds the breath; no sprint while lowered, getting up or out of stamina
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
+  if (activeWeapon >= 0 && activeWeapon < (int)weaponDefs.size()) speed *= weaponDefs[activeWeapon]->moveSpeed;   // GM1: only the weapon in hand (knife 1.3)
   if (rising) speed = std::min(speed, riseSpeed);   // still getting up: the lower posture's pace
   speed *= traversalFactor(Physics::character().pos);   // inside a "slow" wire volume
   Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity; Physics::tuning.jumpBuffer = move.jumpBuffer; Physics::tuning.coyote = move.coyote;
@@ -380,6 +382,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   stepRack(in);
   if (in.packUp && !occupied && !rackOpen) packUpHeavy();
   if (occupied) { if (in.interact) { logf("station: leave on interact"); leaveStation(); } }
+  else if (in.interact && !showLoadout && !rackOpen && !choiceFor && mpaiPickupWeapon(*this)) {}   // GM1: E on a weapon an AI dropped
   else if (!showLoadout && !rackOpen && !choiceFor && tanks.handleInteract(*this, in)) {}   // E on a tank: enter
   else if (showLoadout || rackOpen) {}
   else if (choiceFor) {
@@ -393,6 +396,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     else toggleInteract(target.inst, target.idx);
   }
   stepProjectiles(dt);
+  gm2NearMisses(*this, dt);   // GM2: enemy rounds past the eye (suppression vignette)
   fx.update(dt, terrain);
   if (c.pos.y < -60) { returnToStart(); toast("Fell out of the world: returned to start."); }
 }
@@ -464,6 +468,7 @@ void App::updateExplore(float dt) {
     in.slot3 = kp(win, bk("slot3")); in.slot4 = kp(win, bk("slot4"));   // G4: knife, grenades
     in.nextWeapon = kp(win, bk("nextWeapon"));
     if (kp(win, bk("map"))) mapLarge = !mapLarge;   // GM2: the large map (rebindable, UI1)
+    if (kp(win, bk("artillery"))) gm2ToggleArtyMap(*this);   // GM2: artillery (ability; rebindable, default 7)
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
   // Edge presses (kp: Space, E, R, ...) and station hand-wheel deltas seen on a frame that runs no fixed step (any
@@ -501,6 +506,7 @@ void App::updateExplore(float dt) {
   stepDynLeaves(dt);
   interior.step(*this, dt);
   stepGrenades(dt);
+  gm2Step(*this, dt);   // GM2: packs, artillery, near misses
 }
 
 void App::drawExploreUI() {
@@ -532,7 +538,8 @@ void App::drawExploreUI() {
     dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
     if (tanks.occupied) tanks.drawUI(*this);
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
-    if (showMinimap || mapLarge) minimapHud(*this, mapLarge);   // GM2
+    if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2
+    gm2Hud(*this);   // GM2: suppression vignette, the artillery map
     if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
   }
   drawDamageDebug();
@@ -564,11 +571,11 @@ void App::drawExploreUI() {
 
 // stamina bar: under the breath bar, only while not full; amber when a jump is no longer affordable
 void App::drawStaminaUI() {
-  if (stamina >= move.staminaMax - 0.01f) return;
+  if (stamina >= staminaCap() - 0.01f) return;
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   float W = 240, H = 6, x = io.DisplaySize.x * 0.5f - W * 0.5f, y = io.DisplaySize.y - 112;
-  float f = std::clamp(stamina / std::max(0.01f, move.staminaMax), 0.0f, 1.0f);
+  float f = std::clamp(stamina / std::max(0.01f, staminaCap()), 0.0f, 1.0f);
   ImU32 col = stamina < move.staminaJump ? IM_COL32(230, 150, 60, 230) : IM_COL32(225, 225, 210, 220);
   dl->AddRectFilled(ImVec2(x - 2, y - 2), ImVec2(x + W + 2, y + H + 2), IM_COL32(10, 14, 18, 150), 3);
   dl->AddRectFilled(ImVec2(x, y), ImVec2(x + W * f, y + H), col, 2);

@@ -95,7 +95,8 @@ void FlameSys::step(App& app, float dt) {
   Fx& fx = app.fx;
   const bool host = hostSim();
   Game* G = gGame;
-  const bool roomForFlame = fx.parts.size() < fx.maxParts * 0.8f, roomForSmoke = fx.parts.size() < fx.maxParts * 0.9f;
+  // PERF1 (user, 2026-11-14): the flamethrower's fire makes no smoke at all - nozzle, stream and ground fire
+  const bool roomForFlame = fx.parts.size() < fx.maxParts * 0.8f, roomForSmoke = false;
   // ---- nozzles: flare, light is gathered separately, the roar follows the nozzle
   static bool roarReady = false;
   if (!roarReady && !nz_.empty()) { roarReady = true; app.audio.addSound("flame_roar", makeRoar()); }

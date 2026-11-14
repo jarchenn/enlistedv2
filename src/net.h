@@ -58,6 +58,7 @@ public:
   void clientFire(vec3 from, vec3 dir, int weapon, int tracer);   // tracer: tracerKindFor()
   void clientFlame(vec3 from, vec3 dir, int weapon, float dt);    // FT1: the flamethrower's nozzle was open for dt (10 Hz while firing)
   void clientReload();
+  void clientDeploy(const std::string& cls, int p0, int p1);   // GM1: class choice for the next spawn
   void clientThrow(int kind, vec3 vel);
   void clientInteract(uint64_t inst, int idx);
   void clientRequest(const json& m);        // gun / gfire / greload / rack / crate / build (validated by the host)

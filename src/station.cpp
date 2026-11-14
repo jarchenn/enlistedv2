@@ -469,6 +469,7 @@ void App::stationFinishReload(StationRT& s, const StationDef& d) {
 std::string App::crateTransaction(uint64_t crateId, WeaponState* who, int whoWeapon) {
   Instance* c = doc.find(crateId);
   if (!c || !crateStock.count(crateId)) return "Not a supply crate.";
+  if ((who ? who->reload : (activeWeapon >= 0 && activeWeapon < (int)weaponDefs.size() ? wstate[weaponDefs[activeWeapon]->id].reload : 0.0f)) > 0) return "Finish reloading first.";   // GM1: no resupply mid-reload
   if (!who && mpaiCrateRequest(*this, crateId)) return "Asking the host for ammunition...";   // LAN client: the host moves the rounds
   auto& stock = crateStock[crateId];
   struct OnChange { App& a; uint64_t id; std::map<std::string, int> was; ~OnChange() { if (a.crateStock[id] != was) mpaiCrateChanged(a, id); } } onChange{*this, crateId, stock};   // LAN host: the stock replicates

@@ -67,7 +67,7 @@ void App::buildWeaponMeshes() {
       fd.patchSeconds = f.value("patchSeconds", fd.patchSeconds); fd.patchRadius = f.value("patchRadius", fd.patchRadius); fd.patchDps = f.value("patchDps", fd.patchDps);
       fd.botRange = f.value("botRange", fd.botRange); fd.botBurst = f.value("botBurstSeconds", fd.botBurst); fd.botPause = f.value("botPauseSeconds", fd.botPause);
     }
-    d->laterWar = j.value("laterWar", false); d->showArms = j.value("arms", true);
+    d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
     {
@@ -519,13 +519,14 @@ std::string stackAmmoText(App& a, int w) {
   if (w < 0) return "";
   const WeaponDef& d = *a.weaponDefs[w]; const WeaponState& s = a.wstate[d.id];
   if (d.melee.on) return "";
-  if (d.grenade.on) return std::to_string(s.loaded + (int)s.containers.size());
+  if (d.grenade.on || d.pack.on) return std::to_string(s.loaded + (int)s.containers.size());
   if (d.flame.on) return std::to_string(s.loaded) + " %";   // fuel: the tank in percent
   return std::to_string(s.loaded) + "/" + std::to_string(s.reserveRounds());
 }
 static std::string readoutModeName(App& a, const WeaponDef& d, const WeaponState& s) {
   if (d.melee.on) return "Melee";
   if (d.grenade.on) return "Thrown";
+  if (d.pack.on) return "Placed (10 s fuse)";
   std::string m = a.fireModeName(d, s);
   if (m == "FLAME") return "Flame";
   if (m == "AUTO") return "Full-auto";
@@ -543,7 +544,7 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
   ImFont* f = ImGui::GetFont(); float fs = ImGui::GetFontSize();
   const float sc = std::clamp(ds.y / 1080.0f, 0.75f, 2.0f), right = ds.x - 28 * sc;
   // ---- readout: large "loaded / reserve" (grenades: the count; the knife: none), the fire mode under it
-  std::string big = d.melee.on ? "" : d.grenade.on || d.flame.on ? stackAmmoText(*this, activeWeapon) : std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds());
+  std::string big = d.melee.on ? "" : d.grenade.on || d.flame.on || d.pack.on ? stackAmmoText(*this, activeWeapon) : std::to_string(s.loaded) + " / " + std::to_string(s.reserveRounds());
   float bigSz = fs * 2.1f * sc, midSz = fs * 1.15f * sc, smSz = fs * 1.0f * sc;
   std::string mode = readoutModeName(*this, d, s);
   ImVec2 mt = f->CalcTextSizeA(midSz, 1e9f, 0, mode.c_str());

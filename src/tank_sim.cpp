@@ -1,6 +1,7 @@
 // Tanks, Explore simulation: session state, driving, turret / gun, hatch MG, HE/AP loading, damage rules, wrecks,
 // entry / exit, effects and persistence. docs/tanks.md
 #include "app.h"
+#include "mpai.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 
@@ -176,6 +177,7 @@ bool TankSys::handleInteract(App& app, const ExploreInput& in) {
   if (!in.interact || occupied || !target) return false;
   TankRT* t = get(target);
   if (t && t->wrecked) { app.toast(t->def->name + " is destroyed.", 3); return true; }
+  if (!mpaiMayDriveTanks(app)) { app.toast("Only a Tanker can drive tanks.", 3); return true; }   // GM1
   enter(app, target);
   return true;
 }

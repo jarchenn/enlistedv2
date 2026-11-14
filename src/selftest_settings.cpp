@@ -86,6 +86,11 @@ bool settingsSelfTest(App& app, float dt) {
     T->check(u.preset() == GfxPreset::Custom && b.s.toJson()["graphics"].value("preset", "") == "Custom", "a changed preset value is stored and reported as Custom");
     { std::ofstream(rt) << R"({"graphics":{"preset":"Low"}})"; Settings c; c.load(rt);
       T->check(c.s.preset() == GfxPreset::Low && c.s.fov == 72.0f && c.s.mouseSens == 0.1f, "a file naming only a preset loads that preset with default everything else"); }
+    { std::ofstream(rt) << R"({"graphics":{"preset":"Ultra Low"}})"; Settings c; c.load(rt);   // PERF1: below Low
+      GraphicsOpts ul = presetOpts(GfxPreset::UltraLow), lo2 = presetOpts(GfxPreset::Low);
+      T->check(c.s.preset() == GfxPreset::UltraLow && c.s.toJson()["graphics"].value("preset", "") == "Ultra Low" && !ul.ssr && !ul.ssao && !ul.bloom && !ul.shafts && !ul.grassWind
+               && ul.renderDist < lo2.renderDist && ul.resScale <= lo2.resScale && (int)GfxPreset::UltraLow == 4,
+               "Ultra Low: loads and saves by name, no reflections / AO / bloom / shafts, static vegetation, a shorter render distance than Low (stored as preset 4)"); }
     { std::ofstream(rt) << R"({"graphics":{"preset":"Medium","drawDistance":1.5}})"; Settings c; c.load(rt);   // PF2: the old multiplier key
       T->check(std::fabs(c.s.gfx.renderDist - 1800.0f) < 0.5f && c.s.toJson()["graphics"].value("renderDistance", 0.0f) == 1800.0f,
                "render distance: an old file's drawDistance x1.5 migrates to 1800 m and is saved as renderDistance"); }

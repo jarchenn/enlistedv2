@@ -52,11 +52,14 @@ struct WeaponDef {
                       damage = 80, radius = 5, crater = 0.12f, windup = 0.32f, ready = 0.9f, volume = 0.8f,
                       linDamp = 0.4f, rollDamp = 3.0f; bool smoke = false; } grenade;   // smoke: no blast, starts a smoke cloud (mpai)
   struct MeleeDef { bool on = false; float reach = 1.7f, arcDeg = 40; int rays = 5; float windup = 0.12f, strike = 0.1f, cooldown = 0.6f, damage = 35; } melee;
-  bool equipment() const { return grenade.on || melee.on; }
+  // GM2 explosion pack (JSON "pack"; docs/abilities.md): placed on the surface in reach, goes off `fuse` s later
+  struct PackDef { bool on = false; float fuse = 10, damage = 450, radius = 6, crater = 0.4f, reach = 2.2f; } pack;
+  bool equipment() const { return grenade.on || melee.on || pack.on; }
   bool useModel() const { return model && model->vao; }
   int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)
   float adsSpeed = 1;                   // JSON ads.speed: ADS blend rate x this
   bool magReload = false;               // JSON "reloadStyle":"magazine": an en-bloc rifle reloads with the magazine-style hand motion (support hand to the magwell, no handle pull)
+  float moveSpeed = 1;                  // GM1: JSON "moveSpeed": player speed x this while the weapon is in hand (knife 1.3)
   bool showArms = true;                 // JSON "arms": false hides the placeholder first-person arms (until a weapon-specific arm model lands)
   float adsZoom = 0;                    // JSON ads.zoom (> 0): ADS only narrows the world FOV by this fraction; the weapon keeps its hip pose, no sight alignment (flamethrower)
   // flamethrower (FT1, action "flame", JSON "flame"; docs/flamethrower.md): game tuning, not real data

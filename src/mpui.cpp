@@ -4,6 +4,7 @@
 #include "mpui.h"
 #include "w5.h"
 #include "game.h"
+#include "classes.h"
 #include "app.h"
 #include "net.h"
 #include <imgui.h>
@@ -452,6 +453,19 @@ void MpUi::setupWindow(App& app) {
   ImGui::Text("Each attacking slot: 1 initial life + %d respawns = %d lives  ->  %d attacker lives in total", rules.attackerRespawns, lives, lives * rules.attackerAI);
   ImGui::Text("Defenders respawn without limit. Minimum %.0f s from death to respawn.", rules.minRespawnDelay);
   }
+  if (!classDefs().empty()) {   // GM1: classes players may pick (empty list = all); at least one stays on
+    ImGui::SeparatorText("Allowed classes");
+    const auto& C = classDefs();
+    for (size_t k = 0; k < C.size(); ++k) {
+      bool on = rules.classAllowed(C[k].id), was = on;
+      if (k % 4) ImGui::SameLine();
+      ImGui::Checkbox((C[k].us.name + (C[k].de.name != C[k].us.name ? " / " + C[k].de.name : std::string())).c_str(), &on);
+      if (on == was) continue;
+      std::vector<std::string> all; for (auto& c : C) if (rules.classAllowed(c.id)) all.push_back(c.id);
+      if (on) all.push_back(C[k].id); else if (all.size() > 1) all.erase(std::remove(all.begin(), all.end(), C[k].id), all.end());
+      rules.allowedClasses = all.size() == C.size() ? std::vector<std::string>{} : all;
+    }
+  }
   Scenario withRules = s; withRules.rules = rules;   // validate what will be played, not the map's saved defaults
   auto issues = validateScenario(withRules, false);
   bool blocked = false;
@@ -534,7 +548,7 @@ void Game::drawHud() {
   const bool assault = match.mode() == GameMode::Assault;
   if (!assault) { drawModeBanner(); drawModePanel(); }   // G1: Solo / TDM banner, panel, respawn countdown (mpui_modes.cpp)
   drawScoreboardOverlay();                              // G1: held Tab, every mode
-  drawAllyMarkers();                                    // G4: a chevron over every friendly soldier's head
+  if (app.friendlyMarkers) drawAllyMarkers(); else markedSlots.clear();   // G4: a chevron over every friendly soldier's head (GM1: optional)
   // ---- objective sequence across the top: every point, in order, with permanent progress and live occupancy
   int n = (int)match.obj.size();
   float W = std::min(io.DisplaySize.x - 40.0f, 170.0f * n), x0 = (io.DisplaySize.x - W) * 0.5f, y0 = 10, cw = W / std::max(1, n);
@@ -639,6 +653,7 @@ void Game::drawHud() {
     app.uiCursor = true;
     if (!app.selftest) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
+  drawDeploy();   // GM1
   if (debugOverlay) drawDebug();
 }
 

@@ -16,12 +16,14 @@ static int closesocket(SOCKET s) { return close(s); }
 #include "net.h"
 #include "flame.h"
 #include "game.h"
+#include "classes.h"
 #include "mpui.h"
 #include "app.h"
 #include "mpai.h"
 #include "crumb.h"
 #include "rules.h"
 #include "tank.h"
+#include "abilities.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <deque>
@@ -334,6 +336,7 @@ void Net::hostWorldEvent(const json& ev) {
 }
 void Net::clientFire(vec3 from, vec3 dir, int weapon, int tracer) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "fire"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"tr", tracer}}.dump()); }
 void Net::clientFlame(vec3 from, vec3 dir, int weapon, float dt) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "flame"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"dt", dt}}.dump()); }
+void Net::clientDeploy(const std::string& cls, int p0, int p1) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "deploy"}, {"cls", cls}, {"p0", p0}, {"p1", p1}}.dump()); }
 void Net::clientReload() { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "reload"}}.dump()); }
 void Net::clientThrow(int kind, vec3 vel) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "throw"}, {"k", kind}, {"v", tojson(vel)}}.dump()); }
 void Net::sendStats(const json& s) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "stats"}, {"s", s}}.dump()); }
@@ -530,6 +533,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       if (std::fabs(p - it->second.progress[k]) > 0.2f || replay) { it->second.progress[k] = p; for (auto& i : app.doc.instances) if (i.id == inst) app.updateLeafBodies(i, it->second, k); }
       g.doorSeen[(inst << 8) | (uint64_t)k] = ev["dir"].get<int>();
     }
+  } else if (gm2ClientEvent(app, ev)) {   // GM2: a pack placed on the host, artillery incoming
   } else if (t == "cloud") {
     SmokeCloud c; c.id = g.gren.nextId++; c.p = jvec3(ev["p"]); c.start = ev["st"].get<double>(); c.seed = ev["seed"].get<uint32_t>();
     c.radius = ev.value("r", 5.0f); c.build = ev.value("b", 2.0f); c.dense = ev.value("dn", 15.0f); c.fade = ev.value("f", 5.0f);
@@ -611,6 +615,9 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
   int slot = g.match.slotOfPeer(p.id);
   if (slot < 0 || !g.match.slots[slot].human || g.match.slots[slot].peer != p.id) { ++n.rejectedRequests; return; }   // never another slot
   Soldier& s = g.sold[slot];
+  if (t == "deploy") {   // GM1: the class for the next life (dead or alive); checked against the allowed classes at the spawn (Game::chooseClass)
+    s.cls = classIndex(m.value("cls", std::string())); s.clsPick[0] = m.value("p0", 0); s.clsPick[1] = m.value("p1", 0); return;
+  }
   if (!s.alive) { ++n.rejectedRequests; ++n.rejects[t + ": dead"]; return; }
   auto refuse = [&](const char* why, const std::string& msg) {
     ++n.rejectedRequests; ++n.rejects[t + ": " + why];
@@ -730,6 +737,9 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
       hostSwitch(app, s, w);
       p.ch.send(json{{"t", "rack"}, {"w", w}}.dump());
     }
+  } else if (t == "pack" || t == "arty") {   // GM2: place an explosion pack / call artillery (inventory, reach, ability, cooldown)
+    std::string why;
+    if (!gm2HostRequest(app, g, s, slot, m, why)) { ++n.rejectedRequests; ++n.rejects[why]; }
   } else if (t == "crate") {   // resupply from a crate: the host's stock, the soldier's own weapon (whole containers only)
     uint64_t id = m.value("i", 0ull); Instance* ci = app.doc.find(id);
     if (!ci || !app.crateStock.count(id)) { refuse("no crate", ""); return; }

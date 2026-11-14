@@ -9,7 +9,7 @@
 
 class App;
 
-enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3 };
+enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3, UltraLow = 4 };   // PERF1: Ultra Low appended (stored values keep their meaning)
 
 // The part of the graphics options a preset sets. Everything else (FOV, vsync, FPS cap, cloud cover) is personal and
 // kept when a preset is picked.
@@ -53,7 +53,7 @@ struct UserSettings {
   // gameplay
   float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
   float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)
-  bool invertY = false, reducedMotion = false, showArms = true, sightMarkers = false, weaponList = true;
+  bool invertY = false, reducedMotion = false, showArms = true, sightMarkers = false, weaponList = true, friendlyMarkers = true;
   // audio (linear gains 0..1)
   float master = 1.0f, effects = 1.0f, ui = 1.0f, ambience = 1.0f;
   // controls: action -> key name overrides of content/settings/bindings.json (only the ones the user changed)
