@@ -26,3 +26,4 @@ struct EnemyType {
 const std::vector<EnemyType>& enemyTypes();          // never empty (the plain zombie at least)
 const EnemyType& enemyType(int k);                   // clamped
 int enemyTypePick(uint32_t seed);                    // weighted pick over the types (Zombies + heavies)
+int enemyTypeHeavyPick(uint32_t seed, float trollShare);   // EN3 AI type Heavies: "brute" with that share, else "stalker" (by weight among the heavies without those ids)

@@ -18,7 +18,7 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 // code keeps working; friend / foe is always the roster team (Game::hostile).
 enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2 };
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : "Assault"; }
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2 };   // EN1: 2 mixes the enemy types by weight   // per side (G2 implements the zombie brain)
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Heavies = 3 };   // EN1: 2 mixes the enemy types by weight; EN3: 3 trolls and spiders only (heavyTrollPct)   // per side (G2 implements the zombie brain)
 
 constexpr int kScenarioVersion = 2;
 constexpr int kMinObjectives = 1, kMaxObjectives = 10;
@@ -90,6 +90,7 @@ struct ScenarioRules {
   int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills
   int soloPlayers = 8;            // Solo: combatants in all (humans + AI)
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
+  int heavyTrollPct[2] = {35, 35};   // EN3: AI type Heavies, per side: the share of trolls (brutes), the rest spiders (stalkers)
   AiType aiType[2] = {AiType::Soldiers, AiType::Soldiers};   // per team (Assault: [Defender], [Attacker]); Solo uses [0]
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms

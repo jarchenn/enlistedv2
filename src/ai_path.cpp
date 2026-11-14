@@ -11,6 +11,8 @@
 #include "ai_core.h"
 #include "app.h"
 #include "crumb.h"
+#include "enemy_types.h"
+#include "physics.h"
 #include <DetourNavMesh.h>
 #include <DetourCommon.h>
 #include <algorithm>
@@ -53,6 +55,15 @@ float BotFilter::getCost(const float* pa, const float* pb, const dtPolyRef prevR
   }
   for (auto& p : penalties) if (glm::length(vec2(mid.x - p.p.x, mid.z - p.p.z)) < p.r && std::fabs(mid.y - p.p.y) < 2.5f) mul *= 50.0f;
   return base * mul;
+}
+
+bool BotFilter::passFilter(const dtPolyRef ref, const dtMeshTile* tile, const dtPoly* poly) const {
+  if (!dtQueryFilter::passFilter(ref, tile, poly)) return false;
+  if (blocks.empty() || poly->getType() == DT_POLYTYPE_OFFMESH_CONNECTION) return true;
+  vec3 c(0); for (int i = 0; i < poly->vertCount; ++i) { const float* v = &tile->verts[poly->verts[i] * 3]; c += vec3(v[0], v[1], v[2]); }
+  c /= (float)std::max<int>(1, poly->vertCount);
+  for (auto& b : blocks) if (glm::length(vec2(c.x - b.x, c.z - b.z)) < b.w && std::fabs(c.y - b.y) < 2.0f) return false;
+  return true;
 }
 
 // ---------------------------------------------------------------- path service
@@ -153,6 +164,11 @@ std::unique_ptr<BotFilter> AiCore::makeFilter(Soldier& s) {
   f->crowd = tb.crowd; f->crowdCost = tj("pathing", "crowdCost", 0.6f); f->self = s.slot;
   for (int k = 0; k < 4; ++k) f->linkExtra[k] = G.nav.cfg.linkCost[k];
   for (auto& p : m.penalties) if (p.until > G.t) f->penalties.push_back(p);
+  if (s.zombie && s.etype > 0) {   // EN3: a heavy keeps off the spots its type does not fit, and a tall one off low headroom
+    const EnemyType& e = enemyType(s.etype);
+    for (auto& b : heavyBlocks) if (b.type == s.etype && b.until > G.t) f->blocks.push_back(vec4(b.p, 1.0f));
+    if (e.capsuleH > G.nav.cfg.height + 0.05f) f->setExcludeFlags(f->getExcludeFlags() | NF_CROUCH);
+  }
   const Objective* ob = G.match.activeObjective();
   if (ob && s.role == CombatRole::Attacker) {
     f->laneOn = true;
@@ -229,7 +245,41 @@ void AiCore::receivePaths() {
     float sp[64 * 3]; unsigned char sf[64]; dtPolyRef srf[64]; int ns = 0;
     G.nav.query()->findStraightPath(c.getPos(), c.getTarget(), c.getPath(), c.getPathCount(), sp, sf, srf, &ns, 64, 0);
     m.route.clear(); for (int k = 0; k < ns; ++k) m.route.push_back(vec3(sp[k * 3], sp[k * 3 + 1], sp[k * 3 + 2]));
+    if (s.zombie && s.etype > 0 && !heavyFits(s, r.polys)) requestPath(s, m.goal, m.goalRadius, 7.0f, true);   // EN3: around the gap it cannot pass
   }
+}
+
+// EN3 clearance for a heavy: the navmesh is baked for the soldier (radius 0.3, height 1.8), so a heavy's path is checked
+// on arrival: its own capsule (enemy type capsule_height_m / capsule_radius_m, standing 0.45 m up so steps and slopes
+// do not count) is probed at the next kPortals portals, at three points across each; a portal where none fits becomes
+// a block for that type (BotFilter::passFilter excludes the polygons centred within 1 m) and the heavy re-plans.
+bool AiCore::heavyFits(Soldier& s, const std::vector<NavRef>& polys) {
+  const EnemyType& e = enemyType(s.etype);
+  float R = e.capsuleR > 0 ? e.capsuleR : Physics::radius(), H = e.capsuleH > 0 ? e.capsuleH : Physics::standHeight();
+  if (R <= G.nav.cfg.radius + 0.02f && H <= G.nav.cfg.height + 0.05f) return true;   // the bake already fits it
+  constexpr int kPortals = 32; const float lift = 0.45f;
+  float h = std::max(2.0f * R + 0.02f, H - lift);
+  const dtNavMesh* mesh = G.nav.mesh();
+  for (int k = 0; k + 1 < (int)polys.size() && k < kPortals; ++k) {
+    const dtMeshTile* tl = nullptr; const dtPoly* pl = nullptr;   // the edge polys[k] shares with polys[k + 1] (whole edge on tile borders)
+    if (dtStatusFailed(mesh->getTileAndPolyByRef(polys[k], &tl, &pl)) || pl->getType() == DT_POLYTYPE_OFFMESH_CONNECTION) continue;
+    int edge = -1;
+    for (unsigned i = pl->firstLink; i != DT_NULL_LINK; i = tl->links[i].next) if (tl->links[i].ref == polys[k + 1]) { edge = tl->links[i].edge; break; }
+    if (edge < 0 || edge >= pl->vertCount) continue;
+    const float* va = &tl->verts[pl->verts[edge] * 3]; const float* vb = &tl->verts[pl->verts[(edge + 1) % pl->vertCount] * 3];
+    vec3 a(va[0], va[1], va[2]), b(vb[0], vb[1], vb[2]);
+    if (glm::length(a - s.feet) < 1.0f) continue;   // where it stands now
+    bool fit = false;
+    for (float t : {0.5f, 0.25f, 0.75f}) { ++heavyProbes; if (!Physics::capsuleBlocked(glm::mix(a, b, t) + vec3(0, lift, 0), h, R)) { fit = true; break; } }
+    if (!fit) {
+      vec3 c = glm::mix(a, b, 0.5f);
+      for (auto& o : heavyBlocks) if (o.type == s.etype && o.until > G.t && glm::length(o.p - c) < 0.6f) {   // known, and the route still runs through it
+        BotMind& m = mind(s); m.badTarget = s.br.target; m.badUntil = G.t + 6; return true; }                 // that target is out of reach for now
+      heavyBlocks.push_back({c, s.etype, G.t + 90.0}); ++heavyBlocked; return false;
+    }
+  }
+  if (heavyBlocks.size() > 512) heavyBlocks.erase(std::remove_if(heavyBlocks.begin(), heavyBlocks.end(), [&](const HeavyBlock& b) { return b.until <= G.t; }), heavyBlocks.end());
+  return true;
 }
 
 bool AiCore::arrived(Soldier& s, float r) const {

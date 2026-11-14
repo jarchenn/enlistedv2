@@ -99,6 +99,12 @@ void build(App&) {
     const EnemyType& z = E[0];
     chk(E.size() == 3 && z.id == "zombie" && z.hp == 100 && z.damage == 35 && z.reach == 1.6f && z.cooldown == 0.9f && z.walk == 4.0f && z.run == 4.0f && z.scale == 1 && z.staggerMin == 0 && z.knock == 0,
         "enemy types: %zu (plain zombie first, unchanged: hp %.0f, %.0f per blow, reach %.1f m, cooldown %.1f s, %.1f m/s)", E.size(), z.hp, z.damage, z.reach, z.cooldown, z.run);
+    {   // EN3: the AI type Heavies: trolls by the slider's share, the rest spiders, never a plain zombie
+      int n[3][3] = {}; const float share[3] = {0.0f, 0.35f, 1.0f};
+      for (int c = 0; c < 3; ++c) for (uint32_t k = 0; k < 1000; ++k) ++n[c][std::clamp(enemyTypeHeavyPick(k, share[c]), 0, 2)];
+      chk(n[0][0] + n[1][0] + n[2][0] == 0 && n[0][1] == 0 && n[2][2] == 0 && std::abs(n[1][1] - 350) < 40,
+          "Heavies: trolls at 0 %% / 35 %% / 100 %%: %d / %d / %d of 1000 (spiders %d / %d / %d, zombies %d)", n[0][1], n[1][1], n[2][1], n[0][2], n[1][2], n[2][2], n[0][0] + n[1][0] + n[2][0]);
+    }
     for (auto& e : E) {
       std::snprintf(B, sizeof B, "type %-8s scale %.2f lean %.0f hp %.0f damage %.0f reach %.1f lunge %.1f cooldown %.2f attack_rate %.2f walk %.1f run %.1f (within %.0f m) weight %.1f zones x%.2f knock %.1f stagger >= %.0f for %.1f s",
                     e.id.c_str(), e.scale, e.lean, e.hp, e.damage, e.reach, e.lunge, e.cooldown, e.attackRate, e.walk, e.run, std::min(e.runWithin, 9999.0f), e.weight, e.zoneScale, e.knock, e.staggerMin, e.staggerS);
@@ -353,9 +359,8 @@ void build(App&) {
     if (packsEnabled()) ps.check(*A, 100, 5.0f, 80.0f, "mixed"); else T->note("packs off (NMK_ZOMBIE_PACKS=0): pack checks skipped");
     { int all[3] = {0, 0, 0}; for (auto& s : G.sold) if (s.zombie) ++all[std::clamp(s.etype, 0, 2)];
       float tw = 0; for (auto& e : enemyTypes()) tw += e.weight;
-      int np = inPack[0] + inPack[1] + inPack[2]; bool ok = np > 0;
-      for (int k = 0; k < 3 && ok; ++k) ok = std::fabs((float)inPack[k] / np - enemyType(k).weight / tw) < 0.12f;
-      chk(all[1] > 0 && all[2] > 0 && ok && bigPacks > 0 && mixPacks * 2 >= bigPacks, "packs carry the mix: %d zombies, %d brutes, %d stalkers on the side; in packs %d / %d / %d; %d of %d packs of 4+ mix types",
+      (void)tw;   // EN3: heavies path alone, so the packs are plain zombies only
+      chk(all[1] > 0 && all[2] > 0 && inPack[0] > 0 && inPack[1] + inPack[2] == 0 && mixPacks == 0, "the side mixes %d zombies, %d brutes, %d stalkers; packs hold %d zombies and %d / %d heavies (%d of %d packs of 4+ mixed)",
           all[0], all[1], all[2], inPack[0], inPack[1], inPack[2], mixPacks, bigPacks); }
     chk(G.sold.size() == 200 && k0 > 0 && (k1 > 0 || aiZombieBlows() - blows0 >= 3), "both sides fight: soldiers kill %d, zombies kill %d, %d blows in %.0f s", k0, k1, aiZombieBlows() - blows0, t);
     chk(cb.over150() == 0, "100 v 100 mixed: %s", cb.line(G).c_str());

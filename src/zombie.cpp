@@ -95,7 +95,7 @@ bool packCompatible(const Game& G, const Soldier& a, const Soldier& b) { return 
 void maintainPacks(Game& G, AiCore& A) {
   const ZombieCfg& c = zcfg();
   A.packT = G.t + 0.5;
-  std::vector<int> zs; for (auto& s : G.sold) if (s.alive && s.zombie && !s.human) zs.push_back(s.slot);
+  std::vector<int> zs; for (auto& s : G.sold) if (s.alive && s.zombie && !s.human && s.etype == 0) zs.push_back(s.slot);   // EN3: heavies never pack
   bool on = c.packs && (int)zs.size() > c.packMin;
   auto& P = A.packs;
   for (int p = 0; p < (int)P.size(); ++p) {
@@ -144,6 +144,42 @@ void maintainPacks(Game& G, AiCore& A) {
   }
   renumber();
   for (auto& z : P) { BotMind& m = A.mind(G.sold[z.members[0]]); m.speedScale = z.members.size() > 1 ? c.leaderPace : 1.0f; m.flockPush = vec3(0); }
+}
+
+// EN3: a heavy's own target and path. The closest hostile it can reach, re-chosen about every second (a new one must be
+// clearly closer: 0.8 x the distance, 1 m less); a target whose path failed or stops short is skipped for 6 s. Path
+// requests: every 0.5 s near, up to 1.5 s at 80 m+, at most kHeavyPathsPerFrame per frame across all heavies, far ones
+// at a lower priority (the path service starts the most urgent first, ai_path.cpp).
+constexpr int kHeavyPathsPerFrame = 3;
+const Soldier* heavyStep(Game& G, AiCore& A, Soldier& s, BotMind& m) {
+  static uint64_t frame = ~0ull; static int asked = 0;
+  if (G.steps != frame) { frame = G.steps; asked = 0; }
+  Brain& b = s.br;
+  auto ok = [&](int k) { return k >= 0 && k < (int)G.sold.size() && G.sold[k].alive && Game::hostile(s, G.sold[k]); };
+  const Soldier* cur = ok(b.target) ? &G.sold[b.target] : nullptr;
+  if (cur && m.badTarget != cur->slot && G.t - m.pathFailAt < 1.5 && m.pathFails >= 1) { m.badTarget = cur->slot; m.badUntil = G.t + 6; }
+  if (cur && m.badTarget != cur->slot && m.hasPath && m.partial) {
+    const float* e = m.corridor->getTarget();
+    if (zLenXZ(vec3(e[0], e[1], e[2]) - cur->feet) > 3.0f) { m.badTarget = cur->slot; m.badUntil = G.t + 6; }
+  }
+  bool bad = cur && m.badTarget == cur->slot && G.t < m.badUntil;
+  if (!cur || bad || G.t >= m.tgtT) {
+    m.tgtT = G.t + 1.0 + 0.25 * ((s.slot * 37) % 8) / 8.0;   // staggered over the heavies
+    const Soldier* pick = nullptr; float pd = 1e9f;
+    for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !(o.slot == m.badTarget && G.t < m.badUntil)) { float d = glm::length(o.feet - s.feet); if (d < pd) { pd = d; pick = &o; } }
+    float cd = cur && !bad ? glm::length(cur->feet - s.feet) : 1e9f;
+    if (pick && (!cur || bad || pd < 0.8f * cd - 1.0f)) cur = pick;
+    if (!pick && bad) cur = nullptr;
+  }
+  b.target = cur ? cur->slot : -1;
+  if (!cur) { m.speed = SPD_STOP; b.why = "heavy: no one left"; return nullptr; }
+  m.speed = SPD_ZOMBIE; b.why = "heavy: pursuing alone";
+  float d = zLenXZ(cur->feet - s.feet);
+  if (G.t >= b.repathT && (!m.hasPath || zLenXZ(cur->feet - m.goal) > 0.75f) && asked < kHeavyPathsPerFrame) {
+    A.requestPath(s, cur->feet, 0.5f, 6.0f - std::min(4.0f, d / 40.0f), true); ++asked;
+    b.repathT = (float)G.t + std::clamp(0.5f + d / 80.0f, 0.5f, 1.5f);
+  }
+  return cur;
 }
 
 // a follower's local move: slide the corridor's end along the mesh toward `goal` (no path query); false when it cannot get near
@@ -215,6 +251,16 @@ int enemyTypePick(uint32_t seed) {
   for (int k = 0; k < (int)T.size(); ++k) { u -= T[k].weight; if (u < 0) return k; }
   return (int)T.size() - 1;
 }
+int enemyTypeHeavyPick(uint32_t seed, float trollShare) {
+  const auto& T = zcfg().types;
+  int br = -1, st = -1; float tot = 0;
+  for (int k = 1; k < (int)T.size(); ++k) { if (T[k].id == "brute") br = k; if (T[k].id == "stalker") st = k; tot += T[k].weight; }
+  float u = ((seed * 2246822519u + 0x9E3779B9u) >> 8) / 16777216.0f;   // deterministic per slot (host and clients agree)
+  if (br > 0 && st > 0) return u < trollShare ? br : st;
+  if (T.size() < 2) return 0;
+  u *= tot; for (int k = 1; k < (int)T.size(); ++k) { u -= T[k].weight; if (u < 0) return k; }
+  return (int)T.size() - 1;
+}
 float aiZombieSpeed() { return enemyType(0).run; }
 static int gBlows = 0;
 static std::vector<ZombieBlow> gBlowLog;
@@ -250,10 +296,13 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   BotMind& m = A->mind(s);
   Brain& b = s.br;
   m.posture = Physics::STAND; m.action = A_ADVANCE; m.cover = -1;
-  const Soldier* L = m.follower && m.pack >= 0 && m.pack < (int)A->packs.size() ? &G.sold[A->packs[m.pack].members[0]] : nullptr;
+  const bool heavy = s.etype > 0;   // EN3: a heavy paths alone
+  if (heavy && (m.follower || m.pack >= 0)) { m.follower = false; m.pack = -1; m.flockPush = vec3(0); m.speedScale = 1; }
+  const Soldier* L = !heavy && m.follower && m.pack >= 0 && m.pack < (int)A->packs.size() ? &G.sold[A->packs[m.pack].members[0]] : nullptr;
   const Soldier* best = nullptr;
   crumb("zombie: target");
-  if (L && L->alive && L->slot != s.slot) {
+  if (heavy) best = heavyStep(G, *A, s, m);
+  else if (L && L->alive && L->slot != s.slot) {
     followerStep(G, *A, s, m, *L);
     best = b.target >= 0 && b.target < (int)G.sold.size() && G.sold[b.target].alive && zLenXZ(G.sold[b.target].feet - s.feet) < c.breakOff ? &G.sold[b.target] : nullptr;
     m.speed = SPD_ZOMBIE; b.why = best ? "zombie: pack, striking" : "zombie: pack, following";

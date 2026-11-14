@@ -156,6 +156,7 @@ struct BotMind {
   double underFireT = 0, exposedT = 0, lastAct = 0;
   // PF1 zombie packs (zombie.cpp): followers steer along the mesh to a slot by the leader instead of path queries
   int pack = -1; bool follower = false; float speedScale = 1, zSpeed = 4; vec3 flockPush{0}; double flockT = 0, ownPathT = -100;
+  double tgtT = 0, badUntil = 0; int badTarget = -1;   // EN3 heavies (zombie.cpp heavyStep): next target choice, a target found unreachable
 };
 
 // ---------------------------------------------------------------- path service (ai_path.cpp)
@@ -166,6 +167,8 @@ public:
   vec2 laneOrigin{0}, laneAxis{0, 1}, laneRight{1, 0};
   float linkExtra[4] = {2, 4, 2.5f, 3};
   std::vector<EdgePenalty> penalties; int self = -1;
+  std::vector<vec4> blocks;   // EN3: spots a heavy of this type does not fit through (xyz, radius): polygons centred there are excluded
+  bool passFilter(const dtPolyRef ref, const dtMeshTile* tile, const dtPoly* poly) const override;
   float getCost(const float* pa, const float* pb, const dtPolyRef prevRef, const dtMeshTile* prevTile, const dtPoly* prevPoly,
                 const dtPolyRef curRef, const dtMeshTile* curTile, const dtPoly* curPoly,
                 const dtPolyRef nextRef, const dtMeshTile* nextTile, const dtPoly* nextPoly) const override;
@@ -273,6 +276,9 @@ public:
   float exposure(int role, vec3 p) const;     // 0..1 how visible p is to enemies known to `role`'s team
   // ---- paths and movement (ai_path.cpp)
   void requestPath(Soldier& s, vec3 goal, float radius, float priority, bool force = false);
+  // EN3: per enemy type, spots its capsule did not fit through (heavyFits in ai_path.cpp), kept 90 s (walls can be blown open)
+  struct HeavyBlock { vec3 p; int type; double until; }; std::vector<HeavyBlock> heavyBlocks; int heavyProbes = 0, heavyBlocked = 0;
+  bool heavyFits(Soldier& s, const std::vector<NavRef>& polys);
   void dispatchPaths();
   void receivePaths();
   std::unique_ptr<BotFilter> makeFilter(Soldier& s);

@@ -120,7 +120,8 @@ bool Game::begin(std::string& err) {
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     AiType ait = match.rules.aiType[match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1)];
     s.zombie = !rs.human && ait != AiType::Soldiers;   // G2
-    s.etype = s.zombie && ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id) : 0;   // EN1: the mix by weight, per slot
+    s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
+            : ait == AiType::Heavies ? enemyTypeHeavyPick((uint32_t)rs.id, match.rules.heavyTrollPct[match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1)] / 100.0f) : 0;   // EN3
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
     Brain& b = s.br;
