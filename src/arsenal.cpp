@@ -284,7 +284,7 @@ void App::openRack(uint64_t id) {
   const AssetDef* a = assetFor(*i);
   auto ars = rackArsenal(a->rackFaction);
   for (size_t k = 0; k < ars.size(); ++k) if (ars[k] == activeWeapon) rackSel = (int)k;
-  if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  syncCursor();
   ++rackOpens;
 }
 
@@ -293,7 +293,7 @@ void App::closeRack(const char* why) {
   rackOpen = false; rackId = 0;
   lastRackClose = why;
   scriptedInput.fire = false;
-  if (!selftest && mode == Mode::Explore && !pauseMenu && !showLoadout) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  syncCursor();
 }
 
 void App::stepRack(const ExploreInput& in) {

@@ -75,9 +75,9 @@ bool App::enterExplore() {
   stamina = move.staminaMax; staminaIdle = 0;
   physAccum = 0; pauseMenu = false; target = {};
   if (looking) looking = false;
-  if (!selftest) glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   R.resetExposure(1.2f);
   mode = Mode::Explore;
+  syncCursor();
   { LoadStep ls("enterExplore match start"); mpaiEnterExplore(*this); }   // starts a match when the Play menu asked for one
   return true;
 }
@@ -96,8 +96,8 @@ void App::exitExplore() {
   resetWeapons(); flame.clear(this);   // FT1: no stream, parcels or roar left over
   removeSessionPlacements();   // defences built in Explore are a playtest overlay unless applied
   camPos = savedCam.pos; camYaw = savedCam.yaw; camPitch = savedCam.pitch;
-  glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   mode = Mode::Creative; pauseMenu = false; target = {};
+  syncCursor();
 }
 
 void App::returnToStart() {
@@ -401,28 +401,46 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   if (c.pos.y < -60) { returnToStart(); toast("Fell out of the world: returned to start."); }
 }
 
+int App::cursorWanted(bool focused) const {
+  if (mode == Mode::Explore) return wantCursor() || !focused ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED;
+  return looking ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;   // editor: captured only while RMB / LMB looking or orbiting
+}
+
+bool App::syncCursor() {
+  if (selftest || !win) return false;
+  static bool raw = false;
+  if (!raw) { raw = true; if (glfwRawMouseMotionSupported()) glfwSetInputMode(win, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE); }   // unaccelerated look while disabled
+  bool focused = glfwGetWindowAttrib(win, GLFW_FOCUSED) != 0;
+  static bool wasFocused = true;
+  bool changed = focused != wasFocused; wasFocused = focused;
+  int want = cursorWanted(focused);
+  if (glfwGetInputMode(win, GLFW_CURSOR) != want) { glfwSetInputMode(win, GLFW_CURSOR, want); ++cursorChanges; changed = true; }
+  if (changed) cursorSettle = 2;
+  return changed;
+}
+
 void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
   if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
   if (!selftest) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (kp(win, GLFW_KEY_ESCAPE)) {
-      pauseMenu = !pauseMenu;
-      glfwSetInputMode(win, GLFW_CURSOR, pauseMenu ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+      pauseMenu = !pauseMenu; syncCursor();
     }
     if (kp(win, GLFW_KEY_F5)) { exitExplore(); return; }
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
     if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
-    if (kp(win, bk("loadout")) && !pauseMenu) { showLoadout = !showLoadout; glfwSetInputMode(win, GLFW_CURSOR, showLoadout ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED); }
+    if (kp(win, bk("loadout")) && !pauseMenu) { showLoadout = !showLoadout; syncCursor(); }
     if (kp(win, GLFW_KEY_V)) scopeIronsMode = !scopeIronsMode;
   }
   // the cursor is captured unless a menu needs it: every look delta below assumes GLFW_CURSOR_DISABLED (a free cursor
-  // stops at the screen edge and look then stops in that direction)
-  if (!selftest) { int want = wantCursor() ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED; if (glfwGetInputMode(win, GLFW_CURSOR) != want) glfwSetInputMode(win, GLFW_CURSOR, want); }
+  // stops at the screen edge and look then stops in that direction). syncCursor is the only place that sets the mode.
+  syncCursor();
   uiCursor = false;
   if (pauseMenu) return;
   ExploreInput in;
   static double lmx = -1, lmy = -1;
+  if (cursorSettle > 0) { --cursorSettle; lmx = lmy = -1; }   // the mode / focus just changed: the cursor jumped, no look from it
   if (useScripted) {
     in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false; scriptedInput.toggleAmmo = false; scriptedInput.build = false;
     scriptedInput.fireMode = scriptedInput.prone = scriptedInput.packUp = scriptedInput.rackUp = scriptedInput.rackDown = scriptedInput.rackEquip = scriptedInput.rackClose = false;
@@ -590,8 +608,8 @@ void App::drawExploreUI() {
   if (pauseMenu) {
     ImGui::SetNextWindowPos(c, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
-    if (ImGui::Button("Resume", ImVec2(240, 0))) { pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
-    if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); }
+    if (ImGui::Button("Resume", ImVec2(240, 0))) { pauseMenu = false; syncCursor(); }
+    if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
     if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
     if (ImGui::Button("Settings...", ImVec2(240, 0))) settings().open = true;
     ImGui::Separator();

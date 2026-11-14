@@ -310,10 +310,10 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
     vec3 ro, rd, hit; rayFromCursor(app, ro, rd);
     n.pivot = groundHit(app, ro, rd, hit) && glm::length(hit - app.camPos) < 6000.0f ? hit : app.camPos;
     n.orbiting = true; n.flying = false; app.looking = true; n.lastMx = mx; n.lastMy = my;
-    glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    app.syncCursor();
   }
   if (n.orbiting) {
-    if (!rmb) { n.orbiting = false; app.looking = false; glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL); }
+    if (!rmb) { n.orbiting = false; app.looking = false; app.syncCursor(); }
     else {
       float dx = (float)(mx - n.lastMx), dy = (float)(my - n.lastMy);
       n.lastMx = mx; n.lastMy = my;
@@ -387,7 +387,7 @@ EdGesture edSelectPointer(App& app, const EdPointer& p) {
   n.lmbPrev = p.lmb;
   auto endOrbit = [&]() {
     app.looking = false;
-    if (!app.selftest && app.win) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    app.syncCursor();
   };
   if (press && n.lmbGesture == 0 && !p.overUi && !app.looking && !n.orbiting && !n.panning && !n.dropDrag) {
     float t; uint64_t id = app.pickInstance(p.ro, p.rd, t);
@@ -411,7 +411,7 @@ EdGesture edSelectPointer(App& app, const EdPointer& p) {
       n.lmbGesture = 3;
     } else {     // anywhere else: orbit about the pressed point, never select
       n.lmbGesture = 2; n.flying = false; app.looking = true;
-      if (!app.selftest && app.win) glfwSetInputMode(app.win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);   // virtual cursor continues from here
+      app.syncCursor();   // virtual cursor continues from here
     }
   }
   if (n.lmbGesture == 2 && p.lmb) {

@@ -125,7 +125,7 @@ bool w3ExploreKeys(App& app) {
   }
   if (pause) {
     app.pauseMenu = !app.pauseMenu;
-    glfwSetInputMode(app.win, GLFW_CURSOR, app.pauseMenu ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+    app.syncCursor();
   }
   return false;
 }
