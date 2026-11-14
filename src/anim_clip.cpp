@@ -25,9 +25,11 @@ void clipsFromGltf(const json& J, const std::function<std::vector<float>(int)>& 
         ch.v = v;
       }
       if (ch.t.empty() || ch.v.size() < ch.t.size() * nc) continue;
-      c.dur = std::max(c.dur, ch.t.back());
       c.ch.push_back(std::move(ch));
     }
+    float t0 = 1e30f; for (auto& ch : c.ch) t0 = std::min(t0, ch.t.front());
+    if (c.ch.empty()) t0 = 0;
+    for (auto& ch : c.ch) { for (float& x : ch.t) x -= t0; c.dur = std::max(c.dur, ch.t.back()); }
     out.push_back(std::move(c));
   }
 }

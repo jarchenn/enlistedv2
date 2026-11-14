@@ -565,9 +565,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   float tz = d.zero / std::max(1.0f, d.velocity), drop = 0.5f * 9.81f * tz * tz;
   vec3 dd = glm::normalize(dir + vec3(0, drop / std::max(1.0f, d.zero), 0));
   int tracer = d.tracerKind(w.shotIdx);
-  app.fireProjectile(start, dd, d.velocity, PROJ_BULLET, 0, ~0ull, tracer, d.container);
-  app.projectiles.back().mass = d.bulletMass * 0.001f;
-  app.projectiles.back().owner = s.slot;
+  app.fireRounds(d, start, dd, tracer, (uint32_t)s.slot * 131u + (uint32_t)w.shotIdx * 7919u, s.slot);   // MG1: a shotgun's pellets
   app.fx.flash(muzzle + dd * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play("shot_" + d.id, muzzle, 1.0f);

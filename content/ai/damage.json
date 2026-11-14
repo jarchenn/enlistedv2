@@ -31,6 +31,15 @@
     "m2hb_carry":    { "near": 120, "far": 80,  "falloffStart_m": 100, "falloffEnd_m": 200, "rpm": 500,  "note": "not in SPEC 6.2: .50 BMG heavy MG slots into the Springfield band (torso 1/1/1/2, limbs 2/2); its weight and deploy time are the balance" },
     "m1911a1":       { "near": 40,  "far": 22,  "falloffStart_m": 10,  "falloffEnd_m": 35, "rpm": 360,  "note": "GM1 class pistol (generated box model)" },
     "luger":         { "near": 34,  "far": 20,  "falloffStart_m": 10,  "falloffEnd_m": 35, "rpm": 360,  "note": "GM1 class pistol (generated box model): the Walther P38 row, same 9x19 mm round" },
-    "walther_p38":   { "near": 34,  "far": 20,  "falloffStart_m": 10,  "falloffEnd_m": 35, "rpm": 360,  "dataOnly": true }
+    "walther_p38":   { "near": 34,  "far": 20,  "falloffStart_m": 10,  "falloffEnd_m": 35, "rpm": 360,  "dataOnly": true },
+    "modern_scar":   { "near": 60,  "far": 40,  "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 600, "note": "MG1 modern gun" },
+    "modern_ak":     { "near": 45,  "far": 30,  "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 650, "note": "MG1 modern gun" },
+    "modern_m4":     { "near": 42,  "far": 28,  "falloffStart_m": 100, "falloffEnd_m": 220, "rpm": 800, "note": "MG1 modern gun" },
+    "modern_m16":    { "near": 44,  "far": 30,  "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 800, "note": "MG1 modern gun" },
+    "modern_lmg":    { "near": 44,  "far": 30,  "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 800, "note": "MG1 modern gun" },
+    "modern_shotgun":{ "near": 24,  "far": 6,   "falloffStart_m": 10,  "falloffEnd_m": 40, "rpm": 70, "note": "MG1 modern gun: per pellet (9 per shell)" },
+    "modern_sniper_bolt":{ "near": 110, "far": 90,  "falloffStart_m": 300, "falloffEnd_m": 600, "rpm": 50, "note": "MG1 modern gun" },
+    "modern_sniper_semi":{ "near": 85,  "far": 65,  "falloffStart_m": 250, "falloffEnd_m": 500, "rpm": 240, "note": "MG1 modern gun" },
+    "modern_pistol": { "near": 34,  "far": 20,  "falloffStart_m": 15,  "falloffEnd_m": 40, "rpm": 400, "note": "MG1 modern gun" }
   }
 }

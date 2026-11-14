@@ -228,6 +228,23 @@ void App::switchStationPosition() {
   }
 }
 
+// MG1: a small-arms shot: the round along dir, plus a shotgun's other pellets spread evenly over the cone's area
+// (deterministic from seed, so host and replays agree). Only the first pellet carries the tracer.
+void App::fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, uint32_t seed, int owner) {
+  vec3 rt = glm::normalize(glm::cross(dir, std::fabs(dir.y) > 0.99f ? vec3(1, 0, 0) : vec3(0, 1, 0))), up = glm::cross(rt, dir);
+  float tc = std::tan(radians(d.spreadDeg));
+  for (int k = 0; k < std::max(1, d.pellets); ++k) {
+    vec3 v = dir;
+    if (k > 0) {
+      uint32_t h = (seed + 0x9E3779B9u * (uint32_t)k) * 2654435761u; h ^= h >> 15; h *= 2246822519u; h ^= h >> 13;
+      float a = (h & 0xffff) / 65536.0f * 6.2831853f, r = std::sqrt(((h >> 16) & 0xffff) / 65536.0f) * tc;
+      v = glm::normalize(dir + rt * std::cos(a) * r + up * std::sin(a) * r);
+    }
+    fireProjectile(from, v, d.velocity, PROJ_BULLET, 0, ~0ull, k == 0 ? tracerKind : 0, d.container);
+    Projectile& p = projectiles.back(); p.mass = d.bulletMass * 0.001f; p.owner = owner; p.extraPellet = k > 0;
+  }
+}
+
 void App::fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, int tracerKind, const std::string& ammo) {
   Projectile p; p.p = from; p.v = glm::normalize(dir) * speed; p.kind = kind; p.dmg = dmg; p.ignore = ignore; p.tracerKind = tracerKind; p.ammo = ammo;
   projectiles.push_back(p);

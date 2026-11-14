@@ -9,6 +9,7 @@
 #include "abilities.h"
 #include "classes.h"
 #include "minimap.h"
+#include "vm_anim.h"
 #include <functional>
 #include <cstdlib>
 
@@ -522,6 +523,66 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       check(r > 10.0f && r < 12.7f && a.flame.wallStops > 20, b);
       return true; });
     // ---- GM2 (docs/abilities.md, docs/minimap.md): explosion pack, artillery, suppression vignette, minimap mapping
+    // ---- MG1: each modern gun's animated rig (its own arms + clips): draw -> idle, ADS puts the posed sights on the view
+    // axis, a shot plays the fire clip, a reload plays its clip and moves the rounds, the generated arm is not drawn
+    for (const char* mid : {"modern_scar", "modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol"}) {
+      const std::string id = mid;
+      push(("mg1 rig " + id).c_str(), [this, id](App& a, float t) {
+        static std::string draw0, idle1, fire1, rel1; static float axisDeg, tShot; static int shots0, arms; static bool phase[6];
+        int wi = a.weaponIndex(id); if (wi < 0) { check(false, id + ": no such weapon"); return true; }
+        const WeaponDef& d = *a.weaponDefs[wi]; WeaponState& s = a.wstate[id];
+        if (t == 0) {
+          for (bool& p : phase) p = false; draw0 = idle1 = fire1 = rel1 = ""; axisDeg = -1; arms = 0;
+          std::string m; a.equipWeapon(wi, m); a.scriptedInput = ExploreInput{}; a.eyePitch = 2;
+          s.reload = 0; s.reloadKind = 0; s.loaded = d.cap; s.cooldown = 0; s.bolt = 0;
+          return false;
+        }
+        if (!d.anim) { check(false, id + ": animated viewmodel not loaded (static fallback)"); a.scriptedInput = ExploreInput{}; return true; }
+        arms += a.lastArmDraws;
+        if (!phase[0] && t > 0.05f) { phase[0] = true; draw0 = animVmClipNow(d); }
+        if (!phase[1] && t > 1.6f) { phase[1] = true; idle1 = animVmClipNow(d); a.scriptedInput.aim = !d.hasScope; }
+        if (!phase[2] && t > 2.6f) {   // ADS settled (irons / red dot): the posed rear and front sights on the view axis
+          phase[2] = true;
+          vec3 R, F;
+          if (!d.hasScope && animVmPoint(a, d, 0, R) && animVmPoint(a, d, 1, F)) {
+            vec3 r = vec3(a.viewM * vec4(R, 1)), f = vec3(a.viewM * vec4(F, 1));
+            axisDeg = std::max(degrees(std::atan2(glm::length(vec2(r)), -r.z)), degrees(std::atan2(glm::length(vec2(f)), -f.z)));
+          }
+          if (id == "modern_ak" || id == "modern_scar" || id == "modern_m4") shotQueue.push_back("mg1_" + id + "_ads");
+          shots0 = a.shotsFired; a.scriptedInput.fire = true;
+        }
+        if (phase[2] && !phase[3] && a.shotsFired > shots0) { phase[3] = true; tShot = t; a.scriptedInput.fire = false; a.scriptedInput.aim = false; }
+        if (phase[3] && fire1.empty() && t > tShot + 0.05f) fire1 = animVmClipNow(d);   // the rig picks the shot up on its next step
+        if (phase[3] && !phase[4] && t > 3.8f) { phase[4] = true; s.cooldown = 0; s.bolt = 0; s.loaded = d.feed == "single" ? d.cap - 1 : 1; a.scriptedInput.reload = true; }
+        if (phase[4] && !phase[5] && t > 4.0f) { phase[5] = true; a.scriptedInput.reload = false; rel1 = animVmClipNow(d); if (id == "modern_ak" || id == "modern_pistol") shotQueue.push_back("mg1_" + id + "_reload"); }
+        if (!phase[5] || (s.reload > 0 && t < 14)) return false;
+        a.scriptedInput = ExploreInput{};
+        bool scoped = d.hasScope;
+        char b[400]; std::snprintf(b, sizeof b, "%s rig: clips draw '%s' -> idle '%s', fire '%s', reload '%s'; ADS sights %.3f deg off the view axis%s; loaded %d / %d after the reload (%.2f s clip); generated arm draws %d",
+                                   id.c_str(), draw0.c_str(), idle1.c_str(), fire1.c_str(), rel1.c_str(), axisDeg, scoped ? " (scope: n/a)" : "", s.loaded, d.cap, d.feed == "single" ? d.reloadRound : d.reloadPartial, arms);
+        bool hasDraw = animVmClipDur(*d.anim, "draw") > 0;
+        check((draw0 == "draw" || !hasDraw) && idle1 == "idle" && fire1 == "fire" && rel1.rfind("reload", 0) == 0 && (scoped || (axisDeg >= 0 && axisDeg < 0.05f)) && s.loaded == d.cap && arms == 0 && !d.showArms, b);
+        return true; });
+    }
+    // ---- MG1: a shotgun shell fires its pellets (9 in a 2.2 deg cone; one LAN request: the first pellet)
+    push("mg1 shotgun pellets", [this](App& a, float t) {
+      static int s0; static bool fired;
+      const char* id = "modern_shotgun";
+      if (t == 0) { std::string m; a.equipWeapon(a.weaponIndex(id), m); a.scriptedInput = ExploreInput{}; a.eyePitch = 2; fired = false; return false; }
+      if (t < 0.8f) return false;   // raised
+      if (!fired) { fired = true; s0 = a.shotsFired; a.projectiles.erase(std::remove_if(a.projectiles.begin(), a.projectiles.end(), [](const Projectile& p) { return p.ammo == "12ga_shells5"; }), a.projectiles.end()); a.scriptedInput.fire = true; return false; }
+      if (a.shotsFired == s0 && t < 1.6f) return false;
+      a.scriptedInput.fire = false;
+      const WeaponDef& d = *a.weaponDefs[a.weaponIndex(id)];
+      int n = 0, extra = 0, tracers = 0; vec3 ref(0); float worst = 0;
+      for (auto& p : a.projectiles) if (p.ammo == d.container && !p.extraPellet) ref = glm::normalize(p.v);
+      for (auto& p : a.projectiles) if (p.ammo == d.container) {
+        ++n; extra += p.extraPellet; tracers += p.tracerKind != 0 && p.extraPellet;
+        worst = std::max(worst, degrees(std::acos(std::clamp(glm::dot(glm::normalize(p.v), ref), -1.0f, 1.0f))));
+      }
+      char b[220]; std::snprintf(b, sizeof b, "Remington 870: one shell, %d rounds counted -> %d pellets (%d marked extra), widest %.2f deg off the first (cone %.1f deg)", a.shotsFired - s0, n, extra, worst, d.spreadDeg);
+      check(a.shotsFired - s0 == d.pellets && n == d.pellets && d.pellets == 9 && extra == 8 && tracers == 0 && worst > 0.2f && worst <= d.spreadDeg + 0.3f, b);
+      return true; });
     push("gm2 classes", [this](App& a, float) {
       const ClassDef* heavy = classById("heavy"); const ClassDef* ranger = classById("ranger"); const ClassDef* recon = classById("recon");
       bool ok = heavy && ranger && recon;

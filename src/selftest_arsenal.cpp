@@ -8,7 +8,7 @@
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> aseq; size_t acur = 0; float at_ = 0;
-uint64_t RA = 0, RX = 0, G1 = 0, G2 = 0, G3 = 0, G4 = 0, G5 = 0, WALL = 0;
+uint64_t RM = 0, CR = 0, RA = 0, RX = 0, G1 = 0, G2 = 0, G3 = 0, G4 = 0, G5 = 0, WALL = 0;
 const WeaponDef& D(App& a) { return *a.weaponDefs[a.activeWeapon]; }
 WeaponState& S(App& a) { return a.wstate[D(a).id]; }
 void lookAt(App& a, vec3 p) { vec3 e = a.eyePos(); a.eyeYaw = degrees(std::atan2(-(p.x - e.x), -(p.z - e.z))); a.eyePitch = degrees(std::atan2(p.y - e.y, glm::length(vec2(p.x - e.x, p.z - e.z)))); }
@@ -25,6 +25,8 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
     RA = app.placeInstance(app.lib.find("rack_allied"), vec3(0, 0, -4), 180);
     RX = app.placeInstance(app.lib.find("rack_axis"), vec3(8, 0, -4), 180);
     WALL = app.placeInstance(app.lib.find("small_stone_dairy"), vec3(0, 0, -40), 0);
+    RM = app.placeInstance(app.lib.find("rack_modern"), vec3(-8, 0, -4), 180);   // MG1: the modern weapons case
+    CR = app.placeInstance(app.lib.find("crate_mixed_supply"), vec3(-8, 0, 3), 0);
     G1 = app.placeInstance(app.lib.find("gun_pak40"), vec3(-20, 0, -25), 0);
     G2 = app.placeInstance(app.lib.find("gun_pak40"), vec3(-28, 0, -25), 0);
     G3 = app.placeInstance(app.lib.find("gun_pak40"), vec3(-36, 0, -25), 0);
@@ -369,6 +371,48 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
         shotQueue.push_back("g4_readout"); return true;
       }
       return t > 8; });
+    // ---- MG1: the modern weapons case (rack_modern): only the modern guns, opened and equipped like a rack, ammo from the crate
+    push("mg1 modern registry", [this](App& a, float) {
+      const AssetDef* m = a.lib.find("rack_modern");
+      std::string ids; int models = 0; bool inOld = false, inLoadout = false;
+      for (int k : a.rackArsenal("modern")) { ids += a.weaponDefs[k]->id + " "; models += a.weaponDefs[k]->useModel(); }
+      for (const char* f : {"US", "DE"}) for (int k : a.rackArsenal(f)) inOld = inOld || a.weaponDefs[k]->modern;
+      a.resetLoadout(); for (int w : a.carried) inLoadout = inLoadout || a.weaponDefs[w]->modern;
+      int n = (int)a.rackArsenal("modern").size();
+      check(RM && m && m->rack && m->rackFaction == "modern" && m->model && n == 9 && models == 9 && !inOld && !inLoadout,
+            "modern case: 9 modern guns with their imported models (" + ids + "), none in the Allied / Axis racks or the default loadout");
+      const AssetDef* c = a.lib.find("crate_mixed_supply"); std::string miss;
+      for (int k : a.rackArsenal("modern")) if (!c->crate["supplies"].contains(a.weaponDefs[k]->container)) miss += " " + a.weaponDefs[k]->container;
+      check(miss.empty(), "the mixed supply crate stocks every modern gun's ammunition" + (miss.empty() ? std::string() : ": missing" + miss));
+      return true; });
+    push("mg1 case open + equip", [this](App& a, float t) {
+      Instance* r = a.doc.find(RM);
+      if (t == 0) { a.closeRack("mg1"); standAt(a, r->pos + vec3(0, 0, 1.3f)); return false; }
+      lookAt(a, r->pos + vec3(0, 0.1f, 0));
+      if (t < 0.3f) return false;
+      static bool asked; if (t < 0.31f) asked = false;
+      if (!a.rackOpen && t < 1.2f) { a.scriptedInput.interact = !a.scriptedInput.interact; return false; }   // E pressed (edges) until the panel opens
+      a.scriptedInput.interact = false;
+      static float tOpen; if (!asked) {
+        asked = true; tOpen = t;
+        check(a.rackOpen && a.rackId == RM, "E at the modern case opens the arsenal panel (target valid " + std::to_string(a.target.valid) + ", kind " + std::to_string(a.target.kind) + ", is the case " + std::to_string(a.target.inst == RM) + ")");
+        auto ars = a.rackArsenal("modern");
+        for (size_t k = 0; k < ars.size(); ++k) if (a.weaponDefs[ars[k]]->id == "modern_ak") a.rackSel = (int)k;
+        return false;
+      }
+      a.scriptedInput.rackEquip = a.rackOpen && t > tOpen + 0.15f;   // a clean frame after the opening press, then Equip held until it closes
+      if (a.rackOpen && t < tOpen + 1.5f) return false;
+      a.scriptedInput = ExploreInput{};
+      auto& s = a.wstate["modern_ak"];
+      check(D(a).id == "modern_ak" && !a.rackOpen && a.lastRackClose == "equipped" && s.loaded == 30,
+            "Equip from the case selects the AK-74 (30 loaded) and closes the panel, as at a rack (in hand " + D(a).id + ", panel " + (a.rackOpen ? "open" : "closed") + ", last close '" + a.lastRackClose + "', loaded " + std::to_string(s.loaded) + ")");
+      return true; });
+    push("mg1 crate refill", [this](App& a, float) {
+      auto& s = a.wstate["modern_ak"];
+      s.loaded = 3; s.containers.clear();
+      std::string m = a.resupplyWeapon(CR, D(a), s);
+      check(s.loaded == 30 && s.reserveRounds() == 150, "the crate refills the AK-74 like any weapon: " + m);
+      return true; });
     push("reset", [this](App& a, float) { a.exitExplore(); check(a.mode == Mode::Creative, "back to Creative"); return true; });
   }
   stage = 1401;

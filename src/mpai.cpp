@@ -145,11 +145,11 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   if (!gGame || !gGame->active || len <= 1e-5f) return false;
   if (gGame->isClient) {
     // a LAN client never resolves rounds itself: its own shots become requests, drawn as visual tracers meanwhile
-    if (p.owner == -1 && p.life == 0 && gNet && !app.occupied) gNet->clientFire(p.p, glm::normalize(p.v), app.activeWeapon, p.tracerKind);   // a gun's rounds are gfire requests (stationShoot)
+    if (p.owner == -1 && p.life == 0 && gNet && !app.occupied && !p.extraPellet) gNet->clientFire(p.p, glm::normalize(p.v), app.activeWeapon, p.tracerKind);   // a gun's rounds are gfire requests (stationShoot)
     gGame->ghosts.push_back({p.p, p.v, 0, p.tracerKind});
     return true;
   }
-  if (p.owner == -1 && p.life == 0 && gNet && gNet->role == Net::HOST && !app.occupied)   // the host's own shots: tracers / sound on clients (a gun's: gshot)
+  if (p.owner == -1 && p.life == 0 && gNet && gNet->role == Net::HOST && !app.occupied && !p.extraPellet)   // the host's own shots: tracers / sound on clients (a gun's: gshot)
     gNet->hostWorldEvent(json{{"t", "shot"}, {"p", tojson(p.p)}, {"d", tojson(glm::normalize(p.v))}, {"w", app.activeWeapon}, {"tr", p.tracerKind}, {"by", gGame->localSlot}});
   if (p.life == 0) rulesOnFire(*gGame, gGame->soldierOfOwner(p.owner));   // W1: firing ends spawn protection
   float tHit = tWorld;
