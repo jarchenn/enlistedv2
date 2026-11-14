@@ -2,10 +2,10 @@
  "gunJoint": "gun_remington870_base",
  "clips": {
   "fire": 0.9333,
-  "reload": 1.4667,
-  "reload_end": 1.0667,
-  "idle": 0.6667,
-  "draw": 0.6
+  "reload_start": 0.2667,
+  "reload_insert": 0.8,
+  "reload_end": 0.4,
+  "idle": 0.6667
  },
  "fps": 30,
  "points": {

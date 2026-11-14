@@ -132,7 +132,11 @@ void App::buildWeaponMeshes() {
       else {
         d->showArms = false;   // the rig has its own arms
         float r = animVmClipDur(*d->anim, "reload"), re = animVmClipDur(*d->anim, "reload_empty"), fd = animVmClipDur(*d->anim, "fire");
-        if (d->feed == "single") { if (r > 0) d->reloadRound = r; }   // one shell per clip
+        if (d->feed == "single") {   // one shell per insert clip; start / end around the loop when the rig has them
+          float ri = animVmClipDur(*d->anim, "reload_insert");
+          if (ri > 0) { d->reloadRound = ri; d->reloadStart = std::max(0.0f, animVmClipDur(*d->anim, "reload_start")); d->reloadEnd = std::max(0.0f, animVmClipDur(*d->anim, "reload_end")); d->reloadInsert = ab.value("shellInsert", 0.7f); }
+          else if (r > 0) d->reloadRound = r;
+        }
         else if (r > 0) { d->reloadPartial = r; d->reloadEmpty = re > 0 ? re : r; d->reloadInsert = ab.value("insert", 0.65f); }
         if (ab.value("cycleInFire", false) && fd > 0) {   // the fire clip includes the pump / bolt stroke: the next shot waits for it
           if (d->action == "bolt") d->boltTime = std::max(d->boltTime, 0.9f * fd); else d->rpm = std::min(d->rpm, 60.0f / (0.9f * fd));
@@ -193,7 +197,7 @@ void App::selectWeapon(int idx) {
   if (strictDDay && weaponDefs[idx]->laterWar) { toast(weaponDefs[idx]->name + " is hidden by the strict 6 June 1944 preset."); return; }
   WeaponState& cur = wstate[weaponDefs[activeWeapon]->id];
   settleRecoil(cur);   // the old weapon's climb stays in the aim (no snap back on the swap)
-  if (cur.reload > 0) { if (cur.reloadKind != 4) weaponMsg = "Reload interrupted (no rounds moved)"; cur.reload = 0; cur.reloadKind = 0; }   // MG1 kind 4: rounds already in   // nothing is committed until a reload completes
+  if (cur.reload > 0) { if (cur.reloadKind != 4 && cur.reloadKind != 5) weaponMsg = "Reload interrupted (no rounds moved)"; cur.reload = 0; cur.reloadKind = 0; }   // MG1 kind 4: rounds already in   // nothing is committed until a reload completes
   if (cur.throwT >= 0 && weaponDefs[activeWeapon]->equipment()) { cur.throwT = -1; cur.struck = false; }   // wind-up cancelled: nothing thrown, nothing used
   activeWeapon = idx; adsT = 0; vm.snap = true;
   wstate[weaponDefs[idx]->id].triggerReleased = false;   // a trigger held through the swap never fires the new weapon
@@ -431,16 +435,24 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   if (in.reload && s.reload <= 0) {
     if (s.loaded >= d.cap) weaponMsg = "Already full";
     else if (s.reserveRounds() == 0) weaponMsg = "No reserve " + d.container + " - find a supply crate";
-    else if (d.feed == "single" || (d.feed == "stripper" && s.loaded > 0)) { s.reloadKind = 3; s.reload = s.reloadTotal = d.reloadRound; audio.play(d.action == "launcher" ? "rocket_ready" : "bolt", eyePos(), 0.6f); }
+    else if (d.feed == "single" || (d.feed == "stripper" && s.loaded > 0)) { s.reloadKind = 3; s.reload = s.reloadTotal = d.reloadStart + d.reloadRound; audio.play(d.action == "launcher" ? "rocket_ready" : "bolt", eyePos(), 0.6f); }
     else { s.reloadKind = s.loaded == 0 ? 1 : 2; s.reload = s.reloadTotal = s.loaded == 0 ? d.reloadEmpty : d.reloadPartial; audio.play(audio.hasEvent("reload_" + d.id) ? "reload_" + d.id : d.feed == "belt" ? "belt" : d.feed == "magazine" ? "mag_out" : "bolt", eyePos(), 0.7f); }
   }
   // ---- reload progress / completion: rounds move between locations, never appear
   if (s.reload > 0) {
-    if (s.reloadKind == 3 && fireHeld && s.loaded > 0) { s.reload = 0; s.reloadKind = 0; }   // fire interrupts single-round loading
+    if ((s.reloadKind == 3 || s.reloadKind == 5 || (s.reloadKind == 4 && d.feed == "single")) && fireHeld && s.loaded > 0) { s.reload = 0; s.reloadKind = 0; }   // fire interrupts single-round loading
     s.reload -= dt;
+    // MG2 shell loop: the round goes in at the insert moment of its segment (kind 5: the segment plays out), then the next
+    // segment, or the end clip after the last round
+    bool shellNow = s.reloadKind == 3 && d.feed == "single" && d.reloadInsert > 0 && s.reload <= d.reloadRound * (1 - d.reloadInsert);
+    if (s.reloadKind == 5 && s.reload <= 0) {
+      if (s.loaded < d.cap && s.reserveRounds() > 0) { s.reload = s.reloadTotal = d.reloadRound; s.reloadKind = 3; }
+      else if (d.reloadEnd > 0) { s.reload = s.reloadTotal = d.reloadEnd; s.reloadKind = 4; }
+      else { s.reload = 0; s.reloadKind = 0; }
+    }
     bool insertNow = (s.reloadKind == 1 || s.reloadKind == 2) && d.reloadInsert > 0 && s.reloadTotal > 0 && s.reload <= s.reloadTotal * (1 - d.reloadInsert);   // MG1
     if (s.reloadKind == 4 && s.reload <= 0) { s.reload = 0; s.reloadKind = 0; }   // MG1: the clip after the insert has ended
-    else if ((s.reload <= 0 || insertNow) && s.reloadKind) {
+    else if ((s.reload <= 0 || insertNow || shellNow) && s.reloadKind && s.reloadKind != 5) {
       float rest = std::max(0.0f, s.reload);
       auto fullest = [&]() { return std::max_element(s.containers.begin(), s.containers.end()); };
       if (s.reloadKind == 3) {
@@ -448,7 +460,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         if (it != s.containers.end() && *it > 0) { --*it; ++s.loaded; }
         s.containers.erase(std::remove(s.containers.begin(), s.containers.end(), 0), s.containers.end());
         audio.play(d.action == "launcher" ? "rocket_in" : "clip_in", eyePos(), 0.5f);   // the banks have no rocket-loading foley: launchers keep the procedural clicks
-        if (s.loaded < d.cap && s.reserveRounds() > 0) { s.reload = s.reloadTotal = d.reloadRound; }   // keep loading singly
+        if (shellNow) s.reloadKind = 5;   // MG2: the segment finishes before the next round
+        else if (s.loaded < d.cap && s.reserveRounds() > 0) { s.reload = s.reloadTotal = d.reloadRound; }   // keep loading singly
         else { s.reload = 0; s.reloadKind = 0; }
       } else if (d.feed == "stripper") {
         auto it = fullest(); int n = std::min(d.cap - s.loaded, *it); *it -= n; s.loaded += n;
@@ -592,7 +605,7 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
     shadowText(dl, f, bigSz, ImVec2(right - bt.x, yBig), IM_COL32(245, 245, 240, 255), big.c_str(), 1);
   }
   lastReadout = big + " | " + mode;
-  std::string st = s.reload > 0 ? (s.reloadKind == 3 ? "Loading rounds" : "Reloading") : s.bolt > 0 ? "Working the bolt" : (!d.equipment() && s.loaded == 0) ? (d.flame.on ? "Out of fuel - refill at an ammo crate" : "Empty - R to reload") : "";
+  std::string st = s.reload > 0 ? (s.reloadKind == 3 || s.reloadKind == 5 ? "Loading rounds" : "Reloading") : s.bolt > 0 ? "Working the bolt" : (!d.equipment() && s.loaded == 0) ? (d.flame.on ? "Out of fuel - refill at an ammo crate" : "Empty - R to reload") : "";
   if (d.feed == "belt") st += std::string(st.empty() ? "" : "   ") + (supported ? "Bipod supported" : "Unsupported: crouch and stand still");
   float yInfo = yBig - smSz - 4 * sc;
   if (!st.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, st.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 205, 130, 255), st.c_str(), 1); yInfo -= smSz + 2 * sc; }

@@ -75,6 +75,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     K = app.placeInstance(app.lib.find("crate_mixed_supply"), vec3(2.5f, 0, 2.0f), 0.0f);
     KP = app.placeInstance(app.lib.find("crate_pak40_he"), vec3(-2.5f, 0, 2.0f), 0.0f);
     M2 = app.placeInstance(app.lib.find("gun_m2hb_tripod"), vec3(5.0f, 0, 3.5f), 180.0f);
+    if (std::getenv("NMK_MG_LOOK")) app.placeInstance(app.lib.find("rack_modern"), vec3(-1.5f, 0, -3.0f), 20.0f);   // MG2 dev look: the modern weapons case
     check(F && K && KP && M2, "range: farmhouse target wall at 40 m, mixed crate, PaK crate, M2HB on tripod");
     app.doc.start = {true, vec3(0, app.terrain.height(0, 0), 0), 0};
     check(app.enterExplore(), "F5"); app.useScripted = true;
@@ -546,7 +547,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
           vec3 R, F;
           if (!d.hasScope && animVmPoint(a, d, 0, R) && animVmPoint(a, d, 1, F)) {
             vec3 r = vec3(a.viewM * vec4(R, 1)), f = vec3(a.viewM * vec4(F, 1));
-            axisDeg = std::max(degrees(std::atan2(glm::length(vec2(r)), -r.z)), degrees(std::atan2(glm::length(vec2(f)), -f.z)));
+            axisDeg = degrees(std::atan2(glm::length(vec2(f)), -f.z));
+            if (r.z < 0) axisDeg = std::max(axisDeg, degrees(std::atan2(glm::length(vec2(r)), -r.z)));   // MG2: the M249's eye is ahead of its rear sight
           }
           if (id == "modern_ak" || id == "modern_scar" || id == "modern_m4") shotQueue.push_back("mg1_" + id + "_ads");
           shots0 = a.shotsFired; a.scriptedInput.fire = true;
@@ -558,11 +560,37 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
         if (!phase[5] || (s.reload > 0 && t < 14)) return false;
         a.scriptedInput = ExploreInput{};
         bool scoped = d.hasScope;
-        char b[400]; std::snprintf(b, sizeof b, "%s rig: clips draw '%s' -> idle '%s', fire '%s', reload '%s'; ADS sights %.3f deg off the view axis%s; loaded %d / %d after the reload (%.2f s clip); generated arm draws %d",
+        char b[400]; std::snprintf(b, sizeof b, "%s rig: clips on equip '%s' (no draw clip) -> idle '%s', fire '%s', reload '%s'; ADS sights %.3f deg off the view axis%s; loaded %d / %d after the reload (%.2f s clip); generated arm draws %d",
                                    id.c_str(), draw0.c_str(), idle1.c_str(), fire1.c_str(), rel1.c_str(), axisDeg, scoped ? " (scope: n/a)" : "", s.loaded, d.cap, d.feed == "single" ? d.reloadRound : d.reloadPartial, arms);
-        bool hasDraw = animVmClipDur(*d.anim, "draw") > 0;
-        check((draw0 == "draw" || !hasDraw) && idle1 == "idle" && fire1 == "fire" && rel1.rfind("reload", 0) == 0 && (scoped || (axisDeg >= 0 && axisDeg < 0.05f)) && s.loaded == d.cap && arms == 0 && !d.showArms, b);
+        check(draw0 == "idle" && idle1 == "idle" && fire1 == "fire" && rel1.rfind("reload", 0) == 0 && (scoped || (axisDeg >= 0 && axisDeg < 0.05f)) && s.loaded == d.cap && arms == 0 && !d.showArms, b);
         return true; });
+    }
+    // ---- MG2 dev look (NMK_MG_LOOK=id,id,... or all): screenshots of each modern rig at the hip, strafing right / left,
+    // in ADS and through its reload (selftest_out/mg2_<id>_*.png); with NMK_MG_ONLY only the MG steps run
+    if (const char* look = std::getenv("NMK_MG_LOOK")) {
+      std::string L = std::string(",") + look + ",";
+      push("mg2 look case", [this](App& a, float t) { face(a, vec3(-1.5f, 0.1f, -3.0f)); if (t > 0.6f) { shotQueue.push_back("mg2_case"); return true; } return false; });
+      for (auto& wd : app.weaponDefs) {
+        if (!wd->modern || (L != ",all," && L.find("," + wd->id + ",") == std::string::npos)) continue;
+        const std::string id = wd->id;
+        push(("mg2 look " + id).c_str(), [this, id](App& a, float t) {
+          static int ph; const WeaponDef& d = *a.weaponDefs[a.weaponIndex(id)]; WeaponState& s = a.wstate[id];
+          auto shot = [&](const char* tag) { shotQueue.push_back("mg2_" + id + "_" + tag); };
+          if (t == 0) { ph = 0; std::string m; a.equipWeapon(a.weaponIndex(id), m); a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 1; s.loaded = d.cap; s.reload = 0; s.reloadKind = 0; return false; }
+          auto& in = a.scriptedInput;
+          if (ph == 0 && t > 0.8f) { ph = 1; shot("hip"); in.move = vec2(1, 0); }
+          if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); }
+          if (ph == 2 && t > 2.3f) { ph = 3; shot("strafe_l"); in.move = vec2(0); in.aim = true; }
+          if (ph == 3 && t > 3.6f) { ph = 4; shot("ads"); }
+          if (ph == 4 && t > 3.8f) { ph = 5; in.aim = false; s.loaded = d.feed == "single" ? std::max(0, d.cap - 3) : d.cap / 2; s.cooldown = 0; s.bolt = 0; in.reload = true; }
+          if (ph == 5 && t > 3.9f) { ph = 6; in.reload = false; }
+          float frac = s.reloadTotal > 0 ? 1 - s.reload / s.reloadTotal : 0;
+          if (ph == 6 && s.reload > 0 && frac > 0.3f) { ph = 7; shot("reload_a"); }
+          if (ph == 7 && s.reload > 0 && frac > 0.6f) { ph = 8; shot("reload_b"); }
+          if (ph == 8 && s.reload > 0 && frac > 0.85f) { ph = 9; shot("reload_c"); }
+          if (ph >= 6 && (s.reload <= 0 || t > 16)) { logf("[mg2look] %s clip '%s' loaded %d", id.c_str(), animVmClipNow(d).c_str(), s.loaded); in = ExploreInput{}; return t > 4.5f; }
+          return false; });
+      }
     }
     // ---- MG1: a shotgun shell fires its pellets (9 in a 2.2 deg cone; one LAN request: the first pellet)
     push("mg1 shotgun pellets", [this](App& a, float t) {
@@ -746,6 +774,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     push("flame match end", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
   }
   stage = 701;
+  if (std::getenv("NMK_MG_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("mg1", 0) != 0 && s.name.rfind("mg2", 0) != 0; }), wseq.end());   // dev: just the modern-gun steps
   if (std::getenv("NMK_FT1_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("flame", 0) != 0; }), wseq.end());   // dev: just the flamethrower steps
   if (wcur >= wseq.size()) { finish(app); return; }
   if (wt == 0) logf("[selftest] step: %s", wseq[wcur].name.c_str());

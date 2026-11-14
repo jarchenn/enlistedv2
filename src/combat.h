@@ -35,6 +35,7 @@ struct WeaponDef {
   std::shared_ptr<GpuModel> model;
   std::shared_ptr<struct AnimVM> anim;   // MG1: animated first-person rig (arms + gun + clips, vm_anim.h); null = the static path
   float reloadInsert = 0;                // MG1: animated reloads move the rounds at this fraction of the clip (0 = at its end)
+  float reloadStart = 0, reloadEnd = 0;  // MG2 shell loop (single feed): the start before the first round, the end after the last
   std::vector<int> modelParts[8];       // model part indices per WPart role
   fs::path file;                        // source JSON (calibration panel saves back into it)
   vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)

@@ -196,6 +196,8 @@ void App::dofParams(float& focus, float& amount) const {
   if (occupied || weaponDefs.empty() || mode != Mode::Explore) return;
   const WeaponDef& d = *weaponDefs[activeWeapon];
   if (vmScoped(d) || reducedMotion) return;
+  amount = std::clamp((adsT - 0.6f) / 0.4f, 0.0f, 1.0f);
+  vec3 fw; if (d.anim && animVmPoint(*this, d, 1, fw)) { focus = glm::length(fw - eyePos()) + 0.03f; return; }   // MG2: the rig's posed front sight
   quat Q; vec3 Rp, Fp; float relief;
   sightFrame(d, false, Q, Rp, Fp, relief);
   focus = relief + glm::length(Fp - Rp) + 0.03f;   // just beyond the front sight post

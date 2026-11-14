@@ -251,7 +251,11 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900 * settings().drawDist()) treeDrawItems(i, r, op);
       continue;
     }
-    if (r.asset->rack) { op.push_back({&r.asset->opaque, M}); rackDrawItems(i, r); continue; }
+    if (r.asset->rack) {   // box parts, the supplied model if any (the modern weapons case), the displayed guns
+      op.push_back({&r.asset->opaque, M});
+      if (const GpuModel* gm = r.asset->model.get()) for (size_t k = 0; k < gm->parts.size(); ++k) R.worldModels.push_back({gm, (int)k, M});
+      rackDrawItems(i, r); continue;
+    }
     if (!r.asset->station.kind.empty()) {   // station: base + yaw / elevation / recoil children
       mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc);
       if (r.asset->model && !r.asset->station.modelRole.empty()) {
