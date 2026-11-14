@@ -53,10 +53,11 @@ const ZombieCfg& zcfg() {
         t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 4.0f);
         t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult));
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
+        t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
-        t.runClip = cl.value("run", t.runClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
+        t.runClip = cl.value("run", t.runClip); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
         c.types.push_back(t);
       }
       json p = j.value("pack", json::object());
@@ -175,6 +176,12 @@ const Soldier* heavyStep(Game& G, AiCore& A, Soldier& s, BotMind& m) {
   if (!cur) { m.speed = SPD_STOP; b.why = "heavy: no one left"; return nullptr; }
   m.speed = SPD_ZOMBIE; b.why = "heavy: pursuing alone";
   float d = zLenXZ(cur->feet - s.feet);
+  // EN4: no progress for 2 s (down a trench, a crater, against a low wall) and not striking: climb the nearest lip
+  if (m.trav.on || zLenXZ(s.feet - m.hAnchor) > 0.75f || d < typeOf(s).reach + 1.5f || s.meleeWind >= 0 || G.t < s.staggerUntil) { m.hAnchor = s.feet; m.hAnchorT = G.t; }
+  else if (G.t - m.hAnchorT > 2.0 && G.t >= m.hClimbTry) {
+    m.hClimbTry = G.t + 1.5;
+    if (A.heavyClimbOut(s, m, cur->feet)) { m.hAnchor = s.feet; m.hAnchorT = G.t; b.why = "heavy: climbing out"; return cur; }
+  }
   if (G.t >= b.repathT && (!m.hasPath || zLenXZ(cur->feet - m.goal) > 0.75f) && asked < kHeavyPathsPerFrame) {
     A.requestPath(s, cur->feet, 0.5f, 6.0f - std::min(4.0f, d / 40.0f), true); ++asked;
     b.repathT = (float)G.t + std::clamp(0.5f + d / 80.0f, 0.5f, 1.5f);
@@ -350,7 +357,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
 
 // the look: which clip plays (host and LAN clients alike; hp and speed replicate, strikes only on the host)
 void aiZombiePose(Game& G, Soldier& s, float dt) {
-  enum { K_LOCO, K_IDLE, K_ATTACK, K_DAMAGE, K_DEATH };
+  enum { K_LOCO, K_IDLE, K_ATTACK, K_DAMAGE, K_DEATH, K_CLIMB };
   const CharModel& m = *G.models[s.model];
   const ZombieCfg& c = zcfg();
   const EnemyType& e = typeOf(s);
@@ -366,7 +373,10 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   float vw = gs(walk, 1.2f), vr = std::max(vw + 0.5f, gs(run, 4.0f));
   bool hurt = s.alive && s.hp < A.lastHp - std::max(0.5f, e.staggerMin); A.lastHp = s.hp;   // EN1: a brute flinches only from heavy hits
   auto playing = [&](float limit) { return A.a >= 0 && A.time < std::min(limit, m.clips[A.a].dur); };
-  if (!s.alive) A.play(K_DEATH, pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);   // holds its end pose (no ragdoll in this game)
+  const BotMind* tm = nullptr; if (AiCore* Ac = aiCore()) tm = mindAt(*Ac, s.slot);
+  bool climbing = s.alive && tm && tm->life == s.lifeId && tm->trav.on && tm->trav.heavy;   // EN4 (host: the traversal; clients see the walk)
+  if (!s.alive) A.play(K_DEATH, pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);
+  else if (climbing) { int cc = ce.climbClip.empty() ? -1 : findClip(m, ce.climbClip); if (cc >= 0) A.play(K_CLIMB, cc, -1, 0, m.clips[cc].dur / std::max(0.3f, tm->trav.dur), false); else A.play(K_CLIMB, walk, -1, 0, 1.4f, true); }   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }
   else if (A.key == K_ATTACK && playing(1e9f)) {}   // the swing plays out
   else if (hurt) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list

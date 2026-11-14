@@ -35,7 +35,9 @@ inline bool isLink(uint8_t id) { return id >= kLinkDrop && id <= kLinkJump; }
 enum NavFlags : uint16_t { NF_WALK = 1, NF_CROUCH = 2, NF_FORBID = 4, NF_LINK = 8,
   NF_TRAP = 16,        // ground polygon from which no anchor (objective / spawn) can be walked to: a dead-end pocket
   NF_TRAPLINK = 32,    // one-way link landing in a pocket (excluded by the default filter)
-  NF_BADLINK = 64 };   // a link that keeps blocking bodies (W6b: disabled after repeated aborts; excluded)
+  NF_BADLINK = 64,     // a link that keeps blocking bodies (W6b: disabled after repeated aborts; excluded)
+  NF_HEAVY = 128,      // EN4: a heavies-only climb / vault / drop link (higher lips: trenches, crater rims, low walls); excluded by default
+  NF_HEAVYGAP = 256 }; // EN4: a heavies-only step-over gap (the spider across a narrow trench); excluded by default
 enum NavLinkKind : int { LINK_DROP = 0, LINK_MANTLE, LINK_VAULT, LINK_JUMP, LINK_KINDS };
 const char* navLinkName(int k);
 
@@ -45,12 +47,13 @@ struct NavConfig {
   float dropMin = 0.5f, dropMax = 3.0f, mantleMin = 0.5f, mantleMax = 1.6f, vaultMax = 1.1f, vaultThick = 0.6f, gapMax = 1.5f, linkSpacing = 1.2f;
   float shallowWater = 0.9f;                    // deeper water is forbidden; shallower counts as marsh
   float linkCost[LINK_KINDS] = {2.0f, 4.0f, 2.5f, 3.0f};   // extra path cost (m equivalent) per traversal
+  float heavyClimb = 2.2f, heavyGap = 2.8f, heavyRadius = 0.5f;   // EN4: the heavies-only link pass (rise / fall, gap, landing clearance)
   int workers = 2;                              // background rebuild threads
   void load(const json& j);
 };
 
 // A traversal link (debug, stuck recovery, movement): world endpoints, kind, the obstacle top for vault / mantle.
-struct NavLink { vec3 a{0}, b{0}; int kind = 0; bool bidir = true; float top = 0; uint32_t id = 0; };
+struct NavLink { vec3 a{0}, b{0}; int kind = 0; bool bidir = true; float top = 0; uint32_t id = 0; uint8_t heavy = 0; };   // EN4 heavy: 1 NF_HEAVY, 2 NF_HEAVYGAP
 // one wall edge of the mesh (cover generation, debug)
 struct NavEdge { vec3 a{0}, b{0}; vec3 n{0}; uint8_t area = 1; };
 

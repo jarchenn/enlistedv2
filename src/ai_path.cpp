@@ -168,6 +168,7 @@ std::unique_ptr<BotFilter> AiCore::makeFilter(Soldier& s) {
     const EnemyType& e = enemyType(s.etype);
     for (auto& b : heavyBlocks) if (b.type == s.etype && b.until > G.t) f->blocks.push_back(vec4(b.p, 1.0f));
     if (e.capsuleH > G.nav.cfg.height + 0.05f) f->setExcludeFlags(f->getExcludeFlags() | NF_CROUCH);
+    unsigned short ex = f->getExcludeFlags(); if (e.climbM > 0) ex &= (unsigned short)~NF_HEAVY; if (e.stepGap > 0) ex &= (unsigned short)~NF_HEAVYGAP; f->setExcludeFlags(ex);   // EN4
   }
   const Objective* ob = G.match.activeObjective();
   if (ob && s.role == CombatRole::Attacker) {
@@ -233,7 +234,7 @@ void AiCore::receivePaths() {
     c.reset(r.polys.front(), &s.feet.x);
     c.setCorridor(&r.target.x, r.polys.data(), (int)r.polys.size());
     // the bot moved while the query ran: re-anchor the corridor at the current position
-    c.movePosition(&s.feet.x, G.nav.query(), &G.nav.defaultFilter());
+    c.movePosition(&s.feet.x, G.nav.query(), &moveFilter(s));
     m.hasPath = true; m.partial = r.partial; m.pathAt = G.t; m.pathNavStamp = r.navStamp; m.pathFails = r.partial ? m.pathFails + 0.5f : 0;
     m.pathTiles.clear();
     for (NavRef p : r.polys) {
@@ -313,6 +314,12 @@ void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3
   { NavRef r; vec3 on; if (G.nav.closest(b + vec3(0, 0.2f, 0), vec3(0.7f, 1.0f, 0.7f), r, on)) b = on; }   // land on the mesh as it is now (links predate area marks)
   float top = l ? l->top : std::max(a.y, b.y);
   float h = std::fabs(b.y - a.y), len = lenXZ(b - a);
+  if (s.zombie && s.etype > 0) {   // EN4: a heavy goes over any link in one climb / leap
+    heavyArc(s, tr, a, heavyLanding(s, a, b), top);
+    ++m.linksTaken; ++metrics.linkTraversals; ++metrics.linkKinds[std::clamp(tr.kind, 0, 3)];
+    s.br.why = std::string("heavy: over a ") + navLinkName(tr.kind);
+    return;
+  }
   switch (tr.kind) {
     case LINK_DROP:
       tr.p[0] = a; tr.p[1] = vec3(glm::mix(a.x, b.x, 0.45f), a.y + 0.05f, glm::mix(a.z, b.z, 0.45f)); tr.p[2] = vec3(b.x, a.y + 0.02f, b.z); tr.p[3] = b; tr.np = 4;
@@ -351,7 +358,7 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
   tr.t += dt;
   float u = std::clamp(tr.t / tr.dur, 0.0f, 1.0f);
   vec3 p;
-  if (tr.kind == LINK_JUMP) {
+  if (tr.kind == LINK_JUMP && !tr.heavy) {
     float H = jumpV * jumpV / (2 * std::max(1.0f, gravity));
     p = glm::mix(tr.p[0], tr.p[1], u); p.y += 4 * H * u * (1 - u);
   } else {
@@ -360,8 +367,8 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
     p = tr.p[tr.np - 1];
     for (int k = 0; k + 1 < tr.np; ++k) { if (d <= seg[k]) { p = glm::mix(tr.p[k], tr.p[k + 1], seg[k] > 1e-4f ? d / seg[k] : 1.0f); break; } d -= seg[k]; }
   }
-  int post = tr.kind == LINK_MANTLE || tr.kind == LINK_VAULT ? Physics::CROUCH : Physics::STAND;
-  bool fits = Physics::shapeFitsAt(post, p + vec3(0, 0.04f, 0), true);
+  int post = !tr.heavy && (tr.kind == LINK_MANTLE || tr.kind == LINK_VAULT) ? Physics::CROUCH : Physics::STAND;
+  bool fits = tr.heavy || Physics::shapeFitsAt(post, p + vec3(0, 0.04f, 0), true);   // EN4: a heavy hauls itself over regardless
   if (!fits && u < 0.98f) {
     // someone / something in the way: stop where the body still fits, re-plan
     tr.on = false; ++metrics.linkAborts; m.linkBlockUntil = G.t + 1.0;
@@ -387,6 +394,66 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
   return false;
 }
 
+// ---------------------------------------------------------------- EN4 heavies over lips
+const dtQueryFilter& AiCore::moveFilter(const Soldier& s) {
+  if (!(s.zombie && s.etype > 0)) return G.nav.defaultFilter();
+  const EnemyType& e = enemyType(s.etype);
+  heavyMoveF = G.nav.defaultFilter();
+  unsigned short ex = heavyMoveF.getExcludeFlags(); if (e.climbM > 0) ex &= (unsigned short)~NF_HEAVY; if (e.stepGap > 0) ex &= (unsigned short)~NF_HEAVYGAP;
+  heavyMoveF.setExcludeFlags(ex);
+  return heavyMoveF;
+}
+// about a second: rise to 0.35 m over the lip by a fifth of the way, across, down onto the far side
+void AiCore::heavyArc(Soldier& s, BotMind::Trav& tr, vec3 a, vec3 b, float top) {
+  (void)s;
+  float hy = std::max(top, std::max(a.y, b.y)) + 0.35f, len = lenXZ(b - a);
+  tr.on = true; tr.heavy = true; tr.t = 0;
+  tr.p[0] = a; tr.p[1] = vec3(glm::mix(a.x, b.x, 0.2f), hy, glm::mix(a.z, b.z, 0.2f)); tr.p[2] = vec3(glm::mix(a.x, b.x, 0.75f), hy, glm::mix(a.z, b.z, 0.75f)); tr.p[3] = b; tr.np = 4;
+  tr.dur = std::clamp(0.8f + 0.15f * std::fabs(b.y - a.y) + 0.1f * len, 0.9f, 1.4f);
+  tr.end = b;
+}
+// the landing: on, or up to 1.5 m further along the move, where the heavy's capsule stands clear (parapets, revetment)
+vec3 AiCore::heavyLanding(Soldier& s, vec3 a, vec3 b) {
+  const EnemyType& e = enemyType(s.etype);
+  float R = e.capsuleR > 0 ? e.capsuleR : Physics::radius(), H = e.capsuleH > 0 ? e.capsuleH : Physics::standHeight();
+  vec3 dir = b - a; dir.y = 0; if (glm::length(dir) < 1e-3f) return b; dir = glm::normalize(dir);
+  for (int k = 0; k <= 6; ++k) {
+    vec3 q = b + dir * (0.25f * k); NavRef r; vec3 on = q;
+    if (k > 0 && (!G.nav.closest(q + vec3(0, 0.4f, 0), vec3(0.4f, 1.0f, 0.4f), r, on) || std::fabs(on.y - b.y) > 0.6f)) continue;
+    if (!Physics::capsuleBlocked(on + vec3(0, 0.3f, 0), std::max(2 * R + 0.02f, H - 0.3f), R)) return on;
+  }
+  return b;
+}
+// stuck fallback: rays down at 16 bearings x 0.8-3.2 m find the first ground 0.45 m to climb_m above the feet that is
+// on the navmesh; the one nearest the target's bearing (and closest) wins, and the heavy climbs onto it
+bool AiCore::heavyClimbOut(Soldier& s, BotMind& m, vec3 toward) {
+  const EnemyType& e = enemyType(s.etype);
+  if (e.climbM <= 0 || m.trav.on || s.agent < 0) return false;
+  vec3 f = s.feet, want = toward - f; want.y = 0; want = glm::length(want) > 0.1f ? glm::normalize(want) : vec3(0, 0, 1);
+  float bestScore = 1e9f; vec3 best(0); bool have = false;
+  for (int k = 0; k < 16; ++k) {
+    float ang = k * 0.3926991f; vec3 dir(std::cos(ang), 0, std::sin(ang));
+    for (float d = 0.8f; d <= 3.21f; d += 0.4f) {
+      vec3 q = f + dir * d; Physics::Hit h;
+      if (!Physics::castRayEx(vec3(q.x, f.y + e.climbM + 0.6f, q.z), vec3(0, -1, 0), e.climbM + 1.2f, h)) continue;
+      float rise = h.pos.y - f.y;
+      if (rise < 0.45f) continue;          // still the floor: further out
+      if (rise > e.climbM + 0.05f) break;  // a face too tall this way
+      NavRef r; vec3 on;
+      if (!G.nav.closest(h.pos + vec3(0, 0.3f, 0), vec3(0.6f, 0.8f, 0.6f), r, on) || std::fabs(on.y - h.pos.y) > 0.5f) continue;
+      float score = d - 2.0f * glm::dot(dir, want);
+      if (score < bestScore) { bestScore = score; best = on; have = true; }
+      break;
+    }
+  }
+  if (!have) return false;
+  m.trav = BotMind::Trav{}; m.trav.kind = LINK_MANTLE;
+  heavyArc(s, m.trav, f, heavyLanding(s, f, best), best.y);
+  m.hasPath = false; requestPath(s, m.goal, m.goalRadius, 7.0f, true);   // planned again once it has landed
+  ++metrics.linkTraversals;
+  return true;
+}
+
 void AiCore::linkAborted(NavRef ref, uint32_t id) {
   if (!ref || !G.nav.mesh()) return;
   int n = ++linkAbortsById[id];
@@ -406,7 +473,7 @@ void AiCore::move(Soldier& s, float dt) {
   }
   if (m.trav.on) { bool done = stepTraversal(s, m, dt); if (!m.trav.on && !done) stuckLadder(s, m, dt, true); return; }   // an aborted link counts as no progress
   dtNavMeshQuery* q = G.nav.query();
-  const dtQueryFilter* f = &G.nav.defaultFilter();
+  const dtQueryFilter* f = &moveFilter(s);   // EN4: a heavy's corridor may hold heavies-only links
   vec3 pos = s.feet;
   vec3 desired(0); bool wantsMove = false; bool crouchArea = false; bool offMesh = false;
   float vmax = m.speed == SPD_ZOMBIE ? m.zSpeed : m.speed == SPD_SPRINT ? vSprint : m.speed == SPD_JOG ? vJog : m.speed == SPD_WALK ? vWalk : m.speed == SPD_CROUCH ? vCrouch : m.speed == SPD_CRAWL ? vProne : 0.0f;
@@ -657,6 +724,7 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
       auto L = G.nav.linksNear(s.feet, 3.0f);
       float best = lenXZ(goal - s.feet) - 1.0f; vec3 pick(0); bool have = false;
       for (auto& l : L) for (int side = 0; side < (l.bidir ? 2 : 1); ++side) {
+        if (l.heavy && !(s.zombie && s.etype > 0)) continue;   // EN4: heavies-only
         vec3 from = side ? l.b : l.a, to = side ? l.a : l.b;
         if (glm::length(from - s.feet) > 3.0f) continue;
         float d = lenXZ(goal - to);

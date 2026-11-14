@@ -23,6 +23,7 @@
     "mantleMin_m": 0.4, "mantleMax_m": 1.6,
     "vaultMaxHeight_m": 1.1, "vaultMaxThickness_m": 0.6,
     "gapMax_m": 1.5, "mantleClear_m": 0.6,
+    "heavyClimbMax_m": 2.2, "heavyGapMax_m": 2.8, "heavyRadius_m": 0.5,
     "spacing_m": 1.2, "disableAfterAborts": 2,
     "probeBorder_m": 2.6,
     "cost_m": { "drop": 2.0, "mantle": 4.0, "vault": 2.5, "jump": 3.0 }

@@ -124,7 +124,7 @@ struct BotMind {
   std::vector<std::pair<int, int>> pathTiles;   // tiles the corridor crosses (re-plan when they rebuild)
   double optT = 0, topoT = 0, validT = 0;
   // link traversal
-  struct Trav { bool on = false; int kind = 0; vec3 p[4]{}; int np = 0; float t = 0, dur = 1; uint32_t link = 0; vec3 end{0}; NavRef ref = 0; } trav;
+  struct Trav { bool on = false, heavy = false; int kind = 0; vec3 p[4]{}; int np = 0; float t = 0, dur = 1; uint32_t link = 0; vec3 end{0}; NavRef ref = 0; } trav;   // EN4 heavy: the heavy climb (arc over the lip, no fit checks)
   int linksTaken = 0;
   // steering
   dtLocalBoundary boundary; double boundaryT = -100; vec3 boundaryPos{1e9f};
@@ -156,7 +156,7 @@ struct BotMind {
   double underFireT = 0, exposedT = 0, lastAct = 0;
   // PF1 zombie packs (zombie.cpp): followers steer along the mesh to a slot by the leader instead of path queries
   int pack = -1; bool follower = false; float speedScale = 1, zSpeed = 4; vec3 flockPush{0}; double flockT = 0, ownPathT = -100;
-  double tgtT = 0, badUntil = 0; int badTarget = -1;   // EN3 heavies (zombie.cpp heavyStep): next target choice, a target found unreachable
+  double tgtT = 0, badUntil = 0; int badTarget = -1; vec3 hAnchor{0}; double hAnchorT = 0, hClimbTry = 0;   // EN4: progress, climb-out retry   // EN3 heavies (zombie.cpp heavyStep): next target choice, a target found unreachable
 };
 
 // ---------------------------------------------------------------- path service (ai_path.cpp)
@@ -279,6 +279,13 @@ public:
   // EN3: per enemy type, spots its capsule did not fit through (heavyFits in ai_path.cpp), kept 90 s (walls can be blown open)
   struct HeavyBlock { vec3 p; int type; double until; }; std::vector<HeavyBlock> heavyBlocks; int heavyProbes = 0, heavyBlocked = 0;
   bool heavyFits(Soldier& s, const std::vector<NavRef>& polys);
+  // EN4 heavies over lips: the arc of a heavy climb (links and the climb-out), its landing clear of the parapet, and the
+  // stuck fallback (a lip up to the type's climb_m within 3 m, toward `toward` first); the corridor filter for a soldier
+  void heavyArc(Soldier& s, BotMind::Trav& tr, vec3 a, vec3 b, float top);
+  vec3 heavyLanding(Soldier& s, vec3 a, vec3 b);
+  bool heavyClimbOut(Soldier& s, BotMind& m, vec3 toward);
+  const dtQueryFilter& moveFilter(const Soldier& s);
+  dtQueryFilter heavyMoveF;
   void dispatchPaths();
   void receivePaths();
   std::unique_ptr<BotFilter> makeFilter(Soldier& s);

@@ -35,6 +35,7 @@ void NavConfig::load(const json& j) {
   if (j.contains("links")) {
     const json& l = j["links"];
     dropMin = l.value("dropMin_m", dropMin); dropMax = l.value("dropMax_m", dropMax); mantleMin = l.value("mantleMin_m", mantleMin); mantleMax = l.value("mantleMax_m", mantleMax);
+    heavyClimb = l.value("heavyClimbMax_m", heavyClimb); heavyGap = l.value("heavyGapMax_m", heavyGap); heavyRadius = l.value("heavyRadius_m", heavyRadius);
     vaultMax = l.value("vaultMaxHeight_m", vaultMax); vaultThick = l.value("vaultMaxThickness_m", vaultThick); gapMax = l.value("gapMax_m", gapMax);
     linkSpacing = l.value("spacing_m", linkSpacing); linkBorder = l.value("probeBorder_m", linkBorder);
     if (l.contains("cost_m")) for (int k = 0; k < LINK_KINDS; ++k) linkCost[k] = l["cost_m"].value(navLinkName(k), linkCost[k]);
@@ -177,6 +178,20 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
     pm->flags[i] = navAreaCost(na) < 0 ? NF_FORBID : (navarea::crouch(a) ? (NF_WALK | NF_CROUCH) : NF_WALK);
   }
   navGenerateLinks(c, cols, *pm, tminx, tminz, T, j.idBase, j.links);
+  {   // EN4: the heavies' pass: lips up to heavyClimb (two way), gaps up to heavyGap, landing heavyRadius clear; only links
+      // the soldiers' pass lacks are kept, flagged so only a heavy's filter takes them (ids after the soldiers', < 4096 per tile)
+    NavConfig hc = c; hc.mantleMax = c.heavyClimb; hc.dropMax = std::max(c.dropMax, c.heavyClimb + 0.2f); hc.gapMax = c.heavyGap; hc.radius = c.heavyRadius;
+    std::vector<NavLink> hl; navGenerateLinks(hc, cols, *pm, tminx, tminz, T, j.idBase + (uint32_t)j.links.size(), hl);
+    size_t n0 = j.links.size();
+    for (auto& l : hl) {
+      if (j.links.size() >= 4090) break;
+      bool dup = false;
+      for (size_t k = 0; k < n0 && !dup; ++k) { const NavLink& o = j.links[k]; dup = o.kind == l.kind && glm::length(o.a - l.a) < 1.0f && glm::length(o.b - l.b) < 1.5f; }
+      if (dup) continue;
+      l.heavy = l.kind == LINK_JUMP ? 2 : 1;
+      j.links.push_back(l);
+    }
+  }
   // both ends must be on walkable, unmarked voxels of the final field (links come from the raw columns, before area
   // marks such as hedgerow footprints, forbidden areas and erosion)
   auto onWalk = [&](vec3 p) {
@@ -206,7 +221,7 @@ static void buildTile(const NavConfig& c, NavBuildJob& j) {
   for (auto& l : j.links) {
     lv.insert(lv.end(), {l.a.x, l.a.y, l.a.z, l.b.x, l.b.y, l.b.z});
     lr.push_back(c.radius + 0.25f); ld.push_back(l.bidir ? DT_OFFMESH_CON_BIDIR : 0);
-    la.push_back((unsigned char)(navarea::kLinkDrop + l.kind)); lf.push_back(NF_LINK); lid.push_back(l.id);
+    la.push_back((unsigned char)(navarea::kLinkDrop + l.kind)); lf.push_back((unsigned short)(NF_LINK | (l.heavy == 1 ? NF_HEAVY : l.heavy == 2 ? NF_HEAVYGAP : 0))); lid.push_back(l.id);
   }
   dtNavMeshCreateParams p{};
   p.verts = pm->verts; p.vertCount = pm->nverts; p.polys = pm->polys; p.polyAreas = pm->areas; p.polyFlags = pm->flags; p.polyCount = pm->npolys; p.nvp = pm->nvp;
@@ -280,7 +295,7 @@ void Nav::initMesh() {
   query_ = dtAllocNavMeshQuery();
   query_->init(mesh_, 16384);   // long routes over a dense mesh (D-day: west landing to the stronghold) ran out of nodes at 4096
   dtQueryFilter& f = impl_->filter;
-  f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID | NF_TRAPLINK | NF_BADLINK);
+  f.setIncludeFlags(NF_WALK | NF_CROUCH | NF_LINK); f.setExcludeFlags(NF_FORBID | NF_TRAPLINK | NF_BADLINK | NF_HEAVY | NF_HEAVYGAP);
   for (int a = 0; a < DT_MAX_AREAS; ++a) f.setAreaCost(a, 1.0f);
   for (int k = 0; k < (int)NavArea::Count; ++k) {
     float cst = std::max(0.1f, navAreaCost((NavArea)k));
@@ -333,7 +348,7 @@ static void sampleWater(const Nav& nav, NavBuildJob& j, float pad) {
 
 // ---- bake cache: header, then per tile (tx, tz, Detour tile bytes, links). Machine-local: the caller's key (map,
 // content, nav settings, bounds, executable) names the file, so a stale file is never read.
-static const uint32_t kNavCacheMagic = 0x4E4D4B43u, kNavCacheVersion = 1;
+static const uint32_t kNavCacheMagic = 0x4E4D4B43u, kNavCacheVersion = 2;   // 2: EN4 heavy link flag in the bidir byte
 template <class T> static void wr(std::vector<char>& b, const T& v) { b.insert(b.end(), (const char*)&v, (const char*)&v + sizeof v); }
 template <class T> static bool rd(const std::vector<char>& b, size_t& p, T& v) { if (p + sizeof v > b.size()) return false; std::memcpy(&v, b.data() + p, sizeof v); p += sizeof v; return true; }
 static bool readAll(const fs::path& p, std::vector<char>& b) {
@@ -363,7 +378,7 @@ std::vector<char> Nav::blobOf(const std::vector<std::unique_ptr<NavBuildJob>>& j
     wr(f, (int32_t)j->tx); wr(f, (int32_t)j->tz); wr(f, (int32_t)(j->data ? j->size : 0));
     if (j->data) f.insert(f.end(), (const char*)j->data, (const char*)j->data + j->size);
     wr(f, (int32_t)j->links.size());
-    for (auto& l : j->links) { wr(f, l.a); wr(f, l.b); wr(f, (int32_t)l.kind); wr(f, (uint8_t)l.bidir); wr(f, l.top); wr(f, l.id); }
+    for (auto& l : j->links) { wr(f, l.a); wr(f, l.b); wr(f, (int32_t)l.kind); wr(f, (uint8_t)((l.bidir ? 1 : 0) | (l.heavy << 1))); wr(f, l.top); wr(f, l.id); }
   }
   return f;
 }
@@ -409,7 +424,7 @@ bool Nav::loadBlob(const std::vector<char>& b) {
     for (auto& l : t.links) {
       int32_t kind = 0; uint8_t bd = 0;
       if (!rd(b, p, l.a) || !rd(b, p, l.b) || !rd(b, p, kind) || !rd(b, p, bd) || !rd(b, p, l.top) || !rd(b, p, l.id)) return false;
-      l.kind = kind; l.bidir = bd != 0;
+      l.kind = kind; l.bidir = (bd & 1) != 0; l.heavy = (uint8_t)(bd >> 1);
     }
   }
   if (p != b.size()) return false;
