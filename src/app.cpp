@@ -766,8 +766,6 @@ void App::screenshot(const fs::path& p) {
       else if (m.kind == 2) for (int k = -r / 2; k <= r / 2; ++k) { put(cx + k, cy - r / 2, m.col); put(cx + k, cy + r / 2, m.col); put(cx - r / 2, cy + k, m.col); put(cx + r / 2, cy + k, m.col); }
       else for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) put(cx + x, cy + y, m.col);
     }
-    // the HUD centre dot (drawn by ImGui, so not otherwise in the scene capture)
-    for (int y = -2; y <= 2; ++y) for (int x = -2; x <= 2; ++x) if (x * x + y * y <= 5) put(w / 2 + x, h / 2 + y, 0xFFE6F0F0u);
   }
   std::error_code ec; fs::create_directories(p.parent_path(), ec);
   stbi_write_png(p.string().c_str(), w, h, 4, flip.data(), w * 4);

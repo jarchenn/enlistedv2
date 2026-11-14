@@ -506,7 +506,7 @@ void App::drawExploreUI() {
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
   if (!pauseMenu) {
-    if (!tanks.occupied) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
+    // (no centre dot: removed at the user's request; the weapon's own sights are the aim reference)
     if (target.valid && !tanks.occupied && !tanks.target) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
