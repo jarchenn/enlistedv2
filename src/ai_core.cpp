@@ -89,7 +89,7 @@ uint64_t placementSig(const std::vector<Instance>& v, bool withPose);   // app.c
 // ---- PF1 navmesh key and the map's sidecar (<map>.nav)
 // bump when the bake (nav*.cpp, terrain generation, geometry classes) changes its output for the same inputs: the key
 // is content-based (no executable stamp), so a shipped sidecar stays valid across builds
-static const int kNavBakeVersion = 1;
+static const int kNavBakeVersion = 2;   // 2: EN4 heavies-only links
 static NavSidecarEntry gLastNav;   // the last match's tiles, carried into the sidecar by the next save
 static uint64_t fnv64(const std::string& s) { uint64_t h = 1469598103934665603ull; for (unsigned char c : s) { h ^= c; h *= 1099511628211ull; } return h; }
 // map, the assets the bake classifies, the template's terrain inputs, navigation.json (the bounds come on top)
