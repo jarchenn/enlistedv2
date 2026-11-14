@@ -299,8 +299,57 @@ float lightsEmissiveScale(App& app, const Instance& i) {
   return useScale(d->lights[0].use, lightsDaylight(app));
 }
 
+// PERF1 lightcache: what a lamp's light is (position, colour, use) and whether its furniture / host state puts it out
+// only changes with an edit, an add / removal (revCounter, size), or a furniture state change (InteriorSys::epoch:
+// breaks, glass, light shot out, resets). Between those the list is reused; every frame each lamp still re-reads its
+// switch / gain / colour (extra.light changes without a rev bump) and, when its host building is damaged at all, runs
+// the full off-reason again (a breach puts the room's lamps out the frame it happens). Daylight scaling stays live.
+namespace {
+struct LampC { size_t idx; int k; LightDesc o; std::string use; float i0; const InstanceRT* host; bool off; };
+std::vector<LampC> gLampC; uint64_t gLampKey = 0;
+}
 void lightsGather(App& app, std::vector<LightDesc>& out) {
   float day = lightsDaylight(app);
+  if (app.R.perf.lightCache && gLightsSkip.empty()) {
+    const auto& L0 = app.activeSet().lights;
+    const uint64_t key = ((uint64_t)app.revCounter * 0x9E3779B97F4A7C15ull) ^ (app.interior.epoch() * 0xC2B2AE3D27D4EB4Full)
+                       ^ ((uint64_t)app.doc.instances.size() << 20) ^ (uint64_t)(uintptr_t)&app.doc ^ ((uint64_t)L0.size() << 44);
+    if (key != gLampKey) {
+      gLampKey = key; gLampC.clear();
+      for (auto& [idx, rp] : L0) {
+        const Instance& i = app.doc.instances[idx];
+        const AssetDef* a = rp->asset; const LightAssetDef* d = lightDef(a);
+        if (!d || d->lights.empty()) continue;
+        uint64_t host = 0; int room = -1; const InstanceRT* hr = nullptr;
+        if (furnishRoom(i, host, room)) { auto ht = app.rt.find(host); if (ht != app.rt.end()) hr = &ht->second; }
+        mat4 M = app.instanceMatrix(i); quat q = yawQuat(i.yaw);
+        for (size_t k = 0; k < d->lights.size(); ++k) {
+          const LightSpec& s = d->lights[k];
+          LampC c{idx, (int)k, LightDesc{}, s.use, s.intensity, hr, !offReason(app, i, a, d, (int)k).empty()};
+          c.o.pos = vec3(M * vec4(s.offset, 1)); c.o.radius = s.radius; c.o.color = s.color;
+          c.o.dir = glm::normalize(q * s.dir); c.o.cosInner = s.cosInner; c.o.cosOuter = s.cosOuter;
+          c.o.flicker = s.flicker; c.o.shadow = s.shadow; c.o.id = (uint32_t)(i.id * 16u + (uint64_t)k);
+          gLampC.push_back(c);
+        }
+      }
+    }
+    for (const LampC& c : gLampC) {
+      const Instance& i = app.doc.instances[c.idx];
+      const json* L = extraLight(i);
+      if (L && !L->value("on", true)) continue;   // switched off
+      bool off = c.off;
+      if (c.host && c.host->damaged) { const AssetDef* a = app.rt.at(i.id).asset; off = !offReason(app, i, a, lightDef(a), c.k).empty(); }
+      if (off) continue;
+      float gain = L ? std::max(0.0f, L->value("gain", 1.0f)) : 1.0f;
+      float sc = useScale(c.use, day) * gain;
+      if (sc <= 1e-3f) continue;
+      LightDesc o = c.o; o.intensity = c.i0 * sc;
+      if (L && L->contains("color")) o.color = v3((*L)["color"], vec3(1));
+      out.push_back(o);
+    }
+    app.flame.gatherLights(out);
+    return;
+  }
   for (auto& [idx, rp] : app.activeSet().lights) {   // instances with a light asset only (app.cpp), not every instance
     const Instance& i = app.doc.instances[idx];
     const AssetDef* a = rp->asset;

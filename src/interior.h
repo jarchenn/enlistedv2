@@ -154,6 +154,9 @@ private:
   // per-frame work is skipped while nothing changed: the edit revision, the instance count, the selection, or a
   // furniture state (epoch_: breaks, glass, crushing, resets)
   uint64_t epoch_ = 1, batchSig_ = 0, syncSig_ = 0;
+public:
+  uint64_t epoch() const { return epoch_; }   // PERF1: furniture state changes (the lamp list cache, lights.cpp)
+private:
   struct Openings { bool built = false, closed = false; std::vector<std::pair<vec3, vec3>> boxes; };   // asset space
   std::map<const AssetDef*, Openings> openings_;
   const Openings& openings(const AssetDef* a);
