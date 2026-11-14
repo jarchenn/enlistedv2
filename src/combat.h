@@ -37,12 +37,17 @@ struct WeaponDef {
   float reloadInsert = 0;                // MG1: animated reloads move the rounds at this fraction of the clip (0 = at its end)
   float reloadStart = 0, reloadEnd = 0;  // MG2 shell loop (single feed): the start before the first round, the end after the last
   std::vector<int> modelParts[8];       // model part indices per WPart role
+  // MG4: the third-person / world model: the bake's lod1 (the reduced mesh) when the weapon has one, else the model
+  std::shared_ptr<GpuModel> modelLod; std::vector<int> modelPartsLod[8];
+  const GpuModel* worldModel() const { return modelLod ? modelLod.get() : model.get(); }
+  const std::vector<int>* worldParts() const { return modelLod ? modelPartsLod : modelParts; }
   fs::path file;                        // source JSON (calibration panel saves back into it)
   vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)
   float bulletMass = 10;                // grams (penetration energy)
   std::vector<std::string> modes;       // fire-selector modes, first is the default ("auto", "semi")
   std::string deploys;                  // heavy weapon: station asset it deploys as
   float rocketDmg = 0, rocketR = 0, rocketCrater = 0, rocketSplashGun = 0;   // launcher rocket tuning (data)
+  float rocketGrav = 0.35f; bool rocketAtKill = true, rocketBackblast = true;   // MG4: "gravity" (x g; a 40 mm grenade arcs at 1), a direct hit kills an AT gun, backblast
   // per-weapon ADS calibration (JSON "ads", docs/fps-weapons.md#calibration). rear / front / muzzle above are the
   // measured anchors on the mesh; these refine the pose without touching the mesh.
   float eyeRelief = 0.21f;              // m, eye to rear sight in ADS (irons); smaller = larger sight picture

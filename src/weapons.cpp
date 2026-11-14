@@ -102,7 +102,8 @@ void App::buildWeaponMeshes() {
     d->bulletMass = j.value("bulletMass", 10.0f);
     for (auto& m : j.value("modes", json::array())) d->modes.push_back(m.get<std::string>());
     d->deploys = j.value("deploys", "");
-    if (j.contains("rocket")) { auto& rj = j["rocket"]; d->rocketDmg = rj.value("damage", 260.0f); d->rocketR = rj.value("radius", 1.6f); d->rocketCrater = rj.value("crater", 0.6f); d->rocketSplashGun = rj.value("splashGun", 40.0f); }
+    if (j.contains("rocket")) { auto& rj = j["rocket"]; d->rocketDmg = rj.value("damage", 260.0f); d->rocketR = rj.value("radius", 1.6f); d->rocketCrater = rj.value("crater", 0.6f); d->rocketSplashGun = rj.value("splashGun", 40.0f);
+      d->rocketGrav = rj.value("gravity", 0.35f); d->rocketAtKill = rj.value("atKill", true); d->rocketBackblast = rj.value("backblast", true); }
     loadEquipment(*d, j);
     if (j.contains("sockets")) { d->gripR = jvec3(j["sockets"]["rightGrip"], d->gripR); d->gripL = jvec3(j["sockets"]["leftSupport"], d->gripL); }
     if (j.contains("model") && useImportedModels) {
@@ -115,14 +116,24 @@ void App::buildWeaponMeshes() {
         it = modelCache.emplace(dirName, gm).first;
       }
       d->model = it->second;
-      if (d->model) {
-        for (size_t k = 0; k < d->model->parts.size(); ++k) {
-          const std::string& r = d->model->parts[k].role;
+      auto roles = [&](const GpuModel& gm, std::vector<int>* parts) {
+        for (size_t k = 0; k < gm.parts.size(); ++k) {
+          const std::string& r = gm.parts[k].role;
           int role = WP_BODY;
           for (int p = 0; p < WP_COUNT; ++p) if (r == kPartNames[p]) role = p;
-          d->modelParts[role].push_back((int)k);
+          parts[role].push_back((int)k);
         }
-        for (auto& hp : j["model"].value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) d->modelParts[p].clear();   // e.g. the Garand clip: never drawn
+        for (auto& hp : j["model"].value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) parts[p].clear();   // e.g. the Garand clip: never drawn
+      };
+      if (d->model) {
+        roles(*d->model, d->modelParts);
+        fs::path ld = dir / "models" / dirName / "lod1";   // MG4: the reduced bake for third person and the world
+        if (fs::exists(ld / "mesh.bin")) {
+          auto lit = modelCache.find(dirName + "/lod1");
+          if (lit == modelCache.end()) { auto gl = std::make_shared<GpuModel>(); std::string e2; if (!gl->load(ld, e2)) gl.reset(); lit = modelCache.emplace(dirName + "/lod1", gl).first; }
+          d->modelLod = lit->second;
+          if (d->modelLod) roles(*d->modelLod, d->modelPartsLod);
+        }
       }
     }
     if (j.contains("animated") && useImportedModels) {   // MG1: the source's own arms and clips (vm_anim.h); a failure keeps the static path
@@ -521,15 +532,15 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         dir = V; lastSightR = Rw; lastSightF = Fw; lastSightV = glm::normalize(Fw - Rw);
       }
       // declared zero: tilt up by the drop at the zero range
-      float g = d.action == "launcher" ? 9.81f * 0.35f : 9.81f;   // rockets: reduced effective gravity (sustained motor)
+      float g = d.action == "launcher" ? 9.81f * d.rocketGrav : 9.81f;   // rockets: reduced effective gravity (sustained motor); MG4 grenades: full
       float tz = d.zero / d.velocity, drop = 0.5f * g * tz * tz;
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
       int tracer = d.tracerKind(s.shotIdx);
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
         Projectile& rp = projectiles.back();
-        rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = true; rp.gravScale = 0.35f;
-        fx.backblast(weaponMuzzleWorld(d, s) - aimDir * 1.4f, -aimDir);   // content/settings/fx.json
+        rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav;
+        if (d.rocketBackblast) fx.backblast(weaponMuzzleWorld(d, s) - aimDir * 1.4f, -aimDir);   // content/settings/fx.json
       } else {
         fireRounds(d, start, dir, tracer, s.seed ^ (uint32_t)s.shotIdx * 7919u, -1);   // MG1: a shotgun's pellets
       }

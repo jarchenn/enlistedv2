@@ -156,4 +156,6 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | red-dot-sight (rds_low.fbx) | Reflex sight on the Remington 870's animated rig (MG3) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | pistol-anim-pack (Pistol_firsp.rar) | **Not used** (two separate armatures, one FBX per clip) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-animated-carbine-2 | **Not used**: byte-identical to fps-animated-carbine | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| grenadelauncher-animated (arms@Glauncher.fbx) | Six-shot grenade launcher (`modern_glauncher`, MG4) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| fps-ak-animated-2 | **Not used**: byte-identical to fps-ak-animated (`modern_ak`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |

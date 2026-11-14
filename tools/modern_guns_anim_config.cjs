@@ -23,7 +23,7 @@ const A = {
     clips: { fire: [1, 9], reload_empty: [9, 101], reload: [101, 153], inspect: [153, 201], idle: [201, 221], draw: [221, 244] },
     mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png" }, arms: c4dArms() } },
   modern_m4: { src: "fps-animated-carbine/source/arms@carbine.fbx", tex: "fps-animated-carbine", stat: "modern_carbine",
-    cutLens: [{ a: [0.0018, 0.11, 0.28], b: [0.0018, 0.11, 0.39], r: 0.0135, all: true }],   // MG3: the lenses, the inner tube (the thick black ring) and the inner rims inside 13.5 mm; the outer housing (15 mm) stays
+    cutLens: [{ a: [0.0018, 0.11, 0.28], b: [0.0018, 0.11, 0.39], r: 0.0135, all: true, black: true, blackR: 0.016 }],   // MG3 / MG4: lenses and inner rims (axis-facing) inside 13.5 mm deleted; the tube and housing walls there kept, flat black
     keep: ["armmesh", "base", "bolt", "boltcatch", "bullet", "clip", "handle", "handle2", "lid", "release", "scope", "trigger"], rigidify: ["base", "bolt", "boltcatch", "bullet", "clip", "handle", "handle2", "lid", "release", "scope", "trigger"], gun: "base", timeline: [1, 223],
     clips: { fire: [1, 9], reload_empty: [9, 69], reload: [69, 135], inspect: [135, 177], idle: [177, 205], draw: [205, 223] },
     mats: { carbine: { albedo: "carbineColor.png", normal: "carbineNormal.png", metal: "carbineMetallic.png", smooth: "carbinespecular.png" }, arms: c4dArms() } },
@@ -67,20 +67,20 @@ const A = {
     mats: { "None.001": { albedo: "for_texturing_None.001_Diffuse.png", gloss: "for_texturing_None.001_Glossiness.png", spec: "for_texturing_None.001_Specular.png" },
             DMC5_Soldier_Hands_Mat: { albedo: "soldierhand_d.png", rough_f: 0.7 }, DMC5_Soldier_Shirt_Mat: { factor: [0.09, 0.1, 0.07], rough_f: 0.9 }, DMC5_Soldier_Gear_Mat: { factor: [0.05, 0.05, 0.05], rough_f: 0.7 } } },
   // ---- MG2 (no draw clips, no movement clips; still idles)
-  modern_ar15: { src: "ar-15-animations-miniset/source/Base_Rig_Test_Scetc.fbx", tex: "ar-15-animations-miniset", stat: "modern_ar15", keep: ["AR_15", "SKM_Manny_LOD0_Hands"], gun: "AR_15", cutLens: [{ a: [0, 0.124, 0.25], b: [0, 0.124, 0.47], r: 0.02 }], decimate: { AR_15: 0.3, SKM_Manny_LOD0_Hands: 0.35 },
+  modern_ar15: { src: "ar-15-animations-miniset/source/Base_Rig_Test_Scetc.fbx", tex: "ar-15-animations-miniset", stat: "modern_ar15", keep: ["AR_15", "SKM_Manny_LOD0_Hands"], gun: "AR_15", cutLens: [{ a: [0, 0.124, 0.25], b: [0, 0.124, 0.47], r: 0.02 }],
     // the set has no idle and no fire clip: the idle is the draw's last frame (held), a shot is a procedural kick
     clips: { idle: { action: "root|Draw", range: [117, 118] }, reload: "root|Reload", reload_empty: "root|Full_Reload" },
     mats: { "texture set 1": { albedo: "texture_set_1_Base_color.png", rough: "texture_set_1_Roughness.png" }, "texture set 2": { albedo: "texture_set_2_Base_color.png", rough: "texture_set_2_Roughness.png", metal: "texture_set_2_Metallic.png" }, ...manny } },
-  modern_mp7: { src: X + "mp7/MP7A1_Animations/model/MP7A1.fbx", abs: true, tex: "mp7a1-animations", stat: "modern_mp7", keep: ["mp7a1_Object", "SK_Mannequin_Arms"], gun: "mp7a1_Object", cutLens: [{ a: [0.002, 0.141, 0.27], b: [0.002, 0.141, 0.39], r: 0.013 }], decimate: { mp7a1_Object: 0.7, SK_Mannequin_Arms: 0.35 },
+  modern_mp7: { src: X + "mp7/MP7A1_Animations/model/MP7A1.fbx", abs: true, tex: "mp7a1-animations", stat: "modern_mp7", keep: ["mp7a1_Object", "SK_Mannequin_Arms"], gun: "mp7a1_Object", cutLens: [{ a: [0.002, 0.141, 0.27], b: [0.002, 0.141, 0.39], r: 0.016, islands: true, black: true, blackR: 0.017 }],
     clips: { idle: "root|root|MC_MP7_static_pose", fire: "root|root|MC_MP7_shoot", reload: "root|root|MC_MP7_reload", reload_empty: "root|root|MC_MP7_full_reload" },
     mats: { ...Object.fromEntries([["Slot_1", "Slot_1"], ["slot_2", "slot_2"], ["slot_3", "slot_3"]].map(([m, f]) => [m, { albedo: `mp7_low_${f}_BaseColor.png`, rough: `mp7_low_${f}_Roughness.png`, metal: `mp7_low_${f}_Metallic.png` }])), ...manny } },
-  modern_rpg7: { src: X + "rpg7/RPG7_Animations/model/RPG_7.fbx", abs: true, tex: "rpg-7-animations", stat: "modern_rpg7", keep: ["rpg_low", "SK_Mannequin_Arms"], gun: "rpg_low", decimate: { SK_Mannequin_Arms: 0.35 },
+  modern_rpg7: { src: X + "rpg7/RPG7_Animations/model/RPG_7.fbx", abs: true, tex: "rpg-7-animations", stat: "modern_rpg7", keep: ["rpg_low", "SK_Mannequin_Arms"], gun: "rpg_low",
     clips: { idle: "root|MC_RPG7_static_pose", idle_empty: "root|MC_RPG7_static_pose_empty", fire: "root|MC_RPG7_shoot", reload: "root|MC_RPG7_reload" },
     mats: { "rpg-7": { albedo: "RPG-7_low_rpg-7_BaseColor.png", rough: "RPG-7_low_rpg-7_Roughness.png", metal: "RPG-7_low_rpg-7_Metallic.png" }, rockets: { albedo: "RPG-7_low_rockets_BaseColor.png", rough: "RPG-7_low_rockets_Roughness.png", metal: "RPG-7_low_rockets_Metallic.png" }, ...manny } },
   modern_scorpion: { src: X + "scorpion/CZ_Scorpion_Evo3_A1_Anim.blend", abs: true, tex: "scorpion-first-person-animations-2026-remake", stat: "modern_scorpion", keep: ["CZScorpion", "Mesh"], gun: "CZScorpion", defOnly: true,
     clips: { idle: "Idle", fire: "Fire", reload: "Reload", reload_empty: "Reload_Empty" },
     mats: { CZScorpion: { factor: [0.055, 0.055, 0.05], rough_f: 0.55 }, ...agent } },
-  modern_uzi: { src: X + "uzi/1Matzh_Uzi_Animations.blend", abs: true, tex: "uzi-first-person-animations-2026-remake", stat: "modern_uzi", keep: ["UZI", "Mesh"], gun: "UZI", defOnly: true, decimate: { UZI: 0.7 },
+  modern_uzi: { src: X + "uzi/1Matzh_Uzi_Animations.blend", abs: true, tex: "uzi-first-person-animations-2026-remake", stat: "modern_uzi", keep: ["UZI", "Mesh"], gun: "UZI", defOnly: true,
     clips: { idle: "Idle", fire: "Fire", reload: "Reload", reload_empty: "Reload_Empty" },
     mats: { UZI: { albedo: "UZI_Base_color.png", rough: "UZI_Roughness.png", metal: "UZI_Metallic.png" }, "UZI Magazine and Bullet": { albedo: "UZI_Magazine_and_Bullet_Base_color.png", rough: "UZI_Magazine_and_Bullet_Roughness.png", metal: "UZI_Magazine_and_Bullet_Metallic.png" }, ...agent } },
   modern_shotgun2: { src: "shotgun-animated/source/shotgunAnimated.fbx", tex: "shotgun-animated", stat: "modern_shotgun2", keep: ["boomstick", "arm"], gun: "boomstick", gunBone: "weapon",
@@ -97,6 +97,12 @@ const A = {
     keep: ["armMesh", "base", "bolt", "bullet", "clip", "trigger"], rigidify: ["base", "bolt", "bullet", "clip", "trigger"], gun: "base", timeline: [1, 215], hipRear: [0.07, 0.3, -0.09],
     clips: { fire: [1, 11], reload_empty: [11, 57], reload: [58, 135], idle: [169, 197] },   // 135-150: the gun leaves the view; inspect 151-168 and the draw 197-215 not used
     mats: { pistol1: { albedo: "pistol1Color.png", metal: "pistol1Metallic.png", rough_f: 0.45 }, arms: { albedo: "armcolor.png", rough_f: 0.6 } } },
+  // ---- MG4: six-shot revolver grenade launcher (Cinema 4D timeline, 30 fps)
+  modern_glauncher: { src: "grenadelauncher-animated/source/arms@Glauncher.fbx", tex: "grenadelauncher-animated", stat: "modern_glauncher",
+    keep: ["armmesh", "base", "casing", "front", "release", "scope", "scopebase", "slug1", "slug2", "slug3", "slug4", "slug5", "slug6", "trigger"], rigidify: ["base", "casing", "front", "release", "scope", "scopebase", "slug1", "slug2", "slug3", "slug4", "slug5", "slug6", "trigger"], gun: "base", timeline: [1, 303],
+    // one round per 26 frames (rest frames 120, 146, 172): the insert loops the 4th round; 216-266 (out of view, inspect) and the draw 287-303 not used
+    clips: { fire: [1, 15], reload_start: [15, 42], reload_insert: [120, 146], reload_end: [198, 215], idle: [267, 287] },
+    mats: { glauncher: { albedo: "grenadelauncherColor.png", metal: "glMetallic.png", rough_f: 0.5 }, arms: { albedo: "armColor.png", metal: "armmetallic.png", smooth: "armsmoothness.png" } } },
 };
 for (const [id, a] of Object.entries(A)) {
   const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));
@@ -106,7 +112,8 @@ for (const [id, a] of Object.entries(A)) {
   const s = w.model.realLength / (mx[2] - mn[2]);   // the static import's scale (realLength over the length parts' extent)
   const points = { rear: w.sights.rear, front: w.sights.front, muzzle: w.muzzle };
   if (w.scope) points.eye = w.scope.eye;
-  const cfg = { ...a, src: a.abs ? a.src : G + a.src, texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points,
+  const cfg = { maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src,   // MG4: rig textures up to 2048 (never upscaled)
+    texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points,
     static: { s, o: [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, mn[2]] } };
   fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify(cfg, null, 1));
 }
