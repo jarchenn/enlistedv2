@@ -192,15 +192,35 @@ static void trenchLineBuilder(const LineBuildCtx& c, LineBuildOut& out) {
     t /= len; vec2 n(-t.y, t.x);
     float floorY = c.ground(mid.x, mid.y);
     for (float sd : {-1.0f, 1.0f}) {
-      vec2 lip = mid + n * sd * (half + 0.6f);
-      float top = std::min(c.ground(lip.x, lip.y), floorY + 2.4f);
-      if (top - floorY < 0.35f) continue;
-      vec2 cxz = mid + n * sd * (half + 0.2f);
+      // the sandbags on the lip are solid too (GX1 lays them visual only): the box reaches over the cap (one course on
+      // the fire side, two behind) and, behind, over the parados bags -- so a crouching or prone player, or a mantle
+      // landing, never rests inside them; a mantle out lands on the box top, a flat shelf a sandbag high (2.15 m reach)
+      const bool fireSide = step && sd == side;
+      const float capH = fireSide ? 0.16f : 0.30f, wOut = fireSide ? 0.75f : 1.15f;
+      vec2 lip = mid + n * sd * (half + 0.6f), far = mid + n * sd * (half + wOut);
+      float ground = std::max(c.ground(lip.x, lip.y), c.ground(far.x, far.y));
+      if (std::min(c.ground(lip.x, lip.y), floorY + 2.4f) - floorY < 0.35f) continue;
+      float top = std::min(ground, floorY + 2.4f) + capH;
+      vec2 cxz = mid + n * sd * (half + 0.02f + 0.5f * wOut);
       Part w; w.shape = Part::BOX; w.visible = false; w.collide = true;
-      w.center = c.local(cxz, (floorY - 0.2f + top) * 0.5f); w.size = vec3(len + 0.06f, top - floorY + 0.2f, 0.36f);
+      w.center = c.local(cxz, (floorY - 0.2f + top) * 0.5f); w.size = vec3(len + 0.06f, top - floorY + 0.2f, wOut);
       w.rot = glm::angleAxis(std::atan2(t.x, t.y) - 1.5707963f, vec3(0, 1, 0));
       out.colliders.push_back({w, -1, false});
     }
+  }
+  for (int e = 0; e < 2 && c.spline.size() >= 2; ++e) {   // the end wall of a full-depth end (not a ramp, not a junction)
+    const LineSample& q = e ? c.spline.back() : c.spline.front();
+    const LineSample& q1 = e ? c.spline[c.spline.size() - 2] : c.spline[1];
+    if (q.d < 0.9f || nearOther(q.p)) continue;
+    vec2 t = q.p - q1.p; float len = glm::length(t); if (len < 1e-3f) continue;
+    t /= len;
+    float floorY = c.ground(q1.p.x, q1.p.y);
+    vec2 back = q.p + t * 0.9f; float top = std::min(c.ground(back.x, back.y), floorY + 2.4f) + 0.30f;
+    if (top - floorY < 0.65f) continue;
+    Part w; w.shape = Part::BOX; w.visible = false; w.collide = true;
+    w.center = c.local(q.p + t * 0.6f, (floorY - 0.2f + top) * 0.5f); w.size = vec3(2.0f * (half + 1.15f), top - floorY + 0.2f, 1.1f);
+    w.rot = glm::angleAxis(std::atan2(t.x, t.y), vec3(0, 1, 0));   // local +z along the line, out of the end
+    out.colliders.push_back({w, -1, false});
   }
   if (!step) return;
   for (size_t k = 0; k + 1 < c.spline.size(); k += 2) {   // ~1 m pieces
