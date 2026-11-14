@@ -549,7 +549,7 @@ void App::drawExploreUI() {
         } else {   // the rocket: muzzle toward the aim point, tilted for the zero, then its reduced-gravity drop (weapons.cpp)
           Physics::Hit h; float zr = std::max(5.0f, d.zero); float far = Physics::castRayEx(eye, aimDir, 600, h) ? h.t : 600.0f;
           vec3 dir = glm::normalize(eye + aimDir * far - muzzle);
-          float g = 9.81f * 0.35f, tz = zr / d.velocity;
+          float g = 9.81f * d.rocketGrav, tz = zr / d.velocity;
           dir = glm::normalize(dir + vec3(0, 0.5f * g * tz * tz / zr, 0));
           float dist = std::min(far, zr), tt = dist / d.velocity;
           P = muzzle + dir * dist - vec3(0, 0.5f * g * tt * tt, 0);

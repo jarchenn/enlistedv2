@@ -771,7 +771,7 @@ void Game::drawItems() {
   for (auto& d : drops) {   // GM1: lying on its side next to the body
     const WeaponDef& w = *app.weaponDefs[d.weapon];
     mat4 W = glm::translate(mat4(1), d.pos) * glm::rotate(mat4(1), radians(d.yaw + 90.0f), vec3(0, 1, 0)) * glm::rotate(mat4(1), radians(90.0f), vec3(0, 0, 1)) * glm::translate(mat4(1), vec3(0, 0, -0.4f));
-    if (w.useModel()) { for (int p = 0; p < 8; ++p) for (int k : w.modelParts[p]) app.R.worldModels.push_back({w.model.get(), k, W}); }
+    if (w.useModel()) { for (int p = 0; p < 8; ++p) for (int k : w.worldParts()[p]) app.R.worldModels.push_back({w.worldModel(), k, W}); }
     else for (int p = 0; p < 8; ++p) if (w.mesh[p].count) app.worldBoxDraws.push_back({&w.mesh[p], W});
   }
   crumb("game: draw");
@@ -799,7 +799,7 @@ void Game::drawItems() {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
         mat4 W = s.world * s.pose.weapon;
-        for (int p = 0; p < 8; ++p) for (int k : d.modelParts[p]) app.R.worldModels.push_back({d.model.get(), k, W});
+        for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, W});
       }
     }
   }

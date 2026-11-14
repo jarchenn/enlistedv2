@@ -50,6 +50,9 @@ const C = {
         mats: { FAL: { albedo: "FALcolor.png", normal: "FALnormal.png", metal: "FALmetallic.png", rough: "FALroughness.png", ao: "FALao.png" } } },
   pistol1: { src: G + "pistol-animated/source/arms@pistol1.fbx", tex: "pistol-animated", keep: { base: "frame", bolt: "slide", bullet: "mag", clip: "mag", trigger: "trigger" },
         mats: { pistol1: { albedo: "pistol1Color.png", normal: "pistol1Normal.png", metal: "pistol1Metallic.png", rough_f: 0.45 } } },
+  // ---- MG4
+  glauncher: { src: G + "grenadelauncher-animated/source/arms@Glauncher.fbx", tex: "grenadelauncher-animated", keep: k("base", "casing", "front", "release", "scope", "scopebase", "slug1", "slug2", "slug3", "slug4", "slug5", "slug6", "trigger"),
+        mats: { glauncher: { albedo: "grenadelauncherColor.png", normal: "grenadelauncherNormal.png", metal: "glMetallic.png", rough_f: 0.5, ao: "glAO.png" } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

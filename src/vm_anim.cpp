@@ -7,7 +7,11 @@
 #include <glm/gtx/quaternion.hpp>
 
 struct AnimVM {
-  CharModel model;
+  // MG4: the GLB (2048 textures) is uploaded on first use: only the rigs a player equips take video memory. Clip lengths
+  // (reload timing) come from vm.json, so the weapon definition is complete without it.
+  CharModel model; fs::path glb; std::string gunJointName; bool loaded = false, failed = false;
+  std::map<std::string, float> dur;    // state -> clip length (s), from vm.json
+  std::map<std::string, std::string> clipOf;   // state -> clip name in the GLB
   int gunJoint = -1;
   vec3 pt[3]{};                        // rest rig space: rear sight (scopes: the eye), front sight, muzzle
   std::map<std::string, int> clip;     // state name -> clip index
@@ -42,23 +46,21 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   json meta;
   try { meta = json::parse(readTextFile(dir / "vm.json")); } catch (...) { err = "missing or bad " + (dir / "vm.json").string(); return nullptr; }
   auto a = std::make_shared<AnimVM>();
-  if (!a->model.load(dir / "vm.glb", err, 0, false)) return nullptr;
-  std::string gj = meta.value("gunJoint", "");
-  for (int j = 0; j < a->model.joints(); ++j) if (a->model.nodeName[a->model.jointNode[j]] == gj) a->gunJoint = j;
-  if (a->gunJoint < 0) { err = "gun joint '" + gj + "' not in the skin"; return nullptr; }
+  a->glb = dir / "vm.glb"; a->gunJointName = meta.value("gunJoint", "");
+  if (!fs::exists(a->glb)) { err = "missing " + a->glb.string(); return nullptr; }
   json P = meta["points"];
   if (block.contains("points")) for (auto& [k, v] : block["points"].items()) P[k] = v;   // rig-space points measured on the rig itself
   a->pt[0] = jv(P.contains("eye") ? P["eye"] : P["rear"]); a->pt[1] = jv(P["front"]); a->pt[2] = jv(P["muzzle"]);
   // state -> clip name (defaults: the same name). No draw clip (equip goes straight to the idle) and no movement clips.
-  json map = block.value("clips", json::object());
+  json map = block.value("clips", json::object()), mc = meta.value("clips", json::object());
   for (const char* k : {"idle", "idle_empty", "fire", "reload", "reload_empty", "reload_start", "reload_insert", "reload_end"}) {
-    int c = findClip(a->model, map.value(k, std::string(k)));
-    if (c >= 0) a->clip[k] = c;
+    std::string n = map.value(k, std::string(k));
+    if (mc.contains(n)) { a->dur[k] = mc[n].get<float>(); a->clipOf[k] = n; }
   }
-  if (!a->clip.count("idle")) { err = "no idle clip"; return nullptr; }
+  if (!a->dur.count("idle")) { err = "no idle clip"; return nullptr; }
   a->idleHold = block.value("idleHold", 0.0f);
   if (block.contains("hipShift")) a->hipShift = jv(block["hipShift"]);
-  a->shells = a->clip.count("reload_insert") > 0;
+  a->shells = a->dur.count("reload_insert") > 0;
   if (block.contains("redDot")) {   // a small emissive disc facing back along the sight line; the tube hides it off the axis
     a->hasDot = true; a->dot = jv(block["redDot"]);
     float r = block.value("redDotRadius", 0.0006f);
@@ -70,7 +72,18 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   return a;
 }
 
-float animVmClipDur(const AnimVM& a, const std::string& clip) { auto it = a.clip.find(clip); return it == a.clip.end() ? -1.0f : a.model.clips[it->second].dur; }
+float animVmClipDur(const AnimVM& a, const std::string& clip) { auto it = a.dur.find(clip); return it == a.dur.end() ? -1.0f : it->second; }
+
+// the GLB on first use; false (logged once) when it cannot be used: the static weapon is drawn instead
+static bool ensureLoaded(AnimVM& a, const WeaponDef& d) {
+  if (a.loaded || a.failed) return a.loaded;
+  std::string err;
+  if (!a.model.load(a.glb, err, 0, false)) { a.failed = true; logf("weapon %s: animated viewmodel failed to load (%s): static model", d.id.c_str(), err.c_str()); return false; }
+  for (int j = 0; j < a.model.joints(); ++j) if (a.model.nodeName[a.model.jointNode[j]] == a.gunJointName) a.gunJoint = j;
+  for (auto& [k, n] : a.clipOf) { int c = findClip(a.model, n); if (c >= 0) a.clip[k] = c; }
+  if (a.gunJoint < 0 || !a.clip.count("idle")) { a.failed = true; logf("weapon %s: animated viewmodel unusable (gun joint / idle clip): static model", d.id.c_str()); return false; }
+  return a.loaded = true;
+}
 
 std::string animVmClipNow(const WeaponDef& d, float* time) {
   auto it = gSt.find(&d); if (it == gSt.end()) return "";
@@ -79,7 +92,8 @@ std::string animVmClipNow(const WeaponDef& d, float* time) {
 }
 
 void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
-  const AnimVM& a = *d.anim;
+  AnimVM& a = *d.anim;
+  if (!ensureLoaded(a, d)) { animVmNotActive(); return; }
   St& st = gSt[&d];
   if (!st.inst.model && !st.inst.create(a.model)) return;
   auto clip = [&](const std::string& n) { auto it = a.clip.find(n); return it == a.clip.end() ? -1 : it->second; };

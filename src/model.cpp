@@ -40,7 +40,7 @@ ImportSpec importSpecFromJson(const json& j) {
     s.meshEdits.push_back(m);
   }
   { json kb = j.value("keepIslandsIn", json::array()); if (kb.size() == 2) { s.keepOn = true; s.keepLo = jvec3(kb[0], vec3(0)); s.keepHi = jvec3(kb[1], vec3(0)); } }
-  s.simplify = j.value("simplify", 1.0f); s.lod1 = j.value("lod1", 0.0f);
+  s.simplify = j.value("simplify", 1.0f); s.lod1 = j.value("lod1", 0.0f); s.lod1Tex = j.value("lod1Tex", 256);
   if (j.contains("sections")) { s.sectionAxis = j["sections"].value("axis", 2); s.sectionCount = std::max(1, j["sections"].value("count", 1)); }
   return s;
 }
@@ -534,7 +534,7 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   summary = b;
   if (simpBefore) summary += " (simplified " + std::to_string(simpBefore) + " -> " + std::to_string(simpAfter) + " tris)";
   if (spec.lod1 > 0) {   // distance LOD: same placement, fewer triangles, small textures
-    ImportSpec l = spec; l.simplify = spec.simplify * spec.lod1; l.lod1 = 0; l.maxTex = std::min(spec.maxTex, 256); l.meshEdits = spec.meshEdits;
+    ImportSpec l = spec; l.simplify = spec.simplify * spec.lod1; l.lod1 = 0; l.maxTex = std::min(spec.maxTex, spec.lod1Tex); l.meshEdits = spec.meshEdits;
     std::string e2, s2;
     if (!bakeGlbModel(glbPath, l, outDir / "lod1", e2, s2)) { err = "lod1: " + e2; return false; }
     summary += "; lod1 " + s2.substr(s2.find(':') + 2, s2.find(" tris") - s2.find(':') - 2) + " tris";

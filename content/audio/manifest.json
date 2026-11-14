@@ -7577,6 +7577,64 @@
      "peak": 1.0
     }
    ]
+  },
+  "shot_modern_glauncher": {
+   "kind": "shot",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_bazooka_m9",
+   "variants": [
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 5,
+     "name": "m1_bazooka_body_1",
+     "dur": 4.602,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 44,
+     "name": "m1_bazooka_body_2",
+     "dur": 4.949,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_antivehicle",
+     "index": 90,
+     "name": "m1_bazooka_body_3",
+     "dur": 4.745,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_glauncher_far": {
+   "kind": "far",
+   "gain": 1.0,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_bazooka_m9_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 338,
+     "name": "rocket_launcher_e_far_body_1",
+     "dur": 6.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 232,
+     "name": "rocket_launcher_e_far_body_2",
+     "dur": 6.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_cannon",
+     "index": 101,
+     "name": "rocket_launcher_e_far_body_3",
+     "dur": 6.0,
+     "peak": 1.0
+    }
+   ]
   }
  }
 }

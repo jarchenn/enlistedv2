@@ -239,7 +239,7 @@ void App::rackDrawItems(const Instance& i, const InstanceRT& r) {
     const WeaponDef& d = *weaponDefs[wi];
     mat4 W = M * dsp.m;
     if (d.useModel()) {
-      for (int p = 0; p < 8; ++p) for (int k : d.modelParts[p]) R.worldModels.push_back({d.model.get(), k, W});
+      for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) R.worldModels.push_back({d.worldModel(), k, W});
     } else {
       for (int p = 0; p < 8; ++p) if (d.mesh[p].count) worldBoxDraws.push_back({&d.mesh[p], W});
     }

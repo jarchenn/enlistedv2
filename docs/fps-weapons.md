@@ -613,4 +613,32 @@ The Scorpion's gun texture (`RGB.png`) is in neither the archive nor the folder,
   - `fps-animated-carbine-2`: byte-identical to the M4's source.
   - `animatedpistol-2` (MG2): byte-identical to `animatedpistol`.
 
+### MG4: grenade launcher, higher-resolution weapons
+
+**Six-shot grenade launcher** (`modern_glauncher`, `grenadelauncher-animated`): a revolver launcher, loaded round by round. Cinema 4D timeline at 30 fps:
+- fire 1–15;
+- reload_start 15–42 (the cylinder opens);
+- reload_insert 120–146, once per round (one round per 26 frames in the source, rest frames 120 / 146 / 172), the round seated at 0.4;
+- reload_end 198–215 (it closes);
+- idle 267–287.
+
+216–266 (the gun out of view, then an inspect) and the draw are not used. Its red-dot scope's lens mesh is dropped (the tube is open), with a red dot in it.
+
+It fires through the launcher path with new `rocket` fields:
+- `gravity` 1.0: a full-gravity arc (the bazooka and RPG keep 0.35);
+- `atKill` false;
+- `backblast` false;
+- the frag grenade's blast: 80 damage, 5 m radius, crater 0.3, with an impact fuse.
+
+The sight is aligned through the zero tilt (`weapons.cpp`), so the round lands on the dot at 100 m. Blasts go through the shared explosion pipeline, so the 5× explosive multiplier against the heavy enemies applies. Ammunition: `40mm_grenade` in the mixed crate.
+
+**Higher resolution.**
+- **WW2 weapons:** re-baked from their sources with textures up to 2048 (`model.maxTex`; never upscaled) and the full mesh. Only the flamethrower was simplified: its first-person model is the full mesh, and its old 0.6 mesh with 512 textures is `models/flamethrower/lod1` (`model.lod1`, `lod1Tex`). `WeaponDef::worldModel()` uses a weapon's lod1, when it has one, for soldiers, dropped weapons and rack displays.
+- **Modern guns:** the first-person model is the animated rig. All 18 were re-exported with textures up to 2048 and no decimation (AR-15 104k, MP7 64k, RPG-7 56k, Uzi 43k triangles; all under 150k). Their static models (third person, racks, icons) are unchanged.
+- **Unchanged shape:** the rig frames and every WW2 mesh's bounds and triangles are identical, so sight and grip points stay valid.
+- **Sources:** WW2 sources were found in Downloads, `%TEMP%/nmk/mpai_src` and the incoming folders. `kar98k_new.glb` is Downloads' `kar98k (1).glb`, and the bazooka also needs `incoming/weapons_batch/metal046b`.
+- **Rigs load on first equip** (`vm_anim.cpp`): textures are uploaded uncompressed (RGBA8), so all 18 rigs at 2048 would take about 1.7 GB of video memory at start. Only the rigs a player equips now take memory; clip lengths come from `vm.json`.
+
+**AK:** `fps-ak-animated-2` is byte-identical to `fps-ak-animated` (the current `modern_ak`); nothing to replace.
+
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.
