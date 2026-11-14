@@ -467,6 +467,7 @@ public:
   struct SightMark { vec2 px; uint32_t col; int kind; };   // kind: 0 rear, 1 front tip, 2 muzzle, 3 flash origin, 4 aim
   bool sightMarks(std::vector<SightMark>& out) const;
   bool sightMarkers = false;            // draw the calibration markers (HUD and screenshots)
+  bool showMinimap = true, mapLarge = false;   // GM2: the corner minimap (Settings > Gameplay) and the large map (M)
   bool showWeaponList = true;           // the carried weapon list (G4) in the lower right; Settings > Gameplay
   void armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s);
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot
