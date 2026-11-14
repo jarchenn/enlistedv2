@@ -125,3 +125,21 @@ The GX4 exterior pass (`tools/exterior.mjs`, `docs/exterior-references.md`) rebu
 ## Textures
 
 - **Metal046B** (2K colour, normal, roughness, metalness): CC0, from ambientCG (https://ambientcg.com/a/Metal046B). Used on the M9 bazooka tube; no attribution required.
+
+## Modern guns (MG1)
+
+Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm rigs; only the gun meshes are used (converted in Blender, arms, armatures and animations dropped). No licence files came with them.
+
+| Folder (source) | Used for | Author | Licence |
+|---|---|---|---|
+| scar (SCAR.fbx) | FN SCAR (`modern_scar`) | supplied by the user | **licence to be confirmed by the user** |
+| fps-ak-animated (arms@ak.fbx) | AK-74 (`modern_ak`) | supplied by the user | **licence to be confirmed by the user** |
+| fps-animated-carbine (arms@carbine.fbx) | M4 carbine with red dot (`modern_m4`) | supplied by the user | **licence to be confirmed by the user** |
+| animated-assault-rifle (HandWithGloves.fbx) | M16A3 rifle (`modern_m16`) | supplied by the user | **licence to be confirmed by the user** |
+| lmg-animated (arms@LMG.fbx) | M249 light machine gun (`modern_lmg`) | supplied by the user | **licence to be confirmed by the user** |
+| remington-870-shotgun-animated (Remington 870 - Animated.fbx) | Remington 870 shotgun (`modern_shotgun`) | supplied by the user | **licence to be confirmed by the user** |
+| fps-arms-remington-shotgun (Arm_remington.fbx) | **Not used**: the other Remington source (one skinned mesh, the pump not separable) | supplied by the user | **licence to be confirmed by the user** |
+| sniper-animated (arms@sniper.fbx) | M24 bolt-action sniper rifle (`modern_sniper_bolt`) | supplied by the user | **licence to be confirmed by the user** |
+| fps-animations-sniper-rifle (BoltActionRifle.fbx) | Semi-automatic marksman rifle (`modern_sniper_semi`; sling dropped) | supplied by the user | **licence to be confirmed by the user** |
+| animatedpistol (rig.blend) | Springfield XD pistol (`modern_pistol`) | supplied by the user | **licence to be confirmed by the user** |
+| hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |

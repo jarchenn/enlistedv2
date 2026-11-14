@@ -112,7 +112,7 @@ std::vector<int> App::stackRows() const {
 void App::resetLoadout() {
   carried.clear();
   for (const char* id : {"m1_garand", "m1_thompson"}) if (weaponIndex(id) >= 0) carried.push_back(weaponIndex(id));
-  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && !weaponDefs[k]->pack.on && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);   // GM2: packs only by grant
+  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && !weaponDefs[k]->pack.on && !weaponDefs[k]->modern && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);   // GM2: packs only by grant
   capCarried(carried);
   if (!carried.empty() && std::find(carried.begin(), carried.end(), activeWeapon) == carried.end()) activeWeapon = carried[0];
   closeRack("reset");
@@ -343,7 +343,7 @@ void App::drawRackUI() {
   std::string title = a->name + "##rack";
   bool open = true;
   ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
-  ImGui::TextDisabled("%s arsenal from the weapon registry. Up/Down or click to select, Enter / Equip, Esc closes.", a->rackFaction == "US" ? "Allied" : "Axis");
+  ImGui::TextDisabled("%s arsenal from the weapon registry. Up/Down or click to select, Enter / Equip, Esc closes.", a->rackFaction == "US" ? "Allied" : a->rackFaction == "modern" ? "Modern" : "Axis");
   ImGui::Separator();
   for (size_t k = 0; k < ars.size(); ++k) {
     const WeaponDef& d = *weaponDefs[ars[k]];

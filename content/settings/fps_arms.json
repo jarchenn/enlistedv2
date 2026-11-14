@@ -10,6 +10,14 @@
     "m2hb_carry": {"grip": [0.0, -0.02, 0.70]},
     "m2_flamethrower": {"grip": [0.025, -0.092, 0.48], "axis": [0, 0.906, 0.423], "up": [-1, 0, 0], "section": [0.034, 0.023], "slide": 0, "shoulder": [0.06, 0.04, -0.2]},
     "flammenwerfer41": {"grip": [0.025, -0.092, 0.48], "axis": [0, 0.906, 0.423], "up": [-1, 0, 0], "section": [0.034, 0.023], "slide": 0, "shoulder": [0.06, 0.04, -0.2]},
-    "m3_grease_gun": {"grip": [-0.001, 0.035, 0.45], "section": [0.0145, 0.04]}
+    "m3_grease_gun": {"grip": [-0.001, 0.035, 0.45], "section": [0.0145, 0.04]},
+    "modern_ak": {"gripZ": 0.585, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_m16": {"gripZ": 0.660, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_scar": {"gripZ": 0.560, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_lmg": {"gripZ": 0.536, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_shotgun": {"gripZ": 0.618, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_m4": {"gripZ": 0.469, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_sniper_bolt": {"gripZ": 0.793, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_sniper_semi": {"gripZ": 0.828, "shoulder": [-0.08, 0.02, -0.04]}
   }
 }

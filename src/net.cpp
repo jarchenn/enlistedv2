@@ -635,7 +635,8 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
       ok = s.ws.loaded > 0 && s.reload <= 0 && n.d->now - s.lastShotReal >= minGap;   // requests arrive in real time
       if (ok) {
         s.ws.loaded--; s.lastShot = g.t; s.lastShotReal = n.d->now;
-        app.fireProjectile(from, dir, d.velocity, d.action == "launcher" ? PROJ_ROCKET : PROJ_BULLET, d.action == "launcher" ? d.rocketDmg : 0, ~0ull, m.value("tr", 0), d.container);
+        if (d.action == "launcher") app.fireProjectile(from, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, m.value("tr", 0), d.container);
+        else app.fireRounds(d, from, dir, m.value("tr", 0), (uint32_t)slot * 131u + (uint32_t)n.acceptedShots * 7919u, slot);   // MG1: a shotgun's pellets
         Projectile& pr = app.projectiles.back(); pr.owner = slot; pr.mass = d.bulletMass * 0.001f;
         if (d.action == "launcher") { pr.blastDmg = d.rocketDmg; pr.blastR = d.rocketR; pr.craterScale = d.rocketCrater; pr.splashGun = d.rocketSplashGun; pr.atKill = true; pr.gravScale = 0.35f; }
         g.hearSound(from, (int)s.role, 70, slot, 0);

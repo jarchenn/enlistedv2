@@ -403,6 +403,7 @@ public:
   ImpactInfo lastImpact;
   void resetCombat();
   void fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, int tracerKind, const std::string& ammo);
+  void fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, uint32_t seed, int owner);   // MG1: one bullet, or a shotgun's pellets (d.pellets in d.spreadDeg)
   void stepProjectiles(float dt);
   void stepStation(float dt, const ExploreInput& in);
   bool occupyStation(uint64_t id, int pos);
