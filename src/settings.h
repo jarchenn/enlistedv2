@@ -9,7 +9,7 @@
 
 class App;
 
-enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3 };
+enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3, UltraLow = 4 };   // PERF1: Ultra Low appended (stored values keep their meaning)
 
 // The part of the graphics options a preset sets. Everything else (FOV, vsync, FPS cap, cloud cover) is personal and
 // kept when a preset is picked.
