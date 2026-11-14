@@ -235,7 +235,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   const WeaponDef& d = *weaponDefs[activeWeapon];
   const WeaponState& s = wstate[d.id];
   if (scopeView()) return;   // GM1b: scoped, only the eyepiece shows (black outside the circle, no weapon)
-  if (d.anim && animVmDraw(*this, d)) return;   // MG1: the animated rig (its own arms; no static weapon, no generated arm)
+  if (d.anim && animVmDraw(*this, d)) { lastArmDraws = 0; return; }   // MG1: the animated rig (its own arms; no static weapon, no generated arm)
   mat4 M = viewModelMatrix(d, s);
   if (swimLower() >= 0.999f) { armDrawItems(M, d, s); return; }   // swimming (swim.cpp): weapon slung, hands-only stroke
   bool tex = d.useModel();

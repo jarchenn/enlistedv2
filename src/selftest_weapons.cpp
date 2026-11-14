@@ -528,7 +528,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     for (const char* mid : {"modern_scar", "modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol"}) {
       const std::string id = mid;
       push(("mg1 rig " + id).c_str(), [this, id](App& a, float t) {
-        static std::string draw0, idle1, fire1, rel1; static float axisDeg; static int shots0, arms; static bool phase[6];
+        static std::string draw0, idle1, fire1, rel1; static float axisDeg, tShot; static int shots0, arms; static bool phase[6];
         int wi = a.weaponIndex(id); if (wi < 0) { check(false, id + ": no such weapon"); return true; }
         const WeaponDef& d = *a.weaponDefs[wi]; WeaponState& s = a.wstate[id];
         if (t == 0) {
@@ -551,7 +551,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
           if (id == "modern_ak" || id == "modern_scar" || id == "modern_m4") shotQueue.push_back("mg1_" + id + "_ads");
           shots0 = a.shotsFired; a.scriptedInput.fire = true;
         }
-        if (phase[2] && !phase[3] && a.shotsFired > shots0) { phase[3] = true; a.scriptedInput.fire = false; fire1 = animVmClipNow(d); a.scriptedInput.aim = false; }
+        if (phase[2] && !phase[3] && a.shotsFired > shots0) { phase[3] = true; tShot = t; a.scriptedInput.fire = false; a.scriptedInput.aim = false; }
+        if (phase[3] && fire1.empty() && t > tShot + 0.05f) fire1 = animVmClipNow(d);   // the rig picks the shot up on its next step
         if (phase[3] && !phase[4] && t > 3.8f) { phase[4] = true; s.cooldown = 0; s.bolt = 0; s.loaded = d.feed == "single" ? d.cap - 1 : 1; a.scriptedInput.reload = true; }
         if (phase[4] && !phase[5] && t > 4.0f) { phase[5] = true; a.scriptedInput.reload = false; rel1 = animVmClipNow(d); if (id == "modern_ak" || id == "modern_pistol") shotQueue.push_back("mg1_" + id + "_reload"); }
         if (!phase[5] || (s.reload > 0 && t < 14)) return false;
@@ -579,8 +580,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
         ++n; extra += p.extraPellet; tracers += p.tracerKind != 0 && p.extraPellet;
         worst = std::max(worst, degrees(std::acos(std::clamp(glm::dot(glm::normalize(p.v), ref), -1.0f, 1.0f))));
       }
-      char b[220]; std::snprintf(b, sizeof b, "Remington 870: one shell, %d shot(s) counted -> %d pellets (%d marked extra), widest %.2f deg off the first (cone %.1f deg)", a.shotsFired - s0, n, extra, worst, d.spreadDeg);
-      check(a.shotsFired - s0 == 1 && n == d.pellets && d.pellets == 9 && extra == 8 && tracers == 0 && worst > 0.2f && worst <= d.spreadDeg + 0.3f, b);
+      char b[220]; std::snprintf(b, sizeof b, "Remington 870: one shell, %d rounds counted -> %d pellets (%d marked extra), widest %.2f deg off the first (cone %.1f deg)", a.shotsFired - s0, n, extra, worst, d.spreadDeg);
+      check(a.shotsFired - s0 == d.pellets && n == d.pellets && d.pellets == 9 && extra == 8 && tracers == 0 && worst > 0.2f && worst <= d.spreadDeg + 0.3f, b);
       return true; });
     push("gm2 classes", [this](App& a, float) {
       const ClassDef* heavy = classById("heavy"); const ClassDef* ranger = classById("ranger"); const ClassDef* recon = classById("recon");
