@@ -1,0 +1,8 @@
+{"id":"hammer","moveSpeed":1.0,"name":"Hammer","side":"","action":"tool","tool":"build","locked":true,"feed":"single","cap":1,"loaded":1,"reserve":0,"container":"","containerSize":1,"rpm":100,"velocity":0,"caliber":"tool","bulletMass":0,
+"recoil":{"pitch":0,"yaw":0,"recover":8,"visual":0},"reload":{"empty":0.5,"partial":0.5,"round":0.5},"sights":{"rear":[0,0,0],"front":[0,0,0.1]},"muzzle":[0,0,0.33],"zero":1,
+"note":"GM3: the Engineer's build tool, fixed in his second slot (classes.json): it cannot be dropped, swapped at a rack, refilled from a crate or replaced by a picked-up weapon, and no other class carries it. In a match, with it in hand, B / 1-5 pick the item and holding fire builds while it swings (builder.cpp). Model: 'Hammer' by FlukierJupiter (Sketchfab, CC-BY-4.0), supplied by the user (incoming/hammer); the box parts are only the fallback.",
+"materials":[{"name":"walnut_y","albedo":[0.2,0.1,0.05],"roughness":0.55,"pattern":"wood","metallic":0,"grain":1},{"name":"blued","albedo":[0.07,0.07,0.075],"roughness":0.45,"pattern":"metal","metallic":0.8,"grain":0}],
+"parts":{"body":[{"t":"b","c":[0,0,0.14],"s":[0.03,0.03,0.28],"m":"walnut_y","k":0},{"t":"b","c":[0,0.02,0.3],"s":[0.03,0.13,0.05],"m":"blued","k":0}],"bolt":[],"mag":[],"cover":[],"clip":[],"bipod":[],"scope":[],"handle":[]},
+"model":{"src":"hammer.glb","dir":"hammer","rot":[0,-90,90],"realLength":0.33,"maxTex":512},
+"ads":{"eyeRelief":0.21,"vmFov":0,"posCorrection":[0,0,0],"rotCorrection":[0,0,0],"hipOffset":[0.2,-0.14,-0.05]},
+"sockets":{"rightGrip":[0,0,0.05],"leftSupport":[0,0,0.05]}}

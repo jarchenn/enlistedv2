@@ -175,7 +175,7 @@ std::vector<int> Game::classWeapons(const Soldier& s) const {
   if (s.cls < 0 || s.cls >= (int)classDefs().size()) return out;
   const ClassSide& cs = classDefs()[s.cls].side(factionName(s.faction));
   auto pick = [&](const std::vector<std::string>& v, int k) {
-    std::vector<int> w; for (auto& id : v) { int i = app.weaponIndex(id); if (i >= 0 && !(!s.human && !s.localPlayer && app.weaponDefs[i]->action == "heavy")) w.push_back(i); }   // bots cannot fire the carried M2
+    std::vector<int> w; for (auto& id : v) { int i = app.weaponIndex(id); if (i >= 0 && !(!s.human && !s.localPlayer && (app.weaponDefs[i]->action == "heavy" || app.weaponDefs[i]->tool))) w.push_back(i); }   // bots cannot fire the carried M2
     if (!w.empty()) out.push_back(w[(unsigned)k % w.size()]);
   };
   pick(cs.primary, s.clsPick[0]); pick(cs.secondary, s.clsPick[1]);
@@ -368,7 +368,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
     spectate = killer >= 0 ? killer : -1;
   }
   if (!s.localPlayer && !s.human && !s.zombie && s.weapon >= 0 && !isClient) {   // GM1: the AI's weapon falls by the body
-    drops.push_back({s.feet + vec3(0, 0.06f, 0), s.yaw, s.weapon, s.ws, t});
+    if (!(s.weapon >= 0 && s.weapon < (int)app.weaponDefs.size() && app.weaponDefs[s.weapon]->locked)) drops.push_back({s.feet + vec3(0, 0.06f, 0), s.yaw, s.weapon, s.ws, t});   // GM3: never a locked weapon
     if (drops.size() > 24) drops.erase(drops.begin());
   }
   match.onDeath(i, killer);

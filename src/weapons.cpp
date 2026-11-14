@@ -40,6 +40,7 @@ void App::buildWeaponMeshes() {
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
     auto d = std::make_unique<WeaponDef>();
     d->id = j.value("id", ""); d->name = j.value("name", d->id); d->side = j.value("side", "");
+    d->tool = j.value("tool", std::string()) == "build"; d->locked = j.value("locked", false);   // GM3: the Engineer's hammer
     d->action = j.value("action", "semi"); d->feed = j.value("feed", "magazine"); d->magReload = j.value("reloadStyle", "") == "magazine"; d->container = j.value("container", "");
     d->caliber = j.value("caliber", ""); d->note = j.value("note", "");
     d->cap = j.value("cap", 1); d->loaded = j.value("loaded", 1); d->reserve = j.value("reserve", 0); d->containerSize = j.value("containerSize", 1);
@@ -308,7 +309,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   // G4 stack switching (arsenal.cpp): Q steps down the stack and an empty weapon slot falls to the knife; the wheel
   // steps either way over the filled rows; 1 / 2 weapon slots (empty: the knife), 3 the knife, 4 the grenades in turn
   bool pick = !(pauseMenu || showLoadout || choiceFor || rackOpen);
-  int slotKey = !pick ? 0 : in.choose1 ? 1 : in.choose2 ? 2 : in.slot3 ? 3 : in.slot4 ? 4 : 0;
+  int slotKey = !pick || (build.active && build.engineer) ? 0 : in.choose1 ? 1 : in.choose2 ? 2 : in.slot3 ? 3 : in.slot4 ? 4 : 0;   // GM3: digits pick the Engineer's item while he builds
   int wheelStep = pick && in.wheel != 0 ? (in.wheel > 0 ? -1 : 1) : 0;
   if (in.nextWeapon || slotKey || wheelStep) {
     if (carried.empty()) resetLoadout();
@@ -350,6 +351,14 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         return;
       } else weaponMsg = weaponDefs[g]->name + ": none left";
     }
+  }
+  if (d.tool) {   // GM3: the Engineer's hammer never fires; it swings while a build is held (builder.cpp)
+    adsT = 0;
+    stepViewModel(dt, in, d, s);
+    if (build.active && build.engineer && build.holdT > 0) { if (s.throwT < 0) s.throwT = 0; s.throwT += dt; if (s.throwT >= 0.55f) s.throwT = 0; }
+    else s.throwT = -1;
+    viewKickPitch = vm.breathPitch; viewKickYaw = vm.breathYaw;
+    return;
   }
   if (d.equipment()) {   // grenades and the knife: no sights, no recoil, no reload key
     adsT = 0;

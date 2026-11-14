@@ -23,6 +23,8 @@ struct WeaponDef {
   float rPitch = 1, rYaw = 0.4f, rRecover = 8 /*unused: recoil no longer recovers*/, rClimb = 0, rVisual = 0.05f, rSupported = 1;
   vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
   bool hasScope = false, scopeIrons = false, laterWar = false;
+  bool tool = false;     // GM3 "tool": "build": the Engineer's hammer (never fires; the build tool in a match, builder.cpp)
+  bool locked = false;   // GM3 "locked": fixed in its slot (never dropped, swapped at a rack or replaced by a pickup)
   float scopeMag = 1, scopeRelief = 0.07f;   // scope.relief: eye to the ocular lens in the scoped pose (m)
   vec3 boltPivot{0, 0.028f, 0}; float boltLift = 70;   // bolt action: handle lift about the z-parallel axis through the pivot (deg)
   std::vector<Material> mats;

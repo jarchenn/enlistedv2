@@ -196,6 +196,11 @@ mat4 App::equipmentPose(const WeaponDef& d, const WeaponState& s) const {
     float back = std::sin(u * 3.14159f * 0.5f);                                // draw back and up, then release
     return glm::translate(mat4(1), vec3(0.05f * back, 0.12f * back, -0.18f * back)) * glm::mat4_cast(glm::angleAxis(radians(-35.0f * back), vec3(1, 0, 0)));
   }
+  if (d.tool && s.throwT >= 0) {   // GM3: the hammer's swing (0.55 s): raised back, struck down, back to rest
+    float u = std::clamp(s.throwT / 0.55f, 0.0f, 1.0f);
+    float deg = u < 0.55f ? -40.0f * std::sin(u / 0.55f * 1.5707963f) : u < 0.8f ? -40.0f + 58.0f * ((u - 0.55f) / 0.25f) : 18.0f * (1.0f - (u - 0.8f) / 0.2f);
+    return glm::translate(mat4(1), vec3(0, 0.03f * std::max(0.0f, -deg) / 40.0f, 0)) * glm::mat4_cast(glm::angleAxis(radians(deg), vec3(1, 0, 0)));
+  }
   if (d.melee.on && s.throwT >= 0) {
     float w = d.melee.windup, st = d.melee.strike, t = s.throwT;
     float pull = t < w ? t / w : std::max(0.0f, 1.0f - (t - w) / st);
