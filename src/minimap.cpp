@@ -151,6 +151,6 @@ void minimapHud(App& app, bool large) {
     return;
   }
   float s = std::clamp(io.DisplaySize.y * 0.22f, 140.0f, 320.0f);   // the corner map: 200 m across, centred on the player
-  vec2 p0(14, io.DisplaySize.y - s - 14);
+  vec2 p0(io.DisplaySize.x - s - 10, 26 + std::max(12.0f, io.DisplaySize.y / 72.0f) + 8);   // top right, under the FPS counter (app.cpp draws it at y = 26)
   drawMinimap(app, dl, p0, p0 + vec2(s), vec2(e.x, e.z), 200.0f, MM_HUD);
 }
