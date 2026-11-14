@@ -75,7 +75,8 @@ void Game::drawDeploy() {
       for (int k = 0; k < (int)ids.size(); ++k) {   // GM1b: a clickable tile per weapon, its side-view silhouette and name
         int w = app.weaponIndex(ids[k]);
         ImGui::PushID(label); ImGui::PushID(k);
-        if (weaponTile(w >= 0 ? app.weaponDefs[w]->id : ids[k], w >= 0 ? app.weaponDefs[w]->name : ids[k], pick == k)) pick = k;
+        bool fixed = w >= 0 && app.weaponDefs[w]->locked;   // GM3: the Engineer's hammer is a locked tile
+        if (weaponTile(w >= 0 ? app.weaponDefs[w]->id : ids[k], w >= 0 ? app.weaponDefs[w]->name + (fixed ? "  (fixed)" : "") : ids[k], pick == k) && !fixed) pick = k;
         ImGui::PopID(); ImGui::PopID();
       }
     };

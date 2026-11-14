@@ -81,8 +81,11 @@ int App::carryTake(std::vector<int>& c, int idx, int inHand) const {
   std::vector<size_t> mains;
   for (size_t k = 0; k < c.size(); ++k) if (!weaponDefs[c[k]]->equipment()) mains.push_back(k);
   if (mains.size() < 2) { c.insert(c.begin() + (mains.empty() ? 0 : mains.back() + 1), idx); capCarried(c); return -1; }
-  size_t at = mains[1];
-  for (size_t k : mains) if (c[k] == inHand) at = k;   // the slot in hand, else weapon 2
+  std::vector<size_t> free;   // GM3: a locked weapon (the Engineer's hammer) is never the one replaced
+  for (size_t k : mains) if (!weaponDefs[c[k]]->locked) free.push_back(k);
+  if (free.empty()) return -1;   // nothing may go: the new weapon is not taken
+  size_t at = free.back();
+  for (size_t k : free) if (c[k] == inHand) at = k;   // the slot in hand, else weapon 2
   int out = c[at]; c[at] = idx;
   return out;
 }

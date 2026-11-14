@@ -91,6 +91,7 @@ bool App::snapDefense(const AssetDef* a, vec3& pos, float& yaw, int* matchedSock
 }
 
 void App::setBuildPalette(bool open) {
+  if (open && engMatchActive()) open = false;   // GM3: the sandbox palette is never reachable in a match (B, Tab, a rack deployment)
   if (build.palette == open) return;
   build.palette = open;
   syncCursor();
@@ -156,7 +157,29 @@ bool App::buildUndo() {
 }
 
 void App::stepBuilder(const ExploreInput& in) {
-  if (in.build) {
+  // GM3: in a match only the Engineer builds, from his five-item menu, with the hammer in hand (taken out on entering);
+  // selecting the hammer enters the menu too, putting it away leaves it
+  const int hw = weaponIndex("hammer");
+  const bool hammerCarried = hw >= 0 && std::find(carried.begin(), carried.end(), hw) != carried.end();
+  auto enterEngineer = [&]() {
+    build.active = build.engineer = true; build.realEdits = false;
+    build.pendDel = build.pendUndo = build.pendPalette = false; build.pendRot = 0; build.holdT = build.dismT = 0;
+    build.pick.clear(); build.forceAsset.clear(); setBuildPalette(false);
+    if (hammerCarried && activeWeapon != hw) selectWeapon(hw);
+    toast("Engineer: 1-5 pick, hold LMB to build, hold Del on your outpost / AT gun to dismantle, wheel / Z / X rotate, RMB or B leave", 5);
+  };
+  static int prevWeapon = -1;
+  const bool hammerNow = activeWeapon >= 0 && activeWeapon < (int)weaponDefs.size() && weaponDefs[activeWeapon]->tool;
+  if (activeWeapon != prevWeapon && engMatchActive()) {
+    if (hammerNow && !build.active && engineerCanBuild(*this)) enterEngineer();
+    else if (!hammerNow && build.active && build.engineer && hammerCarried) { build.active = false; build.engineer = false; }
+  }
+  prevWeapon = activeWeapon;
+  if (in.build && engMatchActive()) {
+    if (build.active) { build.active = false; build.engineer = false; }
+    else if (!engineerCanBuild(*this)) toast("Only the Engineer can build", 3);
+    else enterEngineer();
+  } else if (in.build) {
     build.active = !build.active;
     if (build.active) {
       build.realEdits = navState().creativeSession;
@@ -164,10 +187,7 @@ void App::stepBuilder(const ExploreInput& in) {
       setBuildPalette(!useScripted);
       toast(std::string(build.realEdits ? "Build mode (map edits)" : "Build mode") + ": Tab assets, 1 tank trap, 2 sandbags, wheel / Z / X rotate, LMB place, Del remove, Ctrl+Z undo, RMB or B leave", 5);
     } else setBuildPalette(false);
-    // GM3: in a match the Engineer gets his build menu instead of the sandbox palette; other classes cannot build
-    build.engineer = build.active && engMatchActive();
-    if (build.engineer && !engineerCanBuild(*this)) { build.active = build.engineer = false; toast("Only the Engineer can build", 3); return; }
-    if (build.engineer) { setBuildPalette(false); build.holdT = build.dismT = 0; build.pick.clear(); toast("Engineer: 1-5 pick, hold LMB to build, hold Del on your outpost / AT gun to dismantle, wheel / Z / X rotate, RMB or B leave", 5); }
+    build.engineer = false;
   }
   if (!build.active) { build.aimId = 0; return; }
   if (in.aim && !build.palette) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); return; }
@@ -509,11 +529,15 @@ void App::drawBuilderUI() {
       dl->AddText(ImVec2(x, y + 22.0f * (float)k), (int)k == build.engItem ? IM_COL32(255, 230, 140, 255) : IM_COL32(210, 210, 200, 220), b);
     }
     float t = build.dismT > 0 ? build.dismT / engDismantleTime() : build.holdT > 0 && build.engItem < (int)its.size() ? build.holdT / its[build.engItem].time : 0.0f;
-    if (t > 0) {
-      ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.62f);
-      dl->AddRectFilled(ImVec2(c.x - 120, c.y), ImVec2(c.x + 120, c.y + 10), IM_COL32(20, 20, 18, 200), 3);
-      dl->AddRectFilled(ImVec2(c.x - 120, c.y), ImVec2(c.x - 120 + 240 * std::min(1.0f, t), c.y + 10), build.dismT > 0 ? IM_COL32(230, 110, 80, 230) : IM_COL32(140, 220, 120, 230), 3);
-      dl->AddText(ImVec2(c.x - 120, c.y - 18), IM_COL32(230, 230, 220, 230), build.dismT > 0 ? "Dismantling" : "Building");
+    if (t > 0) {   // a ring at the screen centre filling clockwise from the top, the hammer's silhouette inside
+      ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+      const float R = 34.0f, a0 = -1.5707963f;
+      dl->AddCircle(c, R, IM_COL32(20, 20, 18, 170), 64, 7.0f);
+      dl->PathArcTo(c, R, a0, a0 + 6.2831853f * std::min(1.0f, t), 64);
+      dl->PathStroke(build.dismT > 0 ? IM_COL32(235, 120, 90, 235) : IM_COL32(245, 245, 240, 240), 0, 5.0f);
+      auto it = weaponSilhouette.find("hammer");
+      if (it != weaponSilhouette.end() && it->second) dl->AddImage((ImTextureID)(intptr_t)it->second, ImVec2(c.x - 24, c.y - 7), ImVec2(c.x + 24, c.y + 7), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(250, 250, 248, 240));
+      else dl->AddText(ImVec2(c.x - 4, c.y - 7), IM_COL32(250, 250, 248, 240), "T");
     }
   }
   if (now - lastBlast.time < 4.0 && lastBlast.raw > 0) {
