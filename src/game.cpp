@@ -1,5 +1,6 @@
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "game.h"
+#include "classes.h"
 #include "gore_api.h"
 #include "rules.h"
 #include "damage_model.h"
@@ -136,6 +137,7 @@ bool Game::begin(std::string& err) {
   if (!isClient) match.start(); else { match.phase = MatchPhase::Running; for (auto& o : match.obj) o.state = ObjState::Locked; if (!match.obj.empty()) match.obj[0].state = ObjState::Active; }
   ghosts.clear(); doorSeen.clear();
   active = true;
+  deployOpenedAt = t; deployReady = app.selftest; deploySpawn = -1;   // GM1: the first spawn goes through the deploy screen too
   // the local player waits in limbo until its first spawn
   if (Soldier* L = local()) { vec3 p = app.exploreStartPos; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z)); (void)L; }
   setupError.clear();
@@ -153,9 +155,60 @@ void Game::end() {
 }
 
 // ---------------------------------------------------------------- spawning
+void Game::chooseClass(Soldier& s) {
+  const auto& C = classDefs();
+  if (C.empty() || s.zombie) { s.cls = -1; return; }
+  auto ok = [&](int k) { return k >= 0 && k < (int)C.size() && match.rules.classAllowed(C[k].id); };
+  if (s.localPlayer) { s.cls = app.deployClass; s.clsPick[0] = app.deployPick[0]; s.clsPick[1] = app.deployPick[1]; }
+  if ((s.localPlayer || s.human) && ok(s.cls)) return;   // remote humans: set by their deploy request, checked here (host)
+  float tot = 0; for (int k = 0; k < (int)C.size(); ++k) if (ok(k)) tot += C[k].botWeight;
+  uint32_t h = (uint32_t)s.slot * 7919u + (uint32_t)s.lifeId * 104729u + 17u;
+  s.cls = -1;
+  if (tot > 0) { float r = (h % 10007u) / 10007.0f * tot; for (int k = 0; k < (int)C.size(); ++k) if (ok(k)) { s.cls = k; if ((r -= C[k].botWeight) < 0) break; } }
+  else for (int k = 0; k < (int)C.size() && s.cls < 0; ++k) if (ok(k)) s.cls = k;   // only weight-0 classes allowed (Tanker)
+  s.clsPick[0] = (int)(h >> 3); s.clsPick[1] = (int)(h >> 7);   // wrapped by classWeapons
+}
+
+std::vector<int> Game::classWeapons(const Soldier& s) const {
+  std::vector<int> out;
+  if (s.cls < 0 || s.cls >= (int)classDefs().size()) return out;
+  const ClassSide& cs = classDefs()[s.cls].side(factionName(s.faction));
+  auto pick = [&](const std::vector<std::string>& v, int k) {
+    std::vector<int> w; for (auto& id : v) { int i = app.weaponIndex(id); if (i >= 0 && !(!s.human && !s.localPlayer && app.weaponDefs[i]->action == "heavy")) w.push_back(i); }   // bots cannot fire the carried M2
+    if (!w.empty()) out.push_back(w[(unsigned)k % w.size()]);
+  };
+  pick(cs.primary, s.clsPick[0]); pick(cs.secondary, s.clsPick[1]);
+  if (!cs.pistol.empty()) pick({cs.pistol}, 0);
+  return out;
+}
+
 void Game::applyLoadout(Soldier& s, bool newLife) {
   std::string fac = factionName(s.faction);
   const json& lo = combat["loadouts"][fac];
+  const ClassDef* cd = s.cls >= 0 && s.cls < (int)classDefs().size() ? &classDefs()[s.cls] : nullptr;
+  std::vector<int> cw = classWeapons(s);
+  auto items = [&](std::vector<int>& v) {   // the side's grenades travel only when the class carries some; the knife always
+    if (!cd || cd->frags > 0) if (fragDef(s.faction) >= 0) v.push_back(fragDef(s.faction));
+    if (!cd || cd->smokes > 0) if (smokeDef() >= 0) v.push_back(smokeDef());
+    if (app.weaponIndex("knife_bayonet") >= 0) v.push_back(app.weaponIndex("knife_bayonet"));
+  };
+  if (cd && !cw.empty() && !s.zombie) {   // GM1: the class decides the weapons
+    if (s.localPlayer) {
+      app.resetWeapons();
+      std::vector<int> pool = cw; items(pool); app.capCarried(pool);
+      app.carried = pool; app.selectWeapon(pool[0]); s.weapon = app.activeWeapon;
+    } else {
+      s.wsBy.clear(); s.weapon = cw[0];
+      const WeaponDef& d = *app.weaponDefs[s.weapon]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
+      for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
+      s.ws.seed = s.rng | 1;
+      s.carried = cw; if (s.human) { items(s.carried); app.capCarried(s.carried); }
+    }
+    if (newLife) { s.frags = cd->frags; s.smokes = cd->smokes; s.hp *= cd->hpMul; }
+    if (s.localPlayer) localGrenadeCounts(s, true);
+    s.reload = 0; s.throwT = -1; s.throwReleased = false;
+    return;
+  }
   if (!s.localPlayer && s.human) {   // remote player (host side): the faction pool, ammo kept per weapon
     s.wsBy.clear(); s.weapon = std::max(0, app.weaponIndex(lo["player"][0].get<std::string>()));
     const WeaponDef& d = *app.weaponDefs[s.weapon]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
@@ -246,6 +299,10 @@ bool Game::trySpawn(int slot, std::string& why) {
     }
     if (cands.empty()) { why = "no walkable spawn point on this map"; return false; }
   }
+  if (s.localPlayer && deploySpawn >= 0) {   // GM1: the point chosen on the deploy screen first (the others stay as fallbacks)
+    auto opts = spawnOptions(slot);
+    if (deploySpawn < (int)opts.size()) cands.insert(cands.begin(), Cand{opts[deploySpawn].pos, opts[deploySpawn].yaw});
+  }
   static const float ring[3] = {0.0f, 1.2f, 2.4f};
   for (const Cand& m : cands) {
     for (float r : ring)
@@ -271,12 +328,14 @@ bool Game::trySpawn(int slot, std::string& why) {
           if (s.agent >= 0) Physics::destroyAgent(s.agent);
           s.agent = Physics::createAgent(feet);
         }
+        chooseClass(s);
         applyLoadout(s, true);
+        if (s.localPlayer) { app.staminaMul = s.cls >= 0 ? classDefs()[s.cls].staminaMul : 1.0f; app.stamina = app.staminaCap(); app.staminaIdle = 0; }   // GM1: full stamina on respawn
         s.br = Brain{s.br.arch, s.br.reaction, s.br.aimTurn, s.br.sigma, s.br.sight, s.br.fov, s.br.aggression, s.br.burstMin, s.br.burstMax};
         s.br.lane = match.slots[slot].lane; s.br.aimYaw = m.yaw; s.br.grenadeCD = 3.0f + rnd(s) * 3;
         s.br.nextPerceive = (float)t + rnd(s) * 0.2f; s.br.nextTactic = (float)t + rnd(s);
         match.onSpawned(slot);
-        if (s.localPlayer) spectate = -1;
+        if (s.localPlayer) { spectate = -1; deployReady = app.selftest; deploySpawn = -1; }
         return true;
       }
   }
@@ -293,8 +352,13 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   if (s.throwT >= 0 && !s.throwReleased) s.throwT = -1;   // cancelled before release: nothing spent
   if (s.agent >= 0) { Physics::destroyAgent(s.agent); s.agent = -1; }   // the corpse has no collision
   if (s.localPlayer) {
+    deployOpenedAt = t; deployReady = app.selftest;   // GM1: the deploy screen opens (tests skip it)
     vec3 p = s.feet; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z));
     spectate = killer >= 0 ? killer : -1;
+  }
+  if (!s.localPlayer && !s.human && !s.zombie && s.weapon >= 0 && !isClient) {   // GM1: the AI's weapon falls by the body
+    drops.push_back({s.feet + vec3(0, 0.06f, 0), s.yaw, s.weapon, s.ws, t});
+    if (drops.size() > 24) drops.erase(drops.begin());
   }
   match.onDeath(i, killer);
   if (killer >= 0 && killer != i) ++kills;
@@ -637,6 +701,7 @@ void Game::stepRest(float dt) {
   match.update(dt);
   crumb("game: spawns");
   for (int slot : match.spawnQueue()) {
+    if (sold[slot].localPlayer && !deployReady && t - deployOpenedAt < kDeployAuto) continue;   // GM1: the deploy screen is open
     std::string why;
     if (!trySpawn(slot, why)) match.onSpawnFailed(slot, dt, why);
   }
@@ -660,6 +725,14 @@ void Game::worldChanged(vec3 lo, vec3 hi) {
 // ---------------------------------------------------------------- presentation
 void Game::drawItems() {
   if (!active) return;
+  double life = combat["corpses"].value("seconds", 40.0);
+  drops.erase(std::remove_if(drops.begin(), drops.end(), [&](const Drop& d) { return t - d.t > life; }), drops.end());
+  for (auto& d : drops) {   // GM1: lying on its side next to the body
+    const WeaponDef& w = *app.weaponDefs[d.weapon];
+    mat4 W = glm::translate(mat4(1), d.pos) * glm::rotate(mat4(1), radians(d.yaw + 90.0f), vec3(0, 1, 0)) * glm::rotate(mat4(1), radians(90.0f), vec3(0, 0, 1)) * glm::translate(mat4(1), vec3(0, 0, -0.4f));
+    if (w.useModel()) { for (int p = 0; p < 8; ++p) for (int k : w.modelParts[p]) app.R.worldModels.push_back({w.model.get(), k, W}); }
+    else for (int p = 0; p < 8; ++p) if (w.mesh[p].count) app.worldBoxDraws.push_back({&w.mesh[p], W});
+  }
   crumb("game: draw");
   vec3 cam = app.eyePos(); vec3 fwd = App::forward(app.eyeYaw, app.eyePitch);
   static int frame = 0; ++frame;

@@ -1,8 +1,8 @@
 {
   "_doc": "Match rules shared by every map (SPEC 2.2, 5.6; AI_SPEC owner decisions). Contract file from W0; W1 reads spawnProtection* / protection*, W6 reads regroupSeconds / maxBots / difficulty. protectionEndsOnFire / protectionEndsOnThrow are the SPEC 2.2 [DECISION] (default on): firing any round (rifle, MG, rocket, emplaced gun) or releasing a grenade ends the shooter's own protection.",
-  "spawnProtectionSeconds": 3.0,
-  "protectionEndsOnFire": true,
-  "protectionEndsOnThrow": true,
+  "spawnProtectionSeconds": 5.0,
+  "protectionEndsOnFire": false,
+  "protectionEndsOnThrow": false,
   "protectionVisuals": { "shimmerHz": 2.2, "tint": [0.78, 0.86, 1.18], "tintDepth": 0.35, "shieldIconRange_m": 150 },
   "regroupSeconds": 30.0,
   "maxBots": 32,

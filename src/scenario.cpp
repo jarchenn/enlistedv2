@@ -54,7 +54,7 @@ json ScenarioRules::toJson() const {
           {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire},
           {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : "assault"}, {"killCap", killCap},
           {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiType", {(int)aiType[0], (int)aiType[1]}},
-          {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}};
+          {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}, {"allowedClasses", allowedClasses}};
 }
 
 ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
@@ -88,6 +88,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("teamFaction") && j["teamFaction"].is_array() && j["teamFaction"].size() == 2)
     for (int t = 0; t < 2; ++t) r.teamFaction[t] = j["teamFaction"][t].get<std::string>() == "Axis" ? Faction::Axis : Faction::Allies;
   r.respawnDelay = std::clamp(j.value("respawnDelay_s", r.respawnDelay), 0.0f, 30.0f);
+  if (j.contains("allowedClasses") && j["allowedClasses"].is_array()) for (auto& c : j["allowedClasses"]) if (c.is_string()) r.allowedClasses.push_back(c.get<std::string>());
   // clamp to the limits (setup UI enforces the same)
   r.defenderSlots = std::clamp(r.defenderSlots, 1, kMaxCombatants - 1);
   r.attackerAI = std::clamp(r.attackerAI, 1, kMaxCombatants - r.defenderSlots);

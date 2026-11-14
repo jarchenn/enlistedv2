@@ -58,6 +58,7 @@ struct Soldier {
   float hp = 100; double diedAt = 0; int deathStyle = 0; int killer = -1; vec3 deathDir{0};
   int weapon = -1; WeaponState ws; float reload = 0, reloadTotal = 0; int shots = 0;
   int frags = 0, smokes = 0;
+  int cls = -1, clsPick[2] = {0, 0};          // GM1: class (classes.h index, -1 = none) and its primary / secondary choice
   float throwT = -1; int throwKind = 0; vec3 throwTarget{0}; vec3 throwVel{0}; bool throwReleased = false;
   int model = -1; CharInstance ci; bool ciReady = false; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
   uint32_t poseRev = 0, skinRev = ~0u; int poseFrom = -1;   // PF1: skin only a changed pose; a far pack follower draws its leader's skin
@@ -134,6 +135,18 @@ public:
   std::vector<vec3> pool; bool poolBuilt = false;
   void killSoldier(int s, int killer, vec3 dir);
   void applyLoadout(Soldier& s, bool newLife);
+  // GM1 deploy screen (deploy.cpp): before each local spawn; auto-deploys after kDeployAuto s
+  struct SpawnOption { vec3 pos{0}; float yaw = 0; std::string label; int team = -1; };
+  struct Drop { vec3 pos{0}; float yaw = 0; int weapon = -1; WeaponState ws; double t = 0; };
+  std::vector<Drop> drops;                   // GM1: weapons AI soldiers dropped on death (host / singleplayer); E picks one up
+  std::vector<SpawnOption> outposts;         // GM3 hook: team-built outposts (team = Soldier::team), listed as spawn points
+  std::vector<SpawnOption> spawnOptions(int slot) const;   // the slot's markers (role / team) + its team's outposts
+  static constexpr double kDeployAuto = 5.0;
+  double deployOpenedAt = 0; bool deployReady = false; int deploySpawn = -1;   // deploySpawn: index into spawnOptions, -1 = random
+  void deployNow();
+  void drawDeploy();
+  void chooseClass(Soldier& s);              // GM1: humans keep an allowed choice, bots draw by botWeight
+  std::vector<int> classWeapons(const Soldier& s) const;   // GM1: primary, secondary, pistol (weapon indices)
   // damage (server)
   bool projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& tHit);   // true: a soldier was hit
   void explosionDamage(vec3 p, float dmg, float radius, int owner, bool grenade);

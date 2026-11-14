@@ -16,6 +16,7 @@ static int closesocket(SOCKET s) { return close(s); }
 #include "net.h"
 #include "flame.h"
 #include "game.h"
+#include "classes.h"
 #include "mpui.h"
 #include "app.h"
 #include "mpai.h"
@@ -334,6 +335,7 @@ void Net::hostWorldEvent(const json& ev) {
 }
 void Net::clientFire(vec3 from, vec3 dir, int weapon, int tracer) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "fire"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"tr", tracer}}.dump()); }
 void Net::clientFlame(vec3 from, vec3 dir, int weapon, float dt) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "flame"}, {"p", tojson(from)}, {"d", tojson(dir)}, {"w", weapon}, {"dt", dt}}.dump()); }
+void Net::clientDeploy(const std::string& cls, int p0, int p1) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "deploy"}, {"cls", cls}, {"p0", p0}, {"p1", p1}}.dump()); }
 void Net::clientReload() { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "reload"}}.dump()); }
 void Net::clientThrow(int kind, vec3 vel) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "throw"}, {"k", kind}, {"v", tojson(vel)}}.dump()); }
 void Net::sendStats(const json& s) { if (role == CLIENT && connected) d->peers[0].ch.send(json{{"t", "stats"}, {"s", s}}.dump()); }
@@ -611,6 +613,9 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
   int slot = g.match.slotOfPeer(p.id);
   if (slot < 0 || !g.match.slots[slot].human || g.match.slots[slot].peer != p.id) { ++n.rejectedRequests; return; }   // never another slot
   Soldier& s = g.sold[slot];
+  if (t == "deploy") {   // GM1: the class for the next life (dead or alive); checked against the allowed classes at the spawn (Game::chooseClass)
+    s.cls = classIndex(m.value("cls", std::string())); s.clsPick[0] = m.value("p0", 0); s.clsPick[1] = m.value("p1", 0); return;
+  }
   if (!s.alive) { ++n.rejectedRequests; ++n.rejects[t + ": dead"]; return; }
   auto refuse = [&](const char* why, const std::string& msg) {
     ++n.rejectedRequests; ++n.rejects[t + ": " + why];

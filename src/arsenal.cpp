@@ -61,6 +61,7 @@ void App::loadMoveSettings() {
     move.staminaJump = s.value("jumpCost", move.staminaJump); move.staminaRegen = s.value("regen_per_s", move.staminaRegen);
     move.staminaDelay = s.value("regenDelay_s", move.staminaDelay);
     move.staminaLowRegen = s.value("crouchProneRegen_x", move.staminaLowRegen);
+    if (s.contains("regenFull_s")) move.staminaRegen = move.staminaMax / std::max(0.5f, s.value("regenFull_s", 10.0f));   // GM1: "whole bar in X s" wins over regen_per_s
   }
   loadClimbSettings(j);   // vault + mantle (mantle.cpp)
   loadSwimSettings(j);    // swimming, breath (swim.cpp)

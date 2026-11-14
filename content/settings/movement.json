@@ -17,6 +17,8 @@
   "sprintDrain_per_s": 12,
   "jumpCost": 22,
   "regen_per_s": 18,
+  "regenFull_s": 9.8,
+  "_regenFull_note": "GM1: regeneration is set as the whole bar in regenFull_s (overrides regen_per_s; was 300 / 18 = 16.7 s, now 1.7x faster); a class's bigger bar (Assaulter) refills in the same time",
   "regenDelay_s": 0.6,
   "crouchProneRegen_x": 1.5
  },

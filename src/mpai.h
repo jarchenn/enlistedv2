@@ -35,6 +35,8 @@ bool mpaiStationRequest(App& app, uint64_t id, int pos);   // occupyStation
 void mpaiStationLeft(App& app, uint64_t id);                // end of leaveStation
 void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, int tracer, int owner);   // stationShoot
 bool mpaiRackRequest(App& app, uint64_t rack, int weapon);  // rackActivate
+bool mpaiMayDriveTanks(App& app);                           // GM1: TankSys::handleInteract (Tanker class only, in a match)
+bool mpaiPickupWeapon(App& app);                            // GM1: E near a dropped AI weapon (explore.cpp)
 bool mpaiCrateRequest(App& app, uint64_t crate);            // crateTransaction
 void mpaiCrateChanged(App& app, uint64_t crate);            // the crate's stock changed (host)
 bool mpaiBuildClient(App& app);                             // in a LAN match as a client

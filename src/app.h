@@ -235,10 +235,12 @@ public:
     float staminaLowRegen = 1.5f;   // regeneration x this while crouched or prone
   } move;
   float stamina = 200, staminaIdle = 0;   // current points; s since the last drain (regeneration waits staminaDelay)
+  float staminaMul = 1;                   // GM1: the class's bar size (Assaulter 1.5); the bar still refills in regenFull_s
+  float staminaCap() const { return move.staminaMax * staminaMul; }
   void spendStamina(float pts) { stamina = std::max(0.0f, stamina - pts); staminaIdle = 0; }
   void tickStamina(float dt, bool sprinting, float regenScale = 1.0f) {   // per movement step: drain while sprinting, else regenerate after the pause
     if (sprinting) spendStamina(move.staminaSprint * dt);
-    else if ((staminaIdle += dt) >= move.staminaDelay) stamina = std::min(move.staminaMax, stamina + move.staminaRegen * regenScale * dt);
+    else if ((staminaIdle += dt) >= move.staminaDelay) stamina = std::min(staminaCap(), stamina + move.staminaRegen * staminaMul * regenScale * dt);
   }
   void drawStaminaUI();                   // explore.cpp: the bar under the breath bar, hidden when full
   // getting up: a timed, eased camera rise; until it finishes the player moves at the lower posture's speed
@@ -290,6 +292,7 @@ public:
   void drawStackUI(struct ImDrawList* dl, struct ImVec2 ds);       // G4 (weapons.cpp)
   std::string lastReadout; float lastStackAlpha = 0;              // G4: the readout text / list opacity drawn last (tests)
   void resetLoadout();
+  int deployClass = -1, deployPick[2] = {0, 0};                  // GM1: the class / primary / secondary chosen on the deploy screen
   bool equipWeapon(int idx, std::string& msg);
   const char* fireModeName(const WeaponDef& d, const WeaponState& s) const;
   void toggleFireMode(const WeaponDef& d, WeaponState& s);
@@ -467,6 +470,7 @@ public:
   struct SightMark { vec2 px; uint32_t col; int kind; };   // kind: 0 rear, 1 front tip, 2 muzzle, 3 flash origin, 4 aim
   bool sightMarks(std::vector<SightMark>& out) const;
   bool sightMarkers = false;            // draw the calibration markers (HUD and screenshots)
+  bool friendlyMarkers = true;          // GM1: chevrons over teammates (Game::drawAllyMarkers); Settings > Gameplay
   bool showWeaponList = true;           // the carried weapon list (G4) in the lower right; Settings > Gameplay
   void armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s);
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot

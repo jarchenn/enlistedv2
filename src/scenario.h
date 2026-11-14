@@ -94,6 +94,8 @@ struct ScenarioRules {
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn
+  std::vector<std::string> allowedClasses;   // GM1: class ids the host allows (empty = every class)
+  bool classAllowed(const std::string& id) const { for (auto& c : allowedClasses) if (c == id) return true; return allowedClasses.empty(); }
   static constexpr int kMaxAI = 200;             // up to 200 AI (user request, 2026-11-08; was 100)
   static constexpr int kMaxCombatants = kMaxAI + 16;   // plus up to 16 humans
   json toJson() const;

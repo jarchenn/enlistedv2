@@ -14,6 +14,7 @@
 #include "mpui.h"
 #include "rules.h"
 #include "damage_model.h"
+#include "classes.h"
 #include <GLFW/glfw3.h>
 #include <functional>
 #include <cmath>
@@ -185,6 +186,33 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       int bots = 0; for (auto& s : G.sold) if (!s.localPlayer && s.alive) ++bots;
       if (!(L && L->alive && bots >= 4)) { if (t > 20) { check(false, "everyone spawned"); return true; } return false; }
       return true; });
+    // ---- GM1: classes (data, bots, the player's loadout, allowed list, stamina, knife)
+    push("classes", [this](App& a, float) {
+      Game& G = *gGame;
+      const auto& C = classDefs();
+      int unknown = 0; std::string miss;
+      for (auto& c : C) for (const ClassSide* s : {&c.us, &c.de}) {
+        std::vector<std::string> ids = s->primary; ids.insert(ids.end(), s->secondary.begin(), s->secondary.end()); if (!s->pistol.empty()) ids.push_back(s->pistol);
+        for (auto& w : ids) if (a.weaponIndex(w) < 0) { ++unknown; miss += " " + w; }
+      }
+      check(C.size() == 7 && unknown == 0 && classById("tanker") && classById("tanker")->drivesTanks && classById("assault")->hpMul == 1.25f, std::to_string(C.size()) + " classes, every weapon they name exists" + miss);
+      int bad = 0, bots = 0;
+      for (auto& s : G.sold) if (s.alive && !s.localPlayer) {
+        ++bots; auto cw = G.classWeapons(s);
+        if (s.cls < 0 || C[s.cls].botWeight <= 0 || cw.empty() || s.weapon != cw[0]) ++bad;
+      }
+      check(bots > 0 && bad == 0, std::to_string(bots) + " bots spawned with a weighted class and its primary weapon (" + std::to_string(bad) + " wrong)");
+      Soldier* L = G.local();
+      bool lo = L && L->cls >= 0 && !a.carried.empty() && a.carried[0] == G.classWeapons(*L)[0];
+      check(lo, "the player spawned with a class and its weapons (" + (L && L->cls >= 0 ? C[L->cls].id : std::string("none")) + ")");
+      check(L && std::fabs(a.stamina - a.staminaCap()) < 0.01f && a.staminaMul == C[L->cls].staminaMul, "full stamina on spawn, the class's bar (x" + std::to_string(a.staminaMul) + ")");
+      check(std::fabs(a.move.staminaRegen * 9.8f - a.move.staminaMax) < 0.5f, "stamina refills the whole bar in 9.8 s (" + std::to_string(a.move.staminaRegen) + " pts/s)");
+      ScenarioRules r; r.allowedClasses = {"tanker"};
+      ScenarioRules back = ScenarioRules::fromJson(r.toJson());
+      check(back.classAllowed("tanker") && !back.classAllowed("ranger") && ScenarioRules{}.classAllowed("ranger"), "allowed classes survive the rules JSON (LAN lobby / start)");
+      int k = a.weaponIndex("knife_bayonet");
+      check(k >= 0 && a.weaponDefs[k]->moveSpeed == 1.3f, "knife in hand: x1.3 speed");
+      return true; });
     // ---- first life: protection window
     push("spawn protection", [this](App& a, float t) {
       Game& G = *gGame; Soldier& L = *G.local();
@@ -196,9 +224,11 @@ void SelfTest::rulesUpdate(App& app, float dt) {
         sawFire = fallChecked = bulletChecked = blastChecked = false; tintOk = true;
         A = bots[0]; B = bots[1]; C = bots[2]; D = bots[3];
         for (int s : bots) G.sold[s].human = true;   // no AI: the bots only do what this test tells them
-        bool all = L.isProtected(G.t); for (int s : bots) all &= G.sold[s].isProtected(G.t) && std::fabs(G.sold[s].protectUntil - G.t - 3.0) < 0.1;
+        bool all = L.isProtected(G.t); for (int s : bots) all &= G.sold[s].isProtected(G.t) && std::fabs(G.sold[s].protectUntil - G.t - rulesConfig().protectSeconds) < 0.1;
         char b[200]; std::snprintf(b, sizeof b, "every soldier spawns protected; the player for %.4f s from its spawn step (t=%.3f)", L.protectUntil - tSpawn, tSpawn);
-        check(all && tSpawn >= 0 && std::fabs(L.protectUntil - tSpawn - 3.0) < 1e-6, b);
+        check(all && tSpawn >= 0 && std::fabs(L.protectUntil - tSpawn - rulesConfig().protectSeconds) < 1e-6, b);
+        check(rulesConfig().protectSeconds == 5.0f && !rulesConfig().endsOnFire && !rulesConfig().endsOnThrow, "GM1: spawn protection 5 s, kept while moving, firing or throwing (rules.json)");
+        rulesConfig().endsOnFire = rulesConfig().endsOnThrow = true;   // the options themselves are still tested below; restored after the protection phase
         return false;
       }
       if (L.isProtected(G.t)) {
@@ -252,8 +282,9 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       }
       if (tEnd < 0) return t > 6;   // timeout guard (checked below)
       double held = tEnd - tSpawn;
-      char b[220]; std::snprintf(b, sizeof b, "player protection lasted %.4f s (3.0 s +- one 1/60 s frame), %d protected frames", held, protFrames);
-      check(std::fabs(held - 3.0) <= kDt + 1e-4, b);
+      char b[220]; std::snprintf(b, sizeof b, "player protection lasted %.4f s (5.0 s +- one 1/60 s frame), %d protected frames", held, protFrames);
+      check(std::fabs(held - rulesConfig().protectSeconds) <= kDt + 1e-4, b);
+      rulesConfig().endsOnFire = rulesConfig().endsOnThrow = false;   // back to the rules.json defaults (GM1)
       check(icons >= 1, "shield icon drawn over protected enemies in view (" + std::to_string(icons) + " at once)");
       check(ringFrames >= protFrames - 2 && ringMax > 2.9f, "countdown ring on the protected player's HUD (from " + f2(ringMax) + " s)");
       check(tintOk && rulesTint(G, L) == vec4(1), "shimmer tint while protected, plain after");
