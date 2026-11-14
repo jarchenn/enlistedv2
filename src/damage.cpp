@@ -99,7 +99,7 @@ App::Explosion App::explode(vec3 p, vec3 dir, float dmg, float radius, float cra
     if (glm::length(p - (i.pos + yawQuat(i.yaw) * ((a->bmin + a->bmax) * 0.5f))) > br + 1.5f) continue;
     quat q = yawQuat(i.yaw);
     WallEvent e;
-    e.p = glm::inverse(q) * (p - i.pos); e.d = glm::inverse(q) * d; e.kind = wallKind; e.dmg = dmg;
+    e.p = glm::inverse(q) * (p - i.pos); e.d = glm::inverse(q) * d; e.kind = wallKind; e.dmg = dmg * blastWall;
     e.seed = (uint32_t)(i.id * 2654435761u) ^ (uint32_t)(r.wallEvents.size() * 40503u + 17u);   // deterministic per copy / event
     if (r.wf.empty()) initWallFields(r);
     if (stampWall(r, e, true, &ex.hits, &ex.breached) > 0) { r.wallEvents.push_back(e); rebuildWalls(i, r); }

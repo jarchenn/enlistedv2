@@ -37,10 +37,12 @@ bool isHost() { return gNet && gNet->role == Net::HOST && gGame && gGame->active
 
 // one charge / shell: the shared explode() path (walls, craters, tanks, glass, props; soldiers through the mpai hook,
 // attributed to the owner), the effect and the sound
-void blast(App& app, vec3 p, vec3 n, float dmg, float radius, float crater, int owner) {
+void blast(App& app, vec3 p, vec3 n, float dmg, float radius, float crater, int owner, float wall = 1) {
   mpaiSetBlastOwner(owner);
   app.blastPersonnel = 1;
+  app.blastWall = wall;
   app.explode(p + n * 0.06f, -n, dmg, radius, crater, ~0ull, WALL_HE);
+  app.blastWall = 1;
   mpaiSetBlastOwner(-1);
   app.fx.explosion(p, n, "ground", true);
   app.audio.play("explosion", p, 1.0f);
@@ -165,7 +167,7 @@ void gm2Step(App& app, float dt) {
     p.fuse -= dt;
     if (p.fuse > 0 || p.visualOnly) continue;
     const WeaponDef& d = *app.weaponDefs[p.def];
-    blast(app, p.pos, p.nrm, d.pack.damage, d.pack.radius, d.pack.crater, p.owner);
+    blast(app, p.pos, p.nrm, d.pack.damage, d.pack.radius, d.pack.crater, p.owner, 4.0f);   // strength = sqrt(dmg): x4 = twice the depth, twice the breach area
     ++gS.stats.packsExploded;
   }
   gS.packs.erase(std::remove_if(gS.packs.begin(), gS.packs.end(), [](const LivePack& p) { return p.fuse <= 0; }), gS.packs.end());

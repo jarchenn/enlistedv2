@@ -493,6 +493,7 @@ public:
   vec3 weaponMuzzleWorld(const WeaponDef& d, const WeaponState& s) const;
   bool deformGround(vec3 p, float scale);   // ground.cpp
   bool blastAT = false;                     // the explosion being resolved is an AT shell (deep crater profile)
+  float blastWall = 1;                      // the current blast's wall-stamp damage factor (explosion pack x4: twice the depth, twice the area)
   float blastPersonnel = 1;                 // the current blast's damage and radius against soldiers (launcher HE x1.6, tank / AT gun HE x2); walls and props use the plain values
   float blastSplashGun = 40;                // splash damage to AT guns at the blast centre (falls off to 0 at the radius); guns have 100 HP
   int directHits = 0, splashGunHits = 0;

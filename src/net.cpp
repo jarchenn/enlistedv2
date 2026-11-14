@@ -515,9 +515,9 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
   std::string t = ev.value("t", "");
   Game& g = G(app);
   if (t == "ex") {
-    app.blastAT = ev.value("at", false); app.blastSplashGun = ev.value("sg", 40.0f);
+    app.blastAT = ev.value("at", false); app.blastWall = ev.value("wm", 1.0f); app.blastSplashGun = ev.value("sg", 40.0f);
     app.explode(jvec3(ev["p"]), jvec3(ev["d"]), ev["dmg"].get<float>(), ev["r"].get<float>(), ev["cs"].get<float>(), ~0ull, ev["wk"].get<int>());
-    app.blastAT = false; app.blastSplashGun = 40;
+    app.blastAT = false; app.blastWall = 1; app.blastSplashGun = 40;
     if (!replay && ev.value("fx", true)) { app.fx.explosion(jvec3(ev["p"]), vec3(0, 1, 0), "ground", true); app.audio.play("explosion", jvec3(ev["p"]), 0.9f); }
   } else if (t == "imp") {
     Projectile q; q.p = jvec3(ev["pp"]); q.v = jvec3(ev["pv"]); q.mass = ev.value("m", 0.01f); q.ammo = ev.value("a", ""); q.kind = PROJ_BULLET;

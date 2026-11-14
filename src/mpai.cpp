@@ -164,7 +164,7 @@ void mpaiSetBlastOwner(int owner) { gProjOwner = owner; }   // GM2: packs / arti
 
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits) {
   if (gNet && gNet->role == Net::HOST && gGame && gGame->active)
-    gNet->hostWorldEvent(json{{"t", "ex"}, {"p", tojson(p)}, {"d", tojson(dir)}, {"dmg", dmg}, {"r", radius}, {"cs", craterScale}, {"wk", wallKind}, {"at", app.blastAT}, {"sg", app.blastSplashGun}, {"fx", !gInGrenadeBlast || true}});
+    gNet->hostWorldEvent(json{{"t", "ex"}, {"p", tojson(p)}, {"d", tojson(dir)}, {"dmg", dmg}, {"r", radius}, {"cs", craterScale}, {"wk", wallKind}, {"wm", app.blastWall}, {"at", app.blastAT}, {"sg", app.blastSplashGun}, {"fx", !gInGrenadeBlast || true}});
   if (!gGame || !gGame->active) return;
   if (!gGame->isClient && !gInGrenadeBlast) gGame->explosionDamage(p, dmg * app.blastPersonnel, radius * app.blastPersonnel, gGame->soldierOfOwner(gProjOwner), false);
   gGame->hearSound(p, -1, 90.0f, gGame->soldierOfOwner(gProjOwner), 1);
