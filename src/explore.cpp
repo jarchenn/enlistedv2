@@ -450,8 +450,11 @@ void App::updateExplore(float dt) {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
     if (lmx >= 0 && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
       StationRT* gs = station(occupied);
-      float hs = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42") ? 0.08f : 0.012f;
-      if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs; }   // handwheels / spade grips
+      bool mgMount = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42");
+      // a mounted MG aims like the carried gun (the player's look sensitivity and ADS scale; stepStation drops the rates);
+      // field guns keep their handwheels
+      float hs = mgMount ? settings().lookDegPerCount(adsT) * lookScaleFor(worldFov) : 0.012f;
+      if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs * (mgMount ? settings().pitchSign() : 1.0f); }   // handwheels / spade grips
       else { float k = settings().lookDegPerCount(adsT) * lookScaleFor(worldFov); in.lookYaw = -(float)(mx - lmx) * k; in.lookPitch = -(float)(my - lmy) * k * settings().pitchSign(); eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }
     lmx = mx; lmy = my;

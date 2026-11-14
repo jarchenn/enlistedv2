@@ -476,6 +476,14 @@ static int patternFromName(const std::string& s) {
   auto it = m.find(s); return it == m.end() ? PAT_PLAIN : it->second;
 }
 
+static Part parsePart(const json& j, const std::map<std::string, int>& mats);
+std::vector<Part> assetRawParts(const AssetDef& a) {
+  std::map<std::string, int> mats;
+  for (size_t k = 0; k < a.materials.size(); ++k) mats[a.materials[k].name] = (int)k;
+  std::vector<Part> out;
+  if (a.raw.is_object()) for (auto& pj : a.raw.value("parts", json::array())) out.push_back(parsePart(pj, mats));
+  return out;
+}
 static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   Part p;
   std::string t = j.value("t", "b");

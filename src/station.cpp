@@ -61,6 +61,7 @@ void App::stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4&
   yawM = base * glm::translate(mat4(1), s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(r.st.yaw), vec3(0, 1, 0)));
   elevM = yawM * glm::translate(mat4(1), s.elevPivot - s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(-r.st.elev), vec3(1, 0, 0)));
   float t = r.st.recoilT, off = 0;
+  if (mgKind(s.kind)) t = 1.0f;   // mounted MGs: no recoil travel
   if (t < 0.06f) off = s.recoil * (t / 0.06f);
   else if (t < 0.7f) { float u = (t - 0.06f) / 0.64f; off = s.recoil * (1 - u * u * (3 - 2 * u)); }   // return to battery
   recoilM = elevM * glm::translate(mat4(1), vec3(0, 0, -off));
@@ -369,9 +370,9 @@ void App::stepStation(float dt, const ExploreInput& in) {
     s->elevT = std::clamp(s->elevT + in.dpitch, d.elevMin, d.elevMax);
     s->atYawStop = (s->yawT <= d.yawMin + 1e-3f && in.dyaw < 0) || (s->yawT >= d.yawMax - 1e-3f && in.dyaw > 0) || s->yawT <= d.yawMin + 1e-3f || s->yawT >= d.yawMax - 1e-3f;
     s->atElevStop = s->elevT <= d.elevMin + 1e-3f || s->elevT >= d.elevMax - 1e-3f;
-    s->yaw = approach(s->yaw, s->yawT, d.traverseRate * dt);
-    s->elev = approach(s->elev, s->elevT, d.elevateRate * dt);
     bool mg = mgKind(d.kind), mg42 = d.kind == "mg42";
+    if (mg) { s->yaw = s->yawT; s->elev = s->elevT; }   // a mounted MG swings as freely as the carried gun: no traverse / elevation rate
+    else { s->yaw = approach(s->yaw, s->yawT, d.traverseRate * dt); s->elev = approach(s->elev, s->elevT, d.elevateRate * dt); }
     int full = mg ? std::max(1, d.loaded) : 1;   // one belt: M2HB 110, MG 42 50
     if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(d.label + ": next round " + (s->selAT ? d.atName : d.heName) + " - takes effect at the next reload", 3); }
     int pool = (!mg && s->selAT) ? s->reserveAT : s->reserve;
@@ -389,7 +390,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
         if (s->loaded > 0) {
           stationShoot(occupied, -1);
           s->cool = 60.0f / (mg42 ? 1200.0f : 500.0f);
-          viewKickPitch = 0.35f;   // felt through the mount, not the shoulder
+          // no recoil on a mount (the only difference from the carried MG): no view kick, no gun travel (stationParts)
         } else if (s->armed) { audio.play("click", vec3(M[3]), 0.6f); s->armed = false; }
       }
       if (!fireHeld) { vec3 td; if (s->burst > 1 && mg42) audio.play("tail_mg42", stationMuzzle(*inst, r, td), 0.9f); s->burst = 0; }   // recorded tail once per release, as handheld

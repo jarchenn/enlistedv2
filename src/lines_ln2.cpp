@@ -23,6 +23,8 @@ struct Src {
   MeshData mesh;                   // visible parts, asset space (end caps apart)
   MeshData cap[2];                 // snap end caps ("cap" parts): [0] the start end (-u), [1] the end; drawn at run ends only
   std::vector<int> partEnd;        // per part: -1, or the end (0 / 1) it caps
+  std::vector<Part> parts;         // the piece's authored parts (assetRawParts): a plain wall box the loader turns into a
+                                   // destructible bay of a placed piece is part of a line's bay too
 };
 const Src* source(App& app, const std::string& id) {
   static std::map<std::string, Src> cache;
@@ -34,7 +36,8 @@ const Src* source(App& app, const std::string& id) {
     s.len = std::max(0.5f, s.axis == 0 ? s.a->footprint.x : s.a->footprint.y);
     const json& rp = s.a->raw.value("parts", json::array());
     const json& so = s.a->raw.contains("snap") ? s.a->raw["snap"] : json::array();
-    for (size_t k = 0; k < s.a->parts.size(); ++k) {
+    s.parts = assetRawParts(*s.a);   // not AssetDef::parts: the bays extracted at load (drs_garden_wall's body) would be missing
+    for (size_t k = 0; k < s.parts.size(); ++k) {
       int e = -1;
       if (k < rp.size() && rp[k].contains("cap")) {   // which end the capped socket is on
         int sk = rp[k]["cap"].get<int>();
@@ -42,7 +45,7 @@ const Src* source(App& app, const std::string& id) {
         e = u < 0 ? 0 : 1;
       }
       s.partEnd.push_back(e);
-      const Part& p = s.a->parts[k];
+      const Part& p = s.parts[k];
       if (p.visible && p.mat >= 0 && p.mat < (int)s.a->materials.size()) appendPart(e < 0 ? s.mesh : s.cap[e], p, s.a->materials[p.mat], mat4(1));
     }
   } else logf("lines: line piece '%s' missing", id.c_str());
@@ -145,8 +148,8 @@ void bayBuilder(const LineBuildCtx& c, LineBuildOut& out) {
     for (int e = 0; e < 2; ++e) if (b.end[e]) emit(s.cap[e]);
     if (b.sec >= 0) { if ((int)out.secIdx.size() <= b.sec) out.secIdx.resize(b.sec + 1); out.secIdx[b.sec] = {first, (uint32_t)out.mesh.i.size() - first}; }
     // colliders: each collide part's corners mapped, boxed in the curve's frame at the part centre
-    for (size_t pk = 0; pk < s.a->parts.size(); ++pk) {
-      const Part& p = s.a->parts[pk];
+    for (size_t pk = 0; pk < s.parts.size(); ++pk) {
+      const Part& p = s.parts[pk];
       if (!p.collide || (s.partEnd[pk] >= 0 && !b.end[s.partEnd[pk]])) continue;
       vec2 t; vec3 ctr = map(b, p.center, &t);
       vec3 X(t.x, 0, t.y), Z(nrm2(t).x, 0, nrm2(t).y);

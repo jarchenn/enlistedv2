@@ -295,6 +295,9 @@ private:
   std::unordered_map<std::string, const AssetDef*> index_;   // id -> asset, filled by loadOne (assets only grow)
 };
 
+// The asset's authored parts in file order, as written (before wall bays, roof bays and opening trim are extracted
+// from AssetDef::parts at load): line pieces (lines_ln2.cpp) map these, a plain wall box included.
+std::vector<Part> assetRawParts(const AssetDef& a);
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf);
 // P2 leafmerge (assets.cpp): all leaves of an asset at rest, interactable k closed (0) or fully open (1), asset space
 struct LeafPose { GpuMesh opaque, glass; GLuint xbuf[2] = {0, 0}; void destroy(); };
