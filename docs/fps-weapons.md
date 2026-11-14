@@ -646,6 +646,11 @@ The sight is aligned through the zero tilt (`weapons.cpp`), so the round lands o
 
 Both optics are now closed from every side, with a solid black rim around the clear window. The M4's clear circle is as large as in MG3.
 
+**Shotguns (user's request).**
+- **870 sight line:** it now runs through the reflex sight's window centre, measured on the rig (3.8 mm right of and 1.3 mm above the first, bore-derived line). The dot is on it. Aimed shots leave along the same posed line, so the pellet pattern is centred on the dot.
+- **Recoil:** pitch +50 % on both shotguns.
+- **Speed:** `animated.reloadRate` 1.54 and `fireRate` 1.43 play the shell loop and the pump clip faster. The clip lengths, and so the shell timing and the pump-limited fire rate, shrink with them: the shell loop is 35 % quicker and the pump cycle 30 % quicker. The animations still play through.
+
 **AK:** `fps-ak-animated-2` is byte-identical to `fps-ak-animated` (the current `modern_ak`); nothing to replace.
 
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.

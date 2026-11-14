@@ -18,6 +18,7 @@ struct AnimVM {
   float idleHold = 0;                  // the idle is this one frame of the idle clip (s), held still (MG3: every rig; < 0 plays the clip)
   vec3 hipShift{0};                    // MG3: rig offset at the hip, camera space (m), faded out in ADS (the M249 closer)
   bool shells = false;                 // reload_start / reload_insert (once per round) / reload_end
+  float fireRate = 1, reloadRate = 1;  // MG4: clips played faster (the shotguns' pump and shell loop); the timing follows
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
   GpuMesh dotMesh;
   ~AnimVM() { model.destroy(); dotMesh.destroy(); }
@@ -61,6 +62,8 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   a->idleHold = block.value("idleHold", 0.0f);
   if (block.contains("hipShift")) a->hipShift = jv(block["hipShift"]);
   a->shells = a->dur.count("reload_insert") > 0;
+  a->fireRate = std::max(0.1f, block.value("fireRate", 1.0f)); a->reloadRate = std::max(0.1f, block.value("reloadRate", 1.0f));
+  for (auto& [k, len] : a->dur) len /= k == "fire" ? a->fireRate : k.rfind("reload", 0) == 0 ? a->reloadRate : 1.0f;   // the weapon's pump / reload times
   if (block.contains("redDot")) {   // a small emissive disc facing back along the sight line; the tube hides it off the axis
     a->hasDot = true; a->dot = jv(block["redDot"]);
     float r = block.value("redDotRadius", 0.0006f);
@@ -124,9 +127,9 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   }
   if (s.shotIdx != st.lastShot) {   // automatics restart the fire clip at the cyclic rate
     st.lastShot = s.shotIdx;
-    if (clip("fire") >= 0) play(K_FIRE, "fire", 0.04f); else st.kick = 1;   // no fire clip (the AR-15 set): a procedural kick
+    if (clip("fire") >= 0) play(K_FIRE, "fire", 0.04f, a.fireRate); else st.kick = 1;   // no fire clip (the AR-15 set): a procedural kick
   } else if (!want.empty() && (want != st.clipName || st.pl.key != K_RELOAD || s.reload > st.lastReload + 1e-4f)) {
-    float dur = animVmClipDur(a, want), rate = 1;
+    float dur = animVmClipDur(a, want) * a.reloadRate, rate = a.shells ? a.reloadRate : 1.0f;   // dur: the clip's own length
     if (!a.shells && s.reloadKind != 4 && dur > 0 && s.reloadTotal > 0) rate = dur / s.reloadTotal;   // a magazine clip spans the reload exactly
     play(K_RELOAD, want, want == "reload_insert" && st.clipName == "reload_insert" ? 0.05f : 0.1f, rate);
   } else if (st.pl.key != K_IDLE && (st.pl.key != K_RELOAD || s.reload <= 0)) {
