@@ -567,9 +567,9 @@ void InteriorSys::updateBatches(App& app) {
     GfxPreset ps = settings().s.preset();
     float zoom = app.R.height > 0 ? std::clamp(app.lodPxPerM / (app.R.height * 0.5f * 1.43f), 1.0f, 8.0f) : 1.0f;   // 1 at a 70 degree FOV
     // High keeps Medium's distances: 45 / 100 m measured +1.4 ms of buildDrawLists on chateau_town for no visible gain
-    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low ? 24.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low ? 50.0f : cullBig) * zoom; }
+    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low || ps == GfxPreset::UltraLow ? 24.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low || ps == GfxPreset::UltraLow ? 50.0f : cullBig) * zoom; }
     else { curSmall = cullSmall; curBig = cullBig; }
-    lowClutter_ = app.R.perf.furnClutter && ps == GfxPreset::Low;
+    lowClutter_ = app.R.perf.furnClutter && (ps == GfxPreset::Low || ps == GfxPreset::UltraLow);
   }
   uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full) ^ (lowClutter_ ? 0x5bd1e995ull : 0);
   if (sig == batchSig_) return;
@@ -832,7 +832,7 @@ int InteriorSys::bulletHit(App& app, uint64_t iid, vec3 at, vec3 dir, std::strin
     if (pd->glass >= 0 && !s.lightOut && lightDef(it->second.asset)) {
       vec3 lp = glm::inverse(yawQuat(inst->yaw)) * (at - inst->pos);
       if (!stops || (glm::all(glm::greaterThan(lp, pd->gmin - vec3(0.04f))) && glm::all(glm::lessThan(lp, pd->gmax + vec3(0.04f))))) {
-        s.lightOut = true; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); return 2;
+        s.lightOut = true; ++epoch_; app.audio.play("glass_break", at, 0.6f); app.fx.impact(at, -dir, "glass"); return 2;
       }
     }
     app.fx.impact(at, -dir, stops ? pd->family : surface == "wood" ? "wood" : surface);
