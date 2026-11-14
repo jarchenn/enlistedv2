@@ -162,7 +162,7 @@ bool lineDrawItems(App& app, const Instance& i, InstanceRT& r, const mat4& M, st
 // any other trench line it meets.
 static void trenchLineBuilder(const LineBuildCtx& c, LineBuildOut& out) {
   std::string fire = c.params.value("fire", std::string("left"));
-  if (fire != "left" && fire != "right") return;
+  const bool step = fire == "left" || fire == "right";
   const float side = fire == "left" ? 1.0f : -1.0f, half = c.app.terrain.sp.floorHalf;
   const AssetDef* a = c.app.lib.find(c.type.asset);
   Material earth; if (a) for (auto& m : a->materials) if (m.name == "mud") earth = m;
@@ -182,6 +182,27 @@ static void trenchLineBuilder(const LineBuildCtx& c, LineBuildOut& out) {
     }
     return false;
   };
+  // GM3: the revetment walls are solid: an invisible box behind each side's revetment line (half), from below the floor
+  // to the ground at the lip, every 0.5 m wherever the wall stands 0.35 m or more (not across a junction or a ramp's
+  // shallow mouth). The heightfield alone let a player press into the carved wall or come up inside it when climbing out.
+  for (size_t k = 0; k + 1 < c.spline.size(); ++k) {
+    const LineSample &s0 = c.spline[k], &s1 = c.spline[k + 1];
+    vec2 mid = (s0.p + s1.p) * 0.5f, t = s1.p - s0.p; float len = glm::length(t);
+    if (len < 0.1f || nearOther(mid)) continue;
+    t /= len; vec2 n(-t.y, t.x);
+    float floorY = c.ground(mid.x, mid.y);
+    for (float sd : {-1.0f, 1.0f}) {
+      vec2 lip = mid + n * sd * (half + 0.6f);
+      float top = std::min(c.ground(lip.x, lip.y), floorY + 2.4f);
+      if (top - floorY < 0.35f) continue;
+      vec2 cxz = mid + n * sd * (half + 0.2f);
+      Part w; w.shape = Part::BOX; w.visible = false; w.collide = true;
+      w.center = c.local(cxz, (floorY - 0.2f + top) * 0.5f); w.size = vec3(len + 0.06f, top - floorY + 0.2f, 0.36f);
+      w.rot = glm::angleAxis(std::atan2(t.x, t.y) - 1.5707963f, vec3(0, 1, 0));
+      out.colliders.push_back({w, -1, false});
+    }
+  }
+  if (!step) return;
   for (size_t k = 0; k + 1 < c.spline.size(); k += 2) {   // ~1 m pieces
     const LineSample &s0 = c.spline[k], &s1 = c.spline[std::min(k + 2, c.spline.size() - 1)];
     if (s0.d < 0.95f || s1.d < 0.95f || s0.s < 4.5f || lineLength(c.spline) - s1.s < 4.5f) continue;   // not on the ramps, not at the ends

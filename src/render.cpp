@@ -2815,6 +2815,7 @@ void main(){
     vec4 lp = uOccVP*vec4(vW, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
     if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) sv = 1.0 - smoothstep(0.15, 0.6, (uOccTop - texture(uOcc, uv).r*uOccRange) - vW.y);
   }
+  alb *= 0.9 + 0.2*fract(vSeed*91.7 + float(vPart)*0.37);   // PERF1 (user): each blade / card a little lighter or darker (+-10 %)
   float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
   irr = giAmbient(vW, N, sv, irr);   // L2: probe light by night / under cover

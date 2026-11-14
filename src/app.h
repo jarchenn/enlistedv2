@@ -141,7 +141,7 @@ public:
   float eyeYaw = 0, eyePitch = 0, eyeHeight = 1.62f;
   bool pauseMenu = false;
   bool uiCursor = false;   // set each frame by a HUD window that needs the mouse (match result)
-  bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor; }
+  bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor || artyMapOpen; }
   vec3 exploreStartPos{0}; float exploreStartYaw = 0;
   InteractTarget target;
   float physAccum = 0;
@@ -279,7 +279,9 @@ public:
   static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)
   bool proneToggle = false;       // Z state: prone requested
   // ---- arsenal (arsenal.cpp): bindings, loadout, fire modes, launchers, heavy weapons, racks, AT-gun wrecks
-  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0, smokeGrenade = 0; std::map<std::string, std::string> names; } binds;
+  struct Bindings { int fireMode = 0, prone = 0, crouch = 0, packUp = 0, grenade = 0, smokeGrenade = 0; std::map<std::string, std::string> names;
+                   std::map<std::string, int> key; } binds;   // UI1: key = every other rebindable action by name (bk())
+  int bk(const char* action) const { auto it = binds.key.find(action); return it == binds.key.end() ? -1 : it->second; }   // -1 = GLFW_KEY_UNKNOWN
   void loadBindings();
   std::vector<int> carried;   // G4: the stack, up to 2 main weapons (any gun / launcher / carried M2), then the knife, grenades
   bool isSmallArm(const WeaponDef& d) const;
@@ -471,7 +473,7 @@ public:
   bool sightMarks(std::vector<SightMark>& out) const;
   bool sightMarkers = false;            // draw the calibration markers (HUD and screenshots)
   bool friendlyMarkers = true;          // GM1: chevrons over teammates (Game::drawAllyMarkers); Settings > Gameplay
-  bool showMinimap = true, mapLarge = false;   // GM2: the corner minimap (Settings > Gameplay) and the large map (M)
+  bool showMinimap = true, mapLarge = false, artyMapOpen = false;   // GM2: the corner minimap (Settings > Gameplay) and the large map (M)
   bool showWeaponList = true;           // the carried weapon list (G4) in the lower right; Settings > Gameplay
   void armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s);
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot

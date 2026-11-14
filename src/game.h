@@ -148,6 +148,7 @@ public:
   void chooseClass(Soldier& s);              // GM1: humans keep an allowed choice, bots draw by botWeight
   std::vector<int> classWeapons(const Soldier& s) const;   // GM1: primary, secondary, pistol (weapon indices)
   // damage (server)
+  bool shellSegment(const Projectile& p, vec3 a, vec3 seg, float len, float& tHit);   // GM3: a tank / AT gun shell striking a soldier (kills; tHit = the strike)
   bool projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& tHit);   // true: a soldier was hit
   void explosionDamage(vec3 p, float dmg, float radius, int owner, bool grenade);
   void damage(int s, float dmg, int attacker, vec3 dir, const char* how);
@@ -187,7 +188,7 @@ public:
   void drawHud();
   void drawDebug();
   // G1 HUD (mpui_modes.cpp)
-  void drawModeBanner(); void drawModePanel(); void drawScoreboardOverlay(); void scoreboardTable();
+  void drawModeBanner(); void drawModePanel(); void drawScoreboardOverlay(); void scoreboardTable(bool full = false);   // UI1: full = the end screen (every row, scrollable)
   bool showScoreboard = false;               // tests: hold the Tab scoreboard open
   bool camera(vec3& eye, vec3& fwd, float& fov);
   Soldier* local() { return localSlot >= 0 && localSlot < (int)sold.size() ? &sold[localSlot] : nullptr; }

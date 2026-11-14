@@ -936,11 +936,15 @@ function camo(A, F, a0, a1, y0, y1, n, seed, holes = []) {
 // galvanised tube railing between points (posts every ~1.6 m, top and mid rails) with an invisible guard collider
 function tubeRail(A, x0, z0, x1, z1, y, h = 1.0) {
   const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(L / 1.6));
-  for (let i = 0; i <= n; i++) { const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t; rod(A, [x, y - 0.05, z], [x, y + h, z], 0.045, "zinc", { k: 0 }); }
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, yaw = (Math.atan2(x1 - x0, z1 - z0) * 180) / Math.PI;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+    rod(A, [x, y - 0.05, z], [x, y + h, z], 0.045, "zinc", { k: 0 });
+    A.box([x - 0.05, y, z - 0.05], [x + 0.05, y + h + 0.05, z + 0.05], "zinc", { v: 0 });   // GM3: a collider per post
+  }
   rod(A, [x0, y + h, z0], [x1, y + h, z1], 0.045, "zinc", { k: 0 });
   rod(A, [x0, y + h * 0.5, z0], [x1, y + h * 0.5, z1], 0.035, "zinc", { k: 0, lod: 1 });
-  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, yaw = (Math.atan2(x1 - x0, z1 - z0) * 180) / Math.PI;
-  A.obox([cx, y + 0.55, cz], [0.08, 1.1, L], [0, yaw, 0], "zinc", { v: 0 });
+  for (const ry of [y + h, y + h * 0.5]) A.obox([cx, ry, cz], [0.09, 0.09, L], [0, yaw, 0], "zinc", { v: 0 });   // and per rail: bullets pass the gaps
 }
 
 // bank profile: [u (fraction of the run out from the wall), v (fraction of the crest height)]; ~32 degrees on average.
@@ -1107,8 +1111,20 @@ export function stronghold() {
       const y = ROOF - (x + 0.17 - x0) * slope + 0.09;
       S.box([x, y - 0.25, ZS0], [x + 0.37, y, ZS1], "concrete", { k: 0, bv: 0.015 });
     }
-    rod(S, [XO + 0.7, ROOF + 0.95, ZS1 + 0.08], [xt - 0.2, 0.3 + 0.95, ZS1 + 0.08], 0.045, "zinc", { k: 0 });
-    for (let x = XO + 0.7; x < xt; x += 2.2) rod(S, [x, ROOF - (x - x0) * slope + 0.4, ZS1 + 0.08], [x, ROOF - (x - x0) * slope + 1.0, ZS1 + 0.08], 0.04, "zinc", L1);
+    // GM3: the handrail follows the cheek wall's top (the bank profile): posts stand on it at each profile point, none
+    // buried in the wall or floating over it; posts and rail collide
+    const cheek = [[x0, H + 0.15], ...BANK.slice(1).map(([u, v]) => [XO + u * RUN, -0.3 + v * (H + 0.3) + 0.15 * (1 - u)])];
+    const zr = ZS1 + 0.08, top = cheek.filter(([x]) => x >= XO + 0.6);
+    for (let k = 0; k + 1 < top.length; k++) {
+      const [xa, ya] = top[k], [xb, yb] = top[k + 1];
+      rod(S, [xa, ya + 0.95, zr], [xb, yb + 0.95, zr], 0.045, "zinc", { k: 0 });
+      const L = Math.hypot(xb - xa, yb - ya), ang = (Math.atan2(yb - ya, xb - xa) * 180) / Math.PI;
+      S.obox([(xa + xb) / 2, (ya + yb) / 2 + 0.95, zr], [L, 0.09, 0.09], [0, 0, ang], "zinc", { v: 0 });
+    }
+    for (const [x, y] of top) {
+      rod(S, [x, y - 0.03, zr], [x, y + 0.95, zr], 0.04, "zinc", { k: 0 });
+      S.box([x - 0.05, y, zr - 0.05], [x + 0.05, y + 0.95, zr + 0.05], "zinc", { v: 0 });
+    }
   }
 
   // ---- fixed fittings inside: corridor duct and cables, luminous stripes, the generator's tank and exhaust, the
@@ -1249,6 +1265,12 @@ export function stronghold() {
     cuts: [[-3.8, z(ZR), -3.8, z(ZR - RUN - 0.4), 2.8, r3(H + 0.3), 0], [XO, z(-2.8), 29.7, z(-2.8), 0.96, r3(H + 0.15), 0]],
   };
   A.meta.companions = [comp("nat_hawthorn_bush", -31, -2), comp("nat_drygrass_tall", 26, 9), comp("nat_bracken_clump", -26, -16), comp("nat_nettle_clump", 3.5, -18.5)];
+  // GM3: an MG 42 on its embrasure mount (gun_mg42_embrasure, crewable) 0.2 m behind every long slit, its bore at slit
+  // height (pivot 1.58 m over the floor; the slits run 1.47-1.77 m): the four front embrasures, both flanks, the rear,
+  // the cupola's observation slit
+  const mg = (x, y, zz, yaw) => ({ asset: "gun_mg42_embrasure", pos: [r3(x), r3(y), z(zz)], yaw });
+  A.meta.companions.push(mg(-15.7, G, ZFI - 0.2, 0), mg(4.2, G, ZFI - 0.2, 0), mg(9.5, G, ZFI - 0.2, 0), mg(15.5, G, ZFI - 0.2, 0),
+    mg(-XI + 0.2, G, 2.5, 270), mg(XI - 0.2, G, 2.5, 90), mg(-5.2, G, ZRI + 0.2, 180), mg(0.5, CF, -0.7, 0));
   return A;
 }
 

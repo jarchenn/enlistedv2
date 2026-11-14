@@ -1,6 +1,7 @@
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "game.h"
 #include "classes.h"
+#include "abilities.h"
 #include "gore_api.h"
 #include "rules.h"
 #include "damage_model.h"
@@ -331,6 +332,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         chooseClass(s);
         applyLoadout(s, true);
         if (s.localPlayer) { app.staminaMul = s.cls >= 0 ? classDefs()[s.cls].staminaMul : 1.0f; app.stamina = app.staminaCap(); app.staminaIdle = 0; }   // GM1: full stamina on respawn
+        if (s.cls >= 0) { if (s.localPlayer) gm2ApplyClass(app, classDefs()[s.cls]); else gm2ApplyClassSoldier(app, slot, s, classDefs()[s.cls]); }   // GM2: packs, artillery
         s.br = Brain{s.br.arch, s.br.reaction, s.br.aimTurn, s.br.sigma, s.br.sight, s.br.fov, s.br.aggression, s.br.burstMin, s.br.burstMax};
         s.br.lane = match.slots[slot].lane; s.br.aimYaw = m.yaw; s.br.grenadeCD = 3.0f + rnd(s) * 3;
         s.br.nextPerceive = (float)t + rnd(s) * 0.2f; s.br.nextTactic = (float)t + rnd(s);
@@ -409,6 +411,22 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
   return true;
 }
 
+bool Game::shellSegment(const Projectile& p, vec3 a, vec3 seg, float len, float& tHit) {
+  if (!active || isClient || p.kind != PROJ_HE || len <= 1e-5f) return false;
+  vec3 d = seg / len;
+  int shooter = soldierOfOwner(p.owner), best = -1; float bt = tHit;
+  for (size_t i = 0; i < sold.size(); ++i) {
+    Soldier& s = sold[i];
+    if (!s.alive || (int)i == shooter) continue;
+    HitZone hz;
+    if (hitTest(s, a, d, bt, hz) && hz.t < bt) { bt = hz.t; best = (int)i; }
+  }
+  if (best < 0) return false;
+  tHit = bt;
+  damage(best, 10000.0f, shooter, d, "shell");   // a direct hit kills (spawn protection and team rules still apply)
+  return true;
+}
+
 bool Game::projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& tHit) {
   if (!active || isClient || p.kind != PROJ_BULLET) return false;
   vec3 d = seg / len;
@@ -454,6 +472,10 @@ void Game::explosionDamage(vec3 p, float dmg, float radius, int owner, bool gren
     if (d > R) continue;
     float raw = grenade ? gren.tun.fragDamage * std::pow(std::max(0.0f, 1.0f - std::max(0.0f, d - 0.5f) / R), 1.6f) : dmg * (1.0f - d / R);
     float occ = 0.5f * app.blastOcclusion(p, c) + 0.5f * app.blastOcclusion(p, h);   // solid walls / ground / sandbags shelter
+    if (!grenade && app.blastPersonnel >= 1.99f) {   // GM3: tank / AT gun shells (blastPersonnel x2): in the open full, behind an object 30 %
+      auto vis = [&](vec3 q) { return app.blastOcclusion(p, q) >= 0.999f ? 1.0f : 0.3f; };
+      occ = 0.5f * vis(c) + 0.5f * vis(h);
+    }
     raw *= occ * combat["explosion"].value("scale", 1.0f);
     if (raw > 1) damage((int)i, raw, owner, glm::normalize(c - p + vec3(0, 1e-3f, 0)), "blast");
   }

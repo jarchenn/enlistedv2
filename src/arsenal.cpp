@@ -41,6 +41,11 @@ void App::loadBindings() {
   binds.packUp = get("packUp", "G");
   binds.grenade = get("grenade", "H");
   binds.smokeGrenade = get("smokeGrenade", "J");   // match: quick smoke (mpai)
+  // UI1: every other action rebindable by name; map / artillery / lean bind now and are read once their features land
+  static const std::pair<const char*, const char*> kMore[] = {{"forward", "W"}, {"back", "S"}, {"left", "A"}, {"right", "D"}, {"sprint", "LEFT_SHIFT"},
+    {"jump", "SPACE"}, {"interact", "E"}, {"reload", "R"}, {"build", "B"}, {"loadout", "L"}, {"slot1", "1"}, {"slot2", "2"}, {"slot3", "3"}, {"slot4", "4"},
+    {"nextWeapon", "Q"}, {"scoreboard", "TAB"}, {"map", "M"}, {"artillery", "7"}, {"leanLeft", "Y"}, {"leanRight", "U"}};
+  for (auto& [a, d] : kMore) binds.key[a] = get(a, d);
   { extern void settingsApplyKeys(App&); settingsApplyKeys(*this); }   // the user's rebinds from the Settings window
 }
 
@@ -87,7 +92,7 @@ void App::capCarried(std::vector<int>& c) const {
   for (int w : c) {
     if (w < 0 || w >= (int)weaponDefs.size() || std::find(m.begin(), m.end(), w) != m.end() || std::find(kn.begin(), kn.end(), w) != kn.end() || std::find(gr.begin(), gr.end(), w) != gr.end()) continue;
     const WeaponDef& d = *weaponDefs[w];
-    (d.melee.on ? kn : d.grenade.on ? gr : m).push_back(w);
+    (d.melee.on ? kn : d.grenade.on || d.pack.on ? gr : m).push_back(w);
   }
   if (m.size() > 2) m.resize(2);
   c = m; c.insert(c.end(), kn.begin(), kn.end()); c.insert(c.end(), gr.begin(), gr.end());
@@ -104,7 +109,7 @@ std::vector<int> App::stackRows() const {
 void App::resetLoadout() {
   carried.clear();
   for (const char* id : {"m1_garand", "m1_thompson"}) if (weaponIndex(id) >= 0) carried.push_back(weaponIndex(id));
-  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);
+  for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && !weaponDefs[k]->pack.on && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);   // GM2: packs only by grant
   capCarried(carried);
   if (!carried.empty() && std::find(carried.begin(), carried.end(), activeWeapon) == carried.end()) activeWeapon = carried[0];
   closeRack("reset");

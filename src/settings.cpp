@@ -26,6 +26,13 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.grass = 1; g.grassWind = false; g.renderDist = presetsOld() ? 600 : 450; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 64; g.shadowLights = 0; g.gi = 0;     // L2: the old fill term, no light shadows
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
+  } else if (p == GfxPreset::UltraLow) {   // PERF1: below Low - no reflections / AO / bloom / shafts / cloud shadows, static vegetation, shortest distances, lowest scale
+    g.resScale = 0.5f; g.shadowQuality = 0;
+    g.shafts = false; g.ssr = false; g.ssao = false; g.bloom = false; g.cloudShadows = false;
+    g.cloudQuality = 0;
+    g.grass = 1; g.grassWind = false; g.renderDist = 300; g.particles = 0.4f; g.ivy = false; g.dustMotes = 0;
+    g.lightCount = 32; g.shadowLights = 0; g.gi = 0;
+    g.materials = 0;
   } else if (p == GfxPreset::High) {
     g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;   // P1: High stays native
     g.shafts = true;                                     // WX1: the marched sun shafts are High only (Low / Medium: the fog's sun glow)
@@ -36,10 +43,10 @@ GraphicsOpts presetOpts(GfxPreset p) {
   }
   return g;
 }
-const char* presetName(GfxPreset p) { return p == GfxPreset::Low ? "Low" : p == GfxPreset::Medium ? "Medium" : p == GfxPreset::High ? "High" : "Custom"; }
+const char* presetName(GfxPreset p) { return p == GfxPreset::UltraLow ? "Ultra Low" : p == GfxPreset::Low ? "Low" : p == GfxPreset::Medium ? "Medium" : p == GfxPreset::High ? "High" : "Custom"; }
 
 GfxPreset UserSettings::preset() const {
-  for (GfxPreset p : {GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) if (gfx == presetOpts(p)) return p;
+  for (GfxPreset p : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) if (gfx == presetOpts(p)) return p;
   return GfxPreset::Custom;
 }
 
@@ -70,7 +77,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     const json& q = j["graphics"]; GraphicsOpts& g = u.gfx;
     // a named preset is the starting point; explicit values on top make it Custom when they differ
     std::string pn = q.value("preset", std::string("Medium"));
-    g = presetOpts(pn == "Low" ? GfxPreset::Low : pn == "High" ? GfxPreset::High : GfxPreset::Medium);
+    g = presetOpts(pn == "Ultra Low" ? GfxPreset::UltraLow : pn == "Low" ? GfxPreset::Low : pn == "High" ? GfxPreset::High : GfxPreset::Medium);
     g.resScale = std::clamp(q.value("resolutionScale", g.resScale), 0.5f, 1.0f);
     g.shadowQuality = std::clamp(q.value("shadowQuality", g.shadowQuality), 0, 2);
     g.farCascade = q.value("farCascade", g.farCascade); g.cloudShadows = q.value("cloudShadows", g.cloudShadows);
@@ -157,19 +164,23 @@ int keyCode(const std::string& n) { for (auto& k : keyNames()) if (n == k.name) 
 // keys the game reads directly (explore.cpp, weapons, tanks, the editor): shown in the Controls tab, refused as bindings
 struct FixedKey { const char* name; const char* what; };
 const FixedKey kFixed[] = {
-  {"W", "forward (rack: up)"}, {"A", "left"}, {"S", "back (rack: down)"}, {"D", "right"}, {"LEFT_SHIFT", "sprint"}, {"SPACE", "jump / stand up from prone (tank: bow MG)"},
-  {"C", "crouch (with the crouch binding)"}, {"E", "interact / enter"}, {"R", "reload"}, {"Q", "next weapon"}, {"T", "switch gun position"},
-  {"X", "AT / HE ammunition"}, {"V", "scope irons"}, {"B", "build (Explore)"}, {"L", "loadout / range"}, {"P", "pause (drop-in)"},
-  {"1", "choose 1"}, {"2", "choose 2"}, {"UP", "rack up"}, {"DOWN", "rack down"}, {"ENTER", "rack: equip"}, {"BACKSPACE", "return to start"},
+  // UI1: movement, jump, interact, reload, build, loadout, weapon slots and next weapon are rebindable now
+  {"C", "crouch (with the crouch binding)"}, {"T", "switch gun position"},
+  {"X", "AT / HE ammunition"}, {"V", "scope irons"}, {"P", "pause (drop-in)"},
+  {"UP", "rack up"}, {"DOWN", "rack down"}, {"ENTER", "rack: equip"}, {"BACKSPACE", "return to start"},
   {"F3", "performance stats"}, {"F4", "damage debug"}, {"F5", "Explore / Creative"}, {"F6", "match debug overlay"}, {"ESCAPE", "menu / back"},
 };
 const char* fixedUse(const std::string& n) { for (auto& f : kFixed) if (n == f.name) return f.what; return nullptr; }
 struct Action { const char* id; const char* label; };
 const Action kActions[] = {{"fireMode", "Fire mode"}, {"prone", "Prone"}, {"crouch", "Crouch"}, {"packUp", "Deploy / pack up heavy weapon"},
-                           {"grenade", "Throw grenade"}, {"smokeGrenade", "Smoke grenade (match)"}};
+                           {"grenade", "Throw grenade"}, {"smokeGrenade", "Smoke grenade (match)"},
+                           {"forward", "Move forward"}, {"back", "Move back"}, {"left", "Move left"}, {"right", "Move right"}, {"sprint", "Sprint"}, {"jump", "Jump"},
+                           {"leanLeft", "Lean left"}, {"leanRight", "Lean right"}, {"interact", "Interact / enter"}, {"reload", "Reload"}, {"nextWeapon", "Next weapon"},
+                           {"slot1", "Weapon slot 1"}, {"slot2", "Weapon slot 2"}, {"slot3", "Weapon slot 3 (knife)"}, {"slot4", "Weapon slot 4 (grenades)"},
+                           {"build", "Build"}, {"loadout", "Loadout / range"}, {"map", "Map"}, {"artillery", "Artillery"}, {"scoreboard", "Scoreboard"}};   // UI1
 int* bindSlot(App& app, const std::string& a) {
   auto& b = app.binds;
-  return a == "fireMode" ? &b.fireMode : a == "prone" ? &b.prone : a == "crouch" ? &b.crouch : a == "packUp" ? &b.packUp : a == "grenade" ? &b.grenade : a == "smokeGrenade" ? &b.smokeGrenade : nullptr;
+  return a == "fireMode" ? &b.fireMode : a == "prone" ? &b.prone : a == "crouch" ? &b.crouch : a == "packUp" ? &b.packUp : a == "grenade" ? &b.grenade : a == "smokeGrenade" ? &b.smokeGrenade : b.key.count(a) ? &b.key[a] : nullptr;
 }
 bool gSelftest = false;
 NavCamSettings gNavBase; bool gNavBaseSet = false;
@@ -300,9 +311,12 @@ void settingsWindow(App& app) {
     // ------------------------------------------------ graphics
     if (ImGui::BeginTabItem("Graphics")) {
       GraphicsOpts& g = u.gfx;
-      int pr = (int)u.preset(); const char* pn[] = {"Low", "Medium", "High", "Custom"};
+      // the list in quality order; GfxPreset keeps its stored values (Ultra Low was appended as 4)
+      const GfxPreset order[5] = {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High, GfxPreset::Custom};
+      const char* pn[] = {"Ultra Low", "Low", "Medium", "High", "Custom"};
+      int pr = 4; for (int k = 0; k < 5; ++k) if (order[k] == u.preset()) pr = k;
       ImGui::SetNextItemWidth(200);
-      if (ImGui::Combo("Preset", &pr, pn, 4) && pr != (int)GfxPreset::Custom) g = presetOpts((GfxPreset)pr);
+      if (ImGui::Combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 85 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
       ImGui::Separator();
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");

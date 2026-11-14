@@ -61,7 +61,8 @@ void mpaiUI(App& app) {
     bool host = gNet && gNet->role == Net::HOST;
     if (host) gNet->returnToLobby(app);
     app.exitExplore();
-    if (gNet && gNet->role == Net::CLIENT) gUi.showJoin = true; else { gUi.showSetup = true; gUi.setupMode = host ? 1 : 0; }
+    if (gUi.exitToEditor) gUi.exitToEditor = false;   // UI1: straight back to the editor
+    else if (gNet && gNet->role == Net::CLIENT) gUi.showJoin = true; else { gUi.showSetup = true; gUi.setupMode = host ? 1 : 0; }
   }
 }
 
@@ -131,6 +132,14 @@ bool mpaiLocalFrozen(App& app) {
 void mpaiIdleSmoke(App& app, float dt);
 void mpaiStep(App& app, float dt) { if (gGame && gGame->active) gGame->step(dt); else mpaiIdleSmoke(app, dt); goreStep(app, dt); }
 
+// GM3: a tank / AT gun shell on its way: the first soldier on the segment before tWorld is struck (killed) and the shell
+// bursts there (the caller turns tWorld into its impact). Host / singleplayer only; clients see the burst through "ex".
+bool mpaiShellHit(App& app, const Projectile& p, vec3 seg, float len, float& tWorld) {
+  (void)app;
+  gProjOwner = p.owner;
+  return gGame && gGame->active && gGame->shellSegment(p, p.p, seg, len, tWorld);
+}
+
 bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) {
   gProjOwner = p.owner;
   if (!gGame || !gGame->active || len <= 1e-5f) return false;
@@ -150,6 +159,8 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   app.fx.bullet(a, end, p.tracerKind);
   return true;
 }
+
+void mpaiSetBlastOwner(int owner) { gProjOwner = owner; }   // GM2: packs / artillery (owner -1 = the local player)
 
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits) {
   if (gNet && gNet->role == Net::HOST && gGame && gGame->active)
