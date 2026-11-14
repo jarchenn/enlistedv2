@@ -471,6 +471,7 @@ public:
   bool sightMarks(std::vector<SightMark>& out) const;
   bool sightMarkers = false;            // draw the calibration markers (HUD and screenshots)
   bool friendlyMarkers = true;          // GM1: chevrons over teammates (Game::drawAllyMarkers); Settings > Gameplay
+  bool showMinimap = true, mapLarge = false;   // GM2: the corner minimap (Settings > Gameplay) and the large map (M)
   bool showWeaponList = true;           // the carried weapon list (G4) in the lower right; Settings > Gameplay
   void armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const WeaponState& s);
   vec3 lastSightR{0}, lastSightF{0}, lastSightV{0};   // world sight points of the last aimed shot

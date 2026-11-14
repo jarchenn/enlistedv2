@@ -5,6 +5,7 @@
 #include "app.h"
 #include "classes.h"
 #include "net.h"
+#include "minimap.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -81,17 +82,13 @@ void Game::drawDeploy() {
   ImGui::BeginChild("map", ImVec2(0, 380), true);
   std::vector<SpawnOption> opts = isClient ? std::vector<SpawnOption>{} : spawnOptions(localSlot);   // client: the host picks the marker
   ImVec2 o = ImGui::GetCursorScreenPos(), sz = ImGui::GetContentRegionAvail();
-  float hx = std::max(1.0f, app.terrain.buildHalfX), hz = std::max(1.0f, app.terrain.buildHalfZ), sc = std::min(sz.x / (2 * hx), (sz.y - 40) / (2 * hz));
-  auto P = [&](vec3 p) { return ImVec2(o.x + sz.x * 0.5f + p.x * sc, o.y + (sz.y - 40) * 0.5f + p.z * sc); };
-  ImDrawList* dl = ImGui::GetWindowDrawList();
-  dl->AddRectFilled(P(vec3(-hx, 0, -hz)), P(vec3(hx, 0, hz)), IM_COL32(48, 56, 40, 255));
-  if (const Objective* ob = match.activeObjective()) dl->AddCircle(P(ob->pos), 7, IM_COL32(255, 210, 90, 255), 0, 2);
-  dl->AddCircleFilled(P(L->feet), 3, IM_COL32(200, 200, 200, 255));
-  for (int k = 0; k < (int)opts.size(); ++k) {
-    ImVec2 q = P(opts[k].pos);
-    bool sel = deploySpawn == k;
-    dl->AddCircleFilled(q, sel ? 7.0f : 5.0f, sel ? IM_COL32(120, 220, 120, 255) : IM_COL32(90, 160, 230, 255));
-    if (ImGui::IsMouseClicked(0) && std::hypot(io.MousePos.x - q.x, io.MousePos.y - q.y) < 9) deploySpawn = k;
+  std::vector<MinimapMarker> mk;   // GM2 minimap: spawn points (chosen one green) and where we fell
+  for (int k = 0; k < (int)opts.size(); ++k) mk.push_back({vec2(opts[k].pos.x, opts[k].pos.z), deploySpawn == k ? IM_COL32(120, 220, 120, 255) : IM_COL32(90, 160, 230, 255), 0, deploySpawn == k ? 8.0f : 6.0f, 0, opts[k].label});
+  mk.push_back({vec2(L->feet.x, L->feet.z), IM_COL32(200, 200, 200, 255), 3, 6, 0, ""});
+  MinimapView v = drawMinimap(app, ImGui::GetWindowDrawList(), vec2(o.x, o.y), vec2(o.x + sz.x, o.y + sz.y - 40), vec2(0), 0, MM_TERRAIN | MM_STRUCTURES | MM_OBJECTIVES | MM_TEAMMATES, mk);
+  if (ImGui::IsMouseClicked(0) && v.contains(vec2(io.MousePos.x, io.MousePos.y))) {   // the nearest spawn point to the click (within 18 px)
+    float bd = 18;
+    for (int k = 0; k < (int)opts.size(); ++k) { vec2 q = v.toScreen(vec2(opts[k].pos.x, opts[k].pos.z)); float d = glm::length(q - vec2(io.MousePos.x, io.MousePos.y)); if (d < bd) { bd = d; deploySpawn = k; } }
   }
   ImGui::Dummy(ImVec2(sz.x, sz.y - 40));
   ImGui::TextWrapped("%s", deploySpawn >= 0 && deploySpawn < (int)opts.size() ? opts[deploySpawn].label.c_str() : "Spawn: random marker (click a dot to choose)");
