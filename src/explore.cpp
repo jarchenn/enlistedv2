@@ -515,6 +515,38 @@ void App::drawExploreUI() {
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
   if (!pauseMenu) {
     // (no centre dot: removed at the user's request; the weapon's own sights are the aim reference)
+    if (!occupied && !tanks.occupied && !weaponDefs.empty() && !scopeView()) {   // GM1b: launchers and flamethrowers have no usable sight: mark where the shot goes
+      const WeaponDef& d = *weaponDefs[activeWeapon]; const WeaponState& s = wstate[d.id];
+      if (d.action == "launcher" || d.flame.on) {
+        vec3 eye = eyePos(), aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch), muzzle = weaponMuzzleWorld(d, s), P;
+        if (d.flame.on) {   // a parcel from the nozzle toward the aim point, 0.4 g droop (flame.cpp), at 70 % of its reach
+          vec3 fxs = vmApparent(muzzle); Physics::Hit h; float reach = Physics::castRayEx(eye, aimDir, 20.0f, h) ? h.t : 20.0f;
+          vec3 dir = reach > 3.0f ? glm::normalize(eye + aimDir * reach - fxs) : aimDir;
+          float dist = std::min(reach, d.flame.range * 0.7f), tt = dist / std::max(1.0f, d.flame.speed);
+          P = fxs + dir * dist - vec3(0, 0.5f * 3.9f * tt * tt, 0);
+        } else {   // the rocket: muzzle toward the aim point, tilted for the zero, then its reduced-gravity drop (weapons.cpp)
+          Physics::Hit h; float zr = std::max(5.0f, d.zero); float far = Physics::castRayEx(eye, aimDir, 600, h) ? h.t : 600.0f;
+          vec3 dir = glm::normalize(eye + aimDir * far - muzzle);
+          float g = 9.81f * 0.35f, tz = zr / d.velocity;
+          dir = glm::normalize(dir + vec3(0, 0.5f * g * tz * tz / zr, 0));
+          float dist = std::min(far, zr), tt = dist / d.velocity;
+          P = muzzle + dir * dist - vec3(0, 0.5f * g * tt * tt, 0);
+        }
+        vec4 q = projM * viewM * vec4(P, 1);
+        if (q.w > 0.05f) {
+          ImVec2 r((q.x / q.w * 0.5f + 0.5f) * io.DisplaySize.x, (1 - (q.y / q.w * 0.5f + 0.5f)) * io.DisplaySize.y);
+          float k = std::max(1.0f, io.DisplaySize.y / 1080.0f);
+          dl->AddCircle(r, 7 * k, IM_COL32(0, 0, 0, 160), 0, 3.0f * k); dl->AddCircle(r, 7 * k, IM_COL32(245, 240, 225, 230), 0, 1.4f * k);
+          dl->AddCircleFilled(r, 1.6f * k, IM_COL32(245, 240, 225, 230));
+        }
+      }
+    }
+    {   // GM1b: MG 42 (carried in ADS, or crewing the mount): a thin black mark in the rear notch, its top tip on the aim point
+      float a = 0;
+      if (occupied) { auto it = rt.find(occupied); if (it != rt.end() && it->second.asset && it->second.asset->station.kind == "mg42" && it->second.st.pos2 == ST_GUNNER) a = 1; }
+      else if (!weaponDefs.empty() && weaponDefs[activeWeapon]->id == "mg42" && !tanks.occupied) a = adsT * adsT * (3 - 2 * adsT);
+      if (a > 0.01f) { float len = io.DisplaySize.y * 0.016f; dl->AddLine(c, ImVec2(c.x, c.y + len), IM_COL32(0, 0, 0, (int)(255 * a)), std::max(1.5f, io.DisplaySize.y / 720.0f)); }
+    }
     if (target.valid && !tanks.occupied && !tanks.target) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {

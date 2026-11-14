@@ -338,6 +338,15 @@ bool Game::trySpawn(int slot, std::string& why) {
         s.br.nextPerceive = (float)t + rnd(s) * 0.2f; s.br.nextTactic = (float)t + rnd(s);
         match.onSpawned(slot);
         if (s.localPlayer) { spectate = -1; deployReady = app.selftest; deploySpawn = -1; }
+        if (s.localPlayer && s.cls >= 0 && classDefs()[s.cls].drivesTanks) {   // GM1b: the Tanker starts inside the nearest free tank of its side
+          uint64_t best = 0; float bd = 1e9f;
+          for (auto& [id, tk] : app.tanks.tanks) {
+            if (!tk.def || tk.wrecked || app.tanks.occupied == id || (tk.def->faction == "Axis") != (s.faction == Faction::Axis)) continue;
+            float d = glm::length(tk.pos - feet); if (d < bd) { bd = d; best = id; }
+          }
+          if (best && !app.tanks.occupied && app.tanks.enter(app, best)) app.toast("Tanker: in the " + app.tanks.get(best)->def->name + ", hatch closed", 4);
+          else app.toast(std::string("Tanker: no free ") + (s.faction == Faction::Axis ? "Tiger" : "Sherman") + " for you, spawned on foot", 5);
+        }
         return true;
       }
   }

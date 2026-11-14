@@ -735,9 +735,9 @@ void SelfTest::sightsUpdate(App& app, float dt) {
             const WeaponDef& d = WD(a);
             SightCheck c = sightCheck(a);
             char b[420];
-            std::snprintf(b, sizeof b, "%s scope view at %dx%d: weapon drawn (%zu + %zu items), %.1f%% of the band under the eyepiece is weapon (want >= 3%%), the eyepiece restored over the weapon (%d weapon pixels under it); reticle '%s' post x %.1f (centre %d), bar y %.1f (centre %d); eyepiece mean %.0f vs surround %.0f; scope eye %.2f px from the centre",
+            std::snprintf(b, sizeof b, "%s scope view at %dx%d: no weapon drawn (%zu + %zu items, GM1b), %.1f%% of the band under the eyepiece is weapon (want 0), %d weapon pixels in the eyepiece; reticle '%s' post x %.1f (centre %d), bar y %.1f (centre %d); eyepiece mean %.0f vs surround %.0f; scope eye %.2f px from the centre",
                           id.c_str(), p.w, p.h, a.R.viewModel.size(), a.R.viewModelTex.size(), 100.0f * below / std::max(1, belowAll), inside, d.reticle.c_str(), vx, cx, hy, cy, mIn, mOut, c.rearErr);
-            check(a.scopeView() && !(a.R.viewModel.empty() && a.R.viewModelTex.empty()) && below >= 0.03f * belowAll && nv == 3 && nh == 2 && std::fabs(vx - cx) <= 1.5f && std::fabs(hy - cy) <= 1.5f
+            check(a.scopeView() && a.R.viewModel.empty() && a.R.viewModelTex.empty() && below == 0 && mOut < 1.0f && nv == 3 && nh == 2 && std::fabs(vx - cx) <= 1.5f && std::fabs(hy - cy) <= 1.5f
                   && mIn > 2.0f * mOut && c.ok && c.rearErr < 0.5f, b);
             int arms = 0; for (auto& it : a.R.viewModel) for (auto& m : a.armMesh) arms += it.mesh == &m;
             for (auto& it : a.R.viewModelTex) arms += fpsArmsIsModel(it.model);   // FA1: nor the rigged arms

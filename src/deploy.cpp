@@ -30,6 +30,20 @@ void Game::deployNow() {
   if (isClient && gNet && app.deployClass >= 0) gNet->clientDeploy(C[app.deployClass].id, app.deployPick[0], app.deployPick[1]);
 }
 
+// GM1b: one weapon option as a tile: the silhouette the weapon list uses, the name over it, the chosen one outlined
+static bool weaponTile(const std::string& id, const std::string& name, bool sel) {
+  App& app = gGame->app;
+  ImVec2 p = ImGui::GetCursorScreenPos(), sz(300, 58);
+  bool hit = ImGui::InvisibleButton("tile", sz);
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  dl->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), sel ? IM_COL32(70, 62, 40, 255) : ImGui::IsItemHovered() ? IM_COL32(50, 50, 46, 255) : IM_COL32(30, 30, 28, 255), 4);
+  if (sel) dl->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), IM_COL32(220, 175, 90, 255), 4, 0, 2);
+  auto it = app.weaponSilhouette.find(id);
+  if (it != app.weaponSilhouette.end() && it->second) dl->AddImage((ImTextureID)(intptr_t)it->second, ImVec2(p.x + 6, p.y + 2), ImVec2(p.x + 6 + 200, p.y + 52), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(235, 235, 232, 235));
+  dl->AddText(ImVec2(p.x + 8, p.y + sz.y - 18), IM_COL32(250, 250, 245, 255), name.c_str());
+  return hit;
+}
+
 void Game::drawDeploy() {
   Soldier* L = local();
   if (!L || L->alive || match.phase != MatchPhase::Running || classDefs().empty()) return;
@@ -38,7 +52,7 @@ void Game::drawDeploy() {
   const auto& C = classDefs();
   ImGuiIO& io = ImGui::GetIO();
   ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-  ImGui::SetNextWindowSize(ImVec2(760, 470), ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(860, 470), ImGuiCond_Always);
   ImGui::Begin("Deploy", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
   std::string fac = factionName(L->faction);
   if (app.deployClass < 0 || app.deployClass >= (int)C.size() || !match.rules.classAllowed(C[app.deployClass].id)) {
@@ -51,27 +65,39 @@ void Game::drawDeploy() {
   }
   ImGui::EndChild();
   ImGui::SameLine();
-  ImGui::BeginChild("opt", ImVec2(240, 380), true);
+  ImGui::BeginChild("opt", ImVec2(340, 380), true);
   if (app.deployClass >= 0) {
     const ClassDef& c = C[app.deployClass]; const ClassSide& cs = c.side(fac);
     auto combo = [&](const char* label, const std::vector<std::string>& ids, int& pick) {
       if (ids.empty()) return;
       pick = std::clamp(pick, 0, (int)ids.size() - 1);
       ImGui::TextUnformatted(label);
-      for (int k = 0; k < (int)ids.size(); ++k) {
+      for (int k = 0; k < (int)ids.size(); ++k) {   // GM1b: a clickable tile per weapon, its side-view silhouette and name
         int w = app.weaponIndex(ids[k]);
         ImGui::PushID(label); ImGui::PushID(k);
-        if (ImGui::RadioButton(w >= 0 ? app.weaponDefs[w]->name.c_str() : ids[k].c_str(), pick == k)) pick = k;
+        if (weaponTile(w >= 0 ? app.weaponDefs[w]->id : ids[k], w >= 0 ? app.weaponDefs[w]->name : ids[k], pick == k)) pick = k;
         ImGui::PopID(); ImGui::PopID();
       }
     };
     combo("Primary", cs.primary, app.deployPick[0]);
     combo("Second slot", cs.secondary, app.deployPick[1]);
-    if (!cs.pistol.empty()) { int w = app.weaponIndex(cs.pistol); ImGui::Text("Pistol: %s", w >= 0 ? app.weaponDefs[w]->name.c_str() : cs.pistol.c_str()); }
+    if (!cs.pistol.empty()) { int w = app.weaponIndex(cs.pistol); ImGui::TextUnformatted("Pistol"); weaponTile(cs.pistol, w >= 0 ? app.weaponDefs[w]->name : cs.pistol, true); }
     ImGui::Separator();
-    if (c.frags) ImGui::Text("Frag grenades: %d", c.frags);
-    if (c.smokes) ImGui::Text("Smoke grenades: %d", c.smokes);
-    if (c.packs) ImGui::Text("Explosion packs: %d", c.packs);
+    // items: small silhouettes with counts
+    std::pair<std::string, int> items[] = {{L->faction == Faction::Axis ? "m24_grenade" : "mk2_grenade", c.frags}, {"smoke_grenade", c.smokes}, {"explosion_pack", c.packs}};
+    bool first = true;
+    for (auto& [id, n] : items) {
+      if (n <= 0) continue;
+      if (!first) ImGui::SameLine(); first = false;
+      ImVec2 p = ImGui::GetCursorScreenPos(); ImDrawList* dl = ImGui::GetWindowDrawList();
+      auto it = app.weaponSilhouette.find(id);
+      if (it != app.weaponSilhouette.end() && it->second) dl->AddImage((ImTextureID)(intptr_t)it->second, p, ImVec2(p.x + 64, p.y + 16), ImVec2(0.25f, 0), ImVec2(0.75f, 1));
+      char b[16]; std::snprintf(b, sizeof b, "x%d", n);
+      dl->AddText(ImVec2(p.x + 66, p.y + 1), IM_COL32(240, 240, 235, 255), b);
+      int wi = app.weaponIndex(id);
+      ImGui::Dummy(ImVec2(92, 18));
+      if (ImGui::IsItemHovered() && wi >= 0) ImGui::SetTooltip("%s", app.weaponDefs[wi]->name.c_str());
+    }
     if (c.ability == "artillery") ImGui::TextUnformatted("Ability: artillery");
     if (c.builds) ImGui::TextUnformatted("Builds field defences");
     if (c.drivesTanks) ImGui::TextUnformatted("Drives tanks");
