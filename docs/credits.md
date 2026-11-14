@@ -151,4 +151,9 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | uzi-first-person-animations-2026-remake (Uzi_Anim.rar → 1Matzh_Uzi_Animations.blend) | Uzi (`modern_uzi`, MG2) | supplied by the user; the archive's readme names 1Matzh (https://skfb.ly/pwxEF, CC-BY-4.0, attribution required) | redistribution allowed (confirmed by the user, 2026-11-14); CC-BY-4.0 per the readme |
 | shotgun-animated (shotgunAnimated.fbx) | Pump-action shotgun (`modern_shotgun2`, MG2) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | animatedpistol-2 (rig.blend) | **Not used**: byte-identical to `animatedpistol` | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| battle-rifle-animated (arms@FAL.fbx) | FN FAL (`modern_fal`, MG3) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| pistol-animated (arms@pistol1.fbx) | Suppressed .22 pistol (`modern_pistol2`, MG3) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| red-dot-sight (rds_low.fbx) | Reflex sight on the Remington 870's animated rig (MG3) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| pistol-anim-pack (Pistol_firsp.rar) | **Not used** (two separate armatures, one FBX per clip) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| fps-animated-carbine-2 | **Not used**: byte-identical to fps-animated-carbine | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |

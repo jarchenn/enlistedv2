@@ -23,6 +23,7 @@ const A = {
     clips: { fire: [1, 9], reload_empty: [9, 101], reload: [101, 153], inspect: [153, 201], idle: [201, 221], draw: [221, 244] },
     mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png" }, arms: c4dArms() } },
   modern_m4: { src: "fps-animated-carbine/source/arms@carbine.fbx", tex: "fps-animated-carbine", stat: "modern_carbine",
+    cutLens: [{ a: [0.0018, 0.11, 0.28], b: [0.0018, 0.11, 0.39], r: 0.0135, all: true }],   // MG3: the lenses, the inner tube (the thick black ring) and the inner rims inside 13.5 mm; the outer housing (15 mm) stays
     keep: ["armmesh", "base", "bolt", "boltcatch", "bullet", "clip", "handle", "handle2", "lid", "release", "scope", "trigger"], rigidify: ["base", "bolt", "boltcatch", "bullet", "clip", "handle", "handle2", "lid", "release", "scope", "trigger"], gun: "base", timeline: [1, 223],
     clips: { fire: [1, 9], reload_empty: [9, 69], reload: [69, 135], inspect: [135, 177], idle: [177, 205], draw: [205, 223] },
     mats: { carbine: { albedo: "carbineColor.png", normal: "carbineNormal.png", metal: "carbineMetallic.png", smooth: "carbinespecular.png" }, arms: c4dArms() } },
@@ -41,7 +42,10 @@ const A = {
     // pushed into the port -> hand out of view again (loops); end = the hand back on the pump. 74-106 (a drop out of
     // view, then a pump stroke) and the draw are not used.
     clips: { fire: [2, 30], reload_start: [30, 38], reload_insert: [38, 62], reload_end: [62, 74], idle: [106, 126] },
-    mats: { "Material.001": { albedo: "Material.001_Base_color.png", metal: "Material.001_Metallic.png", rough: "Material.001_Roughness.png" },
+    // MG3: the user's reflex sight (red-dot-sight/rds_low.fbx) on the receiver top, its blue lens dropped (the window is open)
+    attach: { src: G + "red-dot-sight/source/rds_low.fbx", mesh: "RedDotSight_mesh", dropMats: ["08 - Default"], anchor: [-0.002, 0, -0.0133], at: [-0.0015, 0.094, 0.47] },
+    mats: { "01 - Default": { albedo: G + "red-dot-sight/textures/rds_low_DefaultMaterial_BaseColor.tga.png", rough: G + "red-dot-sight/textures/rds_low_DefaultMaterial_Roughness.tga.png", metal: G + "red-dot-sight/textures/rds_low_DefaultMaterial_Metallic.tga.png" },
+            "Material.001": { albedo: "Material.001_Base_color.png", metal: "Material.001_Metallic.png", rough: "Material.001_Roughness.png" },
             shotgun: { albedo: "shotgunColor.png", metal: "shotgunmetallic.png", smooth: "shotgunsmoothness.png" }, Mat: c4dArms() } },
   modern_scar: { src: "scar/source/SCAR.fbx", tex: "scar", stat: "modern_scar", camera: "Camera", cameraAction: "Armature|Armature|Idle",
     keep: ["Circle.001_low", "Circle.001_low.001", "Circle.001_low.002", "hardknuckle", "sleeve"], gun: "Circle.001_low",
@@ -84,6 +88,15 @@ const A = {
     clips: { idle: { action: "Armature|Armature|Fire", range: [1, 2] }, fire: [{ action: "Armature|Armature|Fire" }, { action: "Armature|Armature|PostFire" }],
              reload_start: "Armature|Armature|PriorToReload", reload_insert: "Armature|Armature|ReloadOne", reload_end: "Armature|Armature|ReloadLastOne" },
     mats: { boomstick: { albedo: "boomstickColor.png", rough: "boomstickRoughness.png", metal: "boomstickmetallic.png" }, arms: { albedo: "armColor.png", rough: "armRoughness.png" } } },
+  // ---- MG3 (Cinema 4D one-timeline sources, as the AK: gun parts are object-animated -> bones)
+  modern_fal: { src: "battle-rifle-animated/source/arms@FAL.fbx", tex: "battle-rifle-animated", stat: "modern_fal",
+    keep: ["arms", "base", "bolt", "bullet", "bullet_2", "clip", "handle", "magrelease", "trigger"], rigidify: ["base", "bolt", "bullet", "bullet_2", "clip", "handle", "magrelease", "trigger"], gun: "base", timeline: [1, 250],
+    clips: { fire: [1, 9], reload_empty: [9, 90], reload: [90, 152], idle: [200, 230] },   // rest frames 9, 90, 152, 200, 230 (inspect 152-200 and the draw 230-250 not used)
+    mats: { FAL: { albedo: "FALcolor.png", metal: "FALmetallic.png", rough: "FALroughness.png" }, arms: { albedo: "armColor.png", metal: "armMetallic.png", rough: "armRoughness.png" } } },
+  modern_pistol2: { src: "pistol-animated/source/arms@pistol1.fbx", tex: "pistol-animated", stat: "modern_pistol1",
+    keep: ["armMesh", "base", "bolt", "bullet", "clip", "trigger"], rigidify: ["base", "bolt", "bullet", "clip", "trigger"], gun: "base", timeline: [1, 215], hipRear: [0.07, 0.3, -0.09],
+    clips: { fire: [1, 11], reload_empty: [11, 57], reload: [58, 135], idle: [169, 197] },   // 135-150: the gun leaves the view; inspect 151-168 and the draw 197-215 not used
+    mats: { pistol1: { albedo: "pistol1Color.png", metal: "pistol1Metallic.png", rough_f: 0.45 }, arms: { albedo: "armcolor.png", rough_f: 0.6 } } },
 };
 for (const [id, a] of Object.entries(A)) {
   const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));

@@ -527,7 +527,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     // ---- MG1: each modern gun's animated rig (its own arms + clips): draw -> idle, ADS puts the posed sights on the view
     // axis, a shot plays the fire clip, a reload plays its clip and moves the rounds, the generated arm is not drawn
     for (const char* mid : {"modern_scar", "modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol",
-                            "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2"}) {
+                            "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2", "modern_fal", "modern_pistol2"}) {
       const std::string id = mid;
       push(("mg1 rig " + id).c_str(), [this, id](App& a, float t) {
         static std::string draw0, idle1, fire1, rel1; static float axisDeg, tShot; static int shots0, arms; static bool phase[6];

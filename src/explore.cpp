@@ -539,7 +539,7 @@ void App::drawExploreUI() {
     // (no centre dot: removed at the user's request; the weapon's own sights are the aim reference)
     if (!occupied && !tanks.occupied && !weaponDefs.empty() && !scopeView()) {   // GM1b: launchers and flamethrowers have no usable sight: mark where the shot goes
       const WeaponDef& d = *weaponDefs[activeWeapon]; const WeaponState& s = wstate[d.id];
-      if (d.action == "launcher" || d.flame.on) {
+      if ((d.action == "launcher" && !d.anim) || d.flame.on) {   // MG3: an animated launcher (RPG-7) aims with its own sights
         vec3 eye = eyePos(), aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch), muzzle = weaponMuzzleWorld(d, s), P;
         if (d.flame.on) {   // a parcel from the nozzle toward the aim point, 0.4 g droop (flame.cpp), at 70 % of its reach
           vec3 fxs = vmApparent(muzzle); Physics::Hit h; float reach = Physics::castRayEx(eye, aimDir, 20.0f, h) ? h.t : 20.0f;

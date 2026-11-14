@@ -45,6 +45,11 @@ const C = {
                 "UZI Magazine and Bullet": { albedo: "UZI_Magazine_and_Bullet_Base_color.png", normal: "UZI_Magazine_and_Bullet_Normal_OpenGL.png", rough: "UZI_Magazine_and_Bullet_Roughness.png", metal: "UZI_Magazine_and_Bullet_Metallic.png", ao: "UZI_Magazine_and_Bullet_Mixed_AO.png" } } },
   shotgun2: { src: G + "shotgun-animated/source/shotgunAnimated.fbx", tex: "shotgun-animated", keep: { boomstick: "base" }, split: { boomstick: { pump: "pump", slug: "mag2", inserter: "mag2" } },
         mats: { boomstick: { albedo: "boomstickColor.png", normal: "boomstickNormal.png", rough: "boomstickRoughness.png", metal: "boomstickmetallic.png" } } },
+  // ---- MG3
+  fal: { src: G + "battle-rifle-animated/source/arms@FAL.fbx", tex: "battle-rifle-animated", keep: { base: "base", bolt: "bolt", bullet: "mag", bullet_2: "mag", clip: "mag", handle: "handle", magrelease: "trigger", trigger: "trigger" },
+        mats: { FAL: { albedo: "FALcolor.png", normal: "FALnormal.png", metal: "FALmetallic.png", rough: "FALroughness.png", ao: "FALao.png" } } },
+  pistol1: { src: G + "pistol-animated/source/arms@pistol1.fbx", tex: "pistol-animated", keep: { base: "frame", bolt: "slide", bullet: "mag", clip: "mag", trigger: "trigger" },
+        mats: { pistol1: { albedo: "pistol1Color.png", normal: "pistol1Normal.png", metal: "pistol1Metallic.png", rough_f: 0.45 } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

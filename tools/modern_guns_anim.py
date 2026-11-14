@@ -69,6 +69,28 @@ bb = [min(v[i] for v in vs) for i in range(3)] + [max(v[i] for v in vs) for i in
 log["gunRestBlender"] = [round(x, 4) for x in bb]; log["staticGunBlender"] = st.get("gunBlender")
 arm.data.pose_position = "POSE"
 
+# ---------------------------------------------------------------- MG3: attach an accessory mesh to the gun (the red dot on the 870)
+# cfg "attach": {"src": fbx, "mesh": name, "dropMats": [lens material], "anchor": [x,y,z] in its own world units (meets "at"),
+# "at": [x,y,z] static weapon space}; its +y follows the gun's forward, +z its up; real size (1/s in source units);
+# weighted 1 to the gun joint and joined into the gun mesh (rest frame), so it moves with the gun in every clip
+if cfg.get("attach"):
+    at_ = cfg["attach"]; before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=at_["src"]); new = [o for o in bpy.data.objects if o not in before]
+    acc = next(o for o in new if o.name.startswith(at_["mesh"]))
+    p0 = w2b(at_["at"]); fw = (w2b([at_["at"][0], at_["at"][1], at_["at"][2] + 0.1]) - p0).normalized(); upv = (w2b([at_["at"][0], at_["at"][1] + 0.1, at_["at"][2]]) - p0).normalized()
+    rt_ = fw.cross(upv); Rm = Matrix((rt_, fw, upv)).transposed().to_4x4()
+    T = Matrix.Translation(p0) @ Rm @ Matrix.Scale(1.0 / s, 4) @ Matrix.Translation(-Vector(at_.get("anchor", [0, 0, 0])))
+    acc.data = acc.data.copy(); acc.data.transform(T @ acc.matrix_world); acc.parent = None; acc.matrix_world = Matrix()
+    import bmesh
+    drop = [k for k, m in enumerate(acc.data.materials) if m and m.name in at_.get("dropMats", [])]
+    bm = bmesh.new(); bm.from_mesh(acc.data); bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in drop], context="FACES"); bm.to_mesh(acc.data); bm.free()
+    vg = acc.vertex_groups.new(name=gunBone); vg.add(list(range(len(acc.data.vertices))), 1.0, "REPLACE")
+    for o in new:
+        if o != acc: bpy.data.objects.remove(o, do_unlink=True)
+    for o in bpy.context.view_layer.objects: o.select_set(False)
+    acc.select_set(True); gun.select_set(True); bpy.context.view_layer.objects.active = gun; bpy.ops.object.join()
+    log["attached"] = at_["mesh"]
+
 # ---------------------------------------------------------------- hip framing -> rig space (+ metres)
 # The sources' cameras differ (Cinema 4D exports carry none), so every rig is framed the engine's way: at the first
 # idle frame the sight line (rear -> front) looks straight ahead, gun-up is up, and the rear sight sits at the hip pose
@@ -122,9 +144,14 @@ if cfg.get("cutLens"):
         A_, B_ = w2b(c["a"]), w2b(c["b"]); ab = B_ - A_; L2 = ab.dot(ab); r = c["r"] / s
         def near(p):
             t = max(0.0, min(1.0, (p - A_).dot(ab) / L2)); return (p - (A_ + ab * t)).length <= r
-        bm = bmesh.new(); bm.from_mesh(gun.data); mw = gun.matrix_world
-        cut = [f for f in bm.faces if all(near(mw @ v.co) for v in f.verts)]
-        log.setdefault("lensFaces", []).append(len(cut)); bmesh.ops.delete(bm, geom=cut, context="FACES"); bm.to_mesh(gun.data); bm.free()
+        for ob in keep:   # every kept mesh (the M4's optic is its own part)
+            if ob.type != "MESH": continue
+            bm = bmesh.new(); bm.from_mesh(ob.data); mw = ob.matrix_world
+            axn = ab.normalized(); m3 = mw.to_3x3()
+            # lens discs only: faces facing along the sight line (the tube walls and hoods face sideways and stay)
+            cut = [f for f in bm.faces if near(mw @ f.calc_center_median())] if c.get("all") else [f for f in bm.faces if abs((m3 @ f.normal).normalized().dot(axn)) > 0.85 and all(near(mw @ v.co) for v in f.verts)]   # "all" (the M4): every face centred inside r (inner tube walls and rims too)
+            if cut: log.setdefault("lensFaces", []).append([ob.name, len(cut)])
+            bmesh.ops.delete(bm, geom=cut, context="FACES"); bm.to_mesh(ob.data); bm.free()
 # ---------------------------------------------------------------- MG2: decimate heavy meshes (before the armature; weights kept)
 for name, ratio in cfg.get("decimate", {}).items():
     ob = bpy.data.objects[name]; bpy.context.view_layer.objects.active = ob
@@ -150,7 +177,7 @@ bpy.context.view_layer.update()
 MAXT = cfg.get("maxTex", 1024)
 def load(name):
     if not name: return None
-    p = os.path.join(tex, name)
+    p = name if os.path.isabs(name) else os.path.join(tex, name)
     if not os.path.exists(p): log["warn"].append("missing texture " + name); return None
     im = bpy.data.images.load(p, check_existing=False); w, h = im.size
     if max(w, h) > MAXT: k = MAXT / max(w, h); im.scale(max(1, int(w * k)), max(1, int(h * k)))

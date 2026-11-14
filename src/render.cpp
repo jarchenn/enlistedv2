@@ -1780,6 +1780,9 @@ float reticleInk(vec2 q, float R){
     float t = max(0.8, R*0.002);
     ink = cov(abs(q.y) - t);
     ink = max(ink, cov(abs(q.x) - (q.y > 0.0 ? t : max(t, 0.012*(-q.y)))));
+  } else if (uReticle == 4) {   // MG3 plain "+": fine full-width crosshair (the AR-15's 3x scope)
+    float t = max(0.8, R*0.0025);
+    ink = cov(min(abs(q.x), abs(q.y)) - t);
   } else if (uReticle == 3) {   // TZF: big chevron (aim point at its tip), a row of small range chevrons, a post, dotted range arcs
     float u = R*0.25, lw = max(1.0, R*0.0035), d = 1e9;
     d = min(d, segD(q, vec2(0.0), vec2(-0.45*u, -0.63*u)));

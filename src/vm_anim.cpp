@@ -11,7 +11,8 @@ struct AnimVM {
   int gunJoint = -1;
   vec3 pt[3]{};                        // rest rig space: rear sight (scopes: the eye), front sight, muzzle
   std::map<std::string, int> clip;     // state name -> clip index
-  float idleHold = -1;                 // >= 0: the idle is this one frame of the idle clip (s), held still
+  float idleHold = 0;                  // the idle is this one frame of the idle clip (s), held still (MG3: every rig; < 0 plays the clip)
+  vec3 hipShift{0};                    // MG3: rig offset at the hip, camera space (m), faded out in ADS (the M249 closer)
   bool shells = false;                 // reload_start / reload_insert (once per round) / reload_end
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
   GpuMesh dotMesh;
@@ -55,7 +56,8 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
     if (c >= 0) a->clip[k] = c;
   }
   if (!a->clip.count("idle")) { err = "no idle clip"; return nullptr; }
-  a->idleHold = block.value("idleHold", -1.0f);
+  a->idleHold = block.value("idleHold", 0.0f);
+  if (block.contains("hipShift")) a->hipShift = jv(block["hipShift"]);
   a->shells = a->clip.count("reload_insert") > 0;
   if (block.contains("redDot")) {   // a small emissive disc facing back along the sight line; the tube hides it off the axis
     a->hasDot = true; a->dot = jv(block["redDot"]);
@@ -144,7 +146,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
     float k = lw * lw * (3 - 2 * lw);
     low = glm::translate(mat4(1), vec3(0.05f * k, -0.34f * k, 0.08f * k)) * glm::mat4_cast(glm::angleAxis(radians(-60.0f * k), vec3(1, 0, 0)));
   }
-  st.local = low * proc * ads;
+  st.local = low * proc * glm::translate(mat4(1), a.hipShift * (1 - t)) * ads;
   st.ready = true;
 }
 

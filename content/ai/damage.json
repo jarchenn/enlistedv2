@@ -45,6 +45,8 @@
     "modern_mp7":    { "near": 32,  "far": 20,  "falloffStart_m": 40,  "falloffEnd_m": 120, "rpm": 950, "note": "MG2 modern gun" },
     "modern_scorpion":{ "near": 30, "far": 18,  "falloffStart_m": 25,  "falloffEnd_m": 70, "rpm": 1150, "note": "MG2 modern gun" },
     "modern_uzi":    { "near": 32,  "far": 18,  "falloffStart_m": 25,  "falloffEnd_m": 70, "rpm": 600, "note": "MG2 modern gun" },
-    "modern_shotgun2":{ "near": 24, "far": 6,   "falloffStart_m": 10,  "falloffEnd_m": 40, "rpm": 70, "note": "MG2 modern gun: per pellet (9 per shell)" }
+    "modern_shotgun2":{ "near": 24, "far": 6,   "falloffStart_m": 10,  "falloffEnd_m": 40, "rpm": 70, "note": "MG2 modern gun: per pellet (9 per shell)" },
+    "modern_fal":    { "near": 60,  "far": 40,  "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 650, "note": "MG3 modern gun" },
+    "modern_pistol2":{ "near": 26,  "far": 14,  "falloffStart_m": 15,  "falloffEnd_m": 40, "rpm": 400, "note": "MG3 modern gun (.22 LR)" }
   }
 }

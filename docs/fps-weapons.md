@@ -592,4 +592,25 @@ New exporter options:
 
 The Scorpion's gun texture (`RGB.png`) is in neither the archive nor the folder, so its gun has a flat dark polymer finish. The Uzi's loose cartridge by the stock is hidden in the static model.
 
+### MG3: second live test
+
+- **Still idles everywhere:** every rig now holds frame 0 of its idle (`animated.idleHold` defaults to 0; < 0 plays the clip). Breathing still sways the view, as for every weapon.
+- **SCAR:** front point 0.4 mm left, so the post sits centred in the aperture.
+- **Scorpion:** zoomed in (`eyeRelief` 0.12, `vmFov` 40, `worldFov` 50); both points 0.5 mm right, so the picture moves left.
+- **AR-15 / MP7 cut-offs:** the MG2 lens cut also removed hood and tube walls. `cutLens` now removes only faces facing along the sight line (the lens discs), on every kept mesh.
+- **AR-15:** a 3× scope (`scope.mag` 3) with a plain "+" reticle (`scope.reticle` "plus" → eyepiece reticle 4, `render.cpp`).
+- **Remington 870:** the user's reflex sight (`red-dot-sight/rds_low.fbx`) on the receiver top (exporter `attach`: placed in weapon space at z 0.47, its blue lens material dropped, weighted to the gun joint). The sight line runs through its window, with a red dot (`animated.redDot`). Only the animated rig has it; the static model (third person, rack, icon) keeps the bead.
+- **M4:** the lenses, the inner tube and the inner rims (faces centred within 13.5 mm of the axis, `cutLens` `all`) are removed. The clear circle reaches the outer housing, and the eye is closer (`eyeRelief` 0.12).
+- **M249:**
+  - ADS: the rear aperture centred, with the front post-in-ring inside it, on one level line (`eyeRelief` 0.07, `vmFov` 40). This replaces MG2's front-only view.
+  - Hip: `animated.hipShift` (0, 0, 0.12) brings the rig 12 cm closer; it fades out in ADS.
+- **RPG-7:** no impact reticle for an animated launcher (`explore.cpp`). Both sight points are 1.2 mm lower, so the post tip sits on the screen centre; the rocket goes there at its zero, as computed in `weapons.cpp`.
+- **New:**
+  - FN FAL (`modern_fal`, Cinema 4D timeline at 30 fps): fire 1–9, reload_empty 9–90, reload 90–152, idle 200–230. Inspect 152–200 and the draw 230–250 are not used.
+  - Suppressed .22 pistol (`modern_pistol2`, `pistol-animated`): fire 1–11, reload_empty 11–57, reload 58–135, idle 169–197. 135–150 (the gun out of view), inspect and the draw are not used.
+- **Skipped:**
+  - `pistol-anim-pack`: the archive extracted, but it is a pistol rig and a UE5 arm rig as two separate armatures, with one FBX per clip. The exporter makes one skin from one armature with its actions in one file; merging them needs a retarget step that is not written.
+  - `fps-animated-carbine-2`: byte-identical to the M4's source.
+  - `animatedpistol-2` (MG2): byte-identical to `animatedpistol`.
+
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.
