@@ -83,7 +83,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("teamPlayers") && j["teamPlayers"].is_array() && j["teamPlayers"].size() == 2)
     for (int t = 0; t < 2; ++t) r.teamPlayers[t] = std::clamp(j["teamPlayers"][t].get<int>(), 1, kMaxCombatants / 2);
   if (j.contains("aiType") && j["aiType"].is_array() && j["aiType"].size() == 2)
-    for (int t = 0; t < 2; ++t) r.aiType[t] = j["aiType"][t].get<int>() == 1 ? AiType::Zombies : AiType::Soldiers;
+    for (int t = 0; t < 2; ++t) { int v = j["aiType"][t].get<int>(); r.aiType[t] = v == 1 ? AiType::Zombies : v == 2 ? AiType::ZombiesHeavies : AiType::Soldiers; }
   r.humanTeam = std::clamp(j.value("humanTeam", r.humanTeam), 0, 1);
   if (j.contains("teamFaction") && j["teamFaction"].is_array() && j["teamFaction"].size() == 2)
     for (int t = 0; t < 2; ++t) r.teamFaction[t] = j["teamFaction"][t].get<std::string>() == "Axis" ? Faction::Axis : Faction::Allies;

@@ -41,6 +41,8 @@ const char* aiActionName(int a);
 enum AiSpeed : int { SPD_STOP = 0, SPD_CRAWL, SPD_CROUCH, SPD_WALK, SPD_JOG, SPD_SPRINT, SPD_ZOMBIE };
 float aiZombieSpeed();   // G2 (zombie.cpp): content/ai/zombie.json speed_mps
 int aiZombieBlows();    // G2: zombie blows that landed since start (tests)
+struct ZombieBlow { int slot, type; float hpLost; };
+const std::vector<ZombieBlow>& aiZombieBlowLog();   // EN1: the landed blows (attacker, its enemy type, the victim's hp loss), for tests
 
 // ---------------------------------------------------------------- cover (AI_SPEC 5)
 inline int64_t coverKey(float x, float z) { return ((int64_t)std::floor(x / 8.0f) << 32) ^ (int64_t)(uint32_t)(int)std::floor(z / 8.0f); }
@@ -153,7 +155,7 @@ struct BotMind {
   // stats
   double underFireT = 0, exposedT = 0, lastAct = 0;
   // PF1 zombie packs (zombie.cpp): followers steer along the mesh to a slot by the leader instead of path queries
-  int pack = -1; bool follower = false; float speedScale = 1; vec3 flockPush{0}; double flockT = 0, ownPathT = -100;
+  int pack = -1; bool follower = false; float speedScale = 1, zSpeed = 4; vec3 flockPush{0}; double flockT = 0, ownPathT = -100;
 };
 
 // ---------------------------------------------------------------- path service (ai_path.cpp)

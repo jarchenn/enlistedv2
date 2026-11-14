@@ -9,6 +9,7 @@
 #include "mpui.h"
 #include "net.h"
 #include "crumb.h"
+#include "enemy_types.h"
 #include "flame.h"
 #include "ai_hooks.h"
 void netInterpolate(Game& g, double t);
@@ -69,14 +70,15 @@ void Game::syncGrenadeView() {
     gren.live.push_back(v);
   }
 }
+static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
 vec3 Game::eye(const Soldier& s) const {
   if (s.localPlayer && s.alive) return app.eyePos();
   float h = s.posture == Physics::PRONE ? 0.32f : s.posture == Physics::CROUCH ? 1.05f : 1.62f;
-  return s.feet + vec3(0, h, 0);
+  return s.feet + vec3(0, h * bodyScale(s), 0);
 }
 vec3 Game::chest(const Soldier& s) const {
   float h = s.posture == Physics::PRONE ? 0.25f : s.posture == Physics::CROUCH ? 0.8f : 1.25f;
-  return s.feet + vec3(0, h, 0);
+  return s.feet + vec3(0, h * bodyScale(s), 0);
 }
 
 int Game::soldierOfOwner(int owner) const { return owner >= 0 ? owner : localSlot; }
@@ -116,7 +118,9 @@ bool Game::begin(std::string& err) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
-    s.zombie = !rs.human && match.rules.aiType[match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1)] == AiType::Zombies;   // G2
+    AiType ait = match.rules.aiType[match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1)];
+    s.zombie = !rs.human && ait != AiType::Soldiers;   // G2
+    s.etype = s.zombie && ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id) : 0;   // EN1: the mix by weight, per slot
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
     Brain& b = s.br;
@@ -129,7 +133,7 @@ bool Game::begin(std::string& err) {
     std::string fac = factionName(rs.faction);
     auto& ml = combat["models"][fac];
     s.model = modelIdx[ml[rs.id % ml.size()].get<std::string>()];
-    if (s.zombie) { int zm = aiZombieModel(*this); if (zm >= 0) s.model = zm; }   // G2: the animated zombie
+    if (s.zombie) aiZombieAssign(*this, s);   // G2: the animated zombie
   }
   pool.clear(); poolBuilt = false;
   sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;
@@ -319,7 +323,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         if (!Physics::shapeFitsAt(Physics::STAND, feet, false)) continue;                                       // never inside geometry
         if (nav.valid() && nav.nearest(feet, 1.5f) < 0) continue;                                              // navigable access
         // success
-        s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.hp = combat.value("health", 100.0f); s.killer = -1; s.posture = Physics::STAND;
+        s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
         s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
         ++s.lifeId;
         rulesOnSpawn(*this, s);   // W1: spawn protection starts (SPEC 2.2)
@@ -380,8 +384,9 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
 // ---------------------------------------------------------------- damage
 bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const {
   // coarse sphere around the body
-  vec3 c = s.feet + vec3(0, 0.9f, 0);
-  vec3 m = a - c; float b = glm::dot(m, d), cc = glm::dot(m, m) - 1.3f * 1.3f;
+  float bs = bodyScale(s), zs = s.zombie ? bs * (s.eFallback ? 1.0f : enemyType(s.etype).zoneScale) : 1.0f;   // EN1: the type's size and hit-zone scale
+  vec3 c = s.feet + vec3(0, 0.9f * bs, 0);
+  vec3 m = a - c; float b = glm::dot(m, d), R0 = 1.3f * std::max(bs, zs), cc = glm::dot(m, m) - R0 * R0;
   if (cc > 0 && b > 0) return false;
   float disc = b * b - cc; if (disc < 0) return false;
   // posed parts (model space -> world)
@@ -389,7 +394,7 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
   auto W = [&](int j) { return vec3(s.world * vec4(J[j], 1)); };
   struct Cap { vec3 p, q; float r; int zone; };
   vec3 head = W(CJ_HEAD), neck = W(CJ_NECK);
-  vec3 headTop = head + glm::normalize(head - neck + vec3(1e-4f)) * 0.12f;
+  vec3 headTop = head + glm::normalize(head - neck + vec3(1e-4f)) * 0.12f * bs;
   Cap caps[] = {
     {head, headTop, 0.11f, 0},
     {W(CJ_HIPS), W(CJ_NECK), 0.17f, 1},
@@ -399,6 +404,7 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
     {W(CJ_RUPLEG), W(CJ_RLEG), 0.085f, 2}, {W(CJ_RLEG), W(CJ_RFOOT), 0.07f, 2},
   };
   float best = maxT; int zone = -1;
+  for (auto& k : caps) k.r *= zs;
   for (auto& k : caps) {
     // ray vs capsule: sample the closest approach between the ray and the segment
     vec3 u = d, v = k.q - k.p, w = a - k.p;
@@ -463,6 +469,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   }
   if (attacker >= 0 && attacker != i && sameTeam(attacker, i) && !match.rules.friendlyFire) return;
   s.hp -= dmg;
+  if (s.zombie) { const EnemyType& e = enemyType(s.etype); if (e.staggerS > 0 && dmg >= e.staggerMin) s.staggerUntil = t + e.staggerS; }   // EN1: only a heavy hit staggers
   s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
   s.br.suppressed = std::min(1.0f, s.br.suppressed + 0.5f);
   if (s.localPlayer) { hurtFlash = std::min(1.0f, hurtFlash + dmg / 60.0f); lastHurtDir = -dir; }
@@ -717,6 +724,9 @@ void Game::posesStep(float dt) {
     if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
+    if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
+      if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
+      if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale)); }
   }
 }
 
@@ -782,7 +792,7 @@ void Game::drawItems() {
       bool due = s.ci.frameSkinned < 0 || (s.skinRev != s.poseRev && (frame + s.slot) % every == 0);   // and never an unchanged pose
       if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
-    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) app.R.worldModels.push_back({&src->ci.view, k, s.world, rulesTint(*this, s)});   // W1: protection shimmer
+    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {

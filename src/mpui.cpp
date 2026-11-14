@@ -401,7 +401,7 @@ void MpUi::setupWindow(App& app) {
     rules.mode = (GameMode)m;
   }
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
-  const char* aiTypes = "Soldiers\0Zombies\0";
+  const char* aiTypes = "Soldiers\0Zombies\0Zombies + heavies\0";   // EN1: brutes and stalkers by weight (content/ai/zombie.json types)
   if (rules.mode != GameMode::Assault) {
     ImGui::SliderInt("Kill cap (wins the match)", &rules.killCap, 5, 150);
     if (rules.mode == GameMode::Solo) {

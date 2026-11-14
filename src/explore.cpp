@@ -337,7 +337,8 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   speed *= traversalFactor(Physics::character().pos);   // inside a "slow" wire volume
   Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity; Physics::tuning.jumpBuffer = move.jumpBuffer; Physics::tuning.coyote = move.coyote;
   bool jump = in.jump && !spaceUp && !(rising && riseProne) && stamina >= move.staminaJump;   // only the prone get-up holds a jump back; too tired: no jump
-  bool jumped = !occupied && Physics::updateCharacter(dt, wish * speed, jump, postureWanted, eyeYaw);
+  bool jumped = !occupied && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
+  knockVel *= std::exp(-5.0f * dt);
   if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
   { int pp = Physics::character().posture; tickStamina(dt, sprinting && glm::length(wish) > 0.1f, pp == Physics::CROUCH || pp == Physics::PRONE ? move.staminaLowRegen : 1.0f); }   // crouched / prone: faster recovery
   auto c = Physics::character();

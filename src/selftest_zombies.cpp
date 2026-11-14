@@ -5,12 +5,17 @@
 // content/characters/zombie.glb: its clips load, every hit-capsule joint maps, the walk animates, a strike plays an
 // attack clip, head and leg rays hit their zones. PF1: 200 zombies in Solo run in packs (only leaders path, followers
 // keep up, a dead leader is replaced, strikes land) and a 100 soldiers v 100 zombies TDM, both without 150 ms frames.
+// EN1: the enemy types (zombie.json types): each type's hp, blow damage, cooldown and speed match its data, the brute
+// shoves the player, stands taller and survives a Garand clip of torso hits (and dies to enough), only a heavy hit
+// staggers it, the stalker lunges and leans; "Zombies + heavies" packs carry the configured mix.
 #include "selftest.h"
 #include "game.h"
 #include "mpui.h"
 #include "mptest.h"
 #include "ai_core.h"
 #include "selftest_crowd.h"
+#include "enemy_types.h"
+#include "damage_model.h"
 #include <algorithm>
 #include <cstdlib>
 #include <cstdarg>
@@ -90,7 +95,92 @@ void build(App&) {
     json mv = json::parse(readTextFile(contentDir() / "settings" / "movement.json"));
     float jog = mv.value("run_mps", 3.1625f), spr = mv.value("sprint_mps", 6.325f);
     chk(aiZombieSpeed() > jog && aiZombieSpeed() < spr, "zombie.json speed %.2f m/s lies between jog %.2f and sprint %.2f", aiZombieSpeed(), jog, spr);
+    const auto& E = enemyTypes();
+    const EnemyType& z = E[0];
+    chk(E.size() == 3 && z.id == "zombie" && z.hp == 100 && z.damage == 35 && z.reach == 1.6f && z.cooldown == 0.9f && z.walk == 4.0f && z.run == 4.0f && z.scale == 1 && z.staggerMin == 0 && z.knock == 0,
+        "enemy types: %zu (plain zombie first, unchanged: hp %.0f, %.0f per blow, reach %.1f m, cooldown %.1f s, %.1f m/s)", E.size(), z.hp, z.damage, z.reach, z.cooldown, z.run);
+    for (auto& e : E) {
+      std::snprintf(B, sizeof B, "type %-8s scale %.2f lean %.0f hp %.0f damage %.0f reach %.1f lunge %.1f cooldown %.2f attack_rate %.2f walk %.1f run %.1f (within %.0f m) weight %.1f zones x%.2f knock %.1f stagger >= %.0f for %.1f s",
+                    e.id.c_str(), e.scale, e.lean, e.hp, e.damage, e.reach, e.lunge, e.cooldown, e.attackRate, e.walk, e.run, std::min(e.runWithin, 9999.0f), e.weight, e.zoneScale, e.knock, e.staggerMin, e.staggerS);
+      T->note(B);
+    }
+    int cnt[3] = {0, 0, 0}; for (uint32_t k = 0; k < 1000; ++k) ++cnt[std::clamp(enemyTypePick(k), 0, 2)];
+    float tw = 0; for (auto& e : E) tw += e.weight;
+    bool share = E.size() == 3; for (int k = 0; k < 3 && share; ++k) share = std::fabs(cnt[k] / 1000.0f - E[k].weight / tw) < 0.04f;
+    chk(share, "the weighted pick over 1000 slots: %d zombies, %d brutes, %d stalkers (weights %.0f / %.0f / %.0f)", cnt[0], cnt[1], cnt[2], E[0].weight, E.size() > 1 ? E[1].weight : 0.0f, E.size() > 2 ? E[2].weight : 0.0f);
     return true; });
+  // ---- EN1: one of each type against the player (team A alone): hp, blow damage, cooldown, speed, knock-back, size, lunge, lean
+  push("enemy types", [](App& a, float t) {
+    static bool placed; static size_t log0; static float spMax[3], startMax[3], knockMax, headH[3], lean[3]; static int z3[3];
+    static int counted;
+    Game& G = *gGame;
+    if (t == 0) {
+      placed = false; knockMax = 0; counted = 0; for (int k = 0; k < 3; ++k) { spMax[k] = startMax[k] = headH[k] = 0; lean[k] = -9; z3[k] = -1; }
+      log0 = aiZombieBlowLog().size();
+      chk(startMode(a, GameMode::TDM, 4, 1, 3, AiType::Soldiers, AiType::ZombiesHeavies), "TDM: the player v one zombie, one brute, one stalker (%s)", gGame->setupError.c_str());
+      int k = 0; for (auto& s : gGame->sold) if (s.zombie && k < 3) { s.etype = k; aiZombieAssign(*gGame, s); if (s.alive) s.hp = enemyType(k).hp; z3[k++] = s.slot; }
+      return false;
+    }
+    Soldier* L = G.local();
+    if (!L || !L->alive || !allSpawned(G)) return t > 20 ? (chk(false, "everyone spawns"), true) : false;
+    L->protectUntil = -1; if (L->hp < 3000) L->hp = 5000;   // the player takes every blow and never falls
+    if (!placed) {
+      placed = true;
+      int ok = 0;
+      for (int k = 0; k < 3; ++k) { Soldier& z = G.sold[z3[k]]; vec3 p; z.protectUntil = -1;
+        if (openPoint(G, L->feet, 14.0f, p, k * 2.1f)) { place(G, z, p); ++ok; }
+        chk(z.hp == enemyType(k).hp, "%s spawns with %.0f hp (data %.0f)", enemyType(k).id.c_str(), z.hp, enemyType(k).hp); }
+      chk(ok == 3, "the three placed 14 m from the player (%d)", ok);
+      log0 = aiZombieBlowLog().size();
+      return false;
+    }
+    for (int k = 0; k < 3; ++k) {
+      Soldier& z = G.sold[z3[k]];
+      if (!z.alive) continue;
+      float d = dXZ(z.feet, L->feet);
+      if (z.meleeWind < 0 && d > 3.5f) spMax[k] = std::max(spMax[k], z.speed);
+      if (z.meleeWind >= 0 && z.meleeWind < 0.05f) startMax[k] = std::max(startMax[k], d);
+      auto J = [&](int j) { return vec3(z.world * vec4(z.pose.joint[j], 1)); };
+      headH[k] = std::max(headH[k], J(CJ_HEAD).y - z.feet.y);
+      vec3 to = L->feet - z.feet; to.y = 0;
+      if (d > 4 && z.meleeWind < 0 && glm::length(to) > 0.1f && z.speed > 1) { vec3 off = J(CJ_HEAD) - z.feet; off.y = 0; lean[k] = std::max(lean[k], glm::dot(off, glm::normalize(to))); }
+    }
+    knockMax = std::max(knockMax, glm::length(a.knockVel));
+    const auto& Lg = aiZombieBlowLog();
+    int n[3] = {0, 0, 0}; float lost[3] = {0, 0, 0}; double lastAt[3] = {-1, -1, -1}; (void)lastAt;
+    for (size_t i = log0; i < Lg.size(); ++i) if (Lg[i].type >= 0 && Lg[i].type < 3) { ++n[Lg[i].type]; lost[Lg[i].type] += Lg[i].hpLost; }
+    if ((n[0] < 3 || n[1] < 3 || n[2] < 3) && t < 45) return false;
+    for (int k = 0; k < 3; ++k) {
+      const EnemyType& e = enemyType(k);
+      float per = n[k] ? lost[k] / n[k] : 0;
+      chk(n[k] >= 3 && std::fabs(per - e.damage) < 0.5f, "%s blows take %.1f hp each (data %.0f, %d blows)", e.id.c_str(), per, e.damage, n[k]);
+      chk(spMax[k] > 0.85f * e.run && spMax[k] < 1.08f * e.run, "%s runs at %.2f m/s (data %.2f)", e.id.c_str(), spMax[k], e.run);
+    }
+    // cooldown: a type's blows (one attacker each) no closer together than its cooldown -> at most t / cooldown + 1
+    chk(n[1] <= (t - 1.0f) / enemyType(1).cooldown + 1, "brute: %d blows in %.0f s with a %.1f s cooldown (and a long wind-up)", n[1], t, enemyType(1).cooldown);
+    chk(knockMax > 0.9f * enemyType(1).knock, "a brute blow shoves the player at %.1f m/s (data %.1f)", knockMax, enemyType(1).knock);
+    { float want = G.sold[z3[1]].eBody, got = headH[1] / std::max(0.1f, headH[0]);
+      chk(got > 0.85f * want && got < 1.15f * want, "the brute's head stands %.2f m up vs the zombie's %.2f m (x%.2f, body x%.2f%s)", headH[1], headH[0], got, want, G.sold[z3[1]].eFallback ? ", zombie rig" : ""); }
+    chk(startMax[2] > enemyType(2).reach + 0.5f, "the stalker starts a lunge %.1f m out (reach %.1f, lunge %.1f); the zombie strikes from %.1f m", startMax[2], enemyType(2).reach, enemyType(2).lunge, startMax[0]);
+    chk(lean[2] > lean[0] + 0.15f, "the stalker's head leads its feet by %.2f m while running (the zombie %.2f m)", lean[2], lean[0]);
+    std::snprintf(B, sizeof B, "fastest: zombie %.2f, brute %.2f, stalker %.2f m/s", spMax[0], spMax[1], spMax[2]); T->note(B);
+    // the brute against a Garand clip of torso hits (10 m), and the stagger
+    Soldier& br = G.sold[z3[1]]; const EnemyType& be = enemyType(1);
+    int ga = a.weaponIndex("m1_garand"); int clip = ga >= 0 ? a.weaponDefs[ga]->cap : 8;
+    float per = dmDamage(dmRow("m1_garand"), 10.0f, DZ_UPPER_TORSO);
+    br.hp = be.hp; br.staggerUntil = 0; br.protectUntil = -1;
+    for (int k = 0; k < clip; ++k) G.damage(br.slot, per, L->slot, vec3(0, 0, 1), "upper torso");
+    bool aliveClip = br.alive, stagRifle = br.staggerUntil > G.t;
+    int more = 0; while (br.alive && more < 50) { G.damage(br.slot, per, L->slot, vec3(0, 0, 1), "upper torso"); ++more; }
+    chk(aliveClip && !stagRifle && !br.alive, "a brute (%.0f hp) survives a Garand clip (%d torso hits of %.0f) without staggering, and falls to %d more", be.hp, clip, per, more);
+    Soldier& br2 = G.sold[z3[0]];   // the stagger on a body that stays up: the zombie's slot made a brute for the moment
+    int keep = br2.etype; br2.etype = 1; br2.hp = be.hp; br2.staggerUntil = 0; br2.protectUntil = -1;
+    G.damage(br2.slot, be.staggerMin + 10, L->slot, vec3(0, 0, 1), "blast");
+    bool stag = br2.staggerUntil > G.t;
+    br2.etype = keep;
+    chk(stag, "a %.0f hp blast staggers a brute for %.1f s", be.staggerMin + 10, be.staggerS);
+    return true; });
+
   if (!std::getenv("NMK_ZOMBIES_ONLY_HORDE")) {   // diagnostics: just the 200-zombie runs
   // ---- one zombie against a standing player: pursuit, blows, speed, no soldier brain
   push("pursuit", [](App& a, float t) {
@@ -249,13 +339,24 @@ void build(App&) {
   // ---- PF1 mixed: 100 soldiers (the player's team) v 100 zombies, one team: packs keep their shape
   push("horde mixed", [](App& a, float t) {
     static CrowdBench cb; static PackStats ps; static int blows0;
-    if (t == 0) { blows0 = aiZombieBlows(); cb.begin(); ps = PackStats{}; chk(startMode(a, GameMode::TDM, 200, 100, 100, AiType::Soldiers, AiType::Zombies), "TDM 100 soldiers v 100 zombies (%s)", gGame->setupError.c_str()); return false; }
+    static int mixPacks, bigPacks, inPack[3];
+    if (t == 0) { mixPacks = bigPacks = 0; inPack[0] = inPack[1] = inPack[2] = 0; blows0 = aiZombieBlows(); cb.begin(); ps = PackStats{}; chk(startMode(a, GameMode::TDM, 200, 100, 100, AiType::Soldiers, AiType::ZombiesHeavies), "TDM 100 soldiers v 100 zombies + heavies (%s)", gGame->setupError.c_str()); return false; }
     Game& G = *gGame; guardLocal(G);
     AiCore* A = aiCore(); if (!A) { chk(false, "the AI runs"); return true; }
     cb.frame(G, t, 5.0f); ps.sample(G, *A, t, 8.0f);
+    if (t > 10.0f && inPack[0] + inPack[1] + inPack[2] == 0) for (auto& p : A->packs) {   // EN1: the mix inside the packs, once, early
+      int seen[3] = {0, 0, 0}; for (int k : p.members) { int e = std::clamp(G.sold[k].etype, 0, 2); ++seen[e]; ++inPack[e]; }
+      if (p.members.size() >= 4) { ++bigPacks; mixPacks += (seen[0] > 0) + (seen[1] > 0) + (seen[2] > 0) >= 2; }
+    }
     int k0 = G.match.teamKills(0), k1 = G.match.teamKills(1);
     if (t < 45 || ((k0 < 1 || (k1 < 1 && aiZombieBlows() - blows0 < 3)) && t < 120)) return false;   // the teams spawn a few hundred metres apart
     if (packsEnabled()) ps.check(*A, 100, 5.0f, 80.0f, "mixed"); else T->note("packs off (NMK_ZOMBIE_PACKS=0): pack checks skipped");
+    { int all[3] = {0, 0, 0}; for (auto& s : G.sold) if (s.zombie) ++all[std::clamp(s.etype, 0, 2)];
+      float tw = 0; for (auto& e : enemyTypes()) tw += e.weight;
+      int np = inPack[0] + inPack[1] + inPack[2]; bool ok = np > 0;
+      for (int k = 0; k < 3 && ok; ++k) ok = std::fabs((float)inPack[k] / np - enemyType(k).weight / tw) < 0.12f;
+      chk(all[1] > 0 && all[2] > 0 && ok && bigPacks > 0 && mixPacks * 2 >= bigPacks, "packs carry the mix: %d zombies, %d brutes, %d stalkers on the side; in packs %d / %d / %d; %d of %d packs of 4+ mix types",
+          all[0], all[1], all[2], inPack[0], inPack[1], inPack[2], mixPacks, bigPacks); }
     chk(G.sold.size() == 200 && k0 > 0 && (k1 > 0 || aiZombieBlows() - blows0 >= 3), "both sides fight: soldiers kill %d, zombies kill %d, %d blows in %.0f s", k0, k1, aiZombieBlows() - blows0, t);
     chk(cb.over150() == 0, "100 v 100 mixed: %s", cb.line(G).c_str());
     if (!cb.stalls.empty()) T->note("stalls:" + cb.stalls);

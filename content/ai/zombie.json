@@ -1,14 +1,6 @@
 {
-  "note": "G2 zombie AI (game balance, not real-world data). Zombies only pursue the closest hostile and strike it in melee: no weapon, no grenades, no cover. speed_mps sits between the jog and the sprint of content/settings/movement.json (W1 cuts all movement speeds by 15 %). The model is content/characters/zombie.glb (RINONO, CC-BY-4.0, docs/credits.md) with its own clips: the blow lands at the attack clip's swing frame played at attack_rate (windup_s is the fallback without clips).",
-  "speed_mps": 4.0,
+  "note": "G2 zombie AI (game balance, not real-world data). Zombies only pursue the closest hostile and strike it in melee: no weapon, no grenades, no cover. EN1: 'types' are the enemy types on the zombie brain and pack code; [0] is the plain zombie (unchanged), AI type 'Zombies + heavies' picks a type per slot by 'weight'. Per type: model (content/characters/<model>.glb, rest pose scaled to height_m; swap it here; its bones carry the game's joint names: Hips, Spine2, Neck, Head, Left/RightArm, ForeArm, Hand, UpLeg, Leg, Foot), fallback_scale / fallback_lean_deg (used on the zombie model and clips when the model or its walk clip is missing), scale (drawn and hit at that size; the physics capsule stays the soldier's), lean_deg (forward tilt), tint, hp, damage per blow, reach_m (the blow lands within it), lunge_m (a strike may start this far out and closes the gap during the wind-up), cooldown_s, attack_rate (the attack clip plays at this rate; the blow lands at its swing frame, windup_s is the fallback without clips), walk_mps / run_mps (run when the target is within run_within_m), weight (share in a horde), hit_zone_scale (hit capsule radii x, on top of the body size scale x height_m / 1.85: the spider is low, so its zones are widened), knockback_mps (shove on the player), stagger_min_damage / stagger_s (only a single hit of at least this flinches it and stops it that long), clips. The zombie's run_mps sits between the jog and the sprint of content/settings/movement.json. The model is content/characters/zombie.glb (RINONO, CC-BY-4.0, docs/credits.md). Brute = content/characters/troll.glb, stalker = content/characters/spider.glb (EN1, converted from the user-supplied FBX with all clips; docs/credits.md).",
   "repath_s": 0.5,
-  "reach_m": 1.6,
-  "damage": 35,
-  "cooldown_s": 0.9,
-  "windup_s": 0.25,
-  "model": "zombie",
-  "height_m": 1.85,
-  "attack_rate": 1.4,
   "flinch_s": 0.6,
   "pack": {
     "note": "PF1 hordes: with more than min_zombies alive, zombies run in packs of up to `size`. Only the leader picks a target and requests paths; followers slide along the navmesh to a wedge slot slot_spacing_m apart behind it (separation within separation_m, alignment to the leader's velocity), catch up at catch_up x speed while the leader keeps leader_pace, break off to strike any hostile within break_off_m, and path on their own beyond lost_m. A packless zombie joins the nearest pack leader within join_m.",
@@ -33,5 +25,145 @@
     "anim_hz_near": 15,
     "anim_hz_far": 7.5,
     "share_pose_m": 60
-  }
+  },
+  "types": [
+    {
+      "id": "zombie",
+      "name": "Zombie",
+      "model": "zombie",
+      "height_m": 1.85,
+      "scale": 1.0,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 100,
+      "damage": 35,
+      "reach_m": 1.6,
+      "lunge_m": 0,
+      "cooldown_s": 0.9,
+      "windup_s": 0.25,
+      "attack_rate": 1.4,
+      "walk_mps": 4.0,
+      "run_mps": 4.0,
+      "run_within_m": 1000,
+      "weight": 8,
+      "hit_zone_scale": 1.0,
+      "knockback_mps": 0,
+      "stagger_min_damage": 0,
+      "stagger_s": 0,
+      "clips": {
+        "walk": [
+          "walk01",
+          "walk02"
+        ],
+        "run": "run",
+        "idle": [
+          "idle01",
+          "idle02"
+        ],
+        "attack": [
+          "attack01",
+          "attack02"
+        ],
+        "damage": "damage",
+        "death": "death"
+      },
+      "fallback_scale": 1.0,
+      "fallback_lean_deg": 0
+    },
+    {
+      "id": "brute",
+      "name": "Brute",
+      "model": "troll",
+      "height_m": 2.96,
+      "scale": 1.0,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 1000,
+      "damage": 90,
+      "reach_m": 2.4,
+      "lunge_m": 0,
+      "cooldown_s": 1.6,
+      "windup_s": 0.9,
+      "attack_rate": 1.0,
+      "walk_mps": 2.0,
+      "run_mps": 3.4,
+      "run_within_m": 15,
+      "weight": 1,
+      "hit_zone_scale": 1.0,
+      "knockback_mps": 4.0,
+      "stagger_min_damage": 200,
+      "stagger_s": 0.8,
+      "clips": {
+        "walk": [
+          "Troll_WalkForward"
+        ],
+        "run": "Troll_RunForward",
+        "idle": [
+          "Troll_Idle",
+          "Troll_IdlePatrol_Random01"
+        ],
+        "attack": [
+          "Troll_AttackPowerOverHead",
+          "Troll_AttackForeHand_Damage"
+        ],
+        "damage": "Troll_StaggerBack",
+        "death": "Troll_DeathRight"
+      },
+      "fallback_scale": 1.6
+    },
+    {
+      "id": "stalker",
+      "name": "Stalker",
+      "model": "spider",
+      "height_m": 0.9,
+      "scale": 1.0,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 400,
+      "damage": 55,
+      "reach_m": 1.8,
+      "lunge_m": 3.0,
+      "cooldown_s": 0.8,
+      "windup_s": 0.3,
+      "attack_rate": 1.2,
+      "walk_mps": 5.2,
+      "run_mps": 5.2,
+      "run_within_m": 1000,
+      "weight": 2,
+      "hit_zone_scale": 3.5,
+      "knockback_mps": 0,
+      "stagger_min_damage": 0,
+      "stagger_s": 0,
+      "clips": {
+        "walk": [
+          "Spider_WalkFoward"
+        ],
+        "run": "Spider_RunFoward",
+        "idle": [
+          "Spider_CombatIdle",
+          "Spider_PatrolIdle"
+        ],
+        "attack": [
+          "Spider_Critter_BiteAttack",
+          "Spider_Quick_Attack"
+        ],
+        "damage": "Spider_RecoilLeft",
+        "death": "Spider_DeathLeft"
+      },
+      "fallback_scale": 1.15,
+      "fallback_lean_deg": 18
+    }
+  ]
 }
