@@ -66,7 +66,7 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       {"m1_garand", {1, 1, 2, 2}, {2, 3}, false}, {"g43", {1, 1, 2, 2}, {2, 3}, true}, {"m1_carbine", {2, 2, 3, 3}, {4, 5}, false},
       {"m1918a2_bar", {2, 2, 3, 3}, {4, 4}, false}, {"stg44", {2, 2, 2, 3}, {4, 4}, false}, {"m1_thompson", {4, 5, 5, 5}, {7, 8}, false},
       {"m3_grease_gun", {3, 4, 4, 4}, {5, 7}, false}, {"mp40", {3, 5, 5, 5}, {5, 8}, false}, {"mg42", {3, 3, 3, 3}, {4, 4}, false},
-      {"m1919a6", {2, 2, 3, 3}, {4, 4}, true}, {"m1911a1", {3, 5, 5, 5}, {5, 8}, true}, {"walther_p38", {3, 5, 5, 5}, {5, 9}, true},
+      {"m1919a6", {2, 2, 3, 3}, {4, 4}, true}, {"m1911a1", {3, 5, 5, 5}, {5, 8}, false}, {"walther_p38", {3, 5, 5, 5}, {5, 9}, true}, {"luger", {3, 5, 5, 5}, {5, 9}, false},
       // repo weapons outside the SPEC table, documented in damage.json: the band they slot into
       {"m1c_garand", {1, 1, 2, 2}, {2, 3}, false}, {"fg42", {3, 3, 3, 3}, {4, 4}, false}, {"m2hb_carry", {1, 1, 1, 2}, {2, 2}, false},
     };
