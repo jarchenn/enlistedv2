@@ -46,7 +46,7 @@ const ZombieCfg& zcfg() {
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
         t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
-        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 25.0f);   // the fighters are drawn at 20 t.lean = e.value("lean_deg", t.lean);
+        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 25.0f); t.lean = e.value("lean_deg", t.lean);   // the fighters are drawn at 20
         t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 25.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
         t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
