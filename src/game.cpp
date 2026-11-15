@@ -126,7 +126,8 @@ bool Game::begin(std::string& err) {
     s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Heavies ? enemyTypeHeavyPick((uint32_t)rs.id, match.rules.heavyTrollPct[side] / 100.0f)   // EN3
-            : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter")) : 0;
+            : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter"))
+            : ait == AiType::Fighters2 ? std::max(0, enemyTypeIndex("fighter2")) : 0;
     s.evariant = kindSeen[(int)ait]++;
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
