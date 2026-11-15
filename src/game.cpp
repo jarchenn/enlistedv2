@@ -448,7 +448,7 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
 }
 
 bool Game::shellSegment(const Projectile& p, vec3 a, vec3 seg, float len, float& tHit) {
-  if (!active || isClient || p.kind != PROJ_HE || len <= 1e-5f) return false;
+  if (!active || isClient || (p.kind != PROJ_HE && p.kind != PROJ_ROCKET) || len <= 1e-5f) return false;
   vec3 d = seg / len;
   int shooter = soldierOfOwner(p.owner), best = -1; float bt = tHit;
   for (size_t i = 0; i < sold.size(); ++i) {

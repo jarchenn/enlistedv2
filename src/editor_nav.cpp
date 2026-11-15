@@ -651,9 +651,13 @@ static void newMapDialog(App& app) {
   // UI1: no template menu: "Blank map" plus four empty slots (future starting maps); the authored maps open from File -> Open
   ImGui::BeginChild("templates", ImVec2(0, 5 * ImGui::GetFrameHeightWithSpacing() + 8), true);
   // NoAutoClosePopups: a Selectable inside a popup closes it by default; double-click creates the map at once
-  if (ImGui::Selectable("Blank map", true, ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_AllowDoubleClick) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) createNow = true;
+  int blankIdx = -1, testIdx = -1;
+  for (int k = 0; k < (int)app.templates.size(); ++k) { if (app.templates[k].id == "blank_slate") blankIdx = k; if (app.templates[k].id == "test_20") testIdx = k; }
+  const ImGuiSelectableFlags sf = ImGuiSelectableFlags_NoAutoClosePopups | ImGuiSelectableFlags_AllowDoubleClick;
+  if (ImGui::Selectable("Blank map", app.newTemplateIdx != testIdx, sf)) { app.newTemplateIdx = blankIdx; if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) createNow = true; }
+  if (testIdx >= 0 && ImGui::Selectable("Test 20 x 20", app.newTemplateIdx == testIdx, sf)) { app.newTemplateIdx = testIdx; if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) createNow = true; }
   ImGui::BeginDisabled();
-  for (int k = 0; k < 4; ++k) { ImGui::PushID(k); ImGui::Selectable("(empty)", false); ImGui::PopID(); }
+  for (int k = 0; k < (testIdx >= 0 ? 3 : 4); ++k) { ImGui::PushID(k); ImGui::Selectable("(empty)", false); ImGui::PopID(); }
   ImGui::EndDisabled();
   ImGui::EndChild();
   ImGui::Separator();

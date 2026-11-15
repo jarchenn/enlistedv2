@@ -18,6 +18,7 @@ struct EnemyType {
   float weight = 1, zoneScale = 1;                        // share in a horde; hit-capsule radii x (on top of scale)
   float knock = 0;                                        // m/s shove on the player hit
   float staggerMin = 0, staggerS = 0;                     // a single hit of at least staggerMin flinches it (and stops it staggerS)
+  float kickCrater = 0;                                   // each strike digs a crater of this scale where the blow lands (the Fighter)
   bool blastOnly = false;                                 // only blast damage hurts it (the Fighter)
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)
   float capsuleH = 0, capsuleR = 0;                       // EN2: physics capsule height / radius (0: the soldier's)

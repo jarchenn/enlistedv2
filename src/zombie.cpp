@@ -52,7 +52,7 @@ const ZombieCfg& zcfg() {
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
         t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin);
         t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 4.0f);
-        t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly);
+        t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly); t.kickCrater = std::clamp(e.value("kick_crater", t.kickCrater), 0.0f, 3.0f);
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
@@ -350,6 +350,10 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     s.meleeWind += dt;
     if (s.meleeWind >= wu) {
       float hp0 = best ? best->hp : 0;
+      if (e.kickCrater > 0 && best) {   // shortcut: host / single player only, the crater is not sent to LAN clients or the navmesh
+        vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d);
+        G.app.deformGround(s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0)), e.kickCrater);   // repeated blows on one spot dig deeper
+      }
       if (best && inReach(G, s, *best, e.reach + 0.2f) && G.meleeHit(s.slot, best->slot, e.damage)) {
         ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - best->hp});
         if (gBlowLog.size() > 4096) gBlowLog.erase(gBlowLog.begin(), gBlowLog.begin() + 2048);

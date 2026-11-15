@@ -281,7 +281,7 @@ void App::stepProjectiles(float dt) {
       {   // GM3: a shell striking a soldier bursts on him (the direct hit kills; the blast below is the sphere round it)
         extern bool mpaiShellHit(App&, const Projectile&, vec3, float, float&);
         float ts = impact ? hit.t : len;
-        if (p.kind == PROJ_HE && mpaiShellHit(*this, p, seg, len, ts)) { impact = true; hit.t = ts; hit.pos = p.p + seg / len * ts; hit.normal = -seg / len; hit.ud = 0; }
+        if ((p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && mpaiShellHit(*this, p, seg, len, ts)) { impact = true; hit.t = ts; hit.pos = p.p + seg / len * ts; hit.normal = -seg / len; hit.ud = 0; }
       }
       if (mpaiProjectile(*this, p, seg, len, impact ? hit.t : len)) { projectiles.erase(projectiles.begin() + k); continue; }   // hit a soldier
       vec3 end = impact ? hit.pos : p.p + seg;
