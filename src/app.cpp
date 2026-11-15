@@ -796,6 +796,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : q == "ultra" ? GrassQuality::Ultra : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;
     else if (a == "--shots-backrooms") runSelf = true;
+    else if (a == "--shots-poses") runSelf = true;   // AN1 (selftest_br3.cpp)
     else if (a == "--shots-palette") runSelf = true;   // BR5 (selftest_br3.cpp)   // BR3 (selftest_br3.cpp)
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
@@ -971,8 +972,8 @@ int App::run(int argc, char** argv) {
       builderGhosts(ghosts);
       crumb("view weapons");
       for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
-      if (!tanks.occupied) weaponDrawItems(op);
-      else { R.viewModel.clear(); R.viewModelTex.clear(); }   // VH1: in a vehicle no viewmodel (the lists would keep the last frame's arms / weapon)
+      if (!tanks.occupied && !shotsNoViewModel) weaponDrawItems(op);
+      else { R.viewModel.clear(); R.viewModelTex.clear(); }   // VH1: in a vehicle (AN1: or pose shots) no viewmodel (the lists would keep the last frame's arms / weapon)
     }
     crumb("view camera");
     int ww, wh; glfwGetWindowSize(win, &ww, &wh);
