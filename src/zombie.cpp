@@ -395,7 +395,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
           float an = k * 0.2244f, rr = k % 4 == 3 ? R * 0.35f : R; vec3 dirv(std::cos(an), 0, std::sin(an)); vec3 pp = at + dirv * rr; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
           G.app.fx.smoke(pp, dirv * (R * 0.25f) + vec3(0, 0.6f + 0.05f * R, 0), std::max(1.5f, R * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
         }
-        for (auto& o : G.sold) { if (!o.alive || &o == &s || !Game::hostile(s, o)) continue; float r = glm::length(o.feet - at); if (r < R) { vec3 dir = o.feet - at; dir.y = 0.3f; G.damage(o.slot, e.damage * (1.0f - r / R), s.slot, glm::normalize(dir), "melee"); if (!o.alive) o.flat = true;   // shortcut: host / single player only } }
+        for (auto& o : G.sold) { if (!o.alive || &o == &s || !Game::hostile(s, o)) continue; float r = glm::length(o.feet - at); if (r < R) { vec3 dir = o.feet - at; dir.y = 0.3f; G.damage(o.slot, e.damage * (1.0f - r / R), s.slot, glm::normalize(dir), "melee"); if (!o.alive) o.flat = true; } }   // flat: host / single player only
         if (hp0 > best->hp) { ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - best->hp}); }
       } else if (best && inReach(G, s, *best, e.reach + 0.2f) && G.meleeHit(s.slot, best->slot, e.damage)) {
         ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - best->hp});
