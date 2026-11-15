@@ -17,7 +17,7 @@
 #include "br_models.h"
 #include "royale.h"
 #include "loot.h"   // BR2 Battle Royale loot
-void netInterpolate(Game& g, double t);
+void netInterpolate(Game& g, double t, float dt);
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -681,7 +681,7 @@ void Game::clientStep(float dt) {
   // mirror only: the host owns spawning, damage, AI, grenades and capture
   ++steps;
   burnStep(dt);   // FT1: the look of the soldiers the host set alight
-  netInterpolate(*this, t);
+  netInterpolate(*this, t, dt);
   if (Soldier* L = local(); L && L->alive) {
     auto c = Physics::character();
     L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->weapon = app.activeWeapon; L->swim = app.swim.active;
@@ -768,16 +768,24 @@ void Game::posesStep(float dt) {
       else s.anDir = glm::normalize(glm::mix(s.anDir, vec3(0, 0, 1), k));
       pp.moveDir = s.anDir;
       bool moving = v > 0.5f;
-      bool engaged = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0;
+      bool engaged = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0
+                  || (isClient && s.netEngaged);   // AN1b: a LAN client has no brains: the host's "has a target" bit (net.cpp)
       s.anKneel += ((s.posture == Physics::CROUCH && !moving ? 1.0f : 0.0f) - s.anKneel) * k;
       s.anCarry += ((moving && !engaged ? 1.0f : 0.0f) - s.anCarry) * k;
       s.anMoveAim += ((moving && engaged ? 1.0f : 0.0f) - s.anMoveAim) * k;
       s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
-      if (s.anKneel > 0.01f) {   // the knee and the front foot on the ground under them (terrain only; floors are left flat)
-        auto gnd = [&](vec3 mp) { vec3 w = s.feet + bodyQ * mp; float g = app.terrain.height(w.x, w.z) - s.feet.y; return std::fabs(g) < 0.3f ? g : 0.0f; };
-        pp.gndL = gnd(vec3(0.15f, 0, 0.42f)); pp.gndR = gnd(vec3(-0.1f, 0, -0.03f));
+      {   // AN1b: the terrain's gradient under the feet (model space) for the stepping feet and the kneel; floors and bridges stay flat
+        const float r = 0.4f; vec3 f = s.feet; float h0 = app.terrain.height(f.x, f.z);
+        vec2 g(0);
+        if (std::fabs(h0 - f.y) < 0.15f && s.alive) {
+          g = vec2(app.terrain.height(f.x + r, f.z) - app.terrain.height(f.x - r, f.z), app.terrain.height(f.x, f.z + r) - app.terrain.height(f.x, f.z - r)) / (2 * r);
+          if (float gl = glm::length(g); gl > 0.7f) g *= 0.7f / gl;
+        }
+        vec3 gm = glm::inverse(bodyQ) * vec3(g.x, 0, g.y);
+        s.anSlope += (vec2(gm.x, gm.z) - s.anSlope) * k;
+        pp.slope = s.anSlope;
       }
     }
     pp.walkPhase = s.walkPhase;
