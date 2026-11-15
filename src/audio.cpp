@@ -301,6 +301,7 @@ int Audio::loadCustom(const fs::path& dir) {
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s));
     for (const char* id : g.ids) { p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far"); }
   }
+  for (const char* id : {"shot_kar98k", "shot_kar98k_zf39"}) if (auto it = p->events.find(id); it != p->events.end()) it->second.gain = 1.5f;   // louder (user request)
   // launchers, cannon and explosions: whole recordings from their first loud moment (up to 6 s), far layers dropped
   struct FxSet { const char* file; std::vector<const char*> events; };
   const FxSet fxs[] = {
