@@ -53,11 +53,11 @@ function ntMats(A) {
   A.mat("stainless", [0.70, 0.70, 0.70], 0.25, "metal", { texture: "steel_scratched", metallic: 1.0 });
   A.mat("hvac", [0.66, 0.66, 0.64], 0.5, "metal", { metallic: 0.2 });
   A.mat("grille", [0.28, 0.28, 0.28], 0.5, "metal", { texture: "steel_scratched", metallic: 0.6 });
-  A.mat("membrane", [0.12, 0.12, 0.12], 0.9, "concrete", { texture: "concrete_rough" });
+  A.mat("membrane", [0.12, 0.12, 0.12], 0.9, "concrete", { texture: "asphalt_dark" });
   A.mat("gravel_roof", [0.42, 0.41, 0.39], 0.95, "stone", { texture: "gravel_fine" });
   A.mat("concrete_m", [0.55, 0.54, 0.52], 0.88, "concrete", { texture: "concrete_formwork" });
   A.mat("paving", [0.47, 0.46, 0.44], 0.9, "stone", { texture: "paving_worn" });
-  A.mat("asphalt", [0.11, 0.11, 0.11], 0.92, "concrete", { texture: "concrete_aggregate" });
+  A.mat("asphalt", [0.11, 0.11, 0.11], 0.92, "concrete", { texture: "asphalt_plain" });
   A.mat("deck", [0.40, 0.28, 0.17], 0.75, "wood", { texture: "planks_038", grain: 0 });
   A.mat("glass_rail", [0.70, 0.80, 0.80], 0.05, "glass");
   A.mat("glass_dark", [0.04, 0.05, 0.06], 0.1, "glass");
