@@ -783,14 +783,16 @@ bool App::writeModelPreview(const fs::path& glb, const fs::path& outDir, const f
 
 // G4: one white silhouette per weapon for the carried list: an orthographic side view (muzzle to the right) of the
 // model (or its procedural parts), the background keyed out to alpha. Cached as PNG beside the exe
-// (cache/weapon_silhouettes/<id>.png, delete to rebuild) and uploaded once at start.
+// (cache/weapon_silhouettes/<id>[_m<parts>_<bounds>].png, delete to rebuild) and uploaded once at start.
 void App::makeWeaponSilhouettes() {
   const int W = 512, H = 128;
   fs::path dir = exeDir() / "cache" / "weapon_silhouettes";
   std::error_code ec; fs::create_directories(dir, ec);
   for (auto& dp : weaponDefs) {
     const WeaponDef& d = *dp;
-    fs::path p = dir / (d.id + ".png");
+    std::string key = d.id;   // MG10: an imported model's part count and bounds in the name, so a re-baked model draws a fresh icon
+    if (d.useModel()) { char b[96]; std::snprintf(b, sizeof b, "_m%zu_%.3f_%.3f_%.3f", d.model->parts.size(), d.model->bmax.x, d.model->bmax.y, d.model->bmax.z); key += b; }
+    fs::path p = dir / (key + ".png");
     std::vector<uint8_t> px;
     int w = 0, h = 0, ch = 0;
     if (stbi_uc* img = stbi_load(p.string().c_str(), &w, &h, &ch, 4)) {

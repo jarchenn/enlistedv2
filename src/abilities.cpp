@@ -1,6 +1,7 @@
 // GM2 abilities (abilities.h, docs/abilities.md): explosion pack, artillery, suppression vignette
 #include "abilities.h"
 #include "app.h"
+#include "assets.h"
 #include "game.h"
 #include "minimap.h"
 #include "mpai.h"
@@ -211,6 +212,17 @@ void gm2DrawItems(App& app, std::vector<DrawItem>& op) {
     const WeaponDef& d = *app.weaponDefs[p.def];
     vec3 y = p.nrm, x = glm::normalize(glm::abs(y.y) < 0.9f ? glm::cross(vec3(0, 1, 0), y) : glm::cross(vec3(1, 0, 0), y)), z = glm::cross(x, y);
     mat4 M(vec4(x, 0), vec4(y, 0), vec4(z, 0), vec4(p.pos, 1));
+    if (d.useModel()) {   // MG10: the supplied charge (its base on the surface); without the local bake, the part-built box
+      for (size_t k = 0; k < d.model->parts.size(); ++k) app.R.worldModels.push_back({d.model.get(), (int)k, M});
+      if (d.pack.hasLed) {   // blinking faster as the fuse runs down: 1 Hz, then 4 Hz in the last 3 s
+        static GpuMesh led;
+        if (!led.vao) { Material m{"pack_led"}; m.albedo = vec3(1, 0.05f, 0.03f); m.emissive = vec3(60, 2, 1);
+          Part q; q.shape = Part::CYL; q.size = vec3(0.007f, 0.004f, 0.007f); q.collide = false; q.seg = 12; MeshData md; appendPart(md, q, m, mat4(1)); led.upload(md); }
+        float hz = p.fuse < 3 ? 4.0f : 1.0f, ph = std::fmod((d.pack.fuse - p.fuse) * hz, 1.0f);
+        if (ph < 0.3f) op.push_back({&led, M * glm::translate(mat4(1), d.pack.led)});
+      }
+      continue;
+    }
     for (int k = 0; k < 8; ++k) if (d.mesh[k].count) op.push_back({&d.mesh[k], M});
   }
 }
