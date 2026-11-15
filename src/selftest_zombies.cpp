@@ -423,7 +423,8 @@ void buildCapture(App&) {
 
 // --capture-fighter2: no checks, a look at the grounding (zombie.cpp aiZombieFeet). On Chateau town Fighter 2 (her local
 // model) stands 60-70 m in front of the player and a soldier 35 m to her side, so she walks across the view; the player is a
-// camera at ground level aimed at her feet. Twelve frames through her stride (selftest_out/fighter2_walk_NN.png).
+// camera at ground level aimed at her feet. Twelve frames through her stride (selftest_out/fighter2_walk_NN.png), then
+// eight through her body drop (fighter2_drop_NN.png) when she does one.
 void buildFighterCapture(App&) {
   push("fighter2", [](App& a, float t) {
     static int fz, sol, shots; static double t0, next;
@@ -467,7 +468,17 @@ void buildFighterCapture(App&) {
       std::snprintf(line, sizeof line, "%s clip %s speed %.1f sole L %.2f m R %.2f m | L at %.1f %.1f R at %.1f %.1f", nm, z.anim.a >= 0 ? m.clips[z.anim.a].name.c_str() : "-", z.speed, sole[0], sole[1], fl.x, fl.z, fr.x, fr.z);
       pendingShot = outDir() / nm; T->note(line);
     }
-    return (shots >= 12 && pendingShot.empty()) || G.t - t0 > 30; });
+    // then the body drop: eight frames through it once it plays (it is chosen when the target stands where the torso lands)
+    static int dshots; static double dnext; if (shots < 12) { dshots = 0; dnext = 0; }
+    const CharModel& mm = *G.models[z.model];
+    bool dropping = z.anim.a >= 0 && mm.clips[z.anim.a].name == "body_drop";
+    if (shots >= 12 && dropping && pendingShot.empty() && dshots < 8 && G.t >= dnext) {
+      int k = findClip(mm, "body_drop"); vec3 c = mm.clips[k].swingChest; char nm[64], line[200];
+      std::snprintf(nm, sizeof nm, "fighter2_drop_%02d.png", dshots++); dnext = G.t + 0.4;
+      std::snprintf(line, sizeof line, "%s t %.2f of %.2f s, chest lands %.1f m ahead, target %.1f m", nm, z.anim.time, mm.clips[k].dur, glm::length(vec2(c.x, c.z)) * z.eScale, sol >= 0 ? dXZ(G.sold[sol].feet, z.feet) : -1.0f);
+      pendingShot = outDir() / nm; T->note(line);
+    }
+    return (shots >= 12 && dshots >= 8 && pendingShot.empty()) || G.t - t0 > 70; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 

@@ -311,6 +311,7 @@ void aiZombieFeet(Game& G, Soldier& s) {
   const EnemyType& e = typeOf(s);
   if (e.id.rfind("fighter", 0) != 0) return;
   const CharModel& m = *G.models[s.model];
+  if (s.anim.a >= 0 && s.anim.a < (int)m.clips.size() && m.clips[s.anim.a].name.find("drop") != std::string::npos) return;   // on hands and knees: the clip grounds itself
   const int J[2][2] = {{CJ_LFOOT, CJ_LTOE}, {CJ_RFOOT, CJ_RTOE}};
   float gap[2] = {1e9f, 1e9f}; vec3 at[2]{vec3(0), vec3(0)};
   for (int f = 0; f < 2; ++f)
@@ -404,19 +405,27 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
   // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes
-  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && inReach(G, s, *best, std::max(e.reach, e.lunge))) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f);   /* one of three, picked at random */ s.meleeWind = 0; int n = (int)clipsOf(s).attackClips.size(); s.meleeClip = std::min(n - 1, (int)(G.rnd(s) * n)); ++s.meleeCount; }   // EN2: any of the type's attacks
+  // a body drop ("drop" in the clip name) lands where the torso comes down, its own distance ahead (the clip's swing
+  // chest x the draw scale): it is chosen when the target stands about that far; the other attacks within reach
+  const auto& ac = clipsOf(s).attackClips; int di = -1; float dropR = 0;
+  for (int i = 0; i < (int)ac.size(); ++i) if (ac[i].find("drop") != std::string::npos) { int k = findClip(*G.models[s.model], ac[i]); if (k >= 0) { di = i; vec3 c = G.models[s.model]->clips[k].swingChest; dropR = std::max(1.0f, glm::length(vec2(c.x, c.z)) * s.eScale); } }
+  const bool inR = best && inReach(G, s, *best, std::max(e.reach, e.lunge)), dropOk = best && di >= 0 && std::fabs(zLenXZ(best->feet - s.feet) - dropR) < 0.35f * dropR && inReach(G, s, *best, 1.35f * dropR);
+  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f);   /* one of three, picked at random */
+    s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
+    if (dropOk && (!inR || n <= 0 || G.rnd(s) < 0.5f)) s.meleeClip = di;
+    else { int pick = std::min(n - 1, (int)(G.rnd(s) * n)); s.meleeClip = di >= 0 && pick >= di ? pick + 1 : pick; }
+    ++s.meleeCount; }
   if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
     if (best && e.lunge > e.reach) { float gap = zLenXZ(best->feet - s.feet) - 0.8f * e.reach; if (gap > 0) { m.zSpeed = std::max(m.zSpeed, gap / std::max(0.1f, wu - s.meleeWind)); m.speed = SPD_ZOMBIE; } }
     s.meleeWind += dt;
     if (s.meleeWind >= wu) {
       float hp0 = best ? best->hp : 0;
-      if (e.kickCrater > 0 && best) {   // shortcut: host / single player only, the crater is not sent to LAN clients or the navmesh
-        vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d);
-        G.app.deformGround(s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0)), e.kickCrater);   // repeated blows on one spot dig deeper
-      }
+      vec3 at = s.feet;   // where the blow lands: toward the target within reach, or under the torso for a body drop
+      if (best) { vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d); at = s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0)); }
+      if (s.meleeClip == di) { vec3 c = vec3(s.world * vec4(s.pose.joint[CJ_SPINE2], 1)); at = vec3(c.x, G.app.terrain.height(c.x, c.z), c.z); }
+      if (e.kickCrater > 0 && best) G.app.deformGround(at, e.kickCrater);   // repeated blows on one spot dig deeper. shortcut: host / single player only, the crater is not sent to LAN clients or the navmesh
       if (e.stompArea > 0 && best) {   // area blow: everyone hostile round the landing point, full damage at the centre falling to none at the edge
-        vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d); vec3 at = s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0));
         float R = e.stompArea * e.height * e.scale;
         G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
         for (int k = 0; k < 28; ++k) {   // dust thrown out from the blow: a ring at the edge of the damage radius and a core
