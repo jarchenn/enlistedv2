@@ -345,7 +345,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         if (!Physics::shapeFitsAt(Physics::STAND, feet, false)) continue;                                       // never inside geometry
         if (nav.valid() && nav.nearest(feet, 1.5f) < 0) continue;                                              // navigable access
         // success
-        s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
+        s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
         s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
         ++s.lifeId;
         rulesOnSpawn(*this, s);   // W1: spawn protection starts (SPEC 2.2)
@@ -760,6 +760,10 @@ void Game::posesStep(float dt) {
     if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
       if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
       if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale)); }
+    if (s.flat && !s.alive) {   // squashed: the whole body pressed into a thin, slightly spread layer on the ground, within 0.12 s
+      float k = std::min(1.0f, (float)(t - s.diedAt) / 0.12f);
+      s.world = glm::translate(mat4(1), s.feet) * glm::scale(mat4(1), vec3(1.0f + 0.25f * k, 1.0f - 0.96f * k, 1.0f + 0.25f * k)) * glm::translate(mat4(1), -s.feet) * s.world;
+    }
   }
 }
 
