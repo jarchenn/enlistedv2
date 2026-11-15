@@ -439,6 +439,9 @@ void build(App&) {
     if (t > 8.5f && t < 8.55f) a.uiShot = outDir() / "br9_floor.png";
     if (t < 9) return false;
     a.grass.quality = GrassQuality::Medium;
+    if (std::getenv("NMK_BR10_RAILFIT")) { lootRailFit(a, outDir() / "br10_rail_fit.json"); return true; }   // the rail calibration only
+    if (t < 10) { lootAttachSheetUi(a); if (t > 9.6f && t < 9.65f) a.uiShot = outDir() / "br10_attach_sheet.png"; return false; }   // BR10: every gun with its attachments
+    if (t < 11) { lootAttachSheetUi(a, true); if (t > 10.6f && t < 10.65f) a.uiShot = outDir() / "br10_attach_zoom.png"; return false; }   // and close on the optic
     return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }

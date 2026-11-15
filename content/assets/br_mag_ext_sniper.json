@@ -4,7 +4,7 @@
  "name": "Extended magazine (sniper)",
  "category": "Battle Royale",
  "hidden": true,
- "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "description": "BR3 Battle Royale item. Part-built stand-in (tools/br_standins.py); the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
  "floors": 0,
  "enterable": false,
  "footprint": [
@@ -19,15 +19,27 @@
  "panels": [],
  "materials": [
   {
-   "name": "br_standin",
+   "name": "black",
    "albedo": [
-    0.1,
-    0.1,
-    0.1
+    0.025,
+    0.025,
+    0.028
    ],
-   "roughness": 0.7,
+   "roughness": 0.6,
    "pattern": "plain",
-   "metallic": 0,
+   "metallic": 0.3,
+   "grain": 1
+  },
+  {
+   "name": "steel",
+   "albedo": [
+    0.07,
+    0.07,
+    0.075
+   ],
+   "roughness": 0.45,
+   "pattern": "plain",
+   "metallic": 0.8,
    "grain": 1
   }
  ],
@@ -37,14 +49,89 @@
    "c": [
     0,
     0.0319,
-    0
+    -0.0733
    ],
    "s": [
-    0.064,
-    0.0638,
-    0.22
+    0.0269,
+    0.0561,
+    0.0748
    ],
-   "m": "br_standin",
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0279,
+    0.0
+   ],
+   "s": [
+    0.0269,
+    0.0561,
+    0.0748
+   ],
+   "r": [
+    -4,
+    0,
+    0
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0239,
+    0.0733
+   ],
+   "s": [
+    0.0269,
+    0.0561,
+    0.0748
+   ],
+   "r": [
+    -8,
+    0,
+    0
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0319,
+    0.1056
+   ],
+   "s": [
+    0.032,
+    0.0638,
+    0.011
+   ],
+   "m": "steel",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0319,
+    -0.1034
+   ],
+   "s": [
+    0.0192,
+    0.0383,
+    0.0132
+   ],
+   "m": "steel",
    "k": 0
   }
  ],
@@ -58,5 +145,11 @@
  },
  "nav": {
   "effect": "none"
- }
+ },
+ "standinParts": true,
+ "standinSize": [
+  0.064,
+  0.0638,
+  0.22
+ ]
 }

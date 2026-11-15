@@ -1,0 +1,114 @@
+{
+ "id": "br_bandage",
+ "version": 1,
+ "name": "Bandage",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR10 Battle Royale item, part-built (tools/br_standins.py); no supplied model.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.09,
+  0.09
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "cloth",
+   "albedo": [
+    0.82,
+    0.78,
+    0.68
+   ],
+   "roughness": 0.95,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  },
+  {
+   "name": "black",
+   "albedo": [
+    0.025,
+    0.025,
+    0.028
+   ],
+   "roughness": 0.6,
+   "pattern": "plain",
+   "metallic": 0.3,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "c",
+   "c": [
+    0,
+    0.045,
+    0
+   ],
+   "s": [
+    0.09,
+    0.09,
+    0.09
+   ],
+   "r": [
+    0,
+    0,
+    90
+   ],
+   "n": 20,
+   "m": "cloth",
+   "k": 0
+  },
+  {
+   "t": "c",
+   "c": [
+    0,
+    0.045,
+    0
+   ],
+   "s": [
+    0.0315,
+    0.09179999999999999,
+    0.0315
+   ],
+   "r": [
+    0,
+    0,
+    90
+   ],
+   "n": 12,
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0018,
+    0.0315
+   ],
+   "s": [
+    0.081,
+    0.003,
+    0.036
+   ],
+   "m": "cloth",
+   "k": 0
+  }
+ ],
+ "nav": {
+  "effect": "none"
+ },
+ "standinParts": true,
+ "standinSize": [
+  0.09,
+  0.09,
+  0.09
+ ]
+}

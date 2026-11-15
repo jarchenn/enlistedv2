@@ -184,6 +184,11 @@ def write_asset(idn, name, kind, size, extra=None):
          'nav': {'effect': 'none'}}
     if extra: a.update(extra)
     p = os.path.join(CONTENT, 'assets', idn + '.json')
+    try:   # BR10: keep the part-built stand-in (tools/br_standins.py) and per-item draw tweaks
+        old = json.load(open(p))
+        for k in ('parts', 'materials', 'standinParts', 'standinSize', 'description', 'attachScale'):
+            if old.get('standinParts') and k in old: a[k] = old[k]
+    except (OSError, ValueError): pass
     with open(p, 'w', newline='\n') as f: json.dump(a, f, indent=1)
     print('asset', p)
 

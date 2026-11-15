@@ -4,11 +4,15 @@
 #include "game.h"
 #include "damage_model.h"
 #include "physics.h"
+#include "br_models.h"   // BR10 sheet: the optic (brSightDraws / brSightLine)
+#include "render.h"
+#include "model.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <fstream>
 #include <random>
 #include <algorithm>
+#include <glm/gtx/quaternion.hpp>   // glm::rotation (attachments on the bore)
 
 // ---------------------------------------------------------------- data (content/settings/loot.json)
 namespace {
@@ -123,7 +127,7 @@ bool lootAttachFits(const WeaponDef& d, const ItemDef& it) {
     case ItemKind::Sight: return lootSightFits(d, it.value);
     case ItemKind::Mag: return d.feed == "magazine";
     case ItemKind::Muzzle: return !isShotgun(d);
-    case ItemKind::Stock: return d.wclass == WC_RIFLE || d.wclass == WC_SNIPER;   // recoil pad: rifles and snipers
+    case ItemKind::Stock: return (d.wclass == WC_RIFLE || d.wclass == WC_SNIPER) && !lootIsPistol(d);   // recoil pad: rifles and snipers (pistols count as rifles by class)
     default: return false;
   }
 }
@@ -707,6 +711,153 @@ bool lootScope(const App& app, float& mag, int& reticle) {
   }
 }
 
+// ---------------------------------------------------------------- attachments on the gun (BR10)
+static void addAssetDraw(const AssetDef& a, const mat4& M, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes) {
+  if (a.model) for (int i = 0; i < (int)a.model->parts.size(); ++i) {
+    const ModelPart& p = a.model->parts[i];   // an untextured light-grey bake part reads as white plastic: gunmetal instead
+    vec4 tint = !p.textured && p.base.r > 0.5f && p.base.g > 0.5f && p.base.b > 0.5f ? vec4(0.22f, 0.22f, 0.23f, 1) : vec4(1);
+    md.push_back({a.model.get(), i, M, tint});
+  }
+  else if (a.opaque.count) boxes.push_back({&a.opaque, M});
+}
+static void assetBounds(const AssetDef& a, vec3& lo, vec3& hi) { if (a.model) { lo = a.model->bmin; hi = a.model->bmax; } else { lo = a.opaque.bmin; hi = a.opaque.bmax; } }
+// the gun's bounds, or one role's (WP_MAG = 2), in weapon space; false: none
+static bool gunBounds(const WeaponDef& d, int role, vec3& lo, vec3& hi) {
+  lo = vec3(1e9f); hi = vec3(-1e9f);
+  if (d.useModel()) {
+    for (int r = 0; r < 8; ++r) if (role < 0 || r == role) for (int k : d.modelParts[r]) { lo = glm::min(lo, d.model->parts[k].bmin); hi = glm::max(hi, d.model->parts[k].bmax); }
+  } else for (int r = 0; r < 8; ++r) if ((role < 0 || r == role) && d.mesh[r].count) { lo = glm::min(lo, d.mesh[r].bmin); hi = glm::max(hi, d.mesh[r].bmax); }
+  return lo.x <= hi.x;
+}
+// the item models are baked lying along +z, standing on y = 0 (bake_br_assets.py "pivot": "ground")
+void lootAttachDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes) {
+  vec3 lo, hi;
+  if (ws.att[ATT_MUZZLE]) if (const AssetDef* a = app.lib.find(ws.att[ATT_MUZZLE] == 1 ? "br_suppressor" : "br_muzzle_brake")) {   // on the bore, its back end at the muzzle
+    assetBounds(*a, lo, hi);
+    vec3 dir = glm::length(d.muzzleDir) > 0.1f ? glm::normalize(d.muzzleDir) : vec3(0, 0, 1);
+    mat4 R = glm::mat4_cast(glm::rotation(vec3(0, 0, 1), dir));
+    addAssetDraw(*a, W * glm::translate(mat4(1), d.muzzle) * R * glm::translate(mat4(1), -vec3((lo.x + hi.x) * 0.5f, (lo.y + hi.y) * 0.5f, lo.z)), md, boxes);
+  }
+  if (ws.att[ATT_MAG] && gunBounds(d, 2, lo, hi)) {   // hanging from the magazine well (the top of the gun's own magazine)
+    const char* id = lootIsPistol(d) ? "br_mag_ext_pistol" : isSmg(d) ? "br_mag_ext_smg" : d.wclass == WC_SNIPER ? "br_mag_ext_sniper" : "br_mag_ext_rifle";
+    const AssetDef* a = app.lib.find(id); if (!a) a = app.lib.find("br_mag_ext");
+    if (a) {
+      vec3 ml, mh; assetBounds(*a, ml, mh);
+      float k = a->raw.value("attachScale", 1.0f);
+      mat4 down = glm::rotate(mat4(1), radians(90.0f), vec3(1, 0, 0)) * glm::scale(mat4(1), vec3(k));   // model +z -> weapon -y
+      vec3 top((lo.x + hi.x) * 0.5f, hi.y, (lo.z + hi.z) * 0.5f);
+      if (lootIsPistol(d)) top = vec3(d.gripR.x, d.gripR.y + 0.02f, d.gripR.z);   // a pistol's magazine well is its grip
+      addAssetDraw(*a, W * glm::translate(mat4(1), top) * down * glm::translate(mat4(1), -vec3((ml.x + mh.x) * 0.5f, (ml.y + mh.y) * 0.5f, ml.z)), md, boxes);
+    }
+  }
+  if (ws.att[ATT_STOCK] && gunBounds(d, -1, lo, hi)) if (const AssetDef* a = app.lib.find("br_recoil_pad")) {   // a slip-on pad over the end of the stock, at the grip's height
+    vec3 pl, ph; assetBounds(*a, pl, ph);
+    vec3 butt(0, d.gripR.y, lo.z - 0.005f);
+    addAssetDraw(*a, W * glm::translate(mat4(1), butt) * glm::translate(mat4(1), -vec3((pl.x + ph.x) * 0.5f, (pl.y + ph.y) * 0.5f, pl.z)), md, boxes);
+  }
+}
+
+void lootRailFit(App& app, const fs::path& out) {
+  json res = json::object();
+  const AssetDef* acog = app.lib.find("br_sight_acog");
+  if (!acog || !acog->raw.contains("sight")) return;
+  vec3 eye = jvec3(acog->raw["sight"]["eye"], vec3(0, 0.04f, 0)), alo, ahi; assetBounds(*acog, alo, ahi);
+  std::vector<int> guns = gunPool(app, false), m = gunPool(app, true); guns.insert(guns.end(), m.begin(), m.end());
+  for (int w : guns) {
+    const WeaponDef& d = *app.weaponDefs[w];
+    if (d.hasScope || d.action == "launcher" || !lootSightFits(d, 2)) continue;
+    WeaponState ws; ws.att[ATT_SIGHT] = 2;
+    vec3 R, F; float rl; if (!brSightLine(d, ws, R, F, rl)) continue;
+    float sc = 1; try { json j = json::parse(readTextFile(d.file)); sc = j.value("railScale", 1.0f); } catch (...) {}
+    vec3 base = R - eye * sc;   // where the optic's bottom sits now
+    std::vector<ModelDraw> md; std::vector<DrawItem> bx;
+    if (d.useModel()) { for (int q = 0; q < 8; ++q) for (int k : d.modelParts[q]) md.push_back({d.model.get(), k, mat4(1)}); }
+    else for (int q = 0; q < 8; ++q) if (d.mesh[q].count) bx.push_back({&d.mesh[q], mat4(1)});
+    // the mount's footprint: the middle 60 % of the optic's length, 15 cm below to 10 cm above its current bottom
+    float z0 = base.z + alo.z * sc * 0.6f, z1 = base.z + ahi.z * sc * 0.6f, y0 = base.y - 0.15f, y1 = base.y + 0.10f;
+    const int N = 256; vec3 c((0), (y0 + y1) * 0.5f, (z0 + z1) * 0.5f);
+    float hw = (z1 - z0) * 0.5f, hh = (y1 - y0) * 0.5f, D = 2.0f; vec3 e = c - vec3(D, 0, 0);
+    std::vector<uint8_t> px;
+    if (!app.R.renderModelSheet(md, bx, glm::lookAt(e, c, vec3(0, 1, 0)), glm::ortho(-hw, hw, -hh, hh, 0.01f, D * 2), e, N, N, px)) continue;
+    // per column the highest gun pixel; the median is the receiver's surface (sight posts and ears are a few columns)
+    const uint8_t* bg = px.data(); std::vector<int> tops;
+    for (int x = 0; x < N; ++x) for (int y = 0; y < N; ++y) {
+      const uint8_t* p = &px[((size_t)y * N + x) * 4]; int diff = std::max({std::abs(p[0] - bg[0]), std::abs(p[1] - bg[1]), std::abs(p[2] - bg[2])});
+      if (diff > 24) { tops.push_back(y); break; }
+    }
+    if (tops.size() < N / 2) { logf("rail fit: %-20s no gun under the optic", d.id.c_str()); continue; }
+    std::sort(tops.begin(), tops.end());
+    int top = tops[tops.size() / 2], peak = tops.front();
+    float topY = y1 - (top + 0.5f) / N * (y1 - y0), peakY = y1 - (peak + 0.5f) / N * (y1 - y0);
+    res[d.id] = {std::round(base.x * 1e4f) / 1e4f, std::round(topY * 1e4f) / 1e4f, std::round(base.z * 1e4f) / 1e4f};
+    logf("rail fit: %-20s optic bottom %.4f, receiver %.4f (%+.1f cm), highest %.4f", d.id.c_str(), base.y, topY, (topY - base.y) * 100, peakY);
+  }
+  std::ofstream(out) << res.dump(1);
+}
+
+// a full-screen grid of side views (selftest capture): every gun of both loot pools with the attachments it takes
+void lootAttachSheetUi(App& app, bool zoom) {
+  struct Tile { std::string name, note; GLuint tex = 0; };
+  static std::vector<Tile> sheets[2];
+  std::vector<Tile>& tiles = sheets[zoom ? 1 : 0];
+  const int TW = 360, TH = 120;
+  if (tiles.empty()) {
+    std::vector<int> guns = gunPool(app, false), m = gunPool(app, true); guns.insert(guns.end(), m.begin(), m.end());
+    for (int w : guns) {
+      const WeaponDef& d = *app.weaponDefs[w];
+      if (d.action == "launcher") continue;   // no attachments fit (lootAttachFits)
+      WeaponState ws;
+      for (int k : {2, 1, 3, 4}) if (!d.hasScope && lootSightFits(d, k)) { ws.att[ATT_SIGHT] = k; break; }
+      auto fits = [&](const char* id) { const ItemDef* it = lootItem(id); return it && lootAttachFits(d, *it); };   // what play allows
+      if (fits("br_muzzle_brake")) ws.att[ATT_MUZZLE] = 2;
+      if (fits("br_mag_ext")) ws.att[ATT_MAG] = 1;
+      if (fits("br_recoil_pad")) ws.att[ATT_STOCK] = 1;
+      std::vector<ModelDraw> md; std::vector<DrawItem> bx;
+      if (d.useModel()) { for (int q = 0; q < 8; ++q) for (int k : d.modelParts[q]) md.push_back({d.model.get(), k, mat4(1)}); }
+      else for (int q = 0; q < 8; ++q) if (d.mesh[q].count) bx.push_back({&d.mesh[q], mat4(1)});
+      brSightDraws(app, d, ws, mat4(1), md, bx);
+      lootAttachDraws(app, d, ws, mat4(1), md, bx);
+      vec3 lo, hi; if (!gunBounds(d, -1, lo, hi)) continue;
+      lo.z -= 0.06f; hi.z += 0.16f; lo.y -= 0.12f; hi.y += 0.12f;
+      if (zoom) {   // 40 cm around the optic: does it sit on the receiver?
+        vec3 R0, F0; float rl; vec3 at = brSightLine(d, ws, R0, F0, rl) ? R0 + vec3(0, 0, 0.06f) : d.hasScope ? d.scopeEye + vec3(0, 0, 0.12f) : vec3(0, d.muzzle.y, d.muzzle.z * 0.4f);
+        lo = vec3(-0.1f, at.y - 0.11f, at.z - 0.2f); hi = vec3(0.1f, at.y + 0.06f, at.z + 0.2f);
+      }
+      vec3 c = (lo + hi) * 0.5f, ext = hi - lo;
+      float hw = ext.z * 0.52f, hh = hw * TH / TW; if (ext.y * 0.55f > hh) { hh = ext.y * 0.55f; hw = hh * TW / TH; }
+      float D = glm::length(ext) + 1.0f; vec3 eye = c - vec3(D, 0, 0);   // looking +x: screen right is +z, the muzzle
+      std::vector<uint8_t> px;
+      if (!app.R.renderModelSheet(md, bx, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::ortho(-hw, hw, -hh, hh, 0.01f, D * 2), eye, TW, TH, px)) continue;
+      auto rowOf = [&](float y) { return (int)((1 - (y - (c.y - hh)) / (2 * hh)) * TH); };
+      auto hline = [&](float y, uint8_t r, uint8_t g, uint8_t b) { int Y = rowOf(y); if (Y < 0 || Y >= TH) return; for (int X = 0; X < TW; X += (X % 8 < 5 ? 1 : 3)) { uint8_t* p = &px[((size_t)Y * TW + X) * 4]; p[0] = r; p[1] = g; p[2] = b; } };
+      hline(d.muzzle.y, 230, 40, 40);   // the bore at the muzzle
+      vec3 R, F; float relief; char note[96];
+      if (brSightLine(d, ws, R, F, relief)) { hline(R.y, 40, 220, 60); std::snprintf(note, sizeof note, "sight %d: line %.1f cm over the bore", ws.att[ATT_SIGHT], (R.y - d.muzzle.y) * 100); }
+      else if (d.hasScope) { hline(d.scopeEye.y, 40, 220, 60); std::snprintf(note, sizeof note, "own scope: %.1f cm over the bore", (d.scopeEye.y - d.muzzle.y) * 100); }
+      else std::snprintf(note, sizeof note, "no optic fits");
+      Tile t; t.name = d.name + "  (" + d.id + ")"; t.note = note;
+      glCreateTextures(GL_TEXTURE_2D, 1, &t.tex); glTextureStorage2D(t.tex, 1, GL_RGBA8, TW, TH);
+      glTextureParameteri(t.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(t.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 4); glTextureSubImage2D(t.tex, 0, 0, 0, TW, TH, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+      tiles.push_back(t);
+      logf("attach sheet: %-28s muzzle (%.3f %.3f %.3f)  %s", d.id.c_str(), d.muzzle.x, d.muzzle.y, d.muzzle.z, note);
+    }
+  }
+  ImGuiIO& io = ImGui::GetIO();
+  ImGui::SetNextWindowPos(ImVec2(0, 0)); ImGui::SetNextWindowSize(io.DisplaySize); ImGui::SetNextWindowBgAlpha(1.0f);
+  ImGui::Begin("##attachsheet", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings);
+  int cols = std::max(1, (int)(io.DisplaySize.x / (TW + 12)));
+  float scale = std::min(1.0f, (io.DisplaySize.y - 20) / (std::ceil(tiles.size() / (float)cols) * (TH + 40)));
+  for (size_t i = 0; i < tiles.size(); ++i) {
+    if (i % cols) ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::Image((ImTextureID)(intptr_t)tiles[i].tex, ImVec2(TW * scale, TH * scale));
+    ImGui::TextUnformatted(tiles[i].name.c_str()); ImGui::TextDisabled("%s", tiles[i].note.c_str());
+    ImGui::EndGroup();
+  }
+  ImGui::End();
+}
+
 // ---------------------------------------------------------------- drawing
 void lootDraw(Game& G) {
   if (!lootActive() || (gL.floor.empty() && gL.cases.empty())) return;
@@ -741,8 +892,7 @@ void lootDraw(Game& G) {
     if (const AssetDef* a = app.lib.find(lootAssetId(f.id))) {   // BR3's mesh: the baked model, else its stand-in box
       float lift = a->model ? a->model->bmin.y : a->opaque.bmin.y;
       mat4 M = W * glm::scale(mat4(1), vec3(sc)) * glm::translate(mat4(1), vec3(0, -lift, 0));
-      if (a->model) for (int i = 0; i < (int)a->model->parts.size(); ++i) app.R.worldModels.push_back({a->model.get(), i, M});
-      else app.worldBoxDraws.push_back({&a->opaque, M});
+      addAssetDraw(*a, M, app.R.worldModels, app.worldBoxDraws);
       continue; }
     if (d && d->kind == ItemKind::Throwable) {   // the grenade's own world model, on its side
       int wi = app.weaponIndex(d->weapon);
