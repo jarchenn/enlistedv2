@@ -633,6 +633,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
         if (ph == 2 && t > 3.0f) { ph = 3; shotQueue.push_back("mg9_emplacement_gunner"); }
         if (ph == 3 && t > 3.3f) { a.leaveStation(); return true; }
         return false; });
+    }
     // ---- MG10 dev look (NMK_MG10): the explosion pack in hand (and the FA2 side view), the reach as one is placed, then
     // charges on the farmhouse wall (LED on and off), on the ground and on a truck's side (selftest_out/mg10_*.png)
     if (std::getenv("NMK_MG10")) {
