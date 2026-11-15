@@ -1,6 +1,6 @@
 {
   "id": "tunnels",
-  "version": 1,
+  "version": 2,
   "order": 7,
   "name": "Tunnels",
   "available": true,
@@ -36,9 +36,9 @@
   "thumbnail": "tunnels.thumb.png",
   "thumbnailCamera": {
     "pos": [
-      -86.5,
+      -54.5,
       1.65,
-      -47.7
+      -79.7
     ],
     "yaw": -90.0,
     "pitch": -4.0
@@ -58,9 +58,9 @@
     {
       "name": "corridor_eye",
       "pos": [
-        -32.0,
+        -24.0,
         1.65,
-        -91.0
+        -99.0
       ],
       "yaw": 180.0,
       "pitch": 0.0,

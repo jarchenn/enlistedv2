@@ -58,7 +58,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `def_sandbag_curved` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | not used | not used |
 | `def_sandbag_straight` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | not used | not used |
 | `def_tank_trap` | Defences | 233: Belt 4 (hedgehogs); beach cover fill | terrain-only base map | not used | 58 | not used |
-| `drs_barrels` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 90 | 11 | 1 |
+| `drs_barrels` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 90 | 11 | 4 |
 | `drs_bridge_stone_large` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 1 | not used | not used |
 | `drs_bridge_stone_small` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 1 | not used | not used |
 | `drs_cart` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 62 | 5 | not used |
@@ -83,8 +83,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `fire_campfire` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used |
 | `furn_armchair` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used |
 | `furn_armoire` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used |
-| `furn_barrel` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 18 | 16 | 30 |
-| `furn_barrel_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | 1 |
+| `furn_barrel` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 18 | 16 | 55 |
+| `furn_barrel_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | 3 |
 | `furn_basket` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used |
 | `furn_bed` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used |
 | `furn_bed_iron` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used |
@@ -105,7 +105,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_coat_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used |
 | `furn_coat_stand` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used |
 | `furn_commode` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used |
-| `furn_crate` | Furniture | 11: Ammunition dumps and dressing | terrain-only base map | 21 | 13 | 17 |
+| `furn_crate` | Furniture | 11: Ammunition dumps and dressing | terrain-only base map | 21 | 13 | 42 |
 | `furn_crockery` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used |
 | `furn_curtains` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used |
 | `furn_curtains_half` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used |
@@ -133,18 +133,18 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_lamp_table` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): sitting rooms | terrain-only base map | not used | not used | not used |
 | `furn_lamp_wall_oil` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used |
 | `furn_mil_ammo_rack` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | not used |
-| `furn_mil_bunk` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 4 |
-| `furn_mil_crates` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 2 |
+| `furn_mil_bunk` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 12 |
+| `furn_mil_crates` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 29 |
 | `furn_mil_fusebox` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | not used |
 | `furn_mil_gasmask_hooks` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | not used |
 | `furn_mil_generator` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 1 |
-| `furn_mil_jerrycans` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 2 |
-| `furn_mil_locker` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 2 |
+| `furn_mil_jerrycans` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 4 |
+| `furn_mil_locker` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 8 |
 | `furn_mil_map` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | not used |
 | `furn_mil_phone` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | not used |
 | `furn_mil_radio` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | not used |
 | `furn_mil_rifle_rack` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | not used |
-| `furn_mil_table` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 1 |
+| `furn_mil_table` | Furniture | not hand-placed: the military room templates furnish mil_stronghold (GX6) | terrain-only base map | not used | not used | 32 |
 | `furn_mirror` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used |
 | `furn_pan_rail` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used |
 | `furn_pantry` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used |
@@ -210,7 +210,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `line_stone_wall` | Lines | 6 | terrain-only base map | 126 | 25 | not used |
 | `line_garden_wall` | Lines | 7 | terrain-only base map | 23 | 10 | not used |
 | `line_sandbag_wall` | Lines | not used | terrain-only base map | 12 | 9 | not used |
-| `line_sandbag_low` | Lines | 99 | terrain-only base map | 8 | 21 | 11 |
+| `line_sandbag_low` | Lines | 99 | terrain-only base map | 8 | 21 | 17 |
 | `line_hedgerow` | Lines | 111 | terrain-only base map | 108 | not used | not used |
 | `mil_stronghold` | Bunkers | excluded: GX6 Atlantic Wall command stronghold (60 x 34 m with earthworks); larger than any Omaha strongpoint, for hand-built maps | terrain-only base map | not used | 1 | not used |
 | `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 | not used |
@@ -271,7 +271,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `rub_spill_strip` | Rubble | not placed: V3 rubble (Rubble spill strip (8 m), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used |
 | `rub_stone_pile_l` | Rubble | not placed: V3 rubble (Stone rubble pile (large), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used |
 | `rub_stone_pile_m` | Rubble | not placed: V3 rubble (Stone rubble pile (medium), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 1 | 3 |
-| `rub_stone_pile_s` | Rubble | not placed: V3 rubble (Stone rubble pile (small), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 3 | 4 |
+| `rub_stone_pile_s` | Rubble | not placed: V3 rubble (Stone rubble pile (small), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 3 | 12 |
 | `ruin_barn_burnt` | Ruins | not placed: V3 ruin (Burnt-out barn, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used |
 | `ruin_cottage_corner` | Ruins | not placed: V3 ruin (Ruined cottage corner, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used |
 | `ruin_farmhouse_gutted` | Ruins | not placed: V3 ruin (Gutted farmhouse shell, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used |
@@ -337,23 +337,38 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tun_chamber_generator` | not used | not used | not used | not used | not used | 1 |
 | `tun_chamber_store` | not used | not used | not used | not used | not used | 1 |
 | `tun_chamber_sump` | not used | not used | not used | not used | not used | 1 |
-| `tun_corner` | not used | not used | not used | not used | not used | 26 |
-| `tun_corner_lined` | not used | not used | not used | not used | not used | 12 |
-| `tun_crawl` | not used | not used | not used | not used | not used | 19 |
-| `tun_cross` | not used | not used | not used | not used | not used | 30 |
-| `tun_end` | not used | not used | not used | not used | not used | 19 |
-| `tun_lamp` | not used | not used | not used | not used | not used | 64 |
-| `tun_lamp_dead` | not used | not used | not used | not used | not used | 14 |
-| `tun_lamp_flicker` | not used | not used | not used | not used | not used | 46 |
-| `tun_lamp_red` | not used | not used | not used | not used | not used | 25 |
+| `tun_corner` | not used | not used | not used | not used | not used | 18 |
+| `tun_corner_lined` | not used | not used | not used | not used | not used | 5 |
+| `tun_crawl` | not used | not used | not used | not used | not used | 10 |
+| `tun_cross` | not used | not used | not used | not used | not used | 2 |
+| `tun_end` | not used | not used | not used | not used | not used | 11 |
+| `tun_lamp` | not used | not used | not used | not used | not used | 116 |
+| `tun_lamp_dead` | not used | not used | not used | not used | not used | 21 |
+| `tun_lamp_flicker` | not used | not used | not used | not used | not used | not used |
+| `tun_lamp_red` | not used | not used | not used | not used | not used | 19 |
 | `tun_lamp_shadow` | not used | not used | not used | not used | not used | 5 |
 | `tun_stairs` | not used | not used | not used | not used | not used | 3 |
-| `tun_straight` | not used | not used | not used | not used | not used | 95 |
-| `tun_straight_kink` | not used | not used | not used | not used | not used | 60 |
-| `tun_straight_lined` | not used | not used | not used | not used | not used | 36 |
-| `tun_straight_niche` | not used | not used | not used | not used | not used | 32 |
-| `tun_tee` | not used | not used | not used | not used | not used | 73 |
-| `tun_wide` | not used | not used | not used | not used | not used | 20 |
+| `tun_straight` | not used | not used | not used | not used | not used | 31 |
+| `tun_straight_kink` | not used | not used | not used | not used | not used | 29 |
+| `tun_straight_lined` | not used | not used | not used | not used | not used | 20 |
+| `tun_straight_niche` | not used | not used | not used | not used | not used | 20 |
+| `tun_tee` | not used | not used | not used | not used | not used | 33 |
+| `tun_wide` | not used | not used | not used | not used | not used | 15 |
+| `tun_breach` | not used | not used | not used | not used | not used | 19 |
+| `tun_cross_shelled` | not used | not used | not used | not used | not used | 3 |
+| `tun_room_m_dugout` | not used | not used | not used | not used | not used | 4 |
+| `tun_room_m_magazine` | not used | not used | not used | not used | not used | 3 |
+| `tun_room_m_mess` | not used | not used | not used | not used | not used | 2 |
+| `tun_room_m_office` | not used | not used | not used | not used | not used | 3 |
+| `tun_room_m_pump` | not used | not used | not used | not used | not used | 3 |
+| `tun_room_m_workshop` | not used | not used | not used | not used | not used | 3 |
+| `tun_room_s_corner` | not used | not used | not used | not used | not used | 14 |
+| `tun_room_s_cross` | not used | not used | not used | not used | not used | 7 |
+| `tun_room_s_end` | not used | not used | not used | not used | not used | 16 |
+| `tun_room_s_straight` | not used | not used | not used | not used | not used | 11 |
+| `tun_room_s_tee` | not used | not used | not used | not used | not used | 26 |
+| `tun_straight_shelled` | not used | not used | not used | not used | not used | 25 |
+| `tun_tee_shelled` | not used | not used | not used | not used | not used | 12 |
 
 ## Notes
 
