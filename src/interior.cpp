@@ -502,6 +502,15 @@ bool InteriorSys::hideBuiltin(const Instance& i) const {
 }
 
 // ============================================================ automatic furnishing (V4)
+// AS1: an abandoned building: a ruin variant (tools/ruin_kit.mjs, "ruin": true), or any modern building on a map whose
+// look says "style": "abandoned" (heavy wear, no lamps, emptied shelves, debris, papers, glass and hanging vines)
+bool ruinHost(App& app, const AssetDef* a) {
+  if (!a) return false;
+  if (a->raw.is_object() && a->raw.value("ruin", false)) return true;
+  const json& x = app.doc.extra;
+  return a->id.rfind("mod_", 0) == 0 && x.is_object() && x.contains("look") && x["look"].is_object() && x["look"].value("style", std::string()) == "abandoned";
+}
+
 bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
   const AssetDef* a = app.lib.find(i.assetId);
   if (!a || !a->enterable || isProp(a)) return false;
@@ -565,7 +574,7 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
   json fin = i.extra.is_object() && i.extra.contains("finish") ? i.extra["finish"] : json::object();
   float seed = h01((uint32_t)i.id, 77u);
   const bool cleanMap = app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && app.doc.extra["look"].value("clean", false);   // BR2
-  sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", a->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
+  sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", ruinHost(app, a) ? 1.85f : a->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
   const RoomInfo* ri = rooms(a);
   int n = (int)ri->rooms.size();   // GX5: every room (the first 16 in uniforms, the rest in the decal buffer)
   std::vector<vec4> xA, xB;
@@ -2222,6 +2231,39 @@ struct Planner {
       if (rug(k, a.c_str(), r + "rugx", at, ax == 0 ? 0.0f : 90.0f)) return;
     }
   }
+  // AS1: an abandoned building: most of what stood on tops and shelves is gone; debris, papers and broken glass over the
+  // floors (the keep cells hold: doorways stay clear); vines hanging through the ceilings
+  void ruinPass() {
+    auto child = [](const std::string& sl) {   // stock on shelves and tops: "/top", "/s<n>", "/from"
+      if (sl.find("/top") != std::string::npos || sl.find("/from") != std::string::npos) return true;
+      for (size_t q = sl.find("/s"); q != std::string::npos; q = sl.find("/s", q + 1)) if (q + 2 < sl.size() && std::isdigit((unsigned char)sl[q + 2])) return true;
+      return false;
+    };
+    out.erase(std::remove_if(out.begin(), out.end(), [&](const PlanItem& it) { return child(it.slot) && rnd(strHash(it.slot), 900) < 0.85f; }), out.end());
+    const bool vines = A("mod_vines_hanging") != nullptr, vinesL = A("mod_vines_hanging_long") != nullptr;
+    for (int k = 0; k < (int)ri.rooms.size(); ++k) {
+      const auto& R = ri.rooms[k]; const auto& S = ri.storeys[R.storey]; const float C = ri.cell;
+      std::string r = "r" + std::to_string(k) + "/ruin";
+      auto inRoom = [&](vec3 p) { int i = (int)((p.x - S.o.x) / C), j = (int)((p.z - S.o.y) / C); return i >= 0 && j >= 0 && i < S.nx && j < S.nz && S.id[(size_t)j * S.nx + i] == k; };
+      auto spot = [&](uint32_t h, uint32_t t) { return vec3(R.mn.x + (R.mx.x - R.mn.x) * rnd(h, 10 + t), R.y0, R.mn.y + (R.mx.y - R.mn.y) * rnd(h, 40 + t)); };
+      int n = std::min(18, 3 + (int)(R.area / 5.0f));
+      for (int c = 0; c < n; ++c) {
+        std::string slot = r + "deb" + std::to_string(c); uint32_t h = strHash(slot);
+        float q = rnd(h, 1); const char* a = q < 0.45f ? "furn_debris_plaster" : q < 0.8f ? "furn_papers" : "furn_debris_glass";
+        for (uint32_t t = 0; t < 10; ++t) { vec3 p = spot(h, t); if (inRoom(p) && tryAt(k, a, slot, p, rnd(h, 70 + t) * 360.0f, false, false, 1, nullptr)) break; }
+      }
+      if (!vines) continue;
+      int nv = (R.area > 10.0f) + (R.area > 30.0f) + (R.area > 70.0f) + (rnd(strHash(r), 3) < 0.5f);
+      for (int v = 0; v < nv; ++v) {
+        std::string slot = r + "vine" + std::to_string(v); uint32_t h = strHash(slot);
+        for (uint32_t t = 0; t < 8; ++t) {
+          vec3 p = spot(h, t); if (!inRoom(p)) continue;
+          PlanItem it; it.slot = slot; it.asset = vinesL && rnd(h, 5) < 0.4f && R.y1 - R.y0 > 3.2f ? "mod_vines_hanging_long" : "mod_vines_hanging";
+          it.p = vec3(p.x, R.y1, p.z); it.yaw = rnd(h, 6) * 360.0f; out.push_back(it); break;
+        }
+      }
+    }
+  }
   void debrisPass(int k, float p, const std::string& r) {
     const auto& R = ri.rooms[k]; const auto& S = ri.storeys[R.storey]; const float C = ri.cell;
     p *= std::pow(rules().value("debrisWear", 1.15f), std::max(0.0f, wear - 1.0f) * 8.0f);   // worn / damaged buildings collect more
@@ -2428,7 +2470,8 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   const bool lightsOnly = lightsOnlyHost(ha);   // L3: bunkers: lamps only, no room templates
   if (lightsOnly) in["lightsOnly"] = true; else in.erase("lightsOnly");
   float density = std::clamp(in.value("density", 1.0f), 0.0f, 2.0f), clutter = std::clamp(in.value("clutter", 0.7f), 0.0f, 2.0f);   // V4: 1.0 is a lived-in house (3x the first templates), 2.0 crowded
-  const float wear0 = ha && ha->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f;   // MOD1: modern buildings start almost clean
+  const bool ruin = ruinHost(app, ha);   // AS1
+  const float wear0 = ruin ? 1.85f : ha && ha->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f;   // MOD1: modern buildings start almost clean
   float wear = h->extra.contains("finish") ? h->extra["finish"].value("wear", wear0) : wear0;
   std::set<std::string> removed;
   for (auto& s : in.value("removed", json::array())) removed.insert(s.get<std::string>());
@@ -2470,6 +2513,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   std::vector<int> order(ri->rooms.size());
   for (size_t k = 0; k < order.size(); ++k) order[k] = (int)k;
   for (int k : order) if (!lightsOnly) P.room(k);
+  if (ruin && !lightsOnly) P.ruinPass();   // AS1: abandoned (before the doorway rules: they still apply)
   if (!lightsOnly) P.clearPaths();   // FN1: no generated piece cuts one doorway off from another
   {   // L3 (docs/lights.md): a ceiling or table light per room, a fire on each hearth, caged lamps in bunkers
     std::vector<LightPlanItem> li; for (auto& it : P.out) li.push_back({it.slot, it.asset, it.p, it.yaw});
@@ -2481,7 +2525,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
       P.out.pop_back();
       return true;
     };
-    size_t n0 = li.size(); lightsPlanRooms(app, *this, *h, ha, *ri, seed, li, wallFix);
+    size_t n0 = li.size(); if (!ruin) lightsPlanRooms(app, *this, *h, ha, *ri, seed, li, wallFix);   // AS1: no working lamps in a ruin
     for (size_t q = n0; q < li.size(); ++q) { PlanItem it; it.slot = li[q].slot; it.asset = li[q].asset; it.p = li[q].p; it.yaw = li[q].yaw; P.out.push_back(it); }
   }
   if (const char* g = getenv("NMK_GX2_GRID"); g && ha->id == g) {   // GX2 debug: each storey's grid as a PPM image
@@ -2515,6 +2559,13 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   }
   // occasional broken items in worn buildings (restrained: intact houses stay intact)
   for (auto& it : P.out) if (it.asset.rfind("furn_chair", 0) == 0 && h01(seed, strHash(it.slot), 8u) < 0.05f * std::max(0.0f, wear - 0.6f)) it.broken = true;
+  if (ruin) for (auto& it : P.out) {   // AS1: shelving stripped to its frame (the broken state keeps the frame groups), some chairs and tables broken
+    const AssetDef* fa = app.lib.find(it.asset); if (!fa || !fa->raw.is_object() || !fa->raw.contains("prop")) continue;
+    const json& gs = fa->raw["prop"].value("groups", json::array());
+    bool stocked = false; for (auto& g : gs) if (g.is_string() && (g == "goods" || g == "stock" || g == "books")) stocked = true;
+    bool seat = it.asset.find("chair") != std::string::npos || it.asset.find("table") != std::string::npos || it.asset.find("stool") != std::string::npos;
+    if ((stocked && h01(seed, strHash(it.slot), 9u) < 0.85f) || (seat && h01(seed, strHash(it.slot), 10u) < 0.25f)) it.broken = true;
+  }
   json slots = json::array();
   int made = 0;
   const bool unlit = ha && ha->id.rfind("brm_", 0) == 0;   // BR2: backrooms rooms keep their furniture but no candle, lamp or flame (light comes from the ceiling panels only)

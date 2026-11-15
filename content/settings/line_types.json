@@ -425,6 +425,75 @@
       "gates": [
         "field_gate"
       ]
+    },
+    {
+      "id": "mod_road_2lane_ruin",
+      "clearGrass": 5.0,
+      "name": "Road, 2-lane (modern) (abandoned)",
+      "asset": "line_mod_road_2lane_ruin",
+      "builder": "bays",
+      "spacing": 6,
+      "pieces": [
+        [
+          "mod_road_2lane_bay_ruin",
+          0.6
+        ],
+        [
+          "mod_road_2lane_bay_b_ruin",
+          0.25
+        ],
+        [
+          "mod_road_2lane_bay_c_ruin",
+          0.15
+        ]
+      ],
+      "params": {}
+    },
+    {
+      "id": "mod_road_4lane_ruin",
+      "clearGrass": 12.5,
+      "name": "Road, dual carriageway (modern) (abandoned)",
+      "asset": "line_mod_road_4lane_ruin",
+      "builder": "bays",
+      "spacing": 6,
+      "pieces": [
+        [
+          "mod_road_4lane_bay_ruin",
+          0.6
+        ],
+        [
+          "mod_road_4lane_bay_b_ruin",
+          0.25
+        ],
+        [
+          "mod_road_4lane_bay_c_ruin",
+          0.15
+        ]
+      ],
+      "params": {}
+    },
+    {
+      "id": "mod_sidewalk_ruin",
+      "clearGrass": 0.8,
+      "name": "Sidewalk (concrete flags) (abandoned)",
+      "asset": "line_mod_sidewalk_ruin",
+      "builder": "bays",
+      "spacing": 2.5,
+      "pieces": [
+        [
+          "mod_sidewalk_bay_ruin",
+          0.7
+        ],
+        [
+          "mod_sidewalk_bay_b_ruin",
+          0.12
+        ],
+        [
+          "mod_sidewalk_bay_c_ruin",
+          0.18
+        ]
+      ],
+      "params": {}
     }
   ]
 }

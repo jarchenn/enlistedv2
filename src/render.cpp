@@ -3505,10 +3505,10 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog));
   glUniform3fv(U(p, "uFill"), 1, glm::value_ptr(fill));
   glUniform3fv(U(p, "uCamPos"), 1, glm::value_ptr(v.camPos));
-  glUniform1f(U(p, "uFogDens"), thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity));   // BR2: a map may have no haze
+  glUniform1f(U(p, "uFogDens"), thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity) * lt.mapHaze);   // BR2: a map may have no haze
   if (v.underwater && !thumbMode) { fog = v.underFogCol; glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog)); glUniform1f(U(p, "uFogDens"), v.underFogDens); }   // swim.cpp
   glUniform1f(U(p, "uUnder"), v.underwater && !thumbMode ? 1.0f : 0.0f);
-  if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : (thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity)));
+  if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : (thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity) * lt.mapHaze));
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   glUniformMatrix4fv(U(p, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   glUniform1f(U(p, "uOccTop"), occTop); glUniform1f(U(p, "uOccRange"), occRange);

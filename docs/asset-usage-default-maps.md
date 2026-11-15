@@ -216,22 +216,22 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `line_hedgerow` | Lines | 111 | terrain-only base map | 108 | not used | not used | not used | not used |
 | `mil_stronghold` | Bunkers | excluded: GX6 Atlantic Wall command stronghold (60 x 34 m with earthworks); larger than any Omaha strongpoint, for hand-built maps | terrain-only base map | not used | 1 | not used | not used | not used |
 | `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 | not used | not used | not used |
-| `nat_boulder_granite_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 |
+| `nat_boulder_granite_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 |
 | `nat_boulder_granite_s` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
 | `nat_boulder_limestone_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used |
 | `nat_boulder_limestone_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 5 | not used | not used | not used |
 | `nat_boulder_schist_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
 | `nat_boulder_schist_slab` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
-| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 |
+| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 5 |
 | `nat_bracken_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 42 | not used | not used | not used |
-| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | not used |
+| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 1 |
 | `nat_brush_patchy` | Vegetation | not placed: V9 ground cover (patchy brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `nat_brush_rank` | Vegetation | not placed: V9 ground cover (rank brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `nat_brush_scrub` | Vegetation | not placed: V9 ground cover (dry scrub, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 59 | not used | not used | not used |
 | `nat_clover_tufts` | Vegetation | not placed: V9 ground cover (clover and green tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 9 | not used | not used | not used | not used |
 | `nat_drygrass_sparse` | Vegetation | not placed: V9 ground cover (sparse dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 113 | not used | not used | not used |
 | `nat_drygrass_tall` | Vegetation | not placed: V9 ground cover (tall dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 3 | 419 | not used | not used | not used |
-| `nat_drygrass_tufts` | Vegetation | not placed: V9 ground cover (dry grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 12 | 177 | not used | not used | not used |
+| `nat_drygrass_tufts` | Vegetation | not placed: V9 ground cover (dry grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 12 | 177 | not used | not used | 43 |
 | `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used |
 | `nat_flowers_buttercup` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 21 | 1 | not used | not used | not used |
 | `nat_flowers_clover` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
@@ -243,17 +243,17 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_flowers_poppy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 110 | 39 | not used | not used | not used |
 | `nat_gorse_shrub` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 91 | not used | not used | not used |
 | `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used |
-| `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 46 |
+| `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 56 |
 | `nat_meadow_mixed` | Vegetation | not placed: V9 ground cover (mixed meadow, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 44 | 62 | not used | not used | 15 |
-| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | not used |
-| `nat_outcrop_limestone` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 2 | not used | not used | 2 |
+| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 84 |
+| `nat_outcrop_limestone` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 2 | not used | not used | 1 |
 | `nat_outcrop_schist` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
 | `nat_sapling_ash` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
 | `nat_sapling_oak` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
 | `nat_scree_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used |
-| `nat_stones_granite_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
-| `nat_stones_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 4 | not used | not used | not used |
-| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 24 |
+| `nat_stones_granite_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 103 |
+| `nat_stones_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 4 | not used | not used | 249 |
+| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 79 |
 | `nat_tallgrass_verge` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 9 | 75 | not used | not used | not used |
 | `nat_wheat_field` | Vegetation | not placed: V9 ground cover (wheat field square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 52 | not used | not used | not used | not used |
 | `nat_wheat_stubble` | Vegetation | not placed: V9 ground cover (wheat stubble square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 58 | not used | not used | not used | not used |
@@ -283,8 +283,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `scn_treeline_a` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 25 | not used | not used | not used |
 | `scn_treeline_b` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 22 | not used | not used | not used |
 | `scn_treeline_c` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 26 | not used | not used | not used |
-| `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 29 |
-| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 102 |
+| `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 24 |
+| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 97 |
 | `small_carpenter_workshop` | Small buildings | 2: Saint-Laurent | terrain-only base map | 8 | not used | not used | not used | not used |
 | `small_roadside_office` | Small buildings | 1: Saint-Laurent crossroads | terrain-only base map | 7 | not used | not used | not used | not used |
 | `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 | not used | not used | not used |
@@ -293,9 +293,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tank_sherman_firefly` | Vehicles | excluded: The Firefly (17-pdr) was British, not at Omaha; no DD Sherman asset exists; player vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used |
 | `tank_tiger_i` | Vehicles | excluded: No Tigers at Omaha; vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used |
 | `tree_apple` | Vegetation | 396: Orchards (D battery, A5, two more) | terrain-only base map | 305 | 58 | not used | not used | 18 |
-| `tree_ash` | Vegetation | 213: Hedgerow trees; wooded E-1 draw | terrain-only base map | 368 | 283 | not used | not used | 347 |
-| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 258 |
-| `tree_poplar` | Vegetation | 73: Roadside poplars on the draw road; hedgerow trees | terrain-only base map | 130 | 149 | not used | not used | 142 |
+| `tree_ash` | Vegetation | 213: Hedgerow trees; wooded E-1 draw | terrain-only base map | 368 | 283 | not used | not used | 361 |
+| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 329 |
+| `tree_poplar` | Vegetation | 73: Roadside poplars on the draw road; hedgerow trees | terrain-only base map | 130 | 149 | not used | not used | 131 |
 | `utility_pole` | Dressing | 23: Telegraph line from E-1 to the village, branch to the D command post | terrain-only base map | not used | not used | not used | not used | not used |
 | `vil_bakery` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used |
 | `vil_brick_townhouse` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used |
@@ -441,36 +441,36 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tun_track_straight` | not used | not used | not used | not used | not used | 5 | 6 | not used |
 | `tun_track_points` | not used | not used | not used | not used | not used | 1 | 1 | not used |
 | `line_mod_chainlink` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `line_mod_fence_white_picket` | not used | not used | not used | not used | not used | not used | not used | 16 |
-| `line_mod_hedge_modern` | not used | not used | not used | not used | not used | not used | not used | 16 |
-| `line_mod_hedge_modern_tall` | not used | not used | not used | not used | not used | not used | not used | 22 |
-| `line_mod_road_2lane` | not used | not used | not used | not used | not used | not used | not used | 20 |
-| `line_mod_sidewalk` | not used | not used | not used | not used | not used | not used | not used | 9 |
+| `line_mod_fence_white_picket` | not used | not used | not used | not used | not used | not used | not used | 32 |
+| `line_mod_hedge_modern` | not used | not used | not used | not used | not used | not used | not used | 8 |
+| `line_mod_hedge_modern_tall` | not used | not used | not used | not used | not used | not used | not used | 16 |
+| `line_mod_road_2lane` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `line_mod_sidewalk` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_ammo_box_stack` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_apc_wheeled` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_barrel_group` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_barrel_steel_rust` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bench` | not used | not used | not used | not used | not used | not used | not used | 15 |
+| `mod_bench` | not used | not used | not used | not used | not used | not used | not used | 13 |
 | `mod_bike_rack` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_bld_bigbox` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_bungalow` | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `mod_bld_diner_small` | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `mod_bld_family_house` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_bld_fastfood` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_gas_station` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_mixed_use` | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `mod_bld_office_setback` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_office_wide` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_restaurant_family` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_tower_glass` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_bigbox` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_bungalow` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_diner_small` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_family_house` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_fastfood` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_gas_station` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_mixed_use` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_office_setback` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_office_wide` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_restaurant_family` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_tower_glass` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bollard_concrete` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_box_truck` | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `mod_bus_shelter` | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `mod_bus_shelter` | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `mod_cable_spool_large` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_camo_net` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_car_shell_burned` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_car_shell_burned` | not used | not used | not used | not used | not used | not used | not used | 8 |
 | `mod_cart_corral` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_cinder_wall` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_cinder_wall` | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `mod_city_bus` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_concrete_pipe` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_concrete_pipe_stack` | not used | not used | not used | not used | not used | not used | not used | 1 |
@@ -493,122 +493,122 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_flower_bed` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_fountain_tiered` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_garden_bench` | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `mod_garden_shed` | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `mod_garden_shed` | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `mod_gazebo` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_generator_set` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_greenhouse` | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `mod_guard_tower` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_hard_cases` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_hatchback` | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `mod_hatchback` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_hesco_2x1` | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `mod_hesco_3x1` | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `mod_hvac_unit` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_ibc_tote` | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `mod_jerry_cans` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_jersey_barrier` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_jersey_barrier_damaged` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_jersey_barrier_damaged` | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `mod_lumber_stack` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_mailbox` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_mailbox` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_mil_generator` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_mil_utility` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_mil_utility_green` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_newspaper_box` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_newspaper_box` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_ambulance` | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `mod_nt_armory` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_barn_steel` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_barracks` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_nt_boat_motor` | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `mod_nt_armory` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_barn_steel` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_barracks` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_boat_motor` | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `mod_nt_boat_trailer` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_nt_boathouse` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_boathouse` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_boxcar` | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `mod_nt_cafe` | not used | not used | not used | not used | not used | not used | not used | 15 |
+| `mod_nt_cafe` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_channel_steps` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_nt_clock_tower` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_clock_tower` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_compound_wall` | not used | not used | not used | not used | not used | not used | not used | 39 |
 | `mod_nt_compound_wall_breach` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_compound_wall_culvert` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_construction_frame` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_nt_construction_frame_small` | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `mod_nt_construction_frame` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_construction_frame_small` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_covered_passage` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_crawl_frame` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_nt_excavation_shoring` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_nt_farmhouse` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_farmhouse` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_fire_engine` | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `mod_nt_flatcar` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_nt_footbridge` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_nt_hotel` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_house_small` | not used | not used | not used | not used | not used | not used | not used | 13 |
-| `mod_nt_house_split` | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `mod_nt_house_two` | not used | not used | not used | not used | not used | not used | not used | 13 |
-| `mod_nt_hq` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_kiosk` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_nt_motel` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_motor_pool` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_municipal` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_parking_garage` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_hotel` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_house_small` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_house_split` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_house_two` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_hq` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_kiosk` | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `mod_nt_motel` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_motor_pool` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_municipal` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_parking_garage` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_pier` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_pontoon_finger` | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `mod_nt_promenade_rail` | not used | not used | not used | not used | not used | not used | not used | 24 |
-| `mod_nt_radar_tower` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_radar_tower` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_rail_buffer` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_rail_track` | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `mod_nt_road_bridge` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_nt_shop_row` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_nt_shop_small` | not used | not used | not used | not used | not used | not used | not used | 18 |
-| `mod_nt_site_office` | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `mod_nt_storage_tank` | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `mod_nt_shop_row` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_shop_small` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_site_office` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_storage_tank` | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `mod_nt_tower_crane` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_training_frame` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_training_wall` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_nt_warehouse` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_nt_waterfront_house` | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `mod_nt_workshop` | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `mod_nt_warehouse` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_waterfront_house` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_workshop` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_pallet_stack` | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `mod_parking_meter` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_pickup` | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `mod_picnic_table` | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `mod_pickup` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_picnic_table` | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `mod_planter_concrete` | not used | not used | not used | not used | not used | not used | not used | 9 |
 | `mod_play_roundabout` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_play_seesaw` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_play_spring_rider_twin` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_portable_toilet` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_raised_bed` | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `mod_raised_bed` | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `mod_razor_coil` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_rebar_bundle` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_roadblock` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_rock_large` | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `mod_rock_medium` | not used | not used | not used | not used | not used | not used | not used | 6 |
+| `mod_rock_large` | not used | not used | not used | not used | not used | not used | not used | 6 |
+| `mod_rock_medium` | not used | not used | not used | not used | not used | not used | not used | 9 |
 | `mod_sandbag_position` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_scaffold_bay` | not used | not used | not used | not used | not used | not used | not used | 10 |
-| `mod_sedan` | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `mod_sedan_red` | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `mod_sedan_wrecked` | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `mod_sedan` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_sedan_red` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_sedan_wrecked` | not used | not used | not used | not used | not used | not used | not used | 22 |
 | `mod_semi_tractor` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_semi_trailer` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_skip` | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `mod_sliding_gate` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_street_lamp` | not used | not used | not used | not used | not used | not used | not used | 6 |
+| `mod_street_lamp` | not used | not used | not used | not used | not used | not used | not used | 9 |
 | `mod_sun_lounger` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_suv` | not used | not used | not used | not used | not used | not used | not used | 9 |
+| `mod_suv` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_tool_chest` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_traffic_drum` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_traffic_light` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_trash_bin` | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `mod_tree_blossom` | not used | not used | not used | not used | not used | not used | not used | 39 |
+| `mod_trash_bin` | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `mod_tree_blossom` | not used | not used | not used | not used | not used | not used | not used | 37 |
 | `mod_tree_columnar` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_tree_ornamental` | not used | not used | not used | not used | not used | not used | not used | 79 |
+| `mod_tree_ornamental` | not used | not used | not used | not used | not used | not used | not used | 85 |
 | `mod_tyre_pile` | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `mod_water_barrier_red` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_water_barrier_red` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_weapon_rack` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_apartment_block` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_hospital` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_car_dealership` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_pump_station` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_bld_bus_station` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_apartment_block` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_hospital` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_car_dealership` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_nt_pump_station` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_bus_station` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_compound_gate` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_fire_station` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_fire_station` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_play_climbing_frame` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_streetlight` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_streetlight` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `car_jeep_willys` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `car_jeep_ww2` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `car_truck_canopy` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -741,7 +741,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_bollard_retracted` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bollard_steel` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_cable_spool_small` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_car_wreck_sedan` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_car_wreck_sedan` | not used | not used | not used | not used | not used | not used | not used | 7 |
 | `mod_cars_burned_pair` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_chainlink_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_chainlink_gate` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -762,7 +762,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_fountain_wall` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_gate_chainlink` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_gate_white` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_glass_pile` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_glass_pile` | not used | not used | not used | not used | not used | not used | not used | 26 |
 | `mod_hedge_box_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_hedge_box_bay_b` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_hedge_box_tall_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -792,7 +792,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_play_spring_rider` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_play_swings_2` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_play_swings_4` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_retaining_wall` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_retaining_wall` | not used | not used | not used | not used | not used | not used | not used | 18 |
 | `mod_road_2lane_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_road_2lane_bay_b` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_road_2lane_bay_c` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -802,12 +802,12 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_road_crossroads` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_road_end` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_road_t_junction` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_rock_small` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_rock_small` | not used | not used | not used | not used | not used | not used | not used | 169 |
 | `mod_roundabout` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_rubble_large` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_rubble_small` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_rubble_small` | not used | not used | not used | not used | not used | not used | not used | 18 |
 | `mod_sawhorse_barricade` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_sedan_burned` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_sedan_burned` | not used | not used | not used | not used | not used | not used | not used | 8 |
 | `mod_sidewalk_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sidewalk_bay_b` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sidewalk_bay_c` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -827,7 +827,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_utility_pole` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_van_burned` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_van_wrecked` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_wall_chunks` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_wall_chunks` | not used | not used | not used | not used | not used | not used | not used | 36 |
 | `mod_water_barrier_white` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rack_modern` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tun_cart` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -861,6 +861,80 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `br_vest_1` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `br_vest_2` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `br_vest_3` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `line_mod_road_2lane_ruin` | not used | not used | not used | not used | not used | not used | not used | 20 |
+| `line_mod_sidewalk_ruin` | not used | not used | not used | not used | not used | not used | not used | 9 |
+| `mod_bld_apartment_block_ruin` | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `mod_bld_bigbox_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_bungalow_ruin` | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `mod_bld_bus_station_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_diner_small_ruin` | not used | not used | not used | not used | not used | not used | not used | 9 |
+| `mod_bld_family_house_ruin` | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `mod_bld_fastfood_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_gas_station_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_hospital_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_mixed_use_ruin` | not used | not used | not used | not used | not used | not used | not used | 10 |
+| `mod_bld_office_setback_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_office_wide_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_restaurant_family_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_bld_tower_glass_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_armory_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_barn_steel_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_barracks_ruin` | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `mod_nt_boathouse_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_cafe_ruin` | not used | not used | not used | not used | not used | not used | not used | 14 |
+| `mod_nt_car_dealership_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_clock_tower_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_construction_frame_ruin` | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `mod_nt_construction_frame_small_ruin` | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `mod_nt_farmhouse_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_fire_station_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_hotel_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_house_small_ruin` | not used | not used | not used | not used | not used | not used | not used | 11 |
+| `mod_nt_house_split_ruin` | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `mod_nt_house_two_ruin` | not used | not used | not used | not used | not used | not used | not used | 13 |
+| `mod_nt_hq_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_motel_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_motor_pool_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_municipal_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_parking_garage_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_pump_station_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_radar_tower_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_shop_row_ruin` | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `mod_nt_shop_small_ruin` | not used | not used | not used | not used | not used | not used | not used | 23 |
+| `mod_nt_site_office_ruin` | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `mod_nt_warehouse_ruin` | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `mod_nt_waterfront_house_ruin` | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `mod_nt_workshop_ruin` | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `mod_sapling_paving` | not used | not used | not used | not used | not used | not used | not used | 44 |
+| `mod_weeds_clump` | not used | not used | not used | not used | not used | not used | not used | 81 |
+| `mod_weeds_crack` | not used | not used | not used | not used | not used | not used | not used | 203 |
+| `line_mod_road_4lane_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_leisure_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_restaurant_large_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_school_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_station_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_tower_stone_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_bld_townhouse_row_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_crosswalk_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_parking_large_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_parking_medium_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_parking_small_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_parking_surface_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_2lane_bay_b_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_2lane_bay_c_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_2lane_bay_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_4lane_bay_b_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_4lane_bay_c_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_4lane_bay_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_crossroads_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_end_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_road_t_junction_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_sidewalk_bay_b_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_sidewalk_bay_c_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_sidewalk_bay_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_vines_hanging` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_vines_hanging_long` | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
