@@ -320,7 +320,7 @@ void AiCore::act(Soldier& s, float dt) {
         b.mode = Brain::M_RETURN; b.why = "under fire: back to the defense slot"; break;
       }
       if (coverValid) { if (!atCover) requestPath(s, m.coverPos, 0.6f, 8.0f); m.speed = SPD_SPRINT; m.posture = atCover ? lowPosture() : Physics::STAND; b.why = "taking cover (under fire)"; }
-      else { m.speed = SPD_CRAWL; m.posture = Physics::PRONE; b.why = "no cover: prone"; }
+      else { m.speed = SPD_CROUCH; m.posture = Physics::CROUCH; b.why = "no cover: crouch"; }
       b.mode = Brain::M_COVER; b.hasCover = coverValid; break; }
     case A_RETURN_FIRE: case A_SUPPRESS: {
       bool close = b.target >= 0 && glm::length(G.sold[b.target].feet - s.feet) < 20.0f;
