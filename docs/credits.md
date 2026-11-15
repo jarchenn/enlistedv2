@@ -141,7 +141,7 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 
 | Folder (source) | Used for | Author | Licence |
 |---|---|---|---|
-| scar (SCAR.fbx) | FN SCAR (`modern_scar`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| scar (SCAR.fbx) | FN SCAR (`modern_scar`; MG7: model, arms and clips replaced by the SCAR-H GLB, this source unused) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-ak-animated (arms@ak.fbx) | AK-74 (`modern_ak`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-animated-carbine (arms@carbine.fbx) | M4 carbine with red dot (`modern_m4`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | animated-assault-rifle (HandWithGloves.fbx) | M16A3 rifle (`modern_m16`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
@@ -165,6 +165,11 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | fps-animated-carbine-2 | **Not used**: byte-identical to fps-animated-carbine | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | grenadelauncher-animated (arms@Glauncher.fbx) | Six-shot grenade launcher (`modern_glauncher`, MG4) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-ak-animated-2 | **Not used**: byte-identical to fps-ak-animated (`modern_ak`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| sniper-animated (2).zip (arms@sniper.fbx; extracted to incoming/mg7/sniper) | Bolt-action scout rifle (`modern_sniper_3`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
+| pistol-43-tactical-fps-animations.zip (Glock_Anim.fbx; incoming/mg7/pistol43) | Glock 43 (`modern_pistol3`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
+| scar-h_first-person_fps_animated.glb (incoming/mg7) | FN SCAR-H: replaces the MG1 SCAR model (`modern_scar`, MG7; its arms and clips unused: broken hand skin) | supplied by the user | **licence to be confirmed by the user** (none stated) |
+| ak-12animated.glb (incoming/mg7) | AK-12 (`modern_ak12`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
+| knife_animated.glb (incoming/mg7) | First-person knife: arms and slash for `knife_bayonet` (MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | fps-50cal.zip (arms@bmg.fbx; extracted to incoming/fps-50cal) | Barrett M95 .50 BMG (`modern_sniper_50`, MG6) | supplied by the user | **licence to be confirmed by the user** (none stated in the zip) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |
 

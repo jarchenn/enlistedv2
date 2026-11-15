@@ -693,4 +693,25 @@ Reticles, drawn in the shader and centred on the aim point:
 
 Red parts glow (`redInk`).
 
+### MG7: scout rifle, Glock 43, SCAR-H, AK-12, first-person knife
+
+| Weapon | Source | Clips |
+|---|---|---|
+| `modern_sniper_3` bolt-action scout rifle, 4× scope (`plus` reticle, SC1 view) | `sniper-animated (2).zip`: Cinema 4D `arms@sniper.fbx`, one 159-frame timeline (not the M24's pack) | fire = shot + bolt 1–51, reload 51–93, idle 114–141 (rest frames 14 / 51 / 93 / 114 / 141) |
+| `modern_pistol3` Glock 43 | `pistol-43-tactical-fps-animations.zip`: `Glock_Anim.fbx` | idle = `Shot` frame 1 (the 2-frame `Origin` is not the holding pose), fire `Shot`, reload `Reloat_t`, reload_empty `Reloat_f`; Inspect, Walk, Run not used |
+| `modern_scar` FN SCAR-H (replaces the MG1 SCAR model; id, stats and sounds kept) | `scar-h_first-person_fps_animated.glb`: one 280-frame timeline at 24 fps | **its arms and clips are not used**: the hand skin is broken in the source (the sleeves stretch into long bars, even in Blender's own glTF import), so the SCAR-H gun is on the static path with the game's arms |
+| `modern_ak12` AK-12 with its own tube optic | `ak-12animated.glb` | `Idle`, `Shoot`, `Reload`; `Equip` not used |
+| `knife_bayonet` (every class's knife) | `knife_animated.glb`: one 116-frame timeline | idle = frame 0 held, fire = the quick slash 32–48 played 1.5× (0.44 s, the hit at its strike frame: `melee.windup` 0.083 s) |
+
+- **AK-12 optic:** the model's lens mesh is left out (the tube is open). Its mark is a green ring with a centre dot (`animated.dotColor`, `dotRing`) at the optic's front centre, on the sight line.
+- **Glock 43:**
+  - this set animates bone scale and its unskinned rest is about 3× off its skin, so the static model is baked posed at the idle (`poseFrame` / `poseAction`, `staticPoseFrame` / `staticPoseAction`) with stray islands cut by `keepIslandsIn`;
+  - the sight points are measured on the rig (`animated.points`);
+  - `eyeRelief` 0.2: further back the eye sits inside the shooting arm's sleeve.
+- **SCAR-H:** the rest pose is not the rifle assembled, so the static model is baked posed at frame 60 (`poseFrame`).
+- **Knife:** framed by its own camera (`frame`; no sights), its blade skinned to the right wrist (`boneAttach`); its source hangs it off an IK goal empty. The equipment branch steps the rig, and a swing plays the slash.
+- **Exporter additions:**
+  - GLB sources; embedded textures are capped at `maxTex`;
+  - skinned meshes with their own object transform are baked into the mesh (glTF skinning ignores a skinned mesh's node transform).
+
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.

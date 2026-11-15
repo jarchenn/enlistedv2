@@ -28,7 +28,7 @@ namespace {
 enum { K_IDLE, K_FIRE, K_RELOAD };
 struct St {
   CharInstance inst; AnimPlayer pl; PoseResult pose;
-  int lastShot = -1; float lastReload = 0, kick = 0; bool ready = false;
+  int lastShot = -1; float lastReload = 0, kick = 0, lastThrow = -1; bool ready = false;   // lastThrow: the melee swing (MG7 knife)
   std::string clipName; mat4 local{1};   // rig -> camera (lowering, sway / bob, ADS); the camera is applied when drawn
 };
 std::map<const WeaponDef*, St> gSt;
@@ -67,10 +67,24 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   if (block.contains("redDot")) {   // a small emissive disc facing back along the sight line; the tube hides it off the axis
     a->hasDot = true; a->dot = jv(block["redDot"]);
     float r = block.value("redDotRadius", 0.0006f);
-    Material m{"red_dot"}; m.albedo = vec3(1, 0.05f, 0.03f); m.emissive = vec3(40, 1.2f, 0.6f);
+    vec3 col = block.contains("dotColor") ? jv(block["dotColor"]) : vec3(1, 0.03f, 0.015f);   // MG7: the AK-12's mark is green
+    Material m{"red_dot"}; m.albedo = col; m.emissive = col * 40.0f;
+    vec3 ax = glm::normalize(a->pt[1] - a->pt[0]);
     Part p; p.shape = Part::CYL; p.size = vec3(2 * r, 0.0002f, 2 * r); p.collide = false; p.seg = 16;
-    p.rot = glm::rotation(vec3(0, 1, 0), glm::normalize(a->pt[1] - a->pt[0])); p.center = a->dot;
-    MeshData md; appendPart(md, p, m, mat4(1)); a->dotMesh.upload(md);
+    p.rot = glm::rotation(vec3(0, 1, 0), ax); p.center = a->dot;
+    MeshData md; appendPart(md, p, m, mat4(1));
+    if (float rr = block.value("dotRing", 0.0f); rr > 0) {   // MG7: a thin ring around the dot (24 short segments in the lens plane)
+      vec3 u = glm::normalize(glm::cross(ax, std::fabs(ax.y) < 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0))), v = glm::cross(ax, u);
+      for (int k = 0; k < 24; ++k) {
+        float t = k * 6.2831853f / 24; Part q; q.collide = false;
+        q.size = vec3(rr * 6.2831853f / 24 * 1.1f, 0.0002f, 0.35f * r);   // x: along the ring, z: the ring's width
+        q.center = a->dot + (u * std::cos(t) + v * std::sin(t)) * rr;
+        vec3 tg = -u * std::sin(t) + v * std::cos(t);
+        q.rot = glm::rotation(vec3(0, 1, 0), ax); q.rot = glm::rotation(q.rot * vec3(1, 0, 0), tg) * q.rot;
+        appendPart(md, q, m, mat4(1));
+      }
+    }
+    a->dotMesh.upload(md);
   }
   return a;
 }
@@ -125,7 +139,9 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
     } else if (s.reloadKind == 4) want = st.pl.key == K_RELOAD ? st.clipName : "";
     else want = s.reloadKind == 1 && clip("reload_empty") >= 0 ? "reload_empty" : "reload";
   }
-  if (s.shotIdx != st.lastShot) {   // automatics restart the fire clip at the cyclic rate
+  bool swing = d.melee.on && s.throwT >= 0 && st.lastThrow < 0;   // MG7: a knife swing plays the fire clip (the slash)
+  st.lastThrow = s.throwT;
+  if (s.shotIdx != st.lastShot || swing) {   // automatics restart the fire clip at the cyclic rate
     st.lastShot = s.shotIdx;
     if (clip("fire") >= 0) play(K_FIRE, "fire", 0.04f, a.fireRate); else st.kick = 1;   // no fire clip (the AR-15 set): a procedural kick
   } else if (!want.empty() && (want != st.clipName || st.pl.key != K_RELOAD || s.reload > st.lastReload + 1e-4f)) {

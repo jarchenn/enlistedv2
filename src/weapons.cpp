@@ -402,6 +402,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     s.cooldown = std::max(0.0f, s.cooldown - dt);
     if (!fireHeld) s.triggerReleased = true;
     stepEquipment(dt, in, d, s, fireHeld);
+    if (d.anim) animVmStep(*this, d, s, dt); else animVmNotActive();   // MG7: the knife's own arms and slash
     viewKickPitch = vm.breathPitch; viewKickYaw = vm.breathYaw;
     return;
   }

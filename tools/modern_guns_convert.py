@@ -12,9 +12,17 @@ ext = os.path.splitext(src)[1].lower()
 if ext == ".blend": bpy.ops.wm.open_mainfile(filepath=src)
 elif ext == ".glb": bpy.ops.import_scene.gltf(filepath=src)
 else: bpy.ops.import_scene.fbx(filepath=src)
-for o in bpy.data.objects:
-    if o.animation_data: o.animation_data_clear()
-    if o.type == "ARMATURE": o.data.pose_position = "REST"
+if cfg.get("poseFrame") is not None:   # MG7: a rig whose rest pose is not the gun assembled (the SCAR-H GLB): bake it posed at this frame
+    if cfg.get("poseAction"):   # of this action (the Glock 43 set animates bone scale: the gun's size depends on the action)
+        for o in bpy.data.objects:
+            if o.type == "ARMATURE":
+                ad = o.animation_data or o.animation_data_create(); act = bpy.data.actions[cfg["poseAction"]]; ad.action = act
+                if hasattr(ad, "action_slot") and act.slots: ad.action_slot = act.slots[0]
+    bpy.context.scene.frame_set(cfg["poseFrame"])
+else:
+    for o in bpy.data.objects:
+        if o.animation_data: o.animation_data_clear()
+        if o.type == "ARMATURE": o.data.pose_position = "REST"
 bpy.context.view_layer.update()
 dg = bpy.context.evaluated_depsgraph_get()
 keep = cfg["keep"]            # source mesh name -> output part name
