@@ -1,7 +1,7 @@
 // --shots-backrooms (BR3): play-camera captures of the Backrooms map with characters in the room, for tuning its look
 // (auto exposure, the first-person arms and weapon, a soldier and a zombie lit by the room). A Singleplayer match on
 // templates/backrooms.nmap.json, paused after the spawn; the local player and two bots are held at fixed spots each frame.
-// Spots: NMK_BR3_SHOTS = "name:x:z:tx:tz;name:..." (eye at x, z looking at tx, tz; the bots stand 4.5 m and 7 m along
+// Spots: NMK_BR3_SHOTS = "name:x:z:tx:tz;name:..." or "name:x:y:z:tx:tz" (UG3: y = the floor; NMK_SHOTS_MAP = another map) (eye at x, z looking at tx, tz; the bots stand 4.5 m and 7 m along
 // the view, 1.2 m either side). Shots: selftest_out/br3_<name>.png. No checks beyond "the match started".
 #include "selftest.h"
 #include "game.h"
@@ -17,7 +17,7 @@ int mode = -1;
 float st = 0;
 int stage = 0, shotIdx = 0;
 fs::path pending;
-struct Spot { std::string name; vec2 eye, at; };
+struct Spot { std::string name; vec2 eye, at; float y = 0; };
 std::vector<Spot> spots;
 int b1 = -1, b2 = -1;
 
@@ -28,7 +28,7 @@ void place(Soldier& s, vec3 feet, vec3 face) {
 }
 void hold(App& app, const Spot& sp) {
   Game& G = *gGame;
-  vec3 e(sp.eye.x, 0, sp.eye.y), t(sp.at.x, 0, sp.at.y), d = glm::normalize(t - e), side = glm::normalize(glm::cross(d, vec3(0, 1, 0)));
+  vec3 e(sp.eye.x, sp.y, sp.eye.y), t(sp.at.x, sp.y, sp.at.y), d = glm::normalize(t - e), side = glm::normalize(glm::cross(d, vec3(0, 1, 0)));
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
   vec3 eye = e + vec3(0, 1.62f, 0), look = e + d * 6.0f + vec3(0, 1.3f, 0), v = look - eye;
@@ -47,11 +47,14 @@ bool br3Shots(App& app, float dt) {
     if (const char* e = std::getenv("NMK_BR3_SHOTS")) {
       std::stringstream ss(e); std::string item;
       while (std::getline(ss, item, ';')) {
-        std::stringstream is(item); std::string f[5]; for (auto& x : f) std::getline(is, x, ':');
-        if (!f[4].empty()) spots.push_back({f[0], vec2(std::atof(f[1].c_str()), std::atof(f[2].c_str())), vec2(std::atof(f[3].c_str()), std::atof(f[4].c_str()))});
+        std::stringstream is(item); std::string f[6]; for (auto& x : f) std::getline(is, x, ':');
+        auto n = [&](int i) { return (float)std::atof(f[i].c_str()); };
+        if (!f[5].empty()) spots.push_back({f[0], vec2(n(1), n(3)), vec2(n(4), n(5)), n(2)});   // UG3: name:x:y:z:tx:tz (y = the floor)
+        else if (!f[4].empty()) spots.push_back({f[0], vec2(n(1), n(2)), vec2(n(3), n(4))});
       }
     }
-    bool ok = app.openMap(contentDir() / "templates" / "backrooms.nmap.json");
+    const char* mp = std::getenv("NMK_SHOTS_MAP");   // UG3: another map (content-relative), default Backrooms
+    bool ok = app.openMap(contentDir() / (mp && *mp ? mp : "templates/backrooms.nmap.json"));
     gUi.loaded = false; gUi.matchScenario = json();
     if (!gGame) gGame = new Game(app);
     gGame->pendingStart = true;

@@ -1,32 +1,32 @@
 {
   "id": "tunnels",
-  "version": 2,
+  "version": 3,
   "order": 7,
   "name": "Tunnels",
   "available": true,
   "seed": 19440605,
-  "description": "An underground labyrinth, 216 x 216 m: winding rock and concrete galleries on two levels joined by stair drifts, junctions, squeezes, and five chambers (storage, bunk room, generator room, a flooded sump, a collapse). Sparse caged lamps, many of them failing, dark stretches and red emergency lamps. Assault (the Allies push in from the west galleries: generator room, sump, collapse), Team Deathmatch and Solo.",
-  "width": 216.0,
-  "depth": 216.0,
+  "description": "An underground mine labyrinth, 176 x 176 m, with some 20 m of relief: galleries that climb and drop by inclines and stair drifts, two shafts with ledges and a bridge over the pit, a deep sump, a narrow-gauge haulage line with points, a siding and mine carts, rooms full of mine gear. Steady caged lamps, dark stretches and red emergency lamps. Assault (the Allies push in from the west galleries: generator room, sump, collapse), Team Deathmatch and Solo.",
+  "width": 176.0,
+  "depth": 176.0,
   "margin": 60,
   "camera": {
     "pos": [
       0.0,
       150.0,
-      170.0
+      150.0
     ],
     "yaw": 0.0,
     "pitch": -45.0
   },
   "heightmap": {
     "file": "tunnels.height.png",
-    "nx": 111,
-    "nz": 111,
-    "min": -1,
-    "max": 1,
+    "nx": 96,
+    "nz": 96,
+    "min": -31,
+    "max": -29,
     "org": [
-      -172.549,
-      -172.549
+      -149.0196,
+      -149.0196
     ],
     "cell": 3.1372549019607843
   },
@@ -37,11 +37,11 @@
   "thumbnailCamera": {
     "pos": [
       -54.5,
-      1.65,
-      -79.7
+      11.25,
+      56.0
     ],
-    "yaw": -90.0,
-    "pitch": -4.0
+    "yaw": 90.0,
+    "pitch": 6.0
   },
   "userMap": true,
   "views": [
@@ -49,29 +49,18 @@
       "name": "overview_high",
       "pos": [
         0.0,
-        170.0,
-        150.0
+        160.0,
+        140.0
       ],
       "yaw": 0.0,
       "pitch": -50.0
     },
     {
-      "name": "corridor_eye",
-      "pos": [
-        -24.0,
-        1.65,
-        -99.0
-      ],
-      "yaw": 180.0,
-      "pitch": 0.0,
-      "gameplay": true
-    },
-    {
       "name": "generator_eye",
       "pos": [
-        -6.0,
-        1.65,
-        -6.0
+        2.0,
+        18.45,
+        2.0
       ],
       "yaw": -135.0,
       "pitch": 0.0,
