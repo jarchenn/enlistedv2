@@ -22,29 +22,57 @@ void TankSys::loadDefs(App& app) {
   fs::path dir = contentDir() / "vehicles";
   std::error_code ec;
   if (!fs::exists(dir, ec)) return;
+  // VH1 variants: "base": "<id>" takes that file and applies the variant's keys over it (JSON merge patch)
+  std::map<std::string, json> files;
   for (auto& e : fs::directory_iterator(dir, ec)) {
     if (e.path().extension() != ".json" || e.path().stem() == "ramming") continue;   // ramming.json: obstacle table (tank_ram.cpp)
-    json j; try { j = json::parse(readTextFile(e.path())); } catch (std::exception& x) { logf("vehicle %s: %s", e.path().string().c_str(), x.what()); continue; }
-    auto d = std::make_unique<TankDef>();
-    d->raw = j; d->id = j.value("id", e.path().stem().string()); d->name = j.value("name", d->id);
-    d->faction = j.value("faction", ""); d->identity = j.value("identity", "");
-    // baked model
-    std::string mdir = j.contains("model") ? j["model"].value("dir", "") : "";
-    if (!mdir.empty()) {
-      auto gm = std::make_shared<GpuModel>(); std::string err;
-      if (gm->load(dir / "models" / mdir, err)) d->model = gm; else logf("vehicle %s: model not loaded (%s) - run --import-vehicle-models", d->id.c_str(), err.c_str());
+    try { files[e.path().stem().string()] = json::parse(readTextFile(e.path())); } catch (std::exception& x) { logf("vehicle %s: %s", e.path().string().c_str(), x.what()); }
+  }
+  std::map<std::string, std::shared_ptr<GpuModel>> loaded;   // variants share their base's GPU model
+  for (auto& [stem, j0] : files) {
+    json j = j0;
+    if (j0.contains("base")) {
+      auto b = files.find(j0["base"].get<std::string>());
+      if (b == files.end()) { logf("vehicle %s: base %s not found", stem.c_str(), j0["base"].get<std::string>().c_str()); continue; }
+      j = b->second; j.erase("fallbackModel"); j.merge_patch(j0); j.erase("base");
     }
+    auto d = std::make_unique<TankDef>();
+    d->raw = j; d->id = j.value("id", stem); d->name = j.value("name", d->id);
+    d->faction = j.value("faction", ""); d->identity = j.value("identity", "");
+    // baked model (a car whose supplied model is local-only falls back to its committed part-built stand-in)
+    for (const char* key : {"dir", "fallbackDir"}) {
+      std::string mdir = j.contains("model") ? j["model"].value(key, "") : "";
+      if (mdir.empty() || d->model) continue;
+      if (loaded.count(mdir)) { d->model = loaded[mdir]; continue; }
+      auto gm = std::make_shared<GpuModel>(); std::string err;
+      if (gm->load(dir / "models" / mdir, err)) { d->model = loaded[mdir] = gm; if (std::string(key) == "fallbackDir") logf("vehicle %s: supplied model missing, part-built fallback %s", d->id.c_str(), mdir.c_str()); }
+      else logf("vehicle %s: model %s not loaded (%s) - run --import-vehicle-models", d->id.c_str(), mdir.c_str(), err.c_str());
+    }
+    d->car = j.value("car", false);
     if (d->model) {
+      static const char* wheelRoles[4] = {"wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr"};
+      vec3 wlo[4], whi[4]; for (int w = 0; w < 4; ++w) { wlo[w] = vec3(1e9f); whi[w] = vec3(-1e9f); }
+      vec3 slo(1e9f), shi(-1e9f);
       for (size_t k = 0; k < d->model->parts.size(); ++k) {
         const ModelPart& p = d->model->parts[k];
         int side = (p.bmin.x + p.bmax.x) * 0.5f < 0 ? 0 : 1;
-        if (p.role == "turret") d->turretParts.push_back((int)k);
+        int wheel = -1; for (int w = 0; w < 4; ++w) if (p.role == wheelRoles[w]) wheel = w;
+        if (d->car && wheel >= 0) { d->wheelPart[wheel].push_back((int)k); wlo[wheel] = glm::min(wlo[wheel], p.bmin); whi[wheel] = glm::max(whi[wheel], p.bmax); }
+        else if (d->car && p.role == "steer") { d->steerParts.push_back((int)k); slo = glm::min(slo, p.bmin); shi = glm::max(shi, p.bmax); }
+        else if (d->car && p.role == "windshield") d->windshieldParts.push_back((int)k);
+        else if (d->car && p.role == "stowage") d->stowageParts.push_back((int)k);
+        else if (d->car && p.role == "pintle") d->pintleParts.push_back((int)k);
+        else if (p.role == "turret") d->turretParts.push_back((int)k);
         else if (p.role == "gun") d->gunParts.push_back((int)k);
         else if (p.role == "hatch") d->hatchParts.push_back((int)k);
         else if (p.role == "mg") d->mgParts.push_back((int)k);
         else if (p.role == "track") d->trackParts[side].push_back((int)k);
         else if (p.role == "wheels") d->wheelParts[side].push_back((int)k);
         else d->hullParts.push_back((int)k);
+      }
+      if (d->car) {
+        for (int w = 0; w < 4; ++w) if (!d->wheelPart[w].empty()) { d->wheelC[w] = (wlo[w] + whi[w]) * 0.5f; d->wheelR = (whi[w].y - wlo[w].y) * 0.5f; }
+        if (!d->steerParts.empty()) d->steerC = (slo + shi) * 0.5f;
       }
     }
     const json rg = j.value("rig", json::object());
@@ -96,6 +124,16 @@ void TankSys::loadDefs(App& app) {
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
     const json rm = j.value("ramming", json::object());
     d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);
+    if (d->car) {
+      d->driverEye = jv(rg, "driverEye", d->hatchEye); d->steerAxis = glm::normalize(jv(rg, "steerAxis", d->steerAxis)); d->windshieldPivot = jv(rg, "windshieldPivot");
+      const json cd = j.value("carDrive", json::object());
+      d->maxSteerDeg = cd.value("maxSteerDeg", d->maxSteerDeg); d->steerRate = cd.value("steerRate", d->steerRate); d->steerTurns = cd.value("steerTurns", d->steerTurns);
+      d->handbrakeDecel = cd.value("handbrakeDecel", d->handbrakeDecel); d->suspTravel = cd.value("suspensionTravel", d->suspTravel); d->runOverDmg = cd.value("runOverDamage", d->runOverDmg);
+      const json va = j.value("variant", json::object());
+      d->windshieldFold = va.value("windshieldFoldDeg", 0.0f); d->stowage = va.value("stowage", true); d->pintle = va.value("pintle", false);
+      d->smallArmsDmg = du.value("smallArmsDamage", 0);
+      if (!d->wheelPart[0].empty()) { d->trackHalfGauge = 0.5f * (d->wheelC[0].x - d->wheelC[1].x); d->trackHalfLen = 0.5f * (d->wheelC[0].z - d->wheelC[2].z); }
+    }
     logf("vehicle %s: %s, %zu model parts (hull %zu turret %zu gun %zu tracks %zu/%zu)", d->id.c_str(), d->name.c_str(), d->model ? d->model->parts.size() : 0,
          d->hullParts.size(), d->turretParts.size(), d->gunParts.size(), d->trackParts[0].size(), d->trackParts[1].size());
     std::string id = d->id;
@@ -103,6 +141,7 @@ void TankSys::loadDefs(App& app) {
   }
   // catalog entries: placement / pick bounds from the baked model (their collider parts are invisible)
   for (auto& a : app.lib.assets) if (const TankDef* d = defFor(a.get())) { a->bmin = d->model->bmin; a->bmax = d->model->bmax; a->bmax.y = std::min(a->bmax.y, 3.6f); }
+  for (auto& [id, d] : defs) if (d->car) logf("vehicle %s: car, wheels r %.3f track %.2f wheelbase %.2f, steering wheel (%.2f %.2f %.2f)", id.c_str(), d->wheelR, 2 * d->trackHalfGauge, 2 * d->trackHalfLen, d->steerC.x, d->steerC.y, d->steerC.z);
   buildTankSounds(app.audio);
   loadRam(app);
 }

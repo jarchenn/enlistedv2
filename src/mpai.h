@@ -36,6 +36,9 @@ bool mpaiStationRequest(App& app, uint64_t id, int pos);   // occupyStation
 void mpaiStationLeft(App& app, uint64_t id);                // end of leaveStation
 void mpaiStationShot(App& app, uint64_t id, vec3 from, vec3 dir, int tracer, int owner);   // stationShoot
 bool mpaiRackRequest(App& app, uint64_t rack, int weapon);  // rackActivate
+// VH1: a moving car's body box (centre, half extents, rotation) strikes the soldiers / zombies inside it (inflated):
+// damage = dmgPerMs x the impact speed, each victim at most every 0.8 s (cooldown map: slot -> time). Returns hits.
+int mpaiRunOver(App& app, vec3 c, vec3 he, quat q, vec3 vel, float dmgPerMs, std::map<int, double>& cooldown);
 bool mpaiMayDriveTanks(App& app);                           // GM1: TankSys::handleInteract (Tanker class only, in a match)
 bool mpaiPickupWeapon(App& app);                            // GM1: E near a dropped AI weapon (explore.cpp)
 bool mpaiCrateRequest(App& app, uint64_t crate);            // crateTransaction

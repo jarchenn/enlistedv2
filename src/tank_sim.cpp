@@ -177,7 +177,7 @@ bool TankSys::handleInteract(App& app, const ExploreInput& in) {
   if (!in.interact || occupied || !target) return false;
   TankRT* t = get(target);
   if (t && t->wrecked) { app.toast(t->def->name + " is destroyed.", 3); return true; }
-  if (!mpaiMayDriveTanks(app)) { app.toast("Only a Tanker can drive tanks.", 3); return true; }   // GM1
+  if (t && !t->def->car && !mpaiMayDriveTanks(app)) { app.toast("Only a Tanker can drive tanks.", 3); return true; }   // GM1 (cars: anyone)
   enter(app, target);
   return true;
 }
@@ -192,6 +192,15 @@ bool TankSys::enter(App& app, uint64_t id) {
   t->station = TS_GUNNER; t->hatchT = 0;
   fireArmed = false; zoom = false; zoomT = 0; aimPrev = true; crouchLatch = true;
   app.build.active = false; app.adsT = 0; app.vault.active = false; app.choiceFor = 0;
+  if (t->def->car) {   // VH1: the driver's seat, looking ahead through the windshield
+    vec3 f = yawQuat(t->yaw) * vec3(0, 0, 1);
+    app.eyeYaw = wrapDeg(degrees(std::atan2(-f.x, -f.z))); app.eyePitch = -9;
+    Physics::setCharacterPos(t->pos + vec3(0, 0.6f, 0));
+    app.audio.play("steel_close", t->pos + vec3(0, 1.2f, 0), 0.4f);
+    app.toast("In " + t->def->name + ". W/S throttle / brake / reverse | A/D steer | Space handbrake | mouse look" +
+              std::string(t->def->pintle ? " | Ctrl pintle MG (LMB fire)" : "") + " | E get out", 7);
+    return true;
+  }
   // the desired aim starts on the gun's achieved line (no turret swing on entry)
   vec3 dir; muzzleWorld(*t, dir);
   app.eyeYaw = wrapDeg(degrees(std::atan2(-dir.x, -dir.z))); app.eyePitch = degrees(std::asin(std::clamp(dir.y, -1.0f, 1.0f)));
@@ -268,6 +277,7 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
     effects(app, t, dt);
     return;
   }
+  if (d.car) { stepCar(app, t, dt, in); return; }
   bool focused = app.selftest || glfwGetWindowAttrib(app.win, GLFW_FOCUSED);
   t.throttleIn = in ? std::clamp(in->move.y, -1.0f, 1.0f) : 0.0f;
   bool rmbFire = false;
@@ -323,6 +333,52 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   effects(app, t, dt);
 }
 
+// VH1 car step: driver seat (W/S throttle, brake, reverse; A/D steering, smoothed; Space handbrake; free head inside the
+// cab) or, with a pintle MG, Ctrl to the gun (the car rolls to a stop on its handbrake; LMB / Space fire, belts change
+// on their own). Entry / exit, collision, damage, wreck and effects are the tanks'.
+void TankSys::stepCar(App& app, TankRT& t, float dt, const ExploreInput* in) {
+  const TankDef& d = *t.def;
+  bool focused = app.selftest || glfwGetWindowAttrib(app.win, GLFW_FOCUSED);
+  if (in) {
+    bool ctrl = in->crouch;
+    if (crouchLatch) { if (!ctrl) crouchLatch = false; }
+    else if (ctrl && !ctrlPrev && d.pintle && !d.mgWeapon.empty() && t.hatchT == (t.station == TS_HATCH ? 1.0f : 0.0f)) {
+      t.station = t.station == TS_HATCH ? TS_GUNNER : TS_HATCH; ++hatchToggles; fireArmed = false;
+      app.audio.play("gun_move", t.pos + vec3(0, 1.4f, 0), 0.5f);
+    }
+    ctrlPrev = ctrl;
+  }
+  t.hatchT = approach(t.hatchT, t.station == TS_HATCH ? 1.0f : 0.0f, dt / 0.6f);
+  bool driving = in && t.station == TS_GUNNER && t.hatchT == 0;
+  t.throttleIn = driving ? std::clamp(in->move.y, -1.0f, 1.0f) : 0.0f;
+  t.steerIn = driving ? std::clamp(in->move.x, -1.0f, 1.0f) : 0.0f;
+  t.handbrake = (driving && in->jumpHeld) || (in && !driving);   // at the MG (or getting there) the handbrake is on
+  // the steering follows the keys at a limited rate (lock to lock in 2 / steerRate s) and recentres a little faster
+  t.steer = approach(t.steer, t.steerIn, d.steerRate * (t.steerIn == 0 ? 1.4f : 1.0f) * dt);
+  float yaw0 = t.yaw;
+  drive(app, t, dt);
+  if (in) {
+    // the head turns with the car and stays inside a sensible range of the bonnet: +-110 deg, -50 .. +35 deg
+    vec3 f = yawQuat(t.yaw) * vec3(0, 0, 1);
+    float carEye = degrees(std::atan2(-f.x, -f.z));
+    app.eyeYaw = wrapDeg(app.eyeYaw + wrap180(t.yaw - yaw0));
+    float lim = t.station == TS_HATCH ? 180.0f : 110.0f;
+    app.eyeYaw = wrapDeg(carEye + std::clamp(wrap180(app.eyeYaw - carEye), -lim, lim));
+    app.eyePitch = std::clamp(app.eyePitch, t.pitch - 50.0f, t.pitch + 35.0f);
+    if (!focused || (!app.selftest && app.now - lastStepTime > 0.25)) fireArmed = false; else if (!(in->fire && focused)) fireArmed = true;
+    lastStepTime = app.now;
+  }
+  if (d.pintle && !d.mgWeapon.empty()) {
+    // Space is the handbrake in the seat: the MG only hears it standing at the gun
+    ExploreInput gin; const ExploreInput* gp = nullptr;
+    if (in) { gin = *in; if (t.station != TS_HATCH) gin.jumpHeld = false; gp = &gin; }
+    stepMgs(app, t, dt, gp, focused);
+  }
+  if (in && in->interact) exitTank(app, false);
+  updateBody(app, t, false);
+  effects(app, t, dt);
+}
+
 void TankSys::drive(App& app, TankRT& t, float dt) {
   const TankDef& d = *t.def;
   bool road = app.terrain.wearAt(t.pos.x, t.pos.z) > 0.5f;
@@ -337,6 +393,7 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
   bool braking = (t.throttleIn > 0 && t.speed < -0.05f) || (t.throttleIn < 0 && t.speed > 0.05f);
   float rate = braking ? d.brake : t.throttleIn == 0 ? d.coast + d.brake * 0.25f * (std::fabs(t.speed) < 1 ? 1.0f : 0.0f) : (std::fabs(target) < std::fabs(t.speed) ? d.brake * 0.6f : d.accel);
   t.speed = approach(t.speed, target, rate * dt);
+  if (d.car && t.handbrake) t.speed = approach(t.speed, 0.0f, d.handbrakeDecel * dt);   // VH1: rear wheels locked
   // downhill roll / uphill drag when coasting (bounded, deterministic)
   // (a parked tank holds on its brakes; only a crewed, still-rolling tank feels the slope)
   if (t.throttleIn == 0 && occupied == t.id && std::fabs(t.speed) > 0.5f && std::fabs(slope) > 4.0f) t.speed -= 9.81f * std::sin(radians(slope)) * 0.15f * dt;
@@ -344,6 +401,13 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
   float spd = std::fabs(t.speed);
   float turn = glm::mix(d.pivotRate, d.turnRate, std::min(1.0f, spd / 2.0f)) * (spd > 0.5f * d.maxFwd ? glm::mix(1.0f, 0.7f, (spd - 0.5f * d.maxFwd) / (0.5f * d.maxFwd)) : 1.0f);
   t.yawRate = approach(t.yawRate, -t.steerIn * turn, 70.0f * dt);
+  if (d.car) {
+    // VH1 bicycle model: yaw rate = v tan(delta) / wheelbase, capped by tyre grip (lateral acceleration ~ 0.75 g; more
+    // with the rear locked on the handbrake, so the tail steps out)
+    float delta = radians(-t.steer * d.maxSteerDeg), L = 2 * d.trackHalfLen;
+    float w = t.speed * std::tan(delta) / std::max(0.5f, L), wmax = (t.handbrake ? 11.0f : 7.4f) / std::max(std::fabs(t.speed), 1.0f);
+    t.yawRate = degrees(std::clamp(w, -wmax, wmax));
+  }
   if (std::fabs(t.speed) < 1e-3f && std::fabs(t.yawRate) < 1e-3f) {
     // parked: settle on the ground (craters can open under a parked tank)
     t.speed = 0; t.yawRate = 0;
@@ -363,6 +427,11 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
     mat4 H = hullMatrix(probe);
     quat hq = glm::quat_cast(glm::mat3(H));
     vec3 he = d.halfSize, c = vec3(H * vec4(0, d.clearance + he.y, 0, 1));
+    // VH1: soldiers and zombies in the car's path are struck (damage by impact speed); the car loses some speed
+    if (ok && d.car && std::fabs(t.speed) > 1.5f) {
+      int hits = mpaiRunOver(app, c, he + vec3(0.2f, 0, 0.25f), hq, yawQuat(ny) * vec3(0, 0, 1) * t.speed, d.runOverDmg, t.runOverT);
+      if (hits) { t.runOvers += hits; t.speed *= std::pow(0.8f, (float)hits); app.audio.play("impact_metal", c, 0.7f); }
+    }
     // anything in the way: knocked over, crushed, pushed through or holding (tank_ram.cpp, one energy rule)
     if (ok && Physics::boxBlocked(c, he, hq, bodyUD(t.id), true) && !ramObstacles(app, t, dt, H, c, he, hq, why)) ok = false;
     // never drive into the player (no crushing; the tank stops)
@@ -387,6 +456,16 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
       if (t.blockedBy != why && occupied == t.id && why.rfind("pushing", 0) != 0) app.toast("Blocked: " + why, 2);
       t.blockedBy = why;
       t.speed = 0; t.yawRate = 0;
+    }
+  }
+  if (d.car) {
+    // VH1: each wheel drops / rises to the ground under it within its travel (visual), and rolls with the ground speed
+    mat4 H = hullMatrix(t);
+    for (int k = 0; k < 4; ++k) {
+      vec3 w = vec3(H * vec4(d.wheelC[k].x, 0, d.wheelC[k].z, 1));
+      float want = std::clamp(app.terrain.height(w.x, w.z) - w.y, -d.suspTravel, d.suspTravel);
+      t.wheelSusp[k] = approach(t.wheelSusp[k], want, 1.5f * dt);
+      if (!(t.handbrake && k >= 2)) t.wheelSpin[k] = std::fmod(t.wheelSpin[k] + t.speed / std::max(0.1f, d.wheelR) * dt, 6.2831853f);
     }
   }
   crushUnder(app, t);   // fallen poles / fences under the tracks
@@ -617,6 +696,13 @@ bool TankSys::camera(const App& app, vec3& eye, vec3& fwd, float& fov) const {
   auto it = tanks.find(occupied);
   if (it == tanks.end() || !it->second.def) return false;
   const TankRT& t = it->second; const TankDef& d = *t.def;
+  if (d.car) {   // VH1: the driver's head (free look, clamped in stepCar) easing to the pintle gunner's when standing at the MG
+    mat4 H = hullMatrix(t);
+    float u = t.hatchT * t.hatchT * (3 - 2 * t.hatchT);
+    vec3 gunner = d.mgPivot + glm::angleAxis(radians(t.mgYaw), vec3(0, 1, 0)) * (d.hatchEye - d.mgPivot);   // stands behind the gun as it traverses
+    eye = vec3(H * vec4(glm::mix(d.driverEye, gunner, u), 1)); fwd = App::forward(app.eyeYaw, app.eyePitch); fov = 75;
+    return true;
+  }
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
   // gunner: the optic follows the ACHIEVED gun line (the turret lags the mouse; the HUD marks the desired aim)
   vec3 e0 = vec3(g * vec4(d.optic, 1)), f0 = glm::normalize(vec3(g * vec4(0, 0, 1, 0)));
@@ -669,11 +755,13 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
   // the matrix: cannon (tank gun, AT gun, Flak) counts from every side; launchers only side / rear; small arms never.
   // roof / underside: cannon counts as a side-class hit, launchers do not count (no rule given -> conservative)
   bool counted = attack == TA_CANNON || (attack == TA_LAUNCHER && (r.zone == TZ_SIDE || r.zone == TZ_REAR));
+  if (t->def->car) counted = attack != TA_SMALL_ARMS || t->def->smallArmsDmg > 0;   // VH1: soft-skinned: every launcher hit, bullets wear it down
   r.counted = counted;
   r.consumed = attack == TA_SMALL_ARMS || (attack == TA_LAUNCHER && !counted);   // no penetration, no blast
   char b[200];
   if (counted) {
     int dmg = r.zone == TZ_FRONT ? t->def->frontDamage() : t->def->sideDamage();
+    if (t->def->car) dmg = attack == TA_SMALL_ARMS ? t->def->smallArmsDmg : 100;   // VH1: one shell or rocket wrecks a jeep
     t->hp = std::max(0, t->hp - dmg);
     if (r.zone == TZ_FRONT) ++t->hitsFront; else ++t->hitsSide;
     std::snprintf(b, sizeof b, "%s hit, %s %s: durability %d (front hits %d, side/rear hits %d)", an[attack], onTurret ? "turret" : "hull", tankZoneName(r.zone), t->hp, t->hitsFront, t->hitsSide);
@@ -775,24 +863,24 @@ void TankSys::effects(App& app, TankRT& t, float dt) {
   }
   bool engine = t.rpm > 0.02f;
   if (engine) {   // light exhaust from the actual outlets, load-dependent, emitted particles drift on their own
-    t.exhaustAcc += dt * (3.0f + 22.0f * t.rpm);
+    t.exhaustAcc += dt * (3.0f + 22.0f * t.rpm) * (d.car ? 0.35f : 1.0f);   // VH1: a jeep's exhaust is a thin wisp
     while (t.exhaustAcc >= 1) {
       t.exhaustAcc -= 1;
       for (auto& e : d.exhausts) {
         vec3 p = vec3(H * vec4(e, 1)), back = vec3(H * vec4(0, -0.3f, -1, 0));
-        app.fx.smoke(p, back * 0.7f + vel * 0.3f + vec3(0, 0.35f, 0), 0.18f + 0.15f * t.rpm, 2.2f, vec4(0.32f, 0.33f, 0.35f, 0.10f + 0.22f * t.rpm), 1.5f, 0.35f);
+        app.fx.smoke(p, back * 0.7f + vel * 0.3f + vec3(0, 0.35f, 0), (0.18f + 0.15f * t.rpm) * (d.car ? 0.6f : 1.0f), d.car ? 1.2f : 2.2f, vec4(0.32f, 0.33f, 0.35f, (0.10f + 0.22f * t.rpm) * (d.car ? 0.5f : 1.0f)), d.car ? 0.8f : 1.5f, 0.35f);
       }
     }
   }
   // dust from the tracks on dry ground when moving (none on wet ground)
   float spd = std::fabs(t.speed);
   if (spd > 1.0f && app.terrain.wetAt(t.pos.x, t.pos.z) < 0.5f) {
-    t.dustAcc += dt * spd * 1.6f;
+    t.dustAcc += dt * spd * (d.car ? 0.6f : 1.6f);   // VH1: a jeep raises far less dust than a tank
     while (t.dustAcc >= 1) {
       t.dustAcc -= 1;
       float side = app.fx.rnd() < 0.5f ? -1.0f : 1.0f;
       vec3 p = vec3(H * vec4(side * d.trackHalfGauge, 0.15f, t.speed > 0 ? -d.trackHalfLen : d.trackHalfLen, 1));
-      app.fx.smoke(p, vec3(0, 0.5f, 0) - vel * 0.15f, 0.45f, 2.6f, vec4(0.48f, 0.42f, 0.33f, 0.16f), 2.0f, 0.15f);
+      app.fx.smoke(p, vec3(0, 0.5f, 0) - vel * 0.15f, d.car ? 0.3f : 0.45f, d.car ? 1.6f : 2.6f, vec4(0.48f, 0.42f, 0.33f, d.car ? 0.09f : 0.16f), 2.0f, 0.15f);
     }
   }
   // damage smoke from the engine deck once durability is at or below half (distinct from the exhaust)
@@ -805,6 +893,10 @@ void TankSys::effects(App& app, TankRT& t, float dt) {
   std::string eng = d.id == "tiger_i" ? "engine_tiger" : "engine_sherman";
   if (engine && t.engineLoop < 0) t.engineLoop = app.audio.loopStart(eng, ep, 0.0f, 0.7f);
   if (!engine && t.engineLoop >= 0) { app.audio.loopStop(t.engineLoop); t.engineLoop = -1; }
+  if (d.car) {   // VH1: the Sherman loop pitched up for the jeep's four-cylinder (no recording supplied), quieter; no tracks / turret
+    if (t.engineLoop >= 0) app.audio.loopSet(t.engineLoop, ep, 0.18f + 0.4f * t.rpm, 1.5f + 1.3f * t.rpm);
+    return;
+  }
   if (t.engineLoop >= 0) app.audio.loopSet(t.engineLoop, ep, 0.25f + 0.55f * t.rpm, 0.65f + 0.85f * t.rpm);
   float trackV = std::clamp(spd / std::max(1.0f, d.maxFwd) + std::fabs(t.yawRate) / 60.0f, 0.0f, 1.0f);
   if (trackV > 0.02f && t.trackLoop < 0) t.trackLoop = app.audio.loopStart("tank_tracks", t.pos, 0.0f, 1.0f);

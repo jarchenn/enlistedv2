@@ -367,7 +367,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         if (s.localPlayer && s.cls >= 0 && classDefs()[s.cls].drivesTanks) {   // GM1b: the Tanker starts inside the nearest free tank of its side
           uint64_t best = 0; float bd = 1e9f;
           for (auto& [id, tk] : app.tanks.tanks) {
-            if (!tk.def || tk.wrecked || app.tanks.occupied == id || (tk.def->faction == "Axis") != (s.faction == Faction::Axis)) continue;
+            if (!tk.def || tk.def->car || tk.wrecked || app.tanks.occupied == id || (tk.def->faction == "Axis") != (s.faction == Faction::Axis)) continue;
             float d = glm::length(tk.pos - feet); if (d < bd) { bd = d; best = id; }
           }
           if (best && !app.tanks.occupied && app.tanks.enter(app, best)) app.toast("Tanker: in the " + app.tanks.get(best)->def->name + ", hatch closed", 4);
@@ -491,7 +491,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   // Head out of the hatch stays exposed.
   if (s.localPlayer && app.tanks.occupied) {
     auto it = app.tanks.tanks.find(app.tanks.occupied);
-    if (it != app.tanks.tanks.end() && !it->second.wrecked && it->second.station == TS_GUNNER && it->second.hatchT == 0) return;
+    if (it != app.tanks.tanks.end() && !it->second.def->car && !it->second.wrecked && it->second.station == TS_GUNNER && it->second.hatchT == 0) return;
   }
   if (attacker >= 0 && attacker != i && sameTeam(attacker, i) && !match.rules.friendlyFire) return;
   s.hp -= dmg;

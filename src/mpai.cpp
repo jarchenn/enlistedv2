@@ -160,6 +160,28 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   return true;
 }
 
+int mpaiRunOver(App& app, vec3 c, vec3 he, quat q, vec3 vel, float dmgPerMs, std::map<int, double>& cooldown) {
+  (void)app;
+  if (!gGame || !gGame->active || gGame->isClient) return 0;
+  int hits = 0; quat qi = glm::inverse(q);
+  for (size_t i = 0; i < gGame->sold.size(); ++i) {
+    Soldier& s = gGame->sold[i];
+    if (!s.alive || s.localPlayer) continue;
+    bool in = false;
+    for (float hgt : {0.3f, 1.0f}) { vec3 l = qi * (s.feet + vec3(0, hgt, 0) - c); if (glm::all(glm::lessThanEqual(glm::abs(l), he + vec3(0.3f)))) in = true; }
+    if (!in) continue;
+    double& last = cooldown[(int)i];
+    if (gGame->t - last < 0.8 && last > 0) continue;
+    vec3 rel = vel - s.vel; float v = std::max(0.0f, glm::dot(rel, glm::normalize(s.feet - c + vec3(0, 1e-3f, 0))));
+    v = std::max(v, glm::length(vel) * 0.5f);   // a glancing blow still hurts
+    last = gGame->t;
+    int by = gGame->sameTeam(gGame->localSlot, (int)i) ? -1 : gGame->localSlot;   // a friendly struck is still struck (no team-kill credit)
+    gGame->damage((int)i, dmgPerMs * v, by, glm::normalize(vel + vec3(0, 0.3f, 0)), "vehicle");
+    ++hits;
+  }
+  return hits;
+}
+
 void mpaiSetBlastOwner(int owner) { gProjOwner = owner; }   // GM2: packs / artillery (owner -1 = the local player)
 
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits) {

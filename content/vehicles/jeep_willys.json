@@ -1,0 +1,205 @@
+{
+  "id": "jeep_willys",
+  "name": "Willys MB jeep",
+  "faction": "Allied",
+  "identity": "Supplied jeep_willys_mb__free_download_daz3d_poser.glb (uchronia, Sketchfab, CC-BY-NC-ND-4.0): one Willys MB with windshield, folded top bows, stowage (bags, jerrycans, axe, shovel, rope) and a spare wheel. The baked model is local-only (git-ignored, licence not redistributable); without it the committed part-built fallback (models/jeep_fallback) is drawn.",
+  "car": true,
+  "model": {
+    "src": "jeep_willys.glb",
+    "dir": "jeep",
+    "fallbackDir": "jeep_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 1024,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "windshield": "windshield",
+      "stowage": "stowage",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr",
+      "pintle": "pintle"
+    },
+    "note": "the source GLB is converted by tools/vehicles/convert_jeep_glb.py (Blender, metres, role nodes) into assets_src/vehicles/jeep_willys.glb first"
+  },
+  "fallbackModel": {
+    "src": "jeep_fallback.glb",
+    "dir": "jeep_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 64,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "windshield": "windshield",
+      "stowage": "stowage",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr",
+      "pintle": "pintle"
+    },
+    "note": "part-built stand-in made of boxes and cylinders by tools/vehicles/make_jeep_fallback.py (committed)"
+  },
+  "rig": {
+    "driverEye": [
+      0.36,
+      1.52,
+      -0.5
+    ],
+    "hatchEye": [
+      0.36,
+      1.52,
+      -0.5
+    ],
+    "steerAxis": [
+      0,
+      0.497,
+      -0.868
+    ],
+    "windshieldPivot": [
+      0,
+      1.0,
+      0.45
+    ],
+    "engine": [
+      0,
+      0.9,
+      1.1
+    ],
+    "exhausts": [
+      [
+        -0.5,
+        0.35,
+        -1.7
+      ]
+    ],
+    "exits": [
+      [
+        1.4,
+        0,
+        -0.2
+      ],
+      [
+        -1.4,
+        0,
+        -0.2
+      ],
+      [
+        1.4,
+        0,
+        1.0
+      ],
+      [
+        -1.4,
+        0,
+        1.0
+      ],
+      [
+        0,
+        0,
+        -2.4
+      ],
+      [
+        0,
+        0,
+        2.5
+      ]
+    ]
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          0.8,
+          0
+        ],
+        "h": [
+          0.78,
+          0.45,
+          1.68
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        0.8,
+        0
+      ],
+      "h": [
+        0.78,
+        0.45,
+        1.68
+      ]
+    },
+    "note": "one body box in hull space; no turret"
+  },
+  "carDrive": {
+    "maxSteerDeg": 32,
+    "steerRate": 1.8,
+    "steerTurns": 2.5,
+    "handbrakeDecel": 7.0,
+    "suspensionTravel": 0.12,
+    "runOverDamage": 9,
+    "note": "steerRate: lock fractions per second (the input is smoothed); steerTurns: steering-wheel turns lock to lock; runOverDamage: soldier damage per m/s of impact speed"
+  },
+  "mobility": {
+    "maxForward": 18.0,
+    "maxReverse": 4.5,
+    "accel": 3.2,
+    "brake": 7.5,
+    "coast": 0.7,
+    "maxSlopeDeg": 30,
+    "offroadMul": 0.6,
+    "halfSize": [
+      0.78,
+      0.45,
+      1.68
+    ],
+    "clearance": 0.35,
+    "trackHalfGauge": 0.62,
+    "trackHalfLength": 1.0,
+    "note": "gameplay profile: 65 km/h on worn routes (roads), 39 km/h off-road; trackHalfGauge / trackHalfLength: wheel contact half track and half wheelbase"
+  },
+  "durability": {
+    "frontHitsSurvived": 1,
+    "sideHitsSurvived": 1,
+    "smallArmsDamage": 4
+  },
+  "ramming": {
+    "massKg": 1100,
+    "engineKW": 45,
+    "pushEfficiency": 0.5,
+    "note": "Willys MB ~1,040 kg empty, 60 hp Go Devil engine"
+  },
+  "variant": {
+    "windshieldFoldDeg": 0,
+    "stowage": true,
+    "pintle": false,
+    "note": "type 1: as supplied (windshield up, stowage)"
+  }
+}
