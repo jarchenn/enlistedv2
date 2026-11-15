@@ -5,7 +5,8 @@
 //   individual (5-10 Hz, 2 Hz beyond 300 m of every human): utility scores 0..1 per action from threat, cover,
 //                     suppression, ammo, orders; the best wins with a small bonus for the current one.
 #include "ai_core.h"
-#include "app.h"
+#include "app.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
 #include <cmath>
 
@@ -135,6 +136,7 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
 // ---------------------------------------------------------------- goals
 vec3 AiCore::objectiveGoal(Soldier& s) {
   BotMind& m = mind(s);
+  { vec3 lootAt; if (lootBotGoal(G, s, lootAt)) return lootAt; }   // BR2: a gun, ammo, armour or healing nearby first
   if (G.match.mode() != GameMode::Assault) {   // G1 Solo / TDM: hunt the closest living enemy (user: closest combatant)
     const Soldier* best = nullptr; float bd = 1e9f;
     for (auto& o : G.sold) if (o.alive && Game::hostile(s, o)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }

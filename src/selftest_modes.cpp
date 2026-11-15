@@ -10,6 +10,7 @@
 #include "selftest_crowd.h"
 #include "nav.h"
 #include "physics.h"
+#include "loot.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <set>
@@ -347,6 +348,31 @@ void build(App&) {
     if (!cb.stalls.empty()) T->note("stalls:" + cb.stalls);
     pendingShot = outDir() / "modes_200ai.png";
     return true; });
+  // BR2 capture (NMK_MODES_ONLY_BR2): a Solo start switched to Battle Royale, a filled kit, the inventory screen
+  push("br2 inventory", [](App& a, float t) {
+    if (!std::getenv("NMK_MODES_ONLY_BR2")) return true;
+    if (t == 0) { chk(startMode(a, GameMode::Solo, 4, 99), "BR2: match starts"); gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return false; }
+    Soldier* L = gGame->local();
+    if (t < 3 || !L || !L->alive) return t > 30 ? (chk(false, "BR2: local player spawned"), true) : false;
+    static bool filled = false;
+    if (!filled) {
+      filled = true;
+      Kit& k = *kitOf(L->slot);
+      k.ammo[AM_762] = 90; k.ammo[AM_9MM] = 64; k.items["br_bandage"] = 3; k.items["br_medkit"] = 1; k.items["br_sight_4x"] = 1;
+      k.helmet = 2; k.helmetDur = 150; k.vest = 1; k.vestDur = 200; k.backpack = 1;
+      for (const char* id : {"kar98k", "mp40", "luger", "mk2_grenade", "molotov"}) { int w = a.weaponIndex(id); if (w >= 0) a.carried.push_back(w); }
+      a.capCarried(a.carried);
+      a.wstate["kar98k"].att[ATT_SIGHT] = 2; a.wstate["kar98k"].att[ATT_STOCK] = 1; a.wstate["mp40"].att[ATT_MUZZLE] = 1; a.wstate["mp40"].att[ATT_MAG] = 1;
+      a.wstate["mk2_grenade"].loaded = 1; a.wstate["mk2_grenade"].containers = {1}; a.wstate["molotov"].loaded = 1;
+      a.selectWeapon(a.weaponIndex("kar98k"));
+      lootSetInventory(true);
+      chk(lootFloor().size() > 0, "BR2: %zu floor items placed on the village", lootFloor().size());
+      return false;
+    }
+    if (t > 4 && t < 4.05f) pendingShot = outDir() / "br2_inventory.png";
+    if (t < 5) return false;
+    lootSetInventory(false);
+    return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 }   // namespace
@@ -359,6 +385,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_MODES_ONLY_BR2")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "br2 inventory" && s.name != "done"; }), seq.end());   // BR2 inventory capture
     else if (std::getenv("NMK_MODES_ONLY_100")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "100 ai" && s.name != "200 ai" && s.name != "done"; }), seq.end());   // just the crowds
   }
   if (cur < seq.size()) {

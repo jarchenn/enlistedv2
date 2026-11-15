@@ -16,8 +16,8 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 // soldier is its own team, first to the kill cap wins. TDM: two teams (team 0 = the Defender role, team 1 = Attacker),
 // unlimited respawns, the first team to the kill cap wins. The role stays the team's identity in TDM, so role-based
 // code keeps working; friend / foe is always the roster team (Game::hostile).
-enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2 };
-inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : "Assault"; }
+enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3 };
+inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle Royale" : "Assault"; }
 enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type
 constexpr int kAiTypeCount = 9;
 inline const char* aiTypeName(AiType t) {
@@ -108,6 +108,7 @@ struct ScenarioRules {
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn
+  bool lootModern = false;        // Battle Royale: floor guns from the modern list (else WW2) (loot.cpp)
   std::vector<std::string> allowedClasses;   // GM1: class ids the host allows (empty = every class)
   bool classAllowed(const std::string& id) const { for (auto& c : allowedClasses) if (c == id) return true; return allowedClasses.empty(); }
   static constexpr int kMaxAI = 200;             // up to 200 AI (user request, 2026-11-08; was 100)

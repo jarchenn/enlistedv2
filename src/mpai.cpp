@@ -26,6 +26,7 @@ bool mpaiArg(App& app, int argc, char** argv, int& k, bool& runSelf) {
   std::string a = argv[k];
   if (a == "--selftest-rules") { runSelf = true; return true; }   // W1 gameplay rules (selftest_rules.cpp)
   if (a == "--selftest-match") { mpaiExit = runMatchSelfTest(); return true; }
+  if (a == "--selftest-royale") { int runRoyaleSelfTest(); mpaiExit = runRoyaleSelfTest(); return true; }   // BR2 loot rules (selftest_royale.cpp; BR1 adds its checks)
   if (a == "--selftest-ai") { runSelf = true; runAiSelfTestArg = 1; return true; }
   if (a == "--benchmark-match") { runSelf = true; runAiSelfTestArg = 2; return true; }
   if (a == "--baseline-ai") { runSelf = true; runAiSelfTestArg = 3; return true; }   // AI_SPEC 2.2 baseline

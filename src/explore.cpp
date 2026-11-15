@@ -8,7 +8,8 @@
 #include "rules.h"
 #include "lighting.h"
 #include "w3.h"
-#include "water_query.h"
+#include "water_query.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -299,7 +300,8 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   if (!occupied) { build.dt = dt; stepBuilder(in); }
   if (occupied) { stepStation(dt, in); }
   else if (build.active || mantle.active || swim.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; w.choose1 = w.choose2 = w.slot3 = w.slot4 = false; w.wheel = 0; if (swim.active) w.quickGrenade = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing / swimming
-  else stepWeapons(dt, in);
+  else if (lootInventoryOpen()) { ExploreInput w = in; w.fire = w.aim = w.reload = false; lootBeforeWeapons(*this); stepWeapons(dt, w); lootAfterWeapons(*this); }   // BR2: the inventory screen is open
+  else { lootBeforeWeapons(*this); stepWeapons(dt, in); lootAfterWeapons(*this); }   // BR2: pooled ammo as magazines (no-op outside Battle Royale)
   blastShake = std::max(0.0f, blastShake - dt * 1.5f);
   if (mpaiLocalFrozen(*this)) { stepProjectiles(dt); fx.update(dt, terrain); return; }   // dead in a match: spectating
   swimBreath(dt);   // swim.cpp: breath runs down with the eye under water (swimming or not), then drowning
@@ -383,6 +385,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   stepRack(in);
   if (in.packUp && !occupied && !rackOpen) packUpHeavy();
   if (occupied) { if (in.interact) { logf("station: leave on interact"); leaveStation(); } }
+  else if (in.interact && !showLoadout && !rackOpen && !choiceFor && lootInteract(*this)) {}   // BR2: floor loot
   else if (in.interact && !showLoadout && !rackOpen && !choiceFor && mpaiPickupWeapon(*this)) {}   // GM1: E on a weapon an AI dropped
   else if (!showLoadout && !rackOpen && !choiceFor && tanks.handleInteract(*this, in)) {}   // E on a tank: enter
   else if (showLoadout || rackOpen) {}
@@ -532,6 +535,7 @@ void App::updateExplore(float dt) {
 }
 
 void App::drawExploreUI() {
+  lootUi(*this);   // BR2: pick-up prompt, heal ring, inventory screen
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);

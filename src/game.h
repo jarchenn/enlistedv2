@@ -62,6 +62,7 @@ struct Soldier {
   float hp = 100; double diedAt = 0; int deathStyle = 0; int killer = -1; vec3 deathDir{0};
   int weapon = -1; WeaponState ws; float reload = 0, reloadTotal = 0; int shots = 0;
   int frags = 0, smokes = 0;
+  int helmetLvl = 0, vestLvl = 0, backpack = 0;   // BR2 Battle Royale: worn armour levels 0-3, backpack 0 none / 1 / 2 military (BR3 draws them)
   int cls = -1, clsPick[2] = {0, 0};          // GM1: class (classes.h index, -1 = none) and its primary / secondary choice
   float throwT = -1; int throwKind = 0; vec3 throwTarget{0}; vec3 throwVel{0}; bool throwReleased = false;
   int model = -1; CharInstance ci; bool ciReady = false; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
