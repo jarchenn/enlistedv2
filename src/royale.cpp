@@ -3,6 +3,7 @@
 #include "royale.h"
 #include "app.h"
 #include "game.h"
+#include <DetourNavMeshQuery.h>
 #include "minimap.h"
 #include "enemy_types.h"
 #include "mptest.h"
@@ -11,9 +12,10 @@
 #include <imgui.h>
 #include <chrono>
 #include <random>
+#include <algorithm>
 
 // ---------------------------------------------------------------- storm (pure)
-void RoyaleStorm::build(vec2 half, uint32_t seed) {
+void RoyaleStorm::build(vec2 half, uint32_t seed, bool (*walkable)(vec2)) {
   std::mt19937 rng(seed);
   std::uniform_real_distribution<float> u(0.0f, 1.0f);
   float R0 = glm::length(half);   // the whole play area
@@ -33,6 +35,20 @@ void RoyaleStorm::build(vec2 half, uint32_t seed) {
     }
     circle[k] = {best, r[k]};
   }
+  // BR7: the drift of the final circle (enough legs for ~20 min), inside the area and (when known) over walkable ground
+  drift.assign(1, circle[4].c);
+  vec2 lim = glm::max(half - vec2(circle[4].r), vec2(0));
+  for (int k = 0; k < 36; ++k) {
+    vec2 from = drift.back(), to = from;
+    for (int tries = 0; tries < 40; ++tries) {
+      float a = u(rng) * 6.2831853f, d = cfg.driftMin + u(rng) * (cfg.driftMax - cfg.driftMin);
+      vec2 c = glm::clamp(from + vec2(std::cos(a), std::sin(a)) * d, -lim, lim);
+      if (glm::length(c - from) < cfg.driftMin * 0.8f) continue;   // pushed back by the border: try another bearing
+      to = c;
+      if (!walkable || walkable(c)) break;
+    }
+    drift.push_back(to);
+  }
 }
 
 RoyaleStorm::At RoyaleStorm::at(float t) const {
@@ -49,7 +65,14 @@ RoyaleStorm::At RoyaleStorm::at(float t) const {
     }
     s -= cfg.shrink[k];
   }
-  a.stage = 4; a.shrinking = false; a.left = 0; a.now = a.next = circle[4]; a.dps = cfg.dps[3];
+  a.stage = 4; a.dps = cfg.dps[3]; a.now = a.next = circle[4];
+  if (drift.size() < 2) { a.shrinking = false; a.left = 0; return a; }
+  float cyc = cfg.driftPause + cfg.driftMove;   // BR7: pause, then glide to the next centre; the next ring is where it goes
+  int k = std::min((int)(s / cyc), (int)drift.size() - 2); float w = s - k * cyc;
+  a.leg = k; a.next = {drift[k + 1], circle[4].r};
+  if (w < cfg.driftPause) { a.shrinking = false; a.left = cfg.driftPause - w; a.now = {drift[k], circle[4].r}; }
+  else { float f = std::min(1.0f, (w - cfg.driftPause) / cfg.driftMove); f = f * f * (3 - 2 * f);
+         a.shrinking = true; a.left = std::max(0.0f, cyc - w); a.now = {glm::mix(drift[k], drift[k + 1], f), circle[4].r}; }
   return a;
 }
 
@@ -60,6 +83,7 @@ struct Cfg {
   float fallSpeed = 55, fallAcross = 25, fallAccel = 14;
   float chuteAt = 60, chuteDescent = 6, chuteAcross = 8, chuteAccel = 1.5f;
   float botJumpFrom = 0.08f, botJumpTo = 0.92f, botLandSpread = 110;
+  int vehicles = 8; float vehicleSpacing = 35;   // BR7: parked civilian cars made drivable
   RoyaleStormCfg storm;
 };
 Cfg gCfg;
@@ -71,11 +95,14 @@ void loadCfg() {
   f("fall", "speed_mps", gCfg.fallSpeed); f("fall", "across_mps", gCfg.fallAcross); f("fall", "accel_mps2", gCfg.fallAccel);
   f("chute", "autoOpen_m", gCfg.chuteAt); f("chute", "descent_mps", gCfg.chuteDescent); f("chute", "across_mps", gCfg.chuteAcross); f("chute", "accel_mps2", gCfg.chuteAccel);
   f("bots", "jumpFrom", gCfg.botJumpFrom); f("bots", "jumpTo", gCfg.botJumpTo); f("bots", "landSpread_m", gCfg.botLandSpread);
+  if (j.contains("vehicles")) { gCfg.vehicles = j["vehicles"].value("count", gCfg.vehicles); gCfg.vehicleSpacing = j["vehicles"].value("spacing_m", gCfg.vehicleSpacing); }
   if (j.contains("storm")) {
     const json& s = j["storm"];
     auto arr = [&](const char* k, float* v, int n) { if (s.contains(k) && s[k].is_array()) for (int i = 0; i < n && i < (int)s[k].size(); ++i) v[i] = s[k][i].get<float>(); };
     arr("wait_s", gCfg.storm.wait, 4); arr("shrink_s", gCfg.storm.shrink, 4); arr("dps", gCfg.storm.dps, 4); arr("radiusFrac", gCfg.storm.radiusFrac, 3);
     gCfg.storm.finalRadius = s.value("finalRadius_m", gCfg.storm.finalRadius);
+    gCfg.storm.driftPause = s.value("driftPause_s", gCfg.storm.driftPause); gCfg.storm.driftMove = s.value("driftMove_s", gCfg.storm.driftMove);
+    gCfg.storm.driftMin = s.value("driftMin_m", gCfg.storm.driftMin); gCfg.storm.driftMax = s.value("driftMax_m", gCfg.storm.driftMax);
   }
 }
 
@@ -135,7 +162,11 @@ vec3 approachV(vec3 v, vec3 want, float rate) { vec3 d = want - v; float l = glm
 }
 
 bool royaleActive() { return S.on && gGame && gGame->active && gGame->match.mode() == GameMode::BattleRoyale; }
-int royaleAirState(int slot) { return royaleActive() && slot >= 0 && slot < (int)S.air.size() ? S.air[slot].st : RA_GROUND; }
+int royaleAirState(int slot) {
+  if (!royaleActive() || slot < 0 || slot >= (int)S.air.size()) return RA_GROUND;
+  if (!S.air[slot].boarded && slot < (int)gGame->sold.size() && gGame->sold[slot].alive) return RA_ABOARD;   // BR7: spawned, boards on the next step
+  return S.air[slot].st;
+}
 
 void royaleBegin(App& app, Game& G) {
   S = State{};
@@ -158,15 +189,35 @@ void royaleBegin(App& app, Game& G) {
   S.a = vec3(p0.x, y, p0.y) - S.dir * gCfg.overrun;
   S.len = glm::length(p1 - p0) + 2 * gCfg.overrun;
   S.tIn = gCfg.overrun / gCfg.planeSpeed; S.tOut = (S.len - gCfg.overrun) / gCfg.planeSpeed;
-  S.storm.cfg = gCfg.storm; S.storm.build(vec2(hx, hz), S.seed * 2654435761u);
+  S.storm.cfg = gCfg.storm;
+  S.storm.build(vec2(hx, hz), S.seed * 2654435761u, [](vec2 p) {   // BR7: a drift centre needs navmesh within 8 m (not a lake, roof or wall)
+    NavRef r; vec3 on; return gGame && gGame->nav.closest(vec3(p.x, gGame->app.terrain.height(p.x, p.y), p.y), 8.0f, r, on); });
   S.air.assign(G.sold.size(), Air{});
   for (size_t i = 0; i < S.air.size(); ++i) {   // bots: a random point along the line, and a landing aim near below it
     Air& a = S.air[i];
     a.jumpAt = S.tIn + (gCfg.botJumpFrom + u(rng) * (gCfg.botJumpTo - gCfg.botJumpFrom)) * (S.tOut - S.tIn);
     vec3 q = planeAt(a.jumpAt); float ang = u(rng) * 6.2831853f, rr = gCfg.botLandSpread * std::sqrt(u(rng));
     a.aim = glm::clamp(vec2(q.x, q.z) + vec2(std::cos(ang), std::sin(ang)) * rr, vec2(-hx, -hz) * 0.92f, vec2(hx, hz) * 0.92f);
+    { NavRef nr; vec3 on; vec3 p(a.aim.x, app.terrain.height(a.aim.x, a.aim.y), a.aim.y);   // BR7: aim at walkable ground (not the lake or a roof)
+      (void)nr; for (float rad : {10.0f, 30.0f, 60.0f}) if (royaleSnap(G, p, rad, on)) { a.aim = vec2(on.x, on.z); break; } }
   }
   G.deployReady = true;   // no deploy screen: everyone boards the bomber
+  {   // BR7: a few of the map's parked civilian cars become drivable (E; the tank framework's car mode). Bots do not drive.
+    static const char* kinds[] = {"mod_sedan", "mod_sedan_red", "mod_suv", "mod_pickup", "mod_hatchback", "mod_delivery_van"};
+    std::vector<const Instance*> cand;
+    for (auto& i : app.doc.instances) {
+      bool car = false; for (const char* k : kinds) car |= i.assetId == k;
+      if (car && std::fabs(i.pos.y - app.terrain.height(i.pos.x, i.pos.z)) < 0.6f && app.terrain.inBuildArea(i.pos.x, i.pos.z)) cand.push_back(&i);   // on open ground (not a garage deck)
+    }
+    std::shuffle(cand.begin(), cand.end(), rng);
+    std::vector<vec3> took;
+    for (const Instance* i : cand) {
+      if ((int)took.size() >= gCfg.vehicles) break;
+      bool near = false; for (vec3 p : took) near |= glm::length(vec2(p.x - i->pos.x, p.z - i->pos.z)) < gCfg.vehicleSpacing;
+      if (!near && app.tanks.adoptCar(app, i->id)) took.push_back(i->pos);
+    }
+    logf("royale: %zu of %zu parked cars drivable", took.size(), cand.size());
+  }
   {   // BR5: everyone in the player's body (the BR marine when its bake is present), all of them soldiers
     int body = brMarineModel(G);
     if (body < 0) { Soldier* L = G.local(); body = L ? L->model : G.sold.empty() ? -1 : G.sold[0].model; }
@@ -183,6 +234,13 @@ void royaleBegin(App& app, Game& G) {
   logf("royale: %zu aboard, bomber (%.0f %.0f) -> heading %.0f deg at %.0f m, %.0f m line; storm circles r %.0f / %.0f / %.0f / %.0f m",
        S.air.size(), S.a.x, S.a.z, degrees(std::atan2(S.dir.x, S.dir.z)), y, S.len, S.storm.circle[1].r, S.storm.circle[2].r, S.storm.circle[3].r, S.storm.circle[4].r);
 }
+
+bool royaleSnap(const Game& G, vec3 p, float r, vec3& out) {
+  dtQueryFilter f = G.nav.defaultFilter(); f.setExcludeFlags(f.getExcludeFlags() | NF_TRAP);
+  NavRef ref; return G.nav.closest(p, vec3(r, std::max(r, 2.0f), r), ref, out, &f);
+}
+
+void royaleEnd(App& app) { app.tanks.releaseAdopted(app); S.on = false; }   // BR7: the parked cars back where they stood
 
 bool royaleBareHands(App& app, Game& G, Soldier& s) {
   if (G.match.mode() != GameMode::BattleRoyale) return false;
@@ -244,6 +302,8 @@ void royaleStep(App& app, Game& G, float dt) {
       if (!chute && (np.y - g <= gCfg.chuteAt || (local && jump))) { a.st = RA_CHUTE; if (local) app.toast("Parachute open: W run, S flare, A / D slide, look to turn.", 4); }
       if (np.y <= g + 0.02f) {   // landed: no fall damage (a placement, not a fall)
         vec3 feet(np.x, g, np.z);
+        if (!local) { NavRef nr; vec3 on;   // BR7: a bot that came down on a roof, in water or in kit stands on the nearest navmesh
+          if (!royaleSnap(G, feet, 1.5f, on) || std::fabs(on.y - feet.y) > 1.0f) for (float rad : {10.0f, 30.0f, 60.0f}) if (royaleSnap(G, feet, rad, on)) { feet = on; break; } (void)nr; }
         a.st = RA_GROUND; a.v = vec3(0);
         s.feet = feet; s.vel = vec3(0); s.speed = 0;
         if (local) Physics::setCharacterPos(feet);
@@ -281,10 +341,10 @@ void royaleStep(App& app, Game& G, float dt) {
 
 RoyaleRing royaleRing(bool next) { if (!royaleActive()) return {}; RoyaleStorm::At a = S.storm.at(S.time); return next ? a.next : a.now; }
 
-vec3 royaleSafePoint(const Soldier& s) {
+vec3 royaleSafePoint(const Soldier& s, int salt) {
   if (!royaleActive() || !gGame) return s.feet;
   RoyaleStorm::At a = S.storm.at(S.time);
-  uint32_t h = (uint32_t)s.slot * 2654435761u ^ (uint32_t)(a.stage + 1) * 40503u;
+  uint32_t h = (uint32_t)s.slot * 2654435761u ^ (uint32_t)(a.stage + 1 + a.leg * 7) * 40503u ^ (uint32_t)salt * 2246822519u;   // a new point per stage / drift leg / salt
   float ang = (h % 6283u) / 1000.0f, rr = a.next.r * 0.6f * std::sqrt(((h >> 13) % 1000u) / 1000.0f);
   vec2 p = a.next.c + vec2(std::cos(ang), std::sin(ang)) * rr;
   return vec3(p.x, gGame->app.terrain.height(p.x, p.y), p.y);
@@ -372,7 +432,7 @@ void royaleHud(App& app, Game& G) {
   int stillIn = G.match.stillIn();
   char b[200], tm[32];
   int sec = (int)std::ceil(at.left); std::snprintf(tm, sizeof tm, "%d:%02d", sec / 60, sec % 60);
-  if (at.stage >= 4) std::snprintf(b, sizeof b, "BATTLE ROYALE   |   Alive %d / %zu   |   Final circle", std::max(alive, stillIn), G.sold.size());
+  if (at.stage >= 4) std::snprintf(b, sizeof b, "BATTLE ROYALE   |   Alive %d / %zu   |   %s %s", std::max(alive, stillIn), G.sold.size(), at.shrinking ? "Circle moving" : "Circle moves in", tm);   // BR7: the final circle drifts
   else std::snprintf(b, sizeof b, "BATTLE ROYALE   |   Alive %d / %zu   |   %s %s   |   Circle %d / 4", std::max(alive, stillIn), G.sold.size(), at.shrinking ? "Closing" : "Storm closes in", tm, at.stage + 1);
   float cx = io.DisplaySize.x * 0.5f, y = 10;
   ImVec2 ts = ImGui::CalcTextSize(b);
@@ -415,7 +475,7 @@ void royaleMinimap(ImDrawList* dl, const MinimapView& v) {
   RoyaleStorm::At a = S.storm.at(S.time);
   auto ring = [&](const RoyaleRing& r, ImU32 col, float w) { vec2 c = v.toScreen(r.c); dl->AddCircle(ImVec2(c.x, c.y), r.r * v.scale, col, 96, w); };
   ring(a.now, IM_COL32(80, 130, 255, 230), 2.5f);
-  if (a.stage < 4) ring(a.next, IM_COL32(255, 255, 255, 230), 1.5f);
+  if (a.stage < 4 || a.next.c != a.now.c) ring(a.next, IM_COL32(255, 255, 255, 230), 1.5f);   // BR7: also where the final circle drifts to
   if (planeFlying()) { vec3 P = planeAt(S.time); vec2 p = v.toScreen(vec2(P.x, P.z)), q = v.toScreen(vec2(P.x + S.dir.x * 40, P.z + S.dir.z * 40)); dl->AddLine(ImVec2(p.x, p.y), ImVec2(q.x, q.y), IM_COL32(255, 220, 120, 240), 3); }
   // BR1b: district names (the big map at full size; the corner map, ~200 m across, small)
   float size = std::clamp(v.scale * 7.0f, 10.0f, 17.0f);
@@ -457,8 +517,19 @@ void royaleSelfTest(MpTest& suite) {
   char b[200]; std::snprintf(b, sizeof b, "wait / shrink on schedule: %.0f/%.0f, %.0f/%.0f, %.0f/%.0f, %.0f/%.0f s (%.0f s in all), damage %.0f/%.0f/%.0f/%.0f per s",
                              c.wait[0], c.shrink[0], c.wait[1], c.shrink[1], c.wait[2], c.shrink[2], c.wait[3], c.shrink[3], st.total(), c.dps[0], c.dps[1], c.dps[2], c.dps[3]);
   chk(sched, b);
-  RoyaleStorm::At fin = st.at(st.total() + 30);
-  chk(fin.stage == 4 && std::fabs(fin.now.r - c.finalRadius) < 1e-3f, "after the last shrink the ring stays at the final circle");
+  RoyaleStorm::At fin = st.at(st.total() + 5);
+  chk(fin.stage == 4 && std::fabs(fin.now.r - c.finalRadius) < 1e-3f && !fin.shrinking, "after the last shrink the ring is the final circle (" + std::to_string((int)c.finalRadius) + " m), first pausing");
+  {   // BR7: the final circle drifts: each leg moves driftMin..driftMax, stays inside the area, glides then pauses
+    bool legs = true; float cyc = c.driftPause + c.driftMove; vec2 lim = half - vec2(c.finalRadius);
+    for (int k = 0; k < 10; ++k) {
+      RoyaleStorm::At p0 = st.at(st.total() + k * cyc + 1), mv = st.at(st.total() + k * cyc + c.driftPause + c.driftMove * 0.5f), p1 = st.at(st.total() + (k + 1) * cyc + 1);
+      float d = glm::length(p1.now.c - p0.now.c);
+      if (p0.shrinking || !mv.shrinking || d < c.driftMin * 0.8f - 0.01f || d > c.driftMax + 0.01f || glm::length(p0.next.c - p1.now.c) > 0.01f) legs = false;
+      if (std::fabs(p1.now.c.x) > lim.x + 0.01f || std::fabs(p1.now.c.y) > lim.y + 0.01f) legs = false;
+    }
+    char d[200]; std::snprintf(d, sizeof d, "the final circle drifts: %.0f s pause, %.0f s glide of %.0f..%.0f m to the shown next ring, inside the area (10 legs)", c.driftPause, c.driftMove, c.driftMin, c.driftMax);
+    chk(legs, d);
+  }
   // 3. damage only outside
   float tt = c.wait[0] + c.shrink[0] + 1; RoyaleStorm::At a = st.at(tt);
   vec2 in = a.now.c + vec2(a.now.r * 0.9f, 0), out = a.now.c + vec2(a.now.r * 1.1f, 0);

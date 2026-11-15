@@ -13,7 +13,7 @@ const char* shellName(int s) { return s == SHELL_HE ? "HE" : s == SHELL_AP ? "AP
 void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   (void)r;
   auto it = tanks.find(i.id);
-  if (it == tanks.end() || !it->second.def || !it->second.def->model) return;
+  if (it == tanks.end() || !it->second.def || (!it->second.def->model && !it->second.def->partsAsset)) return;
   const TankRT& t = it->second; const TankDef& d = *t.def;
   const GpuModel* gm = d.model.get();
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
@@ -47,6 +47,10 @@ void TankSys::carStaticParts(const TankDef& d, std::vector<int>& out) const {
 }
 void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  if (d.partsAsset) {   // BR7 adopted car: its part-built mesh moves as one (the wheels do not turn)
+    app.worldBoxDraws.push_back({&d.partsAsset->opaque, h, tint});   // shortcut: its glass is not drawn while adopted (the box list is opaque)
+    return;
+  }
   auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
   std::vector<int> st; carStaticParts(d, st); put(st, h);
   put(d.windshieldParts, h * glm::translate(mat4(1), d.windshieldPivot) * glm::rotate(mat4(1), radians(d.windshieldFold), vec3(1, 0, 0)) * glm::translate(mat4(1), -d.windshieldPivot));

@@ -92,6 +92,7 @@ void mpaiEnterExplore(App& app) {
 
 void mpaiExitExplore(App& app) {
   goreReset(app);
+  royaleEnd(app);   // BR7: adopted cars released
   if (gGame && gGame->active) {
     if (gNet && gNet->role == Net::HOST && gNet->matchRunning) gNet->returnToLobby(app);
     gGame->end();
