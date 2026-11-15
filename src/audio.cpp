@@ -250,7 +250,7 @@ int Audio::loadCustom(const fs::path& dir) {
   };
   int used = 0; Buf b;
   struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
-  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_grass", "step_stone", "step_wood"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}}) if (decode(ss.file, b)) {
+  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}}) if (decode(ss.file, b)) {
     const int W = SR / 100; std::vector<float> env(b.size() / W, 0.0f); float peak = 0;   // 10 ms loudness windows
     for (size_t k = 0; k < env.size(); ++k) { float e = 0; for (int j = 0; j < W; ++j) e = std::max(e, std::fabs(b[k * W + j])); env[k] = e; peak = std::max(peak, e); }
     std::vector<size_t> on;   // onsets: loud after a quiet window, at least 0.25 s apart
