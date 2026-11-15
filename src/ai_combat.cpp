@@ -166,16 +166,28 @@ void AiCore::aim(Soldier& s, float dt) {
   EnemyMemory* tm = nullptr; for (auto& x : b.mem) if (x.enemy == b.target) tm = &x;
   TeamBrain& tb = teams[(int)s.role];
   bool blockedAct = m.action == A_EVADE || m.action == A_RELOAD || (m.action == A_CLEAR && m.set && b.target < 0) || m.trav.on;
+  // AI1: smoke hides like a wall once the sight line's transmittance drops below smokeBlockT (about 1.5 m of dense
+  // cloud). Perception refreshes every 0.2 s; this per-step test stops aimed fire the moment a cloud comes between.
+  const float smokeBlock = tj("perception", "smokeBlockT", 0.35f);
+  bool lostSight = false, blind = false;
   if (tm && tm->visible && G.sold[b.target].alive) {
     const Soldier& o = G.sold[b.target];
     aimPoint = G.chest(o) + o.vel * 0.12f;
-    shoot = true;
-    G.lineOfSight(e, aimPoint, &smokeT);
-  } else if (m.action == A_SUPPRESS || (m.action == A_OVERWATCH && s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "auto")) {
+    shoot = G.lineOfSight(e, aimPoint, &smokeT) && smokeT >= smokeBlock;
+    lostSight = !shoot;
+  }
+  if (!shoot && (lostSight || m.action == A_SUPPRESS || (m.action == A_OVERWATCH && s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "auto"))) {
     // suppressive fire at the last known position (own or shared), bursts
     const Known* best = nullptr; for (auto& [en, k] : tb.known) if (!k.heard && G.t - k.seen < 6 && (!best || k.seen > best->seen)) best = &k;
     for (auto& x : b.mem) if (!x.heardOnly && G.t - x.lastSeen < 6 && (!best || x.lastSeen > best->seen)) { static Known tmp; tmp.pos = x.lastPos; tmp.seen = x.lastSeen; best = &tmp; }
-    if (best && s.ws.loaded > 2) { aimPoint = best->pos + vec3(0, 1.0f, 0); shoot = true; suppress = true; }
+    if (best && s.ws.loaded > 2) {
+      aimPoint = best->pos + vec3(0, 1.0f, 0);
+      G.lineOfSight(e, aimPoint, &smokeT);
+      blind = smokeT < smokeBlock;   // AI1: into smoke only a second or two after this bot itself lost sight (teammates still
+      bool ownRecent = false;         // seeing the target would otherwise keep it firing blind), and much less accurate
+      for (auto& x : b.mem) if (!x.heardOnly && G.t - x.lastSeen < tj("perception", "smokeBlindFire_s", 2.0f) && glm::length(x.lastPos - best->pos) < 4.0f) ownRecent = true;
+      if (!blind || ownRecent) { shoot = true; suppress = true; }
+    }
   }
   if (shoot) { vec3 d = aimPoint - e; wantYaw = yawOf(d); wantPitch = pitchOf(d); }
   else if (m.hasPath && glm::length(m.lastVel) > 0.5f) {
@@ -226,7 +238,7 @@ void AiCore::aim(Soldier& s, float dt) {
   float err = diff.aimError * settle + b.sigma * 0.35f;
   err *= (s.speed > 0.5f ? 1.0f + s.speed / 3.0f : 1.0f) * (1.0f + b.suppressed * (1.0f - diff.suppressionResist) * 1.5f)
        * (!suppress && tgtS.speed > 1.0f ? 1.3f : 1.0f) * (s.posture == Physics::PRONE ? 0.7f : s.posture == Physics::CROUCH ? 0.85f : 1.0f)
-       * (1.0f + dist / 150.0f) * (smokeT < 0.6f ? 1.5f : 1.0f) * (suppress ? 2.5f : 1.0f);
+       * (1.0f + dist / 150.0f) * (smokeT < 0.6f ? 1.5f : 1.0f) * (suppress ? 2.5f : 1.0f) * (blind ? 2.0f : 1.0f);
   if (d.feed == "belt" && s.posture == Physics::STAND) err *= 1.8f;
   // a slowly wandering offset (consecutive shots correlate) plus a per-shot gaussian part
   float a0 = (G.rnd(s) - 0.5f) * 0.6f, ca = std::cos(a0), sa = std::sin(a0); m.aimOff = glm::normalize(vec2(m.aimOff.x * ca - m.aimOff.y * sa, m.aimOff.x * sa + m.aimOff.y * ca) + vec2(1e-4f));
