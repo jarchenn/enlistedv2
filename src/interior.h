@@ -38,6 +38,12 @@ struct PropDef {
 struct RoomInfo {
   enum Cell : int16_t { WALL = -1, DOORWAY = -2, NOFLOOR = -3 };
   struct Storey { float y = 0, ceil = 3; vec2 o{0}; int nx = 0, nz = 0; std::vector<int16_t> id; std::vector<uint8_t> keep; };   // keep: 1 door / stair clearance
+  // FN1: the openings an occupant walks through on a storey: door / gate apertures, openings found in the wall grid
+  // (doorless doorways, arches, wide openings), lintel doorways and stair heads; c in asset space, axis = the walking
+  // direction (0: x, 2: z), halfW = half the clear width. open: per storey cell, 1 inside an opening found in the grid
+  struct Portal { int storey = 0; vec3 c{0}; int axis = 2; float halfW = 0.4f; std::string why; };
+  std::vector<Portal> portals;
+  std::vector<std::vector<uint8_t>> open;
   struct Room { int storey = 0; vec2 mn{0}, mx{0}; float y0 = 0, y1 = 3, area = 0; int cells = 0; bool hearth = false; vec3 hearthPos{0}; int type = 0;
                 float headroom = 9; };   // GX2: lowest overhead part above the room (sampled at its centre and quarter points): attics
   struct Box { vec3 mn{0}, mx{0}; int kind = 0; std::string why; };   // kind 0 door swing, 1 stair, 2 window (from the sill up)
@@ -73,6 +79,10 @@ public:
   const PropDef* prop(const AssetDef* a);
   bool isProp(const AssetDef* a) const { return a && a->raw.is_object() && a->raw.contains("prop"); }
   const RoomInfo* rooms(const AssetDef* a);
+  // FN1: walk a 0.6 m capsule through every opening of every furnished building (1 m either side): portals tested and
+  // the ones a generated furniture piece blocks (the doorway check of --selftest-interiors, logged per building)
+  struct DoorwayReport { int buildings = 0, portals = 0, blocked = 0; std::vector<std::string> worst; };
+  DoorwayReport doorwayReport(App& app);
   // ---- per building copy
   bool hideBuiltin(const Instance& i) const;                 // furnished by room templates: built-in furniture hidden
   // ---- automatic furnishing (V4): every enterable building without extra.interior, on open / new map / placement.

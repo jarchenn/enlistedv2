@@ -234,7 +234,8 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
     float w = mx[l] - mn[l];
     if (d.kind == "door" || d.kind == "gate") {
       RoomInfo::Box b; b.kind = 0; b.why = "door " + d.id;
-      b.mn = mn; b.mx = mx; b.mn[n] -= w + 0.2f; b.mx[n] += w + 0.2f; b.mn[l] -= 0.1f; b.mx[l] += 0.1f; b.mn.y = mn.y - 0.1f; b.mx.y = std::max(mx.y, mn.y + 2.1f);   // MOD1: a tall door keeps its whole height
+      const float dep = std::max(w + 0.2f, 1.0f), mg = getenv("NMK_FN1_OFF") ? 0.1f : 0.2f;   // FN1: at least 1 m both sides, 0.2 m past the jambs
+      b.mn = mn; b.mx = mx; b.mn[n] -= dep; b.mx[n] += dep; b.mn[l] -= mg; b.mx[l] += mg; b.mn.y = mn.y - 0.1f; b.mx.y = std::max(mx.y, mn.y + 2.1f);   // MOD1: a tall door keeps its whole height
       ri.keep.push_back(b);
     } else if (d.kind == "window") {
       float in = ((mn[n] + mx[n]) * 0.5f > mid[n]) ? -1.0f : 1.0f;   // toward the inside
@@ -292,6 +293,89 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
       }
     }
     S.keep.swap(k2);
+    // FN1: openings found in the wall grid itself. The lintel test above misses a doorless opening whose wall above
+    // is one long part (the modern kits), an arch, a wide opening: a 0.5-3.2 m gap in a thin wall line, with walkable
+    // ground 0.6 m out on both sides, keeps clear across its width + 0.2 m and 1.0 m into the rooms either side
+    std::vector<uint8_t> op((size_t)S.nx * S.nz, 0);
+    {
+      auto st = [&](int i, int j) -> int16_t { return i < 0 || j < 0 || i >= S.nx || j >= S.nz ? (int16_t)RoomInfo::NOFLOOR : S.id[(size_t)j * S.nx + i]; };
+      auto isW = [&](int i, int j) { return st(i, j) == RoomInfo::WALL; };
+      auto walk = [&](int i, int j) { int16_t v = st(i, j); return v >= 0 || v == RoomInfo::DOORWAY; };
+      const int M = 32, Nn = 6, Dd = 10, Mg = 2;
+      for (int j = 0; j < S.nz; ++j) for (int i = 0; i < S.nx; ++i) {
+        if (isW(i, j)) continue;
+        for (int ax = 0; ax < 2; ++ax) {   // ax 0: a wall line along x (walk along z); 1: along z (walk along x)
+          const int ui = ax ? 0 : 1, uj = ax ? 1 : 0, ni = ax ? 1 : 0, nj = ax ? 0 : 1;
+          int ka = 0, kb = 0;
+          for (int k = 1; k <= M && !ka; ++k) if (isW(i - ui * k, j - uj * k)) ka = k;
+          for (int k = 1; k <= M && !kb; ++k) if (isW(i + ui * k, j + uj * k)) kb = k;
+          int gap = ka + kb - 1;
+          if (!ka || !kb || gap < 5 || gap > M) continue;
+          if (isW(i - ni * Nn, j - nj * Nn) || isW(i + ni * Nn, j + nj * Nn)) continue;
+          if (!walk(i - ni * Nn, j - nj * Nn) && !walk(i + ni * Nn, j + nj * Nn)) continue;
+          auto thin = [&](int a, int b) { return !isW(a - ni * Nn, b - nj * Nn) && !isW(a + ni * Nn, b + nj * Nn); };
+          if (!thin(i - ui * ka, j - uj * ka) && !thin(i + ui * kb, j + uj * kb)) continue;
+          op[(size_t)j * S.nx + i] |= (uint8_t)(1 << ax);
+        }
+      }
+      std::vector<uint8_t> k3 = S.keep;
+      for (int j = 0; j < S.nz; ++j) for (int i = 0; i < S.nx && !getenv("NMK_FN1_OFF"); ++i) {
+        uint8_t f = op[(size_t)j * S.nx + i]; if (!f) continue;
+        int ri = (f & 2) ? Dd : Mg, rj = (f & 2) ? Mg : Dd;   // walking along z: deep in z, a margin along the wall
+        if (f == 3) ri = rj = Dd;
+        for (int dj = -rj; dj <= rj; ++dj) for (int di = -ri; di <= ri; ++di) {
+          int a = i + di, b = j + dj;
+          if (a < 0 || b < 0 || a >= S.nx || b >= S.nz || S.id[(size_t)b * S.nx + a] == RoomInfo::WALL) continue;
+          k3[(size_t)b * S.nx + a] = 1;
+        }
+      }
+      S.keep.swap(k3);
+    }
+    // portals of this storey: components of the found openings and of the lintel doorway cells
+    for (int pass = 0; pass < 2; ++pass) {
+      std::vector<uint8_t> seen((size_t)S.nx * S.nz, 0);
+      for (int j = 0; j < S.nz; ++j) for (int i = 0; i < S.nx; ++i) {
+        size_t c0 = (size_t)j * S.nx + i;
+        auto in = [&](size_t c) { return pass == 0 ? op[c] != 0 : S.id[c] == RoomInfo::DOORWAY; };
+        if (seen[c0] || !in(c0)) continue;
+        std::vector<int> stk{(int)c0}; seen[c0] = 1; int n = 0, i0 = i, i1 = i, j0 = j, j1 = j, fx = 0, fz = 0;
+        while (!stk.empty()) {
+          int c = stk.back(); stk.pop_back(); ++n;
+          int ci = c % S.nx, cj = c / S.nx; i0 = std::min(i0, ci); i1 = std::max(i1, ci); j0 = std::min(j0, cj); j1 = std::max(j1, cj);
+          if (pass == 0) { fx += (op[c] & 2) != 0; fz += (op[c] & 1) != 0; }
+          const int di[4] = {1, -1, 0, 0}, dj[4] = {0, 0, 1, -1};
+          for (int d = 0; d < 4; ++d) {
+            int a = ci + di[d], b = cj + dj[d];
+            if (a < 0 || b < 0 || a >= S.nx || b >= S.nz) continue;
+            size_t nc = (size_t)b * S.nx + a;
+            if (!seen[nc] && in(nc)) { seen[nc] = 1; stk.push_back((int)nc); }
+          }
+        }
+        if (n < 4) continue;
+        RoomInfo::Portal P; P.storey = (int)s; P.why = pass == 0 ? "opening" : "lintel doorway";
+        P.c = vec3(S.o.x + (i0 + i1 + 1) * 0.5f * C, S.y, S.o.y + (j0 + j1 + 1) * 0.5f * C);
+        bool alongX = pass == 0 ? fx > fz : (i1 - i0) < (j1 - j0);   // walking along x when the gap spans z
+        P.axis = alongX ? 0 : 2; P.halfW = 0.5f * C * (alongX ? (j1 - j0 + 1) : (i1 - i0 + 1));
+        ri.portals.push_back(P);
+      }
+    }
+    ri.open.push_back(std::move(op));
+  }
+  // FN1: door / gate apertures are portals too
+  for (auto& d : a->interactables) {
+    if (d.kind != "door" && d.kind != "gate") continue;
+    vec3 mn = d.apMin, mx = d.apMax; int n = (mx.x - mn.x) < (mx.z - mn.z) ? 0 : 2, l = 2 - n;
+    int s = -1; for (size_t q = 0; q < ri.storeys.size(); ++q) if (std::fabs(ri.storeys[q].y - mn.y) < 0.6f && (s < 0 || std::fabs(ri.storeys[q].y - mn.y) < std::fabs(ri.storeys[s].y - mn.y))) s = (int)q;
+    if (s < 0) continue;
+    RoomInfo::Portal P; P.storey = s; P.why = "door " + d.id; P.c = vec3((mn.x + mx.x) * 0.5f, ri.storeys[s].y, (mn.z + mx.z) * 0.5f);
+    P.axis = n; P.halfW = 0.5f * (mx[l] - mn[l]);
+    ri.portals.push_back(P);
+  }
+  // (stair feet and heads keep clear through their keep boxes, 1 m beyond the flight; they are not portals here)
+  {   // one portal per place (a door's aperture and the opening found round it)
+    std::vector<RoomInfo::Portal> u;
+    for (auto& p : ri.portals) { bool dup = false; for (auto& q : u) if (q.storey == p.storey && glm::length(vec2(q.c.x - p.c.x, q.c.z - p.c.z)) < 0.6f) dup = true; if (!dup) u.push_back(p); }
+    ri.portals.swap(u);
   }
   // the asset's authored circulation (its walkthrough route through doors, rooms and stairs) stays clear of template
   // furniture: 0.4 m either side of every leg, on the storey the route is on (expectY marks storey changes)
@@ -354,7 +438,7 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
     if (modernHost) t = t == ROOM_KITCHEN ? ROOM_KITCHEN_M : t == ROOM_SITTING ? ROOM_SITTING_M : t == ROOM_BEDROOM ? ROOM_BEDROOM_M : t == ROOM_OFFICE ? ROOM_OFFICE_M : t == ROOM_CLASS ? ROOM_CLASS_M : t;
     ri.rooms[k].type = t;
   }
-  logf("interior: %s: %zu storeys, %zu rooms, %zu keep-clear volumes, %zu sills", a->id.c_str(), ri.storeys.size(), ri.rooms.size(), ri.keep.size(), ri.sills.size());
+  logf("interior: %s: %zu storeys, %zu rooms, %zu keep-clear volumes, %zu sills, %zu portals", a->id.c_str(), ri.storeys.size(), ri.rooms.size(), ri.keep.size(), ri.sills.size(), ri.portals.size());
   return &ri;
 }
 
@@ -1343,6 +1427,109 @@ struct Planner {
     if (got) *got = it;
     return true;
   }
+  // FN1: after the rooms are dressed, every portal of a storey (doors, openings, lintel doorways) still reaches each
+  // portal it reached in the bare building, over cells 0.4 m clear of every generated floor piece (a 0.8 m path). A
+  // piece that cuts two portals apart is dropped, with whatever stands on it: the one nearest the line between them.
+  int clearPaths() {
+    if (getenv("NMK_FN1_OFF")) return 0;
+    int dropped = 0; const float C = ri.cell;
+    // first: no floor piece in a portal's walking corridor (0.56 m wide, 1.08 m out either side: doorwayReport's capsule)
+    for (auto& P : ri.portals) {
+      if (P.storey < 0 || P.storey >= (int)ri.storeys.size()) continue;
+      float y = ri.storeys[P.storey].y; vec3 ax = P.axis == 0 ? vec3(1, 0, 0) : vec3(0, 0, 1), lat = P.axis == 0 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+      vec3 cmn = glm::min(P.c - ax * 1.08f - lat * 0.28f, P.c + ax * 1.08f + lat * 0.28f), cmx = glm::max(P.c - ax * 1.08f - lat * 0.28f, P.c + ax * 1.08f + lat * 0.28f);
+      cmn.y = y + 0.15f; cmx.y = y + 1.7f;
+      for (size_t q = 0; q < out.size();) {
+        const AssetDef* fa = A(out[q].asset.c_str()); const PropDef* pd = fa ? sys.prop(fa) : nullptr;
+        vec3 mn, mx; if (pd) bounds(pd, out[q].p, out[q].yaw, mn, mx);
+        if (!pd || !pd->blocking || pd->mount > 0 || pd->flat() || !boxOverlap(cmn, cmx, mn, mx)) { ++q; continue; }
+        std::string sl = out[q].slot;
+        logf("interior: FN1 %s: dropped %s (%s) in the %s corridor", ha->id.c_str(), out[q].asset.c_str(), sl.c_str(), P.why.c_str());
+        out.erase(std::remove_if(out.begin(), out.end(), [&](const PlanItem& it) { return it.slot == sl || it.slot.rfind(sl + "/", 0) == 0; }), out.end());
+        ++dropped; q = 0;
+      }
+    }
+    for (size_t s = 0; s < ri.storeys.size() && s < ri.open.size(); ++s) {
+      const auto& S = ri.storeys[s]; const auto& op = ri.open[s];
+      std::vector<int> ps; for (int q = 0; q < (int)ri.portals.size(); ++q) if (ri.portals[q].storey == (int)s) ps.push_back(q);
+      if (ps.size() < 2) continue;
+      auto walk = [&](size_t c) { int16_t v = S.id[c]; return v >= 0 || v == RoomInfo::DOORWAY || op[c] != 0; };
+      auto seedOf = [&](int q, const std::vector<uint8_t>& blk) -> int {   // the walkable cell nearest the portal (0.8 m)
+        const auto& P = ri.portals[q];
+        int ci = (int)std::floor((P.c.x - S.o.x) / C), cj = (int)std::floor((P.c.z - S.o.y) / C), best = -1, bd = 1 << 30;
+        for (int dj = -8; dj <= 8; ++dj) for (int di = -8; di <= 8; ++di) {
+          int a = ci + di, b = cj + dj; if (a < 0 || b < 0 || a >= S.nx || b >= S.nz) continue;
+          size_t c = (size_t)b * S.nx + a; if (!walk(c) || blk[c]) continue;
+          int d2 = di * di + dj * dj; if (d2 < bd) { bd = d2; best = (int)c; }
+        }
+        return best;
+      };
+      auto label = [&](const std::vector<uint8_t>& blk) {
+        std::vector<int> lab(S.id.size(), -1); int nl = 0; std::vector<int> stk;
+        for (size_t c0 = 0; c0 < S.id.size(); ++c0) {
+          if (lab[c0] >= 0 || !walk(c0) || blk[c0]) continue;
+          lab[c0] = nl; stk.assign(1, (int)c0);
+          while (!stk.empty()) {
+            int c = stk.back(); stk.pop_back(); int ci = c % S.nx, cj = c / S.nx;
+            const int di[4] = {1, -1, 0, 0}, dj[4] = {0, 0, 1, -1};
+            for (int d = 0; d < 4; ++d) {
+              int a = ci + di[d], b = cj + dj[d]; if (a < 0 || b < 0 || a >= S.nx || b >= S.nz) continue;
+              size_t n = (size_t)b * S.nx + a; if (lab[n] < 0 && walk(n) && !blk[n]) { lab[n] = nl; stk.push_back((int)n); }
+            }
+          }
+          ++nl;
+        }
+        return lab;
+      };
+      std::vector<uint8_t> none(S.id.size(), 0);
+      std::vector<int> lab0 = label(none), g0(ps.size(), -1);
+      for (size_t k = 0; k < ps.size(); ++k) { int c = seedOf(ps[k], none); if (c >= 0) g0[k] = lab0[c]; }
+      for (int iter = 0; iter < 24; ++iter) {
+        std::vector<uint8_t> blk(S.id.size(), 0);
+        std::vector<std::pair<int, std::pair<vec3, vec3>>> items;
+        for (int q = 0; q < (int)out.size(); ++q) {
+          const AssetDef* fa = A(out[q].asset.c_str()); if (!fa) continue;
+          const PropDef* pd = sys.prop(fa);
+          if (!pd || !pd->blocking || pd->mount > 0 || pd->flat()) continue;
+          vec3 mn, mx; bounds(pd, out[q].p, out[q].yaw, mn, mx);
+          if (mn.y > S.y + 0.5f || mx.y < S.y + 0.1f || mn.y < S.y - 0.5f) continue;   // standing on this storey's floor
+          items.push_back({q, {mn, mx}});
+          int i0 = std::max(0, (int)std::floor((mn.x - 0.4f - S.o.x) / C)), i1 = std::min(S.nx - 1, (int)std::ceil((mx.x + 0.4f - S.o.x) / C) - 1);
+          int j0 = std::max(0, (int)std::floor((mn.z - 0.4f - S.o.y) / C)), j1 = std::min(S.nz - 1, (int)std::ceil((mx.z + 0.4f - S.o.y) / C) - 1);
+          for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) blk[(size_t)j * S.nx + i] = 1;
+        }
+        std::vector<int> lab = label(blk);
+        int bk = -1, bm = -1;
+        for (size_t k = 0; k < ps.size() && bk < 0; ++k) {
+          if (g0[k] < 0) continue;
+          int ck = seedOf(ps[k], blk); int lk = ck >= 0 ? lab[ck] : -2;
+          for (size_t m = k + 1; m < ps.size(); ++m) {
+            if (g0[m] != g0[k]) continue;
+            int cm = seedOf(ps[m], blk); int lm = cm >= 0 ? lab[cm] : -3;
+            if (lk != lm) { bk = (int)k; bm = (int)m; break; }
+          }
+        }
+        if (bk < 0 || items.empty()) break;
+        vec2 pa(ri.portals[ps[bk]].c.x, ri.portals[ps[bk]].c.z), pb(ri.portals[ps[bm]].c.x, ri.portals[ps[bm]].c.z);
+        int pick = -1; float best = 1e9f;
+        for (auto& [q, bb] : items) {   // the piece nearest the segment between the two portals (box to segment, sampled)
+          float d = 1e9f;
+          for (int t = 0; t <= 16; ++t) {
+            vec2 p = glm::mix(pa, pb, t / 16.0f);
+            vec2 e = glm::max(glm::max(vec2(bb.first.x, bb.first.z) - p, p - vec2(bb.second.x, bb.second.z)), vec2(0));
+            d = std::min(d, glm::length(e));
+          }
+          if (d < best) { best = d; pick = q; }
+        }
+        if (pick < 0) break;
+        std::string sl = out[pick].slot;
+        logf("interior: FN1 %s: dropped %s (%s) between %s and %s", ha->id.c_str(), out[pick].asset.c_str(), sl.c_str(), ri.portals[ps[bk]].why.c_str(), ri.portals[ps[bm]].why.c_str());
+        out.erase(std::remove_if(out.begin(), out.end(), [&](const PlanItem& it) { return it.slot == sl || it.slot.rfind(sl + "/", 0) == 0; }), out.end());
+        ++dropped;
+      }
+    }
+    return dropped;
+  }
   // GX2: the pose of a piece backed onto the wall next to cell (i, j) in direction d (0: the wall at -z, 1: -x, 2: +z,
   // 3: +x): its yaw faces into the room and its back stands `gap` off the real wall face (probed by a ray, cached), so
   // floor pieces stand on the skirting board's front and hung pieces sit on the plaster
@@ -2189,6 +2376,42 @@ int InteriorSys::unfurnish(App& app, uint64_t hostId) {
   return (int)(n0 - app.doc.instances.size());
 }
 
+InteriorSys::DoorwayReport InteriorSys::doorwayReport(App& app) {
+  DoorwayReport r;
+  std::unordered_map<uint64_t, std::vector<const Instance*>> kids;
+  for (auto& i : app.doc.instances) if (isFurnishPiece(i)) kids[i.extra["furnish"].value("host", (uint64_t)0)].push_back(&i);
+  for (auto& h : app.doc.instances) {
+    auto kt = kids.find(h.id); if (kt == kids.end()) continue;
+    const AssetDef* ha = app.assetFor(h); if (!ha) continue;
+    const RoomInfo* ri = rooms(ha); if (!ri || ri->portals.empty()) continue;
+    ++r.buildings;
+    quat hq = yawQuat(h.yaw), iq = glm::inverse(hq);
+    struct Bx { vec3 mn, mx; std::string id; };
+    std::vector<Bx> bx;
+    for (const Instance* k : kt->second) {
+      const AssetDef* fa = app.assetFor(*k); const PropDef* pd = fa ? prop(fa) : nullptr;
+      if (!pd || !pd->blocking || pd->mount > 0 || pd->flat()) continue;
+      vec3 lp = iq * (k->pos - h.pos), mn, mx; turnedBounds(pd->bmin, pd->bmax, wrapDeg(k->yaw - h.yaw), mn, mx);
+      bx.push_back({mn + lp, mx + lp, fa->id});
+    }
+    for (auto& P : ri->portals) {
+      ++r.portals;
+      vec3 ax = P.axis == 0 ? vec3(1, 0, 0) : vec3(0, 0, 1);
+      std::string hit;
+      for (int t = -4; t <= 4 && hit.empty(); ++t) {   // a 0.56 m capsule (as a box) at 0.2 m steps, its centre out to 0.8 m either side
+        vec3 c = P.c + ax * (t * 0.2f);
+        vec3 mn = vec3(c.x - 0.28f, P.c.y + 0.15f, c.z - 0.28f), mx = vec3(c.x + 0.28f, P.c.y + 1.7f, c.z + 0.28f);
+        for (auto& b : bx) if (boxOverlap(mn, mx, b.mn, b.mx)) { hit = b.id; break; }
+      }
+      if (!hit.empty()) {
+        ++r.blocked;
+        if (r.worst.size() < 12) r.worst.push_back(ha->id + " " + P.why + " <- " + hit);
+      }
+    }
+  }
+  return r;
+}
+
 int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   auto t0 = std::chrono::high_resolution_clock::now();
   Instance* h = app.doc.find(hostId); if (!h) return 0;
@@ -2247,6 +2470,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   std::vector<int> order(ri->rooms.size());
   for (size_t k = 0; k < order.size(); ++k) order[k] = (int)k;
   for (int k : order) if (!lightsOnly) P.room(k);
+  if (!lightsOnly) P.clearPaths();   // FN1: no generated piece cuts one doorway off from another
   {   // L3 (docs/lights.md): a ceiling or table light per room, a fire on each hearth, caged lamps in bunkers
     std::vector<LightPlanItem> li; for (auto& it : P.out) li.push_back({it.slot, it.asset, it.p, it.yaw});
     // GX2: wall fixtures (sconces by doorways) go through the room planner's checks; the planner keeps their space
@@ -2272,6 +2496,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
         else if (id == RoomInfo::DOORWAY) { px[0] = 40; px[1] = 80; px[2] = 255; }
         else if (id >= 0) { uint32_t h = hmix32((uint32_t)id * 7919u + 13u); px[0] = 90 + (h & 63); px[1] = 90 + ((h >> 8) & 63); px[2] = 90 + ((h >> 16) & 63); }
         if (S.keep[c]) px[0] = 220;
+        if (s < ri->open.size() && ri->open[s][c]) { px[0] = 255; px[1] = 0; px[2] = 255; }   // FN1: openings found in the grid
         if (P.occ[s][c] == 1) { px[0] = 30; px[1] = 200; px[2] = 30; } else if (P.occ[s][c] == 2) { px[1] = 220; }
         f.write((const char*)px, 3);
       }
