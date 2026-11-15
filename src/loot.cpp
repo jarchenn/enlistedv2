@@ -433,8 +433,10 @@ bool lootOnDeath(Game& G, int slot) {
       if (d.grenade.on) { std::string id = throwId(d.id); if (!id.empty()) add(id, ws.loaded + (int)ws.containers.size()); }
       else addGun(w, ws);
     }
-  } else {
-    if (s.weapon >= 0) { addGun(s.weapon, s.ws); int t = ammoTypeOf(*app.weaponDefs[s.weapon]); if (t >= 0) add("ammo:" + std::to_string(t), s.ws.reserveRounds()); }
+  } else {   // the gun in hand and the others it carries (lootArmBot: s.carried, their states in s.wsBy), each gun's reserve as ammo
+    auto gun = [&](int w, const WeaponState& ws) { addGun(w, ws); int t = ammoTypeOf(*app.weaponDefs[w]); if (t >= 0) k.ammo[t] += ws.reserveRounds(); };
+    if (s.weapon >= 0) gun(s.weapon, s.ws);
+    for (int w : s.carried) if (w != s.weapon) { auto it = s.wsBy.find(w); if (it != s.wsBy.end()) gun(w, it->second); }
     add("br_frag", s.frags); add("br_smoke", s.smokes);
   }
   for (int t = 0; t < AM_COUNT; ++t) add("ammo:" + std::to_string(t), k.ammo[t]);
@@ -481,7 +483,7 @@ static void stripForDrop(Game& G, Soldier& s) {   // a new life in Battle Royale
 static int gunScore(const WeaponDef& d) { return lootIsPistol(d) ? 1 : isSmg(d) || isShotgun(d) ? 2 : d.wclass == WC_RIFLE ? 3 : 4; }
 static bool botWants(Game& G, const Soldier& s, const FloorItem& f) {
   Kit& k = *kitOf(s.slot);
-  if (f.weapon >= 0) return s.weapon < 0 || (f.ws.loaded > 0 && gunScore(*G.app.weaponDefs[f.weapon]) > gunScore(*G.app.weaponDefs[s.weapon]));   // a gun, or a better one
+  if (f.weapon >= 0) return std::find(s.carried.begin(), s.carried.end(), f.weapon) == s.carried.end() && (s.weapon < 0 || (f.ws.loaded > 0 && gunScore(*G.app.weaponDefs[f.weapon]) > gunScore(*G.app.weaponDefs[s.weapon])));   // a gun, or a better one
   if (f.id.rfind("ammo:", 0) == 0) return s.weapon >= 0 && ammoTypeOf(*G.app.weaponDefs[s.weapon]) == std::stoi(f.id.substr(5)) && s.ws.reserveRounds() < 3 * ammoBox(std::stoi(f.id.substr(5)));
   const ItemDef* d = lootItem(f.id); if (!d) return false;
   switch (d->kind) {
@@ -508,6 +510,8 @@ static void botTake(Game& G, Soldier& s, std::vector<FloorItem>& v, int idx) {
       else if (r > 0 && ot >= 0) { FloorItem a; a.id = "ammo:" + std::to_string(ot); a.count = r; stash(into, s.feet, a); }
       stash(into, s.feet, old);
     }
+    auto it = std::find(s.carried.begin(), s.carried.end(), s.weapon);   // the new gun takes the old one's place in the list
+    if (it != s.carried.end()) *it = f.weapon; else s.carried.push_back(f.weapon);
     s.weapon = f.weapon; s.ws = f.ws; if (keep > 0) s.ws.containers.push_back(keep);
     return;
   }
