@@ -11,7 +11,8 @@
    "barn",
    "church",
    "tavern",
-   "class"
+   "class",
+   "class_modern"
   ]
  },
  "debrisWear": 1.15,
@@ -1098,6 +1099,981 @@
       15
      ]
     }
+   ]
+  },
+  "mod_lounge": {
+   "do": "center",
+   "assets": [
+    "furn_mod_coffee_table"
+   ],
+   "ring": 0,
+   "area": [
+    -1.9,
+    -1.6,
+    1.9,
+    1.4
+   ],
+   "top": {
+    "from": [
+     "furn_mod_plant_small",
+     "furn_books",
+     "furn_mod_table_lamp",
+     "furn_papers"
+    ],
+    "n": 1,
+    "clutter": true
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_rug"
+     ],
+     "at": [
+      0,
+      0,
+      -0.1
+     ],
+     "turn": 0,
+     "rug": true
+    },
+    {
+     "assets": [
+      "furn_mod_sofa3|furn_mod_sofa2",
+      "furn_mod_sofa2"
+     ],
+     "at": [
+      0,
+      0,
+      -1.05
+     ],
+     "turn": 0,
+     "jitter": [
+      0.03,
+      3
+     ]
+    },
+    {
+     "assets": [
+      "furn_mod_armchair"
+     ],
+     "at": [
+      1.25,
+      0,
+      0.25
+     ],
+     "turn": 250,
+     "jitter": [
+      0.05,
+      8
+     ]
+    },
+    {
+     "assets": [
+      "furn_mod_armchair"
+     ],
+     "at": [
+      -1.25,
+      0,
+      0.25
+     ],
+     "turn": 110,
+     "p": 0.7,
+     "jitter": [
+      0.05,
+      8
+     ]
+    },
+    {
+     "assets": [
+      "furn_mod_floor_lamp"
+     ],
+     "at": [
+      1.35,
+      0,
+      -1.0
+     ],
+     "alt": [
+      -1.35,
+      0,
+      -1.0
+     ],
+     "p": 0.8
+    },
+    {
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "at": [
+      -1.4,
+      0,
+      -1.1
+     ],
+     "alt": [
+      1.4,
+      0,
+      -1.1
+     ],
+     "p": 0.5
+    }
+   ]
+  },
+  "mod_tv_wall": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_tv_stand"
+   ],
+   "corner": -0.4,
+   "top": {
+    "from": [
+     "furn_mod_tv"
+    ],
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "at": [
+      0.1,
+      0,
+      0
+     ],
+     "alt": [
+      -0.1,
+      0,
+      0
+     ],
+     "flush": true,
+     "p": 0.6
+    }
+   ]
+  },
+  "mod_reading": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_armchair"
+   ],
+   "corner": 0.9,
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_nightstand"
+     ],
+     "at": [
+      0.06,
+      0,
+      0
+     ],
+     "alt": [
+      -0.06,
+      0,
+      0
+     ],
+     "flush": true,
+     "top": {
+      "from": [
+       "furn_mod_table_lamp",
+       "furn_books",
+       "furn_mod_plant_small"
+      ],
+      "n": 2
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_floor_lamp"
+     ],
+     "at": [
+      -0.08,
+      0,
+      0
+     ],
+     "flush": true,
+     "p": 0.6
+    }
+   ],
+   "hangAbove": [
+    "furn_mod_canvas_square|furn_mod_canvas_wide"
+   ]
+  },
+  "mod_dining": {
+   "do": "center",
+   "assets": [
+    "furn_mod_dining_table4",
+    "furn_mod_dining_table6"
+   ],
+   "ring": 0.75,
+   "chairs": [
+    {
+     "assets": [
+      "furn_mod_dining_chair"
+     ],
+     "n": [
+      3,
+      2
+     ],
+     "ends": true
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_mod_plant_small",
+     "furn_crockery",
+     "furn_mod_table_lamp"
+    ],
+    "n": 1,
+    "clutter": true
+   }
+  },
+  "mod_dining_big": {
+   "do": "center",
+   "assets": [
+    "furn_mod_dining_table6",
+    "furn_mod_dining_table4"
+   ],
+   "ring": 0.8,
+   "chairs": [
+    {
+     "assets": [
+      "furn_mod_dining_chair"
+     ],
+     "n": [
+      4,
+      2
+     ],
+     "ends": true
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_mod_plant_small",
+     "furn_crockery"
+    ],
+    "n": 1,
+    "clutter": true
+   }
+  },
+  "mod_kitchen_line": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_kitchen_base",
+    "furn_mod_sink_unit"
+   ],
+   "corner": -0.6,
+   "top": {
+    "from": [
+     "furn_mod_microwave",
+     "furn_mod_plant_small",
+     "furn_jars",
+     "furn_crockery"
+    ],
+    "n": 1,
+    "clutter": true
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_sink_unit"
+     ],
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "flush": true
+    },
+    {
+     "assets": [
+      "furn_mod_fridge"
+     ],
+     "at": [
+      -0.01,
+      0,
+      0
+     ],
+     "flush": true
+    }
+   ],
+   "hangAbove": [
+    "furn_mod_kitchen_wall"
+   ]
+  },
+  "mod_bedside": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_bed_double",
+    "furn_mod_bed_single"
+   ],
+   "corner": -0.5,
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_nightstand"
+     ],
+     "at": [
+      0.04,
+      0,
+      0
+     ],
+     "flush": true,
+     "top": {
+      "from": [
+       "furn_mod_table_lamp"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_nightstand"
+     ],
+     "at": [
+      -0.04,
+      0,
+      0
+     ],
+     "flush": true,
+     "p": 0.8,
+     "top": {
+      "from": [
+       "furn_mod_table_lamp",
+       "furn_books",
+       "furn_mod_plant_small"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_rug"
+     ],
+     "at": [
+      0,
+      0,
+      0.7
+     ],
+     "turn": 90,
+     "rug": true,
+     "p": 0.5
+    }
+   ],
+   "hangAbove": [
+    "furn_mod_canvas_wide|furn_mod_canvas_square"
+   ]
+  },
+  "mod_office_desk": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_desk|furn_mod_desk_l",
+    "furn_mod_desk"
+   ],
+   "corner": 0.2,
+   "top": {
+    "from": [
+     "furn_mod_monitor"
+    ],
+    "n": 1
+   },
+   "top2": {
+    "from": [
+     "furn_papers",
+     "furn_books",
+     "furn_mod_plant_small"
+    ],
+    "n": 1
+   },
+   "papers": {
+    "p": 0.7,
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_office_chair"
+     ],
+     "at": [
+      0,
+      0,
+      0.6
+     ],
+     "turn": 180,
+     "jitter": [
+      0.05,
+      15
+     ],
+     "tuck": true
+    },
+    {
+     "assets": [
+      "furn_mod_filing_cabinet"
+     ],
+     "at": [
+      0.05,
+      0,
+      0
+     ],
+     "alt": [
+      -0.05,
+      0,
+      0
+     ],
+     "flush": true,
+     "p": 0.6
+    }
+   ],
+   "hangAbove": [
+    "furn_mod_wall_clock|furn_mod_canvas_square",
+    "furn_mod_wall_clock"
+   ]
+  },
+  "mod_desk_pod": {
+   "do": "center",
+   "assets": [
+    "furn_mod_desk"
+   ],
+   "ring": 0,
+   "area": [
+    -0.8,
+    -2.2,
+    0.8,
+    1.0
+   ],
+   "top": {
+    "from": [
+     "furn_mod_monitor"
+    ],
+    "n": 1
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_cubicle"
+     ],
+     "at": [
+      0,
+      0,
+      -0.58
+     ],
+     "turn": 0
+    },
+    {
+     "assets": [
+      "furn_mod_desk"
+     ],
+     "at": [
+      0,
+      0,
+      -1.16
+     ],
+     "turn": 180,
+     "top": {
+      "from": [
+       "furn_mod_monitor"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_office_chair"
+     ],
+     "at": [
+      0,
+      0,
+      0.62
+     ],
+     "turn": 180,
+     "jitter": [
+      0.05,
+      15
+     ],
+     "tuck": true
+    },
+    {
+     "assets": [
+      "furn_mod_office_chair"
+     ],
+     "at": [
+      0,
+      0,
+      -1.78
+     ],
+     "turn": 0,
+     "jitter": [
+      0.05,
+      15
+     ],
+     "tuck": true
+    }
+   ]
+  },
+  "mod_meeting": {
+   "do": "center",
+   "assets": [
+    "furn_mod_meeting_table",
+    "furn_mod_dining_table6"
+   ],
+   "ring": 0.9,
+   "chairs": [
+    {
+     "assets": [
+      "furn_mod_office_chair"
+     ],
+     "n": [
+      4,
+      2
+     ],
+     "ends": true
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_papers",
+     "furn_mod_plant_small"
+    ],
+    "n": 1,
+    "clutter": true
+   }
+  },
+  "mod_shop_aisle": {
+   "do": "center",
+   "assets": [
+    "furn_mod_gondola"
+   ],
+   "ring": 1.1,
+   "area": [
+    -1.9,
+    -0.5,
+    1.9,
+    0.5
+   ],
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_end_cap"
+     ],
+     "at": [
+      1.52,
+      0,
+      0
+     ],
+     "turn": 90,
+     "p": 0.8
+    },
+    {
+     "assets": [
+      "furn_mod_end_cap"
+     ],
+     "at": [
+      -1.52,
+      0,
+      0
+     ],
+     "turn": 270,
+     "p": 0.6
+    }
+   ]
+  },
+  "mod_display": {
+   "do": "center",
+   "assets": [
+    "furn_mod_display_table"
+   ],
+   "ring": 1.0,
+   "area": [
+    -1.6,
+    -1.2,
+    1.6,
+    1.2
+   ],
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_clothes_rack"
+     ],
+     "at": [
+      0,
+      0,
+      -0.95
+     ],
+     "turn": 0,
+     "p": 0.8
+    },
+    {
+     "assets": [
+      "furn_mod_clothes_rack"
+     ],
+     "at": [
+      0,
+      0,
+      0.95
+     ],
+     "turn": 180,
+     "p": 0.6
+    }
+   ]
+  },
+  "mod_booth": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_booth_single"
+   ],
+   "corner": 0,
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_rest_table"
+     ],
+     "at": [
+      0,
+      0,
+      0.72
+     ],
+     "turn": 0,
+     "tuck": true,
+     "top": {
+      "from": [
+       "furn_crockery",
+       "furn_mod_plant_small"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_booth_single"
+     ],
+     "at": [
+      0,
+      0,
+      1.44
+     ],
+     "turn": 180
+    }
+   ]
+  },
+  "mod_booth_island": {
+   "do": "center",
+   "assets": [
+    "furn_mod_booth_double"
+   ],
+   "ring": 0,
+   "area": [
+    -0.7,
+    -2.1,
+    0.7,
+    2.1
+   ],
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_rest_table"
+     ],
+     "at": [
+      0,
+      0,
+      1.03
+     ],
+     "turn": 0,
+     "tuck": true,
+     "top": {
+      "from": [
+       "furn_crockery"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_rest_table"
+     ],
+     "at": [
+      0,
+      0,
+      -1.03
+     ],
+     "turn": 0,
+     "tuck": true,
+     "top": {
+      "from": [
+       "furn_crockery"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_booth_single"
+     ],
+     "at": [
+      0,
+      0,
+      1.75
+     ],
+     "turn": 180
+    },
+    {
+     "assets": [
+      "furn_mod_booth_single"
+     ],
+     "at": [
+      0,
+      0,
+      -1.75
+     ],
+     "turn": 0
+    }
+   ]
+  },
+  "mod_cafe_table": {
+   "do": "center",
+   "assets": [
+    "furn_mod_rest_table"
+   ],
+   "ring": 0.7,
+   "chairs": [
+    {
+     "assets": [
+      "furn_mod_rest_chair"
+     ],
+     "n": [
+      2,
+      2
+     ]
+    }
+   ],
+   "top": {
+    "from": [
+     "furn_crockery"
+    ],
+    "n": 1,
+    "clutter": true
+   }
+  },
+  "mod_prep_island": {
+   "do": "center",
+   "assets": [
+    "furn_mod_prep_table"
+   ],
+   "ring": 1.0,
+   "area": [
+    -0.8,
+    -1.1,
+    0.8,
+    0.4
+   ],
+   "top": {
+    "from": [
+     "furn_pot",
+     "furn_crockery",
+     "furn_jars"
+    ],
+    "n": 2
+   },
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_prep_table"
+     ],
+     "at": [
+      0,
+      0,
+      -0.71
+     ],
+     "turn": 180,
+     "top": {
+      "from": [
+       "furn_pot",
+       "furn_jars"
+      ],
+      "n": 1
+     }
+    }
+   ]
+  },
+  "mod_ward_bed": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_hospital_bed"
+   ],
+   "corner": -0.2,
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_bedside_cabinet"
+     ],
+     "at": [
+      0.05,
+      0,
+      0
+     ],
+     "flush": true,
+     "top": {
+      "from": [
+       "furn_jug_bowl",
+       "furn_books",
+       "furn_mod_plant_small"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "assets": [
+      "furn_mod_iv_stand"
+     ],
+     "at": [
+      -0.75,
+      0,
+      -0.55
+     ],
+     "p": 0.8,
+     "jitter": [
+      0.05,
+      30
+     ]
+    },
+    {
+     "assets": [
+      "furn_mod_patient_monitor"
+     ],
+     "at": [
+      0.85,
+      0,
+      -0.1
+     ],
+     "p": 0.6,
+     "jitter": [
+      0.04,
+      20
+     ]
+    },
+    {
+     "assets": [
+      "furn_mod_privacy_curtain"
+     ],
+     "at": [
+      0,
+      0,
+      1.5
+     ],
+     "turn": 180,
+     "p": 0.9
+    }
+   ]
+  },
+  "mod_waiting_island": {
+   "do": "center",
+   "assets": [
+    "furn_mod_waiting_row"
+   ],
+   "ring": 0,
+   "area": [
+    -1.6,
+    -1.1,
+    1.6,
+    0.8
+   ],
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_waiting_row"
+     ],
+     "at": [
+      0,
+      0,
+      -0.66
+     ],
+     "turn": 180
+    },
+    {
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "at": [
+      1.55,
+      0,
+      -0.33
+     ],
+     "alt": [
+      -1.55,
+      0,
+      -0.33
+     ],
+     "p": 0.7
+    }
+   ]
+  },
+  "mod_cafeteria": {
+   "do": "center",
+   "assets": [
+    "furn_mod_cafeteria_table"
+   ],
+   "ring": 0.9
+  },
+  "mod_weights": {
+   "do": "center",
+   "assets": [
+    "furn_mod_weight_bench"
+   ],
+   "ring": 1.0,
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_gym_mat"
+     ],
+     "at": [
+      0,
+      0,
+      -1.7
+     ],
+     "turn": 0,
+     "rug": true,
+     "p": 0.6
+    }
+   ]
+  },
+  "mod_cardio": {
+   "do": "wall",
+   "assets": [
+    "furn_mod_treadmill"
+   ],
+   "corner": -0.3,
+   "satellites": [
+    {
+     "assets": [
+      "furn_mod_exercise_bike"
+     ],
+     "at": [
+      0.3,
+      0,
+      0
+     ],
+     "alt": [
+      -0.3,
+      0,
+      0
+     ],
+     "flush": true
+    },
+    {
+     "assets": [
+      "furn_mod_treadmill"
+     ],
+     "at": [
+      -0.3,
+      0,
+      0
+     ],
+     "flush": true,
+     "p": 0.7
+    }
+   ]
+  },
+  "mod_mats": {
+   "do": "rug",
+   "assets": [
+    "furn_mod_gym_mat"
    ]
   }
  },
@@ -4129,6 +5105,1639 @@
    "rug": 0.0,
    "curtains": 0.0,
    "debris": 0.05
+  },
+  "shop": {
+   "centerFloor": [
+    "mod_shop_aisle",
+    "mod_shop_aisle",
+    "mod_display"
+   ],
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "checkout",
+     "assets": [
+      "furn_mod_checkout"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "wallshelf",
+     "assets": [
+      "furn_mod_shop_wall_shelf"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      3,
+      3
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "chiller",
+     "assets": [
+      "furn_mod_fridge_case"
+     ],
+     "corner": 0.9,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "aisle",
+     "cluster": "mod_shop_aisle",
+     "fixed": true,
+     "perArea": 14,
+     "max": 6
+    },
+    {
+     "do": "cluster",
+     "slot": "display",
+     "cluster": "mod_display",
+     "p": 0.6,
+     "if": {
+      "minArea": 30
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "endcap",
+     "assets": [
+      "furn_mod_end_cap"
+     ],
+     "corner": 0.6,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "carts",
+     "assets": [
+      "furn_mod_cart_row"
+     ],
+     "corner": 1,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "cart",
+     "assets": [
+      "furn_mod_cart"
+     ],
+     "corner": 0.8,
+     "n": [
+      0,
+      2
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 0.6
+    }
+   ],
+   "zones": [
+    "mod_shop_aisle",
+    "mod_shop_aisle",
+    "mod_display"
+   ],
+   "wall": {
+    "perMetre": 0.1,
+    "maxGap": 6,
+    "items": [
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_shop_wall_shelf",
+     "furn_mod_end_cap",
+     "furn_mod_fridge_case"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0,
+   "halfDrawn": 0,
+   "debris": 0.03
+  },
+  "dining": {
+   "centerZones": [
+    "mod_cafe_table"
+   ],
+   "centerFloor": [
+    "mod_booth_island",
+    "mod_cafe_table",
+    "mod_cafe_table"
+   ],
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "counter",
+     "assets": [
+      "furn_mod_service_counter"
+     ],
+     "corner": 0.3,
+     "fixed": true,
+     "hangAbove": [
+      "furn_mod_menu_board"
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "booth",
+     "cluster": "mod_booth",
+     "fixed": true,
+     "n": [
+      1,
+      1.5
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "table",
+     "cluster": "mod_cafe_table",
+     "fixed": true,
+     "perArea": 9,
+     "max": 6
+    },
+    {
+     "do": "wall",
+     "slot": "condiments",
+     "assets": [
+      "furn_mod_condiment_station"
+     ],
+     "corner": 0.7,
+     "p": 0.9,
+     "if": {
+      "minArea": 14
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "stools",
+     "assets": [
+      "furn_mod_bar_stool"
+     ],
+     "corner": 0.5,
+     "n": [
+      0,
+      2
+     ],
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "highchair",
+     "assets": [
+      "furn_mod_high_chair"
+     ],
+     "corner": 1,
+     "p": 0.5
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "art",
+     "assets": [
+      "furn_mod_canvas_wide|furn_mod_canvas_square"
+     ],
+     "corner": -0.4,
+     "fixed": true,
+     "n": [
+      0,
+      2
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.2,
+     "p": 0.6
+    }
+   ],
+   "zones": [
+    "mod_booth",
+    "mod_cafe_table",
+    "mod_booth_island"
+   ],
+   "wall": {
+    "perMetre": 0.22,
+    "maxGap": 4,
+    "items": [
+     "furn_mod_canvas_wide",
+     "furn_mod_canvas_square",
+     "furn_mod_mirror",
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_plant_tall",
+     "furn_mod_high_chair"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0.5,
+   "halfDrawn": 0.2,
+   "debris": 0.04
+  },
+  "prokitchen": {
+   "centerFloor": [
+    "mod_prep_island"
+   ],
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "range",
+     "assets": [
+      "furn_mod_range_oven"
+     ],
+     "corner": -0.4,
+     "fixed": true,
+     "hangAbove": [
+      "furn_mod_hood"
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "griddle",
+     "assets": [
+      "furn_mod_griddle"
+     ],
+     "corner": -0.3,
+     "fixed": true,
+     "hangAbove": [
+      "furn_mod_hood"
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "fryer",
+     "assets": [
+      "furn_mod_fryer"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ],
+     "hangAbove": [
+      "furn_mod_hood"
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "warmer",
+     "assets": [
+      "furn_mod_warming_station"
+     ],
+     "corner": 0,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "dishpit",
+     "assets": [
+      "furn_mod_dish_sink"
+     ],
+     "corner": 0.7,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "walkin",
+     "assets": [
+      "furn_mod_walkin_door"
+     ],
+     "corner": 0.9,
+     "p": 0.8,
+     "if": {
+      "minArea": 14
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "racks",
+     "assets": [
+      "furn_mod_stock_rack"
+     ],
+     "corner": 0.9,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "ice",
+     "assets": [
+      "furn_mod_ice_machine"
+     ],
+     "corner": 0.8,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "drinks",
+     "assets": [
+      "furn_mod_soda_machine"
+     ],
+     "corner": 0.5,
+     "p": 0.6
+    },
+    {
+     "do": "cluster",
+     "slot": "island",
+     "cluster": "mod_prep_island",
+     "p": 1,
+     "if": {
+      "minArea": 16
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "prep",
+     "assets": [
+      "furn_mod_prep_table"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ],
+     "top": {
+      "from": [
+       "furn_pot",
+       "furn_jars",
+       "furn_crockery"
+      ],
+      "n": 1,
+      "clutter": true
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 0.5
+    }
+   ],
+   "zones": [
+    "mod_prep_island"
+   ],
+   "wall": {
+    "perMetre": 0.06,
+    "maxGap": 8,
+    "items": [
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_stock_rack",
+     "furn_mod_prep_table"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0,
+   "halfDrawn": 0,
+   "debris": 0.03
+  },
+  "ward": {
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "bed",
+     "cluster": "mod_ward_bed",
+     "fixed": true,
+     "perArea": 10,
+     "max": 6
+    },
+    {
+     "do": "farEnd",
+     "slot": "station",
+     "assets": [
+      "furn_mod_nurse_station"
+     ],
+     "inset": 1.5,
+     "face": "class",
+     "p": 0.6,
+     "if": {
+      "minArea": 40
+     },
+     "satellites": [
+      {
+       "assets": [
+        "furn_mod_office_chair"
+       ],
+       "at": [
+        0,
+        0,
+        -0.75
+       ],
+       "turn": 0,
+       "tuck": true
+      }
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "wheelchair",
+     "assets": [
+      "furn_mod_wheelchair"
+     ],
+     "corner": 1,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "locker",
+     "assets": [
+      "furn_mod_bedside_cabinet"
+     ],
+     "corner": 0.8,
+     "p": 0.3
+    },
+    {
+     "do": "wall",
+     "slot": "seats",
+     "assets": [
+      "furn_mod_waiting_row"
+     ],
+     "corner": 0.6,
+     "p": 0.3,
+     "if": {
+      "minArea": 30
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "p": 0.3
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.3,
+     "fixed": true
+    },
+    {
+     "do": "hang",
+     "slot": "notices",
+     "assets": [
+      "furn_mod_notice_board"
+     ],
+     "corner": 0.4,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "art",
+     "assets": [
+      "furn_mod_canvas_square"
+     ],
+     "corner": -0.5,
+     "p": 0.5
+    }
+   ],
+   "zones": [
+    "mod_ward_bed"
+   ],
+   "wall": {
+    "perMetre": 0.12,
+    "maxGap": 5,
+    "items": [
+     "furn_mod_wall_clock",
+     "furn_mod_canvas_square",
+     "furn_mod_notice_board"
+    ],
+    "floorItems": [
+     "furn_mod_wheelchair",
+     "furn_mod_iv_stand"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0.6,
+   "halfDrawn": 0.3,
+   "debris": 0.03
+  },
+  "gym": {
+   "centerFloor": [
+    "mod_weights",
+    "mod_mats"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "cardio",
+     "cluster": "mod_cardio",
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "dumbbells",
+     "assets": [
+      "furn_mod_dumbbell_rack"
+     ],
+     "corner": 0.5,
+     "fixed": true,
+     "hangAbove": [
+      "furn_mod_mirror"
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "weights",
+     "cluster": "mod_weights",
+     "fixed": true,
+     "n": [
+      1,
+      0.5
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "bike",
+     "assets": [
+      "furn_mod_exercise_bike"
+     ],
+     "corner": 0,
+     "n": [
+      0,
+      1.5
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "lockers",
+     "assets": [
+      "furn_mod_lockers"
+     ],
+     "corner": 0.9,
+     "p": 0.7,
+     "satellites": [
+      {
+       "assets": [
+        "furn_mod_locker_bench"
+       ],
+       "at": [
+        0,
+        0,
+        0.75
+       ],
+       "turn": 0,
+       "p": 0.8
+      }
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "bleachers",
+     "assets": [
+      "furn_mod_bleachers"
+     ],
+     "corner": -0.6,
+     "p": 0.8,
+     "if": {
+      "minArea": 80
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "hoop",
+     "assets": [
+      "furn_mod_hoop"
+     ],
+     "corner": -1,
+     "p": 0.7,
+     "if": {
+      "minArea": 80
+     }
+    },
+    {
+     "do": "rug",
+     "slot": "mat",
+     "assets": [
+      "furn_mod_gym_mat"
+     ],
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "cooler",
+     "assets": [
+      "furn_mod_water_cooler"
+     ],
+     "corner": 1,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "mirror",
+     "assets": [
+      "furn_mod_mirror"
+     ],
+     "corner": -0.3,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.2,
+     "p": 1
+    }
+   ],
+   "zones": [
+    "mod_weights",
+    "mod_cardio",
+    "mod_mats"
+   ],
+   "wall": {
+    "perMetre": 0.12,
+    "maxGap": 6,
+    "items": [
+     "furn_mod_mirror",
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_locker_bench",
+     "furn_mod_dumbbell_rack"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0,
+   "halfDrawn": 0,
+   "debris": 0.03
+  },
+  "lobby": {
+   "centerFloor": [
+    "mod_waiting_island",
+    "mod_cafeteria",
+    "mod_lounge"
+   ],
+   "steps": [
+    {
+     "do": "farEnd",
+     "slot": "reception",
+     "assets": [
+      "furn_mod_reception_desk"
+     ],
+     "inset": 1.5,
+     "face": "class",
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_mod_plant_small",
+       "furn_papers"
+      ],
+      "n": 1
+     },
+     "satellites": [
+      {
+       "assets": [
+        "furn_mod_office_chair"
+       ],
+       "at": [
+        0,
+        0,
+        -0.75
+       ],
+       "turn": 0,
+       "tuck": true
+      }
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "seats",
+     "assets": [
+      "furn_mod_waiting_row"
+     ],
+     "corner": 0.3,
+     "fixed": true,
+     "n": [
+      1,
+      1.5
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "vending",
+     "assets": [
+      "furn_mod_vending"
+     ],
+     "corner": 0.9,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "cooler",
+     "assets": [
+      "furn_mod_water_cooler"
+     ],
+     "corner": 0.9,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "lockers",
+     "assets": [
+      "furn_mod_lockers_school"
+     ],
+     "corner": 0.7,
+     "p": 0.3,
+     "if": {
+      "minArea": 30
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "center",
+     "slot": "table",
+     "assets": [
+      "furn_mod_coffee_table"
+     ],
+     "ring": 1.0,
+     "p": 0.5,
+     "if": {
+      "minArea": 25
+     },
+     "top": {
+      "from": [
+       "furn_papers",
+       "furn_mod_plant_small"
+      ],
+      "n": 1
+     }
+    },
+    {
+     "do": "hang",
+     "slot": "notices",
+     "assets": [
+      "furn_mod_notice_board"
+     ],
+     "corner": 0.4,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 1
+    },
+    {
+     "do": "hang",
+     "slot": "art",
+     "assets": [
+      "furn_mod_canvas_wide|furn_mod_canvas_square"
+     ],
+     "corner": -0.5,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    }
+   ],
+   "zones": [
+    "mod_waiting_island",
+    "mod_lounge"
+   ],
+   "wall": {
+    "perMetre": 0.16,
+    "maxGap": 5,
+    "items": [
+     "furn_mod_canvas_wide",
+     "furn_mod_canvas_square",
+     "furn_mod_notice_board",
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_plant_tall",
+     "furn_mod_waiting_row"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0.4,
+   "halfDrawn": 0.2,
+   "debris": 0.03
+  },
+  "class_modern": {
+   "steps": [
+    {
+     "do": "rows",
+     "slot": "desks",
+     "assets": [
+      "furn_mod_student_desk"
+     ],
+     "pitch": 1.0,
+     "aisle": 0.8,
+     "back": 0.6,
+     "front": 2.0
+    },
+    {
+     "do": "farEnd",
+     "slot": "teacher",
+     "assets": [
+      "furn_mod_teacher_desk"
+     ],
+     "inset": 1.0,
+     "face": "class",
+     "top": {
+      "from": [
+       "furn_mod_monitor",
+       "furn_papers",
+       "furn_books",
+       "furn_mod_plant_small"
+      ],
+      "n": 2
+     },
+     "satellites": [
+      {
+       "assets": [
+        "furn_mod_office_chair"
+       ],
+       "at": [
+        0,
+        0,
+        -0.6
+       ],
+       "turn": 0,
+       "tuck": true
+      }
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "board",
+     "assets": [
+      "furn_mod_whiteboard|furn_mod_chalkboard",
+      "furn_mod_whiteboard"
+     ],
+     "corner": -1,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "lockers",
+     "assets": [
+      "furn_mod_lockers_school"
+     ],
+     "corner": 0.9,
+     "p": 0.6
+    },
+    {
+     "do": "wall",
+     "slot": "bookshelf",
+     "assets": [
+      "furn_mod_bookshelf"
+     ],
+     "corner": 0.7,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "cabinet",
+     "assets": [
+      "furn_mod_filing_cabinet"
+     ],
+     "corner": 0.8,
+     "p": 0.4
+    },
+    {
+     "do": "hang",
+     "slot": "notices",
+     "assets": [
+      "furn_mod_notice_board"
+     ],
+     "corner": -0.4,
+     "fixed": true,
+     "n": [
+      1,
+      0.8
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 1
+    }
+   ],
+   "wall": {
+    "perMetre": 0.2,
+    "maxGap": 4,
+    "items": [
+     "furn_mod_notice_board",
+     "furn_mod_canvas_square",
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_bookshelf",
+     "furn_mod_filing_cabinet"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0.6,
+   "halfDrawn": 0.3,
+   "debris": 0.03
+  },
+  "office_modern": {
+   "centerZones": [
+    "mod_meeting",
+    "mod_desk_pod"
+   ],
+   "centerFloor": [
+    "mod_desk_pod",
+    "mod_meeting",
+    "mod_desk_pod"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "desk",
+     "cluster": "mod_office_desk",
+     "fixed": true
+    },
+    {
+     "do": "cluster",
+     "slot": "desk2",
+     "cluster": "mod_office_desk",
+     "p": 1,
+     "if": {
+      "minArea": 12
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "files",
+     "assets": [
+      "furn_mod_filing_cabinet"
+     ],
+     "corner": 0.6,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "bookshelf",
+     "assets": [
+      "furn_mod_bookshelf"
+     ],
+     "corner": 0.8,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "copier",
+     "assets": [
+      "furn_mod_copier"
+     ],
+     "corner": 0.9,
+     "p": 0.5,
+     "if": {
+      "minArea": 20
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "cooler",
+     "assets": [
+      "furn_mod_water_cooler"
+     ],
+     "corner": 1,
+     "p": 0.4,
+     "if": {
+      "minArea": 25
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "server",
+     "assets": [
+      "furn_mod_server_rack"
+     ],
+     "corner": 1,
+     "p": 0.2
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "board",
+     "assets": [
+      "furn_mod_whiteboard"
+     ],
+     "corner": -0.5,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.3,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "art",
+     "assets": [
+      "furn_mod_canvas_wide|furn_mod_canvas_square"
+     ],
+     "corner": 0,
+     "p": 0.6
+    }
+   ],
+   "zones": [
+    "mod_office_desk",
+    "mod_desk_pod"
+   ],
+   "wall": {
+    "perMetre": 0.22,
+    "maxGap": 4,
+    "items": [
+     "furn_mod_canvas_wide",
+     "furn_mod_canvas_square",
+     "furn_mod_whiteboard",
+     "furn_mod_wall_clock",
+     "furn_mod_notice_board"
+    ],
+    "floorItems": [
+     "furn_mod_filing_cabinet",
+     "furn_mod_plant_tall"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0.8,
+   "halfDrawn": 0.3,
+   "debris": 0.03
+  },
+  "kitchen_modern": {
+   "centerZones": [
+    "mod_dining"
+   ],
+   "centerFloor": [
+    "mod_dining",
+    "mod_dining_big"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "line",
+     "cluster": "mod_kitchen_line",
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "cooker",
+     "assets": [
+      "furn_mod_stove"
+     ],
+     "corner": -0.3,
+     "fixed": true,
+     "hangAbove": [
+      "furn_mod_kitchen_wall"
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "dishwasher",
+     "assets": [
+      "furn_mod_dishwasher"
+     ],
+     "corner": 0.2,
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "base2",
+     "assets": [
+      "furn_mod_kitchen_base"
+     ],
+     "corner": 0.4,
+     "p": 0.6,
+     "if": {
+      "minArea": 14
+     },
+     "top": {
+      "from": [
+       "furn_mod_microwave",
+       "furn_jars",
+       "furn_mod_plant_small"
+      ],
+      "n": 1
+     },
+     "hangAbove": [
+      "furn_mod_kitchen_wall"
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "table",
+     "cluster": "mod_dining",
+     "fixed": true,
+     "if": {
+      "minArea": 11
+     }
+    },
+    {
+     "do": "center",
+     "slot": "table",
+     "assets": [
+      "furn_mod_dining_table4"
+     ],
+     "ring": 0.6,
+     "fixed": true,
+     "if": {
+      "maxArea": 11
+     },
+     "chairs": [
+      {
+       "assets": [
+        "furn_mod_dining_chair"
+       ],
+       "n": [
+        2,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "p": 0.4
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.4,
+     "p": 0.7
+    },
+    {
+     "do": "hang",
+     "slot": "art",
+     "assets": [
+      "furn_mod_canvas_square"
+     ],
+     "corner": -0.2,
+     "p": 0.5
+    }
+   ],
+   "zones": [
+    "mod_dining",
+    "mod_kitchen_line"
+   ],
+   "wall": {
+    "perMetre": 0.2,
+    "maxGap": 4,
+    "items": [
+     "furn_mod_wall_clock",
+     "furn_mod_canvas_square",
+     "furn_mod_kitchen_wall"
+    ],
+    "floorItems": [
+     "furn_mod_plant_tall",
+     "furn_mod_dining_chair"
+    ]
+   },
+   "rug": 0,
+   "curtains": 0.8,
+   "halfDrawn": 0.3,
+   "debris": 0.04
+  },
+  "sitting_modern": {
+   "centerZones": [
+    "mod_lounge",
+    "mod_dining"
+   ],
+   "centerFloor": [
+    "mod_lounge",
+    "mod_dining_big",
+    "mod_lounge"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "tv",
+     "cluster": "mod_tv_wall",
+     "fixed": true
+    },
+    {
+     "do": "cluster",
+     "slot": "lounge",
+     "cluster": "mod_lounge",
+     "fixed": true,
+     "if": {
+      "minArea": 14
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "sofa",
+     "assets": [
+      "furn_mod_sofa_l|furn_mod_sofa3",
+      "furn_mod_sofa2"
+     ],
+     "corner": 0.3,
+     "fixed": true,
+     "if": {
+      "maxArea": 14
+     },
+     "satellites": [
+      {
+       "assets": [
+        "furn_mod_coffee_table"
+       ],
+       "at": [
+        0,
+        0,
+        0.95
+       ],
+       "turn": 0,
+       "top": {
+        "from": [
+         "furn_mod_plant_small",
+         "furn_books"
+        ],
+        "n": 1
+       }
+      },
+      {
+       "assets": [
+        "furn_mod_rug"
+       ],
+       "at": [
+        0,
+        0,
+        1.0
+       ],
+       "turn": 0,
+       "rug": true,
+       "p": 0.7
+      }
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "reading",
+     "cluster": "mod_reading",
+     "p": 0.7
+    },
+    {
+     "do": "wall",
+     "slot": "bookshelf",
+     "assets": [
+      "furn_mod_bookshelf"
+     ],
+     "corner": 0.7,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "sideboard",
+     "assets": [
+      "furn_mod_dresser"
+     ],
+     "corner": -0.3,
+     "p": 0.5,
+     "top": {
+      "from": [
+       "furn_mod_table_lamp",
+       "furn_mod_plant_small",
+       "furn_books"
+      ],
+      "n": 1,
+      "clutter": true
+     },
+     "hangAbove": [
+      "furn_mod_mirror|furn_mod_canvas_wide"
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "p": 0.8
+    },
+    {
+     "do": "hang",
+     "slot": "art",
+     "assets": [
+      "furn_mod_canvas_wide|furn_mod_canvas_square"
+     ],
+     "corner": -0.6,
+     "fixed": true,
+     "n": [
+      1,
+      1
+     ]
+    },
+    {
+     "do": "hang",
+     "slot": "mirror",
+     "assets": [
+      "furn_mod_mirror"
+     ],
+     "corner": -0.4,
+     "p": 0.4
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": -0.2,
+     "p": 0.6
+    }
+   ],
+   "zones": [
+    "mod_lounge",
+    "mod_reading",
+    "mod_dining"
+   ],
+   "wall": {
+    "perMetre": 0.3,
+    "maxGap": 3.6,
+    "items": [
+     "furn_mod_canvas_wide",
+     "furn_mod_canvas_square",
+     "furn_mod_mirror",
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_plant_tall",
+     "furn_mod_armchair",
+     "furn_mod_floor_lamp"
+    ]
+   },
+   "rug": 0,
+   "curtains": 1,
+   "halfDrawn": 0.4,
+   "debris": 0.03
+  },
+  "bedroom_modern": {
+   "centerFloor": [
+    "mod_lounge"
+   ],
+   "steps": [
+    {
+     "do": "cluster",
+     "slot": "bed",
+     "cluster": "mod_bedside",
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "wardrobe",
+     "assets": [
+      "furn_mod_wardrobe"
+     ],
+     "corner": 0.6,
+     "p": 1,
+     "sure": "big"
+    },
+    {
+     "do": "wall",
+     "slot": "dresser",
+     "assets": [
+      "furn_mod_dresser",
+      "furn_mod_nightstand"
+     ],
+     "corner": 0.2,
+     "fixed": true,
+     "top": {
+      "from": [
+       "furn_mod_table_lamp",
+       "furn_mod_plant_small",
+       "furn_books"
+      ],
+      "n": 1,
+      "clutter": true
+     },
+     "hangAbove": [
+      "furn_mod_mirror"
+     ]
+    },
+    {
+     "do": "cluster",
+     "slot": "reading",
+     "cluster": "mod_reading",
+     "p": 0.4,
+     "if": {
+      "minArea": 12
+     }
+    },
+    {
+     "do": "cluster",
+     "slot": "desk",
+     "cluster": "mod_office_desk",
+     "p": 0.25,
+     "if": {
+      "minArea": 12
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "p": 0.4
+    },
+    {
+     "do": "hang",
+     "slot": "art",
+     "assets": [
+      "furn_mod_canvas_square|furn_mod_canvas_wide"
+     ],
+     "corner": -0.4,
+     "p": 0.6
+    },
+    {
+     "do": "hang",
+     "slot": "wallclock",
+     "assets": [
+      "furn_mod_wall_clock"
+     ],
+     "corner": 0.3,
+     "p": 0.4
+    }
+   ],
+   "zones": [
+    "mod_bedside",
+    "mod_reading"
+   ],
+   "wall": {
+    "perMetre": 0.26,
+    "maxGap": 3.8,
+    "items": [
+     "furn_mod_canvas_square",
+     "furn_mod_canvas_wide",
+     "furn_mod_mirror",
+     "furn_mod_wall_clock"
+    ],
+    "floorItems": [
+     "furn_mod_plant_tall",
+     "furn_mod_nightstand"
+    ]
+   },
+   "rug": 0,
+   "curtains": 1,
+   "halfDrawn": 0.5,
+   "debris": 0.03
+  },
+  "bathroom_modern": {
+   "steps": [
+    {
+     "do": "wall",
+     "slot": "bath",
+     "assets": [
+      "furn_mod_bath"
+     ],
+     "corner": 0.9,
+     "fixed": true,
+     "if": {
+      "minArea": 5
+     }
+    },
+    {
+     "do": "wall",
+     "slot": "shower",
+     "assets": [
+      "furn_mod_shower"
+     ],
+     "corner": 1,
+     "p": 0.8
+    },
+    {
+     "do": "wall",
+     "slot": "toilet",
+     "assets": [
+      "furn_mod_toilet"
+     ],
+     "corner": 0.6,
+     "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "vanity",
+     "assets": [
+      "furn_mod_vanity"
+     ],
+     "corner": -0.2,
+     "fixed": true,
+     "hangAbove": [
+      "furn_mod_mirror"
+     ]
+    },
+    {
+     "do": "wall",
+     "slot": "plant",
+     "assets": [
+      "furn_mod_plant_tall"
+     ],
+     "corner": 1,
+     "p": 0.2
+    }
+   ],
+   "wall": {
+    "perMetre": 0.15,
+    "maxGap": 3,
+    "items": [
+     "furn_mod_mirror",
+     "furn_mod_canvas_square"
+    ],
+    "floorItems": []
+   },
+   "rug": 0,
+   "curtains": 0.6,
+   "halfDrawn": 0.3,
+   "debris": 0.02
   }
  }
 }

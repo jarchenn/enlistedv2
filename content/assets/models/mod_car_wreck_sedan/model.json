@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.3479819297790527,
+  1.4364283084869385,
+  1.2306450605392456
+ ],
+ "bmin": [
+  -2.3435657024383545,
+  0.0,
+  -1.2306451797485352
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.png",
+   "name": "caprice_low_Material_u1_v1",
+   "normal": "normal_2.png"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.3479819297790527,
+    1.4364283084869385,
+    1.2306450605392456
+   ],
+   "bmin": [
+    -2.3435657024383545,
+    0.0,
+    -1.2306451797485352
+   ],
+   "count": 14991,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Box001_caprice_low_Material_u1_v1_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.5,
+ "source": "car_destroyed.glb",
+ "textures": {},
+ "triangles": 4997,
+ "vertices": 7662
+}
