@@ -261,6 +261,7 @@ public:
     bool mapClean = false;      // BR2: the open map's "look": {"clean": true}: no wear (interior.cpp), static decals, dust motes or colour grade
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
+    float mapFill = 1.0f;       // UG4: extra.lighting.fill: the fill / indirect term x this (Tunnels darker between its lamps)
     float mapExposure = 0.0f;   // BR3: extra.lighting.exposure: > 0 pins the exposure (x the fixed night exposure) in every mode, auto exposure off
     float mapBloom = 1.0f;      // BR3: "look": {"bloom": k}: the bloom amount x k (a halo round bright panels)
     int mapShadowLights = 0;    // BR3: "look": {"shadows": n}: at least n shadowed lights on this map (never saved to the settings)

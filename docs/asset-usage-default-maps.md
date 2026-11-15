@@ -438,7 +438,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tun_track_ramp_12` | not used | not used | not used | not used | not used | 4 | 4 |
 | `tun_track_ramp_24` | not used | not used | not used | not used | not used | 9 | 8 |
 | `tun_track_straight` | not used | not used | not used | not used | not used | 5 | 6 |
-| `tun_track_points` | not used | not used | not used | not used | not used | not used | 1 |
+| `tun_track_points` | not used | not used | not used | not used | not used | 1 | 1 |
 
 ## Notes
 
