@@ -1,0 +1,19 @@
+{
+ "set": "metal_walkway_grate",
+ "id": "MetalWalkway013",
+ "family": "metal walkway (TX2)",
+ "size": [
+  1,
+  1
+ ],
+ "source": "https://ambientcg.com/a/MetalWalkway013",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

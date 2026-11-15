@@ -81,6 +81,7 @@ struct TankDef {
   bool stowage = true, pintle = false;
   float maxSteerDeg = 32, steerRate = 1.8f, steerTurns = 2.5f, handbrakeDecel = 7, suspTravel = 0.12f, runOverDmg = 9;
   int smallArmsDmg = 0;                          // durability lost per bullet (cars; tanks ignore small arms)
+  const AssetDef* partsAsset = nullptr;          // BR7 adopted car: no model, the part-built asset's own mesh is drawn
 };
 
 enum TankStation : int { TS_GUNNER = 0, TS_HATCH = 1 };
@@ -118,6 +119,7 @@ struct TankRT {
   // VH1 car: smoothed steering (-1..1, + = right), wheel roll angle / suspension drop, handbrake, run-over cooldowns
   float steer = 0, wheelSpin[4] = {0, 0, 0, 0}, wheelSusp[4] = {0, 0, 0, 0}; bool handbrake = false;
   std::map<int, double> runOverT; int runOvers = 0;
+  bool adopted = false;   // BR7: a parked part-built car made drivable for this session (TankSys::adoptCar)
 };
 
 struct TankHitResult { bool tank = false, counted = false, consumed = false, destroyed = false; int zone = -1, attack = 0; uint64_t id = 0; std::string info; };
@@ -175,6 +177,13 @@ public:
   void drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h);     // VH1 (tank_ui.cpp)
   void carStaticParts(const TankDef& d, std::vector<int>& out) const;    // every part a variant shows, at rest
   void drawCarUI(App& app, TankRT& t);
+  // BR7: a parked part-built car (the modern catalog's sedans, SUVs, pickups, vans) made drivable for this session: a
+  // car definition from the asset (wheels from its "rim" parts, driver behind its "dash"), its own mesh and collision
+  // moved with it. Battle royale adopts a few at the start (royale.cpp); releaseAdopted puts them back.
+  std::map<std::string, std::unique_ptr<TankDef>> adoptedDefs;
+  bool adoptCar(App& app, uint64_t inst);
+  void releaseAdopted(App& app);
+  bool isAdopted(uint64_t id) const { auto it = tanks.find(id); return it != tanks.end() && it->second.adopted; }
   void drive(App& app, TankRT& t, float dt);
   void aimGun(TankRT& t, float dt, bool active);
   void fireCannon(App& app, TankRT& t);

@@ -747,16 +747,44 @@ void Game::posesStep(float dt) {
     if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s
     const CharModel& m = *models[s.model];
     PoseParams pp;
-    pp.walkAmount = std::min(1.0f, s.speed / 3.0f); s.walkPhase += s.speed * dt * 2.6f; pp.walkPhase = s.walkPhase;
+    pp.walkAmount = std::min(1.0f, s.speed / 3.0f);
     float wantCrouch = s.posture == Physics::CROUCH ? 1.0f : 0.0f;
     s.crouchBlend += (wantCrouch - s.crouchBlend) * std::min(1.0f, dt * 8);
     pp.crouch = s.crouchBlend; pp.prone = s.posture == Physics::PRONE ? 1.0f : 0.0f;
     pp.aimPitch = radians(s.localPlayer ? app.eyePitch : s.br.aimPitch);
-    pp.aimYawOffset = s.localPlayer ? 0.0f : std::clamp(radians(wrapDeg(s.br.aimYaw - s.yaw + 180.0f) - 180.0f), -0.9f, 0.9f);
+    float yawOff = s.localPlayer ? 0.0f : std::clamp(radians(wrapDeg(s.br.aimYaw - s.yaw + 180.0f) - 180.0f), -0.9f, 0.9f);
+    if (s.zombie) { s.walkPhase += s.speed * dt * 2.6f; pp.aimYawOffset = yawOff; }
+    else {   // AN1: kneel (still, crouched), carry (moving, not engaged), moveAim (moving, engaged); ~0.25 s blends
+      float v = s.speed, k = 1.0f - std::exp(-dt / 0.08f);
+      float cad = std::min(1.75f, 0.75f + 0.25f * v);   // gait cycles per second: the planted foot travels back at the body speed
+      s.walkPhase += v * dt > 0 ? 6.2831853f * cad * dt : 0.0f;
+      float duty = std::clamp(0.62f - 0.17f * (v - 1.5f), 0.30f, 0.62f);
+      s.anStride += (0.5f * duty * v / cad - s.anStride) * k;
+      pp.gait = true; pp.stride = s.anStride; pp.duty = duty;
+      float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
+      quat bodyQ = glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0));
+      vec3 mv = glm::inverse(bodyQ) * vec3(s.vel.x, 0, s.vel.z);
+      if (glm::length(mv) > 0.3f) s.anDir = glm::normalize(glm::mix(s.anDir, glm::normalize(mv), k));
+      else s.anDir = glm::normalize(glm::mix(s.anDir, vec3(0, 0, 1), k));
+      pp.moveDir = s.anDir;
+      bool moving = v > 0.5f;
+      bool engaged = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0;
+      s.anKneel += ((s.posture == Physics::CROUCH && !moving ? 1.0f : 0.0f) - s.anKneel) * k;
+      s.anCarry += ((moving && !engaged ? 1.0f : 0.0f) - s.anCarry) * k;
+      s.anMoveAim += ((moving && engaged ? 1.0f : 0.0f) - s.anMoveAim) * k;
+      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
+      s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
+      pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
+      if (s.anKneel > 0.01f) {   // the knee and the front foot on the ground under them (terrain only; floors are left flat)
+        auto gnd = [&](vec3 mp) { vec3 w = s.feet + bodyQ * mp; float g = app.terrain.height(w.x, w.z) - s.feet.y; return std::fabs(g) < 0.3f ? g : 0.0f; };
+        pp.gndL = gnd(vec3(0.15f, 0, 0.42f)); pp.gndR = gnd(vec3(-0.1f, 0, -0.03f));
+      }
+    }
+    pp.walkPhase = s.walkPhase;
     if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); }
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
-    pp.lowReady = 0;   // bots keep the muzzle forward on the move (user request; was lowered when running with no target)
+    pp.lowReady = s.zombie ? 0.0f : s.anLow;   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
     if (s.localPlayer) app.mantlePose(s.feet, pp);   // hands on the ledge while mantling (mantle.cpp)
     s.swimBlend += ((s.swim && s.alive ? 1.0f : 0.0f) - s.swimBlend) * std::min(1.0f, dt * 5);
     pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz
@@ -841,7 +869,7 @@ void Game::drawItems() {
       if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
     for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) if (!brHidePart(s, src->ci.view.parts[k].name)) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
-    brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack
+    if (!s.localPlayer) brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {

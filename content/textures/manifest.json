@@ -24,6 +24,7 @@
    "sizeSource": "L4 curation",
    "family": "limewash / plaster",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "limewash"
    ]
@@ -48,6 +49,7 @@
    "sizeSource": "L4 curation",
    "family": "limewash / plaster",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "interior"
    ]
@@ -72,6 +74,7 @@
    "sizeSource": "L4 curation",
    "family": "limewash / plaster",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "plaster"
    ]
@@ -96,6 +99,7 @@
    "sizeSource": "L4 curation",
    "family": "ashlar",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "sandstone",
     "stone_rubble"
@@ -122,6 +126,7 @@
    "sizeSource": "L4 curation",
    "family": "brick",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "brick"
    ]
@@ -147,6 +152,7 @@
    "sizeSource": "L4 curation",
    "family": "brick",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -170,6 +176,7 @@
    "sizeSource": "L4 curation",
    "family": "brick",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -193,6 +200,7 @@
    "sizeSource": "L4 curation",
    "family": "ashlar",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "ashlar"
    ]
@@ -218,6 +226,7 @@
    "sizeSource": "L4 curation",
    "family": "rubble stone",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "stone_coursed"
    ]
@@ -243,6 +252,7 @@
    "sizeSource": "L4 curation",
    "family": "rubble stone",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -266,6 +276,7 @@
    "sizeSource": "L4 curation",
    "family": "cobbles",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -289,6 +300,7 @@
    "sizeSource": "L4 curation",
    "family": "cobbles",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_cobbles"
    ]
@@ -313,6 +325,7 @@
    "sizeSource": "L4 curation",
    "family": "slate",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -335,6 +348,7 @@
    "sizeSource": "L4 curation",
    "family": "slate",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "slate"
    ]
@@ -360,6 +374,7 @@
    "sizeSource": "L4 curation",
    "family": "terracotta",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "roof_tile"
    ]
@@ -385,6 +400,7 @@
    "sizeSource": "L4 curation",
    "family": "terracotta",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -407,6 +423,7 @@
    "sizeSource": "L4 curation",
    "family": "terracotta",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "brickwork",
     "terracotta"
@@ -433,6 +450,7 @@
    "sizeSource": "L4 curation",
    "family": "planks",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "wood_raw"
    ]
@@ -458,6 +476,7 @@
    "sizeSource": "L4 curation",
    "family": "planks",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "crate_wood"
    ]
@@ -482,6 +501,7 @@
    "sizeSource": "L4 curation",
    "family": "planks",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "joinery"
    ]
@@ -506,6 +526,7 @@
    "sizeSource": "L4 curation",
    "family": "planks",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "joinery_dark",
     "wood"
@@ -531,6 +552,7 @@
    "sizeSource": "L4 curation",
    "family": "painted wood",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -554,6 +576,7 @@
    "sizeSource": "L4 curation",
    "family": "painted wood",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "painted_wood",
     "paintwood"
@@ -580,6 +603,7 @@
    "sizeSource": "L4 curation",
    "family": "planks",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "bark"
    ]
@@ -605,6 +629,7 @@
    "sizeSource": "L4 curation",
    "family": "concrete",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "bunker"
    ]
@@ -630,6 +655,7 @@
    "sizeSource": "L4 curation",
    "family": "concrete",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "bunker_wash"
    ]
@@ -655,6 +681,7 @@
    "sizeSource": "L4 curation",
    "family": "concrete",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "concrete"
    ]
@@ -680,6 +707,7 @@
    "sizeSource": "L4 curation",
    "family": "concrete",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "concrete_light",
     "path_concrete"
@@ -705,6 +733,7 @@
    "sizeSource": "L4 curation",
    "family": "rusty steel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "steel_rusty"
    ]
@@ -729,6 +758,7 @@
    "sizeSource": "L4 curation",
    "family": "rusty steel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "iron_old"
    ]
@@ -753,6 +783,7 @@
    "sizeSource": "L4 curation",
    "family": "rusty steel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "iron"
    ]
@@ -777,6 +808,7 @@
    "sizeSource": "L4 curation",
    "family": "rusty steel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "metal"
    ]
@@ -802,6 +834,7 @@
    "sizeSource": "L4 curation",
    "family": "rusty steel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_green"
    ]
@@ -827,6 +860,7 @@
    "sizeSource": "L4 curation",
    "family": "rusty steel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_grey"
    ]
@@ -852,6 +886,7 @@
    "sizeSource": "L4 curation",
    "family": "rusty steel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "rust"
    ]
@@ -877,6 +912,7 @@
    "sizeSource": "L4 curation",
    "family": "fabric",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "cloth"
    ]
@@ -902,6 +938,7 @@
    "sizeSource": "L4 curation",
    "family": "fabric",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "fabric"
    ]
@@ -926,6 +963,7 @@
    "sizeSource": "L4 curation",
    "family": "fabric",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "wool"
    ]
@@ -951,6 +989,7 @@
    "sizeSource": "L4 curation",
    "family": "fabric",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "rug"
    ]
@@ -975,6 +1014,7 @@
    "sizeSource": "L4 curation",
    "family": "fabric",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "leather"
    ]
@@ -1000,6 +1040,7 @@
    "sizeSource": "L4 curation",
    "family": "fabric",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "wicker"
    ]
@@ -1025,6 +1066,7 @@
    "sizeSource": "L4 curation",
    "family": "fabric",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "straw"
    ]
@@ -1050,6 +1092,7 @@
    "sizeSource": "L4 curation",
    "family": "grass",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_dry_grass"
    ]
@@ -1075,6 +1118,7 @@
    "sizeSource": "L4 curation",
    "family": "grass",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "terrain_grass",
     "turf"
@@ -1101,6 +1145,7 @@
    "sizeSource": "L4 curation",
    "family": "dirt",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "soil",
     "terrain_soil"
@@ -1127,6 +1172,7 @@
    "sizeSource": "L4 curation",
    "family": "dirt",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "terrain_crater"
    ]
@@ -1152,6 +1198,7 @@
    "sizeSource": "L4 curation",
    "family": "mud",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "mud"
    ]
@@ -1177,9 +1224,11 @@
    "sizeSource": "L4 curation",
    "family": "mud",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_mud",
-    "terrain_mud"
+    "terrain_mud",
+    "tun_floor_mud"
    ]
   },
   {
@@ -1203,6 +1252,7 @@
    "sizeSource": "L4 curation",
    "family": "gravel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "path_gravel",
     "terrain_gravel"
@@ -1229,6 +1279,7 @@
    "sizeSource": "L4 curation",
    "family": "gravel",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_gravel",
     "shingle"
@@ -1255,6 +1306,7 @@
    "sizeSource": "L4 curation",
    "family": "sand",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -1278,6 +1330,7 @@
    "sizeSource": "L4 curation",
    "family": "sand",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -1301,6 +1354,7 @@
    "sizeSource": "L4 curation",
    "family": "rock",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "imgmat:rock_cliff_b",
     "rock",
@@ -1328,6 +1382,7 @@
    "sizeSource": "L4 curation",
    "family": "rock",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_rock",
     "stone_field"
@@ -1354,6 +1409,7 @@
    "sizeSource": "L4 curation",
    "family": "rock",
    "ma1": false,
+   "batch": "L4",
    "slots": []
   },
   {
@@ -1377,8 +1433,10 @@
    "sizeSource": "L4 curation",
    "family": "dirt",
    "ma1": false,
+   "batch": "L4",
    "slots": [
-    "terrain_scree"
+    "terrain_scree",
+    "tun_floor_rubble"
    ]
   },
   {
@@ -1402,6 +1460,7 @@
    "sizeSource": "L4 curation",
    "family": "rubble stone",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "rubble_debris"
    ]
@@ -1427,6 +1486,7 @@
    "sizeSource": "L4 curation",
    "family": "ground paint",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_leaf_litter"
    ]
@@ -1452,6 +1512,7 @@
    "sizeSource": "L4 curation",
    "family": "ground paint",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_ploughed"
    ]
@@ -1477,6 +1538,7 @@
    "sizeSource": "L4 curation",
    "family": "ground paint",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_scorched"
    ]
@@ -1502,6 +1564,7 @@
    "sizeSource": "L4 curation",
    "family": "ground paint",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_pebbles"
    ]
@@ -1527,6 +1590,7 @@
    "sizeSource": "L4 curation",
    "family": "ground paint",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_marsh"
    ]
@@ -1552,6 +1616,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "stone (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -1575,6 +1640,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "stone (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:stone_coursed"
    ]
@@ -1600,6 +1666,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "stone (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:stone_rubble",
     "imgmat:sub_rubble"
@@ -1626,6 +1693,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "stone (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:stone_field"
    ]
@@ -1651,6 +1719,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "stone (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -1674,6 +1743,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "stone (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:ashlar"
    ]
@@ -1699,6 +1769,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "brick (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:brick"
    ]
@@ -1724,6 +1795,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "brick (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:brickwork",
     "imgmat:sub_brick"
@@ -1749,6 +1821,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "plaster (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:limewash"
    ]
@@ -1774,6 +1847,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "plaster (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:plaster"
    ]
@@ -1799,6 +1873,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "plaster (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:render_flaking"
    ]
@@ -1824,6 +1899,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "plaster (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -1846,6 +1922,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "plaster (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:interior_wall"
    ]
@@ -1870,6 +1947,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "plaster (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:render_stained"
    ]
@@ -1895,6 +1973,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "concrete (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:concrete_core"
    ]
@@ -1920,6 +1999,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "concrete (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:bunker"
    ]
@@ -1945,6 +2025,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "concrete (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:bunker_wash",
     "imgmat:path_concrete"
@@ -1971,8 +2052,10 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "concrete (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
-    "imgmat:concrete"
+    "imgmat:concrete",
+    "tun_floor_slab"
    ]
   },
   {
@@ -1996,6 +2079,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "concrete (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:formwork"
    ]
@@ -2021,6 +2105,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "roof (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:slate"
    ]
@@ -2046,6 +2131,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "roof (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -2069,6 +2155,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "roof (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:roof_tile"
    ]
@@ -2094,6 +2181,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "roof (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -2117,6 +2205,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "timber (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:beam"
    ]
@@ -2142,6 +2231,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "timber (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:furniture_wood",
     "imgmat:joinery"
@@ -2168,6 +2258,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "timber (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:wood_raw"
    ]
@@ -2193,6 +2284,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "timber (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:paint_shutter"
    ]
@@ -2218,6 +2310,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "timber (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:paint_window",
     "imgmat:painted_wood"
@@ -2244,6 +2337,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "timber (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -2267,6 +2361,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "floor (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:floor_boards"
    ]
@@ -2292,6 +2387,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "floor (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -2315,6 +2411,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "floor (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -2338,6 +2435,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "floor (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:floor_flags"
    ]
@@ -2362,6 +2460,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "floor (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:floor_tomette",
     "imgmat:terracotta"
@@ -2387,6 +2486,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "metal (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:metal"
    ]
@@ -2411,6 +2511,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "metal (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:steel_light_rust"
    ]
@@ -2436,6 +2537,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "metal (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:galvanized"
    ]
@@ -2461,6 +2563,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "metal (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:paint_metal_worn"
    ]
@@ -2486,6 +2589,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "ground (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:floor_earth"
    ]
@@ -2511,6 +2615,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "ground (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:paint_dirt",
     "imgmat:path_dirt",
@@ -2539,6 +2644,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "ground (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": []
   },
   {
@@ -2562,9 +2668,11 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "ground (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:paint_gravel",
-    "imgmat:path_gravel"
+    "imgmat:path_gravel",
+    "tun_floor_gravel"
    ]
   },
   {
@@ -2588,6 +2696,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "ground (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:paint_cobbles",
     "imgmat:paving"
@@ -2614,6 +2723,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "fabric (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:sack"
    ]
@@ -2639,6 +2749,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "fabric (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:rug_img"
    ]
@@ -2663,6 +2774,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "interior (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:wallpaper_img"
    ]
@@ -2687,6 +2799,7 @@
    "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
    "family": "paper (MA1)",
    "ma1": true,
+   "batch": "MA1",
    "slots": [
     "imgmat:paper_img"
    ]
@@ -2712,6 +2825,7 @@
    "sizeSource": "L4 curation",
    "family": "planks (user, 2026-11-10)",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "imgmat:planks_038"
    ]
@@ -2737,6 +2851,7 @@
    "sizeSource": "L4 curation",
    "family": "sand (user, 2026-11-10)",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "paint_sand",
     "sand",
@@ -2764,8 +2879,2933 @@
    "sizeSource": "L4 curation",
    "family": "sand (user, 2026-11-10)",
    "ma1": false,
+   "batch": "L4",
    "slots": [
     "sand_b"
+   ]
+  },
+  {
+   "set": "asphalt_warm",
+   "id": "Asphalt033",
+   "url": "https://ambientcg.com/a/Asphalt033",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "asphalt_warm"
+   ]
+  },
+  {
+   "set": "asphalt_dark",
+   "id": "Road012A",
+   "url": "https://ambientcg.com/a/Road012A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "asphalt_dark"
+   ]
+  },
+  {
+   "set": "asphalt_light",
+   "id": "Asphalt031",
+   "url": "https://ambientcg.com/a/Asphalt031",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "asphalt_light"
+   ]
+  },
+  {
+   "set": "asphalt_plain",
+   "id": "Road013A",
+   "url": "https://ambientcg.com/a/Road013A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "asphalt_plain"
+   ]
+  },
+  {
+   "set": "asphalt_worn",
+   "id": "Road015C",
+   "url": "https://ambientcg.com/a/Road015C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "asphalt_worn"
+   ]
+  },
+  {
+   "set": "asphalt_patched",
+   "id": "Road015A",
+   "url": "https://ambientcg.com/a/Road015A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "asphalt_patched"
+   ]
+  },
+  {
+   "set": "concrete_beige_smooth",
+   "id": "Concrete048",
+   "url": "https://ambientcg.com/a/Concrete048",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_beige_smooth"
+   ]
+  },
+  {
+   "set": "concrete_white",
+   "id": "Concrete046",
+   "url": "https://ambientcg.com/a/Concrete046",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_white"
+   ]
+  },
+  {
+   "set": "concrete_grey_cast",
+   "id": "Concrete042A",
+   "url": "https://ambientcg.com/a/Concrete042A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_grey_cast"
+   ]
+  },
+  {
+   "set": "concrete_bluegrey",
+   "id": "Concrete030",
+   "url": "https://ambientcg.com/a/Concrete030",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_bluegrey"
+   ]
+  },
+  {
+   "set": "concrete_ribbed_panel",
+   "id": "Concrete045",
+   "url": "https://ambientcg.com/a/Concrete045",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete panels (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_ribbed_panel"
+   ]
+  },
+  {
+   "set": "concrete_speckled",
+   "id": "Concrete040",
+   "url": "https://ambientcg.com/a/Concrete040",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_speckled"
+   ]
+  },
+  {
+   "set": "concrete_rough_grey",
+   "id": "Concrete044C",
+   "url": "https://ambientcg.com/a/Concrete044C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_rough_grey"
+   ]
+  },
+  {
+   "set": "concrete_pale",
+   "id": "Concrete024",
+   "url": "https://ambientcg.com/a/Concrete024",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_pale"
+   ]
+  },
+  {
+   "set": "concrete_cracked_white",
+   "id": "Concrete023",
+   "url": "https://ambientcg.com/a/Concrete023",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_cracked_white"
+   ]
+  },
+  {
+   "set": "concrete_panel_bolted",
+   "id": "Concrete008",
+   "url": "https://ambientcg.com/a/Concrete008",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete panels (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_panel_bolted"
+   ]
+  },
+  {
+   "set": "concrete_stained_blue",
+   "id": "Concrete019",
+   "url": "https://ambientcg.com/a/Concrete019",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_stained_blue"
+   ]
+  },
+  {
+   "set": "concrete_dirty_wet",
+   "id": "Concrete035",
+   "url": "https://ambientcg.com/a/Concrete035",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "concrete (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "concrete_dirty_wet"
+   ]
+  },
+  {
+   "set": "metal_painted_navy",
+   "id": "Metal027",
+   "url": "https://ambientcg.com/a/Metal027",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "painted metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_painted_navy"
+   ]
+  },
+  {
+   "set": "metal_black_gloss",
+   "id": "Metal029",
+   "url": "https://ambientcg.com/a/Metal029",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "painted metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_black_gloss"
+   ]
+  },
+  {
+   "set": "metal_painted_red",
+   "id": "PaintedMetal004",
+   "url": "https://ambientcg.com/a/PaintedMetal004",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "painted metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_painted_red"
+   ]
+  },
+  {
+   "set": "corrugated_grey",
+   "id": "CorrugatedSteel005",
+   "url": "https://ambientcg.com/a/CorrugatedSteel005",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "corrugated metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "corrugated_grey"
+   ]
+  },
+  {
+   "set": "metal_hazard_stripes",
+   "id": "PaintedMetal016",
+   "url": "https://ambientcg.com/a/PaintedMetal016",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "painted metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_hazard_stripes"
+   ]
+  },
+  {
+   "set": "corrugated_paleblue",
+   "id": "CorrugatedSteel007A",
+   "url": "https://ambientcg.com/a/CorrugatedSteel007A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "corrugated metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "corrugated_paleblue"
+   ]
+  },
+  {
+   "set": "corrugated_blue_rusty",
+   "id": "CorrugatedSteel007B",
+   "url": "https://ambientcg.com/a/CorrugatedSteel007B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "corrugated metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "corrugated_blue_rusty"
+   ]
+  },
+  {
+   "set": "corrugated_green",
+   "id": "CorrugatedSteel006A",
+   "url": "https://ambientcg.com/a/CorrugatedSteel006A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "corrugated metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "corrugated_green"
+   ]
+  },
+  {
+   "set": "corrugated_yellow",
+   "id": "CorrugatedSteel008A",
+   "url": "https://ambientcg.com/a/CorrugatedSteel008A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "corrugated metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "corrugated_yellow"
+   ]
+  },
+  {
+   "set": "metal_plates_dark",
+   "id": "MetalPlates006",
+   "url": "https://ambientcg.com/a/MetalPlates006",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal plates (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_plates_dark"
+   ]
+  },
+  {
+   "set": "metal_plates_rusty",
+   "id": "MetalPlates013",
+   "url": "https://ambientcg.com/a/MetalPlates013",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal plates (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_plates_rusty"
+   ]
+  },
+  {
+   "set": "metal_hex_grate",
+   "id": "MetalPlates017A",
+   "url": "https://ambientcg.com/a/MetalPlates017A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal plates (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_hex_grate"
+   ]
+  },
+  {
+   "set": "metal_plate_rusted",
+   "id": "MetalPlates011",
+   "url": "https://ambientcg.com/a/MetalPlates011",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal plates (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_plate_rusted"
+   ]
+  },
+  {
+   "set": "diamond_plate",
+   "id": "DiamondPlate009",
+   "url": "https://ambientcg.com/a/DiamondPlate009",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "diamond plate (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "diamond_plate"
+   ]
+  },
+  {
+   "set": "diamond_plate_black",
+   "id": "DiamondPlate008C",
+   "url": "https://ambientcg.com/a/DiamondPlate008C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "diamond plate (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "diamond_plate_black"
+   ]
+  },
+  {
+   "set": "diamond_plate_yellow",
+   "id": "DiamondPlate006C",
+   "url": "https://ambientcg.com/a/DiamondPlate006C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "diamond plate (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "diamond_plate_yellow"
+   ]
+  },
+  {
+   "set": "metal_perforated_rusty",
+   "id": "MetalWalkway014",
+   "url": "https://ambientcg.com/a/MetalWalkway014",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal walkway (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_perforated_rusty"
+   ]
+  },
+  {
+   "set": "steel_worn_grey",
+   "id": "Metal024",
+   "url": "https://ambientcg.com/a/Metal024",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "steel_worn_grey"
+   ]
+  },
+  {
+   "set": "corten_rust",
+   "id": "Rust010",
+   "url": "https://ambientcg.com/a/Rust010",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "corten_rust"
+   ]
+  },
+  {
+   "set": "metal_walkway_grate",
+   "id": "MetalWalkway013",
+   "url": "https://ambientcg.com/a/MetalWalkway013",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal walkway (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_walkway_grate"
+   ]
+  },
+  {
+   "set": "metal_mesh_grid",
+   "id": "MetalWalkway006",
+   "url": "https://ambientcg.com/a/MetalWalkway006",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "metal walkway (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "metal_mesh_grid"
+   ]
+  },
+  {
+   "set": "facade_brown_windows",
+   "id": "Facade018A",
+   "url": "https://ambientcg.com/a/Facade018A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    8,
+    8
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "facade (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "facade_brown_windows"
+   ]
+  },
+  {
+   "set": "facade_glass_curtain",
+   "id": "Facade001",
+   "url": "https://ambientcg.com/a/Facade001",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    8,
+    8
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "facade (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "facade_glass_curtain"
+   ]
+  },
+  {
+   "set": "facade_dark_office",
+   "id": "Facade017",
+   "url": "https://ambientcg.com/a/Facade017",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    8,
+    8
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "facade (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "facade_dark_office"
+   ]
+  },
+  {
+   "set": "facade_glass_grid",
+   "id": "Facade006",
+   "url": "https://ambientcg.com/a/Facade006",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    8,
+    8
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "facade (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "facade_glass_grid"
+   ]
+  },
+  {
+   "set": "facade_dark_grid",
+   "id": "Facade019A",
+   "url": "https://ambientcg.com/a/Facade019A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    8,
+    8
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "facade (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "facade_dark_grid"
+   ]
+  },
+  {
+   "set": "carpet_office_navy",
+   "id": "Carpet012",
+   "url": "https://ambientcg.com/a/Carpet012",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "carpet (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "carpet_office_navy"
+   ]
+  },
+  {
+   "set": "fabric_red",
+   "id": "Fabric026",
+   "url": "https://ambientcg.com/a/Fabric026",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "fabric (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "fabric_red"
+   ]
+  },
+  {
+   "set": "fabric_blue",
+   "id": "Fabric023",
+   "url": "https://ambientcg.com/a/Fabric023",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "fabric (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "fabric_blue"
+   ]
+  },
+  {
+   "set": "carpet_brick_weave",
+   "id": "Carpet015",
+   "url": "https://ambientcg.com/a/Carpet015",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "carpet (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "carpet_brick_weave"
+   ]
+  },
+  {
+   "set": "ceiling_tiles_office",
+   "id": "OfficeCeiling001",
+   "url": "https://ambientcg.com/a/OfficeCeiling001",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.4,
+    2.4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "ceiling tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "ceiling_tiles_office"
+   ]
+  },
+  {
+   "set": "ceiling_tiles_grid",
+   "id": "OfficeCeiling005",
+   "url": "https://ambientcg.com/a/OfficeCeiling005",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.4,
+    2.4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "ceiling tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "ceiling_tiles_grid"
+   ]
+  },
+  {
+   "set": "tiles_white_stone",
+   "id": "Tiles141",
+   "url": "https://ambientcg.com/a/Tiles141",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_white_stone"
+   ]
+  },
+  {
+   "set": "tiles_dark_stone",
+   "id": "Tiles140",
+   "url": "https://ambientcg.com/a/Tiles140",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_dark_stone"
+   ]
+  },
+  {
+   "set": "tiles_charcoal",
+   "id": "Tiles138",
+   "url": "https://ambientcg.com/a/Tiles138",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_charcoal"
+   ]
+  },
+  {
+   "set": "tiles_white_large",
+   "id": "Tiles107",
+   "url": "https://ambientcg.com/a/Tiles107",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_white_large"
+   ]
+  },
+  {
+   "set": "tiles_white_grid",
+   "id": "Tiles133A",
+   "url": "https://ambientcg.com/a/Tiles133A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_white_grid"
+   ]
+  },
+  {
+   "set": "tiles_checker",
+   "id": "Tiles074",
+   "url": "https://ambientcg.com/a/Tiles074",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_checker"
+   ]
+  },
+  {
+   "set": "tiles_pool_cyan",
+   "id": "Tiles132A",
+   "url": "https://ambientcg.com/a/Tiles132A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_pool_cyan"
+   ]
+  },
+  {
+   "set": "tiles_beige_grid",
+   "id": "PavingStones136",
+   "url": "https://ambientcg.com/a/PavingStones136",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tiles (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "tiles_beige_grid"
+   ]
+  },
+  {
+   "set": "terrazzo_mixed",
+   "id": "Terrazzo013",
+   "url": "https://ambientcg.com/a/Terrazzo013",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "terrazzo (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "terrazzo_mixed"
+   ]
+  },
+  {
+   "set": "terrazzo_chips",
+   "id": "Terrazzo018",
+   "url": "https://ambientcg.com/a/Terrazzo018",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "terrazzo (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "terrazzo_chips"
+   ]
+  },
+  {
+   "set": "marble_white",
+   "id": "Marble012",
+   "url": "https://ambientcg.com/a/Marble012",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "marble (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "marble_white"
+   ]
+  },
+  {
+   "set": "travertine",
+   "id": "Travertine009",
+   "url": "https://ambientcg.com/a/Travertine009",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "marble (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "travertine"
+   ]
+  },
+  {
+   "set": "marble_black",
+   "id": "Marble016",
+   "url": "https://ambientcg.com/a/Marble016",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "marble (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "marble_black"
+   ]
+  },
+  {
+   "set": "floor_parquet_strip",
+   "id": "WoodFloor051",
+   "url": "https://ambientcg.com/a/WoodFloor051",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wood floor (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "floor_parquet_strip"
+   ]
+  },
+  {
+   "set": "floor_parquet_herringbone",
+   "id": "WoodFloor070",
+   "url": "https://ambientcg.com/a/WoodFloor070",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wood floor (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "floor_parquet_herringbone"
+   ]
+  },
+  {
+   "set": "floor_laminate_pale",
+   "id": "WoodFloor040",
+   "url": "https://ambientcg.com/a/WoodFloor040",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wood floor (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "floor_laminate_pale"
+   ]
+  },
+  {
+   "set": "floor_parquet_basket",
+   "id": "WoodFloor071",
+   "url": "https://ambientcg.com/a/WoodFloor071",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wood floor (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "floor_parquet_basket"
+   ]
+  },
+  {
+   "set": "drywall_white",
+   "id": "Plaster001",
+   "url": "https://ambientcg.com/a/Plaster001",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "plaster / drywall (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "drywall_white"
+   ]
+  },
+  {
+   "set": "brick_veneer_yellow",
+   "id": "Bricks105",
+   "url": "https://ambientcg.com/a/Bricks105",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.4,
+    1.2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "brick veneer (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "brick_veneer_yellow"
+   ]
+  },
+  {
+   "set": "stone_block_mossy",
+   "id": "Bricks108B",
+   "url": "https://ambientcg.com/a/Bricks108B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "tunnel stone (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "stone_block_mossy"
+   ]
+  },
+  {
+   "set": "roof_tiles_dark_modern",
+   "id": "RoofingTiles013B",
+   "url": "https://ambientcg.com/a/RoofingTiles013B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "roofing (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "roof_tiles_dark_modern"
+   ]
+  },
+  {
+   "set": "wallpaper_white",
+   "id": "Wallpaper001A",
+   "url": "https://ambientcg.com/a/Wallpaper001A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wallpaper (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "wallpaper_white"
+   ]
+  },
+  {
+   "set": "fabric_knit_orange",
+   "id": "Fabric085",
+   "url": "https://ambientcg.com/a/Fabric085",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "fabric (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "fabric_knit_orange"
+   ]
+  },
+  {
+   "set": "fabric_terry_blue",
+   "id": "Fabric084",
+   "url": "https://ambientcg.com/a/Fabric084",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "fabric (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "fabric_terry_blue"
+   ]
+  },
+  {
+   "set": "fabric_checker",
+   "id": "Fabric083",
+   "url": "https://ambientcg.com/a/Fabric083",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "fabric (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "fabric_checker"
+   ]
+  },
+  {
+   "set": "fabric_plaid",
+   "id": "Fabric080",
+   "url": "https://ambientcg.com/a/Fabric080",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "fabric (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "fabric_plaid"
+   ]
+  },
+  {
+   "set": "fabric_blue_plain",
+   "id": "Fabric081A",
+   "url": "https://ambientcg.com/a/Fabric081A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "fabric (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "fabric_blue_plain"
+   ]
+  },
+  {
+   "set": "leather_red",
+   "id": "Leather037",
+   "url": "https://ambientcg.com/a/Leather037",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "leather (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "leather_red"
+   ]
+  },
+  {
+   "set": "leather_cream",
+   "id": "Leather039",
+   "url": "https://ambientcg.com/a/Leather039",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "leather (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "leather_cream"
+   ]
+  },
+  {
+   "set": "leather_black",
+   "id": "Leather026",
+   "url": "https://ambientcg.com/a/Leather026",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "leather (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "leather_black"
+   ]
+  },
+  {
+   "set": "leather_tufted",
+   "id": "Leather034C",
+   "url": "https://ambientcg.com/a/Leather034C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "leather (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "leather_tufted"
+   ]
+  },
+  {
+   "set": "wood_veneer_knotty",
+   "id": "Wood096",
+   "url": "https://ambientcg.com/a/Wood096",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wood veneer (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "wood_veneer_knotty"
+   ]
+  },
+  {
+   "set": "wood_veneer_warm",
+   "id": "Wood092",
+   "url": "https://ambientcg.com/a/Wood092",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wood veneer (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "wood_veneer_warm"
+   ]
+  },
+  {
+   "set": "wood_veneer_walnut",
+   "id": "Wood066",
+   "url": "https://ambientcg.com/a/Wood066",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "wood veneer (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "wood_veneer_walnut"
+   ]
+  },
+  {
+   "set": "plastic_black",
+   "id": "Plastic006",
+   "url": "https://ambientcg.com/a/Plastic006",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "plastic / rubber (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "plastic_black"
+   ]
+  },
+  {
+   "set": "rubber_mat",
+   "id": "Rubber004",
+   "url": "https://ambientcg.com/a/Rubber004",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "plastic / rubber (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rubber_mat"
+   ]
+  },
+  {
+   "set": "rubber_surface_black",
+   "id": "Rubber001",
+   "url": "https://ambientcg.com/a/Rubber001",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "plastic / rubber (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rubber_surface_black"
+   ]
+  },
+  {
+   "set": "rubber_surface_blue",
+   "id": "Rubber003",
+   "url": "https://ambientcg.com/a/Rubber003",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "plastic / rubber (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rubber_surface_blue"
+   ]
+  },
+  {
+   "set": "pavers_brick",
+   "id": "PavingStones152",
+   "url": "https://ambientcg.com/a/PavingStones152",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "paving (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "pavers_brick"
+   ]
+  },
+  {
+   "set": "cobbles_fan",
+   "id": "PavingStones150",
+   "url": "https://ambientcg.com/a/PavingStones150",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "paving (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "cobbles_fan"
+   ]
+  },
+  {
+   "set": "cobbles_mossy",
+   "id": "PavingStones142",
+   "url": "https://ambientcg.com/a/PavingStones142",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "paving (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "cobbles_mossy"
+   ]
+  },
+  {
+   "set": "setts_grey",
+   "id": "PavingStones070",
+   "url": "https://ambientcg.com/a/PavingStones070",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "paving (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "setts_grey"
+   ]
+  },
+  {
+   "set": "pavers_grass",
+   "id": "PavingStones139",
+   "url": "https://ambientcg.com/a/PavingStones139",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "paving (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "pavers_grass"
+   ]
+  },
+  {
+   "set": "grass_bright",
+   "id": "Grass005",
+   "url": "https://ambientcg.com/a/Grass005",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "grass (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "grass_bright"
+   ]
+  },
+  {
+   "set": "grass_lush",
+   "id": "Grass001",
+   "url": "https://ambientcg.com/a/Grass001",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "grass (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "grass_lush"
+   ]
+  },
+  {
+   "set": "grass_dark",
+   "id": "Grass003",
+   "url": "https://ambientcg.com/a/Grass003",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "grass (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "grass_dark"
+   ]
+  },
+  {
+   "set": "ground_stony",
+   "id": "Ground109",
+   "url": "https://ambientcg.com/a/Ground109",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "ground (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "ground_stony"
+   ]
+  },
+  {
+   "set": "ground_rubble_b",
+   "id": "Ground108",
+   "url": "https://ambientcg.com/a/Ground108",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "ground (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "ground_rubble_b"
+   ]
+  },
+  {
+   "set": "ground_brown_pebbly",
+   "id": "Ground085",
+   "url": "https://ambientcg.com/a/Ground085",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "ground (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "ground_brown_pebbly"
+   ]
+  },
+  {
+   "set": "gravel_white",
+   "id": "Gravel023",
+   "url": "https://ambientcg.com/a/Gravel023",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "gravel (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "gravel_white"
+   ]
+  },
+  {
+   "set": "gravel_grey_fine",
+   "id": "Gravel040",
+   "url": "https://ambientcg.com/a/Gravel040",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "gravel (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "gravel_grey_fine"
+   ]
+  },
+  {
+   "set": "pebbles_mixed",
+   "id": "Rocks022",
+   "url": "https://ambientcg.com/a/Rocks022",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "gravel (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "pebbles_mixed"
+   ]
+  },
+  {
+   "set": "rock_layered_mossy",
+   "id": "Rock064",
+   "url": "https://ambientcg.com/a/Rock064",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rock (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rock_layered_mossy"
+   ]
+  },
+  {
+   "set": "rock_slate_blue",
+   "id": "Rock058",
+   "url": "https://ambientcg.com/a/Rock058",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rock (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rock_slate_blue"
+   ]
+  },
+  {
+   "set": "rock_pale_cracked",
+   "id": "Rock060",
+   "url": "https://ambientcg.com/a/Rock060",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rock (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rock_pale_cracked"
+   ]
+  },
+  {
+   "set": "rock_dark_wet",
+   "id": "Rock035",
+   "url": "https://ambientcg.com/a/Rock035",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rock (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rock_dark_wet"
+   ]
+  },
+  {
+   "set": "rock_red",
+   "id": "Rock029",
+   "url": "https://ambientcg.com/a/Rock029",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rock (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rock_red"
+   ]
+  },
+  {
+   "set": "rock_slate_layers",
+   "id": "Rocks011",
+   "url": "https://ambientcg.com/a/Rocks011",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rock (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rock_slate_layers"
+   ]
+  },
+  {
+   "set": "moss_cushion",
+   "id": "Moss002",
+   "url": "https://ambientcg.com/a/Moss002",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "moss (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "moss_cushion"
+   ]
+  },
+  {
+   "set": "rock_green_mossy",
+   "id": "Rock059",
+   "url": "https://ambientcg.com/a/Rock059",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rock (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "rock_green_mossy"
+   ]
+  },
+  {
+   "set": "leaves_scattered",
+   "id": "ScatteredLeaves008",
+   "url": "https://ambientcg.com/a/ScatteredLeaves008",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "forest floor (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "leaves_scattered"
+   ]
+  },
+  {
+   "set": "forest_floor",
+   "id": "Ground023",
+   "url": "https://ambientcg.com/a/Ground023",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "forest floor (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "forest_floor"
+   ]
+  },
+  {
+   "set": "sand_rippled",
+   "id": "Ground097",
+   "url": "https://ambientcg.com/a/Ground097",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "sand (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "sand_rippled"
+   ]
+  },
+  {
+   "set": "forest_litter",
+   "id": "Ground071",
+   "url": "https://ambientcg.com/a/Ground071",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "forest floor (TX2)",
+   "ma1": false,
+   "batch": "TX2",
+   "slots": [
+    "forest_litter"
    ]
   }
  ]

@@ -117,7 +117,7 @@ void TankSys::sync(App& app) {
     updateBody(app, t, false);
   }
   for (auto it = tanks.begin(); it != tanks.end();) {
-    if (!live.count(it->first)) {
+    if (!live.count(it->first) && !it->second.adopted) {   // BR7: adopted cars are not catalog vehicles
       for (int* h : {&it->second.engineLoop, &it->second.trackLoop, &it->second.turretLoop}) { app.audio.loopStop(*h); *h = -1; }
       if (occupied == it->first) occupied = 0;
       it = tanks.erase(it);
@@ -143,7 +143,7 @@ void TankSys::updateBody(App& app, TankRT& t, bool force) {
   if (t.body == 0xffffffffu || !t.def) return;
   (void)app;
   const TankDef& d = *t.def;
-  if (force || std::fabs(wrap180(t.tYaw - t.shapeYaw)) > 2.0f) {
+  if (!t.adopted && (force || std::fabs(wrap180(t.tYaw - t.shapeYaw)) > 2.0f)) {   // BR7: an adopted car keeps its asset's exact collision
     std::vector<Part> parts;
     for (auto& b : d.hullBoxes) { Part p; p.center = b.c; p.size = b.h * 2.0f; parts.push_back(p); }
     quat ty = glm::angleAxis(radians(t.tYaw), vec3(0, 1, 0));

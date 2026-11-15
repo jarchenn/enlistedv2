@@ -25,7 +25,7 @@ uint64_t mix64(uint64_t h, uint64_t v) { h ^= v + 0x9E3779B97F4A7C15ull + (h << 
 
 bool eligible(App& app, const Instance& i, const InstanceRT& r) {
   const AssetDef* a = r.asset;
-  return a && a->hlodOpaque && !r.damaged && !r.defDestroyed && i.id != app.selected && !app.interior.prop(a);
+  return a && a->hlodOpaque && !r.damaged && !r.defDestroyed && i.id != app.selected && !app.interior.prop(a) && !app.tanks.isAdopted(i.id);   // BR7: a drivable car moves
 }
 
 // per-vertex extras of a cell mesh (VAO binding 1): the copy's SurfaceParams::inst (w = 2 marks it) and the asset-local
