@@ -18,10 +18,10 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 // code keeps working; friend / foe is always the roster team (Game::hostile).
 enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2 };
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : "Assault"; }
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Heavies = 3, Fighters = 4, Operators = 5 };   // EN1: 2 mixes the enemy types by weight; EN3: 3 trolls and spiders only (heavyTrollPct); 4 the "fighter" enemy type; 5 soldiers in operator bodies
-constexpr int kAiTypeCount = 6;
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Heavies = 3, Fighters = 4, Operators = 5, Fighters2 = 6 };   // EN1: 2 mixes the enemy types by weight; EN3: 3 trolls and spiders only (heavyTrollPct); 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type
+constexpr int kAiTypeCount = 7;
 inline const char* aiTypeName(AiType t) {
-  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Heavies", "Fighters", "Operators"};
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Heavies", "Fighters", "Operators", "Fighters 2"};
   return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
 }
 inline int aiBit(AiType t) { return 1 << (int)t; }
