@@ -250,14 +250,12 @@ public:
   void drawStaminaUI();                   // explore.cpp: the bar under the breath bar, hidden when full
   // getting up: a timed, eased camera rise; until it finishes the player moves at the lower posture's speed
   float riseT = 0, riseDur = 0, riseFrom = 0, riseSpeed = 0; bool riseProne = false;   // riseProne: getting up from prone (blocks jump)
-  // ---- vault (hold Space at a taller obstacle): validated, swept, no chaining (explore.cpp)
+  // ---- vault block of movement.json: only the Space hold time and the bot vault-link cap are used (the player climbs onto, mantle.cpp)
   struct VaultSettings { float hold = 0.16f, minH = 0.62f, maxH = 1.35f, reach = 0.85f, maxDepth = 1.1f, maxDrop = 2.2f, speed = 1.0f; } vaultCfg;
   struct VaultState { bool active = false, latch = false; float held = 0, t = 0, dur = 0; vec3 pts[4]{}; std::string why; int count = 0; } vault;
-  bool tryStartVault(vec3 feet, float yawDeg);
-  void stepVault(float dt);
-  // ---- mantle (hold Space facing a 0.9-2.1 m ledge with standing room on top, or a narrow wall to drop over):
+  // ---- climb / mantle (hold Space facing a 0.4-2.2 m top: ends standing ON it, never carried over a wall or roof rim):
   // hands on the ledge, weapon lowered, camera rises then rolls forward, the body follows a swept path (mantle.cpp)
-  struct MantleSettings { float minH = 0.9f, maxH = 2.15f, reach = 0.85f, durMin = 0.9f, durMax = 1.3f, landUp = 0.3f, landDown = 0.6f, maxDrop = 2.2f, narrow = 0.55f, pitchDip = 14.0f, pitchUp = 5.0f, handSpread = 0.24f; } mantleCfg;
+  struct MantleSettings { float minH = 0.4f, maxH = 2.2f, reach = 0.85f, durMin = 0.45f, durMax = 1.3f, landUp = 0.3f, landDown = 0.6f, fenceDrop = 0.4f, minTop = 0.05f, pitchDip = 14.0f, pitchUp = 5.0f, handSpread = 0.24f; } mantleCfg;
   struct MantleState { bool active = false, over = false; float t = 0, dur = 0, h = 0, pitchOff = 0, eyeFrom = 1.62f; vec3 pts[4]{}; vec3 ledge{0}, fwd{0}; std::string why; int count = 0; } mantle;
   bool tryStartMantle(vec3 feet, float yawDeg, bool fromWater = false);   // fromWater: heights from the floating feet
   bool tryClimbBank(vec3 feet, float yawDeg, float surface);  // swimming: out up a sloped bank (no face for the mantle)

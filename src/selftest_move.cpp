@@ -3,7 +3,7 @@
 // blocked stand / prone exit, prone turning clearance), camera heights, no sprint while lowered, jump
 // reliability (press on a frame with no fixed step, buffered press before landing, coyote time off an edge, no
 // double jump, jump right after releasing crouch, every press jumps on a slope), mantle (mantle.cpp: out of the
-// straight / corner / zig-zag trenches from the floor and the firestep, onto a 2 m platform, over a 2.1 m wall,
+// straight / corner / zig-zag trenches from the floor and the firestep, onto a 2 m platform and a 2.1 m wall (MV1: onto, never over), onto roof rims,
 // refused at 2.4 m; weapon lowered, hands on the ledge, camera arc; movement.json limits vs the bots' links).
 #include "selftest.h"
 #include "editor_nav.h"
@@ -371,7 +371,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
       check(flat(Physics::character().pos, P) > App::kATCraterR + 0.2f, "crawls out of an AT crater while prone (" + std::to_string(flat(Physics::character().pos, P)).substr(0, 4) + " m from the centre)");
       return true; });
     // ---- mantle (mantle.cpp): out of trenches (floor and firestep, front and rear walls), onto a 2 m platform,
-    // over a 2.1 m wall; refused at 2.4 m; settings from movement.json; bot links inside the player's range
+    // onto (not over) walls, platforms and roof rims; refused at 2.4 m; settings from movement.json; bot links inside the player's range
     push("mantle: settings + bot link limits", [this](App& a, float) {
       auto& m = a.mantleCfg; auto& v = a.vaultCfg;
       json nav; try { nav = json::parse(readTextFile(contentDir() / "ai" / "navigation.json")); } catch (...) {}
@@ -379,7 +379,7 @@ void SelfTest::moveUpdate(App& app, float dt) {
       float bm = L.value("mantleMax_m", 9.0f), bv = L.value("vaultMaxHeight_m", 9.0f);
       char b[400]; std::snprintf(b, sizeof b, "movement.json: vault %.2f-%.2f m (depth %.1f m, hold %.2f s); mantle %.2f-%.2f m in %.1f-%.1f s; bot links (navigation.json) mantle <= %.2f m, vault <= %.2f m stay inside the player's ranges",
                                  v.minH, v.maxH, v.maxDepth, v.hold, m.minH, m.maxH, m.durMin, m.durMax, bm, bv);
-      check(std::fabs(v.maxH - 1.35f) < 1e-3f && std::fabs(v.hold - 0.16f) < 1e-3f && m.minH <= v.maxH && m.maxH >= 2.1f && m.maxH <= 2.2f && m.durMin >= 0.9f - 1e-3f && m.durMax <= 1.3f + 1e-3f && bm <= m.maxH && bv <= v.maxH, b);
+      check(std::fabs(v.maxH - 1.35f) < 1e-3f && std::fabs(v.hold - 0.16f) < 1e-3f && m.minH <= v.maxH && m.maxH >= 2.1f && m.maxH <= 2.2f + 1e-3f && m.durMin >= 0.4f && m.durMax <= 1.3f + 1e-3f && bm <= m.maxH && bv <= v.maxH, b);
       summary["mantle"] = {{"minH", m.minH}, {"maxH", m.maxH}, {"durMin", m.durMin}, {"durMax", m.durMax}, {"botMantleMax", bm}};
       return true; });
     struct Exit { const char* asset; vec3 at; vec3 dir; const char* what; };
@@ -432,6 +432,8 @@ void SelfTest::moveUpdate(App& app, float dt) {
         if (ph == 1) {
           if (tEnd < 0) { a.scriptedInput.jumpHeld = true; a.scriptedInput.move = vec2(0, 1); }   // let go once it is done
           if (a.mantle.active && tStart < 0) tStart = t;
+          if (&e == &kExits[0] && a.mantle.active && a.mantle.t > a.mantle.dur * 0.45f && a.mantle.t - 1e-3f <= a.mantle.dur * 0.45f + 0.05f)
+            a.screenshot(exeDir() / "selftest_out" / "mv1_midclimb.png");   // MV1 capture: out of the trench, hands on the lip, pulling up
           if (tStart >= 0 && !a.mantle.active && tEnd < 0) { tEnd = t; a.scriptedInput = ExploreInput{}; }
           yMax = std::max(yMax, c.pos.y);
           if (tEnd < 0 && t < 3.0f) return false;
@@ -451,44 +453,104 @@ void SelfTest::moveUpdate(App& app, float dt) {
       for (auto& [k, id] : trenchIds) { uint64_t x = id; a.doc.instances.erase(std::remove_if(a.doc.instances.begin(), a.doc.instances.end(), [x](const Instance& i) { return i.id == x; }), a.doc.instances.end()); }
       trenchIds.clear(); navSyncCuts(a); a.syncRuntime();
       return true; });
-    struct Block { const char* what; float h, depth; bool want, over; };
+    // MV1: every climb ends standing ON the obstacle (never carried over a wall or off a roof); a rail too thin to
+    // stand on is crossed only onto level ground. roof > 0: the player and the obstacle stand on a slab that high,
+    // ending at the obstacle's far face (a roof rim with the street below)
+    enum { NONE, ONTO, OVER };
+    struct Block { const char* what; float h, depth; int mode; float roof; };
     static const Block kBlocks[] = {
-      {"2.1 m garden wall (0.35 m thick): over it", 2.1f, 0.35f, true, true},
-      {"2.0 m platform (2 m deep): onto it", 2.0f, 2.0f, true, false},
-      {"1.2 m deep platform (too deep to vault): onto it", 1.2f, 2.0f, true, false},
-      {"2.4 m wall: out of reach", 2.4f, 0.35f, false, false},
+      {"0.6 m low wall (0.4 m thick): hop onto it", 0.6f, 0.4f, ONTO, 0},
+      {"1.0 m wall (0.3 m thick): onto it", 1.0f, 0.3f, ONTO, 0},
+      {"2.1 m garden wall (0.35 m thick): onto it, not over", 2.1f, 0.35f, ONTO, 0},
+      {"2.0 m platform (2 m deep): onto it", 2.0f, 2.0f, ONTO, 0},
+      {"1.2 m deep platform: onto it", 1.2f, 2.0f, ONTO, 0},
+      {"1.0 m rail (3 cm) in a field: over to the level ground", 1.0f, 0.03f, OVER, 0},
+      {"2.4 m wall: out of reach", 2.4f, 0.35f, NONE, 0},
+      {"roof, 1.1 m parapet (0.25 m): onto the rim", 1.1f, 0.25f, ONTO, 4.0f},
+      {"roof, 2.2 m rim (0.3 m): onto the rim", 2.2f, 0.3f, ONTO, 4.0f},
+      {"roof, 1.0 m rail (3 cm): not over the edge", 1.0f, 0.03f, NONE, 4.0f},
     };
     for (const Block& bk : kBlocks) {
-      push(std::string("mantle: ") + bk.what, [this, &bk](App& a, float t) {
-        static uint32_t body; static int c0, ph; static float tStart, tEnd, y0; static vec3 base;
+      push(std::string("climb: ") + bk.what, [this, &bk](App& a, float t) {
+        static uint32_t body, roof; static int c0, ph; static float tStart, tEnd, y0; static vec3 base;
         if (t == 0) {
           base = vec3(170, a.terrain.height(170, 40), 40);
+          roof = bk.roof > 0 ? slab(base + vec3(0, bk.roof * 0.5f, 1.0f - bk.depth * 0.5f), vec3(4, bk.roof, 4.0f + bk.depth)) : 0xffffffffu;   // z +3 .. the far face
+          base.y += bk.roof;
           body = slab(base + vec3(0, bk.h * 0.5f, -1.0f - bk.depth * 0.5f), vec3(4, bk.h, bk.depth));   // face 1.0 m in front (-z)
           Physics::setCharacterPos(base + vec3(0, 0.03f, 0)); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{};
           c0 = a.mantle.count; ph = 0; tStart = tEnd = -1;
           return false;
         }
         auto c = Physics::character();
-        if (ph == 0 && t > 0.4f) { y0 = c.pos.y; a.scriptedInput.jump = true; a.scriptedInput.jumpHeld = true; a.scriptedInput.move = vec2(0, 1); ph = 1; return false; }
+        if (ph == 0 && t > 0.4f) { y0 = c.pos.y; a.scriptedInput.jump = true; a.scriptedInput.jumpHeld = true; ph = 1; return false; }   // from standing still
         if (ph == 1) {
-          if (tEnd < 0) { a.scriptedInput.jumpHeld = true; a.scriptedInput.move = vec2(0, 1); }   // let go once it is done
+          if (tEnd < 0) a.scriptedInput.jumpHeld = true;   // let go once it is done
           if (a.mantle.active && tStart < 0) tStart = t;
           if (tStart >= 0 && !a.mantle.active && tEnd < 0) { tEnd = t; a.scriptedInput = ExploreInput{}; }
           if (tEnd < 0 && t < 3.0f) return false;
-          if (tEnd >= 0 && t < tEnd + 0.4f) return false;
+          if (tEnd >= 0 && t < tEnd + 1.0f) return false;   // a second on top: still standing there (balanced)
           a.scriptedInput = ExploreInput{};
           float past = -(c.pos.z - base.z) - 1.0f;   // metres beyond the near face
-          char b[360]; std::snprintf(b, sizeof b, "%s: %d mantle (%s%s), %.2f s, feet %.2f m above the ground, %.2f m past the face",
+          char b[360]; std::snprintf(b, sizeof b, "%s: %d climb (%s%s), %.2f s, feet %.2f m above the start, %.2f m past the face",
                                      bk.what, a.mantle.count - c0, a.mantle.why.c_str(), a.mantle.over ? ", over" : "", tEnd > 0 ? tEnd - tStart : -1.0f, c.pos.y - y0, past);
           bool ok;
-          if (!bk.want) ok = a.mantle.count == c0 && c.pos.y - y0 < 1.2f;
-          else if (bk.over) ok = a.mantle.count == c0 + 1 && a.mantle.over && past > bk.depth + 0.2f && c.pos.y - y0 < 0.3f;
-          else ok = a.mantle.count == c0 + 1 && !a.mantle.over && std::fabs(c.pos.y - y0 - bk.h) < 0.15f && past > 0.3f;
+          if (bk.mode == NONE) ok = a.mantle.count == c0 && c.pos.y - y0 < 1.0f && c.pos.y - y0 > -0.3f && past < 0.0f;
+          else if (bk.mode == OVER) ok = a.mantle.count == c0 + 1 && a.mantle.over && past > bk.depth + 0.2f && std::fabs(c.pos.y - y0) < 0.3f;
+          else ok = a.mantle.count == c0 + 1 && !a.mantle.over && std::fabs(c.pos.y - y0 - bk.h) < 0.15f && past > 0.05f && past < std::max(bk.depth, 0.6f) && c.grounded;
+          if (bk.h <= 1.0f && bk.mode == ONTO) ok = ok && tEnd - tStart < 0.8f;   // knee / waist high: a quick hop
           check(ok, b);
-          Physics::remove(body); body = 0xffffffffu;
+          Physics::remove(body); body = 0xffffffffu; if (roof != 0xffffffffu) Physics::remove(roof); roof = 0xffffffffu;
           return true;
         }
         return t > 8; });
+    }
+    // MV1: a player who lands on a flat roof inside its parapet can always climb onto the rim. Each building is placed,
+    // and from its roof 0.6 m inside the rim (4 sides x 3 lines) the climb is tried facing out; reports the rim heights.
+    static const char* kRoofs[] = {"mod_bld_apartment_block", "mod_bld_diner_small", "mod_bld_family_house", "mod_bld_hospital", "mod_bld_mixed_use",
+      "mod_bld_office_setback", "mod_bld_office_wide", "mod_bld_restaurant_family", "mod_bld_restaurant_large", "mod_bld_tower_glass", "mod_bld_tower_stone",
+      "mod_bld_townhouse_row", "mod_nt_armory", "mod_nt_barracks", "mod_nt_fire_station", "mod_nt_hotel", "mod_nt_house_small", "mod_nt_house_split",
+      "mod_nt_hq", "mod_nt_municipal", "mod_nt_parking_garage", "mod_nt_pump_station", "mod_nt_waterfront_house", "mod_nt_workshop"};
+    for (size_t k = 0; k < std::size(kRoofs); ++k) {
+      const char* id = kRoofs[k];
+      push(std::string("climb: roof rim of ") + id, [this, id, k](App& a, float t) {
+        static uint64_t iid;
+        const AssetDef* ad = a.lib.find(id);
+        if (t == 0) { iid = ad ? a.placeInstance(ad, vec3(215 + 55.0f * (k % 2), 0, -270 + 45.0f * (k / 2)), 0) : 0; navSyncCuts(a); a.syncRuntime(); return false; }   // each on its own plot (a removed building's colliders linger a few frames), inside buildHalf 300
+        if (t < 0.6f) return false;   // colliders settle
+        Instance* in = iid ? a.doc.find(iid) : nullptr;
+        if (!in) { check(false, std::string(id) + ": placed"); return true; }
+        vec3 lo = in->pos + ad->bmin, hi = in->pos + ad->bmax, mid = (lo + hi) * 0.5f;
+        auto down = [&](vec3 p, float& y) { Physics::Hit g; if (!Physics::castRayEx(vec3(p.x, hi.y + 2, p.z), vec3(0, -1, 0), hi.y - lo.y + 6, g)) return false; y = g.pos.y; return true; };
+        int tried = 0, ok = 0, walls = 0; float rimMin = 99, rimMax = 0; std::string bad;
+        for (int side = 0; side < 4; ++side) for (float u : {-0.3f, 0.0f, 0.3f}) {
+          vec3 dir = side == 0 ? vec3(1, 0, 0) : side == 1 ? vec3(-1, 0, 0) : side == 2 ? vec3(0, 0, 1) : vec3(0, 0, -1), lat(dir.z, 0, -dir.x);
+          float half = side < 2 ? (hi.x - lo.x) * 0.5f : (hi.z - lo.z) * 0.5f, across = side < 2 ? (hi.z - lo.z) * 0.5f : (hi.x - lo.x) * 0.5f;
+          vec3 o = mid + lat * (u * across);
+          // from outside in: the rim's top, then the roof floor just inside it (a drop of 0.3 m or more)
+          float dOut = -1, yRim = 0, yIn = 0, dIn = -1, y;
+          for (float d = half + 1.0f; d > 0.5f; d -= 0.05f) {
+            if (!down(o + dir * d, y)) continue;
+            if (dOut < 0) { if (y > in->pos.y + 2.5f) { dOut = d; yRim = y; } continue; }
+            if (y > yRim + 0.05f) { yRim = y; continue; }   // a coping stepping up inward
+            if (y < yRim - 0.3f) { dIn = d; yIn = y; break; }
+          }
+          if (dOut < 0 || dIn < 0 || dOut - dIn > 1.0f) continue;   // no flat roof behind a rim on this line (a wider top: a storey, a stair house)
+          vec3 feet = o + dir * (dIn - 0.6f); float yf; if (!down(feet, yf) || std::fabs(yf - yIn) > 0.15f) continue; feet.y = yf + 0.02f;
+          if (!Physics::shapeFitsAt(Physics::STAND, feet + vec3(0, 0.06f, 0))) continue;   // plant / a stair house in the way
+          float rim = yRim - yf;
+          if (rim > 2.5f) { ++walls; continue; }   // the wall of a taller volume (stair house, upper storey, plant screen): walk round it
+          ++tried; rimMin = std::min(rimMin, rim); rimMax = std::max(rimMax, rim);
+          bool c = a.tryStartMantle(feet, degrees(std::atan2(-dir.x, -dir.z)));
+          if (c && a.mantle.pts[3].y > yf + 0.3f) ++ok;   // standing up on the rim, not dropped off the roof
+          else if (bad.size() < 900) { char b[300]; std::snprintf(b, sizeof b, " [side %d u %.1f: rim %.2f m x %.2f m deep, %s]", side, u, rim, dOut - dIn, c ? "landed low" : a.mantle.why.c_str()); bad += b; }
+          a.mantle = App::MantleState{};
+        }
+        a.doc.instances.erase(std::remove_if(a.doc.instances.begin(), a.doc.instances.end(), [](const Instance& i) { return i.id == iid; }), a.doc.instances.end());
+        navSyncCuts(a); a.syncRuntime();
+        char b[1200]; std::snprintf(b, sizeof b, "%s: from the roof %d/%d spots climb onto the rim (rims %.2f-%.2f m above the roof; %d taller walls skipped)%s", id, ok, tried, tried ? rimMin : 0.0f, rimMax, walls, bad.c_str());
+        check(ok == tried, b);
+        return true; });
     }
     push("mantle: weapon lowered, hands on the ledge, camera arc", [this](App& a, float t) {
       static uint32_t body; static int ph; static float lowMax, wMax, eyeMin, eyeMax, pitchMin, pitch0; static vec3 base; static int shots0;
