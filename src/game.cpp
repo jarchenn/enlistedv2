@@ -14,6 +14,7 @@
 #include "enemy_types.h"
 #include "flame.h"
 #include "ai_hooks.h"
+#include "br_models.h"
 void netInterpolate(Game& g, double t);
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -832,12 +833,14 @@ void Game::drawItems() {
       bool due = s.ci.frameSkinned < 0 || (s.skinRev != s.poseRev && (frame + s.slot) % every == 0);   // and never an unchanged pose
       if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
-    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
+    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) if (!brHidePart(s, src->ci.view.parts[k].name)) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
+    brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
         mat4 W = s.world * s.pose.weapon;
         for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, W});
+        brSightDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR3: the fitted optic
       }
     }
   }

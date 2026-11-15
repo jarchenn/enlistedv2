@@ -1,0 +1,70 @@
+{
+ "id": "br_sight_10x",
+ "version": 1,
+ "name": "10x scope",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.0799,
+  0.36
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.08,
+    0.08,
+    0.08
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0556,
+    0
+   ],
+   "s": [
+    0.0799,
+    0.1111,
+    0.36
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_sight_10x.glb",
+  "dir": "br_sight_10x",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "'Rifle Scope w/ Laser & Sight' by MaximDeduytsche (sketchfab.com/MaximDeduytsche), CC-BY-4.0 per its GLB metadata"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "sight": {
+  "eye": [
+   0,
+   0.041,
+   -0.18
+  ],
+  "length": 0.36
+ }
+}

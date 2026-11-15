@@ -1,0 +1,62 @@
+{
+ "id": "br_mag_ext",
+ "version": 1,
+ "name": "Extended magazine",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.0756,
+  0.26
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.1,
+    0.1,
+    0.1
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0377,
+    0
+   ],
+   "s": [
+    0.0756,
+    0.0754,
+    0.26
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_mag_ext.glb",
+  "dir": "br_mag_ext",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "supplied by the user (Downloads); licence unknown: local-only"
+ },
+ "nav": {
+  "effect": "none"
+ }
+}

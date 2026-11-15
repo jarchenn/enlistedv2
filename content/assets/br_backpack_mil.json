@@ -1,0 +1,80 @@
+{
+ "id": "br_backpack_mil",
+ "version": 1,
+ "name": "Military backpack",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.3997,
+  0.5438
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.3,
+    0.32,
+    0.18
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.3494,
+    0
+   ],
+   "s": [
+    0.3997,
+    0.6988,
+    0.5438
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_backpack_mil.glb",
+  "dir": "br_backpack_mil",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "'Military Backpack' by Neslihan Cakmak (sketchfab.com/neslihancakmak), CC-BY-4.0 per its GLB metadata"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "worn": {
+  "joint": "Spine2",
+  "pos": [
+   0.0083,
+   0.9362,
+   -0.224
+  ],
+  "scale": [
+   0.8301,
+   0.8301,
+   0.8301
+  ],
+  "rest": [
+   0.0,
+   1.3481,
+   -0.0576
+  ]
+ }
+}

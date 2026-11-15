@@ -1,0 +1,80 @@
+{
+ "id": "br_vest_1",
+ "version": 1,
+ "name": "Vest (level 1)",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.4187,
+  0.322
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.22,
+    0.3,
+    0.16
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.2509,
+    0
+   ],
+   "s": [
+    0.4187,
+    0.5018,
+    0.322
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_vest_1.glb",
+  "dir": "br_vest_1",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "'ARMOR | Armor and Helmet Model (CS2)' by 6lucius (sketchfab.com/6lucius), CC-BY-4.0 per its GLB metadata"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "worn": {
+  "joint": "Spine2",
+  "pos": [
+   0.0083,
+   0.9745,
+   -0.0393
+  ],
+  "scale": [
+   1.0478,
+   1.0798,
+   1.1118
+  ],
+  "rest": [
+   0.0,
+   1.3481,
+   -0.0576
+  ]
+ }
+}

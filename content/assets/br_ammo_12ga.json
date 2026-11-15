@@ -1,0 +1,96 @@
+{
+ "id": "br_ammo_12ga",
+ "version": 1,
+ "name": "Ammo box (12ga)",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale ammunition pick-up: a generated box with a lid.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.2,
+  0.12
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "box",
+   "albedo": [
+    0.55,
+    0.15,
+    0.12
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0.2,
+   "grain": 1
+  },
+  {
+   "name": "lid",
+   "albedo": [
+    0.385,
+    0.105,
+    0.08399999999999999
+   ],
+   "roughness": 0.6,
+   "pattern": "plain",
+   "metallic": 0.3,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0378,
+    0
+   ],
+   "s": [
+    0.2,
+    0.0756,
+    0.12
+   ],
+   "m": "box",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0828,
+    0
+   ],
+   "s": [
+    0.20400000000000001,
+    0.0144,
+    0.1224
+   ],
+   "m": "lid",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0927,
+    0
+   ],
+   "s": [
+    0.06,
+    0.005399999999999999,
+    0.0144
+   ],
+   "m": "lid",
+   "k": 0
+  }
+ ],
+ "nav": {
+  "effect": "none"
+ }
+}

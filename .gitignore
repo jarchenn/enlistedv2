@@ -12,3 +12,6 @@ __pycache__/
 
 # supplied soundtrack: local-only until its licence is known (Backrooms falls back to backrooms.mp3 without it)
 content/audio/ambience/level0.mp3
+# the committed content/assets/br_*.json boxes stand in without them
+content/characters/br_marine.glb
+content/assets/models/br_*/

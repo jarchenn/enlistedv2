@@ -83,6 +83,7 @@ struct WeaponDef {
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
   std::vector<int> containers;    // reserve: clips / magazines / belt segments, each with its own count
+  int att[4] = {0, 0, 0, 0};      // BR2 attachments (loot.h ATT_*): sight 1 red dot 2 ACOG 3 4x 4 10x; muzzle 1 suppressor 2 brake; mag 1 extended; stock 1 recoil pad
   int reserveMax = 0;
   float cooldown = 0, bolt = 0, reload = 0, reloadTotal = 0;
   int reloadKind = 0;             // 1 empty, 2 partial (retain), 3 single rounds

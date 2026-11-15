@@ -5,6 +5,7 @@
 #include "settings.h"
 #include "sight_overlay.h"
 #include "vm_anim.h"
+#include "br_models.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -269,6 +270,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     if (d.mesh[p].count) R.viewModel.push_back({&d.mesh[p], m});
   };
   add(WP_BODY, M); add(WP_SCOPE, M);
+  brSightDraws(*this, d, s, M, R.viewModelTex, R.viewModel);   // BR3: the fitted optic on its rail
   // bolt: bolt actions lift and draw the handle; automatics move with each shot
   if (d.action == "bolt") {
     float u = d.boltTime > 0 ? std::clamp(1 - s.bolt / d.boltTime, 0.0f, 1.0f) : 1;
