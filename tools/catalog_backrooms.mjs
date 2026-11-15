@@ -13,9 +13,9 @@
 import { Asset } from "./kit.mjs";
 import { rng, room, cover, setNav } from "./catalog_atlantic.mjs";
 
-const CELL = 8, HC = CELL / 2, WALL_H = 3.6, WT = 0.2, FLOOR_T = 0.3, CEIL_T = 0.3;
+const CELL = 8, HC = CELL / 2, WALL_H = 4.6, WT = 0.2, FLOOR_T = 0.3, CEIL_T = 0.3;
 export const BR_CELL = CELL;
-export const BR_CEIL = { y: 2.7, s: 3.2, p: 3.4 };
+export const BR_CEIL = { y: 3.6, s: 4.2, p: 4.4 };   // BR3: about 1.3x higher (was 2.7, 3.2, 3.4)
 const r3 = (v) => Math.round(v * 1000) / 1000;
 const AMB = 1.0;   // BR2: the surfaces' faint glow (a stand-in for bounce light); the 1.5x ambient is the map's extra.lighting.ambient (render.cpp), which lights furniture too
 const amb = (c) => c.map((v) => r3(v * AMB));
@@ -238,10 +238,10 @@ export function backroomsAssets() {
   let s = 10;
   for (const [z, zn] of [["y", "yellow"], ["s", "service"], ["p", "pool"]]) {
     out.push(wall("brm_wall_" + z, "Backrooms wall (" + zn + ")", z, null, { seed: s++ }));
-    out.push(wall("brm_wall_" + z + "_door", "Backrooms wall, doorless doorway (" + zn + ")", z, [1.3, 2.25], { seed: s++ }));
-    out.push(wall("brm_wall_" + z + "_wide", "Backrooms wall, wide opening (" + zn + ")", z, [4.0, 2.45], { seed: s++ }));
+    out.push(wall("brm_wall_" + z + "_door", "Backrooms wall, doorless doorway (" + zn + ")", z, [1.3, 2.6], { seed: s++ }));
+    out.push(wall("brm_wall_" + z + "_wide", "Backrooms wall, wide opening (" + zn + ")", z, [4.0, 3.1], { seed: s++ }));
   }
-  out.push(wall("brm_wall_p_arch", "Poolroom wall, arch", "p", [3.0, 2.7], { seed: s++, arch: true }));
+  out.push(wall("brm_wall_p_arch", "Poolroom wall, arch", "p", [3.0, 3.4], { seed: s++, arch: true }));
   out.push(partition("brm_partition", "Yellow partition (4 m)", "y", [[-2.0, -0.075, 2.0, 0.075]], BR_CEIL.y));
   out.push(partition("brm_partition_short", "Yellow partition (2.4 m)", "y", [[-1.2, -0.075, 1.2, 0.075]], BR_CEIL.y));
   out.push(partition("brm_partition_l", "Yellow partition, L", "y", [[-1.8, -0.075, 1.2, 0.075], [1.05, -0.075, 1.2, 1.9]], BR_CEIL.y));

@@ -24,7 +24,7 @@ CELL = 8.0
 NC = 27
 W = D = NC * CELL
 MARGIN = 60
-CEIL = {"y": 2.7, "s": 3.2, "p": 3.4}
+CEIL = {"y": 3.6, "s": 4.2, "p": 4.4}   # BR3: higher ceilings (catalog_backrooms.mjs BR_CEIL)
 EXPOSURE = 1.1   # BR3: pinned (x the fixed night exposure) in play and editor alike: auto exposure pulled the bright yellow down
 AMBIENT = [0.22, 0.2, 0.14]   # BR3: brighter (BR2b had 0.09, 0.085, 0.06); lights characters and furniture too   # BR2: an even ambient (extra.lighting.ambient): with the surfaces' glow, 1.5x the earlier ambient; light sources unchanged
 GAMMA = 1.0   # BR2 (BR1c had 2.2, which washed the yellow out): the map's own gamma (extra.lighting.gamma, src/render.cpp)

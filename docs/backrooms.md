@@ -8,7 +8,7 @@ repo): `Documents/MapMaker/incoming/backrooms_refs`.
 ## Kit (`brm_*`)
 
 Everything sits on an 8 m grid. A cell piece is an 8 x 8 m floor slab with the zone's ceiling over the whole cell, so
-there is no sky anywhere; walls stand on the cell edges, 3.6 m high, so they close the step between two ceiling heights.
+there is no sky anywhere; walls stand on the cell edges, 4.6 m high (BR3: ceilings 3.6 / 4.2 / 4.4 m, about 1.3x the first ones), so they close the step between two ceiling heights.
 
 | Zone | Cells | Walls | Inside | Lights |
 |---|---|---|---|---|
