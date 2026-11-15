@@ -343,7 +343,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
           }
         }
       }
-      if (r.asset->ivy.mode != IvyDef::NONE && camDist < 150.0f) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }
+      if ((r.asset->ivy.mode != IvyDef::NONE || (i.extra.is_object() && i.extra.contains("ivy"))) && camDist < 150.0f) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // IV1: or a placed copy with its own ivy
       continue;
     }
     if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }

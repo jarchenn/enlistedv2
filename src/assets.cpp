@@ -972,7 +972,10 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   if (j.contains("ivy")) {   // B1 ivy (src/ivy.cpp)
     const json& iv = j["ivy"];
     if (iv.is_string() && iv.get<std::string>() == "auto") a->ivy.mode = IvyDef::AUTO;
-    else if (iv.is_object() && iv.value("auto", false)) { a->ivy.mode = IvyDef::AUTO; a->ivy.density = iv.value("density", 1.0f); }
+    else if (iv.is_object() && iv.value("auto", false)) {
+      a->ivy.mode = IvyDef::AUTO; a->ivy.density = iv.value("density", 1.0f);
+      a->ivy.type = iv.value("type", std::string()); a->ivy.pattern = iv.value("pattern", std::string()); a->ivy.age = iv.value("age", -1.0f); a->ivy.share = iv.value("share", -1.0f); a->ivy.overgrown = iv.value("overgrown", false);   // IV1
+    }
     else if (iv.is_array()) {
       a->ivy.mode = IvyDef::BLOCKS;
       for (auto& b : iv) {
@@ -980,6 +983,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
         IvyDef::Block k;
         k.axis = f.size() > 1 && f[1] == 'x' ? 0 : 2; k.sign = f[0] == '-' ? -1.0f : 1.0f;
         k.a0 = b.value("a0", b.value("x0", 0.0f)); k.a1 = b.value("a1", b.value("x1", 0.0f)); k.y0 = b.value("y0", 0.0f); k.y1 = b.value("y1", 3.0f); k.density = b.value("density", 1.0f);
+        k.type = b.value("type", std::string()); k.pattern = b.value("pattern", std::string()); k.age = b.value("age", -1.0f); k.overgrown = b.value("overgrown", false);   // IV1
         a->ivy.blocks.push_back(k);
       }
     }

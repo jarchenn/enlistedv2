@@ -19,7 +19,7 @@
 std::vector<LeafMeshRange> gLeafSprigMesh;
 static GLuint gLeafTex = 0, gLeafVbo = 0, gLeafIbo = 0;
 static bool gLeafTried = false;
-struct LeafSpecies { vec3 base{1}; std::vector<int> sprigs; };
+struct LeafSpecies { vec3 base{1}; std::vector<int> sprigs, leaves; };   // leaves: the single-leaf layers (IV1 wall ivy)
 static std::map<std::string, LeafSpecies> gLeafSpecies;
 static json gLeafAssets;
 bool leafLibReady() { return gLeafTex != 0; }
@@ -86,6 +86,7 @@ static bool loadLeafLib() {
   auto put = [&](vec3 p, vec3 nrm, vec2 uv, float layer) { V.insert(V.end(), {p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, uv.x, uv.y, layer}); return (uint32_t)(V.size() / 9 - 1 - base); };
   for (auto& [id, sj] : j["species"].items()) {
     LeafSpecies sp; sp.base = vec3(sj["base"][0], sj["base"][1], sj["base"][2]);
+    for (auto& l : sj.value("leaves", json::array())) sp.leaves.push_back(l.get<int>());
     for (auto& sg : sj["sprigs"]) {
       sp.sprigs.push_back((int)gLeafSprigMesh.size() / 3);
       float sl = sg["layer"];
@@ -135,6 +136,12 @@ static bool loadLeafLib() {
   return true;
 }
 
+// IV1: a species' single-leaf texture layers (wall ivy cards); empty when the library or the species is missing
+std::vector<int> leafSpeciesLayers(const std::string& species) {
+  if (!loadLeafLib()) return {};
+  auto it = gLeafSpecies.find(species);
+  return it == gLeafSpecies.end() ? std::vector<int>{} : it->second.leaves;
+}
 // the leaf species of an asset (leaves.json "assets": exact name or "prefix*"); empty: procedural ovals
 static std::vector<const LeafSpecies*> leafSpeciesFor(const std::string& asset) {
   std::vector<const LeafSpecies*> out;

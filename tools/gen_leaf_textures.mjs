@@ -258,7 +258,74 @@ const SPECIES = {
         prof: (u) => Math.pow(1 - u, 0.7), noVeins: true, mid: 0.004 });
       return { stems: [], blades, wear: {} };
     } },
+  // IV1 wall ivy (src/ivy.cpp): appended, so the layers above keep their indices. Shapes from field guides and the
+  // reference set's photographed juvenile leaf (incoming/iv1: inspiration only, nothing of it is shipped)
+  ivy_mature: { name: 'Common ivy, mature (flowering) shoots: unlobed rhombic-ovate leaves, glossy, and umbels of blue-black berries',
+    variants: 3, col: { leaf: [36, 60, 28], vein: [118, 138, 94], stem: [104, 92, 60], flower: [34, 30, 44] }, sprig: { k: 5, len: 0.46, spread: 60 },
+    make(v, R) {
+      if (v === 2) {   // a berry umbel on its stalk, two leaves behind it
+        const stems = [{ a: [0, 0], b: [0, 0.34], w0: 0.012, w1: 0.009 }], flowers = [];
+        for (let k = 0; k < 11; k++) { const a = (k / 11) * 6.28 + R() * 0.3, r = k < 4 ? 0.06 : 0.15; const c = [Math.cos(a) * r, 0.52 + Math.sin(a) * r * 0.9];
+          stems.push({ a: [0, 0.34], b: c, w0: 0.004, w1: 0.003 }); flowers.push({ c, r: 0.045 + R() * 0.012, rot: 0, round: true }); }
+        return { stems, flowers, blades: [{ o: [-0.04, 0.12], ang: -62 * deg, L: 0.5, W: 0.4, prof: ovate(0.75, 0.8), veins: { vk: evenVeins(3, 0.1, 0.7, 0.02), slope: 0.6, curve: 0.8 }, mid: 0.009, sec: 0.004, ter: 0.1 },
+          { o: [0.04, 0.12], ang: 58 * deg, L: 0.46, W: 0.4, prof: ovate(0.75, 0.8), veins: { vk: evenVeins(3, 0.1, 0.7, 0.02), slope: 0.6, curve: 0.8 }, mid: 0.009, sec: 0.004, ter: 0.1 }], wear: {} };
+      }
+      return { stems: [{ a: [0, 0], b: [0, 0.24], w0: 0.009, w1: 0.008 }],
+        blades: [{ o: [0, 0.23], ang: (R() - 0.5) * 8 * deg, L: 0.74, W: 0.4 + R() * 0.05, prof: (u) => ovate(0.7, 0.75)(u) * (1 - 0.35 * smooth(0.7, 1, u)),
+          veins: { vk: evenVeins(4, 0.08, 0.7, 0.02), slope: 0.6, curve: 0.8 }, mid: 0.01, sec: 0.004, ter: 0.12 }], wear: { spots: v === 1 ? 1 : 0 } };
+    } },
+  creeper: { name: 'Virginia creeper (Parthenocissus quinquefolia): palmately compound, five elliptic coarsely serrate leaflets',
+    variants: 3, col: { leaf: [58, 88, 34], vein: [126, 146, 80], stem: [120, 70, 52] }, sprig: { k: 4, len: 0.5, spread: 60 },
+    make(v, R) { return creeperLeaf(v, R); } },
+  creeper_red: { name: 'Virginia creeper in autumn: the same five leaflets, crimson to scarlet',
+    variants: 3, col: { leaf: [158, 34, 28], vein: [196, 96, 64], stem: [120, 50, 40] }, sprig: { k: 4, len: 0.5, spread: 60 },
+    make(v, R) { const l = creeperLeaf(v, R); if (v === 2) l.wear = { spots: 2, rim: true }; return l; } },
+  boston: { name: 'Boston ivy (Parthenocissus tricuspidata): broad three-lobed, coarsely toothed, glossy, overlapping like shingles',
+    variants: 3, col: { leaf: [48, 80, 32], vein: [120, 140, 86], stem: [110, 76, 54] }, sprig: { k: 4, len: 0.52, spread: 56 },
+    make(v, R) {
+      const lobe = (ang, L, W) => ({ o: [0, 0.2], ang, L, W, prof: (u) => Math.pow(1 - u, 0.7) * Math.min(1, u * 4 + 0.4), serr: { n: 9, d: 0.12, v0: 0.12 },
+        veins: { vk: evenVeins(3, 0.15, 0.7, 0.02), slope: 0.6, curve: 0.5 }, mid: 0.01, sec: 0.005, ter: 0.14 });
+      return { stems: [{ a: [0, 0], b: [0, 0.21], w0: 0.01, w1: 0.009 }],
+        blades: [lobe((R() - 0.5) * 6 * deg, 0.78, 0.6), lobe(-(44 + R() * 8) * deg, 0.58, 0.58), lobe((44 + R() * 8) * deg, 0.58, 0.58)], wear: { spots: v === 1 ? 1 : 0 } };
+    } },
+  ivy_small: { name: 'Small-leaved ivy (Hedera helix cv., needlepoint form): narrow arrow-shaped three-lobed leaves, dense',
+    variants: 3, col: { leaf: [44, 72, 32], vein: [140, 156, 110], stem: [108, 92, 60] }, sprig: { k: 6, len: 0.42, spread: 70 },
+    make(v, R) {
+      const lobe = (ang, L, W) => ({ o: [0, 0.18], ang, L, W, prof: (u) => Math.pow(1 - u, 1.1) * Math.min(1, u * 6 + 0.3),
+        veins: { vk: evenVeins(1, 0.3, 0.6, 0.02), slope: 0.6, curve: 0.4 }, mid: 0.008, sec: 0.0035, ter: 0.08 });
+      return { stems: [{ a: [0, 0], b: [0, 0.19], w0: 0.008, w1: 0.007 }],
+        blades: [lobe((R() - 0.5) * 6 * deg, 0.8, 0.26), lobe(-(55 + R() * 10) * deg, 0.38, 0.3), lobe((55 + R() * 10) * deg, 0.38, 0.3)], wear: {} };
+    } },
+  ivy_dead: { name: 'Dead ivy: dry curled brown leaves, holed and frayed',
+    variants: 3, col: { leaf: [112, 84, 50], vein: [150, 126, 86], stem: [92, 70, 46] }, sprig: { k: 3, len: 0.46, spread: 80 },
+    make(v, R) {
+      const lobe = (ang, L, W) => ({ o: [0, 0.22], ang, L, W, prof: (u) => Math.pow(1 - u, 0.85) * Math.min(1, u * 5 + 0.35) * (0.8 + 0.2 * Math.sin(u * 23 + v)),
+        veins: { vk: evenVeins(2, 0.2, 0.7, 0.02), slope: 0.6, curve: 0.5 }, mid: 0.009, sec: 0.004, ter: 0.12 });
+      return { stems: [{ a: [0, 0], b: [0, 0.23], w0: 0.008, w1: 0.007 }],
+        blades: [lobe((R() - 0.5) * 10 * deg, 0.66, 0.34), lobe(-(50 + R() * 8) * deg, 0.42, 0.34), lobe((50 + R() * 8) * deg, 0.42, 0.34)],
+        wear: { spots: 2, hole: v !== 1, rim: true } };
+    } },
+  ivy_stem: { name: 'Ivy stem: a woody climbing stem segment with aerial rootlets (bark grain from the stem colour)',
+    variants: 3, col: { leaf: [96, 80, 58], vein: [96, 80, 58], stem: [92, 74, 52] }, sprig: { k: 2, len: 0.5, spread: 20 },
+    make(v, R) {   // the segment runs the full height (u 0..1); rootlets hair out on both sides
+      const w = [0.07, 0.05, 0.035][v], bend = (R() - 0.5) * 0.08, stems = [{ a: [0, 0], b: [bend, 1.0], w0: w, w1: w * 0.92 }];
+      for (let k = 0; k < 26; k++) { const y = 0.03 + R() * 0.94, s = R() < 0.5 ? -1 : 1, x = bend * y + s * w * 0.8, L = 0.04 + R() * 0.07;
+        stems.push({ a: [x, y], b: [x + s * L, y - L * (0.3 + R() * 0.5)], w0: 0.006, w1: 0.003 }); }
+      return { stems, blades: [], wear: {} };
+    } },
 };
+// IV1: five leaflets fanned from one point (Virginia creeper, green and autumn)
+function creeperLeaf(v, R) {
+  const blades = [];
+  for (let k = 0; k < 5; k++) {
+    const a = (k - 2) * (41 + R() * 5) * deg, L = [0.36, 0.5, 0.6, 0.5, 0.36][k] * (0.95 + R() * 0.1);
+    blades.push({ o: [Math.sin(a) * 0.1, 0.22 + Math.cos(a) * 0.1], ang: a, L, W: 0.25, prof: (u) => ovate(0.95, 0.75)(u) * (1 - 0.3 * smooth(0.75, 1, u)),
+      serr: { n: 12 + R() * 3, d: 0.08, v0: 0.3 }, veins: { vk: evenVeins(5, 0.08, 0.8, 0.02), slope: 0.6, curve: 0.7 }, mid: 0.012, sec: 0.005, ter: 0.12 });
+  }
+  const stems = [{ a: [0, 0], b: [0, 0.22], w0: 0.012, w1: 0.01 }];
+  for (const b of blades) stems.push({ a: [0, 0.22], b: b.o, w0: 0.006, w1: 0.005 });   // petiolules: the leaflets stand apart
+  return { stems, blades, wear: { spots: v === 1 ? 1 : 0 } };
+}
 
 // ------------------------------------------------------------------ raster
 const mkLayer = () => ({ rgb: new Float32Array(S * S * 3), a: new Float32Array(S * S), cls: new Uint8Array(S * S) });   // cls 1 leaf, 2 flower
@@ -282,7 +349,8 @@ function renderLeaf(sp, leaf, R) {
     for (const hl of holes) if (Math.hypot(x - hl.c[0], y - hl.c[1]) < hl.r) return null;
     for (const f of leaf.flowers || []) {
       const dx = x - f.c[0], dy = y - f.c[1], r = Math.hypot(dx, dy), a = Math.atan2(dy, dx) + f.rot;
-      const petal = f.r * (0.55 + 0.45 * Math.pow(Math.abs(Math.cos(a * 2.5)), 0.6));
+      const petal = f.round ? f.r : f.r * (0.55 + 0.45 * Math.pow(Math.abs(Math.cos(a * 2.5)), 0.6));   // round: a berry
+      if (r < petal && f.round) { const hl = Math.hypot(dx + f.r * 0.35, dy - f.r * 0.35) / f.r; return { c: mix(col.flower.map(c => c * (1.15 - 0.35 * r / petal)), [150, 150, 170], 0.6 * (1 - smooth(0.1, 0.3, hl))), cls: 2 }; }   // berry: dark, one soft sheen
       if (r < petal) { const sh = 0.82 + 0.18 * (r / petal) + 0.06 * (vnoise(x * 90, y * 90) - 0.5); return { c: mix(col.flower, [196, 120, 20], r < f.r * 0.25 ? 0.5 : 0).map(c => c * sh), cls: 2 }; }
     }
     for (let bi = leaf.blades.length - 1; bi >= 0; bi--) {
