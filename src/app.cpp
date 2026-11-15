@@ -1010,7 +1010,7 @@ int App::run(int argc, char** argv) {
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
-    lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode)
+    if (!R.lt.mapClean) lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode); BR2: none on a clean map
     mark("w3");
     w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)
     mark("grass");
@@ -1024,6 +1024,9 @@ int App::run(int argc, char** argv) {
       if (fixedHour) { if (saved < 0) saved = R.lt.hour; R.lt.hour = doc.extra["lighting"]["hour"].get<float>(); }
       else if (saved >= 0) { R.lt.hour = saved; saved = -1.0f; }
       const json* lj = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() ? &doc.extra["lighting"] : nullptr;
+      const json* lk = doc.extra.is_object() && doc.extra.contains("look") && doc.extra["look"].is_object() ? &doc.extra["look"] : nullptr;   // BR2: a map's own look
+      R.lt.mapClean = lk && lk->value("clean", false);
+      R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
     }
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes

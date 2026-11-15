@@ -413,7 +413,7 @@ bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
   const std::string& id = a->id;
   bool lit = lightsOnlyHost(a) || id.rfind("mil_", 0) == 0;   // L3: bunkers and casemates get caged electric lamps only (their own furniture stays); GX6: mil_ hosts get military rooms
   if (!lit && (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0)) return false;
-  if (id.rfind("tun_", 0) == 0) return false;   // UG1: tunnel pieces are passages, never furnished   // bunkers, Atlantic Wall, beach / landing craft
+  if (id.rfind("tun_", 0) == 0 || id.rfind("brm_", 0) == 0) return false;   // UG1: tunnel pieces are passages; BR2: backrooms cells stay empty
   if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built (V4)
   if (!lit && (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0)) return false;
   if (i.extra.is_object()) {
@@ -469,7 +469,8 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
   SurfaceParams& sp = e.sp; sp = SurfaceParams{};
   json fin = i.extra.is_object() && i.extra.contains("finish") ? i.extra["finish"] : json::object();
   float seed = h01((uint32_t)i.id, 77u);
-  sp.inst = vec4(seed, std::clamp(fin.value("wear", 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
+  const bool cleanMap = app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && app.doc.extra["look"].value("clean", false);   // BR2
+  sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
   const RoomInfo* ri = rooms(a);
   int n = (int)ri->rooms.size();   // GX5: every room (the first 16 in uniforms, the rest in the decal buffer)
   std::vector<vec4> xA, xB;

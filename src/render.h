@@ -258,6 +258,8 @@ public:
     int shadowLights = 2;       // nearest spot / point lights with a shadow map (Low 0, Medium 2, High 8)
     int gi = 1;                 // probe GI: 0 off (the old fill term), 1 near volume, 2 near + far volumes, faster updates
     float emissive = 1.0f;      // global multiplier on material emission
+    bool mapClean = false;      // BR2: the open map's "look": {"clean": true}: no wear (interior.cpp), static decals, dust motes or colour grade
+    bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
     float mapGamma = 1.0f;      // BR1c: the open map's own gamma (extra.lighting.gamma; > 1 lifts the image), 1 = none
     int probeBudget = 0;        // > 0: probes captured per frame (tests); 0 = the preset rate
   } lt;

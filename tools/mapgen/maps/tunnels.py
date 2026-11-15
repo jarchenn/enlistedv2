@@ -129,7 +129,9 @@ def update_usage_doc(path, use, col="Tunnels", note=None):
     """The `col` column of docs/asset-usage-default-maps.md (placed counts); as dday.py's, for another map."""
     with open(path, encoding="utf-8") as f:
         lines = f.read().split("\n")
-    has = any(l.startswith("| Asset |") and col in l for l in lines)
+    hdr0 = next(l for l in lines if l.startswith("| Asset |"))
+    names = [c.strip() for c in hdr0.strip().strip("|").split("|")]
+    at = names.index(col) if col in names else None   # BR2: replace this map's own column (not the last one)
     out = []
     for l in lines:
         body = l.rstrip()
@@ -142,10 +144,13 @@ def update_usage_doc(path, use, col="Tunnels", note=None):
             aid = body[3:body.index("`", 3)]
             cell = str(use[aid]) if aid in use else "not used"
         if cell is not None:
-            if has:
-                body = body[:-1].rstrip()
-                body = body[:body.rfind("|") + 1]
-            body = body + (cell + "|" if cell == "---" else " %s |" % cell)
+            if at is not None and not body.startswith("|---|"):
+                parts = body.strip().strip("|").split("|")
+                if len(parts) > at:
+                    parts[at] = " %s " % cell
+                body = "|" + "|".join(parts) + "|"
+            elif at is None:
+                body = body + (cell + "|" if cell == "---" else " %s |" % cell)
         out.append(body if cell is not None else l)
     # assets of this map missing from the table get rows (the other columns "not used")
     known = {l[3:l.index("`", 3)] for l in out if l.startswith("| `")}
@@ -430,7 +435,7 @@ def build(ctx):
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(), explore_start=((a1[0], a1[1], a1[2]), look_yaw(1.0, 0.0)), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], 40.0, o["pos"][2] + 30], "yaw": 0.0, "pitch": -50} for i, o in enumerate(sc.objectives)},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0}, "look": {"fog": False}})   # BR2: no haze underground
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=7, version=VERSION, seed=SEED,
                    description="An underground labyrinth, 216 x 216 m: winding rock and concrete galleries on two levels joined by "
                                "stair drifts, junctions, squeezes, and five chambers (storage, bunk room, generator room, a flooded "

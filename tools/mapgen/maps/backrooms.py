@@ -25,7 +25,7 @@ NC = 27
 W = D = NC * CELL
 MARGIN = 60
 CEIL = {"y": 2.7, "s": 3.2, "p": 3.4}
-GAMMA = 2.2   # BR1c: the map's own gamma (extra.lighting.gamma, src/render.cpp): 5 % grey comes out ~26 %
+GAMMA = 1.0   # BR2 (BR1c had 2.2, which washed the yellow out): the map's own gamma (extra.lighting.gamma, src/render.cpp)
 DIRS = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
 
@@ -37,7 +37,9 @@ def update_usage_doc(path, use, col, note=None):
     """The `col` column of docs/asset-usage-default-maps.md (placed counts), rows added for this map's new assets."""
     with open(path, encoding="utf-8") as f:
         lines = f.read().split("\n")
-    has = any(l.startswith("| Asset |") and col in l for l in lines)
+    hdr0 = next(l for l in lines if l.startswith("| Asset |"))
+    names = [c.strip() for c in hdr0.strip().strip("|").split("|")]
+    at = names.index(col) if col in names else None   # BR2: replace this map's own column (not the last one)
     out = []
     for l in lines:
         body = l.rstrip()
@@ -50,10 +52,13 @@ def update_usage_doc(path, use, col, note=None):
             aid = body[3:body.index("`", 3)]
             cell = str(use[aid]) if aid in use else "not used"
         if cell is not None:
-            if has:
-                body = body[:-1].rstrip()
-                body = body[:body.rfind("|") + 1]
-            body = body + (cell + "|" if cell == "---" else " %s |" % cell)
+            if at is not None and not body.startswith("|---|"):
+                parts = body.strip().strip("|").split("|")
+                if len(parts) > at:
+                    parts[at] = " %s " % cell
+                body = "|" + "|".join(parts) + "|"
+            elif at is None:
+                body = body + (cell + "|" if cell == "---" else " %s |" % cell)
         out.append(body if cell is not None else l)
     known = {l[3:l.index("`", 3)] for l in out if l.startswith("| `")}
     hdr = next(i for i, l in enumerate(out) if l.startswith("| Asset |"))
@@ -72,7 +77,7 @@ def update_usage_doc(path, use, col, note=None):
 def build(ctx):
     R = rng(SEED)
     frame = Frame(W, D)
-    grid = Grid(W, D, margin=MARGIN)   # flat: the floor slabs cover it all
+    grid = Grid(W, D, margin=MARGIN, base=-1.0)   # flat, 1 m under the floor slabs (BR2: at 0 the terrain and its mud paint showed through the carpet)
     grid.quantise()
     b = MapBuilder(ctx.catalog, grid, frame, seed=SEED)
     paint = GroundPaint()
@@ -132,6 +137,7 @@ def build(ctx):
 
     # long straight corridors: open along, walled on the sides (a tree edge across stays a doorway)
     corridor = set()
+    run_list = []
     runs = 0
     tries = 0
     while runs < 9 and tries < 3000:
@@ -144,6 +150,7 @@ def build(ctx):
         if len(zs) != 1 or zs.pop() == "p" or any(c in corridor for c in run):
             continue
         runs += 1
+        run_list.append((run, horiz))
         for k, c in enumerate(run):
             corridor.add(c)
             if k + 1 < L:
@@ -164,7 +171,8 @@ def build(ctx):
         z = zone[c]
         x, zz = cc(*c)
         if z == "y":
-            aid = "brm_cell_yellow_damp" if R.random() < 0.2 else "brm_cell_yellow"
+            aid = "brm_cell_yellow"   # BR2: clean carpet everywhere (the damp variant is not used)
+            R.random()   # keeps the seeded sequence of BR1
         elif z == "s":
             aid = "brm_cell_service_cross" if R.random() < 0.3 else "brm_cell_service"
         else:
@@ -260,6 +268,13 @@ def build(ctx):
             zn = zs.pop()
             b.place("brm_column_" + zn, -W / 2 + i * CELL, -D / 2 + j * CELL, 0.0, check=False, cls="none", y=0.0, tags={"column"})
             n_col += 1
+    Rc = rng(SEED + 7)   # BR2: thick pillars in the middle of open yellow cells (own sequence: the rest of the map is unchanged)
+    for c in cells:
+        if zone[c] == "y" and c not in busy and len(open_sides(c)) == 4 and Rc.random() < 0.45:
+            x, z = cc(*c)
+            b.place("brm_column_y", x, z, 0.0, check=False, cls="none", y=0.0, tags={"column"})
+            busy.add(c)
+            n_col += 1
 
     # ---------------------------------------------------------------- lights (none flicker): panels on a grid, one lit per cell
     dark = [(R.uniform(-90, 90), R.uniform(-90, 90)) for _ in range(3)]
@@ -271,15 +286,15 @@ def build(ctx):
         h = CEIL[zn]
         in_dark = any(math.hypot(x - dx, z - dz) < 15 for dx, dz in dark)
         if zn == "y":
-            for k, ox in enumerate((-2.0, 2.0)):
-                if in_dark or R.random() < 0.06:
+            for k, (ox, oz) in enumerate(((-2.0, -2.0), (2.0, -2.0), (-2.0, 2.0), (2.0, 2.0))):   # BR2: four square panels per cell, a 4 m grid
+                if R.random() < 0.02:   # BR2: a rare dead panel, no dark stretches (in_dark kept for pool / service)
                     pid = "brm_panel_dead"
                     n_dead += 1
-                elif k == (c[0] + c[1]) % 2:
+                elif k == (c[0] + 2 * c[1]) % 4:
                     pid = "brm_panel_lit"
                 else:
                     pid = "brm_panel"
-                b.place(pid, x + ox, z, 90.0, check=False, cls="none", y=h, tags={"lamp"})
+                b.place(pid, x + ox, z + oz, 0.0, check=False, cls="none", y=h, tags={"lamp"})
                 n_panels += 1
                 if pid in n_lights:
                     n_lights[pid] += 1
@@ -371,6 +386,8 @@ def build(ctx):
         x, z = m["pos"][0], m["pos"][2]
         dx = -1.0 if x < 0 else 1.0
         b.place("crate_mixed_supply", x + dx * 3.0, z + 2.6, look_yaw(-dx, 0.0), check=False, cls="none", y=0.0, tags={"supply"})
+    for m in sc.spawns + sc.objectives:   # BR2: on the floor slabs, not the sunken terrain
+        m["pos"][1] = 0.0
     err, warn = sc.validate()
 
     # ---------------------------------------------------------------- numbers
@@ -392,7 +409,19 @@ def build(ctx):
                "5-15 cells": sum(1 for s in sizes if 5 <= s <= 15), "16+ cells (open halls)": sum(1 for s in sizes if s >= 16)}
     corr_len = len(corridor) * CELL
     lights = sum(n_lights.values())
-    rep = {"cells": n_cell, "rooms": len(rooms), "roomsBySize": by_size, "largestRoomCells": sizes[-1], "corridorRuns": runs,
+    # capture spots (eye height): a yellow corridor looking along it, the largest yellow open area, a poolroom
+    yr = next(((r, hz) for r, hz in run_list if zone[r[0]] == "y"), run_list[0])
+    (ci, cj), hz = yr[0][1], yr[1]
+    x0, z0 = cc(ci, cj)
+    big = max((v for v in rooms.values() if zone[v[0]] == "y"), key=len)
+    hx = sum(cc(*c)[0] for c in big) / len(big); hzm = sum(cc(*c)[1] for c in big) / len(big)
+    hc = min(big, key=lambda c: math.hypot(cc(*c)[0] - hx, cc(*c)[1] - hzm))
+    far = max(big, key=lambda c: math.hypot(cc(*c)[0] - cc(*hc)[0], cc(*c)[1] - cc(*hc)[1]))
+    pc = obj_cells[0]
+    cams = {"yellow_corridor": [x0, 1.65, z0, x0 + (40 if hz else 0), 1.5, z0 + (0 if hz else 40)],
+            "yellow_hall": [cc(*hc)[0], 1.65, cc(*hc)[1], cc(*far)[0], 1.3, cc(*far)[1]],
+            "poolroom": [cc(*pc)[0] - 3.5, 1.65, cc(*pc)[1] - 3.5, cc(*pc)[0] + 6, 0.6, cc(*pc)[1] + 6]}
+    rep = {"cams": {k: [round(v, 2) for v in c] for k, c in cams.items()}, "cells": n_cell, "rooms": len(rooms), "roomsBySize": by_size, "largestRoomCells": sizes[-1], "corridorRuns": runs,
            "corridorLength_m": corr_len, "edges": n_wall, "partitions": n_part, "partitionFields": len(fields), "columns": n_col,
            "basins": len(basins), "floodedCells": len(flooded), "panels": n_panels, "deadPanels": n_dead, "lights": lights, "lightsByKind": n_lights,
            "dressing": dress}
@@ -415,7 +444,7 @@ def build(ctx):
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(), explore_start=((a1[0], a1[1], a1[2]), look_yaw(1.0, 0.0)), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], 40.0, o["pos"][2] + 30], "yaw": 0.0, "pitch": -50} for i, o in enumerate(sc.objectives)},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0, "gamma": GAMMA}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0, "gamma": GAMMA}, "look": {"clean": True, "fog": False}})   # BR2: clean, completely clear
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=8, version=VERSION, seed=SEED,
                    description="A liminal interior, 216 x 216 m: faded yellow rooms under humming fluorescent panels, offset partitions "
                                "and corridors that do not end, bare service halls full of pipes, and tiled poolrooms of still turquoise "
