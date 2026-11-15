@@ -84,3 +84,19 @@ bool br3Shots(App& app, float dt) {
   }
   return true;
 }
+
+// --shots-palette (BR5): the editor with the open map's asset palette, written as a UI screenshot after the
+// thumbnails have had time to render: NMK_SHOTS_MAP (content-relative) -> selftest_out/palette_<map stem>.png
+bool paletteShots(App& app, float dt) {
+  static int pm = -1; static float t = 0; static int stage = 0;
+  if (pm < 0) { pm = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--shots-palette") pm = 1; }
+  if (pm != 1) return false;
+  if (dt < 0) return true;
+  t += dt;
+  const char* mp = std::getenv("NMK_SHOTS_MAP");
+  fs::path map = contentDir() / (mp && *mp ? mp : "templates/backrooms.nmap.json");
+  if (stage == 0) { bool ok = app.openMap(map); logf("[palette] open %s: %s", map.string().c_str(), ok ? "ok" : "FAILED"); stage = 1; t = 0; return true; }
+  if (stage == 1 && t > 8.0f) { app.uiShot = exeDir() / "selftest_out" / ("palette_" + map.stem().stem().string() + ".png"); stage = 2; t = 0; return true; }
+  if (stage == 2 && t > 1.0f) { app.selftest->exitCode = 0; app.selftest->done = true; }
+  return true;
+}

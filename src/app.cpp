@@ -793,7 +793,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : q == "ultra" ? GrassQuality::Ultra : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;
-    else if (a == "--shots-backrooms") runSelf = true;   // BR3 (selftest_br3.cpp)
+    else if (a == "--shots-backrooms") runSelf = true;
+    else if (a == "--shots-palette") runSelf = true;   // BR5 (selftest_br3.cpp)   // BR3 (selftest_br3.cpp)
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
     else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
