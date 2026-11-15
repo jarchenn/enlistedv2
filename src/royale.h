@@ -8,6 +8,7 @@
 // For the loot stream (BR2): royaleSafePoint / royaleRing / royaleAirState below; the storm damages through
 // Game::damage with how = "storm" (armor must not reduce it); rules.lootModern (BR2) holds the WW2 / Modern switch.
 #include "common.h"
+struct FxVert;
 
 class App;
 class Game;
@@ -52,7 +53,9 @@ void royaleStep(App& app, Game& G, float dt); // each fixed step before Game::st
 int royaleAirState(int slot);                 // RoyaleAir of a roster slot
 inline bool royaleAirborne(int slot) { return royaleAirState(slot) != RA_GROUND; }
 bool royaleBareHands(App& app, Game& G, Soldier& s);   // applyLoadout hook: true = the soldier got fists / knife only
-RoyaleRing royaleRing(bool next);             // the current ring / the next one (BR2: bots loot inside it)
+RoyaleRing royaleRing(bool next);
+void royaleFx(App& app, std::vector<FxVert>& out);   // BR12: the storm wall (app.cpp, after the effects are built)
+void royaleSetTime(float t);                         // tests: the storm clock             // the current ring / the next one (BR2: bots loot inside it)
 vec3 royaleSafePoint(const Soldier& s, int salt = 0);   // a point inside the next circle for this soldier (stable per soldier, stage and salt)
 float royaleStormSoon(const Soldier& s);      // s until the storm reaches this soldier's spot (0 = already outside), 1e9 = never
 void royaleInput(App& app, ExploreInput& in); // local player: Space jumps / opens the chute; no walking while airborne

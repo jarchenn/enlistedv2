@@ -348,6 +348,29 @@ void royaleStep(App& app, Game& G, float dt) {
   }
 }
 
+// BR12: the storm wall as a plain translucent blue curtain in the scene: the effects pass draws it alpha-blended,
+// depth-tested against the world (hidden behind buildings, terrain and props) and without depth writes. uv (0.5, 0.5):
+// the fx shader's radial fade is 1 there, so the colour is flat; alpha fades from the ground line up the wall.
+void royaleFx(App& app, std::vector<FxVert>& out) {
+  if (!royaleActive()) return;
+  RoyaleStorm::At at = S.storm.at(S.time);
+  vec3 eye = app.eyePos();
+  const int N = std::clamp((int)(at.now.r * 0.5f), 96, 720);   // ~2 m chords
+  const float H = 70.0f; const vec2 uv(0.5f);
+  const vec4 base(0.22f, 0.45f, 1.0f, 0.55f), top(0.22f, 0.45f, 1.0f, 0.12f);
+  for (int k = 0; k < N; ++k) {
+    float a0 = k * 6.2831853f / N, a1 = (k + 1) * 6.2831853f / N;
+    vec2 p0 = at.now.c + vec2(std::cos(a0), std::sin(a0)) * at.now.r, p1 = at.now.c + vec2(std::cos(a1), std::sin(a1)) * at.now.r;
+    if (glm::length(p0 - vec2(eye.x, eye.z)) > 1200) continue;
+    // from below the ground (and below a tunnel the eye is in) up the wall
+    float g0 = std::min(app.terrain.height(p0.x, p0.y), eye.y - 3) - 4, g1 = std::min(app.terrain.height(p1.x, p1.y), eye.y - 3) - 4;
+    vec3 b0(p0.x, g0, p0.y), b1(p1.x, g1, p1.y), t0(p0.x, std::max(g0, eye.y - 3) + H, p0.y), t1(p1.x, std::max(g1, eye.y - 3) + H, p1.y);
+    out.push_back({b0, base, uv}); out.push_back({b1, base, uv}); out.push_back({t1, top, uv});
+    out.push_back({b0, base, uv}); out.push_back({t1, top, uv}); out.push_back({t0, top, uv});
+  }
+}
+void royaleSetTime(float t) { S.time = t; }
+
 RoyaleRing royaleRing(bool next) { if (!royaleActive()) return {}; RoyaleStorm::At a = S.storm.at(S.time); return next ? a.next : a.now; }
 
 vec3 royaleSafePoint(const Soldier& s, int salt) {
@@ -422,19 +445,9 @@ void royaleHud(App& app, Game& G) {
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   RoyaleStorm::At at = S.storm.at(S.time);
   vec3 eye = app.eyePos();
-  // the storm wall: the current ring as a translucent blue band; the whole view tinted while the camera is outside it
+  // the whole view tinted while the camera is outside the ring (the wall itself is 3D: royaleFx)
   mat4 vp = app.projM * app.viewM;
   auto proj = [&](vec3 w, ImVec2& o) { vec4 q = vp * vec4(w, 1); if (q.w < 0.1f) return false; o = ImVec2((q.x / q.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - q.y / q.w * 0.5f) * io.DisplaySize.y); return true; };
-  float y0 = std::min(eye.y, app.terrain.height(eye.x, eye.z)) - 40, y1 = std::max(eye.y, app.terrain.height(eye.x, eye.z)) + 160;
-  const int N = 128;
-  for (int k = 0; k < N; ++k) {
-    float a0 = k * 6.2831853f / N, a1 = (k + 1) * 6.2831853f / N;
-    vec2 p0 = at.now.c + vec2(std::cos(a0), std::sin(a0)) * at.now.r, p1 = at.now.c + vec2(std::cos(a1), std::sin(a1)) * at.now.r;
-    if (glm::length(p0 - vec2(eye.x, eye.z)) > 900) continue;
-    ImVec2 q[4];
-    if (!proj(vec3(p0.x, y0, p0.y), q[0]) || !proj(vec3(p1.x, y0, p1.y), q[1]) || !proj(vec3(p1.x, y1, p1.y), q[2]) || !proj(vec3(p0.x, y1, p0.y), q[3])) continue;
-    bg->AddQuadFilled(q[0], q[1], q[2], q[3], IM_COL32(70, 110, 255, 46));
-  }
   if (glm::length(vec2(eye.x, eye.z) - at.now.c) > at.now.r) bg->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(40, 80, 255, 62));
   // banner: alive, storm timer
   int alive = 0; for (auto& s : G.sold) alive += s.alive;

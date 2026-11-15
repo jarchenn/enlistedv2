@@ -55,6 +55,30 @@ void build(App&) {
     if (air == 0 && alive > 0) { note("all %d bots down after %.0f s", alive, t); return true; }
     if (t > 120) { T->check(false, "every bot lands within 120 s (" + std::to_string(air) + " still airborne)"); return true; }
     return false; });
+  push("ring shot", [](App& a, float t) {   // BR12 (NMK_ROYALE_RING): the storm wall from inside, buildings in front
+    if (!std::getenv("NMK_ROYALE_RING")) return true;
+    Game& G = *gGame; Soldier* L = G.local();
+    if (!L || !L->alive) { T->check(false, "ring shot: the player is alive"); return true; }
+    L->hp = 100; L->protectUntil = G.t + 5;
+    static bool placed = false;
+    if (!placed) {
+      if (royaleAirborne(L->slot)) return t > 150 ? (T->check(false, "ring shot: the player lands"), true) : false;
+      placed = true;
+      royaleSetTime(260);   // circle 2 standing
+      RoyaleRing r = royaleRing(false);
+      vec2 dir = vec2(L->feet.x, L->feet.z) - r.c; dir = glm::length(dir) > 1 ? glm::normalize(dir) : vec2(1, 0);
+      vec2 p = r.c + dir * std::max(0.0f, r.r - 50.0f);
+      vec3 feet(p.x, a.terrain.height(p.x, p.y), p.y);
+      NavRef nr; vec3 on; if (G.nav.closest(feet, 20.0f, nr, on)) feet = on;
+      Physics::setCharacterPos(feet + vec3(0, 0.05f, 0));
+      a.eyeYaw = degrees(std::atan2(-dir.x, -dir.y)); a.eyePitch = 6;
+      note("ring shot: circle r %.0f m at (%.0f %.0f), player at (%.0f %.0f), facing the wall", r.r, r.c.x, r.c.y, feet.x, feet.z);
+      return false;
+    }
+    if (t > 2.0f && t < 2.05f) a.uiShot = exeDir() / "selftest_out" / "br12_ring.png";
+    if (t < 2.5f) return false;
+    seq.erase(seq.begin() + cur + 1, seq.end() - 1);   // straight to "done"
+    return true; });
   push("play 60 s", [](App& a, float t) {
     Game& G = *gGame; (void)a;
     if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 5; }

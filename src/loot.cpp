@@ -29,7 +29,8 @@ struct LootCfg {
   float healAmount[3] = {0, 25, 100}, healSeconds[3] = {0, 3, 7}, healCap[3] = {0, 75, 100};
   float largeArea = 120; int smallGuns[2] = {1, 1}, largeGuns[2] = {2, 3}, boxesPerGun[2] = {1, 3}, smallItems[2] = {1, 3}, largeItems[2] = {3, 6};
   float militaryScoped = 3;
-  int houseBoxes = 1, botDeathAmmo = 50;
+  int houseBoxes = 1, botDeathAmmo = 50, magsPerGun = 2;
+  std::vector<std::string> excludeGuns;   // BR12: never in the loot pool
   json gunWeight = json::object();
 };
 const LootCfg& cfg() {
@@ -52,11 +53,13 @@ const LootCfg& cfg() {
     if (j.contains("spawn")) {
       const json& s = j["spawn"]; c.largeArea = s.value("largeArea_m2", c.largeArea); c.militaryScoped = s.value("militaryScopedWeight", c.militaryScoped);
       c.houseBoxes = s.value("houseAmmoBoxes", c.houseBoxes);
+      c.magsPerGun = s.value("ammoMagsPerGun", c.magsPerGun);
       auto pair = [&](const char* k, int* o) { if (s.contains(k)) { o[0] = s[k][0]; o[1] = s[k][1]; } };
       pair("smallGuns", c.smallGuns); pair("largeGuns", c.largeGuns); pair("ammoBoxesPerGun", c.boxesPerGun); pair("smallItems", c.smallItems); pair("largeItems", c.largeItems);
     }
     c.gunWeight = j.value("gunWeight", json::object());
     c.botDeathAmmo = j.value("botDeathAmmo", c.botDeathAmmo);
+    for (auto& g : j.value("excludeGuns", json::array())) if (g.is_string()) c.excludeGuns.push_back(g.get<std::string>());
     static const std::map<std::string, ItemKind> kinds = {{"bandage", ItemKind::Bandage}, {"medkit", ItemKind::Medkit}, {"armor1", ItemKind::Armor1}, {"helmet", ItemKind::Helmet},
       {"vest", ItemKind::Vest}, {"backpack", ItemKind::Backpack}, {"sight", ItemKind::Sight}, {"mag", ItemKind::Mag}, {"muzzle", ItemKind::Muzzle}, {"stock", ItemKind::Stock}, {"throwable", ItemKind::Throwable}};
     for (auto& i : j.value("items", json::array())) {
@@ -220,6 +223,7 @@ static std::vector<int> gunPool(App& app, bool modern) {
     if (d.equipment() || d.flame.on || d.locked || d.action == "heavy" || d.action == "tool" || ammoTypeOf(d) == AM_NONE) continue;
     if (d.hasScope && d.wclass != WC_SNIPER) continue;   // plan: guns without a built-in optic, plus sniper rifles
     if (d.modern != modern) continue;
+    if (std::find(cfg().excludeGuns.begin(), cfg().excludeGuns.end(), d.id) != cfg().excludeGuns.end()) continue;
     v.push_back((int)k);
   }
   return v;
@@ -312,8 +316,8 @@ void lootBegin(Game& G) {
       // plan: snipers spawn with the ACOG: a scoped sniper's own scope is it (lootSight), nothing fitted
       f.ws.loaded = lootMagSize(d, f.ws); f.ws.seed = 1234567u + (uint32_t)f.uid * 7919u;   // one full magazine
       ++guns;
-      int t = ammoTypeOf(d), nb = irange(c.boxesPerGun[0], c.boxesPerGun[1]);
-      for (int b = 0; b < nb; ++b) dropAt(f.pos, "ammo:" + std::to_string(t), c.box[t]);
+      int t = ammoTypeOf(d);   // BR12: two magazines' worth for this gun in total (its own magazine, not the ammo-type box)
+      for (int b = 0; b < c.magsPerGun; ++b) dropAt(f.pos, "ammo:" + std::to_string(t), std::max(1, d.cap));
     }
     int nItems = large ? irange(c.largeItems[0], c.largeItems[1]) : irange(c.smallItems[0], c.smallItems[1]);
     for (int n = 0; n < nItems; ++n) {
