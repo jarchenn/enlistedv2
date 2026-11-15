@@ -519,7 +519,7 @@ void lootDraw(Game& G) {
 void lootUi(App& app) {
   if (!lootActive()) { gL.inventory = false; return; }
   Soldier* L = gGame->local();
-  if (!L || !L->alive) { gL.inventory = false; return; }
+  if (!L || !L->alive || gGame->match.phase == MatchPhase::Ended || app.pauseMenu) { gL.inventory = false; if (!L || !L->alive) return; }   // the end screen and the Esc menu are never hidden
   ImGuiIO& io = ImGui::GetIO(); ImDrawList* dl = ImGui::GetForegroundDrawList();
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
   Kit& k = *kitOf(L->slot);

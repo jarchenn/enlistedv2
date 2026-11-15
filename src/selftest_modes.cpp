@@ -369,7 +369,7 @@ void build(App&) {
       chk(lootFloor().size() > 0, "BR2: %zu floor items placed on the village", lootFloor().size());
       return false;
     }
-    if (t > 4 && t < 4.05f) pendingShot = outDir() / "br2_inventory.png";
+    if (t > 4 && t < 4.05f) a.uiShot = outDir() / "br2_inventory.png";   // uiShot: after ImGui, so the inventory is in the picture
     if (t < 5) return false;
     lootSetInventory(false);
     return true; });

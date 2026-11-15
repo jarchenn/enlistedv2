@@ -176,7 +176,7 @@ void AiCore::think(Soldier& s) {
   Brain& b = s.br;
   TeamBrain& tb = teams[(int)s.role];
   const Objective* ob = G.match.activeObjective();
-  const WeaponDef& wd = *G.app.weaponDefs[s.weapon];
+  const WeaponDef& wd = *G.app.weaponDefs[s.weapon >= 0 ? s.weapon : std::max(0, G.app.weaponIndex("knife_bayonet"))];   // BR2: unarmed until it loots a gun
   Fireteam* ft = m.ft >= 0 && m.ft < (int)tb.fts.size() ? &tb.fts[m.ft] : nullptr;
   bool attacker = s.role == CombatRole::Attacker;
   bool visible = b.target >= 0;
@@ -252,7 +252,7 @@ void AiCore::act(Soldier& s, float dt) {
   Brain& b = s.br;
   TeamBrain& tb = teams[(int)s.role];
   const Objective* ob = G.match.activeObjective();
-  const WeaponDef& wd = *G.app.weaponDefs[s.weapon];
+  const WeaponDef& wd = *G.app.weaponDefs[s.weapon >= 0 ? s.weapon : std::max(0, G.app.weaponIndex("knife_bayonet"))];   // BR2: unarmed until it loots a gun
   Fireteam* ft = m.ft >= 0 && m.ft < (int)tb.fts.size() ? &tb.fts[m.ft] : nullptr;
   bool underFire = G.t - b.hurtAt < 2.0 || b.suppressed > 0.35f || G.t - m.nearMissAt < 1.5;
   bool attacker = s.role == CombatRole::Attacker;

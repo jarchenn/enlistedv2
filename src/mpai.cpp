@@ -55,8 +55,8 @@ void mpaiUI(App& app) {
   }
   if (!gGame || !gGame->active) return;
   if (!app.selftest && edge(app.win, GLFW_KEY_F6)) gGame->debugOverlay = !gGame->debugOverlay;
-  gGame->drawHud();
-  rulesHud(*gGame);   // W1: shield icons over protected enemies, own protection ring
+  bool lootInventoryOpen();
+  if (!lootInventoryOpen()) { gGame->drawHud(); rulesHud(*gGame); }   // BR2: the inventory screen hides the match HUD (minimap, banner, status)   // W1: shield icons over protected enemies, own protection ring
   if (gUi.wantExit) {
     gUi.wantExit = false;
     bool host = gNet && gNet->role == Net::HOST;

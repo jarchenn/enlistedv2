@@ -171,7 +171,7 @@ void AiCore::aim(Soldier& s, float dt) {
     aimPoint = G.chest(o) + o.vel * 0.12f;
     shoot = true;
     G.lineOfSight(e, aimPoint, &smokeT);
-  } else if (m.action == A_SUPPRESS || (m.action == A_OVERWATCH && G.app.weaponDefs[s.weapon]->action == "auto")) {
+  } else if (m.action == A_SUPPRESS || (m.action == A_OVERWATCH && s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "auto")) {
     // suppressive fire at the last known position (own or shared), bursts
     const Known* best = nullptr; for (auto& [en, k] : tb.known) if (!k.heard && G.t - k.seen < 6 && (!best || k.seen > best->seen)) best = &k;
     for (auto& x : b.mem) if (!x.heardOnly && G.t - x.lastSeen < 6 && (!best || x.lastSeen > best->seen)) { static Known tmp; tmp.pos = x.lastPos; tmp.seen = x.lastSeen; best = &tmp; }

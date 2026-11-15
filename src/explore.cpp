@@ -536,6 +536,7 @@ void App::updateExplore(float dt) {
 
 void App::drawExploreUI() {
   lootUi(*this);   // BR2: pick-up prompt, heal ring, inventory screen
+  if (lootInventoryOpen()) return;   // the inventory replaces the play HUD
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
