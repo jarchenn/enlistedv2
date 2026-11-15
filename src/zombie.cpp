@@ -11,6 +11,7 @@
 // pack.break_off_m, and path on their own only when cut off. A dead leader's nearest member takes over. Pack mates
 // never pick each other (Solo too). Far zombies sample their clips at a lower rate; far followers in step with their
 // leader share its pose and skinned mesh (game.cpp drawItems).
+#include <map>
 #include "ai_core.h"
 #include "app.h"
 #include "mpai.h"
@@ -344,6 +345,11 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     static double nextGroan = 0;
     if (s.etype == 0 && G.t >= nextGroan && glm::length(s.feet - G.app.eyePos()) < 35.0f && G.rnd(s) < 0.02f) { G.app.audio.play("zombie_groan", s.feet + vec3(0, 1.4f, 0), 0.9f); nextGroan = G.t + 5.0 + 6.0 * G.rnd(s); }
     if (nextGroan > G.t + 30.0) nextGroan = 0;   // a new match restarts the clock
+  }
+  if (e.id.rfind("fighter", 0) == 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < 70.0f) {   // the Fighters' heavy footsteps. shortcut: host / single player only
+    static std::map<int, double> nextStep;
+    double& ns = nextStep[s.slot];
+    if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play("step_fighter", s.feet, 1.0f); ns = G.t + std::clamp(2.6f / std::max(1.0f, s.speed), 0.35f, 0.9f); }
   }
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach

@@ -249,7 +249,8 @@ int Audio::loadCustom(const fs::path& dir) {
     return !out.empty();
   };
   int used = 0; Buf b;
-  if (decode("footsteps.mp3", b)) {
+  struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
+  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_grass", "step_stone", "step_wood"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}}) if (decode(ss.file, b)) {
     const int W = SR / 100; std::vector<float> env(b.size() / W, 0.0f); float peak = 0;   // 10 ms loudness windows
     for (size_t k = 0; k < env.size(); ++k) { float e = 0; for (int j = 0; j < W; ++j) e = std::max(e, std::fabs(b[k * W + j])); env[k] = e; peak = std::max(peak, e); }
     std::vector<size_t> on;   // onsets: loud after a quiet window, at least 0.25 s apart
@@ -263,7 +264,7 @@ int Audio::loadCustom(const fs::path& dir) {
       for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.5f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);   // even level, 30 ms fade-out
       ev.v.push_back(std::move(s));
     }
-    if (!ev.v.empty()) { ++used; for (const char* n : {"step", "step_grass", "step_stone", "step_wood"}) p->events[n] = ev; }
+    if (!ev.v.empty()) { ++used; for (const char* n : ss.names) p->events[n] = ev; }
   }
   if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
   // gun shots (guns/*.mp3): one recording per weapon group. A burst recording gives its last shot (the one with the tail);
