@@ -19,6 +19,7 @@ public:
   void play(const std::string& name, vec3 pos, float volume = 1.0f);
   void setListener(vec3 pos, vec3 fwd);
   void setAmbience(float wind, float leaves);
+  void setBed(const fs::path& file, float volume);   // a looping music / room-tone file under everything (empty path: none); cheap to call every frame
   // volume settings (settings.cpp): master on the engine; effects on every spatial play / loop; UI on events whose
   // name starts with "ui_" or whose manifest kind is "ui"; ambience on the wind / leaf beds
   void setGains(float master, float effects, float ui, float ambience);

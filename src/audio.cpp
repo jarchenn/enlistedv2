@@ -96,6 +96,7 @@ struct Audio::Impl {
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.25f, leafVol = 0.0f;
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
+  ma_sound bed; bool bedOn = false; std::string bedFile; float bedVol = 0;
   Voice loops[16];
   ma_lpf_node lpf; bool lpfOk = false; float lpfCut = -1;   // under-water muffle: every sound routes through it
   void route(ma_sound& s) { if (lpfOk) ma_node_attach_output_bus(&s, 0, &lpf, 0); }
@@ -189,6 +190,7 @@ void Audio::shutdown() {
   if (!p) return;
   for (auto& v : p->voices) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (auto& v : p->loops) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
+  if (p->bedOn) ma_sound_uninit(&p->bed);
   ma_sound_uninit(&p->wind); ma_sound_uninit(&p->leaves);
   if (p->lpfOk) ma_lpf_node_uninit(&p->lpf, nullptr);
   ma_audio_buffer_uninit(&p->windAB); ma_audio_buffer_uninit(&p->leafAB);
@@ -297,6 +299,19 @@ void Audio::setAmbience(float wind, float leaves) {
   ma_sound_set_volume(&p->wind, wind * ambienceGain);
   ma_sound_set_volume(&p->leaves, leaves * ambienceGain);
 }
+void Audio::setBed(const fs::path& file, float volume) {
+  if (!p) return;
+  std::string f = file.string();
+  if (f != p->bedFile) {
+    if (p->bedOn) { ma_sound_uninit(&p->bed); p->bedOn = false; }
+    p->bedFile = f;
+    if (!f.empty() && ma_sound_init_from_file(&p->engine, f.c_str(), MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, nullptr, &p->bed) == MA_SUCCESS) {
+      p->bedOn = true; p->route(p->bed); ma_sound_set_looping(&p->bed, MA_TRUE); ma_sound_start(&p->bed);
+    }
+  }
+  p->bedVol = volume;
+  if (p->bedOn) ma_sound_set_volume(&p->bed, volume * ambienceGain);
+}
 void Audio::setUnderwater(float k) {
   k = std::clamp(k, 0.0f, 1.0f);
   underwater = k;
@@ -316,6 +331,7 @@ void Audio::setGains(float master, float effects, float ui, float ambience) {
   ma_engine_set_volume(&p->engine, masterGain);
   ma_sound_set_volume(&p->wind, p->windVol * ambienceGain);
   ma_sound_set_volume(&p->leaves, p->leafVol * ambienceGain);
+  if (p->bedOn) ma_sound_set_volume(&p->bed, p->bedVol * ambienceGain);
 }
 
 // ---- looping voices (tanks): one sound per handle, pitch / volume / position updated every step, never restarted
