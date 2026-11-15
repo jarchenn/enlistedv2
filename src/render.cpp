@@ -2939,6 +2939,7 @@ uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stron
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
 uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
+uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = none
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
@@ -2989,6 +2990,7 @@ void main(){
     c = mix(vec3(l), c, 0.93);
     c *= 1.0 - dot(q,q)*0.16;
   }
+  if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));   // BR1c
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
   oColor = vec4(toSRGB(c), 1.0);
 }
@@ -4461,6 +4463,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     bool on = grade.on && perf.grade && !q.legacy && !thumbMode;
     glUniform1i(U(progTone, "uGradeOn"), on ? 1 : 0);
     glUniform1f(U(progTone, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK));   // night: gamma +30 % (user request)
+    glUniform1f(U(progTone, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
     glUniform1f(U(progTone, "uGradeSat"), grade.saturation); glUniform1f(U(progTone, "uGradeContrast"), grade.contrast);
     glUniform1f(U(progTone, "uGradeVig"), grade.vignette); glUniform1f(U(progTone, "uGradeCA"), grade.chromatic);
     glUniform1f(U(progTone, "uGradeSharpen"), q.taa ? grade.sharpen : 0.0f);

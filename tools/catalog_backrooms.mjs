@@ -7,8 +7,7 @@
 // edges (brm_wall_*: 8 m long, 3.6 m high so they close the gap between any two ceiling heights; plain, doorway, wide
 // opening, pool arch). Free-standing partitions and columns repeat inside the yellow rooms. Lights hang under the
 // ceiling (instance y = the ceiling): fluorescent panels (most only emissive, every few a real light, some dead), pool
-// lights, service bulkheads; none flicker. BR1b: about 5x the first brightness from fewer, stronger lights (one per
-// three cells, under the Medium cap of 256 so no light ever drops in and out of the nearest-N selection). Dressing: furniture built here from boxes, tilted and half sunk into the
+// lights, service bulkheads; none flicker. Dressing: furniture built here from boxes, tilted and half sunk into the
 // floor or a wall (instances have yaw only, so the tilt lives in the asset), piles of chairs and wardrobes.
 // Ids "brm_*". Original work in the style only: no logos, text or assets from any game or film.
 import { Asset } from "./kit.mjs";
@@ -161,7 +160,7 @@ function light(id, name, kind, L, glow = !!L) {
   const A = new Asset({ id, version: 1, name, category: "Backrooms", description: name, floors: 0, enterable: false,
     footprint: [1.2, 0.6], plinthDepth: 0, maxGrade: 5, noAutoPanels: true });
   A.mat("frame", [0.7, 0.7, 0.66], 0.5, "metal", { metallic: 0.3 });
-  A.mat("diffuser", [0.9, 0.92, 0.92], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [9.0, 8.0, 6.2] : [9.5, 10.2, 10.8] } : {});
+  A.mat("diffuser", [0.9, 0.92, 0.92], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [5.0, 4.4, 3.4] : [5.2, 5.7, 6.0] } : {});
   if (kind === "panel") {   // a 1.2 x 0.6 m recessed fluorescent troffer
     A.box([-0.61, -0.025, -0.31], [0.61, 0, 0.31], "frame", { k: 0 });
     A.box([-0.57, -0.03, -0.27], [0.57, -0.02, 0.27], "diffuser", { k: 0 });
@@ -254,10 +253,10 @@ export function backroomsAssets() {
   out.push(column("brm_column_s", "Service column", "s", BR_CEIL.s));
   out.push(column("brm_column_p", "Poolroom column", "p", BR_CEIL.p, true));
   out.push(light("brm_panel", "Fluorescent panel", "panel", null, true));   // most panels only glow: the lit ones light the room
-  out.push(light("brm_panel_lit", "Fluorescent panel (light)", "panel", { color: [0.93, 0.97, 1.0], intensity: 6.0, radius: 16.0 }));
+  out.push(light("brm_panel_lit", "Fluorescent panel (light)", "panel", { color: [0.93, 0.97, 1.0], intensity: 0.8, radius: 11.0 }));
   out.push(light("brm_panel_dead", "Fluorescent panel (dead)", "panel", null));
-  out.push(light("brm_pool_light", "Poolroom light", "pool", { color: [0.88, 0.98, 0.96], intensity: 5.5, radius: 17.0 }));
-  out.push(light("brm_bulkhead", "Service bulkhead light", "bulkhead", { color: [1.0, 0.9, 0.74], intensity: 5.0, radius: 14.0 }));
+  out.push(light("brm_pool_light", "Poolroom light", "pool", { color: [0.88, 0.98, 0.96], intensity: 0.75, radius: 13.0 }));
+  out.push(light("brm_bulkhead", "Service bulkhead light", "bulkhead", { color: [1.0, 0.9, 0.74], intensity: 0.7, radius: 9.0 }));
   out.push(sunk("brm_sunk_wardrobe_floor", "Wardrobe sunk into the floor", [["wardrobe", [0, -0.75, 0], [18, 30, -12]]], "A wardrobe half swallowed by the floor, leaning."));
   out.push(sunk("brm_sunk_wardrobe_wall", "Wardrobe sunk into a wall", [["wardrobe", [0, 0.1, -0.15], [-14, 0, 8]]], "A wardrobe pushed half into the wall behind it (origin on the wall face, the back half inside it).", [1.4, 1.0]));
   out.push(sunk("brm_sunk_bed_wall", "Bed sunk into a wall", [["bed", [0, 0.9, -0.2], [-62, 0, 6]]], "A bed stood up on its end, its head buried in the wall (origin on the wall face).", [1.4, 1.4]));

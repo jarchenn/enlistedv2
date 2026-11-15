@@ -83,7 +83,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `fire_brazier` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used |
 | `fire_campfire` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used |
 | `furn_armchair` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used |
-| `furn_armoire` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | 3 |
+| `furn_armoire` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | 6 |
 | `furn_barrel` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 18 | 16 | 30 | not used |
 | `furn_barrel_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | 1 | not used |
 | `furn_basket` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used |
@@ -173,7 +173,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_stove` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used |
 | `furn_stove_potbelly` | Furniture | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used |
 | `furn_suitcases` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used |
-| `furn_table_dining` | Furniture | 1: D: the HQ map table in the farmyard | terrain-only base map | not used | not used | not used | 4 |
+| `furn_table_dining` | Furniture | 1: D: the HQ map table in the farmyard | terrain-only base map | not used | not used | not used | 1 |
 | `furn_table_low` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used |
 | `furn_table_small` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used |
 | `furn_tool_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used |
@@ -355,7 +355,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tun_straight_niche` | not used | not used | not used | not used | not used | 32 | not used |
 | `tun_tee` | not used | not used | not used | not used | not used | 73 | not used |
 | `tun_wide` | not used | not used | not used | not used | not used | 20 | not used |
-| `brm_bulkhead` | not used | not used | not used | not used | not used | not used | 38 |
+| `brm_bulkhead` | not used | not used | not used | not used | not used | not used | 85 |
 | `brm_cell_pool` | not used | not used | not used | not used | not used | not used | 69 |
 | `brm_cell_pool_basin` | not used | not used | not used | not used | not used | not used | 15 |
 | `brm_cell_pool_flooded` | not used | not used | not used | not used | not used | not used | 41 |
@@ -366,22 +366,22 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `brm_chair_lone` | not used | not used | not used | not used | not used | not used | 54 |
 | `brm_column_p` | not used | not used | not used | not used | not used | not used | 3 |
 | `brm_column_y` | not used | not used | not used | not used | not used | not used | 1 |
-| `brm_panel` | not used | not used | not used | not used | not used | not used | 724 |
-| `brm_panel_dead` | not used | not used | not used | not used | not used | not used | 94 |
-| `brm_panel_lit` | not used | not used | not used | not used | not used | not used | 146 |
+| `brm_panel` | not used | not used | not used | not used | not used | not used | 436 |
+| `brm_panel_dead` | not used | not used | not used | not used | not used | not used | 87 |
+| `brm_panel_lit` | not used | not used | not used | not used | not used | not used | 441 |
 | `brm_partition` | not used | not used | not used | not used | not used | not used | 130 |
 | `brm_partition_l` | not used | not used | not used | not used | not used | not used | 28 |
 | `brm_partition_low` | not used | not used | not used | not used | not used | not used | 17 |
 | `brm_partition_short` | not used | not used | not used | not used | not used | not used | 27 |
-| `brm_pile_chairs` | not used | not used | not used | not used | not used | not used | 5 |
-| `brm_pile_wardrobes` | not used | not used | not used | not used | not used | not used | 7 |
-| `brm_pool_light` | not used | not used | not used | not used | not used | not used | 38 |
-| `brm_sunk_armchair_floor` | not used | not used | not used | not used | not used | not used | 5 |
-| `brm_sunk_bed_wall` | not used | not used | not used | not used | not used | not used | 14 |
-| `brm_sunk_chair_wall` | not used | not used | not used | not used | not used | not used | 3 |
-| `brm_sunk_table_floor` | not used | not used | not used | not used | not used | not used | 8 |
-| `brm_sunk_wardrobe_floor` | not used | not used | not used | not used | not used | not used | 2 |
-| `brm_sunk_wardrobe_wall` | not used | not used | not used | not used | not used | not used | 9 |
+| `brm_pile_chairs` | not used | not used | not used | not used | not used | not used | 8 |
+| `brm_pile_wardrobes` | not used | not used | not used | not used | not used | not used | 4 |
+| `brm_pool_light` | not used | not used | not used | not used | not used | not used | 114 |
+| `brm_sunk_armchair_floor` | not used | not used | not used | not used | not used | not used | 7 |
+| `brm_sunk_bed_wall` | not used | not used | not used | not used | not used | not used | 4 |
+| `brm_sunk_chair_wall` | not used | not used | not used | not used | not used | not used | 7 |
+| `brm_sunk_table_floor` | not used | not used | not used | not used | not used | not used | 4 |
+| `brm_sunk_wardrobe_floor` | not used | not used | not used | not used | not used | not used | 4 |
+| `brm_sunk_wardrobe_wall` | not used | not used | not used | not used | not used | not used | 15 |
 | `brm_wall_p` | not used | not used | not used | not used | not used | not used | 99 |
 | `brm_wall_p_arch` | not used | not used | not used | not used | not used | not used | 77 |
 | `brm_wall_p_door` | not used | not used | not used | not used | not used | not used | 30 |
