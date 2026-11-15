@@ -192,3 +192,6 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
   "Destroyed Car 03 / Backrooms Car (Gameready ver)" and "Burned-out Cars" by Renafox (https://sketchfab.com/kryik1023), CC-BY-4.0;
   "Ammo Box" by murilojones (https://sketchfab.com/murilojones), CC-BY-4.0. Supplied by the user.
   "weathered concrete barriers" (an FBX pack supplied by the user, licence not stated): converted locally, the bake is git-ignored.
+- Military hut (MOD2, tools/catalog_mod2.mjs, mod_mil_hut / mod_mil_hut_ruin): "Military-style building with animations"
+  by TampaJoey (https://sketchfab.com/TampaJoey), supplied by the user; no licence stated in the download, so the
+  bake (content/assets/models/mod_mil_hut*) is git-ignored and local only; the committed asset shows a part-built stand-in.

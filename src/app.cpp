@@ -327,6 +327,23 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         R.worldModels.push_back({gm, (int)k, M, vec4(1), r.asset->modelThinPx});
       }
       op.push_back({&r.asset->opaque, M});   // any visible box parts (none for the wire obstacles)
+      if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
+      if (!r.asset->interactables.empty() && camDist < 250.0f) {   // MOD2: a modelled building's own doors (engine interactables over the model)
+        const mat4 IM = instanceMatrix(i);
+        for (size_t k = 0; k < r.asset->interactables.size(); ++k) {
+          auto& d = r.asset->interactables[k];
+          float pr = k < r.progress.size() ? r.progress[k] : 0.0f;
+          for (size_t l = 0; l < d.leaves.size(); ++l) {
+            auto& lf = d.leaves[l];
+            uint8_t st = k < r.leafSt.size() && l < r.leafSt[k].size() ? r.leafSt[k][l] : 0;
+            if (st & 2) continue;
+            mat4 L = IM * glm::translate(mat4(1), lf.hinge) * glm::mat4_cast(glm::angleAxis(radians(lf.sign * leafAngle(d, pr)), d.axis));
+            op.push_back({&lf.opaque, L});
+            if (lf.glass.count && !(st & 1)) gl.push_back({&lf.glass, L});
+          }
+        }
+      }
+      if (r.asset->ivy.mode != IvyDef::NONE && camDist < 150.0f) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }
       continue;
     }
     if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }
