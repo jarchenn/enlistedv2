@@ -77,6 +77,13 @@ const ZombieCfg& zcfg() {
   }
   return c;
 }
+// the body slam's footprint: an oval about her upper body (0.36 x 0.2 of her height, the long axis along f) centred at c;
+// returns the normalised radius (< 1 inside)
+float inSlam(vec3 p, vec3 c, vec3 f, const EnemyType& e, float scale) {
+  vec3 d = p - c; d.y = 0; float A = 0.18f * e.height * scale, B = 0.10f * e.height * scale;
+  float u = glm::dot(d, f) / A, v = (d.x * f.z - d.z * f.x) / B;
+  return std::sqrt(u * u + v * v);
+}
 bool inReach(const Game& G, const Soldier& z, const Soldier& v, float reach) {
   return v.alive && zLenXZ(v.feet - z.feet) < reach && std::fabs(v.feet.y - z.feet.y) < 1.2f && G.lineOfSight(G.chest(z), G.chest(v));
 }
@@ -392,7 +399,8 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (ni > G.t + 40.0) ni = 0;
     if (G.t >= ni) { if (ni > 0) G.app.audio.play("troll_idle", s.feet + vec3(0, 2, 0), 0.9f); ni = G.t + 7.0 + 8.0 * G.rnd(s); }
   }
-  if (e.blockR > 0 && G.localSlot >= 0 && G.localSlot < (int)G.sold.size() && G.sold[G.localSlot].alive && !G.app.tanks.occupied) {   // solid to the player: pushed out of the body column. shortcut: local player only (bots, LAN clients and vehicles pass)
+  const bool down = s.anim.a >= 0 && s.model >= 0 && s.anim.a < (int)G.models[s.model]->clips.size() && G.models[s.model]->clips[s.anim.a].name.find("drop") != std::string::npos;   // in the body slam: no standing column to push out of
+  if (e.blockR > 0 && !down && G.localSlot >= 0 && G.localSlot < (int)G.sold.size() && G.sold[G.localSlot].alive && !G.app.tanks.occupied) {   // solid to the player: pushed out of the body column. shortcut: local player only (bots, LAN clients and vehicles pass)
     Soldier& lp = G.sold[G.localSlot]; float BR = e.blockR * e.height * e.scale; vec3 d = lp.feet - s.feet; float dy = d.y; d.y = 0; float L = glm::length(d);
     if (L < BR && dy > -2.0f && dy < e.height * e.scale) Physics::setCharacterPos(s.feet + (L > 1e-3f ? d / L : vec3(1, 0, 0)) * BR + vec3(0, dy, 0));
   }
@@ -405,14 +413,21 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
   // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes
-  // a body drop ("drop" in the clip name) lands where the torso comes down, its own distance ahead (the clip's swing
-  // chest x the draw scale): it is chosen when the target stands about that far; the other attacks within reach
+  // a body slam ("drop" in the clip name: down on all fours, then flat) lands her upper body on an oval centred where her
+  // chest comes down (the clip's swing chest x the draw scale ahead): chosen when two or more hostiles stand in that oval,
+  // the other attacks for anyone within reach
   const auto& ac = clipsOf(s).attackClips; int di = -1; float dropR = 0;
   for (int i = 0; i < (int)ac.size(); ++i) if (ac[i].find("drop") != std::string::npos) { int k = findClip(*G.models[s.model], ac[i]); if (k >= 0) { di = i; vec3 c = G.models[s.model]->clips[k].swingChest; dropR = std::max(1.0f, glm::length(vec2(c.x, c.z)) * s.eScale); } }
-  const bool inR = best && inReach(G, s, *best, std::max(e.reach, e.lunge)), dropOk = best && di >= 0 && std::fabs(zLenXZ(best->feet - s.feet) - dropR) < 0.35f * dropR && inReach(G, s, *best, 1.35f * dropR);
+  const bool inR = best && inReach(G, s, *best, std::max(e.reach, e.lunge));
+  bool dropOk = false;
+  if (best && di >= 0) {
+    vec3 f = best->feet - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1);   // she turns to her target
+    int n = 0; for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && inSlam(o.feet, s.feet + f * dropR, f, e, s.eScale) < 1.0f) ++n;
+    dropOk = n >= 2;
+  }
   if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f);   /* one of three, picked at random */
     s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
-    if (dropOk && (!inR || n <= 0 || G.rnd(s) < 0.5f)) s.meleeClip = di;
+    if (dropOk || n <= 0) s.meleeClip = di;   // two or more in the slam's oval: the slam; otherwise the others
     else { int pick = std::min(n - 1, (int)(G.rnd(s) * n)); s.meleeClip = di >= 0 && pick >= di ? pick + 1 : pick; }
     ++s.meleeCount; }
   if (s.meleeWind >= 0) {
@@ -423,7 +438,18 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
       float hp0 = best ? best->hp : 0;
       vec3 at = s.feet;   // where the blow lands: toward the target within reach, or under the torso for a body drop
       if (best) { vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d); at = s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0)); }
-      if (s.meleeClip == di) { vec3 c = vec3(s.world * vec4(s.pose.joint[CJ_SPINE2], 1)); at = vec3(c.x, G.app.terrain.height(c.x, c.z), c.z); }
+      if (s.meleeClip == di) {   // the body slam: her upper body lands on its oval; full damage at the centre to none at the edge, no crater
+        vec3 c = vec3(s.world * vec4(s.pose.joint[CJ_SPINE2], 1)); at = vec3(c.x, G.app.terrain.height(c.x, c.z), c.z);
+        vec3 f = c - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1); vec3 sd(-f.z, 0, f.x);
+        float A = 0.18f * e.height * s.eScale, B = 0.10f * e.height * s.eScale;
+        G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
+        for (int k = 0; k < 28; ++k) {   // the dust ring, round the oval's edge
+          float an = k * 0.2244f; vec3 out = f * std::cos(an) * A + sd * std::sin(an) * B, pp = at + out; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
+          G.app.fx.smoke(pp, glm::normalize(out) * (B * 0.25f) + vec3(0, 0.6f + 0.05f * B, 0), std::max(1.5f, B * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
+        }
+        for (auto& o : G.sold) { if (!o.alive || &o == &s || !Game::hostile(s, o)) continue; float r = inSlam(o.feet, at, f, e, s.eScale); if (r < 1.0f) { vec3 dir = o.feet - at; dir.y = 0.3f; G.damage(o.slot, e.damage * (1.0f - r), s.slot, glm::normalize(dir), "melee"); if (!o.alive) o.flat = true; } }   // flat: host / single player only
+        if (best && hp0 > best->hp) { ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - best->hp}); }
+      } else {
       if (e.kickCrater > 0 && best) G.app.deformGround(at, e.kickCrater);   // repeated blows on one spot dig deeper. shortcut: host / single player only, the crater is not sent to LAN clients or the navmesh
       if (e.stompArea > 0 && best) {   // area blow: everyone hostile round the landing point, full damage at the centre falling to none at the edge
         float R = e.stompArea * e.height * e.scale;
@@ -439,7 +465,9 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
         if (gBlowLog.size() > 4096) gBlowLog.erase(gBlowLog.begin(), gBlowLog.begin() + 2048);
         if (e.knock > 0 && best->localPlayer) { vec3 d = best->feet - s.feet; d.y = 0; if (glm::length(d) > 1e-3f) G.app.knockVel = glm::normalize(d) * e.knock; }   // shortcut: only the local player is shoved; bots and LAN clients are not
       }
-      s.meleeWind = -1; s.meleeReady = G.t + e.cooldown;
+      }
+      { int k = attackClip(*G.models[s.model], clipsOf(s), s.meleeClip); float rest = k >= 0 ? (G.models[s.model]->clips[k].dur - G.models[s.model]->clips[k].swing) / e.attackRate : 0.0f;
+        s.meleeWind = -1; s.meleeReady = G.t + std::max(e.cooldown, rest); }   // the next strike waits for this attack clip to finish (the body slam is long)
     }
   }
   crumb("zombie: move"); A->move(s, dt);

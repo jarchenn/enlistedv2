@@ -482,11 +482,62 @@ void buildFighterCapture(App&) {
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 
+// --capture-fighter2-slam: no checks, a look at the body slam. On Chateau town two soldiers are held on the spot the torso
+// lands (so the slam is chosen: two hostiles in its oval) and the player is a camera 80 m to the side of her line; one
+// frame each on all fours, flat and getting up (selftest_out/fighter2_slam_{allfours,flat,getup}.png).
+void buildSlamCapture(App&) {
+  push("slam", [](App& a, float t) {
+    static int fz, sz[2], got; static double t0; static vec3 F, P, sd;
+    Game& G = *gGame;
+    if (t == 0) {
+      t0 = -1; got = 0; fz = sz[0] = sz[1] = -1;
+      chk(startMode(a, GameMode::TDM, 4, 3, 1, AiType::Soldiers, AiType::Fighters2, "templates/chateau_town.nmap.json"), "TDM on Chateau town: the player and two soldiers v Fighter 2 (%s)", gGame->setupError.c_str());
+      return false;
+    }
+    Soldier* L = G.local();
+    if (!L || !L->alive || !allSpawned(G)) return t > 30 ? (chk(false, "everyone spawns"), true) : false;
+    L->protectUntil = -1; L->hp = 5000;
+    if (t0 < 0) {
+      int k = 0; for (auto& s : G.sold) { if (s.zombie) fz = s.slot; else if (!s.localPlayer && k < 2) sz[k++] = s.slot; }
+      if (fz < 0 || k < 2) { chk(false, "the fighter and two soldiers"); return true; }
+      const CharModel& m = *G.models[G.sold[fz].model]; int kc = findClip(m, "body_drop");
+      if (kc < 0) { chk(false, "Fighter 2 has a body_drop clip"); return true; }
+      float R = glm::length(vec2(m.clips[kc].swingChest.x, m.clips[kc].swingChest.z)) * G.sold[fz].eScale;
+      NavRef r; vec3 C; bool ok = false;
+      for (int i = 0; i < 16 && !ok; ++i) {
+        float a0 = i * 0.3927f; if (!G.nav.closest(L->feet + vec3(std::cos(a0), 0, std::sin(a0)) * (40.0f + 15.0f * (i % 4)), 15.0f, r, F)) continue;
+        for (int j = 0; j < 24 && !ok; ++j) {
+          float an = j * 0.2618f; vec3 f(std::cos(an), 0, std::sin(an)); sd = vec3(-f.z, 0, f.x);
+          for (float cd : {80.0f, 60.0f}) {
+            if (ok || !G.nav.closest(F + f * R, 12.0f, r, P) || !G.nav.closest((F + P) * 0.5f + sd * cd, 12.0f, r, C)) continue;
+            vec3 eye = C + vec3(0, 1.7f, 0);
+            ok = G.lineOfSight(eye, F + vec3(0, 3.0f, 0)) && G.lineOfSight(eye, P + vec3(0, 0.5f, 0));
+          }
+        }
+      }
+      if (!ok) { chk(false, "the slam placed in view"); return true; }
+      place(G, G.sold[fz], F); place(G, *L, C);
+      vec3 mid = (F + P) * 0.5f, d = mid - C; a.eyeYaw = degrees(std::atan2(-d.x, -d.z)); a.eyePitch = degrees(std::atan2(mid.y + 6.0f - (C.y + 1.7f), dXZ(mid, C)));
+      T->note("slam: chest lands " + std::to_string(R) + " m ahead");
+      t0 = G.t; return false;
+    }
+    for (int j = 0; j < 2; ++j) { Soldier& o = G.sold[sz[j]]; place(G, o, P + sd * (j ? 4.0f : -4.0f)); o.hp = 5000; o.protectUntil = -1; }   // held on the landing spot
+    Soldier& z = G.sold[fz]; z.hp = std::max(z.hp, 1000.0f);
+    const CharModel& m = *G.models[z.model];
+    { static double nl = 0; if (G.t >= nl) { nl = G.t + 0.25; char b[160]; std::snprintf(b, sizeof b, "t %.2f clip %s time %.2f strikes %d wind %.2f", G.t - t0, z.anim.a >= 0 ? m.clips[z.anim.a].name.c_str() : "-", z.anim.time, z.meleeCount, z.meleeWind); T->note(b); } }
+    if (z.anim.a >= 0 && m.clips[z.anim.a].name == "body_drop" && pendingShot.empty()) {
+      static const float at[3] = {1.05f, 1.7f, 2.4f}; static const char* nm[3] = {"fighter2_slam_allfours.png", "fighter2_slam_flat.png", "fighter2_slam_getup.png"};
+      if (got < 3 && z.anim.time >= at[got]) { pendingShot = outDir() / nm[got]; T->note(std::string(nm[got]) + " at " + std::to_string(z.anim.time) + " s"); ++got; }
+    }
+    return (got >= 3 && pendingShot.empty()) || G.t - t0 > 60; });
+  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+}
+
 bool zombiesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-fighter2") mode = 3; } }
-  if (mode != 1 && mode != 2 && mode != 3) return false;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; } }
+  if (mode < 1 || mode > 4) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; T = new MpTest(mode == 2 ? "heavies" : mode == 3 ? "fighter2" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else build(app); cur = 0; st = 0; }
+  if (!started) { started = true; T = new MpTest(mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else build(app); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;
