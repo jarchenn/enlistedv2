@@ -10,6 +10,7 @@ const DEG = 180 / Math.PI;
 const D = { k: 0, lod: 1 };                      // fine detail: no collider, may drop at distance
 const V = { k: 0 };                              // visible mass whose collider is a separate simple box
 const H = { v: 0 };                              // collider only
+const D_ = D;
 const dv = (bv) => ({ k: 0, lod: 1, bv });       // bevelled detail
 const vb = (bv) => ({ k: 0, bv });               // bevelled visible mass, no collider
 
@@ -18,9 +19,14 @@ const vb = (bv) => ({ k: 0, bv });               // bevelled visible mass, no co
 const T = (tex, alb, r, pat, ex = {}) => [alb, r, pat, tex ? { texture: tex, ...ex } : { ...ex }];   // MOD1 review: tex null = clean paint (the paint_metal_* sets carry rust)
 const MT = {
   conc: T("concrete_aged", [0.66, 0.64, 0.6], 0.9, "concrete"),
-  conc_l: T("concrete_light", [0.74, 0.73, 0.7], 0.88, "concrete"),
+  conc_l: T("concrete_grey_cast", [0.7, 0.69, 0.66], 0.9, "concrete"),             // AS1: precast, weathered
   conc_r: T("concrete_rough", [0.58, 0.57, 0.54], 0.95, "concrete"),
   conc_st: T("concrete_stained", [0.6, 0.58, 0.55], 0.92, "concrete"),
+  conc_wet: T("concrete_dirty_wet", [0.42, 0.41, 0.38], 0.95, "concrete"),    // AS1: grime / run-off / damp toe bands
+  conc_cr: T("concrete_cracked_white", [0.68, 0.67, 0.64], 0.92, "concrete"),
+  moss: T("moss_cushion", [0.26, 0.32, 0.14], 1, "plain"),                     // AS1: overgrowth on abandoned props
+  weeds: T("grass_dark", [0.22, 0.3, 0.12], 1, "fabric"),
+  grime: T("ground_rubble", [0.3, 0.27, 0.22], 1, "plain"),
   conc_ag: T("concrete_aggregate", [0.62, 0.6, 0.56], 0.95, "concrete"),
   conc_fw: T("concrete_formwork", [0.64, 0.63, 0.6], 0.9, "concrete"),
   conc_dk: T("concrete_rough", [0.36, 0.35, 0.33], 0.97, "concrete"),       // fractured faces, chips, joints
@@ -29,6 +35,7 @@ const MT = {
   soot: T("ground_burnt", [0.07, 0.065, 0.06], 1, "plain"),
   burnt: T("rust_heavy", [0.3, 0.2, 0.15], 0.95, "metal", { metallic: 0.15 }),
   burnt_dk: T("rust_heavy", [0.12, 0.09, 0.08], 0.97, "metal", { metallic: 0.1 }),
+  rust_c: T("corten_rust", [0.45, 0.25, 0.14], 0.9, "metal", { metallic: 0.1 }),
   rust: T("steel_rust_light", [0.55, 0.42, 0.33], 0.8, "metal", { metallic: 0.2 }),
   rust_h: T("rust_heavy", [0.42, 0.26, 0.17], 0.9, "metal", { metallic: 0.1 }),
   steel: T("steel_scratched", [0.58, 0.59, 0.6], 0.45, "metal", { metallic: 0.6 }),
@@ -40,36 +47,39 @@ const MT = {
   chrome: [[0.78, 0.79, 0.8], 0.15, "metal", { metallic: 0.9 }],
   rim: T("steel_scratched", [0.66, 0.67, 0.69], 0.3, "metal", { metallic: 0.75 }),
   rim_dk: [[0.07, 0.07, 0.075], 0.5, "metal", { metallic: 0.4 }],
-  rubber: [[0.035, 0.035, 0.037], 0.92, "plain"],
-  rubber_side: [[0.055, 0.055, 0.058], 0.88, "plain"],
+  rubber: T("rubber_mat", [0.04, 0.04, 0.042], 0.92, "plain"),
+  rubber_side: T("rubber_mat", [0.06, 0.06, 0.062], 0.88, "plain"),
+  rubber_perish: T("rubber_mat", [0.08, 0.075, 0.07], 0.95, "plain"),         // AS1: sun-perished flat tyres
   seam: [[0.02, 0.02, 0.02], 0.9, "plain"],
-  p_grey: T(null, [0.52, 0.53, 0.54], 0.6, "metal"),
-  p_dgrey: T(null, [0.25, 0.26, 0.27], 0.6, "metal"),
-  p_green: T(null, [0.2, 0.3, 0.2], 0.65, "metal"),
-  p_white: T(null, [0.86, 0.86, 0.84], 0.6, "metal"),
-  p_tan: T(null, [0.64, 0.54, 0.38], 0.75, "metal"),
-  p_od: T(null, [0.27, 0.29, 0.18], 0.75, "metal"),
-  p_yellow: T(null, [0.88, 0.66, 0.08], 0.55, "metal"),
-  p_red: T(null, [0.62, 0.08, 0.06], 0.55, "metal"),
-  p_orange: T(null, [0.85, 0.36, 0.06], 0.55, "metal"),
-  p_blue: T(null, [0.1, 0.22, 0.45], 0.55, "metal"),
-  p_black: T(null, [0.06, 0.06, 0.065], 0.55, "metal"),
+  // AS1: worn paint for the abandoned town (the material colour stays; the set adds chips, scratches and grime)
+  p_grey: T("paint_metal_grey", [0.52, 0.53, 0.54], 0.65, "metal"),
+  p_dgrey: T("steel_worn_grey", [0.25, 0.26, 0.27], 0.65, "metal", { metallic: 0.2 }),
+  p_green: T("paint_metal_green", [0.2, 0.3, 0.2], 0.7, "metal"),
+  p_white: T("paint_metal_worn_white", [0.84, 0.84, 0.82], 0.65, "metal"),
+  p_tan: T("paint_metal_worn_white", [0.64, 0.54, 0.38], 0.8, "metal"),
+  p_od: T("paint_metal_green", [0.27, 0.29, 0.18], 0.8, "metal"),
+  p_yellow: T("metal_painted_red", [0.86, 0.64, 0.1], 0.6, "metal"),
+  p_red: T("metal_painted_red", [0.6, 0.09, 0.06], 0.6, "metal"),
+  p_orange: T("metal_painted_red", [0.82, 0.36, 0.08], 0.6, "metal"),
+  p_blue: T("metal_painted_navy", [0.1, 0.22, 0.45], 0.6, "metal"),
+  p_black: T("steel_worn_grey", [0.06, 0.06, 0.065], 0.6, "metal", { metallic: 0.2 }),
   c_red: T("corrugated_grey", [0.5, 0.14, 0.09], 0.65, "metal", { metallic: 0.2 }),
-  c_blue: T("corrugated_grey", [0.12, 0.24, 0.42], 0.65, "metal", { metallic: 0.2 }),
+  c_blue: T("corrugated_blue_rusty", [0.13, 0.25, 0.42], 0.7, "metal", { metallic: 0.2 }),
   c_green: T("corrugated_grey", [0.16, 0.32, 0.22], 0.65, "metal", { metallic: 0.2 }),
   c_tan: T("corrugated_grey", [0.66, 0.55, 0.38], 0.7, "metal", { metallic: 0.2 }),
   c_grey: T("corrugated_galv", [0.46, 0.48, 0.5], 0.65, "metal", { metallic: 0.2 }),
-  c_rust: T("rust_heavy", [0.48, 0.25, 0.15], 0.85, "metal", { metallic: 0.15 }),
-  car_silver: T(null, [0.62, 0.63, 0.65], 0.3, "metal", { metallic: 0.55 }),
-  car_red: T(null, [0.55, 0.05, 0.05], 0.3, "metal", { metallic: 0.35 }),
-  car_blue: T(null, [0.08, 0.16, 0.36], 0.3, "metal", { metallic: 0.45 }),
-  car_white: T(null, [0.88, 0.88, 0.87], 0.3, "metal", { metallic: 0.2 }),
-  car_black: T(null, [0.05, 0.05, 0.055], 0.25, "metal", { metallic: 0.4 }),
-  car_green: T(null, [0.12, 0.25, 0.18], 0.3, "metal", { metallic: 0.4 }),
+  c_rust: T("metal_plates_rusty", [0.46, 0.26, 0.16], 0.85, "metal", { metallic: 0.15 }),
+  car_silver: T("steel_worn_grey", [0.62, 0.63, 0.65], 0.50, "metal", { metallic: 0.55 }),
+  car_red: T("steel_worn_grey", [0.55, 0.05, 0.05], 0.50, "metal", { metallic: 0.35 }),
+  car_blue: T("steel_worn_grey", [0.08, 0.16, 0.36], 0.50, "metal", { metallic: 0.45 }),
+  car_white: T("steel_worn_grey", [0.88, 0.88, 0.87], 0.50, "metal", { metallic: 0.2 }),
+  car_black: T("steel_worn_grey", [0.05, 0.05, 0.055], 0.45, "metal", { metallic: 0.4 }),
+  car_green: T("steel_worn_grey", [0.12, 0.25, 0.18], 0.50, "metal", { metallic: 0.4 }),
   car_dirty: T("paint_metal_worn_white", [0.5, 0.47, 0.42], 0.7, "metal", { metallic: 0.15 }),
   glass: [[0.2, 0.25, 0.28], 0.06, "glass"],
   glass_t: [[0.06, 0.08, 0.09], 0.06, "glass"],
   glass_crack: [[0.55, 0.6, 0.62], 0.4, "glass"],
+  glass_dirty: [[0.3, 0.32, 0.3], 0.35, "glass"],                              // AS1: grimed-over glazing
   lamp_w: [[0.84, 0.86, 0.87], 0.12, "glass"],
   lamp_r: [[0.62, 0.03, 0.03], 0.15, "plain"],
   lamp_a: [[0.92, 0.46, 0.04], 0.15, "plain"],
@@ -78,7 +88,7 @@ const MT = {
   refl_w: [[0.93, 0.93, 0.9], 0.35, "plain"],
   refl_r: [[0.75, 0.06, 0.05], 0.35, "plain"],
   plate: [[0.88, 0.88, 0.84], 0.5, "plain"],
-  trim: [[0.045, 0.045, 0.05], 0.6, "plain"],
+  trim: T("plastic_black", [0.045, 0.045, 0.05], 0.65, "plain"),
   dash: T("leather_brown", [0.09, 0.09, 0.095], 0.75, "fabric"),
   seat: T("cloth_grey", [0.24, 0.24, 0.26], 0.95, "fabric"),
   seat_tan: T("cloth_grey", [0.52, 0.46, 0.36], 0.95, "fabric"),
@@ -87,7 +97,7 @@ const MT = {
   pl_red: [[0.72, 0.07, 0.05], 0.5, "plain"],
   pl_yellow: [[0.9, 0.72, 0.06], 0.5, "plain"],
   pl_blue: [[0.06, 0.25, 0.6], 0.45, "plain"],
-  pl_black: [[0.05, 0.05, 0.055], 0.6, "plain"],
+  pl_black: T("plastic_black", [0.05, 0.05, 0.055], 0.6, "plain"),
   pl_grey: [[0.42, 0.43, 0.44], 0.6, "plain"],
   pl_green: [[0.1, 0.32, 0.18], 0.55, "plain"],
   pl_olive: [[0.25, 0.27, 0.17], 0.7, "plain"],
@@ -95,6 +105,7 @@ const MT = {
   hdpe: [[0.86, 0.85, 0.8], 0.55, "plain"],
   wood: T("planks_038", [0.62, 0.52, 0.4], 0.85, "wood"),
   wood_raw: T("planks_raw", [0.76, 0.64, 0.48], 0.88, "wood"),
+  wood_wx: T("boards_weathered", [0.56, 0.52, 0.46], 0.92, "wood"),           // AS1: silvered, weathered softwood
   wood_dk: T("wood_dark", [0.4, 0.32, 0.24], 0.85, "wood"),
   wood_oak: T("wood_oak", [0.55, 0.42, 0.3], 0.8, "wood"),
   ply: T("planks_raw", [0.7, 0.58, 0.42], 0.9, "wood"),
@@ -115,6 +126,8 @@ const MT = {
   rock: T("rock_grey", [0.55, 0.54, 0.5], 0.95, "stone"),
   rock_m: T("rock_mossy", [0.5, 0.5, 0.44], 0.95, "stone"),
   rock_d: T("rock_cliff", [0.45, 0.43, 0.4], 0.95, "stone"),
+  rock_p: T("rock_pale_cracked", [0.6, 0.58, 0.54], 0.95, "stone"),
+  rock_l: T("rock_layered_mossy", [0.48, 0.48, 0.42], 0.95, "stone"),
   cmu: T("concrete_aggregate", [0.66, 0.65, 0.62], 0.95, "concrete"),
   mortar: T("concrete_light", [0.6, 0.58, 0.55], 0.95, "concrete"),
   rebar: T("steel_rust_light", [0.42, 0.27, 0.18], 0.8, "metal", { metallic: 0.3 }),
@@ -221,21 +234,45 @@ function meshGrid(A, u0, u1, v0, v1, toW, su, sv, m = "wire", dia = 0.005) {
   if (sv) for (let v = v0 + sv / 2; v < v1; v += sv) rod(A, toW(u0, v), toW(u1, v), dia, m, { seg: 4 });
 }
 // sandbag: rounded pillow, long axis along yaw, with tied ears
+// AS1: deterministic 0..1 noise from a position (per-part jitter without threading an rng through every helper)
+const hash = (x, y, z, k = 0) => { const v = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + k * 19.19) * 43758.5453; return v - Math.floor(v); };
+// sandbag: a squat chamfered pillow that sags and sits a little off-square (yaw, tilt, size and position jittered per
+// bag so courses never read as a brick grid), a stitched side seam, a tied ear at one end and the folded mouth under
+// the other
 function sandbag(A, c, yaw, { L = 0.6, W = 0.34, Hh = 0.14, m = "sandbag", k = 0 } = {}) {
-  const f = [Math.sin(yaw / DEG), 0, Math.cos(yaw / DEG)];
-  A.rbox([c[0] - W / 2, c[1] - Hh / 2, c[2] - L * 0.42], [c[0] + W / 2, c[1] + Hh / 2, c[2] + L * 0.42], Hh * 0.45, m, { k, r: [0, yaw, 0] });
-  // rbox rotates about its own centre, which is c
-  for (const s of [-1, 1]) A.cone(add(c, f, s * L * 0.45), [Hh * 0.7, L * 0.1, Hh * 0.7], "sandbag_dk", { k: 0, lod: 1, top: 0.4, r: aimY([f[0] * s, 0, f[2] * s]) });
+  const j = (i) => hash(c[0], c[1], c[2], i) - 0.5;
+  const yw = yaw + j(1) * 10, f = [Math.sin(yw / DEG), 0, Math.cos(yw / DEG)], sd = [f[2], 0, -f[0]];
+  const Lb = L * (0.86 + j(2) * 0.06), Wb = W * (1.02 + j(3) * 0.08), hb = Hh * (1.05 + j(4) * 0.14);
+  const cc = [c[0] + j(5) * 0.035, c[1] - 0.004 - Math.abs(j(6)) * 0.012, c[2] + j(7) * 0.035], tl = [j(8) * 6, yw, j(9) * 7];
+  A.obox(cc, [Wb, hb, Lb], tl, m, { k, bv: hb * 0.44 });
+  const e = j(10) > 0 ? 1 : -1;   // which end is tied
+  for (const s of [-1, 1]) A.obox(add(add(cc, sd, s * (Wb / 2 - 0.004)), [0, 1, 0], hb * 0.06), [0.006, 0.008, Lb * 0.82], tl, "sandbag_dk", D);   // stitched seam
+  A.cone(add(add(cc, f, e * Lb * 0.5), [0, 1, 0], hb * 0.12), [hb * 0.55, L * 0.11, hb * 0.5], "sandbag_dk", { k: 0, lod: 1, top: 0.35, seg: 6, r: aimY([f[0] * e, 0.25, f[2] * e]) });
+  A.obox(add(add(cc, f, -e * (Lb * 0.5 + 0.01)), [0, -1, 0], hb * 0.22), [Wb * 0.8, hb * 0.4, 0.05], tl, m, D);   // folded mouth
+}
+// AS1: natural stone: overlapping faceted bodies (a low-sided frustum, a heavily chamfered box and a faceted cap), each
+// turned at random, so the silhouette reads as an irregular weathered rock, not a rounded box. s = rough extents.
+// o.k: 0 for no collider (the frustum is the only collider otherwise), o.lod for scree
+function stone(A, c, s, R, m = "rock", o = {}) {
+  const [sx, sy, sz] = s, tilt = () => (R() - 0.5) * 22, k = o.k ?? 1, l = o.lod ? { lod: 1 } : {};
+  const n = 5 + Math.floor(R() * 3), yaw = R() * 360;
+  A.cyl([c[0], c[1] + sy * 0.36, c[2]], [sx, sy * 0.82, sz], m, { k, n, top: 0.5 + R() * 0.2, r: [tilt(), yaw, tilt()], ...l });
+  const mn = Math.min(sx, sy, sz);
+  A.obox([c[0] + (R() - 0.5) * sx * 0.25, c[1] + sy * 0.45, c[2] + (R() - 0.5) * sz * 0.25], [sx * (0.62 + R() * 0.15), sy * 0.72, sz * (0.62 + R() * 0.15)], [tilt() * 1.5, yaw + 25 + R() * 40, tilt() * 1.5], o.m2 || m, { k: 0, bv: mn * 0.3, ...l });
+  A.cone([c[0] + (R() - 0.5) * sx * 0.3, c[1] + sy * 0.7, c[2] + (R() - 0.5) * sz * 0.3], [sx * 0.55, sy * 0.42, sz * 0.5], m, { k: 0, n: 5, top: 0.3 + R() * 0.2, r: [tilt(), R() * 360, tilt()], ...l });
 }
 // wheel on an axle along x: c centre, D diameter, tw tread width, sx +1 / -1 the outboard side
 function wheel(A, c, D, tw, sx, o = {}) {
   const { rim = "rim", tyre = "rubber", lugs = 5, spokes = 5, flat = false, rimD = 0.62, dual = false } = o;
   const [x, y, z] = c, R90 = [0, 0, 90];
   if (tyre) {
-    A.cyl([x, y, z], flat ? [D * 0.84, tw * 1.12, D * 1.02] : [D, tw, D], tyre, { k: 0, seg: 24, r: R90 });
+    if (flat) {   // AS1: a flat sags onto the road: squashed carcass whose bottom touches the ground, bulging sidewalls
+      A.cyl([x, y - D * 0.07, z], [D * 0.86, tw * 1.1, D * 1.02], "rubber_perish", { k: 0, seg: 24, r: R90 });
+      A.obox([x, y - D * 0.43, z], [tw * 1.24, D * 0.12, D * 0.5], [0, 0, 0], "rubber_perish", dv(D * 0.05));
+    } else A.cyl([x, y, z], [D, tw, D], tyre, { k: 0, seg: 24, r: R90 });
     A.cyl([x + sx * tw * 0.5, y, z], [D * 0.86, 0.016, D * 0.86], "rubber_side", { ...D_, seg: 24, r: R90 });
-    if (!flat) for (let i = 0; i < 18; i++) {   // tread blocks round the crown
-      const a = (i / 18) * 2 * Math.PI;
+    if (!flat) for (let i = 0; i < 14; i++) {   // tread blocks round the crown
+      const a = (i / 14) * 2 * Math.PI;
       A.obox([x, y + Math.cos(a) * D * 0.5, z + Math.sin(a) * D * 0.5], [tw * 0.86, 0.012, D * 0.09], [a * DEG, 0, 0], "rubber_side", D_);
     }
   }
@@ -253,7 +290,6 @@ function wheel(A, c, D, tw, sx, o = {}) {
   }
   if (dual && tyre) A.cyl([x - sx * tw * 1.05, y, z], [D, tw, D], tyre, { k: 0, seg: 24, r: R90 });
 }
-const D_ = D;
 // seat: cushion top at y, centre x, z (front edge toward +z), width w; recline backrest; headrest
 function seat(A, x, y, z, w, m = "seat", { back = 0.62, head = true, depth = 0.5 } = {}) {
   A.rbox([x - w / 2, y - 0.14, z - depth], [x + w / 2, y, z], 0.05, m, V);
@@ -271,16 +307,38 @@ function liftEye(A, x, y, z, yaw = 0, m = "rust", d = 0.12) {
 const JERSEY = [[-0.305, 0], [0.305, 0], [0.305, 0.075], [0.126, 0.33], [0.076, 0.81], [-0.076, 0.81], [-0.126, 0.33], [-0.305, 0.075]];
 const JERSEY_LOW = [[-0.305, 0], [0.305, 0], [0.305, 0.075], [0.126, 0.33], [-0.126, 0.33], [-0.305, 0.075]];
 const scaleY = (poly, sy) => poly.map(([z, y]) => [z, y <= 0.075 ? y : 0.075 + (y - 0.075) * sy]);
-function jerseyDress(A, x0, x1, m, R) {
+// AS1: z of the jersey face at height y on side s (+3 mm proud), for skins laid on the sloped faces
+const jz = (y, s) => s * (y <= 0.075 ? 0.308 : y <= 0.33 ? 0.305 - ((y - 0.075) / 0.255) * 0.179 + 0.0035 : 0.126 - ((y - 0.33) / 0.48) * 0.05 + 0.003);
+function jerseyDress(A, x0, x1, m, R, { loops = true } = {}) {
   A.box([x0 + 0.01, 0.8, -0.078], [x1 - 0.01, 0.815, 0.078], m, dv(0.012));                     // top arris
-  for (const x of [x0 + 0.45, x1 - 0.45]) A.box([x - 0.16, 0, -0.307], [x + 0.16, 0.07, 0.307], "conc_dk", D);   // drain / forklift slot
-  A.box([x0, 0, -0.307], [x1, 0.02, 0.307], "conc_st", D);                                       // grime at the toe
-  for (const x of [x0 + 0.55, x1 - 0.55]) A.cyl([x, 0.6, 0], [0.07, 0.24, 0.07], "conc_dk", { ...D, seg: 10, r: [90, 0, 0] });   // lifting hole
-  for (let i = 0; i < 4; i++) {   // chipped arrises
-    const x = x0 + 0.2 + R() * (x1 - x0 - 0.4), s = R() > 0.5 ? 1 : -1;
-    A.obox([x, 0.79, s * 0.07], [0.06 + R() * 0.08, 0.035, 0.03], [0, R() * 30, s * 20], "conc_dk", D);
+  for (const x of [x0 + 0.45, x1 - 0.45]) {   // forklift slot through the toe: dark throat, chamfered lintel, scuffs
+    A.box([x - 0.16, 0, -0.309], [x + 0.16, 0.085, 0.309], "conc_dk", D);
+    A.box([x - 0.15, 0.002, -0.31], [x + 0.15, 0.075, 0.31], "seam", D);
+    for (const s of [-1, 1]) bar(A, [x, 0.085, jz(0.085, s)], [x, 0.11, jz(0.11, s)], 0.36, 0.006, "conc_st", D);
   }
-  for (let i = 0; i < 2; i++) { const x = x0 + 0.3 + R() * (x1 - x0 - 0.6); A.box([x - 0.03, 0.2, 0.2], [x + 0.05, 0.28, 0.23], "conc_dk", D); }
+  for (const s of [-1, 1]) {   // grime: a damp band up the toe and the lower slope, run-off streaks down the upper face
+    A.box([x0, 0, s * 0.305], [x1, 0.075, s * 0.3095], "conc_wet", D);
+    bar(A, [(x0 + x1) / 2, 0.075, jz(0.076, s)], [(x0 + x1) / 2, 0.15 + R() * 0.05, jz(0.17, s)], x1 - x0 - 0.01, 0.004, "conc_wet", D);
+    for (let i = 0; i < 3; i++) {
+      const x = x0 + 0.25 + R() * (x1 - x0 - 0.5), y0 = 0.42 + R() * 0.2;
+      bar(A, [x, 0.79, jz(0.79, s)], [x + (R() - 0.5) * 0.04, y0, jz(y0, s)], 0.03 + R() * 0.06, 0.003, "conc_wet", D);
+    }
+  }
+  for (const x of [x0 + 0.55, x1 - 0.55]) A.cyl([x, 0.6, 0], [0.07, 0.24, 0.07], "conc_dk", { ...D, seg: 10, r: [90, 0, 0] });   // lifting hole
+  if (loops) for (const x of [x0 + 0.62, x1 - 0.62]) {   // cast-in rebar lifting loops on the top, rust-stained round their feet
+    A.arch([x, 0.815, 0], [0.13, 0.1, 0.018], "rust_h", { k: 0, lod: 1, th: 0.017, seg: 6, r: [0, 90, 0] });
+    A.box([x - 0.035, 0.8155, -0.06], [x + 0.035, 0.817, 0.06], "rust_c", D);
+  }
+  for (let i = 0; i < 5; i++) {   // chipped arrises (spalled to the aggregate)
+    const x = x0 + 0.2 + R() * (x1 - x0 - 0.4), s = R() > 0.5 ? 1 : -1;
+    A.obox([x, 0.79, s * 0.07], [0.06 + R() * 0.1, 0.035, 0.03], [0, R() * 30, s * 20], "conc_dk", D);
+  }
+  for (let i = 0; i < 2; i++) { const x = x0 + 0.3 + R() * (x1 - x0 - 0.6), s = R() > 0.5 ? 1 : -1; A.obox([x, 0.22, s * 0.21], [0.1, 0.07, 0.035], [s * 35, 0, 0], "conc_dk", D); }   // gouge on the lower face
+  for (let i = 0; i < 4; i++) {   // weeds and moss in the angle with the ground
+    const x = x0 + 0.15 + R() * (x1 - x0 - 0.3), s = R() > 0.5 ? 1 : -1, h = 0.08 + R() * 0.14;
+    A.cone([x, h / 2, s * (0.33 + R() * 0.04)], [0.12 + R() * 0.1, h, 0.08 + R() * 0.06], "weeds", { k: 0, lod: 1, n: 5, top: 0.15 });
+  }
+  A.box([x0 + R() * 0.5, 0.0, 0.306], [x0 + 0.6 + R() * 0.6, 0.05, 0.311], "moss", D);
 }
 function jerseyEnds(A, x0, x1) {
   // pin-and-loop connectors: a steel loop pair at +x, a pin socket at -x
@@ -307,7 +365,8 @@ function jersey(id, name, desc, kind) {
     extrudeX(A, x0, -0.35, JERSEY, "conc_l");
     extrudeX(A, -0.35, 0.5, JERSEY_LOW, "conc_l");
     extrudeX(A, 0.5, x1, JERSEY, "conc_l");
-    jerseyDress(A, x0, -0.35, "conc_l", R); jerseyDress(A, 0.5, x1, "conc_l", R);
+    jerseyDress(A, x0, -0.35, "conc_l", R, { loops: false }); jerseyDress(A, 0.5, x1, "conc_l", R, { loops: false });
+    A.arch([x1 - 0.55, 0.815, 0], [0.13, 0.1, 0.018], "rust_h", { k: 0, lod: 1, th: 0.017, seg: 6, r: [0, 90, 0] });
     // broken top: fracture faces, a slumped remnant, bent bars, chunks on the ground
     A.obox([-0.34, 0.56, 0], [0.04, 0.46, 0.2], [0, 0, -8], "conc_dk", V);
     A.obox([0.49, 0.58, 0], [0.04, 0.48, 0.2], [0, 0, 10], "conc_dk", V);
@@ -319,7 +378,7 @@ function jersey(id, name, desc, kind) {
     }
     for (let i = 0; i < 7; i++) {
       const s = 0.06 + R() * 0.14, z = (R() > 0.5 ? 1 : -1) * (0.38 + R() * 0.12);
-      A.obox([-0.3 + R() * 0.9, s * 0.4, z], [s * 1.3, s * 0.8, s], [R() * 40, R() * 180, R() * 40], R() > 0.4 ? "conc_l" : "conc_dk", { k: 0, bv: 0.01 });
+      A.cyl([-0.3 + R() * 0.9, s * 0.38, z], [s * 1.3, s * 0.8, s], R() > 0.4 ? "conc_l" : "conc_dk", { k: 0, n: 5, top: 0.55 + R() * 0.2, r: [R() * 40, R() * 180, R() * 40] });   // AS1: faceted chunks
     }
     jerseyEnds(A, x0, x1);
     return fin(A, { cover: boxCover(1.5, 0.3, 0.6) });
@@ -399,6 +458,9 @@ function bollard(kind) {
     for (const y of [0.62, 0.72]) A.cyl([0, y, 0], [0.405, 0.05, 0.405], "refl_w", { ...D, seg: 20 });
     A.cyl([0, 0.01, 0], [0.46, 0.02, 0.46], "conc_dk", { ...D, seg: 20 });
     A.box([-0.04, 0.3, 0.19], [0.03, 0.36, 0.203], "conc_dk", D);
+    A.cyl([0, 0.08, 0], [0.408, 0.15, 0.408], "conc_wet", { ...D, seg: 20 });                    // AS1: damp splash band
+    for (const [a, y] of [[40, 0.84], [200, 0.5], [300, 0.2]]) { const t = a / DEG; A.obox([Math.sin(t) * 0.196, y, Math.cos(t) * 0.196], [0.09, 0.06, 0.02], [0, a, 0], "conc_dk", D); }   // spalled chips
+    for (let i = 0; i < 3; i++) { const t = i * 2.2; A.cone([Math.sin(t) * 0.24, 0.07, Math.cos(t) * 0.24], [0.14, 0.14, 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
     return fin(A, { cover: [cover([0, 0, -0.55], 0, "low", ["left", "right"])] });
   }
   if (kind === "steel") {
@@ -406,7 +468,10 @@ function bollard(kind) {
     A.cone([0, 1.02, 0], [0.17, 0.05, 0.17], "p_black", { k: 0, seg: 16, top: 0.4 });
     A.cyl([0, 0.82, 0], [0.172, 0.1, 0.172], "p_yellow", { ...D, seg: 16 });
     A.box([-0.15, 0, -0.15], [0.15, 0.015, 0.15], "steel_dk", dv(0.004));
-    for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) A.cyl([x * 0.11, 0.022, z * 0.11], [0.03, 0.014, 0.03], "steel", { ...D, seg: 6 });
+    for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) A.cyl([x * 0.11, 0.022, z * 0.11], [0.03, 0.014, 0.03], "rust", { ...D, seg: 6 });
+    A.cyl([0, 0.06, 0], [0.171, 0.09, 0.171], "rust_c", { ...D, seg: 16 });                       // AS1: rust creeping up from the plate
+    A.obox([0.083, 0.55, 0.02], [0.006, 0.18, 0.05], [0, 0, 0], "steel", D);                       // scrape to bare metal
+    A.box([-0.152, 0.015, -0.152], [0.152, 0.018, 0.152], "rust_h", D);
     return fin(A);
   }
   A.cyl([0, 0.006, 0], [0.42, 0.012, 0.42], "steel_dk", { ...(kind === "down" ? V : {}), seg: 24 });
@@ -435,15 +500,26 @@ function hesco(nx, ny, half = false) {
   for (let j = 0; j < ny; j++) {
     const y0 = j * HH, y1 = y0 + HH, top = j === ny - 1;
     // liner faces just inside the mesh, end faces, dividers between cells
-    for (const s of [-1, 1]) A.box([-hx + 0.004, y0, s * (hz - 0.012) - 0.006], [hx - 0.004, y1 - 0.01, s * (hz - 0.012) + 0.006], "hesco_fab", V);
+    const Rl = rng(nx * 31 + j * 7 + (half ? 3 : 0));
+    for (const s of [-1, 1]) for (let i = 0; i < nx; i++) {   // liner panel per cell face, each leaning a little under the fill
+      const cx = -hx + (i + 0.5) * HB, lean = (Rl() - 0.3) * 1.6;
+      A.obox([cx, (y0 + y1 - 0.01) / 2, s * (hz - 0.016)], [HB - 0.02, y1 - 0.01 - y0, 0.012], [s * lean, (Rl() - 0.5) * 0.8, 0], "hesco_fab", V);
+      A.obox([cx, y0 + 0.3 + Rl() * 0.6, s * (hz - 0.008)], [0.006, 0.25 + Rl() * 0.3, 0.004], [0, 0, (Rl() - 0.5) * 30], "sandbag_dk", D);   // fabric crease
+      if (top && !half) A.box([cx - HB / 2 + 0.03, y1 - 0.06, s * (hz + 0.004) - 0.012], [cx + HB / 2 - 0.03, y1 + 0.012, s * (hz + 0.004) + 0.006], "hesco_fab", dv(0.005));   // liner turned over the top wire
+    }
     for (const s of [-1, 1]) A.box([s * (hx - 0.012) - 0.006, y0, -hz + 0.004], [s * (hx - 0.012) + 0.006, y1 - 0.01, hz - 0.004], "hesco_fab", V);
+    if (j === 0) for (const s of [-1, 1]) {   // mud splash and weeds at the foot
+      A.box([-hx - 0.01, 0, s * (hz + 0.006) - 0.004], [hx + 0.01, 0.14 + Rl() * 0.08, s * (hz + 0.006) + 0.004], "grime", D);
+      for (let i = 0; i < nx * 2; i++) { const h = 0.1 + Rl() * 0.25; A.cone([-hx + 0.2 + Rl() * (X - 0.4), h / 2, s * (hz + 0.04 + Rl() * 0.05)], [0.14 + Rl() * 0.12, h, 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+    }
     for (let i = 1; i < nx; i++) A.box([-hx + i * HB - 0.006, y0, -hz + 0.01], [-hx + i * HB + 0.006, y1 - 0.01, hz - 0.01], "hesco_fab", V);
     // fill surface (slightly mounded) when it shows
     const fy = top ? y0 + fill : y1 - 0.01;
     if (top) for (let i = 0; i < nx; i++) {
       const cx = -hx + (i + 0.5) * HB;
       A.box([cx - hz + 0.02, fy - 0.04, -hz + 0.02], [cx + hz - 0.02, fy, hz - 0.02], "sand", V);
-      A.rbox([cx - 0.36, fy - 0.03, -0.36], [cx + 0.36, fy + 0.035, 0.36], 0.03, "sand", D);
+      A.obox([cx + (Rl() - 0.5) * 0.15, fy + 0.005, (Rl() - 0.5) * 0.15], [0.74, 0.07, 0.7], [(Rl() - 0.5) * 6, Rl() * 90, (Rl() - 0.5) * 6], "sand", dv(0.03));   // settled, uneven fill
+      for (let k = 0; k < 3; k++) { const h = 0.12 + Rl() * 0.2; A.cone([cx + (Rl() - 0.5) * 0.7, fy + h / 2, (Rl() - 0.5) * 0.7], [0.18 + Rl() * 0.15, h, 0.15 + Rl() * 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.12 }); }
     }
     if (top && half) for (const s of [-1, 1]) for (let i = 0; i < nx * 3; i++) {   // the empty liner above the fill sags inward
       const x = -hx + (i + 0.5) * (HB / 3);
@@ -476,7 +552,7 @@ function sandbagPosition() {
     for (const s of [-1, 1]) for (let z = ZF - 0.3 - o; z > ZB + 0.1; z -= 0.6) sandbag(A, [s * (W + 0.17), y, z], 0, { m: (c + (s > 0 ? 1 : 0)) % 3 ? "sandbag" : "sandbag_od" });
   }
   // timber frame and ply revetment inside
-  for (const [x, z] of [[-W + 0.05, ZF - 0.03], [W - 0.05, ZF - 0.03], [-W + 0.05, ZB + 0.3], [W - 0.05, ZB + 0.3], [0, ZF - 0.03]]) A.box([x - 0.045, 0, z - 0.02], [x + 0.045, 1.3, z + 0.02], "wood_raw", vb(0.006));
+  for (const [x, z] of [[-W + 0.05, ZF - 0.03], [W - 0.05, ZF - 0.03], [-W + 0.05, ZB + 0.3], [W - 0.05, ZB + 0.3], [0, ZF - 0.03]]) A.box([x - 0.045, 0, z - 0.02], [x + 0.045, 1.3, z + 0.02], "wood_wx", vb(0.006));
   A.box([-W + 0.01, 0.05, ZF - 0.01], [W - 0.01, 1.12, ZF + 0.008], "ply", V);
   for (const s of [-1, 1]) A.box([s * W - 0.009, 0.05, ZB + 0.25], [s * W + 0.009, 1.12, ZF], "ply", V);
   for (const y of [0.3, 1.0]) A.box([-W + 0.1, y, ZF - 0.06], [W - 0.1, y + 0.09, ZF - 0.01], "wood_raw", vb(0.005));
@@ -624,6 +700,10 @@ function chainLinkPanel(razor) {
   meshDiamond(A, -W / 2 + 0.03, W / 2 - 0.03, 0.05, HM, (u, v) => [u, v, 0.03], 0.12, "wire", 0.0045);
   for (let x = -1.2; x < 1.3; x += 0.6) A.box([x - 0.006, HM - 0.03, 0.02], [x + 0.006, HM + 0.03, 0.055], "wire", D);   // ties
   A.box([-W / 2, 0, -0.03], [W / 2, HM, 0.06], "wire", H);
+  { const Rf = rng(razor ? 61 : 62);   // AS1: abandoned: weeds grown up through the foot of the mesh, litter caught in it, rust at the ties
+    for (let i = 0; i < 9; i++) { const h = 0.2 + Rf() * 0.5; A.cone([-W / 2 + 0.1 + Rf() * (W - 0.2), h / 2, 0.03 + (Rf() - 0.5) * 0.2], [0.2 + Rf() * 0.2, h, 0.16], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+    A.obox([-0.6 + Rf() * 1.2, 0.18, 0.04], [0.5 + Rf() * 0.4, 0.3, 0.02], [0, 0, (Rf() - 0.5) * 10], "leaves", D);
+    for (const x of [-W / 2, W / 2]) A.cyl([x, 0.09, 0], [0.064, 0.12, 0.064], "rust", { ...D, seg: 12 }); }
   if (razor) {
     for (const x of [-W / 2, W / 2]) {
       bar(A, [x, HP - 0.02, 0], [x, HP + 0.42, -0.42], 0.05, 0.05, "galv");
@@ -726,6 +806,8 @@ function constructionFence() {
     boltRow(A, [x, Hh - 0.085, 0.036], [x, Hh - 0.085, 0.036], 1, "z");
   }
   rod(A, [x1 - 0.1, 1.2, 0], [x1 - 0.4, 0.05, -0.6], 0.03, "galv", { seg: 8 });   // stay
+  for (const x of [x0 + 0.02, x1 - 0.02]) A.box([x - 0.335, 0, -0.103], [x + 0.335, 0.05, 0.103], "grime", D);   // AS1: mud on the feet
+  A.obox([0.3, 1.0, 0.012], [1.6, 0.9, 0.004], [0, 0, 2], "poly_blue", D);                                       // a torn scrap of debris netting
   A.rbox([x1 - 0.65, 0, -0.75], [x1 - 0.15, 0.12, -0.5], 0.02, "conc_r");
   A.box([x0, 0, -0.03], [x1, Hh, 0.03], "wire", H);
   return fin(A);
@@ -751,6 +833,9 @@ function palisade() {
     for (const y of [0.375, Hh - 0.275]) boltRow(A, [x, y, 0.101], [x, y, 0.101], 1, "z", "steel");
   }
   A.box([-W / 2, 0, 0], [W / 2, Hh, 0.12], "p_green", H);
+  { const Rf = rng(73);   // AS1: rust bleeding from the bolts and pale tips, weeds at the foot
+    for (let x = -W / 2 + 0.12; x < W / 2 - 0.06; x += 0.155) if (Rf() > 0.45) A.box([x - 0.01, 0.12 + Rf() * 0.3, 0.1005], [x + 0.01, 0.375, 0.1015], "rust", D);
+    for (let i = 0; i < 8; i++) { const h = 0.2 + Rf() * 0.45; A.cone([-W / 2 + 0.1 + Rf() * (W - 0.2), h / 2, 0.06 + (Rf() - 0.5) * 0.3], [0.2 + Rf() * 0.2, h, 0.15], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); } }
   return fin(A, { cover: [cover([0, 0, -0.6], 0, "high", ["left", "right"]), cover([0, 0, 0.7], 180, "high", ["left", "right"])] });
 }
 
@@ -759,7 +844,9 @@ function cone(tall) {
   const h = tall ? 0.71 : 0.45, b = tall ? 0.38 : 0.28, d = tall ? 0.3 : 0.22;
   const A = mk(tall ? "mod_traffic_cone" : "mod_traffic_cone_small", tall ? "Traffic cone (710 mm)" : "Traffic cone (450 mm)", "Road",
     `Fluorescent orange PVC traffic cone, ${Math.round(h * 1000)} mm, on a square black rubber base with ${tall ? "two" : "one"} retro-reflective collar${tall ? "s" : ""}.`, [b + 0.02, b + 0.02]);
-  A.rbox([-b / 2, 0, -b / 2], [b / 2, 0.035, b / 2], 0.02, "rubber");
+  A.box([-b / 2, 0, -b / 2], [b / 2, 0.035, b / 2], "rubber", { bv: 0.012 });
+  A.cyl([0, h + 0.001, 0], [d * 0.12, 0.004, d * 0.12], "seam", { ...D, seg: 8 });
+  A.cone([0, 0.035 + 0.04, 0], [d * 0.97 + 0.004, 0.08, d * 0.97 + 0.004], "grime", { ...D, seg: 20, top: 0.93 });
   A.cone([0, 0.035 + (h - 0.035) / 2, 0], [d, h - 0.035, d], "pl_orange", { seg: 20, top: 0.17 });
   const bands = tall ? [[0.46, 0.13], [0.3, 0.07]] : [[0.27, 0.08]];
   for (const [y, bh] of bands) { const t = (y - 0.035) / (h - 0.035), dd = d * (1 - t * 0.83) + 0.004; A.cone([0, y, 0], [dd, bh, dd], "refl_w", { ...D, seg: 20, top: 1 - (bh / (h - 0.035)) * 0.83 / (1 - t * 0.83) }); }
@@ -774,6 +861,7 @@ function drum() {
   for (let i = 0; i < 3; i++) { const y = 0.22 + i * 0.32; A.cyl([0, y, 0], [0.585 - i * 0.02, 0.02, 0.585 - i * 0.02], "pl_orange", { ...D, seg: 24 }); }
   A.cyl([0, 0.93, 0], [0.42, 0.03, 0.42], "pl_orange", { ...D, seg: 20 });
   A.box([-0.1, 0.94, -0.02], [0.1, 1.0, 0.02], "pl_orange", dv(0.01));
+  A.cone([0, 0.13, 0], [0.585, 0.1, 0.585], "grime", { ...D, seg: 24, top: 0.99 });   // AS1: road dirt up the foot
   return fin(A, { effect: "carve" });
 }
 function sawhorse() {
@@ -825,9 +913,9 @@ function roadblock() {
   const R = rng(3333);
   for (const [cx, cz] of [[-2.4, -1.4], [2.4, 1.4]]) {
     extrudeX(A, cx - 1.5, cx + 1.5, JERSEY.map(([z, y]) => [z + cz, y]), "conc_l");
-    A.box([cx - 1.49, 0.8, cz - 0.078], [cx + 1.49, 0.815, cz + 0.078], "conc_l", dv(0.012));
-    for (const x of [cx - 1.05, cx + 1.05]) A.box([x - 0.16, 0, cz - 0.307], [x + 0.16, 0.07, cz + 0.307], "conc_dk", D);
-    for (let i = 0; i < 3; i++) { const x = cx - 1.3 + R() * 2.6; A.obox([x, 0.79, cz + 0.07], [0.1, 0.035, 0.03], [0, 0, 20], "conc_dk", D); }
+    const s0 = A.parts.length;
+    jerseyDress(A, cx - 1.5, cx + 1.5, "conc_l", R);
+    for (let i = s0; i < A.parts.length; i++) { const p = A.parts[i]; if (p.t === "p") p.tri = p.tri.map(([z, y]) => [z + cz, y]); else p.c[2] = Math.round((p.c[2] + cz) * 1e4) / 1e4; }
     for (const x of [cx - 1.2, cx, cx + 1.2]) A.box([x - 0.08, 0.7, cz + 0.087], [x + 0.08, 0.76, cz + 0.092], "refl_w", D);
   }
   spikeStrip(A, -3.6, 3.4, -2.8);
@@ -902,7 +990,7 @@ function carBody(A, v) {
   seg(wf + gap / 2, zN); seg(wr + gap / 2, wf - gap / 2); seg(zT, wr - gap / 2);
   for (const wz of [wf, wr]) {
     A.arch([0, yC + (yW - yC) / 2, wz], [gap, yW - yC, W], paint, { k: 0, fill: 1, th: 0.02, r: [0, 90, 0] });
-    A.arch([0, yC + (yW - yC + 0.03) / 2, wz], [gap + 0.06, yW - yC + 0.03, W + 0.02], trimM, { k: 0, lod: 1, th: 0.035, r: [0, 90, 0] });
+    A.arch([0, yC + (yW - yC + 0.03) / 2, wz], [gap + 0.06, yW - yC + 0.03, W + 0.02], wreck ? "rust_h" : trimM, { k: 0, lod: 1, th: 0.035, r: [0, 90, 0] });   // AS1: arch lips rot first
     A.box([-hx + tw + 0.06, yC - 0.05, wz - gap / 2], [hx - tw - 0.06, yW - 0.02, wz + gap / 2], "seam", V);
   }
   // upper lower-body: side profile from the nose over the bonnet and the waist to the tail
@@ -944,7 +1032,8 @@ function carBody(A, v) {
   if (v.seatR != null) seat(A, 0, iy, v.seatR, cx * 2 - 0.22, seatM, { head: true });
   if (v.van) A.box([-cx + 0.02, belt, v.seatsF - 0.75], [cx - 0.02, roof - 0.1, v.seatsF - 0.72], "p_grey", V);           // bulkhead
   // front end: bumper, plate, grille, lamps; rear end; mirrors; seams and handles
-  A.rbox([-hx + 0.01, clear + 0.04, zN - 0.12], [hx - 0.01, clear + 0.34, zN + 0.05], 0.05, bump, V);
+  if (burn) { A.box([-hx + 0.12, clear + 0.1, zN - 0.16], [hx - 0.12, clear + 0.22, zN - 0.06], "burnt_dk", { k: 0, bv: 0.02 }); for (const s of [-1, 1]) A.box([s * (hx - 0.3) - 0.05, clear + 0.12, zN - 0.4], [s * (hx - 0.3) + 0.05, clear + 0.2, zN - 0.15], "rust_h", D); }
+  else A.rbox([-hx + 0.01, clear + 0.04, zN - 0.12], [hx - 0.01, clear + 0.34, zN + 0.05], 0.05, bump, V);
   A.box([-hx + 0.3, clear + 0.08, zN + 0.05], [hx - 0.3, clear + 0.17, zN + 0.056], trimM, D);
   if (!burn) A.box([-0.26, clear + 0.18, zN + 0.05], [0.26, clear + 0.3, zN + 0.058], "plate", D);
   A.box([-hx + 0.42, hood - 0.27, zN - 0.02], [hx - 0.42, hood - 0.11, zN + 0.006], trimM, D);
@@ -965,7 +1054,8 @@ function carBody(A, v) {
     for (let i = 1; i < dz.length; i++) A.box([s * hx - 0.004, belt - 0.11, dz[i] + 0.06], [s * hx + 0.014, belt - 0.08, dz[i] + 0.2], burn ? "burnt_dk" : "chrome", D);
     A.box([s * hx - 0.004, clear, wr + gap / 2 + 0.05], [s * hx + 0.012, clear + 0.09, wf - gap / 2 - 0.05], trimM, D);       // sill
   }
-  A.rbox([-hx + 0.01, clear + 0.04, zT - 0.05], [hx - 0.01, clear + 0.32, zT + 0.1], 0.05, bump, V);
+  if (burn) A.box([-hx + 0.12, clear + 0.1, zT + 0.06], [hx - 0.12, clear + 0.22, zT + 0.16], "burnt_dk", { k: 0, bv: 0.02 });
+  else A.rbox([-hx + 0.01, clear + 0.04, zT - 0.05], [hx - 0.01, clear + 0.32, zT + 0.1], 0.05, bump, V);
   if (!burn) A.box([-0.26, deck - 0.4, zT - 0.006], [0.26, deck - 0.3, zT], "plate", D);
   for (const s of [-1, 1]) A.box([s * (hx - 0.3) - 0.05, clear + 0.14, zT - 0.052], [s * (hx - 0.3) + 0.05, clear + 0.18, zT - 0.048], "refl_r", D);
   rod(A, [0.45, clear + 0.02, zT + 0.6], [0.45, clear + 0.02, zT - 0.06], 0.06, burn ? "burnt_dk" : "steel", { seg: 8 });   // exhaust
@@ -988,20 +1078,75 @@ function carBody(A, v) {
     A.box([-hx, clear, v.zCab], [hx, belt, zN], paint, H);
   } else A.box([-hx, clear, zT], [hx, belt, zN], paint, H);
   A.box([-cx, belt, Math.min(zC, zD)], [cx, roof, zA], paint, H);
-  // wreck extras: popped bonnet, hanging bumper, rust and grime
+  // AS1: panel gaps every car shows: bonnet shut lines, boot / tailgate line, fuel flap
+  for (const s of [-1, 1]) bar(A, [s * (hx - 0.1), hood + 0.004, zN - 0.16], [s * (hx - 0.1), belt + 0.004, zA + 0.02], 0.008, 0.004, "seam", D);
+  if (!v.van && !v.pickup) for (const s of [-1, 1]) seam(A, [s * hx - 0.003, deck - 0.3, zT + 0.04], [s * hx + 0.003, deck - 0.02, zT + 0.05]);
+  seam(A, [hx - 0.003, belt - 0.2, wr + 0.32], [hx + 0.003, belt - 0.08, wr + 0.44]);
+  // AS1: long abandoned (every state): grime splashed up the sills, leaf litter in the scuttle and on the roof
+  if (!burn) {
+    for (const s of [-1, 1]) A.box([s * hx - 0.004, clear, wr + gap / 2], [s * hx + 0.004, clear + 0.18 + R() * 0.06, wf - gap / 2], "grime", D);
+    A.obox([0, belt + 0.035, zA - 0.06], [cx * 1.6, 0.025, 0.14], [0, 0, 0], "leaves", D);
+    for (let i = 0; i < 3; i++) A.obox([(R() - 0.5) * cx, roof + 0.004, zC + R() * (zB - zC)], [0.25 + R() * 0.3, 0.012, 0.2 + R() * 0.3], [0, R() * 90, 0], "leaves", D);
+  }
+  // wreck extras: popped and bent bonnet, hanging bumper, a buckled door, rust bursting through, shard-edged windows,
+  // glass on the road, weeds grown up round it
   if (wreck) {
     bar(A, [0, belt + 0.03, zA + 0.05], [0, hood + 0.16, zN - 0.2], W - 0.1, 0.03, paint, V);
+    A.obox([0.05, hood + 0.06, (zA + zN) / 2], [W * 0.5, 0.012, 0.35], [-18, 12, 4], "rust_h", D);
     A.obox([-0.2, clear + 0.12, zN - 0.02], [W - 0.2, 0.26, 0.15], [0, 6, -9], bump, V);
-    for (let i = 0; i < 6; i++) { const s = R() > 0.5 ? 1 : -1; A.box([s * hx - 0.004, clear + 0.05 + R() * 0.3, -1.5 + R() * 3], [s * hx + 0.004, clear + 0.25 + R() * 0.3, -1.3 + R() * 3], "rust", D); }
+    const d0 = (v.doors || [zA, zC])[0], d1 = (v.doors || [zA, zC])[1];   // the front door on the +x side is stove in
+    A.obox([hx + 0.002, (clear + belt) / 2 + 0.04, (d0 + d1) / 2], [0.014, (belt - clear) * 0.62, (d0 - d1) * 0.7], [4, -7, 5], paint, D);
+    for (const t of [-1, 1]) bar(A, [hx + 0.01, clear + 0.25, (d0 + d1) / 2 + t * 0.25], [hx + 0.012, belt - 0.08, (d0 + d1) / 2 - t * 0.1], 0.012, 0.004, "seam", D);
+    for (let i = 0; i < 10; i++) {   // rust: blistered patches low on the panels and round the arches, larger on the roof
+      const s = R() > 0.5 ? 1 : -1, z = zT + 0.3 + R() * (L - 0.6), y = clear + 0.05 + R() * (belt - clear - 0.2), w = 0.1 + R() * 0.25;
+      A.obox([s * (hx + 0.003), y, z], [0.006, w * (0.5 + R() * 0.6), w], [R() * 40 - 20, 0, 0], R() > 0.4 ? "rust_h" : "rust_c", D);
+    }
+    for (let i = 0; i < 3; i++) A.obox([(R() - 0.5) * cx, roof + 0.003, zC + R() * (zB - zC)], [0.2 + R() * 0.3, 0.008, 0.15 + R() * 0.3], [0, R() * 90, 0], "rust_h", D);
+    const shards = (s, z0, z1) => {   // jagged remnants left in a broken side window frame
+      for (let z = z0 + 0.05; z < z1 - 0.1; z += 0.13 + R() * 0.1) { const w = 0.06 + R() * 0.12, h = 0.04 + R() * 0.16; A.prism(0, s * cx - 0.003, s * cx + 0.003, [[z, belt + 0.01], [z + w, belt + 0.01], [z + w * R(), belt + 0.01 + h]], "glass_crack", { k: 0 }); }
+    };
+    for (const s of [-1, 1]) if ((v.broken || []).includes(s > 0 ? "left" : "right")) {
+      shards(s, v.van ? v.zBp : zD, zA);
+      for (let i = 0; i < 8; i++) A.obox([s * (hx + 0.15 + R() * 0.7), 0.035, zC + R() * (zA - zC)], [0.02 + R() * 0.06, 0.004, 0.02 + R() * 0.05], [0, R() * 180, 0], "glass_crack", D);   // crumbs on the road (lifted with the -0.03 settle)
+    }
+    if ((v.broken || []).includes("rear") && !v.van) for (let x = -cx + 0.1; x < cx - 0.15; x += 0.18 + R() * 0.12) A.obox([x, belt + 0.04, zD + 0.04], [0.08 + R() * 0.1, 0.05 + R() * 0.08, 0.006], [-40, 0, (R() - 0.5) * 40], "glass_crack", D);
+    for (let i = 0; i < 8; i++) { const s = R() > 0.5 ? 1 : -1, h = 0.15 + R() * 0.3; A.cone([s * (hx + 0.05 + R() * 0.2), 0.03 + h / 2, zT + R() * L], [0.18 + R() * 0.15, h, 0.14], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+  }
+  // burned extras: the last of the paint low on the doors, soot plumes out of the window frames, molten alloy puddles
+  if (burn) {
+    for (const s of [-1, 1]) {
+      A.box([s * hx - 0.004, clear + 0.04, wr + gap / 2 + 0.05], [s * hx + 0.004, clear + 0.17 + R() * 0.05, wf - gap / 2 - 0.05], v.paint, D);
+      for (let i = 0; i < 3; i++) { const z = zD + R() * (zA - zD); A.obox([s * (cx + 0.006), roof - 0.12, z], [0.006, 0.2, 0.3 + R() * 0.3], [0, 0, 0], "soot", D); }
+    }
+    A.obox([0, roof + 0.003, (zB + zC) / 2], [cx * 1.7, 0.006, (zB - zC) * 0.7], [0, 0, 0], "soot", D);
   }
   // wheels (a burned car sits down on its rims)
   const wx = hx - tw / 2 - 0.03, ws4 = [[wx, wf, 1], [-wx, wf, -1], [wx, wr, 1], [-wx, wr, -1]];
-  ws4.forEach(([x, z, s], i) => wheel(A, [x, yC, z], Dw, tw, s, { tyre: burn ? null : "rubber", rim: burn ? "burnt_dk" : v.rim || "rim", flat: wreck && (v.flat || []).includes(i) }));
+  const gone = wreck ? v.missing || [] : [];
+  ws4.forEach(([x, z, s], i) => {
+    if (gone.includes(i)) {   // AS1: wheel stolen: bare hub and rusted brake disc on the stub axle
+      A.cyl([x + s * 0.02, yC, z], [Dw * 0.45, 0.025, Dw * 0.45], "rust_h", { k: 0, seg: 16, r: [0, 0, 90] });
+      A.cyl([x + s * 0.04, yC, z], [Dw * 0.2, 0.05, Dw * 0.2], "rust", { ...D, seg: 10, r: [0, 0, 90] });
+      for (let k = 0; k < 5; k++) { const a = (k / 5) * 2 * Math.PI; rod(A, [x + s * 0.05, yC + Math.cos(a) * Dw * 0.08, z + Math.sin(a) * Dw * 0.08], [x + s * 0.1, yC + Math.cos(a) * Dw * 0.08, z + Math.sin(a) * Dw * 0.08], 0.014, "steel_dk", { seg: 4 }); }
+      return;
+    }
+    wheel(A, [x, yC, z], Dw, tw, s, { tyre: burn ? null : "rubber", rim: burn ? "burnt_dk" : v.rim || "rim", flat: wreck && (v.flat || []).includes(i) });
+  });
   if (burn) {
     shiftY(A, start, -(Dw * (1 - 0.62)) / 2);
     A.cyl([0, 0.004, 0], [W + 1.6, 0.008, L + 1.2], "soot", { ...D, seg: 20 });
     for (let i = 0; i < 8; i++) A.obox([(R() - 0.5) * W * 1.4, 0.01, (R() - 0.5) * L], [0.1 + R() * 0.15, 0.015, 0.05 + R() * 0.1], [0, R() * 180, 0], "burnt_dk", D);
-  } else if (wreck) shiftY(A, start, -0.03);
+    for (const [x, z] of ws4) A.obox([x * 1.05, 0.02, z], [0.35, 0.04, Dw * 0.8], [0, R() * 20, 0], "soot", { k: 0, bv: 0.015, lod: 1 });   // tyre ash and steel cord
+    for (let i = 0; i < 2; i++) A.cyl([(R() - 0.5) * 0.8, 0.006, zN - 0.7 - R() * 0.6], [0.3 + R() * 0.3, 0.01, 0.2 + R() * 0.3], "chrome", { ...D, seg: 10 });   // molten alloy
+  } else if (wreck) {
+    shiftY(A, start, -0.03);
+    ws4.forEach(([x, z, s], i) => {   // blocks under the stripped corners: a cinder block on its side and a timber packer
+      if (!gone.includes(i)) return;
+      const yb = yC - 0.03 - Dw * 0.23;
+      A.box([x - s * 0.2 - 0.1, 0, z - 0.2], [x - s * 0.2 + 0.1, Math.min(0.39, yb - 0.04), z + 0.2], "cmu", { bv: 0.008 });
+      A.box([x - s * 0.2 - 0.09, Math.min(0.39, yb - 0.04), z - 0.15], [x - s * 0.2 + 0.09, yb, z + 0.15], "wood_wx", { k: 0, bv: 0.005 });
+    });
+  }
   return A;
 }
 // cover round a vehicle running along z
@@ -1377,9 +1522,9 @@ function vehicles() {
     car("mod_suv", "SUV (generic)", "Generic mid-size SUV, 4.8 x 1.95 x 1.8 m: tall bonnet, upright glasshouse with roof rails, black plastic bumpers, 0.76 m tyres, five seats visible through the glass.", SUV, "car_black", "ok"),
     car("mod_pickup", "Pickup truck (crew cab, generic)", "Generic full-size crew-cab pickup, 5.5 x 2.0 x 1.9 m: tall bonnet and chrome bumper, four-door cab, a 1.75 m open load bed with wheel tubs, ribbed floor and tailgate; 0.8 m tyres.", PICKUP, "car_white", "ok"),
     car("mod_delivery_van", "Delivery van (high roof, generic)", "Generic high-roof panel van, 5.9 x 2.05 x 2.62 m: short bonnet and steep windscreen, glazed cab doors, solid load-box sides with a sliding side-door track, twin rear doors with small windows, a cab bulkhead and two seats.", VAN, "car_white", "ok"),
-    car("mod_sedan_wrecked", "Sedan (wrecked)", "Abandoned wrecked saloon: smashed side and rear glass, crazed windscreen, popped bonnet, a bumper hanging off, two flat tyres, rust and grime on the paint.", SEDAN, "car_dirty", "wreck", { broken: ["left", "rear"], cracked: ["ws", "right"], flat: [0, 3] }),
+    car("mod_sedan_wrecked", "Sedan (wrecked)", "Abandoned wrecked saloon: smashed side and rear glass with shards left in the frames, crazed windscreen, popped and bent bonnet, a bumper hanging off, a stove-in door, one flat tyre and one wheel stolen (the hub on blocks), rust bursting through the paint, grime, leaf litter and weeds round it.", SEDAN, "car_dirty", "wreck", { broken: ["left", "rear"], cracked: ["ws", "right"], flat: [0], missing: [3] }),
     car("mod_sedan_burned", "Sedan (burned out)", "Burned-out saloon shell: blistered rust-brown metal, no glass, plastics melted away, seats burned to their frames, sitting on its bare rims in a scorch mark.", SEDAN, "car_silver", "burn"),
-    car("mod_van_wrecked", "Delivery van (wrecked)", "Abandoned wrecked panel van: broken cab glass, cracked windscreen, popped bonnet, a hanging bumper, flat tyres, rust streaks.", VAN, "car_dirty", "wreck", { broken: ["right"], cracked: ["ws", "left"], flat: [1, 2] }),
+    car("mod_van_wrecked", "Delivery van (wrecked)", "Abandoned wrecked panel van: broken cab glass with shards in the frame, cracked windscreen, popped bonnet, a hanging bumper, a stove-in door, a flat tyre and one wheel stolen (hub on blocks), rust, grime and weeds.", VAN, "car_dirty", "wreck", { broken: ["right"], cracked: ["ws", "left"], flat: [2], missing: [1] }),
     car("mod_van_burned", "Delivery van (burned out)", "Burned-out high-roof van shell on its bare rims in a scorch mark: no glass or tyres, blistered rust-brown panels, burned seats.", VAN, "car_white", "burn"),
     cityBus(), boxTruck(), semiTractor(), semiTrailer(), milUtility("tan"), milUtility("green"), apc(),
   ];
@@ -1406,7 +1551,7 @@ function container(A, o) {
     for (const s of [-1, 1]) {
       B([s > 0 ? hx - 0.15 : -hx, 0, e > 0 ? hz - 0.15 : -hz], [s > 0 ? hx : -hx + 0.15, CH, e > 0 ? hz : -hz + 0.15], frame, vb(0.012));
       for (const y of [0, CH - 0.118]) {
-        B([s > 0 ? hx - 0.178 : -hx - 0.002, y, e > 0 ? hz - 0.162 : -hz - 0.002], [s > 0 ? hx + 0.002 : -hx + 0.178, y + 0.118, e > 0 ? hz + 0.002 : -hz + 0.162], "steel_dk", dv(0.008));
+        B([s > 0 ? hx - 0.178 : -hx - 0.002, y, e > 0 ? hz - 0.162 : -hz - 0.002], [s > 0 ? hx + 0.002 : -hx + 0.178, y + 0.118, e > 0 ? hz + 0.002 : -hz + 0.162], "steel_dk", D);   // AS1: castings plain (the chamfer did not read at 0.18 m and cost 96 tris each)
         B([s > 0 ? hx - 0.12 : -hx + 0.05, y + 0.03, e > 0 ? hz + 0.002 : -hz - 0.004], [s > 0 ? hx - 0.05 : -hx + 0.12, y + 0.08, e > 0 ? hz + 0.004 : -hz - 0.002], "seam", D);
         B([s > 0 ? hx + 0.002 : -hx - 0.004, y + 0.03, e > 0 ? hz - 0.12 : -hz + 0.05], [s > 0 ? hx + 0.004 : -hx - 0.002, y + 0.08, e > 0 ? hz - 0.05 : -hz + 0.12], "seam", D);
       }
@@ -1434,6 +1579,22 @@ function container(A, o) {
   B([-hx + 0.05, 0.12, -hz + 0.05], [hx - 0.05, 0.16, hz - 0.05], "wood_dk", V);                                  // floor
   for (const s of [-1, 1]) for (const z of [-hz + 0.5, hz - 0.5]) B([s > 0 ? hx - 0.3 : -hx + 0.1, CH - 0.35, z - 0.08], [s > 0 ? hx - 0.1 : -hx + 0.3, CH - 0.25, z + 0.08], "seam", D);   // vents
   if (len < 7) for (const s of [-1, 1]) for (const z of [-1.03, 1.03]) B([s > 0 ? hx - 0.002 : -hx - 0.004, 0.03, z - 0.18], [s > 0 ? hx + 0.004 : -hx + 0.002, 0.13, z + 0.18], "seam", D);   // fork pockets
+  // AS1: weathering: rust bleeding from the bottom rails and castings, streaks down the sides from the roof joint, a
+  // few dents in the side sheets, grime splashed up the foot, weeds round it (ground level only)
+  for (const s of [-1, 1]) {
+    const xs = s * (hx + 0.003);
+    for (let i = 0; i < Math.round(len * 0.55); i++) {
+      const z = -hz + 0.3 + R() * (2 * hz - 0.6), y1 = CH - 0.1 - R() * 0.05, y0 = y1 - 0.4 - R() * 1.3;
+      B([xs - 0.002, y0, z - 0.02 - R() * 0.04], [xs + 0.002, y1, z + 0.02], R() > 0.5 ? "rust" : "rust_c", D);
+    }
+    for (let i = 0; i < Math.round(len * 0.4); i++) { const z = -hz + 0.2 + R() * (2 * hz - 0.4), w = 0.2 + R() * 0.5; B([xs - 0.002, 0.14, z - w / 2], [xs + 0.004, 0.17 + R() * 0.12, z + w / 2], "rust_h", D); }
+    for (let i = 0; i < 2; i++) { const z = -hz + 0.8 + R() * (2 * hz - 1.6); A.obox(at(s * (hx - 0.012), 0.6 + R() * 1.2, z), [0.02, 0.4 + R() * 0.4, 0.5 + R() * 0.4], [R() * 8 - 4, s * (4 + R() * 5), 0], damage ? "c_rust" : m, D); }
+  }
+  if (y0 === 0) {
+    for (const s of [-1, 1]) B([s * (hx + 0.005) - 0.002, 0, -hz], [s * (hx + 0.005) + 0.002, 0.16 + R() * 0.1, hz], "grime", D);
+    for (let i = 0; i < Math.round(len * 0.6); i++) { const s = R() > 0.5 ? 1 : -1, h = 0.15 + R() * 0.35; A.cone(at(s * (hx + 0.06 + R() * 0.12), h / 2, -hz + R() * 2 * hz), [0.2 + R() * 0.15, h, 0.14], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+  }
+  for (let i = 0; i < 4; i++) B([-hx + 0.2 + R() * (CW - 0.6), CH - 0.018, -hz + 0.3 + R() * (2 * hz - 1)], [-hx + 0.6 + R() * (CW - 0.8), CH - 0.012, -hz + 0.8 + R() * (2 * hz - 1)], R() > 0.5 ? "rust_h" : "leaves", D);   // roof rust / leaf mould
   // doors
   const lw = hx - 0.01, dh0 = 0.16, dh1 = CH - 0.2;
   const leaf = (s, ang) => {   // s: hinge side; ang: swing in degrees (0 closed)
@@ -1447,7 +1608,8 @@ function container(A, o) {
       for (const y of [dh0 - 0.02, dh1 + 0.02]) A.obox(pt(u, y), [0.07, 0.07, 0.07], [0, rot, 0], "steel_dk", D);
       A.obox(pt(u + 0.12, 1.15), [0.26, 0.035, 0.05], [0, rot, 0], "steel", D);
     }
-    for (const y of [0.4, 1.0, 1.6, 2.2]) A.obox(pt(0.03, y), [0.07, 0.14, 0.07], [0, rot, 0], "steel_dk", D);
+    for (const y of [0.4, 1.0, 1.6, 2.2]) { A.obox(pt(0.03, y), [0.07, 0.14, 0.07], [0, rot, 0], "steel_dk", D); A.obox(pt(0.08, y - 0.25), [0.05, 0.36, 0.044], [0, rot, 0], "rust", D); }   // hinge + rust run
+    for (const u of [0.3, 0.9]) A.obox(pt(u + 0.035, 0.95), [0.06, 0.05, 0.06], [0, rot, 0], "steel_dk", D);   // handle keeper
     if (ang === 0) A.obox(pt(lw - 0.01, (dh0 + dh1) / 2), [0.02, dh1 - dh0, 0.05], [0, rot, 0], "rubber", D);
   };
   if (open) { leaf(1, 90); leaf(-1, 90); }
@@ -1493,14 +1655,24 @@ function dumpsterFront() {
     A.box([x > 0 ? x + 0.02 : x - 0.17, 0.85, -0.451], [x > 0 ? x + 0.17 : x - 0.02, 0.95, 0.451], "seam", D);
   }
   A.box([-0.93, 1.1, -0.53], [0.93, 1.15, 0.55], m, dv(0.01));
-  for (const s of [-1, 1]) {
-    A.obox([s * 0.45, 1.19, 0.01], [0.88, 0.06, 1.1], [-3, 0, 0], "pl_black", { k: 0, bv: 0.02 });
-    for (const z of [-0.2, 0.2]) A.box([s * 0.45 - 0.35, 1.22, z - 0.02], [s * 0.45 + 0.35, 1.24, z + 0.02], "pl_black", D);
-    A.box([s * 0.45 - 0.08, 1.15, 0.54], [s * 0.45 + 0.08, 1.2, 0.58], "pl_black", D);
+  for (const s of [-1, 1]) {   // AS1: the +x lid is propped open on an overflowing bag
+    const ang = s > 0 ? 58 : 3, hz0 = -0.53, hy = 1.17, c = [s * 0.45, hy + Math.sin(ang / DEG) * 0.55, hz0 + Math.cos(ang / DEG) * 0.55];
+    const lp = (u, dy) => [s * 0.45, hy + Math.sin(ang / DEG) * u + Math.cos(ang / DEG) * dy, hz0 + Math.cos(ang / DEG) * u - Math.sin(ang / DEG) * dy];
+    A.obox(c, [0.88, 0.06, 1.1], [-ang, 0, 0], "pl_black", { k: 0, bv: 0.02 });
+    for (const u of [0.35, 0.75]) A.obox(lp(u, 0.04), [0.7, 0.02, 0.04], [-ang, 0, 0], "pl_black", D);
+    A.obox(lp(1.08, 0.02), [0.16, 0.05, 0.04], [-ang, 0, 0], "pl_black", D);
+    for (const dx of [-0.3, 0.3]) A.cyl([s * 0.45 + dx, hy, hz0], [0.05, 0.12, 0.05], "steel_dk", { ...D, seg: 8, r: [0, 0, 90] });   // hinge knuckles
   }
+  A.obox([0.4, 1.12, 0.0], [0.6, 0.3, 0.55], [8, 20, 6], "fab_blk", { k: 0, bv: 0.1 });            // rubbish bags heaped up under the open lid
+  A.obox([0.6, 1.1, -0.25], [0.45, 0.28, 0.42], [-10, -30, 4], "fab_blk", { k: 0, bv: 0.09 });
+  for (const x of [-0.9, 0.9]) A.box([x - 0.02, 0.12, -0.51], [x + 0.02, 0.32, 0.4], "rust_h", D);   // rotted lower corners
+  A.box([-0.92, 0.12, -0.505], [0.92, 0.3, -0.5], "rust", D);
+  A.box([-0.9, 0.12, -0.509], [0.9, 0.5, -0.505], "grime", D);
+  A.obox([0, 0.6, 0.45], [1.4, 0.42, 0.006], [-81, 0, 0], "rust", D);                                  // run-off down the sloped front
   for (const x of [-0.75, 0.75]) for (const z of [-0.4, 0.25]) { A.box([x - 0.05, 0.08, z - 0.05], [x + 0.05, 0.12, z + 0.05], "steel_dk", D); A.cyl([x, 0.05, z], [0.1, 0.04, 0.1], "rubber", { ...D, seg: 10, r: [0, 0, 90] }); }
   A.box([-0.93, 0, -0.53], [0.93, 1.22, 0.55], m, H);
   for (const p of A.parts) if (p.t === "p") p.k = 0;
+  A.box([-0.08, 0.95, -0.56], [0.08, 1.05, -0.53], "steel_dk", D);   // tow / lift bar keeper
   return fin(A, { cover: boxCover(0.9, 0.53, 1.2) });
 }
 function dumpsterRolloff() {
@@ -1657,29 +1829,37 @@ function ibcTote() {
 }
 
 // ================================================================================================= SMALL COVER
-function palletParts(A, x0, y0, z0, yaw = 0, m = "wood_raw") {
+function palletParts(A, x0, y0, z0, yaw = 0, m = "wood_raw", { bev = true, broken = false } = {}) {
   const L = 1.2, Wp = 0.8, r = (x, z) => { const t = yaw / DEG; return [x0 + x * Math.cos(t) + z * Math.sin(t), z0 - x * Math.sin(t) + z * Math.cos(t)]; };
-  const ob = (x, y, z, s, mm = m) => { const [wx, wz] = r(x, z); A.obox([wx, y0 + y, wz], s, [0, yaw, 0], mm, { k: 0, bv: 0.004 }); };
-  for (let i = 0; i < 5; i++) ob(0, 0.133, -0.35 + i * 0.175, [L, 0.022, 0.1]);
-  for (const z of [-0.35, 0, 0.35]) ob(0, 0.111, z, [L, 0.022, z ? 0.1 : 0.145]);
-  for (const x of [-0.525, 0, 0.525]) for (const z of [-0.35, 0, 0.35]) ob(x, 0.061, z, [x ? 0.145 : 0.145, 0.078, z ? 0.1 : 0.145], R_PAL() > 0.7 ? "wood_dk" : m);
-  for (const x of [-0.525, 0, 0.525]) ob(x, 0.011, 0, [x ? 0.1 : 0.145, 0.022, Wp]);
+  const ob = (x, y, z, s, mm = m, o = { k: 0 }, ry = 0) => { const [wx, wz] = r(x, z); A.obox([wx, y0 + y, wz], s, [0, yaw + ry, 0], mm, o); };
+  const wm = () => { const q = R_PAL(); return q > 0.75 ? "wood_wx" : q > 0.6 ? "wood_dk" : m; };
+  const gone = broken ? Math.floor(R_PAL() * 5) : -1, crack = broken ? (gone + 2) % 5 : -1;
+  for (let i = 0; i < 5; i++) {   // top deck boards
+    const z = -0.35 + i * 0.175, bm = wm(), dz = (R_PAL() - 0.5) * 0.012, o = bev ? { k: 0, bv: 0.004 } : { k: 0 };
+    if (i === gone) { ob(-0.45, 0.133, z, [0.3, 0.022, 0.1], "wood_wx", o, 4); continue; }   // only a nailed stub left
+    if (i === crack) { ob(-0.31, 0.133, z + dz, [0.57, 0.022, 0.1], bm, o); ob(0.31, 0.131, z + dz + 0.004, [0.57, 0.022, 0.095], bm, o, 1.5); continue; }
+    ob(0, 0.133, z + dz, [L, 0.022, i % 4 ? 0.1 : 0.145], bm, o, (R_PAL() - 0.5) * 0.8);
+  }
+  for (const x of [-0.525, 0, 0.525]) ob(x, 0.111, 0, [x ? 0.1 : 0.145, 0.022, Wp], wm());          // cross (stringer) boards
+  for (const x of [-0.525, 0, 0.525]) for (const z of [-0.35, 0, 0.35]) ob(x, 0.061, z, [x ? 0.1 : 0.145, 0.078, z ? 0.1 : 0.145], R_PAL() > 0.6 ? "wood_dk" : "wood_wx");   // blocks
+  for (const z of [-0.35, 0, 0.35]) ob(0, 0.011, z, [L, 0.022, z ? 0.1 : 0.145], wm());              // bottom boards
 }
 let R_PAL = rng(1201);
 function pallet() {
   const A = mk("mod_pallet", "Wooden pallet", "Small Cover", "Four-way entry block pallet, 1.2 x 0.8 m, 144 mm high: five top deck boards over three stringer boards, nine blocks and three bottom boards in raw softwood.", [1.25, 0.85]);
-  R_PAL = rng(1201); palletParts(A, 0, 0, 0);
+  R_PAL = rng(1201); palletParts(A, 0, 0, 0, 0, "wood_raw", { broken: true });
   A.box([-0.6, 0, -0.4], [0.6, 0.144, 0.4], "wood_raw", H);
   return fin(A, { effect: "none" });
 }
 function palletStack() {
   const A = mk("mod_pallet_stack", "Stack of pallets", "Small Cover", "Nine wooden block pallets stacked 1.3 m high, slightly out of square, with a loose one leaning against the side.", [2.0, 0.9]);
   const R = rng(1402); R_PAL = rng(1402);
-  for (let i = 0; i < 9; i++) palletParts(A, (R() - 0.5) * 0.06, i * 0.145, (R() - 0.5) * 0.05, (R() - 0.5) * 6);
+  for (let i = 0; i < 9; i++) palletParts(A, (R() - 0.5) * 0.06, i * 0.145, (R() - 0.5) * 0.05, (R() - 0.5) * 6, "wood_raw", { bev: i === 8, broken: i === 8 });
   A.box([-0.62, 0, -0.42], [0.62, 1.305, 0.42], "wood_raw", H);
   const t = 72 / DEG;   // a loose pallet (deck boards and blocks) leaning on the +x side, top against the stack
-  for (let i = 0; i < 5; i++) A.obox([0.63 + Math.cos(t) * 0.6, Math.sin(t) * 0.6, -0.35 + i * 0.175], [0.022, 1.2, 0.1], [0, 0, 18], "wood_raw", { k: 0, bv: 0.004 });
-  for (const v of [-0.5, 0, 0.5]) for (const z of [-0.35, 0, 0.35]) A.obox([0.63 + Math.cos(t) * (0.6 + v) + 0.05, Math.sin(t) * (0.6 + v), z], [0.078, 0.14, 0.1], [0, 0, 18], "wood_raw", { k: 0, bv: 0.004 });
+  for (let i = 0; i < 5; i++) A.obox([0.63 + Math.cos(t) * 0.6, Math.sin(t) * 0.6, -0.35 + i * 0.175], [0.022, 1.2, 0.1], [0, 0, 18], i % 2 ? "wood_wx" : "wood_raw", { k: 0, bv: 0.004 });
+  for (const v of [-0.5, 0, 0.5]) for (const z of [-0.35, 0, 0.35]) A.obox([0.63 + Math.cos(t) * (0.6 + v) + 0.05, Math.sin(t) * (0.6 + v), z], [0.078, 0.14, 0.1], [0, 0, 18], "wood_dk", { k: 0 });
+  for (let i = 0; i < 6; i++) { const h = 0.15 + R() * 0.3; A.cone([(R() - 0.5) * 1.3, h / 2, (R() > 0.5 ? 1 : -1) * (0.46 + R() * 0.08)], [0.18, h, 0.12], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
   return fin(A, { cover: boxCover(0.62, 0.42, 1.3) });
 }
 function plasticCrate(A, x, y, z, yaw, m) {
@@ -1710,7 +1890,10 @@ function crates(kind) {
   const A = mk("mod_crate_wood", "Wooden shipping crate", "Small Cover", "Modern plywood export crate, 1.2 x 0.8 x 0.8 m: plywood panels framed by softwood battens with diagonal braces, steel corner protectors, two skids for forklift entry and a blank stencil panel.", [1.25, 0.85]);
   A.box([-0.6, 0.1, -0.4], [0.6, 0.8, 0.4], "ply", { bv: 0.005 });
   for (const z of [-0.3, 0.3]) A.box([-0.6, 0, z - 0.05], [0.6, 0.1, z + 0.05], "wood_raw", { bv: 0.006 });
-  const bat = (a, b) => bar(A, a, b, 0.08, 0.02, "wood_raw", D);
+  const bat = (a, b) => bar(A, a, b, 0.08, 0.02, "wood_wx", D);
+  for (const s of [-1, 1]) A.box([-0.6, 0.1, s * 0.401 - 0.002], [0.6, 0.2, s * 0.401 + 0.002], "grime", D);   // AS1: splash at the foot
+  A.box([0.15, 0.22, 0.4], [0.158, 0.7, 0.404], "seam", D);                                                 // split ply
+  A.box([-0.6, 0.802, -0.35], [-0.1, 0.806, 0.1], "leaves", D);
   for (const s of [-1, 1]) {
     const z = s * 0.41;
     for (const y of [0.14, 0.76]) A.box([-0.6, y - 0.04, Math.min(z, z - s * 0.02)], [0.6, y + 0.04, Math.max(z, z - s * 0.02)], "wood_raw", D);
@@ -1743,6 +1926,9 @@ function drumParts(A, x, z, kind, R) {
   A.cyl([x + 0.17, 0.875, z], [0.06, 0.012, 0.06], "steel", { ...D, seg: 8 });
   A.cyl([x - 0.2, 0.875, z], [0.035, 0.012, 0.035], "steel", { ...D, seg: 8 });
   if (kind === "rust") for (let i = 0; i < 3; i++) { const a = R() * 6.28; A.obox([x + Math.sin(a) * 0.288, 0.2 + R() * 0.5, z + Math.cos(a) * 0.288], [0.12, 0.1, 0.02], [R() * 20, a * DEG, 0], "rust_h", D); }
+  A.cyl([x, 0.06, z], [0.578, 0.1, 0.578], kind === "rust" ? "rust_c" : "rust", { ...D, seg: 20 });                   // AS1: rust ring at the foot
+  for (let i = 0; i < 2; i++) { const a = R() * 6.28; A.obox([x + Math.sin(a) * 0.289, 0.62 + R() * 0.15, z + Math.cos(a) * 0.289], [0.04, 0.4, 0.006], [0, a * DEG, 0], "rust", D); }   // run down from the lid
+  { const a = R() * 6.28; A.obox([x + Math.sin(a) * 0.27, 0.45, z + Math.cos(a) * 0.27], [0.18, 0.16, 0.05], [R() * 20, a * DEG, 0], kind === "rust" ? "rust_h" : "steel_dk", D); }   // dent
 }
 function barrel(kind) {
   const ids = { steel: "mod_barrel_steel", rust: "mod_barrel_steel_rust", plastic: "mod_barrel_plastic", group: "mod_barrel_group" };
@@ -1803,7 +1989,11 @@ function busShelter() {
     "Glazed steel bus shelter, 3.6 x 1.5 x 2.5 m: four box-section posts, a toughened-glass back wall and one glazed end with a blank backlit advert panel in the other, a cantilevered roof canopy with fascia and gutter, a steel perch bench and a litter bin on a post.", [3.9, 1.8]);
   const hx = 1.8, zb = -0.62, zf = 0.62, Hh = 2.42;
   for (const [x, z] of [[-hx, zb], [hx, zb], [-hx, zf], [hx, zf]]) A.box([x - 0.04, 0, z - 0.04], [x + 0.04, Hh, z + 0.04], "p_dgrey", { bv: 0.006 });
-  A.box([-hx + 0.04, 0.12, zb - 0.008], [hx - 0.04, Hh - 0.1, zb + 0.008], "glass");
+  A.box([-hx + 0.04, 0.12, zb - 0.008], [-0.62, Hh - 0.1, zb + 0.008], "glass_dirty");
+  A.box([0.62, 0.12, zb - 0.008], [hx - 0.04, Hh - 0.1, zb + 0.008], "glass_dirty");
+  A.box([-0.58, 0.12, zb - 0.008], [0.58, 0.45, zb + 0.008], "glass_crack");                         // AS1: smashed middle pane: a jagged rim
+  { const Rg = rng(5151); for (let x = -0.56; x < 0.5; x += 0.1 + Rg() * 0.12) { const w = 0.08 + Rg() * 0.14; A.prism(2, zb - 0.006, zb + 0.006, [[x, 0.45], [x + w, 0.45], [x + w * Rg(), 0.5 + Rg() * 0.35]], "glass_crack", { k: 0 }); A.prism(2, zb - 0.006, zb + 0.006, [[x, Hh - 0.1], [x + w, Hh - 0.1], [x + w * Rg(), Hh - 0.15 - Rg() * 0.3]], "glass_crack", { k: 0 }); }
+    for (let i = 0; i < 14; i++) A.obox([(Rg() - 0.5) * 1.3, 0.004, zb + (Rg() - 0.3) * 0.6], [0.03 + Rg() * 0.05, 0.004, 0.02 + Rg() * 0.04], [0, Rg() * 180, 0], "glass_crack", D); }
   for (const y of [0.1, Hh - 0.1]) A.box([-hx, y - 0.03, zb - 0.03], [hx, y + 0.03, zb + 0.03], "p_dgrey", vb(0.004));
   for (const x of [-0.6, 0.6]) A.box([x - 0.025, 0.12, zb - 0.02], [x + 0.025, Hh - 0.1, zb + 0.02], "p_dgrey", D);
   A.box([-hx - 0.008, 0.12, zb + 0.04], [-hx + 0.008, Hh - 0.1, zf - 0.04], "glass");
@@ -2270,14 +2460,18 @@ function rock(size) {
   const S = { small: 0.6, medium: 1.4, large: 3.0 }[size], R = rng(S * 1000 + 3);
   const A = mk(`mod_rock_${size}`, `Boulder (${size})`, "Terrain",
     `Weathered granite ${size === "large" ? "boulder outcrop" : size === "medium" ? "boulder" : "rock"}, about ${S} m across: a main rounded mass with split-off facets and lichen-stained patches, bedded into the ground with loose stones round its foot.`, [S * 1.25, S * 1.1]);
-  const hgt = S * (size === "large" ? 0.62 : 0.55);
-  A.rbox([-S * 0.48, -S * 0.08, -S * 0.4], [S * 0.48, hgt, S * 0.4], S * 0.18, "rock", { r: [R() * 8 - 4, R() * 40, R() * 8 - 4] });
-  for (let i = 0; i < (size === "small" ? 2 : 4); i++) {
-    const a = R() * 2 * Math.PI, d = S * (0.2 + R() * 0.15), s = S * (0.3 + R() * 0.25);
-    A.rbox([Math.cos(a) * d - s / 2, -S * 0.05, Math.sin(a) * d - s / 2 * 0.8], [Math.cos(a) * d + s / 2, hgt * (0.55 + R() * 0.4), Math.sin(a) * d + s / 2 * 0.8], s * 0.25, i % 2 ? "rock_m" : "rock_d", { r: [R() * 20 - 10, R() * 90, R() * 20 - 10], k: size === "small" ? 0 : 1 });
+  const hgt = S * (size === "large" ? 0.62 : 0.55), sm = size === "small";
+  // AS1: a main mass of overlapping faceted bodies, a second split-off block against it, slabs that have fallen away,
+  // moss on the shaded top, scree and weeds round a foot bedded into the ground
+  stone(A, [0, -S * 0.1, 0], [S * 0.95, hgt + S * 0.1, S * 0.8], R, "rock", { m2: "rock_p" });
+  stone(A, [S * (0.15 + R() * 0.1), -S * 0.06, -S * (0.1 + R() * 0.1)], [S * 0.62, hgt * 0.85, S * 0.55], R, size === "large" ? "rock_l" : "rock_p", { k: sm ? 0 : 1 });
+  for (let i = 0; i < (sm ? 1 : 3); i++) {
+    const a = R() * 2 * Math.PI, d = S * (0.38 + R() * 0.12), s = S * (0.25 + R() * 0.15);
+    stone(A, [Math.cos(a) * d, -S * 0.04, Math.sin(a) * d * 0.85], [s, hgt * (0.35 + R() * 0.25), s * 0.8], R, i % 2 ? "rock_m" : "rock_d", { k: sm ? 0 : 1 });
   }
-  for (let i = 0; i < 3; i++) { const a = R() * 6.28; A.obox([Math.cos(a) * S * 0.25, hgt * (0.7 + R() * 0.25), Math.sin(a) * S * 0.2], [S * 0.25, S * 0.04, S * 0.2], [R() * 30, R() * 180, R() * 30], "rock_d", D); }
-  for (let i = 0; i < 7; i++) { const a = R() * 6.28, d = S * (0.5 + R() * 0.12), s = 0.05 + R() * S * 0.06; A.obox([Math.cos(a) * d, s * 0.3, Math.sin(a) * d * 0.85], [s * 1.3, s, s], [R() * 60, R() * 180, R() * 60], "rock", { k: 0, bv: s * 0.2 }); }
+  for (let i = 0; i < (sm ? 1 : 3); i++) A.obox([(R() - 0.5) * S * 0.4, hgt * (0.86 + R() * 0.08), (R() - 0.5) * S * 0.3], [S * (0.2 + R() * 0.2), S * 0.03, S * (0.15 + R() * 0.15)], [R() * 16 - 8, R() * 180, R() * 16 - 8], "moss", dv(S * 0.012));
+  for (let i = 0; i < (sm ? 4 : 9); i++) { const a = R() * 6.28, d = S * (0.5 + R() * 0.15), s = 0.05 + R() * S * 0.07; A.cyl([Math.cos(a) * d, s * 0.3, Math.sin(a) * d * 0.85], [s * 1.4, s * 0.8, s], R() > 0.5 ? "rock" : "rock_d", { ...D, n: 5, top: 0.55, r: [R() * 40, R() * 180, R() * 40] }); }
+  if (!sm) for (let i = 0; i < 6; i++) { const a = R() * 6.28, d = S * (0.48 + R() * 0.1), h = 0.15 + R() * 0.3; A.cone([Math.cos(a) * d, h / 2, Math.sin(a) * d * 0.85], [0.2 + R() * 0.2, h, 0.15], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
   return fin(A, size === "small" ? {} : { cover: size === "large" ? [cover([0, 0, -S * 0.65], 0, "high", ["left", "right"]), cover([0, 0, S * 0.65], 180, "high", ["left", "right"]), cover([-S * 0.75, 0, 0], 90, "high", ["left", "right"])] : [cover([0, 0, -S * 0.65], 0, "low", ["over"]), cover([0, 0, S * 0.65], 180, "low", ["over"])] });
 }
 function retainingWall() {
@@ -2506,8 +2700,11 @@ function rubblePile(large) {
   const S = large ? 2.4 : 1.2, R = rng(large ? 9001 : 9002);
   const A = mk(large ? "mod_rubble_large" : "mod_rubble_small", large ? "Concrete rubble pile (large)" : "Concrete rubble pile (small)", "Destruction",
     `Heap of demolished reinforced concrete, about ${2 * S + 0.5} m across and ${large ? "1.6" : "0.8"} m high: broken slabs and blocks with bent rebar sticking out, smaller lumps, dust and brick fragments.`, [2 * S + 1.4, 2 * S + 1.0]);
-  A.rbox([-S, -0.2, -S * 0.85], [S, S * 0.38, S * 0.85], S * 0.35, "rubble", { r: [0, R() * 30, 0] });
-  A.rbox([-S * 0.6, 0, -S * 0.5], [S * 0.5, S * 0.62, S * 0.45], S * 0.25, "rubble", { r: [0, R() * 60, 0] });
+  // AS1: the heap: overlapping low faceted frustums (irregular outline and slopes), the core a second, steeper one
+  A.cyl([0, S * 0.14 - 0.12, 0], [S * 2.05, S * 0.52, S * 1.72], "rubble", { n: 9, top: 0.42, r: [R() * 6 - 3, R() * 40, R() * 6 - 3] });
+  A.cyl([S * 0.35, S * 0.1 - 0.06, -S * 0.2], [S * 1.3, S * 0.4, S * 1.1], "rubble", { k: 0, n: 7, top: 0.38, r: [R() * 8 - 4, R() * 90, R() * 8 - 4] });
+  A.cyl([-S * 0.1, S * 0.3, 0], [S * 1.2, S * 0.62, S * 0.95], "rubble", { n: 7, top: 0.3, r: [R() * 10 - 5, R() * 90, R() * 10 - 5] });
+  A.cyl([-S * 0.55, S * 0.06 - 0.04, S * 0.35], [S * 0.9, S * 0.26, S * 0.8], "debris", { k: 0, n: 6, top: 0.4, r: [0, R() * 90, 0] });
   for (let i = 0; i < (large ? 7 : 4); i++) {
     const a = R() * 6.28, d = R() * S * 0.6, l = S * (0.4 + R() * 0.5), w = S * (0.25 + R() * 0.35), t = 0.12 + R() * 0.12;
     const c = [Math.cos(a) * d, S * 0.3 + R() * S * 0.25, Math.sin(a) * d * 0.8], r = [R() * 50 - 25, R() * 180, R() * 50 - 25];
@@ -2516,9 +2713,12 @@ function rubblePile(large) {
   }
   for (let i = 0; i < (large ? 30 : 16); i++) {
     const a = R() * 6.28, d = S * (0.3 + R() * 0.75), s = 0.06 + R() * 0.22;
-    A.obox([Math.cos(a) * d, s * 0.35 + (d < S * 0.6 ? S * 0.2 : 0), Math.sin(a) * d * 0.85], [s * 1.4, s, s * 1.1], [R() * 60, R() * 180, R() * 60], ["conc", "conc_dk", "debris", "brick", "conc_l"][i % 5], { k: 0, bv: s * 0.15 });
+    const pc = [Math.cos(a) * d, s * 0.35 + (d < S * 0.6 ? S * 0.2 : 0), Math.sin(a) * d * 0.85], pm = ["conc", "conc_dk", "debris", "brick", "conc_l"][i % 5];
+    if (i % 2) A.cyl(pc, [s * 1.4, s, s * 1.1], pm, { k: 0, n: 5, top: 0.5 + R() * 0.25, r: [R() * 60, R() * 180, R() * 60] });   // AS1: faceted lumps between the chamfered ones
+    else A.obox(pc, [s * 1.4, s, s * 1.1], [R() * 60, R() * 180, R() * 60], pm, { k: 0, bv: s * 0.15 });
   }
-  A.cyl([0, 0.005, 0], [S * 2.5, 0.01, S * 2.2], "rubble", { ...D, seg: 18 });
+  for (let i = 0; i < (large ? 9 : 5); i++) { const a = R() * 6.28, d = S * (0.4 + R() * 0.6), h = 0.15 + R() * 0.35; A.cone([Math.cos(a) * d, S * 0.12 * Math.max(0, 1 - d / S) + h / 2, Math.sin(a) * d * 0.8], [0.2 + R() * 0.2, h, 0.15], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+  A.cyl([0, 0.005, 0], [S * 2.5, 0.01, S * 2.2], "grime", { ...D, n: 11 });   // dust skirt, ragged
   return fin(A, { cover: large ? [cover([0, 0, -S - 0.4], 0, "low", ["over", "left", "right"]), cover([0, 0, S + 0.3], 180, "low", ["over", "left", "right"]), cover([-S - 0.4, 0, 0], 90, "low", ["over"])] : [cover([0, 0, -S - 0.3], 0, "low", ["over"])] });
 }
 function wallChunks() {
