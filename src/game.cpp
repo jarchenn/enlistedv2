@@ -804,10 +804,11 @@ void Game::drawItems() {
     if (!s.inUse || s.lifeId == 0) continue;
     if (!s.alive && t - s.diedAt > combat["corpses"].value("seconds", 40.0)) continue;
     if (s.localPlayer && s.alive) continue;                 // first person: the viewmodel is drawn instead
-    vec3 c = s.feet + vec3(0, 0.9f, 0);
+    float bs = bodyScale(s);   // giants (the fighters at scale 20) reach far above and around their feet
+    vec3 c = s.feet + vec3(0, 0.9f * bs, 0);
     float dist = glm::length(c - cam);
-    if (dist > 300) continue;
-    if (dist > 4 && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
+    if (dist > 300 + 2 * bs) continue;
+    if (dist > 4 * bs && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
     // PF1: a far pack follower in step with its leader draws the leader's skinned mesh (zombie.cpp aiZombiePose)
     Soldier* src = s.poseFrom >= 0 && s.poseFrom < (int)sold.size() && sold[s.poseFrom].ciReady && sold[s.poseFrom].ci.frameSkinned >= 0 ? &sold[s.poseFrom] : &s;
     if (src != &s || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0)) {}   // settled corpse: keep the last skin

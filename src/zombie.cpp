@@ -46,8 +46,8 @@ const ZombieCfg& zcfg() {
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
         t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
-        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 4.0f); t.lean = e.value("lean_deg", t.lean);
-        t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 4.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
+        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 25.0f);   // the fighters are drawn at 20 t.lean = e.value("lean_deg", t.lean);
+        t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 25.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
         t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
@@ -404,7 +404,7 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
   else if (s.speed > 0.3f && walk >= 0) {
     float w = run >= 0 ? std::clamp((s.speed - vw) / (vr - vw), 0.0f, 1.0f) : 0.0f;
-    A.play(K_LOCO, walk, run, w, std::clamp(s.speed / glm::mix(vw, vr, w), 0.5f, 2.0f), true);
+    A.play(K_LOCO, walk, run, w, std::clamp(s.speed / glm::mix(vw, vr, w), 0.5f / std::max(1.0f, s.eScale), 2.0f), true);   // a giant's long strides play slowly (no foot slide)
   } else A.play(K_IDLE, idle, -1, 0, 1, true);
   s.poseFrom = -1;
   A.lodAcc += dt;
