@@ -233,8 +233,8 @@
     "name": "MG 34 on the cupola ring (provisional: drawn with the supplied MG 42 model, MG 42 sound pack)",
     "model": "mg42",
     "modelOffset": [
-      0,
-      -0.03,
+      0.0156,
+      -0.0393,
       -0.42
     ],
     "sound": "shot_mg42",
