@@ -52,6 +52,7 @@ export function ruinify(j, opts = {}) {
   out.name = (j.name || j.id) + " (abandoned)";
   out.description = "Abandoned and overgrown: " + (j.description || "");
   out.ruin = true;
+  if (j.model) out.model = { ...j.model, dir: (j.model.dir || j.id) + "_ruin", tint: [0.74, 0.71, 0.66] };   // MOD2: an imported model: its own darker, dustier bake
   out.materials = j.materials.map((m) => weatherMat(m, seed));
   const glassIdx = new Set(out.materials.map((m, i) => (m.pattern === "glass" ? i : -1)).filter((i) => i >= 0));
   const matIndex = (name) => out.materials.findIndex((m) => m.name === name);

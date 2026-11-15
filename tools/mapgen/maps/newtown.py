@@ -446,7 +446,7 @@ def populate(ctx, grid, pads=None):
     paint.poly("gravel", rect(x0 + 1, z0 + 1, x1 - 1, z1 - 1), weight=0.45, edge=2.0, ragged=2.0, seed=11)
     paint.line("gravel", [(gate_x, z1), (gate_x, -150), (-118, -138), (-104, -138)], 6.0, weight=0.85)
     for aid, x, z, yaw in (("mod_nt_barracks", -148.0, -177.0, 0.0), ("mod_nt_barracks", -148.0, -156.0, 0.0), ("mod_nt_hq", -112.0, -178.0, 0.0),
-                           ("mod_nt_armory", -112.0, -156.0, 270.0), ("mod_nt_motor_pool", -151.0, -125.0, 90.0), ("mod_nt_radar_tower", -104.0, -130.0, 0.0)):
+                           ("mod_nt_armory", -112.0, -156.0, 270.0), ("mod_mil_hut", -151.0, -125.0, 0.0), ("mod_nt_radar_tower", -104.0, -130.0, 0.0)):
         site(aid, x, z, yaw, tags={"base"}, keep=False, nudge=4, military=True)
     # training yard: walls, frames, crawl frames, sandbags
     for aid, x, z, yaw in (("mod_nt_training_wall", -134.0, -140.0, 0.0), ("mod_nt_training_wall", -128.0, -136.0, 10.0), ("mod_nt_training_frame", -122.0, -142.0, 0.0),

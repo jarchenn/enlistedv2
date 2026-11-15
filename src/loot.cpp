@@ -893,6 +893,7 @@ void lootDraw(Game& G) {
       float lift = a->model ? a->model->bmin.y : a->opaque.bmin.y;
       mat4 M = W * glm::scale(mat4(1), vec3(sc)) * glm::translate(mat4(1), vec3(0, -lift, 0));
       addAssetDraw(*a, M, app.R.worldModels, app.worldBoxDraws);
+      if (f.id == "br_vest_1") if (const AssetDef* h = app.lib.find("br_helmet_1"); h && h->model) for (int i = 0; i < (int)h->model->parts.size(); ++i) app.R.worldModels.push_back({h->model.get(), i, W * glm::translate(mat4(1), vec3(0.34f, -h->model->bmin.y, 0))});   // BR8: the level-1 set is helmet + vest
       continue; }
     if (d && d->kind == ItemKind::Throwable) {   // the grenade's own world model, on its side
       int wi = app.weaponIndex(d->weapon);

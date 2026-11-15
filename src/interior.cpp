@@ -696,7 +696,7 @@ void InteriorSys::updateBatches(App& app) {
     }
     if (!ho.host || i.id == app.selected) continue;
     auto rit = app.rt.find(i.id);
-    if (rit == app.rt.end() || !prop(rit->second.asset)) continue;
+    if (rit == app.rt.end() || !prop(rit->second.asset) || rit->second.asset->model) continue;   // DEC1: model pieces (wall art) draw their own model
     auto s = st.find(i.id);
     if (s != st.end() && (s->second.broken || s->second.glassBroken || s->second.crushed)) continue;
     if (clutterHidden(i, *prop(rit->second.asset), rit->second.asset)) continue;
@@ -1386,7 +1386,40 @@ struct Planner {
   }
   // footprint (host-local) of an item at p / yaw: xz rect and y range
   void bounds(const PropDef* pd, vec3 p, float yaw, vec3& mn, vec3& mx) { turnedBounds(pd->bmin, pd->bmax, yaw, mn, mx); mn += p; mx += p; }
+  // DEC1: wall art (content/settings/art.json): a generated picture becomes a seeded pick of the imported paintings /
+  // posters, by room type and era, each image once per room where the pool allows
+  std::unordered_map<std::string, std::string> artSlot;   // slot -> the pick (kept across a slot's position tries)
+  std::unordered_map<int, std::set<std::string>> artUsed;   // room -> images hung
+  static const json& artCfg() {
+    static json j = [] { try { return json::parse(readTextFile(contentDir() / "settings" / "art.json")); } catch (...) { return json::object(); } }();
+    return j;
+  }
+  std::string artPick(int k, const std::string& asset, const std::string& slot) {
+    const json& c = artCfg();
+    bool repl = false; for (auto& r : c.value("replaces", json::array())) if (r == asset) repl = true;
+    if (!repl) return std::string();
+    auto it = artSlot.find(slot); if (it != artSlot.end()) return it->second;
+    std::string key = roomTypeKey(ri.rooms[k].type); bool poster = false;
+    for (auto& r : c.value("posterRooms", json::array())) if (r == key) poster = true;
+    const bool modern = ha && ha->id.rfind("mod_", 0) == 0;
+    std::vector<std::string> pool;
+    const json& kind = c.value(poster ? "posters" : "paintings", json::object());
+    for (const char* era : {"period", "modern"}) {
+      if (std::string(era) == "modern" && !modern) continue;
+      for (auto& id : kind.value(era, json::array())) if (A(id.get<std::string>().c_str())) pool.push_back(id.get<std::string>());
+    }
+    std::vector<std::string> fresh; for (auto& id : pool) if (!artUsed[k].count(id)) fresh.push_back(id);
+    const auto& from = fresh.empty() ? pool : fresh;
+    std::string pick = from.empty() ? std::string() : from[(size_t)(rnd(strHash(slot), 990) * from.size()) % from.size()];
+    artSlot[slot] = pick;
+    return pick;
+  }
   bool tryAt(int k, const char* asset, const std::string& slot, vec3 p, float yaw, bool hard, bool front, int mode, PlanItem* got) {
+    std::string art = artPick(k, asset, slot);
+    if (!art.empty()) {   // same wall point; the new piece's own hanging height
+      const AssetDef* oa = A(asset); const AssetDef* na = A(art.c_str());
+      if (oa && na && sys.prop(oa) && sys.prop(na)) { p.y += sys.prop(na)->mount - sys.prop(oa)->mount; asset = art.c_str(); }
+    }
     const AssetDef* fa = A(asset); if (!fa) { why = "asset"; return false; }
     const PropDef* pd = sys.prop(fa);
     const auto& R = ri.rooms[k];
@@ -1433,6 +1466,7 @@ struct Planner {
     if (front && pd->front > 0) mark(R.storey, vec2(fmn.x, fmn.z), vec2(fmx.x, fmx.z), 2);
     PlanItem it; it.slot = slot; it.asset = asset; it.p = p; it.yaw = yaw;
     out.push_back(it);
+    if (!art.empty()) artUsed[k].insert(art);   // DEC1
     if (got) *got = it;
     return true;
   }

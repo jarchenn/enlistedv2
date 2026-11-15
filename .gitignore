@@ -18,3 +18,6 @@ content/assets/models/mod_barriers_weathered/
 # the committed content/assets/br_*.json boxes stand in without them
 content/characters/br_marine.glb
 content/assets/models/br_*/
+# MOD2: the military hut bake (TampaJoey, licence not stated): local only
+content/assets/models/mod_mil_hut/
+content/assets/models/mod_mil_hut_ruin/

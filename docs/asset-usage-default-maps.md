@@ -894,7 +894,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_nt_house_two_ruin` | not used | not used | not used | not used | not used | not used | not used | 13 |
 | `mod_nt_hq_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_motel_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `mod_nt_motor_pool_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_nt_motor_pool_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_nt_municipal_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_parking_garage_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_nt_pump_station_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
@@ -935,6 +935,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_sidewalk_bay_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_vines_hanging` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_vines_hanging_long` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_mil_hut_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `mod_mil_hut` | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
