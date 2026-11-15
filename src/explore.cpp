@@ -8,7 +8,7 @@
 #include "rules.h"
 #include "lighting.h"
 #include "w3.h"
-#include "water_query.h"
+#include "water_query.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -202,74 +202,6 @@ void App::toggleInteract(uint64_t id, int k) {
   if (dir > 0) audio.play(d.sound + "_open", c);
 }
 
-// Vault: obstacle face within reach at knee / waist height, a top 0.62-1.35 m above the feet, at most 1.1 m deep,
-// a supported landing no more than 2.2 m below the top. The standing body is swept along the whole path
-// (up, over, down) in 8 cm steps before committing; any blocked sample rejects the vault. Wire obstacles are never
-// vaultable (their bodies carry the unsafe flag via the defence profile).
-bool App::tryStartVault(vec3 feet, float yawDeg) {
-  vec3 f = forward(yawDeg, 0); f.y = 0; f = glm::normalize(f);
-  Physics::Hit h; float dFace = 99;
-  for (float hy : {0.35f, 0.75f}) if (Physics::castRayEx(feet + vec3(0, hy, 0), f, vaultCfg.reach + 0.3f, h) && h.t < dFace) dFace = h.t;
-  if (dFace > vaultCfg.reach + 0.3f) { vault.why = "no obstacle in reach"; return false; }
-  auto topAt = [&](float d, float& y) {
-    Physics::Hit g; vec3 o = feet + f * d + vec3(0, vaultCfg.maxH + 0.6f, 0);
-    if (!Physics::castRayEx(o, vec3(0, -1, 0), vaultCfg.maxH + 0.6f + vaultCfg.maxDrop + 0.2f, g)) return false;
-    y = g.pos.y - feet.y; return true;
-  };
-  float top = -9;
-  if (!topAt(dFace + 0.12f, top) || top < vaultCfg.minH || top > vaultCfg.maxH) { vault.why = "top " + std::to_string(top).substr(0, 4) + " m outside the vault range"; return false; }
-  // depth: walk across the top until it drops away
-  float dEdge = -1, topMax = top;
-  for (float d = dFace + 0.2f; d <= dFace + vaultCfg.maxDepth + 0.1f; d += 0.08f) { float y; if (!topAt(d, y) || y < top - 0.25f) { dEdge = d; break; } topMax = std::max(topMax, y); }
-  if (topMax > vaultCfg.maxH) { vault.why = "too tall across its depth"; return false; }
-  if (dEdge < 0) { vault.why = "obstacle deeper than " + std::to_string(vaultCfg.maxDepth).substr(0, 3) + " m (climb, not vault)"; return false; }
-  float land; if (!topAt(dEdge + 0.4f, land) || top - land > vaultCfg.maxDrop || land > top - 0.25f) { vault.why = "no safe landing"; return false; }
-  // unsafe obstacles (barbed wire) are never vaulted: no uncut wire within 1 m of the crossing (face to landing)
-  for (auto& i : doc.instances) {
-    auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset->defense.unsafeVault || it->second.defDestroyed) continue;
-    quat iq = glm::inverse(yawQuat(i.yaw));
-    for (float d = dFace; d <= dEdge + 0.5f; d += 0.1f) {
-      vec3 lp = iq * (feet + f * d - i.pos);
-      vec2 q(lp.x, lp.z), lo(it->second.asset->bmin.x, it->second.asset->bmin.z), hi(it->second.asset->bmax.x, it->second.asset->bmax.z);
-      if (glm::length(glm::clamp(q, lo, hi) - q) < 1.0f) { vault.why = "unsafe obstacle (wire)"; return false; }
-    }
-  }
-  float yTop = feet.y + topMax + 0.08f;   // clear the highest point of the top (coping, sandbag crown)
-  vec3 P0 = feet, P1(feet.x, yTop, feet.z), P2 = feet + f * (dEdge + 0.35f), P3 = P2;
-  P2.y = yTop; P3.y = feet.y + land;
-  const vec3 lift(0, 0.06f, 0);   // samples ride 6 cm above the surfaces they start / end on (uneven ground is not a blocker)
-  auto sweep = [&](vec3 a, vec3 b) { int n = std::max(1, (int)std::ceil(glm::length(b - a) / 0.08f)); for (int k = 1; k <= n; ++k) if (!Physics::shapeFitsAt(Physics::STAND, glm::mix(a, b, (float)k / n) + lift)) return false; return true; };   // full body incl. terrain
-  if (!sweep(P0, P1)) {
-    char b[160]; std::snprintf(b, sizeof b, "no room to rise (overhang / ceiling) [fits at start %d, no-terrain %d, at top %d, face %.2f m]", (int)Physics::shapeFitsAt(Physics::STAND, P0 + lift), (int)Physics::shapeFitsAt(Physics::STAND, P0 + lift, false), (int)Physics::shapeFitsAt(Physics::STAND, P1 + lift), dFace);
-    vault.why = b; return false;
-  }
-  if (!sweep(P1, P2)) {
-    float firstBad = -1; for (int k = 1; k <= 20; ++k) { vec3 q = glm::mix(P1, P2, k / 20.0f) + lift; if (!Physics::shapeFitsAt(Physics::STAND, q, false)) { firstBad = k / 20.0f; break; } }
-    vec3 qb = glm::mix(P1, P2, std::max(firstBad, 0.0f)) + lift;
-    char b[260]; std::snprintf(b, sizeof b, "body does not clear the top (head room / thickness) [first blocked at %.2f of the crossing, top %.2f / %.2f m, edge %.2f m, face %.2f m, hits ud %llx]", firstBad, top, topMax, dEdge, dFace, (unsigned long long)Physics::shapeHitUD(Physics::STAND, qb, false));
-    vault.why = b; return false;
-  }
-  if (!sweep(P2, P3)) { vault.why = "far side blocked"; return false; }
-  vault.pts[0] = P0; vault.pts[1] = P1; vault.pts[2] = P2; vault.pts[3] = P3;
-  float len = glm::length(P1 - P0) + glm::length(P2 - P1) + glm::length(P3 - P2);
-  vault.dur = std::clamp(len / (2.6f * vaultCfg.speed), 0.45f, 1.1f);
-  vault.t = 0; vault.active = true; vault.why = "vault"; ++vault.count;
-  return true;
-}
-
-void App::stepVault(float dt) {
-  vault.t += dt;
-  float u = std::clamp(vault.t / vault.dur, 0.0f, 1.0f);
-  // three legs weighted by length: up, across, down (eased), so the camera moves in a restrained arc
-  float l0 = glm::length(vault.pts[1] - vault.pts[0]), l1 = glm::length(vault.pts[2] - vault.pts[1]), l2 = glm::length(vault.pts[3] - vault.pts[2]), L = std::max(1e-3f, l0 + l1 + l2);
-  float s = u * u * (3 - 2 * u) * L;
-  vec3 p = s < l0 ? glm::mix(vault.pts[0], vault.pts[1], s / std::max(l0, 1e-4f)) : s < l0 + l1 ? glm::mix(vault.pts[1], vault.pts[2], (s - l0) / std::max(l1, 1e-4f)) : glm::mix(vault.pts[2], vault.pts[3], (s - l0 - l1) / std::max(l2, 1e-4f));
-  // the obstacle or the landing may change mid-vault (destroyed, someone in the way): stop where the body still fits
-  if (!Physics::shapeFitsAt(Physics::STAND, p + vec3(0, 0.06f, 0))) { vault.active = false; vault.why = "vault interrupted (path blocked)"; return; }
-  Physics::setCharacterPos(p);
-  if (u >= 1.0f) vault.active = false;
-}
-
 void App::exploreStep(float dt, const ExploreInput& in) {
   // ---- animate interactables (only those moving)
   for (auto& [idx, rp] : activeSet().inter) {
@@ -323,14 +255,13 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   else postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND;
   int pose = before.posture;
   bool lowered = pose != Physics::STAND || postureWanted != Physics::STAND;
-  // ---- vault: a held Space at a taller obstacle (the press itself still jumps immediately; a vault that starts
-  // during that jump adds no second impulse). One vault per hold.
+  // ---- climb (mantle.cpp): a held Space at an obstacle 0.4-2.2 m tall pulls the player up ONTO it (the press itself
+  // still jumps immediately; a climb that starts during that jump adds no second impulse). One climb per hold.
   if (!in.jumpHeld) { vault.held = 0; vault.latch = false; }
   else vault.held += dt;
-  if (vault.active) { stepVault(dt); return; }
-  if (mantle.active) { stepMantle(dt); return; }   // mantle.cpp: ledges too tall / deep to vault (trench lips, 2 m walls)
+  if (mantle.active) { stepMantle(dt); return; }
   if (!occupied && stepSwim(dt, in, before)) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }   // swim.cpp: chest-deep water
-  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; spendStamina(move.staminaJump); return; }   // a vault / mantle costs like a jump (never refused: trench exits)
+  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && tryStartMantle(before.pos, eyeYaw)) { vault.latch = true; spendStamina(move.staminaJump); return; }   // a climb costs like a jump (never refused: trench exits)
   bool rising = riseT < riseDur;
   bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising && stamina > 1.0f;   // Shift while aiming holds the breath; no sprint while lowered, getting up or out of stamina
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;
@@ -444,8 +375,8 @@ void App::updateExplore(float dt) {
   uiCursor = false;
   if (pauseMenu) return;
   ExploreInput in;
-  static double lmx = -1, lmy = -1;
-  if (cursorSettle > 0) { --cursorSettle; lmx = lmy = -1; }   // the mode / focus just changed: the cursor jumped, no look from it
+  static double lmx = 0, lmy = 0; static bool haveLast = false;   // not a negative sentinel: captured, the virtual cursor is unbounded and goes negative after panning left; "lmx >= 0" then dropped every look delta until the player panned back right
+  if (cursorSettle > 0) { --cursorSettle; haveLast = false; }   // the mode / focus just changed: the cursor jumped, no look from it
   if (useScripted) {
     in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false; scriptedInput.toggleAmmo = false; scriptedInput.build = false;
     scriptedInput.fireMode = scriptedInput.prone = scriptedInput.packUp = scriptedInput.rackUp = scriptedInput.rackDown = scriptedInput.rackEquip = scriptedInput.rackClose = false;
@@ -453,7 +384,7 @@ void App::updateExplore(float dt) {
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (lmx >= 0 && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
+    if (haveLast && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
       StationRT* gs = station(occupied);
       bool mgMount = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42");
       // a mounted MG aims like the carried gun (the player's look sensitivity and ADS scale; stepStation drops the rates);
@@ -462,7 +393,7 @@ void App::updateExplore(float dt) {
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs * (mgMount ? settings().pitchSign() : 1.0f); }   // handwheels / spade grips
       else { float k = settings().lookDegPerCount(adsT) * lookScaleFor(worldFov); in.lookYaw = -(float)(mx - lmx) * k; in.lookPitch = -(float)(my - lmy) * k * settings().pitchSign(); eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }
-    lmx = mx; lmy = my;
+    lmx = mx; lmy = my; haveLast = true;
     if (kd(win, bk("forward"))) in.move.y += 1;
     if (kd(win, bk("back"))) in.move.y -= 1;
     if (kd(win, bk("right"))) in.move.x += 1;

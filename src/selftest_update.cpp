@@ -141,26 +141,27 @@ void SelfTest::updateSuite(App& app, float dt) {
     // ---------------------------------------------------------------- vault
     push("tap jump: normal jump, no vault", [this](App& a, float t) {
       static int c0; static float apex, y0;
-      if (t == 0) { putFeet(a, Wp(a, U_WALL, vec3(0, 0, 0.95f))); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; c0 = a.vault.count; apex = -1; y0 = -1; return false; }
+      if (t == 0) { putFeet(a, Wp(a, U_WALL, vec3(0, 0, 0.95f))); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; c0 = a.mantle.count; apex = -1; y0 = -1; return false; }
       auto c = Physics::character();
       if (t < 0.5f) { y0 = c.pos.y; return false; }
       a.scriptedInput.jump = t < 0.52f; a.scriptedInput.jumpHeld = t < 0.56f;   // a tap shorter than the hold threshold
       apex = std::max(apex, c.pos.y - y0);
       if (t < 1.6f) return false;
       char b[200]; std::snprintf(b, sizeof b, "a tapped Space at the 0.91 m wall is an ordinary jump (apex %.2f m), no vault, still on the near side", apex);
-      check(a.vault.count == c0 && apex > 0.35f && glm::dot(c.pos - Wp(a, U_WALL, vec3(0)), vec3(0, 0, 1)) > 0, b);
+      check(a.mantle.count == c0 && apex > 0.35f && glm::dot(c.pos - Wp(a, U_WALL, vec3(0)), vec3(0, 0, 1)) > 0, b);
       return true; });
-    push("hold Space: vault the low wall", [this](App& a, float t) {
+    push("hold Space: climb onto the low wall", [this](App& a, float t) {
       static int c0; static bool done;
-      if (t == 0) { putFeet(a, Wp(a, U_WALL, vec3(0, 0, 0.95f))); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; c0 = a.vault.count; done = false; return false; }
+      if (t == 0) { putFeet(a, Wp(a, U_WALL, vec3(0, 0, 0.95f))); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; c0 = a.mantle.count; done = false; return false; }
       if (t < 0.5f) return false;
       a.scriptedInput.jump = t < 0.52f; a.scriptedInput.jumpHeld = true;   // press (jumps) and keep holding
       if (t < 3.0f) return false;
       auto c = Physics::character();
       float side = glm::dot(c.pos - Wp(a, U_WALL, vec3(0)), vec3(0, 0, 1));
-      char b[700]; std::snprintf(b, sizeof b, "held Space at the 0.91 m x 0.62 m wall: one vault (%d) to the far side (%.2f m beyond the centre line), body swept clear, landed (%s); still holding does not chain a second vault",
-                                 a.vault.count - c0, -side, a.vault.why.c_str());
-      check(a.vault.count == c0 + 1 && side < -0.6f && !a.vault.active, b);
+      float up = c.pos.y - Wp(a, U_WALL, vec3(0)).y;
+      char b[700]; std::snprintf(b, sizeof b, "held Space at the 0.91 m x 0.62 m wall: one climb (%d) onto it, standing %.2f m up, %.2f m from the centre line (%s); still holding does not chain a second climb or carry over",
+                                 a.mantle.count - c0, up, side, a.mantle.why.c_str());
+      check(a.mantle.count == c0 + 1 && std::fabs(side) < 0.31f && up > 0.8f && !a.mantle.active, b);
       { std::string pr = "probe over the wall centre (pos.y " + std::to_string(Wp(a, U_WALL, vec3(0)).y).substr(0, 5) + "):";
         for (float y : {0.95f, 1.05f, 1.2f, 1.4f, 1.8f, 2.4f}) pr += " " + std::to_string(y).substr(0, 4) + (Physics::shapeFitsAt(Physics::STAND, Wp(a, U_WALL, vec3(0, y, 0)), false) ? "=fits" : "=hit");
         check(true, pr); }
@@ -172,11 +173,11 @@ void SelfTest::updateSuite(App& app, float dt) {
       int k = 0; for (size_t q = 0; q < fa->panels.size(); ++q) if (fa->panels[q].id == "floor-00/front/bay-02") k = (int)q;
       const Panel& p = fa->panels[k];
       vec3 face = Wp(a, U_HOUSE, vec3((p.bmin.x + p.bmax.x) * 0.5f, 0, p.bmax.z + 0.55f));
-      if (t == 0) { putFeet(a, face); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; c0 = a.vault.count; return false; }
+      if (t == 0) { putFeet(a, face); a.eyeYaw = 0; a.eyePitch = 0; a.scriptedInput = ExploreInput{}; c0 = a.mantle.count; return false; }
       if (t < 0.5f) return false;
       a.scriptedInput.jump = t < 0.52f; a.scriptedInput.jumpHeld = true;
       if (t < 2.0f) return false;
-      check(a.vault.count == c0, "held Space at a 6 m house wall: no vault (" + a.vault.why + ")");
+      check(a.mantle.count == c0, "held Space at a 6 m house wall: no climb (" + a.mantle.why + ")");
       a.scriptedInput = ExploreInput{};
       return true; });
 

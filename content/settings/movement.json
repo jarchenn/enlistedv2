@@ -37,7 +37,7 @@
  "crouchToStand_s": 0.45,
  "adsTime_s": 0.25,
  "vault": {
-  "_note": "Hold Space (hold_s) at an obstacle whose top is minHeight_m-maxHeight_m above the feet, at most maxDepth_m deep, landing no more than maxDrop_m below the top; swept, no chaining, never over barbed wire (src/explore.cpp). Taller or deeper obstacles are climbed by the mantle below.",
+  "_note": "MV1 2026-11-15: the player no longer vaults over obstacles; every hold-Space climb ends standing on top (mantle block). hold_s is how long Space is held before the climb starts; maxHeight_m caps the bots' navmesh vault links (content/ai/navigation.json, checked by --selftest-move). The other values are unused by the player.",
   "hold_s": 0.16,
   "minHeight_m": 0.62,
   "maxHeight_m": 1.35,
@@ -47,16 +47,16 @@
   "speed": 1.0
  },
  "mantle": {
-  "_note": "Hold Space facing a ledge minHeight_m-maxHeight_m above the ground under the feet (trench lips are 1.9-2.0 m above the floor, 1.57 m above the firestep; 2.15 keeps a 2.1 m wall in range). Lands on top where the standing body fits (top within landAbove_m / landBelow_m of the ledge, 0.42-1.6 m past the face), or drops over a top narrower than narrowTop_m to a far side at most maxDrop_m down. Duration minDuration_s-maxDuration_s by the rise; the view pitches up by pitchUp_deg while pulling and down by pitchDip_deg rolling over the top; hands handSpread_m either side of the aim line. Vault is tried first. Bot mantle links (content/ai/navigation.json links.mantleMax_m 1.6) stay inside this range. src/mantle.cpp, docs/movement.md#mantle.",
-  "minHeight_m": 0.9,
-  "maxHeight_m": 2.15,
+  "_note": "Climb onto (MV1, user 2026-11-15: 'climb up a vertical surface as tall as they are but it doesn't force them to go over the object itself and allows the user to remain standing on top'). Hold Space facing a top minHeight_m-maxHeight_m above the ground under the feet, face within reach_m: the player is pulled up and left STANDING on it, centred on a top narrower than 0.9 m (wall, parapet coping) at least minTop_m deep, 0.45 m in on a deeper one, landing within landAbove_m / landBelow_m of the ledge. A top thinner than minTop_m (a rail) is crossed only onto a surface at the ledge's height or within fenceDrop_m of the start's level ground, never down off a roof. maxHeight_m 2.2: the player is 1.8 m tall, trench lips are 1.9-2.0 m above the floor, roof parapets about 1.2 m. Duration minDuration_s (a hop at minHeight_m) to maxDuration_s (at maxHeight_m); the view pitches up by pitchUp_deg while pulling and down by pitchDip_deg onto the top; hands handSpread_m either side of the aim line. Costs stamina like a jump. Bot mantle links (content/ai/navigation.json links.mantleMax_m 1.6) stay inside this range. src/mantle.cpp, docs/movement.md#mantle.",
+  "minHeight_m": 0.4,
+  "maxHeight_m": 2.2,
   "reach_m": 0.85,
-  "minDuration_s": 0.9,
+  "minDuration_s": 0.45,
   "maxDuration_s": 1.3,
   "landAbove_m": 0.3,
   "landBelow_m": 0.6,
-  "narrowTop_m": 0.55,
-  "maxDrop_m": 2.2,
+  "minTop_m": 0.05,
+  "fenceDrop_m": 0.4,
   "pitchUp_deg": 5.0,
   "pitchDip_deg": 14.0,
   "handSpread_m": 0.24

@@ -64,6 +64,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   vec3 legT[2]; float footPitch[2] = {0, 0}; float l1L[2], l2L[2]; vec3 a0L[2];
   float climbRoll = climb >= 0 ? std::max(0.0f, std::sin(kPi * c01((climb - 0.45f) / 0.5f))) : 0.0f;
   float A = gait ? std::max(0.0f, p.stride) : 0.0f, sA = std::min(1.0f, A / 0.2f);
+  auto gnd = [&](vec3 q) { return p.slope.x * q.x + p.slope.y * q.z; };   // the ground's height at a model point (the plane through the feet origin)
   for (int leg = 0; leg < 2; ++leg) {
     int sU = leg ? CJ_RUPLEG : CJ_LUPLEG, sK = leg ? CJ_RLEG : CJ_LLEG, sF = leg ? CJ_RFOOT : CJ_LFOOT;
     vec3 a0 = H(sU), b0 = H(sK), c0 = H(sF);
@@ -90,6 +91,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       float k = 0.5f + 0.5f * std::sin(sph - 1.2f);
       T = glm::mix(T, c0 + vec3((leg ? -0.16f : 0.16f) * k, 0.38f * k, -0.22f * k), swim);
     }
+    if (!dead && prone < 0.5f) T.y += gnd(T) * (1 - swim);
     legT[leg] = T;
   }
   // ---- body root: hips drop for crouch / glide / kneel, and as far as the stepping feet need to stay reachable
@@ -102,12 +104,12 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       vec3 d = legT[leg] - a0L[leg];
       need = std::max(need, a0L[leg].y - (legT[leg].y + std::sqrt(std::max(0.0f, L * L - d.x * d.x - d.z * d.z))));
       float dz = A + 0.06f;   // the worst case over the cycle: the glide keeps the upper body level at that height
-      needMax = std::max(needMax, a0L[leg].y - (H(leg ? CJ_RFOOT : CJ_LFOOT).y + std::sqrt(std::max(0.0f, L * L - d.x * d.x - dz * dz))));
+      needMax = std::max(needMax, a0L[leg].y - (H(leg ? CJ_RFOOT : CJ_LFOOT).y - std::fabs(gnd(vec3(0, 0, dz))) + std::sqrt(std::max(0.0f, L * L - d.x * d.x - dz * dz))));
     }
     drop = std::max(drop, glm::mix(need, needMax, mAim) + 0.015f * mAim);
   }
   // kneel: the right knee on the ground under the hip, the right thigh near vertical
-  vec3 kneeK(a0L[1].x, 0.065f + p.gndR, a0L[1].z - 0.02f);
+  vec3 kneeK(a0L[1].x, 0, a0L[1].z - 0.02f); kneeK.y = 0.065f + gnd(kneeK);
   if (kneel > 0) {
     float dropK = a0L[1].y - (kneeK.y + 0.965f * l1L[1]);
     drop = glm::mix(drop, dropK, kneel);
@@ -115,8 +117,8 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   mat4 root = glm::translate(mat4(1), vec3(0, -drop, 0.06f * crouch));
   if (kneel > 0) {   // left foot forward and planted, shin near vertical; right shin back along the ground, toes tucked
     vec3 cl = H(CJ_LFOOT), cr = H(CJ_RFOOT);
-    vec3 Tl(cl.x + 0.05f, cl.y + p.gndL, a0L[0].z + 0.40f);
-    float dy = std::clamp(cr.y + 0.05f + p.gndR - kneeK.y, 0.04f, 0.5f * l2L[1]);   // the ankle a little above its standing height
+    vec3 Tl(cl.x + 0.05f, 0, a0L[0].z + 0.40f); Tl.y = cl.y + gnd(Tl);
+    float dy = std::clamp(cr.y + 0.05f + gnd(kneeK - vec3(0, 0, l2L[1])) - kneeK.y, 0.04f, 0.5f * l2L[1]);   // the ankle a little above its standing height
     vec3 Tr = kneeK + vec3(0, dy, -std::sqrt(l2L[1] * l2L[1] - dy * dy));
     legT[0] = glm::mix(legT[0], Tl, kneel); legT[1] = glm::mix(legT[1], Tr, kneel);
     footPitch[0] *= 1 - kneel; footPitch[1] = glm::mix(footPitch[1], 1.25f, kneel);
@@ -144,7 +146,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   // ---- evaluate in topological order; arms and legs are solved when their chain root is reached
   std::vector<mat4>& Dl = out.delta;
   quat preArm[2], preFore[2]; bool armSolved[2] = {false, false};
-  vec3 handDir[2]; float handW[2] = {0, 0};   // the hand along the weapon (fingers round the grip / handguard) and its weight
+  vec3 handDir[2], palmDir[2]; float handW[2] = {0, 0};   // the hand along the weapon (fingers round the grip / handguard) and its weight
   quat preLeg[2], preKnee[2]; bool legSolved[2] = {false, false};
   mat4 weapon(1);
   bool weaponSet = false;
@@ -184,6 +186,14 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     weaponSet = true;
   };
   float hipsY = H(CJ_HIPS).y;
+  // fingers (any joints under a hand): curled toward the palm round the grip / handguard
+  auto handOf = [&](int j) { for (int k = 0, a = m.jointParent[j]; k < 4 && a >= 0; ++k, a = m.jointParent[a]) { if (a == J(CJ_LHAND)) return 0; if (a == J(CJ_RHAND)) return 1; } return -1; };
+  vec3 curlAx[2];
+  for (int h = 0; h < 2; ++h) {
+    vec3 rd = glm::normalize(H(h ? CJ_RHAND : CJ_LHAND) - H(h ? CJ_RFOREARM : CJ_LFOREARM)), rp = vec3(0, -1, 0) - rd * glm::dot(vec3(0, -1, 0), rd);
+    curlAx[h] = glm::length(rp) > 1e-3f ? glm::normalize(glm::cross(rd, glm::normalize(rp))) : vec3(0, 0, 1);
+  }
+  quat footTilt = dead || prone >= 0.5f ? quat(1, 0, 0, 0) : between(vec3(0, 1, 0), vec3(-p.slope.x, 1, -p.slope.y));   // soles along the slope
   for (int j : order) {
     int par = m.jointParent[j];
     mat4 Pd = par >= 0 ? Dl[par] : root;
@@ -231,8 +241,10 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
         vec3 wx = glm::normalize(vec3(weapon[0])), wy = glm::normalize(vec3(weapon[1])), wz = glm::normalize(vec3(weapon[2]));
         vec3 hd = side ? wy * -0.72f + wz * 0.69f : kind == 0 ? wx * -0.55f + wy * -0.45f + wz * 0.70f : wx * -0.30f + wy * -0.15f + wz * 0.94f;
         float w = (1 - climbW) * (1 - swim) * (side == 1 && p.throwT >= 0 ? 0.0f : 1.0f) * (side == 0 && p.reload > 0 && p.reload < 1 ? 0.0f : 1.0f);
-        handDir[side] = glm::normalize(hd); handW[side] = w;
-        T -= handDir[side] * (0.075f * w);
+        // palms: the firing hand against the grip's right side, the support palm up under the handguard (pistols: cupping the right hand)
+        vec3 pn = side ? wx : kind == 0 ? -wx * 0.8f + wy * 0.3f : wy * 0.75f - wx * 0.65f;
+        handDir[side] = glm::normalize(hd); palmDir[side] = glm::normalize(pn); handW[side] = w;
+        T -= (handDir[side] * 0.075f + palmDir[side] * (side ? 0.03f : 0.04f)) * w;   // the palm's surface (not the bones) against the weapon
       }
       // elbows hang down and in (not winged out)
       vec3 pole = side ? vec3(-0.25f, -1, -0.15f) : vec3(0.30f, -1, -0.05f);
@@ -248,9 +260,17 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (j == J(CJ_LFOREARM) && armSolved[0]) D[j] = preFore[0];
       if (j == J(CJ_RFOREARM) && armSolved[1]) D[j] = preFore[1];
       int hs = j == J(CJ_LHAND) ? 0 : j == J(CJ_RHAND) ? 1 : -1;
+      if (int fh = hs < 0 ? handOf(j) : -1; fh >= 0 && armSolved[fh] && handW[fh] > 0) D[j] = glm::angleAxis(0.4f * handW[fh], curlAx[fh]);
       if (hs >= 0 && armSolved[hs] && handW[hs] > 0 && par >= 0) {
         vec3 rest = H(hs ? CJ_RHAND : CJ_LHAND) - H(hs ? CJ_RFOREARM : CJ_LFOREARM);
-        D[j] = glm::slerp(quat(1, 0, 0, 0), between(rest, glm::inverse(rotOf(Pd)) * handDir[hs]), handW[hs]);
+        // rest palms face down (T- or A-pose rigs): turn the fingers onto handDir, then roll the palm about them onto palmDir
+        vec3 rd = glm::normalize(rest), rp = vec3(0, -1, 0) - rd * glm::dot(vec3(0, -1, 0), rd);
+        quat q = between(rd, handDir[hs]);
+        if (glm::length(rp) > 1e-3f) {
+          vec3 hd = handDir[hs], a = q * glm::normalize(rp), b = palmDir[hs] - hd * glm::dot(palmDir[hs], hd);
+          if (glm::length(b) > 1e-3f) { b = glm::normalize(b); q = glm::angleAxis(std::atan2(glm::dot(glm::cross(a, b), hd), glm::dot(a, b)), hd) * q; }
+        }
+        D[j] = glm::slerp(quat(1, 0, 0, 0), glm::inverse(rotOf(Pd)) * q, handW[hs]);
       }
     }
     if (side >= 0 && dead) D[j] = glm::angleAxis((side ? 1.0f : -1.0f) * 0.9f * ease(p.death), vec3(0, 0, 1));   // arms fall to the sides
@@ -272,7 +292,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     if (j == J(CJ_LLEG) && legSolved[0]) D[j] = preKnee[0];
     if (j == J(CJ_RLEG) && legSolved[1]) D[j] = preKnee[1];
     if ((j == J(CJ_LFOOT) || j == J(CJ_RFOOT)) && par >= 0)   // the foot flat, or rolled heel to toe (+ = toes down)
-      D[j] = glm::inverse(rotOf(Pd)) * glm::angleAxis(dead ? 0.0f : footPitch[j == J(CJ_RFOOT)], vec3(1, 0, 0));
+      D[j] = glm::inverse(rotOf(Pd)) * footTilt * glm::angleAxis(dead ? 0.0f : footPitch[j == J(CJ_RFOOT)], vec3(1, 0, 0));
     if (dead && (j == J(CJ_LLEG) || j == J(CJ_RLEG))) D[j] = glm::angleAxis(0.25f * ease(p.death), vec3(1, 0, 0));
     if (kneel > 0 && j == J(CJ_RTOE)) D[j] = glm::angleAxis(-1.0f * kneel, vec3(1, 0, 0));   // toes bent flat on the ground
     Dl[j] = Pd * about(m.jointHead[j], D[j]);

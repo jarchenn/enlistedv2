@@ -44,6 +44,8 @@ struct WeaponDef {
   const std::vector<int>* worldParts() const { return modelLod ? modelPartsLod : modelParts; }
   fs::path file;                        // source JSON (calibration panel saves back into it)
   vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)
+  vec3 coverPivot{0, 0.065f, 0.58f}, bipodPivot{0, 0.02f, 1.1f};   // MG9 belt guns: top-cover hinge and bipod hinge (weapon space, JSON "pivots")
+  float coverDeg = -75, bipodDeg = -80;                              // rotation about +x when open / deployed
   float bulletMass = 10;                // grams (penetration energy)
   std::vector<std::string> modes;       // fire-selector modes, first is the default ("auto", "semi")
   std::string deploys;                  // heavy weapon: station asset it deploys as
@@ -66,7 +68,8 @@ struct WeaponDef {
                       linDamp = 0.4f, rollDamp = 3.0f; bool smoke = false, fire = false; } grenade;   // smoke: no blast, starts a smoke cloud (mpai)
   struct MeleeDef { bool on = false; float reach = 1.7f, arcDeg = 40; int rays = 5; float windup = 0.12f, strike = 0.1f, cooldown = 0.6f, damage = 35; } melee;
   // GM2 explosion pack (JSON "pack"; docs/abilities.md): placed on the surface in reach, goes off `fuse` s later
-  struct PackDef { bool on = false; float fuse = 10, damage = 450, radius = 6, crater = 0.4f, reach = 2.2f; } pack;
+  struct PackDef { bool on = false; float fuse = 10, damage = 450, radius = 6, crater = 0.4f, reach = 2.2f;
+                   bool hasLed = false; vec3 led{0}; } pack;   // MG10: the model's LED (weapon space) blinks while the fuse runs
   bool equipment() const { return grenade.on || melee.on || pack.on; }
   bool useModel() const { return model && model->vao; }
   int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)

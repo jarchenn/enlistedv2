@@ -21,6 +21,13 @@ content/assets/models/br_*/
 # MOD2: the military hut bake (TampaJoey, licence not stated): local only
 content/assets/models/mod_mil_hut/
 content/assets/models/mod_mil_hut_ruin/
+# MG10 explosion pack: the supplied C4 model (c4-explosive.zip) has no licence: the bake stays local-only; the part-built box is the fallback
+content/weapons/models/explosion_pack/
+
+
+# VH2: the supplied Humvee (low-poly-humvee-vehicle.zip) carries no author or licence: its bake stays local-only;
+# clones draw the committed part-built fallback (content/vehicles/models/humvee_fallback)
+content/vehicles/models/humvee/
 
 
 # VH2: the supplied Boxer APC (boxer-apc-hmg.zip) names no author or licence: its bake stays local-only; clones draw

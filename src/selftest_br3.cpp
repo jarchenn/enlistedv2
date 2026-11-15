@@ -8,6 +8,7 @@
 #include "mpui.h"
 #include "physics.h"
 #include "ai_hooks.h"
+#include "br_models.h"
 #include <cstdlib>
 #include <cmath>
 #include <sstream>
@@ -101,19 +102,30 @@ bool paletteShots(App& app, float dt) {
   return true;
 }
 
-// --shots-poses (AN1): one bot on battle1 (or NMK_SHOTS_MAP) held in each soldier posture with a rifle and an SMG, seen
-// from the side and the three-quarter front: kneel (crouched, still, a target), carry (jogging, no target) and
-// moveaim (jogging, a target). Shots: selftest_out/pose_<weapon>_<posture>_<view>.png (NMK_POSE_WEAPONS: other guns). No checks beyond "the match started".
+// --shots-poses (AN1): one bot on battle1 (or NMK_SHOTS_MAP) held in each soldier posture, seen from the side and the
+// three-quarter front: kneel (crouched, still, a target), carry (jogging, no target) and moveaim (jogging, a target).
+// NMK_POSE_WEAPONS = "label:id,..." (default rifle:m1_garand,smg:mp40); NMK_POSE_BODIES = "model,..." (operator_allied,
+// br_marine, ...; default the bot's own body); NMK_POSE_SLOPE = 1: a spot on a 12-30 % slope, the bot facing uphill;
+// NMK_POSE_SPEED: the moving postures' speed (m/s, default 2.69 jog).
+// Shots: selftest_out/pose_[<body>_][slope_]<weapon>_<posture>_<view>.png. Logs the feet / knee height over the ground.
 bool poseShots(App& app, float dt) {
-  static int pm = -1; static float t = 0; static int stage = 0, idx = 0, bot = -1; static vec3 anchor{0}; static fs::path pend;
+  static int pm = -1; static float t = 0; static int stage = 0, idx = 0, bot = -1; static vec3 anchor{0}, face{0, 0, 1}; static fs::path pend;
+  static bool slope = false; static float worstStance = 0, worstKneel = 0; static int frames = 0;
   if (pm < 0) { pm = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--shots-poses") pm = 1; }
   if (pm != 1) return false;
   if (dt < 0) { if (!pend.empty()) { app.screenshot(pend); pend.clear(); } return true; }
   t += dt;
-  static std::vector<std::pair<std::string, std::string>> weps;   // NMK_POSE_WEAPONS = "label:id,label:id" (default rifle:m1_garand,smg:mp40)
+  auto list = [](const char* env, const char* def) {
+    std::vector<std::string> v; const char* e = std::getenv(env); std::stringstream ss(e && *e ? e : def); std::string it;
+    while (std::getline(ss, it, ',')) if (!it.empty()) v.push_back(it);
+    return v;
+  };
+  static std::vector<std::pair<std::string, std::string>> weps;
+  static std::vector<std::string> bodies;
   if (weps.empty()) {
-    const char* e = std::getenv("NMK_POSE_WEAPONS"); std::stringstream ss(e && *e ? e : "rifle:m1_garand,smg:mp40"); std::string it;
-    while (std::getline(ss, it, ',')) { size_t c = it.find(':'); if (c != std::string::npos) weps.push_back({it.substr(0, c), it.substr(c + 1)}); }
+    for (auto& it : list("NMK_POSE_WEAPONS", "rifle:m1_garand,smg:mp40")) { size_t c = it.find(':'); if (c != std::string::npos) weps.push_back({it.substr(0, c), it.substr(c + 1)}); }
+    bodies = list("NMK_POSE_BODIES", "-");
+    const char* sl = std::getenv("NMK_POSE_SLOPE"); slope = sl && *sl == '1';
   }
   static const char* posts[3] = {"kneel", "carry", "moveaim"};
   static const char* views[2] = {"side", "front34"};
@@ -131,60 +143,90 @@ bool poseShots(App& app, float dt) {
     stage = 1; t = 0; return true;
   }
   Game& G = *gGame;
+  auto H = [&](float x, float z) { return app.terrain.height(x, z); };
   if (stage == 1) {
     if (t < 3.0f) return true;
     G.paused = true;
     for (auto& s : G.sold) if (s.alive && !s.human && !s.localPlayer && !s.zombie) { bot = s.slot; break; }
-    if (Soldier* L = G.local()) {   // a clear spot near the spawn: flat, nothing within 3.5 m around the bot at body heights, open sky
+    if (Soldier* L = G.local()) {   // a clear spot near the spawn: flat (or sloped), nothing within 3.5 m at body heights, open sky
       anchor = L->feet; bool found = false;
       auto clear = [&](vec3 o, vec3 d, float len) { float tt; uint64_t ud; return !Physics::castRay(o, glm::normalize(d), len, tt, ud); };
-      for (float r : {8.0f, 12.0f, 16.0f, 20.0f, 25.0f, 30.0f, 40.0f}) {
-        for (int a = 0; a < 24 && !found; ++a) {
-          float an = a * 6.2831853f / 24; vec3 c = L->feet + vec3(std::cos(an), 0, std::sin(an)) * r; c.y = app.terrain.height(c.x, c.z);
-          bool ok = true;
+      float steepest = 0;
+      for (float r : {8.0f, 12.0f, 16.0f, 20.0f, 25.0f, 30.0f, 40.0f, 55.0f, 70.0f, 90.0f, 120.0f, 150.0f, 190.0f, 240.0f}) {
+        for (int a = 0; a < 36 && !found; ++a) {
+          float an = a * 6.2831853f / 36; vec3 c = L->feet + vec3(std::cos(an), 0, std::sin(an)) * r; c.y = H(c.x, c.z);
+          vec2 g((H(c.x + 0.5f, c.z) - H(c.x - 0.5f, c.z)), (H(c.x, c.z + 0.5f) - H(c.x, c.z - 0.5f)));   // rise over 1 m
+          float gl = glm::length(g);
+          bool ok = slope ? gl > 0.12f && gl < 0.30f : gl < 0.04f;
+          if (gl < 0.5f) steepest = std::max(steepest, gl);
           for (int k = 0; k < 8 && ok; ++k) {
             vec3 d(std::cos(k * 0.785f), 0, std::sin(k * 0.785f));
-            ok = std::fabs(app.terrain.height(c.x + 3.5f * d.x, c.z + 3.5f * d.z) - c.y) < 0.25f;
-            for (float h : {0.3f, 0.9f, 1.6f}) ok = ok && clear(c + vec3(0, h, 0), d, 3.8f);
+            float lin = c.y + 3.5f * (g.x * d.x + g.y * d.z);   // the plane through the spot
+            ok = std::fabs(H(c.x + 3.5f * d.x, c.z + 3.5f * d.z) - (slope ? lin : c.y)) < (slope ? 0.35f : 0.25f);
+            for (float h : {0.9f, 1.6f}) ok = ok && clear(c + vec3(0, h, 0), d + vec3(0, g.x * d.x + g.y * d.z, 0), 3.8f);
           }
-          if (ok && clear(c + vec3(0, 0.5f, 0), vec3(0, 1, 0), 10.0f)) { anchor = c; found = true; }
+          if (ok && clear(c + vec3(0, 0.5f, 0), vec3(0, 1, 0), 10.0f)) { anchor = c; found = true; if (slope) face = glm::normalize(vec3(g.x, 0, g.y)); }
         }
         if (found) break;
       }
-      logf("[poses] spot %s at %.1f %.1f %.1f", found ? "found" : "NOT found (the spawn)", anchor.x, anchor.y, anchor.z);
+      logf("[poses] %s spot %s at %.1f %.1f %.1f, facing %.2f %.2f (steepest seen %.2f)", slope ? "sloped" : "flat", found ? "found" : "NOT found (the spawn)", anchor.x, anchor.y, anchor.z, face.x, face.z, steepest);
     }
     logf("[poses] bot %d", bot);
-    if (bot >= 0) {   // rig lengths (rest)
-      const CharModel& m = *G.models[G.sold[bot].model];
-      auto Hh = [&](int c) { return m.semantic[c] >= 0 ? m.jointHead[m.semantic[c]] : vec3(-9); };
-      logf("[poses] rig: lsh %.2f %.2f %.2f larm %.2f %.2f %.2f upper %.3f fore %.3f | head y %.2f hips y %.2f thigh %.3f shin %.3f foot y %.2f", Hh(CJ_LSHOULDER).x, Hh(CJ_LSHOULDER).y, Hh(CJ_LSHOULDER).z,
-           Hh(CJ_LARM).x, Hh(CJ_LARM).y, Hh(CJ_LARM).z, glm::length(Hh(CJ_LFOREARM) - Hh(CJ_LARM)), glm::length(Hh(CJ_LHAND) - Hh(CJ_LFOREARM)), Hh(CJ_HEAD).y, Hh(CJ_HIPS).y,
-           glm::length(Hh(CJ_LLEG) - Hh(CJ_LUPLEG)), glm::length(Hh(CJ_LFOOT) - Hh(CJ_LLEG)), Hh(CJ_LFOOT).y);
-    }
     if (bot < 0) { app.selftest->exitCode = 1; app.selftest->done = true; return true; }
     stage = 2; t = 0; idx = 0; return true;
   }
-  if (idx >= 6 * (int)weps.size()) { app.selftest->exitCode = 0; app.selftest->done = true; return true; }
-  int w = idx / 6, ps = (idx / 2) % 3, vw = idx % 2;
+  int per = 6 * (int)weps.size();
+  if (idx >= per * (int)bodies.size()) {
+    logf("[poses] ground: worst stance-foot gap %.3f m, worst kneel contact gap %.3f m (%d frames)", worstStance, worstKneel, frames);
+    app.selftest->exitCode = 0; app.selftest->done = true; return true;
+  }
+  int bi = idx / per, w = (idx % per) / 6, ps = (idx / 2) % 3, vw = idx % 2;
   Soldier& s = G.sold[bot];
-  vec3 face(0, 0, 1);   // the bot faces +z (world); side view from its right, three-quarter view from its front left
-  vec3 B(anchor.x, app.terrain.height(anchor.x, anchor.z), anchor.z);
+  if (bodies[bi] != "-" && t == dt) {   // the body under test (loaded like Game::begin's operator bodies)
+    std::string id = bodies[bi]; int mi = -1;
+    if (id == "br_marine") mi = brMarineModel(G);
+    else if (G.modelIdx.count(id)) mi = G.modelIdx[id];
+    else { auto cm = std::make_unique<CharModel>(); std::string e;
+      if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { mi = G.modelIdx[id] = (int)G.models.size(); G.models.push_back(std::move(cm)); }
+      else logf("[poses] body %s: %s", id.c_str(), e.c_str()); }
+    if (mi >= 0 && mi != s.model) {
+      if (s.ciReady) s.ci.destroy();
+      s.model = mi; s.ci.frameSkinned = -1; s.ciReady = false;
+      const CharModel& m = *G.models[mi];
+      auto Hh = [&](int c) { return m.semantic[c] >= 0 ? m.jointHead[m.semantic[c]] : vec3(-9); };
+      logf("[poses] body %s rig: lsh %.2f %.2f %.2f larm %.2f %.2f %.2f hand %.2f %.2f %.2f upper %.3f fore %.3f | head y %.2f hips y %.2f thigh %.3f shin %.3f foot y %.2f toe %.2f %.2f",
+           id.c_str(), Hh(CJ_LSHOULDER).x, Hh(CJ_LSHOULDER).y, Hh(CJ_LSHOULDER).z, Hh(CJ_LARM).x, Hh(CJ_LARM).y, Hh(CJ_LARM).z, Hh(CJ_LHAND).x, Hh(CJ_LHAND).y, Hh(CJ_LHAND).z,
+           glm::length(Hh(CJ_LFOREARM) - Hh(CJ_LARM)), glm::length(Hh(CJ_LHAND) - Hh(CJ_LFOREARM)), Hh(CJ_HEAD).y, Hh(CJ_HIPS).y,
+           glm::length(Hh(CJ_LLEG) - Hh(CJ_LUPLEG)), glm::length(Hh(CJ_LFOOT) - Hh(CJ_LLEG)), Hh(CJ_LFOOT).y, Hh(CJ_LTOE).y, Hh(CJ_LTOE).z);
+    }
+  }
+  vec3 B(anchor.x, H(anchor.x, anchor.z), anchor.z);
   s.feet = B; s.hp = 100; s.yaw = degrees(std::atan2(-face.x, -face.z)); s.br.aimYaw = s.yaw; s.br.aimPitch = 0;
   if (s.agent >= 0) Physics::setAgentPos(s.agent, B);
   int wi = app.weaponIndex(weps[w].second); if (wi >= 0) s.weapon = wi;
   s.reload = 0; s.throwT = -1; s.recoil = 0;
   s.posture = ps == 0 ? Physics::CROUCH : Physics::STAND;
-  s.speed = ps == 0 ? 0.0f : 2.69f; s.vel = face * s.speed;
+  static float runV = [] { const char* e = std::getenv("NMK_POSE_SPEED"); return e && *e ? (float)std::atof(e) : 2.69f; }();   // jog by default
+  s.speed = ps == 0 ? 0.0f : runV; s.vel = face * s.speed;
   s.br.target = ps == 1 ? -1 : G.localSlot; s.lastShot = -100;
-  vec3 cd = vw == 0 ? vec3(-1, 0, 0) : glm::normalize(vec3(0.7f, 0, 1));   // yaw 180 + the model's pi: model axes == world axes, left = +x
-  vec3 e = B + cd * 3.2f; e.y = app.terrain.height(e.x, e.z) - 0.45f;   // eye ~1.2 m above the ground
+  vec3 left = glm::cross(vec3(0, 1, 0), face);   // the bot's left
+  vec3 cd = vw == 0 ? -left : glm::normalize(left * 0.7f + face);   // side: from its right; three-quarter: front left
+  vec3 e = B + cd * 3.2f; e.y = H(e.x, e.z) - 0.45f;   // eye ~1.2 m above the ground
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
   vec3 v = (B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
   app.eyeYaw = degrees(std::atan2(-v.x, -v.z)); app.eyePitch = degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
   G.posesStep(dt > 0 ? dt : 1.0f / 60);
+  if (t > 0.6f) {   // settled: the joints over the ground (feet at the ankle's rest height when planted, the knee on the ground)
+    const CharModel& m = *G.models[s.model];
+    auto gap = [&](int c) { vec3 w = vec3(s.world * vec4(s.pose.joint[c], 1)); return w.y - H(w.x, w.z) - (c == CJ_RLEG ? 0.0f : m.jointHead[m.semantic[c]].y); };
+    ++frames;
+    if (ps == 0) worstKneel = std::max({worstKneel, std::fabs(gap(CJ_RLEG) - 0.065f), std::fabs(gap(CJ_LFOOT))});
+    else worstStance = std::max(worstStance, std::fabs(std::min(gap(CJ_LFOOT), gap(CJ_RFOOT))));
+  }
   if (t > 1.6f) {
-    pend = exeDir() / "selftest_out" / ("pose_" + weps[w].first + "_" + posts[ps] + "_" + views[vw] + ".png");
+    std::string tag = (bodies[bi] == "-" ? "" : bodies[bi] + "_") + (slope ? "slope_" : "");
+    pend = exeDir() / "selftest_out" / ("pose_" + tag + weps[w].first + "_" + posts[ps] + "_" + views[vw] + ".png");
     logf("[poses] %s: kneel %.2f carry %.2f moveAim %.2f stride %.2f", pend.filename().string().c_str(), s.anKneel, s.anCarry, s.anMoveAim, s.anStride);
     if (s.weapon >= 0) {   // wrists vs the grip sockets (model space), shoulder heights, head
       const WeaponDef& d = *app.weaponDefs[s.weapon]; const PoseResult& r = s.pose;

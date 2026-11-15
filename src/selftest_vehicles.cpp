@@ -1,8 +1,9 @@
 // VH1 --capture-jeep: no suite, a look at the drivable vehicles (selftest_out/vehicles_*.png, frames with the HUD) and a
-// few logged numbers. The eight types (VH2: the Boxer APC last) are placed in a row in Creative (two overview frames); then each in turn is
+// few logged numbers. The nine types (VH2: the Humvee, then the Boxer APC last) are placed in a row in Creative (two overview frames); then each in turn is
 // entered through its E prompt from the driver's door: the driver's view through the windshield, W held then D held
-// (speed, smoothed steering, the wheel turned), handbrake to a stop, out again; for the first jeep, the cargo truck and the APC; for the APC also the gunner's
-// remote weapon station sight firing (wide and zoomed), and its armour against a rifle, a .50, a rocket
+// (speed, smoothed steering, the wheel turned), handbrake to a stop, out again; for the first jeep, the cargo truck, the Humvee and the APC
+// an outside frame of the steered front wheels; for the APC also the gunner's remote weapon station sight firing (wide
+// and zoomed), and its armour against a rifle, a .50, a rocket
 // an outside frame of the steered front wheels.
 #include "selftest.h"
 #include <functional>
@@ -12,9 +13,9 @@ namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> seq; size_t cur = 0; float st = 0, total = 0;
 int mode = -1; bool started = false;
-const char* kIds[] = {"car_jeep_willys", "car_jeep_ww2", "car_truck_cargo", "car_truck_canopy", "car_truck_medical", "car_truck_flak", "car_truck_kitchen", "car_boxer_apc"};
-const int kN = 8;
-const int kApc = 7;
+const char* kIds[] = {"car_jeep_willys", "car_jeep_ww2", "car_truck_cargo", "car_truck_canopy", "car_truck_medical", "car_truck_flak", "car_truck_kitchen", "car_humvee", "car_boxer_apc"};
+const int kN = 9;
+const int kHumvee = 7, kApc = 8;
 uint64_t J[kN] = {};
 fs::path outDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 void push(const std::string& n, std::function<bool(App&, float)> f) { seq.push_back({n, f}); }
@@ -93,7 +94,7 @@ void build(App&) {
     push("outside " + std::to_string(k), [k](App& a, float t) {
       a.scriptedInput.interact = false;
       TankRT& r = T(a, k);
-      if (k != 0 && k != 2 && k != kApc) return t > 0.3f;
+      if (k != 0 && k != 2 && k != kHumvee && k != kApc) return t > 0.3f;
       vec3 f = yawQuat(r.yaw) * vec3(0, 0, 1), l = yawQuat(r.yaw) * vec3(1, 0, 0);
       float L = r.def->halfSize.z;
       if (at(t, 0.2f)) { note("type %d out: occupied %d", k + 1, (int)a.tanks.occupied); standAt(a, r.pos + f * (L + 3.0f) + l * 2.8f); }
@@ -106,7 +107,7 @@ void build(App&) {
     int h0 = r.hp; a.tanks.applyHit(a, J[kApc], TA_SMALL_ARMS, side, n, -n, 3600); int h1 = r.hp;
     a.tanks.applyHit(a, J[kApc], TA_SMALL_ARMS, side, n, -n, 18000); int h2 = r.hp;
     a.tanks.applyHit(a, J[kApc], TA_LAUNCHER, side, n, -n); int h3 = r.hp;
-    note("type 8 armour: rifle %d -> %d, .50 -> %d, rocket -> %d (%s)", h0, h1, h2, h3, h1 == h0 && h2 < h1 && h3 < h2 && !r.wrecked ? "ok" : "UNEXPECTED");
+    note("type %d armour: rifle %d -> %d, .50 -> %d, rocket -> %d (%s)", kApc + 1, h0, h1, h2, h3, h1 == h0 && h2 < h1 && h3 < h2 && !r.wrecked ? "ok" : "UNEXPECTED");
     return true; });
   push("done", [](App& a, float t) { if (t < 0.3f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }

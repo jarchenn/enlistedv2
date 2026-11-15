@@ -38,6 +38,11 @@ const ZombieCfg& zcfg() {
     loaded = true;
     try {
       json j = json::parse(readTextFile(contentDir() / "ai" / "zombie.json"));
+      if (fs::exists(contentDir() / "ai" / "zombie_local.json")) {   // local-only extra enemy types (git-ignored), appended to the list
+        json lj = json::parse(readTextFile(contentDir() / "ai" / "zombie_local.json"));
+        if (!j.contains("types")) j["types"] = json::array();
+        for (auto& e : lj.value("types", json::array())) j["types"].push_back(e);
+      }
       c.repath = j.value("repath_s", c.repath); c.flinch = j.value("flinch_s", c.flinch);
       auto strs = [](const json& e, const char* k, std::vector<std::string>& v) {   // a name or a list of names
         if (e.contains(k) && e[k].is_string()) v = {e[k].get<std::string>()};

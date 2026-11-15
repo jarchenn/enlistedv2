@@ -1,0 +1,53 @@
+{
+ "id": "car_humvee",
+ "version": 1,
+ "name": "Humvee",
+ "category": "Vehicles",
+ "description": "Drivable Humvee (Explore: E to enter). Driver's view from inside the furnished cab: dash, gauges, radio stack, seats; W/S throttle, A/D steer, Space handbrake. Supplied model is local-only; the committed build shows a part-built stand-in.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  1.96,
+  4.64
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Allied",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.02,
+    0.03
+   ],
+   "s": [
+    1.96,
+    1.5,
+    4.64
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "humvee",
+ "nav": {
+  "effect": "none"
+ }
+}

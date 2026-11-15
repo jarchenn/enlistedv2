@@ -79,7 +79,7 @@ struct PoseParams {
   bool gait = false;                        // stance / swing feet: planted feet travel back at the body speed (walkPhase: 2 pi per cycle)
   float stride = 0, duty = 0.6f;            // half the planted-foot travel (m); stance fraction of the cycle
   vec3 moveDir{0, 0, 1};                    // model-space travel direction (unit, y = 0)
-  float gndL = 0, gndR = 0;                 // kneel: ground height under the left foot / right knee relative to the feet (m)
+  vec2 slope{0};                            // AN1b: ground gradient under the body in model space (rise per metre along x, z); feet and the kneel follow it
 };
 
 struct PoseResult {

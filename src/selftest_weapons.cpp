@@ -21,6 +21,7 @@ int shotsAtStart = 0;
 WeaponState& S(App& a, const char* id) { return a.wstate[id]; }
 const WeaponDef& D(App& a) { return *a.weaponDefs[a.activeWeapon]; }
 int total(App& a, const char* id) { auto& s = S(a, id); return s.loaded + s.reserveRounds(); }
+uint64_t mg9Gun = 0;   // MG9 dev look: the placed embrasure MG 42
 void face(App& a, vec3 target) {
   vec3 e = a.eyePos();
   a.eyeYaw = degrees(std::atan2(-(target.x - e.x), -(target.z - e.z)));
@@ -76,6 +77,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     KP = app.placeInstance(app.lib.find("crate_pak40_he"), vec3(-2.5f, 0, 2.0f), 0.0f);
     M2 = app.placeInstance(app.lib.find("gun_m2hb_tripod"), vec3(5.0f, 0, 3.5f), 180.0f);
     if (std::getenv("NMK_MG_LOOK")) app.placeInstance(app.lib.find("rack_modern"), vec3(-1.5f, 0, -3.0f), 20.0f);   // MG2 dev look: the modern weapons case
+    if (std::getenv("NMK_MG9")) mg9Gun = app.placeInstance(app.lib.find("gun_mg42_embrasure"), vec3(4.0f, 0, -6.0f), 180.0f);   // MG9 dev look: the emplaced MG 42
+    if (std::getenv("NMK_MG10")) app.placeInstance(app.lib.find("car_truck_cargo"), vec3(8.0f, 0, -8.0f), 90.0f);   // MG10 dev look: a vehicle to stick a charge on
     check(F && K && KP && M2, "range: farmhouse target wall at 40 m, mixed crate, PaK crate, M2HB on tripod");
     app.doc.start = {true, vec3(0, app.terrain.height(0, 0), 0), 0};
     check(app.enterExplore(), "F5"); app.useScripted = true;
@@ -585,7 +588,14 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
             if (ph == 1 && s.throwT >= d.melee.windup * 0.9f) { ph = 2; shot("swing"); in.fire = false; }
             return ph == 2 && t > 2.0f;
           }
-          if (ph == 0 && t > 0.8f) { ph = 1; shot("hip"); in.move = vec2(1, 0); }
+          if (ph == 0 && t > 0.8f) {
+            ph = 1; shot("hip"); in.move = vec2(1, 0);
+            vec3 P[3]; bool ok = true;   // MG11: the rig's rear sight / front sight / muzzle at the hip, in camera space (x right, y up, -z ahead)
+            for (int k = 0; k < 3; ++k) ok = ok && animVmPoint(a, d, k, P[k]);
+            if (ok) { mat4 V = glm::lookAt(a.eyePos(), a.eyePos() + App::forward(a.eyeYaw, a.eyePitch), vec3(0, 1, 0));
+              for (auto& q : P) q = vec3(V * vec4(q, 1));
+              logf("[mg11hip] %s rear (%.3f %.3f %.3f) front (%.3f %.3f %.3f) muzzle (%.3f %.3f %.3f)", id.c_str(), P[0].x, P[0].y, P[0].z, P[1].x, P[1].y, P[1].z, P[2].x, P[2].y, P[2].z); }
+          }
           if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); }
           if (ph == 2 && t > 2.3f) { ph = 3; shot("strafe_l"); in.move = vec2(0); in.aim = true; }
           if (ph == 3 && t > 3.6f) { ph = 4; shot("ads"); }
@@ -598,6 +608,66 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
           if (ph >= 6 && (s.reload <= 0 || t > 16)) { logf("[mg2look] %s clip '%s' loaded %d", id.c_str(), animVmClipNow(d).c_str(), s.loaded); in = ExploreInput{}; return t > 4.5f; }
           return false; });
       }
+    }
+    // ---- MG9 dev look (NMK_MG9): the MG 42 crouched on its bipod (hip, aimed, and the FA2 side view of the rig), then the
+    // embrasure mount from beside and from the gunner's place (selftest_out/mg9_*.png)
+    if (std::getenv("NMK_MG9")) {
+      push("mg9 bipod", [this](App& a, float t) {
+        static int ph; const char* id = "mg42"; WeaponState& s = a.wstate[id]; auto& in = a.scriptedInput;
+        if (t == 0) { ph = 0; std::string m; a.equipWeapon(a.weaponIndex(id), m); in = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 0; s.loaded = 50; s.reload = 0; return false; }
+        in.crouch = true; a.eyeYaw = 0; a.eyePitch = 0;
+        if (ph == 0 && t > 1.4f) { ph = 1; shotQueue.push_back("mg9_mg42_bipod_hip"); a.vmDebugYaw = 70; }
+        if (ph == 1 && t > 1.6f) { ph = 2; shotQueue.push_back("mg9_mg42_bipod_side"); }
+        if (ph == 2 && t > 1.8f) { ph = 3; a.vmDebugYaw = 0; in.aim = true; }
+        if (ph == 3 && t > 3.2f) { ph = 4; shotQueue.push_back("mg9_mg42_bipod_ads"); }
+        if (ph == 4 && t > 3.4f) { in = ExploreInput{}; return true; }
+        return false; });
+      push("mg9 emplacement", [this](App& a, float t) {
+        static int ph; auto it = a.rt.find(mg9Gun);
+        if (it == a.rt.end()) { logf("[mg9] no emplacement"); return true; }
+        vec3 g(4.0f, a.terrain.height(4.0f, -6.0f), -6.0f);   // where the range placed it
+        if (t == 0) { ph = 0; a.scriptedInput = ExploreInput{}; Physics::setCharacterPos(g + vec3(2.2f, 0, 0.6f)); return false; }
+        if (ph == 0) face(a, g + vec3(0, 1.3f, -0.2f));
+        if (ph == 0 && t > 1.2f) { ph = 1; shotQueue.push_back("mg9_emplacement_side"); }
+        if (ph == 1 && t > 1.4f) { ph = 2; logf("[mg9] crew the mount: %s", a.occupyStation(mg9Gun, ST_GUNNER) ? "ok" : "REFUSED"); }
+        if (ph == 2 && t > 3.0f) { ph = 3; shotQueue.push_back("mg9_emplacement_gunner"); }
+        if (ph == 3 && t > 3.3f) { a.leaveStation(); return true; }
+        return false; });
+    }
+    // ---- MG10 dev look (NMK_MG10): the explosion pack in hand (and the FA2 side view), the reach as one is placed, then
+    // charges on the farmhouse wall (LED on and off), on the ground and on a truck's side (selftest_out/mg10_*.png)
+    if (std::getenv("NMK_MG10")) {
+      push("mg10 hold", [this](App& a, float t) {
+        if (t == 0) { gm2Grant(a, "explosion_pack", 4); std::string m; a.equipWeapon(a.weaponIndex("explosion_pack"), m); a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 0; return false; }
+        if (t > 0.9f && t <= 0.9f + 1.0f / 60) shotQueue.push_back("mg10_hold");
+        if (t > 1.0f && a.vmDebugYaw == 0 && t < 1.3f) a.vmDebugYaw = 70;
+        if (t > 1.2f && t <= 1.2f + 1.0f / 60) shotQueue.push_back("mg10_hold_side");
+        if (t > 1.4f) { a.vmDebugYaw = 0; return true; }
+        return false; });
+      auto placeAt = [this, &push](const char* name, vec3 stand, float yaw, float pitch, const char* tag) {
+        std::string nm = name, tg = tag;
+        push(nm.c_str(), [this, stand, yaw, pitch, tg](App& a, float t) {
+          static int ph;
+          if (t == 0) { ph = 0; std::string m; a.equipWeapon(a.weaponIndex("explosion_pack"), m); a.scriptedInput = ExploreInput{};
+            vec3 at = stand;
+            if (pitch > -30) {   // a wall / flank: stand 1.3 m short of what a ray along the view hits
+              vec3 d = App::forward(yaw, 0), o(stand.x, a.terrain.height(stand.x, stand.z) + 1.2f, stand.z); Physics::Hit h;
+              if (Physics::castRayEx(o, d, 40, h)) at = h.pos - d * 1.3f; else logf("[mg10] %s: no surface ahead", tg.c_str());
+            }
+            Physics::setCharacterPos(vec3(at.x, a.terrain.height(at.x, at.z), at.z)); return false; }
+          a.eyeYaw = yaw; a.eyePitch = pitch;
+          if (ph == 0 && t > 0.6f) { ph = 1; a.scriptedInput.fire = true; }
+          if (ph == 1 && a.wstate["explosion_pack"].cooldown > 0) { ph = 2; a.scriptedInput.fire = false; }
+          if (ph == 2 && a.wstate["explosion_pack"].cooldown < 0.62f) { ph = 3; if (tg == "wall") shotQueue.push_back("mg10_place_reach"); }
+          if (ph == 3 && t > 2.2f) { ph = 4; shotQueue.push_back("mg10_" + tg + "_a"); }
+          if (ph == 4 && t > 2.55f) { ph = 5; shotQueue.push_back("mg10_" + tg + "_b"); }
+          if (ph == 5 && t > 2.7f) { a.scriptedInput = ExploreInput{}; return true; }
+          if (t > 6) { logf("[mg10] %s: nothing placed", tg.c_str()); return true; }
+          return false; });
+      };
+      placeAt("mg10 wall", vec3(0.0f, 0, -20.0f), 0.0f, -6.0f, "wall");   // the farmhouse front wall ahead (-z)
+      placeAt("mg10 floor", vec3(-6.0f, 0, -20.0f), 0.0f, -58.0f, "floor");
+      placeAt("mg10 vehicle", vec3(2.0f, 0, -8.0f), -90.0f, -12.0f, "vehicle");   // the truck's flank, looking +x
     }
     // ---- MG8 dev point-of-impact check (NMK_MG_POI=id,id,...): 25 m and 100 m from the farmhouse wall, aimed (ADS, no
     // dispersion, sway or breathing), one round: the impact against the point under the screen centre (log [mg8poi])
@@ -823,7 +893,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     push("flame match end", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
   }
   stage = 701;
-  if (std::getenv("NMK_MG_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("mg1", 0) != 0 && s.name.rfind("mg2", 0) != 0 && s.name.rfind("mg8", 0) != 0; }), wseq.end());   // dev: just the modern-gun steps
+  if (std::getenv("NMK_MG_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("mg1", 0) != 0 && s.name.rfind("mg2", 0) != 0 && s.name.rfind("mg8", 0) != 0 && s.name.rfind("mg9", 0) != 0; }), wseq.end());   // dev: just the modern-gun steps
   if (std::getenv("NMK_FT1_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("flame", 0) != 0; }), wseq.end());   // dev: just the flamethrower steps
   if (wcur >= wseq.size()) { finish(app); return; }
   if (wt == 0) logf("[selftest] step: %s", wseq[wcur].name.c_str());

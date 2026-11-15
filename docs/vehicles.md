@@ -1,6 +1,6 @@
 # Wheeled vehicles (VH1)
 
-Eight placeable vehicle types, built on the tank framework (`src/tank*.cpp`, [tanks.md](tanks.md)). A vehicle definition with `"car": true` reuses the tanks' catalog entry, placement ghost, thumbnail, E to enter or leave, safe exit points, collision body, ramming, damage, wreck, effects and Apply. What differs is the driving, the drawing, the camera and the HUD (`TankSys::stepCar`, `drawCar`, `drawCarUI`).
+Nine placeable vehicle types, built on the tank framework (`src/tank*.cpp`, [tanks.md](tanks.md)). A vehicle definition with `"car": true` reuses the tanks' catalog entry, placement ghost, thumbnail, E to enter or leave, safe exit points, collision body, ramming, damage, wreck, effects and Apply. What differs is the driving, the drawing, the camera and the HUD (`TankSys::stepCar`, `drawCar`, `drawCarUI`).
 
 | Type | Asset id | Vehicle file | Model | Licence / in the repo |
 |---|---|---|---|---|
@@ -11,9 +11,10 @@ Eight placeable vehicle types, built on the tank framework (`src/tank*.cpp`, [ta
 | 5 | `car_truck_medical` | `truck_medical.json` | Opel Blitz ambulance box body | as type 3 |
 | 6 | `car_truck_flak` | `truck_flak.json` | Opel Blitz with a Flak gun on the bed (the gun is part of the body mesh: not crewable) | as type 3 |
 | 7 | `car_truck_kitchen` | `truck_kitchen.json` | Opel Blitz field kitchen | as type 3 |
-| 8 | `car_boxer_apc` | `boxer_apc.json` | Boxer 8x8 APC with an HMG remote weapon station (VH2) | no author or licence in the archive: bake **local-only**; clones draw `boxer_apc_fallback` |
+| 8 | `car_humvee` | `humvee.json` | Humvee, low-poly, with a furnished cab (VH2) | no author or licence in the archive: bake **local-only**; clones draw `humvee_fallback` |
+| 9 | `car_boxer_apc` | `boxer_apc.json` | Boxer 8x8 APC with an HMG remote weapon station (VH2) | no author or licence in the archive: bake **local-only**; clones draw `boxer_apc_fallback` |
 
-The jeeps are Allied and the trucks Axis (faction only labels the catalog; anyone may drive any of them).
+The jeeps and the Humvee are Allied and the trucks Axis (faction only labels the catalog; anyone may drive any of them).
 
 ## Controls
 
@@ -60,9 +61,10 @@ The camera is the driver's head (left-hand drive): the steering wheel's centre p
 | `willys` | uchronia's Willys MB | Named nodes. The tyres are decimated |
 | `ww2jeep` | leoxx300's WW2 jeep | Unnamed Cube / Cylinder parts, taken by measured position: the four tyre cylinders with their hubs, and the steering wheel rim. Scale 0.44 m per unit |
 | `opel` | Opel Blitz truck collection (`all5 together.blend`, one collection per truck) | Relinks the textures shipped in the archive (36 of 82; the rest point at the author's machine), drops the glass faces, finds the wheel cylinders by quadrant, and cuts the steering wheel out of the merged body: the 0.52 m ring island in the cab plus the islands inside its disc |
+| `humvee` | low-poly Humvee (`Humvee.fbx` + its 1K texture) | Scales x1.36 to 4.6 m. The cab was a closed shell with painted windows: the windshield and side window faces are removed and replaced by frames, the shell gets a 2.5 cm inner wall in plain paint (back faces are culled), and the cab is furnished: floor, drive tunnel, dash with gauges and switch panel, radio stack, gear and transfer levers, steering wheel (`steer`) on its column, pedals, four bucket seats, grab bar, door armrests |
 | `boxer` | Boxer APC (`boxer-apc-hmg.fbx`, BMP textures) | Turns front +x to the game's front; 8 wheels by axle (`wheel_fl/fr`, `wheel_f2l/f2r`, `wheel_r2l/r2r`, `wheel_rl/rr`); the weapon station cradle with its launchers and ammo box is `rws` (traverses), the gun with its sensors `mg` (traverses and elevates); the driver's vision-block glass is dropped |
 
-`tools/vehicles/make_fallback.py jeep` / `boxer` builds the committed part-built Willys / Boxer stand-ins.
+`tools/vehicles/make_fallback.py jeep` / `humvee` / `boxer` builds the committed part-built Willys / Humvee / Boxer stand-ins.
 
 ## Boxer APC (VH2)
 

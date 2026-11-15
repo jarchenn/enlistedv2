@@ -108,6 +108,9 @@ void App::buildWeaponMeshes() {
       d->rocketGrav = rj.value("gravity", 0.35f); d->rocketAtKill = rj.value("atKill", true); d->rocketBackblast = rj.value("backblast", true); }
     loadEquipment(*d, j);
     if (j.contains("sockets")) { d->gripR = jvec3(j["sockets"]["rightGrip"], d->gripR); d->gripL = jvec3(j["sockets"]["leftSupport"], d->gripL); }
+    if (j.contains("pivots")) { const json& pv = j["pivots"];   // MG9: the model's own hinges
+      d->coverPivot = jvec3(pv.value("cover", json()), d->coverPivot); d->coverDeg = pv.value("coverDeg", d->coverDeg);
+      d->bipodPivot = jvec3(pv.value("bipod", json()), d->bipodPivot); d->bipodDeg = pv.value("bipodDeg", d->bipodDeg); }
     if (j.contains("model") && useImportedModels) {
       std::string dirName = j["model"].value("dir", "");
       auto it = modelCache.find(dirName);
@@ -299,9 +302,13 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   if (d.feed == "belt") {
     float a = 0;
     if (s.reload > 0) { float u = 1 - s.reload / s.reloadTotal; a = u < 0.25f ? u / 0.25f : u > 0.75f ? (1 - u) / 0.25f : 1; }
-    add(WP_COVER, M * glm::translate(mat4(1), vec3(0, 0.065f, 0.58f)) * glm::mat4_cast(glm::angleAxis(radians(-75.0f * a), vec3(1, 0, 0))) * glm::translate(mat4(1), vec3(0, -0.065f, -0.58f)));
+    add(WP_COVER, M * glm::translate(mat4(1), d.coverPivot) * glm::mat4_cast(glm::angleAxis(radians(d.coverDeg * a), vec3(1, 0, 0))) * glm::translate(mat4(1), -d.coverPivot));
     float leg = supported ? 1.0f : 0.0f;
-    add(WP_BIPOD, M * glm::translate(mat4(1), vec3(0, 0.02f, 1.1f)) * glm::mat4_cast(glm::angleAxis(radians(-80.0f * leg), vec3(1, 0, 0))) * glm::translate(mat4(1), vec3(0, -0.02f, -1.1f)));
+    add(WP_BIPOD, M * glm::translate(mat4(1), d.bipodPivot) * glm::mat4_cast(glm::angleAxis(radians(d.bipodDeg * leg), vec3(1, 0, 0))) * glm::translate(mat4(1), -d.bipodPivot));
+    // MG9: a drum / belt box on the gun (imported "mag" parts) comes off and a fresh one goes on while the cover is open
+    float my = 0, mx = 0;
+    if (s.reload > 0) { float u = 1 - s.reload / s.reloadTotal; float k = u < 0.5f ? u / 0.5f : 1 - (u - 0.5f) / 0.5f; my = -0.30f * k; mx = 0.12f * k; }
+    add(WP_MAG, M * glm::translate(mat4(1), vec3(mx, my, 0)));
   }
   // en-bloc / stripper clip visible while it is being loaded (imported en-bloc clip: always seated, animated)
   if (tex && d.feed == "enbloc") add(WP_CLIP, M);
@@ -776,14 +783,16 @@ bool App::writeModelPreview(const fs::path& glb, const fs::path& outDir, const f
 
 // G4: one white silhouette per weapon for the carried list: an orthographic side view (muzzle to the right) of the
 // model (or its procedural parts), the background keyed out to alpha. Cached as PNG beside the exe
-// (cache/weapon_silhouettes/<id>.png, delete to rebuild) and uploaded once at start.
+// (cache/weapon_silhouettes/<id>[_m<parts>_<bounds>].png, delete to rebuild) and uploaded once at start.
 void App::makeWeaponSilhouettes() {
   const int W = 512, H = 128;
   fs::path dir = exeDir() / "cache" / "weapon_silhouettes";
   std::error_code ec; fs::create_directories(dir, ec);
   for (auto& dp : weaponDefs) {
     const WeaponDef& d = *dp;
-    fs::path p = dir / (d.id + ".png");
+    std::string key = d.id;   // MG10: an imported model's part count and bounds in the name, so a re-baked model draws a fresh icon
+    if (d.useModel()) { char b[96]; std::snprintf(b, sizeof b, "_m%zu_%.3f_%.3f_%.3f", d.model->parts.size(), d.model->bmax.x, d.model->bmax.y, d.model->bmax.z); key += b; }
+    fs::path p = dir / (key + ".png");
     std::vector<uint8_t> px;
     int w = 0, h = 0, ch = 0;
     if (stbi_uc* img = stbi_load(p.string().c_str(), &w, &h, &ch, 4)) {

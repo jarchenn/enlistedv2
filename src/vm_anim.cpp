@@ -16,6 +16,7 @@ struct AnimVM {
   std::map<std::string, std::string> clipOf;   // state -> clip name in the GLB
   int gunJoint = -1;
   vec3 pt[3]{};                        // rest rig space: rear sight (scopes: the eye), front sight, muzzle
+  vec3 up{0}; bool hasUp = false;      // MG11: the gun's up (rest rig space); ADS then rolls it upright (an idle clip that cants the gun)
   std::map<std::string, int> clip;     // state name -> clip index
   float idleHold = 0;                  // the idle is this one frame of the idle clip (s), held still (MG3: every rig; < 0 plays the clip)
   vec3 hipShift{0};                    // MG3: rig offset at the hip, camera space (m), faded out in ADS (the M249 closer)
@@ -68,6 +69,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   json P = meta["points"];
   if (block.contains("points")) for (auto& [k, v] : block["points"].items()) P[k] = v;   // rig-space points measured on the rig itself
   a->pt[0] = jv(P.contains("eye") ? P["eye"] : P["rear"]); a->pt[1] = jv(P["front"]); a->pt[2] = jv(P["muzzle"]);
+  if (P.contains("up")) { a->up = glm::normalize(jv(P["up"])); a->hasUp = true; }
   // state -> clip name (defaults: the same name). No draw clip (equip goes straight to the idle) and no movement clips.
   json map = block.value("clips", json::object()), mc = meta.value("clips", json::object());
   for (const char* k : {"idle", "idle_empty", "fire", "reload", "reload_empty", "reload_start", "reload_insert", "reload_end"}) {
@@ -181,6 +183,10 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
     if (!scoped && brSightLine(d, s, oR, oF, oRel)) { mat4 G = D * weaponToRig(a, d); R = vec3(G * vec4(oR, 1)); F = vec3(G * vec4(oF, 1)); relief = oRel; } }
   float t = app.adsT * app.adsT * (3 - 2 * app.adsT);
   quat q = glm::rotation(glm::normalize(F - R), vec3(0, 0, -1));
+  if (a.hasUp) {   // MG11: sight line ahead and the gun's up straight up (no cant), not just the shortest turn onto the line
+    vec3 f = glm::normalize(F - R), u = glm::mat3(D) * a.up; u = u - f * glm::dot(u, f);
+    if (glm::length(u) > 1e-4f) { u = glm::normalize(u); q = glm::inverse(glm::quat_cast(glm::mat3(glm::cross(f, u), u, -f))); }
+  }
   mat4 ads = glm::translate(mat4(1), glm::mix(R, vec3(0, 0, -relief), t)) * glm::mat4_cast(glm::slerp(quat(1, 0, 0, 0), q, t)) * glm::translate(mat4(1), -R);
   mat4 proc(1);
   if (app.vm.procedural) {
