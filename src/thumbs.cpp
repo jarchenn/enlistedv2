@@ -91,6 +91,12 @@ std::string assetThumbKey(const AssetDef& a) {
 }
 
 // ---------------------------------------------------------------- renderer side (moved from render.cpp)
+// BR5: the tone uniforms the main frame sets per map / per setting, pinned for a thumbnail (uniforms persist per program:
+// a tile drawn before any main frame saw uMapGamma = 0 and came out black; after one it took the open map's look)
+static void toneNeutral(GLuint p) {
+  glUniform1f(U(p, "uMapGamma"), 1.0f); glUniform1f(U(p, "uNightGamma"), 1.0f);
+  glUniform1i(U(p, "uGradeOn"), 0); glUniform1f(U(p, "uUnderTone"), 0.0f); glUniform1f(U(p, "uEyeR"), 0.0f);
+}
 GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, const Terrain* terr, const mat4* customView) {
   // map templates (terrain views) and the legacy path: sky background, fixed 3/4 sphere framing
   const int S = kThumbSize;
@@ -136,7 +142,8 @@ GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std:
   glBindTextureUnit(0, thumbHdr); glBindTextureUnit(1, expoTex[0]);
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uFixedExpo"), 1.1f);
-  glUniform1f(U(progTone, "uBloomAmt"), 0.0f);   // the main frame's bloom setting must not leak into tiles
+  glUniform1f(U(progTone, "uBloomAmt"), 0.0f);
+  toneNeutral(progTone);   // BR5: a tile has its own neutral tone, whatever the open map set (uMapGamma unset = 0 blacked every tile)   // the main frame's bloom setting must not leak into tiles
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   glEnable(GL_DEPTH_TEST);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -319,6 +326,7 @@ GLuint Renderer::renderAssetThumbnail(const std::vector<DrawItem>& opaqueIn, con
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uFixedExpo"), 1.1f);
   glUniform1f(U(progTone, "uBloomAmt"), 0.0f);
+  toneNeutral(progTone);   // BR5: a tile has its own neutral tone, whatever the open map set (uMapGamma unset = 0 blacked every tile)
   glUniform1i(U(progTone, "uTonemap"), 1);
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   glEnable(GL_DEPTH_TEST);
