@@ -94,6 +94,15 @@
       "axis_grenadier"
     ]
   },
+  "operator_models_note": "AI type Operators: soldiers (the same brain, weapons and procedural pose) wearing these bodies, one per AI in turn; a missing file leaves the faction's soldier body (tools/bake_ai_characters.py operators, docs/credits.md)",
+  "operator_models": {
+    "Allies": [
+      "operator_allied"
+    ],
+    "Axis": [
+      "operator_axis"
+    ]
+  },
   "corpses": {
     "max": 12,
     "seconds": 40

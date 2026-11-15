@@ -1,5 +1,5 @@
 {
-  "note": "G2 zombie AI (game balance, not real-world data). Zombies only pursue the closest hostile and strike it in melee: no weapon, no grenades, no cover. EN1: 'types' are the enemy types on the zombie brain and pack code; [0] is the plain zombie (unchanged), AI type 'Zombies + heavies' picks a type per slot by 'weight'. Per type: model (content/characters/<model>.glb, rest pose scaled to height_m; swap it here; its bones carry the game's joint names: Hips, Spine2, Neck, Head, Left/RightArm, ForeArm, Hand, UpLeg, Leg, Foot), fallback_scale / fallback_lean_deg (used on the zombie model and clips when the model or its walk clip is missing), scale (drawn and hit at that size), lean_deg (forward tilt), tint, hp, damage per blow, reach_m (the blow lands within it), lunge_m (a strike may start this far out and closes the gap during the wind-up), cooldown_s, attack_rate (the attack clip plays at this rate; the blow lands at its swing frame, windup_s is the fallback without clips), walk_mps / run_mps (run when the target is within run_within_m), weight (share in a horde), hit_zone_scale (hit capsule radii x, on top of the body size scale x height_m / 1.85: the spider is low, so its zones are widened), knockback_mps (shove on the player), stagger_min_damage / stagger_s (only a single hit of at least this flinches it and stops it that long), clips. The zombie's run_mps sits between the jog and the sprint of content/settings/movement.json. The model is content/characters/zombie.glb (RINONO, CC-BY-4.0, docs/credits.md). Brute = content/characters/troll.glb, stalker = content/characters/spider.glb (EN1, converted from the user-supplied FBX with all clips; docs/credits.md). EN2: height_m is the rest (T-pose) height the model is scaled to: the troll's 2.78 stands about 2.4 m in its idle, the spider's 1.55 gives a back about 1.3 m high and legs about 2.3 m across / 2.6 to 3.3 m front to back. explosive_mult: every blast deals that many times its damage to the type; capsule_height_m / capsule_radius_m: its own physics capsule (the navmesh stays the soldier's). clips: damage and death take a list (one per hit / death), attack picks one at random per strike and the blow lands at that clip's swing frame; 'unused' names the takes no game state plays. EN4: climb_m: the type takes the heavies-only climb links (trench lips, crater rims, low walls up to the nav pass's heavyClimbMax_m, content/ai/navigation.json links; default 2.2 m) and, stuck for 2 s, climbs a lip up to climb_m within 3 m; step_gap_m: it also takes the heavies-only gap links (heavyGapMax_m, default 2.8 m: the spider steps over narrow trenches); clips.climb plays over a climb (none: the walk clip).",
+  "note": "G2 zombie AI (game balance, not real-world data). Zombies only pursue the closest hostile and strike it in melee: no weapon, no grenades, no cover. EN1: 'types' are the enemy types on the zombie brain and pack code; [0] is the plain zombie (unchanged), AI type 'Zombies + heavies' picks a type per slot by 'weight'. Per type: model (content/characters/<model>.glb, rest pose scaled to height_m; swap it here; its bones carry the game's joint names: Hips, Spine2, Neck, Head, Left/RightArm, ForeArm, Hand, UpLeg, Leg, Foot), fallback_scale / fallback_lean_deg (used on the zombie model and clips when the model or its walk clip is missing), scale (drawn and hit at that size), lean_deg (forward tilt), tint, hp, damage per blow, reach_m (the blow lands within it), lunge_m (a strike may start this far out and closes the gap during the wind-up), cooldown_s, attack_rate (the attack clip plays at this rate; the blow lands at its swing frame, windup_s is the fallback without clips), walk_mps / run_mps (run when the target is within run_within_m), weight (share in a horde), hit_zone_scale (hit capsule radii x, on top of the body size scale x height_m / 1.85: the spider is low, so its zones are widened), knockback_mps (shove on the player), stagger_min_damage / stagger_s (only a single hit of at least this flinches it and stops it that long), clips. The zombie's run_mps sits between the jog and the sprint of content/settings/movement.json. The model is content/characters/zombie.glb (RINONO, CC-BY-4.0, docs/credits.md). models (optional): variants of the type, one per AI of it in turn (the plain zombie: zombie, zombie_necro, zombie_deadman, the last two wearing its clips retargeted by tools/bake_ai_characters.py). Brute = content/characters/troll.glb, stalker = content/characters/spider.glb (EN1, converted from the user-supplied FBX with all clips; docs/credits.md). EN2: height_m is the rest (T-pose) height the model is scaled to: the troll's 2.78 stands about 2.4 m in its idle, the spider's 1.55 gives a back about 1.3 m high and legs about 2.3 m across / 2.6 to 3.3 m front to back. explosive_mult: every blast deals that many times its damage to the type; capsule_height_m / capsule_radius_m: its own physics capsule (the navmesh stays the soldier's). clips: damage and death take a list (one per hit / death), attack picks one at random per strike and the blow lands at that clip's swing frame; 'unused' names the takes no game state plays. EN4: climb_m: the type takes the heavies-only climb links (trench lips, crater rims, low walls up to the nav pass's heavyClimbMax_m, content/ai/navigation.json links; default 2.2 m) and, stuck for 2 s, climbs a lip up to climb_m within 3 m; step_gap_m: it also takes the heavies-only gap links (heavyGapMax_m, default 2.8 m: the spider steps over narrow trenches); clips.climb plays over a climb (none: the walk clip).",
   "repath_s": 0.5,
   "flinch_s": 0.6,
   "pack": {
@@ -12,8 +12,8 @@
     "slot_spacing_m": 1.6,
     "leader_pace": 0.9,
     "catch_up": 1.25,
-    "separation_m": 2.0,
-    "separation_gain": 2.0,
+    "separation_m": 2,
+    "separation_gain": 2,
     "alignment": 0.35,
     "lost_m": 18
   },
@@ -31,8 +31,13 @@
       "id": "zombie",
       "name": "Zombie",
       "model": "zombie",
+      "models": [
+        "zombie",
+        "zombie_necro",
+        "zombie_deadman"
+      ],
       "height_m": 1.85,
-      "scale": 1.0,
+      "scale": 1,
       "lean_deg": 0,
       "tint": [
         1,
@@ -46,11 +51,11 @@
       "cooldown_s": 0.9,
       "windup_s": 0.25,
       "attack_rate": 1.4,
-      "walk_mps": 4.0,
-      "run_mps": 4.0,
+      "walk_mps": 4,
+      "run_mps": 4,
       "run_within_m": 1000,
       "weight": 8,
-      "hit_zone_scale": 1.0,
+      "hit_zone_scale": 1,
       "knockback_mps": 0,
       "stagger_min_damage": 0,
       "stagger_s": 0,
@@ -71,7 +76,7 @@
         "damage": "damage",
         "death": "death"
       },
-      "fallback_scale": 1.0,
+      "fallback_scale": 1,
       "fallback_lean_deg": 0
     },
     {
@@ -79,7 +84,7 @@
       "name": "Brute",
       "model": "troll",
       "height_m": 2.78,
-      "scale": 1.0,
+      "scale": 1,
       "lean_deg": 0,
       "tint": [
         1,
@@ -92,13 +97,13 @@
       "lunge_m": 0,
       "cooldown_s": 1.6,
       "windup_s": 0.9,
-      "attack_rate": 1.0,
-      "walk_mps": 2.0,
+      "attack_rate": 1,
+      "walk_mps": 2,
       "run_mps": 3.4,
       "run_within_m": 15,
       "weight": 1,
       "hit_zone_scale": 1.3,
-      "knockback_mps": 4.0,
+      "knockback_mps": 4,
       "stagger_min_damage": 200,
       "stagger_s": 0.8,
       "clips": {
@@ -134,7 +139,7 @@
         "unused": "Troll_Block, Troll_Block_Lower, Troll_BlockReaction, Troll_BlockReaction_Optimal, Troll_IdleToBlock (no blocking), Troll_MoveLeft/Right(Short) (no strafing), Troll_AttackBackHand/ForeHand_Enter and _Idle (wind-up and hold pieces of the _Damage swings)"
       },
       "fallback_scale": 1.6,
-      "explosive_mult": 5.0,
+      "explosive_mult": 5,
       "capsule_height_m": 2.3,
       "capsule_radius_m": 0.45,
       "climb_m": 2.2
@@ -144,7 +149,7 @@
       "name": "Stalker",
       "model": "spider",
       "height_m": 1.55,
-      "scale": 1.0,
+      "scale": 1,
       "lean_deg": 0,
       "tint": [
         1,
@@ -154,7 +159,7 @@
       "hp": 400,
       "damage": 55,
       "reach_m": 1.8,
-      "lunge_m": 3.0,
+      "lunge_m": 3,
       "cooldown_s": 0.8,
       "windup_s": 0.3,
       "attack_rate": 1.2,
@@ -205,7 +210,7 @@
       },
       "fallback_scale": 1.15,
       "fallback_lean_deg": 18,
-      "explosive_mult": 5.0,
+      "explosive_mult": 5,
       "capsule_height_m": 1.3,
       "capsule_radius_m": 0.5,
       "climb_m": 2.2,

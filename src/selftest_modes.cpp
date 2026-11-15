@@ -73,10 +73,10 @@ void headless() {
   }
   // ---- data round trip and validation
   {
-    ScenarioRules r = dmRules(GameMode::TDM); r.killCap = 42; r.teamPlayers[0] = 30; r.teamPlayers[1] = 50; r.aiType[1] = AiType::Zombies; r.humanTeam = 1; r.teamFaction[0] = Faction::Axis;
+    ScenarioRules r = dmRules(GameMode::TDM); r.killCap = 42; r.teamPlayers[0] = 30; r.teamPlayers[1] = 50; r.aiTypes[1] = aiBit(AiType::Zombies) | aiBit(AiType::Fighters); r.humanTeam = 1; r.teamFaction[0] = Faction::Axis;
     ScenarioRules b = ScenarioRules::fromJson(r.toJson());
-    chk(b.mode == GameMode::TDM && b.killCap == 42 && b.teamPlayers[1] == 50 && b.aiType[1] == AiType::Zombies && b.humanTeam == 1 && b.teamFaction[0] == Faction::Axis,
-        "rules round trip: mode, kill cap, team sizes, AI type, host team, factions");
+    chk(b.mode == GameMode::TDM && b.killCap == 42 && b.teamPlayers[1] == 50 && b.aiTypes[1] == (aiBit(AiType::Zombies) | aiBit(AiType::Fighters)) && b.humanTeam == 1 && b.teamFaction[0] == Faction::Axis,
+        "rules round trip: mode, kill cap, team sizes, AI types, host team, factions");
     Scenario sc; sc.rules = dmRules(GameMode::Solo);
     bool err = false; for (auto& i : validateScenario(sc, false)) err |= i.error;
     Scenario tdm; tdm.rules = dmRules(GameMode::TDM);

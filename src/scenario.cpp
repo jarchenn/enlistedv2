@@ -53,7 +53,7 @@ json ScenarioRules::toJson() const {
           {"captureBase", captureBase}, {"capturePresenceFull", capturePresenceFull},
           {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire},
           {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : "assault"}, {"killCap", killCap},
-          {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiType", {(int)aiType[0], (int)aiType[1]}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
+          {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
           {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}, {"allowedClasses", allowedClasses}};
 }
 
@@ -82,8 +82,10 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   r.soloPlayers = std::clamp(j.value("soloPlayers", r.soloPlayers), 2, kMaxCombatants);
   if (j.contains("teamPlayers") && j["teamPlayers"].is_array() && j["teamPlayers"].size() == 2)
     for (int t = 0; t < 2; ++t) r.teamPlayers[t] = std::clamp(j["teamPlayers"][t].get<int>(), 1, kMaxCombatants / 2);
-  if (j.contains("aiType") && j["aiType"].is_array() && j["aiType"].size() == 2)
-    for (int t = 0; t < 2; ++t) { int v = j["aiType"][t].get<int>(); r.aiType[t] = v == 1 ? AiType::Zombies : v == 2 ? AiType::ZombiesHeavies : v == 3 ? AiType::Heavies : AiType::Soldiers; }
+  if (j.contains("aiTypes") && j["aiTypes"].is_array() && j["aiTypes"].size() == 2)
+    for (int t = 0; t < 2; ++t) { int m = j["aiTypes"][t].get<int>() & ((1 << kAiTypeCount) - 1); r.aiTypes[t] = m ? m : 1; }
+  else if (j.contains("aiType") && j["aiType"].is_array() && j["aiType"].size() == 2)   // before the checklist: one type per side (0..3)
+    for (int t = 0; t < 2; ++t) r.aiTypes[t] = aiBit((AiType)std::clamp(j["aiType"][t].get<int>(), 0, 3));
   if (j.contains("heavyTrollPct") && j["heavyTrollPct"].is_array() && j["heavyTrollPct"].size() == 2)
     for (int t = 0; t < 2; ++t) r.heavyTrollPct[t] = std::clamp(j["heavyTrollPct"][t].get<int>(), 0, 100);
   r.humanTeam = std::clamp(j.value("humanTeam", r.humanTeam), 0, 1);

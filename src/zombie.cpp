@@ -1,4 +1,4 @@
-// G2 zombies: an AI type per side (ScenarioRules::aiType). A zombie skips the whole soldier brain (perception,
+// G2 zombies: AI types ticked per side (ScenarioRules::aiTypes). A zombie skips the whole soldier brain (perception,
 // utility decisions, cover, aiming, grenades): it re-paths to the closest hostile about every 0.5 s, moves at
 // speed_mps (between jog and sprint) and strikes in melee when in reach. Melee damage, from zombies and the
 // player's knife, goes through Game::meleeHit -> Game::damage, so spawn protection, friendly fire and the LAN
@@ -44,6 +44,7 @@ const ZombieCfg& zcfg() {
       for (auto& e : j.value("types", json::array())) {   // EN1 enemy types; a missing field keeps the plain zombie's value
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
+        t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
         t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 4.0f); t.lean = e.value("lean_deg", t.lean);
         t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 4.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
@@ -250,6 +251,7 @@ void followerStep(Game& G, AiCore& A, Soldier& s, BotMind& m, const Soldier& L) 
 
 const std::vector<EnemyType>& enemyTypes() { return zcfg().types; }
 const EnemyType& enemyType(int k) { const auto& T = zcfg().types; return T[std::clamp(k, 0, (int)T.size() - 1)]; }
+int enemyTypeIndex(const std::string& id) { const auto& T = zcfg().types; for (int k = 0; k < (int)T.size(); ++k) if (T[k].id == id) return k; return -1; }
 int enemyTypePick(uint32_t seed) {
   const auto& T = zcfg().types;
   float tot = 0; for (auto& t : T) tot += t.weight;
@@ -274,19 +276,23 @@ static std::vector<ZombieBlow> gBlowLog;
 int aiZombieBlows() { return gBlows; }
 const std::vector<ZombieBlow>& aiZombieBlowLog() { return gBlowLog; }
 
-int aiZombieModel(Game& G, int type) {
+int aiZombieModel(Game& G, int type, int variant) {
   const EnemyType& t = enemyType(type);
-  std::string key = t.model + "@" + std::to_string(t.height);
+  const std::string& model = t.models.empty() ? t.model : t.models[(size_t)std::max(0, variant) % t.models.size()];
+  std::string key = model + "@" + std::to_string(t.height);
   auto it = G.modelIdx.find(key); if (it != G.modelIdx.end()) return it->second;
   static std::set<std::string> failed; if (failed.count(key)) return -1;
   auto cm = std::make_unique<CharModel>(); std::string e;
-  if (!cm->load(contentDir() / "characters" / (t.model + ".glb"), e, t.height)) { failed.insert(key); logf("zombie: model %s: %s (soldier model kept)", t.model.c_str(), e.c_str()); return -1; }
+  if (!cm->load(contentDir() / "characters" / (model + ".glb"), e, t.height)) {
+    failed.insert(key); logf("zombie: model %s: %s", model.c_str(), e.c_str());
+    return variant ? aiZombieModel(G, type, 0) : -1;   // a missing variant wears the type's first model
+  }
   G.modelIdx[key] = (int)G.models.size(); G.models.push_back(std::move(cm));
   return G.modelIdx[key];
 }
 void aiZombieAssign(Game& G, Soldier& s) {
   const EnemyType& t = enemyType(s.etype);
-  int m = aiZombieModel(G, s.etype);
+  int m = aiZombieModel(G, s.etype, s.evariant);
   bool own = m >= 0 && findClip(*G.models[m], t.walkClips[0]) >= 0;   // clips usable: at least its walk
   if (!own && s.etype != 0) { m = aiZombieModel(G, 0); logf("zombie: type %s falls back to the zombie rig", t.id.c_str()); }
   if (m >= 0) s.model = m;

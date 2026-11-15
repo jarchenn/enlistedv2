@@ -43,7 +43,7 @@ bool flameMatch(App& a, AiType ai) {
   if (a.mode == Mode::Explore) a.exitExplore();
   a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
   Scenario sc = Scenario::fromJson(a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object());
-  sc.rules.mode = GameMode::Solo; sc.rules.killCap = 999; sc.rules.soloPlayers = 2; sc.rules.respawnDelay = 2.0f; sc.rules.aiType[0] = ai;
+  sc.rules.mode = GameMode::Solo; sc.rules.killCap = 999; sc.rules.soloPlayers = 2; sc.rules.respawnDelay = 2.0f; sc.rules.aiTypes[0] = aiBit(ai);
   gUi.loaded = false; gUi.matchScenario = sc.toJson();
   if (!gGame) gGame = new Game(a);
   gGame->pendingStart = true; a.doc.start = {true, vec3(0, 0, 30), 180};

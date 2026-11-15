@@ -39,7 +39,7 @@ bool startMode(App& a, GameMode m, int solo, int teamA, int teamB, AiType ai0, A
   json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
   Scenario sc = Scenario::fromJson(scj);
   sc.rules.mode = m; sc.rules.killCap = 999; sc.rules.soloPlayers = solo; sc.rules.teamPlayers[0] = teamA; sc.rules.teamPlayers[1] = teamB;
-  sc.rules.respawnDelay = 2.0f; sc.rules.humanTeam = 0; sc.rules.aiType[0] = ai0; sc.rules.aiType[1] = ai1;
+  sc.rules.respawnDelay = 2.0f; sc.rules.humanTeam = 0; sc.rules.aiTypes[0] = aiBit(ai0); sc.rules.aiTypes[1] = aiBit(ai1);
   gUi.loaded = false; gUi.matchScenario = sc.toJson();
   if (!gGame) gGame = new Game(a);
   gGame->pendingStart = true; a.doc.start = {true, vec3(0, 0, 30), 180};

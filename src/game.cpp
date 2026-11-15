@@ -18,6 +18,7 @@ void netInterpolate(Game& g, double t);
 #include <algorithm>
 #include <cmath>
 #include <chrono>
+#include <set>
 
 Game* gGame = nullptr;
 
@@ -114,14 +115,18 @@ bool Game::begin(std::string& err) {
   // soldiers per roster slot
   sold.clear(); sold.resize(match.slots.size());
   auto& arr = archetypes["archetypes"];
+  int aiSeen[2] = {0, 0}, kindSeen[kAiTypeCount] = {};   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
   for (auto& rs : match.slots) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
-    AiType ait = match.rules.aiType[match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1)];
-    s.zombie = !rs.human && ait != AiType::Soldiers;   // G2
+    int side = match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1);
+    AiType ait = rs.human ? AiType::Soldiers : aiTypeFor(match.rules.aiTypes[side], aiSeen[side]++);
+    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
-            : ait == AiType::Heavies ? enemyTypeHeavyPick((uint32_t)rs.id, match.rules.heavyTrollPct[match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1)] / 100.0f) : 0;   // EN3
+            : ait == AiType::Heavies ? enemyTypeHeavyPick((uint32_t)rs.id, match.rules.heavyTrollPct[side] / 100.0f)   // EN3
+            : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter")) : 0;
+    s.evariant = kindSeen[(int)ait]++;
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
     Brain& b = s.br;
@@ -135,6 +140,19 @@ bool Game::begin(std::string& err) {
     auto& ml = combat["models"][fac];
     s.model = modelIdx[ml[rs.id % ml.size()].get<std::string>()];
     if (s.zombie) aiZombieAssign(*this, s);   // G2: the animated zombie
+    if (ait == AiType::Operators) {   // a soldier in the faction's operator body (combat.json operator_models; missing: the soldier body stays)
+      json ol = combat.value("operator_models", json::object()).value(fac, json::array());
+      if (!ol.empty()) {
+        std::string id = ol[(size_t)s.evariant % ol.size()].get<std::string>();
+        static std::set<std::string> failed;
+        if (!modelIdx.count(id) && !failed.count(id)) {
+          auto cm = std::make_unique<CharModel>(); std::string e;
+          if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { modelIdx[id] = (int)models.size(); models.push_back(std::move(cm)); }
+          else { failed.insert(id); logf("operators: model %s: %s (soldier body kept)", id.c_str(), e.c_str()); }
+        }
+        if (modelIdx.count(id)) s.model = modelIdx[id];
+      }
+    }
   }
   pool.clear(); poolBuilt = false;
   sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;

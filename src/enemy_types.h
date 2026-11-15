@@ -8,6 +8,7 @@
 struct EnemyType {
   std::string id = "zombie", name = "Zombie";
   std::string model = "zombie"; float height = 1.85f;    // content/characters/<model>.glb, rest pose scaled to height
+  std::vector<std::string> models;                        // variants (json "models"; [0] = model): Soldier::evariant picks one in turn
   float scale = 1, lean = 0;                              // drawn (and hit) at scale x; lean: whole-body forward tilt (deg)
   float fallbackScale = 1, fallbackLean = 0;              // on the plain zombie's model and clips when this model or its walk clip is missing
   vec3 tint{1};
@@ -27,5 +28,6 @@ struct EnemyType {
 };
 const std::vector<EnemyType>& enemyTypes();          // never empty (the plain zombie at least)
 const EnemyType& enemyType(int k);                   // clamped
+int enemyTypeIndex(const std::string& id);          // -1: no such type
 int enemyTypePick(uint32_t seed);                    // weighted pick over the types (Zombies + heavies)
 int enemyTypeHeavyPick(uint32_t seed, float trollShare);   // EN3 AI type Heavies: "brute" with that share, else "stalker" (by weight among the heavies without those ids)

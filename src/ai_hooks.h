@@ -7,7 +7,7 @@ void aiMatchEnd(Game& g);                                  // Game::end
 bool aiDebugCamera(Game& g, vec3& eye, vec3& fwd, float& fov);   // Game::camera: follow-cam on a bot (debug)
 void aiDrawDebug(Game& g);                                 // Game::drawDebug: AI overlays and the debug window
 void aiZombieStep(Game& g, struct Soldier& s, float dt);  // Game::aiStep: a zombie's whole brain (zombie.cpp)
-int aiZombieModel(Game& g, int type = 0);                  // the character of enemy type `type` (EN1; -1: none)
+int aiZombieModel(Game& g, int type = 0, int variant = 0);  // the character of enemy type `type`, its variant-th model (EN1; -1: none)
 void aiZombieAssign(Game& g, Soldier& s);                  // EN1: model, draw scale, lean and body size for s.etype (the zombie rig when its own model is unusable)
 void aiZombiePose(Game& g, struct Soldier& s, float dt);  // Game::posesStep: clip-driven pose instead of poseCharacter
 void aiDifficultyCombo();                                 // MpUi::setupWindow: Recruit / Regular / Veteran

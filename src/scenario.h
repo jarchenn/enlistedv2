@@ -18,7 +18,20 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 // code keeps working; friend / foe is always the roster team (Game::hostile).
 enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2 };
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : "Assault"; }
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Heavies = 3 };   // EN1: 2 mixes the enemy types by weight; EN3: 3 trolls and spiders only (heavyTrollPct)   // per side (G2 implements the zombie brain)
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Heavies = 3, Fighters = 4, Operators = 5 };   // EN1: 2 mixes the enemy types by weight; EN3: 3 trolls and spiders only (heavyTrollPct); 4 the "fighter" enemy type; 5 soldiers in operator bodies
+constexpr int kAiTypeCount = 6;
+inline const char* aiTypeName(AiType t) {
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Heavies", "Fighters", "Operators"};
+  return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
+}
+inline int aiBit(AiType t) { return 1 << (int)t; }
+// a side's k-th AI plays the (k mod n)-th of its n ticked types (an empty mask counts as Soldiers)
+inline AiType aiTypeFor(int mask, int k) {
+  int n = 0; for (int t = 0; t < kAiTypeCount; ++t) n += (mask >> t) & 1;
+  if (!n) return AiType::Soldiers;
+  k %= n; for (int t = 0; t < kAiTypeCount; ++t) if ((mask >> t) & 1 && k-- == 0) return (AiType)t;
+  return AiType::Soldiers;
+}
 
 constexpr int kScenarioVersion = 2;
 constexpr int kMinObjectives = 1, kMaxObjectives = 10;
@@ -91,7 +104,7 @@ struct ScenarioRules {
   int soloPlayers = 8;            // Solo: combatants in all (humans + AI)
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: AI type Heavies, per side: the share of trolls (brutes), the rest spiders (stalkers)
-  AiType aiType[2] = {AiType::Soldiers, AiType::Soldiers};   // per team (Assault: [Defender], [Attacker]); Solo uses [0]
+  int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn
