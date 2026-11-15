@@ -22,21 +22,22 @@ struct ItemDef {
   bool military = false;
 };
 
+struct FloorItem {
+  uint32_t uid = 0; std::string id;     // item id, or "" for a gun (weapon >= 0)
+  int count = 1;                        // ammo rounds, pieces in a stack, or the armour's durability
+  int weapon = -1; WeaponState ws;      // guns keep their magazine and attachments
+  vec3 pos{0}; float yaw = 0;
+};
+
 // what one soldier carries besides its guns
 struct Kit {
   int ammo[AM_COUNT] = {};
-  std::map<std::string, int> items;     // bandages, medkits and loose attachments by item id
+  std::map<std::string, int> items;     // bandages, medkits, throwables-to-be, loose attachments by item id
+  std::vector<FloorItem> gear;          // BR6: spare helmets / vests in the bag (count: durability)
   int helmet = 0, vest = 0, backpack = 0;
   float helmetDur = 0, vestDur = 0;
   int healKind = 0;                     // 1 bandage, 2 medkit
   float healT = 0, healFrom = 0, healTo = 0; int healShots = 0;
-};
-
-struct FloorItem {
-  uint32_t uid = 0; std::string id;     // item id, or "" for a gun (weapon >= 0)
-  int count = 1;                        // ammo rounds, or the armour's durability
-  int weapon = -1; WeaponState ws;      // guns keep their magazine and attachments
-  vec3 pos{0}; float yaw = 0;
 };
 
 // BR5: what a dead combatant carried, in a case by the body; anyone may take items out, the rest stays for the match
@@ -68,6 +69,9 @@ std::vector<FloorItem>& lootFloor();
 std::vector<LootCase>& lootCases();
 void lootDropItem(vec3 at, const std::string& id, int count);   // an item from the inventory to the floor
 std::string lootItemName(App& app, const FloorItem& f);
+std::string lootPieceId(bool helmet, int level);       // the item id of a single helmet / vest piece
+void lootWearGear(App& app, uint32_t uid);             // inventory: wear a spare piece; the worn one goes into the bag
+void lootDiscard(App& app, const std::string& key);    // inventory: drop a whole row ("ammo:<t>", "item:<id>", "gear:<uid>", "gun:<w>", "throw:<w>", "worn:helmet|vest|bag")
 
 // hooks
 void lootBegin(Game& G);                               // Game::begin: places the floor loot

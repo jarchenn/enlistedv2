@@ -372,29 +372,50 @@ void build(App&) {
       Kit& bk = *kitOf(B->slot);
       B->weapon = a.weaponIndex("stg44"); if (B->weapon < 0) B->weapon = a.weaponIndex("mp40");
       B->ws = WeaponState{}; B->ws.loaded = 30; B->ws.containers = {30, 30}; B->ws.att[ATT_SIGHT] = 1; B->frags = 2;
-      bk.helmet = 3; bk.helmetDur = 200; bk.vest = 2; bk.vestDur = 180; bk.backpack = 2; bk.ammo[AM_9MM] = 30; bk.items["br_bandage"] = 2; bk.items["br_medkit"] = 1; bk.items["br_suppressor"] = 1;
+      int pistol = a.weaponIndex("luger"); B->carried = {B->weapon}; if (pistol >= 0) { B->carried.push_back(pistol); B->wsBy[pistol].loaded = 8; }   // BR6: a second gun
+      bk.helmet = 3; bk.helmetDur = 200; bk.vest = 2; bk.vestDur = 180; bk.backpack = 2; bk.items["br_bandage"] = 2; bk.items["br_medkit"] = 1; bk.items["br_suppressor"] = 1; bk.items["br_sight_reddot"] = 1;
       size_t before = lootCases().size();
       gGame->killSoldier(B->slot, L->slot, vec3(0, 0, 1));
-      chk(lootCases().size() == before + 1 && lootCases().back().items.size() >= 8 && kitOf(B->slot)->helmet == 0, "BR5: the dead bot's case holds %zu items, its kit is empty", lootCases().empty() ? 0 : lootCases().back().items.size());
+      const LootCase* dc = lootCases().size() == before + 1 ? &lootCases().back() : nullptr;
+      int guns = 0, rounds = 0; if (dc) for (auto& f : dc->items) { guns += f.weapon >= 0; if (f.id == "ammo:" + std::to_string(AM_556)) rounds = f.count; }
+      chk(dc && guns == (pistol >= 0 ? 2 : 1) && rounds == 50 && kitOf(B->slot)->helmet == 0,
+          "BR6: the dead bot's crate holds %zu items: %d guns, %d rounds for the StG it held (want 50), its kit is empty", dc ? dc->items.size() : 0, guns, rounds);
       LootCase& lc = lootCases().back(); lc.pos = L->feet + App::forward(a.eyeYaw, 0) * 1.2f; lc.yaw = a.eyeYaw;
       lootOpenCase(lc.uid);
       return false;
     }
-    if (t > 4 && t < 4.05f) a.uiShot = outDir() / "br5_case.png";   // uiShot: after ImGui, so the window is in the picture
+    if (t > 4 && t < 4.05f) a.uiShot = outDir() / "br6_crate.png";   // uiShot: after ImGui, so the window is in the picture
     if (t < 5) return false;
-    {   // take the level-3 helmet out (a better one replaces the worn level 2, which goes into the case), then Take all
-      LootCase& lc = lootCases().back(); Kit& k = *kitOf(L->slot); std::string msg; uint32_t helm = 0;
-      for (auto& f : lc.items) if (f.id == "br_helmet_3") helm = f.uid;
-      bool took = lootTakeFromCase(a, helm, true, msg);
-      bool swapped = std::any_of(lc.items.begin(), lc.items.end(), [](const FloorItem& f) { return f.id == "br_helmet_2"; });
-      chk(took && k.helmet == 3 && swapped, "BR5: Take the level-3 helmet; the level-2 one goes into the case (%s)", msg.c_str());
-      int ammo0 = k.ammo[AM_9MM]; size_t n0 = lc.items.size();
+    static bool taken = false;
+    if (!taken) {   // the rules on the crate's items, then the floor labels
+      taken = true;
+      LootCase& lc = lootCases().back(); Kit& k = *kitOf(L->slot); std::string msg;
+      auto uidOf = [&](const char* id) { for (auto& f : lc.items) if (f.id == id) return f.uid; return 0u; };
+      bool took = lootTakeFromCase(a, uidOf("br_helmet_3"), true, msg);
+      bool bagged = std::any_of(k.gear.begin(), k.gear.end(), [](const FloorItem& g) { return g.id == "br_helmet_2"; });
+      chk(took && k.helmet == 3 && bagged, "BR6: a level-3 helmet is worn at once, the old level-2 one goes into the bag (%s)", msg.c_str());
+      int sight0 = a.wstate["kar98k"].att[ATT_SIGHT], dot0 = k.items.count("br_sight_reddot") ? k.items["br_sight_reddot"] : 0;
+      lootTakeFromCase(a, uidOf("br_sight_reddot"), true, msg);
+      lootTakeFromCase(a, uidOf("br_suppressor"), true, msg);
+      chk(a.wstate["kar98k"].att[ATT_SIGHT] == sight0 && k.items["br_sight_reddot"] == dot0 + 1 && k.items["br_suppressor"] >= 1,
+          "BR6: a sight and a suppressor go into the bag; the held gun keeps its sight (%d)", a.wstate["kar98k"].att[ATT_SIGHT]);
+      size_t n0 = lc.items.size();
       std::vector<uint32_t> uids; for (auto& f : lc.items) uids.push_back(f.uid);
       for (uint32_t u : uids) lootTakeFromCase(a, u, false, msg);
-      chk(k.ammo[AM_9MM] > ammo0 && lc.items.size() < n0 && kitWeight(&a, k, &a.carried) <= kitCapacity(k) + 0.01f,
-          "BR5: Take all moved %zu of %zu items, weight %.0f / %.0f", n0 - lc.items.size(), n0, kitWeight(&a, k, &a.carried), kitCapacity(k));
+      chk(lc.items.size() < n0 && kitWeight(&a, k, &a.carried) <= kitCapacity(k) + 0.01f,
+          "BR6: Take all moved %zu of %zu items, weight %.0f / %.0f", n0 - lc.items.size(), n0, kitWeight(&a, k, &a.carried), kitCapacity(k));
+      lootOpenCase(0);
+      // four items lying together in front of the player, the crosshair on the middle one
+      vec3 f = App::forward(a.eyeYaw, 0), r(-f.z, 0, f.x), at = L->feet + f * 1.5f;
+      const char* ids[4] = {"br_medkit", "ammo:3", "br_sight_4x", "br_bandage"};
+      vec3 off[4] = {vec3(0), r * 0.35f, -r * 0.3f + f * 0.25f, r * 0.15f - f * 0.3f};
+      for (int i = 0; i < 4; ++i) { lootDropItem(at, ids[i], i == 1 ? 30 : 1); lootFloor().back().pos = at + off[i] + vec3(0, 0.02f, 0); }
+      for (auto& c : lootCases()) c.pos = L->feet - f * 30.0f;   // the crate out of the way
+      vec3 e = a.eyePos(); a.eyePitch = degrees(std::atan2(at.y + 0.1f - e.y, glm::length(vec2(at.x - e.x, at.z - e.z))));
+      return false;
     }
-    lootOpenCase(0);
+    if (t > 6 && t < 6.05f) a.uiShot = outDir() / "br6_labels.png";
+    if (t < 6.5f) return false;
     return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
