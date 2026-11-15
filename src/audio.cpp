@@ -327,7 +327,8 @@ int Audio::loadCustom(const fs::path& dir) {
   if (decode("fighter_stomp.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.5f; ev.v.push_back(b); p->events["fighter_stomp"] = ev; }
   { Impl::Event ev; for (const char* f : {"spider_attack_1.mp3", "spider_attack_2.mp3", "spider_attack_3.mp3"}) if (decode(f, b)) ev.v.push_back(b);   // the spider's strike: a random one each time
     if (!ev.v.empty()) { ++used; p->events["spider_attack"] = ev; } }
-  if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["zombie_groan"] = ev; }
+  for (const char* n : {"troll_attack", "troll_idle"}) if (decode((std::string(n) + ".mp3").c_str(), b)) { ++used; if (b.size() > (size_t)(5 * SR)) { b.resize(5 * SR); for (int j = 0; j < SR / 5; ++j) b[b.size() - 1 - j] *= j / (SR / 5.0f); } Impl::Event ev; ev.v.push_back(b); p->events[n] = ev; }
+  if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.8f;   /* louder (user request) */ ev.v.push_back(b); p->events["zombie_groan"] = ev; }
   return used;
 }
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }

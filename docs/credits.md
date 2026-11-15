@@ -174,3 +174,4 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - Footsteps on vegetation: footsteps-on-dry-leaves-and-grass-332958 (sspsurvival). Supplied by the user; licence to be confirmed.
 - Rocket launch: user-supplied recording (rocket_launch.mp3, from its 3 s mark); source and licence to be confirmed. bomb-explosion-1-381972 retired; big-explosion-sfx-369789 now the rocket impact.
 - Spider: giant-spider-walking-504034 (dragon-studio); spider-attack-1/2/3 (yodguard). Supplied by the user; licences to be confirmed.
+- Troll: large-monster-attack-195713 (daviddumaisaudio), troll-idle-noises-29925 (freesound_community). Supplied by the user; licences to be confirmed.
