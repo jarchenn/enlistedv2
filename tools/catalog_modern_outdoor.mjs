@@ -11,7 +11,7 @@ import { setNav, cover, rng, r3 } from "./catalog_atlantic.mjs";
 // ---------------------------------------------------------------- materials (added to an asset when its parts use them)
 const T = (texture, more = {}) => ({ texture, ...more });
 const MATS = {
-  asphalt: [[0.12, 0.12, 0.12], 0.92, "concrete", T("concrete_aggregate")],
+  asphalt: [[0.12, 0.12, 0.12], 0.92, "concrete", T("asphalt_plain")],
   asphalt_patch: [[0.085, 0.085, 0.09], 0.9, "concrete", T("paving_worn")],
   asphalt_light: [[0.17, 0.17, 0.165], 0.9, "concrete", T("paving_worn")],
   sealant: [[0.03, 0.03, 0.03], 0.6, "plain"],
@@ -56,9 +56,9 @@ const MATS = {
   plastic_green: [[0.12, 0.5, 0.15], 0.4, "plain"],
   plastic_orange: [[0.9, 0.38, 0.05], 0.4, "plain"],
   hpl_green: [[0.1, 0.36, 0.16], 0.5, "painted", T("concrete_light")],
-  rubber_red: [[0.45, 0.13, 0.09], 0.95, "concrete", T("gravel_fine")],
+  rubber_red: [[0.45, 0.13, 0.09], 0.95, "concrete", T("rubber_surface_black")],
   rubber_red2: [[0.4, 0.11, 0.08], 0.95, "concrete", T("gravel_fine")],
-  rubber_green: [[0.14, 0.32, 0.12], 0.95, "concrete", T("gravel_fine")],
+  rubber_green: [[0.14, 0.32, 0.12], 0.95, "concrete", T("rubber_surface_black")],
   rubber_green2: [[0.12, 0.28, 0.1], 0.95, "concrete", T("gravel_fine")],
   rubber_black: [[0.05, 0.05, 0.05], 0.8, "plain"],
   sand: [[0.7, 0.62, 0.46], 0.95, "plain", T("sand_054")],
@@ -66,7 +66,7 @@ const MATS = {
   court_blue: [[0.12, 0.25, 0.44], 0.7, "painted", T("concrete_light")],
   court_red: [[0.52, 0.2, 0.13], 0.7, "painted", T("concrete_light")],
   pad_blue: [[0.08, 0.2, 0.5], 0.8, "fabric", T("cloth_grey")],
-  pool_tile: [[0.5, 0.74, 0.82], 0.3, "tile", T("pooltile_backrooms")],
+  pool_tile: [[0.5, 0.74, 0.82], 0.3, "tile", T("tiles_pool_cyan")],
   tile_band: [[0.07, 0.2, 0.42], 0.3, "tile", T("pooltile_backrooms")],
   tile_dark: [[0.06, 0.12, 0.3], 0.3, "tile", T("pooltile_backrooms")],
   basin_tile: [[0.18, 0.3, 0.33], 0.4, "tile", T("slate_square")],

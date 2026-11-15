@@ -133,6 +133,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool texturesSelfTest(App&, float); if (texturesSelfTest(app, dt)) return; }   // L4: --selftest-textures (selftest_textures.cpp)
   { extern bool goreSelfTest(App&, float); if (goreSelfTest(app, dt)) return; }   // W7: --selftest-gore
   { extern bool br3Shots(App&, float); if (br3Shots(app, dt)) return; }
+  { extern bool poseShots(App&, float); if (poseShots(app, dt)) return; }   // AN1: --shots-poses (selftest_br3.cpp)
   { extern bool paletteShots(App&, float); if (paletteShots(app, dt)) return; }   // BR5: --shots-palette   // BR3: --shots-backrooms (selftest_br3.cpp)
   { extern bool modesSelfTest(App&, float); if (modesSelfTest(app, dt)) return; }   // G1: --selftest-modes (selftest_modes.cpp)
   { extern bool natureSelfTest(App&, float); if (natureSelfTest(app, dt)) return; }   // --selftest-nature (selftest_nature.cpp)

@@ -796,6 +796,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : q == "ultra" ? GrassQuality::Ultra : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;
     else if (a == "--shots-backrooms") runSelf = true;
+    else if (a == "--shots-poses") runSelf = true;   // AN1 (selftest_br3.cpp)
     else if (a == "--shots-palette") runSelf = true;   // BR5 (selftest_br3.cpp)   // BR3 (selftest_br3.cpp)
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
@@ -883,6 +884,7 @@ int App::run(int argc, char** argv) {
   for (auto& f : rqOn) if (!R.perf.set(f, true)) logf("--rq-on: unknown feature %s", f.c_str());
   templates = loadTemplates(contentDir() / "templates");
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
+  tex::flushPending();   // TX2: lazy library texture sets the assets name (textures.json "lazy" slots)
   makeThumbnails();
   {
     Material rm{"debris", vec3(0.30f, 0.27f, 0.21f), 0.95f, 0.0f, PAT_STONE, 1};
@@ -922,6 +924,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
+    tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     if (glfwWindowShouldClose(win)) {
       if (dirty && !selftest) { confirmQuit = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }
@@ -970,8 +973,8 @@ int App::run(int argc, char** argv) {
       builderGhosts(ghosts);
       crumb("view weapons");
       for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
-      if (!tanks.occupied) weaponDrawItems(op);
-      else { R.viewModel.clear(); R.viewModelTex.clear(); }   // VH1: in a vehicle no viewmodel (the lists would keep the last frame's arms / weapon)
+      if (!tanks.occupied && !shotsNoViewModel) weaponDrawItems(op);
+      else { R.viewModel.clear(); R.viewModelTex.clear(); }   // VH1: in a vehicle (AN1: or pose shots) no viewmodel (the lists would keep the last frame's arms / weapon)
     }
     crumb("view camera");
     int ww, wh; glfwGetWindowSize(win, &ww, &wh);
@@ -1013,7 +1016,7 @@ int App::run(int argc, char** argv) {
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mark("mpai");
-    mpaiFrame(*this, ov);   // soldiers, grenades, scenario overlay
+    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
