@@ -331,12 +331,12 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
     if (!mmb) n.panning = false;
     else { vec3 ro, rd; rayFromCursor(app, ro, rd); navPanTo(app, n.panAnchor, n.panPlaneY, ro, rd); }
   }
-  // ---- WASD / QE fly (Space up, Ctrl down), speed scales with the height above ground
+  // ---- WASD level fly, QE / Space up / Ctrl down, speed scales with the height above ground
   bool ctrl = kdown(w, GLFW_KEY_LEFT_CONTROL) || kdown(w, GLFW_KEY_RIGHT_CONTROL);
   bool ctrlCombo = false;   // Ctrl + a letter / digit is a shortcut (Ctrl+Z, Ctrl+S, Ctrl+1): no flying then
   if (ctrl) for (int k = GLFW_KEY_0; k <= GLFW_KEY_Z && !ctrlCombo; ++k) ctrlCombo = (k <= GLFW_KEY_9 || k >= GLFW_KEY_A) && kdown(w, k);
   if (!uiKey && !ctrlCombo) {
-    vec3 f = camForward(app.camYaw, app.camPitch), r = glm::normalize(glm::cross(camForward(app.camYaw, 0), vec3(0, 1, 0)));
+    vec3 f = camForward(app.camYaw, 0), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));   // W / S move level along the heading; height is Space / Ctrl (and E / Q) only
     vec3 mv(0);
     if (!ctrl) {
       if (kdown(w, GLFW_KEY_W)) mv += f;
