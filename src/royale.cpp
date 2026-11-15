@@ -6,6 +6,8 @@
 #include "minimap.h"
 #include "enemy_types.h"
 #include "mptest.h"
+#include "loot.h"
+#include "br_models.h"
 #include <imgui.h>
 #include <chrono>
 #include <random>
@@ -54,7 +56,7 @@ RoyaleStorm::At RoyaleStorm::at(float t) const {
 // ---------------------------------------------------------------- settings and state
 namespace {
 struct Cfg {
-  float planeAlt = 150, planeSpeed = 45, overrun = 150, jitter = 0.25f;
+  float planeAlt = 300, planeSpeed = 45, overrun = 150, jitter = 0.25f;
   float fallSpeed = 55, fallAcross = 25, fallAccel = 14;
   float chuteAt = 60, chuteDescent = 6, chuteAcross = 8, chuteAccel = 1.5f;
   float botJumpFrom = 0.08f, botJumpTo = 0.92f, botLandSpread = 110;
@@ -85,6 +87,8 @@ struct State {
   RoyaleStorm storm;
   std::vector<Air> air;
   bool jumpEdge = false;          // local player pressed Space since the last step
+  vec2 move{0};                   // BR5: the local player's WASD while airborne (y forward, x right)
+  int flight = 0;                 // BR5: the local flight posture for the HUD: 0 belly, 1 glide, 2 dive, 3 brake
   uint32_t seed = 1;
   struct District { std::string name; vec3 pos{0}; };
   std::vector<District> districts;   // BR1b: the map's named landing districts (scenario.districts, e.g. Newtown)
@@ -107,7 +111,26 @@ float groundBelow(App& app, vec3 p) {
   if (Physics::castRayEx(p + vec3(0, 0.5f, 0), vec3(0, -1, 0), 800.0f, h)) g = std::max(g, h.pos.y);   // roofs count
   return std::max(g, app.terrain.waterLevel);
 }
-vec3 horizLook(App& app) { vec3 f = App::forward(app.eyeYaw, app.eyePitch); return vec3(f.x, 0, f.z); }   // length cos(pitch): straight down glides least
+// BR5 the local player's flight. The mouse sets the heading and the body angle (looking down = nose down), WASD the
+// posture: W tracks forward (level: a long glide with a slow fall; nose down: a fast dive), S spreads out as an air
+// brake, A / D slide sideways. Under the canopy the same controls, gentler: W runs forward, S flares (slow, near
+// vertical), looking down while running spills air for a faster descent. Responsive rather than floaty.
+void localFlight(App& app, bool chute, vec3& want, float& fall, float& accH, float& accV) {
+  vec3 f = App::forward(app.eyeYaw, 0); f = glm::normalize(vec3(f.x, 0, f.z) + vec3(1e-6f, 0, 0));
+  vec3 r(-f.z, 0, f.x);
+  float dive = std::clamp(-app.eyePitch / 75.0f, 0.0f, 1.0f), fwd = S.move.y, side = S.move.x, ahead;
+  if (!chute) {
+    if (fwd > 0.1f) { ahead = glm::mix(32.0f, 44.0f, dive); fall = glm::mix(24.0f, 88.0f, dive * dive); S.flight = dive > 0.45f ? 2 : 1; }
+    else if (fwd < -0.1f) { ahead = 0; fall = 42; S.flight = 3; }
+    else { ahead = 6; fall = glm::mix(55.0f, 66.0f, dive); S.flight = 0; }
+    want = f * ahead + r * (side * 18.0f); accH = fwd < -0.1f ? 30.0f : 22.0f; accV = 30;
+  } else {
+    if (fwd > 0.1f) { ahead = glm::mix(9.0f, 13.0f, dive); fall = glm::mix(6.0f, 10.0f, dive); S.flight = dive > 0.45f ? 2 : 1; }
+    else if (fwd < -0.1f) { ahead = 1.5f; fall = 4.5f; S.flight = 3; }
+    else { ahead = 4.5f; fall = gCfg.chuteDescent; S.flight = 0; }
+    want = f * ahead + r * (side * 5.5f); accH = 5; accV = 8;
+  }
+}
 vec3 approachV(vec3 v, vec3 want, float rate) { vec3 d = want - v; float l = glm::length(d); return l <= rate ? want : v + d / l * rate; }
 }
 
@@ -144,6 +167,14 @@ void royaleBegin(App& app, Game& G) {
     a.aim = glm::clamp(vec2(q.x, q.z) + vec2(std::cos(ang), std::sin(ang)) * rr, vec2(-hx, -hz) * 0.92f, vec2(hx, hz) * 0.92f);
   }
   G.deployReady = true;   // no deploy screen: everyone boards the bomber
+  {   // BR5: everyone in the player's body (the BR marine when its bake is present), all of them soldiers
+    int body = brMarineModel(G);
+    if (body < 0) { Soldier* L = G.local(); body = L ? L->model : G.sold.empty() ? -1 : G.sold[0].model; }
+    for (auto& s : G.sold) {
+      if (body >= 0) s.model = body;
+      s.zombie = false; s.etype = 0; s.evariant = 0; s.eScale = 1; s.eLean = 0; s.eBody = 1; s.eFallback = false;
+    }
+  }
   // BR1b: named districts from the map file (scenario.districts: name, pos [x, y, z], radius); absent on most maps
   if (app.doc.extra.is_object() && app.doc.extra.contains("scenario") && app.doc.extra["scenario"].is_object())
     for (auto& d : app.doc.extra["scenario"].value("districts", json::array()))
@@ -193,23 +224,24 @@ void royaleStep(App& app, Game& G, float dt) {
       bool over = S.time >= S.tIn;
       if ((!local && !s.human && S.time >= a.jumpAt) || (local && jump && over) || S.time >= S.tOut) {
         a.st = RA_FREEFALL; a.v = S.dir * gCfg.planeSpeed * 0.3f;
-        if (local) app.toast("Free fall: look where you want to go. Space opens the parachute (it opens itself at " + std::to_string((int)gCfg.chuteAt) + " m).", 5);
+        if (local) app.toast("Free fall: look to turn, W to glide (look down to dive), S air brake, A / D slide. Space opens the parachute (it opens itself at " + std::to_string((int)gCfg.chuteAt) + " m).", 6);
       } else if (local && jump) app.toast("Wait until the bomber is over the area.", 2);
     } else {
       bool chute = a.st == RA_CHUTE;
       float across = chute ? gCfg.chuteAcross : gCfg.fallAcross;
-      vec3 want(0);
-      if (local) want = horizLook(app) * across;   // where the mouse points; straight down glides least
+      vec3 want(0); float fall = chute ? gCfg.chuteDescent : gCfg.fallSpeed, accH = chute ? gCfg.chuteAccel : gCfg.fallAccel, accV = 0;
+      if (local) localFlight(app, chute, want, fall, accH, accV);   // BR5: mouse + WASD
       else { vec3 to(a.aim.x - a.p.x, 0, a.aim.y - a.p.z); float l = glm::length(to); if (l > 0.5f) want = to / l * std::min(across, l * 0.6f); }
       vec3 hv(a.v.x, 0, a.v.z);
-      hv = approachV(hv, want, (chute ? gCfg.chuteAccel : gCfg.fallAccel) * dt);
-      float vy = a.v.y, target = -(chute ? gCfg.chuteDescent : gCfg.fallSpeed);
-      vy += std::clamp(target - vy, -20.0f * dt, 25.0f * dt);   // the canopy brakes hard; free fall builds up
+      hv = approachV(hv, want, accH * dt);
+      float vy = a.v.y, target = -fall;
+      if (accV > 0) vy += std::clamp(target - vy, -accV * dt, accV * dt);
+      else vy += std::clamp(target - vy, -20.0f * dt, 25.0f * dt);   // the canopy brakes hard; free fall builds up
       a.v = vec3(hv.x, vy, hv.z);
       vec3 np = a.p + a.v * dt;
       np.x = std::clamp(np.x, -hx * 1.05f, hx * 1.05f); np.z = std::clamp(np.z, -hz * 1.05f, hz * 1.05f);
       float g = groundBelow(app, np);
-      if (!chute && (np.y - g <= gCfg.chuteAt || (local && jump))) { a.st = RA_CHUTE; if (local) app.toast("Parachute open. Look to steer; it is slow to answer.", 4); }
+      if (!chute && (np.y - g <= gCfg.chuteAt || (local && jump))) { a.st = RA_CHUTE; if (local) app.toast("Parachute open: W run, S flare, A / D slide, look to turn.", 4); }
       if (np.y <= g + 0.02f) {   // landed: no fall damage (a placement, not a fall)
         vec3 feet(np.x, g, np.z);
         a.st = RA_GROUND; a.v = vec3(0);
@@ -219,6 +251,7 @@ void royaleStep(App& app, Game& G, float dt) {
           const EnemyType* et = s.zombie ? &enemyType(s.etype) : nullptr;
           s.agent = et && et->capsuleH > 0 ? Physics::createAgent(feet, et->capsuleH, et->capsuleR) : Physics::createAgent(feet);
           s.br.repathT = 0;
+          if (!s.human) lootArmBot(G, s, 2);   // BR5: bots land with two random guns from the loot table (the player loots)
         }
         continue;
       }
@@ -230,6 +263,13 @@ void royaleStep(App& app, Game& G, float dt) {
   }
   // storm damage outside the current ring, once a second while outside (landed soldiers only); armor never applies
   RoyaleStorm::At at = S.storm.at(S.time);
+  for (auto& s : G.sold) {   // BR5: a bot with an empty gun (nothing loaded, nothing spare) takes its other gun
+    if (!s.alive || s.localPlayer || s.human || S.air[s.slot].st != RA_GROUND || s.weapon < 0 || s.reload > 0) continue;
+    if (s.ws.loaded > 0 || !s.ws.containers.empty()) continue;
+    for (auto& [w, ws] : s.wsBy) if (ws.loaded > 0 || !ws.containers.empty()) {
+      int was = s.weapon; WeaponState old = s.ws; s.weapon = w; s.ws = ws; s.wsBy.erase(w); s.wsBy[was] = old; break;
+    }
+  }
   for (auto& s : G.sold) {
     if (!s.alive) continue;
     Air& a = S.air[s.slot];
@@ -264,6 +304,7 @@ void royaleInput(App& app, ExploreInput& in) {
   Soldier* L = gGame->local();
   if (!L || !L->alive || royaleAirState(L->slot) == RA_GROUND) return;
   if (in.jump) S.jumpEdge = true;
+  S.move = in.move;   // BR5: WASD steers the free fall / canopy
   in.move = vec2(0); in.jump = in.jumpHeld = in.crouch = in.sprint = in.prone = false;
   in.fire = in.aim = in.reload = in.interact = in.build = in.quickGrenade = false;
   (void)app;
@@ -349,8 +390,16 @@ void royaleHud(App& app, Game& G) {
   if (L && L->alive) {
     int st = royaleAirState(L->slot);
     if (st == RA_ABOARD) centre(S.time < S.tIn ? "Aboard the bomber - Space to jump once it is over the area" : "Aboard the bomber - SPACE to jump", io.DisplaySize.y * 0.78f, IM_COL32(255, 230, 150, 255));
-    else if (st == RA_FREEFALL) { char f[120]; std::snprintf(f, sizeof f, "Free fall  %.0f m  -  Space: parachute", L->feet.y - groundBelow(app, L->feet)); centre(f, io.DisplaySize.y * 0.78f, IM_COL32(255, 230, 150, 255)); }
-    else if (st == RA_CHUTE) { char f[80]; std::snprintf(f, sizeof f, "Parachute  %.0f m", L->feet.y - groundBelow(app, L->feet)); centre(f, io.DisplaySize.y * 0.78f, IM_COL32(220, 230, 255, 255)); }
+    else if (st == RA_FREEFALL || st == RA_CHUTE) {   // BR5: altitude, fall rate, ground speed, posture
+      const Air& a = S.air[L->slot];
+      static const char* posture[2][4] = {{"BELLY", "GLIDE", "DIVE", "AIR BRAKE"}, {"DRIFT", "RUN", "SPILL", "FLARE"}};
+      bool ch = st == RA_CHUTE; float gs = glm::length(vec2(a.v.x, a.v.z));
+      char f[200]; std::snprintf(f, sizeof f, "%s %s     ALT %4.0f m     FALL %3.0f m/s     SPEED %3.0f km/h", ch ? "PARACHUTE" : "FREE FALL", posture[ch][S.flight & 3], L->feet.y - groundBelow(app, L->feet), -a.v.y, gs * 3.6f);
+      centre(f, io.DisplaySize.y * 0.78f, ch ? IM_COL32(220, 230, 255, 255) : IM_COL32(255, 230, 150, 255));
+      const char* keys = ch ? "W run   S flare   A / D slide   look to turn (look down while running: faster descent)"
+                            : "W glide (look down to dive)   S air brake   A / D slide   look to turn   SPACE parachute";
+      centre(keys, io.DisplaySize.y * 0.78f + 30, IM_COL32(210, 205, 190, 230));
+    }
     else if (glm::length(vec2(L->feet.x, L->feet.z) - at.now.c) > at.now.r) { char f[80]; std::snprintf(f, sizeof f, "IN THE STORM  -%.0f hp/s", at.dps); centre(f, io.DisplaySize.y * 0.70f, IM_COL32(150, 180, 255, 255)); }
   }
   if (L && L->slot < (int)G.match.slots.size() && G.match.slots[L->slot].place > 0) {

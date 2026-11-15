@@ -1,6 +1,6 @@
 {
   "note": "BR1 battle royale (src/royale.cpp). Players: ScenarioRules royalePlayers (setup UI, 10..100, default 30). Storm circles 1..3 are radiusFrac x the play area's shorter side; circle 4 is finalRadius_m; each centre is random inside the previous circle. Storm damage ignores armor (Game::damage how = storm).",
-  "plane": { "altitude_m": 150, "speed_mps": 45, "overrun_m": 150, "endJitter": 0.25 },
+  "plane": { "altitude_m": 300, "speed_mps": 45, "overrun_m": 150, "endJitter": 0.25 },
   "fall": { "speed_mps": 55, "across_mps": 25, "accel_mps2": 14 },
   "chute": { "autoOpen_m": 60, "descent_mps": 6, "across_mps": 8, "accel_mps2": 1.5 },
   "bots": { "jumpFrom": 0.08, "jumpTo": 0.92, "landSpread_m": 110 },
