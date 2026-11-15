@@ -39,6 +39,13 @@ struct FloorItem {
   vec3 pos{0}; float yaw = 0;
 };
 
+// BR5: what a dead combatant carried, in a case by the body; anyone may take items out, the rest stays for the match
+struct LootCase {
+  uint32_t uid = 0; vec3 pos{0}; float yaw = 0;
+  std::string owner;
+  std::vector<FloorItem> items;
+};
+
 const ItemDef* lootItem(const std::string& id);
 int ammoTypeOf(const WeaponDef& d);
 const char* ammoName(int type);
@@ -58,6 +65,9 @@ float healStep(Kit& k, float hp, float dt);            // hp after dt of the run
 bool lootActive();                     // a Battle Royale match is running here (host / single player)
 Kit* kitOf(int slot);
 std::vector<FloorItem>& lootFloor();
+std::vector<LootCase>& lootCases();
+void lootDropItem(vec3 at, const std::string& id, int count);   // an item from the inventory to the floor
+std::string lootItemName(App& app, const FloorItem& f);
 
 // hooks
 void lootBegin(Game& G);                               // Game::begin: places the floor loot
@@ -71,8 +81,12 @@ void lootMolotov(App& app, vec3 pos, int owner);       // the molotov's burst: g
 bool lootScope(const App& app, float& mag, int& reticle);   // an attached optic in ADS: magnification + eyepiece reticle id
 void lootDraw(Game& G);                                // floor items (stand-in boxes until BR3's br_* assets exist)
 void lootUi(App& app);                                 // pick-up prompt, heal ring, keys; the inventory screen
-bool lootInventoryOpen();
+bool lootInventoryOpen();                              // the inventory or a case window is open
 void lootSetInventory(bool open);
+bool lootOnDeath(Game& G, int slot);                   // Game::killSoldier: the gear goes into a case (true: skip the normal weapon drop)
+void lootOpenCase(uint32_t uid);                       // 0 closes
+bool lootTakeFromCase(App& app, uint32_t item, bool swap, std::string& msg);   // the open case's item into the inventory
+void drawCaseScreen(App& app, LootCase& c);            // inventory_ui.cpp
 void lootDropGun(App& app, int weapon);                // from the inventory: the gun goes to the floor with its state
 void drawInventoryScreen(App& app);                    // inventory_ui.cpp
 void drawInventoryCharacter(ImVec2 min, ImVec2 max);   // hook for BR3's character preview (inventory_ui.cpp: a placeholder)

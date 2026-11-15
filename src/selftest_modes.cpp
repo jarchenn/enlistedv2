@@ -365,13 +365,36 @@ void build(App&) {
       a.wstate["kar98k"].att[ATT_SIGHT] = 2; a.wstate["kar98k"].att[ATT_STOCK] = 1; a.wstate["mp40"].att[ATT_MUZZLE] = 1; a.wstate["mp40"].att[ATT_MAG] = 1;
       a.wstate["mk2_grenade"].loaded = 1; a.wstate["mk2_grenade"].containers = {1}; a.wstate["molotov"].loaded = 1;
       a.selectWeapon(a.weaponIndex("kar98k"));
-      lootSetInventory(true);
       chk(lootFloor().size() > 0, "BR2: %zu floor items placed on the village", lootFloor().size());
+      // BR5: a geared bot dies; its case comes to the player's feet and opens
+      Soldier* B = nullptr; for (auto& s : gGame->sold) if (s.alive && !s.localPlayer) { B = &s; break; }
+      if (!B) { chk(false, "BR5: a bot to kill"); return true; }
+      Kit& bk = *kitOf(B->slot);
+      B->weapon = a.weaponIndex("stg44"); if (B->weapon < 0) B->weapon = a.weaponIndex("mp40");
+      B->ws = WeaponState{}; B->ws.loaded = 30; B->ws.containers = {30, 30}; B->ws.att[ATT_SIGHT] = 1; B->frags = 2;
+      bk.helmet = 3; bk.helmetDur = 200; bk.vest = 2; bk.vestDur = 180; bk.backpack = 2; bk.ammo[AM_9MM] = 30; bk.items["br_bandage"] = 2; bk.items["br_medkit"] = 1; bk.items["br_suppressor"] = 1;
+      size_t before = lootCases().size();
+      gGame->killSoldier(B->slot, L->slot, vec3(0, 0, 1));
+      chk(lootCases().size() == before + 1 && lootCases().back().items.size() >= 8 && kitOf(B->slot)->helmet == 0, "BR5: the dead bot's case holds %zu items, its kit is empty", lootCases().empty() ? 0 : lootCases().back().items.size());
+      LootCase& lc = lootCases().back(); lc.pos = L->feet + App::forward(a.eyeYaw, 0) * 1.2f; lc.yaw = a.eyeYaw;
+      lootOpenCase(lc.uid);
       return false;
     }
-    if (t > 4 && t < 4.05f) a.uiShot = outDir() / "br2_inventory.png";   // uiShot: after ImGui, so the inventory is in the picture
+    if (t > 4 && t < 4.05f) a.uiShot = outDir() / "br5_case.png";   // uiShot: after ImGui, so the window is in the picture
     if (t < 5) return false;
-    lootSetInventory(false);
+    {   // take the level-3 helmet out (a better one replaces the worn level 2, which goes into the case), then Take all
+      LootCase& lc = lootCases().back(); Kit& k = *kitOf(L->slot); std::string msg; uint32_t helm = 0;
+      for (auto& f : lc.items) if (f.id == "br_helmet_3") helm = f.uid;
+      bool took = lootTakeFromCase(a, helm, true, msg);
+      bool swapped = std::any_of(lc.items.begin(), lc.items.end(), [](const FloorItem& f) { return f.id == "br_helmet_2"; });
+      chk(took && k.helmet == 3 && swapped, "BR5: Take the level-3 helmet; the level-2 one goes into the case (%s)", msg.c_str());
+      int ammo0 = k.ammo[AM_9MM]; size_t n0 = lc.items.size();
+      std::vector<uint32_t> uids; for (auto& f : lc.items) uids.push_back(f.uid);
+      for (uint32_t u : uids) lootTakeFromCase(a, u, false, msg);
+      chk(k.ammo[AM_9MM] > ammo0 && lc.items.size() < n0 && kitWeight(&a, k, &a.carried) <= kitCapacity(k) + 0.01f,
+          "BR5: Take all moved %zu of %zu items, weight %.0f / %.0f", n0 - lc.items.size(), n0, kitWeight(&a, k, &a.carried), kitCapacity(k));
+    }
+    lootOpenCase(0);
     return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }

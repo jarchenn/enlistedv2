@@ -144,7 +144,7 @@ vec3 AiCore::objectiveGoal(Soldier& s) {
     auto snap = [&](vec3 p) { NavRef r; vec3 on; return G.nav.closest(p, 8.0f, r, on) ? on : p; };
     float soon = royaleStormSoon(s);
     if (soon < tj("royale", "moveEarly_s", 30.0f)) return snap(royaleSafePoint(s));   // the storm first
-    { vec3 lootAt; if (lootBotGoal(G, s, lootAt)) return lootAt; }   // BR2: a gun, ammo, armour or healing nearby
+    { vec3 lootAt; if (lootBotGoal(G, s, lootAt)) return snap(lootAt); }   // on the navmesh, or the path to an item on furniture fails   // BR2: a gun, ammo, armour or healing nearby
     const Soldier* best = nullptr; float bd = tj("royale", "huntRange_m", 40.0f);
     for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !royaleAirborne(o.slot)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
     if (best) { float a = s.slot * 2.39996f; return snap(best->feet + vec3(std::cos(a), 0, std::sin(a)) * std::min(6.0f, bd * 0.5f)); }
