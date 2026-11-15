@@ -524,7 +524,9 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
       if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly) {
         vec3 Rw, Fw; sightLineWorld(d, s, Rw, Fw);
-        vec3 V = glm::normalize(Fw - Rw);
+        // MG8: an animated rig's ADS puts both posed sights on the camera axis, so its line is the camera's; the axis itself
+        // avoids the alignment's numeric residual (0.02 deg = 0.5 mrad on the M4 irons)
+        vec3 V = d.anim ? forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch) : glm::normalize(Fw - Rw);
         vec3 vr = glm::normalize(glm::cross(V, vec3(0, 1, 0))), vu = glm::cross(vr, V);
         V = glm::normalize(V + vr * std::cos(a) * r + vu * std::sin(a) * r);   // same dispersion draw as the hip path
         Physics::Hit hf;

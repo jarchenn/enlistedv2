@@ -165,6 +165,7 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | fps-animated-carbine-2 | **Not used**: byte-identical to fps-animated-carbine | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | grenadelauncher-animated (arms@Glauncher.fbx) | Six-shot grenade launcher (`modern_glauncher`, MG4) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-ak-animated-2 | **Not used**: byte-identical to fps-ak-animated (`modern_ak`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| m4-fps-weapon-animations-pack-v1.zip (M4.fbx; extracted to incoming/mg8/m4pack) | M4 carbine with iron sights (`modern_m4_irons`, MG8) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | sniper-animated (2).zip (arms@sniper.fbx; extracted to incoming/mg7/sniper) | Bolt-action scout rifle (`modern_sniper_3`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | pistol-43-tactical-fps-animations.zip (Glock_Anim.fbx; incoming/mg7/pistol43) | Glock 43 (`modern_pistol3`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | scar-h_first-person_fps_animated.glb (incoming/mg7) | FN SCAR-H: replaces the MG1 SCAR model (`modern_scar`, MG7; its arms and clips unused: broken hand skin) | supplied by the user | **licence to be confirmed by the user** (none stated) |

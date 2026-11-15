@@ -63,6 +63,9 @@ const C = {
         mats: { Glock_Mat: { albedo: "LP_TEX_Glock_Mat_BaseColor.png", normal: "LP_TEX_Glock_Mat_Normal.png", rough: "LP_TEX_Glock_Mat_Roughness.png", metal: "LP_TEX_Glock_Mat_Metallic.png" } } },
   scarh: { src: G + "../mg7/scar-h_first-person_fps_animated/scar-h_first-person_fps_animated.glb", tex: "", poseFrame: 60, keep: { Object_94: "base", Object_92: "stock" }, split: { Object_94: { Magazine_058: "mag", Slide_060: "handle" } } },
   ak12: { src: G + "../mg7/ak-12animated/ak-12animated.glb", tex: "", keep: { "mtl_weapon_ak12_weapon_ak12_col.tga.001_0": "base", aim_0: "scope", barrel_0: "barrel", Group_10_0: "grp10", mag_0: "mag", rail_0: "rail", rearsight_0: "rearsight", stock_0: "stock", "TomGroup_4.001_0": "tg4b", TomGroup_4_0: "tg4" } },
+  // ---- MG8: M4 with iron sights (m4-fps-weapon-animations-pack-v1.zip, extracted to incoming/mg8/m4pack)
+  m4irons: { src: G + "../mg8/m4pack/source/M4.fbx", tex: "../mg8/m4pack", poseFrame: 226, poseAction: "Armature|Idle|BaseLayer", keep: { Main: "base", Bolt: "bolt", BoltCatch: "base", Mag1: "mag", Bullet5_56x45mm: "mag", Safety: "base", Trigger: "trigger" },
+        mats: { M4_D: { albedo: "M4_D.png", normal: "M4_N.png", rough_f: 0.5, metal_f: 0.6 }, Bullet5_56x45mm_D: { albedo: "Bullet5.56x45mm_D.png", normal: "Bullet5.56x45mm_N.png", rough_f: 0.4, metal_f: 0.9 } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };
