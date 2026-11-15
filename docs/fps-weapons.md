@@ -714,4 +714,28 @@ Red parts glow (`redInk`).
   - GLB sources; embedded textures are capped at `maxTex`;
   - skinned meshes with their own object transform are baked into the mesh (glTF skinning ignores a skinned mesh's node transform).
 
+### MG8: M4 with iron sights, M249 realigned
+
+`modern_m4_irons` comes from `m4-fps-weapon-animations-pack-v1.zip` (`M4.fbx`: arms, an M4 with a flip-up rear aperture and a front post, named clips on one timeline). It has `modern_m4`'s stats.
+- **Clips:** Idle, Fire, Reload, Reload_Empty; Draw and Holster not used.
+- **Bone-parented parts:** the gun parts are meshes parented to bones; the exporter now turns such meshes into meshes skinned 1 to that bone at rest (they did not survive the rig re-parenting in the glTF export).
+- **Magazine:** its bone is scaled at rest, so the static (third-person) model hides it.
+
+**Sights and point of impact.** An aimed shot leaves from the posed front sight along the rear-to-front sight line, tilted for the drop at the zero (`weapons.cpp`). ADS puts that line on the screen centre. So the round lands on the sight line at the zero, and alignment is a question of where the two points sit on the real aperture and post. Both guns were measured on their rigs (offline ADS renders, 5-20°):
+- **M4 irons:** the post tip on the screen centre, centred in the aperture (`animated.points`).
+- **M249:** the rear point moved 0.32 mm right and 0.06 mm up onto the aperture centre. Before, the aperture centre sat 4.6 mrad right of and 0.9 mrad above the post tip; after, within about 0.6 mrad. The front point (post tip) is unchanged.
+
+**Shot line (MG8):** an animated rig's aimed shot leaves from the front sight along the camera axis. The rig's ADS already puts both sights on that axis, and using the axis directly removes the alignment's numeric residual (0.5 mrad on the M4 irons).
+
+**Measured impact (no dispersion), relative to the point under the sights:**
+
+| Gun | 25 m | 100 m | At its zero |
+|---|---|---|---|
+| M249 (zero 200 m) | +26 mm | +63 mm | 200 m: +9 mm (0.05 mrad) |
+| M4 irons (zero 50 m, as `modern_m4`) | +5 mm | −27 mm | 50 m: +2 mm (0.04 mrad) |
+
+At 25 m and 100 m these are the planned trajectory around each zero.
+
+**Dev point-of-impact check:** `NMK_MG_POI=id,...` stands 25 m, 100 m and at the zero range from the farmhouse wall, aims (no dispersion, sway or breathing), fires one round and logs the impact against the point under the screen centre (`[mg8poi]`).
+
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.
