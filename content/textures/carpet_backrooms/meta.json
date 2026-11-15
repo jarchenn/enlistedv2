@@ -1,0 +1,9 @@
+{
+ "set": "carpet_backrooms",
+ "id": "generated (tools/gen_backrooms_textures.py)",
+ "family": "interior (BR4)",
+ "size": [1.5, 1.5],
+ "license": "generated, original",
+ "note": "cut pile, tonal mottling",
+ "maps": ["color.png"]
+}

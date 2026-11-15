@@ -47,11 +47,16 @@ def shade(x, y):
     return k
 
 
+def mottle(x, y):   # BR4: a soft tileable tonal variation (two wrapped sine fields), so the paper is not flat
+    u, v = x / N * 2 * math.pi, y / N * 2 * math.pi
+    return 0.025 * math.sin(u + 1.3 * math.sin(v)) + 0.018 * math.sin(2 * v + 0.7 * math.cos(u))
+
+
 rows = []
 for y in range(N):
     r = []
     for x in range(N):
-        k = shade(x, y)
+        k = shade(x, y) + mottle(x, y)
         base = (0.86, 0.80, 0.42)
         r += [max(0, min(255, int(255 * (c + k)))) for c in base]
     rows.append(r)
