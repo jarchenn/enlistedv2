@@ -4,7 +4,7 @@
 #include "app.h"
 #include "settings.h"
 #include "sight_overlay.h"
-#include "vm_anim.h"
+#include "vm_anim.h"
 #include "br_models.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
