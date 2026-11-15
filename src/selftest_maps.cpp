@@ -214,7 +214,8 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     if (const char* only = std::getenv("NMK_MAPS")) { std::string o = std::string(",") + only + ","; std::erase_if(sTpl, [&](int k) { return o.find("," + app.templates[k].id + ",") == std::string::npos; }); }   // measurement runs: only these map ids
     check(!sTpl.empty(), fmt("authored default-map templates found: %zu", sTpl.size()));
     if (sTpl.empty()) { finish(app); return; }
-    settings().applyPreset(app, GfxPreset::Medium);   // P1: every Medium view at the Medium preset (resolution 0.67 + TAAU), as after a Low / High pass
+    { const char* ps = std::getenv("NMK_MAPS_PRESET"); std::string q = ps ? ps : "";   // WX2 captures: NMK_MAPS_PRESET=Low / High for the views
+      settings().applyPreset(app, q == "Low" ? GfxPreset::Low : q == "High" ? GfxPreset::High : GfxPreset::Medium); }   // P1: every Medium view at the Medium preset (resolution 0.67 + TAAU), as after a Low / High pass
     if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale (Mac: 0.6)
     if (const char* e = std::getenv("NMK_UPSCALE")) settings().s.upscale = app.R.upscaleMode = e[0] == 's' ? 1 : e[0] == 'o' ? 2 : 0;
     go(4101);

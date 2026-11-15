@@ -106,7 +106,8 @@ public:
   struct Weather { int target = 0, forced = -1, quality = 1, fog = 1, fogForced = -1; float k = 0, seed = 0, fogNow = -1; vec2 wind{0.012f, 0.0075f}; double clock = -1;
                    int fogWant() const { return fogForced >= 0 ? fogForced : fog; }
                    float fogDens() const { static const float d[4] = {0.0f, 0.0035f, 0.008f, 0.018f}; return d[std::clamp(fogWant(), 0, 3)] * (1.0f + 0.25f * k); }   // env fog (1/m at the ground, field 1): Off / Light / Moderate / Dense, a little more under cloud
-                   int want() const { return forced >= 0 ? forced : target; } void snap() { k = (float)want(); } } wx;
+                   bool enclosed = false;   // WX2: an enclosed map (fixed hour or no haze: Tunnels, Backrooms) has no weather
+                   int want() const { return enclosed ? 0 : forced >= 0 ? forced : target; } void snap() { k = (float)want(); } } wx;
   float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
   // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
   // shore), G drift noise (scrolls on the wind), B smoothed ground height (m). Rebuilt when the terrain changes.
