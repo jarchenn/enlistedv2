@@ -1,4 +1,5 @@
 #include <cstring>
+#include <map>
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "game.h"
 #include "classes.h"
@@ -485,6 +486,11 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
   if (rulesIgnoreDamage(*this, i)) return;
+  if (s.zombie && enemyType(s.etype).shellKills > 0) {   // a fixed number of direct shell hits kills it
+    static std::map<int, double> shellAt; const bool shell = how && std::strcmp(how, "shell") == 0, blast = how && std::strcmp(how, "blast") == 0;
+    if (shell) { shellAt[i] = t; s.hp -= enemyType(s.etype).hp / enemyType(s.etype).shellKills - 0.01f; dmg = 0.01f; how = "blast"; }   // applied here; the rest of the function sees a token blast
+    else if (blast && shellAt.count(i) && std::fabs(t - shellAt[i]) < 0.05) return;   // that shell's own blast
+  }
   if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly || (enemyType(s.etype).nonBlastMult < 1 && how && std::strcmp(how, "shell") == 0)) return; dmg *= enemyType(s.etype).nonBlastMult;   // a direct shell hit is not an instant kill on a resistant type: its blast does the damage
   if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).

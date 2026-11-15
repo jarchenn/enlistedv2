@@ -19,6 +19,7 @@ struct EnemyType {
   float knock = 0;                                        // m/s shove on the player hit
   float staggerMin = 0, staggerS = 0;                     // a single hit of at least staggerMin flinches it (and stops it staggerS)
   float kickCrater = 0;                                   // each strike digs a crater of this scale where the blow lands (the Fighter)
+  int shellKills = 0;                                     // > 0: a direct tank / cannon shell or rocket hit takes exactly hp / shellKills (that round's blast adds nothing)
   float locoRate = 1;                                     // walk / run clip speed x (legs move faster than the ground speed alone gives)
   float nonBlastMult = 1;                                 // damage x from everything but explosions (the Fighters: 0.1)
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands

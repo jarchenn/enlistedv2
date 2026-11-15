@@ -46,14 +46,14 @@ const ZombieCfg& zcfg() {
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
         t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
-        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 25.0f); t.lean = e.value("lean_deg", t.lean);   // the fighters are drawn at 20
-        t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 25.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
+        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 50.0f); t.lean = e.value("lean_deg", t.lean);   // the fighters are drawn at 20
+        t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 50.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
         t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
         t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin);
         t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 4.0f);
-        t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.nonBlastMult = std::clamp(e.value("non_blast_mult", t.nonBlastMult), 0.0f, 1.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f); t.kickCrater = std::clamp(e.value("kick_crater", t.kickCrater), 0.0f, 3.0f);
+        t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly); t.shellKills = std::clamp(e.value("shell_hits_to_kill", t.shellKills), 0, 100); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.nonBlastMult = std::clamp(e.value("non_blast_mult", t.nonBlastMult), 0.0f, 1.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f); t.kickCrater = std::clamp(e.value("kick_crater", t.kickCrater), 0.0f, 3.0f);
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
