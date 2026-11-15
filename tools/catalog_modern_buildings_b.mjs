@@ -35,7 +35,7 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
   for (const g of ["oak_x", "oak_y", "oak_z"]) re(g, [0.12, 0.125, 0.13], 0.45, "metal", { metallic: 0.3 });
   re("window_paint", [0.10, 0.105, 0.11], 0.4, "metal", { metallic: 0.6 });
   re("stone_dressed", [0.56, 0.55, 0.51], 0.8, "concrete", { texture: "concrete_light" });
-  re("door_paint", [0.16, 0.22, 0.27], 0.5, "painted", { grain: 1 });
+  re("door_paint", [0.16, 0.22, 0.27], 0.5, "metal");
   re("plaster", [0.70, 0.69, 0.66], 0.9, "interior", { grain: 0 });
   re("concrete", [0.40, 0.39, 0.37], 0.9, "concrete", { texture: "concrete_aged" });
   re("concrete_wash", [0.52, 0.51, 0.48], 0.9, "concrete", { texture: "concrete_light" });
@@ -47,7 +47,7 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
   A.mat("stone_clad", [0.62, 0.58, 0.50], 0.7, "stone", { texture: "limestone_smooth" });
   A.mat("panel_lt", [0.62, 0.63, 0.63], 0.45, "metal", { metallic: 0.2 });
   A.mat("panel_dk", [0.07, 0.08, 0.09], 0.4, "metal", { metallic: 0.3 });
-  A.mat("panel_acc", accent, 0.45, "painted");
+  A.mat("panel_acc", accent, 0.45, "metal");
   A.mat("corrugated", [0.48, 0.50, 0.51], 0.45, "metal", { texture: "corrugated_galv", metallic: 0.7 });
   A.mat("alu", [0.20, 0.21, 0.22], 0.35, "metal", { metallic: 0.8 });
   A.mat("alu_lt", [0.55, 0.56, 0.57], 0.3, "metal", { metallic: 0.9 });
@@ -64,13 +64,13 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
   A.mat("rubber", [0.04, 0.04, 0.045], 0.9, "plain");
   A.mat("lift_steel", [0.62, 0.62, 0.63], 0.3, "metal", { texture: "steel_scratched", metallic: 1.0 });
   A.mat("rail_steel", [0.42, 0.40, 0.38], 0.4, "metal", { texture: "steel_rust_light", metallic: 0.9 });
-  A.mat("safety_yel", [0.62, 0.48, 0.05], 0.6, "painted");
-  A.mat("orange", [0.62, 0.18, 0.03], 0.6, "painted");
-  A.mat("paint_w", [0.80, 0.80, 0.78], 0.6, "painted");
+  A.mat("safety_yel", [0.62, 0.48, 0.05], 0.6, "metal");
+  A.mat("orange", [0.62, 0.18, 0.03], 0.6, "metal");
+  A.mat("paint_w", [0.80, 0.80, 0.78], 0.6, "metal");
   A.mat("hvac", [0.55, 0.56, 0.55], 0.5, "metal", { metallic: 0.3 });
   A.mat("louvre", [0.25, 0.26, 0.27], 0.5, "metal", { metallic: 0.4 });
   A.mat("laminate", [0.55, 0.53, 0.48], 0.5, "wood", { texture: "wood_oak" });
-  A.mat("sign_blank", accent.map((v) => v * 0.8), 0.5, "painted", { emissive: accent.map((v) => v * 0.6) });
+  A.mat("sign_blank", accent.map((v) => v * 0.8), 0.5, "plain", { emissive: accent.map((v) => v * 0.6) });
   A.mat("lamp_g", [0.1, 0.5, 0.15], 0.4, "plain", { emissive: [0.3, 2.0, 0.5] });
   A.mat("screen", [0.02, 0.03, 0.04], 0.2, "plain", { emissive: [0.25, 0.45, 0.6] });
   A.mat("water_proxy", [0.05, 0.1, 0.1], 0.1, "glass");

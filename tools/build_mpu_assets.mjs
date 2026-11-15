@@ -28,6 +28,7 @@ import { modernModelAssets } from "./catalog_modern_models.mjs";
 import { modernOutdoorAssets } from "./catalog_modern_outdoor.mjs";
 import { modernBuildingsA } from "./catalog_modern_buildings_a.mjs";
 import { modernBuildingsB } from "./catalog_modern_buildings_b.mjs";   // BR1: the backrooms kit (docs/backrooms.md)
+import { modernPropsAssets } from "./catalog_modern_props.mjs";
 import { tunnelAssets } from "./catalog_tunnels.mjs";   // UG1: the underground tunnel kit (docs/tunnels.md)   // GX6: new houses, large houses, mil_stronghold
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -111,7 +112,7 @@ const BACKFILL = {
 };
 // ---------------------------------------------------------------- new assets (after the backfill table: B2's legacy houses use houseNav)
 const ids = new Set();
-for (const A of [...modernFurnitureAssets(), ...modernModelAssets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...backroomsAssets(), ...tunnelAssets(), ...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets().map((A) => exterior(A)), ...houses2Assets().map((A) => exterior(A)), ...dressingAssets(), ...gxHouseAssets().map((A) => exterior(A))]) {
+for (const A of [...modernFurnitureAssets(), ...modernModelAssets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...modernPropsAssets(), ...backroomsAssets(), ...tunnelAssets(), ...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets().map((A) => exterior(A)), ...houses2Assets().map((A) => exterior(A)), ...dressingAssets(), ...gxHouseAssets().map((A) => exterior(A))]) {
   const j = A.json();
   if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
   ids.add(j.id);

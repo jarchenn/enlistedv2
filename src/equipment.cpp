@@ -16,7 +16,8 @@
 // and defences register), so it can never pass through anything. There is no actor health in this engine.
 #include "app.h"
 #include "mpai.h"
-#include "abilities.h"
+#include "abilities.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
 #include <glm/gtx/quaternion.hpp>
 
@@ -31,6 +32,7 @@ void App::loadEquipment(WeaponDef& d, const json& j) {
     d.grenade.linDamp = gf(g, "linearDamping", 0.4f); d.grenade.rollDamp = gf(g, "rollingDamping", 3.0f);
     d.grenade.windup = gf(g, "windup", 0.32f); d.grenade.ready = gf(g, "ready", 0.9f); d.grenade.volume = gf(g, "volume", 0.8f);
     d.grenade.smoke = g.is_object() && g.value("smoke", false);
+    d.grenade.fire = g.is_object() && g.value("fire", false);   // BR2 molotov: ground fire, no blast
   }
   if (j.contains("pack")) {   // GM2 explosion pack
     const json& p = j["pack"]; d.pack.on = true;
@@ -94,6 +96,7 @@ void App::stepGrenades(float dt) {
     g.done = true;   // exactly one detonation, whatever happens later this frame
     const WeaponDef& d = *weaponDefs[g.def];
     Physics::remove(g.body); g.body = 0xffffffffu;
+    if (d.grenade.fire) { lootMolotov(*this, g.pos, g.owner); ++grenadesExploded; lastGrenadeBlast = g.pos; continue; }   // BR2 molotov
     if (mpaiGrenadeDetonate(*this, g.def, g.pos, g.owner, 0)) {   // smoke: a cloud, no blast - the bank's smoke-grenade pop
       if (d.grenade.smoke && audio.hasEvent("smoke_pop")) audio.play("smoke_pop", g.pos, d.grenade.volume);
       ++grenadesExploded; lastGrenadeBlast = g.pos; continue;

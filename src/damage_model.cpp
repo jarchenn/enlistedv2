@@ -4,7 +4,8 @@
 #include "damage_model.h"
 #include "rules.h"
 #include "game.h"
-#include "app.h"
+#include "app.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
 #include <cmath>
 
@@ -148,6 +149,7 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
   // ---- hit effect: the visuals (deflect puff, helmet sparks, blood / dust puff) are drawn by gore (gore.cpp, W7); the helmet sound stays here
   if (!prot && helmet && glm::length(at - app.eyePos()) < 120.0f) app.audio.play("impact_metal", at, 0.6f);
   float hpBefore = v.hp;
+  dmg = lootDamage(victim, zone, dmg);   // BR2: helmet (head) / vest (torso) absorb part and wear
   g.damage(victim, dmg, shooter, d, zoneName(zone));   // protection is enforced there too (rules.cpp hook)
   // ---- gore contract (gore_api.h): every flesh hit, after damage
   FleshHit fh; fh.pos = at; fh.normal = normal; fh.dir = d; fh.victimSlot = victim; fh.shooterSlot = shooter; fh.weapon = weaponIdx; fh.zone = zone;

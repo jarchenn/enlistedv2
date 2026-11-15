@@ -3,6 +3,7 @@
 #include "app.h"
 #include "mpui.h"
 #include "royale.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -101,6 +102,7 @@ void Game::scoreboardTable(bool full) {
 
 // held Tab during a match (not while building: build mode owns Tab for its palette)
 void Game::drawScoreboardOverlay() {
+  if (lootActive()) return;   // BR2: Tab is the inventory in Battle Royale
   bool held = showScoreboard || (!app.selftest && app.win && !app.build.active && app.bk("scoreboard") >= 0 && glfwGetKey(app.win, app.bk("scoreboard")) == GLFW_PRESS);
   if (!held || match.phase == MatchPhase::Ended) return;
   ImGuiIO& io = ImGui::GetIO();

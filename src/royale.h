@@ -6,7 +6,7 @@
 // Hooks into shared code (one line each): game.cpp (the AI is skipped while airborne; bare hands at spawn),
 // mpai.cpp (begin, step, input, camera, draw), mpui.cpp / mpui_modes.cpp (setup UI, HUD, result), minimap.cpp (rings).
 // For the loot stream (BR2): royaleSafePoint / royaleRing / royaleAirState below; the storm damages through
-// Game::damage with how = "storm" (armor must not reduce it); rules.lootPool holds the WW2 / Modern switch.
+// Game::damage with how = "storm" (armor must not reduce it); rules.lootModern (BR2) holds the WW2 / Modern switch.
 #include "common.h"
 
 class App;
@@ -53,4 +53,5 @@ bool royaleCamera(App& app, vec3& eye, vec3& fwd, float& fov);   // aboard: behi
 void royaleDraw(App& app);                    // bomber, parachutes
 void royaleHud(App& app, Game& G);            // timers, alive count, placement, storm wall and the blue tint
 void royaleMinimap(ImDrawList* dl, const MinimapView& v);   // current ring (white) and next ring (blue)
-int royaleSelfTest();                         // --selftest-royale (headless)
+struct MpTest;
+void royaleSelfTest(MpTest& T);               // --selftest-royale (headless): storm and match checks, run by runRoyaleSelfTest (selftest_royale.cpp)

@@ -8,7 +8,8 @@
 //   grenades: several simulated arcs, landing within ~2 m, no bounce-back, nobody of our side near the landing or
 //     the arc; per-bot cooldown from the difficulty, the loadout's count.
 #include "ai_core.h"
-#include "app.h"
+#include "app.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
 #include <cmath>
 
@@ -71,7 +72,9 @@ void AiCore::perceive(Soldier& s) {
     const Soldier& o = G.sold[snd.src];
     if (o.team == s.team || !o.alive) continue;
     float d = glm::length(snd.p - s.feet), R = snd.range;
-    if (snd.kind == 0) { bool pistol = o.weapon >= 0 && pistolCal(G.app.weaponDefs[o.weapon]->caliber); R = pistol ? tj("perception", "hearSmg_m", 120.0f) : tj("perception", "hearRifle_m", 250.0f); }
+    if (snd.kind == 0) { bool pistol = o.weapon >= 0 && pistolCal(G.app.weaponDefs[o.weapon]->caliber); R = pistol ? tj("perception", "hearSmg_m", 120.0f) : tj("perception", "hearRifle_m", 250.0f);
+      const WeaponState* ow = &o.ws; if (o.localPlayer && o.weapon >= 0) { auto it = G.app.wstate.find(G.app.weaponDefs[o.weapon]->id); if (it != G.app.wstate.end()) ow = &it->second; }
+      if (ow->att[ATT_MUZZLE] == 1) R *= 0.5f; }   // BR2 suppressor: heard at half the range
     else if (snd.kind == 1) R = tj("perception", "hearExplosion_m", 200.0f);
     if (d > R) continue;
     EnemyMemory* mm = nullptr; for (auto& x : b.mem) if (x.enemy == o.slot) mm = &x;
@@ -168,7 +171,7 @@ void AiCore::aim(Soldier& s, float dt) {
     aimPoint = G.chest(o) + o.vel * 0.12f;
     shoot = true;
     G.lineOfSight(e, aimPoint, &smokeT);
-  } else if (m.action == A_SUPPRESS || (m.action == A_OVERWATCH && G.app.weaponDefs[s.weapon]->action == "auto")) {
+  } else if (m.action == A_SUPPRESS || (m.action == A_OVERWATCH && s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "auto")) {
     // suppressive fire at the last known position (own or shared), bursts
     const Known* best = nullptr; for (auto& [en, k] : tb.known) if (!k.heard && G.t - k.seen < 6 && (!best || k.seen > best->seen)) best = &k;
     for (auto& x : b.mem) if (!x.heardOnly && G.t - x.lastSeen < 6 && (!best || x.lastSeen > best->seen)) { static Known tmp; tmp.pos = x.lastPos; tmp.seen = x.lastSeen; best = &tmp; }

@@ -5,6 +5,7 @@
 #include "game.h"
 #include "minimap.h"
 #include "enemy_types.h"
+#include "mptest.h"
 #include <imgui.h>
 #include <chrono>
 #include <random>
@@ -347,9 +348,8 @@ void royaleMinimap(ImDrawList* dl, const MinimapView& v) {
 }
 
 // ---------------------------------------------------------------- --selftest-royale (headless)
-int royaleSelfTest() {
-  int fails = 0, passes = 0;
-  auto chk = [&](bool ok, const std::string& what) { logf("[royale] %s %s", ok ? "PASS" : "FAIL", what.c_str()); std::printf("%s  %s\n", ok ? "PASS" : "FAIL", what.c_str()); (ok ? passes : fails)++; };
+void royaleSelfTest(MpTest& suite) {
+  auto chk = [&](bool ok, const std::string& what) { suite.check(ok, what); };
   loadCfg();
   // 1. circles nest and shrink (50 seeds, a 350 x 400 m area)
   bool nest = true, shrink = true; vec2 half(175, 200);
@@ -389,7 +389,7 @@ int royaleSelfTest() {
   Match m; std::string err;
   bool ok = m.setup(sc, 0, err);
   chk(ok && m.slots.size() == 10, "battle royale roster: 10 combatants, one life each (" + err + ")");
-  if (!ok) return 1;
+  if (!ok) return;
   m.start();
   std::mt19937 rng(7); std::uniform_real_distribution<float> u(0.0f, 1.0f);
   struct B { vec2 p; float hp = 100, spd, acc = 0; };
@@ -416,6 +416,4 @@ int royaleSelfTest() {
   std::snprintf(b, sizeof b, "a 10-bot match ends with one winner after %.0f s (%s); placements #1..#10 each once", T, m.result.c_str());
   chk(m.phase == MatchPhase::Ended && m.winnerSlot >= 0 && winners == 1 && places.size() == 10 && *places.begin() == 1 && *places.rbegin() == 10, b);
   chk(!respawned, "nobody respawns");
-  std::printf("%d passed, %d failed\n", passes, fails);
-  return fails ? 1 : 0;
 }

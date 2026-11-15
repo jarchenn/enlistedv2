@@ -15,6 +15,7 @@
 #include "flame.h"
 #include "ai_hooks.h"
 #include "royale.h"
+#include "loot.h"   // BR2 Battle Royale loot
 void netInterpolate(Game& g, double t);
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -170,6 +171,7 @@ bool Game::begin(std::string& err) {
   // the local player waits in limbo until its first spawn
   if (Soldier* L = local()) { vec3 p = app.exploreStartPos; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z)); (void)L; }
   setupError.clear();
+  lootBegin(*this);   // BR2: floor loot in the buildings
   logf("match: %zu slots, local slot %d, nav %d floors in %.0f ms", sold.size(), localSlot, nav.usedNodes, nav.buildMs);
   return true;
 }
@@ -733,6 +735,7 @@ void Game::step(float dt) {
     crumb("game: throw"); throwStep(s, dt);
     crumb("game: ai"); if (!s.human && !royaleAirborne(s.slot)) aiStep(s, dt);   // BR1: aboard / falling: the drop moves it
   }
+  crumb("game: loot"); lootStep(*this, dt);   // BR2: strip new lives, heal, bots pick up
   crumb("game: burn"); burnStep(dt);
   crumb("game: rest"); stepRest(dt); crumb("game: done");
 }
@@ -813,6 +816,7 @@ void Game::drawItems() {
     if (w.useModel()) { for (int p = 0; p < 8; ++p) for (int k : w.worldParts()[p]) app.R.worldModels.push_back({w.worldModel(), k, W}); }
     else for (int p = 0; p < 8; ++p) if (w.mesh[p].count) app.worldBoxDraws.push_back({&w.mesh[p], W});
   }
+  lootDraw(*this);   // BR2 floor items
   crumb("game: draw");
   vec3 cam = app.eyePos(); vec3 fwd = App::forward(app.eyeYaw, app.eyePitch);
   static int frame = 0; ++frame;

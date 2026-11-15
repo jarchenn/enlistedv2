@@ -11,7 +11,8 @@
 //    swapping never refills or duplicates rounds; only ammunition crates restock (existing rule).
 //  - Returning to Creative (F5) resets the loadout, ammunition and fire modes (the existing session reset).
 #include "app.h"
-#include "mpai.h"
+#include "mpai.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -97,14 +98,20 @@ void App::capCarried(std::vector<int>& c) const {
     const WeaponDef& d = *weaponDefs[w];
     (d.melee.on ? kn : d.grenade.on || d.pack.on ? gr : m).push_back(w);
   }
-  if (m.size() > 2) m.resize(2);
+  if (lootActive()) {   // BR2: two long guns and one pistol
+    std::vector<int> lg, ps; for (int w : m) (lootIsPistol(*weaponDefs[w]) ? ps : lg).push_back(w);
+    if (lg.size() > 2) lg.resize(2); if (ps.size() > 1) ps.resize(1);
+    m = lg; m.insert(m.end(), ps.begin(), ps.end());
+  } else if (m.size() > 2) m.resize(2);
   c = m; c.insert(c.end(), kn.begin(), kn.end()); c.insert(c.end(), gr.begin(), gr.end());
 }
 
 std::vector<int> App::stackRows() const {
   std::vector<int> r{-1, -1};
   int n = 0;
-  for (int w : carried) if (!weaponDefs[w]->equipment() && n < 2) r[n++] = w;
+  bool br = lootActive();   // BR2: the pistol takes row 3, after the two long guns
+  for (int w : carried) if (!weaponDefs[w]->equipment() && !(br && lootIsPistol(*weaponDefs[w])) && n < 2) r[n++] = w;
+  if (br) { int p = -1; for (int w : carried) if (!weaponDefs[w]->equipment() && lootIsPistol(*weaponDefs[w])) p = w; r.push_back(p); }
   for (int w : carried) if (weaponDefs[w]->equipment()) r.push_back(w);   // capCarried keeps the knife ahead of the grenades
   return r;
 }

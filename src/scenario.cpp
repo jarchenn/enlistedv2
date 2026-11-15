@@ -53,7 +53,7 @@ json ScenarioRules::toJson() const {
           {"captureBase", captureBase}, {"capturePresenceFull", capturePresenceFull},
           {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire},
           {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : mode == GameMode::BattleRoyale ? "royale" : "assault"}, {"killCap", killCap},
-          {"royalePlayers", royalePlayers}, {"lootPool", lootPool == 1 ? "modern" : "ww2"},
+          {"royalePlayers", royalePlayers}, {"lootModern", lootModern},
           {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
           {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}, {"allowedClasses", allowedClasses}};
 }
@@ -80,7 +80,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   r.friendlyFire = j.value("friendlyFire", r.friendlyFire);
   { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : m == "royale" ? GameMode::BattleRoyale : GameMode::Assault; }
   r.royalePlayers = std::clamp(j.value("royalePlayers", r.royalePlayers), 10, 100);
-  r.lootPool = j.value("lootPool", std::string("ww2")) == "modern" ? 1 : 0;
+  r.lootModern = j.value("lootModern", r.lootModern);
   r.killCap = std::clamp(j.value("killCap", r.killCap), 1, 999);
   r.soloPlayers = std::clamp(j.value("soloPlayers", r.soloPlayers), 2, kMaxCombatants);
   if (j.contains("teamPlayers") && j["teamPlayers"].is_array() && j["teamPlayers"].size() == 2)

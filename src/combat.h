@@ -63,7 +63,7 @@ struct WeaponDef {
   // hand equipment (equipment.cpp; JSON "grenade" / "melee", game tuning)
   struct GrenadeDef { bool on = false; float fuse = 4.5f, speed = 15, lobDeg = 10, restitution = 0.3f, friction = 0.6f, mass = 0.6f,
                       damage = 80, radius = 5, crater = 0.12f, windup = 0.32f, ready = 0.9f, volume = 0.8f,
-                      linDamp = 0.4f, rollDamp = 3.0f; bool smoke = false; } grenade;   // smoke: no blast, starts a smoke cloud (mpai)
+                      linDamp = 0.4f, rollDamp = 3.0f; bool smoke = false, fire = false; } grenade;   // smoke: no blast, starts a smoke cloud (mpai)
   struct MeleeDef { bool on = false; float reach = 1.7f, arcDeg = 40; int rays = 5; float windup = 0.12f, strike = 0.1f, cooldown = 0.6f, damage = 35; } melee;
   // GM2 explosion pack (JSON "pack"; docs/abilities.md): placed on the surface in reach, goes off `fuse` s later
   struct PackDef { bool on = false; float fuse = 10, damage = 450, radius = 6, crater = 0.4f, reach = 2.2f; } pack;
@@ -83,6 +83,7 @@ struct WeaponDef {
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
   std::vector<int> containers;    // reserve: clips / magazines / belt segments, each with its own count
+  int att[4] = {0, 0, 0, 0};      // BR2 attachments (loot.h ATT_*): sight 1 red dot 2 ACOG 3 4x 4 10x; muzzle 1 suppressor 2 brake; mag 1 extended; stock 1 recoil pad
   int reserveMax = 0;
   float cooldown = 0, bolt = 0, reload = 0, reloadTotal = 0;
   int reloadKind = 0;             // 1 empty, 2 partial (retain), 3 single rounds

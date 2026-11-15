@@ -414,7 +414,7 @@ void MpUi::setupWindow(App& app) {
   };
   if (rules.mode == GameMode::BattleRoyale) {   // BR1: one life each, last one alive wins (royale.cpp)
     ImGui::SliderInt("Players in all (you + AI)", &rules.royalePlayers, std::max(10, humansHere), 100);
-    ImGui::Text("Loot:"); ImGui::SameLine(); ImGui::RadioButton("WW2 weapons", &rules.lootPool, 0); ImGui::SameLine(); ImGui::RadioButton("Modern weapons", &rules.lootPool, 1);
+    { int lp = rules.lootModern ? 1 : 0; ImGui::Text("Loot:"); ImGui::SameLine(); ImGui::RadioButton("WW2 weapons", &lp, 0); ImGui::SameLine(); ImGui::RadioButton("Modern weapons", &lp, 1); rules.lootModern = lp == 1; }   // BR2 reads rules.lootModern
     aiTypes("AI types:", rules.aiTypes[0]); rules.aiTypes[1] = rules.aiTypes[0];
     ImGui::TextDisabled("Everyone boards a bomber and jumps (Space; Space again or 60 m up opens the parachute). No respawns:");
     ImGui::TextDisabled("the last one alive wins. Four storm circles close in; outside them you lose 1 / 2 / 4 / 8 health a second.");

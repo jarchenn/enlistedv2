@@ -105,13 +105,13 @@ struct ScenarioRules {
   int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills
   int soloPlayers = 8;            // Solo: combatants in all (humans + AI)
   int royalePlayers = 30;         // BR1 battle royale: combatants in all (humans + AI), 10..100
-  int lootPool = 0;               // BR1 battle royale floor loot: 0 WW2, 1 Modern (read by the loot spawner, BR2)
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: the troll share of the old AI type Heavies; unused since Brutes / Spiders are their own types (kept in the rules JSON)
   int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn
+  bool lootModern = false;        // Battle Royale: floor guns from the modern list (else WW2) (loot.cpp)
   std::vector<std::string> allowedClasses;   // GM1: class ids the host allows (empty = every class)
   bool classAllowed(const std::string& id) const { for (auto& c : allowedClasses) if (c == id) return true; return allowedClasses.empty(); }
   static constexpr int kMaxAI = 200;             // up to 200 AI (user request, 2026-11-08; was 100)
