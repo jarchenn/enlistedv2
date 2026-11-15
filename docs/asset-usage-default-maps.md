@@ -106,7 +106,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_coat_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used |
 | `furn_coat_stand` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used |
 | `furn_commode` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used |
-| `furn_crate` | Furniture | 11: Ammunition dumps and dressing | terrain-only base map | 21 | 13 | 8 | not used |
+| `furn_crate` | Furniture | 11: Ammunition dumps and dressing | terrain-only base map | 21 | 13 | 13 | not used |
 | `furn_crockery` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used |
 | `furn_curtains` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used |
 | `furn_curtains_half` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used |
@@ -343,10 +343,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tun_crawl` | not used | not used | not used | not used | not used | 1 | not used |
 | `tun_cross` | not used | not used | not used | not used | not used | 4 | not used |
 | `tun_end` | not used | not used | not used | not used | not used | 10 | not used |
-| `tun_lamp` | not used | not used | not used | not used | not used | 71 | not used |
-| `tun_lamp_dead` | not used | not used | not used | not used | not used | 12 | not used |
+| `tun_lamp` | not used | not used | not used | not used | not used | 33 | not used |
+| `tun_lamp_dead` | not used | not used | not used | not used | not used | 6 | not used |
 | `tun_lamp_flicker` | not used | not used | not used | not used | not used | not used | not used |
-| `tun_lamp_red` | not used | not used | not used | not used | not used | 9 | not used |
+| `tun_lamp_red` | not used | not used | not used | not used | not used | 4 | not used |
 | `tun_lamp_shadow` | not used | not used | not used | not used | not used | not used | not used |
 | `tun_stairs` | not used | not used | not used | not used | not used | 5 | not used |
 | `tun_straight` | not used | not used | not used | not used | not used | 4 | not used |
@@ -410,25 +410,25 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tun_tee_shelled` | not used | not used | not used | not used | not used | 4 | not used |
 | `brm_cell_yellow_b` | not used | not used | not used | not used | not used | not used | 121 |
 | `brm_cell_yellow_c` | not used | not used | not used | not used | not used | not used | 239 |
-| `tun_cable_reel` | not used | not used | not used | not used | not used | 10 | 14 |
+| `tun_cable_reel` | not used | not used | not used | not used | not used | 13 | 14 |
 | `tun_chamber_shaft` | not used | not used | not used | not used | not used | 2 | 2 |
 | `tun_compressor` | not used | not used | not used | not used | not used | 2 | 2 |
 | `tun_conveyor` | not used | not used | not used | not used | not used | 1 | 1 |
 | `tun_drill_rig` | not used | not used | not used | not used | not used | 1 | 1 |
-| `tun_duct` | not used | not used | not used | not used | not used | 4 | 4 |
+| `tun_duct` | not used | not used | not used | not used | not used | 5 | 4 |
 | `tun_fan` | not used | not used | not used | not used | not used | 1 | 1 |
 | `tun_hopper` | not used | not used | not used | not used | not used | 1 | 1 |
 | `tun_ladder` | not used | not used | not used | not used | not used | 4 | 4 |
 | `tun_ore_pile` | not used | not used | not used | not used | not used | 14 | 15 |
-| `tun_powder_crates` | not used | not used | not used | not used | not used | 11 | 7 |
+| `tun_powder_crates` | not used | not used | not used | not used | not used | 8 | 7 |
 | `tun_pump` | not used | not used | not used | not used | not used | 1 | 1 |
 | `tun_ramp_12` | not used | not used | not used | not used | not used | 23 | 15 |
 | `tun_ramp_24` | not used | not used | not used | not used | not used | 40 | 17 |
 | `tun_straight_humped` | not used | not used | not used | not used | not used | 1 | 3 |
 | `tun_straight_meshed` | not used | not used | not used | not used | not used | 2 | 2 |
 | `tun_straight_timbered` | not used | not used | not used | not used | not used | 3 | 2 |
-| `tun_tool_rack` | not used | not used | not used | not used | not used | 10 | 7 |
-| `tun_warning_board` | not used | not used | not used | not used | not used | 8 | 15 |
+| `tun_tool_rack` | not used | not used | not used | not used | not used | 5 | 7 |
+| `tun_warning_board` | not used | not used | not used | not used | not used | 10 | 15 |
 | `tun_winch` | not used | not used | not used | not used | not used | 2 | 2 |
 | `tun_cart_derailed` | not used | not used | not used | not used | not used | 2 | 2 |
 | `tun_cart_ore` | not used | not used | not used | not used | not used | 3 | 2 |

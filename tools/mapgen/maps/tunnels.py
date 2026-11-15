@@ -447,29 +447,34 @@ def build(ctx):
     dark = [(R.uniform(-60, 60), R.uniform(-60, 60)) for _ in range(3)]
     red_cells = []
     lamps = {"tun_lamp": 0, "tun_lamp_dead": 0, "tun_lamp_red": 0}
+    LAMP_GAP = 14.0   # UG5: sparse small warm lamps, at least this far apart on a level
+    lit_at = []
     for c, aid, yaw, y, h, shape, rise in placed:
         if aid in ("tun_crawl", "tun_stairs"):
             continue
         x, z = cc(*c)
         in_dark = any(math.hypot(x - dx, z - dz) < 20 for dx, dz in dark)
-        if shape in ("tee", "cross") and R.random() < 0.28:
+        if any(math.hypot(x - lx, z - lz) < LAMP_GAP and abs(y - ly) < 3.0 for lx, ly, lz in lit_at):   # UG5: lamps far apart
+            continue
+        if shape in ("tee", "cross") and R.random() < 0.08:
             kind = "tun_lamp_red"
-        elif R.random() < (0.05 if in_dark else 0.6 if aid.startswith("tun_room_s_") else 0.38):
+        elif R.random() < (0.03 if in_dark else 0.22 if aid.startswith("tun_room_s_") else 0.2):
             kind = R.choices(["tun_lamp", "tun_lamp_dead"], [86, 14])[0]
         else:
             continue
         b.place(kind, x, z, R.uniform(0, 360), check=False, cls="none", y=y + h + rise / 2, tags={"lamp"})
         lamps[kind] += 1
+        lit_at.append((x, y, z))
         if kind == "tun_lamp_red" and shape == "cross":
             red_cells.append(c)
     for n, kind, e in chambers:
         cx, cz = e["pos"][0], e["pos"][2]
-        for ox, oz in ([(-6.5, -6.5), (6.5, 6.5), (6.5, -6.5), (-6.5, 6.5)] if kind == "shaft" else [(-4.0, -4.0), (4.0, 4.0), (4.0, -4.0)]):
+        for ox, oz in ([(-6.5, -6.5), (6.5, 6.5)] if kind == "shaft" else [(-4.0, -4.0)]):   # UG5: one small lamp (two at a shaft), no brighter than the passages
             b.place("tun_lamp", cx + ox, cz + oz, 0.0, check=False, cls="none", y=H[n] + CH_H, tags={"lamp"})
             lamps["tun_lamp"] += 1
     for n, kind, e in mediums:
         hw, h = MEDIUM[kind]
-        for ox, oz in ((-hw * 0.45, -hw * 0.3), (hw * 0.45, hw * 0.3)):
+        for ox, oz in ((-hw * 0.45, -hw * 0.3),):   # UG5: one lamp per room
             lk = "tun_lamp_dead" if R.random() < 0.12 else "tun_lamp"
             b.place(lk, e["pos"][0] + ox, e["pos"][2] + oz, 0.0, check=False, cls="none", y=H[n] + h, tags={"lamp"})
             lamps[lk] += 1
@@ -601,6 +606,8 @@ def build(ctx):
     cams["shaft"] = [round(sh["pos"][0] + 6.5, 2), round(sh["pos"][1], 2), round(sh["pos"][2] - 6.5, 2), round(sh["pos"][0] - 2.0, 2), round(sh["pos"][2] + 2.0, 2)]
     ws = next((e for n, kind, e in mediums if kind == "workshop"), mediums[0][2])
     cams["room"] = [round(ws["pos"][0] - 4.5, 2), round(ws["pos"][1], 2), round(ws["pos"][2] - 4.5, 2), round(ws["pos"][0] + 3, 2), round(ws["pos"][2] + 3, 2)]
+    g0 = obj_entities["generator"]["pos"]
+    cams["chamber"] = [round(g0[0] - 7.0, 2), round(g0[1], 2), round(g0[2] - 3.0, 2), round(g0[0] + 4.0, 2), round(g0[2] + 4.0, 2)]
     rep["cams"] = cams
     cam = ([0.0, 150.0, 150.0], 0.0, -45.0)
     if ramp:

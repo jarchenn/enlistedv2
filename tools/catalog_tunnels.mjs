@@ -49,7 +49,10 @@ const decalY = () => 0.003 + ((decalK++ % 8) * 0.004);
 // band where the track runs), embedded rocks, loose stones, shallow hollows (dark decals), rubble drifts at the wall
 // feet, broken slab edges on concrete. inAir(x, z) says whether a point is inside the passage.
 const FLOORS = ["floor_rock", "floor_rock2", "floor_gravel", "floor_rubble", "floor_mud"];
-function floorRelief(A, R, inAir, lined, n = 28, half = CELL / 2) {
+// UG5: the floor of the stretch the user liked (gravel / rubble under broken angular slabs) is the dominant floor
+// everywhere, lined sections, rooms, chambers and inclines included; the other sets are rare accents
+const floorFor = (seed) => { const k = ((seed * 7919) >>> 0) % 10; return k < 6 ? "floor_gravel" : k < 9 ? "floor_rubble" : FLOORS[seed % FLOORS.length]; };
+function floorRelief(A, R, inAir, lined, n = 36, half = CELL / 2) {
   const D = { k: 0, lod: 1 }, mound = lined ? "concrete_floor" : "rock_dark";
   for (let k = 0, tries = 0; k < n && tries < n * 6; tries++) {
     const x = (R() - 0.5) * 2 * half, z = (R() - 0.5) * 2 * half;
@@ -57,7 +60,7 @@ function floorRelief(A, R, inAir, lined, n = 28, half = CELL / 2) {
     k++;
     const band = Math.abs(x) < 0.8 || Math.abs(z) < 0.8, w = 0.5 + R() * 1.1, d = 0.4 + R() * 0.9;
     const hgt = band ? 0.04 + R() * 0.03 : 0.07 + R() * 0.08;
-    if (lined && R() < 0.5) A.obox([r3(x), r3(hgt * 0.5), r3(z)], [r3(w * 0.8), 0.05, r3(d * 0.7)], [r3((R() - 0.5) * 14), r3(R() * 90), r3((R() - 0.5) * 14)], "floor_slab", band ? D : { lod: 1 });   // a broken slab edge
+    if (R() < 0.6) A.obox([r3(x), r3(hgt * 0.5), r3(z)], [r3(w * 0.8), 0.05, r3(d * 0.7)], [r3((R() - 0.5) * 14), r3(R() * 90), r3((R() - 0.5) * 14)], lined ? "floor_slab" : R() < 0.5 ? "rock_dark" : "floor_rock2", band ? D : { lod: 1 });   // a broken slab edge
     else A.obox([r3(x), 0, r3(z)], [r3(w), r3(hgt * 2), r3(d)], [r3((R() - 0.5) * 8), r3(R() * 180), r3((R() - 0.5) * 8)], R() < 0.4 ? mound : FLOORS[Math.floor(R() * FLOORS.length)], band ? D : { lod: 1 });
   }
   for (let k = 0, tries = 0; k < n * 0.8 && tries < n * 5; tries++) {   // loose and embedded stones
@@ -162,11 +165,11 @@ function passage(id, name, sides, opt = {}) {
   const yAt = (z) => (rise * (z + CELL / 2)) / CELL;   // UG3: a ramp rises rise m from its south (-z) to its north (+z) portal
   if (!rise) {
     // shell: floor and ceiling over the whole cell, the skin from the floor to the ceiling
-    A.box([-CELL / 2, -FLOOR_T, -CELL / 2], [CELL / 2, 0, CELL / 2], lined ? "floor_slab" : FLOORS[(opt.seed || 1) % FLOORS.length]);   // UG4: textured floors
+    A.box([-CELL / 2, -FLOOR_T, -CELL / 2], [CELL / 2, 0, CELL / 2], floorFor(opt.seed || 1));   // UG4: textured floors; UG5: the dominant broken-rock floor
     A.box([-CELL / 2, h, -CELL / 2], [CELL / 2, h + CEIL_T, CELL / 2], lined ? "concrete_wash" : "rock_dark");
   } else {
     const len = Math.hypot(CELL, rise) + 0.1, ang = (Math.atan2(rise, CELL) * 180) / Math.PI, cs = Math.cos((ang * Math.PI) / 180);
-    A.obox([0, r3(rise / 2 - FLOOR_T / 2 / cs), 0], [CELL, FLOOR_T, r3(len)], [r3(-ang), 0, 0], FLOORS[(opt.seed || 1) % FLOORS.length]);
+    A.obox([0, r3(rise / 2 - FLOOR_T / 2 / cs), 0], [CELL, FLOOR_T, r3(len)], [r3(-ang), 0, 0], floorFor(opt.seed || 1));
     A.obox([0, r3(rise / 2 + h + CEIL_T / 2 / cs), 0], [CELL, CEIL_T, r3(len)], [r3(-ang), 0, 0], "rock_dark");
     A.box([-CELL / 2, -FLOOR_T - 0.2, -CELL / 2], [CELL / 2, -FLOOR_T, -CELL / 2 + 0.6], "mud");   // seal under the low end
   }
@@ -205,7 +208,7 @@ function passage(id, name, sides, opt = {}) {
     A.obox([r3(x), r3(y), r3(z)], [sz, sz * 0.85, sz], [R() * 40, R() * 90, R() * 40], lined ? "concrete_wash" : R() < 0.3 ? "rock_dark" : "rock", big ? { lod: 1 } : D);
   }
   for (let k = 0; k < (opt.floorCraters || 0); k++) { const s = sides[Math.floor(R() * sides.length)], t = 0.5 + R() * 1.5; floorCrater(A, R, SIDE[s][0] * t, SIDE[s][1] * t, 0.8 + R() * 0.3); }
-  floorRelief(A, R, (x, z) => { const i = Math.floor((x + CELL / 2) / VOX), j = Math.floor((z + CELL / 2) / VOX); return i > 0 && j > 0 && i < N - 1 && j < N - 1 && !!g.a[j * N + i]; }, lined, rise ? 14 : 28);   // UG4
+  floorRelief(A, R, (x, z) => { const i = Math.floor((x + CELL / 2) / VOX), j = Math.floor((z + CELL / 2) / VOX); return i > 0 && j > 0 && i < N - 1 && j < N - 1 && !!g.a[j * N + i]; }, lined, rise ? 20 : 36);   // UG4; UG5: denser
   for (let k = 0; k < (opt.puddles ?? 2); k++) {   // mud and puddles on the floor
     const x = (R() - 0.5) * 1.6, z = (R() - 0.5) * 1.6, w = 0.6 + R() * 1.0;
     const y0 = decalY(); A.box([r3(x - w / 2), r3(y0), r3(z - w * 0.35)], [r3(x + w / 2), r3(y0 + 0.003), r3(z + w * 0.35)], R() < 0.5 ? "puddle" : "mud", { k: 0 });
@@ -330,7 +333,7 @@ function chamber(id, name, kind, seed, o = {}) {
     A.box([-hS, -FLOOR_T, -p], [-p, 0, p], fm); A.box([p, -FLOOR_T, -p], [hS, 0, p], fm);
     for (const [x0, z0, x1, z1] of [[-p - 0.3, -p - 0.3, p + 0.3, -p], [-p - 0.3, p, p + 0.3, p + 0.3], [-p - 0.3, -p, -p, p], [p, -p, p + 0.3, p]]) A.box([x0, -2.4, z0], [x1, -FLOOR_T, z1], "rock");
     A.box([-p, -2.7, -p], [p, -2.4, p], "mud");
-  } else A.box([-hS, -FLOOR_T, -hS], [hS, 0, hS], lined ? "floor_slab" : FLOORS[seed % FLOORS.length]);   // UG4: textured floors
+  } else A.box([-hS, -FLOOR_T, -hS], [hS, 0, hS], floorFor(seed));   // UG4: textured floors; UG5: the dominant broken-rock floor
   A.box([-hS, h, -hS], [hS, h + CEIL_T, hS], lined ? "concrete_wash" : "rock_dark");
   for (const [dx, dz] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {   // portal heads at the shared height
     const e = hS;

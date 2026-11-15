@@ -100,3 +100,18 @@ spawn.
   - The map sets `"lighting": {"fill": 0.35, "exposure": 1.0}`: the fill / indirect term is scaled down
     (`render.cpp`), and the exposure is pinned so auto exposure does not lift the dark stretches.
   - No new lights and nothing flickers; fog stays off.
+
+## UG5: the whole map like its best stretch
+
+- **The stretch the user liked:** an unlined rock passage with timber shoring frames, a gravel / rubble floor under
+  broken angular slabs (UG4 `floorRelief()`), and a single small warm lamp far down it.
+- **Floors everywhere:**
+  - `floorFor(seed)` makes that floor dominant: gravel 60%, rubble 30%, the other sets as accents. That covers every
+    passage, incline, lined section, room and chamber; the concrete slab material is gone from lined floors.
+  - `floorRelief()` is denser (36 per cell, 20 on inclines). 60% of its pieces are broken angular slabs, in rock in the
+    unlined sections and in concrete in the lined ones.
+- **Lighting everywhere:**
+  - Lamps are sparse: about 1 in 5 passage cells, and none within 14 m of another lit lamp on the same level.
+  - Each room has one lamp, a chamber one, a shaft two. Red emergency lamps are rare.
+  - 37 working lamps (from 80), with the UG4 5.2 m reach, 0.35 fill and pinned exposure: pools of light, near-black
+    between.
