@@ -18,3 +18,8 @@ content/assets/models/mod_barriers_weathered/
 # the committed content/assets/br_*.json boxes stand in without them
 content/characters/br_marine.glb
 content/assets/models/br_*/
+
+
+# VH2: the supplied Humvee (low-poly-humvee-vehicle.zip) carries no author or licence: its bake stays local-only;
+# clones draw the committed part-built fallback (content/vehicles/models/humvee_fallback)
+content/vehicles/models/humvee/

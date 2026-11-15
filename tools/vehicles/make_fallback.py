@@ -1,8 +1,9 @@
 # VH1: part-built fallback (boxes and cylinders) for clones without the local-only supplied model:
-#   jeep  - Willys MB (jeep_willys.json): hull 1.76 x 3.34 m centred, wheels r 0.355 m
+#   jeep   - Willys MB (jeep_willys.json): hull 1.76 x 3.34 m centred, wheels r 0.355 m
+#   humvee - Humvee (humvee.json): hull 1.96 x 4.64 m, wheels r 0.425 m
 # Same role nodes and positions as the baked supplied models: game axes (x left, y up, z forward; Blender: x,
 # -y forward, z up), y = 0 at the tyres.
-# usage: blender -b --factory-startup --python make_fallback.py -- jeep <out.glb>
+# usage: blender -b --factory-startup --python make_fallback.py -- jeep|humvee <out.glb>
 import bpy, sys, math
 from mathutils import Vector, Matrix
 kind, out = sys.argv[sys.argv.index('--') + 1:][:2]
@@ -63,6 +64,34 @@ if kind == 'jeep':
     # stowage: jerrycan on the rear panel, bags on the sides
     box('stowage', (0.15, 0.55, -1.71), (0.50, 1.00, -1.62), OD)
     for s in (1, -1): box('stowage', (min(s * 0.70, s * 0.86), 0.75, -1.20), (max(s * 0.70, s * 0.86), 1.05, -0.70), CANVAS)
+elif kind == 'humvee':
+    # Humvee (humvee.json): body 1.96 x 4.64 m, roof 1.77 m, open windows, wheels r 0.425 m; same steering wheel as the bake
+    box('hull', (-0.95, 0.40, -2.30), (0.95, 1.26, 2.33))             # lower body
+    box('hull', (-0.95, 0.88, 0.95), (0.95, 1.27, 2.33))              # bonnet
+    box('hull', (-0.95, 1.71, -0.93), (0.95, 1.79, 0.98))             # roof
+    for x in (0.92, -0.92, 0.0):
+        for z in (0.94, -0.07, -0.93):
+            if x == 0.0 and z != 0.94: continue
+            box('hull', (x - 0.04, 1.26, z - 0.05), (x + 0.04, 1.72, z + 0.05))   # pillars
+    box('hull', (-0.95, 1.26, -0.96), (0.95, 1.72, -0.90))            # back wall of the cab
+    box('hull', (-0.95, 1.25, -2.12), (0.95, 1.30, -0.93), DARK)      # cargo deck
+    box('hull', (-0.91, 1.00, 0.76), (0.91, 1.25, 0.95), DARK)        # dash
+    box('hull', (-0.24, 0.60, -0.95), (0.24, 0.98, 0.95))             # drive tunnel
+    for x in (0.58, -0.58):
+        for z in (0.17, -0.51):
+            box('hull', (x - 0.26, 0.61, z - 0.46), (x + 0.26, 0.79, z), CANVAS)   # seat
+            box('hull', (x - 0.26, 0.79, z - 0.50), (x + 0.26, 1.38, z - 0.40), CANVAS)   # back rest
+    cyl('hull', (0.571, 1.24, 0.68), (0, 0.498, -0.867), 0.03, 0.35, DARK, 8)   # steering column
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.21, minor_radius=0.016, major_segments=32, minor_segments=8, location=g2b((0.571, 1.319, 0.544)))
+    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(g2b((0, 0.498, -0.867)))
+    bpy.ops.object.transform_apply(rotation=True); o.data.materials.append(DARK); o.parent = grp('steer')
+    ax = Vector((0, 0.498, -0.867)); u = Vector((1, 0, 0)); v = ax.cross(u)
+    for k in range(3):
+        a = math.radians(90 + 120 * k); d = u * math.cos(a) + v * math.sin(a); c = Vector((0.571, 1.319, 0.544)) + d * 0.105
+        cyl('steer', tuple(c), tuple(d), 0.011, 0.21, DARK, 6)
+    for role, x, z in (('wheel_fl', 0.84, 1.71), ('wheel_fr', -0.84, 1.71), ('wheel_rl', 0.84, -1.56), ('wheel_rr', -0.84, -1.56)):
+        cyl(role, (x, 0.425, z), (1, 0, 0), 0.425, 0.32, TYRE, 20)
+        cyl(role, (x + (0.165 if x > 0 else -0.165), 0.425, z), (1, 0, 0), 0.22, 0.02, OD, 12)
 for o in bpy.data.objects: o.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_yup=True, export_animations=False)
 print('WROTE', out)
