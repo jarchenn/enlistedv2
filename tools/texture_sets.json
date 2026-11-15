@@ -1058,6 +1058,1146 @@
     2,
     2
    ]
+  },
+  {
+   "set": "asphalt_warm",
+   "id": "Asphalt033",
+   "family": "asphalt (TX2)",
+   "size": [
+    4,
+    4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "asphalt_dark",
+   "id": "Road012A",
+   "family": "asphalt (TX2)",
+   "size": [
+    4,
+    4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "asphalt_light",
+   "id": "Asphalt031",
+   "family": "asphalt (TX2)",
+   "size": [
+    4,
+    4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "asphalt_plain",
+   "id": "Road013A",
+   "family": "asphalt (TX2)",
+   "size": [
+    4,
+    4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "asphalt_worn",
+   "id": "Road015C",
+   "family": "asphalt (TX2)",
+   "size": [
+    4,
+    4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "asphalt_patched",
+   "id": "Road015A",
+   "family": "asphalt (TX2)",
+   "size": [
+    4,
+    4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_beige_smooth",
+   "id": "Concrete048",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_white",
+   "id": "Concrete046",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_grey_cast",
+   "id": "Concrete042A",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_bluegrey",
+   "id": "Concrete030",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_ribbed_panel",
+   "id": "Concrete045",
+   "family": "concrete panels (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_speckled",
+   "id": "Concrete040",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_rough_grey",
+   "id": "Concrete044C",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_pale",
+   "id": "Concrete024",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_cracked_white",
+   "id": "Concrete023",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_panel_bolted",
+   "id": "Concrete008",
+   "family": "concrete panels (TX2)",
+   "size": [
+    4,
+    4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_stained_blue",
+   "id": "Concrete019",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "concrete_dirty_wet",
+   "id": "Concrete035",
+   "family": "concrete (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_painted_navy",
+   "id": "Metal027",
+   "family": "painted metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_black_gloss",
+   "id": "Metal029",
+   "family": "painted metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_painted_red",
+   "id": "PaintedMetal004",
+   "family": "painted metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "corrugated_grey",
+   "id": "CorrugatedSteel005",
+   "family": "corrugated metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_hazard_stripes",
+   "id": "PaintedMetal016",
+   "family": "painted metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "corrugated_paleblue",
+   "id": "CorrugatedSteel007A",
+   "family": "corrugated metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "corrugated_blue_rusty",
+   "id": "CorrugatedSteel007B",
+   "family": "corrugated metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "corrugated_green",
+   "id": "CorrugatedSteel006A",
+   "family": "corrugated metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "corrugated_yellow",
+   "id": "CorrugatedSteel008A",
+   "family": "corrugated metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_plates_dark",
+   "id": "MetalPlates006",
+   "family": "metal plates (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_plates_rusty",
+   "id": "MetalPlates013",
+   "family": "metal plates (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_hex_grate",
+   "id": "MetalPlates017A",
+   "family": "metal plates (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_plate_rusted",
+   "id": "MetalPlates011",
+   "family": "metal plates (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "diamond_plate",
+   "id": "DiamondPlate009",
+   "family": "diamond plate (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "diamond_plate_black",
+   "id": "DiamondPlate008C",
+   "family": "diamond plate (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "diamond_plate_yellow",
+   "id": "DiamondPlate006C",
+   "family": "diamond plate (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_perforated_rusty",
+   "id": "MetalWalkway014",
+   "family": "metal walkway (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "steel_worn_grey",
+   "id": "Metal024",
+   "family": "metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "corten_rust",
+   "id": "Rust010",
+   "family": "metal (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_walkway_grate",
+   "id": "MetalWalkway013",
+   "family": "metal walkway (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "metal_mesh_grid",
+   "id": "MetalWalkway006",
+   "family": "metal walkway (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "facade_brown_windows",
+   "id": "Facade018A",
+   "family": "facade (TX2)",
+   "size": [
+    8,
+    8
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "facade_glass_curtain",
+   "id": "Facade001",
+   "family": "facade (TX2)",
+   "size": [
+    8,
+    8
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "facade_dark_office",
+   "id": "Facade017",
+   "family": "facade (TX2)",
+   "size": [
+    8,
+    8
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "facade_glass_grid",
+   "id": "Facade006",
+   "family": "facade (TX2)",
+   "size": [
+    8,
+    8
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "facade_dark_grid",
+   "id": "Facade019A",
+   "family": "facade (TX2)",
+   "size": [
+    8,
+    8
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "carpet_office_navy",
+   "id": "Carpet012",
+   "family": "carpet (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "fabric_red",
+   "id": "Fabric026",
+   "family": "fabric (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "fabric_blue",
+   "id": "Fabric023",
+   "family": "fabric (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "carpet_brick_weave",
+   "id": "Carpet015",
+   "family": "carpet (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "ceiling_tiles_office",
+   "id": "OfficeCeiling001",
+   "family": "ceiling tiles (TX2)",
+   "size": [
+    2.4,
+    2.4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "ceiling_tiles_grid",
+   "id": "OfficeCeiling005",
+   "family": "ceiling tiles (TX2)",
+   "size": [
+    2.4,
+    2.4
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_white_stone",
+   "id": "Tiles141",
+   "family": "tiles (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_dark_stone",
+   "id": "Tiles140",
+   "family": "tiles (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_charcoal",
+   "id": "Tiles138",
+   "family": "tiles (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_white_large",
+   "id": "Tiles107",
+   "family": "tiles (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_white_grid",
+   "id": "Tiles133A",
+   "family": "tiles (TX2)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_checker",
+   "id": "Tiles074",
+   "family": "tiles (TX2)",
+   "size": [
+    1.2,
+    1.2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_pool_cyan",
+   "id": "Tiles132A",
+   "family": "tiles (TX2)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "tiles_beige_grid",
+   "id": "PavingStones136",
+   "family": "tiles (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "terrazzo_mixed",
+   "id": "Terrazzo013",
+   "family": "terrazzo (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "terrazzo_chips",
+   "id": "Terrazzo018",
+   "family": "terrazzo (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "marble_white",
+   "id": "Marble012",
+   "family": "marble (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "travertine",
+   "id": "Travertine009",
+   "family": "marble (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "marble_black",
+   "id": "Marble016",
+   "family": "marble (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "floor_parquet_strip",
+   "id": "WoodFloor051",
+   "family": "wood floor (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "floor_parquet_herringbone",
+   "id": "WoodFloor070",
+   "family": "wood floor (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "floor_laminate_pale",
+   "id": "WoodFloor040",
+   "family": "wood floor (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "floor_parquet_basket",
+   "id": "WoodFloor071",
+   "family": "wood floor (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "drywall_white",
+   "id": "Plaster001",
+   "family": "plaster / drywall (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "brick_veneer_yellow",
+   "id": "Bricks105",
+   "family": "brick veneer (TX2)",
+   "size": [
+    2.4,
+    1.2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "stone_block_mossy",
+   "id": "Bricks108B",
+   "family": "tunnel stone (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "roof_tiles_dark_modern",
+   "id": "RoofingTiles013B",
+   "family": "roofing (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "wallpaper_white",
+   "id": "Wallpaper001A",
+   "family": "wallpaper (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "fabric_knit_orange",
+   "id": "Fabric085",
+   "family": "fabric (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "fabric_terry_blue",
+   "id": "Fabric084",
+   "family": "fabric (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "fabric_checker",
+   "id": "Fabric083",
+   "family": "fabric (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "fabric_plaid",
+   "id": "Fabric080",
+   "family": "fabric (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "fabric_blue_plain",
+   "id": "Fabric081A",
+   "family": "fabric (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "leather_red",
+   "id": "Leather037",
+   "family": "leather (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "leather_cream",
+   "id": "Leather039",
+   "family": "leather (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "leather_black",
+   "id": "Leather026",
+   "family": "leather (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "leather_tufted",
+   "id": "Leather034C",
+   "family": "leather (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "wood_veneer_knotty",
+   "id": "Wood096",
+   "family": "wood veneer (TX2)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "wood_veneer_warm",
+   "id": "Wood092",
+   "family": "wood veneer (TX2)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "wood_veneer_walnut",
+   "id": "Wood066",
+   "family": "wood veneer (TX2)",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "plastic_black",
+   "id": "Plastic006",
+   "family": "plastic / rubber (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rubber_mat",
+   "id": "Rubber004",
+   "family": "plastic / rubber (TX2)",
+   "size": [
+    1,
+    1
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rubber_surface_black",
+   "id": "Rubber001",
+   "family": "plastic / rubber (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rubber_surface_blue",
+   "id": "Rubber003",
+   "family": "plastic / rubber (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "pavers_brick",
+   "id": "PavingStones152",
+   "family": "paving (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "cobbles_fan",
+   "id": "PavingStones150",
+   "family": "paving (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "cobbles_mossy",
+   "id": "PavingStones142",
+   "family": "paving (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "setts_grey",
+   "id": "PavingStones070",
+   "family": "paving (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "pavers_grass",
+   "id": "PavingStones139",
+   "family": "paving (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "grass_bright",
+   "id": "Grass005",
+   "family": "grass (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "grass_lush",
+   "id": "Grass001",
+   "family": "grass (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "grass_dark",
+   "id": "Grass003",
+   "family": "grass (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "ground_stony",
+   "id": "Ground109",
+   "family": "ground (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "ground_rubble_b",
+   "id": "Ground108",
+   "family": "ground (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "ground_brown_pebbly",
+   "id": "Ground085",
+   "family": "ground (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "gravel_white",
+   "id": "Gravel023",
+   "family": "gravel (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "gravel_grey_fine",
+   "id": "Gravel040",
+   "family": "gravel (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "pebbles_mixed",
+   "id": "Rocks022",
+   "family": "gravel (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rock_layered_mossy",
+   "id": "Rock064",
+   "family": "rock (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rock_slate_blue",
+   "id": "Rock058",
+   "family": "rock (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rock_pale_cracked",
+   "id": "Rock060",
+   "family": "rock (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rock_dark_wet",
+   "id": "Rock035",
+   "family": "rock (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rock_red",
+   "id": "Rock029",
+   "family": "rock (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rock_slate_layers",
+   "id": "Rocks011",
+   "family": "rock (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "moss_cushion",
+   "id": "Moss002",
+   "family": "moss (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "rock_green_mossy",
+   "id": "Rock059",
+   "family": "rock (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "leaves_scattered",
+   "id": "ScatteredLeaves008",
+   "family": "forest floor (TX2)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "forest_floor",
+   "id": "Ground023",
+   "family": "forest floor (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "sand_rippled",
+   "id": "Ground097",
+   "family": "sand (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
+  },
+  {
+   "set": "forest_litter",
+   "id": "Ground071",
+   "family": "forest floor (TX2)",
+   "size": [
+    3,
+    3
+   ],
+   "batch": "TX2"
   }
  ],
  "polyhaven": [

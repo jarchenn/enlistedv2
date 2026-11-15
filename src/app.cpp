@@ -882,6 +882,7 @@ int App::run(int argc, char** argv) {
   for (auto& f : rqOn) if (!R.perf.set(f, true)) logf("--rq-on: unknown feature %s", f.c_str());
   templates = loadTemplates(contentDir() / "templates");
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
+  tex::flushPending();   // TX2: lazy library texture sets the assets name (textures.json "lazy" slots)
   makeThumbnails();
   {
     Material rm{"debris", vec3(0.30f, 0.27f, 0.21f), 0.95f, 0.0f, PAT_STONE, 1};
@@ -921,6 +922,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
+    tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     if (glfwWindowShouldClose(win)) {
       if (dirty && !selftest) { confirmQuit = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }

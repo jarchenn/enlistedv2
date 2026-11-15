@@ -31,6 +31,7 @@ struct Slot {
   int layer = -1;
   std::string under; int underIdx = -1; float expo = 0.6f, contrast = 1.0f, macro = 0;   // MA1: substrate slot behind the macro exposure mask; macro variation strength
   float relD = 0, crev = 0, edge = 0, lumps = 0;   // MA1b relief (Perf relief): parallax depth (m), crevice darkening, edge wear, fill lumps (m)
+  bool lazy = false;   // TX2: a library slot (textures.json "lazy"): its set loads only once a material names it
 };
 struct SetInfo { std::string name; vec2 size{2, 2}; int layer = -1; vec3 meanLin{0.5f}; float meanAO = 1, meanR = 0.7f, meanH = 0.5f; };
 
@@ -55,6 +56,8 @@ GLuint arr[3] = {0, 0, 0};
 bool gpuOn = false, wantOn = true;
 Info gInfo;
 fs::path root;
+std::set<std::string> gLazyWant;   // TX2: lazy slots' sets that a material named (loaded by flushPending)
+bool gPending = false;
 
 int findSet(const std::string& n) { for (auto& s : sets) if (s.name == n) return s.layer; return -1; }
 
@@ -68,6 +71,7 @@ Slot parseSlot(const std::string& name, const json& j) {
   s.kAO = j.value("ao", s.kAO); s.kH = j.value("height", s.kH);
   if (j.contains("fade") && j["fade"].is_array() && j["fade"].size() == 2) { s.fadeA = j["fade"][0]; s.fadeB = j["fade"][1]; }
   s.under = j.value("under", ""); s.expo = j.value("exposure", s.expo); s.macro = j.value("macro", 0.0f); s.contrast = j.value("contrast", 1.0f);
+  s.lazy = j.value("lazy", false);
   s.relD = j.value("relief", s.mode == 1 ? 0.012f : 0.0f); s.crev = j.value("crevice", s.mode == 1 ? 0.4f : 0.0f); s.edge = j.value("edge", s.mode == 1 ? 0.6f : 0.0f); s.lumps = j.value("lumps", 0.0f);   // MA1b: replace sets (their own structure) get relief by default
   return s;
 }
@@ -303,7 +307,7 @@ void resolveLayers() {
     auto u = slotByName.find(s.under); s.underIdx = s.under.empty() || u == slotByName.end() ? -1 : u->second;
     if (tbl != (wantImg ? &slotsImg : &slots)) continue;   // counts: the active table
     if (s.layer >= 0) ++gInfo.slotsLive;
-    else if (!s.set.empty() && std::find(gInfo.missing.begin(), gInfo.missing.end(), s.set) == gInfo.missing.end()) gInfo.missing.push_back(s.set);
+    else if (!s.set.empty() && !s.lazy && std::find(gInfo.missing.begin(), gInfo.missing.end(), s.set) == gInfo.missing.end()) gInfo.missing.push_back(s.set);
   }
   gInfo.slots = (int)slots.size();
 }
@@ -317,15 +321,15 @@ uniform int uImgMat;       // MA1 imgmat table active (render.cpp: room floor fi
 uniform sampler2D uTexMacro;   // MA1 macro variation (unit 25): R tint, G roughness, B damp, A substrate / alternate-set mask; one tile = 32 m
 float gTexNFade = 1.0;     // MA1: share of the far normal fade (texSlotTaps: 0.5 for replace sets under imgmat)   // MA1 imgmat: 1 = skip normal taps whose detail is faded out (far)
 // MA1: the slot / layer tables live in one uniform buffer (binding 3, 14 KB): as plain uniforms they passed the 1024
-// constant registers of a fragment program once the tables grew (160 slots, 128 layers)
+// constant registers of a fragment program once the tables grew (160 slots, 128 layers; TX2: 320 / 192, 32 KB)
 layout(std140, binding = 3) uniform NmkTexTables {
-  vec4 uTexA[160];   // per slot: layer (-1 none), mode (0 detail, 1 replace), space (0 asset, 1 part, 2 world, 3 ground), scale
-  vec4 uTexB[160];   // per slot: albedo, normal, roughness, ao strength
-  vec4 uTexC[160];   // per slot: height (m), quarter turns, distance fade start, end (m; end 0 = no fade)
-  vec4 uTexU[160];   // MA1 per slot: substrate ("under") slot (-1 none), exposure threshold, contrast (replace sets), macro variation strength
-  vec4 uTexL[128];   // per layer: 1/size u, 1/size v (1/m), mean roughness, mean height
-  vec4 uTexM[128];   // per layer: mean linear colour, mean ao
-  vec4 uTexR[160];   // MA1b per slot: relief depth (m), crevice darkening, edge wear, fill lumps (m) (Perf relief)
+  vec4 uTexA[320];   // per slot: layer (-1 none), mode (0 detail, 1 replace), space (0 asset, 1 part, 2 world, 3 ground), scale
+  vec4 uTexB[320];   // per slot: albedo, normal, roughness, ao strength
+  vec4 uTexC[320];   // per slot: height (m), quarter turns, distance fade start, end (m; end 0 = no fade)
+  vec4 uTexU[320];   // MA1 per slot: substrate ("under") slot (-1 none), exposure threshold, contrast (replace sets), macro variation strength
+  vec4 uTexL[192];   // per layer: 1/size u, 1/size v (1/m), mean roughness, mean height
+  vec4 uTexM[192];   // per layer: mean linear colour, mean ao
+  vec4 uTexR[320];   // MA1b per slot: relief depth (m), crevice darkening, edge wear, fill lumps (m) (Perf relief)
 };
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
 #define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
@@ -389,7 +393,7 @@ struct TerrT { vec3 alb; float r, ao; vec3 dn; };
 // uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
 TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   TerrT o = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0));
-  if (!texOn() || slot < 0 || slot >= 160) return o;
+  if (!texOn() || slot < 0 || slot >= 320) return o;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return o;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
@@ -409,7 +413,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
 // MA1 imgmat: a slot with an "under" set alternates with it by the world macro mask (A), patches of a few metres, so
 // two ground sets break each other's tiling; both are sampled only in the narrow transition band
 TerrT terrTexSlot(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
-  if (uImgMat == 1 && slot >= 0 && slot < 160 && uTexU[slot].x >= 0.0) {
+  if (uImgMat == 1 && slot >= 0 && slot < 320 && uTexU[slot].x >= 0.0) {
     vec3 a = abs(n); bool fl = a.y > max(a.x, a.z), xw = a.x > a.z;
     vec2 uv = fl ? p.xz : xw ? p.zy : p.xy;
     float lod = log2(max(max(length(dpx), length(dpy)), 1e-4)*256.0/32.0);
@@ -436,7 +440,7 @@ uniform int uRelief;       // MA1b (Perf relief): parallax on Medium, per-family
 layout(location=11) flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
 float gTexWear = 1.0;      // the copy's wear (kMainFS sets uInst.y before texMaterial): more substrate on worn buildings
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
-bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 160 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
+bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 320 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
 // sample the slot's set and layer it on the material: albedo and roughness multiplied by the sample against the set's
 // means (the material colour, per-stone tint and room finishes stay), ao, the normal (applied after the bump) and the
 // height (into the derivative bump, faded by the detail filter like the procedural relief)
@@ -495,7 +499,7 @@ float macroDamp(vec3 w, vec3 n, float pix){
 void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, int grain, float pix,
                  inout vec3 alb, inout float rough, inout float ao){
   vec3 dwx = dFdx(w), dwy = dFdy(w), dax = dFdx(ap), day = dFdy(ap), dcx = dFdx(pc), dcy = dFdy(pc);
-  if (!texOn() || slot < 0 || slot >= 160) return;
+  if (!texOn() || slot < 0 || slot >= 320) return;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, length(w - uCamPos)) : 1.0;
@@ -574,10 +578,17 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
 const char* glslCommon() { return kCommonGLSL; }
 const char* glslMain() { return kMainGLSL; }
 
+void loadSets();
 void init(const fs::path& texRoot) {
-  auto t0 = std::chrono::steady_clock::now();
   root = texRoot;
+  gLazyWant.clear(); gPending = false;
   loadMapping(texRoot / "textures.json");
+  loadSets();
+}
+
+void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slot tables and codes stay)
+  auto t0 = std::chrono::steady_clock::now();
+  const fs::path& texRoot = root;
   // every folder with a colour map becomes a layer (sets named only by a material "texture" field need no slot)
   std::vector<fs::path> dirs;
   std::error_code ec;
@@ -587,8 +598,9 @@ void init(const fs::path& texRoot) {
     // only the active table's sets take GPU memory (NMK_TEX_ALL=1: both tables, so the imgmat A/B flips without a reload)
     loadedBoth = std::getenv("NMK_TEX_ALL") != nullptr; loadedImg = wantImg;
     std::set<std::string> want;
-    if (loadedBoth || !wantImg) for (auto& s : slots) want.insert(s.set);
-    if (loadedBoth || wantImg) for (auto& s : slotsImg) want.insert(s.set);
+    if (loadedBoth || !wantImg) for (auto& s : slots) if (!s.lazy || gLazyWant.count(s.set)) want.insert(s.set);
+    if (loadedBoth || wantImg) for (auto& s : slotsImg) if (!s.lazy || gLazyWant.count(s.set)) want.insert(s.set);
+    for (auto& n : gLazyWant) want.insert(n);   // sets named by a material "texture" field with no slot of their own
     size_t before = dirs.size();
     dirs.erase(std::remove_if(dirs.begin(), dirs.end(), [&](const fs::path& d) { return !want.count(d.filename().string()); }), dirs.end());
     gInfo.unused = (int)(before - dirs.size());
@@ -649,6 +661,8 @@ void init(const fs::path& texRoot) {
   uploadAll();
 }
 
+void flushPending() { if (!gPending) return; gPending = false; loadSets(); uploadAll(); }
+
 void attach(GLuint prog) {
   if (std::find(progs.begin(), progs.end(), prog) == progs.end()) progs.push_back(prog);
   if (!tableUbo) uploadTables();
@@ -665,6 +679,11 @@ int materialCode(const std::string& matName, int pattern, const std::string& exp
     if (s < 0) {   // a set with no slot yet: default detail slot in asset space
       s = slotFromJson("set:" + explicitSet, json{{"set", explicitSet}});
       if (s >= 0) { slots[s].layer = findSet(explicitSet); resolveLayers(); uploadAll(); }
+    }
+    if (s >= 0) {   // TX2: a lazy slot, or a set not on the GPU yet: queued for the next flushPending (after the asset library)
+      const std::string& set = slots[s].set;
+      std::error_code ec;
+      if (!set.empty() && findSet(set) < 0 && !gLazyWant.count(set) && fs::exists(root / set / "color.jpg", ec)) { gLazyWant.insert(set); gPending = true; }
     }
     return s >= 0 ? s + 2 : 0;
   }
@@ -691,7 +710,7 @@ bool active() { return gpuOn; }
 void setImgMat(bool on) {
   if (on == wantImg) return;
   wantImg = on;
-  if (!loadedBoth && loadedImg != on && !root.empty()) init(root);   // the other table's sets are not loaded: reload
+  if (!loadedBoth && loadedImg != on && !root.empty()) { loadSets(); uploadAll(); }   // the other table's sets are not loaded: reload them (TX2: the slot tables stay, lazy sets kept)
   else { invalidateKey(); uploadAll(); }
 }
 bool imgMat() { return wantImg; }

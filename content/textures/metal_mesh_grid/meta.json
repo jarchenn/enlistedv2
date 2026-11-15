@@ -1,0 +1,19 @@
+{
+ "set": "metal_mesh_grid",
+ "id": "MetalWalkway006",
+ "family": "metal walkway (TX2)",
+ "size": [
+  1,
+  1
+ ],
+ "source": "https://ambientcg.com/a/MetalWalkway006",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}
