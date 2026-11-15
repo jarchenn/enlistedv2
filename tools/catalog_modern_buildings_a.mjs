@@ -28,7 +28,7 @@ function modMats(A) {
   re("stone_plinth", { albedo: [0.42, 0.41, 0.39], roughness: 0.9, pattern: "concrete", texture: "concrete_aged" });
   for (const n of ["oak_x", "oak_y", "oak_z"]) re(n, { albedo: [0.80, 0.79, 0.76], roughness: 0.5, pattern: "painted", texture: "paint_wood_white" });
   re("window_paint", { albedo: [0.075, 0.08, 0.085], roughness: 0.4, pattern: "metal", metallic: 0.3 });
-  re("door_paint", { albedo: [0.10, 0.11, 0.12], roughness: 0.45, pattern: "painted", });
+  re("door_paint", { albedo: [0.10, 0.11, 0.12], roughness: 0.45, pattern: "metal" });
   for (const n of ["floor_x", "landing_x", "tread_x"]) re(n, { albedo: [0.46, 0.35, 0.23], roughness: 0.45, texture: "wood_oak" });
   re("terracotta", { albedo: [0.56, 0.55, 0.53], roughness: 0.45, texture: "floor_cement_tile" });
   re("plaster", { albedo: [0.80, 0.79, 0.76], texture: "plaster_painted" });
@@ -61,14 +61,14 @@ function modMats(A) {
   A.mat("rubber", [0.04, 0.04, 0.04], 0.9, "plain");
   A.mat("brush", [0.10, 0.22, 0.55], 0.95, "fabric");
   A.mat("roof_m", [0.16, 0.17, 0.18], 0.7, "slate", { texture: "slate_square", grain: 2 });
-  A.mat("sign_a", [0.62, 0.07, 0.04], 0.5, "painted", { grain: 0 });   // signage: blank coloured panels
-  A.mat("sign_b", [0.85, 0.60, 0.06], 0.5, "painted", { grain: 0 });
-  A.mat("sign_c", [0.05, 0.17, 0.45], 0.5, "painted", { grain: 0 });
-  A.mat("sign_d", [0.07, 0.36, 0.16], 0.5, "painted", { grain: 0 });
-  A.mat("sign_w", [0.85, 0.85, 0.82], 0.5, "painted", { grain: 0 });
+  A.mat("sign_a", [0.62, 0.07, 0.04], 0.5, "plain");   // signage: blank coloured panels
+  A.mat("sign_b", [0.85, 0.60, 0.06], 0.5, "plain");
+  A.mat("sign_c", [0.05, 0.17, 0.45], 0.5, "plain");
+  A.mat("sign_d", [0.07, 0.36, 0.16], 0.5, "plain");
+  A.mat("sign_w", [0.85, 0.85, 0.82], 0.5, "plain");
   A.mat("light_panel", [0.90, 0.90, 0.86], 0.3, "plain", { emissive: [2.4, 2.35, 2.2] });
   A.mat("screen", [0.05, 0.08, 0.10], 0.2, "glass", { emissive: [0.25, 0.35, 0.45] });
-  A.mat("line_yellow", [0.80, 0.62, 0.05], 0.6, "painted", { grain: 0 });
+  A.mat("line_yellow", [0.80, 0.62, 0.05], 0.6, "plain");
 }
 function mmeta(id, name, category, desc, floors, footprint) {
   const A = meta(id, name, category, desc, floors, footprint, { version: 1, plinthDepth: 0, noAutoPanels: true, maxGrade: 0.5 });
