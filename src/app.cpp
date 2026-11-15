@@ -1030,6 +1030,7 @@ int App::run(int argc, char** argv) {
       R.lt.mapBloom = lk ? std::clamp(lk->value("bloom", 1.0f), 0.0f, 6.0f) : 1.0f;
       R.lt.mapShadowLights = lk ? std::clamp(lk->value("shadows", 0), 0, 8) : 0;
       R.lt.mapExposure = lj ? std::clamp(lj->value("exposure", 0.0f), 0.0f, 20.0f) : 0.0f;
+      R.lt.mapFill = lj ? std::clamp(lj->value("fill", 1.0f), 0.0f, 4.0f) : 1.0f;
       R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma

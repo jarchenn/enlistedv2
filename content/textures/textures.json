@@ -1,6 +1,12 @@
 {
   "_doc": "L4 texture layer (docs/textures.md). A slot says how a set in content/textures/<set>/ is sampled: mode detail = multiplies the procedural pattern (structure, per-stone tint, finishes stay), replace = the set's own structure instead of the pattern; space asset = triplanar in asset space, part = the part's dominant face with v along its grain axis, world = triplanar in world space, ground = planar xz. albedo / normal / rough / ao = strengths 0..1 (albedo and roughness are taken relative to the set's mean, so the material colour stays). height = metres fed into the derivative bump. scale multiplies the set's tile frequency. rot = quarter turns. fade = [start, end] m from the eye. patterns: pattern id -> slot; materials: material name -> slot (\"none\" = procedural only), checked before the pattern; a material's own \"texture\" field wins over both. terrain: the kTerrainFS layers.",
   "slots": {
+    "tun_floor_rock": {"set": "ph_rocky_terrain_02", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "scale": 1.3, "relief": 0.04, "crevice": 0.7, "edge": 0.4},
+    "tun_floor_rock2": {"set": "ph_rocky_terrain_03", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "scale": 1.3, "relief": 0.04, "crevice": 0.7, "edge": 0.4},
+    "tun_floor_gravel": {"set": "gravel_coarse", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.03, "crevice": 0.6, "edge": 0.3},
+    "tun_floor_rubble": {"set": "ground_rubble", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.035, "crevice": 0.6, "edge": 0.4},
+    "tun_floor_mud": {"set": "mud_soil", "mode": "replace", "albedo": 0.9, "normal": 0.9, "rough": 0.5, "ao": 0.7, "relief": 0.025, "crevice": 0.5, "edge": 0},
+    "tun_floor_slab": {"set": "concrete_aged", "mode": "replace", "albedo": 0.9, "normal": 0.9, "rough": 0.5, "ao": 0.7, "relief": 0.02, "crevice": 0.6, "edge": 0.5},
     "wallpaper_backrooms": {"set": "wallpaper_backrooms", "mode": "replace", "albedo": 0.85, "normal": 0.2, "rough": 0.2, "ao": 0.1},
     "carpet_backrooms": {"set": "carpet_backrooms", "mode": "replace", "albedo": 0.8, "normal": 0.5, "rough": 0.3, "ao": 0.3},
     "ceiling_backrooms": {"set": "ceiling_backrooms", "mode": "replace", "albedo": 0.75, "normal": 0.4, "rough": 0.2, "ao": 0.3},

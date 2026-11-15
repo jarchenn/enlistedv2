@@ -19,6 +19,13 @@ function tmats(A) {
   A.mat("concrete_wash", [0.33, 0.32, 0.29], 0.9, "plain");
   A.mat("concrete_floor", [0.26, 0.25, 0.23], 0.9, "plain");
   A.mat("mud", [0.13, 0.105, 0.08], 0.75, "plain");
+  // UG4: textured floors with strong relief (slots tun_floor_* in content/textures/textures.json), varied per piece
+  A.mat("floor_rock", [0.2, 0.18, 0.15], 0.9, "plain", { texture: "tun_floor_rock" });
+  A.mat("floor_rock2", [0.17, 0.155, 0.13], 0.9, "plain", { texture: "tun_floor_rock2" });
+  A.mat("floor_gravel", [0.19, 0.17, 0.14], 0.9, "plain", { texture: "tun_floor_gravel" });
+  A.mat("floor_rubble", [0.18, 0.16, 0.135], 0.9, "plain", { texture: "tun_floor_rubble" });
+  A.mat("floor_mud", [0.14, 0.115, 0.09], 0.8, "plain", { texture: "tun_floor_mud" });
+  A.mat("floor_slab", [0.25, 0.24, 0.22], 0.9, "plain", { texture: "tun_floor_slab" });
   A.mat("puddle", [0.02, 0.025, 0.022], 0.05, "plain");
   A.mat("rust", [0.2, 0.095, 0.045], 0.8, "metal", { metallic: 0.2 });
   A.mat("steel", [0.12, 0.11, 0.1], 0.6, "metal", { metallic: 0.5 });
@@ -38,6 +45,42 @@ function wallDist(g, x, z, px, pz) {
 // UG3: thin decals each get their own height step (coplanar overlapping decals z-fought: the "flicker" in the tunnels)
 let decalK = 0;
 const decalY = () => 0.003 + ((decalK++ % 8) * 0.004);
+// UG4: real relief over a floor: low mounds (colliding, under step height; flatter and non-colliding in the middle
+// band where the track runs), embedded rocks, loose stones, shallow hollows (dark decals), rubble drifts at the wall
+// feet, broken slab edges on concrete. inAir(x, z) says whether a point is inside the passage.
+const FLOORS = ["floor_rock", "floor_rock2", "floor_gravel", "floor_rubble", "floor_mud"];
+function floorRelief(A, R, inAir, lined, n = 28, half = CELL / 2) {
+  const D = { k: 0, lod: 1 }, mound = lined ? "concrete_floor" : "rock_dark";
+  for (let k = 0, tries = 0; k < n && tries < n * 6; tries++) {
+    const x = (R() - 0.5) * 2 * half, z = (R() - 0.5) * 2 * half;
+    if (!inAir(x, z)) continue;
+    k++;
+    const band = Math.abs(x) < 0.8 || Math.abs(z) < 0.8, w = 0.5 + R() * 1.1, d = 0.4 + R() * 0.9;
+    const hgt = band ? 0.04 + R() * 0.03 : 0.07 + R() * 0.08;
+    if (lined && R() < 0.5) A.obox([r3(x), r3(hgt * 0.5), r3(z)], [r3(w * 0.8), 0.05, r3(d * 0.7)], [r3((R() - 0.5) * 14), r3(R() * 90), r3((R() - 0.5) * 14)], "floor_slab", band ? D : { lod: 1 });   // a broken slab edge
+    else A.obox([r3(x), 0, r3(z)], [r3(w), r3(hgt * 2), r3(d)], [r3((R() - 0.5) * 8), r3(R() * 180), r3((R() - 0.5) * 8)], R() < 0.4 ? mound : FLOORS[Math.floor(R() * FLOORS.length)], band ? D : { lod: 1 });
+  }
+  for (let k = 0, tries = 0; k < n * 0.8 && tries < n * 5; tries++) {   // loose and embedded stones
+    const x = (R() - 0.5) * 2 * half, z = (R() - 0.5) * 2 * half;
+    if (!inAir(x, z)) continue;
+    k++;
+    const s = 0.07 + R() * 0.16;
+    A.obox([r3(x), r3(s * (R() < 0.5 ? 0.15 : 0.35)), r3(z)], [r3(s * 1.4), r3(s), r3(s * 1.1)], [r3(R() * 40), r3(R() * 180), r3(R() * 40)], R() < 0.5 ? "rock" : "rock_dark", D);
+  }
+  for (let k = 0, tries = 0; k < 4 && tries < 30; tries++) {   // shallow hollows (dark, on their own height step)
+    const x = (R() - 0.5) * 2 * half, z = (R() - 0.5) * 2 * half;
+    if (!inAir(x, z)) continue;
+    k++;
+    const y0 = decalY(), r = 0.4 + R() * 0.6;
+    A.cyl([r3(x), r3(y0), r3(z)], [r3(r * 2), 0.003, r3(r * 1.4)], "mud", { k: 0, n: 10 });
+  }
+  for (let k = 0, tries = 0; k < 7 && tries < 80; tries++) {   // rubble drifts at the wall feet
+    const x = (R() - 0.5) * 2 * half, z = (R() - 0.5) * 2 * half;
+    if (!inAir(x, z) || (inAir(x + 0.5, z) && inAir(x - 0.5, z) && inAir(x, z + 0.5) && inAir(x, z - 0.5))) continue;
+    k++;
+    for (let q = 0; q < 4; q++) { const s = 0.18 + R() * 0.3; A.obox([r3(x + (R() - 0.5) * 0.7), r3(s * 0.3), r3(z + (R() - 0.5) * 0.7)], [r3(s * 1.5), r3(s), r3(s * 1.2)], [r3(R() * 40), r3(R() * 180), r3(R() * 40)], q % 2 ? "rock" : "mud", D); }
+  }
+}
 function floorCrater(A, R, x, z, r) {
   const D = { k: 0, lod: 1 }, y0 = decalY();
   A.cyl([r3(x), r3(y0), r3(z)], [r, 0.004, r], "scorch", { k: 0, n: 12 });
@@ -119,11 +162,11 @@ function passage(id, name, sides, opt = {}) {
   const yAt = (z) => (rise * (z + CELL / 2)) / CELL;   // UG3: a ramp rises rise m from its south (-z) to its north (+z) portal
   if (!rise) {
     // shell: floor and ceiling over the whole cell, the skin from the floor to the ceiling
-    A.box([-CELL / 2, -FLOOR_T, -CELL / 2], [CELL / 2, 0, CELL / 2], lined ? "concrete_floor" : "mud");
+    A.box([-CELL / 2, -FLOOR_T, -CELL / 2], [CELL / 2, 0, CELL / 2], lined ? "floor_slab" : FLOORS[(opt.seed || 1) % FLOORS.length]);   // UG4: textured floors
     A.box([-CELL / 2, h, -CELL / 2], [CELL / 2, h + CEIL_T, CELL / 2], lined ? "concrete_wash" : "rock_dark");
   } else {
     const len = Math.hypot(CELL, rise) + 0.1, ang = (Math.atan2(rise, CELL) * 180) / Math.PI, cs = Math.cos((ang * Math.PI) / 180);
-    A.obox([0, r3(rise / 2 - FLOOR_T / 2 / cs), 0], [CELL, FLOOR_T, r3(len)], [r3(-ang), 0, 0], "mud");
+    A.obox([0, r3(rise / 2 - FLOOR_T / 2 / cs), 0], [CELL, FLOOR_T, r3(len)], [r3(-ang), 0, 0], FLOORS[(opt.seed || 1) % FLOORS.length]);
     A.obox([0, r3(rise / 2 + h + CEIL_T / 2 / cs), 0], [CELL, CEIL_T, r3(len)], [r3(-ang), 0, 0], "rock_dark");
     A.box([-CELL / 2, -FLOOR_T - 0.2, -CELL / 2], [CELL / 2, -FLOOR_T, -CELL / 2 + 0.6], "mud");   // seal under the low end
   }
@@ -162,6 +205,7 @@ function passage(id, name, sides, opt = {}) {
     A.obox([r3(x), r3(y), r3(z)], [sz, sz * 0.85, sz], [R() * 40, R() * 90, R() * 40], lined ? "concrete_wash" : R() < 0.3 ? "rock_dark" : "rock", big ? { lod: 1 } : D);
   }
   for (let k = 0; k < (opt.floorCraters || 0); k++) { const s = sides[Math.floor(R() * sides.length)], t = 0.5 + R() * 1.5; floorCrater(A, R, SIDE[s][0] * t, SIDE[s][1] * t, 0.8 + R() * 0.3); }
+  floorRelief(A, R, (x, z) => { const i = Math.floor((x + CELL / 2) / VOX), j = Math.floor((z + CELL / 2) / VOX); return i > 0 && j > 0 && i < N - 1 && j < N - 1 && !!g.a[j * N + i]; }, lined, rise ? 14 : 28);   // UG4
   for (let k = 0; k < (opt.puddles ?? 2); k++) {   // mud and puddles on the floor
     const x = (R() - 0.5) * 1.6, z = (R() - 0.5) * 1.6, w = 0.6 + R() * 1.0;
     const y0 = decalY(); A.box([r3(x - w / 2), r3(y0), r3(z - w * 0.35)], [r3(x + w / 2), r3(y0 + 0.003), r3(z + w * 0.35)], R() < 0.5 ? "puddle" : "mud", { k: 0 });
@@ -286,7 +330,7 @@ function chamber(id, name, kind, seed, o = {}) {
     A.box([-hS, -FLOOR_T, -p], [-p, 0, p], fm); A.box([p, -FLOOR_T, -p], [hS, 0, p], fm);
     for (const [x0, z0, x1, z1] of [[-p - 0.3, -p - 0.3, p + 0.3, -p], [-p - 0.3, p, p + 0.3, p + 0.3], [-p - 0.3, -p, -p, p], [p, -p, p + 0.3, p]]) A.box([x0, -2.4, z0], [x1, -FLOOR_T, z1], "rock");
     A.box([-p, -2.7, -p], [p, -2.4, p], "mud");
-  } else A.box([-hS, -FLOOR_T, -hS], [hS, 0, hS], lined ? "concrete_floor" : "mud");
+  } else A.box([-hS, -FLOOR_T, -hS], [hS, 0, hS], lined ? "floor_slab" : FLOORS[seed % FLOORS.length]);   // UG4: textured floors
   A.box([-hS, h, -hS], [hS, h + CEIL_T, hS], lined ? "concrete_wash" : "rock_dark");
   for (const [dx, dz] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {   // portal heads at the shared height
     const e = hS;
@@ -317,6 +361,7 @@ function chamber(id, name, kind, seed, o = {}) {
     for (let k = 0; k < 14; k++) A.obox([r3(-3 + R() * 7), r3(0.2 + R() * 0.4), r3(-5 + R() * 6)], [0.6 + R() * 0.8, 0.4 + R() * 0.6, 0.6 + R() * 0.8], [R() * 40, R() * 90, R() * 40], "rock");
   }
   for (let k = 0; k < (o.pit || kind === "sump" ? 0 : 6); k++) { const x = (R() - 0.5) * (hw * 1.6), z = (R() - 0.5) * (hw * 1.6), w = 0.8 + R() * 1.6; const y0 = decalY(); A.box([r3(x - w / 2), r3(y0), r3(z - w / 3)], [r3(x + w / 2), r3(y0 + 0.003), r3(z + w / 3)], R() < 0.5 ? "puddle" : "mud", { k: 0 }); }
+  floorRelief(A, R, (x, z) => Math.abs(x) < hw - 0.3 && Math.abs(z) < hw - 0.3 && !(o.pit && Math.abs(x) < o.pit / 2 + 0.4 && Math.abs(z) < o.pit / 2 + 0.4) && !(kind === "sump" && Math.abs(x) < 5 && Math.abs(z) < 5) && !(kind === "pump" && Math.abs(x) < 2.6 && Math.abs(z) < 2.6), lined, Math.round(hw * hw * 0.9), hw);   // UG4
   const cv = [];
   for (const [x, z] of pil) for (const yaw of [0, 90, 180, 270]) cv.push(cover([x + Math.sin((yaw * Math.PI) / 180) * -0.6, 0, z + Math.cos((yaw * Math.PI) / 180) * -0.6], yaw, "high", ["left", "right"]));
   setNav(A, { effect: "block", rooms: [room("hall", [-hw, 0, -hw], [hw, h, hw])], doors: [],
@@ -396,6 +441,7 @@ function trackAsset(id, name, kind, opt = {}) {
   if (kind === "straight" || kind === "points" || kind === "buffer") {
     const len = kind === "buffer" ? CELL / 2 + 1.2 : CELL;
     for (const [mn, mx, m] of trackBoxes(len)) A.box(mn, mx, m, D);
+    A.box([-0.75, 0.004, -CELL / 2], [0.75, 0.007, -CELL / 2 + len], "mud", { k: 0 });   // UG4: the worn, trodden strip along the haulage line
     if (kind === "buffer") {   // a timber buffer stop at the end of the run
       const z = -CELL / 2 + len;
       A.box([-0.7, 0, z], [0.7, 0.7, z + 0.3], "sleeper"); A.box([-0.6, 0.3, z - 0.15], [0.6, 0.55, z], "paint_yellow");
@@ -540,10 +586,10 @@ export function tunnelAssets() {
   out.push(chamber("tun_chamber_generator", "Tunnel chamber: generator room", "generator", 33, { craters: 5, floorCraters: 1 }));
   out.push(chamber("tun_chamber_sump", "Tunnel chamber: flooded sump", "sump", 34, { craters: 6 }));
   out.push(chamber("tun_chamber_collapse", "Tunnel chamber: collapsed", "collapse", 35, { craters: 7, floorCraters: 3 }));
-  out.push(lamp("tun_lamp", "Tunnel lamp", { color: [1.0, 0.72, 0.42], intensity: 0.75, radius: 7.5, use: "electric" }));
+  out.push(lamp("tun_lamp", "Tunnel lamp", { color: [1.0, 0.72, 0.42], intensity: 0.8, radius: 5.2, use: "electric" }));   // UG4: a shorter reach: pools of light, dark between
   out.push(lamp("tun_lamp_flicker", "Tunnel lamp (failing)", { color: [1.0, 0.7, 0.4], intensity: 0.65, radius: 7.0, use: "electric" }));
   out.push(lamp("tun_lamp_shadow", "Tunnel lamp (shadows)", { color: [1.0, 0.74, 0.45], intensity: 0.85, radius: 8.0, shadow: 1, use: "electric" }));   // UG3: no longer placed (shadow slots swapping read as flicker)
-  out.push(lamp("tun_lamp_red", "Tunnel emergency lamp", { color: [1.0, 0.12, 0.06], intensity: 0.7, radius: 6.0, use: "electric" }));
+  out.push(lamp("tun_lamp_red", "Tunnel emergency lamp", { color: [1.0, 0.12, 0.06], intensity: 0.7, radius: 4.5, use: "electric" }));
   out.push(lamp("tun_lamp_dead", "Tunnel lamp (dead)", null));
   return out;
 }

@@ -83,3 +83,20 @@ spawn.
     decals z-fought.
   - Tunnel pieces are never furnished, so there are no candles or room lamps.
   - Fog stays off.
+
+## UG4: floors with relief, darker
+
+- **Floors:**
+  - Every passage and room floor is a textured material with strong normals and relief: rock (two sets), gravel,
+    rubble, mud, or broken concrete in the lined sections (texture slots `tun_floor_*`), chosen per piece.
+  - Each piece also has `floorRelief()` geometry over its air:
+    - low mounds that collide but stay under step height (flatter, and non-colliding, in the middle band where the
+      track runs);
+    - embedded rocks and loose stones, and shallow dark hollows;
+    - rubble drifts at the wall feet, and broken slab edges on concrete.
+  - A worn strip runs under the haulage line.
+- **Darker:**
+  - Lamps reach 5.2 m (red lamps 4.5 m), so each lamp is a pool of light.
+  - The map sets `"lighting": {"fill": 0.35, "exposure": 1.0}`: the fill / indirect term is scaled down
+    (`render.cpp`), and the exposure is pinned so auto exposure does not lift the dark stretches.
+  - No new lights and nothing flickers; fog stays off.
