@@ -235,6 +235,38 @@ int Audio::loadEvents(const fs::path& dir) {
   logf("audio: %d events from %d samples (%d missing: run tools/fsb5.py extract)", eventsLoaded, samplesLoaded, samplesMissing);
   return eventsLoaded;
 }
+// User-supplied recordings replace events: footsteps.mp3 (a walk: cut into single steps at its onsets) for every
+// dry step, door_open.mp3 for doors / windows / shutters opening at half volume, zombie.mp3 as "zombie_groan".
+int Audio::loadCustom(const fs::path& dir) {
+  if (!p) return 0;
+  auto decode = [&](const char* file, Buf& out) {
+    ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 1, SR);
+    ma_uint64 frames = 0; void* data = nullptr;
+    if (ma_decode_file((dir / file).string().c_str(), &dc, &frames, &data) != MA_SUCCESS || !data) return false;
+    out.assign((float*)data, (float*)data + frames); ma_free(data, nullptr);
+    return !out.empty();
+  };
+  int used = 0; Buf b;
+  if (decode("footsteps.mp3", b)) {
+    const int W = SR / 100; std::vector<float> env(b.size() / W, 0.0f); float peak = 0;   // 10 ms loudness windows
+    for (size_t k = 0; k < env.size(); ++k) { float e = 0; for (int j = 0; j < W; ++j) e = std::max(e, std::fabs(b[k * W + j])); env[k] = e; peak = std::max(peak, e); }
+    std::vector<size_t> on;   // onsets: loud after a quiet window, at least 0.25 s apart
+    for (size_t k = 1; k < env.size(); ++k) if (env[k] > 0.3f * peak && env[k - 1] <= 0.3f * peak && (on.empty() || k - on.back() >= 25)) on.push_back(k);
+    Impl::Event ev; ev.kind = "step";
+    for (size_t i = 0; i < on.size() && ev.v.size() < 24; ++i) {
+      size_t a = (on[i] > 1 ? on[i] - 1 : 0) * W, e = std::min({b.size(), a + (size_t)(0.45f * SR), i + 1 < on.size() ? (on[i + 1] - 1) * W : b.size()});
+      if (e <= a + (size_t)W) continue;
+      Buf s(b.begin() + a, b.begin() + e); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x));
+      size_t f = std::min(s.size(), (size_t)(0.03f * SR));
+      for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.5f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);   // even level, 30 ms fade-out
+      ev.v.push_back(std::move(s));
+    }
+    if (!ev.v.empty()) { ++used; for (const char* n : {"step", "step_grass", "step_stone", "step_wood"}) p->events[n] = ev; }
+  }
+  if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
+  if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["zombie_groan"] = ev; }
+  return used;
+}
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
 int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
 

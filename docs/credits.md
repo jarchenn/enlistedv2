@@ -165,3 +165,4 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |
 
 - Backrooms / Tunnels ambience: "Backrooms Ambience 2" by godbi (file godbi_3-backrooms-ambience-2-522106.mp3, supplied by the user; licence to be confirmed).
+- Footsteps: "Footsteps cellar" (freesound_community, file ...-26890.mp3); door opening: "Opening door" (soundreality, ...-411632.mp3); zombie: "Zombie sound 2" (dragon-studio, ...-357976.mp3). Supplied by the user; licences to be confirmed.

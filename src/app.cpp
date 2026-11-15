@@ -867,6 +867,7 @@ int App::run(int argc, char** argv) {
   Physics::init();
   audio.init();
   audio.loadEvents(contentDir() / "audio");
+  audio.loadCustom(contentDir() / "audio" / "custom");
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
   R.init(fbw, fbh);
   settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)

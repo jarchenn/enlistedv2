@@ -340,6 +340,11 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (zLenXZ(look) > 0.05f) b.aimYaw = degrees(std::atan2(-look.x, -look.z));
     b.aimPitch = 0;
   }
+  {   // the plain zombie groans now and then when near the listener. shortcut: host / single player only, one voice at a time
+    static double nextGroan = 0;
+    if (s.etype == 0 && G.t >= nextGroan && glm::length(s.feet - G.app.eyePos()) < 35.0f && G.rnd(s) < 0.02f) { G.app.audio.play("zombie_groan", chest(s), 0.9f); nextGroan = G.t + 5.0 + 6.0 * G.rnd(s); }
+    if (nextGroan > G.t + 30.0) nextGroan = 0;   // a new match restarts the clock
+  }
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
   // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes

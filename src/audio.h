@@ -11,6 +11,7 @@ public:
   bool init();
   int loadEvents(const fs::path& dir);   // manifest + samples; returns the number of events with audio
   bool hasEvent(const std::string& name) const;
+  int loadCustom(const fs::path& dir);   // user-supplied mp3s (content/audio/custom): footsteps, door / window opening, zombie; returns files used
   int eventVariant(const std::string& name) const;   // last variation index played (tests), -1 none
   int eventsLoaded = 0, samplesLoaded = 0, samplesMissing = 0;
   std::string lastEvent;   // event or procedural buffer actually used by the last play()
