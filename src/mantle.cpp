@@ -1,14 +1,17 @@
-// Mantle / climb (docs/movement.md#mantle). Hold Space facing a ledge that is too tall or too deep to vault:
-//   ledge  0.9-2.1 m above the ground under the feet (mid-jump the jump's take-off floor, so a jump does not change
-//          what counts as climbable), face within reach at shin / waist / chest height; below the vault's 1.35 m
-//          only tops deeper than the vault's 1.1 m (platforms): low walls stay the vault's;
-//   land   on top: the first spot 0.42-1.6 m past the face whose top is within +0.3 / -0.6 m of the ledge and where
-//          the standing body fits (Physics::shapeFitsAt), crossing nothing taller than the range;
-//          over:   when the top is narrower than 0.55 m (a garden wall), the far side at most 2.2 m below, like a vault;
+// Climb (docs/movement.md#mantle). Hold Space facing anything whose top is 0.4-2.2 m above the ground under the feet
+// (mid-jump the jump's take-off floor), from a run or standing still. The climb puts the player ON the top, never over it
+// (MV1, replacing the old vault-over): from there they walk or jump off either side themselves.
+//   land   centred on a top narrower than 0.9 m (wall, parapet coping, fence post rail >= 5 cm: the body balances on it),
+//          0.45 m in on a deeper one (or further in, where Physics::shapeFitsAt says the standing body fits), at most
+//          0.6 m below / 0.3 m above the ledge;
+//          too thin to stand on (< 5 cm): just past it, onto a surface at the ledge's height or within 0.4 m of the
+//          start's level ground (a field fence); never down off the far side of a roof;
 //   never  through uncut barbed wire (within 1 m of the crossing), never with no standing room, never chained.
-// The standing body is swept up, across and down in 8 cm steps before anything moves (as the vault does).
-// Motion (0.9-1.3 s, longer for taller ledges): hands reach the ledge (0-15 %), the body is pulled up (15-60 %),
-// rolls forward over the top with the head low and the view pitched down (60-85 %), then stands (85-100 %).
+//   2.2 m: the player is 1.8 m tall, trench lips stand 1.9-2.0 m over the floor and roof parapets reach ~1.2 m.
+// minTop 5 cm: a 6 cm glass balustrade on a setback terrace (0.59 m, above jump height) must stay climbable.
+// The standing body is swept up, across and down in 8 cm steps before anything moves.
+// Motion (0.45 s for a knee-high hop .. 1.3 s for a 2.2 m pull-up): hands reach the ledge (0-15 %), the body is pulled
+// up (15-60 %), rolls forward onto the top with the head low and the view pitched down (60-85 %), then stands.
 // The weapon is lowered out of view and the first-person arms reach for the ledge (viewmodel.cpp); the soldier
 // body gets the same hands-on-ledge pose (pose.cpp). Bots keep their own navmesh mantle links (nav_links.cpp,
 // ai_path.cpp; content/ai/navigation.json), whose ranges stay inside the player's (checked by --selftest-move).
@@ -36,8 +39,8 @@ void App::loadClimbSettings(const json& j) {
     MantleSettings& c = mantleCfg;
     c.minH = m.value("minHeight_m", c.minH); c.maxH = m.value("maxHeight_m", c.maxH); c.reach = m.value("reach_m", c.reach);
     c.durMin = m.value("minDuration_s", c.durMin); c.durMax = m.value("maxDuration_s", c.durMax);
-    c.landUp = m.value("landAbove_m", c.landUp); c.landDown = m.value("landBelow_m", c.landDown); c.maxDrop = m.value("maxDrop_m", c.maxDrop);
-    c.narrow = m.value("narrowTop_m", c.narrow); c.pitchDip = m.value("pitchDip_deg", c.pitchDip); c.pitchUp = m.value("pitchUp_deg", c.pitchUp);
+    c.landUp = m.value("landAbove_m", c.landUp); c.landDown = m.value("landBelow_m", c.landDown); c.fenceDrop = m.value("fenceDrop_m", c.fenceDrop);
+    c.minTop = m.value("minTop_m", c.minTop); c.pitchDip = m.value("pitchDip_deg", c.pitchDip); c.pitchUp = m.value("pitchUp_deg", c.pitchUp);
     c.handSpread = m.value("handSpread_m", c.handSpread);
   }
 }
@@ -52,42 +55,44 @@ bool App::tryStartMantle(vec3 feet, float yawDeg, bool fromWater) {
   Physics::Hit h; float dFace = 99;
   for (float hy : {0.35f, 0.75f, 1.15f}) if (Physics::castRayEx(feet + vec3(0, hy, 0), f, M.reach + 0.3f, h) && h.t < dFace) dFace = h.t;
   if (dFace > M.reach + 0.3f) { mantle.why = "no ledge in reach"; return false; }
-  const float probeY = ground + M.maxH + 0.6f, probeLen = probeY - (ground - M.maxDrop - 0.5f);
+  const float probeY = ground + M.maxH + 0.6f, probeLen = probeY - (ground - M.fenceDrop - 2.5f);
   auto topAt = [&](float d, float& y) {   // a ray starting inside a solid reports it at once: y = probeY (too tall)
     Physics::Hit g; vec3 o = feet + f * d; o.y = probeY;
     if (!Physics::castRayEx(o, vec3(0, -1, 0), probeLen, g)) return false;
     y = g.pos.y; return true;
   };
   float ledge;
-  if (!topAt(dFace + 0.12f, ledge)) { mantle.why = "no top above the face"; return false; }
+  if (!topAt(dFace + 0.015f, ledge)) { mantle.why = "no top above the face"; return false; }
   float hgt = ledge - ground;
-  if (hgt < M.minH || hgt > M.maxH) { char b[96]; std::snprintf(b, sizeof b, "ledge %.2f m outside the mantle range (%.2f-%.2f m)", hgt, M.minH, M.maxH); mantle.why = b; return false; }
-  if (hgt <= vaultCfg.maxH)   // vault height: only a top deeper than a vault crosses (a platform) is climbed onto
-    for (float d = dFace + 0.12f; d <= dFace + vaultCfg.maxDepth + 0.2f; d += 0.08f) {
-      float y; if (!topAt(d, y) || y < ledge - 0.4f) { mantle.why = "low obstacle: vault it, not mantle"; return false; }
-    }
+  if (hgt < M.minH || hgt > M.maxH) { char b[96]; std::snprintf(b, sizeof b, "ledge %.2f m outside the climb range (%.2f-%.2f m)", hgt, M.minH, M.maxH); mantle.why = b; return false; }
   const vec3 lift(0, 0.06f, 0);
-  // walk across the top: the highest point crossed so far, where the top falls away, the first landing
-  float run = ledge, dEdge = -1, dLand = -1, land = 0, runAtEdge = ledge; bool over = false;
-  for (float d = dFace + 0.12f; d <= dFace + 1.6f + 1e-4f; d += 0.08f) {
+  // the top's depth along f: where it falls away (or something taller than the climb stands on it)
+  float run = ledge, dEdge = dFace + 1.6f; bool blocked = false;
+  for (float d = dFace + 0.015f; d <= dFace + 1.6f + 1e-4f; d += d < dFace + 0.15f ? 0.01f : 0.03f) {   // 1 cm near the face: thin tops measured to ~1 cm
     float y; bool got = topAt(d, y);
-    if (got && y > ground + M.maxH) break;   // something taller beyond: no crossing past here
-    if (dEdge < 0 && (!got || y < ledge - 0.4f)) { dEdge = d; runAtEdge = run; }
-    if (got) run = std::max(run, y);
-    if (got && d >= dFace + 0.42f && y >= ledge - M.landDown && y <= ledge + M.landUp) {
-      vec3 p = feet + f * d; p.y = y;
-      if (Physics::shapeFitsAt(Physics::STAND, p + lift)) { dLand = d; land = y; break; }
-    }
+    if (got && y > ground + M.maxH) { dEdge = d; blocked = true; break; }
+    if (!got || y < ledge - 0.4f) { dEdge = d; break; }
+    run = std::max(run, y);
   }
-  if (dLand < 0 && dEdge > 0 && dEdge - dFace <= M.narrow + 0.12f) {   // a narrow wall: drop over to the far side
-    for (float d = dEdge + 0.35f; d <= dEdge + 1.2f + 1e-4f; d += 0.08f) {
-      float y; if (!topAt(d, y)) continue;
-      if (y > ledge - 0.25f || ledge - y > M.maxDrop) continue;
-      vec3 p = feet + f * d; p.y = y;
-      if (Physics::shapeFitsAt(Physics::STAND, p + lift)) { dLand = d; land = y; over = true; run = runAtEdge; break; }
+  auto fits = [&](float d, float y) { vec3 p = feet + f * d; p.y = y; return Physics::shapeFitsAt(Physics::STAND, p + lift); };
+  float dLand = -1, land = 0; bool over = false;
+  // onto the top, never over it: centred on a narrow top (the body balances on a wall or parapet coping),
+  // 0.45 m in on a deep one, or further in where the standing body fits
+  float w = dEdge - dFace;
+  if (w >= M.minTop)
+    for (float d = dFace + std::min(w * 0.5f, 0.45f); d < dEdge - 1e-4f; d += 0.06f) {
+      float y; if (topAt(d, y) && y >= ledge - M.landDown && y <= ledge + M.landUp && fits(d, y)) { dLand = d; land = y; break; }
+      if (w < 0.9f) break;   // narrow: the centre or nothing
     }
-  }
-  if (dLand < 0) { mantle.why = "no standing room on top (or beyond a narrow wall)"; return false; }
+  // too thin to stand on (a rail, a fence): just past it, only onto a surface at the ledge's height or the start's
+  // level ground (a fence in a field); never down off the far side of a roof
+  if (dLand < 0 && !blocked)
+    for (float d = dEdge + 0.35f; d <= dEdge + 1.2f + 1e-4f; d += 0.06f) {
+      float y; if (!topAt(d, y) || !fits(d, y)) continue;
+      if (y >= ledge - M.landDown && y <= ledge + M.landUp) { dLand = d; land = y; break; }
+      if (std::fabs(y - ground) <= M.fenceDrop) { dLand = d; land = y; over = true; break; }
+    }
+  if (dLand < 0) { char b[96]; std::snprintf(b, sizeof b, "no standing room on top (%.2f m deep%s)", w, blocked ? ", taller beyond" : ""); mantle.why = b; return false; }
   // unsafe obstacles (barbed wire) are never climbed: no uncut wire within 1 m of the crossing (face to landing)
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset->defense.unsafeVault || it->second.defDestroyed) continue;
@@ -115,7 +120,7 @@ bool App::beginMantle(vec3 feet, vec3 f, float dLand, float yCross, float land, 
   mantle.pts[0] = P0; mantle.pts[1] = P1; mantle.pts[2] = P2; mantle.pts[3] = P3;
   mantle.h = hgt; mantle.over = over; mantle.fwd = f;
   mantle.ledge = ledgePt;
-  float k = std::clamp((yCross - P0.y - 0.6f) / 1.6f, 0.0f, 1.0f);   // rise 0.6 m (mid-jump) .. 2.2 m (floor to a 2.1 m lip)
+  float k = std::clamp((hgt - M.minH) / std::max(0.1f, M.maxH - M.minH), 0.0f, 1.0f);   // a knee-high hop is quick, a 2 m pull-up slow
   mantle.dur = std::clamp(glm::mix(M.durMin, M.durMax, k) + (over ? 0.1f : 0.0f), M.durMin, M.durMax);
   mantle.t = 0; mantle.pitchOff = 0; mantle.eyeFrom = eyeHeight;
   mantle.active = true; mantle.why = over ? "mantle over" : "mantle"; ++mantle.count;

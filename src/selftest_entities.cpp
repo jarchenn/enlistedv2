@@ -101,10 +101,7 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
         return true; });
       push(std::string("wire: ") + kWires[k] + " cannot be vaulted", [this, k](App& a, float) {
         vec3 feet = Physics::character().pos;
-        bool v = a.tryStartVault(feet, yawPlusX());
-        check(!v, std::string(kWires[k]) + ": hold-Space vault refused (" + a.vault.why + ")");
-        a.vault = App::VaultState{};
-        bool m = a.tryStartMantle(feet, yawPlusX());   // nor climbed: the mantle keeps the same wire rule (mantle.cpp)
+        bool m = a.tryStartMantle(feet, yawPlusX());   // the climb (mantle.cpp) never crosses uncut wire
         check(!m, std::string(kWires[k]) + ": hold-Space mantle refused (" + a.mantle.why + ")");
         a.mantle = App::MantleState{};
         return true; });
@@ -129,13 +126,13 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
         wall = a.placeInstance(a.lib.find("stone_wall_low"), W_POS[0] + vec3(-1.0f, 0, 0), 90.0f);   // runs along z, 0.37 m from the coil
         a.syncRuntime();
         feetAt(a, W_POS[0] + vec3(-2.2f, 0, 0.3f)); a.eyeYaw = yawPlusX();
-        withWire = a.tryStartVault(Physics::character().pos, a.eyeYaw); why1 = a.vault.why; a.vault = App::VaultState{};
+        withWire = a.tryStartMantle(Physics::character().pos, a.eyeYaw); why1 = a.mantle.why; a.mantle = App::MantleState{};
         Instance* c = a.doc.find(W_ID[0]); vec3 keep = c->pos; c->pos.z += 40; c->rev++; a.syncRuntime();   // move the coil away
-        without = a.tryStartVault(Physics::character().pos, a.eyeYaw); why2 = a.vault.why; a.vault = App::VaultState{};
+        without = a.tryStartMantle(Physics::character().pos, a.eyeYaw); why2 = a.mantle.why; a.mantle = App::MantleState{};
         c->pos = keep; c->rev++;
         a.doc.instances.erase(std::remove_if(a.doc.instances.begin(), a.doc.instances.end(), [](const Instance& i) { return i.id == wall; }), a.doc.instances.end());
         a.syncRuntime();
-        check(!withWire && why1 == "unsafe obstacle (wire)" && without, "low wall beside the coil: vault refused (" + why1 + "); the same wall with the coil moved away vaults (" + (without ? std::string("yes") : "NO: " + why2) + ")");
+        check(!withWire && why1 == "unsafe obstacle (wire)" && without, "low wall beside the coil: climb refused (" + why1 + "); the same wall with the coil moved away is climbed (" + (without ? std::string("yes") : "NO: " + why2) + ")");
       }
       return true; });
     push("wire: rounds pass through the gaps, posts stop them", [this](App& a, float) {
