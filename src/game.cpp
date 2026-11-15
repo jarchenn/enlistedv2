@@ -485,7 +485,8 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
   if (rulesIgnoreDamage(*this, i)) return;
-  if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly) return; dmg *= enemyType(s.etype).nonBlastMult; if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
+  if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly || (enemyType(s.etype).nonBlastMult < 1 && how && std::strcmp(how, "shell") == 0)) return; dmg *= enemyType(s.etype).nonBlastMult;   // a direct shell hit is not an instant kill on a resistant type: its blast does the damage
+  if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
   // Head out of the hatch stays exposed.
   if (s.localPlayer && app.tanks.occupied) {
