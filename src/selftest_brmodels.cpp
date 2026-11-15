@@ -83,6 +83,7 @@ void buildWorn(App&) {
   for (int b = 1; b <= 2; ++b) for (int v = 0; v <= 3; ++v) combos.push_back({0, v, b});
   combos.push_back({3, 3, 2});
   static const char* vw[3] = {"front", "side", "back"};
+  if (std::getenv("NMK_BRW_FPONLY")) combos.clear();   // first-person shots only
   for (C c : combos) {
     char tag[32]; std::snprintf(tag, sizeof tag, "h%d_v%d_b%d", c.h, c.v, c.b); std::string tg = tag;
     push("previews " + tg, [c, tg](App&, float t) {
@@ -103,6 +104,9 @@ void buildWorn(App&) {
   // first person in a Battle Royale match wearing the full kit (none of it may show), then the death camera (it shows)
   push("fp br", [](App&, float) { holdBot = false; gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return true; });
   shot("brw_fp_walk_nokit", [](App& a) { a.eyePitch = -20; a.scriptedInput = ExploreInput{}; a.scriptedInput.move = vec2(0, 1); }, 1.0f);
+  shot("brw_fp_rifle", [](App& a) { int w = a.weaponIndex("modern_ak"); std::string m; if (w >= 0) a.equipWeapon(w, m); a.scriptedInput.move = vec2(0); }, 1.2f);
+  shot("brw_fp_hammer", [](App& a) { int w = a.weaponIndex("hammer"); std::string m; if (w >= 0) a.equipWeapon(w, m); }, 1.2f);
+  shot("brw_fp_knife", [](App& a) { int w = a.weaponIndex("knife_bayonet"); std::string m; if (w >= 0) a.equipWeapon(w, m); }, 1.2f);
   push("fp kit", [](App&, float) {
     if (Soldier* L = gGame->local()) { Kit& k = *kitOf(L->slot); k.helmet = 3; k.vest = 3; k.backpack = 2; k.helmetDur = 230; k.vestDur = 250; }
     return true; });
@@ -111,7 +115,8 @@ void buildWorn(App&) {
   shot("brw_fp_walk", [](App& a) { a.eyePitch = -20; a.scriptedInput.move = vec2(0, 1); }, 1.0f);
   shot("brw_death_crate", [](App& a) {   // BR5's crate by a body: placed 2 m ahead (the generated br_death_crate asset)
     a.scriptedInput = ExploreInput{}; a.eyePitch = -25;
-    if (Soldier* L = gGame->local()) { vec3 f = App::forward(a.eyeYaw, 0); LootCase c; c.pos = L->feet + glm::normalize(vec3(f.x, 0, f.z)) * 2.0f; c.pos.y = a.terrain.height(c.pos.x, c.pos.z); c.yaw = a.eyeYaw + 30; { FloorItem it; it.id = "br_bandage"; c.items.push_back(it); } lootCases().push_back(c); }
+    if (Soldier* L = gGame->local()) { vec3 f = App::forward(a.eyeYaw, 0); LootCase c; c.pos = L->feet + glm::normalize(vec3(f.x, 0, f.z)) * 2.0f; c.pos.y = a.terrain.height(c.pos.x, c.pos.z); c.yaw = a.eyeYaw + 30; { FloorItem it; it.id = "br_bandage"; c.items.push_back(it); } lootCases().push_back(c);
+      FloorItem l1; l1.id = "br_vest_1"; l1.pos = L->feet + glm::normalize(vec3(f.x, 0, f.z)) * 2.0f + glm::normalize(vec3(-f.z, 0, f.x)) * 1.1f; l1.pos.y = a.terrain.height(l1.pos.x, l1.pos.z); l1.yaw = a.eyeYaw + 160; lootFloor().push_back(l1); }   // and the level-1 set beside it
   }, 0.8f);
   shot("brw_death_cam", [](App& a) {
     a.scriptedInput = ExploreInput{};
