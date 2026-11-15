@@ -1016,6 +1016,8 @@ int App::run(int argc, char** argv) {
       const bool fixedHour = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() && doc.extra["lighting"].contains("hour");
       if (fixedHour) { if (saved < 0) saved = R.lt.hour; R.lt.hour = doc.extra["lighting"]["hour"].get<float>(); }
       else if (saved >= 0) { R.lt.hour = saved; saved = -1.0f; }
+      const json* lj = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() ? &doc.extra["lighting"] : nullptr;
+      R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
     }
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
     mark("render");

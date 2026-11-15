@@ -768,6 +768,9 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
   auto key = [&](const LightDesc& d) { return glm::length(d.pos - cam) - d.radius; };
   std::sort(L.sel.begin(), L.sel.end(), [&](const LightDesc& a, const LightDesc& b) { return key(a) < key(b); });
   int cap = std::clamp(R.lt.maxLights, 0, 4096);
+  // BR1c: lights near the cap fade in and out over 12 m of the selection key instead of popping when the nearest-N
+  // set changes as the camera moves (a map with more lights than the cap flickered at the edge of the set)
+  float cutK = (int)L.sel.size() > cap && cap > 0 ? key(L.sel[cap]) : 1e30f;
   if ((int)L.sel.size() > cap) L.sel.resize(cap);
   L.count = (int)L.sel.size();
   L.gpu.resize(std::max(L.count, 1));
@@ -776,6 +779,7 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
     float ph = (float)(d.id % 977) * 0.618f * 6.2831853f, tt = L.time;
     float n = std::sin(tt * 7.3f + ph) * 0.5f + std::sin(tt * 13.1f + ph * 1.7f) * 0.3f + std::sin(tt * 23.7f + ph * 2.3f) * 0.2f;
     float fl = 1.0f - std::clamp(d.flicker, 0.0f, 1.0f) * (0.18f + 0.22f * (0.5f + 0.5f * n));
+    fl *= glm::clamp((cutK - key(d)) / 12.0f, 0.0f, 1.0f);   // BR1c: the cap fade
     vec3 dir = glm::length(d.dir) > 1e-5f ? glm::normalize(d.dir) : vec3(0, -1, 0);
     float co = d.cosOuter <= -1.0f ? -2.0f : d.cosOuter, ci = std::max(d.cosInner, co + 1e-3f);
     L.gpu[i] = {vec4(d.pos, std::max(d.radius, 0.0f)), vec4(glm::max(d.color, vec3(0)) * std::max(d.intensity, 0.0f) * fl, 0), vec4(dir, co), vec4(ci, -1, 0, 0)};

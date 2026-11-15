@@ -12,9 +12,9 @@ there is no sky anywhere; walls stand on the cell edges, 3.6 m high, so they clo
 
 | Zone | Cells | Walls | Inside | Lights |
 |---|---|---|---|---|
-| yellow rooms | `brm_cell_yellow`, `_damp` (soaked carpet, a puddle, stained tiles): beige carpet, a 2.7 m suspended-tile ceiling | `brm_wall_y`, `_door` (doorless 1.3 m), `_wide` (4 m): faded yellow wallpaper (ambientCG Wallpaper002C tinted), brown baseboard, water stains | `brm_partition` (4 m), `_short`, `_l`, `_low`, `brm_column_y` | `brm_panel` (glow only), `brm_panel_lit` (cool white, 16 m), `brm_panel_dead` |
-| service | `brm_cell_service`, `_cross`: stained concrete, pipe runs and a cable tray under a 3.2 m slab | `brm_wall_s*`: concrete, electrical boxes, conduit | `brm_column_s` | `brm_bulkhead` (warm, 14 m) |
-| poolrooms | `brm_cell_pool`, `_flooded` (0.28 m of still turquoise water), `_basin` (a 6 x 6 m tiled basin 1 m deep, steps and rails) | `brm_wall_p*`, `brm_wall_p_arch`: pale square tiles | `brm_column_p` (round) | `brm_pool_light` (soft, 17 m) |
+| yellow rooms | `brm_cell_yellow`, `_damp` (soaked carpet, a puddle, stained tiles): beige carpet, a 2.7 m suspended-tile ceiling | `brm_wall_y`, `_door` (doorless 1.3 m), `_wide` (4 m): faded yellow wallpaper (ambientCG Wallpaper002C tinted), brown baseboard, water stains | `brm_partition` (4 m), `_short`, `_l`, `_low`, `brm_column_y` | `brm_panel` (glow only), `brm_panel_lit` (cool white, 11 m), `brm_panel_dead` |
+| service | `brm_cell_service`, `_cross`: stained concrete, pipe runs and a cable tray under a 3.2 m slab | `brm_wall_s*`: concrete, electrical boxes, conduit | `brm_column_s` | `brm_bulkhead` (warm, 9 m) |
+| poolrooms | `brm_cell_pool`, `_flooded` (0.28 m of still turquoise water), `_basin` (a 6 x 6 m tiled basin 1 m deep, steps and rails) | `brm_wall_p*`, `brm_wall_p_arch`: pale square tiles | `brm_column_p` (round) | `brm_pool_light` (soft, 13 m) |
 
 No light flickers. Lights hang from the ceiling (instance y = the ceiling height).
 
@@ -39,12 +39,14 @@ The generator also sinks some existing `furn_armoire`, `furn_bed` and `furn_tabl
   third of the other yellow cells. Partitions sit at most 1.3 m off the cell centre and are at most 4 m long, so they
   never close a cell.
 - Columns stand at grid corners where all four edges are open.
-- Lights (BR1b: about 5x brighter, no flicker): two glowing panels per yellow cell on a regular grid; one real light per three cells on a diagonal lattice (panels 6.0 / 16 m, pool 5.5 / 17 m, bulkheads 5.0 / 14 m), 222 in all, under the Medium cap of 256, so no light ever switches on and off at the edge of the nearest-256 selection (what read as flicker with 640). Three dark stretches (15 m) of dead panels,
-  and 6% dead elsewhere. Pool lights and bulkheads on the same one-in-three lattice.
+- Lights: two panels per yellow cell on a regular grid, one of them lit. Three dark stretches (15 m) of dead panels,
+  and 6% dead elsewhere. One light per pool cell, a bulkhead in 3/4 of the service cells.
 - Dressing (seeded): 26 pieces sunk into walls, 26 sunk into floors, 12 piles, 6 lone chairs, and 3 rooms full of
   identical chairs in rows with aisles. All are kept to cell corners or wall faces, off the centre lines that every
   doorway sits on.
-- The map fixes its hour at night (`"lighting": {"hour": 0}` in the map JSON).
+- The map fixes its hour at night and lifts its own gamma (`"lighting": {"hour": 0, "gamma": 2.2}` in the map JSON: the
+  tonemap raises the image to 1/2.2 in every preset, so 5 % grey comes out about 26 %). Lights near the light cap fade
+  in and out over 12 m instead of popping (`src/lighting.cpp`).
 
 ## Play
 

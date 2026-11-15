@@ -25,6 +25,7 @@ NC = 27
 W = D = NC * CELL
 MARGIN = 60
 CEIL = {"y": 2.7, "s": 3.2, "p": 3.4}
+GAMMA = 2.2   # BR1c: the map's own gamma (extra.lighting.gamma, src/render.cpp): 5 % grey comes out ~26 %
 DIRS = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
 
@@ -274,7 +275,7 @@ def build(ctx):
                 if in_dark or R.random() < 0.06:
                     pid = "brm_panel_dead"
                     n_dead += 1
-                elif k == 0 and (c[0] + 2 * c[1]) % 3 == 0:   # BR1b: one real light per three cells (a diagonal lattice), every panel glows
+                elif k == (c[0] + c[1]) % 2:
                     pid = "brm_panel_lit"
                 else:
                     pid = "brm_panel"
@@ -283,11 +284,11 @@ def build(ctx):
                 if pid in n_lights:
                     n_lights[pid] += 1
         elif zn == "p":
-            if not in_dark and (c[0] + 2 * c[1]) % 3 == 0:
+            if not in_dark:
                 b.place("brm_pool_light", x, z, 0.0, check=False, cls="none", y=h, tags={"lamp"})
                 n_lights["brm_pool_light"] += 1
         else:
-            if not in_dark and (c[0] + 2 * c[1]) % 3 == 0:
+            if not in_dark and R.random() < 0.75:
                 b.place("brm_bulkhead", x + 1.2, z + 1.2, R.choice([0.0, 90.0]), check=False, cls="none", y=h, tags={"lamp"})
                 n_lights["brm_bulkhead"] += 1
 
@@ -414,7 +415,7 @@ def build(ctx):
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(), explore_start=((a1[0], a1[1], a1[2]), look_yaw(1.0, 0.0)), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], 40.0, o["pos"][2] + 30], "yaw": 0.0, "pitch": -50} for i, o in enumerate(sc.objectives)},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0, "gamma": GAMMA}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=8, version=VERSION, seed=SEED,
                    description="A liminal interior, 216 x 216 m: faded yellow rooms under humming fluorescent panels, offset partitions "
                                "and corridors that do not end, bare service halls full of pipes, and tiled poolrooms of still turquoise "
