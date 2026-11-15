@@ -412,7 +412,8 @@ bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
   if (!a || !a->enterable || isProp(a)) return false;
   const std::string& id = a->id;
   bool lit = lightsOnlyHost(a) || id.rfind("mil_", 0) == 0;   // L3: bunkers and casemates get caged electric lamps only (their own furniture stays); GX6: mil_ hosts get military rooms
-  if (!lit && (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0)) return false;   // bunkers, Atlantic Wall, beach / landing craft
+  if (!lit && (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0)) return false;
+  if (id.rfind("tun_", 0) == 0) return false;   // UG1: tunnel pieces are passages, never furnished   // bunkers, Atlantic Wall, beach / landing craft
   if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built (V4)
   if (!lit && (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0)) return false;
   if (i.extra.is_object()) {

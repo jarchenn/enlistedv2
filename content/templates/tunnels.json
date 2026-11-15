@@ -1,0 +1,81 @@
+{
+  "id": "tunnels",
+  "version": 1,
+  "order": 7,
+  "name": "Tunnels",
+  "available": true,
+  "seed": 19440605,
+  "description": "An underground labyrinth, 216 x 216 m: winding rock and concrete galleries on two levels joined by stair drifts, junctions, squeezes, and five chambers (storage, bunk room, generator room, a flooded sump, a collapse). Sparse caged lamps, many of them failing, dark stretches and red emergency lamps. Assault (the Allies push in from the west galleries: generator room, sump, collapse), Team Deathmatch and Solo.",
+  "width": 216.0,
+  "depth": 216.0,
+  "margin": 60,
+  "camera": {
+    "pos": [
+      0.0,
+      150.0,
+      170.0
+    ],
+    "yaw": 0.0,
+    "pitch": -45.0
+  },
+  "heightmap": {
+    "file": "tunnels.height.png",
+    "nx": 111,
+    "nz": 111,
+    "min": -1,
+    "max": 1,
+    "org": [
+      -172.549,
+      -172.549
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "tunnels.nmap.json",
+  "playable": true,
+  "thumbnail": "tunnels.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -86.5,
+      1.65,
+      -47.7
+    ],
+    "yaw": -90.0,
+    "pitch": -4.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        170.0,
+        150.0
+      ],
+      "yaw": 0.0,
+      "pitch": -50.0
+    },
+    {
+      "name": "corridor_eye",
+      "pos": [
+        -32.0,
+        1.65,
+        -91.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "generator_eye",
+      "pos": [
+        -6.0,
+        1.65,
+        -6.0
+      ],
+      "yaw": -135.0,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
+}
