@@ -413,7 +413,7 @@ bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
   const std::string& id = a->id;
   bool lit = lightsOnlyHost(a) || id.rfind("mil_", 0) == 0;   // L3: bunkers and casemates get caged electric lamps only (their own furniture stays); GX6: mil_ hosts get military rooms
   if (!lit && (id.rfind("bunker_", 0) == 0 || id.rfind("aw_", 0) == 0 || id.rfind("bch_", 0) == 0)) return false;
-  if (id.rfind("tun_", 0) == 0 || id.rfind("brm_", 0) == 0) return false;   // UG1: tunnel pieces are passages; BR2: backrooms cells stay empty
+  if (id.rfind("tun_", 0) == 0) return false;   // UG1: tunnel pieces are passages, never furnished
   if (isRuinedAsset(id)) return false;   // ruins, rubble, the chateau keep, unfinished works: left as built (V4)
   if (!lit && (a->category == "Bunkers" || a->category == "Atlantic Wall" || a->category == "Landing craft" || a->category.rfind("Beach", 0) == 0)) return false;
   if (i.extra.is_object()) {
@@ -2272,6 +2272,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   for (auto& it : P.out) if (it.asset.rfind("furn_chair", 0) == 0 && h01(seed, strHash(it.slot), 8u) < 0.05f * std::max(0.0f, wear - 0.6f)) it.broken = true;
   json slots = json::array();
   int made = 0;
+  const bool unlit = ha && ha->id.rfind("brm_", 0) == 0;   // BR2: backrooms rooms keep their furniture but no candle, lamp or flame (light comes from the ceiling panels only)
   quat hq = yawQuat(h->yaw);
   vec3 hp = h->pos; float hy = h->yaw;
   for (auto& it : P.out) {
@@ -2280,6 +2281,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     for (auto& r : removed) if (it.slot.rfind(r + "/", 0) == 0) gone = true;   // things on / around a deleted piece
     if (gone) continue;
     const AssetDef* fa = app.lib.find(it.asset); if (!fa) continue;
+    if (unlit && (lightDef(fa) || fa->id.find("candle") != std::string::npos || fa->id.find("lantern") != std::string::npos || fa->id.find("lamp") != std::string::npos || fa->id.find("fire") != std::string::npos)) continue;   // BR2
     Instance n; n.id = app.doc.newId(); n.assetId = fa->id; n.assetVersion = fa->version;
     n.pos = hp + hq * it.p; n.yaw = wrapDeg(hy + it.yaw);
     n.extra = json::object();

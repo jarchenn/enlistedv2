@@ -17,25 +17,27 @@ const CELL = 8, HC = CELL / 2, WALL_H = 3.6, WT = 0.2, FLOOR_T = 0.3, CEIL_T = 0
 export const BR_CELL = CELL;
 export const BR_CEIL = { y: 2.7, s: 3.2, p: 3.4 };
 const r3 = (v) => Math.round(v * 1000) / 1000;
+const AMB = 1.0;   // BR2: the surfaces' faint glow (a stand-in for bounce light); the 1.5x ambient is the map's extra.lighting.ambient (render.cpp), which lights furniture too
+const amb = (c) => c.map((v) => r3(v * AMB));
 const NAV0 = { rooms: [], doors: [], entrances: [], corners: [], firingPoints: [], cover: [], areas: [] };
 
 function bmats(A) {
-  A.mat("wallpaper", [0.98, 0.9, 0.12], 0.9, "plain", { texture: "wallpaper_backrooms", emissive: [0.16, 0.145, 0.02] });   // BR2: the striped yellow paper (tools/gen_wallpaper_backrooms.py)   // BR2: plain saturated yellow, only a fine low-contrast grain (painted plaster slot)
+  A.mat("wallpaper", [0.98, 0.9, 0.12], 0.9, "plain", { texture: "wallpaper_backrooms", emissive: amb([0.16, 0.145, 0.02]) });   // BR2: the striped yellow paper (tools/gen_wallpaper_backrooms.py)   // BR2: plain saturated yellow, only a fine low-contrast grain (painted plaster slot)
   A.mat("wallpaper_stain", [0.5, 0.43, 0.22], 0.9, "painted", { texture: "wallpaper_aged" });
-  A.mat("trim", [0.9, 0.81, 0.12], 0.8, "plain", { emissive: [0.15, 0.135, 0.02] });   // BR2: the wall's yellow (no dark skirting)
+  A.mat("trim", [0.9, 0.81, 0.12], 0.8, "plain", { emissive: amb([0.15, 0.135, 0.02]) });   // BR2: the wall's yellow (no dark skirting)
   // BR2: the yellow surfaces glow faintly: a stand-in for the bounce light the night lighting (no GI) does not give
-  A.mat("carpet", [0.94, 0.84, 0.14], 0.97, "plain", { texture: "none", emissive: [0.18, 0.16, 0.025] });   // BR2: plain yellow carpet   // BR2: yellow-beige   // BR2: clean beige-yellow
+  A.mat("carpet", [0.94, 0.84, 0.14], 0.97, "plain", { texture: "none", emissive: amb([0.18, 0.16, 0.025]) });   // BR2: plain yellow carpet   // BR2: yellow-beige   // BR2: clean beige-yellow
   A.mat("carpet_damp", [0.36, 0.3, 0.19], 0.8, "fabric", { texture: "rug_beige" });
-  A.mat("ceiling_tile", [0.92, 0.87, 0.22], 0.95, "plain", { emissive: [0.2, 0.19, 0.04] });   // BR2: pale yellow   // BR2: flat pale yellow
-  A.mat("tbar", [0.78, 0.72, 0.18], 0.8, "plain", { emissive: [0.16, 0.15, 0.03] });
-  A.mat("concrete", [0.46, 0.45, 0.42], 0.9, "concrete", { texture: "concrete_stained", emissive: [0.06, 0.058, 0.052] });
-  A.mat("concrete_floor", [0.36, 0.35, 0.33], 0.85, "concrete", { texture: "concrete_aged", emissive: [0.045, 0.044, 0.04] });
+  A.mat("ceiling_tile", [0.92, 0.87, 0.22], 0.95, "plain", { emissive: amb([0.2, 0.19, 0.04]) });   // BR2: pale yellow   // BR2: flat pale yellow
+  A.mat("tbar", [0.78, 0.72, 0.18], 0.8, "plain", { emissive: amb([0.16, 0.15, 0.03]) });
+  A.mat("concrete", [0.46, 0.45, 0.42], 0.9, "concrete", { texture: "concrete_stained", emissive: amb([0.06, 0.058, 0.052]) });
+  A.mat("concrete_floor", [0.36, 0.35, 0.33], 0.85, "concrete", { texture: "concrete_aged", emissive: amb([0.045, 0.044, 0.04]) });
   A.mat("pipe", [0.34, 0.32, 0.28], 0.55, "metal", { metallic: 0.5 });
   A.mat("pipe_green", [0.42, 0.52, 0.44], 0.6, "metal", { metallic: 0.2 });
   A.mat("rust", [0.24, 0.12, 0.06], 0.8, "metal", { metallic: 0.2 });
   A.mat("ebox", [0.44, 0.46, 0.42], 0.6, "metal", { metallic: 0.4 });
-  A.mat("tile", [0.86, 0.88, 0.84], 0.25, "plain", { texture: "floor_cement_tile", emissive: [0.07, 0.08, 0.078] });
-  A.mat("tile_pool", [0.62, 0.84, 0.8], 0.2, "plain", { texture: "floor_cement_tile", emissive: [0.03, 0.07, 0.065] });
+  A.mat("tile", [0.86, 0.88, 0.84], 0.25, "plain", { texture: "floor_cement_tile", emissive: amb([0.07, 0.08, 0.078]) });
+  A.mat("tile_pool", [0.62, 0.84, 0.8], 0.2, "plain", { texture: "floor_cement_tile", emissive: amb([0.03, 0.07, 0.065]) });
   A.mat("grout_dark", [0.5, 0.55, 0.52], 0.5, "plain");
   A.mat("water_proxy", [0.05, 0.12, 0.12], 0.1, "glass");
   A.mat("puddle", [0.03, 0.03, 0.025], 0.05, "plain");
@@ -154,7 +156,7 @@ function column(id, name, zone, h, round = false) {
 function light(id, name, kind, L, glow = !!L) {
   const A = new Asset({ id, version: 1, name, category: "Backrooms", description: name, floors: 0, enterable: false,
     footprint: [1.2, 0.6], plinthDepth: 0, maxGrade: 5, noAutoPanels: true });
-  A.mat("frame", kind === "panel" ? [0.92, 0.87, 0.22] : [0.7, 0.7, 0.66], 0.5, kind === "panel" ? "plain" : "metal", kind === "panel" ? { emissive: [0.2, 0.19, 0.04] } : { metallic: 0.3 });   // BR2: flush panels, no dark frame
+  A.mat("frame", kind === "panel" ? [0.92, 0.87, 0.22] : [0.7, 0.7, 0.66], 0.5, kind === "panel" ? "plain" : "metal", kind === "panel" ? { emissive: amb([0.2, 0.19, 0.04]) } : { metallic: 0.3 });   // BR2: flush panels, no dark frame
   A.mat("diffuser", [0.95, 0.94, 0.88], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [5.0, 4.4, 3.4] : [6.2, 6.0, 5.0] } : {});   // BR2: slightly warm
   if (kind === "panel") {   // a 1.0 x 1.0 m flush square fluorescent panel (BR2)
     A.box([-0.5, -0.012, -0.5], [0.5, 0, 0.5], "frame", { k: 0 });

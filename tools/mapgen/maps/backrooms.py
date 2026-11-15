@@ -25,6 +25,7 @@ NC = 27
 W = D = NC * CELL
 MARGIN = 60
 CEIL = {"y": 2.7, "s": 3.2, "p": 3.4}
+AMBIENT = [0.09, 0.085, 0.06]   # BR2: an even ambient (extra.lighting.ambient): with the surfaces' glow, 1.5x the earlier ambient; light sources unchanged
 GAMMA = 1.0   # BR2 (BR1c had 2.2, which washed the yellow out): the map's own gamma (extra.lighting.gamma, src/render.cpp)
 DIRS = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
@@ -444,7 +445,7 @@ def build(ctx):
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(), explore_start=((a1[0], a1[1], a1[2]), look_yaw(1.0, 0.0)), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], 40.0, o["pos"][2] + 30], "yaw": 0.0, "pitch": -50} for i, o in enumerate(sc.objectives)},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0, "gamma": GAMMA}, "look": {"clean": True, "fog": False}})   # BR2: clean, completely clear
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0, "gamma": GAMMA, "ambient": AMBIENT}, "look": {"clean": True, "fog": False}})   # BR2: clean, completely clear
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=8, version=VERSION, seed=SEED,
                    description="A liminal interior, 216 x 216 m: faded yellow rooms under humming fluorescent panels, offset partitions "
                                "and corridors that do not end, bare service halls full of pipes, and tiled poolrooms of still turquoise "
