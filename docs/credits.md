@@ -173,3 +173,4 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - More gun shots: single-pistol-gunshot-33-37187, single-gunshot-62-hp-37188, 080997_bullet-39735 (freesound_community); automatic-gunfire-191976 (universfield); machine-gun-sfx-2-381973 (u_xg7ssi08yr). Supplied by the user; licences to be confirmed. battle-rifle-42734 retired.
 - Footsteps on vegetation: footsteps-on-dry-leaves-and-grass-332958 (sspsurvival). Supplied by the user; licence to be confirmed.
 - Rocket launch: user-supplied recording (rocket_launch.mp3, from its 3 s mark); source and licence to be confirmed. bomb-explosion-1-381972 retired; big-explosion-sfx-369789 now the rocket impact.
+- Spider: giant-spider-walking-504034 (dragon-studio); spider-attack-1/2/3 (yodguard). Supplied by the user; licences to be confirmed.

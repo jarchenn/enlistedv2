@@ -250,7 +250,7 @@ int Audio::loadCustom(const fs::path& dir) {
   };
   int used = 0; Buf b;
   struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
-  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}}) if (decode(ss.file, b)) {
+  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
     const int W = SR / 100; std::vector<float> env(b.size() / W, 0.0f); float peak = 0;   // 10 ms loudness windows
     for (size_t k = 0; k < env.size(); ++k) { float e = 0; for (int j = 0; j < W; ++j) e = std::max(e, std::fabs(b[k * W + j])); env[k] = e; peak = std::max(peak, e); }
     std::vector<size_t> on;   // onsets: loud after a quiet window, at least 0.25 s apart
@@ -325,6 +325,8 @@ int Audio::loadCustom(const fs::path& dir) {
   if (decode("headshot.mp3", b)) { ++used; float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x)); for (float& x : b) x *= 0.8f / pk; Impl::Event ev; ev.kind = "ui"; ev.v.push_back(b); p->events["ui_headshot"] = ev; }
   if (decode("fighter_laugh.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["fighter_laugh"] = ev; }
   if (decode("fighter_stomp.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.5f; ev.v.push_back(b); p->events["fighter_stomp"] = ev; }
+  { Impl::Event ev; for (const char* f : {"spider_attack_1.mp3", "spider_attack_2.mp3", "spider_attack_3.mp3"}) if (decode(f, b)) ev.v.push_back(b);   // the spider's strike: a random one each time
+    if (!ev.v.empty()) { ++used; p->events["spider_attack"] = ev; } }
   if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["zombie_groan"] = ev; }
   return used;
 }

@@ -346,15 +346,16 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (s.etype == 0 && G.t >= nextGroan && glm::length(s.feet - G.app.eyePos()) < 35.0f && G.rnd(s) < 0.02f) { G.app.audio.play("zombie_groan", s.feet + vec3(0, 1.4f, 0), 0.9f); nextGroan = G.t + 5.0 + 6.0 * G.rnd(s); }
     if (nextGroan > G.t + 30.0) nextGroan = 0;   // a new match restarts the clock
   }
-  if (e.id.rfind("fighter", 0) == 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < 70.0f) {   // the Fighters' heavy footsteps. shortcut: host / single player only
+  const bool fighterT = e.id.rfind("fighter", 0) == 0, spiderT = e.id == "stalker";
+  if ((fighterT || spiderT) && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < (fighterT ? 70.0f : 40.0f)) {   // the Fighters' heavy footsteps. shortcut: host / single player only
     static std::map<int, double> nextStep;
     double& ns = nextStep[s.slot];
-    if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play("step_fighter", s.feet, 1.0f); ns = G.t + std::clamp(2.6f / std::max(1.0f, s.speed), 0.35f, 0.9f); }
+    if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play(fighterT ? "step_fighter" : "step_spider", s.feet, fighterT ? 1.0f : 0.7f); ns = G.t + (fighterT ? std::clamp(2.6f / std::max(1.0f, s.speed), 0.35f, 0.9f) : std::clamp(1.2f / std::max(1.0f, s.speed), 0.18f, 0.45f)); }   // the spider scuttles: quicker steps
   }
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
   // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes
-  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && inReach(G, s, *best, std::max(e.reach, e.lunge))) { s.meleeWind = 0; int n = (int)clipsOf(s).attackClips.size(); s.meleeClip = std::min(n - 1, (int)(G.rnd(s) * n)); ++s.meleeCount; }   // EN2: any of the type's attacks
+  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && inReach(G, s, *best, std::max(e.reach, e.lunge))) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f);   /* one of three, picked at random */ s.meleeWind = 0; int n = (int)clipsOf(s).attackClips.size(); s.meleeClip = std::min(n - 1, (int)(G.rnd(s) * n)); ++s.meleeCount; }   // EN2: any of the type's attacks
   if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
     if (best && e.lunge > e.reach) { float gap = zLenXZ(best->feet - s.feet) - 0.8f * e.reach; if (gap > 0) { m.zSpeed = std::max(m.zSpeed, gap / std::max(0.1f, wu - s.meleeWind)); m.speed = SPD_ZOMBIE; } }
