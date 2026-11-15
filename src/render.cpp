@@ -1,5 +1,6 @@
 #include "render.h"
 #include "lighting.h"
+#include "settings.h"
 #include "nature.h"
 #include "textures.h"
 #include <chrono>
