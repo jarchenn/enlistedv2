@@ -88,3 +88,23 @@ The generator also sinks some existing `furn_armoire`, `furn_bed` and `furn_tabl
   the user's settings.
 - `--shots-backrooms` (`src/selftest_br3.cpp`) takes play-camera shots, with the match paused and a soldier and a
   zombie held in view: `NMK_BR3_SHOTS="name:x:z:tx:tz;..."` writes `selftest_out/br3_<name>.png`.
+
+## BR4 (user playtest: character contrast, more texture)
+
+- Characters and the first-person viewmodel (`progModel`) take only 40% of the map ambient (`render.cpp`), so the
+  panel lights and their shadows shape them. The ambient is lower, [0.13, 0.12, 0.08], with exposure 1.0 and the
+  surfaces' glow at 0.6x. The panels now make pools of light with dimmer gaps between them.
+- Generated textures (`tools/gen_backrooms_textures.py`; original work, slots in `content/textures/textures.json`):
+  - `carpet_backrooms`: cut pile and tonal mottling;
+  - `ceiling_backrooms`: fissured acoustic speckle;
+  - `pooltile_backrooms`: small tiles with grout.
+  The wallpaper gains a soft mottle.
+- Detail geometry:
+  - darker skirting boards, faint low scuffs, a wall socket per face, a high louvred wall vent;
+  - door frames (jambs and head) round the doorways and wide openings;
+  - egg-crate louvres and a metal frame on the panels;
+  - three yellow cell variants (`brm_cell_yellow`, `_b`, `_c`): tile-to-tile tone, a stained tile, a sagging tile, a
+    ceiling vent, a worn (clean) carpet path.
+- Look reference: "Backrooms VR" by carlcapu9 (Sketchfab, CC-BY-4.0). Its materials were inspected for ideas only:
+  baked lighting, scalloped light pools on the walls, egg-crate lamps, square vents, mottled carpet and tile-to-tile
+  ceiling tone. No file from it is in the repo or used by the game.

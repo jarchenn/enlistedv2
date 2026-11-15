@@ -25,8 +25,8 @@ NC = 27
 W = D = NC * CELL
 MARGIN = 60
 CEIL = {"y": 3.6, "s": 4.2, "p": 4.4}   # BR3: higher ceilings (catalog_backrooms.mjs BR_CEIL)
-EXPOSURE = 1.1   # BR3: pinned (x the fixed night exposure) in play and editor alike: auto exposure pulled the bright yellow down
-AMBIENT = [0.22, 0.2, 0.14]   # BR3: brighter (BR2b had 0.09, 0.085, 0.06); lights characters and furniture too   # BR2: an even ambient (extra.lighting.ambient): with the surfaces' glow, 1.5x the earlier ambient; light sources unchanged
+EXPOSURE = 1.0   # BR3: pinned (x the fixed night exposure) in play and editor alike: auto exposure pulled the bright yellow down
+AMBIENT = [0.13, 0.12, 0.08]   # BR4: lower, the panels' pools of light and shadows do the shaping (BR3 had 0.22, 0.2, 0.14)  # BR3: brighter (BR2b had 0.09, 0.085, 0.06); lights characters and furniture too   # BR2: an even ambient (extra.lighting.ambient): with the surfaces' glow, 1.5x the earlier ambient; light sources unchanged
 GAMMA = 1.0   # BR2 (BR1c had 2.2, which washed the yellow out): the map's own gamma (extra.lighting.gamma, src/render.cpp)
 DIRS = {"N": (0, 1), "E": (1, 0), "S": (0, -1), "W": (-1, 0)}
 
@@ -168,12 +168,13 @@ def build(ctx):
 
     # ---------------------------------------------------------------- cells
     basins, flooded = set(), set()
+    Rv = rng(SEED + 11)   # BR4: own sequence for the cell variants (the rest of the map is unchanged)
     n_cell = {"y": 0, "s": 0, "p": 0}
     for c in cells:
         z = zone[c]
         x, zz = cc(*c)
         if z == "y":
-            aid = "brm_cell_yellow"   # BR2: clean carpet everywhere (the damp variant is not used)
+            aid = Rv.choice(["brm_cell_yellow", "brm_cell_yellow_b", "brm_cell_yellow_c", "brm_cell_yellow_c"])   # BR4: three detailed variants (BR2: the damp one is not used)
             R.random()   # keeps the seeded sequence of BR1
         elif z == "s":
             aid = "brm_cell_service_cross" if R.random() < 0.3 else "brm_cell_service"

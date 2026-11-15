@@ -1,0 +1,9 @@
+{
+ "set": "ceiling_backrooms",
+ "id": "generated (tools/gen_backrooms_textures.py)",
+ "family": "interior (BR4)",
+ "size": [1.2, 1.2],
+ "license": "generated, original",
+ "note": "fissured acoustic tile speckle",
+ "maps": ["color.png"]
+}

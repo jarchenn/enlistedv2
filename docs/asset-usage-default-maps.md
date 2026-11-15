@@ -361,7 +361,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `brm_cell_pool_flooded` | not used | not used | not used | not used | not used | not used | 41 |
 | `brm_cell_service` | not used | not used | not used | not used | not used | not used | 76 |
 | `brm_cell_service_cross` | not used | not used | not used | not used | not used | not used | 46 |
-| `brm_cell_yellow` | not used | not used | not used | not used | not used | not used | 482 |
+| `brm_cell_yellow` | not used | not used | not used | not used | not used | not used | 122 |
 | `brm_cell_yellow_damp` | not used | not used | not used | not used | not used | not used | not used |
 | `brm_chair_lone` | not used | not used | not used | not used | not used | not used | 54 |
 | `brm_column_p` | not used | not used | not used | not used | not used | not used | 3 |
@@ -408,6 +408,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tun_room_s_tee` | not used | not used | not used | not used | not used | not used | not used |
 | `tun_straight_shelled` | not used | not used | not used | not used | not used | not used | not used |
 | `tun_tee_shelled` | not used | not used | not used | not used | not used | not used | not used |
+| `brm_cell_yellow_b` | not used | not used | not used | not used | not used | not used | 121 |
+| `brm_cell_yellow_c` | not used | not used | not used | not used | not used | not used | 239 |
 
 ## Notes
 

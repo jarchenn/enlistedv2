@@ -17,18 +17,27 @@ const CELL = 8, HC = CELL / 2, WALL_H = 4.6, WT = 0.2, FLOOR_T = 0.3, CEIL_T = 0
 export const BR_CELL = CELL;
 export const BR_CEIL = { y: 3.6, s: 4.2, p: 4.4 };   // BR3: about 1.3x higher (was 2.7, 3.2, 3.4)
 const r3 = (v) => Math.round(v * 1000) / 1000;
-const AMB = 1.0;   // BR2: the surfaces' faint glow (a stand-in for bounce light); the 1.5x ambient is the map's extra.lighting.ambient (render.cpp), which lights furniture too
+const AMB = 0.6;   // BR4: less flat glow, so the panels' pools of light show (was 1.0)   // BR2: the surfaces' faint glow (a stand-in for bounce light); the 1.5x ambient is the map's extra.lighting.ambient (render.cpp), which lights furniture too
 const amb = (c) => c.map((v) => r3(v * AMB));
 const NAV0 = { rooms: [], doors: [], entrances: [], corners: [], firingPoints: [], cover: [], areas: [] };
 
 function bmats(A) {
-  A.mat("wallpaper", [0.98, 0.9, 0.12], 0.9, "plain", { texture: "wallpaper_backrooms", emissive: amb([0.16, 0.145, 0.02]) });   // BR2: the striped yellow paper (tools/gen_wallpaper_backrooms.py)   // BR2: plain saturated yellow, only a fine low-contrast grain (painted plaster slot)
+  A.mat("wallpaper", [0.95, 0.83, 0.2], 0.9, "plain", { texture: "wallpaper_backrooms", emissive: amb([0.16, 0.145, 0.02]) });   // BR2: the striped yellow paper (tools/gen_wallpaper_backrooms.py)   // BR2: plain saturated yellow, only a fine low-contrast grain (painted plaster slot)
   A.mat("wallpaper_stain", [0.5, 0.43, 0.22], 0.9, "painted", { texture: "wallpaper_aged" });
-  A.mat("trim", [0.9, 0.81, 0.12], 0.8, "plain", { emissive: amb([0.15, 0.135, 0.02]) });   // BR2: the wall's yellow (no dark skirting)
+  A.mat("trim", [0.9, 0.81, 0.12], 0.8, "plain", { emissive: amb([0.15, 0.135, 0.02]) });
+  // BR4: detail (inspired by a baked Backrooms scene: skirting, door frames, sockets, vents, scuffs, tile-to-tile variation)
+  A.mat("skirting", [0.6, 0.48, 0.18], 0.6, "plain", { emissive: amb([0.08, 0.065, 0.02]) });
+  A.mat("door_frame", [0.72, 0.6, 0.2], 0.6, "painted", { emissive: amb([0.1, 0.085, 0.025]) });
+  A.mat("socket", [0.9, 0.88, 0.8], 0.4, "plain");
+  A.mat("vent", [0.86, 0.8, 0.52], 0.6, "plain", { emissive: amb([0.17, 0.155, 0.08]) });   // painted pale (a bare metal vent read as a dark hole)
+  A.mat("scuff", [0.84, 0.72, 0.19], 0.9, "plain", { texture: "wallpaper_backrooms", emissive: amb([0.14, 0.12, 0.03]) });   // a faint smudge, barely darker than the paper
+  A.mat("carpet_worn", [0.78, 0.66, 0.26], 0.97, "plain", { texture: "carpet_backrooms", emissive: amb([0.13, 0.11, 0.03]) });
+  A.mat("ceiling_tile_b", [0.86, 0.79, 0.26], 0.95, "plain", { texture: "ceiling_backrooms", emissive: amb([0.18, 0.165, 0.045]) });
+  A.mat("ceiling_stain", [0.72, 0.58, 0.24], 0.95, "plain", { texture: "ceiling_backrooms", emissive: amb([0.12, 0.1, 0.035]) });
   // BR2: the yellow surfaces glow faintly: a stand-in for the bounce light the night lighting (no GI) does not give
-  A.mat("carpet", [0.94, 0.84, 0.14], 0.97, "plain", { texture: "none", emissive: amb([0.18, 0.16, 0.025]) });   // BR2: plain yellow carpet   // BR2: yellow-beige   // BR2: clean beige-yellow
+  A.mat("carpet", [0.88, 0.76, 0.26], 0.97, "plain", { texture: "carpet_backrooms", emissive: amb([0.18, 0.16, 0.025]) });   // BR2: plain yellow carpet   // BR2: yellow-beige   // BR2: clean beige-yellow
   A.mat("carpet_damp", [0.36, 0.3, 0.19], 0.8, "fabric", { texture: "rug_beige" });
-  A.mat("ceiling_tile", [0.92, 0.87, 0.22], 0.95, "plain", { emissive: amb([0.2, 0.19, 0.04]) });   // BR2: pale yellow   // BR2: flat pale yellow
+  A.mat("ceiling_tile", [0.93, 0.87, 0.3], 0.95, "plain", { texture: "ceiling_backrooms", emissive: amb([0.2, 0.19, 0.04]) });   // BR2: pale yellow   // BR2: flat pale yellow
   A.mat("tbar", [0.78, 0.72, 0.18], 0.8, "plain", { emissive: amb([0.16, 0.15, 0.03]) });
   A.mat("concrete", [0.46, 0.45, 0.42], 0.9, "concrete", { texture: "concrete_stained", emissive: amb([0.06, 0.058, 0.052]) });
   A.mat("concrete_floor", [0.36, 0.35, 0.33], 0.85, "concrete", { texture: "concrete_aged", emissive: amb([0.045, 0.044, 0.04]) });
@@ -36,8 +45,8 @@ function bmats(A) {
   A.mat("pipe_green", [0.42, 0.52, 0.44], 0.6, "metal", { metallic: 0.2 });
   A.mat("rust", [0.24, 0.12, 0.06], 0.8, "metal", { metallic: 0.2 });
   A.mat("ebox", [0.44, 0.46, 0.42], 0.6, "metal", { metallic: 0.4 });
-  A.mat("tile", [0.86, 0.88, 0.84], 0.25, "plain", { texture: "floor_cement_tile", emissive: amb([0.07, 0.08, 0.078]) });
-  A.mat("tile_pool", [0.62, 0.84, 0.8], 0.2, "plain", { texture: "floor_cement_tile", emissive: amb([0.03, 0.07, 0.065]) });
+  A.mat("tile", [0.86, 0.88, 0.84], 0.25, "plain", { texture: "pooltile_backrooms", emissive: amb([0.07, 0.08, 0.078]) });
+  A.mat("tile_pool", [0.62, 0.84, 0.8], 0.2, "plain", { texture: "pooltile_backrooms", emissive: amb([0.03, 0.07, 0.065]) });
   A.mat("grout_dark", [0.5, 0.55, 0.52], 0.5, "plain");
   A.mat("water_proxy", [0.05, 0.12, 0.12], 0.1, "glass");
   A.mat("puddle", [0.03, 0.03, 0.025], 0.05, "plain");
@@ -77,6 +86,15 @@ function cell(id, name, zone, opt = {}) {
   if (zone === "y") {   // the suspended grid: T-bars every 1.2 / 0.6 m under the ceiling tiles
     for (let x = -HC + 0.4; x < HC; x += 1.2) A.box([r3(x - 0.015), h - 0.02, -HC], [r3(x + 0.015), h, HC], "tbar", D);
     for (let z = -HC + 0.4; z < HC; z += 1.2) A.box([-HC, h - 0.02, r3(z - 0.015)], [HC, h, r3(z + 0.015)], "tbar", D);
+    const tile = () => { const i = Math.floor(R() * 6), j = Math.floor(R() * 6); return [-HC + 0.4 + i * 1.2 + 0.6, -HC + 0.4 + j * 1.2 + 0.6]; };
+    for (let k = 0; k < 9; k++) { const [x, z] = tile(); A.box([r3(x - 0.585), h - 0.004, r3(z - 0.585)], [r3(x + 0.585), h - 0.001, r3(z + 0.585)], "ceiling_tile_b", D); }   // BR4: tile-to-tile tone
+    if (opt.stain) { const [x, z] = tile(); A.box([r3(x - 0.585), h - 0.006, r3(z - 0.585)], [r3(x + 0.585), h - 0.003, r3(z + 0.585)], "ceiling_stain", D); }
+    if (opt.sag) { const [x, z] = tile(); A.obox([r3(x), h - 0.05, r3(z)], [1.17, 0.02, 1.17], [5, 0, -3], "ceiling_tile_b", D); }   // a sagging tile
+    if (opt.vent) { const [x, z] = [-HC + 0.4 + 2 * 1.2 + 0.6, -HC + 0.4 + 4 * 1.2 + 0.6];   // a square ceiling vent with louvres
+      A.box([x - 0.32, h - 0.03, z - 0.32], [x + 0.32, h - 0.004, z + 0.32], "vent", D);
+      for (let q = -2; q <= 2; q++) A.box([x - 0.26, h - 0.05, r3(z + q * 0.11 - 0.012)], [x + 0.26, h - 0.03, r3(z + q * 0.11 + 0.012)], "vent", D); }
+    if (opt.worn) { const w = 1.3, ax = R() < 0.5;   // a worn path across the carpet (clean, only a tone)
+      A.box(ax ? [-HC, 0.001, -w / 2] : [-w / 2, 0.001, -HC], ax ? [HC, 0.004, w / 2] : [w / 2, 0.004, HC], "carpet_worn", { k: 0 }); }
   }
   if (zone === "s") {   // exposed pipe runs and a cable tray under the slab
     const runs = opt.cross ? [["x", -2.2], ["x", 1.6], ["z", 2.6], ["z", -0.8]] : [["x", -2.4], ["x", -1.8], ["x", 1.9], ["x", 2.5]];
@@ -113,8 +131,23 @@ function wall(id, name, zone, gap = null, opt = {}) {
     }
   }
   const spans = gap ? [[-HC, -gap[0] / 2], [gap[0] / 2, HC]] : [[-HC, HC]];
-  if (zone === "y") for (const sd of [-1, 1]) for (const [a, b] of spans) {   // a baseboard on both faces (BR2: no stains)
-    A.box([a, 0, sd > 0 ? t : -t - 0.015], [b, 0.11, sd > 0 ? t + 0.015 : -t], "trim", D);
+  if (zone === "y") for (const sd of [-1, 1]) {
+    const f0 = sd > 0 ? t : -t, out = (d) => (sd > 0 ? [f0, f0 + d] : [f0 - d, f0]);
+    for (const [a, b] of spans) {
+      A.box([a, 0, out(0.02)[0]], [b, 0.14, out(0.02)[1]], "skirting", D);   // BR4: a skirting board
+      for (let k = 0; k < 3; k++) { const x = a + (b - a) * R(), w = 0.3 + R() * 0.7; if (x + w < b) A.box([r3(x), 0.14, out(0.003)[0]], [r3(x + w * 0.6), r3(0.17 + R() * 0.08), out(0.003)[1]], "scuff", { k: 0 }); }   // low scuffs
+    }
+    if (gap) {   // door frame: two jambs and a head on this face
+      const [w, hh] = gap;
+      for (const x of [-w / 2 - 0.08, w / 2]) A.box([r3(x), 0, out(0.03)[0]], [r3(x + 0.08), hh + 0.08, out(0.03)[1]], "door_frame", D);
+      A.box([-w / 2 - 0.08, hh, out(0.03)[0]], [w / 2 + 0.08, hh + 0.08, out(0.03)[1]], "door_frame", D);
+    }
+    const sx = gap ? (sd > 0 ? 3.0 : -3.0) : sd * 1.7;   // a wall socket
+    A.box([sx - 0.045, 0.3, out(0.012)[0]], [sx + 0.045, 0.42, out(0.012)[1]], "socket", D);
+    A.box([sx - 0.012, 0.335, out(0.016)[0]], [sx + 0.012, 0.385, out(0.016)[1]], "skirting", D);
+    if (!gap && sd > 0) { const vx = -2.4;   // a high wall vent
+      A.box([vx - 0.25, 3.0, out(0.02)[0]], [vx + 0.25, 3.3, out(0.02)[1]], "vent", D);
+      for (let q = 0; q < 4; q++) A.box([vx - 0.21, r3(3.04 + q * 0.065), out(0.035)[0]], [vx + 0.21, r3(3.07 + q * 0.065), out(0.035)[1]], "skirting", D); }
   }
   if (zone === "s") {   // electrical boxes and conduit on one face
     const x = gap ? (R() < 0.5 ? -2.6 : 2.6) : (R() - 0.5) * 4;
@@ -135,7 +168,7 @@ function partition(id, name, zone, segs, h) {
   const m = zone === "y" ? "wallpaper" : zone === "s" ? "concrete" : "tile";
   for (const [x0, z0, x1, z1] of segs) {
     A.box([x0, 0, z0], [x1, h, z1], m);
-    if (zone === "y") A.box([x0 - 0.012, 0, z0 - 0.012], [x1 + 0.012, 0.1, z1 + 0.012], "trim", { k: 0 });
+    if (zone === "y") A.box([x0 - 0.02, 0, z0 - 0.02], [x1 + 0.02, 0.14, z1 + 0.02], "skirting", { k: 0 });
   }
   const cv = segs.length === 1 && Math.abs(segs[0][2] - segs[0][0]) > 1 ? [cover([0, 0, 0.5], 0, "high", ["left", "right"]), cover([0, 0, -0.5], 180, "high", ["left", "right"])] : [];
   setNav(A, { ...NAV0, effect: "block", cover: cv });
@@ -147,7 +180,7 @@ function column(id, name, zone, h, round = false) {
   bmats(A);
   const m = zone === "y" ? "wallpaper" : zone === "s" ? "concrete" : "tile";
   if (round) A.cyl([0, h / 2, 0], [0.8, h, 0.8], m, { n: 16 }); else A.box([-0.6, 0, -0.6], [0.6, h, 0.6], m);   // BR2: thick 1.2 m pillars
-  if (zone === "y") A.box([-0.365, 0, -0.365], [0.365, 0.1, 0.365], "trim", { k: 0 });
+  if (zone === "y") A.box([-0.62, 0, -0.62], [0.62, 0.14, 0.62], "skirting", { k: 0 });
   setNav(A, { ...NAV0, effect: "block", cover: [cover([0, 0, 0.7], 0, "high", ["left", "right"]), cover([0, 0, -0.7], 180, "high", ["left", "right"])] });
   return A;
 }
@@ -156,11 +189,12 @@ function column(id, name, zone, h, round = false) {
 function light(id, name, kind, L, glow = !!L) {
   const A = new Asset({ id, version: 1, name, category: "Backrooms", description: name, floors: 0, enterable: false,
     footprint: [1.2, 0.6], plinthDepth: 0, maxGrade: 5, noAutoPanels: true });
-  A.mat("frame", kind === "panel" ? [0.92, 0.87, 0.22] : [0.7, 0.7, 0.66], 0.5, kind === "panel" ? "plain" : "metal", kind === "panel" ? { emissive: amb([0.2, 0.19, 0.04]) } : { metallic: 0.3 });   // BR2: flush panels, no dark frame
-  A.mat("diffuser", [0.95, 0.94, 0.88], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [9.0, 8.0, 6.2] : [14.0, 13.6, 11.5] } : {});   // BR2: slightly warm
+  A.mat("frame", kind === "panel" ? [0.86, 0.8, 0.6] : [0.7, 0.7, 0.66], 0.45, "metal", { metallic: 0.35, emissive: kind === "panel" ? amb([0.2, 0.18, 0.1]) : [0, 0, 0] });   // BR4: a light metal frame and louvres   // BR2: flush panels, no dark frame
+  A.mat("diffuser", [0.95, 0.94, 0.88], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [9.0, 8.0, 6.2] : [14.0, 13.6, 11.5] } : { emissive: amb([0.24, 0.23, 0.18]) });   // BR4: a dead panel is a pale unlit diffuser, not a hole   // BR2: slightly warm
   if (kind === "panel") {   // a 1.0 x 1.0 m flush square fluorescent panel (BR2)
     A.box([-0.5, -0.012, -0.5], [0.5, 0, 0.5], "frame", { k: 0 });
     A.box([-0.47, -0.016, -0.47], [0.47, -0.008, 0.47], "diffuser", { k: 0 });
+    for (const q of [-0.16, 0.16]) { A.box([-0.47, -0.04, q - 0.008], [0.47, -0.016, q + 0.008], "frame", { k: 0 }); A.box([q - 0.008, -0.04, -0.47], [q + 0.008, -0.016, 0.47], "frame", { k: 0 }); }   // egg-crate louvres
   } else if (kind === "pool") {   // a round recessed light
     A.cyl([0, -0.015, 0], [0.7, 0.03, 0.7], "frame", { k: 0, n: 16 });
     A.cyl([0, -0.025, 0], [0.6, 0.012, 0.6], "diffuser", { k: 0, n: 16 });
@@ -228,7 +262,9 @@ function pile(id, name, shape, n, seed, spread, desc) {
 
 export function backroomsAssets() {
   const out = [];
-  out.push(cell("brm_cell_yellow", "Yellow room cell", "y", { seed: 1, desc: "8 x 8 m of beige carpet under a 2.7 m suspended-tile ceiling." }));
+  out.push(cell("brm_cell_yellow", "Yellow room cell", "y", { seed: 1, stain: true, worn: true, desc: "8 x 8 m of yellow carpet under a 3.6 m suspended-tile ceiling (tile-to-tile tone, a stained tile, a worn path)." }));
+  out.push(cell("brm_cell_yellow_b", "Yellow room cell (b)", "y", { seed: 8, sag: true, vent: true, desc: "Yellow room cell: a sagging ceiling tile and a ceiling vent." }));
+  out.push(cell("brm_cell_yellow_c", "Yellow room cell (c)", "y", { seed: 9, desc: "Yellow room cell: plain carpet, tile-to-tile tone." }));
   out.push(cell("brm_cell_yellow_damp", "Yellow room cell, damp", "y", { seed: 2, damp: true, desc: "Yellow room cell with the carpet soaked in dark patches, a puddle and stained ceiling tiles." }));
   out.push(cell("brm_cell_service", "Service cell", "s", { seed: 3, desc: "Bare concrete under a 3.2 m slab with pipe runs and a cable tray." }));
   out.push(cell("brm_cell_service_cross", "Service cell, crossing pipes", "s", { seed: 4, cross: true }));
