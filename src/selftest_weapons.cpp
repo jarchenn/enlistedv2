@@ -585,7 +585,14 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
             if (ph == 1 && s.throwT >= d.melee.windup * 0.9f) { ph = 2; shot("swing"); in.fire = false; }
             return ph == 2 && t > 2.0f;
           }
-          if (ph == 0 && t > 0.8f) { ph = 1; shot("hip"); in.move = vec2(1, 0); }
+          if (ph == 0 && t > 0.8f) {
+            ph = 1; shot("hip"); in.move = vec2(1, 0);
+            vec3 P[3]; bool ok = true;   // MG11: the rig's rear sight / front sight / muzzle at the hip, in camera space (x right, y up, -z ahead)
+            for (int k = 0; k < 3; ++k) ok = ok && animVmPoint(a, d, k, P[k]);
+            if (ok) { mat4 V = glm::lookAt(a.eyePos(), a.eyePos() + App::forward(a.eyeYaw, a.eyePitch), vec3(0, 1, 0));
+              for (auto& q : P) q = vec3(V * vec4(q, 1));
+              logf("[mg11hip] %s rear (%.3f %.3f %.3f) front (%.3f %.3f %.3f) muzzle (%.3f %.3f %.3f)", id.c_str(), P[0].x, P[0].y, P[0].z, P[1].x, P[1].y, P[1].z, P[2].x, P[2].y, P[2].z); }
+          }
           if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); }
           if (ph == 2 && t > 2.3f) { ph = 3; shot("strafe_l"); in.move = vec2(0); in.aim = true; }
           if (ph == 3 && t > 3.6f) { ph = 4; shot("ads"); }
