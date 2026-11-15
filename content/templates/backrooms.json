@@ -1,0 +1,81 @@
+{
+  "id": "backrooms",
+  "version": 1,
+  "order": 8,
+  "name": "Backrooms",
+  "available": true,
+  "seed": 1100100,
+  "description": "A liminal interior, 216 x 216 m: faded yellow rooms under humming fluorescent panels, offset partitions and corridors that do not end, bare service halls full of pipes, and tiled poolrooms of still turquoise water. Furniture sinks into the walls and floors. Assault (the Allies push in from the west rooms: the poolrooms, the pipe halls, the yellow rooms), Team Deathmatch and Solo.",
+  "width": 216.0,
+  "depth": 216.0,
+  "margin": 60,
+  "camera": {
+    "pos": [
+      0.0,
+      150.0,
+      170.0
+    ],
+    "yaw": 0.0,
+    "pitch": -45.0
+  },
+  "heightmap": {
+    "file": "backrooms.height.png",
+    "nx": 111,
+    "nz": 111,
+    "min": -1,
+    "max": 1,
+    "org": [
+      -172.549,
+      -172.549
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "backrooms.nmap.json",
+  "playable": true,
+  "thumbnail": "backrooms.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      24.0,
+      1.65,
+      16.0
+    ],
+    "yaw": -90.0,
+    "pitch": -2.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        170.0,
+        150.0
+      ],
+      "yaw": 0.0,
+      "pitch": -50.0
+    },
+    {
+      "name": "corridor_eye",
+      "pos": [
+        24.0,
+        1.65,
+        16.0
+      ],
+      "yaw": -90.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "poolrooms_eye",
+      "pos": [
+        -43.0,
+        1.65,
+        13.0
+      ],
+      "yaw": -135.0,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
+}
