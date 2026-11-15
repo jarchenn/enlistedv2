@@ -126,17 +126,19 @@ bool importVehicleModels(const fs::path& srcDir, const fs::path& contentRoot) {
   std::sort(files.begin(), files.end());
   for (auto& f : files) {
     json j; try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
-    if (!j.contains("model")) continue;
-    ImportSpec s = importSpecFromJson(j["model"]);
+    for (const char* key : {"model", "fallbackModel"}) {   // fallbackModel (VH1): committed stand-in when the model is local-only
+    if (!j.contains(key)) continue;
+    ImportSpec s = importSpecFromJson(j[key]);
     if (s.src.empty() || s.dir.empty()) continue;
     fs::path glb = srcDir / s.src;
     if (!fs::exists(glb)) { logf("import vehicle %-10s skipped: %s not found", s.dir.c_str(), glb.string().c_str()); continue; }
     std::string err, sum, rep;
     fs::path out = vdir / "models" / s.dir;
     if (!bakeGlbModel(glb, s, out, err, sum)) { logf("import vehicle %-10s FAILED: %s", s.dir.c_str(), err.c_str()); ++bad; continue; }
-    if (!postProcessVehicleModel(out, j["model"], rep)) { logf("import vehicle %-10s post-pass FAILED: %s", s.dir.c_str(), rep.c_str()); ++bad; continue; }
+    if (!postProcessVehicleModel(out, j[key], rep)) { logf("import vehicle %-10s post-pass FAILED: %s", s.dir.c_str(), rep.c_str()); ++bad; continue; }
     logf("import vehicle %-10s %s |%s", s.dir.c_str(), sum.c_str(), rep.c_str());
     ++ok;
+    }
   }
   logf("import vehicles: %d baked, %d failed", ok, bad);
   return bad == 0;

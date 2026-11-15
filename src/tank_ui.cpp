@@ -18,6 +18,7 @@ void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   const GpuModel* gm = d.model.get();
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
   vec4 tint = t.wrecked ? vec4(0.13f, 0.12f, 0.11f, 1) : vec4(1);   // burnt-out: darker than a live tank
+  if (d.car) { drawCar(app, t, tint, h); return; }
   bool sight = app.mode == Mode::Explore && occupied == t.id && t.hatchT < 0.5f;   // inside the optic: the own gun is not drawn
   auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
   put(d.hullParts, h);
@@ -36,10 +37,52 @@ void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   }
 }
 
+// VH1 car: body, the variant's stowage / pintle, the windshield (folded about its hinge), the steering wheel turning
+// about its column with the smoothed steering (steerTurns lock to lock), the front wheels steered (Ackermann: the inner
+// wheel more) and every wheel rolling with the ground speed and dropping / rising on its suspension travel
+void TankSys::carStaticParts(const TankDef& d, std::vector<int>& out) const {
+  out.insert(out.end(), d.hullParts.begin(), d.hullParts.end());
+  if (d.stowage) out.insert(out.end(), d.stowageParts.begin(), d.stowageParts.end());
+  if (d.pintle) out.insert(out.end(), d.pintleParts.begin(), d.pintleParts.end());
+}
+void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
+  const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
+  std::vector<int> st; carStaticParts(d, st); put(st, h);
+  put(d.windshieldParts, h * glm::translate(mat4(1), d.windshieldPivot) * glm::rotate(mat4(1), radians(d.windshieldFold), vec3(1, 0, 0)) * glm::translate(mat4(1), -d.windshieldPivot));
+  float rim = -t.steer * d.steerTurns * 0.5f * 6.2831853f;   // + steer (right) turns the rim clockwise as the driver sees it
+  put(d.steerParts, h * glm::translate(mat4(1), d.steerC) * glm::rotate(mat4(1), rim, d.steerAxis) * glm::translate(mat4(1), -d.steerC));
+  float delta = std::tan(radians(-t.steer * d.maxSteerDeg)), L = 2 * d.trackHalfLen;
+  for (int k = 0; k < 4; ++k) {
+    vec3 c = d.wheelC[k];
+    float yaw = 0;
+    if (k < 2 && std::fabs(delta) > 1e-4f) { float R = L / delta; yaw = std::atan(L / (R - c.x)); }   // turn centre at x = R on the rear axle
+    put(d.wheelPart[k], h * glm::translate(mat4(1), c + vec3(0, t.wheelSusp[k], 0)) * glm::rotate(mat4(1), yaw, vec3(0, 1, 0)) *
+                            glm::rotate(mat4(1), t.wheelSpin[k], vec3(1, 0, 0)) * glm::translate(mat4(1), -c));
+  }
+  if (d.pintle && !d.mgWeapon.empty()) {
+    int wi = app.weaponIndex(d.mgWeapon);
+    if (wi >= 0 && app.weaponDefs[wi]->useModel()) {
+      const WeaponDef& wd = *app.weaponDefs[wi];
+      mat4 W = mgMatrix(t) * glm::translate(mat4(1), d.mgModelOffset);
+      for (int p = 0; p < 8; ++p) for (int k : wd.modelParts[p]) app.R.worldModels.push_back({wd.model.get(), k, W, tint});
+    }
+  }
+}
+
 // Creative placement preview: every part of the baked model at the cursor, tinted green (valid) / red (refused)
 void TankSys::ghostItems(App& app, const AssetDef* a, const mat4& M, vec4 tint) {
   const TankDef* d = defFor(a);
   if (!d) return;
+  if (d->car) {
+    std::vector<int> ps; carStaticParts(*d, ps);
+    for (int w = 0; w < 4; ++w) ps.insert(ps.end(), d->wheelPart[w].begin(), d->wheelPart[w].end());
+    ps.insert(ps.end(), d->steerParts.begin(), d->steerParts.end());
+    mat4 Wf = M * glm::translate(mat4(1), d->windshieldPivot) * glm::rotate(mat4(1), radians(d->windshieldFold), vec3(1, 0, 0)) * glm::translate(mat4(1), -d->windshieldPivot);
+    for (int k : ps) app.R.worldModels.push_back({d->model.get(), k, M, tint});
+    for (int k : d->windshieldParts) app.R.worldModels.push_back({d->model.get(), k, Wf, tint});
+    return;
+  }
   for (size_t k = 0; k < d->model->parts.size(); ++k) app.R.worldModels.push_back({d->model.get(), (int)k, M, tint});
 }
 
@@ -52,7 +95,13 @@ void TankSys::makeThumbnails(App& app) {
     auto add = [&](const std::vector<int>& ps) { for (int k : ps) md.push_back({d->model.get(), k, mat4(1)}); };
     add(d->hullParts); add(d->turretParts); add(d->gunParts); add(d->mgParts); add(d->hatchParts);
     for (int s = 0; s < 2; ++s) { add(d->trackParts[s]); add(d->wheelParts[s]); }
-    vec3 c = (d->model->bmin + d->model->bmax) * 0.5f; c.y = 1.4f;
+    if (d->car) {   // VH1: the variant's parts, its windshield folded as placed
+      std::vector<int> ps; carStaticParts(*d, ps); md.clear(); add(ps); add(d->steerParts);
+      for (int w = 0; w < 4; ++w) add(d->wheelPart[w]);
+      mat4 Wf = glm::translate(mat4(1), d->windshieldPivot) * glm::rotate(mat4(1), radians(d->windshieldFold), vec3(1, 0, 0)) * glm::translate(mat4(1), -d->windshieldPivot);
+      for (int k : d->windshieldParts) md.push_back({d->model.get(), k, Wf});
+    }
+    vec3 c = (d->model->bmin + d->model->bmax) * 0.5f; c.y = d->car ? 0.8f : 1.4f;
     float R = glm::length(vec2(d->model->bmax.x - d->model->bmin.x, d->model->bmax.z - d->model->bmin.z)) * 0.5f;
     vec3 eye = c + glm::normalize(vec3(-1.0f, 0.55f, 1.1f)) * R * 2.3f;
     mat4 view = glm::lookAt(eye, c, vec3(0, 1, 0)), proj = glm::perspective(radians(30.0f), 1.0f, 0.1f, 100.0f);
@@ -93,6 +142,7 @@ void TankSys::drawUI(App& app) {
   TankRT* tp = get(occupied);
   if (!tp) return;
   TankRT& t = *tp; const TankDef& d = *t.def;
+  if (d.car) { drawCarUI(app, t); return; }
   vec3 eye, fwd; float fov;
   camera(app, eye, fwd, fov);
   float fpx = (io.DisplaySize.y * 0.5f) / std::tan(radians(fov) * 0.5f);   // pixels per unit tangent (vertical FOV)
@@ -223,6 +273,29 @@ void TankSys::drawUI(App& app) {
   dl->AddLine(o, ImVec2(o.x - std::sin(a) * 46, o.y - std::cos(a) * 46), IM_COL32(240, 210, 120, 255), 3);
   if (t.station == TS_HATCH) { float m = radians(t.tYaw + t.mgYaw); dl->AddLine(o, ImVec2(o.x - std::sin(m) * 30, o.y - std::cos(m) * 30), IM_COL32(150, 220, 255, 255), 2); }
   if (!t.blockedBy.empty()) dl->AddText(ImVec2(o.x - 60, o.y + hl + 10), IM_COL32(255, 140, 110, 255), ("blocked: " + t.blockedBy).c_str());
+}
+
+// VH1 car HUD: speed, gear, handbrake, durability and the controls (the cab itself is the view); at the pintle MG an
+// open crosshair and the belt
+void TankSys::drawCarUI(App& app, TankRT& t) {
+  (void)app;
+  const TankDef& d = *t.def;
+  ImGuiIO& io = ImGui::GetIO();
+  ImDrawList* dl = ImGui::GetForegroundDrawList();
+  ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+  bool gun = t.station == TS_HATCH && t.hatchT >= 1.0f;
+  if (gun) { dl->AddCircle(c, 7, IM_COL32(240, 240, 230, 210), 20, 1.5f); dl->AddCircleFilled(c, 1.8f, IM_COL32(240, 240, 230, 220)); }
+  char b[400];
+  const char* gear = t.speed < -0.2f ? "R" : std::fabs(t.speed) < 0.2f ? "N" : "D";
+  if (gun) std::snprintf(b, sizeof b, "%s  [PINTLE MG]\n%s  belt %d  spare %d%s\nDURABILITY %d/100\nLMB / Space fire | Ctrl back to the wheel | E get out",
+                         d.name.c_str(), d.mgName.c_str(), t.mgLoaded, t.mgReserve, t.mgReloadT > 0 ? "  (changing belt)" : "", t.hp);
+  else std::snprintf(b, sizeof b, "%s\nSPEED %3.0f km/h   %s%s\nDURABILITY %d/100\nW/S throttle-brake-reverse | A/D steer | Space handbrake%s | E get out",
+                     d.name.c_str(), std::fabs(t.speed) * 3.6f, gear, t.handbrake ? "   HANDBRAKE" : "", t.hp, d.pintle ? " | Ctrl MG" : "");
+  ImVec2 ts = ImGui::CalcTextSize(b);
+  ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30);
+  dl->AddRectFilled(ImVec2(p.x - 10, p.y - 6), ImVec2(p.x + ts.x + 10, p.y + ts.y + 6), IM_COL32(12, 12, 10, 170), 4);
+  dl->AddText(p, t.hp <= 50 ? IM_COL32(255, 170, 120, 255) : IM_COL32(235, 225, 190, 255), b);
+  if (!t.blockedBy.empty()) dl->AddText(ImVec2(p.x, p.y - 26), IM_COL32(255, 140, 110, 255), ("blocked: " + t.blockedBy).c_str());
 }
 
 // ============================================================ ammunition strip (bottom centre)

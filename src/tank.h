@@ -71,6 +71,16 @@ struct TankDef {
   int frontSurvive = 4, sideSurvive = 1;
   int frontDamage() const { return 100 / (frontSurvive + 1); }
   int sideDamage() const { return 100 / (sideSurvive + 1); }
+  // VH1 wheeled car ("car": true; docs/vehicles.md): bicycle-model steering on the front wheels, a driver seat with a
+  // free head inside the cab and, when "roofMg" names a weapon, a pintle MG station (Ctrl). Variants: "base" + overrides.
+  bool car = false;
+  std::vector<int> wheelPart[4], steerParts, windshieldParts, stowageParts, pintleParts;   // wheels: fl, fr, rl, rr
+  vec3 wheelC[4]{}; float wheelR = 0.35f;        // wheel centres / radius from the baked parts
+  vec3 driverEye{0}, steerC{0}, steerAxis{0, 0.5f, -0.87f}, windshieldPivot{0};
+  float windshieldFold = 0;                      // deg about +x through windshieldPivot (folded flat on the bonnet ~ 80)
+  bool stowage = true, pintle = false;
+  float maxSteerDeg = 32, steerRate = 1.8f, steerTurns = 2.5f, handbrakeDecel = 7, suspTravel = 0.12f, runOverDmg = 9;
+  int smallArmsDmg = 0;                          // durability lost per bullet (cars; tanks ignore small arms)
 };
 
 enum TankStation : int { TS_GUNNER = 0, TS_HATCH = 1 };
@@ -105,6 +115,9 @@ struct TankRT {
   // physics
   uint32_t body = 0xffffffffu; float shapeYaw = 1e9f;
   std::string blockedBy; int crushes = 0;
+  // VH1 car: smoothed steering (-1..1, + = right), wheel roll angle / suspension drop, handbrake, run-over cooldowns
+  float steer = 0, wheelSpin[4] = {0, 0, 0, 0}, wheelSusp[4] = {0, 0, 0, 0}; bool handbrake = false;
+  std::map<int, double> runOverT; int runOvers = 0;
 };
 
 struct TankHitResult { bool tank = false, counted = false, consumed = false, destroyed = false; int zone = -1, attack = 0; uint64_t id = 0; std::string info; };
@@ -158,6 +171,10 @@ public:
   vec3 mgMuzzleWorld(const TankRT& t, vec3& dir) const;
   // simulation helpers (also used by the self-test)
   void stepOne(App& app, TankRT& t, float dt, const ExploreInput* in);
+  void stepCar(App& app, TankRT& t, float dt, const ExploreInput* in);   // VH1 (tank_sim.cpp)
+  void drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h);     // VH1 (tank_ui.cpp)
+  void carStaticParts(const TankDef& d, std::vector<int>& out) const;    // every part a variant shows, at rest
+  void drawCarUI(App& app, TankRT& t);
   void drive(App& app, TankRT& t, float dt);
   void aimGun(TankRT& t, float dt, bool active);
   void fireCannon(App& app, TankRT& t);

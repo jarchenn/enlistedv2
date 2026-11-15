@@ -1,0 +1,53 @@
+{
+ "id": "car_jeep_willys_open",
+ "version": 1,
+ "name": "Willys MB jeep (windshield down)",
+ "category": "Vehicles",
+ "description": "Drivable Willys MB, windshield folded flat, no stowage (Explore: E to enter).",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  1.76,
+  3.41
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Allied",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.8,
+    0
+   ],
+   "s": [
+    1.56,
+    0.9,
+    3.36
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "jeep_willys_open",
+ "nav": {
+  "effect": "none"
+ }
+}
