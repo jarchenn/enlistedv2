@@ -294,6 +294,25 @@ int Audio::loadCustom(const fs::path& dir) {
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s));
     for (const char* id : g.ids) { p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far"); }
   }
+  // launchers, cannon and explosions: whole recordings from their first loud moment (up to 6 s), far layers dropped
+  struct FxSet { const char* file; std::vector<const char*> events; };
+  const FxSet fxs[] = {
+    {"guns/launcher_fire.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7", "shot_modern_glauncher"}},
+    {"guns/rocket_impact.mp3", {"explosion_rocket"}},
+    {"guns/cannon_fire.mp3", {"pak_fire", "flak_fire"}},
+    {"guns/shell_impact.mp3", {"explosion", "explosion_big", "explosion_grenade"}},
+  };
+  for (auto& g : fxs) {
+    if (!decode(g.file, b)) continue;
+    float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x));
+    size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.2f * pk) ++a;
+    a = a > (size_t)(SR / 100) ? a - SR / 100 : 0;
+    Buf s(b.begin() + a, b.begin() + std::min(b.size(), a + (size_t)(6.0f * SR)));
+    size_t f = std::min(s.size(), (size_t)(0.2f * SR));
+    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.9f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);
+    ++used; Impl::Event ev; ev.v.push_back(std::move(s));
+    for (const char* n : g.events) { p->events[n] = ev; p->events.erase(std::string(n) + "_far"); }
+  }
   if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["zombie_groan"] = ev; }
   return used;
 }
