@@ -1,3 +1,4 @@
+#include <cstring>
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "game.h"
 #include "classes.h"
@@ -480,7 +481,8 @@ bool Game::projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& 
 void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
-  if (rulesIgnoreDamage(*this, i)) return;   // W1: spawn-protected (bullets, blasts, falls)
+  if (rulesIgnoreDamage(*this, i)) return;
+  if (s.zombie && enemyType(s.etype).blastOnly && (!how || std::strcmp(how, "blast") != 0)) return;   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
   // Head out of the hatch stays exposed.
   if (s.localPlayer && app.tanks.occupied) {
