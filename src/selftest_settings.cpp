@@ -213,6 +213,32 @@ bool settingsSelfTest(App& app, float dt) {
     }
     break;
   }
+  case 7: {   // ---- WX2: Weather from the pause menu through the window's own code (combo / Apply / close), in play and in the editor
+    extern void settingsUiWeather(App&, int); extern void settingsUiApply(App&);
+    Renderer& R = app.R;
+    auto shot = [&](const char* n) { app.screenshot(exeDir() / "selftest_out" / (std::string("wx2_") + n + ".png")); };
+    const int ramp = 200;   // 3.3 s at 60 fps: past the 3 s Clear <-> Cloudy ramp
+    if (gFrames == 1) { app.doc.start = {true, vec3(10, app.terrain.height(10, 4), 4), 200.0f}; app.enterExplore(); app.useScripted = true; app.eyePitch = 18; }
+    if (gFrames == 5) { app.pauseMenu = true; S.open = true; shot("0_clear"); }
+    if (gFrames == 10) settingsUiWeather(app, 1);                                     // (a) Cloudy, no Apply
+    if (gFrames == 10 + ramp) { T->check(R.wx.target == 1 && R.wx.k > 0.99f, fmt("pause menu: Cloudy from the combo, no Apply: target %d, mix %.2f", R.wx.target, R.wx.k)); shot("1_cloudy_noapply"); }
+    if (gFrames == 15 + ramp) { settingsUiApply(app); }                                // (b) Apply after the live change
+    if (gFrames == 20 + ramp) T->check(R.wx.target == 1 && S.s.weather == 1, fmt("Apply after the live change keeps Cloudy (target %d, setting %d)", R.wx.target, S.s.weather));
+    if (gFrames == 25 + ramp) S.open = false;                                          // (c) close (Esc)
+    if (gFrames == 30 + ramp) { T->check(R.wx.target == 1 && S.s.weather == 1, fmt("closing Settings keeps Cloudy (target %d, setting %d)", R.wx.target, S.s.weather)); S.open = true; }
+    if (gFrames == 35 + ramp) { settingsUiWeather(app, 0); settingsUiApply(app); }     // back to Clear, with Apply
+    if (gFrames == 40 + 2 * ramp) { T->check(R.wx.target == 0 && R.wx.k < 0.01f, fmt("pause menu: back to Clear with Apply: target %d, mix %.2f", R.wx.target, R.wx.k)); shot("2_clear_apply"); S.open = false; app.pauseMenu = false; }
+    if (gFrames == 45 + 2 * ramp) { app.exitExplore(); S.open = true; settingsUiWeather(app, 1); }   // editor view
+    if (gFrames == 50 + 3 * ramp) { T->check(R.wx.k > 0.99f, fmt("editor: Cloudy from the combo (mix %.2f)", R.wx.k)); shot("3_editor_cloudy"); settingsUiWeather(app, 0); S.open = false; }
+    if (gFrames == 55 + 3 * ramp) {   // startup with a settings file that already says Cloudy
+      UserSettings f = UserSettings::fromJson(json{{"graphics", {{"weather", "Cloudy"}}}});
+      UserSettings keep = S.s; S.s.weather = f.weather; S.apply(app);
+      T->check(f.weather == 1 && R.wx.target == 1, fmt("a settings file with \"weather\": \"Cloudy\" starts Cloudy (read %d, target %d)", f.weather, R.wx.target));
+      S.s = keep; S.apply(app);
+      next();
+    }
+    break;
+  }
   default: {
     std::error_code ec;
     bool untouched = gUserExisted ? (fs::exists(S.path(), ec) && fs::last_write_time(S.path(), ec) == gUserTime) : !fs::exists(S.path(), ec);

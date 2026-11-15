@@ -291,10 +291,21 @@ bool settingsMenuItem() {
 }
 
 // ---------------------------------------------------------------- window
+// WX2: the window's state at file scope, so the Weather combo and the Apply button are callable (scripted settings test)
+static UserSettings gApplied;            // what is in effect: edits wait for Apply, closing without it drops them
+static bool gWasOpen = false, gPendingSave = false;
+void settingsUiWeather(App& app, int w) {   // the Weather combo: live (no Apply needed), kept when the window closes
+  settings().s.weather = w; gApplied.weather = w; app.R.wx.target = w; gPendingSave = true;
+}
+void settingsUiApply(App& app) {   // the Apply button (always enabled: it re-applies and saves even when nothing is pending)
+  Settings& S = settings();
+  if (S.s.keys != gApplied.keys) app.loadBindings();   // re-reads bindings.json, then the overrides (settingsApplyKeys)
+  S.apply(app); gApplied = S.s; gPendingSave = true;
+}
 void settingsWindow(App& app) {
   Settings& S = settings();
-  static bool wasOpen = false, pendingSave = false;
-  static UserSettings applied;   // what is in effect: edits wait for Apply, closing without it drops them
+  bool& wasOpen = gWasOpen; bool& pendingSave = gPendingSave;
+  UserSettings& applied = gApplied;
   if (S.open && app.mode == Mode::Explore && !app.pauseMenu && !app.showLoadout) S.open = false;   // back in play: the cursor is captured
   if (!S.open) { S.rebinding.clear(); if (wasOpen) S.s = applied; if (wasOpen || pendingSave) S.save(); wasOpen = pendingSave = false; return; }
   if (!wasOpen) { S.capture(app); applied = S.s; }   // on opening: the editor View menu / Loadout may have changed something
@@ -361,7 +372,7 @@ void settingsWindow(App& app) {
         char hl[32]; std::snprintf(hl, sizeof hl, "%02d:%02d", hh % 24, mm);
         ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl);
         { const char* wn[] = {"Clear", "Cloudy"}; ImGui::SetNextItemWidth(200);   // WX2: live (no Apply needed) and kept when the window closes
-          if (ImGui::Combo("Weather", &u.weather, wn, 2)) { applied.weather = u.weather; app.R.wx.target = u.weather; pendingSave = true; } }
+          if (ImGui::Combo("Weather", &u.weather, wn, 2)) settingsUiWeather(app, u.weather); }
         { const char* fn[] = {"Off", "Light", "Moderate", "Dense"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Environmental fog", &u.envFog, fn, 4); }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ground fog in hollows, low ground and along the shore, drifting on the wind. Limits how far bots see. A LAN match uses the host's.");
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloudy: full overcast in layers, soft diffuse light, no sun rays, slightly muted colours. Applies at once. In a LAN match the host's weather applies.");
@@ -451,7 +462,7 @@ void settingsWindow(App& app) {
   const bool dirty = !(u == applied);
   if (ImGui::Button("Defaults (Medium)")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; }
   ImGui::SameLine();
-  ImGui::BeginDisabled(!dirty);
+  ImGui::BeginDisabled(false);   // WX2: never greyed out (a live Weather change left nothing pending, so Apply looked dead)
   if (ImGui::Button("Apply")) applyNow = true;
   ImGui::EndDisabled();
   ImGui::SameLine();
@@ -462,8 +473,7 @@ void settingsWindow(App& app) {
   (void)before;
   // apply: only on the Apply button; closing the window without it drops the edits
   if (applyNow) {
-    if (u.keys != applied.keys) app.loadBindings();   // re-reads bindings.json, then the overrides (settingsApplyKeys)
-    S.apply(app); applied = u; saveNow = true;
+    settingsUiApply(app); saveNow = true;
   }
   pendingSave = pendingSave || saveNow;
   if (pendingSave && !ImGui::IsAnyItemActive()) { S.save(); pendingSave = false; }   // not every frame of a slider drag

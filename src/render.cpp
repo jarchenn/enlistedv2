@@ -3982,7 +3982,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   prepFoliageBatches();   // P2 folbatch   // roomCulled: counted from here too
   stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
   time += v.dt;
-  wx.k += glm::clamp((float)wx.want() - wx.k, -v.dt / 8.0f, v.dt / 8.0f);   // WX1: Clear <-> Cloudy over 8 s (sun, sky, cover, exposure follow)
+  wx.k += glm::clamp((float)wx.want() - wx.k, -v.dt / 3.0f, v.dt / 3.0f);   // WX2: Clear <-> Cloudy over 3 s (8 s went unnoticed behind the menu) (sun, sky, cover, exposure follow)
   if (wx.enclosed) wx.k = 0.0f;
   if (wx.fogNow < 0) wx.fogNow = wx.fogDens(); else wx.fogNow += glm::clamp(wx.fogDens() - wx.fogNow, -v.dt * 0.002f, v.dt * 0.002f);   // the fog level ramps too
   if (!thumbMode) bakeFog(t);
