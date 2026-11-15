@@ -1,0 +1,19 @@
+{
+  "id": "test_20",
+  "version": 1,
+  "order": 31,
+  "name": "Test 20 x 20",
+  "available": true,
+  "seed": 1944,
+  "description": "A level 20 x 20 m test plot with a 40 m margin of grass around it: for looking at characters, weapons and enemy types up close.",
+  "width": 20,
+  "depth": 20,
+  "margin": 40,
+  "size": 100,
+  "buildHalf": 10,
+  "camera": {
+    "pos": [0, 9, 20],
+    "yaw": 0,
+    "pitch": -22
+  }
+}
