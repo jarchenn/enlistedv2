@@ -53,6 +53,7 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
 bool Match::setupDeathmatch(int humans, std::string& err) {
   const bool solo = ffaMode(rules.mode), royale = rules.mode == GameMode::BattleRoyale;
   int counts[2] = {solo ? std::max(royale ? rules.royalePlayers : rules.soloPlayers, humans) : rules.teamPlayers[0], solo ? 0 : rules.teamPlayers[1]};
+  if (royale) rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers);   // BR5: soldiers only (no zombies, heavies, fighters)
   if (counts[0] + counts[1] > ScenarioRules::kMaxCombatants) { err = "Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants."; return false; }
   if (counts[0] + counts[1] < 2) { err = "A match needs at least two combatants."; return false; }
   int humansOn[2] = {0, 0};
@@ -69,7 +70,7 @@ bool Match::setupDeathmatch(int humans, std::string& err) {
       RosterSlot r; r.id = (int)slots.size(); r.livesLeft = royale ? 1 : -1; r.lane = LANE_MAIN;   // BR1: one life, no respawn
       r.role = t == 0 ? CombatRole::Defender : CombatRole::Attacker;
       r.team = solo ? r.id : t;
-      r.faction = solo ? (k % 2 == 0 ? rules.teamFaction[0] : rules.teamFaction[1]) : rules.teamFaction[t];
+      r.faction = royale ? rules.teamFaction[0] : solo ? (k % 2 == 0 ? rules.teamFaction[0] : rules.teamFaction[1]) : rules.teamFaction[t];   // BR5: one side's kit for all (one body, royale.cpp)
       if (k < humansOn[t]) { r.human = true; r.peer = peer; r.name = peer == 0 ? "Host" : "Player " + std::to_string(peer + 1); ++peer; }
       else r.name = std::string(r.faction == Faction::Allies ? "Pvt. " : "Gren. ") + std::to_string(r.id + 1);
       slots.push_back(r);

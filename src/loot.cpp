@@ -449,6 +449,25 @@ bool lootOnDeath(Game& G, int slot) {
 }
 
 // ---------------------------------------------------------------- per step
+void lootArmBot(Game& G, Soldier& s, int n) {
+  if (!lootActive() || s.localPlayer || s.human || s.zombie) return;
+  App& app = G.app; const LootCfg& c = cfg();
+  std::vector<int> pool = gunPool(app, G.match.rules.lootModern);
+  s.carried.clear(); s.wsBy.clear();
+  for (int g = 0; g < n && !pool.empty(); ++g) {
+    int k = pickWeighted(pool, [&](int w) { return gunWeight(*app.weaponDefs[w], false); });
+    if (k < 0) break;
+    int w = pool[k]; pool.erase(pool.begin() + k);   // two different guns
+    const WeaponDef& d = *app.weaponDefs[w];
+    WeaponState ws; if (d.wclass == WC_SNIPER) ws.att[ATT_SIGHT] = 2;
+    ws.loaded = lootMagSize(d, ws); ws.seed = s.rng | 1u;
+    int t = ammoTypeOf(d), nb = irange(c.boxesPerGun[0], c.boxesPerGun[1]);
+    for (int b = 0; b < nb && t >= 0; ++b) ws.containers.push_back(c.box[t]);
+    s.carried.push_back(w);
+    if (g == 0) { s.weapon = w; s.ws = ws; } else s.wsBy[w] = ws;
+  }
+}
+
 static void stripForDrop(Game& G, Soldier& s) {   // a new life in Battle Royale starts with the knife only
   Kit& k = *kitOf(s.slot); k = Kit{};
   s.frags = s.smokes = 0; syncWorn(G, s.slot);

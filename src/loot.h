@@ -74,6 +74,9 @@ void lootBegin(Game& G);                               // Game::begin: places th
 void lootStep(Game& G, float dt);                      // Game::step: strip new spawns, heal, bots pick up
 bool lootInteract(App& app);                           // E: pick up what the player looks at
 bool lootBotGoal(Game& G, Soldier& s, vec3& goal);     // AiCore::objectiveGoal: the bot wants an item first
+// BR5: a bot's starting guns (royale.cpp calls it when the bot lands): n different guns from the loot pool, each with
+// one full magazine and its ammo boxes; the first is in hand (s.weapon / s.ws), the rest in s.wsBy (s.carried lists all)
+void lootArmBot(Game& G, Soldier& s, int n);
 float lootDamage(int victim, int zone, float dmg);     // damage_model: armour on the hit zone
 void lootBeforeWeapons(App& app);                      // around App::stepWeapons: the pooled ammo as magazines
 void lootAfterWeapons(App& app);
