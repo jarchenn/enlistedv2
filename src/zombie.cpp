@@ -342,7 +342,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   }
   {   // the plain zombie groans now and then when near the listener. shortcut: host / single player only, one voice at a time
     static double nextGroan = 0;
-    if (s.etype == 0 && G.t >= nextGroan && glm::length(s.feet - G.app.eyePos()) < 35.0f && G.rnd(s) < 0.02f) { G.app.audio.play("zombie_groan", chest(s), 0.9f); nextGroan = G.t + 5.0 + 6.0 * G.rnd(s); }
+    if (s.etype == 0 && G.t >= nextGroan && glm::length(s.feet - G.app.eyePos()) < 35.0f && G.rnd(s) < 0.02f) { G.app.audio.play("zombie_groan", s.feet + vec3(0, 1.4f, 0), 0.9f); nextGroan = G.t + 5.0 + 6.0 * G.rnd(s); }
     if (nextGroan > G.t + 30.0) nextGroan = 0;   // a new match restarts the clock
   }
   crumb("zombie: strike");
