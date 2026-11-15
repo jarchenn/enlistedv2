@@ -274,9 +274,9 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
     {"guns/pistol_b.mp3", false, {"m1911a1"}},
-    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ak", "modern_ar15", "modern_m16", "modern_m4"}},
-    {"guns/semi_rifle.mp3", false, {"modern_sniper_semi"}},
-    {"guns/auto_rifle_burst.mp3", true, {"fg42", "m1918a2_bar", "modern_fal", "modern_scar"}},
+    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_m16", "modern_m4"}},
+    {"guns/semi_rifle.mp3", false, {"modern_sniper_semi", "modern_ak", "modern_fal", "modern_scar", "fg42", "m1918a2_bar"}},
+    {"guns/auto_rifle_burst.mp3", true, {"modern_mp7", "modern_scorpion"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
     {"guns/rifle_bolt.mp3", false, {"kar98k", "kar98k_zf39", "modern_sniper_bolt", "m1_garand", "m1c_garand"}},
     {"guns/assault_rifle.mp3", true, {"stg44"}},
@@ -284,7 +284,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
     {"guns/mg_burst.mp3", true, {"mg42"}},
     {"guns/mg2_burst.mp3", true, {"modern_lmg"}},
-    {"guns/smg_burst.mp3", true, {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion"}},
+    {"guns/smg_burst.mp3", true, {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi"}},
   };
   for (auto& g : guns) {
     if (!decode(g.file, b)) continue;
