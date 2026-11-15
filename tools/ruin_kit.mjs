@@ -109,7 +109,7 @@ export function ruinify(j, opts = {}) {
   }
   // ivy on some facades (src/ivy.cpp: "auto" grows over the walls)
   // IV1: old, often overgrown growth; type and pattern left to "auto", which varies them per facade (src/ivy.cpp)
-  if (j.enterable && !j.ivy && rnd(seed, 77) < (opts.ivy ?? 0.55)) out.ivy = { auto: true, density: R3(0.35 + rnd(seed, 78) * 0.6), age: R3(0.6 + rnd(seed, 79) * 0.4), overgrown: rnd(seed, 80) < 0.35 };
+  if (j.enterable && !j.ivy && rnd(seed, 77) < (opts.ivy ?? 0.85)) out.ivy = { auto: true, density: R3(0.6 + rnd(seed, 78) * 0.7), age: R3(0.75 + rnd(seed, 79) * 0.25), overgrown: rnd(seed, 80) < 0.6 };   // NT2: most ruins carry ivy, much of it overgrown
   // nav, furniture, interactables, panels stay; the line carrier pieces keep their line block
   return out;
 }

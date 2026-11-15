@@ -33,3 +33,5 @@ content/vehicles/models/humvee/
 # VH2: the supplied Boxer APC (boxer-apc-hmg.zip) names no author or licence: its bake stays local-only; clones draw
 # the committed part-built fallback (content/vehicles/models/boxer_apc_fallback)
 content/vehicles/models/boxer_apc/
+# NT2: user car pack bakes (licence to be confirmed): local only
+content/assets/models/pcar_*/

@@ -1119,7 +1119,7 @@ void weatherAppFrame(App& app) {
   app.R.wx.clock = gGame && gGame->active ? gGame->t : -1.0;
   if (!gNet || gNet->role != Net::CLIENT) app.R.wx.forced = app.R.wx.fogForced = -1;
   static const char* ew = std::getenv("NMK_WEATHER");   // tests / A/B: force clear | cloudy, no ramp
-  if (ew) { app.R.wx.target = std::string(ew) == "cloudy" ? 1 : 0; app.R.wx.snap(); }
+  if (ew) { app.R.wx.target = std::string(ew) == "cloudy" ? 1 : 0; app.R.wx.userSet = true; app.R.wx.snap(); }
   static const char* ef = std::getenv("NMK_FOG");   // tests / A/B: 0..3
-  if (ef) { app.R.wx.fog = std::clamp(std::atoi(ef), 0, 3); app.R.wx.fogNow = app.R.wx.fogDens(); }
+  if (ef) { app.R.wx.fog = std::clamp(std::atoi(ef), 0, 3); app.R.wx.userSet = true; app.R.wx.fogNow = app.R.wx.fogDens(); }
 }
