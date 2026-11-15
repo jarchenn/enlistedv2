@@ -573,7 +573,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       std::string L = std::string(",") + look + ",";
       push("mg2 look case", [this](App& a, float t) { face(a, vec3(-1.5f, 0.1f, -3.0f)); if (t > 0.6f) { shotQueue.push_back("mg2_case"); return true; } return false; });
       for (auto& wd : app.weaponDefs) {
-        if (!wd->modern || (L != ",all," && L.find("," + wd->id + ",") == std::string::npos)) continue;
+        if (L == ",all," ? !wd->modern : L.find("," + wd->id + ",") == std::string::npos) continue;   // "all": the modern guns; a list may name any weapon
         const std::string id = wd->id;
         push(("mg2 look " + id).c_str(), [this, id](App& a, float t) {
           static int ph; const WeaponDef& d = *a.weaponDefs[a.weaponIndex(id)]; WeaponState& s = a.wstate[id];

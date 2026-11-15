@@ -1762,6 +1762,8 @@ void main(){
 // ---- optic eyepiece (W2: sniper scopes, AT gun sight). Pixels q from the frame centre (y up), circle radius R.
 // uMode 0 (after the world, into dofTex): inside the circle the magnified world, an edge falloff and the reticle ink;
 //   outside it the world blurred heavily (16 taps on a coarse hdrColor mip) and darkened, with a black tube rim.
+//   SC1 rifle scopes (every reticle but the TZF): R = half the screen height (the ring touches top and bottom), a solid black
+//   rim from 0.86 R out with a soft inner vignette, and beyond it the same (magnified) frame lightly blurred and dimmed, not black.
 // uMode 1 (after the weapon, blended ONE / SRC_ALPHA into hdrColor): the inside comes back from the composite, so the
 //   weapon shows only around the eyepiece; outside, the weapon is shaded by uShade (out of focus, in the eye's shadow).
 static const char* kEyepieceFS = R"GLSL(
@@ -1771,8 +1773,10 @@ uniform sampler2D uSrc; uniform vec2 uRes; uniform float uR, uDark, uShade; unif
 out vec4 oColor;
 float segD(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0); return length(pa - ba*h); }
 float cov(float d){ return clamp(0.5 - d, 0.0, 1.0); }   // ink coverage at signed distance d (px, < 0 inside)
+float redInk = 0.0;   // SC1: illuminated (red) reticle parts, set by reticleInk
+float tick(vec2 q, float pos, float len, float w){ return cov(max(abs(q.x - pos) - w, abs(q.y) - len)); }   // a short tick across the x axis at pos
 float reticleInk(vec2 q, float R){
-  float ink = 0.0;
+  float ink = 0.0; redInk = 0.0;
   if (uReticle == 1) {          // German no. 1 (ZF39): pointed post from below, its tip the aim point; heavy side bars, open centre
     float hw = max(1.6, R*0.011), tip = R*0.07;
     if (q.y <= 0.0) ink = cov(abs(q.x) - hw*min(1.0, -q.y/tip));
@@ -1784,6 +1788,35 @@ float reticleInk(vec2 q, float R){
   } else if (uReticle == 4) {   // MG3 plain "+": fine full-width crosshair (the AR-15's 3x scope)
     float t = max(0.8, R*0.0025);
     ink = cov(min(abs(q.x), abs(q.y)) - t);
+  } else if (uReticle == 5) {   // SC1 M24 mil-dot style: thick outer posts tapering to a fine cross, mil ticks, red dotted centre, holdover dots
+    float t = max(0.7, R*0.0016), m = R*0.06;   // line half width, one mil
+    vec2 a = abs(q); float post = smoothstep(0.62*R, 0.72*R, max(a.x, a.y)) * max(2.5, R*0.012);
+    ink = max(cov(a.y - (a.x > a.y ? max(t, post) : t)), cov(a.x - (a.y > a.x ? max(t, post) : t)));
+    for (int k = 1; k <= 9; ++k) {
+      float h = (k % 5 == 0 ? 0.35 : 0.2)*m;
+      ink = max(ink, max(cov(max(abs(a.x - float(k)*m) - t, a.y - h)), cov(max(abs(a.y - float(k)*m) - t, a.x - h))));
+    }
+    for (int k = -3; k <= 3; ++k) if (k != 0) redInk = max(redInk, max(cov(length(q - vec2(float(k)*0.33*m, 0.0)) - 1.6*t), cov(length(q - vec2(0.0, float(k)*0.33*m)) - 1.6*t)));
+    for (int s = -1; s <= 1; s += 2) for (int i = 0; i < 2; ++i) for (int j = 0; j < 2; ++j)   // holdover dot clusters, lower left / right
+      ink = max(ink, cov(length(q - vec2(float(s)*(2.6 + 0.5*float(i))*m, -(2.6 + 0.5*float(j))*m)) - 1.6*t));
+  } else if (uReticle == 6) {   // SC1 .50: thick side / bottom posts, thin top line, fine centre cross with mil ticks, range funnel below
+    float t = max(0.7, R*0.0016), m = R*0.05, pw = max(2.5, R*0.012);
+    vec2 a = abs(q);
+    ink = cov(a.y - (a.x > 0.32*R ? pw : t));                       // horizontal: thick posts from 0.32 R out
+    ink = max(ink, cov(a.x - (q.y < -0.78*R ? pw : t)));            // vertical: thin, thick post at the bottom
+    for (int k = 1; k <= 4; ++k) ink = max(ink, max(cov(max(abs(a.x - float(k)*m) - t, a.y - 0.25*m)), cov(max(abs(a.y - float(k)*m) - t, a.x - 0.25*m))));
+    if (q.y < -0.18*R && q.y > -0.76*R) {                             // the funnel: curved stadia widening toward the bottom, a ladder between
+      float u = (-q.y - 0.18*R)/(0.58*R), w = (0.07 + 0.38*u*u)*R;
+      ink = max(ink, cov(abs(a.x - w) - t*1.2));
+      float stp = 0.058*R, yy = mod(-q.y - 0.18*R, stp);
+      if (a.x < w) ink = max(ink, cov(min(yy, stp - yy) - t));
+    }
+  } else if (uReticle == 7) {   // SC1 ACOG-style: red chevron, its tip the aim point, and a bullet-drop ladder below
+    float t = max(0.8, R*0.0022), u = R*0.07;
+    float dch = min(segD(q, vec2(0.0), vec2(-u, -0.9*u)), segD(q, vec2(0.0), vec2(u, -0.9*u)));
+    redInk = cov(dch - 2.2*t);
+    if (q.y < -1.4*u && q.y > -6.0*u) ink = cov(abs(q.x) - t);       // the drop post
+    for (int k = 0; k < 4; ++k) { float y = -(2.0 + 1.1*float(k))*u, hw = (0.9 - 0.18*float(k))*u; ink = max(ink, cov(max(abs(q.y - y) - t, abs(q.x) - hw))); }
   } else if (uReticle == 3) {   // TZF: big chevron (aim point at its tip), a row of small range chevrons, a post, dotted range arcs
     float u = R*0.25, lw = max(1.0, R*0.0035), d = 1e9;
     d = min(d, segD(q, vec2(0.0), vec2(-0.45*u, -0.63*u)));
@@ -1807,16 +1840,20 @@ void main(){
   vec2 q = (vUV - 0.5)*uRes; float R = uR*uRes.y, r = length(q);
   float f = clamp(R + 0.5 - r, 0.0, 1.0);   // inside the eyepiece (1 px antialiased edge)
   float outer = smoothstep(R, 2.2*R, r);
+  bool rifle = uReticle != 3;   // SC1: rifle scopes: R = the ring's outer edge (half the screen height), clear field inside 0.86 R
+  float Ri = rifle ? 0.86*R : R;
+  if (rifle) f = clamp(Ri + 0.5 - r, 0.0, 1.0);
   if (uMode == 1) { vec3 c = textureLod(uSrc, vUV, 0.0).rgb; oColor = vec4(c*f, (1.0 - f)*uShade*mix(1.0, 0.55, outer)); return; }
-  vec3 sharp = textureLod(uSrc, vUV, 0.0).rgb * mix(1.0, 0.6, smoothstep(0.8*R, R, r));
-  sharp = mix(sharp, vec3(0.0015), reticleInk(q, R));
-  float bl = R*0.09, lod = log2(max(1.0, bl/3.0));
+  vec3 sharp = textureLod(uSrc, vUV, 0.0).rgb * (rifle ? mix(1.0, 0.25, smoothstep(0.62*R, Ri, r)) : mix(1.0, 0.6, smoothstep(0.8*R, R, r)));
+  sharp = mix(sharp, vec3(0.0015), reticleInk(q, Ri));
+  sharp = mix(sharp, vec3(4.0, 0.12, 0.06), redInk);   // illuminated parts glow red
+  float bl = R*(rifle ? 0.035 : 0.09), lod = log2(max(1.0, bl/3.0));   // SC1: the rifle surround only a little blurred
   vec3 s = vec3(0.0);
   for (int i = 0; i < 16; ++i) {
     float rr = sqrt((float(i) + 0.5)/16.0)*bl, a = float(i)*2.39996323;
     s += textureLod(uSrc, vUV + vec2(cos(a), sin(a))*rr/uRes, lod).rgb;
   }
-  vec3 outside = s/16.0*uDark*smoothstep(R, 1.1*R, r)*mix(1.0, 0.5, outer);
+  vec3 outside = rifle ? s/16.0*uDark*clamp(r - R + 0.5, 0.0, 1.0) : s/16.0*uDark*smoothstep(R, 1.1*R, r)*mix(1.0, 0.5, outer);   // rifle: black rim between Ri and R, the blurred view beyond
   vec3 c = mix(outside, sharp, f);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
 }
@@ -4373,7 +4410,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glBindTextureUnit(0, mode == 0 ? hdrColor : dofTex); glUniform1i(U(progEyepiece, "uSrc"), 0);
     glUniform2f(U(progEyepiece, "uRes"), (float)width, (float)height);
     glUniform1f(U(progEyepiece, "uR"), v.eyepieceR);
-    glUniform1f(U(progEyepiece, "uDark"), v.reticle == 3 ? 0.006f : 0.0f);   // linear: gunner sight soft black; rifle scopes completely black outside the circle (GM1b)
+    glUniform1f(U(progEyepiece, "uDark"), v.reticle == 3 ? 0.006f : 0.7f);   // linear: gunner sight soft black; SC1 rifle scopes: the blurred view, a little darker
     glUniform1f(U(progEyepiece, "uShade"), 0.6f);
     glUniform1i(U(progEyepiece, "uReticle"), v.reticle); glUniform1i(U(progEyepiece, "uMode"), mode);
     glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);

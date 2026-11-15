@@ -672,4 +672,25 @@ Handling:
 
 Ammunition: `50bmg_mag5` in the mixed crate. Sounds: wired to the id in `audio.cpp`.
 
+### SC1: scope view
+
+Every rifle scope (scopeView, the eyepiece pass, `kEyepieceFS`) uses one layout:
+- **Ring:** the outer edge is the screen height (`kScopeEyepieceR` 0.5). A solid black rim runs from 0.86 R out, with a soft inner vignette.
+- **Inside:** the magnified view and the gun's reticle.
+- **Outside:** no black. It is the same magnified frame, lightly blurred (16 taps on a coarse mip, radius 0.035 R) and dimmed (`uDark` 0.7). It is not a second unmagnified world pass, so the scoped view costs what it did before: one fullscreen pass.
+- **The TZF gunner sight** keeps its own layout.
+
+Reticles, drawn in the shader and centred on the aim point:
+
+| Gun | Reticle |
+|---|---|
+| Kar98k ZF39 | German no. 1 (`de_absehen1`), unchanged |
+| M1C Garand | M81, unchanged |
+| AR-15 3× | plain "+" (`plus`) |
+| M24 | `mil`: thick outer posts to a fine cross, mil ticks, red dotted centre, holdover dot clusters |
+| .50 | `bmg`: thick side and bottom posts, thin top line, ticked centre cross, the curved range funnel with its ladder below |
+| Marksman rifle | `acog`, 2×: red chevron (aim point at its tip) and a bullet-drop ladder |
+
+Red parts glow (`redInk`).
+
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.
