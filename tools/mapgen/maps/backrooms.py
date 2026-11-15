@@ -274,7 +274,7 @@ def build(ctx):
                 if in_dark or R.random() < 0.06:
                     pid = "brm_panel_dead"
                     n_dead += 1
-                elif k == (c[0] + c[1]) % 2:
+                elif k == 0 and (c[0] + 2 * c[1]) % 3 == 0:   # BR1b: one real light per three cells (a diagonal lattice), every panel glows
                     pid = "brm_panel_lit"
                 else:
                     pid = "brm_panel"
@@ -283,11 +283,11 @@ def build(ctx):
                 if pid in n_lights:
                     n_lights[pid] += 1
         elif zn == "p":
-            if not in_dark:
+            if not in_dark and (c[0] + 2 * c[1]) % 3 == 0:
                 b.place("brm_pool_light", x, z, 0.0, check=False, cls="none", y=h, tags={"lamp"})
                 n_lights["brm_pool_light"] += 1
         else:
-            if not in_dark and R.random() < 0.75:
+            if not in_dark and (c[0] + 2 * c[1]) % 3 == 0:
                 b.place("brm_bulkhead", x + 1.2, z + 1.2, R.choice([0.0, 90.0]), check=False, cls="none", y=h, tags={"lamp"})
                 n_lights["brm_bulkhead"] += 1
 
