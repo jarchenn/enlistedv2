@@ -86,7 +86,18 @@ struct State {
   std::vector<Air> air;
   bool jumpEdge = false;          // local player pressed Space since the last step
   uint32_t seed = 1;
+  struct District { std::string name; vec3 pos{0}; };
+  std::vector<District> districts;   // BR1b: the map's named landing districts (scenario.districts, e.g. Newtown)
 } S;
+
+// district names over a map / the drop view: dark backing, centred on the point
+void label(ImDrawList* dl, ImVec2 at, const std::string& t, float size, ImU32 col) {
+  ImFont* f = ImGui::GetFont();
+  ImVec2 ts = f->CalcTextSizeA(size, 1e9f, 0, t.c_str());
+  ImVec2 p(at.x - ts.x * 0.5f, at.y - ts.y * 0.5f);
+  dl->AddRectFilled(ImVec2(p.x - 4, p.y - 2), ImVec2(p.x + ts.x + 4, p.y + ts.y + 2), IM_COL32(10, 12, 18, 150), 3);
+  dl->AddText(f, size, p, col, t.c_str());
+}
 
 vec3 planeAt(float t) { return S.a + S.dir * (gCfg.planeSpeed * t); }
 bool planeFlying() { return S.time * gCfg.planeSpeed < S.len; }
@@ -133,6 +144,11 @@ void royaleBegin(App& app, Game& G) {
     a.aim = glm::clamp(vec2(q.x, q.z) + vec2(std::cos(ang), std::sin(ang)) * rr, vec2(-hx, -hz) * 0.92f, vec2(hx, hz) * 0.92f);
   }
   G.deployReady = true;   // no deploy screen: everyone boards the bomber
+  // BR1b: named districts from the map file (scenario.districts: name, pos [x, y, z], radius); absent on most maps
+  if (app.doc.extra.is_object() && app.doc.extra.contains("scenario") && app.doc.extra["scenario"].is_object())
+    for (auto& d : app.doc.extra["scenario"].value("districts", json::array()))
+      if (d.is_object() && d.contains("pos") && d["pos"].is_array() && d["pos"].size() == 3)
+        S.districts.push_back({d.value("name", std::string("?")), vec3(d["pos"][0].get<float>(), d["pos"][1].get<float>(), d["pos"][2].get<float>())});
   logf("royale: %zu aboard, bomber (%.0f %.0f) -> heading %.0f deg at %.0f m, %.0f m line; storm circles r %.0f / %.0f / %.0f / %.0f m",
        S.air.size(), S.a.x, S.a.z, degrees(std::atan2(S.dir.x, S.dir.z)), y, S.len, S.storm.circle[1].r, S.storm.circle[2].r, S.storm.circle[3].r, S.storm.circle[4].r);
 }
@@ -322,6 +338,13 @@ void royaleHud(App& app, Game& G) {
   dl->AddRectFilled(ImVec2(cx - ts.x * 0.5f - 12, y), ImVec2(cx + ts.x * 0.5f + 12, y + 28), IM_COL32(12, 12, 20, 205), 5);
   dl->AddText(ImVec2(cx - ts.x * 0.5f, y + 6), at.shrinking ? IM_COL32(150, 190, 255, 255) : IM_COL32(235, 235, 220, 255), b);
   Soldier* L = G.local();
+  if (L && L->alive && royaleAirborne(L->slot))   // BR1b: on the drop (aboard, falling, under the canopy) the districts are named in the view
+    for (auto& d : S.districts) {
+      ImVec2 sp; vec3 w = d.pos + vec3(0, 12, 0);
+      if (!proj(w, sp) || sp.x < 0 || sp.y < 0 || sp.x > io.DisplaySize.x || sp.y > io.DisplaySize.y) continue;
+      char t[96]; std::snprintf(t, sizeof t, "%s  %.0f m", d.name.c_str(), glm::length(w - eye));
+      label(dl, sp, t, 17.0f, IM_COL32(255, 238, 190, 240));
+    }
   auto centre = [&](const char* t, float yy, ImU32 col) { ImVec2 s2 = ImGui::CalcTextSize(t); dl->AddRectFilled(ImVec2(cx - s2.x * 0.5f - 12, yy - 6), ImVec2(cx + s2.x * 0.5f + 12, yy + s2.y + 6), IM_COL32(10, 10, 14, 200), 5); dl->AddText(ImVec2(cx - s2.x * 0.5f, yy), col, t); };
   if (L && L->alive) {
     int st = royaleAirState(L->slot);
@@ -345,6 +368,13 @@ void royaleMinimap(ImDrawList* dl, const MinimapView& v) {
   ring(a.now, IM_COL32(80, 130, 255, 230), 2.5f);
   if (a.stage < 4) ring(a.next, IM_COL32(255, 255, 255, 230), 1.5f);
   if (planeFlying()) { vec3 P = planeAt(S.time); vec2 p = v.toScreen(vec2(P.x, P.z)), q = v.toScreen(vec2(P.x + S.dir.x * 40, P.z + S.dir.z * 40)); dl->AddLine(ImVec2(p.x, p.y), ImVec2(q.x, q.y), IM_COL32(255, 220, 120, 240), 3); }
+  // BR1b: district names (the big map at full size; the corner map, ~200 m across, small)
+  float size = std::clamp(v.scale * 7.0f, 10.0f, 17.0f);
+  for (auto& d : S.districts) {
+    vec2 s = v.toScreen(vec2(d.pos.x, d.pos.z));
+    if (!v.contains(s)) continue;
+    label(dl, ImVec2(s.x, s.y), d.name, size, IM_COL32(255, 238, 190, 235));
+  }
 }
 
 // ---------------------------------------------------------------- --selftest-royale (headless)
