@@ -48,3 +48,38 @@ Tunnel pieces are never auto-furnished (`interior.cpp`).
 Assault: the Allies push in from the west galleries, the Axis hold the east; objectives Generator room, Flooded sump,
 The collapse. Team Deathmatch: team A east, team B west. Solo: by the algorithm. A supply crate stands next to every
 spawn.
+
+## UG3: a mine on many levels
+
+- **Size:** 176 x 176 m (2/3 of the UG2 area). 21 cells of 8 m, centred; a 10 x 10 node lattice.
+- **Elevation:**
+  - Every junction node has a height from a smooth seeded field in 1.2 m steps, with about 19 m of relief between the
+    nodes, plus two 10 m shafts.
+  - Neighbours are relaxed to at most 2.4 m apart, so links climb by inclines: `tun_ramp_12` and `tun_ramp_24` rise
+    1.2 / 2.4 m over a cell, with the floor, ceiling and dressing following the slope.
+  - Stair drifts (`tun_stairs`, 3.6 m) appear only where rooms force them. Links steeper than that are never made.
+  - Rooms and the nodes at their doorways are level.
+- **Rooms:**
+  - Chambers: generator, sump, collapse, store and two shafts.
+  - `tun_chamber_shaft`: a 9 m pit 10 m deep in the middle, ledges round it, a timber bridge across it (north-south),
+    and switchback stairs up the pit walls, so a fall is never a trap.
+  - The sump is now deep: dark water over a 2.4 m pool, with steps out.
+  - Also `tun_straight_humped` (gentle rock humps underfoot), `tun_straight_timbered` (close-set timber sets and
+    lagging) and `tun_straight_meshed` (roof mesh and bolt plates).
+- **Rail:**
+  - A 0.6 m gauge mine track on sleepers: `tun_track_straight`, `_curve`, `_points` (with a lever), `_buffer`, and
+    `_ramp_12` / `_ramp_24` on the inclines.
+  - It follows the longest stair-free route that avoids the rooms, with points into a siding that ends at a buffer
+    stop.
+  - Carts stand as static cover in the wide junction hubs: `tun_cart`, `tun_cart_ore`, `tun_cart_tipped` (ore
+    spilled), `tun_cart_derailed`.
+- **Mine gear:** `tun_duct`, `tun_fan`, `tun_hopper`, `tun_winch` (at the shafts), `tun_ladder`, `tun_ore_pile`,
+  `tun_tool_rack`, `tun_drill_rig`, `tun_compressor`, `tun_cable_reel`, `tun_powder_crates`, `tun_pump` (at the sump),
+  `tun_conveyor` and `tun_warning_board` (striped, no text). They are placed by room kind, with ducts in the passages
+  and ore piles in the dead ends.
+- **No flicker:**
+  - No shadowed lamps are placed: swapping the two shadow slots between them read as flicker.
+  - Every thin floor and ceiling decal (puddles, mud, scorch) now sits on its own height step: overlapping coplanar
+    decals z-fought.
+  - Tunnel pieces are never furnished, so there are no candles or room lamps.
+  - Fog stays off.
