@@ -226,12 +226,13 @@ def populate(ctx, grid, pads=None):
     if STYLE == "abandoned":   # AS1: every placement goes through the abandoned substitutions
         RW = rng(SEED + 7)
         _place = b.place
-        WRECKS = ["mod_sedan_wrecked", "mod_sedan_burned", "mod_car_wreck_sedan", "mod_sedan_wrecked", "mod_car_shell_burned"]
+        PCARS = ["compact", "hatchback", "minivan", "offroad", "pickup", "sedan", "sport", "suv", "wagon"]   # NT2: the user's car pack
+        WRECKS = ["mod_pcar_%s_wreck" % k for k in PCARS] + ["mod_pcar_%s" % k for k in PCARS] + ["mod_sedan_burned", "mod_car_wreck_sedan", "mod_car_shell_burned"]
         INTACT = {"mod_sedan", "mod_sedan_red", "mod_hatchback", "mod_suv", "mod_pickup", "mod_delivery_van"}
 
         def place_r(aid, *a, **k):
             if aid in INTACT:
-                aid = RW.choice(["mod_van_wrecked", "mod_van_burned"]) if aid == "mod_delivery_van" else RW.choice(WRECKS)
+                aid = RW.choice(["mod_pcar_minivan", "mod_pcar_minivan_wreck", "mod_van_burned"]) if aid == "mod_delivery_van" else RW.choice(WRECKS)
             elif aid + "_ruin" in cat:
                 aid = aid + "_ruin"
             return _place(aid, *a, **k)
@@ -576,6 +577,18 @@ def populate(ctx, grid, pads=None):
     ct = site("mod_nt_clock_tower", 0.0, -11.0, 0.0, tags={"downtown", "landmark"}, keep=False)
     prop("mod_fountain_tiered", 0.0, 8.0, 0.0, tags={"square"}, check=False)
     paint.poly("cobbles", rect(*SQUARE), weight=0.95, edge=0.6)
+    if STYLE == "abandoned":   # NT2: the square gone to grass: moss and weeds in the joints, saplings, a tree in the paving
+        paint.poly("dry_grass", rect(*SQUARE), weight=0.45, edge=3.0, ragged=4.0, seed=505)
+        paint.poly("leaf_litter", circle_poly(-12.0, 10.0, 7.0, 14), weight=0.6, edge=2.5, ragged=2.0, seed=506)
+        for _ in range(60):
+            x, z = R.uniform(SQUARE[0] + 1, SQUARE[2] - 1), R.uniform(SQUARE[1] + 1, SQUARE[3] - 1)
+            if abs(x) < 4 and -16 < z < 12:
+                continue
+            aid = R.choice(["nat_tallgrass_patch", "mod_weeds_clump", "nat_drygrass_tufts", "mod_weeds_crack", "nat_nettle_clump", "nat_meadow_mixed"])
+            if aid in cat:
+                b.place(aid, x, z, R.uniform(0, 360), check=False, cls="veg", tags={"square", "ruin_dress"})
+        for x, z in ((-17.0, 7.0), (16.0, -9.0), (9.0, 15.0)):
+            b.place("tree_ash", x, z, R.uniform(0, 360), check=False, cls="veg", tags={"square"})
     for k in range(8):
         a = 2 * math.pi * k / 8 + 0.4
         tprop("mod_planter_concrete", 15.0 * math.cos(a), 13.0 * math.sin(a), math.degrees(-a), tags={"square", "cover"})
@@ -654,6 +667,17 @@ def populate(ctx, grid, pads=None):
         tprop(aid, R.uniform(112, 168), R.uniform(-84, -81) if R.random() < 0.6 else R.uniform(43, 50), 0.0, tags={"alley"})
     for x in (150.0, 156.0, 162.0):
         tprop(R.choice(["mod_sedan", "mod_pickup", "mod_hatchback"]), x, -12.0, 90.0, tags={"gas", "cover"})
+    # NT2: the abandoned forecourt (user reference 56): worn ground, puddles, a wreck by the pumps, cans, barrels, rubble
+    paint.poly("dirt", rect(140.0, -30.0, 176.0, 2.0), weight=0.55, edge=3.0, ragged=3.0, seed=561)
+    paint.poly("gravel", rect(144.0, -6.0, 172.0, 4.0), weight=0.5, edge=2.0, ragged=2.5, seed=562)
+    paint.poly("leaf_litter", circle_poly(166.0, -24.0, 6.0, 12), weight=0.6, edge=2.0, ragged=2.0, seed=563)
+    for aid, x, z, yaw in (("mod_pcar_sedan_wreck", 153.0, -3.0, 25.0), ("mod_pcar_suv", 170.0, -4.0, 95.0), ("wat_puddles", 158.0, 0.0, 30.0),
+                           ("mod_jerry_cans", 147.5, -8.0, 15.0), ("mod_barrel_steel_rust", 167.0, -9.0, 0.0), ("mod_barrel_group", 174.0, -20.0, 40.0),
+                           ("mod_rubble_small", 161.0, 2.0, 70.0), ("mod_tyre_pile", 145.0, -22.0, 0.0), ("mod_rubble_small", 175.0, -9.0, 200.0),
+                           ("mod_trash_bin", 149.0, -18.0, 90.0)):
+        tprop(aid, x, z, yaw, tags={"gas", "cover"})
+    for k in range(26):                                                  # weeds through every joint of the slab
+        tprop(R.choice(["mod_weeds_crack", "mod_weeds_crack", "rub_debris_patch"]), R.uniform(142, 174), R.uniform(-26, 4), R.uniform(0, 360), tags={"gas"}, cls="veg")
 
     # ------------------------------------------------------------------ 9. District 7: construction
     for aid, x, z, yaw in (("mod_nt_construction_frame", -146.0, 120.0, 0.0), ("mod_nt_construction_frame", -112.0, 182.0, 180.0),
@@ -837,9 +861,12 @@ def populate(ctx, grid, pads=None):
                     o = R.choice((-1, 1)) * (R.uniform(2.6, 3.9) if R.random() < 0.45 else R.uniform(0.0, 2.6))
                     nd["weeds"] += drop(R.choice(["mod_weeds_crack", "mod_weeds_clump", "nat_tallgrass_patch", "nat_drygrass_tufts", "mod_weeds_crack", "nat_nettle_clump"]),
                                         px + nx * o, pz + nz * o, R.uniform(0, 360), dy=0.05, cls="veg") is not None
-                elif r < 0.9:
+                elif r < 0.875:
                     o = R.choice((-1, 1)) * R.uniform(half + 0.6, half + 2.0)
                     nd["saplings"] += drop("mod_sapling_paving", px + nx * o, pz + nz * o, R.uniform(0, 360), cls="veg") is not None
+                elif r < 0.895:   # NT2: a tree grown out of the road
+                    o = R.choice((-1, 1)) * R.uniform(0.5, 3.0)
+                    nd["saplings"] += drop(R.choice(["tree_ash", "tree_oak", "mod_tree_ornamental", "nat_sapling_ash", "mod_sapling_paving"]), px + nx * o, pz + nz * o, R.uniform(0, 360), cls="veg") is not None
                 elif r < 0.95:   # rubble spilled onto the road edge
                     o = R.choice((-1, 1)) * R.uniform(2.0, 3.6)
                     nd["rubble"] += drop(R.choice(["mod_rubble_small", "mod_wall_chunks", "mod_glass_pile"]), px + nx * o, pz + nz * o, R.uniform(0, 360), dy=0.04, cls="solid") is not None
@@ -848,6 +875,21 @@ def populate(ctx, grid, pads=None):
                     nd["walls"] += drop(R.choice(["mod_cinder_wall", "mod_jersey_barrier_damaged", "mod_wall_chunks", "mod_retaining_wall"]), px + nx * o, pz + nz * o,
                                         asset_yaw_along(*t) + R.uniform(-8, 8), cls="solid") is not None
                 s_ += R.uniform(1.2, 2.8)
+        jams = 0   # NT2: abandoned traffic: short queues of dead cars on the main roads, a few barricaded junctions
+        for k in ("ring", "ns_n", "ns_s", "ew_w", "ew_e", "service"):
+            pts = g[k]; Lr = polyline_length(pts)
+            for _ in range(3):
+                s0 = R.uniform(10, max(12, Lr - 40)); lane = R.choice((-1, 1)) * 1.8
+                for q in range(R.randint(2, 4)):
+                    (px, pz), t = point_at(pts, min(Lr - 1, s0 + q * R.uniform(5.5, 7.5)))
+                    yw = asset_yaw_facing(t[0] * lane, t[1] * lane) + R.uniform(-12, 12)
+                    jams += drop(RW.choice(WRECKS), px - t[1] * lane, pz + t[0] * lane, yw, dy=0.08, cls="solid") is not None
+        for k in ("ns_n2", "ew_e2", "ring"):
+            (px, pz), t = point_at(g[k], R.uniform(8, polyline_length(g[k]) - 8))
+            for j in (-1, 0, 1):
+                drop(R.choice(["mod_jersey_barrier", "mod_jersey_barrier_damaged", "mod_water_barrier_red"]), px - t[1] * j * 3.1, pz + t[0] * j * 3.1, asset_yaw_along(-t[1], t[0]), dy=0.05, cls="solid")
+            drop("mod_sandbag_position", px - t[1] * 6.5, pz + t[0] * 6.5, asset_yaw_facing(t[0], t[1]), cls="solid")
+        nd["jamCars"] = jams
         for e in [e for e in b.inst if "building" in e["tags"]]:   # rubble and weeds against the walls
             a = cat[e["asset"]]
             hx, hz = a.half
@@ -1020,7 +1062,8 @@ def build(ctx):
               builder=b, scenario_json=sj, explore_start=((-14.0, b.ground(-14.0, 16.0), 16.0), look_yaw(14.0, -26.0)), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 60.0, c[1] + 70.0], "yaw": 0.0, "pitch": -40} for k, (n, c) in DISTRICTS.items()},
               extra={"groundPaint": b.paint.to_json(), "waterBodies": [lake_body()],
-                     **({"look": {"style": "abandoned", "haze": 1.8}} if STYLE == "abandoned" else {})})
+                     **({"look": {"style": "abandoned", "haze": 5.0, "weather": "cloudy", "envFog": 1, "bloom": 1.4},
+                        "lighting": {"fill": 1.15, "ambient": [0.06, 0.048, 0.026]}} if STYLE == "abandoned" else {})})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=9, version=VERSION, seed=SEED,
                    description="A modern town for Battle Royale, 350 x 400 m, nine districts: a walled military base on a hill, "
                                "industrial yards with a rail siding, rural farms and orchards, a residential quarter with a park, "

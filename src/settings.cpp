@@ -295,11 +295,12 @@ bool settingsMenuItem() {
 static UserSettings gApplied;            // what is in effect: edits wait for Apply, closing without it drops them
 static bool gWasOpen = false, gPendingSave = false;
 void settingsUiWeather(App& app, int w) {   // the Weather combo: live (no Apply needed), kept when the window closes
-  settings().s.weather = w; gApplied.weather = w; app.R.wx.target = w; gPendingSave = true;
+  settings().s.weather = w; gApplied.weather = w; app.R.wx.target = w; app.R.wx.userSet = true; gPendingSave = true;
 }
 void settingsUiApply(App& app) {   // the Apply button (always enabled: it re-applies and saves even when nothing is pending)
   Settings& S = settings();
   if (S.s.keys != gApplied.keys) app.loadBindings();   // re-reads bindings.json, then the overrides (settingsApplyKeys)
+  if (S.s.envFog != gApplied.envFog || S.s.weather != gApplied.weather) app.R.wx.userSet = true;   // NT2: the user overrides the map's sky
   S.apply(app); gApplied = S.s; gPendingSave = true;
 }
 void settingsWindow(App& app) {

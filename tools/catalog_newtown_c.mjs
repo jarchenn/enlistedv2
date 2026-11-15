@@ -14,6 +14,7 @@ import { wall, partition, door, window, stairs, railing, fbox, fpart, hinged, aa
 import { mats, face, house, meta } from "./catalog_chateau.mjs";
 import { cover, room, corners, fire, setNav, setTour } from "./catalog_atlantic.mjs";
 import { rod } from "./defence_detail.mjs";
+import { tdTown, tdMats } from "./catalog_modern_buildings_a.mjs";
 
 const GF = 0.3, L1 = { k: 0, lod: 1 }, K0 = { k: 0 }, HID = { v: 0 }, BV = { bv: 0.012 };
 const SIDES = ["front", "rear", "east", "west"];
@@ -111,7 +112,10 @@ function ntMats(A) {
   A.mat("buoy", [0.88, 0.32, 0.05], 0.5, "plain");
   A.mat("ceiling", [0.82, 0.81, 0.78], 0.9, "plaster", { texture: "plaster_painted" });   // AS1: ceilings under upper floors
   A.mat("door_frame", [0.80, 0.80, 0.78], 0.45, "metal", { metallic: 0.15 });   // AS1: light painted-steel door frames
+  tdMats(A);   // TD1 facade kit
 }
+// TD1 town pass on a house() build under a flatRoof (parapet 0.25 thick, coping underside yt)
+const hTown = (A, k, yt, o = {}) => tdTown(A, { x0: -k.X, x1: k.X, z0: -k.Z, z1: k.Z }, { yW: k.EAVE, yd: k.EAVE + 0.16, yt, t: 0.25, ...o });
 function mmeta(id, name, description, floors, footprint) {
   const A = meta(id, name, "Modern", description, floors, footprint, { version: 1, plinthDepth: 0, noAutoPanels: true, maxGrade: 0.5 });
   ntMats(A);
@@ -232,7 +236,7 @@ const HALLS = [/(^|_)c\d$/, "hall"];
 
 function flatRoof(A, x0, x1, z0, z1, y, { ph = 0.9, t = 0.25, m = "render_m", vents = [], kit = "fan" } = {}) {
   if (kit) as1(A, () => roofKit(A, x0 + t + 0.1, x1 - t - 0.1, z0 + t + 0.1, z1 - t - 0.1, y + 0.16, kit));   // AS1
-  A.box([x0, y, z0], [x1, y + 0.12, z1], "membrane");
+  A.box([x0 + 0.005, y, z0 + 0.005], [x1 - 0.005, y + 0.12, z1 - 0.005], "membrane");   // TD1: 5 mm inside the parapet faces (was coplanar)
   A.box([x0 + t, y + 0.12, z0 + t], [x1 - t, y + 0.16, z1 - t], "gravel_roof");
   const yt = y + ph;
   A.box([x0, y, z1 - t], [x1, yt, z1], m, BV); A.box([x0, y, z0], [x1, yt, z0 + t], m, BV);
@@ -437,6 +441,7 @@ export function houseSmall() {
       signPanel(B, fr, 1.62, 1.82, GF + 1.5, GF + 1.7, "sign_w", { depth: 0.04 });
       dpipe(B, re, -X + 0.2, 0.05, EAVE + 0.3); dpipe(B, fr, X - 0.2, 0.05, EAVE + 0.3);
       heatPump(B, re, -1.2, GF + 0.2);
+      hTown(B, k, EAVE + 0.45, { m: "concrete_m", prof: [[0.08, 0.04], [0.1, 0.1]], crest: { a: 2.4, w: 3.4, kind: "block", rise: 0.35, m: "render_m" }, roof: ["ac"] });   // TD1
       fbox(B, fr, 2.2, 4.0, -0.02, 0.45, 0.25, 0.75, "concrete_m", { bv: 0.02 });   // planter under the kitchen window
       fbox(B, fr, 2.25, 3.95, 0.45, 0.48, 0.3, 0.7, "earth", L1);
       fbox(B, re, -0.6, 2.0, -0.02, 0.06, 0, 0.5, "paving", { bv: 0.01 });          // patio slab at the slider
@@ -520,6 +525,7 @@ export function houseSplit() {
       signPanel(B, fr, -0.2, 0.0, GF + 1.5, GF + 1.7, "sign_w", { depth: 0.04 });
       dpipe(B, re, -X + 0.2, 0.05, EAVE + 0.3); dpipe(B, fr, -X + 0.2, 0.05, EAVE + 0.3);
       heatPump(B, re, -3.6, GF + 0.2);
+      hTown(B, k, EAVE + 0.7, { m: "concrete_m", prof: [[0.1, 0.05], [0.12, 0.12]], piers: "render_dk", pierCorners: ["fw", "rw"], roof: ["ac"] });   // TD1
     },
   });
   annexDoor(B, X - 0.175, 2.6, "garage");

@@ -428,7 +428,7 @@
     },
     {
       "id": "mod_road_2lane_ruin",
-      "clearGrass": 5.0,
+      "clearGrass": 2.2,
       "name": "Road, 2-lane (modern) (abandoned)",
       "asset": "line_mod_road_2lane_ruin",
       "builder": "bays",
@@ -451,7 +451,7 @@
     },
     {
       "id": "mod_road_4lane_ruin",
-      "clearGrass": 12.5,
+      "clearGrass": 5.0,
       "name": "Road, dual carriageway (modern) (abandoned)",
       "asset": "line_mod_road_4lane_ruin",
       "builder": "bays",
@@ -474,7 +474,7 @@
     },
     {
       "id": "mod_sidewalk_ruin",
-      "clearGrass": 0.8,
+      "clearGrass": 0.0,
       "name": "Sidewalk (concrete flags) (abandoned)",
       "asset": "line_mod_sidewalk_ruin",
       "builder": "bays",

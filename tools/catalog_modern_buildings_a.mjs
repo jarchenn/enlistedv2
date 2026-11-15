@@ -10,7 +10,7 @@
 // copy of the one in catalog_gx_buildings.mjs, which does not export it). Commercial fittings that define a building
 // (counters, booths, fryer line, hoods, pumps, benches, ticket desk) are fixed parts; the auto-furnisher dresses the
 // rest by A.meta.roomTypes. Signs are blank coloured panels only.
-import { Asset, wbox } from "./kit.mjs";
+import { Asset, wbox, P, cutRect } from "./kit.mjs";
 import { partition, door, fbox, fpart } from "./parts.mjs";
 import { mats, face, house, meta } from "./catalog_chateau.mjs";
 import { cover, room, corners, setTour } from "./catalog_atlantic.mjs";
@@ -71,6 +71,7 @@ function modMats(A) {
   A.mat("line_yellow", [0.80, 0.62, 0.05], 0.6, "plain");
   A.mat("ceiling", [0.82, 0.81, 0.78], 0.9, "plaster", { texture: "plaster_painted" });   // AS1: ceilings under upper floors
   A.mat("door_frame", [0.80, 0.80, 0.78], 0.45, "metal", { metallic: 0.15 });   // AS1: light painted-steel door frames
+  tdMats(A);   // TD1: facade kit (the outer asset of a placeSub build needs them too)
 }
 function mmeta(id, name, category, desc, floors, footprint) {
   const A = meta(id, name, category, desc, floors, footprint, { version: 1, plinthDepth: 0, noAutoPanels: true, maxGrade: 0.5 });
@@ -197,6 +198,8 @@ function roomTypes(A, rules) {
   }
   A.meta.roomTypes = t;
 }
+// TD1 town pass on a house() build under a flatRoof (parapet 0.25 thick, coping underside yt)
+const hTown = (A, k, yt, o = {}) => tdTown(A, { x0: -k.X, x1: k.X, z0: -k.Z, z1: k.Z }, { yW: k.EAVE, yd: k.EAVE + 0.16, yt, t: 0.25, ...o });
 const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); ceilings(A); as1Run(A); return k; };
 const HALLS = [/(^|_)c\d$/, "hall"];
 
@@ -251,7 +254,7 @@ function ceilings(A) {
 // outlets and soil vents. Returns the parapet top.
 function flatRoof(A, x0, x1, z0, z1, y, { ph = 0.9, t = 0.25, m = "render_m", vents = [], kit = "fan" } = {}) {
   if (kit) as1(A, () => roofKit(A, x0 + t + 0.1, x1 - t - 0.1, z0 + t + 0.1, z1 - t - 0.1, y + 0.16, kit));   // AS1
-  A.box([x0, y, z0], [x1, y + 0.12, z1], "membrane");
+  A.box([x0 + 0.005, y, z0 + 0.005], [x1 - 0.005, y + 0.12, z1 - 0.005], "membrane");   // TD1: 5 mm inside the parapet faces (was coplanar)
   A.box([x0 + t, y + 0.12, z0 + t], [x1 - t, y + 0.16, z1 - t], "gravel_roof");
   const yt = y + ph;
   A.box([x0, y, z1 - t], [x1, yt, z1], m, BV); A.box([x0, y, z0], [x1, yt, z0 + t], m, BV);
@@ -460,6 +463,7 @@ export function familyHouse() {
       for (const sx of [-1, 1]) dpipe(B, re, sx * (X - 0.2), 0.05, EAVE + 0.4);
       fbox(B, re, -X + 0.5, -X + 1.3, GF + 1.0, GF + 1.6, 0, 0.25, "hvac", { k: 0, bv: 0.01 });   // heat pump on wall brackets
       fbox(B, re, -X + 0.55, -X + 1.25, GF + 1.05, GF + 1.55, 0.25, 0.26, "grille", L1);
+      hTown(B, k, EAVE + 0.9, { m: "concrete_m", prof: [[0.1, 0.05], [0.12, 0.12]], piers: "render_m", pierCorners: ["fw", "rw"], roof: ["ac"] });   // TD1
     },
   };
   modHouse(B, c);
@@ -526,7 +530,8 @@ export function townhouseRow() {
       dress: (B, k) => {
         const { EAVE, yAt } = k, fr = face("front", X, Z);
         noBeams(B, EAVE);
-        flatRoof(B, -X, X, -Z, Z, EAVE, { m, ph: 0.8, vents: [[-1.5, -3.5]] });
+        const ph = [0.8, 1.3, 1.05][i];   // TD1: three parapet heights along the row
+        flatRoof(B, -X, X, -Z, Z, EAVE, { m, ph, vents: [[-1.5, -3.5]] });
         canopy(B, fr, -0.9, 0.9, GF + 2.45, 1.1);
         glassBalcony(B, fr, -1.25, 1.25, yAt(1), 0.25);
         for (const f of [1, 2]) fbox(B, fr, -X, X, yAt(f) - 0.3, yAt(f) - 0.08, -0.01, 0.05, "concrete_m", { bv: 0.01 });
@@ -536,6 +541,7 @@ export function townhouseRow() {
         fbox(B, fr, -X + 0.3, -1.0, 0.6, 0.64, 1.42, 1.63, "earth", L1);
         fbox(B, fr, 1.0, 2.6, -0.02, 1.25, 0.9, 1.6, "clad_wood", { bv: 0.01 });           // bin store
         fbox(B, fr, 1.0, 2.6, 1.25, 1.3, 0.88, 1.62, "metal_panel", L1);
+        hTown(B, k, EAVE + ph, { wall: m, sides: endSide ? ["front", endSide] : ["front"], crest: { w: [3.2, 2.2, 4.0][i], kind: ["step", "block", "pediment"][i], rise: [0.9, 0.6, 1.0][i] } });   // TD1
       },
     });
     const st = placeSub(A, B, { dx, pre });
@@ -581,6 +587,8 @@ export function apartmentBlock() {
       for (let z = 1.1; z < 2.95; z += 0.37) for (let y = GF + 0.95; y < GF + 1.85; y += 0.3) A.box([-1.6, y, z], [-1.59, y + 0.25, z + 0.33], "metal_panel", L1);
       ceilLights(A, -1.9, 1.9, zA + 0.2, 6.0, yAt(1) - 0.2, 2.0);
       A.box([-1.2, GF, Z - 0.35 + 0.02], [1.2, GF + 0.012, Z - 0.35 + 1.2], "rubber", L1);   // entrance mat (inside)
+      hTown(A, k, EAVE + 0.9, { wall: "brick_slip", crest: { w: 6.4, kind: "pediment", rise: 1.1 }, piers: "brick_slip", pierCorners: ["fe", "fw"],
+        fe: { side: "west", lo: -Z + 0.4, hi: Z - 0.4, len: 4.2, ys: [yAt(1), yAt(2), yAt(3)], from: "hi", lite: true } });   // TD1
     },
   });
   roomTypes(A, [HALLS, [/lobby/, "lobby"], [/_bed$/, "bedroom"], [/_living$|flat_0/, "sitting"]]);
@@ -615,6 +623,7 @@ export function bungalow() {
       for (const sx of [-1, 1]) dpipe(A, fr, sx * (X - 0.2), 0.05, EAVE + 0.3);
       A.box([-6.8, -0.02, Z + 0.3], [-3.8, 0.45, Z + 0.8], "concrete_m", { bv: 0.02 }); A.box([-6.75, 0.45, Z + 0.35], [-3.85, 0.48, Z + 0.75], "earth", L1);   // planter
       A.box([-0.1, -0.02, Z + 2.35], [0.9, 0.04, Z + 4.0], "paving", { bv: 0.01 });
+      tdQuoins(A, { x0: -X, x1: X, z0: -Z, z1: Z }, GF + 0.02, EAVE - 0.27, "td_cast_stone");   // TD1
       A.box([-X + 0.4, 0.5, -Z - 0.6], [-X + 1.3, 1.3, -Z - 0.05], "hvac", { bv: 0.02 }); A.box([-X + 0.45, 0.6, -Z - 0.61], [-X + 1.25, 1.2, -Z - 0.6], "grille", L1);   // heat pump
     },
   });
@@ -651,6 +660,8 @@ export function mixedUse() {
       counter(A, 1.6, 3.2, 2.6, 3.2, GF);   // shop counter beside the door
       register(A, 2.4, 2.8, GF + 1.0, [0, 1]);
       ceilLights(A, -3.5, 3.5, k.zA + 0.2, 5.6, yAt(1) - 0.2, 2.2);
+      hTown(A, k, EAVE + 0.9, { wall: "brick_slip", crest: { w: 5.0, kind: "step", rise: 1.1 }, piers: "brick_slip", pierCorners: ["fe", "fw"], quoin: "td_cast_stone", yq0: yAt(1) + 0.05,
+        courses: [yAt(1) + 0.66], fe: { side: "east", lo: -Z + 0.4, hi: Z - 0.4, len: 4.2, ys: [yAt(1), yAt(2)], from: "hi" }, roof: ["tank", "ac"] });   // TD1
     },
   });
   roomTypes(A, [HALLS, [/shop/, "shop"], [/kitchen/, "kitchen"], [/sitting/, "sitting"], [/bedroom/, "bedroom"]]);
@@ -678,7 +689,7 @@ export function dinerSmall() {
       signPanel(A, fr, -3.5, 1.0, EAVE + 0.1, yt - 0.1, "sign_a", { depth: 0.12 });
       signPanel(A, we, -2.5, 1.5, EAVE + 0.1, yt - 0.1, "sign_a", { depth: 0.12 });
       for (const F of [fr, we]) { const ax = F === fr; fbox(A, F, ax ? -X : -Z, ax ? X : Z, GF - 0.02, GF + 0.85, -0.01, 0.025, "vinyl_red", { k: 0, bv: 0.005 }); }   // tiled riser
-      awningM(A, fr, -4.6, 0.9, GF + 2.75, 1.0, 0.4); awningM(A, we, -2.0, -0.4, GF + 2.75, 0.9, 0.4);
+      tdAwning(A, fr, -4.6, 0.9, GF + 2.75, { dep: 1.05, drop: 0.4, m: "fabric_awning", sag: 0.35, torn: [2], hang: [3] }); awningM(A, we, -2.0, -0.4, GF + 2.75, 0.9, 0.4);   // TD1: bent and torn
       // counter with stools, a back counter, two booths
       counter(A, 0.4, 1.0, -1.6, 2.6, GF, { h: 1.05 });
       for (let z = -1.3; z < 2.5; z += 0.65) stool(A, 0.0, z, GF);
@@ -691,6 +702,7 @@ export function dinerSmall() {
         kitLineZ(A, z0, xl, -1, GF, kind, w);
       }
       hoodZ(A, -1.2, 1.1, xl, -1, GF, 0.0, EAVE + 0.3);
+      hTown(A, k, yt, { wall: "render_m", piers: "render_m", pierCorners: ["fe", "fw", "re"], roof: ["ac", "vent"] });   // TD1
       tiles(A, "z", xl, -1, -ZI, ZI, GF); tiles(A, "x", ZI, -1, 1.7, XI, GF); tiles(A, "x", -ZI, 1, 1.7, XI, GF);
       ceilLights(A, -XI, 1.5, -ZI, ZI, EAVE - 0.2, 2.2); ceilLights(A, 1.7, XI, -ZI, ZI, EAVE - 0.2, 2.0);
     },
@@ -737,9 +749,11 @@ export function restaurantFamily() {
       const yt = flatRoof(A, -X, X, -Z, Z, EAVE, { ph: 0.9, m: "render_m", vents: [[-7.5, -4.5]] });
       hvac(A, -3.0, -3.0, EAVE + 0.16); hvac(A, 1.5, -3.5, EAVE + 0.16, 1.4, 1.0, 0.9);
       signPanel(A, fr, 0.4, 4.0, EAVE + 0.05, yt - 0.05, "sign_c", { depth: 0.14 });
-      for (const a of [-5.2, -1.3]) awningM(A, fr, a - 1.1, a + 1.1, y + 2.8, 1.0, 0.45);
+      awningM(A, fr, -1.3 - 1.1, -1.3 + 1.1, y + 2.8, 1.0, 0.45);
+      tdAwning(A, fr, -5.2 - 1.1, -5.2 + 1.1, y + 2.8, { dep: 1.05, drop: 0.45, m: "fabric_awning", sag: 0.3, torn: [1] });   // TD1: sagging, half the cloth gone
       canopy(A, fr, 1.3, 2.9, y + 2.6, 1.1); canopy(A, fr, -4.1, -2.5, y + 2.6, 1.0);
       dpipe(A, face("rear", X, Z), -X + 0.2, 0.05, EAVE + 0.4); dpipe(A, face("rear", X, Z), X - 0.2, 0.05, EAVE + 0.4);
+      hTown(A, k, yt, { wall: "render_m", crest: { a: -4.5, w: 4.2, kind: "block", rise: 0.55 }, piers: "render_m", pierCorners: ["fe", "fw"], roof: ["vent", "ac"] });   // TD1
       // bar: counter along z, stools, back bar with shelves against the kitchen partition
       counter(A, 2.9, 3.5, -2.8, 2.2, y, { h: 1.1 });
       A.box([2.86, y + 1.06, -2.84], [2.9, y + 1.1, 2.24], "stainless", L1);   // foot rail line
@@ -786,9 +800,11 @@ export function restaurantLarge() {
       signPanel(A, fr, -6.0, 4.0, EAVE + 0.1, yt - 0.1, "sign_a", { depth: 0.14 });
       glassBalcony(A, fr, -3.6, 1.4, yAt(1), 1.8);
       A.box([-3.2, yAt(1) - 0.235, Z + 0.6], [1.0, yAt(1) - 0.22, Z + 1.2], "light_panel", L1);
-      for (const a of [-8.3, -5.6]) awningM(A, fr, a - 1.2, a + 1.2, y + 2.95, 1.0, 0.45);
+      awningM(A, fr, -5.6 - 1.2, -5.6 + 1.2, y + 2.95, 1.0, 0.45);
+      tdAwning(A, fr, -8.3 - 1.2, -8.3 + 1.2, y + 2.95, { dep: 1.05, drop: 0.45, m: "fabric_awning", sag: 0.4, hang: [0] });   // TD1: frame bent, a panel hanging loose
       fbox(A, fr, -X - 0.02, X + 0.02, yAt(1) - 0.32, yAt(1) - 0.08, -0.01, 0.06, "concrete_m", { bv: 0.01 });
       for (const sx of [-1, 1]) dpipe(A, face("rear", X, Z), sx * (X - 0.2), 0.05, EAVE + 0.4);
+      hTown(A, k, yt, { wall: "brick_grey", crest: { a: 7.0, w: 3.6, kind: "step", rise: 0.9 }, piers: "brick_grey", quoin: "td_cast_stone", roof: ["ac"] });   // TD1
       // kitchen: line along the front wall, hood with its duct through the restrooms above to the roof
       kitLine(A, 3.1, ZI, -1, y, [["range", 0.9], ["griddle", 0.9], ["fryer", 0.5], ["fryer", 0.5], ["sink", 0.6]]);
       hood(A, 3.1, 5.9, ZI, -1, y, 6.15, EAVE + 0.3);
@@ -874,6 +890,7 @@ export function fastFood() {
       canopy(B, ea, -0.8, 2.8, y + 2.5, 1.5, "sign_a");
       fbox(B, ea, 0.35, 1.65, y + 0.88, y + 0.93, 0, 0.35, "stainless", { bv: 0.005 });
       for (const sx of [-1, 1]) dpipe(B, face("rear", X, Z), sx * (X - 0.2), 0.05, EAVE + 0.4);
+      hTown(B, k, yt, { wall: "brick_grey", m: "td_cast_dark", piers: "brick_grey", pierCorners: ["re", "rw"], roof: ["vent", "ac"] });   // TD1
     },
   });
   const steps = placeSub(A, B, { dx });
@@ -907,7 +924,7 @@ export function gasStation() {
   const B = sub("gas");
   modHouse(B, {
     X, Z, T: 0.3, h: 3.4, n: 1, plinthDepth: 0.5, shot: "mod_gas",
-    style: modStyle("metal_panel"), wd: () => ({ w: 2.4, h: 2.2, sill: 0.4 }),
+    style: modStyle("brick_slip"), wd: () => ({ w: 2.4, h: 2.2, sill: 0.4 }),   // TD1: a brick shop
     win: () => ({ front: [{ c: -4.8 }, { c: 1.3 }], east: [{ c: 1.0, w: 0.6, h: 0.6, sill: 1.6 }], rear: [{ c: -3.0, w: 1.0, h: 0.8, sill: 1.4 }] }),
     parts: () => [3.2], names: (f, r) => ["store", "storeroom"][r], hall: 0, rdx: 4.95, doorW: 1.8, frontDouble: true,
     roof: { type: "none", rise: 1 },
@@ -915,9 +932,14 @@ export function gasStation() {
       const { EAVE, XI, ZI } = k, y = GF, fr = face("front", X, Z);
       noBeams(B, EAVE);
       glazeDoor(B, "front_door");
-      const yt = flatRoof(B, -X, X, -Z, Z, EAVE, { ph: 0.9, m: "metal_panel", vents: [[5, -3]] });
-      signPanel(B, fr, -X + 0.2, X - 0.2, EAVE - 0.45, yt - 0.05, "sign_c", { depth: 0.14 });
-      fbox(B, fr, -X + 0.2, X - 0.2, EAVE - 0.4, EAVE - 0.28, 0.19, 0.21, "sign_a", L1);
+      const yt = flatRoof(B, -X, X, -Z, Z, EAVE, { ph: 0.9, m: "brick_slip", vents: [[5, -3]] });
+      // TD1: long fascia sign box (blank) with a lit soffit, steel bars over every window
+      fbox(B, fr, -X + 0.15, X - 0.15, EAVE - 0.5, yt - 0.08, -0.01, 0.42, "sign_c", { k: 0, bv: 0.015 });
+      fbox(B, fr, -X + 0.1, X - 0.1, yt - 0.08, yt - 0.02, -0.01, 0.46, "alu", { k: 0, bv: 0.008 });
+      fbox(B, fr, -X + 0.25, X - 0.25, EAVE - 0.512, EAVE - 0.5, 0.1, 0.36, "light_panel", L1);
+      fbox(B, fr, -X + 0.3, X - 0.3, EAVE - 0.38, EAVE - 0.26, 0.42, 0.432, "sign_a", L1);
+      for (const c of [-4.8, 1.3]) tdBars(B, fr, c - 1.2, c + 1.2, y + 0.4, y + 2.6);
+      tdBars(B, face("east", X, Z), 0.7, 1.3, y + 1.6, y + 2.2, { sp: 0.12 }); tdBars(B, face("rear", X, Z), -3.5, -2.5, y + 1.4, y + 2.2, { sp: 0.12 });
       canopy(B, fr, -3.4, -0.1, y + 2.75, 1.3);
       hvac(B, -2.0, -2.0, EAVE + 0.16, 1.6, 1.1, 1.0);
       for (const sx of [-1, 1]) dpipe(B, face("rear", X, Z), sx * (X - 0.2), 0.05, EAVE + 0.3);
@@ -947,6 +969,7 @@ export function gasStation() {
       for (let yy = y + 0.3; yy < y + 2.0; yy += 0.45) B.box([XI - 0.5, yy, -2.0], [XI, yy + 0.03, 3.6], "steel_plate", { k: 0 });
       B.box([XI - 0.5, y, -2.0], [XI, y + 2.0, 3.6], "steel_plate", { v: 0 });
       ceilLights(B, -XI, 3.1, -ZI, ZI, EAVE - 0.2, 2.2);
+      hTown(B, k, yt, { wall: "brick_slip", m: "td_cast_dark", prof: [[0.12, 0.06], [0.14, 0.14]], corniceSides: ["rear", "east", "west"], piers: "brick_slip", roof: ["ac"] });   // TD1
     },
   });
   const steps = placeSub(A, B, { dx: sdx, dz: sdz, pre: "s_" });
@@ -955,35 +978,68 @@ export function gasStation() {
   for (let x = -8; x < 12; x += 4) A.box([x - 0.01, 0.03, sdz + Z], [x + 0.01, 0.034, 11.6], "rubber", L1);
   for (let z = 2; z < 11.6; z += 4) A.box([-12, 0.03, z - 0.01], [12, 0.034, z + 0.01], "rubber", L1);
   A.box([-12, 0.03, 11.2], [12, 0.045, 11.4], "grille", L1);   // drain channel
-  // canopy on four clad columns
-  const cy = 5.0, cx0 = -12, cx1 = 8, cz0 = 0, cz1 = 11.5, isl = [[-6.5, 3.0], [2.5, 3.0], [-6.5, 8.5], [2.5, 8.5]];
-  A.box([cx0, cy + 0.2, cz0], [cx1, cy + 0.75, cz1], "metal_panel");
-  A.box([cx0 + 0.1, cy + 0.15, cz0 + 0.1], [cx1 - 0.1, cy + 0.2, cz1 - 0.1], "alu", { k: 0 });
-  for (const [a, b, c, d] of [[cx0, cx1, cz1, cz1 + 0.08], [cx0, cx1, cz0 - 0.08, cz0]]) { A.box([a - 0.08, cy, c], [b + 0.08, cy + 0.9, d], "sign_w", { k: 0, bv: 0.01 }); A.box([a - 0.09, cy + 0.32, Math.min(c, d) - 0.01], [b + 0.09, cy + 0.58, Math.max(c, d) + 0.01], "sign_a", L1); }
-  for (const [a, b] of [[cx0 - 0.08, cx0], [cx1, cx1 + 0.08]]) { A.box([a, cy, cz0], [b, cy + 0.9, cz1], "sign_w", { k: 0, bv: 0.01 }); A.box([a - 0.01, cy + 0.32, cz0], [b + 0.01, cy + 0.58, cz1], "sign_a", L1); }
-  for (let x = cx0 + 2.5; x < cx1 - 1; x += 5) for (let z = cz0 + 1.9; z < cz1 - 1; z += 3.8) A.box([x - 0.6, cy + 0.13, z - 0.3], [x + 0.6, cy + 0.15, z + 0.3], "light_panel", L1);
+  // TD1 canopy: a deep flat deck on six red steel columns (one per island), a 1.1 m fascia band all round, square lights
+  // recessed into the soffit; six kerbed islands with two dispensers each, a price sign pylon by the street
+  const cy = 5.0, cx0 = -12, cx1 = 8, cz0 = 0, cz1 = 11.5, isl = [];
+  for (const z of [3.0, 8.5]) for (const x of [-8.6, -2.0, 4.6]) isl.push([x, z]);
+  A.box([cx0, cy + 0.35, cz0], [cx1, cy + 1.2, cz1], "metal_panel");
+  A.box([cx0 + 0.3, cy + 1.2, cz0 + 0.3], [cx1 - 0.3, cy + 1.26, cz1 - 0.3], "membrane", L1);
+  const lights = [];
+  for (let x = cx0 + 1.65; x < cx1; x += 3.3) for (const z of [1.9, 5.75, 9.6]) lights.push({ a0: x - 0.45, a1: x + 0.45, y0: z - 0.45, y1: z + 0.45 });
+  for (const [a, b, c, d] of cutRect(cx0 + 0.05, cx1 - 0.05, cz0 + 0.05, cz1 - 0.05, lights)) A.box([a, cy + 0.25, c], [b, cy + 0.35, d], "alu", { k: 0 });   // soffit
+  for (const L of lights) {
+    A.box([L.a0 + 0.01, cy + 0.33, L.y0 + 0.01], [L.a1 - 0.01, cy + 0.345, L.y1 - 0.01], "light_panel", L1);
+    A.box([L.a0 + 0.06, cy + 0.318, L.y0 + 0.06], [L.a1 - 0.06, cy + 0.33, L.y1 - 0.06], "glass_rail", L1);   // diffuser set up in the recess
+  }
+  for (const [a, b, c, d] of [[cx0, cx1, cz1, cz1 + 0.1], [cx0, cx1, cz0 - 0.1, cz0]]) {
+    A.box([a - 0.1, cy + 0.2, c], [b + 0.1, cy + 1.3, d], "sign_w", { k: 0, bv: 0.01 });
+    A.box([a - 0.11, cy + 0.72, Math.min(c, d) - 0.012], [b + 0.11, cy + 1.02, Math.max(c, d) + 0.012], "sign_a", L1);
+    A.box([a - 0.12, cy + 0.17, Math.min(c, d) - 0.02], [b + 0.12, cy + 0.26, Math.max(c, d) + 0.02], "alu", { k: 0, bv: 0.008 });
+  }
+  for (const [a, b] of [[cx0 - 0.1, cx0], [cx1, cx1 + 0.1]]) {
+    A.box([a, cy + 0.2, cz0], [b, cy + 1.3, cz1], "sign_w", { k: 0, bv: 0.01 });
+    A.box([a - 0.012, cy + 0.72, cz0], [b + 0.012, cy + 1.02, cz1], "sign_a", L1);
+    A.box([a - 0.02, cy + 0.17, cz0], [b + 0.02, cy + 0.26, cz1], "alu", { k: 0, bv: 0.008 });
+  }
   for (const [x, z] of isl) {
-    A.box([x - 2.4, 0.03, z - 0.6], [x + 2.4, 0.2, z + 0.6], "concrete_m", { bv: 0.03 });
-    for (const s of [-1, 1]) A.box([x + s * 2.4 - (s > 0 ? 0.15 : 0), 0.2, z - 0.6], [x + s * 2.4 + (s < 0 ? 0.15 : 0), 0.205, z + 0.6], "line_yellow", L1);
-    A.box([x - 0.25, 0.2, z - 0.25], [x + 0.25, cy + 0.2, z + 0.25], "alu", { bv: 0.02 });
-    A.box([x - 0.28, 0.2, z - 0.28], [x + 0.28, 0.7, z + 0.28], "stainless", { k: 0, bv: 0.01 });
+    A.box([x - 2.3, 0.03, z - 0.65], [x + 2.3, 0.2, z + 0.65], "concrete_m", { bv: 0.03 });   // raised island
+    for (const s of [-1, 1]) A.box([x + s * 2.3 - (s > 0 ? 0.3 : 0), 0.025, z - 0.67], [x + s * 2.3 + (s < 0 ? 0.3 : 0), 0.215, z + 0.67], "line_yellow", { k: 0, bv: 0.02 });   // painted kerb noses
+    A.box([x - 0.2, 0.2, z - 0.2], [x + 0.2, cy + 0.25, z + 0.2], "td_steel_red", { bv: 0.02 });   // column
+    A.box([x - 0.26, 0.2, z - 0.26], [x + 0.26, 0.75, z + 0.26], "stainless", { k: 0, bv: 0.01 });   // impact sleeve
+    A.box([x - 0.3, cy + 0.17, z - 0.3], [x + 0.3, cy + 0.25, z + 0.3], "td_steel_red", { k: 0, bv: 0.01 });   // cap plate under the soffit
     for (const s of [-1, 1]) {
-      A.cyl([x + s * 2.2, 0.7, z], [0.16, 1.0, 0.16], "sign_b", { seg: 10 });   // bollards
-      A.cyl([x + s * 2.2, 1.18, z], [0.17, 0.05, 0.17], "rubber", { seg: 10, ...L1 });
-      const px = x + s * 1.25;   // dispenser
-      A.box([px - 0.48, 0.2, z - 0.3], [px + 0.48, 0.32, z + 0.3], "stainless", { bv: 0.01 });
-      A.box([px - 0.42, 0.32, z - 0.24], [px + 0.42, 2.0, z + 0.24], "hvac", { bv: 0.02 });
-      A.box([px - 0.45, 2.0, z - 0.27], [px + 0.45, 2.25, z + 0.27], "sign_a", { k: 0, bv: 0.02 });
+      A.cyl([x + s * 2.05, 0.7, z], [0.16, 1.0, 0.16], "sign_b", { seg: 10 });   // bollards at the island ends
+      A.cyl([x + s * 2.05, 1.18, z], [0.17, 0.05, 0.17], "rubber", { seg: 10, ...L1 });
+      const px = x + s * 1.15;   // dispenser: plinth, housing, lit head, per face a screen, card reader, holster, nozzle and hose
+      A.box([px - 0.48, 0.2, z - 0.32], [px + 0.48, 0.32, z + 0.32], "stainless", { bv: 0.01 });
+      A.box([px - 0.42, 0.32, z - 0.25], [px + 0.42, 1.95, z + 0.25], "sign_w", { bv: 0.02 });
+      A.box([px - 0.45, 1.95, z - 0.28], [px + 0.45, 2.3, z + 0.28], "sign_a", { k: 0, bv: 0.02 });
       for (const f of [-1, 1]) {
-        const zf = z + f * 0.24;
-        A.box([px - 0.38, 0.4, Math.min(zf, zf + f * 0.015)], [px + 0.38, 1.0, Math.max(zf, zf + f * 0.015)], "sign_a", L1);
-        A.box([px - 0.22, 1.35, Math.min(zf, zf + f * 0.012)], [px + 0.22, 1.7, Math.max(zf, zf + f * 0.012)], "screen", L1);
-        A.box([px - 0.12, 1.15, Math.min(zf, zf + f * 0.03)], [px + 0.12, 1.3, Math.max(zf, zf + f * 0.03)], "metal_panel", L1);
-        for (const o of [-0.28, 0, 0.28]) { A.box([px + o - 0.05, 1.05, Math.min(zf, zf + f * 0.12)], [px + o + 0.05, 1.25, Math.max(zf, zf + f * 0.12)], "rubber", L1); }
-        rod(A, [px - 0.3, 1.95, zf + f * 0.02], [px - 0.42, 0.8, zf + f * 0.2], 0.03, "rubber", L1);
+        const zf = z + f * 0.25, zz = (a, b) => [Math.min(zf + f * a, zf + f * b), Math.max(zf + f * a, zf + f * b)];
+        A.box([px - 0.3, 1.4, zz(0.005, 0.02)[0]], [px + 0.06, 1.75, zz(0.005, 0.02)[1]], "screen", L1);
+        A.box([px + 0.12, 1.4, zz(0.005, 0.04)[0]], [px + 0.3, 1.62, zz(0.005, 0.04)[1]], "metal_panel", L1);
+        A.box([px - 0.36, 0.95, zz(0.005, 0.14)[0]], [px - 0.16, 1.25, zz(0.005, 0.14)[1]], "metal_panel", L1);   // holster
+        A.box([px - 0.3, 1.0, zz(0.14, 0.24)[0]], [px - 0.22, 1.3, zz(0.14, 0.24)[1]], "rubber", L1);             // nozzle
+        rod(A, [px - 0.38, 1.95, zf + f * 0.02], [px - 0.26, 0.98, zf + f * 0.2], 0.03, "rubber", L1);            // hose
       }
     }
-    A.box([x - 0.7, 0.2, z + 0.32], [x - 0.35, 1.0, z + 0.55], "metal_panel", { bv: 0.01 });   // bin and screen wash
+    A.box([x - 0.75, 0.2, z + 0.34], [x - 0.4, 1.0, z + 0.58], "metal_panel", { bv: 0.01 });   // bin and screen wash
+  }
+  // price sign pylon: plinth, steel post, a cabinet of stacked blank price panels on both faces
+  const sx = 10.4, sz = 10.0;
+  A.box([sx - 0.7, -0.05, sz - 0.5], [sx + 0.7, 0.5, sz + 0.5], "concrete_m", { bv: 0.03 });
+  A.box([sx - 0.18, 0.5, sz - 0.18], [sx + 0.18, 4.7, sz + 0.18], "td_steel_red", { bv: 0.02 });
+  A.box([sx - 0.95, 4.7, sz - 0.24], [sx + 0.95, 8.6, sz + 0.24], "metal_panel", { bv: 0.03 });
+  A.box([sx - 1.0, 8.6, sz - 0.28], [sx + 1.0, 8.7, sz + 0.28], "alu", { k: 0, bv: 0.01 });
+  for (const f of [-1, 1]) {
+    const zp = (a, b) => [Math.min(sz + f * a, sz + f * b), Math.max(sz + f * a, sz + f * b)];
+    A.box([sx - 0.85, 7.5, zp(0.24, 0.255)[0]], [sx + 0.85, 8.45, zp(0.24, 0.255)[1]], "sign_a", L1);          // brand panel (blank)
+    for (let k = 0; k < 3; k++) {
+      const y0 = 5.0 + k * 0.78;
+      A.box([sx - 0.85, y0, zp(0.24, 0.252)[0]], [sx + 0.85, y0 + 0.66, zp(0.24, 0.252)[1]], ["sign_w", "sign_b", "sign_d"][k], L1);
+      A.box([sx - 0.1, y0 + 0.1, zp(0.252, 0.26)[0]], [sx + 0.78, y0 + 0.56, zp(0.252, 0.26)[1]], "screen", L1);   // blank price window
+    }
+    A.box([sx - 0.85, 4.8, zp(0.24, 0.25)[0]], [sx + 0.85, 4.92, zp(0.24, 0.25)[1]], "sign_c", L1);
   }
   // car wash: two walls, a roof, a brush gantry, guide rails; open at both ends
   const wx0 = 7.4, wx1 = 12.0, wz0 = -11.5, wz1 = -1.5, wh = 4.0;
@@ -1063,6 +1119,7 @@ export function busStation() {
       fbox(B, fr, -4.0, 4.0, EAVE + 0.15, EAVE + 0.25, 0.19, 0.2, "sign_b", L1);
       hvac(B, -6.0, -2.0, EAVE + 0.16, 2.0, 1.3, 1.1); hvac(B, 0.0, -2.0, EAVE + 0.16, 2.0, 1.3, 1.1);
       for (const sx of [-1, 1]) dpipe(B, fr, sx * (X - 0.2), 0.05, EAVE + 0.3);
+      hTown(B, k, yt, { wall: "concrete_m", m: "concrete_m", prof: [[0.15, 0.08], [0.2, 0.22]], piers: "concrete_m", crest: { a: 8.0, w: 3.0, kind: "block", rise: 1.4 }, roof: ["ac", "vent"] });   // TD1
     },
   });
   const steps = placeSub(A, B, { dz: hdz, pre: "h_" });
@@ -1110,6 +1167,263 @@ export function busStation() {
   roomTypes(A, [[/ticket_office/, "office"], [/waiting_hall/, "lobby"], [/restrooms/, "bathroom"]]);
   tourFrom(A, steps, [{ goto: [-2.0, -5.5], note: "across the bus road" }, { goto: [-2.0, icz], note: "onto the island platform" }]);
   return A;
+}
+
+// ============================================================================ TD1 facade / silhouette kit
+// Shared with catalog_modern_buildings_b, catalog_newtown_b and catalog_newtown_c (they import it). Town dressing against
+// the box look: stepped cornices and string courses, parapet crests and corner piers, quoins, steel fire escapes, sagging
+// or torn awnings, window bars, roof water tanks and condensers. F is a face frame { axis, d, out } as fbox takes it; R a
+// rectangle { x0, x1, z0, z1 }. Trims go only where their projecting volume (more than 3 mm out of the face) is free of
+// other parts and never touch a door / window aperture (tdRuns, tdFree); nothing is coplanar with an existing face.
+const TDL = { k: 0, lod: 1 }, TDK = { k: 0 };
+export function tdMats(A) {
+  const add = (n, alb, r, pat, ex = {}) => { if (!A.materials.some((m) => m.name === n)) A.mat(n, alb, r, pat, ex); };
+  add("td_cast_stone", [0.64, 0.62, 0.57], 0.85, "concrete", { texture: "concrete_light" });
+  add("td_cast_dark", [0.40, 0.39, 0.37], 0.85, "concrete", { texture: "concrete_aged" });
+  add("td_fe_steel", [0.07, 0.07, 0.075], 0.6, "metal", { texture: "iron_worn", metallic: 0.3 });
+  add("td_fe_walk_grid", [0.16, 0.16, 0.16], 0.7, "plain", { texture: "metal_walkway_grate" });   // keeps its grate texture in the ruin pass
+  add("td_tank_wood", [0.36, 0.27, 0.19], 0.85, "wood", { texture: "boards_weathered" });
+  add("td_ac", [0.62, 0.62, 0.60], 0.5, "metal", { texture: "steel_worn_grey", metallic: 0.2 });
+  add("td_ac_grille", [0.25, 0.25, 0.25], 0.5, "metal", { texture: "metal_mesh_grid", metallic: 0.5 });
+  add("td_downpipe", [0.18, 0.19, 0.19], 0.5, "metal", { texture: "steel_scratched", metallic: 0.4 });
+  add("td_steel_red", [0.55, 0.06, 0.05], 0.4, "metal", { texture: "metal_painted_red", metallic: 0.3 });
+}
+export const tdFace = (R, s) => ({ front: { axis: "x", d: R.z1, out: 1 }, rear: { axis: "x", d: R.z0, out: -1 }, east: { axis: "z", d: R.x1, out: 1 }, west: { axis: "z", d: R.x0, out: -1 } }[s]);
+const tdWB = (F, a0, a1, y0, y1, e0, e1) => { const d0 = F.d + F.out * e0, d1 = F.d + F.out * e1; return [P(F.axis, Math.min(a0, a1), y0, Math.min(d0, d1)), P(F.axis, Math.max(a0, a1), y1, Math.max(d0, d1))]; };
+const tdP = (F, a, y, e) => P(F.axis, a, y, F.d + F.out * e);
+const ovl = (a0, a1, b0, b1) => a0 < b1 - 1e-4 && a1 > b0 + 1e-4;
+// a part's world box: the exact box round its rotated extents (euler r applied x, then y, then z as glm::quat(vec3) does,
+// or the quaternion q of a placeSub copy)
+const DGR = Math.PI / 360;
+function bbOf(p) {
+  let q = p.q;
+  if (!q && p.r) {
+    const [cx, cy, cz] = p.r.map((v) => Math.cos(v * DGR)), [sx, sy, sz] = p.r.map((v) => Math.sin(v * DGR));
+    q = [sx * cy * cz - cx * sy * sz, cx * sy * cz + sx * cy * sz, cx * cy * sz - sx * sy * cz, cx * cy * cz + sx * sy * sz];
+  }
+  let he = p.s.map((v) => v / 2);
+  if (q) {
+    const [x, y, z, w] = q, M = [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]];
+    he = M.map((row) => row.reduce((s, m, i) => s + Math.abs(m) * he[i], 0));
+  }
+  return [p.c.map((v, i) => v - he[i]), p.c.map((v, i) => v + he[i])];
+}
+const bHit = (a, b) => [0, 1, 2].every((i) => ovl(a[0][i], a[1][i], b[0][i], b[1][i]));
+const apBoxes = (A) => A.interactables.map((it) => [it.aperture.min, it.aperture.max]);
+// no part in any of the boxes `rs`, no aperture in `ap` (default: the first box)
+export function tdFree(A, rs, ap = rs[0]) {
+  for (const p of A.parts) if (p.s) { const b = bbOf(p); if (rs.some((r) => bHit(b, r))) return false; }
+  return !apBoxes(A).some((b) => bHit(b, ap));
+}
+// free stretches of a0..a1 on face F for a trim over y0..y1 reaching e0..e1 out of the face
+export function tdRuns(A, F, a0, a1, y0, y1, e0, e1, { step = 0.1, min = 0.3 } = {}) {
+  const pr = tdWB(F, a0, a1, y0, y1, Math.max(e0, 0.003), e1), full = tdWB(F, a0, a1, y0, y1, e0, e1), L = F.axis === "x" ? 0 : 2;
+  const bl = A.parts.filter((p) => p.s).map(bbOf).filter((b) => bHit(b, pr)).concat(apBoxes(A).filter((b) => bHit(b, full)));
+  const n = Math.max(1, Math.round((a1 - a0) / step)), st = (a1 - a0) / n, runs = [];
+  let s = null;
+  for (let i = 0; i <= n; i++) {
+    const c0 = a0 + i * st, free = i < n && !bl.some((b) => ovl(b[0][L], b[1][L], c0, c0 + st));
+    if (free && s === null) s = c0;
+    if (!free && s !== null) { if (c0 - s >= min - 1e-6) runs.push([s, c0]); s = null; }
+  }
+  return runs;
+}
+// rectangular bar from a to b (w across, t thick), the catalog_newtown_b convention
+export function tdBar(A, a, b, w, t, m, o = {}) {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d), DG = 180 / Math.PI;
+  if (L < 1e-4) return null;
+  return A.obox([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], [w, t, L], [-Math.asin(Math.max(-1, Math.min(1, d[1] / L))) * DG, Math.atan2(d[0], d[2]) * DG, 0], m, o);
+}
+
+// Stepped cornice (bed mould, fascia, corona: prof [[height, projection]...] from the bottom) topping at y on the `sides`
+// of R. Front / rear runs return round a corner onto a dressed side (each layer by its own projection); side runs stop
+// 12 mm short of a dressed front / rear. All runs are measured before any is built.
+const PROF = [[0.12, 0.08], [0.16, 0.2], [0.2, 0.38]];
+export function tdCornice(A, R, y, sides, { m = "td_cast_stone", prof = PROF, lod = false } = {}) {
+  const H = prof.reduce((s, q) => s + q[0], 0), pm = Math.max(...prof.map((q) => q[1])), jobs = [], has = (s) => sides.includes(s);
+  for (const s of sides) {
+    const F = tdFace(R, s), isX = F.axis === "x", lo = isX ? R.x0 : R.z0, hi = isX ? R.x1 : R.z1;
+    const a0 = isX ? lo - (has("west") ? pm + 0.004 : 0) : lo + (has("rear") ? 0.012 : 0), a1 = isX ? hi + (has("east") ? pm + 0.004 : 0) : hi - (has("front") ? 0.012 : 0);
+    for (const [b0, b1] of tdRuns(A, F, a0, a1, y - H, y, -0.01, pm)) jobs.push([F, b0, b1, lo, hi]);
+  }
+  for (const [F, b0, b1, lo, hi] of jobs) {
+    let yy = y - H;
+    for (const [h, p] of prof) {
+      fbox(A, F, Math.max(b0, lo - p - 0.004), Math.min(b1, hi + p + 0.004), yy, yy + h, -0.01, p, m, { k: 0, bv: 0.01, lod });
+      yy += h;
+    }
+  }
+  return jobs.length;
+}
+// a string course: a band with a drip on top
+export const tdCourse = (A, R, y, sides, m = "td_cast_stone", p = 0.07) => tdCornice(A, R, y, sides, { m, prof: [[0.13, p], [0.05, p + 0.03]], lod: true });
+// Raised parapet panel centred at a (width w) on face F whose parapet is t thick with its coping underside at yt:
+// "step" two tiers, "block" one, "pediment" a gable; each tier with its own coping. Masonry: these keep colliders.
+export function tdCrest(A, F, a, w, yt, t, { m, kind = "step", rise = 0.9, cap = "td_cast_stone" } = {}) {
+  const tier = (a0, a1, yb, y1, e) => { fbox(A, F, a0, a1, yb, y1, -t - e, e, m, { bv: 0.01 }); fbox(A, F, a0 - 0.05, a1 + 0.05, y1, y1 + 0.08, -t - e - 0.05, e + 0.05, cap, { k: 0, bv: 0.012 }); };
+  if (kind === "pediment") {
+    const yb = yt + 0.25, [d0, d1] = [F.d - F.out * (t + 0.05), F.d + F.out * 0.05].sort((p, q) => p - q);
+    tier(a - w / 2, a + w / 2, yt - 0.25, yb, 0.05);
+    A.prism(F.axis === "x" ? 2 : 0, d0, d1, [[a - w / 2, yb + 0.06], [a + w / 2, yb + 0.06], [a, yb + rise]], m);
+    for (const s of [-1, 1]) tdBar(A, tdP(F, a + s * (w / 2 + 0.06), yb + 0.1, -t / 2), tdP(F, a, yb + rise + 0.06, -t / 2), t + 0.2, 0.08, cap, { k: 0 });
+  } else {
+    tier(a - w / 2, a + w / 2, yt - 0.25, yt + (kind === "step" ? rise * 0.5 : rise), 0.05);
+    if (kind === "step") tier(a - w * 0.28, a + w * 0.28, yt + rise * 0.5 + 0.06, yt + rise, 0.07);
+  }
+}
+// corner piers rising `rise` over the coping underside yt, from the roof deck yd; corners as tdCorners gives them
+export function tdPiers(A, R, yd, yt, t, m, { corners = tdCorners(R), rise = 0.45, w = 0.7, cap = "td_cast_stone" } = {}) {
+  for (const [x, z, sx, sz] of corners) {
+    const inner = [[Math.min(x - sx * w, x - sx * (t + 0.01)), yd + 0.2, Math.min(z - sz * w, z - sz * (t + 0.01))], [Math.max(x - sx * w, x - sx * (t + 0.01)), yt, Math.max(z - sz * w, z - sz * (t + 0.01))]];
+    if (!tdFree(A, [inner])) continue;   // a roof bulkhead or plant stands in the corner
+    A.box([Math.min(x - sx * w, x + sx * 0.05), yd - 0.02, Math.min(z - sz * w, z + sz * 0.05)], [Math.max(x - sx * w, x + sx * 0.05), yt + rise, Math.max(z - sz * w, z + sz * 0.05)], m, { bv: 0.012 });
+    A.box([Math.min(x - sx * (w + 0.05), x + sx * 0.1), yt + rise, Math.min(z - sz * (w + 0.05), z + sz * 0.1)], [Math.max(x - sx * (w + 0.05), x + sx * 0.1), yt + rise + 0.09, Math.max(z - sz * (w + 0.05), z + sz * 0.1)], cap, { k: 0, bv: 0.015 });
+  }
+}
+// corners of R as [x, z, sx, sz]: which = any of "fe", "fw", "re", "rw" (front / rear, east / west)
+export const tdCorners = (R, which = ["fe", "fw", "re", "rw"]) => which.map((c) => [c[1] === "e" ? R.x1 : R.x0, c[0] === "f" ? R.z1 : R.z0, c[1] === "e" ? 1 : -1, c[0] === "f" ? 1 : -1]);
+// quoins: alternating long and short blocks round each corner, y0..y1, 35 mm proud; blocks that would hit a part or an
+// opening are left out
+export function tdQuoins(A, R, y0, y1, m, { corners = tdCorners(R), h = 0.3, gap = 0.05, lo = 0.6, sh = 0.34, p = 0.035 } = {}) {
+  for (const [x, z, sx, sz] of corners) for (let y = y0, i = 0; y + h <= y1 + 1e-6; y += h + gap, i++) {
+    const lx = i % 2 ? sh : lo, lz = i % 2 ? lo : sh;
+    const X0 = Math.min(x - sx * lx, x + sx * p), X1 = Math.max(x - sx * lx, x + sx * p), Z0 = Math.min(z - sz * lz, z + sz * p), Z1 = Math.max(z - sz * lz, z + sz * p);
+    const rx = [[X0, y, Math.min(z + sz * 0.003, z + sz * p)], [X1, y + h, Math.max(z + sz * 0.003, z + sz * p)]];
+    const rz = [[Math.min(x + sx * 0.003, x + sx * p), y, Z0], [Math.max(x + sx * 0.003, x + sx * p), y + h, Z1]];
+    if (tdFree(A, [rx, rz], [[X0, y, Z0], [X1, y + h, Z1]])) A.box([X0, y, Z0], [X1, y + h, Z1], m, { k: 0, lod: 1, bv: 0.008 });
+  }
+}
+// flat pilaster strip on face F at a (w wide) from y0 to y1 with a plinth block and a capital
+export function tdPilaster(A, F, a, y0, y1, m, { w = 0.5, p = 0.08, cap = "td_cast_stone" } = {}) {
+  if (tdRuns(A, F, a - w / 2 - 0.05, a + w / 2 + 0.05, y0, y1, -0.01, p + 0.05, { min: w + 0.1 - 1e-3 }).length !== 1) return false;
+  fbox(A, F, a - w / 2 - 0.04, a + w / 2 + 0.04, y0, y0 + 0.35, -0.01, p + 0.03, cap, { k: 0, bv: 0.01 });
+  fbox(A, F, a - w / 2, a + w / 2, y0 + 0.35, y1 - 0.25, -0.01, p, m, { k: 0, bv: 0.01 });
+  fbox(A, F, a - w / 2 - 0.05, a + w / 2 + 0.05, y1 - 0.25, y1, -0.01, p + 0.05, cap, { k: 0, bv: 0.01 });
+  return true;
+}
+
+// Steel fire escape on face F: a landing at every deck level in ys (lowest first) over a0..a1, dep deep, a straight flight
+// between consecutive landings (from the a0 end up to the a1 end, in the outer half through a hatch in the landing
+// above), a counterweighted drop ladder under the lowest landing and a ladder from the top landing to the parapet top
+// yRoof. Returns false (and builds nothing) when its volume is not free.
+export function tdFireEscape(A, F, a0, a1, ys, { dep = 1.25, yRoof = null, m = "td_fe_steel", deck = "td_fe_walk_grid", lite = false } = {}) {
+  const yTop = (yRoof ?? ys.at(-1)) + 1.0, env = tdWB(F, a0 - 0.1, a1 + 0.1, ys[0] - 2.6, yTop, 0.09, dep + 0.1);
+  if (!tdFree(A, [env])) return false;
+  const Q = (a, y, e) => tdP(F, a, y, e), hm = dep / 2, hatch = 0.75;
+  ys.forEach((y, i) => {
+    const full = i === 0;   // the lowest landing has no flight coming up through it
+    fbox(A, F, a0, a1, y - 0.04, y, 0.04, full ? dep - 0.02 : hm, deck, TDK);
+    if (!full) for (const [p0, p1] of [[a0, a0 + hatch], [a1 - hatch, a1]]) fbox(A, F, p0, p1, y - 0.04, y, hm, dep - 0.02, deck, TDK);
+    fbox(A, F, a0, a1, y - 0.16, y + 0.012, dep - 0.07, dep, m, TDK);                         // fascia channel
+    if (!lite) fbox(A, F, a0, a1, y - 0.16, y + 0.012, -0.01, 0.06, m, TDL);                  // wall angle
+    if (!lite) for (const a of [a0, a1]) fbox(A, F, a - (a === a0 ? 0 : 0.06), a + (a === a0 ? 0.06 : 0), y - 0.16, y + 0.012, 0.06, dep - 0.07, m, TDL);
+    for (const a of [a0 + 0.9, a1 - 0.9]) rod(A, Q(a, y - 1.0, 0.03), Q(a, y - 0.14, dep - 0.12), 0.05, m, TDL);   // brackets
+    // guard: posts, top and mid rails along the front and both ends
+    const posts = lite ? 2 : Math.max(2, Math.round((a1 - a0) / 1.5) + 1);
+    for (let k = 0; k < posts; k++) { const a = a0 + 0.03 + ((a1 - a0 - 0.06) * k) / (posts - 1); fbox(A, F, a - 0.02, a + 0.02, y, y + 1.0, dep - 0.06, dep - 0.02, m, TDL); }
+    for (const yy of lite ? [y + 0.96] : [y + 0.96, y + 0.5]) {
+      fbox(A, F, a0, a1, yy, yy + 0.04, dep - 0.065, dep - 0.015, m, yy > y + 0.9 ? TDK : TDL);
+      for (const a of [a0 + 0.02, a1 - 0.02]) fbox(A, F, a - 0.02, a + 0.02, yy, yy + 0.04, 0.03, dep - 0.065, m, TDL);
+    }
+    if (i === 0) return;
+    // flight from the landing below (a0 end) to this one (a1 end)
+    const yl = ys[i - 1], s0 = a0 + hatch, s1 = a1 - hatch, n = Math.max(4, Math.round((y - yl) / (lite ? 0.3 : 0.22)));
+    for (const e of [hm + 0.04, dep - 0.12]) tdBar(A, Q(s0, yl - 0.1, e), Q(s1, y - 0.1, e), 0.04, 0.2, m, TDK);   // stringers
+    if (lite) tdBar(A, Q(s0, yl - 0.03, (hm + dep - 0.08) / 2), Q(s1, y - 0.03, (hm + dep - 0.08) / 2), dep - hm - 0.2, 0.03, deck, TDK);   // one grated plate for the treads
+    else for (let k = 1; k < n; k++) { const a = s0 + ((s1 - s0) * k) / n, yy = yl + ((y - yl) * k) / n; fbox(A, F, a - 0.11, a + 0.11, yy - 0.03, yy, hm + 0.06, dep - 0.14, deck, TDL); }
+    tdBar(A, Q(s0, yl + 0.9, dep - 0.1), Q(s1, y + 0.9, dep - 0.1), 0.04, 0.04, m, TDL);   // handrail
+  });
+  // drop ladder (raised) under the lowest landing, its counterweight arm
+  const y0 = ys[0], la = a1 - 0.5;
+  for (const s of [-1, 1]) fbox(A, F, la + s * 0.22 - 0.02, la + s * 0.22 + 0.02, y0 - 2.3, y0 + 0.9, dep - 0.24, dep - 0.18, m, TDK);
+  for (let yy = y0 - 2.15; yy < y0 - 0.1; yy += lite ? 0.6 : 0.3) fbox(A, F, la - 0.2, la + 0.2, yy, yy + 0.03, dep - 0.225, dep - 0.195, m, TDL);
+  if (!lite) { tdBar(A, Q(la - 0.26, y0 + 0.3, dep - 0.21), Q(la - 0.9, y0 + 0.7, dep - 0.21), 0.05, 0.05, m, TDL); fbox(A, F, la - 1.0, la - 0.8, y0 + 0.55, y0 + 0.8, dep - 0.28, dep - 0.14, m, TDL); }
+  // ladder from the top landing up past the parapet
+  if (yRoof !== null) {
+    const ya = ys.at(-1), ra = a0 + 0.4;
+    for (const s of [-1, 1]) fbox(A, F, ra + s * 0.22 - 0.02, ra + s * 0.22 + 0.02, ya, yRoof + 1.0, 0.16, 0.22, m, TDK);
+    for (let yy = ya + 0.3; yy < yRoof + 0.9; yy += lite ? 0.6 : 0.3) fbox(A, F, ra - 0.2, ra + 0.2, yy, yy + 0.03, 0.175, 0.205, m, TDL);
+    for (const s of [-1, 1]) fbox(A, F, ra + s * 0.22 - 0.02, ra + s * 0.22 + 0.02, yRoof + 0.96, yRoof + 1.0, -0.4, 0.16, m, TDL);   // grab rails over the coping
+  }
+  return true;
+}
+// first free spot for a fire escape len long within lo..hi on F (tried from `from`: "lo" or "hi")
+export function tdFireEscapeFit(A, F, lo, hi, len, ys, o = {}) {
+  const n = Math.floor((hi - lo - len) / 0.5);
+  for (let i = 0; i <= n; i++) { const a = o.from === "hi" ? hi - len - i * 0.5 : lo + i * 0.5; if (tdFireEscape(A, F, a, a + len, ys, o)) return a; }
+  return null;
+}
+
+// fabric awning on face F over a0..a1 hanging from y: a steel wall rail, two arms and a front bar `dep` out and `drop`
+// lower; sag lowers the a1 end of the front bar (a bent frame); panels ~1.2 m wide, each with a valance; torn: indices of
+// panels missing (the cloth gone) and hang: of panels hanging loose off the wall rail
+export function tdAwning(A, F, a0, a1, y, { dep = 1.3, drop = 0.55, m, frame = "td_fe_steel", sag = 0, torn = [], hang = [], val = 0.25 } = {}) {
+  const yf = (a) => y - drop - sag * ((a - a0) / (a1 - a0)), Q = (a, yy, e) => tdP(F, a, yy, e);
+  fbox(A, F, a0 - 0.03, a1 + 0.03, y - 0.06, y + 0.05, -0.01, 0.09, frame, { k: 0, bv: 0.008 });
+  for (const a of [a0 + 0.04, a1 - 0.04]) rod(A, Q(a, y - 0.03, 0.08), Q(a, yf(a) + 0.02, dep), 0.035, frame, TDK);
+  tdBar(A, Q(a0, yf(a0), dep), Q(a1, yf(a1), dep), 0.05, 0.05, frame, TDK);
+  const n = Math.max(1, Math.round((a1 - a0) / 1.2)), pw = (a1 - a0) / n;
+  for (let i = 0; i < n; i++) {
+    const ac = a0 + (i + 0.5) * pw;
+    if (torn.includes(i)) continue;
+    if (hang.includes(i)) { tdBar(A, Q(ac, y - 0.05, 0.1), Q(ac + pw * 0.08, y - 1.05, dep * 0.28), pw * 0.8, 0.015, m, TDK); continue; }
+    tdBar(A, Q(ac, y, 0.09), Q(ac, yf(ac) + 0.03, dep - 0.01), pw - 0.012, 0.02, m, TDK);
+    fbox(A, F, ac - pw / 2 + 0.006, ac + pw / 2 - 0.006, yf(ac) - val, yf(ac), dep + 0.03, dep + 0.045, m, TDK);
+  }
+}
+// security bars across an opening a0..a1, y0..y1 on face F, `e` out of the face: verticals every sp, two flat rails
+export function tdBars(A, F, a0, a1, y0, y1, { sp = 0.16, e = 0.05, m = "td_fe_steel" } = {}) {
+  for (const yy of [y0 + 0.12, y1 - 0.16]) fbox(A, F, a0 - 0.05, a1 + 0.05, yy, yy + 0.05, e - 0.012, e + 0.012, m, TDK);
+  const n = Math.max(2, Math.round((a1 - a0) / sp));
+  for (let i = 1; i < n; i++) { const a = a0 + ((a1 - a0) * i) / n; fbox(A, F, a - 0.012, a + 0.012, y0 + 0.02, y1 - 0.02, e - 0.03, e - 0.006, m, TDL); }
+}
+// roof water tank on a steel stand (timber staves, hoops, a conical lid) at x, z on the roof at y
+export function tdTank(A, x, z, y, { d = 2.2, h = 2.4, leg = 1.6 } = {}) {
+  const r = d / 2 - 0.15;
+  for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) A.box([x + ox * r - 0.07, y, z + oz * r - 0.07], [x + ox * r + 0.07, y + leg, z + oz * r + 0.07], "td_fe_steel", { bv: 0.01 });
+  for (const s of [-1, 1]) rod(A, [x - r, y + 0.2, z + s * r], [x + r, y + leg - 0.2, z + s * r], 0.05, "td_fe_steel", TDL);   // cross braces
+  A.box([x - d / 2 - 0.05, y + leg, z - d / 2 - 0.05], [x + d / 2 + 0.05, y + leg + 0.12, z + d / 2 + 0.05], "td_fe_steel", { bv: 0.01 });
+  A.cyl([x, y + leg + 0.12 + h / 2, z], [d, h, d], "td_tank_wood", { seg: 18 });
+  for (let k = 0; k < 4; k++) A.cyl([x, y + leg + 0.35 + k * (h - 0.5) / 3, z], [d + 0.04, 0.05, d + 0.04], "td_fe_steel", { seg: 18, ...TDL });
+  A.cone([x, y + leg + 0.12 + h + 0.3, z], [d + 0.2, 0.6, d + 0.2], "td_tank_wood", { seg: 18, top: 0.06, k: 0 });
+  A.cyl([x, y + leg + h + 0.78, z], [0.12, 0.2, 0.12], "td_fe_steel", { seg: 8, ...TDL });
+  for (const s of [-1, 1]) A.box([x + d / 2 + 0.02, y, z + s * 0.2 - 0.02], [x + d / 2 + 0.06, y + leg + h, z + s * 0.2 + 0.02], "td_fe_steel", TDL);   // ladder rails
+}
+// packaged condenser on rails: casing, fan grille on top, side coil grille
+export function tdAC(A, x, z, y, { w = 1.1, d = 0.8, h = 0.9 } = {}) {
+  for (const s of [-1, 1]) A.box([x - w / 2 - 0.05, y, z + s * d * 0.3 - 0.04], [x + w / 2 + 0.05, y + 0.1, z + s * d * 0.3 + 0.04], "td_fe_steel", TDL);
+  A.box([x - w / 2, y + 0.1, z - d / 2], [x + w / 2, y + 0.1 + h, z + d / 2], "td_ac", { bv: 0.02 });
+  A.cyl([x, y + 0.1 + h + 0.02, z], [Math.min(w, d) * 0.85, 0.05, Math.min(w, d) * 0.85], "td_ac_grille", { seg: 16, ...TDL });
+  A.box([x - w / 2 + 0.08, y + 0.2, z + d / 2], [x + w / 2 - 0.08, y + h, z + d / 2 + 0.012], "td_ac_grille", TDL);
+}
+// first free roof spot of half size r (height hh) in x0..x1, z0..z1 on the roof at y
+export function tdSpot(A, x0, x1, z0, z1, y, r, hh = 2.0, step = 0.6) {
+  for (let z = z0 + r; z <= z1 - r; z += step) for (let x = x0 + r; x <= x1 - r; x += step) if (tdFree(A, [[[x - r, y + 0.03, z - r], [x + r, y + hh, z + r]]])) return [x, z];
+  return null;
+}
+// roof clutter in x0..x1, z0..z1 at y: kinds "tank", "ac", "vent" placed in the first free spots
+export function tdRoof(A, x0, x1, z0, z1, y, kinds) {
+  for (const k of kinds) {
+    const r = k === "tank" ? 1.25 : k === "ac" ? 0.65 : 0.25, p = tdSpot(A, x0, x1, z0, z1, y, r, k === "tank" ? 4.8 : 1.3);
+    if (!p) continue;
+    if (k === "tank") tdTank(A, p[0], p[1], y);
+    else if (k === "ac") tdAC(A, p[0], p[1], y);
+    else { A.cyl([p[0], y + 0.45, p[1]], [0.16, 0.9, 0.16], "td_downpipe", { seg: 10, k: 0 }); A.cone([p[0], y + 0.98, p[1]], [0.3, 0.16, 0.3], "td_downpipe", { seg: 10, top: 0.2, ...TDL }); }
+  }
+}
+// The full town pass on a flat-roofed box R: walls to yW (roof deck), parapet of thickness t with its coping underside at
+// yt; o: m (cornice), sides (dressed faces), crest {side, a, w, kind, rise, m}, piers (mat), quoin (mat) from yq0,
+// courses: [y...], fe: {side, lo, hi, len, ys, from}, roof: [kinds] (on the deck yd).
+export function tdTown(A, R, o) {
+  tdMats(A);
+  const sides = o.sides ?? ["front", "rear", "east", "west"];
+  if (o.fe) { const f = o.fe, F = tdFace(R, f.side); tdFireEscapeFit(A, F, f.lo, f.hi, f.len, f.ys, { yRoof: o.yt + 0.05, from: f.from, dep: f.dep, lite: f.lite }); }
+  if (o.roof) tdRoof(A, R.x0 + (o.t ?? 0.3) + 0.3, R.x1 - (o.t ?? 0.3) - 0.3, R.z0 + (o.t ?? 0.3) + 0.3, R.z1 - (o.t ?? 0.3) - 0.3, o.yd, o.roof);
+  for (const y of o.courses ?? []) tdCourse(A, R, y, o.courseSides ?? sides, o.courseM ?? o.m);
+  if (o.cornice !== false) tdCornice(A, R, o.yt - 0.012, o.corniceSides ?? sides, { m: o.m ?? "td_cast_stone", prof: o.prof });
+  for (const c of [o.crest ?? []].flat()) tdCrest(A, tdFace(R, c.side ?? "front"), c.a ?? 0, c.w, o.yt, o.t ?? 0.3, { m: c.m ?? o.wall, kind: c.kind, rise: c.rise, cap: o.m ?? "td_cast_stone" });
+  if (o.piers) tdPiers(A, R, o.yd, o.yt, o.t ?? 0.3, o.piers, { corners: o.pierCorners ? tdCorners(R, o.pierCorners) : undefined, cap: o.m ?? "td_cast_stone" });
+  if (o.quoin) tdQuoins(A, R, o.yq0 ?? 0.35, o.yq1 ?? o.yW, o.quoin, { corners: o.quoinCorners ? tdCorners(R, o.quoinCorners) : undefined });
 }
 
 // ============================================================================ catalog

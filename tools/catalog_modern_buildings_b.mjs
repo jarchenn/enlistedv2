@@ -13,6 +13,7 @@ import { Asset, cutRect, wbox, P, swingSign } from "./kit.mjs";
 import { wall, partition, hinged, aabb, fbox, railing } from "./parts.mjs";
 import { mats as baseMats, comp } from "./catalog_chateau.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
+import { tdTown, tdAwning, tdRoof, tdPilaster, tdBars, tdMats } from "./catalog_modern_buildings_a.mjs";
 
 const GF = 0.3, SLAB = 0.25, PT = 0.03, CW = 1.25, SP = 0.12, ENC = 0.15, LAND = 1.4, LT = 0.2;
 const SIDES = ["front", "rear", "east", "west"];
@@ -84,6 +85,7 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
 function mk(id, name, description, floors, footprint, accent) {
   const A = new Asset({ id, version: 1, name, category: "Modern", description, footprint, floors, enterable: true, plinthDepth: 0, maxGrade: 0.6, noAutoPanels: true });
   modMats(A, accent);
+  tdMats(A);   // TD1 facade kit
   A._nav = { effect: "block", rooms: [], doors: [], entrances: [], corners: [], firingPoints: [], cover: [], areas: [] };
   A.meta.roomTypes = {};
   return A;
@@ -109,7 +111,7 @@ const WB = (A, F, a0, a1, y0, y1, e0, e1, m, o) => wbox(A, F.axis, a0, a1, y0, y
 // and per unit a fixed light plus a side-hung opening sash. Each unit is one window interactable whose aperture covers
 // the whole unit. floor: the storey's walking level (firing points). Returns the wall hole.
 function ribbon(A, F, { id, a0, a1, y0, y1, unit = 3.6, floor, fin = 0.16, finMat = "alu", glass = "glass_t" }) {
-  const n = Math.max(1, Math.round((a1 - a0) / unit)), uw = (a1 - a0) / n, mw = 0.07, g0 = 0.10, g1 = 0.12;
+  const n = Math.max(1, Math.round((a1 - a0) / unit)), uw = (a1 - a0) / n, mw = 0.07, g0 = 0.12, g1 = 0.14;   // TD1: glass 12 cm back in the reveal
   WB(A, F, a0, a1, y1 - 0.08, y1, 0.04, 0.2, "alu", K0);                                // head
   WB(A, F, a0, a1, y0, y0 + 0.08, 0.04, 0.2, "alu");                                    // sill frame
   WB(A, F, a0 - 0.03, a1 + 0.03, y0 - 0.05, y0 + 0.01, -0.06, 0.04, "alu", L1);        // pressed sill flashing
@@ -383,7 +385,7 @@ function wing(A, cfg) {
     const [d0, d1] = zr(F.inner, F.outer);
     const skip = (w.parSkip?.[s] ?? []).concat(obs.filter((o) => (isX ? o[1] < d1 && o[3] > d0 : o[0] < d1 && o[2] > d0)).map((o) => (isX ? [o[0], o[2]] : [o[1], o[3]])));
     for (const [p0, p1] of cutRect(a0, a1, 0, 1, skip.map(([u, v]) => ({ a0: u, a1: v, y0: -1, y1: 2 }))).map((r) => [r[0], r[1]])) {
-      wbox(A, F.axis, p0, p1, top, top + w.par, F.inner, F.outer, w.parMat ?? w.skin(n - 1, s));
+      wbox(A, F.axis, p0, p1, top, top + w.par, F.inner, F.outer, w.parMat ?? w.skin(n - 1, s), { bv: 0.012 });
       const e = isX ? 0.04 : -0.03;
       wbox(A, F.axis, p0 - (p0 === a0 ? e : 0), p1 + (p1 === a1 ? e : 0), top + w.par, top + w.par + 0.06, F.inner - F.out * 0.03, F.outer + F.out * 0.04, "alu", { bv: 0.01 });
     }
@@ -400,7 +402,22 @@ function wing(A, cfg) {
   wingDetail(A, w);
   w.roof?.(A, w);
   w.dress?.(A, w);
+  if (w.fac) wingTown(A, w);
   return w;
+}
+// TD1 town facade pass (tools/catalog_modern_buildings_a.mjs tdTown) on a finished wing. fac: { m (cornice), prof, sides,
+// wall (crest / pier material), crest [{side, a, w, kind, rise}], piers (material), quoin (material), courses (floor
+// indices: a string course under each), fe {side, len, from, f0 (lowest landing floor), lite}, roof [kinds], cornice }
+function wingTown(A, w) {
+  const o = w.fac, R = { x0: w.x0, x1: w.x1, z0: w.z0, z1: w.z1 }, live = (c) => !w.omit.includes(c[0] === "f" ? "front" : "rear") && !w.omit.includes(c[1] === "e" ? "east" : "west");
+  let fe = null;
+  if (o.fe) {
+    const F = sideF(w, o.fe.side), [lo, hi] = F.axis === "x" ? [w.x0, w.x1] : [w.z0, w.z1], f0 = o.fe.f0 ?? 1;
+    fe = { ...o.fe, lo: lo + 0.6, hi: hi - 0.6, len: o.fe.len ?? Math.max(4.2, 1.4 + 0.8 * w.h), ys: Array.from({ length: w.n - f0 }, (_, i) => w.yAt(i + f0)) };
+  }
+  tdTown(A, R, { ...o, sides: (o.sides ?? SIDES).filter((s) => !w.omit.includes(s)), wall: o.wall ?? w.parMat ?? w.skin(w.n - 1, "front"),
+    yW: w.top, yd: w.top, yt: w.top + w.par, t: w.T, fe, courses: (o.courses ?? []).map((f) => w.yAt(f) - SLAB - 0.08), yq0: o.yq0 ?? w.gf + 0.75,
+    pierCorners: o.pierCorners ?? ["fe", "fw", "re", "rw"].filter(live), quoinCorners: o.quoinCorners ?? ["fe", "fw", "re", "rw"].filter(live) });
 }
 
 // interior partition with door openings (head trim per opening); hole y0 set = a hatch (no nav door, no trim)
@@ -613,6 +630,7 @@ export function school() {
   const zc = [-1.2, 1.2];
   const wa = wing(A, {
     tag: "a", x0: -22, x1: 14, z0: -8, z1: 8, n: 2, h: 3.6, cores: [kW, kE], lifts: [lift], band: "panel_acc",
+    fac: { m: "td_cast_dark", prof: [[0.12, 0.06], [0.16, 0.16]], crest: [{ a: -4, w: 8, kind: "block", rise: 0.9 }], roof: ["ac", "vent"] },   // TD1
     skin: (f) => (f === 0 ? "brick" : "render_w"),
     doors: [{ id: "main_entrance", side: "front", c: -11, w: 2.0, h: 2.4, double: true, glass: true, room: "a0_lobby" },
       { id: "west_exit", side: "west", c: 0, w: 1.0, room: "a0_corridor" }],
@@ -649,6 +667,7 @@ export function school() {
   });
   wing(A, {
     tag: "c", x0: -14, x1: 2, z0: -20, z1: -8, n: 1, h: 4.0, omit: ["front"], skin: () => "brick", band: null,
+    fac: { piers: "brick", quoin: "td_cast_stone", roof: ["ac"] },   // TD1
     doors: [{ id: "dining_exit", side: "rear", c: -11, w: 1.8, double: true, glass: true, room: "dining" }, { id: "kitchen_door", side: "rear", c: -0.2, w: 1.0, room: "kitchen" }],
     glaze: () => ({ west: [[-19.2, -8.6, 0.9, 3.2, 3.5]], rear: [[-9.5, -4.0, 0.9, 3.2, 2.8]], east: [[-19.0, -15.0, 1.2, 2.6]] }),
     plan: () => ({ rooms: [{ id: "dining", type: "dining", x0: -13.7, z0: -19.7, x1: -3.06, z1: -8 }, { id: "kitchen", type: "prokitchen", x0: -2.94, z0: -19.7, x1: 1.7, z1: -8 }],
@@ -749,6 +768,7 @@ export function leisureCentre() {
   const pool = [6, -19.5, 22, -8.5];   // the water: x0, z0, x1, z1
   wing(A, {
     tag: "f", x0: -26, x1: 26, z0: -2, z1: 10, n: 1, h: 4.2, omit: ["rear"], par: 0.9, band: null, skin: () => "render_w",
+    fac: { crest: [{ a: 0, w: 8, kind: "step", rise: 1.0 }], piers: "render_w" },   // TD1
     special: [[-25.7, 4.32, -12.06, 9.7, "concrete_floor"], [2.06, -2, 17.94, 1.88, "terracotta"]],
     doors: [{ id: "main_entrance", side: "front", c: -3, w: 2.4, h: 2.5, double: true, glass: true, room: "f_lobby" },
       { id: "weights_exit", side: "west", c: 7, w: 1.0, room: "f_weights" }, { id: "plant_door", side: "east", c: -0.2, w: 1.2, room: "f_plant" }],
@@ -784,6 +804,7 @@ export function leisureCentre() {
   });
   wing(A, {
     tag: "p", x0: 2, x1: 26, z0: -24, z1: -2, n: 1, h: 6.0, omit: ["west"], fm: "terracotta", band: null, skin: () => "render_w",
+    fac: { m: "td_cast_dark", prof: [[0.12, 0.06], [0.14, 0.14]], roof: ["ac", "ac"] },   // TD1
     groundHoles: [[5.7, -19.8, 22.3, -8.2]],
     links: [{ side: "front", c: 6, w: 1.2, h: 2.2, a: "f_change_m", b: "pool_hall" }, { side: "front", c: 14, w: 1.2, h: 2.2, a: "f_change_f", b: "pool_hall" }],
     doors: [{ id: "pool_exit", side: "east", c: -21.5, w: 1.0, room: "pool_hall" }],
@@ -833,6 +854,7 @@ export function bigBox() {
   const x0 = -29, x1 = 29, z0 = -20, z1 = 20;
   wing(A, {
     tag: "m", x0, x1, z0, z1, n: 1, h: 7.2, fm: "concrete_floor", band: null, par: 1.2, skin: () => "corrugated",
+    fac: { cornice: false, roof: ["ac", "ac", "ac", "vent", "vent"] },   // TD1
     special: [[-28.7, 15.06, 28.7, 19.7, "floor_x"]],
     doors: [{ id: "entrance_l", side: "front", c: -2.2, w: 2.2, h: 2.5, double: true, glass: true, room: "vestibule" },
       { id: "entrance_r", side: "front", c: 2.2, w: 2.2, h: 2.5, double: true, glass: true, room: "vestibule" },
@@ -935,6 +957,7 @@ export function trainStation() {
   const gf = 0.9, X = 28;
   const w = wing(A, {
     tag: "c", x0: -12, x1: 12, z0: 4, z1: 18, n: 1, h: 6.0, gf, band: null, skin: () => "stone_clad", finMat: "alu_lt",
+    fac: { prof: [[0.14, 0.08], [0.16, 0.2], [0.2, 0.36]], crest: [{ a: 0, w: 9, kind: "pediment", rise: 1.8 }], piers: "stone_clad" },   // TD1
     doors: [{ id: "entrance_w", side: "front", c: -6, w: 2.0, h: 2.5, double: true, glass: true, room: "concourse", apron: false },
       { id: "entrance_e", side: "front", c: 0, w: 2.0, h: 2.5, double: true, glass: true, room: "concourse", apron: false },
       { id: "platform_door_w", side: "rear", c: -6, w: 2.0, h: 2.5, double: true, glass: true, room: "concourse", apron: false },
@@ -1067,6 +1090,7 @@ export function towerStone() {
   const L = mkLift({ x0: -4.93, x1: -2.63, z0: 0.4, z1: 5.7, door: "rear", ys: ys.slice(0, n) });
   const w = wing(A, {
     tag: "t", x0: -8, x1: 8, z0: -6, z1: 6, n, h, cores: [k], lifts: [L], skin: () => "stone_clad", band: "stone_clad", finMat: "stone_clad", fin: 0.14,
+    fac: { m: "stone_clad", prof: [[0.14, 0.08], [0.18, 0.2], [0.2, 0.38]], crest: [{ a: 0, w: 6, kind: "step", rise: 1.4 }], piers: "stone_clad" },   // TD1
     doors: [{ id: "main_entrance", side: "front", c: 4.3, w: 2.0, h: 2.5, double: true, glass: true, room: "f0_lobby" }],
     glaze: (f) => ({ front: f === 0 ? [[-5.9, -3.0, 0.2, 3.1], [-2.4, 3.1, 0.2, 3.1]] : [[-5.9, -3.0, 0.8, 3.0], [0.8, 5.9, 0.8, 3.0, 2.6]], rear: [[-5.9, 5.9, 0.8, 3.0, 3.9]], east: [[-3.9, 3.9, 0.8, 3.0]], west: [[-3.9, 3.9, 0.8, 3.0]] }),
     plan: (f, { w }) => dl(w, { pre: `f${f}_`, zc,
@@ -1098,6 +1122,7 @@ export function officeWide() {
   const L = mkLift({ x0: -14.93, x1: -12.63, z0: 1.2, z1: 8.7, door: "rear", ys: ys.slice(0, n) });
   const w = wing(A, {
     tag: "o", x0: -18, x1: 18, z0: -9, z1: 9, n, h, cores: [k], lifts: [L], skin: () => "precast", band: "panel_dk", fin: 0.08,
+    fac: { m: "td_cast_dark", prof: [[0.12, 0.06], [0.16, 0.16]], corniceSides: ["front", "rear"] },   // TD1
     doors: [{ id: "main_entrance", side: "front", c: -2.75, w: 2.4, h: 2.5, double: true, glass: true, room: "f0_lobby" }],
     glaze: (f) => ({ front: f === 0 ? [[-9.2, -4.2, 0.1, 3.0], [-1.3, 3.7, 0.1, 3.0], [4.3, 17.2, 0.9, 2.9, 4.3]] : [[-9.2, 17.2, 0.9, 2.9, 4.4]], rear: [[-17.2, 17.2, 0.9, 2.9, 4.3]], east: [[-6.5, 6.5, 0.9, 2.9, 4.3]], west: [[-8.2, -1.8, 0.9, 2.9, 3.2]] }),
     plan: (f, { w }) => dl(w, { pre: `f${f}_`, zc,
@@ -1130,6 +1155,7 @@ export function officeSetback() {
   const L = mkLift({ x0: -7.93, x1: -5.63, z0: 1.2, z1: 9.7, door: "rear", ys: ys.slice(0, 6) });
   const base = wing(A, {
     tag: "b", x0: -15, x1: 15, z0: -10, z1: 10, n: 5, h, cores: [k], lifts: [L], skin: () => "brick_grey", band: "panel_dk", fin: 0.1, par: 0.5,
+    fac: { prof: [[0.12, 0.06], [0.14, 0.15], [0.12, 0.26]] },   // TD1
     roofHoles: [[-10.7, -9.7, 10.7, 9.7]], parSkip: { front: [[-11, 11]], rear: [[-11, 11]] },
     doors: [{ id: "main_entrance", side: "front", c: 0, w: 2.4, h: 2.5, double: true, glass: true, room: "f0_lobby" }],
     glaze: (f) => ({ front: f === 0 ? [[-14.4, -11.2, 0.9, 3.0], [-5.3, -1.5, 0.1, 3.0], [1.5, 5.7, 0.1, 3.0], [6.3, 14.4, 0.9, 3.0, 4.1]] : [[-14.4, -11.2, 0.9, 3.0], [-2.2, 14.4, 0.9, 3.0, 5.5]],

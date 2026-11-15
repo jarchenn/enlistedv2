@@ -14,6 +14,7 @@ import { Asset, cutRect, wbox, P, swingSign } from "./kit.mjs";
 import { wall, partition, hinged, aabb, fbox, railing } from "./parts.mjs";
 import { mats as baseMats, comp } from "./catalog_chateau.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
+import { tdTown, tdAwning, tdRoof, tdPilaster, tdBars, tdMats } from "./catalog_modern_buildings_a.mjs";
 const GF = 0.3, SLAB = 0.25, PT = 0.03, CW = 1.25, SP = 0.12, ENC = 0.15, LAND = 1.4, LT = 0.2;
 const SIDES = ["front", "rear", "east", "west"];
 const K0 = { k: 0 }, L1 = { k: 0, lod: 1 };
@@ -84,6 +85,7 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
 function mk(id, name, description, floors, footprint, accent) {
   const A = new Asset({ id, version: 1, name, category: "Modern", description, footprint, floors, enterable: true, plinthDepth: 0, maxGrade: 0.6, noAutoPanels: true });
   modMats(A, accent);
+  tdMats(A);   // TD1 facade kit
   A._nav = { effect: "block", rooms: [], doors: [], entrances: [], corners: [], firingPoints: [], cover: [], areas: [] };
   A.meta.roomTypes = {};
   return A;
@@ -109,7 +111,7 @@ const WB = (A, F, a0, a1, y0, y1, e0, e1, m, o) => wbox(A, F.axis, a0, a1, y0, y
 // and per unit a fixed light plus a side-hung opening sash. Each unit is one window interactable whose aperture covers
 // the whole unit. floor: the storey's walking level (firing points). Returns the wall hole.
 function ribbon(A, F, { id, a0, a1, y0, y1, unit = 3.6, floor, fin = 0.16, finMat = "alu", glass = "glass_t" }) {
-  const n = Math.max(1, Math.round((a1 - a0) / unit)), uw = (a1 - a0) / n, mw = 0.07, g0 = 0.10, g1 = 0.12;
+  const n = Math.max(1, Math.round((a1 - a0) / unit)), uw = (a1 - a0) / n, mw = 0.07, g0 = 0.12, g1 = 0.14;   // TD1: glass 12 cm back in the reveal
   WB(A, F, a0, a1, y1 - 0.08, y1, 0.04, 0.2, "alu", K0);                                // head
   WB(A, F, a0, a1, y0, y0 + 0.08, 0.04, 0.2, "alu");                                    // sill frame
   WB(A, F, a0 - 0.03, a1 + 0.03, y0 - 0.05, y0 + 0.01, -0.06, 0.04, "alu", L1);        // pressed sill flashing
@@ -383,7 +385,7 @@ function wing(A, cfg) {
     const [d0, d1] = zr(F.inner, F.outer);
     const skip = (w.parSkip?.[s] ?? []).concat(obs.filter((o) => (isX ? o[1] < d1 && o[3] > d0 : o[0] < d1 && o[2] > d0)).map((o) => (isX ? [o[0], o[2]] : [o[1], o[3]])));
     for (const [p0, p1] of cutRect(a0, a1, 0, 1, skip.map(([u, v]) => ({ a0: u, a1: v, y0: -1, y1: 2 }))).map((r) => [r[0], r[1]])) {
-      wbox(A, F.axis, p0, p1, top, top + w.par, F.inner, F.outer, w.parMat ?? w.skin(n - 1, s));
+      wbox(A, F.axis, p0, p1, top, top + w.par, F.inner, F.outer, w.parMat ?? w.skin(n - 1, s), { bv: 0.012 });
       const e = isX ? 0.04 : -0.03;
       wbox(A, F.axis, p0 - (p0 === a0 ? e : 0), p1 + (p1 === a1 ? e : 0), top + w.par, top + w.par + 0.06, F.inner - F.out * 0.03, F.outer + F.out * 0.04, "alu", { bv: 0.01 });
     }
@@ -400,7 +402,22 @@ function wing(A, cfg) {
   wingDetail(A, w);
   w.roof?.(A, w);
   w.dress?.(A, w);
+  if (w.fac) wingTown(A, w);
   return w;
+}
+// TD1 town facade pass (tools/catalog_modern_buildings_a.mjs tdTown) on a finished wing. fac: { m (cornice), prof, sides,
+// wall (crest / pier material), crest [{side, a, w, kind, rise}], piers (material), quoin (material), courses (floor
+// indices: a string course under each), fe {side, len, from, f0 (lowest landing floor), lite}, roof [kinds], cornice }
+function wingTown(A, w) {
+  const o = w.fac, R = { x0: w.x0, x1: w.x1, z0: w.z0, z1: w.z1 }, live = (c) => !w.omit.includes(c[0] === "f" ? "front" : "rear") && !w.omit.includes(c[1] === "e" ? "east" : "west");
+  let fe = null;
+  if (o.fe) {
+    const F = sideF(w, o.fe.side), [lo, hi] = F.axis === "x" ? [w.x0, w.x1] : [w.z0, w.z1], f0 = o.fe.f0 ?? 1;
+    fe = { ...o.fe, lo: lo + 0.6, hi: hi - 0.6, len: o.fe.len ?? Math.max(4.2, 1.4 + 0.8 * w.h), ys: Array.from({ length: w.n - f0 }, (_, i) => w.yAt(i + f0)) };
+  }
+  tdTown(A, R, { ...o, sides: (o.sides ?? SIDES).filter((s) => !w.omit.includes(s)), wall: o.wall ?? w.parMat ?? w.skin(w.n - 1, "front"),
+    yW: w.top, yd: w.top, yt: w.top + w.par, t: w.T, fe, courses: (o.courses ?? []).map((f) => w.yAt(f) - SLAB - 0.08), yq0: o.yq0 ?? w.gf + 0.75,
+    pierCorners: o.pierCorners ?? ["fe", "fw", "re", "rw"].filter(live), quoinCorners: o.quoinCorners ?? ["fe", "fw", "re", "rw"].filter(live) });
 }
 
 // interior partition with door openings (head trim per opening); hole y0 set = a hatch (no nav door, no trim)
@@ -739,6 +756,7 @@ export function hotel() {
   const fr = [-8.93, -4.8, -0.7, 3.4, 7.5, 11.7], rr = [-7.0, -2.3, 2.35, 7.0, 11.7];
   const w = wing(A, {
     tag: "h", x0: -12, x1: 12, z0: -8, z1: 8, n, h, cores: [k], lifts: [L], band: "panel_acc", fin: 0.08,
+    fac: { wall: "render_w", crest: [{ a: 1.0, w: 7.0, kind: "step", rise: 1.2 }], piers: "render_w" },   // TD1
     skin: (f) => (f === 0 ? "stone_clad" : "render_w"),
     doors: [{ id: "main_entrance", side: "front", c: -3.5, w: 2.0, h: 2.5, double: true, glass: true, room: "f0_lobby", apron: false },
       { id: "service_door", side: "rear", c: 10.4, w: 1.0, room: "f0_kitchen", apron: false },
@@ -1035,6 +1053,7 @@ export function shopSmall() {
   nt(A);
   const w = wing(A, {
     tag: "s", x0: -5, x1: 5, z0: -6, z1: 6, n: 1, h: 3.8, band: null, par: 0.9, skin: () => "brick_grey", fin: 0.05,
+    fac: { crest: [{ a: -1.6, w: 3.6, kind: "step", rise: 0.9 }], piers: "brick_grey", quoin: "td_cast_stone", roof: ["ac", "vent"] },   // TD1
     doors: [{ id: "shop_door", side: "front", c: 2.6, w: 1.8, h: 2.4, double: true, glass: true, room: "shop", apron: false },
       { id: "back_door", side: "rear", c: 3.0, w: 1.0, room: "store", apron: false }],
     glaze: () => ({ front: [[-4.4, 1.4, 0.4, 3.0, 1.95]], east: [[1.6, 5.4, 0.4, 3.0, 1.9]], rear: [[-3.4, -2.2, 1.4, 2.4]] }),
@@ -1068,6 +1087,9 @@ export function shopSmall() {
       A.box([5.0, 3.0, -1.0], [5.45, 3.06, -0.96], "alu", L1);
       A.cyl([5.3, 2.75, -0.98], [0.5, 0.05, 0.5], "sign_red", { k: 0, seg: 24, r: [0, 0, 90] });
       for (const s of SIDES) { const G = sideF(w, s), isX = G.axis === "x"; fbox(A, G, isX ? -5.03 : -5.995, isX ? 5.03 : 5.995, -0.3, 0.7, -0.01, 0.04, "precast", { k: 0, bv: 0.01 }); }
+      // TD1: a sound awning over the street glazing, a bent and torn one round the corner
+      tdAwning(A, F, -4.5, 1.5, 3.38, { dep: 1.3, drop: 0.5, m: "awn_green" });
+      tdAwning(A, E, 1.5, 5.5, 3.38, { dep: 1.2, drop: 0.5, m: "awn_green", sag: 0.55, torn: [1], hang: [2] });
     },
   });
   wingAprons(A, w, [["front", 2.6, 1.8], ["rear", 3.0, 1.0]]);
@@ -1095,6 +1117,7 @@ export function shopRow() {
   g0.west.push([0.8, 3.8, 0.45, 2.75]); g0.east.push([0.8, 3.8, 0.45, 2.75]); g1.west.push([1.0, 4.0, 0.9, 2.5]); g1.east.push([1.0, 4.0, 0.9, 2.5]);
   const w = wing(A, {
     tag: "r", x0: -12, x1: 12, z0: -6, z1: 4.8, n: 2, h, cores, band: null, par: 0.9, fin: 0.06,
+    fac: { wall: "brick", crest: [{ a: -7.9, w: 4.2, kind: "pediment", rise: 1.0 }, { a: 0, w: 3.0, kind: "block", rise: 0.6 }, { a: 7.9, w: 4.6, kind: "step", rise: 1.1 }], piers: "brick", courses: [1], roof: ["tank", "ac", "vent"] },   // TD1
     skin: (f) => (f === 0 ? "panel_dk" : "brick"), doors, glaze: (f) => (f === 0 ? g0 : g1),
     plan: (f) => {
       const rooms = [], walls = [], doors = [];
@@ -1124,6 +1147,11 @@ export function shopRow() {
         fbox(A, F, x0, x1, 3.27, 3.66, 0, 0.1, sg, { k: 0, bv: 0.01 });                    // blank fascia sign
         fbox(A, F, x0 + 0.25, x1 - 0.25, 3.33, 3.6, 0.1, 0.115, "sign_wht", L1);
         // awning: sloped fabric, valance, side cheeks, arms
+        if (i === 0) {   // TD1: this one's frame is bent and half its cloth is gone
+          tdAwning(A, F, a + 0.15, b - 0.15, 3.2, { dep: 1.15, drop: 0.4, m: aw, sag: 0.45, torn: [3], hang: [1] });
+          fbox(A, F, a + 0.3, b - 0.3, -0.3, GF + 0.42, -0.005, 0.06, "precast", { k: 0, bv: 0.01 });   // stall riser
+          return;
+        }
         const th = Math.atan2(0.4, 1.15), L = Math.hypot(1.15, 0.4), xc = (a + b) / 2, wd = b - a - 0.3;
         A.obox([xc, 3.0, 4.8 + 0.575], [wd, 0.03, L], [th * DEG, 0, 0], aw, { k: 0, bv: 0.005 });
         A.box([xc - wd / 2, 2.55, 5.93], [xc + wd / 2, 2.82, 5.96], aw, K0);
@@ -1138,6 +1166,7 @@ export function shopRow() {
       fbox(A, F, -12.04, 12.04, w.top - 0.12, w.top + 0.02, -0.005, 0.06, "precast", { k: 0, bv: 0.01 });
       for (const s of ["east", "west"]) fbox(A, sideF(w, s), -5.995, 4.795, -0.3, GF + 0.42, -0.005, 0.05, "precast", { k: 0, bv: 0.01 });
       A.box([-12, -0.2, 4.8], [12, 0.12, 6.0], "paving", { bv: 0.01 });                     // footway under the awnings
+      for (const x of [-11.8, -4.0, 4.0, 11.8]) tdPilaster(A, F, x, 0.13, w.top - 0.14, "brick", { w: 0.3, p: 0.07 });   // TD1: brick pilasters between the shops
     },
   });
   for (const d of doors) apron(A, frame(w, d.side), d.c, d.w);
@@ -1154,6 +1183,7 @@ export function cafe() {
   nt(A);
   const w = wing(A, {
     tag: "c", x0: -6, x1: 6, z0: -5, z1: 2.5, n: 1, h: 3.6, band: null, par: 0.8, skin: () => "render_w", fin: 0.06,
+    fac: { crest: [{ a: 3.2, w: 3.2, kind: "block", rise: 0.55 }], piers: "render_w", roof: ["ac", "vent"] },   // TD1
     doors: [{ id: "cafe_door", side: "front", c: -2.0, w: 1.8, h: 2.4, double: true, glass: true, room: "dining", to: "terrace" },
       { id: "kitchen_door", side: "rear", c: 4.0, w: 1.0, room: "kitchen", apron: false }],
     glaze: () => ({ front: [[-5.4, -3.2, 0.1, 3.0], [-0.8, 5.4, 0.1, 3.0, 2.1]], west: [[-1.4, 1.8, 0.9, 2.8]], east: [[-1.4, 1.8, 0.9, 2.8]], rear: [[2.0, 3.1, 1.3, 2.3], [-5.0, -4.2, 1.6, 2.3]] }),
@@ -1298,6 +1328,7 @@ export function motel() {
   G[0].rear.push([-15.6, -13.4, 0.9, 2.4]);
   const w = wing(A, {
     tag: "m", x0: -16.5, x1: 16.5, z0: -6, z1: 2.4, n: 2, h, band: "panel_acc", par: 0.9, fin: 0.05, skin: (f) => (f === 0 ? "brick_grey" : "render_w"),
+    fac: { wall: "render_w", m: "td_cast_dark", prof: [[0.12, 0.06], [0.16, 0.18]], crest: [{ a: 0, w: 5.0, kind: "block", rise: 0.8 }], piers: "render_w", roof: ["tank", "ac", "ac"] },   // TD1
     doors, glaze: (f) => G[f],
     plan: (f) => {
       const rooms = [], walls = [], dd = [], p = f ? "u_" : "g_";
@@ -1389,6 +1420,7 @@ export function fireStation() {
   nt(A);
   const bayW = wing(A, {
     tag: "b", x0: -13, x1: 3, z0: -9, z1: 9, n: 1, h: 6.8, band: null, par: 1.0, skin: () => "brick",
+    fac: { crest: [{ a: -5, w: 7.0, kind: "pediment", rise: 1.5 }], piers: "brick", quoin: "td_cast_stone", sides: ["front", "rear", "west"] },   // TD1
     doors: [...[-10, -5, 0].map((c, i) => ({ id: `bay_door_${i + 1}`, side: "front", c, w: 4.0, h: 4.6, roller: true, room: "bay", apron: false })),
       { id: "bay_door_rear", side: "rear", c: -5, w: 4.0, h: 4.6, roller: true, room: "bay", apron: false },
       { id: "bay_rear_door", side: "rear", c: -11, w: 1.0, room: "bay", apron: false },
@@ -1429,6 +1461,7 @@ export function fireStation() {
   const k = mkCore({ xa: 10.08, zA: 0.88, dir: -1, ys: ysW, encL: true, encR: false, encTo: -4.7, tag: "core" });
   const wg = wing(A, {
     tag: "w", x0: 3, x1: 13, z0: -5, z1: 9, omit: ["west"], n: 2, h: 3.4, cores: [k], band: "panel_acc", par: 1.0, skin: (f) => (f === 0 ? "brick" : "panel_lt"),
+    fac: { wall: "panel_lt", m: "td_cast_dark", prof: [[0.12, 0.06], [0.14, 0.15]], roof: ["ac", "vent"] },   // TD1
     doors: [{ id: "office_door", side: "front", c: 5.3, w: 1.1, glass: true, room: "w0_office", apron: false }, { id: "wing_exit", side: "east", c: 1.8, w: 1.0, room: "w0_corridor", apron: false }],
     glaze: (f) => (f === 0 ? { front: [[6.1, 7.3, 0.9, 2.5], [8.2, 12.2, 0.9, 2.5, 2.0]], rear: [[4.0, 5.6, 1.2, 2.4], [7.6, 8.6, 1.5, 2.3]], east: [[3.5, 8.0, 0.9, 2.5]] }
       : { front: [[3.6, 7.6, 0.9, 2.5, 2.0], [8.8, 12.2, 0.9, 2.5]], rear: [[3.8, 6.2, 1.0, 2.5], [7.6, 8.8, 1.5, 2.3]], east: [[3.5, 8.0, 0.9, 2.5]] }),
@@ -1498,6 +1531,7 @@ export function municipal() {
   const FR = [[-11.93, -6, 6, 14.7], [-11.93, -6, 0, 6, 14.7], [-11.93, -5, 3, 14.7]], RR = [[-12.3, -9, -2, 5, 10, 14.7], [-12.3, -9, -2, 5, 14.7], [-12.3, -9, -3, 14.7]];
   const w = wing(A, {
     tag: "m", x0: -15, x1: 15, z0: -9, z1: 6, n, h, gf, cores: [k], lifts: [L], band: "stone_dressed", fin: 0.06, finMat: "stone_dressed",
+    fac: { m: "stone_dressed", prof: [[0.14, 0.08], [0.16, 0.18], [0.18, 0.34]], crest: [{ a: 0, w: 10.0, kind: "pediment", rise: 1.7 }], piers: "stone_dressed" },   // TD1
     skin: (f) => (f === 0 ? "stone_clad" : "brick"),
     doors: [{ id: "main_entrance", side: "front", c: 0, w: 2.4, h: 2.8, double: true, glass: true, room: "f0_lobby" }, { id: "east_exit", side: "east", c: -0.4, w: 1.0, room: "f0_corridor", apron: false }],
     glaze: (f) => ({

@@ -1062,6 +1062,9 @@ int App::run(int argc, char** argv) {
       R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapHaze = lk ? std::clamp(lk->value("haze", 1.0f), 0.0f, 6.0f) : 1.0f;   // AS1
+      R.wx.mapWx = lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
+      R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
+      { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky
       R.wx.enclosed = fixedHour || R.lt.mapNoFog;   // WX2: Tunnels / Backrooms keep their own light
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
     }
