@@ -216,6 +216,15 @@ distance dominates the frame. In bocage the next hedge hides what lies beyond it
   terrain line of sight from every fixed gun to the three landings. Assault A-C, TDM, Solo. NMK_CAPTURE_SET=dday
   renders the annotated overview and checks the network and the spawn paths in the engine.
 
+- `maps/newtown.py`: Newtown (BR4), a modern 350 x 400 m town for Battle Royale: nine districts in a 3 x 3 grid
+  (military base on a hill, industrial with a rail siding, rural, residential with a park, downtown round a
+  clock-tower square, commercial strip, construction site, civic centre, lakeside with a marina), a ring road, two bent
+  main streets stopped at the square, and a drainage channel from the base culvert to the lake (template `waterLevel`
+  6 m). Roads, sidewalks, fences and hedges are written directly as MOD1 lines (`line_<type>` carriers, a `gap` span
+  under each road bridge). Every loot building carries `extra.br = {size, district[, military]}`, and the scenario
+  carries `districts` (names, centres) and rules mode `royale`, with TDM team spawns. It uses the MOD1 modern set and
+  `tools/catalog_newtown_{a,b,c}.mjs`. `NT_STUB=1` runs it before those catalogs are built (stub footprints).
+
 - `promote_map.py <map.nmap.json> <id> "<Name>" --order N [--description ...] [--thumb x,y,z,yaw,pitch]` turns a
   saved map into a New Map template on the same procedural ground (template seed and size), with its instances,
   scenario and cameras; `playable` when it has objectives. Shipped this way: `tank_range` (Tank Range, from

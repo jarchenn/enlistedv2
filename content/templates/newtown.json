@@ -1,0 +1,103 @@
+{
+  "id": "newtown",
+  "version": 1,
+  "order": 9,
+  "name": "Newtown",
+  "available": true,
+  "seed": 2026,
+  "description": "A modern town for Battle Royale, 350 x 400 m, nine districts: a walled military base on a hill, industrial yards with a rail siding, rural farms and orchards, a residential quarter with a park, downtown round its clock-tower square, a commercial strip, a construction site, the civic centre with the hospital, and a lake with a marina. A ring road, two bent main streets and a drainage channel to the lake. Battle Royale, Team Deathmatch and Solo.",
+  "width": 350,
+  "depth": 400,
+  "margin": 100,
+  "camera": {
+    "pos": [
+      0.0,
+      220.0,
+      330.0
+    ],
+    "yaw": 0.0,
+    "pitch": -36.0
+  },
+  "heightmap": {
+    "file": "newtown.height.png",
+    "nx": 181,
+    "nz": 196,
+    "min": 2,
+    "max": 23,
+    "org": [
+      -282.3529,
+      -305.8824
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": 6.0,
+  "map": "newtown.nmap.json",
+  "playable": true,
+  "thumbnail": "newtown.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      150.0,
+      120.0,
+      260.0
+    ],
+    "yaw": 29.981639368849336,
+    "pitch": -24.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        260.0,
+        300.0
+      ],
+      "yaw": 0.0,
+      "pitch": -45.0
+    },
+    {
+      "name": "street_eye",
+      "pos": [
+        35.78,
+        13.02,
+        19.01
+      ],
+      "yaw": -101.92932217723833,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "square_eye",
+      "pos": [
+        -14.0,
+        13.54,
+        16.0
+      ],
+      "yaw": -28.30075576600638,
+      "pitch": 6.0,
+      "gameplay": true
+    },
+    {
+      "name": "base_eye",
+      "pos": [
+        -130.0,
+        19.17,
+        -98.0
+      ],
+      "yaw": -0.0,
+      "pitch": 4.0,
+      "gameplay": true
+    },
+    {
+      "name": "lake_eye",
+      "pos": [
+        110.0,
+        9.57,
+        120.0
+      ],
+      "yaw": -135.0,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
+}
