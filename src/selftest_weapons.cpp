@@ -76,6 +76,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     KP = app.placeInstance(app.lib.find("crate_pak40_he"), vec3(-2.5f, 0, 2.0f), 0.0f);
     M2 = app.placeInstance(app.lib.find("gun_m2hb_tripod"), vec3(5.0f, 0, 3.5f), 180.0f);
     if (std::getenv("NMK_MG_LOOK")) app.placeInstance(app.lib.find("rack_modern"), vec3(-1.5f, 0, -3.0f), 20.0f);   // MG2 dev look: the modern weapons case
+    if (std::getenv("NMK_MG10")) app.placeInstance(app.lib.find("car_truck_cargo"), vec3(8.0f, 0, -8.0f), 90.0f);   // MG10 dev look: a vehicle to stick a charge on
     check(F && K && KP && M2, "range: farmhouse target wall at 40 m, mixed crate, PaK crate, M2HB on tripod");
     app.doc.start = {true, vec3(0, app.terrain.height(0, 0), 0), 0};
     check(app.enterExplore(), "F5"); app.useScripted = true;
@@ -598,6 +599,41 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
           if (ph >= 6 && (s.reload <= 0 || t > 16)) { logf("[mg2look] %s clip '%s' loaded %d", id.c_str(), animVmClipNow(d).c_str(), s.loaded); in = ExploreInput{}; return t > 4.5f; }
           return false; });
       }
+    }
+    // ---- MG10 dev look (NMK_MG10): the explosion pack in hand (and the FA2 side view), the reach as one is placed, then
+    // charges on the farmhouse wall (LED on and off), on the ground and on a truck's side (selftest_out/mg10_*.png)
+    if (std::getenv("NMK_MG10")) {
+      push("mg10 hold", [this](App& a, float t) {
+        if (t == 0) { gm2Grant(a, "explosion_pack", 4); std::string m; a.equipWeapon(a.weaponIndex("explosion_pack"), m); a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 0; return false; }
+        if (t > 0.9f && t <= 0.9f + 1.0f / 60) shotQueue.push_back("mg10_hold");
+        if (t > 1.0f && a.vmDebugYaw == 0 && t < 1.3f) a.vmDebugYaw = 70;
+        if (t > 1.2f && t <= 1.2f + 1.0f / 60) shotQueue.push_back("mg10_hold_side");
+        if (t > 1.4f) { a.vmDebugYaw = 0; return true; }
+        return false; });
+      auto placeAt = [this, &push](const char* name, vec3 stand, float yaw, float pitch, const char* tag) {
+        std::string nm = name, tg = tag;
+        push(nm.c_str(), [this, stand, yaw, pitch, tg](App& a, float t) {
+          static int ph;
+          if (t == 0) { ph = 0; std::string m; a.equipWeapon(a.weaponIndex("explosion_pack"), m); a.scriptedInput = ExploreInput{};
+            vec3 at = stand;
+            if (pitch > -30) {   // a wall / flank: stand 1.3 m short of what a ray along the view hits
+              vec3 d = App::forward(yaw, 0), o(stand.x, a.terrain.height(stand.x, stand.z) + 1.2f, stand.z); Physics::Hit h;
+              if (Physics::castRayEx(o, d, 40, h)) at = h.pos - d * 1.3f; else logf("[mg10] %s: no surface ahead", tg.c_str());
+            }
+            Physics::setCharacterPos(vec3(at.x, a.terrain.height(at.x, at.z), at.z)); return false; }
+          a.eyeYaw = yaw; a.eyePitch = pitch;
+          if (ph == 0 && t > 0.6f) { ph = 1; a.scriptedInput.fire = true; }
+          if (ph == 1 && a.wstate["explosion_pack"].cooldown > 0) { ph = 2; a.scriptedInput.fire = false; }
+          if (ph == 2 && a.wstate["explosion_pack"].cooldown < 0.62f) { ph = 3; if (tg == "wall") shotQueue.push_back("mg10_place_reach"); }
+          if (ph == 3 && t > 2.2f) { ph = 4; shotQueue.push_back("mg10_" + tg + "_a"); }
+          if (ph == 4 && t > 2.55f) { ph = 5; shotQueue.push_back("mg10_" + tg + "_b"); }
+          if (ph == 5 && t > 2.7f) { a.scriptedInput = ExploreInput{}; return true; }
+          if (t > 6) { logf("[mg10] %s: nothing placed", tg.c_str()); return true; }
+          return false; });
+      };
+      placeAt("mg10 wall", vec3(0.0f, 0, -20.0f), 0.0f, -6.0f, "wall");   // the farmhouse front wall ahead (-z)
+      placeAt("mg10 floor", vec3(-6.0f, 0, -20.0f), 0.0f, -58.0f, "floor");
+      placeAt("mg10 vehicle", vec3(2.0f, 0, -8.0f), -90.0f, -12.0f, "vehicle");   // the truck's flank, looking +x
     }
     // ---- MG8 dev point-of-impact check (NMK_MG_POI=id,id,...): 25 m and 100 m from the farmhouse wall, aimed (ADS, no
     // dispersion, sway or breathing), one round: the impact against the point under the screen centre (log [mg8poi])

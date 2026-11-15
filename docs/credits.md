@@ -15,6 +15,7 @@ You supplied these five GLB files and confirmed you own or have licensed them. A
 | free-wwii-army-truck-collection-based-on-opel.zip (`all5 together.blend`) | Opel Blitz trucks, vehicle types `car_truck_cargo` / `_canopy` / `_medical` / `_flak` / `_kitchen` (VH1; converted by tools/vehicles/convert_vehicles.py opel, baked to `content/vehicles/models/truck_*`, committed) | (Blender file) | not named in the archive | Creative Commons (confirmed by the user; the archive names no variant or author) | not given |
 | mp40.glb | MP 40 | 16.72.0 | _fill in_ | _fill in_ | _fill in_ |
 | mg42.glb | MG 42 | 16.60.0 | _fill in_ | _fill in_ | _fill in_ |
+| c4-explosive.zip (`source/C4-1.fbx` + textures; MG10, converted by a Blender script to `explosion_pack.glb`) | Explosion pack (weapon `explosion_pack`: in hand, placed charges with a blinking LED, the carried-list icon; baked to `content/weapons/models/explosion_pack`, **local-only, git-ignored**; without it the committed part-built box draws) | (FBX, no exporter tag) | **to be confirmed** (none in the download) | **to be confirmed**: the zip states no licence, and its texture paths (`materials/models/weapons/w_models/w_c4/c4`) suggest an extract from a commercial game | **to be confirmed** |
 | browning_m1918a2_bar.glb | M1918A2 BAR | 12.67.0 | _fill in_ | _fill in_ | _fill in_ |
 | m1_carbine.glb (expansion) | M1 Carbine | 12.68.0 | **unknown** | **unknown** | **unknown** |
 | fg42.glb (expansion) | FG 42 | 12.66.0 | **unknown** | **unknown** | **unknown** |

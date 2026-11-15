@@ -38,6 +38,7 @@ void App::loadEquipment(WeaponDef& d, const json& j) {
     const json& p = j["pack"]; d.pack.on = true;
     d.pack.fuse = gf(p, "fuse", 10.0f); d.pack.damage = gf(p, "damage", 450.0f); d.pack.radius = gf(p, "radius", 6.0f);
     d.pack.crater = gf(p, "crater", 0.4f); d.pack.reach = gf(p, "reach", 2.2f);
+    if (p.contains("led")) { d.pack.hasLed = true; d.pack.led = jvec3(p["led"], vec3(0)); }
   }
   if (j.contains("melee")) {
     const json& m = j["melee"]; d.melee.on = true;
@@ -198,6 +199,15 @@ mat4 App::equipmentPose(const WeaponDef& d, const WeaponState& s) const {
     float u = std::clamp(s.throwT / std::max(0.01f, d.grenade.windup), 0.0f, 1.0f);
     float back = std::sin(u * 3.14159f * 0.5f);                                // draw back and up, then release
     return glm::translate(mat4(1), vec3(0.05f * back, 0.12f * back, -0.18f * back)) * glm::mat4_cast(glm::angleAxis(radians(-35.0f * back), vec3(1, 0, 0)));
+  }
+  if (d.pack.on) {   // MG10: placing (the 0.8 s after it): reach forward and down onto the surface, then the next comes up from the pouch
+    if (s.loaded == 0 && s.containers.empty() && s.cooldown <= 0) return glm::translate(mat4(1), vec3(0, -0.6f, 0));   // none left
+    if (s.cooldown <= 0) return mat4(1);
+    float u = 1 - std::clamp(s.cooldown / 0.8f, 0.0f, 1.0f);
+    if (u < 0.35f) { float k = std::sin(u / 0.35f * 3.14159f * 0.5f);
+      return glm::translate(mat4(1), vec3(-0.06f * k, 0.05f * k, 0.30f * k)) * glm::mat4_cast(glm::angleAxis(radians(-18.0f * k), vec3(1, 0, 0))); }
+    float v = (u - 0.35f) / 0.65f, k = v * v * (3 - 2 * v);
+    return glm::translate(mat4(1), vec3(0, -0.45f * (1 - k), 0.05f * (1 - k)));
   }
   if (d.tool && s.throwT >= 0) {   // GM3: the hammer's swing (0.55 s): raised back, struck down, back to rest
     float u = std::clamp(s.throwT / 0.55f, 0.0f, 1.0f);
