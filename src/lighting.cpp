@@ -518,7 +518,7 @@ void LightingPass::uniforms(Renderer& R, GLuint p) {
 // ---- local light shadows: cube faces (spot: one tile) in a depth atlas, standard Z, cached per light
 void LightingPass::shadowPass(Renderer& R, const std::vector<DrawItem>& opaque) {
   L.facesDrawn = 0;
-  int want = std::clamp(R.lt.shadowLights, 0, kMaxSlots);
+  int want = std::clamp(std::max(R.lt.shadowLights, R.lt.mapShadowLights), 0, kMaxSlots);   // BR3: a map may ask for more
   if (want != L.atlasSlots) createAtlas(want);
   for (int i = 0; i < L.count; ++i) L.gpu[i].misc.y = -1;
   if (!want) { glNamedBufferSubData(L.lightBuf, 0, L.count * sizeof(GpuLight), L.gpu.data()); return; }

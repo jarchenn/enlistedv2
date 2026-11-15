@@ -76,3 +76,15 @@ The generator also sinks some existing `furn_armoire`, `furn_bed` and `furn_tabl
   stand-in for bounce light at the fixed night hour (no GI). Thick 1.2 m pillars stand in open yellow cells. Floors are
   clean: no damp, puddles or stains.
 - Pool and service zones: the same faint glow, brighter lights.
+
+## BR3 (user playtest: brighter, glow, shadows, characters)
+
+- `"lighting": {"exposure": 1.1}` pins the exposure (x the fixed night exposure) in play as in the editor (`render.cpp`):
+  auto exposure was pulling the bright yellow down in play. The ambient is now [0.22, 0.2, 0.14]; it is the term
+  that reaches characters, the first-person arms and the weapon, since they do not get the surfaces' glow.
+- `"look": {"bloom": 2.5}` multiplies the bloom on this map. The panel diffusers are about 2.3x more emissive, so each
+  lit panel carries a steady halo.
+- `"look": {"shadows": 4}` asks for at least 4 shadowed lights here, which the lit panels are; it is never written to
+  the user's settings.
+- `--shots-backrooms` (`src/selftest_br3.cpp`) takes play-camera shots, with the match paused and a soldier and a
+  zombie held in view: `NMK_BR3_SHOTS="name:x:z:tx:tz;..."` writes `selftest_out/br3_<name>.png`.

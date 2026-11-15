@@ -261,6 +261,9 @@ public:
     bool mapClean = false;      // BR2: the open map's "look": {"clean": true}: no wear (interior.cpp), static decals, dust motes or colour grade
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
+    float mapExposure = 0.0f;   // BR3: extra.lighting.exposure: > 0 pins the exposure (x the fixed night exposure) in every mode, auto exposure off
+    float mapBloom = 1.0f;      // BR3: "look": {"bloom": k}: the bloom amount x k (a halo round bright panels)
+    int mapShadowLights = 0;    // BR3: "look": {"shadows": n}: at least n shadowed lights on this map (never saved to the settings)
     float mapGamma = 1.0f;      // BR1c: the open map's own gamma (extra.lighting.gamma; > 1 lifts the image), 1 = none
     int probeBudget = 0;        // > 0: probes captured per frame (tests); 0 = the preset rate
   } lt;

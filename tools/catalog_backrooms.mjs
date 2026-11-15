@@ -157,7 +157,7 @@ function light(id, name, kind, L, glow = !!L) {
   const A = new Asset({ id, version: 1, name, category: "Backrooms", description: name, floors: 0, enterable: false,
     footprint: [1.2, 0.6], plinthDepth: 0, maxGrade: 5, noAutoPanels: true });
   A.mat("frame", kind === "panel" ? [0.92, 0.87, 0.22] : [0.7, 0.7, 0.66], 0.5, kind === "panel" ? "plain" : "metal", kind === "panel" ? { emissive: amb([0.2, 0.19, 0.04]) } : { metallic: 0.3 });   // BR2: flush panels, no dark frame
-  A.mat("diffuser", [0.95, 0.94, 0.88], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [5.0, 4.4, 3.4] : [6.2, 6.0, 5.0] } : {});   // BR2: slightly warm
+  A.mat("diffuser", [0.95, 0.94, 0.88], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [9.0, 8.0, 6.2] : [14.0, 13.6, 11.5] } : {});   // BR2: slightly warm
   if (kind === "panel") {   // a 1.0 x 1.0 m flush square fluorescent panel (BR2)
     A.box([-0.5, -0.012, -0.5], [0.5, 0, 0.5], "frame", { k: 0 });
     A.box([-0.47, -0.016, -0.47], [0.47, -0.008, 0.47], "diffuser", { k: 0 });

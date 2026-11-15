@@ -793,6 +793,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--capture-materials") { runSelf = true; ++k; }
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : q == "ultra" ? GrassQuality::Ultra : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;
+    else if (a == "--shots-backrooms") runSelf = true;   // BR3 (selftest_br3.cpp)
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
     else if (a == "--selftest-settings") runSelf = true;   // V2 settings / presets / firing smoke (selftest_settings.cpp)
@@ -1026,6 +1027,9 @@ int App::run(int argc, char** argv) {
       const json* lj = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() ? &doc.extra["lighting"] : nullptr;
       const json* lk = doc.extra.is_object() && doc.extra.contains("look") && doc.extra["look"].is_object() ? &doc.extra["look"] : nullptr;   // BR2: a map's own look
       R.lt.mapClean = lk && lk->value("clean", false);
+      R.lt.mapBloom = lk ? std::clamp(lk->value("bloom", 1.0f), 0.0f, 6.0f) : 1.0f;
+      R.lt.mapShadowLights = lk ? std::clamp(lk->value("shadows", 0), 0, 8) : 0;
+      R.lt.mapExposure = lj ? std::clamp(lj->value("exposure", 0.0f), 0.0f, 20.0f) : 0.0f;
       R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
