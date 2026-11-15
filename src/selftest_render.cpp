@@ -214,6 +214,55 @@ void build(App& app) {
     push("ma1b: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; return t > 0.2f; });
     return;
   }
+  // IV1 ivy capture (NMK_IV1_SHOTS=1 runs only this): vil_mill_house as the test wall, one copy per ivy type (fan +
+  // frame, age 0.75) and per pattern (common ivy, age 0.8), the utility pole for the spiral, Virginia creeper again in
+  // autumn and winter, a Newtown ruin (mod_nt_house_two_ruin) and a Chateau town villa (vil_villa_deauville) as they
+  // grow by themselves. Front view of each at Medium's 0.67 scale -> selftest_out/iv1_<label>.png
+  if (std::getenv("NMK_IV1_SHOTS")) {
+    struct S { std::string label, asset; json ivy; float dist, aimY; };
+    static std::vector<S> ss;
+    for (const char* t : {"common", "creeper", "boston", "small", "dead"})
+      ss.push_back({std::string("type_") + t, "vil_mill_house", {{"type", t}, {"pattern", "fan+frame"}, {"age", 0.75}, {"share", 1.0}}, 10.0f, 3.2f});
+    for (const char* p : {"fan", "corner", "curtain", "frame", "top", "ground", "islands", "blanket"})
+      ss.push_back({std::string("pattern_") + p, "vil_mill_house", {{"type", "common"}, {"pattern", p}, {"age", 0.8}, {"share", 1.0}}, 10.0f, 3.2f});
+    ss.push_back({"pattern_spiral", "utility_pole", {{"type", "common"}, {"pattern", "spiral"}, {"age", 0.9}}, 4.0f, 2.2f});
+    ss.push_back({"newtown_ruin", "mod_nt_house_two_ruin", nullptr, 16.0f, 3.5f});
+    ss.push_back({"chateau_villa", "vil_villa_deauville", nullptr, 20.0f, 4.0f});
+    static std::vector<uint64_t> got(ss.size());
+    push("iv1: the scene", [](App& a, float t) {
+      if (t == 0) {
+        for (size_t k = 0; k < ss.size(); ++k) {   // grass stays on: the ivy density follows the grass quality
+          for (float dx : {0.0f, 12.0f, -12.0f, 24.0f}) {   // a free spot near the grid cell (the scene keeps a few things near the origin)
+            const AssetDef* d = a.lib.find(ss[k].asset); vec3 p(-160.0f + (k % 6) * 62.0f + dx, 0, -150.0f + (k / 6) * 100.0f); p.y = a.terrain.height(p.x, p.z);
+            if (d && (got[k] = a.placeInstance(d, p, 0.0f))) break;
+          }
+          chk(got[k] != 0, "iv1: %s placed", ss[k].label.c_str());
+          for (auto& i : a.doc.instances) if (i.id == got[k] && !ss[k].ivy.is_null()) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["ivy"] = ss[k].ivy; }
+        }
+        a.syncRuntime();
+      }
+      return t > 0.5f; });
+    auto shot = [](size_t k, std::string nm, int season) {
+      push(nm, [k, nm, season](App& a, float t) {
+        if (t == 0) {
+          if (!a.doc.extra.is_object()) a.doc.extra = json::object();
+          if (!a.doc.extra.contains("look") || !a.doc.extra["look"].is_object()) a.doc.extra["look"] = json::object();
+          a.doc.extra["look"]["season"] = season == 1 ? "autumn" : season == 2 ? "winter" : "summer";
+          a.R.setResolutionScale(0.67f); a.R.resetTemporal(); a.hideEditorOverlays = true;
+          vec3 base(0); for (auto& i : a.doc.instances) if (i.id == got[k]) base = i.pos;
+          const AssetDef* ad = a.lib.find(ss[k].asset); float fz = ad ? ad->bmax.z : 1.0f;
+          a.camPos = vec3(base.x, base.y + 1.7f, base.z + fz + ss[k].dist); a.camYaw = 0.0f;
+          a.camPitch = glm::degrees(std::atan2(ss[k].aimY - 1.7f, ss[k].dist));
+        }
+        if (t > 1.6f && t < 1.6f + 1.5f / 60.0f) pendingShot = outDir() / ("iv1_" + nm + ".png");
+        if (t > 1.9f && pendingShot.empty()) { chk(a.R.shaderErrors == 0, "iv1_%s.png", nm.c_str()); return true; }
+        return false; });
+    };
+    for (size_t k = 0; k < ss.size(); ++k) shot(k, ss[k].label, 0);
+    shot(1, "type_creeper_autumn", 1); shot(1, "type_creeper_winter", 2);
+    push("iv1: back to native", [](App& a, float) { a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; a.doc.extra["look"].erase("season"); return true; });
+    return;
+  }
   // WX1 weather capture (NMK_WX1_SHOTS=1 runs only this; NMK_WEATHER=clear | cloudy): the chateau and an oak from 60 m,
   // toward and away from the Day sun, editor camera at Medium's 0.67 scale -> selftest_out/wx1_<toward|away>.png
   if (std::getenv("NMK_WX1_SHOTS")) {

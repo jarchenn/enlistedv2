@@ -2172,9 +2172,10 @@ vec3 leafSway(vec3 w, float t, float m){
 void main(){
   vec4 w0 = uModel*vec4(aPos, 1.0), w = w0;
   w.xyz += leafSway(w0.xyz, uTime, aMask);
-  vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask; vShade = aShade;
+  vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask;
   vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
-  vLayer = -1.0; vLN = vN;
+  float lk = floor(aShade*0.5);   // IV1: shade + 2 (layer + 1) = a leaves.json layer (wall ivy); tree cards stay below 2
+  vShade = aShade - 2.0*lk; vLayer = lk - 1.0; vLN = vN;
   vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, aMask), 1.0);
   gl_Position = uVP*w;   // invariant: the PF2 canopy depth prepass (leaf_shadow) and the GL_EQUAL shading pass must agree
 }

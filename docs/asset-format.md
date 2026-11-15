@@ -122,6 +122,38 @@ Where a visible box was the collider (the Tobruk turret, the foxhole sandbags, t
 
 `"ivy": "auto"` (or `{"auto": true, "density": 0.8}`) grows ivy colonies from the ground on the outer stone, brick and rendered walls of every placed copy, seeded by the instance. `"ivy": [{face: "+z", a0, a1, y0, y1, density}]` grows it inside those rectangles instead (a0 / a1 along the wall, on the outermost facade facing that way). The cards are alpha-tested leaf cards 2 to 5.5 cm off the wall, drawn through the foliage pass (wind, culling, shadows). Nothing grows on bevelled trims, behind anything visible or in openings. The cards on a bay go when it is breached. Settings > Ivy on walls and the grass quality control it.
 
+IV1 adds types, patterns and age, both on `{"auto": true, ...}` and on each block:
+- **`type`** sets the species:
+  - `common`: juvenile lobed leaves, plus the mature unlobed leaves with berries high on old growth.
+  - `creeper`: Virginia creeper, red in autumn, bare in winter.
+  - `boston`: Boston ivy.
+  - `small`: a small-leaved dense ivy.
+  - `dead`: dry brown ivy.
+- **`pattern`** sets how it grows; join several with `+`, e.g. `"fan+ground"`:
+  - `fan`: climbing from ground roots.
+  - `corner`: up and round the building corners, and up downpipes.
+  - `curtain`: hanging from eaves, sills and balconies.
+  - `frame`: round openings, drooping over lintels.
+  - `top`: over a wall top.
+  - `spiral`: round posts, columns and pipes.
+  - `ground`: ground cover at the wall foot.
+  - `islands`: patchy remnants.
+  - `blanket`: full cover.
+- **`age`** (0..1): reach, stem thickness and mature leaves.
+- **`overgrown`**: grows over glass and doors too.
+- **`share`**: the fraction of facades that grow.
+
+Without `type` or `pattern`, "auto" picks them by building style and by the map's `look`:
+- a ruin variant or `"style": "abandoned"`: heavy and varied;
+- a `mod_*` building: Boston ivy and creeper;
+- other buildings: moderate common ivy on stone and brick.
+
+`look.season` (`summer`, `autumn` or `winter`) turns the deciduous types. A placed copy's `extra.ivy` (`{type, pattern, age, density, share, overgrown}`) overrides its asset; Beautify gives this to about half its decor buildings.
+
+The leaves and woody stems are the `leaves.json` layers `ivy`, `ivy_mature`, `creeper`, `creeper_red`, `boston`, `ivy_small`, `ivy_dead` and `ivy_stem` (`tools/gen_leaf_textures.mjs`). Stems are walked over a 10 cm grid of each facade. Leaves follow the surface in front of the wall, so they sit on trim and sills rather than cutting through them.
+
+Budget: at Medium, about 6,000 cards per building, or 14,000 on a ruin or abandoned map. A building over budget grows thinner. Ivy is drawn to 140 m on Medium and Low, and to 260 m on High. `NMK_IVY_LOG=1` logs the cards per build, and `NMK_IV1_SHOTS=1 --selftest-render` captures every type and pattern.
+
 They keep the shimmer rule: members are embedded at least 1 cm into what they sit on, and members that meet differ in projection, so no two faces are coplanar. `kit_demo_folly` (`tools/catalog_kitdemo.mjs`) uses every one of them and is the `--selftest-render` "kit primitives" fixture.
 
 ## B2: the reworked buildings and their dressing

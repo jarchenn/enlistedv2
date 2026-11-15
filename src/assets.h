@@ -155,7 +155,11 @@ struct StationDef {
 struct IvyDef {
   enum Mode { NONE, AUTO, BLOCKS } mode = NONE;
   float density = 1;
-  struct Block { int axis = 2; float sign = 1, a0 = 0, a1 = 0, y0 = 0, y1 = 3, density = 1; };
+  // IV1 (src/ivy.cpp): type ("common", "creeper", "boston", "small", "dead"), pattern ("fan", "corner", "curtain",
+  // "frame", "top", "spiral", "ground", "islands", "blanket"; several joined by '+'), age 0..1 (-1: picked), and
+  // overgrown (grows over glass and doors too). Empty / -1: "auto" picks by building style and the map's look.
+  std::string type, pattern; float age = -1, share = -1; bool overgrown = false;   // share: of the facades, how many grow ("auto"; -1: by style)
+  struct Block { int axis = 2; float sign = 1, a0 = 0, a1 = 0, y0 = 0, y1 = 3, density = 1; std::string type, pattern; float age = -1; bool overgrown = false; };
   std::vector<Block> blocks;
 };
 struct TreeDef {
@@ -183,6 +187,7 @@ constexpr int kLeafUnit = 26;
 struct LeafMeshRange { int baseVertex = 0, firstIndex = 0, count = 0; };
 extern std::vector<LeafMeshRange> gLeafSprigMesh;   // [sprig * 3 + lod]
 bool leafLibReady();
+std::vector<int> leafSpeciesLayers(const std::string& species);   // IV1: single-leaf layers of a leaves.json species (foliage.cpp)
 // coverage-preserving mips for one square RGBA8 layer (alpha scaled per level so the share over 0.5 stays; foliage.cpp)
 void leafMips(GLuint tex, int layer, int S, int levels, std::vector<uint8_t> px);
 GLuint leafInstVao(GLuint inst);   // foliage.cpp: VAO over the sprig meshes + an instance buffer in the card layout

@@ -196,6 +196,14 @@ uint64_t addInstance(App& app, const AssetDef* a, vec3 p, float yaw, bool decor)
   i.pos = p; i.yaw = wrapDeg(yaw);
   i.extra = json::object(); i.extra["beautify"] = true;
   if (decor) i.extra["decor"] = true;
+  // IV1: about half the decor buildings get their own ivy (src/ivy.cpp: type by building style, pattern and age vary);
+  // never on a "clean" map look (Backrooms / Tunnels)
+  const bool clean = app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && app.doc.extra["look"].value("clean", false);
+  if (decor && a->enterable && !clean) {
+    uint32_t h = (uint32_t)(i.id * 2654435761u) ^ 0x1f3du; h ^= h >> 15; h *= 0x2c1b3c6du; h ^= h >> 12;
+    static const char* pats[6] = {"fan+ground", "corner", "frame", "curtain", "fan+curtain", "islands"};
+    if ((h & 255) < 120) i.extra["ivy"] = {{"pattern", pats[(h >> 8) % 6]}, {"age", 0.35 + ((h >> 16) & 255) / 255.0 * 0.6}};
+  }
   app.bump(i);
   app.doc.instances.push_back(i);
   return i.id;
