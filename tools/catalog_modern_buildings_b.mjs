@@ -55,6 +55,8 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
   A.mat("glass_t", [0.30, 0.42, 0.46], 0.04, "glass");
   A.mat("glass_int", [0.75, 0.80, 0.80], 0.15, "glass");
   A.mat("ceiling", [0.74, 0.74, 0.72], 0.9, "tile", { texture: "ceiling_tiles_office" });
+  A.mat("door_frame", [0.80, 0.80, 0.78], 0.45, "metal", { metallic: 0.15 });   // AS1: door frames / linings
+  A.mat("rainwater", [0.16, 0.17, 0.18], 0.45, "metal", { metallic: 0.3 });   // AS1: downpipes, hoppers
   A.mat("light_panel", [0.9, 0.9, 0.86], 0.5, "plain", { emissive: [2.2, 2.15, 2.0] });
   A.mat("roof_mem", [0.17, 0.17, 0.18], 0.85, "concrete", { texture: "asphalt_dark" });
   A.mat("gravel", [0.42, 0.40, 0.37], 0.95, "stone", { texture: "gravel_fine" });
@@ -86,7 +88,7 @@ function mk(id, name, description, floors, footprint, accent) {
   A.meta.roomTypes = {};
   return A;
 }
-function finish(A, cuts = null) { setNav(A, A._nav, cuts); delete A._nav; return A; }
+function finish(A, cuts = null) { as1Run(A); setNav(A, A._nav, cuts); delete A._nav; return A; }
 function addRoom(A, id, type, x0, y, z0, x1, top, z1) {
   A._nav.rooms.push(room(id, [x0, y, z0], [x1, top, z1]));
   A._nav.corners.push(...corners(id, x0, x1, z0, z1, y, Math.min(0.45, (x1 - x0) / 4, (z1 - z0) / 4)));
@@ -111,6 +113,7 @@ function ribbon(A, F, { id, a0, a1, y0, y1, unit = 3.6, floor, fin = 0.16, finMa
   WB(A, F, a0, a1, y1 - 0.08, y1, 0.04, 0.2, "alu", K0);                                // head
   WB(A, F, a0, a1, y0, y0 + 0.08, 0.04, 0.2, "alu");                                    // sill frame
   WB(A, F, a0 - 0.03, a1 + 0.03, y0 - 0.05, y0 + 0.01, -0.06, 0.04, "alu", L1);        // pressed sill flashing
+  as1(A, () => WB(A, F, a0 - 0.03, a1 + 0.03, y1 - 0.012, y1 + 0.035, -0.045, 0.03, "alu_lt", L1), true);   // AS1: head drip
   const mull = (a, w) => { WB(A, F, a - w / 2, a + w / 2, y0 + 0.08, y1 - 0.08, 0.04, 0.2, "alu"); if (fin) WB(A, F, a - 0.025, a + 0.025, y0, y1, -fin, 0.04, finMat, L1); };
   for (let i = 0; i < n; i++) {
     const ua0 = a0 + i * uw, ua1 = ua0 + uw;
@@ -142,9 +145,9 @@ function ribbon(A, F, { id, a0, a1, y0, y1, unit = 3.6, floor, fin = 0.16, finMa
 // Aluminium door (glazed or solid, single or double) hung inside the reveal and opening inward. Returns the wall hole.
 function mdoor(A, F, { id, c, floor, w = 1.0, h = 2.2, double = false, glass = false, hinge = 1, label = "door", depth = 0.3 }) {
   const a0 = c - w / 2, a1 = c + w / 2, top = floor + h, fw = 0.06, ld0 = F.inner + F.out * 0.03, ld1 = F.inner + F.out * 0.08;
-  WB(A, F, a0, a0 + fw, floor, top - fw, depth - 0.2, depth - 0.02, "alu");
-  WB(A, F, a1 - fw, a1, floor, top - fw, depth - 0.2, depth - 0.02, "alu");
-  WB(A, F, a0, a1, top - fw, top, depth - 0.2, depth - 0.02, "alu");
+  WB(A, F, a0, a0 + fw, floor, top - fw, depth - 0.2, depth - 0.02, "door_frame");
+  WB(A, F, a1 - fw, a1, floor, top - fw, depth - 0.2, depth - 0.02, "door_frame");
+  WB(A, F, a0, a1, top - fw, top, depth - 0.2, depth - 0.02, "door_frame");
   WB(A, F, a0, a1, floor - 0.04, floor + 0.008, -0.02, depth, "alu_lt");                        // threshold
   const la0 = a0 + fw, la1 = a1 - fw, ly0 = floor + 0.01, ly1 = top - fw - 0.005;
   const spans = double ? [[la0, (la0 + la1) / 2 - 0.004, -1], [(la0 + la1) / 2 + 0.004, la1, 1]] : [[la0, la1, hinge]];
@@ -315,7 +318,7 @@ const RH = (r) => ({ a0: r[0], a1: r[2], y0: r[1], y1: r[3] });   // [x0, z0, x1
 // {side, c, w, h, a, b}), glaze(f) -> {side: [[a0, a1, sill, top, unit]]}, plan(f, ctx) -> {rooms, walls, doors},
 // par (parapet height), parSkip {side: [[a0, a1]]}, roof(A, w) (plant), dress(A, w).
 function wing(A, cfg) {
-  const w = { T: 0.3, gf: GF, omit: [], n: 1, base: true, par: 1.1, cores: [], lifts: [], doors: [], links: [], special: [], band: "panel_dk", ...cfg };
+  const w = { T: 0.3, gf: GF, omit: [], n: 1, base: true, par: 1.1, cores: [], lifts: [], doors: [], links: [], special: [], band: "panel_dk", ...cfg, _h: {} };
   geom(w);
   const { x0, x1, z0, z1, n, h, gf } = w, yAt = (f) => gf + f * h, top = yAt(n);
   Object.assign(w, { yAt, top });
@@ -357,13 +360,14 @@ function wing(A, cfg) {
         const lh = y + (l.h ?? 2.4), a0 = l.c - l.w / 2, a1 = l.c + l.w / 2;
         H.push({ a0, a1, y0: -10, y1: lh });
         WB(A, F, a0, a1, y - 0.04, y + 0.008, -0.02, w.T + 0.02, "alu_lt");                                      // threshold strip
-        for (const [p0, p1] of [[a0 - 0.05, a0 + 0.01], [a1 - 0.01, a1 + 0.05]]) WB(A, F, p0, p1, y, lh - 0.01, -0.02, w.T + 0.02, "alu", L1);
-        WB(A, F, a0 - 0.05, a1 + 0.05, lh - 0.01, lh + 0.05, -0.02, w.T + 0.02, "alu", L1);
+        for (const [p0, p1] of [[a0 - 0.05, a0 + 0.01], [a1 - 0.01, a1 + 0.05]]) WB(A, F, p0, p1, y, lh - 0.01, -0.02, w.T + 0.02, "door_frame", L1);
+        WB(A, F, a0 - 0.05, a1 + 0.05, lh - 0.01, lh + 0.05, -0.02, w.T + 0.02, "door_frame", L1);
         navDoor(A, l.a, l.b, F.axis === "x" ? [l.c, y, F.outer - F.out * w.T / 2] : [F.outer - F.out * w.T / 2, y, l.c]);
       }
       const G = w.glaze?.(f)?.[s] ?? [];
       G.forEach((g, i) => H.push(ribbon(A, F, { id: `${w.tag}${s}${f}_${i}`, a0: g[0], a1: g[1], y0: y + g[2], y1: y + g[3], unit: g[4] ?? w.unit ?? 3.6, floor: y, fin: w.fin ?? 0.16, finMat: w.finMat, glass: w.glass })));
       wall(A, { axis: F.axis, outer: F.outer, inner: F.inner, aOut: F.aOut, aIn: F.aIn, y0: yb, y1: yt, holes: H, stone: w.skin(f, s), plaster: w.plaster ?? "plaster", pt: PT });
+      (w._h[s] ??= []).push(...H.map((q) => ({ ...q })));
       if (f > 0 && w.band) {
         const [a0, a1] = F.axis === "x" ? [x0 - 0.045, x1 + 0.045] : [z0 + 0.005, z1 - 0.005];
         fbox(A, F, a0, a1, y - SLAB - 0.06, y + 0.04, -0.005, 0.045, w.band, { k: 0, lod: 1, bv: 0.012 });
@@ -393,6 +397,7 @@ function wing(A, cfg) {
     for (const p of pl.walls) pwall(A, p, y, tp - 0.02);
     for (const d of pl.doors ?? []) navDoor(A, d.a, d.b, [d.p[0], y, d.p[1]]);
   }
+  wingDetail(A, w);
   w.roof?.(A, w);
   w.dress?.(A, w);
   return w;
@@ -405,7 +410,12 @@ function pwall(A, p, y, tp) {
   for (const q of p.holes ?? []) {
     if (q.y0 !== undefined) continue;
     const hh = y + (q.h ?? 2.1);
-    wbox(A, p.axis, q.c - q.w / 2 - 0.06, q.c + q.w / 2 + 0.06, hh - 0.01, hh + 0.06, p.d - t / 2 - 0.015, p.d + t / 2 + 0.015, "alu", L1);
+    wbox(A, p.axis, q.c - q.w / 2 - 0.06, q.c + q.w / 2 + 0.06, hh - 0.01, hh + 0.06, p.d - t / 2 - 0.015, p.d + t / 2 + 0.015, "door_frame", L1);
+    as1(A, () => { for (const s of [-1, 1]) {   // AS1: lining jambs (a frame with depth), never into a door leaf's aperture
+      const e = q.c + s * q.w / 2, [u0, u1] = s < 0 ? [e - 0.06, e + 0.012] : [e - 0.012, e + 0.06];
+      const mn = P(p.axis, u0, y, p.d - t / 2 - 0.015), mx = P(p.axis, u1, hh - 0.01, p.d + t / 2 + 0.015);
+      if (!apHit(A, mn, mx)) A.box(mn, mx, "door_frame", L1);
+    } }, true);
     if (q.a) navDoor(A, q.a, q.b, p.axis === "x" ? [q.c, y, p.d] : [p.d, y, q.c]);
   }
 }
@@ -438,6 +448,89 @@ function dl(w, { pre, zc, front = [], rear = [], t = 0.12 }) {
   };
   band(front, 1); band(rear, -1);
   return { rooms, walls, doors };
+}
+
+// ============================================================================ AS1 exterior detail pass
+// Detail queued while a building is laid out and added once it is complete (finish), only while the asset stays under the
+// part budget: entrance canopies and sign boards, a plinth band, downpipes, roof extract fans and dishes (wing), head drips
+// over ribbon glazing (low), lining jambs on partition doorways (low). Every piece is k:0 / lod:1, goes only where nothing
+// stands yet (isFree) and never into a door or window aperture.
+const AS1_MAX = 1480;
+function as1(A, fn, low = false) { (low ? (A._as1b ??= []) : (A._as1 ??= [])).push(fn); }
+function as1Run(A) { for (const q of [A._as1, A._as1b]) for (const fn of q?.splice(0) ?? []) if (A.parts.length < AS1_MAX) fn(); }
+const hits = (c, he, mn, mx) => [0, 1, 2].every((i) => c[i] - he[i] < mx[i] && c[i] + he[i] > mn[i]);
+const apHit = (A, mn, mx) => A.interactables.some((it) => hits(it.aperture.min.map((v, i) => (v + it.aperture.max[i]) / 2), it.aperture.min.map((v, i) => (it.aperture.max[i] - v) / 2), mn, mx));
+function isFree(A, mn, mx, ignore = []) {
+  for (const p of A.parts) {
+    if (!p.s || ignore.includes(p.m)) continue;   // prisms carry no box
+    let he = p.s.map((v) => v / 2);
+    if (p.r || p.q) { const e = Math.hypot(...he); he = [e, e, e]; }
+    if (hits(p.c, he, mn, mx)) return false;
+  }
+  return !apHit(A, mn, mx);
+}
+// world box of a facade-frame box (a along the wall, e out of the face)
+const fbb = (F, a0, a1, y0, y1, e0, e1) => { const d0 = F.d + F.out * e0, d1 = F.d + F.out * e1; return [P(F.axis, Math.min(a0, a1), y0, Math.min(d0, d1)), P(F.axis, Math.max(a0, a1), y1, Math.max(d0, d1))]; };
+// rainwater downpipe on face F at a from the ground to a hopper head under a parapet outlet at the roof level top
+function dpipeW(A, F, a, top) {
+  const yh = top - 0.28, Q = (yy, e) => (F.axis === "x" ? [a, yy, F.d + F.out * e] : [F.d + F.out * e, yy, a]);
+  A.cyl(Q((0.05 + yh) / 2, 0.11), [0.1, yh - 0.05, 0.1], "rainwater", { seg: 10, ...L1 });
+  fbox(A, F, a - 0.07, a + 0.07, 0.02, 0.12, 0.04, 0.24, "rainwater", L1);                          // shoe
+  fbox(A, F, a - 0.13, a + 0.13, yh, top + 0.03, 0.03, 0.22, "rainwater", { ...L1, bv: 0.01 });     // hopper head
+  fbox(A, F, a - 0.06, a + 0.06, top + 0.02, top + 0.1, -0.01, 0.16, "rainwater", L1);             // outlet through the parapet
+  for (let y = 1.0; y < yh - 0.5; y += 3.0) fbox(A, F, a - 0.07, a + 0.07, y - 0.025, y + 0.025, -0.01, 0.17, "rainwater", L1);   // brackets
+}
+// roof plant in the first free spots of x0..x1, z0..z1 (from the rear): a mushroom extract fan and a satellite dish
+function roofKit(A, x0, x1, z0, z1, y, { fan = true, dish = true, ignore = [] } = {}) {
+  const spot = (r) => { for (let z = z0 + r; z <= z1 - r; z += 0.8) for (let x = x0 + r; x <= x1 - r; x += 0.8) if (isFree(A, [x - r, y + 0.01, z - r], [x + r, y + 1.7, z + r], ignore)) return [x, z]; return null; };
+  let p;
+  if (fan && (p = spot(0.55))) {
+    const [x, z] = p;
+    A.box([x - 0.4, y, z - 0.4], [x + 0.4, y + 0.3, z + 0.4], "hvac", { ...L1, bv: 0.015 });   // kerb upstand
+    A.cyl([x, y + 0.5, z], [0.56, 0.4, 0.56], "louvre", { seg: 14, ...L1 });
+    A.cone([x, y + 0.82, z], [0.8, 0.24, 0.8], "hvac", { seg: 14, top: 0.15, ...L1 });
+  }
+  if (dish && (p = spot(0.6))) {
+    const [x, z] = p;
+    A.box([x - 0.45, y, z - 0.45], [x + 0.45, y + 0.08, z + 0.45], "concrete_wash", L1);     // ballast frame
+    A.cyl([x, y + 0.6, z], [0.06, 1.04, 0.06], "alu_lt", { seg: 8, ...L1 });                  // mast
+    A.cyl([x, y + 1.1, z + 0.1], [0.75, 0.04, 0.75], "paint_w", { r: [70, 0, 0], seg: 16, ...L1 });
+    A.obox([x, y + 1.15, z + 0.38], [0.025, 0.025, 0.5], [-20, 0, 0], "alu_lt", L1);         // feed arm
+    A.box([x - 0.04, y + 1.2, z + 0.58], [x + 0.04, y + 1.28, z + 0.68], "panel_dk", L1);   // LNB
+  }
+}
+// entrance canopies, sign boards, a plinth band, downpipes and roof plant on a finished wing (queued)
+function wingDetail(A, w) {
+  const { gf, top } = w;
+  for (const s of SIDES) {
+    if (w.omit.includes(s)) continue;
+    const F = sideF(w, s), isX = F.axis === "x", H = w._h[s] ?? [];
+    for (const d of w.doors.filter((q) => q.side === s && (q.f ?? 0) === 0 && !q.to && !q.roller && gf < 0.6)) as1(A, () => {
+      const hw = (d.w ?? 1) / 2, yt = gf + (d.h ?? 2.2), a0 = d.c - hw - 0.45, a1 = d.c + hw + 0.45;
+      if (yt + 0.6 > top || !isFree(A, ...fbb(F, a0, a1, yt + 0.05, yt + 1.6, 0.01, 1.3))) return;
+      fbox(A, F, a0, a1, yt + 0.25, yt + 0.37, -0.01, 1.1, "panel_lt", { ...L1, bv: 0.01 });
+      fbox(A, F, a0 - 0.02, a1 + 0.02, yt + 0.21, yt + 0.41, 1.1, 1.14, "alu_lt", L1);
+      fbox(A, F, d.c - 0.3, d.c + 0.3, yt + 0.235, yt + 0.25, 0.45, 0.75, "light_panel", L1);
+      if (d.glass && yt + 1.1 < top - 0.1 && !H.some((q) => q.a1 > a0 && q.a0 < a1 && q.y1 > yt + 0.5 && q.y0 < yt + 1.1)) {
+        fbox(A, F, a0 + 0.1, a1 - 0.1, yt + 0.55, yt + 1.05, -0.005, 0.06, "alu", L1);
+        fbox(A, F, a0 + 0.15, a1 - 0.15, yt + 0.6, yt + 1.0, 0.06, 0.09, "sign_blank", L1);
+      }
+    });
+    if (w.base) as1(A, () => {
+      const holes = H.filter((q) => q.y0 < gf + 0.3).map((q) => ({ a0: q.a0 - 0.05, a1: q.a1 + 0.05, y0: q.y0 - 0.06, y1: q.y1 }));
+      const [a0, a1] = isX ? [w.x0 - 0.04, w.x1 + 0.04] : [w.z0, w.z1];   // side bands end inside the front / rear ones, 1 cm lower: no shared faces
+      for (const [b0, b1, y0, y1] of cutRect(a0, a1, -0.15, gf + (isX ? 0.25 : 0.24), holes))
+        if (b1 - b0 > 0.3 && isFree(A, ...fbb(F, b0 + 0.1, b1 - 0.1, y0, y1, 0.008, 0.03), ["paving"])) fbox(A, F, b0, b1, y0, y1, -0.005, 0.035, "plinth", { ...L1, bv: 0.008 });
+    });
+    if (w.par > 0 && w.dp !== false) {
+      const [lo, hi] = isX ? [w.x0, w.x1] : [w.z0, w.z1];
+      for (const a of s === "rear" ? [lo + 0.3, hi - 0.3] : s === "front" ? [] : [hi - 0.3]) as1(A, () => {
+        if (H.some((q) => q.a0 - 0.25 < a && q.a1 + 0.25 > a) || !isFree(A, ...fbb(F, a - 0.13, a + 0.13, 0.05, top + 0.15, 0.05, 0.24))) return;
+        dpipeW(A, F, a, top);
+      });
+    }
+  }
+  if (w.par > 0 && (w.ix1 - w.ix0) * (w.iz1 - w.iz0) > 40) as1(A, () => roofKit(A, w.ix0 + 0.4, w.ix1 - 0.4, w.iz0 + 0.4, w.iz1 - 0.4, top));
 }
 
 // ============================================================================ dressing helpers
@@ -948,7 +1041,7 @@ export function towerGlass() {
   const L = mkLift({ x0: -3.93, x1: -1.63, z0: 1.0, z1: 6.7, door: "rear", ys: ys.slice(0, n) });
   const full = [[-6.4, 6.4, 0.1, 3.2, 4.3]];
   const w = wing(A, {
-    tag: "t", x0: -7, x1: 7, z0: -7, z1: 7, n, h, cores: [k], lifts: [L], skin: () => "panel_dk", band: "alu_lt", finMat: "alu_lt", fin: 0.22,
+    tag: "t", x0: -7, x1: 7, z0: -7, z1: 7, n, h, cores: [k], lifts: [L], dp: false, skin: () => "panel_dk", band: "alu_lt", finMat: "alu_lt", fin: 0.22,
     doors: [{ id: "main_entrance", side: "front", c: 2.5, w: 2.0, h: 2.5, double: true, glass: true, room: "f0_lobby" }],
     glaze: (f) => ({ front: f === 0 ? [[-6.4, 1.3, 0.1, 3.2, 3.9], [3.7, 6.4, 0.1, 3.2]] : [[-6.4, -1.8, 0.1, 3.2], [1.8, 6.4, 0.1, 3.2]], rear: full, east: full, west: full }),
     plan: (f, { w }) => dl(w, { pre: `f${f}_`, zc,

@@ -109,6 +109,8 @@ function ntMats(A) {
   A.mat("lamp_red", [0.7, 0.04, 0.03], 0.3, "plain", { emissive: [3.0, 0.1, 0.05] });
   A.mat("lamp_green", [0.04, 0.6, 0.1], 0.3, "plain", { emissive: [0.1, 2.5, 0.3] });
   A.mat("buoy", [0.88, 0.32, 0.05], 0.5, "plain");
+  A.mat("ceiling", [0.82, 0.81, 0.78], 0.9, "plaster", { texture: "plaster_painted" });   // AS1: ceilings under upper floors
+  A.mat("door_frame", [0.80, 0.80, 0.78], 0.45, "metal", { metallic: 0.15 });   // AS1: light painted-steel door frames
 }
 function mmeta(id, name, description, floors, footprint) {
   const A = meta(id, name, "Modern", description, floors, footprint, { version: 1, plinthDepth: 0, noAutoPanels: true, maxGrade: 0.5 });
@@ -225,10 +227,11 @@ function roomTypes(A, rules) {
   }
   A.meta.roomTypes = t;
 }
-const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); return k; };
+const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); ceilings(A); as1Run(A); return k; };
 const HALLS = [/(^|_)c\d$/, "hall"];
 
-function flatRoof(A, x0, x1, z0, z1, y, { ph = 0.9, t = 0.25, m = "render_m", vents = [] } = {}) {
+function flatRoof(A, x0, x1, z0, z1, y, { ph = 0.9, t = 0.25, m = "render_m", vents = [], kit = "fan" } = {}) {
+  if (kit) as1(A, () => roofKit(A, x0 + t + 0.1, x1 - t - 0.1, z0 + t + 0.1, z1 - t - 0.1, y + 0.16, kit));   // AS1
   A.box([x0, y, z0], [x1, y + 0.12, z1], "membrane");
   A.box([x0 + t, y + 0.12, z0 + t], [x1 - t, y + 0.16, z1 - t], "gravel_roof");
   const yt = y + ph;
@@ -270,6 +273,7 @@ function dpipe(A, F, a, y0, y1) {
   fpart(A, "cyl", F, a, (y0 + y1) / 2, 0.08, [0.09, y1 - y0, 0.09], "metal_panel", { k: 0 });
   for (let y = y0 + 0.8; y < y1 - 0.3; y += 1.8) fbox(A, F, a - 0.06, a + 0.06, y - 0.02, y + 0.02, 0, 0.13, "metal_panel", L1);
   fpart(A, "wedge", F, a, y0 + 0.05, 0.16, [0.09, 0.1, 0.16], "metal_panel", L1);
+  fbox(A, F, a - 0.12, a + 0.12, y1 - 0.24, y1 + 0.02, 0.02, 0.2, "metal_panel", { ...L1, bv: 0.01 });   // AS1: hopper head
 }
 // heat-pump unit on wall brackets (face F at a, sitting at y)
 function heatPump(A, F, a, y) {
@@ -286,6 +290,52 @@ function seamRibs(A, X, Z, EAVE, RIDGE, ov = 0.4, gov = 0.28, t = 0.14) {
     const nrm = [Math.cos(a / DEG), Math.sin(a / DEG)];
     for (let x = -X - gov + 0.25; x < X + gov - 0.1; x += 0.5) A.obox([x, ym + nrm[0] * (t + 0.02), zm + nrm[1] * (t + 0.02)], [0.03, 0.05, len], [a, 0, 0], "roof_seam", L1);
   }
+}
+
+// ============================================================================ AS1 detail pass
+// A plastered ceiling under every upper floor (house() leaves the oak boards of the floor above showing from below), and
+// roof plant queued by flatRoof and added once the building is laid out, only where nothing stands yet (isFree), never in a
+// door or window aperture, while the asset stays under the part budget (A.lean: none at all).
+const AS1_MAX = 1480;
+function as1(A, fn) { (A._as1 ??= []).push(fn); }
+function as1Run(A) { for (const fn of A._as1?.splice(0) ?? []) if (!A.lean && A.parts.length < AS1_MAX) fn(); }
+const hits = (c, he, mn, mx) => [0, 1, 2].every((i) => c[i] - he[i] < mx[i] && c[i] + he[i] > mn[i]);
+const apHit = (A, mn, mx) => A.interactables.some((it) => hits(it.aperture.min.map((v, i) => (v + it.aperture.max[i]) / 2), it.aperture.min.map((v, i) => (it.aperture.max[i] - v) / 2), mn, mx));
+function isFree(A, mn, mx, ignore = []) {
+  for (const p of A.parts) {
+    if (!p.s || ignore.includes(p.m)) continue;   // prisms carry no box
+    let he = p.s.map((v) => v / 2);
+    if (p.r || p.q) { const e = Math.hypot(...he); he = [e, e, e]; }
+    if (hits(p.c, he, mn, mx)) return false;
+  }
+  return !apHit(A, mn, mx);
+}
+// roof plant in the first free spot of x0..x1, z0..z1 (from the rear) on the roof at y: a mushroom extract fan or a dish
+function roofKit(A, x0, x1, z0, z1, y, kit) {
+  const r = kit === "dish" ? 0.6 : 0.55;
+  let p = null;
+  for (let z = z0 + r; !p && z <= z1 - r; z += 0.6) for (let x = x0 + r; !p && x <= x1 - r; x += 0.6) if (isFree(A, [x - r, y + 0.01, z - r], [x + r, y + 1.7, z + r], ["gravel_roof", "membrane"])) p = [x, z];
+  if (!p) return;
+  const [x, z] = p;
+  if (kit === "dish") {
+    A.box([x - 0.45, y, z - 0.45], [x + 0.45, y + 0.08, z + 0.45], "concrete_m", L1);       // ballast frame
+    A.cyl([x, y + 0.6, z], [0.06, 1.04, 0.06], "alu", { seg: 8, ...L1 });                    // mast
+    A.cyl([x, y + 1.1, z + 0.1], [0.75, 0.04, 0.75], "sign_w", { r: [70, 0, 0], seg: 16, ...L1 });
+    A.obox([x, y + 1.15, z + 0.38], [0.025, 0.025, 0.5], [-20, 0, 0], "alu", L1);           // feed arm
+    A.box([x - 0.04, y + 1.2, z + 0.58], [x + 0.04, y + 1.28, z + 0.68], "metal_panel", L1);
+  } else {
+    A.box([x - 0.4, y, z - 0.4], [x + 0.4, y + 0.3, z + 0.4], "hvac", { ...L1, bv: 0.015 });   // kerb upstand
+    A.cyl([x, y + 0.5, z], [0.56, 0.4, 0.56], "grille", { seg: 14, ...L1 });
+    A.cone([x, y + 0.82, z], [0.8, 0.24, 0.8], "hvac", { seg: 14, top: 0.15, ...L1 });
+  }
+}
+function ceilings(A) {
+  const add = [];
+  for (const p of A.parts) if (p.m === "floor_x" && p.t === "b" && !p.r && Math.abs(p.s[1] - 0.2) < 1e-3 && p.c[1] > 1) {
+    const yb = p.c[1] - 0.1, i = 0.001;   // 1 mm inside the floor's edges, 5 mm up into it: no shared faces
+    add.push([[p.c[0] - p.s[0] / 2 + i, yb - 0.015, p.c[2] - p.s[2] / 2 + i], [p.c[0] + p.s[0] / 2 - i, yb + 0.005, p.c[2] + p.s[2] / 2 - i]]);
+  }
+  for (const [mn, mx] of add) A.box(mn, mx, "ceiling", { k: 0 });
 }
 
 // ============================================================================ bespoke building kit
@@ -309,7 +359,7 @@ function shell(A, { x0, x1, z0, z1, y0, y1, T = 0.3, m, pl = "plaster", ops = {}
   return F;
 }
 const winOn = (A, F, id, c, sill, w, h) => window(A, { id, axis: F.axis, outer: F.outer, inner: F.inner, c, sill, w, h, shutters: false });
-const doorOn = (A, F, id, c, floor, w = 1.0, h = 2.15, o = {}) => door(A, { id, axis: F.axis, outer: F.outer, inner: F.inner, c, floor, w, h, hingeSide: 1, leafMat: "door_paint", frameMat: "alu", ...o });
+const doorOn = (A, F, id, c, floor, w = 1.0, h = 2.15, o = {}) => door(A, { id, axis: F.axis, outer: F.outer, inner: F.inner, c, floor, w, h, hingeSide: 1, leafMat: "door_paint", frameMat: "door_frame", ...o });
 // inward firing point behind a window centre c on frame F at floor y
 function winFire(N, F, c, y) {
   const d = F.inner - F.out * 0.6, yaw = F.axis === "x" ? (F.out > 0 ? 0 : 180) : (F.out > 0 ? 90 : 270);
@@ -381,7 +431,7 @@ export function houseSmall() {
     dress: (B, k) => {
       const { EAVE } = k, fr = face("front", X, Z), re = face("rear", X, Z), we = face("west", X, Z);
       noBeams(B, EAVE);
-      flatRoof(B, -X, X, -Z, Z, EAVE, { ph: 0.45, vents: [[-1.2, -2.0], [2.6, -2.2]] });
+      flatRoof(B, -X, X, -Z, Z, EAVE, { ph: 0.45, vents: [[-1.2, -2.0], [2.6, -2.2]], kit: "dish" });
       fbox(B, fr, -X - 0.02, -1.9, EAVE - 0.05, EAVE + 0.5, -0.01, 0.06, "clad_wood", { k: 0, bv: 0.01 });   // timber fascia over the clad wing
       canopy(B, fr, 0.1, 1.5, GF + 2.4, 1.1);
       signPanel(B, fr, 1.62, 1.82, GF + 1.5, GF + 1.7, "sign_w", { depth: 0.04 });
@@ -464,7 +514,7 @@ export function houseSplit() {
     dress: (B, k) => {
       const { EAVE, yAt } = k, fr = face("front", X, Z), re = face("rear", X, Z);
       noBeams(B, EAVE);
-      flatRoof(B, -X, X, -Z, Z, EAVE, { m: "render_dk", ph: 0.7, vents: [[-2.5, -2.5], [2.0, -3.0]] });
+      flatRoof(B, -X, X, -Z, Z, EAVE, { m: "render_dk", ph: 0.7, vents: [[-2.5, -2.5], [2.0, -3.0]], kit: "dish" });
       for (const F of [fr, re]) fbox(B, F, -X - 0.02, X + 0.02, yAt(1) - 0.3, yAt(1) - 0.05, -0.01, 0.07, "metal_panel", { bv: 0.01 });
       canopy(B, fr, -1.75, -0.25, GF + 2.45, 1.2);
       signPanel(B, fr, -0.2, 0.0, GF + 1.5, GF + 1.7, "sign_w", { depth: 0.04 });
@@ -482,9 +532,9 @@ export function houseSplit() {
   A.box([gx0, 0.05, gz0], [gx1 - gt, gh, gz0 + gt], "brick_grey");
   A.box([gx0, 0.05, gz1 - gt], [gx0 + 0.3, gh, gz1], "brick_grey"); A.box([gx1 - gt - 0.05, 0.05, gz1 - gt], [gx1 - gt, gh, gz1], "brick_grey");
   A.box([gx0 + 0.3, 2.4, gz1 - gt], [gx1 - gt - 0.05, gh, gz1], "brick_grey");
-  door(A, { id: "garage_door", axis: "x", outer: gz1, inner: gz1 - gt, c: (gx0 + 0.3 + gx1 - gt - 0.05) / 2, floor: 0.15, w: 2.75, h: 2.25, hingeSide: 1, double: true, leafMat: "metal_panel", frameMat: "alu", step: false, lintel: false, label: "garage door", sound: "steel" });
+  door(A, { id: "garage_door", axis: "x", outer: gz1, inner: gz1 - gt, c: (gx0 + 0.3 + gx1 - gt - 0.05) / 2, floor: 0.15, w: 2.75, h: 2.25, hingeSide: 1, double: true, leafMat: "metal_panel", frameMat: "door_frame", step: false, lintel: false, label: "garage door", sound: "steel" });
   A.box([gx0 + 0.3, gh - 0.2, gz0 + gt], [gx1 - gt, gh, gz1 - gt], "plaster");
-  flatRoof(A, gx0, gx1, gz0, gz1, gh, { ph: 0.45, m: "brick_grey" });
+  flatRoof(A, gx0, gx1, gz0, gz1, gh, { ph: 0.45, m: "brick_grey", kit: null });
   A.box([gx0 + 0.6, 2.4, gz1 + 0.01], [gx1 - 0.6, 2.47, gz1 + 0.08], "light_panel", L1);
   for (let x = gx0 + 0.6; x < gx1 - 0.4; x += 0.55) A.box([x - 0.006, 0.6, gz1 - gt + 0.1], [x + 0.006, 2.1, gz1 - gt + 0.115], "alu", L1);   // door panel ribs
   A.box([gx0 + 0.2, -0.02, gz1], [gx1 - 0.1, 0.06, 5.5], "paving", { bv: 0.01 });   // drive
@@ -517,7 +567,7 @@ export function waterfrontHouse() {
     dress: (B, k) => {
       const { EAVE, yAt } = k, fr = face("front", X, Z), re = face("rear", X, Z);
       noBeams(B, EAVE);
-      flatRoof(B, -X, X, -Z, Z, EAVE, { ph: 0.35, m: "render_m", vents: [[-3.0, -2.5], [3.5, -3.0]] });
+      flatRoof(B, -X, X, -Z, Z, EAVE, { ph: 0.35, m: "render_m", vents: [[-3.0, -2.5], [3.5, -3.0]], kit: "dish" });
       // deep roof overhang over the balcony: concrete slab, timber soffit, aluminium fascia, downlights
       fbox(B, fr, -X - 0.3, X + 0.3, EAVE - 0.05, EAVE + 0.3, -0.02, 1.6, "concrete_m", { bv: 0.015 });
       fbox(B, fr, -X - 0.28, X + 0.28, EAVE - 0.08, EAVE - 0.05, 0.0, 1.58, "clad_light", L1);
@@ -1372,7 +1422,7 @@ export function pumpStation() {
   const RD = { c: -1.4, w: 3.2, h: 3.6 }, PD = 4.4;
   const F = shell(A, { x0, x1, z0, z1, y0: FL - 0.05, y1: TOP, T, m: "brick_slip", ops: {
     west: (F) => [upDoor(A, F, { id: "roller_door", c: RD.c, floor: FL, w: RD.w, h: RD.h })],
-    rear: (F) => [winOn(A, F, "rear0_0", -4.6, FL + 2.7, 1.6, 1.0), winOn(A, F, "rear0_1", -1.2, FL + 2.7, 1.6, 1.0), doorOn(A, F, "door", PD, FL, 1.0, 2.2, { hingeSide: -1, steel: true, frameMat: "alu", leafMat: "door_paint" })],
+    rear: (F) => [winOn(A, F, "rear0_0", -4.6, FL + 2.7, 1.6, 1.0), winOn(A, F, "rear0_1", -1.2, FL + 2.7, 1.6, 1.0), doorOn(A, F, "door", PD, FL, 1.0, 2.2, { hingeSide: -1, steel: true, frameMat: "door_frame", leafMat: "door_paint" })],
     east: (F) => [winOn(A, F, "east0_0", -1.2, FL + 0.9, 1.4, 1.2)],
     front: (F) => [winOn(A, F, "front0_0", 4.3, FL + 0.9, 1.4, 1.2), winOn(A, F, "front0_1", -3.4, FL + 2.7, 1.2, 1.0)],
   } });
@@ -1387,7 +1437,7 @@ export function pumpStation() {
   fbox(A, F.rear, PD - 0.9, PD + 0.9, FL + 2.45, FL + 2.5, 0, 0.55, "metal_panel", { bv: 0.01 });   // door canopy
   // partition and door between the pump room and the control room, control room ceiling and cabinets
   partition(A, { axis: "z", d0: XP - 0.075, d1: XP + 0.075, a0: z0 + T, a1: z1 - T, y0: FL, y1: TOP, holes: [{ a0: -3.0, a1: -2.0, y0: FL - 1, y1: FL + 2.1 }] });
-  door(A, { id: "control_door", axis: "z", outer: XP - 0.075, inner: XP + 0.075, c: -2.5, floor: FL, w: 1.0, h: 2.1, hingeSide: 1, leafMat: "door_paint", frameMat: "alu", step: false, lintel: false, sound: "steel" });
+  door(A, { id: "control_door", axis: "z", outer: XP - 0.075, inner: XP + 0.075, c: -2.5, floor: FL, w: 1.0, h: 2.1, hingeSide: 1, leafMat: "door_paint", frameMat: "door_frame", step: false, lintel: false, sound: "steel" });
   A.box([XP + 0.075, FL + 2.9, z0 + T], [x1 - T, FL + 3.0, z1 - T], "plaster");
   for (const z of [-2.8, -0.4, 1.6]) A.box([4.0, FL + 2.88, z - 0.3], [4.6, FL + 2.9, z + 0.3], "light_panel", L1);
   for (let i = 0; i < 4; i++) {
@@ -1569,6 +1619,7 @@ export function newtownAssetsC() {
   const out = [houseSmall(), houseTwo(), houseSplit(), waterfrontHouse(), farmhouse(), barnSteel(), constructionFrame(), constructionFrameSmall(),
     siteOffice(), towerCrane(), excavationShoring(), boathouse(), pier(), pontoonFinger(), boatMotor(), boatTrailer(), promenadeRail(), pumpStation(),
     roadBridge(), footbridge(), channelSteps()];
+  for (const A of out) as1Run(A);   // AS1: detail queued on outer assets (garage, pump station roofs)
   const ids = new Set();
   for (const A of out) {   // self-check: unique mod_nt_ ids, room ids unique and typed, doors to known rooms, part budget
     const id = A.meta.id;
