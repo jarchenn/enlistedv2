@@ -980,7 +980,7 @@ int App::run(int argc, char** argv) {
         to.insert(to.end(), p->begin(), p->end());
       }
       audio.setListener(camPos, forward(camYaw, camPitch));
-      audio.setBed({}, 0);
+      audio.setBed(0, {}, 0); audio.setBed(1, {}, 0);
     } else {
       float shk = reducedMotion ? 0.0f : blastShake * blastShake * 1.6f;   // concussion shake (deg)
       vec3 e = eyePos(), fv = forward(eyeYaw + viewKickYaw + shk * std::sin((float)now * 41.0f), eyePitch + viewKickPitch + shk * std::sin((float)now * 53.0f + 1.3f));
@@ -997,7 +997,11 @@ int App::run(int argc, char** argv) {
       v.editor = false; v.autoExposure = true; v.camPos = e;
       v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp
       audio.setListener(e, forward(eyeYaw, eyePitch));
-      audio.setBed(doc.templateId == "tunnels" || doc.templateId == "backrooms" ? contentDir() / "audio" / "ambience" / "backrooms.mp3" : fs::path(), 0.6f);   // the underground maps' room tone, 60 % volume
+      {   // ambience loops: the battlefield everywhere but Backrooms; the room tone (60 %) on Backrooms and, under the battlefield, Tunnels
+        const fs::path amb = contentDir() / "audio" / "ambience"; const bool br = doc.templateId == "backrooms", tn = doc.templateId == "tunnels";
+        audio.setBed(0, br || tn ? amb / "backrooms.mp3" : fs::path(), 0.6f);
+        audio.setBed(1, br ? fs::path() : amb / "battlefield.mp3", 0.7f);
+      }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mark("mpai");
