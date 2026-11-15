@@ -869,7 +869,7 @@ void Game::drawItems() {
       if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
     for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) if (!brHidePart(s, src->ci.view.parts[k].name)) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
-    if (!s.localPlayer) brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack
+    if (!(s.localPlayer && s.alive)) brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack; never in your own first person (the corpse and the death camera keep it)
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
