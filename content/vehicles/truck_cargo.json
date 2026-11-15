@@ -1,0 +1,191 @@
+{
+  "id": "truck_cargo",
+  "name": "Opel Blitz cargo truck",
+  "faction": "Axis",
+  "identity": "Supplied free-wwii-army-truck-collection-based-on-opel.zip ('all5 together.blend', collection 'cargo truck'): an Opel Blitz based 3 t truck. No author or licence in the archive: the baked model is local-only (git-ignored); clones draw the committed part-built truck_fallback.",
+  "car": true,
+  "model": {
+    "src": "truck_cargo.glb",
+    "dir": "truck_cargo",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 1024,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "windshield": "windshield",
+      "stowage": "stowage",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "fallbackDir": "truck_fallback",
+    "note": "converted by tools/vehicles/convert_vehicles.py opel 'cargo truck' (glass dropped, steering wheel cut out of the body)"
+  },
+  "rig": {
+    "driverEyeFromSteer": [
+      0,
+      0.42,
+      -0.55
+    ],
+    "steerAxis": [
+      0,
+      0.627,
+      -0.779
+    ],
+    "windshieldPivot": [
+      0,
+      1.0,
+      0.45
+    ],
+    "engine": [
+      0,
+      1.0,
+      2.76
+    ],
+    "exhausts": [
+      [
+        -0.5,
+        0.35,
+        -2.54
+      ]
+    ],
+    "exits": [
+      [
+        1.8799921989440918,
+        0,
+        1.09
+      ],
+      [
+        -1.8799921989440918,
+        0,
+        1.09
+      ],
+      [
+        1.8799921989440918,
+        0,
+        0
+      ],
+      [
+        -1.8799921989440918,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -4.750101757049561
+      ],
+      [
+        0,
+        0,
+        4.750101757049561
+      ]
+    ],
+    "note": "driver's eye = steering wheel centre + driverEyeFromSteer (left-hand drive); exits beside the doors, beside the body, behind, ahead"
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          1.349,
+          0
+        ],
+        "h": [
+          1.13,
+          0.949,
+          3.55
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        1.349,
+        0
+      ],
+      "h": [
+        1.13,
+        0.949,
+        3.55
+      ]
+    },
+    "note": "one body box in hull space from the baked hull bounds"
+  },
+  "carDrive": {
+    "maxSteerDeg": 34,
+    "steerRate": 1.3,
+    "steerTurns": 4.0,
+    "handbrakeDecel": 5.5,
+    "suspensionTravel": 0.1,
+    "runOverDamage": 14,
+    "note": "a 3 t truck: slower steering (4 turns lock to lock), heavier run-over hits"
+  },
+  "mobility": {
+    "maxForward": 16.7,
+    "maxReverse": 3.5,
+    "accel": 1.8,
+    "brake": 5.5,
+    "coast": 0.6,
+    "maxSlopeDeg": 24,
+    "offroadMul": 0.55,
+    "clearance": 0.4,
+    "note": "gameplay profile: 60 km/h on roads, 33 km/h off-road (Opel Blitz 3.6-36: 75 hp, ~85 km/h historical top speed)",
+    "halfSize": [
+      1.13,
+      0.949,
+      3.55
+    ]
+  },
+  "durability": {
+    "frontHitsSurvived": 1,
+    "sideHitsSurvived": 1,
+    "smallArmsDamage": 3
+  },
+  "ramming": {
+    "massKg": 5000,
+    "engineKW": 55,
+    "pushEfficiency": 0.5,
+    "note": "Opel Blitz ~3.3 t empty plus load; 75 hp"
+  },
+  "fallbackModel": {
+    "src": "truck_fallback.glb",
+    "dir": "truck_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 64,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "windshield": "windshield",
+      "stowage": "stowage",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "note": "part-built stand-in for all five trucks, made by tools/vehicles/make_fallback.py truck (committed)"
+  }
+}

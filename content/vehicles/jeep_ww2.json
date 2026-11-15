@@ -1,0 +1,161 @@
+{
+  "id": "jeep_ww2",
+  "name": "WW2 jeep (leoxx300)",
+  "faction": "Allied",
+  "identity": "Supplied ww2_jeep.glb (leoxx300, Sketchfab, CC-BY-4.0): a low-detail Willys-type jeep with folded-down windshield frame, spare wheel and seats; unnamed Cube / Cylinder parts, roles found by position (tools/vehicles/convert_vehicles.py ww2jeep). CC-BY: the baked model is committed.",
+  "car": true,
+  "model": {
+    "src": "jeep_ww2.glb",
+    "dir": "jeep_ww2",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 1024,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "windshield": "windshield",
+      "stowage": "stowage",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    }
+  },
+  "rig": {
+    "driverEyeFromSteer": [
+      0,
+      0.42,
+      -0.64
+    ],
+    "steerAxis": [
+      0,
+      0.66,
+      -0.75
+    ],
+    "windshieldPivot": [
+      0,
+      1.0,
+      0.45
+    ],
+    "engine": [
+      0,
+      0.9,
+      1.01
+    ],
+    "exhausts": [
+      [
+        -0.5,
+        0.35,
+        -1.74
+      ]
+    ],
+    "exits": [
+      [
+        1.5308030366897583,
+        0,
+        -0.21
+      ],
+      [
+        -1.5308030366897583,
+        0,
+        -0.21
+      ],
+      [
+        1.5308030366897583,
+        0,
+        0
+      ],
+      [
+        -1.5308030366897583,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -2.8428186893463137
+      ],
+      [
+        0,
+        0,
+        2.8428186893463137
+      ]
+    ],
+    "note": "driver's eye = steering wheel centre + driverEyeFromSteer (left-hand drive); exits beside the doors, beside the body, behind, ahead"
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          0.833,
+          0
+        ],
+        "h": [
+          0.781,
+          0.483,
+          1.643
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        0.833,
+        0
+      ],
+      "h": [
+        0.781,
+        0.483,
+        1.643
+      ]
+    },
+    "note": "one body box in hull space from the baked hull bounds"
+  },
+  "carDrive": {
+    "maxSteerDeg": 32,
+    "steerRate": 1.8,
+    "steerTurns": 2.5,
+    "handbrakeDecel": 7.0,
+    "suspensionTravel": 0.12,
+    "runOverDamage": 9,
+    "note": "steerRate: lock fractions per second (the input is smoothed); steerTurns: steering-wheel turns lock to lock; runOverDamage: soldier damage per m/s of impact speed"
+  },
+  "mobility": {
+    "maxForward": 18.0,
+    "maxReverse": 4.5,
+    "accel": 3.2,
+    "brake": 7.5,
+    "coast": 0.7,
+    "maxSlopeDeg": 30,
+    "offroadMul": 0.6,
+    "halfSize": [
+      0.781,
+      0.483,
+      1.643
+    ],
+    "clearance": 0.35,
+    "note": "gameplay profile: 65 km/h on worn routes (roads), 39 km/h off-road"
+  },
+  "durability": {
+    "frontHitsSurvived": 1,
+    "sideHitsSurvived": 1,
+    "smallArmsDamage": 4
+  },
+  "ramming": {
+    "massKg": 1100,
+    "engineKW": 45,
+    "pushEfficiency": 0.5,
+    "note": "Willys MB ~1,040 kg empty, 60 hp Go Devil engine"
+  }
+}

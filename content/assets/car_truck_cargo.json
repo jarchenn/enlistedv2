@@ -1,19 +1,19 @@
 {
- "id": "car_jeep_willys_open",
+ "id": "car_truck_cargo",
  "version": 1,
- "name": "Willys MB jeep (windshield down)",
+ "name": "Opel Blitz cargo truck",
  "category": "Vehicles",
- "description": "Drivable Willys MB, windshield folded flat, no stowage (Explore: E to enter).",
+ "description": "Drivable Opel Blitz cargo truck (Explore: E to enter). Driver's view through the windshield; W/S throttle, A/D steer, Space handbrake. Supplied model is local-only; the committed build shows a part-built stand-in truck.",
  "floors": 0,
  "enterable": false,
  "footprint": [
-  1.76,
-  3.41
+  2.36,
+  7.1
  ],
  "plinthDepth": 0,
  "maxGrade": 1.2,
  "noAutoPanels": true,
- "faction": "Allied",
+ "faction": "Axis",
  "materials": [
   {
    "name": "collider",
@@ -31,13 +31,13 @@
    "t": "b",
    "c": [
     0,
-    0.8,
+    1.349,
     0
    ],
    "s": [
-    1.56,
-    0.9,
-    3.36
+    2.26,
+    1.898,
+    7.1
    ],
    "m": "collider",
    "v": 0
@@ -46,7 +46,7 @@
  "furniture": [],
  "interactables": [],
  "panels": [],
- "vehicle": "jeep_willys_open",
+ "vehicle": "truck_cargo",
  "nav": {
   "effect": "none"
  }
