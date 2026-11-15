@@ -271,15 +271,19 @@ int Audio::loadCustom(const fs::path& dir) {
   // automatic fire re-triggers it per round like every other shot event.
   struct GunSet { const char* file; bool burst; std::vector<const char*> ids; };
   const GunSet guns[] = {
-    {"guns/pistol_a.mp3", false, {"luger", "modern_pistol2"}},
+    {"guns/pistol_a.mp3", false, {"luger"}},
+    {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
     {"guns/pistol_b.mp3", false, {"m1911a1"}},
     {"guns/pistol_9mm.mp3", false, {"modern_pistol"}},
-    {"guns/battle_rifle.mp3", false, {"m1_garand", "m1c_garand", "fg42", "m1918a2_bar", "modern_fal", "modern_scar", "modern_sniper_semi"}},
+    {"guns/semi_rifle.mp3", false, {"m1_garand", "m1c_garand", "modern_sniper_semi"}},
+    {"guns/auto_rifle_burst.mp3", true, {"fg42", "m1918a2_bar", "modern_fal", "modern_scar"}},
+    {"guns/carbine.mp3", false, {"m1_carbine"}},
     {"guns/rifle_bolt.mp3", false, {"kar98k", "kar98k_zf39", "modern_sniper_bolt"}},
-    {"guns/assault_rifle.mp3", false, {"stg44", "m1_carbine", "modern_ak", "modern_ar15", "modern_m16", "modern_m4"}},
+    {"guns/assault_rifle.mp3", false, {"stg44", "modern_ak", "modern_ar15", "modern_m16", "modern_m4"}},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
-    {"guns/mg_burst.mp3", true, {"mg42", "modern_lmg"}},
+    {"guns/mg_burst.mp3", true, {"mg42"}},
+    {"guns/mg2_burst.mp3", true, {"modern_lmg"}},
     {"guns/smg_burst.mp3", true, {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion"}},
   };
   for (auto& g : guns) {

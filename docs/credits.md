@@ -170,3 +170,4 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - Launcher fire: big-explosion-sfx-369789 (kave_msri); rocket impact: bomb-explosion-1-381972 (u_xg7ssi08yr); cannon fire: cannon-fire-161072 (lordsonny); shell / grenade explosion: explosion-effect-494317 (dragon-studio). Supplied by the user; licences to be confirmed.
 - Battlefield ambience: generated with ElevenLabs by the user (content/audio/ambience/battlefield.mp3).
 - Headshot sound: 080997_bullet-39735 (freesound_community). Supplied by the user; licence to be confirmed.
+- More gun shots: single-pistol-gunshot-33-37187, single-gunshot-62-hp-37188, 080997_bullet-39735 (freesound_community); automatic-gunfire-191976 (universfield); machine-gun-sfx-2-381973 (u_xg7ssi08yr). Supplied by the user; licences to be confirmed. battle-rifle-42734 retired.
