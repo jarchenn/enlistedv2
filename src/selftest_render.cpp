@@ -17,6 +17,7 @@
 #endif
 #include "settings.h"
 #include <stb_image_write.h>
+#include <stb_image.h>
 #include <cstdarg>
 #include <functional>
 #include <fstream>
@@ -212,6 +213,67 @@ void build(App& app) {
       return false;
     });
     push("ma1b: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; return t > 0.2f; });
+    return;
+  }
+  // ZF1 z-fight capture (NMK_ZF1_SHOTS=id[@x:y:z:nx:ny:nz],... runs only this): each asset alone on a 110 m grid, grass off. With a
+  // point (asset space) and face normal (tools/audit_zfight.mjs: the worst pair's overlap) the eye looks at that point at
+  // a grazing ~30 degrees from 4.5 m; without one, from 3 m past the +x / +z corner. Two frames 5 cm apart with TAA
+  // settled at each -> selftest_out/zf1_<id>_a|b.png; zf1.json: mean |a - b| luma per asset (coplanar faces flicker
+  // between nearly identical views, a clean asset barely changes)
+  if (const char* zl = std::getenv("NMK_ZF1_SHOTS")) {
+    static std::vector<std::string> ids; static std::vector<uint64_t> got; static std::vector<double> diff; static std::vector<std::vector<float>> aim;
+    for (std::string s = zl; !s.empty();) {
+      size_t c = s.find(','); std::string e = s.substr(0, c); s = c == std::string::npos ? "" : s.substr(c + 1);
+      size_t at = e.find('@'); ids.push_back(e.substr(0, at)); aim.emplace_back();
+      if (at != std::string::npos) for (std::string r = e.substr(at + 1); !r.empty();) { size_t q = r.find(':'); aim.back().push_back((float)std::atof(r.substr(0, q).c_str())); r = q == std::string::npos ? "" : r.substr(q + 1); }
+    }
+    got.resize(ids.size()); diff.resize(ids.size());
+    for (size_t k = 0; k < ids.size(); ++k) for (int f = 0; f < 2; ++f) push("zf1_" + ids[k] + (f ? "_b" : "_a"), [k, f](App& a, float t) {
+      if (t == 0) {
+        const vec3 O = vec3(-110.0f + (k % 3) * 110.0f, 0, -60.0f + (k / 3) * 120.0f);   // a grid inside the test map
+        if (f == 0) {
+          if (k == 0) { settings().s.gfx.grass = 0; settings().apply(a); }   // grass sways between the two frames
+          got[k] = place(a, ids[k], O); a.syncRuntime();
+        }
+        const AssetDef* ad = a.lib.find(ids[k]);
+        vec3 hi = ad ? ad->bmax : vec3(2), lo = ad ? ad->bmin : vec3(-2);
+        vec3 base = O; for (auto& i : a.doc.instances) if (i.id == got[k]) base = i.pos;
+        a.R.setResolutionScale(0.67f); a.R.resetTemporal(); a.hideEditorOverlays = true;
+        vec3 look;
+        if (aim[k].size() == 6) {
+          vec3 P = base + vec3(aim[k][0], aim[k][1], aim[k][2]), n = glm::normalize(vec3(aim[k][3], aim[k][4], aim[k][5]));
+          vec3 tg = std::fabs(n.y) > 0.9f ? vec3(1, 0, 0) : glm::normalize(glm::cross(n, vec3(0, 1, 0)));
+          a.camPos = P + n * 2.25f + tg * (3.9f + f * 0.05f) + (std::fabs(n.y) > 0.9f ? vec3(0) : vec3(0, 0.4f, 0));
+          a.camPos.y = std::max(a.camPos.y, a.terrain.height(a.camPos.x, a.camPos.z) + 0.4f);
+          look = P - a.camPos;
+        } else {
+          vec3 at = O + vec3(hi.x + 3.0f + f * 0.05f, 0, hi.z + 3.0f);
+          a.camPos = vec3(at.x, a.terrain.height(at.x, at.z) + 2.0f, at.z);
+          look = O + vec3(lo.x * 0.5f, std::max(0.5f, hi.y * 0.3f), hi.z) - a.camPos;
+        }
+        const float y1 = glm::degrees(std::atan2(look.x, -look.z)), y2 = glm::degrees(std::atan2(-look.x, -look.z)), p = glm::degrees(std::atan2(look.y, glm::length(vec2(look.x, look.z))));
+        a.camYaw = glm::dot(App::forward(y1, 0), look) >= glm::dot(App::forward(y2, 0), look) ? y1 : y2;   // whatever the yaw convention
+        a.camPitch = App::forward(a.camYaw, p).y * look.y >= 0 ? p : -p;
+      }
+      std::string nm = "zf1_" + ids[k] + (f ? "_b" : "_a");
+      if (t > 1.2f && t < 1.2f + 1.5f / 60.0f) pendingShot = outDir() / (nm + ".png");
+      if (t > 1.5f && pendingShot.empty()) {
+        if (f == 1) {   // mean |a - b| luma of the two frames
+          int w, h, n, w2, h2;
+          unsigned char* A = stbi_load((outDir() / ("zf1_" + ids[k] + "_a.png")).string().c_str(), &w, &h, &n, 1);
+          unsigned char* B = stbi_load((outDir() / (nm + ".png")).string().c_str(), &w2, &h2, &n, 1);
+          double s = 0; if (A && B && w == w2 && h == h2) for (int i = 0; i < w * h; ++i) s += std::abs((int)A[i] - (int)B[i]);
+          diff[k] = A && B ? s / std::max(1, w * h) : -1; free(A); free(B);
+          chk(diff[k] >= 0, "%s: mean |a-b| %.2f", ids[k].c_str(), diff[k]);
+        }
+        return true;
+      }
+      return false;
+    });
+    push("zf1: report", [](App& a, float) {
+      std::ofstream o(outDir() / "zf1.json"); o << "{";
+      for (size_t k = 0; k < ids.size(); ++k) o << (k ? ", " : "") << "\"" << ids[k] << "\": " << diff[k];
+      o << "}\n"; a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; return true; });
     return;
   }
   // WX1 weather capture (NMK_WX1_SHOTS=1 runs only this; NMK_WEATHER=clear | cloudy): the chateau and an oak from 60 m,

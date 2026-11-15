@@ -35,6 +35,7 @@ import { newtownAssetsC } from "./catalog_newtown_c.mjs";
 import { ruinVariants } from "./ruin_kit.mjs";
 import { artAssets } from "./catalog_art.mjs";   // DEC1: wall paintings / posters (imported, CC-BY-4.0)
 import { mod2Assets } from "./catalog_mod2.mjs";   // MOD2: the military hut (imported model, local-only bake)   // AS1: the abandoned variants (<id>_ruin) of the modern buildings, roads, sidewalks, lots
+import { dezfight } from "./audit_zfight.mjs";   // ZF1: coplanar faces of different parts (z-fighting) resolved on every generated asset
 import { tunnelAssets } from "./catalog_tunnels.mjs";   // UG1: the underground tunnel kit (docs/tunnels.md)   // GX6: new houses, large houses, mil_stronghold
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -124,7 +125,9 @@ for (const A of [...modernFurnitureAssets(), ...modernModelAssets(), ...modernOu
   ids.add(j.id);
   if (!j.nav && BACKFILL[j.id] === "house") j.nav = houseNav(j);   // B2: the legacy houses keep their derived nav
   if (!j.nav) throw new Error(j.id + ": no nav block");
-  put(j.id + ".json", JSON.stringify(j));
+  const z = JSON.parse(JSON.stringify(j));   // generators share part objects between lists: fix each written part once
+  dezfight(z);
+  put(j.id + ".json", JSON.stringify(z));
   if (!check) console.log(j.id.padEnd(28), String(j.parts.length).padStart(5), "parts", String(j.furniture.length).padStart(3), "furniture", String(j.interactables.length).padStart(3), "interactables", j.terrainCut ? "cut" : "");
 }
 
