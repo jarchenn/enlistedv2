@@ -53,6 +53,9 @@ const C = {
   // ---- MG4
   glauncher: { src: G + "grenadelauncher-animated/source/arms@Glauncher.fbx", tex: "grenadelauncher-animated", keep: k("base", "casing", "front", "release", "scope", "scopebase", "slug1", "slug2", "slug3", "slug4", "slug5", "slug6", "trigger"),
         mats: { glauncher: { albedo: "grenadelauncherColor.png", normal: "grenadelauncherNormal.png", metal: "glMetallic.png", rough_f: 0.5, ao: "glAO.png" } } },
+  // ---- MG6: .50 BMG bolt-action bullpup (Barrett M95 type), zip extracted to incoming/fps-50cal
+  bmg50: { src: G + "../fps-50cal/source/arms@bmg.fbx", tex: "../fps-50cal", keep: { base: "base", bolt: "bolt", bullet: "mag", grip: "base", mag: "mag", scope: "scope", trigger: "trigger" },
+        mats: { bmg: { albedo: "50bmgColor.png", normal: "50bmgNormal.png", metal: "bmgmetallic.png", smooth: "bmgsmoothness.png", ao: "bmgAo.png" } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

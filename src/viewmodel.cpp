@@ -185,7 +185,7 @@ void App::stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, co
   if (vm.holding) { vm.breathHeld += dt; if (vm.breathHeld >= kBreathHoldMax) { vm.breathRecover = kBreathRecover; vm.holding = false; } }
   else vm.breathHeld = std::max(0.0f, vm.breathHeld - dt * kBreathHoldMax / kBreathRecover);
   vm.breathRecover = std::max(0.0f, vm.breathRecover - dt);
-  float amp = kBreathAmpDeg * (vm.breathRecover > 0 ? 2.0f : 1.0f) * (v > 0.3f ? 0.5f : 1.0f) * red;
+  float amp = kBreathAmpDeg * (vm.breathRecover > 0 ? 2.0f : 1.0f) * (v > 0.3f ? 0.5f : 1.0f) * red * (ch.posture == Physics::STAND && !ch.crouched ? d.sway : 1.0f);
   if (!vm.holding) vm.breathT += dt;
   vm.breathPitch = amp * std::sin(6.2831853f * kBreathHz * vm.breathT);
   vm.breathYaw = 0.5f * amp * std::sin(3.14159265f * kBreathHz * vm.breathT);

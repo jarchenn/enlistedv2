@@ -26,6 +26,7 @@
     "modern_rpg7": {"gripZ": 0.68, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_shotgun2": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_fal": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]},
-    "modern_glauncher": {"gripZ": 0.47, "shoulder": [-0.08, 0.02, -0.04]}
+    "modern_glauncher": {"gripZ": 0.47, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_sniper_50": {"gripZ": 0.76, "shoulder": [-0.08, 0.02, -0.04]}
   }
 }

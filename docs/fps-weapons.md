@@ -653,4 +653,23 @@ Both optics are now closed from every side, with a solid black rim around the cl
 
 **AK:** `fps-ak-animated-2` is byte-identical to `fps-ak-animated` (the current `modern_ak`); nothing to replace.
 
+### MG6: Barrett M95 (.50 BMG)
+
+`modern_sniper_50` comes from `fps-50cal.zip`: one Cinema 4D FBX (`arms@bmg.fbx`: the arms, the gun as object-animated parts, one 218-frame timeline at 30 fps) and 10 textures, with no licence file. It is a bolt-action bullpup with a 5-round box, so it is a bolt gun. Clips:
+- fire = the shot (1–13) and the bolt stroke (134–176) back to back, 1.8 s (`cycleInFire`: the next shot waits for it);
+- reload_empty 13–84 (with the bolt pull);
+- reload 84–134;
+- idle 176–202, held.
+
+The draw is not used. `animated.reloadRate` 0.6 plays the reloads slower (about 2.8 s and 3.9 s).
+
+Handling:
+- **Scope:** 10× with the plain "+" reticle; the eye at the ocular face, measured on the static mesh.
+- **Damage:** 300 at any range, so one hit kills anywhere (legs 180). Penetration follows its energy: 42 g at 854 m/s.
+- **Recoil:** pitch 11, recover 4.
+- **Aiming:** `ads.speed` 0.6.
+- **Sway:** `sway` 2.5, a new weapon field that multiplies the scope breathing only when standing; crouched and prone are unchanged.
+
+Ammunition: `50bmg_mag5` in the mixed crate. Sounds: wired to the id in `audio.cpp`.
+
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.

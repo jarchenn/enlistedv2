@@ -103,6 +103,12 @@ const A = {
     // one round per 26 frames (rest frames 120, 146, 172): the insert loops the 4th round; 216-266 (out of view, inspect) and the draw 287-303 not used
     clips: { fire: [1, 15], reload_start: [15, 42], reload_insert: [120, 146], reload_end: [198, 215], idle: [267, 287] },
     mats: { glauncher: { albedo: "grenadelauncherColor.png", metal: "glMetallic.png", rough_f: 0.5 }, arms: { albedo: "armColor.png", metal: "armmetallic.png", smooth: "armsmoothness.png" } } },
+  // ---- MG6: .50 BMG bolt-action bullpup (Cinema 4D timeline, 30 fps; rest frames 13, 84, 134, 176, 202)
+  modern_sniper_50: { src: "../fps-50cal/source/arms@bmg.fbx", tex: "../fps-50cal", stat: "modern_bmg50",
+    keep: ["armmesh", "base", "bolt", "bullet", "grip", "mag", "scope", "trigger"], rigidify: ["base", "bolt", "bullet", "grip", "mag", "scope", "trigger"], gun: "base", timeline: [1, 218],
+    // fire = the shot (1-13) then the bolt stroke (134-176) back to back; reload_empty 13-84 (bolt pull 64-73), reload 84-134; the draw 202-218 not used
+    clips: { fire: [{ action: "Armature|CINEMA_4D_Main|Layer0", range: [1, 13] }, { action: "Armature|CINEMA_4D_Main|Layer0", range: [134, 176] }], reload_empty: [13, 84], reload: [84, 134], idle: [176, 202] },
+    mats: { bmg: { albedo: "50bmgColor.png", metal: "bmgmetallic.png", smooth: "bmgsmoothness.png" }, arms: { albedo: "armColor.png", metal: "armmetallic.png", smooth: "armsmoothness.png" } } },
 };
 for (const [id, a] of Object.entries(A)) {
   const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));

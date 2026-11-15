@@ -165,6 +165,7 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | fps-animated-carbine-2 | **Not used**: byte-identical to fps-animated-carbine | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | grenadelauncher-animated (arms@Glauncher.fbx) | Six-shot grenade launcher (`modern_glauncher`, MG4) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-ak-animated-2 | **Not used**: byte-identical to fps-ak-animated (`modern_ak`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| fps-50cal.zip (arms@bmg.fbx; extracted to incoming/fps-50cal) | Barrett M95 .50 BMG (`modern_sniper_50`, MG6) | supplied by the user | **licence to be confirmed by the user** (none stated in the zip) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |
 
 - Backrooms / Tunnels ambience: "Backrooms Ambience 2" by godbi (file godbi_3-backrooms-ambience-2-522106.mp3, supplied by the user; licence to be confirmed).
