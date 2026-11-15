@@ -12,3 +12,5 @@ __pycache__/
 
 # supplied soundtrack: local-only until its licence is known (Backrooms falls back to backrooms.mp3 without it)
 content/audio/ambience/level0.mp3
+# MOD1: converted from a user-supplied FBX pack whose licence is not stated: local only
+content/assets/models/mod_barriers_weathered/
