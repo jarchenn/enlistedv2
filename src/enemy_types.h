@@ -19,6 +19,8 @@ struct EnemyType {
   float knock = 0;                                        // m/s shove on the player hit
   float staggerMin = 0, staggerS = 0;                     // a single hit of at least staggerMin flinches it (and stops it staggerS)
   float kickCrater = 0;                                   // each strike digs a crater of this scale where the blow lands (the Fighter)
+  float nonBlastMult = 1;                                 // damage x from everything but explosions (the Fighters: 0.1)
+  float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
   bool blastOnly = false;                                 // only blast damage hurts it (the Fighter)
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)
   float capsuleH = 0, capsuleR = 0;                       // EN2: physics capsule height / radius (0: the soldier's)

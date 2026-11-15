@@ -397,6 +397,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
     if (!(s.weapon >= 0 && s.weapon < (int)app.weaponDefs.size() && app.weaponDefs[s.weapon]->locked)) drops.push_back({s.feet + vec3(0, 0.06f, 0), s.yaw, s.weapon, s.ws, t});   // GM3: never a locked weapon
     if (drops.size() > 24) drops.erase(drops.begin());
   }
+  if (killer >= 0 && killer != i && killer < (int)sold.size() && sold[killer].zombie && enemyType(sold[killer].etype).id.rfind("fighter", 0) == 0) app.audio.play("fighter_laugh", sold[killer].feet + vec3(0, 2, 0), 1.0f);   // shortcut: host / single player only
   if (killer == localSlot && killer != i && hostile(sold[killer], s)) killMarker = 0.6f;   // red marker: enemy down
   match.onDeath(i, killer);
   if (killer >= 0 && killer != i) ++kills;
@@ -484,7 +485,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
   if (rulesIgnoreDamage(*this, i)) return;
-  if (s.zombie && enemyType(s.etype).blastOnly && (!how || std::strcmp(how, "blast") != 0)) return;   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
+  if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly) return; dmg *= enemyType(s.etype).nonBlastMult; if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
   // Head out of the hatch stays exposed.
   if (s.localPlayer && app.tanks.occupied) {
