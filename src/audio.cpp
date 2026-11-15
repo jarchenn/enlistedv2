@@ -264,6 +264,36 @@ int Audio::loadCustom(const fs::path& dir) {
     if (!ev.v.empty()) { ++used; for (const char* n : {"step", "step_grass", "step_stone", "step_wood"}) p->events[n] = ev; }
   }
   if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
+  // gun shots (guns/*.mp3): one recording per weapon group. A burst recording gives its last shot (the one with the tail);
+  // automatic fire re-triggers it per round like every other shot event.
+  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; };
+  const GunSet guns[] = {
+    {"guns/pistol_a.mp3", false, {"luger", "modern_pistol2"}},
+    {"guns/pistol_b.mp3", false, {"m1911a1"}},
+    {"guns/pistol_9mm.mp3", false, {"modern_pistol"}},
+    {"guns/battle_rifle.mp3", false, {"m1_garand", "m1c_garand", "fg42", "m1918a2_bar", "modern_fal", "modern_scar", "modern_sniper_semi"}},
+    {"guns/rifle_bolt.mp3", false, {"kar98k", "kar98k_zf39", "modern_sniper_bolt"}},
+    {"guns/assault_rifle.mp3", false, {"stg44", "m1_carbine", "modern_ak", "modern_ar15", "modern_m16", "modern_m4"}},
+    {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
+    {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
+    {"guns/mg_burst.mp3", true, {"mg42", "modern_lmg"}},
+    {"guns/smg_burst.mp3", true, {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion"}},
+  };
+  for (auto& g : guns) {
+    if (!decode(g.file, b)) continue;
+    const int W = SR / 200; size_t nW = b.size() / W; float peak = 1e-4f; std::vector<float> env(nW, 0.0f);   // 5 ms windows
+    for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); peak = std::max(peak, env[k]); }
+    size_t first = nW, last = nW, prev = 0;
+    for (size_t k = 0; k < nW; ++k) if (env[k] > 0.5f * peak && (k == 0 || env[k - 1] <= 0.5f * peak) && (last == nW || k - prev >= 8)) { if (first == nW) first = k; last = prev = k; }
+    if (first == nW) continue;
+    size_t a = (g.burst ? last : first); a = (a > 0 ? a - 1 : 0) * W;
+    size_t e = std::min(b.size(), a + (size_t)(2.5f * SR));
+    Buf s(b.begin() + a, b.begin() + e); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x));
+    size_t f = std::min(s.size(), (size_t)(0.05f * SR));
+    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);
+    ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s));
+    for (const char* id : g.ids) { p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far"); }
+  }
   if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["zombie_groan"] = ev; }
   return used;
 }
