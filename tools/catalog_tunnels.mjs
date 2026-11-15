@@ -252,9 +252,9 @@ export function tunnelAssets() {
   out.push(chamber("tun_chamber_sump", "Tunnel chamber: flooded sump", "sump", 34));
   out.push(chamber("tun_chamber_collapse", "Tunnel chamber: collapsed", "collapse", 35));
   out.push(lamp("tun_lamp", "Tunnel lamp", { color: [1.0, 0.72, 0.42], intensity: 0.75, radius: 7.5, use: "electric" }));
-  out.push(lamp("tun_lamp_flicker", "Tunnel lamp (failing)", { color: [1.0, 0.7, 0.4], intensity: 0.65, radius: 7.0, flicker: 0.55, use: "electric" }));
+  out.push(lamp("tun_lamp_flicker", "Tunnel lamp (failing)", { color: [1.0, 0.7, 0.4], intensity: 0.65, radius: 7.0, use: "electric" }));
   out.push(lamp("tun_lamp_shadow", "Tunnel lamp (shadows)", { color: [1.0, 0.74, 0.45], intensity: 0.85, radius: 8.0, shadow: 1, use: "electric" }));
-  out.push(lamp("tun_lamp_red", "Tunnel emergency lamp", { color: [1.0, 0.12, 0.06], intensity: 0.7, radius: 6.0, flicker: 0.15, use: "electric" }));
+  out.push(lamp("tun_lamp_red", "Tunnel emergency lamp", { color: [1.0, 0.12, 0.06], intensity: 0.7, radius: 6.0, use: "electric" }));
   out.push(lamp("tun_lamp_dead", "Tunnel lamp (dead)", null));
   return out;
 }
