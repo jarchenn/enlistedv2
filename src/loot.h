@@ -69,7 +69,13 @@ std::vector<FloorItem>& lootFloor();
 std::vector<LootCase>& lootCases();
 void lootDropItem(vec3 at, const std::string& id, int count);   // an item from the inventory to the floor
 std::string lootItemName(App& app, const FloorItem& f);
-std::string lootPieceId(bool helmet, int level);       // the item id of a single helmet / vest piece
+std::string lootPieceId(bool helmet, int level);
+std::string lootAssetId(const std::string& itemId);   // the asset (model) an item is drawn with
+// BR9 icons (inventory_ui.cpp): the item's icon at p in a 2s x s slot (guns: the white silhouette; items: a small render
+// of the model, cached; a drawn glyph without one); the ImGui form reserves the slot in the current line
+void lootDrawIcon(App& app, ImDrawList* dl, ImVec2 p, float s, const FloorItem& f);
+void lootIcon(App& app, const FloorItem& f, float s = 22);
+void lootIcon(App& app, const std::string& itemId, float s = 22);       // the item id of a single helmet / vest piece
 void lootWearGear(App& app, uint32_t uid);             // inventory: wear a spare piece; the worn one goes into the bag
 void lootDiscard(App& app, const std::string& key);    // inventory: drop a whole row ("ammo:<t>", "item:<id>", "gear:<uid>", "gun:<w>", "throw:<w>", "worn:helmet|vest|bag")
 

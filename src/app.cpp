@@ -1014,7 +1014,7 @@ int App::run(int argc, char** argv) {
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mark("mpai");
-    mpaiFrame(*this, ov);   // soldiers, grenades, scenario overlay
+    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();

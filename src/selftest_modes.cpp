@@ -416,6 +416,29 @@ void build(App&) {
     }
     if (t > 6 && t < 6.05f) a.uiShot = outDir() / "br6_labels.png";
     if (t < 6.5f) return false;
+    // BR9: the inventory with its icons, then one of every floor item laid out on bare ground (grass off for the shot)
+    static int br9 = 0;
+    if (br9 == 0) { br9 = 1; lootSetInventory(true); return false; }
+    if (br9 == 1) { if (t > 7.2f && t < 7.25f) a.uiShot = outDir() / "br9_inventory.png"; if (t < 7.5f) return false; br9 = 2; lootSetInventory(false);
+      for (int i = 0; i < 4; ++i) lootFloor().pop_back();   // the cluster
+      std::vector<std::string> ids;   // the small things nearest (labels show within 3.5 m), armour at the back
+      for (const char* id : {"br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_mag_ext", "br_suppressor", "br_muzzle_brake", "br_recoil_pad", "br_frag", "br_smoke", "br_molotov", "br_bandage", "br_medkit"}) ids.push_back(id);
+      for (int k = 0; k < AM_COUNT; ++k) ids.push_back("ammo:" + std::to_string(k));
+      for (const char* id : {"br_vest_1", "br_helmet_1", "br_vest_l1", "br_helmet_2", "br_vest_2", "br_helmet_3", "br_vest_3", "br_backpack", "br_backpack_mil"}) ids.push_back(id);
+      vec3 f = App::forward(a.eyeYaw, 0), r(-f.z, 0, f.x);
+      const int cols = 6;
+      for (size_t i = 0; i < ids.size(); ++i) {
+        vec3 p = L->feet + f * (1.3f + 0.55f * (float)(i / cols)) + r * (0.5f * ((float)(i % cols) - (cols - 1) * 0.5f));
+        lootDropItem(p, ids[i], ids[i].rfind("ammo:", 0) == 0 ? ammoBox(std::atoi(ids[i].c_str() + 5)) : 1);
+        FloorItem& it = lootFloor().back(); it.pos = vec3(p.x, a.terrain.height(p.x, p.z) + 0.01f, p.z); it.yaw = a.eyeYaw + 90;
+      }
+      chk(ids.size() == 29, "BR9: %zu floor item types laid out", ids.size());
+      a.grass.quality = GrassQuality::Off;
+      vec3 e = a.eyePos(), mid = L->feet + f * 2.4f; a.eyePitch = degrees(std::atan2(mid.y - e.y, glm::length(vec2(mid.x - e.x, mid.z - e.z))));
+      return false; }
+    if (t > 8.5f && t < 8.55f) a.uiShot = outDir() / "br9_floor.png";
+    if (t < 9) return false;
+    a.grass.quality = GrassQuality::Medium;
     return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }

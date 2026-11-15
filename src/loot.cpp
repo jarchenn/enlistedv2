@@ -17,6 +17,7 @@ struct LootCfg {
   float capacity[3] = {100, 200, 300};
   int box[AM_COUNT] = {30, 20, 30, 30, 5, 1, 8};
   std::string ammoNames[AM_COUNT] = {"9 mm", ".45", "5.56", "7.62", ".50", "Rockets", "12 gauge"};
+  std::string ammoTypes[AM_COUNT] = {"9mm", "45", "556", "762", "50", "rocket", "12ga"};   // asset ids br_ammo_<type>
   float boxWeight = 10;
   float reduce[4] = {0, 0.30f, 0.40f, 0.55f}, helmetDur[4] = {0, 80, 150, 230}, vestDur[4] = {0, 200, 220, 250};
   float healAmount[3] = {0, 25, 100}, healSeconds[3] = {0, 3, 7}, healCap[3] = {0, 75, 100};
@@ -32,7 +33,7 @@ const LootCfg& cfg() {
     json j; try { if (f) j = json::parse(f); } catch (std::exception& e) { logf("loot.json: %s (defaults used)", e.what()); }
     if (!j.is_object()) return c;
     if (j.contains("capacity")) for (int k = 0; k < 3 && k < (int)j["capacity"].size(); ++k) c.capacity[k] = j["capacity"][k];
-    if (j.contains("ammo")) for (int k = 0; k < AM_COUNT && k < (int)j["ammo"].size(); ++k) { c.box[k] = j["ammo"][k].value("box", c.box[k]); c.ammoNames[k] = j["ammo"][k].value("name", c.ammoNames[k]); }
+    if (j.contains("ammo")) for (int k = 0; k < AM_COUNT && k < (int)j["ammo"].size(); ++k) { c.box[k] = j["ammo"][k].value("box", c.box[k]); c.ammoNames[k] = j["ammo"][k].value("name", c.ammoNames[k]); c.ammoTypes[k] = j["ammo"][k].value("type", c.ammoTypes[k]); }
     c.boxWeight = j.value("ammoBoxWeight", c.boxWeight);
     if (j.contains("armor")) for (int k = 0; k < 4; ++k) {
       const json& a = j["armor"];
@@ -310,6 +311,13 @@ static float unitWeight(const FloorItem& f) {   // per round / piece; armour, ba
   if (f.id.rfind("ammo:", 0) == 0) { int t = std::stoi(f.id.substr(5)); return cfg().boxWeight / std::max(1, cfg().box[t]); }
   const ItemDef* d = lootItem(f.id);
   return d && d->kind != ItemKind::Helmet && d->kind != ItemKind::Vest && d->kind != ItemKind::Armor1 && d->kind != ItemKind::Backpack ? d->weight : 0;
+}
+// the model (asset) of an item: ammo boxes by type id (the display name was used before: no ammo box was ever found),
+// the single level-1 vest and the level-1 set share the level-1 vest model
+std::string lootAssetId(const std::string& id) {
+  if (id.rfind("ammo:", 0) == 0) { int t = std::atoi(id.c_str() + 5); return t >= 0 && t < AM_COUNT ? "br_ammo_" + cfg().ammoTypes[t] : id; }
+  if (id == "br_vest_l1") return "br_vest_1";
+  return id;
 }
 std::string lootPieceId(bool helmet, int lvl) { return lvl == 1 ? (helmet ? "br_helmet_1" : "br_vest_l1") : std::string(helmet ? "br_helmet_" : "br_vest_") + std::to_string(lvl); }
 // wear an armour / backpack piece; the worse one it replaces goes into `into` (a case) or to the floor. false: already as good
@@ -725,16 +733,31 @@ void lootDraw(Game& G) {
       else for (int p = 0; p < 8; ++p) if (w.mesh[p].count) app.worldBoxDraws.push_back({&w.mesh[p], M});
       continue;
     }
-    std::string assetId = f.id.rfind("ammo:", 0) == 0 ? "br_ammo_" + std::string(ammoName(std::stoi(f.id.substr(5)))) : f.id;
-    if (const AssetDef* a = app.lib.find(assetId)) {   // BR3's mesh: the baked model, else its stand-in box
-      if (a->model) for (int i = 0; i < (int)a->model->parts.size(); ++i) app.R.worldModels.push_back({a->model.get(), i, W});
-      else app.worldBoxDraws.push_back({&a->opaque, W});
+    bool ammo = f.id.rfind("ammo:", 0) == 0;
+    const ItemDef* d = ammo ? nullptr : lootItem(f.id);
+    // BR9: ammo boxes 1.5x and muzzle pieces 1.8x their real size so they read on the floor; every model rests on it
+    float sc = ammo ? 1.5f : d && d->kind == ItemKind::Muzzle ? 1.8f : 1.0f;
+    if (const AssetDef* a = app.lib.find(lootAssetId(f.id))) {   // BR3's mesh: the baked model, else its stand-in box
+      float lift = a->model ? a->model->bmin.y : a->opaque.bmin.y;
+      mat4 M = W * glm::scale(mat4(1), vec3(sc)) * glm::translate(mat4(1), vec3(0, -lift, 0));
+      if (a->model) for (int i = 0; i < (int)a->model->parts.size(); ++i) app.R.worldModels.push_back({a->model.get(), i, M});
+      else app.worldBoxDraws.push_back({&a->opaque, M});
       continue; }
-    const ItemDef* d = lootItem(f.id);
-    vec3 col = f.id.rfind("ammo:", 0) == 0 ? vec3(0.75f, 0.6f, 0.15f) : !d ? vec3(1) : d->kind == ItemKind::Bandage || d->kind == ItemKind::Medkit ? vec3(0.9f, 0.9f, 0.9f)
+    if (d && d->kind == ItemKind::Throwable) {   // the grenade's own world model, on its side
+      int wi = app.weaponIndex(d->weapon);
+      if (wi >= 0 && app.weaponDefs[wi]->useModel()) {
+        const WeaponDef& w = *app.weaponDefs[wi];
+        mat4 M = W * glm::rotate(mat4(1), radians(90.0f), vec3(0, 0, 1));
+        for (int p = 0; p < 8; ++p) for (int i : w.worldParts()[p]) app.R.worldModels.push_back({w.worldModel(), i, M});
+        continue;
+      }
+    }
+    // stand-in boxes: a white medkit, a bandage roll, a red throwable; olive armour; anything else grey
+    vec3 col = ammo ? vec3(0.75f, 0.6f, 0.15f) : !d ? vec3(1) : d->kind == ItemKind::Bandage ? vec3(0.92f, 0.88f, 0.80f) : d->kind == ItemKind::Medkit ? vec3(0.95f, 0.95f, 0.95f)
              : d->kind == ItemKind::Helmet || d->kind == ItemKind::Vest || d->kind == ItemKind::Armor1 ? vec3(0.25f, 0.35f, 0.75f) : d->kind == ItemKind::Backpack ? vec3(0.35f, 0.45f, 0.2f)
-             : d->kind == ItemKind::Throwable ? vec3(0.8f, 0.25f, 0.15f) : vec3(0.15f, 0.15f, 0.15f);
-    vec3 sz = d && (d->kind == ItemKind::Vest || d->kind == ItemKind::Armor1 || d->kind == ItemKind::Backpack) ? vec3(0.45f, 0.18f, 0.35f) : vec3(0.22f, 0.12f, 0.16f);
+             : d->kind == ItemKind::Throwable ? vec3(0.8f, 0.25f, 0.15f) : vec3(0.35f, 0.35f, 0.35f);
+    vec3 sz = d && (d->kind == ItemKind::Vest || d->kind == ItemKind::Armor1 || d->kind == ItemKind::Backpack) ? vec3(0.45f, 0.18f, 0.35f)
+            : d && d->kind == ItemKind::Medkit ? vec3(0.32f, 0.12f, 0.24f) : d && d->kind == ItemKind::Bandage ? vec3(0.14f, 0.09f, 0.14f) : vec3(0.22f, 0.12f, 0.16f) * sc;
     DrawItem di{&gL.box, W * glm::scale(mat4(1), sz)}; di.tint = vec4(col, 1);
     app.worldBoxDraws.push_back(di);
   }
@@ -786,22 +809,23 @@ void lootUi(App& app) {
   }
   auto crateName = [](const LootCase& lc) { return lc.owner + "'s crate  (" + std::to_string(lc.items.size()) + (lc.items.size() == 1 ? " item)" : " items)"); };
   // BR6: with several items together every one within 3.5 m gets a name label at its spot; the targeted one is highlighted
-  struct Label { ImVec2 at; std::string text; bool hit; float d; };
+  struct Label { ImVec2 at; std::string text; bool hit; float d; FloorItem icon; };
   std::vector<Label> labels;
   for (int i = 0; i < (int)gL.floor.size(); ++i) {
     float d = glm::length(gL.floor[i].pos - e); ImVec2 sp;
-    if (d < 3.5f && projectPt(app, gL.floor[i].pos + vec3(0, 0.12f, 0), sp)) labels.push_back({sp, lootItemName(app, gL.floor[i]), i == gL.target, d});
+    if (d < 3.5f && projectPt(app, gL.floor[i].pos + vec3(0, 0.12f, 0), sp)) labels.push_back({sp, lootItemName(app, gL.floor[i]), i == gL.target, d, gL.floor[i]});
   }
   for (int i = 0; i < (int)gL.cases.size(); ++i) {
     float d = glm::length(gL.cases[i].pos - e); ImVec2 sp;
-    if (d < 3.5f && projectPt(app, gL.cases[i].pos + vec3(0, 0.5f, 0), sp)) labels.push_back({sp, crateName(gL.cases[i]), i == gL.caseTarget, d});
+    if (d < 3.5f && projectPt(app, gL.cases[i].pos + vec3(0, 0.5f, 0), sp)) labels.push_back({sp, crateName(gL.cases[i]), i == gL.caseTarget, d, FloorItem{}});
   }
   if (labels.size() >= 2) {
     std::sort(labels.begin(), labels.end(), [](const Label& a, const Label& b) { return a.hit != b.hit ? a.hit : a.d < b.d; });   // the target keeps its spot
     std::vector<ImVec4> placed;   // x0 y0 x1 y1: later labels move up until they overlap none
     for (auto& l : labels) {
       ImVec2 ts = ImGui::CalcTextSize(l.text.c_str());
-      float x0 = l.at.x - ts.x * 0.5f - 5, y1 = l.at.y, x1 = x0 + ts.x + 10, h = ts.y + 6;
+      bool icon = l.icon.weapon >= 0 || !l.icon.id.empty(); float is = ts.y + 2, iw = icon ? 2 * is + 4 : 0;   // BR9: the item's icon at the left
+      float x0 = l.at.x - (ts.x + iw) * 0.5f - 5, y1 = l.at.y, x1 = x0 + ts.x + iw + 10, h = ts.y + 6;
       for (int guard = 0; guard < 40; ++guard) {
         bool hitAny = false;
         for (auto& p : placed) if (x0 < p.z && x1 > p.x && y1 - h < p.w && y1 > p.y) { y1 = p.y - 2; hitAny = true; }
@@ -811,7 +835,8 @@ void lootUi(App& app) {
       dl->AddLine(l.at, ImVec2(l.at.x, y1), IM_COL32(230, 225, 205, 90));
       dl->AddRectFilled(ImVec2(x0, y1 - h), ImVec2(x1, y1), l.hit ? IM_COL32(70, 55, 10, 225) : IM_COL32(10, 10, 10, 170), 3);
       if (l.hit) dl->AddRect(ImVec2(x0, y1 - h), ImVec2(x1, y1), IM_COL32(240, 190, 60, 255), 3, 0, 1.5f);
-      dl->AddText(ImVec2(x0 + 5, y1 - h + 3), l.hit ? IM_COL32(255, 235, 170, 255) : IM_COL32(225, 220, 205, 230), l.text.c_str());
+      if (icon) lootDrawIcon(app, dl, ImVec2(x0 + 4, y1 - h + 2), is, l.icon);
+      dl->AddText(ImVec2(x0 + 5 + iw, y1 - h + 3), l.hit ? IM_COL32(255, 235, 170, 255) : IM_COL32(225, 220, 205, 230), l.text.c_str());
     }
   }
   std::string prompt = gL.caseTarget >= 0 ? "[E]  Open " + crateName(gL.cases[gL.caseTarget]) : gL.target >= 0 ? "[E]  " + lootItemName(app, gL.floor[gL.target]) : "";
