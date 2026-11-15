@@ -414,7 +414,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
   // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes
   // a body slam ("drop" in the clip name: down on all fours, then flat) lands her upper body on an oval centred where her
-  // chest comes down (the clip's swing chest x the draw scale ahead): chosen when two or more hostiles stand in that oval,
+  // chest comes down (the clip's swing chest x the draw scale ahead): chosen when two or more hostiles stand in that oval (one, if it is the only attack),
   // the other attacks for anyone within reach
   const auto& ac = clipsOf(s).attackClips; int di = -1; float dropR = 0;
   for (int i = 0; i < (int)ac.size(); ++i) if (ac[i].find("drop") != std::string::npos) { int k = findClip(*G.models[s.model], ac[i]); if (k >= 0) { di = i; vec3 c = G.models[s.model]->clips[k].swingChest; dropR = std::max(1.0f, glm::length(vec2(c.x, c.z)) * s.eScale); } }
@@ -423,7 +423,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   if (best && di >= 0) {
     vec3 f = best->feet - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1);   // she turns to her target
     int n = 0; for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && inSlam(o.feet, s.feet + f * dropR, f, e, s.eScale) < 1.0f) ++n;
-    dropOk = n >= 2;
+    dropOk = n >= ((int)ac.size() > 1 ? 2 : 1);   // two or more; one will do when the slam is her only attack
   }
   if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f);   /* one of three, picked at random */
     s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
