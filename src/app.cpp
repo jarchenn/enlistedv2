@@ -1026,6 +1026,7 @@ int App::run(int argc, char** argv) {
       const json* lj = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() ? &doc.extra["lighting"] : nullptr;
       const json* lk = doc.extra.is_object() && doc.extra.contains("look") && doc.extra["look"].is_object() ? &doc.extra["look"] : nullptr;   // BR2: a map's own look
       R.lt.mapClean = lk && lk->value("clean", false);
+      R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
     }
