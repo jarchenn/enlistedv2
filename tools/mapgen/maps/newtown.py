@@ -263,6 +263,7 @@ def populate(ctx, grid, pads=None):
         if military:
             br["military"] = True
         e["extra"]["br"] = br
+        e["extra"]["loot"] = dict(br)   # BR2 (src/loot.cpp lootBegin) reads extra.loot; extra.br as the BR4 brief named it
 
     def site(aid, x, z, yaw, tags=(), pad=0.8, nudge=0, keep=True, military=False, extra=None, check=True):
         """A building or large fixture: keep-outs and overlaps checked, nudged a few times; tagged for BR2."""
@@ -838,7 +839,7 @@ def populate(ctx, grid, pads=None):
     # ------------------------------------------------------------------ 15. scenario: Battle royale (no spawns), TDM teams, districts
     sc = ScenarioBuilder(b, defending="Axis")
     sc.rules["mode"] = "royale"
-    sc.rules["lootPool"] = "modern"
+    sc.rules["lootModern"] = True
     sc.rules["teamFaction"] = ["Axis", "Allies"]
     # Assault (also what the scenario validator requires): the Allies push from the lakeside to the square, the industrial
     # yards and the base; the Axis hold each from behind

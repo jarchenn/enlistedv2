@@ -831,6 +831,36 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_water_barrier_white` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rack_modern` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tun_cart` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_ammo_12ga` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_ammo_45` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_ammo_50` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_ammo_556` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_ammo_762` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_ammo_9mm` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_ammo_rocket` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_backpack` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_backpack_mil` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_bomber` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_helmet_1` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_helmet_2` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_helmet_3` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_mag_ext` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_mag_ext_pistol` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_mag_ext_rifle` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_mag_ext_smg` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_mag_ext_sniper` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_molotov` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_muzzle_brake` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_parachute` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_recoil_pad` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_sight_10x` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_sight_4x` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_sight_acog` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_sight_reddot` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_suppressor` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_vest_1` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_vest_2` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `br_vest_3` | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
