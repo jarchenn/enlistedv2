@@ -2,6 +2,7 @@
 // Weapon space: butt at z = 0, muzzle toward +z, top +y (the import pipeline and the box parts share it).
 #include "app.h"
 #include "vm_anim.h"
+#include "br_models.h"
 #include "settings.h"
 #include <algorithm>
 #include <glm/gtx/quaternion.hpp>
@@ -40,10 +41,11 @@ static void sightFrame(const WeaponDef& d, bool scoped, quat& Q, vec3& Rp, vec3&
   Rp = scoped ? d.scopeEye : d.rear;
   Fp = scoped ? d.scopeEye + vec3(0, 0, 0.25f) : d.front;
   relief = scoped ? d.scopeRelief : d.eyeRelief;
+  bool optic = !scoped && brSightLineActive(d, Rp, Fp, relief);   // BR3: a fitted optic replaces the irons
   vec3 L = glm::normalize(Fp - Rp);
   quat q = glm::rotation(L, vec3(0, 0, 1));
   Q = glm::angleAxis(3.14159265f, vec3(0, 1, 0)) * q;
-  if (!scoped && d.adsRot != vec3(0)) Q = glm::quat(glm::radians(d.adsRot)) * Q;
+  if (!scoped && !optic && d.adsRot != vec3(0)) Q = glm::quat(glm::radians(d.adsRot)) * Q;
 }
 
 vec3 App::vmTarget(const WeaponDef& d) const {

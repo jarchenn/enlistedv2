@@ -14,3 +14,7 @@ __pycache__/
 content/audio/ambience/level0.mp3
 # MOD1: converted from a user-supplied FBX pack whose licence is not stated: local only
 content/assets/models/mod_barriers_weathered/
+# BR3 Battle Royale models: licences of the supplied downloads unknown, so the bakes stay local-only (tools/bake_br_assets.py);
+# the committed content/assets/br_*.json boxes stand in without them
+content/characters/br_marine.glb
+content/assets/models/br_*/

@@ -35,6 +35,7 @@
     "modern_scar":   { "near": 60,  "far": 40,  "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 600, "note": "MG1 modern gun" },
     "modern_ak":     { "near": 45,  "far": 30,  "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 650, "note": "MG1 modern gun" },
     "modern_m4":     { "near": 42,  "far": 28,  "falloffStart_m": 100, "falloffEnd_m": 220, "rpm": 800, "note": "MG1 modern gun" },
+    "modern_m4_irons":{ "near": 42, "far": 28, "falloffStart_m": 100, "falloffEnd_m": 220, "rpm": 800, "note": "MG8: the M4 row" },
     "modern_m16":    { "near": 44,  "far": 30,  "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 800, "note": "MG1 modern gun" },
     "modern_lmg":    { "near": 44,  "far": 30,  "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 800, "note": "MG1 modern gun" },
     "modern_shotgun":{ "near": 24,  "far": 6,   "falloffStart_m": 10,  "falloffEnd_m": 40, "rpm": 70, "note": "MG1 modern gun: per pellet (9 per shell)" },

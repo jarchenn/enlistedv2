@@ -1,0 +1,80 @@
+{
+ "id": "br_backpack",
+ "version": 1,
+ "name": "Backpack",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.34,
+  0.3103
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.3,
+    0.32,
+    0.18
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.2042,
+    0
+   ],
+   "s": [
+    0.34,
+    0.4084,
+    0.3103
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_backpack.glb",
+  "dir": "br_backpack",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "by smallpoly (sketchfab.com/smallpoly, the download's AUTHOR file); licence not stated"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "worn": {
+  "joint": "Spine2",
+  "pos": [
+   0.0083,
+   1.0256,
+   -0.3281
+  ],
+  "scale": [
+   1.0301,
+   1.0301,
+   1.0301
+  ],
+  "rest": [
+   0.0,
+   1.3481,
+   -0.0576
+  ]
+ }
+}

@@ -6,6 +6,9 @@
 //                     suppression, ammo, orders; the best wins with a small bonus for the current one.
 #include "ai_core.h"
 #include "app.h"
+#include "royale.h"
+#include "app.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
 #include <cmath>
 
@@ -135,6 +138,30 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
 // ---------------------------------------------------------------- goals
 vec3 AiCore::objectiveGoal(Soldier& s) {
   BotMind& m = mind(s);
+  if (G.match.mode() == GameMode::BattleRoyale) {
+    // BR1: be inside the next circle before the storm reaches this spot; on safe ground hunt only an enemy close by,
+    // otherwise sit in a building (cover) inside the next circle, else at its own safe point. BR2 adds looting.
+    auto snap = [&](vec3 p) { NavRef r; vec3 on; return G.nav.closest(p, 8.0f, r, on) ? on : p; };
+    float soon = royaleStormSoon(s);
+    if (soon < tj("royale", "moveEarly_s", 30.0f)) return snap(royaleSafePoint(s));   // the storm first
+    { vec3 lootAt; if (lootBotGoal(G, s, lootAt)) return lootAt; }   // BR2: a gun, ammo, armour or healing nearby
+    const Soldier* best = nullptr; float bd = tj("royale", "huntRange_m", 40.0f);
+    for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !royaleAirborne(o.slot)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
+    if (best) { float a = s.slot * 2.39996f; return snap(best->feet + vec3(std::cos(a), 0, std::sin(a)) * std::min(6.0f, bd * 0.5f)); }
+    RoyaleRing nx = royaleRing(true);
+    const AiBuilding* hb = nullptr; float hd = 1e9f;
+    for (auto& b : buildings) {
+      if (b.bunker || b.entrances.empty()) continue;
+      vec3 c = (b.bmin + b.bmax) * 0.5f;
+      if (glm::length(vec2(c.x, c.z) - nx.c) > nx.r * 0.8f) continue;
+      float d = lenXZ(c - s.feet) + (s.slot * 13 % 7) * 4.0f;   // a little spread so they do not all pick one house
+      if (d < hd) { hd = d; hb = &b; }
+    }
+    if (hb && hd < 120.0f) { vec3 c = (hb->bmin + hb->bmax) * 0.5f; return snap(vec3(c.x, hb->bmin.y, c.z)); }
+    vec2 here(s.feet.x, s.feet.z);
+    if (glm::length(here - nx.c) <= nx.r * 0.85f) return s.feet;   // already well inside: hold
+    return snap(royaleSafePoint(s));
+  }
   if (G.match.mode() != GameMode::Assault) {   // G1 Solo / TDM: hunt the closest living enemy (user: closest combatant)
     const Soldier* best = nullptr; float bd = 1e9f;
     for (auto& o : G.sold) if (o.alive && Game::hostile(s, o)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
@@ -174,7 +201,7 @@ void AiCore::think(Soldier& s) {
   Brain& b = s.br;
   TeamBrain& tb = teams[(int)s.role];
   const Objective* ob = G.match.activeObjective();
-  const WeaponDef& wd = *G.app.weaponDefs[s.weapon];
+  const WeaponDef& wd = *G.app.weaponDefs[s.weapon >= 0 ? s.weapon : std::max(0, G.app.weaponIndex("knife_bayonet"))];   // BR2: unarmed until it loots a gun
   Fireteam* ft = m.ft >= 0 && m.ft < (int)tb.fts.size() ? &tb.fts[m.ft] : nullptr;
   bool attacker = s.role == CombatRole::Attacker;
   bool visible = b.target >= 0;
@@ -250,7 +277,7 @@ void AiCore::act(Soldier& s, float dt) {
   Brain& b = s.br;
   TeamBrain& tb = teams[(int)s.role];
   const Objective* ob = G.match.activeObjective();
-  const WeaponDef& wd = *G.app.weaponDefs[s.weapon];
+  const WeaponDef& wd = *G.app.weaponDefs[s.weapon >= 0 ? s.weapon : std::max(0, G.app.weaponIndex("knife_bayonet"))];   // BR2: unarmed until it loots a gun
   Fireteam* ft = m.ft >= 0 && m.ft < (int)tb.fts.size() ? &tb.fts[m.ft] : nullptr;
   bool underFire = G.t - b.hurtAt < 2.0 || b.suppressed > 0.35f || G.t - m.nearMissAt < 1.5;
   bool attacker = s.role == CombatRole::Attacker;

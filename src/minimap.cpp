@@ -1,5 +1,6 @@
 // GM2 2D minimap (minimap.h, docs/minimap.md)
 #include "minimap.h"
+#include "royale.h"
 #include "app.h"
 #include "game.h"
 #include "editor_nav.h"
@@ -134,6 +135,7 @@ MinimapView drawMinimap(App& app, ImDrawList* dl, vec2 p0, vec2 p1, vec2 centre,
     vec3 e = app.eyePos(), f = camForward(app.eyeYaw, 0);
     shape(dl, v.toScreen(vec2(e.x, e.z)), 2, 6.0f, degrees(std::atan2(f.x, -f.z)), IM_COL32(255, 255, 255, 250));
   }
+  royaleMinimap(dl, v);   // BR1: the storm's current and next ring, the bomber
   for (auto& mk : markers) {
     vec2 c = v.toScreen(mk.pos);
     shape(dl, c, mk.shape, mk.size, mk.yaw, mk.col);

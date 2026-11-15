@@ -1,5 +1,6 @@
 // Glue between the shared core and the multiplayer + AI systems (see mpai.h).
 #include "mpai.h"
+#include "royale.h"
 #include "gore_api.h"
 #include "rules.h"
 #include "mptest.h"
@@ -26,6 +27,7 @@ bool mpaiArg(App& app, int argc, char** argv, int& k, bool& runSelf) {
   std::string a = argv[k];
   if (a == "--selftest-rules") { runSelf = true; return true; }   // W1 gameplay rules (selftest_rules.cpp)
   if (a == "--selftest-match") { mpaiExit = runMatchSelfTest(); return true; }
+  if (a == "--selftest-royale") { int runRoyaleSelfTest(); mpaiExit = runRoyaleSelfTest(); return true; }   // BR2 loot rules + BR1 storm / match checks (selftest_royale.cpp, royale.cpp)
   if (a == "--selftest-ai") { runSelf = true; runAiSelfTestArg = 1; return true; }
   if (a == "--benchmark-match") { runSelf = true; runAiSelfTestArg = 2; return true; }
   if (a == "--baseline-ai") { runSelf = true; runAiSelfTestArg = 3; return true; }   // AI_SPEC 2.2 baseline
@@ -54,8 +56,8 @@ void mpaiUI(App& app) {
   }
   if (!gGame || !gGame->active) return;
   if (!app.selftest && edge(app.win, GLFW_KEY_F6)) gGame->debugOverlay = !gGame->debugOverlay;
-  gGame->drawHud();
-  rulesHud(*gGame);   // W1: shield icons over protected enemies, own protection ring
+  bool lootInventoryOpen();
+  if (!lootInventoryOpen()) { gGame->drawHud(); rulesHud(*gGame); }   // BR2: the inventory screen hides the match HUD (minimap, banner, status)   // W1: shield icons over protected enemies, own protection ring
   if (gUi.wantExit) {
     gUi.wantExit = false;
     bool host = gNet && gNet->role == Net::HOST;
@@ -72,10 +74,10 @@ bool mpaiBeforeSave(App& app) { return gUi.beforeSave(app); }
 
 void mpaiFrame(App& app, Overlay& ov) {
   if (app.mode == Mode::Creative) { gUi.creativeOverlay(app, ov); return; }
-  if (gGame && gGame->active) gGame->drawItems();
+  if (gGame && gGame->active) { gGame->drawItems(); royaleDraw(app); }   // BR1: bomber, parachutes
 }
 
-bool mpaiCamera(App& app, vec3& e, vec3& f, float& fov) { (void)app; return gGame && gGame->active && gGame->camera(e, f, fov); }
+bool mpaiCamera(App& app, vec3& e, vec3& f, float& fov) { return gGame && gGame->active && (royaleCamera(app, e, f, fov) || gGame->camera(e, f, fov)); }   // BR1: behind the bomber while aboard
 
 void mpaiEnterExplore(App& app) {
   if (!gGame || !gGame->pendingStart) return;
@@ -85,7 +87,7 @@ void mpaiEnterExplore(App& app) {
     gUi.worldIssues = {err};
     app.exitExplore();
     gUi.showSetup = true;
-  }
+  } else royaleBegin(app, *gGame);   // BR1: the bomber, the storm (no-op in other modes)
 }
 
 void mpaiExitExplore(App& app) {
@@ -101,6 +103,7 @@ void mpaiInput(App& app, ExploreInput& in) {
   Soldier* L = gGame->local();
   bool frozen = !L || !L->alive || gGame->match.phase != MatchPhase::Running;
   if (frozen) { if (L && !L->alive && app.occupied) { logf("station: leave, crew dead"); app.leaveStation(); } in = ExploreInput{}; return; }   // the dead free their gun
+  royaleInput(app, in);   // BR1: aboard / falling: Space jumps / opens the chute, no walking
   if (app.selftest || app.pauseMenu) return;
   // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); quick smoke on "smokeGrenade" (default J, match only)
   if (edge(app.win, app.binds.smokeGrenade) && L->throwT < 0 && app.quickReturn < 0) {
@@ -130,7 +133,7 @@ bool mpaiLocalFrozen(App& app) {
 }
 
 void mpaiIdleSmoke(App& app, float dt);
-void mpaiStep(App& app, float dt) { if (gGame && gGame->active) gGame->step(dt); else mpaiIdleSmoke(app, dt); goreStep(app, dt); }
+void mpaiStep(App& app, float dt) { if (gGame && gGame->active) { if (!gGame->paused) royaleStep(app, *gGame, dt); gGame->step(dt); } else mpaiIdleSmoke(app, dt); goreStep(app, dt); }   // BR1: drop / storm first
 
 // GM3: a tank / AT gun shell on its way: the first soldier on the segment before tWorld is struck (killed) and the shell
 // bursts there (the caller turns tWorld into its impact). Host / singleplayer only; clients see the burst through "ex".

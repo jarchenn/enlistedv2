@@ -1,0 +1,80 @@
+{
+ "id": "br_vest_3",
+ "version": 1,
+ "name": "Vest (level 3)",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.5,
+  0.4108
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.22,
+    0.3,
+    0.16
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.2823,
+    0
+   ],
+   "s": [
+    0.5,
+    0.5646,
+    0.4108
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_vest_3.glb",
+  "dir": "br_vest_3",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "'Military Armor 3D Model' by Exactly (sketchfab.com/txyrm70), CC-BY-4.0 per its GLB metadata"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "worn": {
+  "joint": "Spine2",
+  "pos": [
+   0.0083,
+   1.1213,
+   -0.0393
+  ],
+  "scale": [
+   0.8773,
+   0.6995,
+   0.8714
+  ],
+  "rest": [
+   0.0,
+   1.3481,
+   -0.0576
+  ]
+ }
+}

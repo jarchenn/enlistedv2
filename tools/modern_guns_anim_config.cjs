@@ -106,6 +106,12 @@ const A = {
     // fire = the shot (1-13) then the bolt stroke (134-176) back to back; reload_empty 13-84 (bolt pull 64-73), reload 84-134; the draw 202-218 not used
     clips: { fire: [{ action: "Armature|CINEMA_4D_Main|Layer0", range: [1, 13] }, { action: "Armature|CINEMA_4D_Main|Layer0", range: [134, 176] }], reload_empty: [13, 84], reload: [84, 134], idle: [176, 202] },
     mats: { bmg: { albedo: "50bmgColor.png", metal: "bmgmetallic.png", smooth: "bmgsmoothness.png" }, arms: { albedo: "armColor.png", metal: "armmetallic.png", smooth: "armsmoothness.png" } } },
+  // ---- MG8: M4 with iron sights (named clips on one timeline; gun parts are bone-parented meshes)
+  modern_m4_irons: { src: "../mg8/m4pack/source/M4.fbx", tex: "../mg8/m4pack", stat: "modern_m4irons", gun: "Main", gunBone: "Main_j",
+    keep: ["Hand_Mesh", "Main", "Bolt", "BoltCatch", "Mag1", "Mag2", "Bullet5_56x45mm", "Bullet5_56x45mm.001", "Safety", "Trigger"],
+    clips: { idle: "Armature|Idle|BaseLayer", fire: "Armature|Fire|BaseLayer", reload: "Armature|Reload|BaseLayer", reload_empty: "Armature|Reload_Empty|BaseLayer" },   // Draw, Holster not used
+    mats: { M4_D: { albedo: "M4_D.png", rough_f: 0.5, metal_f: 0.6 }, Bullet5_56x45mm_D: { albedo: "Bullet5.56x45mm_D.png", rough_f: 0.4, metal_f: 0.9 },
+            Hand_D: { albedo: "Hand_D.jpg", rough_f: 0.6 }, Glove_D: { albedo: "Glove_D.png", rough_f: 0.7 } } },
   // ---- MG7 guns
   modern_sniper_3: { src: "../mg7/sniper/source/arms@sniper.fbx", tex: "../mg7/sniper", stat: "modern_sniper3",
     keep: ["armMesh", "base", "bolt", "bullet", "clip", "magrelease", "trigger"], rigidify: ["base", "bolt", "bullet", "clip", "magrelease", "trigger"], gun: "base", timeline: [1, 159],
@@ -134,6 +140,7 @@ const A = {
     clips: { idle: [0, 1], fire: [32, 48] } },   // fire = the quick slash (strike ~frame 35); the big swing 52-64, the overhead stab 68-80 and the wide slash 84-100 not used
 };
 for (const [id, a] of Object.entries(A)) {
+  if (id.startsWith("_")) continue;   // parked entries (MG7: the SCAR-H rig, not exported)
   if (a.frame) {   // MG7 (the knife): framed by its own camera, no static model or sights
     fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
     continue;

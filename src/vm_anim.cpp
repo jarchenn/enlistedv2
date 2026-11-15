@@ -4,6 +4,7 @@
 #include "character.h"
 #include "anim_clip.h"
 #include "assets.h"
+#include "br_models.h"
 #include <glm/gtx/quaternion.hpp>
 
 struct AnimVM {
@@ -21,8 +22,22 @@ struct AnimVM {
   float fireRate = 1, reloadRate = 1;  // MG4: clips played faster (the shotguns' pump and shell loop); the timing follows
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
   GpuMesh dotMesh;
+  mat4 w2r{1}; bool w2rOk = false;     // BR3: weapon JSON space -> rest rig space (fitted optics), from the shared sight points
   ~AnimVM() { model.destroy(); dotMesh.destroy(); }
 };
+
+// weapon space (JSON: +z forward, +y up) -> rest rig space: the eye / rear sight, the sight line and the muzzle below it
+// fix rotation, scale and offset (BR3 optics are placed in weapon space)
+static const mat4& weaponToRig(AnimVM& a, const WeaponDef& d) {
+  if (a.w2rOk) return a.w2r;
+  a.w2rOk = true;
+  vec3 A0 = d.hasScope ? d.scopeEye : d.rear, fw = d.hasScope ? vec3(0, 0, 1) : glm::normalize(d.front - d.rear);
+  auto frame = [](vec3 f, vec3 eye, vec3 muz) { vec3 u = eye - muz; u = glm::normalize(u - f * glm::dot(u, f)); return glm::mat3(glm::cross(u, f), u, f); };
+  glm::mat3 Bw = frame(fw, A0, d.muzzle), Br = frame(glm::normalize(a.pt[1] - a.pt[0]), a.pt[0], a.pt[2]);
+  float s = glm::length(a.pt[2] - a.pt[0]) / std::max(1e-4f, glm::length(d.muzzle - A0));
+  a.w2r = glm::translate(mat4(1), a.pt[0]) * mat4(Br * glm::transpose(Bw)) * glm::scale(mat4(1), vec3(s)) * glm::translate(mat4(1), -A0);
+  return a.w2r;
+}
 
 namespace {
 enum { K_IDLE, K_FIRE, K_RELOAD };
@@ -160,7 +175,10 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   const mat4& D = st.pose.delta[a.gunJoint];
   vec3 R = vec3(D * vec4(a.pt[0], 1)), F = vec3(D * vec4(a.pt[1], 1));
   bool scoped = app.vmScoped(d);
-  float relief = scoped ? d.scopeRelief : d.eyeRelief, t = app.adsT * app.adsT * (3 - 2 * app.adsT);
+  float relief = scoped ? d.scopeRelief : d.eyeRelief;
+  { vec3 oR, oF; float oRel;   // BR3: a fitted optic's eye line replaces the gun's own sights
+    if (!scoped && brSightLine(d, s, oR, oF, oRel)) { mat4 G = D * weaponToRig(a, d); R = vec3(G * vec4(oR, 1)); F = vec3(G * vec4(oF, 1)); relief = oRel; } }
+  float t = app.adsT * app.adsT * (3 - 2 * app.adsT);
   quat q = glm::rotation(glm::normalize(F - R), vec3(0, 0, -1));
   mat4 ads = glm::translate(mat4(1), glm::mix(R, vec3(0, 0, -relief), t)) * glm::mat4_cast(glm::slerp(quat(1, 0, 0, 0), q, t)) * glm::translate(mat4(1), -R);
   mat4 proc(1);
@@ -191,7 +209,9 @@ bool animVmDraw(App& app, const WeaponDef& d) {
   St& st = it->second;
   mat4 rig = camNow(app) * st.local;
   for (size_t k = 0; k < st.inst.view.parts.size(); ++k) app.R.viewModelTex.push_back({&st.inst.view, (int)k, rig});
-  if (d.anim->hasDot && app.adsT > 0.6f) app.R.viewModel.push_back({&d.anim->dotMesh, rig * st.pose.delta[d.anim->gunJoint]});
+  const WeaponState& ws = app.wstate[d.id];
+  if (d.anim->hasDot && app.adsT > 0.6f && !ws.att[0]) app.R.viewModel.push_back({&d.anim->dotMesh, rig * st.pose.delta[d.anim->gunJoint]});
+  if (ws.att[0]) brSightDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR3
   return true;
 }
 

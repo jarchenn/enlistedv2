@@ -27,6 +27,7 @@
 #include "foundation.h"       // MA3 foundation dressing
 #include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
 #include "classes.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <stb_image_write.h>
 #include <algorithm>
 
@@ -805,6 +806,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
+    else if (a == "--capture-br-models") runSelf = true;   // BR3: a look at the Battle Royale models (selftest_brmodels.cpp)
     else if (a == "--capture-jeep") runSelf = true;   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
     else if (a == "--profile-map" && k + 3 < argc) { runSelf = true; k += 3; }   // PF3 CPU frame profile (selftest_perf.cpp)  // G2 zombie AI type, melee, knife v soldiers (selftest_zombies.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
@@ -997,7 +999,7 @@ int App::run(int argc, char** argv) {
       worldFov = fov;
       v.vmProj = glm::perspective(radians(vmFovNow()), aspect, 0.01f, 6.0f);
       dofParams(v.dofFocus, v.dofAmount);
-      if (scopeView()) { v.eyepieceR = kScopeEyepieceR; { const std::string& rt = weaponDefs[activeWeapon]->reticle; v.reticle = rt == "de_absehen1" ? 1 : rt == "plus" ? 4 : rt == "mil" ? 5 : rt == "bmg" ? 6 : rt == "acog" ? 7 : 2; } }
+      if (scopeView()) { v.eyepieceR = kScopeEyepieceR; { const std::string& rt = weaponDefs[activeWeapon]->reticle; v.reticle = rt == "de_absehen1" ? 1 : rt == "plus" ? 4 : rt == "mil" ? 5 : rt == "bmg" ? 6 : rt == "acog" ? 7 : 2; } { float m; int r; if (lootScope(*this, m, r)) v.reticle = r; } }
       else if (gunnerOptic()) { v.eyepieceR = kGunnerEyepieceR; v.reticle = 3; }
       v.editor = false; v.autoExposure = true; v.camPos = e;
       v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp

@@ -867,7 +867,7 @@ void Net::update(App& app, float dt) {
         if (h.value("map", "") != mapHash(app)) { reject("Map differs: the host plays '" + app.doc.name + "'. Open the same map file on this PC (File > Open), then join again."); continue; }
         if (!ex) {
           const ScenarioRules& R = gUi.rules;   // G1: humans fit the mode's roster (Solo: everyone, TDM: both teams, Assault: defenders)
-          int maxHumans = std::max(1, R.mode == GameMode::Solo ? std::min(R.soloPlayers, 16) : R.mode == GameMode::TDM ? std::min(R.teamPlayers[0] + R.teamPlayers[1], 16) : R.defenderSlots);
+          int maxHumans = std::max(1, R.mode == GameMode::Solo ? std::min(R.soloPlayers, 16) : R.mode == GameMode::BattleRoyale ? std::min(R.royalePlayers, 16) : R.mode == GameMode::TDM ? std::min(R.teamPlayers[0] + R.teamPlayers[1], 16) : R.defenderSlots);
           if ((int)players.size() >= maxHumans || (int)players.size() >= ScenarioRules::kMaxCombatants) { reject("Lobby full (" + std::to_string(players.size()) + " of " + std::to_string(maxHumans) + " defender slots taken by players)."); continue; }
           Peer p; p.id = d->nextPeer++; p.addr = from; p.name = h.value("name", "Player"); p.heard = d->now;
           if (matchRunning) {

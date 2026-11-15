@@ -1,0 +1,70 @@
+{
+ "id": "br_sight_acog",
+ "version": 1,
+ "name": "ACOG",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.0507,
+  0.15
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.08,
+    0.08,
+    0.08
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.035,
+    0
+   ],
+   "s": [
+    0.0507,
+    0.0701,
+    0.15
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_sight_acog.glb",
+  "dir": "br_sight_acog",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "supplied by the user (Downloads); licence unknown: local-only"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "sight": {
+  "eye": [
+   0,
+   0.0426,
+   -0.075
+  ],
+  "length": 0.15
+ }
+}

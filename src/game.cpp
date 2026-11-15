@@ -14,6 +14,9 @@
 #include "enemy_types.h"
 #include "flame.h"
 #include "ai_hooks.h"
+#include "br_models.h"
+#include "royale.h"
+#include "loot.h"   // BR2 Battle Royale loot
 void netInterpolate(Game& g, double t);
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -122,7 +125,7 @@ bool Game::begin(std::string& err) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
-    int side = match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1);
+    int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeFor(match.rules.aiTypes[side], aiSeen[side]++);
     s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
@@ -169,6 +172,7 @@ bool Game::begin(std::string& err) {
   // the local player waits in limbo until its first spawn
   if (Soldier* L = local()) { vec3 p = app.exploreStartPos; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z)); (void)L; }
   setupError.clear();
+  lootBegin(*this);   // BR2: floor loot in the buildings
   logf("match: %zu slots, local slot %d, nav %d floors in %.0f ms", sold.size(), localSlot, nav.usedNodes, nav.buildMs);
   return true;
 }
@@ -211,6 +215,7 @@ std::vector<int> Game::classWeapons(const Soldier& s) const {
 }
 
 void Game::applyLoadout(Soldier& s, bool newLife) {
+  if (royaleBareHands(app, *this, s)) return;   // BR1: everyone lands with fists / the knife only (loot is the kit)
   std::string fac = factionName(s.faction);
   const json& lo = combat["loadouts"][fac];
   const ClassDef* cd = s.cls >= 0 && s.cls < (int)classDefs().size() ? &classDefs()[s.cls] : nullptr;
@@ -729,8 +734,9 @@ void Game::step(float dt) {
     if (!s.alive) continue;
     crumb("game: soldier weapon"); soldierWeaponStep(s, dt);
     crumb("game: throw"); throwStep(s, dt);
-    crumb("game: ai"); if (!s.human) aiStep(s, dt);
+    crumb("game: ai"); if (!s.human && !royaleAirborne(s.slot)) aiStep(s, dt);   // BR1: aboard / falling: the drop moves it
   }
+  crumb("game: loot"); lootStep(*this, dt);   // BR2: strip new lives, heal, bots pick up
   crumb("game: burn"); burnStep(dt);
   crumb("game: rest"); stepRest(dt); crumb("game: done");
 }
@@ -811,6 +817,7 @@ void Game::drawItems() {
     if (w.useModel()) { for (int p = 0; p < 8; ++p) for (int k : w.worldParts()[p]) app.R.worldModels.push_back({w.worldModel(), k, W}); }
     else for (int p = 0; p < 8; ++p) if (w.mesh[p].count) app.worldBoxDraws.push_back({&w.mesh[p], W});
   }
+  lootDraw(*this);   // BR2 floor items
   crumb("game: draw");
   vec3 cam = app.eyePos(); vec3 fwd = App::forward(app.eyeYaw, app.eyePitch);
   static int frame = 0; ++frame;
@@ -832,12 +839,14 @@ void Game::drawItems() {
       bool due = s.ci.frameSkinned < 0 || (s.skinRev != s.poseRev && (frame + s.slot) % every == 0);   // and never an unchanged pose
       if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
-    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
+    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) if (!brHidePart(s, src->ci.view.parts[k].name)) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
+    brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
         mat4 W = s.world * s.pose.weapon;
         for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, W});
+        brSightDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR3: the fitted optic
       }
     }
   }

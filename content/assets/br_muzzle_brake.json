@@ -1,0 +1,62 @@
+{
+ "id": "br_muzzle_brake",
+ "version": 1,
+ "name": "Muzzle brake",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.05,
+  0.08
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.1,
+    0.1,
+    0.1
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.0115,
+    0
+   ],
+   "s": [
+    0.0231,
+    0.0231,
+    0.08
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_muzzle_brake.glb",
+  "dir": "br_muzzle_brake",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "supplied by the user (Downloads); licence unknown: local-only"
+ },
+ "nav": {
+  "effect": "none"
+ }
+}

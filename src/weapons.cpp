@@ -4,7 +4,9 @@
 #include "app.h"
 #include "settings.h"
 #include "sight_overlay.h"
-#include "vm_anim.h"
+#include "vm_anim.h"
+#include "br_models.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -234,6 +236,7 @@ bool App::weaponCamera(float& fov) const {
   // continuous. The optic view (scope mask, real magnification) still switches at adsT 0.85 with the mask.
   float t = adsT * adsT * (3 - 2 * adsT);
   const float hip = settings().fov();   // 72 unless changed in Settings; optics keep their real magnification of the 72 deg view
+  { float m; int rt; if (lootScope(*this, m, rt)) { fov = adsT > 0.85f ? 72.0f / m : glm::mix(hip, 58.0f, t); return true; } }   // BR2: a fitted optic
   if (d.hasScope && !(d.scopeIrons && scopeIronsMode)) { fov = adsT > 0.85f ? 72.0f / d.scopeMag : glm::mix(hip, 58.0f, t); return true; }
   fov = d.adsZoom > 0 ? hip * (1.0f - d.adsZoom * t) : glm::mix(hip, d.adsWorldFov, t);   // zoom-only weapons narrow the hip FOV by a fraction
   return true;
@@ -241,7 +244,8 @@ bool App::weaponCamera(float& fov) const {
 
 bool App::scopeView() const {
   if (occupied || tanks.occupied || weaponDefs.empty() || mode != Mode::Explore) return false;
-  return vmScoped(*weaponDefs[activeWeapon]) && adsT > 0.85f;   // the same switch as the scope magnification (weaponCamera)
+  float m; int rt;
+  return (vmScoped(*weaponDefs[activeWeapon]) || lootScope(*this, m, rt)) && adsT > 0.85f;   // the same switch as the scope magnification (weaponCamera); BR2 fitted optics too
 }
 
 void App::weaponDrawItems(std::vector<DrawItem>& op) {
@@ -269,6 +273,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     if (d.mesh[p].count) R.viewModel.push_back({&d.mesh[p], m});
   };
   add(WP_BODY, M); add(WP_SCOPE, M);
+  brSightDraws(*this, d, s, M, R.viewModelTex, R.viewModel);   // BR3: the fitted optic on its rail
   // bolt: bolt actions lift and draw the handle; automatics move with each shot
   if (d.action == "bolt") {
     float u = d.boltTime > 0 ? std::clamp(1 - s.bolt / d.boltTime, 0.0f, 1.0f) : 1;
@@ -409,7 +414,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   // bolt actions (Kar98k, ZF39): a shot drops out of ADS (adsT = 0 at the shot); aiming waits for the bolt and the
   // cooldown, then a held aim key re-enters
   bool aimBlocked = d.action == "bolt" && (s.bolt > 0 || s.cooldown > 0);
-  float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime);   // the only writer of adsT while a weapon is out
+  float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / 0.75f : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
   adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
   if (d.anim) animVmStep(*this, d, s, dt); else animVmNotActive();   // MG1: clips, pose, rig placement
@@ -505,7 +510,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
-      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance);
+      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (s.att[ATT_MUZZLE] == 2 ? 0.7f : 1.0f);   // BR2 muzzle brake: spread -30 %
       float spread = radians(lastSpreadDeg);
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
       float a = wrand(s.seed) * 6.2831853f, r = std::sqrt(wrand(s.seed)) * std::tan(spread);
@@ -524,7 +529,9 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
       if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly) {
         vec3 Rw, Fw; sightLineWorld(d, s, Rw, Fw);
-        vec3 V = glm::normalize(Fw - Rw);
+        // MG8: an animated rig's ADS puts both posed sights on the camera axis, so its line is the camera's; the axis itself
+        // avoids the alignment's numeric residual (0.02 deg = 0.5 mrad on the M4 irons)
+        vec3 V = d.anim ? forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch) : glm::normalize(Fw - Rw);
         vec3 vr = glm::normalize(glm::cross(V, vec3(0, 1, 0))), vu = glm::cross(vr, V);
         V = glm::normalize(V + vr * std::cos(a) * r + vu * std::sin(a) * r);   // same dispersion draw as the hip path
         Physics::Hit hf;
@@ -536,7 +543,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       float g = d.action == "launcher" ? 9.81f * d.rocketGrav : 9.81f;   // rockets: reduced effective gravity (sustained motor); MG4 grenades: full
       float tz = d.zero / d.velocity, drop = 0.5f * g * tz * tz;
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
-      int tracer = d.tracerKind(s.shotIdx);
+      int tracer = s.att[ATT_MUZZLE] == 1 ? 0 : d.tracerKind(s.shotIdx);   // BR2 suppressor: no tracers
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
         Projectile& rp = projectiles.back();
@@ -558,6 +565,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       float sc = stance != STANCE_MOUNTED ? handling.recoil[stance]
                : (ch.posture == Physics::PRONE ? 0.20f : 0.70f) * (d.rSupported < 0.999f ? d.rSupported : handling.recoil[STANCE_MOUNTED]);
       if (adsT > 0.85f) sc *= 0.85f;
+      if (s.att[ATT_MUZZLE] == 2) sc *= 0.8f;   // BR2 muzzle brake: recoil -20 %
       float yawK = moving ? handling.movingYaw : 0.0f;
       lastRecoilScale = sc;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
@@ -627,7 +635,7 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
   float a = showWeaponList ? 1.0f : 0.0f;
   lastStackAlpha = a;
   if (a <= 0) return;
-  std::vector<int> rows = stackRows();
+  std::vector<int> rows = lootActive() ? std::vector<int>{activeWeapon} : stackRows();   // BR2: in play only the gun in hand shows
   const float rowH = 62 * sc, silW = 190 * sc, silH = 46 * sc, keyW = 30 * sc, gap = 14 * sc;
   float y = yInfo - 10 * sc - rowH * rows.size();
   for (size_t k = 0; k < rows.size(); ++k, y += rowH) {

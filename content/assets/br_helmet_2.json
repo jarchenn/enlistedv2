@@ -1,0 +1,80 @@
+{
+ "id": "br_helmet_2",
+ "version": 1,
+ "name": "Helmet (level 2)",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.26,
+  0.2655
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "br_standin",
+   "albedo": [
+    0.3,
+    0.34,
+    0.2
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.1353,
+    0
+   ],
+   "s": [
+    0.26,
+    0.2706,
+    0.2655
+   ],
+   "m": "br_standin",
+   "k": 0
+  }
+ ],
+ "model": {
+  "src": "br/br_helmet_2.glb",
+  "dir": "br_helmet_2",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "'Military Helmet' by ED BOX (sketchfab.com/Elyar), CC-BY-4.0 per its GLB metadata"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "worn": {
+  "joint": "Head",
+  "pos": [
+   0.0,
+   1.5286,
+   0.01
+  ],
+  "scale": [
+   0.8283,
+   0.8283,
+   0.8283
+  ],
+  "rest": [
+   0.0,
+   1.5981,
+   -0.0187
+  ]
+ }
+}
