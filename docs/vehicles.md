@@ -6,7 +6,7 @@ Seven placeable vehicle types, built on the tank framework (`src/tank*.cpp`, [ta
 |---|---|---|---|---|
 | 1 | `car_jeep_willys` | `jeep_willys.json` | Willys MB (uchronia) | CC-BY-NC-ND-4.0: bake **local-only**; clones draw `jeep_fallback` |
 | 2 | `car_jeep_ww2` | `jeep_ww2.json` | WW2 jeep (leoxx300) | CC-BY-4.0: bake committed (`models/jeep_ww2`, 7.9 MB) |
-| 3 | `car_truck_cargo` | `truck_cargo.json` | Opel Blitz, flatbed | unknown: bake **local-only**; clones draw `truck_fallback` |
+| 3 | `car_truck_cargo` | `truck_cargo.json` | Opel Blitz, flatbed | Creative Commons (per the user): bake committed (`models/truck_cargo`) |
 | 4 | `car_truck_canopy` | `truck_canopy.json` | Opel Blitz, canvas-covered bed | as type 3 |
 | 5 | `car_truck_medical` | `truck_medical.json` | Opel Blitz ambulance box body | as type 3 |
 | 6 | `car_truck_flak` | `truck_flak.json` | Opel Blitz with a Flak gun on the bed (the gun is part of the body mesh: not crewable) | as type 3 |
@@ -48,7 +48,7 @@ Kinematic, like the tanks: speed approaches the throttle target, and the slope, 
 
 ## Camera
 
-The camera is the driver's head (left-hand drive): the steering wheel's centre plus `rig.driverEyeFromSteer`, so it also fits the part-built fallbacks. It looks through the windshield frame, with the dashboard, steering wheel and bonnet in view, and the viewmodel is hidden.
+The camera is the driver's head (left-hand drive): the steering wheel's centre plus `rig.driverEyeFromSteer`, so it also fits the part-built Willys fallback. It looks through the windshield frame, with the dashboard, steering wheel and bonnet in view, and the viewmodel is hidden.
 
 ## Models
 
@@ -60,7 +60,7 @@ The camera is the driver's head (left-hand drive): the steering wheel's centre p
 | `ww2jeep` | leoxx300's WW2 jeep | Unnamed Cube / Cylinder parts, taken by measured position: the four tyre cylinders with their hubs, and the steering wheel rim. Scale 0.44 m per unit |
 | `opel` | Opel Blitz truck collection (`all5 together.blend`, one collection per truck) | Relinks the textures shipped in the archive (36 of 82; the rest point at the author's machine), drops the glass faces, finds the wheel cylinders by quadrant, and cuts the steering wheel out of the merged body: the 0.52 m ring island in the cab plus the islands inside its disc |
 
-`tools/vehicles/make_fallback.py jeep|truck` builds the committed part-built stand-ins.
+`tools/vehicles/make_fallback.py jeep` builds the committed part-built Willys stand-in.
 
 ## Limits
 

@@ -3,7 +3,7 @@
  "version": 1,
  "name": "Opel Blitz ambulance",
  "category": "Vehicles",
- "description": "Drivable Opel Blitz ambulance (box body) (Explore: E to enter). Driver's view through the windshield; W/S throttle, A/D steer, Space handbrake. Supplied model is local-only; the committed build shows a part-built stand-in truck.",
+ "description": "Drivable Opel Blitz ambulance (box body) (Explore: E to enter). Driver's view through the windshield; W/S throttle, A/D steer, Space handbrake.",
  "floors": 0,
  "enterable": false,
  "footprint": [

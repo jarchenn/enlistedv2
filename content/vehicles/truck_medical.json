@@ -2,7 +2,7 @@
   "id": "truck_medical",
   "name": "Opel Blitz ambulance",
   "faction": "Axis",
-  "identity": "Supplied free-wwii-army-truck-collection-based-on-opel.zip ('all5 together.blend', collection 'medical van'): an Opel Blitz based 3 t truck. No author or licence in the archive: the baked model is local-only (git-ignored); clones draw the committed part-built truck_fallback.",
+  "identity": "Supplied free-wwii-army-truck-collection-based-on-opel.zip ('all5 together.blend', collection 'medical van'): an Opel Blitz based 3 t truck. Creative Commons per the user (the archive itself names no author or licence variant): the baked model is committed.",
   "car": true,
   "model": {
     "src": "truck_medical.glb",
@@ -30,7 +30,6 @@
       "wheel_rl": "wheel_rl",
       "wheel_rr": "wheel_rr"
     },
-    "fallbackDir": "truck_fallback",
     "note": "converted by tools/vehicles/convert_vehicles.py opel 'medical van' (glass dropped, steering wheel cut out of the body)"
   },
   "rig": {

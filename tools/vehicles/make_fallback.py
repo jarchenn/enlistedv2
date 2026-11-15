@@ -1,9 +1,8 @@
-# VH1: part-built fallbacks (boxes and cylinders) for clones without the local-only supplied models:
+# VH1: part-built fallback (boxes and cylinders) for clones without the local-only supplied model:
 #   jeep  - Willys MB (jeep_willys.json): hull 1.76 x 3.34 m centred, wheels r 0.355 m
-#   truck - Opel Blitz trucks (truck_*.json, laid out on the cargo truck): hull 2.36 x 7.1 m, cab ahead, wheels r 0.5 m
 # Same role nodes and positions as the baked supplied models: game axes (x left, y up, z forward; Blender: x,
 # -y forward, z up), y = 0 at the tyres.
-# usage: blender -b --factory-startup --python make_fallback.py -- jeep|truck <out.glb>
+# usage: blender -b --factory-startup --python make_fallback.py -- jeep <out.glb>
 import bpy, sys, math
 from mathutils import Vector, Matrix
 kind, out = sys.argv[sys.argv.index('--') + 1:][:2]
@@ -64,36 +63,6 @@ if kind == 'jeep':
     # stowage: jerrycan on the rear panel, bags on the sides
     box('stowage', (0.15, 0.55, -1.71), (0.50, 1.00, -1.62), OD)
     for s in (1, -1): box('stowage', (min(s * 0.70, s * 0.86), 0.75, -1.20), (max(s * 0.70, s * 0.86), 1.05, -0.70), CANVAS)
-else:
-    # cab (with an open windshield frame), bonnet, flatbed with low sides, chassis, bumper; cargo-truck layout
-    GR = mat('field_grey', (0.17, 0.18, 0.16))
-    box('hull', (-0.48, 0.75, 2.30), (0.48, 1.45, 3.45), GR)               # bonnet
-    box('hull', (-0.50, 0.60, 3.45), (0.50, 1.40, 3.55), DARK)             # grille
-    for s_ in (1, -1):
-        box('hull', (min(s_ * 0.48, s_ * 1.10), 1.0, 2.20), (max(s_ * 0.48, s_ * 1.10), 1.08, 3.40), GR)   # mudguard
-        box('hull', (min(s_ * 1.0, s_ * 1.10), 1.05, 0.80), (max(s_ * 1.0, s_ * 1.10), 2.20, 2.10), GR)    # cab side
-        box('hull', (min(s_ * 0.05, s_ * 1.10), 1.25, 2.04), (max(s_ * 0.05, s_ * 1.10), 1.35, 2.10), GR)  # cowl under the glass
-    box('hull', (-1.10, 2.12, 0.80), (1.10, 2.22, 2.10), GR)                # cab roof
-    box('hull', (-1.10, 1.05, 0.80), (1.10, 2.20, 0.88), GR)                # cab back
-    box('hull', (-1.10, 1.05, 2.02), (1.10, 1.45, 2.10), GR)                # dash / bulkhead
-    for x_ in (-1.10, -0.02, 1.04): box('hull', (x_, 1.45, 2.04), (x_ + 0.06, 2.14, 2.10), GR)   # windshield posts
-    box('hull', (-1.0, 1.05, 1.05), (1.0, 1.40, 1.45), CANVAS)              # bench seat
-    box('hull', (-1.18, 1.05, -3.55), (1.18, 1.20, 0.70), mat('bed', (0.3, 0.24, 0.15)))   # bed floor
-    for s_ in (1, -1): box('hull', (min(s_ * 1.12, s_ * 1.18), 1.20, -3.55), (max(s_ * 1.12, s_ * 1.18), 1.70, 0.70), GR)
-    box('hull', (-1.18, 1.20, -3.55), (1.18, 1.70, -3.49), GR); box('hull', (-1.18, 1.20, 0.64), (1.18, 1.70, 0.70), GR)
-    box('hull', (-0.50, 0.55, -3.3), (0.50, 0.75, 3.3), DARK)               # chassis rails
-    box('hull', (-1.05, 0.45, 3.45), (1.05, 0.60, 3.55), METAL)             # bumper
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.25, minor_radius=0.016, major_segments=32, minor_segments=8, location=g2b((0.42, 1.53, 1.59)))
-    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(g2b((0, 0.627, -0.779)))
-    bpy.ops.object.transform_apply(rotation=True); o.data.materials.append(DARK); o.parent = grp('steer')
-    ax = Vector((0, 0.627, -0.779)); u = Vector((1, 0, 0)); v = ax.cross(u)
-    for k in range(4):
-        a = math.radians(45 + 90 * k); d = u * math.cos(a) + v * math.sin(a); c = Vector((0.42, 1.53, 1.59)) + d * 0.125
-        cyl('steer', tuple(c), tuple(d), 0.012, 0.25, DARK, 6)
-    cyl('hull', (0.42, 1.30, 1.88), (0, 0.627, -0.779), 0.03, 0.75, DARK, 8)   # column
-    for role, x, z, w in (('wheel_fl', 0.82, 2.76, 0.28), ('wheel_fr', -0.80, 2.76, 0.28), ('wheel_rl', 0.88, -1.74, 0.42), ('wheel_rr', -0.89, -1.74, 0.42)):
-        cyl(role, (x, 0.5, z), (1, 0, 0), 0.5, w, TYRE, 20)
-        cyl(role, (x + (w / 2 + 0.01 if x > 0 else -w / 2 - 0.01), 0.5, z), (1, 0, 0), 0.28, 0.02, GR, 12)
 for o in bpy.data.objects: o.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_yup=True, export_animations=False)
 print('WROTE', out)
