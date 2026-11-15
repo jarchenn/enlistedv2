@@ -121,9 +121,11 @@ void drawInventoryCharacter(ImVec2 mn, ImVec2 mx) {
   Soldier* L = gGame ? gGame->local() : nullptr;
   if (!L || L->model < 0 || L->model >= (int)gGame->models.size() || L->pose.skin.empty()) return;
   static GLuint tex = 0; static int tw = 0, th = 0;
-  static float yaw = 200; static double nextAt = 0;
+  static float yaw = 20; static double nextAt = 0;   // starts facing the viewer
   // turn: drag inside the frame, else a slow spin
+  ImVec2 keep = ImGui::GetCursorScreenPos();   // the caller's layout cursor stays where it was
   ImGui::SetCursorScreenPos(mn); ImGui::InvisibleButton("##brchar", ImVec2(std::max(1.0f, mx.x - mn.x), std::max(1.0f, mx.y - mn.y)));
+  ImGui::SetCursorScreenPos(keep);
   if (ImGui::IsItemActive()) yaw += ImGui::GetIO().MouseDelta.x * 0.6f; else yaw += ImGui::GetIO().DeltaTime * 12.0f;
   int w = std::clamp((int)(mx.x - mn.x), 16, 512), h = std::clamp((int)(mx.y - mn.y), 16, 768);
   double now = ImGui::GetTime();

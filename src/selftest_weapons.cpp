@@ -527,7 +527,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     // ---- MG1: each modern gun's animated rig (its own arms + clips): draw -> idle, ADS puts the posed sights on the view
     // axis, a shot plays the fire clip, a reload plays its clip and moves the rounds, the generated arm is not drawn
     for (const char* mid : {"modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol",
-                            "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2", "modern_fal", "modern_pistol2", "modern_glauncher", "modern_sniper_50", "modern_sniper_3", "modern_pistol3", "modern_ak12"}) {
+                            "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2", "modern_fal", "modern_pistol2", "modern_glauncher", "modern_sniper_50", "modern_sniper_3", "modern_pistol3", "modern_ak12", "modern_m4_irons"}) {
       const std::string id = mid;
       push(("mg1 rig " + id).c_str(), [this, id](App& a, float t) {
         static std::string draw0, idle1, fire1, rel1; static float axisDeg, tShot; static int shots0, arms; static bool phase[6];
@@ -597,6 +597,48 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
           if (ph == 8 && s.reload > 0 && frac > 0.85f) { ph = 9; shot("reload_c"); }
           if (ph >= 6 && (s.reload <= 0 || t > 16)) { logf("[mg2look] %s clip '%s' loaded %d", id.c_str(), animVmClipNow(d).c_str(), s.loaded); in = ExploreInput{}; return t > 4.5f; }
           return false; });
+      }
+    }
+    // ---- MG8 dev point-of-impact check (NMK_MG_POI=id,id,...): 25 m and 100 m from the farmhouse wall, aimed (ADS, no
+    // dispersion, sway or breathing), one round: the impact against the point under the screen centre (log [mg8poi])
+    if (const char* poi = std::getenv("NMK_MG_POI")) {
+      std::string L = std::string(",") + poi + ",";
+      for (auto& wd : app.weaponDefs) {
+        if (L.find("," + wd->id + ",") == std::string::npos) continue;
+        for (float dist : {25.0f, 100.0f, wd->zero}) {   // the zero range too (M249 200 m, M4 50 m)
+          const std::string id = wd->id;
+          push(("mg8 poi " + id + " " + std::to_string((int)dist)).c_str(), [this, id, dist](App& a, float t) {
+            static int ph; static float t0, wallZ; static vec3 aimPt, aimDir; static float saved[4];
+            const WeaponDef& d = *a.weaponDefs[a.weaponIndex(id)]; WeaponState& s = a.wstate[id]; auto& in = a.scriptedInput;
+            if (t == 0) {
+              ph = 0; std::string m; a.equipWeapon(a.weaponIndex(id), m); in = ExploreInput{}; s.loaded = d.cap;
+              Physics::setCharacterPos(vec3(0, a.terrain.height(0, 0), 0)); a.eyeYaw = 0; a.eyePitch = 0;
+              Physics::Hit h; vec3 e = a.eyePos(); wallZ = Physics::castRayEx(e, vec3(0, 0, -1), 300, h) ? h.pos.z : -40.0f;
+              float z = wallZ + dist; Physics::setCharacterPos(vec3(0, a.terrain.height(0, z), z));
+              for (int k = 0; k < 4; ++k) { saved[k] = a.handling.ads[k]; a.handling.ads[k] = 0; }
+              a.vm.procedural = false; return false;
+            }
+            a.eyeYaw = 0; a.eyePitch = 0; in.aim = true;
+            if (ph == 0 && t > 1.6f) {   // settled in ADS: the point under the screen centre, then one round
+              ph = 1; vec3 e = a.eyePos(); aimDir = App::forward(a.eyeYaw + a.viewKickYaw, a.eyePitch + a.viewKickPitch);
+              Physics::Hit h; aimPt = Physics::castRayEx(e, aimDir, 400, h) ? h.pos : e + aimDir * 400.0f;
+              t0 = a.lastImpact.time; shotQueue.push_back("mg8_" + id + "_" + std::to_string((int)dist) + "m_ads"); in.fire = true; return false;
+            }
+            if (ph == 1) {
+              in.fire = false;
+              if (a.lastImpact.time <= t0 && t < 5) return false;
+              vec3 off = a.lastImpact.pos - aimPt; float range = glm::length(aimPt - a.eyePos());
+              float dy = off.y, dx = glm::dot(off, glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))));
+              { vec3 sd = a.lastShotDir; float up = std::asin(std::clamp(sd.y, -1.0f, 1.0f)) - std::asin(std::clamp(aimDir.y, -1.0f, 1.0f));
+                logf("[mg8poi] %s shot dir %+.3f mrad up of the aim (zero %.0f m, %.0f m/s: tilt %.3f mrad); start %.3f m from the eye", id.c_str(), up * 1000, d.zero, d.velocity, 0.5f * 9.81f * d.zero / (d.velocity * d.velocity) * 1000, glm::length(a.lastShotStart - a.eyePos())); }
+              logf("[mg8poi] %s at %.1f m: impact %+.1f mm right, %+.1f mm up of the point under the sights (%+.2f / %+.2f mrad)%s", id.c_str(), range,
+                   dx * 1000, dy * 1000, dx / range * 1000, dy / range * 1000, a.lastImpact.time <= t0 ? " NO IMPACT" : "");
+              for (int k = 0; k < 4; ++k) a.handling.ads[k] = saved[k];
+              a.vm.procedural = true; in = ExploreInput{}; Physics::setCharacterPos(vec3(0, a.terrain.height(0, 0), 0));
+              return true;
+            }
+            return false; });
+        }
       }
     }
     // ---- MG1: a shotgun shell fires its pellets (9 in a 2.2 deg cone; one LAN request: the first pellet)
@@ -781,7 +823,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     push("flame match end", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
   }
   stage = 701;
-  if (std::getenv("NMK_MG_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("mg1", 0) != 0 && s.name.rfind("mg2", 0) != 0; }), wseq.end());   // dev: just the modern-gun steps
+  if (std::getenv("NMK_MG_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("mg1", 0) != 0 && s.name.rfind("mg2", 0) != 0 && s.name.rfind("mg8", 0) != 0; }), wseq.end());   // dev: just the modern-gun steps
   if (std::getenv("NMK_FT1_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("flame", 0) != 0; }), wseq.end());   // dev: just the flamethrower steps
   if (wcur >= wseq.size()) { finish(app); return; }
   if (wt == 0) logf("[selftest] step: %s", wseq[wcur].name.c_str());

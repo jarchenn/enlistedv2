@@ -52,7 +52,7 @@ json ScenarioRules::toJson() const {
           {"captureModel", captureModel == CaptureModel::Contest ? "contest" : "timed"}, {"captureSpeedCap", captureSpeedCap},
           {"captureBase", captureBase}, {"capturePresenceFull", capturePresenceFull},
           {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire},
-          {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : "assault"}, {"killCap", killCap},
+          {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : mode == GameMode::BattleRoyale ? "royale" : "assault"}, {"killCap", killCap}, {"lootModern", lootModern},
           {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
           {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}, {"allowedClasses", allowedClasses}};
 }
@@ -77,7 +77,8 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   r.capturePresenceFull = j.value("capturePresenceFull", r.capturePresenceFull);
   if (j.contains("lanes") && j["lanes"].is_array() && j["lanes"].size() == 3) { r.laneLeft = j["lanes"][0]; r.laneMain = j["lanes"][1]; r.laneRight = j["lanes"][2]; }
   r.friendlyFire = j.value("friendlyFire", r.friendlyFire);
-  { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : GameMode::Assault; }
+  { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : m == "royale" ? GameMode::BattleRoyale : GameMode::Assault; }
+  r.lootModern = j.value("lootModern", r.lootModern);
   r.killCap = std::clamp(j.value("killCap", r.killCap), 1, 999);
   r.soloPlayers = std::clamp(j.value("soloPlayers", r.soloPlayers), 2, kMaxCombatants);
   if (j.contains("teamPlayers") && j["teamPlayers"].is_array() && j["teamPlayers"].size() == 2)

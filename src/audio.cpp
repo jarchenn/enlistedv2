@@ -274,7 +274,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
     {"guns/pistol_b.mp3", false, {"m1911a1"}},
-    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_m16", "modern_m4", "modern_pistol3"}},
+    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_m16", "modern_m4", "modern_m4_irons", "modern_pistol3"}},
     {"guns/semi_rifle.mp3", false, {"modern_sniper_semi", "modern_ak", "modern_fal", "modern_scar", "fg42", "m1918a2_bar", "modern_ak12"}},
     {"guns/auto_rifle_burst.mp3", true, {"modern_mp7", "modern_scorpion"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
@@ -333,7 +333,7 @@ int Audio::loadCustom(const fs::path& dir) {
       // shot and one mid-track shell-loading sound per shell (also the single-round loading sound of other guns)
     struct RSet { const char* file; std::vector<const char*> ids; };
     const RSet rs[] = {
-      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_sniper_50", "modern_sniper_3", "modern_ak12", "modern_lmg", "mg42", "m2hb_carry"}},
+      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_m4_irons", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_sniper_50", "modern_sniper_3", "modern_ak12", "modern_lmg", "mg42", "m2hb_carry"}},
       {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k", "kar98k_zf39"}},
       {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2", "modern_pistol3"}},
     };

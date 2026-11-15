@@ -1,4 +1,5 @@
 #include "app.h"
+#include "lines.h"   // MOD1: line types that clear grass (grassFootprints)
 #include "hlod.h"
 #include "abilities.h"
 #include "crumb.h"
@@ -26,6 +27,7 @@
 #include "foundation.h"       // MA3 foundation dressing
 #include "platform_gfx.h"   // GL 4.5 here, Metal in the normandy-mac fork
 #include "classes.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <stb_image_write.h>
 #include <algorithm>
 
@@ -997,7 +999,7 @@ int App::run(int argc, char** argv) {
       worldFov = fov;
       v.vmProj = glm::perspective(radians(vmFovNow()), aspect, 0.01f, 6.0f);
       dofParams(v.dofFocus, v.dofAmount);
-      if (scopeView()) { v.eyepieceR = kScopeEyepieceR; { const std::string& rt = weaponDefs[activeWeapon]->reticle; v.reticle = rt == "de_absehen1" ? 1 : rt == "plus" ? 4 : rt == "mil" ? 5 : rt == "bmg" ? 6 : rt == "acog" ? 7 : 2; } }
+      if (scopeView()) { v.eyepieceR = kScopeEyepieceR; { const std::string& rt = weaponDefs[activeWeapon]->reticle; v.reticle = rt == "de_absehen1" ? 1 : rt == "plus" ? 4 : rt == "mil" ? 5 : rt == "bmg" ? 6 : rt == "acog" ? 7 : 2; } { float m; int r; if (lootScope(*this, m, r)) v.reticle = r; } }
       else if (gunnerOptic()) { v.eyepieceR = kGunnerEyepieceR; v.reticle = 3; }
       v.editor = false; v.autoExposure = true; v.camPos = e;
       v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp
@@ -1103,6 +1105,17 @@ std::vector<GrassFootprint> App::grassFootprints() const {
     const AssetDef* a = assetFor(i);
     if (!a || a->station.kind.size() || !a->crate.empty() || isVehicleAsset(a)) continue;   // tanks drive away: no fixed grass hole
     if (isFurnishPiece(i)) continue;   // V4: room-template furniture stands inside its building's footprint
+    if (const LineType* lt = lineTypeOf(a); lt && lt->raw.contains("clearGrass")) {   // MOD1: a road / sidewalk line clears a strip along its spline
+      LineData ld; float hw = lt->raw.value("clearGrass", 0.0f) * 0.5f;
+      if (hw > 0 && lineGet(i, ld)) {
+        auto sp = lineSpline(ld, 1.0f);
+        for (size_t k = 1; k < sp.size(); ++k) {
+          vec2 d = sp[k].p - sp[k - 1].p; float L = glm::length(d); if (L < 1e-3f) continue;
+          GrassFootprint f{(sp[k].p + sp[k - 1].p) * 0.5f, degrees(std::atan2(d.x, d.y)), vec2(-hw, -L * 0.5f - 0.1f), vec2(hw, L * 0.5f + 0.1f)}; f.margin = 0.05f; fp.push_back(f);
+        }
+      }
+      continue;
+    }
     if (a->nature.kind == NatureDef::SCATTER) { GrassFootprint f; if (natureGrassFootprint(i, *a, f)) fp.push_back(f); continue; }   // flowers / tall grass / stones grow in the grass; a wheat tile clears it
     if (a->nature.kind == NatureDef::ROCK) { GrassFootprint f{vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z) * 0.78f, vec2(a->bmax.x, a->bmax.z) * 0.78f}; f.margin = 0.0f; fp.push_back(f); continue; }   // grass up to the boulder's flanks
     if (a->tree.on && !a->tree.hedge) { float t = a->tree.trunkR + 0.1f; fp.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(-t), vec2(t)}); continue; }   // grass grows up to the trunk

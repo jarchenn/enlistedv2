@@ -5,7 +5,8 @@
 //   individual (5-10 Hz, 2 Hz beyond 300 m of every human): utility scores 0..1 per action from threat, cover,
 //                     suppression, ammo, orders; the best wins with a small bonus for the current one.
 #include "ai_core.h"
-#include "app.h"
+#include "app.h"
+#include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
 #include <cmath>
 
@@ -135,6 +136,7 @@ void AiCore::fireteamStep(TeamBrain& tb, Fireteam& ft) {
 // ---------------------------------------------------------------- goals
 vec3 AiCore::objectiveGoal(Soldier& s) {
   BotMind& m = mind(s);
+  { vec3 lootAt; if (lootBotGoal(G, s, lootAt)) return lootAt; }   // BR2: a gun, ammo, armour or healing nearby first
   if (G.match.mode() != GameMode::Assault) {   // G1 Solo / TDM: hunt the closest living enemy (user: closest combatant)
     const Soldier* best = nullptr; float bd = 1e9f;
     for (auto& o : G.sold) if (o.alive && Game::hostile(s, o)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
@@ -174,7 +176,7 @@ void AiCore::think(Soldier& s) {
   Brain& b = s.br;
   TeamBrain& tb = teams[(int)s.role];
   const Objective* ob = G.match.activeObjective();
-  const WeaponDef& wd = *G.app.weaponDefs[s.weapon];
+  const WeaponDef& wd = *G.app.weaponDefs[s.weapon >= 0 ? s.weapon : std::max(0, G.app.weaponIndex("knife_bayonet"))];   // BR2: unarmed until it loots a gun
   Fireteam* ft = m.ft >= 0 && m.ft < (int)tb.fts.size() ? &tb.fts[m.ft] : nullptr;
   bool attacker = s.role == CombatRole::Attacker;
   bool visible = b.target >= 0;
@@ -250,7 +252,7 @@ void AiCore::act(Soldier& s, float dt) {
   Brain& b = s.br;
   TeamBrain& tb = teams[(int)s.role];
   const Objective* ob = G.match.activeObjective();
-  const WeaponDef& wd = *G.app.weaponDefs[s.weapon];
+  const WeaponDef& wd = *G.app.weaponDefs[s.weapon >= 0 ? s.weapon : std::max(0, G.app.weaponIndex("knife_bayonet"))];   // BR2: unarmed until it loots a gun
   Fireteam* ft = m.ft >= 0 && m.ft < (int)tb.fts.size() ? &tb.fts[m.ft] : nullptr;
   bool underFire = G.t - b.hurtAt < 2.0 || b.suppressed > 0.35f || G.t - m.nearMissAt < 1.5;
   bool attacker = s.role == CombatRole::Attacker;

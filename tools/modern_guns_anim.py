@@ -31,6 +31,27 @@ for ba in cfg.get("boneAttach", []):
     for g in list(o.vertex_groups): o.vertex_groups.remove(g)
     vg = o.vertex_groups.new(name=pb.name); vg.add(list(range(len(o.data.vertices))), 1.0, "REPLACE")
     if not any(m.type == "ARMATURE" for m in o.modifiers): md = o.modifiers.new("Armature", "ARMATURE"); md.object = arm
+# ---------------------------------------------------------------- MG8: bone-parented meshes -> skinned to that bone
+# (the M4 iron-sight pack's gun parts hang off bones; such children do not survive the rig re-parenting below in the
+# glTF export). Each kept mesh whose parent chain reaches a bone of the armature becomes a mesh weighted 1 to that bone,
+# in armature space at the rest pose.
+def _bone_of(o):
+    while o is not None:
+        if o.parent == arm and o.parent_type == "BONE": return o.parent_bone
+        o = o.parent
+    return None
+_bp = [(o, _bone_of(o)) for o in keep if o.type == "MESH" and not any(m.type == "ARMATURE" for m in o.modifiers)]
+_bp = [(o, b) for o, b in _bp if b]
+if _bp:
+    arm.data.pose_position = "REST"; bpy.context.view_layer.update()
+    _mw = {o.name: o.matrix_world.copy() for o, b in _bp}
+    for o, b in _bp:
+        o.data = o.data.copy(); o.data.transform(arm.matrix_world.inverted() @ _mw[o.name])
+        o.animation_data_clear(); o.parent = arm; o.parent_type = "OBJECT"; o.matrix_parent_inverse = Matrix(); o.matrix_basis = Matrix()
+        vg = o.vertex_groups.new(name=b); vg.add(list(range(len(o.data.vertices))), 1.0, "REPLACE")
+        md = o.modifiers.new("Armature", "ARMATURE"); md.object = arm
+    arm.data.pose_position = "POSE"; bpy.context.view_layer.update()
+    log["boneParented"] = [[o.name, b] for o, b in _bp]
 # ---------------------------------------------------------------- C4D: animated gun objects -> bones
 rig = cfg.get("rigidify", [])
 if rig:

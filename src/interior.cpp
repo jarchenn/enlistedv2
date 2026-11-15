@@ -67,11 +67,14 @@ size_t authoredInstanceCount(const std::vector<Instance>& v) { size_t n = 0; for
 const char* roomTypeName(int t) {
   static const char* n[] = {"Kitchen / dining", "Sitting room", "Bedroom", "Utility / storage", "Workshop", "Hall / passage",
                             "Church nave", "Barn", "Classroom", "Office", "Tavern room", "Ruined room", "Attic", "Cellar",
-                            "Command room", "Radio room", "Crew quarters", "Ammunition store", "Fighting room", "Plant room", "Military passage"};
+                            "Command room", "Radio room", "Crew quarters", "Ammunition store", "Fighting room", "Plant room", "Military passage",
+                            "Shop floor", "Dining room", "Commercial kitchen", "Hospital ward", "Gym", "Lobby",
+                            "Kitchen (modern)", "Living room (modern)", "Bedroom (modern)", "Office (modern)", "Classroom (modern)", "Bathroom"};
   return t >= 0 && t < ROOM_TYPES ? n[t] : "Room";
 }
 const char* roomTypeKey(int t) {
-  static const char* n[] = {"kitchen", "sitting", "bedroom", "utility", "workshop", "hall", "church", "barn", "class", "office", "tavern", "ruin", "attic", "cellar", "mil_command", "mil_radio", "mil_quarters", "mil_ammo", "mil_fighting", "mil_plant", "mil_passage"};
+  static const char* n[] = {"kitchen", "sitting", "bedroom", "utility", "workshop", "hall", "church", "barn", "class", "office", "tavern", "ruin", "attic", "cellar", "mil_command", "mil_radio", "mil_quarters", "mil_ammo", "mil_fighting", "mil_plant", "mil_passage",
+                            "shop", "dining", "prokitchen", "ward", "gym", "lobby", "kitchen_modern", "sitting_modern", "bedroom_modern", "office_modern", "class_modern", "bathroom_modern"};
   return t >= 0 && t < ROOM_TYPES ? n[t] : "utility";
 }
 
@@ -231,7 +234,7 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
     float w = mx[l] - mn[l];
     if (d.kind == "door" || d.kind == "gate") {
       RoomInfo::Box b; b.kind = 0; b.why = "door " + d.id;
-      b.mn = mn; b.mx = mx; b.mn[n] -= w + 0.2f; b.mx[n] += w + 0.2f; b.mn[l] -= 0.1f; b.mx[l] += 0.1f; b.mn.y = mn.y - 0.1f; b.mx.y = mn.y + 2.1f;
+      b.mn = mn; b.mx = mx; b.mn[n] -= w + 0.2f; b.mx[n] += w + 0.2f; b.mn[l] -= 0.1f; b.mx[l] += 0.1f; b.mn.y = mn.y - 0.1f; b.mx.y = std::max(mx.y, mn.y + 2.1f);   // MOD1: a tall door keeps its whole height
       ri.keep.push_back(b);
     } else if (d.kind == "window") {
       float in = ((mn[n] + mx[n]) * 0.5f > mid[n]) ? -1.0f : 1.0f;   // toward the inside
@@ -345,7 +348,12 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
     }
     R.headroom = lowest;
   }
-  for (size_t k = 0; k < ri.rooms.size(); ++k) ri.rooms[k].type = roomType(a, ri, (int)k);
+  const bool modernHost = a->id.rfind("mod_", 0) == 0;   // MOD1: every house room of a modern building takes the modern recipe
+  for (size_t k = 0; k < ri.rooms.size(); ++k) {
+    int t = roomType(a, ri, (int)k);
+    if (modernHost) t = t == ROOM_KITCHEN ? ROOM_KITCHEN_M : t == ROOM_SITTING ? ROOM_SITTING_M : t == ROOM_BEDROOM ? ROOM_BEDROOM_M : t == ROOM_OFFICE ? ROOM_OFFICE_M : t == ROOM_CLASS ? ROOM_CLASS_M : t;
+    ri.rooms[k].type = t;
+  }
   logf("interior: %s: %zu storeys, %zu rooms, %zu keep-clear volumes, %zu sills", a->id.c_str(), ri.storeys.size(), ri.rooms.size(), ri.keep.size(), ri.sills.size());
   return &ri;
 }
@@ -365,14 +373,17 @@ int InteriorSys::roomType(const AssetDef* a, const RoomInfo& ri, int k) const {
     static const std::pair<const char*, int> kTypes[] = {{"kitchen", ROOM_KITCHEN}, {"sitting", ROOM_SITTING}, {"bedroom", ROOM_BEDROOM}, {"utility", ROOM_UTILITY},
       {"workshop", ROOM_WORKSHOP}, {"hall", ROOM_HALL}, {"barn", ROOM_BARN}, {"office", ROOM_OFFICE}, {"tavern", ROOM_TAVERN},
       {"mil_command", ROOM_MIL_COMMAND}, {"mil_radio", ROOM_MIL_RADIO}, {"mil_quarters", ROOM_MIL_QUARTERS}, {"mil_ammo", ROOM_MIL_AMMO},
-      {"mil_fighting", ROOM_MIL_FIGHTING}, {"mil_plant", ROOM_MIL_PLANT}, {"mil_passage", ROOM_MIL_PASSAGE}};
+      {"mil_fighting", ROOM_MIL_FIGHTING}, {"mil_plant", ROOM_MIL_PLANT}, {"mil_passage", ROOM_MIL_PASSAGE},
+      {"class", ROOM_CLASS}, {"shop", ROOM_SHOP}, {"dining", ROOM_DINING}, {"prokitchen", ROOM_PROKITCHEN}, {"ward", ROOM_WARD}, {"gym", ROOM_GYM}, {"lobby", ROOM_LOBBY}, {"bathroom", ROOM_BATH_M}};
+    const bool modern = id.rfind("mod_", 0) == 0;   // MOD1: a modern building's kitchens, living rooms, bedrooms, offices and classrooms take the modern recipes
+    auto modernOf = [&](int t) { return !modern ? t : t == ROOM_KITCHEN ? ROOM_KITCHEN_M : t == ROOM_SITTING ? ROOM_SITTING_M : t == ROOM_BEDROOM ? ROOM_BEDROOM_M : t == ROOM_OFFICE ? ROOM_OFFICE_M : t == ROOM_CLASS ? ROOM_CLASS_M : t; };
     vec2 c = (R.mn + R.mx) * 0.5f; float y = R.y0 + 0.5f;
     for (auto& nr : a->raw["nav"].value("rooms", json::array())) {
       if (!nr.contains("min") || !nr.contains("max")) continue;
       vec3 mn = jvec3(nr["min"]), mx = jvec3(nr["max"]);
       if (c.x < mn.x || c.x > mx.x || c.y < mn.z || c.y > mx.z || y < mn.y - 0.3f || y > mx.y) continue;
       std::string t = a->raw["roomTypes"].value(nr.value("id", std::string()), std::string());
-      for (auto& [n, v] : kTypes) if (t == n) return v;
+      for (auto& [n, v] : kTypes) if (t == n) return modernOf(v);
     }
     if (id.rfind("mil_", 0) == 0) return ROOM_MIL_PASSAGE;
   }
@@ -470,7 +481,7 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
   json fin = i.extra.is_object() && i.extra.contains("finish") ? i.extra["finish"] : json::object();
   float seed = h01((uint32_t)i.id, 77u);
   const bool cleanMap = app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && app.doc.extra["look"].value("clean", false);   // BR2
-  sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
+  sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", a->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
   const RoomInfo* ri = rooms(a);
   int n = (int)ri->rooms.size();   // GX5: every room (the first 16 in uniforms, the rest in the decal buffer)
   std::vector<vec4> xA, xB;
@@ -495,6 +506,10 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
       default: wall = 4; floor = R.storey == 0 ? 3 : 0; break;
     }
     if (civic) { wall = R.type == ROOM_UTILITY ? 5 : 4; floor = R.storey == 0 && R.type == ROOM_HALL ? 3 : (hB < 0.5f ? 1 : 0); }
+    if (a->id.rfind("mod_", 0) == 0) {   // MOD1: modern finishes: plain paint (no wainscot or paper), porcelain tiles (5), timber in living rooms and bedrooms
+      wall = R.type == ROOM_UTILITY ? 5 : 0;
+      floor = R.type == ROOM_SITTING_M || R.type == ROOM_BEDROOM_M ? (hB < 0.5f ? 0 : 1) : 5;
+    }
     vec4 A(R.mn.x, R.mn.y, R.mx.x, R.mx.y), B(R.y0, R.y1, (float)wall, (float)floor);
     if (k < 16) { sp.roomA[k] = A; sp.roomB[k] = B; } else { xA.push_back(A); xB.push_back(B); }
   }
@@ -979,12 +994,13 @@ bool InteriorSys::supported(App& app, const Instance& i, const AssetDef* a, int*
     return ok;
   }
   if (pd->mount > 0) {   // wall-hung: something solid right behind it
-    bool ok = false;
-    for (float fx : {0.5f, 0.1f, 0.9f}) {
+    int hits = 0;   // MOD1: behind its middle and both ends (one hit let a wide piece overhang a doorway or a reveal)
+    for (float fx : {0.5f, 0.06f, 0.94f}) {
       vec3 c = i.pos + q * vec3(glm::mix(pd->bmin.x, pd->bmax.x, fx), (pd->bmin.y + pd->bmax.y) * 0.5f, pd->bmin.z + 0.02f);
       Physics::Hit h;
-      if (Physics::castRayEx(c, q * vec3(0, 0, -1), 0.14f, h, self)) { ok = true; break; }
+      if (Physics::castRayEx(c, q * vec3(0, 0, -1), 0.14f, h, self)) ++hits;
     }
+    bool ok = hits == 3;
     if (hitsOut) *hitsOut = ok ? 5 : 0;
     return ok;
   }
@@ -1288,19 +1304,22 @@ struct Planner {
     // (a solid one -- a wall shelf, a plate rack -- also keeps out of the route corridors and doorway rings: it is at head height)
     {   // a hung piece's back lies in the 0.1 m cell the wall face cuts through: test the cells just in front of it
       vec3 sh = hung ? yawQuat(yaw) * vec3(0, 0, 0.06f) : wallBacked ? yawQuat(yaw) * vec3(0, 0, 0.12f) : vec3(0);
-      if (!rectCells(R.storey, k, vec2(mn.x + sh.x, mn.z + sh.z), vec2(mx.x + sh.x, mx.z + sh.z), hung ? (pd->blocking ? 3 : 2) : mode)) { why = std::string("cells:") + cellWhy; return false; }
+      if (!rectCells(R.storey, k, vec2(mn.x + sh.x, mn.z + sh.z), vec2(mx.x + sh.x, mx.z + sh.z), hung ? 3 : mode)) { why = std::string("cells:") + cellWhy; return false; }   // MOD1: every hung piece keeps off doorways (pictures and sconces too)
     }
     // the manual placement rule's exact tests (checkPlacement), so a generated piece never fails them: the keep cells
     // above are 0.1 m cells marked by their centres, and a stair box can reach a few cm into a cell it does not mark
+    // MOD1: a hung piece also keeps off the trims round an opening: its box is padded by a frame's width (0.22 m along
+    // the wall) and a lintel / sill depth (0.3 m up and down) before the door and window boxes are tested
+    const vec3 hpad = hung ? vec3(0.22f, 0.3f, 0.22f) : vec3(0.0f);
     for (auto& b : ri.keep) {
       if (b.kind == 2 || (!hung && !pd->blocking && b.kind != 1)) continue;   // cosmetic floor pieces may lie in a door swing
-      if (hung ? boxOverlap(mn, mx, b.mn, b.mx) : boxOverlap(mn + vec3(0.03f), mx - vec3(0.03f), b.mn, b.mx)) { why = "keep " + b.why; return false; }
+      if (hung ? boxOverlap(mn - hpad, mx + hpad, b.mn, b.mx) : boxOverlap(mn + vec3(0.03f), mx - vec3(0.03f), b.mn, b.mx)) { why = "keep " + b.why; return false; }
     }
     if (pd->blocking && app.doc.start.set) {
       vec3 s = glm::inverse(yawQuat(host.yaw + yaw)) * (app.doc.start.pos - world(p));
       if (s.x > pd->bmin.x - 0.35f && s.x < pd->bmax.x + 0.35f && s.z > pd->bmin.z - 0.35f && s.z < pd->bmax.z + 0.35f && std::fabs(app.doc.start.pos.y - world(p).y) < 1.5f) { why = "start"; return false; }
     }
-    if ((pd->blocking || hung) && !windowFree(mn, mx)) { why = "window"; return false; }
+    if ((pd->blocking || hung) && !windowFree(mn - hpad, mx + hpad)) { why = "window"; return false; }
     for (auto& b : boxes) if (boxOverlap(mn + vec3(0.01f), mx - vec3(0.01f), b.first, b.second)) { why = "piece"; return false; }
     vec3 fmn(0), fmx(0);
     if (front && pd->front > 0) {   // access clearance in front of it must stay walkable
@@ -2186,7 +2205,8 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   const bool lightsOnly = lightsOnlyHost(ha);   // L3: bunkers: lamps only, no room templates
   if (lightsOnly) in["lightsOnly"] = true; else in.erase("lightsOnly");
   float density = std::clamp(in.value("density", 1.0f), 0.0f, 2.0f), clutter = std::clamp(in.value("clutter", 0.7f), 0.0f, 2.0f);   // V4: 1.0 is a lived-in house (3x the first templates), 2.0 crowded
-  float wear = h->extra.contains("finish") ? h->extra["finish"].value("wear", 1.0f) : 1.0f;
+  const float wear0 = ha && ha->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f;   // MOD1: modern buildings start almost clean
+  float wear = h->extra.contains("finish") ? h->extra["finish"].value("wear", wear0) : wear0;
   std::set<std::string> removed;
   for (auto& s : in.value("removed", json::array())) removed.insert(s.get<std::string>());
   std::set<std::string> lastSlots;
@@ -2372,7 +2392,7 @@ void InteriorSys::editorPanel(App& app, Instance& s) {
   if (!ImGui::CollapsingHeader("Interior: rooms, finishes and furniture")) return;
   ImGui::TextDisabled("%zu rooms detected, %zu keep-clear volumes (doors, stairs, windows)", ri->rooms.size(), ri->keep.size());
   for (size_t k = 0; k < ri->rooms.size(); ++k) ImGui::BulletText("%s, %.1f m2 (storey %d)%s", roomTypeName(ri->rooms[k].type), ri->rooms[k].area, ri->rooms[k].storey, ri->rooms[k].hearth ? ", hearth" : "");
-  float wear = fin.value("wear", 1.0f), pal = fin.value("palette", 1.0f);
+  float wear = fin.value("wear", a && a->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f), pal = fin.value("palette", 1.0f);
   bool act = false, ed = false;
   ImGui::SliderFloat("Wear", &wear, 0.0f, 2.0f, "%.2f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
   ImGui::SliderFloat("Palette variation", &pal, 0.0f, 1.0f, "%.2f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();

@@ -166,6 +166,7 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | fps-animated-carbine-2 | **Not used**: byte-identical to fps-animated-carbine | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | grenadelauncher-animated (arms@Glauncher.fbx) | Six-shot grenade launcher (`modern_glauncher`, MG4) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
 | fps-ak-animated-2 | **Not used**: byte-identical to fps-ak-animated (`modern_ak`) | supplied by the user | redistribution allowed (confirmed by the user, 2026-11-14) |
+| m4-fps-weapon-animations-pack-v1.zip (M4.fbx; extracted to incoming/mg8/m4pack) | M4 carbine with iron sights (`modern_m4_irons`, MG8) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | sniper-animated (2).zip (arms@sniper.fbx; extracted to incoming/mg7/sniper) | Bolt-action scout rifle (`modern_sniper_3`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | pistol-43-tactical-fps-animations.zip (Glock_Anim.fbx; incoming/mg7/pistol43) | Glock 43 (`modern_pistol3`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | scar-h_first-person_fps_animated.glb (incoming/mg7) | FN SCAR-H: replaces the MG1 SCAR model (`modern_scar`, MG7; its arms and clips unused: broken hand skin) | supplied by the user | **licence to be confirmed by the user** (none stated) |
@@ -187,3 +188,7 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - Troll: large-monster-attack-195713 (daviddumaisaudio), troll-idle-noises-29925 (freesound_community). Supplied by the user; licences to be confirmed.
 - Reload sounds (content/audio/custom/reload): reloading-weapon1, stalker-gun-reload, ak-74-eft-reload-full, 12g-pumpfull, shotgun-reload-sfx-36524 (freesound_community). Supplied by the user; sources and licences to be confirmed.
 - Sniper shot: heavy-sniper-shot.mp3. Supplied by the user; source and licence to be confirmed.
+- Modern models (MOD1, tools/catalog_modern_models.mjs, baked into content/assets/models/mod_*):
+  "Destroyed Car 03 / Backrooms Car (Gameready ver)" and "Burned-out Cars" by Renafox (https://sketchfab.com/kryik1023), CC-BY-4.0;
+  "Ammo Box" by murilojones (https://sketchfab.com/murilojones), CC-BY-4.0. Supplied by the user.
+  "weathered concrete barriers" (an FBX pack supplied by the user, licence not stated): converted locally, the bake is git-ignored.
