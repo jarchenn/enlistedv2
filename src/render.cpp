@@ -3002,7 +3002,7 @@ void main(){
     c = mix(vec3(l), c, 0.93);
     c *= 1.0 - dot(q,q)*0.16;
   }
-  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.13*uWxK)*mix(vec3(1.0), vec3(0.97, 0.99, 1.03), uWxK)*(1.0 - 0.22*uWxK); }   /* + 22 % darker under overcast */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
+  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }   /* overcast: 38 % darker, more muted and cooler, a little more contrast (moody) */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));   // BR1c
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
   oColor = vec4(toSRGB(c), 1.0);
