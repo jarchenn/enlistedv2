@@ -25,6 +25,7 @@ struct WeaponDef {
   bool hasScope = false, scopeIrons = false, laterWar = false;
   bool tool = false;     // GM3 "tool": "build": the Engineer's hammer (never fires; the build tool in a match, builder.cpp)
   bool locked = false;   // GM3 "locked": fixed in its slot (never dropped, swapped at a rack or replaced by a pickup)
+  float sway = 1;                       // MG6: JSON "sway": breathing sway x this while standing (crouched / prone: x1; the .50)
   bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
   int pellets = 1; float spreadDeg = 0;  // MG1: a shot fires `pellets` rounds, the extra ones inside a cone of half-angle spreadDeg (shotgun)
   float scopeMag = 1, scopeRelief = 0.07f;   // scope.relief: eye to the ocular lens in the scoped pose (m)

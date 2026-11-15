@@ -379,8 +379,8 @@ void SelfTest::arsenalUpdate(App& app, float dt) {
       for (const char* f : {"US", "DE"}) for (int k : a.rackArsenal(f)) inOld = inOld || a.weaponDefs[k]->modern;
       a.resetLoadout(); for (int w : a.carried) inLoadout = inLoadout || a.weaponDefs[w]->modern;
       int n = (int)a.rackArsenal("modern").size();
-      check(RM && m && m->rack && m->rackFaction == "modern" && m->model && n == 18 && models == 18 && !inOld && !inLoadout,
-            "modern case: 18 modern guns (MG1 9 + MG2 6 + MG3 2 + MG4 1) with their imported models (" + ids + "), none in the Allied / Axis racks or the default loadout");
+      check(RM && m && m->rack && m->rackFaction == "modern" && m->model && n == 22 && models == 22 && !inOld && !inLoadout,
+            "modern case: 22 modern guns (MG1 9 + MG2 6 + MG3 2 + MG4 1 + MG6 1 + MG7 3) with their imported models (" + ids + "), none in the Allied / Axis racks or the default loadout");
       const AssetDef* c = a.lib.find("crate_mixed_supply"); std::string miss;
       for (int k : a.rackArsenal("modern")) if (!c->crate["supplies"].contains(a.weaponDefs[k]->container)) miss += " " + a.weaponDefs[k]->container;
       check(miss.empty(), "the mixed supply crate stocks every modern gun's ammunition" + (miss.empty() ? std::string() : ": missing" + miss));

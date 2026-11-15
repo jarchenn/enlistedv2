@@ -526,8 +526,8 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     // ---- GM2 (docs/abilities.md, docs/minimap.md): explosion pack, artillery, suppression vignette, minimap mapping
     // ---- MG1: each modern gun's animated rig (its own arms + clips): draw -> idle, ADS puts the posed sights on the view
     // axis, a shot plays the fire clip, a reload plays its clip and moves the rounds, the generated arm is not drawn
-    for (const char* mid : {"modern_scar", "modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol",
-                            "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2", "modern_fal", "modern_pistol2", "modern_glauncher"}) {
+    for (const char* mid : {"modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol",
+                            "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2", "modern_fal", "modern_pistol2", "modern_glauncher", "modern_sniper_50", "modern_sniper_3", "modern_pistol3", "modern_ak12"}) {
       const std::string id = mid;
       push(("mg1 rig " + id).c_str(), [this, id](App& a, float t) {
         static std::string draw0, idle1, fire1, rel1; static float axisDeg, tShot; static int shots0, arms; static bool phase[6];
@@ -573,13 +573,18 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       std::string L = std::string(",") + look + ",";
       push("mg2 look case", [this](App& a, float t) { face(a, vec3(-1.5f, 0.1f, -3.0f)); if (t > 0.6f) { shotQueue.push_back("mg2_case"); return true; } return false; });
       for (auto& wd : app.weaponDefs) {
-        if (!wd->modern || (L != ",all," && L.find("," + wd->id + ",") == std::string::npos)) continue;
+        if (L == ",all," ? !wd->modern : L.find("," + wd->id + ",") == std::string::npos) continue;   // "all": the modern guns; a list may name any weapon
         const std::string id = wd->id;
         push(("mg2 look " + id).c_str(), [this, id](App& a, float t) {
           static int ph; const WeaponDef& d = *a.weaponDefs[a.weaponIndex(id)]; WeaponState& s = a.wstate[id];
           auto shot = [&](const char* tag) { shotQueue.push_back("mg2_" + id + "_" + tag); };
           if (t == 0) { ph = 0; std::string m; a.equipWeapon(a.weaponIndex(id), m); a.scriptedInput = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 1; s.loaded = d.cap; s.reload = 0; s.reloadKind = 0; return false; }
           auto& in = a.scriptedInput;
+          if (d.melee.on) {   // MG7: the knife: hip, then mid-swing (the slash's strike frame)
+            if (ph == 0 && t > 0.8f) { ph = 1; shot("hip"); in.fire = true; }
+            if (ph == 1 && s.throwT >= d.melee.windup * 0.9f) { ph = 2; shot("swing"); in.fire = false; }
+            return ph == 2 && t > 2.0f;
+          }
           if (ph == 0 && t > 0.8f) { ph = 1; shot("hip"); in.move = vec2(1, 0); }
           if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); }
           if (ph == 2 && t > 2.3f) { ph = 3; shot("strafe_l"); in.move = vec2(0); in.aim = true; }

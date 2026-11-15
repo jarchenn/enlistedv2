@@ -46,7 +46,7 @@ void App::buildWeaponMeshes() {
     d->caliber = j.value("caliber", ""); d->note = j.value("note", "");
     d->cap = j.value("cap", 1); d->loaded = j.value("loaded", 1); d->reserve = j.value("reserve", 0); d->containerSize = j.value("containerSize", 1);
     d->tracerEvery = j.value("tracerEvery", 0);
-    d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
+    d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
     d->boltTime = j.value("boltTime", 0.0f);
     d->reloadEmpty = j["reload"].value("empty", 2.5f); d->reloadPartial = j["reload"].value("partial", d->reloadEmpty); d->reloadRound = j["reload"].value("round", 0.5f);
     d->rPitch = j["recoil"].value("pitch", 1.0f); d->rYaw = j["recoil"].value("yaw", 0.4f); d->rRecover = j["recoil"].value("recover", 8.0f);
@@ -402,6 +402,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     s.cooldown = std::max(0.0f, s.cooldown - dt);
     if (!fireHeld) s.triggerReleased = true;
     stepEquipment(dt, in, d, s, fireHeld);
+    if (d.anim) animVmStep(*this, d, s, dt); else animVmNotActive();   // MG7: the knife's own arms and slash
     viewKickPitch = vm.breathPitch; viewKickYaw = vm.breathYaw;
     return;
   }

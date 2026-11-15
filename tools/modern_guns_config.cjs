@@ -53,6 +53,16 @@ const C = {
   // ---- MG4
   glauncher: { src: G + "grenadelauncher-animated/source/arms@Glauncher.fbx", tex: "grenadelauncher-animated", keep: k("base", "casing", "front", "release", "scope", "scopebase", "slug1", "slug2", "slug3", "slug4", "slug5", "slug6", "trigger"),
         mats: { glauncher: { albedo: "grenadelauncherColor.png", normal: "grenadelauncherNormal.png", metal: "glMetallic.png", rough_f: 0.5, ao: "glAO.png" } } },
+  // ---- MG6: .50 BMG bolt-action bullpup (Barrett M95 type), zip extracted to incoming/fps-50cal
+  bmg50: { src: G + "../fps-50cal/source/arms@bmg.fbx", tex: "../fps-50cal", keep: { base: "base", bolt: "bolt", bullet: "mag", grip: "base", mag: "mag", scope: "scope", trigger: "trigger" },
+        mats: { bmg: { albedo: "50bmgColor.png", normal: "50bmgNormal.png", metal: "bmgmetallic.png", smooth: "bmgsmoothness.png", ao: "bmgAo.png" } } },
+  // ---- MG7 (sources extracted / copied to incoming/mg7/<name>/)
+  sniper3: { src: G + "../mg7/sniper/source/arms@sniper.fbx", tex: "../mg7/sniper", keep: { base: "base", bolt: "bolt", bullet: "mag", clip: "mag", magrelease: "trigger", trigger: "trigger" },
+        mats: { sniper: { albedo: "snipercolor.png", normal: "sniperNormal.png", metal: "snipermetallic.png", smooth: "snipersmoothness.png", ao: "sniperAO.png" } } },
+  glock: { src: G + "../mg7/pistol43/source/Glock_Anim.fbx", tex: "../mg7/pistol43", poseFrame: 1, poseAction: "Hands|Hands|Shot", keep: { Glock: "frame" }, split: { Glock: { Slide: "slide", Magazine: "mag", Bullet: "mag", Magazine2: "mag2" } },
+        mats: { Glock_Mat: { albedo: "LP_TEX_Glock_Mat_BaseColor.png", normal: "LP_TEX_Glock_Mat_Normal.png", rough: "LP_TEX_Glock_Mat_Roughness.png", metal: "LP_TEX_Glock_Mat_Metallic.png" } } },
+  scarh: { src: G + "../mg7/scar-h_first-person_fps_animated/scar-h_first-person_fps_animated.glb", tex: "", poseFrame: 60, keep: { Object_94: "base", Object_92: "stock" }, split: { Object_94: { Magazine_058: "mag", Slide_060: "handle" } } },
+  ak12: { src: G + "../mg7/ak-12animated/ak-12animated.glb", tex: "", keep: { "mtl_weapon_ak12_weapon_ak12_col.tga.001_0": "base", aim_0: "scope", barrel_0: "barrel", Group_10_0: "grp10", mag_0: "mag", rail_0: "rail", rearsight_0: "rearsight", stock_0: "stock", "TomGroup_4.001_0": "tg4b", TomGroup_4_0: "tg4" } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

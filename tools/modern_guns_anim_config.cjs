@@ -47,10 +47,7 @@ const A = {
     mats: { "01 - Default": { albedo: G + "red-dot-sight/textures/rds_low_DefaultMaterial_BaseColor.tga.png", rough: G + "red-dot-sight/textures/rds_low_DefaultMaterial_Roughness.tga.png", metal: G + "red-dot-sight/textures/rds_low_DefaultMaterial_Metallic.tga.png" },
             "Material.001": { albedo: "Material.001_Base_color.png", metal: "Material.001_Metallic.png", rough: "Material.001_Roughness.png" },
             shotgun: { albedo: "shotgunColor.png", metal: "shotgunmetallic.png", smooth: "shotgunsmoothness.png" }, Mat: c4dArms() } },
-  modern_scar: { src: "scar/source/SCAR.fbx", tex: "scar", stat: "modern_scar", camera: "Camera", cameraAction: "Armature|Armature|Idle",
-    keep: ["Circle.001_low", "Circle.001_low.001", "Circle.001_low.002", "hardknuckle", "sleeve"], gun: "Circle.001_low",
-    clips: { idle: "Armature|Armature|Idle", fire: "Armature|Armature|Shoot", reload: "Armature|Armature|Reload", draw: "Armature|Armature|Take", holster: "Armature|Armature|Hide", walk: "Armature|Armature|Walk", run: "Armature|Armature|Run" },
-    mats: { Material: { albedo: "SCARL_LPForNormalFix_Material_AlbedoTransp.png", metal: "SCARL_LPForNormalFix_Material_MetallicSmoo.png", rough: "SCARL_LPForNormalFix_Material_Roughness.png" }, ...unityArms } },
+  // modern_scar: the MG1 SCAR.fbx rig, replaced in MG7 by the SCAR-H GLB (below)
   modern_m16: { src: "animated-assault-rifle/source/HandWithGloves.fbx", tex: "animated-assault-rifle", stat: "modern_m16", camera: "Camera", cameraAction: "Armature|Armature|Idle",
     keep: ["BARREL", "BARREL.001", "BARREL.002", "hardknuckle", "sleeve"], gun: "BARREL",
     clips: { idle: "Armature|Armature|Idle", fire: "Armature|Armature|Shoot", reload: "Armature|Armature|Reload", draw: "Armature|Armature|Take", holster: "Armature|Armature|Hide", inspect: "Armature|Armature|Watch" },
@@ -103,8 +100,44 @@ const A = {
     // one round per 26 frames (rest frames 120, 146, 172): the insert loops the 4th round; 216-266 (out of view, inspect) and the draw 287-303 not used
     clips: { fire: [1, 15], reload_start: [15, 42], reload_insert: [120, 146], reload_end: [198, 215], idle: [267, 287] },
     mats: { glauncher: { albedo: "grenadelauncherColor.png", metal: "glMetallic.png", rough_f: 0.5 }, arms: { albedo: "armColor.png", metal: "armmetallic.png", smooth: "armsmoothness.png" } } },
+  // ---- MG6: .50 BMG bolt-action bullpup (Cinema 4D timeline, 30 fps; rest frames 13, 84, 134, 176, 202)
+  modern_sniper_50: { src: "../fps-50cal/source/arms@bmg.fbx", tex: "../fps-50cal", stat: "modern_bmg50",
+    keep: ["armmesh", "base", "bolt", "bullet", "grip", "mag", "scope", "trigger"], rigidify: ["base", "bolt", "bullet", "grip", "mag", "scope", "trigger"], gun: "base", timeline: [1, 218],
+    // fire = the shot (1-13) then the bolt stroke (134-176) back to back; reload_empty 13-84 (bolt pull 64-73), reload 84-134; the draw 202-218 not used
+    clips: { fire: [{ action: "Armature|CINEMA_4D_Main|Layer0", range: [1, 13] }, { action: "Armature|CINEMA_4D_Main|Layer0", range: [134, 176] }], reload_empty: [13, 84], reload: [84, 134], idle: [176, 202] },
+    mats: { bmg: { albedo: "50bmgColor.png", metal: "bmgmetallic.png", smooth: "bmgsmoothness.png" }, arms: { albedo: "armColor.png", metal: "armmetallic.png", smooth: "armsmoothness.png" } } },
+  // ---- MG7 guns
+  modern_sniper_3: { src: "../mg7/sniper/source/arms@sniper.fbx", tex: "../mg7/sniper", stat: "modern_sniper3",
+    keep: ["armMesh", "base", "bolt", "bullet", "clip", "magrelease", "trigger"], rigidify: ["base", "bolt", "bullet", "clip", "magrelease", "trigger"], gun: "base", timeline: [1, 159],
+    // rest frames 14, 51, 93, 114, 141: fire = the shot and the bolt (1-51), reload 51-93, idle 114-141 (93-114 and the draw 141-159 not used)
+    clips: { fire: [1, 51], reload: [51, 93], idle: [114, 141] },
+    mats: { sniper: { albedo: "snipercolor.png", metal: "snipermetallic.png", smooth: "snipersmoothness.png" }, arms: { albedo: "armcolor.png", smooth: "armssmoothness.png" } } },
+  modern_pistol3: { src: "../mg7/pistol43/source/Glock_Anim.fbx", tex: "../mg7/pistol43", stat: "modern_glock", lengthPart: "slide", staticPoseFrame: 1, staticPoseAction: "Hands|Hands|Shot",   // the static bake posed at the idle (this set animates bone scale)
+    staticPoseFrame: 1,   // the static bake is posed (its unskinned rest is ~3x off the skin)
+    keep: ["Glock", "BF3"], gun: "Glock", gunBone: "Wpn_body", hipRear: [0.07, 0.3, -0.09],
+    clips: { idle: { action: "Hands|Hands|Shot", range: [1, 2] }, fire: "Hands|Hands|Shot",   // the 2-frame Origin action is not the holding pose
+             reload: "Hands|Hands|Reloat_t", reload_empty: "Hands|Hands|Reloat_f" },
+    mats: { Glock_Mat: { albedo: "LP_TEX_Glock_Mat_BaseColor.png", rough: "LP_TEX_Glock_Mat_Roughness.png", metal: "LP_TEX_Glock_Mat_Metallic.png" },
+            "Tex_0011_1.dds": { albedo: "Tex_0011_1.png", rough_f: 0.7 }, "Tex_0012_1.dds": { albedo: "Tex_0012_1.png", rough_f: 0.7 } } },
+  modern_ak12: { src: "../mg7/ak-12animated/ak-12animated.glb", tex: "../mg7/ak-12animated", stat: "modern_ak12", gun: "mtl_weapon_ak12_weapon_ak12_col.tga.001_0", gunBone: "Rifle_metarig",
+    keep: ["mtl_weapon_ak12_weapon_ak12_col.tga.001_0", "aim_0", "barrel_0", "bullets_0", "Group_10_0", "mag.001_0", "mag_0", "rail_0", "rearsight_0", "stock_0", "TomGroup_4.001_0", "TomGroup_4_0", "Requests_Studio_Hands_0", "Requests_Studio_Hands_1", "watch_0"],
+    clips: { idle: "Idle", fire: "Shoot", reload: "Reload" } },   // the lens mesh (lense_0) is left out: the optic is open; Equip not used
+  // not exported: the GLB's hand skin is broken (stretched sleeves even in Blender's own import); kept for reference
+  _modern_scar_unused: { src: "../mg7/scar-h_first-person_fps_animated/scar-h_first-person_fps_animated.glb", tex: "../mg7/scar-h_first-person_fps_animated", stat: "modern_scarh", staticPoseFrame: 60,
+    keep: ["Object_94", "Object_92", "Object_96"], gun: "Object_94", gunBone: "Weapon_057",
+    // one 0-280 timeline at 24 fps: equip 1-45 (not used), idle 46-76 (still), four shots 77-97, reload 100-180, reload from empty 180-280
+    clips: { idle: [46, 76], fire: [77, 81], reload: [100, 180], reload_empty: [180, 280] } },
+  // ---- MG7: the first-person knife (knife_animated.glb, Sketchfab; one 0-116 timeline at 24 fps); framed by its camera: the eye
+  // at the scene origin looking along -y in the exported frame (found by a test export), centimetres
+  knife_bayonet: { src: "../mg7/knife_animated/knife_animated.glb", tex: "../mg7/knife_animated", frame: { rear: [0, 0, 0], front: [0, -100, 0], up: [0, 0, 1], scale: 0.01 }, hipRear: [0, 0, 0],
+    keep: ["Object_7", "knife_knife_0"], boneAttach: [{ mesh: "knife_knife_0", bone: "R_wrist_027", frame: 10 }], gun: "knife_knife_0", gunBone: "R_wrist_027",
+    clips: { idle: [0, 1], fire: [32, 48] } },   // fire = the quick slash (strike ~frame 35); the big swing 52-64, the overhead stab 68-80 and the wide slash 84-100 not used
 };
 for (const [id, a] of Object.entries(A)) {
+  if (a.frame) {   // MG7 (the knife): framed by its own camera, no static model or sights
+    fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
+    continue;
+  }
   const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));
   const sum = JSON.parse(fs.readFileSync(O + a.stat + "_summary.json", "utf8"));
   const parts = a.lengthPart ? sum.parts.filter(p => p.name === a.lengthPart) : sum.parts;

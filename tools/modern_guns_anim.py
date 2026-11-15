@@ -11,6 +11,7 @@ from mathutils import Matrix, Vector
 cfg = json.load(open(sys.argv[sys.argv.index("--") + 1]))
 src, out, tex = cfg["src"], cfg["out"], cfg.get("texdir", "")
 if src.endswith(".blend"): bpy.ops.wm.open_mainfile(filepath=src)
+elif src.endswith(".glb"): bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.import_scene.gltf(filepath=src)   # MG7: Sketchfab GLB sets
 else: bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.import_scene.fbx(filepath=src)
 sc = bpy.context.scene
 arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
@@ -18,6 +19,18 @@ keep = [bpy.data.objects[n] for n in cfg["keep"]]
 f0 = cfg.get("restFrame", 1)
 log = {"warn": []}
 
+# ---------------------------------------------------------------- MG7: a held object skinned to a hand bone
+# cfg "boneAttach": [{"mesh", "bone", "frame"}]: the mesh where the source has it at that frame, moved into the bone's rest
+# pose and weighted 1 to it (the knife rides an IK goal empty in its source; the baked arm bones follow that goal)
+for ba in cfg.get("boneAttach", []):
+    sc.frame_set(ba["frame"]); bpy.context.view_layer.update()
+    o = bpy.data.objects[ba["mesh"]]; pb = arm.pose.bones[ba["bone"]]
+    Mp = arm.matrix_world @ pb.matrix; Mr = arm.matrix_world @ pb.bone.matrix_local
+    o.data = o.data.copy(); o.data.transform(arm.matrix_world.inverted() @ Mr @ Mp.inverted() @ o.matrix_world)
+    o.animation_data_clear(); o.parent = arm; o.matrix_parent_inverse = Matrix(); o.matrix_basis = Matrix()
+    for g in list(o.vertex_groups): o.vertex_groups.remove(g)
+    vg = o.vertex_groups.new(name=pb.name); vg.add(list(range(len(o.data.vertices))), 1.0, "REPLACE")
+    if not any(m.type == "ARMATURE" for m in o.modifiers): md = o.modifiers.new("Armature", "ARMATURE"); md.object = arm
 # ---------------------------------------------------------------- C4D: animated gun objects -> bones
 rig = cfg.get("rigidify", [])
 if rig:
@@ -57,16 +70,31 @@ else:
         if v.groups: b = max(v.groups, key=lambda g: g.weight); cnt[vgn[b.group]] = cnt.get(vgn[b.group], 0) + 1
     gunBone = cfg.get("gunBone") or max(cnt, key=cnt.get)
 # weapon space (static bake) -> static glTF -> Blender world at rest: p_g = p_w / s + o, world = (x, -z, y)
-st = cfg["static"]; s = st["s"]; o_ = st["o"]
-def w2b(p): g = [p[0] / s + o_[0], p[1] / s + o_[1], p[2] / s + o_[2]]; return Vector((g[0], -g[2], g[1]))
-pts = {k: w2b(v) for k, v in cfg["points"].items()}
+FR = cfg.get("frame")   # MG7 (the knife): no sights: an explicit camera frame in Blender world units at rest (eye, a point ahead, up, scale)
+if FR:
+    s = FR["scale"]; o_ = [0, 0, 0]
+    def w2b(p): return Vector(p)
+    pts = {"rear": Vector(FR["rear"]), "front": Vector(FR["front"]), "muzzle": Vector(FR["front"])}
+else:
+    st = cfg["static"]; s = st["s"]; o_ = st["o"]
+    def w2b(p): g = [p[0] / s + o_[0], p[1] / s + o_[1], p[2] / s + o_[2]]; return Vector((g[0], -g[2], g[1]))
+    pts = {k: w2b(v) for k, v in cfg["points"].items()}
+    pts["_up"] = w2b([cfg["points"]["rear"][0], cfg["points"]["rear"][1] + 0.05, cfg["points"]["rear"][2]])   # the framing's up reference
+    if cfg.get("staticPoseFrame") is not None:   # MG7: the static bake was posed at this frame (the SCAR-H): its points back to the rest pose
+        if cfg.get("staticPoseAction"):
+            _ad = arm.animation_data or arm.animation_data_create(); _act = bpy.data.actions[cfg["staticPoseAction"]]; _ad.action = _act
+            if hasattr(_ad, "action_slot") and _act.slots: _ad.action_slot = _act.slots[0]
+        sc.frame_set(cfg["staticPoseFrame"]); bpy.context.view_layer.update()
+        _gb = cfg.get("gunBone"); _pb = arm.pose.bones[_gb]
+        _D = ((arm.matrix_world @ _pb.matrix) @ (arm.matrix_world @ _pb.bone.matrix_local).inverted()).inverted()
+        pts = {k: _D @ v for k, v in pts.items()}
 # check: the gun body's rest bbox must match the static export's (same rest pose)
 arm.data.pose_position = "REST"; bpy.context.view_layer.update()
 dg = bpy.context.evaluated_depsgraph_get()
 ev = gun.evaluated_get(dg); me = ev.to_mesh()
 vs = [ev.matrix_world @ v.co for v in me.vertices]; ev.to_mesh_clear()
 bb = [min(v[i] for v in vs) for i in range(3)] + [max(v[i] for v in vs) for i in range(3)]
-log["gunRestBlender"] = [round(x, 4) for x in bb]; log["staticGunBlender"] = st.get("gunBlender")
+log["gunRestBlender"] = [round(x, 4) for x in bb]; log["staticGunBlender"] = None if FR else st.get("gunBlender")
 arm.data.pose_position = "POSE"
 
 # ---------------------------------------------------------------- MG3: attach an accessory mesh to the gun (the red dot on the 870)
@@ -105,8 +133,9 @@ else:
 sc.frame_set(int(fr)); bpy.context.view_layer.update()
 pb = arm.pose.bones[gunBone]
 D = (arm.matrix_world @ pb.matrix) @ (arm.matrix_world @ pb.bone.matrix_local).inverted()
+if FR: D = Matrix()   # the camera frame is fixed in the scene, not on the gun
 R_, F_ = D @ pts["rear"], D @ pts["front"]
-U_ = D @ w2b([cfg["points"]["rear"][0], cfg["points"]["rear"][1] + 0.05, cfg["points"]["rear"][2]])
+U_ = (R_ + Vector(FR["up"])) if FR else D @ pts.pop("_up")
 fwd = (F_ - R_).normalized(); up = (U_ - R_); up = (up - fwd * up.dot(fwd)).normalized(); rt = fwd.cross(up)
 B = Matrix((rt, fwd, up)).to_4x4()   # rows: world -> rig frame (x right, y forward, z up)
 hip = Vector(cfg.get("hipRear", [0.12, 0.15, -0.07])) / s
@@ -202,6 +231,14 @@ for ob in list(bpy.data.objects):
 for ob in keep:
     if ob.parent is None:   # unparented skinned meshes (the pistol): parent to the armature in place
         mw = ob.matrix_world.copy(); ob.parent = arm; ob.matrix_world = mw
+# MG7: glTF skinning ignores a skinned mesh's own node transform: bake it (relative to the armature) into the mesh data
+# (the Glock 43 set's gun mesh carries a x4 object scale; identity, so a no-op, for the other rigs)
+for ob in keep:
+    if ob.type != "MESH" or not any(m.type == "ARMATURE" for m in ob.modifiers): continue
+    M = arm.matrix_world.inverted() @ ob.matrix_world
+    if max(abs(M[i][j] - (1.0 if i == j else 0.0)) for i in range(4) for j in range(4)) < 1e-5: continue
+    ob.data = ob.data.copy(); ob.data.transform(M); ob.parent = arm; ob.matrix_parent_inverse = Matrix(); ob.matrix_basis = Matrix()
+    log.setdefault("bakedMeshTransforms", []).append(ob.name)
 # the armature's own clips may animate its object transform, so the frame goes on a parent node, not on the armature
 rootObj = bpy.data.objects.new("vm_root", None); sc.collection.objects.link(rootObj); rootObj.matrix_world = root
 arm.parent = rootObj; arm.matrix_parent_inverse = Matrix()
@@ -249,6 +286,9 @@ for mname, m in cfg.get("mats", {}).items():
     for ob in keep:
         for k, sl in enumerate(ob.data.materials):
             if sl and (sl.name == mname or sl.name.split(".")[0] == mname): ob.data.materials[k] = mat
+for im in bpy.data.images:   # MG7: textures embedded in a GLB source (not rebuilt above) are capped at maxTex too, never upscaled
+    if im.size[0] > MAXT or im.size[1] > MAXT:
+        k = MAXT / max(im.size); w0 = list(im.size); im.scale(max(1, int(im.size[0] * k)), max(1, int(im.size[1] * k))); log.setdefault("scaledImages", []).append([im.name, w0, list(im.size)])
 for ob in keep:   # anything still without a rebuilt material: a neutral factor (no source texture)
     for k, sl in enumerate(ob.data.materials):
         if sl and not sl.name.startswith("mg1_"): log["warn"].append("untextured material %s on %s" % (sl.name, ob.name))

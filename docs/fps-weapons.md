@@ -653,4 +653,65 @@ Both optics are now closed from every side, with a solid black rim around the cl
 
 **AK:** `fps-ak-animated-2` is byte-identical to `fps-ak-animated` (the current `modern_ak`); nothing to replace.
 
+### MG6: Barrett M95 (.50 BMG)
+
+`modern_sniper_50` comes from `fps-50cal.zip`: one Cinema 4D FBX (`arms@bmg.fbx`: the arms, the gun as object-animated parts, one 218-frame timeline at 30 fps) and 10 textures, with no licence file. It is a bolt-action bullpup with a 5-round box, so it is a bolt gun. Clips:
+- fire = the shot (1–13) and the bolt stroke (134–176) back to back, 1.8 s (`cycleInFire`: the next shot waits for it);
+- reload_empty 13–84 (with the bolt pull);
+- reload 84–134;
+- idle 176–202, held.
+
+The draw is not used. `animated.reloadRate` 0.6 plays the reloads slower (about 2.8 s and 3.9 s).
+
+Handling:
+- **Scope:** 10× with the plain "+" reticle; the eye at the ocular face, measured on the static mesh.
+- **Damage:** 300 at any range, so one hit kills anywhere (legs 180). Penetration follows its energy: 42 g at 854 m/s.
+- **Recoil:** pitch 11, recover 4.
+- **Aiming:** `ads.speed` 0.6.
+- **Sway:** `sway` 2.5, a new weapon field that multiplies the scope breathing only when standing; crouched and prone are unchanged.
+
+Ammunition: `50bmg_mag5` in the mixed crate. Sounds: wired to the id in `audio.cpp`.
+
+### SC1: scope view
+
+Every rifle scope (scopeView, the eyepiece pass, `kEyepieceFS`) uses one layout:
+- **Ring:** the outer edge is the screen height (`kScopeEyepieceR` 0.5). A solid black rim runs from 0.86 R out, with a soft inner vignette.
+- **Inside:** the magnified view and the gun's reticle.
+- **Outside:** no black. It is the same magnified frame, lightly blurred (16 taps on a coarse mip, radius 0.035 R) and dimmed (`uDark` 0.7). It is not a second unmagnified world pass, so the scoped view costs what it did before: one fullscreen pass.
+- **The TZF gunner sight** keeps its own layout.
+
+Reticles, drawn in the shader and centred on the aim point:
+
+| Gun | Reticle |
+|---|---|
+| Kar98k ZF39 | German no. 1 (`de_absehen1`), unchanged |
+| M1C Garand | M81, unchanged |
+| AR-15 3× | plain "+" (`plus`) |
+| M24 | `mil`: thick outer posts to a fine cross, mil ticks, red dotted centre, holdover dot clusters |
+| .50 | `bmg`: thick side and bottom posts, thin top line, ticked centre cross, the curved range funnel with its ladder below |
+| Marksman rifle | `acog`, 2×: red chevron (aim point at its tip) and a bullet-drop ladder |
+
+Red parts glow (`redInk`).
+
+### MG7: scout rifle, Glock 43, SCAR-H, AK-12, first-person knife
+
+| Weapon | Source | Clips |
+|---|---|---|
+| `modern_sniper_3` bolt-action scout rifle, 4× scope (`plus` reticle, SC1 view) | `sniper-animated (2).zip`: Cinema 4D `arms@sniper.fbx`, one 159-frame timeline (not the M24's pack) | fire = shot + bolt 1–51, reload 51–93, idle 114–141 (rest frames 14 / 51 / 93 / 114 / 141) |
+| `modern_pistol3` Glock 43 | `pistol-43-tactical-fps-animations.zip`: `Glock_Anim.fbx` | idle = `Shot` frame 1 (the 2-frame `Origin` is not the holding pose), fire `Shot`, reload `Reloat_t`, reload_empty `Reloat_f`; Inspect, Walk, Run not used |
+| `modern_scar` FN SCAR-H (replaces the MG1 SCAR model; id, stats and sounds kept) | `scar-h_first-person_fps_animated.glb`: one 280-frame timeline at 24 fps | **its arms and clips are not used**: the hand skin is broken in the source (the sleeves stretch into long bars, even in Blender's own glTF import), so the SCAR-H gun is on the static path with the game's arms |
+| `modern_ak12` AK-12 with its own tube optic | `ak-12animated.glb` | `Idle`, `Shoot`, `Reload`; `Equip` not used |
+| `knife_bayonet` (every class's knife) | `knife_animated.glb`: one 116-frame timeline | idle = frame 0 held, fire = the quick slash 32–48 played 1.5× (0.44 s, the hit at its strike frame: `melee.windup` 0.083 s) |
+
+- **AK-12 optic:** the model's lens mesh is left out (the tube is open). Its mark is a green ring with a centre dot (`animated.dotColor`, `dotRing`) at the optic's front centre, on the sight line.
+- **Glock 43:**
+  - this set animates bone scale and its unskinned rest is about 3× off its skin, so the static model is baked posed at the idle (`poseFrame` / `poseAction`, `staticPoseFrame` / `staticPoseAction`) with stray islands cut by `keepIslandsIn`;
+  - the sight points are measured on the rig (`animated.points`);
+  - `eyeRelief` 0.2: further back the eye sits inside the shooting arm's sleeve.
+- **SCAR-H:** the rest pose is not the rifle assembled, so the static model is baked posed at frame 60 (`poseFrame`).
+- **Knife:** framed by its own camera (`frame`; no sights), its blade skinned to the right wrist (`boneAttach`); its source hangs it off an IK goal empty. The equipment branch steps the rig, and a swing plays the slash.
+- **Exporter additions:**
+  - GLB sources; embedded textures are capped at `maxTex`;
+  - skinned meshes with their own object transform are baked into the mesh (glTF skinning ignores a skinned mesh's node transform).
+
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.

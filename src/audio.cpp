@@ -274,12 +274,12 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
     {"guns/pistol_b.mp3", false, {"m1911a1"}},
-    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_m16", "modern_m4"}},
-    {"guns/semi_rifle.mp3", false, {"modern_sniper_semi", "modern_ak", "modern_fal", "modern_scar", "fg42", "m1918a2_bar"}},
+    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_m16", "modern_m4", "modern_pistol3"}},
+    {"guns/semi_rifle.mp3", false, {"modern_sniper_semi", "modern_ak", "modern_fal", "modern_scar", "fg42", "m1918a2_bar", "modern_ak12"}},
     {"guns/auto_rifle_burst.mp3", true, {"modern_mp7", "modern_scorpion"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
     {"guns/rifle_bolt.mp3", false, {"kar98k", "m1_garand", "m1c_garand"}},
-    {"guns/sniper_heavy.mp3", false, {"kar98k_zf39", "modern_sniper_bolt", "modern_sniper_50"}},
+    {"guns/sniper_heavy.mp3", false, {"kar98k_zf39", "modern_sniper_bolt", "modern_sniper_50", "modern_sniper_3"}},
     {"guns/assault_rifle.mp3", true, {"stg44"}},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
@@ -333,9 +333,9 @@ int Audio::loadCustom(const fs::path& dir) {
       // shot and one mid-track shell-loading sound per shell (also the single-round loading sound of other guns)
     struct RSet { const char* file; std::vector<const char*> ids; };
     const RSet rs[] = {
-      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_sniper_50", "modern_lmg", "mg42", "m2hb_carry"}},
+      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_sniper_50", "modern_sniper_3", "modern_ak12", "modern_lmg", "mg42", "m2hb_carry"}},
       {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k", "kar98k_zf39"}},
-      {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2"}},
+      {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2", "modern_pistol3"}},
     };
     auto norm = [&](Buf& s, float secs) { if (s.size() > (size_t)(secs * SR)) s.resize((size_t)(secs * SR)); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); size_t f = std::min(s.size(), (size_t)(0.05f * SR)); for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.7f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f); };
     for (auto& g : rs) if (decode(g.file, b)) { ++used; norm(b, 6.0f); Impl::Event ev; ev.v.push_back(b); for (const char* id : g.ids) p->events[std::string("reload_") + id] = ev; }
