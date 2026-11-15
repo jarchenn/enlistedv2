@@ -31,7 +31,7 @@ void RoyaleStorm::build(vec2 half, uint32_t seed, bool (*walkable)(vec2)) {
       float a = u(rng) * 6.2831853f, d = room * std::sqrt(u(rng));
       vec2 c = p.c + vec2(std::cos(a), std::sin(a)) * d;
       best = c;
-      if (std::fabs(c.x) + r[k] * 0.5f <= half.x && std::fabs(c.y) + r[k] * 0.5f <= half.y) break;   // mostly over the map
+      if (std::fabs(c.x) + r[k] * 0.5f <= half.x && std::fabs(c.y) + r[k] * 0.5f <= half.y && (!walkable || walkable(c))) break;   // mostly over the map, centred on floor (BR11)
     }
     circle[k] = {best, r[k]};
   }
@@ -117,6 +117,7 @@ struct State {
   vec2 move{0};                   // BR5: the local player's WASD while airborne (y forward, x right)
   int flight = 0;                 // BR5: the local flight posture for the HUD: 0 belly, 1 glide, 2 dive, 3 brake
   uint32_t seed = 1;
+  bool indoor = false;            // BR11: Tunnels / Backrooms: everyone starts on the ground inside, no bomber
   struct District { std::string name; vec3 pos{0}; };
   std::vector<District> districts;   // BR1b: the map's named landing districts (scenario.districts, e.g. Newtown)
 } S;
@@ -131,7 +132,7 @@ void label(ImDrawList* dl, ImVec2 at, const std::string& t, float size, ImU32 co
 }
 
 vec3 planeAt(float t) { return S.a + S.dir * (gCfg.planeSpeed * t); }
-bool planeFlying() { return S.time * gCfg.planeSpeed < S.len; }
+bool planeFlying() { return !S.indoor && S.time * gCfg.planeSpeed < S.len; }
 float groundBelow(App& app, vec3 p) {
   float g = app.terrain.height(p.x, p.z);
   Physics::Hit h;
@@ -164,6 +165,7 @@ vec3 approachV(vec3 v, vec3 want, float rate) { vec3 d = want - v; float l = glm
 bool royaleActive() { return S.on && gGame && gGame->active && gGame->match.mode() == GameMode::BattleRoyale; }
 int royaleAirState(int slot) {
   if (!royaleActive() || slot < 0 || slot >= (int)S.air.size()) return RA_GROUND;
+  if (S.indoor) return RA_GROUND;   // BR11: nobody flies in a tunnel
   if (!S.air[slot].boarded && slot < (int)gGame->sold.size() && gGame->sold[slot].alive) return RA_ABOARD;   // BR7: spawned, boards on the next step
   return S.air[slot].st;
 }
@@ -173,6 +175,7 @@ void royaleBegin(App& app, Game& G) {
   if (G.match.mode() != GameMode::BattleRoyale || G.isClient) return;
   loadCfg();
   S.on = true;
+  S.indoor = lootIndoorMap(app);
   S.seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count() | 1u;
   std::mt19937 rng(S.seed);
   std::uniform_real_distribution<float> u(0.0f, 1.0f);
@@ -191,7 +194,8 @@ void royaleBegin(App& app, Game& G) {
   S.tIn = gCfg.overrun / gCfg.planeSpeed; S.tOut = (S.len - gCfg.overrun) / gCfg.planeSpeed;
   S.storm.cfg = gCfg.storm;
   S.storm.build(vec2(hx, hz), S.seed * 2654435761u, [](vec2 p) {   // BR7: a drift centre needs navmesh within 8 m (not a lake, roof or wall)
-    NavRef r; vec3 on; return gGame && gGame->nav.closest(vec3(p.x, gGame->app.terrain.height(p.x, p.y), p.y), 8.0f, r, on); });
+    NavRef r; vec3 on;   // BR11: underground the floor can be far below the surface: search the whole height
+    return gGame && gGame->nav.closest(vec3(p.x, gGame->app.terrain.height(p.x, p.y), p.y), S.indoor ? vec3(8, 80, 8) : vec3(8), r, on); });
   S.air.assign(G.sold.size(), Air{});
   for (size_t i = 0; i < S.air.size(); ++i) {   // bots: a random point along the line, and a landing aim near below it
     Air& a = S.air[i];
@@ -268,6 +272,11 @@ void royaleStep(App& app, Game& G, float dt) {
   for (auto& s : G.sold) {
     if (!s.alive) continue;
     Air& a = S.air[s.slot];
+    if (!a.boarded && S.indoor) {   // BR11: already standing where the spawn put it (inside, far from the others)
+      a.boarded = true; a.st = RA_GROUND;
+      if (!s.localPlayer && !s.human) lootArmBot(G, s, 2);   // as on landing
+      continue;
+    }
     if (!a.boarded) {   // first step alive: aboard while the bomber is still over the area, else straight into free fall
       a.boarded = true;
       if (S.time < S.tOut) { a.st = RA_ABOARD; a.p = P; }

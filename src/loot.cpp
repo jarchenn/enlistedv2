@@ -5,6 +5,8 @@
 #include "damage_model.h"
 #include "physics.h"
 #include "br_models.h"   // BR10 sheet: the optic (brSightDraws / brSightLine)
+#include "nav.h"
+#include <DetourNavMeshQuery.h>   // BR11: random points on the navmesh
 #include "render.h"
 #include "model.h"
 #include <imgui.h>
@@ -238,6 +240,39 @@ template <class T, class W> static int pickWeighted(const std::vector<T>& v, W w
   return (int)v.size() - 1;
 }
 
+bool lootIndoorMap(const App& app) {
+  const json& e = app.doc.extra;
+  return e.is_object() && e.contains("royale") && e["royale"].is_object() && e["royale"].value("indoor", false);
+}
+static bool covered(vec3 p) { Physics::Hit h; return Physics::castRayEx(p + vec3(0, 1.9f, 0), vec3(0, 1, 0), 40.0f, h); }
+bool lootIndoorPoint(Game& G, vec3& out) {
+  dtNavMeshQuery* q = G.nav.query(); if (!q) return false;
+  dtQueryFilter f = G.nav.defaultFilter(); f.setExcludeFlags(f.getExcludeFlags() | NF_TRAP);
+  for (int tries = 0; tries < 40; ++tries) {
+    dtPolyRef ref = 0; float pt[3];
+    if (dtStatusFailed(q->findRandomPoint(&f, frand, &ref, pt)) || !ref) continue;
+    vec3 p(pt[0], pt[1], pt[2]);
+    if (p.y < G.app.terrain.waterLevel + 0.2f || !covered(p) || !Physics::shapeFitsAt(Physics::STAND, p, false)) continue;
+    out = p; return true;
+  }
+  return false;
+}
+// covered navmesh points within r of c (the indoor stand-in for a building's floor spots)
+static std::vector<vec3> indoorSpots(Game& G, vec3 c, float r, int n) {
+  std::vector<vec3> out;
+  dtNavMeshQuery* q = G.nav.query(); if (!q) return out;
+  dtQueryFilter f = G.nav.defaultFilter(); f.setExcludeFlags(f.getExcludeFlags() | NF_TRAP);
+  dtPolyRef start = 0; float ext[3] = {2, 3, 2}, cp[3] = {c.x, c.y, c.z}, near[3];
+  if (dtStatusFailed(q->findNearestPoly(cp, ext, &f, &start, near)) || !start) return out;
+  for (int k = 0; k < n * 3 && (int)out.size() < n; ++k) {
+    dtPolyRef ref = 0; float pt[3];
+    if (dtStatusFailed(q->findRandomPointAroundCircle(start, near, r, &f, frand, &ref, pt)) || !ref) continue;
+    vec3 p(pt[0], pt[1] + 0.02f, pt[2]);
+    if (std::fabs(p.y - c.y) < 1.5f && covered(p)) out.push_back(p);   // the same floor, under the ceiling
+  }
+  return out;
+}
+
 // floor points inside an enterable building: its nav rooms (asset space), else the footprint's middle at ground level
 static std::vector<vec3> floorSpots(App& app, const Instance& i, const AssetDef& a) {
   std::vector<vec3> out;
@@ -265,16 +300,7 @@ void lootBegin(Game& G) {
   gRng = 0x9E3779B9u ^ (uint32_t)app.doc.instances.size() * 2654435761u ^ (uint32_t)(app.now * 1000);
   std::vector<int> pool = gunPool(app, G.match.rules.lootModern);
   int guns = 0, items = 0, houses = 0;
-  for (auto& i : app.doc.instances) {
-    auto it = app.rt.find(i.id); if (it == app.rt.end() || !it->second.asset) continue;
-    const AssetDef& a = *it->second.asset;
-    if (!a.enterable) continue;
-    json tag = i.extra.is_object() ? i.extra.value("loot", json::object()) : json::object();
-    bool military = tag.value("military", false);
-    std::string size = tag.value("size", std::string());
-    bool large = size.empty() ? a.footprint.x * a.footprint.y > c.largeArea : size == "large";
-    std::vector<vec3> spots = floorSpots(app, i, a);
-    if (spots.empty()) continue;
+  auto fill = [&](const std::vector<vec3>& spots, bool large, bool military) {   // one building's (or one indoor cluster's) loot
     ++houses;
     size_t si = 0; auto spot = [&] { return spots[si++ % spots.size()]; };
     int nGuns = large ? irange(c.largeGuns[0], c.largeGuns[1]) : irange(c.smallGuns[0], c.smallGuns[1]);
@@ -299,6 +325,49 @@ void lootBegin(Game& G) {
       dropAt(spot(), d.id, count); ++items;
     }
     if (nGuns == 0) for (int b = 0; b < c.houseBoxes; ++b) { int t = irange(0, AM_12GA); dropAt(spot(), "ammo:" + std::to_string(t), c.box[t]); }   // every house has some ammo
+  };
+  if (lootIndoorMap(app)) {
+    // BR11: no tagged buildings: one small-house set per ~80 m2 of covered walkable floor, in clusters at random navmesh
+    // points (findRandomPoint is area-weighted, so long corridors and big halls get their share)
+    float area = 0;
+    if (const dtNavMesh* nm = G.nav.query() ? G.nav.query()->getAttachedNavMesh() : nullptr)
+      for (int t = 0; t < nm->getMaxTiles(); ++t) {
+        const dtMeshTile* tile = nm->getTile(t); if (!tile || !tile->header) continue;
+        for (int p = 0; p < tile->header->polyCount; ++p) {
+          const dtPoly& poly = tile->polys[p]; if (poly.getType() != DT_POLYTYPE_GROUND) continue;
+          const float* v0 = &tile->verts[poly.verts[0] * 3];
+          for (int k = 2; k < poly.vertCount; ++k) {
+            const float* v1 = &tile->verts[poly.verts[k - 1] * 3]; const float* v2 = &tile->verts[poly.verts[k] * 3];
+            area += 0.5f * std::fabs((v1[0] - v0[0]) * (v2[2] - v0[2]) - (v2[0] - v0[0]) * (v1[2] - v0[2]));
+          }
+        }
+      }
+    int inside = 0, probes = 0; vec3 p;
+    for (int k = 0; k < 120; ++k) { ++probes; if (lootIndoorPoint(G, p)) ++inside; }   // the covered share (lootIndoorPoint retries, so this is an upper bound)
+    int clusters = std::clamp((int)(area * inside / std::max(1, probes) / 80.0f), 6, 220);
+    std::vector<vec3> used;
+    for (int n = 0, tries = 0; n < clusters && tries < clusters * 6; ++tries) {
+      if (!lootIndoorPoint(G, p)) continue;
+      bool close = false; for (vec3 q : used) close |= glm::length(q - p) < 6.0f;   // spread out like separate rooms
+      if (close) continue;
+      std::vector<vec3> spots = indoorSpots(G, p, 3.0f, 8);
+      if (spots.size() < 2) continue;
+      used.push_back(p); ++n;
+      fill(spots, frand() < 0.25f, false);
+    }
+    logf("loot: indoor map, %.0f m2 of navmesh, %d clusters", area, (int)used.size());
+  } else
+  for (auto& i : app.doc.instances) {
+    auto it = app.rt.find(i.id); if (it == app.rt.end() || !it->second.asset) continue;
+    const AssetDef& a = *it->second.asset;
+    if (!a.enterable) continue;
+    json tag = i.extra.is_object() ? i.extra.value("loot", json::object()) : json::object();
+    bool military = tag.value("military", false);
+    std::string size = tag.value("size", std::string());
+    bool large = size.empty() ? a.footprint.x * a.footprint.y > c.largeArea : size == "large";
+    std::vector<vec3> spots = floorSpots(app, i, a);
+    if (spots.empty()) continue;
+    fill(spots, large, military);
   }
   logf("loot: %zu floor items (%d guns, %d other) in %d buildings, %s guns", gL.floor.size(), guns, items, houses, G.match.rules.lootModern ? "modern" : "WW2");
 }
@@ -530,10 +599,13 @@ bool lootOnDeath(Game& G, int slot) {
 }
 
 // ---------------------------------------------------------------- per step
+static void stripForDrop(Game& G, Soldier& s);
 void lootArmBot(Game& G, Soldier& s, int n) {
   if (!lootActive() || s.localPlayer || s.human || s.zombie) return;
   App& app = G.app; const LootCfg& c = cfg();
   std::vector<int> pool = gunPool(app, G.match.rules.lootModern);
+  if ((int)gL.life.size() <= s.slot) gL.life.resize(s.slot + 1, 0);
+  if (gL.life[s.slot] != s.lifeId) { gL.life[s.slot] = s.lifeId; stripForDrop(G, s); }   // BR11: the new-life strip first (armed in the step a bot spawns indoors)
   s.carried.clear(); s.wsBy.clear();
   for (int g = 0; g < n && !pool.empty(); ++g) {
     int k = pickWeighted(pool, [&](int w) { return gunWeight(*app.weaponDefs[w], false); });

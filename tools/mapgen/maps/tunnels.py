@@ -622,7 +622,7 @@ def build(ctx):
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(), explore_start=((a1[0], a1[1], a1[2]), look_yaw(1.0, 0.0)), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], o["pos"][1] + 40.0, o["pos"][2] + 30], "yaw": 0.0, "pitch": -50} for i, o in enumerate(sc.objectives)},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0, "fill": 0.35, "exposure": 1.0}, "look": {"fog": False}})   # BR2: no haze underground; UG4: darker (fill x 0.35, exposure pinned so auto exposure does not lift the dark stretches)
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 0.0, "fill": 0.35, "exposure": 1.0}, "look": {"fog": False}, "royale": {"indoor": True}})   # BR11: battle royale starts on the ground inside   # BR2: no haze underground; UG4: darker (fill x 0.35, exposure pinned so auto exposure does not lift the dark stretches)
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=7, version=VERSION, seed=SEED,
                    description="An underground mine labyrinth, 176 x 176 m, with some 20 m of relief: galleries that climb and drop by "
                                "inclines and stair drifts, two shafts with ledges and a bridge over the pit, a deep sump, a narrow-gauge "

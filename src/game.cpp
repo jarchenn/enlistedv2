@@ -289,6 +289,9 @@ const std::vector<vec3>& Game::spawnPool() {
   if (!poolBuilt) {
     poolBuilt = true; pool.clear();
     float hx = app.terrain.buildHalfX * 0.94f, hz = app.terrain.buildHalfZ * 0.94f; const int n = 28;   // inside the border on both axes
+    if (lootIndoorMap(app)) {   // BR11: Tunnels / Backrooms: a ray from the sky lands on the roof or the surface above; inside points instead
+      vec3 p; for (int k = 0; k < n * n && (int)pool.size() < 400; ++k) if (lootIndoorPoint(*this, p)) pool.push_back(p);
+    } else
     for (int i = 0; i < n; ++i) for (int j = 0; j < n; ++j) {
       float x = -hx + (2 * hx) * (i + 0.5f) / n, z = -hz + (2 * hz) * (j + 0.5f) / n;
       Physics::Hit h; float top = app.terrain.height(x, z) + 60;

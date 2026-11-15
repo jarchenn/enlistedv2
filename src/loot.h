@@ -67,6 +67,10 @@ bool healStart(Kit& k, int kind, float hp, std::string* why = nullptr);
 float healStep(Kit& k, float hp, float dt);            // hp after dt of the running heal (ends it, spending the item)
 
 bool lootActive();                     // a Battle Royale match is running here (host / single player)
+// BR11: an indoor map (map extra "royale": {"indoor": true}: Tunnels, Backrooms): no drop, everyone starts inside, loot is
+// scattered through the rooms and corridors instead of placed in tagged buildings
+bool lootIndoorMap(const App& app);
+bool lootIndoorPoint(Game& G, vec3& out);   // a random navmesh point with a ceiling over it (not a roof, not the open surface)
 Kit* kitOf(int slot);
 std::vector<FloorItem>& lootFloor();
 std::vector<LootCase>& lootCases();
