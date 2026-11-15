@@ -33,9 +33,9 @@ void push(const std::string& n, std::function<bool(App&, float)> f) { seq.push_b
 fs::path outDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 float dXZ(vec3 a, vec3 b) { return glm::length(vec2(a.x - b.x, a.z - b.z)); }
 
-bool startMode(App& a, GameMode m, int solo, int teamA, int teamB, AiType ai0, AiType ai1) {
+bool startMode(App& a, GameMode m, int solo, int teamA, int teamB, AiType ai0, AiType ai1, const char* map = "examples/village_assault_3.nmap.json") {
   if (a.mode == Mode::Explore) a.exitExplore();
-  a.openMap(contentDir() / "examples" / "village_assault_3.nmap.json");
+  a.openMap(contentDir() / map);
   json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
   Scenario sc = Scenario::fromJson(scj);
   sc.rules.mode = m; sc.rules.killCap = 999; sc.rules.soloPlayers = solo; sc.rules.teamPlayers[0] = teamA; sc.rules.teamPlayers[1] = teamB;
@@ -421,11 +421,61 @@ void buildCapture(App&) {
 }
 }   // namespace
 
+// --capture-fighter2: no checks, a look at the grounding (zombie.cpp aiZombieFeet). On Chateau town Fighter 2 (her local
+// model) stands 60-70 m in front of the player and a soldier 35 m to her side, so she walks across the view; the player is a
+// camera at ground level aimed at her feet. Twelve frames through her stride (selftest_out/fighter2_walk_NN.png).
+void buildFighterCapture(App&) {
+  push("fighter2", [](App& a, float t) {
+    static int fz, sol, shots; static double t0, next;
+    Game& G = *gGame;
+    if (t == 0) {
+      t0 = -1; fz = sol = -1; shots = 0;
+      chk(startMode(a, GameMode::TDM, 3, 2, 1, AiType::Soldiers, AiType::Fighters2, "templates/chateau_town.nmap.json"), "TDM on Chateau town: the player and a soldier v Fighter 2 (%s)", gGame->setupError.c_str());
+      return false;
+    }
+    Soldier* L = G.local();
+    if (!L || !L->alive || !allSpawned(G)) return t > 30 ? (chk(false, "everyone spawns"), true) : false;
+    L->protectUntil = -1; L->hp = 5000;
+    if (t0 < 0) {
+      for (auto& s : G.sold) { if (s.zombie) fz = s.slot; else if (!s.localPlayer) sol = s.slot; }
+      // her spot, and a camera spot (the player moves there) that sees the ground under her and 15 m along her path
+      NavRef r; vec3 F, P, C; bool ok = false;
+      for (int i = 0; i < 16 && !ok; ++i) {
+        float a0 = i * 0.3927f; if (!G.nav.closest(L->feet + vec3(std::cos(a0), 0, std::sin(a0)) * (40.0f + 15.0f * (i % 4)), 15.0f, r, F)) continue;
+        for (float dist : {70.0f, 60.0f}) for (int k = 0; k < 24 && !ok; ++k) {
+          float an = k * 0.2618f; vec3 dir(std::cos(an), 0, std::sin(an)), side(-dir.z, 0, dir.x);
+          if (!G.nav.closest(F - dir * dist, 10.0f, r, C) || !G.nav.closest(F + side * 35.0f, 10.0f, r, P)) continue;   // nearer than the camera: she walks across the view
+          vec3 eye = C + vec3(0, 1.7f, 0);
+          ok = G.lineOfSight(eye, F + vec3(0, 0.3f, 0)) && G.lineOfSight(eye, F + side * 15.0f + vec3(0, 0.5f, 0));
+        }
+      }
+      if (fz < 0 || sol < 0 || !ok) { chk(false, "the fighter and the soldier placed in view"); return true; }
+      place(G, *L, C);
+      place(G, G.sold[fz], F); place(G, G.sold[sol], P); G.sold[fz].protectUntil = -1;
+      vec3 d = F - C; a.eyeYaw = degrees(std::atan2(-d.x, -d.z)); a.eyePitch = degrees(std::atan2(F.y - (C.y + 1.7f), dXZ(F, C)));
+      t0 = G.t; next = G.t + 1.0; return false;
+    }
+    if (sol >= 0) { G.sold[sol].hp = 5000; G.sold[sol].protectUntil = -1; }
+    Soldier& z = G.sold[fz]; z.hp = std::max(z.hp, 1000.0f);
+    if (G.t >= next && pendingShot.empty() && shots < 12) {
+      const CharModel& m = *G.models[z.model];
+      char nm[64], line[200]; std::snprintf(nm, sizeof nm, "fighter2_walk_%02d.png", shots++); next = G.t + 0.12;
+      float sole[2];   // each foot's sole above the terrain under it (as aiZombieFeet measures it): the lower one should be 0
+      for (int f = 0; f < 2; ++f) { sole[f] = 1e9f; for (int j : {f ? (int)CJ_RFOOT : (int)CJ_LFOOT, f ? (int)CJ_RTOE : (int)CJ_LTOE}) {
+        vec3 w = vec3(z.world * vec4(z.pose.joint[j], 1)); sole[f] = std::min(sole[f], w.y - m.jointHead[m.semantic[j]].y * z.eScale - a.terrain.height(w.x, w.z)); } }
+      vec3 fl = vec3(z.world * vec4(z.pose.joint[CJ_LFOOT], 1)), fr = vec3(z.world * vec4(z.pose.joint[CJ_RFOOT], 1));   // a planted foot keeps its ground spot (no glide)
+      std::snprintf(line, sizeof line, "%s clip %s speed %.1f sole L %.2f m R %.2f m | L at %.1f %.1f R at %.1f %.1f", nm, z.anim.a >= 0 ? m.clips[z.anim.a].name.c_str() : "-", z.speed, sole[0], sole[1], fl.x, fl.z, fr.x, fr.z);
+      pendingShot = outDir() / nm; T->note(line);
+    }
+    return (shots >= 12 && pendingShot.empty()) || G.t - t0 > 30; });
+  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+}
+
 bool zombiesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; } }
-  if (mode != 1 && mode != 2) return false;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-fighter2") mode = 3; } }
+  if (mode != 1 && mode != 2 && mode != 3) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; T = new MpTest(mode == 2 ? "heavies" : "zombies"); if (mode == 2) buildCapture(app); else build(app); cur = 0; st = 0; }
+  if (!started) { started = true; T = new MpTest(mode == 2 ? "heavies" : mode == 3 ? "fighter2" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else build(app); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

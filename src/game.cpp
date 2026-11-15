@@ -759,7 +759,8 @@ void Game::posesStep(float dt) {
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
     if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
       if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
-      if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale)); }
+      if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
+      aiZombieFeet(*this, s); }
     if (s.flat && !s.alive) {   // squashed: the whole body pressed into a thin, slightly spread layer on the ground, within 0.12 s
       float k = std::min(1.0f, (float)(t - s.diedAt) / 0.12f);
       s.world = glm::translate(mat4(1), s.feet) * glm::scale(mat4(1), vec3(1.0f + 0.25f * k, 1.0f - 0.96f * k, 1.0f + 0.25f * k)) * glm::translate(mat4(1), -s.feet) * s.world;
