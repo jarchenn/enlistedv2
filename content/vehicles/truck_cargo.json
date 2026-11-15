@@ -2,7 +2,7 @@
   "id": "truck_cargo",
   "name": "Opel Blitz cargo truck",
   "faction": "Axis",
-  "identity": "Supplied free-wwii-army-truck-collection-based-on-opel.zip ('all5 together.blend', collection 'cargo truck'): an Opel Blitz based 3 t truck. No author or licence in the archive: the baked model is local-only (git-ignored); clones draw the committed part-built truck_fallback.",
+  "identity": "Supplied free-wwii-army-truck-collection-based-on-opel.zip ('all5 together.blend', collection 'cargo truck'): an Opel Blitz based 3 t truck. Creative Commons per the user (the archive itself names no author or licence variant): the baked model is committed.",
   "car": true,
   "model": {
     "src": "truck_cargo.glb",
@@ -30,7 +30,6 @@
       "wheel_rl": "wheel_rl",
       "wheel_rr": "wheel_rr"
     },
-    "fallbackDir": "truck_fallback",
     "note": "converted by tools/vehicles/convert_vehicles.py opel 'cargo truck' (glass dropped, steering wheel cut out of the body)"
   },
   "rig": {
@@ -159,33 +158,5 @@
     "engineKW": 55,
     "pushEfficiency": 0.5,
     "note": "Opel Blitz ~3.3 t empty plus load; 75 hp"
-  },
-  "fallbackModel": {
-    "src": "truck_fallback.glb",
-    "dir": "truck_fallback",
-    "rot": [
-      0,
-      0,
-      0
-    ],
-    "scale": 1,
-    "maxTex": 64,
-    "groundRoles": [
-      "wheel_fl",
-      "wheel_fr",
-      "wheel_rl",
-      "wheel_rr"
-    ],
-    "nodeParts": {
-      "hull": "hull",
-      "steer": "steer",
-      "windshield": "windshield",
-      "stowage": "stowage",
-      "wheel_fl": "wheel_fl",
-      "wheel_fr": "wheel_fr",
-      "wheel_rl": "wheel_rl",
-      "wheel_rr": "wheel_rr"
-    },
-    "note": "part-built stand-in for all five trucks, made by tools/vehicles/make_fallback.py truck (committed)"
   }
 }

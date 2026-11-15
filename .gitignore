@@ -12,13 +12,3 @@ __pycache__/
 
 # supplied soundtrack: local-only until its licence is known (Backrooms falls back to backrooms.mp3 without it)
 content/audio/ambience/level0.mp3
-
-# VH1: the supplied Willys MB model is CC-BY-NC-ND-4.0 (not redistributable): its bake stays local-only; clones draw the
-# committed part-built fallback (content/vehicles/models/jeep_fallback)
-content/vehicles/models/jeep/
-# VH1: the Opel Blitz truck collection carries no licence: its bakes stay local-only; clones draw truck_fallback
-content/vehicles/models/truck_cargo/
-content/vehicles/models/truck_canopy/
-content/vehicles/models/truck_medical/
-content/vehicles/models/truck_flak/
-content/vehicles/models/truck_kitchen/
