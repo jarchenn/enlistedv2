@@ -1,0 +1,182 @@
+{
+  "id": "humvee",
+  "name": "Humvee (M1114-style)",
+  "faction": "Allied",
+  "identity": "Supplied low-poly-humvee-vehicle.zip (Humvee.fbx + 1K_MilitaryVehicle_TXTR.png, no author or licence in the archive): scaled x1.36 to 4.6 m; the painted-on windows are opened up and the cab furnished by tools/vehicles/convert_vehicles.py humvee (dash with gauges and switch panel, radio stack, drive tunnel with levers, steering wheel, pedals, four bucket seats, grab bar, armrests). The baked model is local-only (git-ignored, licence unknown); without it the committed part-built fallback (models/humvee_fallback) is drawn.",
+  "car": true,
+  "model": {
+    "src": "humvee.glb",
+    "dir": "humvee",
+    "fallbackDir": "humvee_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 1024,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "note": "converted by tools/vehicles/convert_vehicles.py humvee into assets_src/vehicles/humvee.glb first"
+  },
+  "fallbackModel": {
+    "src": "humvee_fallback.glb",
+    "dir": "humvee_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 64,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "note": "part-built stand-in made of boxes and cylinders by tools/vehicles/make_fallback.py humvee (committed)"
+  },
+  "rig": {
+    "driverEyeFromSteer": [
+      0,
+      0.24,
+      -0.56
+    ],
+    "steerAxis": [
+      0,
+      0.498,
+      -0.867
+    ],
+    "engine": [
+      0,
+      1.0,
+      1.7
+    ],
+    "exhausts": [
+      [
+        -0.6,
+        0.45,
+        -2.3
+      ]
+    ],
+    "exits": [
+      [
+        1.65,
+        0,
+        0.45
+      ],
+      [
+        -1.65,
+        0,
+        0.45
+      ],
+      [
+        1.65,
+        0,
+        -0.35
+      ],
+      [
+        -1.65,
+        0,
+        -0.35
+      ],
+      [
+        0,
+        0,
+        -3.0
+      ],
+      [
+        0,
+        0,
+        3.0
+      ]
+    ],
+    "note": "driver's eye = steering wheel centre + driverEyeFromSteer (left-hand drive, eye ~1.55 m under the 1.77 m roof); exits by the four doors, behind, ahead"
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          1.02,
+          0.03
+        ],
+        "h": [
+          0.98,
+          0.75,
+          2.32
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        1.02,
+        0.03
+      ],
+      "h": [
+        0.98,
+        0.75,
+        2.32
+      ]
+    },
+    "note": "one body box in hull space from the baked hull bounds (antenna left out)"
+  },
+  "carDrive": {
+    "maxSteerDeg": 30,
+    "steerRate": 1.8,
+    "steerTurns": 3.0,
+    "handbrakeDecel": 7.0,
+    "suspensionTravel": 0.2,
+    "runOverDamage": 12,
+    "note": "steerRate: lock fractions per second (the input is smoothed); steerTurns: steering-wheel turns lock to lock; runOverDamage: soldier damage per m/s of impact speed"
+  },
+  "mobility": {
+    "maxForward": 19.5,
+    "maxReverse": 5.0,
+    "accel": 3.0,
+    "brake": 7.0,
+    "coast": 0.7,
+    "maxSlopeDeg": 35,
+    "offroadMul": 0.75,
+    "halfSize": [
+      0.98,
+      0.75,
+      2.32
+    ],
+    "clearance": 0.4,
+    "note": "gameplay profile: 70 km/h on roads, 53 km/h off-road"
+  },
+  "durability": {
+    "frontHitsSurvived": 2,
+    "sideHitsSurvived": 2,
+    "smallArmsDamage": 1
+  },
+  "ramming": {
+    "massKg": 2700,
+    "engineKW": 140,
+    "pushEfficiency": 0.55,
+    "note": "HMMWV ~2,400-2,700 kg, 6.5 L diesel ~190 hp"
+  }
+}
