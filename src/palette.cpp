@@ -15,6 +15,7 @@ std::string assetFootText(const AssetDef* a) {
 
 // UI1: the palette's seven groups over the assets' own categories (unknown categories fall into Scenery)
 std::string assetGroup(const std::string& c) {
+  if (c.rfind("Modern", 0) == 0) return "Modern";   // MOD1: every "Modern..." category in one group of its own
   if (c == "Large buildings" || c == "Landmarks") return "Large Buildings";
   if (c == "Small buildings" || c == "Houses") return "Small Buildings";
   if (c == "Bunkers" || c == "Atlantic Wall" || c == "Defences" || c == "Field guns" || c == "Ordnance" || c == "Beach obstacles") return "Bunkers";
@@ -26,7 +27,7 @@ std::string assetGroup(const std::string& c) {
 
 const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* active) {
   const AssetDef* picked = nullptr;
-  const std::vector<std::string> cats = {"All", "Scenery", "Large Buildings", "Small Buildings", "Bunkers", "Ruins", "Vehicles", "Terrain"};
+  const std::vector<std::string> cats = {"All", "Scenery", "Large Buildings", "Small Buildings", "Bunkers", "Ruins", "Vehicles", "Terrain", "Modern"};
   extern bool lineReplacedPiece(const std::string&);
   auto hidden = [](const AssetDef* a) { return (a->raw.is_object() && a->raw.value("hidden", false)) || lineReplacedPiece(a->id)   // LN2: pieces now drawn as lines   // LN1: lines and the pieces they replace
                                                || a->category == "Water"; };   // UI1: ponds, puddles and streams come from the water lasso
@@ -48,7 +49,7 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
   int n = 0;
   for (auto& a : app.lib.assets) {
     if (hidden(a.get())) continue;
-    if (st.category > 0 && assetGroup(a->category) != cats[st.category]) continue;
+    if (st.category > 0 && (a->id.rfind("furn_mod_", 0) == 0 ? std::string("Modern") : assetGroup(a->category)) != cats[st.category]) continue;   // modern furniture sits with the modern set
     if (st.buildingFilters && st.enterableOnly && !a->enterable) continue;
     if (st.buildingFilters && a->floors < st.minFloors) continue;
     std::string lname = a->name; std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
