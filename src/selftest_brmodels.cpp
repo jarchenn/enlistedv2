@@ -100,6 +100,23 @@ void buildWorn(App&) {
       shot("brw_" + tg + "_world_" + vw[k], [off](App& a) { botYaw = a.eyeYaw + off; }, 0.5f);
     }
   }
+  // first person in a Battle Royale match wearing the full kit (none of it may show), then the death camera (it shows)
+  push("fp br", [](App&, float) { holdBot = false; gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return true; });
+  shot("brw_fp_walk_nokit", [](App& a) { a.eyePitch = -20; a.scriptedInput = ExploreInput{}; a.scriptedInput.move = vec2(0, 1); }, 1.0f);
+  push("fp kit", [](App&, float) {
+    if (Soldier* L = gGame->local()) { Kit& k = *kitOf(L->slot); k.helmet = 3; k.vest = 3; k.backpack = 2; k.helmetDur = 230; k.vestDur = 250; }
+    return true; });
+  shot("brw_fp_level", [](App& a) { a.eyePitch = 0; a.scriptedInput = ExploreInput{}; }, 1.0f);
+  shot("brw_fp_down", [](App& a) { a.eyePitch = -70; }, 0.6f);
+  shot("brw_fp_walk", [](App& a) { a.eyePitch = -20; a.scriptedInput.move = vec2(0, 1); }, 1.0f);
+  shot("brw_death_crate", [](App& a) {   // BR5's crate by a body: placed 2 m ahead (the generated br_death_crate asset)
+    a.scriptedInput = ExploreInput{}; a.eyePitch = -25;
+    if (Soldier* L = gGame->local()) { vec3 f = App::forward(a.eyeYaw, 0); LootCase c; c.pos = L->feet + glm::normalize(vec3(f.x, 0, f.z)) * 2.0f; c.pos.y = a.terrain.height(c.pos.x, c.pos.z); c.yaw = a.eyeYaw + 30; { FloorItem it; it.id = "br_bandage"; c.items.push_back(it); } lootCases().push_back(c); }
+  }, 0.8f);
+  shot("brw_death_cam", [](App& a) {
+    a.scriptedInput = ExploreInput{};
+    if (Soldier* L = gGame->local()) { L->protectUntil = -1; gGame->killSoldier(L->slot, -1, vec3(0, 0, 1)); }
+  }, 2.5f);
   push("done", [](App& a, float t) { if (t < 0.5f) return false; a.scriptedInput = ExploreInput{}; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 
