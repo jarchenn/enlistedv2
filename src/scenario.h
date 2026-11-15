@@ -16,8 +16,10 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 // soldier is its own team, first to the kill cap wins. TDM: two teams (team 0 = the Defender role, team 1 = Attacker),
 // unlimited respawns, the first team to the kill cap wins. The role stays the team's identity in TDM, so role-based
 // code keeps working; friend / foe is always the roster team (Game::hostile).
-enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2 };
-inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : "Assault"; }
+// BR1 Battle royale (royale.h): every soldier its own team like Solo, one life, last alive wins; drop, storm.
+enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3 };
+inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle royale" : "Assault"; }
+inline bool ffaMode(GameMode m) { return m == GameMode::Solo || m == GameMode::BattleRoyale; }   // every soldier its own team
 enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type
 constexpr int kAiTypeCount = 9;
 inline const char* aiTypeName(AiType t) {
@@ -102,6 +104,8 @@ struct ScenarioRules {
   GameMode mode = GameMode::Assault;
   int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills
   int soloPlayers = 8;            // Solo: combatants in all (humans + AI)
+  int royalePlayers = 30;         // BR1 battle royale: combatants in all (humans + AI), 10..100
+  int lootPool = 0;               // BR1 battle royale floor loot: 0 WW2, 1 Modern (read by the loot spawner, BR2)
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: the troll share of the old AI type Heavies; unused since Brutes / Spiders are their own types (kept in the rules JSON)
   int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]

@@ -397,7 +397,8 @@ void MpUi::setupWindow(App& app) {
     ImGui::SeparatorText("Game mode");
     ImGui::RadioButton("Solo (free-for-all)", &m, (int)GameMode::Solo); ImGui::SameLine();
     ImGui::RadioButton("Team Deathmatch", &m, (int)GameMode::TDM); ImGui::SameLine();
-    ImGui::RadioButton("Assault (objectives)", &m, (int)GameMode::Assault);
+    ImGui::RadioButton("Assault (objectives)", &m, (int)GameMode::Assault); ImGui::SameLine();
+    ImGui::RadioButton("Battle royale", &m, (int)GameMode::BattleRoyale);
     rules.mode = (GameMode)m;
   }
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
@@ -411,7 +412,14 @@ void MpUi::setupWindow(App& app) {
     }
     ImGui::Unindent(); ImGui::PopID();
   };
-  if (rules.mode != GameMode::Assault) {
+  if (rules.mode == GameMode::BattleRoyale) {   // BR1: one life each, last one alive wins (royale.cpp)
+    ImGui::SliderInt("Players in all (you + AI)", &rules.royalePlayers, std::max(10, humansHere), 100);
+    ImGui::Text("Loot:"); ImGui::SameLine(); ImGui::RadioButton("WW2 weapons", &rules.lootPool, 0); ImGui::SameLine(); ImGui::RadioButton("Modern weapons", &rules.lootPool, 1);
+    aiTypes("AI types:", rules.aiTypes[0]); rules.aiTypes[1] = rules.aiTypes[0];
+    ImGui::TextDisabled("Everyone boards a bomber and jumps (Space; Space again or 60 m up opens the parachute). No respawns:");
+    ImGui::TextDisabled("the last one alive wins. Four storm circles close in; outside them you lose 1 / 2 / 4 / 8 health a second.");
+    aiDifficultyCombo();
+  } else if (rules.mode != GameMode::Assault) {
     ImGui::SliderInt("Kill cap (wins the match)", &rules.killCap, 5, 150);
     if (rules.mode == GameMode::Solo) {
       ImGui::SliderInt("Players in all (humans + AI)", &rules.soloPlayers, std::max(2, humansHere), std::min(ScenarioRules::kMaxCombatants, ScenarioRules::kMaxAI + humansHere));
@@ -638,10 +646,11 @@ void Game::drawHud() {
   if (match.phase == MatchPhase::Ended) {
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.45f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::Begin("Match result", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
-    bool won = match.mode() == GameMode::Solo ? (L && match.winnerSlot == L->slot)
+    bool won = ffaMode(match.mode()) ? (L && match.winnerSlot == L->slot)
              : (match.winner == Winner::Defenders) == (myRole == CombatRole::Defender);   // TDM: team 0 = Defender role
     ImGui::TextColored(won ? ImVec4(0.6f, 0.95f, 0.6f, 1) : ImVec4(1, 0.5f, 0.45f, 1), "%s", won ? "VICTORY" : "DEFEAT");
     ImGui::Text("%s after %.0f s.", match.result.c_str(), match.time);
+    if (match.mode() == GameMode::BattleRoyale && L && match.slots[L->slot].place > 0) ImGui::Text("You placed #%d of %zu.", match.slots[L->slot].place, match.slots.size());   // BR1
     if (assault) {
       int caps = 0; for (auto& o : match.obj) caps += o.state == ObjState::Captured;
       ImGui::Text("Objectives captured: %d / %zu   Attacker lives left: %d", caps, match.obj.size(), match.unusedAttackerLives());
