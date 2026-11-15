@@ -44,6 +44,8 @@ struct WeaponDef {
   const std::vector<int>* worldParts() const { return modelLod ? modelPartsLod : modelParts; }
   fs::path file;                        // source JSON (calibration panel saves back into it)
   vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)
+  vec3 coverPivot{0, 0.065f, 0.58f}, bipodPivot{0, 0.02f, 1.1f};   // MG9 belt guns: top-cover hinge and bipod hinge (weapon space, JSON "pivots")
+  float coverDeg = -75, bipodDeg = -80;                              // rotation about +x when open / deployed
   float bulletMass = 10;                // grams (penetration energy)
   std::vector<std::string> modes;       // fire-selector modes, first is the default ("auto", "semi")
   std::string deploys;                  // heavy weapon: station asset it deploys as

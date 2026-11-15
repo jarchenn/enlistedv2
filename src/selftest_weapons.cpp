@@ -21,6 +21,7 @@ int shotsAtStart = 0;
 WeaponState& S(App& a, const char* id) { return a.wstate[id]; }
 const WeaponDef& D(App& a) { return *a.weaponDefs[a.activeWeapon]; }
 int total(App& a, const char* id) { auto& s = S(a, id); return s.loaded + s.reserveRounds(); }
+uint64_t mg9Gun = 0;   // MG9 dev look: the placed embrasure MG 42
 void face(App& a, vec3 target) {
   vec3 e = a.eyePos();
   a.eyeYaw = degrees(std::atan2(-(target.x - e.x), -(target.z - e.z)));
@@ -76,6 +77,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     KP = app.placeInstance(app.lib.find("crate_pak40_he"), vec3(-2.5f, 0, 2.0f), 0.0f);
     M2 = app.placeInstance(app.lib.find("gun_m2hb_tripod"), vec3(5.0f, 0, 3.5f), 180.0f);
     if (std::getenv("NMK_MG_LOOK")) app.placeInstance(app.lib.find("rack_modern"), vec3(-1.5f, 0, -3.0f), 20.0f);   // MG2 dev look: the modern weapons case
+    if (std::getenv("NMK_MG9")) mg9Gun = app.placeInstance(app.lib.find("gun_mg42_embrasure"), vec3(4.0f, 0, -6.0f), 180.0f);   // MG9 dev look: the emplaced MG 42
     check(F && K && KP && M2, "range: farmhouse target wall at 40 m, mixed crate, PaK crate, M2HB on tripod");
     app.doc.start = {true, vec3(0, app.terrain.height(0, 0), 0), 0};
     check(app.enterExplore(), "F5"); app.useScripted = true;
@@ -599,6 +601,31 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
           return false; });
       }
     }
+    // ---- MG9 dev look (NMK_MG9): the MG 42 crouched on its bipod (hip, aimed, and the FA2 side view of the rig), then the
+    // embrasure mount from beside and from the gunner's place (selftest_out/mg9_*.png)
+    if (std::getenv("NMK_MG9")) {
+      push("mg9 bipod", [this](App& a, float t) {
+        static int ph; const char* id = "mg42"; WeaponState& s = a.wstate[id]; auto& in = a.scriptedInput;
+        if (t == 0) { ph = 0; std::string m; a.equipWeapon(a.weaponIndex(id), m); in = ExploreInput{}; a.eyeYaw = 0; a.eyePitch = 0; s.loaded = 50; s.reload = 0; return false; }
+        in.crouch = true; a.eyeYaw = 0; a.eyePitch = 0;
+        if (ph == 0 && t > 1.4f) { ph = 1; shotQueue.push_back("mg9_mg42_bipod_hip"); a.vmDebugYaw = 70; }
+        if (ph == 1 && t > 1.6f) { ph = 2; shotQueue.push_back("mg9_mg42_bipod_side"); }
+        if (ph == 2 && t > 1.8f) { ph = 3; a.vmDebugYaw = 0; in.aim = true; }
+        if (ph == 3 && t > 3.2f) { ph = 4; shotQueue.push_back("mg9_mg42_bipod_ads"); }
+        if (ph == 4 && t > 3.4f) { in = ExploreInput{}; return true; }
+        return false; });
+      push("mg9 emplacement", [this](App& a, float t) {
+        static int ph; auto it = a.rt.find(mg9Gun);
+        if (it == a.rt.end()) { logf("[mg9] no emplacement"); return true; }
+        vec3 g(4.0f, a.terrain.height(4.0f, -6.0f), -6.0f);   // where the range placed it
+        if (t == 0) { ph = 0; a.scriptedInput = ExploreInput{}; Physics::setCharacterPos(g + vec3(2.2f, 0, 0.6f)); return false; }
+        if (ph == 0) face(a, g + vec3(0, 1.3f, -0.2f));
+        if (ph == 0 && t > 1.2f) { ph = 1; shotQueue.push_back("mg9_emplacement_side"); }
+        if (ph == 1 && t > 1.4f) { ph = 2; logf("[mg9] crew the mount: %s", a.occupyStation(mg9Gun, ST_GUNNER) ? "ok" : "REFUSED"); }
+        if (ph == 2 && t > 3.0f) { ph = 3; shotQueue.push_back("mg9_emplacement_gunner"); }
+        if (ph == 3 && t > 3.3f) { a.leaveStation(); return true; }
+        return false; });
+    }
     // ---- MG8 dev point-of-impact check (NMK_MG_POI=id,id,...): 25 m and 100 m from the farmhouse wall, aimed (ADS, no
     // dispersion, sway or breathing), one round: the impact against the point under the screen centre (log [mg8poi])
     if (const char* poi = std::getenv("NMK_MG_POI")) {
@@ -823,7 +850,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     push("flame match end", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
   }
   stage = 701;
-  if (std::getenv("NMK_MG_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("mg1", 0) != 0 && s.name.rfind("mg2", 0) != 0 && s.name.rfind("mg8", 0) != 0; }), wseq.end());   // dev: just the modern-gun steps
+  if (std::getenv("NMK_MG_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("mg1", 0) != 0 && s.name.rfind("mg2", 0) != 0 && s.name.rfind("mg8", 0) != 0 && s.name.rfind("mg9", 0) != 0; }), wseq.end());   // dev: just the modern-gun steps
   if (std::getenv("NMK_FT1_ONLY") && wt == 0 && wcur == 0) wseq.erase(std::remove_if(wseq.begin(), wseq.end(), [](const Step& s) { return s.name.rfind("flame", 0) != 0; }), wseq.end());   // dev: just the flamethrower steps
   if (wcur >= wseq.size()) { finish(app); return; }
   if (wt == 0) logf("[selftest] step: %s", wseq[wcur].name.c_str());
