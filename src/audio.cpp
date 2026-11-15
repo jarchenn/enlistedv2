@@ -278,7 +278,8 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/semi_rifle.mp3", false, {"modern_sniper_semi", "modern_ak", "modern_fal", "modern_scar", "fg42", "m1918a2_bar"}},
     {"guns/auto_rifle_burst.mp3", true, {"modern_mp7", "modern_scorpion"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
-    {"guns/rifle_bolt.mp3", false, {"kar98k", "kar98k_zf39", "modern_sniper_bolt", "m1_garand", "m1c_garand"}},
+    {"guns/rifle_bolt.mp3", false, {"kar98k", "m1_garand", "m1c_garand"}},
+    {"guns/sniper_heavy.mp3", false, {"kar98k_zf39", "modern_sniper_bolt", "modern_sniper_50"}},
     {"guns/assault_rifle.mp3", true, {"stg44"}},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
@@ -301,7 +302,7 @@ int Audio::loadCustom(const fs::path& dir) {
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s));
     for (const char* id : g.ids) { p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far"); }
   }
-  for (const char* id : {"shot_kar98k", "shot_kar98k_zf39"}) if (auto it = p->events.find(id); it != p->events.end()) it->second.gain = 1.5f;   // louder (user request)
+  for (const char* id : {"shot_kar98k"}) if (auto it = p->events.find(id); it != p->events.end()) it->second.gain = 1.5f;   // louder (user request)
   // launchers, cannon and explosions: whole recordings from their first loud moment (up to 6 s), far layers dropped
   struct FxSet { const char* file; std::vector<const char*> events; float from = 0; };   // from: seconds into the recording to start at
   const FxSet fxs[] = {
@@ -332,7 +333,7 @@ int Audio::loadCustom(const fs::path& dir) {
       // shot and one mid-track shell-loading sound per shell (also the single-round loading sound of other guns)
     struct RSet { const char* file; std::vector<const char*> ids; };
     const RSet rs[] = {
-      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_lmg", "mg42", "m2hb_carry"}},
+      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_sniper_50", "modern_lmg", "mg42", "m2hb_carry"}},
       {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k", "kar98k_zf39"}},
       {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2"}},
     };

@@ -179,3 +179,4 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - Spider: giant-spider-walking-504034 (dragon-studio); spider-attack-1/2/3 (yodguard). Supplied by the user; licences to be confirmed.
 - Troll: large-monster-attack-195713 (daviddumaisaudio), troll-idle-noises-29925 (freesound_community). Supplied by the user; licences to be confirmed.
 - Reload sounds (content/audio/custom/reload): reloading-weapon1, stalker-gun-reload, ak-74-eft-reload-full, 12g-pumpfull, shotgun-reload-sfx-36524 (freesound_community). Supplied by the user; sources and licences to be confirmed.
+- Sniper shot: heavy-sniper-shot.mp3. Supplied by the user; source and licence to be confirmed.
