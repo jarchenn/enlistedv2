@@ -261,7 +261,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   else vault.held += dt;
   if (mantle.active) { stepMantle(dt); return; }
   if (!occupied && stepSwim(dt, in, before)) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }   // swim.cpp: chest-deep water
-  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && tryStartMantle(before.pos, eyeYaw)) { vault.latch = true; spendStamina(move.staminaJump); return; }   // a climb costs like a jump (never refused: trench exits)
+  if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartWindowVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; spendStamina(move.staminaJump); return; }   // a climb costs like a jump (never refused: trench exits)
   bool rising = riseT < riseDur;
   bool sprinting = in.sprint && adsT < 0.5f && !lowered && !rising && stamina > 1.0f;   // Shift while aiming holds the breath; no sprint while lowered, getting up or out of stamina
   float speed = pose == Physics::PRONE ? move.prone : pose == Physics::CROUCH ? move.crouch : sprinting ? move.sprint : move.run;

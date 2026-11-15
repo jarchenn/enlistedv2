@@ -457,6 +457,23 @@ bool Physics::shapeFitsAt(int posture, vec3 feet, bool withTerrain) {
   return !col.HadHit();
 }
 
+namespace {
+class SkipUD final : public BodyFilter {
+public:
+  const std::function<bool(uint64_t)>* skip = nullptr;
+  bool ShouldCollideLocked(const Body& b) const override { return !(*skip)(b.GetUserData()); }
+};
+}
+bool Physics::shapeFitsAtSkip(int posture, vec3 feet, const std::function<bool(uint64_t)>& skip) {
+  auto& c = W->character; if (!c) return false;
+  const Shape* sh = posture == PRONE ? W->proneShape.GetPtr() : posture == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
+  CollideShapeSettings cs; cs.mMaxSeparationDistance = 0; cs.mActiveEdgeMode = EActiveEdgeMode::CollideOnlyWithActive;
+  AnyHitCollisionCollector<CollideShapeCollector> col;
+  SkipUD filt; filt.skip = &skip;
+  W->sys->GetNarrowPhaseQuery().CollideShape(sh, Vec3::sReplicate(1.0f), RMat44::sTranslation(jr(feet) + Vec3(0, 0.03f, 0) + sh->GetCenterOfMass()), cs, RVec3::sZero(), col, {}, {}, filt);
+  return !col.HadHit();
+}
+
 uint64_t Physics::shapeHitUD(int posture, vec3 feet, bool withTerrain) {
   auto& c = W->character; if (!c) return 0;
   const Shape* sh = posture == PRONE ? W->proneShape.GetPtr() : posture == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
