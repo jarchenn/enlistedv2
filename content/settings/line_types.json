@@ -266,6 +266,165 @@
           ]
         }
       }
+    },
+    {
+      "id": "mod_road_2lane", "clearGrass": 7.8,
+      "name": "Road, 2-lane (modern)",
+      "asset": "line_mod_road_2lane",
+      "builder": "bays",
+      "spacing": 6,
+      "pieces": [
+        [
+          "mod_road_2lane_bay",
+          0.6
+        ],
+        [
+          "mod_road_2lane_bay_b",
+          0.25
+        ],
+        [
+          "mod_road_2lane_bay_c",
+          0.15
+        ]
+      ],
+      "params": {}
+    },
+    {
+      "id": "mod_road_4lane", "clearGrass": 16.3,
+      "name": "Road, dual carriageway (modern)",
+      "asset": "line_mod_road_4lane",
+      "builder": "bays",
+      "spacing": 6,
+      "pieces": [
+        [
+          "mod_road_4lane_bay",
+          0.6
+        ],
+        [
+          "mod_road_4lane_bay_b",
+          0.25
+        ],
+        [
+          "mod_road_4lane_bay_c",
+          0.15
+        ]
+      ],
+      "params": {}
+    },
+    {
+      "id": "mod_sidewalk", "clearGrass": 2.5,
+      "name": "Sidewalk (concrete flags)",
+      "asset": "line_mod_sidewalk",
+      "builder": "bays",
+      "spacing": 2.5,
+      "pieces": [
+        [
+          "mod_sidewalk_bay",
+          0.7
+        ],
+        [
+          "mod_sidewalk_bay_b",
+          0.12
+        ],
+        [
+          "mod_sidewalk_bay_c",
+          0.18
+        ]
+      ],
+      "params": {}
+    },
+    {
+      "id": "mod_fence_white",
+      "name": "White timber fence",
+      "asset": "line_mod_fence_white",
+      "builder": "bays",
+      "spacing": 2.4,
+      "pieces": [
+        [
+          "mod_fence_white_bay",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ]
+    },
+    {
+      "id": "mod_fence_white_picket",
+      "name": "White picket fence",
+      "asset": "line_mod_fence_white_picket",
+      "builder": "bays",
+      "spacing": 2.4,
+      "pieces": [
+        [
+          "mod_fence_white_picket_bay",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ]
+    },
+    {
+      "id": "mod_hedge_modern",
+      "name": "Box hedge, clipped (1.2 m)",
+      "asset": "line_mod_hedge_modern",
+      "builder": "bays",
+      "spacing": 2,
+      "pieces": [
+        [
+          "mod_hedge_box_bay",
+          0.6
+        ],
+        [
+          "mod_hedge_box_bay_b",
+          0.4
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ]
+    },
+    {
+      "id": "mod_hedge_modern_tall",
+      "name": "Box hedge, clipped (1.8 m)",
+      "asset": "line_mod_hedge_modern_tall",
+      "builder": "bays",
+      "spacing": 2,
+      "pieces": [
+        [
+          "mod_hedge_box_tall_bay",
+          0.6
+        ],
+        [
+          "mod_hedge_box_tall_bay_b",
+          0.4
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ]
+    },
+    {
+      "id": "mod_chainlink",
+      "name": "Chain-link fence (2 m)",
+      "asset": "line_mod_chainlink",
+      "builder": "bays",
+      "spacing": 3,
+      "pieces": [
+        [
+          "mod_chainlink_bay",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "field_gate"
+      ]
     }
   ]
 }

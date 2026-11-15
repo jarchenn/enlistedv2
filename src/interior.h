@@ -60,6 +60,9 @@ enum RoomType { ROOM_KITCHEN = 0, ROOM_SITTING, ROOM_BEDROOM, ROOM_UTILITY, ROOM
                 ROOM_CHURCH, ROOM_BARN, ROOM_CLASS, ROOM_OFFICE, ROOM_TAVERN, ROOM_RUIN, ROOM_ATTIC, ROOM_CELLAR,
                 // GX6: military rooms (an asset's "roomTypes" names them per nav room; tools/catalog_gx_buildings.mjs)
                 ROOM_MIL_COMMAND, ROOM_MIL_RADIO, ROOM_MIL_QUARTERS, ROOM_MIL_AMMO, ROOM_MIL_FIGHTING, ROOM_MIL_PLANT, ROOM_MIL_PASSAGE,
+                // MOD1: modern rooms (shops, restaurants, hospitals, gyms, lobbies) and the modern variants of the house rooms
+                ROOM_SHOP, ROOM_DINING, ROOM_PROKITCHEN, ROOM_WARD, ROOM_GYM, ROOM_LOBBY,
+                ROOM_KITCHEN_M, ROOM_SITTING_M, ROOM_BEDROOM_M, ROOM_OFFICE_M, ROOM_CLASS_M, ROOM_BATH_M,
                 ROOM_TYPES };
 const char* roomTypeName(int t);
 const char* roomTypeKey(int t);   // GX2: the room type's key in content/settings/room_dressing.json ("kitchen", "attic", ...)

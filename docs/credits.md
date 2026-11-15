@@ -180,3 +180,7 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - Troll: large-monster-attack-195713 (daviddumaisaudio), troll-idle-noises-29925 (freesound_community). Supplied by the user; licences to be confirmed.
 - Reload sounds (content/audio/custom/reload): reloading-weapon1, stalker-gun-reload, ak-74-eft-reload-full, 12g-pumpfull, shotgun-reload-sfx-36524 (freesound_community). Supplied by the user; sources and licences to be confirmed.
 - Sniper shot: heavy-sniper-shot.mp3. Supplied by the user; source and licence to be confirmed.
+- Modern models (MOD1, tools/catalog_modern_models.mjs, baked into content/assets/models/mod_*):
+  "Destroyed Car 03 / Backrooms Car (Gameready ver)" and "Burned-out Cars" by Renafox (https://sketchfab.com/kryik1023), CC-BY-4.0;
+  "Ammo Box" by murilojones (https://sketchfab.com/murilojones), CC-BY-4.0. Supplied by the user.
+  "weathered concrete barriers" (an FBX pack supplied by the user, licence not stated): converted locally, the bake is git-ignored.

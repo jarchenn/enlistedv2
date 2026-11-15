@@ -1385,6 +1385,13 @@ void main(){
         c *= 0.92 + 0.12 * vnL(vec3(q * 40.0, id.y), 40.0);
         c = mix(c, c * 0.72 + vec3(0.02), joint);
         hh = (1.0 - joint) * 0.9 + 0.1 * fbmL(vec3(q * 6.0, 2.0), 6.0); r = mix(0.6 - 0.15 * traffic, 0.95, joint); aoF = 1.0 - 0.3 * joint;
+      } else if (code == 5) {   // MOD1: large-format porcelain tiles, 60 cm, thin light grout (modern buildings)
+        vec2 tid = floor(q / 0.6), tf = fract(q / 0.6);
+        float e = min(min(tf.x, 1.0 - tf.x), min(tf.y, 1.0 - tf.y)) * 0.6;
+        float joint = 1.0 - smoothstep(0.0015, 0.004, e);
+        c = vec3(0.58, 0.57, 0.54) * (0.95 + 0.07 * hash12(tid + s)) * (0.96 + 0.06 * fbmL(vec3(q * 1.2, tid.x), 1.2));
+        c = mix(c, vec3(0.42, 0.41, 0.39), joint);
+        hh = (1.0 - joint) * 0.9; r = mix(0.28 + 0.1 * traffic, 0.7, joint); aoF = 1.0 - 0.15 * joint;
       } else if (code == 4) {   // beaten earth / lime screed (workshop, store)
         float n1 = fbmL(vec3(q * 1.5, s), 1.5), n2 = vnL(vec3(q * 30.0, 3.0), 30.0);
         c = vec3(0.3, 0.27, 0.22) * (0.8 + 0.3 * n1) * (0.92 + 0.12 * n2);
