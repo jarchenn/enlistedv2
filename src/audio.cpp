@@ -168,6 +168,8 @@ bool Audio::init() {
   { Buf b = mk(0.25f); addClick(b, 0.0f, 0.03f, 2800, 0.7f, r); normalize(b, 0.5f); p->bufs["clip_in"] = b; }
   p->bufs["rocket_in"] = p->bufs["clip_in"]; p->bufs["rocket_ready"] = p->bufs["bolt"];   // launcher loading: procedural (no bank foley)
   { Buf b = mk(0.8f); addClang(b, 0.0f, 900, 0.3f, 0.08f, r); addClick(b, 0.3f, 0.05f, 1500, 0.7f, r); addClang(b, 0.55f, 1100, 0.35f, 0.08f, r); normalize(b, 0.6f); p->bufs["belt"] = b; }
+  // the synthesized weapon-handling sounds are off (user request): reloads, bolts, clicks play only where a recording exists
+  for (const char* n : {"bolt", "mag_out", "mag_in", "clip_in", "rocket_in", "rocket_ready", "belt", "click", "ping", "breech"}) p->bufs.erase(n);
   // ambience loops (started once; never restarted on mode changes)
   p->windBuf = makeWind(14.0f, r, 0.02f, 1.0f);
   p->leafBuf = makeWind(9.0f, r, 0.35f, 2.0f);
