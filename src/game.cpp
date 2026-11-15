@@ -13,7 +13,7 @@
 #include "crumb.h"
 #include "enemy_types.h"
 #include "flame.h"
-#include "ai_hooks.h"
+#include "ai_hooks.h"
 #include "royale.h"
 #include "loot.h"   // BR2 Battle Royale loot
 void netInterpolate(Game& g, double t);

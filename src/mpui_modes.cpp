@@ -1,7 +1,7 @@
 // G1: Solo / Team Deathmatch HUD - the persistent mode banner, the scoreboard (held Tab and the end screen).
 #include "game.h"
 #include "app.h"
-#include "mpui.h"
+#include "mpui.h"
 #include "royale.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <imgui.h>
