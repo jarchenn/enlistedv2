@@ -1,7 +1,8 @@
-// VH1 --capture-jeep: no suite, a look at the three jeep types (selftest_out/jeep_*.png, frames with the HUD) and a
-// few logged numbers: the three placed in Creative, the E prompt and the driver's seat (view through the windshield),
-// W and then D held (speed, smoothed steering, the wheel turned, the front wheels steered), outside views of the
-// steered car, the stripped variant and the pintle MG station (Ctrl), and the off-road top speed.
+// VH1 --capture-jeep: no suite, a look at the drivable vehicles (selftest_out/vehicles_*.png, frames with the HUD) and a
+// few logged numbers. The seven types are placed in a row in Creative (two overview frames); then each in turn is
+// entered through its E prompt from the driver's door: the driver's view through the windshield, W held then D held
+// (speed, smoothed steering, the wheel turned), handbrake to a stop, out again; for the first jeep and the cargo truck
+// an outside frame of the steered front wheels.
 #include "selftest.h"
 #include <functional>
 #include <cstdarg>
@@ -10,95 +11,78 @@ namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> seq; size_t cur = 0; float st = 0, total = 0;
 int mode = -1; bool started = false;
-uint64_t J[3] = {0, 0, 0};
+const char* kIds[] = {"car_jeep_willys", "car_jeep_ww2", "car_truck_cargo", "car_truck_canopy", "car_truck_medical", "car_truck_flak", "car_truck_kitchen"};
+const int kN = 7;
+uint64_t J[kN] = {};
 fs::path outDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 void push(const std::string& n, std::function<bool(App&, float)> f) { seq.push_back({n, f}); }
 void lookAtP(App& a, vec3 p) { vec3 e = a.eyePos(); a.eyeYaw = degrees(std::atan2(-(p.x - e.x), -(p.z - e.z))); a.eyePitch = degrees(std::atan2(p.y - e.y, glm::length(vec2(p.x - e.x, p.z - e.z)))); }
 void standAt(App& a, vec3 p) { Physics::setCharacterPos(vec3(p.x, a.terrain.height(p.x, p.z), p.z)); }
-void shot(App& a, const char* name) { a.uiShot = outDir() / name; }
-void note(App& a, const char* fmt, ...) { char b[400]; va_list v; va_start(v, fmt); std::vsnprintf(b, sizeof b, fmt, v); va_end(v); (void)a; logf("[jeep] %s", b); }
+void shot(App& a, const std::string& name) { a.uiShot = outDir() / ("vehicles_" + name + ".png"); }
+void note(const char* fmt, ...) { char b[400]; va_list v; va_start(v, fmt); std::vsnprintf(b, sizeof b, fmt, v); va_end(v); logf("[vehicles] %s", b); }
 TankRT& T(App& a, int k) { return *a.tanks.get(J[k]); }
 std::set<long> marks;   // one-shot time marks (step index, ms)
 bool at(float t, float m) { long key = (long)cur * 100000 + std::lround(m * 1000); if (t >= m && !marks.count(key)) { marks.insert(key); return true; } return false; }
+std::string tag(App& a, int k) { return std::to_string(k + 1) + "_" + T(a, k).def->id; }
 
 void build(App&) {
   push("place", [](App& a, float t) {
     if (t == 0) {
-      a.newMap(*a.findTemplate("blank_slate"), "Jeep capture");
-      const char* ids[3] = {"car_jeep_willys", "car_jeep_willys_open", "car_jeep_willys_mg"};
-      for (int k = 0; k < 3; ++k) {
-        const AssetDef* as = a.lib.find(ids[k]);
-        if (!as) { note(a, "FAIL: no asset %s", ids[k]); return true; }
-        vec3 p((k - 1) * 4.5f, 0, 0); p.y = a.terrain.height(p.x, p.z);
+      a.newMap(*a.findTemplate("blank_slate"), "Vehicle capture");
+      float x = 0;
+      for (int k = 0; k < kN; ++k) {
+        const AssetDef* as = a.lib.find(kIds[k]);
+        if (!as) { note("FAIL: no asset %s", kIds[k]); return true; }
+        float w = as->bmax.x - as->bmin.x;
+        x -= w * 0.5f + 1.6f; vec3 p(x, 0, -9.0f * k); x -= w * 0.5f + 1.6f;   // staggered back: each one drives off ahead and to the right, clear of the rest
+        p.y = a.terrain.height(p.x, p.z);
         J[k] = a.placeInstance(as, p, 0);
       }
       a.syncRuntime(); a.tanks.sync(a);
-      for (int k = 0; k < 3; ++k) { TankRT* r = a.tanks.get(J[k]); note(a, "type %d: %s %s", k + 1, r && r->def ? r->def->id.c_str() : "-", r && r->def ? r->def->name.c_str() : "missing"); }
-      a.camPos = vec3(-7, 3.2f, 8.5f); a.camYaw = -35; a.camPitch = -14;
+      for (int k = 0; k < kN; ++k) {
+        TankRT* r = a.tanks.get(J[k]);
+        if (!r || !r->def) { note("FAIL: type %d has no vehicle state", k + 1); continue; }
+        const TankDef& d = *r->def;
+        note("type %d: %s '%s' model %s, %zu parts, wheels r %.2f track %.2f wheelbase %.2f, steering wheel (%.2f %.2f %.2f), eye (%.2f %.2f %.2f)", k + 1, d.id.c_str(), d.name.c_str(),
+             d.raw["model"].value("dir", "").c_str(), d.model->parts.size(), d.wheelR, 2 * d.trackHalfGauge, 2 * d.trackHalfLen, d.steerC.x, d.steerC.y, d.steerC.z, d.driverEye.x, d.driverEye.y, d.driverEye.z);
+      }
+      a.camPos = T(a, 1).pos + vec3(7, 4.0f, 12); a.camYaw = 30; a.camPitch = -14;
       return false;
     }
-    if (at(t, 0.4f)) shot(a, "jeep_00_creative_three_types.png");
-    return t > 0.8f; });
-  push("explore", [](App& a, float t) {
-    if (t == 0) { a.enterExplore(); a.useScripted = true; standAt(a, T(a, 0).pos + vec3(2.4f, 0, -0.6f)); return false; }   // left of type 1 (driver's side)
-    lookAtP(a, T(a, 0).pos + vec3(0.4f, 0.9f, -0.3f));
-    if (at(t, 0.5f)) shot(a, "jeep_01_enter_prompt.png");
-    if (t < 0.8f) return false;
-    note(a, "prompt target %s", a.tanks.target == J[0] ? "type 1" : "none");
-    a.scriptedInput.interact = true; return true; });
-  push("seat", [](App& a, float t) {
-    a.scriptedInput.interact = false;
-    if (at(t, 0.6f)) { note(a, "occupied %s", a.tanks.occupied == J[0] ? "type 1" : "no"); shot(a, "jeep_02_driver_view.png"); }
-    if (at(t, 0.9f)) { a.eyeYaw += 70; a.eyePitch = -30; }   // head turned left and down: the cab side
-    if (at(t, 1.3f)) shot(a, "jeep_03_driver_look_left_down.png");
-    if (at(t, 1.5f)) { a.eyeYaw -= 70; a.eyePitch = -12; }
-    return t > 1.8f; });
-  push("drive", [](App& a, float t) {
-    a.scriptedInput.move = vec2(0, 1);
-    if (t > 2.0f) a.scriptedInput.move.x = 1;   // D: steer right
-    TankRT& k = T(a, 0);
-    if (at(t, std::floor(t * 2) * 0.5f)) note(a, "t %.2f speed %.1f km/h steer %.2f yawRate %.1f pos (%.1f %.1f %.1f) blocked '%s'", t, k.speed * 3.6f, k.steer, k.yawRate, k.pos.x, k.pos.y, k.pos.z, k.blockedBy.c_str());
-    if (at(t, 2.6f)) shot(a, "jeep_04_driver_steering_right.png");
-    return t > 2.8f; });
-  push("stop", [](App& a, float t) {
-    a.scriptedInput.move = vec2(0, 0); a.scriptedInput.jumpHeld = true;   // handbrake, the wheel held right
-    a.scriptedInput.move.x = 1;
-    TankRT& k = T(a, 0);
-    if (std::fabs(k.speed) < 0.3f || t > 6) { a.scriptedInput.jumpHeld = false; a.scriptedInput.move = vec2(0); note(a, "stopped after %.2f s on the handbrake, steer %.2f", t, k.steer); a.scriptedInput.interact = true; return true; }
-    return false; });
-  push("outside", [](App& a, float t) {
-    a.scriptedInput.interact = false;
-    TankRT& k = T(a, 0);
-    if (t < 0.1f) return false;
-    vec3 f = yawQuat(k.yaw) * vec3(0, 0, 1), l = yawQuat(k.yaw) * vec3(1, 0, 0);
-    if (t < 0.15f) { note(a, "out: occupied %d", (int)a.tanks.occupied); standAt(a, k.pos + f * 4.2f + l * 2.6f); }
-    lookAtP(a, k.pos + vec3(0, 0.6f, 0));
-    if (at(t, 0.5f)) shot(a, "jeep_05_outside_front_wheels_steered.png");
-    if (at(t, 0.7f)) standAt(a, k.pos - f * 4.0f - l * 3.0f + vec3(0, 0.0f, 0));
-    if (at(t, 1.1f)) shot(a, "jeep_06_outside_rear_three_quarter.png");
+    if (at(t, 0.4f)) shot(a, "00_creative_jeeps");
+    if (at(t, 0.6f)) { a.camPos = T(a, 4).pos + vec3(16, 9, 30); a.camYaw = 33; a.camPitch = -14; }
+    if (at(t, 1.0f)) shot(a, "00_creative_trucks");
     return t > 1.3f; });
-  push("variants", [](App& a, float t) {
-    TankRT& o = T(a, 1);
-    if (t < 0.05f) standAt(a, o.pos + vec3(-3.2f, 0, 4.2f));
-    lookAtP(a, o.pos + vec3(0, 0.7f, 0));
-    if (at(t, 0.4f)) shot(a, "jeep_07_type2_windshield_down.png");
-    if (at(t, 0.6f)) standAt(a, T(a, 2).pos + vec3(3.0f, 0, 3.6f));
-    if (t > 0.6f) lookAtP(a, T(a, 2).pos + vec3(0, 1.0f, 0));
-    if (at(t, 1.0f)) shot(a, "jeep_08_type3_pintle_m2.png");
-    if (at(t, 1.2f)) { standAt(a, T(a, 2).pos + vec3(-2.4f, 0, -0.6f)); }
-    if (t > 1.25f) lookAtP(a, T(a, 2).pos + vec3(0.3f, 0.9f, -0.3f));
-    if (t > 1.6f) { a.scriptedInput.interact = true; return true; }
-    return false; });
-  push("mg", [](App& a, float t) {
-    a.scriptedInput.interact = false;
-    if (at(t, 0.3f)) { note(a, "type 3 occupied %d", (int)(a.tanks.occupied == J[2])); a.scriptedInput.crouch = true; }
-    if (t > 0.5f) a.scriptedInput.crouch = false;
-    if (at(t, 1.4f)) { TankRT& k = T(a, 2); note(a, "type 3 station %s hatchT %.2f", k.station == TS_HATCH ? "MG" : "driver", k.hatchT); a.eyeYaw -= 60; a.eyePitch = -4; }
-    if (at(t, 1.7f)) shot(a, "jeep_09_type3_at_the_m2.png");
-    a.scriptedInput.fire = t > 1.8f && t < 2.4f;
-    if (at(t, 2.1f)) shot(a, "jeep_10_type3_firing.png");
-    if (at(t, 2.6f)) { TankRT& k = T(a, 2); note(a, "type 3 M2 belt %d / %d", k.mgLoaded, k.mgReserve); }
-    return t > 2.8f; });
+  push("explore", [](App& a, float t) { a.enterExplore(); a.useScripted = true; (void)t; return true; });
+  for (int k = 0; k < kN; ++k) {
+    push("approach " + std::to_string(k), [k](App& a, float t) {
+      TankRT& r = T(a, k);
+      if (t == 0) standAt(a, vec3(a.tanks.hullMatrix(r) * vec4(r.def->exits[0], 1)));
+      lookAtP(a, vec3(a.tanks.hullMatrix(r) * vec4(r.def->driverEye - vec3(0.2f, 0.5f, 0), 1)));
+      if (t < 0.4f) return false;
+      note("type %d prompt %s", k + 1, a.tanks.target == J[k] ? "yes" : "NO");
+      a.scriptedInput.interact = true; return true; });
+    push("drive " + std::to_string(k), [k](App& a, float t) {
+      a.scriptedInput.interact = false;
+      TankRT& r = T(a, k);
+      if (at(t, 0.6f)) { note("type %d occupied %s", k + 1, a.tanks.occupied == J[k] ? "yes" : "NO"); shot(a, tag(a, k) + "_a_driver_view"); }
+      if (t > 1.0f) a.scriptedInput.move = vec2(t > 2.6f ? 1.0f : 0.0f, t < 3.4f ? 1.0f : 0.0f);
+      a.scriptedInput.jumpHeld = t > 3.4f;
+      if (at(t, 2.6f)) note("type %d after 1.6 s of W: %.1f km/h", k + 1, r.speed * 3.6f);
+      if (at(t, 3.3f)) { shot(a, tag(a, k) + "_b_steering_right"); note("type %d steering right: %.1f km/h steer %.2f yaw rate %.1f deg/s", k + 1, r.speed * 3.6f, r.steer, r.yawRate); }
+      if (t > 3.4f && std::fabs(r.speed) < 0.3f) { note("type %d stopped on the handbrake %.2f s after it went on", k + 1, t - 3.4f); a.scriptedInput = ExploreInput(); a.scriptedInput.interact = true; return true; }
+      return t > 12; });
+    push("outside " + std::to_string(k), [k](App& a, float t) {
+      a.scriptedInput.interact = false;
+      TankRT& r = T(a, k);
+      if (k != 0 && k != 2) return t > 0.3f;
+      vec3 f = yawQuat(r.yaw) * vec3(0, 0, 1), l = yawQuat(r.yaw) * vec3(1, 0, 0);
+      float L = r.def->halfSize.z;
+      if (at(t, 0.2f)) { note("type %d out: occupied %d", k + 1, (int)a.tanks.occupied); standAt(a, r.pos + f * (L + 3.0f) + l * 2.8f); }
+      lookAtP(a, r.pos + f * (L * 0.5f) + vec3(0, 0.6f, 0));
+      if (at(t, 0.7f)) shot(a, tag(a, k) + "_c_outside_wheels_steered");
+      return t > 0.9f; });
+  }
   push("done", [](App& a, float t) { if (t < 0.3f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 }   // namespace
@@ -112,7 +96,7 @@ bool vehiclesSelfTest(App& app, float dt) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;
     if (done) { ++cur; st = 0; }
-    if (total > 120) cur = seq.size();
+    if (total > 300) cur = seq.size();
   }
   if (cur >= seq.size() && !app.selftest->done) { app.selftest->exitCode = 0; app.selftest->done = true; }
   return true;

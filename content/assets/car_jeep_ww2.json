@@ -1,0 +1,53 @@
+{
+ "id": "car_jeep_ww2",
+ "version": 1,
+ "name": "WW2 jeep (leoxx300)",
+ "category": "Vehicles",
+ "description": "Drivable WW2 jeep (Explore: E to enter). Driver's view through the windshield; W/S throttle, A/D steer, Space handbrake.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  1.66,
+  3.29
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Allied",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.833,
+    0
+   ],
+   "s": [
+    1.562,
+    0.966,
+    3.286
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "jeep_ww2",
+ "nav": {
+  "effect": "none"
+ }
+}

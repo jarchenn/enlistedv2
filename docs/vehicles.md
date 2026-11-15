@@ -1,65 +1,74 @@
 # Wheeled vehicles (VH1)
 
-Three placeable jeep types, built on the tank framework (`src/tank*.cpp`, [tanks.md](tanks.md)): a vehicle definition with `"car": true` reuses the tanks' catalog entry, placement ghost, thumbnail, E to enter or leave, safe exit points, collision body, ramming, damage, wreck, effects and Apply. What differs is the driving, the drawing, the camera and the HUD (`TankSys::stepCar`, `drawCar`, `drawCarUI`).
+Seven placeable vehicle types, built on the tank framework (`src/tank*.cpp`, [tanks.md](tanks.md)). A vehicle definition with `"car": true` reuses the tanks' catalog entry, placement ghost, thumbnail, E to enter or leave, safe exit points, collision body, ramming, damage, wreck, effects and Apply. What differs is the driving, the drawing, the camera and the HUD (`TankSys::stepCar`, `drawCar`, `drawCarUI`).
 
-| Type | Asset id | Vehicle file | What it is |
-|---|---|---|---|
-| 1 | `car_jeep_willys` | `content/vehicles/jeep_willys.json` | Willys MB as supplied: windshield up, stowage (bags, jerrycans, axe, shovel, rope) |
-| 2 | `car_jeep_willys_open` | `jeep_willys_open.json` (`"base": "jeep_willys"`) | Windshield folded flat on the bonnet (82° about its hinge), no stowage |
-| 3 | `car_jeep_willys_mg` | `jeep_willys_mg.json` (`"base": "jeep_willys"`) | Pedestal M2 .50 between the front seats (game M2HB model on an added post), windshield folded |
+| Type | Asset id | Vehicle file | Model | Licence / in the repo |
+|---|---|---|---|---|
+| 1 | `car_jeep_willys` | `jeep_willys.json` | Willys MB (uchronia) | CC-BY-NC-ND-4.0: bake **local-only**; clones draw `jeep_fallback` |
+| 2 | `car_jeep_ww2` | `jeep_ww2.json` | WW2 jeep (leoxx300) | CC-BY-4.0: bake committed (`models/jeep_ww2`, 7.9 MB) |
+| 3 | `car_truck_cargo` | `truck_cargo.json` | Opel Blitz, flatbed | unknown: bake **local-only**; clones draw `truck_fallback` |
+| 4 | `car_truck_canopy` | `truck_canopy.json` | Opel Blitz, canvas-covered bed | as type 3 |
+| 5 | `car_truck_medical` | `truck_medical.json` | Opel Blitz ambulance box body | as type 3 |
+| 6 | `car_truck_flak` | `truck_flak.json` | Opel Blitz with a Flak gun on the bed (the gun is part of the body mesh: not crewable) | as type 3 |
+| 7 | `car_truck_kitchen` | `truck_kitchen.json` | Opel Blitz field kitchen | as type 3 |
 
-A variant file names its `base` and overrides keys (JSON merge patch); variants share the base's GPU model.
+The jeeps are Allied and the trucks Axis (faction only labels the catalog; anyone may drive any of them).
 
 ## Controls
 
-| Input | In the jeep |
+| Input | In a vehicle |
 |---|---|
-| E | Enter (anyone; the Tanker rule is for tanks only) / get out below 3.6 km/h at a safe exit point |
+| E | Enter / get out below 3.6 km/h at a safe exit point. The Tanker-only rule applies to tanks only |
 | W / S | Throttle; S brakes, then reverses (W brakes when rolling back) |
-| A / D | Steer (smoothed: 1.1 s lock to lock, recentres faster) |
-| Space | Handbrake (rear wheels lock; the tail steps out more) |
+| A / D | Steer, smoothed (jeeps: 1.1 s lock to lock; trucks: 1.5 s) |
+| Space | Handbrake (rear wheels lock) |
 | Mouse | Head: ±110° around the bonnet, −50° to +35° |
-| Ctrl (type 3) | Driver's seat ↔ the M2; at the gun LMB or Space fires, belts change on their own; the jeep holds on its handbrake |
+| Ctrl | Only on a vehicle with a pintle MG (`variant.pintle`, none of the seven now): driver's seat ↔ gun |
 
 ## Driving model
 
-Kinematic, like the tanks: speed approaches the throttle target (3.2 m/s² accelerating, 7.5 braking, 0.7 coasting), and the slope, map-edge, water and swept-box checks are the tanks'.
+Kinematic, like the tanks: speed approaches the throttle target, and the slope, map-edge, water and swept-box checks are the tanks'.
 
-- **Top speed:** 18 m/s (65 km/h) on worn routes (roads), ×0.6 (39 km/h) off-road; reverse 16 km/h.
-- **Steering:** bicycle model, yaw rate = v·tan δ / wheelbase (2.0 m), δ up to 32°. Grip caps lateral acceleration at about 0.75 g (1.1 g with the handbrake).
+| | Jeeps | Trucks |
+|---|---|---|
+| Road / off-road top speed | 65 / 39 km/h | 60 / 33 km/h |
+| Acceleration / braking | 3.2 / 7.5 m/s² | 1.8 / 5.5 m/s² |
+| Steering | 32°, 2.5 turns lock to lock | 34°, 4 turns lock to lock |
+| Wheelbase / track / wheel radius (from the models) | Willys 2.00 / 1.24 / 0.35 m; WW2 jeep 1.96 / 1.36 / 0.37 m | 4.50 / 1.63 / 0.49 m |
+| Mass (ramming) / run-over damage | 1,100 kg / 9 per m/s | 5,000 kg / 14 per m/s |
+
+- **Steering:** bicycle model, yaw rate = v·tan δ / wheelbase, capped by grip at about 0.75 g (more with the handbrake).
 - **Wheels and suspension:**
-  - The front wheels steer with Ackermann geometry (the inner wheel turns more).
-  - All wheels roll with the ground speed; on the handbrake the rear wheels stop.
-  - Each wheel rises or drops up to 12 cm to the ground under it. This is visual only; the body still rests on the four contact points through the tanks' damped spring.
-- **Steering wheel:** rotates about its measured column axis, 2.5 turns lock to lock, with the smoothed steering.
-- **Running people over:**
-  - Soldiers and zombies inside the moving body box (above 1.5 m/s) take 9 damage per m/s of impact speed, each at most once every 0.8 s.
-  - The jeep loses 20 % of its speed per victim.
-  - A friendly struck takes the damage with no kill credit to the driver.
-  - Only the host or single player resolves this (`mpaiRunOver`).
-- **Damage:**
-  - The jeep is soft-skinned: a single tank shell, AT shell or rocket from any side wrecks it.
-  - Each bullet costs 4 of its 100 points.
-- **Sound:** the Sherman engine loop pitched up (no jeep recording exists). Dust and exhaust are scaled down from the tanks'.
+  - The front wheels steer with Ackermann geometry, and all wheels roll with ground speed (the rear ones stop on the handbrake).
+  - Each wheel rises or drops to the ground within its travel. This is visual only.
+- **Steering wheel:** rotates about its measured column axis with the smoothed steering.
+- **Running people over:** soldiers and zombies inside the moving body box take damage by impact speed, each at most once every 0.8 s. A friendly struck takes it too, with no kill credit (`mpaiRunOver`; host or single player).
+- **Damage:** soft-skinned. One shell, AT shell or rocket wrecks a vehicle; bullets take 3–4 of its 100 points.
+- **Sound:** the Sherman engine loop pitched up. Dust and exhaust are scaled down from the tanks'.
 
 ## Camera
 
-The camera is the driver's head (`rig.driverEye`, left-hand drive), looking through the windshield frame. The dashboard, steering wheel, bonnet and windshield frame are all visible, and the viewmodel is hidden. At the M2 the gunner stands behind the spade grips and moves around the post as the gun traverses.
+The camera is the driver's head (left-hand drive): the steering wheel's centre plus `rig.driverEyeFromSteer`, so it also fits the part-built fallbacks. It looks through the windshield frame, with the dashboard, steering wheel and bonnet in view, and the viewmodel is hidden.
 
-## Model and licence
+## Models
 
-- **Source:** the supplied `jeep_willys_mb__free_download_daz3d_poser.glb` (uchronia, Sketchfab) is **CC-BY-NC-ND-4.0**: non-commercial, no derivatives.
-- **Conversion:**
-  1. `tools/vehicles/convert_jeep_glb.py` (Blender) converts it to metres and groups its meshes under role nodes (`hull`, `wheel_fl` / `fr` / `rl` / `rr`, `steer`, `windshield`, `stowage`, `pintle`).
-  2. It drops the glass (no transparent pass) and the display plinth, and decimates the tyres.
-  3. `--import-vehicle-models assets_src/vehicles content` bakes the result into `content/vehicles/models/jeep` (110k triangles).
-- **Local-only:** that folder is git-ignored. Clones get `content/vehicles/models/jeep_fallback`, a 1.4k-triangle box-and-cylinder jeep made by `tools/vehicles/make_jeep_fallback.py` at the same rig positions (`model.fallbackDir`).
+`tools/vehicles/convert_vehicles.py` (Blender, background, scripts disabled for the `.blend`) converts each source to metres and the game's axes. It groups the meshes under role nodes (`hull`, `wheel_fl` / `fr` / `rl` / `rr`, `steer`, `windshield`, `stowage`) and drops the glass, since the vehicle bake has no transparent pass. Then `--import-vehicle-models assets_src/vehicles content` bakes them.
+
+| Mode | Source | What the conversion does |
+|---|---|---|
+| `willys` | uchronia's Willys MB | Named nodes. The tyres are decimated |
+| `ww2jeep` | leoxx300's WW2 jeep | Unnamed Cube / Cylinder parts, taken by measured position: the four tyre cylinders with their hubs, and the steering wheel rim. Scale 0.44 m per unit |
+| `opel` | Opel Blitz truck collection (`all5 together.blend`, one collection per truck) | Relinks the textures shipped in the archive (36 of 82; the rest point at the author's machine), drops the glass faces, finds the wheel cylinders by quadrant, and cuts the steering wheel out of the merged body: the 0.52 m ring island in the cab plus the islands inside its disc |
+
+`tools/vehicles/make_fallback.py jeep|truck` builds the committed part-built stand-ins.
 
 ## Limits
 
-- **Driver only:** there is no passenger seat and no LAN replication. The tanks have none either, so a LAN client sees a parked jeep.
+- **Driver only:** no passenger seats and no LAN replication. The tanks have none either, so a LAN client sees a parked vehicle.
 - **No hands on the wheel:** the first-person arms are hidden while driving.
-- **No splash damage:** grenades and shells bursting beside a jeep do not hurt it (the tanks' direct-hit-only rule).
-- **No glass:** the windshield is an empty frame.
-- **Kinematic:** no tyre or traction physics and no airborne state. Trenches and steep banks stop the jeep ("Blocked" / "too steep") rather than tipping it.
-- **Not verified in a capture:** running people over (logic only), the 65 km/h road speed (the capture map has no road), and the type 3 pintle post and the gun's folded tripod legs at close range.
+- **No splash damage:** blasts beside a vehicle do not hurt it.
+- **No glass:** windshields and side windows are empty frames.
+- **The trucks are the source's size:** 7.1–8.0 m long with a 4.5 m wheelbase. A real Opel Blitz 3 t is about 6.0 m long with a 3.6 m wheelbase; width and height match.
+- **Untextured truck surfaces:** truck materials whose textures were not in the archive show their base colour.
+- **Kinematic:** no tyre or traction physics. Trenches and steep banks stop a vehicle rather than tipping it.
+- **Not verified in a capture:** running people over (logic only) and the road top speeds (the capture map has no road).

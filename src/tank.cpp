@@ -126,6 +126,8 @@ void TankSys::loadDefs(App& app) {
     d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);
     if (d->car) {
       d->driverEye = jv(rg, "driverEye", d->hatchEye); d->steerAxis = glm::normalize(jv(rg, "steerAxis", d->steerAxis)); d->windshieldPivot = jv(rg, "windshieldPivot");
+      // the driver's eye relative to the steering wheel: holds for the supplied model and for its part-built fallback alike
+      if (rg.contains("driverEyeFromSteer")) { d->driverEye = d->steerC + jv(rg, "driverEyeFromSteer"); if (!rg.contains("hatchEye")) d->hatchEye = d->driverEye; }
       const json cd = j.value("carDrive", json::object());
       d->maxSteerDeg = cd.value("maxSteerDeg", d->maxSteerDeg); d->steerRate = cd.value("steerRate", d->steerRate); d->steerTurns = cd.value("steerTurns", d->steerTurns);
       d->handbrakeDecel = cd.value("handbrakeDecel", d->handbrakeDecel); d->suspTravel = cd.value("suspensionTravel", d->suspTravel); d->runOverDmg = cd.value("runOverDamage", d->runOverDmg);

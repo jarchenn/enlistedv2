@@ -1,0 +1,53 @@
+{
+ "id": "car_truck_medical",
+ "version": 1,
+ "name": "Opel Blitz ambulance",
+ "category": "Vehicles",
+ "description": "Drivable Opel Blitz ambulance (box body) (Explore: E to enter). Driver's view through the windshield; W/S throttle, A/D steer, Space handbrake. Supplied model is local-only; the committed build shows a part-built stand-in truck.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  2.49,
+  8.0
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Axis",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.35,
+    0
+   ],
+   "s": [
+    2.39,
+    1.9,
+    8.002
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "truck_medical",
+ "nav": {
+  "effect": "none"
+ }
+}
