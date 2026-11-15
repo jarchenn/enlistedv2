@@ -198,7 +198,7 @@ bool TankSys::enter(App& app, uint64_t id) {
     Physics::setCharacterPos(t->pos + vec3(0, 0.6f, 0));
     app.audio.play("steel_close", t->pos + vec3(0, 1.2f, 0), 0.4f);
     app.toast("In " + t->def->name + ". W/S throttle / brake / reverse | A/D steer | Space handbrake | mouse look" +
-              std::string(t->def->pintle ? " | Ctrl pintle MG (LMB fire)" : "") + " | E get out", 7);
+              std::string(t->def->carGun() ? (t->def->rwsSight ? " | Ctrl gunner (RWS sight: mouse aim, LMB fire, RMB zoom)" : " | Ctrl pintle MG (LMB fire)") : "") + " | E get out", 7);
     return true;
   }
   // the desired aim starts on the gun's achieved line (no turret swing on entry)
@@ -342,11 +342,20 @@ void TankSys::stepCar(App& app, TankRT& t, float dt, const ExploreInput* in) {
   if (in) {
     bool ctrl = in->crouch;
     if (crouchLatch) { if (!ctrl) crouchLatch = false; }
-    else if (ctrl && !ctrlPrev && d.pintle && !d.mgWeapon.empty() && t.hatchT == (t.station == TS_HATCH ? 1.0f : 0.0f)) {
+    else if (ctrl && !ctrlPrev && d.carGun() && t.hatchT == (t.station == TS_HATCH ? 1.0f : 0.0f)) {
       t.station = t.station == TS_HATCH ? TS_GUNNER : TS_HATCH; ++hatchToggles; fireArmed = false;
       app.audio.play("gun_move", t.pos + vec3(0, 1.4f, 0), 0.5f);
+      if (d.rwsSight && t.station == TS_HATCH) {   // the sight opens on the gun's current line
+        vec3 dir; mgMuzzleWorld(t, dir);
+        app.eyeYaw = wrapDeg(degrees(std::atan2(-dir.x, -dir.z))); app.eyePitch = degrees(std::asin(std::clamp(dir.y, -1.0f, 1.0f)));
+      }
     }
     ctrlPrev = ctrl;
+    // VH2 RWS sight: RMB toggles the magnification
+    if (in->aim && !aimPrev && focused && d.rwsSight && t.station == TS_HATCH) zoom = !zoom;
+    aimPrev = in->aim;
+    if (t.station != TS_HATCH) zoom = false;
+    zoomT = approach(zoomT, zoom ? 1.0f : 0.0f, dt / 0.18f);
   }
   t.hatchT = approach(t.hatchT, t.station == TS_HATCH ? 1.0f : 0.0f, dt / 0.6f);
   bool driving = in && t.station == TS_GUNNER && t.hatchT == 0;
@@ -364,11 +373,11 @@ void TankSys::stepCar(App& app, TankRT& t, float dt, const ExploreInput* in) {
     app.eyeYaw = wrapDeg(app.eyeYaw + wrap180(t.yaw - yaw0));
     float lim = t.station == TS_HATCH ? 180.0f : 110.0f;
     app.eyeYaw = wrapDeg(carEye + std::clamp(wrap180(app.eyeYaw - carEye), -lim, lim));
-    app.eyePitch = std::clamp(app.eyePitch, t.pitch - 50.0f, t.pitch + 35.0f);
+    app.eyePitch = std::clamp(app.eyePitch, t.pitch - 50.0f, t.pitch + (t.station == TS_HATCH ? std::max(35.0f, d.mgElevMax) : 35.0f));
     if (!focused || (!app.selftest && app.now - lastStepTime > 0.25)) fireArmed = false; else if (!(in->fire && focused)) fireArmed = true;
     lastStepTime = app.now;
   }
-  if (d.pintle && !d.mgWeapon.empty()) {
+  if (d.carGun()) {
     // Space is the handbrake in the seat: the MG only hears it standing at the gun
     ExploreInput gin; const ExploreInput* gp = nullptr;
     if (in) { gin = *in; if (t.station != TS_HATCH) gin.jumpHeld = false; gp = &gin; }
@@ -404,8 +413,8 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
   if (d.car) {
     // VH1 bicycle model: yaw rate = v tan(delta) / wheelbase, capped by tyre grip (lateral acceleration ~ 0.75 g; more
     // with the rear locked on the handbrake, so the tail steps out)
-    float delta = radians(-t.steer * d.maxSteerDeg), L = 2 * d.trackHalfLen;
-    float w = t.speed * std::tan(delta) / std::max(0.5f, L), wmax = (t.handbrake ? 11.0f : 7.4f) / std::max(std::fabs(t.speed), 1.0f);
+    float delta = radians(-t.steer * d.maxSteerDeg), L = d.carL;
+    float w = t.speed * std::tan(delta) / std::max(0.5f, L), wmax = (t.handbrake ? d.grip * 1.5f : d.grip) / std::max(std::fabs(t.speed), 1.0f);
     t.yawRate = degrees(std::clamp(w, -wmax, wmax));
   }
   if (std::fabs(t.speed) < 1e-3f && std::fabs(t.yawRate) < 1e-3f) {
@@ -461,11 +470,11 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
   if (d.car) {
     // VH1: each wheel drops / rises to the ground under it within its travel (visual), and rolls with the ground speed
     mat4 H = hullMatrix(t);
-    for (int k = 0; k < 4; ++k) {
+    for (int k = 0; k < d.nWheels; ++k) {
       vec3 w = vec3(H * vec4(d.wheelC[k].x, 0, d.wheelC[k].z, 1));
       float want = std::clamp(app.terrain.height(w.x, w.z) - w.y, -d.suspTravel, d.suspTravel);
       t.wheelSusp[k] = approach(t.wheelSusp[k], want, 1.5f * dt);
-      if (!(t.handbrake && k >= 2)) t.wheelSpin[k] = std::fmod(t.wheelSpin[k] + t.speed / std::max(0.1f, d.wheelR) * dt, 6.2831853f);
+      if (!(t.handbrake && TankDef::rearWheel(k))) t.wheelSpin[k] = std::fmod(t.wheelSpin[k] + t.speed / std::max(0.1f, d.wheelR) * dt, 6.2831853f);
     }
   }
   crushUnder(app, t);   // fallen poles / fences under the tracks
@@ -700,7 +709,14 @@ bool TankSys::camera(const App& app, vec3& eye, vec3& fwd, float& fov) const {
     mat4 H = hullMatrix(t);
     float u = t.hatchT * t.hatchT * (3 - 2 * t.hatchT);
     vec3 gunner = d.mgPivot + glm::angleAxis(radians(t.mgYaw), vec3(0, 1, 0)) * (d.hatchEye - d.mgPivot);   // stands behind the gun as it traverses
-    eye = vec3(H * vec4(glm::mix(d.driverEye, gunner, u), 1)); fwd = App::forward(app.eyeYaw, app.eyePitch); fov = 75;
+    fwd = App::forward(app.eyeYaw, app.eyePitch);
+    if (d.rwsSight) {   // VH2: the gunner looks through the remote station's sight (it traverses / elevates with the gun)
+      float zt = zoomT * zoomT * (3 - 2 * zoomT);
+      eye = glm::mix(vec3(H * vec4(d.driverEye, 1)), vec3(mgMatrix(t) * vec4(d.mgOptic - d.mgPivot, 1)), u);
+      fov = glm::mix(75.0f, glm::mix(d.rwsFov, d.rwsFovZoom, zt), u);
+      return true;
+    }
+    eye = vec3(H * vec4(glm::mix(d.driverEye, gunner, u), 1)); fov = 75;
     return true;
   }
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
@@ -741,10 +757,10 @@ TankHitResult TankSys::projectileHit(App& app, const Projectile& p, vec3 pos, ve
   if ((ud >> 60) == 0xF || ud == 0 || (ud & 0xFFFF) != 0) return r;
   if (!tanks.count(ud >> 16)) return r;
   int attack = p.kind == PROJ_BULLET ? TA_SMALL_ARMS : p.kind == PROJ_ROCKET ? TA_LAUNCHER : TA_CANNON;
-  return applyHit(app, ud >> 16, attack, pos, normal, p.v);
+  return applyHit(app, ud >> 16, attack, pos, normal, p.v, 0.5f * p.mass * glm::dot(p.v, p.v));
 }
 
-TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec3 normal, vec3 dir) {
+TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec3 normal, vec3 dir, float bulletJ) {
   TankHitResult r; r.tank = true; r.id = id; r.attack = attack;
   TankRT* t = get(id);
   if (!t) { r.tank = false; return r; }
@@ -755,13 +771,15 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
   // the matrix: cannon (tank gun, AT gun, Flak) counts from every side; launchers only side / rear; small arms never.
   // roof / underside: cannon counts as a side-class hit, launchers do not count (no rule given -> conservative)
   bool counted = attack == TA_CANNON || (attack == TA_LAUNCHER && (r.zone == TZ_SIDE || r.zone == TZ_REAR));
-  if (t->def->car) counted = attack != TA_SMALL_ARMS || t->def->smallArmsDmg > 0;   // VH1: soft-skinned: every launcher hit, bullets wear it down
+  // VH1: soft-skinned: every launcher hit, bullets wear it down. VH2 armoured car: only heavy bullets (.50) wear it down
+  bool heavy = t->def->heavyBulletJ > 0 && bulletJ >= t->def->heavyBulletJ;
+  if (t->def->car) counted = attack != TA_SMALL_ARMS || t->def->smallArmsDmg > 0 || heavy;
   r.counted = counted;
   r.consumed = attack == TA_SMALL_ARMS || (attack == TA_LAUNCHER && !counted);   // no penetration, no blast
   char b[200];
   if (counted) {
     int dmg = r.zone == TZ_FRONT ? t->def->frontDamage() : t->def->sideDamage();
-    if (t->def->car) dmg = attack == TA_SMALL_ARMS ? t->def->smallArmsDmg : 100;   // VH1: one shell or rocket wrecks a jeep
+    if (t->def->car) dmg = attack == TA_SMALL_ARMS ? (heavy ? t->def->heavyBulletDmg : t->def->smallArmsDmg) : attack == TA_LAUNCHER ? t->def->launcherDmg : t->def->cannonDmg;   // VH1: 100: one shell or rocket wrecks a jeep
     t->hp = std::max(0, t->hp - dmg);
     if (r.zone == TZ_FRONT) ++t->hitsFront; else ++t->hitsSide;
     std::snprintf(b, sizeof b, "%s hit, %s %s: durability %d (front hits %d, side/rear hits %d)", an[attack], onTurret ? "turret" : "hull", tankZoneName(r.zone), t->hp, t->hitsFront, t->hitsSide);

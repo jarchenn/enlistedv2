@@ -50,18 +50,19 @@ void TankSys::loadDefs(App& app) {
     }
     d->car = j.value("car", false);
     if (d->model) {
-      static const char* wheelRoles[4] = {"wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr"};
-      vec3 wlo[4], whi[4]; for (int w = 0; w < 4; ++w) { wlo[w] = vec3(1e9f); whi[w] = vec3(-1e9f); }
+      static const char* wheelRoles[TankDef::MAX_WHEELS] = {"wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr", "wheel_f2l", "wheel_f2r", "wheel_r2l", "wheel_r2r"};
+      vec3 wlo[TankDef::MAX_WHEELS], whi[TankDef::MAX_WHEELS]; for (int w = 0; w < TankDef::MAX_WHEELS; ++w) { wlo[w] = vec3(1e9f); whi[w] = vec3(-1e9f); }
       vec3 slo(1e9f), shi(-1e9f);
       for (size_t k = 0; k < d->model->parts.size(); ++k) {
         const ModelPart& p = d->model->parts[k];
         int side = (p.bmin.x + p.bmax.x) * 0.5f < 0 ? 0 : 1;
-        int wheel = -1; for (int w = 0; w < 4; ++w) if (p.role == wheelRoles[w]) wheel = w;
+        int wheel = -1; for (int w = 0; w < TankDef::MAX_WHEELS; ++w) if (p.role == wheelRoles[w]) wheel = w;
         if (d->car && wheel >= 0) { d->wheelPart[wheel].push_back((int)k); wlo[wheel] = glm::min(wlo[wheel], p.bmin); whi[wheel] = glm::max(whi[wheel], p.bmax); }
         else if (d->car && p.role == "steer") { d->steerParts.push_back((int)k); slo = glm::min(slo, p.bmin); shi = glm::max(shi, p.bmax); }
         else if (d->car && p.role == "windshield") d->windshieldParts.push_back((int)k);
         else if (d->car && p.role == "stowage") d->stowageParts.push_back((int)k);
         else if (d->car && p.role == "pintle") d->pintleParts.push_back((int)k);
+        else if (d->car && p.role == "rws") d->rwsParts.push_back((int)k);
         else if (p.role == "turret") d->turretParts.push_back((int)k);
         else if (p.role == "gun") d->gunParts.push_back((int)k);
         else if (p.role == "hatch") d->hatchParts.push_back((int)k);
@@ -71,7 +72,8 @@ void TankSys::loadDefs(App& app) {
         else d->hullParts.push_back((int)k);
       }
       if (d->car) {
-        for (int w = 0; w < 4; ++w) if (!d->wheelPart[w].empty()) { d->wheelC[w] = (wlo[w] + whi[w]) * 0.5f; d->wheelR = (whi[w].y - wlo[w].y) * 0.5f; }
+        for (int w = 0; w < TankDef::MAX_WHEELS; ++w) if (!d->wheelPart[w].empty()) { d->wheelC[w] = (wlo[w] + whi[w]) * 0.5f; d->wheelR = (whi[w].y - wlo[w].y) * 0.5f; }
+        if (!d->wheelPart[4].empty()) d->nWheels = 8;
         if (!d->steerParts.empty()) d->steerC = (slo + shi) * 0.5f;
       }
     }
@@ -125,7 +127,8 @@ void TankSys::loadDefs(App& app) {
     const json rm = j.value("ramming", json::object());
     d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);
     if (d->car) {
-      d->driverEye = jv(rg, "driverEye", d->hatchEye); d->steerAxis = glm::normalize(jv(rg, "steerAxis", d->steerAxis)); d->windshieldPivot = jv(rg, "windshieldPivot");
+      d->driverEye = jv(rg, "driverEye", d->hatchEye); if (!rg.contains("hatchEye")) d->hatchEye = d->driverEye;   // VH2: the exits are checked from the driver's head
+      d->steerAxis = glm::normalize(jv(rg, "steerAxis", d->steerAxis)); d->windshieldPivot = jv(rg, "windshieldPivot");
       // the driver's eye relative to the steering wheel: holds for the supplied model and for its part-built fallback alike
       if (rg.contains("driverEyeFromSteer")) { d->driverEye = d->steerC + jv(rg, "driverEyeFromSteer"); if (!rg.contains("hatchEye")) d->hatchEye = d->driverEye; }
       const json cd = j.value("carDrive", json::object());
@@ -134,7 +137,15 @@ void TankSys::loadDefs(App& app) {
       const json va = j.value("variant", json::object());
       d->windshieldFold = va.value("windshieldFoldDeg", 0.0f); d->stowage = va.value("stowage", true); d->pintle = va.value("pintle", false);
       d->smallArmsDmg = du.value("smallArmsDamage", 0);
+      d->heavyBulletJ = du.value("heavyBulletJ", 0.0f); d->heavyBulletDmg = du.value("heavyBulletDamage", 0);
+      d->launcherDmg = du.value("launcherDamage", 100); d->cannonDmg = du.value("cannonDamage", 100);
+      d->grip = cd.value("gripMps2", d->grip);
       if (!d->wheelPart[0].empty()) { d->trackHalfGauge = 0.5f * (d->wheelC[0].x - d->wheelC[1].x); d->trackHalfLen = 0.5f * (d->wheelC[0].z - d->wheelC[2].z); }
+      // steering base: front axle to the unsteered line (8x8: the two front axles steer about the middle of the rear two)
+      d->steerPivotZ = d->nWheels == 8 ? 0.5f * (d->wheelC[2].z + d->wheelC[6].z) : d->wheelC[2].z;
+      d->carL = d->wheelPart[0].empty() ? 2 * d->trackHalfLen : std::max(0.5f, d->wheelC[0].z - d->steerPivotZ);
+      d->rwsSight = m.value("remoteSight", false); d->mgOptic = jv(rg, "mgOptic", d->mgPivot);
+      d->rwsFov = m.value("fov", d->rwsFov); d->rwsFovZoom = m.value("fovZoom", d->rwsFovZoom);
     }
     logf("vehicle %s: %s, %zu model parts (hull %zu turret %zu gun %zu tracks %zu/%zu)", d->id.c_str(), d->name.c_str(), d->model ? d->model->parts.size() : 0,
          d->hullParts.size(), d->turretParts.size(), d->gunParts.size(), d->trackParts[0].size(), d->trackParts[1].size());
@@ -175,7 +186,7 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
     TankBox body; body.c = vec3(0, clr + 0.5f * (top - clr), 0.5f * (blo.z + bhi.z)); body.h = vec3(hx * 0.95f, 0.5f * (top - clr), hz * 0.97f);
     d->hullBoxes = {body}; d->armourHull = body; d->halfSize = body.h; d->clearance = clr;
     d->trackHalfGauge = std::max(0.5f, std::max(std::fabs(rlo.x), std::fabs(rhi.x)));
-    d->trackHalfLen = std::max(0.8f, 0.5f * (rhi.z - rlo.z));
+    d->trackHalfLen = std::max(0.8f, 0.5f * (rhi.z - rlo.z)); d->carL = 2 * d->trackHalfLen;
     d->wheelR = wr;
     d->driverEye = vec3(-0.37f, dash.y + 0.38f, dash.z - 0.75f); d->hatchEye = d->driverEye;   // the generic kit seats the driver at x -0.37
     d->engine = vec3(0, 0.8f, bhi.z - 0.6f); d->exhausts = {vec3(0.4f, 0.3f, blo.z - 0.05f)};

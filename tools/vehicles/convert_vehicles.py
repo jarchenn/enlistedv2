@@ -145,6 +145,35 @@ elif mode == 'opel':
     for o in wheels: put(o, wheel_role(centre(o), cx, cy))
     for o in meshes:
         if o.parent is None: put(o, 'hull')
+elif mode == 'boxer':
+    # VH2 Boxer 8x8 APC with an HMG remote weapon station (FBX, metres, front +x, z up; BMP textures beside it). Named
+    # parts: hull, wheel..wheel8 (odd = left), mount (RWS cradle, traverses: "rws") with its ammo box, launchers and
+    # smoke grenades; weapon (L111A1 .50) with sensors and clip (traverse + elevation: "mg"); hatches / ramp, interior,
+    # seats (hull); the driver's vision-block glass is dropped (no transparent pass: the blocks are open slits).
+    # Pivots are all at the origin in the file: the rig points go in boxer_apc.json.
+    # usage: ... -- boxer <boxer-apc-hmg.fbx> <out.glb>
+    import math
+    bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.import_scene.fbx(filepath=a[1]); bpy.context.view_layer.update()
+    meshes = [o for o in bpy.data.objects if o.type == 'MESH']
+    bake_world(meshes, 1.0)
+    R = Matrix.Rotation(math.radians(-90), 4, 'Z')   # front +x -> -y (the converter's convention), left +y -> +x
+    for o in meshes: o.data.transform(R)
+    for o in list(bpy.data.objects):
+        if o.type != 'MESH': bpy.data.objects.remove(o, do_unlink=True)
+    wheels = sorted([o for o in bpy.data.objects if o.name.startswith('wheel')], key=lambda o: centre(o).y)
+    assert len(wheels) == 8, [o.name for o in wheels]
+    names = ['fl', 'f2l', 'r2l', 'rl']   # axles front to back
+    for i, o in enumerate(wheels):
+        put(o, 'wheel_' + names[i // 2][:-1] + ('l' if centre(o).x > 0 else 'r'))
+    RWS = ('mount', 'ammobox', 'launcher', 'smoke')
+    for o in list(bpy.data.objects):
+        n = o.name
+        if n.startswith('wheel'): continue
+        if n == 'glass': bpy.data.objects.remove(o, do_unlink=True); continue
+        if n in ('weapon', 'sensors', 'clip'): put(o, 'mg')
+        elif n.startswith(RWS): put(o, 'rws')
+        else: put(o, 'hull')
+    print('BOXER roles', {k: len(v.children) for k, v in groups.items()})
 else:
     raise SystemExit('unknown mode ' + mode)
 

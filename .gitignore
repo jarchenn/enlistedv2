@@ -21,3 +21,8 @@ content/assets/models/br_*/
 # MOD2: the military hut bake (TampaJoey, licence not stated): local only
 content/assets/models/mod_mil_hut/
 content/assets/models/mod_mil_hut_ruin/
+
+
+# VH2: the supplied Boxer APC (boxer-apc-hmg.zip) names no author or licence: its bake stays local-only; clones draw
+# the committed part-built fallback (content/vehicles/models/boxer_apc_fallback)
+content/vehicles/models/boxer_apc/

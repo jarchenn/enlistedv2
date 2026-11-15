@@ -1,0 +1,244 @@
+{
+  "id": "boxer_apc",
+  "name": "Boxer 8x8 APC (HMG)",
+  "faction": "Modern",
+  "identity": "Supplied boxer-apc-hmg.zip (boxer-apc-hmg.fbx with BMP textures; no author, title page or licence in the archive): an 8x8 Boxer with an HMG remote weapon station (L111A1 .50), driver's cupola, rear ramp, troop seats. The baked model is local-only (git-ignored, licence unknown); without it the committed part-built fallback (models/boxer_apc_fallback) is drawn.",
+  "car": true,
+  "model": {
+    "src": "boxer_apc.glb",
+    "dir": "boxer_apc",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 2048,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_f2l",
+      "wheel_f2r",
+      "wheel_r2l",
+      "wheel_r2r",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "rws": "rws",
+      "mg": "mg",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_f2l": "wheel_f2l",
+      "wheel_f2r": "wheel_f2r",
+      "wheel_r2l": "wheel_r2l",
+      "wheel_r2r": "wheel_r2r",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "fallbackDir": "boxer_apc_fallback",
+    "note": "converted by tools/vehicles/convert_vehicles.py boxer into assets_src/vehicles/boxer_apc.glb first"
+  },
+  "fallbackModel": {
+    "src": "boxer_apc_fallback.glb",
+    "dir": "boxer_apc_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 64,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_f2l",
+      "wheel_f2r",
+      "wheel_r2l",
+      "wheel_r2r",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "rws": "rws",
+      "mg": "mg",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_f2l": "wheel_f2l",
+      "wheel_f2r": "wheel_f2r",
+      "wheel_r2l": "wheel_r2l",
+      "wheel_r2r": "wheel_r2r",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "note": "part-built stand-in by tools/vehicles/make_fallback.py boxer (committed)"
+  },
+  "variant": {
+    "pintle": true,
+    "note": "the remote weapon station is always fitted"
+  },
+  "rig": {
+    "driverEye": [
+      -0.58,
+      2.72,
+      1.05
+    ],
+    "mgPivot": [
+      -0.08,
+      3.38,
+      -2.62
+    ],
+    "mgMuzzle": [
+      -0.075,
+      3.38,
+      -1.29
+    ],
+    "mgOptic": [
+      -0.2,
+      3.12,
+      -1.86
+    ],
+    "engine": [
+      0.6,
+      1.6,
+      2.6
+    ],
+    "exhausts": [
+      [
+        -0.7,
+        0.6,
+        -3.27
+      ]
+    ],
+    "exits": [
+      [
+        0,
+        0,
+        -5.2
+      ],
+      [
+        2.3,
+        0,
+        -1.5
+      ],
+      [
+        -2.3,
+        0,
+        -1.5
+      ],
+      [
+        2.3,
+        0,
+        1.2
+      ],
+      [
+        -2.3,
+        0,
+        1.2
+      ],
+      [
+        0,
+        0,
+        5.4
+      ]
+    ],
+    "note": "driver head-out above the cupola (front right); the gunner sits inside at the remote station's sight (mgOptic, traverses / elevates with the gun); exits: the rear ramp first, then the sides, ahead"
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          1.5,
+          0
+        ],
+        "h": [
+          1.48,
+          0.97,
+          3.9
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        1.5,
+        0
+      ],
+      "h": [
+        1.48,
+        0.97,
+        3.9
+      ]
+    },
+    "note": "one hull box from the baked hull bounds"
+  },
+  "roofMg": {
+    "name": "L111A1 .50 HMG (remote weapon station)",
+    "sound": "shot_m2hb",
+    "yaw": [
+      -180,
+      180
+    ],
+    "elevation": [
+      -8,
+      60
+    ],
+    "rpm": 500,
+    "velocity": 890,
+    "spreadDeg": 0.15,
+    "belt": 100,
+    "reserve": 600,
+    "reload": 6.0,
+    "bulletMass": 0.046,
+    "reloadSound": "belt",
+    "remoteSight": true,
+    "fov": 40,
+    "fovZoom": 12,
+    "note": "tracer every 5th round (fireMg); M2HB recordings"
+  },
+  "carDrive": {
+    "maxSteerDeg": 26,
+    "steerRate": 1.1,
+    "steerTurns": 3.5,
+    "handbrakeDecel": 5.0,
+    "suspensionTravel": 0.25,
+    "runOverDamage": 25,
+    "gripMps2": 4.5,
+    "note": "the two front axles steer about the line between the rear two (second axle less); turning circle ~18 m; grip lower than a car's"
+  },
+  "mobility": {
+    "maxForward": 28.0,
+    "maxReverse": 6.0,
+    "accel": 2.2,
+    "brake": 6.0,
+    "coast": 0.5,
+    "maxSlopeDeg": 40,
+    "offroadMul": 0.6,
+    "halfSize": [
+      1.48,
+      0.97,
+      3.9
+    ],
+    "clearance": 0.53,
+    "note": "gameplay profile: 100 km/h on worn routes (roads), 60 km/h off-road; 40 deg slopes; 0.53 m under the hull"
+  },
+  "durability": {
+    "frontHitsSurvived": 2,
+    "sideHitsSurvived": 2,
+    "smallArmsDamage": 0,
+    "heavyBulletJ": 9000,
+    "heavyBulletDamage": 1,
+    "launcherDamage": 34,
+    "cannonDamage": 50,
+    "note": "rifle-calibre bullets (< 9 kJ at the hit) do nothing; .50 rounds 1 each; rockets / AT launchers 34 (3 wreck it); tank and AT gun shells 50"
+  },
+  "ramming": {
+    "massKg": 33000,
+    "engineKW": 530,
+    "pushEfficiency": 0.55,
+    "note": "Boxer ~33-38 t, 530 kW MTU diesel"
+  }
+}

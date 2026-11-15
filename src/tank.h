@@ -74,8 +74,21 @@ struct TankDef {
   // VH1 wheeled car ("car": true; docs/vehicles.md): bicycle-model steering on the front wheels, a driver seat with a
   // free head inside the cab and, when "roofMg" names a weapon, a pintle MG station (Ctrl). Variants: "base" + overrides.
   bool car = false;
-  std::vector<int> wheelPart[4], steerParts, windshieldParts, stowageParts, pintleParts;   // wheels: fl, fr, rl, rr
-  vec3 wheelC[4]{}; float wheelR = 0.35f;        // wheel centres / radius from the baked parts
+  // wheels: fl, fr, rl, rr; VH2 8x8: + f2l, f2r (second axle, steered), r2l, r2r (third axle)
+  enum { MAX_WHEELS = 8 };
+  std::vector<int> wheelPart[MAX_WHEELS], steerParts, windshieldParts, stowageParts, pintleParts, rwsParts;
+  vec3 wheelC[MAX_WHEELS]{}; float wheelR = 0.35f;   // wheel centres / radius from the baked parts
+  int nWheels = 4;
+  float steerPivotZ = 0, carL = 2;               // hull z of the unsteered axle line (8x8: between the rear two axles) and the steering base
+  static bool steeredWheel(int k) { return k < 2 || k == 4 || k == 5; }
+  static bool rearWheel(int k) { return k == 2 || k == 3 || k >= 6; }   // locked on the handbrake
+  float grip = 7.4f;                             // lateral acceleration cap (m/s2) of the bicycle model
+  // VH2 remote weapon station: "rws" parts traverse, "mg" parts traverse and elevate; the gunner looks through the
+  // sight at rig.mgOptic (RMB zoom) instead of standing behind a pintle
+  bool rwsSight = false; vec3 mgOptic{0}; float rwsFov = 40, rwsFovZoom = 12;
+  bool carGun() const { return pintle && (!mgWeapon.empty() || !mgParts.empty()); }
+  // armoured car: bullets below heavyBulletJ (muzzle-class energy at the hit) do nothing; heavier ones (.50) wear it down
+  float heavyBulletJ = 0; int heavyBulletDmg = 0, launcherDmg = 100, cannonDmg = 100;
   vec3 driverEye{0}, steerC{0}, steerAxis{0, 0.5f, -0.87f}, windshieldPivot{0};
   float windshieldFold = 0;                      // deg about +x through windshieldPivot (folded flat on the bonnet ~ 80)
   bool stowage = true, pintle = false;
@@ -117,7 +130,7 @@ struct TankRT {
   uint32_t body = 0xffffffffu; float shapeYaw = 1e9f;
   std::string blockedBy; int crushes = 0;
   // VH1 car: smoothed steering (-1..1, + = right), wheel roll angle / suspension drop, handbrake, run-over cooldowns
-  float steer = 0, wheelSpin[4] = {0, 0, 0, 0}, wheelSusp[4] = {0, 0, 0, 0}; bool handbrake = false;
+  float steer = 0, wheelSpin[TankDef::MAX_WHEELS] = {}, wheelSusp[TankDef::MAX_WHEELS] = {}; bool handbrake = false;
   std::map<int, double> runOverT; int runOvers = 0;
   bool adopted = false;   // BR7: a parked part-built car made drivable for this session (TankSys::adoptCar)
 };
@@ -160,7 +173,7 @@ public:
   void ghostItems(App& app, const AssetDef* a, const mat4& M, vec4 tint);   // Creative placement preview (tinted model)   // Creative selection panel (undoable edits of extra["tank"])
   // combat
   TankHitResult projectileHit(App& app, const Projectile& p, vec3 pos, vec3 normal, uint64_t ud);
-  TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir);
+  TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir, float bulletJ = 0);
   int classify(const TankRT& t, vec3 worldPos, vec3 worldNormal, bool& onTurret) const;
   void destroy(App& app, TankRT& t, const std::string& why);
   // persistence (Apply session changes)

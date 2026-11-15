@@ -1,7 +1,8 @@
 // VH1 --capture-jeep: no suite, a look at the drivable vehicles (selftest_out/vehicles_*.png, frames with the HUD) and a
-// few logged numbers. The seven types are placed in a row in Creative (two overview frames); then each in turn is
+// few logged numbers. The eight types (VH2: the Boxer APC last) are placed in a row in Creative (two overview frames); then each in turn is
 // entered through its E prompt from the driver's door: the driver's view through the windshield, W held then D held
-// (speed, smoothed steering, the wheel turned), handbrake to a stop, out again; for the first jeep and the cargo truck
+// (speed, smoothed steering, the wheel turned), handbrake to a stop, out again; for the first jeep, the cargo truck and the APC; for the APC also the gunner's
+// remote weapon station sight firing (wide and zoomed), and its armour against a rifle, a .50, a rocket
 // an outside frame of the steered front wheels.
 #include "selftest.h"
 #include <functional>
@@ -11,8 +12,9 @@ namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
 std::vector<Step> seq; size_t cur = 0; float st = 0, total = 0;
 int mode = -1; bool started = false;
-const char* kIds[] = {"car_jeep_willys", "car_jeep_ww2", "car_truck_cargo", "car_truck_canopy", "car_truck_medical", "car_truck_flak", "car_truck_kitchen"};
-const int kN = 7;
+const char* kIds[] = {"car_jeep_willys", "car_jeep_ww2", "car_truck_cargo", "car_truck_canopy", "car_truck_medical", "car_truck_flak", "car_truck_kitchen", "car_boxer_apc"};
+const int kN = 8;
+const int kApc = 7;
 uint64_t J[kN] = {};
 fs::path outDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 void push(const std::string& n, std::function<bool(App&, float)> f) { seq.push_back({n, f}); }
@@ -52,7 +54,10 @@ void build(App&) {
     if (at(t, 0.4f)) shot(a, "00_creative_jeeps");
     if (at(t, 0.6f)) { a.camPos = T(a, 4).pos + vec3(16, 9, 30); a.camYaw = 33; a.camPitch = -14; }
     if (at(t, 1.0f)) shot(a, "00_creative_trucks");
-    return t > 1.3f; });
+    if (at(t, 1.1f)) { vec3 f = yawQuat(T(a, kApc).yaw) * vec3(0, 0, 1); a.camPos = T(a, kApc).pos + f * 9.0f + vec3(-8, 4.5f, 0); vec3 d = T(a, kApc).pos + vec3(0, 1.5f, 0) - a.camPos;
+                       a.camYaw = degrees(std::atan2(-d.x, -d.z)); a.camPitch = degrees(std::atan2(d.y, glm::length(vec2(d.x, d.z)))); }
+    if (at(t, 1.4f)) shot(a, "00_creative_apc");
+    return t > 1.7f; });
   push("explore", [](App& a, float t) { a.enterExplore(); a.useScripted = true; (void)t; return true; });
   for (int k = 0; k < kN; ++k) {
     push("approach " + std::to_string(k), [k](App& a, float t) {
@@ -62,6 +67,19 @@ void build(App&) {
       if (t < 0.4f) return false;
       note("type %d prompt %s", k + 1, a.tanks.target == J[k] ? "yes" : "NO");
       a.scriptedInput.interact = true; return true; });
+    if (k == kApc) push("gunner " + std::to_string(k), [k](App& a, float t) {   // VH2: Ctrl to the RWS sight, a burst at a point ahead-right, RMB zoom, Ctrl back
+      a.scriptedInput = ExploreInput();
+      TankRT& r = T(a, k);
+      a.scriptedInput.crouch = t > 0.3f && t < 0.45f || (t > 4.4f && t < 4.55f);
+      if (t > 1.2f && t < 4.3f) { vec3 f = yawQuat(r.yaw) * vec3(0, 0, 1), l = yawQuat(r.yaw) * vec3(1, 0, 0); lookAtP(a, r.pos + f * 45.0f - l * 18.0f + vec3(0, 0.5f, 0)); }
+      a.scriptedInput.fire = t > 2.0f && t < 3.0f;
+      a.scriptedInput.aim = t > 3.2f && t < 3.3f;
+      if (at(t, 1.0f)) note("type %d gunner station %s (hatchT %.2f)", k + 1, r.station == TS_HATCH ? "yes" : "NO", r.hatchT);
+      if (at(t, 1.9f)) shot(a, tag(a, k) + "_d_gunner_sight");
+      if (at(t, 2.6f)) { shot(a, tag(a, k) + "_e_gunner_firing"); note("type %d firing: %d rounds so far, belt %d, gun yaw %.1f elev %.1f", k + 1, r.mgShots, r.mgLoaded, r.mgYaw, r.mgElev); }
+      if (at(t, 3.9f)) { shot(a, tag(a, k) + "_f_gunner_zoomed"); note("type %d zoom %d, %d rounds fired", k + 1, (int)a.tanks.zoom, r.mgShots); }
+      if (t > 5.4f) { note("type %d back in the driver's seat: %s", k + 1, r.station == TS_GUNNER && r.hatchT == 0 ? "yes" : "NO"); return true; }
+      return false; });
     push("drive " + std::to_string(k), [k](App& a, float t) {
       a.scriptedInput.interact = false;
       TankRT& r = T(a, k);
@@ -75,7 +93,7 @@ void build(App&) {
     push("outside " + std::to_string(k), [k](App& a, float t) {
       a.scriptedInput.interact = false;
       TankRT& r = T(a, k);
-      if (k != 0 && k != 2) return t > 0.3f;
+      if (k != 0 && k != 2 && k != kApc) return t > 0.3f;
       vec3 f = yawQuat(r.yaw) * vec3(0, 0, 1), l = yawQuat(r.yaw) * vec3(1, 0, 0);
       float L = r.def->halfSize.z;
       if (at(t, 0.2f)) { note("type %d out: occupied %d", k + 1, (int)a.tanks.occupied); standAt(a, r.pos + f * (L + 3.0f) + l * 2.8f); }
@@ -83,6 +101,13 @@ void build(App&) {
       if (at(t, 0.7f)) shot(a, tag(a, k) + "_c_outside_wheels_steered");
       return t > 0.9f; });
   }
+  push("armour", [](App& a, float t) {   // VH2: the APC against a rifle round (~3.6 kJ), a .50 (~18 kJ), a rocket
+    (void)t; TankRT& r = T(a, kApc); vec3 side = vec3(a.tanks.hullMatrix(r) * vec4(1.48f, 1.5f, 0, 1)), n = yawQuat(r.yaw) * vec3(1, 0, 0);
+    int h0 = r.hp; a.tanks.applyHit(a, J[kApc], TA_SMALL_ARMS, side, n, -n, 3600); int h1 = r.hp;
+    a.tanks.applyHit(a, J[kApc], TA_SMALL_ARMS, side, n, -n, 18000); int h2 = r.hp;
+    a.tanks.applyHit(a, J[kApc], TA_LAUNCHER, side, n, -n); int h3 = r.hp;
+    note("type 8 armour: rifle %d -> %d, .50 -> %d, rocket -> %d (%s)", h0, h1, h2, h3, h1 == h0 && h2 < h1 && h3 < h2 && !r.wrecked ? "ok" : "UNEXPECTED");
+    return true; });
   push("done", [](App& a, float t) { if (t < 0.3f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 }   // namespace

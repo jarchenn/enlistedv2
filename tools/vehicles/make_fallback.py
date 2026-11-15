@@ -1,8 +1,9 @@
 # VH1: part-built fallback (boxes and cylinders) for clones without the local-only supplied model:
 #   jeep  - Willys MB (jeep_willys.json): hull 1.76 x 3.34 m centred, wheels r 0.355 m
+#   boxer - Boxer APC (boxer_apc.json): hull 2.96 x 7.8 m, 8 wheels r 0.67 m
 # Same role nodes and positions as the baked supplied models: game axes (x left, y up, z forward; Blender: x,
 # -y forward, z up), y = 0 at the tyres.
-# usage: blender -b --factory-startup --python make_fallback.py -- jeep <out.glb>
+# usage: blender -b --factory-startup --python make_fallback.py -- jeep|boxer <out.glb>
 import bpy, sys, math
 from mathutils import Vector, Matrix
 kind, out = sys.argv[sys.argv.index('--') + 1:][:2]
@@ -63,6 +64,24 @@ if kind == 'jeep':
     # stowage: jerrycan on the rear panel, bags on the sides
     box('stowage', (0.15, 0.55, -1.71), (0.50, 1.00, -1.62), OD)
     for s in (1, -1): box('stowage', (min(s * 0.70, s * 0.86), 0.75, -1.20), (max(s * 0.70, s * 0.86), 1.05, -0.70), CANVAS)
+elif kind == 'boxer':
+    # Boxer 8x8 APC (boxer_apc.json): hull 2.96 x 7.8 m, wheels r 0.67 m on four axles, remote weapon station at the rear
+    box('hull', (-1.30, 0.55, -3.90), (1.30, 1.60, 2.60))            # lower hull
+    box('hull', (-1.48, 1.10, -3.90), (1.48, 2.45, 1.40))            # mission module
+    box('hull', (-1.30, 0.90, 1.40), (1.30, 1.95, 3.30))             # glacis
+    box('hull', (-1.10, 0.70, 3.30), (1.10, 1.30, 3.90))             # nose
+    box('hull', (-1.00, 2.45, 0.35), (-0.15, 2.62, 1.80), DARK)      # driver's cupola (front right)
+    box('hull', (-0.90, 0.80, -3.96), (0.90, 2.20, -3.90), DARK)     # rear ramp
+    for x in (1.3, -1.3): box('hull', (min(x, x * 1.14), 1.25, -3.6), (max(x, x * 1.14), 1.32, 2.7), DARK)   # fender lines
+    for role, z in (('fl', 2.33), ('f2l', 0.76), ('r2l', -1.25), ('rl', -2.81)):
+        for x in (1.26, -1.26):
+            r = 'wheel_' + role[:-1] + ('l' if x > 0 else 'r')
+            cyl(r, (x, 0.67, z), (1, 0, 0), 0.67, 0.44, TYRE, 20)
+            cyl(r, (x + (0.23 if x > 0 else -0.23), 0.67, z), (1, 0, 0), 0.34, 0.02, OD, 12)
+    box('rws', (-0.40, 2.45, -2.95), (0.25, 3.25, -2.30), OD)        # weapon station cradle
+    box('mg', (-0.25, 3.28, -3.00), (0.05, 3.48, -2.30), DARK)       # receiver
+    cyl('mg', (-0.075, 3.38, -1.79), (0, 0, 1), 0.03, 1.0, METAL, 8)   # barrel to the muzzle at z -1.29
+    box('mg', (-0.31, 2.95, -2.50), (0.11, 3.28, -1.95), DARK)       # sensor head
 for o in bpy.data.objects: o.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_yup=True, export_animations=False)
 print('WROTE', out)

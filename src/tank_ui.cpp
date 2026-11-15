@@ -56,13 +56,19 @@ void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   put(d.windshieldParts, h * glm::translate(mat4(1), d.windshieldPivot) * glm::rotate(mat4(1), radians(d.windshieldFold), vec3(1, 0, 0)) * glm::translate(mat4(1), -d.windshieldPivot));
   float rim = -t.steer * d.steerTurns * 0.5f * 6.2831853f;   // + steer (right) turns the rim clockwise as the driver sees it
   put(d.steerParts, h * glm::translate(mat4(1), d.steerC) * glm::rotate(mat4(1), rim, d.steerAxis) * glm::translate(mat4(1), -d.steerC));
-  float delta = std::tan(radians(-t.steer * d.maxSteerDeg)), L = 2 * d.trackHalfLen;
-  for (int k = 0; k < 4; ++k) {
+  float delta = std::tan(radians(-t.steer * d.maxSteerDeg)), L = d.carL;
+  for (int k = 0; k < d.nWheels; ++k) {
     vec3 c = d.wheelC[k];
     float yaw = 0;
-    if (k < 2 && std::fabs(delta) > 1e-4f) { float R = L / delta; yaw = std::atan(L / (R - c.x)); }   // turn centre at x = R on the rear axle
+    // turn centre at x = R on the unsteered axle line (8x8: the second axle steers less, by its distance to that line)
+    if (TankDef::steeredWheel(k) && std::fabs(delta) > 1e-4f) { float R = L / delta; yaw = std::atan((c.z - d.steerPivotZ) / (R - c.x)); }
     put(d.wheelPart[k], h * glm::translate(mat4(1), c + vec3(0, t.wheelSusp[k], 0)) * glm::rotate(mat4(1), yaw, vec3(0, 1, 0)) *
                             glm::rotate(mat4(1), t.wheelSpin[k], vec3(1, 0, 0)) * glm::translate(mat4(1), -c));
+  }
+  if (d.pintle && !d.mgParts.empty()) {   // VH2 remote weapon station: the cradle traverses, the gun and its sensors also elevate
+    mat4 P = h * glm::translate(mat4(1), d.mgPivot) * glm::rotate(mat4(1), radians(t.mgYaw), vec3(0, 1, 0));
+    put(d.rwsParts, P * glm::translate(mat4(1), -d.mgPivot));
+    put(d.mgParts, P * glm::rotate(mat4(1), radians(-t.mgElev), vec3(1, 0, 0)) * glm::translate(mat4(1), -d.mgPivot));
   }
   if (d.pintle && !d.mgWeapon.empty()) {
     int wi = app.weaponIndex(d.mgWeapon);
@@ -80,8 +86,9 @@ void TankSys::ghostItems(App& app, const AssetDef* a, const mat4& M, vec4 tint) 
   if (!d) return;
   if (d->car) {
     std::vector<int> ps; carStaticParts(*d, ps);
-    for (int w = 0; w < 4; ++w) ps.insert(ps.end(), d->wheelPart[w].begin(), d->wheelPart[w].end());
+    for (int w = 0; w < d->nWheels; ++w) ps.insert(ps.end(), d->wheelPart[w].begin(), d->wheelPart[w].end());
     ps.insert(ps.end(), d->steerParts.begin(), d->steerParts.end());
+    if (d->pintle) for (auto* v : {&d->rwsParts, &d->mgParts}) ps.insert(ps.end(), v->begin(), v->end());
     mat4 Wf = M * glm::translate(mat4(1), d->windshieldPivot) * glm::rotate(mat4(1), radians(d->windshieldFold), vec3(1, 0, 0)) * glm::translate(mat4(1), -d->windshieldPivot);
     for (int k : ps) app.R.worldModels.push_back({d->model.get(), k, M, tint});
     for (int k : d->windshieldParts) app.R.worldModels.push_back({d->model.get(), k, Wf, tint});
@@ -101,7 +108,8 @@ void TankSys::makeThumbnails(App& app) {
     for (int s = 0; s < 2; ++s) { add(d->trackParts[s]); add(d->wheelParts[s]); }
     if (d->car) {   // VH1: the variant's parts, its windshield folded as placed
       std::vector<int> ps; carStaticParts(*d, ps); md.clear(); add(ps); add(d->steerParts);
-      for (int w = 0; w < 4; ++w) add(d->wheelPart[w]);
+      for (int w = 0; w < d->nWheels; ++w) add(d->wheelPart[w]);
+      if (d->pintle) { add(d->rwsParts); add(d->mgParts); }
       mat4 Wf = glm::translate(mat4(1), d->windshieldPivot) * glm::rotate(mat4(1), radians(d->windshieldFold), vec3(1, 0, 0)) * glm::translate(mat4(1), -d->windshieldPivot);
       for (int k : d->windshieldParts) md.push_back({d->model.get(), k, Wf});
     }
@@ -288,13 +296,31 @@ void TankSys::drawCarUI(App& app, TankRT& t) {
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
   bool gun = t.station == TS_HATCH && t.hatchT >= 1.0f;
-  if (gun) { dl->AddCircle(c, 7, IM_COL32(240, 240, 230, 210), 20, 1.5f); dl->AddCircleFilled(c, 1.8f, IM_COL32(240, 240, 230, 220)); }
+  if (gun && d.rwsSight) {   // VH2 remote weapon station sight: dark surround, crosshair with a centre gap, stadia ticks, zoom readout
+    float W = io.DisplaySize.x, Hh = io.DisplaySize.y, r = Hh * 0.46f;
+    ImU32 blk = IM_COL32(0, 0, 0, 255), ln = IM_COL32(40, 255, 120, 230), dim = IM_COL32(40, 255, 120, 140);
+    dl->AddRectFilled(ImVec2(0, 0), ImVec2(c.x - r * 1.25f, Hh), blk); dl->AddRectFilled(ImVec2(c.x + r * 1.25f, 0), ImVec2(W, Hh), blk);
+    dl->AddRect(ImVec2(c.x - r * 1.25f, c.y - r), ImVec2(c.x + r * 1.25f, c.y + r), dim, 0, 0, 2);
+    float g = 14;
+    dl->AddLine(ImVec2(c.x - r * 1.2f, c.y), ImVec2(c.x - g, c.y), ln, 1.5f); dl->AddLine(ImVec2(c.x + g, c.y), ImVec2(c.x + r * 1.2f, c.y), ln, 1.5f);
+    dl->AddLine(ImVec2(c.x, c.y - r * 0.95f), ImVec2(c.x, c.y - g), ln, 1.5f); dl->AddLine(ImVec2(c.x, c.y + g), ImVec2(c.x, c.y + r * 0.95f), ln, 1.5f);
+    dl->AddCircleFilled(c, 1.6f, ln);
+    for (int k = 1; k <= 4; ++k) {   // drop ticks below the centre and mil ticks across
+      float y = c.y + g + k * r * 0.07f; dl->AddLine(ImVec2(c.x - 10 + k, y), ImVec2(c.x + 10 - k, y), ln, 1.2f);
+      float x = r * 0.12f * k; for (float sx : {-1.0f, 1.0f}) dl->AddLine(ImVec2(c.x + sx * x, c.y - 6), ImVec2(c.x + sx * x, c.y + 6), dim, 1.2f);
+    }
+    char z[96]; float fovNow = glm::mix(d.rwsFov, d.rwsFovZoom, zoomT * zoomT * (3 - 2 * zoomT));
+    std::snprintf(z, sizeof z, "RWS  %s  x%.1f   AZ %+04.0f  EL %+03.0f", zoom ? "NFOV" : "WFOV", 75.0f / fovNow, t.mgYaw, t.mgElev);
+    dl->AddText(ImVec2(c.x - r * 1.2f + 10, c.y - r + 8), ln, z);
+  }
+  else if (gun) { dl->AddCircle(c, 7, IM_COL32(240, 240, 230, 210), 20, 1.5f); dl->AddCircleFilled(c, 1.8f, IM_COL32(240, 240, 230, 220)); }
   char b[400];
   const char* gear = t.speed < -0.2f ? "R" : std::fabs(t.speed) < 0.2f ? "N" : "D";
-  if (gun) std::snprintf(b, sizeof b, "%s  [PINTLE MG]\n%s  belt %d  spare %d%s\nDURABILITY %d/100\nLMB / Space fire | Ctrl back to the wheel | E get out",
-                         d.name.c_str(), d.mgName.c_str(), t.mgLoaded, t.mgReserve, t.mgReloadT > 0 ? "  (changing belt)" : "", t.hp);
+  if (gun) std::snprintf(b, sizeof b, "%s  [%s]\n%s  belt %d  spare %d%s\nDURABILITY %d/100\nLMB / Space fire%s | Ctrl back to the %s | E get out",
+                         d.name.c_str(), d.rwsSight ? "GUNNER - RWS" : "PINTLE MG", d.mgName.c_str(), t.mgLoaded, t.mgReserve, t.mgReloadT > 0 ? "  (changing belt)" : "", t.hp,
+                         d.rwsSight ? " | RMB zoom" : "", d.steerParts.empty() ? "driver" : "wheel");
   else std::snprintf(b, sizeof b, "%s\nSPEED %3.0f km/h   %s%s\nDURABILITY %d/100\nW/S throttle-brake-reverse | A/D steer | Space handbrake%s | E get out",
-                     d.name.c_str(), std::fabs(t.speed) * 3.6f, gear, t.handbrake ? "   HANDBRAKE" : "", t.hp, d.pintle ? " | Ctrl MG" : "");
+                     d.name.c_str(), std::fabs(t.speed) * 3.6f, gear, t.handbrake ? "   HANDBRAKE" : "", t.hp, d.carGun() ? (d.rwsSight ? " | Ctrl gunner" : " | Ctrl MG") : "");
   ImVec2 ts = ImGui::CalcTextSize(b);
   ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30);
   dl->AddRectFilled(ImVec2(p.x - 10, p.y - 6), ImVec2(p.x + ts.x + 10, p.y + ts.y + 6), IM_COL32(12, 12, 10, 170), 4);

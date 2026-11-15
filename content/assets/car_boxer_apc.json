@@ -1,0 +1,53 @@
+{
+ "id": "car_boxer_apc",
+ "version": 1,
+ "name": "Boxer APC (HMG)",
+ "category": "Vehicles",
+ "description": "Drivable Boxer 8x8 APC with a .50 remote weapon station (Explore: E to enter). Driver head-out above the cupola: W/S throttle, A/D steer (front two axles), Space handbrake. Ctrl to the gunner's sight: mouse traverse / elevate, LMB fire, RMB zoom. Rifle fire does nothing; .50, rockets and shells wear it down. Supplied model is local-only; the committed build shows a part-built stand-in.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  2.96,
+  7.82
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Modern",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.5,
+    0
+   ],
+   "s": [
+    2.96,
+    1.94,
+    7.8
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "boxer_apc",
+ "nav": {
+  "effect": "none"
+ }
+}
