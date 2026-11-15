@@ -39,6 +39,7 @@ const char* presetName(GfxPreset p);
 struct UserSettings {
   // graphics
   GraphicsOpts gfx;
+  float gamma = 1.0f;          // display gamma: above 1 lifts the dark tones, below 1 deepens them
   float fov = 72.0f;           // hip / running world FOV (vertical deg); ADS and sights narrow from it
   bool vsync = true;
   int fpsCap = 0;              // 0 = unlimited
@@ -85,6 +86,7 @@ public:
   float renderDist() const { return s.gfx.renderDist; }
   float particleBudget() const { return s.gfx.particles; }   // multiplier on effect / fragment caps (1 = Medium)
   float fov() const { return s.fov; }
+  float gamma() const { return s.gamma; }
   float lookDegPerCount(float adsT) const { return s.mouseSens * (1.0f + (s.adsSens - 1.0f) * std::clamp(adsT, 0.0f, 1.0f)); }
   float pitchSign() const { return s.invertY ? -1.0f : 1.0f; }
   bool open = false;           // the Settings window
