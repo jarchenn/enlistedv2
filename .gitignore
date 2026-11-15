@@ -10,3 +10,5 @@ assets_src/
 content/audio/samples/
 __pycache__/
 
+# supplied soundtrack: local-only until its licence is known (Backrooms falls back to backrooms.mp3 without it)
+content/audio/ambience/level0.mp3

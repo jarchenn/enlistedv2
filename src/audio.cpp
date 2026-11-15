@@ -96,7 +96,7 @@ struct Audio::Impl {
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
-  ma_sound bed[2]; bool bedOn[2] = {false, false}; std::string bedFile[2]; float bedVol[2] = {0, 0};
+  ma_sound bed[2]; ma_audio_buffer bedAB[2]; Buf bedBuf[2]; bool bedOn[2] = {false, false}; std::string bedFile[2]; float bedVol[2] = {0, 0};
   Voice loops[16];
   ma_lpf_node lpf; bool lpfOk = false; float lpfCut = -1;   // under-water muffle: every sound routes through it
   void route(ma_sound& s) { if (lpfOk) ma_node_attach_output_bus(&s, 0, &lpf, 0); }
@@ -192,7 +192,7 @@ void Audio::shutdown() {
   if (!p) return;
   for (auto& v : p->voices) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (auto& v : p->loops) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
-  for (int k = 0; k < 2; ++k) if (p->bedOn[k]) ma_sound_uninit(&p->bed[k]);
+  for (int k = 0; k < 2; ++k) if (p->bedOn[k]) { ma_sound_uninit(&p->bed[k]); ma_audio_buffer_uninit(&p->bedAB[k]); }
   ma_sound_uninit(&p->wind); ma_sound_uninit(&p->leaves);
   if (p->lpfOk) ma_lpf_node_uninit(&p->lpf, nullptr);
   ma_audio_buffer_uninit(&p->windAB); ma_audio_buffer_uninit(&p->leafAB);
@@ -386,10 +386,30 @@ void Audio::setBed(int slot, const fs::path& file, float volume) {
   if (!p || slot < 0 || slot > 1) return;
   std::string f = file.string();
   if (f != p->bedFile[slot]) {
-    if (p->bedOn[slot]) { ma_sound_uninit(&p->bed[slot]); p->bedOn[slot] = false; }
+    if (p->bedOn[slot]) { ma_sound_uninit(&p->bed[slot]); ma_audio_buffer_uninit(&p->bedAB[slot]); p->bedOn[slot] = false; }
     p->bedFile[slot] = f;
-    if (!f.empty() && ma_sound_init_from_file(&p->engine, f.c_str(), MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, nullptr, &p->bed[slot]) == MA_SUCCESS) {
-      p->bedOn[slot] = true; p->route(p->bed[slot]); ma_sound_set_looping(&p->bed[slot], MA_TRUE); ma_sound_start(&p->bed[slot]);
+    // decoded whole (stereo) so the ends can be cross-faded: a streamed mp3 loop clicks and gaps at the seam
+    ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 2, SR);
+    ma_uint64 frames = 0; void* data = nullptr;
+    if (!f.empty() && ma_decode_file(f.c_str(), &dc, &frames, &data) == MA_SUCCESS && data) {
+      Buf& b = p->bedBuf[slot]; b.assign((float*)data, (float*)data + frames * 2); ma_free(data, nullptr);
+      size_t n = (size_t)frames, a = 0, e = n;   // trim the encoder silence at both ends, then blend the last 3 s into the first 3 s
+      auto loud = [&](size_t k) { return std::fabs(b[2 * k]) + std::fabs(b[2 * k + 1]) > 0.004f; };
+      while (a < e && !loud(a)) ++a;
+      while (e > a && !loud(e - 1)) --e;
+      size_t xf = std::min((size_t)(3 * SR), (e - a) / 4);
+      if (e - a > (size_t)SR && xf > 0) {
+        for (size_t k = 0; k < xf; ++k) { float w = k / (float)xf, g0 = std::sqrt(w), g1 = std::sqrt(1 - w);   // equal power
+          for (int c = 0; c < 2; ++c) b[2 * (a + k) + c] = b[2 * (a + k) + c] * g0 + b[2 * (e - xf + k) + c] * g1; }
+        b.erase(b.begin() + 2 * (e - xf), b.end()); b.erase(b.begin(), b.begin() + 2 * a);
+        ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 2, b.size() / 2, b.data(), nullptr);
+        c.sampleRate = SR;
+        if (ma_audio_buffer_init(&c, &p->bedAB[slot]) == MA_SUCCESS) {
+          if (ma_sound_init_from_data_source(&p->engine, &p->bedAB[slot], MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, &p->bed[slot]) == MA_SUCCESS) {
+            p->bedOn[slot] = true; p->route(p->bed[slot]); ma_sound_set_looping(&p->bed[slot], MA_TRUE); ma_sound_start(&p->bed[slot]);
+          } else ma_audio_buffer_uninit(&p->bedAB[slot]);
+        }
+      }
     }
   }
   p->bedVol[slot] = volume;

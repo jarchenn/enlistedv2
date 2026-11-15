@@ -999,7 +999,7 @@ int App::run(int argc, char** argv) {
       audio.setListener(e, forward(eyeYaw, eyePitch));
       {   // ambience loops: the battlefield everywhere but Backrooms; the room tone (60 %) on Backrooms and, under the battlefield, Tunnels
         const fs::path amb = contentDir() / "audio" / "ambience"; const bool br = doc.templateId == "backrooms", tn = doc.templateId == "tunnels";
-        audio.setBed(0, br || tn ? amb / "backrooms.mp3" : fs::path(), 0.6f);
+        audio.setBed(0, br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), 0.6f);   // level0.mp3: local-only track
         audio.setBed(1, br ? fs::path() : amb / "battlefield.mp3", 0.7f);
       }
     }
