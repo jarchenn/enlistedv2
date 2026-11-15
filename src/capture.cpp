@@ -494,6 +494,13 @@ void SelfTest::captureUpdate(App& app, float dt) {
           keep.push_back(id.substr(5) + "_far"); cams.push_back({keep.back().c_str(), t + vec3(-9.0f, 4.0f, 12.0f), t});
           continue;
         }
+        if (id.rfind("eye:", 0) == 0) {   // eye:<name>:x:y:z:tx:ty:tz: a free camera (UG1: inside the tunnels)
+          std::vector<std::string> f; for (size_t u = 4, v; (v = id.find(':', u)) != std::string::npos || u < id.size(); u = v == std::string::npos ? id.size() : v + 1) { f.push_back(id.substr(u, v == std::string::npos ? std::string::npos : v - u)); if (v == std::string::npos) break; }
+          if (f.size() != 7) continue;
+          auto n = [&](int i) { return (float)std::atof(f[i].c_str()); };
+          keep.push_back(f[0]); cams.push_back({keep.back().c_str(), vec3(n(1), n(2), n(3)), vec3(n(4), n(5), n(6))});
+          continue;
+        }
         if (id.rfind("line:", 0) == 0) {   // line:<type>: a gently curved 14 m line of that type, drawn as Line mode draws it
           vec2 o(-125.0f + 50.0f * (k % 6), -125.0f + 50.0f * (k / 6)); ++k;
           extern uint64_t lineCreate(App&, const std::string&, std::vector<vec2>, const json&, uint32_t);

@@ -1010,6 +1010,13 @@ int App::run(int argc, char** argv) {
     updateGrass(v.camPos);
     mark("lights");
     R.grass = &grass;
+    {   // UG1: a map may fix its hour (extra.lighting.hour: the underground map is always night, so any leak is dark);
+        // the previous hour comes back when another map is open
+      static float saved = -1.0f;
+      const bool fixedHour = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() && doc.extra["lighting"].contains("hour");
+      if (fixedHour) { if (saved < 0) saved = R.lt.hour; R.lt.hour = doc.extra["lighting"]["hour"].get<float>(); }
+      else if (saved >= 0) { R.lt.hour = saved; saved = -1.0f; }
+    }
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
     mark("render");
     { extern void weatherAppFrame(App&); weatherAppFrame(*this); }   // WX1: the shared cloud clock, the host's weather on LAN clients
