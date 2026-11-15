@@ -368,7 +368,7 @@ static std::string snapshotPart(Game& g, int forPeer, int first, int count, cons
     w.u8((uint8_t)std::clamp(s.recoil * 255.0f, 0.0f, 255.0f)); w.u8((uint8_t)std::clamp(s.throwT < 0 ? 0.0f : s.throwT * 255.0f, 0.0f, 255.0f));
     w.u8((uint8_t)std::clamp(s.reloadTotal > 0 ? s.reload / s.reloadTotal * 255.0f : 0.0f, 0.0f, 255.0f));
     w.u8((uint8_t)(r.livesLeft < 0 ? 255 : r.livesLeft)); w.u8((uint8_t)std::min(250.0f, r.deadFor * 10)); w.u16((uint16_t)std::max(0, r.kills)); w.u16((uint16_t)std::max(0, r.deaths)); w.u16((uint16_t)(int16_t)std::clamp(r.score, -32000, 32000));
-    w.u8((uint8_t)(s.killer < 0 ? 255 : s.killer)); w.u8((uint8_t)s.deathStyle); w.u8((uint8_t)s.etype);   // EN1
+    w.u8((uint8_t)(s.killer < 0 ? 255 : s.killer)); w.u8((uint8_t)(s.deathStyle | ((s.br.target >= 0 && !s.human) || g.t - s.lastShot < 1.5 ? 0x80 : 0))); w.u8((uint8_t)s.etype);   // EN1; AN1b: 0x80 = engaged (a bot with a target, or fired in the last 1.5 s): the client's aimed postures
     bool own = r.human && r.peer == forPeer;
     w.u8(own ? 1 : 0);
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
@@ -436,7 +436,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     rulesNetProtect(g, s, fl & 128);   // W1: spawn protection (shimmer, shield icon, ring)
     if (s.zombie && etype != s.etype) { s.etype = etype; aiZombieAssign(g, s); }   // EN1: the host's enemy type
     s.hp = hp; s.weapon = s.zombie ? -1 : weapon < (int)app.weaponDefs.size() ? weapon : 0;   // G2: zombies carry nothing
-    s.killer = killer == 255 ? -1 : killer; s.deathStyle = dstyle;
+    s.killer = killer == 255 ? -1 : killer; s.deathStyle = dstyle & 0x7f; s.netEngaged = dstyle & 0x80;
     s.recoil = recoil; s.throwT = (fl & 64) ? thr : -1.0f; s.reload = (fl & 32) ? rel : 0; s.reloadTotal = (fl & 32) ? 1 : 0;
     s.swim = (fl & 6) == 6;   // 2|4: swimming (swim.cpp), drawn upright-tilted, not prone
     s.posture = s.swim ? Physics::STAND : (fl & 4) ? Physics::PRONE : (fl & 2) ? Physics::CROUCH : Physics::STAND;
@@ -490,7 +490,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
 }
 
 // client: interpolate remote soldiers 100 ms behind the newest snapshot
-void netInterpolate(Game& g, double clientT) {
+void netInterpolate(Game& g, double clientT, float dt) {
   if (!gNet || !gNet->d) return;
   auto& d = *gNet->d;
   double rt = d.serverT + (d.now - d.serverTAt) - 0.1;
@@ -506,7 +506,7 @@ void netInterpolate(Game& g, double clientT) {
     s.feet = glm::mix(np.feet[0], np.feet[1], u);
     float dy = wrapDeg(np.yaw[1] - np.yaw[0] + 180.0f) - 180.0f;
     s.yaw = wrapDeg(np.yaw[0] + dy * std::min(u, 1.0f));
-    s.vel = (s.feet - prev) * 60.0f; s.speed = glm::length(vec2(s.vel.x, s.vel.z));
+    s.vel = (s.feet - prev) / std::max(dt, 1e-4f); s.speed = glm::length(vec2(s.vel.x, s.vel.z));   // AN1b: the real frame time (the gait matches it)
   }
 }
 
@@ -917,7 +917,7 @@ void Net::update(App& app, float dt) {
           } else if (in.ok && g.active && slot >= 0 && g.match.slots[slot].human && g.sold[slot].alive) {
             Soldier& s = g.sold[slot];
             float dtIn = std::max(0.05f, (float)(d->now - s.netHeard)); s.netHeard = d->now;
-            float step = glm::length(vec2(feet.x - s.feet.x, feet.z - s.feet.z));
+            float step = glm::length(vec2(feet.x - s.feet.x, feet.z - s.feet.z)); vec3 dv = feet - s.feet;
             bool ok = step < 7.0f * dtIn + 0.6f && std::fabs(feet.y - s.feet.y) < 2.5f + 9.0f * dtIn;
             Physics::Hit hh;
             if (ok && step > 0.05f) ok = !Physics::castRayEx(s.feet + vec3(0, 0.6f, 0), feet - s.feet, glm::length(feet - s.feet), hh);   // no walking through walls
@@ -925,7 +925,7 @@ void Net::update(App& app, float dt) {
             else { ++rejectedRequests; p->ch.send(json{{"t", "correct"}, {"p", tojson(s.feet)}}.dump()); }
             s.yaw = yaw; s.pitch = std::clamp(pitch, -89.0f, 89.0f); s.swim = posture == 3; s.posture = s.swim ? Physics::STAND : std::clamp(posture, 0, 2);   // 3: swimming
             if (weapon != s.weapon && weapon < (int)app.weaponDefs.size() && carries(s, weapon)) hostSwitch(app, s, weapon);   // only what it carries
-            s.vel = vec3(0); s.speed = step / dtIn;
+            s.vel = ok ? vec3(dv.x, 0, dv.z) / dtIn : vec3(0); s.speed = step / dtIn;   // AN1b: the stride's direction
           }
         }
         for (auto& m : msgs) { json j; try { j = json::parse(m); hostRequest(app, *this, *p, j); } catch (const std::exception& e) { ++rejectedRequests; logf("net: malformed request from peer %d: %s", p->id, e.what()); } }   // wrong types never reach the host's state
