@@ -5,6 +5,7 @@
 #include "anim_clip.h"
 #include "assets.h"
 #include "br_models.h"
+#include "loot.h"   // BR10: lootAttachDraws
 #include <glm/gtx/quaternion.hpp>
 
 struct AnimVM {
@@ -212,6 +213,7 @@ bool animVmDraw(App& app, const WeaponDef& d) {
   const WeaponState& ws = app.wstate[d.id];
   if (d.anim->hasDot && app.adsT > 0.6f && !ws.att[0]) app.R.viewModel.push_back({&d.anim->dotMesh, rig * st.pose.delta[d.anim->gunJoint]});
   if (ws.att[0]) brSightDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR3
+  lootAttachDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR10: muzzle, magazine, recoil pad
   return true;
 }
 

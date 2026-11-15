@@ -1,0 +1,130 @@
+{
+ "id": "br_medkit",
+ "version": 1,
+ "name": "Medkit",
+ "category": "Battle Royale",
+ "hidden": true,
+ "description": "BR10 Battle Royale item, part-built (tools/br_standins.py); no supplied model.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.3,
+  0.22
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "white",
+   "albedo": [
+    0.85,
+    0.85,
+    0.82
+   ],
+   "roughness": 0.7,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  },
+  {
+   "name": "red",
+   "albedo": [
+    0.6,
+    0.04,
+    0.04
+   ],
+   "roughness": 0.6,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  },
+  {
+   "name": "black",
+   "albedo": [
+    0.025,
+    0.025,
+    0.028
+   ],
+   "roughness": 0.6,
+   "pattern": "plain",
+   "metallic": 0.3,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "r",
+   "c": [
+    0,
+    0.05,
+    0
+   ],
+   "s": [
+    0.3,
+    0.1,
+    0.22
+   ],
+   "rad": 0.012,
+   "m": "white",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.101,
+    0
+   ],
+   "s": [
+    0.126,
+    0.003,
+    0.0308
+   ],
+   "m": "red",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.101,
+    0
+   ],
+   "s": [
+    0.042,
+    0.003,
+    0.0924
+   ],
+   "m": "red",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.085,
+    -0.11
+   ],
+   "s": [
+    0.09,
+    0.015,
+    0.012
+   ],
+   "m": "black",
+   "k": 0
+  }
+ ],
+ "nav": {
+  "effect": "none"
+ },
+ "standinParts": true,
+ "standinSize": [
+  0.3,
+  0.1,
+  0.22
+ ]
+}

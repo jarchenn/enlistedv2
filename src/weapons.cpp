@@ -274,6 +274,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   };
   add(WP_BODY, M); add(WP_SCOPE, M);
   brSightDraws(*this, d, s, M, R.viewModelTex, R.viewModel);   // BR3: the fitted optic on its rail
+  lootAttachDraws(*this, d, s, M, R.viewModelTex, R.viewModel);   // BR10: muzzle device, extended magazine, recoil pad
   // bolt: bolt actions lift and draw the handle; automatics move with each shot
   if (d.action == "bolt") {
     float u = d.boltTime > 0 ? std::clamp(1 - s.bolt / d.boltTime, 0.0f, 1.0f) : 1;

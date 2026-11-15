@@ -8,7 +8,7 @@
 #include <imgui.h>
 #include <map>
 
-class App; class Game; struct Soldier; struct WeaponDef;
+class App; class Game; struct Soldier; struct WeaponDef; struct ModelDraw; struct DrawItem;
 
 enum AmmoType : int { AM_9MM = 0, AM_45, AM_556, AM_762, AM_50, AM_ROCKET, AM_12GA, AM_COUNT, AM_NONE = -1 };
 enum AttachSlot : int { ATT_SIGHT = 0, ATT_MUZZLE, ATT_MAG, ATT_STOCK };
@@ -92,6 +92,12 @@ void lootBeforeWeapons(App& app);                      // around App::stepWeapon
 void lootAfterWeapons(App& app);
 void lootMolotov(App& app, vec3 pos, int owner);       // the molotov's burst: ground fire
 bool lootScope(const App& app, float& mag, int& reticle);   // an attached optic in ADS: magnification + eyepiece reticle id
+void lootAttachSheetUi(App& app, bool zoom = false);
+// BR10 rail fit: for each gun that takes an optic, the receiver's top under the ACOG's footprint (a side render of the
+// bare gun); writes {id: [x, y, z]} rail suggestions to `out` (applied to content/weapons/<id>.json "rail")
+void lootRailFit(App& app, const fs::path& out);   // zoom: framed on the optic and receiver   // BR10 check: every loot gun from the side with sight / brake / magazine / pad fitted, bore (red) and sight line (green)
+// BR10: the fitted muzzle device, extended magazine and recoil pad on a gun (weapon space W); the optic is brSightDraws'
+void lootAttachDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes);
 void lootDraw(Game& G);                                // floor items (stand-in boxes until BR3's br_* assets exist)
 void lootUi(App& app);                                 // pick-up prompt, heal ring, keys; the inventory screen
 bool lootInventoryOpen();                              // the inventory or a case window is open

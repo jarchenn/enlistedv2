@@ -876,6 +876,7 @@ void Game::drawItems() {
         mat4 W = s.world * s.pose.weapon;
         for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, W});
         brSightDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR3: the fitted optic
+        lootAttachDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR10: muzzle, magazine, recoil pad
       }
     }
   }
