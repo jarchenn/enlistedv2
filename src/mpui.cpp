@@ -608,7 +608,11 @@ void Game::drawHud() {
     }
     if (!match.spawnProblem.empty()) dl->AddText(ImVec2(14, io.DisplaySize.y - 170), IM_COL32(255, 120, 90, 255), match.spawnProblem.c_str());
   }
-  if (hitMarker > 0) { ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f); for (int k = 0; k < 4; ++k) { float a = 0.785f + k * 1.5708f; dl->AddLine(ImVec2(c.x + std::cos(a) * 6, c.y + std::sin(a) * 6), ImVec2(c.x + std::cos(a) * 13, c.y + std::sin(a) * 13), IM_COL32(255, 255, 255, (int)(255 * hitMarker * 4)), 2); } }
+  if (hitMarker > 0 || killMarker > 0) {   // a small white X on a hit; a red one, a little larger, when the enemy goes down
+    ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f); const bool kill = killMarker > 0;
+    float r0 = kill ? 5.0f : 4.0f, r1 = kill ? 11.0f : 8.0f; int al = (int)(255 * std::min(1.0f, kill ? killMarker * 4 : hitMarker * 4));
+    for (int k = 0; k < 4; ++k) { float a = 0.785f + k * 1.5708f; dl->AddLine(ImVec2(c.x + std::cos(a) * r0, c.y + std::sin(a) * r0), ImVec2(c.x + std::cos(a) * r1, c.y + std::sin(a) * r1), kill ? IM_COL32(235, 30, 30, al) : IM_COL32(255, 255, 255, al), kill ? 2.0f : 1.5f); }
+  }
   if (hurtFlash > 0 && L && L->alive) {
     vec3 d = lastHurtDir; float rel = wrapDeg(degrees(std::atan2(-d.x, -d.z)) - app.eyeYaw + 180.0f) - 180.0f;
     ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f); float a = radians(-rel) - 1.5708f;

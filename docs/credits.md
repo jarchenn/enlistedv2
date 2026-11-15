@@ -169,3 +169,4 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - Gun shots (content/audio/custom/guns): makarov-shoot-36241, battle-rifle-42734, heavymachinegun-6998, single-pistol-gunshot-3-101923, 9mm-pistol-shot-6349, clean-machine-gun-burst-98224 (freesound_community); gunshot-447218 (yousef-kwt); shotgun-blast-352038 (universfield); machine-gun-sfx-631486 (dragon-studio); gun-shoot-512969 (u_2n07b18i8q). Supplied by the user; licences to be confirmed.
 - Launcher fire: big-explosion-sfx-369789 (kave_msri); rocket impact: bomb-explosion-1-381972 (u_xg7ssi08yr); cannon fire: cannon-fire-161072 (lordsonny); shell / grenade explosion: explosion-effect-494317 (dragon-studio). Supplied by the user; licences to be confirmed.
 - Battlefield ambience: generated with ElevenLabs by the user (content/audio/ambience/battlefield.mp3).
+- Headshot sound: 080997_bullet-39735 (freesound_community). Supplied by the user; licence to be confirmed.

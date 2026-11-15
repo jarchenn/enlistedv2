@@ -161,6 +161,6 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
   goreFleshHit(app, fh);
   if (v.localPlayer && !prot && fh.damage > 0) app.hitFlinch(fh.seed);   // suppression flinch (the LAN client: net.cpp "gore")
   gDmLastHit.fh = fh; gDmLastHit.range = range; gDmLastHit.weaponId = wid; gDmLastHit.valid = true;
-  if (shooter == g.localSlot && !prot) g.hitMarker = 0.25f;
+  if (shooter == g.localSlot && !prot) { g.hitMarker = 0.25f; if (zone == DZ_HEAD) app.audio.play("ui_headshot", app.eyePos(), 1.0f); }   // shortcut: host / single player only
   return true;
 }

@@ -316,6 +316,7 @@ int Audio::loadCustom(const fs::path& dir) {
     ++used; Impl::Event ev; ev.v.push_back(std::move(s));
     for (const char* n : g.events) { p->events[n] = ev; p->events.erase(std::string(n) + "_far"); }
   }
+  if (decode("headshot.mp3", b)) { ++used; float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x)); for (float& x : b) x *= 0.8f / pk; Impl::Event ev; ev.kind = "ui"; ev.v.push_back(b); p->events["ui_headshot"] = ev; }
   if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["zombie_groan"] = ev; }
   return used;
 }

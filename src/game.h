@@ -116,7 +116,7 @@ public:
   std::vector<Ghost> ghosts;
   std::map<uint64_t, int> doorSeen;          // door direction last replicated ((inst << 8) | idx)
   int spectate = -1;                          // soldier the dead local player watches
-  float hitMarker = 0, hurtFlash = 0; vec3 lastHurtDir{0};
+  float hitMarker = 0, killMarker = 0, hurtFlash = 0; vec3 lastHurtDir{0};
   std::vector<int> markedSlots;              // G4: the soldiers that got an ally head marker on the last HUD frame (tests)
   void drawAllyMarkers();                    // G4 (mpui.cpp)
   // statistics (tests / results)

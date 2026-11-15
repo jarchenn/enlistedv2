@@ -158,7 +158,7 @@ bool Game::begin(std::string& err) {
   }
   pool.clear(); poolBuilt = false;
   sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;
-  t = 0; steps = 0; spectate = -1; hitMarker = hurtFlash = 0;
+  t = 0; steps = 0; spectate = -1; hitMarker = killMarker = hurtFlash = 0;
   shotsByBots = hitsOnSoldiers = kills = doorOpens = smokeThrows = fragThrows = navRebuilds = 0;
   if (!isClient) match.start(); else { match.phase = MatchPhase::Running; for (auto& o : match.obj) o.state = ObjState::Locked; if (!match.obj.empty()) match.obj[0].state = ObjState::Active; }
   ghosts.clear(); doorSeen.clear();
@@ -397,6 +397,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
     if (!(s.weapon >= 0 && s.weapon < (int)app.weaponDefs.size() && app.weaponDefs[s.weapon]->locked)) drops.push_back({s.feet + vec3(0, 0.06f, 0), s.yaw, s.weapon, s.ws, t});   // GM3: never a locked weapon
     if (drops.size() > 24) drops.erase(drops.begin());
   }
+  if (killer == localSlot && killer != i && hostile(sold[killer], s)) killMarker = 0.6f;   // red marker: enemy down
   match.onDeath(i, killer);
   if (killer >= 0 && killer != i) ++kills;
   for (auto& o : sold) if (o.br.target == i) o.br.target = -1;
@@ -692,7 +693,7 @@ void Game::clientStep(float dt) {
 
 void Game::step(float dt) {
   if (!active || paused) return;
-  hitMarker = std::max(0.0f, hitMarker - dt); hurtFlash = std::max(0.0f, hurtFlash - dt * 0.6f);
+  hitMarker = std::max(0.0f, hitMarker - dt); killMarker = std::max(0.0f, killMarker - dt); hurtFlash = std::max(0.0f, hurtFlash - dt * 0.6f);
   if (isClient) { clientStep(dt); posesStep(dt); return; }
   auto c0 = std::chrono::steady_clock::now();
   struct Timer { Game& g; std::chrono::steady_clock::time_point c; ~Timer() { g.stepMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c).count(); ++g.stepCalls; } } timer{*this, c0};
