@@ -8,6 +8,7 @@
 #include "mptest.h"
 #include "br_models.h"
 #include "character.h"
+#include "loot.h"
 #include <functional>
 
 bool brInventoryPreviewPng(const fs::path& out, float yaw);   // br_models.cpp
@@ -78,10 +79,13 @@ void build(App&) {
   }
   push("preview", [](App&, float t) { if (t < 0.2f) return false; wear(3, 3, 2); T->check(brInventoryPreviewPng(outDir() / "brm_inventory_preview.png", 200), "inventory preview rendered"); return true; });
   // optics: the AK (animated rig) and the Kar98k (static model)
+  // from here a Battle Royale match (BR2's loot rules: the optic reticles, a sniper's own scope as its ACOG)
+  push("battle royale", [](App&, float) { gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return true; });
   static const char* sn[5] = {"none", "reddot", "acog", "4x", "10x"};
-  for (const char* gun : {"modern_ak", "kar98k"}) {
+  for (const char* gun : {"modern_ak", "kar98k", "modern_sniper_bolt"}) {
     for (int k = 0; k <= 4; ++k) {
       if (std::string(gun) == "kar98k" && k != 2) continue;
+      if (std::string(gun) == "modern_sniper_bolt" && k != 0 && k != 4) continue;   // its own scope (= the ACOG) and the 10x
       for (int ads = 0; ads < 2; ++ads) {
         std::string g = gun;
         shot(std::string("sight_") + gun + "_" + sn[k] + (ads ? "_ads" : "_hip"), [g, k, ads](App& a) {
@@ -94,6 +98,17 @@ void build(App&) {
       }
     }
   }
+  push("inventory", [](App& a, float t) {   // the inventory screen with the sniper and the AK carried
+    if (t == 0) {
+      a.scriptedInput = ExploreInput{}; a.carried.clear();
+      for (const char* id : {"modern_sniper_bolt", "modern_ak"}) { int w = a.weaponIndex(id); if (w >= 0) a.carried.push_back(w); }
+      a.wstate["modern_sniper_bolt"].att[0] = 0; a.wstate["modern_ak"].att[0] = 1;
+      wear(2, 2, 2); lootSetInventory(true);
+    }
+    if (t < 1.0f) return false;
+    a.uiShot = outDir() / "brm_inventory_ui.png"; return true;   // uiShot: after ImGui, so the inventory is in it
+    return false; });
+  push("close", [](App&, float t) { if (t < 1.0f) return false; lootSetInventory(false); return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; a.scriptedInput = ExploreInput{}; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 }

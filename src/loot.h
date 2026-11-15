@@ -46,6 +46,9 @@ int ammoBox(int type);
 bool lootIsPistol(const WeaponDef& d);
 int lootMagSize(const WeaponDef& d, const WeaponState& s);   // the magazine with an extended magazine fitted
 bool lootSightFits(const WeaponDef& d, int sight);
+// the sight in use: the fitted one, else a scoped sniper rifle's own scope, which counts as the ACOG (2)
+int lootSight(const WeaponDef& d, const WeaponState& s);
+inline bool lootBuiltInAcog(const WeaponDef& d, const WeaponState& s) { return s.att[ATT_SIGHT] == 0 && d.hasScope && d.wclass == WC_SNIPER; }
 bool lootAttachFits(const WeaponDef& d, const ItemDef& it);
 
 // pure rules (headless tests)

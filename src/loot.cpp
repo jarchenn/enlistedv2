@@ -99,6 +99,7 @@ int lootMagSize(const WeaponDef& d, const WeaponState& s) {
   if (!s.att[ATT_MAG]) return d.cap;
   return (int)std::lround(d.cap * (lootIsPistol(d) || isSmg(d) ? 2.0f : 1.5f));
 }
+int lootSight(const WeaponDef& d, const WeaponState& s) { return lootBuiltInAcog(d, s) ? 2 : s.att[ATT_SIGHT]; }
 bool lootSightFits(const WeaponDef& d, int sight) {
   bool pistol = lootIsPistol(d), sniper = d.wclass == WC_SNIPER, shotgun = isShotgun(d);
   switch (sight) {
@@ -253,7 +254,7 @@ void lootBegin(Game& G) {
       const WeaponDef& d = *app.weaponDefs[pool[k]];
       FloorItem& f = dropAt(spot(), "", 1);
       f.weapon = pool[k];
-      if (d.wclass == WC_SNIPER) f.ws.att[ATT_SIGHT] = 2;   // plan: snipers spawn with the ACOG
+      // plan: snipers spawn with the ACOG: a scoped sniper's own scope is it (lootSight), nothing fitted
       f.ws.loaded = lootMagSize(d, f.ws); f.ws.seed = 1234567u + (uint32_t)f.uid * 7919u;   // one full magazine
       ++guns;
       int t = ammoTypeOf(d), nb = irange(c.boxesPerGun[0], c.boxesPerGun[1]);
@@ -479,7 +480,7 @@ void lootMolotov(App& app, vec3 pos, int owner) {   // the bottle bursts: a ring
 bool lootScope(const App& app, float& mag, int& reticle) {
   if (!lootActive() || app.activeWeapon < 0 || app.weaponDefs.empty()) return false;
   auto it = app.wstate.find(app.weaponDefs[app.activeWeapon]->id); if (it == app.wstate.end()) return false;
-  switch (it->second.att[ATT_SIGHT]) {   // the plan's pictures: ACOG = the marksman rifle's, 4x = the M24's, 10x = the .50's
+  switch (lootSight(*app.weaponDefs[app.activeWeapon], it->second)) {   // a sniper keeps its own model: only the magnification and reticle change   // the plan's pictures: ACOG = the marksman rifle's, 4x = the M24's, 10x = the .50's
     case 2: mag = 2; reticle = 7; return true;
     case 3: mag = 4; reticle = 5; return true;
     case 4: mag = 10; reticle = 6; return true;
