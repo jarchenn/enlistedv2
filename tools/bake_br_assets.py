@@ -363,6 +363,37 @@ def rings(o, n_at=(0.3, 0.7)):
     for p in parts[1:]: set_materials(p, [steel])
     return join(parts)
 
+def clear_glass(o, ez, probe=0.004):
+    # the lenses go (the game draws no glass, so an opaque disc would block the view through the optic): every
+    # surface the sight line meets (rays along it, within `probe` of the axis), grown over neighbouring faces that
+    # face along the axis and lie in the same lens (a curved lens drifts a little in y; the housing steps away)
+    import bmesh
+    from mathutils.bvhtree import BVHTree
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.faces.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(bm)
+    lo, hi = bbox([o]); seeds = set()
+    for dx, dz in [(0, 0)] + [(probe * math.cos(a), probe * math.sin(a)) for a in [k * math.pi / 3 for k in range(6)]]:
+        p = Vector((dx, lo.y - 0.01, ez + dz))
+        while True:
+            hit, n, fi, d = tree.ray_cast(p, Vector((0, 1, 0)))
+            if hit is None: break
+            seeds.add(fi); p = hit + Vector((0, 1e-4, 0))
+    kill = set()
+    for s in seeds:
+        f0 = bm.faces[s]
+        if abs(f0.normal.y) < 0.5: continue
+        y0 = f0.calc_center_median().y; stack = [f0]; kill.add(f0)
+        while stack:
+            f = stack.pop()
+            for e in f.edges:
+                for g in e.link_faces:
+                    if g in kill or abs(g.normal.y) < 0.5: continue
+                    c = g.calc_center_median()
+                    if abs(c.y - y0) > 0.15 * math.hypot(c.x, c.z - ez) + 0.0015: continue   # off the lens's curve: the housing
+                    kill.add(g); stack.append(g)
+    bmesh.ops.delete(bm, geom=list(kill), context='FACES'); bm.to_mesh(o.data); bm.free()
+    print('glass cut:', len(seeds), 'surfaces hit,', len(kill), 'faces')
+
 def eye_height(o, rear_frac=0.1):   # optical axis: centre of the rear (eyepiece) end's cross-section
     lo, hi = bbox([o]); L = hi.y - lo.y
     vs = [v.co for v in o.data.vertices if v.co.y > hi.y - rear_frac * L]
@@ -394,17 +425,20 @@ def bake_sights():
         long_to_y(o); big_end_forward(o); xform(o, Matrix.Rotation(math.pi, 4, 'Z'))   # its eyepiece housing is the larger end
         place_ground(o); size_to(o, 1, 0.15); place_ground(o)
         # eye: the ocular sits above the centre of the rear housing (its mount hangs below): +8 mm, measured in the ADS capture
-        export(o, 'br_sight_acog', 512); write_asset('br_sight_acog', 'ACOG', 'sight', gl_size(o), sight_block(o, eye_z=eye_height(o) + 0.008))
+        ez = eye_height(o) + 0.008; clear_glass(o, ez)
+        export(o, 'br_sight_acog', 512); write_asset('br_sight_acog', 'ACOG', 'sight', gl_size(o), sight_block(o, eye_z=ez))
     if want('br_sight_4x'):
         o = item('br_sight_4x', J('4x', 'source', 'm24Sniper.fbx'), keep=['Scope'], tris_max=6000,
                  mats=lambda mo: [mat_col('glass', (0.1, 0.14, 0.18), 0.05, 0.5)] if 'Glass' in mo.name else [mat_col('scope_black', (0.04, 0.04, 0.045), 0.4, 0.4)])
         long_to_y(o); big_end_forward(o); place_ground(o); size_to(o, 1, 0.30); place_ground(o)
         o = rings(o); place_ground(o)
+        clear_glass(o, eye_height(o))
         export(o, 'br_sight_4x', 512); write_asset('br_sight_4x', '4x scope', 'sight', gl_size(o), sight_block(o))
     if want('br_sight_10x'):
         o = item('br_sight_10x', J('10x', '10x .glb'), tris_max=8000)
         long_to_y(o); big_end_forward(o); place_ground(o); size_to(o, 1, 0.36); place_ground(o)
         o = rings(o); place_ground(o)
+        clear_glass(o, eye_height(o))
         export(o, 'br_sight_10x', 512); write_asset('br_sight_10x', '10x scope', 'sight', gl_size(o), sight_block(o))
 
 # ---------------------------------------------------------------- other attachments and world items (pick-up meshes)

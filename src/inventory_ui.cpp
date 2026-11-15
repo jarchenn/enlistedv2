@@ -114,10 +114,11 @@ void drawInventoryScreen(App& app) {
     ImGui::EndGroup();
     for (int sl = 0; sl < 4; ++sl) {
       ImGui::PushID(sl);
-      const char* id = kAttIds[sl][std::clamp(s.att[sl], 0, 4)];
+      bool builtIn = sl == ATT_SIGHT && lootBuiltInAcog(d, s);   // the sniper's own scope shows as its ACOG; it does not come off
+      const char* id = kAttIds[sl][std::clamp(builtIn ? 2 : s.att[sl], 0, 4)];
       const ItemDef* ad = *id ? lootItem(id) : nullptr;
       ImGui::Text("   %-9s %s", kSlotNames[sl], ad ? ad->name.c_str() : "-");
-      if (ad) { ImGui::SameLine(); if (ImGui::SmallButton("Take off")) { k.items[id]++; s.att[sl] = 0; } }
+      if (ad && !builtIn) { ImGui::SameLine(); if (ImGui::SmallButton("Take off")) { k.items[id]++; s.att[sl] = 0; } }
       ImGui::PopID();
     }
     if (ImGui::SmallButton("Drop gun")) { lootDropGun(app, w); ImGui::PopID(); break; }

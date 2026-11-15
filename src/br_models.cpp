@@ -60,26 +60,45 @@ static const Rail& railOf(const WeaponDef& d) {   // the gun JSON "rail" / "rail
   return cache[&d] = r;
 }
 
-// weapon-space mount of optic k (asset space -> weapon space); scoped rifles: the optic's eye on their own scope's eye
+// weapon-space mount of optic k (asset space -> weapon space)
 static bool sightMount(const WeaponDef& d, int k, const AssetDef*& a, mat4& M, vec3& eyeW) {
+  if (d.hasScope) return false;   // scoped rifles keep their own model: a fitted optic changes only the magnification and reticle (loot.cpp lootScope)
   a = k > 0 ? gApp->lib.find(sightId(k)) : nullptr;
   if (!a || !a->raw.contains("sight")) return false;
   const Rail& r = railOf(d);
   vec3 eye = jvec3(a->raw["sight"]["eye"], vec3(0, 0.04f, 0)) * r.scale;
-  vec3 base = d.hasScope ? d.scopeEye - eye : r.p;
+  vec3 base = r.p;
   M = glm::translate(mat4(1), base) * glm::scale(mat4(1), vec3(r.scale));
   eyeW = base + eye;
   return true;
 }
 
+// the red dot's mark: a small emissive disc in the window on the eye line, facing the eye (asset space)
+static const GpuMesh* redDotMark(const AssetDef& a) {
+  static GpuMesh mesh; static bool built = false;
+  if (!built) {
+    built = true;
+    vec3 eye = jvec3(a.raw["sight"]["eye"], vec3(0, 0.035f, -0.04f)); float L = a.raw["sight"].value("length", 0.085f);
+    vec3 col(1, 0.03f, 0.015f);
+    Material m{"br_red_dot"}; m.albedo = col; m.emissive = col * 40.0f;
+    Part p; p.shape = Part::CYL; p.size = vec3(0.0016f, 0.0002f, 0.0016f); p.collide = false; p.seg = 16;
+    p.rot = glm::angleAxis(1.5707963f, vec3(1, 0, 0));   // the disc axis (y) along the sight line (z)
+    p.center = vec3(eye.x, eye.y, eye.z + 0.6f * L);
+    MeshData md; appendPart(md, p, m, mat4(1)); mesh.upload(md);
+  }
+  return &mesh;
+}
+
 void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes) {
   (void)app; const AssetDef* a; mat4 M; vec3 e;
-  if (sightMount(d, ws.att[0], a, M, e)) addAsset(a, W * M, md, boxes);
+  if (!sightMount(d, ws.att[0], a, M, e)) return;
+  addAsset(a, W * M, md, boxes);
+  if (ws.att[0] == 1) boxes.push_back({redDotMark(*a), W * M});   // the reticle: the window itself is open
 }
 
 bool brSightLine(const WeaponDef& d, const WeaponState& ws, vec3& R, vec3& F, float& relief) {
   const AssetDef* a; mat4 M; vec3 e;
-  if (d.hasScope || !sightMount(d, ws.att[0], a, M, e)) return false;
+  if (!sightMount(d, ws.att[0], a, M, e)) return false;
   R = e; F = e + vec3(0, 0, 0.25f);
   relief = ws.att[0] == 1 ? 0.16f : 0.09f;   // red dot: held further back; magnified optics: at the eyepiece
   return true;
@@ -101,8 +120,10 @@ static bool renderPreview(Soldier& L, float yaw, int w, int h, std::vector<uint8
   mat4 world = glm::rotate(mat4(1), glm::radians(yaw), vec3(0, 1, 0));
   for (int k = 0; k < (int)gInst.view.parts.size(); ++k) if (!brHidePart(L, gInst.view.parts[k].name)) md.push_back({&gInst.view, k, world});
   brWornDraws(app, G, L, world, md, boxes);
-  vec3 c(0, 0.95f, 0), eye(0, 1.15f, 3.6f);
-  mat4 view = glm::lookAt(eye, c, vec3(0, 1, 0)), proj = glm::perspective(glm::radians(34.0f), (float)w / h, 0.1f, 20.0f);
+  // far enough for 2.1 m of height and 0.85 m of width (a narrow frame may crop the hands of a held rifle while turning)
+  float tv = std::tan(glm::radians(17.0f)), dist = std::max(1.05f / tv, 0.42f / (tv * (float)w / h)) + 0.4f;
+  vec3 c(0, 0.95f, 0), eye(0, 1.1f, dist);
+  mat4 view = glm::lookAt(eye, c, vec3(0, 1, 0)), proj = glm::perspective(glm::radians(34.0f), (float)w / h, 0.1f, 40.0f);
   return app.R.renderModelSheet(md, boxes, view, proj, eye, w, h, px);
 }
 
@@ -127,7 +148,7 @@ void drawInventoryCharacter(ImVec2 mn, ImVec2 mx) {
   ImGui::SetCursorScreenPos(mn); ImGui::InvisibleButton("##brchar", ImVec2(std::max(1.0f, mx.x - mn.x), std::max(1.0f, mx.y - mn.y)));
   ImGui::SetCursorScreenPos(keep);
   if (ImGui::IsItemActive()) yaw += ImGui::GetIO().MouseDelta.x * 0.6f; else yaw += ImGui::GetIO().DeltaTime * 12.0f;
-  int w = std::clamp((int)(mx.x - mn.x), 16, 512), h = std::clamp((int)(mx.y - mn.y), 16, 768);
+  int w = std::clamp((int)(mx.x - mn.x), 16, 768), h = std::clamp((int)(mx.y - mn.y), 16, 1200);
   double now = ImGui::GetTime();
   if (now >= nextAt || !tex || w != tw || h != th) {   // renderModelSheet makes an FBO per call: ~15 refreshes a second
     nextAt = now + 0.066;
