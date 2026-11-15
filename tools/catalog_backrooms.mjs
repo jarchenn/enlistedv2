@@ -20,21 +20,22 @@ const r3 = (v) => Math.round(v * 1000) / 1000;
 const NAV0 = { rooms: [], doors: [], entrances: [], corners: [], firingPoints: [], cover: [], areas: [] };
 
 function bmats(A) {
-  A.mat("wallpaper", [0.74, 0.66, 0.36], 0.85, "painted", { texture: "wallpaper_aged" });
+  A.mat("wallpaper", [0.98, 0.9, 0.12], 0.9, "plain", { texture: "wallpaper_backrooms", emissive: [0.16, 0.145, 0.02] });   // BR2: the striped yellow paper (tools/gen_wallpaper_backrooms.py)   // BR2: plain saturated yellow, only a fine low-contrast grain (painted plaster slot)
   A.mat("wallpaper_stain", [0.5, 0.43, 0.22], 0.9, "painted", { texture: "wallpaper_aged" });
-  A.mat("trim", [0.36, 0.27, 0.16], 0.7, "painted");
-  A.mat("carpet", [0.56, 0.48, 0.32], 0.97, "fabric", { texture: "rug_beige" });
+  A.mat("trim", [0.9, 0.81, 0.12], 0.8, "plain", { emissive: [0.15, 0.135, 0.02] });   // BR2: the wall's yellow (no dark skirting)
+  // BR2: the yellow surfaces glow faintly: a stand-in for the bounce light the night lighting (no GI) does not give
+  A.mat("carpet", [0.94, 0.84, 0.14], 0.97, "plain", { texture: "none", emissive: [0.18, 0.16, 0.025] });   // BR2: plain yellow carpet   // BR2: yellow-beige   // BR2: clean beige-yellow
   A.mat("carpet_damp", [0.36, 0.3, 0.19], 0.8, "fabric", { texture: "rug_beige" });
-  A.mat("ceiling_tile", [0.8, 0.77, 0.64], 0.95, "plaster");
-  A.mat("tbar", [0.62, 0.6, 0.52], 0.6, "metal", { metallic: 0.2 });
-  A.mat("concrete", [0.46, 0.45, 0.42], 0.9, "concrete", { texture: "concrete_stained" });
-  A.mat("concrete_floor", [0.36, 0.35, 0.33], 0.85, "concrete", { texture: "concrete_aged" });
+  A.mat("ceiling_tile", [0.92, 0.87, 0.22], 0.95, "plain", { emissive: [0.2, 0.19, 0.04] });   // BR2: pale yellow   // BR2: flat pale yellow
+  A.mat("tbar", [0.78, 0.72, 0.18], 0.8, "plain", { emissive: [0.16, 0.15, 0.03] });
+  A.mat("concrete", [0.46, 0.45, 0.42], 0.9, "concrete", { texture: "concrete_stained", emissive: [0.06, 0.058, 0.052] });
+  A.mat("concrete_floor", [0.36, 0.35, 0.33], 0.85, "concrete", { texture: "concrete_aged", emissive: [0.045, 0.044, 0.04] });
   A.mat("pipe", [0.34, 0.32, 0.28], 0.55, "metal", { metallic: 0.5 });
   A.mat("pipe_green", [0.42, 0.52, 0.44], 0.6, "metal", { metallic: 0.2 });
   A.mat("rust", [0.24, 0.12, 0.06], 0.8, "metal", { metallic: 0.2 });
   A.mat("ebox", [0.44, 0.46, 0.42], 0.6, "metal", { metallic: 0.4 });
-  A.mat("tile", [0.86, 0.88, 0.84], 0.25, "plain", { texture: "floor_cement_tile" });
-  A.mat("tile_pool", [0.62, 0.84, 0.8], 0.2, "plain", { texture: "floor_cement_tile" });
+  A.mat("tile", [0.86, 0.88, 0.84], 0.25, "plain", { texture: "floor_cement_tile", emissive: [0.07, 0.08, 0.078] });
+  A.mat("tile_pool", [0.62, 0.84, 0.8], 0.2, "plain", { texture: "floor_cement_tile", emissive: [0.03, 0.07, 0.065] });
   A.mat("grout_dark", [0.5, 0.55, 0.52], 0.5, "plain");
   A.mat("water_proxy", [0.05, 0.12, 0.12], 0.1, "glass");
   A.mat("puddle", [0.03, 0.03, 0.025], 0.05, "plain");
@@ -48,7 +49,7 @@ function cellNav(A, h) {
 }
 function water(A, half, level) {   // still turquoise water over a square (src/water.cpp)
   const o = [[-half, -half], [half, -half], [half, half], [-half, half]];
-  (A.meta.water ??= { surfaces: [] }).surfaces.push({ outline: o.map((p) => p.map(r3)), level: r3(level), kind: "pond", clarity: 3.0, waves: 0.08, tint: [0.06, 0.2, 0.18] });
+  (A.meta.water ??= { surfaces: [] }).surfaces.push({ outline: o.map((p) => p.map(r3)), level: r3(level), kind: "pond", clarity: 3.0, waves: 0.08, tint: [0.03, 0.26, 0.22] });
   A.box([-half, level - 0.01, -half], [half, level, half], "water_proxy", { k: 0 });
 }
 
@@ -73,12 +74,7 @@ function cell(id, name, zone, opt = {}) {
   A.box([-HC, h, -HC], [HC, h + CEIL_T, HC], zone === "y" ? "ceiling_tile" : zone === "s" ? "concrete" : "tile");
   if (zone === "y") {   // the suspended grid: T-bars every 1.2 / 0.6 m under the ceiling tiles
     for (let x = -HC + 0.4; x < HC; x += 1.2) A.box([r3(x - 0.015), h - 0.02, -HC], [r3(x + 0.015), h, HC], "tbar", D);
-    for (let z = -HC + 0.4; z < HC; z += 0.6) A.box([-HC, h - 0.02, r3(z - 0.015)], [HC, h, r3(z + 0.015)], "tbar", D);
-    for (let k = 0; k < (opt.damp ? 7 : 2); k++) {   // damp patches in the carpet
-      const x = (R() - 0.5) * 6, z = (R() - 0.5) * 6, w = 0.8 + R() * (opt.damp ? 2.4 : 1.2);
-      A.box([r3(x - w / 2), 0.002, r3(z - w * 0.4)], [r3(x + w / 2), 0.006, r3(z + w * 0.4)], "carpet_damp", { k: 0 });
-    }
-    if (opt.damp) { A.box([-0.6, 0.006, -0.4], [0.7, 0.01, 0.5], "puddle", { k: 0 }); for (let k = 0; k < 3; k++) { const x = (R() - 0.5) * 6, z = (R() - 0.5) * 6; A.box([r3(x - 0.3), h - 0.025, r3(z - 0.3)], [r3(x + 0.3), h - 0.021, r3(z + 0.3)], "carpet_damp", { k: 0 }); } }
+    for (let z = -HC + 0.4; z < HC; z += 1.2) A.box([-HC, h - 0.02, r3(z - 0.015)], [HC, h, r3(z + 0.015)], "tbar", D);
   }
   if (zone === "s") {   // exposed pipe runs and a cable tray under the slab
     const runs = opt.cross ? [["x", -2.2], ["x", 1.6], ["z", 2.6], ["z", -0.8]] : [["x", -2.4], ["x", -1.8], ["x", 1.9], ["x", 2.5]];
@@ -90,7 +86,7 @@ function cell(id, name, zone, opt = {}) {
     A.box([-HC, h - 0.62, -0.6], [HC, h - 0.58, -0.2], "ebox", D);   // cable tray
     for (let x = -HC + 1; x < HC; x += 2) A.box([r3(x - 0.02), h - 0.62, -0.62], [r3(x + 0.02), h, -0.58], "ebox", D);
     if (opt.cross) A.cyl([2.9, h / 2, 2.9], [0.24, h, 0.24], "pipe", { k: 0, n: 10 });
-    for (let k = 0; k < 3; k++) { const x = (R() - 0.5) * 6, z = (R() - 0.5) * 6, w = 0.6 + R() * 1.4; A.box([r3(x - w / 2), 0.002, r3(z - w / 3)], [r3(x + w / 2), 0.006, r3(z + w / 3)], "puddle", { k: 0 }); }
+
   }
   if (zone === "p" && opt.flooded) water(A, HC, 0.28);
   cellNav(A, h);
@@ -115,9 +111,8 @@ function wall(id, name, zone, gap = null, opt = {}) {
     }
   }
   const spans = gap ? [[-HC, -gap[0] / 2], [gap[0] / 2, HC]] : [[-HC, HC]];
-  if (zone === "y") for (const sd of [-1, 1]) for (const [a, b] of spans) {   // brown baseboard and water stains on both faces
+  if (zone === "y") for (const sd of [-1, 1]) for (const [a, b] of spans) {   // a baseboard on both faces (BR2: no stains)
     A.box([a, 0, sd > 0 ? t : -t - 0.015], [b, 0.11, sd > 0 ? t + 0.015 : -t], "trim", D);
-    if (R() < 0.6) { const x = a + (b - a) * (0.2 + R() * 0.6), w = 0.4 + R() * 1.0, y = R() < 0.5 ? 0.11 : 1.6 + R() * 0.8; A.box([r3(x - w / 2), r3(y), sd > 0 ? t : -t - 0.004], [r3(x + w / 2), r3(y + 0.3 + R() * 0.9), sd > 0 ? t + 0.004 : -t], "wallpaper_stain", { k: 0 }); }
   }
   if (zone === "s") {   // electrical boxes and conduit on one face
     const x = gap ? (R() < 0.5 ? -2.6 : 2.6) : (R() - 0.5) * 4;
@@ -149,7 +144,7 @@ function column(id, name, zone, h, round = false) {
     footprint: [0.8, 0.8], plinthDepth: 0, maxGrade: 0.8, noAutoPanels: true });
   bmats(A);
   const m = zone === "y" ? "wallpaper" : zone === "s" ? "concrete" : "tile";
-  if (round) A.cyl([0, h / 2, 0], [0.8, h, 0.8], m, { n: 16 }); else A.box([-0.35, 0, -0.35], [0.35, h, 0.35], m);
+  if (round) A.cyl([0, h / 2, 0], [0.8, h, 0.8], m, { n: 16 }); else A.box([-0.6, 0, -0.6], [0.6, h, 0.6], m);   // BR2: thick 1.2 m pillars
   if (zone === "y") A.box([-0.365, 0, -0.365], [0.365, 0.1, 0.365], "trim", { k: 0 });
   setNav(A, { ...NAV0, effect: "block", cover: [cover([0, 0, 0.7], 0, "high", ["left", "right"]), cover([0, 0, -0.7], 180, "high", ["left", "right"])] });
   return A;
@@ -159,11 +154,11 @@ function column(id, name, zone, h, round = false) {
 function light(id, name, kind, L, glow = !!L) {
   const A = new Asset({ id, version: 1, name, category: "Backrooms", description: name, floors: 0, enterable: false,
     footprint: [1.2, 0.6], plinthDepth: 0, maxGrade: 5, noAutoPanels: true });
-  A.mat("frame", [0.7, 0.7, 0.66], 0.5, "metal", { metallic: 0.3 });
-  A.mat("diffuser", [0.9, 0.92, 0.92], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [5.0, 4.4, 3.4] : [5.2, 5.7, 6.0] } : {});
-  if (kind === "panel") {   // a 1.2 x 0.6 m recessed fluorescent troffer
-    A.box([-0.61, -0.025, -0.31], [0.61, 0, 0.31], "frame", { k: 0 });
-    A.box([-0.57, -0.03, -0.27], [0.57, -0.02, 0.27], "diffuser", { k: 0 });
+  A.mat("frame", kind === "panel" ? [0.92, 0.87, 0.22] : [0.7, 0.7, 0.66], 0.5, kind === "panel" ? "plain" : "metal", kind === "panel" ? { emissive: [0.2, 0.19, 0.04] } : { metallic: 0.3 });   // BR2: flush panels, no dark frame
+  A.mat("diffuser", [0.95, 0.94, 0.88], 0.4, "plain", glow ? { emissive: kind === "bulkhead" ? [5.0, 4.4, 3.4] : [6.2, 6.0, 5.0] } : {});   // BR2: slightly warm
+  if (kind === "panel") {   // a 1.0 x 1.0 m flush square fluorescent panel (BR2)
+    A.box([-0.5, -0.012, -0.5], [0.5, 0, 0.5], "frame", { k: 0 });
+    A.box([-0.47, -0.016, -0.47], [0.47, -0.008, 0.47], "diffuser", { k: 0 });
   } else if (kind === "pool") {   // a round recessed light
     A.cyl([0, -0.015, 0], [0.7, 0.03, 0.7], "frame", { k: 0, n: 16 });
     A.cyl([0, -0.025, 0], [0.6, 0.012, 0.6], "diffuser", { k: 0, n: 16 });
@@ -253,10 +248,10 @@ export function backroomsAssets() {
   out.push(column("brm_column_s", "Service column", "s", BR_CEIL.s));
   out.push(column("brm_column_p", "Poolroom column", "p", BR_CEIL.p, true));
   out.push(light("brm_panel", "Fluorescent panel", "panel", null, true));   // most panels only glow: the lit ones light the room
-  out.push(light("brm_panel_lit", "Fluorescent panel (light)", "panel", { color: [0.93, 0.97, 1.0], intensity: 0.8, radius: 11.0 }));
+  out.push(light("brm_panel_lit", "Fluorescent panel (light)", "panel", { color: [1.0, 0.97, 0.85], intensity: 3.8, radius: 12.0, shadow: 1 }));
   out.push(light("brm_panel_dead", "Fluorescent panel (dead)", "panel", null));
-  out.push(light("brm_pool_light", "Poolroom light", "pool", { color: [0.88, 0.98, 0.96], intensity: 0.75, radius: 13.0 }));
-  out.push(light("brm_bulkhead", "Service bulkhead light", "bulkhead", { color: [1.0, 0.9, 0.74], intensity: 0.7, radius: 9.0 }));
+  out.push(light("brm_pool_light", "Poolroom light", "pool", { color: [0.88, 0.98, 0.96], intensity: 1.5, radius: 13.0 }));
+  out.push(light("brm_bulkhead", "Service bulkhead light", "bulkhead", { color: [1.0, 0.9, 0.74], intensity: 1.6, radius: 10.0 }));
   out.push(sunk("brm_sunk_wardrobe_floor", "Wardrobe sunk into the floor", [["wardrobe", [0, -0.75, 0], [18, 30, -12]]], "A wardrobe half swallowed by the floor, leaning."));
   out.push(sunk("brm_sunk_wardrobe_wall", "Wardrobe sunk into a wall", [["wardrobe", [0, 0.1, -0.15], [-14, 0, 8]]], "A wardrobe pushed half into the wall behind it (origin on the wall face, the back half inside it).", [1.4, 1.0]));
   out.push(sunk("brm_sunk_bed_wall", "Bed sunk into a wall", [["bed", [0, 0.9, -0.2], [-62, 0, 6]]], "A bed stood up on its end, its head buried in the wall (origin on the wall face).", [1.4, 1.4]));

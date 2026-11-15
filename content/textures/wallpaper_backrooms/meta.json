@@ -1,0 +1,8 @@
+{
+ "set": "wallpaper_backrooms",
+ "id": "generated (tools/gen_wallpaper_backrooms.py)",
+ "family": "interior (BR2)",
+ "size": [0.6, 0.6],
+ "license": "generated, original",
+ "maps": ["color.png"]
+}
