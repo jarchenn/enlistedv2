@@ -13,8 +13,9 @@
 #include "crumb.h"
 #include "enemy_types.h"
 #include "flame.h"
-#include "ai_hooks.h"
+#include "ai_hooks.h"
 #include "br_models.h"
+#include "royale.h"
 #include "loot.h"   // BR2 Battle Royale loot
 void netInterpolate(Game& g, double t);
 #include <GLFW/glfw3.h>
@@ -124,7 +125,7 @@ bool Game::begin(std::string& err) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
-    int side = match.mode() == GameMode::Solo ? 0 : std::clamp(rs.team, 0, 1);
+    int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeFor(match.rules.aiTypes[side], aiSeen[side]++);
     s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
@@ -214,6 +215,7 @@ std::vector<int> Game::classWeapons(const Soldier& s) const {
 }
 
 void Game::applyLoadout(Soldier& s, bool newLife) {
+  if (royaleBareHands(app, *this, s)) return;   // BR1: everyone lands with fists / the knife only (loot is the kit)
   std::string fac = factionName(s.faction);
   const json& lo = combat["loadouts"][fac];
   const ClassDef* cd = s.cls >= 0 && s.cls < (int)classDefs().size() ? &classDefs()[s.cls] : nullptr;
@@ -732,7 +734,7 @@ void Game::step(float dt) {
     if (!s.alive) continue;
     crumb("game: soldier weapon"); soldierWeaponStep(s, dt);
     crumb("game: throw"); throwStep(s, dt);
-    crumb("game: ai"); if (!s.human) aiStep(s, dt);
+    crumb("game: ai"); if (!s.human && !royaleAirborne(s.slot)) aiStep(s, dt);   // BR1: aboard / falling: the drop moves it
   }
   crumb("game: loot"); lootStep(*this, dt);   // BR2: strip new lives, heal, bots pick up
   crumb("game: burn"); burnStep(dt);

@@ -99,7 +99,7 @@ float windupOf(const Game& G, const Soldier& s) {
 }
 BotMind* mindAt(AiCore& A, int slot) { return slot >= 0 && slot < (int)A.minds.size() ? A.minds[slot].get() : nullptr; }
 bool packMate(AiCore& A, const Soldier& o, int pack) { if (pack < 0) return false; BotMind* m = mindAt(A, o.slot); return m && m->life == o.lifeId && m->pack == pack; }
-bool packCompatible(const Game& G, const Soldier& a, const Soldier& b) { return G.match.mode() == GameMode::Solo || a.team == b.team; }
+bool packCompatible(const Game& G, const Soldier& a, const Soldier& b) { return ffaMode(G.match.mode()) || a.team == b.team; }
 
 // every 0.5 s: drop the dead, promote a new leader, put the packless into the nearest pack with room, merge small packs
 void maintainPacks(Game& G, AiCore& A) {

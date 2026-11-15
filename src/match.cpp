@@ -51,8 +51,8 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
 // Solo: `soloPlayers` slots, each its own team (humans first). TDM: teamPlayers[t] per team, team 0 = the Defender role,
 // team 1 = Attacker; humans join the host's team first, then fill the team with fewer humans. Unlimited respawns.
 bool Match::setupDeathmatch(int humans, std::string& err) {
-  const bool solo = rules.mode == GameMode::Solo;
-  int counts[2] = {solo ? std::max(rules.soloPlayers, humans) : rules.teamPlayers[0], solo ? 0 : rules.teamPlayers[1]};
+  const bool solo = ffaMode(rules.mode), royale = rules.mode == GameMode::BattleRoyale;
+  int counts[2] = {solo ? std::max(royale ? rules.royalePlayers : rules.soloPlayers, humans) : rules.teamPlayers[0], solo ? 0 : rules.teamPlayers[1]};
   if (counts[0] + counts[1] > ScenarioRules::kMaxCombatants) { err = "Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants."; return false; }
   if (counts[0] + counts[1] < 2) { err = "A match needs at least two combatants."; return false; }
   int humansOn[2] = {0, 0};
@@ -66,7 +66,7 @@ bool Match::setupDeathmatch(int humans, std::string& err) {
   int peer = 0;
   for (int t = 0; t < (solo ? 1 : 2); ++t)
     for (int k = 0; k < counts[t]; ++k) {
-      RosterSlot r; r.id = (int)slots.size(); r.livesLeft = -1; r.lane = LANE_MAIN;
+      RosterSlot r; r.id = (int)slots.size(); r.livesLeft = royale ? 1 : -1; r.lane = LANE_MAIN;   // BR1: one life, no respawn
       r.role = t == 0 ? CombatRole::Defender : CombatRole::Attacker;
       r.team = solo ? r.id : t;
       r.faction = solo ? (k % 2 == 0 ? rules.teamFaction[0] : rules.teamFaction[1]) : rules.teamFaction[t];
@@ -82,7 +82,7 @@ void Match::start() {
   phase = MatchPhase::Running;
   if (rules.mode != GameMode::Assault) {
     for (auto& s : slots) { s.pending = true; s.deadFor = 999; }
-    log(std::string("match start: ") + gameModeName(rules.mode) + ", first to " + std::to_string(rules.killCap) + " kills, " + std::to_string(slots.size()) + " combatants");
+    log(std::string("match start: ") + gameModeName(rules.mode) + (rules.mode == GameMode::BattleRoyale ? std::string(", last one alive wins") : ", first to " + std::to_string(rules.killCap) + " kills") + ", " + std::to_string(slots.size()) + " combatants");
     return;
   }
   if (!obj.empty()) obj[0].state = ObjState::Active;
@@ -127,6 +127,7 @@ void Match::onDeath(int slot, int killer) {
   auto& s = slots[slot];
   if (!s.alive) return;
   s.alive = false; s.deadFor = 0; ++s.deaths;   // the step's occupancy sample is kept (capture precedence)
+  if (rules.mode == GameMode::BattleRoyale && !s.place) s.place = stillIn() + 1;   // BR1: everyone still in places above
   if (killer >= 0 && killer < (int)slots.size() && killer != slot) {
     auto& k = slots[killer];
     if (k.team == s.team && rules.mode != GameMode::Assault) k.score -= 100;   // a team kill counts against the killer
@@ -142,6 +143,8 @@ int Match::topKills(int* slot) const {
   if (slot) *slot = bs;
   return best;
 }
+
+int Match::stillIn() const { int n = 0; for (auto& s : slots) n += s.alive || (!s.everSpawned && s.livesLeft != 0); return n; }
 
 std::vector<int> Match::spawnQueue() const {
   std::vector<int> q;
@@ -175,6 +178,17 @@ void Match::update(float dt) {
   dt = std::min(dt, 0.25f);
   ++step; time += dt;
   for (auto& s : slots) if (!s.alive) s.deadFor += dt;
+  if (rules.mode == GameMode::BattleRoyale) {   // BR1: no respawn; the last one in wins (if the last ones fall in one step, the last to fall)
+    if (stillIn() <= 1) {
+      int ws = -1; for (auto& s : slots) if (s.alive) ws = s.id;
+      if (ws < 0) for (auto& s : slots) if (s.place == 1) ws = s.id;
+      phase = MatchPhase::Ended; winnerSlot = ws; winner = Winner::None;
+      if (ws >= 0) slots[ws].place = 1;
+      result = ws >= 0 ? slots[ws].name + " is the last one standing" : "nobody survived";
+      log("result: " + result); return;
+    }
+    return;
+  }
   if (rules.mode != GameMode::Assault) {   // G1: kill cap, then plain respawn delays (no waves, no lives)
     if (rules.mode == GameMode::Solo) {
       int ws = -1; int top = topKills(&ws);

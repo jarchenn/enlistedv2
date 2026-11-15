@@ -2,6 +2,7 @@
 #include "loot.h"
 #include "app.h"
 #include "mptest.h"
+#include "royale.h"
 
 int runRoyaleSelfTest() {
   MpTest T("royale");
@@ -58,5 +59,6 @@ int runRoyaleSelfTest() {
     bool ok = true; for (int t = 0; t < AM_COUNT; ++t) ok &= ammoBox(t) > 0;
     T.check(ok && lootItem("br_bandage") && lootItem("br_helmet_3") && lootItem("br_helmet_3")->military && lootItem("br_sight_10x"), "loot.json: seven ammo boxes, items, level 3 military only");
   }
+  royaleSelfTest(T);   // BR1: circles nest and shrink on schedule, storm damage only outside, a 10-bot match ends with one winner
   return T.finish();
 }

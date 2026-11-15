@@ -2,6 +2,7 @@
 #include "game.h"
 #include "app.h"
 #include "mpui.h"
+#include "royale.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <imgui.h>
 #include <GLFW/glfw3.h>
@@ -12,6 +13,7 @@ static ImU32 teamCol(Faction f) { return f == Faction::Allies ? IM_COL32(150, 19
 // top-centre banner. Solo: "First to N  |  Leader: name K  |  You: k". TDM: "First to N" + both teams' kills.
 void Game::drawModeBanner() {
   if (match.mode() == GameMode::Assault) return;
+  if (match.mode() == GameMode::BattleRoyale) { royaleHud(app, *this); return; }   // BR1: alive, storm timers, placement
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   const Soldier* L = local();
@@ -94,7 +96,7 @@ void Game::scoreboardTable(bool full) {
     }
     if (scroll) ImGui::EndChild();
   };
-  if (match.mode() == GameMode::Solo) rows(-1);
+  if (ffaMode(match.mode())) rows(-1);
   else for (int t = 0; t < 2; ++t) { rows(t); if (t == 0) ImGui::Spacing(); }
 }
 
@@ -129,7 +131,7 @@ void Game::drawModePanel() {
     float hp = std::clamp(L->hp / 100.0f, 0.0f, 1.0f);
     dl->AddRectFilled(ImVec2(14, io.DisplaySize.y - 94), ImVec2(214, io.DisplaySize.y - 86), IM_COL32(50, 20, 20, 220));
     dl->AddRectFilled(ImVec2(14, io.DisplaySize.y - 94), ImVec2(14 + 200 * hp, io.DisplaySize.y - 86), IM_COL32(200, 60, 50, 255));
-    if (!L->alive && match.phase == MatchPhase::Running) {
+    if (!L->alive && match.phase == MatchPhase::Running && match.mode() != GameMode::BattleRoyale) {   // BR1: no respawn (royaleHud shows the placement)
       float left = std::max(0.0f, match.rules.respawnDelay - rs.deadFor);
       if (L->lifeId == 0) std::snprintf(b, sizeof b, "Deploying...");
       else std::snprintf(b, sizeof b, "You were killed%s%s.   Respawning in %.0f s", L->killer >= 0 ? " by " : "", L->killer >= 0 ? match.slots[L->killer].name.c_str() : "", left);

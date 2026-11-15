@@ -29,6 +29,7 @@ struct RosterSlot {
   int lane = LANE_MAIN;          // attacker approach lane (stable until objective change / rebalance)
   int team = 0;                  // friend / foe: Assault and TDM = (int)role, Solo = the slot id (G1)
   int score = 0;                 // +100 per kill, -100 per team kill (G1)
+  int place = 0;                 // BR1 battle royale: final placement (1 = winner), 0 while still in
 };
 
 struct ObjectiveRT {
@@ -61,7 +62,8 @@ public:
   std::vector<MatchEvent> events;
   std::string spawnProblem;      // actionable message when placement keeps failing
   uint32_t rev = 1;              // bumps on any replicated change (net dirty flag)
-  int winnerSlot = -1;           // Solo: the slot that reached the kill cap
+  int winnerSlot = -1;           // Solo: the slot that reached the kill cap; battle royale: the last one alive
+  int stillIn() const;           // BR1 battle royale: alive, or yet to make their (only) spawn
   GameMode mode() const { return rules.mode; }
   int teamKills(int team) const; // TDM: kills scored by the team
   int topKills(int* slot = nullptr) const;   // Solo: the best kill count (and its slot)
