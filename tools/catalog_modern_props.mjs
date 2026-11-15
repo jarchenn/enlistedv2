@@ -4,7 +4,7 @@
 // Original generic shapes only: no logos, brands or readable text (signs and plates are blank coloured panels).
 // Written to content/assets/<id>.json by tools/build_mpu_assets.mjs (integrator). Units metres, +y up, front = +z.
 import { Asset } from "./kit.mjs";
-import { setNav, cover, room, fire, rect, rng } from "./catalog_atlantic.mjs";
+import { setNav, cover, room, fire, rng } from "./catalog_atlantic.mjs";
 
 const DEG = 180 / Math.PI;
 const D = { k: 0, lod: 1 };                      // fine detail: no collider, may drop at distance
@@ -15,7 +15,7 @@ const vb = (bv) => ({ k: 0, bv });               // bevelled visible mass, no co
 
 // ------------------------------------------------------------------------------------------------- materials
 // [albedo, roughness, pattern, extra]; fin() registers only the ones an asset uses
-const T = (tex, alb, r, pat, ex = {}) => [alb, r, pat, { texture: tex, ...ex }];
+const T = (tex, alb, r, pat, ex = {}) => [alb, r, pat, tex ? { texture: tex, ...ex } : { ...ex }];   // MOD1 review: tex null = clean paint (the paint_metal_* sets carry rust)
 const MT = {
   conc: T("concrete_aged", [0.66, 0.64, 0.6], 0.9, "concrete"),
   conc_l: T("concrete_light", [0.74, 0.73, 0.7], 0.88, "concrete"),
@@ -43,30 +43,30 @@ const MT = {
   rubber: [[0.035, 0.035, 0.037], 0.92, "plain"],
   rubber_side: [[0.055, 0.055, 0.058], 0.88, "plain"],
   seam: [[0.02, 0.02, 0.02], 0.9, "plain"],
-  p_grey: T("paint_metal_grey", [0.52, 0.53, 0.54], 0.6, "painted"),
-  p_dgrey: T("paint_metal_grey", [0.25, 0.26, 0.27], 0.6, "painted"),
-  p_green: T("paint_metal_green", [0.2, 0.3, 0.2], 0.65, "painted"),
-  p_white: T("paint_metal_worn_white", [0.86, 0.86, 0.84], 0.6, "painted"),
-  p_tan: T("paint_metal_grey", [0.64, 0.54, 0.38], 0.75, "painted"),
-  p_od: T("paint_metal_green", [0.27, 0.29, 0.18], 0.75, "painted"),
-  p_yellow: T("paint_metal_grey", [0.88, 0.66, 0.08], 0.55, "painted"),
-  p_red: T("paint_metal_grey", [0.62, 0.08, 0.06], 0.55, "painted"),
-  p_orange: T("paint_metal_grey", [0.85, 0.36, 0.06], 0.55, "painted"),
-  p_blue: T("paint_metal_grey", [0.1, 0.22, 0.45], 0.55, "painted"),
-  p_black: T("paint_metal_grey", [0.06, 0.06, 0.065], 0.55, "painted"),
-  c_red: T("corrugated_galv", [0.5, 0.14, 0.09], 0.65, "painted", { metallic: 0.2 }),
-  c_blue: T("corrugated_galv", [0.12, 0.24, 0.42], 0.65, "painted", { metallic: 0.2 }),
-  c_green: T("corrugated_galv", [0.16, 0.32, 0.22], 0.65, "painted", { metallic: 0.2 }),
-  c_tan: T("corrugated_galv", [0.66, 0.55, 0.38], 0.7, "painted", { metallic: 0.2 }),
-  c_grey: T("corrugated_galv", [0.46, 0.48, 0.5], 0.65, "painted", { metallic: 0.2 }),
+  p_grey: T(null, [0.52, 0.53, 0.54], 0.6, "metal"),
+  p_dgrey: T(null, [0.25, 0.26, 0.27], 0.6, "metal"),
+  p_green: T(null, [0.2, 0.3, 0.2], 0.65, "metal"),
+  p_white: T(null, [0.86, 0.86, 0.84], 0.6, "metal"),
+  p_tan: T(null, [0.64, 0.54, 0.38], 0.75, "metal"),
+  p_od: T(null, [0.27, 0.29, 0.18], 0.75, "metal"),
+  p_yellow: T(null, [0.88, 0.66, 0.08], 0.55, "metal"),
+  p_red: T(null, [0.62, 0.08, 0.06], 0.55, "metal"),
+  p_orange: T(null, [0.85, 0.36, 0.06], 0.55, "metal"),
+  p_blue: T(null, [0.1, 0.22, 0.45], 0.55, "metal"),
+  p_black: T(null, [0.06, 0.06, 0.065], 0.55, "metal"),
+  c_red: T("corrugated_galv", [0.5, 0.14, 0.09], 0.65, "metal", { metallic: 0.2 }),
+  c_blue: T("corrugated_galv", [0.12, 0.24, 0.42], 0.65, "metal", { metallic: 0.2 }),
+  c_green: T("corrugated_galv", [0.16, 0.32, 0.22], 0.65, "metal", { metallic: 0.2 }),
+  c_tan: T("corrugated_galv", [0.66, 0.55, 0.38], 0.7, "metal", { metallic: 0.2 }),
+  c_grey: T("corrugated_galv", [0.46, 0.48, 0.5], 0.65, "metal", { metallic: 0.2 }),
   c_rust: T("rust_heavy", [0.48, 0.25, 0.15], 0.85, "metal", { metallic: 0.15 }),
-  car_silver: T("paint_metal_grey", [0.62, 0.63, 0.65], 0.3, "painted", { metallic: 0.55 }),
-  car_red: T("paint_metal_grey", [0.55, 0.05, 0.05], 0.3, "painted", { metallic: 0.35 }),
-  car_blue: T("paint_metal_grey", [0.08, 0.16, 0.36], 0.3, "painted", { metallic: 0.45 }),
-  car_white: T("paint_metal_worn_white", [0.88, 0.88, 0.87], 0.3, "painted", { metallic: 0.2 }),
-  car_black: T("paint_metal_grey", [0.05, 0.05, 0.055], 0.25, "painted", { metallic: 0.4 }),
-  car_green: T("paint_metal_green", [0.12, 0.25, 0.18], 0.3, "painted", { metallic: 0.4 }),
-  car_dirty: T("paint_metal_worn_white", [0.5, 0.47, 0.42], 0.7, "painted", { metallic: 0.15 }),
+  car_silver: T(null, [0.62, 0.63, 0.65], 0.3, "metal", { metallic: 0.55 }),
+  car_red: T(null, [0.55, 0.05, 0.05], 0.3, "metal", { metallic: 0.35 }),
+  car_blue: T(null, [0.08, 0.16, 0.36], 0.3, "metal", { metallic: 0.45 }),
+  car_white: T(null, [0.88, 0.88, 0.87], 0.3, "metal", { metallic: 0.2 }),
+  car_black: T(null, [0.05, 0.05, 0.055], 0.25, "metal", { metallic: 0.4 }),
+  car_green: T(null, [0.12, 0.25, 0.18], 0.3, "metal", { metallic: 0.4 }),
+  car_dirty: T("paint_metal_worn_white", [0.5, 0.47, 0.42], 0.7, "metal", { metallic: 0.15 }),
   glass: [[0.2, 0.25, 0.28], 0.06, "glass"],
   glass_t: [[0.06, 0.08, 0.09], 0.06, "glass"],
   glass_crack: [[0.55, 0.6, 0.62], 0.4, "glass"],
@@ -318,7 +318,7 @@ function jersey(id, name, desc, kind) {
       rod(A, [x + lx * 0.4, 0.62, z + 0.02], [x + lx, 0.62 + lz * 0.2, z + 0.06], 0.016, "rebar");
     }
     for (let i = 0; i < 7; i++) {
-      const s = 0.06 + R() * 0.14, z = (R() > 0.5 ? 1 : -1) * (0.4 + R() * 0.5);
+      const s = 0.06 + R() * 0.14, z = (R() > 0.5 ? 1 : -1) * (0.38 + R() * 0.12);
       A.obox([-0.3 + R() * 0.9, s * 0.4, z], [s * 1.3, s * 0.8, s], [R() * 40, R() * 180, R() * 40], R() > 0.4 ? "conc_l" : "conc_dk", { k: 0, bv: 0.01 });
     }
     jerseyEnds(A, x0, x1);
@@ -671,7 +671,7 @@ function chainLinkGate(open) {
 function slidingGate() {
   const ox = -0.38, at = (x, y, z) => [x + ox, y, z];
   const A = mk("mod_sliding_gate", "Security sliding gate (6 m)", "Fences",
-    "Steel security sliding gate for a 6 m opening: a 2.1 m painted box-section leaf with square-bar infill and spiked top rail running on a ground track on V-wheels, a guide post with nylon top rollers, a receiving post, an operator motor housing on a concrete pad with a warning beacon and a safety-edge strip.", [7.15, 1.2]);
+    "Steel security sliding gate for a 6 m opening: a 2.1 m painted box-section leaf with square-bar infill and spiked top rail running on a ground track on V-wheels, a guide post with nylon top rollers, a receiving post, an operator motor housing on a concrete pad with a warning beacon and a safety-edge strip.", [8.0, 1.4]);
   const x0 = -3.1, x1 = 3.3, Hh = 2.1;
   A.box(at(-3.6, 0, -0.06), at(3.9, 0.01, 0.06), "steel_dk", D);
   A.box(at(-3.5, 0.01, -0.012), at(3.8, 0.04, 0.012), "steel", D);                       // track rail
@@ -714,7 +714,7 @@ function razorCoil() {
 }
 function constructionFence() {
   const A = mk("mod_construction_fence", "Temporary construction fence panel", "Fences",
-    "Temporary mesh fence panel, 3.5 x 2.0 m: galvanised tube frame with welded 100 x 250 mm mesh, standing in two moulded rubber-and-concrete feet, with a clamp coupler at each top corner and a brace stay.", [3.6, 0.7]);
+    "Temporary mesh fence panel, 3.5 x 2.0 m: galvanised tube frame with welded 100 x 250 mm mesh, standing in two moulded rubber-and-concrete feet, with a clamp coupler at each top corner and a brace stay.", [4.2, 1.6]);
   const W = 3.5, Hh = 2.0, x0 = -W / 2, x1 = W / 2;
   for (const x of [x0 + 0.02, x1 - 0.02]) rod(A, [x, 0.08, 0], [x, Hh, 0], 0.04, "galv", { k: 0, seg: 10 });
   for (const y of [0.1, Hh - 0.02]) rod(A, [x0, y, 0], [x1, y, 0], 0.04, "galv", { k: 0, seg: 10 });
@@ -1870,7 +1870,7 @@ function trafficLight() {
 }
 function utilityPole() {
   const A = mk("mod_utility_pole", "Utility pole with transformer", "Urban",
-    "Creosoted timber distribution pole, 11 m: a 2.4 m crossarm with three pin insulators and conductor stubs, a lower double crossarm with suspension insulators, a pole-mounted transformer can on a bracket with bushings and cutout fuses, a ground wire, step bolts and a pole tag.", [2.6, 1.0]);
+    "Creosoted timber distribution pole, 11 m: a 2.4 m crossarm with three pin insulators and conductor stubs, a lower double crossarm with suspension insulators, a pole-mounted transformer can on a bracket with bushings and cutout fuses, a ground wire, step bolts and a pole tag.", [2.6, 2.3]);
   const Hh = 11;
   A.cone([0, 4.9, 0], [0.32, 11.4, 0.32], "wood_dk", { seg: 14, top: 0.7 });   // 0.8 m of it set in the ground
   const arm = (y, len, ins) => {
@@ -2202,7 +2202,7 @@ function rebarBundle() {
 }
 function cinderWall() {
   const A = mk("mod_cinder_wall", "Unfinished cinder-block wall", "Construction",
-    "Section of an unfinished concrete-block wall, 3.2 m long: 390 x 190 mm hollow blocks in running bond on a concrete footing, racked back in steps from 1.8 m to 0.6 m, open cores on the top course with rebar dowels sticking up and a few loose blocks on the ground.", [3.4, 1.0]);
+    "Section of an unfinished concrete-block wall, 3.2 m long: 390 x 190 mm hollow blocks in running bond on a concrete footing, racked back in steps from 1.8 m to 0.6 m, open cores on the top course with rebar dowels sticking up and a few loose blocks on the ground.", [3.9, 1.8]);
   const bw = 0.4, bh = 0.2, th = 0.19, R = rng(919);
   A.box([-1.65, -0.05, -0.2], [1.65, 0.1, 0.2], "conc_r", { bv: 0.01 });
   const heights = [9, 9, 9, 9, 8, 7, 6, 5, 4, 3];
@@ -2303,7 +2303,7 @@ function retainingWall() {
 }
 function fallenTree() {
   const A = mk("mod_fallen_tree", "Fallen park tree", "Terrain",
-    "Uprooted park plane / lime tree lying on its side, 9 m: a tapering 0.55 m trunk with bark, an upturned root plate with soil and torn roots, broken limbs and leafy branch ends, a snapped branch stub.", [9.4, 4.6]);
+    "Uprooted park plane / lime tree lying on its side, 9 m: a tapering 0.55 m trunk with bark, an upturned root plate with soil and torn roots, broken limbs and leafy branch ends, a snapped branch stub.", [12.2, 6.6]);
   const R = rng(5150), pts = [[-3.9, 0.3, 0.0], [-1.5, 0.28, 0.15], [1.2, 0.24, 0.05], [3.6, 0.2, -0.25], [4.6, 0.25, -0.4]], dias = [0.56, 0.46, 0.36, 0.22, 0.12];
   for (let i = 0; i < pts.length - 1; i++) {
     rod(A, pts[i], pts[i + 1], (dias[i] + dias[i + 1]) / 2, "bark", { k: i < 3 ? 1 : 0, lod: 0, seg: 14 });
@@ -2328,7 +2328,7 @@ function fallenTree() {
 }
 function culvertHeadwall() {
   const A = mk("mod_culvert_headwall", "Drainage culvert headwall", "Terrain",
-    "Precast concrete culvert headwall, 3.0 x 1.8 m, round a 0.9 m pipe outlet: angled wingwalls, a cast coping, a concrete apron with a cut-off wall, a damp silt fan at the outlet and the road embankment behind.", [3.9, 3.6]);
+    "Precast concrete culvert headwall, 3.0 x 1.8 m, round a 0.9 m pipe outlet: angled wingwalls, a cast coping, a concrete apron with a cut-off wall, a damp silt fan at the outlet and the road embankment behind.", [4.9, 3.6]);
   const T = 0.3, z0 = -0.15, z1 = 0.15, hw = 1.5, Hh = 1.8, pr = 0.45, py = pr + 0.12;
   A.box([-hw, 0, z0], [-pr - 0.02, Hh, z1], "conc");
   A.box([pr + 0.02, 0, z0], [hw, Hh, z1], "conc");
@@ -2505,7 +2505,7 @@ function camoNet() {
 function rubblePile(large) {
   const S = large ? 2.4 : 1.2, R = rng(large ? 9001 : 9002);
   const A = mk(large ? "mod_rubble_large" : "mod_rubble_small", large ? "Concrete rubble pile (large)" : "Concrete rubble pile (small)", "Destruction",
-    `Heap of demolished reinforced concrete, about ${2 * S + 0.5} m across and ${large ? "1.6" : "0.8"} m high: broken slabs and blocks with bent rebar sticking out, smaller lumps, dust and brick fragments.`, [2 * S + 0.6, 2 * S + 0.4]);
+    `Heap of demolished reinforced concrete, about ${2 * S + 0.5} m across and ${large ? "1.6" : "0.8"} m high: broken slabs and blocks with bent rebar sticking out, smaller lumps, dust and brick fragments.`, [2 * S + 1.4, 2 * S + 1.0]);
   A.rbox([-S, -0.2, -S * 0.85], [S, S * 0.38, S * 0.85], S * 0.35, "rubble", { r: [0, R() * 30, 0] });
   A.rbox([-S * 0.6, 0, -S * 0.5], [S * 0.5, S * 0.62, S * 0.45], S * 0.25, "rubble", { r: [0, R() * 60, 0] });
   for (let i = 0; i < (large ? 7 : 4); i++) {
@@ -2523,7 +2523,7 @@ function rubblePile(large) {
 }
 function wallChunks() {
   const A = mk("mod_wall_chunks", "Broken wall chunks", "Destruction",
-    "Three large broken pieces of a rendered brick-and-concrete wall: one leaning up against another, one face-down, with plaster on one face and brick showing on the other, ragged edges with rebar and brick fragments round them.", [4.0, 3.0]);
+    "Three large broken pieces of a rendered brick-and-concrete wall: one leaning up against another, one face-down, with plaster on one face and brick showing on the other, ragged edges with rebar and brick fragments round them.", [4.0, 3.8]);
   const R = rng(4040);
   const chunk = (c, s, r) => {
     A.obox(c, s, r, "brick", { bv: 0.02 });
@@ -2540,7 +2540,7 @@ function wallChunks() {
 }
 function collapsedSlab() {
   const A = mk("mod_collapsed_slab", "Collapsed ceiling slab", "Destruction",
-    "A 4 x 3 m section of reinforced concrete floor slab fallen in: one edge on the ground, the broken edge propped 1.7 m up on a rubble heap, the plastered ceiling underside showing, a ragged end bristling with bent bar mesh, a floor finish on top and dust and debris beneath.", [4.6, 3.6]);
+    "A 4 x 3 m section of reinforced concrete floor slab fallen in: one edge on the ground, the broken edge propped 1.7 m up on a rubble heap, the plastered ceiling underside showing, a ragged end bristling with bent bar mesh, a floor finish on top and dust and debris beneath.", [4.6, 4.7]);
   const R = rng(6060), ang = Math.asin(1.6 / 3.6) * DEG;
   const c = [0, 0.95, 0];
   A.obox(c, [4.0, 0.2, 3.6], [-ang, 0, 0], "conc", { bv: 0.02 });
