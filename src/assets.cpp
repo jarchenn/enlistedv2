@@ -476,12 +476,21 @@ static int patternFromName(const std::string& s) {
   auto it = m.find(s); return it == m.end() ? PAT_PLAIN : it->second;
 }
 
+// MOD2: parts marked "mf" are the stand-in for an imported model: hidden once its bake is on disk (a local-only
+// model keeps a part-built fallback of the same footprint in the committed asset)
+static thread_local bool gModelBaked = false;
+static bool modelBakedFor(const json& j, const std::string& id) {
+  if (!j.is_object() || !j.contains("model") || !j["model"].is_object()) return false;
+  std::error_code ec; return fs::exists(contentDir() / "assets" / "models" / j["model"].value("dir", id) / "mesh.bin", ec);
+}
 static Part parsePart(const json& j, const std::map<std::string, int>& mats);
 std::vector<Part> assetRawParts(const AssetDef& a) {
   std::map<std::string, int> mats;
   for (size_t k = 0; k < a.materials.size(); ++k) mats[a.materials[k].name] = (int)k;
   std::vector<Part> out;
+  gModelBaked = modelBakedFor(a.raw, a.id);
   if (a.raw.is_object()) for (auto& pj : a.raw.value("parts", json::array())) out.push_back(parsePart(pj, mats));
+  gModelBaked = false;
   return out;
 }
 static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
@@ -489,7 +498,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   std::string t = j.value("t", "b");
   auto mit = mats.find(j.value("m", ""));
   p.mat = mit == mats.end() ? 0 : mit->second;
-  p.visible = j.value("v", 1) != 0;
+  p.visible = j.value("v", 1) != 0 && !(gModelBaked && j.value("mf", 0) != 0);
   if (j.contains("q")) p.rot = glm::normalize(quat(j["q"][3].get<float>(), j["q"][0].get<float>(), j["q"][1].get<float>(), j["q"][2].get<float>()));   // explicit quaternion (x, y, z, w)
   p.collide = j.value("k", 1) != 0; p.playerOnly = j.value("k", 1) == 2; p.sec = j.value("sec", -1); p.grp = j.value("g", -1);
   p.lodDetail = j.value("lod", 0) >= 1;
@@ -793,6 +802,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     mats[m.name] = (int)a->materials.size();
     a->materials.push_back(m);
   }
+  gModelBaked = modelBakedFor(j, a->id);   // MOD2
   for (auto& pj : j.value("parts", json::array())) {   // GX1: slabs the terrain / revetment replace (terrain_blend.cpp)
     int mode = blendPartMode(j, pj);
     if (mode == 1) continue;

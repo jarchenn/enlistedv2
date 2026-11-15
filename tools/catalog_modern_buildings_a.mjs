@@ -46,16 +46,16 @@ function modMats(A) {
   A.mat("stainless", [0.70, 0.70, 0.70], 0.25, "metal", { texture: "steel_scratched", metallic: 1.0 });
   A.mat("hvac", [0.66, 0.66, 0.64], 0.5, "metal", { metallic: 0.2 });
   A.mat("grille", [0.28, 0.28, 0.28], 0.5, "metal", { texture: "steel_scratched", metallic: 0.6 });
-  A.mat("membrane", [0.12, 0.12, 0.12], 0.9, "concrete", { texture: "concrete_rough" });
+  A.mat("membrane", [0.12, 0.12, 0.12], 0.9, "concrete", { texture: "asphalt_dark" });
   A.mat("gravel_roof", [0.42, 0.41, 0.39], 0.95, "stone", { texture: "gravel_fine" });
   A.mat("concrete_m", [0.55, 0.54, 0.52], 0.88, "concrete", { texture: "concrete_formwork" });
   A.mat("paving", [0.47, 0.46, 0.44], 0.9, "stone", { texture: "paving_worn" });
-  A.mat("asphalt", [0.11, 0.11, 0.11], 0.92, "concrete", { texture: "concrete_aggregate" });
+  A.mat("asphalt", [0.11, 0.11, 0.11], 0.92, "concrete", { texture: "asphalt_plain" });
   A.mat("deck", [0.40, 0.28, 0.17], 0.75, "wood", { texture: "planks_038", grain: 0 });
-  A.mat("laminate", [0.55, 0.42, 0.30], 0.4, "wood", { texture: "wood_oak", grain: 0 });
+  A.mat("laminate", [0.55, 0.42, 0.30], 0.4, "wood", { texture: "floor_laminate_pale", grain: 0 });
   A.mat("glass_rail", [0.70, 0.80, 0.80], 0.05, "glass");
   A.mat("glass_dark", [0.04, 0.05, 0.06], 0.1, "glass");
-  A.mat("tile_white", [0.86, 0.86, 0.84], 0.3, "tile");
+  A.mat("tile_white", [0.86, 0.86, 0.84], 0.3, "tile", { texture: "tiles_white_grid" });
   A.mat("vinyl_red", [0.42, 0.05, 0.04], 0.5, "fabric", { texture: "leather_brown" });
   A.mat("fabric_awning", [0.10, 0.20, 0.16], 0.9, "fabric", { texture: "cloth_grey" });
   A.mat("rubber", [0.04, 0.04, 0.04], 0.9, "plain");
@@ -69,6 +69,8 @@ function modMats(A) {
   A.mat("light_panel", [0.90, 0.90, 0.86], 0.3, "plain", { emissive: [2.4, 2.35, 2.2] });
   A.mat("screen", [0.05, 0.08, 0.10], 0.2, "glass", { emissive: [0.25, 0.35, 0.45] });
   A.mat("line_yellow", [0.80, 0.62, 0.05], 0.6, "plain");
+  A.mat("ceiling", [0.82, 0.81, 0.78], 0.9, "plaster", { texture: "plaster_painted" });   // AS1: ceilings under upper floors
+  A.mat("door_frame", [0.80, 0.80, 0.78], 0.45, "metal", { metallic: 0.15 });   // AS1: light painted-steel door frames
 }
 function mmeta(id, name, category, desc, floors, footprint) {
   const A = meta(id, name, category, desc, floors, footprint, { version: 1, plinthDepth: 0, noAutoPanels: true, maxGrade: 0.5 });
@@ -195,13 +197,60 @@ function roomTypes(A, rules) {
   }
   A.meta.roomTypes = t;
 }
-const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); return k; };
+const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); ceilings(A); as1Run(A); return k; };
 const HALLS = [/(^|_)c\d$/, "hall"];
+
+// ============================================================================ AS1 detail pass
+// A plastered ceiling under every upper floor (house() leaves the oak boards of the floor above showing from below), and
+// roof plant queued by flatRoof and added once the building is laid out, only where nothing stands yet (isFree), never in a
+// door or window aperture, while the asset stays under the part budget (A.lean: none at all).
+const AS1_MAX = 1480;
+function as1(A, fn) { (A._as1 ??= []).push(fn); }
+function as1Run(A) { for (const fn of A._as1?.splice(0) ?? []) if (!A.lean && A.parts.length < AS1_MAX) fn(); }
+const hits = (c, he, mn, mx) => [0, 1, 2].every((i) => c[i] - he[i] < mx[i] && c[i] + he[i] > mn[i]);
+const apHit = (A, mn, mx) => A.interactables.some((it) => hits(it.aperture.min.map((v, i) => (v + it.aperture.max[i]) / 2), it.aperture.min.map((v, i) => (it.aperture.max[i] - v) / 2), mn, mx));
+function isFree(A, mn, mx, ignore = []) {
+  for (const p of A.parts) {
+    if (!p.s || ignore.includes(p.m)) continue;   // prisms carry no box
+    let he = p.s.map((v) => v / 2);
+    if (p.r || p.q) { const e = Math.hypot(...he); he = [e, e, e]; }
+    if (hits(p.c, he, mn, mx)) return false;
+  }
+  return !apHit(A, mn, mx);
+}
+// roof plant in the first free spot of x0..x1, z0..z1 (from the rear) on the roof at y: a mushroom extract fan or a dish
+function roofKit(A, x0, x1, z0, z1, y, kit) {
+  const r = kit === "dish" ? 0.6 : 0.55;
+  let p = null;
+  for (let z = z0 + r; !p && z <= z1 - r; z += 0.6) for (let x = x0 + r; !p && x <= x1 - r; x += 0.6) if (isFree(A, [x - r, y + 0.01, z - r], [x + r, y + 1.7, z + r], ["gravel_roof", "membrane"])) p = [x, z];
+  if (!p) return;
+  const [x, z] = p;
+  if (kit === "dish") {
+    A.box([x - 0.45, y, z - 0.45], [x + 0.45, y + 0.08, z + 0.45], "concrete_m", L1);       // ballast frame
+    A.cyl([x, y + 0.6, z], [0.06, 1.04, 0.06], "alu", { seg: 8, ...L1 });                    // mast
+    A.cyl([x, y + 1.1, z + 0.1], [0.75, 0.04, 0.75], "sign_w", { r: [70, 0, 0], seg: 16, ...L1 });
+    A.obox([x, y + 1.15, z + 0.38], [0.025, 0.025, 0.5], [-20, 0, 0], "alu", L1);           // feed arm
+    A.box([x - 0.04, y + 1.2, z + 0.58], [x + 0.04, y + 1.28, z + 0.68], "metal_panel", L1);
+  } else {
+    A.box([x - 0.4, y, z - 0.4], [x + 0.4, y + 0.3, z + 0.4], "hvac", { ...L1, bv: 0.015 });   // kerb upstand
+    A.cyl([x, y + 0.5, z], [0.56, 0.4, 0.56], "grille", { seg: 14, ...L1 });
+    A.cone([x, y + 0.82, z], [0.8, 0.24, 0.8], "hvac", { seg: 14, top: 0.15, ...L1 });
+  }
+}
+function ceilings(A) {
+  const add = [];
+  for (const p of A.parts) if (p.m === "floor_x" && p.t === "b" && !p.r && Math.abs(p.s[1] - 0.2) < 1e-3 && p.c[1] > 1) {
+    const yb = p.c[1] - 0.1, i = 0.001;   // 1 mm inside the floor's edges, 5 mm up into it: no shared faces
+    add.push([[p.c[0] - p.s[0] / 2 + i, yb - 0.015, p.c[2] - p.s[2] / 2 + i], [p.c[0] + p.s[0] / 2 - i, yb + 0.005, p.c[2] + p.s[2] / 2 - i]]);
+  }
+  for (const [mn, mx] of add) A.box(mn, mx, "ceiling", { k: 0 });
+}
 
 // ============================================================================ facade and roof detail
 // flat roof on walls topping at y over x0..x1, z0..z1: membrane deck, gravel ballast, parapet with aluminium coping,
 // outlets and soil vents. Returns the parapet top.
-function flatRoof(A, x0, x1, z0, z1, y, { ph = 0.9, t = 0.25, m = "render_m", vents = [] } = {}) {
+function flatRoof(A, x0, x1, z0, z1, y, { ph = 0.9, t = 0.25, m = "render_m", vents = [], kit = "fan" } = {}) {
+  if (kit) as1(A, () => roofKit(A, x0 + t + 0.1, x1 - t - 0.1, z0 + t + 0.1, z1 - t - 0.1, y + 0.16, kit));   // AS1
   A.box([x0, y, z0], [x1, y + 0.12, z1], "membrane");
   A.box([x0 + t, y + 0.12, z0 + t], [x1 - t, y + 0.16, z1 - t], "gravel_roof");
   const yt = y + ph;
@@ -265,6 +314,7 @@ function dpipe(A, F, a, y0, y1) {
   fpart(A, "cyl", F, a, (y0 + y1) / 2, 0.08, [0.09, y1 - y0, 0.09], "metal_panel", { k: 0 });
   for (let y = y0 + 0.8; y < y1 - 0.3; y += 1.8) fbox(A, F, a - 0.06, a + 0.06, y - 0.02, y + 0.02, 0, 0.13, "metal_panel", L1);
   fpart(A, "wedge", F, a, y0 + 0.05, 0.16, [0.09, 0.1, 0.16], "metal_panel", L1);
+  fbox(A, F, a - 0.12, a + 0.12, y1 - 0.24, y1 + 0.02, 0.02, 0.2, "metal_panel", { ...L1, bv: 0.01 });   // AS1: hopper head
 }
 // LED panel lights on a ceiling at y over a rectangle
 function ceilLights(A, x0, x1, z0, z1, y, sp = 2.4) {
@@ -402,7 +452,7 @@ export function familyHouse() {
     dress: (B, k) => {
       const { EAVE, yAt } = k, fr = face("front", X, Z), re = face("rear", X, Z);
       noBeams(B, EAVE);
-      flatRoof(B, -X, X, -Z, Z, EAVE, { vents: [[-3, -2], [2.5, -1.5]] });
+      flatRoof(B, -X, X, -Z, Z, EAVE, { vents: [[-3, -2], [2.5, -1.5]], kit: "dish" });
       hvac(B, 3.6, -3.4, EAVE + 0.16, 1.2, 0.8, 0.8);
       canopy(B, fr, -1.0, 1.0, GF + 2.55, 1.3);
       signPanel(B, fr, 0.75, 0.95, GF + 1.6, GF + 1.8, "sign_w", { depth: 0.04 });   // house number plate (blank)
@@ -423,9 +473,9 @@ export function familyHouse() {
   A.box([gx0, 0.05, gz0], [gx1 - gt, gh, gz0 + gt], "brick_slip");
   A.box([gx0, 0.05, gz1 - gt], [gx0 + 0.3, gh, gz1], "brick_slip"); A.box([gx1 - gt - 0.05, 0.05, gz1 - gt], [gx1 - gt, gh, gz1], "brick_slip");
   A.box([gx0 + 0.3, 2.4, gz1 - gt], [gx1 - gt - 0.05, gh, gz1], "brick_slip");
-  door(A, { id: "garage_door", axis: "x", outer: gz1, inner: gz1 - gt, c: (gx0 + 0.3 + gx1 - gt - 0.05) / 2, floor: 0.15, w: 2.85, h: 2.25, hingeSide: 1, double: true, leafMat: "metal_panel", frameMat: "alu", step: false, lintel: false, label: "garage door", sound: "steel" });
+  door(A, { id: "garage_door", axis: "x", outer: gz1, inner: gz1 - gt, c: (gx0 + 0.3 + gx1 - gt - 0.05) / 2, floor: 0.15, w: 2.85, h: 2.25, hingeSide: 1, double: true, leafMat: "metal_panel", frameMat: "door_frame", step: false, lintel: false, label: "garage door", sound: "steel" });
   A.box([gx0 + 0.3, gh - 0.2, gz0 + gt], [gx1 - gt, gh, gz1 - gt], "plaster");
-  flatRoof(A, gx0, gx1, gz0, gz1, gh, { ph: 0.45, m: "brick_slip" });
+  flatRoof(A, gx0, gx1, gz0, gz1, gh, { ph: 0.45, m: "brick_slip", kit: null });
   A.box([gx0 + 0.6, 2.4, gz1 + 0.01], [gx1 - 0.6, 2.47, gz1 + 0.08], "light_panel", L1);
   A.box([gx0 + 0.2, -0.02, gz1], [gx1 - 0.1, 0.06, gz1 + 3.0], "paving", { bv: 0.01 });   // drive
   // rear terrace: timber deck, steps, a glass balustrade and a steel pergola
@@ -463,6 +513,7 @@ export function townhouseRow() {
   let steps = [];
   units.forEach(([pre, dx, m, endSide], i) => {
     const B = sub("th" + i);
+    B.lean = true;   // AS1: the row is already over the part budget: ceilings only
     const side = (o) => (endSide ? { [endSide]: o } : {});
     modHouse(B, {
       X, Z, T: 0.35, h: 3.0, n: 3, corridor: 1.9, plinthDepth: 0.5, shot: "mod_th" + i,
@@ -515,7 +566,7 @@ export function apartmentBlock() {
     dress: (A, k) => {
       const { EAVE, yAt, zA } = k, fr = face("front", X, Z);
       noBeams(A, EAVE);
-      flatRoof(A, -X, X, -Z, Z, EAVE, { m: "brick_slip", vents: [[-5, -2], [5, -2], [0, 3]] });
+      flatRoof(A, -X, X, -Z, Z, EAVE, { m: "brick_slip", vents: [[-5, -2], [5, -2], [0, 3]], kit: "dish" });
       A.box([-1.6, EAVE, zA - 0.2], [1.6, EAVE + 2.4, zA + 2.2], "concrete_m", { bv: 0.02 });   // lift overrun
       A.box([-1.65, EAVE + 2.4, zA - 0.25], [1.65, EAVE + 2.48, zA + 2.25], "alu", { k: 0, bv: 0.01 });
       A.box([-0.6, EAVE + 1.4, zA + 2.2], [0.6, EAVE + 1.9, zA + 2.23], "grille", L1);
@@ -589,7 +640,7 @@ export function mixedUse() {
     dress: (A, k) => {
       const { EAVE, yAt } = k, fr = face("front", X, Z);
       noBeams(A, EAVE);
-      flatRoof(A, -X, X, -Z, Z, EAVE, { m: "brick_slip", vents: [[-3, -3.5]] });
+      flatRoof(A, -X, X, -Z, Z, EAVE, { m: "brick_slip", vents: [[-3, -3.5]], kit: "dish" });
       hvac(A, 3.5, -3.0, EAVE + 0.16, 1.4, 1.0, 0.9);
       signPanel(A, fr, -X + 0.3, X - 0.3, yAt(1) - 0.2, yAt(1) + 0.45, "sign_d", { depth: 0.14 });
       canopy(A, fr, -X + 0.4, X - 0.4, GF + 2.85, 1.2);
@@ -1064,6 +1115,7 @@ export function busStation() {
 // ============================================================================ catalog
 export function modernBuildingsA() {
   const out = [familyHouse(), townhouseRow(), apartmentBlock(), bungalow(), mixedUse(), dinerSmall(), restaurantFamily(), restaurantLarge(), fastFood(), gasStation(), busStation()];
+  for (const A of out) as1Run(A);   // AS1: detail queued on the outer asset (garage roofs)
   const ids = new Set();
   for (const A of out) {   // self-check: unique mod_ ids, unique nav room ids, every room typed, every door interactable framed
     const id = A.meta.id;

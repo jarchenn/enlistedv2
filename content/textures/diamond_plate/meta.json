@@ -1,0 +1,20 @@
+{
+ "set": "diamond_plate",
+ "id": "DiamondPlate009",
+ "family": "diamond plate (TX2)",
+ "size": [
+  1,
+  1
+ ],
+ "source": "https://ambientcg.com/a/DiamondPlate009",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

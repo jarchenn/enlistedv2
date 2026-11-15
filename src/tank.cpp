@@ -154,6 +154,57 @@ const TankDef* TankSys::defFor(const AssetDef* a) const {
   return it == defs.end() || !it->second->model ? nullptr : it->second.get();
 }
 
+// ============================================================ BR7 adopted part-built cars
+bool TankSys::adoptCar(App& app, uint64_t id) {
+  Instance* inst = app.doc.find(id); auto rt = app.rt.find(id);
+  if (!inst || rt == app.rt.end() || !rt->second.asset || tanks.count(id)) return false;
+  const AssetDef* a = rt->second.asset;
+  auto& dp = adoptedDefs[a->id];
+  if (!dp) {
+    vec3 rlo(1e9f), rhi(-1e9f), dash(0, 1.0f, 0.6f), blo(1e9f), bhi(-1e9f); float wr = 0.33f; bool rims = false;
+    for (auto& p : a->parts) {
+      const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
+      blo = glm::min(blo, p.center - p.size * 0.5f); bhi = glm::max(bhi, p.center + p.size * 0.5f);
+      if (mn == "rim") { rims = true; rlo = glm::min(rlo, p.center); rhi = glm::max(rhi, p.center); wr = std::max(wr, p.center.y); }
+      if (mn == "dash") dash = p.center;
+    }
+    if (!rims || bhi.x <= blo.x) return false;   // not a car
+    auto d = std::make_unique<TankDef>();
+    d->id = a->id; d->name = a->name; d->faction = ""; d->car = true; d->partsAsset = a;
+    float hx = 0.5f * (bhi.x - blo.x), hz = 0.5f * (bhi.z - blo.z), top = bhi.y, clr = 0.3f;
+    TankBox body; body.c = vec3(0, clr + 0.5f * (top - clr), 0.5f * (blo.z + bhi.z)); body.h = vec3(hx * 0.95f, 0.5f * (top - clr), hz * 0.97f);
+    d->hullBoxes = {body}; d->armourHull = body; d->halfSize = body.h; d->clearance = clr;
+    d->trackHalfGauge = std::max(0.5f, std::max(std::fabs(rlo.x), std::fabs(rhi.x)));
+    d->trackHalfLen = std::max(0.8f, 0.5f * (rhi.z - rlo.z));
+    d->wheelR = wr;
+    d->driverEye = vec3(-0.37f, dash.y + 0.38f, dash.z - 0.75f); d->hatchEye = d->driverEye;   // the generic kit seats the driver at x -0.37
+    d->engine = vec3(0, 0.8f, bhi.z - 0.6f); d->exhausts = {vec3(0.4f, 0.3f, blo.z - 0.05f)};
+    float sx = hx + 1.1f; d->exits = {vec3(-sx, 0, 0), vec3(sx, 0, 0), vec3(-sx, 0, blo.z * 0.6f), vec3(sx, 0, blo.z * 0.6f), vec3(0, 0, blo.z - 1.5f), vec3(0, 0, bhi.z + 1.5f)};
+    // arcade civilian handling (bigger = slower): ~80 km/h on roads, 45 off-road
+    float big = std::clamp((hz * 2 - 4.2f) / 2.0f, 0.0f, 1.0f);
+    d->maxFwd = glm::mix(22.0f, 17.0f, big); d->maxRev = 5; d->accel = glm::mix(4.5f, 3.0f, big); d->brake = 9; d->coast = 0.8f; d->offroadMul = 0.55f; d->maxSlopeDeg = 28;
+    d->maxSteerDeg = 33; d->steerRate = 2.2f; d->steerTurns = 2.6f; d->handbrakeDecel = 8; d->suspTravel = 0.08f; d->runOverDmg = 10;
+    d->frontSurvive = 1; d->sideSurvive = 1; d->smallArmsDmg = 2; d->massKg = glm::mix(1400.0f, 2800.0f, big); d->engineKW = 90; d->pushEff = 0.5f;
+    dp = std::move(d);
+  }
+  TankRT t; t.id = id; t.def = dp.get(); t.adopted = true; t.body = rt->second.staticBody; t.shapeYaw = 0;
+  t.pos = inst->pos; t.yaw = inst->yaw;
+  float y, p, r, s; groundPose(app, *t.def, t.pos, t.yaw, y, p, r, s); t.pos.y = std::max(inst->pos.y, y); t.pitch = p; t.roll = r;
+  tanks[id] = t;
+  return true;
+}
+
+void TankSys::releaseAdopted(App& app) {
+  for (auto it = tanks.begin(); it != tanks.end();) {
+    if (!it->second.adopted) { ++it; continue; }
+    TankRT& t = it->second;
+    for (int* h : {&t.engineLoop, &t.trackLoop, &t.turretLoop}) { app.audio.loopStop(*h); *h = -1; }
+    if (occupied == it->first) occupied = 0;
+    if (Instance* i = app.doc.find(it->first)) if (t.body != 0xffffffffu) Physics::setTransform(t.body, i->pos, yawQuat(i->yaw));   // its body back where it was parked
+    it = tanks.erase(it);
+  }
+}
+
 // ============================================================ preview (--tank-preview <dir>)
 bool TankSys::writePreview(App& app, const fs::path& outDir) {
   std::error_code ec; fs::create_directories(outDir, ec);

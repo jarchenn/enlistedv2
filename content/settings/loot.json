@@ -1,5 +1,5 @@
 {
-  "_doc": "Battle Royale loot (BR2, src/loot.cpp; plan Addendum 9). Ammo is pooled per type; one box = one magazine's worth. Carry weight: ammo boxes, consumables, throwables and loose attachments count; worn armour, the backpack, fitted attachments and the gun slots (2 long guns + pistol + melee) do not. Armour: damage to the covered zone (helmet: head; vest: torso and neck) x (1 - reduce[level]); the absorbed part wears the piece's durability and it breaks at zero. Level-1 helmet and vest are one item (kind armor1). Items marked military spawn only in buildings tagged military (instance extra.loot.military), which also weight scoped rifles and .50 up. Building size: extra.loot.size small / large, else the footprint area against largeArea_m2.",
+  "_doc": "Battle Royale loot (BR2, src/loot.cpp; plan Addendum 9). Ammo is pooled per type; one box = one magazine's worth. Carry weight: ammo boxes, consumables, throwables and loose attachments count; worn armour, the backpack, fitted attachments and the gun slots (2 long guns + pistol + melee) do not. Armour: damage to the covered zone (helmet: head; vest: torso and neck) x (1 - reduce[level]); the absorbed part wears the piece's durability and it breaks at zero. Level-1 helmet and vest spawn as one item (kind armor1); taken apart they are br_helmet_1 / br_vest_l1 (rarity 0: never spawned). BR6: a higher armour level is worn at once and the old piece goes into the bag if it fits (spare pieces weigh their item weight), else onto the ground; an equal or lower one goes into the bag. Bots shoot from an endless pool and leave botDeathAmmo rounds for the gun in hand. Items marked military spawn only in buildings tagged military (instance extra.loot.military), which also weight scoped rifles and .50 up. Building size: extra.loot.size small / large, else the footprint area against largeArea_m2.",
   "capacity": [100, 200, 300],
   "ammo": [
     {"type": "9mm", "name": "9 mm", "box": 30},
@@ -11,6 +11,7 @@
     {"type": "12ga", "name": "12 gauge", "box": 8}
   ],
   "ammoBoxWeight": 10,
+  "botDeathAmmo": 50,
   "armor": {"reduce": [0, 0.30, 0.40, 0.55], "helmetDurability": [0, 80, 150, 230], "vestDurability": [0, 200, 220, 250]},
   "heal": {
     "bandage": {"amount": 25, "seconds": 3, "cap": 75},
@@ -19,19 +20,21 @@
   "spawn": {
     "largeArea_m2": 120,
     "smallGuns": [1, 1], "largeGuns": [2, 3],
-    "ammoBoxesPerGun": [1, 3],
-    "smallItems": [1, 3], "largeItems": [3, 6],
+    "ammoBoxesPerGun": [2, 6], "houseAmmoBoxes": 2,
+    "smallItems": [2, 4], "largeItems": [5, 8],
     "militaryScopedWeight": 3
   },
   "gunWeight": {"pistol": 4, "smg": 4, "rifle": 3, "auto": 3, "shotgun": 3, "lmg": 1, "sniper": 1, "fifty": 0.5, "launcher": 0.5},
   "items": [
-    {"id": "br_bandage", "name": "Bandage", "kind": "bandage", "weight": 5, "rarity": 10},
-    {"id": "br_medkit", "name": "Medkit", "kind": "medkit", "weight": 20, "rarity": 3},
-    {"id": "br_vest_1", "name": "Helmet and vest (level 1)", "kind": "armor1", "level": 1, "rarity": 5},
-    {"id": "br_helmet_2", "name": "Helmet (level 2)", "kind": "helmet", "level": 2, "rarity": 3},
-    {"id": "br_vest_2", "name": "Vest (level 2)", "kind": "vest", "level": 2, "rarity": 3},
-    {"id": "br_helmet_3", "name": "Helmet (level 3)", "kind": "helmet", "level": 3, "rarity": 2, "military": true},
-    {"id": "br_vest_3", "name": "Vest (level 3)", "kind": "vest", "level": 3, "rarity": 2, "military": true},
+    {"id": "br_bandage", "name": "Bandage", "kind": "bandage", "weight": 5, "rarity": 16},
+    {"id": "br_medkit", "name": "Medkit", "kind": "medkit", "weight": 20, "rarity": 3.3},
+    {"id": "br_vest_1", "name": "Helmet and vest (level 1)", "kind": "armor1", "level": 1, "weight": 35, "rarity": 5},
+    {"id": "br_helmet_1", "name": "Helmet (level 1)", "kind": "helmet", "level": 1, "weight": 10, "rarity": 0},
+    {"id": "br_vest_l1", "name": "Vest (level 1)", "kind": "vest", "level": 1, "weight": 25, "rarity": 0},
+    {"id": "br_helmet_2", "name": "Helmet (level 2)", "kind": "helmet", "level": 2, "weight": 12, "rarity": 3},
+    {"id": "br_vest_2", "name": "Vest (level 2)", "kind": "vest", "level": 2, "weight": 30, "rarity": 3},
+    {"id": "br_helmet_3", "name": "Helmet (level 3)", "kind": "helmet", "level": 3, "weight": 15, "rarity": 2, "military": true},
+    {"id": "br_vest_3", "name": "Vest (level 3)", "kind": "vest", "level": 3, "weight": 35, "rarity": 2, "military": true},
     {"id": "br_backpack", "name": "Backpack", "kind": "backpack", "level": 1, "rarity": 4},
     {"id": "br_backpack_mil", "name": "Military backpack", "kind": "backpack", "level": 2, "rarity": 2, "military": true},
     {"id": "br_sight_reddot", "name": "Red dot sight", "kind": "sight", "value": 1, "weight": 15, "rarity": 4},

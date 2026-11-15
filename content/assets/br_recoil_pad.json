@@ -4,7 +4,7 @@
  "name": "Recoil pad",
  "category": "Battle Royale",
  "hidden": true,
- "description": "BR3 Battle Royale item. Stand-in box; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "description": "BR3 Battle Royale item. Part-built stand-in (tools/br_standins.py); the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
  "floors": 0,
  "enterable": false,
  "footprint": [
@@ -19,21 +19,33 @@
  "panels": [],
  "materials": [
   {
-   "name": "br_standin",
+   "name": "rubber",
    "albedo": [
-    0.1,
-    0.1,
-    0.1
+    0.03,
+    0.03,
+    0.03
    ],
-   "roughness": 0.7,
+   "roughness": 0.9,
    "pattern": "plain",
    "metallic": 0,
+   "grain": 1
+  },
+  {
+   "name": "black",
+   "albedo": [
+    0.025,
+    0.025,
+    0.028
+   ],
+   "roughness": 0.6,
+   "pattern": "plain",
+   "metallic": 0.3,
    "grain": 1
   }
  ],
  "parts": [
   {
-   "t": "b",
+   "t": "r",
    "c": [
     0,
     0.06,
@@ -42,9 +54,100 @@
    "s": [
     0.038,
     0.12,
-    0.199
+    0.1791
    ],
-   "m": "br_standin",
+   "rad": 0.011399999999999999,
+   "m": "rubber",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.06,
+    0.0935
+   ],
+   "s": [
+    0.0342,
+    0.108,
+    0.0119
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.0194,
+    0.024,
+    0
+   ],
+   "s": [
+    0.002,
+    0.006,
+    0.1592
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.0194,
+    0.042,
+    0
+   ],
+   "s": [
+    0.002,
+    0.006,
+    0.1592
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.0194,
+    0.06,
+    0
+   ],
+   "s": [
+    0.002,
+    0.006,
+    0.1592
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.0194,
+    0.078,
+    0
+   ],
+   "s": [
+    0.002,
+    0.006,
+    0.1592
+   ],
+   "m": "black",
+   "k": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.0194,
+    0.096,
+    0
+   ],
+   "s": [
+    0.002,
+    0.006,
+    0.1592
+   ],
+   "m": "black",
    "k": 0
   }
  ],
@@ -58,5 +161,11 @@
  },
  "nav": {
   "effect": "none"
- }
+ },
+ "standinParts": true,
+ "standinSize": [
+  0.038,
+  0.12,
+  0.199
+ ]
 }

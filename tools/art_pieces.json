@@ -1,0 +1,1111 @@
+{
+ "_doc": "DEC1: wall pieces from \"Paintings and Posters Collection - Game Ready\" by Melon Polygons (https://sketchfab.com/Melonpolygons), CC-BY-4.0, split per piece by a Blender background script (canvas and frame textures cropped from the pack's atlases). era: period = may hang on the 1944 maps (and in modern buildings); modern = modern buildings only. kind: painting (framed) / poster (unframed). size [w, h, t] m. excluded: not imported, with the reason.",
+ "pieces": [
+  {
+   "id": "furn_art_b_00",
+   "src": "b_00.glb",
+   "size": [
+    1.897,
+    2.614,
+    0.059
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_01",
+   "src": "b_01.glb",
+   "size": [
+    1.897,
+    2.614,
+    0.059
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_02",
+   "src": "b_02.glb",
+   "size": [
+    1.897,
+    2.614,
+    0.059
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_03",
+   "src": "b_03.glb",
+   "size": [
+    2.614,
+    1.897,
+    0.059
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_04",
+   "src": "b_04.glb",
+   "size": [
+    2.614,
+    1.897,
+    0.059
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_05",
+   "src": "b_05.glb",
+   "size": [
+    2.614,
+    1.897,
+    0.059
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_06",
+   "src": "b_06.glb",
+   "size": [
+    0.735,
+    1.135,
+    0.04
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_07",
+   "src": "b_07.glb",
+   "size": [
+    1.05,
+    0.753,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_08",
+   "src": "b_08.glb",
+   "size": [
+    1.05,
+    0.879,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_10",
+   "src": "b_10.glb",
+   "size": [
+    0.735,
+    1.136,
+    0.035
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_11",
+   "src": "b_11.glb",
+   "size": [
+    1.05,
+    0.753,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_12",
+   "src": "b_12.glb",
+   "size": [
+    1.05,
+    0.879,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_15",
+   "src": "b_15.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_16",
+   "src": "b_16.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_19",
+   "src": "b_19.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_20",
+   "src": "b_20.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_21",
+   "src": "b_21.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_23",
+   "src": "b_23.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_24",
+   "src": "b_24.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_25",
+   "src": "b_25.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_28",
+   "src": "b_28.glb",
+   "size": [
+    0.584,
+    0.735,
+    0.016
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_29",
+   "src": "b_29.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_30",
+   "src": "b_30.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_31",
+   "src": "b_31.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_34",
+   "src": "b_34.glb",
+   "size": [
+    0.584,
+    0.735,
+    0.014
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_36",
+   "src": "b_36.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_37",
+   "src": "b_37.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_38",
+   "src": "b_38.glb",
+   "size": [
+    0.753,
+    1.05,
+    0.052
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_40",
+   "src": "b_40.glb",
+   "size": [
+    0.584,
+    0.735,
+    0.016
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_42",
+   "src": "b_42.glb",
+   "size": [
+    0.584,
+    0.735,
+    0.014
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_43",
+   "src": "b_43.glb",
+   "size": [
+    0.584,
+    0.735,
+    0.014
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_44",
+   "src": "b_44.glb",
+   "size": [
+    0.584,
+    0.735,
+    0.016
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_45",
+   "src": "b_45.glb",
+   "size": [
+    0.735,
+    0.584,
+    0.02
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_48",
+   "src": "b_48.glb",
+   "size": [
+    1.456,
+    2.54,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_49",
+   "src": "b_49.glb",
+   "size": [
+    1.456,
+    2.577,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_52",
+   "src": "b_52.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_53",
+   "src": "b_53.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_54",
+   "src": "b_54.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_55",
+   "src": "b_55.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_56",
+   "src": "b_56.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_b_57",
+   "src": "b_57.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_b_58",
+   "src": "b_58.glb",
+   "size": [
+    2.253,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_00",
+   "src": "a_00.glb",
+   "size": [
+    0.884,
+    1.349,
+    0.041
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_01",
+   "src": "a_01.glb",
+   "size": [
+    0.884,
+    1.349,
+    0.041
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_02",
+   "src": "a_02.glb",
+   "size": [
+    0.884,
+    1.349,
+    0.041
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_04",
+   "src": "a_04.glb",
+   "size": [
+    0.884,
+    1.333,
+    0.093
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_05",
+   "src": "a_05.glb",
+   "size": [
+    0.884,
+    1.333,
+    0.093
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_06",
+   "src": "a_06.glb",
+   "size": [
+    0.884,
+    1.349,
+    0.049
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_07",
+   "src": "a_07.glb",
+   "size": [
+    0.884,
+    1.349,
+    0.049
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_08",
+   "src": "a_08.glb",
+   "size": [
+    0.884,
+    1.349,
+    0.049
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_09",
+   "src": "a_09.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_10",
+   "src": "a_10.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.006
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_11",
+   "src": "a_11.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.022
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_12",
+   "src": "a_12.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.006
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_13",
+   "src": "a_13.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.016
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_14",
+   "src": "a_14.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.014
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_16",
+   "src": "a_16.glb",
+   "size": [
+    1.793,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_17",
+   "src": "a_17.glb",
+   "size": [
+    1.456,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_18",
+   "src": "a_18.glb",
+   "size": [
+    1.456,
+    2.002,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_19",
+   "src": "a_19.glb",
+   "size": [
+    0.452,
+    0.327,
+    0.022
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_20",
+   "src": "a_20.glb",
+   "size": [
+    0.452,
+    0.327,
+    0.006
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_21",
+   "src": "a_21.glb",
+   "size": [
+    0.452,
+    0.327,
+    0.016
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_22",
+   "src": "a_22.glb",
+   "size": [
+    0.452,
+    0.327,
+    0.014
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_23",
+   "src": "a_23.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_26",
+   "src": "a_26.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.025
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_27",
+   "src": "a_27.glb",
+   "size": [
+    0.327,
+    0.453,
+    0.035
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_28",
+   "src": "a_28.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.015
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_29",
+   "src": "a_29.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.022
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_30",
+   "src": "a_30.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.006
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_31",
+   "src": "a_31.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.016
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_32",
+   "src": "a_32.glb",
+   "size": [
+    0.327,
+    0.452,
+    0.014
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_34",
+   "src": "a_34.glb",
+   "size": [
+    0.504,
+    0.696,
+    0.038
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_35",
+   "src": "a_35.glb",
+   "size": [
+    0.503,
+    0.698,
+    0.054
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_36",
+   "src": "a_36.glb",
+   "size": [
+    0.503,
+    0.696,
+    0.023
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_37",
+   "src": "a_37.glb",
+   "size": [
+    2.253,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_38",
+   "src": "a_38.glb",
+   "size": [
+    1.456,
+    2.002,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_39",
+   "src": "a_39.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_40",
+   "src": "a_40.glb",
+   "size": [
+    0.503,
+    0.696,
+    0.033
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_41",
+   "src": "a_41.glb",
+   "size": [
+    0.503,
+    0.695,
+    0.009
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_42",
+   "src": "a_42.glb",
+   "size": [
+    0.503,
+    0.696,
+    0.024
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_43",
+   "src": "a_43.glb",
+   "size": [
+    0.503,
+    0.696,
+    0.022
+   ],
+   "kind": "poster",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_44",
+   "src": "a_44.glb",
+   "size": [
+    1.456,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_45",
+   "src": "a_45.glb",
+   "size": [
+    0.947,
+    0.685,
+    0.046
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_46",
+   "src": "a_46.glb",
+   "size": [
+    0.947,
+    0.685,
+    0.046
+   ],
+   "kind": "poster",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_47",
+   "src": "a_47.glb",
+   "size": [
+    0.834,
+    1.189,
+    0.043
+   ],
+   "kind": "painting",
+   "era": "modern"
+  },
+  {
+   "id": "furn_art_a_48",
+   "src": "a_48.glb",
+   "size": [
+    1.456,
+    2.002,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_49",
+   "src": "a_49.glb",
+   "size": [
+    1.456,
+    2.283,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_51",
+   "src": "a_51.glb",
+   "size": [
+    2.253,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_52",
+   "src": "a_52.glb",
+   "size": [
+    2.253,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_53",
+   "src": "a_53.glb",
+   "size": [
+    3.926,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_54",
+   "src": "a_54.glb",
+   "size": [
+    2.253,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  },
+  {
+   "id": "furn_art_a_55",
+   "src": "a_55.glb",
+   "size": [
+    2.253,
+    1.434,
+    0.054
+   ],
+   "kind": "painting",
+   "era": "period"
+  }
+ ],
+ "excluded": [
+  {
+   "id": "b_09",
+   "why": "pin-up illustration (one apparently nude): excluded to be safe"
+  },
+  {
+   "id": "b_13",
+   "why": "pin-up illustration (one apparently nude): excluded to be safe"
+  },
+  {
+   "id": "b_14",
+   "why": "pin-up illustration (one apparently nude): excluded to be safe"
+  },
+  {
+   "id": "b_17",
+   "why": "pin-up illustration (one apparently nude): excluded to be safe"
+  },
+  {
+   "id": "b_18",
+   "why": "pin-up illustration (one apparently nude): excluded to be safe"
+  },
+  {
+   "id": "b_22",
+   "why": "wooden frame back on an easel stand, no image"
+  },
+  {
+   "id": "b_26",
+   "why": "wooden frame back on an easel stand, no image"
+  },
+  {
+   "id": "b_32",
+   "why": "wooden frame back on an easel stand, no image"
+  },
+  {
+   "id": "b_35",
+   "why": "wooden frame back on an easel stand, no image"
+  },
+  {
+   "id": "b_39",
+   "why": "photo of bruised / wounded skin: not decoration"
+  },
+  {
+   "id": "b_41",
+   "why": "wooden frame back on an easel stand, no image"
+  },
+  {
+   "id": "b_46",
+   "why": "photo of bruised / wounded skin: not decoration"
+  },
+  {
+   "id": "b_47",
+   "why": "wooden frame back on an easel stand, no image"
+  },
+  {
+   "id": "b_50",
+   "why": "photo of bruised / wounded skin: not decoration"
+  },
+  {
+   "id": "b_51",
+   "why": "photo of bruised / wounded skin: not decoration"
+  },
+  {
+   "id": "a_15",
+   "why": "folded newspaper, not a flat wall piece"
+  },
+  {
+   "id": "a_24",
+   "why": "folded newspaper, not a flat wall piece"
+  },
+  {
+   "id": "a_50",
+   "why": "wooden frame back on an easel stand, no image"
+  },
+  {
+   "id": "a_03",
+   "why": "a flat plane with no thickness: the model importer cannot bake it"
+  },
+  {
+   "id": "a_25",
+   "why": "a flat plane with no thickness: the model importer cannot bake it"
+  },
+  {
+   "id": "a_33",
+   "why": "a flat plane with no thickness: the model importer cannot bake it"
+  },
+  {
+   "id": "b_27",
+   "why": "a flat plane with no thickness: the model importer cannot bake it"
+  },
+  {
+   "id": "b_33",
+   "why": "a flat plane with no thickness: the model importer cannot bake it"
+  }
+ ]
+}

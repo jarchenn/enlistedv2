@@ -9,7 +9,6 @@
 #include "lighting.h"
 #include "w3.h"
 #include "water_query.h"
-
 #include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -360,6 +359,7 @@ void App::updateExplore(float dt) {
   if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
   if (!selftest) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
+    else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
     else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu; syncCursor();
     }
@@ -375,8 +375,8 @@ void App::updateExplore(float dt) {
   uiCursor = false;
   if (pauseMenu) return;
   ExploreInput in;
-  static double lmx = -1, lmy = -1;
-  if (cursorSettle > 0) { --cursorSettle; lmx = lmy = -1; }   // the mode / focus just changed: the cursor jumped, no look from it
+  static double lmx = 0, lmy = 0; static bool haveLast = false;   // not a negative sentinel: captured, the virtual cursor is unbounded and goes negative after panning left; "lmx >= 0" then dropped every look delta until the player panned back right
+  if (cursorSettle > 0) { --cursorSettle; haveLast = false; }   // the mode / focus just changed: the cursor jumped, no look from it
   if (useScripted) {
     in = scriptedInput; scriptedInput.interact = false; scriptedInput.jump = false; scriptedInput.reload = false; scriptedInput.switchPos = false; scriptedInput.toggleAmmo = false; scriptedInput.build = false;
     scriptedInput.fireMode = scriptedInput.prone = scriptedInput.packUp = scriptedInput.rackUp = scriptedInput.rackDown = scriptedInput.rackEquip = scriptedInput.rackClose = false;
@@ -384,7 +384,7 @@ void App::updateExplore(float dt) {
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else {
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (lmx >= 0 && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
+    if (haveLast && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
       StationRT* gs = station(occupied);
       bool mgMount = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42");
       // a mounted MG aims like the carried gun (the player's look sensitivity and ADS scale; stepStation drops the rates);
@@ -393,7 +393,7 @@ void App::updateExplore(float dt) {
       if (gs && gs->pos2 == ST_GUNNER) { in.dyaw = -(float)(mx - lmx) * hs; in.dpitch = -(float)(my - lmy) * hs * (mgMount ? settings().pitchSign() : 1.0f); }   // handwheels / spade grips
       else { float k = settings().lookDegPerCount(adsT) * lookScaleFor(worldFov); in.lookYaw = -(float)(mx - lmx) * k; in.lookPitch = -(float)(my - lmy) * k * settings().pitchSign(); eyeYaw = wrapDeg(eyeYaw + in.lookYaw); eyePitch = std::clamp(eyePitch + in.lookPitch, -85.0f, 85.0f); }
     }
-    lmx = mx; lmy = my;
+    lmx = mx; lmy = my; haveLast = true;
     if (kd(win, bk("forward"))) in.move.y += 1;
     if (kd(win, bk("back"))) in.move.y -= 1;
     if (kd(win, bk("right"))) in.move.x += 1;

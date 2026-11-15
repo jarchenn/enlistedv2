@@ -141,26 +141,30 @@ vec3 AiCore::objectiveGoal(Soldier& s) {
   if (G.match.mode() == GameMode::BattleRoyale) {
     // BR1: be inside the next circle before the storm reaches this spot; on safe ground hunt only an enemy close by,
     // otherwise sit in a building (cover) inside the next circle, else at its own safe point. BR2 adds looting.
-    auto snap = [&](vec3 p) { NavRef r; vec3 on; return G.nav.closest(p, 8.0f, r, on) ? on : p; };
+    // BR7: goals snap to the navmesh within 8 / 20 / 45 m (a safe point can fall in the lake, on a roof or in a wall)
+    auto snap = [&](vec3 p) { vec3 on; for (float rad : {8.0f, 20.0f, 45.0f}) if (royaleSnap(G, p, rad, on)) return on; return p; };   // never into a dead-end pocket
+    // BR7: the last goals found no route (unreachable loot, a closed yard): another point of the next circle instead
+    // (a partial route also counts: it adds 0.5 a time without stamping pathFailAt, so it is checked on its own)
+    if ((m.pathFails >= 2 && G.t - m.pathFailAt < 10.0) || (m.partial && m.pathFails >= 2)) { s.br.why = "goal unreachable: another safe point"; return snap(royaleSafePoint(s, 1 + (int)m.pathFails)); }
     float soon = royaleStormSoon(s);
+    RoyaleRing nx = royaleRing(true);
     if (soon < tj("royale", "moveEarly_s", 30.0f)) return snap(royaleSafePoint(s));   // the storm first
-    { vec3 lootAt; if (lootBotGoal(G, s, lootAt)) return lootAt; }   // BR2: a gun, ammo, armour or healing nearby
+    { vec3 lootAt;   // BR7: with the storm due soon, only loot inside the next circle (no ping-pong between loot and storm)
+      if (lootBotGoal(G, s, lootAt) && (soon > tj("royale", "lootOutside_s", 90.0f) || glm::length(vec2(lootAt.x, lootAt.z) - nx.c) <= nx.r)) return snap(lootAt); }   // on the navmesh, or the path to an item on furniture fails   // BR2: a gun, ammo, armour or healing nearby
     const Soldier* best = nullptr; float bd = tj("royale", "huntRange_m", 40.0f);
     for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !royaleAirborne(o.slot)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
     if (best) { float a = s.slot * 2.39996f; return snap(best->feet + vec3(std::cos(a), 0, std::sin(a)) * std::min(6.0f, bd * 0.5f)); }
-    RoyaleRing nx = royaleRing(true);
     const AiBuilding* hb = nullptr; float hd = 1e9f;
     for (auto& b : buildings) {
       if (b.bunker || b.entrances.empty()) continue;
       vec3 c = (b.bmin + b.bmax) * 0.5f;
       if (glm::length(vec2(c.x, c.z) - nx.c) > nx.r * 0.8f) continue;
-      float d = lenXZ(c - s.feet) + (s.slot * 13 % 7) * 4.0f;   // a little spread so they do not all pick one house
+      uint32_t hsh = (uint32_t)(&b - buildings.data()) * 2654435761u ^ (uint32_t)s.slot * 40503u ^ (uint32_t)(G.t / 25.0) * 2246822519u;
+      float d = lenXZ(c - s.feet) + (hsh % 97);   // BR7: a different house every 25 s (they move on, as players do), spread per bot
       if (d < hd) { hd = d; hb = &b; }
     }
-    if (hb && hd < 120.0f) { vec3 c = (hb->bmin + hb->bmax) * 0.5f; return snap(vec3(c.x, hb->bmin.y, c.z)); }
-    vec2 here(s.feet.x, s.feet.z);
-    if (glm::length(here - nx.c) <= nx.r * 0.85f) return s.feet;   // already well inside: hold
-    return snap(royaleSafePoint(s));
+    if (hb && hd < 220.0f) return snap(hb->entrances[(size_t)s.slot % hb->entrances.size()].p);   // BR7: its entrance (the middle can be solid kit)
+    return snap(royaleSafePoint(s, (int)(G.t / 25.0)));   // BR7: no house in reach: another point of the next circle every 25 s
   }
   if (G.match.mode() != GameMode::Assault) {   // G1 Solo / TDM: hunt the closest living enemy (user: closest combatant)
     const Soldier* best = nullptr; float bd = 1e9f;

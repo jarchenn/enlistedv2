@@ -199,6 +199,65 @@ const SPECIES = {
       for (let k = 0; k < 4; k++) blades.push({ o: [k % 2 ? 0.008 : -0.008, 0.06 + k * 0.07], ang: (k % 2 ? 1 : -1) * 120 * deg, L: 0.035, W: 0.45, prof: (u) => 1 - u, noVeins: true, mid: 0, prickle: true });
       return { stems: [{ a: [0, 0], b: [0, 0.35], w0: 0.012, w1: 0.010 }], blades, wear: { spots: v === 1 ? 2 : 0 } };
     } },
+  // modern set (tools/catalog_modern_outdoor.mjs): appended, so the layers above keep their indices
+  lime: { name: 'Small-leaved lime (Tilia cordata): rounded-cordate, oblique base, short-acuminate tip, finely serrate, long petiole',
+    variants: 3, col: { leaf: [72, 104, 42], vein: [140, 154, 88], stem: [118, 108, 62] }, sprig: { k: 5, len: 0.44, spread: 64 },
+    make(v, R) {
+      return { stems: [{ a: [0, 0], b: [0, 0.2], w0: 0.008, w1: 0.007 }],
+        blades: [{ o: [0, 0.19], ang: (R() - 0.5) * 8 * deg, L: 0.78, W: 0.46 + R() * 0.04, vmin: -0.06, aL: 0.84 + R() * 0.06, aR: 1.0 + R() * 0.06,
+          prof: (u) => Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.38) / 0.52, 2))) * (1 - 0.55 * smooth(0.7, 1, u)),
+          serr: { n: 24 + R() * 5, d: 0.05, v0: 0.04 },
+          veins: { vk: evenVeins(6, 0.02, 0.8, 0.02), slope: 0.5, curve: 0.7 }, mid: 0.009, sec: 0.0048, ter: 0.35 }],
+        wear: { spots: v === 1 ? 2 : 0 } };
+    } },
+  box: { name: 'Box (Buxus sempervirens): small, elliptic-ovate, entire, glossy dark green, almost sessile',
+    variants: 3, col: { leaf: [46, 74, 32], vein: [98, 122, 58], stem: [92, 100, 54] }, sprig: { k: 8, len: 0.28, spread: 52 },
+    make(v, R) {
+      return { stems: [{ a: [0, 0], b: [0, 0.05], w0: 0.012, w1: 0.011 }],
+        blades: [{ o: [0, 0.04], ang: (R() - 0.5) * 6 * deg, L: 0.94, W: 0.3 + R() * 0.05, aL: 0.95 + R() * 0.1, aR: 0.95 + R() * 0.1,
+          prof: ovate(1.05, 0.7), noVeins: true, mid: 0.016 }],
+        wear: { spots: v === 2 ? 1 : 0 } };
+    } },
+  ivy: { name: 'Common ivy (Hedera helix): palmate, 3-5 triangular entire lobes, cordate base, pale veins, long petiole',
+    variants: 3, col: { leaf: [42, 70, 32], vein: [146, 162, 116], stem: [112, 96, 64] }, sprig: { k: 5, len: 0.46, spread: 70 },
+    make(v, R) {
+      const lobe = (ang, L, W) => ({ o: [0, 0.22], ang, L, W, prof: (u) => Math.pow(1 - u, 0.85) * Math.min(1, u * 5 + 0.35),
+        veins: { vk: evenVeins(2, 0.2, 0.7, 0.02), slope: 0.6, curve: 0.5 }, mid: 0.009, sec: 0.004, ter: 0.12 });
+      const blades = v === 2 ? [{ o: [0, 0.21], ang: (R() - 0.5) * 6 * deg, L: 0.76, W: 0.34, prof: ovate(0.8, 0.8), veins: { vk: evenVeins(4, 0.1, 0.7, 0.02), slope: 0.6, curve: 0.8 }, mid: 0.009, sec: 0.004, ter: 0.12 }]
+        : [lobe((R() - 0.5) * 6 * deg, 0.74, 0.42), lobe(-(48 + R() * 8) * deg, 0.5, 0.42), lobe((48 + R() * 8) * deg, 0.5, 0.42)];
+      if (v === 0) blades.push(lobe(-(105 + R() * 10) * deg, 0.3, 0.45), lobe((105 + R() * 10) * deg, 0.3, 0.45));
+      return { stems: [{ a: [0, 0], b: [0, 0.23], w0: 0.009, w1: 0.008 }], blades, wear: { spots: v === 1 ? 1 : 0 } };
+    } },
+  cherry: { name: 'Ornamental cherry (Prunus serrulata) in blossom: clusters of pink five-petalled flowers on short stalks, young bronze-green leaves',
+    variants: 3, col: { leaf: [92, 98, 50], vein: [150, 146, 96], stem: [104, 66, 50], flower: [240, 178, 200] }, sprig: { k: 5, len: 0.5, spread: 48 },
+    make(v, R) {
+      if (v === 2) return { stems: [{ a: [0, 0], b: [0, 0.12], w0: 0.009, w1: 0.007 }],
+        blades: [{ o: [0, 0.11], ang: (R() - 0.5) * 6 * deg, L: 0.86, W: 0.27, prof: (u) => ovate(0.85, 0.85)(u) * (1 - 0.3 * smooth(0.75, 1, u)),
+          serr: { n: 26, d: 0.06, d2: 0.03, v0: 0.08 }, veins: { vk: evenVeins(7, 0.08, 0.85, 0.02), slope: 0.7, curve: 1.4 }, mid: 0.009, sec: 0.004, ter: 0.25 }], wear: {} };
+      const stems = [], flowers = [], n = v === 0 ? 5 : 4;
+      for (let f = 0; f < n; f++) {   // a corymb: stalks fanning from a short spur, a flower on each
+        const a = (f / (n - 1) - 0.5) * 1.5 + (R() - 0.5) * 0.25, L = 0.45 + R() * 0.18, b = [Math.sin(a) * L * 0.62, 0.12 + Math.cos(a) * L];
+        stems.push({ a: [0, 0.12], b, w0: 0.006, w1: 0.004 });
+        flowers.push({ c: b, r: 0.16 + R() * 0.03, rot: R() * 6.28 });
+      }
+      stems.push({ a: [0, 0], b: [0, 0.13], w0: 0.012, w1: 0.01 });
+      return { stems, blades: [], flowers, wear: {} };
+    } },
+  weed: { name: 'Pavement weeds: runcinate dandelion leaf, broad plantain leaf and a tuft of grass blades',
+    variants: 3, col: { leaf: [74, 106, 42], vein: [132, 150, 82], stem: [96, 104, 52] }, sprig: { k: 5, len: 0.52, spread: 38 },
+    make(v, R) {
+      if (v === 0) return { stems: [{ a: [0, 0], b: [0, 0.08], w0: 0.012, w1: 0.01 }],
+        blades: [{ o: [0, 0.06], ang: (R() - 0.5) * 6 * deg, L: 0.92, W: 0.2, prof: ovate(1.4, 0.7),
+          lobes: { n: 4.5, d: 0.6, ph: [0.1, 0.35], v0: 0.08 }, serr: { n: 30, d: 0.08, v0: 0.1 },
+          veins: { vk: [[], []], slope: 0.5 }, mid: 0.014, ter: 0.15 }], wear: { spots: 1 } };
+      if (v === 1) return { stems: [{ a: [0, 0], b: [0, 0.25], w0: 0.014, w1: 0.012 }],
+        blades: [{ o: [0, 0.24], ang: (R() - 0.5) * 6 * deg, L: 0.74, W: 0.36, prof: ovate(0.9, 0.8),
+          veins: { vk: evenVeins(3, 0.05, 0.3, 0.0), slope: 0.08, curve: 0.2 }, mid: 0.012, sec: 0.006, ter: 0.1 }], wear: { rim: true } };
+      const blades = [];   // grass tuft: narrow blades fanning from one base
+      for (let k = 0; k < 7; k++) blades.push({ o: [(k - 3) * 0.012, 0], ang: (k - 3) * (7 + R() * 4) * deg, L: 0.7 + R() * 0.28, W: 0.035 + R() * 0.01,
+        prof: (u) => Math.pow(1 - u, 0.7), noVeins: true, mid: 0.004 });
+      return { stems: [], blades, wear: {} };
+    } },
 };
 
 // ------------------------------------------------------------------ raster
@@ -418,6 +477,10 @@ const ASSETS = {   // asset name (or prefix*) -> leaf species (several: per-clus
   nat_hawthorn_bush: ['hawthorn'], nat_blackthorn_low: ['blackthorn'], nat_gorse_shrub: ['gorse'], shrub_hazel: ['hazel'],
   shrub_bramble: ['bramble'], nat_bramble_thicket: ['bramble'],
   hedgerow_bocage: ['hawthorn', 'blackthorn', 'hazel'], 'bcg_hedgerow_*': ['hawthorn', 'blackthorn', 'hazel'], bcg_rampart: ['hawthorn', 'blackthorn', 'hazel'], bcg_sunken_lane: ['hawthorn', 'blackthorn', 'hazel'],
+  // modern set (tools/catalog_modern_outdoor.mjs)
+  mod_tree_ornamental: ['lime'], mod_tree_columnar: ['poplar'], mod_tree_blossom: ['cherry'], mod_planter_corten: ['lime'],
+  'mod_topiary_*': ['box'], 'mod_hedge_box_*': ['box'], mod_planter_concrete: ['box', 'hazel'], mod_flower_bed: ['hazel', 'weed'], mod_raised_bed: ['weed', 'hazel'],
+  'mod_vines_*': ['ivy'], mod_ivy_patch_ground: ['ivy'], 'mod_weeds_*': ['weed'], mod_sapling_paving: ['ash'],
 };
 
 function main() {

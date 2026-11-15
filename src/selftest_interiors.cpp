@@ -1075,6 +1075,31 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       }
       return true; });
 
+    push("doorways: no generated piece stands in an opening (Newtown, Chateau town, D-day, battle1)", [this](App& a, float) {
+      // FN1: a capsule walked 1 m either side through every door, opening and lintel doorway of every furnished building
+      // (NMK_DOORWAY_MAPS: other template ids, comma separated; NMK_FN1_OFF=1 gives the count without the fix)
+      std::string ids = getenv("NMK_DOORWAY_MAPS") ? getenv("NMK_DOORWAY_MAPS") : "newtown,chateau_town,dday,battle1";
+      int bs = 0, ps = 0, bl = 0; std::string worst;
+      for (size_t p0 = 0; p0 <= ids.size();) {
+        size_t p1 = ids.find(',', p0); if (p1 == std::string::npos) p1 = ids.size();
+        std::string id = ids.substr(p0, p1 - p0); p0 = p1 + 1;
+        const TemplateInfo* t = a.findTemplate(id); if (!t) { logf("[doorways] no template %s", id.c_str()); continue; }
+        a.newMap(*t, "Doorway check");
+        auto r = a.interior.doorwayReport(a);
+        logf("[doorways] %s: %d buildings, %d portals, %d blocked", id.c_str(), r.buildings, r.portals, r.blocked);
+        for (auto& w : r.worst) logf("[doorways]   %s", w.c_str());
+        bs += r.buildings; ps += r.portals; bl += r.blocked;
+        if (worst.empty() && !r.worst.empty()) worst = r.worst[0];
+      }
+      std::snprintf(b_, sizeof b_, "doorways: %d of %d portals in %d furnished buildings blocked by a generated piece%s%s", bl, ps, bs, worst.empty() ? "" : "; first: ", worst.c_str());
+      check(ps > 0 && bl == 0, b_);
+      summary["doorways"] = {{"buildings", bs}, {"portals", ps}, {"blocked", bl}};
+      return true; }, 240);
+
+    if (getenv("NMK_DOORWAYS_ONLY")) {   // FN1 tuning: just the doorway walk
+      std::vector<Step> q; for (auto& s : seq) if (s.name.rfind("doorways", 0) == 0) q.push_back(s);
+      seq.swap(q);
+    }
     if (getenv("NMK_INTERIORS_QUICK")) {   // tuning: only the furnishing steps (no Explore, no frame times)
       std::vector<Step> q; for (auto& s : seq) if (s.name.rfind("templates: furnish", 0) == 0 || s.name.rfind("all buildings", 0) == 0) q.push_back(s);
       seq.swap(q);

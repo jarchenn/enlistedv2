@@ -365,13 +365,83 @@ void build(App&) {
       a.wstate["kar98k"].att[ATT_SIGHT] = 2; a.wstate["kar98k"].att[ATT_STOCK] = 1; a.wstate["mp40"].att[ATT_MUZZLE] = 1; a.wstate["mp40"].att[ATT_MAG] = 1;
       a.wstate["mk2_grenade"].loaded = 1; a.wstate["mk2_grenade"].containers = {1}; a.wstate["molotov"].loaded = 1;
       a.selectWeapon(a.weaponIndex("kar98k"));
-      lootSetInventory(true);
       chk(lootFloor().size() > 0, "BR2: %zu floor items placed on the village", lootFloor().size());
+      // BR5: a geared bot dies; its case comes to the player's feet and opens
+      Soldier* B = nullptr; for (auto& s : gGame->sold) if (s.alive && !s.localPlayer) { B = &s; break; }
+      if (!B) { chk(false, "BR5: a bot to kill"); return true; }
+      Kit& bk = *kitOf(B->slot);
+      B->weapon = a.weaponIndex("stg44"); if (B->weapon < 0) B->weapon = a.weaponIndex("mp40");
+      B->ws = WeaponState{}; B->ws.loaded = 30; B->ws.containers = {30, 30}; B->ws.att[ATT_SIGHT] = 1; B->frags = 2;
+      int pistol = a.weaponIndex("luger"); B->carried = {B->weapon}; if (pistol >= 0) { B->carried.push_back(pistol); B->wsBy[pistol].loaded = 8; }   // BR6: a second gun
+      bk.helmet = 3; bk.helmetDur = 200; bk.vest = 2; bk.vestDur = 180; bk.backpack = 2; bk.items["br_bandage"] = 2; bk.items["br_medkit"] = 1; bk.items["br_suppressor"] = 1; bk.items["br_sight_reddot"] = 1;
+      size_t before = lootCases().size();
+      gGame->killSoldier(B->slot, L->slot, vec3(0, 0, 1));
+      const LootCase* dc = lootCases().size() == before + 1 ? &lootCases().back() : nullptr;
+      int guns = 0, rounds = 0; if (dc) for (auto& f : dc->items) { guns += f.weapon >= 0; if (f.id == "ammo:" + std::to_string(AM_556)) rounds = f.count; }
+      chk(dc && guns == (pistol >= 0 ? 2 : 1) && rounds == 50 && kitOf(B->slot)->helmet == 0,
+          "BR6: the dead bot's crate holds %zu items: %d guns, %d rounds for the StG it held (want 50), its kit is empty", dc ? dc->items.size() : 0, guns, rounds);
+      LootCase& lc = lootCases().back(); lc.pos = L->feet + App::forward(a.eyeYaw, 0) * 1.2f; lc.yaw = a.eyeYaw;
+      lootOpenCase(lc.uid);
       return false;
     }
-    if (t > 4 && t < 4.05f) a.uiShot = outDir() / "br2_inventory.png";   // uiShot: after ImGui, so the inventory is in the picture
+    if (t > 4 && t < 4.05f) a.uiShot = outDir() / "br6_crate.png";   // uiShot: after ImGui, so the window is in the picture
     if (t < 5) return false;
-    lootSetInventory(false);
+    static bool taken = false;
+    if (!taken) {   // the rules on the crate's items, then the floor labels
+      taken = true;
+      LootCase& lc = lootCases().back(); Kit& k = *kitOf(L->slot); std::string msg;
+      auto uidOf = [&](const char* id) { for (auto& f : lc.items) if (f.id == id) return f.uid; return 0u; };
+      bool took = lootTakeFromCase(a, uidOf("br_helmet_3"), true, msg);
+      bool bagged = std::any_of(k.gear.begin(), k.gear.end(), [](const FloorItem& g) { return g.id == "br_helmet_2"; });
+      chk(took && k.helmet == 3 && bagged, "BR6: a level-3 helmet is worn at once, the old level-2 one goes into the bag (%s)", msg.c_str());
+      int sight0 = a.wstate["kar98k"].att[ATT_SIGHT], dot0 = k.items.count("br_sight_reddot") ? k.items["br_sight_reddot"] : 0;
+      lootTakeFromCase(a, uidOf("br_sight_reddot"), true, msg);
+      lootTakeFromCase(a, uidOf("br_suppressor"), true, msg);
+      chk(a.wstate["kar98k"].att[ATT_SIGHT] == sight0 && k.items["br_sight_reddot"] == dot0 + 1 && k.items["br_suppressor"] >= 1,
+          "BR6: a sight and a suppressor go into the bag; the held gun keeps its sight (%d)", a.wstate["kar98k"].att[ATT_SIGHT]);
+      size_t n0 = lc.items.size();
+      std::vector<uint32_t> uids; for (auto& f : lc.items) uids.push_back(f.uid);
+      for (uint32_t u : uids) lootTakeFromCase(a, u, false, msg);
+      chk(lc.items.size() < n0 && kitWeight(&a, k, &a.carried) <= kitCapacity(k) + 0.01f,
+          "BR6: Take all moved %zu of %zu items, weight %.0f / %.0f", n0 - lc.items.size(), n0, kitWeight(&a, k, &a.carried), kitCapacity(k));
+      lootOpenCase(0);
+      // four items lying together in front of the player, the crosshair on the middle one
+      vec3 f = App::forward(a.eyeYaw, 0), r(-f.z, 0, f.x), at = L->feet + f * 1.5f;
+      const char* ids[4] = {"br_medkit", "ammo:3", "br_sight_4x", "br_bandage"};
+      vec3 off[4] = {vec3(0), r * 0.35f, -r * 0.3f + f * 0.25f, r * 0.15f - f * 0.3f};
+      for (int i = 0; i < 4; ++i) { lootDropItem(at, ids[i], i == 1 ? 30 : 1); lootFloor().back().pos = at + off[i] + vec3(0, 0.02f, 0); }
+      for (auto& c : lootCases()) c.pos = L->feet - f * 30.0f;   // the crate out of the way
+      vec3 e = a.eyePos(); a.eyePitch = degrees(std::atan2(at.y + 0.1f - e.y, glm::length(vec2(at.x - e.x, at.z - e.z))));
+      return false;
+    }
+    if (t > 6 && t < 6.05f) a.uiShot = outDir() / "br6_labels.png";
+    if (t < 6.5f) return false;
+    // BR9: the inventory with its icons, then one of every floor item laid out on bare ground (grass off for the shot)
+    static int br9 = 0;
+    if (br9 == 0) { br9 = 1; lootSetInventory(true); return false; }
+    if (br9 == 1) { if (t > 7.2f && t < 7.25f) a.uiShot = outDir() / "br9_inventory.png"; if (t < 7.5f) return false; br9 = 2; lootSetInventory(false);
+      for (int i = 0; i < 4; ++i) lootFloor().pop_back();   // the cluster
+      std::vector<std::string> ids;   // the small things nearest (labels show within 3.5 m), armour at the back
+      for (const char* id : {"br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_mag_ext", "br_suppressor", "br_muzzle_brake", "br_recoil_pad", "br_frag", "br_smoke", "br_molotov", "br_bandage", "br_medkit"}) ids.push_back(id);
+      for (int k = 0; k < AM_COUNT; ++k) ids.push_back("ammo:" + std::to_string(k));
+      for (const char* id : {"br_vest_1", "br_helmet_1", "br_vest_l1", "br_helmet_2", "br_vest_2", "br_helmet_3", "br_vest_3", "br_backpack", "br_backpack_mil"}) ids.push_back(id);
+      vec3 f = App::forward(a.eyeYaw, 0), r(-f.z, 0, f.x);
+      const int cols = 6;
+      for (size_t i = 0; i < ids.size(); ++i) {
+        vec3 p = L->feet + f * (1.3f + 0.55f * (float)(i / cols)) + r * (0.5f * ((float)(i % cols) - (cols - 1) * 0.5f));
+        lootDropItem(p, ids[i], ids[i].rfind("ammo:", 0) == 0 ? ammoBox(std::atoi(ids[i].c_str() + 5)) : 1);
+        FloorItem& it = lootFloor().back(); it.pos = vec3(p.x, a.terrain.height(p.x, p.z) + 0.01f, p.z); it.yaw = a.eyeYaw + 90;
+      }
+      chk(ids.size() == 29, "BR9: %zu floor item types laid out", ids.size());
+      a.grass.quality = GrassQuality::Off;
+      vec3 e = a.eyePos(), mid = L->feet + f * 2.4f; a.eyePitch = degrees(std::atan2(mid.y - e.y, glm::length(vec2(mid.x - e.x, mid.z - e.z))));
+      return false; }
+    if (t > 8.5f && t < 8.55f) a.uiShot = outDir() / "br9_floor.png";
+    if (t < 9) return false;
+    a.grass.quality = GrassQuality::Medium;
+    if (std::getenv("NMK_BR10_RAILFIT")) { lootRailFit(a, outDir() / "br10_rail_fit.json"); return true; }   // the rail calibration only
+    if (t < 10) { lootAttachSheetUi(a); if (t > 9.6f && t < 9.65f) a.uiShot = outDir() / "br10_attach_sheet.png"; return false; }   // BR10: every gun with its attachments
+    if (t < 11) { lootAttachSheetUi(a, true); if (t > 10.6f && t < 10.65f) a.uiShot = outDir() / "br10_attach_zoom.png"; return false; }   // and close on the optic
     return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }

@@ -415,7 +415,8 @@ void MpUi::setupWindow(App& app) {
   if (rules.mode == GameMode::BattleRoyale) {   // BR1: one life each, last one alive wins (royale.cpp)
     ImGui::SliderInt("Players in all (you + AI)", &rules.royalePlayers, std::max(10, humansHere), 100);
     { int lp = rules.lootModern ? 1 : 0; ImGui::Text("Loot:"); ImGui::SameLine(); ImGui::RadioButton("WW2 weapons", &lp, 0); ImGui::SameLine(); ImGui::RadioButton("Modern weapons", &lp, 1); rules.lootModern = lp == 1; }   // BR2 reads rules.lootModern
-    aiTypes("AI types:", rules.aiTypes[0]); rules.aiTypes[1] = rules.aiTypes[0];
+    rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers);   // BR5: no bot types: everyone is a soldier in the player's body
+    ImGui::TextDisabled("Every bot lands with two random guns; you land unarmed and loot. Everyone wears your character.");
     ImGui::TextDisabled("Everyone boards a bomber and jumps (Space; Space again or 60 m up opens the parachute). No respawns:");
     ImGui::TextDisabled("the last one alive wins. Four storm circles close in; outside them you lose 1 / 2 / 4 / 8 health a second.");
     aiDifficultyCombo();
@@ -470,7 +471,7 @@ void MpUi::setupWindow(App& app) {
   ImGui::Text("Each attacking slot: 1 initial life + %d respawns = %d lives  ->  %d attacker lives in total", rules.attackerRespawns, lives, lives * rules.attackerAI);
   ImGui::Text("Defenders respawn without limit. Minimum %.0f s from death to respawn.", rules.minRespawnDelay);
   }
-  if (!classDefs().empty()) {   // GM1: classes players may pick (empty list = all); at least one stays on
+  if (!classDefs().empty() && rules.mode != GameMode::BattleRoyale) {   // GM1: classes players may pick (empty list = all); at least one stays on. BR5: none in battle royale (loot is the kit)
     ImGui::SeparatorText("Allowed classes");
     const auto& C = classDefs();
     for (size_t k = 0; k < C.size(); ++k) {

@@ -621,6 +621,39 @@ void SelfTest::aiUpdate(App& app, float dt) {
       float L = 0; G.lineOfSight(a0, b0, &L);
       check(L < 0.05f, "AI line of sight through the cloud reports the same opacity (" + std::to_string(L).substr(0, 6) + ")");
       return true; });
+    push("smoke stops fire", [this](App& a, float t) {
+      // AI1: a bot with a clear shot fires; a dense cloud between stops its fire (after the 2 s blind-fire allowance);
+      // it fires again once the cloud is gone. Both held 24 m apart across an open spot, topped up so nobody dies.
+      Game& G = *gGame;
+      static int sh, tg, n0, nClear, nSmoke, nOther, nAfter; static vec3 c; static float smokeTr;
+      auto place = [&](int s, vec3 p) { Physics::Hit g; if (Physics::castRayEx(p + vec3(0, 1.5f, 0), vec3(0, -1, 0), 4, g)) p = g.pos; G.sold[s].feet = p; Physics::setAgentPos(G.sold[s].agent, p); G.sold[s].hp = 1000; G.sold[s].protectUntil = -1; };
+      if (t == 0) {
+        G.gren.clouds.clear();
+        sh = tg = -1;
+        for (auto& s : G.sold) if (s.alive && !s.human && !s.zombie && s.weapon >= 0) { if (sh < 0) sh = s.slot; else if (tg < 0 && Game::hostile(G.sold[sh], s)) tg = s.slot; }
+        if (sh < 0 || tg < 0) { check(false, "smoke stops fire: need two hostile living bots"); return true; }
+        c = vec3(0, 0, 60); Physics::Hit g; if (Physics::castRayEx(c + vec3(0, 5, 0), vec3(0, -1, 0), 10, g)) c = g.pos;
+        n0 = G.sold[sh].shots; nClear = nSmoke = nOther = nAfter = 0; smokeTr = 1;
+        return false;
+      }
+      place(sh, c + vec3(-12, 0, 0)); place(tg, c + vec3(12, 0, 0));
+      Soldier& S = G.sold[sh]; if (S.ws.containers.size() < 3) S.ws.containers.assign(4, 30);
+      int shots = S.shots - n0; n0 = S.shots;
+      if (t >= 3 && t < 6) nClear += shots;                              // clear: it fires
+      if (t >= 6 && t < 6.05f) G.gren.addCloud(c, G.t - 3.0, 9);          // a cloud already at full density between them
+      if (t >= 6.5f && t < 6.55f) G.lineOfSight(G.eye(S), G.chest(G.sold[tg]), &smokeTr);
+      if (t >= 8.5f && t < 12.5f && shots) {                             // after the blind-fire allowance: no fire toward the hidden target
+        vec3 to = G.chest(G.sold[tg]) - G.eye(S);                        // (rounds at other enemies in the open still count apart)
+        bool atIt = glm::dot(glm::normalize(to), App::forward(S.br.aimYaw, S.br.aimPitch)) > std::cos(radians(10.0f));
+        (atIt ? nSmoke : nOther) += shots;
+      }
+      if (t >= 12.5f && t < 12.55f) G.gren.clouds.clear();
+      if (t >= 14 && t < 18) nAfter += shots;                             // cleared: it fires again
+      if (t < 18) return false;
+      char b[300]; std::snprintf(b, sizeof b, "smoke between a bot and its target 24 m away (transmittance %.3f): shots in 3 s clear %d, in 4 s behind smoke %d at it (%d at others), in 4 s after it cleared %d",
+                                 smokeTr, nClear, nSmoke, nOther, nAfter);
+      check(nClear > 0 && nSmoke == 0 && nAfter > 0 && smokeTr < 0.35f, b);
+      return true; });
     push("perf", [this](App& a, float t) {
       if (t == 0) { stepMsSum = frameMsSum = 0; stepMsN = frameN = 0; }
       frameMsSum += ImGui::GetIO().DeltaTime * 1000; ++frameN;

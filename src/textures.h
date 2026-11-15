@@ -14,7 +14,7 @@
 
 namespace tex {
 
-constexpr int kMaxSlots = 160, kMaxLayers = 128, kUnitBase = 20;   // MA1: 64 -> 128 layers (111 sets on disk), 80 -> 160 slots (imgmat)
+constexpr int kMaxSlots = 320, kMaxLayers = 192, kUnitBase = 20;   // TX2: 160 -> 320 slots (226 sets; lazy library slots), 128 -> 192 layers   // MA1: 64 -> 128 layers (111 sets on disk), 80 -> 160 slots (imgmat)
 // painted ground types (lasso ground paint, ground_paint.cpp): uPaintSlot[k] in the terrain shader, "paint" in textures.json
 constexpr int kPaintTypes = 12;
 inline const char* const kPaintTypeNames[kPaintTypes] = {"marsh", "dirt", "mud", "gravel", "sand", "cobbles", "rock", "dry_grass", "ploughed", "leaf_litter", "scorched", "pebbles"};
@@ -31,6 +31,7 @@ void attach(GLuint prog);
 // Vertex code for a material (Vertex::params.x = pattern + 100 * code): 0 = the pattern's default slot,
 // 1 = no texture, 2 + slot otherwise. explicitSet = the material JSON's "texture" field ("none" disables).
 int materialCode(const std::string& matName, int pattern, const std::string& explicitSet);
+void flushPending();   // TX2: load the sets materials named since the last load (lazy library slots); call after the asset library loads
 
 bool active();                     // at least one set on the GPU
 void setEnabled(bool on);          // A/B and tests: off = procedural everywhere (uniform uTexOn)

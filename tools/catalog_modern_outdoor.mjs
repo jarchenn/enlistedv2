@@ -11,7 +11,7 @@ import { setNav, cover, rng, r3 } from "./catalog_atlantic.mjs";
 // ---------------------------------------------------------------- materials (added to an asset when its parts use them)
 const T = (texture, more = {}) => ({ texture, ...more });
 const MATS = {
-  asphalt: [[0.12, 0.12, 0.12], 0.92, "concrete", T("concrete_aggregate")],
+  asphalt: [[0.12, 0.12, 0.12], 0.92, "concrete", T("asphalt_plain")],
   asphalt_patch: [[0.085, 0.085, 0.09], 0.9, "concrete", T("paving_worn")],
   asphalt_light: [[0.17, 0.17, 0.165], 0.9, "concrete", T("paving_worn")],
   sealant: [[0.03, 0.03, 0.03], 0.6, "plain"],
@@ -34,6 +34,11 @@ const MATS = {
   blossom: [[0.78, 0.45, 0.55], 0.8, "plain", T("leaves")],
   grass_blade: [[0.32, 0.36, 0.14], 0.85, "plain"],
   bark: [[0.22, 0.17, 0.12], 0.95, "wood", T("bark_fir")],
+  bark_tree: [[0.17, 0.14, 0.11], 0.95, "plain", T("bark")],
+  bark_pale: [[0.3, 0.28, 0.25], 0.9, "plain", T("bark")],
+  bark_cherry: [[0.27, 0.15, 0.12], 0.85, "plain", T("bark")],
+  vine: [[0.2, 0.17, 0.11], 0.95, "plain", T("bark")],
+  crack: [[0.08, 0.065, 0.05], 0.98, "plain", T("soil_brown")],
   white_wood: [[0.86, 0.86, 0.83], 0.6, "painted", T("paint_wood_white")],
   timber: [[0.45, 0.32, 0.2], 0.8, "wood", T("wood_oak")],
   timber_grey: [[0.42, 0.39, 0.35], 0.85, "wood", T("planks_038")],
@@ -56,9 +61,9 @@ const MATS = {
   plastic_green: [[0.12, 0.5, 0.15], 0.4, "plain"],
   plastic_orange: [[0.9, 0.38, 0.05], 0.4, "plain"],
   hpl_green: [[0.1, 0.36, 0.16], 0.5, "painted", T("concrete_light")],
-  rubber_red: [[0.45, 0.13, 0.09], 0.95, "concrete", T("gravel_fine")],
+  rubber_red: [[0.45, 0.13, 0.09], 0.95, "concrete", T("rubber_surface_black")],
   rubber_red2: [[0.4, 0.11, 0.08], 0.95, "concrete", T("gravel_fine")],
-  rubber_green: [[0.14, 0.32, 0.12], 0.95, "concrete", T("gravel_fine")],
+  rubber_green: [[0.14, 0.32, 0.12], 0.95, "concrete", T("rubber_surface_black")],
   rubber_green2: [[0.12, 0.28, 0.1], 0.95, "concrete", T("gravel_fine")],
   rubber_black: [[0.05, 0.05, 0.05], 0.8, "plain"],
   sand: [[0.7, 0.62, 0.46], 0.95, "plain", T("sand_054")],
@@ -66,7 +71,7 @@ const MATS = {
   court_blue: [[0.12, 0.25, 0.44], 0.7, "painted", T("concrete_light")],
   court_red: [[0.52, 0.2, 0.13], 0.7, "painted", T("concrete_light")],
   pad_blue: [[0.08, 0.2, 0.5], 0.8, "fabric", T("cloth_grey")],
-  pool_tile: [[0.5, 0.74, 0.82], 0.3, "tile", T("pooltile_backrooms")],
+  pool_tile: [[0.5, 0.74, 0.82], 0.3, "tile", T("tiles_pool_cyan")],
   tile_band: [[0.07, 0.2, 0.42], 0.3, "tile", T("pooltile_backrooms")],
   tile_dark: [[0.06, 0.12, 0.3], 0.3, "tile", T("pooltile_backrooms")],
   basin_tile: [[0.18, 0.3, 0.33], 0.4, "tile", T("slate_square")],
@@ -251,6 +256,73 @@ function tree(A, R, x, z, { h = 5, cr = 1.6, kind = "round", leaf = "leaf", y = 
     A.rbox([cxp - s, cyp - s * 0.8, czp - s], [cxp + s, cyp + s * 0.8, czp + s], s * 0.8, R() < 0.3 ? "leaf_light" : leaf, { k: 0, lod: i > blobs / 2 ? 1 : 0 });
   }
 }
+// ---------------------------------------------------------------- foliage (the engine "tree" block, src/foliage.cpp)
+// Leaves are species leaf cards on canopy spheres (content/textures/leaves/leaves.json "assets" maps the id to a species),
+// with wind and the near / mid / far leaf LOD; stems and limbs are round tapered parts in bark. As tools/catalog_bocage.mjs.
+// cards per sphere = max(12, cardDensity * r^2 * 3); card half size = leafSize * r * 0.9.
+const D2R = Math.PI / 180;
+function seg(A, a, b, ra, rb, m, n = 6) {   // one tapered round segment from a to b, visual only
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = Math.hypot(...d);
+  const pitch = Math.asin(Math.max(-1, Math.min(1, d[1] / L))) / D2R, yaw = Math.atan2(d[0], d[2]) / D2R;
+  const o = { seg: n, top: Math.min(1, rb / ra), k: 0 };
+  if (Math.abs(90 - pitch) > 0.05) o.r = [90 - pitch, yaw, 0];
+  A.cone([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], [2 * ra, L + 0.02, 2 * ra], m, o);
+  return b;
+}
+const along = (pts, f) => { const s = Math.min(pts.length - 2, Math.floor(f * (pts.length - 1))), t = f * (pts.length - 1) - s; return [0, 1, 2].map((i) => pts[s][i] + (pts[s + 1][i] - pts[s][i]) * t); };
+function limb(A, R, base, L, yaw, pitch, bend, ra, rb, m, nseg = 2, n = 6) {   // a curved tapering limb; returns its points
+  const pts = [base];
+  for (let s = 0; s < nseg; s++) {
+    const pr = (pitch + (bend * s) / Math.max(1, nseg - 1)) * D2R, yr = (yaw + (R() - 0.5) * 16) * D2R, p = pts[pts.length - 1];
+    pts.push([p[0] + Math.sin(yr) * Math.cos(pr) * L / nseg, p[1] + Math.sin(pr) * L / nseg, p[2] + Math.cos(yr) * Math.cos(pr) * L / nseg]);
+    seg(A, p, pts[pts.length - 1], ra + ((rb - ra) * s) / nseg, ra + ((rb - ra) * (s + 1)) / nseg, m, n);
+  }
+  return pts;
+}
+function clump(R, canopy, c, r, sats, out, up = 0.25) {   // a main leaf sphere and smaller satellites pushed outward
+  canopy.push([c[0], c[1] + r * up, c[2], r * (0.82 + R() * 0.13)]);
+  for (let k = 0; k < sats; k++) {
+    const a = R() * 2 * Math.PI, e = -0.3 + R() * 1.05;
+    const d = [Math.cos(e) * Math.sin(a) + out[0] * 0.8, Math.sin(e), Math.cos(e) * Math.cos(a) + out[1] * 0.8], o = (r * (0.6 + R() * 0.25)) / Math.hypot(...d);
+    canopy.push([c[0] + d[0] * o, c[1] + r * up + d[1] * o, c[2] + d[2] * o, r * (0.45 + R() * 0.17)]);
+  }
+}
+const fib = (n) => Array.from({ length: n }, (_, i) => { const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996; return [Math.cos(a) * r, y, Math.sin(a) * r]; });
+// a clipped ball of leaf: a core sphere and n spheres of radius rs on its shell, the cards reaching about R
+function leafBall(canopy, c, R, rs, n) {
+  canopy.push([c[0], c[1], c[2], R * 0.55]);
+  for (const p of fib(n)) canopy.push([c[0] + p[0] * (R - rs - 0.04), c[1] + p[1] * (R - rs - 0.04), c[2] + p[2] * (R - rs - 0.04), rs]);
+}
+// the foliage block. hedge: true = never felled, stops rounds (planters, topiary, hedges, vines); the engine adds a bank
+// skirt to a hedge whose canopy floats above 0.9 m, which none of these want
+function foliage(A, canopy, t) {
+  A.meta.tree = { hpBullet: 99999, hpAT: 99999, stumpHeight: 0.15, trunkRadius: 0.05, mass: 30, hedge: true, cardsPerSphere: 12, ...t, canopy: canopy.map((c) => c.map(r3)) };
+  if (A.meta.tree.hedge && Math.min(...canopy.map((c) => c[1] - c[3])) > 0.9) throw new Error(`${A.meta.id}: hedge canopy above 0.9 m would get a bank skirt`);
+}
+// a street tree: flared clear stem (an invisible collider box that splits at the stump cut), a leader, scaffold limbs
+// with a secondary on each and clumped leaf masses at their ends; returns the canopy
+function crownTree(A, R, { h, clear, tr, lead, limbs, len, pitch, bend = -12, lobe, top, bark = "bark_tree", core = [] }) {
+  const canopy = [], yTop = h * lead;
+  A.box([-tr, 0, -tr], [tr, clear + 0.4, tr], bark, { v: 0 });
+  seg(A, [0, -0.1, 0], [0, 0.38, 0], tr * 1.6, tr * 1.05, bark, 12);   // root flare (stays on the stump)
+  const bole = [[0, 0.36, 0]];
+  for (let k = 1; k <= 3; k++) bole.push([(R() - 0.5) * 0.08, 0.36 + ((yTop - 0.36) * k) / 3, (R() - 0.5) * 0.08]);
+  for (let k = 0; k < 3; k++) seg(A, bole[k], bole[k + 1], tr * (1 - 0.28 * k), Math.max(0.02, tr * (0.72 - 0.28 * k)), bark, 10);
+  for (let i = 0; i < limbs; i++) {
+    const yaw = (360 * i) / limbs + i * 37 + R() * 30, out = [Math.sin(yaw * D2R), Math.cos(yaw * D2R)];
+    const y = clear + (yTop - clear) * 0.85 * (i / Math.max(1, limbs - 1)), f = (y - 0.36) / (yTop - 0.36), L = len * (0.85 + R() * 0.3);
+    const pts = limb(A, R, along(bole, Math.min(0.98, f)), L, yaw, pitch + (R() - 0.5) * 12, bend, tr * 0.42, tr * 0.12, bark, 2, 7);
+    const sp = limb(A, R, along(pts, 0.5), L * 0.5, yaw + (R() < 0.5 ? -1 : 1) * (35 + R() * 30), pitch + 12, 0, tr * 0.2, 0.012, bark, 1, 5);
+    clump(R, canopy, pts[2], lobe * (0.9 + R() * 0.25), 2, out);
+    clump(R, canopy, sp[1], lobe * 0.7, 1, out);
+    const m = along(pts, 0.55);
+    canopy.push([m[0] + out[0] * lobe * 0.3, m[1] + lobe * 0.35, m[2] + out[1] * lobe * 0.3, lobe * 0.6]);
+  }
+  clump(R, canopy, bole[3], top, 2, [0, 0], 0.4);
+  for (const c of core) canopy.push(c);   // fill: a crown seen against the sky has no hole in the middle
+  return canopy;
+}
+
 // street / car-park light column with 1 or 2 LED heads; returns the light spec(s) for A.meta.light
 function lightPole(A, x, z, yaw, h = 8, heads = 1) {
   A.cyl([x, -0.25, z], [0.55, 0.7, 0.55], "concrete", { seg: 10 });                    // cast footing
@@ -432,17 +504,16 @@ function picketBay() {
 function hedgeBay(id, H, v) {
   const L = 2.0, W = H > 1.5 ? 0.9 : 0.75, tall = H > 1.5;
   const A = piece(id, `Box hedge bay (${H} m)`, L, `2 m bay of a neatly clipped rectangular box hedge, ${H} m high and ${W} m thick, dense leaf with softened shoulders over a mulch strip (the ${tall ? "mod_hedge_modern_tall" : "mod_hedge_modern"} line piece).`);
-  strip(A, L, 2, -W / 2, W / 2, 0, H - 0.07, v ? "leaf_dark" : "leaf");
-  strip(A, L, 2, -W / 2 + 0.05, W / 2 - 0.05, H - 0.1, H, "leaf", K);
-  for (const s of [-1, 1]) rod(A, [-L / 2, H - 0.08, s * (W / 2 - 0.05)], [L / 2, H - 0.08, s * (W / 2 - 0.05)], 0.11, "leaf", { k: 0, seg: 8 });
+  strip(A, L, 2, -W / 2 + 0.1, W / 2 - 0.1, 0, H - 0.14, "leaf_dark");   // dense dark core (the collider): no see-through between the cards
   A.box([-L / 2, -0.05, -W / 2 - 0.12], [L / 2, 0.025, W / 2 + 0.12], "mulch", K);
-  const R = rng(9400 + v * 7 + (tall ? 3 : 0));
-  for (let i = 0; i < (tall ? 14 : 10); i++) {   // clipped lumps standing a few cm proud
-    const s = 0.12 + R() * 0.14, u = -L / 2 + s + R() * (L - 2 * s), face = R();
-    const m = R() < 0.35 ? "leaf_light" : R() < 0.5 ? "leaf_dark" : "leaf";
-    if (face < 0.3) { const zc = (R() - 0.5) * (W - 0.3); A.rbox([u - s, H - s * 0.9, zc - s * 0.6], [u + s, H + s * 0.22, zc + s * 0.6], s * 0.5, m, D); }
-    else { const zs = face < 0.65 ? -1 : 1, y = 0.15 + R() * (H - 0.4), zc = zs * (W / 2 - s * 0.4); A.rbox([u - s, y - s, zc - s * 0.6], [u + s, y + s, zc + s * 0.6], s * 0.6, m, D); }
-  }
+  // clipped box leaf: one row of leaf spheres packed to the hedge's box (cards reach ~0.1 m past each sphere), over the
+  // dark core above; the spheres run past the bay ends so joined bays close without a seam
+  const R = rng(9400 + v * 7 + (tall ? 3 : 0)), r = tall ? 0.36 : 0.3, canopy = [];
+  const ny = tall ? 4 : 3, y0 = r, y1 = H - r - 0.08, nx = tall ? 5 : 6;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++)
+    canopy.push([-L / 2 + (L * (i + 0.5)) / nx + (R() - 0.5) * 0.05, y0 + ((y1 - y0) * j) / (ny - 1) + (R() - 0.5) * 0.03, (R() - 0.5) * 0.04, r * (0.97 + R() * 0.06)]);
+  if (v) for (let i = 0; i < 3; i++) { const s = R() < 0.5 ? -1 : 1; canopy.push([-0.7 + i * 0.7 + (R() - 0.5) * 0.2, 0.3 + R() * (H - 0.6), s * (W / 2 - 0.12), 0.18]); }   // _b: a few growing out of the clip
+  foliage(A, canopy, { cardDensity: 60, leafSize: tall ? 0.34 : 0.4, leafColor: v ? [0.035, 0.08, 0.02] : [0.032, 0.074, 0.016], seed: 9400 + v * 7 + (tall ? 3 : 0) });
   setNav(A, { effect: "carve", cover: [cover([0, 0, -W / 2 - 0.45], 0, tall ? "high" : "low", tall ? ["left", "right"] : ["over"]), cover([0, 0, W / 2 + 0.45], 180, tall ? "high" : "low", tall ? ["left", "right"] : ["over"])] });
   return A;
 }
@@ -1119,8 +1190,14 @@ function planterConcrete() {
   A.box([-W - 0.01, -0.03, -Dd - 0.01], [W + 0.01, 0.02, Dd + 0.01], "slab_dark", K);
   A.box([-W + t, 0.1, -Dd + t], [W - t, 0.5, Dd - t], "mulch", K);
   const R = rng(10100);
-  for (let i = 0; i < 4; i++) { const x = -0.8 + i * 0.53, s = 0.22 + R() * 0.06; A.rbox([x - s, 0.45, -s], [x + s, 0.5 + 2 * s, s], s * 0.9, i % 2 ? "leaf" : "leaf_dark", K); }
+  const canopy = [];
+  for (let i = 0; i < 4; i++) {   // clipped shrubs: a mound of leaf clusters each
+    const x = -0.8 + i * 0.53, s = 0.22 + R() * 0.06;
+    canopy.push([x, 0.62 + s * 0.4, 0, s * 0.85]);
+    for (let k = 0; k < 3; k++) { const a = k * 2.1 + R(); canopy.push([x + Math.cos(a) * s * 0.55, 0.6 + s * 0.3 + R() * 0.1, Math.sin(a) * s * 0.45, s * 0.6]); }
+  }
   for (let i = 0; i < 5; i++) { const x = -0.95 + i * 0.47, z = (i % 2 ? 1 : -1) * 0.2; for (let b = 0; b < 6; b++) A.obox([x, 0.75, z], [0.02, 0.55, 0.008], [(R() - 0.5) * 30, b * 30, (R() - 0.5) * 30], "grass_blade", D); }
+  foliage(A, canopy, { cardDensity: 70, leafSize: 0.42, leafColor: [0.05, 0.1, 0.03], seed: 10100 });
   setNav(A, { effect: "carve", cover: [cover([0, 0, -0.9], 0, "low"), cover([0, 0, 0.9], 180, "low")] });
   return A;
 }
@@ -1132,8 +1209,19 @@ function planterCorten() {
   for (const s of [-1, 1]) { A.box([-S - 0.01, 0.78, s * S - 0.025], [S + 0.01, 0.8, s * S + 0.025], "corten", K); A.box([s * S - 0.025, 0.78, -S], [s * S + 0.025, 0.8, S], "corten", K); }
   A.box([-S + t, 0.3, -S + t], [S - t, 0.72, S - t], "mulch", K);
   const R = rng(10200);
-  tree(A, R, 0, 0, { h: 3.2, cr: 1.0, y: 0.7, leaf: "leaf_light" });
-  for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + 0.7, s = 0.16; A.rbox([Math.cos(a) * 0.38 - s, 0.68, Math.sin(a) * 0.38 - s], [Math.cos(a) * 0.38 + s, 0.95, Math.sin(a) * 0.38 + s], 0.14, "leaf_dark", D); }
+  // multi-stem tree: three stems splaying from the soil, side shoots, clumped leaf masses; low shrubs round the foot
+  const canopy = [];
+  A.box([-0.08, 0.72, -0.08], [0.08, 2.0, 0.08], "bark_pale", { v: 0 });
+  for (let i = 0; i < 3; i++) {
+    const yaw = i * 120 + R() * 40, out = [Math.sin(yaw * D2R), Math.cos(yaw * D2R)];
+    const pts = limb(A, R, [out[0] * 0.04, 0.68, out[1] * 0.04], 2.3 + R() * 0.4, yaw, 76 + R() * 6, -10, 0.04, 0.012, "bark_pale", 3, 7);
+    clump(R, canopy, pts[3], 0.5 + R() * 0.1, 2, out);
+    const sp = limb(A, R, along(pts, 0.55), 0.7, yaw + 50 + R() * 40, 40, 0, 0.018, 0.008, "bark_pale", 1, 5);
+    clump(R, canopy, sp[1], 0.38, 1, out);
+  }
+  canopy.push([0, 2.55, 0, 0.5]);
+  for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + 0.7; canopy.push([Math.cos(a) * 0.36, 0.86, Math.sin(a) * 0.36, 0.18]); }
+  foliage(A, canopy, { cardDensity: 55, leafSize: 0.26, leafColor: [0.09, 0.17, 0.035], seed: 10200 });
   setNav(A, { effect: "carve", cover: [cover([0, 0, -1.0], 0, "low"), cover([0, 0, 1.0], 180, "low")] });
   return A;
 }
@@ -1148,11 +1236,13 @@ function raisedBed() {
   }
   A.box([-W + 0.1, 0.1, -Dd + 0.1], [W - 0.1, 0.4, Dd - 0.1], "mulch", K);
   const R = rng(10300);
-  for (let r = 0; r < 3; r++) for (let i = 0; i < 7; i++) {
+  const canopy = [];
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 7; i++) {   // rows of lettuces / herbs (leaf cards), marigolds in the back row
     const x = -0.9 + i * 0.3, z = -0.3 + r * 0.3, s = 0.08 + R() * 0.04;
-    if (r === 2 && i % 2) { A.rbox([x - 0.06, 0.38, z - 0.06], [x + 0.06, 0.55, z + 0.06], 0.05, "leaf", D); A.box([x - 0.04, 0.55, z - 0.04], [x + 0.04, 0.58, z + 0.04], "petal_yellow", D); }
-    else A.rbox([x - s, 0.38, z - s], [x + s, 0.42 + s, z + s], s * 0.9, r === 1 ? "leaf_red" : "leaf_light", D);
+    if (r === 2 && i % 2) { canopy.push([x, 0.47, z, 0.08]); seg(A, [x, 0.4, z], [x, 0.56, z], 0.006, 0.004, "grass_blade", 4); A.cyl([x, 0.565, z], [0.06, 0.02, 0.06], "petal_yellow", { ...D, seg: 8 }); }
+    else canopy.push([x, 0.4 + s * 0.6, z, s * 1.1]);
   }
+  foliage(A, canopy, { cardDensity: 60, leafSize: 0.55, leafColor: [0.1, 0.2, 0.05], seed: 10300 });
   setNav(A, { effect: "carve", cover: [cover([0, 0, -1.05], 0, "low"), cover([0, 0, 1.05], 180, "low")] });
   return A;
 }
@@ -1162,19 +1252,21 @@ function flowerBed() {
   const W = 1.5, Dd = 0.75;
   for (const s of [-1, 1]) { A.box([-W, -0.08, s * Dd - 0.004], [W, 0.06, s * Dd + 0.004], "corten", K); A.box([s * W - 0.004, -0.08, -Dd], [s * W + 0.004, 0.06, Dd], "corten", K); }
   A.box([-W + 0.005, -0.05, -Dd + 0.005], [W - 0.005, 0.04, Dd - 0.005], "mulch", K);
-  const R = rng(10400), pet = ["petal_red", "petal_yellow", "petal_white", "petal_purple", "petal_pink"];
-  for (let i = 0; i < 9; i++) for (let j = 0; j < 4; j++) {
+  const R = rng(10400), pet = ["petal_red", "petal_yellow", "petal_white", "petal_purple", "petal_pink"], canopy = [];
+  for (let i = 0; i < 9; i++) for (let j = 0; j < 4; j++) {   // leafy perennial mounds (cards), flower heads on thin stalks above
     const x = -1.3 + i * 0.32 + (R() - 0.5) * 0.08, z = -0.55 + j * 0.37 + (R() - 0.5) * 0.08, s = 0.1 + R() * 0.06, h = 0.18 + R() * 0.2;
-    A.rbox([x - s, 0.02, z - s], [x + s, h, z + s], s * 0.8, (i + j) % 3 ? "leaf" : "leaf_dark", D);
-    if ((i * 7 + j * 3) % 4 !== 0) { const m = pet[Math.floor((i / 9) * 5 + j * 0.3) % 5]; for (let k = 0; k < 3; k++) { const fx = x + (R() - 0.5) * s * 1.4, fz = z + (R() - 0.5) * s * 1.4; A.box([fx - 0.025, h - 0.01, fz - 0.025], [fx + 0.025, h + 0.03 + R() * 0.04, fz + 0.025], m, D); } }
+    canopy.push([x, h * 0.5, z, s * 1.15]);
+    if ((i * 7 + j * 3) % 4 !== 0) { const m = pet[Math.floor((i / 9) * 5 + j * 0.3) % 5]; for (let k = 0; k < 3; k++) { const fx = x + (R() - 0.5) * s * 1.4, fz = z + (R() - 0.5) * s * 1.4, fy = h + 0.03 + R() * 0.08; seg(A, [fx, h * 0.4, fz], [fx, fy, fz], 0.005, 0.003, "grass_blade", 4); A.cyl([fx, fy, fz], [0.055, 0.025, 0.055], m, { ...D, seg: 8 }); } }
   }
+  foliage(A, canopy, { cardDensity: 60, leafSize: 0.5, leafColor: [0.07, 0.15, 0.04], seed: 10400 });
   setNav(A, { effect: "none" });
   return A;
 }
 function ornamentalTree(id, name, opt, desc) {
   const A = base({ id, name, footprint: [opt.cr * 2 + 0.4, opt.cr * 2 + 0.4], description: desc });
-  tree(A, rng(10500 + opt.h * 10), 0, 0, opt);
+  const seed = 10500 + opt.crown.h * 10, canopy = crownTree(A, rng(seed), opt.crown);
   A.cyl([0, 0.0, 0], [1.2, 0.04, 1.2], "mulch", { k: 0, seg: 14 });
+  foliage(A, canopy, { hedge: false, hpBullet: 18, hpAT: 1, stumpHeight: 0.35, trunkRadius: opt.crown.tr, mass: opt.mass, cardDensity: opt.dens, leafSize: opt.leafSize, leafColor: opt.leafColor, seed });
   setNav(A, { effect: "carve", cover: [cover([0, 0, -0.7], 0, "high", ["left", "right"]), cover([0, 0, 0.7], 180, "high", ["left", "right"])] });
   return A;
 }
@@ -1186,26 +1278,120 @@ function pot(A, d = 0.6) {
 function topiary(id, kind) {
   const A = base({ id, name: kind === "ball" ? "Topiary ball in pot" : kind === "cone" ? "Topiary cone in pot" : "Topiary balls (group of three)", footprint: kind === "group" ? [2.2, 1.4] : [0.7, 0.7],
     description: kind === "ball" ? "Clipped box topiary ball 0.8 m across on a short stem in a tapered grey planter." : kind === "cone" ? "Clipped yew topiary cone 1.6 m tall in a tapered grey planter." : "Three clipped box balls (0.5, 0.75 and 1.0 m) planted in a bark-mulched bed. Low cover." });
-  const R = rng(10600 + id.length);
+  // clipped box leaf: leaf-card spheres packed to the clipped shape over a dark core (the collider) that hides the gaps
+  const canopy = [];
   if (kind === "ball") {
     pot(A);
-    A.cyl([0, 0.7, 0], [0.04, 0.2, 0.04], "bark", { seg: 6, k: 0 });
-    A.rbox([-0.4, 0.75, -0.4], [0.4, 1.55, 0.4], 0.4, "leaf");
-    for (let i = 0; i < 6; i++) { const a = R() * 6.28, b = (R() - 0.5) * 2.2, r = 0.36, s = 0.11; const x = Math.cos(a) * Math.cos(b) * r, y = 1.15 + Math.sin(b) * r, z = Math.sin(a) * Math.cos(b) * r; A.rbox([x - s, y - s, z - s], [x + s, y + s, z + s], s, i % 2 ? "leaf_dark" : "leaf_light", D); }
+    seg(A, [0, 0.58, 0], [0, 0.85, 0], 0.025, 0.02, "bark_tree", 6);
+    A.rbox([-0.3, 0.85, -0.3], [0.3, 1.45, 0.3], 0.3, "leaf_dark");
+    leafBall(canopy, [0, 1.15, 0], 0.38, 0.16, 12);
   } else if (kind === "cone") {
     pot(A);
-    A.cone([0, 1.42, 0], [0.75, 1.6, 0.75], "leaf_dark", { seg: 16 });
-    for (let i = 0; i < 4; i++) A.cyl([0, 0.75 + i * 0.32, 0], [0.7 - i * 0.16, 0.12, 0.7 - i * 0.16], "leaf", { seg: 14, k: 0 });
+    A.cone([0, 1.38, 0], [0.56, 1.45, 0.56], "leaf_dark", { seg: 12 });
+    for (let y = 0.78; y < 2.0; y += 0.24) {   // the cone's envelope radius at y; a ring of spheres on bigger layers
+      const Rr = 0.37 * (2.22 - y) / 1.6, rs = Math.min(0.16, Math.max(0.09, Rr * 0.55));
+      if (Rr - rs > 0.07) { const n = Math.max(4, Math.round((2 * Math.PI * (Rr - rs)) / (rs * 1.5))); for (let k = 0; k < n; k++) { const a = (k + (y * 7) % 1) * 2 * Math.PI / n; canopy.push([Math.cos(a) * (Rr - rs), y, Math.sin(a) * (Rr - rs), rs]); } }
+      else canopy.push([0, y, 0, Math.max(0.08, Rr * 0.9)]);
+    }
+    canopy.push([0, 2.08, 0, 0.07]);
   } else {
     A.cyl([0, 0.0, 0], [2.0, 0.04, 1.2], "mulch", { seg: 16, k: 0 });
     for (const [x, z, d] of [[-0.6, 0.1, 1.0], [0.3, -0.2, 0.75], [0.85, 0.3, 0.5]]) {
-      A.rbox([x - d / 2, -0.05, z - d / 2], [x + d / 2, d - 0.05, z + d / 2], d / 2, "leaf");
-      for (let i = 0; i < 4; i++) { const a = R() * 6.28, s = d * 0.13; A.rbox([x + Math.cos(a) * d * 0.42 - s, d * 0.5 - s, z + Math.sin(a) * d * 0.42 - s], [x + Math.cos(a) * d * 0.42 + s, d * 0.5 + s, z + Math.sin(a) * d * 0.42 + s], s, "leaf_dark", D); }
+      A.rbox([x - d * 0.38, -0.05, z - d * 0.38], [x + d * 0.38, d * 0.72 - 0.05, z + d * 0.38], d * 0.36, "leaf_dark");
+      leafBall(canopy, [x, d / 2 - 0.05, z], d / 2, Math.min(0.2, d * 0.2), d > 0.8 ? 14 : d > 0.6 ? 10 : 7);
     }
   }
+  foliage(A, canopy, { cardDensity: 90, leafSize: 0.42, leafColor: [0.032, 0.074, 0.016], seed: 10600 + id.length });
   setNav(A, { effect: "carve", cover: kind === "group" ? [cover([-0.6, 0, -1.0], 0, "low"), cover([-0.6, 0, 1.1], 180, "low")] : [] });
   return A;
 }
+// ---------------------------------------------------------------- overgrowth (ruined / derelict dressing)
+// hanging vines and roots: origin at the ceiling attachment point, strands hanging toward -y, ivy cards along the leafy
+// ones (about a third are bare roots); a matted clump at the ceiling. No collider; placed under a ceiling or arch.
+function vinesHanging(id, drop) {
+  const long = drop > 2, A = base({ id, name: long ? "Hanging vines, long (3 m)" : "Hanging vines (1.5 m)", category: "Vegetation", footprint: [1.5, 1.5],
+    description: `A 1.5 x 1.5 m cluster of ivy strands and bare roots hanging about ${drop} m from a ceiling, for derelict interiors, broken slabs and arches. The origin is the attachment point on the ceiling (place it there); visual only, no collision.` });
+  const R = rng(10900 + (long ? 1 : 0)), canopy = [], n = long ? 11 : 9;
+  for (let i = 0; i < 4; i++) canopy.push([(R() - 0.5) * 0.9, -0.22, (R() - 0.5) * 0.9, 0.2 + R() * 0.05]);   // matted at the ceiling
+  for (let i = 0; i < n; i++) {
+    const a = i * 2.39996 + R() * 0.5, rr = 0.66 * Math.sqrt((i + 0.5) / n), L = drop * (0.45 + R() * 0.55), bare = R() < 0.3;
+    let p = [Math.cos(a) * rr, 0, Math.sin(a) * rr];
+    const segs = Math.max(3, Math.round(L / 0.4)), sway = [(R() - 0.5) * 0.12, (R() - 0.5) * 0.12];
+    for (let s = 1; s <= segs; s++) {
+      const f = s / segs, q = [p[0] + sway[0] * (0.5 + f) + (R() - 0.5) * 0.04, -L * f, p[2] + sway[1] * (0.5 + f) + (R() - 0.5) * 0.04];
+      seg(A, p, q, bare ? 0.007 : 0.011 * (1 - 0.5 * f) + 0.004, (bare ? 0.007 : 0.011 * (1 - 0.5 * f) + 0.004) * 0.85, "vine", 4);
+      p = q;
+      if (!bare && s % 1 === 0 && (s < segs || R() < 0.7)) canopy.push([p[0] + (R() - 0.5) * 0.06, p[1] + 0.12, p[2] + (R() - 0.5) * 0.06, 0.13 + 0.05 * (1 - f) + R() * 0.03]);
+    }
+  }
+  foliage(A, canopy, { cardDensity: 60, leafSize: 0.5, leafColor: [0.03, 0.07, 0.02], seed: 10900 + (long ? 1 : 0) });
+  setNav(A, { effect: "none" });
+  return A;
+}
+// a crack in paving: a dark soil seam (two or three flush strips) the plants come out of
+function crackLine(A, R, L) {
+  let p = [-L / 2, (R() - 0.5) * 0.1];
+  for (let s = 0; s < 3; s++) {
+    const q = [p[0] + L / 3, (R() - 0.5) * L * 0.25];
+    bar(A, p, q, 0.025 + R() * 0.02, -0.01, 0.006, "crack", K);
+    p = q;
+  }
+}
+// weeds out of a crack: low rosettes and grass tufts (weed leaf cards on small spheres) and thin flowering stalks
+// (the engine's nettle-style stems with paired leaves)
+function weeds(id, big) {
+  const S = big ? 1.2 : 0.6, A = base({ id, name: big ? "Weeds clump (1.2 m)" : "Weeds in a paving crack", category: "Vegetation", footprint: [S, S],
+    description: big ? "A 1.2 m clump of rank weeds and grass pushing up through broken paving: dandelion and plantain rosettes, grass tufts and stalks up to 0.8 m. Visual only, walk-through." : "A small clump of weeds and grass, about 0.6 m, growing out of a crack in paving or at a kerb joint. Visual only, walk-through." });
+  const R = rng(11000 + (big ? 1 : 0)), canopy = [];
+  crackLine(A, R, S * 0.95);
+  if (big) crackLine(A, rng(11010), S * 0.7);
+  const n = big ? 9 : 4;
+  for (let i = 0; i < n; i++) {
+    const x = (R() - 0.5) * S * 0.7, z = (R() - 0.5) * S * 0.35, tall = R() < 0.4;
+    canopy.push([x, tall ? 0.16 + R() * 0.1 : 0.06, z, tall ? 0.12 + R() * 0.04 : 0.1 + R() * 0.03]);
+  }
+  foliage(A, canopy, { hedge: false, hpBullet: 6, hpAT: 1, stumpHeight: 0.12, trunkRadius: 0.04, mass: 5, cardDensity: 60, leafSize: 0.6, leafColor: [0.08, 0.15, 0.035], seed: 11000 + (big ? 1 : 0),
+    nettles: { stems: big ? 9 : 4, height: big ? [0.4, 0.8] : [0.25, 0.5], radius: S * 0.3, leaf: big ? 0.06 : 0.045 } });
+  setNav(A, { effect: "none" });
+  return A;
+}
+// an ash sapling seeded in a paving joint: lifted, cracked slabs round its foot, a thin leader with side shoots
+function saplingPaving() {
+  const A = base({ id: "mod_sapling_paving", name: "Sapling through paving", category: "Vegetation", footprint: [1.4, 1.4],
+    description: "A self-sown ash sapling about 2 m tall growing out of a paving joint, the slabs round its foot cracked and lifted, a few weeds in the gaps. Visual only; a thin stem." });
+  const R = rng(11100), canopy = [];
+  for (const [x, z, rx, rz] of [[-0.33, -0.33, 0, 0], [0.33, -0.33, 3, -2], [-0.33, 0.33, -2, 4], [0.33, 0.33, 7, 5]])   // four 0.6 m slabs, the ones by the root lifted
+    A.obox([x, 0.015 + Math.abs(rx + rz) * 0.004, z], [0.6, 0.05, 0.6], [rx, R() * 2, rz], "slab_dark", { k: 0, bv: 0.008 });
+  bar(A, [-0.65, 0.02], [0.62, -0.03], 0.04, -0.01, 0.01, "crack", K);
+  bar(A, [0.02, -0.64], [-0.03, 0.63], 0.04, -0.01, 0.01, "crack", K);
+  A.box([-0.025, 0, -0.025], [0.025, 1.6, 0.025], "bark_tree", { v: 0 });
+  const stem = limb(A, R, [0, -0.02, 0], 2.0, R() * 360, 86, -3, 0.03, 0.008, "bark_pale", 3, 6);
+  clump(R, canopy, stem[3], 0.4, 1, [0, 0]);
+  for (let k = 0; k < 4; k++) {
+    const yaw = k * 137 + R() * 40, out = [Math.sin(yaw * D2R), Math.cos(yaw * D2R)];
+    const tw = limb(A, R, along(stem, 0.45 + k * 0.13), 0.45 + R() * 0.2, yaw, 35 + R() * 15, 0, 0.012, 0.005, "bark_pale", 1, 4);
+    clump(R, canopy, tw[1], 0.3 + R() * 0.06, k % 2, out);
+  }
+  foliage(A, canopy, { hedge: false, hpBullet: 4, hpAT: 1, stumpHeight: 0.15, trunkRadius: 0.03, mass: 12, cardDensity: 70, leafSize: 0.34, leafColor: [0.12, 0.2, 0.06], seed: 11100 });
+  setNav(A, { effect: "none" });
+  return A;
+}
+// ivy creeping over the ground: rooting runners and low leaf clusters, for overgrown yards and ruin floors
+function ivyGround() {
+  const A = base({ id: "mod_ivy_patch_ground", name: "Ivy ground cover (patch)", category: "Vegetation", footprint: [2.2, 2.2],
+    description: "A 2 m patch of ivy creeping over the ground (or broken paving): rooting runners and a low mat of ivy leaves, about 0.25 m deep. Visual only, walk-over." });
+  const R = rng(11200), canopy = [];
+  for (let i = 0; i < 6; i++) {   // runners from the middle outward, a leaf cluster every ~0.3 m
+    const yaw = i * 60 + R() * 40;
+    const pts = limb(A, R, [0, 0.02, 0], 0.9 + R() * 0.15, yaw, 0, 0, 0.008, 0.004, "vine", 3, 4);
+    for (const f of [0.15, 0.45, 0.75, 1]) { const p = along(pts, f); canopy.push([p[0], 0.1, p[2], 0.17 + R() * 0.04]); }
+  }
+  canopy.push([0, 0.12, 0, 0.22]);
+  foliage(A, canopy, { cardDensity: 60, leafSize: 0.45, leafColor: [0.03, 0.07, 0.02], seed: 11200 });
+  setNav(A, { effect: "none" });
+  return A;
+}
+
 function pergola() {
   const X = 2.0, Z = 1.45, H = 2.4, A = base({ id: "mod_pergola", name: "Timber pergola", footprint: [4.7, 3.5],
     description: "4 x 3 m oak pergola: four 150 mm posts on steel shoes, twin beams, notched rafters at 400 mm with shaped ends, knee braces and a climbing rose scrambling over one corner." });
@@ -1446,10 +1632,13 @@ export function modernOutdoorAssets() {
     fountainTiered(), fountainRound(), fountainWall(),
     // garden
     planterConcrete(), planterCorten(), raisedBed(), flowerBed(),
-    ornamentalTree("mod_tree_ornamental", "Ornamental tree (round crown)", { h: 5.5, cr: 1.9 }, "Ornamental street / garden tree 5.5 m tall with a clear stem and a dense round layered crown."),
-    ornamentalTree("mod_tree_columnar", "Ornamental tree (columnar)", { h: 6.5, cr: 1.1, kind: "column" }, "Columnar (fastigiate) ornamental tree 6.5 m tall with a narrow upright crown, for avenues and tight spaces."),
-    ornamentalTree("mod_tree_blossom", "Blossom tree", { h: 4.5, cr: 2.1, kind: "spread", leaf: "blossom" }, "Spreading ornamental cherry 4.5 m tall in full pink blossom, a low wide layered crown on a short trunk."),
+    ornamentalTree("mod_tree_ornamental", "Ornamental tree (round crown)", { cr: 1.9, mass: 220, dens: 70, leafSize: 0.2, leafColor: [0.075, 0.15, 0.03], crown: { h: 5.5, clear: 2.2, tr: 0.13, lead: 0.75, limbs: 6, len: 1.35, pitch: 40, lobe: 0.8, top: 1.0, core: [[0, 3.9, 0, 0.95]] } }, "Ornamental street / garden tree (small-leaved lime) 5.5 m tall: a clear stem, scaffold limbs and a dense round crown of leaf. Fells under fire or a shell like the field trees."),
+    ornamentalTree("mod_tree_columnar", "Ornamental tree (columnar)", { cr: 1.1, mass: 240, dens: 80, leafSize: 0.24, leafColor: [0.09, 0.16, 0.035], crown: { h: 6.5, clear: 0.9, tr: 0.12, lead: 0.92, limbs: 9, len: 1.1, pitch: 72, bend: -6, lobe: 0.5, top: 0.55, bark: "bark_pale", core: [1.7, 2.5, 3.3, 4.1, 4.9, 5.6].map((y) => [0, y, 0, 0.5]) } }, "Columnar (fastigiate) ornamental poplar 6.5 m tall: a leader with many steep limbs and a narrow upright crown of leaf, for avenues and tight spaces."),
+    ornamentalTree("mod_tree_blossom", "Blossom tree", { cr: 2.1, mass: 160, dens: 70, leafSize: 0.22, leafColor: [0.119, 0.12, 0.036], crown: { h: 4.5, clear: 1.3, tr: 0.14, lead: 0.55, limbs: 5, len: 1.6, pitch: 30, bend: -14, lobe: 0.75, top: 0.8, bark: "bark_cherry", core: [[0, 2.7, 0, 0.9]] } }, "Spreading ornamental cherry 4.5 m tall in full pink blossom: a short trunk, wide low limbs and clusters of pink flowers among young leaves."),
     topiary("mod_topiary_ball", "ball"), topiary("mod_topiary_cone", "cone"), topiary("mod_topiary_balls", "group"),
+    // overgrowth
+    vinesHanging("mod_vines_hanging", 1.5), vinesHanging("mod_vines_hanging_long", 3), weeds("mod_weeds_crack", false), weeds("mod_weeds_clump", true),
+    saplingPaving(), ivyGround(),
     pergola(), gazebo(), benchAsset(true), benchAsset(false), birdBath(), steppingStones(), decking(),
     lampPost(false), lampPost(true), shed(), greenhouse(), picnicTable(),
   ];

@@ -66,6 +66,7 @@ struct Soldier {
   int cls = -1, clsPick[2] = {0, 0};          // GM1: class (classes.h index, -1 = none) and its primary / secondary choice
   float throwT = -1; int throwKind = 0; vec3 throwTarget{0}; vec3 throwVel{0}; bool throwReleased = false;
   int model = -1; CharInstance ci; bool ciReady = false; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
+  float anKneel = 0, anCarry = 0, anMoveAim = 0, anLow = 0, anTwist = 0, anStride = 0; vec3 anDir{0, 0, 1};   // AN1 posture blends (Game::posesStep)
   uint32_t poseRev = 0, skinRev = ~0u; int poseFrom = -1;   // PF1: skin only a changed pose; a far pack follower draws its leader's skin
   mat4 world{1};
   Brain br;
