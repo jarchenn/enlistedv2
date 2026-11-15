@@ -46,8 +46,8 @@ const ZombieCfg& zcfg() {
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
         t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
-        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 50.0f); t.lean = e.value("lean_deg", t.lean);   // the fighters are drawn at 20
-        t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 50.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
+        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 100.0f); t.lean = e.value("lean_deg", t.lean);   // the fighters are drawn at 20
+        t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 100.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
         t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
@@ -368,7 +368,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     }
   }
   const bool fighterT = e.id.rfind("fighter", 0) == 0, spiderT = e.id == "stalker";
-  if ((fighterT || spiderT) && e.stepCrater <= 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < (fighterT ? 70.0f : 40.0f)) {   // the Fighters' heavy footsteps. shortcut: host / single player only
+  if ((fighterT || spiderT) && e.stepCrater <= 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < (fighterT ? 600.0f : 40.0f)) {   // the Fighters' heavy footsteps. shortcut: host / single player only
     static std::map<int, double> nextStep;
     double& ns = nextStep[s.slot];
     if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play(fighterT ? "step_fighter" : "step_spider", s.feet, fighterT ? 1.0f : 0.7f); ns = G.t + (fighterT ? std::clamp(2.6f / std::max(1.0f, s.speed), 0.35f, 0.9f) : std::clamp(1.2f / std::max(1.0f, s.speed), 0.18f, 0.45f)); }   // the spider scuttles: quicker steps

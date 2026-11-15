@@ -88,7 +88,7 @@ Buf makeWind(float secs, Rng& r, float bright, float gustRate) {
 struct Audio::Impl {
   ma_engine engine;
   std::map<std::string, Buf> bufs;
-  struct Event { std::vector<Buf> v; float gain = 1; std::string kind; int last = -1; };
+  struct Event { float minDist = 1;   /* full volume inside this range (m): big sounds carry */ std::vector<Buf> v; float gain = 1; std::string kind; int last = -1; };
   std::map<std::string, Event> events;
   std::mt19937 pick{20260606};
   vec3 listener{0};
@@ -264,7 +264,7 @@ int Audio::loadCustom(const fs::path& dir) {
       for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.5f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);   // even level, 30 ms fade-out
       ev.v.push_back(std::move(s));
     }
-    if (!ev.v.empty()) { ++used; for (const char* n : ss.names) p->events[n] = ev; }
+    if (!ev.v.empty()) { ++used; for (const char* n : ss.names) { p->events[n] = ev; if (std::string(n) == "step_fighter") p->events[n].minDist = 60.0f; } }
   }
   if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
   // gun shots (guns/*.mp3): one recording per weapon group. A burst recording gives its last shot (the one with the tail);
@@ -324,7 +324,7 @@ int Audio::loadCustom(const fs::path& dir) {
   }
   if (decode("headshot.mp3", b)) { ++used; float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x)); for (float& x : b) x *= 0.8f / pk; Impl::Event ev; ev.kind = "ui"; ev.v.push_back(b); p->events["ui_headshot"] = ev; }
   if (decode("fighter_laugh.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["fighter_laugh"] = ev; }
-  if (decode("fighter_stomp.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.5f; ev.v.push_back(b); p->events["fighter_stomp"] = ev; }
+  if (decode("fighter_stomp.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.5f; ev.minDist = 60.0f; ev.v.push_back(b); p->events["fighter_stomp"] = ev; }
   { Impl::Event ev; for (const char* f : {"spider_attack_1.mp3", "spider_attack_2.mp3", "spider_attack_3.mp3"}) if (decode(f, b)) ev.v.push_back(b);   // the spider's strike: a random one each time
     if (!ev.v.empty()) { ++used; p->events["spider_attack"] = ev; } }
   for (const char* n : {"troll_attack", "troll_idle"}) if (decode((std::string(n) + ".mp3").c_str(), b)) { ++used; if (b.size() > (size_t)(5 * SR)) { b.resize(5 * SR); for (int j = 0; j < SR / 5; ++j) b[b.size() - 1 - j] *= j / (SR / 5.0f); } Impl::Event ev; ev.v.push_back(b); p->events[n] = ev; }
@@ -339,7 +339,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   if (!p) return;
   // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
   // "_suffix" (explosion_grenade -> explosion), so a missing sample never silences an event
-  const Buf* src = nullptr; std::string used; float gain = 1; bool shot = false, step = false, uiEv = false;
+  const Buf* src = nullptr; std::string used; float gain = 1, minDist = 1; bool shot = false, step = false, uiEv = false;
   std::string n = name;
   for (int tries = 0; tries < 3 && !src; ++tries) {
     std::string cand = n;
@@ -348,7 +348,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
     if (e != p->events.end()) {
       auto& ev = e->second; int k = 0;
       if (ev.v.size() > 1) { k = (int)(p->pick() % (ev.v.size() - 1)); if (ev.last >= 0 && k >= ev.last) ++k; }   // never the same twice running
-      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; uiEv = ev.kind == "ui"; shot = ev.kind == "shot"; step = ev.kind == "step";
+      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; minDist = ev.minDist; uiEv = ev.kind == "ui"; shot = ev.kind == "shot"; step = ev.kind == "step";
     } else if (auto b = p->bufs.find(n); b != p->bufs.end()) { src = &b->second; used = n; }
     else { size_t u = n.rfind('_'); if (u == std::string::npos) break; n = n.substr(0, u); }
   }
@@ -376,7 +376,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   ma_sound_init_from_data_source(&p->engine, &v->buf, 0, nullptr, &v->snd);
   p->route(v->snd);
   ma_sound_set_position(&v->snd, pos.x, pos.y, pos.z);
-  ma_sound_set_min_distance(&v->snd, 1.0f);
+  ma_sound_set_min_distance(&v->snd, minDist);
   ma_sound_set_rolloff(&v->snd, 1.2f);
   ma_sound_set_volume(&v->snd, volume);
   ma_sound_start(&v->snd);
