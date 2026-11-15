@@ -8,9 +8,11 @@
 # - bone names are kept in Blender (renaming there does not reach the curves of inactive actions) and renamed in the
 #   exported GLB: mapped bones to the game's semantic joint names (src/character.cpp kSemanticNames), others sanitized
 # - textures: albedo + normal from the given PNGs, at most 1024 px
-# usage: blender -b --factory-startup --python convert_enemy_glb.py -- <fbx> <out.glb> <alb.png> <nrm.png> <keep_mesh,...> <map.json>
+# - a model without a death take may get one (7th argument: the bone at its feet): a 1 s topple backward from its first
+#   idle frame, pivoting on that bone (the creature, SCP-096 remodel)
+# usage: blender -b --factory-startup --python convert_enemy_glb.py -- <fbx> <out.glb> <alb.png> <nrm.png> <keep_mesh,...> <map.json> [<death pivot bone>]
 import bpy, sys, json, re, math, os, struct
-from mathutils import Matrix
+from mathutils import Matrix, Quaternion, Vector
 a = sys.argv[sys.argv.index('--') + 1:]
 src, out, alb, nrm, keep, mapf = a[0], a[1], a[2], a[3], a[4].split(','), a[5]
 bmap = json.load(open(mapf))   # semantic name -> source bone name
@@ -26,8 +28,9 @@ bpy.context.view_layer.update()
 aw = arm.matrix_world.copy(); arm.parent = None; arm.matrix_world = aw
 for act in list(bpy.data.actions):
     parts = act.name.split('|')
-    if parts[0] != arm.name: bpy.data.actions.remove(act); continue
-    act.name = parts[1] if len(parts) > 1 else act.name
+    if parts[0] != arm.name or act.frame_range[1] - act.frame_range[0] < 1: bpy.data.actions.remove(act); continue   # other objects' takes, one-frame stubs
+    names = [p for p in parts[1:] if p != arm.name and not p.startswith('Base Layer')]   # "Arm|Walk" or "Arm|Arm|Arm|C.096_DWlk.F|Base Layer"
+    act.name = names[0] if names else parts[-1]
     act.use_fake_user = True
     for l in act.layers:
         for s in l.strips:
@@ -69,7 +72,7 @@ for o in list(bpy.data.objects):
 bpy.context.view_layer.update()
 # facing: the head ahead of the hips along +y (Blender) -> turn 180 deg so it faces -y (glTF +z). Judged mid-walk:
 # the rest pose can face elsewhere (the spider's bind pose faces opposite its clips; the troll's stands near vertical)
-walk = next((x for x in bpy.data.actions if 'walk' in x.name.lower() and 'back' not in x.name.lower()), None)
+walk = next((x for x in bpy.data.actions if ('walk' in x.name.lower() or 'wlk' in x.name.lower()) and 'back' not in x.name.lower()), None)
 if walk:
     arm.animation_data_create(); arm.animation_data.action = walk
     if walk.slots: arm.animation_data.action_slot = walk.slots[0]
@@ -79,6 +82,28 @@ fy = (arm.matrix_world @ pb[bmap['Head']].head).y - (arm.matrix_world @ pb[bmap[
 if walk: arm.animation_data.action = None; bpy.context.scene.frame_set(1); arm.matrix_world = aw
 if fy > 0: arm.matrix_world = Matrix.Rotation(math.pi, 4, 'Z') @ arm.matrix_world
 print('FACING', 'turned' if fy > 0 else 'kept', round(fy, 5))
+if len(a) > 6 and not any('death' in x.name.lower() or 'die' in x.name.lower() for x in bpy.data.actions):
+    idle = next(x for x in bpy.data.actions if 'idle' in x.name.lower())
+    arm.animation_data_create(); arm.animation_data.action = idle
+    if idle.slots: arm.animation_data.action_slot = idle.slots[0]
+    bpy.context.scene.frame_set(int(idle.frame_range[0])); bpy.context.view_layer.update()
+    base = {p.name: p.matrix_basis.copy() for p in arm.pose.bones}
+    death = bpy.data.actions.new('death'); death.use_fake_user = True; arm.animation_data.action = death
+    pb = arm.pose.bones[a[6]]; Mw = arm.matrix_world; Ra = Mw.to_quaternion(); Bq = pb.bone.matrix_local.to_quaternion()
+    tall = (Mw @ arm.data.bones[bmap['Head']].head_local).z - (Mw @ pb.bone.head_local).z
+    fps = bpy.context.scene.render.fps; n = fps   # one second
+    for f in range(0, n + 1, 2):
+        w = (f / n) ** 2   # falls ever faster
+        for p in arm.pose.bones:
+            p.rotation_mode = 'QUATERNION'; p.matrix_basis = base[p.name]
+        qw = Quaternion((1, 0, 0), math.radians(-88 * w))   # world: the top goes back (+y; she faces -y)
+        loc, rot, sca = base[pb.name].decompose()
+        rot = Bq.inverted() @ Ra.inverted() @ qw @ Ra @ Bq @ rot
+        loc = loc + Bq.inverted() @ (Mw.inverted().to_3x3() @ Vector((0, 0, 0.06 * tall * w)))   # the back rests on the ground, not through it
+        pb.matrix_basis = Matrix.LocRotScale(loc, rot, sca)
+        for p in arm.pose.bones:
+            for path in ('location', 'rotation_quaternion', 'scale'): p.keyframe_insert(path, frame=f + 1)
+    arm.animation_data.action = None; bpy.context.scene.frame_set(1)
 print('ACTIONS', len(bpy.data.actions), sorted((x.name, tuple(x.frame_range)) for x in bpy.data.actions))
 # materials: one principled material from the two textures
 def img(p):

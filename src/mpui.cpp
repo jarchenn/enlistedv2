@@ -402,21 +402,20 @@ void MpUi::setupWindow(App& app) {
   }
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
   // per side: tick any AI types; each AI takes the ticked ones in turn (the last tick cannot be cleared). EN1 Zombies +
-  // heavies: brutes and stalkers by weight (content/ai/zombie.json types); EN3 Heavies: trolls and spiders only
+  // heavies: brutes and stalkers by weight (content/ai/zombie.json types); Brutes, Spiders and Creatures: that type only
   auto aiTypes = [](const char* label, int& mask) {
     ImGui::PushID(label); ImGui::TextUnformatted(label);
     for (int k = 0; k < kAiTypeCount; ++k) {
-      bool on = (mask >> k) & 1; if (k != 3) ImGui::SameLine(); else ImGui::Indent();
+      bool on = (mask >> k) & 1; if (k == 0 || k % 3) ImGui::SameLine(); else if (k == 3) ImGui::Indent();   // three to a row
       if (ImGui::Checkbox(aiTypeName((AiType)k), &on)) { int v = on ? mask | (1 << k) : mask & ~(1 << k); if (v) mask = v; }
     }
     ImGui::Unindent(); ImGui::PopID();
   };
-  auto heavySplit = [&](int t) { if (rules.aiTypes[t] & aiBit(AiType::Heavies)) { ImGui::SliderInt("Trolls % (the rest spiders)", &rules.heavyTrollPct[t], 0, 100, "%d%%"); } };
   if (rules.mode != GameMode::Assault) {
     ImGui::SliderInt("Kill cap (wins the match)", &rules.killCap, 5, 150);
     if (rules.mode == GameMode::Solo) {
       ImGui::SliderInt("Players in all (humans + AI)", &rules.soloPlayers, std::max(2, humansHere), std::min(ScenarioRules::kMaxCombatants, ScenarioRules::kMaxAI + humansHere));
-      aiTypes("AI types:", rules.aiTypes[0]); rules.aiTypes[1] = rules.aiTypes[0]; heavySplit(0); rules.heavyTrollPct[1] = rules.heavyTrollPct[0];
+      aiTypes("AI types:", rules.aiTypes[0]); rules.aiTypes[1] = rules.aiTypes[0];
       ImGui::TextDisabled("Every AI attacks whoever is closest; spawns are chosen far from everyone.");
     } else {
       for (int t = 0; t < 2; ++t) {
@@ -425,7 +424,7 @@ void MpUi::setupWindow(App& app) {
         int f = (int)rules.teamFaction[t];
         ImGui::RadioButton("Allies [US]", &f, 0); ImGui::SameLine(); ImGui::RadioButton("Axis [GER]", &f, 1); rules.teamFaction[t] = (Faction)f;
         ImGui::SliderInt("Players (humans + AI)", &rules.teamPlayers[t], 1, ScenarioRules::kMaxCombatants / 2);
-        aiTypes("AI types:", rules.aiTypes[t]); heavySplit(t);
+        aiTypes("AI types:", rules.aiTypes[t]);
         ImGui::PopID();
       }
       ImGui::Text("You play on:"); ImGui::SameLine(); ImGui::RadioButton("Team A", &rules.humanTeam, 0); ImGui::SameLine(); ImGui::RadioButton("Team B", &rules.humanTeam, 1);
@@ -455,8 +454,8 @@ void MpUi::setupWindow(App& app) {
   aiDifficultyCombo();   // W6: Recruit / Regular / Veteran (AI_SPEC 10)
   rules.defenderSlots = std::clamp(rules.defenderSlots, std::max(1, humans), ScenarioRules::kMaxCombatants - 1);
   rules.attackerAI = std::clamp(rules.attackerAI, 1, ScenarioRules::kMaxCombatants - rules.defenderSlots);
-  { ImGui::PushID(0); aiTypes("Defender AI types:", rules.aiTypes[0]); heavySplit(0); ImGui::PopID(); }
-  { ImGui::PushID(1); aiTypes("Attacker AI types:", rules.aiTypes[1]); heavySplit(1); ImGui::PopID(); }
+  { ImGui::PushID(0); aiTypes("Defender AI types:", rules.aiTypes[0]); ImGui::PopID(); }
+  { ImGui::PushID(1); aiTypes("Attacker AI types:", rules.aiTypes[1]); ImGui::PopID(); }
   int lives = 1 + rules.attackerRespawns;
   ImGui::Separator();
   ImGui::Text("Humans %d  |  Friendly AI %d  |  Enemy AI %d  |  Total %d / %d", humans, rules.defenderSlots - humans, rules.attackerAI, rules.defenderSlots + rules.attackerAI, ScenarioRules::kMaxCombatants);
