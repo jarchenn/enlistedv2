@@ -233,7 +233,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (beautifyDecorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor, cheap at range (beautify.cpp)
-    if (isVehicleAsset(r.asset)) { tanks.drawItems(*this, i, r); continue; }   // supplied tank GLB on its rig (tank_ui.cpp)
+    if (isVehicleAsset(r.asset) || (mode == Mode::Explore && tanks.isAdopted(i.id))) { tanks.drawItems(*this, i, r); continue; }   // BR7: an adopted car moves   // supplied tank GLB on its rig (tank_ui.cpp)
     if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
     if (w5CullDraw(*this, i, r.asset)) {   // W5: small decorators beyond their draw distance (content/settings/maps.json)
       // a hedge past its cut still draws its bank (LOD2 at that range), darkened to its foliage: the field pattern reads from the air
@@ -807,8 +807,9 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
-    else if (a == "--capture-br-models") runSelf = true;   // BR3: a look at the Battle Royale models (selftest_brmodels.cpp)
-    else if (a == "--capture-jeep") runSelf = true;   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
+    else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
+    else if (a == "--capture-jeep") runSelf = true;
+    else if (a == "--selftest-royale-live") runSelf = true;   // BR7: 20 bots on Newtown (selftest_royale_live.cpp)   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
     else if (a == "--profile-map" && k + 3 < argc) { runSelf = true; k += 3; }   // PF3 CPU frame profile (selftest_perf.cpp)  // G2 zombie AI type, melee, knife v soldiers (selftest_zombies.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)

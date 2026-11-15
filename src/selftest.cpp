@@ -148,7 +148,8 @@ void SelfTest::update(App& app, float dt) {
   { extern bool swimSelfTest(App&, float); if (swimSelfTest(app, dt)) return; }   // --selftest-swim (selftest_swim.cpp)
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
   { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }   // BR3: --capture-br-models (selftest_brmodels.cpp)
-  { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }   // VH1: --capture-jeep (selftest_vehicles.cpp)
+  { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }
+  { extern bool royaleLiveSelfTest(App&, float); if (royaleLiveSelfTest(app, dt)) return; }   // BR7: --selftest-royale-live (selftest_royale_live.cpp)   // VH1: --capture-jeep (selftest_vehicles.cpp)
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
