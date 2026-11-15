@@ -486,7 +486,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         s.loaded = n;
         s.reload = 0; s.reloadKind = 0;
         if (rest > 0) { s.reload = rest; s.reloadKind = 4; }   // MG1: rounds in; the clip plays out before the next shot
-        audio.play(audio.hasEvent("clip_" + d.id) ? "clip_" + d.id : audio.hasEvent("reload_" + d.id) ? "reload_" + d.id : d.feed == "enbloc" ? "clip_in" : d.feed == "belt" ? "belt" : "mag_in", eyePos(), 0.8f);
+        audio.play(audio.hasEvent("clip_" + d.id) ? "clip_" + d.id : d.feed == "enbloc" ? "clip_in" : d.feed == "belt" ? "belt" : "mag_in", eyePos(), 0.8f);
       }
     }
   }
@@ -549,6 +549,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);
+      if (d.pellets > 1) audio.play("shotgun_pump", eyePos(), 0.8f);   // the pump cycling the next shell (the recording starts 0.3 s in)
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
       // pre-overhaul values: the old posture factor (prone 0.20, crouched 0.70) x the weapon's own bipod factor
       // (recoil.supported; MG 42 prone 0.2 x 0.35 = 0.07), handling.json mounted 0.5 only for a bipod weapon without one.

@@ -328,6 +328,27 @@ int Audio::loadCustom(const fs::path& dir) {
   { Impl::Event ev; for (const char* f : {"spider_attack_1.mp3", "spider_attack_2.mp3", "spider_attack_3.mp3"}) if (decode(f, b)) ev.v.push_back(b);   // the spider's strike: a random one each time
     if (!ev.v.empty()) { ++used; p->events["spider_attack"] = ev; } }
   for (const char* n : {"troll_attack", "troll_idle"}) if (decode((std::string(n) + ".mp3").c_str(), b)) { ++used; if (b.size() > (size_t)(5 * SR)) { b.resize(5 * SR); for (int j = 0; j < SR / 5; ++j) b[b.size() - 1 - j] *= j / (SR / 5.0f); } Impl::Event ev; ev.v.push_back(b); p->events[n] = ev; }
+  {   // reload recordings (reload/*.mp3): one whole reload per magazine / clip / belt weapon at reload start; shotguns: the pump after each
+      // shot and one mid-track shell-loading sound per shell (also the single-round loading sound of other guns)
+    struct RSet { const char* file; std::vector<const char*> ids; };
+    const RSet rs[] = {
+      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_lmg", "mg42", "m2hb_carry"}},
+      {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k", "kar98k_zf39"}},
+      {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2"}},
+    };
+    auto norm = [&](Buf& s, float secs) { if (s.size() > (size_t)(secs * SR)) s.resize((size_t)(secs * SR)); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); size_t f = std::min(s.size(), (size_t)(0.05f * SR)); for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.7f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f); };
+    for (auto& g : rs) if (decode(g.file, b)) { ++used; norm(b, 6.0f); Impl::Event ev; ev.v.push_back(b); for (const char* id : g.ids) p->events[std::string("reload_") + id] = ev; }
+    if (decode("reload/shotgun_pump.mp3", b)) { ++used; norm(b, 1.5f); b.insert(b.begin(), (size_t)(0.3f * SR), 0.0f); Impl::Event ev; ev.v.push_back(b); p->events["shotgun_pump"] = ev; }
+    if (decode("reload/shotgun_shells.mp3", b)) {
+      const int W = SR / 200; size_t nW = b.size() / W; float peak = 1e-4f; std::vector<float> env(nW, 0.0f);
+      for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); peak = std::max(peak, env[k]); }
+      std::vector<size_t> on; for (size_t k = 1; k < nW; ++k) if (env[k] > 0.35f * peak && env[k - 1] <= 0.35f * peak && (on.empty() || k - on.back() >= 30)) on.push_back(k);
+      if (!on.empty()) {
+        size_t m = on.size() / 2, a = (on[m] > 2 ? on[m] - 2 : 0) * W, e = std::min({b.size(), a + (size_t)(0.5f * SR), m + 1 < on.size() ? (on[m + 1] - 2) * W : b.size()});
+        if (e > a + (size_t)W) { Buf s(b.begin() + a, b.begin() + e); norm(s, 0.5f); ++used; Impl::Event ev; ev.v.push_back(std::move(s)); p->events["clip_in"] = ev; }
+      }
+    }
+  }
   if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.8f;   /* louder (user request) */ ev.v.push_back(b); p->events["zombie_groan"] = ev; }
   return used;
 }
