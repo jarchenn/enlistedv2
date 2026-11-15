@@ -469,12 +469,15 @@ void LightingPass::todColors(const Renderer& R, vec3& sun, vec3& sky, vec3& grou
   float k = R.wx.k;
   if (k <= 0.0f) return;
   auto grey = [](vec3 c, vec3 tint, float s) { return vec3(lum(c)) * tint * s; };
-  sun *= glm::mix(1.0f, 0.82f, k);
-  zen = glm::mix(zen, grey(zen * 0.5f + hor * 0.5f, vec3(0.93f, 0.96f, 1.0f), 1.0f), 0.8f * k);
-  hor = glm::mix(hor, grey(hor, vec3(0.95f, 0.97f, 1.0f), 0.92f), 0.6f * k);
-  sky = glm::mix(sky, grey(sky, vec3(0.95f, 0.98f, 1.0f), 1.12f), 0.6f * k);
-  fog = glm::mix(fog, grey(fog, vec3(0.96f, 0.98f, 1.0f), 0.95f), 0.6f * k);
-  skySunCol *= glm::mix(1.0f, 0.35f, k);
+  // WX2 full overcast: the direct sun at 30 % (faint, very soft shadows: render.cpp widens the PCF), the grey sky fill
+  // raised so diffuse light dominates and exposure stays sensible, no sun glow in the sky, the fog takes the grey sky
+  sun *= glm::mix(1.0f, 0.30f, k);
+  zen = glm::mix(zen, grey(zen * 0.5f + hor * 0.5f, vec3(0.93f, 0.96f, 1.0f), 1.0f), 0.9f * k);
+  hor = glm::mix(hor, grey(hor, vec3(0.95f, 0.97f, 1.0f), 0.95f), 0.85f * k);
+  sky = glm::mix(sky, grey(sky, vec3(0.95f, 0.98f, 1.0f), 1.9f), 0.85f * k);
+  ground *= glm::mix(1.0f, 1.35f, k); fill *= glm::mix(1.0f, 1.6f, k);
+  fog = glm::mix(fog, grey(fog, vec3(0.96f, 0.98f, 1.0f), 0.95f), 0.85f * k);
+  skySunCol *= 1.0f - k;
 }
 
 void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {

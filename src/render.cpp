@@ -118,7 +118,7 @@ uniform sampler2D uCloudShadowMap; uniform vec3 uCloudShadowBox;   // centre x, 
 float cloudShadowAt(vec2 xz, float y){
   vec2 q = xz + uSunDir.xz/uSunDir.y*(1500.0 - y);
   float th = cloudThreshold();
-  return 1.0 - mix(0.62, 0.9, uCloudK)*smoothstep(th - 0.02, th + 0.30, cloudField(q));   // WX1: heavy cloud takes up to 90 % of the direct sun
+  return 1.0 - mix(0.62, 0.35, uCloudK)*smoothstep(th - 0.02, th + 0.30, cloudField(q));   // WX2: under full overcast the (already weak) sun varies only gently
 }
 float cloudShadow(vec3 w){
   if (uCloudShadowOn == 0 || uSunDir.y < 0.05) return 1.0;
@@ -210,7 +210,7 @@ vec3 applyFog(vec3 col, vec3 w){
     float e; float sh = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, uSunDir, 0.0, 1, e);
     if (e > 0.95) sh = 1.0;
     float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
-    vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh);
+    vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh)*(1.0 - uCloudK);   // WX2: no sun glow under overcast
     float tt = tau + tauE;
     f = 1.0 - exp(-tt);
     fc = mix(fc, fcE, tauE/max(tt, 1e-6));
@@ -2895,6 +2895,16 @@ void main(){
     float md = dot(d, uMoonDir);
     c += uMoonCol*(smoothstep(0.99985, 0.99992, md)*55.0 + pow(max(md, 0.0), 300.0)*0.8);
   }
+  if (uCloudK > 0.0) {
+    // WX2 Cloudy: a continuous grey upper layer (3200 m, broad and slow) hides the blue sky and the sun disc; grey-white
+    // toward the horizon. The broken low deck below moves faster over it. Two noise taps: cheap on every preset
+    vec2 up = uCamPos.xz + d.xz/(max(d.y, 0.0) + 0.05)*(3200.0 - uCamPos.y);
+    vec2 q2 = up/2400.0 + uCloudSeed*0.7 + uCloudT*uCloudWind*0.35;
+    float n2 = vnoise(vec3(q2, uCloudT*0.001))*0.6 + vnoise(vec3(q2*2.3, 4.0))*0.4;
+    float L0 = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722));
+    vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.78 + 0.3*n2)*mix(1.12, 0.88, smoothstep(0.0, 0.6, d.y));
+    c = mix(c, ov, uCloudK);
+  }
   if (uCloudOn == 1 && d.y > 0.0) {
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
     vec2 cpw = uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells)
@@ -2941,6 +2951,7 @@ uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stron
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
 uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
 uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = none
+uniform float uWxK;   // WX2: the Cloudy mix (desaturation, cooler grade)
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
@@ -2991,6 +3002,7 @@ void main(){
     c = mix(vec3(l), c, 0.93);
     c *= 1.0 - dot(q,q)*0.16;
   }
+  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.13*uWxK)*mix(vec3(1.0), vec3(0.97, 0.99, 1.03), uWxK); }   // WX2 Cloudy: ~13 % less saturation, a touch cooler
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));   // BR1c
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
   oColor = vec4(toSRGB(c), 1.0);
@@ -3468,7 +3480,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform2f(U(p, "uShadowTexelFar"), 1.0f / shadowFarSize, 1.0f / shadowFarSize);
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
-  glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft);
+  glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
@@ -3971,6 +3983,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
   time += v.dt;
   wx.k += glm::clamp((float)wx.want() - wx.k, -v.dt / 8.0f, v.dt / 8.0f);   // WX1: Clear <-> Cloudy over 8 s (sun, sky, cover, exposure follow)
+  if (wx.enclosed) wx.k = 0.0f;
   if (wx.fogNow < 0) wx.fogNow = wx.fogDens(); else wx.fogNow += glm::clamp(wx.fogDens() - wx.fogNow, -v.dt * 0.002f, v.dt * 0.002f);   // the fog level ramps too
   if (!thumbMode) bakeFog(t);
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
@@ -4464,6 +4477,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   {   // GX5 grade (content/settings/grade.json)
     bool on = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)
     glUniform1i(U(progTone, "uGradeOn"), on ? 1 : 0);
+    glUniform1f(U(progTone, "uWxK"), thumbMode ? 0.0f : wx.k);
     glUniform1f(U(progTone, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)
     glUniform1f(U(progTone, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
     glUniform1f(U(progTone, "uGradeSat"), grade.saturation); glUniform1f(U(progTone, "uGradeContrast"), grade.contrast);
@@ -4513,7 +4527,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 }
 
 void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
-  bool shafts = q.shafts && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog, ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
+  bool shafts = q.shafts && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
   if (!shafts && !ao && !ssr) return;
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
@@ -4551,7 +4565,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, shaftTex); glBindTextureUnit(10, ambTex); glBindTextureUnit(11, aoTex); glBindTextureUnit(7, depthTex);
   glUniform1i(U(progComposite, "uScene"), 8); glUniform1i(U(progComposite, "uShafts"), 9);
   glUniform1i(U(progComposite, "uAmb"), 10); glUniform1i(U(progComposite, "uAO"), 11); glUniform1i(U(progComposite, "uDepth"), 7);
-  glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength * (1.0f - 0.75f * lightingTod(lt.hour).nightK) : 0.0f);   // moon shafts at a quarter strength: the night exposure made them glare
+  glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength * (1.0f - 0.75f * lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // moon shafts at a quarter strength: the night exposure made them glare
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);

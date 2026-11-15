@@ -360,10 +360,11 @@ void settingsWindow(App& app) {
         int hh = (int)u.hour, mm = (int)std::lround((u.hour - hh) * 60); if (mm == 60) { ++hh; mm = 0; }
         char hl[32]; std::snprintf(hl, sizeof hl, "%02d:%02d", hh % 24, mm);
         ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl);
-        { const char* wn[] = {"Clear", "Cloudy"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Weather", &u.weather, wn, 2); }   // WX1
+        { const char* wn[] = {"Clear", "Cloudy"}; ImGui::SetNextItemWidth(200);   // WX2: live (no Apply needed) and kept when the window closes
+          if (ImGui::Combo("Weather", &u.weather, wn, 2)) { applied.weather = u.weather; app.R.wx.target = u.weather; pendingSave = true; } }
         { const char* fn[] = {"Off", "Light", "Moderate", "Dense"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Environmental fog", &u.envFog, fn, 4); }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ground fog in hollows, low ground and along the shore, drifting on the wind. Limits how far bots see. A LAN match uses the host's.");
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloudy: broken to heavy cloud, moving cloud shadows, sun breaking through the gaps. In a LAN match the host's weather applies.");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloudy: full overcast in layers, soft diffuse light, no sun rays, slightly muted colours. Applies at once. In a LAN match the host's weather applies.");
         ImGui::SetNextItemWidth(200); ImGui::SliderInt("Light count", &g.lightCount, 0, 1024);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lamps, lanterns and fires lit each frame (nearest first).");
         { int sl[] = {0, 2, 4, 8}; const char* sn[] = {"Off", "2", "4", "8"}; int si = 0; for (int k = 0; k < 4; ++k) if (sl[k] == g.shadowLights) si = k;
