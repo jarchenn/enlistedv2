@@ -32,6 +32,8 @@ void brWornDraws(App& app, Game& G, const Soldier& s, const mat4& world, std::ve
   if (s.model < 0 || s.model >= (int)G.models.size() || s.pose.delta.empty()) return;
   const CharModel& m = *G.models[s.model];
   int lv[3] = {s.helmetLvl, s.vestLvl, s.backpack};
+  float vestOut = 0;   // BR8: a backpack goes on top of the vest: out by how far the vest's back stands off the body
+  if (s.vestLvl > 0) if (const AssetDef* v = app.lib.find(wornId(1, s.vestLvl))) if (v->raw.contains("worn")) vestOut = v->raw["worn"].value("backOut", 0.0f);
   for (int slot = 0; slot < 3; ++slot) {
     if (lv[slot] <= 0) continue;
     const AssetDef* a = app.lib.find(wornId(slot, lv[slot]));
@@ -41,6 +43,7 @@ void brWornDraws(App& app, Game& G, const Soldier& s, const mat4& world, std::ve
     if (j < 0 || j >= (int)s.pose.delta.size()) continue;
     vec3 pos = jvec3(w["pos"], vec3(0)), sc = jvec3(w["scale"], vec3(1)), rest = w.contains("rest") ? jvec3(w["rest"]) : m.jointHead[j];
     pos += m.jointHead[j] - rest;   // fitted to the marine; another body carries it from its own joint
+    if (slot == 2) pos.z -= vestOut;   // the back is -z (the body faces +z)
     addAsset(a, world * s.pose.delta[j] * glm::translate(mat4(1), pos) * glm::scale(mat4(1), sc), md, boxes);
   }
 }
@@ -111,7 +114,8 @@ bool brSightLineActive(const WeaponDef& d, vec3& R, vec3& F, float& relief) {
 
 // ---------------------------------------------------------------- inventory preview
 static CharInstance gInst; static const CharModel* gInstOf = nullptr;
-static bool renderPreview(Soldier& L, float yaw, int w, int h, std::vector<uint8_t>& px) {   // RGBA, top row first
+// RGBA, top row first; cy / halfH > 0: a close-up centred at that height showing +-halfH (the worn-gear captures)
+static bool renderPreview(Soldier& L, float yaw, int w, int h, std::vector<uint8_t>& px, float cy = 0, float halfH = 0) {
   App& app = *gApp; Game& G = *gGame;
   const CharModel& m = *G.models[L.model];
   if (gInstOf != &m) { if (gInstOf) gInst.destroy(); gInst.create(m); gInstOf = &m; }
@@ -123,15 +127,16 @@ static bool renderPreview(Soldier& L, float yaw, int w, int h, std::vector<uint8
   // far enough for 2.1 m of height and 0.85 m of width (a narrow frame may crop the hands of a held rifle while turning)
   float tv = std::tan(glm::radians(17.0f)), dist = std::max(1.05f / tv, 0.42f / (tv * (float)w / h)) + 0.4f;
   vec3 c(0, 0.95f, 0), eye(0, 1.1f, dist);
+  if (halfH > 0) { dist = halfH / tv + 0.3f; c = vec3(0, cy, 0); eye = vec3(0, cy + 0.05f, dist); }
   mat4 view = glm::lookAt(eye, c, vec3(0, 1, 0)), proj = glm::perspective(glm::radians(34.0f), (float)w / h, 0.1f, 40.0f);
   return app.R.renderModelSheet(md, boxes, view, proj, eye, w, h, px);
 }
 
-bool brInventoryPreviewPng(const fs::path& out, float yaw) {   // --capture-br-models
+bool brInventoryPreviewPng(const fs::path& out, float yaw, float cy, float halfH) {   // --capture-br-models / -worn
   Soldier* L = gGame ? gGame->local() : nullptr;
   if (!L || L->model < 0 || L->pose.skin.empty()) return false;
-  const int w = 360, h = 560; std::vector<uint8_t> px;
-  if (!renderPreview(*L, yaw, w, h, px)) return false;
+  const int w = halfH > 0 ? 420 : 360, h = halfH > 0 ? 420 : 560; std::vector<uint8_t> px;
+  if (!renderPreview(*L, yaw, w, h, px, cy, halfH)) return false;
   std::vector<uint8_t> flip(px);   // renderModelSheet reads back top row first
   return stbi_write_png(out.string().c_str(), w, h, 4, flip.data(), w * 4) != 0;
 }

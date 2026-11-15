@@ -266,8 +266,21 @@ def bake_marine():
     clo, chi = band(1.33, 1.43, 0.13)    # chest depth: front (-y) and back (+y)
     wlo, whi = band(1.22, 1.28, 0.30)    # width under the armpits
     tlo = Vector((wlo.x, clo.y, tlo.z)); thi = Vector((whi.x, chi.y, thi.z))
+    eyes = [o for o in meshes if o.name.startswith('Eyes')]
+    elo, ehi = bbox(eyes)
+    # the skull: head-weighted vertices above the eyes (cap excluded): its width, centre and crown
+    sk = []
+    for mo in meshes:
+        if mo.name in ('Hats',): continue
+        gi = {g.index: g.name.split(':')[-1] for g in mo.vertex_groups}
+        for v in mo.data.vertices:
+            if v.groups and gi.get(max(v.groups, key=lambda g: g.weight).group) in ('Head', 'HeadTop_End'):
+                w = mo.matrix_world @ v.co
+                if w.z > ehi.z: sk.append(w)
+    slo = Vector((min(w.x for w in sk), min(w.y for w in sk), min(w.z for w in sk))); shi = Vector((max(w.x for w in sk), max(w.y for w in sk), max(w.z for w in sk)))
     FIT.update(head=(hlo, hhi), torso=(tlo, thi), neck=B('Neck').head_local.copy(), spine2=B('Spine2').head_local.copy(),
-               head_bone=B('Head').head_local.copy())
+               head_bone=B('Head').head_local.copy(), eyes=(elo, ehi), skull=(slo, shi), back=chi.y)
+    print('FIT eyes', elo, ehi, 'skull', slo, shi)
     print('FIT head', hlo, hhi, 'torso', tlo, thi, 'neck', FIT['neck'])
     shrink_images(1024)
     select([arm] + meshes)
@@ -278,29 +291,62 @@ def bake_marine():
     print('wrote', p, os.path.getsize(p))
 
 # ---------------------------------------------------------------- worn gear
-def fit_helmet(o, idn, name, extra_w=1.18, lift=0.0, back=0.0):
-    hlo, hhi = FIT['head']; lo, hi = bbox([o]); e = hi - lo
-    s = (hhi.x - hlo.x) * extra_w / e.x
+def drop_front_parts(o, frac=0.22):
+    # loose parts in the front `frac` of the item, or hanging low in its front half (goggles over the face), go
+    import bmesh
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.verts.ensure_lookup_table()
+    lo, hi = bbox([o]); cut = lo.y + frac * (hi.y - lo.y); seen = set(); kill = []
+    for v in bm.verts:
+        if v in seen: continue
+        comp = []; stack = [v]; seen.add(v)
+        while stack:
+            a = stack.pop(); comp.append(a)
+            for e in a.link_edges:
+                b = e.other_vert(a)
+                if b not in seen: seen.add(b); stack.append(b)
+        cy = sum(c.co.y for c in comp) / len(comp); cz = sum(c.co.z for c in comp) / len(comp)
+        if cy < cut or (cz < lo.z + 0.3 * (hi.z - lo.z) and cy < (lo.y + hi.y) / 2): kill += comp   # also what hangs low at the front half
+    bmesh.ops.delete(bm, geom=kill, context='VERTS'); bm.to_mesh(o.data); bm.free()
+    print('dropped front parts:', len(kill), 'verts')
+
+def fit_helmet(o, idn, name, kw=1.25, gap=0.02, back=0.0):
+    # fitted to the skull, not to the item's box (goggles, NVG mounts and headsets stand off the shell): the dome
+    # (upper half) is kw x the skull's width, centred over it (+ back), its crown `gap` above the scalp
+    slo, shi = FIT['skull']; lo, hi = bbox([o]); e = hi - lo
+    dome = [v.co for v in o.data.vertices if v.co.z > lo.z + 0.5 * e.z]
+    dx0, dx1 = min(v.x for v in dome), max(v.x for v in dome); dy0, dy1 = min(v.y for v in dome), max(v.y for v in dome)
+    s = (shi.x - slo.x) * kw / (dx1 - dx0)
+    crown = [v.z for v in dome if abs(v.x - (dx0 + dx1) / 2) < 0.15 * (dx1 - dx0) and abs(v.y - (dy0 + dy1) / 2) < 0.15 * (dy1 - dy0)]
+    ctop = max(crown) if crown else hi.z
     S = Vector((s, s, s))
-    top = hhi.z + 0.02 + lift
-    t = Vector(((hlo.x + hhi.x) / 2, (hlo.y + hhi.y) / 2 + back, top - s * e.z))
+    scalp = max(shi.z, FIT['eyes'][1].z + 0.105)   # the mesh has no scalp under its cap: the crown ~10.5 cm over the eyes
+    t = Vector(((slo.x + shi.x) / 2 - s * (dx0 + dx1) / 2, (slo.y + shi.y) / 2 + back - s * (dy0 + dy1) / 2, scalp + gap - s * ctop))
+    print('helmet', idn, 'scale', round(s, 3), 'rim z', round(t.z + s * lo.z, 3), 'eyes top', round(FIT['eyes'][1].z, 3))
     write_asset(idn, name, 'helmet', gl_size(o), worn_block('Head', t, S))
 
-def fit_vest(o, idn, name, down=0.0, zk=1.0):
+def fit_vest(o, idn, name, lift=0.0, wk=1.0, dk=1.0, zk=1.0):
+    # wraps the chest: width and depth from the body (+ room for the plates), its front plate's top at the sternum
     tlo, thi = FIT['torso']; lo, hi = bbox([o]); e = hi - lo
-    sx = (thi.x - tlo.x + 0.07) / e.x; sy = (thi.y - tlo.y + 0.08) / e.y
-    m = (sx + sy) / 2; sx = min(max(sx, m * 0.8), m * 1.25); sy = min(max(sy, m * 0.8), m * 1.25)
-    m *= zk; S = Vector((sx, sy, m))   # zk < 1: long shoulder straps shortened, the plates up on the chest
-    top = FIT['neck'].z + 0.02 - down
-    t = Vector(((tlo.x + thi.x) / 2, (tlo.y + thi.y) / 2, top - m * e.z))
-    write_asset(idn, name, 'vest', gl_size(o), worn_block('Spine2', t, S))
+    sx = (thi.x - tlo.x + 0.06) * wk / e.x; sy = (thi.y - tlo.y + 0.07) * dk / e.y
+    m = (sx + sy) / 2 * zk; S = Vector((sx, sy, m))
+    front = [v.co for v in o.data.vertices if v.co.y < lo.y + 0.25 * e.y and abs(v.co.x - (lo.x + hi.x) / 2) < 0.15 * e.x]
+    ptop = max(v.z for v in front)
+    t = Vector(((tlo.x + thi.x) / 2 - sx * (lo.x + hi.x) / 2, (tlo.y + thi.y) / 2 - sy * (lo.y + hi.y) / 2, FIT['neck'].z - 0.05 + lift - m * ptop))
+    # how far its back stands off the body's back at the shoulder blades: a backpack goes on top of it (br_models.cpp)
+    bk = [t.y + sy * v.co.y for v in o.data.vertices if abs(v.co.x - (lo.x + hi.x) / 2) < 0.15 * e.x and abs(t.z + m * v.co.z - 1.38) < 0.08]
+    out = max(0.0, (max(bk) if bk else 0) - FIT['back'])
+    print('vest', idn, 'scale', r4(S), 'plate top', round(t.z + m * ptop, 3), 'back out', round(out, 3))
+    blk = worn_block('Spine2', t, S); blk['worn']['backOut'] = round(out, 4)
+    write_asset(idn, name, 'vest', gl_size(o), blk)
 
-def fit_backpack(o, idn, name, width_k, inset, drop=0.0):
+def fit_backpack(o, idn, name, width_k, drop=0.0, gap=-0.01):
+    # its body (not the strap loops standing proud of it: the 30th percentile of its depth) against the shirt's back;
+    # over a vest the game moves it out by that vest's backOut
     tlo, thi = FIT['torso']; lo, hi = bbox([o]); e = hi - lo
     s = (thi.x - tlo.x) * width_k / e.x; S = Vector((s, s, s))
+    ys = sorted(v.co.y for v in o.data.vertices); front = ys[int(0.30 * len(ys))]
     top = FIT['neck'].z + 0.02 - drop
-    # its strap face (Blender -y side) against the back (+y), clear of a vest
-    t = Vector(((tlo.x + thi.x) / 2, thi.y + 0.04 - inset + s * e.y / 2, top - s * e.z))   # inset: its strap loops stand proud of the pack
+    t = Vector(((tlo.x + thi.x) / 2 - s * (lo.x + hi.x) / 2, FIT['back'] + gap - s * front, top - s * hi.z))
     write_asset(idn, name, 'backpack', gl_size(o), worn_block('Spine2', t, S))
 
 def item(idn, path, keep=None, drop=(), rotz=0, rotx=0, roty=0, tris_max=8000, tex=1024, mats=None):
@@ -318,8 +364,9 @@ def want(i): return not ONLY or i in ONLY
 
 def bake_gear():
     if want('br_helmet_1') or want('br_vest_1'):
-        o = item('br_helmet_1', J('Level1HelmetArmor', 'Level1HelmetArmor.glb'), keep=['Object_13'], tris_max=6000)
-        place_ground(o); export(o, 'br_helmet_1', 1024); fit_helmet(o, 'br_helmet_1', 'Helmet (level 1)', lift=0.02)
+        o = item('br_helmet_1', J('Level1HelmetArmor', 'Level1HelmetArmor.glb'), keep=['Object_13'], rotz=90, rotx=15, tris_max=6000)   # its goggles side is its front; tipped forward: an open face starting high
+        drop_front_parts(o)   # the goggles: the face stays clear
+        place_ground(o); export(o, 'br_helmet_1', 1024); fit_helmet(o, 'br_helmet_1', 'Helmet (level 1)', kw=1.25, gap=0.025, back=-0.03)   # goggles up on the brow
         o = item('br_vest_1', J('Level1HelmetArmor', 'Level1HelmetArmor.glb'), keep=['Object_7'], roty=-90, tris_max=6000)
         place_ground(o); export(o, 'br_vest_1', 1024); fit_vest(o, 'br_vest_1', 'Vest (level 1)')
     if want('br_helmet_2'):
@@ -327,19 +374,19 @@ def bake_gear():
         place_ground(o); size_to(o, 0, 0.26); place_ground(o); export(o, 'br_helmet_2', 1024); fit_helmet(o, 'br_helmet_2', 'Helmet (level 2)')
     if want('br_helmet_3'):
         o = item('br_helmet_3', J('Level3Helmet', 'source', 'Untitled.glb'), rotz=-90, tris_max=6000)
-        place_ground(o); size_to(o, 0, 0.27); place_ground(o); export(o, 'br_helmet_3', 1024); fit_helmet(o, 'br_helmet_3', 'Helmet (level 3)')
+        place_ground(o); size_to(o, 0, 0.27); place_ground(o); export(o, 'br_helmet_3', 1024); fit_helmet(o, 'br_helmet_3', 'Helmet (level 3)', gap=0.04, back=0.012)
     if want('br_vest_2'):
         o = item('br_vest_2', J('Level2Armor', 'Level2Armor.glb'), tris_max=8000)
-        place_ground(o); export(o, 'br_vest_2', 1024); fit_vest(o, 'br_vest_2', 'Vest (level 2)', zk=0.75)
+        place_ground(o); export(o, 'br_vest_2', 1024); fit_vest(o, 'br_vest_2', 'Vest (level 2)')
     if want('br_vest_3'):
         o = item('br_vest_3', J('Level3Armor', 'Level3Armor.glb'), tris_max=8000)
-        place_ground(o); size_to(o, 0, 0.5); place_ground(o); export(o, 'br_vest_3', 1024); fit_vest(o, 'br_vest_3', 'Vest (level 3)', zk=0.8)
+        place_ground(o); size_to(o, 0, 0.5); place_ground(o); export(o, 'br_vest_3', 1024); fit_vest(o, 'br_vest_3', 'Vest (level 3)')
     if want('br_backpack'):
         o = item('br_backpack', J('regBackpack', 'source', 'unzipped', 'scene.gltf'), rotz=-90, tris_max=10000)
-        place_ground(o); size_to(o, 0, 0.34); place_ground(o); export(o, 'br_backpack', 1024); fit_backpack(o, 'br_backpack', 'Backpack', 0.95, 0.05, 0.07)
+        place_ground(o); size_to(o, 0, 0.34); place_ground(o); export(o, 'br_backpack', 1024); fit_backpack(o, 'br_backpack', 'Backpack', 0.95, 0.12)
     if want('br_backpack_mil'):
         o = item('br_backpack_mil', J('military_backpack', 'military_backpack.glb'), rotz=180, tris_max=12000)
-        place_ground(o); export(o, 'br_backpack_mil', 1024); fit_backpack(o, 'br_backpack_mil', 'Military backpack', 0.9, 0.22)
+        place_ground(o); export(o, 'br_backpack_mil', 1024); fit_backpack(o, 'br_backpack_mil', 'Military backpack', 0.9)
 
 # ---------------------------------------------------------------- optics: along the weapon axis, mount base at y = 0
 def rings(o, n_at=(0.3, 0.7)):
