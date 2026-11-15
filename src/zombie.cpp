@@ -77,6 +77,13 @@ const ZombieCfg& zcfg() {
   }
   return c;
 }
+// the body slam's footprint: an oval about her upper body (0.36 x 0.2 of her height, the long axis along f) centred at c;
+// returns the normalised radius (< 1 inside)
+float inSlam(vec3 p, vec3 c, vec3 f, const EnemyType& e, float scale) {
+  vec3 d = p - c; d.y = 0; float A = 0.18f * e.height * scale, B = 0.10f * e.height * scale;
+  float u = glm::dot(d, f) / A, v = (d.x * f.z - d.z * f.x) / B;
+  return std::sqrt(u * u + v * v);
+}
 bool inReach(const Game& G, const Soldier& z, const Soldier& v, float reach) {
   return v.alive && zLenXZ(v.feet - z.feet) < reach && std::fabs(v.feet.y - z.feet.y) < 1.2f && G.lineOfSight(G.chest(z), G.chest(v));
 }
@@ -301,6 +308,46 @@ void aiZombieAssign(Game& G, Soldier& s) {
   s.eScale = s.eFallback ? t.fallbackScale : t.scale; s.eLean = s.eFallback ? t.fallbackLean : t.lean;
   s.eBody = s.eFallback ? t.fallbackScale : t.scale * t.height / 1.85f;   // chest / eye heights and hit sphere vs the 1.85 m zombie
 }
+// The fighters, drawn many times life size: every small lift in a clip, the lean about the feet and the slope of the
+// ground across a wide stance is multiplied by the draw scale, so the body floats or sinks. Each frame the soles (the
+// ankle and toe joints, less their rest height: the rest pose stands its soles on y = 0) are measured against the
+// terrain under them and the body is moved so the lower one stands on it (a crater floor too). A foot whose sole comes
+// down to the ground stamps its footprint there (step_crater), with the stomp sound.
+void aiZombieFeet(Game& G, Soldier& s) {
+  if (!s.alive || s.model < 0 || s.model >= (int)G.models.size()) return;
+  const EnemyType& e = typeOf(s);
+  if (e.id.rfind("fighter", 0) != 0) return;
+  const CharModel& m = *G.models[s.model];
+  if (s.anim.a >= 0 && s.anim.a < (int)m.clips.size() && m.clips[s.anim.a].name.find("drop") != std::string::npos) return;   // on hands and knees: the clip grounds itself
+  const int J[2][2] = {{CJ_LFOOT, CJ_LTOE}, {CJ_RFOOT, CJ_RTOE}};
+  float gap[2] = {1e9f, 1e9f}; vec3 at[2]{vec3(0), vec3(0)};
+  for (int f = 0; f < 2; ++f)
+    for (int j : J[f]) {
+      if (m.semantic[j] < 0) continue;
+      vec3 w = vec3(s.world * vec4(s.pose.joint[j], 1));
+      float g = w.y - m.jointHead[m.semantic[j]].y * s.eScale - G.app.terrain.height(w.x, w.z);
+      if (g < gap[f]) { gap[f] = g; at[f] = w; }
+    }
+  float drop = std::min(gap[0], gap[1]);
+  if (drop > 1e8f) return;
+  s.world = glm::translate(mat4(1), vec3(0, -drop, 0)) * s.world;
+  if (e.stepCrater <= 0 || G.isClient) return;   // shortcut: footprints host / single player only, not sent to LAN clients or the navmesh
+  struct Fd { int life = -1; bool down[2] = {true, true}; }; static std::map<int, Fd> fd; Fd& k = fd[s.slot];
+  if (k.life != s.lifeId) k = Fd{s.lifeId};   // a new life starts standing: no prints on spawn
+  const float H = e.height * s.eScale, downAt = 0.02f * H, upAt = 0.05f * H;   // hysteresis: a foot is up once its sole clears 5 % of her height
+  vec3 fw = s.vel; fw.y = 0; fw = glm::length(fw) > 0.1f ? glm::normalize(fw) : vec3(0, 0, 1);
+  for (int f = 0; f < 2; ++f) {
+    float g = gap[f] - drop;
+    if (k.down[f] && g > upAt) k.down[f] = false;
+    else if (!k.down[f] && g < downAt) {
+      k.down[f] = true;
+      vec3 p(at[f].x, G.app.terrain.height(at[f].x, at[f].z), at[f].z); const float footL = 0.26f * s.eScale;
+      for (int i = -1; i <= 1; ++i) G.app.deformGround(p + fw * (i * footL * 0.3f), e.stepCrater);   // three overlapping stamps: an oval about a foot long
+      G.app.audio.play("fighter_stomp", p, 1.0f);
+    }
+  }
+}
+
 void aiZombieStep(Game& G, Soldier& s, float dt) {
   AiCore* A = aiCore();
   if (!A) return;
@@ -352,20 +399,10 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (ni > G.t + 40.0) ni = 0;
     if (G.t >= ni) { if (ni > 0) G.app.audio.play("troll_idle", s.feet + vec3(0, 2, 0), 0.9f); ni = G.t + 7.0 + 8.0 * G.rnd(s); }
   }
-  if (e.blockR > 0 && G.localSlot >= 0 && G.localSlot < (int)G.sold.size() && G.sold[G.localSlot].alive && !G.app.tanks.occupied) {   // solid to the player: pushed out of the body column. shortcut: local player only (bots, LAN clients and vehicles pass)
+  const bool down = s.anim.a >= 0 && s.model >= 0 && s.anim.a < (int)G.models[s.model]->clips.size() && G.models[s.model]->clips[s.anim.a].name.find("drop") != std::string::npos;   // in the body slam: no standing column to push out of
+  if (e.blockR > 0 && !down && G.localSlot >= 0 && G.localSlot < (int)G.sold.size() && G.sold[G.localSlot].alive && !G.app.tanks.occupied) {   // solid to the player: pushed out of the body column. shortcut: local player only (bots, LAN clients and vehicles pass)
     Soldier& lp = G.sold[G.localSlot]; float BR = e.blockR * e.height * e.scale; vec3 d = lp.feet - s.feet; float dy = d.y; d.y = 0; float L = glm::length(d);
     if (L < BR && dy > -2.0f && dy < e.height * e.scale) Physics::setCharacterPos(s.feet + (L > 1e-3f ? d / L : vec3(1, 0, 0)) * BR + vec3(0, dy, 0));
-  }
-  if (e.stepCrater > 0 && s.speed > 0.5f) {   // a footprint per stride: by distance walked, left and right in turn. shortcut: host / single player only, not sent to LAN clients or the navmesh
-    struct Tr { vec3 at{0}; bool has = false; int n = 0; }; static std::map<int, Tr> tr; Tr& k = tr[s.slot];
-    const float stride = 0.72f * e.scale, footL = 0.26f * e.scale;
-    if (!k.has || glm::length(s.feet - k.at) > 6.0f * stride) { k.at = s.feet; k.has = true; }
-    vec3 mvd = s.feet - k.at; mvd.y = 0; float L = glm::length(mvd);
-    if (L >= stride) {
-      vec3 f = mvd / L, side(f.z, 0, -f.x); vec3 foot = s.feet + side * ((k.n++ & 1) ? 0.11f : -0.11f) * e.scale;
-      for (int j = -1; j <= 1; ++j) G.app.deformGround(foot + f * (j * footL * 0.3f), e.stepCrater);   // three overlapping stamps: an oval about a foot long
-      G.app.audio.play("fighter_stomp", foot, 1.0f); k.at = s.feet;
-    }
   }
   const bool fighterT = e.id.rfind("fighter", 0) == 0, spiderT = e.id == "stalker";
   if ((fighterT || spiderT) && e.stepCrater <= 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < (fighterT ? 600.0f : 40.0f)) {   // the Fighters' heavy footsteps. shortcut: host / single player only
@@ -376,19 +413,45 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
   // EN1 lunge: a strike may start lunge_m out; the wind-up closes the gap at whatever speed that takes
-  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && inReach(G, s, *best, std::max(e.reach, e.lunge))) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f);   /* one of three, picked at random */ s.meleeWind = 0; int n = (int)clipsOf(s).attackClips.size(); s.meleeClip = std::min(n - 1, (int)(G.rnd(s) * n)); ++s.meleeCount; }   // EN2: any of the type's attacks
+  // a body slam ("drop" in the clip name: down on all fours, then flat) lands her upper body on an oval centred where her
+  // chest comes down (the clip's swing chest x the draw scale ahead): chosen when two or more hostiles stand in that oval,
+  // the other attacks for anyone within reach
+  const auto& ac = clipsOf(s).attackClips; int di = -1; float dropR = 0;
+  for (int i = 0; i < (int)ac.size(); ++i) if (ac[i].find("drop") != std::string::npos) { int k = findClip(*G.models[s.model], ac[i]); if (k >= 0) { di = i; vec3 c = G.models[s.model]->clips[k].swingChest; dropR = std::max(1.0f, glm::length(vec2(c.x, c.z)) * s.eScale); } }
+  const bool inR = best && inReach(G, s, *best, std::max(e.reach, e.lunge));
+  bool dropOk = false;
+  if (best && di >= 0) {
+    vec3 f = best->feet - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1);   // she turns to her target
+    int n = 0; for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && inSlam(o.feet, s.feet + f * dropR, f, e, s.eScale) < 1.0f) ++n;
+    dropOk = n >= 2;
+  }
+  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f);   /* one of three, picked at random */
+    s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
+    if (dropOk || n <= 0) s.meleeClip = di;   // two or more in the slam's oval: the slam; otherwise the others
+    else { int pick = std::min(n - 1, (int)(G.rnd(s) * n)); s.meleeClip = di >= 0 && pick >= di ? pick + 1 : pick; }
+    ++s.meleeCount; }
   if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
     if (best && e.lunge > e.reach) { float gap = zLenXZ(best->feet - s.feet) - 0.8f * e.reach; if (gap > 0) { m.zSpeed = std::max(m.zSpeed, gap / std::max(0.1f, wu - s.meleeWind)); m.speed = SPD_ZOMBIE; } }
     s.meleeWind += dt;
     if (s.meleeWind >= wu) {
       float hp0 = best ? best->hp : 0;
-      if (e.kickCrater > 0 && best) {   // shortcut: host / single player only, the crater is not sent to LAN clients or the navmesh
-        vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d);
-        G.app.deformGround(s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0)), e.kickCrater);   // repeated blows on one spot dig deeper
-      }
+      vec3 at = s.feet;   // where the blow lands: toward the target within reach, or under the torso for a body drop
+      if (best) { vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d); at = s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0)); }
+      if (s.meleeClip == di) {   // the body slam: her upper body lands on its oval; full damage at the centre to none at the edge, no crater
+        vec3 c = vec3(s.world * vec4(s.pose.joint[CJ_SPINE2], 1)); at = vec3(c.x, G.app.terrain.height(c.x, c.z), c.z);
+        vec3 f = c - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1); vec3 sd(-f.z, 0, f.x);
+        float A = 0.18f * e.height * s.eScale, B = 0.10f * e.height * s.eScale;
+        G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
+        for (int k = 0; k < 28; ++k) {   // the dust ring, round the oval's edge
+          float an = k * 0.2244f; vec3 out = f * std::cos(an) * A + sd * std::sin(an) * B, pp = at + out; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
+          G.app.fx.smoke(pp, glm::normalize(out) * (B * 0.25f) + vec3(0, 0.6f + 0.05f * B, 0), std::max(1.5f, B * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
+        }
+        for (auto& o : G.sold) { if (!o.alive || &o == &s || !Game::hostile(s, o)) continue; float r = inSlam(o.feet, at, f, e, s.eScale); if (r < 1.0f) { vec3 dir = o.feet - at; dir.y = 0.3f; G.damage(o.slot, e.damage * (1.0f - r), s.slot, glm::normalize(dir), "melee"); if (!o.alive) o.flat = true; } }   // flat: host / single player only
+        if (best && hp0 > best->hp) { ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - best->hp}); }
+      } else {
+      if (e.kickCrater > 0 && best) G.app.deformGround(at, e.kickCrater);   // repeated blows on one spot dig deeper. shortcut: host / single player only, the crater is not sent to LAN clients or the navmesh
       if (e.stompArea > 0 && best) {   // area blow: everyone hostile round the landing point, full damage at the centre falling to none at the edge
-        vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d); vec3 at = s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0));
         float R = e.stompArea * e.height * e.scale;
         G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
         for (int k = 0; k < 28; ++k) {   // dust thrown out from the blow: a ring at the edge of the damage radius and a core
@@ -402,7 +465,9 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
         if (gBlowLog.size() > 4096) gBlowLog.erase(gBlowLog.begin(), gBlowLog.begin() + 2048);
         if (e.knock > 0 && best->localPlayer) { vec3 d = best->feet - s.feet; d.y = 0; if (glm::length(d) > 1e-3f) G.app.knockVel = glm::normalize(d) * e.knock; }   // shortcut: only the local player is shoved; bots and LAN clients are not
       }
-      s.meleeWind = -1; s.meleeReady = G.t + e.cooldown;
+      }
+      { int k = attackClip(*G.models[s.model], clipsOf(s), s.meleeClip); float rest = k >= 0 ? (G.models[s.model]->clips[k].dur - G.models[s.model]->clips[k].swing) / e.attackRate : 0.0f;
+        s.meleeWind = -1; s.meleeReady = G.t + std::max(e.cooldown, rest); }   // the next strike waits for this attack clip to finish (the body slam is long)
     }
   }
   crumb("zombie: move"); A->move(s, dt);
@@ -434,7 +499,7 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   else if (A.key == K_ATTACK && playing(1e9f)) {}   // the swing plays out
   else if (hurt) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
-  else if (s.speed > 0.3f && walk >= 0) {
+  else if (s.speed > std::max(0.3f, 0.05f * s.eScale) && walk >= 0) {   // a giant shuffling slower than that stands (its stride would freeze mid-step)
     float w = run >= 0 ? std::clamp((s.speed - vw) / (vr - vw), 0.0f, 1.0f) : 0.0f;
     A.play(K_LOCO, walk, run, w, std::clamp(s.speed / glm::mix(vw, vr, w), 0.5f / std::max(1.0f, s.eScale), 2.0f) * enemyType(s.etype).locoRate, true);   // a giant's long strides play slowly (no foot slide); walk_rate speeds the legs up
   } else A.play(K_IDLE, idle, -1, 0, 1, true);

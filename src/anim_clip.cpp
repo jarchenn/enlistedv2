@@ -99,16 +99,22 @@ void analyzeClips(CharModel& m) {
   for (size_t c = 0; c < m.clips.size(); ++c) {
     AnimClip& clip = m.clips[c];
     const int N = 60;
-    std::vector<vec3> hand[2], foot[2];
+    std::vector<vec3> hand[2], foot[2], chest[2];
     for (int i = 0; i <= N; ++i) {
       NodeLocals L = rest; sampleClip(m, (int)c, clip.dur * i / N, false, L); poseFromLocals(m, L, pr);
       hand[0].push_back(pr.joint[CJ_LHAND]); hand[1].push_back(pr.joint[CJ_RHAND]);
       foot[0].push_back(pr.joint[CJ_LFOOT]); foot[1].push_back(pr.joint[CJ_RFOOT]);
+      chest[0].push_back(pr.joint[CJ_SPINE2]); chest[1].push_back(pr.joint[CJ_SPINE2]);
     }
     float dt = std::max(1e-4f, clip.dur / N), best = 0;
-    std::vector<vec3>* limb = clip.name.find("kick") != std::string::npos ? foot : hand;   // a kick lands at the fastest foot
-    for (int h = 0; h < 2; ++h)
-      for (int i = 0; i < N; ++i) { float v = glm::length(limb[h][i + 1] - limb[h][i]) / dt; if (v > best) { best = v; clip.swing = (i + 0.5f) * dt; } }
+    if (clip.name.find("drop") != std::string::npos) {   // a body slam lands when the chest is lowest (the lowering onto all fours is as fast as the fall)
+      int lo = 0; for (int i = 1; i <= N; ++i) if (chest[0][i].y < chest[0][lo].y - 1e-4f) lo = i;
+      clip.swing = lo * dt; clip.swingChest = chest[0][lo];
+    } else {
+      std::vector<vec3>* limb = clip.name.find("kick") != std::string::npos ? foot : hand;   // a kick lands at the fastest foot
+      for (int h = 0; h < 2; ++h)
+        for (int i = 0; i < N; ++i) { float v = glm::length(limb[h][i + 1] - limb[h][i]) / dt; if (v > best) { best = v; clip.swing = (i + 0.5f) * dt; clip.swingChest = chest[0][i + 1]; } }
+    }
     // planted foot (within 3 cm of its lowest point) slides toward -z (the model faces +z) at the ground speed
     float sum = 0; int cnt = 0;
     for (int f = 0; f < 2; ++f) {
