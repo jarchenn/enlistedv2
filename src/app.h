@@ -256,10 +256,13 @@ public:
   // ---- climb / mantle (hold Space facing a 0.4-2.2 m top: ends standing ON it, never carried over a wall or roof rim):
   // hands on the ledge, weapon lowered, camera rises then rolls forward, the body follows a swept path (mantle.cpp)
   struct MantleSettings { float minH = 0.4f, maxH = 2.2f, reach = 0.85f, durMin = 0.45f, durMax = 1.3f, landUp = 0.3f, landDown = 0.6f, fenceDrop = 0.4f, minTop = 0.05f, pitchDip = 14.0f, pitchUp = 5.0f, handSpread = 0.24f; } mantleCfg;
-  struct MantleState { bool active = false, over = false; float t = 0, dur = 0, h = 0, pitchOff = 0, eyeFrom = 1.62f; vec3 pts[4]{}; vec3 ledge{0}, fwd{0}; std::string why; int count = 0; } mantle;
+  struct MantleState { bool active = false, over = false, window = false; float t = 0, dur = 0, h = 0, pitchOff = 0, eyeFrom = 1.62f; vec3 pts[4]{}; vec3 ledge{0}, fwd{0}; std::string why; int count = 0; } mantle;
   bool tryStartMantle(vec3 feet, float yawDeg, bool fromWater = false);   // fromWater: heights from the floating feet
   bool tryClimbBank(vec3 feet, float yawDeg, float surface);  // swimming: out up a sloped bank (no face for the mantle)
-  bool beginMantle(vec3 feet, vec3 f, float dLand, float yCross, float land, float hgt, vec3 ledgePt, bool over);
+  bool beginMantle(vec3 feet, vec3 f, float dLand, float yCross, float land, float hgt, vec3 ledgePt, bool over, bool window = false);
+  bool tryStartWindowVault(vec3 feet, float yawDeg);           // MV2: crouched through a window opening (mantle.cpp)
+  bool isWindowLeafUD(uint64_t ud) const;                      // a body of a "window" interactable's leaf (sash, glass)
+  bool mantleFits(vec3 p) const;                               // the climbing body at p (crouched, sashes ignored, on a window vault)
   void stepMantle(float dt);
   float mantleLower() const;                                  // 0 weapon up .. 1 lowered out of view (viewmodel.cpp)
   bool mantleGrips(vec3& left, vec3& right, float& w) const;  // world hand points on the ledge and their blend weight
