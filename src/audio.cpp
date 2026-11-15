@@ -323,6 +323,7 @@ int Audio::loadCustom(const fs::path& dir) {
   }
   if (decode("headshot.mp3", b)) { ++used; float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x)); for (float& x : b) x *= 0.8f / pk; Impl::Event ev; ev.kind = "ui"; ev.v.push_back(b); p->events["ui_headshot"] = ev; }
   if (decode("fighter_laugh.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["fighter_laugh"] = ev; }
+  if (decode("fighter_stomp.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.5f; ev.v.push_back(b); p->events["fighter_stomp"] = ev; }
   if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["zombie_groan"] = ev; }
   return used;
 }
