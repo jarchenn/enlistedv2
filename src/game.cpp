@@ -252,6 +252,7 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
       for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
       s.ws.seed = s.rng | 1;
       s.carried = {w}; if (int p = app.weaponIndex(ol.value("sidearm", "")); p >= 0) s.carried.push_back(p);
+      if (int L = app.weaponIndex(ol.value("launcher", "")), le = ol.value("launcherEvery", 4); L >= 0 && le > 0 && nth % le == 1 % le) s.carried.push_back(L);   // TK1: one in launcherEvery carries a rocket launcher
       if (newLife) { s.frags = cd ? cd->frags : match.rules.fragPerLife; s.smokes = cd ? cd->smokes : (s.role == CombatRole::Attacker ? match.rules.smokePerLifeAttacker : match.rules.smokePerLifeDefender); if (cd) s.hp *= cd->hpMul; }
       s.reload = 0; s.throwT = -1; s.throwReleased = false;
       return;
@@ -569,6 +570,15 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   }
   if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly || (enemyType(s.etype).nonBlastMult < 1 && how && std::strcmp(how, "shell") == 0)) return; dmg *= enemyType(s.etype).nonBlastMult;   // a direct shell hit is not an instant kill on a resistant type: its blast does the damage
   if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
+  // TK1: melee on the crew of an armoured tank lands on the tank: a heavy's blow wears it down (1/15 each), the rest do
+  // nothing; the crew is hurt only once the tank is destroyed
+  if (s.localPlayer && app.tanks.occupied && how && std::strcmp(how, "melee") == 0) {
+    auto it = app.tanks.tanks.find(app.tanks.occupied);
+    if (it != app.tanks.tanks.end() && !it->second.def->car && !it->second.def->heli && !it->second.wrecked) {
+      if (attacker >= 0 && attacker < (int)sold.size() && sold[attacker].zombie && enemyType(sold[attacker].etype).tankDamage) app.tanks.meleeBlow(app, it->first, sold[attacker].feet);
+      return;
+    }
+  }
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
   // Head out of the hatch stays exposed.
   if (s.localPlayer && app.tanks.occupied) {
@@ -682,6 +692,15 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   float tz = d.zero / std::max(1.0f, d.velocity), drop = 0.5f * 9.81f * tz * tz;
   vec3 dd = glm::normalize(dir + vec3(0, drop / std::max(1.0f, d.zero), 0));
   int tracer = d.tracerKind(w.shotIdx);
+  if (d.action == "launcher") {   // TK1: a bot's rocket, as the player's (weapons.cpp): blast, crater, backblast
+    float g = 9.81f * d.rocketGrav, tr = d.zero / std::max(1.0f, d.velocity), dr = 0.5f * g * tr * tr;
+    dd = glm::normalize(dir + vec3(0, dr / std::max(1.0f, d.zero), 0));
+    app.fireProjectile(start, dd, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
+    Projectile& rp = app.projectiles.back();
+    rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav; rp.owner = s.slot;
+    if (d.rocketBackblast) app.fx.backblast(muzzle - dd * 1.4f, -dd);
+    tracer = 0;
+  } else
   app.fireRounds(d, start, dd, tracer, (uint32_t)s.slot * 131u + (uint32_t)w.shotIdx * 7919u, s.slot);   // MG1: a shotgun's pellets
   app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle);   // WP4: the same flash and light as the player's
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
@@ -692,6 +711,36 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   ++shotsByBots;
   if (gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "shot"}, {"p", tojson(start)}, {"d", tojson(dd)}, {"w", s.weapon}, {"tr", tracer}, {"by", s.slot}});
   return true;
+}
+
+bool Game::bulletProof(const Soldier& o) const {
+  if (!o.localPlayer || !app.tanks.occupied) return false;
+  auto it = app.tanks.tanks.find(app.tanks.occupied);
+  return it != app.tanks.tanks.end() && !it->second.wrecked && !it->second.def->car && !it->second.def->heli;
+}
+bool Game::bigTarget(const Soldier& o) const {
+  if (o.zombie) { const EnemyType& e = enemyType(o.etype); return e.tankDamage || e.headMult > 0; }
+  if (!o.localPlayer || !app.tanks.occupied) return false;
+  auto it = app.tanks.tanks.find(app.tanks.occupied);
+  if (it == app.tanks.tanks.end() || it->second.wrecked) return false;
+  const TankDef& d = *it->second.def;
+  return !d.car || d.heli || d.heavyBulletJ > 0;   // tanks, the helicopter, armoured cars (not the jeep)
+}
+int Game::carriedLauncher(const Soldier& s) const {
+  for (int w : s.carried) if (w >= 0 && w < (int)app.weaponDefs.size() && app.weaponDefs[w]->action == "launcher") return w;
+  return -1;
+}
+void Game::switchWeapon(Soldier& s, int w) {
+  if (w < 0 || w == s.weapon || s.reload > 0) return;
+  if (s.weapon >= 0) s.wsBy[s.weapon] = s.ws;
+  auto it = s.wsBy.find(w);
+  if (it != s.wsBy.end()) { s.ws = it->second; s.wsBy.erase(it); }
+  else {   // first draw: its full issue
+    const WeaponDef& d = *app.weaponDefs[w]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
+    for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
+    s.ws.seed = s.rng | 1;
+  }
+  s.weapon = w; s.ws.cooldown = std::max(s.ws.cooldown, 0.6f);   // shouldering it takes a moment
 }
 
 void Game::soldierWeaponStep(Soldier& s, float dt) {

@@ -24,7 +24,7 @@ void slew(float& a, float& v, float delta, float rate, float accel, float dt) {
 
 // ============================================================ rig
 mat4 TankSys::hullMatrix(const TankRT& t) const {
-  return glm::translate(mat4(1), t.pos) * glm::mat4_cast(yawQuat(t.yaw)) *
+  return glm::translate(mat4(1), t.pos + t.shove) * glm::mat4_cast(yawQuat(t.yaw)) *
          glm::rotate(mat4(1), radians(-(t.pitch + t.suspPitch)), vec3(1, 0, 0)) * glm::rotate(mat4(1), radians(t.roll + t.suspRoll), vec3(0, 0, 1));
 }
 void TankSys::rig(const TankRT& t, mat4& hull, mat4& turret, mat4& gun, mat4& recoil) const {
@@ -505,9 +505,13 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
     }
   }
   crushUnder(app, t);   // fallen poles / fences under the tracks
-  // suspension kick from firing decays back (visual only)
-  t.suspPitch = approach(t.suspPitch, 0.0f, 6.0f * dt);
-  t.suspRoll = approach(t.suspRoll, 0.0f, 6.0f * dt);
+  // TK1: the firing rock springs back, critically damped (omega 8.5: peak ~0.12 s, settled ~0.8 s; visual only)
+  {
+    const float w = 8.5f, e = std::exp(-w * dt);
+    auto spring = [&](float& x, float& v) { float c = v + w * x; x = (x + c * dt) * e; v = (v - w * c * dt) * e; };
+    spring(t.suspPitch, t.suspPitchV); spring(t.suspRoll, t.suspRollV);
+    for (int k = 0; k < 3; ++k) spring(t.shove[k], t.shoveV[k]);
+  }
   // track speeds (+x / -x side) for the HUD, sounds and dust
   float w = radians(t.yawRate);
   t.trackPhase[0] += (t.speed + w * d.trackHalfGauge) * dt;
@@ -591,7 +595,14 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   app.fireProjectile(start, fireDir, v, PROJ_HE, ap ? 120.0f : d.dmgHE, bodyUD(t.id), false, ap ? d.ammoAP : d.ammoHE);
   if (!app.projectiles.empty()) { auto& pr = app.projectiles.back(); pr.at = ap; pr.atKill = true; }
   t.loaded = SHELL_NONE; ++t.shots; t.recoilT = 0;
-  t.suspPitch += 1.2f;   // the hull rocks back on its suspension
+  {   // TK1: the hull rocks away from the barrel on its suspension (more broadside: the hull is narrower than long) and is
+      // shoved a little back along it; springs in the drive step bring it back
+    float deg = d.rockDeg >= 0 ? d.rockDeg : 4.0f * d.recoil, k = 8.5f * 2.718282f, a = radians(t.tYaw);
+    t.suspPitchV += deg * std::cos(a) * k;
+    t.suspRollV += 1.6f * deg * std::sin(a) * k;
+    vec3 back = -vec3(dir.x, 0, dir.z); float L = glm::length(back);
+    if (L > 1e-3f) t.shoveV += back / L * (0.012f * deg * k);
+  }
   app.fx.muzzle(muzzle, dir, d.muzzleScale);   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
   app.audio.play(t.def->id == "tiger_i" ? "tank_88" : "tank_17pdr", muzzle, 1.0f);
   app.viewKickPitch = 0.6f;
@@ -809,7 +820,7 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
   if (counted) {
     int dmg = r.zone == TZ_FRONT ? t->def->frontDamage() : t->def->sideDamage();
     if (t->def->car || t->def->heli) dmg = attack == TA_SMALL_ARMS ? (heavy ? t->def->heavyBulletDmg : t->def->smallArmsDmg) : attack == TA_LAUNCHER ? t->def->launcherDmg : t->def->cannonDmg;   // VH1: 100: one shell or rocket wrecks a jeep
-    t->hp = std::max(0, t->hp - dmg);
+    t->hp = std::max(0, t->hp - dmg); t->hitFlash = 1;
     if (r.zone == TZ_FRONT) ++t->hitsFront; else ++t->hitsSide;
     std::snprintf(b, sizeof b, "%s hit, %s %s: durability %d (front hits %d, side/rear hits %d)", an[attack], onTurret ? "turret" : "hull", tankZoneName(r.zone), t->hp, t->hitsFront, t->hitsSide);
     r.info = b;
@@ -826,11 +837,24 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
       app.fx.impact(pos, normal, "metal");
       for (int k = 0; k < 6; ++k) app.fx.smoke(pos + normal * 0.2f, normal * 0.8f + vec3(0, 0.5f, 0), 0.35f, 2.5f, vec4(0.35f, 0.33f, 0.3f, 0.5f), 1.6f, 0.4f);
       app.audio.play("explosion", pos, 0.55f);
-    } else app.fx.impact(pos, normal, "metal");
+    } else { app.fx.impact(pos, normal, "metal"); if (attack == TA_SMALL_ARMS && glm::length(pos - app.eyePos()) < 80.0f) app.audio.play("impact_metal", pos, 0.45f, 0.9f + 0.4f * app.fx.rnd()); }   // TK1: the ricochet ping
   }
   (void)dir;
   lastHit = r;
   return r;
+}
+
+bool TankSys::meleeBlow(App& app, uint64_t id, vec3 from) {
+  TankRT* t = get(id);
+  if (!t || t->wrecked) return false;
+  t->hp = std::max(0, t->hp - (100 + 14) / 15);   // 7 a blow: 14 leave 2, the 15th destroys it
+  vec3 at = t->pos + vec3(0, 1.2f, 0), n = from - t->pos; n.y = 0; n = glm::length(n) > 1e-3f ? glm::normalize(n) : vec3(0, 0, 1);
+  at += n * 1.5f;
+  app.fx.impact(at, n, "metal"); app.audio.play("impact_metal", at, 1.0f);
+  ++t->meleeBlows; t->hitFlash = 1;
+  if (occupied == id) app.blastShake = std::max(app.blastShake, 0.25f);
+  if (t->hp <= 0) destroy(app, *t, "torn apart");
+  return true;
 }
 
 void TankSys::destroy(App& app, TankRT& t, const std::string& why) {

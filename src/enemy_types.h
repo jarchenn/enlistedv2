@@ -36,6 +36,7 @@ struct EnemyType {
   struct AttackSpec { std::string clip; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; };   // reach: the distance it closes to (default: the fastest hand's at the swing)
   std::vector<AttackSpec> attackSpecs;
   bool attackDust = true;                                 // CH5 json "attack_dust": false: its blows throw no dust (the area, shake and sounds stay)
+  bool tankDamage = false;                                // TK1 json "tank_damage" (default: hp >= 500): its landed blows wear down a tank, 1/15 of its durability each
   float headMult = 0;                                     // CH7 json "head_mult": damage x on a head hit instead of the global head multiplier (0: the global one)
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
   bool blastOnly = false;                                 // only blast damage hurts it (the Fighter)

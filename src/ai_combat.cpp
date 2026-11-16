@@ -110,6 +110,7 @@ void AiCore::perceive(Soldier& s) {
     if (x.enemy == b.target) sc *= 0.8f;
     if (x.enemy == assigned) sc *= 0.75f;
     if (G.sold[x.enemy].isProtected(G.t)) sc *= 60.0f;
+    if (G.bigTarget(G.sold[x.enemy])) { if (G.carriedLauncher(s) >= 0) sc *= 0.5f; else if (G.bulletProof(G.sold[x.enemy])) sc *= 40.0f; }   // TK1: rockets for armour / heavies; no rifle fire wasted on a tank
     if (sc < bs) { bs = sc; best = x.enemy; }
   }
   // target lock: the first target is kept until it is dead (or unseen for 3 s), however the others move
@@ -217,6 +218,23 @@ void AiCore::aim(Soldier& s, float dt) {
   // aim error (AI_SPEC 6.4)
   if (b.target != m.aimTarget) { m.aimTarget = b.target; m.onTarget = 0; float a = G.rnd(s) * 6.2831853f; m.aimOff = vec2(std::cos(a), std::sin(a)); }
   m.onTarget += dt;
+  {   // TK1: a big target (armour, a heavy enemy type) in sight and range: the launcher; anything else: back to the primary
+    const int L = G.carriedLauncher(s);
+    const bool big = shoot && !suppress && b.target >= 0 && G.bigTarget(G.sold[b.target]);
+    const float dist = shoot ? glm::length(aimPoint - e) : 1e9f;
+    if (L >= 0 && s.reload <= 0 && s.throwT < 0) {
+      auto it = s.wsBy.find(L);
+      bool hasRockets = s.weapon == L ? s.ws.loaded + (int)s.ws.containers.size() > 0 : it == s.wsBy.end() || it->second.loaded + (int)it->second.containers.size() > 0;
+      bool want = big && hasRockets && dist > tj("launcher", "minRange_m", 12.0f) && dist < tj("launcher", "maxRange_m", 220.0f);
+      if (want && s.weapon != L) G.switchWeapon(s, L);
+      else if (!want && s.weapon == L && (s.ws.loaded > 0 || s.ws.containers.empty())) G.switchWeapon(s, s.carried.empty() ? L : s.carried[0]);
+    }
+    if (shoot && b.target >= 0 && G.bulletProof(G.sold[b.target]) && (s.weapon < 0 || G.app.weaponDefs[s.weapon]->action != "launcher")) return;   // bullets do nothing to it
+    if (shoot && s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "launcher") {   // backblast: nobody of ours within 5 m behind
+      vec3 back = -App::forward(b.aimYaw, 0);
+      for (auto& o : G.sold) if (o.alive && &o != &s && o.team == s.team) { vec3 r = o.feet - s.feet; r.y = 0; float l = glm::length(r); if (l < 5.0f && l > 1e-3f && glm::dot(r / l, back) > 0.5f) return; }
+    }
+  }
   if (!shoot || blockedAct || s.throwT >= 0 || s.reload > 0 || s.weapon < 0) return;
   const WeaponDef& d = *G.app.weaponDefs[s.weapon];
   if (d.flame.on) {   // FT1 flame gun: a burst of a second or two, only inside the nozzle's reach; the stream drops, so aim a little high

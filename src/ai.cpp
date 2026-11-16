@@ -24,6 +24,7 @@ bool Game::lineOfSight(vec3 a, vec3 b, float* smokeT) const {
   Physics::Hit h[8];
   int n = Physics::castRayAll(a, d, L, h, 8, false);
   for (int k = 0; k < n; ++k) {
+    if (app.tanks.occupied && h[k].ud == (app.tanks.occupied << 16)) continue;   // TK1: the occupied vehicle's own hull (its crew is the target inside)
     if (isLeaf(h[k].ud)) {
       uint64_t inst = h[k].ud >> 16; int idx = (int)(h[k].ud & 0xFFFF) - 1;
       auto it = app.rt.find(inst);

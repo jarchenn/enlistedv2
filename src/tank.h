@@ -41,7 +41,7 @@ struct TankDef {
   std::vector<TankBox> hullBoxes, turretBoxes;   // colliders: hull space, turret boxes at 0 deg
   TankBox armourHull, armourTurret;              // zone classification volumes (hull / turret frame at 0 deg)
   // main gun
-  float traverseRate = 24, traverseAccel = 36, elevRate = 6, elevAccel = 18, elevMin = -5, elevMax = 20, recoil = 0.3f;
+  float traverseRate = 24, traverseAccel = 36, elevRate = 6, elevAccel = 18, elevMin = -5, elevMax = 20, recoil = 0.3f, rockDeg = -1;   // TK1 rockDeg: the hull's rock per shot (deg; < 0: 4 x the barrel recoil)
   float fov = 18, fovZoom = 8;                   // gunner sight field (deg): base / RMB magnification
   float reloadTime = 6.0f, velAP = 880, velHE = 600, dmgHE = 140;
   int reserveHE = 20, reserveAP = 30; std::string startLoaded = "AP", ammoHE, ammoAP, cannonName, reticle;
@@ -115,6 +115,7 @@ struct TankRT {
   // pose (yaw: asset convention, +z forward at 0)
   vec3 pos{0}; float yaw = 0, pitch = 0, roll = 0;
   float speed = 0, yawRate = 0, trackPhase[2] = {0, 0}, suspPitch = 0, suspRoll = 0;
+  float suspPitchV = 0, suspRollV = 0; vec3 shove{0}, shoveV{0};   // TK1: the firing rock's springs (deg, m; critically damped)
   float throttleIn = 0, steerIn = 0;
   // turret / gun relative to the hull: achieved angle and rate
   float tYaw = 0, tYawV = 0, gElev = 0, gElevV = 0, recoilT = 9;
@@ -132,7 +133,8 @@ struct TankRT {
   float reload = 0;                   // remaining seconds of the running load (0 = idle)
   int shots = 0, loadsCompleted = 0, toggles = 0;
   // damage
-  int hp = 100; bool wrecked = false; int hitsFront = 0, hitsSide = 0, hitsIgnored = 0;
+  int hp = 100; bool wrecked = false; int hitsFront = 0, hitsSide = 0, hitsIgnored = 0, meleeBlows = 0;
+  float hitFlash = 0;   // TK1: 1 on a damaging hit, fades (the HUD bar flashes)
   float burnT = 0;
   // engine / effects
   float rpm = 0.2f, exhaustAcc = 0, dustAcc = 0; int engineLoop = -1, trackLoop = -1, turretLoop = -1;
@@ -191,6 +193,8 @@ public:
   // combat
   TankHitResult projectileHit(App& app, const Projectile& p, vec3 pos, vec3 normal, uint64_t ud);
   TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir, float bulletJ = 0);
+  bool meleeBlow(App& app, uint64_t id, vec3 from);
+  void drawHealthBar(App& app);                        // TK1: the occupied vehicle's durability bar   // TK1: a heavy enemy's landed blow: 1/15 of the durability (15 destroy it)
   int classify(const TankRT& t, vec3 worldPos, vec3 worldNormal, bool& onTurret) const;
   void destroy(App& app, TankRT& t, const std::string& why);
   // persistence (Apply session changes)

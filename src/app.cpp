@@ -923,6 +923,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--capture-heli") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-tk1") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;

@@ -72,7 +72,7 @@ const ZombieCfg& zcfg() {
           x.reach = a.value("reach", 0.0f); x.leap = a.value("leap", false); x.victims = a.value("victims", 0); x.swing = a.value("swing", 0.0f);
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
-        t.attackDust = e.value("attack_dust", t.attackDust); t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
+        t.attackDust = e.value("attack_dust", t.attackDust); t.tankDamage = e.value("tank_damage", t.hp >= 500); t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
         t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly); t.stepCrater = std::clamp(e.value("step_crater", t.stepCrater), 0.0f, 3.0f); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.shellKills = std::clamp(e.value("shell_hits_to_kill", t.shellKills), 0, 100); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.nonBlastMult = std::clamp(e.value("non_blast_mult", t.nonBlastMult), 0.0f, 1.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f); t.kickCrater = std::clamp(e.value("kick_crater", t.kickCrater), 0.0f, 3.0f);
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
@@ -146,6 +146,14 @@ vec3 strikePoint(const Soldier& s, const Strike& r) {
   return p;
 }
 // distance from a point to a soldier's body (a 0.3 m capsule from the feet to its height)
+// TK1: a target crewing an armoured tank sits inside its hull: reach and strike distances are measured to the hull side
+static float armourGap(Game& G, const Soldier& o) {
+  if (!o.localPlayer || !G.app.tanks.occupied) return 0;
+  const TankRT* t = G.app.tanks.get(G.app.tanks.occupied);
+  if (!t || !t->def || t->def->car || t->def->heli || t->wrecked) return 0;
+  float hx = 0, hz = 0; for (auto& b : t->def->hullBoxes) { hx = std::max(hx, std::fabs(b.c.x) + b.h.x); hz = std::max(hz, std::fabs(b.c.z) + b.h.z); }
+  return std::min(hx, hz);   // shortcut: the narrower half-extent (the side), not the true box distance; fine for strikes at the flanks and ends
+}
 float bodyDist(const Soldier& o, vec3 p) {
   float h = 1.75f * (o.zombie ? o.eBody : 1.0f); vec3 a = o.feet + vec3(0, 0.25f, 0), b = o.feet + vec3(0, h, 0);
   float u = std::clamp((p.y - a.y) / std::max(1e-3f, b.y - a.y), 0.0f, 1.0f); return glm::length(p - (a + (b - a) * u)) - 0.3f * (o.zombie ? std::max(1.0f, o.eBody) : 1.0f);
@@ -505,7 +513,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   for (int i = 0; i < (int)ac.size(); ++i) if (ac[i].find("drop") != std::string::npos) { int k = findClip(*G.models[s.model], ac[i]); if (k >= 0) { di = i; vec3 c = G.models[s.model]->clips[k].swingChest; dropR = std::max(1.0f, glm::length(vec2(c.x, c.z)) * s.eScale); } }
   // CH6: the attacks whose strike distance (or json range: a leap's band) fits the target's distance
   const bool strikes = s.model >= 0 && s.model < (int)G.models.size();
-  std::vector<int> fit; float wsum = 0; const float dT = best ? zLenXZ(best->feet - s.feet) : 1e9f;
+  std::vector<int> fit; float wsum = 0; const float gapT = best ? armourGap(G, *best) : 0.0f, dT = best ? std::max(0.0f, zLenXZ(best->feet - s.feet) - gapT) : 1e9f;
   if (best && strikes) for (int i = 0; i < (int)ac.size(); ++i) if (i != di) { Strike r = strikeOf(G, s, i); if (dT >= r.lo && dT <= r.hi && r.weight > 0) { fit.push_back(i); wsum += r.weight; } }
   const bool inR = strikes ? !fit.empty() : best && inReach(G, s, *best, std::max(e.reach, e.lunge));
   if (best && strikes && s.meleeWind < 0 && di < 0) {   // CH6: hold back at the strike distance instead of walking into the target (the swing would pass over it)
@@ -529,7 +537,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   if (s.meleeWind >= 0 && strikes && s.meleeClip != di) {   // CH6: the strike lands where the joint is, not on whoever was chosen
     float wu = windupOf(G, s); Strike r = strikeOf(G, s, s.meleeClip);
     if (best && s.meleeWind < wu) {   // step (a leap: dash) in to the strike distance by the blow, no closer; a target that got away is not chased mid-swing
-      float gap = zLenXZ(best->feet - s.feet) - 0.85f * r.dist;
+      float gap = zLenXZ(best->feet - s.feet) - armourGap(G, *best) - 0.85f * r.dist;
       if (gap > 0.15f && (r.leap ? gap < r.hi : gap < 3.0f)) { float v = gap / std::max(0.1f, wu - s.meleeWind); m.zSpeed = std::max(m.zSpeed, r.leap ? v : std::min(v, 1.5f * e.run)); m.speed = SPD_ZOMBIE; } else m.speed = SPD_STOP;
     }
     else m.speed = SPD_STOP;   // the blow and its follow-through: planted
@@ -557,7 +565,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
         if (w0 < wu && s.meleeWind >= wu && e.groundShake > 0) G.app.blastShake = std::max(G.app.blastShake, e.groundShake * std::max(0.0f, 1.0f - glm::length(p - G.app.eyePos()) / 30.0f));
         for (auto& o : G.sold) {
           if (!o.alive || &o == &s || !Game::hostile(s, o) || std::find(hit.begin(), hit.end(), o.slot) != hit.end() || (r.victims > 0 && (int)hit.size() >= r.victims)) continue;
-          if (bodyDist(o, p) > r.radius) continue;
+          if (bodyDist(o, p) - armourGap(G, o) > r.radius) continue;
           float hp0 = o.hp; hit.push_back(o.slot);
           bool landed = G.meleeHit(s.slot, o.slot, r.damage);
           { static const bool lg = std::getenv("NMK_STRIKE_LOG") != nullptr; if (lg) logf("strike %s touches %d (dist %.2f): meleeHit %d hp %.0f -> %.0f", e.id.c_str(), o.slot, bodyDist(o, p), (int)landed, hp0, o.hp); }   // diagnostics

@@ -301,3 +301,20 @@ Screenshots are written to `selftest_out/tanks_*.png`.
 - **Bow MG** fire comes from the ball mount, which is part of the hull mesh and is not drawn turning.
 - **Performance** has only an indicative measurement (the report's summary). There is no controlled CPU / GPU benchmark with several moving tanks, and the GPU is shared with other programs on the reference machine.
 - **Licence:** the Tiger model is CC-BY-NC-4.0, which is non-commercial.
+
+## TK1: firing rock, armour rules, durability bar, AI rockets
+
+- **Firing rock** (`fireCannon`, `src/tank_sim.cpp`): each main-gun shot kicks the hull away from the barrel. Pitch ∝ cos(turret), roll ×1.6 ∝ sin(turret), plus a 1.2 cm/deg shove back along the barrel. The size is `gun.rockDeg` (default 4 × the barrel recoil: Tiger 1.8°, Abrams 2.0°, Panzer IV 1.5°, Firefly 1.3°, Sherman 1.2°). Critically damped springs (ω 8.5): peak at about 0.12 s, settled in about 0.8 s, nothing left over afterwards. The barrel recoil and the gunner view kick are as before.
+- **Armour rules**:
+  - Small arms of every calibre do nothing to a tank: sparks and a ricochet ping only.
+  - The helicopter's 30 mm counts as small arms against armour; it still wrecks cars.
+  - Shells, rockets, packs, mines and artillery are unchanged.
+  - Melee on the crew of an armoured tank lands on the tank. A blow from an enemy type with `tank_damage` (default: hp ≥ 500) takes 7 (14 leave 2, the 15th destroys it); other melee does nothing. The crew is hurt only once the tank is wrecked.
+  - Strike reach and distances to a crewed tank are measured to its hull side (`armourGap`, `src/zombie.cpp`).
+- **Durability bar** (`TankSys::drawHealthBar`): drawn for every vehicle (tanks, cars, APC, helicopter) in any seat, after the sight mask. It has 15 segments and the number, flashes white on a damaging hit and reads DESTROYED once wrecked.
+- **AI rockets** (`src/ai_combat.cpp`, `Game::bigTarget / bulletProof / switchWeapon`):
+  - A bot that carries a launcher switches to it for a big target: a tank, armoured car or helicopter crew, or a heavy enemy type. It fires at 12–220 m (`tactics launcher.minRange_m / maxRange_m`), never with a teammate within 5 m behind it, reloads, and switches back afterwards.
+  - Bots without a launcher rank a crewed tank last and never fire bullets at it.
+  - WW2 Heavy-class bots carry the bazooka / Panzerschreck (class secondary). One operator in four (`combat.json loadouts_operator.launcher / launcherEvery`) carries the RPG-7.
+  - The occupied vehicle's own hull does not block bots' sight of its crew.
+- Check: `--capture-tk1` (`src/capture_tk1.cpp`).
