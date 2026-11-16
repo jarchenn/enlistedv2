@@ -25,6 +25,7 @@
 // Single player / host only: vehicles are not replicated over LAN.
 #include "app.h"
 #include "game.h"
+#include "overrides.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include "settings.h"
@@ -47,11 +48,13 @@ struct HeliTune {
   float suspMax = 0.28f, suspK = 70, suspC = 11, softImpact = 1, hardImpact = 3.5f;
   float camDist = 17, camHeight = 3, camLag = 0.12f, accelLag = 0.08f, accelLagMax = 1.5f, rollFactor = 0.35f, vib = 0.02f, vibHz = 19, impactShake = 1.4f;
 };
+bool gHeliTuneLoaded = false;   // ED2: cleared by App::reloadGameplayDefs
 const HeliTune& tune() {
-  static HeliTune T; static bool loaded = false;
-  if (loaded) return T;
-  loaded = true;
+  static HeliTune T;
+  if (gHeliTuneLoaded) return T;
+  gHeliTuneLoaded = true; T = HeliTune{};
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "helicopter.json")); } catch (...) { logf("helicopter.json: missing or invalid, defaults"); return T; }
+  if (vehicleOverrides().contains("_helicopter") && vehicleOverrides()["_helicopter"].is_object()) j.merge_patch(vehicleOverrides()["_helicopter"]);   // ED2
   auto f = [&](const char* blk, const char* key, float& v) { if (j.contains(blk) && j[blk].is_object()) v = j[blk].value(key, v); };
   f("attitude", "maxPitchForward", T.maxPitchFwd); f("attitude", "maxPitchBack", T.maxPitchBack); f("attitude", "maxBank", T.maxBank); f("attitude", "tau", T.attTau); f("attitude", "maxRate", T.attRate);
   f("thrust", "tiltAccel", T.tiltAccel);
@@ -69,6 +72,7 @@ const HeliTune& tune() {
 // camera motion scale: the Settings slider, x 0.3 with Reduced motion
 float camMotion(const App& app) { return std::clamp(settings().s.heliCamMotion, 0.0f, 3.0f) * (app.reducedMotion ? 0.3f : 1.0f); }
 }
+void heliTuneReset() { gHeliTuneLoaded = false; }   // ED2: the next tune() re-reads helicopter.json and the overrides
 float gHeliViewRoll = 0;   // degrees, read by App::viewUp (swim.cpp)
 
 void heliCameraStep(App& app, TankSys& sys, TankRT& t, float dt);

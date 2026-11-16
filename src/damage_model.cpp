@@ -5,7 +5,8 @@
 #include "rules.h"
 #include "game.h"
 #include "app.h"
-#include "loot.h"   // BR2 Battle Royale loot
+#include "loot.h"
+#include "overrides.h"   // BR2 Battle Royale loot
 #include "enemy_types.h"
 #include <algorithm>
 #include <cmath>
@@ -71,6 +72,10 @@ bool damageTableReload() {
   std::string err;
   try {
     json j = json::parse(readTextFile(contentDir() / "ai" / "damage.json"));
+    for (auto& [id, o] : weaponOverrides().items()) if (o.is_object() && o.contains("_damage") && o["_damage"].is_object()) {   // ED2: the user's damage overrides
+      if (!j["weapons"].contains(id)) j["weapons"][id] = j.value("default", json::object());
+      j["weapons"][id].merge_patch(o["_damage"]);
+    }
     if (parseDamageTable(j, gTable, err)) return true;
   } catch (std::exception& e) { err = e.what(); }
   gTable = DamageTable{}; gTable.error = "content/ai/damage.json: " + err;

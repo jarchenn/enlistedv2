@@ -2,6 +2,7 @@
 // damage rules, wrecks, effects, sound and persistence. docs/tanks.md
 #include "app.h"
 #include "vehicle_dash.h"
+#include "overrides.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <stb_image_write.h>
@@ -26,17 +27,19 @@ void TankSys::loadDefs(App& app) {
   // VH1 variants: "base": "<id>" takes that file and applies the variant's keys over it (JSON merge patch)
   std::map<std::string, json> files;
   for (auto& e : fs::directory_iterator(dir, ec)) {
-    if (e.path().extension() != ".json" || e.path().stem() == "ramming") continue;   // ramming.json: obstacle table (tank_ram.cpp)
+    if (e.path().extension() != ".json" || e.path().stem() == "ramming" || e.path().stem() == "overrides_user") continue;   // ED2: the user's overrides patch below   // ramming.json: obstacle table (tank_ram.cpp)
     try { files[e.path().stem().string()] = json::parse(readTextFile(e.path())); } catch (std::exception& x) { logf("vehicle %s: %s", e.path().string().c_str(), x.what()); }
   }
   std::map<std::string, std::shared_ptr<GpuModel>> loaded;   // variants share their base's GPU model
   for (auto& [stem, j0] : files) {
     json j = j0;
+    json ovPatch; { json& ov = vehicleOverrides(); auto it = ov.find(stem); if (it != ov.end() && it->is_object()) ovPatch = *it; }   // ED2: applied after the base / variant merge
     if (j0.contains("base")) {
       auto b = files.find(j0["base"].get<std::string>());
       if (b == files.end()) { logf("vehicle %s: base %s not found", stem.c_str(), j0["base"].get<std::string>().c_str()); continue; }
       j = b->second; j.erase("fallbackModel"); j.merge_patch(j0); j.erase("base");
     }
+    if (!ovPatch.is_null()) j.merge_patch(ovPatch);
     auto d = std::make_unique<TankDef>();
     d->raw = j; d->id = j.value("id", stem); d->name = j.value("name", d->id);
     d->faction = j.value("faction", ""); d->identity = j.value("identity", "");

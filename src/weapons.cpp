@@ -2,6 +2,7 @@
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
+#include "overrides.h"
 #include "settings.h"
 #include "sight_overlay.h"
 #include "vm_anim.h"
@@ -44,11 +45,15 @@ void App::buildWeaponMeshes() {
     }
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
   for (auto& f : files) {
-    if (f.filename() == "handling.json") continue;
+    if (f.filename() == "handling.json" || f.filename() == "overrides_user.json") continue;   // ED2: the user's overrides patch the weapons below
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
     if (fs::path lp = f.parent_path() / "local" / f.filename(); fs::exists(lp)) {   // SW1: a local-only override (git-ignored content/weapons/local/<file>): names, model, sights
       try { j.merge_patch(json::parse(readTextFile(lp))); } catch (std::exception& e) { logf("weapons: %s: %s (ignored)", lp.string().c_str(), e.what()); }
+    }
+    {   // ED2: the user's stat overrides (the menu's Guns screen): the weapon keys; _damage / _handling go to their tables
+      json& ov = weaponOverrides(); auto it = ov.find(j.value("id", ""));
+      if (it != ov.end() && it->is_object()) { json p = *it; p.erase("_damage"); p.erase("_handling"); j.merge_patch(p); }
     }
     auto d = std::make_unique<WeaponDef>();
     d->id = j.value("id", ""); d->name = j.value("name", d->id); d->side = j.value("side", "");
@@ -96,6 +101,7 @@ void App::buildWeaponMeshes() {
       json w = ws.value(d->id, json::object());
       std::string kind = w.value("kind", d->wclass == WC_SNIPER ? "sniper" : d->wclass == WC_LMG ? "lmg" : d->wclass == WC_AUTO ? "assault" : "rifle");
       json kd = kinds.value(kind, json::object());
+      { json& ov = weaponOverrides(); auto it = ov.find(d->id); if (it != ov.end() && it->is_object() && it->contains("_handling")) w.merge_patch((*it)["_handling"]); }   // ED2
       for (const json* src : {&kd, &w}) {
         const json& k = *src;
         d->vmBack = k.value("back_m", d->vmBack); d->vmPitch = k.value("pitch_deg", d->vmPitch); d->vmYaw = k.value("left_deg", d->vmYaw);
