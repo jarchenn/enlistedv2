@@ -194,6 +194,7 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
   t.hedge = tj.value("hedge", false);
   float maxH = 0.1f; for (auto& c : t.canopy) maxH = std::max(maxH, glm::length(vec2(c.x, c.z)) + c.w);
   std::vector<float> v;
+  std::vector<float> tv;   // L2: per card vertex, the leaf tone in [-1, 1] (parallel to v, one float per 10)
   t.top = t.stumpH;
   // L1: the same cards as instances of a species sprig (own hash, not the rng: card placement stays as it was)
   std::vector<const LeafSpecies*> species = loadLeafLib() ? leafSpeciesFor(a.id) : std::vector<const LeafSpecies*>{};
@@ -213,9 +214,20 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
         for (float side : {-1.0f, 1.0f}) spheres.push_back(vec4(x + (U(srng) - 0.5f) * 0.4f, bankTop * 0.5f, side * z, r));
     }
   }
+  // L2 leaf tone (docs/leaves.md "Tone inside a crown"): every card gets a tone in [-1, 1], dark .. light, from its cluster's
+  // own random offset and its place in the crown (the top, the outside and the upper face of a cluster lighter); the leaf
+  // shaders turn it into about +-10 % value and a few degrees warmer / cooler. Fixed per card, so every LOD tier agrees.
+  float crownLo = 1e9f, crownHi = -1e9f;
+  for (auto& c : spheres) { crownLo = std::min(crownLo, c.y - c.w); crownHi = std::max(crownHi, c.y + c.w); }
+  auto cardTone = [&](float clusterRnd, vec3 ctr, vec3 dir) {
+    float hN = (ctr.y - crownLo) / std::max(0.3f, crownHi - crownLo), radial = glm::length(vec2(ctr.x, ctr.z)) / maxH;
+    float pos = std::clamp(0.55f * dir.y + (hN - 0.5f) + 0.6f * (radial - 0.5f), -1.0f, 1.0f);
+    return std::clamp(0.55f * clusterRnd + 0.65f * pos, -1.0f, 1.0f);
+  };
   for (auto& c : spheres) {
     t.top = std::max(t.top, c.y + c.w);
     const LeafSpecies* sp = species.empty() ? nullptr : species[leafHash(++sphereNo * 2654435761u + 17u) % species.size()];   // hedges: one species per cluster
+    float clusterRnd = (leafHash(sphereNo * 0x9E3779B9u + 0x51ED27u) & 0xFFFF) / 32767.5f - 1.0f;   // L2: this cluster a little darker or lighter
     int cards = dens > 0 ? std::max(12, (int)(dens * c.w * c.w * 3.0f)) : per;
     for (int n = 0; n < cards; ++n) {
       float z = U(rng) * 2 - 1, ph = U(rng) * 6.2831853f, rr = std::sqrt(1 - z * z);
@@ -232,11 +244,13 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
       vec2 uv[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
       int idx[6] = {0, 1, 2, 0, 2, 3};
       for (int k : idx) { v.insert(v.end(), {q[k].x, q[k].y, q[k].z, dir.x, dir.y, dir.z, uv[k].x, uv[k].y, mask, shadeV}); }
+      float tone = cardTone(clusterRnd, ctr, dir);
+      tv.insert(tv.end(), 6, tone);
       if (sp) {
         uint32_t hsh = leafHash(++cardNo * 747796405u + 2891336453u);
         int sg = sp->sprigs[hsh % sp->sprigs.size()];
         vec3 Ts = T * s, Bs = B * s;
-        inst[sg].insert(inst[sg].end(), {ctr.x, ctr.y, ctr.z, Ts.x, Ts.y, Ts.z, Bs.x, Bs.y, Bs.z, dir.x, dir.y, dir.z, mask, shadeV, (float)(hsh >> 8 & 1023), 0.0f});
+        inst[sg].insert(inst[sg].end(), {ctr.x, ctr.y, ctr.z, Ts.x, Ts.y, Ts.z, Bs.x, Bs.y, Bs.z, dir.x, dir.y, dir.z, mask, shadeV, (float)(hsh >> 8 & 1023), tone});
         sprigTint[sg] = glm::clamp(t.leafCol / glm::max(sp->base, vec3(1e-3f)), vec3(0.2f), vec3(4.0f));
       }
     }
@@ -248,6 +262,7 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
     vec3 q[4] = {a, b, c, d}; vec2 uv[4] = {{u0, v0}, {u0 + 1, v0}, {u0 + 1, v1}, {u0, v1}}; float mk[4] = {m0, m0, m1, m1};
     int idx[6] = {0, 1, 2, 0, 2, 3};
     for (int k : idx) v.insert(v.end(), {q[k].x, q[k].y, q[k].z, n.x, n.y, n.z, uv[k].x, uv[k].y, mk[k], shade});
+    tv.insert(tv.end(), 6, 0.0f);   // styled fronds / stems: no crown
   };
   if (tj.contains("fronds")) {   // radiating, arching fronds from a crown at the base
     auto& fj = tj["fronds"];
@@ -312,11 +327,12 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
         for (int k = 0; k < 6; ++k) {
           size_t o = c * q + k * 10; float w[10]; std::copy(v.begin() + o, v.begin() + o + 10, w);
           vec3 p = m + (vec3(w[0], w[1], w[2]) - m) * 1.25f; w[0] = p.x; w[1] = p.y; w[2] = p.z;
-          v.insert(v.end(), w, w + 10);
+          v.insert(v.end(), w, w + 10); tv.push_back(tv[o / 10]);
         }
       }
       std::vector<float> styled(v.begin() + sphereEnd, v.begin() + full);
       v.insert(v.end(), styled.begin(), styled.end());
+      tv.insert(tv.end(), (full - sphereEnd) / 10, 0.0f);
       t.shadowVerts = (int)v.size() / 10 - t.shadowFirst;
     }
   }
@@ -364,6 +380,10 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
   glVertexArrayVertexBuffer(t.cardVao, 0, t.cardVbo, 0, 40);
   int comps[5] = {3, 3, 2, 1, 1}, off = 0;
   for (int k = 0; k < 5; ++k) { glEnableVertexArrayAttrib(t.cardVao, k); glVertexArrayAttribFormat(t.cardVao, k, comps[k], GL_FLOAT, GL_FALSE, off * 4); glVertexArrayAttribBinding(t.cardVao, k, 0); off += comps[k]; }
+  tv.resize(v.size() / 10, 0.0f);   // L2: the tone stream (attribute 5, its own buffer: the 10-float card layout stays)
+  glCreateBuffers(1, &t.cardToneVbo); glNamedBufferStorage(t.cardToneVbo, std::max<size_t>(tv.size(), 1) * 4, tv.data(), 0);
+  glVertexArrayVertexBuffer(t.cardVao, 1, t.cardToneVbo, 0, 4);
+  glEnableVertexArrayAttrib(t.cardVao, 5); glVertexArrayAttribFormat(t.cardVao, 5, 1, GL_FLOAT, GL_FALSE, 0); glVertexArrayAttribBinding(t.cardVao, 5, 1);
 }
 
 // ---------------------------------------------------------------- runtime
@@ -448,7 +468,7 @@ GLuint leafInstVao(GLuint inst) {
   glVertexArrayBindingDivisor(vao, 1, 1); glVertexArrayElementBuffer(vao, gLeafIbo);
   const int mc[4] = {3, 3, 2, 1}, mo[4] = {0, 3, 6, 8}, io[5] = {0, 3, 6, 9, 12};
   for (int k = 0; k < 4; ++k) { glEnableVertexArrayAttrib(vao, k); glVertexArrayAttribFormat(vao, k, mc[k], GL_FLOAT, GL_FALSE, mo[k] * 4); glVertexArrayAttribBinding(vao, k, 0); }
-  for (int k = 0; k < 5; ++k) { glEnableVertexArrayAttrib(vao, 4 + k); glVertexArrayAttribFormat(vao, 4 + k, 3, GL_FLOAT, GL_FALSE, io[k] * 4); glVertexArrayAttribBinding(vao, 4 + k, 1); }
+  for (int k = 0; k < 5; ++k) { glEnableVertexArrayAttrib(vao, 4 + k); glVertexArrayAttribFormat(vao, 4 + k, k == 4 ? 4 : 3, GL_FLOAT, GL_FALSE, io[k] * 4); glVertexArrayAttribBinding(vao, 4 + k, 1); }   // L2: the last is mask / shade / seed / tone
   return vao;
 }
 

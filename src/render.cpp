@@ -2251,9 +2251,10 @@ void main(){
 // ---- tree leaf cards: alpha-tested clusters, sway  V_offset = D_wind * M * A * sin(f t + k_x X + k_z Z)
 static const char* kLeafVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec2 aUV; layout(location=3) in float aMask; layout(location=4) in float aShade;
+layout(location=5) in float aTone;   // L2: leaf tone, dark -1 .. light 1 (foliage.cpp; ivy: no stream, 0)
 uniform mat4 uModel, uVP; uniform float uTime, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;   // motion vectors (TAA): unjittered current / previous
-out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
+out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed; flat out float vTone;
 flat out float vLayer; out vec3 vLN;   // L1: leaf texture layer (-1: the procedural ovals), the leaf plane's normal
 out vec4 vCC, vPC;
 invariant gl_Position;
@@ -2268,7 +2269,7 @@ void main(){
   vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask;
   vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
   float lk = floor(aShade*0.5);   // IV1: shade + 2 (layer + 1) = a leaves.json layer (wall ivy); tree cards stay below 2
-  vShade = aShade - 2.0*lk; vLayer = lk - 1.0; vLN = vN;
+  vShade = aShade - 2.0*lk; vLayer = lk - 1.0; vLN = vN; vTone = aTone;
   vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, aMask), 1.0);
   gl_Position = uVP*w;   // invariant: the PF2 canopy depth prepass (leaf_shadow) and the GL_EQUAL shading pass must agree
 }
@@ -2278,11 +2279,11 @@ void main(){
 // Per instance (one canopy card): centre, T*s, B*s, cluster direction, mask / shade / seed. Same sway and outputs as kLeafVS.
 static const char* kLeafInstVS = R"GLSL(
 layout(location=0) in vec3 aC; layout(location=1) in vec3 aN; layout(location=2) in vec2 aUV; layout(location=3) in float aLayer;
-layout(location=4) in vec3 iCtr; layout(location=5) in vec3 iT; layout(location=6) in vec3 iB; layout(location=7) in vec3 iDir; layout(location=8) in vec3 iMSS;
+layout(location=4) in vec3 iCtr; layout(location=5) in vec3 iT; layout(location=6) in vec3 iB; layout(location=7) in vec3 iDir; layout(location=8) in vec4 iMSS;   // mask, shade, seed, L2 tone
 uniform mat4 uModel, uVP; uniform float uTime, uWind;
 uniform float uCardScale;   // DR1 farleaf: the far tiers keep a share of the cards and grow them (1 near)
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
-out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed;
+out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed; flat out float vTone;
 flat out float vLayer; out vec3 vLN;
 out vec4 vCC, vPC;
 invariant gl_Position;
@@ -2299,7 +2300,7 @@ void main(){
   if (dot(ln, iDir) < 0.0) ln = -ln;               // two-sided: the face toward the cluster's outside
   vW = w.xyz; vLN = normalize(mat3(uModel)*ln);
   vN = normalize(mat3(uModel)*normalize(iDir*0.7 + ln*0.3));   // the crown's volume first, the leaf's own tilt second
-  vUV = aUV; vM = iMSS.x; vShade = iMSS.y; vSeed = iMSS.z; vLayer = aLayer;
+  vUV = aUV; vM = iMSS.x; vShade = iMSS.y; vSeed = iMSS.z; vTone = iMSS.w; vLayer = aLayer;
   vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, iMSS.x), 1.0);
   gl_Position = uVP*w;   // invariant: the canopy depth prepass and the GL_EQUAL shading pass must agree
 }
@@ -2338,7 +2339,7 @@ float leafAlpha(vec2 uv, float seed){
 }
 )GLSL";
 static const char* kLeafFS = R"GLSL(
-in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
+in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed; flat in float vTone;
 flat in float vLayer; in vec3 vLN;
 in vec4 vCC, vPC;
 uniform vec3 uLeafCol;
@@ -2353,7 +2354,9 @@ void main(){
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
   // textured: uLeafCol is the asset's leafColor / the species mean, so the crown keeps its authored colour
-  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.72 + 0.56*var)*vShade : tx.rgb*uLeafCol*(0.86 + 0.28*var)*vShade;
+  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.78 + 0.44*var)*vShade : tx.rgb*uLeafCol*(0.91 + 0.18*var)*vShade;   // L2: less per-card scatter
+  // L2 tone inside the crown (foliage.cpp cardTone): darker and a touch cooler inside / under, lighter and warmer on top / outside
+  alb *= (1.0 + 0.11*vTone)*mix(vec3(0.975, 0.995, 1.035), vec3(1.03, 1.005, 0.94), 0.5 + 0.5*vTone);
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
   // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
   // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
