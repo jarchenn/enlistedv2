@@ -66,6 +66,7 @@ json UserSettings::toJson() const {
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleHealthBars", vehicleBars}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}}},
     {"controls", k},
+    {"player", {{"character", character}, {"primary", primary}}},
     {"interface", {{"uiScale", uiScale}, {"minimapRotate", minimapRotate}, {"developerOverlay", devOverlay}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
   };
 }
@@ -114,6 +115,7 @@ UserSettings UserSettings::fromJson(const json& j) {
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
+  if (j.contains("player") && j["player"].is_object()) { u.character = j["player"].value("character", std::string()); u.primary = j["player"].value("primary", std::string()); }
   if (j.contains("interface") && j["interface"].is_object()) {
     const json& q = j["interface"];
     u.uiScale = std::clamp(q.value("uiScale", u.uiScale), 0.75f, 2.0f);

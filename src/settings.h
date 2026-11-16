@@ -65,6 +65,8 @@ struct UserSettings {
   std::map<std::string, std::string> keys;
   // interface
   float uiScale = 1.0f, editorFly = 1.0f, editorOrbit = 1.0f, editorZoom = 1.0f;
+  // player (UI2 Character screen): body model id (content/characters/<id>.glb, "" = by faction) and the first carried weapon id ("" = M1 Garand)
+  std::string character, primary;
 
   GfxPreset preset() const;    // Low / Medium / High when gfx matches one exactly, else Custom
   json toJson() const;

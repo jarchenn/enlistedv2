@@ -1,5 +1,6 @@
 // Creative mode: flying camera, asset browser, placement, selection, transforms, undo, start marker.
 #include "app.h"
+#include "mainmenu.h"
 #include "thumbs.h"
 #include "mpai.h"
 #include "w3.h"
@@ -210,6 +211,7 @@ void App::drawCreativeUI() {
       if (ImGui::MenuItem("Save", "Ctrl+S")) { if (docPath.empty()) showSaveAs = true; else saveMapTo(docPath); }
       if (ImGui::MenuItem("Save as...")) showSaveAs = true;
       ImGui::Separator();
+      if (ImGui::MenuItem("Main menu")) mainMenuOpen(*this);   // UI2
       if (ImGui::MenuItem("Quit")) glfwSetWindowShouldClose(win, GLFW_TRUE);
       ImGui::EndMenu();
     }

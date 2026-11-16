@@ -44,3 +44,6 @@ content/assets/models/range_target_paper/
 content/vehicles/models/sherman_m4/
 # VH6 Ural-4320: supplied model of unknown licence, local-only; clones draw the committed part-built fallback (content/vehicles/models/ural_4320_fallback)
 content/vehicles/models/ural_4320/
+# UI2: the supplied city soldier (city-soldier-outdated.zip, licence unknown): its menu cut-out stays local-only; the committed
+# backdrop shows the game's own soldier instead
+content/ui/local/

@@ -4095,13 +4095,13 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
   }
 }
 
-bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba) {
+bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent) {
   GLuint col, dep, fbo;
   glCreateTextures(GL_TEXTURE_2D, 1, &col); glTextureStorage2D(col, 1, GL_RGBA16F, w, h);
   glCreateTextures(GL_TEXTURE_2D, 1, &dep); glTextureStorage2D(dep, 1, GL_DEPTH_COMPONENT32F, w, h);
   glCreateFramebuffers(1, &fbo); glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, col, 0); glNamedFramebufferTexture(fbo, GL_DEPTH_ATTACHMENT, dep, 0);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo); glViewport(0, 0, w, h);
-  glClearColor(0.62f, 0.64f, 0.66f, 1); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glClearColor(0.62f, 0.64f, 0.66f, transparent ? 0.0f : 1.0f); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDepthMask(GL_TRUE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   RenderView v; v.view = view; v.proj = proj; v.camPos = camPos;
   thumbMode = true;
@@ -4109,12 +4109,14 @@ bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::
   setLighting(progMain, v); glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); drawItems(progMain, boxes, false);
   setLighting(progModel, v); glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); drawModels(items);
   thumbMode = false;
-  std::vector<float> px((size_t)w * h * 4);
+  std::vector<float> px((size_t)w * h * 4), dz;
   glGetTextureImage(col, 0, GL_RGBA, GL_FLOAT, (GLsizei)(px.size() * 4), px.data());
+  if (transparent) { dz.resize((size_t)w * h); glGetTextureImage(dep, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (GLsizei)(dz.size() * 4), dz.data()); }
   rgba.resize((size_t)w * h * 4);
   for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x)
     for (int c = 0; c < 4; ++c) {
       float f = px[((size_t)(h - 1 - y) * w + x) * 4 + c];
+      if (c == 3 && transparent) { rgba[((size_t)y * w + x) * 4 + c] = dz[(size_t)(h - 1 - y) * w + x] < 1.0f ? 255 : 0; continue; }   // depth written = covered
       if (c < 3) { f = std::clamp(f * 0.9f, 0.0f, 4.0f); f = f / (1.0f + f * 0.25f) * 1.25f; f = std::pow(std::clamp(f, 0.0f, 1.0f), 1.0f / 2.2f); } else f = 1;
       rgba[((size_t)y * w + x) * 4 + c] = (uint8_t)std::lround(f * 255);
     }

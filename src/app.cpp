@@ -1,4 +1,5 @@
 #include "app.h"
+#include "mainmenu.h"
 #include "lines.h"   // MOD1: line types that clear grass (grassFootprints)
 #include "hlod.h"
 #include "abilities.h"
@@ -132,6 +133,9 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
 // pixel font otherwise), one palette (neutral dark greys, one amber accent; team blue / red live with the HUD), one panel
 // style (8 px corners on windows, 5 px on controls, a faint border, even padding on an 8 px rhythm).
 static float gFontPx = 13.0f;
+static ImFont *gFontHead = nullptr, *gFontDisplay = nullptr;
+ImFont* uiFontHead() { return gFontHead ? gFontHead : ImGui::GetFont(); }
+ImFont* uiFontDisplay() { return gFontDisplay ? gFontDisplay : uiFontHead(); }
 void applyUiTheme() {
   ImGuiIO& io = ImGui::GetIO();
   for (const char* f : {"C:/Windows/Fonts/segoeui.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"}) {
@@ -139,6 +143,12 @@ void applyUiTheme() {
     ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2;
     if (io.Fonts->AddFontFromFileTTF(f, 32.0f, &fc, io.Fonts->GetGlyphRangesDefault())) { gFontPx = 32.0f; break; }
   }
+  // UI2 heading / display faces (menu items, titles, the wordmark), drawn at an explicit pixel size; missing: the body font
+  auto face = [&](std::initializer_list<const char*> files, float px) -> ImFont* {
+    for (const char* f : files) { std::error_code ec; if (!fs::exists(f, ec)) continue; ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2; if (ImFont* r = io.Fonts->AddFontFromFileTTF(f, px, &fc, io.Fonts->GetGlyphRangesDefault())) return r; }
+    return nullptr; };
+  gFontHead = face({"C:/Windows/Fonts/seguisb.ttf", "C:/Windows/Fonts/segoeui.ttf"}, 48.0f);
+  gFontDisplay = face({"C:/Windows/Fonts/seguibl.ttf", "C:/Windows/Fonts/segoeuib.ttf"}, 112.0f);
   ImGui::StyleColorsDark();
   ImGuiStyle& st = ImGui::GetStyle();
   st.WindowRounding = 8; st.ChildRounding = 6; st.FrameRounding = 5; st.PopupRounding = 6; st.GrabRounding = 5; st.TabRounding = 5; st.ScrollbarRounding = 6;
@@ -1071,6 +1081,7 @@ int App::run(int argc, char** argv) {
   }
   if (!openPath.empty()) openMap(openPath);
   if (runSelf) selftest = new SelfTest(bench);
+  else if (openPath.empty()) mainMenuOpen(*this);   // UI2: launch into the main menu (a map given on the command line opens the editor)
 
   double last = glfwGetTime();
   bool confirmQuit = false;
@@ -1097,7 +1108,9 @@ int App::run(int argc, char** argv) {
     platformImGuiNewFrame(); ImGui::NewFrame();
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     mark("update");
-    if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
+    mainMenuFrame(*this);   // UI2: the main menu (no-op while closed; it hands back when a match starts)
+    if (mainMenuActive()) {}
+    else if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); crumb("explore ui"); drawExploreUI(); }
     mark("ui+sync");
     mpaiUI(*this);   // Play menu, scenario panel, match HUD

@@ -8,6 +8,7 @@
 #include "rules.h"
 #include "damage_model.h"
 #include "app.h"
+#include "settings.h"
 #include "mpui.h"
 #include "net.h"
 #include "crumb.h"
@@ -159,6 +160,11 @@ bool Game::begin(std::string& err) {
     auto& ml = combat["models"][fac];
     s.model = modelIdx[ml[rs.id % ml.size()].get<std::string>()];
     if (s.zombie) aiZombieAssign(*this, s);   // G2: the animated zombie
+    if (s.localPlayer && !settings().s.character.empty()) {   // UI2: the body picked on the Character screen (missing file: the faction body stays)
+      const std::string& id = settings().s.character;
+      if (!modelIdx.count(id)) { auto cm = std::make_unique<CharModel>(); std::string e; if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { modelIdx[id] = (int)models.size(); models.push_back(std::move(cm)); } else logf("character %s: %s (faction body kept)", id.c_str(), e.c_str()); }
+      if (modelIdx.count(id)) s.model = modelIdx[id];
+    }
     if (ait == AiType::Operators) {   // a soldier in the faction's operator body (combat.json operator_models; missing: the soldier body stays)
       json ol = combat.value("operator_models", json::object()).value(fac, json::array());
       if (!ol.empty()) {

@@ -1,5 +1,6 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "mainmenu.h"
 #include "minimap.h"
 #include "abilities.h"
 #include "crumb.h"
@@ -654,6 +655,7 @@ void App::drawExploreUI() {
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
     if (ImGui::Button("Return to start marker", ImVec2(bw, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
     if (ImGui::Button("Return to Creative", ImVec2(bw, 0))) exitExplore();
+    if (ImGui::Button("Main menu", ImVec2(bw, 0))) { exitExplore(); mainMenuOpen(*this); }   // UI2
     if (ImGui::Button("Keep session changes and return", ImVec2(bw, 0))) { applyDamageToMap(); exitExplore(); }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
     ImGui::End();
