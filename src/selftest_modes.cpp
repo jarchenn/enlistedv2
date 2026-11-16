@@ -360,6 +360,18 @@ void build(App&) {
   // BR2 capture (NMK_MODES_ONLY_BR2): a Solo start switched to Battle Royale, a filled kit, the inventory screen
   // AI3 capture (NMK_AI3_SHOT): the setup window in TDM with typed per-type counts; the spawn order hands out exactly
   // those counts, interleaved (aiTypeNext)
+  // UI1b captures (NMK_UI1_SHOTS): a small TDM on four maps; the HUD with the corner map, then the full map (M)
+  for (const char* mp : {"dday", "chateau_town", "newtown", "outpost_desert"})
+    push(std::string("ui1 ") + mp, [mp](App& a, float t) {
+      if (!std::getenv("NMK_UI1_SHOTS")) return true;
+      if (t == 0) { chk(startMode(a, GameMode::TDM, 24, 999, 12, 12, contentDir() / "templates" / (std::string(mp) + ".nmap.json")), "UI1 %s: TDM starts (%s)", mp, gGame->setupError.c_str()); a.mapLarge = false; return false; }
+      if (Soldier* L = gGame->local()) if (L->alive) { L->hp = 100; L->protectUntil = gGame->t + 1; }
+      if (t < 7.0f) return false;
+      if (t < 7.05f) { a.uiShot = outDir() / (std::string("ui1_") + mp + "_hud.png"); return false; }
+      if (t < 7.6f) { a.mapLarge = true; return false; }
+      if (t < 7.65f) { a.uiShot = outDir() / (std::string("ui1_") + mp + "_map.png"); return false; }
+      if (t < 8.0f) return false;
+      a.mapLarge = false; return true; });
   push("ai3 setup", [](App& a, float t) {
     if (!std::getenv("NMK_AI3_SHOT")) return true;
     if (t == 0) {
@@ -485,6 +497,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_UI1_SHOTS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name.rfind("ui1 ", 0) != 0 && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_AI3_SHOT")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ai3 setup" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_MODES_ONLY_BR2")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "br2 inventory" && s.name != "done"; }), seq.end());   // BR2 inventory capture
     else if (std::getenv("NMK_MODES_ONLY_100")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "100 ai" && s.name != "200 ai" && s.name != "500 ai" && s.name != "1000 ai" && s.name != "done"; }), seq.end());   // just the crowds

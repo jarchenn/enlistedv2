@@ -802,6 +802,8 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
   if (!v) { for (auto& c : p->voices) if (!v || c.start < v->start) v = &c; }   // all busy: steal the oldest
   if (v->used) { ma_sound_uninit(&v->snd); ma_audio_buffer_uninit(&v->buf); }
   volume *= gain * ((uiEv || name.rfind("ui_", 0) == 0) ? uiGain : effectsGain);
+  { const bool gunBus = shot || used.rfind("shot_", 0) == 0 || used.rfind("tail_", 0) == 0 || used.rfind("explosion", 0) == 0 || used.find("_fire") != std::string::npos || used.find("cannon") != std::string::npos;
+    if (gunBus) volume *= gunfireGain; }   // UI1b: the gunfire bus
   // SND5: a gun event with its stereo recording (the custom gunshots) at the listener (within 2 m: the player's own shot)
   // plays it as recorded, not spatialised (the spatialiser cost a mono shot about 6 dB here); other sounds as before
   const bool atEar = stereo && glm::length(pos - p->listener) < evEar; if (!atEar) stereo = nullptr;

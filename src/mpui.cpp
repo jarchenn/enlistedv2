@@ -650,17 +650,13 @@ void Game::drawHud() {
   if (assault) {
     char b[256];
     Faction ef = otherFaction(match.rules.defendingFaction);
-    std::snprintf(b, sizeof b, "%s %s defending: %d alive", factionTag(match.rules.defendingFaction), factionName(match.rules.defendingFaction), match.livingDefenders());
-    dl->AddText(ImVec2(14, io.DisplaySize.y - 150), factionCol(match.rules.defendingFaction), b);
-    std::snprintf(b, sizeof b, "%s %s attacking: %d alive, %d respawns unused%s", factionTag(ef), factionName(ef), match.livingAttackers(), match.unusedAttackerLives(), match.pendingAttackers() ? " (+ wave pending)" : "");
-    dl->AddText(ImVec2(14, io.DisplaySize.y - 132), factionCol(ef), b);
-    if (L) {
-      std::snprintf(b, sizeof b, "You: %s %s   Health %.0f   Frag %d   Smoke %d   [G] frag  [H] smoke", factionTag(myFac), roleName(myRole), std::max(0.0f, L->hp), L->frags, L->smokes);
-      dl->AddText(ImVec2(14, io.DisplaySize.y - 112), IM_COL32(240, 235, 215, 255), b);
-      float hp = std::clamp(L->hp / 100.0f, 0.0f, 1.0f);
-      dl->AddRectFilled(ImVec2(14, io.DisplaySize.y - 94), ImVec2(214, io.DisplaySize.y - 86), IM_COL32(50, 20, 20, 220));
-      dl->AddRectFilled(ImVec2(14, io.DisplaySize.y - 94), ImVec2(14 + 200 * hp, io.DisplaySize.y - 86), IM_COL32(200, 60, 50, 255));
-    }
+    // UI1b: one compact line of forces over the vitals panel (defenders / attackers alive, attacker lives left)
+    std::snprintf(b, sizeof b, "%s %d     %s %d  (+%d lives%s)", factionTag(match.rules.defendingFaction), match.livingDefenders(), factionTag(ef), match.livingAttackers(), match.unusedAttackerLives(), match.pendingAttackers() ? ", wave due" : "");
+    { float fh = ImGui::GetTextLineHeight(); ImVec2 p(20, io.DisplaySize.y - 70 - fh - 22), ts = ImGui::CalcTextSize(b);
+      dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + fh + 5), IM_COL32(12, 14, 16, 150), 6);
+      dl->AddText(p, IM_COL32(225, 225, 215, 235), b); }
+    (void)myFac; (void)myRole;
+    drawVitals();
     if (!match.spawnProblem.empty()) dl->AddText(ImVec2(14, io.DisplaySize.y - 170), IM_COL32(255, 120, 90, 255), match.spawnProblem.c_str());
   }
   if (hitMarker > 0 || killMarker > 0) {   // a small white X on a hit; a red one, a little larger, when the enemy goes down

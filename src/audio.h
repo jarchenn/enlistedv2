@@ -36,6 +36,7 @@ public:
   void setRoom(float indoor);   // SND5: 0 outdoors .. 1 tunnels / Backrooms: the gun reverb's slap-back and tail
   float underwater = 0;
   float masterGain = 1, effectsGain = 1, uiGain = 1, ambienceGain = 1;
+  float gunfireGain = 1;   // UI1b: Settings > Audio "Gunfire" (0..2): gunshots and their tails, cannon / gun fire, shell and grenade blasts
   // looping spatialised voices (tank engines, tracks, turret motors) and runtime-registered sounds (tank.cpp)
   void addSound(const std::string& name, std::vector<float> mono44k);
   int loopStart(const std::string& name, vec3 pos, float volume, float pitch, float offset = 0);   // -1: no voice / unknown sound; offset: 0..1 into the loop

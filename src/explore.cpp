@@ -419,6 +419,7 @@ void App::updateExplore(float dt) {
     }
     if (kp(win, GLFW_KEY_F5)) { exitExplore(); return; }
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
+    if (kp(win, GLFW_KEY_F12)) settings().s.devOverlay = !settings().s.devOverlay;   // UI1b: developer overlay
     if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
     if (kp(win, bk("loadout")) && !pauseMenu) { showLoadout = !showLoadout; syncCursor(); }
     if (kp(win, bk("flashlight")) && !pauseMenu) flashlight = !flashlight;   // FX1 headlamp
@@ -611,7 +612,14 @@ void App::drawExploreUI() {
         }
       }
     }
-    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | N headlamp | T switch gun position | Backspace start | F4 damage debug | Esc menu");
+    if (settings().s.devOverlay) dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | N headlamp | T switch gun position | Backspace start | F4 damage debug | Esc menu");
+    else {   // UI1b: a short hint for the first seconds of play; the full list is in the pause menu (Controls)
+      static double seen = -10, until = 0; double tn = ImGui::GetTime(); if (tn - seen > 1.0) until = tn + 12.0; seen = tn;
+      if (tn < until) { const char* h = gGame && gGame->active ? "Esc  menu & controls     M  map     Tab  scores" : "Esc  menu & controls     M  map";
+        float a = (float)std::min(1.0, (until - tn) / 2.0); ImVec2 ts = ImGui::CalcTextSize(h), p(io.DisplaySize.x * 0.5f - ts.x * 0.5f, io.DisplaySize.y - 46);
+        dl->AddRectFilled(ImVec2(p.x - 12, p.y - 6), ImVec2(p.x + ts.x + 12, p.y + ts.y + 6), IM_COL32(12, 14, 16, (int)(150 * a)), 6);
+        dl->AddText(p, IM_COL32(225, 225, 215, (int)(220 * a)), h); }
+    }
     tanks.drawWorldBars(*this);   // TK1: bars over the vehicles around
     if (tanks.occupied) { tanks.drawUI(*this); tanks.drawHealthBar(*this); }   // TK1: the bar over the sight mask
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }

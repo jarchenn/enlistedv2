@@ -1,7 +1,9 @@
 // G1: Solo / Team Deathmatch HUD - the persistent mode banner, the scoreboard (held Tab and the end screen).
 #include "game.h"
+#include "settings.h"
 #include "app.h"
 #include "mpui.h"
+
 
 #include "royale.h"
 #include "loot.h"   // BR2 Battle Royale loot
@@ -117,21 +119,36 @@ void Game::drawScoreboardOverlay() {
 }
 
 // Solo / TDM side panel and respawn countdown (Assault keeps its own forces / lives panel)
+// UI1b: the player's vitals, bottom left: health (bar and number) and grenades, one compact panel in every mode
+void Game::drawVitals() {
+  const Soldier* L = local(); if (!L || !L->alive) return;
+  ImGuiIO& io = ImGui::GetIO(); ImDrawList* dl = ImGui::GetForegroundDrawList();
+  const float w = 230, x = 20, y = io.DisplaySize.y - 70, fh = ImGui::GetTextLineHeight();
+  dl->AddRectFilled(ImVec2(x - 10, y - 8), ImVec2(x + w + 10, y + fh * 2 + 18), IM_COL32(12, 14, 16, 165), 6);
+  float hp = std::clamp(L->hp / 100.0f, 0.0f, 1.0f); char b[64];
+  dl->AddText(ImVec2(x, y), IM_COL32(190, 192, 185, 230), "HEALTH");
+  std::snprintf(b, sizeof b, "%.0f", std::max(0.0f, L->hp)); ImVec2 ts = ImGui::CalcTextSize(b);
+  dl->AddText(ImVec2(x + w - ts.x, y), IM_COL32(245, 245, 238, 255), b);
+  uint32_t col = hp > 0.5f ? IM_COL32(120, 200, 120, 255) : hp > 0.25f ? IM_COL32(230, 180, 70, 255) : IM_COL32(225, 70, 55, 255);
+  dl->AddRectFilled(ImVec2(x, y + fh + 3), ImVec2(x + w, y + fh + 10), IM_COL32(255, 255, 255, 30), 3);
+  dl->AddRectFilled(ImVec2(x, y + fh + 3), ImVec2(x + w * hp, y + fh + 10), col, 3);
+  std::snprintf(b, sizeof b, "Frag %d  [G]     Smoke %d  [H]", L->frags, L->smokes);
+  dl->AddText(ImVec2(x, y + fh + 14), IM_COL32(190, 192, 185, 220), b);
+}
+
 void Game::drawModePanel() {
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
   const Soldier* L = local();
   char b[220];
-  int alive = 0; for (auto& s : sold) alive += s.alive;
-  std::snprintf(b, sizeof b, "%s: %d of %zu alive   [Tab] scoreboard", gameModeName(match.mode()), alive, sold.size());
-  dl->AddText(ImVec2(14, io.DisplaySize.y - 132), IM_COL32(220, 215, 195, 255), b);
+  if (settings().s.devOverlay) {   // UI1b: the old status lines, developer overlay only
+    int alive = 0; for (auto& s : sold) alive += s.alive;
+    std::snprintf(b, sizeof b, "%s: %d of %zu alive", gameModeName(match.mode()), alive, sold.size());
+    dl->AddText(ImVec2(14, io.DisplaySize.y - 132), IM_COL32(220, 215, 195, 200), b);
+  }
+  drawVitals();
   if (L) {
     const RosterSlot& rs = match.slots[L->slot];
-    std::snprintf(b, sizeof b, "You: %s   Kills %d   Deaths %d   Score %d   Health %.0f   Frag %d   Smoke %d", factionName(L->faction), rs.kills, rs.deaths, rs.score, std::max(0.0f, L->hp), L->frags, L->smokes);
-    dl->AddText(ImVec2(14, io.DisplaySize.y - 112), IM_COL32(240, 235, 215, 255), b);
-    float hp = std::clamp(L->hp / 100.0f, 0.0f, 1.0f);
-    dl->AddRectFilled(ImVec2(14, io.DisplaySize.y - 94), ImVec2(214, io.DisplaySize.y - 86), IM_COL32(50, 20, 20, 220));
-    dl->AddRectFilled(ImVec2(14, io.DisplaySize.y - 94), ImVec2(14 + 200 * hp, io.DisplaySize.y - 86), IM_COL32(200, 60, 50, 255));
     if (!L->alive && match.phase == MatchPhase::Running && match.mode() != GameMode::BattleRoyale) {   // BR1: no respawn (royaleHud shows the placement)
       float left = std::max(0.0f, match.rules.respawnDelay - rs.deadFor);
       if (L->lifeId == 0) std::snprintf(b, sizeof b, "Deploying...");

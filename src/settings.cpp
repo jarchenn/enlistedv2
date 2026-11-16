@@ -64,9 +64,9 @@ json UserSettings::toJson() const {
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleHealthBars", vehicleBars}}},
-    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}}},
+    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}}},
     {"controls", k},
-    {"interface", {{"uiScale", uiScale}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
+    {"interface", {{"uiScale", uiScale}, {"minimapRotate", minimapRotate}, {"developerOverlay", devOverlay}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
   };
 }
 
@@ -110,12 +110,14 @@ UserSettings UserSettings::fromJson(const json& j) {
     const json& q = j["audio"];
     u.master = std::clamp(q.value("master", u.master), 0.0f, 1.0f); u.effects = std::clamp(q.value("effects", u.effects), 0.0f, 1.0f);
     u.ui = std::clamp(q.value("ui", u.ui), 0.0f, 1.0f); u.ambience = std::clamp(q.value("ambience", u.ambience), 0.0f, 1.0f);
+    u.gunfire = std::clamp(q.value("gunfire", u.gunfire), 0.0f, 2.0f);
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
   if (j.contains("interface") && j["interface"].is_object()) {
     const json& q = j["interface"];
     u.uiScale = std::clamp(q.value("uiScale", u.uiScale), 0.75f, 2.0f);
+    u.minimapRotate = q.value("minimapRotate", u.minimapRotate); u.devOverlay = q.value("developerOverlay", u.devOverlay);
     u.editorFly = std::clamp(q.value("editorFlySpeed", u.editorFly), 0.1f, 10.0f);
     u.editorOrbit = std::clamp(q.value("editorOrbitSpeed", u.editorOrbit), 0.25f, 4.0f);
     u.editorZoom = std::clamp(q.value("editorZoomSpeed", u.editorZoom), 0.25f, 4.0f);
@@ -230,7 +232,7 @@ void Settings::apply(App& app) {
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList; app.friendlyMarkers = s.friendlyMarkers;
-  app.audio.setGains(s.master, s.effects, s.ui, s.ambience);
+  app.audio.setGains(s.master, s.effects, s.ui, s.ambience); app.audio.gunfireGain = std::clamp(s.gunfire, 0.0f, 2.0f);   // UI1b
   if (ImGui::GetCurrentContext()) ImGui::GetIO().FontGlobalScale = s.uiScale;
   // editor camera: fly speed is the Alt+wheel multiplier; orbit / zoom scale the content/settings/editor.json values
   NavCamSettings& nav = const_cast<NavCamSettings&>(navSettings());
@@ -407,6 +409,7 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = default, up to 3x more).");
+      ImGui::Checkbox("Minimap turns with you (heading up)", &u.minimapRotate);
       ImGui::Checkbox("Vehicle health bars", &u.vehicleBars);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("A health bar floating over every vehicle within about 90 m.");
       ImGui::Checkbox("Show arms", &u.showArms);
@@ -419,7 +422,10 @@ void settingsWindow(App& app) {
     // ------------------------------------------------ audio
     if (ImGui::BeginTabItem("Audio")) {
       auto vol = [&](const char* l, float& v) { int p = (int)std::lround(v * 100); ImGui::SetNextItemWidth(260); if (ImGui::SliderInt(l, &p, 0, 100, "%d %%")) v = p / 100.0f; };
-      vol("Master", u.master); vol("Effects", u.effects); vol("Interface", u.ui); vol("Ambience (wind, leaves)", u.ambience);
+      vol("Master", u.master); vol("Effects", u.effects);
+      { int p = (int)std::lround(u.gunfire * 100); ImGui::SetNextItemWidth(260); if (ImGui::SliderInt("Gunfire", &p, 0, 200, "%d %%")) u.gunfire = p / 100.0f; }   // UI1b: guns, cannons, shell blasts
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gunshots, cannon fire and shell explosions, on top of Effects (100 %% = as mixed, up to 200 %%).");
+      vol("Interface", u.ui); vol("Ambience (wind, leaves)", u.ambience);
       if (!app.audio.ok()) ImGui::TextDisabled("No audio device.");
       ImGui::EndTabItem();
     }
@@ -455,6 +461,8 @@ void settingsWindow(App& app) {
     // ------------------------------------------------ interface
     if (ImGui::BeginTabItem("Interface")) {
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("UI scale", &u.uiScale, 0.75f, 2.0f, "x %.2f");
+      ImGui::Checkbox("Developer overlay (F12)", &u.devOverlay);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Frame time, the full key list, debug keys and status lines over play. Off for normal play.");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // resizing the window while dragging its own slider: on release
       ImGui::SeparatorText("Editor camera");
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Fly speed", &u.editorFly, 0.1f, 10.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);

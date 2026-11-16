@@ -1201,7 +1201,7 @@ int App::run(int argc, char** argv) {
       dl->AddRectFilled(ImVec2(p.x - 12, p.y - 8), ImVec2(p.x + ts.x + 12, p.y + ts.y + 8), IM_COL32(10, 10, 8, 200), 6);
       dl->AddText(ImGui::GetFont(), fs, p, IM_COL32(250, 240, 210, 255), recCaption.c_str());
     }
-    if (!selftest) {   // FPS counter, top right (not in tests: their screenshots are compared)
+    if (!selftest && settings().s.devOverlay) {   // FPS counter, top right (developer overlay only; not in tests: their screenshots are compared)
       ImGuiIO& io = ImGui::GetIO(); char t[24]; std::snprintf(t, sizeof t, "%.0f FPS", io.Framerate);   // ImGui's 120-frame average
       float fs = std::max(12.0f, io.DisplaySize.y / 72.0f);
       ImVec2 ts = ImGui::GetFont()->CalcTextSizeA(fs, 1e9f, 0, t);
