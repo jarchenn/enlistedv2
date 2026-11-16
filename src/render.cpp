@@ -1587,9 +1587,9 @@ void main(){
     float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnL(vAp*1.7, 1.7), vAp.y);
     rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnL(vAp*2.3 + 7.0, 2.3))*0.6) * mix(1.0, 0.75, foot);   // damp foot
     alb = rock * vAlb * 0.8; rough = 0.86 + 0.08*grn; ao *= 1.0 - 0.3*crack;   // 0.8: matches the cliff faces' in-game brightness
-    if (uMapCave > 0.5) {   // CV1 cave rock: no lichen (re-darken it), flowstone and stains run down the faces, wet streaks shine
+    if (uMapCave > 0.5 && length(vW - uCamPos) < 45.0) {   // CV1 cave rock (near only: sub-pixel beyond): no lichen (re-darken it), flowstone and stains run down the faces, wet streaks shine
       float lichAll = clamp(lichen*0.55 + smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45, 0.0, 1.0);
-      alb = mix(alb, alb*0.55, lichAll);
+      alb = mix(alb, alb*0.55, lichAll) * (1.0 + 0.3*bedLine);   // bedding lines faint: dripstone, not masonry
       float drip = vnL(vec3(p.x*1.6, p.y*0.12, p.z*1.6) + 90.0, 1.6);                              // vertically stretched: runs down the face
       float flow = smoothstep(0.62, 0.8, drip) * smoothstep(0.55, 0.75, fbmL(p*0.35 + 91.0, 0.35));
       alb = mix(alb, vec3(0.62, 0.60, 0.55)*(0.85 + 0.3*grn), flow*0.55);                           // calcite flowstone, pale and waxy
@@ -2540,10 +2540,11 @@ void main(){
   // set's mean so the procedural palette and its broad variation stay; layers whose weight is ~0 take no samples
   TerrT tI = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0)), tG = tI, tS = tI, tV = tI, tA = tI;
   float wGrav = smoothstep(0.75, 1.0, kind), wSand = 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)), wSoil = (1.0 - wGrav)*(1.0 - wSand);
-  if (tw < 0.995) tG = terrTex(0, p, tn0, tdx, tdy, tDist);
-  if (tw > 0.005 && wSoil > 0.01) tS = terrTex(1, p, tn0, tdx, tdy, tDist);
-  if (tw > 0.005 && wGrav > 0.01) tV = terrTex(3, p, tn0, tdx, tdy, tDist);
-  if (tw > 0.005 && wSand > 0.01) tA = terrTex(4, p, tn0, tdx, tdy, tDist);
+  bool under = paintCover(p) < 0.995 || vDirt > 0.15;   // CV1: full ground paint replaces the layers below it: take no samples there
+  if (under && tw < 0.995) tG = terrTex(0, p, tn0, tdx, tdy, tDist);
+  if (under && tw > 0.005 && wSoil > 0.01) tS = terrTex(1, p, tn0, tdx, tdy, tDist);
+  if (under && tw > 0.005 && wGrav > 0.01) tV = terrTex(3, p, tn0, tdx, tdy, tDist);
+  if (under && tw > 0.005 && wSand > 0.01) tA = terrTex(4, p, tn0, tdx, tdy, tDist);
   float wT = max(wSoil + wGrav*(1.0 - wSand) + wSand, 1e-4);
   TerrT tTr = TerrT((tS.alb*wSoil + tV.alb*wGrav*(1.0 - wSand) + tA.alb*wSand)/wT, (tS.r*wSoil + tV.r*wGrav*(1.0 - wSand) + tA.r*wSand)/wT,
                     (tS.ao*wSoil + tV.ao*wGrav*(1.0 - wSand) + tA.ao*wSand)/wT, (tS.dn*wSoil + tV.dn*wGrav*(1.0 - wSand) + tA.dn*wSand)/wT);
@@ -2589,7 +2590,7 @@ void main(){
     rBump = vec3(vnoise(vec3(p*1.7 + 50.0)) - 0.5, (bedLine - 0.5)*0.6, vnoise(vec3(p*1.7 + 51.0)) - 0.5)*1.1;
   }
   float mudK = clamp(rut*0.85 + wet*0.6, 0.0, 1.0)*tw;
-  if (mudK > 0.01) { TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist); mud *= tM.alb; tdn = mix(tdn, tM.dn, mudK); trr = mix(trr, tM.r, mudK); tao = mix(tao, tM.ao, mudK); }   // L4
+  if (under && mudK > 0.01) { TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist); mud *= tM.alb; tdn = mix(tdn, tM.dn, mudK); trr = mix(trr, tM.r, mudK); tao = mix(tao, tM.ao, mudK); }   // L4
   alb = mix(alb, mud, mudK);
   // crater and disturbed soil
   float dirt = clamp(vDirt, 0.0, 1.0);

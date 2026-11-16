@@ -37,6 +37,11 @@
         "perMetre": 50,
         "min": 25,
         "max": 70
+      },
+      "Cave": {
+        "perMetre": 10,
+        "min": 80,
+        "max": 260
       }
     },
     "assets": {
