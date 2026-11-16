@@ -342,7 +342,8 @@ def build(ctx):
         if aid not in cat:
             rep.setdefault("missing", set()).add(aid)
             return None
-        return b.place(aid, x, z, R.uniform(0, 360) if yaw is None else yaw, check=False, cls="none", y=floor_y(x, z) if y is None else y, tags=set(tags), **kw)
+        kw2 = dict(kw) if y is None else dict(kw, y=y)   # MAP1: ground pieces are seated by the builder on the final grid (no float, no sink)
+        return b.place(aid, x, z, R.uniform(0, 360) if yaw is None else yaw, check=False, cls="none", tags=set(tags), **kw2)
 
     def roof(x, z):
         u = lid_under(lids, x, z)
