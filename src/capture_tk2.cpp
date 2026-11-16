@@ -31,7 +31,7 @@ bool captureTk2SelfTest(App& a, float dt) {
   auto done = [&]() { a.selftest->exitCode = 0; a.selftest->done = true; return true; };
   if (phase == 0) { a.newMap(*a.findTemplate("blank_slate"), "TK2 close-ups"); phase = 1; idx = 0; view = 0; t = 0; return true; }
   if (phase == 1) {   // one tank at a time, three views
-    if (idx >= kN) { clear(a); phase = 2; t = 0; return true; }
+    if (idx >= kN) { clear(a); phase = 7; t = 0; return true; }
     if (placed.empty()) {
       const AssetDef* as = a.lib.find(kTanks[idx]);
       if (!as) { logf("[tk2] no asset %s", kTanks[idx]); ++idx; return true; }
@@ -47,9 +47,19 @@ bool captureTk2SelfTest(App& a, float dt) {
     if (t > 0.6f && pend.empty()) {
       static const char* vn[3] = {"front34", "side", "tracks"};
       pend = out(std::string(tk->def->id) + "_" + vn[view]);
+      if (view == 2) { logf("[tk2] %s tracks: %zu grass boxes, first (%.1f %.1f %.2f %.2f | %.2f %.2f), tank at (%.1f %.1f)", tk->def->id.c_str(), a.R.grassVeh.size() / 2, a.R.grassVeh.empty() ? 0.f : a.R.grassVeh[0].x, a.R.grassVeh.empty() ? 0.f : a.R.grassVeh[0].y, a.R.grassVeh.empty() ? 0.f : a.R.grassVeh[0].z, a.R.grassVeh.empty() ? 0.f : a.R.grassVeh[0].w, a.R.grassVeh.size() > 1 ? a.R.grassVeh[1].x : 0.f, a.R.grassVeh.size() > 1 ? a.R.grassVeh[1].y : 0.f, tk->pos.x, tk->pos.z);
+}
       if (++view == 3) { clear(a); ++idx; }
       t = 0;
     }
+    return true;
+  }
+  if (phase == 7) {   // TK3: the same Tiger from the player's own eye in Explore, 3 m from its tracks
+    static uint64_t tg = 0;
+    if (t < dt * 1.5f) { tg = a.placeInstance(a.lib.find("tank_tiger_i"), vec3(0, a.terrain.height(0, 0), 0), 0); a.syncRuntime(); a.tanks.sync(a); a.enterExplore(); a.useScripted = true; a.scriptedInput = ExploreInput{}; }
+    if (t > 0.5f && t < 0.5f + dt * 1.5f) { vec3 p(4.9f, 0, 1.5f); p.y = a.terrain.height(p.x, p.z); Physics::setCharacterPos(p); vec3 to = vec3(1.6f, 0.6f, 0) - (p + vec3(0, 1.62f, 0)); a.eyeYaw = degrees(std::atan2(-to.x, -to.z)); a.eyePitch = degrees(std::atan2(to.y, glm::length(vec2(to.x, to.z)))); }
+    if (t > 2.0f && t < 2.0f + dt * 1.5f) a.uiShot = out("explore_tiger_tracks");
+    if (t > 2.4f) { if (a.mode == Mode::Explore) a.exitExplore(); clear(a); (void)tg; phase = 2; t = 0; }
     return true;
   }
   if (phase == 2) {   // the medium map, one tank close

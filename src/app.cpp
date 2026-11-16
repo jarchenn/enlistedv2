@@ -1130,6 +1130,7 @@ int App::run(int argc, char** argv) {
       if (scopeView()) { v.eyepieceR = kScopeEyepieceR; { const std::string& rt = weaponDefs[activeWeapon]->reticle; v.reticle = rt == "de_absehen1" ? 1 : rt == "plus" ? 4 : rt == "mil" ? 5 : rt == "bmg" ? 6 : rt == "acog" ? 7 : 2; } { float m; int r; if (lootScope(*this, m, r)) v.reticle = r; }
         v.eyepieceR *= 1 - 1.5f * std::min(wstate[weaponDefs[activeWeapon]->id].kick, 0.15f); }   // WP4c: a shot drives the scope back at the eye: the eye box closes in briefly
       else if (gunnerOptic()) { v.eyepieceR = kGunnerEyepieceR; v.reticle = 3; }
+      if (const TankRT* gt = tanks.occupied ? tanks.get(tanks.occupied) : nullptr; gt && gt->def && gt->def->reticle == "abrams" && gt->hatchT < 0.5f) v.rectVignette = true;   // TK3
       v.editor = false; v.autoExposure = true; v.camPos = e;
       v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp
       audio.setListener(e, forward(eyeYaw, eyePitch));
@@ -1190,7 +1191,7 @@ int App::run(int argc, char** argv) {
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
     mark("render");
     { extern void weatherAppFrame(App&); weatherAppFrame(*this); }   // WX1: the shared cloud clock, the host's weather on LAN clients
-    tanks.grassBoxes(*this, R.grassVeh);   // TK3: no grass through the vehicles
+    tanks.grassBoxes(*this, v.camPos, R.grassVeh);   // TK3: no grass through the vehicles
     R.render(v, terrain, op, gl, ghosts, ov);
     mark("imgui");
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)

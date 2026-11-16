@@ -3164,7 +3164,7 @@ void main(){
 static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
-uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect; uniform int uTonemap;
+uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig; uniform int uTonemap;
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
@@ -3221,6 +3221,13 @@ void main(){
   } else {
     c = mix(vec3(l), c, 0.93);
     c *= 1.0 - dot(q,q)*0.16;
+  }
+  if (uRectVig > 0.5) {   // TK3: a superellipse (rounded into the corners) on all four edges: clear to 62 % of the half
+    // extent, a smooth fall to near black only at the very border; dithered so the gradient does not band
+    vec2 a = abs(vUV - 0.5)*2.0; float r = pow(pow(a.x, 6.0) + pow(a.y, 6.0), 1.0/6.0);
+    float k = smoothstep(0.62, 1.04, r); k = k*k*(3.0 - 2.0*k);
+    float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) - 0.5;
+    c = max(c*(1.0 - 0.96*k) + n/255.0, 0.0);
   }
   if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }   /* overcast: 38 % darker, more muted and cooler, a little more contrast (moody) */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
   if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }   // NT2b
@@ -4736,6 +4743,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, q.bloomStrength * lt.mapBloom) : 0.0f);   // BR3: x the map's bloom
+  glUniform1f(U(progTone, "uRectVig"), v.rectVignette && !thumbMode ? 1.0f : 0.0f);   // TK3
   glUniform1f(U(progTone, "uEyeR"), eyepiece ? v.eyepieceR : 0.0f); glUniform1f(U(progTone, "uAspect"), (float)width / std::max(1, height));
   {   // GX5 grade (content/settings/grade.json)
     bool on = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)

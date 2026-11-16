@@ -163,10 +163,10 @@ void TankSys::makeThumbnails(App& app) {
 // ============================================================ HUD
 // TK1: the vehicle's durability bar (every vehicle, any seat), bottom left: 15 segments (a heavy's blow each), the number,
 // red when low; it flashes white on a damaging hit and reads DESTROYED once wrecked. Drawn after drawUI (over the sight mask)
-void TankSys::grassBoxes(const App& app, std::vector<vec4>& out) const {
+void TankSys::grassBoxes(const App& app, vec3 cam, std::vector<vec4>& out) const {
   out.clear();
   std::vector<std::pair<float, const TankRT*>> near;
-  vec3 eye = app.eyePos();
+  vec3 eye = cam;   // the rendering camera (Creative or Explore)
   for (auto& [id, t] : tanks) {
     if (!t.def || t.def->hullBoxes.empty()) continue;
     if (t.def->heli && t.pos.y - app.terrain.height(t.pos.x, t.pos.z) > 1.0f) continue;   // a helicopter only on the ground
@@ -269,12 +269,7 @@ void TankSys::drawUI(App& app) {
     const bool rectSight = d.reticle == "abrams";
     const float W = io.DisplaySize.x, Hs = io.DisplaySize.y;
     float R = Hs * (d.reticle == "bradley" ? 0.40f : 0.45f);
-    if (rectSight) {   // vignette: dark bands fading inward at the edges
-      R = std::max(W, Hs);
-      for (int k = 0; k < 40; ++k) { float e = (40 - k) * 0.0036f; int al = 7;   // 40 thin bands: a smooth falloff
-        dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, Hs * e), IM_COL32(0, 0, 0, al)); dl->AddRectFilled(ImVec2(0, Hs * (1 - e)), ImVec2(W, Hs), IM_COL32(0, 0, 0, al));
-        dl->AddRectFilled(ImVec2(0, 0), ImVec2(W * e, Hs), IM_COL32(0, 0, 0, al)); dl->AddRectFilled(ImVec2(W * (1 - e), 0), ImVec2(W, Hs), IM_COL32(0, 0, 0, al)); }
-    }
+    if (rectSight) R = std::max(W, Hs);   // TK3: its vignette is in the tone pass (RenderView::rectVignette)
     for (int k = 0; k < 72 && !rectSight; ++k) {
       float a0 = k * 6.2831853f / 72, a1 = (k + 1) * 6.2831853f / 72;
       ImVec2 p0(c.x + std::cos(a0) * R, c.y + std::sin(a0) * R), p1(c.x + std::cos(a1) * R, c.y + std::sin(a1) * R);

@@ -65,7 +65,9 @@ void TankSys::loadDefs(App& app) {
       for (size_t k = 0; same && k < l->parts.size(); ++k) same = l->parts[k].role == d->model->parts[k].role;
       if (!same) { logf("vehicle %s: a LOD's parts do not line up with the model (%zu vs %zu): LODs off", d->id.c_str(), l->parts.size(), d->model->parts.size()); d->lods[0] = d->lods[1] = nullptr; break; }
     }
-    if (d->model && j.contains("model")) { float s = std::clamp(j["model"].value("aoStrength", 1.0f), 0.0f, 1.0f); d->model->aoStrength = s; for (auto& l : d->lods) if (l) l->aoStrength = s; }   // TK3
+    if (d->model && j.contains("model")) { float s = std::clamp(j["model"].value("aoStrength", 1.0f), 0.0f, 1.0f); d->model->aoStrength = s; for (auto& l : d->lods) if (l) l->aoStrength = s;
+      float ms = std::clamp(j["model"].value("metalScale", 1.0f), 0.0f, 1.0f);   // TK3: a painted hull that baked as half metal reads too dark
+      if (ms < 0.999f) { for (auto& p : d->model->parts) p.metal *= ms; for (auto& l : d->lods) if (l) for (auto& p : l->parts) p.metal *= ms; } }   // TK3
     if (d->model) {
       static const char* wheelRoles[TankDef::MAX_WHEELS] = {"wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr", "wheel_f2l", "wheel_f2r", "wheel_r2l", "wheel_r2r"};
       vec3 wlo[TankDef::MAX_WHEELS], whi[TankDef::MAX_WHEELS]; for (int w = 0; w < TankDef::MAX_WHEELS; ++w) { wlo[w] = vec3(1e9f); whi[w] = vec3(-1e9f); }
