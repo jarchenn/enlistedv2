@@ -83,6 +83,8 @@ void App::buildWeaponMeshes() {
     d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
     d->casings = j.value("casings", true);
     { std::string bl = j.value("blaster", std::string()); d->blaster = bl == "red" ? 4 : bl.empty() ? 0 : 3; }   // SW1
+    if (j.contains("hold")) { const json& h = j["hold"]; d->holdOffset = jvec3(h.value("offset", json()), vec3(0)); d->holdWeld = h.value("weld", 1.0f); std::string hk = h.value("kind", std::string()); d->holdKind = hk == "pistol" ? 0 : hk == "rifle" ? 1 : hk == "launcher" ? 2 : -1; }   // SW2
+    d->dotCrosshair = j.value("crosshair", std::string()) == "dot";   // SW2
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
@@ -564,7 +566,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (glm::dot(dir, aimDir) < 0.5f) dir = aimDir;
       // Aimed fire: the round leaves the front sight tip F along the sight line V = normalize(F - R), where R is the
       // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
-      if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly) {
+      if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly && d.adsZoom <= 0) {   // SW2: zoom aiming fires from the hip toward the dot
         vec3 Rw, Fw; vmNoRecoilRot = true; sightLineWorld(d, s, Rw, Fw); vmNoRecoilRot = false;   // WP4: the visual muzzle rise is not aim (the gameplay recoil is)
         // MG8: an animated rig's ADS puts both posed sights on the camera axis, so its line is the camera's; the axis itself
         // avoids the alignment's numeric residual (0.02 deg = 0.5 mrad on the M4 irons)
