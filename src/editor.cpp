@@ -245,8 +245,7 @@ void App::drawCreativeUI() {
       ImGui::EndMenu();
     }
     { extern bool settingsMenuItem(); settingsMenuItem(); }   // Settings window (settings.cpp)
-    if (ImGui::MenuItem("Explore from start  (F5)")) w3EnterExplore(*this);
-    terrainMenus(*this);   // V8: Terrain menu (sculpt, Generate hills) and Beautify... (terrain_brush.cpp)
+    terrainMenus(*this);   // V8: Terrain menu (sculpt, Generate hills) (terrain_brush.cpp); UI2: no Beautify, no Explore button (F5 play-tests)
     mpaiMenus(*this);   // Play (Singleplayer / Host LAN / Join LAN) and Scenario menus
     { extern void autopathMenu(App&); autopathMenu(*this); }   // Paths > Connect houses (autopath.cpp)
     ImGui::SameLine(ImGui::GetWindowWidth() - 360);
@@ -271,9 +270,6 @@ void App::drawCreativeUI() {
   if (toolBtn("Doors & windows", editInteract)) editInteract = !editInteract;
   if (toolBtn("Undo", false)) undo();
   if (toolBtn("Redo", false)) redo();
-  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.38f, 0.50f, 1));
-  if (ImGui::Button("Explore from start (F5)")) w3EnterExplore(*this);
-  ImGui::PopStyleColor();
   ImGui::End();
 
   // ---- asset browser

@@ -372,12 +372,12 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     if (gNet) gNet->keepAlive();   // LAN peers time out after 6 s; a first whole-map bake takes 30 s and more
     if (!G.app.win) return;
     glfwPollEvents();
-    char t[96]; std::snprintf(t, sizeof t, "Normandy Mapmaker - preparing the AI (navigation %d%%)", (int)(f * 100));
+    char t[96]; std::snprintf(t, sizeof t, "Battle Foundry - preparing the AI (navigation %d%%)", (int)(f * 100));
     glfwSetWindowTitle(G.app.win, t);
   };
   nav.build(lo, hi);
   nav.progress = nullptr;
-  if (G.app.win) glfwSetWindowTitle(G.app.win, "Normandy Mapmaker");
+  if (G.app.win) glfwSetWindowTitle(G.app.win, "Battle Foundry");
   // PF1: the map's sidecar gets these tiles now for a saved, unchanged map file (a built-in map's only with
   // NMK_NAV_PREBAKE), else on the next save (aiNavSidecarSave)
   if (store && !nav.blob.empty()) {

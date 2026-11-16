@@ -106,6 +106,7 @@ Settings& settings();
 
 // ---- hooks (one line each at the call site)
 void settingsInit(App& app, bool selftest);   // app.cpp, after the renderer and bindings exist
+void controlsWindow(App& app, bool* open);   // UI1b: the read-only controls page (pause menu)
 void settingsWindow(App& app);                // drawn every frame in both modes (no-op while closed)
 void settingsEndFrame(App& app);              // app.cpp, after SwapBuffers: FPS cap
 bool settingsMenuItem();                      // "Settings..." menu entry / button helper: opens the window

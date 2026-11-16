@@ -127,6 +127,49 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
 }
 // every instance's id, revision and placement, hashed: the per-frame passes below skip their work while it holds.
 // O(N) with no lookups; a revision bumped by hand (i.rev++) or a moved instance changes it as well.
+// ---------------------------------------------------------------- UI1b: the shared look
+// One type face (Segoe UI where present, rasterised large and scaled down: crisp at 1080p and 1440p; ImGui's built-in
+// pixel font otherwise), one palette (neutral dark greys, one amber accent; team blue / red live with the HUD), one panel
+// style (8 px corners on windows, 5 px on controls, a faint border, even padding on an 8 px rhythm).
+static float gFontPx = 13.0f;
+void applyUiTheme() {
+  ImGuiIO& io = ImGui::GetIO();
+  for (const char* f : {"C:/Windows/Fonts/segoeui.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"}) {
+    std::error_code ec; if (!fs::exists(f, ec)) continue;
+    ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2;
+    if (io.Fonts->AddFontFromFileTTF(f, 32.0f, &fc, io.Fonts->GetGlyphRangesDefault())) { gFontPx = 32.0f; break; }
+  }
+  ImGui::StyleColorsDark();
+  ImGuiStyle& st = ImGui::GetStyle();
+  st.WindowRounding = 8; st.ChildRounding = 6; st.FrameRounding = 5; st.PopupRounding = 6; st.GrabRounding = 5; st.TabRounding = 5; st.ScrollbarRounding = 6;
+  st.WindowBorderSize = 1; st.FrameBorderSize = 0; st.PopupBorderSize = 1;
+  st.WindowPadding = ImVec2(16, 12); st.FramePadding = ImVec2(8, 5); st.ItemSpacing = ImVec2(10, 7); st.ItemInnerSpacing = ImVec2(6, 5);
+  st.ScrollbarSize = 12; st.GrabMinSize = 10; st.WindowTitleAlign = ImVec2(0.0f, 0.5f); st.SeparatorTextBorderSize = 2;
+  auto C = [&](ImGuiCol k, float r, float g, float b, float a = 1.0f) { st.Colors[k] = ImVec4(r, g, b, a); };
+  C(ImGuiCol_Text, 0.92f, 0.92f, 0.90f); C(ImGuiCol_TextDisabled, 0.56f, 0.57f, 0.56f);
+  C(ImGuiCol_WindowBg, 0.075f, 0.082f, 0.092f, 0.94f); C(ImGuiCol_ChildBg, 0, 0, 0, 0); C(ImGuiCol_PopupBg, 0.085f, 0.092f, 0.10f, 0.97f);
+  C(ImGuiCol_Border, 1, 1, 1, 0.10f); C(ImGuiCol_BorderShadow, 0, 0, 0, 0);
+  C(ImGuiCol_FrameBg, 0.15f, 0.16f, 0.18f); C(ImGuiCol_FrameBgHovered, 0.21f, 0.22f, 0.25f); C(ImGuiCol_FrameBgActive, 0.26f, 0.27f, 0.31f);
+  C(ImGuiCol_TitleBg, 0.075f, 0.082f, 0.092f); C(ImGuiCol_TitleBgActive, 0.11f, 0.12f, 0.135f); C(ImGuiCol_TitleBgCollapsed, 0.075f, 0.082f, 0.092f, 0.8f);
+  C(ImGuiCol_MenuBarBg, 0.095f, 0.10f, 0.11f);
+  C(ImGuiCol_ScrollbarBg, 0, 0, 0, 0.15f); C(ImGuiCol_ScrollbarGrab, 0.28f, 0.29f, 0.32f); C(ImGuiCol_ScrollbarGrabHovered, 0.36f, 0.37f, 0.40f); C(ImGuiCol_ScrollbarGrabActive, 0.86f, 0.66f, 0.26f);
+  C(ImGuiCol_CheckMark, 0.92f, 0.70f, 0.28f); C(ImGuiCol_SliderGrab, 0.86f, 0.66f, 0.26f); C(ImGuiCol_SliderGrabActive, 0.98f, 0.78f, 0.36f);
+  C(ImGuiCol_Button, 0.19f, 0.20f, 0.23f); C(ImGuiCol_ButtonHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_ButtonActive, 0.62f, 0.47f, 0.18f);
+  C(ImGuiCol_Header, 0.20f, 0.21f, 0.24f); C(ImGuiCol_HeaderHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_HeaderActive, 0.62f, 0.47f, 0.18f);
+  C(ImGuiCol_Separator, 1, 1, 1, 0.10f); C(ImGuiCol_SeparatorHovered, 0.86f, 0.66f, 0.26f, 0.6f); C(ImGuiCol_SeparatorActive, 0.86f, 0.66f, 0.26f);
+  C(ImGuiCol_ResizeGrip, 1, 1, 1, 0.08f); C(ImGuiCol_ResizeGripHovered, 0.86f, 0.66f, 0.26f, 0.6f); C(ImGuiCol_ResizeGripActive, 0.86f, 0.66f, 0.26f);
+  C(ImGuiCol_Tab, 0.13f, 0.14f, 0.16f); C(ImGuiCol_TabHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_TabActive, 0.22f, 0.23f, 0.27f);
+  C(ImGuiCol_TabUnfocused, 0.11f, 0.12f, 0.13f); C(ImGuiCol_TabUnfocusedActive, 0.17f, 0.18f, 0.21f);
+  C(ImGuiCol_TableHeaderBg, 0.13f, 0.14f, 0.16f); C(ImGuiCol_TableBorderStrong, 1, 1, 1, 0.10f); C(ImGuiCol_TableBorderLight, 1, 1, 1, 0.06f); C(ImGuiCol_TableRowBgAlt, 1, 1, 1, 0.03f);
+  C(ImGuiCol_TextSelectedBg, 0.86f, 0.66f, 0.26f, 0.35f); C(ImGuiCol_NavHighlight, 0.86f, 0.66f, 0.26f); C(ImGuiCol_ModalWindowDimBg, 0, 0, 0, 0.55f);
+  C(ImGuiCol_PlotHistogram, 0.86f, 0.66f, 0.26f); C(ImGuiCol_PlotLines, 0.86f, 0.66f, 0.26f);
+}
+// 16 px text at 1080p (21 px at 1440p) times Settings > UI scale; the built-in pixel font only scales with the UI scale
+float uiFontScale(int fbh) {
+  float ui = settings().s.uiScale;
+  return gFontPx > 20 ? (16.0f / gFontPx) * ui * std::clamp(fbh / 1080.0f, 0.85f, 1.75f) : ui;
+}
+
 uint64_t placementSig(const std::vector<Instance>& v, bool withPose) {
   uint64_t h = 1469598103934665603ull;
   auto mix = [&](uint64_t x) { h = (h ^ x) * 1099511628211ull; };
@@ -232,7 +275,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (!act.rtOf[idx]) continue;
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
-    if (beautifyDecorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor, cheap at range (beautify.cpp)
+    if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
     if (isVehicleAsset(r.asset) || (mode == Mode::Explore && tanks.isAdopted(i.id))) { tanks.drawItems(*this, i, r); continue; }   // BR7: an adopted car moves   // supplied tank GLB on its rig (tank_ui.cpp)
     if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
     if (w5CullDraw(*this, i, r.asset)) {   // W5: small decorators beyond their draw distance (content/settings/maps.json)
@@ -969,7 +1012,7 @@ int App::run(int argc, char** argv) {
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
   platformWindowHints();
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
-  win = glfwCreateWindow(W, H, "Normandy Mapmaker", nullptr, nullptr);
+  win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
   if (!platformInitContext(win)) { logf("graphics context init failed"); return 1; }
   logf("GL %s | %s | %s", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
@@ -982,17 +1025,7 @@ int App::run(int argc, char** argv) {
   ImGuiIO& io = ImGui::GetIO();
   io.IniFilename = nullptr;
   io.FontGlobalScale = 1.0f;
-  ImGui::StyleColorsDark();
-  auto& st = ImGui::GetStyle();
-  st.WindowRounding = 4; st.FrameRounding = 3; st.GrabRounding = 3;
-  st.Colors[ImGuiCol_WindowBg] = ImVec4(0.10f, 0.11f, 0.10f, 0.94f);
-  st.Colors[ImGuiCol_Header] = ImVec4(0.32f, 0.36f, 0.26f, 0.8f);
-  st.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.42f, 0.46f, 0.32f, 0.9f);
-  st.Colors[ImGuiCol_Button] = ImVec4(0.27f, 0.30f, 0.22f, 1.0f);
-  st.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.38f, 0.42f, 0.30f, 1.0f);
-  st.Colors[ImGuiCol_ButtonActive] = ImVec4(0.48f, 0.52f, 0.36f, 1.0f);
-  st.Colors[ImGuiCol_FrameBg] = ImVec4(0.18f, 0.19f, 0.16f, 1.0f);
-  st.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.22f, 0.25f, 0.18f, 1.0f);
+  applyUiTheme();   // UI1b: one font, palette and panel style for every window (app.cpp)
   platformImGuiInit(win);
 
   Physics::init();
@@ -1060,6 +1093,7 @@ int App::run(int argc, char** argv) {
     glfwGetFramebufferSize(win, &fbw, &fbh);
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 
+    ImGui::GetIO().FontGlobalScale = uiFontScale(fbh);   // UI1b: the type scale follows the resolution and Settings > UI scale
     platformImGuiNewFrame(); ImGui::NewFrame();
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     mark("update");

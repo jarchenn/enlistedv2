@@ -124,7 +124,7 @@ bool saveMap(const fs::path& path, const MapDoc& d, std::string& err) {
 bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
   json j;
   try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { err = std::string("Parse error: ") + e.what(); return false; }
-  if (j.value("format", "") != "normandy-mapmaker-map") { err = "Not a Normandy Mapmaker map"; return false; }
+  if (j.value("format", "") != "normandy-mapmaker-map") { err = "Not a Battle Foundry map"; return false; }
   int ver = j.value("schemaVersion", 0);
   if (ver > kMapSchemaVersion) { err = "Map was saved by a newer version (schema " + std::to_string(ver) + ")"; return false; }
   MapDoc n;

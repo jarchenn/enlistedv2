@@ -360,6 +360,32 @@ void build(App&) {
   // BR2 capture (NMK_MODES_ONLY_BR2): a Solo start switched to Battle Royale, a filled kit, the inventory screen
   // AI3 capture (NMK_AI3_SHOT): the setup window in TDM with typed per-type counts; the spawn order hands out exactly
   // those counts, interleaved (aiTypeNext)
+  // UI1b polish captures (NMK_UI1_POLISH): the editor's Open dialog, match setup, Settings, then a TDM match: HUD, pause
+  // menu, held scoreboard, the end table -> selftest_out/ui1p_*.png
+  push("ui1p screens", [](App& a, float t) {
+    if (!std::getenv("NMK_UI1_POLISH")) return true;
+    static int ph = 0; static float t0 = 0;
+    auto shot = [&](const char* n) { a.uiShot = outDir() / (std::string("ui1p_") + n + ".png"); };
+    auto at = [&](float d) { return t > t0 + d; };
+    if (t == 0) { ph = 0; t0 = 0; if (a.mode == Mode::Explore) a.exitExplore(); a.openMap(contentDir() / "templates" / "chateau_town.nmap.json"); a.showOpen = true; return false; }
+    switch (ph) {
+      case 0: if (at(1.5f)) { shot("1_editor_open"); ph = 1; t0 = t; } break;
+      case 1: if (at(0.3f)) { a.showOpen = false; gUi.showSetup = true; gUi.setupMode = 0; ph = 2; t0 = t; } break;
+      case 2: if (at(0.8f)) { shot("2_setup"); ph = 3; t0 = t; } break;
+      case 3: if (at(0.3f)) { gUi.showSetup = false; settings().open = true; ph = 4; t0 = t; } break;
+      case 4: if (at(0.8f)) { shot("3_settings"); ph = 5; t0 = t; } break;
+      case 5: if (at(0.3f)) { settings().open = false; startMode(a, GameMode::TDM, 24, 999, 12, 12, contentDir() / "templates" / "chateau_town.nmap.json"); ph = 6; t0 = t; } break;
+      case 6: if (Soldier* L = gGame->local()) if (L->alive) { L->hp = 74; L->protectUntil = gGame->t + 1; }
+              if (at(7.0f)) { shot("4_hud"); ph = 7; t0 = t; } break;
+      case 7: if (at(0.3f)) { a.pauseMenu = true; ph = 8; t0 = t; } break;
+      case 8: if (at(0.6f)) { shot("5_pause"); ph = 9; t0 = t; } break;
+      case 9: if (at(0.3f)) { a.pauseMenu = false; gGame->showScoreboard = true; ph = 10; t0 = t; } break;
+      case 10: if (at(0.6f)) { shot("6_scoreboard"); ph = 11; t0 = t; } break;
+      case 11: if (at(0.3f)) { gGame->showScoreboard = false; gGame->match.phase = MatchPhase::Ended; ph = 12; t0 = t; } break;
+      case 12: if (at(0.8f)) { shot("7_end"); ph = 13; t0 = t; } break;
+      case 13: if (at(0.3f)) return true; break;
+    }
+    return t > 60; });
   // UI1b captures (NMK_UI1_SHOTS): a small TDM on four maps; the HUD with the corner map, then the full map (M)
   for (const char* mp : {"dday", "chateau_town", "newtown", "outpost_desert"})
     push(std::string("ui1 ") + mp, [mp](App& a, float t) {
@@ -497,6 +523,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_UI1_POLISH")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui1p screens" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI1_SHOTS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name.rfind("ui1 ", 0) != 0 && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_AI3_SHOT")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ai3 setup" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_MODES_ONLY_BR2")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "br2 inventory" && s.name != "done"; }), seq.end());   // BR2 inventory capture
