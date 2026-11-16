@@ -346,8 +346,8 @@
  "outpost_desert": [
   {
    "asset": "mod_traffic_barrel",
-   "x": -50.21,
-   "z": 3.27,
+   "x": -59.94,
+   "z": 7.16,
    "yaw": 347.2,
    "tags": [
     "checkpoint"
@@ -355,8 +355,8 @@
   },
   {
    "asset": "mod_traffic_barrel",
-   "x": -47.83,
-   "z": 30.6,
+   "x": -46.01,
+   "z": 28.37,
    "yaw": 328.7,
    "tags": [
     "checkpoint"
@@ -364,8 +364,8 @@
   },
   {
    "asset": "mod_traffic_barrel",
-   "x": -44.5,
-   "z": -16.67,
+   "x": -44.56,
+   "z": -16.48,
    "yaw": 128.3,
    "tags": [
     "checkpoint"
@@ -373,8 +373,8 @@
   },
   {
    "asset": "mod_traffic_barrel",
-   "x": -36.52,
-   "z": -17.73,
+   "x": -36.46,
+   "z": -17.63,
    "yaw": 93.0,
    "tags": [
     "checkpoint"

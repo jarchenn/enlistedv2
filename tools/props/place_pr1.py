@@ -149,7 +149,12 @@ def main():
         if WRITE:
             with open(mp, "w", encoding="utf-8", newline="") as f: json.dump(doc, f, separators=(",", ":"))
     if WRITE and out:
-        with open(os.path.join(REPO, "tools", "mapgen", "maps", "pr1_props.json"), "w", encoding="utf-8") as f: json.dump(out, f, indent=1)
+        pj = os.path.join(REPO, "tools", "mapgen", "maps", "pr1_props.json")
+        keep = {}
+        if os.path.exists(pj):
+            with open(pj, encoding="utf-8") as f: keep = json.load(f)
+        keep.update(out)
+        with open(pj, "w", encoding="utf-8") as f: json.dump(keep, f, indent=1)
 
 
 if __name__ == "__main__":

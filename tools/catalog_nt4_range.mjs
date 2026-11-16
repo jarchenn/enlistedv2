@@ -25,7 +25,7 @@ function mats(A) {
   A.mat("brass", [0.62, 0.45, 0.18], 0.4, "metal", { metallic: 0.8 });
 }
 function modelAsset(id, name, desc, fp, src, dir, scale, credit, standIn) {
-  const A = new Asset({ id, name, description: desc, footprint: fp, ...META });
+  const A = new Asset({ id, name, description: desc, footprint: fp, ...META, nav: { effect: "carve" } });   // NT5: build_mpu_assets needs a nav block
   mats(A);
   standIn(A);
   for (const p of A.parts) if (p.v !== 0) p.mf = 1;

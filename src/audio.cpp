@@ -412,9 +412,9 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_a.mp3", false, {"fg42"}, -1, 1.04f},
     {"guns/sniper_heavy.mp3", false, {"modern_sniper_50"}, -1, 1, 0, 2.5f, 4.0f},   // the heavy sniper shot (user request); SND6: the loudest small arm: most body
     {"guns/sniper_m24.mp3", false, {"modern_sniper_bolt"}},   // Sniper.mp3: the M24's own
-    {"guns/sniper_m24.mp3", false, {"modern_sniper_3"}, -1, 1.08f, 0.3f, 1.8f},   // derived: scout rifle, higher, shorter
-    {"guns/rifle_a.mp3", false, {"kar98k"}},   // Rifle.mp3
-    {"guns/rifle_a.mp3", false, {"kar98k_zf39"}, -1, 0.92f, -0.4f, 2.5f},   // derived: the scoped Kar98k, lower, darker
+    {"guns/sniper_m24.mp3", false, {"modern_sniper_3"}, -1, 1.12f, 0.3f, 1.8f},   // derived: scout rifle, higher, shorter (SND8: 1.08 -> 1.12, clear of the Kar98k)
+    {"guns/sniper_m24.mp3", false, {"kar98k"}, -1, 1.06f},   // SND8: the M24 recording 6 % higher (user request), full level, no tone change
+    {"guns/sniper_m24.mp3", false, {"kar98k_zf39"}, -1, 0.96f},   // SND8: the M24 recording 4 % lower
     {"guns/rifle_b.mp3", false, {"modern_ak"}},   // Rifle2.mp3: AK-74
     {"guns/rifle_b.mp3", false, {"modern_ak12"}, -1, 0.98f},   // SND5: the AK-74 shot (user request), 2 % lower
     {"guns/rifle_b.mp3", false, {"stg44"}, -1, 1.02f},   // SND5: the AK-74 shot, 2 % higher
@@ -425,7 +425,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3, 1, 0, 2.5f, 3.0f},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}, -1, 1, 0, 2.5f, 3.0f},   // SND6: body (it measured 12 dB under the rifles)
-    {"guns/mg_burst.mp3", true, {"mg42"}, -1, 1, 0, 2.5f, 2.2f},
+    {"guns/rifle_a.mp3", false, {"mg42"}, -1, 0.84f, 0, 2.5f, 2.2f},   // SND8: Rifle.mp3 pitched down (user request), one clean shot per round, machine-gun body
     {"guns/smg_burst.mp3", true, {"modern_uzi"}},
     // SND4: every SMG its own shot (SMG.mp3, SMG1.mp3: single shots)
     {"guns/smg_a.mp3", false, {"mp40"}, -1, 1, 0, 1.2f},   // SMG.mp3
@@ -444,7 +444,7 @@ int Audio::loadCustom(const fs::path& dir) {
     for (size_t k = 0; k < nW; ++k) if (env[k] > 0.5f * peak && (k == 0 || env[k - 1] <= 0.5f * peak) && (last == nW || k - prev >= 8)) { if (first == nW) first = k; last = prev = k; if (shots.empty() || k - shots.back() >= 200) shots.push_back(k); }
     if (first == nW) continue;
     size_t a = g.take >= 0 && g.take < (int)shots.size() ? shots[g.take] : (g.burst ? last : first);
-    for (size_t back = 0; a > 0 && back < 10 && env[a - 1] > 0.02f * peak; ++back) --a;   // up to 50 ms of the rise
+    for (size_t back = 0; a > 0 && back < 2 && env[a - 1] > 0.02f * peak; ++back) --a;   // up to 10 ms of the rise (SND8: was 50 ms, which ate most of an automatic round)
     a = (a > 0 ? a - 1 : 0) * W;
     size_t e = std::min(b.size(), a + (size_t)(g.tail * SR));
     if (g.take >= 0 && g.take + 1 < (int)shots.size()) e = std::min(e, (shots[g.take + 1] - 2) * W);   // not into the next shot
@@ -917,12 +917,12 @@ Measure measure(const std::vector<float>& x, float fs, size_t from = 0) {
 void Audio::fidelityReport(const fs::path& dir) {
   if (!p) { logf("fidelity: no audio engine"); return; }
   struct Pair { const char* ev; const char* file; int take; float dist; } pairs[] = {   // take: which shot of the source (onsets 1 s apart); dist: m ahead (0.6: the player's muzzle)
-    {"shot_kar98k", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_m1_garand", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_modern_ak", "guns/rifle_b.mp3", 0, 0.6f},
+    {"shot_kar98k", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_kar98k_zf39", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_3", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_m1_garand", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_modern_ak", "guns/rifle_b.mp3", 0, 0.6f},
     {"shot_modern_ak12", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_stg44", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_modern_lmg", "guns/rifle_b.mp3", 0, 0.6f},
-    {"shot_mg42", "guns/mg_burst.mp3", 0, 0.6f},
+    {"shot_mg42", "guns/rifle_a.mp3", 0, 0.6f},
     {"shot_modern_m16", "guns/rifle_c.mp3", 0, 0.6f}, {"shot_modern_m4", "guns/rifle_c.mp3", 1, 0.6f}, {"shot_modern_m4_irons", "guns/rifle_c.mp3", 2, 0.6f}, {"shot_modern_fal", "guns/rifle_c.mp3", 3, 0.6f},
     {"shot_modern_sniper_bolt", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 20.0f}, {"shot_m2hb_carry", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_m2hb", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_mp40", "guns/smg_a.mp3", 0, 0.6f}, {"shot_luger", "guns/pistol_a.mp3", 0, 0.6f},
-    {"shot_modern_shotgun", "guns/shotgun.mp3", 0, 0.6f}, {"shot_kar98k", "guns/rifle_a.mp3", 0, 20.0f}, {"step", "footsteps.mp3", 0, 1.6f}};
+    {"shot_modern_shotgun", "guns/shotgun.mp3", 0, 0.6f}, {"shot_kar98k", "guns/sniper_m24.mp3", 0, 20.0f}, {"step", "footsteps.mp3", 0, 1.6f}};
   setListener(vec3(0), vec3(0, 0, -1));
   auto render = [&](const char* ev, vec3 pos, float secs) {
     for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
@@ -952,7 +952,7 @@ void Audio::fidelityReport(const fs::path& dir) {
     logf("fidelity ambience bed battlefield.mp3 x0.7: peak %6.1f  rms %6.1f dB", 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / m.size() + 1e-20));
     setBed(1, {}, 0);
   }
-  for (const char* ev : {"shot_modern_ak", "shot_modern_m4_irons", "shot_modern_m4", "shot_modern_m16", "shot_modern_fal", "shot_modern_lmg"}) {   // SND7: sustained fire, 13 rounds 80 ms apart (750 rpm), as the player
+  for (const char* ev : {"shot_modern_ak", "shot_modern_m4_irons", "shot_modern_m4", "shot_modern_m16", "shot_modern_fal", "shot_modern_lmg", "shot_mg42"}) {   // SND7: sustained fire, 13 rounds 80 ms apart (750 rpm), as the player
     if (!hasEvent(ev)) continue;
     for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
     std::vector<float> st(SR * 2); for (int k = 0; k < 20; ++k) ma_engine_read_pcm_frames(&p->engine, st.data(), SR / 10, nullptr);

@@ -28,6 +28,8 @@ def main():
     with open(path, encoding="utf-8") as f:
         for r in csv.DictReader(f):
             g = float(r["gap_m"])
+            if r["asset"].startswith("heli_"):
+                continue   # a helicopter on its raised pad is never pulled to the terrain (the finder already skips pieces resting on a structure)
             fix[int(r["id"])] = (g - 0.06) if r["kind"] == "sunk" else -(g - 0.02)
     n = 0
     for i in doc["instances"]:

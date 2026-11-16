@@ -31,6 +31,16 @@
     "modern_fal": {
       "gain": 1.0,
       "body": 3.0
+    },
+    "kar98k": {
+      "gain": 1.12
+    },
+    "kar98k_zf39": {
+      "gain": 1.05
+    },
+    "mg42": {
+      "gain": 1.0,
+      "body": 4.5
     }
   }
 }
