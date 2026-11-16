@@ -179,7 +179,7 @@ def build_variant(ctx, V):
     for pad_id, lz, deck, nose in (V.get("helis", []) if HELI in cat else []):
         for e in [e for e in b.inst if e["asset"] == pad_id]:
             px, pz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], 0.0, lz)
-            h = b.place(HELI, px, pz, e["yaw"] + nose, check=False, cls="none", y=e["pos"][1] + deck, tags={"heli"})
+            h = b.place(HELI, px, pz, e["yaw"] + nose, check=False, cls="none", y=e["pos"][1] + deck, tags={"heli"}, support=e)
             rep["helis"] = rep.get("helis", 0) + (h is not None)
     RY = rng(V["seed"] + 41)   # NT4: yards round every building, the map's own ground mix
     for e in [e for e in b.inst if "building" in e["tags"]]:

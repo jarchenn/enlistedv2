@@ -298,7 +298,7 @@ bool floaterScan(App& app, float dt) {
     // conforming by construction: nature / scatter patches (each plant on the ground, nature.cpp), line assets (each
     // segment on the ground; the instance position is only the anchor)
     if (a->nature.kind != NatureDef::NONE || a->raw.contains("scatter") || a->raw.contains("line")) continue;
-    if (onHost(i)) continue;
+    if (onHost(i) || supportOf(i)) continue;   // ED1: rests on its supporter (a deck, a table, a roof), not on the ground
     bool skirted = false;
     for (auto& st : T.stamps) if (st.owner == i.id && st.skirt > 0) skirted = true;
     std::vector<vec2> L;
