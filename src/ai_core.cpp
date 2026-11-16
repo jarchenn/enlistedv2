@@ -471,14 +471,35 @@ float AiCore::nearestHumanDist(vec3 p) const {
   return best;
 }
 
+// a soldier died, respawned or jumped (teleport, vehicle): no bot keeps hunting where it was. Its team-knowledge entries,
+// every bot's memory of it and every target pointing at it are dropped; the next perception / think re-acquires it
+// (or the nearest hostile) at its actual position
+void aiForget(Game& g, int slot) {
+  AiCore* A = aiCore(); if (!A || slot < 0) return;
+  for (auto& tb : A->teams) { tb.known.erase(slot); for (auto& ft : tb.fts) for (auto it = ft.targetFor.begin(); it != ft.targetFor.end();) it = it->second == slot ? ft.targetFor.erase(it) : std::next(it); }
+  for (auto& s : g.sold) {
+    if (s.slot == slot) continue;
+    auto& mem = s.br.mem; mem.erase(std::remove_if(mem.begin(), mem.end(), [&](const EnemyMemory& e) { return e.enemy == slot; }), mem.end());
+    if (s.br.target == slot) s.br.target = -1;
+    if (s.slot >= 0 && s.slot < (int)A->minds.size() && A->minds[s.slot]) {
+      BotMind& m = *A->minds[s.slot];
+      if (m.aimTarget == slot) m.aimTarget = -1;
+      if (m.badTarget == slot) m.badTarget = -1;
+      if (s.zombie) { m.tgtT = 0; s.br.repathT = 0; }   // melee brains re-pick and re-path at once
+    }
+  }
+}
+
 void AiCore::rebuildGrid() {
   for (auto& [k, v] : sgrid) v.clear();
-  humans.clear();
+  for (auto& [k, v] : mgrid) v.clear();
+  humans.clear(); meleeAlive = 0;
   for (int i = 0; i < (int)G.sold.size(); ++i) {
     const Soldier& s = G.sold[i];
     if (!s.alive) continue;
     if (s.human) humans.push_back(i);
     sgrid[gridKey((int)std::floor(s.feet.x / kGridCell), (int)std::floor(s.feet.z / kGridCell))].push_back(i);
+    if (s.zombie) { mgrid[gridKey((int)std::floor(s.feet.x / kMeleeCell), (int)std::floor(s.feet.z / kMeleeCell))].push_back(i); ++meleeAlive; }
   }
 }
 

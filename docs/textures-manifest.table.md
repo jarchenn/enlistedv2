@@ -53,9 +53,9 @@
 | sand_beach | [Ground055S](https://ambientcg.com/a/Ground055S) | sand | ao, color, height, normal, roughness | 1.5 x 1.5 | (unused) | L4 |
 | sand_dirty | [Ground080](https://ambientcg.com/a/Ground080) | sand | ao, color, height, normal, roughness | 2 x 2 | (unused) | L4 |
 | rock_cliff | [Rock051](https://ambientcg.com/a/Rock051) | rock | ao, color, height, normal, roughness | 3 x 3 | imgmat:rock_cliff_b, rock, terrain_rock | L4 |
-| rock_wall | [Rock022](https://ambientcg.com/a/Rock022) | rock | ao, color, height, normal, roughness | 3 x 3 | paint_rock, stone_field | L4 |
+| rock_wall | [Rock022](https://ambientcg.com/a/Rock022) | rock | ao, color, height, normal, roughness | 3 x 3 | footing_rock, paint_rock, stone_field | L4 |
 | rock_mossy | [Rock057](https://ambientcg.com/a/Rock057) | rock | ao, color, height, normal, roughness | 3 x 3 | (unused) | L4 |
-| ground_rubble | [Ground110](https://ambientcg.com/a/Ground110) | dirt | ao, color, height, normal, roughness | 2.1 x 2.1 | terrain_scree, tun_floor_rubble | L4 |
+| ground_rubble | [Ground110](https://ambientcg.com/a/Ground110) | dirt | ao, color, height, normal, roughness | 2.1 x 2.1 | ground_rubble_paint, terrain_scree, tun_floor_rubble | L4 |
 | debris_brick | [Ground111](https://ambientcg.com/a/Ground111) | rubble stone | ao, color, height, normal, roughness | 2.8 x 2.8 | rubble_debris | L4 |
 | leaves_forest | [Ground070](https://ambientcg.com/a/Ground070) | ground paint | ao, color, height, normal, roughness | 2.6 x 2.6 | paint_leaf_litter | L4 |
 | soil_ploughed | [Ground104](https://ambientcg.com/a/Ground104) | ground paint | ao, color, height, normal, roughness | 2 x 2 | paint_ploughed | L4 |
@@ -219,10 +219,12 @@
 | rock_pale_cracked | [Rock060](https://ambientcg.com/a/Rock060) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_pale_cracked | TX2 |
 | rock_dark_wet | [Rock035](https://ambientcg.com/a/Rock035) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_dark_wet | TX2 |
 | rock_red | [Rock029](https://ambientcg.com/a/Rock029) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_red | TX2 |
-| rock_slate_layers | [Rocks011](https://ambientcg.com/a/Rocks011) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_slate_layers | TX2 |
+| rock_slate_layers | [Rocks011](https://ambientcg.com/a/Rocks011) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_slab_paint, rock_slate_layers | TX2 |
 | moss_cushion | [Moss002](https://ambientcg.com/a/Moss002) | moss (TX2) | ao, color, height, normal, roughness | 2 x 2 | moss_cushion | TX2 |
 | rock_green_mossy | [Rock059](https://ambientcg.com/a/Rock059) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_green_mossy | TX2 |
 | leaves_scattered | [ScatteredLeaves008](https://ambientcg.com/a/ScatteredLeaves008) | forest floor (TX2) | ao, color, height, normal, roughness | 2 x 2 | leaves_scattered | TX2 |
 | forest_floor | [Ground023](https://ambientcg.com/a/Ground023) | forest floor (TX2) | ao, color, height, normal, roughness | 3 x 3 | forest_floor | TX2 |
 | sand_rippled | [Ground097](https://ambientcg.com/a/Ground097) | sand (TX2) | ao, color, height, normal, roughness | 3 x 3 | sand_rippled | TX2 |
 | forest_litter | [Ground071](https://ambientcg.com/a/Ground071) | forest floor (TX2) | ao, color, height, normal, roughness | 3 x 3 | forest_litter | TX2 |
+| gravel_mixed | [Gravel015](https://ambientcg.com/a/Gravel015) | gravel (NT4, supplied by the user) | ao, color, height, normal, roughness | 2 x 2 | gravel_mixed | NT4 |
+| brick_grey_footing | [Bricks061](https://ambientcg.com/a/Bricks061) | brick (NT4, supplied by the user) | ao, color, height, normal, roughness | 1.8 x 1.8 | footing_brick | NT4 |

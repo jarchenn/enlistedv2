@@ -53,7 +53,7 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
 bool Match::setupDeathmatch(int humans, std::string& err) {
   const bool solo = ffaMode(rules.mode), royale = rules.mode == GameMode::BattleRoyale;
   int counts[2] = {solo ? std::max(royale ? rules.royalePlayers : rules.soloPlayers, humans) : rules.teamPlayers[0], solo ? 0 : rules.teamPlayers[1]};
-  if (royale) rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers);   // BR5: soldiers only (no zombies, heavies, fighters)
+  if (royale) { rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers); for (auto& c : rules.aiCount) for (int& x : c) x = 0; }   // BR5: soldiers only (no zombies, heavies, fighters)
   if (counts[0] + counts[1] > ScenarioRules::kMaxCombatants) { err = "Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants."; return false; }
   if (counts[0] + counts[1] < 2) { err = "A match needs at least two combatants."; return false; }
   int humansOn[2] = {0, 0};

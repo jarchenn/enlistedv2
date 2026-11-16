@@ -80,6 +80,7 @@ public:
   static float proneHalfLength() { return 0.85f; }
   static float proneRadius() { return 0.25f; }
   static void setCharacterPos(vec3 feet);
+  static void flyCharacter(float dt, vec3 vel);   // CMD2 /fly: the capsule moves at vel with its collisions, no gravity, no floor snapping
   static CharState character();
   static float standHeight() { return 1.8f; }
   static float crouchHeight() { return 1.2f; }

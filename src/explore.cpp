@@ -228,7 +228,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   {   // tanks (tank_sim.cpp): every tank steps (crew loader, engines, wrecks); the occupied one takes all input
     bool wasInTank = tanks.occupied != 0;
     tanks.stepAll(*this, dt, in);
-    if (wasInTank || tanks.occupied) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }
+    if (wasInTank || tanks.occupied) { target = {}; blastShake = std::max(0.0f, blastShake - dt * 1.5f); stepProjectiles(dt); fx.update(dt, terrain); return; }   // VH5c: the shake decays in vehicles too
   }
   if (!occupied) { build.dt = dt; stepBuilder(in); }
   if (occupied) { stepStation(dt, in); }
@@ -260,6 +260,12 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   // still jumps immediately; a climb that starts during that jump adds no second impulse). One climb per hold.
   if (!in.jumpHeld) { vault.held = 0; vault.latch = false; }
   else vault.held += dt;
+  if (gAdmin.fly) vault.latch = true;   // CMD2: no climbing or vaulting while flying (Space is "up")
+  if (gAdmin.flyAllowed && in.jump && !occupied) {   // CMD2: a double-tap of Space toggles flying
+    static double last = -1; double now = glfwGetTime();
+    if (now - last < 0.3) { gAdmin.fly = !gAdmin.fly; if (!gAdmin.fly) gAdmin.fallSafe = true; toast(gAdmin.fly ? "Flying: Space up, Ctrl down, Shift fast; double-tap Space to land" : "Flying off", 3); last = -1; }
+    else last = now;
+  }
   if (mantle.active) { stepMantle(dt); return; }
   if (!occupied && stepSwim(dt, in, before)) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }   // swim.cpp: chest-deep water
   if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartWindowVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; spendStamina(move.staminaJump); return; }   // a climb costs like a jump (never refused: trench exits)
@@ -271,12 +277,19 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   speed *= traversalFactor(Physics::character().pos);   // inside a "slow" wire volume
   Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity; Physics::tuning.jumpBuffer = move.jumpBuffer; Physics::tuning.coyote = move.coyote;
   bool jump = in.jump && !spaceUp && !(rising && riseProne) && stamina >= move.staminaJump;   // only the prone get-up holds a jump back; too tired: no jump
-  bool jumped = !occupied && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
+  const bool flying = gAdmin.fly && !occupied;
+  if (flying) {   // CMD2 /fly: where you look, Space up, Ctrl down, Shift fast; collisions kept
+    vec3 d = forward(eyeYaw, eyePitch) * in.move.y + rgt * in.move.x; if (glm::length(d) > 1) d = glm::normalize(d);
+    d.y += (in.jumpHeld ? 1.0f : 0.0f) - (in.crouch ? 1.0f : 0.0f);
+    Physics::flyCharacter(dt, d * (in.sprint ? 30.0f : 9.0f));
+  }
+  bool jumped = !occupied && !flying && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
   knockVel *= std::exp(-5.0f * dt);
   if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
   { int pp = Physics::character().posture; tickStamina(dt, sprinting && glm::length(wish) > 0.1f, pp == Physics::CROUCH || pp == Physics::PRONE ? move.staminaLowRegen : 1.0f); }   // crouched / prone: faster recovery
   auto c = Physics::character();
-  rulesAfterMove(*this, before, c, dt);   // W1: fall damage (match, player only)
+  if (gAdmin.fly || gAdmin.fallSafe) { if (!gAdmin.fly && c.grounded) gAdmin.fallSafe = false; }   // CMD2: no fall damage while flying or on the way down after it
+  else rulesAfterMove(*this, before, c, dt);   // W1: fall damage (match, player only)
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
   float eyeTarget = c.posture == Physics::PRONE ? move.eyeProne : c.posture == Physics::CROUCH ? move.eyeCrouch : move.eyeStand;
   // getting up takes time: prone -> stand 1.1 s, prone -> crouch 0.75 s, crouch -> stand 0.45 s (movement.json),

@@ -50,6 +50,8 @@ std::map<std::string, std::string> matImg;   // MA1: material -> imgmat slot nam
 int patSlot[32];
 int terrSlot[8];
 int paintSlot[kPaintTypes];
+int paintSlotEff[kPaintTypes];   // NT4: after the open map's look.paintSets override
+std::string gPaintKey = "";
 std::vector<SetInfo> sets;             // loaded layers
 std::vector<GLuint> progs;
 GLuint arr[3] = {0, 0, 0};
@@ -99,6 +101,7 @@ void loadMapping(const fs::path& file) {
   for (int k = 0; k < 8; ++k) if (tj.contains(tl[k])) terrSlot[k] = std::max(-1, ref(tj[tl[k]].get<std::string>()));
   json pj = j.value("paint", json::object());
   for (int k = 0; k < kPaintTypes; ++k) if (pj.contains(kPaintTypeNames[k])) paintSlot[k] = std::max(-1, ref(pj[kPaintTypeNames[k]].get<std::string>()));
+  std::copy(std::begin(paintSlot), std::end(paintSlot), std::begin(paintSlotEff)); gPaintKey = "";
   // MA1 imgmat table: slot overrides (an existing name changes only the imgmat table) and imgmat-only slots (empty in
   // the base table); patterns and floor finishes switch per table; materials that had no rule may name a slot (an
   // enabled base slot gets an "img:" alias that is empty in the base table)
@@ -248,7 +251,7 @@ void upload(GLuint p) {
   if (const char* e = std::getenv("NMK_TEX_LOD")) std::sscanf(e, "%f,%f,%f,%f", &lod.x, &lod.y, &lod.z, &lod.w);
   if (const char* e = std::getenv("NMK_TEX_LOD2")) std::sscanf(e, "%f,%f,%f,%f", &lod2.x, &lod2.y, &lod2.z, &lod2.w);
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
-  glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlot);
+  glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlotEff);
 }
 void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arrays, no padding)
   std::vector<vec4> d((size_t)kMaxSlots * 5 + (size_t)kMaxLayers * 2);
@@ -815,5 +818,23 @@ std::string stateKey() {   // cached: thumbnail keys ask once per asset
   }
   gKey = k; gKeyValid = true;
   return gKey;
+}
+}  // namespace tex
+
+namespace tex {
+// NT4: a map's own ground sets ("look": {"paintSets": {"gravel": "<slot>", ...}}): the painted types draw those slots on
+// that map only (other maps keep content/textures/textures.json "paint")
+void mapPaintSets(const json* look) {
+  std::string key = look && look->is_object() && look->contains("paintSets") ? (*look)["paintSets"].dump() : std::string();
+  if (key == gPaintKey) return;
+  gPaintKey = key;
+  std::copy(std::begin(paintSlot), std::end(paintSlot), std::begin(paintSlotEff));
+  if (!key.empty()) for (int k = 0; k < kPaintTypes; ++k) {
+    const json& ps = (*look)["paintSets"];
+    if (!ps.contains(kPaintTypeNames[k]) || !ps[kPaintTypeNames[k]].is_string()) continue;
+    auto it = slotByName.find(ps[kPaintTypeNames[k]].get<std::string>());
+    if (it != slotByName.end()) paintSlotEff[k] = it->second; else logf("textures: look.paintSets: unknown slot '%s'", ps[kPaintTypeNames[k]].get<std::string>().c_str());
+  }
+  uploadAll();
 }
 }  // namespace tex

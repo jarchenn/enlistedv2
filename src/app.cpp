@@ -828,6 +828,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
+    else if (a == "--capture-standoff") runSelf = true;   // AI4 (selftest_zombies.cpp)
     else if (a == "--selftest-royale-live") runSelf = true;   // BR7: 20 bots on Newtown (selftest_royale_live.cpp)   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
     else if (a == "--profile-map" && k + 3 < argc) { runSelf = true; k += 3; }   // PF3 CPU frame profile (selftest_perf.cpp)  // G2 zombie AI type, melee, knife v soldiers (selftest_zombies.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
@@ -850,6 +851,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
     else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }
+    else if (a == "--check-vehicle-ai") runSelf = true;   // selftest_vehicle_ai.cpp
     else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];
     else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }
     else if (a == "--capture-dash") runSelf = true;   // capture_dash.cpp: driver's views (VH6)   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets
@@ -1070,6 +1072,7 @@ int App::run(int argc, char** argv) {
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
       R.lt.mapGrime = lk ? std::clamp(lk->value("grime", 0.0f), 0.0f, 2.0f) : 0.0f;
+      tex::mapPaintSets(lk);   // NT4
       R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);
       R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
       { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog + (int)(R.wx.mapCloud * 1000.0f) * 64; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky

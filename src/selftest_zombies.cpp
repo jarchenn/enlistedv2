@@ -375,7 +375,13 @@ void build(App&) {
 // and head height logged. Nobody falls (hp topped up every frame).
 std::vector<std::pair<fs::path, std::string>> shotQ;
 bool ch1Capture = false;   // --capture-ch1: the CH1 types instead (selftest_out/ch1_*.png), then their deaths
-const char* kCh1Types[4] = {"knight", "animatronic", "alien", "alien_queen"};
+// the four types (NMK_CAPTURE_TYPES="a,b,c,d" overrides: the CH3 / CH4 types)
+std::string capType(int k) {
+  static std::vector<std::string> t;
+  if (t.empty()) { t = {"knight", "animatronic", "alien", "alien_queen"};
+    if (const char* e = std::getenv("NMK_CAPTURE_TYPES")) { std::string s = e; for (int i = 0; i < 4 && !s.empty(); ++i) { size_t c = s.find(','); t[i] = s.substr(0, c); s = c == std::string::npos ? "" : s.substr(c + 1); } } }
+  return t[k];
+}
 void buildCapture(App&) {
   push("capture", [](App& a, float t) {
     static int z3[4], atk[4], mc0[4], sol; static double t0, atkAt[4]; static float yaw, prev;
@@ -389,7 +395,7 @@ void buildCapture(App&) {
     if (!L || !L->alive || !allSpawned(G)) return t > 20 ? (chk(false, "everyone spawns"), true) : false;
     L->protectUntil = -1; if (L->hp < 3000) L->hp = 5000;
     if (t0 < 0) {
-      int k = 0; for (auto& s : G.sold) if (s.zombie && k < 4) { s.etype = ch1Capture ? std::max(0, enemyTypeIndex(kCh1Types[k])) : k < 3 ? k : std::max(0, enemyTypeIndex("creature")); aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp; z3[k++] = s.slot;
+      int k = 0; for (auto& s : G.sold) if (s.zombie && k < 4) { s.etype = ch1Capture ? std::max(0, enemyTypeIndex(capType(k))) : k < 3 ? k : std::max(0, enemyTypeIndex("creature")); aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp; z3[k++] = s.slot;
         const EnemyType& e = enemyType(s.etype); if (s.agent >= 0 && e.capsuleH > 0) { Physics::destroyAgent(s.agent); s.agent = Physics::createAgent(s.feet, e.capsuleH, e.capsuleR); } }
       sol = -1; for (auto& s : G.sold) if (!s.zombie && !s.localPlayer && s.alive) sol = s.slot;
       vec3 sp; if (sol < 0 || !openPoint(G, L->feet, 6.0f, sp, 0.0f)) { chk(false, "the soldier placed"); return true; }
@@ -447,6 +453,57 @@ void buildCapture(App&) {
     if (!shot1 && t > 0.6f && pendingShot.empty()) { shot1 = true; pendingShot = outDir() / "ch1_death_0.6.png"; }
     if (!shot2 && t > 3.0f && pendingShot.empty()) { shot2 = true; pendingShot = outDir() / "ch1_death_3.0.png"; }
     return shot2 && pendingShot.empty() && t > 3.5f; });
+  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+}
+// AI4 --capture-standoff: no checks, numbers. Four soldier bots with five zombies 25 m out, then the same with golems
+// (the local-only type; the brute without it). For 25 s each (everyone's health topped up) the soldiers' distance to
+// the nearest melee enemy and how many are keeping their distance are logged every 2 s, with the minimum and mean.
+void buildStandoff(App&) {
+  for (int phase = 0; phase < 2; ++phase)
+  push(phase ? "standoff: golems" : "standoff: zombies", [phase](App& a, float t) {
+    static std::vector<int> sol, zs; static double t0, next; static float minD; static double sumD; static int nD, kiting, nK;
+    if (t == 0) {
+      t0 = -1; next = 0; minD = 1e9f; sumD = 0; nD = 0; kiting = 0; nK = 0;
+      if (phase == 0 && !chk(startMode(a, GameMode::TDM, 10, 5, 5, AiType::Soldiers, AiType::Zombies), "TDM: soldiers v zombies (%s)", gGame->setupError.c_str())) return true;
+      return false;
+    }
+    Game& G = *gGame; Soldier* L = G.local();
+    if (!L || !allSpawned(G)) return t > 25 ? (chk(false, "everyone spawns"), true) : false;
+    guardLocal(G); L->hp = 5000;
+    if (t0 < 0) {
+      sol.clear(); zs.clear();
+      for (auto& s : G.sold) if (s.alive && !s.human) (s.zombie ? zs : sol).push_back(s.slot);
+      if (sol.size() < 2 || zs.empty()) { chk(false, "soldiers %zu, zombies %zu", sol.size(), zs.size()); return true; }
+      int gt = enemyTypeIndex("golem"); if (gt < 0) gt = std::max(0, enemyTypeIndex("brute"));
+      for (int z : zs) { Soldier& s = G.sold[z]; s.etype = phase ? gt : 0; aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp;
+        const EnemyType& e = enemyType(s.etype); if (s.agent >= 0 && e.capsuleH > 0) { Physics::destroyAgent(s.agent); s.agent = Physics::createAgent(s.feet, e.capsuleH, e.capsuleR); } }
+      vec3 c = G.sold[sol[0]].feet, p;
+      for (size_t k = 1; k < sol.size(); ++k) if (openPoint(G, c, 2.5f, p, 1.3f * k)) place(G, G.sold[sol[k]], p);
+      for (size_t k = 0; k < zs.size(); ++k) if (openPoint(G, c, 25.0f, p, 0.35f * k)) place(G, G.sold[zs[k]], p);
+      if (openPoint(G, c, 60.0f, p, 3.6f)) place(G, *L, p);   // the player well out of the way
+      T->note(std::string("standoff ") + enemyType(G.sold[zs[0]].etype).id + ": " + std::to_string(sol.size()) + " soldiers, " + std::to_string(zs.size()) + " melee enemies at 25 m");
+      t0 = G.t; return false;
+    }
+    for (int k : sol) { G.sold[k].hp = 5000; G.sold[k].protectUntil = -1; }
+    for (int z : zs) if (G.sold[z].alive) G.sold[z].hp = std::max(G.sold[z].hp, enemyType(G.sold[z].etype).hp);
+    float since = (float)(G.t - t0);
+    if (since >= next) {
+      next += 0.5;
+      float lineMin = 1e9f; int k2 = 0;
+      for (int k : sol) {
+        const Soldier& s = G.sold[k]; if (!s.alive) continue;
+        float d = 1e9f; for (int z : zs) if (G.sold[z].alive) d = std::min(d, dXZ(G.sold[z].feet, s.feet));
+        if (d > 1e8f) continue;
+        lineMin = std::min(lineMin, d); if (since > 3) { minD = std::min(minD, d); sumD += d; ++nD; }
+        bool kite = s.br.why.find("distance") != std::string::npos || s.br.why.find("gap") != std::string::npos || s.br.why.find("outrun") != std::string::npos || s.br.why.find("holding range") != std::string::npos;
+        k2 += kite; if (since > 3) { kiting += kite; ++nK; }
+      }
+      if ((int)(since * 2) % 4 == 0) { char ln[200]; std::snprintf(ln, sizeof ln, "t %.1f: nearest melee enemy %.1f m, %d of %zu soldiers keeping distance (%s, speed %.1f, path %d)", since, lineMin, k2, sol.size(), G.sold[sol[0]].br.why.c_str(), G.sold[sol[0]].speed, aiCore() ? (int)aiCore()->mind(G.sold[sol[0]]).hasPath : -1); T->note(ln); }
+    }
+    if (since < 25) return false;
+    chk(nD > 0, "%s: soldiers' distance to the nearest melee enemy after the first 3 s: min %.1f m, mean %.1f m; keeping distance in %.0f %% of samples",
+        phase ? "golems" : "zombies", minD, nD ? (float)(sumD / nD) : 0.0f, nK ? 100.0f * kiting / nK : 0.0f);
+    return true; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 }   // namespace
@@ -564,10 +621,10 @@ void buildSlamCapture(App&) {
 }
 
 bool zombiesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-ch1") mode = 5; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; } }
-  if (mode < 1 || mode > 5) return false;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-ch1") mode = 5; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; else if (s == "--capture-standoff") mode = 6; } }
+  if (mode < 1 || mode > 6) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; ch1Capture = mode == 5; if (mode == 5) mode = 2; T = new MpTest(ch1Capture ? "ch1" : mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else build(app); cur = 0; st = 0; }
+  if (!started) { started = true; ch1Capture = mode == 5; if (mode == 5) mode = 2; T = new MpTest(ch1Capture ? "ch1" : mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : mode == 6 ? "standoff" : "zombies"); if (mode == 6) buildStandoff(app); else if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else build(app); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

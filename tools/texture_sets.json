@@ -2198,6 +2198,26 @@
     3
    ],
    "batch": "TX2"
+  },
+  {
+   "set": "gravel_mixed",
+   "id": "Gravel015",
+   "family": "gravel (NT4, supplied by the user)",
+   "size": [
+    2,
+    2
+   ],
+   "batch": "NT4"
+  },
+  {
+   "set": "brick_grey_footing",
+   "id": "Bricks061",
+   "family": "brick (NT4, supplied by the user)",
+   "size": [
+    1.8,
+    1.8
+   ],
+   "batch": "NT4"
   }
  ],
  "polyhaven": [

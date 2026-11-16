@@ -34,7 +34,7 @@ void AiCore::perceive(Soldier& s) {
   float range = diff.detectOpen;
   for (auto& mm : b.mem) mm.visible = false;
   for (auto& o : G.sold) {
-    if (!o.alive || o.team == s.team) continue;
+    if (!o.alive || !Game::hostile(s, o)) continue;   // CMD2: through hostile (the /admin is not seen as an enemy)
     vec3 tc = G.chest(o), th = G.eye(o);
     float dist = glm::length(tc - e);
     EnemyMemory* mm = nullptr; for (auto& x : b.mem) if (x.enemy == o.slot) mm = &x;
@@ -70,7 +70,7 @@ void AiCore::perceive(Soldier& s) {
   for (auto& snd : G.sounds) {
     if (G.t - snd.t > 0.25 || snd.src < 0 || snd.src >= (int)G.sold.size()) continue;
     const Soldier& o = G.sold[snd.src];
-    if (o.team == s.team || !o.alive) continue;
+    if (!Game::hostile(s, o) || !o.alive) continue;
     float d = glm::length(snd.p - s.feet), R = snd.range;
     if (snd.kind == 0) { bool pistol = o.weapon >= 0 && pistolCal(G.app.weaponDefs[o.weapon]->caliber); R = pistol ? tj("perception", "hearSmg_m", 120.0f) : tj("perception", "hearRifle_m", 250.0f);
       const WeaponState* ow = &o.ws; if (o.localPlayer && o.weapon >= 0) { auto it = G.app.wstate.find(G.app.weaponDefs[o.weapon]->id); if (it != G.app.wstate.end()) ow = &it->second; }

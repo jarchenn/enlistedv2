@@ -35,6 +35,7 @@ float groundPaintGrass(float x, float z);
 float groundPaintTint(float x, float z, vec3& col);   // painted swatch colour and its weight (grass clump bases)
 float groundPaintWeight(float x, float z, int type);  // that type's weight (G1: sand grows dune grass)
 bool groundPaintBlocksNature(float x, float z);
+bool groundPaintArid();   // NT4: look.arid (desert maps)
 int groundPaintNavArea(float x, float z);       // -1 = none
 const std::string& groundPaintStep(float x, float z);
 float lassoWaterAtCurrent(float x, float z);    // lassoWaterAt on the current map (-1e9 = none)

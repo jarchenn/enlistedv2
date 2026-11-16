@@ -19,9 +19,12 @@
 #include <vector>
 
 void settingsUiWeather(App& app, int w);   // settings.cpp: the Weather combo (live; a LAN host's weather reaches clients)
+AdminMode gAdmin;   // CMD2 (commands.h)
 
 namespace {
 bool gToCreative = false;
+std::string lower(std::string s);
+std::string onOff(std::vector<std::string>& a, bool cur, bool& ok) { ok = true; if (a.empty()) return cur ? "off" : "on"; std::string v = lower(a[0]); ok = v == "on" || v == "off"; return v; }
 using Args = std::vector<std::string>;
 struct Cmd { const char* name; const char* usage; const char* help; std::function<std::string(App&, Args&)> run; };
 
@@ -149,11 +152,28 @@ const std::vector<Cmd>& table() {
        else return "usage: /tp <x> <z>  |  /tp <player>";
        Physics::setCharacterPos(to); char b[64]; std::snprintf(b, sizeof b, "Teleported to %.0f %.0f", to.x, to.z); return b;
      }},
+    {"admin", "/admin [on|off|peace]", "stay in play with: B builds (the asset palette, free), double-tap Space flies, nothing hurts you, no AI attacks you; peace: no AI fights at all; ends with the match",
+     [](App&, Args& a) -> std::string {
+       std::string v = a.empty() ? (gAdmin.on ? "off" : "on") : lower(a[0]);
+       if (v == "off") { bool flew = gAdmin.fly; gAdmin = AdminMode{}; gAdmin.fallSafe = flew; return "Admin off"; }
+       if (v != "on" && v != "peace") return "usage: /admin [on|off|peace]";
+       gAdmin.on = gAdmin.god = gAdmin.ignored = gAdmin.build = gAdmin.flyAllowed = true; if (v == "peace") gAdmin.peace = true;
+       return std::string("Admin on: B builds (asset palette), double-tap Space flies, nothing hurts you, no AI attacks you") + (gAdmin.peace ? "; peace: no AI fights" : "");
+     }},
+    {"fly", "/fly [on|off]", "flying: Space up, Ctrl down, Shift fast; double-tap Space toggles it while allowed",
+     [](App&, Args& a) -> std::string { bool ok; std::string v = onOff(a, gAdmin.fly, ok); if (!ok) return "usage: /fly [on|off]";
+       gAdmin.flyAllowed = true; gAdmin.fly = v == "on"; if (!gAdmin.fly) gAdmin.fallSafe = true; return gAdmin.fly ? "Flying" : "Flying off"; }},
+    {"peace", "/peace [on|off]", "no AI attacks anyone",
+     [](App&, Args& a) -> std::string { bool ok; std::string v = onOff(a, gAdmin.peace, ok); if (!ok) return "usage: /peace [on|off]"; gAdmin.peace = v == "on"; return gAdmin.peace ? "Peace: no AI fights" : "Peace off"; }},
+    {"build", "/build [on|off]", "B opens the free build palette (every asset) in a match",
+     [](App&, Args& a) -> std::string { bool ok; std::string v = onOff(a, gAdmin.build, ok); if (!ok) return "usage: /build [on|off]"; gAdmin.build = v == "on"; return gAdmin.build ? "Build: B opens the asset palette" : "Build off"; }},
     {"kill", "/kill [target]", "kills (a match only)",
      [](App&, Args& a) -> std::string {
        if (!matchOn()) return "No match running";
        std::string err; std::vector<int> w = targets(a.empty() ? "" : a[0], err); if (w.empty()) return err;
+       gAdmin.allowKill = true;   // CMD2: /kill reaches you through /admin too
        int n = 0; for (int s : w) if (Soldier* so = soldier(s)) if (so->alive) { so->protectUntil = -1; gGame->killSoldier(s, -1, vec3(0, 0, 1)); ++n; }
+       gAdmin.allowKill = false;
        return "Killed " + std::to_string(n);
      }},
     {"heal", "/heal [target]", "full health (a match only)",
@@ -259,6 +279,13 @@ void commandsFrame(App& app) {
       app.syncCursor();
     }
   }
+  if (gAdmin.on || gAdmin.fly || gAdmin.peace || gAdmin.build) {   // CMD2: the HUD tag
+    std::string tag = gAdmin.on ? "ADMIN" : ""; auto add = [&](bool b, const char* s) { if (b) tag += (tag.empty() ? "" : "  ") + std::string(s); };
+    add(gAdmin.fly, "FLY"); add(gAdmin.peace, "PEACE"); add(!gAdmin.on && gAdmin.build, "BUILD");
+    ImVec2 ts = ImGui::CalcTextSize(tag.c_str()), p(io.DisplaySize.x * 0.5f - ts.x * 0.5f, 96);
+    ImDrawList* dl = ImGui::GetForegroundDrawList(); dl->AddRectFilled(ImVec2(p.x - 8, p.y - 3), ImVec2(p.x + ts.x + 8, p.y + ts.y + 3), IM_COL32(0, 0, 0, 140), 4);
+    dl->AddText(p, IM_COL32(255, 170, 40, 255), tag.c_str());
+  }
   if (!st.result.empty() && ImGui::GetTime() < st.resultUntil) {
     ImGui::SetNextWindowPos(ImVec2(16, y - 8), ImGuiCond_Always, ImVec2(0, 1)); ImGui::SetNextWindowSize(ImVec2(0, 0)); ImGui::SetNextWindowBgAlpha(0.6f);   // refit each frame (a long /help leaves no tall box behind)
     ImGui::Begin("##commandresult", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize);
@@ -277,7 +304,7 @@ void commandsFrame(App& app) {
 #include "scenario.h"
 #include <cstdlib>
 namespace {
-struct Cap { MpTest* T = nullptr; int step = 0; float t = 0; bool on = false, checked = false; } cap;
+struct Cap { MpTest* T = nullptr; int step = 0; float t = 0; bool on = false, checked = false; float y0 = 0, hp0 = 0; } cap;
 fs::path capDir() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 void expect(App& app, const std::string& line, const std::string& want) {
   std::string r = commandRun(app, line);
@@ -318,7 +345,49 @@ bool commandsSelfTest(App& app, float dt) {
       else if (cap.t > 0.6f) { T.check(std::string(st.buf) == "/give modern_ar15 ", std::string("Tab completes a unique prefix: \"") + st.buf + "\""); io.AddKeyEvent(ImGuiKey_Enter, true); next(); } break;
     case 7: io.AddKeyEvent(ImGuiKey_Enter, false); if (cap.t > 0.3f) {
         T.check(!commandsOpen() && !app.wantCursor() && st.result.rfind("Gave", 0) == 0, "Enter runs and closes (" + st.result + ")");
-        app.uiShot = capDir() / "cmd_give.png"; next(); } break;
+        app.uiShot = capDir() / "cmd_give.png"; cap.step = 40; cap.t = 0; } break;
+    // SND1: enemy rounds past the head (injected): one 1 m beside it whizzes, one 8 m out does not, a 30-round burst 1 m out
+    // gives at most four in its 0.3 s
+    case 40: case 41: case 42: if (cap.t > 0.4f) { gAdmin.peace = true;   // no real fire near the head while the injected rounds are counted
+        static int before = 0; int enemy = -1; Soldier* L = gGame->local();
+        for (auto& s : gGame->sold) if (L && s.inUse && s.team != L->team) enemy = s.slot;
+        if (cap.step > 40) {
+          int got = app.audio.eventPlays["bulletwhiz"] - before;
+          if (cap.step == 41) T.check(got == 1, "a round 1 m from the head whizzes once (" + std::to_string(got) + ")");
+          if (cap.step == 42) T.check(got == 0, "a round 8 m away is silent (" + std::to_string(got) + ")");
+        }
+        before = app.audio.eventPlays["bulletwhiz"];
+        float off = cap.step == 40 ? 1.0f : 8.0f; vec3 eye = app.eyePos(), f = App::forward(app.eyeYaw, 0), side(-f.z, 0, f.x);
+        Projectile q; q.kind = PROJ_BULLET; q.owner = enemy; q.life = 0.5f; q.dmg = 0; q.p = eye + f * 30.0f + side * off; q.v = -f * 600.0f;
+        app.projectiles.push_back(q); next(); } break;
+    case 43: if (cap.t > 0.4f) {
+        static int before = 0; Soldier* L = gGame->local(); int enemy = -1;
+        for (auto& s : gGame->sold) if (L && s.inUse && s.team != L->team) enemy = s.slot;
+        if (cap.t < 0.45f) {
+          before = app.audio.eventPlays["bulletwhiz"]; vec3 eye = app.eyePos(), f = App::forward(app.eyeYaw, 0), side(-f.z, 0, f.x);
+          for (int k = 0; k < 30; ++k) { Projectile q; q.kind = PROJ_BULLET; q.owner = enemy; q.life = 0.5f; q.dmg = 0; q.p = eye + f * (30.0f + 0.25f * k) + side * 1.0f; q.v = -f * 600.0f; app.projectiles.push_back(q); }
+        } else if (cap.t > 1.2f) { int got = app.audio.eventPlays["bulletwhiz"] - before; T.check(got >= 1 && got <= 4, "a 30-round burst 1 m out: " + std::to_string(got) + " whizzes (cap 4)"); gAdmin.peace = false; cap.step = 50; cap.t = 0; }
+      } break;
+    // CMD2: /admin, /fly (rise on Space, land without fall damage), /build (B in a match: the sandbox builder)
+    case 50: if (cap.t > 0.3f) {
+        expect(app, "/admin on", "Admin on");
+        Soldier* L = gGame->local(); int en = -1, mate = -1; for (auto& s : gGame->sold) { if (s.team != L->team) en = s.slot; else if (!s.localPlayer) mate = s.slot; }
+        float hp0 = L->hp; gGame->damage(L->slot, 60, en, vec3(0, 0, 1), "blast"); gGame->killSoldier(L->slot, en, vec3(0, 0, 1));
+        T.check(L->alive && L->hp == hp0 && L->protectUntil < 1e11, "/admin: no damage, no death, no protection shimmer");
+        T.check(en >= 0 && !Game::hostile(gGame->sold[en], *L) && Game::hostile(*L, gGame->sold[en]), "/admin: the enemy does not take you for an enemy; you can still fight it");
+        T.check(mate >= 0 && Game::hostile(gGame->sold[en], gGame->sold[mate]), "/admin: the AI keeps fighting each other");
+        expect(app, "/peace on", "Peace"); T.check(!Game::hostile(gGame->sold[en], gGame->sold[mate]), "/peace: no AI takes anyone for an enemy"); expect(app, "/peace off", "off");
+        expect(app, "/fly on", "Flying"); cap.y0 = Physics::character().pos.y; app.scriptedInput = ExploreInput{}; app.scriptedInput.jumpHeld = true; next(); } break;
+    case 51: if (cap.t > 1.0f) {
+        float y1 = Physics::character().pos.y; T.check(y1 - cap.y0 > 4.0f, "flying: Space rises (" + std::to_string(y1 - cap.y0) + " m in 1 s)");
+        app.uiShot = capDir() / "cmd_admin.png"; app.scriptedInput.jumpHeld = false; cap.step = 60; cap.t = 0; } break;   // the ADMIN  FLY tag, in the air
+    case 60: if (cap.t > 0.3f) { expect(app, "/admin off", "off"); cap.hp0 = gGame->local()->hp; cap.step = 52; cap.t = 0; } break;
+    case 52: if (cap.t > 3.0f) {
+        T.check(Physics::character().grounded && !gAdmin.fly && gGame->local()->hp == cap.hp0, "after flying: landed, no fall damage (" + std::to_string(cap.hp0) + " -> " + std::to_string(gGame->local()->hp) + ")");
+        expect(app, "/build on", "Build"); app.scriptedInput.build = true; next(); } break;
+    case 53: if (cap.t > 0.4f) {
+        T.check(app.build.active && !app.build.engineer, "/build: B in a match opens the sandbox builder (not the Engineer menu)");
+        app.scriptedInput.build = true; expect(app, "/build off", "off"); cap.step = 8; cap.t = 0; } break;
     case 8: if (cap.t > 0.5f) {
         expect(app, "/give thompson", "Gave"); expect(app, "/give zzz_nothing", "No weapon"); expect(app, "/give m", "matches");
         expect(app, "/time set night", "Time set to 00:00"); expect(app, "/time set 18:30", "18:30"); expect(app, "/time set noon", "12:00"); expect(app, "/time set 25", "usage");

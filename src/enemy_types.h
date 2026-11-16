@@ -8,6 +8,7 @@
 struct EnemyType {
   std::string id = "zombie", name = "Zombie";
   std::string sndAttack, sndIdle, sndStep;                // CH1 json "sounds" {attack, idle, step}: audio events for a type without built-in ones
+  std::string sndContact, sndDeath, sndLoop;              // SND1 / SND2: "contact" (a blow lands on someone), "death", "loop" (a looping sound on each living one, nearest few)
   std::string model = "zombie"; float height = 1.85f;    // content/characters/<model>.glb, rest pose scaled to height
   std::vector<std::string> models;                        // variants (json "models"; [0] = model): Soldier::evariant picks one in turn
   float scale = 1, lean = 0;                              // drawn (and hit) at scale x; lean: whole-body forward tilt (deg)
@@ -25,6 +26,7 @@ struct EnemyType {
   int shellKills = 0;                                     // > 0: a direct tank / cannon shell or rocket hit takes exactly hp / shellKills (that round's blast adds nothing)
   float locoRate = 1;                                     // walk / run clip speed x (legs move faster than the ground speed alone gives)
   float nonBlastMult = 1;                                 // damage x from everything but explosions (the Fighters: 0.1)
+  float groundShake = 0;                                  // CH3 json "ground_shake" 0-1: each landing blow shakes the player's view (App::blastShake), fading out by 30 m
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
   bool blastOnly = false;                                 // only blast damage hurts it (the Fighter)
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)

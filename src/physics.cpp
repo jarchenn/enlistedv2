@@ -486,6 +486,17 @@ uint64_t Physics::shapeHitUD(int posture, vec3 feet, bool withTerrain) {
   return lock.Succeeded() ? lock.GetBody().GetUserData() : 1;
 }
 
+void Physics::flyCharacter(float dt, vec3 v) {
+  auto& c = W->character;
+  if (!c) return;
+  auto bpf = W->sys->GetDefaultBroadPhaseLayerFilter(Layers::MOVING);
+  AllLayers olf; BodyFilter bf; ShapeFilter sf;
+  c->SetLinearVelocity(jv(v));
+  CharacterVirtual::ExtendedUpdateSettings us; us.mStickToFloorStepDown = Vec3::sZero(); us.mWalkStairsStepUp = Vec3::sZero();
+  c->ExtendedUpdate(dt, Vec3::sZero(), us, bpf, olf, bf, sf, *W->temp);
+  W->sinceGround = 99; W->jumpBuf = 0;
+}
+
 bool Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawWanted) {
   auto& c = W->character;
   if (!c) return false;

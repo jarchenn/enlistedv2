@@ -20,10 +20,10 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3 };
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle royale" : "Assault"; }
 inline bool ffaMode(GameMode m) { return m == GameMode::Solo || m == GameMode::BattleRoyale; }   // every soldier its own team
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8, Knights = 9, Animatronics = 10, Aliens = 11, AlienQueens = 12 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type; CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
-constexpr int kAiTypeCount = 13;
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8, Knights = 9, Animatronics = 10, Aliens = 11, AlienQueens = 12, Abominations = 13, Golems = 14, Boglords = 15 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type; CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
+constexpr int kAiTypeCount = 16;   // CH3 / CH4: 13-15 the abomination, golem, boglord types (local-only: a zombie without them)
 inline const char* aiTypeName(AiType t) {
-  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures", "Knights", "Animatronics", "Aliens", "Alien queens"};
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures", "Knights", "Animatronics", "Aliens", "Alien queens", "Abominations", "Golems", "Boglords"};
   return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
 }
 inline int aiBit(AiType t) { return 1 << (int)t; }
@@ -33,6 +33,18 @@ inline AiType aiTypeFor(int mask, int k) {
   if (!n) return AiType::Soldiers;
   k %= n; for (int t = 0; t < kAiTypeCount; ++t) if ((mask >> t) & 1 && k-- == 0) return (AiType)t;
   return AiType::Soldiers;
+}
+// AI3: a side's next AI with per-type counts: the type furthest behind its share, so the types come out mixed in
+// proportion (40 / 5 / 200 / 1 interleave, and more AI than counted keep the proportions). `given` counts what this side
+// has handed out so far. No counts (rules before AI3): the ticked types in turn, as aiTypeFor.
+inline AiType aiTypeNext(const int* count, int mask, int* given) {
+  int sum = 0, n = 0; for (int t = 0; t < kAiTypeCount; ++t) { sum += std::max(0, count[t]); n += given[t]; }
+  AiType a = aiTypeFor(mask, n);
+  if (sum > 0) {
+    double bd = -1e18;
+    for (int t = 0; t < kAiTypeCount; ++t) if (count[t] > 0) { double d = (double)count[t] * (n + 1) / sum - given[t]; if (d > bd) { bd = d; a = (AiType)t; } }
+  }
+  ++given[(int)a]; return a;
 }
 
 constexpr int kScenarioVersion = 2;
@@ -108,6 +120,10 @@ struct ScenarioRules {
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: the troll share of the old AI type Heavies; unused since Brutes / Spiders are their own types (kept in the rules JSON)
   int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
+  // AI3: per team, how many AI of each type (the setup window's typed counts; the team / player totals above are
+  // derived from them plus the humans). All 0: the pre-AI3 rules, aiTypes taken in turn (aiTypeNext)
+  int aiCount[2][kAiTypeCount] = {};
+  int aiSum(int t) const { int s = 0; for (int k = 0; k < kAiTypeCount; ++k) s += aiCount[t][k]; return s; }
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn

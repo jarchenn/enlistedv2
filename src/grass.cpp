@@ -387,6 +387,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
   int N = (int)(kMaxDensity * kChunk * kChunk);
   c.ymin = 1e9f; c.ymax = -1e9f; c.hmax = 0;
   static thread_local BroadNoise bn; bn.build(ox - 1, oz - 1);
+  const bool arid = groundPaintArid();   // NT4
   for (int i = 0; i < N; ++i) {
     Rng r{hcomb(hcomb(hcomb(seed_ * 7919ull, (uint32_t)c.cx), (uint32_t)c.cz), (uint64_t)i)};
     float x = ox + r.f() * kChunk, z = oz + r.f() * kChunk;
@@ -431,6 +432,7 @@ void Grass::build(Chunk& c, const Terrain& t, const std::vector<GrassFootprint>&
     float pStraw = 0.07f * smooth(0.62f, 0.82f, nDry) + 0.6f * (1.0f - paintG), pTurf = 0.30f * (1.0f - 0.6f * smooth(0.55f, 0.82f, nTall));
     pTall += 0.18f * rough; pShrub += 0.035f * rough; pStraw += 0.10f * rough; pTurf *= 1.0f - 0.5f * rough; pClo *= 1.0f - 0.7f * rough;
     if (wear > 0.05f) { pTall *= 0.2f; pShrub = 0; pTurf = 0.8f; }   // trodden: cropped short
+    if (arid) { pClo = 0; pBroad = 0; pStraw += 0.45f + pTurf * 0.8f; pTurf *= 0.2f; pTall *= 0.5f; }   // NT4 desert: straw and scrub, no clover / broadleaf flowers
     float acc = 0; int sp = 1;
     const std::pair<float, int> layers[] = {{dune, 18}, {pShrub, 16}, {pTall, 2}, {pClo, 3}, {pBroad, 17}, {pStraw, 4}, {pTurf, 0}};
     for (auto [p, s] : layers) { acc += p; if (rs < acc) { sp = s; break; } }
