@@ -1,0 +1,103 @@
+{
+  "id": "outpost_desert",
+  "version": 1,
+  "order": 10,
+  "name": "Outpost Desert",
+  "available": true,
+  "seed": 3101,
+  "description": "A small Battle Royale map, 126 x 140 m (1/8 of Newtown): an abandoned HESCO forward base on a rise, a dead convoy on the old highway, a dry wadi, a ruined roadside hamlet with a petrol station, and a mesa with a radar and an observation bunker. Military loot (level-3 armour) in the base, the radar and the bunker. 16 players by default, short storm circles. Battle Royale, Team Deathmatch and Solo.",
+  "width": 126,
+  "depth": 140,
+  "margin": 60,
+  "camera": {
+    "pos": [
+      0.0,
+      90.0,
+      120.0
+    ],
+    "yaw": 0.0,
+    "pitch": -38.0
+  },
+  "heightmap": {
+    "file": "outpost_desert.height.png",
+    "nx": 81,
+    "nz": 86,
+    "min": 4,
+    "max": 20,
+    "org": [
+      -125.4902,
+      -133.3333
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -20.0,
+  "map": "outpost_desert.nmap.json",
+  "playable": true,
+  "thumbnail": "outpost_desert.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      60.0,
+      70.0,
+      110.0
+    ],
+    "yaw": 28.61045966596522,
+    "pitch": -28.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        120.0,
+        130.0
+      ],
+      "yaw": 0.0,
+      "pitch": -45.0
+    },
+    {
+      "name": "fob_eye",
+      "pos": [
+        -48.0,
+        11.56,
+        -38.0
+      ],
+      "yaw": -78.11134196037202,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "hamlet_eye",
+      "pos": [
+        -38.0,
+        11.42,
+        22.0
+      ],
+      "yaw": -144.46232220802563,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "wadi_eye",
+      "pos": [
+        -20.0,
+        9.71,
+        8.0
+      ],
+      "yaw": -90.0,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "mesa_eye",
+      "pos": [
+        26.0,
+        16.75,
+        -40.0
+      ],
+      "yaw": -116.56505117707799,
+      "pitch": 2.0,
+      "gameplay": true
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "id": "outpost_woods",
+  "version": 1,
+  "order": 11,
+  "name": "Outpost Woods",
+  "available": true,
+  "seed": 3202,
+  "description": "A small Battle Royale map, 126 x 140 m (1/8 of Newtown): an abandoned army camp behind a timber palisade in a forest clearing, a radar and a field bunker on the wooded ridge, a sawmill on the logging track, and cabins by a pond fed by a creek. Dense woodland, ferns and mist. Military loot (level-3 armour) in the camp, the radar and the bunker. 16 players by default, short storm circles. Battle Royale, Team Deathmatch and Solo.",
+  "width": 126,
+  "depth": 140,
+  "margin": 60,
+  "camera": {
+    "pos": [
+      0.0,
+      90.0,
+      120.0
+    ],
+    "yaw": 0.0,
+    "pitch": -38.0
+  },
+  "heightmap": {
+    "file": "outpost_woods.height.png",
+    "nx": 81,
+    "nz": 86,
+    "min": 8,
+    "max": 28,
+    "org": [
+      -125.4902,
+      -133.3333
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": 11.0,
+  "map": "outpost_woods.nmap.json",
+  "playable": true,
+  "thumbnail": "outpost_woods.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      70.0,
+      75.0,
+      110.0
+    ],
+    "yaw": 32.47119229084849,
+    "pitch": -30.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        120.0,
+        130.0
+      ],
+      "yaw": 0.0,
+      "pitch": -45.0
+    },
+    {
+      "name": "camp_eye",
+      "pos": [
+        4.0,
+        15.56,
+        -38.0
+      ],
+      "yaw": -86.82016988013577,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "radar_eye",
+      "pos": [
+        -36.0,
+        26.03,
+        -34.0
+      ],
+      "yaw": 39.80557109226519,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "mill_eye",
+      "pos": [
+        -8.0,
+        15.54,
+        28.0
+      ],
+      "yaw": 120.25643716352927,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "pond_eye",
+      "pos": [
+        18.0,
+        14.44,
+        40.0
+      ],
+      "yaw": -131.18592516570965,
+      "pitch": 2.0,
+      "gameplay": true
+    }
+  ]
+}
