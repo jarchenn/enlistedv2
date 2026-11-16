@@ -8,6 +8,7 @@
 struct EnemyType {
   std::string id = "zombie", name = "Zombie";
   std::string sndAttack, sndIdle, sndStep;                // CH1 json "sounds" {attack, idle, step}: audio events for a type without built-in ones
+  std::string sndContact, sndDeath, sndLoop;              // SND1 / SND2: "contact" (a blow lands on someone), "death", "loop" (a looping sound on each living one, nearest few)
   std::string model = "zombie"; float height = 1.85f;    // content/characters/<model>.glb, rest pose scaled to height
   std::vector<std::string> models;                        // variants (json "models"; [0] = model): Soldier::evariant picks one in turn
   float scale = 1, lean = 0;                              // drawn (and hit) at scale x; lean: whole-body forward tilt (deg)

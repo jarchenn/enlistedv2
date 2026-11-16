@@ -8,6 +8,8 @@
 #include <chrono>
 
 namespace {
+#include <cstdio>
+#include <cstdlib>
 constexpr int SR = 44100;
 using Buf = std::vector<float>;
 
@@ -351,12 +353,67 @@ int Audio::loadCustom(const fs::path& dir) {
     }
   }
   if (decode("zombie.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.8f;   /* louder (user request) */ ev.v.push_back(b); p->events["zombie_groan"] = ev; }
+  auto peakOf = [](const Buf& s) { float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); return pk; };
+  // SND2: the creature's strike: the strongest 1.25 s of the shriek (by 10 ms loudness), short fades, levelled
+  if (decode("creature_shriek.mp3", b)) {
+    const int W = SR / 100; size_t nW = b.size() / W; std::vector<float> e(nW, 0.0f);
+    for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) e[k] += b[k * W + j] * b[k * W + j]; }
+    size_t len = std::min(nW, (size_t)125), best = 0; float bs = -1, run = 0;
+    for (size_t k = 0; k < nW; ++k) { run += e[k]; if (k >= len) run -= e[k - len]; if (k + 1 >= len && run > bs) { bs = run; best = k + 1 - len; } }
+    Buf s(b.begin() + best * W, b.begin() + std::min(b.size(), (best + len) * W)); float pk = peakOf(s);
+    size_t fi = SR / 100, fo = SR * 8 / 100;
+    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.9f / pk * std::min({1.0f, (float)j / fi, (float)(s.size() - j) / fo});
+    ++used; Impl::Event ev; ev.minDist = 4.0f; ev.v.push_back(std::move(s)); p->events["creature_shriek"] = ev;
+  }
+  // SND2: the creature's ambience: only the loud stretches of the recording (50 ms loudness above a quarter of its loudest,
+  // gaps under 0.15 s bridged, stretches under 0.4 s dropped), joined with 120 ms equal-power cross-fades and closed into
+  // a loop by one more cross-fade from its end into its start, so neither the joins nor the loop point click or gap
+  if (decode("creature_ambience.mp3", b)) {
+    const int W = SR / 20; size_t nW = b.size() / W; std::vector<float> rms(nW, 0.0f); float top = 1e-6f;
+    for (size_t k = 0; k < nW; ++k) { double q = 0; for (int j = 0; j < W; ++j) q += b[k * W + j] * b[k * W + j]; rms[k] = (float)std::sqrt(q / W); top = std::max(top, rms[k]); }
+    std::vector<std::pair<size_t, size_t>> runs;   // [first, last] windows
+    for (size_t k = 0; k < nW; ++k) if (rms[k] > 0.25f * top) { if (!runs.empty() && k - runs.back().second <= 3) runs.back().second = k; else runs.push_back({k, k}); }
+    const size_t X = (size_t)(0.12f * SR); Buf loop;
+    auto eqp = [&](Buf& out, const Buf& in) {   // out's tail and in's head overlap by X: cos / sin gains, so the power stays even
+      size_t x = std::min({X, out.size(), in.size()}), o = out.size() - x;
+      for (size_t j = 0; j < x; ++j) { float t = (j + 0.5f) / x * 1.5707963f; out[o + j] = out[o + j] * std::cos(t) + in[j] * std::sin(t); }
+      out.insert(out.end(), in.begin() + x, in.end());
+    };
+    int kept = 0;
+    for (auto& r : runs) {
+      if ((r.second - r.first + 1) * W < (size_t)(0.3f * SR)) continue;
+      size_t a = r.first * W > X / 2 ? r.first * W - X / 2 : 0, z = std::min(b.size(), (r.second + 1) * W + X / 2);
+      Buf s(b.begin() + a, b.begin() + z); if (loop.empty()) loop = s; else eqp(loop, s); ++kept;
+    }
+    if (loop.size() > 3 * X) {
+      for (size_t j = 0; j < X; ++j) { float t = (j + 0.5f) / X * 1.5707963f; loop[j] = loop[j] * std::sin(t) + loop[loop.size() - X + j] * std::cos(t); }   // the loop point
+      loop.resize(loop.size() - X);
+      float pk = peakOf(loop); for (float& x : loop) x *= 0.8f / pk;
+      logf("audio: creature_ambience loop %.1f s from %d loud stretches of the %.1f s recording", loop.size() / (float)SR, kept, b.size() / (float)SR);
+      if (std::getenv("NMK_AUDIO_DUMP")) { FILE* f = std::fopen((exeDir() / "selftest_out" / "creature_ambience_loop.f32").string().c_str(), "wb"); if (f) { std::fwrite(loop.data(), 4, loop.size(), f); std::fclose(f); } }   // diagnostics: the built loop, raw 44.1 kHz mono float
+      ++used; addSound("creature_ambience", std::move(loop));
+    }
+  }
+  // SND1: any other mp3 here plays as an event named after its file (knightattack.mp3 -> "knightattack"): leading
+  // silence trimmed, levelled, at most 6 s. A type's "sounds" (content/ai/zombie*.json) name them.
+  std::error_code ec;
+  for (auto& f : fs::directory_iterator(dir, ec)) {
+    if (!f.is_regular_file() || f.path().extension() != ".mp3") continue;
+    std::string stem = f.path().stem().string();
+    if (p->events.count(stem) || p->bufs.count(stem) || stem.rfind("creature_", 0) == 0) continue;
+    if (!decode(f.path().filename().string().c_str(), b)) continue;
+    float pk = peakOf(b); size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.03f * pk) ++a;
+    a = a > (size_t)(SR / 200) ? a - SR / 200 : 0;
+    Buf s(b.begin() + a, b.begin() + std::min(b.size(), a + (size_t)(6 * SR))); size_t fo = std::min(s.size(), (size_t)(SR / 20));
+    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * (j + fo >= s.size() ? (float)(s.size() - j) / fo : 1.0f);
+    ++used; Impl::Event ev; ev.v.push_back(std::move(s)); p->events[stem] = ev;
+  }
   return used;
 }
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
 int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
 
-void Audio::play(const std::string& name, vec3 pos, float volume) {
+void Audio::play(const std::string& name, vec3 pos, float volume, float pitch) {
   ++playCount; lastPlayed = name; lastPos = pos;
   if (!p) return;
   // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
@@ -376,6 +433,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   }
   if (!src) return;
   lastEvent = used; ++eventPlays[used];
+  { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio play %s vol %.2f pitch %.2f at %.1f m", used.c_str(), volume, pitch, glm::length(pos - p->listener)); }   // diagnostics
   double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
   if (shot)   // automatic fire: the previous body of this gun yields to the new shot (no stacking / clipping)
     for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd) && now - c.start < 0.35) {
@@ -401,6 +459,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume) {
   ma_sound_set_min_distance(&v->snd, minDist);
   ma_sound_set_rolloff(&v->snd, 1.2f);
   ma_sound_set_volume(&v->snd, volume);
+  if (pitch != 1.0f) ma_sound_set_pitch(&v->snd, std::max(0.05f, pitch));
   ma_sound_start(&v->snd);
   v->used = true; v->event = used; v->start = now;
 }
@@ -474,7 +533,7 @@ void Audio::setGains(float master, float effects, float ui, float ambience) {
 
 // ---- looping voices (tanks): one sound per handle, pitch / volume / position updated every step, never restarted
 void Audio::addSound(const std::string& name, std::vector<float> b) { if (p) p->bufs[name] = std::move(b); }
-int Audio::loopStart(const std::string& name, vec3 pos, float volume, float pitch) {
+int Audio::loopStart(const std::string& name, vec3 pos, float volume, float pitch, float offset) {
   if (!p) return -1;
   auto it = p->bufs.find(name);
   if (it == p->bufs.end()) return -1;
@@ -489,6 +548,7 @@ int Audio::loopStart(const std::string& name, vec3 pos, float volume, float pitc
     ma_sound_set_looping(&v.snd, MA_TRUE);
     ma_sound_set_min_distance(&v.snd, 3.0f); ma_sound_set_rolloff(&v.snd, 1.0f);
     ma_sound_set_position(&v.snd, pos.x, pos.y, pos.z); ma_sound_set_volume(&v.snd, volume * effectsGain); ma_sound_set_pitch(&v.snd, std::max(0.05f, pitch));
+    if (offset > 0) ma_sound_seek_to_pcm_frame(&v.snd, (ma_uint64)(std::fmod(offset, 1.0f) * it->second.size()));   // SND2: a pack does not breathe in unison
     ma_sound_start(&v.snd);
     v.used = true;
     return k;

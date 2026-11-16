@@ -180,6 +180,7 @@ bool Game::begin(std::string& err) {
 }
 
 void Game::end() {
+  aiZombieLoopsStop(app);   // SND2: no creature breathing on after the match
   aiMatchEnd(*this);   // W6
   for (auto& s : sold) { if (s.agent >= 0) Physics::destroyAgent(s.agent); s.agent = -1; if (s.ciReady) s.ci.destroy(); s.ciReady = false; }
   Physics::destroyAllAgents();
@@ -394,6 +395,7 @@ bool Game::trySpawn(int slot, std::string& why) {
 
 void Game::killSoldier(int i, int killer, vec3 dir) {
   Soldier& s = sold[i];
+  if (s.zombie && s.alive && !enemyType(s.etype).sndDeath.empty()) app.audio.play(enemyType(s.etype).sndDeath.c_str(), s.feet + vec3(0, 1.0f, 0), 1.0f);   // SND1. shortcut: host / single player only
   if (!s.alive) return;
   s.alive = false; s.diedAt = t; s.killer = killer; s.deathDir = dir; s.hp = 0;
   vec3 f = vec3(-std::sin(radians(s.yaw)), 0, -std::cos(radians(s.yaw)));
