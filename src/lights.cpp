@@ -728,6 +728,11 @@ void lightsStep(App& app, float dt) {
           q.size = 1.4f + 0.09f * t + app.fx.rnd() * 0.8f; q.life = q.maxLife = 5.0f + 3.0f * app.fx.rnd();
           if (warm) q.life *= app.fx.rnd();
           float b = (0.030f + 0.02f * app.fx.rnd()) * std::clamp(1.2f - t / Lsh, 0.35f, 1.0f);   // brightest near the crack
+          if (app.fx.rnd() < 0.16f) {   // the opening itself: a soft glowing haze patch, no hard sky geometry
+            t = Lsh * 0.06f * app.fx.rnd(); r = tanc * 4.0f * std::sqrt(app.fx.rnd()) + 1.0f;
+            q.p = top + dir * t + (ax * std::cos(a) + ay * std::sin(a)) * r;
+            q.size = 4.0f + 4.0f * app.fx.rnd(); b *= 2.6f;
+          }
           q.col = vec4(s.color * b, 1); q.additive = true; q.grow = 0.05f; q.drag = 0.2f; q.lift = 0;
           app.fx.parts.push_back(q);
         }

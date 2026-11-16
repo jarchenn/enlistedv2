@@ -132,7 +132,7 @@ LEDGES = [((-34.0, 30.0), 6.0, 18.0, 7.0, 35.0, [(-12.0, 38.0), (-28.0, 32.0)]),
           ((112.0, -30.0), 4.0, 11.0, 5.0, 85.0, [(102.0, -4.0), (111.0, -22.0)]),        # an east dome tier
           ((96.0, 98.0), 3.5, 10.0, 5.0, 40.0, [(82.0, 86.0), (92.0, 94.0)])]             # a grotto shelf
 # pools: (centre, radius x, radius z, max depth, water below the floor by)
-POOLS = [((2.0, -21.0), 10.0, 7.0, 0.7, 0.3),        # the reflecting pool in front of the spire, under the great shaft
+POOLS = [((0.0, -21.0), 8.5, 8.5, 0.7, 0.3),         # the round basin in front of the spire, under the great shaft
          ((-40.0, -10.0), 12.0, 9.0, 1.2, 0.35),     # a flooded hollow in the central cavern
          ((-74.0, -92.0), 20.0, 15.0, 4.5, 0.35),    # the sunken lake: deep in the middle, paths and tiers round it
          ((-104.0, 40.0), 6.0, 9.0, 0.9, 0.3),       # a shallow pool along the west gallery
@@ -348,31 +348,38 @@ def build(ctx):
         u = lid_under(lids, x, z)
         return u
 
-    def clear_spot(x, z, r):   # keep paths: not on a tunnel's centreline, not in the pocket's exits
+    def clear_spot(x, z, r):   # keep paths: not on a tunnel's centreline, not on the monument's south axis (the entry view and approach)
+        if abs(x - POCKET[0]) < 11.0 + r and -70.0 < z - POCKET[1] < -12.0:
+            return False
         for t in TUN:
             if t.d(x, z) < -t.width * 0.5 + r and polyline_dist((x, z), t.pts)[0] < r + 1.2:
                 return False
         return True
 
-    # ---- Team A's pocket: four ribbed walls round the spire, the gaps behind baffles (no straight lane in);
-    # standing stones, steps and the altar fire are the human-scale cues that sell the cavern's size
+    # ---- the monument (Team A's pocket), framed like the reference from the south entry: the spire on a dais, the tallest
+    # organ wall behind it rising into the dark, flanking organ walls left and right, warm niches between them, steps
+    # down to a round basin in front. Low ribbed walls close the front corners; exits east, west and south (baffled).
     px, pz = POCKET
     place("cave_spire_ancient", px, pz, yaw=17.0)
-    for k, a in enumerate((45.0, 135.0, 225.0, 315.0)):
+    place("cave_organ_3", px, pz + 21.0, yaw=look_yaw(0.0, -1.0))                       # the backdrop: 44 m of ribs behind the spire
+    for sx in (-1.0, 1.0):
+        x, z = px + sx * 19.0, pz + 7.0
+        place("cave_organ_2", x, z, yaw=look_yaw(px - x, pz - 4.0 - z))                    # the flanks, turned in toward the spire
+        nx, nz = px + sx * 11.0, pz + 9.0                                                  # warm niches between flank and backdrop
+        place("cave_glow_ember", nx, nz, tags=("light",))
+    for k, a in enumerate((135.0, 225.0)):                                                  # low ribbed walls at the front corners
         ar = math.radians(a)
         x, z = px + math.sin(ar) * 15.0, pz + math.cos(ar) * 15.0
-        place("cave_ribwall_1", x, z, yaw=look_yaw(px - x, pz - z))
-    for k, a in enumerate((0.0, 90.0, 180.0, 270.0)):   # baffles 9 m outside each gap
-        ar = math.radians(a + 12.0)
-        x, z = px + math.sin(ar) * 24.0, pz + math.cos(ar) * 24.0
-        place("cave_shelf_2" if k % 2 else "cave_drip_up_%d" % (3 + k), x, z, yaw=look_yaw(px - x, pz - z) + 90.0)
-    place("cave_fire_altar", px, pz - 5.2, yaw=0.0, tags=("light",))   # the warm heart in front of the spire, as in the reference
-    place("cave_standing_stones", px, pz, yaw=11.0)
-    for k, a in enumerate((0.0, 90.0, 180.0, 270.0)):   # rough steps up the pocket's mound in each gap
-        ar = math.radians(a)
-        x, z = px + math.sin(ar) * 12.5, pz + math.cos(ar) * 12.5
-        place("cave_steps", x, z, yaw=look_yaw(x - px, z - pz), y=floor_y(x, z) - 0.25)
-    for a in (20.0, 140.0, 260.0):   # ember fissures at the spire's foot
+        place("cave_ribwall_0", x, z, yaw=look_yaw(px - x, pz - z))
+    for a in (90.0, 270.0):                                                                 # baffles outside the east and west exits
+        ar = math.radians(a + 10.0)
+        x, z = px + math.sin(ar) * 25.0, pz + math.cos(ar) * 25.0
+        place("cave_drip_up_%d" % (4 if a < 180 else 5), x, z, yaw=look_yaw(px - x, pz - z) + 90.0)
+    for sx in (-1.0, 1.0):                                                                  # the south approach: two stalagmite stands either side of the basin
+        place("cave_drip_up_%d" % (11 if sx < 0 else 12), px + sx * 13.0, pz - 21.0)
+    place("cave_fire_altar", px, pz - 5.2, yaw=0.0, tags=("light",))                        # the small warm glow at the centre
+    place("cave_steps", px, pz - 9.5, yaw=look_yaw(0.0, 1.0), y=floor_y(px, pz - 9.5) - 0.25)   # the dais steps, down toward the basin
+    for a in (60.0, 300.0):
         ar = math.radians(a)
         place("cave_glow_ember", px + math.sin(ar) * 3.6, pz + math.cos(ar) * 3.6, tags=("light",))
 
@@ -413,7 +420,7 @@ def build(ctx):
     # ---- the roof dressed: dense stalactite fields of every size (giants where the roof is high, curtains and needles
     # elsewhere), denser round the cracks; stalagmites under them (some pairs grow into columns), boulder fields and
     # shelves for cover in the open floors
-    CRACKS = [(2.0, -21.0, "main"), (-36.0, 14.0, "ns"), (30.0, 22.0, "ns"), (NG.c[0] + 6, NG.c[1], "ns"), (SL.c[0] + 8, SL.c[1] - 4, "ns"),
+    CRACKS = [(0.0, -9.0, "main"), (-36.0, 14.0, "ns"), (30.0, 22.0, "ns"), (NG.c[0] + 6, NG.c[1], "ns"), (SL.c[0] + 8, SL.c[1] - 4, "ns"),
               (EV.c[0], EV.c[1] + 8, "ns"), (WH.c[0] + 2, WH.c[1] + 30, "ns"), (SC.c[0] - 12, SC.c[1], "ns")]
     n_st = n_sg = n_cov = 0
     tries = 0
@@ -490,7 +497,7 @@ def build(ctx):
             place("mod_vines_hanging_long", x + R.uniform(-3, 3), z + R.uniform(-3, 3), y=u - 0.5, tags=("veg",))
     rep["cracks"] = n_crack
     for s_ in [C] + OUT:   # rim lights: high, cold, near the walls, so the organ walls and far formations separate from black
-        n = 5 if s_ is C else 2
+        n = 2 if s_ is C else 1   # rim light on the nearest formations only: each chamber's focus is its crack
         for k in range(n):
             a = k / n * 6.283 + R.uniform(0, 0.6)
             x, z = s_.c[0] + math.sin(a) * s_.rx * 0.7, s_.c[1] + math.cos(a) * s_.rz * 0.7
@@ -550,7 +557,7 @@ def build(ctx):
 
     def eye(x, z):
         return [round(x, 2), round(floor_y(x, z) + EYE, 2), round(z, 2)]
-    VIEWS = [("central_wide", (-52.0, -30.0), (20.0, 14.0), 7.0), ("pocket_eye", (0.0, -40.0), (0.0, 0.0), 6.0),
+    VIEWS = [("central_wide", (-52.0, -30.0), (20.0, 14.0), 7.0), ("pocket_eye", (0.0, -44.0), (0.0, 0.0), 9.0),
              ("look_up", (-20.0, -12.0), (-6.0, -2.0), 58.0), ("outer_cavern", (WH.c[0] + 6, WH.c[1] - 40), (WH.c[0], WH.c[1] + 30), 6.0),
              ("mouth_view", (14.0, 30.0), NG.c, 8.0), ("flooded_eye", (-48.0, -70.0), SL.c, 2.0), ("crack_shaft", (-14.0, -40.0), (2.0, -21.0), 18.0),
              ("headlamp_dark", TUN[10].pts[10], TUN[10].pts[20], 0.0)]
@@ -564,7 +571,7 @@ def build(ctx):
               builder=b, scenario_json=sj, explore_start=((px, floor_y(px, pz - 6.0), pz - 6.0), 180.0), camera=cam,
               bookmarks={str(k + 1): {"position": [s.c[0], floor_y(*s.c) + 12.0, s.c[1] + 20.0], "yaw": 0.0, "pitch": -25} for k, s in enumerate([C] + OUT)},
               extra={"groundPaint": paint.to_json(), "waterBodies": water,
-                     "lighting": {"hour": 0.0, "fill": 0.05, "exposure": 0.85},
+                     "lighting": {"hour": 0.0, "fill": 0.02, "exposure": 0.85},
                      "look": {"fog": True, "haze": 0.15, "cave": True, "weather": 0.0, "envFog": 0, "saturation": 0.92, "tint": [0.94, 0.98, 1.06], "grime": 0.0,
                               "paintSets": {"rock": "paint_rock", "dirt": "ground_rubble_paint", "gravel": "gravel_mixed", "pebbles": "rock_slab_paint"}},
                      "audio": {"bed": "cave.wav", "battlefield": False},

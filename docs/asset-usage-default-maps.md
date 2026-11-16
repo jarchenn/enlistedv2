@@ -221,11 +221,11 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 | not used | not used | not used | not used | not used | not used |
 | `nat_boulder_granite_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 7 | not used | not used | not used |
 | `nat_boulder_granite_s` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 23 | not used |
-| `nat_boulder_limestone_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used | 31 | not used | 28 |
+| `nat_boulder_limestone_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used | 31 | not used | 30 |
 | `nat_boulder_limestone_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 5 | not used | not used | not used | 40 | not used | 20 |
 | `nat_boulder_schist_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 9 | not used |
-| `nat_boulder_schist_slab` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 4 | 24 |
-| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 | 35 | 3 | 21 |
+| `nat_boulder_schist_slab` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 4 | 22 |
+| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 | 35 | 3 | 25 |
 | `nat_bracken_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 42 | not used | not used | not used | not used | 621 | not used |
 | `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 39 | not used | 195 | not used |
 | `nat_brush_patchy` | Vegetation | not placed: V9 ground cover (patchy brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -235,7 +235,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_drygrass_sparse` | Vegetation | not placed: V9 ground cover (sparse dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 113 | not used | not used | not used | 143 | not used | not used |
 | `nat_drygrass_tall` | Vegetation | not placed: V9 ground cover (tall dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 3 | 419 | not used | not used | not used | 1 | not used | not used |
 | `nat_drygrass_tufts` | Vegetation | not placed: V9 ground cover (dry grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 12 | 177 | not used | not used | 49 | 187 | not used | not used |
-| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | 637 | 74 |
+| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | 637 | 81 |
 | `nat_flowers_buttercup` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 21 | 1 | not used | not used | not used | not used | not used | not used |
 | `nat_flowers_clover` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_flowers_cornflower` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 56 | 7 | not used | not used | not used | not used | not used | not used |
@@ -245,7 +245,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_flowers_meadow` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 18 | not used | not used | not used | 9 | not used | not used | not used |
 | `nat_flowers_poppy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 110 | 39 | not used | not used | not used | not used | not used | not used |
 | `nat_gorse_shrub` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 91 | not used | not used | not used | 166 | not used | not used |
-| `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used | not used | 19 | 54 |
+| `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used | not used | 19 | 46 |
 | `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 58 | not used | not used | not used |
 | `nat_meadow_mixed` | Vegetation | not placed: V9 ground cover (mixed meadow, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 44 | 62 | not used | not used | 25 | not used | 2 | not used |
 | `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 147 | not used | 287 | not used |
@@ -919,7 +919,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_bld_tower_stone_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bld_townhouse_row_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_crosswalk_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | 86 | not used | not used | 50 |
+| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | 86 | not used | not used | 43 |
 | `mod_parking_large_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_medium_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_small_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1082,10 +1082,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tank_abrams_m1a2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_panzer_iv` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_sherman_m4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_column_l` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `cave_column_l` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_m` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_fire_altar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `cave_glow_ember` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
+| `cave_glow_ember` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
 | `cave_lid_l0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 120 |
 | `cave_lid_l1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 89 |
 | `cave_lid_l2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 97 |
@@ -1097,12 +1097,12 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_light_cold` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 13 |
 | `cave_light_crack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_light_crack_ns` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `cave_ribwall_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_ribwall_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `cave_ribwall_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `cave_ribwall_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_ribwall_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_shelf_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `cave_shelf_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 18 |
-| `cave_shelf_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
+| `cave_shelf_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 13 |
+| `cave_shelf_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 |
 | `cave_spine_arch` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `cave_spire_ancient` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `cave_stalactites_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1116,69 +1116,69 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_column_xl` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `cave_column_h45` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `cave_drip_down_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_drip_down_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 33 |
-| `cave_drip_down_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 35 |
+| `cave_drip_down_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 31 |
+| `cave_drip_down_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 31 |
 | `cave_drip_down_11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 27 |
-| `cave_drip_down_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 |
+| `cave_drip_down_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 18 |
 | `cave_drip_down_13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_drip_down_14` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `cave_drip_down_14` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `cave_drip_down_15` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `cave_drip_down_16` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 17 |
-| `cave_drip_down_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 34 |
-| `cave_drip_down_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 41 |
-| `cave_drip_down_19` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 34 |
-| `cave_drip_down_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 53 |
-| `cave_drip_down_20` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 17 |
+| `cave_drip_down_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 36 |
+| `cave_drip_down_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 43 |
+| `cave_drip_down_19` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 37 |
+| `cave_drip_down_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 48 |
+| `cave_drip_down_20` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 18 |
 | `cave_drip_down_21` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
 | `cave_drip_down_22` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
 | `cave_drip_down_23` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `cave_drip_down_24` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `cave_drip_down_25` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 38 |
-| `cave_drip_down_26` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 40 |
-| `cave_drip_down_27` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 42 |
-| `cave_drip_down_28` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 20 |
+| `cave_drip_down_24` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 13 |
+| `cave_drip_down_25` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 37 |
+| `cave_drip_down_26` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 42 |
+| `cave_drip_down_27` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 39 |
+| `cave_drip_down_28` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 21 |
 | `cave_drip_down_29` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
 | `cave_drip_down_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 39 |
-| `cave_drip_down_30` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `cave_drip_down_30` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `cave_drip_down_31` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
-| `cave_drip_down_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_drip_down_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `cave_drip_down_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_drip_down_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_drip_down_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `cave_drip_down_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 33 |
-| `cave_drip_up_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_drip_up_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 |
-| `cave_drip_up_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `cave_drip_up_11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `cave_drip_up_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `cave_drip_up_13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `cave_drip_down_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
+| `cave_drip_down_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
+| `cave_drip_down_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
+| `cave_drip_down_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `cave_drip_down_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `cave_drip_down_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 36 |
+| `cave_drip_up_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 17 |
+| `cave_drip_up_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
+| `cave_drip_up_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 |
+| `cave_drip_up_11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `cave_drip_up_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
+| `cave_drip_up_13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `cave_drip_up_14` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `cave_drip_up_15` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `cave_drip_up_16` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 22 |
-| `cave_drip_up_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 13 |
-| `cave_drip_up_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
+| `cave_drip_up_16` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 21 |
+| `cave_drip_up_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
+| `cave_drip_up_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `cave_drip_up_19` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
-| `cave_drip_up_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
+| `cave_drip_up_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `cave_drip_up_20` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_drip_up_21` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `cave_drip_up_22` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
+| `cave_drip_up_21` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `cave_drip_up_22` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 |
 | `cave_drip_up_23` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `cave_drip_up_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_drip_up_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
+| `cave_drip_up_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
+| `cave_drip_up_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
 | `cave_drip_up_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
 | `cave_drip_up_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
 | `cave_drip_up_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_drip_up_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 |
-| `cave_drip_up_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_light_rim` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 17 |
+| `cave_drip_up_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 18 |
+| `cave_drip_up_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
+| `cave_light_rim` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
 | `cave_light_shaft_main` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `cave_organ_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `cave_organ_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `cave_organ_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `cave_organ_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_standing_stones` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `cave_steps` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `cave_organ_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `cave_standing_stones` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_steps` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `cave_column_h60` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_h75` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 

@@ -2466,6 +2466,7 @@ in vec3 vW, vN; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_c
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
+uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
 uniform int uTCOn; uniform sampler2DArray uTC; uniform vec4 uTCMap;   // R1 terrain cache: on, texture (unit 24), xy = origin, zw = 1 / extent
 float vn2(vec2 q, float z){   // == vnoise(vec3(q, z)) for a whole-number z (f.z = 0): the 4 hashes that matter
   vec2 i = floor(q), f = fract(q); f = f*f*(3.0-2.0*f);
@@ -2628,6 +2629,12 @@ void main(){
   N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
   if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }   // CV1: standing water stays a mirror over painted ground
+  if (uTerrCave > 0.5) {   // CV1 cave floor: dark wet rock under a water film, black away from the lights, mirror-bright where it catches them
+    float flat_k = smoothstep(0.72, 0.9, normalize(vN).y), film = smoothstep(0.35, 0.65, vnoise(vec3(p.xz*0.3, 97.0)) + 0.25*(vnoise(vec3(p.xz*2.1, 98.0)) - 0.5));
+    alb *= mix(0.6, mix(0.34, 0.2, film), flat_k);
+    rough = mix(rough, min(rough, mix(0.42, 0.1, film)), flat_k);
+    N = normalize(mix(N, normalize(vN), flat_k*film*0.6));
+  }
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
@@ -4403,6 +4410,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     // FL1: the ground a hair behind anything laid on it (paving, plinths, aprons, roads, ground patches at ~1 cm),
     // so those win the depth test every frame instead of z-fighting with the terrain
     glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-zToward(), -2.0f * zToward());
+    glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uTerrCave"), lt.mapCave);   // CV1
     t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
     glDisable(GL_POLYGON_OFFSET_FILL);
   };
