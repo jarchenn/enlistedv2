@@ -235,7 +235,8 @@ bool TankSys::enter(App& app, uint64_t id) {
   // the infantry body waits inside the hull (no collision update while crewing)
   Physics::setCharacterPos(t->pos + vec3(0, 1.0f, 0));
   app.audio.play("steel_close", t->pos + vec3(0, 2.5f, 0), 0.8f);
-  app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB main gun | Space " + (t->def->bowOn ? t->def->bowShort : std::string("-")) +
+  if (t->def->towCount) app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB 25 mm (hold) | R AP / HE | Space coax | Q " + t->def->towName + " | RMB zoom | Ctrl pop out of the hatch | E get out", 7);   // VH7
+  else app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB main gun | Space " + (t->def->bowOn ? t->def->bowShort : std::string("-")) +
             " | RMB zoom | R next shell HE/AP | Ctrl hatch (LMB roof MG, Space both MGs, RMB main gun) | E get out", 7);
   return true;
 }
@@ -767,9 +768,9 @@ void TankSys::stepTows(App& app, float dt) {
     float a = tr.fade < 1e8f ? std::clamp(tr.fade / 0.3f, 0.0f, 1.0f) : 1.0f;
     for (size_t k = 0; k + 1 < tr.p.size(); ++k) {
       float u = (float)k / std::max<size_t>(1, tr.p.size() - 1);
-      app.fx.streak(tr.p[k], tr.p[k + 1], 0.012f + 0.02f * u * u, dt * 1.5f, vec4(0.75f + 0.6f * u, 0.73f + 0.4f * u, 0.7f + 0.2f * u, a * (0.45f + 0.5f * u)));
+      app.fx.streak(tr.p[k], tr.p[k + 1], 0.03f + 0.05f * u * u, dt * 1.5f, vec4(0.45f + 0.9f * u, 0.43f + 0.6f * u, 0.4f + 0.3f * u, a * (0.6f + 0.4f * u)));   // grey wire, brighter toward the motor
     }
-    if (pm && tr.p.size() > 4 && app.fx.rnd() < 0.5f) { size_t k = tr.p.size() - 1 - (size_t)(app.fx.rnd() * std::min<size_t>(40, tr.p.size() - 1));
+    if (pm && tr.p.size() > 4) for (int sm = 0; sm < 2; ++sm) { size_t k = tr.p.size() - 1 - (size_t)(app.fx.rnd() * std::min<size_t>(40, tr.p.size() - 1));
       app.fx.smoke(tr.p[k], vec3(0, 0.15f, 0), 0.12f, 1.6f, vec4(0.8f, 0.78f, 0.75f, 0.25f), 1.4f, 0.1f); }
   }
   towTrails.erase(std::remove_if(towTrails.begin(), towTrails.end(), [](const TowTrail& tr) { return tr.fade <= 0.0f; }), towTrails.end());
@@ -920,9 +921,9 @@ TankHitResult TankSys::projectileHit(App& app, const Projectile& p, vec3 pos, ve
   TankHitResult r;
   if ((ud >> 60) == 0xF || ud == 0 || (ud & 0xFFFF) != 0) return r;
   if (!tanks.count(ud >> 16)) return r;
-  int attack = p.kind == PROJ_BULLET ? TA_SMALL_ARMS : p.kind == PROJ_ROCKET ? TA_LAUNCHER : TA_CANNON;
+  int attack = p.kind == PROJ_BULLET ? TA_SMALL_ARMS : p.kind == PROJ_ROCKET && !p.towOf ? TA_LAUNCHER : TA_CANNON;   // VH7: a TOW counts from every side, like a tank shell
   if (p.cannon30) { const TankRT& t = tanks[ud >> 16]; attack = t.def && t.def->car ? TA_LAUNCHER : TA_SMALL_ARMS; }   // VH5: 30 mm HE wrecks cars, scratches armour
-  return applyHit(app, ud >> 16, attack, pos, normal, p.v, 0.5f * p.mass * glm::dot(p.v, p.v), p.lightAT);
+  return applyHit(app, ud >> 16, attack, pos, normal, p.v, 0.5f * p.mass * glm::dot(p.v, p.v), p.towOf ? -1.0f : p.lightAT);   // -1: a TOW (heavy AT)
 }
 
 TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec3 normal, vec3 dir, float bulletJ, float lightAT) {
@@ -949,6 +950,7 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
     int dmg = r.zone == TZ_FRONT ? t->def->frontDamage() : t->def->sideDamage();
     if (t->def->car || t->def->heli) dmg = attack == TA_SMALL_ARMS ? (heavy ? t->def->heavyBulletDmg : t->def->smallArmsDmg) : attack == TA_LAUNCHER ? t->def->launcherDmg : t->def->cannonDmg;   // VH1: 100: one shell or rocket wrecks a jeep
     if (lightAT > 0) dmg = (int)std::ceil(lightAT * (t->def->car || t->def->heli ? 10.0f : lightArmour ? 3.0f : 1.0f));   // VH7: 25 mm per hit
+    if (lightAT < 0 && !t->def->car && !t->def->heli) dmg = t->def->sideDamage();   // VH7 TOW: a flank shell's damage from any side (a Tiger: 2 kill it)
     t->hp = std::max(0, t->hp - dmg); t->hitFlash = 1;
     if (r.zone == TZ_FRONT) ++t->hitsFront; else ++t->hitsSide;
     std::snprintf(b, sizeof b, "%s hit, %s %s: durability %d (front hits %d, side/rear hits %d)", an[attack], onTurret ? "turret" : "hull", tankZoneName(r.zone), t->hp, t->hitsFront, t->hitsSide);

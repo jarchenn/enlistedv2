@@ -234,7 +234,7 @@ void TankSys::drawUI(App& app) {
     float R = Hs * (d.reticle == "bradley" ? 0.40f : 0.45f);
     if (rectSight) {   // vignette: dark bands fading inward at the edges
       R = std::max(W, Hs);
-      for (int k = 0; k < 12; ++k) { float e = (12 - k) * 0.012f; int al = 18 + k * 2;
+      for (int k = 0; k < 40; ++k) { float e = (40 - k) * 0.0036f; int al = 7;   // 40 thin bands: a smooth falloff
         dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, Hs * e), IM_COL32(0, 0, 0, al)); dl->AddRectFilled(ImVec2(0, Hs * (1 - e)), ImVec2(W, Hs), IM_COL32(0, 0, 0, al));
         dl->AddRectFilled(ImVec2(0, 0), ImVec2(W * e, Hs), IM_COL32(0, 0, 0, al)); dl->AddRectFilled(ImVec2(W * (1 - e), 0), ImVec2(W, Hs), IM_COL32(0, 0, 0, al)); }
     }
@@ -270,33 +270,34 @@ void TankSys::drawUI(App& app) {
       ImU32 bk = IM_COL32(12, 12, 12, 235), bks = IM_COL32(12, 12, 12, 170);
       dl->AddLine(ImVec2(0, c.y), ImVec2(W, c.y), bk, 1.3f); dl->AddLine(ImVec2(c.x, 0), ImVec2(c.x, Hs), bk, 1.3f);
       dl->AddCircle(c, milPx(1.3f), bk, 24, 1.3f);
+      const float U = W * 0.44f / 32.0f;   // one scale unit: 32 sits 44 % of the width out (the reference's spread)
       for (int k = 1; k <= 8; ++k) {
-        float x = milPx(4.0f * k), h = k % 2 == 0 ? milPx(3.0f) : milPx(1.6f);
+        float x = U * 4.0f * k, h = k % 2 == 0 ? 40.0f : 22.0f;
         for (float sx : {-1.0f, 1.0f}) {
           dl->AddLine(ImVec2(c.x + sx * x, c.y - h), ImVec2(c.x + sx * x, c.y + h), bk, 1.3f);
           if (k % 2 == 0) { char n[8]; std::snprintf(n, sizeof n, "%d", k * 4); ImVec2 ns = font->CalcTextSizeA(30, FLT_MAX, 0, n); dl->AddText(font, 30, ImVec2(c.x + sx * x - ns.x * 0.5f, c.y - h - ns.y - 6), bk, n); }
         }
       }
-      for (int k = 1; k <= 18; ++k) { float y = c.y + milPx(0.9f * k), w = k % 3 == 0 ? milPx(1.6f) : milPx(1.0f); dl->AddLine(ImVec2(c.x - w, y), ImVec2(c.x + w, y), bks, 1.2f); }   // the ladder
+      for (int k = 1; k <= 22; ++k) { float y = c.y + 9.0f * k, w = k % 3 == 0 ? 16.0f : 10.0f; dl->AddLine(ImVec2(c.x - w, y), ImVec2(c.x + w, y), bks, 1.2f); }   // the ladder
       {   // range bars: hectometres 4 .. 56, positioned by the AP drop relative to the lased range (the block slides)
-        float x0 = c.x - milPx(42), x1 = c.x - milPx(30);
-        auto dropPx = [&](float Rm) { float a = std::atan(9.81f * Rm / (2 * d.velAP * d.velAP)); return fpx * std::tan(a); };
+        float x0 = c.x - U * 21.0f, x1 = c.x - U * 15.0f;   // left of the centre, clear of the dial
+        auto dropPx = [&](float Rm) { return Rm / 100.0f * 8.0f; };   // 8 px a hectometre: the block slides with the lased range
         float base = dropPx(std::clamp(lased, 0.0f, 6000.0f));
         static const int lab[] = {4, 16, 28, 40, 48, 56};
         for (int hm = 4; hm <= 56; hm += 2) {
           float y = c.y + dropPx(hm * 100.0f) - base + milPx(1.0f);
           if (y < c.y - milPx(2) || y > Hs * 0.9f) continue;
           bool L = std::find(std::begin(lab), std::end(lab), hm) != std::end(lab);
-          dl->AddLine(ImVec2(L ? x0 - milPx(2) : x0, y), ImVec2(x1, y), bk, L ? 1.6f : 1.1f);
-          if (L) { char n[8]; std::snprintf(n, sizeof n, "%d", hm); ImVec2 ns = font->CalcTextSizeA(30, FLT_MAX, 0, n); dl->AddText(font, 30, ImVec2(x0 - milPx(2.6f) - ns.x, y - ns.y * 0.5f), bk, n); }
+          dl->AddLine(ImVec2(L ? x0 - 18 : x0, y), ImVec2(x1, y), bk, L ? 1.6f : 1.1f);
+          if (L) { char n[8]; std::snprintf(n, sizeof n, "%d", hm); ImVec2 ns = font->CalcTextSizeA(30, FLT_MAX, 0, n); dl->AddText(font, 30, ImVec2(x0 - 24 - ns.x, y - ns.y * 0.5f), bk, n); }
         }
       }
       char rb[32]; std::snprintf(rb, sizeof rb, "%d", (int)std::min(lased, 9999.0f));
       dl->AddText(font, 46, ImVec2(c.x + 12, c.y - Hs * 0.40f), bk, rb);
       char db[48]; std::snprintf(db, sizeof db, "Distance: %d", (int)std::min(lased, 9999.0f));
-      dl->AddText(font, 30, ImVec2(14, Hs * 0.26f), bk, db);
+      dl->AddText(font, 30, ImVec2(15, Hs * 0.26f + 1), IM_COL32(230, 225, 210, 150), db); dl->AddText(font, 30, ImVec2(14, Hs * 0.26f), bk, db);   // a light shadow over the vignette
       {   // bottom left: the orientation dial (hull, turret line), STAB, gear, RPM, speed
-        ImVec2 o(120, Hs - 230); float r = 95;
+        ImVec2 o(120, Hs - 400); float r = 95;   // clear of the durability bar
         dl->AddCircleFilled(o, r, IM_COL32(20, 34, 54, 150), 48); dl->AddCircle(o, r, IM_COL32(170, 190, 210, 200), 48, 2); dl->AddCircle(o, r * 0.72f, IM_COL32(170, 190, 210, 120), 48, 1.5f);
         dl->AddText(ImVec2(o.x - 18, o.y - r + 8), IM_COL32(230, 235, 240, 255), "STAB");
         dl->AddRect(ImVec2(o.x - 18, o.y - 42), ImVec2(o.x + 18, o.y + 42), IM_COL32(225, 205, 120, 235), 3, 0, 2);
@@ -371,7 +372,7 @@ void TankSys::drawUI(App& app) {
       ImVec2 hi(c.x - R * 0.80f, c.y + R * 0.40f);   // the hull / turret icon
       dl->AddRect(ImVec2(hi.x - 9, hi.y - 18), ImVec2(hi.x + 9, hi.y + 18), rd, 2, 0, 1.6f);
       float ta = radians(t.tYaw); dl->AddLine(hi, ImVec2(hi.x - std::sin(ta) * 26, hi.y - std::cos(ta) * 26), rd, 2);
-      dl->AddText(font, 20, ImVec2(c.x + R * 0.62f, c.y + R * 0.72f), rd, "25mm");
+      dl->AddText(font, 20, ImVec2(c.x + R * 0.52f, c.y + R * 0.62f), rd, "25mm");
       if (zoom) dl->AddText(font, 20, ImVec2(c.x + R * 0.62f, c.y - R * 0.72f), rd, "NFOV");
     } else if (!rectSight) {
       char b[96]; std::snprintf(b, sizeof b, "%s  %s", zoom ? "ZOOM" : "SIGHT", d.cannonName.c_str());
