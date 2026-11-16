@@ -276,7 +276,13 @@ bool App::bulletImpact(const Projectile& p, const Physics::Hit& hit, std::string
   if (!ground && (low == 0 || low == 0xFFF1u) && treeImpact(iid, hit.pos, glm::normalize(p.v), false)) { surface = "wood"; return false; }   // trunks stop rounds
   int propHit = (!ground && low == 0) ? interior.bulletHit(*this, iid, hit.pos, glm::normalize(p.v), surface) : 0;   // furniture (interior.cpp)
   if (propHit == 1) return false;
-  if (low == 0 && !propHit) return false;   // any other static shell stops the round
+  if (low == 0 && !propHit) {   // any other static shell stops the round
+    if (mode == Mode::Explore)   // NT5: range targets (not the rail-mounted one) go down when hit
+      if (Instance* ti = doc.find(iid)) if (auto tr = rt.find(iid); tr != rt.end() && tr->second.asset->id.rfind("mod_range_target_", 0) == 0 && tr->second.asset->id != "mod_range_target_moving") {
+        tanks.knockTarget(*this, *ti, tr->second, hit.pos, glm::normalize(p.v)); surface = "steel";
+      }
+    return false;
+  }
   Instance* inst = doc.find(iid);
   auto it = rt.find(iid);
   if (!inst || it == rt.end()) return false;

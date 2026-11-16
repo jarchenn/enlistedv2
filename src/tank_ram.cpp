@@ -89,6 +89,21 @@ void TankSys::knockProp(App& app, Instance& i, InstanceRT& r, const RamSpec& s, 
   ++knocksTotal;
 }
 
+// NT5: a range target hit by a round goes over backwards (hinged at its foot, like a toppled prop) and stands up again 4 s after the hit
+void TankSys::knockTarget(App& app, Instance& i, InstanceRT& r, vec3 at, vec3 dir) {
+  if (knocked.count(i.id)) return;
+  Knocked k; k.id = i.id; k.rev = i.rev; k.resetAt = 4.0f;
+  Physics::remove(r.staticBody); r.staticBody = 0xffffffffu;
+  vec3 h = glm::length(vec2(dir.x, dir.z)) > 1e-4f ? glm::normalize(vec3(dir.x, 0, dir.z)) : vec3(0, 0, 1);
+  k.falling = true; k.M0 = k.M = app.instanceMatrix(i); k.dir = h;
+  k.axis = glm::normalize(glm::cross(vec3(0, 1, 0), h));
+  k.pivot = vec3(i.pos.x, app.terrain.height(i.pos.x, i.pos.z), i.pos.z);
+  k.len = std::max(0.5f, r.asset->bmax.y - r.asset->bmin.y); k.ang = 0.05f; k.angV = 1.6f;
+  app.fx.impact(at, -h, "steel");
+  app.audio.play("door_break", at, 0.35f);
+  knocked[i.id] = k;
+}
+
 void TankSys::breachWall(App& app, Instance& i, InstanceRT& r, const TankRT& t, vec3 at, vec3 n, vec3 dir) {
   const TankDef& d = *t.def;
   // a tank-sized opening: impact-centred AT-class stamps on the struck wall plane, across the hull width and up to the
@@ -158,6 +173,14 @@ void TankSys::stepKnocked(App& app, float dt) {
         app.audio.play("tree_fall", top, 0.5f);
         for (int n = 0; n < 6; ++n) app.fx.smoke(top + vec3(app.fx.rnd() - 0.5f, 0.1f, app.fx.rnd() - 0.5f), vec3(app.fx.rnd() - 0.5f, 0.4f, app.fx.rnd() - 0.5f), 0.35f, 1.6f, vec4(0.45f, 0.4f, 0.32f, 0.35f), 1.4f, 0.2f);
       }
+    }
+    if (k.resetAt > 0 && !k.falling && (k.age += dt) >= k.resetAt) {   // NT5: the range target pops back up
+      if (k.body != 0xffffffffu) Physics::remove(k.body);
+      auto r = app.rt.find(k.id);
+      if (r != app.rt.end() && r->second.staticBody == 0xffffffffu && r->second.asset->shape)
+        r->second.staticBody = Physics::addStatic(r->second.asset->shape, i->pos, yawQuat(i->yaw), bodyUD(k.id));
+      app.audio.play("door_break", i->pos + vec3(0, 1, 0), 0.25f);
+      it = knocked.erase(it); continue;
     }
     if (k.dynamicBody) {
       // settled (or after 8 s): the fallen prop becomes static debris lying where it came to rest

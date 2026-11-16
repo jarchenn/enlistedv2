@@ -1079,6 +1079,7 @@ int App::run(int argc, char** argv) {
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
       R.lt.mapGrime = lk ? std::clamp(lk->value("grime", 0.0f), 0.0f, 2.0f) : 0.0f;
+      R.lt.mapVegCull = lk ? std::clamp(lk->value("vegCull", 1.0f), 0.3f, 1.0f) : 1.0f;
       R.lt.mapCave = lk && lk->value("cave", false) ? 1.0f : 0.0f;
       tex::mapPaintSets(lk);   // NT4
       R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);

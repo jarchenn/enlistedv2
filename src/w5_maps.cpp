@@ -177,5 +177,6 @@ bool w5CullDraw(const App& app, const Instance& i, const AssetDef* a) {
   vec3 ext = a->bmax - a->bmin;
   float size = std::max({ext.x, ext.y, ext.z, 0.3f});
   float cut = std::clamp(rule.perMetre * size, rule.minD, rule.maxD) * settings().drawDist();   // Settings draw distance (rules stay cached)
+  if (a->category == "Vegetation" && app.R.perf.vegCull) cut *= app.R.lt.mapVegCull;   // NT5: per-map undergrowth cut (look.vegCull)
   return d2 > cut * cut;
 }
