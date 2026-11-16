@@ -2,8 +2,8 @@
   "note": "BR sedan (mod_sedan, _red, _wrecked, _burned): an older-generation family saloon: grey plastic dash with a silver band, three analogue dials (speedometer, rev counter, fuel / temperature combination) under a deep hood, a two-DIN radio screen, chrome-ringed round vents, body-colour seat inserts.",
   "base": "civil_core",
   "palette": {
-    "pad": {"rgb": [0.14, 0.14, 0.145], "rough": 0.85, "pat": "textile", "tex": true},
-    "dash": {"rgb": [0.11, 0.11, 0.115], "rough": 0.85, "pat": "textile"},
+    "pad": {"rgb": [0.26, 0.26, 0.27], "rough": 0.85, "pat": "fabric", "texture": "leather_black"},
+    "dash": {"rgb": [0.22, 0.22, 0.23], "rough": 0.85, "pat": "fabric", "texture": "leather_black"},
     "silver": {"rgb": [0.45, 0.46, 0.47], "rough": 0.35, "metal": 0.7, "pat": "metal"},
     "face": {"rgb": [0.02, 0.02, 0.025], "rough": 0.6},
     "mark": {"rgb": [0.9, 0.9, 0.9], "rough": 0.6, "emi": [0.9, 0.35, 0.15]}

@@ -1101,7 +1101,7 @@ int App::run(int argc, char** argv) {
     }
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
-    platformImGuiRender(ImGui::GetDrawData());
+    if (!hideUi) platformImGuiRender(ImGui::GetDrawData());
     R.gpuMark(GP_Count);   // end of the UI pass (render.cpp gpuMark)
     mark("present");
     if (rec.active() && (++recTick & 1)) {   // 30 fps from the fixed 60 Hz simulation, HUD included

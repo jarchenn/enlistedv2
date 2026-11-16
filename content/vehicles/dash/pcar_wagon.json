@@ -1,11 +1,11 @@
 {
   "note": "Estate (Scandinavian-style): a clean, horizontal dash in light grey with a blond-wood band running the full width, a portrait touch screen in the centre stack flanked by tall vents, a plain digital cluster with no rings, a crystal-like gear knob, minimal buttons.",
   "base": "civil_core",
-  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "dash": [1.1, 0.68], "eye": [1.32, -0.3]},
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "dash": [1.1, 0.68], "eye": [1.32, -0.2]},
   "palette": {
-    "pad": {"rgb": [0.36, 0.36, 0.35], "rough": 0.85, "pat": "textile", "tex": true},
-    "dash": {"rgb": [0.1, 0.1, 0.1], "rough": 0.8, "pat": "textile"},
-    "wood": {"rgb": [0.55, 0.42, 0.28], "rough": 0.5, "pat": "wood", "tex": true},
+    "pad": {"rgb": [0.52, 0.52, 0.51], "rough": 0.85, "pat": "fabric", "texture": "cloth"},
+    "dash": {"rgb": [0.22, 0.22, 0.22], "rough": 0.8, "pat": "fabric", "texture": "leather_black"},
+    "wood": {"rgb": [0.6, 0.47, 0.32], "rough": 0.45, "pat": "wood", "texture": "wood_veneer_warm"},
     "crystal": {"rgb": [0.6, 0.65, 0.7], "rough": 0.05, "metal": 0.3},
     "stitch": {"rgb": [0.25, 0.25, 0.25], "rough": 0.9}
   },

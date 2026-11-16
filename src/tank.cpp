@@ -217,7 +217,7 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
     float wheelX = -0.37f;   // VH6: on the steering wheel's side (a thin rubber ring at dash height), else the generic kit's x -0.37
     for (auto& p : a->parts) { const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
       if (mn == "rubber" && p.shape == Part::CYL && p.size.y < 0.06f && p.size.x < 0.5f && std::fabs(p.center.y - dash.y) < 0.4f) wheelX = p.center.x; }
-    d->driverEye = vec3(wheelX, dash.y + dashS.y * 0.5f + 0.30f, dash.z - dashS.z * 0.5f - 0.62f);   // over the wheel, ~0.6 m behind the dash
+    d->driverEye = vec3(wheelX, dash.y + dashS.y * 0.5f + 0.30f, dash.z - dashS.z * 0.5f - 0.57f);   // over the wheel, ~0.55 m behind the dash: the dash and rim low in the view, the sun visors above it
     vehicleDashModelEye(a, d->driverEye); d->hatchEye = d->driverEye;   // a car-pack copy: its model's own seat (the interior spec's "model" fit)
     d->engine = vec3(0, 0.8f, bhi.z - 0.6f); d->exhausts = {vec3(0.4f, 0.3f, blo.z - 0.05f)};
     float sx = hx + 1.1f; d->exits = {vec3(-sx, 0, 0), vec3(sx, 0, 0), vec3(-sx, 0, blo.z * 0.6f), vec3(sx, 0, blo.z * 0.6f), vec3(0, 0, blo.z - 1.5f), vec3(0, 0, bhi.z + 1.5f)};

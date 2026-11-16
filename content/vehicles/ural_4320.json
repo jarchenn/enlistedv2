@@ -66,11 +66,7 @@
     "note": "part-built stand-in made of boxes and cylinders by tools/vehicles/make_fallback.py ural (committed)"
   },
   "rig": {
-    "driverEyeFromSteer": [
-      0,
-      0.42,
-      -0.5
-    ],
+    "driverEyeFromSteer": [0, 0.32, -0.42],
     "steerAxis": [
       0,
       0.489,
@@ -187,5 +183,5 @@
     "pushEfficiency": 0.6,
     "note": "Ural-4320 ~8.6 t empty, 230 hp diesel"
   },
-  "dash": {"spec": "ural_4320", "offset": [0, -0.32, 0.55], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/ural_4320.json, anchored at the driver's eye + offset"}
+  "dash": {"spec": "ural_4320", "offset": [0, -0.25, 0.47], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/ural_4320.json, anchored at the driver's eye + offset"}
 }

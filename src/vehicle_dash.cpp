@@ -12,6 +12,8 @@
 #include "tank.h"
 #include "assets.h"
 #include "lights.h"
+#include "light_types.h"
+#include "textures.h"
 #include <glm/gtx/quaternion.hpp>
 #include <map>
 
@@ -55,6 +57,7 @@ struct Pal {
       vec3 rgb = jv3(v.value("rgb", json()), vec3(0.5f));
       if (v.contains("fromPaint")) rgb = glm::mix(rgb, paint * v.value("paintScale", 1.0f), v["fromPaint"].get<float>());   // follows the body colour
       m[k] = M(k, rgb, v.value("rough", 0.7f), v.value("metal", 0.0f), patOf(v.value("pat", std::string("plain"))), jv3(v.value("emi", json()), vec3(0)), v.value("tex", false));
+      if (v.contains("texture")) m[k].texCode = tex::materialCode(k, m[k].pattern, v["texture"].get<std::string>());   // an image set (leather, veneer, plastic)
     }
   }
   const Material& operator()(const std::string& k) const { auto it = m.find(k); return it != m.end() ? it->second : m.at("black"); }
@@ -151,8 +154,8 @@ Kit buildKit(const json& spec, float in, vec3 paint) {
       vec3 cu(at.x * in, at.y, at.z - 0.0034f);   // the marks' plane, unmirrored: the scale runs clockwise from lower left as the driver sees it
       for (int s = 0; s <= nt; ++s) {
         float th = sweep * 0.5f - sweep * s / nt;
-        B::boxU(body, cu + dialDir(th) * (r * 0.84f), vec3(0.0026f, s % 2 ? 0.006f : 0.011f, 0.0008f), mk, -th);
-        if (n && s % 2 == 0) B::numeral(body, cu + dialDir(th) * (r * 0.58f), r * 0.2f, i.value("num0", 0) + i.value("numStep", 1) * (s / 2), mk);
+        B::boxU(body, cu + dialDir(th) * (r * 0.84f), vec3(s % 2 ? 0.0028f : 0.0038f, s % 2 ? r * 0.12f : r * 0.22f, 0.0008f), mk, -th);
+        if (n && s % 2 == 0) B::numeral(body, cu + dialDir(th) * (r * 0.56f), r * 0.26f, i.value("num0", 0) + i.value("numStep", 1) * (s / 2), mk);
       }
       if (i.value("redline", 0.0f) > 0) for (int s = 0; s < 5; ++s) {   // a red arc over the last part of the scale
         float th = -sweep * 0.5f + sweep * i.value("redline", 0.0f) * (s + 0.5f) / 5;
@@ -355,7 +358,7 @@ Kit buildKit(const json& spec, float in, vec3 paint) {
   }
   k.body.upload(body); k.glow.upload(glow); k.dead.upload(dead); k.wreck.upload(wreck); k.wheel.upload(wheel);
   MeshData nd; B one{1}; vec3 nc = jv3(spec.value("needle", json()), vec3(0.95f, 0.93f, 0.88f));
-  one.box(nd, vec3(0, 0.018f, 0), vec3(0.0026f, 0.04f, 0.0012f), M("needle", nc, 0.4f, 0, PAT_PLAIN, nc * 0.6f));
+  one.box(nd, vec3(0, 0.018f, 0), vec3(0.0036f, 0.04f, 0.0012f), M("needle", nc, 0.4f, 0, PAT_PLAIN, nc * 0.6f));
   one.box(nd, vec3(0, -0.006f, 0), vec3(0.004f, 0.012f, 0.0012f), M("needle_tail", nc, 0.4f));
   k.needle.upload(nd);
   MeshData sd; one.box(sd, vec3(0), vec3(1), E("seg", jv3(spec.value("digitGlow", json()), vec3(1.6f, 1.8f, 2.0f)))); k.seg.upload(sd);
@@ -367,9 +370,20 @@ const Kit& kitFor(const std::string& name, const json& spec, float in, vec3 pain
   static std::map<std::string, Kit> kits;
   char key[200]; std::snprintf(key, sizeof key, "%s|%d|%.2f,%.2f,%.2f", name.c_str(), in > 0 ? 1 : 0, paint.x, paint.y, paint.z);
   auto it = kits.find(key); if (it != kits.end()) return it->second;
-  return kits[key] = buildKit(spec, in, paint);
+  Kit& k = kits[key] = buildKit(spec, in, paint);
+  tex::flushPending();   // image sets the spec's palette names (leather, veneer, plastic) load now, not with the library
+  return k;
 }
 
+// cabin fill: sky light through the glass by day (the shell's shadow and the probes leave a closed cab near black), the
+// screens' and dials' faint glow by night; one soft point light per interior drawn this frame, no shadow
+struct CabinLight { vec3 pos{0}; float day = 0, glow = 0; int frame = 0; };
+std::map<uint64_t, CabinLight> gCabin; int gFrame = 0;
+void cabinLight(App& app, uint64_t id, const mat4& W, vec3 kitPos, bool running) {
+  CabinLight& c = gCabin[id];
+  c.pos = vec3(W * vec4(kitPos, 1)); c.frame = gFrame;
+  c.day = app.R.wx.enclosed ? 0.0f : glm::smoothstep(0.3f, 0.8f, lightsDaylight(app));   // moonlight is no fill c.glow = running ? 1.0f : 0.0f;
+}
 float glowNow(App& app) { return 1.0f + 1.6f * (app.R.wx.enclosed ? 1.0f : 1.0f - std::clamp(lightsDaylight(app), 0.0f, 1.0f)); }
 
 // one interior: W = the anchor frame; state 0 parked, 1 running, 2 wreck; v = speed (dial fraction), rpm, fuel, temp; wheelM = the drawn wheel's frame
@@ -448,6 +462,7 @@ const CarInfo& carInfo(const AssetDef* a) {
   if (c.car && a->model) {   // drawn as its supplied model: dash anchor (and the wheel with it) on the model's own dash
     const json& fit = loadSpec(c.spec).value("model", json::object());
     if (fit.contains("dash")) { vec2 yz = jv2(fit["dash"], vec2(c.anchor.y, c.anchor.z)); vec3 d(0, yz.x - c.anchor.y, yz.y - c.anchor.z); c.anchor += d; c.wheelC += d; }
+    if (fit.contains("wheelY")) c.wheelC.y = fit["wheelY"].get<float>();   // the rim's centre height: its top under the eye line
   }
   return c;
 }
@@ -458,14 +473,29 @@ bool vehicleDashModelEye(const AssetDef* a, vec3& eye) {
   const CarInfo& c = carInfo(a); if (!c.car) return false;
   const json& fit = loadSpec(c.spec).value("model", json::object());
   if (!fit.contains("eye")) return false;
-  vec2 yz = jv2(fit["eye"], vec2(eye.y, eye.z)); eye.y = yz.x; eye.z = yz.y; return true;
+  vec2 yz = jv2(fit["eye"], vec2(eye.y, eye.z)); eye.y = yz.x; eye.z = yz.y;
+  if (fit["eye"].size() > 2) eye.x = (eye.x < 0 ? -1.0f : 1.0f) * fit["eye"][2].get<float>();   // [y, z, |x|]: inboard of a narrow shell's A-pillar
+  return true;
 }
 static void dashDraw(App& app, const TankRT& t, const mat4& hull);
 static void dashFrame(App& app);
 void vehicleDashDraw(App& app, const TankRT& t, const mat4& hull) {   // a bad spec (content data) is logged, never fatal
   try { dashDraw(app, t, hull); } catch (const std::exception& e) { static int n = 0; if (n++ < 5) logf("dash: %s: %s", t.def ? t.def->id.c_str() : "?", e.what()); }
 }
+void vehicleDashLights(App& app, std::vector<LightDesc>& out) {
+  (void)app;
+  for (auto it = gCabin.begin(); it != gCabin.end();) {
+    if (it->second.frame < gFrame - 1) { it = gCabin.erase(it); continue; }   // not drawn last frame: out of reach
+    const CabinLight& c = it->second;
+    LightDesc L; L.pos = c.pos; L.radius = 1.7f; L.id = 0xCAB00000u + (uint32_t)(it->first & 0xFFFFF);
+    L.color = glm::mix(vec3(0.45f, 0.6f, 1.0f), vec3(0.85f, 0.9f, 1.0f), c.day);
+    L.intensity = 1.6f * c.day + 0.04f * c.glow;
+    if (L.intensity > 0.01f) out.push_back(L);
+    ++it;
+  }
+}
 void vehicleDashFrame(App& app) {
+  ++gFrame;
   try { dashFrame(app); } catch (const std::exception& e) { static int n = 0; if (n++ < 5) logf("dash: parked: %s", e.what()); }
 }
 static void dashDraw(App& app, const TankRT& t, const mat4& hull) {
@@ -489,7 +519,9 @@ static void dashDraw(App& app, const TankRT& t, const mat4& hull) {
     float rim = -t.steer * d.steerTurns * 0.5f * 6.2831853f;
     wm = hull * glm::translate(mat4(1), ci->wheelC) * glm::mat4_cast(ci->wheelQ) * glm::rotate(mat4(1), rim, vec3(0, 1, 0)); wp = &wm;
   }
-  drawKit(app, k, hull * glm::translate(mat4(1), at) * glm::scale(mat4(1), vec3(spec.value("scale", 1.0f))), state, v, kmh, wp);
+  mat4 W = hull * glm::translate(mat4(1), at) * glm::scale(mat4(1), vec3(spec.value("scale", 1.0f)));
+  drawKit(app, k, W, state, v, kmh, wp);
+  if (spec.value("cabinLight", true)) cabinLight(app, t.id, W, jv3(spec.value("light", json()), vec3(0.37f * (at.x > 0 ? -1.0f : 1.0f), -0.06f, -0.5f)), state == 1);
 }
 
 static void dashFrame(App& app) {   // parked part-built cars within reach: their interior, dark (or dusty, cracked) screens
@@ -506,5 +538,6 @@ static void dashFrame(App& app) {   // parked part-built cars within reach: thei
     mat4 wm = I * glm::translate(mat4(1), c.wheelC) * glm::mat4_cast(c.wheelQ);
     float v[4] = {0, 0, c.wreck ? 0.0f : 0.3f, 0};
     drawKit(app, k, I * glm::translate(mat4(1), c.anchor), c.wreck ? 2 : 0, v, 0, &wm);
+    if (dv.x * dv.x + dv.z * dv.z < 6.0f * 6.0f) cabinLight(app, i.id, I * glm::translate(mat4(1), c.anchor), jv3(spec.value("light", json()), vec3(0.37f * (c.anchor.x > 0 ? -1.0f : 1.0f), -0.06f, -0.5f)), false);
   }
 }
