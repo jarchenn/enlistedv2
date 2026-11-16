@@ -597,12 +597,7 @@ void App::drawExploreUI() {
       }
       dl->AddCircleFilled(c, 2.4f * k, dark); dl->AddCircleFilled(c, 1.5f * k, white);
     }
-    {   // GM1b: MG 42 (carried in ADS, or crewing the mount): a thin black mark in the rear notch, its top tip on the aim point
-      float a = 0;
-      if (occupied) { auto it = rt.find(occupied); if (it != rt.end() && it->second.asset && it->second.asset->station.kind == "mg42" && it->second.st.pos2 == ST_GUNNER) a = 1; }
-      else if (!weaponDefs.empty() && weaponDefs[activeWeapon]->id == "mg42" && !tanks.occupied) a = adsT * adsT * (3 - 2 * adsT);
-      if (a > 0.01f) { float len = io.DisplaySize.y * 0.016f; dl->AddLine(c, ImVec2(c.x, c.y + len), IM_COL32(0, 0, 0, (int)(255 * a)), std::max(1.5f, io.DisplaySize.y / 720.0f)); }
-    }
+    // (GM1b's black aim mark in the MG 42's rear notch removed at the user's request: the gun's own sights are the reference)
     if (target.valid && !tanks.occupied && !tanks.target) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
