@@ -7,6 +7,7 @@
 #   blender -b --factory-startup --python convert_vehicles.py -- willys  <jeep_willys_mb...glb> <out.glb>
 #   blender -b --factory-startup --python convert_vehicles.py -- ww2jeep <ww2_jeep.glb> <out.glb>
 #   blender -b --factory-startup --disable-autoexec "<all5 together.blend>" --python convert_vehicles.py -- opel "<collection>" <out.glb>
+#   blender -b --factory-startup --disable-autoexec <Sketchfab_2022_12_12_22_16_32.blend> --python convert_vehicles.py -- sherman_m4 <out.glb>
 import bpy, sys, bmesh
 import numpy as np
 from mathutils import Matrix, Vector
@@ -279,6 +280,31 @@ elif mode == 'boxer':
         elif n.startswith(RWS): put(o, 'rws')
         else: put(o, 'hull')
     print('BOXER roles', {k: len(v.children) for k, v in groups.items()})
+elif mode == 'sherman_m4':
+    # VH4 M4 Sherman (m4-sherman.zip: source/Sketchfab_2022_12_12_22_16_32.blend, a multi-variant scene; the visible
+    # "M4" collection is the 75 mm M4, ~180 loose objects, front -y, z up, ~0.51 m per unit). Roles by material and place:
+    # Tower -> turret, except the gun (barrel, mantlet, sight: Tower objects in front of the turret face, |x| < 0.25,
+    # 0.3 < z): "gun"; the roof .50 and its belt -> "mg"; Tracks -> track; Suspension (bogies, wheels) -> wheels;
+    # body, skirts, stowage -> hull. Curves (cables) are dropped. The game scales it (realLength on the hull node).
+    # usage: blender -b --factory-startup --disable-autoexec <the .blend> --python convert_vehicles.py -- sherman_m4 <out.glb>
+    coll = bpy.data.collections['M4']
+    meshes = [o for o in coll.objects if o.type == 'MESH']
+    dg = bpy.context.evaluated_depsgraph_get()
+    for o in meshes:   # mirror / array modifiers (one side of the tracks and bogies is modelled) applied first
+        me = bpy.data.meshes.new_from_object(o.evaluated_get(dg)); o.modifiers.clear(); o.data = me
+    bake_world(meshes, 1.0)
+    for o in list(bpy.data.objects):
+        if o not in meshes: bpy.data.objects.remove(o, do_unlink=True)
+    for o in meshes:
+        m = o.material_slots[0].material.name if o.material_slots and o.material_slots[0].material else ''
+        vs = [v.co for v in o.data.vertices]; lo = Vector([min(v[i] for v in vs) for i in range(3)]); hi = Vector([max(v[i] for v in vs) for i in range(3)])
+        if m.startswith('M4_Base_Tower'):
+            put(o, 'gun' if hi.y <= -0.14 and lo.z >= 0.3 and max(abs(lo.x), abs(hi.x)) <= 0.25 else 'turret')
+        elif m.startswith(('MG_M4A2', 'Bullet')): put(o, 'mg')
+        elif m.startswith('M4_Base_Tracks'): put(o, 'track')
+        elif m.startswith('M4_Base_Suspension'): put(o, 'wheels')
+        else: put(o, 'hull')
+    print('SHERMAN gun parts', [o.name for o in groups['gun'].children])
 else:
     raise SystemExit('unknown mode ' + mode)
 

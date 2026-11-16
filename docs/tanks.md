@@ -70,6 +70,19 @@ The model is a mid-production Tiger I: commander's cupola, spare track links on 
   - The tracks and road wheels do not animate; no tank does.
 - `--capture-abrams` takes one frame of the tank in Creative with the turret turned.
 
+### Panzer IV and M4 Sherman (VH4)
+
+- **Panzer IV Ausf. H** (`content/vehicles/panzer_iv.json`, catalog `tank_panzer_iv`, Axis).
+  - The supplied CC BY GLB is baked and committed in `content/vehicles/models/panzer_iv/`. Its own nodes give the turret, the gun (barrel, muzzle brake, mantlet, coax), the tracks and the running gear.
+  - It is 244k triangles simplified to 73k, with textures at 1024².
+  - Data: `"base": "tiger_i"` (MG 34 cupola and bow guns), 7.5 cm KwK 40, 790 / 550 m/s, 38 km/h, 25 t. It survives 3 front hits and 1 side hit.
+- **M4 Sherman, 75 mm** (`content/vehicles/sherman_m4.json`, catalog `tank_sherman_m4`, Allied).
+  - The supplied `.blend` carries no author or licence. `tools/vehicles/convert_vehicles.py sherman_m4` converts its "M4" collection, applying the mirror modifiers and assigning roles by material and position. The bake is local-only.
+  - Clones draw the Firefly's committed mesh through `fallbackDir`, with the M4's rig, so the gun and sight sit slightly off on that stand-in.
+  - Data: `"base": "sherman_firefly"`, 75 mm M3, 619 / 463 m/s, 38.6 km/h, 30.3 t, roof .50. It survives 3 front hits and 1 side hit.
+  - The existing `sherman_firefly` is unchanged: it is a different gun, and its id keeps working.
+- `--capture-vehicle <asset id>` takes one frame of a placed vehicle (`selftest_out/capture_<asset>.png`), with a tank's turret turned 60°.
+
 ### Licences (from the GLB `asset.extras`)
 
 | File | Author | Licence | Source |
