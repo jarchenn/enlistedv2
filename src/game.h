@@ -3,6 +3,7 @@
 // the presentation (skinned characters, HUD). Runs inside Explore mode when a match was started from the Play menu
 // (Singleplayer / Host LAN); plain Explore walkthroughs are unchanged. Clients (net.cpp) mirror it from snapshots.
 #include "match.h"
+#include "commands.h"   // CMD2 gAdmin (hostile)
 #include "nav.h"
 #include "character.h"
 #include "combat.h"
@@ -165,7 +166,8 @@ public:
   bool hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const;
   int soldierOfOwner(int owner) const;
   bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }
-  static bool hostile(const Soldier& a, const Soldier& b) { return &a != &b && a.team != b.team; }   // G1: every enemy check
+  static bool hostile(const Soldier& a, const Soldier& b) {   // G1: every enemy check; CMD2: an AI never takes the /admin (ignored) or anyone (/peace) for an enemy
+    return &a != &b && a.team != b.team && !(!a.human && (gAdmin.peace || (gAdmin.ignored && b.localPlayer))); }
   // perception helpers
   bool lineOfSight(vec3 a, vec3 b, float* smokeT = nullptr) const;
   vec3 eye(const Soldier& s) const;

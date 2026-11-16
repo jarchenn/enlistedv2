@@ -182,6 +182,7 @@ bool Game::begin(std::string& err) {
 }
 
 void Game::end() {
+  gAdmin = AdminMode{};   // CMD2: /admin ends with the match
   aiZombieLoopsStop(app);   // SND2: no creature breathing on after the match
   aiMatchEnd(*this);   // W6
   for (auto& s : sold) { if (s.agent >= 0) Physics::destroyAgent(s.agent); s.agent = -1; if (s.ciReady) s.ci.destroy(); s.ciReady = false; }
@@ -397,6 +398,7 @@ bool Game::trySpawn(int slot, std::string& why) {
 
 void Game::killSoldier(int i, int killer, vec3 dir) {
   Soldier& s = sold[i];
+  if (gAdmin.god && s.localPlayer && !gAdmin.allowKill) return;   // CMD2: no direct death either (a heli crash, out of the world)
   if (s.zombie && s.alive && !enemyType(s.etype).sndDeath.empty()) app.audio.play(enemyType(s.etype).sndDeath.c_str(), s.feet + vec3(0, 1.0f, 0), 1.0f);   // SND1. shortcut: host / single player only
   if (!s.alive) return;
   s.alive = false; s.diedAt = t; s.killer = killer; s.deathDir = dir; s.hp = 0;
@@ -502,6 +504,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
   if (rulesIgnoreDamage(*this, i)) return;
+  if (gAdmin.god && s.localPlayer) return;   // CMD2 /admin: nothing hurts you (bullets, blasts, melee, flame, falls, drowning, storm)
   if (s.zombie && enemyType(s.etype).shellKills > 0) {   // a fixed number of direct shell hits kills it
     static std::map<int, double> shellAt; const bool shell = how && std::strcmp(how, "shell") == 0, blast = how && std::strcmp(how, "blast") == 0;
     if (shell) { shellAt[i] = t; s.hp -= enemyType(s.etype).hp / enemyType(s.etype).shellKills - 0.01f; dmg = 0.01f; how = "blast"; }   // applied here; the rest of the function sees a token blast

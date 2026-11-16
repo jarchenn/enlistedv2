@@ -18,6 +18,7 @@
 // In a session entered from Creative (drop-in, Explore from start) placements and removals are real map edits
 // (placeInstance, the editor's undo stack, the map marked dirty); otherwise they stay a session overlay.
 #include "app.h"
+#include "commands.h"   // CMD2 gAdmin.build
 #include "lines.h"
 #include "editor_nav.h"
 #include "palette.h"
@@ -91,7 +92,7 @@ bool App::snapDefense(const AssetDef* a, vec3& pos, float& yaw, int* matchedSock
 }
 
 void App::setBuildPalette(bool open) {
-  if (open && engMatchActive()) open = false;   // GM3: the sandbox palette is never reachable in a match (B, Tab, a rack deployment)
+  if (open && engMatchActive() && !gAdmin.build) open = false;   // GM3: the sandbox palette is never reachable in a match (B, Tab, a rack deployment)
   if (build.palette == open) return;
   build.palette = open;
   syncCursor();
@@ -170,12 +171,12 @@ void App::stepBuilder(const ExploreInput& in) {
   };
   static int prevWeapon = -1;
   const bool hammerNow = activeWeapon >= 0 && activeWeapon < (int)weaponDefs.size() && weaponDefs[activeWeapon]->tool;
-  if (activeWeapon != prevWeapon && engMatchActive()) {
+  if (activeWeapon != prevWeapon && engMatchActive() && !gAdmin.build) {
     if (hammerNow && !build.active && engineerCanBuild(*this)) enterEngineer();
     else if (!hammerNow && build.active && build.engineer && hammerCarried) { build.active = false; build.engineer = false; }
   }
   prevWeapon = activeWeapon;
-  if (in.build && engMatchActive()) {
+  if (in.build && engMatchActive() && !gAdmin.build) {   // CMD2: /admin builds with the sandbox palette in a match
     if (build.active) { build.active = false; build.engineer = false; }
     else if (!engineerCanBuild(*this)) toast("Only the Engineer can build", 3);
     else enterEngineer();
