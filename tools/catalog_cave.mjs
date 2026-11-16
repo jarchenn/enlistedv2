@@ -27,7 +27,7 @@ const r2 = (v) => Math.round(v * 100) / 100;
 for (const [sfx, sz, seeds] of [["l", [42, 16, 40], [501, 502, 503]], ["m", [28, 11, 27], [511, 512, 513]], ["s", [16, 7, 15], [521, 522]]]) {
   seeds.forEach((sd, k) => rock(`cave_lid_${sfx}${k}`, `Cave ceiling (${sfx === "l" ? "large" : sfx === "m" ? "medium" : "small"} ${k + 1})`,
     "A slab of cave roof hung from a flat top: a lumpy, fractured underside about " + Math.round(sz[1] * 0.78) + " m deep. Placed overlapping to close a cavern.",
-    [piece(k % 2 ? "schist" : "limestone", sd, sz, [0, 0, 0], 0, [180, 0], 0, 3)], [sz[0], sz[2]], "block", true, "Cave roof"));
+    [piece("dripstone", sd, sz, [0, 0, 0], 0, [180, 0], 0, 3)], [sz[0], sz[2]], "block", true, "Cave roof"));
 }
 
 // ---------------------------------------------------------------- stalactites (hang from y = 0 down), stalagmites (rise from the floor), columns
@@ -59,13 +59,13 @@ for (let v = 0; v < 4; v++) {
 for (const [sfx, H] of [["m", 12], ["l", 20], ["xl", 30], ["h45", 45], ["h60", 60], ["h75", 75]]) {   // a stalagmite and a stalactite grown together, waisted where they meet
   const w = 2.4 + H * 0.11;
   S = 1650 + H;
-  const P = [piece("limestone", 1600 + H, [w, H * 0.62, w * 0.9], [0, 0, 0], 0, [0, 0], 0.05, 3),
-     piece("limestone", 1601 + H, [w * 0.95, H * 0.6, w], [0, H, 0], 70, [180, 0], 0.0, 3),
-     piece("limestone", 1602 + H, [w * 1.9, H * 0.12, w * 1.7], [0, 0, 0], 20, [0, 0], 0.3, 2),
-     piece("limestone", 1603 + H, [w * 1.7, H * 0.12, w * 1.9], [0, H + 0.6, 0], 140, [180, 0], 0, 2)];
+  const P = [piece("dripstone", 1600 + H, [w, H * 0.62, w * 0.9], [0, 0, 0], 0, [0, 0], 0.05, 3),
+     piece("dripstone", 1601 + H, [w * 0.95, H * 0.6, w], [0, H, 0], 70, [180, 0], 0.0, 3),
+     piece("dripstone", 1602 + H, [w * 1.9, H * 0.12, w * 1.7], [0, 0, 0], 20, [0, 0], 0.3, 2),
+     piece("dripstone", 1603 + H, [w * 1.7, H * 0.12, w * 1.9], [0, H + 0.6, 0], 140, [180, 0], 0, 2)];
   if (H >= 30) for (let k = 0; k < 9; k++) {   // fluting: thin ribs running up from the foot and down from the head
     const a = k / 9 * 6.283 + rnd() * 0.3, up = k % 2 === 0;
-    P.push(piece("limestone", 1700 + H + k, [r2(w * (0.18 + rnd() * 0.1)), r2(H * (0.3 + rnd() * 0.2)), r2(w * 0.2)], [r2(Math.cos(a) * w * 0.42), up ? 0 : H, r2(Math.sin(a) * w * 0.42)], Math.round(a * 57.3), up ? [0, 0] : [180, 0], 0.02, 2));
+    P.push(piece("dripstone", 1700 + H + k, [r2(w * (0.18 + rnd() * 0.1)), r2(H * (0.3 + rnd() * 0.2)), r2(w * 0.2)], [r2(Math.cos(a) * w * 0.42), up ? 0 : H, r2(Math.sin(a) * w * 0.42)], Math.round(a * 57.3), up ? [0, 0] : [180, 0], 0.02, 2));
   }
   rock(`cave_column_${sfx}`, `Dripstone column (${H} m)`, `A ${H} m dripstone column: a stalagmite and a stalactite fused at the waist, flared at floor and roof${H >= 30 ? ", fluted" : ""}.`, P, [w * 1.9, w * 1.9]);
 }
@@ -125,9 +125,9 @@ const crackParts = [{ t: "b", c: [0, -0.05, 0], s: [5.5, 0.06, 0.45], r: [0, 18,
   { t: "b", c: [-1.9, -0.06, -0.5], s: [1.8, 0.06, 0.18], r: [0, -12, 0], m: "sky", k: 0 }];   // the crack itself: a cold, bright sliver of sky in the roof
 const skyMat = [{ name: "sky", albedo: [0.5, 0.6, 0.75], roughness: 1, pattern: "plain", metallic: 0, grain: 1, emissive: [2.2, 2.7, 3.4] }];
 lightAsset("cave_light_crack", "Cave light (ceiling crack)", "Cold, faint daylight falling through a crack in the cave roof: a narrow downward spot that casts shadows.",
-  { color: [0.55, 0.68, 0.95], intensity: 2200, radius: 60, dir: [0, -1, 0], cone: [8, 22], shadow: 0, use: "electric", fx: "shaft", fxSize: 30 }, crackParts, skyMat);
+  { color: [0.55, 0.68, 0.95], intensity: 2200, radius: 60, dir: [0, -1, 0], cone: [8, 22], shadow: 0, use: "electric", fx: "shaft", fxSize: 30 });
 lightAsset("cave_light_crack_ns", "Cave light (ceiling crack, no shadow)", "Cold light through a crack in the cave roof, without a shadow map (cheaper).",
-  { color: [0.55, 0.68, 0.95], intensity: 1700, radius: 55, dir: [0, -1, 0], cone: [5, 19], use: "electric", fx: "shaft", fxSize: 26 }, crackParts, skyMat);
+  { color: [0.55, 0.68, 0.95], intensity: 1700, radius: 55, dir: [0, -1, 0], cone: [5, 19], use: "electric", fx: "shaft", fxSize: 26 });
 lightAsset("cave_light_cold", "Cave light (cold fill)", "A faint cold glow over water: no fitting, no shadow.",
   { color: [0.45, 0.6, 0.85], intensity: 9, radius: 18, use: "electric", fx: "mist", fxSize: 9 });
 lightAsset("cave_glow_ember", "Ember fissure", "A crack in the floor glowing deep orange: a small, flickering warm accent.",
@@ -146,7 +146,7 @@ lightAsset("cave_fire_altar", "Cave fire (altar)", "A low fire of embers and fla
 // irregularly spaced satellites of mixed kinds. Kinds: soda-straw needles, tapering spears, fat bulbous drips, fluted
 // spears, broken stumps, curved / leaning ones, twinned and fused pairs, flowstone curtains (hanging), stacked
 // "wedding-cake" stalagmites and squat mounds (standing). Hanging clusters below 9 m do not collide (out of reach).
-const spk = (P, seed, x, z, y0, h, w, dir, yaw, lean, nseg = 4, curve = 1, lith = "limestone") => {
+const spk = (P, seed, x, z, y0, h, w, dir, yaw, lean, nseg = 4, curve = 1, lith = "dripstone") => {
   const segs = [[1.0, 0.0, 0.62], [0.68, 0.26, 0.56], [0.42, 0.5, 0.5], [0.2, 0.72, 0.36]].slice(0, nseg);
   segs.forEach(([ws, at, hs], k) => {
     const o = Math.pow(at, curve) * h;
@@ -175,16 +175,16 @@ const drip = (P, kind, sd, x, z, y0, h, dir) => {
     for (let k = 0; k < m; k++) {
       const t = k / (m - 1) - 0.5, a = a0 + Math.sin(t * 6 + rnd()) * wav, px = x + Math.cos(a0) * t * L - Math.sin(a0) * Math.sin(t * 7) * L * 0.08, pz = z + Math.sin(a0) * t * L + Math.cos(a0) * Math.sin(t * 7) * L * 0.08;
       const hh = h * (0.45 + 0.55 * Math.abs(Math.sin(t * 5.3 + 1.1))) * (0.8 + rnd() * 0.3);
-      P.push(piece("limestone", sd + 30 + k, [r2(L / m * 1.9), r2(hh), r2(0.22 + rnd() * 0.15)], [r2(px), r2(y0), r2(pz)], Math.round(-a * 57.3 + 90) % 360, [180, 0], 0, 1));
+      P.push(piece("dripstone", sd + 30 + k, [r2(L / m * 1.9), r2(hh), r2(0.22 + rnd() * 0.15)], [r2(px), r2(y0), r2(pz)], Math.round(-a * 57.3 + 90) % 360, [180, 0], 0, 1));
     }
     return;
   }
   if (kind === "cake") {   // stacked flattened tiers
     const n = 4 + Math.floor(rnd() * 4); let y = y0;
-    for (let k = 0; k < n; k++) { const f = 1 - k / n, w = h * 0.6 * f + 0.2; P.push(piece("limestone", sd + 40 + k, [r2(w), r2(h / n * 1.7), r2(w * 0.9)], [r2(x + (rnd() - 0.5) * 0.2), r2(y), r2(z + (rnd() - 0.5) * 0.2)], Math.round(rnd() * 360), [0, 0], 0.05, w > 1.4 ? 2 : 1)); y += h / n * 0.95; }
+    for (let k = 0; k < n; k++) { const f = 1 - k / n, w = h * 0.6 * f + 0.2; P.push(piece("dripstone", sd + 40 + k, [r2(w), r2(h / n * 1.7), r2(w * 0.9)], [r2(x + (rnd() - 0.5) * 0.2), r2(y), r2(z + (rnd() - 0.5) * 0.2)], Math.round(rnd() * 360), [0, 0], 0.05, w > 1.4 ? 2 : 1)); y += h / n * 0.95; }
     return;
   }
-  if (kind === "mound") { P.push(piece("limestone", sd + 60, [r2(h * 2.4), r2(h), r2(h * 2.1)], [x, y0, z], yaw, [0, 0], 0.2, 2)); return; }
+  if (kind === "mound") { P.push(piece("dripstone", sd + 60, [r2(h * 2.4), r2(h), r2(h * 2.1)], [x, y0, z], yaw, [0, 0], 0.2, 2)); return; }
 };
 const CLS = [1.5, 3, 5, 8, 12, 17, 21, 25];
 const dripAsset = (dir, v) => {
@@ -214,9 +214,9 @@ for (let v = 0; v < 4; v++) {
   for (let k = 0; k < n; k++) {
     const t = k / (n - 1), a = (t - 0.5) * span, x = Math.sin(a) * R, z = Math.cos(a) * R - R;
     const h = H * (0.6 + 0.4 * Math.sin(t * Math.PI)) * (0.82 + rnd() * 0.3), w = 1.2 + rnd() * 0.9, inx = -Math.sin(a), inz = -Math.cos(a);
-    P.push(piece("schist", 9400 + v * 300 + k * 3, [r2(w), r2(h * 0.66), r2(w * 1.1)], [r2(x), 0, r2(z)], Math.round(a * 57.3), [-3, 0], 0.03, 2));
-    P.push(piece("schist", 9401 + v * 300 + k * 3, [r2(w * 0.78), r2(h * 0.6), r2(w * 0.9)], [r2(x + inx * h * 0.06), r2(h * 0.42), r2(z + inz * h * 0.06)], Math.round(a * 57.3) + 20, [-8, 0], 0, 2));
-    if (k < n - 1) P.push(piece("schist", 9402 + v * 300 + k * 3, [r2(w * 0.45), r2(h * (0.25 + rnd() * 0.45)), r2(w * 0.5)], [r2(Math.sin(a + span / (2 * (n - 1))) * (R + 0.5)), 0, r2(Math.cos(a + span / (2 * (n - 1))) * (R + 0.5) - R)], Math.round(a * 57.3), [0, 0], 0.03, 1));
+    P.push(piece("dripstone", 9400 + v * 300 + k * 3, [r2(w), r2(h * 0.66), r2(w * 1.1)], [r2(x), 0, r2(z)], Math.round(a * 57.3), [-3, 0], 0.03, 2));
+    P.push(piece("dripstone", 9401 + v * 300 + k * 3, [r2(w * 0.78), r2(h * 0.6), r2(w * 0.9)], [r2(x + inx * h * 0.06), r2(h * 0.42), r2(z + inz * h * 0.06)], Math.round(a * 57.3) + 20, [-8, 0], 0, 2));
+    if (k < n - 1) P.push(piece("dripstone", 9402 + v * 300 + k * 3, [r2(w * 0.45), r2(h * (0.25 + rnd() * 0.45)), r2(w * 0.5)], [r2(Math.sin(a + span / (2 * (n - 1))) * (R + 0.5)), 0, r2(Math.cos(a + span / (2 * (n - 1))) * (R + 0.5) - R)], Math.round(a * 57.3), [0, 0], 0.03, 1));
   }
   rock(`cave_organ_${v}`, `Organ wall (${H} m)`, `A ${H} m concave wall of ${n} fluted rock ribs packed like organ pipes, rising nearly the full height of a cavern.`, P, [r2(R * 2), r2(R * 0.8)]);
 }
@@ -234,10 +234,8 @@ for (let v = 0; v < 4; v++) {
   rock("cave_steps", "Rough stone steps", "Five worn slabs rising 1.2 m: rough steps cut long ago.", P, [3.8, 5]);
 }
 lightAsset("cave_light_rim", "Cave light (rim)", "A faint, high cold glow with no fitting: grazes distant formations so their silhouettes separate from the dark.",
-  { color: [0.5, 0.62, 0.85], intensity: 110, radius: 50, use: "electric" });
+  { color: [0.5, 0.62, 0.85], intensity: 60, radius: 40, use: "electric" });
 lightAsset("cave_light_shaft_main", "Cave light (great shaft)", "The big crack over the central cavern: a strong cold beam through haze onto the wet floor.",
-  { color: [0.6, 0.72, 0.98], intensity: 9000, radius: 95, dir: [0, -1, 0], cone: [5, 15], use: "electric", fx: "shaft", fxSize: 62 },
-  [{ t: "b", c: [0, -0.05, 0], s: [9, 0.06, 1.1], r: [0, 18, 0], m: "sky", k: 0 }, { t: "b", c: [2.4, -0.06, 1.6], s: [4.2, 0.06, 0.5], r: [0, 52, 0], m: "sky", k: 0 },
-   { t: "b", c: [-3.1, -0.06, -0.9], s: [3.4, 0.06, 0.4], r: [0, -12, 0], m: "sky", k: 0 }], skyMat);
+  { color: [0.6, 0.72, 0.98], intensity: 16000, radius: 115, dir: [0, -1, 0], cone: [7, 17], use: "electric", fx: "shaft", fxSize: 66 });
 
 console.log(`cave catalog: ${ids.length} assets`);
