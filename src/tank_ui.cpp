@@ -142,6 +142,29 @@ void TankSys::makeThumbnails(App& app) {
 }
 
 // ============================================================ HUD
+// TK1: the vehicle's durability bar (every vehicle, any seat), bottom left: 15 segments (a heavy's blow each), the number,
+// red when low; it flashes white on a damaging hit and reads DESTROYED once wrecked. Drawn after drawUI (over the sight mask)
+void TankSys::drawHealthBar(App& app) {
+  (void)app;
+  TankRT* tp = occupied ? get(occupied) : nullptr;
+  if (!tp) return;
+  TankRT& t = *tp; const TankDef& d = *t.def;
+  ImGuiIO& io = ImGui::GetIO(); ImDrawList* dl = ImGui::GetForegroundDrawList();
+  {
+    t.hitFlash = std::max(0.0f, t.hitFlash - io.DeltaTime / 0.5f);
+    const float W = 240, H = 14; ImVec2 o(30, io.DisplaySize.y - (d.car || d.heli ? 60 : 230));
+    float u = std::clamp(t.hp / 100.0f, 0.0f, 1.0f), fl = t.hitFlash * t.hitFlash;
+    ImU32 fill = t.wrecked ? IM_COL32(90, 30, 25, 230) : u > 0.5f ? IM_COL32(120, 200, 110, 235) : u > 0.25f ? IM_COL32(235, 190, 80, 240) : IM_COL32(235, 90, 70, 245);
+    dl->AddRectFilled(ImVec2(o.x - 6, o.y - 22), ImVec2(o.x + W + 6, o.y + H + 6), IM_COL32(12, 12, 10, 190), 4);
+    dl->AddRectFilled(o, ImVec2(o.x + W, o.y + H), IM_COL32(40, 38, 34, 230));
+    dl->AddRectFilled(o, ImVec2(o.x + W * u, o.y + H), fill);
+    if (fl > 0.01f) dl->AddRectFilled(o, ImVec2(o.x + W, o.y + H), IM_COL32(255, 250, 235, (int)(170 * fl)));
+    for (int k = 1; k < 15; ++k) { float x = o.x + W * k / 15.0f; dl->AddLine(ImVec2(x, o.y), ImVec2(x, o.y + H), IM_COL32(12, 12, 10, 200), 1); }
+    char hb[64]; std::snprintf(hb, sizeof hb, t.wrecked ? "%s  DESTROYED" : "%s  %d / 100", d.car ? "VEHICLE" : d.heli ? "AIRFRAME" : "HULL", t.hp);
+    dl->AddText(ImVec2(o.x, o.y - 18), t.wrecked || u <= 0.25f ? IM_COL32(255, 130, 110, 255) : IM_COL32(235, 225, 190, 255), hb);
+  }
+}
+
 void TankSys::drawUI(App& app) {
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();

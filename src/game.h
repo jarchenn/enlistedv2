@@ -192,6 +192,12 @@ public:
   void assignLanes();
   // weapons for soldiers
   bool soldierFire(Soldier& s, vec3 dir);
+  // TK1: armour and big enemies. bulletProof: crew of an armoured tank (small arms do nothing); bigTarget: that, an
+  // armoured car or helicopter crew, or a heavy enemy type: worth a rocket
+  bool bulletProof(const Soldier& o) const;
+  bool bigTarget(const Soldier& o) const;
+  int carriedLauncher(const Soldier& s) const;   // a rocket launcher in the bot's carried kit (weapon index), -1: none
+  void switchWeapon(Soldier& s, int w);           // a bot's hand weapon: the old one's state kept in wsBy
   void soldierWeaponStep(Soldier& s, float dt);
   bool startThrow(Soldier& s, int kind, vec3 vel, vec3 target);
   void throwStep(Soldier& s, float dt);

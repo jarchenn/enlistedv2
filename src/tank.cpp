@@ -95,7 +95,7 @@ void TankSys::loadDefs(App& app) {
     d->traverseRate = g.value("traverseRate", d->traverseRate); d->traverseAccel = g.value("traverseAccel", d->traverseAccel);
     d->elevRate = g.value("elevationRate", d->elevRate); d->elevAccel = g.value("elevationAccel", d->elevAccel);
     if (g.contains("elevation")) { d->elevMin = g["elevation"][0]; d->elevMax = g["elevation"][1]; }
-    d->recoil = g.value("recoil", d->recoil); d->fov = g.value("fov", d->fov); d->fovZoom = g.value("fovZoom", d->fovZoom);
+    d->recoil = g.value("recoil", d->recoil); d->rockDeg = g.value("rockDeg", d->rockDeg); d->fov = g.value("fov", d->fov); d->fovZoom = g.value("fovZoom", d->fovZoom);
     d->cannonName = g.value("name", ""); d->reticle = g.value("reticle", ""); d->zeroRange = g.value("zeroRange", d->zeroRange); d->muzzleScale = g.value("muzzleScale", d->muzzleScale);
     const json a = j.value("ammunition", json::object());
     d->reloadTime = a.value("reloadTime", d->reloadTime); d->reserveHE = a.value("reserveHE", d->reserveHE); d->reserveAP = a.value("reserveAP", d->reserveAP);
