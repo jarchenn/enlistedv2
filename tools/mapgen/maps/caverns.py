@@ -529,7 +529,17 @@ def build(ctx):
     sc.objective("Central cavern", px, pz, radius=16.0, capture_time=45.0, attack_from=WH.c)
     sc.spawn("attacker", [0], *WH.c, label="Attackers", rack=None)
     sc.spawn("defender", [0], px + 4.0, pz, label="Defenders", rack=None)
-    a_pts = [(px + math.sin(math.radians(a)) * r, pz + math.cos(math.radians(a)) * r) for r, a0 in ((5.5, 0), (8.0, 22)) for a in range(int(a0), 360 + int(a0), 45)]
+    # CV1 fix: the old 5.5 / 8 m ring put points on the altar fire and inside the monument's plinth (a player spawned
+    # in the flames: a white screen). Now the open ground east and west of the monument, clear of everything placed
+    cand = [(px + math.sin(math.radians(a)) * r, pz + math.cos(math.radians(a)) * r) for r in (9.0, 11.5) for a in (55, 75, 95, 115, 245, 265, 285, 305)]
+    def spawn_clear(x, z):
+        for e in b.inst:
+            if "light" in e.get("tags", ()) or e["asset"].startswith(("cave_monument", "cave_steps", "cave_fire", "cave_glow", "cave_rib", "cave_organ", "cave_drip_up", "cave_standing")):
+                hx = min(4.0, b.cat[e["asset"]].half[0]) if e["asset"] in b.cat else 1.0
+                if (e["pos"][0] - x) ** 2 + (e["pos"][2] - z) ** 2 < (hx + 2.0) ** 2:
+                    return False
+        return True
+    a_pts = [q for q in cand if spawn_clear(*q)]
     for k, (x, z) in enumerate(a_pts):
         m = sc.spawn("defender", [0], x, z, face=(x * 2 - px, z * 2 - pz), faction="Axis", label="Team A %d" % (k + 1), rack=None)
         m["team"], m["phases"] = 0, []

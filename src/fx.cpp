@@ -187,17 +187,21 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
   for (auto& q : parts) {
     float f = std::clamp(q.life / q.maxLife, 0.0f, 1.0f);
     vec4 c = q.col;
+    // CV1 fix: an additive sprite at the eye covers the whole screen at full strength (standing in a fire, a light
+    // shaft's motes, a flash beside the camera) and stacks to white: fade it out inside ~2 of its own sizes
+    const float nearK = q.additive ? glm::smoothstep(0.6f * q.size, 2.2f * q.size + 0.15f, glm::length(q.p - eye)) : 1.0f;
+    if (nearK <= 0.001f) continue;
     if (q.flame >= 0 && q.additive) {   // flame sprite: white-yellow -> orange -> dark red along its life; a >= 100 tells the shader (id + age)
       float u = 1.0f - f;
       vec3 g = u < 0.25f ? glm::mix(vec3(1.0f, 0.96f, 0.75f), vec3(1.0f, 0.72f, 0.2f), u / 0.25f)
              : u < 0.6f ? glm::mix(vec3(1.0f, 0.72f, 0.2f), vec3(0.9f, 0.28f, 0.04f), (u - 0.25f) / 0.35f)
                         : glm::mix(vec3(0.9f, 0.28f, 0.04f), vec3(0.3f, 0.03f, 0.0f), (u - 0.6f) / 0.4f);
       float fadeOut = std::clamp(f / 0.18f, 0.0f, 1.0f);
-      c = vec4(g * q.col.x * fadeOut, 100.0f + std::floor(q.flame) + 0.99f * u);
+      c = vec4(g * q.col.x * fadeOut * nearK, 100.0f + std::floor(q.flame) + 0.99f * u);
       quad(add, q.p, right * q.size, up * q.size, c);
       continue;
     }
-    if (q.additive) c *= f;
+    if (q.additive) c *= f * nearK;
     else if (q.fade > 0) {   // firing smoke: thins out from the start; an eroded wisp stretched along its screen-space drift (muzzle direction, then wind)
       c.a *= std::pow(f, q.fade) * std::min(1.0f, (1 - f) * 10.0f + 0.25f);
       float a = glm::dot(q.v, right), b = glm::dot(q.v, up), l = std::sqrt(a * a + b * b);

@@ -139,3 +139,63 @@ bool royaleLiveSelfTest(App& app, float dt) {
   if (cur >= seq.size() && !app.selftest->done) { app.selftest->exitCode = T->finish(); app.selftest->done = true; }
   return true;
 }
+
+// CV1 fix check: --selftest-tdm-live. A big Team Deathmatch in the real loop (NMK_ROYALE_MAP, default caverns;
+// NMK_TDM_PLAYERS per team, default 240) while the player is teleported onto every team spawn marker in turn: a shot
+// facing the marker's way and one looking up from each (selftest_out/tdmlive_NNN.png; analysed for white-outs).
+namespace tdmlive {
+std::vector<Step> seq; size_t cur = 0; float st = 0, total = 0; int mode = -1; bool started = false; MpTest* T = nullptr;
+std::vector<SpawnMarker> marks; size_t mi = 0; int shot = 0;
+void build(App&) {
+  seq.push_back({"start", [](App& a, float) {
+    if (a.mode == Mode::Explore) a.exitExplore();
+    const char* mp = std::getenv("NMK_ROYALE_MAP");
+    a.openMap(contentDir() / "templates" / (std::string(mp && *mp ? mp : "caverns") + ".nmap.json"));
+    json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
+    Scenario sc = Scenario::fromJson(scj);
+    const char* np = std::getenv("NMK_TDM_PLAYERS"); int n = np ? std::max(2, std::atoi(np)) : 240;
+    sc.rules.mode = GameMode::TDM; sc.rules.teamPlayers[0] = sc.rules.teamPlayers[1] = n;
+    for (auto& m : sc.spawns) if (m.team == 0 || m.team == 1) marks.push_back(m);
+    gUi.loaded = false; gUi.matchScenario = sc.toJson();
+    if (!gGame) gGame = new Game(a);
+    gGame->pendingStart = true;
+    bool ok = a.enterExplore() && gGame->active;
+    a.useScripted = true; a.scriptedInput = ExploreInput{};
+    T->check(ok && gGame->match.mode() == GameMode::TDM, "team deathmatch on " + a.doc.name + " starts with " + std::to_string(gGame->sold.size()) + " soldiers (" + gGame->setupError + ")");
+    return true; }});
+  seq.push_back({"warm up", [](App&, float t) { if (Soldier* L = gGame->local()) { L->hp = 100; L->protectUntil = gGame->t + 5; } return t > 20.0f; }});
+  seq.push_back({"spawn tour", [](App& a, float t) {
+    Game& G = *gGame;
+    if (Soldier* L = G.local()) { L->hp = 100; L->protectUntil = G.t + 5; }
+    if (mi >= marks.size()) return true;
+    float ph = std::fmod(t, 2.0f);
+    static float last = -1; static int step = 0;
+    if (t - last >= 2.0f || last < 0) {   // every 2 s: the next marker (shot looking ahead at 0.8 s, up at 1.6 s)
+      last = t; step = 0;
+      const SpawnMarker& m = marks[mi];
+      Physics::setCharacterPos(m.pos + vec3(0, 0.05f, 0)); a.eyeYaw = m.yaw; a.eyePitch = 0;
+    }
+    char nm[64];
+    if (ph > 0.8f && step == 0) { std::snprintf(nm, sizeof nm, "tdmlive_%03d_a.png", (int)mi); a.uiShot = exeDir() / "selftest_out" / nm; step = 1; }
+    if (ph > 1.2f && step == 1) { a.eyePitch = 55; step = 2; }
+    if (ph > 1.6f && step == 2) { std::snprintf(nm, sizeof nm, "tdmlive_%03d_b.png", (int)mi); a.uiShot = exeDir() / "selftest_out" / nm; step = 3; ++mi; ++shot; }
+    return false; }});
+  seq.push_back({"done", [](App& a, float t) { if (t < 0.3f) return false; T->check(shot > 0, std::to_string(shot) + " spawn markers toured (2 shots each)"); if (a.mode == Mode::Explore) a.exitExplore(); return true; }});
+}
+}   // namespace tdmlive
+
+bool tdmLiveSelfTest(App& app, float dt) {
+  namespace L = tdmlive;
+  if (L::mode < 0) { L::mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--selftest-tdm-live") L::mode = 1; }
+  if (L::mode != 1) return false;
+  if (dt < 0) return true;
+  if (!L::started) { L::started = true; L::T = new MpTest("tdm_live"); L::build(app); }
+  if (L::cur < L::seq.size()) {
+    bool done = L::seq[L::cur].fn(app, L::st);
+    L::st += dt; L::total += dt;
+    if (done) { ++L::cur; L::st = 0; }
+    if (L::total > 600) { L::T->check(false, "timed out in step '" + L::seq[std::min(L::cur, L::seq.size() - 1)].name + "'"); L::cur = L::seq.size(); }
+  }
+  if (L::cur >= L::seq.size() && !app.selftest->done) { app.selftest->exitCode = L::T->finish(); app.selftest->done = true; }
+  return true;
+}
