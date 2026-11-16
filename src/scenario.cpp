@@ -79,7 +79,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("lanes") && j["lanes"].is_array() && j["lanes"].size() == 3) { r.laneLeft = j["lanes"][0]; r.laneMain = j["lanes"][1]; r.laneRight = j["lanes"][2]; }
   r.friendlyFire = j.value("friendlyFire", r.friendlyFire);
   { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : m == "royale" ? GameMode::BattleRoyale : GameMode::Assault; }
-  r.royalePlayers = std::clamp(j.value("royalePlayers", r.royalePlayers), 10, 100);
+  r.royalePlayers = std::clamp(j.value("royalePlayers", r.royalePlayers), 10, kMaxCombatants);
   r.lootModern = j.value("lootModern", r.lootModern);
   r.killCap = std::clamp(j.value("killCap", r.killCap), 1, 999);
   r.soloPlayers = std::clamp(j.value("soloPlayers", r.soloPlayers), 2, kMaxCombatants);
