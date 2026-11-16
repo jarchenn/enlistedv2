@@ -14,7 +14,7 @@ import { wall, partition, door, window, stairs, railing, fbox, fpart, hinged, aa
 import { mats, face, house, meta } from "./catalog_chateau.mjs";
 import { cover, room, corners, fire, setNav, setTour } from "./catalog_atlantic.mjs";
 import { rod } from "./defence_detail.mjs";
-import { tdTown, tdMats } from "./catalog_modern_buildings_a.mjs";
+import { tdTown, tdMats, tdMerge } from "./catalog_modern_buildings_a.mjs";
 
 const GF = 0.3, L1 = { k: 0, lod: 1 }, K0 = { k: 0 }, HID = { v: 0 }, BV = { bv: 0.012 };
 const SIDES = ["front", "rear", "east", "west"];
@@ -231,7 +231,7 @@ function roomTypes(A, rules) {
   }
   A.meta.roomTypes = t;
 }
-const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); ceilings(A); as1Run(A); return k; };
+const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); ceilings(A); tdMerge(A); as1Run(A); return k; };
 const HALLS = [/(^|_)c\d$/, "hall"];
 
 function flatRoof(A, x0, x1, z0, z1, y, { ph = 0.9, t = 0.25, m = "render_m", vents = [], kit = "fan" } = {}) {
@@ -1625,7 +1625,7 @@ export function newtownAssetsC() {
   const out = [houseSmall(), houseTwo(), houseSplit(), waterfrontHouse(), farmhouse(), barnSteel(), constructionFrame(), constructionFrameSmall(),
     siteOffice(), towerCrane(), excavationShoring(), boathouse(), pier(), pontoonFinger(), boatMotor(), boatTrailer(), promenadeRail(), pumpStation(),
     roadBridge(), footbridge(), channelSteps()];
-  for (const A of out) as1Run(A);   // AS1: detail queued on outer assets (garage, pump station roofs)
+  for (const A of out) { as1Run(A); tdMerge(A); }   // AS1: detail queued on outer assets (garage, pump station roofs); NT2b merge
   const ids = new Set();
   for (const A of out) {   // self-check: unique mod_nt_ ids, room ids unique and typed, doors to known rooms, part budget
     const id = A.meta.id;

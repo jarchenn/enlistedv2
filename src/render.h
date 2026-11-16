@@ -104,11 +104,11 @@ public:
   // sky, baked into the cloud-shadow map (direct sun only) and read by the sun shafts. k = the Clear -> Cloudy mix (8 s ramp);
   // clock = the shared match time (LAN: every machine places the clouds alike), -1 = the local render time
   struct Weather { int target = 0, forced = -1, quality = 1, fog = 1, fogForced = -1; float k = 0, seed = 0, fogNow = -1; vec2 wind{0.012f, 0.0075f}; double clock = -1;
-                   int mapWx = -1, mapFog = -1; bool userSet = false;   // NT2: a map's default weather / env fog (extra.look), until the user picks one this session
+                   int mapWx = -1, mapFog = -1; bool userSet = false; float mapCloud = -1.0f;   // NT2b: mapCloud 0..1 = broken cloud (look.weather as a number)   // NT2: a map's default weather / env fog (extra.look), until the user picks one this session
                    int fogWant() const { return fogForced >= 0 ? fogForced : mapFog >= 0 && !userSet ? mapFog : fog; }
                    float fogDens() const { static const float d[4] = {0.0f, 0.0035f, 0.008f, 0.018f}; return d[std::clamp(fogWant(), 0, 3)] * (1.0f + 0.25f * k); }   // env fog (1/m at the ground, field 1): Off / Light / Moderate / Dense, a little more under cloud
                    bool enclosed = false;   // WX2: an enclosed map (fixed hour or no haze: Tunnels, Backrooms) has no weather
-                   int want() const { return enclosed ? 0 : forced >= 0 ? forced : mapWx >= 0 && !userSet ? mapWx : target; } void snap() { k = (float)want(); } } wx;
+                   int want() const { return enclosed ? 0 : forced >= 0 ? forced : mapWx >= 0 && !userSet ? mapWx : target; } float wantK() const { return !enclosed && forced < 0 && mapCloud >= 0.0f && !userSet ? mapCloud : (float)want(); } void snap() { k = wantK(); } } wx;
   float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
   // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
   // shore), G drift noise (scrolls on the wind), B smoothed ground height (m). Rebuilt when the terrain changes.
@@ -262,6 +262,7 @@ public:
     float emissive = 1.0f;      // global multiplier on material emission
     bool mapClean = false;      // BR2: the open map's "look": {"clean": true}: no wear (interior.cpp), static decals, dust motes or colour grade
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
+    float mapSat = 1.0f; vec3 mapTint{1.0f};   // NT2b: look.saturation / look.tint, after the weather grade
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
     float mapFill = 1.0f;       // UG4: extra.lighting.fill: the fill / indirect term x this (Tunnels darker between its lamps)

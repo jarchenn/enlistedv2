@@ -2997,6 +2997,7 @@ uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stron
 uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
 uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = none
 uniform float uWxK;   // WX2: the Cloudy mix (desaturation, cooler grade)
+uniform float uMapSat; uniform vec3 uMapTint;   // NT2b: a map's own saturation / tint
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
@@ -3048,6 +3049,7 @@ void main(){
     c *= 1.0 - dot(q,q)*0.16;
   }
   if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }   /* overcast: 38 % darker, more muted and cooler, a little more contrast (moody) */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
+  if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }   // NT2b
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));   // BR1c
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
   oColor = vec4(toSRGB(c), 1.0);
@@ -4027,7 +4029,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   prepFoliageBatches();   // P2 folbatch   // roomCulled: counted from here too
   stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
   time += v.dt;
-  wx.k += glm::clamp((float)wx.want() - wx.k, -v.dt / 3.0f, v.dt / 3.0f);   // WX2: Clear <-> Cloudy over 3 s (8 s went unnoticed behind the menu) (sun, sky, cover, exposure follow)
+  wx.k += glm::clamp(wx.wantK() - wx.k, -v.dt / 3.0f, v.dt / 3.0f);   // WX2: Clear <-> Cloudy over 3 s (8 s went unnoticed behind the menu) (sun, sky, cover, exposure follow)
   if (wx.enclosed) wx.k = 0.0f;
   if (wx.fogNow < 0) wx.fogNow = wx.fogDens(); else wx.fogNow += glm::clamp(wx.fogDens() - wx.fogNow, -v.dt * 0.002f, v.dt * 0.002f);   // the fog level ramps too
   if (!thumbMode) bakeFog(t);
@@ -4523,6 +4525,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     bool on = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)
     glUniform1i(U(progTone, "uGradeOn"), on ? 1 : 0);
     glUniform1f(U(progTone, "uWxK"), thumbMode ? 0.0f : wx.k);
+    glUniform1f(U(progTone, "uMapSat"), thumbMode ? 1.0f : lt.mapSat); glUniform3fv(U(progTone, "uMapTint"), 1, glm::value_ptr(thumbMode ? vec3(1.0f) : lt.mapTint));
     glUniform1f(U(progTone, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)
     glUniform1f(U(progTone, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
     glUniform1f(U(progTone, "uGradeSat"), grade.saturation); glUniform1f(U(progTone, "uGradeContrast"), grade.contrast);
