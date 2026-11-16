@@ -230,7 +230,7 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
   }
   TankRT t; t.id = id; t.def = dp.get(); t.adopted = true; t.body = rt->second.staticBody; t.shapeYaw = 0;
   t.pos = inst->pos; t.yaw = inst->yaw;
-  float y, p, r, s; groundPose(app, *t.def, t.pos, t.yaw, y, p, r, s); t.pos.y = std::max(inst->pos.y, y); t.pitch = p; t.roll = r;
+  float y, p, r, s; groundPose(app, *t.def, t.pos, t.yaw, y, p, r, s, t.id); t.pos.y = std::max(inst->pos.y, y); t.pitch = p; t.roll = r;
   tanks[id] = t;
   return true;
 }

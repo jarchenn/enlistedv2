@@ -83,6 +83,8 @@ void App::updateCreative(float dt) {
     const AssetDef* pa = tool == Tool::Place ? placing : nullptr; uint64_t ign = 0;
     if (!pa && selected) if (Instance* si = doc.find(selected); si && interior.isProp(assetFor(*si))) { pa = assetFor(*si); ign = selected; }
     vec3 hp2; if (pa && interior.isProp(pa) && interior.hoverPoint(*this, ro, rd, hp2, ign)) { hoverGround = hp2; hoverValid = true; }
+    // ED1: anything but a building lands on the flat top of the object under the cursor (decks, floors, tables)
+    else if (pa && assetRestsOnObjects(pa) && surfaceCursor(ro, rd, ign, hp2)) { hoverGround = hp2; hoverValid = true; }
   }
   vec3 hp = hoverGround;
   if (gridSnap) { hp.x = std::round(hp.x); hp.z = std::round(hp.z); }

@@ -56,6 +56,20 @@ struct PerfRun { std::string map, cam; std::vector<double> ms, cpu, gpuMs, grass
 std::vector<PerfRun> gRuns;
 int gPerfIdx = 0, gPerfFrame = 0; double gLastT = 0;
 CamPose gEdCam; vec3 gDropAt{0}; float gDropYaw = 0; int gExploreFrames = 0;
+// ED1 (NMK_ED1): things placed on top of other things. Supports on a blank map, then each item dropped onto its support
+// the way the editor cursor does (App::surfaceCursor straight down, placeInstance); heights and support ids checked,
+// saved, reloaded and checked again; one shot per item -> selftest_out/ed1_<n>.png
+struct Ed1Case { const char* what; const char* support; vec3 at; float yaw; const char* item; float itemYaw; vec3 off; };
+const Ed1Case kEd1[] = {
+  {"Apache on the ground helipad", "mod_helipad_ground", {-70, 0, -40}, 0, "heli_ah64d_apache", 0, {0, 0, 0}},
+  {"Apache on the raised helipad", "mod_helipad_raised", {-25, 0, -40}, 0, "heli_ah64d_apache", 0, {0, 0, 0}},
+  {"car on the parking-garage roof deck", "mod_nt_parking_garage", {40, 0, -40}, 0, "car_jeep_willys", 90, {6, 0, 4}},
+  {"crate on a table", "furn_table_dining", {-70, 0, 30}, 0, "crate_mixed_supply", 0, {0, 0, 0}},
+  {"chair on a Backrooms floor piece", "brm_cell_yellow", {-40, 0, 30}, 0, "furn_chair_slat", 30, {0, 0.01f, 0}},
+  {"chair on an upper storey", "large_village_inn", {0, 0, 40}, 0, "furn_chair_slat", 0, {1.5f, 4.5f, 0}},
+  {"tank on a bridge", "drs_bridge_stone_large", {50, 0, 40}, 90, "tank_sherman_m4", 0, {0, 0, 0}},
+};
+std::vector<uint64_t> gEd1Sup, gEd1Item; std::vector<vec3> gEd1Pos; int gEd1Shot = 0;
 }
 
 void SelfTest::editorUpdate(App& app, float dt) {
@@ -65,6 +79,7 @@ void SelfTest::editorUpdate(App& app, float dt) {
   switch (stage) {
   case 3300: {   // ================= map sizes, old maps
     if (!blank) { check(false, "Blank Slate template present"); finish(app); return; }
+    if (std::getenv("NMK_ED1")) { reportName = "editor_ed1"; go(3394); return; }   // ED1 placement on object tops only
     for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--editor-shots") { reportName = "editor_shots"; gPerfFrame = 0; go(3370); return; }   // screenshots only (render A/B)
     const MapSizeRules& r = mapSizeRules();
     check(r.minSide == 100 && r.maxSide == 4000 && r.step == 100, fmt("size rules 100-4000 m in 100 m steps (got %.0f-%.0f / %.0f)", r.minSide, r.maxSide, r.step));
@@ -617,6 +632,78 @@ void SelfTest::editorUpdate(App& app, float dt) {
     if (f == 182) { navState().overview = false; app.showNewMap = true; }
     if (f == 190) app.uiShot = outDirEd() / "editor_newmap.png";
     if (f == 192) finish(app);
+    break;
+  }
+  case 3394: {   // ================= ED1 supports
+    app.newMap(*blank, "ED1 resting on objects");
+    gEd1Sup.clear(); gEd1Item.clear(); gEd1Pos.clear(); gEd1Shot = 0;
+    for (auto& c : kEd1) {
+      const AssetDef* a = app.lib.find(c.support);
+      if (!a) { check(false, std::string("ED1: asset ") + c.support); gEd1Sup.push_back(0); continue; }
+      Instance i; i.id = app.doc.newId(); i.assetId = a->id; i.assetVersion = a->version; i.yaw = c.yaw;   // set down directly (a table outside a house)
+      i.pos = vec3(c.at.x, app.terrain.height(c.at.x, c.at.z), c.at.z); app.bump(i); app.doc.instances.push_back(i); gEd1Sup.push_back(i.id);
+    }
+    app.syncRuntime();
+    go(3395); break;
+  }
+  case 3395: {   // ================= ED1 drop each item onto its support, save, reload
+    if (stageTime < 1.5f) break;
+    for (size_t k = 0; k < std::size(kEd1); ++k) {
+      const Ed1Case& c = kEd1[k]; const AssetDef* a = app.lib.find(c.item); Instance* s = app.doc.find(gEd1Sup[k]);
+      if (!a || !s) { gEd1Item.push_back(0); gEd1Pos.push_back(vec3(0)); continue; }
+      vec3 xz, hit; bool on = false; PlaceCheck pc{false, "no flat top under the cursor"};
+      float from = s->pos.y + (c.off.y > 0 ? c.off.y + 1.6f : 60.0f);   // inside (a Backrooms cell, an upper storey): from under its ceiling, as a cursor inside would
+      for (int g = 0; g < 49 && !pc.ok; ++g) {   // furniture: the first clear floor spot near the offset (walls, stairs)
+        vec3 o = c.off + (app.interior.isProp(a) ? vec3((g % 7 - 3) * 0.8f, 0, (g / 7 - 3) * 0.8f) : vec3(0));
+        xz = s->pos + yawQuat(s->yaw) * vec3(o.x, 0, o.z);
+        on = app.interior.isProp(a) ? app.interior.hoverPoint(app, vec3(xz.x, from, xz.z), vec3(0, -1, 0), hit, 0)   // furniture: the editor's floor cursor
+                                    : app.surfaceCursor(vec3(xz.x, from, xz.z), vec3(0, -1, 0), 0, hit);
+        if (on) pc = app.checkPlacement(a, hit, c.itemYaw, 0);
+        if (!app.interior.isProp(a)) break;
+      }
+      uint64_t id = pc.ok ? app.placeInstance(a, hit, c.itemYaw) : 0;
+      Instance* it = id ? app.doc.find(id) : nullptr;
+      bool rides = false;   // furniture on an enterable piece's floor: the interior rules (it rides with that piece); it stands inside that piece's footprint
+      if (it && app.interior.isProp(a) && supportOf(*it) == 0) { const AssetDef* sa = app.assetFor(*s); vec3 l = glm::inverse(yawQuat(s->yaw)) * (it->pos - s->pos);
+        rides = sa && std::fabs(l.x) < sa->footprint.x * 0.5f && std::fabs(l.z) < sa->footprint.y * 0.5f && l.y > -0.1f; }
+      check(it && (supportOf(*it) == gEd1Sup[k] || rides) && std::fabs(it->pos.y - hit.y) < 0.2f,
+            fmt("ED1 %s: %s (surface %.2f m above the terrain, placed at %.2f, resting on #%llu, support #%llu)", c.what, pc.reason.c_str(),
+                on ? hit.y - app.terrain.height(xz.x, xz.z) : -1.0f, it ? it->pos.y : -1.0f, it ? (unsigned long long)supportOf(*it) : 0ull, (unsigned long long)gEd1Sup[k]));
+      gEd1Item.push_back(id); gEd1Pos.push_back(it ? it->pos : vec3(0));
+    }
+    // a steep face and an overhang are refused with a reason
+    { const AssetDef* a = app.lib.find("crate_mixed_supply"); Instance* s = app.doc.find(gEd1Sup[1]);
+      if (a && s) { const AssetDef* sa = app.assetFor(*s); vec3 hit, edge = s->pos;   // the deck's real edge along +x (kerbs, rails), then 0.3 m back in: a 3.34 m jeep across it, ~41 % over
+        for (float x = 0; x < sa->footprint.x * 0.5f; x += 0.1f) { vec3 q = s->pos + vec3(x, 0, 0), h2; if (!app.surfaceCursor(vec3(q.x, s->pos.y + 60, q.z), vec3(0, -1, 0), 0, h2) || h2.y < s->pos.y + 1.0f) break; edge = q; }
+        edge.x -= 0.3f;
+        if (app.surfaceCursor(vec3(edge.x, s->pos.y + 60, edge.z), vec3(0, -1, 0), 0, hit)) { PlaceCheck pc = app.checkPlacement(app.lib.find("car_jeep_willys"), hit, 90, 0);
+          check(!pc.ok, "ED1: a jeep half off the raised helipad's edge is refused (" + pc.reason + ")"); } else check(false, "ED1: no deck 1 m inside the raised helipad's edge"); } }
+    {
+      fs::path tmp = outDirEd() / "ed1_resting.nmap.json";
+      check(app.saveMapTo(tmp), "ED1: map saved");
+      app.openMap(tmp);
+      int same = 0;
+      for (size_t k = 0; k < gEd1Item.size(); ++k) { Instance* it = gEd1Item[k] ? app.doc.find(gEd1Item[k]) : nullptr; same += it && glm::length(it->pos - gEd1Pos[k]) < 0.01f; }
+      check(same == (int)std::size(kEd1), fmt("ED1: after save and reload %d of %zu items at the same place, still resting on their supports", same, std::size(kEd1)));
+    }
+    app.hideEditorOverlays = true;
+    go(3396); break;
+  }
+  case 3396: {   // ================= ED1 shots (each 0.8 s settle)
+    if (gEd1Shot >= (int)gEd1Item.size()) { finish(app); return; }
+    Instance* it = gEd1Item[gEd1Shot] ? app.doc.find(gEd1Item[gEd1Shot]) : nullptr;
+    static int camFor = -1;
+    if (camFor != gEd1Shot || !it) { if (!it) { ++gEd1Shot; stageTime = 0; break; }
+      camFor = gEd1Shot; stageTime = 0;
+      const AssetDef* a = app.assetFor(*it); float r = std::max(4.0f, glm::length(a->footprint) * 1.1f);
+      vec3 tgt = it->pos + vec3(0, a->bmax.y * 0.5f, 0);
+      if (kEd1[gEd1Shot].off.y > 0) r = 3.0f;   // inside the inn
+      app.camPos = tgt + vec3(r * 0.8f, r * 0.55f, r * 0.8f); vec3 d = glm::normalize(tgt - app.camPos);
+      app.camYaw = degrees(std::atan2(-d.x, -d.z)); app.camPitch = degrees(std::asin(d.y));
+      break; }
+    if (stageTime > 0.8f) {
+      if (TankRT* tr = app.tanks.get(it->id)) check(std::fabs(tr->pos.y - it->pos.y) < 0.3f, fmt("ED1 %s: the vehicle rests at %.2f (instance %.2f)", kEd1[gEd1Shot].what, tr->pos.y, it->pos.y));
+      shotQueue.push_back("ed1_" + std::to_string(gEd1Shot)); ++gEd1Shot; stageTime = 0; }
     break;
   }
   default: finish(app); break;

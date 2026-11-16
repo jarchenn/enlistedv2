@@ -67,10 +67,22 @@ void TankSys::stripDamage(json& extra) {
 }
 
 // ============================================================ session
-void TankSys::groundPose(App& app, const TankDef& d, vec3 pos, float yaw, float& y, float& pitch, float& roll, float& slopeAlong) const {
+void TankSys::groundPose(App& app, const TankDef& d, vec3 pos, float yaw, float& y, float& pitch, float& roll, float& slopeAlong, uint64_t self) const {
   quat q = yawQuat(yaw);
   float G = d.trackHalfGauge, L = d.trackHalfLen;
-  auto h = [&](float x, float z) { vec3 w = pos + q * vec3(x, 0, z); return app.terrain.height(w.x, w.z); };
+  // ED1: a flat object top within reach below the hull (a bridge deck, a parking deck) is the ground there, not only the terrain
+  auto h = [&](float x, float z) {
+    vec3 w = pos + q * vec3(x, 0, z); float g = app.terrain.height(w.x, w.z);
+    vec3 o(w.x, pos.y + 1.0f, w.z);
+    for (int k = 0; k < 4; ++k) {
+      Physics::Hit hh; if (!Physics::castRayEx(o, vec3(0, -1, 0), 3.0f, hh, self ? self << 16 : ~0ull)) break;   // its own hull (the ray starts inside it) skipped
+      uint64_t id = hh.ud >> 16;
+      if (id && (id == self || std::none_of(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) { return i.id == id; }))) { o.y = hh.pos.y - 0.01f; continue; }
+      if (id && hh.normal.y > 0.9f) g = std::max(g, hh.pos.y);
+      break;
+    }
+    return g;
+  };
   float fl = h(G, L), fr = h(-G, L), rl = h(G, -L), rr = h(-G, -L);
   float front = 0.5f * (fl + fr), rear = 0.5f * (rl + rr), left = 0.5f * (fl + rl), right = 0.5f * (fr + rr);
   // the hull rests on the higher track contacts (no sinking into a crater rim)
@@ -96,7 +108,7 @@ static void initFromInstance(App& app, TankSys& sys, TankRT& t, const Instance& 
   n.bowLoaded = d.bowOn ? d.bowBelt : 0; n.bowReserve = d.bowOn ? d.bowReserve : 0;
   if (n.wrecked) { n.hp = 0; n.loaded = SHELL_NONE; n.burnT = 0; }
   if (d.heli) { n.gunAmmo = d.gun30Ammo; n.rockets = d.rocketCount; n.grounded = true; n.rpm = 0; if (n.wrecked) n.roll = 18; t = n; return; }   // VH5: sits at the instance's height (a raised pad)
-  float y, p, r, s; sys.groundPose(app, d, n.pos, n.yaw, y, p, r, s);
+  float y, p, r, s; sys.groundPose(app, d, n.pos, n.yaw, y, p, r, s, n.id);
   n.pos.y = y; n.pitch = p; n.roll = r;
   t = n;
 }
@@ -408,7 +420,7 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
   bool road = app.terrain.wearAt(t.pos.x, t.pos.z) > 0.5f;
   float vF = d.maxFwd * (road ? 1.0f : d.offroadMul), vR = d.maxRev;
   float y0, p0, r0, slope;
-  groundPose(app, d, t.pos, t.yaw, y0, p0, r0, slope);
+  groundPose(app, d, t.pos, t.yaw, y0, p0, r0, slope, t.id);
   // slope: uphill in the direction of travel reduces the attainable speed to zero at the slope limit
   float dirSign = t.throttleIn > 0 ? 1.0f : t.throttleIn < 0 ? -1.0f : (t.speed >= 0 ? 1.0f : -1.0f);
   float uphill = slope * dirSign;
@@ -440,7 +452,7 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
     float ny = wrapDeg(t.yaw + t.yawRate * dt);
     vec3 np = t.pos + yawQuat(ny) * vec3(0, 0, 1) * t.speed * dt;
     float y, p, r, s;
-    groundPose(app, d, np, ny, y, p, r, s);
+    groundPose(app, d, np, ny, y, p, r, s, t.id);
     np.y = y;
     bool ok = true; std::string why;
     if (!app.terrain.inBuildArea(np.x, np.z)) { ok = false; why = "edge of the map"; }
