@@ -403,7 +403,7 @@ void MpUi::setupWindow(App& app) {
   }
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
   // per side: tick any AI types; each AI takes the ticked ones in turn (the last tick cannot be cleared). EN1 Zombies +
-  // heavies: brutes and stalkers by weight (content/ai/zombie.json types); Brutes, Spiders, Creatures, Knights, Animatronics, Aliens, Alien queens: that type only
+  // heavies: brutes and stalkers by weight (content/ai/zombie.json types); Brutes, Spiders, Creatures, Knights, Animatronics, Aliens, Alien queens, Abominations, Golems, Boglords: that type only
   auto aiTypes = [](const char* label, int& mask) {
     ImGui::PushID(label); ImGui::TextUnformatted(label);
     for (int k = 0; k < kAiTypeCount; ++k) {

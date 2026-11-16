@@ -58,6 +58,7 @@ const ZombieCfg& zcfg() {
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
         t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin);
         t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 4.0f);
+        t.groundShake = std::clamp(e.value("ground_shake", t.groundShake), 0.0f, 1.0f);
         t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly); t.stepCrater = std::clamp(e.value("step_crater", t.stepCrater), 0.0f, 3.0f); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.shellKills = std::clamp(e.value("shell_hits_to_kill", t.shellKills), 0, 100); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.nonBlastMult = std::clamp(e.value("non_blast_mult", t.nonBlastMult), 0.0f, 1.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f); t.kickCrater = std::clamp(e.value("kick_crater", t.kickCrater), 0.0f, 3.0f);
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
@@ -474,6 +475,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
       float hp0 = best ? best->hp : 0;
       vec3 at = s.feet;   // where the blow lands: toward the target within reach, or under the torso for a body drop
       if (best) { vec3 d = best->feet - s.feet; d.y = 0; float L = glm::length(d); at = s.feet + (L > 1e-3f ? d / L * std::min(L, e.reach) : vec3(0)); }
+      if (e.groundShake > 0) G.app.blastShake = std::max(G.app.blastShake, e.groundShake * std::max(0.0f, 1.0f - glm::length(at - G.app.eyePos()) / 30.0f));   // CH3: the ground shakes (local player's view)
       if (s.meleeClip == di) {   // the body slam: her upper body lands on its oval; full damage at the centre to none at the edge, no crater
         vec3 c = vec3(s.world * vec4(s.pose.joint[CJ_SPINE2], 1)); at = vec3(c.x, G.app.terrain.height(c.x, c.z), c.z);
         vec3 f = c - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1); vec3 sd(-f.z, 0, f.x);

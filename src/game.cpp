@@ -133,6 +133,8 @@ bool Game::begin(std::string& err) {
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
             : ait == AiType::Knights ? std::max(0, enemyTypeIndex("knight")) : ait == AiType::Animatronics ? std::max(0, enemyTypeIndex("animatronic"))
             : ait == AiType::Aliens ? std::max(0, enemyTypeIndex("alien")) : ait == AiType::AlienQueens ? std::max(0, enemyTypeIndex("alien_queen"))
+            : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
+            : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord"))
             : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter"))
             : ait == AiType::Fighters2 ? std::max(0, enemyTypeIndex("fighter2")) : 0;
     s.evariant = kindSeen[(int)ait]++;

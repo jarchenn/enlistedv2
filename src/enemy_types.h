@@ -26,6 +26,7 @@ struct EnemyType {
   int shellKills = 0;                                     // > 0: a direct tank / cannon shell or rocket hit takes exactly hp / shellKills (that round's blast adds nothing)
   float locoRate = 1;                                     // walk / run clip speed x (legs move faster than the ground speed alone gives)
   float nonBlastMult = 1;                                 // damage x from everything but explosions (the Fighters: 0.1)
+  float groundShake = 0;                                  // CH3 json "ground_shake" 0-1: each landing blow shakes the player's view (App::blastShake), fading out by 30 m
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
   bool blastOnly = false;                                 // only blast damage hurts it (the Fighter)
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)

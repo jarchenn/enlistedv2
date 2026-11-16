@@ -375,7 +375,13 @@ void build(App&) {
 // and head height logged. Nobody falls (hp topped up every frame).
 std::vector<std::pair<fs::path, std::string>> shotQ;
 bool ch1Capture = false;   // --capture-ch1: the CH1 types instead (selftest_out/ch1_*.png), then their deaths
-const char* kCh1Types[4] = {"knight", "animatronic", "alien", "alien_queen"};
+// the four types (NMK_CAPTURE_TYPES="a,b,c,d" overrides: the CH3 / CH4 types)
+std::string capType(int k) {
+  static std::vector<std::string> t;
+  if (t.empty()) { t = {"knight", "animatronic", "alien", "alien_queen"};
+    if (const char* e = std::getenv("NMK_CAPTURE_TYPES")) { std::string s = e; for (int i = 0; i < 4 && !s.empty(); ++i) { size_t c = s.find(','); t[i] = s.substr(0, c); s = c == std::string::npos ? "" : s.substr(c + 1); } } }
+  return t[k];
+}
 void buildCapture(App&) {
   push("capture", [](App& a, float t) {
     static int z3[4], atk[4], mc0[4], sol; static double t0, atkAt[4]; static float yaw, prev;
@@ -389,7 +395,7 @@ void buildCapture(App&) {
     if (!L || !L->alive || !allSpawned(G)) return t > 20 ? (chk(false, "everyone spawns"), true) : false;
     L->protectUntil = -1; if (L->hp < 3000) L->hp = 5000;
     if (t0 < 0) {
-      int k = 0; for (auto& s : G.sold) if (s.zombie && k < 4) { s.etype = ch1Capture ? std::max(0, enemyTypeIndex(kCh1Types[k])) : k < 3 ? k : std::max(0, enemyTypeIndex("creature")); aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp; z3[k++] = s.slot;
+      int k = 0; for (auto& s : G.sold) if (s.zombie && k < 4) { s.etype = ch1Capture ? std::max(0, enemyTypeIndex(capType(k))) : k < 3 ? k : std::max(0, enemyTypeIndex("creature")); aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp; z3[k++] = s.slot;
         const EnemyType& e = enemyType(s.etype); if (s.agent >= 0 && e.capsuleH > 0) { Physics::destroyAgent(s.agent); s.agent = Physics::createAgent(s.feet, e.capsuleH, e.capsuleR); } }
       sol = -1; for (auto& s : G.sold) if (!s.zombie && !s.localPlayer && s.alive) sol = s.slot;
       vec3 sp; if (sol < 0 || !openPoint(G, L->feet, 6.0f, sp, 0.0f)) { chk(false, "the soldier placed"); return true; }
