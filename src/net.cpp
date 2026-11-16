@@ -13,6 +13,7 @@ using SOCKET = int;
 constexpr SOCKET INVALID_SOCKET = -1;
 static int closesocket(SOCKET s) { return close(s); }
 #endif
+#include "sd_game.h"
 #include "net.h"
 #include "ai_hooks.h"
 #include "flame.h"
@@ -552,6 +553,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       if (std::fabs(p - it->second.progress[k]) > 0.2f || replay) { it->second.progress[k] = p; for (auto& i : app.doc.instances) if (i.id == inst) app.updateLeafBodies(i, it->second, k); }
       g.doorSeen[(inst << 8) | (uint64_t)k] = ev["dir"].get<int>();
     }
+  } else if (sdClientEvent(app, ev)) {   // SD1: the Search and Destroy state, the bomb blast
   } else if (gm2ClientEvent(app, ev)) {   // GM2: a pack placed on the host, artillery incoming
   } else if (t == "cloud") {
     SmokeCloud c; c.id = g.gren.nextId++; c.p = jvec3(ev["p"]); c.start = ev["st"].get<double>(); c.seed = ev["seed"].get<uint32_t>();
@@ -758,6 +760,8 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
       hostSwitch(app, s, w);
       p.ch.send(json{{"t", "rack"}, {"w", w}}.dump());
     }
+  } else if (t == "sdhold" || t == "sdbuy") {   // SD1: plant / defuse holds, purchases (validated by the round controller)
+    sdHostRequest(g, slot, m);
   } else if (t == "pack" || t == "arty") {   // GM2: place an explosion pack / call artillery (inventory, reach, ability, cooldown)
     std::string why;
     if (!gm2HostRequest(app, g, s, slot, m, why)) { ++n.rejectedRequests; ++n.rejects[why]; }

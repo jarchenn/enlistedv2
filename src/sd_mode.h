@@ -65,7 +65,8 @@ struct SdPlayer {
   bool alive = false; vec3 feet{0};
   bool everAlive = false;
   int kills = 0, deaths = 0, plants = 0, defuses = 0;
-  std::vector<std::string> boughtThisRound;   // item ids (refunds, per-round allowances)
+  struct Purchase { std::string item; int price = 0; bool refundable = true; SdGear before; };   // this round's buys (allowances, refunds)
+  std::vector<Purchase> bought;
   int bombAssigned = 0;             // times it got the bomb (spread assignment)
 };
 

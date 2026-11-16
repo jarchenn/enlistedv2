@@ -6,6 +6,7 @@
 //   ai_combat.cpp  perception, aim model and firing, grenades
 //   ai_debug.cpp   overlays, follow camera, freeze / step, debug window, difficulty selection
 // This replaces the AI/LAN milestone state machine (see docs/ai-inventory.md for the decision).
+#include "sd_game.h"
 #include "game.h"
 #include "app.h"
 #include "ai_core.h"
@@ -47,7 +48,7 @@ void Game::aiStep(Soldier& s, float dt) {
   BotMind& m = A->mind(s);
   Brain& b = s.br;
   b.modeT += dt; b.grenadeCD -= dt;
-  if (A->frozen && !A->stepRun) {   // debug freeze: bots stand still, nothing thinks
+  if ((A->frozen && !A->stepRun) || sdFrozen()) {   // debug freeze / SD1 freeze time: bots stand still, nothing thinks
     Physics::updateAgent(s.agent, dt, vec3(0), false, s.posture, s.yaw);
     auto st = Physics::agent(s.agent); s.feet = st.pos; s.vel = vec3(0); s.speed = 0;
     return;

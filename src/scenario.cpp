@@ -51,8 +51,8 @@ json ScenarioRules::toJson() const {
           {"smokePerLifeAttacker", smokePerLifeAttacker}, {"smokePerLifeDefender", smokePerLifeDefender},
           {"captureModel", captureModel == CaptureModel::Contest ? "contest" : "timed"}, {"captureSpeedCap", captureSpeedCap},
           {"captureBase", captureBase}, {"capturePresenceFull", capturePresenceFull},
-          {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire},
-          {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : mode == GameMode::BattleRoyale ? "royale" : "assault"}, {"killCap", killCap},
+          {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire}, {"sdShort", sdShort}, {"sdWarmup", sdWarmup},
+          {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : mode == GameMode::BattleRoyale ? "royale" : mode == GameMode::SearchDestroy ? "snd" : "assault"}, {"killCap", killCap},
           {"royalePlayers", royalePlayers}, {"lootModern", lootModern},
           {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}},
           {"aiCount", {std::vector<int>(aiCount[0], aiCount[0] + kAiTypeCount), std::vector<int>(aiCount[1], aiCount[1] + kAiTypeCount)}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
@@ -79,7 +79,8 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   r.capturePresenceFull = j.value("capturePresenceFull", r.capturePresenceFull);
   if (j.contains("lanes") && j["lanes"].is_array() && j["lanes"].size() == 3) { r.laneLeft = j["lanes"][0]; r.laneMain = j["lanes"][1]; r.laneRight = j["lanes"][2]; }
   r.friendlyFire = j.value("friendlyFire", r.friendlyFire);
-  { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : m == "royale" ? GameMode::BattleRoyale : GameMode::Assault; }
+  r.sdShort = j.value("sdShort", r.sdShort); r.sdWarmup = j.value("sdWarmup", r.sdWarmup);
+  { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : m == "royale" ? GameMode::BattleRoyale : m == "snd" ? GameMode::SearchDestroy : GameMode::Assault; }
   r.royalePlayers = std::clamp(j.value("royalePlayers", r.royalePlayers), 10, kMaxCombatants);
   r.lootModern = j.value("lootModern", r.lootModern);
   r.killCap = std::clamp(j.value("killCap", r.killCap), 1, 999);
@@ -285,6 +286,12 @@ std::vector<ScenarioIssue> validateScenario(const Scenario& s, bool forPublish) 
   if (r0.mode != GameMode::Assault) {   // G1: Solo / TDM need no objectives; spawns are team markers or found by the game
     std::set<std::string> sids;
     for (auto& m : s.spawns) if (!sids.insert(m.id).second) err("Duplicate spawn id '" + m.id + "'.");
+    if (r0.mode == GameMode::SearchDestroy) {   // SD1: docs/search-and-destroy.md, map contract
+      int na = 0, nd = 0; for (auto& m : s.spawns) (m.role == CombatRole::Attacker ? na : nd) += m.team < 0;
+      if (s.objectives.size() != 2 || na < 5 || nd < 5)
+        warn("Search and Destroy needs exactly two bomb sites (objectives A and B) and at least five spawn markers per side (" + std::to_string(s.objectives.size()) + " sites, " +
+             std::to_string(na) + " attacker and " + std::to_string(nd) + " defender spawns): the built-in temporary layout is used instead.");
+    }
     if (r0.mode == GameMode::TDM) for (int t = 0; t < 2; ++t) {
       bool any = false; for (auto& m : s.spawns) any |= m.team == t;
       if (!any) warn(std::string("Team Deathmatch: no spawn markers for team ") + (t == 0 ? "A" : "B") + " (Scenario panel): its soldiers spawn far from the enemy instead.");

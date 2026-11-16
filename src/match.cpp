@@ -53,7 +53,8 @@ bool Match::setup(const Scenario& s, int humans, std::string& err) {
 bool Match::setupDeathmatch(int humans, std::string& err) {
   const bool solo = ffaMode(rules.mode), royale = rules.mode == GameMode::BattleRoyale;
   int counts[2] = {solo ? std::max(royale ? rules.royalePlayers : rules.soloPlayers, humans) : rules.teamPlayers[0], solo ? 0 : rules.teamPlayers[1]};
-  if (royale) { rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers); for (auto& c : rules.aiCount) for (int& x : c) x = 0; }   // BR5: soldiers only (no zombies, heavies, fighters)
+  if (royale) { rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers); for (auto& c : rules.aiCount) for (int& x : c) x = 0; }
+  if (rules.mode == GameMode::SearchDestroy) for (int t = 0; t < 2; ++t) { int n = rules.aiSum(t); for (int& x : rules.aiCount[t]) x = 0; rules.aiCount[t][(int)AiType::Soldiers] = n; rules.aiTypes[t] = aiBit(AiType::Soldiers); }   // SD1: soldiers only (no monsters, spec §11)   // BR5: soldiers only (no zombies, heavies, fighters)
   if (counts[0] + counts[1] > ScenarioRules::kMaxCombatants) { err = "Roster exceeds " + std::to_string(ScenarioRules::kMaxCombatants) + " combatants."; return false; }
   if (counts[0] + counts[1] < 2) { err = "A match needs at least two combatants."; return false; }
   int humansOn[2] = {0, 0};
@@ -190,6 +191,7 @@ void Match::update(float dt) {
     }
     return;
   }
+  if (rules.mode == GameMode::SearchDestroy) return;   // SD1: the round controller (sd_game.cpp) decides spawns and the end
   if (rules.mode != GameMode::Assault) {   // G1: kill cap, then plain respawn delays (no waves, no lives)
     if (rules.mode == GameMode::Solo) {
       int ws = -1; int top = topKills(&ws);
@@ -247,7 +249,7 @@ int Match::humanJoin(int peer, const std::string& name) {
   // prefer an AI defender slot whose soldier is dead (immediate, normal respawn flow), then any AI defender slot
   int best = -1;
   int wantTeam = -1;   // TDM: the team with fewer humans
-  if (rules.mode == GameMode::TDM) { int h[2] = {0, 0}; for (auto& s : slots) if (s.human || s.pendingPeer >= 0) ++h[s.team]; wantTeam = h[0] <= h[1] ? 0 : 1; }
+  if (teamMode(rules.mode)) { int h[2] = {0, 0}; for (auto& s : slots) if (s.human || s.pendingPeer >= 0) ++h[s.team]; wantTeam = h[0] <= h[1] ? 0 : 1; }
   auto eligible = [&](const RosterSlot& s) {
     if (s.human || s.pendingPeer >= 0) return false;
     if (rules.mode == GameMode::Assault) return s.role == CombatRole::Defender;
