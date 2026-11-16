@@ -14,6 +14,7 @@
 #include "mpui.h"
 #include "rules.h"
 #include "damage_model.h"
+#include "loot.h"
 #include "classes.h"
 #include <GLFW/glfw3.h>
 #include <functional>
@@ -54,22 +55,30 @@ void SelfTest::rulesUpdate(App& app, float dt) {
     // ================================================================ 1. damage table (headless math)
     check(damageTableReload() && damageTable().error.empty(), "content/ai/damage.json loads (" + (damageTable().error.empty() ? std::string("ok") : damageTable().error) + ")");
     const DamageTable& T = damageTable();
-    check(T.health == 100 && T.head == 1.3f && T.torso == 1.0f && T.arms == 1.0f && T.legs == 0.6f && !T.helmetReducesDamage, "health 100; zones head x1.3, torso / neck / arms x1.0, legs x0.6 (every gun); helmets do not reduce damage");
+    check(T.health == 100 && T.head == 4.0f && T.torso == 1.0f && T.stomach == 1.25f && T.arms == 1.0f && T.legs == 0.75f && !T.helmetReducesDamage, "DMG1: health 100; zones head x4, chest / neck / arms x1, stomach x1.25, legs x0.75 (every gun)");
     {
       int z[7] = {DZ_HEAD, DZ_UPPER_TORSO, DZ_LOWER_TORSO, DZ_NECK, DZ_ARM, DZ_UPPER_THIGH, DZ_LIMB};
-      float want[7] = {1.3f, 1, 1, 1, 1, 0.6f, 0.6f}; bool ok = true;
+      float want[7] = {4.0f, 1, 1.25f, 1, 1, 0.75f, 0.75f}; bool ok = true;
       for (int k = 0; k < 7; ++k) ok &= dmZoneMult(T, z[k]) == want[k];
-      check(ok, "zone multipliers: head 1.3, upper / lower torso 1.0, neck 1.0, arm 1.0, upper thigh 0.6, leg / foot 0.6");
+      check(ok, "zone multipliers: head 4, upper torso 1, lower torso (stomach) 1.25, neck 1, arm 1, upper thigh 0.75, leg / foot 0.75");
     }
-    struct Row { const char* id; int torso[4]; int legs[2]; bool dataOnly; };
+    // DMG1 shots to kill, unarmoured: chest at 10 / 50 / 100 / 200 m, legs at 10 / 100 m, head at 10 m (the user's reference sheet)
+    struct Row { const char* id; int torso[4]; int legs[2]; int head; bool dataOnly; };
     const Row rows[] = {
-      {"kar98k", {1, 1, 1, 1}, {2, 2}, false}, {"kar98k_zf39", {1, 1, 1, 1}, {2, 2}, false}, {"m1903a4", {1, 1, 1, 2}, {2, 2}, true},
-      {"m1_garand", {1, 1, 2, 2}, {2, 3}, false}, {"g43", {1, 1, 2, 2}, {2, 3}, true}, {"m1_carbine", {2, 2, 3, 3}, {4, 5}, false},
-      {"m1918a2_bar", {2, 2, 3, 3}, {4, 4}, false}, {"stg44", {2, 2, 2, 3}, {4, 4}, false}, {"m1_thompson", {4, 5, 5, 5}, {7, 8}, false},
-      {"m3_grease_gun", {3, 4, 4, 4}, {5, 7}, false}, {"mp40", {3, 5, 5, 5}, {5, 8}, false}, {"mg42", {3, 3, 3, 3}, {4, 4}, false},
-      {"m1919a6", {2, 2, 3, 3}, {4, 4}, true}, {"m1911a1", {3, 5, 5, 5}, {5, 8}, false}, {"walther_p38", {3, 5, 5, 5}, {5, 9}, true}, {"luger", {3, 5, 5, 5}, {5, 9}, false},
-      // repo weapons outside the SPEC table, documented in damage.json: the band they slot into
-      {"m1c_garand", {1, 1, 2, 2}, {2, 3}, false}, {"fg42", {3, 3, 3, 3}, {4, 4}, false}, {"m2hb_carry", {1, 1, 1, 2}, {2, 2}, false},
+      {"kar98k", {2, 2, 2, 2}, {2, 2}, 1, false}, {"kar98k_zf39", {2, 2, 2, 2}, {2, 2}, 1, false}, {"m1903a4", {2, 2, 2, 2}, {2, 2}, 1, true},
+      {"m1_garand", {2, 2, 2, 2}, {3, 3}, 1, false}, {"m1c_garand", {2, 2, 2, 2}, {3, 3}, 1, false}, {"g43", {2, 2, 2, 2}, {3, 3}, 1, true},
+      {"m1_carbine", {4, 4, 5, 5}, {5, 6}, 1, false}, {"m1918a2_bar", {3, 3, 3, 4}, {4, 4}, 1, false}, {"stg44", {4, 4, 4, 4}, {5, 5}, 1, false},
+      {"m1_thompson", {4, 5, 5, 5}, {5, 7}, 2, false}, {"m3_grease_gun", {4, 5, 5, 5}, {5, 7}, 2, false}, {"mp40", {4, 6, 6, 6}, {5, 8}, 2, false},
+      {"mg42", {3, 3, 3, 4}, {4, 4}, 1, false}, {"fg42", {3, 3, 3, 4}, {4, 4}, 1, false}, {"m1919a6", {3, 3, 3, 4}, {4, 4}, 1, true},
+      {"m2hb_carry", {1, 1, 1, 2}, {2, 2}, 1, false}, {"m1911a1", {3, 5, 5, 5}, {4, 7}, 2, false}, {"luger", {3, 5, 5, 5}, {4, 7}, 2, false},
+      {"walther_p38", {3, 5, 5, 5}, {4, 7}, 2, true}, {"modern_scar", {3, 3, 3, 3}, {4, 4}, 1, false}, {"modern_ak", {3, 3, 3, 4}, {4, 4}, 1, false},
+      {"modern_m4", {4, 4, 4, 5}, {5, 5}, 1, false}, {"modern_m4_irons", {4, 4, 4, 5}, {5, 5}, 1, false}, {"modern_m16", {4, 4, 4, 4}, {5, 5}, 1, false},
+      {"modern_lmg", {4, 4, 4, 4}, {5, 5}, 1, false}, {"modern_shotgun", {4, 17, 17, 17}, {5, 23}, 1, false}, {"modern_sniper_bolt", {1, 1, 1, 1}, {2, 2}, 1, false},
+      {"modern_sniper_semi", {2, 2, 2, 2}, {2, 2}, 1, false}, {"modern_pistol", {3, 5, 5, 5}, {4, 7}, 2, false}, {"modern_ar15", {4, 4, 4, 5}, {5, 5}, 1, false},
+      {"modern_mp7", {4, 4, 6, 6}, {5, 8}, 2, false}, {"modern_scorpion", {4, 5, 7, 7}, {6, 9}, 2, false}, {"modern_uzi", {4, 5, 7, 7}, {5, 9}, 2, false},
+      {"modern_shotgun2", {4, 17, 17, 17}, {6, 23}, 1, false}, {"modern_sniper_50", {1, 1, 1, 1}, {1, 1}, 1, false}, {"modern_sniper_3", {1, 1, 1, 1}, {2, 2}, 1, false},
+      {"modern_pistol3", {4, 6, 6, 6}, {5, 8}, 2, false}, {"modern_ak12", {4, 4, 4, 4}, {5, 5}, 1, false}, {"modern_fal", {3, 3, 3, 3}, {4, 4}, 1, false},
+      {"modern_pistol2", {5, 8, 8, 8}, {7, 11}, 2, false}
     };
     const float R[4] = {10, 50, 100, 200};
     json stk = json::object();
@@ -77,19 +86,19 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       auto it = T.weapons.find(r.id);
       if (it == T.weapons.end()) { check(false, std::string("damage.json has a row for ") + r.id); continue; }
       const WeaponDamage& w = it->second;
-      int t[4], l[2];
+      int t[4], l[2], h = dmShotsToKill(w, 10, DZ_HEAD);
       for (int k = 0; k < 4; ++k) t[k] = dmShotsToKill(w, R[k], DZ_UPPER_TORSO);
       l[0] = dmShotsToKill(w, 10, DZ_LIMB); l[1] = dmShotsToKill(w, 100, DZ_LIMB);
-      bool ok = true; for (int k = 0; k < 4; ++k) ok &= t[k] == r.torso[k]; ok &= l[0] == r.legs[0] && l[1] == r.legs[1];
+      bool ok = h == r.head; for (int k = 0; k < 4; ++k) ok &= t[k] == r.torso[k]; ok &= l[0] == r.legs[0] && l[1] == r.legs[1];
       int wi = app.weaponIndex(r.id);
       float rpm = wi >= 0 ? app.weaponDefs[wi]->rpm : w.rpm;
-      char b[300]; std::snprintf(b, sizeof b, "%-13s STK torso %d/%d/%d/%d (want %d/%d/%d/%d), legs %d/%d (want %d/%d) | near %.0f far %.0f falloff %.0f-%.0f m, %.0f rpm, close TTK %.0f ms%s",
-                                r.id, t[0], t[1], t[2], t[3], r.torso[0], r.torso[1], r.torso[2], r.torso[3], l[0], l[1], r.legs[0], r.legs[1], w.nearDmg, w.farDmg, w.falloffStart, w.falloffEnd, rpm,
-                                (t[0] - 1) * 60000.0f / std::max(1.0f, rpm), w.dataOnly ? " [data only]" : "");
+      char b[340]; std::snprintf(b, sizeof b, "%-18s STK chest %d/%d/%d/%d (want %d/%d/%d/%d), legs %d/%d (want %d/%d), head %d (want %d) | near %.0f far %.0f falloff %.0f-%.0f m, %s pen %.2f, %.0f rpm%s",
+                                r.id, t[0], t[1], t[2], t[3], r.torso[0], r.torso[1], r.torso[2], r.torso[3], l[0], l[1], r.legs[0], r.legs[1], h, r.head, w.nearDmg, w.farDmg, w.falloffStart, w.falloffEnd, w.cls.c_str(), w.pen, rpm, w.dataOnly ? " [data only]" : "");
       check(ok, b);
       check(w.dataOnly == r.dataOnly && (wi >= 0) == !r.dataOnly, std::string(r.id) + (r.dataOnly ? ": data-only row, no weapon model in the repo" : ": weapon exists in the repo"));
       if (wi >= 0) check(std::fabs(w.rpm - app.weaponDefs[wi]->rpm) < 0.5f, std::string(r.id) + ": table rpm " + f2(w.rpm) + " = the repo's " + f2(app.weaponDefs[wi]->rpm));
-      stk[r.id] = {{"torso", {t[0], t[1], t[2], t[3]}}, {"legs", {l[0], l[1]}}, {"rpm", rpm}};
+      if (w.cls == "pistol" || w.cls == "smg") check(dmDamage(w, 0, DZ_HEAD) >= 70 && dmDamage(w, 0, DZ_HEAD) <= 80, std::string(r.id) + ": a pistol / SMG headshot does " + f2(dmDamage(w, 0, DZ_HEAD)) + " (70-80: two to kill)");
+      stk[r.id] = {{"torso", {t[0], t[1], t[2], t[3]}}, {"legs", {l[0], l[1]}}, {"head", h}, {"rpm", rpm}};
     }
     summary["stk"] = stk;
     // every bullet-firing weapon in the repo has its own row
@@ -97,36 +106,32 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       bool bullet = (d->action == "semi" || d->action == "auto" || d->action == "bolt" || d->action == "heavy") && !d->container.empty();
       if (bullet) check(T.weapons.count(d->id) > 0, "bullet weapon " + d->id + " has its own damage row");
     }
-    // [DECISION] rows as written, formula and zones
+    // formula, zones, decisions
     const WeaponDamage& kar = dmRow("kar98k"); const WeaponDamage& spr = dmRow("m1903a4"); const WeaponDamage& gar = dmRow("m1_garand"); const WeaponDamage& tom = dmRow("m1_thompson");
-    check(dmShotsToKill(kar, 10, DZ_LIMB) == 2 && dmShotsToKill(dmRow("kar98k_zf39"), 300, DZ_LIMB) == 2 && dmShotsToKill(kar, 300, DZ_UPPER_TORSO) == 1 && dmShotsToKill(kar, 300, DZ_HEAD) == 1 && dmShotsToKill(kar, 300, DZ_ARM) == 1,
-          "Kar98k / Kar98k sniper: leg hits take 2 shots (90), torso, arm and head one shot at any range (300 m too)");
-    {   // StG 44: 2 torso shots at medium to medium-long range, 3 at far range
-      const WeaponDamage& stg = dmRow("stg44");
-      float last2 = 0; for (float r = 100; r <= 300; r += 0.5f) if (dmShotsToKill(stg, r, DZ_UPPER_TORSO) == 2) last2 = r;
-      char b[220]; std::snprintf(b, sizeof b, "StG 44: 2 torso shots at 150 m (%.1f HP), 3 at 250 m (%.1f HP); 2 shots out to %.1f m", dmBaseDamage(stg, 150), dmBaseDamage(stg, 250), last2);
-      check(dmShotsToKill(stg, 150, DZ_UPPER_TORSO) == 2 && dmShotsToKill(stg, 250, DZ_UPPER_TORSO) == 3 && dmShotsToKill(stg, 10, DZ_HEAD) == 2 && last2 > 170 && last2 < 200, b);
-      summary["stg44_two_shot_m"] = last2;
-    }
-    {
-      float oneShot = 0; for (float r = 100; r <= 200; r += 0.5f) if (dmShotsToKill(spr, r, DZ_UPPER_TORSO) == 1) oneShot = r;
-      check(T.springfieldProfile == "brief" && dmShotsToKill(spr, 100, DZ_UPPER_TORSO) == 1 && dmShotsToKill(spr, 150, DZ_UPPER_TORSO) == 2 && oneShot > 120 && oneShot < 150,
-            "[DECISION] decisions.springfieldProfile 'brief': Springfield one torso shot up to " + f2(oneShot) + " m (falloff 100-150 m), 2 beyond");
-    }
+    check(dmShotsToKill(kar, 300, DZ_HEAD) == 1 && dmShotsToKill(kar, 300, DZ_LOWER_TORSO) == 1 && dmShotsToKill(kar, 300, DZ_UPPER_TORSO) == 2 && std::fabs(dmDamage(kar, 300, DZ_UPPER_TORSO) - 90) < 1e-3f,
+          "Kar98k (scout class): head and stomach one shot at any range, a chest hit leaves a sliver (90)");
+    check(T.springfieldProfile == "brief" && dmBaseDamage(spr, 100) == 95 && dmBaseDamage(spr, 150) == 80, "[DECISION] decisions.springfieldProfile 'brief': Springfield 95 up to 100 m, 80 from 150 m");
     {   // the other value of the decision and a zone override (parsed into a scratch table)
       json j = json::parse(readTextFile(contentDir() / "ai" / "damage.json"));
-      j["decisions"]["springfieldProfile"] = "kar98k"; j["zones"]["legs"] = 0.7;
+      j["decisions"]["springfieldProfile"] = "kar98k"; j["zones"]["legs"] = 1.2;
       DamageTable alt; std::string err; bool ok = parseDamageTable(j, alt, err);
       const WeaponDamage& k2 = alt.weapons["kar98k"]; const WeaponDamage& s2 = alt.weapons["m1903a4"];
-      check(ok && dmBaseDamage(k2, 50) * dmZoneMult(alt, DZ_LIMB) >= 100 && dmBaseDamage(s2, 300) == 150,
-            "switches work: zones.legs 0.7 -> Kar98k leg " + f2(dmBaseDamage(k2, 50) * dmZoneMult(alt, DZ_LIMB)) + " (one hit), springfieldProfile 'kar98k' -> 150 at 300 m");
+      check(ok && dmBaseDamage(k2, 50) * dmZoneMult(alt, DZ_LIMB) >= 100 && dmBaseDamage(s2, 300) == 95,
+            "switches work: zones.legs 1.2 -> Kar98k leg " + f2(dmBaseDamage(k2, 50) * dmZoneMult(alt, DZ_LIMB)) + " (one hit), springfieldProfile 'kar98k' -> 95 at 300 m");
     }
-    check(dmBaseDamage(kar, 0) == 150 && dmBaseDamage(kar, 5000) == 150, "no falloff when start == end (Kar98k 150 at 0 and 5000 m)");
-    check(std::fabs(dmBaseDamage(gar, 80) - 92.5f) < 1e-3f && dmBaseDamage(gar, 60) == 115 && dmBaseDamage(gar, 100) == 70,
-          "smoothstep falloff: Garand 115 at 60 m, 92.5 at 80 m (midpoint), 70 at 100 m");
-    check(dmShotsToKill(gar, 10, DZ_LOWER_TORSO) == 1 && std::fabs(dmDamage(gar, 10, DZ_LOWER_TORSO) - 115) < 1e-3f, "Garand lower-torso hit up close kills (115 x 1.0)");
-    check(std::fabs(dmDamage(tom, 10, DZ_HEAD) - 35.1f) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_NECK) - 27) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_ARM) - 27) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_UPPER_THIGH) - 16.2f) < 1e-3f,
-          "zones: Thompson head 35.1 (x1.3), neck and arm count as torso (27), upper thigh as leg (16.2)");
+    check(dmBaseDamage(kar, 0) == 90 && dmBaseDamage(kar, 5000) == 90, "no falloff when start == end (Kar98k 90 at 0 and 5000 m)");
+    check(std::fabs(dmBaseDamage(gar, 105) - 57.5f) < 1e-3f && dmBaseDamage(gar, 60) == 65 && dmBaseDamage(gar, 150) == 50,
+          "smoothstep falloff: Garand 65 at 60 m, 57.5 at 105 m (midpoint), 50 at 150 m");
+    check(dmShotsToKill(gar, 10, DZ_HEAD) == 1 && dmShotsToKill(gar, 10, DZ_UPPER_TORSO) == 2 && std::fabs(dmDamage(gar, 10, DZ_LOWER_TORSO) - 81.25f) < 1e-3f, "Garand: one headshot, two to the body (stomach 81.25)");
+    check(std::fabs(dmDamage(tom, 10, DZ_HEAD) - 80) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_NECK) - 33) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_ARM) - 33) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_LOWER_TORSO) - 41.25f) < 1e-3f && std::fabs(dmDamage(tom, 10, DZ_UPPER_THIGH) - 24.75f) < 1e-3f,
+          "zones: Thompson head 80 (x4 capped at the SMG 80), neck and arm count as chest (33), stomach 41.25, upper thigh as leg (24.75)");
+    {   // DMG1 armour: damage x (1 - (1 - pen) x level share)
+      Kit k; k.vest = 3; k.vestDur = 1000; k.helmet = 1; k.helmetDur = 1000;
+      const WeaponDamage& ak = dmRow("modern_ak"); const WeaponDamage& pis = dmRow("m1911a1");
+      float v3 = armorAbsorb(k, false, 35, ak.pen), h1 = armorAbsorb(k, true, 80, pis.pen);
+      char b[200]; std::snprintf(b, sizeof b, "armour: AK chest 35 through a level 3 vest %.2f (x pen %.3f), M1911 head 80 through a level 1 helmet %.2f (gap x 0.6)", v3, ak.pen, h1);
+      check(std::fabs(v3 - 35 * ak.pen) < 1e-3f && std::fabs(h1 - 80 * (1 - 0.5f * 0.6f)) < 1e-3f, b);
+    }
     // ================================================================ 2. movement data
     {
       auto& m = app.move;

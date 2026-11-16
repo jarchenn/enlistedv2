@@ -395,6 +395,62 @@ A second, smaller harmonic is added. Sway shares the View → Grass → Wind tog
 - **Blast occlusion:** `blastOcclusion(epicentre, target)` casts a ray. If it crosses a sandbag collider the factor is 0.1; other solid cover counts the same.
 - **Player exposure:** taken at the chest and the head (half each), within 3 × the blast radius. The player has no health model, so this is a HUD readout ("Blast exposure X (raw × m)"), camera shake and a tinnitus tone.
 
+## DMG1: bullet damage (reference-sheet rebalance)
+
+`content/ai/damage.json`, user request 2026-11-16: damage close to a Counter-Strike style reference sheet; pistol and SMG headshots must not kill alone. Health stays 100.
+
+- Zones, every gun: head x4, chest / neck / arms x1 (base), stomach (lower torso) x1.25, legs and feet x0.75.
+- Class `headMax` caps a head hit: pistols and SMGs 80, so two headshots kill.
+- Armour (Battle Royale helmet: head; vest: chest, arms, stomach; legs never): damage x (1 - (1 - pen) x share), share 60 / 80 / 100 % for levels 1 / 2 / 3 (`content/settings/loot.json` armor.penApply). Durability wears by what the armour stopped. Blasts and other non-bullet damage keep the level's flat `reduce`.
+- Class penetration: pistol 0.5, SMG 0.62, assault 0.75, battle 0.8, semi / bolt 0.85, sniper 0.9, LMG 0.78, shotgun 0.65, heavy 0.95. Rows may override (AK 0.775, MP7 0.69, .22 0.4).
+- Enemy types with their own `head_mult` take base x head_mult on the head, replacing the weapon's x4 or cap (no double multiplication).
+- Asserted by `--selftest-rules`.
+
+Damage at 10 m, unarmoured (shotguns: per pellet). Shots to kill (STK): chest at 10 / 50 / 100 / 200 m, head and stomach at 10 m, legs at 10 / 100 m.
+
+| Weapon | Class | Near / far (falloff m) | Head | Stomach | Legs | Pen | STK chest | STK head | STK stomach | STK legs |
+|---|---|---|---|---|---|---|---|---|---|---|
+| kar98k | bolt | 90 / 90 (0-0) | 360 | 112.5 | 67.5 | 0.85 | 2/2/2/2 | 1 | 1 | 2/2 |
+| kar98k_zf39 | bolt | 90 / 90 (0-0) | 360 | 112.5 | 67.5 | 0.85 | 2/2/2/2 | 1 | 1 | 2/2 |
+| m1903a4 (data only) | bolt | 95 / 80 (100-150) | 380 | 118.75 | 71.25 | 0.85 | 2/2/2/2 | 1 | 1 | 2/2 |
+| m1_garand | semi | 65 / 50 (60-150) | 260 | 81.25 | 48.75 | 0.85 | 2/2/2/2 | 1 | 2 | 3/3 |
+| m1c_garand | semi | 65 / 50 (60-150) | 260 | 81.25 | 48.75 | 0.85 | 2/2/2/2 | 1 | 2 | 3/3 |
+| g43 (data only) | semi | 65 / 50 (60-150) | 260 | 81.25 | 48.75 | 0.85 | 2/2/2/2 | 1 | 2 | 3/3 |
+| m1_carbine | assault | 30 / 23 (40-120) | 120 | 37.5 | 22.5 | 0.7 | 4/4/5/5 | 1 | 3 | 5/6 |
+| m1918a2_bar | battle | 40 / 30 (60-200) | 160 | 50 | 30 | 0.8 | 3/3/3/4 | 1 | 2 | 4/4 |
+| stg44 | assault | 33 / 25 (100-250) | 132 | 41.25 | 24.75 | 0.75 | 4/4/4/4 | 1 | 3 | 5/5 |
+| m1_thompson | smg | 33 / 20 (20-60) | 80 | 41.25 | 24.75 | 0.62 | 4/5/5/5 | 2 | 3 | 5/7 |
+| m3_grease_gun | smg | 33 / 20 (20-60) | 80 | 41.25 | 24.75 | 0.62 | 4/5/5/5 | 2 | 3 | 5/7 |
+| mp40 | smg | 28 / 17 (15-60) | 80 | 35 | 21 | 0.62 | 4/6/6/6 | 2 | 3 | 5/8 |
+| mg42 | lmg | 35 / 27 (60-200) | 140 | 43.75 | 26.25 | 0.78 | 3/3/3/4 | 1 | 3 | 4/4 |
+| fg42 | battle | 40 / 30 (60-200) | 160 | 50 | 30 | 0.8 | 3/3/3/4 | 1 | 2 | 4/4 |
+| m1919a6 (data only) | lmg | 35 / 27 (60-200) | 140 | 43.75 | 26.25 | 0.78 | 3/3/3/4 | 1 | 3 | 4/4 |
+| m2hb_carry | heavy | 120 / 80 (100-200) | 480 | 150 | 90 | 0.95 | 1/1/1/2 | 1 | 1 | 2/2 |
+| m1911a1 | pistol | 36 / 21 (10-35) | 80 | 45 | 27 | 0.5 | 3/5/5/5 | 2 | 3 | 4/7 |
+| luger | pistol | 34 / 20 (10-35) | 80 | 42.5 | 25.5 | 0.5 | 3/5/5/5 | 2 | 3 | 4/7 |
+| walther_p38 (data only) | pistol | 34 / 20 (10-35) | 80 | 42.5 | 25.5 | 0.5 | 3/5/5/5 | 2 | 3 | 4/7 |
+| modern_scar | battle | 40 / 30 (150-300) | 160 | 50 | 30 | 0.8 | 3/3/3/3 | 1 | 2 | 4/4 |
+| modern_ak | assault | 35 / 27 (120-250) | 140 | 43.75 | 26.25 | 0.775 | 3/3/3/4 | 1 | 3 | 4/4 |
+| modern_m4 | assault | 32 / 24 (100-220) | 128 | 40 | 24 | 0.75 | 4/4/4/5 | 1 | 3 | 5/5 |
+| modern_m4_irons | assault | 32 / 24 (100-220) | 128 | 40 | 24 | 0.75 | 4/4/4/5 | 1 | 3 | 5/5 |
+| modern_m16 | assault | 33 / 25 (120-250) | 132 | 41.25 | 24.75 | 0.75 | 4/4/4/4 | 1 | 3 | 5/5 |
+| modern_lmg | lmg | 32 / 24 (150-300) | 128 | 40 | 24 | 0.78 | 4/4/4/4 | 1 | 3 | 5/5 |
+| modern_shotgun | shotgun | 28 / 6 (10-40) | 112 | 35 | 21 | 0.65 | 4/17/17/17 | 1 | 3 | 5/23 |
+| modern_sniper_bolt | sniper | 105 / 95 (300-600) | 420 | 131.25 | 78.75 | 0.9 | 1/1/1/1 | 1 | 1 | 2/2 |
+| modern_sniper_semi | sniper | 79 / 65 (250-500) | 316 | 98.75 | 59.25 | 0.83 | 2/2/2/2 | 1 | 2 | 2/2 |
+| modern_pistol | pistol | 34 / 20 (15-40) | 80 | 42.5 | 25.5 | 0.5 | 3/5/5/5 | 2 | 3 | 4/7 |
+| modern_ar15 | assault | 32 / 24 (100-220) | 128 | 40 | 24 | 0.75 | 4/4/4/5 | 1 | 3 | 5/5 |
+| modern_mp7 | smg | 28 / 17 (40-120) | 80 | 35 | 21 | 0.69 | 4/4/6/6 | 2 | 3 | 5/8 |
+| modern_scorpion | smg | 26 / 16 (25-70) | 80 | 32.5 | 19.5 | 0.62 | 4/5/7/7 | 2 | 4 | 6/9 |
+| modern_uzi | smg | 27 / 16 (25-70) | 80 | 33.75 | 20.25 | 0.62 | 4/5/7/7 | 2 | 3 | 5/9 |
+| modern_shotgun2 | shotgun | 26 / 6 (10-40) | 104 | 32.5 | 19.5 | 0.65 | 4/17/17/17 | 1 | 4 | 6/23 |
+| modern_sniper_50 | heavy | 600 / 600 (0-0) | 2400 | 750 | 450 | 0.95 | 1/1/1/1 | 1 | 1 | 1/1 |
+| modern_sniper_3 | sniper | 105 / 95 (300-600) | 420 | 131.25 | 78.75 | 0.9 | 1/1/1/1 | 1 | 1 | 2/2 |
+| modern_pistol3 | pistol | 30 / 18 (15-40) | 80 | 37.5 | 22.5 | 0.5 | 4/6/6/6 | 2 | 3 | 5/8 |
+| modern_ak12 | assault | 33 / 25 (120-250) | 132 | 41.25 | 24.75 | 0.775 | 4/4/4/4 | 1 | 3 | 5/5 |
+| modern_fal | battle | 40 / 30 (150-300) | 160 | 50 | 30 | 0.8 | 3/3/3/3 | 1 | 2 | 4/4 |
+| modern_pistol2 | pistol | 22 / 13 (15-40) | 80 | 27.5 | 16.5 | 0.4 | 5/8/8/8 | 2 | 4 | 7/11 |
+
 ## Mouse sensitivity
 
 Mouse look turns 0.1° per count when running around (72° vertical field of view). Every narrower view uses that rate × **tan(fov / 2) / tan(36°)** (`App::lookScaleFor`, `src/explore.cpp`). The scale applies to the field of view rendered on the previous frame, so ADS blends and the tank sights' RMB zoom change it smoothly.

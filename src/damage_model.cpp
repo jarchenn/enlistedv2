@@ -6,6 +6,7 @@
 #include "game.h"
 #include "app.h"
 #include "loot.h"   // BR2 Battle Royale loot
+#include "enemy_types.h"
 #include <algorithm>
 #include <cmath>
 
@@ -25,6 +26,13 @@ bool parseRow(const json& r, const std::string& id, const DamageTable& T, const 
   w.falloffStart = num(r, "falloffStart_m", 0); w.falloffEnd = num(r, "falloffEnd_m", w.falloffStart);
   w.rpm = num(r, "rpm", 0);
   w.dataOnly = r.value("dataOnly", false);
+  w.cls = r.value("class", std::string());
+  if (!w.cls.empty()) {   // DMG1: class defaults, the row's own values over them
+    auto c = T.classes.find(w.cls);
+    if (c == T.classes.end()) { err = "row " + id + ": unknown class '" + w.cls + "'"; return false; }
+    w.headMax = c->second.headMax; w.pen = c->second.pen;
+  }
+  w.headMax = num(r, "headMax", w.headMax); w.pen = std::clamp(num(r, "pen", w.pen), 0.0f, 1.0f);
   (void)decisions;
   if (r.value("profileDecision", std::string()) == "springfieldProfile" && T.springfieldProfile == "kar98k") {
     w.farDmg = w.nearDmg; w.falloffStart = w.falloffEnd = 0;   // the Kar98k's no-falloff profile
@@ -39,8 +47,9 @@ bool parseDamageTable(const json& j, DamageTable& T, std::string& err) {
   if (!j.is_object()) { err = "damage.json is not an object"; return false; }
   T.health = num(j, "health", 100);
   json z = j.value("zones", json::object());
-  T.head = num(z, "head", 1.3f); T.torso = num(z, "torso", 1.0f); T.arms = num(z, "arms", 1.0f); T.legs = num(z, "legs", 0.6f);
-  if (T.head <= 0 || T.torso <= 0 || T.arms <= 0 || T.legs <= 0) { err = "zones: multipliers must be > 0"; return false; }
+  T.head = num(z, "head", 4.0f); T.torso = num(z, "torso", 1.0f); T.stomach = num(z, "stomach", 1.25f); T.arms = num(z, "arms", 1.0f); T.legs = num(z, "legs", 0.75f);
+  { const json cl = j.value("classes", json::object()); for (auto& [cn, c] : cl.items()) if (c.is_object()) T.classes[cn] = {num(c, "headMax", 0), std::clamp(num(c, "pen", 1), 0.0f, 1.0f)}; }
+  if (T.head <= 0 || T.torso <= 0 || T.stomach <= 0 || T.arms <= 0 || T.legs <= 0) { err = "zones: multipliers must be > 0"; return false; }
   T.lowerTorsoSplit = num(j, "lowerTorsoSplit", 0.5f); T.neckFrom = num(j, "neckFrom", 0.9f); T.upperThighTo = num(j, "upperThighTo", 0.5f);
   T.helmetAbove = num(j, "helmetAboveHeadJoint_m", 0.12f);
   T.helmetReducesDamage = j.value("helmetReducesDamage", false);
@@ -86,12 +95,16 @@ float dmBaseDamage(const WeaponDamage& w, float r) { return w.nearDmg + (w.farDm
 float dmZoneMult(const DamageTable& T, int zone) {
   switch (zone) {
     case DZ_HEAD: return T.head;
-    case DZ_UPPER_TORSO: case DZ_LOWER_TORSO: case DZ_NECK: return T.torso;
+    case DZ_UPPER_TORSO: case DZ_NECK: return T.torso;
+    case DZ_LOWER_TORSO: return T.stomach;
     case DZ_ARM: return T.arms;
     default: return T.legs;   // legs below the hip, upper thigh, feet
   }
 }
-float dmDamage(const WeaponDamage& w, float r, int zone) { return dmBaseDamage(w, r) * dmZoneMult(damageTable(), zone); }
+float dmDamage(const WeaponDamage& w, float r, int zone) {
+  float d = dmBaseDamage(w, r) * dmZoneMult(damageTable(), zone);
+  return zone == DZ_HEAD && w.headMax > 0 ? std::min(d, w.headMax) : d;   // DMG1: pistols / SMGs need two headshots
+}
 int dmShotsToKill(const WeaponDamage& w, float r, int zone) {
   float d = dmDamage(w, r, zone);
   return d <= 0 ? 9999 : (int)std::ceil(damageTable().health / d - 1e-4f);
@@ -143,13 +156,14 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
       if (dd < best) { best = dd; normal = outward(p0 + ax * u); zone = arm ? DZ_ARM : (s[0] == CJ_LUPLEG || s[0] == CJ_RUPLEG) && u < T.upperThighTo ? DZ_UPPER_THIGH : DZ_LIMB; }
     }
   }
-  float dmg = dmBaseDamage(W, range) * dmZoneMult(T, zone);
+  float dmg = dmDamage(W, range, zone);
+  if (zone == DZ_HEAD && v.zombie && enemyType(v.etype).headMult > 0) dmg = dmBaseDamage(W, range) * enemyType(v.etype).headMult;   // CH7: the type's own head multiplier replaces the weapon's (no cap)
   bool prot = v.isProtected(g.t);
   ++g.hitsOnSoldiers;
   // ---- hit effect: the visuals (deflect puff, helmet sparks, blood / dust puff) are drawn by gore (gore.cpp, W7); the helmet sound stays here
   if (!prot && helmet && glm::length(at - app.eyePos()) < 120.0f) app.audio.play("impact_metal", at, 0.6f);
   float hpBefore = v.hp;
-  dmg = lootDamage(victim, zone, dmg);   // BR2: helmet (head) / vest (torso) absorb part and wear
+  dmg = lootDamage(victim, zone, dmg, W.pen);   // BR2: helmet (head) / vest (torso) absorb part and wear
   g.damage(victim, dmg, shooter, d, zoneName(zone));   // protection is enforced there too (rules.cpp hook)
   // ---- gore contract (gore_api.h): every flesh hit, after damage
   FleshHit fh; fh.pos = at; fh.normal = normal; fh.dir = d; fh.victimSlot = victim; fh.shooterSlot = shooter; fh.weapon = weaponIdx; fh.zone = zone;

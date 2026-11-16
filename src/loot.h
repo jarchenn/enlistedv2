@@ -62,7 +62,7 @@ bool lootAttachFits(const WeaponDef& d, const ItemDef& it);
 // pure rules (headless tests)
 float kitWeight(const App* app, const Kit& k, const std::vector<int>* carried);   // carried throwables: the player's weapon list (app may be null without them)
 float kitCapacity(const Kit& k);
-float armorAbsorb(Kit& k, bool head, float dmg);       // the damage that gets through; wears / breaks the piece
+float armorAbsorb(Kit& k, bool head, float dmg, float pen = -1);   // DMG1 pen >= 0: the weapon's penetration (level applies 60 / 80 / 100 % of the gap); < 0: the level's flat reduce       // the damage that gets through; wears / breaks the piece
 bool healStart(Kit& k, int kind, float hp, std::string* why = nullptr);
 float healStep(Kit& k, float hp, float dt);            // hp after dt of the running heal (ends it, spending the item)
 
@@ -94,7 +94,7 @@ bool lootBotGoal(Game& G, Soldier& s, vec3& goal);     // AiCore::objectiveGoal:
 // BR5: a bot's starting guns (royale.cpp calls it when the bot lands): n different guns from the loot pool, each with
 // one full magazine and its ammo boxes; the first is in hand (s.weapon / s.ws), the rest in s.wsBy (s.carried lists all)
 void lootArmBot(Game& G, Soldier& s, int n);
-float lootDamage(int victim, int zone, float dmg);     // damage_model: armour on the hit zone
+float lootDamage(int victim, int zone, float dmg, float pen = -1);     // damage_model: armour on the hit zone
 void lootBeforeWeapons(App& app);                      // around App::stepWeapons: the pooled ammo as magazines
 void lootAfterWeapons(App& app);
 void lootMolotov(App& app, vec3 pos, int owner);       // the molotov's burst: ground fire
