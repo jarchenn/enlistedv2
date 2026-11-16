@@ -9,7 +9,6 @@
 #include "royale.h"
 #include "app.h"
 #include "loot.h"   // BR2 Battle Royale loot
-#include "enemy_types.h"
 #include <algorithm>
 #include <cmath>
 
@@ -275,88 +274,6 @@ void AiCore::think(Soldier& s) {
   if (best != m.action) { m.action = best; m.actionSince = G.t; }
 }
 
-// ---------------------------------------------------------------- AI4: standoff against melee threats
-// A gun bot keeps its distance from melee-only enemies (the zombie brain: zombies, heavies, creatures, fighters). Range
-// per threat from its size, reach and run speed: 12 m .. 40 m (tactics.json "melee" scales it). Inside it the bot
-// moves away along the navmesh to the best of 13 spots out to 150 deg either side (clear distance from every melee enemy near, higher ground, line of fire kept, open ground
-// beyond so it does not back into a dead end, no teammates within 4 m so one slam cannot hit several, away from other
-// melee threats), jogging so it keeps firing; deep inside it sprints to re-open the gap; a threat faster than its
-// sprint that is already close: it stops and concentrates fire. The melee rule wins over every other action inside
-// the range (objectives and cover are never approached through a melee threat). Checked every 0.25 s (0.6 s with
-// nothing near) on the 20 m melee grid: flat cost at any crowd size, nothing at all with no melee enemy alive.
-bool AiCore::meleeStandoff(Soldier& s, const WeaponDef& wd) {
-  if (!meleeAlive || s.zombie || s.human || s.weapon < 0 || wd.action == "melee" || wd.flame.on) return false;
-  BotMind& m = mind(s); Brain& b = s.br;
-  float scaleR = tj("melee", "standoffScale", 1.0f), hold = tj("melee", "holdBand", 1.4f), maxR = 40.0f * scaleR * hold;
-  if (G.t >= m.meleeCheckAt) {
-    m.meleeThreat = -1; m.meleeR = 0; float worst = 1e9f;
-    int x0 = (int)std::floor((s.feet.x - maxR) / kMeleeCell), x1 = (int)std::floor((s.feet.x + maxR) / kMeleeCell);
-    int z0 = (int)std::floor((s.feet.z - maxR) / kMeleeCell), z1 = (int)std::floor((s.feet.z + maxR) / kMeleeCell);
-    for (int z = z0; z <= z1; ++z) for (int x = x0; x <= x1; ++x) {
-      auto it = mgrid.find(gridKey(x, z)); if (it == mgrid.end()) continue;
-      for (int i : it->second) {
-        const Soldier& o = G.sold[i];
-        if (!o.alive || !Game::hostile(s, o)) continue;
-        const EnemyType& e = enemyType(o.etype);
-        float R = std::clamp(8.0f + 2.0f * e.height * e.scale + 3.0f * e.reach * e.scale + e.run, 12.0f, 40.0f) * scaleR;   // zombie ~21 m, golem ~27, abomination ~33, fighters 40
-        float d = lenXZ(o.feet - s.feet);
-        if (d < R * hold && d - R < worst) { worst = d - R; m.meleeThreat = i; m.meleeR = R; }   // the one deepest inside its range (or its hold band)
-      }
-    }
-    m.meleeCheckAt = G.t + (m.meleeThreat >= 0 ? 0.25 : 0.6);
-  }
-  if (m.meleeThreat < 0 || m.meleeThreat >= (int)G.sold.size() || !G.sold[m.meleeThreat].alive) return false;
-  const Soldier& th = G.sold[m.meleeThreat];
-  const EnemyType& e = enemyType(th.etype);
-  float d = lenXZ(th.feet - s.feet), R = m.meleeR;
-  if (d >= R * hold) return false;
-  for (auto& mm : b.mem) if (mm.enemy == th.slot && mm.visible) b.target = th.slot;   // it gets the fire (mixed threats: this one first)
-  if (d >= R) {   // just outside the range: hold here and fire; never walk back toward it (objective, cover, defense slot)
-    m.speed = SPD_STOP; m.posture = Physics::STAND; b.mode = Brain::M_ENGAGE; b.why = "holding range from the " + e.name;
-    return true;
-  }
-  releaseCover(s); m.set = false; m.hasSubGoal = false;
-  vec3 away = xz(s.feet - th.feet); away = glm::length(away) > 0.1f ? glm::normalize(away) : vec3(1, 0, 0);
-  bool cannotOutrun = e.run > vSprint * 0.95f;
-  if (cannotOutrun && d < R * 0.45f) {   // it will catch us anyway: stand (on what height there is) and concentrate fire
-    m.speed = SPD_STOP; m.posture = Physics::STAND; b.mode = Brain::M_ENGAGE; b.why = "too fast to outrun: standing and firing at the " + e.name;
-    return true;
-  }
-  // the retreat spot is kept ~1.5 s (paths are planned asynchronously: a new goal every think never gets walked) unless
-  // reached or the threat is now nearer to it than we are
-  bool keep = G.t < m.fleeUntil && lenXZ(m.fleeGoal - s.feet) > 2.5f && lenXZ(m.fleeGoal - th.feet) > lenXZ(m.fleeGoal - s.feet);
-  float step = std::clamp(R - d + 8.0f, 10.0f, 22.0f);
-  vec3 best = keep ? m.fleeGoal : s.feet; float bs = keep ? 1e9f : -1e9f;
-  // distance from a spot to the nearest hostile melee enemy (within 40 m; 40 beyond): several threats are scored together
-  auto clearOf = [&](vec3 p) {
-    float md = 40.0f;
-    for (int z = (int)std::floor((p.z - 40) / kMeleeCell); z <= (int)std::floor((p.z + 40) / kMeleeCell); ++z)
-      for (int x = (int)std::floor((p.x - 40) / kMeleeCell); x <= (int)std::floor((p.x + 40) / kMeleeCell); ++x) {
-        auto it = mgrid.find(gridKey(x, z)); if (it == mgrid.end()) continue;
-        for (int i : it->second) if (G.sold[i].alive && Game::hostile(s, G.sold[i])) md = std::min(md, lenXZ(G.sold[i].feet - p));
-      }
-    return md;
-  };
-  float here = clearOf(s.feet);
-  for (int k = 0; k < 13 && !keep; ++k) {   // away from the threat, out to 150 deg either side (slip round it when backed up)
-    float a = radians(-150.0f + 25.0f * k);
-    vec3 dir(away.x * std::cos(a) - away.z * std::sin(a), 0, away.x * std::sin(a) + away.z * std::cos(a));
-    NavRef r; vec3 on; if (!G.nav.closest(s.feet + dir * step, 2.5f, r, on)) continue;
-    float sc = 1.5f * (clearOf(on) - here) + 0.8f * (on.y - s.feet.y);
-    for (float ahead : {8.0f, 16.0f}) { NavRef r2; vec3 on2; if (!G.nav.closest(on + dir * ahead, 2.0f, r2, on2) || std::fabs(on2.y - on.y) > 3.0f) sc -= 8.0f; }   // no open ground beyond: a corner / dead end
-    if (rayFree() && ray(on + vec3(0, 1.5f, 0), th.feet + vec3(0, 1.2f, 0) - on - vec3(0, 1.5f, 0), glm::length(th.feet - on))) sc -= 6.0f;   // keeps the line of fire
-    int mates = 0; forNear(on, 4.0f, [&](Soldier& o) { if (o.alive && &o != &s && !o.zombie && o.team == s.team && lenXZ(o.feet - on) < 4.0f) ++mates; });
-    sc -= 3.0f * mates;
-    if (sc > bs) { bs = sc; best = on; }
-  }
-  if (!keep) { m.fleeGoal = best; m.fleeUntil = G.t + 1.5; }
-  requestPath(s, best, 1.2f, 7.0f);
-  m.speed = d < R * 0.6f || e.run > vJog * 0.9f ? SPD_SPRINT : SPD_JOG;   // a threat at least as fast as a jog: open the gap first   // jogging back it keeps firing; deep inside, open the gap first
-  m.posture = Physics::STAND; b.mode = Brain::M_EVADE;
-  b.why = std::string(m.speed == SPD_SPRINT ? "opening the gap from the " : "keeping distance from the ") + e.name;
-  return true;
-}
-
 // ---------------------------------------------------------------- individual: actions
 void AiCore::act(Soldier& s, float dt) {
   (void)dt;
@@ -396,7 +313,6 @@ void AiCore::act(Soldier& s, float dt) {
     } else if (coverValid && !m.set) requestPath(s, m.coverPos, 0.6f, 3.0f);
   };
   m.posture = Physics::STAND; b.crouch = false;
-  if (meleeStandoff(s, wd)) return;   // AI4: a melee threat inside its standoff range overrides every action
   switch (m.action) {
     case A_EVADE: {
       vec3 best = s.feet; float bs = -1e9f;
