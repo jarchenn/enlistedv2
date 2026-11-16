@@ -60,8 +60,13 @@ python -I tools/fsb5.py extract content/audio/manifest.json "<part1 dir>;<part2 
 - **Decoding.** Custom recordings (`content/audio/custom`) decode at their own rate and channels, then go to 44.1 kHz through a windowed-sinc resampler. miniaudio's linear resampler dulled the 24 kHz files by -1.8 dB at 6 kHz and -5 dB at 10 kHz.
 - **Own shot.** A custom gunshot within 2 m of the listener (the player's own) plays its stereo recording as it is, not spatialised; the spatialiser cost a mono shot about 6 dB there. Full-scale recordings keep their level (the master limiter takes their mp3 overshoot); quieter ones are raised to 0.95 peak. Bank gunshots are raised to 0.95 peak too.
 - **Chain.** Sounds feed a master limiter (instant attack, 40 ms release, ceiling 0.98). The under-water low-pass sits in the chain only while under water; its open 20 kHz setting still cut the top octave.
-- **Reverb.** Gunfire goes through a shared reverb: a slap-back plus a damped 1.2 s tail, with a small send for every gun. The M249 and MG 42 get a larger send, a 1.5 s tail, and added low-mid body and saturation. Tunnels and Backrooms use a shorter slap and a longer, denser tail (`Audio::setRoom`).
-- **Distance.** Gunfire stays at full level within 3 m (M249 / MG 42: 5 m), then rolls off.
+- **Reverb.** Gunfire goes through a shared reverb: a slap-back plus a damped tail. There are three classes, each with its own send and tail in `content/audio/custom/mix.json` (`reverb`), read at load:
+  - every gun: send 0.12, 1.2 s;
+  - machine guns (M249, MG 42, M2HB): send 0.175, 1.3 s;
+  - the .50 sniper: send 0.25, 1.8 s.
+  Tunnels and Backrooms use a shorter slap and a longer, denser tail (`Audio::setRoom`).
+- **Body.** The M249, MG 42, M2HB (carried) and the .50 sniper get added low-mid weight and saturation, which makes them denser at the same peak. The .50 gets the most.
+- **Distance.** Gunfire stays at full level within 3 m (machine guns 5 m), then rolls off. The .50 stays at full level to 8 m and rolls off more slowly.
 - **Ducking.** Gunfire within 60 m ducks the ambience beds by 3 dB; they recover over 1.5 s.
 - **Measuring.** `NMK_AUDIO_FIDELITY=1` (no device: the mix is read back) logs each gun event as the player hears it against its decoded mp3: peak, RMS, 1-4 / 4-10 kHz band energy and the tail. It also logs a footstep and the battlefield bed.
 
