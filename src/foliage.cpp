@@ -219,15 +219,23 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
   // shaders turn it into about +-10 % value and a few degrees warmer / cooler. Fixed per card, so every LOD tier agrees.
   float crownLo = 1e9f, crownHi = -1e9f;
   for (auto& c : spheres) { crownLo = std::min(crownLo, c.y - c.w); crownHi = std::max(crownHi, c.y + c.w); }
-  auto cardTone = [&](float clusterRnd, vec3 ctr, vec3 dir) {
-    float hN = (ctr.y - crownLo) / std::max(0.3f, crownHi - crownLo), radial = glm::length(vec2(ctr.x, ctr.z)) / maxH;
-    float pos = std::clamp(0.55f * dir.y + (hN - 0.5f) + 0.6f * (radial - 0.5f), -1.0f, 1.0f);
-    return std::clamp(0.55f * clusterRnd + 0.65f * pos, -1.0f, 1.0f);
+  // L2b: clumps, a coarser level than the clusters (round crowns are 40-120 small clusters, whose own offsets average out
+  // into a flat green by 20 m): whole clusters grouped on a grid about a third of the crown wide, each clump lighter or darker
+  const float clump = std::max(0.9f, std::max(crownHi - crownLo, 2.0f * maxH) / 3.0f);
+  auto clumpRnd = [&](vec3 at) { glm::ivec3 g = glm::ivec3(glm::floor(at / clump));
+    return (leafHash((uint32_t)g.x * 73856093u ^ (uint32_t)g.y * 19349663u ^ (uint32_t)g.z * 83492791u ^ 0xA511E9B3u) & 0xFFFF) / 32767.5f - 1.0f; };
+  auto cardTone = [&](float clusterRnd, float clumpR, vec3 ctr, vec3 dir) {
+    float hN = (ctr.y - crownLo) / std::max(0.3f, crownHi - crownLo), radial = std::min(1.0f, glm::length(vec2(ctr.x, ctr.z)) / maxH);
+    (void)radial;   // the interior is already darker through shadeV; an outside term only brightened every visible card
+    float crown = std::clamp(1.6f * (hN - 0.5f), -1.0f, 1.0f);   // sunlit top .. shaded base, centred so the average tone holds
+    return std::clamp(0.85f * clumpR + 0.15f * clusterRnd + 0.4f * crown + 0.25f * dir.y, -1.25f, 1.25f);   // dir.y: a cluster's top face / underside
   };
   for (auto& c : spheres) {
     t.top = std::max(t.top, c.y + c.w);
     const LeafSpecies* sp = species.empty() ? nullptr : species[leafHash(++sphereNo * 2654435761u + 17u) % species.size()];   // hedges: one species per cluster
     float clusterRnd = (leafHash(sphereNo * 0x9E3779B9u + 0x51ED27u) & 0xFFFF) / 32767.5f - 1.0f;   // L2: this cluster a little darker or lighter
+    float clumpR = clumpRnd(vec3(c));   // L2b: and the clump it belongs to: pushed toward clearly light or clearly dark
+    clumpR = (clumpR < 0 ? -1.0f : 1.0f) * std::sqrt(std::fabs(clumpR));
     int cards = dens > 0 ? std::max(12, (int)(dens * c.w * c.w * 3.0f)) : per;
     for (int n = 0; n < cards; ++n) {
       float z = U(rng) * 2 - 1, ph = U(rng) * 6.2831853f, rr = std::sqrt(1 - z * z);
@@ -244,7 +252,7 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
       vec2 uv[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
       int idx[6] = {0, 1, 2, 0, 2, 3};
       for (int k : idx) { v.insert(v.end(), {q[k].x, q[k].y, q[k].z, dir.x, dir.y, dir.z, uv[k].x, uv[k].y, mask, shadeV}); }
-      float tone = cardTone(clusterRnd, ctr, dir);
+      float tone = cardTone(clusterRnd, clumpR, ctr, dir);
       tv.insert(tv.end(), 6, tone);
       if (sp) {
         uint32_t hsh = leafHash(++cardNo * 747796405u + 2891336453u);

@@ -2354,9 +2354,10 @@ void main(){
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
   // textured: uLeafCol is the asset's leafColor / the species mean, so the crown keeps its authored colour
-  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.78 + 0.44*var)*vShade : tx.rgb*uLeafCol*(0.91 + 0.18*var)*vShade;   // L2: less per-card scatter
-  // L2 tone inside the crown (foliage.cpp cardTone): darker and a touch cooler inside / under, lighter and warmer on top / outside
-  alb *= (1.0 + 0.11*vTone)*mix(vec3(0.975, 0.995, 1.035), vec3(1.03, 1.005, 0.94), 0.5 + 0.5*vTone);
+  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.84 + 0.32*var)*vShade : tx.rgb*uLeafCol*(0.92 + 0.16*var)*vShade;   // L2b: +-8 % per card (lighter and darker leaves side by side)
+  // L2 / L2b tone inside the crown (foliage.cpp cardTone, about -1.25 .. 1.25): darker and a touch cooler in the interior, the
+  // underside and the dark clumps; lighter and a touch warmer on the sunlit top, the outside and the light clumps (about +-20-30 % value)
+  alb *= (1.0 + 0.34*vTone)*mix(vec3(0.955, 0.99, 1.06), vec3(1.05, 1.01, 0.9), clamp(0.5 + 0.4*vTone, 0.0, 1.0));
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
   // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
   // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
