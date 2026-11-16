@@ -367,6 +367,10 @@ int Audio::loadCustom(const fs::path& dir) {
     return !out.empty();
   };
   auto decode = [&](const char* file, Buf& out) { return decodeSt(file, out, nullptr, nullptr); };
+  // SND6 / SND7: content/audio/custom/mix.json (levels, reverb, per-gun trims; see its note)
+  json mx; try { std::ifstream f(dir / "mix.json"); if (f) mx = json::parse(f); } catch (...) { logf("audio: custom/mix.json unreadable, defaults kept"); }
+  if (!mx.is_object()) mx = json::object();
+  const json mixGuns = mx.contains("guns") && mx["guns"].is_object() ? mx["guns"] : json::object();   // id: gain, or {gain, body}
   int used = 0; Buf b;
   struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
   for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
@@ -415,10 +419,10 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_b.mp3", false, {"modern_ak12"}, -1, 0.98f},   // SND5: the AK-74 shot (user request), 2 % lower
     {"guns/rifle_b.mp3", false, {"stg44"}, -1, 1.02f},   // SND5: the AK-74 shot, 2 % higher
     {"guns/rifle_b.mp3", false, {"modern_lmg"}, -1, 0.97f, 0, 2.5f, 2.2f},   // SND5: the M249 on the AK-74 single shot (automatic fire re-triggers it per round), heavier
-    {"guns/rifle_c.mp3", false, {"modern_m16"}, 0},   // Rifle3.mp3 holds four shots: one each
-    {"guns/rifle_c.mp3", false, {"modern_m4"}, 1},
-    {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2},
-    {"guns/rifle_c.mp3", false, {"modern_fal"}, 3},
+    {"guns/rifle_c.mp3", false, {"modern_m16"}, 0, 1, 0, 2.5f, 3.0f},   // Rifle3.mp3 holds four shots: one each; SND7: thin and quiet: body (mix.json)
+    {"guns/rifle_c.mp3", false, {"modern_m4"}, 1, 1, 0, 2.5f, 3.0f},
+    {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2, 1, 0, 2.5f, 3.0f},
+    {"guns/rifle_c.mp3", false, {"modern_fal"}, 3, 1, 0, 2.5f, 3.0f},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}, -1, 1, 0, 2.5f, 3.0f},   // SND6: body (it measured 12 dB under the rifles)
     {"guns/mg_burst.mp3", true, {"mg42"}, -1, 1, 0, 2.5f, 2.2f},
@@ -454,16 +458,20 @@ int Audio::loadCustom(const fs::path& dir) {
       return s;
     };
     Buf s = shape(b), sl = shape(gL), sr = shape(gR);
-    if (g.body > 0) for (Buf* c : {&s, &sl, &sr}) {   // SND5: +low-mid (a 450 Hz low-pass mixed in), then saturation (drive g.body): denser at the same peak
+    float body = g.body; for (const char* id : g.ids) if (mixGuns.contains(id) && mixGuns[id].is_object()) body = std::clamp(mixGuns[id].value("body", body), 0.0f, 6.0f);   // SND7: mix.json override
+    if (body > 0) for (Buf* c : {&s, &sl, &sr}) {   // SND5: +low-mid (a 450 Hz low-pass mixed in), then saturation (drive g.body): denser at the same peak
       float lp = 0, al = 1 - std::exp(-2 * 3.14159f * 450.0f / SR), pk = 1e-4f; for (float& x : *c) { lp += al * (x - lp); x += 0.8f * lp; pk = std::max(pk, std::fabs(x)); }
-      for (float& x : *c) x = std::tanh(g.body * x / pk) / std::tanh(g.body);
+      for (float& x : *c) x = std::tanh(body * x / pk) / std::tanh(body);
     }
     float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); for (float& x : s) x *= std::max(1.0f, 0.95f / pk);
     float pk2 = 1e-4f; for (size_t j = 0; j < sl.size(); ++j) pk2 = std::max({pk2, std::fabs(sl[j]), std::fabs(sr[j])});
     const float g2 = std::max(1.0f, 0.95f / pk2);   // a full-scale recording as it is (the limiter takes its mp3 overshoot), a quieter one up to 0.95
     Buf st(sl.size() * 2); for (size_t j = 0; j < sl.size(); ++j) { st[2 * j] = sl[j] * g2; st[2 * j + 1] = sr[j] * g2; }
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s)); ev.st.push_back(std::move(st));
-    for (const char* id : g.ids) { p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far"); }
+    for (const char* id : g.ids) {
+      Impl::Event& e2 = p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far");
+      if (mixGuns.contains(id)) { const json& m = mixGuns[id]; e2.gain = std::clamp(m.is_number() ? m.get<float>() : m.is_object() ? m.value("gain", 1.0f) : 1.0f, 0.0f, 2.0f); }   // SND7: per-gun trim
+    }
   }
   // SND4: the bolt action cycle after each shot of a bolt rifle: the recording's open / close (0.36-0.90 s) twice back to back,
   // sped up (resampled) so both, from 0.06 s after the shot, end 0.05 s before the bolt time is up (at least 1.25x)
@@ -651,7 +659,6 @@ int Audio::loadCustom(const fs::path& dir) {
   }
   // SND4: a spent case hitting the ground (guns/casings.mp3: one landing with its bounces), 0.4 s from its onset
   {   // SND6: mix.json: casing_gain (x on the spent-case sound; 1 = the SND4 level)
-    json mx; try { std::ifstream f(dir / "mix.json"); if (f) mx = json::parse(f); } catch (...) { logf("audio: custom/mix.json unreadable, defaults kept"); }
     if (mx.is_object()) p->casingGain = std::clamp(mx.value("casing_gain", p->casingGain), 0.0f, 3.0f);
     if (mx.is_object() && mx.contains("reverb") && mx["reverb"].is_object() && p->verbOk) {   // per class: send (0-1) and tail_s (0.3-4 s)
       const char* cls[3] = {"gun", "mg", "fifty"};
@@ -724,10 +731,13 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
   lastEvent = used; ++eventPlays[used];
   { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio play %s vol %.2f pitch %.2f at %.1f m", used.c_str(), volume, pitch, glm::length(pos - p->listener)); }   // diagnostics
   double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-  if (shot)   // automatic fire: the previous body of this gun yields to the new shot (no stacking / clipping)
+  if (shot)   // automatic fire: the previous body of this gun yields to the new shot (no stacking / clipping). SND7: it is
+              // out in 5 ms and the new shot starts after it, so the two never sum into the limiter (that dipped each attack
+              // up to -3 dB in an AK burst)
     for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd) && now - c.start < 0.35) {
-      ma_sound_set_fade_in_milliseconds(&c.snd, -1, 0, 40);
-      ma_sound_set_stop_time_in_milliseconds(&c.snd, ma_engine_get_time_in_milliseconds(&p->engine) + 45);
+      ma_sound_set_fade_in_milliseconds(&c.snd, -1, 0, 5);
+      ma_sound_set_stop_time_in_milliseconds(&c.snd, ma_engine_get_time_in_milliseconds(&p->engine) + 6);
+      delay = std::max(delay, 0.006f);
     }
   if (step)   // long recorded strides (wading): the previous one's water tail yields to the next stride over 250 ms
     for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd)) {
@@ -941,6 +951,15 @@ void Audio::fidelityReport(const fs::path& dir) {
     double q = 0; float pk = 0; for (float v : m) { q += (double)v * v; pk = std::max(pk, std::fabs(v)); }
     logf("fidelity ambience bed battlefield.mp3 x0.7: peak %6.1f  rms %6.1f dB", 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / m.size() + 1e-20));
     setBed(1, {}, 0);
+  }
+  for (const char* ev : {"shot_modern_ak", "shot_modern_m4_irons", "shot_modern_m4", "shot_modern_m16", "shot_modern_fal", "shot_modern_lmg"}) {   // SND7: sustained fire, 13 rounds 80 ms apart (750 rpm), as the player
+    if (!hasEvent(ev)) continue;
+    for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
+    std::vector<float> st(SR * 2); for (int k = 0; k < 20; ++k) ma_engine_read_pcm_frames(&p->engine, st.data(), SR / 10, nullptr);
+    const int step = SR * 8 / 100; std::vector<float> mid; float gMin = 1;
+    for (int k = 0; k < 13; ++k) { play(ev, vec3(0.15f, -0.1f, -0.6f), 1.0f); ma_engine_read_pcm_frames(&p->engine, st.data(), step, nullptr); for (int i = 0; i < step; ++i) mid.push_back(0.5f * (st[2 * i] + st[2 * i + 1])); gMin = std::min(gMin, p->lim.g); }
+    double q = 0; float pk = 0; for (float v : mid) { q += (double)v * v; pk = std::max(pk, std::fabs(v)); }
+    logf("fidelity burst %-22s 13 rounds at 750 rpm (1.04 s): peak %6.1f  rms %6.1f dB  limiter gain low %.2f", ev, 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / mid.size() + 1e-20), gMin);
   }
   if (hasEvent("casing")) for (float gn : {1.0f, p->casingGain}) {   // SND6: a case landing at the player's feet (hard ground), at the SND4 level and now
     for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
