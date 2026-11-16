@@ -148,7 +148,7 @@ export function auditAsset(a) {
 // trim / cladding / markings sit in front of the surface they were flush with. The detail part is the non-colliding one
 // (k: 0) when only one is, else the one with the smaller face. Identical duplicates: the second is hidden (v: 0); its
 // collider stays and no part index moves. Same-material flush pairs are left (one colour, no visible fight).
-export const OFF = 0.003, MAXMOVES = 2;
+export const OFF = 0.003, MAXMOVES = +(process.env.NMK_ZF_MAXMOVES || 4);   // FL1 follow-up: more moves per face for flush stacks (override for --fix runs)
 export function dezfight(a) {
   let moved = 0, hidden = 0;
   const done = new Map();   // part -> face -> moves: at most MAXMOVES (stacked layers need two; crossing trims would otherwise grow in layers)
