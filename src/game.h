@@ -52,6 +52,7 @@ struct Soldier {
   int team = 0;                              // friend / foe (G1): Assault / TDM = (int)role, Solo = own slot
   bool zombie = false;
   bool op = false;
+  uint8_t kit = 0; float kitSpeed = 1; bool kitSparks = false;   // SW1: 2 blaster trooper, 3 robot commando (combat.json kits: body, blasters, pace, hit sparks)
   float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies, Fighters): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until
   int evariant = 0;                          // the type's model variant (Game::begin, in turn per type; clients compute the same)

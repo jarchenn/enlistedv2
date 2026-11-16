@@ -15,7 +15,7 @@ void Fx::flash(vec3 p, float size, float life, vec4 col) {
   Particle q; q.p = p; q.size = size; q.life = q.maxLife = life; q.col = col; q.additive = true; q.grow = -size / life * 0.3f;
   parts.push_back(q);
 }
-void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light) {
+void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint) {
   dir = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, 0, -1);
   vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(dir, up)), s2 = glm::cross(s1, dir);
   float life = 0.02f + 0.02f * rnd();
@@ -23,7 +23,8 @@ void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light)
     if (parts.size() >= maxParts) parts.erase(parts.begin());
     Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = col; a.additive = true; a.grow = size * 1.5f; parts.push_back(a);
   };
-  const FlashLook& F = flashLook;
+  FlashLook F = flashLook;
+  if (tint.x >= 0) { F.core = tint * 6.0f + vec3(1.5f); F.petal = tint * 4.0f; F.edge = tint * 1.6f; F.light = tint; }   // SW1: a blaster's coloured flash (white-hot core)
   if (suppressed) { put(p + dir * 0.01f * scale, 0.025f * scale, vec4(F.core * 0.5f, 1)); return; }
   put(p + dir * 0.015f * scale, (0.05f + 0.025f * rnd()) * scale, vec4(F.core, 1));   // saturated yellow-orange core (not white)
   int n = 4 + (int)(rnd() * 3.0f);
@@ -37,7 +38,7 @@ void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light)
     put(q + dir * 0.25f * sz, sz * 1.35f, vec4(F.edge, 1));                         // a darker orange-red rim around it
   }
   if (mlights.size() >= 8) mlights.erase(mlights.begin());
-  MuzzleLight L; L.p = light; L.life = life + 0.01f; L.k = scale; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); mlights.push_back(L);
+  MuzzleLight L; L.p = light; L.life = life + 0.01f; L.k = scale; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); if (tint.x >= 0) L.col = tint; mlights.push_back(L);
 }
 
 void Fx::streak(vec3 a, vec3 b, float width, float life, vec4 col) {
@@ -49,6 +50,16 @@ void Fx::streak(vec3 a, vec3 b, float width, float life, vec4 col) {
 // head of the segment, 2 a short white-yellow streak ~2 m; 0 the faint trail (range presentation: clearly visible).
 void Fx::bullet(vec3 a, vec3 b, int kind) {
   if (kind == 0) { streak(a, b, rangeMode ? 0.012f : 0.007f, rangeMode ? 0.05f : 0.025f, rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1)); return; }
+  if (kind >= 3) {   // SW1 blaster bolt: a 1.4 m white-hot core in a wider coloured glow at the head, a fading coloured trail behind it, a small travelling light
+    vec3 c = blasterColour(kind), dv = b - a; float len = glm::length(dv);
+    vec3 s = len > 1.4f ? b - dv * (1.4f / len) : a;
+    streak(s, b, 0.022f, 0.03f, vec4(c * 4.0f + vec3(5.0f), 1));
+    streak(s, b, 0.075f, 0.03f, vec4(c * 9.0f, 1));
+    streak(a, b, 0.03f, 0.035f, vec4(c * 2.2f, 1));   // the trail fades within ~6 m
+    if (mlights.size() >= 8) mlights.erase(mlights.begin());
+    MuzzleLight L; L.p = b; L.life = 0.03f; L.k = 0.3f; L.col = c; L.id = 0xB0170000u + (++mlightSerial & 0xFF); mlights.push_back(L);
+    return;
+  }
   float L = kind == 1 ? 6.0f : 2.0f, len = glm::length(b - a);
   vec3 s = len > L ? b - (b - a) * (L / len) : a;
   if (kind == 1) streak(s, b, 0.03f, 0.035f, vec4(14.0f, 1.1f, 0.5f, 1));
@@ -140,6 +151,20 @@ void Fx::backblast(vec3 p, vec3 back) {
     parts.back().fade = b.fadePow;
   }
 }
+void Fx::blasterImpact(vec3 p, vec3 n, int kind) {   // SW1
+  vec3 c = blasterColour(kind);
+  flash(p + n * 0.03f, 0.35f, 0.09f, vec4(c * 8.0f + vec3(2.0f), 1));
+  flash(p + n * 0.02f, 0.14f, 0.16f, vec4(c * 3.0f + vec3(3.0f, 2.0f, 1.0f), 1));
+  for (int i = 0; i < 7; ++i) {   // sparks: short additive specks thrown off the surface
+    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    Particle q; q.p = p + n * 0.02f; q.v = glm::normalize(n * 1.2f + vec3(rnd() - 0.5f, rnd() - 0.3f, rnd() - 0.5f)) * (2.0f + rnd() * 4.0f);
+    q.size = 0.025f; q.life = q.maxLife = 0.15f + rnd() * 0.25f; q.col = vec4(c * 3.0f + vec3(4.0f, 3.0f, 2.0f), 1); q.additive = true; q.drag = 2.5f; q.lift = -6.0f; parts.push_back(q);
+  }
+  for (int i = 0; i < 2; ++i) smoke(p + n * 0.03f, n * (0.4f + rnd() * 0.4f), 0.07f, 0.9f + rnd() * 0.6f, vec4(0.12f, 0.11f, 0.1f, 0.55f), 1.0f, 0.25f);   // scorch smoke
+  if (mlights.size() >= 8) mlights.erase(mlights.begin());
+  MuzzleLight L; L.p = p + n * 0.1f; L.life = 0.12f; L.k = 0.45f; L.col = c; L.id = 0xB0171000u + (++mlightSerial & 0xFF); mlights.push_back(L);
+}
+
 void Fx::impact(vec3 p, vec3 n, const std::string& surface) {
   vec4 c = surface == "ground" ? vec4(0.25f, 0.2f, 0.14f, 0.7f) : surface == "wood" ? vec4(0.4f, 0.32f, 0.22f, 0.6f) : surface == "metal" ? vec4(0.5f, 0.5f, 0.5f, 0.4f) : vec4(0.55f, 0.52f, 0.46f, 0.65f);
   for (int i = 0; i < 5; ++i) smoke(p + n * 0.03f, (n * 2.0f + vec3(rnd() - 0.5f, rnd(), rnd() - 0.5f)) * (0.5f + rnd()), 0.08f + rnd() * 0.08f, 0.6f + rnd() * 0.8f, c, 0.8f, 0.2f);

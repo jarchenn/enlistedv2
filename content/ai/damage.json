@@ -427,6 +427,33 @@
    "note": "MG12 9 mm SMG (DMG1 SMG 26-33)",
    "headMax": 75,
    "class": "smg"
+  },
+  "blaster_carbine": {
+   "near": 31,
+   "far": 22,
+   "falloffStart_m": 40,
+   "falloffEnd_m": 120,
+   "rpm": 700,
+   "note": "SW1 blaster carbine (assault class 30-32)",
+   "class": "assault"
+  },
+  "blaster_rifle": {
+   "near": 44,
+   "far": 36,
+   "falloffStart_m": 120,
+   "falloffEnd_m": 300,
+   "rpm": 320,
+   "note": "SW1 long blaster rifle (battle class 40-45)",
+   "class": "battle"
+  },
+  "blaster_robot": {
+   "near": 29,
+   "far": 20,
+   "falloffStart_m": 35,
+   "falloffEnd_m": 100,
+   "rpm": 600,
+   "note": "SW1 robot blaster (28-30)",
+   "class": "assault"
   }
  },
  "classes": {

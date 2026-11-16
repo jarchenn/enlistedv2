@@ -128,14 +128,19 @@ bool Game::begin(std::string& err) {
   sold.clear(); sold.resize(match.slots.size());
   auto& arr = archetypes["archetypes"];
   int aiGiven[2][kAiTypeCount] = {}, kindSeen[kAiTypeCount] = {};   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
+  if (const char* at = std::getenv("NMK_AI_TYPES")) {   // SW1 dev: NMK_AI_TYPES=<side 0 type>,<side 1 type> (AiType numbers): every AI of that side that type
+    int t0 = -1, t1 = -1; std::sscanf(at, "%d,%d", &t0, &t1); int ts[2] = {t0, t1};
+    for (int sd = 0; sd < 2; ++sd) if (ts[sd] >= 0 && ts[sd] < kAiTypeCount) { match.rules.aiTypes[sd] = aiBit((AiType)ts[sd]); for (int k = 0; k < kAiTypeCount; ++k) match.rules.aiCount[sd][k] = 0; }
+  }
   for (auto& rs : match.slots) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
-    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
+    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots;   // G2 melee brain
     s.op = ait == AiType::Operators;
+    s.kit = ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : s.op ? 1 : 0;   // SW1
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
@@ -159,8 +164,10 @@ bool Game::begin(std::string& err) {
     auto& ml = combat["models"][fac];
     s.model = modelIdx[ml[rs.id % ml.size()].get<std::string>()];
     if (s.zombie) aiZombieAssign(*this, s);   // G2: the animated zombie
-    if (ait == AiType::Operators) {   // a soldier in the faction's operator body (combat.json operator_models; missing: the soldier body stays)
-      json ol = combat.value("operator_models", json::object()).value(fac, json::array());
+    const json kitj = s.kit >= 2 ? combat.value("kits", json::object()).value(s.kit == 2 ? "trooper" : "robot", json::object()) : json::object();   // SW1
+    if (s.kit >= 2) { s.kitSpeed = kitj.value("speed", 1.0f); s.kitSparks = kitj.value("sparks", false); b.aimTurn *= kitj.value("aimTurn", 1.0f); }
+    if (ait == AiType::Operators || s.kit >= 2) {   // a soldier in the faction's operator body (combat.json operator_models; SW1: the kit's models, either side; missing: the soldier body stays)
+      json ol = s.kit >= 2 ? kitj.value("models", json::array()) : combat.value("operator_models", json::object()).value(fac, json::array());
       if (!ol.empty()) {
         std::string id = ol[(size_t)s.evariant % ol.size()].get<std::string>();
         static std::set<std::string> failed;
@@ -203,7 +210,7 @@ void Game::end() {
 // ---------------------------------------------------------------- spawning
 void Game::chooseClass(Soldier& s) {
   const auto& C = classDefs();
-  if (C.empty() || s.zombie) { s.cls = -1; return; }
+  if (C.empty() || s.zombie || s.kit >= 2) { s.cls = -1; return; }   // SW1: kit soldiers carry only their blasters (no class kit, no explosion pack)
   auto ok = [&](int k) { return k >= 0 && k < (int)C.size() && match.rules.classAllowed(C[k].id); };
   if (s.localPlayer) { s.cls = app.deployClass; s.clsPick[0] = app.deployPick[0]; s.clsPick[1] = app.deployPick[1]; }
   if ((s.localPlayer || s.human) && ok(s.cls)) return;   // remote humans: set by their deploy request, checked here (host)
@@ -234,6 +241,25 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
   const json& lo = combat["loadouts"][fac];
   const ClassDef* cd = s.cls >= 0 && s.cls < (int)classDefs().size() ? &classDefs()[s.cls] : nullptr;
   std::vector<int> cw = classWeapons(s);
+  // SW1: blaster troopers / robot commandos carry only their kit's blasters (combat.json kits.<kit>.ai, weighted per slot + life),
+  // no sidearm, no grenades; the robot's health share (kits.robot.hp)
+  if (s.kit >= 2 && !s.human && !s.localPlayer) {
+    const json& kj = combat.value("kits", json::object()).value(s.kit == 2 ? "trooper" : "robot", json::object());
+    std::vector<std::pair<int, int>> pool; int tot = 0;
+    for (auto& e : kj.value("ai", json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0) { pool.push_back({w, e[1].get<int>()}); tot += e[1].get<int>(); } }
+    if (!pool.empty()) {
+      int w = pool[0].first, pick = tot > 0 ? (int)((s.slot * 7 + s.lifeId * 3) % tot) : 0;
+      for (auto& [i, n] : pool) { if (pick < n) { w = i; break; } pick -= n; }
+      s.wsBy.clear(); s.weapon = w;
+      const WeaponDef& d = *app.weaponDefs[w]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
+      for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
+      s.ws.seed = s.rng | 1;
+      s.carried = {w};
+      if (newLife) { s.frags = 0; s.smokes = 0; s.hp *= kj.value("hp", 1.0f); }
+      s.reload = 0; s.throwT = -1; s.throwReleased = false;
+      return;
+    }
+  }
   // AI5: Operator bots carry modern weapons (combat.json loadouts_operator), not the faction pool or the class weapons:
   // a weighted primary per slot + life, every lmgEvery-th operator of a side the LMG, the sidearm carried too
   if (s.op && !s.human && !s.localPlayer && combat.contains("loadouts_operator") && combat["loadouts_operator"].contains(fac)) {
@@ -701,7 +727,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   Physics::Hit hb;
   vec3 start = muzzle;
   if (Physics::castRayEx(e, muzzle - e, glm::length(muzzle - e) + 1e-3f, hb)) start = e;   // muzzle inside a wall: fire from the eye
-  float tz = d.zero / std::max(1.0f, d.velocity), drop = 0.5f * 9.81f * tz * tz;
+  float tz = d.zero / std::max(1.0f, d.velocity), drop = d.blaster ? 0.0f : 0.5f * 9.81f * tz * tz;   // SW1: bolts do not drop
   vec3 dd = glm::normalize(dir + vec3(0, drop / std::max(1.0f, d.zero), 0));
   int tracer = d.tracerKind(w.shotIdx);
   if (d.action == "launcher") {   // TK1: a bot's rocket, as the player's (weapons.cpp): blast, crater, backblast
@@ -714,7 +740,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
     tracer = 0;
   } else
   app.fireRounds(d, start, dd, tracer, (uint32_t)s.slot * 131u + (uint32_t)w.shotIdx * 7919u, s.slot);   // MG1: a shotgun's pellets
-  app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle);   // WP4: the same flash and light as the player's
+  app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));   // WP4: the same flash and light as the player's
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play("shot_" + d.id, muzzle, 1.0f);
   if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
