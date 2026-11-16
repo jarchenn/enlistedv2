@@ -33,11 +33,11 @@ for (const [sfx, sz, seeds] of [["l", [42, 16, 40], [501, 502, 503]], ["m", [28,
     const under = (x, z) => { const q = (x * x + z * z) / (a * a); return q >= 1 ? -0.56 * b : -0.56 * b - b * Math.sqrt(1 - q); };
     if (sfx !== "s") for (let r = 0; r < (sfx === "l" ? 6 : 4); r++) {   // ribs: long, narrow, hung along the underside
       const t = rnd() * 6.283, d = rnd() * a * 0.55, x = Math.cos(t) * d, z = Math.sin(t) * d, L = a * (0.6 + rnd() * 0.6);
-      P.push(piece(rnd() < 0.5 ? "schist" : "granite", sd * 10 + r, [r2(L), r2(1.8 + rnd() * 2.2), r2(1.8 + rnd() * 1.6)], [r2(x), r2(under(x, z) + 1.0), r2(z)], Math.round(rnd() * 180), [180, 0], 0, 2));
+      P.push(piece(rnd() < 0.5 ? "schist" : "granite", sd * 10 + r, [r2(L), r2(1.8 + rnd() * 2.2), r2(1.8 + rnd() * 1.6)], [r2(x), r2(under(x, z) + 1.0), r2(z)], Math.round(rnd() * 180), [180, 0], 0, 1));   /* detail 1: 306 lids x 6 ribs at 320 tris doubled the frame */
     }
     for (let r = 0; r < (sfx === "l" ? 9 : sfx === "m" ? 6 : 3); r++) {   // pockets / broken strata: lumps of mixed size
       const t = rnd() * 6.283, d = rnd() * a * 0.7, x = Math.cos(t) * d, z = Math.sin(t) * d, w = 3 + rnd() * (sfx === "s" ? 3 : 7);
-      P.push(piece(rnd() < 0.5 ? "schist" : "granite", sd * 20 + r, [r2(w), r2(1.5 + rnd() * 3.0), r2(w * (0.6 + rnd() * 0.5))], [r2(x), r2(under(x, z) + 0.8), r2(z)], Math.round(rnd() * 180), [180, 0], 0, 1));
+      P.push(piece(rnd() < 0.5 ? "schist" : "granite", sd * 20 + r, [r2(w), r2(1.5 + rnd() * 3.0), r2(w * (0.6 + rnd() * 0.5))], [r2(x), r2(under(x, z) + 0.8), r2(z)], Math.round(rnd() * 180), [180, 0], 0, 0));   /* faceted knobs: seen from 15-30 m below */
     }
     rock(`cave_lid_${sfx}${k}`, `Cave ceiling (${sfx === "l" ? "large" : sfx === "m" ? "medium" : "small"} ${k + 1})`,
       "A slab of cave roof hung from a flat top: a fractured underside about " + Math.round(sz[1] * 0.78) + " m deep with ribs and pockets of broken strata. Placed overlapping to close a cavern.",
