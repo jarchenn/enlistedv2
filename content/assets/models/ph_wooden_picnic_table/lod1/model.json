@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.1167662143707275,
+  0.7435401678085327,
+  1.5085656642913818
+ ],
+ "bmin": [
+  -1.1156442165374756,
+  0.000659942626953125,
+  -1.5085656642913818
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_picnic_table_bottom",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "wooden_picnic_table_table",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.1167662143707275,
+    0.70280921459198,
+    1.5085656642913818
+   ],
+   "bmin": [
+    -1.1156442165374756,
+    0.000659942626953125,
+    -1.5085656642913818
+   ],
+   "count": 984,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_picnic_table",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6181346774101257,
+    0.7435401678085327,
+    1.4460405111312866
+   ],
+   "bmin": [
+    -0.6262032389640808,
+    0.6979748606681824,
+    -1.4731515645980835
+   ],
+   "count": 2844,
+   "first": 984,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "wooden_picnic_table",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_picnic_table.glb",
+ "textures": {},
+ "triangles": 1276,
+ "vertices": 1267
+}

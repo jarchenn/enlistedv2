@@ -11,7 +11,7 @@
 namespace {
 struct Shot { std::string id; bool aim = false; vec3 at{0}; uint64_t inst = 0; };
 std::vector<Shot> gShots; int gK = 0; float gT = 0; bool gSetup = false;
-fs::path out(const std::string& f) { return exeDir() / "selftest_out" / f; }
+fs::path out(const std::string& f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); return exeDir() / "selftest_out" / f; }
 }
 
 bool capturePropsSelfTest(App& a, float dt) {

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3882536292076111,
+  0.9061599373817444,
+  0.27743592858314514
+ ],
+ "bmin": [
+  -0.38900476694107056,
+  0.0,
+  -0.27743592858314514
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "metal_trash_can",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3882536292076111,
+    0.9061599373817444,
+    0.27743592858314514
+   ],
+   "bmin": [
+    -0.38900476694107056,
+    0.0,
+    -0.27743592858314514
+   ],
+   "count": 9642,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "metal_trash_can_handle_left",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_metal_trash_can.glb",
+ "textures": {},
+ "triangles": 3214,
+ "vertices": 2384
+}

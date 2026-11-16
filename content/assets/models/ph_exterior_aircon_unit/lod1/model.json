@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.39625221490859985,
+  0.9278970956802368,
+  0.18707375228405
+ ],
+ "bmin": [
+  -0.39287424087524414,
+  0.010828956961631775,
+  -0.18707960844039917
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "exterior_aircon_unit_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "exterior_aircon_unit_02",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.39625221490859985,
+    0.9278970956802368,
+    0.18707375228405
+   ],
+   "bmin": [
+    -0.39287424087524414,
+    0.010828956961631775,
+    -0.18707960844039917
+   ],
+   "count": 3528,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "exterior_aircon_unit",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.24563662707805634,
+    0.9077335596084595,
+    0.09695719182491302
+   ],
+   "bmin": [
+    -0.38165318965911865,
+    0.44641000032424927,
+    -0.06534039974212646
+   ],
+   "count": 174,
+   "first": 3528,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "exterior_aircon_unit",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_exterior_aircon_unit.glb",
+ "textures": {},
+ "triangles": 1234,
+ "vertices": 1431
+}

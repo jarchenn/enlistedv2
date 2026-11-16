@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.40756285190582275,
+  0.3009328246116638,
+  0.2688123285770416
+ ],
+ "bmin": [
+  -0.4076928496360779,
+  0.0,
+  -0.26863375306129456
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "military_crate_m_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.40756285190582275,
+    0.3009328246116638,
+    0.2688123285770416
+   ],
+   "bmin": [
+    -0.4076928496360779,
+    0.0,
+    -0.26863375306129456
+   ],
+   "count": 15711,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "old_military_crate_lid_a",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_old_military_crate.glb",
+ "textures": {},
+ "triangles": 5237,
+ "vertices": 4842
+}
