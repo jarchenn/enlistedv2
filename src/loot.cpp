@@ -360,8 +360,15 @@ void lootBegin(Game& G) {
   for (auto& i : app.doc.instances) {
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !it->second.asset) continue;
     const AssetDef& a = *it->second.asset;
-    if (!a.enterable) continue;
     json tag = i.extra.is_object() ? i.extra.value("loot", json::object()) : json::object();
+    if (tag.value("spot", false)) {   // NT4: a loot spot outside a building (an ammo crate, a range shelter, a tent): items on the ground round it
+      float r = 0.5f * std::max(a.footprint.x, a.footprint.y) + 0.6f, cy = std::cos(radians(i.yaw)), sy = std::sin(radians(i.yaw));
+      std::vector<vec3> spots;
+      for (int k = 0; k < 4; ++k) { float t = k * 1.5708f + 0.4f; vec2 o(std::cos(t) * r, std::sin(t) * r * 0.6f); spots.push_back(i.pos + vec3(o.x * cy + o.y * sy, 0.05f, -o.x * sy + o.y * cy)); }
+      fill(spots, tag.value("size", std::string()) == "large", tag.value("military", false));
+      continue;
+    }
+    if (!a.enterable) continue;
     bool military = tag.value("military", false);
     std::string size = tag.value("size", std::string());
     bool large = size.empty() ? a.footprint.x * a.footprint.y > c.largeArea : size == "large";

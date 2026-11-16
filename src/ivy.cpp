@@ -36,7 +36,7 @@ void collectFaces(const AssetDef& a, std::vector<Face>& out, std::vector<std::pa
   auto add = [&](const Part& p, int panel, int panelN, float panelSign) {
     if (!aligned(p) || !p.visible) return;
     solids.push_back({p.center - p.size * 0.5f, p.center + p.size * 0.5f});   // visible, solid or not (railings, glass)
-    if (!p.collide || p.bv > 0 || p.mat < 0 || p.mat >= (int)a.materials.size() || !ivyMaterial(a.materials[p.mat]) || p.size.y < 0.3f) return;   // bevelled: trim, the ivy goes round it
+    if (!p.collide || (p.bv > 0 && !gIvyAnyWall) || p.mat < 0 || p.mat >= (int)a.materials.size() || !ivyMaterial(a.materials[p.mat]) || p.size.y < 0.3f) return;   // bevelled: trim, the ivy goes round it
     for (int n : {0, 2}) for (float sign : {-1.0f, 1.0f}) {
       if (panel >= 0 && (n != panelN || sign != panelSign)) continue;
       int u = 2 - n;
@@ -161,7 +161,7 @@ void grow(Grower& G, const Facet& F, const Grid& gr, std::vector<Walker> ws, con
       float best = 1e9f, nu = 0, nv = 0;
       for (float d : {0.0f, 0.35f, -0.35f, 0.7f, -0.7f, 1.1f, -1.1f}) {
         float a = w.ang + d, cu = w.u + std::cos(a) * kStep, cv = w.v + std::sin(a) * kStep;
-        if (!ok(cu, cv, false)) continue;
+        if (!ok(cu, cv, w.hang)) continue;   // NT4: hanging curtains drape over the openings below a band / parapet
         float score = std::fabs(d) + ((L.flags & P_FRAME) && nearOpening(cu, cv) ? -0.6f : 0.0f);
         if (score < best) { best = score; nu = cu; nv = cv; w.ang = a; }
       }
@@ -222,7 +222,7 @@ void flatLeaves(Grower& G, const Look& L, vec3 c, vec3 du, vec3 dw, float lenU, 
 }
 }  // namespace
 
-struct IvyEnv { bool abandoned = false; int season = 0; };   // the open map's look: "style": "abandoned", "season"
+struct IvyEnv { bool abandoned = false; int season = 0; bool arid = false; };   // NT4 arid: dry, sparse creepers (desert)   // the open map's look: "style": "abandoned", "season"
 
 // Cards (pos, normal, uv, mask, shade: the TreeDef card layout) for one instance; breached bays get none.
 // Budget: at most ~6000 cards (12k triangles) a building at Medium, 14000 on a ruin / an abandoned map (x the quality
@@ -250,6 +250,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
   auto lookFor = [&](const std::string& ty, const std::string& pat, float age, bool over, float dens) {
     Look L{};
     L.type = typeOf(ty);
+    if (L.type < 0 && env.arid) L.type = pickW({{T_DEAD, 70}, {T_CREEPER, 30}});
     if (L.type < 0) L.type = heavy ? pickW({{T_COMMON, 45}, {T_CREEPER, 20}, {T_DEAD, 5}, {T_BOSTON, 30}})   // NT2b: lush, few dead
                     : modern ? pickW({{T_BOSTON, 45}, {T_CREEPER, 30}, {T_COMMON, 25}}) : pickW({{T_COMMON, 75}, {T_SMALL, 15}, {T_CREEPER, 10}});
     L.flags = patternsOf(pat);
@@ -257,7 +258,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
                           : modern ? pickW({{P_CORNER, 35}, {P_FRAME, 30}, {P_FAN, 20}, {P_CURTAIN, 15}}) : pickW({{P_FAN | P_GROUND, 50}, {P_CORNER, 25}, {P_FRAME, 25}});
     L.age = age >= 0 ? std::clamp(age, 0.0f, 1.0f) : heavy ? 0.7f + 0.3f * u01(g) : 0.35f + 0.45f * u01(g);
     L.overgrown = over || (heavy && (L.flags & P_BLANKET));
-    L.vig = density * dens * (heavy ? 1.25f : 1.0f);
+    L.vig = density * dens * (heavy ? 1.25f : 1.0f) * (env.arid ? 0.45f : 1.0f);
     L.season = env.season;
     return L;
   };
@@ -352,7 +353,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
 
   if (iv.mode == IvyDef::AUTO) {
     // facades large enough get growth with a chance by style (abandoned: most of them); "auto" always shows some
-    float share = iv.share >= 0 ? iv.share : heavy ? 0.85f : modern ? 0.4f : 0.5f; int done = 0, best = -1; float bl = 0;
+    float share = env.arid ? 0.3f : iv.share >= 0 ? iv.share : heavy ? 0.85f : modern ? 0.4f : 0.5f; int done = 0, best = -1; float bl = 0;
     for (int k = 0; k < (int)fac.size(); ++k) {
       const Facade& d = fac[k];
       if (d.u1 - d.u0 < 1.0f || d.v1 - d.v0 < 1.0f) continue;
@@ -418,9 +419,10 @@ void ivyDrawItem(App& app, const Instance& i, InstanceRT& r, const mat4& M, floa
   if (app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object()) {
     const json& lk = app.doc.extra["look"];
     env.abandoned = lk.value("style", std::string()) == "abandoned";
+    env.arid = lk.value("arid", false);
     std::string se = lk.value("season", std::string()); env.season = se == "autumn" ? 1 : se == "winter" ? 2 : 0;
   }
-  uint64_t key = 1469598103934665603ull ^ (uint64_t)(density * 100) ^ ((uint64_t)i.rev << 20) ^ ((uint64_t)env.abandoned << 40) ^ ((uint64_t)env.season << 42);
+  uint64_t key = 1469598103934665603ull ^ (uint64_t)(density * 100) ^ ((uint64_t)i.rev << 20) ^ ((uint64_t)env.abandoned << 40) ^ ((uint64_t)env.season << 42) ^ ((uint64_t)env.arid << 45);
   for (uint8_t s : r.state) key = (key ^ (s == PANEL_BREACHED)) * 1099511628211ull;
   if (key != r.ivyKey) {
     ivyDestroy(r);

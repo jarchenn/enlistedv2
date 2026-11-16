@@ -1,0 +1,20 @@
+{
+ "set": "brick_grey_footing",
+ "id": "Bricks061",
+ "family": "brick (NT4, supplied by the user)",
+ "size": [
+  1.8,
+  1.8
+ ],
+ "source": "https://ambientcg.com/a/Bricks061",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "2K-JPG (supplied by the user), packed to 1K",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

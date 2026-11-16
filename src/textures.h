@@ -42,6 +42,7 @@ bool imgMat();
 struct Info { int sets = 0, slots = 0, slotsLive = 0, unused = 0; size_t bytes = 0; double ms = 0; bool compressed = false; std::vector<std::string> missing; };
 const Info& info();
 int slotIndex(const std::string& slotName);   // -1 if unknown
+void mapPaintSets(const json* look);   // NT4: the open map's look.paintSets override of the painted-ground slots
 int slotLayer(int slot);                      // -1: the slot's set is not loaded
 int patternSlot(int pattern);
 std::string stateKey();                       // what the rendered look depends on (thumbnail cache keys)

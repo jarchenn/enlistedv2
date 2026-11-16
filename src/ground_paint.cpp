@@ -169,11 +169,15 @@ float groundPaintTint(float x, float z, vec3& col) {   // GX3: painted swatch un
   if (pw > 0.001f) col = c / pw;
   return std::min(pw, 1.0f);
 }
+bool groundPaintArid() {   // NT4: the map's look says "arid" (desert): scrub and dry grass grow on sand, no clover or turf
+  return gDoc && gDoc->extra.is_object() && gDoc->extra.contains("look") && gDoc->extra["look"].is_object() && gDoc->extra["look"].value("arid", false);
+}
 bool groundPaintBlocksNature(float x, float z) {
   if (!gDoc || gDoc->groundPaint.empty()) return false;
   float w[kPaintTypes]; groundPaintWeights(*gDoc, x, z, w);
   const auto& T = groundPaintTypes();
-  float bad = 0; for (int k = 1; k < kPaintTypes; ++k) if (!T[k].natureOk) bad += w[k];
+  const bool arid = groundPaintArid();
+  float bad = 0; for (int k = 1; k < kPaintTypes; ++k) if (!T[k].natureOk && !(arid && k == kPaintSand)) bad += w[k];
   return bad > 0.5f;
 }
 int groundPaintNavArea(float x, float z) {
@@ -336,8 +340,10 @@ void paintMat(int t, vec3 p, out vec3 a, out float r, out vec3 bm, out float ao)
     float s = step(0.55, vnoise(vec3(p.xz*9.0, 77.0)));
     a = mix(vec3(0.33,0.29,0.23), vec3(0.48,0.43,0.35), s)*(0.8 + 0.3*n2); r = 0.9; bm *= 1.7; ao = 0.88 + 0.12*s;
   } else if (t == 5) {   // sand: pale, fine ripples
-    float rip = sin(p.x*5.0 + p.z*2.2 + n1*4.0)*0.5 + 0.5;
-    a = mix(vec3(0.55,0.48,0.34), vec3(0.67,0.60,0.44), n1)*(0.94 + 0.08*rip + 0.06*n2); r = 0.97; bm = vec3(cos(p.x*5.0 + p.z*2.2 + n1*4.0)*0.12, 0.0, 0.05);
+    float ph = p.x*6.0 + p.z*2.6 + nb*14.0 + n1*3.0;   // NT4: wind ripples, warped, with broad darker troughs
+    float rip = sin(ph)*0.5 + 0.5, tr = smoothstep(0.3, 0.7, fbm(vec3(p.xz*0.045, 78.0)));
+    a = mix(vec3(0.52,0.45,0.32), vec3(0.68,0.61,0.45), n1*0.6 + tr*0.4)*(0.92 + 0.1*rip + 0.06*n2); r = 0.97;
+    bm = vec3(cos(ph)*0.3, 0.0, cos(ph)*0.13)*(0.6 + 0.4*n2);
   } else if (t == 6) {   // cobbles: running-bond setts with rounded tops and dark joints
     vec2 g = p.xz*vec2(3.6, 4.6); float row = floor(g.y); g.x += mod(row, 2.0)*0.5;
     vec2 id = floor(g), f = fract(g) - 0.5, q = abs(f);

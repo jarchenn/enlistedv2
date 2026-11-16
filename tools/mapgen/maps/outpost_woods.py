@@ -8,7 +8,7 @@ import math
 
 from mapgen import (polyline_dist, catmull_rom, rect, circle_poly, fbm, smoothstep, stamp_valley, point_at, polyline_length, look_yaw,
                     in_poly)
-from maps.outpost_common import build_variant, HX, HZ, WRECKS
+from maps.outpost_common import build_variant, range_layout, HX, HZ, WRECKS
 
 WATER = 11.0
 CAMP = (14.0, -66.0, 60.0, -14.0)                    # x0, z0, x1, z1 of the palisade
@@ -48,8 +48,13 @@ SITES = [
     ("mod_nt_radar_tower", -44.0, -44.0, 0.0), ("bunker_field_shelter", -36.0, -22.0, 60.0),
     ("mod_nt_workshop", -32.0, 38.0, 90.0), ("mod_nt_barn_steel", -42.0, 60.0, 0.0),
     ("mod_nt_house_small", 52.0, 38.0, 270.0), ("mod_nt_house_two", 10.0, 58.0, 180.0),
+    ("mod_helipad_ground", 44.0, 2.0, 0.0),   # NT4: its own clearing between the camp and the pond
+    ("mod_tent_sleeping", 16.5, -7.0, 0.0), ("mod_tent_mess", 16.5, 7.0, 0.0),   # NT4: the tent lines by the track
+    ("mod_tent_medical", 27.5, -7.0, 0.0), ("mod_tent_command", 27.5, 7.0, 0.0),
 ]
-INFO = {("mod_nt_barracks", 40.0, -56.0): {"d": 1, "mil": True}, ("mod_nt_motor_pool", 44.0, -24.0): {"d": 1, "mil": True},
+INFO = {("mod_tent_sleeping", 16.5, -7.0): {"d": 1, "mil": True, "spot": True}, ("mod_tent_mess", 16.5, 7.0): {"d": 1, "mil": True, "spot": True},
+        ("mod_tent_medical", 27.5, -7.0): {"d": 1, "mil": True, "spot": True}, ("mod_tent_command", 27.5, 7.0): {"d": 1, "mil": True, "spot": True},
+        ("mod_guard_tower", 17.0, -63.0): {"d": 1, "mil": True}, ("mod_guard_tower", 57.0, -17.0): {"d": 1, "mil": True},("mod_nt_barracks", 40.0, -56.0): {"d": 1, "mil": True}, ("mod_nt_motor_pool", 44.0, -24.0): {"d": 1, "mil": True},
         ("mod_mil_hut", 23.0, -39.0): {"d": 1, "mil": True}, ("mod_nt_radar_tower", -44.0, -44.0): {"d": 2, "mil": True},
         ("bunker_field_shelter", -36.0, -22.0): {"d": 2, "mil": True},
         ("mod_nt_workshop", -32.0, 38.0): {"d": 3}, ("mod_nt_barn_steel", -42.0, 60.0): {"d": 3},
@@ -59,7 +64,8 @@ INFO = {("mod_nt_barracks", 40.0, -56.0): {"d": 1, "mil": True}, ("mod_nt_motor_
 def clearing(x, z):
     x0, z0, x1, z1 = CAMP
     return ((x0 - 3 < x < x1 + 3 and z0 - 3 < z < z1 + 3) or math.hypot(x + 44, z + 44) < 11 or math.hypot(x + 36, z - 46) < 20
-            or pond_k(x, z) < 1.35 or math.hypot(x - 52, z - 38) < 9 or math.hypot(x - 10, z - 58) < 10 or math.hypot(x + 36, z + 22) < 7)
+            or pond_k(x, z) < 1.35 or math.hypot(x - 52, z - 38) < 9 or (29 < x < 59 and -13 < z < 17)
+            or (-32 < x < 3 and -66 < z < -46) or (10 < x < 34 and -14 < z < 16) or math.hypot(x - 10, z - 58) < 10 or math.hypot(x + 36, z + 22) < 7)
 
 
 def forest(x, z):
@@ -109,6 +115,22 @@ def dress(b, R, prop, drop, line, paint, rep):
         o = R.uniform(-2.2, 2.2)
         drop(R.choice(["nat_green_tufts", "nat_fern_clump", "nat_tallgrass_patch", "mod_weeds_clump", "nat_bracken_clump"]), px - t[1] * o, pz + t[0] * o,
              R.uniform(0, 360), cls="veg")
+    # NT4: the range in its clearing west of the creek, firing uphill into the radar hill
+    range_layout(b, R, prop, (-3.0, -56.0), 90.0, (15.0, 20.0, 25.0), 2, rep)
+    for x, z, yaw in ((22.0, 0.0, 0.0), (11.0, 0.0, 90.0)):   # camo nets and crates round the tents
+        prop("mod_camo_net", x, z, yaw, tags={"tents"})
+    for x, z in ((21.5, -1.5), (25.0, 1.0)):
+        e = prop("mod_ammo_crate_old", x, z, R.uniform(0, 360), tags={"tents", "cover"})
+        if e is not None:
+            e["extra"] = e.get("extra") or {}; e["extra"]["loot"] = {"spot": True, "size": "small", "district": 1, "military": True}
+    # NT4: the track churned to mud with puddles, trunks fallen across it
+    paint.line("mud", TRACK, 2.8, weight=0.85, edge=0.8)
+    for s in range(10, int(L) - 6, 17):
+        (px, pz), t = point_at(TRACK, s + R.uniform(-4, 4))
+        drop("wat_puddles", px, pz, math.degrees(math.atan2(t[0], t[1])) + R.uniform(-20, 20), cls="flat")
+    for s in (34.0, 76.0, 120.0):
+        (px, pz), t = point_at(TRACK, min(s, L - 5))
+        drop("mod_fallen_tree", px + t[1] * 2.0, pz - t[0] * 2.0, math.degrees(math.atan2(-t[1], t[0])) + R.uniform(-25, 25), cls="solid")
     # the creek: mossy stones, fallen saplings, reeds near the pond
     Lc = polyline_length(CREEK)
     for k in range(40):
@@ -144,28 +166,33 @@ V = {
               ("line", "mud", CREEK, 3.5, {"weight": 0.75, "edge": 1.5}),
               ("poly", "dry_grass", circle_poly(-44.0, -44.0, 12.0, 14), {"weight": 0.5, "edge": 3.0, "ragged": 3.0, "seed": 56})],
     "dress": dress,
+    "helis": [("mod_helipad_ground", 0.0, 0.165, 200.0)],
+    "yard_paint": ["dirt", "gravel", "pebbles", "dirt"],
     "wall_dress": ["nat_nettle_clump", "nat_bramble_thicket", "nat_fern_clump", "mod_weeds_clump", "mod_rubble_small", "nat_bracken_clump", "nat_tallgrass_patch"],
     "scatter": [([("nt3_tree_forest_oak", 4), ("nt3_tree_forest_ash", 4), ("nt3_tree_forest_poplar", 2), ("tree_oak", 1)], forest, 1 / 42.0, 4.6),
                 ([("nat_fern_clump", 4), ("nat_bracken_clump", 4), ("nat_bramble_thicket", 1), ("nat_nettle_clump", 1), ("shrub_hazel", 1), ("nat_sapling_ash", 1),
                   ("nat_sapling_oak", 1), ("nat_brush_rank", 1)], forest, 1 / 4.5, 1.0, {"ok_with": {"flat", "none", "wire", "veg"}}),
                 ([("nat_boulder_schist_m", 2), ("nat_boulder_granite_s", 2), ("nat_boulder_granite_l", 1)], forest, 1 / 220.0, 6.0),
                 ([("nat_tallgrass_patch", 3), ("nat_green_tufts", 2), ("nat_meadow_mixed", 1), ("mod_weeds_clump", 2), ("nat_nettle_clump", 1),
-                  ("nat_sapling_ash", 1), ("nat_bramble_thicket", 1)], clearing, 1 / 14.0, 1.8, {"ok_with": {"flat", "none", "wire", "veg"}})],
+                  ("nat_sapling_ash", 1), ("nat_bramble_thicket", 1)], clearing, 1 / 9.0, 1.2,
+                 {"ok_with": {"flat", "none", "wire", "veg"}, "accept": lambda x, z: 0.15 + 0.85 * max(0.0, math.sin(x * 0.31 + math.sin(z * 0.23) * 2.0) * math.sin(z * 0.27 + x * 0.05))})],   # clumped, not even
     "decor": ["nt3_tree_forest_oak", "nt3_tree_forest_ash", "nt3_tree_forest_oak", "nt3_tree_forest_poplar", "tree_oak"],
     "decor_n": 300,
-    "tdm": {"A": (-52.0, 66.0), "B": (54.0, 6.0)},
+    "tdm": {"A": (-52.0, 66.0), "B": (54.0, 22.0)},
     "objective": (36.0, -40.0), "objective_name": "Forest camp", "attack_from": (-4.0, 12.0), "defend_at": (46.0, -46.0),
     "districts": [("Forest camp", (38.0, -40.0)), ("Radar hill", (-44.0, -40.0)), ("Sawmill", (-34.0, 44.0)), ("Pond cabins", (34.0, 44.0))],
     "views": [("camp_eye", (4.0, -38.0), (40.0, -40.0)), ("radar_eye", (-36.0, -34.0), (-46.0, -46.0)), ("mill_eye", (-8.0, 28.0), (-32.0, 42.0)),
-              ("pond_eye", (18.0, 40.0), (34.0, 54.0))],
+              ("pond_eye", (18.0, 40.0), (34.0, 54.0)), ("range_eye", (5.0, -53.0), (-25.0, -56.0)), ("tents_eye", (4.0, -20.0), (22.0, -2.0)),
+              ("helipad_eye", (34.0, 19.0), (44.0, 2.0))],
     "start": ((4.0, -38.0), (36.0, -2.0)),
     "thumb_cam": ([70.0, 75.0, 110.0], look_yaw(-70.0, -110.0), -30.0),
     "water_bodies": [{"id": 1, "kind": "pond", "level": WATER, "seed": [POND[0], POND[1]],
                       "outline": [[round(POND[0] + math.cos(a) * POND[2] * 1.12, 3), round(POND[1] + math.sin(a) * POND[3] * 1.12, 3)]
                                   for a in [2 * math.pi * k / 48 for k in range(48)]]}],
-    "look": {"style": "abandoned", "haze": 4.0, "weather": 0.6, "envFog": 2, "bloom": 1.3, "saturation": 1.12, "tint": [1.0, 1.02, 0.97], "grime": 1.0},
-    "lighting": {"fill": 1.35, "ambient": [0.04, 0.06, 0.045]},
-    "views_clear": 4.5,
+    "look": {"style": "abandoned", "haze": 1.4, "weather": 0.35, "envFog": 0, "bloom": 1.4, "saturation": 1.14, "tint": [1.04, 1.01, 0.93], "grime": 1.0,
+             "paintSets": {"gravel": "gravel_mixed", "dirt": "ground_rubble_paint", "pebbles": "rock_slab_paint"}},
+    "lighting": {"fill": 1.3, "ambient": [0.04, 0.06, 0.045]},
+    "views_clear": 3.5,
 }
 
 
