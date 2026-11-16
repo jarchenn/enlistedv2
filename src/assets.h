@@ -209,7 +209,8 @@ struct DefenseDef {
 
 // Natural ground dressing (nature.cpp, docs/nature.md): procedural boulders / outcrops ("rock") and scatter patches
 // ("scatter": flowers, tall grass, stones), one placed instance with a radius and density that scatters deterministically.
-struct RockPiece { int lith = 1; uint32_t seed = 1; vec3 size{1}, pos{0}; float yaw = 0, tiltX = 0, tiltZ = 0, sink = 0.25f; int detail = 2; };
+struct RockPiece { int lith = 1; uint32_t seed = 1; vec3 size{1}, pos{0}; float yaw = 0, tiltX = 0, tiltZ = 0, sink = 0.25f; int detail = 2;
+                   int shape = 0; float taper = 1.3f, flute = 0.0f; vec2 lean{0}; };   // CV1: shape 1 = a smooth tapering cone (dripstone spike), flared base, pointed tip
 struct NatureDef {
   enum Kind { NONE = 0, ROCK = 1, SCATTER = 2 } kind = NONE;
   enum Scatter { FLOWERS = 1, TALLGRASS = 2, STONES = 3, WHEAT = 4 } scatter = FLOWERS;

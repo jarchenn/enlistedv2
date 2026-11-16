@@ -1,3 +1,4 @@
+#include <cstdlib>
 // Pooled cosmetic effects. Never affect gameplay: impacts and damage come from the projectile path.
 #include "combat.h"
 #include "terrain.h"
@@ -189,7 +190,8 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
     vec4 c = q.col;
     // CV1 fix: an additive sprite at the eye covers the whole screen at full strength (standing in a fire, a light
     // shaft's motes, a flash beside the camera) and stacks to white: fade it out inside ~2 of its own sizes
-    const float nearK = q.additive ? glm::smoothstep(0.6f * q.size, 2.2f * q.size + 0.15f, glm::length(q.p - eye)) : 1.0f;
+    static const bool noFade = std::getenv("NMK_FX_NONEARFADE") != nullptr;   // dev A/B: the old behaviour
+    const float nearK = q.additive && !noFade ? glm::smoothstep(0.6f * q.size, 2.2f * q.size + 0.15f, glm::length(q.p - eye)) : 1.0f;
     if (nearK <= 0.001f) continue;
     if (q.flame >= 0 && q.additive) {   // flame sprite: white-yellow -> orange -> dark red along its life; a >= 100 tells the shader (id + age)
       float u = 1.0f - f;

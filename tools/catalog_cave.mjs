@@ -81,7 +81,7 @@ for (let v = 0; v < 3; v++) {   // ribbed organ wall: tall laminated ribs on a c
     for (let g = 0; g < 3; g++) {   // three long overlapping segments, narrowing and leaning further in
       const f = g / 3, y = h * f * 0.8, lean = 0.35 * h * f * f;
       P.push(piece("schist", 2200 + v * 120 + k * 5 + g, [r2(w * (1 - f * 0.5)), r2(h * 0.62), r2((1.3 + rnd() * 0.4) * (1 - f * 0.4))],
-        [r2(x + inx * lean), r2(y), r2(z + inz * lean)], Math.round(a * 57.3), [Math.round(-6 - 16 * f), 0], 0.02, 1));
+        [r2(x + inx * lean * 0.2), r2(y), r2(z + inz * lean * 0.2)], Math.round(a * 57.3), [Math.round(-1 - 2 * f), 0], 0.02, 1));
     }
     if (k < n - 1) P.push(piece("schist", 2300 + v * 60 + k, [r2(0.6 + rnd() * 0.3), r2(h * (0.3 + rnd() * 0.2)), 0.9], [r2(Math.sin(a + span / (2 * (n - 1))) * (R + 0.6)), 0, r2(Math.cos(a + span / (2 * (n - 1))) * (R + 0.6) - R)], Math.round(a * 57.3), [0, 0], 0.04, 1));
   }
@@ -146,28 +146,26 @@ lightAsset("cave_fire_altar", "Cave fire (altar)", "A low fire of embers and fla
 // irregularly spaced satellites of mixed kinds. Kinds: soda-straw needles, tapering spears, fat bulbous drips, fluted
 // spears, broken stumps, curved / leaning ones, twinned and fused pairs, flowstone curtains (hanging), stacked
 // "wedding-cake" stalagmites and squat mounds (standing). Hanging clusters below 9 m do not collide (out of reach).
-const spk = (P, seed, x, z, y0, h, w, dir, yaw, lean, nseg = 4, curve = 1, lith = "dripstone") => {
-  const segs = [[1.0, 0.0, 0.62], [0.68, 0.26, 0.56], [0.42, 0.5, 0.5], [0.2, 0.72, 0.36]].slice(0, nseg);
-  segs.forEach(([ws, at, hs], k) => {
-    const o = Math.pow(at, curve) * h;
-    P.push(piece(lith, seed + k, [r2(Math.max(0.06, w * ws)), r2(h * hs), r2(Math.max(0.06, w * ws * (0.8 + 0.2 * ((seed + k) % 3) / 2)))],
-      [r2(x + lean[0] * o), r2(y0 + dir * at * h), r2(z + lean[1] * o)], (yaw + k * 47) % 360, dir > 0 ? [0, 0] : [180, 0], 0, w * ws > 1.4 ? 2 : 1));
-  });
-};
-const KDOWN = ["needle", "spear", "bulb", "fluted", "curved", "twin", "curtain", "stump", "spear", "needle"];
-const KUP = ["spear", "bulb", "fluted", "stump", "curved", "twin", "cake", "mound", "spear", "stump"];
+// CV1b2: one smooth cone per spike ("shape": "cone" in the rock block: a continuous taper to a sharp tip, flared foot,
+// optional fluting and lean), no stacked segments. taper: >1 slender spear, <1 a fat drip.
+const cone = (P, seed, x, z, y0, h, w, dir, yaw, lean, taper = 1.3, flute = 0) => P.push({ lith: "dripstone", seed, size: [r2(Math.max(0.06, w)), r2(h), r2(Math.max(0.06, w * 0.9))],
+  pos: [r2(x), r2(y0), r2(z)], yaw: yaw % 360, tilt: dir > 0 ? [0, 0] : [180, 0], sink: dir > 0 ? 0.08 : 0, detail: w > 1.4 ? 3 : h > 1.5 ? 2 : 1,
+  shape: "cone", taper: r2(taper), flute: r2(flute), lean: [r2(lean[0]), r2(lean[1])] });
+const spk = (P, seed, x, z, y0, h, w, dir, yaw, lean) => cone(P, seed, x, z, y0, h, w, dir, yaw, lean, 1.3 + rnd() * 0.4, 0);
+const KDOWN = ["needle", "spear", "fluted", "curved", "twin", "curtain", "spear", "needle", "spear", "bulb"];
+const KUP = ["spear", "fluted", "spear", "curved", "twin", "needle", "spear", "fluted", "stump", "cake"];
 const drip = (P, kind, sd, x, z, y0, h, dir) => {
   const yaw = Math.round(rnd() * 360), ln = [(rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.1];
-  if (kind === "needle") { spk(P, sd, x, z, y0, h, Math.max(0.08, h * (0.05 + rnd() * 0.04)), dir, yaw, ln, 3); return; }
-  if (kind === "spear") { spk(P, sd, x, z, y0, h, h * (0.09 + rnd() * 0.06), dir, yaw, ln, 4); return; }
-  if (kind === "bulb") { spk(P, sd, x, z, y0, h, h * (0.32 + rnd() * 0.18), dir, yaw, ln, 2); return; }
-  if (kind === "stump") { spk(P, sd, x, z, y0, h * 0.55, h * (0.16 + rnd() * 0.08), dir, yaw, ln, 2); return; }
-  if (kind === "curved") { const a = rnd() * 6.283, m = 0.25 + rnd() * 0.3; spk(P, sd, x, z, y0, h, h * (0.1 + rnd() * 0.05), dir, yaw, [Math.cos(a) * m, Math.sin(a) * m], 4, 2.2); return; }
-  if (kind === "twin") { const w = h * (0.1 + rnd() * 0.05), a = rnd() * 6.283; spk(P, sd, x, z, y0, h, w, dir, yaw, ln, 4); spk(P, sd + 5, x + Math.cos(a) * w * 0.55, z + Math.sin(a) * w * 0.55, y0, h * (0.65 + rnd() * 0.25), w * 0.8, dir, yaw + 90, ln, 4); return; }
+  if (kind === "needle") { cone(P, sd, x, z, y0, h, Math.max(0.08, h * (0.07 + rnd() * 0.04)), dir, yaw, ln, 1.05 + rnd() * 0.2, 0); return; }
+  if (kind === "spear") { cone(P, sd, x, z, y0, h, h * (0.16 + rnd() * 0.1), dir, yaw, ln, 1.25 + rnd() * 0.45, rnd() < 0.3 ? 0.5 : 0); return; }
+  if (kind === "bulb") { cone(P, sd, x, z, y0, h, h * (0.4 + rnd() * 0.15), dir, yaw, ln, 0.75 + rnd() * 0.2, 0.3); return; }
+  if (kind === "stump") { cone(P, sd, x, z, y0, h * 0.45, h * (0.28 + rnd() * 0.1), dir, yaw, ln, 0.55, 0.4); return; }
+  if (kind === "curved") { const a = rnd() * 6.283, m = 0.03 + rnd() * 0.04; /* a few degrees of natural lean, no more */ cone(P, sd, x, z, y0, h, h * (0.15 + rnd() * 0.07), dir, yaw, [Math.cos(a) * m, Math.sin(a) * m], 1.4 + rnd() * 0.3, 0); return; }
+  if (kind === "twin") { const w = h * (0.16 + rnd() * 0.06), a = rnd() * 6.283; cone(P, sd, x, z, y0, h, w, dir, yaw, ln, 1.35, 0); cone(P, sd + 5, x + Math.cos(a) * w * 0.45, z + Math.sin(a) * w * 0.45, y0, h * (0.6 + rnd() * 0.3), w * 0.8, dir, yaw + 90, [-ln[0], -ln[1]], 1.4, 0); return; }
   if (kind === "fluted") {
-    const w = h * (0.12 + rnd() * 0.05); spk(P, sd, x, z, y0, h, w, dir, yaw, ln, 4);
-    const m = 5 + Math.floor(rnd() * 4);
-    for (let k = 0; k < m; k++) { const a = k / m * 6.283 + rnd() * 0.4; spk(P, sd + 10 + k * 4, x + Math.cos(a) * w * 0.42, z + Math.sin(a) * w * 0.42, y0, h * (0.6 + rnd() * 0.32), w * 0.32, dir, yaw + k * 31, ln, 3); }
+    const w = h * (0.2 + rnd() * 0.08); cone(P, sd, x, z, y0, h, w, dir, yaw, ln, 1.3, 1.0);
+    const m = 2 + Math.floor(rnd() * 3);
+    for (let k = 0; k < m; k++) { const a = k / m * 6.283 + rnd() * 0.5; cone(P, sd + 10 + k * 4, x + Math.cos(a) * w * 0.38, z + Math.sin(a) * w * 0.38, y0, h * (0.35 + rnd() * 0.35), w * 0.4, dir, yaw + k * 31, ln, 1.3, 0.5); }
     return;
   }
   if (kind === "curtain") {   // a flowstone drapery hanging along a wavy crack
@@ -214,8 +212,8 @@ for (let v = 0; v < 4; v++) {
   for (let k = 0; k < n; k++) {
     const t = k / (n - 1), a = (t - 0.5) * span, x = Math.sin(a) * R, z = Math.cos(a) * R - R;
     const h = H * (0.6 + 0.4 * Math.sin(t * Math.PI)) * (0.82 + rnd() * 0.3), w = 1.2 + rnd() * 0.9, inx = -Math.sin(a), inz = -Math.cos(a);
-    P.push(piece("dripstone", 9400 + v * 300 + k * 3, [r2(w), r2(h * 0.66), r2(w * 1.1)], [r2(x), 0, r2(z)], Math.round(a * 57.3), [-3, 0], 0.03, 2));
-    P.push(piece("dripstone", 9401 + v * 300 + k * 3, [r2(w * 0.78), r2(h * 0.6), r2(w * 0.9)], [r2(x + inx * h * 0.06), r2(h * 0.42), r2(z + inz * h * 0.06)], Math.round(a * 57.3) + 20, [-8, 0], 0, 2));
+    P.push(piece("dripstone", 9400 + v * 300 + k * 3, [r2(w), r2(h * 0.66), r2(w * 1.1)], [r2(x), 0, r2(z)], Math.round(a * 57.3), [-1, 0], 0.03, 2));
+    P.push(piece("dripstone", 9401 + v * 300 + k * 3, [r2(w * 0.78), r2(h * 0.6), r2(w * 0.9)], [r2(x + inx * h * 0.02), r2(h * 0.42), r2(z + inz * h * 0.02)], Math.round(a * 57.3) + 20, [-2, 0], 0, 2));
     if (k < n - 1) P.push(piece("dripstone", 9402 + v * 300 + k * 3, [r2(w * 0.45), r2(h * (0.25 + rnd() * 0.45)), r2(w * 0.5)], [r2(Math.sin(a + span / (2 * (n - 1))) * (R + 0.5)), 0, r2(Math.cos(a + span / (2 * (n - 1))) * (R + 0.5) - R)], Math.round(a * 57.3), [0, 0], 0.03, 1));
   }
   rock(`cave_organ_${v}`, `Organ wall (${H} m)`, `A ${H} m concave wall of ${n} fluted rock ribs packed like organ pipes, rising nearly the full height of a cavern.`, P, [r2(R * 2), r2(R * 0.8)]);
@@ -264,5 +262,37 @@ lightAsset("cave_light_uplight", "Cave light (uplight)", "A warm glow from the f
   }
   rock("cave_monument", "The monument (carved figure)", "A 22 m carved figure of dripstone: plinth, ribbed chest, broad shoulders, a horned head and folded-wing spines. Ancient and unsettling.", P, [10, 8]);
 }
+
+// ---------------------------------------------------------------- CV1c: interior light sources only (the cave is sealed)
+const glowMats = (col, emi) => [{ name: "glow", albedo: col, roughness: 0.3, pattern: "plain", metallic: 0, grain: 1, emissive: emi },
+  { name: "stone", albedo: [0.13, 0.12, 0.11], roughness: 0.85, pattern: "stone", metallic: 0, grain: 1 },
+  { name: "ember", albedo: [0.3, 0.08, 0.02], roughness: 0.9, pattern: "plain", metallic: 0, grain: 1, emissive: [4.0, 1.1, 0.2] }];
+lightAsset("cave_brazier", "Cave brazier (stone bowl)", "A rough stone bowl of burning embers on a stone foot: a warm, flickering fire light.",
+  { color: [1.0, 0.5, 0.18], intensity: 70, radius: 26, offset: [0, 1.25, 0], flicker: 0.32, use: "fire", fx: "flame", fxSize: 0.5 },
+  [{ t: "c", c: [0, 0.45, 0], s: [0.5, 0.9, 0.5], m: "stone", n: 8 }, { t: "k", c: [0, 1.05, 0], s: [1.1, 0.35, 1.1], m: "stone", n: 8, top: 1.4 }, { t: "c", c: [0, 1.2, 0], s: [0.9, 0.05, 0.9], m: "ember", n: 12, k: 0 }],
+  glowMats([0.2, 0.2, 0.2], [0, 0, 0]));
+for (const [id, nm, col, emi, lc] of [["cave_crystals", "Glowing crystals (cold)", [0.3, 0.6, 0.7], [0.5, 2.0, 2.8], [0.4, 0.8, 1.0]],
+                                       ["cave_crystals_violet", "Glowing crystals (violet)", [0.5, 0.3, 0.7], [1.6, 0.7, 2.6], [0.65, 0.4, 1.0]]]) {
+  S = id.length * 131;
+  const parts = [];
+  for (let k = 0; k < 9; k++) {   // upright pointed crystal prisms, clustered
+    const a = rnd() * 6.283, r = k === 0 ? 0 : 0.3 + rnd() * 0.8, h = (k === 0 ? 1.8 : 0.5 + rnd() * 1.2), w = 0.12 + h * 0.12;
+    parts.push({ t: "k", c: [r2(Math.cos(a) * r), r2(h / 2 - 0.05), r2(Math.sin(a) * r)], s: [r2(w), r2(h), r2(w)], r: [Math.round((rnd() - 0.5) * 14), Math.round(rnd() * 60), Math.round((rnd() - 0.5) * 14)], m: "glow", n: 6, top: 0, k: 0 });
+  }
+  lightAsset(id, nm, "A cluster of mineral crystals glowing from within: a steady cold light, no fire.", { color: lc, intensity: 45, radius: 24, offset: [0, 1.0, 0], use: "electric" }, parts, glowMats(col, emi));
+}
+{
+  S = 4447; const parts = [];
+  for (let k = 0; k < 14; k++) {   // bioluminescent fungi: small caps on short stems
+    const a = rnd() * 6.283, r = rnd() * 1.6, h = 0.08 + rnd() * 0.18, d = 0.1 + rnd() * 0.22, x = r2(Math.cos(a) * r), z = r2(Math.sin(a) * r);
+    parts.push({ t: "c", c: [x, r2(h / 2), z], s: [0.04, r2(h), 0.04], m: "glow", n: 6, k: 0 });
+    parts.push({ t: "k", c: [x, r2(h), z], s: [r2(d), r2(d * 0.4), r2(d)], m: "glow", n: 10, top: 0.3, k: 0 });
+  }
+  lightAsset("cave_fungi", "Glowing fungi", "A patch of bioluminescent fungi: a faint, soft green glow on the wet rock.", { color: [0.45, 1.0, 0.55], intensity: 9, radius: 12, offset: [0, 0.4, 0], use: "electric" }, parts, glowMats([0.3, 0.6, 0.35], [0.6, 2.6, 0.9]));
+}
+lightAsset("cave_light_pool", "Cave light (pool glow)", "Light rising from the water itself: a cold cyan glow over a pool, with a little mist.",
+  { color: [0.3, 0.85, 0.85], intensity: 22, radius: 16, use: "electric", fx: "mist", fxSize: 9 });
+lightAsset("cave_light_mineral_up", "Cave light (mineral uplight)", "A cold mineral glow from the foot of a formation, aimed up it.",
+  { color: [0.45, 0.8, 1.0], intensity: 700, radius: 42, dir: [0, 1, 0], cone: [10, 28], use: "electric" });
 
 console.log(`cave catalog: ${ids.length} assets`);

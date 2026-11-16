@@ -79,7 +79,54 @@ int natSpeciesFrom(const std::string& s) {
 // ---------------------------------------------------------------- rocks
 // Noise-displaced icosphere, then plane cuts (fracture facets: rounded granite, blocky limestone, slabby schist), then
 // the lower part flattened into a base that sits `sink` x height below the ground. Unindexed, half-flat normals.
+// CV1: a dripstone spike: rings tapering to a point ((1 - t)^taper, the foot flared), a little noise, optional
+// vertical fluting, a lean that grows with height. Base `sink` x height under the instance origin. Same vertex layout.
+static void buildConePiece(MeshData& m, const RockPiece& rp, vec3 tint, std::vector<vec3>* hull, std::vector<vec3>* tris) {
+  const int seg = rp.detail <= 1 ? 8 : rp.detail == 2 ? 12 : 16, rings = rp.detail <= 1 ? 7 : rp.detail == 2 ? 12 : 18;
+  Rng r{mix64(rp.seed * 0x9E3779B1ull + 31337ull)};
+  vec3 he = glm::max(rp.size * 0.5f, vec3(0.01f)); float H = std::max(0.05f, rp.size.y), y0 = -rp.sink * H;
+  uint32_t ns = (uint32_t)rp.seed * 31u + 7u; vec3 off(r.f() * 50, r.f() * 50, r.f() * 50); float fph = r.f() * 6.2831853f;
+  std::vector<vec3> P;
+  for (int j = 0; j < rings; ++j) {
+    float t = (float)j / rings, rt = std::pow(1.0f - t, rp.taper) * (1.0f + 0.45f * std::pow(1.0f - t, 8.0f));
+    vec3 c(rp.lean.x * t * t * H, y0 + t * H, rp.lean.y * t * t * H);
+    for (int i = 0; i < seg; ++i) {
+      float a = 6.2831853f * i / seg, n = vn3(vec3(std::cos(a) * 1.7f, t * 3.0f, std::sin(a) * 1.7f) + off, ns);
+      float rr = rt * (0.9f + 0.2f * n) * (1.0f + rp.flute * 0.14f * std::sin(a * 7.0f + fph + t * 2.0f));
+      P.push_back(c + vec3(std::cos(a) * he.x * rr, 0, std::sin(a) * he.z * rr));
+    }
+  }
+  const uint32_t tip = (uint32_t)P.size(); P.push_back(vec3(rp.lean.x * H, y0 + H, rp.lean.y * H));
+  const uint32_t foot = (uint32_t)P.size(); P.push_back(vec3(0, y0, 0));
+  std::vector<glm::uvec3> F;
+  for (int j = 0; j + 1 < rings; ++j) for (int i = 0; i < seg; ++i) {
+    uint32_t a = j * seg + i, b = j * seg + (i + 1) % seg, c = (j + 1) * seg + i, d = (j + 1) * seg + (i + 1) % seg;
+    F.push_back({a, c, b}); F.push_back({b, c, d});
+  }
+  for (int i = 0; i < seg; ++i) { uint32_t a = (rings - 1) * seg + i, b = (rings - 1) * seg + (i + 1) % seg; F.push_back({a, tip, b}); F.push_back({foot, (uint32_t)i, (uint32_t)((i + 1) % seg)}); }
+  mat4 X = glm::translate(mat4(1), rp.pos) * glm::mat4_cast(yawQuat(rp.yaw) * glm::angleAxis(radians(rp.tiltX), vec3(1, 0, 0)) * glm::angleAxis(radians(rp.tiltZ), vec3(0, 0, 1)));
+  for (auto& p : P) p = vec3(X * vec4(p, 1));
+  if (hull) hull->insert(hull->end(), P.begin(), P.end());
+  vec3 ctr(0); for (auto& p : P) ctr += p; ctr /= (float)P.size();
+  std::vector<vec3> vn(P.size(), vec3(0));
+  for (auto& f : F) { vec3 cr = glm::cross(P[f.y] - P[f.x], P[f.z] - P[f.x]); if (glm::dot(cr, (P[f.x] + P[f.y] + P[f.z]) / 3.0f - ctr) < 0) std::swap(f.y, f.z), cr = -cr; vn[f.x] += cr; vn[f.y] += cr; vn[f.z] += cr; }
+  int lith = std::clamp(rp.lith, 0, 3);
+  uint32_t base = (uint32_t)m.v.size();
+  for (auto& f : F) {
+    uint32_t idx[3] = {f.x, f.y, f.z};
+    vec3 cr = glm::cross(P[f.y] - P[f.x], P[f.z] - P[f.x]); float L = glm::length(cr); vec3 fn = L > 1e-10f ? cr / L : vec3(0, 1, 0);
+    for (int k = 0; k < 3; ++k) {
+      vec3 p = P[idx[k]]; vec3 sn = glm::length(vn[idx[k]]) > 1e-12f ? glm::normalize(vn[idx[k]]) : fn;
+      vec3 nn = glm::normalize(glm::mix(fn, sn, 0.85f));   // smooth: a continuous taper, not facets
+      float var = vn3(p * 0.9f, ns + 77);
+      Vertex v{p, nn, tint * (0.94f + 0.12f * var), vec4((float)PAT_ROCK, 0.88f, 0.0f, (float)lith), p, nn};
+      m.v.push_back(v); m.i.push_back(base++);
+      if (tris) tris->push_back(p);
+    }
+  }
+}
 void buildRockPiece(MeshData& m, const RockPiece& rp, vec3 tint, std::vector<vec3>* hull, std::vector<vec3>* tris) {
+  if (rp.shape == 1) { buildConePiece(m, rp, tint, hull, tris); return; }
   std::vector<vec3> V; std::vector<glm::uvec3> F;
   icosphere(std::clamp(rp.detail, 0, 3), V, F);
   Rng r{mix64(rp.seed * 0x9E3779B1ull + (uint64_t)rp.lith * 7919ull)};
@@ -384,6 +431,8 @@ void buildNatureAsset(AssetDef& a, const json& j, std::vector<vec3>& pts) {
       rp.size = jvec3(pj["size"], vec3(1)); rp.pos = jvec3(pj["pos"]); rp.yaw = pj.value("yaw", 0.0f);
       if (pj.contains("tilt")) { rp.tiltX = pj["tilt"][0].get<float>(); rp.tiltZ = pj["tilt"][1].get<float>(); }
       rp.sink = pj.value("sink", 0.25f);
+      rp.shape = pj.value("shape", std::string()) == "cone" ? 1 : 0; rp.taper = pj.value("taper", 1.3f); rp.flute = pj.value("flute", 0.0f);   // CV1: dripstone spikes
+      if (pj.contains("lean")) rp.lean = vec2(pj["lean"][0].get<float>(), pj["lean"][1].get<float>());
       float big = std::max(rp.size.x, std::max(rp.size.y, rp.size.z));
       rp.detail = pj.value("detail", big > 1.4f ? 3 : 2);
       n.pieces.push_back(rp);
