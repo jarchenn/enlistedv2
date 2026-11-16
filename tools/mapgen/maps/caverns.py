@@ -378,6 +378,8 @@ def build(ctx):
     for sx in (-1.0, 1.0):                                                                  # the south approach: two stalagmite stands either side of the basin
         place("cave_drip_up_%d" % (11 if sx < 0 else 12), px + sx * 13.0, pz - 21.0)
     place("cave_fire_altar", px, pz - 5.2, yaw=0.0, tags=("light",))                        # the small warm glow at the centre
+    for x, z in ((px - 9.0, pz + 15.5), (px, pz + 16.5), (px + 9.0, pz + 15.5), (px - 15.5, pz + 4.0), (px + 15.5, pz + 4.0)):
+        place("cave_light_uplight", x, z, y=floor_y(x, z) + 0.3, tags=("light",))           # rim light carried up the organ walls, fading at the top
     place("cave_steps", px, pz - 9.5, yaw=look_yaw(0.0, 1.0), y=floor_y(px, pz - 9.5) - 0.25)   # the dais steps, down toward the basin
     for a in (60.0, 300.0):
         ar = math.radians(a)
@@ -400,6 +402,8 @@ def build(ctx):
     rep["columns"] = n_col
     rim = []
     for s_ in [C] + OUT:   # organ walls against each cavern's wall, facing in, never in a mouth
+        if s_ is not C and min(s_.rx, s_.rz) < 25.0:
+            continue   # a narrow cavern: an organ wall's arc could close it off
         n = 9 if s_ is C else 3
         for k in range(n):
             a = k / n * 2 * math.pi + R.uniform(0, 0.5)
@@ -412,7 +416,7 @@ def build(ctx):
             if x is None or fd(x, z)[3] is not s_ or any(t.d(x, z) < 6.0 for t in TUN):
                 continue
             rim.append((x, z))
-            place("cave_organ_%d" % (R.randrange(2, 4) if s_ is C else R.randrange(0, 3)), x, z, yaw=look_yaw(s_.c[0] - x, s_.c[1] - z))
+            place("cave_organ_%d" % (R.randrange(2, 4) if s_ is C else 0), x, z, yaw=look_yaw(s_.c[0] - x, s_.c[1] - z))
     rep["organWalls"] = len(rim)
     place("cave_spine_arch", -64.0, 6.0, yaw=95.0)
     place("cave_spine_arch", 66.0, -8.0, yaw=88.0)
@@ -420,7 +424,7 @@ def build(ctx):
     # ---- the roof dressed: dense stalactite fields of every size (giants where the roof is high, curtains and needles
     # elsewhere), denser round the cracks; stalagmites under them (some pairs grow into columns), boulder fields and
     # shelves for cover in the open floors
-    CRACKS = [(0.0, -9.0, "main"), (-36.0, 14.0, "ns"), (30.0, 22.0, "ns"), (NG.c[0] + 6, NG.c[1], "ns"), (SL.c[0] + 8, SL.c[1] - 4, "ns"),
+    CRACKS = [(0.0, -4.0, "main"), (NE.c[0] - 4, NE.c[1] + 2, "ns"), (-36.0, 14.0, "ns"), (30.0, 22.0, "ns"), (NG.c[0] + 6, NG.c[1], "ns"), (SL.c[0] + 8, SL.c[1] - 4, "ns"),
               (EV.c[0], EV.c[1] + 8, "ns"), (WH.c[0] + 2, WH.c[1] + 30, "ns"), (SC.c[0] - 12, SC.c[1], "ns")]
     n_st = n_sg = n_cov = 0
     tries = 0

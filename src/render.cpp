@@ -1562,7 +1562,7 @@ void main(){
       rock *= 1.0 - 0.4*smoothstep(0.72, 0.9, vnL(p*31.0 + 9.0, 31.0));
       h = speck*0.35 + mott*0.65; bump = 0.010;
     } else {
-      float lith = grain == 2 ? 1.0 : 0.0;
+      float lith = grain == 2 ? 1.0 : 0.0; bool drip = grain == 3;   // CV1: dripstone: limestone tones, no bedding or joints, vertical fluting
       float warp = fbmL(vec3(p.xz*0.06, p.y*0.02 + 42.0), 0.06)*5.0;
       float bedY = p.y*0.42*2.0 + warp;                                                         // boulder scale: ~1.2 m beds
       float bedV = fract(sin(floor(bedY)*91.7)*4375.85);
@@ -1570,7 +1570,9 @@ void main(){
       float thin = smoothstep(0.82, 0.97, sin((p.y + warp*0.4)*7.5)*0.5 + 0.5);
       float jx = (p.x*0.62 + p.z*0.78)*0.58 + (vnL(vec3(p.xz*0.1, p.y*0.14 + 43.0), 0.1) - 0.5)*0.7;
       crack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.45, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)));
+      if (drip) { bedLine = 0.0; crack = 0.0; thin = 0.0; bedV = 0.5 + 0.5*mott; }
       vec3 lime = mix(vec3(0.44, 0.40, 0.33), vec3(0.57, 0.52, 0.43), bedV) * (0.74 + 0.42*mott);
+      if (drip) lime *= 0.82 + 0.3*vnL(vec3(p.x*2.6, p.y*0.12, p.z*2.6) + 88.0, 2.6);   // flutes run down the form
       vec3 schist = mix(vec3(0.24, 0.23, 0.21), vec3(0.34, 0.31, 0.27), bedV) * (0.78 + 0.36*mott) * (1.0 - 0.25*thin*lith);
       rock = mix(lime, schist, lith) * (0.9 + 0.2*grn);
       rock *= 1.0 - 0.4*bedLine - 0.42*crack;
