@@ -61,6 +61,8 @@ struct PoseParams {
   float crouch = 0, prone = 0;              // 0..1 blends
   float aimPitch = 0;                       // rad, + up
   float aimYawOffset = 0;                   // rad, upper body twist relative to the legs
+  float lean = 0;                           // MV3: -1 left .. +1 right sideways bend through the waist and spine (rad of bend at full lean: leanBend)
+  float leanBend = 0.28f;
   bool holdWeapon = true;
   float lowReady = 0;                       // 0 aimed .. 1 muzzle lowered (running, no target)
   vec3 gripR{0}, gripL{0};                  // weapon-space hand sockets

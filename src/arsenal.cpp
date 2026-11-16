@@ -45,7 +45,7 @@ void App::loadBindings() {
   // UI1: every other action rebindable by name; map / artillery / lean bind now and are read once their features land
   static const std::pair<const char*, const char*> kMore[] = {{"forward", "W"}, {"back", "S"}, {"left", "A"}, {"right", "D"}, {"sprint", "LEFT_SHIFT"},
     {"jump", "SPACE"}, {"interact", "E"}, {"reload", "R"}, {"build", "B"}, {"loadout", "L"}, {"slot1", "1"}, {"slot2", "2"}, {"slot3", "3"}, {"slot4", "4"},
-    {"nextWeapon", "Q"}, {"scoreboard", "TAB"}, {"map", "M"}, {"artillery", "7"}, {"leanLeft", "Y"}, {"leanRight", "U"}};
+    {"nextWeapon", "Q"}, {"scoreboard", "TAB"}, {"map", "M"}, {"artillery", "7"}, {"leanLeft", "Q"}, {"leanRight", "E"}};   // MV3: shared with Next weapon / Interact: tap = the action, hold = lean
   for (auto& [a, d] : kMore) binds.key[a] = get(a, d);
   { extern void settingsApplyKeys(App&); settingsApplyKeys(*this); }   // the user's rebinds from the Settings window
 }
@@ -58,6 +58,9 @@ void App::loadMoveSettings() {
   move.jumpBuffer = j.value("jumpBuffer_s", move.jumpBuffer); move.coyote = j.value("coyote_s", move.coyote);
   move.eyeStand = j.value("eyeStand_m", move.eyeStand); move.eyeCrouch = j.value("eyeCrouch_m", move.eyeCrouch); move.eyeProne = j.value("eyeProne_m", move.eyeProne);
   move.eyeRate = j.value("eyeSmoothing_per_s", move.eyeRate);
+  { leanCfg = LeanSettings{}; const json l = j.value("lean", json::object()); LeanSettings& c = leanCfg;   // MV3
+    c.side = l.value("sideways_m", c.side); c.radius = l.value("radius_m", c.radius); c.roll = l.value("roll_deg", c.roll); c.in = l.value("in_s", c.in); c.out = l.value("out_s", c.out);
+    c.clear = l.value("clearance_m", c.clear); c.tap = l.value("tap_s", c.tap); c.bend = l.value("bodyBend_deg", c.bend); }
   move.proneToStand = j.value("proneToStand_s", move.proneToStand); move.proneToCrouch = j.value("proneToCrouch_s", move.proneToCrouch);
   move.crouchToStand = j.value("crouchToStand_s", move.crouchToStand);
   move.adsTime = j.value("adsTime_s", move.adsTime);
