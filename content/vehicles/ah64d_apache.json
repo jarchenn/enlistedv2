@@ -293,7 +293,7 @@
       11
     ],
     "spreadDeg": 0.35,
-    "sound": "shot_m2hb",
+    "sound": "shot_cannon30",
     "note": "explosive 30 mm: a small blast per hit (strong vs infantry and light vehicles, nothing vs tanks); about 150 rounds (7.7 s) of continuous fire overheat it, then it cools back to 35 % (~3 s) before firing again; 1200 rounds, no reload in the air"
   },
   "rockets": {

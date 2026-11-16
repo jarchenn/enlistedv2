@@ -138,12 +138,14 @@ struct Audio::Impl {
   std::map<std::string, Buf> bufs;
   struct Event { float minDist = 1;   /* full volume inside this range (m): big sounds carry */ std::vector<Buf> v; float gain = 1; std::string kind; int last = -1;
                  std::vector<Buf> st;      // SND5 st: interleaved stereo of each variant (gun shots), played as is when at the listener
-                 int bus = -1; float rolloff = -1, earM = 2; bool duck = false; };   // SND9: its own reverb bus (1-4), roll-off, at-the-ear range, ducks the beds
+                 int bus = -1; float rolloff = -1, earM = 2; bool duck = false;
+                 float minGap = 0; int maxVoices = 0; };   // SND9: a very fast gun: at most one shot per minGap s per spot, bodies overlapping up to maxVoices   // SND9: its own reverb bus (1-4), roll-off, at-the-ear range, ducks the beds
   std::map<std::string, Event> events;
   std::mt19937 pick{20260606};
   vec3 listener{0};
   struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; std::string event; double start = 0; int bus = 0; };
   std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
+  std::map<std::string, double> rapidAt;   // SND9: rapid-fire event + 4 m cell -> when it last sounded
   float casingGain = 2.0f;           // SND6: x on the case sound (content/audio/custom/mix.json casing_gain)
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
@@ -433,6 +435,10 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/smg_a.mp3", false, {"modern_scorpion"}, -1, 1.12f, 0.4f, 1.0f},   // derived: the Scorpion, higher and brighter
     {"guns/smg_b.mp3", false, {"m1_thompson"}},   // SMG1.mp3
     {"guns/smg_b.mp3", false, {"m3_grease_gun"}, -1, 0.88f, -0.5f, 2.5f},   // derived: the grease gun, lower and darker
+    // SND9: gun-shot-1 (user request) for the vehicle rapid-fire guns: the Abrams roof minigun (shot_minigun: higher, short and
+    // tight) and the Apache's 30 mm chain gun (shot_cannon30: lower, heavier); "rapid" below
+    {"guns/gun_shot_1.mp3", false, {"minigun"}, -1, 1.15f, 0, 0.3f, 1.5f},
+    {"guns/gun_shot_1.mp3", false, {"cannon30"}, -1, 0.85f, 0, 0.6f, 3.0f},
     // MG12 (borrowed, derived): the .357 and .50 AE on the M1911 / Luger shots, lower, darker and heavier; the sawn-off on the
     // 870's shot a little lower; the SMG-9 on the MP 40's, lower and darker
     {"guns/pistol_b.mp3", false, {"modern_revolver"}, -1, 0.86f, -0.3f, 2.2f, 1.5f},
@@ -477,7 +483,10 @@ int Audio::loadCustom(const fs::path& dir) {
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s)); ev.st.push_back(std::move(st));
     for (const char* id : g.ids) {
       Impl::Event& e2 = p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far");
-      if (mixGuns.contains(id)) { const json& m = mixGuns[id]; e2.gain = std::clamp(m.is_number() ? m.get<float>() : m.is_object() ? m.value("gain", 1.0f) : 1.0f, 0.0f, 2.0f); }   // SND7: per-gun trim
+      const bool mini = std::string(id) == "minigun", c30 = std::string(id) == "cannon30";
+      if (mini || c30) { e2.minGap = mini ? 0.04f : 0.045f; e2.maxVoices = mini ? 6 : 4; e2.rolloff = 0.8f; e2.gain = mini ? 0.7f : 0.85f; }   // SND9: rapid fire, carries far
+      if (mixGuns.contains(id)) { const json& m = mixGuns[id]; e2.gain = std::clamp(m.is_number() ? m.get<float>() : m.is_object() ? m.value("gain", e2.gain) : e2.gain, 0.0f, 2.0f);   // SND7: per-gun trim
+        if (m.is_object()) { e2.minGap = std::clamp(m.value("min_gap_ms", e2.minGap * 1000) / 1000.0f, 0.0f, 0.5f); e2.maxVoices = std::clamp(m.value("max_voices", e2.maxVoices), 1, 16); if (m.contains("rolloff")) e2.rolloff = std::clamp(m.value("rolloff", 1.2f), 0.1f, 2.0f); } }
     }
   }
   // SND4: the bolt action cycle after each shot of a bolt rifle: the recording's open / close (0.36-0.90 s) twice back to back,
@@ -748,7 +757,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
   if (!p) return;
   // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
   // "_suffix" (explosion_grenade -> explosion), so a missing sample never silences an event
-  const Buf* src = nullptr; const Buf* stereo = nullptr; std::string used; int evBus = -1; float evRoll = -1, evEar = 2; bool evDuck = false; float gain = 1, minDist = 1; bool shot = false, step = false, uiEv = false;
+  const Buf* src = nullptr; const Buf* stereo = nullptr; std::string used; int evBus = -1; float evRoll = -1, evEar = 2; bool evDuck = false; float evGap = 0; int evMaxV = 0; float gain = 1, minDist = 1; bool shot = false, step = false, uiEv = false;
   std::string n = name;
   for (int tries = 0; tries < 3 && !src; ++tries) {
     std::string cand = n;
@@ -757,15 +766,25 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
     if (e != p->events.end()) {
       auto& ev = e->second; int k = 0;
       if (ev.v.size() > 1) { k = (int)(p->pick() % (ev.v.size() - 1)); if (ev.last >= 0 && k >= ev.last) ++k; }   // never the same twice running
-      ev.last = k; src = &ev.v[k]; stereo = k < (int)ev.st.size() && !ev.st[k].empty() ? &ev.st[k] : nullptr; used = cand; evBus = ev.bus; evRoll = ev.rolloff; evEar = ev.earM; evDuck = ev.duck; gain = ev.gain; minDist = ev.minDist; uiEv = ev.kind == "ui"; shot = ev.kind == "shot"; step = ev.kind == "step";
+      ev.last = k; src = &ev.v[k]; stereo = k < (int)ev.st.size() && !ev.st[k].empty() ? &ev.st[k] : nullptr; used = cand; evBus = ev.bus; evRoll = ev.rolloff; evEar = ev.earM; evDuck = ev.duck; evGap = ev.minGap; evMaxV = ev.maxVoices; gain = ev.gain; minDist = ev.minDist; uiEv = ev.kind == "ui"; shot = ev.kind == "shot"; step = ev.kind == "step";
     } else if (auto b = p->bufs.find(n); b != p->bufs.end()) { src = &b->second; used = n; }
     else { size_t u = n.rfind('_'); if (u == std::string::npos) break; n = n.substr(0, u); }
   }
   if (!src) return;
+  if (evGap > 0) {   // SND9: rapid fire (2500 rpm and up): rounds closer than minGap at the same spot are carried by the previous
+                     // body (a buzz / roar, not a click train), and the oldest overlapping body fades out (15 ms) past maxVoices
+    double tn = ma_engine_get_time_in_milliseconds(&p->engine) / 1000.0;   // audio time
+    double& last = p->rapidAt[used + "@" + std::to_string((int)std::floor(pos.x / 4)) + "," + std::to_string((int)std::floor(pos.z / 4))];
+    if (tn - last < evGap) return;
+    last = tn;
+    int live = 0; Impl::Voice* oldest = nullptr;
+    for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd)) { ++live; if (!oldest || c.start < oldest->start) oldest = &c; }
+    if (oldest && live >= evMaxV) { ma_sound_set_fade_in_milliseconds(&oldest->snd, -1, 0, 15); ma_sound_set_stop_time_in_milliseconds(&oldest->snd, ma_engine_get_time_in_milliseconds(&p->engine) + 16); }
+  }
   lastEvent = used; ++eventPlays[used];
   { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio play %s vol %.2f pitch %.2f at %.1f m", used.c_str(), volume, pitch, glm::length(pos - p->listener)); }   // diagnostics
   double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-  if (shot)   // automatic fire: the previous body of this gun yields to the new shot (no stacking / clipping). SND7: it is
+  if (shot && evGap <= 0)   // automatic fire: the previous body of this gun yields to the new shot (no stacking / clipping). SND7: it is
               // out in 5 ms and the new shot starts after it, so the two never sum into the limiter (that dipped each attack
               // up to -3 dB in an AK burst)
     for (auto& c : p->voices) if (c.used && c.event == used && !ma_sound_at_end(&c.snd) && now - c.start < 0.35) {
@@ -790,7 +809,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
   // M249 / MG 42 5 m), goes through the gun reverb and ducks the ambience beds
   const bool gun = shot || used.rfind("shot_", 0) == 0 || used.rfind("tank_", 0) == 0 || used.rfind("tail_", 0) == 0 || used == "pak_fire" || used == "flak_fire";
   const bool fifty = used == "shot_modern_sniper_50";
-  const bool heavy = used == "shot_mg42" || used == "shot_modern_lmg" || used == "tail_mg42" || used == "tail_modern_lmg" || used.rfind("shot_m2hb", 0) == 0 || used.rfind("tail_m2hb", 0) == 0;
+  const bool heavy = used == "shot_mg42" || used == "shot_modern_lmg" || used == "shot_minigun" || used == "shot_cannon30" || used == "tail_mg42" || used == "tail_modern_lmg" || used.rfind("shot_m2hb", 0) == 0 || used.rfind("tail_m2hb", 0) == 0;
   if (gun) minDist = std::max(minDist, fifty ? 8.0f : heavy ? 5.0f : 3.0f);
   if ((gun || evDuck) && glm::length(pos - p->listener) < (evDuck ? 150.0f : 60.0f)) p->duckT = now;   // SND6: the .50 full level to 8 m
   ma_audio_buffer_config c = stereo ? ma_audio_buffer_config_init(ma_format_f32, 2, stereo->size() / 2, stereo->data(), nullptr)
@@ -1007,6 +1026,17 @@ void Audio::fidelityReport(const fs::path& dir) {
     for (int k = 0; k < 13; ++k) { play(ev, vec3(0.15f, -0.1f, -0.6f), 1.0f); ma_engine_read_pcm_frames(&p->engine, st.data(), step, nullptr); for (int i = 0; i < step; ++i) mid.push_back(0.5f * (st[2 * i] + st[2 * i + 1])); gMin = std::min(gMin, p->lim.g); }
     double q = 0; float pk = 0; for (float v : mid) { q += (double)v * v; pk = std::max(pk, std::fabs(v)); }
     logf("fidelity burst %-22s 13 rounds at 750 rpm (1.04 s): peak %6.1f  rms %6.1f dB  limiter gain low %.2f", ev, 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / mid.size() + 1e-20), gMin);
+  }
+  for (auto [ev, rpm] : {std::pair<const char*, int>{"shot_minigun", 2500}, {"shot_cannon30", 1200}, {"shot_mg42", 1200}}) {   // SND9: the vehicle rapid-fire guns at their rates, 3 m off, 1.5 s, then the run-out
+    if (!hasEvent(ev)) continue;
+    for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
+    std::vector<float> st(SR * 2); for (int k = 0; k < 20; ++k) ma_engine_read_pcm_frames(&p->engine, st.data(), SR / 10, nullptr);
+    const int step = SR * 60 / rpm, n = SR * 3 / 2 / step; std::vector<float> mid; float gMin = 1; int played0 = eventPlays[ev];
+    for (int k = 0; k < n; ++k) { play(ev, vec3(1.0f, 0.5f, -2.8f), 1.0f); ma_engine_read_pcm_frames(&p->engine, st.data(), step, nullptr); for (int i = 0; i < step; ++i) mid.push_back(0.5f * (st[2 * i] + st[2 * i + 1])); gMin = std::min(gMin, p->lim.g); }
+    double q = 0; float pk = 0; for (float v : mid) { q += (double)v * v; pk = std::max(pk, std::fabs(v)); }
+    std::vector<float> e10; for (size_t i = 0; i + SR / 100 <= mid.size(); i += SR / 100) { double r = 0; for (int j = 0; j < SR / 100; ++j) r += (double)mid[i + j] * mid[i + j]; e10.push_back((float)(10 * std::log10(r / (SR / 100) + 1e-20))); }
+    float lo = 0, hi = -200; for (size_t i = e10.size() / 5; i < e10.size(); ++i) { lo = std::min(lo, e10[i]); hi = std::max(hi, e10[i]); }   // 10 ms loudness over the sustained part: a small swing = a roar, a big one = a click train
+    logf("fidelity rapid %-14s %d rpm, %d rounds over 1.5 s (%d sounded) at 3 m: peak %6.1f  rms %6.1f dB  10 ms loudness swing %.1f dB  limiter gain low %.2f", ev, rpm, n, eventPlays[ev] - played0, 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / mid.size() + 1e-20), hi - lo, gMin);
   }
   if (hasEvent("casing")) for (float gn : {1.0f, p->casingGain}) {   // SND6: a case landing at the player's feet (hard ground), at the SND4 level and now
     for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
