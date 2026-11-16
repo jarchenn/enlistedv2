@@ -402,31 +402,32 @@ void paintMat(int t, vec3 p, vec4 nz, out vec3 a, out float r, out vec3 bm, out 
 // each painted type is modulated by its ambientCG set; without them the materials are the procedural ones above.
 struct PaintOut { float w; float rough, ao; vec3 dn, ng; };
 // CV1: the painted weight alone (paintApply's texel taps, no materials): kTerrainFS skips layer samples under full paint
-float paintCover(vec3 p) {
-  if (uPaintOn == 0) return 0.0;
-  float w[13]; for (int i = 0; i < 13; ++i) w[i] = 0.0;
-  vec2 j = (vec2(vnoise(vec3(p.xz*0.8, 61.0)), vnoise(vec3(p.xz*0.8, 62.0))) - 0.5)*0.8;
+float gPW[13]; float gPWsum = 0.0; bool gPWok = false;   // NT5: the pixel's paint weights, fetched once (paintCover, then paintApply)
+void paintWeights(vec3 p) {
+  for (int i = 0; i < 13; ++i) gPW[i] = 0.0;
+  vec2 j = (vec2(vnoise(vec3(p.xz*0.8, 61.0)), vnoise(vec3(p.xz*0.8, 62.0))) - 0.5)*0.8;   // no texel grid at the edges
   vec2 q = (p.xz - uPaintOrg)/uPaintTexel - 0.5 + j;
   ivec2 c = ivec2(floor(q)); vec2 f = q - vec2(c);
-  paintAcc(w, c, (1.0 - f.x)*(1.0 - f.y)); paintAcc(w, c + ivec2(1, 0), f.x*(1.0 - f.y));
-  paintAcc(w, c + ivec2(0, 1), (1.0 - f.x)*f.y); paintAcc(w, c + ivec2(1, 1), f.x*f.y);
-  float W = 0.0; for (int i = 1; i < 13; ++i) W += w[i];
-  return clamp(W, 0.0, 1.0);
+  paintAcc(gPW, c, (1.0 - f.x)*(1.0 - f.y)); paintAcc(gPW, c + ivec2(1, 0), f.x*(1.0 - f.y));
+  paintAcc(gPW, c + ivec2(0, 1), (1.0 - f.x)*f.y); paintAcc(gPW, c + ivec2(1, 1), f.x*f.y);
+  gPWsum = 0.0; for (int i = 1; i < 13; ++i) gPWsum += gPW[i];
+  gPWok = true;
+}
+float paintCover(vec3 p) {
+  if (uPaintOn == 0) return 0.0;
+  paintWeights(p);
+  return clamp(gPWsum, 0.0, 1.0);
 }
 PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec3 dpy, float dist) {
   PaintOut o; o.w = 0.0; o.rough = 1.0; o.ao = 1.0; o.dn = vec3(0.0); o.ng = nGeo;
   if (uPaintOn == 0) return o;
-  float w[13]; for (int i = 0; i < 13; ++i) w[i] = 0.0;
-  vec2 j = (vec2(vnoise(vec3(p.xz*0.8, 61.0)), vnoise(vec3(p.xz*0.8, 62.0))) - 0.5)*0.8;   // no texel grid at the edges
-  vec2 q = (p.xz - uPaintOrg)/uPaintTexel - 0.5 + j;
-  ivec2 c = ivec2(floor(q)); vec2 f = q - vec2(c);
-  paintAcc(w, c, (1.0 - f.x)*(1.0 - f.y)); paintAcc(w, c + ivec2(1, 0), f.x*(1.0 - f.y));
-  paintAcc(w, c + ivec2(0, 1), (1.0 - f.x)*f.y); paintAcc(w, c + ivec2(1, 1), f.x*f.y);
-  float W = 0.0; for (int i = 1; i < 13; ++i) W += w[i];
-  W = clamp(W, 0.0, 1.0)*(1.0 - smoothstep(0.15, 0.75, dirt));   // craters show through the paint
+  if (!gPWok) paintWeights(p);   // usually done already by paintCover (kTerrainFS)
+  float w[13]; for (int i = 0; i < 13; ++i) w[i] = gPW[i];
+  float W = clamp(gPWsum, 0.0, 1.0)*(1.0 - smoothstep(0.15, 0.75, dirt));   // craters show through the paint
   if (W < 0.004) return o;
   vec3 a = vec3(0.0), bm = vec3(0.0); float r = 0.0, ao = 0.0, tot = 0.0;
-  vec4 nz = vec4(vnoise(vec3(p.xz*0.9, 71.0)), vnoise(vec3(p.xz*4.3, 72.0)), fbm(vec3(p.xz*0.07, 73.0)), vnoise(vec3(p.xz*4.3, 74.0)));   // NT5: once, not per type
+  vec4 nz = dist < 30.0 ? vec4(vnoise(vec3(p.xz*0.9, 71.0)), vnoise(vec3(p.xz*4.3, 72.0)), fbm(vec3(p.xz*0.07, 73.0)), vnoise(vec3(p.xz*4.3, 74.0)))
+                        : vec4(vnoise(vec3(p.xz*0.9, 71.0)), 0.5, vnoise(vec3(p.xz*0.07, 73.0)), 0.5);   // NT5: once, not per type; far: no sub-pixel octaves
   for (int i = 1; i < 13; ++i) {
     if (w[i] < 0.01) continue;
     vec3 ai, bi; float ri, oi;

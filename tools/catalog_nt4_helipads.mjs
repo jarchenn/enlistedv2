@@ -73,9 +73,9 @@ function flight(A, from, to, w, m, railM) {
     pipe(A, a, b, 0.05, railM);
     pipe(A, [a[0], a[1] - 0.45, a[2]], [b[0], b[1] - 0.45, b[2]], 0.035, railM, { k: 0 });
     for (const t of [0, 0.5, 1]) { const p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; A.box([p[0] - 0.03, p[1] - 0.95, p[2] - 0.03], [p[0] + 0.03, p[1], p[2] + 0.03], railM, { k: 0 }); }
-    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 0.47, (a[2] + b[2]) / 2];
-    if (along === 2) A.obox(mid, [0.012, 0.85, L * 0.98], [-ang * up, 0, 0], "rail_dark", {});
-    else A.obox(mid, [L * 0.98, 0.85, 0.012], [0, 0, ang * up], "rail_dark", {});
+    // NT5: no mesh infill (the tilted rust plates read as a broken stair); balusters every ~0.6 m instead
+    const nb = Math.max(3, Math.round(L / 0.6));
+    for (let k = 1; k < nb; k++) { const t = k / nb, p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; A.box([p[0] - 0.015, p[1] - 0.95, p[2] - 0.015], [p[0] + 0.015, p[1], p[2] + 0.015], railM, { k: 0 }); }
   }
 }
 
