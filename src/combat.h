@@ -11,7 +11,7 @@ struct Handling {   // content/weapons/handling.json (defaults = the file's valu
   float hip[4] = {0.15f, 0.15f, 3.0f, 3.0f}, ads[4] = {0.03f, 0.03f, 0.45f, 0.45f};   // cone half-angle (deg) by WeaponClass
   float stance[STANCE_COUNT] = {1.0f, 0.8f, 0.4f, 0.08f, 0.05f, 1.6f};               // cone multiplier by Stance
   float recoil[STANCE_COUNT] = {1.0f, 1.0f, 0.85f, 0.6f, 0.5f, 1.0f};                // recoil multiplier by Stance
-  float movingYaw = 0.25f;   // share of the weapon's horizontal recoil while moving (still: pitch only)
+  float movingYaw = 0.25f;   // WP4c: moving adds this share to the horizontal jerk
   float cone(int wclass, bool ads, int st) const { return (ads ? this->ads[wclass] : hip[wclass]) * stance[st]; }
 };
 // 0 untraced, 1 red tracer (every `every`-th round), 2 the short white-yellow streak of the guns' other rounds
@@ -85,7 +85,7 @@ struct WeaponDef {
   // WP4 visual recoil (handling.json "vmRecoil": per kind, per-weapon overrides): the peaks of a single shot's
   // critically damped spring (back along the bore into the shoulder m, muzzle up deg, leftward deg), its rate omega
   // (1/s: peak at 1 / omega, settled ~5 / omega) and the back travel cap (eye relief: never into the camera)
-  float vmBack = 0.035f, vmPitch = 1.6f, vmYaw = 0.35f, vmOmega = 28, vmBackMax = 0.07f, flashScale = 1;
+  float vmBack = 0.035f, vmPitch = 1.6f, vmYaw = 0.35f, vmOmega = 28, vmBackMax = 0.07f, flashScale = 1, yawScale = 2;   // yawScale: WP4c the aim's per-shot horizontal jerk x recoil.yaw
   bool suppressed = false;              // a built-in suppressor: a tiny flash, no light
 };
 struct WeaponState {

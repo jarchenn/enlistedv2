@@ -27,7 +27,7 @@
   "prone": 0.6,
   "mounted": 0.5,
   "sprinting": 1.0,
-  "movingYaw": 0.25
+  "movingYaw": 0.25, "_yawNote": "WP4c: every shot jerks the aim left or right (55 % left), size recoil.yaw x vmRecoil kind yawScale x 0.3..1.2 (15 % of shots twice that) x stance factor squared, moving x (1 + movingYaw); accumulated within +-8 deg"
  },
  "classes": {
   "kar98k": "rifle",
@@ -52,7 +52,7 @@
     "left_deg": 0.1,
     "omega": 50,
     "backMax_m": 0.06,
-    "flash": 0.8
+    "flash": 0.8, "yawScale": 2
    },
    "smg": {
     "back_m": 0.045,
@@ -60,7 +60,7 @@
     "left_deg": 0.05,
     "omega": 52,
     "backMax_m": 0.065,
-    "flash": 0.85
+    "flash": 0.85, "yawScale": 2.75
    },
    "assault": {
     "back_m": 0.065,
@@ -68,7 +68,7 @@
     "left_deg": 0.06,
     "omega": 50,
     "backMax_m": 0.09,
-    "flash": 1.0
+    "flash": 1.0, "yawScale": 2.75
    },
    "battle": {
     "back_m": 0.085,
@@ -76,7 +76,7 @@
     "left_deg": 0.08,
     "omega": 46,
     "backMax_m": 0.11,
-    "flash": 1.15
+    "flash": 1.15, "yawScale": 2.75
    },
    "carbine": {
     "back_m": 0.08,
@@ -84,7 +84,7 @@
     "left_deg": 0.08,
     "omega": 46,
     "backMax_m": 0.11,
-    "flash": 0.95
+    "flash": 0.95, "yawScale": 2
    },
    "rifle": {
     "back_m": 0.11,
@@ -92,7 +92,7 @@
     "left_deg": 0.1,
     "omega": 42,
     "backMax_m": 0.13,
-    "flash": 1.2
+    "flash": 1.2, "yawScale": 2
    },
    "sniper": {
     "back_m": 0.12,
@@ -100,7 +100,7 @@
     "left_deg": 0.1,
     "omega": 40,
     "backMax_m": 0.14,
-    "flash": 1.25
+    "flash": 1.25, "yawScale": 2
    },
    "sniper50": {
     "back_m": 0.14,
@@ -108,15 +108,15 @@
     "left_deg": 0.12,
     "omega": 36,
     "backMax_m": 0.16,
-    "flash": 1.6
+    "flash": 1.6, "yawScale": 2
    },
    "shotgun": {
-    "back_m": 0.13,
-    "pitch_deg": 1.8,
+    "back_m": 0.17,
+    "pitch_deg": 2.4,
     "left_deg": 0.12,
-    "omega": 38,
-    "backMax_m": 0.15,
-    "flash": 1.4
+    "omega": 34,
+    "backMax_m": 0.19,
+    "flash": 1.4, "yawScale": 2
    },
    "lmg": {
     "back_m": 0.06,
@@ -124,7 +124,7 @@
     "left_deg": 0.05,
     "omega": 54,
     "backMax_m": 0.085,
-    "flash": 1.15
+    "flash": 1.15, "yawScale": 2.5
    },
    "launcher": {
     "back_m": 0.05,
@@ -132,7 +132,7 @@
     "left_deg": 0.05,
     "omega": 36,
     "backMax_m": 0.06,
-    "flash": 0
+    "flash": 0, "yawScale": 1
    }
   },
   "weapons": {
