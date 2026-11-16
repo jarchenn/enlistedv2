@@ -47,7 +47,7 @@
     "modern_scorpion":{ "near": 30, "far": 18,  "falloffStart_m": 25,  "falloffEnd_m": 70, "rpm": 1150, "note": "MG2 modern gun" },
     "modern_uzi":    { "near": 32,  "far": 18,  "falloffStart_m": 25,  "falloffEnd_m": 70, "rpm": 600, "note": "MG2 modern gun" },
     "modern_shotgun2":{ "near": 24, "far": 6,   "falloffStart_m": 10,  "falloffEnd_m": 40, "rpm": 70, "note": "MG2 modern gun: per pellet (9 per shell)" },
-    "modern_sniper_50":{ "near": 300, "far": 300, "falloffStart_m": 0, "falloffEnd_m": 0, "rpm": 30, "note": "MG6 .50 BMG: one hit kills anywhere (legs 300 x 0.6 = 180); heavies take a large share" },
+    "modern_sniper_50":{ "near": 600, "far": 600, "falloffStart_m": 0, "falloffEnd_m": 0, "rpm": 30, "note": "MG6 .50 BMG: one hit kills anywhere (legs 300 x 0.6 = 180); heavies take a large share" },
     "modern_sniper_3":{ "near": 110, "far": 90, "falloffStart_m": 300, "falloffEnd_m": 600, "rpm": 45, "note": "MG7 modern gun (the M24 row)" },
     "modern_pistol3":{ "near": 34, "far": 20, "falloffStart_m": 15, "falloffEnd_m": 40, "rpm": 450, "note": "MG7 modern gun (the 9 mm pistol row)" },
     "modern_ak12":   { "near": 45, "far": 30, "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 700, "note": "MG7 modern gun (the AK-74 row)" },
