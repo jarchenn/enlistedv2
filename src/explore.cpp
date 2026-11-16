@@ -10,6 +10,7 @@
 #include "w3.h"
 #include "water_query.h"
 #include "loot.h"   // BR2 Battle Royale loot
+#include "commands.h"   // CMD1 "/" command line
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -357,7 +358,9 @@ bool App::syncCursor() {
 void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
   if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
-  if (!selftest) {
+  if (commandsTakeCreative()) { exitExplore(); return; }   // CMD1 /creative: as F5
+  if (!selftest && commandsOwnKeys()) (void)kp(win, GLFW_KEY_ESCAPE);   // CMD1: the command line has the keyboard (its Esc must not open the pause menu)
+  else if (!selftest) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
     else if (kp(win, GLFW_KEY_ESCAPE)) {
@@ -382,7 +385,7 @@ void App::updateExplore(float dt) {
     scriptedInput.fireMode = scriptedInput.prone = scriptedInput.packUp = scriptedInput.rackUp = scriptedInput.rackDown = scriptedInput.rackEquip = scriptedInput.rackClose = false;
     scriptedInput.choose1 = scriptedInput.choose2 = false; scriptedInput.nextWeapon = false; scriptedInput.quickGrenade = false; scriptedInput.slot3 = scriptedInput.slot4 = false;
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
-  } else {
+  } else if (!commandsOwnKeys()) {   // CMD1: while the command line is open no key, button or look reaches the game
     double mx, my; glfwGetCursorPos(win, &mx, &my);
     if (haveLast && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
       StationRT* gs = station(occupied);
@@ -467,6 +470,7 @@ void App::updateExplore(float dt) {
 }
 
 void App::drawExploreUI() {
+  commandsFrame(*this);   // CMD1: "/" command line
   lootUi(*this);   // BR2: pick-up prompt, heal ring, inventory screen
   if (lootInventoryOpen()) return;   // the inventory replaces the play HUD
   ImGuiIO& io = ImGui::GetIO();
