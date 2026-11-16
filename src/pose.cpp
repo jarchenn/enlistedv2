@@ -95,7 +95,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     legT[leg] = T;
   }
   // ---- body root: hips drop for crouch / glide / kneel, and as far as the stepping feet need to stay reachable
-  float drop = 0.36f * crouch + 0.07f * mAim;
+  float drop = 0.36f * crouch + 0.07f * mAim + 0.04f * c01(p.hunch) * (1 - crouch);   // AI5: the hunch bends the knees
   if (!gait) drop += 0.025f * walk * std::fabs(std::cos(p.walkPhase));
   else {
     float need = 0, needMax = 0;
@@ -126,6 +126,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   // ---- spine: lean + aim pitch (looking up leans back a little) + upper-body twist (aim, a bladed stance, run counter-swing)
   float lean = 0.22f * crouch + 0.03f * kneel;
   lean += gait ? 0.05f * walk + 0.13f * mAim + 0.06f * carry * walk : 0.10f * walk;
+  lean += 0.20f * c01(p.hunch) * (1 - crouch) * (1 - kneel);   // AI5: moving ~22 deg, standing aim ~16 deg
   lean += 0.55f * climbRoll;   // mantle: the chest rolls forward over the ledge in the second half
   float aimW = (1 - carry) * (1 - 0.7f * lowR);   // shouldered and looking down the sights
   float blade = (kind == 1 ? -0.30f : kind == 2 ? -0.12f : 0.0f) * (1 - carry) - 0.10f * carry;

@@ -77,6 +77,7 @@ struct PoseParams {
   // AN1 soldier postures (0..1 blends, set by Game::posesStep): kneel (still and crouched: right knee down, left foot forward),
   // carry (moving, not engaged: rifle low across the body), moveAim (moving while engaged: knees bent, rifle at eye level)
   float kneel = 0, carry = 0, moveAim = 0;
+  float hunch = 0;                          // AI5: combat hunch (soldier bots): torso forward ~11 deg more, knees bent, head down to the sights
   bool gait = false;                        // stance / swing feet: planted feet travel back at the body speed (walkPhase: 2 pi per cycle)
   float stride = 0, duty = 0.6f;            // half the planted-foot travel (m); stance fraction of the cycle
   vec3 moveDir{0, 0, 1};                    // model-space travel direction (unit, y = 0)
