@@ -380,7 +380,12 @@ def build(ctx):
         place("cave_drip_up_%d" % (11 if sx < 0 else 12), px + sx * 13.0, pz - 21.0)
     place("cave_fire_altar", px, pz - 5.2, yaw=0.0, tags=("light",))                        # the small warm glow at the centre
     for x, z in ((px - 9.0, pz + 15.5), (px, pz + 16.5), (px + 9.0, pz + 15.5), (px - 15.5, pz + 4.0), (px + 15.5, pz + 4.0)):
-        place("cave_light_uplight", x, z, y=floor_y(x, z) + 0.3, tags=("light",))           # rim light carried up the organ walls, fading at the top
+        place("cave_light_uplight", x, z, y=floor_y(x, z) + 0.3, tags=("light",))           # warm light carried up the organ walls, fading at the top
+        place("cave_glow_ember", x, z - 0.8, tags=("light",))                                # its visible source: an ember fissure at the wall's foot
+    for sx in (-1.0, 1.0):   # CV1c: the monument lit from inside the cave: stone braziers at the steps, crystals and cold mineral glow at its flanks
+        place("cave_brazier", px + sx * 4.2, pz - 9.0, yaw=0.0, tags=("light",))
+        place("cave_crystals", px + sx * 6.0, pz + 1.5, yaw=sx * 30.0, tags=("light",))
+        place("cave_light_mineral_up", px + sx * 3.2, pz - 3.2, y=floor_y(px + sx * 3.2, pz - 3.2) + 0.2, tags=("light",))
     place("cave_steps", px, pz - 9.5, yaw=look_yaw(0.0, 1.0), y=floor_y(px, pz - 9.5) - 0.25)   # the dais steps, down toward the basin
     for a in (60.0, 300.0):
         ar = math.radians(a)
@@ -397,7 +402,7 @@ def build(ctx):
         return False
 
     # ---- columns: pillars holding the vault (giants in the centre), organ walls on the cavern rims, spine arches
-    n_col = sum(column_at(x, z) for x, z in ((-30.0, -16.0), (26.0, 20.0), (-8.0, 38.0), (40.0, -4.0), (-46.0, 22.0), (14.0, -42.0)))
+    n_col = sum(column_at(x, z) for x, z in ((-48.0, 20.0), (46.0, -6.0), (-16.0, 40.0), (30.0, -38.0)))   # CV1c: pillars near the hall's edges
     for o in OUT:
         n_col += column_at(o.c[0] + R.uniform(-8, 8), o.c[1] + R.uniform(-8, 8))
     rep["columns"] = n_col
@@ -419,14 +424,16 @@ def build(ctx):
             rim.append((x, z))
             place("cave_organ_%d" % (R.randrange(2, 4) if s_ is C else 0), x, z, yaw=look_yaw(s_.c[0] - x, s_.c[1] - z))
     rep["organWalls"] = len(rim)
-    place("cave_spine_arch", -64.0, 6.0, yaw=95.0)
-    place("cave_spine_arch", 66.0, -8.0, yaw=88.0)
 
     # ---- the roof dressed: dense stalactite fields of every size (giants where the roof is high, curtains and needles
-    # elsewhere), denser round the cracks; stalagmites under them (some pairs grow into columns), boulder fields and
+    # elsewhere); stalagmites under them (some pairs grow into columns), boulder fields and
     # shelves for cover in the open floors
-    CRACKS = [(0.0, -4.0, "main"), (NE.c[0] - 4, NE.c[1] + 2, "ns"), (-36.0, 14.0, "ns"), (30.0, 22.0, "ns"), (NG.c[0] + 6, NG.c[1], "ns"), (SL.c[0] + 8, SL.c[1] - 4, "ns"),
-              (EV.c[0], EV.c[1] + 8, "ns"), (WH.c[0] + 2, WH.c[1] + 30, "ns"), (SC.c[0] - 12, SC.c[1], "ns")]
+    # CV1c: the central cavern is a vast open hall: formations at its edges, round the monument's flanks and on a few
+    # cover islands, wide open floor between, and only a thin, high field of stalactites overhead in the middle
+    ISLANDS = [(-38.0, -24.0), (36.0, 22.0), (26.0, -36.0), (-30.0, 30.0)]
+    def hall_open(x, z):   # deep inside the central cavern and not on an island
+        v = fd(x, z)
+        return v is not None and v[3] is C and v[0] < -14.0 and min(math.hypot(x - ix, z - iz) for ix, iz in ISLANDS) > 8.0
     n_st = n_sg = n_cov = 0
     tries = 0
     while tries < 9000:
@@ -436,29 +443,38 @@ def build(ctx):
         if v is None or v[0] > -3.0:
             continue
         d, f, c, own = v
-        near_crack = min(math.hypot(x - cx, z - cz) for cx, cz, _ in CRACKS)
+        open_ = hall_open(x, z)
         u = roof(x, z)
         if u is None:
             continue
         hgt = u - f
-        if n_st < 650 and R.random() < (0.5 if near_crack < 22 else 0.2) and hgt > 7.0:
-            # size class by roof height: giants (21-25 m) only under the high vaults, never lower than 5 m above the floor
+        if n_st < 560 and R.random() < (0.05 if open_ else 0.24) and hgt > 7.0:
+            # size class by roof height: giants (21-25 m) only under the high vaults, never lower than 5 m above the floor;
+            # over the open hall only the short ones (the vault reads tall)
             vmax = max(i for i, h in enumerate((1.5, 3, 5, 8, 12, 17, 21, 25)) if h < hgt - 5.0 or i == 0)
+            if open_:
+                vmax = min(vmax, 3)
             vv = min(vmax, int(vmax * (R.random() ** 0.8) + 0.5))
             place("cave_drip_down_%d" % (vv + 8 * R.randrange(4)), x, z, y=u + 1.5, tags=("deco",))
             n_st += 1
-        elif R.random() < 0.10 and clear_spot(x, z, 3.0) and math.hypot(x - px, z - pz) > 28:
+        elif not open_ and R.random() < 0.10 and clear_spot(x, z, 3.0) and math.hypot(x - px, z - pz) > 28:
             vv = min(int(R.random() ** 1.6 * 8), 7)
             place("cave_drip_up_%d" % (vv + 8 * R.randrange(3)), x, z)
             n_sg += 1
-        elif R.random() < 0.04 and clear_spot(x, z, 2.5) and math.hypot(x - px, z - pz) > 26:
+        elif not open_ and R.random() < 0.04 and clear_spot(x, z, 2.5) and math.hypot(x - px, z - pz) > 26:
             place(R.choice(["nat_boulder_limestone_l", "nat_boulder_limestone_m", "nat_boulder_schist_slab", "nat_boulders_granite_group", "cave_shelf_0", "cave_shelf_1", "cave_shelf_2"]), x, z)
             n_cov += 1
-        if n_st >= 650 and n_sg > 240:
+        if n_st >= 560 and n_sg > 200:
             break
     rep.update({"stalactites": n_st, "stalagmites": n_sg, "cover": n_cov})
-    for s_ in [C] + OUT:   # boulder ridges across the big floors: cover that breaks the long sightlines
-        for k in range(4 if s_ is C else 2):
+    for ix, iz in ISLANDS:   # the hall's cover islands: a few stalagmites and blocks each, open floor round them
+        for k in range(5):
+            x, z = ix + R.uniform(-5, 5), iz + R.uniform(-5, 5)
+            if inside(x, z, 4.0) and clear_spot(x, z, 2.0):
+                place(R.choice(["cave_drip_up_%d" % R.randrange(0, 8), "cave_drip_up_%d" % R.randrange(8, 16), "nat_boulder_limestone_l", "nat_boulders_granite_group"]), x, z)
+                n_cov += 1
+    for s_ in OUT:   # boulder ridges across the outer floors: cover that breaks the long sightlines
+        for k in range(2):
             a = R.uniform(0, 6.283)
             r0 = R.uniform(0.3, 0.6) * min(s_.rx, s_.rz)
             x0, z0 = s_.c[0] + math.sin(a) * r0, s_.c[1] + math.cos(a) * r0
@@ -484,44 +500,40 @@ def build(ctx):
         water.append({"id": k + 1, "kind": "pond" if depth > 2.0 else "puddle", "level": lvl, "seed": [cx, cz], "outline": outline})
     rep["pools"] = [(w["level"], len(w["outline"])) for w in water]
 
-    # ---- light: the great shaft over the reflecting pool, rare cold cracks, high rim lights grazing the far walls, faint
-    # cold glows over water, a few warm accents; greenery where the light falls
-    n_crack = 0
-    for x, z, kind in CRACKS:
-        u = roof(x, z)
-        if u is None:
-            continue
-        place("cave_light_shaft_main" if kind == "main" else "cave_light_crack_ns", x, z, y=u - 0.3, tags=("light",))
-        n_crack += 1
-        for k in range(16):   # moss, ferns where the light falls
-            a, r = R.uniform(0, 6.28), R.uniform(1.0, 8.0)
-            gx, gz = x + math.sin(a) * r, z + math.cos(a) * r
-            if inside(gx, gz, 1.0) and clear_spot(gx, gz, 1.0) and math.hypot(gx - px, gz - pz) > 9:
-                place(R.choice(["nat_fern_clump", "nat_fern_clump", "mod_ivy_patch_ground", "nat_green_tufts"]), gx, gz, tags=("veg",))
-        for k in range(3):   # hanging roots from the crack
-            place("mod_vines_hanging_long", x + R.uniform(-3, 3), z + R.uniform(-3, 3), y=u - 0.5, tags=("veg",))
-    rep["cracks"] = n_crack
-    for s_ in [C] + OUT:   # rim lights: high, cold, near the walls, so the organ walls and far formations separate from black
-        n = 2 if s_ is C else 1   # rim light on the nearest formations only: each chamber's focus is its crack
+    # ---- light (CV1c): the cave is sealed, no light from outside. Every light has a visible source inside: fire (the
+    # altar, braziers, ember fissures), glowing crystals, bioluminescent fungi, the pools' own glow. Each outer cavern
+    # has one focal light of its own character; greenery only round the pools and the fungi.
+    FOCAL = [(NG, "cave_crystals", 3), (WH, "cave_fungi", 6), (SL, "cave_crystals_violet", 2), (SC, "cave_brazier", 2), (EV, "cave_glow_ember", 4), (NE, "cave_fungi", 4)]
+    n_focal = 0
+    for o, aid, n in FOCAL:
+        for k in range(n):
+            a = k / n * 6.283 + R.uniform(0, 0.8)
+            r = min(o.rx, o.rz) * R.uniform(0.2, 0.45)
+            x, z = o.c[0] + math.sin(a) * r, o.c[1] + math.cos(a) * r
+            if inside(x, z, 3.0) and clear_spot(x, z, 1.5) and pool_add(x, z) > -0.05:
+                place(aid, x, z, tags=("light",))
+                n_focal += 1
+    rep["focalLights"] = n_focal
+    for s_ in [C] + OUT:   # dim glow sources near the walls (crystals / fungi) so far formations separate from black
+        n = 4 if s_ is C else 2
         for k in range(n):
             a = k / n * 6.283 + R.uniform(0, 0.6)
-            x, z = s_.c[0] + math.sin(a) * s_.rx * 0.7, s_.c[1] + math.cos(a) * s_.rz * 0.7
-            u = roof(x, z)
-            if u is not None and inside(x, z, 4.0):
-                place("cave_light_rim", x, z, y=floor_y(x, z) + (u - floor_y(x, z)) * 0.55, tags=("light",))
-    for (cx, cz), rx, rz, depth, below in POOLS:
-        place("cave_light_cold", cx, cz, y=floor_y(cx, cz) + 3.5 + depth, tags=("light",))
+            x, z = s_.c[0] + math.sin(a) * s_.rx * 0.78, s_.c[1] + math.cos(a) * s_.rz * 0.78
+            if inside(x, z, 4.0) and clear_spot(x, z, 1.5) and not hall_open(x, z):
+                place("cave_fungi" if R.random() < 0.5 else "cave_crystals", x, z, tags=("light",))
+    for (cx, cz), rx, rz, depth, below in POOLS:   # the pools glow from within
+        place("cave_light_pool", cx, cz, y=floor_y(cx, cz) + 0.6, tags=("light",))
         for k in range(10):
             a = R.uniform(0, 6.28)
             gx, gz = cx + math.sin(a) * (rx + R.uniform(0.5, 3.0)), cz + math.cos(a) * (rz + R.uniform(0.5, 3.0))
             if inside(gx, gz, 1.0) and math.hypot(gx - px, gz - pz) > 9:
-                place(R.choice(["nat_fern_clump", "mod_ivy_patch_ground", "nat_green_tufts"]), gx, gz, tags=("veg",))
-    for x, z in ((WH.c[0] + 6, WH.c[1] - 10), (SC.c[0] - 10, SC.c[1] + 2), (NE.c[0], NE.c[1] - 6), (EV.c[0] - 6, EV.c[1] - 14), (SL.c[0] + 20, SL.c[1] + 16)):
+                place(R.choice(["nat_fern_clump", "mod_ivy_patch_ground", "nat_green_tufts", "cave_fungi"]), gx, gz, tags=("veg",))
+    for x, z in ((WH.c[0] + 6, WH.c[1] - 10), (NE.c[0], NE.c[1] - 6), (SL.c[0] + 20, SL.c[1] + 16)):
         place("cave_glow_ember", x, z, tags=("light",))
-    for t in TUN[10:]:   # the narrow flanks: a very faint cold fill every ~30 m (the headlamp does the rest)
+    for t in TUN[10:]:   # the narrow flanks: a few fungi patches (the headlamp does the rest)
         for s2 in range(15, int(t.L) - 8, 30):
             p = t.pts[min(len(t.pts) - 1, int(s2 / 2.0))]
-            place("cave_light_cold", p[0], p[1], y=floor_y(*p) + 4.0, tags=("light",))
+            place("cave_fungi", p[0] + 1.5, p[1], tags=("light",))
 
     # ---- scenario: Team Deathmatch (Team A in the pocket, Team B round the outside), an Assault objective for the validator
     sc = ScenarioBuilder(b, defending="Axis")
@@ -583,7 +595,7 @@ def build(ctx):
         return [round(x, 2), round(floor_y(x, z) + EYE, 2), round(z, 2)]
     VIEWS = [("central_wide", (-52.0, -30.0), (20.0, 14.0), 7.0), ("pocket_eye", (0.0, -44.0), (0.0, 0.0), 9.0),
              ("look_up", (-20.0, -12.0), (-6.0, -2.0), 58.0), ("outer_cavern", (WH.c[0] + 6, WH.c[1] - 40), (WH.c[0], WH.c[1] + 30), 6.0),
-             ("mouth_view", (14.0, 30.0), NG.c, 8.0), ("flooded_eye", (-48.0, -70.0), SL.c, 2.0), ("crack_shaft", (-14.0, -40.0), (2.0, -21.0), 18.0),
+             ("mouth_view", (14.0, 30.0), NG.c, 8.0), ("flooded_eye", (-48.0, -70.0), SL.c, 2.0), ("south_hall", (SC.c[0] - 30.0, SC.c[1] + 6.0), SC.c, 4.0),
              ("headlamp_dark", TUN[10].pts[10], TUN[10].pts[20], 0.0)]
     views = [{"name": "overview_high", "pos": [0.0, 140.0, 150.0], "yaw": 0.0, "pitch": -45.0}]
     for name, (x, z), (tx, tz), pitch in VIEWS:
@@ -604,7 +616,7 @@ def build(ctx):
                    description="A vast natural cave on D-day's footprint (265 x 265 m): a central cavern some 115 m across under a "
                                "66 m vault, an ancient spire and Team A's walled pocket at its heart, six outer caverns of different "
                                "shapes opening into each other through wide mouths, shelves and ramps, a deep sunken lake and flooded "
-                               "hollows, fields of stalactites from needles to 25 m giants, columns holding the roof, organ walls. Near darkness: rare cold light through cracks in the roof, a few warm embers, your "
+                               "hollows, fields of stalactites from needles to 25 m giants, columns holding the roof, organ walls. A sealed cave in near darkness: fire, glowing crystals, fungi and pool glow, your "
                                "headlamp. Team Deathmatch (Team A at the centre, Team B round the outside), Solo and Battle Royale.",
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
@@ -615,5 +627,5 @@ def build(ctx):
     cover_catalogue(doc, cat)
     rep.update({"instances": len(b.inst), "use": dict(sorted(use.items())), "missing": sorted(rep.get("missing", []))})
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
-    print("instances %d | lids %d | stalactites %d, stalagmites %d, cover %d | cracks %d | pools %s | spawns %s | missing %s" %
-          (len(b.inst), rep["lids"], n_st, n_sg, n_cov, n_crack, rep["pools"], rep["spawns"], rep["missing"]))
+    print("instances %d | lids %d | stalactites %d, stalagmites %d, cover %d | focal lights %d | pools %s | spawns %s | missing %s" %
+          (len(b.inst), rep["lids"], n_st, n_sg, n_cov, rep["focalLights"], rep["pools"], rep["spawns"], rep["missing"]))
