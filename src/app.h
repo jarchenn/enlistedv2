@@ -84,6 +84,8 @@ struct ImpactInfo { vec3 pos{0}; std::string surface; int kind = 0; float time =
 
 class SelfTest;
 
+bool commandsOpen();   // CMD1: the "/" command line is open (commands.h)
+
 class App {
 public:
   int run(int argc, char** argv);
@@ -143,7 +145,7 @@ public:
   vec3 knockVel{0};        // EN1: a brute's shove on the player (m/s, decays in updateExplore)
   bool uiCursor = false;   // set each frame by a HUD window that needs the mouse (match result)
   // GM1b: THE list of "a UI wants the mouse" conditions (Explore). Add a new menu here, never call glfwSetInputMode.
-  bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor || artyMapOpen; }
+  bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor || artyMapOpen || commandsOpen(); }
   int cursorWanted(bool focused = true) const;   // GLFW_CURSOR_NORMAL / _DISABLED for the current mode and UI state
   bool syncCursor();                             // the only place the cursor mode is set; each frame (main loop) and on UI changes
   int cursorSettle = 0, cursorChanges = 0;       // frames whose look delta is dropped after a mode / focus change; count
