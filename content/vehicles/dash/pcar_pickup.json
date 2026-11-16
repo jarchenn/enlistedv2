@@ -1,10 +1,10 @@
 {
   "note": "Pickup (work truck): a tall, chunky grey dash in hard vinyl, big analogue speedometer and tachometer with fuel / temperature, large rubber-gripped climate knobs, a plain radio, a passenger grab handle, a CB radio on the knee panel, a 4x4 lever on the tunnel, rubber mats and a coin tray.",
   "base": "civil_core",
-  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "eye": [1.55, 0.3], "dash": [1.42, 1.03]},
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "eye": [1.58, 0.4], "wheelY": 1.24, "dash": [1.42, 1.03]},
   "palette": {
-    "dash": {"rgb": [0.16, 0.16, 0.16], "rough": 0.9, "pat": "textile", "tex": true},
-    "pad": {"rgb": [0.19, 0.19, 0.185], "rough": 0.9, "pat": "textile", "tex": true},
+    "dash": {"rgb": [0.32, 0.32, 0.31], "rough": 0.9, "pat": "fabric", "texture": "leather_black"},
+    "pad": {"rgb": [0.28, 0.28, 0.27], "rough": 0.9, "pat": "fabric", "texture": "leather_black"},
     "grip": {"rgb": [0.03, 0.03, 0.03], "rough": 0.95},
     "face": {"rgb": [0.025, 0.025, 0.028], "rough": 0.6},
     "wheel": {"rgb": [0.05, 0.05, 0.05], "rough": 0.85}

@@ -1,10 +1,10 @@
 {
   "note": "Compact: a small hard-plastic dash with a grained finish, no pad or stitching, a simple analogue speedometer and rev counter with small fuel / temperature dials in a shallow hood, a small radio screen, rectangular vents, plain rocker switches, a body-colour band across the dash.",
   "base": "civil_core",
-  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "eye": [1.27, -0.25]},
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "eye": [1.3, -0.15, 0.31]},
   "palette": {
-    "dash": {"rgb": [0.09, 0.09, 0.095], "rough": 0.85, "pat": "textile"},
-    "pad": {"rgb": [0.1, 0.1, 0.105], "rough": 0.85, "pat": "textile"},
+    "dash": {"rgb": [0.3, 0.3, 0.31], "rough": 0.85, "pat": "fabric", "texture": "leather_black"},
+    "pad": {"rgb": [0.27, 0.27, 0.28], "rough": 0.85, "pat": "fabric", "texture": "leather_black"},
     "band": {"rgb": [0.3, 0.3, 0.3], "fromPaint": 0.85, "rough": 0.4, "metal": 0.2},
     "wheel": {"rgb": [0.04, 0.04, 0.04], "rough": 0.8},
     "face": {"rgb": [0.03, 0.03, 0.035], "rough": 0.6}

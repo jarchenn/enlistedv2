@@ -30,7 +30,7 @@ bool parkedEye(App& a, uint64_t id, vec3& eye, float& yaw) {
     if (mn == "dash" && p.size.x * p.size.y * p.size.z > ds.x * ds.y * ds.z) { dc = p.center; ds = p.size; } }   // the biggest, as adoptCar
   for (auto& p : as.parts) { const std::string& mn = p.mat >= 0 && p.mat < (int)as.materials.size() ? as.materials[p.mat].name : std::string();
     if (mn == "rubber" && p.shape == Part::CYL && p.size.y < 0.06f && p.size.x < 0.5f && std::fabs(p.center.y - dc.y) < 0.4f) wx = p.center.x; }
-  vec3 l(wx, dc.y + ds.y * 0.5f + 0.30f, dc.z - ds.z * 0.5f - 0.62f);
+  vec3 l(wx, dc.y + ds.y * 0.5f + 0.30f, dc.z - ds.z * 0.5f - 0.57f);   // as adoptCar
   vehicleDashModelEye(&as, l);   // a car-pack copy: on its model's seat
   eye = inst->pos + yawQuat(inst->yaw) * l; yaw = inst->yaw + 180.0f; return true;
 }
@@ -62,19 +62,22 @@ bool captureDashSelfTest(App& a, float dt) {
     Settings& S = settings(); S.s.hour = night ? 23.0f : 14.0f; S.apply(a);
     if (a.mode == Mode::Explore) a.tanks.exitTank(a, true);
     if (kV[k].drive && gIds[k]) {
+      a.hideUi = false;
       if (a.mode != Mode::Explore) { a.enterExplore(); a.useScripted = true; a.scriptedInput = ExploreInput{}; }
       if (!a.tanks.get(gIds[k])) a.tanks.adoptCar(a, gIds[k]);   // a part-built car drives adopted (BR)
       bool in = a.tanks.enter(a, gIds[k]);
-      a.eyePitch = -12;
+      a.eyePitch = -5;   // a driver looks at the road
       if (const char* y = std::getenv("NMK_DASH_YAW")) a.eyeYaw += (float)std::atof(y);   // look-around checks
       logf("[capture-dash] %s %s: entered %d", kV[k].id, night ? "night" : "day", (int)in);
     } else {
       if (a.mode == Mode::Explore) a.exitExplore();
+      a.hideUi = true;   // the editor camera: no editor panels over the cabin
       vec3 e; float yaw;
-      if (gIds[k] && parkedEye(a, gIds[k], e, yaw)) { a.camPos = e; a.camYaw = yaw; a.camPitch = -12; }
+      if (gIds[k] && parkedEye(a, gIds[k], e, yaw)) { a.camPos = e; a.camYaw = yaw; a.camPitch = -5; }
       logf("[capture-dash] %s %s: parked view", kV[k].id, night ? "night" : "day");
     }
   }
+  if (!kV[k].drive && a.mode != Mode::Explore) { vec3 e; float yaw; if (gIds[k] && parkedEye(a, gIds[k], e, yaw)) { a.camPos = e; a.camYaw = yaw; a.camPitch = -5; } }   // held every frame (the editor may move it the frame after the switch)
   if (a.mode == Mode::Explore) a.scriptedInput.move = vec2(0, kV[k].drive && gT > 0.2f && gT < 1.6f ? 1.0f : 0.0f);
   if (gT > 2.4f && gT < 2.4f + dt * 1.5f) a.uiShot = shotPath(gShot);
   if (gT > 2.8f) { ++gShot; gT = 0; }
@@ -101,6 +104,7 @@ bool captureDashSelfTest(App& a, float dt) {
   }
   stbi_write_png((exeDir() / "selftest_out" / "capture_dash.png").string().c_str(), w * C, h * R, 3, sheet.data(), w * C * 3);
   settings().s = gKeep; settings().apply(a);
+  a.hideUi = false;
   logf("[capture-dash] wrote selftest_out/capture_dash.png (%d vehicles x day / night)", N);
   return finish(0);
 }

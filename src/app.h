@@ -574,6 +574,7 @@ public:
   void screenshot(const fs::path& p);
   Recorder rec; std::string recCaption; int recTick = 0; std::vector<uint8_t> recPx;   // --record-range
   fs::path uiShot;   // when set, the next frame including UI is written here
+  bool hideUi = false;   // captures: the frame is presented without the ImGui layer (editor panels)
 };
 
 extern App* gApp;

@@ -7,6 +7,7 @@
 //     editor's Light section.
 #include "interior.h"
 #include "lights.h"
+#include "vehicle_dash.h"
 #include <unordered_set>
 #include "app.h"
 #include "autopath.h"
@@ -327,6 +328,7 @@ void lightsGather(App& app, std::vector<LightDesc>& out) {
     }
   }
   app.flame.gatherLights(out);   // FT1: a moving light per open flame nozzle, ground fire glow
+  vehicleDashLights(app, out);   // VH6c: the fill light of each vehicle cabin in view
 }
 
 // ============================================================ interior plan (with the room templates)

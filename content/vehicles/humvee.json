@@ -58,11 +58,7 @@
     "note": "part-built stand-in made of boxes and cylinders by tools/vehicles/make_fallback.py humvee (committed)"
   },
   "rig": {
-    "driverEyeFromSteer": [
-      0,
-      0.24,
-      -0.56
-    ],
+    "driverEyeFromSteer": [0, 0.24, -0.48],
     "steerAxis": [
       0,
       0.498,
@@ -179,5 +175,5 @@
     "pushEfficiency": 0.55,
     "note": "HMMWV ~2,400-2,700 kg, 6.5 L diesel ~190 hp"
   },
-  "dash": {"spec": "humvee", "offset": [0, -0.2, 0.45], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/humvee.json, anchored at the driver's eye + offset"}
+  "dash": {"spec": "humvee", "offset": [0, -0.25, 0.37], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/humvee.json, anchored at the driver's eye + offset"}
 }

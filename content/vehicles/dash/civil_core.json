@@ -1,12 +1,13 @@
 {
   "note": "Shared core of the part-built cars' interiors (BR cars and car-pack copies; each car kind is a spec on this base): anchored on the car's dash top at its rear face (kit x toward the car's middle at x = 0.37, y up from the dash top, z forward; the dash face is at z = 0.005, the centre stack's face at z = -0.115). Soft-touch pad with stitching, trim band, a binnacle with the digital cluster behind the wheel, the embedded centre screen, vents, switches, ambient strip, climate knobs, the steering wheel (rim, spokes, hub, buttons).",
   "palette": {
-    "dash": {"rgb": [0.05, 0.05, 0.052], "rough": 0.75, "pat": "textile"},
-    "pad": {"rgb": [0.07, 0.065, 0.06], "rough": 0.8, "pat": "textile", "tex": true},
-    "stitch": {"rgb": [0.55, 0.5, 0.42], "rough": 0.9},
-    "trim": {"rgb": [0.015, 0.015, 0.016], "rough": 0.15, "metal": 0.1},
-    "wheel": {"rgb": [0.035, 0.033, 0.03], "rough": 0.6, "pat": "textile", "tex": true},
-    "hub": {"rgb": [0.03, 0.03, 0.032], "rough": 0.5}
+    "dash": {"rgb": [0.2, 0.2, 0.205], "rough": 0.75, "pat": "fabric", "texture": "leather_black"},
+    "pad": {"rgb": [0.24, 0.235, 0.23], "rough": 0.65, "pat": "fabric", "texture": "leather_black"},
+    "stitch": {"rgb": [0.75, 0.7, 0.6], "rough": 0.9},
+    "trim": {"rgb": [0.03, 0.03, 0.032], "rough": 0.15, "metal": 0.2},
+    "wheel": {"rgb": [0.06, 0.058, 0.055], "rough": 0.6, "pat": "fabric", "texture": "leather_black"},
+    "hub": {"rgb": [0.08, 0.08, 0.085], "rough": 0.45},
+    "brushed": {"rgb": [0.55, 0.56, 0.57], "rough": 0.35, "metal": 0.85, "pat": "metal"}
   },
   "wheel": {"r": 0.185, "rim": 0.028, "spokes": [0, 180, 270], "buttons": true, "hub": 0.06, "mat": "wheel", "hubMat": "hub", "badge": "chrome"},
   "items": [
