@@ -533,19 +533,28 @@ def build(ctx):
         m = sc.spawn("defender", [0], x, z, face=(x * 2 - px, z * 2 - pz), faction="Axis", label="Team A %d" % (k + 1), rack=None)
         m["team"], m["phases"] = 0, []
         m["pos"][1] = round(floor_y(x, z), 3)
+    def free_spot(x, z, r):   # no formation, column or cover within r (a spawn inside a column's foot has no way out)
+        for e in b.inst:
+            if e["asset"].startswith(("cave_column", "cave_drip_up", "cave_organ", "cave_rib", "cave_shelf", "nat_boulder", "cave_spine", "cave_standing")) and                     (e["pos"][0] - x) ** 2 + (e["pos"][2] - z) ** 2 < (r + min(4.0, b.cat[e["asset"]].half[0] if e["asset"] in b.cat else 2.0)) ** 2:
+                return False
+        return True
+
     b_pts = []
-    for o in OUT:   # two points in each outer cavern, on its far side from the centre
-        for off in (-0.45, 0.45):
+    for o in OUT:   # up to three points in each outer cavern, on its far side from the centre, on open floor
+        got = 0
+        for off in (-0.45, 0.45, 0.0, -0.9, 0.9, -1.3, 1.3):
+            if got >= 3:
+                break
             a = math.atan2(o.c[0], o.c[1]) + off
-            for fr in (0.5, 0.4, 0.3, 0.2):   # open floor: well inside, off the shelves (a shelf top may only be reached by its ramp)
+            for fr in (0.5, 0.4, 0.3, 0.6, 0.2):
                 x, z = o.c[0] + math.sin(a) * min(o.rx, o.rz) * fr, o.c[1] + math.cos(a) * min(o.rx, o.rz) * fr
-                if inside(x, z, 7.0) and ledge_add(x, z) < 0.2:
+                if inside(x, z, 5.0) and ledge_add(x, z) < 0.2 and pool_add(x, z) > -0.05 and free_spot(x, z, 3.0) and all((x - q[0]) ** 2 + (z - q[1]) ** 2 > 64 for q in b_pts):
+                    b_pts.append((x, z, o.c))
+                    got += 1
                     break
-            if inside(x, z, 4.0) and ledge_add(x, z) < 0.2:
-                b_pts.append((x, z, o.c))
     for t in TUN[5:]:   # and one in the middle of each ring mouth and flank
         p = t.pts[len(t.pts) // 2]
-        if inside(p[0], p[1], 2.0):
+        if inside(p[0], p[1], 2.0) and pool_add(p[0], p[1]) > -0.05 and free_spot(p[0], p[1], 3.0):
             b_pts.append((p[0], p[1], (0.0, 0.0)))
     for k, (x, z, fc) in enumerate(b_pts):
         m = sc.spawn("attacker", [0], x, z, face=(px, pz), faction="Allies", label="Team B %d" % (k + 1), rack=None)
