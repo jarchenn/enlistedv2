@@ -141,6 +141,7 @@ struct Audio::Impl {
   vec3 listener{0};
   struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; std::string event; double start = 0; int bus = 0; };
   std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
+  float casingGain = 2.0f;           // SND6: x on the case sound (content/audio/custom/mix.json casing_gain)
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
@@ -645,6 +646,10 @@ int Audio::loadCustom(const fs::path& dir) {
     { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: monster_growl %d idle growls, 3 attack roars", (int)idle.v.size()); }   // diagnostics
   }
   // SND4: a spent case hitting the ground (guns/casings.mp3: one landing with its bounces), 0.4 s from its onset
+  {   // SND6: mix.json: casing_gain (x on the spent-case sound; 1 = the SND4 level)
+    json mx; try { std::ifstream f(dir / "mix.json"); if (f) mx = json::parse(f); } catch (...) { logf("audio: custom/mix.json unreadable, defaults kept"); }
+    if (mx.is_object()) p->casingGain = std::clamp(mx.value("casing_gain", p->casingGain), 0.0f, 3.0f);
+  }
   if (decode("guns/casings.mp3", b)) {
     float pk = peakOf(b); size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.3f * pk) ++a; a = a > (size_t)(SR / 100) ? a - SR / 100 : 0;
     Impl::Event ev; ev.minDist = 2.0f; ev.v.push_back(clip(b, a, (size_t)(0.4f * SR), 0.002f, 0.08f, 0.8f)); p->events["casing"] = ev; ++used;
@@ -755,7 +760,7 @@ void Audio::casing(vec3 feet, int shooter, float delay, bool soft) {
   if (glm::length(feet - p->listener) > 15.0f || now - last < 0.08 || live >= 6) { ++casingsSkipped; return; }
   last = now; ++casingsPlayed;
   std::uniform_real_distribution<float> u(0, 1);
-  play("casing", feet + vec3(0, 0.05f, 0), (soft ? 0.12f : 0.3f) * (0.8f + 0.2f * u(p->pick)), 0.9f + 0.2f * u(p->pick), delay);
+  play("casing", feet + vec3(0, 0.05f, 0), (soft ? 0.12f : 0.3f) * p->casingGain * (0.8f + 0.2f * u(p->pick)), 0.9f + 0.2f * u(p->pick), delay);
 }
 
 void Audio::setListener(vec3 pos, vec3 fwd) {
@@ -924,5 +929,13 @@ void Audio::fidelityReport(const fs::path& dir) {
     double q = 0; float pk = 0; for (float v : m) { q += (double)v * v; pk = std::max(pk, std::fabs(v)); }
     logf("fidelity ambience bed battlefield.mp3 x0.7: peak %6.1f  rms %6.1f dB", 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / m.size() + 1e-20));
     setBed(1, {}, 0);
+  }
+  if (hasEvent("casing")) for (float gn : {1.0f, p->casingGain}) {   // SND6: a case landing at the player's feet (hard ground), at the SND4 level and now
+    for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
+    std::vector<float> st(SR * 2); for (int k = 0; k < 20; ++k) ma_engine_read_pcm_frames(&p->engine, st.data(), SR / 10, nullptr);
+    float keep = p->casingGain; p->casingGain = gn; p->casingAt.clear(); casing(vec3(0.2f, -1.6f, -0.1f), 7000, 0, false); p->casingGain = keep;
+    ma_engine_read_pcm_frames(&p->engine, st.data(), SR, nullptr);
+    double q = 0; float pk = 0; for (int i = 0; i < SR; ++i) { float v = 0.5f * (st[2 * i] + st[2 * i + 1]); q += (double)v * v; pk = std::max(pk, std::fabs(v)); }
+    logf("fidelity casing x%.1f (hard ground; soft is 0.4 of it): peak %6.1f  rms over 1 s %6.1f dB", gn, 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / SR + 1e-20));
   }
 }

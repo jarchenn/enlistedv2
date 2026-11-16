@@ -1,0 +1,4 @@
+{
+  "note": "SND6: levels of user-supplied sounds (Audio::loadCustom). casing_gain: x on the spent-case landing (1 = the SND4 level; 2 = twice it, about +6 dB), 0-3.",
+  "casing_gain": 2.0
+}
