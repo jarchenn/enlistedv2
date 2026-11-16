@@ -68,6 +68,9 @@ export function gatePiers() {
       A.cyl([x, (0.12 + top) / 2, 0], [0.022, top - 0.12, 0.022], "iron", { ...T, n: 4 });
       A.cone([x, top + 0.06, 0], [0.05, 0.12, 0.05], "iron", { ...T, n: 4 });
     }
+    // FL1: the right leaf carries an astragal strip over the 2.4 cm meeting gap, both faces: the open sub-pixel gap
+    // flickered between iron and background at a distance
+    if (sx > 0) for (const z of [-0.036, 0.03]) A.box([-0.02, 0.08, z], [0.04, 1.62, z + 0.006], "iron", T);
     A.box([xa, 0.08, -0.03], [xb, 1.6, 0.03], "iron", { into: L.parts, v: 0 });
     const hinge = [h0, 0, 0], mid = [(h0 + h1) / 2, 0, 0];
     L.hinge = hinge; L.sign = swingSign("x", mid, hinge, -1);

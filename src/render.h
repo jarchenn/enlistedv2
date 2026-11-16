@@ -75,6 +75,7 @@ struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, t
 
 class Renderer {
 public:
+  bool holdTime = false;   // FL1 flicker captures: the animation clock (wind, water, clouds, grass) stands still
   bool init(int w, int h);
   void resize(int w, int h);
   void render(const RenderView& v, const Terrain& t, const std::vector<DrawItem>& opaque,
