@@ -816,6 +816,19 @@ Sources: `incoming/mg12/<name>/` (credits: [MG12](credits.md#modern-guns-mg12)).
 - **Operators:** the SMG-9 joins both sides' primary pools (weight 1).
 - **Damage** (`content/ai/damage.json`, DMG1 bands): revolver 62 / 40, Desert Eagle 60 / 38, sawn-off 28 / 5 per pellet, SMG-9 30 / 18; DMG1 classes pistol / shotgun / smg with `headMax` 80 / 75.
 
+**Batch 2.**
+
+| Weapon (`id`) | Source, viewmodel | Stats |
+|---|---|---|
+| Glock 34 with compensator (`modern_glock34`) | DJMaesen `fps pistol Animated`, its own arms and clips; fire 226-235 (the slide cycles; the source's other fire clip 1-10 leaves it locked back), reload_empty 10-66 (from the slide lock), reload 66-132, idle 180-206 | 9x19 mm, 17 rounds, 450 rpm, 375 m/s; DMG1 pistol 32 / 20, `headMax` 80 |
+| Makarov PM (`modern_makarov`) | Cransh GLB: **the gun only**, static on the game's arms (slide -> bolt, mag -> mag) | 9x18 mm, 8 rounds, 400 rpm, 315 m/s; pistol 30 / 18, `headMax` 75; the Axis operators' sidearm |
+| FN 502 Tactical (`modern_fn502`) | Cransh GLB: the gun only, static on the game's arms | .22 LR, 15 rounds, 450 rpm, 330 m/s; pistol 26 / 15, `headMax` 70 |
+| HK Mk 23 (`modern_mark23`) | BarcodeGames FBX, its own arms and clips (named actions: Idle, Shoot, Reload); **local-only** (licence) | .45 ACP, 12 rounds, 350 rpm, 260 m/s; pistol 36 / 22, `headMax` 80 |
+
+- **The two Cransh GLBs:** their arms' skin is broken: the arms explode to thousands of units even in Blender's own glTF import, whatever its bind-pose options (as the MG7 SCAR-H). Their static guns are baked posed at the first frame of their idle / shot (their rest pose is taken apart; `poseFrame` / `poseAction`). The FN 502 GLB's `KHR_materials_pbrSpecularGlossiness` materials crash Blender's importer, so a copy with plain materials is converted first (base colour from the diffuse).
+- **The Mk 23:** the committed `modern_mark23.json` shows the Springfield XD's model and rig. The real model, rig and sights come from `content/weapons/local/modern_mark23.json` (merged by the weapon loader; `modern_guns_anim_config.cjs` reads it too) and `models/modern_mark23_local/`, both git-ignored.
+- **Crate:** `9mm_mag17`, `9x18_mag8`, `22lr_mag15`, `45_mag12`. Sounds are borrowed and pitched apart (`audio.cpp` MG12 batch 2).
+
 ### SW1: blasters, blaster troopers and robot commandos
 
 Two AI types, selectable per side in the AI rows: **Blaster troopers** (`AiType::Troopers`, 16) and **Robot commandos** (`AiType::Robots`, 17).
