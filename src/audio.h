@@ -17,7 +17,11 @@ public:
   std::string lastEvent;   // event or procedural buffer actually used by the last play()
   std::map<std::string, int> eventPlays;   // plays per resolved event (tests)
   void shutdown();
-  void play(const std::string& name, vec3 pos, float volume = 1.0f, float pitch = 1.0f);   // SND1: pitch (1 = as recorded)
+  void play(const std::string& name, vec3 pos, float volume = 1.0f, float pitch = 1.0f, float delay = 0);   // SND1: pitch (1 = as recorded); SND4: delay (s) before it starts
+  // SND4: a spent case landing `delay` s after a shot at a shooter's feet (`soft` ground: quieter): within 15 m of the
+  // listener only, at most one per 80 ms per shooter (automatic fire) and 6 at once
+  void casing(vec3 feet, int shooter, float delay, bool soft);
+  int casingsPlayed = 0, casingsSkipped = 0;   // tests
   void setListener(vec3 pos, vec3 fwd);
   void setAmbience(float wind, float leaves);
   void setBed(int slot, const fs::path& file, float volume);   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame

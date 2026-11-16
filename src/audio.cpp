@@ -96,6 +96,7 @@ struct Audio::Impl {
   std::mt19937 pick{20260606};
   vec3 listener{0};
   struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; std::string event; double start = 0; };
+  std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
@@ -283,7 +284,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_pistol3"}},   // the AR-15 keeps the Springfield XD single shot (user request)
     {"guns/semi_rifle.mp3", false, {"modern_sniper_semi"}},
     {"guns/semi_rifle.mp3", false, {"modern_scar"}, -1, 0.9f, -0.5f, 2.2f},   // derived: SCAR-H, lower and darker
-    {"guns/auto_rifle_burst.mp3", true, {"modern_mp7", "modern_scorpion"}},
+    {"guns/auto_rifle_burst.mp3", true, {"modern_mp7"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
     {"guns/rifle_bolt.mp3", false, {"m1_garand"}},   // the full rifle recording (user request)
     {"guns/rifle_bolt.mp3", false, {"m1c_garand"}, -1, 0.95f, -0.6f, 1.8f},   // derived: M1C, darker, shorter tail
@@ -305,7 +306,12 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
     {"guns/mg_burst.mp3", true, {"mg42"}},
     {"guns/mg2_burst.mp3", true, {"modern_lmg"}},
-    {"guns/smg_burst.mp3", true, {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi"}},
+    {"guns/smg_burst.mp3", true, {"modern_uzi"}},
+    // SND4: every SMG its own shot (SMG.mp3, SMG1.mp3: single shots)
+    {"guns/smg_a.mp3", false, {"mp40"}, -1, 1, 0, 1.2f},   // SMG.mp3
+    {"guns/smg_a.mp3", false, {"modern_scorpion"}, -1, 1.12f, 0.4f, 1.0f},   // derived: the Scorpion, higher and brighter
+    {"guns/smg_b.mp3", false, {"m1_thompson"}},   // SMG1.mp3
+    {"guns/smg_b.mp3", false, {"m3_grease_gun"}, -1, 0.88f, -0.5f, 2.5f},   // derived: the grease gun, lower and darker
   };
   for (auto& g : guns) {
     if (!decode(g.file, b)) continue;
@@ -353,7 +359,8 @@ int Audio::loadCustom(const fs::path& dir) {
   // launchers, cannon and explosions: whole recordings from their first loud moment (up to 6 s), far layers dropped
   struct FxSet { const char* file; std::vector<const char*> events; float from = 0; };   // from: seconds into the recording to start at
   const FxSet fxs[] = {
-    {"guns/rocket_launch.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7", "shot_modern_glauncher"}, 3.0f},
+    {"guns/rocket_launch.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7"}, 3.0f},
+    {"guns/glauncher_fire.mp3", {"shot_modern_glauncher"}},   // SND4: the six-shot launcher's own
     {"guns/launcher_fire.mp3", {"explosion_rocket"}},
     {"guns/cannon_fire.mp3", {"pak_fire", "flak_fire"}},
     {"guns/shell_impact.mp3", {"explosion", "explosion_big", "explosion_grenade"}},
@@ -481,6 +488,59 @@ int Audio::loadCustom(const fs::path& dir) {
       ++used; addSound("creature_ambience", std::move(loop));
     }
   }
+  // SND4: the strongest `secs` of a recording (10 ms energy), from sample `from` on: its first sample
+  auto strongest = [&](const Buf& s, float secs, size_t from = 0) {
+    const int W = SR / 100; size_t nW = s.size() / W, len = std::max<size_t>(1, std::min(nW, (size_t)(secs * 100))), best = from / W; double run = 0, bs = -1;
+    std::vector<double> e(nW, 0.0); for (size_t k = 0; k < nW; ++k) for (int j = 0; j < W; ++j) e[k] += s[k * W + j] * s[k * W + j];
+    for (size_t k = from / W; k < nW; ++k) { run += e[k]; if (k >= from / W + len) run -= e[k - len]; if (k + 1 >= from / W + len && run > bs) { bs = run; best = k + 1 - len; } }
+    return best * W;
+  };
+  auto clip = [&](const Buf& s, size_t a, size_t n, float fadeIn, float fadeOut, float level) {   // a cut with linear fades, levelled to its peak
+    Buf c(s.begin() + std::min(a, s.size()), s.begin() + std::min(s.size(), a + n)); float pk = peakOf(c);
+    float fi = std::max(1.0f, fadeIn * SR), fo = std::max(1.0f, fadeOut * SR);
+    for (size_t j = 0; j < c.size(); ++j) c[j] *= level / pk * std::min({1.0f, j / fi, (c.size() - j) / fo});
+    return c;
+  };
+  // SND4: the creature's pre-attack screech (zombie.cpp "windup"): the strongest 1.2 s of the recording
+  if (decode("creature_screech.mp3", b)) { Impl::Event ev; ev.minDist = 4.0f; ev.v.push_back(clip(b, strongest(b, 1.2f), (size_t)(1.2f * SR), 0.01f, 0.1f, 0.9f)); p->events["creature_screech"] = ev; ++used; }
+  // SND4: the big monsters' voice (monster_growl.mp3): its loud stretches (100 ms loudness over 0.3 of the loudest, gaps
+  // under 0.25 s bridged, at least 0.8 s, at most 3.5 s each) as idle growls, and its three strongest 1.5 s as attack roars
+  if (decode("monster_growl.mp3", b)) {
+    const int W = SR / 10; size_t nW = b.size() / W; std::vector<float> rms(nW, 0.0f); float top = 1e-6f;
+    for (size_t k = 0; k < nW; ++k) { double q = 0; for (int j = 0; j < W; ++j) q += b[k * W + j] * b[k * W + j]; rms[k] = (float)std::sqrt(q / W); top = std::max(top, rms[k]); }
+    std::vector<std::pair<size_t, size_t>> runs;
+    for (size_t k = 0; k < nW; ++k) if (rms[k] > 0.3f * top) { if (!runs.empty() && k - runs.back().second <= 3) runs.back().second = k; else runs.push_back({k, k}); }
+    Impl::Event idle; idle.minDist = 6.0f;
+    for (auto& r : runs) if ((r.second - r.first + 1) >= 8 && idle.v.size() < 8) idle.v.push_back(clip(b, r.first * W, std::min<size_t>(35, r.second - r.first + 1) * W, 0.02f, 0.15f, 0.8f));
+    Impl::Event atk; atk.minDist = 6.0f; Buf m = b;
+    for (int i = 0; i < 3; ++i) { size_t a = strongest(m, 1.5f); atk.v.push_back(clip(b, a, (size_t)(1.5f * SR), 0.01f, 0.12f, 0.9f)); std::fill(m.begin() + a, m.begin() + std::min(m.size(), a + (size_t)(1.5f * SR)), 0.0f); }
+    if (!idle.v.empty()) p->events["monster_growl"] = idle;
+    p->events["monster_growl_attack"] = atk; ++used;
+    { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: monster_growl %d idle growls, 3 attack roars", (int)idle.v.size()); }   // diagnostics
+  }
+  // SND4: a spent case hitting the ground (guns/casings.mp3: one landing with its bounces), 0.4 s from its onset
+  if (decode("guns/casings.mp3", b)) {
+    float pk = peakOf(b); size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.3f * pk) ++a; a = a > (size_t)(SR / 100) ? a - SR / 100 : 0;
+    Impl::Event ev; ev.minDist = 2.0f; ev.v.push_back(clip(b, a, (size_t)(0.4f * SR), 0.002f, 0.08f, 0.8f)); p->events["casing"] = ev; ++used;
+  }
+  // SND4: the explosion pack's countdown (fx/bomb_beeps.mp3): its beeps by onset (5 ms loudness over 0.4 of the loudest,
+  // gaps under 15 ms bridged): the first long one (>= 90 ms) and the first short one; the shortest is the short one's first
+  // 25 ms (the recording has two lengths). abilities.cpp plays them
+  if (decode("fx/bomb_beeps.mp3", b)) {
+    const int W = SR / 200; size_t nW = b.size() / W; std::vector<float> env(nW, 0.0f); float pk = 1e-6f;
+    for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); pk = std::max(pk, env[k]); }
+    std::vector<std::pair<size_t, size_t>> beeps;
+    for (size_t k = 0; k < nW; ++k) if (env[k] > 0.4f * pk) { if (!beeps.empty() && k - beeps.back().second <= 3) beeps.back().second = k; else beeps.push_back({k, k}); }
+    Buf L, S;
+    for (auto& r : beeps) { size_t n = (r.second - r.first + 1) * W; Buf c = clip(b, r.first * W, n + W, 0.003f, 0.01f, 0.8f); if (n >= (size_t)(0.09f * SR)) { if (L.empty()) L = c; } else if (n >= (size_t)(0.02f * SR) && S.empty()) S = c; }
+    if (!L.empty()) {
+      if (S.empty()) S = clip(L, 0, (size_t)(0.05f * SR), 0.003f, 0.01f, 0.8f);   // one length only: a trimmed long beep
+      Buf T = clip(S, 0, (size_t)(0.025f * SR), 0.002f, 0.008f, 0.8f);
+      for (auto& [n, s] : {std::pair<const char*, Buf*>{"pack_beep_long", &L}, {"pack_beep_short", &S}, {"pack_beep_shortest", &T}}) { Impl::Event ev; ev.minDist = 4.0f; ev.v.push_back(*s); p->events[n] = ev; }
+      ++used;
+      { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: bomb beeps: %d found, long %.3f s, short %.3f s", (int)beeps.size(), L.size() / (float)SR, S.size() / (float)SR); }   // diagnostics
+    }
+  }
   // SND1: any other mp3 here plays as an event named after its file (knightattack.mp3 -> "knightattack"): leading
   // silence trimmed, levelled, at most 6 s. A type's "sounds" (content/ai/zombie*.json) name them.
   std::error_code ec;
@@ -500,7 +560,7 @@ int Audio::loadCustom(const fs::path& dir) {
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
 int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
 
-void Audio::play(const std::string& name, vec3 pos, float volume, float pitch) {
+void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, float delay) {
   ++playCount; lastPlayed = name; lastPos = pos;
   if (!p) return;
   // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
@@ -547,8 +607,20 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch) {
   ma_sound_set_rolloff(&v->snd, 1.2f);
   ma_sound_set_volume(&v->snd, volume);
   if (pitch != 1.0f) ma_sound_set_pitch(&v->snd, std::max(0.05f, pitch));
+  if (delay > 0) ma_sound_set_start_time_in_milliseconds(&v->snd, ma_engine_get_time_in_milliseconds(&p->engine) + (ma_uint64)(delay * 1000));
   ma_sound_start(&v->snd);
-  v->used = true; v->event = used; v->start = now;
+  v->used = true; v->event = used; v->start = now + delay;
+}
+
+void Audio::casing(vec3 feet, int shooter, float delay, bool soft) {
+  if (!p || !p->events.count("casing")) return;
+  double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  double& last = p->casingAt[shooter];
+  int live = 0; for (auto& c : p->voices) if (c.used && c.event == "casing" && (c.start > now || !ma_sound_at_end(&c.snd))) ++live;
+  if (glm::length(feet - p->listener) > 15.0f || now - last < 0.08 || live >= 6) { ++casingsSkipped; return; }
+  last = now; ++casingsPlayed;
+  std::uniform_real_distribution<float> u(0, 1);
+  play("casing", feet + vec3(0, 0.05f, 0), (soft ? 0.12f : 0.3f) * (0.8f + 0.2f * u(p->pick)), 0.9f + 0.2f * u(p->pick), delay);
 }
 
 void Audio::setListener(vec3 pos, vec3 fwd) {

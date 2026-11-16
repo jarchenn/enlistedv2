@@ -79,6 +79,7 @@ const ZombieCfg& zcfg() {
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
         json sd = e.value("sounds", json::object()); t.sndAttack = sd.value("attack", ""); t.sndIdle = sd.value("idle", ""); t.sndStep = sd.value("step", "");
         t.sndContact = sd.value("contact", ""); t.sndDeath = sd.value("death", ""); t.sndLoop = sd.value("loop", "");
+        t.sndWindup = sd.value("windup", ""); t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
         t.runClip = cl.value("run", t.runClip); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
@@ -150,6 +151,7 @@ float bodyDist(const Soldier& o, vec3 p) {
   float u = std::clamp((p.y - a.y) / std::max(1e-3f, b.y - a.y), 0.0f, 1.0f); return glm::length(p - (a + (b - a) * u)) - 0.3f * (o.zombie ? std::max(1.0f, o.eBody) : 1.0f);
 }
 static std::map<int, std::vector<int>> gStruck;   // slot -> who this strike has hit (once each)
+static std::map<int, bool> gWindVoiced;            // SND4: slot -> this attack opened with the type's windup sound
 BotMind* mindAt(AiCore& A, int slot) { return slot >= 0 && slot < (int)A.minds.size() ? A.minds[slot].get() : nullptr; }
 bool packMate(AiCore& A, const Soldier& o, int pack) { if (pack < 0) return false; BotMind* m = mindAt(A, o.slot); return m && m->life == o.lifeId && m->pack == pack; }
 bool packCompatible(const Game& G, const Soldier& a, const Soldier& b) { return ffaMode(G.match.mode()) || a.team == b.team; }
@@ -480,7 +482,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     static std::map<int, double> nextIdle;
     double& ni = nextIdle[s.slot];
     if (ni > G.t + 40.0) ni = 0;
-    if (G.t >= ni) { if (ni > 0) G.app.audio.play(e.sndIdle.empty() ? "troll_idle" : e.sndIdle.c_str(), s.feet + vec3(0, 2, 0), 0.9f); ni = G.t + 7.0 + 8.0 * G.rnd(s); }
+    if (G.t >= ni) { if (ni > 0) G.app.audio.play(e.sndIdle.empty() ? "troll_idle" : e.sndIdle.c_str(), s.feet + vec3(0, 2, 0), 0.9f, e.sndIdle.empty() ? 1.0f : e.voicePitch * (0.96f + 0.08f * G.rnd(s))); ni = G.t + 7.0 + 8.0 * G.rnd(s); }
   }
   const bool down = s.anim.a >= 0 && s.model >= 0 && s.anim.a < (int)G.models[s.model]->clips.size() && G.models[s.model]->clips[s.anim.a].name.find("drop") != std::string::npos;   // in the body slam: no standing column to push out of
   if (e.blockR > 0 && !down && G.localSlot >= 0 && G.localSlot < (int)G.sold.size() && G.sold[G.localSlot].alive && !G.app.tanks.occupied) {   // solid to the player: pushed out of the body column. shortcut: local player only (bots, LAN clients and vehicles pass)
@@ -516,7 +518,8 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     int n = 0; for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && inSlam(o.feet, s.feet + f * dropR, f, e, s.eScale) < 1.0f) ++n;
     dropOk = n >= ((int)ac.size() > 1 ? 2 : 1);   // two or more; one will do when the slam is her only attack
   }
-  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f); else if (!e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, 0.93f + 0.14f * G.rnd(s));   /* one of three, picked at random */
+  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f); else if (!e.sndWindup.empty() && best->human) { G.app.audio.play(e.sndWindup.c_str(), s.feet + vec3(0, 0.8f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.96f + 0.08f * G.rnd(s))); gWindVoiced[s.slot] = true; }   /* SND4: just before the blow on a player */
+    else if (!e.sndAttack.empty()) { gWindVoiced.erase(s.slot); G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s))); }   /* one of three, picked at random */
     s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
     if (dropOk || n <= 0) s.meleeClip = di;   // two or more in the slam's oval: the slam; otherwise the others
     else if (strikes && !fit.empty()) { float x = G.rnd(s) * wsum; s.meleeClip = fit.back(); for (int i : fit) { x -= strikeOf(G, s, i).weight; if (x <= 0) { s.meleeClip = i; break; } } }   // CH6: by weight among those that fit
@@ -531,6 +534,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     }
     else m.speed = SPD_STOP;   // the blow and its follow-through: planted
     float w0 = s.meleeWind; s.meleeWind += dt;
+    if (w0 < wu && s.meleeWind >= wu && gWindVoiced.erase(s.slot) && wu >= 1.0f && !e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s)));   // SND4: after a windup sound, the attack sound at the blow (not if they would overlap)
     std::vector<int>& hit = gStruck[s.slot];
     if (s.meleeWind >= wu - r.pre) {
       vec3 p = strikePoint(s, r);

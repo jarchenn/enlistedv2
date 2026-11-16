@@ -666,6 +666,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   app.fx.flash(muzzle + dd * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play("shot_" + d.id, muzzle, 1.0f);
+  if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
   s.recoil = 1.0f; s.lastShot = t;
   hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0);
   ++shotsByBots;
