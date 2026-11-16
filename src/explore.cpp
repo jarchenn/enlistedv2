@@ -1,5 +1,6 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "mainmenu.h"
 #include "minimap.h"
 #include "abilities.h"
 #include "crumb.h"
@@ -640,18 +641,27 @@ void App::drawExploreUI() {
     ImGui::Text("bodies %d", Physics::bodyCount());
     ImGui::End();
   }
-  if (pauseMenu) {
+  static bool showControls = false;
+  if (pauseMenu) {   // UI1b: one column of equal buttons under a title; Controls opens the key list
+    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 120));
     ImGui::SetNextWindowPos(c, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
-    if (ImGui::Button("Resume", ImVec2(240, 0))) { pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
-    if (ImGui::Button("Settings...", ImVec2(240, 0))) settings().open = true;
-    ImGui::Separator();
-    if (ImGui::Button("Apply session changes to map + return", ImVec2(240, 0))) { applyDamageToMap(); exitExplore(); }
+    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
+    const float bw = ImGui::GetFontSize() * 17;
+    { const char* t = "PAUSED"; ImGui::SetCursorPosX((bw + ImGui::GetStyle().WindowPadding.x * 2 - ImGui::CalcTextSize(t).x) * 0.5f); ImGui::TextDisabled("%s", t); }
+    ImGui::Spacing();
+    if (ImGui::Button("Resume", ImVec2(bw, 0))) { pauseMenu = false; syncCursor(); }
+    if (ImGui::Button("Controls", ImVec2(bw, 0))) showControls = true;
+    if (ImGui::Button("Settings", ImVec2(bw, 0))) settings().open = true;
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    if (ImGui::Button("Return to start marker", ImVec2(bw, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
+    if (ImGui::Button("Return to Creative", ImVec2(bw, 0))) exitExplore();
+    if (ImGui::Button("Main menu", ImVec2(bw, 0))) { exitExplore(); mainMenuOpen(*this); }   // UI2
+    if (ImGui::Button("Keep session changes and return", ImVec2(bw, 0))) { applyDamageToMap(); exitExplore(); }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
     ImGui::End();
   }
+  controlsWindow(*this, &showControls);   // UI1b
+  if (!pauseMenu) showControls = false;
 }
 
 // stamina bar: under the breath bar, only while not full; amber when a jump is no longer affordable

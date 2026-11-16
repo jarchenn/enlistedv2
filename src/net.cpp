@@ -281,7 +281,7 @@ bool Net::host(App& app, std::string& err, int port) {
   std::string ips;
   addrinfo hints{}, *res = nullptr; hints.ai_family = AF_INET;
   if (getaddrinfo(hn, nullptr, &hints, &res) == 0) { for (auto* r = res; r; r = r->ai_next) { char b[64]; inet_ntop(AF_INET, &((sockaddr_in*)r->ai_addr)->sin_addr, b, sizeof b); ips += std::string(ips.empty() ? "" : ", ") + b; } freeaddrinfo(res); }
-  status = "Hosting on " + (ips.empty() ? std::string("this PC") : ips) + " port " + std::to_string(port) + ". If Windows asks, allow Normandy Mapmaker on private networks.";
+  status = "Hosting on " + (ips.empty() ? std::string("this PC") : ips) + " port " + std::to_string(port) + ". If Windows asks, allow Battle Foundry on private networks.";
   hostMapName = app.doc.name;
   d->lobbyDirty = true;
   logf("net: hosting (%s)", status.c_str());

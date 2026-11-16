@@ -65,6 +65,8 @@ struct UserSettings {
   std::map<std::string, std::string> keys;
   // interface
   float uiScale = 1.0f, editorFly = 1.0f, editorOrbit = 1.0f, editorZoom = 1.0f;
+  // player (UI2 Character screen): body model id (content/characters/<id>.glb, "" = by faction) and the first carried weapon id ("" = M1 Garand)
+  std::string character, primary;
 
   GfxPreset preset() const;    // Low / Medium / High when gfx matches one exactly, else Custom
   json toJson() const;
@@ -106,6 +108,7 @@ Settings& settings();
 
 // ---- hooks (one line each at the call site)
 void settingsInit(App& app, bool selftest);   // app.cpp, after the renderer and bindings exist
+void controlsWindow(App& app, bool* open);   // UI1b: the read-only controls page (pause menu)
 void settingsWindow(App& app);                // drawn every frame in both modes (no-op while closed)
 void settingsEndFrame(App& app);              // app.cpp, after SwapBuffers: FPS cap
 bool settingsMenuItem();                      // "Settings..." menu entry / button helper: opens the window

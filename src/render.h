@@ -258,7 +258,7 @@ public:
   int upscaleMode = 0;
   GLuint progMotion = 0, progDepthUp = 0, motionTex = 0, motionFbo = 0; int motionW = 0, motionH = 0;
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
-  bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
+  bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent = false);   // transparent: alpha 0 where nothing was drawn (UI2 Character screen)
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));   // the Day sun; inside render() the key light of the time of day (lighting.cpp)
   // ---- lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, light shadows, probe GI
   struct LightQ {

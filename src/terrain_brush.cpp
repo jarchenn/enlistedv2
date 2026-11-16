@@ -1,7 +1,7 @@
 // V8 terrain sculpting (docs/terrain-tools.md): the Terrain tool's brushes (raise, lower, smooth, flatten, rolling
 // hills, cliff / terrace), the sculpt layer they write (Terrain::sculpt, saved as MapDoc::terrainSculpt), placement
 // re-seating, Generate hills (a seeded stamp on the base grid that avoids footprints, objectives and paths) and the
-// editor UI for both. Beautify lives in beautify.cpp.
+// editor UI for both.
 //
 // Layers, bottom to top: base heightfield (template + MapDoc::terrainGen: outer ring, hill stamps; terrain.cpp)
 // -> sculpt (fine 0.45 m tiles, absolute metres) -> terrain cuts (trenches lower the sculpted ground) -> crater deltas
@@ -299,7 +299,6 @@ struct ToolState {
   BrushParams brush;
   bool stroking = false; std::set<int> strokeKeys; float sinceRev = 0;
   bool showHills = false; HillsParams hills;
-  bool showBeautify = false;
 } gT;
 }
 void terrainStrokeBegin(App& app, BrushParams& p, vec3 at) {
@@ -380,10 +379,7 @@ void terrainMenus(App& app) {
     }
     ImGui::EndMenu();
   }
-  if (ImGui::MenuItem("Beautify...")) gT.showBeautify = true;
 }
-
-void beautifyDialog(App& app, bool& open);   // beautify.cpp
 
 void terrainEditorUI(App& app) {
   ImGuiIO& io = ImGui::GetIO();
@@ -419,5 +415,4 @@ void terrainEditorUI(App& app) {
     }
     ImGui::End();
   }
-  if (gT.showBeautify) beautifyDialog(app, gT.showBeautify);
 }

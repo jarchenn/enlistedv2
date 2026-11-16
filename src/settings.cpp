@@ -66,6 +66,7 @@ json UserSettings::toJson() const {
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleHealthBars", vehicleBars}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}}},
     {"controls", k},
+    {"player", {{"character", character}, {"primary", primary}}},
     {"interface", {{"uiScale", uiScale}, {"minimapRotate", minimapRotate}, {"developerOverlay", devOverlay}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
   };
 }
@@ -114,6 +115,7 @@ UserSettings UserSettings::fromJson(const json& j) {
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
+  if (j.contains("player") && j["player"].is_object()) { u.character = j["player"].value("character", std::string()); u.primary = j["player"].value("primary", std::string()); }
   if (j.contains("interface") && j["interface"].is_object()) {
     const json& q = j["interface"];
     u.uiScale = std::clamp(q.value("uiScale", u.uiScale), 0.75f, 2.0f);
@@ -175,6 +177,12 @@ const FixedKey kFixed[] = {
   {"F3", "performance stats"}, {"F4", "damage debug"}, {"F5", "Explore / Creative"}, {"F6", "match debug overlay"}, {"ESCAPE", "menu / back"},
 };
 const char* fixedUse(const std::string& n) { for (auto& f : kFixed) if (n == f.name) return f.what; return nullptr; }
+// "LEFT_SHIFT" -> "Left Shift", "ESCAPE" -> "Esc"
+static std::string prettyKey(std::string k) {
+  if (k == "ESCAPE") return "Esc"; if (k == "BACKSPACE") return "Backspace"; if (k == "ENTER") return "Enter";
+  bool up = true; for (char& c : k) { if (c == '_') { c = ' '; up = true; continue; } c = up ? (char)std::toupper((unsigned char)c) : (char)std::tolower((unsigned char)c); up = false; }
+  return k;
+}
 struct Action { const char* id; const char* label; };
 const Action kActions[] = {{"fireMode", "Fire mode"}, {"prone", "Prone"}, {"crouch", "Crouch"}, {"packUp", "Deploy / pack up heavy weapon"},
                            {"grenade", "Throw grenade"}, {"smokeGrenade", "Smoke grenade (match)"},
@@ -233,7 +241,7 @@ void Settings::apply(App& app) {
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList; app.friendlyMarkers = s.friendlyMarkers;
   app.audio.setGains(s.master, s.effects, s.ui, s.ambience); app.audio.gunfireGain = std::clamp(s.gunfire, 0.0f, 2.0f);   // UI1b
-  if (ImGui::GetCurrentContext()) ImGui::GetIO().FontGlobalScale = s.uiScale;
+  // UI1b: the font scale is set every frame (app.cpp uiFontScale: resolution x UI scale)
   // editor camera: fly speed is the Alt+wheel multiplier; orbit / zoom scale the content/settings/editor.json values
   NavCamSettings& nav = const_cast<NavCamSettings&>(navSettings());
   if (!gNavBaseSet) { gNavBase = nav; gNavBaseSet = true; }
@@ -307,6 +315,27 @@ void settingsUiApply(App& app) {   // the Apply button (always enabled: it re-ap
   if (S.s.envFog != gApplied.envFog || S.s.weather != gApplied.weather) app.R.wx.userSet = true;   // NT2: the user overrides the map's sky
   S.apply(app); gApplied = S.s; gPendingSave = true;
 }
+// UI1b: the controls page (pause menu "Controls"): mouse, every action with its key, then the fixed keys (no debug keys)
+void controlsWindow(App& app, bool* open) {
+  if (!*open) return;
+  ImGuiIO& io = ImGui::GetIO();
+  ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+  if (ImGui::Begin("Controls", open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
+    const ImVec4 keyCol(0.92f, 0.70f, 0.28f, 1.0f);
+    if (ImGui::BeginTable("controls", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_PadOuterX)) {
+      int n = 0;
+      auto cell = [&](const std::string& key, const char* what) { if (n++ % 2 == 0) ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::TextColored(keyCol, "%s", key.c_str()); ImGui::TableNextColumn(); ImGui::TextUnformatted(what); };
+      cell("Mouse", "look"); cell("Left button", "fire"); cell("Right button", "aim / sights"); cell("Wheel", "next / previous weapon");
+      for (auto& a : kActions) { auto it = app.binds.names.find(a.id); cell(it == app.binds.names.end() ? "-" : prettyKey(it->second), a.label); }
+      for (auto& f : kFixed) { std::string nm = f.name; if (nm == "F3" || nm == "F4" || nm == "F6") continue; cell(prettyKey(nm), f.what); }
+      cell("F12", "developer overlay");
+      ImGui::EndTable();
+    }
+    ImGui::Spacing(); ImGui::TextDisabled("Change keys in Settings > Controls.");
+  }
+  ImGui::End();
+}
+
 void settingsWindow(App& app) {
   Settings& S = settings();
   bool& wasOpen = gWasOpen; bool& pendingSave = gPendingSave;

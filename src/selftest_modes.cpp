@@ -12,6 +12,8 @@
 #include "physics.h"
 #include "loot.h"
 #include "settings.h"
+#include "ai_core.h"
+#include "mainmenu.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <set>
@@ -360,6 +362,32 @@ void build(App&) {
   // BR2 capture (NMK_MODES_ONLY_BR2): a Solo start switched to Battle Royale, a filled kit, the inventory screen
   // AI3 capture (NMK_AI3_SHOT): the setup window in TDM with typed per-type counts; the spawn order hands out exactly
   // those counts, interleaved (aiTypeNext)
+  // UI1b polish captures (NMK_UI1_POLISH): the editor's Open dialog, match setup, Settings, then a TDM match: HUD, pause
+  // menu, held scoreboard, the end table -> selftest_out/ui1p_*.png
+  push("ui1p screens", [](App& a, float t) {
+    if (!std::getenv("NMK_UI1_POLISH")) return true;
+    static int ph = 0; static float t0 = 0;
+    auto shot = [&](const char* n) { a.uiShot = outDir() / (std::string("ui1p_") + n + ".png"); };
+    auto at = [&](float d) { return t > t0 + d; };
+    if (t == 0) { ph = 0; t0 = 0; if (a.mode == Mode::Explore) a.exitExplore(); a.openMap(contentDir() / "templates" / "chateau_town.nmap.json"); a.showOpen = true; return false; }
+    switch (ph) {
+      case 0: if (at(1.5f)) { shot("1_editor_open"); ph = 1; t0 = t; } break;
+      case 1: if (at(0.3f)) { a.showOpen = false; gUi.showSetup = true; gUi.setupMode = 0; ph = 2; t0 = t; } break;
+      case 2: if (at(0.8f)) { shot("2_setup"); ph = 3; t0 = t; } break;
+      case 3: if (at(0.3f)) { gUi.showSetup = false; settings().open = true; ph = 4; t0 = t; } break;
+      case 4: if (at(0.8f)) { shot("3_settings"); ph = 5; t0 = t; } break;
+      case 5: if (at(0.3f)) { settings().open = false; startMode(a, GameMode::TDM, 24, 999, 12, 12, contentDir() / "templates" / "chateau_town.nmap.json"); ph = 6; t0 = t; } break;
+      case 6: if (Soldier* L = gGame->local()) if (L->alive) { L->hp = 74; L->protectUntil = gGame->t + 1; }
+              if (at(7.0f)) { shot("4_hud"); ph = 7; t0 = t; } break;
+      case 7: if (at(0.3f)) { a.pauseMenu = true; ph = 8; t0 = t; } break;
+      case 8: if (at(0.6f)) { shot("5_pause"); ph = 9; t0 = t; } break;
+      case 9: if (at(0.3f)) { a.pauseMenu = false; gGame->showScoreboard = true; ph = 10; t0 = t; } break;
+      case 10: if (at(0.6f)) { shot("6_scoreboard"); ph = 11; t0 = t; } break;
+      case 11: if (at(0.3f)) { gGame->showScoreboard = false; gGame->match.phase = MatchPhase::Ended; ph = 12; t0 = t; } break;
+      case 12: if (at(0.8f)) { shot("7_end"); ph = 13; t0 = t; } break;
+      case 13: if (at(0.3f)) return true; break;
+    }
+    return t > 60; });
   // UI1b captures (NMK_UI1_SHOTS): a small TDM on four maps; the HUD with the corner map, then the full map (M)
   for (const char* mp : {"dday", "chateau_town", "newtown", "outpost_desert"})
     push(std::string("ui1 ") + mp, [mp](App& a, float t) {
@@ -372,6 +400,70 @@ void build(App&) {
       if (t < 7.65f) { a.uiShot = outDir() / (std::string("ui1_") + mp + "_map.png"); return false; }
       if (t < 8.0f) return false;
       a.mapLarge = false; return true; });
+  // UI2 menu backdrop (NMK_UI2_BACKDROP): a street of our own map at late dusk under heavy cloud and dense fog, no
+  // viewmodel; one frozen friendly soldier stands in front -> ui2_backdrop_bot.png, then without him -> ui2_backdrop_empty.png.
+  // NMK_UI2_MAP (default newtown), NMK_UI2_VIEW "x,z,yaw,pitch" (else the spawn), NMK_UI2_SURVEY=1: four headings instead
+  push("ui2 backdrop", [](App& a, float t) {
+    if (!std::getenv("NMK_UI2_BACKDROP")) return true;
+    static float yaw0 = 0, pitch0 = 0; static int bot = -1;
+    const bool survey = std::getenv("NMK_UI2_SURVEY") != nullptr;
+    if (t == 0) {
+      const char* m = std::getenv("NMK_UI2_MAP");
+      chk(startMode(a, GameMode::TDM, 24, 999, 2, 1, contentDir() / "templates" / (std::string(m && *m ? m : "newtown") + ".nmap.json")), "UI2 backdrop: TDM starts (%s)", gGame->setupError.c_str());
+      a.shotsNoViewModel = true; a.R.wx.forced = 1; a.R.wx.fogForced = 3; a.R.wx.snap();
+      settings().s.hour = 19.6f; settings().apply(a);
+      return false;
+    }
+    Soldier* L = gGame->local(); if (!L) return t > 20;
+    L->hp = 100; L->protectUntil = gGame->t + 1;
+    if (t < 3.0f) return false;
+    if (AiCore* A = aiCore()) A->frozen = true;
+    if (bot < 0 && t < 4.5f) {
+      if (const char* v = std::getenv("NMK_UI2_VIEW")) { float x, z; if (sscanf(v, "%f,%f,%f,%f", &x, &z, &yaw0, &pitch0) == 4) Physics::setCharacterPos(vec3(x, a.terrain.height(x, z) + 0.05f, z)); }
+      else { yaw0 = a.eyeYaw; pitch0 = 2; }
+      for (auto& s : gGame->sold) if (s.alive && s.slot != gGame->localSlot && s.team == L->team) { bot = s.slot; break; }
+      if (bot < 0) for (auto& s : gGame->sold) if (s.alive && s.slot != gGame->localSlot && !s.zombie) { bot = s.slot; break; }   // frozen: an enemy stands in as well
+      logf("UI2 backdrop: soldier slot %d of %zu", bot, gGame->sold.size());
+    }
+    a.eyeYaw = yaw0; a.eyePitch = pitch0;
+    if (survey) {
+      for (int k = 0; k < 4; ++k) if (t > 5 + k && t < 5.05f + k) { a.eyeYaw = yaw0 + 90.0f * k; a.uiShot = outDir() / ("ui2_survey_" + std::to_string(k) + ".png"); }
+      for (int k = 0; k < 4; ++k) if (t > 4.5f + k && t < 5.0f + k) a.eyeYaw = yaw0 + 90.0f * k;
+      if (t < 9.5f) return false;
+    } else {
+      if (bot >= 0) {   // centre-left of the frame, 3.4 m out, turned three quarters to the camera
+        Soldier& B = gGame->sold[bot]; const vec3 e = a.eyePos(); const vec3 f = App::forward(yaw0, 0), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+        vec3 p = t < 6.6f ? e + f * 3.4f - r * 0.6f : e + f * 60.0f + vec3(0, -400, 0);
+        p.y = t < 6.6f ? a.terrain.height(p.x, p.z) : p.y; B.feet = p; if (B.agent >= 0) Physics::setAgentPos(B.agent, p);   // frozen bots read their feet back from the agent B.vel = vec3(0); B.yaw = yaw0 + 25.0f; B.protectUntil = gGame->t + 1;
+      }
+      a.hideUi = true;
+      if (t > 6.0f && t < 6.05f) a.uiShot = outDir() / "ui2_backdrop_bot.png";
+      if (t > 7.2f && t < 7.25f) a.uiShot = outDir() / "ui2_backdrop_empty.png";
+      if (t < 7.6f) return false;
+    }
+    a.hideUi = false; a.shotsNoViewModel = false; if (AiCore* A = aiCore()) A->frozen = false; bot = -1;
+    return true; });
+  // UI2 main menu captures (NMK_UI2_MENU): the menu as launched, Play, Character, Credits, Settings over it -> ui2_menu_*.png
+  push("ui2 menu", [](App& a, float t) {
+    if (!std::getenv("NMK_UI2_MENU")) return true;
+    static int ph = 0; static float t0 = 0;
+    auto shot = [&](const char* n) { a.uiShot = outDir() / (std::string("ui2_menu_") + n + ".png"); };
+    auto at = [&](float d) { return t > t0 + d; };
+    if (t == 0) { ph = 0; t0 = 0; mainMenuOpen(a); return false; }
+    switch (ph) {
+      case 0: if (at(2.5f)) { shot("1_main"); ph = 1; t0 = t; } break;
+      case 1: if (at(0.2f)) { mainMenuGo(a, 1); ph = 2; t0 = t; } break;
+      case 2: if (at(0.8f)) { shot("2_play"); ph = 3; t0 = t; } break;
+      case 3: if (at(0.2f)) { mainMenuGo(a, 2); ph = 4; t0 = t; } break;
+      case 4: if (at(1.5f)) { shot("3_character"); ph = 5; t0 = t; } break;
+      case 5: if (at(0.2f)) { mainMenuGo(a, 5); ph = 6; t0 = t; } break;
+      case 6: if (at(0.8f)) { shot("4_credits"); ph = 7; t0 = t; } break;
+      case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; } break;
+      case 8: if (at(0.8f)) { shot("5_settings"); ph = 9; t0 = t; } break;
+      case 9: if (at(0.2f)) { settings().open = false; mainMenuGo(a, 0); ph = 10; t0 = t; } break;
+      case 10: if (at(0.5f)) { chk(!mainMenuActive() && a.mode == Mode::Creative, "UI2: Create Map closes the menu into Creative"); return true; } break;
+    }
+    return t > 40; });
   push("ai3 setup", [](App& a, float t) {
     if (!std::getenv("NMK_AI3_SHOT")) return true;
     if (t == 0) {
@@ -497,6 +589,9 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_UI2_MENU")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 menu" && s.name != "done"; }), seq.end());
+    else if (std::getenv("NMK_UI2_BACKDROP")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 backdrop" && s.name != "done"; }), seq.end());
+    else if (std::getenv("NMK_UI1_POLISH")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui1p screens" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI1_SHOTS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name.rfind("ui1 ", 0) != 0 && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_AI3_SHOT")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ai3 setup" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_MODES_ONLY_BR2")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "br2 inventory" && s.name != "done"; }), seq.end());   // BR2 inventory capture
