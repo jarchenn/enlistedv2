@@ -113,7 +113,8 @@ void analyzeClips(CharModel& m) {
     } else {
       std::vector<vec3>* limb = clip.name.find("kick") != std::string::npos ? foot : hand;   // a kick lands at the fastest foot
       for (int h = 0; h < 2; ++h)
-        for (int i = 0; i < N; ++i) { float v = glm::length(limb[h][i + 1] - limb[h][i]) / dt; if (v > best) { best = v; clip.swing = (i + 0.5f) * dt; clip.swingChest = chest[0][i + 1]; } }
+        for (int i = 0; i < N; ++i) { float v = glm::length(limb[h][i + 1] - limb[h][i]) / dt; if (v > best) { best = v; clip.swing = (i + 0.5f) * dt; clip.swingChest = chest[0][i + 1];
+          clip.swingJoint = limb == foot ? (h ? CJ_RFOOT : CJ_LFOOT) : (h ? CJ_RHAND : CJ_LHAND); clip.swingAt = limb[h][i + 1]; } }
     }
     // planted foot (within 3 cm of its lowest point) slides toward -z (the model faces +z) at the ground speed
     float sum = 0; int cnt = 0;

@@ -27,6 +27,15 @@ struct EnemyType {
   float locoRate = 1;                                     // walk / run clip speed x (legs move faster than the ground speed alone gives)
   float nonBlastMult = 1;                                 // damage x from everything but explosions (the Fighters: 0.1)
   float groundShake = 0;                                  // CH3 json "ground_shake" 0-1: each landing blow shakes the player's view (App::blastShake), fading out by 30 m
+  // CH6 json "attacks": [{clip, joint, extend, radius, damage, range [min, max], leap, victims, weight, swing, window [pre, post]}]:
+  // the strike of an attack clip. joint: the semantic joint that lands it (default: the clip's fastest hand); extend: metres
+  // past it along its limb (a mace head, a jaw); radius: the strike sphere; range: the target distances it is used at (default:
+  // the joint's reach at the swing); leap: dashes in during the wind-up; victims: at most this many (0: any); swing: the
+  // blow's moment as a fraction of the clip (default: the fastest hand); window: seconds the sphere is live before / after it
+  struct AttackSpec { std::string clip; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; };   // reach: the distance it closes to (default: the fastest hand's at the swing)
+  std::vector<AttackSpec> attackSpecs;
+  bool attackDust = true;                                 // CH5 json "attack_dust": false: its blows throw no dust (the area, shake and sounds stay)
+  float headMult = 0;                                     // CH7 json "head_mult": damage x on a head hit instead of the global head multiplier (0: the global one)
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
   bool blastOnly = false;                                 // only blast damage hurts it (the Fighter)
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)

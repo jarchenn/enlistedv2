@@ -17,6 +17,10 @@
 #include "mpai.h"
 #include "crumb.h"
 #include "enemy_types.h"
+// CH6: "attacks" joint names, in CharJoint order (as character.cpp kSemanticNames, private there)
+static const char* kSemanticNames[] = {"Hips", "Spine", "Spine1", "Spine2", "Neck", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "RightShoulder", "RightArm", "RightForeArm", "RightHand",
+  "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase", "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"};
+static_assert(sizeof(kSemanticNames) / sizeof(kSemanticNames[0]) == CJ_COUNT, "the CharJoint list changed");
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -59,6 +63,16 @@ const ZombieCfg& zcfg() {
         t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin);
         t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 4.0f);
         t.groundShake = std::clamp(e.value("ground_shake", t.groundShake), 0.0f, 1.0f);
+        for (auto& a : e.value("attacks", json::array())) {   // CH6
+          EnemyType::AttackSpec x; x.clip = a.value("clip", ""); std::string jn = a.value("joint", "");
+          for (int q = 0; q < CJ_COUNT; ++q) if (jn == kSemanticNames[q]) x.joint = q;
+          x.extend = a.value("extend", 0.0f); x.radius = a.value("radius", 0.0f); x.damage = a.value("damage", -1.0f); x.weight = std::max(0.0f, a.value("weight", 1.0f));
+          if (a.contains("range") && a["range"].is_array() && a["range"].size() == 2) { x.rangeMin = a["range"][0]; x.rangeMax = a["range"][1]; }
+          if (a.contains("window") && a["window"].is_array() && a["window"].size() == 2) { x.pre = a["window"][0]; x.post = a["window"][1]; }
+          x.reach = a.value("reach", 0.0f); x.leap = a.value("leap", false); x.victims = a.value("victims", 0); x.swing = a.value("swing", 0.0f);
+          if (!x.clip.empty()) t.attackSpecs.push_back(x);
+        }
+        t.attackDust = e.value("attack_dust", t.attackDust); t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
         t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly); t.stepCrater = std::clamp(e.value("step_crater", t.stepCrater), 0.0f, 3.0f); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.shellKills = std::clamp(e.value("shell_hits_to_kill", t.shellKills), 0, 100); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.nonBlastMult = std::clamp(e.value("non_blast_mult", t.nonBlastMult), 0.0f, 1.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f); t.kickCrater = std::clamp(e.value("kick_crater", t.kickCrater), 0.0f, 3.0f);
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
@@ -103,8 +117,39 @@ float windupOf(const Game& G, const Soldier& s) {
   const EnemyType& e = typeOf(s);
   if (s.model < 0 || s.model >= (int)G.models.size()) return e.windup;
   int k = attackClip(*G.models[s.model], clipsOf(s), s.meleeClip);
+  if (k >= 0) { const auto& ac = clipsOf(s).attackClips; for (auto& a : e.attackSpecs) if (a.swing > 0 && a.clip == ac[s.meleeClip % ac.size()]) return a.swing * G.models[s.model]->clips[k].dur / e.attackRate; }   // CH6: its own blow moment
   return k >= 0 && G.models[s.model]->clips[k].swing > 0 ? G.models[s.model]->clips[k].swing / e.attackRate : e.windup;
 }
+// CH6: an attack's strike, from the clip's analysis (the fastest hand and where it is at the swing) and the type's "attacks"
+struct Strike { int joint = CJ_RHAND; float extend = 0, radius = 0.5f, damage = 0, lo = 0, hi = 0, weight = 1, pre = 0.15f, post = 0.1f, dist = 1; bool leap = false; int victims = 0; };
+Strike strikeOf(const Game& G, const Soldier& s, int i) {
+  const EnemyType& e = typeOf(s); const EnemyType& ce = clipsOf(s); Strike r;
+  r.radius = std::max(0.45f, 0.12f * e.height * e.scale); r.damage = e.damage; r.dist = e.reach;
+  const CharModel& m = *G.models[s.model]; int k = attackClip(m, ce, i);
+  if (k >= 0 && m.clips[k].swingJoint >= 0) { r.joint = m.clips[k].swingJoint; vec3 a = m.clips[k].swingAt; r.dist = std::max(0.6f, glm::length(vec2(a.x, a.z)) * s.eScale); }
+  for (auto& a : e.attackSpecs) if (a.clip == ce.attackClips[i % ce.attackClips.size()]) {
+    if (a.joint >= 0) r.joint = a.joint; r.extend = a.extend; if (a.radius > 0) r.radius = a.radius; if (a.damage >= 0) r.damage = a.damage;
+    r.lo = a.rangeMin; r.hi = a.rangeMax; r.weight = a.weight; r.pre = a.pre; r.post = a.post; r.leap = a.leap; r.victims = a.victims;
+    if (a.extend > 0) r.dist += a.extend;
+    if (a.reach > 0) r.dist = a.reach;
+  }
+  if (r.hi <= 0) { r.lo = 0; r.hi = std::max({r.dist + r.radius + 0.3f, e.reach, e.lunge}); }   // within the swing's reach (or the type's lunge)
+  return r;
+}
+// where the strike sphere is now: the joint, carried `extend` metres on along its limb (forearm -> hand, neck -> head, shin -> foot)
+vec3 strikePoint(const Soldier& s, const Strike& r) {
+  auto W = [&](int j) { return vec3(s.world * vec4(s.pose.joint[j], 1)); };
+  vec3 p = W(r.joint);
+  int par = r.joint == CJ_LHAND ? CJ_LFOREARM : r.joint == CJ_RHAND ? CJ_RFOREARM : r.joint == CJ_HEAD ? CJ_NECK : r.joint == CJ_LFOOT ? CJ_LLEG : r.joint == CJ_RFOOT ? CJ_RLEG : -1;
+  if (r.extend > 0 && par >= 0) { vec3 d = p - W(par); if (glm::length(d) > 1e-4f) p += glm::normalize(d) * r.extend; }
+  return p;
+}
+// distance from a point to a soldier's body (a 0.3 m capsule from the feet to its height)
+float bodyDist(const Soldier& o, vec3 p) {
+  float h = 1.75f * (o.zombie ? o.eBody : 1.0f); vec3 a = o.feet + vec3(0, 0.25f, 0), b = o.feet + vec3(0, h, 0);
+  float u = std::clamp((p.y - a.y) / std::max(1e-3f, b.y - a.y), 0.0f, 1.0f); return glm::length(p - (a + (b - a) * u)) - 0.3f * (o.zombie ? std::max(1.0f, o.eBody) : 1.0f);
+}
+static std::map<int, std::vector<int>> gStruck;   // slot -> who this strike has hit (once each)
 BotMind* mindAt(AiCore& A, int slot) { return slot >= 0 && slot < (int)A.minds.size() ? A.minds[slot].get() : nullptr; }
 bool packMate(AiCore& A, const Soldier& o, int pack) { if (pack < 0) return false; BotMind* m = mindAt(A, o.slot); return m && m->life == o.lifeId && m->pack == pack; }
 bool packCompatible(const Game& G, const Soldier& a, const Soldier& b) { return ffaMode(G.match.mode()) || a.team == b.team; }
@@ -421,8 +466,9 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   if (G.t < s.staggerUntil) { m.speed = SPD_STOP; b.why = "zombie: staggered"; }
   if (best || L) {
     vec3 d = best ? best->feet - s.feet : vec3(0);
-    vec3 look = best && zLenXZ(d) < 4.0f ? d : m.moveDir;   // close: face the victim; else the way the path goes (no sideways walk round corners)
-    if (zLenXZ(look) > 0.05f) b.aimYaw = degrees(std::atan2(-look.x, -look.z));
+    const bool locked = s.meleeWind >= 0 && s.meleeWind >= windupOf(G, s);   // CH6: from the blow on, the facing holds
+    vec3 look = best && (s.meleeWind >= 0 || zLenXZ(d) < std::max(4.0f, e.reach + e.lunge + 2.0f)) ? d : m.moveDir;   // close or striking: face the victim; else the way the path goes (no sideways walk round corners)
+    if (zLenXZ(look) > 0.05f && !locked) b.aimYaw = degrees(std::atan2(-look.x, -look.z));
     b.aimPitch = 0;
   }
   {   // the plain zombie groans now and then when near the listener. shortcut: host / single player only, one voice at a time
@@ -455,7 +501,15 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   // the other attacks for anyone within reach
   const auto& ac = clipsOf(s).attackClips; int di = -1; float dropR = 0;
   for (int i = 0; i < (int)ac.size(); ++i) if (ac[i].find("drop") != std::string::npos) { int k = findClip(*G.models[s.model], ac[i]); if (k >= 0) { di = i; vec3 c = G.models[s.model]->clips[k].swingChest; dropR = std::max(1.0f, glm::length(vec2(c.x, c.z)) * s.eScale); } }
-  const bool inR = best && inReach(G, s, *best, std::max(e.reach, e.lunge));
+  // CH6: the attacks whose strike distance (or json range: a leap's band) fits the target's distance
+  const bool strikes = s.model >= 0 && s.model < (int)G.models.size();
+  std::vector<int> fit; float wsum = 0; const float dT = best ? zLenXZ(best->feet - s.feet) : 1e9f;
+  if (best && strikes) for (int i = 0; i < (int)ac.size(); ++i) if (i != di) { Strike r = strikeOf(G, s, i); if (dT >= r.lo && dT <= r.hi && r.weight > 0) { fit.push_back(i); wsum += r.weight; } }
+  const bool inR = strikes ? !fit.empty() : best && inReach(G, s, *best, std::max(e.reach, e.lunge));
+  if (best && strikes && s.meleeWind < 0 && di < 0) {   // CH6: hold back at the strike distance instead of walking into the target (the swing would pass over it)
+    float hold = 1e9f; for (int i = 0; i < (int)ac.size(); ++i) { Strike r = strikeOf(G, s, i); if (!r.leap) hold = std::min(hold, 0.8f * r.dist); }
+    if (hold < 1e8f && dT < hold) m.speed = SPD_STOP;
+  }
   bool dropOk = false;
   if (best && di >= 0) {
     vec3 f = best->feet - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1);   // she turns to her target
@@ -465,9 +519,57 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f); else if (!e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, 0.93f + 0.14f * G.rnd(s));   /* one of three, picked at random */
     s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
     if (dropOk || n <= 0) s.meleeClip = di;   // two or more in the slam's oval: the slam; otherwise the others
+    else if (strikes && !fit.empty()) { float x = G.rnd(s) * wsum; s.meleeClip = fit.back(); for (int i : fit) { x -= strikeOf(G, s, i).weight; if (x <= 0) { s.meleeClip = i; break; } } }   // CH6: by weight among those that fit
     else { int pick = std::min(n - 1, (int)(G.rnd(s) * n)); s.meleeClip = di >= 0 && pick >= di ? pick + 1 : pick; }
+    gStruck[s.slot].clear();
     ++s.meleeCount; }
-  if (s.meleeWind >= 0) {
+  if (s.meleeWind >= 0 && strikes && s.meleeClip != di) {   // CH6: the strike lands where the joint is, not on whoever was chosen
+    float wu = windupOf(G, s); Strike r = strikeOf(G, s, s.meleeClip);
+    if (best && s.meleeWind < wu) {   // step (a leap: dash) in to the strike distance by the blow, no closer; a target that got away is not chased mid-swing
+      float gap = zLenXZ(best->feet - s.feet) - 0.85f * r.dist;
+      if (gap > 0.15f && (r.leap ? gap < r.hi : gap < 3.0f)) { float v = gap / std::max(0.1f, wu - s.meleeWind); m.zSpeed = std::max(m.zSpeed, r.leap ? v : std::min(v, 1.5f * e.run)); m.speed = SPD_ZOMBIE; } else m.speed = SPD_STOP;
+    }
+    else m.speed = SPD_STOP;   // the blow and its follow-through: planted
+    float w0 = s.meleeWind; s.meleeWind += dt;
+    std::vector<int>& hit = gStruck[s.slot];
+    if (s.meleeWind >= wu - r.pre) {
+      vec3 p = strikePoint(s, r);
+      { static const bool lg = std::getenv("NMK_STRIKE_LOG") != nullptr; if (lg && w0 < wu && s.meleeWind >= wu) { vec3 q = p - s.feet; logf("strike %s clip %d joint %d at feet+(%.2f %.2f %.2f) target %d body dist %.2f radius %.2f range %.1f-%.1f leap %d",
+        e.id.c_str(), s.meleeClip, r.joint, q.x, q.y, q.z, best ? best->slot : -1, best ? bodyDist(*best, p) : -1.0f, r.radius, r.lo, r.hi, (int)r.leap); } }   // diagnostics
+      if (e.stompArea > 0) {   // a slam: the area where the limb meets the ground, at the blow
+        if (w0 < wu && s.meleeWind >= wu) {
+          vec3 at(p.x, G.app.terrain.height(p.x, p.z), p.z); float R = e.stompArea * e.height * e.scale;
+          if (e.groundShake > 0) G.app.blastShake = std::max(G.app.blastShake, e.groundShake * std::max(0.0f, 1.0f - glm::length(at - G.app.eyePos()) / 30.0f));
+          if (e.kickCrater > 0) G.app.deformGround(at, e.kickCrater);
+          G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
+          if (e.attackDust) for (int k = 0; k < 28; ++k) {
+            float an = k * 0.2244f, rr = k % 4 == 3 ? R * 0.35f : R; vec3 dirv(std::cos(an), 0, std::sin(an)); vec3 pp = at + dirv * rr; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
+            G.app.fx.smoke(pp, dirv * (R * 0.25f) + vec3(0, 0.6f + 0.05f * R, 0), std::max(1.5f, R * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
+          }
+          for (auto& o : G.sold) { if (!o.alive || &o == &s || !Game::hostile(s, o)) continue; float rr = glm::length(o.feet - at); if (rr < R) { float hp0 = o.hp; vec3 dir = o.feet - at; dir.y = 0.3f; G.damage(o.slot, r.damage * (1.0f - rr / R), s.slot, glm::normalize(dir), "melee"); if (!o.alive) o.flat = true;
+            if (o.hp < hp0) { ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - o.hp}); contactSound(G, e, o); } } }
+        }
+      } else {   // a strike: everyone hostile the sphere touches while it is live, once each
+        if (w0 < wu && s.meleeWind >= wu && e.groundShake > 0) G.app.blastShake = std::max(G.app.blastShake, e.groundShake * std::max(0.0f, 1.0f - glm::length(p - G.app.eyePos()) / 30.0f));
+        for (auto& o : G.sold) {
+          if (!o.alive || &o == &s || !Game::hostile(s, o) || std::find(hit.begin(), hit.end(), o.slot) != hit.end() || (r.victims > 0 && (int)hit.size() >= r.victims)) continue;
+          if (bodyDist(o, p) > r.radius) continue;
+          float hp0 = o.hp; hit.push_back(o.slot);
+          bool landed = G.meleeHit(s.slot, o.slot, r.damage);
+          { static const bool lg = std::getenv("NMK_STRIKE_LOG") != nullptr; if (lg) logf("strike %s touches %d (dist %.2f): meleeHit %d hp %.0f -> %.0f", e.id.c_str(), o.slot, bodyDist(o, p), (int)landed, hp0, o.hp); }   // diagnostics
+          if (landed) {
+            ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - o.hp}); contactSound(G, e, o);
+            if (gBlowLog.size() > 4096) gBlowLog.erase(gBlowLog.begin(), gBlowLog.begin() + 2048);
+            if (e.knock > 0 && o.localPlayer) { vec3 d = o.feet - s.feet; d.y = 0; if (glm::length(d) > 1e-3f) G.app.knockVel = glm::normalize(d) * e.knock; }   // shortcut: only the local player is shoved
+          }
+        }
+      }
+    }
+    if (s.meleeWind >= wu + r.post) {
+      int k = attackClip(*G.models[s.model], clipsOf(s), s.meleeClip); float rest = k >= 0 ? (G.models[s.model]->clips[k].dur - G.models[s.model]->clips[k].swing) / e.attackRate : 0.0f;
+      s.meleeWind = -1; s.meleeReady = G.t + std::max(e.cooldown, rest);
+    }
+  } else if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
     if (best && e.lunge > e.reach) { float gap = zLenXZ(best->feet - s.feet) - 0.8f * e.reach; if (gap > 0) { m.zSpeed = std::max(m.zSpeed, gap / std::max(0.1f, wu - s.meleeWind)); m.speed = SPD_ZOMBIE; } }
     s.meleeWind += dt;
@@ -481,7 +583,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
         vec3 f = c - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1); vec3 sd(-f.z, 0, f.x);
         float A = 0.18f * e.height * s.eScale, B = 0.10f * e.height * s.eScale;
         G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
-        for (int k = 0; k < 28; ++k) {   // the dust ring, round the oval's edge
+        if (e.attackDust) for (int k = 0; k < 28; ++k) {   // the dust ring, round the oval's edge
           float an = k * 0.2244f; vec3 out = f * std::cos(an) * A + sd * std::sin(an) * B, pp = at + out; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
           G.app.fx.smoke(pp, glm::normalize(out) * (B * 0.25f) + vec3(0, 0.6f + 0.05f * B, 0), std::max(1.5f, B * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
         }
@@ -492,7 +594,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
       if (e.stompArea > 0 && best) {   // area blow: everyone hostile round the landing point, full damage at the centre falling to none at the edge
         float R = e.stompArea * e.height * e.scale;
         G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
-        for (int k = 0; k < 28; ++k) {   // dust thrown out from the blow: a ring at the edge of the damage radius and a core
+        if (e.attackDust) for (int k = 0; k < 28; ++k) {   // dust thrown out from the blow: a ring at the edge of the damage radius and a core
           float an = k * 0.2244f, rr = k % 4 == 3 ? R * 0.35f : R; vec3 dirv(std::cos(an), 0, std::sin(an)); vec3 pp = at + dirv * rr; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
           G.app.fx.smoke(pp, dirv * (R * 0.25f) + vec3(0, 0.6f + 0.05f * R, 0), std::max(1.5f, R * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
         }
