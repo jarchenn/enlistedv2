@@ -195,9 +195,18 @@ void gm2NearMisses(App& app, float dt) {
     int me = gGame && gGame->active ? gGame->localSlot : -2;
     auto test = [&](vec3 p, vec3 v) {
       vec3 a = p - v * dt, ab = p - a; float L2 = glm::dot(ab, ab); if (L2 < 1e-6f) return;
-      float u = glm::dot(e - a, ab) / L2; if (u <= 0 || u >= 1) return;
-      float d = glm::length(a + ab * u - e);
+      float u = glm::dot(e - a, ab) / L2; if (u <= 0 || u >= 1) return;   // the closest approach falls in this step: once per bullet
+      vec3 c = a + ab * u; float d = glm::length(c - e);
       if (d < 2.5f && d > 0.05f) gm2AddNearMiss(1.0f - d / 2.5f);
+      if (d < 6.0f && d > 0.05f) {   // SND1: the whiz of a round passing the head: full inside 0.5 m, silent at 6 m, panned to the pass side
+        static double recent[4] = {-9, -9, -9, -9}; double now = ImGui::GetTime(); int slot = 0;
+        for (int k = 1; k < 4; ++k) if (recent[k] < recent[slot]) slot = k;
+        if (now - recent[slot] < 0.3) return;   // four in the last 0.3 s already: an MG burst does not stack dozens
+        recent[slot] = now;
+        float x = std::clamp((d - 0.5f) / 5.5f, 0.0f, 1.0f), vol = 1.0f - x * x * (3 - 2 * x);
+        static uint32_t rs = 12345; rs = rs * 1664525u + 1013904223u; float pitch = 0.92f + 0.16f * (rs >> 8) / 16777216.0f;
+        app.audio.play("bulletwhiz", e + (c - e) / d * 0.8f, vol, pitch);   // inside the 1 m min distance: panned, not attenuated twice
+      }
     };
     static int dbg = 0;   // shortcut: diagnostics for the near-miss self-test (enemy rounds within 10 m only), remove once it passes in the combined batch
     for (auto& q : app.projectiles) if (q.owner != -1 && dbg < 30 && glm::length(q.p - e) < 10.0f) { ++dbg; logf("gm2 nm: owner %d kind %d at (%.2f %.2f %.2f) v (%.0f %.0f %.0f) eye (%.2f %.2f %.2f) me %d dt %.4f", q.owner, q.kind, q.p.x, q.p.y, q.p.z, q.v.x, q.v.y, q.v.z, e.x, e.y, e.z, me, dt); }

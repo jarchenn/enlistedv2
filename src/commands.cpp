@@ -318,7 +318,29 @@ bool commandsSelfTest(App& app, float dt) {
       else if (cap.t > 0.6f) { T.check(std::string(st.buf) == "/give modern_ar15 ", std::string("Tab completes a unique prefix: \"") + st.buf + "\""); io.AddKeyEvent(ImGuiKey_Enter, true); next(); } break;
     case 7: io.AddKeyEvent(ImGuiKey_Enter, false); if (cap.t > 0.3f) {
         T.check(!commandsOpen() && !app.wantCursor() && st.result.rfind("Gave", 0) == 0, "Enter runs and closes (" + st.result + ")");
-        app.uiShot = capDir() / "cmd_give.png"; next(); } break;
+        app.uiShot = capDir() / "cmd_give.png"; cap.step = 40; cap.t = 0; } break;
+    // SND1: enemy rounds past the head (injected): one 1 m beside it whizzes, one 8 m out does not, a 30-round burst 1 m out
+    // gives at most four in its 0.3 s
+    case 40: case 41: case 42: if (cap.t > 0.4f) {
+        static int before = 0; int enemy = -1; Soldier* L = gGame->local();
+        for (auto& s : gGame->sold) if (L && s.inUse && s.team != L->team) enemy = s.slot;
+        if (cap.step > 40) {
+          int got = app.audio.eventPlays["bulletwhiz"] - before;
+          if (cap.step == 41) T.check(got == 1, "a round 1 m from the head whizzes once (" + std::to_string(got) + ")");
+          if (cap.step == 42) T.check(got == 0, "a round 8 m away is silent (" + std::to_string(got) + ")");
+        }
+        before = app.audio.eventPlays["bulletwhiz"];
+        float off = cap.step == 40 ? 1.0f : 8.0f; vec3 eye = app.eyePos(), f = App::forward(app.eyeYaw, 0), side(-f.z, 0, f.x);
+        Projectile q; q.kind = PROJ_BULLET; q.owner = enemy; q.life = 0.5f; q.dmg = 0; q.p = eye + f * 30.0f + side * off; q.v = -f * 600.0f;
+        app.projectiles.push_back(q); next(); } break;
+    case 43: if (cap.t > 0.4f) {
+        static int before = 0; Soldier* L = gGame->local(); int enemy = -1;
+        for (auto& s : gGame->sold) if (L && s.inUse && s.team != L->team) enemy = s.slot;
+        if (cap.t < 0.45f) {
+          before = app.audio.eventPlays["bulletwhiz"]; vec3 eye = app.eyePos(), f = App::forward(app.eyeYaw, 0), side(-f.z, 0, f.x);
+          for (int k = 0; k < 30; ++k) { Projectile q; q.kind = PROJ_BULLET; q.owner = enemy; q.life = 0.5f; q.dmg = 0; q.p = eye + f * (30.0f + 0.25f * k) + side * 1.0f; q.v = -f * 600.0f; app.projectiles.push_back(q); }
+        } else if (cap.t > 1.2f) { int got = app.audio.eventPlays["bulletwhiz"] - before; T.check(got >= 1 && got <= 4, "a 30-round burst 1 m out: " + std::to_string(got) + " whizzes (cap 4)"); cap.step = 8; cap.t = 0; }
+      } break;
     case 8: if (cap.t > 0.5f) {
         expect(app, "/give thompson", "Gave"); expect(app, "/give zzz_nothing", "No weapon"); expect(app, "/give m", "matches");
         expect(app, "/time set night", "Time set to 00:00"); expect(app, "/time set 18:30", "18:30"); expect(app, "/time set noon", "12:00"); expect(app, "/time set 25", "usage");

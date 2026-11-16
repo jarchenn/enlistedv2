@@ -17,7 +17,7 @@ public:
   std::string lastEvent;   // event or procedural buffer actually used by the last play()
   std::map<std::string, int> eventPlays;   // plays per resolved event (tests)
   void shutdown();
-  void play(const std::string& name, vec3 pos, float volume = 1.0f);
+  void play(const std::string& name, vec3 pos, float volume = 1.0f, float pitch = 1.0f);   // SND1: pitch (1 = as recorded)
   void setListener(vec3 pos, vec3 fwd);
   void setAmbience(float wind, float leaves);
   void setBed(int slot, const fs::path& file, float volume);   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame
@@ -30,7 +30,7 @@ public:
   float masterGain = 1, effectsGain = 1, uiGain = 1, ambienceGain = 1;
   // looping spatialised voices (tank engines, tracks, turret motors) and runtime-registered sounds (tank.cpp)
   void addSound(const std::string& name, std::vector<float> mono44k);
-  int loopStart(const std::string& name, vec3 pos, float volume, float pitch);   // -1: no voice / unknown sound
+  int loopStart(const std::string& name, vec3 pos, float volume, float pitch, float offset = 0);   // -1: no voice / unknown sound; offset: 0..1 into the loop
   void loopSet(int handle, vec3 pos, float volume, float pitch);
   void loopStop(int handle);
   int loopsActive() const;
