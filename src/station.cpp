@@ -237,6 +237,7 @@ void App::switchStationPosition() {
 // Audio::casing limits the range (15 m), the rate per shooter and the number at once.
 void App::shotCasing(const WeaponDef& d, vec3 feet, int shooter) {
   if (d.action != "auto" && d.action != "semi" && d.action != "bolt" && d.action != "heavy") return;
+  if (!d.casings) return;   // MG12: the revolver keeps its cases, the sawn-off ejects them on reloading
   if (glm::length(feet - eyePos()) > 15.0f) return;   // before the ground query
   if (feet.y < waterAt(*this, feet.x, feet.z) - 0.05f) return;
   bool soft = true; Physics::Hit h;

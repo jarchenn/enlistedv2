@@ -78,6 +78,7 @@ void App::buildWeaponMeshes() {
       fd.botRange = f.value("botRange", fd.botRange); fd.botBurst = f.value("botBurstSeconds", fd.botBurst); fd.botPause = f.value("botPauseSeconds", fd.botPause);
     }
     d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
+    d->casings = j.value("casings", true);
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
@@ -592,7 +593,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);
-      if (d.pellets > 1) audio.play("shotgun_pump", eyePos(), 0.8f);   // the pump cycling the next shell (the recording starts 0.3 s in)
+      if (d.pellets > 1 && d.feed == "single") audio.play("shotgun_pump", eyePos(), 0.8f);   // MG12: tube-fed pumps only (not the break-action sawn-off)   // the pump cycling the next shell (the recording starts 0.3 s in)
       shotCasing(d, ch.pos, -1);   // SND4
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
       // pre-overhaul values: the old posture factor (prone 0.20, crouched 0.70) x the weapon's own bipod factor

@@ -66,6 +66,19 @@ const C = {
   // ---- MG8: M4 with iron sights (m4-fps-weapon-animations-pack-v1.zip, extracted to incoming/mg8/m4pack)
   m4irons: { src: G + "../mg8/m4pack/source/M4.fbx", tex: "../mg8/m4pack", poseFrame: 226, poseAction: "Armature|Idle|BaseLayer", keep: { Main: "base", Bolt: "bolt", BoltCatch: "base", Mag1: "mag", Bullet5_56x45mm: "mag", Safety: "base", Trigger: "trigger" },
         mats: { M4_D: { albedo: "M4_D.png", normal: "M4_N.png", rough_f: 0.5, metal_f: 0.6 }, Bullet5_56x45mm_D: { albedo: "Bullet5.56x45mm_D.png", normal: "Bullet5.56x45mm_N.png", rough_f: 0.4, metal_f: 0.9 } } },
+  // ---- MG12 (incoming/mg12/<name>/: DJMaesen's Cinema 4D arm rigs, CC BY 4.0; gun parts are object-animated)
+  revolver: { src: G + "../mg12/revolver-animated/source/arms@revolver.fbx", tex: "../mg12/revolver-animated",
+        keep: k("base", "bullet1", "bullet2", "bullet3", "bullet4", "bullet5", "bullet6", "cylinder", "ejector", "hammer", "release", "trigger"),
+        mats: { revolver: { albedo: "revolverColor.png", normal: "revolverNormal.png", metal: "revolvermetallic.png", smooth: "revolversmoothness.png", ao: "revolverAo.png" } } },
+  sawnoff: { src: G + "../mg12/sawnoff-animated/source/arms@sawnoff.fbx", tex: "../mg12/sawnoff-animated",
+        keep: k("base", "ejector", "front", "release", "slug1", "slug2", "trigger1", "trigger2"),
+        mats: { sawnoff: { albedo: "sawnoffColor.png", normal: "sawnoffNormal.png", metal: "sawnoffMetallic.png", smooth: "sawnoffSmoothness.png", ao: "sawnoffAo.png" } } },
+  smg9: { src: G + "../mg12/fps-smg9-animated/source/arms@smg9.fbx", tex: "../mg12/fps-smg9-animated",   // the red dot's lens is dropped (the tube is open)
+        keep: k("base", "bolt", "bullet", "grip", "mag", "release", "scope", "trigger"),
+        mats: { smg9: { albedo: "smg9color.png", normal: "smg9Normal.png", metal: "smg9Metallic.png", smooth: "smg9Smoothness.png", ao: "smg9AO.png" } } },
+  deagle: { src: G + "../mg12/animated-pistol/source/arms@talon.fbx", tex: "../mg12/animated-pistol",
+        keep: k("base", "bullet", "bullet2", "hammer", "mag", "slide", "trigger"),
+        mats: { talon: { albedo: "talonColor.png", normal: "talonNormal.png", metal: "talonMetallic.png", rough: "talonRoughness.png", ao: "talonAO.png" } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

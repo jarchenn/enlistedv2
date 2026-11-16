@@ -739,3 +739,23 @@ At 25 m and 100 m these are the planned trajectory around each zero.
 **Dev point-of-impact check:** `NMK_MG_POI=id,...` stands 25 m, 100 m and at the zero range from the farmhouse wall, aims (no dispersion, sway or breathing), fires one round and logs the impact against the point under the screen centre (`[mg8poi]`).
 
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.
+
+### MG12: more animated guns
+
+Sources: `incoming/mg12/<name>/` (credits: [MG12](credits.md#modern-guns-mg12)). Same pipeline as MG1-MG8: `tools/modern_guns_config.cjs` + `modern_guns_convert.py` (static gun, 1K textures) → `--import-weapon-models`; `tools/modern_guns_anim_config.cjs` + `modern_guns_anim.py` (the source's own arms and clips, textures up to 2K) → `models/<id>/vm.glb`, `vm.json`. `MG_ONLY=id,...` limits the anim config to those ids. Every gun uses its source's own arms (none uses the game's generated arm). The WP4c fire-clip mask (the clip moves only the parts under the gun joint), the WP4 recoil spring, the muzzle point (flash, tracer) and the casing rule apply to them as to every rig.
+
+| Weapon (`id`) | Source, clips (30 fps) | Stats |
+|---|---|---|
+| .357 Magnum revolver (`modern_revolver`) | DJMaesen `revolver animated`; fire 1-15, reload_start 15-52 (cylinder out, empties ejected), reload_insert 52-75 (one round; loops), reload_end 190-224, inspect 224-270, idle 270-297 | 6 rounds, round by round, 150 rpm, 440 m/s, 10.2 g; no case ejected per shot (`casings` false) |
+| Sawn-off double-barrel (`modern_sawnoff`) | DJMaesen `sawnoff animated`; fire 1-15, reload 15-107, reload_empty 107-195, idle 221-252 | 12 gauge, 2 shells (`containerSize` 2), 9 pellets in 4.5°, 380 m/s; no pump sound, no case per shot |
+| SMG-9 (`modern_smg9`) | DJMaesen `fps smg9 animated`; fire 1-9, reload_empty 9-79 (with the bolt pull), reload 79-133, inspect 133-179, idle 179-206 | 9x19 mm, 30 rounds, 900 rpm auto / semi, 380 m/s; red dot (`animated.redDot` at the lens centre) |
+| Desert Eagle (`modern_deagle`) | DJMaesen `animated pistol` (heavy pistol); fire 1-16, reload 16-71, reload_empty 71-159, idle 220-250 | .50 AE, 7 rounds, 200 rpm, 470 m/s, 19.4 g |
+
+- **Sights** (rig points from the static mesh's top profile, checked in the ADS captures): revolver rear notch / front post (the post in the notch, level); Desert Eagle the same; sawn-off from just over the breech to the top of the muzzle block (the bead); SMG-9 through the red dot's lens centre (the lens object is dropped: open window).
+- **New weapon field** `casings` (default true): false = no spent case per shot (`App::shotCasing`).
+- **Pump sound:** only tube-fed (`feed` single) multi-pellet guns play it after a shot.
+- **Reload sounds** take an optional pitch (`RSet.pitch`, resampled like the shot variants).
+- **Battle Royale ammo** by calibre (`loot.cpp ammoTypeOf`): .357 and .50 AE count as .45 (the .50 pool is the BMG's), 9x18 as 9 mm, 9x39 as 7.62; a pistol for the loot weights is any semi-automatic 9 mm / .45 gun with 16 rounds or fewer, whatever its feed.
+- **Crate:** `357_speedloader6` and `50ae_mag7` in the mixed supply crate.
+- **Operators:** the SMG-9 joins both sides' primary pools (weight 1).
+- **Damage** (`content/ai/damage.json`, DMG1 bands): revolver 62 / 40, Desert Eagle 60 / 38, sawn-off 28 / 5 per pellet, SMG-9 30 / 18; `headCap` (80 / 75) is written for DMG1 and not read yet.

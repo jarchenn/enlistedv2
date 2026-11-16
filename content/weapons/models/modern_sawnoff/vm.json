@@ -1,0 +1,52 @@
+{
+ "gunJoint": "gun_base",
+ "clips": {
+  "fire": 0.4667,
+  "reload": 3.0667,
+  "reload_empty": 2.9333,
+  "idle": 1.0333
+ },
+ "fps": 30.0,
+ "points": {
+  "rear": [
+   0.12,
+   -0.07,
+   -0.15
+  ],
+  "front": [
+   0.12,
+   -0.07,
+   -0.49635
+  ],
+  "muzzle": [
+   0.12,
+   -0.08791,
+   -0.50174
+  ]
+ },
+ "log": {
+  "warn": [],
+  "gunRestBlender": [
+   -0.036,
+   -0.2263,
+   -0.0733,
+   0.036,
+   0.1009,
+   0.0772
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 221,
+  "bakedMeshTransforms": [
+   "armmesh",
+   "base",
+   "ejector",
+   "front",
+   "release",
+   "slug1",
+   "slug2",
+   "trigger1",
+   "trigger2"
+  ]
+ },
+ "tris": 18425
+}

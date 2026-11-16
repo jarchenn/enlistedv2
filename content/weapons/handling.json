@@ -265,6 +265,25 @@
    "modern_glauncher": {
     "kind": "launcher",
     "flash": 0.6
+   },
+   "modern_revolver": {
+    "kind": "pistol",
+    "back_m": 0.05,
+    "pitch_deg": 2.6,
+    "flash": 1.0
+   },
+   "modern_deagle": {
+    "kind": "pistol",
+    "back_m": 0.05,
+    "pitch_deg": 2.4,
+    "flash": 1.05
+   },
+   "modern_sawnoff": {
+    "kind": "shotgun",
+    "flash": 1.2
+   },
+   "modern_smg9": {
+    "kind": "smg"
    }
   }
  },
