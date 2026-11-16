@@ -132,3 +132,38 @@ Until the dedicated maps exist, the mode runs on `templates/chateau_town.nmap.js
   - bot rounds 5 v 5, one per win condition (defenders eliminated, attackers eliminated, time, a bot plant that detonates, a bot plant a defender bot defuses);
   - halftime (sides swap, $800);
   - a free bot round.
+
+## Deviations from the specification
+
+These are changes from the spec or partial implementations, with the reason for each. Everything else follows the spec's values and rules (all of them data in `search_destroy.json`).
+
+1. **The bomb is not a weapon.**
+   - There is no objective-slot key 5, no carried model and no first-person plant animation.
+   - The carrier plants with the spec's contextual hold-Interact (E) inside a plant area; holding primary fire does not plant.
+   - G drops it, and death drops it. An attacker picks it up by walking over it (within 1.3 m) instead of with a separate interact.
+   - The planted bomb is the explosion-pack model with its LED and accelerating beeps.
+2. **Spectating** after death uses the existing third-person orbit camera over living teammates (enemies never), not a first-person view. There is no key to cycle between teammates yet.
+3. **Shop:**
+   - **Missing, because the game has no such weapon (never sold under another name):** the Raiders' high-capacity pistol (Tec-9 role), both automatic shotguns, the flashbang and the decoy.
+   - **Defenders' incendiary:** it is the game's Molotov, at the defenders' price.
+   - **Weapon stats:** the existing per-gun damage, handling and ADS are kept. The spec's per-weapon fields (armor penetration, kill reward, movement modifier and so on) are not on the weapons. Armor penetration and kill rewards come from the shop role (P: pistol / SMG 0.6, rifle / MG 0.775, shotgun 0.8, sniper 0.95; blasts 0.5).
+   - **ADS:** still available on every gun, where the spec wants hip fire only for unscoped rifles.
+   - **Menu:** no quick-buy favourites or rebuy button.
+   - **Refunds:** only the last purchase can be refunded (that is always unambiguous). Use of a gun (firing) does not block a refund; thrown grenades and picked-up guns do.
+4. **Drops on death:** a bot drops the gun in its hands, the local player its primary. The kit, the secondary and grenades do not drop. Only the local player can pick guns up (existing E pickup); bots do not pick up guns.
+5. **Utility:** the game's existing frag, smoke and Molotov behaviour and timings, not the spec's HE 98 / 6 m, smoke 7 m for 18 s, or fire 40 dps. HE and fire still damage walls (only the bomb is personnel-only).
+6. **Movement:** the existing controller speeds. Sprint and prone are off; mantling stays on.
+7. **Radar:** no teammate-sighting radar (enemy dots for 3 s, the dropped bomb for defenders). Attackers see the dropped bomb on screen and the carrier's name on the HUD.
+8. **Disconnects:** the existing rule: the slot keeps playing as a bot (inventory kept) rather than "10 s under bot control, then removed as a death". A late joiner takes a bot slot at the next round start.
+9. **Buy zone:** 12 m around the side's spawn markers instead of an authored volume (map contract §4).
+10. **Map validation:** the spawn and site counts only. With anything missing, the temporary layout is used and a warning is shown. Reachability and defuse-access checks are not implemented; route timings are measured by the bot test, not checked.
+11. **Explosion cover:** the bomb uses the engine's blast occlusion rather than a fixed 0.25 multiplier for full cover.
+12. **Timeouts:** `/sd timeout` (two per team) starts a 30 s pause before the next freeze. There is no UI button.
+13. **HUD:** inline panels in the current HUD style (this branch has no shared glass-panel helpers).
+14. **Debug:** debug output is `/sd state` and the log only. There is no debug overlay of deadlines, loss indices, plant legality or timings.
+15. **LAN clocks:** clients draw the host's clocks from state updates sent at least twice a second, so a client's countdown can lag the host by up to 0.5 s. The host alone decides results.
+16. **Bots:**
+    - They buy by budget, pick a site per round and push straight to it until they meet the enemy, then fight cover to cover.
+    - Defenders split over both sites and retake a planted bomb, with the nearest one defusing.
+    - No coordinated split pushes, grenade lineups, rotations or saving decisions.
+    - Perception, smoke and visibility are the existing AI's.

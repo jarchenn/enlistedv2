@@ -116,7 +116,7 @@ void applyGear(Game& g, int slot) {
 // bots spend their money at the round start (spec §14: budgets): a primary (or save), armor, a kit, a grenade
 void botBuy(Game& g, int slot) {
   SdPlayer& p = gSd->players[slot]; const int side = gSd->sideOf(slot);
-  auto tryBuy = [&](const std::string& id) { return gSd->buy(slot, id, true); };
+  auto tryBuy = [&](const std::string& id) { return gSd->buy(slot, id, true); };   // bots: before their gear is applied (no drops)
   if (p.cash <= gSd->cfg.startCash && p.gear.primary.empty()) { if (!tryBuy("vest") && side == 1) tryBuy("kit"); return; }   // pistol round
   if (p.gear.primary.empty()) {
     std::vector<std::pair<int, std::string>> pr;
@@ -127,6 +127,18 @@ void botBuy(Game& g, int slot) {
   if (!tryBuy("vesthelmet")) tryBuy("vest");
   if (side == 1) tryBuy("kit");
   if (p.cash >= 300) tryBuy((slot + gSd->round) % 2 ? "smoke" : "he");
+}
+// a purchase through the controller, the gear onto the soldier, and a replaced primary / secondary dropped at the buyer's
+// feet (spec §10; a gun is never deleted silently: the drop is a normal pickup)
+bool buyAndApply(Game& g, int slot, const std::string& id, bool zone) {
+  SdGear before = gSd->players[slot].gear;
+  if (!gSd->buy(slot, id, zone)) return false;
+  const SdGear& now = gSd->players[slot].gear; Soldier& s = g.sold[slot];
+  for (const std::string* old : {&before.primary, &before.secondary})
+    if (!old->empty() && *old != now.primary && *old != now.secondary)
+      if (int w = g.app.weaponIndex(*old); w >= 0) g.drops.push_back({s.feet + vec3(0, 0.06f, 0), s.yaw, w, fullAmmo(*g.app.weaponDefs[w], 7u), g.t});
+  applyGear(g, slot);
+  return true;
 }
 bool inZone(Game& g, int slot) {
   const Soldier& s = g.sold[slot];
@@ -296,6 +308,12 @@ float sdArmor(Game& g, int victim, float D, const char* how, int attacker) {
 void sdInput(App& app, ExploreInput& in) {
   if (!gSd || !gGame) return;
   SdMatch& m = *gSd; Game& g = *gGame;
+  { static bool gWas = false; bool gk = glfwGetKey(app.win, GLFW_KEY_G) == GLFW_PRESS;   // G: drop the bomb (spec §5; the only droppable item here)
+    if (gk && !gWas && !app.selftest && g.local() && g.local()->alive && m.carrier == g.localSlot) {
+      if (g.isClient && gNet) gNet->clientRequest(json{{"t", "sddrop"}});
+      else { vec3 f = g.local()->feet + vec3(-std::sin(radians(app.eyeYaw)), 0, -std::cos(radians(app.eyeYaw))) * 0.8f; m.onBombDropped(g.localSlot, snapNav(g, f, 3.0f)); }
+    }
+    gWas = gk; }
   bool b = glfwGetKey(app.win, GLFW_KEY_B) == GLFW_PRESS;
   if (b && !bWas && !app.selftest) buyMenu = !buyMenu;
   bWas = b;
@@ -359,7 +377,8 @@ bool sdHostRequest(Game& g, int slot, const json& req) {
   if (!gSd) return false;
   std::string t = req.value("t", "");
   if (t == "sdhold") { remoteHold[slot] = {req.value("h", false), g.t}; return true; }
-  if (t == "sdbuy") { std::string id = req.value("i", ""); if (gSd->buy(slot, id, inZone(g, slot))) applyGear(g, slot); return true; }
+  if (t == "sdbuy") { buyAndApply(g, slot, req.value("i", ""), inZone(g, slot)); return true; }
+  if (t == "sddrop") { if (gSd->carrier == slot) gSd->onBombDropped(slot, snapNav(g, g.sold[slot].feet, 3.0f)); return true; }
   return false;
 }
 
@@ -394,7 +413,7 @@ std::string sdCommand(Game& g, const std::string& args) {
   if (args.rfind("buy ", 0) == 0) {
     std::string id = args.substr(4), why = m.canBuy(g.localSlot, id, sdInBuyZone(g, g.localSlot));
     if (!why.empty()) return "Cannot buy " + id + ": " + why;
-    m.buy(g.localSlot, id, true); applyGear(g, g.localSlot); return "Bought " + id + ".";
+    buyAndApply(g, g.localSlot, id, true); return "Bought " + id + ".";
   }
   char b[220]; std::snprintf(b, sizeof b, "%s, round %d, Team A %d - %d Team B, Team %s attacks, bomb %d, clock %.1f", sdPhaseName(m.phase), m.round, m.score[0], m.score[1], m.attackerTeam == 0 ? "A" : "B", (int)m.bomb, m.clock());
   return b;
@@ -436,7 +455,7 @@ void sdDrawHud(Game& g) {
     std::snprintf(b, sizeof b, "$%d", p.cash); text(vec2(bx, by), IM_COL32(120, 230, 120, 255), b, 1.4f);
     std::snprintf(b, sizeof b, "%s   armor %d%s%s", sideName(mySide), p.gear.armor, p.gear.helmet ? " + helmet" : "", p.gear.kit ? "   kit" : ""); text(vec2(bx, by + 30), cWhite, b);
     std::string bomb;
-    if (mySide == 0) bomb = planted ? std::string("Bomb planted at ") + (m.bombSite == 0 ? "A" : "B") + ": guard it" : m.carrier == me ? "You carry the bomb: hold E in a site" : m.bomb == SdBomb::Dropped ? "The bomb is on the ground" : m.carrier >= 0 ? "Bomb: " + g.match.slots[m.carrier].name : "";
+    if (mySide == 0) bomb = planted ? std::string("Bomb planted at ") + (m.bombSite == 0 ? "A" : "B") + ": guard it" : m.carrier == me ? "You carry the bomb: hold E in a site (G drops it)" : m.bomb == SdBomb::Dropped ? "The bomb is on the ground" : m.carrier >= 0 ? "Bomb: " + g.match.slots[m.carrier].name : "";
     else if (planted) bomb = std::string("The bomb is planted at site ") + (m.bombSite == 0 ? "A" : "B") + ": hold E at it";
     text(vec2(bx, by + 52), IM_COL32(255, 200, 120, 255), bomb);
     float prog = -1; const char* what = "";
@@ -448,6 +467,13 @@ void sdDrawHud(Game& g) {
       dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x0 + bw * std::clamp(prog, 0.0f, 1.0f), y0 + bh), IM_COL32(255, 200, 80, 230), 3);
       centered(y0 - 22, cWhite, what);
     } else if (m.defuser >= 0 && mySide == 1) centered(H * 0.62f, cWhite, g.match.slots[m.defuser].name + " is defusing");
+  }
+  // the dropped bomb, for the attackers (spec §5: carrier and dropped bomb shown to attackers)
+  if (m.bomb == SdBomb::Dropped && mySide == 0) {
+    vec4 c = g.app.projM * g.app.viewM * vec4(m.bombPos + vec3(0, 0.6f, 0), 1);
+    if (c.w > 0.1f) { vec2 sp((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
+      dl->AddCircle(ImVec2(sp.x, sp.y), 9, IM_COL32(255, 200, 80, 230), 16, 2.5f);
+      std::snprintf(b, sizeof b, "BOMB %.0f m", glm::length(m.bombPos - g.app.eyePos())); text(vec2(sp.x - width(b) * 0.5f, sp.y + 12), IM_COL32(255, 200, 80, 230), b); }
   }
   // kill feed, top right under the minimap
   float fy = 300;
@@ -474,7 +500,7 @@ void sdDrawHud(Game& g) {
             std::snprintf(b, sizeof b, "%s   $%d##%s", it.name.c_str(), it.price[mySide], it.id.c_str());
             if (ImGui::Button(b, ImVec2(400, 0))) {
               if (g.isClient && gNet) gNet->clientRequest(json{{"t", "sdbuy"}, {"i", it.id}});
-              else if (m.buy(me, it.id, zone)) applyGear(g, me);
+              else buyAndApply(g, me, it.id, zone);
             }
             ImGui::EndDisabled();
             if (!why.empty()) { ImGui::SameLine(); ImGui::TextDisabled("%s", why.c_str()); }
