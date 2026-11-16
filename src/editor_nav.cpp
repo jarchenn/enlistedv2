@@ -424,6 +424,7 @@ EdGesture edSelectPointer(App& app, const EdPointer& p) {
     if (!sel) { n.lmbGesture = 0; app.dragging = false; }
     else if (app.terrain.raycast(p.ro, p.rd, 20000, gp)) {
       const AssetDef* a = app.assetFor(*sel);
+      { vec3 sp; if (assetRestsOnObjects(a) && app.surfaceCursor(p.ro, p.rd, sel->id, sp)) gp = sp; }   // ED1: onto decks, floors, tables
       if (sel->yaw != n.appliedYaw) n.moveYaw = wrapDeg(n.moveYaw + sel->yaw - n.appliedYaw);   // wheel turns while moving
       vec3 np = gp + app.dragOffset;
       if (app.gridSnap) { np.x = std::round(np.x); np.z = std::round(np.z); }
@@ -432,6 +433,7 @@ EdGesture edSelectPointer(App& app, const EdPointer& p) {
       PlaceCheck c = app.checkPlacement(a, np, ny, sel->id);
       app.lastCheck = c;
       sel->pos = vec3(c.snapXZ ? c.xz.x : np.x, c.ok ? c.y : sel->pos.y, c.snapXZ ? c.xz.y : np.z);
+      if (c.ok) setSupport(*sel, c.support);   // ED1
       sel->yaw = ny; n.appliedYaw = ny;
       app.bump(*sel);
     }
@@ -443,6 +445,7 @@ EdGesture edSelectPointer(App& app, const EdPointer& p) {
       else if (!app.editInteract) app.selected = 0;
     } else if (n.lmbGesture == 2) endOrbit();
     else if (n.lmbGesture == 3) {
+      if (app.selected) app.dropSupported(app.selected);   // ED1: what stood on the moved object falls to the next surface
       Instance* sel = app.doc.find(app.selected);
       if (sel && !app.lastCheck.ok) { *sel = app.dragOrig; app.bump(*sel); if (!app.undoStack.empty()) app.undoStack.pop_back(); app.toast("Move rejected: " + app.lastCheck.reason); }
       else if (sel) crushAndFlatten(app, sel->id);   // buildings crush growth and flatten at the new spot (same undo step)

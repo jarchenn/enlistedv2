@@ -188,11 +188,12 @@ std::vector<SeatRec> terrainSeats(const App& app, vec2 c, float radius) {
     }
     SeatRec r; r.id = i.id; r.h = seatHeight(app, i, a);
     if (blendPinned(a)) r.fp = pinnedSamples(app, i, a);
+    if (uint64_t s = supportOf(i); s && std::any_of(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& o) { return o.id == s; })) { r.host = s; r.rest = true; }   // ED1: resting on an object rides with it
     if (a && app.interior.isProp(a)) {   // furniture rides with the building it stands in
       for (auto& h : app.doc.instances) {
         const AssetDef* ha = app.assetFor(h);
         if (&h == &i || !ha || app.interior.isProp(ha) || !ha->enterable) continue;
-        if (insideFootprint(h, ha, i.pos)) { r.host = h.id; break; }
+        if (insideFootprint(h, ha, i.pos) && !r.rest) { r.host = h.id; break; }
       }
     }
     out.push_back(r);
@@ -217,7 +218,7 @@ int terrainReseat(App& app, const std::vector<SeatRec>& before) {
   for (auto& b : before) {
     Instance* i = app.doc.find(b.id); if (!i) continue;
     float d = 0;
-    if (b.host) { auto it = dy.find(b.host); d = it != dy.end() ? it->second : seatHeight(app, *i, app.assetFor(*i)) - b.h; }
+    if (b.host) { auto it = dy.find(b.host); d = it != dy.end() ? it->second : b.rest ? 0.0f : seatHeight(app, *i, app.assetFor(*i)) - b.h; }
     else d = dy[b.id];
     if (std::fabs(d) < 1e-4f) continue;
     i->pos.y += d; app.bump(*i); ++moved;

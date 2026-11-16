@@ -239,7 +239,7 @@ public:
   bool exitSpot(App& app, const TankRT& t, vec3& out, std::string& why) const;
   void effects(App& app, TankRT& t, float dt);
   void toast(App& app, const std::string& s, double secs = 3.0);
-  void groundPose(App& app, const TankDef& d, vec3 pos, float yaw, float& y, float& pitch, float& roll, float& slopeAlong) const;
+  void groundPose(App& app, const TankDef& d, vec3 pos, float yaw, float& y, float& pitch, float& roll, float& slopeAlong, uint64_t self = 0) const;   // self: ED1 its own instance id (deck rays skip its body)
   // ---- ramming (tank_ram.cpp): props knocked over, walls pushed through, debris driven over
   struct RamSpec { std::string mode; float breakKJ = 0, massKg = 0; };   // mode: topple, rubble, block
   std::map<std::string, RamSpec> ramProps;      // content/vehicles/ram.json, by asset id

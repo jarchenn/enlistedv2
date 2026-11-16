@@ -78,7 +78,11 @@ struct ExploreInput {
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; json routes; std::map<int, std::vector<float>> sculpt; json terrainGen; std::vector<WaterBody> water; std::vector<uint64_t> selection; std::map<int64_t, std::vector<uint8_t>> paint; uint64_t paintSig = 0; };   // routes: MapDoc::extra["routes"] (auto paths)
 
-struct PlaceCheck { bool ok = true; std::string reason; float y = 0; bool snapXZ = false; vec2 xz{0}; };   // snapXZ: wall-hung furniture pulled flat to its wall
+struct PlaceCheck { bool ok = true; std::string reason; float y = 0; bool snapXZ = false; vec2 xz{0}; uint64_t support = 0; };   // ED1 support: the instance whose top it rests on (0 = the ground)
+// ED1: the instance a placed object rests on (extra "support"), kept with the map; 0 clears it
+inline void setSupport(Instance& i, uint64_t s) { if (s) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["support"] = s; } else if (i.extra.is_object()) i.extra.erase("support"); }
+bool assetRestsOnObjects(const AssetDef* a);   // ED1: not a building, path or ground dressing (app.cpp)
+inline uint64_t supportOf(const Instance& i) { return i.extra.is_object() && i.extra.contains("support") && i.extra["support"].is_number_unsigned() ? i.extra["support"].get<uint64_t>() : 0; }   // snapXZ: wall-hung furniture pulled flat to its wall
 
 struct InteractTarget { bool valid = false; uint64_t inst = 0; int idx = -1; float t = 0; int kind = 0; /*0 door/window, 1 station, 2 crate, 3 rack*/ };
 struct ImpactInfo { vec3 pos{0}; std::string surface; int kind = 0; float time = -10; int breached = 0; };
@@ -550,6 +554,8 @@ public:
   uint64_t placeInstance(const AssetDef* a, vec3 pos, float yaw);
   bool duplicateSelected();
   void deleteSelected();
+  void dropSupported(uint64_t gone);   // ED1: what rested on `gone` (deleted or moved) falls to the next surface below
+  bool surfaceCursor(vec3 ro, vec3 rd, uint64_t ignore, vec3& out) const;   // ED1: the cursor on a flat object top
   uint64_t pickInstance(vec3 ro, vec3 rd, float& t) const;
   void cursorRay(vec3& ro, vec3& rd) const;
   bool startMarkerValid(vec3 pos) const;

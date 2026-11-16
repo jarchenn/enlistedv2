@@ -598,8 +598,88 @@ static bool obbOverlap2D(vec2 c1, vec2 h1, float a1, vec2 c2, vec2 h2, float a2)
   }
   return true;
 }
+// ED1: a non-building asset rests on the flat top of the object under it (floors, decks, helipads, roofs, bridges, tables,
+// beds) when `pos` is above the ground: rays straight down over the footprint from 0.4 m above pos (the instance
+// itself and deleted objects' stale colliders skipped). The centre must land on an object within 15 deg of flat; the
+// highest support within 0.3 m above it is the height, and more than 60 % of a 5 x 5 footprint grid must stand on it. Returns false
+// when the ground rules apply instead (pos at terrain level, or nothing but terrain under the centre).
+static bool docHas(const App& app, uint64_t id) { for (auto& i : app.doc.instances) if (i.id == id) return true; return false; }
+static uint64_t gSurfaceSkip = 0;   // ED1: dropSupported: the supporter that moved / went (its collider is stale)
+static bool surfaceRest(const App& app, const AssetDef* a, vec3 pos, float yaw, uint64_t ignoreId, PlaceCheck& c) {
+  if (pos.y < app.terrain.height(pos.x, pos.z) + 0.03f) return false;   // at the ground (a thin pad still counts)
+  const float flat = std::cos(radians(15.0f));
+  vec2 hf = a->footprint * 0.5f; quat q = yawQuat(yaw);
+  constexpr int N = 25;   // a 5 x 5 grid over the footprint, edges included; the centre first
+  vec2 P[N]; P[0] = vec2(0); for (int k = 0, m = 1; k < 25; ++k) if (k != 12) P[m++] = vec2(k % 5 - 2, k / 5 - 2) * 0.5f;
+  float hy[N]; uint64_t hid[N]; float ny[N]; bool got[N];
+  for (int k = 0; k < N; ++k) {
+    vec3 o = pos + q * vec3(P[k].x * hf.x, 0, P[k].y * hf.y); o.y = pos.y + 0.4f;
+    got[k] = false; hid[k] = 0;
+    for (int tries = 0; tries < 6; ++tries) {
+      Physics::Hit h;
+      if (!Physics::castRayEx(o, vec3(0, -1, 0), 60.0f, h)) break;
+      uint64_t id = h.ud >> 16;
+      if (id && (id == ignoreId || id == gSurfaceSkip || !docHas(app, id))) { o.y = h.pos.y - 0.01f; continue; }   // itself, or a deleted / moved object's collider
+      got[k] = true; hy[k] = h.pos.y; hid[k] = id; ny[k] = h.normal.y; break;
+    }
+  }
+  if (!got[0] || !hid[0]) return false;                               // the ground under the centre: terrain rules
+  if (ny[0] < flat) { c.ok = false; c.reason = "That surface is too steep to stand on (over 15 deg)."; return true; }
+  float top = hy[0];
+  for (int k = 1; k < N; ++k) if (got[k] && hid[k] && hy[k] > top && hy[k] <= hy[0] + 0.3f && ny[k] >= flat) top = hy[k];
+  for (int k = 0; k < N; ++k) if (got[k] && hy[k] > top + 0.3f && hy[k] < pos.y + 0.4f - 0.02f) { c.ok = false; c.reason = "Something taller stands in the footprint."; return true; }
+  int n = 0; uint64_t sup = hid[0];
+  for (int k = 0; k < N; ++k) if (got[k] && hid[k] && std::fabs(hy[k] - top) <= 0.15f && ny[k] >= flat) { ++n; if (std::fabs(hy[k] - top) < 1e-3f) sup = hid[k]; }
+  if (n * 10 <= N * 6) { char b[96]; std::snprintf(b, sizeof b, "Overhangs the edge: %d of %d footprint points supported (more than 60 %% needed).", n, N); c.ok = false; c.reason = b; return true; }
+  c.y = top; c.support = sup;
+  // other objects in the way on that surface (not the supporter, not anything wholly below the new base)
+  for (auto& o : app.doc.instances) {
+    if (o.id == ignoreId || o.id == sup) continue;
+    const AssetDef* b = app.assetFor(o);
+    if (!b || app.interior.isProp(b) || b->nature.kind != NatureDef::NONE || b->category == "Trees" || b->category == "Bushes" || b->category == "Nature") continue;
+    if (o.pos.y + b->bmax.y <= top + 0.05f || o.pos.y + b->bmin.y >= top + std::max(a->bmax.y, 0.3f)) continue;
+    if (obbOverlap2D(vec2(pos.x, pos.z), a->footprint * 0.5f - vec2(0.05f), radians(yaw), vec2(o.pos.x, o.pos.z), b->footprint * 0.5f - vec2(0.05f), radians(o.yaw))) {
+      c.ok = false; c.reason = "Overlaps " + b->name + " #" + std::to_string(o.id) + "."; return true;
+    }
+  }
+  char rb[96]; std::snprintf(rb, sizeof rb, "Valid placement (resting on #%llu).", (unsigned long long)sup);
+  c.reason = rb;
+  return true;
+}
+bool assetRestsOnObjects(const AssetDef* a) {   // ED1: everything but buildings, paths and ground dressing
+  return a && !a->path.on && a->nature.kind == NatureDef::NONE && a->category != "Nature" && !crushBuilding(a) && !blendPinned(a);
+}
+static bool restsOnObjects(const App&, const AssetDef* a) { return assetRestsOnObjects(a); }
+void App::dropSupported(uint64_t gone) {
+  std::vector<uint64_t> todo{gone};
+  for (size_t q = 0; q < todo.size() && q < 64; ++q) {
+    uint64_t s = todo[q];
+    for (auto& i : doc.instances) {
+      if (supportOf(i) != s) continue;
+      const AssetDef* a = assetFor(i);
+      gSurfaceSkip = s;
+      PlaceCheck c = a ? checkPlacement(a, i.pos, i.yaw, i.id) : PlaceCheck{};
+      gSurfaceSkip = 0;
+      float y = c.ok ? c.y : terrain.height(i.pos.x, i.pos.z);
+      i.pos.y = std::min(i.pos.y, y); setSupport(i, c.ok ? c.support : 0); bump(i); dirty = true;
+      todo.push_back(i.id);   // what stood on it falls in turn
+    }
+  }
+}
+bool App::surfaceCursor(vec3 ro, vec3 rd, uint64_t ignore, vec3& out) const {
+  for (int tries = 0; tries < 6; ++tries) {
+    Physics::Hit h;
+    if (!Physics::castRayEx(ro, rd, 20000.0f, h)) return false;
+    uint64_t id = h.ud >> 16;
+    if (id && (id == ignore || !docHas(*this, id))) { ro = h.pos + rd * 0.01f; continue; }
+    if (!id || h.normal.y < std::cos(radians(15.0f))) return false;   // the ground, or a wall: the terrain point instead
+    out = h.pos; return true;
+  }
+  return false;
+}
 PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t ignoreId) const {
   PlaceCheck c;
+  if (restsOnObjects(*this, a) && !interior.isProp(a) && surfaceRest(*this, a, pos, yaw, ignoreId, c)) return c;   // ED1
   if (a->nature.kind == NatureDef::SCATTER) {   // patches: only the centre must be on dry ground in the build area (items skip water)
     if (!terrain.inBuildArea(pos.x, pos.z) && !decorMayLeaveBorder(*this, ignoreId, pos)) { c.ok = false; c.reason = "Outside the build area."; return c; }   // V8: decor (beautify.cpp)
     c.y = terrain.height(pos.x, pos.z);
@@ -631,7 +711,11 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     c.reason = "Valid placement."; return c;
   }
   float grade = top - low;
-  if (interior.isProp(a)) return const_cast<InteriorSys&>(interior).checkPlacement(const_cast<App&>(*this), a, pos, yaw, ignoreId);   // furniture (lazy caches): floors, walls, keep-clear volumes
+  if (interior.isProp(a)) {   // furniture (lazy caches): floors, walls, keep-clear volumes; ED1: else any flat object top
+    PlaceCheck f = const_cast<InteriorSys&>(interior).checkPlacement(const_cast<App&>(*this), a, pos, yaw, ignoreId);
+    PlaceCheck s; if (!f.ok && surfaceRest(*this, a, pos, yaw, ignoreId, s) && s.ok) return s;
+    return f;
+  }
   if (!a->defense.kind.empty()) {   // defences: terrain-conforming, limited by slope (theta = acos(N . up)) instead of grade
     float sl = skipSlopeRule ? 0.0f : groundSlopeDeg(pos);
     if (sl > a->defense.maxSlopeDeg) { char b[96]; std::snprintf(b, sizeof b, "Too steep: %.0f deg slope (limit %.0f deg).", sl, a->defense.maxSlopeDeg); c.ok = false; c.reason = b; return c; }
@@ -695,6 +779,7 @@ uint64_t App::placeInstance(const AssetDef* a, vec3 pos, float yaw) {
   pushUndo();
   Instance i; i.id = doc.newId(); i.assetId = a->id; i.assetVersion = a->version;
   i.pos = c.snapXZ ? vec3(c.xz.x, c.y, c.xz.y) : vec3(pos.x, c.y, pos.z); i.yaw = wrapDeg(yaw);
+  setSupport(i, c.support);   // ED1
   if (a->defense.blocksVehicles) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["blocksVehicles"] = true; }
   bump(i);
   doc.instances.push_back(i);
@@ -713,7 +798,7 @@ bool App::duplicateSelected() {
     if (c.ok) {
       pushUndo();
       Instance n = *doc.find(selected);  // deep copy including authored overrides
-      n.id = doc.newId(); n.pos = vec3(p.x, c.y, p.z);
+      n.id = doc.newId(); n.pos = vec3(p.x, c.y, p.z); setSupport(n, c.support);
       if (isVehicleAsset(a)) TankSys::stripDamage(n.extra);   // a duplicated tank is a fresh tank (spawn config only)
       bump(n);
       doc.instances.push_back(n);
@@ -732,6 +817,7 @@ void App::deleteSelected() {
   uint64_t gone = it->id;
   doc.instances.erase(it); selected = 0; dirty = true;
   interior.dropPieces(*this, gone);   // V4: its room-template furniture goes with it (interior.cpp)
+  dropSupported(gone);   // ED1: what rested on it falls to the next surface below
 }
 uint64_t App::pickInstance(vec3 ro, vec3 rd, float& tBest) const {
   uint64_t best = 0; tBest = 1e30f;
