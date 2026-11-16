@@ -132,8 +132,9 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   float blade = (kind == 1 ? -0.30f : kind == 2 ? -0.12f : 0.0f) * (1 - carry) - 0.10f * carry;
   lean += (kind == 1 ? 0.08f : 0.0f) * aimW;   // into the rifle   // firing shoulder back (the chest turns right)
   float twist = p.aimYawOffset + blade + 0.08f * std::sin(p.walkPhase) * walk * carry;
+  float side = -c01(std::fabs(p.lean)) * (p.lean < 0 ? -1.0f : 1.0f) * p.leanBend;   // MV3: the sideways bend through the waist and spine (hips stay)
   for (int s : {CJ_SPINE, CJ_SPINE1, CJ_SPINE2}) if (J(s) >= 0)
-    D[J(s)] = glm::angleAxis(twist / 3.0f, vec3(0, 1, 0)) * glm::angleAxis(lean / 3.0f - pitch * 0.12f, vec3(1, 0, 0));
+    D[J(s)] = glm::angleAxis(twist / 3.0f, vec3(0, 1, 0)) * glm::angleAxis(side / 3.0f, vec3(0, 0, 1)) * glm::angleAxis(lean / 3.0f - pitch * 0.12f, vec3(1, 0, 0));
   // shoulders protract to reach the handguard (left clavicle forward, the right a little)
   if (p.holdWeapon && !dead) {
     float pr = (kind == 1 ? 1.0f : 0.6f) * (1 - swim);

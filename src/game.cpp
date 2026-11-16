@@ -687,6 +687,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   app.fx.flash(muzzle + dd * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play("shot_" + d.id, muzzle, 1.0f);
+  if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
   s.recoil = 1.0f; s.lastShot = t;
   hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0);
   ++shotsByBots;
@@ -755,7 +756,7 @@ void Game::clientStep(float dt) {
   netInterpolate(*this, t, dt);
   if (Soldier* L = local(); L && L->alive) {
     auto c = Physics::character();
-    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->weapon = app.activeWeapon; L->swim = app.swim.active;
+    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->lean = app.lean.x; L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
   // door toggles made locally are requests: undo them here and ask the host
@@ -789,7 +790,7 @@ void Game::step(float dt) {
     localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
     auto c = Physics::character();
     if (glm::length(c.pos - L->feet) > 15.0f) aiForget(*this, L->slot);   // a jump (teleport, admin fly, a vehicle exit far away): enemies re-acquire
-    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture;
+    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->lean = app.lean.x;
     L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
@@ -853,6 +854,7 @@ void Game::posesStep(float dt) {
       s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
+      pp.lean = s.alive ? s.lean : 0.0f; pp.leanBend = radians(app.leanCfg.bend);   // MV3
       {   // AN1b: the terrain's gradient under the feet (model space) for the stepping feet and the kneel; floors and bridges stay flat
         const float r = 0.4f; vec3 f = s.feet; float h0 = app.terrain.height(f.x, f.z);
         vec2 g(0);

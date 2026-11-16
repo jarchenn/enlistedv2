@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <cstdint>
+constexpr uint32_t kFlashlightLightId = 0xF1A50001u;   // FX1: the player's headlamp (flashlight.cpp)
 // Local light shared by the light data (lights.cpp, L3) and the lighting engine (lighting.cpp, L2).
 struct LightDesc {
   glm::vec3 pos{0}; float radius = 6.0f;                       // m: falls to zero at radius

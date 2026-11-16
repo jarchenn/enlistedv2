@@ -42,6 +42,50 @@ struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0,
 bool thumbOnly = false;
 std::vector<int> sTpl; size_t sTi = 0;
 std::vector<View> sViews; size_t sVi = 0; bool sViewInit = false;
+// FL1 flicker capture (NMK_FL1=1): per view, Medium, the animation clock held (Renderer::holdTime). Two still frames 0.3 s
+// apart should be identical: pixels whose luma moves more than 0.08 flicker (z-fighting under the TAA jitter, sparkle,
+// popping, flickering lights). Then 5 cm to the side, settled: mean |dL| (the ZF1 measure). Flickering 32 px cells (6+ such
+// pixels) are named by a physics ray through the cell (asset id, "terrain" for ground / grass / water, "sky").
+// -> selftest_out/fl1.json, fl1_<map>_<view>_a|b|c.png and _diff.png (flicker in red over the dimmed frame)
+const bool kFl1 = std::getenv("NMK_FL1") != nullptr;
+int gFlPh = 0; float gFlT = 0; vec3 gFlCam{0}; json gFl1 = json::array(), gFlState = json::array();   // state: exposure / probes at each shot
+std::string fl1Analyse(App& app, const std::string& map, const std::string& view, const std::string& base) {
+  int w = 0, h = 0, n = 0, w2 = 0, h2 = 0, w3 = 0, h3 = 0;
+  auto ld = [&](const char* sfx, int& W, int& H) { return stbi_load((outDirM() / (base + sfx + ".png")).string().c_str(), &W, &H, &n, 3); };
+  unsigned char *A = ld("_a", w, h), *B = ld("_b", w2, h2), *C = ld("_c", w3, h3);
+  if (!A || !B || !C || w != w2 || h != h2 || w != w3 || h != h3) { stbi_image_free(A); stbi_image_free(B); stbi_image_free(C); return "FL1 " + base + ": captures missing"; }
+  auto L = [](const unsigned char* p, size_t i) { return (0.2126f * p[i * 3] + 0.7152f * p[i * 3 + 1] + 0.0722f * p[i * 3 + 2]) / 255.0f; };
+  const int cs = 32, cx = (w + cs - 1) / cs, cy = (h + cs - 1) / cs;
+  std::vector<int> cell((size_t)cx * cy, 0); std::vector<unsigned char> D((size_t)w * h * 3);
+  long flick = 0; double moved = 0;
+  for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+    size_t i = (size_t)y * w + x; float d = std::fabs(L(A, i) - L(B, i)); moved += std::fabs(L(A, i) - L(C, i));
+    bool f = d > 0.08f; flick += f; if (f) ++cell[(size_t)(y / cs) * cx + x / cs];
+    for (int c = 0; c < 3; ++c) D[i * 3 + c] = f ? (c == 0 ? 255 : 0) : (unsigned char)(A[i * 3 + c] * 0.35f);
+  }
+  stbi_write_png((outDirM() / (base + "_diff.png")).string().c_str(), w, h, 3, D.data(), w * 3);
+  stbi_image_free(A); stbi_image_free(B); stbi_image_free(C);
+  std::map<std::string, int> who;
+  mat4 inv = glm::inverse(app.projM * app.viewM);
+  for (int j = 0; j < cy; ++j) for (int i = 0; i < cx; ++i) {
+    int k = cell[(size_t)j * cx + i]; if (k < 6) continue;
+    vec2 ndc(2.0f * (i + 0.5f) * cs / w - 1.0f, 1.0f - 2.0f * (j + 0.5f) * cs / h);
+    vec4 a = inv * vec4(ndc, -1, 1), b = inv * vec4(ndc, 1, 1); vec3 ro = vec3(a) / a.w, rd = glm::normalize(vec3(b) / b.w - ro);
+    Physics::Hit ht; std::string nm = "sky";
+    if (Physics::castRayEx(ro, rd, 3000.0f, ht)) { const Instance* in = (ht.ud >> 16) ? app.doc.find(ht.ud >> 16) : nullptr; nm = in ? in->assetId : ht.ud ? "body" : "terrain"; }
+    who[nm] += k;
+  }
+  json r = {{"map", map}, {"view", view}, {"state", gFlState}, {"flickerPx", flick}, {"flickerPct", 100.0 * flick / ((double)w * h)}, {"moveMeanDL", moved / ((double)w * h)}, {"regions", who}};
+  gFl1.push_back(r);
+  std::ofstream(outDirM() / "fl1.json") << gFl1.dump(1);
+  std::string top; for (auto& [k2, v2] : who) if (v2 >= 40) top += " " + k2 + ":" + std::to_string(v2);
+  char b[600]; std::snprintf(b, sizeof b, "FL1 %s %s: %ld flickering px (%.3f %%), 5 cm move mean dL %.4f;", map.c_str(), view.c_str(), flick, 100.0 * flick / ((double)w * h), moved / ((double)w * h));
+  return b + top;
+}
+// FX1 headlamp captures (NMK_FX1=1, Medium): per view the headlamp off, then on; first-person views also crouched and
+// aiming down the sights; frame time with it off and on (1 s each) -> selftest_out/fx1_<map>_<view>_<state>.png
+const bool kFx1 = std::getenv("NMK_FX1") != nullptr;
+int gFxPh = 0; float gFxT = 0; double gFxMs[2] = {0, 0}; int gFxN[2] = {0, 0}; double gFxLast = 0;
 std::vector<Perf> sPerf; int sPresetPass = 0; double sLast = 0; double sLoadS = 0, sMemBefore = 0, sMemAfter = 0;
 json sSum = json::object();
 
@@ -392,7 +436,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         if (app.mode == Mode::Explore) app.exitExplore();
         app.camPos = v.pos; app.camYaw = v.yaw; app.camPitch = v.pitch;
       }
-      sPerf.push_back({v.name, v.gate}); sLast = 0;
+      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0;
       logf("maps view %s at (%.1f %.1f %.1f) yaw %.1f pitch %.1f", v.name.c_str(), v.pos.x, v.pos.y, v.pos.z, v.yaw, v.pitch);
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
@@ -430,6 +474,39 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       p.gpu = (p.gpu * p.frames + g) / (p.frames + 1); sampleX(app, p.x, p.frames); ++p.frames;
     }
     sLast = tnow;
+    if (kFl1 && sPresetPass == 0 && stageTime >= measEnd && gFlPh < 6) {   // FL1 (see fl1Analyse)
+      std::string map = app.templates[sTpl[sTi]].id, base = "fl1_" + map + "_" + v.name;
+      if (gFlPh == 0) { app.R.holdTime = true; gFlT = stageTime; gFlPh = 1; }
+      else if (gFlPh == 1 && stageTime > gFlT + 1.2f) { shotQueue.push_back(base + "_a"); gFlState = json::array({{app.R.exposure(), app.R.stats.probePending, app.R.stats.probeDirty, app.eyePos().x, app.eyePos().y, app.eyePos().z, app.eyeYaw, app.eyePitch}}); gFlPh = 2; gFlT = stageTime; }
+      else if (gFlPh == 2 && stageTime > gFlT + 0.3f) { shotQueue.push_back(base + "_b"); gFlState.push_back({app.R.exposure(), app.R.stats.probePending, app.R.stats.probeDirty, app.eyePos().x, app.eyePos().y, app.eyePos().z, app.eyeYaw, app.eyePitch}); gFlPh = 3; gFlT = stageTime; }
+      else if (gFlPh == 3 && stageTime > gFlT + 0.1f) {   // 5 cm to the side (editor camera; a first-person view stays put)
+        gFlCam = app.camPos; if (!v.explore) app.camPos += vec3(std::cos(radians(app.camYaw)), 0, -std::sin(radians(app.camYaw))) * 0.05f;
+        gFlPh = 4; gFlT = stageTime; }
+      else if (gFlPh == 4 && stageTime > gFlT + 1.2f) { shotQueue.push_back(base + "_c"); gFlPh = 5; gFlT = stageTime; }
+      else if (gFlPh == 5 && stageTime > gFlT + 0.1f) { check(true, fl1Analyse(app, map, v.name, base)); if (!v.explore) app.camPos = gFlCam; app.R.holdTime = false; gFlPh = 6; }
+      break;
+    }
+    if (kFx1 && sPresetPass == 0 && stageTime >= measEnd && gFxPh < 9) {   // FX1 (see above)
+      std::string base = "fx1_" + app.templates[sTpl[sTi]].id + "_" + v.name;
+      double tn = now(); int side = app.flashlight ? 1 : 0;
+      if ((gFxPh == 1 || gFxPh == 3) && stageTime > gFxT + 0.3f && gFxLast > 0) { gFxMs[side] += (tn - gFxLast) * 1000.0; ++gFxN[side]; }
+      gFxLast = tn;
+      auto next = [&](float wait) { if (stageTime < gFxT + wait) return false; gFxT = stageTime; ++gFxPh; return true; };
+      if (gFxPh == 0) { app.flashlight = false; gFxMs[0] = gFxMs[1] = 0; gFxN[0] = gFxN[1] = 0; gFxT = stageTime; gFxPh = 1; }
+      else if (gFxPh == 1) { if (next(1.3f)) shotQueue.push_back(base + "_off"); }
+      else if (gFxPh == 2) { app.flashlight = true; gFxT = stageTime; gFxPh = 3; }
+      else if (gFxPh == 3) { if (next(1.5f)) shotQueue.push_back(base + "_on"); }
+      else if (gFxPh == 4) { if (!v.explore) gFxPh = 8; else { app.scriptedInput.crouch = true; gFxT = stageTime; gFxPh = 5; } }
+      else if (gFxPh == 5) { if (next(1.2f)) shotQueue.push_back(base + "_on_crouch"); }
+      else if (gFxPh == 6) { app.scriptedInput.crouch = false; app.scriptedInput.aim = true; gFxT = stageTime; gFxPh = 7; }
+      else if (gFxPh == 7) { if (next(1.2f)) { shotQueue.push_back(base + "_on_ads"); } }
+      else if (gFxPh == 8) {
+        app.scriptedInput.aim = false; app.flashlight = false; gFxPh = 9;
+        check(true, fmt("FX1 %s %s: frame %.2f ms headlamp off (%d frames), %.2f ms on (%d frames)", app.templates[sTpl[sTi]].id.c_str(), v.name.c_str(),
+                        gFxN[0] ? gFxMs[0] / gFxN[0] : 0.0, gFxN[0], gFxN[1] ? gFxMs[1] / gFxN[1] : 0.0, gFxN[1]));
+      }
+      break;
+    }
     if (stageTime >= measEnd) {
       Perf& p = sPerf.back();
       if (abEnv) { app.R.perf = Renderer::Perf(); if (std::string(abEnv) != "all") app.R.perf.set(abEnv, true); p.frames = p.abN[0]; p.ms = p.abMs[0]; p.gpu = 0; for (int i = 0; i < GP_Count; ++i) { p.pass[i] = p.abPass[0][i]; p.gpu += p.pass[i]; }
@@ -437,7 +514,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
-      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW")) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
+      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
         if (sPresetPass == 3) app.R.lt.hour = 0.0f;   // Night (docs/lighting.md)

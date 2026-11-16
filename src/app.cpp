@@ -816,6 +816,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--shots-backrooms") runSelf = true;
     else if (a == "--shots-poses") runSelf = true;   // AN1 (selftest_br3.cpp)
     else if (a == "--check-turn-engage") runSelf = true;   // AI5 (selftest_turn.cpp)
+    else if (a == "--capture-lean") runSelf = true;   // MV3 (selftest_lean.cpp)
     else if (a == "--shots-palette") runSelf = true;   // BR5 (selftest_br3.cpp)   // BR3 (selftest_br3.cpp)
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
@@ -899,6 +900,7 @@ int App::run(int argc, char** argv) {
   audio.init();
   audio.loadEvents(contentDir() / "audio");
   audio.loadCustom(contentDir() / "audio" / "custom");
+  if (std::getenv("NMK_AUDIO_FIDELITY")) { audio.fidelityReport(contentDir() / "audio" / "custom"); std::exit(0); }   // SND5 diagnostics
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
   R.init(fbw, fbh);
   settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)
@@ -1038,6 +1040,7 @@ int App::run(int argc, char** argv) {
         const std::string own = au ? au->value("bed", std::string()) : std::string();
         audio.setBed(0, !own.empty() ? amb / own : br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), !own.empty() ? au->value("bedVolume", 0.8f) : 0.6f);   // level0.mp3: local-only track
         audio.setBed(1, br || (au && !au->value("battlefield", true)) ? fs::path() : amb / "battlefield.mp3", 0.7f);
+        audio.setRoom(br || tn || (au && !au->value("battlefield", true)) ? 1.0f : 0.0f);   // SND5: the gun reverb
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water

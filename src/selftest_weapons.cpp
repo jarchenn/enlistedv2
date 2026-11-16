@@ -760,9 +760,19 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       a.scriptedInput = ExploreInput{};
       check(gm2Stats().packsPlaced == placed0 && S(a, "explosion_pack").loaded + (int)S(a, "explosion_pack").containers.size() == 2, "explosion pack: nothing in reach (sky) places nothing and keeps the count");
       return true; });
+    push("snd4 casings", [this](App& a, float) {   // SND4: a spent case per shot, rate-limited per shooter, near the listener only
+      if (!a.audio.hasEvent("casing")) { check(true, "casings: no casing recording (content/audio/custom/guns/casings.mp3) - skipped"); return true; }
+      int p0 = a.audio.casingsPlayed, s0 = a.audio.casingsSkipped; vec3 f = a.eyePos() - vec3(0, 1.6f, 0);
+      for (int i = 0; i < 3; ++i) a.audio.casing(f, 9001, 0.4f, false);   // one burst instant: one sound
+      a.audio.casing(f + vec3(30, 0, 0), 9002, 0.4f, false);              // 30 m off: none
+      int w = a.weaponIndex("modern_glauncher"); if (w >= 0) a.shotCasing(*a.weaponDefs[w], f, 9003);   // a launcher: none
+      char b[160]; std::snprintf(b, sizeof b, "casings: three at once from one shooter play one, 30 m off and a launcher none (played %d, skipped %d)", a.audio.casingsPlayed - p0, a.audio.casingsSkipped - s0);
+      check(a.audio.casingsPlayed - p0 == 1 && a.audio.casingsSkipped - s0 == 3, b);
+      return true; });
     push("gm2 pack place", [this](App& a, float t) {
-      static int placed0, ex0; static vec3 at; static uint32_t rev0;
-      if (t == 0) { placed0 = gm2Stats().packsPlaced; ex0 = gm2Stats().packsExploded; a.eyeYaw = 0; a.eyePitch = -55; rev0 = a.groundRev; }   // down at the ground in front
+      static int placed0, ex0; static vec3 at; static uint32_t rev0; static int beep0[3];
+      static const char* kBeeps[3] = {"pack_beep_long", "pack_beep_short", "pack_beep_shortest"};
+      if (t == 0) { placed0 = gm2Stats().packsPlaced; ex0 = gm2Stats().packsExploded; a.eyeYaw = 0; a.eyePitch = -55; rev0 = a.groundRev; for (int i = 0; i < 3; ++i) beep0[i] = a.audio.eventPlays[kBeeps[i]]; }   // down at the ground in front
       a.scriptedInput.fire = t > 0.1f && t < 0.2f;
       if (t < 0.4f) return false;
       a.scriptedInput.fire = false;
@@ -778,6 +788,11 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
                                  at.y - gy, glm::length(vec2(at.x, at.z) - vec2(a.eyePos().x, a.eyePos().z)), gm2Stats().packsPlaced - placed0, gm2Stats().packsExploded - ex0, rev0, a.groundRev);
       check(gm2Stats().packsPlaced == placed0 + 1 && gm2Stats().packsExploded == ex0 + 1 && std::fabs(at.y - gy) < 0.35f && gm2Packs().empty() && a.groundRev != rev0 &&
             S(a, "explosion_pack").loaded + (int)S(a, "explosion_pack").containers.size() == 1, b);
+      if (a.audio.hasEvent(kBeeps[0])) {   // SND4: the countdown: 7 long, 4 short, 5 shortest beeps over the 10 s
+        int n[3]; for (int i = 0; i < 3; ++i) n[i] = a.audio.eventPlays[kBeeps[i]] - beep0[i];
+        std::snprintf(b, sizeof b, "explosion pack: countdown beeps long %d, short %d, shortest %d (7 / 4 / 5)", n[0], n[1], n[2]);
+        check(n[0] == 7 && n[1] == 4 && n[2] == 5, b);
+      }
       a.eyePitch = 0;
       return true; });
     push("gm2 artillery", [this](App& a, float t) {

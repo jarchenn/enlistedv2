@@ -371,7 +371,7 @@ static std::string snapshotPart(Game& g, int forPeer, const std::vector<int>& id
     w.u8((uint8_t)(r.livesLeft < 0 ? 255 : r.livesLeft)); w.u8((uint8_t)std::min(250.0f, r.deadFor * 10)); w.u16((uint16_t)std::max(0, r.kills)); w.u16((uint16_t)std::max(0, r.deaths)); w.u16((uint16_t)(int16_t)std::clamp(r.score, -32000, 32000));
     w.u16((uint16_t)(s.killer < 0 ? 0xffff : s.killer)); w.u8((uint8_t)(s.deathStyle | ((s.br.target >= 0 && !s.human) || g.t - s.lastShot < 1.5 ? 0x80 : 0))); w.u8((uint8_t)s.etype);   // EN1; AN1b: 0x80 = engaged (a bot with a target, or fired in the last 1.5 s): the client's aimed postures
     bool own = r.human && r.peer == forPeer;
-    w.u8(own ? 1 : 0);
+    w.u8((uint8_t)((own ? 1 : 0) | ((std::clamp((int)std::lround(s.lean * 15.0f), -15, 15) + 16) << 1)));   // MV3: bits 1-5 the lean (-15..15)
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
   }
   w.u8(extras ? 1 : 0);
@@ -445,7 +445,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     float hp = r.u16(); int weapon = r.u8(); int life = r.u16();
     float recoil = r.u8() / 255.0f, thr = r.u8() / 255.0f, rel = r.u8() / 255.0f;
     int lives = r.u8(); float deadFor = r.u8() / 10.0f; int kills = r.u16(), deaths = r.u16(); int score = (int16_t)r.u16(); int killer = r.u16(); int dstyle = r.u8(); int etype = r.u8();
-    bool own = r.u8() != 0;
+    int ob = r.u8(); bool own = (ob & 1) != 0; s.lean = (((ob >> 1) & 31) - 16) / 15.0f;   // MV3
     int frags = 0, smokes = 0, loaded = 0; if (own) { frags = r.u8(); smokes = r.u8(); loaded = r.u16(); }
     rs.livesLeft = lives == 255 ? -1 : lives; rs.deadFor = deadFor; rs.kills = kills; rs.deaths = deaths; rs.score = score; rs.human = fl & 8; rs.pending = fl & 16; rs.alive = fl & 1;
     bool alive = fl & 1;
@@ -569,6 +569,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", 0)});
       app.fx.flash(p + dir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       app.audio.play("shot_" + d.id, p, 1.0f);
+      { int by = ev.value("by", -1); if (by >= 0 && by < (int)g.sold.size()) app.shotCasing(d, g.sold[by].feet, by); }   // SND4
     }
   } else if (t == "gore") {   // W7: one replicated FleshHit; droplets are simulated here from its seed
     if (!replay) { extern void goreNetEvent(App&, const json&); goreNetEvent(app, ev); }
@@ -922,7 +923,7 @@ void Net::update(App& app, float dt) {
         if (ut == 2 && r.need(ul)) {   // client movement (latest wins, validated)
           R in(r.p + r.o, ul);
           vec3 feet = in.v3(); float yaw = in.f32(), pitch = in.f32(); int posture = in.u8(), weapon = in.u8();
-          bool gunAim = posture & 0x80; posture &= 0x7f;   // 0x80: yaw / pitch are a gun's traverse / elevation targets
+          bool gunAim = posture & 0x80; float leanIn = (((posture >> 2) & 31) - 16) / 15.0f; posture &= 0x03;   // MV3: bits 2-6 the lean   // 0x80: yaw / pitch are a gun's traverse / elevation targets
           Game& g = G(app);
           int slot = g.match.slotOfPeer(p->id);
           uint64_t gun = slot >= 0 ? gunOf(*d, slot) : 0;
@@ -939,6 +940,7 @@ void Net::update(App& app, float dt) {
             if (ok && step > 0.05f) ok = !Physics::castRayEx(s.feet + vec3(0, 0.6f, 0), feet - s.feet, glm::length(feet - s.feet), hh);   // no walking through walls
             if (ok) { s.feet = feet; if (s.agent >= 0) Physics::setAgentPos(s.agent, feet); }
             else { ++rejectedRequests; p->ch.send(json{{"t", "correct"}, {"p", tojson(s.feet)}}.dump()); }
+            s.lean = leanIn;   // MV3
             s.yaw = yaw; s.pitch = std::clamp(pitch, -89.0f, 89.0f); s.swim = posture == 3; s.posture = s.swim ? Physics::STAND : std::clamp(posture, 0, 2);   // 3: swimming
             if (weapon != s.weapon && weapon < (int)app.weaponDefs.size() && carries(s, weapon)) hostSwitch(app, s, weapon);   // only what it carries
             s.vel = ok ? vec3(dv.x, 0, dv.z) / dtIn : vec3(0); s.speed = step / dtIn;   // AN1b: the stride's direction
@@ -1012,7 +1014,7 @@ void Net::update(App& app, float dt) {
       if (Soldier* L = gGame->local(); L && L->alive) {
         W w; auto c = Physics::character();
         StationRT* gun = app.station(app.occupied);   // crewing a gun: its traverse / elevation targets ride in the yaw / pitch fields
-        w.v3(c.pos); w.f32(gun ? gun->yawT : app.eyeYaw); w.f32(gun ? gun->elevT : app.eyePitch); w.u8((uint8_t)((app.swim.active ? 3 : c.posture) | (gun ? 0x80 : 0))); w.u8((uint8_t)app.activeWeapon);   // posture 3: swimming; 0x80: gun aim
+        w.v3(c.pos); w.f32(gun ? gun->yawT : app.eyeYaw); w.f32(gun ? gun->elevT : app.eyePitch); w.u8((uint8_t)((app.swim.active ? 3 : c.posture) | (gun ? 0x80 : 0) | ((std::clamp((int)std::lround(app.lean.x * 15.0f), -15, 15) + 16) << 2))); w.u8((uint8_t)app.activeWeapon);   // posture 3: swimming; 0x80: gun aim
         h.unrel = w.b; h.unrelType = 2;
       }
     }
