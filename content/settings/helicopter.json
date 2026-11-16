@@ -6,7 +6,7 @@
     "maxBank": 24,
     "tau": 0.15,
     "maxRate": 110,
-    "note": "W / S pitch the nose down / up, A / D bank; the airframe eases to the target attitude (tau) no faster than maxRate"
+    "note": "Shift + W / S pitch the nose down / up to fly (W / S alone: the aim block), A / D bank; the airframe eases to the target attitude (tau) no faster than maxRate"
   },
   "thrust": {
     "tiltAccel": 2.2,
@@ -48,6 +48,10 @@
     "wobblePeriod": 5.5,
     "note": "a slow, gentle attitude drift in the hover (no constant correcting needed)"
   },
+  "aim": {
+    "maxDown": 48, "maxUp": 30, "rate": 32, "tau": 0.15,
+    "note": "VH5d: W / S alone turn the nose down / up at rate deg/s (to maxDown below / maxUp above level) and leave it there on release; thrust is decoupled (the hover holds position, momentum bleeds as hands-off), the view pitches with the nose; the airframe follows within tau. Shift + W / S fly forward / back with the attitude block (maxPitchForward / Back) and the tilt drives thrust; releasing Shift keeps the attitude"
+  },
   "rotor": {
     "spinUp": 1.8,
     "spinDown": 9
@@ -61,6 +65,7 @@
     "note": "touchdown compresses the gear (spring-damper, at most suspensionMax m); above softImpact m/s a thud, above hardImpact a camera jolt and a heavy sound scaled with the excess"
   },
   "camera": {
+    "placeMinPitch": -28, "placeNote": "VH5d: looking further down than this (deg) the camera keeps its place behind the airframe and only turns, so the ground under the crosshair is not hidden by the helicopter",
     "distance": 17,
     "height": 3,
     "lag": 0.04,

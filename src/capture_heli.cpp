@@ -42,10 +42,15 @@ bool captureHeliSelfTest(App& a, float dt) {
     float vf = glm::dot(r->vel, fwd), vs = glm::dot(r->vel, rgt), agl = r->pos.y - a.terrain.height(r->pos.x, r->pos.z);
     static float stopAt = -1, maxSusp = 0, impactV = 0;
     in.jumpHeld = (s > 4.5f && s < 8.0f) || (s > 33.0f && s < 36.0f);   // climb once spun up; again before the shoot-down
-    in.move.y = s > 8.5f && s < 14.5f ? 1.0f : s > 17.5f && s < 23.0f ? -1.0f : 0.0f;   // forward, release, back
+    in.move.y = s > 8.5f && s < 14.5f ? 1.0f : s > 17.5f && s < 23.0f ? -1.0f : 0.0f;   // forward, release, back (Shift: fly)
+    in.sprint = s > 8.5f && s < 23.0f;
+    // VH5d: hover, W alone tilts the nose down and holds it (no thrust), firing at the ground ahead
+    if (s > 36.6f && s < 38.2f) in.move.y = 1.0f;
+    static vec3 aimP0;
+    if (at(36.6f)) aimP0 = r->pos;
     in.move.x = s > 23.0f && s < 26.0f ? 1.0f : 0.0f;                                     // bank right
     in.crouch = s > 27.0f && s < 33.0f && !r->grounded;                                   // descend to land
-    in.fire = s > 10.0f && s < 11.5f;                                                    // chin gun burst
+    in.fire = (s > 10.0f && s < 11.5f) || (s > 38.6f && s < 40.0f);                                                    // chin gun burst
     in.reload = (s > 11.6f && s < 11.7f) || (s > 12.0f && s < 12.1f);                    // two rockets
     if (s > 17.5f && s < 23.0f && stopAt < 0 && vf <= 0) stopAt = s - 17.5f;
     if (s > 27.0f && s < 33.0f) { maxSusp = std::max(maxSusp, r->susp); if (r->grounded && impactV == 0) impactV = r->suspV; }
@@ -60,7 +65,10 @@ bool captureHeliSelfTest(App& a, float dt) {
     if (at(22.9f)) logf("[heli] S: forward motion stopped after %.1f s, now %.1f m/s (reversing), pitch %.1f", stopAt, vf, r->pitch);
     if (at(25.9f)) logf("[heli] D 3 s: bank %.1f deg, sideways %.1f m/s", r->roll, vs);
     if (at(32.9f)) logf("[heli] landed %d, gear compression max %.3f m, susp rate at touchdown %.2f", (int)r->grounded, maxSusp, impactV);
-    if (s > 36.5f) { a.tanks.destroy(a, *r, "capture: shot down"); gPhase = 3; gT = 0; }
+    if (at(38.4f)) logf("[heli] VH5d W alone 1.6 s: nose %.1f deg (held %.1f), thrust tilt %.1f, view pitch %.1f", r->pitch, r->aimPitch, r->thrPitch, a.eyePitch);
+    if (at(39.6f)) a.uiShot = shotPath("nose_down_firing");
+    if (at(40.2f)) logf("[heli] VH5d after 3.6 s nose-down: drift %.2f m, nose %.1f deg (stays), 30 mm fired %d", glm::length(vec2(r->pos.x - aimP0.x, r->pos.z - aimP0.z)), r->pitch, r->gunShots);
+    if (s > 40.5f) { a.tanks.destroy(a, *r, "capture: shot down"); gPhase = 3; gT = 0; }
     return true;
   }
   if (gPhase == 3) {   // the fall and the crash

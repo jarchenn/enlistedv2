@@ -2,7 +2,9 @@
 // "heli": true that keeps the tanks' entry / exit, collision body, damage matrix (as an armoured car), wreck fire and
 // persistence, with its own step. Flight feel to the user's spec (incoming flight_spec.md, HELICOPTER FLIGHT), every
 // tunable in content/settings/helicopter.json, all rates frame-rate independent:
-//   attitude W / S pitch the nose down / up, A / D bank; the airframe eases to the target attitude
+//   attitude W / S alone (aim mode, VH5d): the nose turns down / up at aim.rate and stays where it is left, thrust
+//            decoupled (the hover holds position; the camera pitches with the nose); Shift + W / S: fly forward / back
+//            (the nose tilts to maxPitchForward / Back and the tilt drives thrust); A / D bank; the airframe eases to the target
 //   thrust   horizontal acceleration follows the tilt (g tan tilt): momentum builds and bleeds through drag, so braking
 //            from speed takes time and distance and S first brakes forward motion, then reverses
 //   assist   no directional input: the airframe tilts against its own drift and a light damping levels it; momentum stays
@@ -41,6 +43,7 @@ struct HeliTune {
   float yawHover = 75, yawFast = 28, yawFastSpeed = 45, yawTau = 0.25f, velAlign = 0.35f;
   float climb = 8, sink = 6, liftAccel = 5, liftTau = 0.45f, releaseTau = 0.9f, wobble = 0.35f, wobblePeriod = 5.5f;
   float spinUp = 4, spinDown = 9;
+  float aimDown = 48, aimUp = 30, aimRate = 32, aimTau = 0.15f, camPlaceMin = -28;
   float suspMax = 0.28f, suspK = 70, suspC = 11, softImpact = 1, hardImpact = 3.5f;
   float camDist = 17, camHeight = 3, camLag = 0.12f, accelLag = 0.08f, accelLagMax = 1.5f, rollFactor = 0.35f, vib = 0.02f, vibHz = 19, impactShake = 1.4f;
 };
@@ -57,9 +60,10 @@ const HeliTune& tune() {
   f("yaw", "rateHover", T.yawHover); f("yaw", "rateFast", T.yawFast); f("yaw", "fastSpeed", T.yawFastSpeed); f("yaw", "tau", T.yawTau); f("yaw", "velocityAlign", T.velAlign);
   f("lift", "climb", T.climb); f("lift", "sink", T.sink); f("lift", "accel", T.liftAccel); f("lift", "tau", T.liftTau); f("lift", "releaseTau", T.releaseTau);
   f("hover", "wobbleDeg", T.wobble); f("hover", "wobblePeriod", T.wobblePeriod); f("rotor", "spinUp", T.spinUp); f("rotor", "spinDown", T.spinDown);
+  f("aim", "maxDown", T.aimDown); f("aim", "maxUp", T.aimUp); f("aim", "rate", T.aimRate); f("aim", "tau", T.aimTau);
   f("landing", "suspensionMax", T.suspMax); f("landing", "stiffness", T.suspK); f("landing", "damping", T.suspC); f("landing", "softImpact", T.softImpact); f("landing", "hardImpact", T.hardImpact);
   f("camera", "distance", T.camDist); f("camera", "height", T.camHeight); f("camera", "lag", T.camLag); f("camera", "accelLag", T.accelLag); f("camera", "accelLagMax", T.accelLagMax);
-  f("camera", "rollFactor", T.rollFactor); f("camera", "vibration", T.vib); f("camera", "vibrationHz", T.vibHz); f("camera", "impactShake", T.impactShake);
+  f("camera", "rollFactor", T.rollFactor); f("camera", "vibration", T.vib); f("camera", "vibrationHz", T.vibHz); f("camera", "impactShake", T.impactShake); f("camera", "placeMinPitch", T.camPlaceMin);
   return T;
 }
 // camera motion scale: the Settings slider, x 0.3 with Reduced motion
@@ -116,19 +120,31 @@ void TankSys::stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in) {
   // ---- attitude targets: stick tilt, or assisted levelling against the drift; a slow gentle hover wobble
   t.wobT += dt;
   float w = 6.2831853f / std::max(0.5f, T.wobblePeriod);
-  float tgtPitch = fIn > 0 ? -fIn * T.maxPitchFwd : fIn < 0 ? -fIn * T.maxPitchBack : std::clamp(vf * T.assistGain, -T.assistTilt, T.assistTilt);
+  // VH5d: Shift + W / S fly (the tilt drives thrust, as VH5); W / S alone aim the nose (held, thrust decoupled: the
+  // thrust tilt follows the assist, so momentum bleeds as in a hands-off hover)
+  const bool fly = in && in->sprint;
+  const float assistP = std::clamp(vf * T.assistGain, -T.assistTilt, T.assistTilt);
+  float tgtPitch = !fly ? t.aimPitch : fIn > 0 ? -fIn * T.maxPitchFwd : fIn < 0 ? -fIn * T.maxPitchBack : assistP;
+  if (!fly && fIn != 0 && !t.grounded && lift >= 0.99f) {
+    float before = t.aimPitch;
+    t.aimPitch = std::clamp(t.aimPitch - fIn * T.aimRate * dt, -T.aimDown, T.aimUp);
+    if (in) app.eyePitch = std::clamp(app.eyePitch + (t.aimPitch - before), d.hPitchMin, d.hPitchMax);   // the view follows the nose
+    tgtPitch = t.aimPitch;
+  }
   float tgtBank = sIn != 0 ? sIn * T.maxBank : std::clamp(-vs * T.assistGain, -T.assistTilt, T.assistTilt);
   if (!t.grounded) { tgtPitch += T.wobble * std::sin(w * t.wobT); tgtBank += T.wobble * std::sin(w * 1.37f * t.wobT + 1.3f); }
-  if (t.grounded || lift < 0.99f) { tgtPitch = 0; tgtBank = 0; }
+  if (t.grounded || lift < 0.99f) { tgtPitch = 0; tgtBank = 0; t.aimPitch = 0; }
   float aStep = T.attRate * dt;
-  t.pitch += std::clamp((tgtPitch - t.pitch) * ease(T.attTau, dt), -aStep, aStep);
+  t.pitch += std::clamp((tgtPitch - t.pitch) * ease(fly ? T.attTau : T.aimTau, dt), -std::max(aStep, T.aimRate * 1.5f * dt), std::max(aStep, T.aimRate * 1.5f * dt));
+  if (fly) { t.aimPitch = std::clamp(t.pitch, -T.aimDown, T.aimUp); t.thrPitch = t.pitch; }   // releasing Shift keeps the attitude
+  else t.thrPitch += std::clamp(((t.grounded || lift < 0.99f ? 0.0f : assistP) - t.thrPitch) * ease(T.attTau, dt), -aStep, aStep);
   t.roll += std::clamp((tgtBank - t.roll) * ease(T.attTau, dt), -aStep, aStep);
   // ---- horizontal: thrust follows the tilt (g tan tilt), drag and assist bleed it; momentum carries the rest
   vec3 vh(t.vel.x, 0, t.vel.z);
-  vec3 a = (fwd * std::tan(radians(-t.pitch)) + rgt * std::tan(radians(t.roll))) * (g * T.tiltAccel * lift);
+  vec3 a = (fwd * std::tan(radians(-t.thrPitch)) + rgt * std::tan(radians(t.roll))) * (g * T.tiltAccel * lift);
   float sp = glm::length(vh);
   a -= vh * (T.dragLin + T.dragQuad * sp);
-  if (fIn == 0 && sIn == 0) a -= vh * (T.driftDamp + (sp < T.hoverSpeed ? T.hoverDamp : 0.0f));
+  if ((fIn == 0 || !fly) && sIn == 0) a -= vh * (T.driftDamp + (sp < T.hoverSpeed ? T.hoverDamp : 0.0f));
   if (vf < -T.maxBack) a += fwd * ((-vf - T.maxBack) * 2.0f);   // soft caps backward / sideways
   if (std::fabs(vs) > T.maxSide) a -= rgt * ((std::fabs(vs) - T.maxSide) * 2.0f * (vs > 0 ? 1.0f : -1.0f));
   if (t.grounded && vIn <= 0) a -= vh * 5.0f;   // skids on the ground: no sliding
@@ -294,7 +310,10 @@ void heliCameraStep(App& app, TankSys& sys, TankRT& t, float dt) {
   vec3 fwd = App::forward(app.eyeYaw, app.eyePitch);
   vec3 piv = vec3(sys.hullMatrix(t) * vec4(0, 2.6f, 0.5f, 1));
   vec3 trail = t.accel * T.accelLag; float L = glm::length(trail); if (L > T.accelLagMax) trail *= T.accelLagMax / L;
-  vec3 want = piv - fwd * T.camDist + vec3(0, T.camHeight, 0) - trail;
+  // VH5d: looking steeply down (nose-down aiming) the camera stays behind at no steeper than placeMinPitch, so the airframe
+  // sits high in the frame and the ground under the crosshair stays clear
+  vec3 fp = App::forward(app.eyeYaw, std::max(app.eyePitch, T.camPlaceMin));
+  vec3 want = piv - fp * T.camDist + vec3(0, T.camHeight, 0) - trail;
   if (!t.camInit) { t.camEye = want; t.camInit = true; }
   // the lag is applied in the airframe's moving frame: the camera keeps up with the velocity, only the changes lag
   t.camEye += t.vel * dt;
@@ -338,7 +357,7 @@ void TankSys::drawHeliUI(App& app, TankRT& t) {
   float w = ts.x, hb = std::clamp(t.gunHeat, 0.0f, 1.0f);
   dl->AddRectFilled(ImVec2(p.x, p.y + ts.y + 6), ImVec2(p.x + w, p.y + ts.y + 14), IM_COL32(50, 50, 45, 220));
   dl->AddRectFilled(ImVec2(p.x, p.y + ts.y + 6), ImVec2(p.x + w * hb, p.y + ts.y + 14), t.overheat ? IM_COL32(255, 90, 40, 255) : IM_COL32(230, 190, 70, 255));
-  const char* keys = "Space up | Ctrl down | W/S forward / back | A/D strafe | mouse: nose + aim | LMB 30 mm | R rocket | E get out (landed)";
+  const char* keys = "Space up | Ctrl down | W/S nose down / up (held) | Shift+W/S forward / back | A/D strafe | mouse: turn + aim | LMB 30 mm | R rocket | E get out (landed)";
   ImVec2 ks = ImGui::CalcTextSize(keys);
   dl->AddText(ImVec2(c.x - ks.x * 0.5f, io.DisplaySize.y - 34), IM_COL32(210, 210, 200, 220), keys);
 }
