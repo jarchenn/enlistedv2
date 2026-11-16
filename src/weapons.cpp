@@ -314,7 +314,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   if (d.feed == "magazine") {
     float y = 0;
     if (s.reload > 0) { float u = 1 - s.reload / s.reloadTotal; y = u < 0.5f ? -0.35f * (u / 0.5f) : -0.35f * (1 - (u - 0.5f) / 0.5f); }
-    if (s.loaded > 0 || s.reload > 0) add(WP_MAG, M * glm::translate(mat4(1), vec3(0, y, 0)));
+    if (!s.magOff || s.reload > 0) add(WP_MAG, M * glm::translate(mat4(1), vec3(0, y, 0)));
   }
   // MG 42 top cover opens for a belt change; bipod unfolds when supported
   if (d.feed == "belt") {
@@ -490,6 +490,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   if (s.reload > 0) {
     if ((s.reloadKind == 3 || s.reloadKind == 5 || (s.reloadKind == 4 && d.feed == "single")) && fireHeld && s.loaded > 0) { s.reload = 0; s.reloadKind = 0; }   // fire interrupts single-round loading
     s.reload -= dt;
+    if ((s.reloadKind == 1 || s.reloadKind == 2) && d.feed == "magazine" && s.reloadTotal > 0 && s.reload <= s.reloadTotal * 0.5f) s.magOff = true;   // WP5: mag-out (the old one is at the bottom of its drop)
     // MG2 shell loop: the round goes in at the insert moment of its segment (kind 5: the segment plays out), then the next
     // segment, or the end clip after the last round
     bool shellNow = s.reloadKind == 3 && d.feed == "single" && d.reloadInsert > 0 && s.reload <= d.reloadRound * (1 - d.reloadInsert);
@@ -520,7 +521,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         int retained = s.loaded;
         auto it = fullest(); int n = *it; s.containers.erase(it);
         if (retained > 0) { s.containers.push_back(retained); weaponMsg = std::to_string(retained) + (d.feed == "enbloc" ? " rounds in the ejected clip kept in reserve" : " rounds in the partial " + d.container + " kept"); }
-        s.loaded = n;
+        s.loaded = n; s.magOff = false;   // WP5: mag-in
         s.reload = 0; s.reloadKind = 0;
         if (rest > 0) { s.reload = rest; s.reloadKind = 4; }   // MG1: rounds in; the clip plays out before the next shot
         audio.play(audio.hasEvent("clip_" + d.id) ? "clip_" + d.id : d.feed == "enbloc" ? "clip_in" : d.feed == "belt" ? "belt" : "mag_in", eyePos(), 0.8f);
