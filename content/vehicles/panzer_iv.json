@@ -14,7 +14,7 @@
     ],
     "realLength": 5.92,
     "lengthNode": "fender_low",
-    "maxTex": 2048,
+    "maxTex": 2048, "aoStrength": 0.25, "metalScale": 0.2,
     "maxTexBy": {"turret": 4096, "hull_001": 4096, "hull_002": 4096},
     "jpgMaps": true,
     "lod1": 0.4, "lod1Tex": 1024, "lod2": 0.12, "lod2Tex": 256,

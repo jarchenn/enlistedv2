@@ -69,6 +69,7 @@ struct GpuModel {
   GLuint vao = 0, vbo = 0, ebo = 0;
   GLuint texAlb = 0, texMR = 0, texN = 0, texAO = 0;   // first material's set (legacy single-set bakes)
   bool aoInMR = false;              // AO packed in the red channel of the MR map
+  float aoStrength = 1;             // TK3: how much of the baked occlusion shows (vehicle JSON model.aoStrength)
   struct MatTex { GLuint alb = 0, mr = 0, n = 0, ao = 0; bool aoInMR = false; std::string name; };
   std::vector<MatTex> mats;         // one texture set per source material (multi-material models: FG42, M2, Tommy gun)
   int textureCount = 0;
