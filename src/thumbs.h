@@ -13,7 +13,7 @@
 class App;
 struct AssetDef;
 
-constexpr const char* kThumbVersion = "w2-thumbs-3";   // bump when the thumbnail look / framing changes
+constexpr const char* kThumbVersion = "w2-thumbs-4";   // 4: map look / weather / hour no longer leak into tiles (cached dark tiles regenerate)   // bump when the thumbnail look / framing changes
 constexpr int kThumbSize = 256;
 constexpr float kThumbMinFill = 0.15f;                 // 3/4 view kept when it fills at least this share of the tile
 constexpr float kThumbCropFill = 0.07f;                // below this the tile is a detail crop of the silhouette (fences)

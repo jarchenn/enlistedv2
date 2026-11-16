@@ -3591,6 +3591,17 @@ std::string Renderer::hdrProbe() const {
 
 void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUseProgram(p);
+  // thumbnails / model sheets / item icons: a fixed studio state whatever map, weather or hour is loaded. Uniforms
+  // persist per program, so everything the main frame sets per map is pinned here: a night / low sun (the asset tiles
+  // set their own key light; the template and sheet renders kept the map's), rain wetness, grime, arid paint, the
+  // material layer / relief, cloud deck
+  const vec3 sunDirMap = sunDir;
+  if (thumbMode && sunDir.y < 0.25f) sunDir = glm::normalize(vec3(0.45f, 0.8f, 0.4f));
+  if (thumbMode) {
+    glUniform1i(U(p, "uWeather"), 0); glUniform1f(U(p, "uMapArid"), 0.0f); glUniform1f(U(p, "uMapGrime"), 0.0f);
+    glUniform1i(U(p, "uMatLayer"), 0); glUniform1f(U(p, "uMatFar"), 0.0f); glUniform1i(U(p, "uRelief"), 0); glUniform1i(U(p, "uMatLod"), 0);
+    glUniform1i(U(p, "uCloudOn"), 0);
+  }
   glUniform3fv(U(p, "uSunDir"), 1, glm::value_ptr(sunDir));
   // sun : sky balance. Legacy ~1.75:1 on lit diffuse (flat, milky shadows); now ~3:1 with a cooler sky fill so
   // shadowed sides read blue-grey and lit faces warm, while shadows stay open (no crushed blacks).
@@ -3643,6 +3654,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uHazeH"), q.hazeHeight);
   glUniform1f(U(p, "uTime"), time);
   lightingUniforms(*this, p);   // L2: local lights, light shadows, probe GI, sky extras
+  sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
 }
 
 Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
