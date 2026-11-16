@@ -1,5 +1,6 @@
 // Tanks: drawing (supplied GLB parts on the rig), gunner sights, HUD, Enter prompt, catalog thumbnails and the
 // temporary synthesized tank sounds. docs/tanks.md
+#include "vehicle_dash.h"
 #include "app.h"
 #include <imgui.h>
 #include <random>
@@ -47,6 +48,7 @@ void TankSys::carStaticParts(const TankDef& d, std::vector<int>& out) const {
 }
 void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  vehicleDashDraw(app, t, h);   // VH6: the instrument panel seen from the driver's seat
   if (d.partsAsset) {   // BR7 adopted car: its part-built mesh moves as one (the wheels do not turn)
     app.worldBoxDraws.push_back({&d.partsAsset->opaque, h, tint});   // shortcut: its glass is not drawn while adopted (the box list is opaque)
     return;

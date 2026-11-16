@@ -1,0 +1,53 @@
+{
+ "id": "car_ural_4320",
+ "version": 1,
+ "name": "Ural-4320 army truck",
+ "category": "Vehicles",
+ "description": "Drivable Ural-4320 6x6 army truck (Explore: E to enter). Driver's view from the cab with a lit military dash: gauges, switches, warning lights, radio; W/S throttle, A/D steer, Space handbrake. Supplied model is local-only; the committed build shows a part-built stand-in.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  2.5,
+  7.37
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Modern",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.7,
+    0
+   ],
+   "s": [
+    2.4,
+    2.2,
+    7.4
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "ural_4320",
+ "nav": {
+  "effect": "none"
+ }
+}

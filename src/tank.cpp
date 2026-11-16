@@ -73,7 +73,8 @@ void TankSys::loadDefs(App& app) {
       }
       if (d->car) {
         for (int w = 0; w < TankDef::MAX_WHEELS; ++w) if (!d->wheelPart[w].empty()) { d->wheelC[w] = (wlo[w] + whi[w]) * 0.5f; d->wheelR = (whi[w].y - wlo[w].y) * 0.5f; }
-        if (!d->wheelPart[4].empty()) d->nWheels = 8;
+        if (!d->wheelPart[4].empty() || !d->wheelPart[6].empty()) d->nWheels = 8;   // VH6: a 6x6 (Ural) has the rear bogie (r2) but no second front axle
+        for (int w : {4, 5}) if (d->nWheels == 8 && d->wheelPart[w].empty()) d->wheelC[w] = d->wheelC[w - 4];   // its empty slots sit on the front axle (nothing drawn, ground samples doubled there)
         if (!d->steerParts.empty()) d->steerC = (slo + shi) * 0.5f;
       }
     }
@@ -172,12 +173,12 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
   const AssetDef* a = rt->second.asset;
   auto& dp = adoptedDefs[a->id];
   if (!dp) {
-    vec3 rlo(1e9f), rhi(-1e9f), dash(0, 1.0f, 0.6f), blo(1e9f), bhi(-1e9f); float wr = 0.33f; bool rims = false;
+    vec3 dashS(0, 0.3f, 0.4f), rlo(1e9f), rhi(-1e9f), dash(0, 1.0f, 0.6f), blo(1e9f), bhi(-1e9f); float wr = 0.33f; bool rims = false;
     for (auto& p : a->parts) {
       const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
       blo = glm::min(blo, p.center - p.size * 0.5f); bhi = glm::max(bhi, p.center + p.size * 0.5f);
       if (mn == "rim") { rims = true; rlo = glm::min(rlo, p.center); rhi = glm::max(rhi, p.center); wr = std::max(wr, p.center.y); }
-      if (mn == "dash") dash = p.center;
+      if (mn == "dash") { dash = p.center; dashS = p.size; }
     }
     if (!rims || bhi.x <= blo.x) return false;   // not a car
     auto d = std::make_unique<TankDef>();
@@ -188,7 +189,10 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
     d->trackHalfGauge = std::max(0.5f, std::max(std::fabs(rlo.x), std::fabs(rhi.x)));
     d->trackHalfLen = std::max(0.8f, 0.5f * (rhi.z - rlo.z)); d->carL = 2 * d->trackHalfLen;
     d->wheelR = wr;
-    d->driverEye = vec3(-0.37f, dash.y + 0.38f, dash.z - 0.75f); d->hatchEye = d->driverEye;   // the generic kit seats the driver at x -0.37
+    float wheelX = -0.37f;   // VH6: on the steering wheel's side (a thin rubber ring at dash height), else the generic kit's x -0.37
+    for (auto& p : a->parts) { const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
+      if (mn == "rubber" && p.shape == Part::CYL && p.size.y < 0.06f && p.size.x < 0.5f && std::fabs(p.center.y - dash.y) < 0.4f) wheelX = p.center.x; }
+    d->driverEye = vec3(wheelX, dash.y + dashS.y * 0.5f + 0.30f, dash.z - dashS.z * 0.5f - 0.62f); d->hatchEye = d->driverEye;   // over the wheel, ~0.6 m behind the dash
     d->engine = vec3(0, 0.8f, bhi.z - 0.6f); d->exhausts = {vec3(0.4f, 0.3f, blo.z - 0.05f)};
     float sx = hx + 1.1f; d->exits = {vec3(-sx, 0, 0), vec3(sx, 0, 0), vec3(-sx, 0, blo.z * 0.6f), vec3(sx, 0, blo.z * 0.6f), vec3(0, 0, blo.z - 1.5f), vec3(0, 0, bhi.z + 1.5f)};
     // arcade civilian handling (bigger = slower): ~80 km/h on roads, 45 off-road

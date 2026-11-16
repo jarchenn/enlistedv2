@@ -305,6 +305,54 @@ elif mode == 'sherman_m4':
         elif m.startswith('M4_Base_Suspension'): put(o, 'wheels')
         else: put(o, 'hull')
     print('SHERMAN gun parts', [o.name for o in groups['gun'].children])
+elif mode == 'ural':
+    # VH6 Ural-4320 6x6 army truck (ural-4320-soviet-army-truck.zip: source/URAL-4320 Army.glb; no author or licence in
+    # the archive: the bake is local-only). Front -y, z up, 7.89 m long: scaled x0.934 to the real 7.37 m. Glass dropped;
+    # the six wheels are one mesh: its islands by axle (front -> wheel_f*, middle -> wheel_r2*, rear -> wheel_r*) and side;
+    # the steering wheel is cut out of the cab interior (the islands around its hub behind the dash gauges).
+    # usage: blender -b --factory-startup --disable-autoexec --python convert_vehicles.py -- ural <URAL-4320 Army.glb> <out.glb>
+    bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.import_scene.gltf(filepath=a[1]); bpy.context.view_layer.update()
+    meshes = [o for o in bpy.data.objects if o.type == 'MESH']
+    bake_world(meshes, 1.0)
+    for o in list(bpy.data.objects):
+        if o.type != 'MESH': bpy.data.objects.remove(o, do_unlink=True)
+    for o in list(bpy.data.objects):
+        if o.name == 'Windows': bpy.data.objects.remove(o, do_unlink=True)
+    for o in bpy.data.objects: drop_faces(o, {'Windows glass'})
+    def isl_split(o, pick, name):   # islands for which pick(lo, hi, centre) -> a new object
+        b = bmesh.new(); b.from_mesh(o.data); b.verts.ensure_lookup_table()
+        keep = set()
+        for c in islands(b):
+            vs = [v.co for v in c]; lo = Vector([min(v[i] for v in vs) for i in range(3)]); hi = Vector([max(v[i] for v in vs) for i in range(3)])
+            if pick(lo, hi, (lo + hi) / 2): keep.update(v.index for v in c)
+        b.free()
+        return split_off(o, keep, name) if keep else None
+    C = Vector((0.465, -1.685, 1.98))   # the steering wheel's hub
+    inside = lambda lo, hi, c: max((lo - C).length, (hi - C).length) < 0.27 and c.y > -1.75
+    st = isl_split(bpy.data.objects['Interior.003'], inside, 'steer_wheel')
+    if st: put(st, 'steer')
+    wheel = bpy.data.objects['Wheel']
+    b = bmesh.new(); b.from_mesh(wheel.data); b.verts.ensure_lookup_table(); isl = islands(b)
+    cs = [sum((v.co for v in c), Vector()) / len(c) for c in isl]
+    ys = sorted(c.y for c in cs); axles = [ys[0], ys[len(ys) // 2], ys[-1]]
+    for _ in range(8):   # three axles by y (k-means)
+        groups3 = [[], [], []]
+        for c in cs: groups3[min(range(3), key=lambda k: abs(c.y - axles[k]))].append(c.y)
+        axles = [sum(g) / len(g) if g else axles[k] for k, g in enumerate(groups3)]
+    b.free()
+    names = ['f', 'r2', 'r']   # front to back (-y is the front)
+    order = sorted(range(3), key=lambda k: axles[k])
+    for rank, k in enumerate(order):
+        for side in ('l', 'r'):
+            pick = lambda lo, hi, c, k=k, side=side: min(range(3), key=lambda j: abs(c.y - axles[j])) == k and ((c.x > 0) == (side == 'l'))
+            w = isl_split(wheel, pick, 'wheel_' + names[rank] + side)
+            if w: put(w, 'wheel_' + names[rank] + side)
+    bpy.data.objects.remove(wheel, do_unlink=True)
+    S = Matrix.Scale(7.37 / 7.89, 4)
+    for o in bpy.data.objects:
+        if o.type == 'MESH': o.data.transform(S)
+        if o.type == 'MESH' and o.parent is None: put(o, 'hull')
+    print('URAL axles y', [round(x, 2) for x in sorted(axles)])
 else:
     raise SystemExit('unknown mode ' + mode)
 

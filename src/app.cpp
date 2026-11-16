@@ -850,7 +850,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
     else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }
     else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];
-    else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets
+    else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }
+    else if (a == "--capture-dash") runSelf = true;   // capture_dash.cpp: driver's views (VH6)   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets
     else if (a == "--import-vehicle-models" && k + 1 < argc) {   // tanks (tank_import.cpp): <srcDir> [content root]
       fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();
       return importVehicleModels(src, out) ? 0 : 1;
@@ -1035,7 +1036,7 @@ int App::run(int argc, char** argv) {
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mark("mpai");
-    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
+    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); { extern void vehicleDashFrame(App&); vehicleDashFrame(*this); } op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // VH6: parked cars' interiors   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();

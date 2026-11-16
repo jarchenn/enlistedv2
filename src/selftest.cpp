@@ -150,6 +150,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }   // BR3: --capture-br-models (selftest_brmodels.cpp)
   { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }
   { extern bool captureVehicleSelfTest(App&, float); if (captureVehicleSelfTest(app, dt)) return; }
+  { extern bool captureDashSelfTest(App&, float); if (captureDashSelfTest(app, dt)) return; }   // VH6
   { extern bool royaleLiveSelfTest(App&, float); if (royaleLiveSelfTest(app, dt)) return; }   // BR7: --selftest-royale-live (selftest_royale_live.cpp)   // VH1: --capture-jeep (selftest_vehicles.cpp)
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)

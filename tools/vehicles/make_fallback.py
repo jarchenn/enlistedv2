@@ -2,6 +2,7 @@
 #   jeep   - Willys MB (jeep_willys.json): hull 1.76 x 3.34 m centred, wheels r 0.355 m
 #   humvee - Humvee (humvee.json): hull 1.96 x 4.64 m, wheels r 0.425 m
 #   boxer  - Boxer APC (boxer_apc.json): hull 2.96 x 7.8 m, 8 wheels r 0.67 m
+#   ural   - Ural-4320 (ural_4320.json): 7.37 x 2.5 m, 6 wheels r 0.535 m
 # Same role nodes and positions as the baked supplied models: game axes (x left, y up, z forward; Blender: x,
 # -y forward, z up), y = 0 at the tyres.
 # usage: blender -b --factory-startup --python make_fallback.py -- jeep|humvee|boxer <out.glb>
@@ -111,6 +112,33 @@ elif kind == 'boxer':
     box('mg', (-0.25, 3.28, -3.00), (0.05, 3.48, -2.30), DARK)       # receiver
     cyl('mg', (-0.075, 3.38, -1.79), (0, 0, 1), 0.03, 1.0, METAL, 8)   # barrel to the muzzle at z -1.29
     box('mg', (-0.31, 2.95, -2.50), (0.11, 3.28, -1.95), DARK)       # sensor head
+elif kind == 'ural':
+    # Ural-4320 6x6 (ural_4320.json): 7.37 x 2.5 m, cab roof 2.42 m, canvas tilt over the bed to 2.8 m, wheels r 0.535 m
+    # (front axle z 2.30, bogie z -1.18 / -2.40); the same steering wheel place as the bake (game axes, y up, z forward)
+    box('hull', (-1.10, 0.70, -3.60), (1.10, 1.05, 3.55), DARK)       # frame and bumpers
+    box('hull', (-0.80, 1.05, 2.15), (0.80, 1.90, 3.50))              # bonnet
+    box('hull', (-1.15, 1.00, 1.95), (1.15, 1.35, 3.30))              # wings
+    box('hull', (-0.97, 1.08, 0.83), (0.97, 2.30, 2.12))              # cab
+    box('hull', (-0.92, 2.30, 0.84), (0.92, 2.42, 1.90))              # cab roof
+    box('hull', (-0.93, 1.90, 1.75), (0.93, 2.27, 1.90), DARK)        # windscreen opening frame (open)
+    box('hull', (-0.90, 1.55, 1.55), (0.90, 1.72, 1.72), DARK)        # dash
+    for x in (0.52, -0.52):
+        box('hull', (x - 0.24, 1.35, 0.95), (x + 0.24, 1.48, 1.40), CANVAS)   # seat
+        box('hull', (x - 0.24, 1.48, 0.90), (x + 0.24, 2.05, 0.98), CANVAS)   # back rest
+    box('hull', (-1.17, 1.18, -3.50), (1.17, 1.30, 0.40), DARK)       # bed floor
+    for x in (1.13, -1.13): box('hull', (x - 0.04, 1.30, -3.50), (x + 0.04, 1.85, 0.40))   # bed sides
+    box('hull', (-1.17, 1.30, -3.54), (1.17, 1.85, -3.46))            # tailgate
+    box('hull', (-1.19, 1.85, -3.55), (1.19, 2.80, 0.42), CANVAS)     # tilt
+    box('hull', (-0.60, 1.08, 0.40), (0.60, 2.10, 0.80), DARK)        # spare wheel carrier
+    cyl('hull', (0.434, 1.73, 1.64), (0, 0.489, -0.872), 0.03, 0.30, DARK, 8)   # steering column
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.22, minor_radius=0.016, major_segments=32, minor_segments=8, location=g2b((0.434, 1.85, 1.57)))
+    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(g2b((0, 0.489, -0.872)))
+    bpy.ops.object.transform_apply(rotation=True); o.data.materials.append(DARK); o.parent = grp('steer')
+    for role, z in (('fl', 2.30), ('r2l', -1.18), ('rl', -2.40)):
+        for x in (0.98, -0.98):
+            r = 'wheel_' + role[:-1] + ('l' if x > 0 else 'r')
+            cyl(r, (x, 0.535, z), (1, 0, 0), 0.535, 0.38, TYRE, 20)
+            cyl(r, (x + (0.2 if x > 0 else -0.2), 0.535, z), (1, 0, 0), 0.28, 0.02, OD, 12)
 for o in bpy.data.objects: o.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_yup=True, export_animations=False)
 print('WROTE', out)
