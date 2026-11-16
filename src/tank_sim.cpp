@@ -2,6 +2,7 @@
 // entry / exit, effects and persistence. docs/tanks.md
 #include "app.h"
 #include "mpai.h"
+#include "game.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 
@@ -259,6 +260,40 @@ bool TankSys::exitSpot(App& app, const TankRT& t, vec3& out, std::string& why) c
   char b[160]; std::snprintf(b, sizeof b, "no safe exit: %d blocked by obstacles, %d behind walls, %d without ground", blockedCap, blockedLos, noGround);
   why = b;
   return false;
+}
+
+void TankSys::vacate(App& app) {
+  (void)app;
+  if (TankRT* t = get(occupied)) { t->station = TS_GUNNER; t->hatchT = 0; t->throttleIn = t->steerIn = 0; }
+  occupied = 0; zoom = false; zoomT = 0;
+}
+
+uint64_t TankSys::spawnFresh(App& app, const std::string& assetId, vec3 near, float faceYaw, int station) {
+  const AssetDef* a = app.lib.find(assetId);
+  if (!a || !defFor(a)) return 0;
+  // the cap: the oldest wrecks go first (they would pile up with every respawn)
+  bool removed = false;
+  while ((int)wreckOrder.size() > wreckCap) {
+    uint64_t old = wreckOrder.front(); wreckOrder.erase(wreckOrder.begin());
+    if (old == occupied) continue;
+    auto& I = app.doc.instances; size_t n0 = I.size();
+    I.erase(std::remove_if(I.begin(), I.end(), [&](const Instance& i) { return i.id == old; }), I.end());
+    removed |= I.size() != n0;
+  }
+  if (removed) { app.syncRuntime(); sync(app); }
+  for (float r : {7.0f, 10.0f, 14.0f, 18.0f, 24.0f, 30.0f})
+    for (int k = 0; k < 12; ++k) {
+      float an = k * 0.5235988f; vec3 p = near + vec3(std::cos(an) * r, 0, std::sin(an) * r); p.y = app.terrain.height(p.x, p.z);
+      bool near2 = false; for (auto& [id, o] : tanks) if (glm::length(vec2(o.pos.x - p.x, o.pos.z - p.z)) < 8.0f) near2 = true;   // not on another vehicle
+      if (near2 || !app.checkPlacement(a, p, faceYaw, 0).ok) continue;
+      uint64_t id = app.placeInstance(a, p, faceYaw);
+      if (!id) continue;
+      app.syncRuntime(); sync(app);
+      if (!enter(app, id)) return 0;
+      if (TankRT* t = get(id); t && station == TS_HATCH && !t->def->heli) { t->station = TS_HATCH; t->hatchT = 1; }
+      return id;
+    }
+  return 0;
 }
 
 bool TankSys::exitTank(App& app, bool force) {
@@ -624,11 +659,11 @@ void TankSys::fireMg(App& app, TankRT& t) {
   auto rnd = [&]() { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return (rng % 20001u) / 10000.0f - 1.0f; };
   vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), rgt = glm::normalize(glm::cross(dir, up)), u2 = glm::cross(rgt, dir);
   vec3 fd = glm::normalize(dir + rgt * (rnd() * s) + u2 * (rnd() * s));
-  app.fireProjectile(m, fd, d.mgVel, PROJ_BULLET, 0, bodyUD(t.id), (t.mgShots % 5) == 0, d.mgName);
+  app.fireProjectile(m, fd, d.mgVel, PROJ_BULLET, 0, bodyUD(t.id), (t.mgShots % d.mgTracerEvery) == 0, d.mgName);
   if (!app.projectiles.empty()) app.projectiles.back().mass = d.mgBulletMass;
   --t.mgLoaded; ++t.mgShots; t.mgCool += 60.0f / d.mgRpm; t.mgBurst = true;
   app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.7f, false, m);   // WP4
-  app.audio.play(d.mgSound, m, 0.9f);
+  if ((t.mgShots - 1) % d.mgSoundEvery == 0) app.audio.play(app.audio.hasEvent(d.mgSound) ? d.mgSound : "shot_m2hb", m, 0.9f);   // TK1: the minigun's sound (until the sound session's shot_minigun lands: the M2's)
   app.viewKickPitch = 0.25f;
 }
 
@@ -860,7 +895,7 @@ bool TankSys::meleeBlow(App& app, uint64_t id, vec3 from) {
 void TankSys::destroy(App& app, TankRT& t, const std::string& why) {
   if (t.wrecked) return;   // exactly once
   t.wrecked = true; t.hp = 0; t.reload = 0; t.loaded = SHELL_NONE; t.speed = 0; t.yawRate = 0; t.mgReloadT = 0; t.bowReloadT = 0;
-  t.burnT = 0; ++wrecksMade;
+  t.burnT = 0; ++wrecksMade; wreckOrder.push_back(t.id);
   for (int* h : {&t.engineLoop, &t.trackLoop, &t.turretLoop}) { app.audio.loopStop(*h); *h = -1; }
   vec3 c = t.pos + vec3(0, 1.8f, 0);
   app.fx.explosion(c, vec3(0, 1, 0), "metal", false);
@@ -872,7 +907,12 @@ void TankSys::destroy(App& app, TankRT& t, const std::string& why) {
     else heliCrash(app, t);
     return;
   }
-  if (occupied == t.id) { exitTank(app, true); app.toast("Your tank was knocked out - you bailed out.", 5); }
+  if (occupied == t.id) {
+    // TK1: in a match the crew dies with the vehicle (the wreck stays; the next life starts at the team spawn in a fresh
+    // copy, Game::trySpawn); in the sandbox they bail out as before
+    if (gGame && gGame->active && !gGame->isClient && gGame->local() && gGame->local()->alive) gGame->killSoldier(gGame->localSlot, -1, vec3(0, -1, 0));
+    else { exitTank(app, true); app.toast("Your tank was knocked out - you bailed out.", 5); }
+  }
 }
 
 void TankSys::applyToMap(App& app) {

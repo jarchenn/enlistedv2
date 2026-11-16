@@ -230,7 +230,7 @@
     "fov": 30,
     "fovZoom": 8,
     "zeroRange": 1000,
-    "reticle": "tiger",
+    "reticle": "abrams",
     "note": "stabilised modern turret: much faster traverse and elevation than the WW2 tanks (game tuning); reuses the Tiger reticle"
   },
   "ammunition": {
@@ -246,8 +246,8 @@
     "note": "M829 APFSDS / M830 HEAT-MP; 40 rounds stowed; manual loader reload (game values)"
   },
   "roofMg": {
-    "name": "Commander's roof MG (modelled on the supplied turret, M2 .50 data)",
-    "sound": "shot_m2hb",
+    "name": "Commander's roof minigun (M134, 7.62 mm; TK1: the user's minigun, 5x the M2's rate)",
+    "sound": "shot_minigun", "tracerEvery": 3,
     "yaw": [
       -180,
       180
@@ -256,19 +256,19 @@
       -8,
       50
     ],
-    "rpm": 500,
+    "rpm": 2500,
     "velocity": 890,
-    "spreadDeg": 0.25,
-    "belt": 100,
-    "reserve": 900,
+    "spreadDeg": 0.45,
+    "belt": 500,
+    "reserve": 4000,
     "reload": 5.0,
-    "bulletMass": 0.046,
+    "bulletMass": 0.0097,
     "reloadSound": "belt"
   },
   "mobility": {
-    "maxForward": 18.6,
-    "maxReverse": 8.0,
-    "accel": 2.6,
+    "maxForward": 12.4,
+    "maxReverse": 5.3,
+    "accel": 1.73,
     "brake": 6.0,
     "coast": 0.8,
     "turnRate": 26,
@@ -283,7 +283,7 @@
     "clearance": 0.48,
     "trackHalfGauge": 1.34,
     "trackHalfLength": 3.08,
-    "note": "67 km/h governed road speed; quicker off the line and less slowed off-road than the Tiger (gas turbine)"
+    "note": "TK1: 1.5x slower than the real 67 km/h (user), ~45 km/h; quicker off the line and less slowed off-road than the Tiger (gas turbine)"
   },
   "historical": {
     "roadSpeedKmh": 67,

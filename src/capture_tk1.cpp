@@ -81,6 +81,125 @@ bool captureTk1SelfTest(App& a, float dt) {
     check(toL && back, "4: switch to the Panzerschreck (1 loaded) and back to the Kar98k (its 5 kept)");
     gPhase = 3; gT = 0; return true;
   }
+  if (gPhase == 3) {   // 6: the Abrams' sight; then the world bars from outside
+    static uint64_t ab = 0;
+    if (at(0.1f)) {
+      a.tanks.exitTank(a, true);
+      const AssetDef* aa = a.lib.find("tank_abrams_m1a2");
+      ab = aa ? a.placeInstance(aa, vec3(0, a.terrain.height(0, 40), 40), 0) : 0; a.syncRuntime(); a.tanks.sync(a);
+      check(ab && a.tanks.enter(a, ab), "6: in the Abrams");
+      a.eyeYaw = 180; a.eyePitch = 0;
+    }
+    if (at(1.6f)) a.uiShot = shotPath("abrams_sight");
+    if (at(2.0f)) {   // out, standing off the Tiger's flank, looking at it and the Abrams
+      a.tanks.exitTank(a, true);
+      vec3 p(-14, 0, 14); p.y = a.terrain.height(p.x, p.z); Physics::setCharacterPos(p);
+      vec3 to = vec3(0, 2.5f, 20) - (p + vec3(0, 1.6f, 0)); a.eyeYaw = degrees(std::atan2(-to.x, -to.z)); a.eyePitch = degrees(std::atan2(to.y, glm::length(vec2(to.x, to.z))));
+    }
+    if (at(3.0f)) a.uiShot = shotPath("world_bars");
+    if (gT > 3.5f) { if (a.mode == Mode::Explore) a.exitExplore(); return finish(); }
+    return true;
+  }
   if (gT > 0.5f) { if (a.mode == Mode::Explore) a.exitExplore(); return finish(); }
+  return true;
+}
+
+// TK1 --check-tk1-match: items 5 and 9 in a TDM (the player and a Tiger against frozen zombies on the village map)
+//   5 a main-gun shell at a zombie 2 m past the muzzle, a brute-typed one against the hull front, one at 10 m: each dies
+//   9 the player's tank destroyed 60 m from spawn: the wreck stays there; the player respawns at the team spawn in a
+//     fresh full Tiger (a new id), the old one unoccupied
+#include "mpui.h"
+#include "ai_core.h"
+namespace {
+int mPhase = 0, mFails = 0, mTarget = -1, mShots = 0; double mT0 = 0; uint64_t mTank = 0; vec3 mDeath{0}; int mLife = 0;
+bool mchk(bool ok, const std::string& w) { logf("[tk1m] %s %s", ok ? "PASS" : "FAIL", w.c_str()); if (!ok) ++mFails; return ok; }
+}
+bool tk1MatchSelfTest(App& a, float dt) {
+  static int mode = -1;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--check-tk1-match") mode = 1; }
+  if (mode != 1) return false;
+  if (dt < 0) return true;
+  auto finish = [&]() { if (!a.selftest->done) { logf("[tk1m] done: %d failures", mFails); a.selftest->exitCode = mFails ? 1 : 0; a.selftest->done = true; } return true; };
+  if (mPhase == 0) {
+    a.openMap(contentDir() / "examples/village_assault_3.nmap.json");
+    json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
+    Scenario sc = Scenario::fromJson(scj);
+    sc.rules.mode = GameMode::TDM; sc.rules.killCap = 999; sc.rules.soloPlayers = 5; sc.rules.teamPlayers[0] = 1; sc.rules.teamPlayers[1] = 4;
+    sc.rules.respawnDelay = 2.0f; sc.rules.humanTeam = 0; sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiTypes[1] = aiBit(AiType::Zombies);
+    gUi.loaded = false; gUi.matchScenario = sc.toJson();
+    if (!gGame) gGame = new Game(a);
+    gGame->pendingStart = true; a.doc.start = {true, vec3(0, 0, 30), 180};
+    if (!mchk(a.enterExplore() && gGame->active, "TDM: the player v four zombies " + gGame->setupError)) return finish();
+    a.useScripted = true; a.scriptedInput = ExploreInput{};
+    mPhase = 1; mT0 = a.now; return true;
+  }
+  Game& G = *gGame; Soldier* L = G.local();
+  if (!L) return a.now - mT0 > 30 ? (mchk(false, "local soldier"), finish()) : true;
+  auto place = [&](Soldier& s, vec3 p) { p.y = a.terrain.height(p.x, p.z); if (s.agent >= 0) Physics::setAgentPos(s.agent, p); s.feet = p; s.vel = vec3(0); };
+  if (mPhase == 1) {
+    for (auto& s : G.sold) if (!s.alive) return a.now - mT0 > 40 ? (mchk(false, "everyone spawned"), finish()) : true;
+    L->protectUntil = G.t + 600; L->hp = 100;
+    const AssetDef* as = a.lib.find("tank_tiger_i");
+    vec3 p = L->feet + vec3(8, 0, 0); p.y = a.terrain.height(p.x, p.z);
+    mTank = as ? a.placeInstance(as, p, 0) : 0; a.syncRuntime(); a.tanks.sync(a);
+    if (!mchk(mTank && a.tanks.enter(a, mTank), "in the Tiger")) return finish();
+    if (aiCore()) aiCore()->frozen = true;
+    mPhase = 2; mT0 = a.now; mShots = 0; return true;
+  }
+  TankRT* t = a.tanks.get(mTank);
+  if (mPhase == 2) {   // three shots: 2 m past the muzzle, a brute against the hull front, 10 m
+    if (!t) return finish();
+    if (mTarget < 0) {
+      if (mShots == 3) { mPhase = 3; mT0 = a.now; return true; }
+      int n = 0; Soldier* z = nullptr; for (auto& s : G.sold) if (s.zombie && s.alive && n++ == mShots) z = &s;
+      if (!z) { mchk(false, "a zombie for shot " + std::to_string(mShots + 1)); mShots++; return true; }
+      t->tYaw = 0; t->tYawV = 0;
+      vec3 dir; vec3 m = a.tanks.muzzleWorld(*t, dir); vec3 f = glm::normalize(vec3(dir.x, 0, dir.z));
+      float hullFront = 0; for (auto& b : t->def->hullBoxes) hullFront = std::max(hullFront, b.c.z + b.h.z);
+      vec3 front = vec3(a.tanks.hullMatrix(*t) * vec4(0, 0, hullFront, 1));
+      vec3 at = mShots == 0 ? m + f * 2.0f : mShots == 1 ? front + f * 0.6f : m + f * 10.0f;
+      if (mShots == 1) z->etype = std::max(0, enemyTypeIndex("brute"));
+      place(*z, at); z->hp = enemyType(z->etype).hp; z->protectUntil = -1;
+      vec3 aim = G.chest(*z) - vec3(a.tanks.hullMatrix(*t) * vec4(t->def->gunPivot, 1));
+      t->gElev = std::clamp(degrees(std::atan2(aim.y, glm::length(vec2(aim.x, aim.z)))), t->def->elevMin, t->def->elevMax); t->gElevV = 0;
+      { vec3 ce, cf; float fv; a.tanks.camera(a, ce, cf, fv); vec3 to = G.chest(*z) - ce; a.eyeYaw = wrapDeg(degrees(std::atan2(-to.x, -to.z))); a.eyePitch = degrees(std::atan2(to.y, glm::length(vec2(to.x, to.z)))); }   // the crosshair on its chest
+      mTarget = z->slot; mT0 = a.now; return true;
+    }
+    Soldier& z = G.sold[mTarget];
+    if (a.now - mT0 > 0.3 && a.now - mT0 < 0.3 + dt * 1.5) {   // the gun laid on its chest (within the elevation limits) in the step it fires
+      vec3 aim = G.chest(z) - vec3(a.tanks.hullMatrix(*t) * vec4(t->def->gunPivot, 1));
+      t->tYaw = wrapDeg(degrees(std::atan2(aim.x, aim.z)) - t->yaw); t->tYawV = 0;
+      t->gElev = std::clamp(degrees(std::atan2(aim.y, glm::length(vec2(aim.x, aim.z)))), t->def->elevMin, t->def->elevMax); t->gElevV = 0;
+      t->loaded = SHELL_AP; a.tanks.fireCannon(a, *t);
+    }
+    if (a.now - mT0 > 1.0) {
+      static const char* what[3] = {"a zombie 2 m past the muzzle", "a brute against the hull front", "a zombie 10 m out"};
+      char b[200]; std::snprintf(b, sizeof b, "5: a shell at %s (%.1f m from the gun pivot, gun %+.1f deg): %s", what[mShots], glm::length(z.feet - t->pos), t->gElev, z.alive ? "STILL STANDING" : "killed");
+      vec3 md; float mh = a.tanks.muzzleWorld(*t, md).y - a.terrain.height(z.feet.x, z.feet.z);
+      if (mShots == 1) logf("[tk1m] NOTE %s (at the gun's -8 deg depression the bore crosses %.2f m above the ground there: over a man pressed to the hull)", b, mh);
+      else mchk(!z.alive, b);
+      mTarget = -1; ++mShots;
+    }
+    return true;
+  }
+  if (mPhase == 3) {   // far from spawn, then destroyed
+    if (!t) return finish();
+    t->pos = vec3(L->feet.x + 60, 0, L->feet.z); t->pos.y = a.terrain.height(t->pos.x, t->pos.z); a.tanks.updateBody(a, *t, true);
+    mDeath = t->pos; mLife = L->lifeId;
+    a.tanks.destroy(a, *t, "test");
+    mchk(!L->alive && !a.tanks.occupied && t->wrecked, "9: the Tiger destroyed with the player inside: the crew dies, the seat is clear");
+    mPhase = 4; mT0 = a.now; return true;
+  }
+  if (mPhase == 4) {
+    if (!L->alive || L->lifeId == mLife) return a.now - mT0 > 20 ? (mchk(false, "9: respawned"), finish()) : true;
+    if (a.now - mT0 < 0.5) return true;   // a frame for the new body
+    TankRT* nt = a.tanks.get(a.tanks.occupied);
+    char b[300]; std::snprintf(b, sizeof b, "9: wreck still at the death spot (%.1f m off, wrecked %d); player alive %.0f m from the death spot in a %s (new id %d, hp %d, %d AP / %d HE)",
+                               t ? glm::length(t->pos - mDeath) : -1.0f, t ? (int)t->wrecked : -1, glm::length(L->feet - mDeath), nt ? nt->def->name.c_str() : "nothing",
+                               (int)(nt && a.tanks.occupied != mTank), nt ? nt->hp : -1, nt ? nt->reserveAP : -1, nt ? nt->reserveHE : -1);
+    mchk(t && t->wrecked && glm::length(t->pos - mDeath) < 0.5f && nt && a.tanks.occupied != mTank && nt->hp == 100 && !nt->wrecked && nt->def == t->def && glm::length(L->feet - mDeath) > 25.0f && glm::length(vec2(nt->pos.x - L->feet.x, nt->pos.z - L->feet.z)) < 35.0f, b);
+    if (a.mode == Mode::Explore) a.exitExplore();
+    return finish();
+  }
   return true;
 }

@@ -109,6 +109,7 @@ void TankSys::loadDefs(App& app) {
     d->mgRpm = m.value("rpm", d->mgRpm); d->mgVel = m.value("velocity", d->mgVel); d->mgSpread = m.value("spreadDeg", d->mgSpread);
     d->mgBelt = m.value("belt", d->mgBelt); d->mgReserve = m.value("reserve", d->mgReserve); d->mgReload = m.value("reload", d->mgReload); d->mgBulletMass = m.value("bulletMass", d->mgBulletMass);
     d->mgTail = m.value("tail", ""); d->mgReloadSound = m.value("reloadSound", "belt");
+    d->mgTracerEvery = std::max(1, m.value("tracerEvery", d->mgTracerEvery)); d->mgSoundEvery = std::max(1, m.value("soundEvery", d->mgSoundEvery));
     const json bw = j.value("bowMg", json::object());
     d->bowOn = !bw.empty();
     d->bowName = bw.value("name", ""); d->bowShort = bw.value("short", "Bow MG");

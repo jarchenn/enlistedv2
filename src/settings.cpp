@@ -63,7 +63,7 @@ json UserSettings::toJson() const {
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
-                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}}},
+                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleHealthBars", vehicleBars}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}}},
     {"controls", k},
     {"interface", {{"uiScale", uiScale}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
@@ -104,6 +104,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
     u.weaponList = q.value("weaponList", u.weaponList); u.friendlyMarkers = q.value("friendlyMarkers", u.friendlyMarkers);
     u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 3.0f);
+    u.vehicleBars = q.value("vehicleHealthBars", u.vehicleBars);
   }
   if (j.contains("audio") && j["audio"].is_object()) {
     const json& q = j["audio"];
@@ -406,6 +407,8 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = default, up to 3x more).");
+      ImGui::Checkbox("Vehicle health bars", &u.vehicleBars);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("A health bar floating over every vehicle within about 90 m.");
       ImGui::Checkbox("Show arms", &u.showArms);
       ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
       ImGui::Checkbox("Show weapon list", &u.weaponList);
