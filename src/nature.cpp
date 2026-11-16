@@ -142,7 +142,7 @@ void buildRockPiece(MeshData& m, const RockPiece& rp, vec3 tint, std::vector<vec
       vec3 sn = glm::length(vn[idx[k]]) > 1e-12f ? glm::normalize(vn[idx[k]]) : fn;
       vec3 nn = glm::normalize(glm::mix(fn, sn, 0.55f));
       float var = vn3(p * 0.9f, ns + 77);
-      Vertex v{p, nn, tint * (0.94f + 0.12f * var), vec4((float)PAT_ROCK, 0.88f, 0.0f, (float)(lith == 3 ? 1 : lith)), p, nn};   // dripstone shades as limestone
+      Vertex v{p, nn, tint * (0.94f + 0.12f * var), vec4((float)PAT_ROCK, 0.88f, 0.0f, (float)lith), p, nn};   // grain 3: dripstone (its own shading: no beds, vertical fluting)
       m.v.push_back(v); m.i.push_back(base++);
       if (tris) tris->push_back(p);
     }

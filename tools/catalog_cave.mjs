@@ -127,7 +127,7 @@ const skyMat = [{ name: "sky", albedo: [0.5, 0.6, 0.75], roughness: 1, pattern: 
 lightAsset("cave_light_crack", "Cave light (ceiling crack)", "Cold, faint daylight falling through a crack in the cave roof: a narrow downward spot that casts shadows.",
   { color: [0.55, 0.68, 0.95], intensity: 2200, radius: 60, dir: [0, -1, 0], cone: [8, 22], shadow: 0, use: "electric", fx: "shaft", fxSize: 30 });
 lightAsset("cave_light_crack_ns", "Cave light (ceiling crack, no shadow)", "Cold light through a crack in the cave roof, without a shadow map (cheaper).",
-  { color: [0.55, 0.68, 0.95], intensity: 1700, radius: 55, dir: [0, -1, 0], cone: [5, 19], use: "electric", fx: "shaft", fxSize: 26 });
+  { color: [0.55, 0.68, 0.95], intensity: 5000, radius: 60, dir: [0, -1, 0], cone: [6, 20], use: "electric", fx: "shaft", fxSize: 28 });
 lightAsset("cave_light_cold", "Cave light (cold fill)", "A faint cold glow over water: no fitting, no shadow.",
   { color: [0.45, 0.6, 0.85], intensity: 9, radius: 18, use: "electric", fx: "mist", fxSize: 9 });
 lightAsset("cave_glow_ember", "Ember fissure", "A crack in the floor glowing deep orange: a small, flickering warm accent.",
@@ -236,6 +236,9 @@ for (let v = 0; v < 4; v++) {
 lightAsset("cave_light_rim", "Cave light (rim)", "A faint, high cold glow with no fitting: grazes distant formations so their silhouettes separate from the dark.",
   { color: [0.5, 0.62, 0.85], intensity: 60, radius: 40, use: "electric" });
 lightAsset("cave_light_shaft_main", "Cave light (great shaft)", "The big crack over the central cavern: a strong cold beam through haze onto the wet floor.",
-  { color: [0.6, 0.72, 0.98], intensity: 16000, radius: 115, dir: [0, -1, 0], cone: [7, 17], use: "electric", fx: "shaft", fxSize: 66 });
+  { color: [0.6, 0.72, 0.98], intensity: 20000, radius: 115, dir: [0, -1, 0], cone: [9, 21], use: "electric", fx: "shaft", fxSize: 66 });
+
+lightAsset("cave_light_uplight", "Cave light (uplight)", "A warm glow from the foot of a rock wall, grazing up its ribs and fading into the dark above.",
+  { color: [1.0, 0.55, 0.24], intensity: 900, radius: 55, dir: [0, 1, 0], cone: [12, 34], use: "fire", flicker: 0.12 });
 
 console.log(`cave catalog: ${ids.length} assets`);

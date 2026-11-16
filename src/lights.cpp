@@ -720,20 +720,21 @@ void lightsStep(App& app, float dt) {
         float co = std::clamp(s.cosOuter, 0.2f, 0.9999f), tanc = std::sqrt(1 - co * co) / co, Lsh = std::max(4.0f, s.fxSize);
         float& acc = gFxAcc[i.id * 16 + k];
         static std::set<uint64_t> warmS; const bool warm = warmS.insert(i.id * 16 + k).second;   // first sight: a steady-state cloud at once
-        acc += warm ? 90.0f : dt * 14.0f;
+        const float share = std::clamp(s.intensity / 30000.0f, 0.22f, 1.0f);   // motes by brightness: the great shaft 300, a crack ~70 (the pool is shared with gunfire)
+        acc += warm ? 300.0f * share : dt * 45.0f * share;
         while (acc >= 1.0f) {
           acc -= 1.0f;
           if (app.fx.parts.size() >= app.fx.maxParts) break;
-          float t = Lsh * std::pow(app.fx.rnd(), 0.8f), r = tanc * t * 0.85f * std::sqrt(app.fx.rnd()), a = app.fx.rnd() * 6.2831853f;
+          float t = Lsh * std::pow(app.fx.rnd(), 0.8f), r = tanc * t * 0.45f * std::sqrt(app.fx.rnd()), a = app.fx.rnd() * 6.2831853f;
           Particle q; q.p = top + dir * t + (ax * std::cos(a) + ay * std::sin(a)) * r;
           q.v = vec3((app.fx.rnd() - 0.5f) * 0.08f, -0.06f - 0.05f * app.fx.rnd(), (app.fx.rnd() - 0.5f) * 0.08f);
-          q.size = 1.4f + 0.09f * t + app.fx.rnd() * 0.8f; q.life = q.maxLife = 5.0f + 3.0f * app.fx.rnd();
+          q.size = 2.2f + 0.07f * t + app.fx.rnd() * 1.2f; q.life = q.maxLife = 5.0f + 3.0f * app.fx.rnd();   // large and faint: they overlap into a smooth beam
           if (warm) q.life *= app.fx.rnd();
-          float b = (0.030f + 0.02f * app.fx.rnd()) * std::clamp(1.2f - t / Lsh, 0.35f, 1.0f);   // brightest near the crack
+          float b = (0.0045f + 0.003f * app.fx.rnd()) * std::clamp(1.2f - t / Lsh, 0.35f, 1.0f) * std::clamp(s.intensity / 4000.0f, 0.6f, 2.0f);   // brightest near the crack; the great shaft brighter
           if (app.fx.rnd() < 0.16f) {   // the opening itself: a soft glowing haze patch, no hard sky geometry
             t = Lsh * 0.06f * app.fx.rnd(); r = tanc * 4.0f * std::sqrt(app.fx.rnd()) + 1.0f;
             q.p = top + dir * t + (ax * std::cos(a) + ay * std::sin(a)) * r;
-            q.size = 4.0f + 4.0f * app.fx.rnd(); b *= 2.6f;
+            q.size = 3.5f + 3.0f * app.fx.rnd(); b *= 1.2f;
           }
           q.col = vec4(s.color * b, 1); q.additive = true; q.grow = 0.05f; q.drag = 0.2f; q.lift = 0;
           app.fx.parts.push_back(q);
