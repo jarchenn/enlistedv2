@@ -586,6 +586,17 @@ void App::drawExploreUI() {
         }
       }
     }
+    if (!occupied && !tanks.occupied && !weaponDefs.empty() && !scopeView() && weaponDefs[activeWeapon]->dotCrosshair) {   // SW2: blasters: a white dot in a thin +, a little tighter when aimed
+      float k = std::max(1.0f, io.DisplaySize.y / 1080.0f), t = adsT * adsT * (3 - 2 * adsT);
+      float gap = (7.0f - 2.5f * t) * k, len = 5.0f * k, w = 1.4f * k;
+      ImU32 white = IM_COL32(250, 250, 250, 235), dark = IM_COL32(0, 0, 0, 150);
+      for (int q = 0; q < 4; ++q) {
+        ImVec2 dv(q == 0 ? 1.0f : q == 1 ? -1.0f : 0.0f, q == 2 ? 1.0f : q == 3 ? -1.0f : 0.0f);
+        ImVec2 a(c.x + dv.x * gap, c.y + dv.y * gap), b(c.x + dv.x * (gap + len), c.y + dv.y * (gap + len));
+        dl->AddLine(a, b, dark, w + 2.0f * k); dl->AddLine(a, b, white, w);
+      }
+      dl->AddCircleFilled(c, 2.4f * k, dark); dl->AddCircleFilled(c, 1.5f * k, white);
+    }
     {   // GM1b: MG 42 (carried in ADS, or crewing the mount): a thin black mark in the rear notch, its top tip on the aim point
       float a = 0;
       if (occupied) { auto it = rt.find(occupied); if (it != rt.end() && it->second.asset && it->second.asset->station.kind == "mg42" && it->second.st.pos2 == ST_GUNNER) a = 1; }

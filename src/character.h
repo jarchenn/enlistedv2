@@ -66,6 +66,7 @@ struct PoseParams {
   bool holdWeapon = true;
   float lowReady = 0;                       // 0 aimed .. 1 muzzle lowered (running, no target)
   vec3 gripR{0}, gripL{0};                  // weapon-space hand sockets
+  vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1;   // SW2: the weapon's own hold (WeaponDef::holdOffset)
   vec3 magPos{0, -0.12f, 0.45f};            // weapon-space magazine (reload hand target)
   float reload = 0;                         // 0..1 progress of a reload motion (0 = none)
   float throwT = -1;                        // 0..1 grenade throw (right arm), < 0 = none

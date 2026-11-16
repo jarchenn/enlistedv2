@@ -846,3 +846,16 @@ Two AI types, selectable per side in the AI rows: **Blaster troopers** (`AiType:
   - `NMK_AI_TYPES=<side 0>,<side 1>` makes every AI of a side that AI type.
   - `--shots-poses` takes `NMK_POSE_POSTS` (`kneel`, `carry`, `moveaim`, `idle`, `fire`; `fire` shoots one round a frame before the picture).
   - `NMK_POSE_WEAPONS=own:none` keeps the bot's own weapon.
+
+**SW2 (after play):**
+- **Hold:** a weapon's `"hold"` block sets its third-person hold.
+  - `offset`: in the chest frame (m), moves the shouldered and low-ready weapon.
+  - `weld`: the cheek-weld share.
+  - `kind`: `pistol` / `rifle` / `launcher`, overriding the guess from where the grip sits.
+  - The blasters are held out in front of the helmet: carbine (0, -0.02, 0.21), long rifle (0, -0.02, 0.06), robot blaster (0, -0.10, 0.12).
+  - Their grip and support sockets sit on the meshes: the pistol grip, and the shroud or fore-end underside.
+- **Robot blaster size:** its local bake is now 0.63 m long (it was 0.92 m: the asset itself was too big), so the hands, pickup and first-person model all use the real size.
+- **Aiming:** no sight picture for the blasters. `ads.zoom` keeps the hip pose (lifted and centred a little by `ads.posCorrection`) and narrows the FOV: 0.62x, and 0.5x for the long rifle.
+  - Zoom-aimed shots go from the muzzle to the camera ray's hit point, not along a sight line.
+  - `"crosshair": "dot"` draws a white dot in a thin outlined +, tighter when aimed.
+  - The dev look also writes `mg2_<id>_hip_ui.png` / `_ads_ui.png` with the HUD.

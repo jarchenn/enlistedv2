@@ -59,7 +59,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   float pitch = dead ? 0.0f : p.aimPitch;
   float lowR = c01(p.lowReady);
   // weapon kind by where the firing hand sits: pistols (and knives) at the butt, launchers far along the tube
-  int kind = p.gripR.z < 0.12f ? 0 : p.gripR.z > 0.6f ? 2 : 1;
+  int kind = p.holdKind >= 0 ? p.holdKind : p.gripR.z < 0.12f ? 0 : p.gripR.z > 0.6f ? 2 : 1;   // SW2: a weapon may name its hold kind
   // ---- leg targets (rest model space; feet on the ground at y = 0, +z forward, left = +x)
   vec3 legT[2]; float footPitch[2] = {0, 0}; float l1L[2], l2L[2]; vec3 a0L[2];
   float climbRoll = climb >= 0 ? std::max(0.0f, std::sin(kPi * c01((climb - 0.45f) / 0.5f))) : 0.0f;
@@ -142,7 +142,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     if (J(CJ_RSHOULDER) >= 0) D[J(CJ_RSHOULDER)] = glm::angleAxis(0.15f * pr, vec3(0, 1, 0));
   }
   float headYaw = -(twist - p.aimYawOffset) * 0.5f;   // the head stays on the aim line while the chest blades / swings
-  float weld = kind == 1 ? aimW : 0.0f;   // cheek on the stock
+  float weld = kind == 1 ? aimW * p.holdWeld : 0.0f;   // cheek on the stock (SW2: a weapon held out in front welds less)
   if (J(CJ_NECK) >= 0) D[J(CJ_NECK)] = glm::angleAxis(headYaw, vec3(0, 1, 0)) * glm::angleAxis(-pitch * 0.25f - lean * 0.4f + 0.16f * weld, vec3(1, 0, 0));
   if (J(CJ_HEAD) >= 0) D[J(CJ_HEAD)] = glm::angleAxis(headYaw, vec3(0, 1, 0)) * glm::angleAxis(0.20f * weld, vec3(0, 0, 1)) * glm::angleAxis(-pitch * 0.25f - lean * 0.3f + 0.12f * weld, vec3(1, 0, 0));
   // ---- evaluate in topological order; arms and legs are solved when their chain root is reached
@@ -159,7 +159,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     float yawIn = kind == 1 ? 0.05f : 0.0f;   // stock in the shoulder, muzzle slightly toward the centre line
     quat qa = glm::angleAxis(p.aimYawOffset + yawIn, vec3(0, 1, 0)) * glm::angleAxis(-wp, vec3(1, 0, 0));   // +z bore, pitch up = -x rotation
     vec3 pa;
-    if (kind == 1) pa = xf(chest, vec3(sh.x * 0.5f, sh.y + 0.08f, sh.z + 0.05f));
+    if (kind == 1) pa = xf(chest, vec3(sh.x * 0.5f, sh.y + 0.08f, sh.z + 0.05f) + p.holdOffset);   // SW2: held out (blasters)
     else if (kind == 0) pa = xf(chest, vec3(sh.x * 0.2f, sh.y - 0.06f, sh.z + 0.44f)) - qa * p.gripR;
     else pa = xf(chest, vec3(sh.x * 0.8f, sh.y + 0.10f, sh.z)) - qa * vec3(0, 0, p.gripR.z - 0.30f);
     vec3 pos = pa; quat q = qa;
@@ -169,7 +169,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       quat qc; vec3 pc;
       if (kind == 1) {
         qc = glm::angleAxis(0.5f * p.aimYawOffset + 0.85f, vec3(0, 1, 0)) * glm::angleAxis(0.50f, vec3(1, 0, 0)) * glm::angleAxis(0.30f, vec3(0, 0, 1));
-        pc = xf(chest, vec3(sh.x * 0.7f, H(CJ_HIPS).y + 0.18f, sh.z + 0.20f) + swing) - qc * p.gripR;
+        pc = xf(chest, vec3(sh.x * 0.7f, H(CJ_HIPS).y + 0.18f, sh.z + 0.20f) + swing + vec3(0, 0, p.holdOffset.z * 0.5f)) - qc * p.gripR;
       } else if (kind == 0) {   // pistol: compressed low ready in front of the chest
         qc = glm::angleAxis(0.5f * p.aimYawOffset, vec3(0, 1, 0)) * glm::angleAxis(0.95f, vec3(1, 0, 0));
         pc = xf(chest, vec3(sh.x * 0.3f, sh.y - 0.32f, sh.z + 0.26f) + swing) - qc * p.gripR;
