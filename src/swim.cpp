@@ -140,7 +140,7 @@ float App::swimLower() const { return ease(swim.lower); }
 
 vec3 App::viewUp(vec3 fwd) const {
   extern float gHeliViewRoll;   // VH5 (heli.cpp): the chase camera's restrained bank while flying
-  float roll = swim.roll + gHeliViewRoll;
+  float roll = swim.roll + gHeliViewRoll + lean.x * leanCfg.roll;   // MV3: the lean rolls the view (and the weapon, drawn in view space)
   if (std::fabs(roll) < 1e-3f || glm::length(fwd) < 1e-4f) return vec3(0, 1, 0);
   return glm::angleAxis(radians(roll), glm::normalize(fwd)) * vec3(0, 1, 0);
 }
