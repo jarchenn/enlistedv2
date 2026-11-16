@@ -146,6 +146,7 @@ struct TankRT {
   // VH5 helicopter: velocity, rotor speed 0..1 and blade angles, chin gun heat / ammo, rockets, the fall after a kill
   vec3 vel{0}; float rotor = 0, rotorAng = 0, tailAng = 0, gunHeat = 0, gunCool = 0, rocketCool = 0;
   bool overheat = false, falling = false, grounded = true, reloadPrev = false, camInit = false;
+  float aimPitch = 0, thrPitch = 0;   // VH5d: the held nose attitude of the aim mode (W / S alone) and the tilt that drives thrust
   float susp = 0, suspV = 0, yawV = 0, wobT = 0;   // gear compression (m) and its rate, nose turn rate, hover wobble clock
   vec3 camEye{0}, accel{0};                       // lagged chase-camera position, smoothed acceleration (camera trail)
   int gunAmmo = 0, rockets = 0, rocketSide = 0, gunShots = 0, rocketsFired = 0;
