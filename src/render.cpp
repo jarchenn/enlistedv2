@@ -4350,6 +4350,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
     terrainCacheBind(t, progTerrain);
     glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
+    { extern bool gGroundPaintPerf; gGroundPaintPerf = perf.groundPaint; }
     t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
   };
   if (!perf.terrainLast) drawTerrain();

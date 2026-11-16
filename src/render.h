@@ -201,6 +201,8 @@ public:
     bool furnClutter = true;     // furnclutter (P2): on the Low preset half the small room-template clutter is not drawn (colliders stay)
     bool instDepth = true;       // instdepth (P2): depth passes (sun cascades, sky occlusion, light shadows) draw repeated meshes instanced
     bool clouds = true, cloudShadow = true, shafts = true, envFog = true;   // WX1 clouds / cloudshadow / shafts / envfog: the sky deck, the cloud-shadow map, the sun shafts, the environmental fog
+    bool vegCull = true;         // vegcull (NT5): the map's look.vegCull scales the Vegetation decor cut (dense woods: undergrowth hidden past ~30 m anyway)
+    bool groundPaint = true;     // paint (NT5, measurement): off = the terrain draws without the lasso ground paint
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = p.shadowCache = p.occCull = p.matFar = p.probeMed = false; return p; }
@@ -209,7 +211,7 @@ public:
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
               : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
-              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : nullptr;
+              : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull : nullptr;
       if (n == "perf1") { matFar = probeMed = on; return true; }   // PERF1: its switches together
       if (n == "dr1") { farLeaf = wallLod = on; return true; }   // DR1: the distant-object switches together
       if (n == "p2") { dlCache = instDepth = folBatch = on; return true; }   // P2: every draw-submission switch together
@@ -263,7 +265,7 @@ public:
     float emissive = 1.0f;      // global multiplier on material emission
     bool mapClean = false;      // BR2: the open map's "look": {"clean": true}: no wear (interior.cpp), static decals, dust motes or colour grade
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
-    float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f;   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
+    float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f; float mapVegCull = 1.0f;   // NT5: look.vegCull   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
     float mapFill = 1.0f;       // UG4: extra.lighting.fill: the fill / indirect term x this (Tunnels darker between its lamps)

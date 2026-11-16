@@ -2,6 +2,7 @@
 #include "ground_paint.h"
 #include "geom2d.h"
 #include <cfloat>
+#include <cstdlib>
 #include <cstring>
 #include <imgui.h>
 
@@ -293,10 +294,12 @@ void groundPaintSync(App& app) {
   gG.on = !P.empty();
 }
 
+bool gGroundPaintPerf = true;   // Renderer::perf.groundPaint (NT5 A/B)
 void groundPaintBind(GLuint prog) {
   GLint on = glGetUniformLocation(prog, "uPaintOn");
   if (on < 0) return;
-  glUniform1i(on, gG.on && gG.tex ? 1 : 0);
+  static const bool abOff = std::getenv("NMK_AB_OFF") && std::strstr(std::getenv("NMK_AB_OFF"), "paint");   // NT5 dev A/B
+  glUniform1i(on, gG.on && gG.tex && !abOff && gGroundPaintPerf ? 1 : 0);
   if (!gG.on || !gG.tex) return;
   glUniform1i(glGetUniformLocation(prog, "uPaint"), 23);
   glUniform2f(glGetUniformLocation(prog, "uPaintOrg"), gG.org.x, gG.org.y);
@@ -319,9 +322,10 @@ void paintAcc(inout float w[13], ivec2 c, float b) {
   if (ut > 0 && ut < 13) w[ut] += b*wu;
 }
 // one ground type: albedo, roughness, normal offset (xz), ambient occlusion
-void paintMat(int t, vec3 p, out vec3 a, out float r, out vec3 bm, out float ao) {
-  float n1 = vnoise(vec3(p.xz*0.9, 71.0)), n2 = vnoise(vec3(p.xz*4.3, 72.0)), nb = fbm(vec3(p.xz*0.07, 73.0));
-  bm = vec3(n2 - 0.5, 0.0, vnoise(vec3(p.xz*4.3, 74.0)) - 0.5)*0.3; ao = 1.0; r = 0.93;
+// nz: the noises every type shares at this point (paintApply evaluates them once): n1 (~1 m), n2 (~25 cm), nb (~14 m), n3 (~25 cm)
+void paintMat(int t, vec3 p, vec4 nz, out vec3 a, out float r, out vec3 bm, out float ao) {
+  float n1 = nz.x, n2 = nz.y, nb = nz.z;
+  bm = vec3(n2 - 0.5, 0.0, nz.w - 0.5)*0.3; ao = 1.0; r = 0.93;
   vec3 soil = mix(vec3(0.20,0.155,0.10), vec3(0.28,0.22,0.145), n1)*(0.85 + 0.3*n2)*(0.9 + 0.2*nb);
   if (t == 1) {          // marsh: wet mud, standing water in the lows, sedge tufts
     float pool = smoothstep(0.47, 0.6, fbm(vec3(p.xz*0.22, 75.0)) + (n1 - 0.5)*0.12);
@@ -370,22 +374,25 @@ void paintMat(int t, vec3 p, out vec3 a, out float r, out vec3 bm, out float ao)
     a = soil*mix(0.68, 1.12, rr*0.5 + 0.5)*(0.9 + 0.2*step(0.6, vnoise(vec3(p.xz*6.0, 83.0))));
     bm = vec3(0.0, 0.0, cos(u*6.2832)*0.65) + bm*0.6; ao = mix(0.72, 1.0, rr*0.5 + 0.5); r = 0.96;
   } else if (t == 10) {  // leaf litter: overlapping brown / orange / yellow leaves over dark soil
-    float lf = vnoise(vec3(mat2(0.8, -0.6, 0.6, 0.8)*p.xz*5.5, 79.0)), c1 = vnoise(vec3(p.xz*2.1, 84.0)), c2 = vnoise(vec3(p.xz*3.3, 85.0));
-    a = mix(vec3(0.20,0.11,0.045), vec3(0.42,0.24,0.08), c1);
-    a = mix(a, vec3(0.46,0.36,0.12), smoothstep(0.7, 0.9, c2));
-    a = mix(vec3(0.08,0.06,0.045), a, smoothstep(0.3, 0.45, lf)); r = 0.9; bm *= 1.3; ao = mix(0.8, 1.0, smoothstep(0.3, 0.45, lf));
+    // NT5: soft tone drift only (metre and 14 m scales, no thresholds: the old 0.5 m light / dark mix read as camouflage);
+    // the leaf detail comes from the texture set
+    a = mix(vec3(0.24,0.15,0.07), vec3(0.34,0.22,0.10), n1)*mix(0.85, 1.12, nb);
+    a = mix(a, vec3(0.20,0.20,0.10), 0.35*smoothstep(0.35, 0.75, nb)); r = 0.9; bm *= 1.2; ao = 0.92 + 0.08*n2;
   } else if (t == 11) {  // scorched earth: char, grey ash, burnt brown fringes
     a = mix(vec3(0.03,0.027,0.025), vec3(0.085,0.075,0.065), n1);
     a = mix(a, vec3(0.30,0.29,0.27), 0.7*smoothstep(0.62, 0.8, fbm(vec3(p.xz*0.6, 80.0))));
     a = mix(a, vec3(0.16,0.10,0.06), 0.3*smoothstep(0.6, 0.85, nb)); r = 0.97; ao = 0.95;
   } else {               // pebbles: rounded stones packed on coarse sand
-    vec2 g = p.xz*6.5, id = floor(g), f = fract(g) - 0.5;
-    vec2 o = (vec2(pHash(id), pHash(id + 3.1)) - 0.5)*0.35;
-    float rad = 0.28 + 0.15*pHash(id + 5.3), d = length(f - o)/rad;
-    float st = 1.0 - smoothstep(0.85, 1.0, d);
+    // NT5: no grid read: a domain-warped cell lattice, stones of mixed size and squash, about a third of the cells bare sand
+    vec2 g = p.xz*5.0 + (vec2(n1, vnoise(vec3(p.xz*0.9, 86.0))) - 0.5)*1.6, id = floor(g), f = fract(g) - 0.5;
+    vec2 o = (vec2(pHash(id), pHash(id + 3.1)) - 0.5)*0.5;
+    float an = pHash(id + 7.7)*6.2832; mat2 ro = mat2(cos(an), -sin(an), sin(an), cos(an));
+    vec2 e = ro*(f - o)*vec2(1.0, 1.0 + 0.8*pHash(id + 2.9));
+    float rad = 0.12 + 0.26*pHash(id + 5.3)*pHash(id + 6.1), d = length(e)/rad;
+    float st = (1.0 - smoothstep(0.75, 1.0, d))*step(0.32 + 0.3*(nb - 0.5), pHash(id + 4.4));
     vec3 sc = mix(vec3(0.38,0.36,0.32), vec3(0.62,0.58,0.52), pHash(id + 9.7));
     a = mix(vec3(0.42,0.37,0.28)*(0.85 + 0.2*n2), sc, st);
-    bm = vec3(f.x - o.x, 0.0, f.y - o.y)/rad*0.7*st; r = mix(0.95, 0.7, st); ao = mix(0.75, 1.0, st);
+    bm = vec3(f.x - o.x, 0.0, f.y - o.y)/rad*0.35*st*(1.0 - d*0.5); r = mix(0.95, 0.75, st); ao = mix(0.85, 1.0, st);
   }
 }
 // Two calls in kTerrainFS (docs/lasso.md#shading):
@@ -407,10 +414,11 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
   W = clamp(W, 0.0, 1.0)*(1.0 - smoothstep(0.15, 0.75, dirt));   // craters show through the paint
   if (W < 0.004) return o;
   vec3 a = vec3(0.0), bm = vec3(0.0); float r = 0.0, ao = 0.0, tot = 0.0;
+  vec4 nz = vec4(vnoise(vec3(p.xz*0.9, 71.0)), vnoise(vec3(p.xz*4.3, 72.0)), fbm(vec3(p.xz*0.07, 73.0)), vnoise(vec3(p.xz*4.3, 74.0)));   // NT5: once, not per type
   for (int i = 1; i < 13; ++i) {
     if (w[i] < 0.01) continue;
     vec3 ai, bi; float ri, oi;
-    paintMat(i, p, ai, ri, bi, oi);
+    paintMat(i, p, nz, ai, ri, bi, oi);
 #ifdef NMK_TEX_PAINT
     TerrT t = terrTexSlot(uPaintSlot[i - 1], p, nGeo, dpx, dpy, dist);   // identity when texturing is off / the set is missing
     ai *= t.alb; ri *= t.r; oi *= t.ao; bi += t.dn;

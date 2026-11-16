@@ -212,7 +212,7 @@ V = {
                 for k, (x, z, r) in enumerate([(-52, -60, 7), (-56, -10, 6), (-30, 0, 8), (-12, 20, 5), (14, 22, 7), (24, -8, 6), (-48, 50, 9), (-4, 64, 6),
                                                (26, 40, 7), (-26, -12, 5), (6, 0, 6), (-60, 36, 6), (20, -64, 5), (-14, 62, 5), (34, 62, 6)])],
     "dress": dress,
-    "helis": [("mod_helipad_raised", 2.0, 2.825, 30.0)],   # deck centre at local z +2, 2.8 m deck + paint
+    "helis": [("mod_helipad_raised", 2.75, 2.85, 0.0)],   # NT5: body centred on the deck (local z +2), along the H, wheels on the paint layers
     "yard_paint": ["gravel", "dirt", "gravel"],
     "views_clear": 4.0,
     "wall_dress": ["nat_drygrass_tufts", "nat_drygrass_sparse", "mod_rubble_small", "nat_scree_patch", "mod_weeds_crack", "mod_glass_pile", "nat_brush_scrub"],

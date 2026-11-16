@@ -340,6 +340,8 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     }
     sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
     templateViews(t);
+    if (const char* only = std::getenv("NMK_MAPS_VIEW"))   // NT5: one-view perf runs on generated maps too
+      std::erase_if(sViews, [&](const View& w) { return (std::string(",") + only + ",").find("," + w.name + ",") == std::string::npos; });
     if (id == "omaha_easy_red") sViews.push_back({"bluff_top_to_beach", vec3(60, app.terrain.height(60, 820 - t.depth * 0.5f) + 3, 820 - t.depth * 0.5f), 0.0f, -6.0f, false});
     if (id == "omaha_easy_red") sViews.push_back({"plateau_bocage", vec3(-120, app.terrain.height(-120, 1300 - t.depth * 0.5f) + 2, 1300 - t.depth * 0.5f), 200.0f, -2.0f, false});
     sVi = 0; sPerf.clear(); sViewInit = false;

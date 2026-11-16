@@ -1077,7 +1077,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_tent_medical` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_tent_mess` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_tent_sleeping` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `car_ural_4320` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `car_ural_4320` | not used | not used | not used | not used | not used | not used | not used | not used | 2 | 2 |
 | `tank_abrams_m1a2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_panzer_iv` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_sherman_m4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |

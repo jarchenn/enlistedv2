@@ -247,7 +247,7 @@ public:
   int trimRams = 0;                             // trim broken by ramming (tests)
   void breakTrimRam(App& app, Instance& i, InstanceRT& r, int g, vec3 at, vec3 dir);
   struct Knocked { uint64_t id = 0; uint32_t rev = 0, body = 0xffffffffu; bool dynamicBody = false, flat = false, rubble = false, falling = false; float age = 0; mat4 M{1};
-                   mat4 M0{1}; vec3 pivot{0}, axis{1, 0, 0}, dir{0, 0, 1}; float ang = 0, angV = 0, len = 1; };   // falling: hinged at the foot
+                   mat4 M0{1}; vec3 pivot{0}, axis{1, 0, 0}, dir{0, 0, 1}; float ang = 0, angV = 0, len = 1; float resetAt = 0; };   // resetAt (NT5): a range target stands up again this many s after the hit   // falling: hinged at the foot
   std::map<uint64_t, Knocked> knocked;          // session overlay per prop instance
   std::map<uint64_t, float> ramWorkDone;        // energy already put into an obstacle (prop id, or id << 16 | bay)
   std::map<uint64_t, double> ramLastBreach;     // a breached bay clears its leftover edges at most every 0.35 s
@@ -260,6 +260,7 @@ public:
   void knockProp(App& app, Instance& i, InstanceRT& r, const RamSpec& s, vec3 at, vec3 dir, float speed);
   void breachWall(App& app, Instance& i, InstanceRT& r, const TankRT& t, vec3 at, vec3 n, vec3 dir);
   void stepKnocked(App& app, float dt);
+  void knockTarget(App& app, Instance& i, InstanceRT& r, vec3 at, vec3 dir);   // NT5: a shot range target falls back, stands up again
   void crushUnder(App& app, TankRT& t);           // fallen props under the tracks (below the hull box) are crushed flat
   void resetRams(App& app);
   bool propMatrix(const Instance& i, mat4& M) const;   // draw: a knocked prop at its fallen / flattened pose
