@@ -10,6 +10,7 @@
 #include "loot.h"
 #include "br_models.h"
 #include <imgui.h>
+#include <GLFW/glfw3.h>
 #include <chrono>
 #include <random>
 #include <algorithm>
@@ -80,8 +81,17 @@ RoyaleStorm::At RoyaleStorm::at(float t) const {
 namespace {
 struct Cfg {
   float planeAlt = 300, planeSpeed = 45, overrun = 150, jitter = 0.25f;
-  float fallSpeed = 55, fallAcross = 25, fallAccel = 14;
-  float chuteAt = 60, chuteDescent = 6, chuteAcross = 8, chuteAccel = 1.5f;
+  // BR13 deployment (royale.json "exit", "freefall", "deploy", "canopy", "flare", "landing", "camera", "sound")
+  float exitTime = 0.8f, exitDrop = 2.0f;
+  float gravity = 9.81f, termFlat = 52, termDive = 88, termSpread = 44, diveLook = 60, attIn = 1.4f, attOut = 0.55f;
+  float trackFlat = 32, trackDive = 16, driftFlat = 4, driftDive = 9, slide = 9, tauH = 2.2f, tauSpread = 1.2f, turnRate = 75;
+  float autoOpen = 60, deployTime = 1.8f, unfold = 0.45f, maxDecel = 32, swingKick = 0.6f;
+  float glide = 9, glideFast = 12.5f, glideBrake = 3.5f, desc = 5.5f, descFast = 7.5f, descBrake = 3.8f, descStall = 6.5f, brakeHold = 2.5f;
+  float canopyTurn = 38, canopyTurnTau = 0.6f, canopyTauH = 1.3f, canopyTauV = 0.9f, lineLen = 6, swingDamp = 0.7f;
+  float flareWindow = 7, flareTime = 1.1f, flareGlide = 2, flareDesc = 1.2f, flareTau = 0.3f;
+  float landSoft = 3.0f, landSoftTime = 0.35f, landHardTime = 0.9f, landRunOut = 0.6f;
+  float fovPerMps = 0.09f, fovMax = 7, fovTau = 0.6f, buffet = 0.25f, joltDrop = 0.35f, joltFreq = 9, joltDamp = 6, swingPitch = 0.5f, landDip = 0.25f;
+  float windMin = 12, windFull = 70, windVol = 0.9f, softVol = 0.45f, planeVol = 0.7f, openVol = 1.0f;
   float botJumpFrom = 0.08f, botJumpTo = 0.92f, botLandSpread = 110;
   int vehicles = 8; float vehicleSpacing = 35;   // BR7: parked civilian cars made drivable
   RoyaleStormCfg storm;
@@ -93,8 +103,22 @@ void loadCfg() {
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "royale.json")); } catch (...) { logf("royale: content/settings/royale.json missing or bad, defaults"); return; }
   auto f = [&](const char* sec, const char* k, float& v) { if (j.contains(sec) && j[sec].contains(k)) v = j[sec][k].get<float>(); };
   f("plane", "altitude_m", gCfg.planeAlt); f("plane", "speed_mps", gCfg.planeSpeed); f("plane", "overrun_m", gCfg.overrun); f("plane", "endJitter", gCfg.jitter);
-  f("fall", "speed_mps", gCfg.fallSpeed); f("fall", "across_mps", gCfg.fallAcross); f("fall", "accel_mps2", gCfg.fallAccel);
-  f("chute", "autoOpen_m", gCfg.chuteAt); f("chute", "descent_mps", gCfg.chuteDescent); f("chute", "across_mps", gCfg.chuteAcross); f("chute", "accel_mps2", gCfg.chuteAccel);
+  Cfg& c = gCfg;
+  f("exit", "time_s", c.exitTime); f("exit", "dropBelow_m", c.exitDrop);
+  f("freefall", "gravity_mps2", c.gravity); f("freefall", "terminalFlat_mps", c.termFlat); f("freefall", "terminalDive_mps", c.termDive); f("freefall", "terminalSpread_mps", c.termSpread);
+  f("freefall", "diveLookPitch_deg", c.diveLook); f("freefall", "attitudeIn_per_s", c.attIn); f("freefall", "attitudeOut_per_s", c.attOut);
+  f("freefall", "trackFlat_mps", c.trackFlat); f("freefall", "trackDive_mps", c.trackDive); f("freefall", "driftFlat_mps", c.driftFlat); f("freefall", "driftDive_mps", c.driftDive);
+  f("freefall", "slide_mps", c.slide); f("freefall", "horizontalTau_s", c.tauH); f("freefall", "spreadTau_s", c.tauSpread); f("freefall", "turnRate_dps", c.turnRate);
+  f("deploy", "autoOpen_m", c.autoOpen); f("deploy", "time_s", c.deployTime); f("deploy", "unfold_s", c.unfold); f("deploy", "maxDecel_mps2", c.maxDecel); f("deploy", "swingKick_radps", c.swingKick);
+  f("canopy", "glide_mps", c.glide); f("canopy", "glideFast_mps", c.glideFast); f("canopy", "glideBrake_mps", c.glideBrake);
+  f("canopy", "descent_mps", c.desc); f("canopy", "descentFast_mps", c.descFast); f("canopy", "descentBrake_mps", c.descBrake); f("canopy", "descentStall_mps", c.descStall); f("canopy", "brakeHold_s", c.brakeHold);
+  f("canopy", "turnRate_dps", c.canopyTurn); f("canopy", "turnTau_s", c.canopyTurnTau); f("canopy", "horizontalTau_s", c.canopyTauH); f("canopy", "verticalTau_s", c.canopyTauV);
+  f("canopy", "lineLength_m", c.lineLen); f("canopy", "swingDamping_per_s", c.swingDamp);
+  f("flare", "window_m", c.flareWindow); f("flare", "time_s", c.flareTime); f("flare", "glide_mps", c.flareGlide); f("flare", "descent_mps", c.flareDesc); f("flare", "tau_s", c.flareTau);
+  f("landing", "softSpeed_mps", c.landSoft); f("landing", "softTime_s", c.landSoftTime); f("landing", "hardTime_s", c.landHardTime); f("landing", "runOut", c.landRunOut);
+  f("camera", "fovPerMps", c.fovPerMps); f("camera", "fovMax_deg", c.fovMax); f("camera", "fovTau_s", c.fovTau); f("camera", "buffet_deg", c.buffet);
+  f("camera", "joltDrop_m", c.joltDrop); f("camera", "joltFreq_hz", c.joltFreq); f("camera", "joltDamping", c.joltDamp); f("camera", "swingPitch", c.swingPitch); f("camera", "landDip_m", c.landDip);
+  f("sound", "windMin_mps", c.windMin); f("sound", "windFull_mps", c.windFull); f("sound", "windVolume", c.windVol); f("sound", "softWindVolume", c.softVol); f("sound", "planeVolume", c.planeVol); f("sound", "openVolume", c.openVol);
   f("bots", "jumpFrom", gCfg.botJumpFrom); f("bots", "jumpTo", gCfg.botJumpTo); f("bots", "landSpread_m", gCfg.botLandSpread);
   if (j.contains("vehicles")) { gCfg.vehicles = j["vehicles"].value("count", gCfg.vehicles); gCfg.vehicleSpacing = j["vehicles"].value("spacing_m", gCfg.vehicleSpacing); }
   if (j.contains("storm")) stormCfg(j["storm"]);
@@ -109,7 +133,14 @@ void stormCfg(const json& s) {   // royale.json "storm", then a map's own (NT3: 
   }
 }
 
-struct Air { int st = RA_GROUND; bool boarded = false; vec3 p{0}, v{0}; float jumpAt = 0; vec2 aim{0}; float stormAcc = 0; };
+struct Air {
+  int st = RA_GROUND; bool boarded = false; vec3 p{0}, v{0}; float jumpAt = 0; vec2 aim{0}; float stormAcc = 0;
+  // BR13 flight state: t = s in the current state; heading = body / canopy facing (deg, the game's yaw); att = body
+  // attitude 0 flat .. 1 head down; turn = canopy turn rate; swing / roll = pendulum angles under the canopy (rad, +
+  // forward / into the turn) with their rates; brakeT = s of brakes held; flareT = flare time left; landDur = landing
+  float t = 0, heading = 0, att = 0, attTarget = 0, turn = 0, swing = 0, swingV = 0, roll = 0, rollV = 0, brakeT = 0, flareT = 0, landDur = 0;
+  bool flared = false, opened = false; vec2 runOut{0};
+};
 struct State {
   bool on = false;
   float time = 0;                 // s since the match start (plane and storm clock)
@@ -119,6 +150,10 @@ struct State {
   bool jumpEdge = false;          // local player pressed Space since the last step
   vec2 move{0};                   // BR5: the local player's WASD while airborne (y forward, x right)
   int flight = 0;                 // BR5: the local flight posture for the HUD: 0 belly, 1 glide, 2 dive, 3 brake
+  bool freeLook = false;          // BR13: Left Alt held: the mouse looks around without steering
+  bool brakeHeld = false;         // BR13: S or Space under the canopy (flare near the ground)
+  float fovAdd = 0, joltY = 0, joltV = 0, buffetT = 0;   // BR13 camera: speed FOV, the opening jolt (spring), buffet clock
+  int windLoop = -1, softLoop = -1, planeLoop = -1;     // BR13 sound loops
   uint32_t seed = 1;
   bool indoor = false;            // BR11: Tunnels / Backrooms: everyone starts on the ground inside, no bomber
   struct District { std::string name; vec3 pos{0}; };
@@ -142,27 +177,42 @@ float groundBelow(App& app, vec3 p) {
   if (Physics::castRayEx(p + vec3(0, 0.5f, 0), vec3(0, -1, 0), 800.0f, h)) g = std::max(g, h.pos.y);   // roofs count
   return std::max(g, app.terrain.waterLevel);
 }
-// BR5 the local player's flight. The mouse sets the heading and the body angle (looking down = nose down), WASD the
-// posture: W tracks forward (level: a long glide with a slow fall; nose down: a fast dive), S spreads out as an air
-// brake, A / D slide sideways. Under the canopy the same controls, gentler: W runs forward, S flares (slow, near
-// vertical), looking down while running spills air for a faster descent. Responsive rather than floaty.
-void localFlight(App& app, bool chute, vec3& want, float& fall, float& accH, float& accV) {
-  vec3 f = App::forward(app.eyeYaw, 0); f = glm::normalize(vec3(f.x, 0, f.z) + vec3(1e-6f, 0, 0));
-  vec3 r(-f.z, 0, f.x);
-  float dive = std::clamp(-app.eyePitch / 75.0f, 0.0f, 1.0f), fwd = S.move.y, side = S.move.x, ahead;
-  if (!chute) {
-    if (fwd > 0.1f) { ahead = glm::mix(32.0f, 44.0f, dive); fall = glm::mix(24.0f, 88.0f, dive * dive); S.flight = dive > 0.45f ? 2 : 1; }
-    else if (fwd < -0.1f) { ahead = 0; fall = 42; S.flight = 3; }
-    else { ahead = 6; fall = glm::mix(55.0f, 66.0f, dive); S.flight = 0; }
-    want = f * ahead + r * (side * 18.0f); accH = fwd < -0.1f ? 30.0f : 22.0f; accV = 30;
-  } else {
-    if (fwd > 0.1f) { ahead = glm::mix(9.0f, 13.0f, dive); fall = glm::mix(6.0f, 10.0f, dive); S.flight = dive > 0.45f ? 2 : 1; }
-    else if (fwd < -0.1f) { ahead = 1.5f; fall = 4.5f; S.flight = 3; }
-    else { ahead = 4.5f; fall = gCfg.chuteDescent; S.flight = 0; }
-    want = f * ahead + r * (side * 5.5f); accH = 5; accV = 8;
-  }
+// frame-rate independent smoothing: x moves toward `to` with time constant tau (the same result at any step size)
+float ease(float dt, float tau) { return tau <= 1e-4f ? 1.0f : 1.0f - std::exp(-dt / tau); }
+float angDiff(float to, float from) { float d = std::fmod(to - from + 540.0f, 360.0f) - 180.0f; return d; }
+vec3 headDir(float yawDeg) { float r = radians(yawDeg); return vec3(-std::sin(r), 0, -std::cos(r)); }   // the game's yaw: 0 = -z
+
+// BR13 sounds, synthesized (no wind / cloth / aircraft recordings in content/audio): a bright rushing wind for free
+// fall, a soft wind with fabric flutter under the canopy, a two-engine bomber drone, and the canopy opening crack
+void synthRoyaleSounds(Audio& au) {
+  static bool done = false; if (done) return; done = true;
+  const int SR = 44100;
+  std::mt19937 g(1313); std::uniform_real_distribution<float> U(-1, 1);
+  auto norm = [](std::vector<float>& b, float peak) { float m = 1e-6f; for (float v : b) m = std::max(m, std::fabs(v)); for (float& v : b) v *= peak / m; };
+  auto loopFix = [&](std::vector<float>& b) { size_t xf = SR / 10; for (size_t i = 0; i < xf; ++i) { float a = (float)i / xf; b[i] = b[i] * a + b[b.size() - xf + i] * (1 - a); } b.resize(b.size() - xf); };
+  { std::vector<float> b((size_t)(4.1f * SR)); float l1 = 0, l2 = 0, h = 0;   // rush: broadband, buffeting
+    for (size_t i = 0; i < b.size(); ++i) { float t = (float)i / SR, n = U(g); l1 += (n - l1) * 0.35f; l2 += (l1 - l2) * 0.35f; h += (n - h) * 0.08f;
+      float buf = 0.75f + 0.25f * std::sin(t * 6.2832f * 0.9f) * std::sin(t * 6.2832f * 2.3f + 1.0f); b[i] = (l2 * 0.8f + (n - h) * 0.25f) * buf; }
+    loopFix(b); norm(b, 0.8f); au.addSound("br_wind_rush", b); }
+  { std::vector<float> b((size_t)(5.1f * SR)); float l1 = 0, l2 = 0, fl = 0;   // soft wind + fabric flutter
+    for (size_t i = 0; i < b.size(); ++i) { float t = (float)i / SR, n = U(g); l1 += (n - l1) * 0.04f; l2 += (l1 - l2) * 0.04f;
+      float flap = std::pow(0.5f + 0.5f * std::sin(t * 6.2832f * (7.0f + 2.0f * std::sin(t * 1.3f))), 8.0f); fl += (U(g) * flap - fl) * 0.3f;
+      b[i] = l2 * 3.0f + fl * 0.35f; }
+    loopFix(b); norm(b, 0.6f); au.addSound("br_wind_soft", b); }
+  { std::vector<float> b((size_t)(2.05f * SR)); float lp = 0;   // bomber: two radial engines beating
+    for (size_t i = 0; i < b.size(); ++i) { float t = (float)i / SR, s = 0;
+      for (int k = 1; k <= 6; ++k) s += (std::sin(6.2832f * 48.0f * k * t) + std::sin(6.2832f * 50.0f * k * t + 0.4f)) / (float)k;
+      lp += (U(g) - lp) * 0.05f; b[i] = s * 0.5f + lp * 1.5f; }
+    loopFix(b); norm(b, 0.7f); au.addSound("br_plane_drone", b); }
+  { std::vector<float> b((size_t)(1.3f * SR)); float lp = 0, lp2 = 0;   // opening: unfolding swish, the crack of the canopy catching air, the harness thump
+    for (size_t i = 0; i < b.size(); ++i) { float t = (float)i / SR, n = U(g);
+      float swish = t < 0.45f ? std::sin(t / 0.45f * 1.5708f) : std::exp(-(t - 0.45f) * 12.0f);
+      lp += (n - lp) * (0.05f + 0.3f * swish); lp2 += (n - lp2) * 0.6f;
+      float crack = t > 0.45f ? std::exp(-(t - 0.45f) * 40.0f) : 0, thump = t > 0.47f ? std::exp(-(t - 0.47f) * 14.0f) * std::sin(6.2832f * 70.0f * (t - 0.47f)) : 0;
+      float flutter = t > 0.5f ? std::exp(-(t - 0.5f) * 4.0f) * std::pow(0.5f + 0.5f * std::sin(t * 6.2832f * 11.0f), 6.0f) * n : 0;
+      b[i] = lp * swish * 0.6f + lp2 * crack * 1.2f + thump * 0.9f + flutter * 0.4f; }
+    norm(b, 0.9f); au.addSound("br_chute_open", b); }
 }
-vec3 approachV(vec3 v, vec3 want, float rate) { vec3 d = want - v; float l = glm::length(d); return l <= rate ? want : v + d / l * rate; }
 }
 
 bool royaleActive() { return S.on && gGame && gGame->active && gGame->match.mode() == GameMode::BattleRoyale; }
@@ -252,7 +302,10 @@ bool royaleSnap(const Game& G, vec3 p, float r, vec3& out) {
   NavRef ref; return G.nav.closest(p, vec3(r, std::max(r, 2.0f), r), ref, out, &f);
 }
 
-void royaleEnd(App& app) { app.tanks.releaseAdopted(app); S.on = false; }   // BR7: the parked cars back where they stood
+void royaleEnd(App& app) {
+  app.tanks.releaseAdopted(app); S.on = false;
+  for (int* h : {&S.windLoop, &S.softLoop, &S.planeLoop}) if (*h >= 0) { app.audio.loopStop(*h); *h = -1; }   // BR13
+}   // BR7: the parked cars back where they stood
 
 bool royaleBareHands(App& app, Game& G, Soldier& s) {
   if (G.match.mode() != GameMode::BattleRoyale) return false;
@@ -288,55 +341,149 @@ void royaleStep(App& app, Game& G, float dt) {
     if (!a.boarded) {   // first step alive: aboard while the bomber is still over the area, else straight into free fall
       a.boarded = true;
       if (S.time < S.tOut) { a.st = RA_ABOARD; a.p = P; }
-      else { a.st = RA_FREEFALL; a.p = vec3(s.feet.x, P.y, s.feet.z); a.aim = vec2(s.feet.x, s.feet.z); }
+      else { a.st = RA_FREEFALL; a.p = vec3(s.feet.x, P.y, s.feet.z); a.aim = vec2(s.feet.x, s.feet.z); a.heading = s.yaw; }
       a.v = vec3(0);
       if (s.agent >= 0) { Physics::destroyAgent(s.agent); s.agent = -1; }   // no capsule until it lands
     }
     if (a.st == RA_GROUND) continue;
     bool local = s.localPlayer;
+    if (a.st == RA_LANDING) { a.t += dt; if (a.t >= a.landDur) a.st = RA_GROUND; continue; }   // on its feet: royaleInput eases control back
     if (a.st == RA_ABOARD) {
       a.p = P - vec3(0, 1.0f, 0);
       bool over = S.time >= S.tIn;
       if ((!local && !s.human && S.time >= a.jumpAt) || (local && jump && over) || S.time >= S.tOut) {
-        a.st = RA_FREEFALL; a.v = S.dir * gCfg.planeSpeed * 0.3f;
-        if (local) app.toast("Free fall: look to turn, W to glide (look down to dive), S air brake, A / D slide. Space opens the parachute (it opens itself at " + std::to_string((int)gCfg.chuteAt) + " m).", 6);
+        // exit: out of the door with the aircraft's own velocity, still level; drag and gravity take over from here
+        a.st = RA_EXIT; a.t = 0; a.p = P - vec3(0, gCfg.exitDrop, 0) - S.dir * 3.0f; a.v = S.dir * gCfg.planeSpeed;
+        a.heading = degrees(std::atan2(-S.dir.x, -S.dir.z)); a.att = a.attTarget = 0; a.opened = a.flared = false;
+        if (local) app.toast("Out! Mouse: look and steer (look down to dive)   W track   S spread   A / D slide   Alt: free look   SPACE: parachute (opens itself at " + std::to_string((int)gCfg.autoOpen) + " m)", 7);
       } else if (local && jump) app.toast("Wait until the bomber is over the area.", 2);
     } else {
-      bool chute = a.st == RA_CHUTE;
-      float across = chute ? gCfg.chuteAcross : gCfg.fallAcross;
-      vec3 want(0); float fall = chute ? gCfg.chuteDescent : gCfg.fallSpeed, accH = chute ? gCfg.chuteAccel : gCfg.fallAccel, accV = 0;
-      if (local) localFlight(app, chute, want, fall, accH, accV);   // BR5: mouse + WASD
-      else { vec3 to(a.aim.x - a.p.x, 0, a.aim.y - a.p.z); float l = glm::length(to); if (l > 0.5f) want = to / l * std::min(across, l * 0.6f); }
-      vec3 hv(a.v.x, 0, a.v.z);
-      hv = approachV(hv, want, accH * dt);
-      float vy = a.v.y, target = -fall;
-      if (accV > 0) vy += std::clamp(target - vy, -accV * dt, accV * dt);
-      else vy += std::clamp(target - vy, -20.0f * dt, 25.0f * dt);   // the canopy brakes hard; free fall builds up
+      const Cfg& c = gCfg;
+      a.t += dt;
+      float agl = a.p.y - groundBelow(app, a.p);
+      // controls: forward / side (-1..1), the look's dive target, the heading to steer for, brakes
+      float fwd = 0, side = 0, brake = 0; float wantHeading = a.heading;
+      if (local) {
+        fwd = S.move.y > 0.1f ? 1.0f : 0.0f; brake = S.move.y < -0.1f || (a.st == RA_CHUTE && S.brakeHeld) ? 1.0f : 0.0f; side = std::clamp(S.move.x, -1.0f, 1.0f);
+        if (!S.freeLook) { a.attTarget = std::clamp(-app.eyePitch / c.diveLook, 0.0f, 1.0f); wantHeading = app.eyeYaw; }   // Alt: look without steering
+        else wantHeading = a.heading;
+      } else {   // bots: track flat toward the landing aim while far, dive when close, turn the canopy toward it, flare low
+        vec2 to = a.aim - vec2(a.p.x, a.p.z); float d = glm::length(to);
+        if (d > 1) wantHeading = degrees(std::atan2(-to.x, -to.y));
+        fwd = d > 25 ? 1.0f : 0.0f; a.attTarget = d > 160 ? 0.0f : d > 40 ? 0.7f : 1.0f;
+        if (a.st == RA_CHUTE) { side = std::clamp(angDiff(wantHeading, a.heading) / 30.0f, -1.0f, 1.0f); brake = agl < c.flareWindow * 0.6f ? 1.0f : 0.0f; fwd = d > 40 ? 1.0f : 0.0f; }
+      }
+      vec3 hv(a.v.x, 0, a.v.z); float vy = a.v.y; vec3 hvBefore = hv;
+      if (a.st == RA_EXIT || a.st == RA_FREEFALL || (a.st == RA_DEPLOY && a.t < c.unfold)) {
+        // free fall: gravity against quadratic drag toward the attitude's terminal speed; the body turns toward the
+        // steering heading at a limited rate, and the horizontal velocity eases toward the body's drive, so a change of
+        // direction curves the path. Pulling out of a dive (attitude down) is slower than tipping into one.
+        bool exiting = a.st == RA_EXIT;
+        float tgt = exiting || a.st == RA_DEPLOY ? 0.0f : brake > 0 ? 0.0f : a.attTarget;
+        a.att += (tgt - a.att) * ease(dt, 1.0f / (tgt > a.att ? c.attIn : c.attOut));
+        if (!exiting) a.heading += std::clamp(angDiff(wantHeading, a.heading), -c.turnRate * dt, c.turnRate * dt);
+        float term = brake > 0 ? c.termSpread : glm::mix(c.termFlat, c.termDive, std::pow(a.att, 1.2f));
+        vy += (-c.gravity + c.gravity * (vy * vy) / (term * term) * (vy < 0 ? 1.0f : -1.0f)) * dt;
+        vec3 f = headDir(a.heading), r(-f.z, 0, f.x);
+        vec3 drive = exiting ? vec3(0) : brake > 0 ? vec3(0)
+                   : f * (fwd > 0 ? glm::mix(c.trackFlat, c.trackDive, a.att) : glm::mix(c.driftFlat, c.driftDive, a.att)) + r * (side * c.slide);
+        hv = drive + (hv - drive) * (1.0f - ease(dt, brake > 0 ? c.tauSpread : c.tauH));
+        S.flight = brake > 0 ? 3 : a.att > 0.5f ? 2 : fwd > 0 ? 1 : 0;
+        if (a.st == RA_EXIT && a.t >= c.exitTime) { a.st = RA_FREEFALL; a.t = 0; }
+        if (a.st == RA_FREEFALL && (agl <= c.autoOpen || (local && jump))) {   // pull: the canopy starts to unfold (auto at autoOpen as a safety)
+          a.st = RA_DEPLOY; a.t = 0; a.swing = 0; a.swingV = 0; a.roll = a.rollV = 0; a.turn = 0;
+          if (local) app.toast("Canopy opening...", 1.5);
+        }
+      } else if (a.st == RA_DEPLOY || a.st == RA_CHUTE) {
+        // the canopy: a ram-air glide along its heading; A / D turn it (it leads, the body swings after), W runs faster
+        // and a little steeper, S brakes (slower, a softer descent that fades: no hovering); near the ground the brakes flare
+        bool deploying = a.st == RA_DEPLOY;
+        if (deploying && !a.opened) { a.opened = true; a.swingV += c.swingKick;   // the canopy catches the air: the body swings forward under it; crack, harness tug, camera jolt
+          if (local) { app.audio.play("br_chute_open", app.eyePos(), c.openVol); S.joltV = -c.joltDrop * c.joltFreq * 2.0f; } }
+        a.turn += (side * c.canopyTurn - a.turn) * ease(dt, c.canopyTurnTau);
+        a.heading += a.turn * dt;
+        a.brakeT = brake > 0 ? a.brakeT + dt : std::max(0.0f, a.brakeT - dt * 2);
+        if (!deploying && brake > 0 && !a.flared && agl < c.flareWindow) { a.flared = true; a.flareT = c.flareTime; }
+        a.flareT = std::max(0.0f, a.flareT - dt);
+        float soft = std::exp(-a.brakeT / std::max(0.1f, c.brakeHold));
+        float speed = brake > 0 ? c.glideBrake : fwd > 0 ? c.glideFast : c.glide;
+        float desc = brake > 0 ? glm::mix(c.descStall, c.descBrake, soft) : fwd > 0 ? c.descFast : c.desc;
+        float tauH = c.canopyTauH, tauV = c.canopyTauV;
+        if (a.flareT > 0) { speed = c.flareGlide; desc = c.flareDesc; tauH = tauV = c.flareTau; }
+        vec3 want = headDir(a.heading) * speed;
+        if (deploying) {   // inflating: strong deceleration over a short, felt interval, capped (no snap to the new speed)
+          vec3 v3(hv.x, vy, hv.z), w3(want.x, -desc, want.z), d3 = w3 - v3; float l = glm::length(d3), m = c.maxDecel * dt;
+          v3 = l <= m ? w3 : v3 + d3 / l * m; hv = vec3(v3.x, 0, v3.z); vy = v3.y;
+          if (a.t >= c.deployTime) { a.st = RA_CHUTE; a.t = 0;
+            if (local) app.toast("Canopy open.   A / D turn   W faster   S brake (flare near the ground)   mouse: free look", 5); }
+        } else {
+          hv = want + (hv - want) * (1.0f - ease(dt, tauH));
+          vy += (-desc - vy) * ease(dt, tauV);
+        }
+        S.flight = a.flareT > 0 || brake > 0 ? 3 : fwd > 0 ? 1 : 0;
+        // pendulum under the canopy: the body swings forward when the canopy slows (pitch) and outward-then-in on turns (roll)
+        float w2 = c.gravity / std::max(1.0f, c.lineLen);
+        vec3 acc = (hv - hvBefore) / std::max(dt, 1e-4f); float along = glm::dot(acc, headDir(a.heading));
+        a.swingV += (-w2 * std::sin(a.swing) - c.swingDamp * a.swingV - along / c.lineLen) * dt; a.swing += a.swingV * dt;
+        float lateral = radians(a.turn) * glm::length(hv);
+        a.rollV += (-w2 * std::sin(a.roll) - c.swingDamp * a.rollV + lateral / c.lineLen) * dt; a.roll += a.rollV * dt;
+        a.swing = std::clamp(a.swing, -0.7f, 0.7f); a.roll = std::clamp(a.roll, -0.6f, 0.6f);
+      }
       a.v = vec3(hv.x, vy, hv.z);
       vec3 np = a.p + a.v * dt;
       np.x = std::clamp(np.x, -hx * 1.05f, hx * 1.05f); np.z = std::clamp(np.z, -hz * 1.05f, hz * 1.05f);
       float g = groundBelow(app, np);
-      if (!chute && (np.y - g <= gCfg.chuteAt || (local && jump))) { a.st = RA_CHUTE; if (local) app.toast("Parachute open: W run, S flare, A / D slide, look to turn.", 4); }
-      if (np.y <= g + 0.02f) {   // landed: no fall damage (a placement, not a fall)
+      if (np.y <= g + 0.02f) {   // touchdown: no fall damage (a placement, not a fall); a well-timed flare lands soft
         vec3 feet(np.x, g, np.z);
+        bool canopy = a.st == RA_CHUTE || a.st == RA_DEPLOY, soft = canopy && -a.v.y <= c.landSoft, hard = !canopy;   // a flare lands soft; no canopy lands hard
         if (!local) { NavRef nr; vec3 on;   // BR7: a bot that came down on a roof, in water or in kit stands on the nearest navmesh
           if (!royaleSnap(G, feet, 1.5f, on) || std::fabs(on.y - feet.y) > 1.0f) for (float rad : {10.0f, 30.0f, 60.0f}) if (royaleSnap(G, feet, rad, on)) { feet = on; break; } (void)nr; }
-        a.st = RA_GROUND; a.v = vec3(0);
         s.feet = feet; s.vel = vec3(0); s.speed = 0;
-        if (local) Physics::setCharacterPos(feet);
-        else {
+        if (local) {
+          a.st = RA_LANDING; a.t = 0; a.landDur = soft ? c.landSoftTime : hard ? c.landHardTime : (c.landSoftTime + c.landHardTime) * 0.5f;
+          vec3 f = headDir(app.eyeYaw), r(-f.z, 0, f.x);   // the run-out: what is left of the glide, as walking input
+          a.runOut = vec2(glm::dot(hv, r), glm::dot(hv, f)) / std::max(1.0f, c.glide) * c.landRunOut;
+          S.joltV = -(soft ? 0.5f : hard ? 2.0f : 1.0f) * c.landDip * c.joltFreq * 2.0f;
+          Physics::setCharacterPos(feet);
+          if (soft) app.toast("Soft landing", 1.2); else if (hard) app.toast("Hard landing", 1.5);
+        } else {
+          a.st = RA_GROUND;
           const EnemyType* et = s.zombie ? &enemyType(s.etype) : nullptr;
           s.agent = et && et->capsuleH > 0 ? Physics::createAgent(feet, et->capsuleH, et->capsuleR) : Physics::createAgent(feet);
           s.br.repathT = 0;
           if (!s.human) lootArmBot(G, s, 2);   // BR5: bots land with two random guns from the loot table (the player loots)
         }
+        a.v = vec3(0);
         continue;
       }
       a.p = np;
     }
     s.feet = a.p; s.vel = a.v; s.speed = 0; s.posture = Physics::STAND;
-    if (!local) { vec3 h(a.v.x, 0, a.v.z); if (glm::length(h) > 0.5f) s.yaw = degrees(std::atan2(-h.x, -h.z)); else if (a.st == RA_ABOARD) s.yaw = degrees(std::atan2(-S.dir.x, -S.dir.z)); }
+    if (!local) s.yaw = a.st == RA_ABOARD ? degrees(std::atan2(-S.dir.x, -S.dir.z)) : a.heading;
     else Physics::setCharacterPos(a.p);   // the explore camera rides along
+  }
+  // BR13 local effects: the camera jolt spring, the speed FOV, the wind / aircraft sounds
+  if (Soldier* L = G.local()) {
+    const Cfg& c = gCfg; int st = L->alive && L->slot < (int)S.air.size() ? royaleAirState(L->slot) : RA_GROUND;
+    const Air* a = st != RA_GROUND ? &S.air[L->slot] : nullptr;
+    float k = 6.2832f * c.joltFreq; S.joltV += (-k * k * S.joltY - 2.0f * c.joltDamp * S.joltV) * dt; S.joltY += S.joltV * dt;   // damped spring
+    float speed = a ? glm::length(a->v) : 0;
+    bool falling = st == RA_EXIT || st == RA_FREEFALL;
+    S.fovAdd += ((falling ? std::min(c.fovMax, std::max(0.0f, speed - 20) * c.fovPerMps) : 0) - S.fovAdd) * ease(dt, c.fovTau);
+    S.buffetT += dt;
+    synthRoyaleSounds(app.audio);
+    vec3 ear = app.eyePos();
+    float rush = 0, soft = 0;
+    if (falling) rush = glm::smoothstep(c.windMin, c.windFull, speed) * c.windVol;
+    else if (st == RA_DEPLOY) { float u = std::min(1.0f, a->t / std::max(0.1f, c.deployTime)); rush = (1 - u) * glm::smoothstep(c.windMin, c.windFull, speed) * c.windVol; soft = u * c.softVol; }
+    else if (st == RA_CHUTE) soft = c.softVol * (0.6f + 0.4f * std::min(1.0f, speed / std::max(1.0f, c.glideFast)));
+    auto loop = [&](int& h, const char* name, vec3 at, float vol, float pitch) {
+      if (vol > 0.01f) { if (h < 0) h = app.audio.loopStart(name, at, vol, pitch); else app.audio.loopSet(h, at, vol, pitch); }
+      else if (h >= 0) { app.audio.loopStop(h); h = -1; }
+    };
+    loop(S.windLoop, "br_wind_rush", ear, rush, 0.8f + speed / 150.0f);
+    loop(S.softLoop, "br_wind_soft", ear, soft, 1.0f);
+    loop(S.planeLoop, "br_plane_drone", planeAt(S.time), planeFlying() ? c.planeVol : 0, 1.0f);   // spatial: fades as the jumper falls away
   }
   // storm damage outside the current ring, once a second while outside (landed soldiers only); armor never applies
   RoyaleStorm::At at = S.storm.at(S.time);
@@ -402,8 +549,16 @@ float royaleStormSoon(const Soldier& s) {
 void royaleInput(App& app, ExploreInput& in) {
   if (!royaleActive() || !gGame) return;
   Soldier* L = gGame->local();
-  if (!L || !L->alive || royaleAirState(L->slot) == RA_GROUND) return;
+  int st = L && L->alive ? royaleAirState(L->slot) : RA_GROUND;
+  if (st == RA_GROUND) return;
+  if (st == RA_LANDING) {   // BR13: back on the feet: the glide's run-out fades into the player's own walking, no firing yet
+    const Air& a = S.air[L->slot]; float u = std::clamp(a.t / std::max(0.05f, a.landDur), 0.0f, 1.0f);
+    in.move = in.move * u + a.runOut * (1 - u); in.jump = in.jumpHeld = in.sprint = in.prone = false; in.fire = in.aim = false;
+    return;
+  }
   if (in.jump) S.jumpEdge = true;
+  S.freeLook = app.win && glfwGetKey(app.win, GLFW_KEY_LEFT_ALT) == GLFW_PRESS;
+  S.brakeHeld = in.jumpHeld;   // Space under the canopy: brakes / flare, like S
   S.move = in.move;   // BR5: WASD steers the free fall / canopy
   in.move = vec2(0); in.jump = in.jumpHeld = in.crouch = in.sprint = in.prone = false;
   in.fire = in.aim = in.reload = in.interact = in.build = in.quickGrenade = false;
@@ -413,9 +568,26 @@ void royaleInput(App& app, ExploreInput& in) {
 bool royaleCamera(App& app, vec3& eye, vec3& fwd, float& fov) {
   if (!royaleActive() || !gGame) return false;
   Soldier* L = gGame->local();
-  if (!L || !L->alive || royaleAirState(L->slot) != RA_ABOARD) return false;
-  vec3 P = planeAt(S.time), f = App::forward(app.eyeYaw, app.eyePitch);
-  eye = P - f * 32.0f + vec3(0, 6, 0); fwd = glm::normalize(P - eye); fov = 70;
+  int st = L && L->alive ? royaleAirState(L->slot) : RA_GROUND;
+  if (st == RA_ABOARD) {
+    vec3 P = planeAt(S.time), f = App::forward(app.eyeYaw, app.eyePitch);
+    eye = P - f * 32.0f + vec3(0, 6, 0); fwd = glm::normalize(P - eye); fov = 70;
+    return true;
+  }
+  if (st == RA_GROUND) return false;
+  // BR13: first person, with restrained effects: a slightly wider FOV with speed, buffeting in free fall, the opening
+  // jolt, the swing under the canopy, the dip of the landing
+  const Air& a = S.air[L->slot]; const Cfg& c = gCfg;
+  float yawJ = 0, pitchJ = 0;
+  if (st == RA_EXIT || st == RA_FREEFALL) {
+    float k = glm::smoothstep(c.windMin, c.windFull, glm::length(a.v)) * c.buffet;
+    yawJ = k * (std::sin(S.buffetT * 23.0f) * 0.6f + std::sin(S.buffetT * 37.0f + 1.1f) * 0.4f);
+    pitchJ = k * (std::sin(S.buffetT * 29.0f + 0.5f) * 0.6f + std::sin(S.buffetT * 41.0f + 2.0f) * 0.4f);
+  }
+  if (st == RA_DEPLOY || st == RA_CHUTE) { pitchJ += degrees(a.swing) * c.swingPitch; eye.y -= c.lineLen * (1 - std::cos(a.swing)) * 0.3f; eye += headDir(a.heading + 90) * (c.lineLen * std::sin(a.roll) * 0.15f); }
+  eye.y += S.joltY;
+  fwd = App::forward(app.eyeYaw + yawJ, std::clamp(app.eyePitch + pitchJ, -89.0f, 89.0f));
+  fov += S.fovAdd;
   return true;
 }
 
@@ -437,9 +609,13 @@ void royaleDraw(App& app) {
     }
   }
   for (auto& s : gGame->sold) {   // canopies over everyone under a parachute (stand-in until br_parachute exists)
-    if (!s.alive || royaleAirState(s.slot) != RA_CHUTE) continue;
-    float yaw = s.localPlayer ? radians(app.eyeYaw) + 3.14159265f : radians(s.yaw) + 3.14159265f;
-    mat4 M = glm::translate(mat4(1), s.feet) * glm::rotate(mat4(1), yaw, vec3(0, 1, 0));
+    int st = s.alive ? royaleAirState(s.slot) : RA_GROUND;
+    if (st != RA_CHUTE && st != RA_DEPLOY) continue;
+    const Air& a = S.air[s.slot];
+    float inflate = st == RA_CHUTE ? 1.0f : std::clamp((a.t - gCfg.unfold * 0.5f) / std::max(0.1f, gCfg.deployTime - gCfg.unfold * 0.5f), 0.05f, 1.0f);   // BR13: unfolding
+    // the canopy leads: it banks with the turn and sits over the body, which hangs back by the swing
+    mat4 M = glm::translate(mat4(1), s.feet) * glm::rotate(mat4(1), radians(a.heading) + 3.14159265f, vec3(0, 1, 0))
+           * glm::rotate(mat4(1), -a.roll, vec3(0, 0, 1)) * glm::rotate(mat4(1), a.swing, vec3(1, 0, 0)) * glm::scale(mat4(1), vec3(inflate, 0.4f + 0.6f * inflate, inflate));
     if (drawAsset("br_parachute", M)) continue;
     box(M, vec3(0, 6.8f, 0), vec3(6.5f, 0.5f, 3.6f)); box(M, vec3(-3.4f, 6.3f, 0), vec3(1.2f, 0.4f, 3.4f)); box(M, vec3(3.4f, 6.3f, 0), vec3(1.2f, 0.4f, 3.4f));
     for (float x : {-2.6f, 2.6f}) box(M * glm::translate(mat4(1), vec3(x * 0.5f, 4.2f, 0)) * glm::rotate(mat4(1), x > 0 ? -0.55f : 0.55f, vec3(0, 0, 1)), vec3(0), vec3(0.04f, 4.6f, 0.04f));
@@ -480,14 +656,14 @@ void royaleHud(App& app, Game& G) {
   if (L && L->alive) {
     int st = royaleAirState(L->slot);
     if (st == RA_ABOARD) centre(S.time < S.tIn ? "Aboard the bomber - Space to jump once it is over the area" : "Aboard the bomber - SPACE to jump", io.DisplaySize.y * 0.78f, IM_COL32(255, 230, 150, 255));
-    else if (st == RA_FREEFALL || st == RA_CHUTE) {   // BR5: altitude, fall rate, ground speed, posture
+    else if (st == RA_EXIT || st == RA_FREEFALL || st == RA_DEPLOY || st == RA_CHUTE) {   // BR5: altitude, fall rate, ground speed, posture
       const Air& a = S.air[L->slot];
-      static const char* posture[2][4] = {{"BELLY", "GLIDE", "DIVE", "AIR BRAKE"}, {"DRIFT", "RUN", "SPILL", "FLARE"}};
-      bool ch = st == RA_CHUTE; float gs = glm::length(vec2(a.v.x, a.v.z));
+      static const char* posture[2][4] = {{"BELLY", "TRACK", "DIVE", "SPREAD"}, {"GLIDE", "RUN", "GLIDE", "BRAKES"}};
+      bool ch = st == RA_CHUTE || st == RA_DEPLOY; float gs = glm::length(vec2(a.v.x, a.v.z));
       char f[200]; std::snprintf(f, sizeof f, "%s %s     ALT %4.0f m     FALL %3.0f m/s     SPEED %3.0f km/h", ch ? "PARACHUTE" : "FREE FALL", posture[ch][S.flight & 3], L->feet.y - groundBelow(app, L->feet), -a.v.y, gs * 3.6f);
       centre(f, io.DisplaySize.y * 0.78f, ch ? IM_COL32(220, 230, 255, 255) : IM_COL32(255, 230, 150, 255));
-      const char* keys = ch ? "W run   S flare   A / D slide   look to turn (look down while running: faster descent)"
-                            : "W glide (look down to dive)   S air brake   A / D slide   look to turn   SPACE parachute";
+      const char* keys = ch ? "A / D turn   W faster   S or SPACE brake (flare near the ground)   mouse: free look"
+                            : "mouse: look and steer (look down to dive)   W track   S spread   A / D slide   ALT free look   SPACE parachute";
       centre(keys, io.DisplaySize.y * 0.78f + 30, IM_COL32(210, 205, 190, 230));
     }
     else if (glm::length(vec2(L->feet.x, L->feet.z) - at.now.c) > at.now.r) { char f[80]; std::snprintf(f, sizeof f, "IN THE STORM  -%.0f hp/s", at.dps); centre(f, io.DisplaySize.y * 0.70f, IM_COL32(150, 180, 255, 255)); }
