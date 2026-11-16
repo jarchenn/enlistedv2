@@ -43,7 +43,7 @@ bool captureTk2SelfTest(App& a, float dt) {
     vec3 c = tk->pos + vec3(0, top * 0.6f, 0);
     if (view == 0) look(a, tk->pos + vec3(hx + 2.1f, top + 0.9f, hz + 2.1f), c);                      // front three-quarter, ~3 m off the corner
     else if (view == 1) look(a, tk->pos + vec3(hx + 3.0f, top * 0.7f, 0), c);                          // side
-    else look(a, tk->pos + vec3(hx + 2.2f, 1.25f, hz * 0.55f), tk->pos + vec3(hx, 0.5f, hz * 0.1f));   // the tracks and road wheels, from above the grass
+    else look(a, tk->pos + vec3(hx + 1.8f, 1.9f, -hz * 0.35f), tk->pos + vec3(hx * 0.85f, 0.55f, hz * 0.25f));   // the running gear: a high three-quarter view along the track
     if (t > 0.6f && pend.empty()) {
       static const char* vn[3] = {"front34", "side", "tracks"};
       pend = out(std::string(tk->def->id) + "_" + vn[view]);
