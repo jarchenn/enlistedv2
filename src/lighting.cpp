@@ -521,7 +521,7 @@ void LightingPass::uniforms(Renderer& R, GLuint p) {
 // ---- local light shadows: cube faces (spot: one tile) in a depth atlas, standard Z, cached per light
 void LightingPass::shadowPass(Renderer& R, const std::vector<DrawItem>& opaque) {
   L.facesDrawn = 0;
-  int want = std::clamp(std::max(R.lt.shadowLights, R.lt.mapShadowLights), 0, kMaxSlots);   // BR3: a map may ask for more
+  int want = std::clamp(std::max({R.lt.shadowLights, R.lt.mapShadowLights, R.flashOn ? 1 : 0}), 0, kMaxSlots);   // BR3: a map may ask for more; FX1: the headlamp is always shadowed
   if (want != L.atlasSlots) createAtlas(want);
   for (int i = 0; i < L.count; ++i) L.gpu[i].misc.y = -1;
   if (!want) { glNamedBufferSubData(L.lightBuf, 0, L.count * sizeof(GpuLight), L.gpu.data()); return; }
@@ -552,7 +552,8 @@ void LightingPass::shadowPass(Renderer& R, const std::vector<DrawItem>& opaque) 
       vec3 dir = glm::length(d.dir) > 1e-4f ? glm::normalize(d.dir) : vec3(0, -1, 0);
       vec3 up = std::fabs(dir.y) > 0.95f ? vec3(0, 0, 1) : vec3(0, 1, 0);
       float fov = std::min(2.0f * std::acos(std::clamp(d.cosOuter, -1.0f, 1.0f)) + radians(8.0f), radians(150.0f));
-      L.lsVP[k * 6] = glm::perspective(fov, 1.0f, 0.05f, far) * glm::lookAt(d.pos, d.pos + dir, up);
+      extern float flashlightShadowNear();   // FX1: the head and the gun right at the headlamp cast nothing
+      L.lsVP[k * 6] = glm::perspective(fov, 1.0f, d.id == kFlashlightLightId ? flashlightShadowNear() : 0.05f, far) * glm::lookAt(d.pos, d.pos + dir, up);
     } else for (int f = 0; f < 6; ++f) L.lsVP[k * 6 + f] = glm::perspective(radians(92.0f), 1.0f, 0.05f, far) * faceView(d.pos, f);
     L.gpu[s.light].misc.y = (float)k; L.gpu[s.light].misc.z = spot ? 1.0f : 0.0f;
   }
@@ -785,7 +786,7 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
     fl *= glm::clamp((cutK - key(d)) / 12.0f, 0.0f, 1.0f);   // BR1c: the cap fade
     vec3 dir = glm::length(d.dir) > 1e-5f ? glm::normalize(d.dir) : vec3(0, -1, 0);
     float co = d.cosOuter <= -1.0f ? -2.0f : d.cosOuter, ci = std::max(d.cosInner, co + 1e-3f);
-    L.gpu[i] = {vec4(d.pos, std::max(d.radius, 0.0f)), vec4(glm::max(d.color, vec3(0)) * std::max(d.intensity, 0.0f) * fl, 0), vec4(dir, co), vec4(ci, -1, 0, 0)};
+    L.gpu[i] = {vec4(d.pos, std::max(d.radius, 0.0f)), vec4(glm::max(d.color, vec3(0)) * std::max(d.intensity, 0.0f) * fl, 0), vec4(dir, co), vec4(ci, -1, 0, d.id == kFlashlightLightId ? 1.0f : 0.0f)};   // misc.w: no GI (FX1)
   }
   GLint64 bsize = 0; glGetNamedBufferParameteri64v(L.lightBuf, GL_BUFFER_SIZE, &bsize);
   if (bsize < (GLint64)(L.gpu.size() * sizeof(GpuLight))) glNamedBufferData(L.lightBuf, std::max<size_t>(L.gpu.size(), 64) * sizeof(GpuLight) * 2, nullptr, GL_DYNAMIC_DRAW);
@@ -938,6 +939,7 @@ void lightingAppFrame(App& app) {
 #ifdef NMK_HAVE_LIGHTS
   lightsGather(app, R.lights);
 #endif
+  { extern void flashlightAppFrame(App&); flashlightAppFrame(app); }   // FX1: the player's headlamp
   // room volumes of enterable buildings near the camera (probe placement), refreshed every half second
   static int tick = 0; static size_t lastN = (size_t)-1;
   if (++tick % 30 != 1 && app.doc.instances.size() == lastN) return;

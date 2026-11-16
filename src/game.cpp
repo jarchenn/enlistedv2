@@ -134,6 +134,7 @@ bool Game::begin(std::string& err) {
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
     s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
+    s.op = ait == AiType::Operators;
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
@@ -232,6 +233,29 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
   const json& lo = combat["loadouts"][fac];
   const ClassDef* cd = s.cls >= 0 && s.cls < (int)classDefs().size() ? &classDefs()[s.cls] : nullptr;
   std::vector<int> cw = classWeapons(s);
+  // AI5: Operator bots carry modern weapons (combat.json loadouts_operator), not the faction pool or the class weapons:
+  // a weighted primary per slot + life, every lmgEvery-th operator of a side the LMG, the sidearm carried too
+  if (s.op && !s.human && !s.localPlayer && combat.contains("loadouts_operator") && combat["loadouts_operator"].contains(fac)) {
+    const json& ol = combat["loadouts_operator"][fac];
+    std::vector<std::pair<int, int>> pool; int tot = 0;
+    for (auto& e : ol.value("ai", json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0) { pool.push_back({w, e[1].get<int>()}); tot += e[1].get<int>(); } }
+    int nth = 0; for (auto& o : sold) { if (&o == &s) break; if (o.inUse && o.op && o.team == s.team) ++nth; }
+    int lmg = app.weaponIndex(ol.value("lmg", "")), every = ol.value("lmgEvery", 5);
+    if (!pool.empty() || lmg >= 0) {
+      int w = pool.empty() ? lmg : pool[0].first;
+      int pick = tot > 0 ? (int)((s.slot * 7 + s.lifeId * 3) % tot) : 0;
+      for (auto& [i, n] : pool) { if (pick < n) { w = i; break; } pick -= n; }
+      if (lmg >= 0 && every > 0 && nth % every == every - 1) w = lmg;
+      s.wsBy.clear(); s.weapon = w;
+      const WeaponDef& d = *app.weaponDefs[w]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
+      for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
+      s.ws.seed = s.rng | 1;
+      s.carried = {w}; if (int p = app.weaponIndex(ol.value("sidearm", "")); p >= 0) s.carried.push_back(p);
+      if (newLife) { s.frags = cd ? cd->frags : match.rules.fragPerLife; s.smokes = cd ? cd->smokes : (s.role == CombatRole::Attacker ? match.rules.smokePerLifeAttacker : match.rules.smokePerLifeDefender); if (cd) s.hp *= cd->hpMul; }
+      s.reload = 0; s.throwT = -1; s.throwReleased = false;
+      return;
+    }
+  }
   auto items = [&](std::vector<int>& v) {   // the side's grenades travel only when the class carries some; the knife always
     if (!cd || cd->frags > 0) if (fragDef(s.faction) >= 0) v.push_back(fragDef(s.faction));
     if (!cd || cd->smokes > 0) if (smokeDef() >= 0) v.push_back(smokeDef());
@@ -454,7 +478,7 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
     {W(CJ_LUPLEG), W(CJ_LLEG), 0.085f, 2}, {W(CJ_LLEG), W(CJ_LFOOT), 0.07f, 2},
     {W(CJ_RUPLEG), W(CJ_RLEG), 0.085f, 2}, {W(CJ_RLEG), W(CJ_RFOOT), 0.07f, 2},
   };
-  float best = maxT; int zone = -1;
+  float best = maxT, headT = 1e9f; int zone = -1;
   for (auto& k : caps) k.r *= zs;
   for (auto& k : caps) {
     // ray vs capsule: sample the closest approach between the ray and the segment
@@ -470,8 +494,12 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
     if (dist > k.r) continue;
     float back = std::sqrt(std::max(0.0f, k.r * k.r - dist * dist));
     float tt = std::max(0.0f, sc - back);
+    if (k.zone == 0) headT = std::min(headT, tt);
     if (tt < best) { best = tt; zone = k.zone; }
   }
+  // CH7: on an enemy type a ray that meets the head capsule is a head hit (on the big hunched rigs the scaled torso capsule
+  // round the neck enclosed most of the head, so a shot at the head counted as the torso); soldiers keep their zones
+  if (s.zombie && headT < maxT) { best = headT; zone = 0; }
   if (zone < 0) return false;
   hz.zone = zone; hz.t = best;
   return true;
@@ -518,6 +546,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
     if (shell) { shellAt[i] = t; s.hp -= enemyType(s.etype).hp / enemyType(s.etype).shellKills - 0.01f; dmg = 0.01f; how = "blast"; }   // applied here; the rest of the function sees a token blast
     else if (blast && shellAt.count(i) && std::fabs(t - shellAt[i]) < 0.05) return;   // that shell's own blast
   }
+  if (s.zombie && how && std::strcmp(how, "head") == 0 && enemyType(s.etype).headMult > 0) dmg *= enemyType(s.etype).headMult / std::max(0.01f, damageTable().head);   // CH7: the type's own head multiplier in place of the global one
   if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly || (enemyType(s.etype).nonBlastMult < 1 && how && std::strcmp(how, "shell") == 0)) return; dmg *= enemyType(s.etype).nonBlastMult;   // a direct shell hit is not an instant kill on a resistant type: its blast does the damage
   if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
@@ -624,6 +653,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   if (w.cooldown > 0 || s.reload > 0 || w.bolt > 0) return false;
   if (w.loaded <= 0) return false;
   w.loaded--; w.cooldown = 60.0f / std::max(1.0f, d.rpm); if (d.action == "bolt") w.bolt = d.boltTime; ++w.shotIdx; ++s.shots;
+  if (d.action == "bolt" && !s.localPlayer && app.audio.hasEvent("bolt_cycle_" + d.id) && glm::length(s.feet - app.eyePos()) < 80.0f) app.audio.play("bolt_cycle_" + d.id, s.feet + vec3(0, 1.5f, 0), 0.6f);   // SND4: a bot works its bolt too
   vec3 e = eye(s);
   vec3 muzzle = vec3(s.world * s.pose.weapon * vec4(d.muzzle, 1));
   Physics::Hit hb;
@@ -704,7 +734,7 @@ void Game::clientStep(float dt) {
   netInterpolate(*this, t, dt);
   if (Soldier* L = local(); L && L->alive) {
     auto c = Physics::character();
-    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->weapon = app.activeWeapon; L->swim = app.swim.active;
+    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->lean = app.lean.x; L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
   // door toggles made locally are requests: undo them here and ask the host
@@ -738,7 +768,7 @@ void Game::step(float dt) {
     localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
     auto c = Physics::character();
     if (glm::length(c.pos - L->feet) > 15.0f) aiForget(*this, L->slot);   // a jump (teleport, admin fly, a vehicle exit far away): enemies re-acquire
-    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture;
+    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->lean = app.lean.x;
     L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
@@ -794,11 +824,15 @@ void Game::posesStep(float dt) {
       bool engaged = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0
                   || (isClient && s.netEngaged);   // AN1b: a LAN client has no brains: the host's "has a target" bit (net.cpp)
       s.anKneel += ((s.posture == Physics::CROUCH && !moving ? 1.0f : 0.0f) - s.anKneel) * k;
-      s.anCarry += ((moving && !engaged ? 1.0f : 0.0f) - s.anCarry) * k;
-      s.anMoveAim += ((moving && engaged ? 1.0f : 0.0f) - s.anMoveAim) * k;
+      // AI5: bots never carry the rifle low on the move: shouldered, muzzle forward, sights up whether engaged or not
+      bool bot = !s.human && !s.localPlayer;
+      s.anCarry += ((moving && !engaged && !bot ? 1.0f : 0.0f) - s.anCarry) * k;
+      s.anMoveAim += ((moving && (engaged || bot) ? 1.0f : 0.0f) - s.anMoveAim) * k;
+      pp.hunch = bot ? 1.0f : 0.0f;
       s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
+      pp.lean = s.alive ? s.lean : 0.0f; pp.leanBend = radians(app.leanCfg.bend);   // MV3
       {   // AN1b: the terrain's gradient under the feet (model space) for the stepping feet and the kneel; floors and bridges stay flat
         const float r = 0.4f; vec3 f = s.feet; float h0 = app.terrain.height(f.x, f.z);
         vec2 g(0);
@@ -815,7 +849,7 @@ void Game::posesStep(float dt) {
     if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); }
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
-    pp.lowReady = s.zombie ? 0.0f : s.anLow;   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
+    pp.lowReady = s.zombie ? 0.0f : std::max(s.anLow, !s.human && !s.localPlayer && s.speed > 4.0f ? 0.2f : 0.0f);   // AI5: a sprinting bot dips the muzzle a little, weapon still forward   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
     if (s.localPlayer) app.mantlePose(s.feet, pp);   // hands on the ledge while mantling (mantle.cpp)
     s.swimBlend += ((s.swim && s.alive ? 1.0f : 0.0f) - s.swimBlend) * std::min(1.0f, dt * 5);
     pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz

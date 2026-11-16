@@ -27,6 +27,7 @@ struct Brain {
   int mode = M_IDLE; float modeT = 0;
   int target = -1; float targetTime = 0, aimSteady = 0;
   float aimYaw = 0, aimPitch = 0;            // aim direction (turns at aimTurn), separate from the body / locomotion yaw
+  float aimWantYaw = 0;                      // AI5: where the aim wants to go (the body turns toward it; the aim twists at most 50 deg off the body)
   std::vector<EnemyMemory> mem;
   int lane = LANE_MAIN;
   std::vector<vec3> route; size_t routeIdx = 0;
@@ -49,7 +50,9 @@ struct Soldier {
   int slot = -1; bool inUse = false, alive = false;
   Faction faction = Faction::Allies; CombatRole role = CombatRole::Defender;
   int team = 0;                              // friend / foe (G1): Assault / TDM = (int)role, Solo = own slot
-  bool zombie = false;                       // G2: the melee brain (zombie.cpp: Zombies, heavies, Fighters): no weapon
+  bool zombie = false;
+  bool op = false;
+  float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies, Fighters): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until
   int evariant = 0;                          // the type's model variant (Game::begin, in turn per type; clients compute the same)
   bool flat = false;   // crushed by a Fighter's stomp: the body is drawn pressed flat into the ground

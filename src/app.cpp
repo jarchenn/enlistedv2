@@ -815,6 +815,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-gore") runSelf = true;
     else if (a == "--shots-backrooms") runSelf = true;
     else if (a == "--shots-poses") runSelf = true;   // AN1 (selftest_br3.cpp)
+    else if (a == "--check-turn-engage") runSelf = true;   // AI5 (selftest_turn.cpp)
+    else if (a == "--capture-lean") runSelf = true;   // MV3 (selftest_lean.cpp)
     else if (a == "--shots-palette") runSelf = true;   // BR5 (selftest_br3.cpp)   // BR3 (selftest_br3.cpp)
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
@@ -825,10 +827,9 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--capture-heli") runSelf = true;   // VH5 (capture_heli.cpp)
-    else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
+    else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
-    else if (a == "--capture-standoff") runSelf = true;   // AI4 (selftest_zombies.cpp)
     else if (a == "--selftest-royale-live") runSelf = true;   // BR7: 20 bots on Newtown (selftest_royale_live.cpp)   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
     else if (a == "--profile-map" && k + 3 < argc) { runSelf = true; k += 3; }   // PF3 CPU frame profile (selftest_perf.cpp)  // G2 zombie AI type, melee, knife v soldiers (selftest_zombies.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)

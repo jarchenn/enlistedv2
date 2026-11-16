@@ -6,7 +6,7 @@
   "reload": 3.5,
   "reload_empty": 4.0333
  },
- "fps": 30,
+ "fps": 30.0,
  "points": {
   "rear": [
    0.15737,

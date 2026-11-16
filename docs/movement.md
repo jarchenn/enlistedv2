@@ -58,6 +58,28 @@ Since MV2 the same Space hold also goes **through windows**, on every building (
 
 The motion, camera, hands and body pose are the climb's. Refusals start with `window:` in `App::mantle.why`. **Player only:** bots have no window nav links.
 
+## Lean (MV3, `App::stepLean`, `src/explore.cpp`)
+
+**Keys.** Hold **Q** to lean left and **E** to lean right; release to straighten. With both held the lean returns upright.
+- Q and E are shared with Next weapon and Interact. With an interact prompt on screen, E interacts at once and does not lean.
+- Otherwise a tap (released within `tap_s`, 0.2 s, before any lean) does the old action on release, and a hold leans.
+- In a vehicle, at a gun, in build mode, in the inventory and while airborne in Battle Royale, the keys keep their old meaning only.
+- Rebinding Lean left / Lean right in Settings > Controls to other keys gives plain held leans, and Q / E become plain actions again.
+- Leaning works standing and crouched, in hip fire and ADS. It is off while sprinting, prone, swimming, climbing or building.
+
+**One shared parameter.** `App::lean.x` runs from -1 to 1. It drives:
+- **Eye (`App::leanOffset`, inside `eyePos()`):** the eye swings on an arc about a waist pivot `radius_m` (0.85) below it. That puts it out to `sideways_m` (0.26 m) and drops it about 4 cm. Yaw and pitch are untouched.
+- **View roll (`viewUp`):** `roll_deg` (6.5) toward the leaning side. The viewmodel is drawn in view space, so the weapon cants with the camera. In ADS the rear and front sights stay on the screen centre, and recoil acts in the leaned weapon frame.
+- **Shots and muzzle flash:** both follow the eye. Hip shots aim with the camera ray and leave from the real muzzle, so a wall between the eye and the muzzle stops them. ADS shots leave the front sight.
+- **Third-person body (`PoseParams::lean`):** `bodyBend_deg` (16) sideways through the three spine joints, with the hips and feet planted. The hit capsules come from the posed joints.
+- **LAN:** client input posture bits 2-6, and the per-soldier snapshot byte bits 1-5 (`kNetVersion` 16).
+
+**Motion.** A critically damped spring settles in `in_s` (0.22 s) going out and `out_s` (0.17 s) coming back. A reversal passes smoothly through upright, and a release mid-lean returns from where it is.
+
+**Walls.** Rays from the upright eye and shoulders (0.32 m lower) limit the lean on each side. The head stays `clearance_m` (0.2 m) off any geometry, so the camera never enters a wall.
+
+All values are in `content/settings/movement.json` (`"lean"`). Bots do not lean. `--capture-lean` takes a wall edge left and right (standing / crouched, hip / ADS) and a leaned bot from the side and the front.
+
 ## Swimming (`src/swim.cpp`)
 
 **Water.** Every gameplay water check goes through `waterAt(app, x, z)` (`src/water_query.{h,cpp}`). It returns the highest of three sources:

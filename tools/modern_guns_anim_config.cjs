@@ -74,9 +74,11 @@ const A = {
   modern_rpg7: { src: X + "rpg7/RPG7_Animations/model/RPG_7.fbx", abs: true, tex: "rpg-7-animations", stat: "modern_rpg7", keep: ["rpg_low", "SK_Mannequin_Arms"], gun: "rpg_low",
     clips: { idle: "root|MC_RPG7_static_pose", idle_empty: "root|MC_RPG7_static_pose_empty", fire: "root|MC_RPG7_shoot", reload: "root|MC_RPG7_reload" },
     mats: { "rpg-7": { albedo: "RPG-7_low_rpg-7_BaseColor.png", rough: "RPG-7_low_rpg-7_Roughness.png", metal: "RPG-7_low_rpg-7_Metallic.png" }, rockets: { albedo: "RPG-7_low_rockets_BaseColor.png", rough: "RPG-7_low_rockets_Roughness.png", metal: "RPG-7_low_rockets_Metallic.png" }, ...manny } },
-  modern_scorpion: { src: X + "scorpion/CZ_Scorpion_Evo3_A1_Anim.blend", abs: true, tex: "scorpion-first-person-animations-2026-remake", stat: "modern_scorpion", keep: ["CZScorpion", "Mesh"], gun: "CZScorpion", defOnly: true,
+  // WP2: the gun has no textures in the set: tools/bake_scorpion_textures.py bakes a 4096 x 2048 set (both UDIM tiles in one,
+  // its UVs halved) into <set>/wp2_bake with the UV-halved source blend; normals opt in (the other rigs keep their look)
+  modern_scorpion: { src: G + "scorpion-first-person-animations-2026-remake/wp2_bake/scorpion_uv_halved.blend", abs: true, maxTex: 4096, normals: true, tex: "scorpion-first-person-animations-2026-remake", stat: "modern_scorpion", keep: ["CZScorpion", "Mesh"], gun: "CZScorpion", defOnly: true,
     clips: { idle: "Idle", fire: "Fire", reload: "Reload", reload_empty: "Reload_Empty" },
-    mats: { CZScorpion: { factor: [0.055, 0.055, 0.05], rough_f: 0.55 }, ...agent } },
+    mats: { CZScorpion: { albedo: "../wp2_bake/scorpion_base.png", rough: "../wp2_bake/scorpion_rough.png", normal: "../wp2_bake/scorpion_normal.png", metal: "../wp2_bake/scorpion_metal.png" }, ...agent } },
   modern_uzi: { src: X + "uzi/1Matzh_Uzi_Animations.blend", abs: true, tex: "uzi-first-person-animations-2026-remake", stat: "modern_uzi", keep: ["UZI", "Mesh"], gun: "UZI", defOnly: true,
     clips: { idle: "Idle", fire: "Fire", reload: "Reload", reload_empty: "Reload_Empty" },
     mats: { UZI: { albedo: "UZI_Base_color.png", rough: "UZI_Roughness.png", metal: "UZI_Metallic.png" }, "UZI Magazine and Bullet": { albedo: "UZI_Magazine_and_Bullet_Base_color.png", rough: "UZI_Magazine_and_Bullet_Roughness.png", metal: "UZI_Magazine_and_Bullet_Metallic.png" }, ...agent } },

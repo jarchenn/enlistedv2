@@ -55,8 +55,10 @@ uniform vec3 uSkyK;               // horizon colour relative to Day (exactly 1 b
 float ign(vec2 p){ return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715))) + float(uFrame % 64)*0.618034); }
 #ifdef NMK_FS
 float pixelNoise(){ return ign(gl_FragCoord.xy); }
+float pixelNoiseFixed(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); }   // FL1: the same every frame
 #else
 float pixelNoise(){ return 0.5; }
+float pixelNoiseFixed(){ return 0.5; }
 #endif
 // one cascade: Vogel-disk PCF in light space. Normal offset grows with the slope to the sun (acne), a small
 // constant depth bias keeps contact (no peter-panning where walls meet the ground).
@@ -68,7 +70,9 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   vec2 e = abs(s.xy*2.0 - 1.0); edge = max(e.x, e.y);
   if (edge >= 1.0 || s.z >= 1.0) { edge = 2.0; return 1.0; }
   float bias = worldTexel*(0.35 + 0.9*min(sinT/max(ndl, 0.08), 6.0))/uShadowDepthRange;
-  float rot = pixelNoise()*6.2831853, sum = 0.0;
+  // FL1: the PCF disk turns per pixel but not per frame: a per-frame turn left penumbrae (ridge tiles, eaves,
+  // railings) shimmering under a still camera where TAA could not average it out
+  float rot = pixelNoiseFixed()*6.2831853, sum = 0.0;
   for (int i = 0; i < taps; ++i) {
     float r = sqrt((float(i) + 0.5)/float(taps)), a = float(i)*2.3999632 + rot;
     sum += texture(sm, vec3(s.xy + vec2(cos(a), sin(a))*r*radiusTex*texel, s.z - bias));
@@ -241,6 +245,7 @@ uniform mat4 uViewM;                   // camera view matrix
 uniform sampler2DShadow uLShadow;      // unit 16: light shadow atlas (standard Z)
 uniform vec4 uLShadowTile;             // tile px, atlas w, atlas h
 uniform float uLampUnit;               // irradiance at 1 m of intensity 1 (scene units; the Day sun is 3.3)
+uniform int uCapture;                  // L2 probe capture: radiance + front-facing flag, no emission (FX1: declared here for lightTerm)
 float lightFalloff(float d2, float r){ float x = d2/(r*r); float w = clamp(1.0 - x*x, 0.0, 1.0); return w*w/max(d2, 0.09); }
 float lightShadow(int slot, bool spot, vec3 w, vec3 Ng, vec3 lp, vec3 L){
   vec3 d = w - lp; int face = 0;
@@ -263,12 +268,13 @@ float lightShadow(int slot, bool spot, vec3 w, vec3 Ng, vec3 lp, vec3 L){
 }
 void lightTerm(int i, vec3 w, vec3 N, vec3 Ng, vec3 V, float a, float rough, vec3 F0, inout vec3 dif, inout vec3 spe){
   LLight l = gLights[i];
+  if (l.misc.w > 0.5 && uCapture == 1) return;   // FX1: the player's headlamp never reaches the probe GI
   vec3 dl = l.posR.xyz - w; float d2 = dot(dl, dl);
   if (d2 >= l.posR.w*l.posR.w) return;
   float d = sqrt(d2); vec3 L = dl/max(d, 1e-4);
   float NdL = dot(N, L);
   if (NdL <= 0.0) return;
-  float att = lightFalloff(d2, l.posR.w);
+  float att = lightFalloff(l.misc.w > 0.5 ? max(d2, 1.0) : d2, l.posR.w);   // FX1: the headlamp stops brightening inside 1 m (the gun at ADS, a wall at arm's length: lit, never blown out)
   if (l.dirC.w > -1.0) att *= smoothstep(l.dirC.w, max(l.misc.x, l.dirC.w + 1e-3), dot(-L, l.dirC.xyz));
   if (att <= 0.0) return;
   if (l.misc.y >= 0.0) att *= lightShadow(int(l.misc.y + 0.5), l.misc.z > 0.5, w, Ng, l.posR.xyz, L);
@@ -459,7 +465,6 @@ uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world str
 uniform float uMapArid;   // NT4: look.arid (desert): sand-filled cracks
 uniform float uMapGrime;   // NT3: an abandoned map's grime (look.grime): ruin walls streaked, roads broken up
 uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
-uniform int uCapture;              // L2 probe capture: radiance + front-facing flag, no emission
 uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
 // uMatLayer (GX5 layered materials: 0 off (Low, probe captures), 1 on, 2 High) is declared with the L4 hooks (textures.cpp)
 struct SDec { vec4 a, b, c; };   // GX5 static decals (static_decals.h): centre + type, normal + seed, half size + strength + variant
@@ -1817,11 +1822,17 @@ void main(){
   if (!gl_FrontFacing) N = -N;                         // glTF models are double sided
   if (uHasNrm == 1) {
     vec3 T = vT.xyz - N*dot(N, vT.xyz);
+    vec3 t = texture(uNrm, vUV).xyz*2.0 - 1.0;
     if (dot(T, T) > 1e-12) {
       T = normalize(T); vec3 B = cross(N, T) * (vT.w < 0.0 ? -1.0 : 1.0);
-      vec3 t = texture(uNrm, vUV).xyz*2.0 - 1.0;
       vec3 n = T*t.x + B*t.y + N*max(t.z, 0.05);
       if (dot(n, n) > 1e-12) N = normalize(n);
+    } else {   // WP2: no tangent stream (skinned first-person rigs): the cotangent frame from the screen derivatives
+      vec3 dp1 = dFdx(vW), dp2 = dFdy(vW); vec2 du1 = dFdx(vUV), du2 = dFdy(vUV);
+      vec3 p2 = cross(dp2, N), p1 = cross(N, dp1);
+      vec3 Tc = p2*du1.x + p1*du2.x, Bc = p2*du1.y + p1*du2.y;
+      float k = max(dot(Tc, Tc), dot(Bc, Bc));
+      if (k > 1e-24) { k = inversesqrt(k); vec3 n = Tc*k*t.x + Bc*k*t.y + N*max(t.z, 0.05); if (dot(n, n) > 1e-12) N = normalize(n); }
     }
   }
   vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
@@ -2177,11 +2188,15 @@ void main(){
   vec3 res = cur;
   if (uValid == 1 && puv.x > 0.0 && puv.x < 1.0 && puv.y > 0.0 && puv.y < 1.0) {
     vec3 h = toYC(tm(histCR(puv)));
-    vec3 lo = m1 - 1.1*sig, hi = m1 + 1.1*sig;
+    float motion = length((puv - vUV)/uTexel);
+    // FL1: a still pixel gets a wider clip box (2.25 sigma): sub-pixel bars, wires, pickets and blade tips show up in only
+    // some jitter positions, and the tight box clipped their history away every frame, so they sparkled with the camera
+    // standing still. Under motion it stays tight against ghosting.
+    float gam = mv.a > 0.5 ? mix(1.75, 1.1, clamp(motion, 0.0, 1.0)) : mix(2.25, 1.1, clamp(motion/1.5, 0.0, 1.0));   // swaying grass / leaves: wider only while nearly still
+    vec3 lo = m1 - gam*sig, hi = m1 + gam*sig;
     vec3 ctr = 0.5*(lo + hi), ext = max(0.5*(hi - lo), vec3(1e-4));   // clip toward the box centre
     vec3 d = h - ctr; vec3 a = abs(d/ext); float mx = max(a.x, max(a.y, a.z));
     if (mx > 1.0) h = ctr + d/mx;
-    float motion = length((puv - vUV)/uTexel);
     float alpha = mix(0.08, 0.30, clamp(motion/16.0, 0.0, 1.0));
     if (uUp == 1) {   // TAAU: a sample far from this pixel counts less; wind-animated pixels (approximate motion) keep less history
       alpha *= 0.25 + 1.5*conf;
@@ -2358,9 +2373,10 @@ void main(){
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
   // textured: uLeafCol is the asset's leafColor / the species mean, so the crown keeps its authored colour
-  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.78 + 0.44*var)*vShade : tx.rgb*uLeafCol*(0.91 + 0.18*var)*vShade;   // L2: less per-card scatter
-  // L2 tone inside the crown (foliage.cpp cardTone): darker and a touch cooler inside / under, lighter and warmer on top / outside
-  alb *= (1.0 + 0.11*vTone)*mix(vec3(0.975, 0.995, 1.035), vec3(1.03, 1.005, 0.94), 0.5 + 0.5*vTone);
+  vec3 alb = vLayer < 0.0 ? uLeafCol*(0.84 + 0.32*var)*vShade : tx.rgb*uLeafCol*(0.92 + 0.16*var)*vShade;   // L2b: +-8 % per card (lighter and darker leaves side by side)
+  // L2 / L2b tone inside the crown (foliage.cpp cardTone, about -1.25 .. 1.25): darker and a touch cooler in the interior, the
+  // underside and the dark clumps; lighter and a touch warmer on the sunlit top, the outside and the light clumps (about +-20-30 % value)
+  alb *= (1.0 + 0.34*vTone)*mix(vec3(0.955, 0.99, 1.06), vec3(1.05, 1.01, 0.9), clamp(0.5 + 0.4*vTone, 0.0, 1.0));
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
   // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
   // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
@@ -2636,6 +2652,7 @@ static const char* kGrassVS = R"GLSL(
 layout(location=0) in vec3 aB; layout(location=1) in vec4 iP; layout(location=2) in vec4 iS;
 uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
+uniform float uPxAngle;              // FL1: radians per pixel (main pass; 0 in the shadow pass)
 uniform float uCount, uShadowPass;   // pasture: clumps in this chunk (0 = nature patch plants); sun-shadow pass (radius)
 uniform vec4 uLod, uLod2;            // pasture LOD: drawn share, near r, mid r, falloff | floor, -, -, wind r
 uniform vec4 uCards;                 // G1: this species group's near / mid / far cards | shadow-pass cards (0 = main pass)
@@ -2799,6 +2816,9 @@ void plantMain(){
   else if (sp == 14) w = 0.034 * uWidthScale * (1.0 - 0.45*v);                       // brush: twig with leaf clusters
   else if (sp == 15) w = 0.0065 * uWidthScale;                                       // stubble
   else w = 0.0045 * uWidthScale;
+  // FL1: no blade thinner than ~0.75 px on screen: sub-pixel blades hit different pixels under each TAA jitter offset
+  // and sparkled on and off with the camera standing still (distant pasture, dune grass, stubble)
+  if (uPxAngle > 0.0) w = max(w, length(root - uCamPos)*uPxAngle*0.75);
   float lift = (sp == 3 || (sp == 12 && isLeaf)) ? 0.35 : 1.0;   // clover leaves lie low and spread
   float curve = sp == 0 ? 0.30 + 0.35*r1 : sp == 2 ? 0.04 + 0.10*r1 : sp == 3 ? 1.6 + 0.6*r1 : sp == 4 ? 0.55 + 0.45*r1 : sp == 1 ? 0.12 + 0.30*r1
               : sp == 13 ? 0.03 + 0.07*r1 : sp == 14 ? 0.35 + 0.30*r1 : sp == 15 ? 0.03
@@ -3159,6 +3179,7 @@ static const char* kExpoFS = R"GLSL(
 #version 450 core
 uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
 uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .. 1.45; night opens the range (lighting.cpp)
+uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
 out float oE;
 void main(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
@@ -3167,7 +3188,7 @@ void main(){
   float lr = dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
   float l = max(lr, 1e-4);
-  float target = clamp(uExpoKey/l, uExpoMin, uExpoMax);
+  float target = max(clamp(uExpoKey/l, uExpoMin, uExpoMax), uExpoFloor);
   float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
@@ -3590,6 +3611,17 @@ std::string Renderer::hdrProbe() const {
 
 void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUseProgram(p);
+  // thumbnails / model sheets / item icons: a fixed studio state whatever map, weather or hour is loaded. Uniforms
+  // persist per program, so everything the main frame sets per map is pinned here: a night / low sun (the asset tiles
+  // set their own key light; the template and sheet renders kept the map's), rain wetness, grime, arid paint, the
+  // material layer / relief, cloud deck
+  const vec3 sunDirMap = sunDir;
+  if (thumbMode && sunDir.y < 0.25f) sunDir = glm::normalize(vec3(0.45f, 0.8f, 0.4f));
+  if (thumbMode) {
+    glUniform1i(U(p, "uWeather"), 0); glUniform1f(U(p, "uMapArid"), 0.0f); glUniform1f(U(p, "uMapGrime"), 0.0f);
+    glUniform1i(U(p, "uMatLayer"), 0); glUniform1f(U(p, "uMatFar"), 0.0f); glUniform1i(U(p, "uRelief"), 0); glUniform1i(U(p, "uMatLod"), 0);
+    glUniform1i(U(p, "uCloudOn"), 0);
+  }
   glUniform3fv(U(p, "uSunDir"), 1, glm::value_ptr(sunDir));
   // sun : sky balance. Legacy ~1.75:1 on lit diffuse (flat, milky shadows); now ~3:1 with a cooler sky fill so
   // shadowed sides read blue-grey and lit faces warm, while shadows stay open (no crushed blacks).
@@ -3642,6 +3674,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uHazeH"), q.hazeHeight);
   glUniform1f(U(p, "uTime"), time);
   lightingUniforms(*this, p);   // L2: local lights, light shadows, probe GI, sky extras
+  sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
 }
 
 Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
@@ -4129,7 +4162,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0; stats.foliageDraws = 0; stats.instDrawn = 0;
   prepFoliageBatches();   // P2 folbatch   // roomCulled: counted from here too
   stats.roomCulled = 0; stats.probePending = stats.probeDirty = stats.probeStaleMax = 0;
-  time += v.dt;
+  if (!holdTime) time += v.dt;
   wx.k += glm::clamp(wx.wantK() - wx.k, -v.dt / 3.0f, v.dt / 3.0f);   // WX2: Clear <-> Cloudy over 3 s (8 s went unnoticed behind the menu) (sun, sky, cover, exposure follow)
   if (wx.enclosed) wx.k = 0.0f;
   if (wx.fogNow < 0) wx.fogNow = wx.fogDens(); else wx.fogNow += glm::clamp(wx.fogDens() - wx.fogNow, -v.dt * 0.002f, v.dt * 0.002f);   // the fog level ramps too
@@ -4353,7 +4386,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
     terrainCacheBind(t, progTerrain);
     glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
+    // FL1: the ground a hair behind anything laid on it (paving, plinths, aprons, roads, ground patches at ~1 cm),
+    // so those win the depth test every frame instead of z-fighting with the terrain
+    glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-zToward(), -2.0f * zToward());
     t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
+    glDisable(GL_POLYGON_OFFSET_FILL);
   };
   if (!perf.terrainLast) drawTerrain();
   gpuMark(GP_Opaque);
@@ -4403,7 +4440,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       setLighting(lp, v);
       glUniformMatrix4fv(U(lp, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
       glUniformMatrix4fv(U(lp, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
-      glUniform1f(U(lp, "uPrevTime"), time - v.dt);
+      glUniform1f(U(lp, "uPrevTime"), holdTime ? time : time - v.dt);
     }
     if (perf.leafPrepass) {   // PF2: canopy depth first (alpha test only), then each covered pixel is shaded once at GL_EQUAL
       glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
@@ -4422,9 +4459,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glDisable(GL_CULL_FACE);
     setLighting(progGrass, v);
     glUniformMatrix4fv(U(progGrass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glUniform1f(U(progGrass, "uPxAngle"), pxAngle);
     glUniformMatrix4fv(U(progGrass, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
     glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
-    glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
+    glUniform1f(U(progGrass, "uPrevTime"), holdTime ? time : time - v.dt);
     glUniform1i(U(progGrass, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);   // GT1 grass plant atlas (off at Low)
     grass->draw(progGrass, vp, v.camPos);
     stats.draws += grass->lastDrawnChunks; stats.tris += (int)grass->lastDrawnBlades * 8;
@@ -4436,9 +4474,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glDisable(GL_CULL_FACE);
     setLighting(progGrass, v);
     glUniformMatrix4fv(U(progGrass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glUniform1f(U(progGrass, "uPxAngle"), pxAngle);
     glUniformMatrix4fv(U(progGrass, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
     glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
-    glUniform1f(U(progGrass, "uPrevTime"), time - v.dt);
+    glUniform1f(U(progGrass, "uPrevTime"), holdTime ? time : time - v.dt);
     // Low / Medium / High share of each patch and reach (the pre-GX3 grass radii: patches keep their own LOD)
     int gq = std::clamp((int)grass->quality, 0, 4);
     const float natFrac[5] = {0.0f, 0.6f, 0.8f, 1.0f, 1.0f}, natR[5] = {0.0f, 38.0f, 58.0f, 85.0f, 85.0f};   // G1 Ultra: patches as High
@@ -4605,6 +4644,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progExpo, "uLod"), (float)levels); glUniform1f(U(progExpo, "uDt"), v.dt);
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
   lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
+  glUniform1f(U(progExpo, "uExpoFloor"), flashOn ? flashExpoFloor : 0.0f);   // FX1
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   expoIdx ^= 1;
 

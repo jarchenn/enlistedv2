@@ -184,6 +184,7 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     const json pbr = m.value("pbrMetallicRoughness", json::object());
     if (pbr.contains("baseColorTexture")) mt.alb = tex(pbr["baseColorTexture"]["index"].get<int>(), true);
     if (pbr.contains("metallicRoughnessTexture")) mt.mr = tex(pbr["metallicRoughnessTexture"]["index"].get<int>(), false);
+    if (wantNormals && m.contains("normalTexture")) mt.n = tex(m["normalTexture"]["index"].get<int>(), false);
     gpu.mats.push_back(mt);
   }
   for (size_t ni = 0; ni < nn; ++ni) {

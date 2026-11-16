@@ -156,7 +156,6 @@ struct BotMind {
   double underFireT = 0, exposedT = 0, lastAct = 0;
   // PF1 zombie packs (zombie.cpp): followers steer along the mesh to a slot by the leader instead of path queries
   int pack = -1; bool follower = false; float speedScale = 1, zSpeed = 4; vec3 flockPush{0}; double flockT = 0, ownPathT = -100;
-  double meleeCheckAt = -100, fleeUntil = -100; int meleeThreat = -1; float meleeR = 0; vec3 fleeGoal{0};   // AI4 standoff: cached nearest melee threat and its range
   double tgtT = 0, badUntil = 0; int badTarget = -1; vec3 hAnchor{0}; double hAnchorT = 0, hClimbTry = 0;   // EN4: progress, climb-out retry   // EN3 heavies (zombie.cpp heavyStep): next target choice, a target found unreachable
 };
 
@@ -269,11 +268,6 @@ public:
   std::unordered_map<int64_t, std::vector<int>> sgrid; std::vector<int> humans;
   static int64_t gridKey(int x, int z) { return ((int64_t)x << 32) ^ (uint32_t)z; }
   void rebuildGrid();
-  // AI4: alive melee-only enemies (zombie brain: zombies, heavies, creatures, fighters) on a coarse 20 m grid, so a gun
-  // bot's standoff check is 25 cell lookups whatever the crowd size; empty when no melee enemy lives (no cost at all)
-  static constexpr float kMeleeCell = 20.0f;
-  std::unordered_map<int64_t, std::vector<int>> mgrid; int meleeAlive = 0;
-  bool meleeStandoff(Soldier& s, const struct WeaponDef& wd);   // ai_layers.cpp: keep the distance from melee threats
   template <class F> void forNear(vec3 p, float r, F&& f) {
     int x0 = (int)std::floor((p.x - r) / kGridCell), x1 = (int)std::floor((p.x + r) / kGridCell);
     int z0 = (int)std::floor((p.z - r) / kGridCell), z1 = (int)std::floor((p.z + r) / kGridCell);

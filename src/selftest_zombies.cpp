@@ -455,57 +455,6 @@ void buildCapture(App&) {
     return shot2 && pendingShot.empty() && t > 3.5f; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
-// AI4 --capture-standoff: no checks, numbers. Four soldier bots with five zombies 25 m out, then the same with golems
-// (the local-only type; the brute without it). For 25 s each (everyone's health topped up) the soldiers' distance to
-// the nearest melee enemy and how many are keeping their distance are logged every 2 s, with the minimum and mean.
-void buildStandoff(App&) {
-  for (int phase = 0; phase < 2; ++phase)
-  push(phase ? "standoff: golems" : "standoff: zombies", [phase](App& a, float t) {
-    static std::vector<int> sol, zs; static double t0, next; static float minD; static double sumD; static int nD, kiting, nK;
-    if (t == 0) {
-      t0 = -1; next = 0; minD = 1e9f; sumD = 0; nD = 0; kiting = 0; nK = 0;
-      if (phase == 0 && !chk(startMode(a, GameMode::TDM, 10, 5, 5, AiType::Soldiers, AiType::Zombies), "TDM: soldiers v zombies (%s)", gGame->setupError.c_str())) return true;
-      return false;
-    }
-    Game& G = *gGame; Soldier* L = G.local();
-    if (!L || !allSpawned(G)) return t > 25 ? (chk(false, "everyone spawns"), true) : false;
-    guardLocal(G); L->hp = 5000;
-    if (t0 < 0) {
-      sol.clear(); zs.clear();
-      for (auto& s : G.sold) if (s.alive && !s.human) (s.zombie ? zs : sol).push_back(s.slot);
-      if (sol.size() < 2 || zs.empty()) { chk(false, "soldiers %zu, zombies %zu", sol.size(), zs.size()); return true; }
-      int gt = enemyTypeIndex("golem"); if (gt < 0) gt = std::max(0, enemyTypeIndex("brute"));
-      for (int z : zs) { Soldier& s = G.sold[z]; s.etype = phase ? gt : 0; aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp;
-        const EnemyType& e = enemyType(s.etype); if (s.agent >= 0 && e.capsuleH > 0) { Physics::destroyAgent(s.agent); s.agent = Physics::createAgent(s.feet, e.capsuleH, e.capsuleR); } }
-      vec3 c = G.sold[sol[0]].feet, p;
-      for (size_t k = 1; k < sol.size(); ++k) if (openPoint(G, c, 2.5f, p, 1.3f * k)) place(G, G.sold[sol[k]], p);
-      for (size_t k = 0; k < zs.size(); ++k) if (openPoint(G, c, 25.0f, p, 0.35f * k)) place(G, G.sold[zs[k]], p);
-      if (openPoint(G, c, 60.0f, p, 3.6f)) place(G, *L, p);   // the player well out of the way
-      T->note(std::string("standoff ") + enemyType(G.sold[zs[0]].etype).id + ": " + std::to_string(sol.size()) + " soldiers, " + std::to_string(zs.size()) + " melee enemies at 25 m");
-      t0 = G.t; return false;
-    }
-    for (int k : sol) { G.sold[k].hp = 5000; G.sold[k].protectUntil = -1; }
-    for (int z : zs) if (G.sold[z].alive) G.sold[z].hp = std::max(G.sold[z].hp, enemyType(G.sold[z].etype).hp);
-    float since = (float)(G.t - t0);
-    if (since >= next) {
-      next += 0.5;
-      float lineMin = 1e9f; int k2 = 0;
-      for (int k : sol) {
-        const Soldier& s = G.sold[k]; if (!s.alive) continue;
-        float d = 1e9f; for (int z : zs) if (G.sold[z].alive) d = std::min(d, dXZ(G.sold[z].feet, s.feet));
-        if (d > 1e8f) continue;
-        lineMin = std::min(lineMin, d); if (since > 3) { minD = std::min(minD, d); sumD += d; ++nD; }
-        bool kite = s.br.why.find("distance") != std::string::npos || s.br.why.find("gap") != std::string::npos || s.br.why.find("outrun") != std::string::npos || s.br.why.find("holding range") != std::string::npos;
-        k2 += kite; if (since > 3) { kiting += kite; ++nK; }
-      }
-      if ((int)(since * 2) % 4 == 0) { char ln[200]; std::snprintf(ln, sizeof ln, "t %.1f: nearest melee enemy %.1f m, %d of %zu soldiers keeping distance (%s, speed %.1f, path %d)", since, lineMin, k2, sol.size(), G.sold[sol[0]].br.why.c_str(), G.sold[sol[0]].speed, aiCore() ? (int)aiCore()->mind(G.sold[sol[0]]).hasPath : -1); T->note(ln); }
-    }
-    if (since < 25) return false;
-    chk(nD > 0, "%s: soldiers' distance to the nearest melee enemy after the first 3 s: min %.1f m, mean %.1f m; keeping distance in %.0f %% of samples",
-        phase ? "golems" : "zombies", minD, nD ? (float)(sumD / nD) : 0.0f, nK ? 100.0f * kiting / nK : 0.0f);
-    return true; });
-  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
-}
 }   // namespace
 
 // --capture-fighter2: no checks, a look at the grounding (zombie.cpp aiZombieFeet). On Chateau town Fighter 2 (her local
@@ -572,6 +521,88 @@ void buildFighterCapture(App&) {
 // --capture-fighter2-slam: no checks, a look at the body slam. On Chateau town two soldiers are held on the spot the torso
 // lands (so the slam is chosen: two hostiles in its oval) and the player is a camera 80 m to the side of her line; one
 // frame each on all fours, flat and getting up (selftest_out/fighter2_slam_{allfours,flat,getup}.png).
+// CH6 --capture-ch6: strikes land where the limb is. TDM: the player and three soldiers v a boglord and a knight (local types).
+//   hand:  the boglord, a soldier straight ahead at 3 m (under its hand) and one 3 m to that one's side; both held still
+//   bite:  a lone soldier 8 m ahead: the bite (range 5-12 m) leaps in and kills it
+//   knight: the knight walks up to a held soldier: the mace (right hand + 0.8 m) lands
+//   heads: abomination, golem, brute, boglord, knight in turn: a ray at the head capsule's middle is a head hit (CH7)
+// selftest_out/ch6_*.png, report_ch6.txt
+void buildStrikeCapture(App&) {
+  struct S { int bog = -1, kn = -1, s1 = -1, s2 = -1, s3 = -1; vec3 o{0}, f{0, 0, 1}, sd{1, 0, 0}; float d1 = 0, d2 = 0; bool shot = false; vec3 b0{0}; } static C;
+  push("start", [](App& a, float t) {
+    Game& G = *gGame;
+    if (t == 0) { chk(startMode(a, GameMode::TDM, 6, 4, 2, AiType::Soldiers, AiType::ZombiesHeavies), "TDM: the player and three soldiers v a boglord and a knight (%s)", gGame->setupError.c_str()); return false; }
+    Soldier* L = G.local(); if (!L || !L->alive || !allSpawned(G)) return t > 20 ? (chk(false, "everyone spawns"), true) : false;
+    int k = 0; for (auto& s : G.sold) if (s.zombie && k < 2) { s.etype = std::max(0, enemyTypeIndex(k == 0 ? "boglord" : "knight")); aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp; (k == 0 ? C.bog : C.kn) = s.slot; ++k;
+      const EnemyType& e = enemyType(s.etype); if (s.agent >= 0 && e.capsuleH > 0) { Physics::destroyAgent(s.agent); s.agent = Physics::createAgent(s.feet, e.capsuleH, e.capsuleR); } }
+    int j = 0; for (auto& s : G.sold) if (!s.zombie && !s.localPlayer) { (j == 0 ? C.s1 : j == 1 ? C.s2 : C.s3) = s.slot; ++j; }
+    chk(C.bog >= 0 && C.kn >= 0 && j >= 3 && enemyType(G.sold[C.bog].etype).id == "boglord" && enemyType(G.sold[C.kn].etype).id == "knight", "the boglord, the knight and three soldiers");
+    C.o = L->feet + App::forward(a.eyeYaw, 0) * 20.0f; C.o.y = a.terrain.height(C.o.x, C.o.z); C.f = glm::normalize(vec3(App::forward(a.eyeYaw, 0).x, 0, App::forward(a.eyeYaw, 0).z)); C.sd = vec3(-C.f.z, 0, C.f.x);
+    place(G, G.sold[C.bog], C.o); C.b0 = C.o; return true; });
+  auto hold = [](Game& G, int slot, vec3 p, float hp) { Soldier& s = G.sold[slot]; if (!s.alive) return; p.y = G.app.terrain.height(p.x, p.z); place(G, s, p); if (hp > 0) s.hp = hp; s.protectUntil = -1; };
+  auto cam = [](App& a, vec3 at, vec3 from) { Game& G = *gGame; Soldier* L = G.local(); from.y = a.terrain.height(from.x, from.z); place(G, *L, from); L->hp = 5000; L->protectUntil = G.t + 1;
+    vec3 d = at - from; a.eyeYaw = glm::degrees(std::atan2(-d.x, -d.z)); a.eyePitch = 4; };
+  push("hand", [hold, cam](App& a, float t) {
+    Game& G = *gGame; Soldier& B = G.sold[C.bog];
+    vec3 p1 = C.o + C.f * 3.0f, p2 = p1 + C.sd * 3.0f;
+    if (t == 0) { C.d1 = C.d2 = 0; C.shot = false; G.sold[C.s1].hp = G.sold[C.s2].hp = 5000; }
+    float h1 = G.sold[C.s1].hp, h2 = G.sold[C.s2].hp;
+    C.d1 += std::max(0.0f, 5000 - h1); C.d2 += std::max(0.0f, 5000 - h2);
+    if (!C.shot && (h1 < 5000 || h2 < 5000)) { C.shot = true; pendingShot = outDir() / "ch6_boglord_hand.png"; T->note("hand: blow with clip " + std::string(B.anim.a >= 0 ? G.models[B.model]->clips[B.anim.a].name : "-")); }
+    hold(G, C.s1, p1, 5000); hold(G, C.s2, p2, 5000); hold(G, C.s3, C.o + C.f * 70.0f, 5000); hold(G, C.kn, C.o - C.f * 80.0f, 0);
+    { static float nt = 0; if (t == 0) nt = 0; if (t >= nt) { nt += 1.0f; char b[240]; std::snprintf(b, sizeof b, "hand t %.1f: boglord target %d (s1 %d) d %.1f wind %.2f ready in %.1f clip %s hp %.0f alive %d", t, B.br.target, C.s1,
+      glm::length(vec2(G.sold[C.s1].feet.x - B.feet.x, G.sold[C.s1].feet.z - B.feet.z)), B.meleeWind, (float)(B.meleeReady - G.t), B.anim.a >= 0 ? G.models[B.model]->clips[B.anim.a].name.c_str() : "-", B.hp, (int)B.alive); T->note(b); } }
+    cam(a, C.o + C.f * 1.5f, C.o + C.f * 1.5f + C.sd * -13.0f);
+    if (t < 9.0f && !(C.d1 > 0 && t > 4.0f)) return false;
+    chk(C.d1 > 0, "the soldier under the boglord's hand is hit (%.0f damage)", C.d1);
+    T->note("the soldier 3 m to its side took " + std::to_string((int)C.d2) + " damage (0 unless the swing passed over it)");
+    return true; });
+  push("bite", [hold, cam](App& a, float t) {
+    Game& G = *gGame; Soldier& B = G.sold[C.bog]; Soldier& V = G.sold[C.s3];
+    static vec3 vAt; static float startD;
+    if (t == 0) { C.shot = false; B.meleeWind = -1; B.meleeReady = 0; place(G, B, C.o); vAt = C.o + C.f * 8.0f; vAt.y = a.terrain.height(vAt.x, vAt.z); place(G, V, vAt); V.hp = 100; startD = 8.0f; }
+    hold(G, C.s1, C.o + C.f * 80.0f + C.sd * 10.0f, 5000); hold(G, C.s2, C.o + C.f * 80.0f - C.sd * 10.0f, 5000); hold(G, C.kn, C.o - C.f * 80.0f, 0);
+    if (V.alive) { place(G, V, vAt); V.protectUntil = -1; }
+    std::string clip = B.anim.a >= 0 ? G.models[B.model]->clips[B.anim.a].name : "-";
+    { static float nt = 0; if (t == 0) nt = 0; if (t >= nt) { nt += 1.0f; char b[200]; std::snprintf(b, sizeof b, "bite t %.1f: target %d (v %d) d %.1f wind %.2f clip %s v.hp %.0f", t, B.br.target, V.slot,
+      glm::length(vec2(V.feet.x - B.feet.x, V.feet.z - B.feet.z)), B.meleeWind, clip.c_str(), V.hp); T->note(b); } }
+    if (!C.shot && !V.alive) { C.shot = true; pendingShot = outDir() / "ch6_boglord_bite.png";
+      T->note("bite: target down while the boglord plays " + clip + ", " + std::to_string(glm::length(vec2(vAt.x - B.feet.x, vAt.z - B.feet.z))) + " m from it (it started " + std::to_string(startD) + " m away)"); }
+    cam(a, (C.o + vAt) * 0.5f, (C.o + vAt) * 0.5f + C.sd * -22.0f);   // further than the soldier: the bite's target is it, not the camera
+    if (t < 12.0f && !(C.shot && t > 1.0f)) return false;
+    chk(!V.alive, "the bite: the soldier 8 m ahead is killed");
+    return true; });
+  push("knight", [hold, cam](App& a, float t) {
+    Game& G = *gGame; Soldier& K = G.sold[C.kn];
+    static vec3 at;
+    if (t == 0) { C.shot = false; C.d1 = 0; at = C.o + C.sd * 30.0f; place(G, K, at + C.f * 7.0f); K.meleeWind = -1; K.meleeReady = 0; G.sold[C.s1].hp = 5000; }
+    float h = G.sold[C.s1].hp; C.d1 += std::max(0.0f, 5000 - h);   // read before it is held (and topped up) again
+    hold(G, C.bog, C.o + C.f * 90.0f, 0); hold(G, C.s1, at, 5000); hold(G, C.s2, at + C.f * 70.0f, 5000);
+    { static float nt = 0; if (t == 0) nt = 0; if (t >= nt) { nt += 1.0f; char b[200]; std::snprintf(b, sizeof b, "knight t %.1f: target %d (s1 %d) d %.1f wind %.2f clip %s", t, K.br.target, C.s1,
+      glm::length(vec2(at.x - K.feet.x, at.z - K.feet.z)), K.meleeWind, K.anim.a >= 0 ? G.models[K.model]->clips[K.anim.a].name.c_str() : "-"); T->note(b); } }
+    if (!C.shot && h < 5000) { C.shot = true; pendingShot = outDir() / "ch6_knight_mace.png"; T->note("knight: blow with clip " + std::string(K.anim.a >= 0 ? G.models[K.model]->clips[K.anim.a].name : "-")); }
+    cam(a, at + C.f * 1.5f, at + C.f * 1.5f + C.sd * 15.0f);   // further than the soldier: the knight's target is it, not the camera
+    if (t < 12.0f && !(C.shot && t > 1.0f)) return false;
+    chk(C.d1 > 0, "the knight's mace lands on the soldier (%.0f damage)", C.d1);
+    return true; });
+  push("heads", [hold, cam](App& a, float t) {   // CH7: a ray at the middle of each big type's head capsule is a head hit
+    Game& G = *gGame; Soldier& Z = G.sold[C.kn];
+    static const char* ids[] = {"abomination", "golem", "brute", "boglord", "knight"}; static int i = 0, done = -1;
+    int cur = std::min(4, (int)(t / 1.5f));
+    if (cur != done && std::fmod(t, 1.5f) < 0.1f) { Z.etype = std::max(0, enemyTypeIndex(ids[cur])); aiZombieAssign(G, Z); done = cur; i = cur; }
+    vec3 at = C.o + C.sd * 60.0f; hold(G, C.kn, at, enemyType(Z.etype).hp); hold(G, C.bog, C.o + C.f * 90.0f, 0);
+    cam(a, at, at + C.sd * 12.0f);
+    if (std::fmod(t, 1.5f) > 1.2f && done == i) {
+      vec3 hd = vec3(Z.world * vec4(Z.pose.joint[CJ_HEAD], 1)), nk = vec3(Z.world * vec4(Z.pose.joint[CJ_NECK], 1));
+      vec3 mid = hd + glm::normalize(hd - nk + vec3(1e-4f)) * 0.06f * Z.eBody, from = mid + C.sd * 6.0f; HitZone hz;
+      bool hit = G.hitTest(Z, from, glm::normalize(mid - from), 50.0f, hz);
+      chk(hit && hz.zone == 0, "%s: a ray at its head is a head hit (zone %d, head %.1f m up)", ids[i], hit ? hz.zone : -1, hd.y - Z.feet.y);
+      done = -2;
+    }
+    return t > 7.5f; });
+  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+}
+
 void buildSlamCapture(App&) {
   push("slam", [](App& a, float t) {
     static int fz, sz[2], got; static double t0; static vec3 F, P, sd;
@@ -621,10 +652,10 @@ void buildSlamCapture(App&) {
 }
 
 bool zombiesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-ch1") mode = 5; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; else if (s == "--capture-standoff") mode = 6; } }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-ch1") mode = 5; else if (s == "--capture-ch6") mode = 6; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; } }
   if (mode < 1 || mode > 6) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; ch1Capture = mode == 5; if (mode == 5) mode = 2; T = new MpTest(ch1Capture ? "ch1" : mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : mode == 6 ? "standoff" : "zombies"); if (mode == 6) buildStandoff(app); else if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else build(app); cur = 0; st = 0; }
+  if (!started) { started = true; ch1Capture = mode == 5; if (mode == 5) mode = 2; T = new MpTest(mode == 6 ? "ch6" : ch1Capture ? "ch1" : mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else if (mode == 6) buildStrikeCapture(app); else build(app); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

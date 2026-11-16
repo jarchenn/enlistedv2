@@ -437,7 +437,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   s.cooldown = std::max(0.0f, s.cooldown - dt);
   float boltPrev = s.bolt;
   s.bolt = std::max(0.0f, s.bolt - dt);
-  if (d.action == "bolt" && d.boltTime > 0 && boltPrev > s.bolt) {   // working the bolt: open, then close (bank foley; "bolt" fallback)
+  if (d.action == "bolt" && d.boltTime > 0 && boltPrev > s.bolt && !audio.hasEvent("bolt_cycle_" + d.id)) {   // working the bolt: open, then close (bank foley; "bolt" fallback; SND4: the cycle recording plays at the shot instead)
     auto crossed = [&](float u) { float k = d.boltTime * (1 - u); return boltPrev > k && s.bolt <= k; };
     if (crossed(0.25f)) audio.play("bolt", eyePos(), 0.6f);
     if (crossed(0.7f)) audio.play("bolt_close", eyePos(), 0.6f);
@@ -514,7 +514,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       s.clicked = false;
       s.loaded -= 1; ++s.shotIdx; ++s.burst;
       s.cooldown = 60.0f / d.rpm;
-      if (d.action == "bolt") s.bolt = d.boltTime;
+      if (d.action == "bolt") { s.bolt = d.boltTime; if (audio.hasEvent("bolt_cycle_" + d.id)) audio.play("bolt_cycle_" + d.id, eyePos(), 0.7f); }   // SND4: open-back, forward-close, twice
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)

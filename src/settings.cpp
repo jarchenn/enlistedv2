@@ -178,7 +178,7 @@ const Action kActions[] = {{"fireMode", "Fire mode"}, {"prone", "Prone"}, {"crou
                            {"forward", "Move forward"}, {"back", "Move back"}, {"left", "Move left"}, {"right", "Move right"}, {"sprint", "Sprint"}, {"jump", "Jump"},
                            {"leanLeft", "Lean left"}, {"leanRight", "Lean right"}, {"interact", "Interact / enter"}, {"reload", "Reload"}, {"nextWeapon", "Next weapon"},
                            {"slot1", "Weapon slot 1"}, {"slot2", "Weapon slot 2"}, {"slot3", "Weapon slot 3 (knife)"}, {"slot4", "Weapon slot 4 (grenades)"},
-                           {"build", "Build"}, {"loadout", "Loadout / range"}, {"map", "Map"}, {"artillery", "Artillery"}, {"scoreboard", "Scoreboard"}};   // UI1
+                           {"build", "Build"}, {"loadout", "Loadout / range"}, {"map", "Map"}, {"artillery", "Artillery"}, {"scoreboard", "Scoreboard"}, {"flashlight", "Flashlight (headlamp)"}};   // UI1
 int* bindSlot(App& app, const std::string& a) {
   auto& b = app.binds;
   return a == "fireMode" ? &b.fireMode : a == "prone" ? &b.prone : a == "crouch" ? &b.crouch : a == "packUp" ? &b.packUp : a == "grenade" ? &b.grenade : a == "smokeGrenade" ? &b.smokeGrenade : b.key.count(a) ? &b.key[a] : nullptr;
