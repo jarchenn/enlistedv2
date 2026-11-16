@@ -195,6 +195,9 @@ void sdEnd() { delete gSd; gSd = nullptr; }
 
 void sdOnSpawned(Game& g, int slot) {
   if (!gSd || slot < 0 || slot >= (int)gSd->players.size()) return;
+  gSd->players[slot].alive = true; gSd->players[slot].feet = g.sold[slot].feet;
+  const Soldier& s = g.sold[slot];
+  if (!s.human && !s.localPlayer && gSd->buyOpen() && gSd->players[slot].bought.empty()) botBuy(g, slot);   // bots shop as they arrive in spawn
   applyGear(g, slot);
 }
 
@@ -227,7 +230,6 @@ void sdStep(Game& g, float dt) {
           if (s.alive) { s.alive = false; if (s.agent >= 0) { Physics::destroyAgent(s.agent); s.agent = -1; } }
           auto& rs = g.match.slots[s.slot]; rs.alive = false; rs.pending = true;
         }
-        for (auto& s : g.sold) if (!s.human && !s.localPlayer) botBuy(g, s.slot);
         botSite = (int)(((uint32_t)m.round * 2654435761u) >> 7) % 2;
         say("Round " + std::to_string(m.round) + ": " + std::string(sideName(0)) + " attack", g);
         break; }
@@ -271,7 +273,8 @@ void sdOnKill(Game& g, int victim, int killer, const std::string& how) {
   Soldier& v = g.sold[victim];
   if (v.localPlayer && m.phase != SdPhase::Warmup)   // the local player's main gun falls too (bots drop theirs in killSoldier)
     for (int w : g.app.carried) if (w >= 0 && weaponSlotKind(m, g.app.weaponDefs[w]->id) == 1 && g.app.weaponDefs[w]->action != "melee" && g.app.weaponDefs[w]->action != "grenade") { g.drops.push_back({v.feet + vec3(0, 0.06f, 0), v.yaw, w, g.app.wstate[g.app.weaponDefs[w]->id], g.t}); break; }
-  if (m.phase != SdPhase::Warmup) addFeed((killer >= 0 && killer != victim ? g.match.slots[killer].name : std::string("The bomb")) + "  >  " + g.match.slots[victim].name + (tk ? " (team kill)" : ""), g);
+  if (m.phase != SdPhase::Warmup) addFeed(killer >= 0 && killer != victim ? g.match.slots[killer].name + "  >  " + g.match.slots[victim].name + (tk ? " (team kill)" : "")
+                                          : m.bomb == SdBomb::Detonated ? "The bomb  >  " + g.match.slots[victim].name : g.match.slots[victim].name + " died", g);
 }
 
 float sdArmor(Game& g, int victim, float D, const char* how, int attacker) {
@@ -423,7 +426,7 @@ void sdDrawHud(Game& g) {
   std::snprintf(b, sizeof b, "round %d%s", m.round, m.overtime ? ", overtime" : ""); centered(py + 40, cGrey, b);
   if (m.phase == SdPhase::Freeze || m.phase == SdPhase::Timeout || m.phase == SdPhase::Warmup || m.phase == SdPhase::Halftime || m.phase == SdPhase::OvertimeBreak || m.phase == SdPhase::Ready)
     centered(py + ph + 8, cGold, std::string(sdPhaseName(m.phase)) + ": " + mmss((float)(m.phaseEnd - m.t)) + (m.phase == SdPhase::Warmup ? "   (/sd skip to start)" : "   (B: buy)"), 1.2f);
-  else if (m.buyOpen() && me >= 0 && inZone(g, me)) centered(py + ph + 8, cGold, "Buy time " + mmss((float)(m.liveStart + m.cfg.liveBuy - m.t)) + "   (B)");
+  else if (m.buyOpen() && me >= 0 && m.players[me].alive && inZone(g, me)) centered(py + ph + 8, cGold, "Buy time " + mmss((float)(m.liveStart + m.cfg.liveBuy - m.t)) + "   (B)");
   if (!banner.empty() && g.t - bannerAt < 4.0) centered(H * 0.28f, IM_COL32(255, 255, 255, 235), banner, 1.6f);
   // bottom left: money, armor, kit, the bomb
   if (me >= 0) {
@@ -446,8 +449,8 @@ void sdDrawHud(Game& g) {
       centered(y0 - 22, cWhite, what);
     } else if (m.defuser >= 0 && mySide == 1) centered(H * 0.62f, cWhite, g.match.slots[m.defuser].name + " is defusing");
   }
-  // kill feed, top right
-  float fy = 12;
+  // kill feed, top right under the minimap
+  float fy = 300;
   for (auto& f : feed) if (g.t - f.at < 8.0) { float w = width(f.text); dl->AddRectFilled(ImVec2(W - w - 22, fy - 2), ImVec2(W - 8, fy + ImGui::GetFontSize() + 2), IM_COL32(12, 14, 16, 150), 4); text(vec2(W - w - 15, fy), cWhite, f.text); fy += ImGui::GetFontSize() + 8; }
   // the buy menu
   if (buyMenu && me >= 0) {

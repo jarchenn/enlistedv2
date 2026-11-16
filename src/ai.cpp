@@ -48,7 +48,7 @@ void Game::aiStep(Soldier& s, float dt) {
   BotMind& m = A->mind(s);
   Brain& b = s.br;
   b.modeT += dt; b.grenadeCD -= dt;
-  if ((A->frozen && !A->stepRun) || sdFrozen()) {   // debug freeze / SD1 freeze time: bots stand still, nothing thinks
+  if ((A->frozen && !A->stepRun) || sdFrozen() || (sdActive() && sdBotHolding(*this, s))) {   // debug freeze / SD1 freeze time, planting, defusing: bots stand still
     Physics::updateAgent(s.agent, dt, vec3(0), false, s.posture, s.yaw);
     auto st = Physics::agent(s.agent); s.feet = st.pos; s.vel = vec3(0); s.speed = 0;
     return;

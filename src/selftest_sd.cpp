@@ -15,7 +15,7 @@
 namespace {
 MpTest* T = nullptr;
 int mode = -1, stage = 0; double stageAt = 0; bool started = false, forcedThisRound = false, sawHalftime = false;
-int lastRound = 0, freeRounds = 0; float total = 0;
+int lastRound = 0, freeRounds = 0; float total = 0; fs::path pendingShot; bool shotPlanted = false, shotFreeze = false;
 SdReason want = SdReason::None; int wantSide = -1;
 std::map<int, int> reasons;
 
@@ -42,7 +42,7 @@ const char* sideName(int s) { return s == 0 ? "attackers" : "defenders"; }
 bool sdSelfTest(App& app, float dt) {
   if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--selftest-sd") mode = 1; }
   if (mode != 1) return false;
-  if (dt < 0) return true;
+  if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
   if (!started) {
     started = true; T = new MpTest("sd");
     auto bad = sdLogicSelfCheck();
@@ -94,6 +94,10 @@ bool sdSelfTest(App& app, float dt) {
       if (m.carrier >= 0) { const Soldier& c = g.sold[m.carrier]; const Objective& A = g.match.sc.objectives[0]; const Objective& B = g.match.sc.objectives[1];
         char b[260]; std::snprintf(b, sizeof b, "r%d t%.0f carrier %d at (%.1f %.1f %.1f) speed %.2f, %.1f m from A (in %d), %.1f m from B (in %d), holding %d, why %s", m.round, live, m.carrier, c.feet.x, c.feet.y, c.feet.z, c.speed,
           glm::length(vec2(c.feet.x - A.pos.x, c.feet.z - A.pos.z)), (int)A.contains(c.feet), glm::length(vec2(c.feet.x - B.pos.x, c.feet.z - B.pos.z)), (int)B.contains(c.feet), (int)sdBotHolding(g, c), c.br.why.c_str()); T->note(b); } } }
+  if (!shotFreeze && m.round == 2 && m.phase == SdPhase::Freeze && m.t - m.phaseEnd > -1.0) { shotFreeze = true; app.uiShot = exeDir() / "selftest_out" / "sd_freeze.png"; }   // the HUD in freeze
+  if (!shotPlanted && m.round == 4 && m.phase == SdPhase::LivePlanted) {   // the HUD with the bomb planted (spectating a teammate)
+    shotPlanted = true; app.uiShot = exeDir() / "selftest_out" / "sd_planted.png";
+  }
   if (m.round == 4 && m.phase == SdPhase::LivePlanted)   // nobody comes to defuse: it detonates
     for (auto& s : g.sold) if (s.alive && m.sideOf(s.slot) == 1 && glm::length(s.feet - m.bombPos) < 60.0f) { vec3 far = m.bombPos + glm::normalize(s.feet - m.bombPos + vec3(0.01f, 0, 0)) * 70.0f; far.y = g.app.terrain.height(far.x, far.z) + 0.1f; put(g, s, far); }
   if (m.round == 5 && m.phase == SdPhase::LivePlanted && stage == 0) {   // the attackers fall; a defender bot comes to defuse

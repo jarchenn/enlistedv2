@@ -89,3 +89,46 @@ The game refuses to start the mode on a map with:
 ### 9. Temporary markers
 
 Until the dedicated maps exist, the mode runs on `templates/chateau_town.nmap.json` with built-in temporary sites and spawns (`src/sd_mode.cpp`, `sdTempLayout`). These are used only when a map has no Search and Destroy scenario.
+
+## Playing it
+
+- **Start:** Play > match setup > "Search and Destroy". The defaults are 5 v 5 soldiers on two persistent teams. Options:
+  - "Short match" (MR12);
+  - "Warmup (60 s)";
+  - friendly fire (on by default, spec §11).
+  Any map works: one without an authored layout gets the temporary one (§9).
+- **Round flow:** freeze 15 s (frozen; buy with **B** inside your spawn), then 1:55 live with 20 more seconds of buying.
+- **Planting:** the bomb carrier holds **E** inside a site's plant area for 3.2 s (it shows on the HUD).
+- **After the plant:** a 40 s fuse. Defenders hold **E** within 1.5 m of the bomb: 10 s, or 5 s with a kit.
+- **Commands:** `/sd skip` (end the warmup), `/sd timeout`, `/sd buy <id>`, `/sd state`.
+- **Data:** every rule value, reward, price and the shop are in `content/settings/search_destroy.json`.
+
+## Implementation
+
+- **`src/sd_mode.{h,cpp}`:** the authoritative round controller, pure logic. It has:
+  - the states Warmup / Ready / Freeze / LiveUnplanted / LivePlanted / RoundEnd / Halftime / OvertimeBreak / MatchEnd / Timeout;
+  - the clocks;
+  - the result precedence and tie policy: plant before the deadline, defuse before the detonation (a tie detonates); objective resolution before eliminations; one latched result;
+  - the bomb;
+  - the economy: rewards, the loss ladder, the timeout rule, the planted-loss bonus;
+  - buying and refunds, MR15 / MR12 and MR3 overtime blocks.
+  `sdLogicSelfCheck` covers the spec's edge cases.
+- **`src/sd_game.{h,cpp}`:** the game layer:
+  - the temporary layout;
+  - the round reset (everyone respawns at the side's markers, survivors keep what they carry);
+  - gear and the free pistols;
+  - side and uniform swaps;
+  - plant / defuse holds;
+  - the planted bomb, drawn as the explosion pack with its LED and accelerating beeps;
+  - the 500 / 35 m personnel-only blast;
+  - armor (spec §8 formula);
+  - kill rewards;
+  - bot goals and buying;
+  - HUD, kill feed and buy menu;
+  - LAN.
+- **LAN:** the host owns everything. Clients receive the state (`"sd"` events, on every change and at least every 0.5 s; `"sdboom"` for the blast) and send `"sdhold"` / `"sdbuy"` requests. `kNetVersion` is 17.
+- **`--selftest-sd [map]`:**
+  - the logic self-check;
+  - bot rounds 5 v 5, one per win condition (defenders eliminated, attackers eliminated, time, a bot plant that detonates, a bot plant a defender bot defuses);
+  - halftime (sides swap, $800);
+  - a free bot round.
