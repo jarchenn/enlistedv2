@@ -343,7 +343,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
           }
         }
       }
-      if ((r.asset->ivy.mode != IvyDef::NONE || (i.extra.is_object() && i.extra.contains("ivy"))) && camDist < 150.0f) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // IV1: or a placed copy with its own ivy
+      if ((r.asset->ivy.mode != IvyDef::NONE || (i.extra.is_object() && i.extra.contains("ivy"))) && camDist < 110.0f) { extern void ivyDrawItem(App&, const Instance&, InstanceRT&, const mat4&, float); ivyDrawItem(*this, i, r, M, camDist); }   // IV1: or a placed copy with its own ivy
       continue;
     }
     if (r.defDestroyed) { op.push_back({&r.asset->defBrokenMesh, M}); continue; }
@@ -1062,9 +1062,12 @@ int App::run(int argc, char** argv) {
       R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapHaze = lk ? std::clamp(lk->value("haze", 1.0f), 0.0f, 6.0f) : 1.0f;   // AS1
-      R.wx.mapWx = lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
+      R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
+      R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
+      R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
+      R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);
       R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
-      { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky
+      { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog + (int)(R.wx.mapCloud * 1000.0f) * 64; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky
       R.wx.enclosed = fixedHour || R.lt.mapNoFog;   // WX2: Tunnels / Backrooms keep their own light
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
     }

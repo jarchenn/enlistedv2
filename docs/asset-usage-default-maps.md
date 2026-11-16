@@ -150,7 +150,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_mirror` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used |
 | `furn_pan_rail` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used |
 | `furn_pantry` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used |
-| `furn_papers` | Furniture | 1: D: CP map table (maps) | terrain-only base map | not used | not used | not used | not used | not used |
+| `furn_papers` | Furniture | 1: D: CP map table (maps) | terrain-only base map | not used | not used | not used | not used | 35 |
 | `furn_pew` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used |
 | `furn_picture` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used |
 | `furn_plate_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used |
@@ -224,7 +224,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_boulder_schist_slab` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
 | `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 |
 | `nat_bracken_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 42 | not used | not used | not used |
-| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 2 |
+| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 37 |
 | `nat_brush_patchy` | Vegetation | not placed: V9 ground cover (patchy brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `nat_brush_rank` | Vegetation | not placed: V9 ground cover (rank brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `nat_brush_scrub` | Vegetation | not placed: V9 ground cover (dry scrub, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 59 | not used | not used | not used |
@@ -243,9 +243,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_flowers_poppy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 110 | 39 | not used | not used | not used |
 | `nat_gorse_shrub` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 91 | not used | not used | not used |
 | `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used |
-| `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 54 |
+| `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 60 |
 | `nat_meadow_mixed` | Vegetation | not placed: V9 ground cover (mixed meadow, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 44 | 62 | not used | not used | 25 |
-| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 99 |
+| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 147 |
 | `nat_outcrop_limestone` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 2 | not used | not used | 5 |
 | `nat_outcrop_schist` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used |
 | `nat_sapling_ash` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 |
@@ -253,8 +253,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_scree_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used |
 | `nat_stones_granite_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 112 |
 | `nat_stones_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 4 | not used | not used | 250 |
-| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 89 |
-| `nat_tallgrass_verge` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 9 | 75 | not used | not used | not used |
+| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 104 |
+| `nat_tallgrass_verge` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 9 | 75 | not used | not used | 14 |
 | `nat_wheat_field` | Vegetation | not placed: V9 ground cover (wheat field square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 52 | not used | not used | not used | not used |
 | `nat_wheat_stubble` | Vegetation | not placed: V9 ground cover (wheat stubble square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 58 | not used | not used | not used | not used |
 | `nat_wheat_trampled` | Vegetation | not placed: V9 ground cover (trampled wheat square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 8 | not used | not used | not used | not used |
@@ -269,7 +269,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `rub_brick_pile_m` | Rubble | not placed: V3 rubble (Brick rubble pile (medium), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `rub_brick_pile_s` | Rubble | not placed: V3 rubble (Brick rubble pile (small), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `rub_collapsed_wall` | Rubble | not placed: V3 rubble (Collapsed wall section, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
-| `rub_debris_patch` | Rubble | not placed: V3 rubble (Scattered debris patch, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 15 | not used | not used | not used |
+| `rub_debris_patch` | Rubble | not placed: V3 rubble (Scattered debris patch, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 15 | not used | not used | 35 |
 | `rub_spill_strip` | Rubble | not placed: V3 rubble (Rubble spill strip (8 m), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `rub_stone_pile_l` | Rubble | not placed: V3 rubble (Stone rubble pile (large), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used |
 | `rub_stone_pile_m` | Rubble | not placed: V3 rubble (Stone rubble pile (medium), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 1 | 2 | not used | not used |
@@ -283,8 +283,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `scn_treeline_a` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 25 | not used | not used | not used |
 | `scn_treeline_b` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 22 | not used | not used | not used |
 | `scn_treeline_c` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 26 | not used | not used | not used |
-| `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 32 |
-| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 91 |
+| `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 26 |
+| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 90 |
 | `small_carpenter_workshop` | Small buildings | 2: Saint-Laurent | terrain-only base map | 8 | not used | not used | not used | not used |
 | `small_roadside_office` | Small buildings | 1: Saint-Laurent crossroads | terrain-only base map | 7 | not used | not used | not used | not used |
 | `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 | not used | not used | not used |
@@ -293,9 +293,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tank_sherman_firefly` | Vehicles | excluded: The Firefly (17-pdr) was British, not at Omaha; no DD Sherman asset exists; player vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used |
 | `tank_tiger_i` | Vehicles | excluded: No Tigers at Omaha; vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used |
 | `tree_apple` | Vegetation | 396: Orchards (D battery, A5, two more) | terrain-only base map | 305 | 58 | not used | not used | 18 |
-| `tree_ash` | Vegetation | 213: Hedgerow trees; wooded E-1 draw | terrain-only base map | 368 | 283 | not used | not used | 357 |
-| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 348 |
-| `tree_poplar` | Vegetation | 73: Roadside poplars on the draw road; hedgerow trees | terrain-only base map | 130 | 149 | not used | not used | 141 |
+| `tree_ash` | Vegetation | 213: Hedgerow trees; wooded E-1 draw | terrain-only base map | 368 | 283 | not used | not used | 379 |
+| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 316 |
+| `tree_poplar` | Vegetation | 73: Roadside poplars on the draw road; hedgerow trees | terrain-only base map | 130 | 149 | not used | not used | 145 |
 | `utility_pole` | Dressing | 23: Telegraph line from E-1 to the village, branch to the D command post | terrain-only base map | not used | not used | not used | not used | not used |
 | `vil_bakery` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used |
 | `vil_brick_townhouse` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used |
@@ -327,7 +327,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `wat_crater_pool` | Water | not placed: V1 water feature added after the map was built (Beautify / the user place it) | terrain-only base map | not used | not used | not used | not used | not used |
 | `wat_pond_irregular` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | not used |
 | `wat_pond_round` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | not used |
-| `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | 1 |
+| `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | 16 |
 | `wat_stream_bend` | Water | not placed: V1 stream piece (snaps with V6) added after the map was built | terrain-only base map | not used | not used | not used | not used | not used |
 | `wat_stream_end` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | not used | not used | not used | not used | not used |
 | `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used | not used | not used | not used |
@@ -594,9 +594,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_traffic_drum` | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mod_traffic_light` | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `mod_trash_bin` | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `mod_tree_blossom` | not used | not used | not used | not used | not used | not used | not used | 40 |
+| `mod_tree_blossom` | not used | not used | not used | not used | not used | not used | not used | 27 |
 | `mod_tree_columnar` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_tree_ornamental` | not used | not used | not used | not used | not used | not used | not used | 75 |
+| `mod_tree_ornamental` | not used | not used | not used | not used | not used | not used | not used | 85 |
 | `mod_tyre_pile` | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `mod_water_barrier_red` | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `mod_weapon_rack` | not used | not used | not used | not used | not used | not used | not used | 1 |
@@ -723,7 +723,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_air_compressor` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_ammo_can` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_antenna_mast` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_asphalt_crater` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_asphalt_crater` | not used | not used | not used | not used | not used | not used | not used | 16 |
 | `mod_barrel_plastic` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_barrel_steel` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_barriers_weathered` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -762,7 +762,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_fountain_wall` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_gate_chainlink` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_gate_white` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_glass_pile` | not used | not used | not used | not used | not used | not used | not used | 30 |
+| `mod_glass_pile` | not used | not used | not used | not used | not used | not used | not used | 54 |
 | `mod_hedge_box_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_hedge_box_bay_b` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_hedge_box_tall_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -805,7 +805,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_rock_small` | not used | not used | not used | not used | not used | not used | not used | 158 |
 | `mod_roundabout` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_rubble_large` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_rubble_small` | not used | not used | not used | not used | not used | not used | not used | 24 |
+| `mod_rubble_small` | not used | not used | not used | not used | not used | not used | not used | 52 |
 | `mod_sawhorse_barricade` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sedan_burned` | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `mod_sidewalk_bay` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -905,9 +905,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_nt_warehouse_ruin` | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `mod_nt_waterfront_house_ruin` | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `mod_nt_workshop_ruin` | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `mod_sapling_paving` | not used | not used | not used | not used | not used | not used | not used | 26 |
-| `mod_weeds_clump` | not used | not used | not used | not used | not used | not used | not used | 91 |
-| `mod_weeds_crack` | not used | not used | not used | not used | not used | not used | not used | 221 |
+| `mod_sapling_paving` | not used | not used | not used | not used | not used | not used | not used | 47 |
+| `mod_weeds_clump` | not used | not used | not used | not used | not used | not used | not used | 141 |
+| `mod_weeds_crack` | not used | not used | not used | not used | not used | not used | not used | 245 |
 | `line_mod_road_4lane_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bld_leisure_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bld_restaurant_large_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -916,7 +916,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_bld_tower_stone_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bld_townhouse_row_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_crosswalk_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | 72 |
 | `mod_parking_large_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_medium_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_small_ruin` | not used | not used | not used | not used | not used | not used | not used | not used |
