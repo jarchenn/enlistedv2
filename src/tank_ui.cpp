@@ -52,10 +52,11 @@ void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   vehicleDashDraw(app, t, h);   // VH6: the instrument panel seen from the driver's seat
   if (d.partsAsset) {   // BR7 adopted car: its part-built mesh (or its supplied model: car-pack copies) moves as one (the wheels do not turn)
     if (const GpuModel* pm = d.partsAsset->model.get()) {
-      const std::string& id = d.partsAsset->id; int dusty = id.size() > 6 && id.compare(id.size() - 6, 6, "_wreck") == 0 ? 2 : 1;
+      float cabinFloor = app.tanks.occupied == t.id ? 0.12f * vehicleCabinDay(app) : 0.0f;   // by day only: the night exposure would turn it pale
+      const std::string& id = d.partsAsset->id; int dusty = id.size() > 6 && id.compare(id.size() - 6, 6, "_wreck") == 0 ? 2 : app.tanks.occupied == t.id ? 3 : 1;   // VH6d: clean from the driver's seat
       for (size_t k = 0; k < pm->parts.size(); ++k) {
         if (pm->parts[k].glass) app.R.worldModelsGlass.push_back({pm, (int)k, h, tint, 0.0f, dusty});
-        else app.R.worldModels.push_back({pm, (int)k, h, tint});
+        else app.R.worldModels.push_back({pm, (int)k, h, tint, 0.0f, 0, cabinFloor});   // VH6d: the black supplied cabin as dark grey trim by day
       }
     }
     app.worldBoxDraws.push_back({&d.partsAsset->opaque, h, tint});   // shortcut: its glass is not drawn while adopted (the box list is opaque)

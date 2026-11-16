@@ -1,6 +1,7 @@
 {
   "note": "BR SUV: a sporty black-and-red cabin: red stitching and inserts, an analogue rev counter inside the digital cluster's left ring, a carbon-look band, a large screen, the terrain dial and grab handle of the SUV body.",
   "base": "pcar_suv",
+  "remove": ["cab_knee", "cab_stack", "cab_console", "cab_armrest", "cab_face", "cab_door_d", "cab_door_p"],
   "palette": {
     "pad": {"rgb": [0.16, 0.16, 0.17], "rough": 0.8, "pat": "fabric", "texture": "leather_black"},
     "dash": {"rgb": [0.14, 0.14, 0.14], "rough": 0.8, "pat": "fabric", "texture": "leather_black"},

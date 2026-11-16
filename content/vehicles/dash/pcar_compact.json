@@ -1,6 +1,6 @@
 {
   "note": "Compact: a small hard-plastic dash with a grained finish, no pad or stitching, a simple analogue speedometer and rev counter with small fuel / temperature dials in a shallow hood, a small radio screen, rectangular vents, plain rocker switches, a body-colour band across the dash.",
-  "base": "civil_core",
+  "base": "pcar_core",
   "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "eye": [1.3, -0.15, 0.31]},
   "palette": {
     "dash": {"rgb": [0.3, 0.3, 0.31], "rough": 0.85, "pat": "fabric", "texture": "leather_black"},
@@ -12,6 +12,8 @@
   "wheel": {"spokes": [0, 180], "buttons": false, "hub": 0.07, "badge": "black"},
   "remove": ["stitch", "band", "ambient", "cluster", "visor", "screen", "vent_d", "vent_cl", "vent_cr", "vent_p", "switches"],
   "add": [
+    {"id": "cab_door_d", "type": "doorcard", "at": [-0.275, -0.3, -0.45], "size": [0.03, 0.5, 0.9]},
+    {"id": "cab_door_p", "type": "doorcard", "at": [1.015, -0.3, -0.45], "size": [0.03, 0.5, 0.9], "switches": 1},
     {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.4, 0.045, 0.004], "mat": "band"},
     {"id": "visor", "type": "box", "at": [0.0, 0.114, 0.045], "size": [0.43, 0.012, 0.06], "mat": "dash"},
     {"id": "speedo", "type": "gauge", "at": [0.075, 0.055, 0.005], "r": 0.042, "n": 6, "numStep": 4, "read": "speed", "bezel": "dash", "bezelW": 0.004, "bezelD": 0.008},

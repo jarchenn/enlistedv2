@@ -1,6 +1,6 @@
 {
   "note": "Sports car: a low, driver-focused dash in suede-black with body-colour stitching, a big centre rev counter ring with the digital speed inside, a flat-bottomed wheel with a red top marker, a narrow screen angled toward the driver, a toggle bank on the centre stack, three small gauges in a pod.",
-  "base": "civil_core",
+  "base": "pcar_core",
   "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "eye": [1.0, -0.12], "wheelY": 0.7, "dash": [0.83, 0.57]},
   "palette": {
     "pad": {"rgb": [0.15, 0.15, 0.16], "rough": 0.95, "pat": "fabric", "texture": "leather_black"},
@@ -14,6 +14,8 @@
   "barGlow": [2.4, 0.25, 0.08],
   "remove": ["band", "cluster", "screen", "vent_cl", "vent_cr", "climate_keys"],
   "add": [
+    {"id": "cab_door_d", "type": "doorcard", "at": [-0.215, -0.3, -0.45], "size": [0.03, 0.5, 0.9]},
+    {"id": "cab_door_p", "type": "doorcard", "at": [0.955, -0.3, -0.45], "size": [0.03, 0.5, 0.9], "switches": 1},
     {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "carbon"},
     {"id": "cluster", "type": "digital", "at": [0.0, 0.055, 0.005], "size": [0.3, 0.085], "rings": true, "base": [0.05, 0.02, 0.02]},
     {"id": "screen", "type": "screen", "at": [0.33, -0.15, 0.005], "size": [0.2, 0.08], "ui": "map", "bezel": "carbon", "rot": [0, -12, 0], "accent": [2.4, 0.3, 0.1]},
