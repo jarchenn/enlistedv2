@@ -12,12 +12,30 @@ const char* shellName(int s) { return s == SHELL_HE ? "HE" : s == SHELL_AP ? "AP
 }
 
 // ============================================================ drawing
+// TK2: the LOD by the hull's projected size: full above 260 px across, LOD1 above 80 px, LOD2 below; 15 % hysteresis
+// so a tank at a threshold does not flicker. The occupied vehicle is always full (sights, first-person views); a wreck
+// is at most LOD1
+const GpuModel* TankSys::lodModel(const App& app, const TankRT& t) const {
+  const TankDef& d = *t.def;
+  if (!d.model || (!d.lods[0] && !d.lods[1]) || t.id == occupied) { t.lodLevel = 0; return d.model.get(); }
+  float r = 0.5f * glm::length(d.model->bmax - d.model->bmin), dist = std::max(0.5f, glm::length(t.pos - app.eyePos()));
+  float px = 2.0f * r / dist * app.projM[1][1] * 0.5f * std::max(1, app.R.height);
+  int want = px > 260.0f ? 0 : px > 80.0f ? 1 : 2;
+  int cur = t.lodLevel;
+  if (want > cur && px > (cur == 0 ? 260.0f : 80.0f) * 0.85f) want = cur;   // getting smaller: only past 85 % of the threshold
+  if (want < cur && px < (cur == 2 ? 80.0f : 260.0f) * 1.15f) want = cur;   // getting bigger: only past 115 %
+  if (t.wrecked) want = std::max(want, 1);
+  t.lodLevel = want;
+  for (int L = want; L >= 1; --L) if (d.lods[L - 1]) return d.lods[L - 1].get();
+  return d.model.get();
+}
+
 void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   (void)r;
   auto it = tanks.find(i.id);
   if (it == tanks.end() || !it->second.def || (!it->second.def->model && !it->second.def->partsAsset)) return;
   const TankRT& t = it->second; const TankDef& d = *t.def;
-  const GpuModel* gm = d.model.get();
+  const GpuModel* gm = lodModel(app, t);
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
   vec4 tint = t.wrecked ? vec4(0.13f, 0.12f, 0.11f, 1) : vec4(1);   // burnt-out: darker than a live tank
   if (d.car) { drawCar(app, t, tint, h); return; }
@@ -49,7 +67,7 @@ void TankSys::carStaticParts(const TankDef& d, std::vector<int>& out) const {
   if (d.pintle) out.insert(out.end(), d.pintleParts.begin(), d.pintleParts.end());
 }
 void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
-  const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  const TankDef& d = *t.def; const GpuModel* gm = lodModel(app, t);
   vehicleDashDraw(app, t, h);   // VH6: the instrument panel seen from the driver's seat
   if (d.partsAsset) {   // BR7 adopted car: its part-built mesh (or its supplied model: car-pack copies) moves as one (the wheels do not turn)
     if (const GpuModel* pm = d.partsAsset->model.get()) {

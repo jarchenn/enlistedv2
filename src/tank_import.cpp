@@ -136,6 +136,10 @@ bool importVehicleModels(const fs::path& srcDir, const fs::path& contentRoot) {
     fs::path out = vdir / "models" / s.dir;
     if (!bakeGlbModel(glb, s, out, err, sum)) { logf("import vehicle %-10s FAILED: %s", s.dir.c_str(), err.c_str()); ++bad; continue; }
     if (!postProcessVehicleModel(out, j[key], rep)) { logf("import vehicle %-10s post-pass FAILED: %s", s.dir.c_str(), rep.c_str()); ++bad; continue; }
+    for (const char* L : {"lod1", "lod2"}) {   // TK2: the distance LODs get the same re-origin and splits (their parts line up with the full mesh's)
+      std::string r2;
+      if (fs::exists(out / L / "mesh.bin") && !postProcessVehicleModel(out / L, j[key], r2)) { logf("import vehicle %-10s %s post-pass FAILED: %s", s.dir.c_str(), L, r2.c_str()); ++bad; }
+    }
     logf("import vehicle %-10s %s |%s", s.dir.c_str(), sum.c_str(), rep.c_str());
     ++ok;
     }

@@ -13,7 +13,7 @@
     ],
     "realLength": 9.8,
     "lengthNode": "Object_5",
-    "maxTex": 1024,
+    "maxTex": 2048, "jpgMaps": true,
     "nodeParts": {
       "Object_5": "hull",
       "Object_2": "track",

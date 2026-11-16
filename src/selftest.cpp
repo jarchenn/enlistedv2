@@ -163,7 +163,8 @@ void SelfTest::update(App& app, float dt) {
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)
   { extern bool captureHeliSelfTest(App&, float); if (captureHeliSelfTest(app, dt)) return; }   // VH5: --capture-heli (capture_heli.cpp)
   { extern bool captureTk1SelfTest(App&, float); if (captureTk1SelfTest(app, dt)) return; }
-  { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match   // TK1: --capture-tk1 (capture_tk1.cpp)
+  { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match
+  { extern bool captureTk2SelfTest(App&, float); if (captureTk2SelfTest(app, dt)) return; }   // TK2: --capture-tk2 <tag>   // TK1: --capture-tk1 (capture_tk1.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();
