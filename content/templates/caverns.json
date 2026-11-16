@@ -1,0 +1,136 @@
+{
+  "id": "caverns",
+  "version": 1,
+  "order": 8,
+  "name": "Caverns",
+  "available": true,
+  "seed": 19440612,
+  "description": "A vast natural cave on D-day's footprint (265 x 265 m): a cathedral-high central cavern with an ancient spire and Team A's walled pocket at its heart, six outer caverns on a looping tunnel ring, ledges and ramps, a deep sunken lake and flooded hollows, dripstone columns, stalactites, ribbed rock walls and a spine arch. Near darkness: rare cold light through cracks in the roof, a few warm embers, your headlamp. Team Deathmatch (Team A at the centre, Team B round the outside), Solo and Battle Royale.",
+  "width": 265.0,
+  "depth": 265.0,
+  "margin": 50.0,
+  "camera": {
+    "pos": [
+      0.0,
+      120.0,
+      140.0
+    ],
+    "yaw": 0.0,
+    "pitch": -40.0
+  },
+  "heightmap": {
+    "file": "caverns.height.png",
+    "nx": 121,
+    "nz": 121,
+    "min": -10,
+    "max": 51,
+    "org": [
+      -188.2353,
+      -188.2353
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "caverns.nmap.json",
+  "playable": true,
+  "thumbnail": "caverns.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -46.0,
+      -0.09,
+      -22.0
+    ],
+    "yaw": -116.56505117707799,
+    "pitch": 5.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        140.0,
+        150.0
+      ],
+      "yaw": 0.0,
+      "pitch": -45.0
+    },
+    {
+      "name": "central_wide",
+      "pos": [
+        -46.0,
+        -0.09,
+        -22.0
+      ],
+      "yaw": -116.56505117707799,
+      "pitch": 6.0,
+      "gameplay": true
+    },
+    {
+      "name": "pocket_eye",
+      "pos": [
+        0.0,
+        0.42,
+        -26.0
+      ],
+      "yaw": 180.0,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "outer_cavern",
+      "pos": [
+        -92.0,
+        -0.47,
+        4.0
+      ],
+      "yaw": 169.69515353123398,
+      "pitch": 3.0,
+      "gameplay": true
+    },
+    {
+      "name": "tunnel_eye",
+      "pos": [
+        9.78,
+        0.99,
+        41.82
+      ],
+      "yaw": 151.34411188006908,
+      "pitch": 1.0,
+      "gameplay": true
+    },
+    {
+      "name": "flooded_eye",
+      "pos": [
+        -52.0,
+        -1.59,
+        -66.0
+      ],
+      "yaw": 55.00797980144134,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "crack_shaft",
+      "pos": [
+        -30.0,
+        0.72,
+        2.0
+      ],
+      "yaw": -123.69006752597979,
+      "pitch": 14.0,
+      "gameplay": true
+    },
+    {
+      "name": "headlamp_dark",
+      "pos": [
+        -42.11,
+        -0.44,
+        -97.97
+      ],
+      "yaw": -102.95363305885449,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
+}

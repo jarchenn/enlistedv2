@@ -1034,8 +1034,11 @@ int App::run(int argc, char** argv) {
       audio.setListener(e, forward(eyeYaw, eyePitch));
       {   // ambience loops: the battlefield everywhere but Backrooms; the room tone (60 %) on Backrooms and, under the battlefield, Tunnels
         const fs::path amb = contentDir() / "audio" / "ambience"; const bool br = doc.templateId == "backrooms", tn = doc.templateId == "tunnels";
-        audio.setBed(0, br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), 0.6f);   // level0.mp3: local-only track
-        audio.setBed(1, br ? fs::path() : amb / "battlefield.mp3", 0.7f);
+        // CV1: a map may name its own bed (extra.audio.bed, a file in content/audio/ambience) and drop the battlefield (extra.audio.battlefield false)
+        const json* au = doc.extra.is_object() && doc.extra.contains("audio") && doc.extra["audio"].is_object() ? &doc.extra["audio"] : nullptr;
+        const std::string own = au ? au->value("bed", std::string()) : std::string();
+        audio.setBed(0, !own.empty() ? amb / own : br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), !own.empty() ? au->value("bedVolume", 0.8f) : 0.6f);   // level0.mp3: local-only track
+        audio.setBed(1, br || (au && !au->value("battlefield", true)) ? fs::path() : amb / "battlefield.mp3", 0.7f);
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water

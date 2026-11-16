@@ -1,0 +1,524 @@
+"""Caverns (CV1): a natural underground cave network on D-day's footprint (265 x 265 m), built for Team Deathmatch.
+
+The terrain is the cave's floor and walls: a rock mass 50 m high everywhere, with the caverns and tunnels carved
+down into it (signed-distance shapes with warped outlines; floors with their own relief, steep unclimbable walls).
+The roof is a field of overlapping rock lids (tools/catalog_cave.mjs: icosphere hulls turned over, flat top up,
+lumpy dome hanging down) whose undersides set each space's height: about 30 m in the central cavern, 18-26 m in the
+outer caverns, 5-9 m in the tunnels. Every point of the cave has a lid above it, so nothing reaches the sky; the hour
+is fixed at night and the sky is occluded anyway.
+
+Layout: one huge central cavern (the landmark) with Team A's pocket in its middle (a ring of ribbed rock walls round
+an ancient spire, four dog-legged exits behind baffles), six outer caverns on a looping tunnel ring, five radial
+tunnels from the centre (one narrow), two flanking passages, ledges with ramps, a sunken lake (deep, visibly dark,
+paths round it) and shallow flooded hollows. Team B spawns at many points round the outer caverns and the ring; the
+engine picks one per respawn away from enemies and out of their sight (Game::trySpawn).
+
+    <python> -I tools/mapgen/build.py caverns
+
+Writes content/templates/caverns.{json,height.png,nmap.json}."""
+import math
+import os
+
+from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary,
+                    asset_usage, rng, look_yaw, catmull_rom, polyline_dist, polyline_length, resample, fbm, vnoise,
+                    smoothstep, clamp, lerp)
+from maps.backrooms import update_usage_doc
+from maps.newtown import cover_catalogue
+
+TID, NAME, VERSION, SEED = "caverns", "Caverns", 1, 19440612
+W = D = 265.0                    # D-day's playable footprint (tools/mapgen/maps/dday.py: W = D = 265)
+MARGIN = 50.0
+PH = 50.0                        # the rock mass: every wall rises to this; lids sit below it
+EYE = 1.65
+
+
+# ---------------------------------------------------------------- the spaces
+class Room:
+    def __init__(self, name, c, rx, rz, rot, floor, clear, warp=3.0, seed=0):
+        self.name, self.c, self.rx, self.rz, self.rot, self.floor, self.clear, self.warp, self.seed = name, c, rx, rz, math.radians(rot), floor, clear, warp, seed
+
+    def local(self, x, z):
+        dx, dz = x - self.c[0], z - self.c[1]
+        cs, sn = math.cos(self.rot), math.sin(self.rot)
+        return dx * cs + dz * sn, -dx * sn + dz * cs
+
+    def d(self, x, z):
+        u, v = self.local(x, z)
+        q = math.hypot(u / self.rx, v / self.rz)
+        return (q - 1.0) * min(self.rx, self.rz) + self.warp * (fbm(x / 17.0, z / 17.0, self.seed + 11, 3) - 0.5) * 2.0
+
+    def floor_at(self, x, z):
+        return self.floor
+
+    def clear_at(self, x, z):
+        u, v = self.local(x, z)
+        q = min(1.0, math.hypot(u / self.rx, v / self.rz))
+        return self.clear * (0.72 + 0.28 * (1.0 - q * q))   # a dome: highest in the middle
+
+
+class Tunnel:
+    def __init__(self, name, ctrl, width, f0, f1, clear, warp=1.2, seed=0):
+        self.name = name
+        self.pts = resample(catmull_rom(ctrl, 10), 2.0)
+        self.L = polyline_length(self.pts)
+        self.width, self.f0, self.f1, self.clear, self.warp, self.seed = width, f0, f1, clear, warp, seed
+        xs, zs = [p[0] for p in self.pts], [p[1] for p in self.pts]
+        m = width + 8
+        self.bb = (min(xs) - m, min(zs) - m, max(xs) + m, max(zs) + m)
+
+    def d(self, x, z):
+        if x < self.bb[0] or z < self.bb[1] or x > self.bb[2] or z > self.bb[3]:
+            return 1e9
+        d = polyline_dist((x, z), self.pts)[0]
+        w = self.width * (0.85 + 0.3 * vnoise(x / 9.0, z / 9.0, self.seed + 5))
+        return d - w * 0.5 + self.warp * (fbm(x / 7.0, z / 7.0, self.seed + 13, 2) - 0.5) * 2.0
+
+    def t_at(self, x, z):
+        return polyline_dist((x, z), self.pts)[1] / max(self.L, 1e-6)
+
+    def floor_at(self, x, z):
+        t = self.t_at(x, z)
+        return lerp(self.f0, self.f1, smoothstep(0.0, 1.0, t))
+
+    def clear_at(self, x, z):
+        return self.clear
+
+
+C = Room("Central cavern", (0.0, 0.0), 52.0, 46.0, 12.0, 0.0, 33.0, warp=4.0, seed=1)
+OUT = [
+    Room("North gallery", (-8.0, 98.0), 32.0, 21.0, -8.0, 6.0, 22.0, seed=2),
+    Room("West hall", (-96.0, 26.0), 23.0, 31.0, 6.0, 0.5, 24.0, seed=3),
+    Room("Sunken lake", (-72.0, -80.0), 31.0, 26.0, 35.0, -2.0, 26.0, seed=4),
+    Room("South chamber", (22.0, -100.0), 31.0, 20.0, 4.0, 2.0, 20.0, seed=5),
+    Room("East vault", (98.0, -18.0), 23.0, 33.0, -5.0, 4.0, 25.0, seed=6),
+    Room("North-east grotto", (82.0, 76.0), 23.0, 21.0, 30.0, 8.0, 18.0, seed=7),
+]
+NG, WH, SL, SC, EV, NE = OUT
+
+
+def ring(a, b, bulge, jit, seed, width=10.0):
+    mx, mz = (a.c[0] + b.c[0]) / 2, (a.c[1] + b.c[1]) / 2
+    r = math.hypot(mx, mz)
+    ox, oz = mx / r * bulge, mz / r * bulge
+    tx, tz = b.c[1] - a.c[1], -(b.c[0] - a.c[0])
+    tl = math.hypot(tx, tz)
+    p1 = (lerp(a.c[0], b.c[0], 0.3) + ox * 0.7 + tx / tl * jit, lerp(a.c[1], b.c[1], 0.3) + oz * 0.7 + tz / tl * jit)
+    p2 = (lerp(a.c[0], b.c[0], 0.7) + ox * 0.7 - tx / tl * jit, lerp(a.c[1], b.c[1], 0.7) + oz * 0.7 - tz / tl * jit)
+    return Tunnel("%s - %s" % (a.name, b.name), [a.c, p1, p2, b.c], width, a.floor, b.floor, 9.0, seed=seed)
+
+
+TUN = [
+    ring(NG, WH, 8.0, 7.0, 21), ring(WH, SL, 10.0, -6.0, 22), ring(SL, SC, 6.0, 8.0, 23, width=9.0),
+    ring(SC, EV, 12.0, -7.0, 24), ring(EV, NE, 6.0, 6.0, 25), ring(NE, NG, 10.0, -8.0, 26, width=9.0),
+    # radial tunnels from the centre (the centre's exits): north climbs to the gallery, west, south, east; the south-west one is a squeeze
+    Tunnel("North drift", [(0.0, 20.0), (10.0, 45.0), (-4.0, 66.0), NG.c], 11.0, 0.0, NG.floor, 10.0, seed=31),
+    Tunnel("West drift", [(-20.0, 4.0), (-48.0, 16.0), (-70.0, 8.0), WH.c], 10.0, 0.0, WH.floor, 9.0, seed=32),
+    Tunnel("South drift", [(4.0, -22.0), (-6.0, -50.0), (16.0, -76.0), SC.c], 11.0, 0.0, SC.floor, 10.0, seed=33),
+    Tunnel("East drift", [(22.0, -2.0), (52.0, 10.0), (74.0, -10.0), EV.c], 10.0, 0.0, EV.floor, 9.0, seed=34),
+    Tunnel("Lake crawl", [(-24.0, -24.0), (-40.0, -46.0), (-54.0, -60.0), SL.c], 6.0, 0.0, SL.floor, 6.5, seed=35),
+    # flanking passages between the radial tunnels and the ring
+    Tunnel("Gallery cut", [(-56.0, 14.0), (-50.0, 52.0), (-30.0, 78.0)], 6.5, 0.6, 5.0, 7.0, seed=41),
+    Tunnel("Vault cut", [(66.0, -2.0), (74.0, 30.0), (84.0, 56.0)], 6.5, 3.0, 7.5, 7.0, seed=42),
+    Tunnel("Lake bypass", [(-6.0, -54.0), (-34.0, -70.0), (-48.0, -96.0)], 7.0, 0.5, -1.5, 7.5, seed=43),
+]
+SPACES = [C] + OUT + TUN
+
+# raised ledges (centre, rise, half-length, half-width, yaw) and their ramps (from, to) on the floor below
+LEDGES = [((-30.0, 26.0), 5.0, 14.0, 5.5, 35.0, [(-12.0, 32.0), (-26.0, 24.0)]),
+          ((30.0, -28.0), 4.0, 12.0, 5.0, 30.0, [(14.0, -36.0), (26.0, -30.0)]),
+          ((-14.0, 106.0), 3.5, 11.0, 4.5, -8.0, [(4.0, 100.0), (-8.0, 104.0)]),
+          ((104.0, -32.0), 3.5, 9.0, 4.0, 85.0, [(96.0, -6.0), (103.0, -24.0)])]
+# pools: (centre, radius x, radius z, max depth, water below the floor by)
+POOLS = [((-38.0, -8.0), 11.0, 8.0, 1.3, 0.35),      # a shallow flooded hollow in the central cavern
+         ((-72.0, -82.0), 17.0, 13.0, 4.5, 0.35),    # the sunken lake: deep in the middle, paths round it
+         ((-98.0, 36.0), 6.0, 5.0, 0.9, 0.3),        # a shallow pool in the west hall
+         ((30.0, -102.0), 7.0, 5.0, 1.0, 0.3),
+         ((92.0, -40.0), 5.5, 4.5, 0.8, 0.3)]
+POCKET = (0.0, 0.0)                                   # Team A's pocket: raised 1.2 m, ringed by ribbed walls
+
+
+def field(x, z):
+    """(d, floor, clear, owner): signed distance to the cave (negative inside), floor and roof clearance here."""
+    best, ws, fs, cs, own = 1e9, 0.0, 0.0, 0.0, None
+    for s in SPACES:
+        d = s.d(x, z)
+        if d < best:
+            best, own = d, s
+        if d < 4.0:
+            w = smoothstep(4.0, -3.0, d) + 1e-4
+            ws += w
+            fs += w * s.floor_at(x, z)
+            cs += w * s.clear_at(x, z)
+    if ws <= 0.0:
+        return best, own.floor_at(x, z), own.clear_at(x, z), own
+    return best, fs / ws, cs / ws, own
+
+
+def ledge_add(x, z):
+    add = 0.0
+    for (cx, cz), rise, hl, hw, yaw, (ra, rb) in LEDGES:
+        a = math.radians(yaw)
+        u = (x - cx) * math.cos(a) + (z - cz) * math.sin(a)
+        v = -(x - cx) * math.sin(a) + (z - cz) * math.cos(a)
+        e = max(abs(u) / hl, abs(v) / hw)
+        e += 0.08 * (vnoise(x / 3.0, z / 3.0, 77) - 0.5)
+        add = max(add, rise * smoothstep(1.06, 0.98, e))   # a steep lip: climbed only by the ramp
+        # ramp from ra (floor) to rb (ledge top), 4.5 m wide
+        dx, dz = rb[0] - ra[0], rb[1] - ra[1]
+        L2 = dx * dx + dz * dz
+        t = clamp(((x - ra[0]) * dx + (z - ra[1]) * dz) / L2, 0.0, 1.0)
+        dd = math.hypot(x - ra[0] - dx * t, z - ra[1] - dz * t)
+        if dd < 3.2:
+            add = max(add, rise * t * smoothstep(3.2, 2.0, dd))
+    return add
+
+
+def pool_add(x, z):
+    add = 0.0
+    for (cx, cz), rx, rz, depth, _ in POOLS:
+        q = math.hypot((x - cx) / rx, (z - cz) / rz)
+        if q < 1.0:
+            add = min(add, -depth * smoothstep(1.0, 0.3, q))
+    return add
+
+
+def pocket_add(x, z):
+    r = math.hypot(x - POCKET[0], z - POCKET[1])
+    return 1.2 * smoothstep(13.0, 8.0, r)
+
+
+def floor_detail(x, z):
+    return 0.45 * (fbm(x / 6.0, z / 6.0, 91, 3) - 0.5) * 2.0 + 0.9 * (fbm(x / 23.0, z / 23.0, 92, 2) - 0.5) * 2.0
+
+
+def floor_y(x, z):
+    """The walkable floor (no walls): the blended space floor, relief, ledges, pools, the pocket."""
+    d, f, c, own = field(x, z)
+    return f + floor_detail(x, z) + ledge_add(x, z) + pool_add(x, z) + pocket_add(x, z)
+
+
+def height(x, z):
+    d, f, c, own = field(x, z)
+    if d > 14.0:
+        return PH
+    fl = f + floor_detail(x, z) + ledge_add(x, z) + pool_add(x, z) + pocket_add(x, z)
+    talus = 1.1 * smoothstep(-5.0, 0.0, d)                     # scree banks up against the walls
+    if d <= 0.0:
+        return fl + talus
+    ww = 3.0 + 3.5 * vnoise(x / 11.0, z / 11.0, 93)
+    return fl + talus + (PH - fl - talus) * smoothstep(0.0, ww, d)
+
+
+# ---------------------------------------------------------------- lids: the roof
+LID = {"l": (42.0, 16.0, 40.0, 3), "m": (28.0, 11.0, 27.0, 3), "s": (16.0, 7.0, 15.0, 2)}   # size x, y, z; variants
+
+
+def lid_under(lids, x, z):
+    """The roof's underside here: the lowest lid surface above (x, z) (ellipsoid approximation of the hulls)."""
+    y = None
+    for (lx, ly, lz, kind, _) in lids:
+        sx, sy, sz, _n = LID[kind]
+        a, b = (sx + sz) / 4.0, sy / 2.0
+        q = ((x - lx) ** 2 + (z - lz) ** 2) / (a * a)
+        if q >= 1.0:
+            continue
+        u = ly - 0.56 * b - b * math.sqrt(1.0 - q)
+        y = u if y is None else min(y, u)
+    return y
+
+
+def build(ctx):
+    R = rng(SEED)
+    frame = Frame(W, D)
+    grid = Grid(W, D, margin=MARGIN, base=PH)
+    grid.apply(lambda x, z, h: height(x, z))
+    grid.quantise()
+    b = MapBuilder(ctx.catalog, grid, frame, seed=SEED)
+    paint = GroundPaint()
+    rep = {}
+    cat = ctx.catalog
+
+    # ---- the cave field on a 1 m raster (painting and dressing look it up)
+    N = int(W) + 1
+    F = {}
+    for j in range(N):
+        z = -W / 2 + j
+        for i in range(N):
+            x = -W / 2 + i
+            F[(i, j)] = field(x, z)
+
+    def fd(x, z):
+        i, j = int(round(x + W / 2)), int(round(z + W / 2))
+        return F.get((min(max(i, 0), N - 1), min(max(j, 0), N - 1)))
+
+    def inside(x, z, m=0.0):
+        return fd(x, z)[0] < -m
+
+    # ---- the roof: overlapping lids on a jittered 13 m lattice over every point of the cave
+    lids = []
+    step = 13.0
+    nl = int(W / step) + 2
+    for j in range(-nl // 2 - 1, nl // 2 + 2):
+        for i in range(-nl // 2 - 1, nl // 2 + 2):
+            x, z = i * step + R.uniform(-3.5, 3.5), j * step + R.uniform(-3.5, 3.5)
+            if abs(x) > W / 2 + 8 or abs(z) > D / 2 + 8:
+                continue
+            d, f, c, own = field(x, z)
+            if d > 7.0:
+                continue
+            kind = "l" if c >= 26 else "m" if c >= 9.5 else "m" if R.random() < 0.6 else "s"
+            sx, sy, sz, nvar = LID[kind]
+            dome = 0.78 * sy
+            ytop = f + c + R.uniform(0.35, 0.7) * dome
+            lids.append((x, ytop, z, kind, R.randrange(nvar)))
+    for (x, y, z, kind, v) in lids:
+        b.place("cave_lid_%s%d" % (kind, v), x, z, R.uniform(0, 360), check=False, cls="none", y=y, tags={"roof"})
+    rep["lids"] = len(lids)
+
+    # ---- ground paint: rock floor everywhere, gravel / sediment / mud by noise and water, pebbles in the channels
+    TX = 0.5
+    for j in range(int(-W / 2 / TX), int(W / 2 / TX)):
+        z = (j + 0.5) * TX
+        for i in range(int(-W / 2 / TX), int(W / 2 / TX)):
+            x = (i + 0.5) * TX
+            d, f, c, own = fd(x, z)
+            if d > 1.5:
+                continue
+            wet = 0.0
+            for (cx, cz), rx, rz, depth, _ in POOLS:
+                q = math.hypot((x - cx) / (rx + 5), (z - cz) / (rz + 5))
+                wet = max(wet, smoothstep(1.0, 0.55, q))
+            n1, n2 = fbm(x / 14.0, z / 14.0, 101, 3), fbm(x / 5.0, z / 5.0, 102, 2)
+            if wet > 0.4:
+                t = "mud"
+            elif n1 > 0.58:
+                t = "gravel"
+            elif n1 < 0.38:
+                t = "dirt"
+            elif n2 > 0.64:
+                t = "pebbles"
+            else:
+                t = "rock"
+            paint.dab(i, j, ["grass", "marsh", "dirt", "mud", "gravel", "sand", "cobbles", "rock", "dry_grass", "ploughed", "leaf_litter", "scorched", "pebbles"].index(t), 1.0)
+            if t != "rock" and wet <= 0.4:   # the rock pavement shows through the loose cover at its edges
+                paint.dab(i, j, 7, 0.35 * (1.0 - abs(n1 - 0.48) * 4.0) if abs(n1 - 0.48) < 0.25 else 0.0)
+
+    # ---- standing water on the floors: wet "routes" (surface mask G: darker damp ground, mirror puddles in the lows)
+    for t in TUN:
+        b.route("footpath", t.pts[::3], t.width * 0.9, wet=0.75, strength=0.6, keepout=False)
+    for s in [C] + OUT:
+        for a in (0.0, 1.1, 2.3):
+            ux, uz = math.cos(s.rot + a), math.sin(s.rot + a)
+            r = min(s.rx, s.rz) * 0.85
+            b.route("footpath", [(s.c[0] - ux * r, s.c[1] - uz * r), (s.c[0] + ux * r, s.c[1] + uz * r)], min(s.rx, s.rz) * 0.9, wet=0.7, strength=0.55, keepout=False)
+
+    # ---- dressing helpers
+    def place(aid, x, z, yaw=None, y=None, tags=("cover",), **kw):
+        if aid not in cat:
+            rep.setdefault("missing", set()).add(aid)
+            return None
+        return b.place(aid, x, z, R.uniform(0, 360) if yaw is None else yaw, check=False, cls="none", y=floor_y(x, z) if y is None else y, tags=set(tags), **kw)
+
+    def roof(x, z):
+        u = lid_under(lids, x, z)
+        return u
+
+    def clear_spot(x, z, r):   # keep paths: not on a tunnel's centreline, not in the pocket's exits
+        for t in TUN:
+            if t.d(x, z) < -t.width * 0.5 + r and polyline_dist((x, z), t.pts)[0] < r + 1.2:
+                return False
+        return True
+
+    # ---- Team A's pocket: four ribbed walls round the spire, the gaps behind baffles (no straight lane in)
+    px, pz = POCKET
+    place("cave_spire_ancient", px, pz, yaw=17.0)
+    for k, a in enumerate((45.0, 135.0, 225.0, 315.0)):
+        ar = math.radians(a)
+        x, z = px + math.sin(ar) * 15.0, pz + math.cos(ar) * 15.0
+        place("cave_ribwall_1", x, z, yaw=look_yaw(px - x, pz - z))
+    for k, a in enumerate((0.0, 90.0, 180.0, 270.0)):   # baffles 9 m outside each gap
+        ar = math.radians(a + 12.0)
+        x, z = px + math.sin(ar) * 23.0, pz + math.cos(ar) * 23.0
+        place("cave_shelf_2" if k % 2 else "cave_stalagmites_3", x, z, yaw=look_yaw(px - x, pz - z) + 90.0)
+    place("cave_fire_altar", px, pz - 5.2, yaw=0.0, tags=("light",))   # the warm heart, in front of the spire as the reference's altar fire
+    for a in (20.0, 140.0, 260.0):   # the warm glow at the centre: ember fissures at the spire's foot
+        ar = math.radians(a)
+        place("cave_glow_ember", px + math.sin(ar) * 3.6, pz + math.cos(ar) * 3.6, tags=("light",))
+
+    # ---- central cavern: columns, ribbed walls on its rim, the spine arch over the south drift mouth, stalagmite fields
+    for (x, z, kind) in ((-26.0, -14.0, "xl"), (24.0, 18.0, "xl"), (-6.0, 34.0, "l"), (36.0, -6.0, "l"), (-40.0, 18.0, "l")):
+        f = floor_y(x, z)
+        u = roof(x, z)
+        H = {"m": 12, "l": 20, "xl": 30}[kind]
+        if u is not None and u - f > H - 2.0:
+            place("cave_column_" + kind, x, z, y=u - H - 0.8 if u - f < H + 4 else f)
+    rim = []
+    for k in range(9):   # ribbed walls standing against the cavern's wall, facing in
+        a = k / 9.0 * 2 * math.pi + 0.3
+        for r in range(40, 70):
+            x, z = math.sin(a) * r, math.cos(a) * r
+            if fd(x, z)[0] > -4.0:
+                break
+        if fd(x, z)[0] > -6.0 and fd(x, z)[3] is C:
+            rim.append((x, z))
+            place("cave_ribwall_%d" % (2 if k % 3 == 0 else k % 2), x, z, yaw=look_yaw(-x, -z))
+    rep["rimWalls"] = len(rim)
+    place("cave_spine_arch", 2.0, -40.0, yaw=8.0)
+    place("cave_spine_arch", -66.0, 10.0, yaw=95.0)
+
+    # ---- stalactites from the roof, stalagmites under them, boulders and shelves for cover (all caves)
+    n_st = n_sg = n_cov = 0
+    for k in range(2600):
+        x, z = R.uniform(-W / 2, W / 2), R.uniform(-D / 2, D / 2)
+        v = fd(x, z)
+        if v is None or v[0] > -2.0:
+            continue
+        d, f, c, own = v
+        big = isinstance(own, Room)
+        if math.hypot(x - px, z - pz) < 28:
+            continue
+        u = roof(x, z)
+        if u is None:
+            continue
+        r = R.random()
+        if r < 0.32 and u - f > 6.5:
+            place("cave_stalactites_%d" % (R.randrange(4) if u - f > 14 else R.randrange(2)), x, z, y=u + 1.2, tags=("deco",))
+            n_st += 1
+        elif r < 0.5 and clear_spot(x, z, 2.5):
+            place("cave_stalagmites_%d" % R.randrange(4 if big else 2), x, z)
+            n_sg += 1
+        elif r < 0.62 and clear_spot(x, z, 2.0):
+            place(R.choice(["nat_boulder_limestone_l", "nat_boulder_limestone_m", "nat_boulder_schist_slab", "nat_boulders_granite_group", "cave_shelf_0", "cave_shelf_1"]), x, z)
+            n_cov += 1
+    rep.update({"stalactites": n_st, "stalagmites": n_sg, "cover": n_cov})
+    for o in OUT:   # each outer cavern: a column where the roof allows, one ribbed wall, a few big blocks
+        x, z = o.c[0] + R.uniform(-6, 6), o.c[1] + R.uniform(-6, 6)
+        u, f = roof(x, z), floor_y(x, z)
+        if u is not None:
+            H = 20 if u - f > 19 else 12
+            if u - f > H - 2:
+                place("cave_column_%s" % ("l" if H == 20 else "m"), x, z, y=min(f, u - H - 0.8))
+        for a0 in (R.uniform(0, 6.28),):
+            for r in range(10, 45):
+                x, z = o.c[0] + math.sin(a0) * r, o.c[1] + math.cos(a0) * r
+                if fd(x, z)[0] > -3.5:
+                    break
+            place("cave_ribwall_%d" % R.randrange(3), x, z, yaw=look_yaw(o.c[0] - x, o.c[1] - z))
+
+    # ---- water: the pools' surfaces (their outlines where the bed drops below the water)
+    water = []
+    for k, ((cx, cz), rx, rz, depth, below) in enumerate(POOLS):
+        fbase = floor_y(cx + rx * 1.3, cz) - pool_add(cx + rx * 1.3, cz)
+        lvl = None
+        # the water line: where the bed's dip reaches `below` under the surrounding floor (q solved on the profile)
+        q = 1.0
+        while q > 0.3 and depth * smoothstep(1.0, 0.3, q) < below:
+            q -= 0.01
+        outline = [[round(cx + math.cos(a) * rx * q, 3), round(cz + math.sin(a) * rz * q, 3)] for a in [2 * math.pi * i / 40 for i in range(40)]]
+        lvl = round(sum(floor_y(p[0], p[1]) - pool_add(p[0], p[1]) for p in outline) / len(outline) - below, 3)
+        water.append({"id": k + 1, "kind": "pond", "level": lvl, "seed": [cx, cz], "outline": outline})
+    rep["pools"] = [(w["level"], len(w["outline"])) for w in water]
+
+    # ---- light: rare cold cracks in the roof, faint cold glows over water, a few warm accents; greenery under the cracks
+    cracks = [(-18.0, 10.0, True), (22.0, -20.0, True), (NG.c[0] + 6, NG.c[1], True), (SL.c[0] + 8, SL.c[1] - 4, False),
+              (EV.c[0], EV.c[1] + 8, False), (-40.0, 50.0, False), (60.0, -60.0, False)]
+    n_crack = 0
+    for x, z, sh in cracks:
+        u = roof(x, z)
+        if u is None:
+            continue
+        place("cave_light_crack" if sh else "cave_light_crack_ns", x, z, y=u - 0.3, tags=("light",))
+        n_crack += 1
+        for k in range(14):   # moss, ferns and hanging roots where the light falls
+            a, r = R.uniform(0, 6.28), R.uniform(0.5, 7.0)
+            gx, gz = x + math.sin(a) * r, z + math.cos(a) * r
+            if inside(gx, gz, 1.0) and clear_spot(gx, gz, 1.0):
+                place(R.choice(["nat_fern_clump", "nat_fern_clump", "mod_ivy_patch_ground", "nat_green_tufts"]), gx, gz, tags=("veg",))
+        place("mod_vines_hanging_long", x + 1.5, z, y=u - 0.5, tags=("veg",))
+    for (cx, cz), rx, rz, depth, below in POOLS:
+        place("cave_light_cold", cx, cz, y=floor_y(cx, cz) + 3.5 + depth, tags=("light",))
+        for k in range(10):
+            a = R.uniform(0, 6.28)
+            gx, gz = cx + math.sin(a) * (rx + R.uniform(0.5, 3.0)), cz + math.cos(a) * (rz + R.uniform(0.5, 3.0))
+            if inside(gx, gz, 1.0):
+                place(R.choice(["nat_fern_clump", "mod_ivy_patch_ground", "nat_green_tufts"]), gx, gz, tags=("veg",))
+    for x, z in ((WH.c[0] + 6, WH.c[1] - 10), (SC.c[0] - 10, SC.c[1] + 2), (NE.c[0], NE.c[1] - 6), (EV.c[0] - 6, EV.c[1] - 14)):
+        place("cave_glow_ember", x, z, tags=("light",))
+    for t in TUN:   # a very faint cold fill every ~40 m so routes stay readable without killing the dark
+        for s in range(20, int(t.L) - 10, 42):
+            p = t.pts[min(len(t.pts) - 1, int(s / 2.0))]
+            place("cave_light_cold", p[0], p[1], y=floor_y(*p) + 4.0, tags=("light",))
+    rep["cracks"] = n_crack
+
+    # ---- scenario: Team Deathmatch (Team A in the pocket, Team B round the outside), an Assault objective for the validator
+    sc = ScenarioBuilder(b, defending="Axis")
+    sc.rules.update({"mode": "tdm", "teamFaction": ["Axis", "Allies"], "teamPlayers": [8, 8], "soloPlayers": 12, "royalePlayers": 16, "lootModern": True})
+    sc.objective("Central cavern", px, pz, radius=16.0, capture_time=45.0, attack_from=WH.c)
+    sc.spawn("attacker", [0], *WH.c, label="Attackers", rack=None)
+    sc.spawn("defender", [0], px + 4.0, pz, label="Defenders", rack=None)
+    a_pts = [(px + math.sin(math.radians(a)) * r, pz + math.cos(math.radians(a)) * r) for r, a0 in ((5.5, 0), (8.0, 22)) for a in range(int(a0), 360 + int(a0), 45)]
+    for k, (x, z) in enumerate(a_pts):
+        m = sc.spawn("defender", [0], x, z, face=(x * 2 - px, z * 2 - pz), faction="Axis", label="Team A %d" % (k + 1), rack=None)
+        m["team"], m["phases"] = 0, []
+        m["pos"][1] = round(floor_y(x, z), 3)
+    b_pts = []
+    for o in OUT:   # two points in each outer cavern, on its far side from the centre
+        for off in (-0.45, 0.45):
+            a = math.atan2(o.c[0], o.c[1]) + off
+            x, z = o.c[0] + math.sin(a) * min(o.rx, o.rz) * 0.55, o.c[1] + math.cos(a) * min(o.rx, o.rz) * 0.55
+            if inside(x, z, 2.5):
+                b_pts.append((x, z, o.c))
+    for t in TUN[:6]:   # and one in the middle of each ring tunnel
+        p = t.pts[len(t.pts) // 2]
+        if inside(p[0], p[1], 2.0):
+            b_pts.append((p[0], p[1], (0.0, 0.0)))
+    for k, (x, z, fc) in enumerate(b_pts):
+        m = sc.spawn("attacker", [0], x, z, face=(px, pz), faction="Allies", label="Team B %d" % (k + 1), rack=None)
+        m["team"], m["phases"] = 1, []
+        m["pos"][1] = round(floor_y(x, z), 3)
+    sj = sc.to_json()
+    sj["districts"] = [{"id": k + 1, "name": s.name, "pos": [s.c[0], round(floor_y(*s.c), 2), s.c[1]], "radius": 24.0} for k, s in enumerate([C] + OUT)]
+    rep["spawns"] = {"A": len(a_pts), "B": len(b_pts)}
+
+    # ---- output
+    tdir = ctx.templates
+    grid.write_png(os.path.join(tdir, TID + ".height.png"))
+
+    def eye(x, z):
+        return [round(x, 2), round(floor_y(x, z) + EYE, 2), round(z, 2)]
+    VIEWS = [("central_wide", (-46.0, -22.0), (10.0, 6.0), 6.0), ("pocket_eye", (0.0, -26.0), (0.0, 0.0), 2.0),
+             ("outer_cavern", (WH.c[0] + 4, WH.c[1] - 22), WH.c, 3.0), ("tunnel_eye", TUN[6].pts[12], TUN[6].pts[22], 1.0),
+             ("flooded_eye", (-52.0, -66.0), SL.c, 0.0), ("crack_shaft", (-30.0, 2.0), (-18.0, 10.0), 14.0),
+             ("headlamp_dark", TUN[2].pts[18], TUN[2].pts[28], 0.0)]
+    views = [{"name": "overview_high", "pos": [0.0, 140.0, 150.0], "yaw": 0.0, "pitch": -45.0}]
+    for name, (x, z), (tx, tz), pitch in VIEWS:
+        views.append({"name": name, "pos": eye(x, z), "yaw": look_yaw(tx - x, tz - z), "pitch": pitch, "gameplay": True})
+    cam = ([0.0, 120.0, 140.0], 0.0, -40.0)
+    tv = views[1]
+    thumb_cam = (tv["pos"], tv["yaw"], 5.0)
+    write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
+              builder=b, scenario_json=sj, explore_start=((px, floor_y(px, pz - 6.0), pz - 6.0), 180.0), camera=cam,
+              bookmarks={str(k + 1): {"position": [s.c[0], floor_y(*s.c) + 12.0, s.c[1] + 20.0], "yaw": 0.0, "pitch": -25} for k, s in enumerate([C] + OUT)},
+              extra={"groundPaint": paint.to_json(), "waterBodies": water,
+                     "lighting": {"hour": 0.0, "fill": 0.2, "exposure": 1.0},
+                     "look": {"fog": False, "weather": 0.0, "envFog": 0, "saturation": 0.92, "tint": [0.94, 0.98, 1.06], "grime": 0.0,
+                              "paintSets": {"rock": "paint_rock", "dirt": "ground_rubble_paint", "gravel": "gravel_mixed", "pebbles": "rock_slab_paint"}},
+                     "audio": {"bed": "cave.wav", "battlefield": False},
+                     "royale": {"indoor": True}})
+    write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=8, version=VERSION, seed=SEED,
+                   description="A vast natural cave on D-day's footprint (265 x 265 m): a cathedral-high central cavern with an ancient "
+                               "spire and Team A's walled pocket at its heart, six outer caverns on a looping tunnel ring, ledges and "
+                               "ramps, a deep sunken lake and flooded hollows, dripstone columns, stalactites, ribbed rock walls and a "
+                               "spine arch. Near darkness: rare cold light through cracks in the roof, a few warm embers, your "
+                               "headlamp. Team Deathmatch (Team A at the centre, Team B round the outside), Solo and Battle Royale.",
+                   width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
+                   map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
+                   extra={"userMap": True, "views": views})
+    use = asset_usage(b)
+    doc = os.path.join(ctx.repo, "docs", "asset-usage-default-maps.md")
+    update_usage_doc(doc, use, NAME, "- **Caverns:** *Caverns* (CV1, `tools/mapgen/maps/caverns.py`): placed counts; \"not used\" = not on this map.")
+    cover_catalogue(doc, cat)
+    rep.update({"instances": len(b.inst), "use": dict(sorted(use.items())), "missing": sorted(rep.get("missing", []))})
+    write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
+    print("instances %d | lids %d | stalactites %d, stalagmites %d, cover %d | cracks %d | pools %s | spawns %s | missing %s" %
+          (len(b.inst), rep["lids"], n_st, n_sg, n_cov, n_crack, rep["pools"], rep["spawns"], rep["missing"]))
